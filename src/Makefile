@@ -84,7 +84,7 @@ src_c := abstract_values.c arena.c arithmetic_variable_manager.c \
 
 
 #
-# additional source files for the binary
+# additional source files for the binaries
 #
 bin_src_c := yices_smt.c dl_profile.c yices_smtcomp.c yices_main.c
 
@@ -188,7 +188,7 @@ ifeq ($(POSIXOS),mingw)
   ifeq ($(findstring -mno-cygwin, $(CFLAGS)), -mno-cygwin)
    # compilation on mingw using the -mno-cygwin flag
    # we disable -Wformat warning because mingw uses non-standard
-   # formats in printf that causes useless warnings.
+   # formats in printf that cause useless warnings.
    CFLAGS += -Wno-format
   endif
 endif
