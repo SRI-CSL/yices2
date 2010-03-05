@@ -1,0 +1,1449 @@
+/*
+ * XOR/OR/NOT graph used to represent bit-vector expressions
+ *
+ * We need a new representation to replace BDDs. The BDDs blow
+ * up on several benchmarks. 
+ *
+ * Update: January 29, 2009.
+ * - Tests show that flattening the nodes is dangerous. It can consume
+ *   a lot of memory and the node table blows up on one QF_BV benchmark.
+ * - Since flattening does not work, it makes sense to simplify the 
+ *   data structures. All OR and XOR nodes are now binary nodes.
+ */
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <assert.h>
+
+#include "memalloc.h"
+#include "hash_functions.h"
+#include "int_array_sort.h"
+#include "bit_expr.h"
+
+#define TRACE 0
+
+#if TRACE
+#include <stdio.h>
+#include <inttypes.h>
+#endif
+
+
+
+/*
+ * Initialize the internal cache
+ */
+static inline void init_uvset_cache(uvset_cache_t *cache) {
+  cache->last_left = NULL;
+  cache->last_right = NULL;
+  cache->last_result = NULL;
+}
+
+/*
+ * Reset the cache: same as init
+ */
+static inline void reset_uvset_cache(uvset_cache_t *cache) {
+  init_uvset_cache(cache);
+}
+
+/*
+ * Store (u, v, r) in the cache
+ */
+static inline void cache_uvset(uvset_cache_t *cache, vset_t *u, vset_t *v, vset_t *r) {
+  cache->last_left = u;
+  cache->last_right = v;
+  cache->last_result = r;
+}
+
+/*
+ * Check whether the result of union_vset(u, v) is in the cache
+ */
+static inline bool uvset_in_cache(uvset_cache_t *cache, vset_t *u, vset_t *v) {
+  return cache->last_left == u && cache->last_right == v;
+}
+
+
+
+
+/*
+ * Initialize a node table (empty)
+ * - n = initial size
+ */
+static void alloc_node_table(node_table_t *table, uint32_t n) {
+  if (n == 0) {
+    n = DEF_NODE_TABLE_SIZE;
+  }
+
+  if (n > MAX_NODE_TABLE_SIZE) {
+    out_of_memory();
+  }
+
+  table->kind = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
+  table->desc = (node_desc_t *) safe_malloc(n * sizeof(node_desc_t));
+  table->vars = (vset_t **) safe_malloc(n * sizeof(vset_t *));
+  table->size = n;
+  table->nelems = 0;
+  table->free_idx = -1;
+
+  init_ivector(&table->aux_buffer, 0);
+  init_int_htbl(&table->htbl, 0);
+  init_uvset_cache(&table->cache);
+  init_vset_htbl(&table->vtbl, 0);  
+  init_int_queue(&table->queue, 0);
+
+  table->node_set = NULL;
+}
+
+
+/*
+ * Extend table: make it 50% larger
+ */
+static void extend_node_table(node_table_t *table) {
+  uint32_t n;
+
+  n = table->size + 1;
+  n += n >> 1;
+
+  // abort if the new size is too large
+  if (n > MAX_NODE_TABLE_SIZE) {
+    out_of_memory();
+  }
+
+  table->kind = (uint8_t *) safe_realloc(table->kind, n * sizeof(uint8_t));
+  table->desc = (node_desc_t *) safe_realloc(table->desc, n * sizeof(node_desc_t));
+  table->vars = (vset_t **) safe_realloc(table->vars, n * sizeof(vset_t *));
+  table->size = n;
+}
+
+
+/*
+ * Allocate a node id
+ * - kind and desc are not initialized
+ */
+static node_t allocate_node_id(node_table_t *table) {
+  node_t i;
+
+  i = table->free_idx;
+  if (i >= 0) {
+    table->free_idx = table->desc[i].var;
+  } else {
+    i = table->nelems;
+    table->nelems ++;
+    if (i >= table->size) {
+      extend_node_table(table);
+    }
+  }
+  return i;
+}
+
+
+/*
+ * Delete node i: add it to the free list
+ */
+static void delete_node(node_table_t *table, node_t i) {
+  assert(good_node(table, i)); 
+
+  if (i == constant_node) return; // don't delete the constant
+  
+  table->kind[i] = UNUSED_NODE;
+  table->desc[i].var = table->free_idx;
+  table->free_idx = i;
+}
+
+
+
+/*
+ * Build the empty set of vars
+ */
+static inline vset_t *empty_vset(node_table_t *table) {
+  return vset_htbl_get(&table->vtbl, 0, NULL);
+}
+
+
+/*
+ * Singleton set {x}
+ */
+static inline vset_t *singleton_vset(node_table_t *table, int32_t x) {
+  return vset_htbl_get(&table->vtbl, 1, &x);
+}
+
+
+/*
+ * Element of index i in set u
+ * - return INT32_MAX if i >= u->nelems
+ */
+static inline int32_t elem_of_vset(vset_t *u, uint32_t i) {
+  return (i < u->nelems) ? u->data[i] : INT32_MAX;
+}
+
+/*
+ * Build the union of two sets u and v
+ */
+static vset_t *union_vset(node_table_t *table, vset_t *u, vset_t *v) {  
+  ivector_t *b;
+  vset_t *r;
+  uint32_t i, j;
+  int32_t x, y;
+
+  assert(u != NULL && v != NULL);
+
+  if (uvset_in_cache(&table->cache, u, v)) {
+    return table->cache.last_result;
+  }
+
+#if TRACE
+  printf("---> union_vset: u = %p, v = %p\n", u, v);
+#endif
+
+  b = &table->aux_buffer;
+  ivector_reset(b);
+
+  i = 0;
+  x = elem_of_vset(u, i);
+  j = 0;
+  y = elem_of_vset(v, j);
+  for (;;) {
+    if (x == y) {
+      if (x == INT32_MAX) break;
+      ivector_push(b, x);
+      i ++;
+      x = elem_of_vset(u, i);
+      j ++;
+      y = elem_of_vset(v, j);
+    } else if (x < y) {
+      ivector_push(b, x);
+      i ++;
+      x = elem_of_vset(u, i);
+    } else { 
+      ivector_push(b, y);
+      j ++;
+      y = elem_of_vset(v, j);      
+    }
+  }
+
+  r = vset_htbl_get(&table->vtbl, b->size, b->data);
+
+  cache_uvset(&table->cache, u, v, r);
+  return r;
+}
+
+
+
+/*
+ * Create the constant node:
+ * - must be done first
+ */
+static node_t build_constant_node(node_table_t *table) {
+  node_t i;
+
+  i = allocate_node_id(table);
+  assert(i == constant_node);
+  table->kind[i] = CONSTANT_NODE;
+  table->desc[i].c[0] = null_bit;
+  table->desc[i].c[1] = null_bit;
+  table->vars[i] = empty_vset(table);
+
+  return i;
+}
+
+
+/*
+ * Build a variable node mapped to x
+ */
+static node_t new_variable_node(node_table_t *table, int32_t x) {
+  node_t i;
+
+  i = allocate_node_id(table);
+  table->kind[i] = VARIABLE_NODE;
+  table->desc[i].var = x;
+  table->vars[i] = singleton_vset(table, x);
+  return i;
+}
+
+
+
+
+/*
+ * Build a binary node (op a b)
+ * - op must be OR_NODE or XOR_NODE
+ */
+static node_t new_binary_node(node_table_t *table, node_kind_t op, bit_t a, bit_t b) {
+  node_t i;
+
+  assert(op == OR_NODE || op == XOR_NODE);
+
+  i = allocate_node_id(table);
+  table->kind[i] = op;
+  table->desc[i].c[0] = a;
+  table->desc[i].c[1] = b;
+  table->vars[i] = union_vset(table, table->vars[node_of_bit(a)], table->vars[node_of_bit(b)]);
+
+  return i;
+}
+
+
+
+/*
+ * HASH CONSING
+ */
+
+/*
+ * Hash code for (OR a b) and (XOR a b])
+ */
+static inline uint32_t hash_or(bit_t a, bit_t b) {
+  return jenkins_hash_pair(a, b, 0x1298abef);
+}
+
+static inline uint32_t hash_xor(bit_t a, bit_t b) {
+  return jenkins_hash_pair(a, b, 0xabed31fd);
+}
+
+
+
+/*
+ * Structure for interfacing with int_hash_table
+ * - node_hobj_t is used for both XOR and OR nodes
+ */
+typedef struct node_hobj_s {
+  int_hobj_t m;
+  node_table_t *tbl;
+  bit_t child[2];
+} node_hobj_t;
+
+
+/*
+ * OR Nodes
+ */
+static uint32_t hash_or_node(node_hobj_t *p) {
+  return hash_or(p->child[0], p->child[1]);
+}
+
+static bool eq_or_node(node_hobj_t *p, node_t i) {
+  node_table_t *table;
+
+  table = p->tbl;
+  return table->kind[i] == OR_NODE && 
+    table->desc[i].c[0] == p->child[0] && 
+    table->desc[i].c[1] == p->child[1];
+}
+
+static node_t build_or_node(node_hobj_t *p) {
+  return new_binary_node(p->tbl, OR_NODE, p->child[0], p->child[1]);
+}
+
+static node_hobj_t or_node_hobj = {
+  { (hobj_hash_t) hash_or_node, (hobj_eq_t) eq_or_node, (hobj_build_t) build_or_node },
+  NULL,
+  { 0, 0 },
+};
+
+static node_t get_or_node(node_table_t *table, bit_t a, bit_t b) {
+  or_node_hobj.tbl = table;
+  or_node_hobj.child[0] = a;
+  or_node_hobj.child[1] = b;
+  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &or_node_hobj);
+}
+
+#if 0
+// NOT USED
+// find: return -1 if the node does not exist, its index otherwise
+static node_t find_or_node(node_table_t *table, bit_t a, bit_t b) {
+  or_node_hobj.tbl = table;
+  or_node_hobj.child[0] = a;
+  or_node_hobj.child[1] = b;
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &or_node_hobj);
+}
+
+#endif
+
+
+/*
+ * XOR Nodes
+ */
+static uint32_t hash_xor_node(node_hobj_t *p) {
+  return hash_xor(p->child[0], p->child[1]);
+}
+
+static bool eq_xor_node(node_hobj_t *p, node_t i) {
+  node_table_t *table;
+
+  table = p->tbl;
+  return table->kind[i] == XOR_NODE && 
+    table->desc[i].c[0] == p->child[0] && 
+    table->desc[i].c[1] == p->child[1];
+}
+
+static node_t build_xor_node(node_hobj_t *p) {
+  return new_binary_node(p->tbl, XOR_NODE, p->child[0], p->child[1]);
+}
+
+static node_hobj_t xor_node_hobj = {
+  { (hobj_hash_t) hash_xor_node, (hobj_eq_t) eq_xor_node, (hobj_build_t) build_xor_node },
+  NULL,
+  { 0, 0 },
+};
+
+static node_t get_xor_node(node_table_t *table, bit_t a, bit_t b) {
+  xor_node_hobj.tbl = table;
+  xor_node_hobj.child[0] = a;
+  xor_node_hobj.child[1] = b;
+  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &xor_node_hobj);
+}
+
+
+#if 0
+// NOT USED
+// find: return -1 if the node does not exist, its index otherwise
+static node_t find_xor_node(node_table_t *table, bit_t a, bit_t b) {
+  xor_node_hobj.tbl = table;
+  xor_node_hobj.child[0] = a;
+  xor_node_hobj.child[1] = b;
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &xor_node_hobj);
+}
+
+#endif
+
+
+
+
+
+
+
+/*
+ * Global initialization: allocate and create the constant node
+ * - n = initial table
+ */
+void init_node_table(node_table_t *table, uint32_t n) {
+  alloc_node_table(table, n);
+  build_constant_node(table);
+}
+
+
+
+/*
+ * Delete all nodes and the table
+ */
+void delete_node_table(node_table_t *table) {
+  safe_free(table->kind);
+  safe_free(table->desc);
+  safe_free(table->vars);
+  table->kind = NULL;
+  table->desc = NULL;
+  delete_ivector(&table->aux_buffer);
+  delete_int_htbl(&table->htbl);
+  delete_vset_htbl(&table->vtbl);
+  delete_int_queue(&table->queue);
+
+  if (table->node_set != NULL) {
+    delete_int_hset(table->node_set);
+    safe_free(table->node_set);
+    table->node_set = NULL;
+  }
+}
+
+
+/*
+ * Reset: empty the table
+ */
+void reset_node_table(node_table_t *table) {
+  table->free_idx = -1;
+  table->nelems = 1;  // keep the constant node
+  assert(table->kind[0] == CONSTANT_NODE);
+
+  ivector_reset(&table->aux_buffer);
+  reset_int_htbl(&table->htbl);
+  reset_vset_htbl(&table->vtbl);
+  reset_uvset_cache(&table->cache);
+  int_queue_reset(&table->queue);
+}
+
+
+
+
+
+/*
+ * Return the internal node set
+ * - allocate and initialize it if necessary
+ */
+int_hset_t *node_table_get_node_set(node_table_t *table) {
+  int_hset_t *tmp;
+
+  tmp = table->node_set;
+  if (tmp == NULL) {
+    tmp = (int_hset_t *) safe_malloc(sizeof(int_hset_t));
+    init_int_hset(tmp, 0);
+    table->node_set = tmp;
+  }
+
+  return tmp;
+}
+
+
+
+/*
+ * Delete the internal node set
+ */
+void node_table_delete_node_set(node_table_t *table) {
+  int_hset_t *tmp;
+
+  tmp = table->node_set;
+  if (tmp != NULL) {
+    delete_int_hset(tmp);
+    safe_free(tmp);
+    table->node_set = NULL;
+  }
+}
+
+
+
+
+
+
+/********************************
+ *  SUPPORT FOR SIMPLIFICATION  *
+ *******************************/
+
+/*
+ * Label that describes the shape of a bit expression x
+ *   (or a b) --> POS_OR
+ *  ~(or a b) --> NEG_OR
+ *  (xor a b) --> POS_XOR
+ * ~(xor a b) --> NEG_XOR
+ *     else   --> ATOMIC or ERROR
+ */
+typedef enum bit_shape {
+  POS_OR,
+  NEG_OR,
+  POS_XOR,
+  NEG_XOR,
+  ATOMIC,
+  ERROR,
+} bit_shape_t;
+
+
+/*
+ * Table: given k = type_kind(node_of(x)) << sign_of(x)
+ * then shape[k] = its code shape
+ * - kind is one of UNUSED, CONSTANT, VARIABLE, OR_NODE, XOR_NODE
+ * - sign is 0 or 1 (0 means positive, 1 means negative)
+ */
+static const bit_shape_t const shape[10] = {
+  ERROR,    // UNUSED, POSITIVE
+  ERROR,    // UNUSED, NEGATIVE
+  ATOMIC,   // CONSTANT, POSITIVE (true)
+  ATOMIC,   // CONSTANT, NEGATIVE (false)
+  ATOMIC,   // VARIABLE, POSITIVE
+  ATOMIC,   // VARIABLE, NEGATIVE
+  POS_OR,   // OR, POSITIVE
+  NEG_OR,   // OR, NEGATIVE
+  POS_XOR,  // XOR, POSITIVE
+  NEG_XOR,  // XOR, NEGATIE
+};
+
+
+/*
+ * Compute the bit_shape of x
+ */
+static inline bit_shape_t shape_of_bit(node_table_t *table, bit_t x) {
+  int32_t k;
+
+  k = (node_kind(table, node_of_bit(x)) << 1) | sign_of_bit(x);
+  assert(0 <= k && k < 10);
+  return shape[k]; 
+}
+
+
+
+/*
+ * Combination of two non-atomic shape labels s1 and s2
+ */
+typedef enum pair_shape {
+  POS_OR_POS_OR,
+  POS_OR_NEG_OR,
+  POS_OR_POS_XOR,
+  POS_OR_NEG_XOR,
+  NEG_OR_POS_OR,
+  NEG_OR_NEG_OR,
+  NEG_OR_POS_XOR,
+  NEG_OR_NEG_XOR,
+  POS_XOR_POS_OR,
+  POS_XOR_NEG_OR,
+  POS_XOR_POS_XOR,
+  POS_XOR_NEG_XOR,
+  NEG_XOR_POS_OR,
+  NEG_XOR_NEG_OR,
+  NEG_XOR_POS_XOR,
+  NEG_XOR_NEG_XOR,
+} pair_shape_t;
+
+
+/*
+ * Compute the combination for s1 and s2
+ */
+static inline pair_shape_t combine_shapes(bit_shape_t s1, bit_shape_t s2) {
+  assert(0 <= s1 && s1 <= NEG_XOR && 0 <= s2 && s2 <= NEG_XOR);
+  return (pair_shape_t) ((s1 << 2) | s2);
+}
+
+
+
+/*******************
+ *  CONSTRUCTORS   *
+ ******************/
+
+/*
+ * Get node (VAR x)
+ * - we don't use hash consing here since several distinct nodes
+ *   may be mapped to the same bitvector variable x
+ */
+bit_t node_table_alloc_var(node_table_t *table, int32_t x) {
+  return pos_bit(new_variable_node(table, x));
+}
+
+
+/*
+ * Normalize then return an expression equivalent to (or a b).
+ * - ensure left child < right child
+ * - intended to be used when (or a b) cannot be simplified
+ */
+static bit_t make_or2(node_table_t *table, bit_t a, bit_t b) {
+  bit_t aux;
+
+  assert(node_of_bit(a) != node_of_bit(b) && ! bit_is_const(a) && ! bit_is_const(b));
+
+  if (a > b) {
+    aux = a; a = b; b = aux;
+  }
+  return pos_bit(get_or_node(table, a, b));
+}
+
+
+/*
+ * Normalize then build an expression equivalent to (xor a b)
+ * - ensure left child < right child
+ * - ensure both children are positive
+ * - intended to be used when (xor a b) cannot be simplified
+ */
+static bit_t make_xor2(node_table_t *table, bit_t a, bit_t b) {
+  uint32_t sign;
+  bit_t aux;
+
+  /*
+   * Ensure child[0] < child[1] and children of xor 
+   * have positive polarity
+   */
+  sign = sign_of_bit(a) ^ sign_of_bit(b);   // sign of the result
+  a &= ~1;  // force positive polarity (clear lower bit)
+  b &= ~1;
+
+  assert(bit_is_pos(a) && bit_is_pos(b) && a != b && 
+	 a != true_bit && b != true_bit);
+  if (a > b) {
+    aux = a; a = b; b = aux;
+  }
+
+  return mk_bit(get_xor_node(table, a, b), sign);
+}
+
+
+
+
+
+
+/*
+ * Build (OR a b)
+ * - baseline version: apply only the most basic simplifications
+ */
+bit_t bit_or2(node_table_t *table, bit_t a, bit_t b) {
+  /*
+   * (or a true) --> true
+   * (or true b) --> true
+   * (or a ~a)   --> true
+   *
+   * (or a false) --> a
+   * (or false b) --> b
+   * (or a a)     --> a
+   */
+  if (a == true_bit) return true_bit;
+  if (b == true_bit) return true_bit;
+  if (a == false_bit) return b;
+  if (b == false_bit) return a;
+  if (a == b) return a;
+  if (a == bit_not(b)) return true_bit;
+
+  return make_or2(table, a, b);
+}
+
+
+/*
+ * Build (OR a b) using more simplification rules
+ * - apply rules that simplify (OR a b) to true, a, ~a, b, or ~b
+ *   (i.e., don't create a new node)
+ * - assumptions used in the code:
+ *   a and b are normalized so we have a0 < a1 and b0 < b1
+ *   children of xor have positive polarity
+ */
+bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
+  node_t na, nb;
+  bit_t a0, a1;
+  bit_t b0, b1;
+  bit_shape_t a_shape, b_shape;  
+
+  /*
+   * (or a true) --> true
+   * (or true b) --> true
+   * (or a ~a)   --> true
+   *
+   * (or a false) --> a
+   * (or false b) --> b
+   * (or a a)     --> a
+   */
+  if (a == true_bit) return true_bit;
+  if (b == true_bit) return true_bit;
+  if (a == false_bit) return b;
+  if (b == false_bit) return a;
+  if (a == b) return a;
+  if (a == bit_not(b)) return true_bit;
+
+  // Stop GCC warning
+  a0 = null_bit;
+  a1 = null_bit;
+  b0 = null_bit;
+  b1 = null_bit;
+
+  /*
+   * Simplifications based on b + shape and children of a
+   */
+  a_shape = shape_of_bit(table, a);
+  na = node_of_bit(a);
+  if (is_nonleaf_node(table, na)) {
+    a0 = left_child_of_node(table, na);
+    a1 = right_child_of_node(table, na);
+    switch (a_shape) {
+    case POS_OR: 
+      /*
+       * (or (or a0 a1) a0)  --> (or a0 a1)
+       * (or (or a0 a1) a1)  --> (or a0 a1)
+       * (or (or a0 a1) ~a0) --> true
+       * (or (or a0 a1) ~a1) --> true
+       */
+      if (b == a0 || b == a1) return a;  
+      if (opposite_bits(b, a0) || opposite_bits(b, a1)) return true_bit;
+      break;
+    case NEG_OR:
+      /*
+       * (or ~(or a0 a1) ~a0) --> ~a0
+       * (or ~(or a0 a1) ~a1) --> ~a1
+       */
+      if (opposite_bits(b, a0) || opposite_bits(b, a1)) return b;
+      break;
+    case POS_XOR:
+    case NEG_XOR:
+      // nothing for now
+      break;
+    default:
+      assert(false);
+      break;
+    }
+  }
+  
+  /*
+   * Symmetric rules: a + shape and children of b
+   */
+  b_shape = shape_of_bit(table, b);
+  nb = node_of_bit(b);
+  if (is_nonleaf_node(table, nb)) {
+    b0 = left_child_of_node(table, nb);
+    b1 = right_child_of_node(table, nb);
+    switch (b_shape) {
+    case POS_OR:
+      /*
+       * (or b0 (or b0 b1))  --> (or b0 b1)
+       * (or b1 (or b0 b1))  --> (or b0 b1)
+       * (or ~b0 (or b0 b1)) --> true
+       * (or ~b1 (or b0 b1)) --> true
+       */
+      if (a == b0 || a == b1) return b;  
+      if (opposite_bits(a, b0) || opposite_bits(a, b1)) return true_bit;
+      break;
+    case NEG_OR:
+      /*
+       * (or ~b0 ~(or b0 b1)) --> ~b0
+       * (or ~b1 ~(or b0 b1)) --> ~b1
+       */
+      if (opposite_bits(a, b0) || opposite_bits(a, b1)) return a;
+      break;
+    case POS_XOR:
+    case NEG_XOR:
+      break;
+    default:
+      assert(false);
+      break;
+    }
+  }
+
+  /*
+   * Children of a + children of b
+   */
+  if (is_nonleaf_node(table, na) && is_nonleaf_node(table, nb)) {
+    assert(a0 == left_child_of_node(table, na) && a1 == right_child_of_node(table, na) && 
+	   b0 == left_child_of_node(table, nb) && b1 == right_child_of_node(table, nb));
+
+    switch (combine_shapes(a_shape, b_shape)) {
+    case POS_OR_POS_OR:
+      /*
+       * (or (or a0 a1) (or ~a0 b1)) --> true
+       * (or (or a0 a1) (or b0 ~a0)) --> true
+       * (or (or a0 a1) (or ~a1 b1)) --> true
+       * (or (or a0 a1) (or b0 ~a1)) --> true
+       */
+      if (opposite_bits(a0, b0) || opposite_bits(a0, b1) ||
+	  opposite_bits(a1, b0) || opposite_bits(a1, b1)) 
+	return true_bit;
+      break;
+
+    case POS_OR_NEG_OR:
+      /*
+       * (or (or a0 a1) ~(or ~a0 b1))  --> (or a0 a1)
+       * (or (or a0 a1) ~(or b0 ~a0))  --> (or a0 a1)
+       * (or (or a0 a1) ~(or ~a1 b1))  --> (or a0 a1)
+       * (or (or a0 a1) ~(or b0 ~a1))  --> (or a0 a1)
+       */
+      if (opposite_bits(a0, b0) || opposite_bits(a0, b1) ||
+	  opposite_bits(a1, b0) || opposite_bits(a1, b1)) 
+	return a;
+      break;
+    case NEG_OR_POS_OR:
+      /*
+       * (or ~(or ~b0 a1) (or b0 b1))  --> (or b0 b1)
+       * (or ~(or a0 ~b0) (or b0 b1))  --> (or b0 b1)
+       * (or ~(or ~b1 a1) (or b0 b1))  --> (or b0 b1)
+       * (or ~(or a0 ~b1) (or b0 b1))  --> (or b0 b1)
+       */
+      if (opposite_bits(a0, b0) || opposite_bits(a0, b1) ||
+	  opposite_bits(a1, b0) || opposite_bits(a1, b1)) 
+	return b;
+      break;
+
+    case POS_OR_NEG_XOR:
+      /*
+       * We use the equality ~(xor b0 b1) == (xor ~b0 b1) and fall through
+       */
+      b0 ^= 1; // flip sign bit
+    case POS_OR_POS_XOR:
+      /*
+       * (or (or a0 a1) (xor a0 a1))   --> (or a0 a1)
+       * (or (or a0 a1) (xor ~a0 a1))  --> true
+       * (or (or a0 a1) (xor a0 ~a1))  --> true
+       * (or (or a0 a1) (xor ~a0 ~a1)) --> (or a0 a1)
+       */
+      if ((opposite_bits(a0, b0) && a1 == b1) || (a0 == b0 && opposite_bits(a1, b1)))
+	return true_bit;
+      if ((a0 == b0 && a1 == b1) || (opposite_bits(a0, b0) && opposite_bits(a1, b1)))
+	return a;
+      break;
+
+    case NEG_XOR_POS_OR:
+      /*
+       * Rewrite ~(xor a0 a1) to (xor ~a0 a1) and fall through
+       */
+      a0 ^= 1; // flip sign bit
+    case POS_XOR_POS_OR:
+      /*
+       * (or (xor b0 b1) (or b0 b1))   --> (or b0 b1)
+       * (or (xor ~b0 b1) (or b0 b1))  --> true
+       * (or (xor b0 ~b1) (or b0 b1))  --> true
+       * (or (xor ~b0 ~b1) (or b0 b1)) --> (or b0 b1)
+       */
+      if ((opposite_bits(a0, b0) && a1 == b1) || (a0 == b0 && opposite_bits(a1, b1)))
+	return true_bit;
+      if ((a0 == b0 && a1 == b1) || (opposite_bits(a0, b0) && opposite_bits(a1, b1)))
+	return b;
+      break;
+
+    case NEG_OR_NEG_OR:
+      /*
+       * (or ~(or a0 a1) ~(or ~a0 a1))  --> ~a1
+       * (or ~(or a0 a1) ~(or a0 ~a1))  --> ~a0
+       *
+       * test: 2010/02/04
+       * (or ~(or a0 a1) ~(or ~a0 ~a1)) --> ~(xor a0 a1)
+       */
+      if (opposite_bits(a0, b0) && a1 == b1) 
+	return bit_not(a1);
+      if (a0 == b0 && opposite_bits(a1, b1))
+	return bit_not(a0);
+      // test rule: disabled for now
+      //      if ((opposite_bits(a0, b0) && opposite_bits(a1, b1)) ||
+      //	  (opposite_bits(a0, b1) && opposite_bits(a1, b0)))
+      //	return bit_not(bit_xor2(table, a0, a1));
+      break;
+
+    case NEG_OR_NEG_XOR:
+      /*
+       * Rewrite ~(xor b0 b1) to (xor ~b0 b1) and fall through
+       */
+      b0 ^= 1;
+    case NEG_OR_POS_XOR:
+      /*
+       * (or ~(or a0 a1) (xor ~a0 a1))  --> (xor ~a0 a1)
+       * (or ~(or a0 a1) (xor a0 ~a1))  --> (xor a0 ~a1)
+       */
+      if ((opposite_bits(a0, b0) && a1 == b1) || (a0 == b0 && opposite_bits(a1, b1)))
+	return b;
+      break;
+
+    case NEG_XOR_NEG_OR:
+      /*
+       * Rewrite ~(xor a0 a1) to (xor ~a0 b1) and fall through
+       */
+      a0 ^= 1;
+    case POS_XOR_NEG_OR:
+      /*
+       * (or (xor a0 a1) ~(or ~a0 a1))  --> (xor a0 a1)
+       * (or (xor a0 a1) ~(or a0 ~a1))  --> (xor a0 a1)
+       */
+      if ((opposite_bits(a0, b0) && a1 == b1) || (a0 == b0 && opposite_bits(a1, b1)))
+	return a;      
+      break;
+
+    case POS_XOR_POS_XOR:
+    case NEG_XOR_NEG_XOR:
+    case POS_XOR_NEG_XOR:
+    case NEG_XOR_POS_XOR:
+      // nothing
+      break;
+    }
+  }
+  
+
+  return make_or2(table, a, b);
+}
+
+
+
+
+
+
+
+/*
+ * Build (XOR a b)
+ * - baseline version: just use basic simplification rules
+ */
+bit_t bit_xor2(node_table_t *table, bit_t a, bit_t b) {
+  /*
+   * (xor true b)  --> ~b
+   * (xor a true)  --> ~a
+   * (xor false b) --> b
+   * (xor a false) --> a
+   * (xor a a)     --> false
+   * (xor a ~a)    --> true
+   */
+  if (a == true_bit) return bit_not(b);
+  if (b == true_bit) return bit_not(a);
+  if (a == false_bit) return b;
+  if (b == false_bit) return a;
+  if (a == b) return false_bit;
+  if (a == bit_not(b)) return true_bit;
+
+  return make_xor2(table, a, b);
+}
+
+
+/*
+ * Build (XOR a b)
+ * - apply simplification rules that don't create a new node
+ */
+bit_t bit_xor2simplify(node_table_t *table, bit_t a, bit_t b) {
+  node_t na, nb;
+  bit_t a0, a1;
+  bit_t b0, b1;
+  bit_shape_t a_shape, b_shape;
+  uint32_t sign;
+  bit_t aux;
+
+  /*
+   * (xor true b)  --> ~b
+   * (xor a true)  --> ~a
+   * (xor false b) --> b
+   * (xor a false) --> a
+   * (xor a a)     --> false
+   * (xor a ~a)    --> true
+   */
+  if (a == true_bit) return bit_not(b);
+  if (b == true_bit) return bit_not(a);
+  if (a == false_bit) return b;
+  if (b == false_bit) return a;
+  if (a == b) return false_bit;
+  if (a == bit_not(b)) return true_bit;
+
+  // Stop GCC warning
+  a0 = null_bit;
+  a1 = null_bit;
+  b0 = null_bit;
+  b1 = null_bit;
+
+  // make a and b positive, keep sign
+  sign = sign_of_bit(a) ^ sign_of_bit(b);
+  a &= ~1;
+  b &= ~1;
+
+  a_shape = shape_of_bit(table, a);
+  na = node_of_bit(a);
+  if (is_nonleaf_node(table, na)) {
+    assert(a_shape == POS_OR || a_shape == POS_XOR);
+    a0 = left_child_of_node(table, na);
+    a1 = right_child_of_node(table, na);
+    if (a_shape == POS_XOR) {
+      /*
+       * (xor (xor a0 a1) a0)  --> a1
+       * (xor (xor a0 a1) a1)  --> a0
+       * (xor (xor a0 a1) ~a0) --> ~a1
+       * (xor (xor a0 a1) ~a1) --> ~a0
+       */
+      if (b == a0) return sign ^ a1;
+      if (b == a1) return sign ^ a0;
+      // These rules can't match: b, a0, and a1 all have positive sign
+      //      if (opposite_bits(b, a0)) return sign ^ bit_not(a1);
+      //      if (opposite_bits(b, a1)) return sign ^ bit_not(a0);
+    }
+  }
+
+  b_shape = shape_of_bit(table, b);
+  nb = node_of_bit(b);
+  if (is_nonleaf_node(table, nb)) {
+    assert(b_shape == POS_OR || b_shape == POS_XOR);
+    b0 = left_child_of_node(table, nb);
+    b1 = right_child_of_node(table, nb);
+    if (b_shape == POS_XOR) {
+      /*
+       * (xor b0 (xor b0 b1))  --> b1
+       * (xor b1 (xor b0 b1))  --> b0
+       * (xor ~b0 (xor b0 b1)) --> ~b1
+       * (xor ~b1 (xor b0 b1)) --> ~b0
+       */
+      if (a == b0) return sign ^ b1;
+      if (a == b1) return sign ^ b0;
+      // These rules can't match: b, a0, and a1 all have positive sign
+      //      if (opposite_bits(a, b0)) return sign ^ bit_not(b1);
+      //      if (opposite_bits(a, b1)) return sign ^ bit_not(b0);
+    }
+  }
+
+
+  if (is_nonleaf_node(table, na) && is_nonleaf_node(table, nb)) {
+    assert(a0 == left_child_of_node(table, na) && a1 == right_child_of_node(table, na) && 
+	   b0 == left_child_of_node(table, nb) && b1 == right_child_of_node(table, nb));
+
+    if (combine_shapes(a_shape, b_shape) == POS_OR_POS_OR ) {
+      /*
+       * (xor (or a0 a1) (or ~a0 a1))  --> ~a1
+       * (xor (or a0 a1) (or a0 ~a1))  --> ~a0
+       */
+      if (opposite_bits(a0, b0) && a1 == b1) return sign ^ bit_not(a1);
+      if (a0 == b0 && opposite_bits(a1, b1)) return sign ^ bit_not(a0);
+    }
+  }
+
+  // normalize
+  if (a > b) {
+    aux = a; a = b; b = aux;
+  }
+
+  return mk_bit(get_xor_node(table, a, b), sign);
+}
+
+
+
+
+
+
+/***************************
+ *   N-ARY CONSTRUCTORS    *
+ **************************/
+
+/*
+ * Build (OR a[0] .... a[n-1])
+ * - no simplifications
+ * - build a balanced tree
+ */
+static bit_t make_or(node_table_t *table, uint32_t n, bit_t *a) {
+  uint32_t h;
+  bit_t left, right; 
+
+  assert(n > 0);
+
+  if (n == 1) {
+    return a[0];
+  } else if (n == 2) {
+    left = a[0];
+    right = a[1];
+  } else {
+    h = n/2;
+    left = make_or(table, h, a);        // (OR a[0] ... a[h-1])
+    right = make_or(table, n-h, a+h);   // (OR a[h] ... a[n-1])    
+  }
+
+  return make_or2(table, left, right);
+}
+
+
+
+/*
+ * Build (OR a[0] ... a[n-1]) where a = v->data, n = v->size
+ * - none of a[0] ... a[n-1] is a constant
+ */
+static bit_t bit_or_aux(node_table_t *table, ivector_t *v) {
+  bit_t *a;
+  bit_t b, c;
+  uint32_t i, j, n;
+
+  a = v->data;
+  n = v->size;
+  if (n == 0) {
+    return false_bit;
+  } else if (n == 1) {
+    return v->data[0];
+  }
+
+  /*
+   * Sort, remove duplicates, check for complementary bits
+   */
+  int_array_sort(a, n);
+  b = a[0];
+  j = 1;
+  for (i=1; i<n; i++) {
+    c = a[i];
+    if (c != b) {
+      if (c == bit_not(b)) {
+	return true_bit;
+      }
+      a[j++] = c;
+      b = c;
+    }
+  }
+
+  if (j == 1) return a[0];
+
+  return make_or(table, j, a);
+}
+
+
+
+/*
+ * Simplify (OR a[0] ... a[n-1]) and return the corresponding 
+ * bit index
+ */
+bit_t bit_or(node_table_t *table, bit_t *a, uint32_t n) {
+  ivector_t *v;
+  bit_t b;
+  uint32_t i;
+  
+  v = &table->aux_buffer;
+  ivector_reset(v);
+
+  /*
+   * If any bit is true return true
+   * If a[i] is false skip it
+   * Otherwise, add a[i] to v
+   */
+  for (i=0; i<n; i++) {
+    b = a[i];
+    if (b == true_bit) {
+      return true_bit;
+    } else if (b != false_bit) {
+      ivector_push(v, b);
+    }
+  }
+
+  return bit_or_aux(table, v);
+}
+
+
+
+/*
+ * Simplify (AND a[0] ... a[n-1]) and return the corresponding bit index
+ */
+bit_t bit_and(node_table_t *table, bit_t *a, uint32_t n) {
+  ivector_t *v;
+  bit_t b;
+  uint32_t i;
+
+  v = &table->aux_buffer;
+  ivector_reset(v);
+
+  /*
+   * Copy (not a[i]) into v
+   * - skip a[i] if it's true
+   * - return false if a[i] is false
+   */
+  for (i=0; i<n; i++) {
+    b = a[i];
+    if (b == false_bit) {
+      return false_bit;
+    } else if (b != true_bit) {
+      ivector_push(v, bit_not(b));
+    }
+  }
+
+  return bit_not(bit_or_aux(table, v));
+}
+
+
+
+
+/*
+ * Build (XOR a[0] .... a[n-1])
+ * - no simplifications
+ * - build a balanced tree
+ */
+static bit_t make_xor(node_table_t *table, uint32_t n, bit_t *a) {
+  uint32_t h;
+  bit_t left, right, aux; 
+
+  assert(n > 0);
+
+  if (n == 1) {
+    return a[0];
+  } else if (n == 2) {
+    left = a[0];
+    right = a[1];
+  } else {
+    h = n/2;
+    left = make_xor(table, h, a);       // (XOR a[0] ... a[h-1])
+    right = make_xor(table, n-h, a+h);  // (XOR a[h] ... a[n-1])    
+  }
+
+  if (left > right) {
+    aux = left; left = right; right = aux;
+  }
+
+  return pos_bit(get_xor_node(table, left, right));
+}
+
+
+
+
+/*
+ * Simplify (XOR a[0] ... a[n-1]) and return the corresponding bit index
+ */
+bit_t bit_xor(node_table_t *table, bit_t *a, uint32_t n) {
+  ivector_t *v;
+  bit_t b;
+  uint32_t sign, i, j;
+
+  v = &table->aux_buffer;
+  ivector_reset(v);
+
+  /*
+   * Remove all constant and negative bits
+   */
+  sign = 0;
+  for (i=0; i<n; i++) {
+    b = a[i];
+    if (b == true_bit) {
+      // flip sign
+      sign ^= 1;
+    } else if (b != false_bit) {
+      // if b is (not b0), flip sign and add b0 to v
+      sign ^= sign_of_bit(b);
+      b &= ~1; // force sign = 0 (low-order bit)
+      ivector_push(v, b);
+    }
+  }
+
+  n = v->size;
+  a = v->data;
+  j = 0;
+  if (n > 0) {
+    // remove the duplicates: (XOR b b) == false_bit
+    int_array_sort(v->data, n);
+    i = 0;
+    while (i<n-1) {
+      b = a[i];
+      assert(bit_is_pos(b));
+      if (b == a[i+1]) {
+	i += 2;
+      } else {
+	a[j++] = b;
+	i ++;
+      }
+    }
+    if (i == n-1) {
+      assert(bit_is_pos(a[i]));
+      a[j++] = a[i];
+    }
+    ivector_shrink(v, j);
+  }
+
+  /*
+   * The result is sign XOR ( a[0] XOR ... XOR a[n-1] )
+   * (where sign is 0 or 1)
+   */
+  if (j == 0) return sign ^ false_bit;
+  if (j == 1) return sign ^ a[0];
+  return sign ^ make_xor(table, j, a);
+}
+
+
+
+
+/**********************
+ *  REACHABLES NODES  *
+ *********************/
+
+/*
+ * Add node of b to queue and set if it's not already in the set
+ */
+static inline void node_table_visit(node_table_t *table, int_queue_t *queue, int_hset_t *set, bit_t b) {
+  node_t n;
+
+  n = node_of_bit(b);
+  assert(valid_node(table, n));
+  if (int_hset_add(set, n)) {
+    int_queue_push(queue, n);
+  }
+}
+
+/*
+ * BFS exploration: add all nodes reachable from elements of the 
+ * queue to set
+ */
+static void node_table_visit_queue(node_table_t *table, int_queue_t *queue, int_hset_t *set) {
+  node_t x;
+
+  while (! int_queue_is_empty(queue)) {
+    x = int_queue_pop(queue);
+    if (is_nonleaf_node(table, x)) {
+      node_table_visit(table, queue, set, left_child_of_node(table, x));
+      node_table_visit(table, queue, set, right_child_of_node(table, x));
+    }
+  }
+}
+
+
+/*
+ * Collect all the nodes reachable from b into set
+ * - set must be empty and initialized
+ * - the result is in compacted form and sorted
+ */
+void collect_bitexpr_nodes(node_table_t *table, bit_t b, int_hset_t *set) {
+  int_queue_t *queue;
+
+  queue = &table->queue;
+  assert(int_queue_is_empty(queue) && int_hset_is_empty(set));
+
+  node_table_visit(table, queue, set, b);
+  node_table_visit_queue(table, queue, set);
+  int_hset_close(set);
+  int_array_sort((int32_t *) set->data, set->nelems); // the conversion is safe here
+
+  int_queue_reset(queue);
+}
+
+
+
+/*
+ * Add all nodes reachable from b[0] ... b[n-1] to set
+ * - set mut be initialized
+ * - the result is not compacted
+ */
+void collect_bitarray_nodes(node_table_t *table, uint32_t n, bit_t *b, int_hset_t *set) {
+  int_queue_t *queue;
+  uint32_t i;
+
+  queue = &table->queue;
+  assert(int_queue_is_empty(queue));
+  for (i=0; i<n; i++) {
+    node_table_visit(table, queue, set, b[i]);
+  }
+  node_table_visit_queue(table, queue, set);
+
+  int_queue_reset(queue);
+}
+
+
+
+
+
+
+/**********************************
+ *   GARBAGE COLLECTION/MARKING   *
+ *********************************/
+
+// Mask to extract high-order bit of kind
+#define KIND_MARK_MASK ((uint8_t) 0x80)
+
+/*
+ * Check whether node x is marked
+- */
+static inline bool node_is_marked(node_table_t *table, node_t x) {
+  return (table->kind[x] & KIND_MARK_MASK) != 0;
+}
+
+static inline bool node_is_unmarked(node_table_t *table, node_t x) {
+  return (table->kind[x] & KIND_MARK_MASK) == 0;
+}
+
+/*
+ * Set/clear mark on node x
+ */
+static inline void mark_node(node_table_t *table, node_t x) {
+  table->kind[x] |= KIND_MARK_MASK;
+}
+
+static inline void unmark_node(node_table_t *table, node_t x) {
+  table->kind[x] &= ~KIND_MARK_MASK;
+}
+
+
+
+/*
+ * Visit all unmarked nodes reachable from x
+ */
+void bit_marker_visit(bit_marking_obj_t *marker, node_t x) {
+  node_table_t *table;
+
+  table = marker->table;
+  if (node_is_unmarked(table, x)) {
+    marker->fun(marker, x); // callback
+    if (is_nonleaf_node(table, x)) {
+      // recursively visit the children
+      bit_marker_visit(marker, left_child_of_node(table, x));
+      bit_marker_visit(marker, right_child_of_node(table, x));
+    }
+    mark_node(table, x);
+  }
+}
+
+
+/*
+ * Clear all the marks
+ */
+void node_table_clear_marks(node_table_t *table) {
+  uint32_t i, n;
+
+  n = table->nelems;
+  for (i=0; i<n; i++) {
+    unmark_node(table, i);
+  }
+}
+
+
+/*
+ * Garbage collection:
+ * - delete all unmarked nodes
+ * - clear the marks of the other nodes
+ * - TODO: also delete the unused vsets
+ */
+void node_table_garbage_collection(node_table_t *table) {
+  uint32_t i, n;
+
+  n = table->nelems;
+  for (i=0; i<n; i++) {
+    if (node_is_marked(table, i)) {
+      unmark_node(table, i);
+    } else {
+      delete_node(table, i);
+    }
+  }
+}

@@ -1,0 +1,984 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 24 24 588 768
+%%Title: Enscript Output
+%%For: Bruno Dutertre
+%%Creator: GNU enscript 1.6.1
+%%CreationDate: Fri May 18 17:04:22 2007
+%%Orientation: Portrait
+%%Pages: (atend)
+%%DocumentMedia: Letter 612 792 0 () ()
+%%DocumentNeededResources: (atend)
+%%EndComments
+%%BeginProlog
+%%BeginResource: procset Enscript-Prolog 1.6 1
+%
+% Procedures.
+%
+
+/_S {	% save current state
+  /_s save def
+} def
+/_R {	% restore from saved state
+  _s restore
+} def
+
+/S {	% showpage protecting gstate
+  gsave
+  showpage
+  grestore
+} bind def
+
+/MF {	% fontname newfontname -> -	make a new encoded font
+  /newfontname exch def
+  /fontname exch def
+
+  /fontdict fontname findfont def
+  /newfont fontdict maxlength dict def
+
+  fontdict {
+    exch
+    dup /FID eq {
+      % skip FID pair
+      pop pop
+    } {
+      % copy to the new font dictionary
+      exch newfont 3 1 roll put
+    } ifelse
+  } forall
+
+  newfont /FontName newfontname put
+
+  % insert only valid encoding vectors
+  encoding_vector length 256 eq {
+    newfont /Encoding encoding_vector put
+  } if
+
+  newfontname newfont definefont pop
+} def
+
+/SF { % fontname width height -> -	set a new font
+  /height exch def
+  /width exch def
+
+  findfont
+  [width 0 0 height 0 0] makefont setfont
+} def
+
+/SUF { % fontname width height -> -	set a new user font
+  /height exch def
+  /width exch def
+
+  /F-gs-user-font MF
+  /F-gs-user-font width height SF
+} def
+
+/M {moveto} bind def
+/s {show} bind def
+
+/Box {	% x y w h -> -			define box path
+  /d_h exch def /d_w exch def /d_y exch def /d_x exch def
+  d_x d_y  moveto
+  d_w 0 rlineto
+  0 d_h rlineto
+  d_w neg 0 rlineto
+  closepath
+} def
+
+/bgs {	% x y height blskip gray str -> -	show string with bg color
+  /str exch def
+  /gray exch def
+  /blskip exch def
+  /height exch def
+  /y exch def
+  /x exch def
+
+  gsave
+    x y blskip sub str stringwidth pop height Box
+    gray setgray
+    fill
+  grestore
+  x y M str s
+} def
+
+% Highlight bars.
+/highlight_bars {	% nlines lineheight output_y_margin gray -> -
+  gsave
+    setgray
+    /ymarg exch def
+    /lineheight exch def
+    /nlines exch def
+
+    % This 2 is just a magic number to sync highlight lines to text.
+    0 d_header_y ymarg sub 2 sub translate
+
+    /cw d_output_w cols div def
+    /nrows d_output_h ymarg 2 mul sub lineheight div cvi def
+
+    % for each column
+    0 1 cols 1 sub {
+      cw mul /xp exch def
+
+      % for each rows
+      0 1 nrows 1 sub {
+        /rn exch def
+        rn lineheight mul neg /yp exch def
+        rn nlines idiv 2 mod 0 eq {
+	  % Draw highlight bar.  4 is just a magic indentation.
+	  xp 4 add yp cw 8 sub lineheight neg Box fill
+	} if
+      } for
+    } for
+
+  grestore
+} def
+
+% Line highlight bar.
+/line_highlight {	% x y width height gray -> -
+  gsave
+    /gray exch def
+    Box gray setgray fill
+  grestore
+} def
+
+% Column separator lines.
+/column_lines {
+  gsave
+    .1 setlinewidth
+    0 d_footer_h translate
+    /cw d_output_w cols div def
+    1 1 cols 1 sub {
+      cw mul 0 moveto
+      0 d_output_h rlineto stroke
+    } for
+  grestore
+} def
+
+% Column borders.
+/column_borders {
+  gsave
+    .1 setlinewidth
+    0 d_footer_h moveto
+    0 d_output_h rlineto
+    d_output_w 0 rlineto
+    0 d_output_h neg rlineto
+    closepath stroke
+  grestore
+} def
+
+% Do the actual underlay drawing
+/draw_underlay {
+  ul_style 0 eq {
+    ul_str true charpath stroke
+  } {
+    ul_str show
+  } ifelse
+} def
+
+% Underlay
+/underlay {	% - -> -
+  gsave
+    0 d_page_h translate
+    d_page_h neg d_page_w atan rotate
+
+    ul_gray setgray
+    ul_font setfont
+    /dw d_page_h dup mul d_page_w dup mul add sqrt def
+    ul_str stringwidth pop dw exch sub 2 div ul_h_ptsize -2 div moveto
+    draw_underlay
+  grestore
+} def
+
+/user_underlay {	% - -> -
+  gsave
+    ul_x ul_y translate
+    ul_angle rotate
+    ul_gray setgray
+    ul_font setfont
+    0 0 ul_h_ptsize 2 div sub moveto
+    draw_underlay
+  grestore
+} def
+
+% Page prefeed
+/page_prefeed {		% bool -> -
+  statusdict /prefeed known {
+    statusdict exch /prefeed exch put
+  } {
+    pop
+  } ifelse
+} def
+
+% Wrapped line markers
+/wrapped_line_mark {	% x y charwith charheight type -> -
+  /type exch def
+  /h exch def
+  /w exch def
+  /y exch def
+  /x exch def
+
+  type 2 eq {
+    % Black boxes (like TeX does)
+    gsave
+      0 setlinewidth
+      x w 4 div add y M
+      0 h rlineto w 2 div 0 rlineto 0 h neg rlineto
+      closepath fill
+    grestore
+  } {
+    type 3 eq {
+      % Small arrows
+      gsave
+        .2 setlinewidth
+        x w 2 div add y h 2 div add M
+        w 4 div 0 rlineto
+        x w 4 div add y lineto stroke
+
+        x w 4 div add w 8 div add y h 4 div add M
+        x w 4 div add y lineto
+	w 4 div h 8 div rlineto stroke
+      grestore
+    } {
+      % do nothing
+    } ifelse
+  } ifelse
+} def
+
+% EPSF import.
+
+/BeginEPSF {
+  /b4_Inc_state save def    		% Save state for cleanup
+  /dict_count countdictstack def	% Count objects on dict stack
+  /op_count count 1 sub def		% Count objects on operand stack
+  userdict begin
+  /showpage { } def
+  0 setgray 0 setlinecap
+  1 setlinewidth 0 setlinejoin
+  10 setmiterlimit [ ] 0 setdash newpath
+  /languagelevel where {
+    pop languagelevel
+    1 ne {
+      false setstrokeadjust false setoverprint
+    } if
+  } if
+} bind def
+
+/EndEPSF {
+  count op_count sub { pos } repeat	% Clean up stacks
+  countdictstack dict_count sub { end } repeat
+  b4_Inc_state restore
+} bind def
+
+% Check PostScript language level.
+/languagelevel where {
+  pop /gs_languagelevel languagelevel def
+} {
+  /gs_languagelevel 1 def
+} ifelse
+%%EndResource
+%%BeginResource: procset Enscript-Encoding-88591 1.6 1
+/encoding_vector [
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/space        	/exclam       	/quotedbl     	/numbersign   	
+/dollar       	/percent      	/ampersand    	/quoteright   	
+/parenleft    	/parenright   	/asterisk     	/plus         	
+/comma        	/hyphen       	/period       	/slash        	
+/zero         	/one          	/two          	/three        	
+/four         	/five         	/six          	/seven        	
+/eight        	/nine         	/colon        	/semicolon    	
+/less         	/equal        	/greater      	/question     	
+/at           	/A            	/B            	/C            	
+/D            	/E            	/F            	/G            	
+/H            	/I            	/J            	/K            	
+/L            	/M            	/N            	/O            	
+/P            	/Q            	/R            	/S            	
+/T            	/U            	/V            	/W            	
+/X            	/Y            	/Z            	/bracketleft  	
+/backslash    	/bracketright 	/asciicircum  	/underscore   	
+/quoteleft    	/a            	/b            	/c            	
+/d            	/e            	/f            	/g            	
+/h            	/i            	/j            	/k            	
+/l            	/m            	/n            	/o            	
+/p            	/q            	/r            	/s            	
+/t            	/u            	/v            	/w            	
+/x            	/y            	/z            	/braceleft    	
+/bar          	/braceright   	/tilde        	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/space        	/exclamdown   	/cent         	/sterling     	
+/currency     	/yen          	/brokenbar    	/section      	
+/dieresis     	/copyright    	/ordfeminine  	/guillemotleft	
+/logicalnot   	/hyphen       	/registered   	/macron       	
+/degree       	/plusminus    	/twosuperior  	/threesuperior	
+/acute        	/mu           	/paragraph    	/bullet       	
+/cedilla      	/onesuperior  	/ordmasculine 	/guillemotright	
+/onequarter   	/onehalf      	/threequarters	/questiondown 	
+/Agrave       	/Aacute       	/Acircumflex  	/Atilde       	
+/Adieresis    	/Aring        	/AE           	/Ccedilla     	
+/Egrave       	/Eacute       	/Ecircumflex  	/Edieresis    	
+/Igrave       	/Iacute       	/Icircumflex  	/Idieresis    	
+/Eth          	/Ntilde       	/Ograve       	/Oacute       	
+/Ocircumflex  	/Otilde       	/Odieresis    	/multiply     	
+/Oslash       	/Ugrave       	/Uacute       	/Ucircumflex  	
+/Udieresis    	/Yacute       	/Thorn        	/germandbls   	
+/agrave       	/aacute       	/acircumflex  	/atilde       	
+/adieresis    	/aring        	/ae           	/ccedilla     	
+/egrave       	/eacute       	/ecircumflex  	/edieresis    	
+/igrave       	/iacute       	/icircumflex  	/idieresis    	
+/eth          	/ntilde       	/ograve       	/oacute       	
+/ocircumflex  	/otilde       	/odieresis    	/divide       	
+/oslash       	/ugrave       	/uacute       	/ucircumflex  	
+/udieresis    	/yacute       	/thorn        	/ydieresis    	
+] def
+%%EndResource
+%%EndProlog
+%%BeginSetup
+%%IncludeResource: font Courier-Bold
+%%IncludeResource: font Courier
+/HFpt_w 10 def
+/HFpt_h 10 def
+/Courier-Bold /HF-gs-font MF
+/HF /HF-gs-font findfont [HFpt_w 0 0 HFpt_h 0 0] makefont def
+/Courier /F-gs-font MF
+/F-gs-font 6 6 SF
+/#copies 1 def
+% Pagedevice definitions:
+gs_languagelevel 1 gt {
+  <<
+    /PageSize [612 792] 
+  >> setpagedevice
+} if
+%%BeginResource: procset Enscript-Header-simple 1.6 1
+
+/do_header {	% print default simple header
+  gsave
+    d_header_x d_header_y HFpt_h 3 div add translate
+
+    HF setfont
+    user_header_p {
+      5 0 moveto user_header_left_str show
+
+      d_header_w user_header_center_str stringwidth pop sub 2 div
+      0 moveto user_header_center_str show
+
+      d_header_w user_header_right_str stringwidth pop sub 5 sub
+      0 moveto user_header_right_str show
+    } {
+      5 0 moveto fname show
+      45 0 rmoveto fmodstr show
+      45 0 rmoveto pagenumstr show
+    } ifelse
+
+  grestore
+} def
+%%EndResource
+/d_page_w 564 def
+/d_page_h 744 def
+/d_header_x 0 def
+/d_header_y 729 def
+/d_header_w 564 def
+/d_header_h 15 def
+/d_footer_x 0 def
+/d_footer_y 0 def
+/d_footer_w 564 def
+/d_footer_h 0 def
+/d_output_w 564 def
+/d_output_h 729 def
+/cols 1 def
+%%EndSetup
+%%Page: (1) 1
+%%BeginPageSetup
+_S
+24 24 translate
+/pagenum 1 def
+/fname (smtlib.y) def
+/fdir () def
+/ftail (smtlib.y) def
+% User defined strings:
+/fmodstr (Fri May 18 17:03:21 2007) def
+/pagenumstr (1) def
+/user_header_p false def
+%%EndPageSetup
+do_header
+5 720 M
+(%{) s
+5 713 M
+(/*****************************************************************************/) s
+5 706 M
+(/*!) s
+5 699 M
+( * \\file smtlib.y) s
+5 692 M
+( * ) s
+5 685 M
+( * Author: Sergey Berezin, Clark Barrett) s
+5 678 M
+( * ) s
+5 671 M
+( * Created: Apr 30 2005) s
+5 664 M
+( *) s
+5 657 M
+( * <hr>) s
+5 650 M
+( * Copyright \(C\) 2004 by the Board of Trustees of Leland Stanford) s
+5 643 M
+( * Junior University and by New York University. ) s
+5 636 M
+( *) s
+5 629 M
+( * License to use, copy, modify, sell and/or distribute this software) s
+5 622 M
+( * and its documentation for any purpose is hereby granted without) s
+5 615 M
+( * royalty, subject to the terms and conditions defined in the \\ref) s
+5 608 M
+( * LICENSE file provided with this distribution.  In particular:) s
+5 601 M
+( *) s
+5 594 M
+( * - The above copyright notice and this permission notice must appear) s
+5 587 M
+( * in all copies of the software and related documentation.) s
+5 580 M
+( *) s
+5 573 M
+( * - THE SOFTWARE IS PROVIDED "AS-IS", WITHOUT ANY WARRANTIES,) s
+5 566 M
+( * EXPRESSED OR IMPLIED.  USE IT AT YOUR OWN RISK.) s
+5 559 M
+( * ) s
+5 552 M
+( * <hr>) s
+5 545 M
+( * ) s
+5 538 M
+( */) s
+5 531 M
+(/*****************************************************************************/) s
+5 524 M
+(/* ) s
+5 517 M
+(   This file contains the bison code for the parser that reads in CVC) s
+5 510 M
+(   commands in SMT-LIB language.) s
+5 503 M
+(*/) s
+5 489 M
+(#define YYLTYPE_IS_TRIVIAL 1) s
+5 482 M
+(#define YYMAXDEPTH 10485760) s
+5 468 M
+(%}) s
+5 454 M
+(%union {) s
+5 447 M
+(  std::string *str;) s
+5 440 M
+(  std::vector<std::string> *strvec;) s
+5 433 M
+(  CVCL::Expr *node;) s
+5 426 M
+(  std::vector<CVCL::Expr> *vec;) s
+5 419 M
+(};) s
+5 398 M
+(%start cmd) s
+5 384 M
+(/* strings are for better error messages.  ) s
+5 377 M
+(   "_TOK" is so macros don't conflict with kind names */) s
+5 363 M
+(%type <vec> bench_attributes sort_symbs fun_symb_decls pred_symb_decls) s
+5 356 M
+(%type <vec> an_formulas quant_vars an_terms fun_symb) s
+5 349 M
+(%type <node> benchmark bench_name bench_attribute) s
+5 342 M
+(%type <node> status fun_symb_decl fun_sig pred_symb_decl pred_sig) s
+5 335 M
+(%type <node> an_formula quant_var an_atom prop_atom) s
+5 328 M
+(%type <node> an_term basic_term sort_symb pred_symb) s
+5 321 M
+(%type <node> var fvar) s
+5 314 M
+(%type <str> logic_name quant_symb connective user_value attribute annotation) s
+5 307 M
+(%type <strvec> annotations) s
+5 293 M
+(%token <str> NUMERAL_TOK) s
+5 286 M
+(%token <str> SYM_TOK) s
+5 279 M
+(%token <str> STRING_TOK) s
+5 272 M
+(%token <str> AR_SYMB) s
+5 265 M
+(%token <str> USER_VAL_TOK) s
+5 258 M
+(%token TRUE_TOK) s
+5 251 M
+(%token FALSE_TOK) s
+5 244 M
+(%token ITE_TOK) s
+5 237 M
+(%token NOT_TOK) s
+5 230 M
+(%token IMPLIES_TOK) s
+5 223 M
+(%token IF_THEN_ELSE_TOK) s
+5 216 M
+(%token AND_TOK) s
+5 209 M
+(%token OR_TOK) s
+5 202 M
+(%token XOR_TOK) s
+5 195 M
+(%token IFF_TOK) s
+5 188 M
+(%token EXISTS_TOK) s
+5 181 M
+(%token FORALL_TOK) s
+5 174 M
+(%token LET_TOK) s
+5 167 M
+(%token FLET_TOK) s
+5 160 M
+(%token NOTES_TOK) s
+5 153 M
+(%token CVC_COMMAND_TOK) s
+5 146 M
+(%token SORTS_TOK) s
+5 139 M
+(%token FUNS_TOK) s
+5 132 M
+(%token PREDS_TOK) s
+5 125 M
+(%token EXTENSIONS_TOK) s
+5 118 M
+(%token DEFINITION_TOK) s
+5 111 M
+(%token AXIOMS_TOK) s
+5 104 M
+(%token LOGIC_TOK) s
+5 97 M
+(%token COLON_TOK) s
+5 90 M
+(%token LBRACKET_TOK) s
+5 83 M
+(%token RBRACKET_TOK) s
+5 76 M
+(%token LPAREN_TOK) s
+5 69 M
+(%token RPAREN_TOK) s
+5 62 M
+(%token SAT_TOK) s
+5 55 M
+(%token UNSAT_TOK) s
+5 48 M
+(%token UNKNOWN_TOK) s
+5 41 M
+(%token ASSUMPTION_TOK) s
+5 34 M
+(%token FORMULA_TOK) s
+5 27 M
+(%token STATUS_TOK) s
+5 20 M
+(%token BENCHMARK_TOK) s
+5 13 M
+(%token EXTRASORTS_TOK) s
+5 6 M
+(%token EXTRAFUNS_TOK) s
+_R
+S
+%%Page: (2) 2
+%%BeginPageSetup
+_S
+24 24 translate
+/pagenum 2 def
+/fname (smtlib.y) def
+/fdir () def
+/ftail (smtlib.y) def
+% User defined strings:
+/fmodstr (Fri May 18 17:03:21 2007) def
+/pagenumstr (2) def
+/user_header_p false def
+%%EndPageSetup
+do_header
+5 720 M
+(%token EXTRAPREDS_TOK) s
+5 713 M
+(%token LANGUAGE_TOK) s
+5 706 M
+(%token DOLLAR_TOK) s
+5 699 M
+(%token QUESTION_TOK) s
+5 692 M
+(%token DISTINCT_TOK) s
+5 685 M
+(%token SEMICOLON_TOK) s
+5 678 M
+(%token EOF_TOK) s
+5 664 M
+(%%) s
+5 650 M
+(cmd:) s
+5 643 M
+(    benchmark) s
+5 636 M
+(;) s
+5 622 M
+(benchmark:) s
+5 615 M
+(    LPAREN_TOK BENCHMARK_TOK bench_name bench_attributes RPAREN_TOK) s
+5 608 M
+(  | EOF_TOK) s
+5 601 M
+(;) s
+5 587 M
+(bench_name:) s
+5 580 M
+(    SYM_TOK) s
+5 573 M
+(;) s
+5 559 M
+(bench_attributes:) s
+5 552 M
+(    bench_attribute) s
+5 545 M
+(  | bench_attributes bench_attribute) s
+5 538 M
+(;) s
+5 524 M
+(bench_attribute:) s
+5 517 M
+(    COLON_TOK ASSUMPTION_TOK an_formula) s
+5 510 M
+(  | COLON_TOK FORMULA_TOK an_formula ) s
+5 503 M
+(  | COLON_TOK STATUS_TOK status ) s
+5 496 M
+(  | COLON_TOK LOGIC_TOK logic_name ) s
+5 489 M
+(  | COLON_TOK EXTRASORTS_TOK LPAREN_TOK sort_symbs RPAREN_TOK) s
+5 482 M
+(  | COLON_TOK EXTRAFUNS_TOK LPAREN_TOK fun_symb_decls RPAREN_TOK) s
+5 475 M
+(  | COLON_TOK EXTRAPREDS_TOK LPAREN_TOK pred_symb_decls RPAREN_TOK) s
+5 468 M
+(  | COLON_TOK NOTES_TOK STRING_TOK) s
+5 461 M
+(  | COLON_TOK CVC_COMMAND_TOK STRING_TOK) s
+5 454 M
+(  | annotation) s
+5 447 M
+(;) s
+5 433 M
+(logic_name:) s
+5 426 M
+(    SYM_TOK LBRACKET_TOK NUMERAL_TOK RBRACKET_TOK) s
+5 419 M
+(  | SYM_TOK) s
+5 412 M
+(;) s
+5 398 M
+(status:) s
+5 391 M
+(    SAT_TOK) s
+5 384 M
+(  | UNSAT_TOK) s
+5 377 M
+(  | UNKNOWN_TOK) s
+5 370 M
+(;) s
+5 356 M
+(sort_symbs:) s
+5 349 M
+(    sort_symb ) s
+5 342 M
+(  | sort_symbs sort_symb) s
+5 335 M
+(;) s
+5 321 M
+(fun_symb_decls:) s
+5 314 M
+(    fun_symb_decl) s
+5 307 M
+(  | fun_symb_decls fun_symb_decl) s
+5 300 M
+(;) s
+5 286 M
+(fun_symb_decl:) s
+5 279 M
+(    LPAREN_TOK fun_sig annotations RPAREN_TOK) s
+5 272 M
+(  | LPAREN_TOK fun_sig RPAREN_TOK) s
+5 265 M
+(;) s
+5 251 M
+(fun_sig:) s
+5 244 M
+(    fun_symb sort_symbs) s
+5 237 M
+(;) s
+5 223 M
+(pred_symb_decls:) s
+5 216 M
+(    pred_symb_decl) s
+5 209 M
+(  | pred_symb_decls pred_symb_decl) s
+5 202 M
+(;) s
+5 188 M
+(pred_symb_decl:) s
+5 181 M
+(    LPAREN_TOK pred_sig annotations RPAREN_TOK) s
+5 174 M
+(  | LPAREN_TOK pred_sig RPAREN_TOK) s
+5 167 M
+(;) s
+5 153 M
+(pred_sig:) s
+5 146 M
+(    pred_symb sort_symbs) s
+5 139 M
+(  | pred_symb) s
+5 132 M
+(;) s
+5 118 M
+(an_formulas:) s
+5 111 M
+(    an_formula) s
+5 104 M
+(  | an_formulas an_formula) s
+5 97 M
+(;) s
+5 83 M
+(an_formula:) s
+5 76 M
+(    an_atom) s
+5 69 M
+(  | LPAREN_TOK connective an_formulas annotations RPAREN_TOK) s
+5 62 M
+(  | LPAREN_TOK connective an_formulas RPAREN_TOK) s
+5 55 M
+(  | LPAREN_TOK quant_symb quant_vars an_formula annotations RPAREN_TOK) s
+5 48 M
+(  | LPAREN_TOK quant_symb quant_vars an_formula RPAREN_TOK) s
+5 41 M
+(  | LPAREN_TOK LET_TOK LPAREN_TOK var an_term RPAREN_TOK an_formula annotations RPAREN_TOK) s
+5 34 M
+(  | LPAREN_TOK LET_TOK LPAREN_TOK var an_term RPAREN_TOK an_formula RPAREN_TOK) s
+5 27 M
+(  | LPAREN_TOK FLET_TOK LPAREN_TOK fvar an_formula RPAREN_TOK an_formula annotations RPAREN_TOK) s
+5 20 M
+(  | LPAREN_TOK FLET_TOK LPAREN_TOK fvar an_formula RPAREN_TOK an_formula RPAREN_TOK) s
+5 13 M
+(;) s
+_R
+S
+%%Page: (3) 3
+%%BeginPageSetup
+_S
+24 24 translate
+/pagenum 3 def
+/fname (smtlib.y) def
+/fdir () def
+/ftail (smtlib.y) def
+% User defined strings:
+/fmodstr (Fri May 18 17:03:21 2007) def
+/pagenumstr (3) def
+/user_header_p false def
+%%EndPageSetup
+do_header
+5 720 M
+(quant_vars:) s
+5 713 M
+(    quant_var) s
+5 706 M
+(  | quant_vars quant_var) s
+5 699 M
+(;) s
+5 685 M
+(quant_var: ) s
+5 678 M
+(    LPAREN_TOK var sort_symb RPAREN_TOK) s
+5 671 M
+(;) s
+5 657 M
+(quant_symb:) s
+5 650 M
+(    EXISTS_TOK) s
+5 643 M
+(  | FORALL_TOK) s
+5 636 M
+(;) s
+5 622 M
+(connective:) s
+5 615 M
+(    NOT_TOK) s
+5 608 M
+(  | IMPLIES_TOK) s
+5 601 M
+(  | IF_THEN_ELSE_TOK) s
+5 594 M
+(  | AND_TOK) s
+5 587 M
+(  | OR_TOK) s
+5 580 M
+(  | XOR_TOK) s
+5 573 M
+(  | IFF_TOK) s
+5 566 M
+(;) s
+5 552 M
+(an_atom:) s
+5 545 M
+(    prop_atom ) s
+5 538 M
+(  | LPAREN_TOK prop_atom annotations RPAREN_TOK ) s
+5 531 M
+(  | LPAREN_TOK pred_symb an_terms annotations RPAREN_TOK) s
+5 524 M
+(  | LPAREN_TOK pred_symb an_terms RPAREN_TOK) s
+5 517 M
+(  | LPAREN_TOK DISTINCT_TOK an_terms annotations RPAREN_TOK) s
+5 510 M
+(  | LPAREN_TOK DISTINCT_TOK an_terms RPAREN_TOK) s
+5 503 M
+(;) s
+5 489 M
+(prop_atom:) s
+5 482 M
+(    TRUE_TOK) s
+5 475 M
+(  | FALSE_TOK) s
+5 468 M
+(  | fvar) s
+5 461 M
+(  | pred_symb ) s
+5 454 M
+(;  ) s
+5 440 M
+(an_terms:) s
+5 433 M
+(    an_term) s
+5 426 M
+(  | an_terms an_term) s
+5 419 M
+(;) s
+5 405 M
+(an_term:) s
+5 398 M
+(    basic_term ) s
+5 391 M
+(  | LPAREN_TOK basic_term annotations RPAREN_TOK ) s
+5 384 M
+(  | LPAREN_TOK fun_symb an_terms annotations RPAREN_TOK) s
+5 377 M
+(  | LPAREN_TOK fun_symb an_terms RPAREN_TOK) s
+5 370 M
+(  | LPAREN_TOK ITE_TOK an_formula an_term an_term annotations RPAREN_TOK) s
+5 363 M
+(  | LPAREN_TOK ITE_TOK an_formula an_term an_term RPAREN_TOK) s
+5 356 M
+(;) s
+5 342 M
+(basic_term:) s
+5 335 M
+(    var) s
+5 328 M
+(  | fun_symb ) s
+5 321 M
+(;) s
+5 307 M
+(annotations:) s
+5 300 M
+(    annotation) s
+5 293 M
+(  | annotations annotation) s
+5 286 M
+(  ;) s
+5 279 M
+(  ) s
+5 272 M
+(annotation:) s
+5 265 M
+(    attribute ) s
+5 258 M
+(  | attribute user_value ) s
+5 251 M
+(;) s
+5 237 M
+(user_value:) s
+5 230 M
+(    USER_VAL_TOK) s
+5 223 M
+(;) s
+5 209 M
+(sort_symb:) s
+5 202 M
+(    SYM_TOK LBRACKET_TOK NUMERAL_TOK RBRACKET_TOK) s
+5 195 M
+(  | SYM_TOK ) s
+5 188 M
+(;) s
+5 174 M
+(pred_symb:) s
+5 167 M
+(    SYM_TOK // bv and other stuff) s
+5 160 M
+(  | AR_SYMB // arithmetic comparisons) s
+5 153 M
+(;) s
+5 139 M
+(fun_symb: ) s
+5 132 M
+(    SYM_TOK LBRACKET_TOK NUMERAL_TOK COLON_TOK NUMERAL_TOK RBRACKET_TOK  // extract) s
+5 125 M
+(  | SYM_TOK  // other built-in and primitive synbols) s
+5 118 M
+(  | AR_SYMB  // arithmetic ) s
+5 111 M
+(  | NUMERAL_TOK) s
+5 104 M
+(;) s
+5 90 M
+(attribute:) s
+5 83 M
+(    COLON_TOK SYM_TOK) s
+5 76 M
+(;) s
+5 62 M
+(var:) s
+5 55 M
+(    QUESTION_TOK SYM_TOK) s
+5 48 M
+(;) s
+5 34 M
+(fvar:) s
+5 27 M
+(    DOLLAR_TOK SYM_TOK) s
+5 20 M
+(;) s
+5 6 M
+(%%) s
+_R
+S
+%%Trailer
+%%Pages: 3
+%%DocumentNeededResources: font Courier-Bold Courier 
+%%EOF

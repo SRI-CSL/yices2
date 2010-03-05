@@ -1,0 +1,18 @@
+;; Test: combination of arithmetic and uninterpreted terms
+;; to see the internal data structures, use 
+;; test_yices_parser --dump=arith_mix.dump arith_mix.ys
+
+(define a::int)
+(define x::real)
+(define-type T)
+
+(define f::(-> T T real))
+(define z0::T)
+(define z1::T)
+
+(define g::(-> real T))
+(define test::T (g (+ a x (f z0 z1))))
+(define test2::T (g (* x (f z0 z1))))
+
+(assert (/= test test2))
+(check)

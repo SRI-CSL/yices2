@@ -1,0 +1,32 @@
+#include <stdio.h>
+#include "exp_stack.h"
+
+int main(){
+  exp_stack_t *exps; 
+  int32_t i;
+
+  exps = new_exp_stack();
+
+  exp_stack_print(exps);
+  
+  for (i=0; i< 50; i++){
+    exp_stack_push(exps, i);
+  }
+
+  exp_stack_print(exps);
+
+  for (i = 0; i < 25; i++){
+    printf("(%d)", exp_stack_top(exps));
+    exp_stack_pop(exps);
+  }
+
+  exp_stack_print(exps);
+
+  for (i = 0; i < 25; i++){
+    printf("(%d)", exp_stack_top(exps));
+    exp_stack_pop(exps);
+  }
+
+  exp_stack_print(exps);
+  return 0;
+}

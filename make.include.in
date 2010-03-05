@@ -1,0 +1,49 @@
+#
+#
+# Host-dependent configuration
+# to be included in all Makefiles
+#
+
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+bindir = @bindir@
+sbindir = @sbindir@
+libexecdir = @libexecdir@
+datarootdir = @datarootdir@
+datadir = @datadir@
+sysconfdir = @sysconfdir@
+sharedstatedir = @sharedstatedir@
+localstatedir = @localstatedir@
+libdir = @libdir@
+infodir = @infodir@
+mandir = @mandir@
+includedir = @includedir@
+
+#
+# Variables set by configure
+# 
+@SET_MAKE@
+POSIXOS=@POSIXOS@
+EXEEXT=@EXEEXT@
+
+# tools
+SED=@SED@
+LN_S=@LN_S@
+MKDIR_P=@MKDIR_P@
+
+# compilation 
+CC=@CC@
+CFLAGS=@CFLAGS@
+CPPFLAGS=@CPPFLAGS@
+LIBS=@LIBS@
+LDFLAGS=@LDFLAGS@
+LD=@LD@
+AR=@AR@
+RANLIB=@RANLIB@
+GPERF=@GPERF@
+STRIP=@STRIP@
+
+# GMP libaries
+STATIC_GMP=@STATIC_GMP@
+STATIC_GMP_INCLUDE_DIR=@STATIC_GMP_INCLUDE_DIR@
+

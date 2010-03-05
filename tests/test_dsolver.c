@@ -1,0 +1,519 @@
+/*
+ * Test the diophantine system solver
+ */
+
+#include <stdio.h>
+#include <inttypes.h>
+
+#include "rationals.h"
+#include "diophantine_systems.h"
+#include "dsolver_printer.h"
+#include "int_vectors.h"
+
+
+
+/*
+ * Global solver
+ */
+static dsolver_t solver;
+
+/*
+ * Explanation vector
+ */
+static ivector_t unsat_rows;
+
+static void print_unsat_rows(void) {
+  uint32_t i, n;
+
+  printf("Unsatisfiable set:");
+  n = unsat_rows.size;
+  for (i=0; i<n; i++) {
+    printf(" %"PRId32, unsat_rows.data[i]);
+  }
+  printf("\n");
+}
+
+int main() {
+  rational_t a;
+  int32_t r0;
+  bool feasible;
+
+  init_rationals();
+  q_init(&a);
+  init_ivector(&unsat_rows, 0);
+
+  init_dsolver(&solver, 3, 3, 3);
+
+  printf("\n**** TEST 0 ****\n");
+  // add row i_5 + i_6 + i_7 + 4 = 0
+  r0 = dsolver_row_open(&solver, 0);
+  q_set_one(&a);
+  dsolver_row_add_mono(&solver, &a, 5); // i_5
+  dsolver_row_add_mono(&solver, &a, 6); // i_6
+  dsolver_row_add_mono(&solver, &a, 7); // i_7
+  q_set32(&a, 4);
+  dsolver_row_add_constant(&solver, &a);
+  if (! dsolver_row_close(&solver)) {
+    dsolver_print_status(stdout, &solver);
+  }
+
+  // add row (1/2) i_5 + (1/3) i_6 - (2/7) i_1 + 4 = 0
+  r0 = dsolver_row_open(&solver, 1);
+  q_set_int32(&a, 1, 2);
+  dsolver_row_add_mono(&solver, &a, 5); // 1/2 * i_5
+  q_set_int32(&a, 1, 3);
+  dsolver_row_add_mono(&solver, &a, 6); // 1/3 * i_6
+  q_set_int32(&a, -2, 7);
+  dsolver_row_add_mono(&solver, &a, 1); // -2/7 * i_1
+  q_set32(&a, 4);
+  dsolver_row_add_constant(&solver, &a);
+  if (! dsolver_row_close(&solver)) {
+    dsolver_print_status(stdout, &solver);
+  }
+
+  // add an empty row
+  r0 = dsolver_row_open(&solver, 2);
+  if (! dsolver_row_close(&solver)) {
+    dsolver_print_status(stdout, &solver);
+  }
+
+  // add an unsat row constant = -1
+  r0 = dsolver_row_open(&solver, 3);
+  q_set_minus_one(&a);
+  dsolver_row_add_constant(&solver, &a);
+  if (! dsolver_row_close(&solver)) {
+    dsolver_print_status(stdout, &solver);
+  }
+
+
+  // add unsat row (1/2) i_7 + (1/3) i_6 - (2/7) i_1 + 2/13 = 0
+  r0 = dsolver_row_open(&solver, 4);
+  q_set_int32(&a, 1, 2);
+  dsolver_row_add_mono(&solver, &a, 7); // 1/2 * i_7
+  q_set_int32(&a, 1, 3);
+  dsolver_row_add_mono(&solver, &a, 6); // 1/3 * i_6
+  q_set_int32(&a, -2, 7);
+  dsolver_row_add_mono(&solver, &a, 1); // -2/7 * i_1
+  q_set_int32(&a, 2, 13);
+  dsolver_row_add_constant(&solver, &a);
+  if (! dsolver_row_close(&solver)) {
+    dsolver_print_status(stdout, &solver);
+  }
+
+  // add row 2 i_5 + 2 i_6 + 2 i_7 + 4 = 0
+  r0 = dsolver_row_open(&solver, 5);
+  q_set32(&a, 2);
+  dsolver_row_add_mono(&solver, &a, 5); // 2 i_5
+  dsolver_row_add_mono(&solver, &a, 6); // 2 i_6
+  dsolver_row_add_mono(&solver, &a, 7); // 2 i_7
+  q_set32(&a, 4);
+  dsolver_row_add_constant(&solver, &a);
+  if (! dsolver_row_close(&solver)) {
+    dsolver_print_status(stdout, &solver);
+  }
+
+  // add row - 2 i_15 - 2 i_16 - 6 * i_17 + 3 = 0
+  r0 = dsolver_row_open(&solver, 6);
+  q_set32(&a, -2);
+  dsolver_row_add_mono(&solver, &a, 15); // -2 i_15
+  dsolver_row_add_mono(&solver, &a, 16); // -2 i_16
+  q_set32(&a, -6);
+  dsolver_row_add_mono(&solver, &a, 17); // -6 i_17
+  q_set32(&a, 3);
+  dsolver_row_add_constant(&solver, &a);
+  if (! dsolver_row_close(&solver)) {
+    dsolver_print_status(stdout, &solver);
+  }
+
+  // test multiple add_mono
+  r0 = dsolver_row_open(&solver, 7);
+  q_set_int32(&a, 899, 9000);
+  dsolver_row_add_mono(&solver, &a, 10); // 899/9000 i_10
+  q_set_int32(&a, 20, 17);
+  dsolver_row_add_mono(&solver, &a, 11); // 20/17 i_11
+  q_set_int32(&a, -200, 9000);
+  dsolver_row_add_mono(&solver, &a, 10); // -200/9000 i_10
+  q_set_int32(&a, -699, 9000);
+  dsolver_row_add_mono(&solver, &a, 10); // -699/9000 i_10
+  if (! dsolver_row_close(&solver)) {
+    dsolver_print_status(stdout, &solver);
+  }
+
+  // test multiple add_constant
+  r0 = dsolver_row_open(&solver, 8);
+  q_set32(&a, -15);
+  dsolver_row_add_mono(&solver, &a, 10); 
+  dsolver_row_add_mono(&solver, &a, 10); // -30 i_10
+  q_set32(&a, 20);
+  dsolver_row_add_constant(&solver, &a);
+  q_set32(&a, -10);
+  dsolver_row_add_constant(&solver, &a);
+  dsolver_row_add_constant(&solver, &a); // 0
+  if (! dsolver_row_close(&solver)) {
+    dsolver_print_status(stdout, &solver);
+  }
+
+  // test multiple add_constant
+  r0 = dsolver_row_open(&solver, 9);
+  q_set32(&a, -15);
+  dsolver_row_add_mono(&solver, &a, 10); 
+  dsolver_row_add_mono(&solver, &a, 10); // -30 i_10
+  q_set32(&a, 20);
+  dsolver_row_add_constant(&solver, &a);
+  q_set32(&a, -10);
+  dsolver_row_add_constant(&solver, &a); // 10
+  if (! dsolver_row_close(&solver)) {
+    dsolver_print_status(stdout, &solver);
+  }
+
+  printf("Result: 9 rows added\n");
+  dsolver_print_rows(stdout, &solver);
+  
+
+  /*
+   * Reset the whole thing and initialize with equations:
+   *   2x + 3y + z + 1 = 0
+   *   3x - y + 2 = 0
+   * Test simplification: z and y should be removed
+   */
+  printf("\n**** TEST 1 ****\n");
+
+  reset_dsolver(&solver);
+  r0 = dsolver_row_open(&solver, 20);
+  q_set32(&a, 2);
+  dsolver_row_add_mono(&solver, &a, 1);   // i_1 for x
+  q_set32(&a, 3);
+  dsolver_row_add_mono(&solver, &a, 2);   // i_2 for y
+  q_set_one(&a);
+  dsolver_row_add_mono(&solver, &a, 3);   // i_3 for z
+  dsolver_row_add_constant(&solver, &a);
+  dsolver_row_close(&solver);
+
+  r0 = dsolver_row_open(&solver, 21);
+  q_set32(&a, 3);
+  dsolver_row_add_mono(&solver, &a, 1);
+  q_set_minus_one(&a);
+  dsolver_row_add_mono(&solver, &a, 2);
+  q_set32(&a, 2);
+  dsolver_row_add_constant(&solver, &a);
+  dsolver_row_close(&solver);
+
+  dsolver_print_status(stdout, &solver);
+  printf("Result: 2 rows added\n");
+  dsolver_print_rows(stdout, &solver);
+  dsolver_simplify(&solver);
+  printf("After simplification\n");
+  dsolver_print_rows(stdout, &solver);
+  dsolver_print_elim_rows(stdout, &solver);
+
+  feasible = dsolver_is_feasible(&solver);
+  printf("After Rosser\n");
+  //  dsolver_print_main_rows(stdout, &solver);
+  dsolver_print_sol_rows(stdout, &solver);
+  dsolver_print_elim_rows(stdout, &solver);
+  dsolver_print_solved_columns(stdout, &solver);
+  dsolver_print_rows_to_process(stdout, &solver);
+  dsolver_print_status(stdout, &solver);
+
+  if (feasible) {
+    dsolver_build_solution(&solver);
+    dsolver_build_general_solution(&solver);
+    dsolver_print_solution(stdout, &solver);
+    dsolver_print_gen_solution(stdout, &solver);    
+  }
+  
+
+  /*
+   * Reset the whole thing and initialize with equations:
+   *   2x + 3y + z + 1 = 0
+   *   x - 2 y = 0
+   *   4 t + 5 y + 3 = 0
+   * Test simplification: x and z should be removed
+   */
+  printf("\n**** TEST 2 ****\n");
+
+  reset_dsolver(&solver);
+  r0 = dsolver_row_open(&solver, 40);
+  q_set32(&a, 2);
+  dsolver_row_add_mono(&solver, &a, 1);   // 2 i_1 = 2x
+  q_set32(&a, 3);
+  dsolver_row_add_mono(&solver, &a, 2);   // 3 i_2 = 3y
+  q_set_one(&a);
+  dsolver_row_add_mono(&solver, &a, 3);   // i_3 = z
+  dsolver_row_add_constant(&solver, &a);  // 1
+  dsolver_row_close(&solver);
+
+  r0 = dsolver_row_open(&solver, 41);
+  q_set_one(&a);
+  dsolver_row_add_mono(&solver, &a, 1);  // i_1 = x
+  q_set32(&a, -2);
+  dsolver_row_add_mono(&solver, &a, 2);  // -2 i_2 = -2y
+  dsolver_row_close(&solver);
+
+  r0 = dsolver_row_open(&solver, 42);
+  q_set32(&a, 4);
+  dsolver_row_add_mono(&solver, &a, 4); // 4 i_4 = 4t
+  q_set32(&a, 5);
+  dsolver_row_add_mono(&solver, &a, 2); // 5 i_2 = 5y
+  q_set32(&a, 3);
+  dsolver_row_add_constant(&solver, &a); // 3
+  dsolver_row_close(&solver);
+
+  dsolver_print_status(stdout, &solver);
+  printf("Result: 3 rows added\n");
+  dsolver_print_rows(stdout, &solver);
+  //  dsolver_simplify(&solver);
+  printf("After simplification\n");
+  dsolver_print_main_rows(stdout, &solver);
+  dsolver_print_elim_rows(stdout, &solver);  
+
+  feasible = dsolver_is_feasible(&solver);
+  printf("After Rosser\n");
+  //  dsolver_print_main_rows(stdout, &solver);
+  dsolver_print_sol_rows(stdout, &solver);
+  dsolver_print_elim_rows(stdout, &solver);
+  dsolver_print_solved_columns(stdout, &solver);
+  dsolver_print_rows_to_process(stdout, &solver);
+  dsolver_print_status(stdout, &solver);
+
+  if (feasible) {
+    dsolver_build_solution(&solver);
+    dsolver_build_general_solution(&solver);
+    dsolver_print_solution(stdout, &solver);
+    dsolver_print_gen_solution(stdout, &solver);    
+  }
+  
+
+
+  /*
+   * Reset the whole thing and initialize with equations:
+   *   x_5 + x_6 + x_7 + 4 = 0
+   *   (1/2) x_5 + (1/3) x_6 - (2/7) x_1 + 4 = 0
+   *   0 = 0
+   *   2 x_5 + 2 x_6 + 2 x_7 + 4 = 0
+   *   - 2 x_15 - 2 x_16 - 6 * x_17 + 8 = 0
+   */
+  printf("\n**** TEST 3 ****\n");
+
+  // x_5 + x_6 + x_7 + 4 = 0
+  reset_dsolver(&solver);
+  r0 = dsolver_row_open(&solver, 50);
+  q_set_one(&a);
+  dsolver_row_add_mono(&solver, &a, 5); // x_5
+  dsolver_row_add_mono(&solver, &a, 6); // x_6
+  dsolver_row_add_mono(&solver, &a, 7); // x_7
+  q_set32(&a, 4);
+  dsolver_row_add_constant(&solver, &a);
+  dsolver_row_close(&solver);
+
+  // (1/2) x_5 + (1/3) x_6 - (2/7) x_1 + 4 = 0
+  r0 = dsolver_row_open(&solver, 51);
+  q_set_int32(&a, 1, 2);
+  dsolver_row_add_mono(&solver, &a, 5); // 1/2 * x_5
+  q_set_int32(&a, 1, 3);
+  dsolver_row_add_mono(&solver, &a, 6); // 1/3 * x_6
+  q_set_int32(&a, -2, 7);
+  dsolver_row_add_mono(&solver, &a, 1); // -2/7 * x_1
+  q_set32(&a, 4);
+  dsolver_row_add_constant(&solver, &a);
+  dsolver_row_close(&solver);
+
+  // empty row
+  r0 = dsolver_row_open(&solver, 52);
+  dsolver_row_close(&solver);
+
+  // 2 x_5 + 2 x_6 + 2 x_7 + 6 = 0
+  r0 = dsolver_row_open(&solver, 53);
+  q_set32(&a, 2);
+  dsolver_row_add_mono(&solver, &a, 5); // 2 x_5
+  dsolver_row_add_mono(&solver, &a, 6); // 2 x_6
+  dsolver_row_add_mono(&solver, &a, 7); // 2 x_7
+  q_set32(&a, 8);
+  dsolver_row_add_constant(&solver, &a); // +8
+  dsolver_row_close(&solver);
+
+  // - 2 x_15 - 2 x_16 - 6 x_17 + 6 = 0
+  r0 = dsolver_row_open(&solver, 54);
+  q_set32(&a, -2);
+  dsolver_row_add_mono(&solver, &a, 15);  // -2 x_15
+  dsolver_row_add_mono(&solver, &a, 16);  // -2 x_16
+  q_set32(&a, -6);
+  dsolver_row_add_mono(&solver, &a, 17);  // -6 x_17
+  q_set32(&a, 8);
+  dsolver_row_add_constant(&solver, &a);  // + 6
+  dsolver_row_close(&solver);
+
+
+  dsolver_print_status(stdout, &solver);
+  printf("Result: 5 rows added\n");
+  dsolver_print_rows(stdout, &solver);
+  dsolver_simplify(&solver);
+  printf("After simplification\n");
+  dsolver_print_main_rows(stdout, &solver);
+  dsolver_print_elim_rows(stdout, &solver);  
+
+  feasible = dsolver_is_feasible(&solver);
+  printf("After Rosser\n");
+  dsolver_print_main_rows(stdout, &solver);
+  dsolver_print_sol_rows(stdout, &solver);
+  dsolver_print_elim_rows(stdout, &solver);
+  dsolver_print_solved_columns(stdout, &solver);
+  dsolver_print_rows_to_process(stdout, &solver);
+  dsolver_print_status(stdout, &solver);
+
+  if (feasible) {
+    dsolver_build_solution(&solver);
+    dsolver_build_general_solution(&solver);
+    dsolver_print_solution(stdout, &solver);
+    dsolver_print_gen_solution(stdout, &solver);
+  }
+
+
+  /*
+   * Reset the whole thing and initialize with equations:
+   *   2 x_1 + 3 x_2 + 4 = 0
+   *   2 x_3 + 6 x_4 + 2 = 0
+   *   x_1 + x_3 + 9 x_5 + 1 = 0
+   */
+  printf("\n**** TEST 4 ****\n");
+  reset_dsolver(&solver);
+
+  r0 = dsolver_row_open(&solver, 0);
+  q_set32(&a, 2);
+  dsolver_row_add_mono(&solver, &a, 1); // 2 x_1
+  q_set32(&a, 3);
+  dsolver_row_add_mono(&solver, &a, 2); // 3 x_2
+  q_set32(&a, 4);
+  dsolver_row_add_constant(&solver, &a);
+  dsolver_row_close(&solver);
+
+  
+  r0 = dsolver_row_open(&solver, 1);
+  q_set32(&a, 2);
+  dsolver_row_add_mono(&solver, &a, 3); // 2 x_3
+  q_set32(&a, 6);
+  dsolver_row_add_mono(&solver, &a, 4); // 3 x_4
+  q_set32(&a, 2);
+  dsolver_row_add_constant(&solver, &a);
+  dsolver_row_close(&solver);
+  
+  r0 = dsolver_row_open(&solver, 2);
+  q_set32(&a, 1);
+  dsolver_row_add_mono(&solver, &a, 1); // x_1
+  dsolver_row_add_mono(&solver, &a, 3); // x_3
+  q_set32(&a, 9);
+  dsolver_row_add_mono(&solver, &a, 5); // 9 x_5
+  q_set_one(&a);
+  dsolver_row_add_constant(&solver, &a);
+  dsolver_row_close(&solver);
+
+  dsolver_print_status(stdout, &solver);
+  printf("Result: 3 rows added\n");
+  dsolver_print_rows(stdout, &solver);
+  dsolver_simplify(&solver);
+  printf("After simplification\n");
+  dsolver_print_main_rows(stdout, &solver);
+  dsolver_print_elim_rows(stdout, &solver);  
+
+  feasible = dsolver_is_feasible(&solver);
+  printf("After Rosser\n");
+  dsolver_print_main_rows(stdout, &solver);
+  dsolver_print_sol_rows(stdout, &solver);
+  dsolver_print_elim_rows(stdout, &solver);
+  dsolver_print_solved_columns(stdout, &solver);
+  dsolver_print_rows_to_process(stdout, &solver);
+  dsolver_print_status(stdout, &solver);
+
+  if (feasible) {
+    dsolver_build_solution(&solver);
+    dsolver_build_general_solution(&solver);
+    dsolver_print_solution(stdout, &solver);
+    dsolver_print_gen_solution(stdout, &solver);
+  } else {
+    ivector_reset(&unsat_rows);
+    dsolver_unsat_rows(&solver, &unsat_rows);
+    print_unsat_rows();
+  }
+  
+  /*
+   * Reset the whole thing and initialize with equations:
+   *   2 x_1 + 3 x_2 + 4 = 0
+   *   x_1 + 2 x_6 = 0
+   *   2 x_3 + 6 x_4 + 2 = 0
+   *   x_1 + x_3 + 9 x_5 + 1 = 0
+   */
+  printf("\n**** TEST 6 ****\n");
+  reset_dsolver(&solver);
+
+  r0 = dsolver_row_open(&solver, 0);
+  q_set32(&a, 2);
+  dsolver_row_add_mono(&solver, &a, 1); // 2 x_1
+  q_set32(&a, 3);
+  dsolver_row_add_mono(&solver, &a, 2); // 3 x_2
+  q_set32(&a, 4);
+  dsolver_row_add_constant(&solver, &a);
+  dsolver_row_close(&solver);
+
+  r0 = dsolver_row_open(&solver, 1);
+  q_set32(&a, 1);
+  dsolver_row_add_mono(&solver, &a, 1); // x_1
+  dsolver_row_add_mono(&solver, &a, 4); // x_4
+  q_set32(&a, 2);
+  dsolver_row_add_mono(&solver, &a, 6); // 2 x_6
+  dsolver_row_close(&solver);
+
+  r0 = dsolver_row_open(&solver, 2);
+  q_set32(&a, 2);
+  dsolver_row_add_mono(&solver, &a, 3); // 2 x_3
+  q_set32(&a, 6);
+  dsolver_row_add_mono(&solver, &a, 4); // 3 x_4
+  q_set32(&a, 2);
+  dsolver_row_add_constant(&solver, &a);
+  dsolver_row_close(&solver);
+  
+  r0 = dsolver_row_open(&solver, 3);
+  q_set32(&a, 1);
+  dsolver_row_add_mono(&solver, &a, 1); // x_1
+  dsolver_row_add_mono(&solver, &a, 3); // x_3
+  q_set32(&a, 9);
+  dsolver_row_add_mono(&solver, &a, 5); // 9 x_5
+  q_set_one(&a);
+  dsolver_row_add_constant(&solver, &a);
+  dsolver_row_close(&solver);
+
+  dsolver_print_status(stdout, &solver);
+  printf("Result: 3 rows added\n");
+  dsolver_print_rows(stdout, &solver);
+  dsolver_simplify(&solver);
+  printf("After simplification\n");
+  dsolver_print_main_rows(stdout, &solver);
+  dsolver_print_elim_rows(stdout, &solver);  
+
+  feasible = dsolver_is_feasible(&solver);
+  printf("After Rosser\n");
+  dsolver_print_main_rows(stdout, &solver);
+  dsolver_print_sol_rows(stdout, &solver);
+  dsolver_print_elim_rows(stdout, &solver);
+  dsolver_print_solved_columns(stdout, &solver);
+  dsolver_print_rows_to_process(stdout, &solver);
+  dsolver_print_status(stdout, &solver);
+
+  if (feasible) {
+    dsolver_build_solution(&solver);
+    dsolver_build_general_solution(&solver);
+    dsolver_print_solution(stdout, &solver);
+    dsolver_print_gen_solution(stdout, &solver);
+  } else {
+    ivector_reset(&unsat_rows);
+    dsolver_unsat_rows(&solver, &unsat_rows);
+    print_unsat_rows();
+  }
+  
+
+  delete_dsolver(&solver);
+  delete_ivector(&unsat_rows);
+  q_clear(&a);
+  cleanup_rationals();
+
+  return 0;
+}

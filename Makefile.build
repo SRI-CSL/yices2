@@ -1,0 +1,239 @@
+#
+# Build Makefile
+# 
+# Must be invoked with the following variables set
+#
+#   YICES_TOP_DIR = top-level directory for Yices
+#   YICES_MODE = build mode
+#   YICES_MAKE_INCLUDE = configuration file to include
+#   ARCH = architecture (e.g, i686-pc-linux-gnu)
+#   POSIXOS = OS (e.g., linux)
+#
+# Config variables are imported by including the file
+#   $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
+#
+# This file is constructed by running configure on the
+# host and it defines the compilation tools and flags
+# and the GMP libraries to use.
+#
+
+SHELL=/bin/sh
+
+include $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
+
+
+#
+# source directories
+#
+srcdir = src
+testdir = tests
+satsolverdir = sat_solver
+
+#
+# Build directories
+#
+build_dir = build/$(ARCH)-$(YICES_MODE)
+
+objdir = $(build_dir)/obj
+libdir = $(build_dir)/lib
+bindir = $(build_dir)/bin
+
+
+#
+# Directories and temporary file to build tarfiles
+# - we do this in two steps: the includes, binaries, and library files
+#   to be distributed are constructed by invoking make -C src
+#   and copied into $(distir)
+#   (what's required is defined in src/Makefile and may depend
+#    on the OS + compilation mode).
+# - the full tar file is built from $(distdir) + the generic files
+#   that are independent of OS and compilation modes
+# - the name of the tar file depends on ARCH + MODE
+# 
+distdir = $(build_dir)/dist
+bindist_dir = yices-2.0.0
+smtdist_dir = yices2smt09
+
+distributions = ./distributions
+
+ifeq ($(YICES_MODE),release) 
+bindist_tarfile = $(bindist_dir)-$(ARCH).tar.gz
+smtdist_tarfile = $(smtdist_dir)-$(ARCH).tar.gz
+else
+ifeq ($(YICES_MODE),static)
+bindist_tarfile = $(bindist_dir)-$(ARCH)-static-gmp.tar.gz
+smtdist_tarfile = $(smtdist_dir)-$(ARCH)-static-gmp.tar.gz
+else
+bindist_tarfile = $(bindist_dir)-$(ARCH)-$(YICES_MODE).tar.gz
+smtdist_tarfile = $(smtdist_dir)-$(ARCH)-$(YICES_MODE).tar.gz
+endif
+endif
+
+
+
+#
+# Compilation
+#
+all: lib bin test satsolver
+
+objects: build_dir
+	@ echo "=== Building objects ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) objects
+
+lib: build_dir
+	@ echo "=== Building libraries ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) lib
+
+bin: build_dir
+	@ echo "=== Building binaries ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) bin
+
+test: build_dir lib
+	@ echo "=== Building tests ==="
+	@ $(MAKE) -C $(testdir) BUILD=../$(build_dir) all
+
+satsolver: build_dir objects
+	@ echo "=== Building satsolver ==="
+	@ $(MAKE) -C $(satsolverdir) BUILD=../$(build_dir) bin
+
+
+
+
+#
+# Create build directories if not present
+#
+build_dir: $(objdir) $(libdir) $(bindir)
+
+$(objdir):
+	$(MKDIR_P) $(objdir)
+
+$(libdir):
+	$(MKDIR_P) $(libdir)
+
+$(bindir):
+	$(MKDIR_P) $(bindir)
+
+
+
+#
+# Binary distribution/smt distribution
+#
+$(distdir):
+	$(MKDIR_P) $(distdir)
+
+$(distributions):
+	$(MKDIR_P) $(distributions)
+
+binary-distribution: binary_distribution
+
+binary_distribution: build_dir $(distdir) $(distributions)
+	@ echo "=== Preparing binary distribution ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) binary-distribution
+	@ echo "=== Building tarfile ==="
+	rm -f -r $(bindist_dir)
+	mkdir $(bindist_dir)
+	cp -r $(distdir)/* $(bindist_dir)
+	cp etc/LICENSE etc/NOTICES $(bindist_dir)
+	chmod -R og+rX $(bindist_dir)
+	sync
+	sync
+	sleep 10
+	tar -czf $(distributions)/$(bindist_tarfile) $(bindist_dir)
+	chmod -R og+rX $(distributions)
+	rm -f -r $(bindist_dir)
+
+smt-distribution: smt_distribution
+
+smt_distribution: build_dir $(distdir) $(distributions)
+	@ echo "=== Preparing smt distribution ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) smt-distribution
+	@ echo "=== Building tarfile ==="
+	rm -f -r $(smtdist_dir)
+	mkdir $(smtdist_dir)
+	cp -r $(distdir)/* $(smtdist_dir)
+	cp etc/LICENSE etc/NOTICES $(smtdist_dir)
+	chmod -R og+rX $(smtdist_dir)
+	sync
+	sync
+	sleep 10
+	tar -czf $(distributions)/$(smtdist_tarfile) $(smtdist_dir)
+	chmod -R og+rX $(distributions)
+	rm -f -r $(smtdist_dir)
+
+
+
+#
+# Basic clean: delete objects/libraries/binary files
+# (some tools construct sub-directories in bin)
+#
+clean:
+	rm -rf $(objdir)/*
+	rm -rf $(libdir)/*
+	rm -rf $(bindir)/*
+
+#
+# Deep clean: delete build sub-directories for arch + mode
+#
+build-clean: build_clean
+
+build_clean:
+	rm -rf $(objdir)
+	rm -rf $(libdir)
+	rm -rf $(bindir)
+
+
+#
+# Arch clean: delete all build subdirectories for an architecture
+#
+arch-clean: arch_clean
+
+arch_clean:
+	rm -rf build/$(ARCH)-*
+
+
+#
+# All clean delete all build directories
+#
+all-clean: all_clean
+
+all_clean:
+	rm -rf build/*
+
+
+
+
+
+
+.PHONY: recheck build_dir all objects lib bin test satsolver \
+	build_clean clean build-clean arch-clean arch_clean all_clean all-clean 
+
+recheck:
+	@ echo
+	@ echo "*** Recursive Makefile ***"
+	@ echo
+	@ echo "target is $@"
+	@ echo
+	@ echo "ARCH is $(ARCH)"
+	@ echo "POSIXOS is $(POSIXOS)"
+	@ echo "YICES_TOP_DIR is $(YICES_TOP_DIR)"
+	@ echo "YICES_MAKE_INCLUDE is $(YICES_MAKE_INCLUDE)"
+	@ echo "YICES_MODE is $(YICES_MODE)"
+	@ echo
+	@ echo "Configuration"
+	@ echo "  EXEEXT   = $(EXEEXT)"
+	@ echo "  SED      = $(SED)"
+	@ echo "  LN_S     = $(LN_S)"
+	@ echo "  MKDIR_P  = $(MKDIR_P)"
+	@ echo "  CC       = $(CC)"
+	@ echo "  CPPFLAGS = $(CPPFLAGS)"
+	@ echo "  LIBS     = $(LIBS)"
+	@ echo "  LDFLAGS  = $(LDFLAGS)"
+	@ echo "  LD       = $(LD)"
+	@ echo "  AR       = $(AR)"
+	@ echo "  RANLIB   = $(RANLIB)"
+	@ echo "  GPERF    = $(GPERF)"
+	@ echo "  STRIP    = $(STRIP)"
+	@ echo 
+	@ echo "  STATIC_GMP = $(STATIC_GMP)"
+	@ echo "  STATIC_GMP_INCLUDE_DIR = $(STATIC_GMP_INCLUDE_DIR)"
+	@ echo

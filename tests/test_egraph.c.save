@@ -1,0 +1,65 @@
+/*
+ * Test egraph standalone
+ */
+
+#include <stdio.h>
+#include <stdint.h>
+#include <inttypes.h>
+#include <stdbool.h>
+
+#include "vectors.h"
+#include "egraph.h"
+#include "solver_printer.h"
+
+
+static egraph_t egraph;
+
+static eterm_t x[20];
+
+int main() {
+  uint32_t i;
+  bool conflict;
+  ivector_t *v;
+
+  init_egraph(&egraph);
+
+  for (i=0; i<5; i++) {
+    x[i] = egraph_constant(&egraph);
+  }
+  for (i=5; i<10; i++) {
+    x[i] = egraph_variable(&egraph);
+  }
+
+  egraph_set_type(&egraph, x[8], ETYPE_BOOL);
+
+  x[10] = egraph_eq_term(&egraph, false_occ, pos_occ(x[8]));
+  egraph_activate_composite(&egraph, x[10]);
+
+  x[11] = egraph_eq_term(&egraph, pos_occ(x[6]), pos_occ(x[9]));
+  egraph_activate_composite(&egraph, x[11]);
+
+  egraph_assert_atom(&egraph, pos_occ(x[11]), 129);
+  egraph_assert_atom(&egraph, pos_occ(x[10]), 153);
+  //  egraph_assert_atom(&egraph, pos_occ(x[8]), 201);
+  egraph_assert_eq(&egraph, pos_occ(x[2]), neg_occ(x[3]), 305);
+  conflict = ! egraph_propagate(&egraph);
+  
+  printf("*** TERMS ***\n");
+  print_egraph_terms_details(stdout, &egraph);
+  printf("\n*** CLASSES ***\n");
+  print_egraph_root_classes(stdout, &egraph);
+  
+  if (conflict) {
+    printf("\n*** CONFLICT DETECTED ***\n");
+    v = &egraph.expl_vector;
+    printf("Conflict literals: ");
+    for (i=0; i<v->size; i++) {
+      printf(" %"PRId32, v->data[i]);
+    }
+    printf("\n\n");
+  }
+
+  delete_egraph(&egraph);
+  return 0;
+}
+

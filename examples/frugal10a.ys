@@ -1,0 +1,40 @@
+;; test for Yices (taken from SMT 2008 paper by Sava Krstic et al.)
+
+(define-type Index)
+(define-type Element)
+(define-type Array (-> Index Element))
+
+(define a::Array)
+(define b::Array)
+(define c::Array)
+(define d::Array)
+
+(define i0::Index)
+(define i1::Index)
+(define i2::Index)
+(define i3::Index)
+(define i4::Index)
+(define i5::Index)
+(define i6::Index)
+(define i7::Index)
+(define i8::Index)
+(define i9::Index)
+(define x0::Element)
+(define x1::Element)
+(define x2::Element)
+(define x3::Element)
+(define x4::Element)
+(define x5::Element)
+(define x6::Element)
+(define x7::Element)
+(define x8::Element)
+(define x9::Element)
+
+(assert 
+ (and 
+  (= c (update (update (update (update (update (update (update (update (update (update a (i0) x0) (i1) x1) (i2) x2) (i3) x3) (i4) x4) (i5) x5) (i6) x6) (i7) x7) (i8) x8) (i9) x9)) 
+  (= d (update (update (update (update (update (update (update (update (update (update b (i0) x0) (i1) x1) (i2) x2) (i3) x3) (i4) x4) (i5) x5) (i6) x6) (i7) x7) (i8) x8) (i9) x9))
+  (not (= c d))))
+
+(check)
+(show-model)

@@ -1,0 +1,479 @@
+/*
+ * Test construction of distinct maps
+ */
+
+#include <stdio.h>
+#include <stdint.h>
+#include <inttypes.h>
+
+#include "types.h"
+#include "abstract_values.h"
+#include "fun_maps.h"
+
+static type_table_t types;
+static pstore_t store;
+/*
+ * Print particle x as a index (or tuple)
+ */
+static void print_index(particle_t x) { 
+  particle_tuple_t *tup;
+  uint32_t i, n;
+
+  switch (particle_kind(&store, x)) {
+  case LABEL_PARTICLE:
+    printf("L%"PRId32, particle_label(&store, x));
+    break;
+  case FRESH_PARTICLE:
+    printf("p!%"PRId32, x);
+    break;
+  case TUPLE_PARTICLE:
+    tup = tuple_particle_desc(&store, x);
+    n = tup->nelems;
+    for (i=0; i<n; i++) {
+      if (i>0) printf(" ");
+      print_index(tup->elem[i]);
+    }
+    break;
+  }
+}
+
+
+/*
+ * Print particle x as a value
+ */
+static void print_value(particle_t x) { 
+  particle_tuple_t *tup;
+  uint32_t i, n;
+
+  switch (particle_kind(&store, x)) {
+  case LABEL_PARTICLE:
+    printf("L%"PRId32, particle_label(&store, x));
+    break;
+  case FRESH_PARTICLE:
+    printf("p!%"PRId32, x);
+    break;
+  case TUPLE_PARTICLE:
+    tup = tuple_particle_desc(&store, x);
+    printf("(tuple ");
+    n = tup->nelems;
+    for (i=0; i<n; i++) {      
+      printf(" ");
+      print_value(tup->elem[i]);
+    }
+    printf(")");
+    break;
+  }
+}
+
+
+/*
+ * Print a map
+ */
+static void print_map(map_t *map) {
+  uint32_t i, n;
+  particle_t idx, v;
+  bool vmode;
+
+  printf("map[%p]", map);
+  n = map->nelems;
+  vmode = n>=5; // vmode means one map per line
+
+  for (i=0; i<n; i++) {
+    idx = map->data[i].index;
+    v = map->data[i].value;
+    if (vmode) {
+      printf("\n   ");
+    } else if (i == 0) {
+      printf(": ");
+    } else {
+      printf(", ");
+    }
+    print_index(idx);
+    printf(" -> ");
+    print_value(v);
+  }
+
+  v = map_default_value(map);
+  if (v != null_particle) {
+    if (vmode) {
+      printf("\n   ");
+    } else if (i == 0) {
+      printf(": ");
+    } else {
+      printf(", ");
+    }
+    printf("def -> ");
+    print_value(v);
+  }
+
+  printf("\n");
+}
+
+
+
+/*
+ * Create type tau1 -> tau2
+ */
+static type_t fun_type1(type_t tau1, type_t tau2) {
+  return function_type(&types, tau2, 1, &tau1);
+}
+
+/*
+ * Create type tau1 x tau2 -> tau3
+ */
+static type_t fun_type2(type_t tau1, type_t tau2, type_t tau3) {
+  type_t aux[2];
+
+  aux[0] = tau1;
+  aux[1] = tau2;
+  return function_type(&types, tau3, 2, aux);
+}
+
+
+/*
+ * Test1: 4 maps [bool -> bool]
+ */
+static void test1(void) {
+  map_t *map[4];
+  type_t tau;
+  function_type_t *f;
+  uint32_t i;
+  bool ok;
+
+  printf("\n"
+	 "***********************\n"
+	 "*       TEST 1        *\n"
+         "***********************\n");
+
+  init_pstore(&store, &types); 
+
+  for (i=0; i<4; i++) {
+    map[i] = new_map(3);
+  }
+
+  // print all the maps;
+  printf("\nIinitial maps\n");
+  for (i=0; i<4; i++) {
+    print_map(map[i]);
+  }
+  printf("\n");
+  
+  tau = bool_type(&types);
+  tau = fun_type1(tau, tau); // [bool -> bool]
+  f = function_type_desc(&types, tau);
+  ok = force_maps_to_differ(&store, f, 4, map);
+  if (ok) {
+    printf("All distinct: OK\n");
+  } else {
+    printf("All distinct: failed\n");
+  }
+  
+  // print all the maps;
+  printf("\nFinal maps\n");
+  for (i=0; i<4; i++) {
+    print_map(map[i]);
+  }
+  printf("\n");
+
+  // cleanup
+  for (i=0; i<4; i++) {
+    free_map(map[i]);
+  }
+
+  delete_pstore(&store);
+}
+
+
+/*
+ * Test2: 5 maps [bool -> bool]
+ */
+static void test2(void) {
+  map_t *map[5];
+  type_t tau;
+  function_type_t *f;
+  uint32_t i;
+  bool ok;
+
+  printf("\n"
+	 "***********************\n"
+	 "*       TEST 2        *\n"
+         "***********************\n");
+  
+  init_pstore(&store, &types); 
+
+  for (i=0; i<5; i++) {
+    map[i] = new_map(3);
+  }
+
+  // print all the maps;
+  printf("\nIinitial maps\n");
+  for (i=0; i<5; i++) {
+    print_map(map[i]);
+  }
+  printf("\n");
+  
+  tau = bool_type(&types);
+  tau = fun_type1(tau, tau); // [bool -> bool]
+  f = function_type_desc(&types, tau);
+  ok = force_maps_to_differ(&store, f, 5, map);
+  if (ok) {
+    printf("All distinct: OK\n");
+  } else {
+    printf("All distinct: failed\n");
+  }
+  
+  // print all the maps;
+  printf("\nFinal maps\n");
+  for (i=0; i<5; i++) {
+    print_map(map[i]);
+  }
+  printf("\n");
+
+  // cleanup
+  for (i=0; i<5; i++) {
+    free_map(map[i]);
+  }
+
+  delete_pstore(&store);
+}
+
+
+/*
+ * Test 3: 16 functions of type [bool bool -> bool]
+ */
+static void test3(void) {
+  map_t *map[16];
+  type_t tau;
+  function_type_t *f;
+  uint32_t i;
+  bool ok;
+
+  printf("\n"
+	 "***********************\n"
+	 "*       TEST 3        *\n"
+         "***********************\n");
+  
+  init_pstore(&store, &types); 
+
+  for (i=0; i<16; i++) {
+    map[i] = new_map(3);
+  }
+
+  // print all the maps;
+  printf("\nIinitial maps\n");
+  for (i=0; i<16; i++) {
+    print_map(map[i]);
+  }
+  printf("\n");
+  
+  tau = bool_type(&types);
+  tau = fun_type2(tau, tau, tau); // [bool bool -> bool]
+  f = function_type_desc(&types, tau);
+  ok = force_maps_to_differ(&store, f, 16, map);
+  if (ok) {
+    printf("All distinct: OK\n");
+  } else {
+    printf("All distinct: failed\n");
+  }
+  
+  // print all the maps;
+  printf("\nFinal maps\n");
+  for (i=0; i<16; i++) {
+    print_map(map[i]);
+  }
+  printf("\n");
+
+  // cleanup
+  for (i=0; i<16; i++) {
+    free_map(map[i]);
+  }
+
+  delete_pstore(&store);
+}
+
+
+/*
+ * Test 4: 17 functions of type [bool bool -> bool]
+ */
+static void test4(void) {
+  map_t *map[17];
+  type_t tau;
+  function_type_t *f;
+  uint32_t i;
+  bool ok;
+
+  printf("\n"
+	 "***********************\n"
+ 	 "*       TEST 4        *\n"
+         "***********************\n");
+  
+  init_pstore(&store, &types); 
+
+  for (i=0; i<17; i++) {
+    map[i] = new_map(3);
+  }
+
+  // print all the maps;
+  printf("\nIinitial maps\n");
+  for (i=0; i<17; i++) {
+    print_map(map[i]);
+  }
+  printf("\n");
+  
+  tau = bool_type(&types);
+  tau = fun_type2(tau, tau, tau); // [bool bool -> bool]
+  f = function_type_desc(&types, tau);
+  ok = force_maps_to_differ(&store, f, 17, map);
+  if (ok) {
+    printf("All distinct: OK\n");
+  } else {
+    printf("All distinct: failed\n");
+  }
+  
+  // print all the maps;
+  printf("\nFinal maps\n");
+  for (i=0; i<17; i++) {
+    print_map(map[i]);
+  }
+  printf("\n");
+
+  // cleanup
+  for (i=0; i<17; i++) {
+    free_map(map[i]);
+  }
+
+  delete_pstore(&store);
+}
+
+
+
+/*
+ * Test 5: [bool -> U]
+ */
+static void test5(void) {
+  map_t *map[5];
+  type_t unint, tau;
+  function_type_t *f;
+  uint32_t i;
+  bool ok;
+
+  printf("\n"
+	 "***********************\n"
+	 "*       TEST 5        *\n"
+         "***********************\n");
+  
+  init_pstore(&store, &types); 
+
+  for (i=0; i<5; i++) {
+    map[i] = new_map(3);
+  }
+
+  // print all the maps;
+  printf("\nIinitial maps\n");
+  for (i=0; i<5; i++) {
+    print_map(map[i]);
+  }
+  printf("\n");
+  
+  tau = bool_type(&types);
+  unint = new_uninterpreted_type(&types);
+  tau = fun_type1(tau, unint); // [bool -> unint]
+  f = function_type_desc(&types, tau);
+  ok = force_maps_to_differ(&store, f, 5, map);
+  if (ok) {
+    printf("All distinct: OK\n");
+  } else {
+    printf("All distinct: failed\n");
+  }
+  
+  // print all the maps;
+  printf("\nFinal maps\n");
+  for (i=0; i<5; i++) {
+    print_map(map[i]);
+  }
+  printf("\n");
+
+  // cleanup
+  for (i=0; i<5; i++) {
+    free_map(map[i]);
+  }
+
+  delete_pstore(&store);
+}
+
+
+
+/*
+ * Test 6: [U -> bool]
+ */
+static void test6(void) {
+  map_t *map[5];
+  type_t unint, tau;
+  function_type_t *f;
+  uint32_t i;
+  bool ok;
+
+  printf("\n"
+	 "***********************\n"
+	 "*       TEST 6        *\n"
+         "***********************\n");
+  
+  init_pstore(&store, &types); 
+
+  for (i=0; i<5; i++) {
+    map[i] = new_map(3);
+  }
+
+  // print all the maps;
+  printf("\nIinitial maps\n");
+  for (i=0; i<5; i++) {
+    print_map(map[i]);
+  }
+  printf("\n");
+  
+  tau = bool_type(&types);
+  unint = new_uninterpreted_type(&types);
+  tau = fun_type1(unint, tau); // [unint -> bool]
+  f = function_type_desc(&types, tau);
+  ok = force_maps_to_differ(&store, f, 5, map);
+  if (ok) {
+    printf("All distinct: OK\n");
+  } else {
+    printf("All distinct: failed\n");
+  }
+  
+  // print all the maps;
+  printf("\nFinal maps\n");
+  for (i=0; i<5; i++) {
+    print_map(map[i]);
+  }
+  printf("\n");
+
+  // cleanup
+  for (i=0; i<5; i++) {
+    free_map(map[i]);
+  }
+
+  delete_pstore(&store);
+}
+
+
+
+
+
+
+int main() {
+  init_type_table(&types, 10);
+
+  test1();
+  test2();
+  test3();
+  test4();
+  test5();
+  test6();
+
+  delete_type_table(&types);
+
+  return 0;
+}
+

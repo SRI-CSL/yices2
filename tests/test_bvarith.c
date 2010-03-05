@@ -1,0 +1,344 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <inttypes.h>
+
+#include "bv_constants.h"
+#include "bvarith_expr.h"
+#include "object_stores.h"
+#include "bit_expr.h"
+
+#ifdef MINGW
+
+/*
+ * Need some version of random()
+ * rand() exists on mingw
+ */
+static inline int random(void) {
+  return rand();
+}
+
+#endif
+
+
+static node_table_t bit_manager;
+static bv_var_manager_t manager;
+static object_store_t store;
+static bvarith_buffer_t buffer;
+static bvarith_expr_t *poly[11];
+
+static char *name[4] = { "x", "y", "z", "t"};
+static bv_var_t v[11];
+
+static int32_t vector[128];
+
+
+/*
+ * Print a bvarith coefficient, n = size
+ */
+static void print_bvarith_coeff(FILE *f, bvcoeff_t *a, uint32_t n) {
+  uint64_t aux;
+
+  if (n > 64) {
+    bvconst_print(f, a->ptr, n);
+    return;
+  }
+
+  if (n == 0) {
+    // that's an error. print something anyway
+    fprintf(f, "!");
+    return;
+  }
+
+  aux = a->c;
+  do {
+    n --;
+    if ((aux & (((uint64_t) 1) << n)) == 0) {
+      fprintf(f, "0");
+    } else {
+      fprintf(f, "1");
+    }
+  } while (n > 0);
+}
+
+/*
+ * Print a variable
+ */
+static void print_bvarith_var(FILE *f, bv_var_t v, bv_var_manager_t *m) {
+  int32_t i;
+  varprod_t *p;
+
+  if (v == const_idx) {
+    fprintf(f, "1");
+  } else {
+    if (polymanager_var_is_primitive(&m->pm, v)) {
+      fprintf(f, " y_%"PRId32, polymanager_var_index(&m->pm, v));
+    } else {
+      p = polymanager_var_product(&m->pm, v);
+      for (i=0; i<p->len; i++) {
+	fprintf(f, " y_%"PRId32, polymanager_var_index(&m->pm, p->prod[i].var));
+	if (p->prod[i].exp > 1) {
+	  fprintf(f, "^%"PRId32, p->prod[i].exp);
+	}
+      }
+    }
+  }
+}
+
+
+/*
+ * Print a bvarith buffer
+ */
+static void print_bvarith_buffer(FILE *f, bvarith_buffer_t *b, uint32_t level) {
+  uint32_t k;
+  bvmlist_t *r;
+  bv_var_t v;
+
+  if (level >= 1) {
+    fprintf(f, "bvarith buffer %p\n", b);
+    fprintf(f, "  nterms = %"PRId32"\n", b->nterms);
+    fprintf(f, "  size = %"PRIu32"\n", b->size);
+    fprintf(f, "  width = %"PRIu32"\n", b->width);    
+  }
+
+  k = b->size;
+  fprintf(f, "(bvpoly");
+  for (r = b->list->next; r->var < max_idx; r = r->next) {
+    v = r->var;
+    if (v == const_idx) {
+      fprintf(f, " ");
+      print_bvarith_coeff(f, &r->coeff, k);
+    } else {
+      fprintf(f, " (* ");
+      print_bvarith_coeff(f, &r->coeff, k);
+      fprintf(f, " ");
+      print_bvarith_var(f, v, b->manager);
+      fprintf(f, ")");
+    }
+  }
+  fprintf(f, ")\n");
+}
+
+
+static void print_bvarith_expr(FILE *f, bvarith_expr_t *e, bv_var_manager_t *m, uint32_t level) {
+  uint32_t k;
+  bvmono_t *r;
+  bv_var_t v;
+
+  if (level >= 1) {
+    fprintf(f, "bv-expr %p\n", e);
+    fprintf(f, "  nterms = %"PRId32"\n", e->nterms);
+    fprintf(f, "  size = %"PRIu32"\n", e->size);
+    fprintf(f, "  width = %"PRIu32"\n", e->width);    
+  }
+
+  k = e->size;
+  fprintf(f, "(bvpoly");
+  for (r = e->mono; r->var < max_idx; r ++) {
+    v = r->var;
+    if (v == const_idx) {
+      fprintf(f, " ");
+      print_bvarith_coeff(f, &r->coeff, k);
+    } else {
+      fprintf(f, " (* ");
+      print_bvarith_coeff(f, &r->coeff, k);
+      fprintf(f, " ");
+      print_bvarith_var(f, v, m);
+      fprintf(f, ")");
+    }
+  }
+  fprintf(f, ")\n");
+  
+}
+
+static void random_vector(int32_t *v, int32_t n) {
+  int32_t i;
+
+  for (i=0; i<n; i++) {
+    v[i] = random() & 0x1;
+  }
+  for (i=n; i<128; i++) {
+    v[i] = 0;
+  }
+}
+
+static uint32_t *a, *b, *c, *d, *e;
+
+static void init_constants() {
+  int32_t i;
+
+  a = bvconst_alloc(4);
+  b = bvconst_alloc(4);
+  c = bvconst_alloc(4);
+  d = bvconst_alloc(4);
+  e = bvconst_alloc(4);
+
+  for (i=0; i<4; i++) {
+    a[i] = 0;
+    b[i] = 0xffffffff;
+    c[i] = 0;
+    d[i] = 0;
+    e[i] = 0;
+  }
+
+  c[0] = 1;
+  d[0] = 0x80000000;
+  e[1] = 1;
+}
+
+static void free_constants() {
+  bvconst_free(a, 4);
+  bvconst_free(b, 4);
+  bvconst_free(c, 4);
+  bvconst_free(d, 4);
+  bvconst_free(e, 4);
+}
+
+
+static void random_constant(uint32_t *x, int32_t n) {
+  random_vector(vector, n);
+  bvconst_set_array(x, vector, 128);
+}
+
+
+int main() {
+  int32_t i;
+
+  init_bvconstants();
+  init_node_table(&bit_manager, 0);
+  init_bv_var_manager(&manager, 10, &bit_manager);
+  init_bvmlist_store(&store);
+  init_bvarith_buffer(&buffer, &manager, &store);
+  init_constants();
+
+  for (i=0; i<4; i++) {
+    v[i] = bv_var_manager_new_var(&manager, 4, i);
+  }
+
+  printf("--- Four declared variables ---\n");
+  for (i=0; i<4; i++) {
+    printf("v[%"PRId32"]: idx = %"PRId32", name = y_%"PRId32"\n", i, v[i], polymanager_var_index(&manager.pm, v[i]));    
+  }
+
+  printf("\n--- Products ---\n");
+  v[4] = bv_var_manager_mul_var(&manager, v[0], v[0]); // x^2
+  v[5] = bv_var_manager_mul_var(&manager, v[0], v[1]); // x y
+  v[6] = bv_var_manager_mul_var(&manager, v[2], const_idx); // z
+  v[7] = bv_var_manager_mul_var(&manager, v[5], v[1]); // x y^2
+  v[8] = bv_var_manager_mul_var(&manager, v[0], v[4]); // x^3
+  v[9] = const_idx;
+
+  printf("v[4] = %s * %s: idx = %"PRId32", term = ", name[0], name[0], v[4]);
+  print_bvarith_var(stdout, v[4], &manager);
+  printf("\n");
+  
+  printf("v[5] = %s * %s: idx = %"PRId32", term = ", name[0], name[1], v[5]);
+  print_bvarith_var(stdout, v[5], &manager);
+  printf("\n");
+  
+  printf("v[6] = %s * 1: idx = %"PRId32", term = ", name[2], v[6]);
+  print_bvarith_var(stdout, v[6], &manager);
+  printf("\n");
+
+  printf("v[7] = v[5] * %s: idx = %"PRId32", term = ", name[1], v[7]);
+  print_bvarith_var(stdout, v[7], &manager);
+  printf("\n");
+  
+  printf("v[8] = %s * v[4]: idx = %"PRId32", term = ", name[0], v[8]);
+  print_bvarith_var(stdout, v[8], &manager);
+  printf("\n\n");
+  
+
+  printf("\n--- Empty buffer ---\n");
+  print_bvarith_buffer(stdout, &buffer, 10);
+  printf("\n");
+
+  bvarith_buffer_prepare(&buffer, 80);
+  printf("\n--- Prepared buffer ---\n");
+  print_bvarith_buffer(stdout, &buffer, 10);
+  printf("\n");
+
+  random_constant(a, 8);
+  bvarith_buffer_add_const(&buffer, a);
+  printf("\n--- Added constant: ");
+  bvconst_print(stdout, a, 8);
+  printf("---\n");
+  print_bvarith_buffer(stdout, &buffer, 10);
+  printf("\n");
+
+  bvarith_buffer_add_var(&buffer, v[0]);
+  printf("\n--- Added var: y_%"PRId32" ---\n", polymanager_var_index(&manager.pm, v[0]));
+  print_bvarith_buffer(stdout, &buffer, 10);
+  printf("\n");
+
+  bvarith_buffer_sub_var(&buffer, v[2]);
+  printf("\n--- Added var: y_%"PRId32" ---\n", polymanager_var_index(&manager.pm, v[2]));
+  print_bvarith_buffer(stdout, &buffer, 10);
+  printf("\n");
+
+  bvarith_buffer_normalize(&buffer);
+  printf("\n--- Normalized ---\n");
+  print_bvarith_buffer(stdout, &buffer, 10);
+  printf("\n");
+
+  bvarith_buffer_add_var(&buffer, v[2]);
+  printf("\n--- Added var: y_%"PRId32" ---\n", polymanager_var_index(&manager.pm, v[2]));
+  print_bvarith_buffer(stdout, &buffer, 10);
+  printf("\n");
+
+  bvarith_buffer_normalize(&buffer);
+  printf("\n--- Normalized ---\n");
+  print_bvarith_buffer(stdout, &buffer, 10);
+  printf("\n");
+
+  random_constant(b, 8);
+  bvarith_buffer_add_mono(&buffer, v[1], b);
+  printf("\n--- Added monomial: ");
+  bvconst_print(stdout, b, 17);
+  printf(" * y_%"PRId32" ---\n", polymanager_var_index(&manager.pm, v[1]));
+  print_bvarith_buffer(stdout, &buffer, 10);
+  printf("\n");
+
+  bvarith_buffer_normalize(&buffer);
+  printf("\n--- Normalized ---\n");
+  print_bvarith_buffer(stdout, &buffer, 10);
+  printf("\n");
+
+  poly[0] = bvarith_buffer_get_expr(&buffer);
+  printf("\n--- Exported ---\n");
+  print_bvarith_expr(stdout, poly[0], &manager, 10);
+  printf("\n");
+
+  printf("\n--- After export ---\n");
+  print_bvarith_buffer(stdout, &buffer, 10);
+  printf("\n");
+
+  bvarith_buffer_add_expr(&buffer, poly[0]);
+  printf("\n--- Added poly ---\n");
+  print_bvarith_buffer(stdout, &buffer, 10);
+  printf("\n");
+
+  printf("\n--- Poly ---\n");
+  print_bvarith_expr(stdout, poly[0], &manager, 10);
+  printf("\n");
+
+  bvarith_buffer_add_expr(&buffer, poly[0]);
+  printf("\n--- Added poly again ---\n");
+  print_bvarith_buffer(stdout, &buffer, 10);
+  printf("\n");
+
+  bvarith_buffer_normalize(&buffer);
+  printf("\n--- Normalized ---\n");
+  print_bvarith_buffer(stdout, &buffer, 10);
+  printf("\n");
+
+
+
+  free_constants();
+  delete_bvarith_buffer(&buffer);
+  delete_bvmlist_store(&store);
+  delete_bv_var_manager(&manager);
+  delete_node_table(&bit_manager);
+  cleanup_bvconstants();
+
+  return 0;
+}

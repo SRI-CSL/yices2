@@ -1,0 +1,21 @@
+;; Test: combination of bitvector and uninterpreted terms
+;; to see the internal data structures, use 
+;; test_yices_parser --dump=bv_mix.dump bv_mix.ys
+
+(define u::(bitvector 4))
+(define v::(bitvector 6))
+(define w::(bitvector 10))
+
+(define-type T)
+
+(define f::(-> T T (bitvector 10)))
+(define z0::T)
+(define z1::T)
+
+(define g::(-> (bitvector 10) T))
+
+(define test1::T (g (bv-add (bv-concat u v) (f z0 z1))))
+
+(define test2::T (g (bv-add w (bv-concat u v))))
+
+(define test3::(bitvector 10) (bv-shift-left0 (bv-add w (f z0 z1)) 4))

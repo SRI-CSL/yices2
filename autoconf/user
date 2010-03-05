@@ -1,0 +1,18 @@
+#!/bin/sh
+if [ "$USER " = " " ]; then
+  user=`sh -c whoami 2>/dev/null`
+
+  if [ "$user " = " " ]; then
+     user=`sh -c /usr/ucb/whoami 2>/dev/null`;
+     if [ "$user " = " " ]; then
+        user=$LOGNAME;
+        if [ "$user " = " " ]; then
+           user=bigloo
+        fi
+     fi
+  fi
+else
+  user=$USER
+fi
+
+echo $user

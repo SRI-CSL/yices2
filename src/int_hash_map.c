@@ -1,0 +1,316 @@
+/*
+ * Maps 32bit integers to 32bit integers (all signed)
+ * Assumes that keys are non-negative
+ */
+
+#include <assert.h>
+
+#include "memalloc.h"
+#include "int_hash_map.h"
+
+/*
+ * Initialization:
+ * - n = initial size, must be a power of 2
+ * - if n = 0, the default size is used
+ */
+void init_int_hmap(int_hmap_t *hmap, uint32_t n) {
+  uint32_t i;
+  int_hmap_pair_t *tmp;
+
+#ifndef NDEBUG
+  uint32_t n2;
+  n2 = n;
+  while (n2 > 1) {
+    assert((n2 & 1) == 0);
+    n2 >>= 1;
+  }
+#endif
+
+  if (n == 0) {
+    n = INT_HMAP_DEFAULT_SIZE;
+  }
+
+  if (n >= INT_HMAP_MAX_SIZE) {
+    out_of_memory();
+  }
+
+  tmp = (int_hmap_pair_t *) safe_malloc(n * sizeof(int_hmap_pair_t));
+  for (i=0; i<n; i++) {
+    tmp[i].key = EMPTY_KEY;
+  }
+
+  hmap->data = tmp;
+  hmap->size = n;
+  hmap->nelems = 0;
+  hmap->ndeleted = 0;
+
+  hmap->resize_threshold = (uint32_t)(n * INT_HMAP_RESIZE_RATIO);
+  hmap->cleanup_threshold = (uint32_t) (n * INT_HMAP_CLEANUP_RATIO);
+}
+
+
+/*
+ * Free memory
+ */
+void delete_int_hmap(int_hmap_t *hmap) {
+  safe_free(hmap->data);
+  hmap->data = NULL;
+}
+
+
+/*
+ * Hash of a key (Jenkins hash)
+ */
+static uint32_t hash_key(int32_t k) {
+  uint32_t x;
+
+  x = (uint32_t) k;
+  x = (x + 0x7ed55d16) + (x<<12);
+  x = (x ^ 0xc761c23c) ^ (x>>19);
+  x = (x + 0x165667b1) + (x<<5);
+  x = (x + 0xd3a2646c) ^ (x<<9);
+  x = (x + 0xfd7046c5) + (x<<3);
+  x = (x ^ 0xb55a4f09) ^ (x>>16);
+
+  return x;
+}
+
+/*
+ * Make a copy of record d in a clean array data
+ * - mask = size of data - 1 (size must be a power of 2)
+ */
+static void int_hmap_clean_copy(int_hmap_pair_t *data, int_hmap_pair_t *d, uint32_t mask) {
+  uint32_t j;
+
+  j = hash_key(d->key) & mask;
+  while (data[j].key != EMPTY_KEY) {
+    j ++;
+    j &= mask;
+  }
+
+  data[j].key = d->key;
+  data[j].val = d->val;
+}
+
+
+/*
+ * Remove deleted records
+ */
+static void int_hmap_cleanup(int_hmap_t *hmap) {
+  int_hmap_pair_t *tmp, *d;
+  uint32_t j, n, mask;
+
+  n = hmap->size;
+  tmp = (int_hmap_pair_t *) safe_malloc(n * sizeof(int_hmap_pair_t));
+  for (j=0; j<n; j++) {
+    tmp[j].key = EMPTY_KEY;
+  }
+
+  mask = n - 1;
+  d = hmap->data;
+  for (j=0; j<n; j++) {
+    if (d->key >= 0) {
+      int_hmap_clean_copy(tmp, d, mask);
+    }
+    d++;
+  }
+
+  safe_free(hmap->data);
+  hmap->data = tmp;
+  hmap->ndeleted = 0;
+}
+
+
+/*
+ * Remove deleted records and make the table twice as large
+ */
+static void int_hmap_extend(int_hmap_t *hmap) {
+  int_hmap_pair_t *tmp, *d;
+  uint32_t j, n, n2, mask;
+
+  n = hmap->size;
+  n2 = n << 1;
+  if (n2 >= INT_HMAP_MAX_SIZE) {
+    out_of_memory();
+  }
+
+  tmp = (int_hmap_pair_t *) safe_malloc(n2 * sizeof(int_hmap_pair_t));
+  for (j=0; j<n2; j++) {
+    tmp[j].key = EMPTY_KEY;
+  }
+
+  mask = n2 - 1;
+  d = hmap->data;
+  for (j=0; j<n; j++) {
+    if (d->key >= 0) {
+      int_hmap_clean_copy(tmp, d, mask);
+    }
+    d ++;
+  }
+
+  safe_free(hmap->data);
+  hmap->data = tmp;
+  hmap->size = n2;
+  hmap->ndeleted = 0;
+
+  hmap->resize_threshold = (uint32_t)(n2 * INT_HMAP_RESIZE_RATIO);
+  hmap->cleanup_threshold = (uint32_t)(n2 * INT_HMAP_CLEANUP_RATIO);
+}
+
+
+/*
+ * Find record with key k
+ * - return NULL if k is not in the table
+ */
+int_hmap_pair_t *int_hmap_find(int_hmap_t *hmap, int32_t k) {
+  uint32_t mask, j;
+  int_hmap_pair_t *d;
+
+  assert(k >= 0);
+
+  mask = hmap->size - 1;
+  j = hash_key(k) & mask;  
+  for (;;) {
+    d = hmap->data + j;
+    if (d->key == k) return d;
+    if (d->key == EMPTY_KEY) return NULL;
+    j ++;
+    j &= mask;
+  }
+}
+
+
+/*
+ * Add record with key k after hmap was extended:
+ * - initialize val to -1
+ * - we konw that no record with key k is present
+ */
+static int_hmap_pair_t *int_hmap_get_clean(int_hmap_t *hmap, int32_t k) {
+  uint32_t mask, j;
+  int_hmap_pair_t *d;
+
+  mask = hmap->size - 1;
+  j = hash_key(k) & mask;
+  for (;;) {
+    d = hmap->data + j;
+    if (d->key < 0) {
+      hmap->nelems ++;
+      d->key = k;
+      d->val = -1;
+      return d;
+    }
+    j ++;
+    j &= mask;
+  }
+}
+
+
+/*
+ * Find or add record with key k
+ */
+int_hmap_pair_t *int_hmap_get(int_hmap_t *hmap, int32_t k) {
+  uint32_t mask, j;
+  int_hmap_pair_t *d, *aux;
+
+  assert(k >= 0);
+  assert(hmap->size > hmap->ndeleted + hmap->nelems);
+
+  mask = hmap->size - 1;
+  j = hash_key(k) & mask;
+
+  for (;;) {
+    d = hmap->data + j;
+    if (d->key == k) return d;
+    if (d->key < 0) break;
+    j ++;
+    j &= mask;
+  }
+
+  aux = d; // new record, if needed, will be aux
+  while (d->key != EMPTY_KEY) {
+    j ++;
+    j &= mask;
+    if (d->key == k) return d;
+  }
+
+  if (hmap->nelems + hmap->ndeleted >= hmap->resize_threshold) {
+    int_hmap_extend(hmap);
+    aux = int_hmap_get_clean(hmap, k);
+  } else {
+    hmap->nelems ++;
+    aux->key = k;
+    aux->val = -1;
+  }
+
+  return aux;
+}
+
+
+/*
+ * Erase record r
+ */
+void int_hmap_erase(int_hmap_t *hmap, int_hmap_pair_t *r) {
+  assert(int_hmap_find(hmap, r->key) == r);
+
+  r->key = DELETED_KEY;
+  hmap->nelems --;
+  hmap->ndeleted ++;
+  if (hmap->ndeleted > hmap->cleanup_threshold) {
+    int_hmap_cleanup(hmap);
+  }
+}
+
+
+/*
+ * Empty the map
+ */
+void int_hmap_reset(int_hmap_t *hmap) {
+  uint32_t i, n;
+  int_hmap_pair_t *d;
+
+  n = hmap->size;
+  d = hmap->data;
+  for (i=0; i<n; i++) {
+    d->key = EMPTY_KEY;
+    d ++;
+  }
+
+  hmap->nelems = 0;
+  hmap->ndeleted = 0;
+}
+
+
+
+/*
+ * First non-empty record in the table, starting from p
+ */
+static int_hmap_pair_t *int_hmap_get_next(int_hmap_t *hmap, int_hmap_pair_t *p) {
+  int_hmap_pair_t *end;
+
+  end = hmap->data + hmap->size;
+  while (p < end) {
+    if (p->key != EMPTY_KEY) return p;
+    p ++;
+  }
+
+  return NULL;
+}
+
+
+/*
+ * Get the first non-empty record or NULL if the table is empty
+ */
+int_hmap_pair_t *int_hmap_first_record(int_hmap_t *hmap) {
+  return int_hmap_get_next(hmap, hmap->data);
+}
+
+
+/*
+ * Next record after p or NULL
+ */
+int_hmap_pair_t *int_hmap_next_record(int_hmap_t *hmap, int_hmap_pair_t *p) {
+  assert(p != NULL && p<hmap->data + hmap->size && p->key != EMPTY_KEY);
+  return int_hmap_get_next(hmap, p+1);
+}
+
+

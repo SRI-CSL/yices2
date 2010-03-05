@@ -1,0 +1,566 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <inttypes.h>
+
+#include "polynomials.h"
+#include "object_stores.h"
+
+#ifdef MINGW
+
+/*
+ * Need some version of random()
+ * rand() exists on mingw
+ */
+static inline int random(void) {
+  return rand();
+}
+
+#endif
+
+
+static arithvar_manager_t manager;
+static object_store_t store;
+static arith_buffer_t buffer;
+static polynomial_t *poly[11];
+
+static char *name[4] = { "x", "y", "z", "t"};
+static arith_var_t v[11];
+
+// rational numbers
+#define MAX_NUMERATOR (INT32_MAX>>1)
+#define MIN_NUMERATOR (INT32_MIN>>1)
+#define MAX_DENOMINATOR MAX_NUMERATOR
+
+static int32_t num[12] = { 
+  1, 1, -1, 0, 120, -120, -120, 120, INT32_MAX, INT32_MIN, MIN_NUMERATOR, MAX_NUMERATOR 
+};
+
+static uint32_t den[12] = {
+  1, 10, 200, 72, 400, 999, INT32_MAX, MAX_DENOMINATOR, 1000, 120, 168, MAX_DENOMINATOR + 2 
+};
+
+
+/*
+ * Print a variable
+ */
+static void print_arith_var(FILE *f, arith_var_t v, arithvar_manager_t *m) {
+  int32_t i;
+  varprod_t *p;
+
+  if (v == const_idx) {
+    fprintf(f, "1");
+  } else {
+    if (polymanager_var_is_primitive(&m->pm, v)) {
+      fprintf(f, " x_%"PRId32, polymanager_var_index(&m->pm, v));
+    } else {
+      p = polymanager_var_product(&m->pm, v);
+      for (i=0; i<p->len; i++) {
+	fprintf(f, " x_%"PRId32, polymanager_var_index(&m->pm, p->prod[i].var));
+	if (p->prod[i].exp > 1) {
+	  fprintf(f, "^%"PRId32, p->prod[i].exp);
+	}
+      }
+    }
+  }
+}
+
+
+/*
+ * Print a monomial
+ */
+static void print_monomial(FILE *f, monomial_t *a, arithvar_manager_t *m) {
+  arith_var_t v;
+
+  v = a->var;
+  if (v == const_idx) {
+    q_print(f, &a->coeff);
+  } else {
+    fprintf(f, "(* ");
+    q_print(f, &a->coeff);
+    print_arith_var(f, v, m);
+    fprintf(f, ")");
+  }
+}
+
+/*
+ * Print a monomial array
+ */
+static void print_mono_array(FILE *f, monomial_t *a, int32_t n, arithvar_manager_t *m) {
+  int32_t i;
+
+  fprintf(f, "(poly");
+  for (i=0; i<n; i++) {
+    fprintf(f, " ");
+    print_monomial(f, a + i, m);
+  }
+  fprintf(f, ")");
+}
+
+static void print_mono_array_detail(FILE *f, monomial_t *a, int32_t n, arithvar_manager_t *m) {
+  int32_t i;
+
+  fprintf(f, "  mono = %p\n", a);
+  for (i=0; i<n; i++) {
+    fprintf(f, "    m[%"PRId32"]: {idx: %"PRId32",", i, a[i].var);
+    print_arith_var(f, a[i].var, m);
+    fprintf(f, ", coeff: ");
+    q_print(f, &a[i].coeff);
+    fprintf(f, "}\n");
+  }
+  fprintf(f, "    m[%"PRId32"]: {idx: %"PRId32"}\n", i, a[i].var);
+}
+
+static void print_arith_buffer(FILE *f, arith_buffer_t *b, uint32_t level) {  
+  mlist_t *r;
+  arith_var_t v;
+
+  if (level >= 1) {
+    fprintf(f, "arith_buffer %p\n", b);
+    fprintf(f, "  nterms = %"PRId32"\n  ", b->nterms);
+  }
+
+  fprintf(f, "(poly");
+  for (r = b->list->next; r->var<max_idx; r = r->next) {
+    v = r->var;
+    if (v == const_idx) {
+      fprintf(f, " ");
+      q_print(f, &r->coeff);
+    } else {
+      fprintf(f, " (* ");
+      q_print(f, &r->coeff);
+      print_arith_var(f, v, b->manager);
+      fprintf(f, ")");
+    }
+  }
+  fprintf(f, ")\n");
+}
+
+
+static void print_polynomial(FILE *f, polynomial_t *p, arithvar_manager_t *m, uint32_t level) {
+  if (level >= 1) {
+    fprintf(f, "polynomial %p\n", p);
+    fprintf(f, "  nterms = %"PRId32"\n", p->nterms);
+  }
+  if (level >= 2) {
+    print_mono_array_detail(f, p->mono, p->nterms, m);
+  }
+  if (level >= 1) fprintf(f, "  poly: ");
+  print_mono_array(f, p->mono, p->nterms, m);
+  fprintf(f, "\n");
+}
+
+
+
+
+static void random_rational(rational_t *a) {
+  q_set_int32(a, num[random() % 12], den[random() %12]);
+}
+
+static void random_small_rational(rational_t *a) {
+  int32_t num;
+  uint32_t den;
+
+  num = (random() % 11) - 5;
+  den = 1 + (random() % 9);
+  q_set_int32(a, num, den);
+}
+
+static void random_integer(rational_t *a) {
+  int32_t x;
+
+  x = (random() % 17) - 8;
+  q_set32(a, x);
+}
+
+static void random_multiple_of_four(rational_t *a) {
+  int32_t x;
+
+  x = (random() % 17) - 8;  
+  q_set32(a, 4 * x);
+}
+
+
+
+int main() {
+  int32_t i, n, k, p;
+  rational_t alpha;
+  polynomial_t *p1, *p2;
+  uint32_t h1, h2;
+  rational_t phase, period;
+
+  init_rationals();
+  init_arithvar_manager(&manager, 10);
+  q_init(&alpha);
+  init_mlist_store(&store);
+  init_arith_buffer(&buffer, &manager, &store);
+
+  for (i=0; i<4; i++) {
+    v[i] = arithvar_manager_new_var(&manager, false, i);
+  }
+
+  printf("--- Four declared variables ---\n");
+  for (i=0; i<4; i++) {
+    printf("v[%"PRId32"]: idx = %"PRId32", name = x_%"PRId32"\n", i, v[i], polymanager_var_index(&manager.pm, v[i]));    
+  }
+
+  printf("\n--- Products ---\n");
+  v[4] = arithvar_manager_mul_var(&manager, v[0], v[0]); // x^2
+  v[5] = arithvar_manager_mul_var(&manager, v[0], v[1]); // x y
+  v[6] = arithvar_manager_mul_var(&manager, v[2], const_idx); // z
+  v[7] = arithvar_manager_mul_var(&manager, v[5], v[1]); // x y^2
+  v[8] = arithvar_manager_mul_var(&manager, v[0], v[4]); // x^3
+  v[9] = const_idx;
+
+  printf("v[4] = %s * %s: idx = %"PRId32", term = ", name[0], name[0], v[4]);
+  print_arith_var(stdout, v[4], &manager);
+  printf("\n");
+  
+  printf("v[5] = %s * %s: idx = %"PRId32", term = ", name[0], name[1], v[5]);
+  print_arith_var(stdout, v[5], &manager);
+  printf("\n");
+  
+  printf("v[6] = %s * 1: idx = %"PRId32", term = ", name[2], v[6]);
+  print_arith_var(stdout, v[6], &manager);
+  printf("\n");
+
+  printf("v[7] = v[5] * %s: idx = %"PRId32", term = ", name[1], v[7]);
+  print_arith_var(stdout, v[7], &manager);
+  printf("\n");
+  
+  printf("v[8] = %s * v[4]: idx = %"PRId32", term = ", name[0], v[8]);
+  print_arith_var(stdout, v[8], &manager);
+  printf("\n\n");
+  
+
+  printf("\n--- Empty buffer ---\n");
+  print_arith_buffer(stdout, &buffer, 10);
+  printf("\n");
+
+  for (n=0; n<=10; n++) poly[i] = NULL;
+
+  for (n=1; n<=10; n++) {
+    arith_buffer_reset(&buffer);
+    printf("--- Building");
+    for (i=0; i<n; i++) {
+      printf(" + v[%"PRId32"]", i);
+      arith_buffer_add_var(&buffer, v[i]);
+    }
+    printf("---\n");
+    print_arith_buffer(stdout, &buffer, 0);
+    printf("--- Normalized ---\n");
+    arith_buffer_normalize(&buffer);
+    print_arith_buffer(stdout, &buffer, 0);
+    printf("--- Buffer hash code = %"PRIu32" ---\n", arith_buffer_hash(&buffer));
+    poly[n] = arith_buffer_getpoly(&buffer);
+    printf("--- Exported ---\n");
+    print_polynomial(stdout, poly[n], &manager, 0);
+    printf("--- Poly hash code = %"PRIu32" ---\n", hash_monarray(poly[n]->mono));
+    printf("--- Buffer ---\n");
+    print_arith_buffer(stdout, &buffer, 0);
+    printf("\n\n");    
+  }
+
+  printf("Adding poly[10] to poly[8]\n");
+  arith_buffer_add_monarray(&buffer, poly[10]->mono);
+  arith_buffer_add_monarray(&buffer, poly[8]->mono);
+  printf("poly[10]: ");
+  print_polynomial(stdout, poly[10], &manager, 0);
+  printf("poly[8]:  ");
+  print_polynomial(stdout, poly[8], &manager, 0);
+  printf("result:   ");
+  print_arith_buffer(stdout, &buffer, 0);
+  //  print_arith_buffer(stdout, &buffer, 10);
+  printf("\n\n");
+  
+  printf("Adding poly[8] - 2 x^2 to poly[10] \n");
+  arith_buffer_reset(&buffer);
+  arith_buffer_add_monarray(&buffer, poly[8]->mono);
+  arith_buffer_add_monarray(&buffer, poly[10]->mono);
+  arith_buffer_sub_var(&buffer, v[4]);
+  arith_buffer_sub_var(&buffer, v[4]);
+  printf("poly[10]: ");
+  print_polynomial(stdout, poly[10], &manager, 0);
+  printf("poly[8]:  ");
+  print_polynomial(stdout, poly[8], &manager, 0);
+  printf("result:   ");
+  print_arith_buffer(stdout, &buffer, 0);
+  printf("result:   ");
+  arith_buffer_normalize(&buffer);
+  print_arith_buffer(stdout, &buffer, 0);
+  //  print_arith_buffer(stdout, &buffer, 10);
+  printf("\n\n");
+
+
+  printf("Computing poly[10] - poly[8]\n");
+  arith_buffer_reset(&buffer);
+  arith_buffer_add_monarray(&buffer, poly[10]->mono);
+  arith_buffer_sub_monarray(&buffer, poly[8]->mono);
+  printf("poly[10]: ");
+  print_polynomial(stdout, poly[10], &manager, 0);
+  printf("poly[8]:  ");
+  print_polynomial(stdout, poly[8], &manager, 0);
+  printf("result:   ");
+  print_arith_buffer(stdout, &buffer, 0);
+  printf("result:   ");
+  arith_buffer_normalize(&buffer);
+  print_arith_buffer(stdout, &buffer, 0);
+  printf("\n\n");
+  
+  
+  printf("Computing poly[8] - poly[10]\n");
+  arith_buffer_reset(&buffer);
+  arith_buffer_add_monarray(&buffer, poly[8]->mono);
+  arith_buffer_sub_monarray(&buffer, poly[10]->mono);
+  printf("poly[10]: ");
+  print_polynomial(stdout, poly[10], &manager, 0);
+  printf("poly[8]:  ");
+  print_polynomial(stdout, poly[8], &manager, 0);
+  printf("result:   ");
+  print_arith_buffer(stdout, &buffer, 0);
+  printf("result:   ");
+  arith_buffer_normalize(&buffer);
+  print_arith_buffer(stdout, &buffer, 0);
+  printf("\n\n");
+  
+  
+  printf("Computing - poly[10] + poly[8]\n");
+  arith_buffer_reset(&buffer);
+  arith_buffer_sub_monarray(&buffer, poly[10]->mono);
+  arith_buffer_add_monarray(&buffer, poly[8]->mono);
+  printf("poly[10]: ");
+  print_polynomial(stdout, poly[10], &manager, 0);
+  printf("poly[8]:  ");
+  print_polynomial(stdout, poly[8], &manager, 0);
+  printf("result:   ");
+  print_arith_buffer(stdout, &buffer, 0);
+  printf("result:   ");
+  arith_buffer_normalize(&buffer);
+  print_arith_buffer(stdout, &buffer, 0);
+  printf("\n\n");
+  
+  
+  
+  printf("Computing  poly[1] * poly[2]\n");
+  arith_buffer_reset(&buffer);
+  arith_buffer_add_monarray_times_monarray(&buffer, poly[1]->mono, poly[2]->mono);
+  printf("poly[0]: ");
+  print_polynomial(stdout, poly[1], &manager, 0);
+  printf("poly[1]: ");
+  print_polynomial(stdout, poly[2], &manager, 0);
+  printf("result:  ");
+  print_arith_buffer(stdout, &buffer, 0);
+  printf("result:  ");
+  arith_buffer_normalize(&buffer);
+  print_arith_buffer(stdout, &buffer, 0);
+  printf("\n\n");
+  
+  
+  printf("Computing  poly[1] * poly[2]\n");
+  printf("poly[1]: ");
+  print_polynomial(stdout, poly[1], &manager, 0);
+  printf("poly[2]: ");
+  print_polynomial(stdout, poly[2], &manager, 0);
+  arith_buffer_reset(&buffer);
+  arith_buffer_add_monarray(&buffer, poly[1]->mono);
+  printf("First step: ");
+  print_arith_buffer(stdout, &buffer, 0);
+  arith_buffer_mul_monarray(&buffer, poly[2]->mono);
+  printf("Second step:  ");
+  print_arith_buffer(stdout, &buffer, 0);
+  printf("result:  ");
+  arith_buffer_normalize(&buffer);
+  print_arith_buffer(stdout, &buffer, 0);
+  printf("\n\n");
+  
+  
+  printf("Computing  poly[2] * poly[1]\n");
+  arith_buffer_reset(&buffer);
+  arith_buffer_add_monarray_times_monarray(&buffer, poly[2]->mono, poly[1]->mono);
+  printf("poly[2]: ");
+  print_polynomial(stdout, poly[1], &manager, 0);
+  printf("poly[1]: ");
+  print_polynomial(stdout, poly[2], &manager, 0);
+  printf("result:  ");
+  print_arith_buffer(stdout, &buffer, 0);
+  printf("result:  ");
+  arith_buffer_normalize(&buffer);
+  print_arith_buffer(stdout, &buffer, 0);
+  printf("\n\n");
+  
+  
+
+  arith_buffer_reset(&buffer);
+  arith_buffer_add_var(&buffer, v[0]);
+  q_set_one(&alpha);
+  arith_buffer_add_const(&buffer, &alpha);
+  arith_buffer_normalize(&buffer);
+  p1 = arith_buffer_getpoly(&buffer);
+  printf("p1: ");
+  print_polynomial(stdout, p1, &manager, 0);
+
+  arith_buffer_add_var(&buffer, v[0]);
+  arith_buffer_sub_const(&buffer, &alpha);
+  arith_buffer_normalize(&buffer);
+  p2 = arith_buffer_getpoly(&buffer);
+  printf("p2: ");
+  print_polynomial(stdout, p2, &manager, 0);
+
+  arith_buffer_add_monarray_times_monarray(&buffer, p1->mono, p2->mono);
+  printf("p1 * p2: ");
+  print_arith_buffer(stdout, &buffer, 0);
+  arith_buffer_normalize(&buffer);
+  printf("normalized: ");
+  print_arith_buffer(stdout, &buffer, 0);
+  printf("\n\n");
+
+  free_polynomial(p1);
+  free_polynomial(p2);
+
+  for (n=1; n<=3; n++) {
+    for (p=1; p<=10; p++) {
+      arith_buffer_reset(&buffer);
+      for (i=0; i<n; i++) {
+	random_rational(&alpha);
+	k = random() % 10;
+	arith_buffer_add_mono(&buffer, v[k], &alpha);
+      }
+      arith_buffer_normalize(&buffer);
+      h1 = arith_buffer_hash(&buffer);
+      p1 = arith_buffer_getpoly(&buffer);
+      for (i=0; i<n; i++) {
+	random_rational(&alpha);
+	k = random() % 10;
+	arith_buffer_add_mono(&buffer, v[k], &alpha);
+      }
+      arith_buffer_normalize(&buffer);
+      h2 = arith_buffer_hash(&buffer);
+      p2 = arith_buffer_getpoly(&buffer);
+
+      printf("p1: ");
+      print_polynomial(stdout, p1, &manager, 0);
+      printf("p2: ");
+      print_polynomial(stdout, p2, &manager, 0);
+      printf("hash p1 = %"PRIu32", buffer hash = %"PRIu32"\n", hash_monarray(p1->mono), h1);
+      printf("hash p2 = %"PRIu32", buffer hash = %"PRIu32"\n", hash_monarray(p2->mono), h2);
+
+      arith_buffer_add_monarray_times_monarray(&buffer, p1->mono, p2->mono);
+      arith_buffer_normalize(&buffer);
+      printf("p1 * p2: ");
+      print_arith_buffer(stdout, &buffer, 0);
+      printf("\n\n");
+
+      free_polynomial(p1);
+      free_polynomial(p2);      
+    }
+  }
+    
+  print_arith_buffer(stdout, &buffer, 10);
+  printf("\n");
+
+  for (n=1; n<=10; n++) {
+    free_polynomial(poly[n]);
+  }
+
+  // Test of period/phase
+  q_init(&phase);
+  q_init(&period);
+  printf("\n**** TEST PERIOD/PHASE ****\n");
+  for (n=1; n<=10; n++) {
+    arith_buffer_reset(&buffer);
+    // Build a random polynomial
+    random_integer(&alpha);
+    arith_buffer_add_const(&buffer, &alpha);
+    for (i=0; i<4; i++) {
+      random_integer(&alpha);
+      arith_buffer_add_mono(&buffer, v[i], &alpha);
+    }
+    arith_buffer_normalize(&buffer);
+    p1 = arith_buffer_getpoly(&buffer);
+    printf("p1: ");
+    print_polynomial(stdout, p1, &manager, 0);
+    // compute phase and period
+    monarray_period_and_phase(p1->mono, &period, &phase);
+    printf("period: ");
+    q_print(stdout, &period);
+    printf(", phase: ");
+    q_print(stdout, &phase);
+    printf("\n\n");
+  }
+
+  for (n=1; n<=10; n++) {
+    arith_buffer_reset(&buffer);
+    // Build a random polynomial
+    random_integer(&alpha);
+    arith_buffer_add_const(&buffer, &alpha);
+    for (i=0; i<4; i++) {
+      random_multiple_of_four(&alpha);
+      arith_buffer_add_mono(&buffer, v[i], &alpha);
+    }
+    arith_buffer_normalize(&buffer);
+    p1 = arith_buffer_getpoly(&buffer);
+    printf("p1: ");
+    print_polynomial(stdout, p1, &manager, 0);
+    // compute phase and period
+    monarray_period_and_phase(p1->mono, &period, &phase);
+    printf("period: ");
+    q_print(stdout, &period);
+    printf(", phase: ");
+    q_print(stdout, &phase);
+    printf("\n\n");
+  }
+
+  for (n=1; n<=10; n++) {
+    arith_buffer_reset(&buffer);
+    // Build a random polynomial
+    random_small_rational(&alpha);
+    arith_buffer_add_const(&buffer, &alpha);
+    for (i=0; i<4; i++) {
+      random_small_rational(&alpha);
+      arith_buffer_add_mono(&buffer, v[i], &alpha);
+    }
+    arith_buffer_normalize(&buffer);
+    p1 = arith_buffer_getpoly(&buffer);
+    printf("p1: ");
+    print_polynomial(stdout, p1, &manager, 0);
+    // compute phase and period
+    monarray_period_and_phase(p1->mono, &period, &phase);
+    printf("period: ");
+    q_print(stdout, &period);
+    printf(", phase: ");
+    q_print(stdout, &phase);
+    printf("\n\n");
+  }
+
+  for (n=1; n<=10; n++) {
+    arith_buffer_reset(&buffer);
+    // Build a random polynomial
+    random_rational(&alpha);
+    arith_buffer_add_const(&buffer, &alpha);
+    for (i=0; i<4; i++) {
+      random_rational(&alpha);
+      arith_buffer_add_mono(&buffer, v[i], &alpha);
+    }
+    arith_buffer_normalize(&buffer);
+    p1 = arith_buffer_getpoly(&buffer);
+    printf("p1: ");
+    print_polynomial(stdout, p1, &manager, 0);
+    // compute phase and period
+    monarray_period_and_phase(p1->mono, &period, &phase);
+    printf("period: ");
+    q_print(stdout, &period);
+    printf(", phase: ");
+    q_print(stdout, &phase);
+    printf("\n\n");
+  }
+
+  delete_arith_buffer(&buffer);
+  delete_mlist_store(&store);
+  delete_arithvar_manager(&manager);
+
+  q_clear(&period);
+  q_clear(&phase);
+  q_clear(&alpha);
+  cleanup_rationals();
+
+  return 0;
+}

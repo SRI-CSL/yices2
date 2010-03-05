@@ -1,0 +1,1752 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 24 24 588 768
+%%Title: Enscript Output
+%%For: Bruno Dutertre
+%%Creator: GNU enscript 1.6.1
+%%CreationDate: Fri May 18 17:15:37 2007
+%%Orientation: Portrait
+%%Pages: (atend)
+%%DocumentMedia: Letter 612 792 0 () ()
+%%DocumentNeededResources: (atend)
+%%EndComments
+%%BeginProlog
+%%BeginResource: procset Enscript-Prolog 1.6 1
+%
+% Procedures.
+%
+
+/_S {	% save current state
+  /_s save def
+} def
+/_R {	% restore from saved state
+  _s restore
+} def
+
+/S {	% showpage protecting gstate
+  gsave
+  showpage
+  grestore
+} bind def
+
+/MF {	% fontname newfontname -> -	make a new encoded font
+  /newfontname exch def
+  /fontname exch def
+
+  /fontdict fontname findfont def
+  /newfont fontdict maxlength dict def
+
+  fontdict {
+    exch
+    dup /FID eq {
+      % skip FID pair
+      pop pop
+    } {
+      % copy to the new font dictionary
+      exch newfont 3 1 roll put
+    } ifelse
+  } forall
+
+  newfont /FontName newfontname put
+
+  % insert only valid encoding vectors
+  encoding_vector length 256 eq {
+    newfont /Encoding encoding_vector put
+  } if
+
+  newfontname newfont definefont pop
+} def
+
+/SF { % fontname width height -> -	set a new font
+  /height exch def
+  /width exch def
+
+  findfont
+  [width 0 0 height 0 0] makefont setfont
+} def
+
+/SUF { % fontname width height -> -	set a new user font
+  /height exch def
+  /width exch def
+
+  /F-gs-user-font MF
+  /F-gs-user-font width height SF
+} def
+
+/M {moveto} bind def
+/s {show} bind def
+
+/Box {	% x y w h -> -			define box path
+  /d_h exch def /d_w exch def /d_y exch def /d_x exch def
+  d_x d_y  moveto
+  d_w 0 rlineto
+  0 d_h rlineto
+  d_w neg 0 rlineto
+  closepath
+} def
+
+/bgs {	% x y height blskip gray str -> -	show string with bg color
+  /str exch def
+  /gray exch def
+  /blskip exch def
+  /height exch def
+  /y exch def
+  /x exch def
+
+  gsave
+    x y blskip sub str stringwidth pop height Box
+    gray setgray
+    fill
+  grestore
+  x y M str s
+} def
+
+% Highlight bars.
+/highlight_bars {	% nlines lineheight output_y_margin gray -> -
+  gsave
+    setgray
+    /ymarg exch def
+    /lineheight exch def
+    /nlines exch def
+
+    % This 2 is just a magic number to sync highlight lines to text.
+    0 d_header_y ymarg sub 2 sub translate
+
+    /cw d_output_w cols div def
+    /nrows d_output_h ymarg 2 mul sub lineheight div cvi def
+
+    % for each column
+    0 1 cols 1 sub {
+      cw mul /xp exch def
+
+      % for each rows
+      0 1 nrows 1 sub {
+        /rn exch def
+        rn lineheight mul neg /yp exch def
+        rn nlines idiv 2 mod 0 eq {
+	  % Draw highlight bar.  4 is just a magic indentation.
+	  xp 4 add yp cw 8 sub lineheight neg Box fill
+	} if
+      } for
+    } for
+
+  grestore
+} def
+
+% Line highlight bar.
+/line_highlight {	% x y width height gray -> -
+  gsave
+    /gray exch def
+    Box gray setgray fill
+  grestore
+} def
+
+% Column separator lines.
+/column_lines {
+  gsave
+    .1 setlinewidth
+    0 d_footer_h translate
+    /cw d_output_w cols div def
+    1 1 cols 1 sub {
+      cw mul 0 moveto
+      0 d_output_h rlineto stroke
+    } for
+  grestore
+} def
+
+% Column borders.
+/column_borders {
+  gsave
+    .1 setlinewidth
+    0 d_footer_h moveto
+    0 d_output_h rlineto
+    d_output_w 0 rlineto
+    0 d_output_h neg rlineto
+    closepath stroke
+  grestore
+} def
+
+% Do the actual underlay drawing
+/draw_underlay {
+  ul_style 0 eq {
+    ul_str true charpath stroke
+  } {
+    ul_str show
+  } ifelse
+} def
+
+% Underlay
+/underlay {	% - -> -
+  gsave
+    0 d_page_h translate
+    d_page_h neg d_page_w atan rotate
+
+    ul_gray setgray
+    ul_font setfont
+    /dw d_page_h dup mul d_page_w dup mul add sqrt def
+    ul_str stringwidth pop dw exch sub 2 div ul_h_ptsize -2 div moveto
+    draw_underlay
+  grestore
+} def
+
+/user_underlay {	% - -> -
+  gsave
+    ul_x ul_y translate
+    ul_angle rotate
+    ul_gray setgray
+    ul_font setfont
+    0 0 ul_h_ptsize 2 div sub moveto
+    draw_underlay
+  grestore
+} def
+
+% Page prefeed
+/page_prefeed {		% bool -> -
+  statusdict /prefeed known {
+    statusdict exch /prefeed exch put
+  } {
+    pop
+  } ifelse
+} def
+
+% Wrapped line markers
+/wrapped_line_mark {	% x y charwith charheight type -> -
+  /type exch def
+  /h exch def
+  /w exch def
+  /y exch def
+  /x exch def
+
+  type 2 eq {
+    % Black boxes (like TeX does)
+    gsave
+      0 setlinewidth
+      x w 4 div add y M
+      0 h rlineto w 2 div 0 rlineto 0 h neg rlineto
+      closepath fill
+    grestore
+  } {
+    type 3 eq {
+      % Small arrows
+      gsave
+        .2 setlinewidth
+        x w 2 div add y h 2 div add M
+        w 4 div 0 rlineto
+        x w 4 div add y lineto stroke
+
+        x w 4 div add w 8 div add y h 4 div add M
+        x w 4 div add y lineto
+	w 4 div h 8 div rlineto stroke
+      grestore
+    } {
+      % do nothing
+    } ifelse
+  } ifelse
+} def
+
+% EPSF import.
+
+/BeginEPSF {
+  /b4_Inc_state save def    		% Save state for cleanup
+  /dict_count countdictstack def	% Count objects on dict stack
+  /op_count count 1 sub def		% Count objects on operand stack
+  userdict begin
+  /showpage { } def
+  0 setgray 0 setlinecap
+  1 setlinewidth 0 setlinejoin
+  10 setmiterlimit [ ] 0 setdash newpath
+  /languagelevel where {
+    pop languagelevel
+    1 ne {
+      false setstrokeadjust false setoverprint
+    } if
+  } if
+} bind def
+
+/EndEPSF {
+  count op_count sub { pos } repeat	% Clean up stacks
+  countdictstack dict_count sub { end } repeat
+  b4_Inc_state restore
+} bind def
+
+% Check PostScript language level.
+/languagelevel where {
+  pop /gs_languagelevel languagelevel def
+} {
+  /gs_languagelevel 1 def
+} ifelse
+%%EndResource
+%%BeginResource: procset Enscript-Encoding-88591 1.6 1
+/encoding_vector [
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/space        	/exclam       	/quotedbl     	/numbersign   	
+/dollar       	/percent      	/ampersand    	/quoteright   	
+/parenleft    	/parenright   	/asterisk     	/plus         	
+/comma        	/hyphen       	/period       	/slash        	
+/zero         	/one          	/two          	/three        	
+/four         	/five         	/six          	/seven        	
+/eight        	/nine         	/colon        	/semicolon    	
+/less         	/equal        	/greater      	/question     	
+/at           	/A            	/B            	/C            	
+/D            	/E            	/F            	/G            	
+/H            	/I            	/J            	/K            	
+/L            	/M            	/N            	/O            	
+/P            	/Q            	/R            	/S            	
+/T            	/U            	/V            	/W            	
+/X            	/Y            	/Z            	/bracketleft  	
+/backslash    	/bracketright 	/asciicircum  	/underscore   	
+/quoteleft    	/a            	/b            	/c            	
+/d            	/e            	/f            	/g            	
+/h            	/i            	/j            	/k            	
+/l            	/m            	/n            	/o            	
+/p            	/q            	/r            	/s            	
+/t            	/u            	/v            	/w            	
+/x            	/y            	/z            	/braceleft    	
+/bar          	/braceright   	/tilde        	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/space        	/exclamdown   	/cent         	/sterling     	
+/currency     	/yen          	/brokenbar    	/section      	
+/dieresis     	/copyright    	/ordfeminine  	/guillemotleft	
+/logicalnot   	/hyphen       	/registered   	/macron       	
+/degree       	/plusminus    	/twosuperior  	/threesuperior	
+/acute        	/mu           	/paragraph    	/bullet       	
+/cedilla      	/onesuperior  	/ordmasculine 	/guillemotright	
+/onequarter   	/onehalf      	/threequarters	/questiondown 	
+/Agrave       	/Aacute       	/Acircumflex  	/Atilde       	
+/Adieresis    	/Aring        	/AE           	/Ccedilla     	
+/Egrave       	/Eacute       	/Ecircumflex  	/Edieresis    	
+/Igrave       	/Iacute       	/Icircumflex  	/Idieresis    	
+/Eth          	/Ntilde       	/Ograve       	/Oacute       	
+/Ocircumflex  	/Otilde       	/Odieresis    	/multiply     	
+/Oslash       	/Ugrave       	/Uacute       	/Ucircumflex  	
+/Udieresis    	/Yacute       	/Thorn        	/germandbls   	
+/agrave       	/aacute       	/acircumflex  	/atilde       	
+/adieresis    	/aring        	/ae           	/ccedilla     	
+/egrave       	/eacute       	/ecircumflex  	/edieresis    	
+/igrave       	/iacute       	/icircumflex  	/idieresis    	
+/eth          	/ntilde       	/ograve       	/oacute       	
+/ocircumflex  	/otilde       	/odieresis    	/divide       	
+/oslash       	/ugrave       	/uacute       	/ucircumflex  	
+/udieresis    	/yacute       	/thorn        	/ydieresis    	
+] def
+%%EndResource
+%%EndProlog
+%%BeginSetup
+%%IncludeResource: font Courier-Bold
+%%IncludeResource: font Courier
+/HFpt_w 10 def
+/HFpt_h 10 def
+/Courier-Bold /HF-gs-font MF
+/HF /HF-gs-font findfont [HFpt_w 0 0 HFpt_h 0 0] makefont def
+/Courier /F-gs-font MF
+/F-gs-font 6 6 SF
+/#copies 1 def
+% Pagedevice definitions:
+gs_languagelevel 1 gt {
+  <<
+    /PageSize [612 792] 
+  >> setpagedevice
+} if
+%%BeginResource: procset Enscript-Header-simple 1.6 1
+
+/do_header {	% print default simple header
+  gsave
+    d_header_x d_header_y HFpt_h 3 div add translate
+
+    HF setfont
+    user_header_p {
+      5 0 moveto user_header_left_str show
+
+      d_header_w user_header_center_str stringwidth pop sub 2 div
+      0 moveto user_header_center_str show
+
+      d_header_w user_header_right_str stringwidth pop sub 5 sub
+      0 moveto user_header_right_str show
+    } {
+      5 0 moveto fname show
+      45 0 rmoveto fmodstr show
+      45 0 rmoveto pagenumstr show
+    } ifelse
+
+  grestore
+} def
+%%EndResource
+/d_page_w 564 def
+/d_page_h 744 def
+/d_header_x 0 def
+/d_header_y 729 def
+/d_header_w 564 def
+/d_header_h 15 def
+/d_footer_x 0 def
+/d_footer_y 0 def
+/d_footer_w 564 def
+/d_footer_h 0 def
+/d_output_w 564 def
+/d_output_h 729 def
+/cols 1 def
+%%EndSetup
+%%Page: (1) 1
+%%BeginPageSetup
+_S
+24 24 translate
+/pagenum 1 def
+/fname (smt_lexer.h) def
+/fdir () def
+/ftail (smt_lexer.h) def
+% User defined strings:
+/fmodstr (Thu May 10 19:23:25 2007) def
+/pagenumstr (1) def
+/user_header_p false def
+%%EndPageSetup
+do_header
+5 720 M
+(/*) s
+5 713 M
+( * Lexer for the SMT-LIB language \(the benchmarks part\)) s
+5 706 M
+( */) s
+5 692 M
+(#ifndef __SMT_LEXER_H) s
+5 685 M
+(#define __SMT_LEXER_H) s
+5 671 M
+(#include "lexer.h") s
+5 650 M
+(/*) s
+5 643 M
+( * Tokens:) s
+5 636 M
+( * - we consider ':' ']' and '[' as individual tokens to deal with ) s
+5 629 M
+( *   extract and BitVec.) s
+5 622 M
+( * - the parser must then check proper formatting of BitVec[size]) s
+5 615 M
+( *   and extract[i:j]) s
+5 608 M
+( */) s
+5 601 M
+(enum smt_token {) s
+5 594 M
+(  // separators) s
+5 587 M
+(  SMT_TK_LP, SMT_TK_RP, SMT_TK_LB, SMT_TK_RB, SMT_TK_COLON, SMT_TK_EOS,) s
+5 573 M
+(  // strings, symbols, variables, attributes) s
+5 566 M
+(  SMT_TK_STRING, SMT_TK_SYMBOL, SMT_TK_VAR, SMT_TK_FVAR, ) s
+5 559 M
+(  SMT_TK_ATTRIBUTE, SMT_TK_USER_VALUE,) s
+5 545 M
+(  // numerals: more permissive than SMT LIB, we allow) s
+5 538 M
+(  // rationals as <optional_sign><digits> or <optional_sign><digits>/<digits>) s
+5 531 M
+(  // floats as <optional_sigm><digits>.<digits>) s
+5 524 M
+(  SMT_TK_RATIONAL, SMT_TK_FLOAT,) s
+5 510 M
+(  // bitvector constants "bv<digits>" \(size is determined by the theory \(e.g., QF_UFBV[32]\)) s
+5 503 M
+(  // New bitvector theory: size is appended in the format "bv<digits>[i]") s
+5 496 M
+(  SMT_TK_BV_CONSTANT,) s
+5 482 M
+(  // bitvector constants in binary "bvbin<bits>" and hexadecimal "bvhex<bits>") s
+5 475 M
+(  SMT_TK_BV_BINCONSTANT, SMT_TK_BV_HEXCONSTANT,) s
+5 454 M
+(  // SMT-LIB keywords \(independent of the logic and theories\)) s
+5 447 M
+(  SMT_TK_DISTINCT, SMT_TK_ITE, SMT_TK_EQ,) s
+5 433 M
+(  SMT_TK_TRUE, SMT_TK_FALSE, SMT_TK_NOT, SMT_TK_IMPLIES, SMT_TK_IF_THEN_ELSE, SMT_TK_AND, ) s
+5 426 M
+(  SMT_TK_OR, SMT_TK_XOR, SMT_TK_IFF, SMT_TK_EXISTS, SMT_TK_FORALL, SMT_TK_LET, SMT_TK_FLET, ) s
+5 412 M
+(  // attribute for patterns) s
+5 405 M
+(  SMT_TK_PAT, SMT_TK_NOPAT,) s
+5 391 M
+(  // benchmark attributes and keywords ) s
+5 384 M
+(  SMT_TK_BENCHMARK, SMT_TK_SAT, SMT_TK_UNSAT, SMT_TK_UNKNOWN, SMT_TK_LOGIC,) s
+5 377 M
+(  SMT_TK_ASSUMPTION, SMT_TK_FORMULA, SMT_TK_STATUS, SMT_TK_EXTRASORTS, ) s
+5 370 M
+(  SMT_TK_EXTRAFUNS, SMT_TK_EXTRAPREDS, SMT_TK_NOTES,) s
+5 356 M
+(  // theories: sort symbols) s
+5 349 M
+(  SMT_TK_INDEX, SMT_TK_ELEMENT, SMT_TK_ARRAY, SMT_TK_U, SMT_TK_INT, SMT_TK_REAL, ) s
+5 342 M
+(  SMT_TK_ARRAY1, SMT_TK_ARRAY2, SMT_TK_BITVEC,) s
+5 335 M
+( ) s
+5 328 M
+(  // theories: function symbols) s
+5 321 M
+(  SMT_TK_ADD, SMT_TK_SUB, SMT_TK_MUL, SMT_TK_DIV, SMT_TK_TILDE, SMT_TK_LT, SMT_TK_LE,) s
+5 314 M
+(  SMT_TK_GT, SMT_TK_GE, SMT_TK_SELECT, SMT_TK_STORE, ) s
+5 300 M
+(  // old bitvector functions) s
+5 293 M
+(  SMT_TK_BVADD, SMT_TK_BVSUB, SMT_TK_BVMUL, SMT_TK_BVNEG,) s
+5 286 M
+(  SMT_TK_BVOR, SMT_TK_BVAND, SMT_TK_BVXOR, SMT_TK_BVNOT, ) s
+5 279 M
+(  SMT_TK_BVLT, SMT_TK_BVLEQ, SMT_TK_BVGT, SMT_TK_BVGEQ, ) s
+5 272 M
+(  SMT_TK_BVSLT, SMT_TK_BVSLEQ, SMT_TK_BVSGT, SMT_TK_BVSGEQ,) s
+5 265 M
+(  SMT_TK_CONCAT, SMT_TK_EXTRACT, SMT_TK_SIGN_EXTEND, SMT_TK_SHIFT_LEFT0, ) s
+5 258 M
+(  SMT_TK_SHIFT_LEFT1, SMT_TK_SHIFT_RIGHT0, SMT_TK_SHIFT_RIGHT1, SMT_TK_BIT0, SMT_TK_BIT1, ) s
+5 244 M
+(  // new bitvector functions  ) s
+5 237 M
+(  SMT_TK_BVUDIV, SMT_TK_BVUREM,) s
+5 230 M
+(  SMT_TK_BVSDIV, SMT_TK_BVSREM, SMT_TK_BVSMOD,) s
+5 223 M
+(  SMT_TK_BVSHL,  SMT_TK_BVLSHR, SMT_TK_BVASHR,) s
+5 216 M
+(  SMT_TK_BVNAND, SMT_TK_BVNOR,  SMT_TK_BVXNOR,) s
+5 209 M
+(  SMT_TK_BVREDOR, SMT_TK_BVREDAND, SMT_TK_BVCOMP,) s
+5 202 M
+(  ) s
+5 195 M
+(  SMT_TK_REPEAT, SMT_TK_ZERO_EXTEND, SMT_TK_ROTATE_LEFT, SMT_TK_ROTATE_RIGHT,) s
+5 181 M
+(  // new names of bitvector predicates) s
+5 174 M
+(  SMT_TK_BVULT, SMT_TK_BVULE, SMT_TK_BVUGT, SMT_TK_BVUGE,) s
+5 167 M
+(  SMT_TK_BVSLE, SMT_TK_BVSGE,) s
+5 153 M
+(  // errors) s
+5 146 M
+(  SMT_TK_OPEN_STRING, SMT_TK_OPEN_USER_VAL,) s
+5 139 M
+(  SMT_TK_ZERO_DIVISOR, SMT_TK_INVALID_NUMBER,) s
+5 132 M
+(  SMT_TK_INVALID_BITVEC, SMT_TK_INVALID_EXTRACT,) s
+5 125 M
+(  SMT_TK_ERROR,) s
+5 118 M
+(};) s
+5 104 M
+(#define NUM_SMT_TOKENS \(SMT_TK_ERROR+1\)) s
+5 83 M
+(/*) s
+5 76 M
+( * Initialization) s
+5 69 M
+( */) s
+5 62 M
+(extern int32_t init_smt_file_lexer\(lexer_t *lex, char *filename\);) s
+5 48 M
+(extern void init_smt_stream_lexer\(lexer_t *lex, FILE *f, char *name\);) s
+5 34 M
+(static inline void init_smt_stdin_lexer\(lexer_t *lex\) {) s
+5 27 M
+(  init_smt_stream_lexer\(lex, stdin, "stdin"\);) s
+5 20 M
+(}) s
+5 6 M
+(extern void init_smt_string_lexer\(lexer_t *lex, char *data, char *name\);) s
+_R
+S
+%%Page: (2) 2
+%%BeginPageSetup
+_S
+24 24 translate
+/pagenum 2 def
+/fname (smt_lexer.h) def
+/fdir () def
+/ftail (smt_lexer.h) def
+% User defined strings:
+/fmodstr (Thu May 10 19:23:25 2007) def
+/pagenumstr (2) def
+/user_header_p false def
+%%EndPageSetup
+do_header
+5 706 M
+(/*) s
+5 699 M
+( * Conversion from an SMT token to a string) s
+5 692 M
+( */) s
+5 685 M
+(extern char *smt_token_to_string\(token_t tk\);) s
+5 664 M
+(/*) s
+5 657 M
+( * Read next token and return its type) s
+5 650 M
+( * - update lex->token \(set it to tk\)) s
+5 643 M
+( * - update lex->tk_pos, tk_line, tk_pos \(to the start of token) s
+5 636 M
+( *   in the input stream\)) s
+5 629 M
+( * - store token_value in lex->buffer.) s
+5 622 M
+( */) s
+5 615 M
+(extern token_t next_smt_token\(lexer_t *lex\);) s
+5 587 M
+(#endif /* __SMT_LEXER_H */) s
+_R
+S
+%%Page: (1) 3
+%%BeginPageSetup
+_S
+24 24 translate
+/pagenum 1 def
+/fname (smt_lexer.c) def
+/fdir () def
+/ftail (smt_lexer.c) def
+% User defined strings:
+/fmodstr (Mon May 14 09:40:45 2007) def
+/pagenumstr (1) def
+/user_header_p false def
+%%EndPageSetup
+do_header
+5 720 M
+(/*) s
+5 713 M
+( * Lexer for the SMT-LIB language \(the benchmarks part\)) s
+5 706 M
+( */) s
+5 692 M
+(#include <ctype.h>) s
+5 685 M
+(#include <assert.h>) s
+5 671 M
+(#include "smt_lexer.h") s
+5 650 M
+(/*) s
+5 643 M
+( * Keywords and attributes) s
+5 636 M
+( */) s
+5 629 M
+(static keyword_t smt_keywords[] = {) s
+5 622 M
+(  // keywords for formulas) s
+5 615 M
+(  { "distinct",  SMT_TK_DISTINCT },) s
+5 608 M
+(  { "ite", SMT_TK_ITE },) s
+5 601 M
+(  { "=", SMT_TK_EQ },) s
+5 594 M
+(  { "true", SMT_TK_TRUE },) s
+5 587 M
+(  { "false", SMT_TK_FALSE },) s
+5 580 M
+(  { "not", SMT_TK_NOT },) s
+5 573 M
+(  { "implies", SMT_TK_IMPLIES },) s
+5 566 M
+(  { "if_then_else", SMT_TK_IF_THEN_ELSE },) s
+5 559 M
+(  { "and", SMT_TK_AND },) s
+5 552 M
+(  { "or", SMT_TK_OR },) s
+5 545 M
+(  { "xor", SMT_TK_XOR },) s
+5 538 M
+(  { "iff", SMT_TK_IFF },) s
+5 531 M
+(  { "exists", SMT_TK_EXISTS },) s
+5 524 M
+(  { "forall", SMT_TK_FORALL },) s
+5 517 M
+(  { "let", SMT_TK_LET },) s
+5 510 M
+(  { "flet", SMT_TK_FLET },) s
+5 496 M
+(  // pattern annotations) s
+5 489 M
+(  { ":pat", SMT_TK_PAT },) s
+5 482 M
+(  { ":nopat", SMT_TK_NOPAT },) s
+5 468 M
+(  // benchmark keywords and attributes) s
+5 461 M
+(  { "benchmark", SMT_TK_BENCHMARK },) s
+5 454 M
+(  { "sat", SMT_TK_SAT },) s
+5 447 M
+(  { "unsat", SMT_TK_UNSAT },) s
+5 440 M
+(  { "unknown", SMT_TK_UNKNOWN },) s
+5 433 M
+(  { ":logic", SMT_TK_LOGIC },) s
+5 426 M
+(  { ":assumption", SMT_TK_ASSUMPTION },) s
+5 419 M
+(  { ":formula", SMT_TK_FORMULA },) s
+5 412 M
+(  { ":status", SMT_TK_STATUS },) s
+5 405 M
+(  { ":extrasorts", SMT_TK_EXTRASORTS },) s
+5 398 M
+(  { ":extrafuns", SMT_TK_EXTRAFUNS },) s
+5 391 M
+(  { ":extrapreds", SMT_TK_EXTRAPREDS },) s
+5 384 M
+(  { ":notes", SMT_TK_NOTES },) s
+5 370 M
+(  // defined sorts ) s
+5 363 M
+(  { "Index", SMT_TK_INDEX },) s
+5 356 M
+(  { "Element", SMT_TK_ELEMENT },) s
+5 349 M
+(  { "Array", SMT_TK_ARRAY },) s
+5 342 M
+(  { "U", SMT_TK_U },) s
+5 335 M
+(  { "Int", SMT_TK_INT },) s
+5 328 M
+(  { "Real", SMT_TK_REAL },) s
+5 321 M
+(  { "Array1", SMT_TK_ARRAY1 },) s
+5 314 M
+(  { "Array2", SMT_TK_ARRAY2 },) s
+5 307 M
+(  { "BitVec", SMT_TK_BITVEC },) s
+5 293 M
+(  // function and predicate symbols) s
+5 286 M
+(  { "+", SMT_TK_ADD },) s
+5 279 M
+(  { "-", SMT_TK_SUB },) s
+5 272 M
+(  { "*", SMT_TK_MUL },) s
+5 265 M
+(  { "/", SMT_TK_DIV },) s
+5 258 M
+(  { "~", SMT_TK_TILDE },) s
+5 251 M
+(  { "<", SMT_TK_LT },) s
+5 244 M
+(  { "<=", SMT_TK_LE },) s
+5 237 M
+(  { ">", SMT_TK_GT },) s
+5 230 M
+(  { ">=", SMT_TK_GE },) s
+5 223 M
+(  { "select", SMT_TK_SELECT },) s
+5 216 M
+(  { "store", SMT_TK_STORE },) s
+5 202 M
+(  { "bvadd", SMT_TK_BVADD },) s
+5 195 M
+(  { "bvsub", SMT_TK_BVSUB },) s
+5 188 M
+(  { "bvmul", SMT_TK_BVMUL },) s
+5 181 M
+(  { "bvneg", SMT_TK_BVNEG },) s
+5 174 M
+(  { "bvor", SMT_TK_BVOR },) s
+5 167 M
+(  { "bvand", SMT_TK_BVAND },) s
+5 160 M
+(  { "bvxor", SMT_TK_BVXOR },) s
+5 153 M
+(  { "bvnot", SMT_TK_BVNOT },) s
+5 146 M
+(  { "bvlt", SMT_TK_BVLT },) s
+5 139 M
+(  { "bvleq", SMT_TK_BVLEQ },) s
+5 132 M
+(  { "bvgt", SMT_TK_BVGT },) s
+5 125 M
+(  { "bvgeq", SMT_TK_BVGEQ },) s
+5 118 M
+(  { "bvslt", SMT_TK_BVSLT },) s
+5 111 M
+(  { "bvsleq", SMT_TK_BVSLEQ },) s
+5 104 M
+(  { "bvsgt", SMT_TK_BVSGT },) s
+5 97 M
+(  { "bvsgeq", SMT_TK_BVSGEQ },) s
+5 83 M
+(  { "concat", SMT_TK_CONCAT },) s
+5 76 M
+(  { "extract", SMT_TK_EXTRACT },) s
+5 69 M
+(  { "sign_extend", SMT_TK_SIGN_EXTEND },) s
+5 62 M
+(  { "shift_left0", SMT_TK_SHIFT_LEFT0 },) s
+5 55 M
+(  { "shift_left1", SMT_TK_SHIFT_LEFT1 },) s
+5 48 M
+(  { "shift_right0", SMT_TK_SHIFT_RIGHT0 },) s
+5 41 M
+(  { "shift_right1", SMT_TK_SHIFT_RIGHT1 },) s
+5 34 M
+(  { "bit0", SMT_TK_BIT0 },) s
+5 27 M
+(  { "bit1", SMT_TK_BIT1 },) s
+5 13 M
+(  // new bitvector keywords) s
+5 6 M
+(  { "bvudiv", SMT_TK_BVUDIV },) s
+_R
+S
+%%Page: (2) 4
+%%BeginPageSetup
+_S
+24 24 translate
+/pagenum 2 def
+/fname (smt_lexer.c) def
+/fdir () def
+/ftail (smt_lexer.c) def
+% User defined strings:
+/fmodstr (Mon May 14 09:40:45 2007) def
+/pagenumstr (2) def
+/user_header_p false def
+%%EndPageSetup
+do_header
+5 720 M
+(  { "bvurem", SMT_TK_BVUREM },) s
+5 713 M
+(  { "bvsdiv", SMT_TK_BVSDIV },) s
+5 706 M
+(  { "bvsrem", SMT_TK_BVSREM },) s
+5 699 M
+(  { "bvsmod", SMT_TK_BVSMOD },) s
+5 692 M
+(  { "bvshl",  SMT_TK_BVSHL },) s
+5 685 M
+(  { "bvlshr", SMT_TK_BVLSHR },) s
+5 678 M
+(  { "bvashr", SMT_TK_BVASHR },) s
+5 671 M
+(  { "bvnand", SMT_TK_BVNAND },) s
+5 664 M
+(  { "bvnor",  SMT_TK_BVNOR },) s
+5 657 M
+(  { "bvxnor", SMT_TK_BVXNOR },) s
+5 650 M
+(  { "bvredor", SMT_TK_BVREDOR },) s
+5 643 M
+(  { "bvredand", SMT_TK_BVREDAND },) s
+5 636 M
+(  { "bvcomp", SMT_TK_BVCOMP },) s
+5 629 M
+(  { "repeat", SMT_TK_REPEAT },) s
+5 622 M
+(  { "zero_extend", SMT_TK_ZERO_EXTEND },) s
+5 615 M
+(  { "rotate_left", SMT_TK_ROTATE_LEFT },) s
+5 608 M
+(  { "rotate_right", SMT_TK_ROTATE_RIGHT },) s
+5 594 M
+(  { "bvult", SMT_TK_BVULT },) s
+5 587 M
+(  { "bvule", SMT_TK_BVULE },) s
+5 580 M
+(  { "bvugt", SMT_TK_BVUGT },) s
+5 573 M
+(  { "bvuge", SMT_TK_BVUGE },) s
+5 566 M
+(  { "bvsle", SMT_TK_BVSLE }, ) s
+5 559 M
+(  { "bvsge", SMT_TK_BVSGE },) s
+5 538 M
+(  // end marker) s
+5 531 M
+(  { NULL, 0 },) s
+5 524 M
+(};) s
+5 496 M
+(/*) s
+5 489 M
+( * Table for conversion from token to string) s
+5 482 M
+( */) s
+5 475 M
+(static char *smt_token_string[NUM_SMT_TOKENS];) s
+5 454 M
+(/*) s
+5 447 M
+( * Initialize the token-to-string table) s
+5 440 M
+( */) s
+5 433 M
+(static void init_smttoken2string\(\) {) s
+5 426 M
+(  keyword_t *kw;) s
+5 412 M
+(  // keywords) s
+5 405 M
+(  kw = smt_keywords;) s
+5 398 M
+(  while \(kw->word != NULL\) {) s
+5 391 M
+(    smt_token_string[kw->tk] = kw->word;) s
+5 384 M
+(    kw ++;) s
+5 377 M
+(  }) s
+5 363 M
+(  // other tokens) s
+5 356 M
+(  smt_token_string[SMT_TK_LP] = "\(";) s
+5 349 M
+(  smt_token_string[SMT_TK_RP] = "\)";) s
+5 342 M
+(  smt_token_string[SMT_TK_LB] = "[";) s
+5 335 M
+(  smt_token_string[SMT_TK_RB] = "]";) s
+5 328 M
+(  smt_token_string[SMT_TK_COLON] = ":";) s
+5 321 M
+(  smt_token_string[SMT_TK_EOS] = "<end-of-stream>";) s
+5 314 M
+(  smt_token_string[SMT_TK_STRING] = "<string>";) s
+5 307 M
+(  smt_token_string[SMT_TK_SYMBOL] = "<symbol>";) s
+5 300 M
+(  smt_token_string[SMT_TK_VAR] = "<var>";) s
+5 293 M
+(  smt_token_string[SMT_TK_FVAR] = "<fvar>";) s
+5 286 M
+(  smt_token_string[SMT_TK_ATTRIBUTE] = "<attribute>";) s
+5 279 M
+(  smt_token_string[SMT_TK_USER_VALUE] = "<user-value>";) s
+5 272 M
+(  smt_token_string[SMT_TK_RATIONAL] = "<rational>";) s
+5 265 M
+(  smt_token_string[SMT_TK_FLOAT] = "<float>";) s
+5 258 M
+(  smt_token_string[SMT_TK_BV_CONSTANT] = "<bv-constant>";) s
+5 251 M
+(  smt_token_string[SMT_TK_BV_BINCONSTANT] = "<bvbin-constant>";) s
+5 244 M
+(  smt_token_string[SMT_TK_BV_HEXCONSTANT] = "<bvhex-constant>";) s
+5 230 M
+(  // errors) s
+5 223 M
+(  smt_token_string[SMT_TK_OPEN_STRING] = "<bad-string>";) s
+5 216 M
+(  smt_token_string[SMT_TK_OPEN_USER_VAL] = "<bad-user-val>";) s
+5 209 M
+(  smt_token_string[SMT_TK_ZERO_DIVISOR] = "<zero-divisor-in-rational>";) s
+5 202 M
+(  smt_token_string[SMT_TK_INVALID_NUMBER] = "<bad-numeral>";) s
+5 195 M
+(  smt_token_string[SMT_TK_ERROR] = "<error>";  ) s
+5 188 M
+(}) s
+5 160 M
+(/*) s
+5 153 M
+( * Lexer initialization) s
+5 146 M
+( */) s
+5 139 M
+(int32_t init_smt_file_lexer\(lexer_t *lex, char *filename\) {) s
+5 132 M
+(  init_smttoken2string\(\);) s
+5 125 M
+(  return init_file_lexer\(lex, filename, smt_keywords\);) s
+5 118 M
+(}) s
+5 104 M
+(void init_smt_stream_lexer\(lexer_t *lex, FILE *f, char *name\) {) s
+5 97 M
+(  init_smttoken2string\(\);) s
+5 90 M
+(  init_stream_lexer\(lex, f, name, smt_keywords\);) s
+5 83 M
+(}) s
+5 69 M
+(void init_smt_string_lexer\(lexer_t *lex, char *data, char *name\) {) s
+5 62 M
+(  init_smttoken2string\(\);) s
+5 55 M
+(  init_string_lexer\(lex, data, name, smt_keywords\);) s
+5 48 M
+(}) s
+5 27 M
+(/*) s
+5 20 M
+( * Get string for token tk) s
+5 13 M
+( */) s
+5 6 M
+(char *smt_token_to_string\(token_t tk\) {) s
+_R
+S
+%%Page: (3) 5
+%%BeginPageSetup
+_S
+24 24 translate
+/pagenum 3 def
+/fname (smt_lexer.c) def
+/fdir () def
+/ftail (smt_lexer.c) def
+% User defined strings:
+/fmodstr (Mon May 14 09:40:45 2007) def
+/pagenumstr (3) def
+/user_header_p false def
+%%EndPageSetup
+do_header
+5 720 M
+(  assert\(0 <= tk && tk < NUM_SMT_TOKENS\);) s
+5 713 M
+(  return smt_token_string[tk];) s
+5 706 M
+(}) s
+5 685 M
+(/*) s
+5 678 M
+( * Read a string literal:) s
+5 671 M
+( * - current char = ") s
+5 664 M
+( * - read all characters until either EOF or closing ") s
+5 657 M
+( * escape sequence \\" can occur within the string) s
+5 650 M
+( *) s
+5 643 M
+( * Buffer contains the string literal without the doublequotes) s
+5 636 M
+( */) s
+5 629 M
+(static token_t smt_read_string\(lexer_t *lex\) {  ) s
+5 622 M
+(  reader_t *rd;) s
+5 615 M
+(  string_buffer_t *buffer;) s
+5 608 M
+(  int c;) s
+5 601 M
+(  token_t tk;) s
+5 587 M
+(  rd = &lex->reader;) s
+5 580 M
+(  buffer = lex->buffer;) s
+5 573 M
+(  assert\(reader_current_char\(rd\) == '"'\);) s
+5 559 M
+(  for \(;;\) {) s
+5 552 M
+(    c = reader_next_char\(rd\);) s
+5 545 M
+(    if \(c == '"'\) {) s
+5 538 M
+(      tk = SMT_TK_STRING; break;) s
+5 531 M
+(    }) s
+5 524 M
+(    if \(c == EOF\) { // error) s
+5 517 M
+(      tk = SMT_TK_OPEN_STRING; break;) s
+5 510 M
+(    }) s
+5 503 M
+(    if \(c == '\\\\'\) {) s
+5 496 M
+(      c = reader_next_char\(rd\);) s
+5 489 M
+(      if \(c != '"'\) { // keep backslash) s
+5 482 M
+(        string_buffer_append_char\(buffer, '\\\\'\);) s
+5 475 M
+(      }) s
+5 468 M
+(    }) s
+5 461 M
+(    string_buffer_append_char\(buffer, c\);) s
+5 454 M
+(  }) s
+5 440 M
+(  //  string_buffer_append_char\(buffer, '\\0'\);) s
+5 433 M
+(  string_buffer_close\(buffer\);) s
+5 426 M
+(  return tk;) s
+5 419 M
+(}) s
+5 405 M
+(/*) s
+5 398 M
+( * Read a user value: ) s
+5 391 M
+( * - current char is '{') s
+5 384 M
+( * - read until the terminating '}' or EOF) s
+5 377 M
+( * - escape sequences: \\{ and \\}) s
+5 370 M
+( *) s
+5 363 M
+( * On exit: buffer contains what was between '{' and '}') s
+5 356 M
+( * as a null-terminated string.) s
+5 349 M
+( */) s
+5 342 M
+(static token_t smt_read_user_val\(lexer_t *lex\) {  ) s
+5 335 M
+(  reader_t *rd;) s
+5 328 M
+(  string_buffer_t *buffer;) s
+5 321 M
+(  int c;) s
+5 314 M
+(  token_t tk;) s
+5 300 M
+(  rd = &lex->reader;) s
+5 293 M
+(  buffer = lex->buffer;) s
+5 286 M
+(  assert\(reader_current_char\(rd\) == '{'\);) s
+5 272 M
+(  for \(;;\) {) s
+5 265 M
+(    c = reader_next_char\(rd\);) s
+5 258 M
+(    if \(c == '}'\) {) s
+5 251 M
+(      tk = SMT_TK_USER_VALUE; break;) s
+5 244 M
+(    }) s
+5 237 M
+(    if \(c == EOF\) { // error) s
+5 230 M
+(      tk = SMT_TK_OPEN_USER_VAL; break;) s
+5 223 M
+(    }) s
+5 216 M
+(    if \(c == '\\\\'\) {) s
+5 209 M
+(      c = reader_next_char\(rd\);) s
+5 202 M
+(      if \(c != '{' && c != '}'\) {) s
+5 195 M
+(        string_buffer_append_char\(buffer, '\\\\'\);) s
+5 188 M
+(      }) s
+5 181 M
+(    }) s
+5 174 M
+(    string_buffer_append_char\(buffer, c\);) s
+5 167 M
+(  }) s
+5 153 M
+(  //  string_buffer_append_char\(buffer, '\\0'\);) s
+5 146 M
+(  string_buffer_close\(buffer\);) s
+5 139 M
+(  return tk;) s
+5 132 M
+(}) s
+5 111 M
+(/*) s
+5 104 M
+( * Read identifier and store it in the buffer, include the current char) s
+5 97 M
+( * \(as first character of the identifier\).) s
+5 90 M
+( *) s
+5 83 M
+( * Official SMT-LIB defines) s
+5 76 M
+( * simple identifier = sequence of letters, digits, dots, single quotes) s
+5 69 M
+( * and underscore, started by a letter.) s
+5 62 M
+( * arith symbol = nonempty sequence of the characters) s
+5 55 M
+( *     =, <, >, &, @, #, +, -, *, /, %, |, ~) s
+5 48 M
+( *) s
+5 41 M
+( * But we ignore that. ) s
+5 34 M
+( * We read until space, EOF, ", {, }, \(, \), [, ], ; , :, ?, $, \\ or ',') s
+5 27 M
+( */) s
+5 20 M
+(static bool is_end_delimitor\(int c\) {) s
+5 13 M
+(  if \(ispunct\(c\)\) {) s
+5 6 M
+(    switch\(c\) {) s
+_R
+S
+%%Page: (4) 6
+%%BeginPageSetup
+_S
+24 24 translate
+/pagenum 4 def
+/fname (smt_lexer.c) def
+/fdir () def
+/ftail (smt_lexer.c) def
+% User defined strings:
+/fmodstr (Mon May 14 09:40:45 2007) def
+/pagenumstr (4) def
+/user_header_p false def
+%%EndPageSetup
+do_header
+5 720 M
+(    case '"':) s
+5 713 M
+(    case '{':) s
+5 706 M
+(    case '}':) s
+5 699 M
+(    case '\(':) s
+5 692 M
+(    case '\)':) s
+5 685 M
+(    case '[':) s
+5 678 M
+(    case ']':) s
+5 671 M
+(    case ';':) s
+5 664 M
+(    case ':':) s
+5 657 M
+(    case '?':) s
+5 650 M
+(    case '$':) s
+5 643 M
+(    case '\\\\':) s
+5 636 M
+(    case ',':) s
+5 629 M
+(      return true;) s
+5 622 M
+(    default:) s
+5 615 M
+(      return false;) s
+5 608 M
+(    }) s
+5 601 M
+(  } else {) s
+5 594 M
+(    return isspace\(c\) || c == EOF;) s
+5 587 M
+(  }) s
+5 580 M
+(}) s
+5 566 M
+(static void smt_read_identifier\(lexer_t *lex\) {) s
+5 559 M
+(  reader_t *rd;) s
+5 552 M
+(  int c;) s
+5 545 M
+(  string_buffer_t *buffer;) s
+5 531 M
+(  rd = &lex->reader;) s
+5 524 M
+(  buffer = lex->buffer;) s
+5 517 M
+(  c = reader_current_char\(rd\);) s
+5 510 M
+(  do {) s
+5 503 M
+(    string_buffer_append_char\(buffer, c\);) s
+5 496 M
+(    c = reader_next_char\(rd\);) s
+5 489 M
+(  } while \(! is_end_delimitor\(c\)\);) s
+5 475 M
+(  //  string_buffer_append_char\(buffer, '\\0'\);) s
+5 468 M
+(  string_buffer_close\(buffer\);) s
+5 461 M
+(}) s
+5 447 M
+(/*) s
+5 440 M
+( * Read an attribute, i.e., a symbol that start with ':', or a single ':') s
+5 433 M
+( */) s
+5 426 M
+(static token_t smt_read_attribute\(lexer_t *lex\) {) s
+5 419 M
+(  reader_t *rd;) s
+5 412 M
+(  string_buffer_t *buffer;) s
+5 405 M
+(  int c, x;) s
+5 398 M
+(  token_t tk;) s
+5 384 M
+(  rd = &lex->reader;) s
+5 377 M
+(  buffer = lex->buffer;) s
+5 370 M
+(  c = reader_current_char\(rd\);) s
+5 363 M
+(  assert\(c == ':'\);) s
+5 356 M
+(  x = reader_next_char\(rd\);) s
+5 342 M
+(  if \(isalpha\(x\)\) {) s
+5 335 M
+(    // attribute) s
+5 328 M
+(    string_buffer_append_char\(buffer, c\);) s
+5 321 M
+(    do {) s
+5 314 M
+(      string_buffer_append_char\(buffer, x\);) s
+5 307 M
+(      x = reader_next_char\(rd\);) s
+5 300 M
+(    } while \(! is_end_delimitor\(x\)\);) s
+5 286 M
+(    //    string_buffer_append_char\(buffer, '\\0'\);) s
+5 279 M
+(    string_buffer_close\(buffer\);) s
+5 272 M
+(    tk = stbl_find\(lex->keywords, current_token_value\(lex\)\);) s
+5 265 M
+(    if \(tk < 0\) tk = SMT_TK_ATTRIBUTE;) s
+5 251 M
+(  } else {) s
+5 244 M
+(    // not an attribute) s
+5 237 M
+(    tk = SMT_TK_COLON;) s
+5 230 M
+(  }) s
+5 223 M
+(  return tk;) s
+5 216 M
+(}) s
+5 202 M
+(/*) s
+5 195 M
+( * Read a number: formats are) s
+5 188 M
+( *    <digits>/<digits> or <digits>.<digits> or <digits>) s
+5 181 M
+( * current char is first digitr ) s
+5 174 M
+( */) s
+5 167 M
+(static token_t smt_read_number\(lexer_t *lex\) {) s
+5 160 M
+(  reader_t *rd;) s
+5 153 M
+(  string_buffer_t *buffer;) s
+5 146 M
+(  int c, all_zeros;) s
+5 139 M
+(  token_t tk;) s
+5 125 M
+(  rd = &lex->reader;) s
+5 118 M
+(  buffer = lex->buffer;) s
+5 111 M
+(  c = reader_current_char\(rd\);) s
+5 104 M
+(  tk = SMT_TK_RATIONAL;) s
+5 97 M
+(  assert\(isdigit\(c\)\);  ) s
+5 90 M
+(  do {) s
+5 83 M
+(    string_buffer_append_char\(buffer, c\);) s
+5 76 M
+(    c = reader_next_char\(rd\);    ) s
+5 69 M
+(  } while \(isdigit\(c\)\);) s
+5 55 M
+(  if \(c == '.'\) {) s
+5 48 M
+(    string_buffer_append_char\(buffer, c\);) s
+5 41 M
+(    c = reader_next_char\(rd\);) s
+5 34 M
+(    if \(! isdigit\(c\)\) {) s
+5 27 M
+(      tk = SMT_TK_INVALID_NUMBER;) s
+5 20 M
+(      goto done;) s
+5 13 M
+(    }) s
+5 6 M
+(    do {) s
+_R
+S
+%%Page: (5) 7
+%%BeginPageSetup
+_S
+24 24 translate
+/pagenum 5 def
+/fname (smt_lexer.c) def
+/fdir () def
+/ftail (smt_lexer.c) def
+% User defined strings:
+/fmodstr (Mon May 14 09:40:45 2007) def
+/pagenumstr (5) def
+/user_header_p false def
+%%EndPageSetup
+do_header
+5 720 M
+(      string_buffer_append_char\(buffer, c\);) s
+5 713 M
+(      c = reader_next_char\(rd\);    ) s
+5 706 M
+(    } while \(isdigit\(c\)\);) s
+5 699 M
+(    tk = SMT_TK_FLOAT;) s
+5 692 M
+(    goto done;) s
+5 685 M
+(  } ) s
+5 671 M
+(  if \(c == '/'\) {) s
+5 664 M
+(    string_buffer_append_char\(buffer, c\);) s
+5 657 M
+(    c = reader_next_char\(rd\);) s
+5 650 M
+(    if \(! isdigit\(c\)\) {) s
+5 643 M
+(      tk = SMT_TK_INVALID_NUMBER;) s
+5 636 M
+(      goto done;) s
+5 629 M
+(    }) s
+5 622 M
+(    all_zeros = true;) s
+5 615 M
+(    do {) s
+5 608 M
+(      if \(c != '0'\) all_zeros = false;) s
+5 601 M
+(      string_buffer_append_char\(buffer, c\);) s
+5 594 M
+(      c = reader_next_char\(rd\);    ) s
+5 587 M
+(    } while \(isdigit\(c\)\);) s
+5 580 M
+(    if \(all_zeros\) tk = SMT_TK_ZERO_DIVISOR;) s
+5 573 M
+(    // else tk = SMT_TK_RATIONAL    ) s
+5 566 M
+(  }) s
+5 559 M
+(    ) s
+5 552 M
+( done:) s
+5 545 M
+(  //  string_buffer_append_char\(buffer, '\\0'\);) s
+5 538 M
+(  string_buffer_close\(buffer\);) s
+5 531 M
+(  return tk;) s
+5 524 M
+(}) s
+5 503 M
+(/*) s
+5 496 M
+( * Read symbols, with special treatment for ) s
+5 489 M
+( *  bit vector constants "bv<digits>") s
+5 482 M
+( *  or "bvbin<binary bits>") s
+5 475 M
+( *  or "bvhex<hexadecimal digits>") s
+5 468 M
+( */) s
+5 454 M
+(// return the correct token type for the string in buffer) s
+5 447 M
+(static token_t symbol_type\(string_buffer_t *buffer\) {) s
+5 440 M
+(  uint32_t n, i;) s
+5 433 M
+(  char *s;) s
+5 419 M
+(  n = string_buffer_length\(buffer\);) s
+5 412 M
+(  s = buffer->data;) s
+5 405 M
+(  //  n --; // string_buffer_length includes terminating '\\0' \(not anymore\)) s
+5 398 M
+(  if \(n > 2 && s[0] == 'b' && s[1] == 'v'\) {) s
+5 391 M
+(    // bv prefix) s
+5 384 M
+(    if \(n > 5 && s[2] == 'b' && s[3] == 'i' && s[4] == 'n'\) {) s
+5 377 M
+(      // bvbin prefix) s
+5 370 M
+(      for \(i=5; i<n; i++\) {) s
+5 363 M
+(        if \(s[i] != '0' && s[i] != '1'\) {) s
+5 356 M
+(          return SMT_TK_SYMBOL;) s
+5 349 M
+(        }) s
+5 342 M
+(        return SMT_TK_BV_BINCONSTANT;) s
+5 335 M
+(      }) s
+5 328 M
+(      ) s
+5 321 M
+(    } else if \(n > 5 && s[2] == 'h' && s[3] == 'e' && s[4] == 'x'\) {) s
+5 314 M
+(      // bvhex prefix) s
+5 307 M
+(      for \(i=5; i<n; i++\) {) s
+5 300 M
+(        if \(! isxdigit\(s[i]\)\) return SMT_TK_SYMBOL;) s
+5 293 M
+(      }) s
+5 286 M
+(      return SMT_TK_BV_HEXCONSTANT;) s
+5 272 M
+(    } else {) s
+5 265 M
+(      // bv prefix) s
+5 258 M
+(      for \(i=2; i<n; i++\) {) s
+5 251 M
+(        if \(! isdigit\(s[i]\)\) return SMT_TK_SYMBOL;) s
+5 244 M
+(      }) s
+5 237 M
+(      // constant in decimal) s
+5 230 M
+(      return SMT_TK_BV_CONSTANT;) s
+5 223 M
+(    }) s
+5 216 M
+(  }) s
+5 202 M
+(  return SMT_TK_SYMBOL;) s
+5 195 M
+(}) s
+5 181 M
+(static token_t smt_read_symbol\(lexer_t *lex\) {) s
+5 174 M
+(  token_t tk;) s
+5 167 M
+(  string_buffer_t *buffer;) s
+5 160 M
+(  ) s
+5 153 M
+(  smt_read_identifier\(lex\);) s
+5 146 M
+(  buffer = lex->buffer;) s
+5 139 M
+(  tk = stbl_find\(lex->keywords, buffer->data\);) s
+5 132 M
+(  if \(tk < 0\) tk = symbol_type\(buffer\);) s
+5 118 M
+(  return tk;) s
+5 111 M
+(}) s
+5 97 M
+(/*) s
+5 90 M
+( * Read next SMT token) s
+5 83 M
+( * - update lex->token, lex->tk_pos, lex->tk_line, lex->tk_column) s
+5 76 M
+( * - set token value in lex->buffer \(as a null-terminated string\).) s
+5 69 M
+( */) s
+5 62 M
+(token_t next_smt_token\(lexer_t *lex\) {) s
+5 55 M
+(  token_t tk;) s
+5 48 M
+(  reader_t *rd;) s
+5 41 M
+(  int c;) s
+5 27 M
+(  rd = &lex->reader;) s
+5 20 M
+(  c = reader_current_char\(rd\);) s
+5 13 M
+(  string_buffer_reset\(lex->buffer\);) s
+_R
+S
+%%Page: (6) 8
+%%BeginPageSetup
+_S
+24 24 translate
+/pagenum 6 def
+/fname (smt_lexer.c) def
+/fdir () def
+/ftail (smt_lexer.c) def
+% User defined strings:
+/fmodstr (Mon May 14 09:40:45 2007) def
+/pagenumstr (6) def
+/user_header_p false def
+%%EndPageSetup
+do_header
+5 720 M
+(  // skip spaces and comments) s
+5 713 M
+(  // comments start with ';' and extend to the end of the line) s
+5 706 M
+(  for \(;;\) {) s
+5 699 M
+(    while \(isspace\(c\)\) c = reader_next_char\(rd\);) s
+5 692 M
+(    if \(c != ';'\) break;) s
+5 685 M
+(    do {) s
+5 678 M
+(      c = reader_next_char\(rd\);) s
+5 671 M
+(    } while \(c != '\\n' && c != EOF\);    ) s
+5 664 M
+(  }) s
+5 650 M
+(  // record start of token) s
+5 643 M
+(  lex->tk_pos = rd->pos;) s
+5 636 M
+(  lex->tk_line = rd->line;) s
+5 629 M
+(  lex->tk_column = rd->column;) s
+5 615 M
+(  switch \(c\) {) s
+5 608 M
+(  case '\(':) s
+5 601 M
+(    tk = SMT_TK_LP; goto next_then_return;) s
+5 594 M
+(  case '\)':) s
+5 587 M
+(    tk = SMT_TK_RP; goto next_then_return;) s
+5 580 M
+(  case '[':) s
+5 573 M
+(    tk = SMT_TK_LB; goto next_then_return;) s
+5 566 M
+(  case ']':) s
+5 559 M
+(    tk = SMT_TK_RB; goto next_then_return;) s
+5 552 M
+(  case EOF:) s
+5 545 M
+(    tk = SMT_TK_EOS; goto done;) s
+5 538 M
+(    // bad tokens) s
+5 531 M
+(  case '}':) s
+5 524 M
+(  case '\\\\':) s
+5 517 M
+(  case '\\'':) s
+5 510 M
+(  case '_':) s
+5 503 M
+(  case '.':) s
+5 496 M
+(  case ',':) s
+5 489 M
+(    tk = SMT_TK_ERROR; goto next_then_return;) s
+5 475 M
+(  case '"':) s
+5 468 M
+(    // read until closing " or EOF) s
+5 461 M
+(    tk = smt_read_string\(lex\); goto next_then_return;) s
+5 454 M
+(  case '{':) s
+5 447 M
+(    // read until closing '}' or EOF) s
+5 440 M
+(    tk = smt_read_user_val\(lex\); goto next_then_return;) s
+5 426 M
+(    // all other read_xxx read one character past the token.) s
+5 419 M
+(  case ':':) s
+5 412 M
+(    tk = smt_read_attribute\(lex\); goto done;) s
+5 405 M
+(  case '?':) s
+5 398 M
+(    tk = SMT_TK_VAR; smt_read_identifier\(lex\); goto done;) s
+5 391 M
+(  case '$':) s
+5 384 M
+(    tk = SMT_TK_FVAR; smt_read_identifier\(lex\); goto done;    ) s
+5 377 M
+(  case '0':) s
+5 370 M
+(  case '1':) s
+5 363 M
+(  case '2':) s
+5 356 M
+(  case '3':) s
+5 349 M
+(  case '4':) s
+5 342 M
+(  case '5':) s
+5 335 M
+(  case '6':) s
+5 328 M
+(  case '7':) s
+5 321 M
+(  case '8':) s
+5 314 M
+(  case '9':) s
+5 307 M
+(    tk= smt_read_number\(lex\); goto done;) s
+5 300 M
+(  default:) s
+5 293 M
+(    tk = smt_read_symbol\(lex\); goto done;    ) s
+5 286 M
+(  }) s
+5 272 M
+(  // advance to next input char then return) s
+5 265 M
+( next_then_return:) s
+5 258 M
+(  reader_next_char\(rd\);) s
+5 251 M
+( done:) s
+5 244 M
+(  lex->token = tk;  ) s
+5 237 M
+(  return tk;) s
+5 230 M
+(}) s
+_R
+S
+%%Trailer
+%%Pages: 8
+%%DocumentNeededResources: font Courier-Bold Courier 
+%%EOF

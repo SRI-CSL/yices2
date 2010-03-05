@@ -1,0 +1,49 @@
+/*
+ * Basic tests of solver
+ */
+
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+
+#include "solver.h"
+#include "solver_printer.h"
+
+static solver_t solver;
+static bvar_t x[5];
+static literal_t aux[20];
+
+static void dump(FILE *f) {
+  fprintf(f, "Solver state\n");
+  fprintf(f, "Boolean variables\n");
+  print_all_bvars(f, &solver);
+  fprintf(f, "Terms\n");
+  print_all_eterms(f, &solver);
+  fprintf(f, "Clauses\n");
+  print_clauses(f, &solver);
+  fprintf(f, "\n");
+  fflush(f);
+}
+
+int main() {
+  uint32_t i;
+  literal_t l;
+
+  init_solver(&solver);
+  for (i=0; i<5; i++) {
+    x[i] = create_boolean_variable(&solver);
+  }
+
+  l = build_iff(&solver, pos_lit(x[0]), pos_lit(x[1]));  
+  l = build_iff(&solver, pos_lit(x[1]), pos_lit(x[0]));
+  l = build_iff(&solver, neg_lit(x[0]), neg_lit(x[1]));
+  l = build_iff(&solver, neg_lit(x[0]), pos_lit(x[1]));
+
+  l = build_boolean_if(&solver, neg_lit(x[2]), pos_lit(x[3]), pos_lit(x[3]));
+
+  dump(stdout);
+  
+  delete_solver(&solver);
+
+  return 0;
+}

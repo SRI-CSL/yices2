@@ -1,0 +1,159 @@
+YICES LANGUAGE
+
+1) Lexical analysis
+   ----------------
+- comments start by ';' and extend to the end of the line ('\n' or EOF)
+
+- tokens are ( ) :: <symbol> <string> <rational> <float> <binary bv> <hexa bv>
+
+-  <strings> are similar to strings in C:
+
+   - they are delimited by "
+   - the characters \n, \t are replaced by newline and tab
+   - '\' followed by at most 3 octal digits is replaced by the character
+     whose ASCII code is the octal number
+   - in all other cases, '\<char>' is replaced by <char> (including if <char> is newline)
+   - newline cannot occur inside the string, unless preceded by '\'
+
+- <rationals> are numbers in the format
+      
+        <optional_sign><digits>/<digits> 
+     or <optional_sign><digits>
+
+- <floats> also denote numbers in a floating-point format
+
+        <optional_sign> <digits> . <digits>
+     or <optional_sign> <digits> <exp> <optional_sign> <digits>
+     or <optional_sign> <digits> . <digits> <exp> <optional_sign> <digits>
+
+   where <exp> is 'e' or 'E'
+
+ 
+- <binary bvs> are bitvector constants in binary format 0b<binary-digits>
+
+- <hexa bvs> are bitvector constants in hexadecimal format 0x<hexa-digits>
+
+
+- <symbols> 
+
+    symbols start by anything that's not a digit, a space, or one of the 
+    characters ( ) ;  : "  if the first char is + or -, it must not be followed by a digit
+
+    symbols end by a space of one of ( ) ; : "
+
+
+
+  keywords
+  --------  
+
+	bool	int	real	bitvector	scalar	tuple	-> 
+
+	true	false	if	ite	=	/=	or	and
+	not	xor	<=>	=>	mk-tuple	select	update
+	forall	exists	let
+
+	+	-	*	/	<	<=	>	>=
+
+	mk-bv	bv-add	bv-sub	bv-mul	bv-neg
+	bv-not	bv-and	bv-or	bv-xor	bv-shift-left0 	bv-shift-left1
+	bv-shift-right0	bv-shift-right1	bv-ge 	bv-gt	bv-le	bv-lt
+	bv-sge	bv-sgt	bv-sle	bv-slt  bv-shl  bv-lshr bv-ashr bv-div
+        bv-rem  bv-sdiv bv-srem bv-smod bv-redor        bv-redand
+        bv-comp
+
+	define-type	define		assert	check	push	pop
+	reset		dump-context	exit	echo	include
+	show-model	eval		set-param
+
+
+   function keywords denote the built-in functions:
+
+	if	ite	=	/=
+
+	or	and 	not     xor	<=>	=>
+
+	mk-tuple	select	
+
+        +	-	*	/	<	<=	>	>=
+
+	mk-bv	bv-add	bv-sub	bv-mul	bv-neg	bv-not	bv-and
+	bv-or	bv-xor	bv-shift-left0 	bv-shift-left1	bv-shift-right0
+	bv-shift-right1	
+
+        bv-ge 	bv-gt	bv-le	bv-lt	bv-sge	bv-sgt	bv-sle	bv-slt
+
+	bv-shl	bv-lshr bv-ashr bv-udiv bv-urem bv-sdiv bv-srem bv-smod
+	bv-redor 	bv-redand	bv-comp
+
+
+
+2) Syntax
+   ------
+
+   <command>  ::= 
+ 	      ( define-type <symbol> )
+            | ( define-type <symbol> <typedef> )
+            | ( define <symbol> :: <type> )
+            | ( define <symbol> :: <type> <expression> )
+            | ( assert <expression> )
+            | ( exit )
+            | ( check )
+            | ( push )
+            | ( pop )
+            | ( reset )
+            | ( show-model )
+            | ( eval <expression> )
+            | ( echo <string> )
+            | ( include <string> )
+            | ( set-param <symbol> <immediate-value> )
+            | ( dump-context )
+            | EOS
+  
+
+   <typedef> ::= 
+              <type>
+            | ( scalar <symbol> ... <symbol> )
+
+
+   <type> ::= 
+              <symbol> 
+            | ( tuple <type> ... <type> )
+            | ( -> <type> ... <type> <type> )
+            | ( bitvector <rational> )
+            | int
+            | bool
+            | real
+
+
+   <expression> ::= 
+	      true
+	    | false
+            | <symbol>
+            | <rational>
+            | <float>
+            | <binary bv>
+            | <hexa bv>
+            | ( forall ( <var_decl> ... <var_decl> ) <expression> )
+            | ( exists ( <var_decl> ... <var_decl> ) <expression> )
+            | ( let ( <binding> ... <binding> ) <expression> )
+            | ( update <expression> ( <expression> ... <expression> ) <expression> )
+            | ( <function> <expression> ... <expression> )
+
+
+   <function> ::=
+              <function-keyword>
+            | <expression>
+
+
+   <var_decl> ::= <symbol> :: <type>
+
+
+   <binding> ::= ( <symbol> <expression> )
+
+
+   <immediate-value> :: = 
+              true 
+            | false
+            | <rational>
+            | <symbol>
+

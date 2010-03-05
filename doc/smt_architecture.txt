@@ -1,0 +1,239 @@
+SOLVER ARCHITECTURE
+===================
+
+The core of Yices is a DPLL-based sat solver (implemented in
+smt_core.h and sm_core.c) with hooks and features to interface with a
+theory solver object. The theory solver must implement several
+functions that the core uses during the search.  Conversely, the core
+provides several functions that can be used by the theory solver
+during the search to perform theory propagation or create lemmas and
+atoms on the fly.
+
+
+SMT Core
+--------
+
+The core is a data structure of type smt_core_t, defined in
+smt_core.h. It implements functions for creating boolean variables,
+creating clauses, and mapping variables to atoms. It also implements
+DPLL search functions for solving an SMT problem.
+
+
+The types of boolean variables and literals are bvar_t and
+literal_t, respectively. These are just aliases for int32_t, so both 
+boolean variables and literals are represented by signed 32bit integers.
+
+
+The following functions are defined in smt_core.c for creating variables 
+and clauses, and for attaching atoms to boolean variables. All are explained
+in smt_core.h
+
+   bvar_t create_boolean_variable(smt_solver_t *s)
+   void add_boolean_variables(smt_solver_t *s, uint32_t n)
+   void attach_atom_to_bvar(smt_solver_t *s, bvar_t x, void *atom)
+
+   void add_clause(smt_solver_t *s, uint32_t n, literal_t *a)
+   void add_empty_clause(smt_solver_t *s)
+   void add_unit_clause(smt_solver_t *s, literal_t l)
+   void add_binary_clause(smt_solver_t *s, literal_t l1, literal_t l2)
+   void add_ternary_clause(smt_solver_t *s, literal_t l1, literal_t l2, literal_t l3)
+
+A theory solver can use these functions to create variables and clauses on-the-fly,
+while smt solving is in progress. As far as the smt-core is concerned, atoms are 
+abstract, opaque objects that are manipulated as (void *) pointers.
+
+
+When a theory solver detects a conflict, it must call the following function,
+that will trigger backtracking and conflict resolution.
+
+   void record_theory_conflict(smt_core_t *s, literal_t *a)
+
+a must be an array of literals l_1, ..., l_n that are all false in the current
+boolean assignment and such that (or l_1 ... l_n) is a theorem (in the solver's theory).
+The array must be terminated by null_literal (i.e., -1).
+
+
+For theory propagation, a solver can call the following function (also defined in
+smt_core.c and smt_core.h)
+
+   void propagate_literal(smt_core_t *s, literal_t l, void *expl)
+
+This asserts that l is implied by the theory. The parameter expl must
+be a pointer to an "explanation object", which can be any thing
+the solver needs to build an explanation for l. The core treats expl as 
+an abstract (void*) pointer.
+
+If l is involved in a conflict, the smt_core may request that the
+explanation be expanded.  At this point, the solver must return a set
+of literals l_1,...,l_n such that
+
+   (l_1 and l_2 ... and l_n) implies l 
+
+holds in the theory.
+
+
+
+EGRAPH
+------
+
+The egraph is a theory solver. It can be used as a simple solver
+attached to the core for problems that involve uninterpreted functions
+only. It can also be used in combination with other "satellite"
+solvers. Currently, the egraph can support at most three satellite
+solvers an arithmetic solver, a bitvector solver, and a solver for the
+array/function theory. The combination egraph+satellite solvers is seen 
+by the core as a single solver (for the combined theories). 
+
+
+The data structures used by the egraph are defined in egraph_types.h.
+The egraph maintains a congruence closed equivalence relation between
+terms. Each egraph term is represented by a 32bit integer (of type
+eterm_t). 
+
+When uninterpreted functions are mixed with other theories some terms
+have a dual internal representation. They are present as eterm_t
+objects in the egraph, and as theory variables in a satellite solver.
+For example, in formula '(f a b) >= 0' the uninterpreted term '(f a b)'
+is present in the egraph as an eterm and in the arithmetic solver
+as a theory variable x. Everything is as is we had rewritten the
+formula to "x >= 0 AND x = (f a b)". The equality "x>=0" is a pure
+arithmetic atom and the equality "x = (f a b)" relate two objects 'x'
+and '(f a b)' in distinct theories.  In the egraph, '(f a b)' is
+represented by an eterm t. The egraph records that t is equal to x
+by attaching x as the theory variable of t. Conversely, the arithmetic
+solver must keep track of the fact that t is the egraph term for x.
+
+
+
+
+
+
+Solver Interfaces
+-----------------
+
+A theory solver must implement a number of interfaces that allows it
+to be used by the smt_core or the egraph (or both). Each interface is
+a set of related functions. Internally we use function pointers to
+represent interfaces: an interface object is just a record of function
+pointers.
+
+Currently, there are three solver interfaces.
+
+1) control interface: 7 functions
+
+   void start_search(void *solver)
+   void increase_decision_level(void *solver)
+   void backtrack(void *solver, uint32_t backlevel)
+   bool propagate(void *solver)
+   void push(void *solver)
+   void pop(void *solver)
+   void reset(void *solver)
+
+
+2) smt interface: 4 functions
+
+   bool assert_atom(void *solver, void *atom, literal_t l)
+   void expand_explanation(void *solver, literal_t l, void *expl, ivector_t *v)
+   void delete_atom(void *solver, void *atom)
+   void end_atom_deletion(void *solver)
+
+3) egraph interface: 4 functions
+
+   void assert_equality(void *solver, thvar_t x1, thvar_t x2)
+   void assert_disequality(void *solver, thvar_t x1, thvar_t x2, composite_t *hint)
+   void assert_distinct(void *solver, uint32_t n, thvar_t *a, composite_t *hint)
+   void expand_th_explanation(void *solver, thvar_t x1, thvar_t x2, void *expl, th_explanation_t *result)
+
+
+To be used with the smt_core, a solver must implement the control and smt interfaces.
+
+To be used as a satellite theory to the egraph, a solver must implement the control
+and egraph interfaces.
+
+
+
+Internalization Interfaces
+--------------------------
+
+In addition, there are internalization interfaces for mapping terms
+and atoms to internal objects in the solver. The internalization
+interfaces are distinct for each solver type. These interfaces are
+used by the context (defined in context.h/context.c) to convert
+the external representation of terms and formulas into clauses, atoms,
+literals, egraph terms, and theory variables.
+
+1) arithmetic internalization interface:
+
+   thvar_t create_var(void *solver, bool is_int)
+   thvar_t create_poly(void *solver, polynomial_t *p, itable_t *arith_map)
+
+   void attach_eterm(void *solver, thvar_t v, eterm_t t)
+
+   literal_t create_eq_atom(void *solver, polynomial_t *p, itable_t *arith_map)
+   literal_t create_ge_atom(void *solver, polynomial_t *p, itable_t *arith_map)
+   literal_t create_vareq_atom(void *solver, thvar_t x, thvar_t y)
+
+   void assert_eq_axiom(void *solver, polynomial_t *p, itable_t *arith_map, bool tt)
+   void assert_ge_axiom(void *solver, polynomial_t *p, itable_t *arith_map, bool tt)
+
+
+2) bitvector internalization interface:
+
+   thvar_t create_var(void *solver, uint32_t n)
+   thvar_t create_const(void *solver, bvconst_term_t *const)
+   thvar_t create_bvpoly(void *solver, bvarith_expr_t *poly, itable_t *bv_map)
+   thvar_t create_bvlogic(void *solver, bvlogic_expr_t *bdss, itable_t *bv_map)
+   thvar_t create_bvop(void *solver, bvop_t op, thvar_t x, thvar_t y)
+   thvar_t create_bvite(void *solver, literal_t c, thvar_t x, thvar_t y)
+
+   void attach_eterm(void *solver, thvar_t v, eterm_t t)
+
+   literal_t create_eq_atom(void *solver, thvar_t x, thvar_t y)
+   literal_t create_ge_atom(void *solver, thvar_t x, thvar_t y)
+   literal_t create_sge_atom(void *solver, thvar_t x, thvar_t y)
+
+   void assert_eq_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
+   void assert_ge_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
+   void assert_sge_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
+
+
+3) function theory internalization interface
+
+   thvar_t create_var(void *solver, type_t tau)
+
+   void attach_eterm(void *solver, thvar_t v, eterm_t t)   
+
+
+
+
+How interface descriptors are used
+----------------------------------
+
+When an smt_core is created and initialized, a pointer to the theory
+solver and two interface objects must be given. These objects are
+stored internally within the smt_core_t data structure:
+
+- core->th_solver is a pointer to the theory-solver object. For the core, this is 
+  again an opaque object (so core->th_pointer has type void*)
+
+- core->th_ctrl and core->th_smt are the control and smt-interfaces provided
+  by the theory solver. 
+
+The core then invokes appropriate interface functions via the function pointers
+in core->th_ctrl or core->th_smt and pass core->th_solver as the first argument.
+
+For example, when a push operation is executed, the core will invoke
+
+   core->th_ctrl.push(core->th_solver)
+
+When conflict resolution requires backtracking to a decision level k,
+the core will invoke
+
+   core->th_ctrl.backtack(core->th_solver, k) 
+
+etc.
+
+
+
+
+

@@ -1,0 +1,91 @@
+#include <stdio.h>
+#include "pivotstack.h"
+
+int main(){
+  init_rationals();
+
+  pivot_stack_t * ps = new_pivot_stack();
+
+  rational_t r0, r1;
+
+  value_t v0, v1;
+  value_t *rv0, *rv1;
+
+  q_init(&r0);
+  q_init(&r1);
+  q_set_int32(&r0, 1, 323);
+  q_set_int32(&r1, 1, 999);
+  q_init(&(v0.value));
+  q_init(&(v0.delta));
+  q_init(&(v1.value));
+  q_init(&(v1.delta)); 
+
+  q_set(&(v0.value), &r0);
+  q_neg(&r0);
+  q_set(&(v0.delta),&r0);
+
+  q_set(&(v1.value), &r1);
+  q_neg(&r1);
+  q_set(&(v1.delta), &r1);
+
+  int32_t i;
+
+  print_pstack(ps);
+
+  for (i = 0; i<10; i++){
+    print_value(&v0);
+    print_value(&v1);
+    pstack_push(ps, i, i, &v0, &v1);
+
+    q_set(&(v0.value), &r0);
+    q_neg(&r0);
+    q_set(&(v0.delta),&r0);
+
+    q_set(&(v1.value), &r1);
+    q_neg(&r1);
+    q_set(&(v1.delta), &r1);
+    
+    q_mul(&(v0.value), &(v0.delta));
+    q_neg(&(v0.delta));
+
+    q_mul(&(v1.value), &(v1.delta));
+    q_neg(&(v1.delta));
+    
+    print_pstack(ps);
+  }
+
+  for (i = 0; i<10; i++){
+    printf("\n explanation = %d",
+	   pstack_top_explanation(ps));
+    rv0 = pstack_top_slack(ps);
+    rv1 = pstack_top_pivot_value(ps);
+    printf("\n value = ");
+    q_print(stdout, &(rv0->value));
+    printf("\n delta = ");
+    q_print(stdout, &(rv0->delta));
+    printf("\n Pivot value = ");
+    q_print(stdout, &(rv1->value));
+    printf("\n Pivot delta = ");
+    q_print(stdout, &(rv1->delta));
+    pstack_pop(ps);
+
+  }
+
+  for (i = 0; i<1000; i++){
+    pstack_push(ps, i, i, &v0, &v1);
+  }
+
+  pstack_clear(ps);
+
+  if(pstack_empty(ps)){
+    printf("\nps is empty");
+  }
+
+  q_clear(&(v0.value));
+  q_clear(&(v0.delta));
+  q_clear(&(v1.value));
+  q_clear(&(v1.delta));
+
+  return 0;
+}
+

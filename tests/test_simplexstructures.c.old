@@ -1,0 +1,13 @@
+#include "simplexstructures.h"
+
+int main(){
+  simplex_t * s;
+
+  init_rationals();
+
+  s = new_simplex();
+
+  print_simplex(s);
+
+  return 0;
+}

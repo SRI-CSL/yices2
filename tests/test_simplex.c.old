@@ -1,0 +1,326 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <inttypes.h>
+
+#include "polynomials.h"
+#include "object_stores.h"
+#include "simplex.h"
+
+//prelude from test_polynomials.c
+static arithvar_manager_t manager;
+static object_store_t store;
+static arith_buffer_t buffer;
+static arith_var_t v[11];
+
+// rational numbers
+#define MAX_NUMERATOR (INT32_MAX>>1)
+#define MIN_NUMERATOR (INT32_MIN>>1)
+#define MAX_DENOMINATOR MAX_NUMERATOR
+
+
+/*
+ * Print a variable
+ */
+static void print_arith_var(FILE *f, arith_var_t v, arithvar_manager_t *m) {
+  int32_t i;
+  varprod_t *p;
+
+  if (v == const_idx) {
+    fprintf(f, "1");
+  } else {
+    if (polymanager_var_is_primitive(&m->pm, v)) {
+      fprintf(f, " x_%"PRId32, polymanager_var_index(&m->pm, v));
+    } else {
+      p = polymanager_var_product(&m->pm, v);
+      for (i=0; i<p->len; i++) {
+	fprintf(f, " x_%"PRId32, polymanager_var_index(&m->pm, p->prod[i].var));
+	if (p->prod[i].exp > 1) {
+	  fprintf(f, "^%"PRId32, p->prod[i].exp);
+	}
+      }
+    }
+  }
+}
+
+/*
+ * Print a monomial
+ */
+static void print_monomial(FILE *f, monomial_t *a, arithvar_manager_t *m) {
+  arith_var_t v;
+
+  v = a->var;
+  if (v == const_idx) {
+    q_print(f, &a->coeff);
+  } else {
+    fprintf(f, "(* ");
+    q_print(f, &a->coeff);
+    print_arith_var(f, v, m);
+    fprintf(f, ")");
+  }
+}
+
+/*
+ * Print a monomial array
+ */
+static void print_mono_array(FILE *f, monomial_t *a, int32_t n, arithvar_manager_t *m) {
+  int32_t i;
+
+  fprintf(f, "(poly");
+  for (i=0; i<n; i++) {
+    fprintf(f, " ");
+    print_monomial(f, a + i, m);
+  }
+  fprintf(f, ")");
+}
+
+static void print_mono_array_detail(FILE *f, monomial_t *a, int32_t n, arithvar_manager_t *m) {
+  int32_t i;
+
+  fprintf(f, "  mono = %p\n", a);
+  for (i=0; i<n; i++) {
+    fprintf(f, "    m[%"PRId32"]: {idx: %"PRId32",", i, a[i].var);
+    print_arith_var(f, a[i].var, m);
+    fprintf(f, ", coeff: ");
+    q_print(f, &a[i].coeff);
+    fprintf(f, "}\n");
+  }
+  fprintf(f, "    m[%"PRId32"]: {idx: %"PRId32"}\n", i, a[i].var);
+}
+
+static void print_polynomial(FILE *f, polynomial_t *p, arithvar_manager_t *m, uint32_t level) {
+  if (level >= 1) {
+    fprintf(f, "polynomial %p\n", p);
+    fprintf(f, "  nterms = %"PRId32"\n", p->nterms);
+  }
+  if (level >= 2) {
+    print_mono_array_detail(f, p->mono, p->nterms, m);
+  }
+  if (level >= 1) fprintf(f, "  poly: ");
+  print_mono_array(f, p->mono, p->nterms, m);
+  fprintf(f, "\n");
+}
+
+int main(){
+  int32_t i, j;
+  rational_t alpha;
+  polynomial_t *p1;
+  int32_t numvars = 12;
+  
+  init_rationals();
+  init_arithvar_manager(&manager, 10);
+  q_init(&alpha);
+  init_mlist_store(&store);
+  init_arith_buffer(&buffer, &manager, &store);
+
+  for (i=0; i<numvars; i++) {
+    v[i] = arithvar_manager_new_var(&manager, false, i);
+  }
+
+  printf("--- Eleven declared variables ---\n");
+  for (i=0; i<numvars; i++) {
+    printf("v[%"PRId32"]: idx = %"PRId32", name = x_%"PRId32"\n", i, v[i], polymanager_var_index(&manager.pm, v[i]));    
+  }
+
+  
+  monomial_t * m1 = alloc_monarray(numvars);
+
+  for (i = 0; i < 10; i++){
+    q_set_int32(&alpha, 1, i+1);
+    m1[i].var  = v[i];
+    m1[i].coeff = alpha;
+    print_monomial(stdout, m1, &manager);
+  }
+  m1[11].var = max_idx;
+
+  p1 = monarray_getpoly(m1, 10);
+
+  print_polynomial(stdout, p1, &manager, 2);
+
+  simplex_t * s;
+
+  s = new_simplex();
+
+  add_polynomial_to_simplex(s, p1, 0);
+
+  print_simplex(s);
+
+  bool sat;
+
+  exp_stack_t *xps = new_exp_stack();
+
+  sat = add_lower_bound(s, 0, &alpha, false, 1, xps);
+  if (sat){
+    printf("\nAdded lower bound(1): ");
+    q_print(stdout, &alpha);
+  } else{
+    printf("\nUnsat lower bound(1): ");
+    q_print(stdout, &alpha);
+    exp_stack_print(xps);
+  }
+
+  print_simplex(s);
+  exp_stack_clear(xps);
+
+  sat = add_lower_bound(s, 0, &alpha, true, 2, xps);
+  if (sat){
+    printf("\nAdded strict lower bound(2): ");
+    q_print(stdout, &alpha);
+    print_simplex(s);
+  }
+  
+  q_add_one(&alpha);
+  exp_stack_clear(xps);
+
+  sat = add_upper_bound(s, 0, &alpha, false, 3, xps);
+  if (sat){
+    printf("\nAdded upper bound(3): ");
+    q_print(stdout, &alpha);
+    print_simplex(s);
+  } else{
+    printf("\nUnsat upper bound(3): ");
+    q_print(stdout, &alpha);
+    exp_stack_print(xps);
+  }
+  exp_stack_clear(xps);
+  sat = add_lower_bound(s, 0, &alpha, true, 4, xps);
+  if (sat){
+    printf("\nAdded lower bound(4)");
+  } else {
+    printf("\nUnsat lower bound(4)");
+    q_print(stdout, &alpha);
+    exp_stack_print(xps);
+  }
+
+  exp_stack_clear(xps);
+
+  sat = add_upper_bound(s, 0, &alpha, true, 5, xps);
+  printf("\nAdded strict upper bound (5): ");
+  q_print(stdout, &alpha);
+  print_simplex(s);
+  exp_stack_clear(xps);
+  sat = add_upper_bound(s, 0, &alpha, false, 6, xps);
+  printf("\nAdded redundant upper bound (6)");
+
+  q_sub_one(&alpha);
+  exp_stack_clear(xps);
+  sat = add_upper_bound(s, 0, &alpha, false, 7, xps);
+
+  if (sat){
+    printf("\nAdded upper bound (%d)", 7);
+  } else {
+    printf("\nUnsat upper bound (%d)", 7);
+    q_print(stdout, &alpha);
+    exp_stack_print(xps);
+  }
+
+  exp_stack_clear(xps);
+  pivot_row(s, 0, xps);
+  print_simplex(s);
+
+  q_clear(&alpha);
+  free_polynomial(p1);
+  clear_simplex(s);
+  print_simplex(s);
+
+  printf("\nChecking Gaussian elimination"); 
+
+  int32_t coeffs[12][12] =
+    {{-6, 2, 7, 5, 2, -1, -10, -10, 5, 2, 5, -6},
+     {0, 9, 0, -9, 7, 1, -2, -9, -5, 3, -4, -8},
+     {4, -4, 9, 3, -6, 6, -7, 7, 0, -5, 9, -6},
+     {-6, 7, -1, 8, -8, 5, -7, -9, -2, -5, -4, 0},
+     {1, -10, 1, -8, 3, -8, -8, 4, 8, 2, -2, 2},
+     {-9, -7, 3, -5, 7, 0, -2, 0, 6, 9, 9, 5},
+     {-8, 1, -8, -1, 8, 2, -2, -9, -8, -4, 1, 7},
+     {4, -5, -3, -6, 7, -7, 6, -9, 6, -8, -7, 5},
+     {-5, -3, -3, -10, -10, -5, -9, -1, -3, -1, -3, -3},
+     {0, 0, 1, 6, 8, 9, -1, 5, -6, 10, -5, 0},
+     {3, -10, -3, 2, 7, -8, 0, -7, 8, -5, -1, 4},
+     {7, -1, 0, -1, 1, -8, -10, -6, 1, 8, -10, 1}};
+
+  int32_t offsets[12] = {65, -168, 6, -478, -201, -1, -198, 103, -736, 181, 173, -95};
+  
+  printf("\nInitialized arith buffer"); 
+  for (i = 0; i< numvars; i++){
+    init_arith_buffer(&buffer, &manager, &store);
+    for (j = 0; j < numvars; j++){
+      if (coeffs[i][j] != 0){
+	q_set32(&alpha, coeffs[i][j]); 
+	arith_buffer_add_mono(&buffer, v[j], &alpha);
+      }
+    }
+    arith_buffer_normalize(&buffer); 
+    p1 = arith_buffer_getpoly(&buffer);
+    print_polynomial(stdout, p1, &manager, 2);
+    add_polynomial_to_simplex(s, p1, i);
+  }
+
+  for (i = 0; i<numvars; i++){
+    q_set32(&alpha, offsets[i]);
+    print_simplex(s);
+    add_simplex_equality(s, i, &alpha, i, xps); 
+  }
+
+  print_simplex(s);
+
+  sat = pivot_all_rows(s, xps);
+  if (sat){
+    printf("\nsat");
+  } else {
+    printf("\nunsat");
+  }
+
+  print_simplex(s);
+
+  q_clear(&alpha);
+  clear_simplex(s);
+  exp_stack_clear(xps);
+
+  int32_t coefs[12][12] = {{1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	    {0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	    {0, 0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0},
+	    {0, 0, 0, 1, -1, 0, 0, 0, 0, 0, 0, 0},
+	    {0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 0, 0},
+	    {0, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 0},
+	    {0, 0, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0},	    
+	    {0, 0, 0, 0, 0, 0, 0, 1, -1, 0, 0, 0},
+	    {0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 0, 0},
+	    {0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 0},	      	    
+  	    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1},
+  	    {-1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}};
+
+  int32_t ofsets[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  
+  printf("\nInitialized arith buffer"); 
+  for (i = 0; i< numvars; i++){
+    init_arith_buffer(&buffer, &manager, &store);
+    for (j = 0; j < numvars; j++){
+      if (coefs[i][j] != 0){
+	q_set32(&alpha, coefs[i][j]); 
+	arith_buffer_add_mono(&buffer, v[j], &alpha);
+      }
+    }
+    arith_buffer_normalize(&buffer); 
+    p1 = arith_buffer_getpoly(&buffer);
+    print_polynomial(stdout, p1, &manager, 2);
+    add_polynomial_to_simplex(s, p1, i);
+  }
+
+  for (i = 0; i<numvars; i++){
+    q_set32(&alpha, ofsets[i]);
+    print_simplex(s);
+    add_upper_bound(s, i, &alpha, true, i, xps); 
+  }
+
+  print_simplex(s);
+
+  sat = pivot_all_rows(s, xps);
+  if (sat){
+    printf("\nSAT");
+  } else {
+    printf("\nUNSAT: ");
+    exp_stack_print(xps);
+  }
+  
+  return 0;  
+}

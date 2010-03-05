@@ -1,0 +1,440 @@
+/*
+ * Parse a file in DIMACS/CNF format then call the sat solver.
+ */
+
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <signal.h>
+#include <inttypes.h>
+
+#include "sat_solver7.h"
+#include "cputime.h"
+#include "memsize.h"
+
+
+
+
+
+/**********************************************************
+ *  Auxiliary function: get the basename of a file name   *
+ *  (same as GNU version of basename)                     *
+ *********************************************************/
+
+static char *basename(char *path) {
+  char * ptr;
+
+  // Check for empty path (should not happen)
+  ptr = path;
+  if (*ptr == '\0') return ptr;
+
+  // Normal case: go to the end of path
+  // then go back until separator '/' is found or ptr == path
+  do {
+    ptr ++;
+  } while (*ptr != '\0');
+
+  do {
+    ptr --;
+  } while (*ptr != '/' && ptr > path);
+
+  if (*ptr == '/') ptr ++;
+
+  return ptr;
+}
+
+
+
+
+/*******************
+ * Solver variable *
+ ******************/
+
+static sat_solver_t solver;
+
+/* Store computation times */
+
+static double construction_time, search_time;
+
+
+/****************************************************
+ * Parsing of an input problem in CNF/dimacs format *
+ * Initialize a solver with this input              *
+ ***************************************************/
+
+/*
+ * Array to read one line of the input file
+ */
+
+#define MAX_LINE 1000
+static char line[MAX_LINE];
+
+/*
+ * Problem size + buffer for reading clauses
+ */
+static int nvars, nclauses;
+static literal_t *clause;
+static uint32_t buffer_size;
+
+
+/*
+ * Buffer allocation
+ */
+static void alloc_buffer(uint32_t size) {
+  clause = malloc(size * sizeof(literal_t));
+  buffer_size = size;
+  if (clause == NULL) {
+    fprintf(stderr, "Out of memory\n");
+    exit(2);
+  }
+}
+
+static void expand_buffer() {
+  buffer_size = 2 * buffer_size;
+  clause = realloc(clause, buffer_size * sizeof(literal_t));
+  if (clause == NULL) {
+    fprintf(stderr, "Out of memory\n");
+    exit(2);
+  }
+}
+
+static void delete_buffer() {
+  safe_free(clause);
+  buffer_size = 0;
+  clause = NULL;
+}
+
+
+/************
+ *  Reader  *
+ ***********/
+
+/*
+ * Read a literal in DIMACS encoding from a file
+ * convert it to the msat format.
+ * - returns a negative number if an error occurs
+ *   or if the integer read is 0.
+ *   or a literal l between 0 and 2nv - 1 otherwise.
+ */
+
+#define BAD_INPUT -1
+#define END_OF_CLAUSE -2
+
+static literal_t read_literal(FILE *f, int nv) {
+  int d, var, delta;
+  
+  do {
+    d = getc(f);
+  } while (isspace(d));
+
+
+  /*
+   * Conversion: literal in sat_solver format = 2 * var + delta
+   * where var = variable index in DIMACS format (between 1 and nv)
+   *     delta = -2 if literal is positive in DIMACS format
+   *     delta = -1 if literal is negative in DIMACS format
+   * This works since msat variable index = DIMAC var - 1
+   * and literal in msat format = 2 (var index msat) + sign
+   */
+  delta = -2;
+  var = 0;
+  if (d == '-') {
+    delta = -1;
+    d = getc(f);
+  }
+
+  //else if (d == '+') {
+  //    d = getc(f);
+  //  }
+
+  if (!isdigit(d)) {
+    return BAD_INPUT;
+  } 
+  
+  do {
+    var = 10 * var + (d - '0');
+    d = getc(f);
+  } while (isdigit(d) && var <= nv);
+
+  if (var == 0) {
+    return END_OF_CLAUSE;
+  } else if (var <= nv) {
+    return var + var + delta;
+  } else {
+    return BAD_INPUT;
+  }
+}
+
+
+/******************************************************
+ * Read instance from filename and construct a solver *
+ * returns 0 if no error occurred.                    *
+ * -1 means file could not be opened.                 *
+ * -2 means bad format in the input file.             *
+ *****************************************************/
+#define OPEN_ERROR -1
+#define FORMAT_ERROR -2
+
+static int build_instance(char *filename) {
+  int l, n, c_idx, l_idx, literal;
+  char *s;
+  FILE *f;
+
+  f = fopen(filename, "r");
+  if (f == NULL) {
+    perror(filename);
+    return OPEN_ERROR;
+  }
+
+  s = fgets(line, MAX_LINE, f);
+  l = 1; /* line number */
+
+  if (s == NULL) {
+    fprintf(stderr, "%s: empty file\n", filename);
+    fclose(f);
+    return FORMAT_ERROR;
+  }
+
+  /* skip empty and comment lines */
+  while (*s == 'c' || *s == '\n') {
+    s = fgets(line, MAX_LINE, f);
+    l ++;
+
+    if (s == NULL) {
+      fprintf(stderr, "Format error: file %s, line %d\n", filename, l);
+      fclose(f);
+      return FORMAT_ERROR;
+    }
+  }
+
+  /* read problem size */
+  n = sscanf(s, "p cnf %d %d", &nvars, &nclauses);
+  if (n != 2 || nvars < 0 || nclauses < 0) {
+    fprintf(stderr, "Format error: file %s, line %d\n", filename, l);
+    fclose(f);
+    return FORMAT_ERROR;
+  }
+
+  /* initialize solver for nvars */
+  init_sat_solver(&solver, nvars);
+  sat_solver_add_vars(&solver, nvars);
+
+  /* now read clauses and translate them */
+  c_idx = 0;
+
+  while (c_idx < nclauses) {
+    l_idx = 0;
+    for (;;) {
+      literal = read_literal(f, nvars);
+      if (literal < 0) break;
+
+      if (l_idx >= buffer_size) expand_buffer();
+      clause[l_idx] = literal;
+      l_idx ++;
+    }
+
+    if (literal != END_OF_CLAUSE) {
+      fprintf(stderr, "Format error: file %s\n", filename);
+      fclose(f);
+      return FORMAT_ERROR;
+    }
+
+    simplify_and_add_clause(&solver, l_idx, clause);
+    //    add_clause(&solver, l_idx, clause);
+    c_idx ++;
+  }
+  
+  fclose(f);
+  return 0;
+}
+
+
+
+/**********************************
+ *  Print statistics and results  *
+ *********************************/
+
+static void show_stats(solver_stats_t *stat) {
+  printf("starts                  : %"PRIu32"\n", stat->starts);
+  printf("simplify db             : %"PRIu32"\n", stat->simplify_calls);
+  printf("reduce db               : %"PRIu32"\n", stat->reduce_calls);
+  printf("remove irrelevant       : %"PRIu32"\n", stat->remove_calls);
+  printf("decisions               : %"PRIu64"\n", stat->decisions);
+  printf("random decisions        : %"PRIu64"\n", stat->random_decisions);
+  printf("propagations            : %"PRIu64"\n", stat->propagations);
+  printf("conflicts               : %"PRIu64"\n", stat->conflicts);
+  printf("lits in pb. clauses     : %"PRIu64"\n", stat->prob_literals);
+  printf("lits in learned clauses : %"PRIu64"\n", stat->learned_literals);
+  printf("total lits. in learned  : %"PRIu64"\n", stat->literals_before_simpl);
+  printf("subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);
+  printf("deleted pb. clauses     : %"PRIu64"\n", stat->prob_clauses_deleted);
+  printf("deleted learned clauses : %"PRIu64"\n", stat->learned_clauses_deleted);
+  printf("deleted binary clauses  : %"PRIu64"\n", stat->bin_clauses_deleted);
+}
+
+
+static void print_results() {
+  solver_stats_t *stat;
+  int resu;
+  double mem_used, simplified_percent;
+
+  search_time = get_cpu_time() - construction_time;
+  
+  stat = &solver.stats;
+  resu = solver.status;
+
+  show_stats(stat);
+  printf("Search time             : %.4f s\n", search_time);
+  mem_used = mem_size() / (1024 * 1024);
+  if (mem_used > 0) {
+    printf("Memory used             : %.2f MB\n", mem_used);
+  }
+  printf("\n\n");
+
+  // Print result and statistics again, in format used by Leonardo's scripts
+  if (resu == status_sat) {
+    printf("sat\n");
+  } else if (resu == status_unsat) {
+    printf("unsat\n");
+  } else {
+    printf("unknown\n");
+  }
+
+  simplified_percent = 0.0;
+  if (stat->literals_before_simpl > 0) {
+    simplified_percent = (100.0 * stat->subsumed_literals) / stat->literals_before_simpl;
+  }
+  printf("STAT %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu32" %"PRIu64" %"PRIu64" %.2f %.2f %.2f\n",
+	 stat->decisions,
+	 stat->conflicts,
+	 stat->propagations,
+	 stat->starts - 1,
+	 stat->literals_before_simpl,
+	 stat->learned_literals,
+	 mem_used,
+	 (search_time + construction_time),
+	 simplified_percent);
+
+  fflush(stdout);
+}
+
+
+/*
+ * Print initial size
+ */
+void print_solver_size(FILE *f, sat_solver_t *sol) {
+  fprintf(f, "nb. of vars          : %"PRIu32"\n", sol->nb_vars);
+  fprintf(f, "nb. of unit clauses  : %"PRIu32"\n", sol->nb_unit_clauses);
+  fprintf(f, "nb. of bin clauses   : %"PRIu32"\n", sol->nb_bin_clauses);
+  fprintf(f, "nb. of big clauses   : %"PRIu32"\n", sol->nb_clauses);
+  fprintf(f, "nb. of assignments   : %"PRIu32"\n", sol->stack.top);
+  fprintf(f, "clause increment     : %g\n", sol->cla_inc);
+  fprintf(f, "inverse clause decay : %g\n", sol->inv_cla_decay);
+  fprintf(f, "var increment        : %g\n", sol->heap.act_increment);
+  fprintf(f, "inverse var decay    : %g\n\n", sol->heap.inv_act_decay);
+
+}
+
+#if 0
+/*
+ * Save solution if the problem is satisfiable.
+ * DIMACS? format (same as minisat):
+ * Print the list of true literals terminated by 0
+ * 
+ * For variable v = 0 to nvars - 1
+ *   if val[v] == 1 then print +(v + 1) (positive literal)
+ *   if val[v] == -1 then print -(v + 1) (negative literal)
+ *   if val[v] == 0 skip v
+ *
+ * Return code: -1 means error opening the file.
+ */
+static int save_solution(char *filename) {
+  FILE *f;
+  int resu, v, val;
+
+  f = fopen(filename, "w");
+  if (f == NULL) {
+    perror(filename);
+    return OPEN_ERROR;
+  }
+
+  resu = get_status(solver);
+  if (resu == SAT) {
+    fprintf(f, "SAT\n");    
+    for (v = 0; v<nvars; v++) {
+      val = get_variable_value(solver, v);
+      if (val != 0) {
+	fprintf(f, "%d ", (val < 0) ? - (v + 1): (v + 1)); 
+      }
+    }
+    fprintf(f, "0\n");
+  } else if (resu == UNSAT) {
+    fprintf(f, "UNSAT\n");
+  }
+
+  fclose(f);
+
+  return 0;
+}
+
+#endif
+
+
+/*
+ * Signal handler: call print_results
+ */
+static void handler(int signum) {
+  printf("Interrupted by signal %d\n\n", signum);
+  print_results();
+  exit(1);
+}
+
+
+/*
+ * Set the signal handler: to print statistics on
+ * SIGINT, SIGABRT, SIGXCPU
+ */
+static void init_handler() {
+  signal(SIGINT, handler);
+  signal(SIGABRT, handler);
+#ifndef MINGW
+  signal(SIGXCPU, handler);
+#endif
+}
+
+
+/****************
+ *  Main test   *
+ ***************/
+
+int main(int argc, char* argv[]) {
+  char* input_file;
+  int resu;
+
+  if (argc < 2 || argc > 3) {
+    fprintf(stderr, "Usage: %s <input file>\n", argv[0]);
+    fprintf(stderr, "    or %s <input file> <output file>\n", argv[0]);
+    exit(1);
+  }
+
+  alloc_buffer(200);
+  input_file = argv[1];
+  resu = build_instance(input_file);
+  delete_buffer();
+
+  if (resu < 0) {
+    exit(2);
+  } else {
+    printf("Problem: %s\n\n", basename(input_file));
+    construction_time = get_cpu_time();
+    printf("Construction time    : %.4f s\n", construction_time);
+    print_solver_size(stdout, &solver);
+    init_handler();
+    (void) solve(&solver);
+    print_results();
+
+    delete_sat_solver(&solver);
+    exit(0);
+  }  
+}

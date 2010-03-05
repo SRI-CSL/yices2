@@ -1,0 +1,100 @@
+
+#include "simplexvalues.h"
+
+static rational_t r0, r1, r2;
+static bound_t b1, b2, b3;
+
+
+int main(){
+  int32_t i;
+  init_rationals();
+  q_init(&r0);
+  q_init(&r1);
+  q_init(&r2);
+
+  q_add_one(&r1);
+
+  q_set_int32(&r2, 1, 37238);
+
+  printf("\n r2 = %d/%u", r2.num,r2.den);
+
+  q_set(&(b1.boundval.value), &r2);
+  q_set_minus_one(&(b1.boundval.delta));
+
+  printf("\n b1 = <");
+  q_print(stdout, &(b1.boundval.value));
+  printf(",");
+  q_print(stdout, &(b1.boundval.delta));
+  printf(">");
+
+  b1.explanation = 23;
+
+  if (q_lt(&r2, &r1)){
+    printf("\n r2 is less than r1");
+  }
+
+
+  q_neg(&r2);
+
+  if (q_lt(&r2, &r1)){
+    printf("\n r2 is less than r1");
+  }
+
+  q_set(&(b2.boundval.value), &r2);
+  q_set_one(&(b2.boundval.delta)); 
+  b2.explanation = 33;
+
+  q_mul(&r2, &(b2.boundval.value));
+
+  q_print(stdout, &r2);
+
+  q_set(&(b3.boundval.value), &r2);
+
+  b3.explanation = 2;
+
+  if (bound_active(&b1)){
+    printf("\n b1 is active");
+  }
+  if (bound_active(&b2)){
+    printf("\n b2 is active");
+  }
+
+  if (bound_active(&b3)){
+    printf("\n b3 is active");
+  }
+
+/*   if (bound_strict(&b1)){ */
+/*     printf("\n b1 is strict"); */
+/*   } */
+/*   if (bound_strict(&b2)){ */
+/*     printf("\n b2 is strict"); */
+/*   } */
+/*   if (bound_strict(&b3)){ */
+/*     printf("\n b3 is strict"); */
+/*   } */
+/*   if (bound_nonstrict(&b1)){ */
+/*     printf("\n b1 is nonstrict"); */
+/*   } */
+/*   if (bound_nonstrict(&b2)){ */
+/*     printf("\n b2 is nonstrict"); */
+/*   } */
+/*   if (bound_nonstrict(&b3)){ */
+/*     printf("\n b2 is nonstrict"); */
+/*   } */
+
+  for (i=0; i<10;i++){
+    q_print(stdout, &r2);
+    q_mul(&r2, &r2);
+  }
+  
+
+  
+  return 0;
+
+}
+
+
+  
+
+  
+    

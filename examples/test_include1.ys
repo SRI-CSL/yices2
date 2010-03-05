@@ -1,0 +1,6 @@
+(echo "\nentering test_include1\n")
+(include "test_include2")
+(echo "\nback to test_include1\n")
+(include "test_include3")
+(echo "\nback to test_include1\n")
+(exit)

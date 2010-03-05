@@ -1,0 +1,82 @@
+#!/bin/sh
+
+#*---------------------------------------------------------------------*/
+#*    flags                                                            */
+#*---------------------------------------------------------------------*/
+cxx=g++
+cflags=
+tmp=/tmp
+
+#*---------------------------------------------------------------------*/
+#*    We parse the arguments                                           */
+#*---------------------------------------------------------------------*/
+while : ; do
+  case $1 in
+    "")
+      break;;
+
+    --user=*)
+      user="`echo $1 | sed 's/^[-a-z]*=//'`";;
+
+    --cxx=*|-cxx=*)
+      cxx="`echo $1 | sed 's/^[-a-z]*=//'`";;
+
+    --cflags=*|-cflags=*)
+      cflags="`echo $1 | sed 's/^[-a-z]*=//'`";;
+
+    --tmp=*|-tmp=*)
+      tmp="`echo $1 | sed 's/^[-a-z]*=//'`";;
+
+    -*)
+      echo "Unknown option \"$1\", ignored" >&2;;
+  esac
+  shift
+done
+
+file=$tmp/actest$user
+aout=$tmp/Xactest$user
+
+#*---------------------------------------------------------------------*/
+#*    compile                                                          */
+#*---------------------------------------------------------------------*/
+compile="$cxx $cflags $file.cpp -o $aout >/dev/null 2> /dev/null"
+
+#*---------------------------------------------------------------------*/
+#*    The test C++ file                                                */
+#*---------------------------------------------------------------------*/
+if test -f $file.cpp; then
+   rm -f $file.cpp || exit $?
+fi
+
+#*---------------------------------------------------------------------*/
+#*    Test                                                             */
+#*---------------------------------------------------------------------*/
+cat > $file.cpp <<EOF
+#include<cstdlib>
+#include<cstdio>
+int main () 
+{ 
+	 if (sizeof(size_t) != sizeof(void *)) {
+		printf("C++ compiler doesn't satisfy the assumptions made by esolver: sizeof(size_t) != sizeof(void *)\n");
+		exit(1);
+	}	
+  return 0;
+}
+EOF
+
+#*---------------------------------------------------------------------*/
+#*    Compilation test                                                 */
+#*---------------------------------------------------------------------*/
+if eval $compile; then
+   rm -f $file.*
+   eval $aout
+   ret_code=$?
+   rm -f $aout
+   rm -f $aout*
+   exit $ret_code
+else
+   error_code=$?
+   rm -f $file.*
+   exit $error_code
+fi
+

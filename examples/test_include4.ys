@@ -1,0 +1,2 @@
+(echo "\nEntering test_include4\n")
+(echo "\nExiting test_include4\n")

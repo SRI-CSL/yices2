@@ -1,0 +1,47 @@
+#include "simplex_trail_stack.h"
+
+int main(){
+  int32_t i;
+
+  init_rationals();
+  
+  st_stack_t * st = new_st_stack();
+
+  rational_t r;
+
+  q_init(&r);
+
+  q_set_int32(&r, 1, 323);
+
+
+  bound_t b;
+
+  q_init(&(b.boundval.value));
+  q_init(&(b.boundval.delta));
+  b.explanation =  1;
+  b.boundval.value = r;
+  q_set_one(&(b.boundval.delta));
+  
+  for (i = 0; i<10; i++){
+    st_stack_push(st, i, &b);
+  }
+
+  print_st_stack(st);
+
+  while (!st_stack_empty(st)){
+    i = st_stack_top_variable(st);
+    b = *st_stack_top_ebound(st);
+
+    printf("\nv = %d, e = %d, r = ", i, b.explanation);
+    q_print(stdout, &(b.boundval.value));
+    q_print(stdout, &(b.boundval.delta));
+
+    st_stack_pop(st);
+  }
+
+  if (st_stack_empty(st)){
+    printf("\n st is empty");
+  }
+
+  return 0;
+}

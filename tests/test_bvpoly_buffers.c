@@ -1,0 +1,389 @@
+#include <stdio.h>
+#include <inttypes.h>
+
+#include "bv_constants.h"
+#include "bitvectors.h"
+#include "bvpoly_buffer.h"
+
+
+
+/*
+ * Print monomial a * x
+ * n = number of bits used
+ */
+static void print_mono64(uint64_t a, thvar_t x, uint32_t n) {
+  assert(0 < n && n <= 64);
+
+  printf("0b");
+  do {
+    n --;
+    if ((a & (((uint64_t) 1) << n)) == 0) {
+      printf("0");
+    } else {
+      printf("1");
+    }
+  } while (n > 0);
+
+  if (x != const_idx) {
+    printf(" * u!%"PRId32, x);
+  }
+}
+
+
+/*
+ * Same thing for a large constant a
+ */
+static void print_monomial(uint32_t *a, thvar_t x, uint32_t n) {
+  assert(n > 64);
+
+  bvconst_print(stdout, a, n);
+  if (x != const_idx) {
+    printf(" * u!%"PRId32, x);
+  }
+}
+
+
+/*
+ * Print 0 in binary format. n = number of bits
+ */
+static void print_zero(uint32_t n) {
+  printf("0b");
+  while (n > 0) {
+    printf("0");
+    n --;
+  }
+}
+
+
+/*
+ * Print the content of buffer
+ * - if use_signs is true, take the bit-signs into account
+ */
+static void print_bvpoly_buffer(bvpoly_buffer_t *buffer, bool use_signs) {
+  uint32_t i, n, b;
+
+  b = buffer->bitsize;
+  n = buffer->nterms;
+  if (n == 0) {
+    print_zero(b);
+  } else if (b <= 64) {
+    if (use_signs && tst_bit(buffer->sign, 0)) {
+      printf("- ");
+    }
+    print_mono64(buffer->c[0], buffer->var[0], b);
+    for (i=1; i<n; i++) {
+      if (use_signs && tst_bit(buffer->sign, i)) {
+	printf(" - ");
+      } else {
+	printf(" + ");
+      }
+      print_mono64(buffer->c[i], buffer->var[i], b);
+    }
+  } else {
+    if (use_signs && tst_bit(buffer->sign, 0)) {
+      printf("- ");
+    }    
+    print_monomial(buffer->p[0], buffer->var[0], b);
+    for (i=1; i<n; i++) {
+      if (use_signs && tst_bit(buffer->sign, i)) {
+	printf(" - ");
+      } else {
+	printf(" + ");
+      }
+      print_monomial(buffer->p[i], buffer->var[i], b);
+    }
+  }
+  fflush(stdout);
+}
+
+
+
+
+
+/*
+ * Test1: buffer with small constants
+ */
+static void test1(bvpoly_buffer_t *buffer) {
+  printf("\n"
+         "******************\n"
+         "*     TEST 1     *\n"
+         "******************\n\n");
+
+  reset_bvpoly_buffer(buffer, 8);
+  printf("---> reset: size 8\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  bvpoly_buffer_add_mono64(buffer, 3, 255);
+  bvpoly_buffer_add_mono64(buffer, 1, 63);
+  bvpoly_buffer_add_const64(buffer, 1);
+  bvpoly_buffer_sub_mono64(buffer, 2, 3);
+
+  printf("---> 255 * u!3 + 63 * u!1 + 1 - 3 * u!2\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  normalize_bvpoly_buffer(buffer);
+  printf("---> normalized\n");
+  print_bvpoly_buffer(buffer, true);
+  printf("\n\n");  
+
+  reset_bvpoly_buffer(buffer, 10);
+  printf("---> reset: size 10\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  bvpoly_buffer_sub_mono64(buffer, 7, 1);
+  bvpoly_buffer_add_mono64(buffer, 5, 1);
+  bvpoly_buffer_add_mono64(buffer, 3, 2);
+  bvpoly_buffer_sub_mono64(buffer, 1, 4);
+  bvpoly_buffer_add_mono64(buffer, 3, 2);
+  bvpoly_buffer_add_mono64(buffer, 7, 1);
+
+  printf("---> - u!7 + u!5 + 2 * u!3 - 4 * u!1 + 2 * u!3 + u!7\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  normalize_bvpoly_buffer(buffer);
+  printf("---> normalized\n");
+  print_bvpoly_buffer(buffer, true);
+  printf("\n\n");
+
+  reset_bvpoly_buffer(buffer, 10);
+  printf("---> reset: size 10\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  bvpoly_buffer_add_mono64(buffer, 1, 1);
+  bvpoly_buffer_add_mono64(buffer, 2, 2);
+  bvpoly_buffer_add_mono64(buffer, 3, 4);
+  bvpoly_buffer_add_mono64(buffer, 4, 8);
+  bvpoly_buffer_add_mono64(buffer, 5, 16);
+  bvpoly_buffer_add_mono64(buffer, 6, 32);
+  bvpoly_buffer_add_mono64(buffer, 10, 512);
+  bvpoly_buffer_add_mono64(buffer, 9, 256);
+  bvpoly_buffer_add_mono64(buffer, 8, 128);
+  bvpoly_buffer_add_mono64(buffer, 7, 64);
+
+  printf("---> u!1 + 2 u!2 + 4 u!3 + 8 u!4 + 16 u!5 + 32 u!6 + 512 u!10 + 256 u!9 + 128 u!8 + 64 u!7\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  normalize_bvpoly_buffer(buffer);
+  printf("---> normalized\n");
+  print_bvpoly_buffer(buffer, true);
+  printf("\n\n");
+
+  reset_bvpoly_buffer(buffer, 10);
+  printf("---> reset: size 10\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  bvpoly_buffer_sub_var(buffer, 12);
+  bvpoly_buffer_add_var(buffer, 10);
+  bvpoly_buffer_add_var(buffer, 10);
+  printf("---> - u!12 + u!10 + u!10\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  normalize_bvpoly_buffer(buffer);
+  printf("---> normalized\n");
+  print_bvpoly_buffer(buffer, true);
+  printf("\n\n");
+
+
+  reset_bvpoly_buffer(buffer, 32);
+  printf("---> reset: size 32\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  normalize_bvpoly_buffer(buffer);
+  printf("---> normalized\n");
+  print_bvpoly_buffer(buffer, true);
+  printf("\n\n");
+
+  bvpoly_buffer_add_var(buffer, 1);
+  printf("---> add var u!1\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  normalize_bvpoly_buffer(buffer);
+  printf("---> normalized\n");
+  print_bvpoly_buffer(buffer, true);
+  printf("\n\n");
+
+  bvpoly_buffer_sub_const64(buffer, 1);
+  printf("---> sub const 1\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  normalize_bvpoly_buffer(buffer);
+  printf("---> normalized\n");
+  print_bvpoly_buffer(buffer, true);
+  printf("\n\n");
+
+}
+
+
+/*
+ * Test2: buffer with large constants
+ */
+static void test2(bvpoly_buffer_t *buffer) {
+  uint32_t aux[10]; // enough for 320 bits
+
+  printf("\n"
+         "******************\n"
+         "*     TEST 2     *\n"
+         "******************\n\n");
+
+  reset_bvpoly_buffer(buffer, 80);
+  printf("---> reset: size 80\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  // width = 3
+  bvconst_set32(aux, 3, 255);
+  bvpoly_buffer_add_monomial(buffer, 3, aux);
+  bvconst_set32(aux, 3, 63);
+  bvpoly_buffer_add_monomial(buffer, 1, aux);
+  bvconst_set32(aux, 3, 1);
+  bvpoly_buffer_add_constant(buffer, aux);
+  bvconst_set32(aux, 3, 3);
+  bvpoly_buffer_sub_monomial(buffer, 2, aux);
+
+  printf("---> 255 * u!3 + 63 * u!1 + 1 - 3 * u!2\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  normalize_bvpoly_buffer(buffer);
+  printf("---> normalized\n");
+  print_bvpoly_buffer(buffer, true);
+  printf("\n\n");  
+
+  reset_bvpoly_buffer(buffer, 100);
+  printf("---> reset: size 100\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  // width = 4
+  bvconst_set32(aux, 4, 1);
+  bvpoly_buffer_sub_monomial(buffer, 7, aux);
+  bvconst_set32(aux, 4, 1);
+  bvpoly_buffer_add_monomial(buffer, 5, aux);
+  bvconst_set32(aux, 4, 2);
+  bvpoly_buffer_add_monomial(buffer, 3, aux);
+  bvconst_set32(aux, 4, 4);
+  bvpoly_buffer_sub_monomial(buffer, 1, aux);
+  bvconst_set32(aux, 4, 2);
+  bvpoly_buffer_add_monomial(buffer, 3, aux);
+  bvconst_set_one(aux, 4);
+  bvpoly_buffer_add_monomial(buffer, 7, aux);
+
+  printf("---> - u!7 + u!5 + 2 * u!3 - 4 * u!1 + 2 * u!3 + u!7\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  normalize_bvpoly_buffer(buffer);
+  printf("---> normalized\n");
+  print_bvpoly_buffer(buffer, true);
+  printf("\n\n");
+
+  reset_bvpoly_buffer(buffer, 65);
+  printf("---> reset: size 65\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  // width = 3
+  bvconst_set32(aux, 3, 1);
+  bvpoly_buffer_add_monomial(buffer, 1, aux);
+  bvconst_set32(aux, 3, 2);
+  bvpoly_buffer_add_monomial(buffer, 2, aux);
+  bvconst_set32(aux, 3, 4);
+  bvpoly_buffer_add_monomial(buffer, 3, aux);
+  bvconst_set32(aux, 3, 8);
+  bvpoly_buffer_add_monomial(buffer, 4, aux);
+  bvconst_set32(aux, 3, 16);
+  bvpoly_buffer_add_monomial(buffer, 5, aux);
+  bvconst_set32(aux, 3, 32);
+  bvpoly_buffer_add_monomial(buffer, 6, aux);
+  bvconst_set32(aux, 3, 512);
+  bvpoly_buffer_add_monomial(buffer, 10, aux);
+  bvconst_set32(aux, 3, 256);
+  bvpoly_buffer_add_monomial(buffer, 9, aux);
+  bvconst_set32(aux, 3, 128);
+  bvpoly_buffer_add_monomial(buffer, 8, aux);
+  bvconst_set32(aux, 3, 64);
+  bvpoly_buffer_add_monomial(buffer, 7, aux);
+
+  printf("---> u!1 + 2 u!2 + 4 u!3 + 8 u!4 + 16 u!5 + 32 u!6 + 512 u!10 + 256 u!9 + 128 u!8 + 64 u!7\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  normalize_bvpoly_buffer(buffer);
+  printf("---> normalized\n");
+  print_bvpoly_buffer(buffer, true);
+  printf("\n\n");
+
+  reset_bvpoly_buffer(buffer, 100);
+  printf("---> reset: size 100\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  bvpoly_buffer_sub_var(buffer, 12);
+  bvpoly_buffer_add_var(buffer, 10);
+  bvpoly_buffer_add_var(buffer, 10);
+  printf("---> - u!12 + u!10 + u!10\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  normalize_bvpoly_buffer(buffer);
+  printf("---> normalized\n");
+  print_bvpoly_buffer(buffer, true);
+  printf("\n\n");
+
+
+  reset_bvpoly_buffer(buffer, 128);
+  printf("---> reset: size 128\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  normalize_bvpoly_buffer(buffer);
+  printf("---> normalized\n");
+  print_bvpoly_buffer(buffer, true);
+  printf("\n\n");
+
+  bvpoly_buffer_add_var(buffer, 1);
+  printf("---> add var u!1\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  normalize_bvpoly_buffer(buffer);
+  printf("---> normalized\n");
+  print_bvpoly_buffer(buffer, true);
+  printf("\n\n");
+
+  bvconst_set_one(aux, 4);
+  bvpoly_buffer_sub_constant(buffer, aux);
+  printf("---> sub const 1\n");
+  print_bvpoly_buffer(buffer, false);
+  printf("\n");
+
+  normalize_bvpoly_buffer(buffer);
+  printf("---> normalized\n");
+  print_bvpoly_buffer(buffer, true);
+  printf("\n\n");
+}
+
+
+/*
+ * Global buffer
+ */
+static bvpoly_buffer_t buffer;
+
+int main(void) {
+  init_bvpoly_buffer(&buffer);
+  test1(&buffer);
+  test2(&buffer);
+  delete_bvpoly_buffer(&buffer);
+  return 0;
+}

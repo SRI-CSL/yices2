@@ -1,0 +1,791 @@
+/*
+ * Test egraph simplification and congruence
+ * closure procedures
+ */
+
+#include <stdio.h>
+#include <stdint.h>
+#include <inttypes.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+#include "vectors.h"
+#include "memalloc.h"
+#include "egraph.h"
+#include "egraph_explanations.h"
+#include "solver_printer.h"
+
+
+
+/*
+ * <name + term_id> for dictionary
+ */
+typedef struct {
+  char *name;
+  eterm_t tid;
+} entry_t;
+
+
+/*
+ * Dictionary
+ */
+typedef struct {
+  uint32_t nentries;
+  uint32_t size;
+  entry_t **data;
+} dictionary_t;
+
+
+/*
+ * Term descriptor = pair (name, body)
+ */
+typedef struct {
+  char *name;
+  char *body;
+} trmdsc_t;
+
+/*
+ * Assertions = equalities (occurrence, occurrence)
+ */
+typedef struct {
+  char *lhs;
+  char *rhs;
+} eq_desc_t;
+
+
+
+
+/*
+ * GLOBAL VARIABLES
+ */
+static dictionary_t dico;
+static egraph_t egraph;
+
+#define BUFFER_SIZE 1000
+static char buffer[BUFFER_SIZE];
+
+#define MAXLINE 1000
+static char line[MAXLINE];
+
+// table of term descriptors 
+#define INIT_TSIZE 20
+static trmdsc_t *termdef;
+static uint32_t nterms;
+static uint32_t tsize;
+
+// table of assertions
+#define INIT_ASIZE 20
+static eq_desc_t *assertion;
+static uint32_t neqs;
+static uint32_t asize;
+
+static eterm_t *trm;
+
+
+/*
+ * DICTIONARY: maps names to term ids
+ */
+
+/*
+ * Order on dictionary elements: true if a < b
+ */
+static bool precedes(entry_t *a, entry_t *b) {
+  return strcmp(a->name, b->name) < 0;
+}
+
+/*
+ * - insert e into array a, n = current number of elements in a
+ * (stored in a[0 ... n-1])
+ * - e is added in its lexicographic position
+ */
+static void insert_entry(entry_t **a, uint32_t n, entry_t *e) {
+  uint32_t i, j;
+
+  i = 0;
+  while (i<n && precedes(a[i], e)) i ++;
+  for (j=n; j>i; j--) {
+    a[j] = a[j-1];
+  }
+  a[i] = e;   
+}
+
+/*
+ * search for an entry of given name in array a
+ * n = size of a
+ * return NULL if not found
+ */
+static entry_t *find_entry(entry_t **a, uint32_t n, char *name) {
+  uint32_t i, j, k;
+  int cmp;
+
+  i = 0;
+  j = n;
+
+  for (;;) {
+    k = (i + j)/2;
+    if (k == i) break;
+    cmp = strcmp(a[k]->name, name);
+    if (cmp == 0) return a[k];
+
+    if (cmp < 0) {
+      i = k;
+    } else {
+      j = k;
+    }
+  }
+
+  if (i < j && strcmp(a[i]->name, name) == 0) {
+    return a[i]; 
+  } else {
+    return NULL;
+  }
+}
+
+static void init_dico(dictionary_t *d, uint32_t n) {
+  // minimal size
+  if (n < 10) n = 10;
+  d->nentries = 0;
+  d->size = n;
+  d->data = (entry_t **) safe_malloc(n * sizeof(entry_t *));
+}
+
+static void add_entry(dictionary_t *d, char *name, eterm_t id) {
+  entry_t *e;
+  uint32_t n;
+
+  n = d->size;
+  if (d->nentries >= n) {
+    n = 2 * n;
+    d->data = (entry_t **) safe_realloc(d->data, n * sizeof(entry_t *));
+    d->size = n;
+  }
+
+  e = (entry_t *) safe_malloc(sizeof(entry_t));
+  e->name = name;
+  e->tid = id;
+
+  insert_entry(d->data, d->nentries, e);
+  d->nentries ++;
+}
+
+static entry_t *find(dictionary_t *d, char *name) {
+  return find_entry(d->data, d->nentries, name);
+}
+
+static eterm_t find_term(dictionary_t *d, char *name) {
+  entry_t *e;
+  e = find(d, name);
+  if (e == NULL) {
+    fprintf(stderr, "unknown term %s\n", name);
+    exit(-1);
+  }
+  return e->tid;
+}
+
+static void delete_dico(dictionary_t *d) {
+  uint32_t i;
+
+  for (i=0; i<d->nentries; i++) {
+    safe_free(d->data[i]);
+  }
+  safe_free(d->data);
+}
+
+
+/*
+ * PARSING
+ */
+static inline bool alphanum(char c) {
+  return c == '_' || isalnum(c);
+}
+
+// copy first word of *a into buffer
+// update *a to point to the first character after word
+static void first_word(char **a) {
+  uint32_t i;
+  char *s;
+
+  s = *a;
+  // skip spaces
+  while (isspace(*s)) s++;  
+
+  i = 0;
+  if (alphanum(*s)) {
+    do {
+      if (i >= BUFFER_SIZE) {
+	fprintf(stderr, "*** Word size exceeded ****\n");
+	exit(-1);
+      }
+      buffer[i] = *s;
+      i ++;
+      s ++;
+    } while (*s != '\0' && alphanum(*s));
+    
+  } else if (*s != '\0') {
+    buffer[i] = *s;
+    i ++;
+    s ++;
+  }
+
+  buffer[i] = '\0';
+  *a = s;
+}
+
+
+/*
+ * Build term as defined by body
+ * add it to the dictionary
+ */
+#define MAXARITY 100
+
+static eterm_t build_term(egraph_t *egraph, char *name, char *body) {
+  char *ptr;
+  uint32_t i;
+  occ_t a[MAXARITY];
+  occ_t fun;
+  eterm_t t;
+  composite_kind_t kind;
+
+  t = null_eterm;
+  fun = null_occurrence; // stops GCC warning
+
+  ptr = body;
+  first_word(&ptr);
+  if (strcmp("const", buffer) == 0) {
+    t = egraph_constant(egraph);
+
+  } else if (strcmp("var", buffer) == 0) {
+    t = egraph_variable(egraph);
+
+  } else if (strcmp("bvar", buffer) == 0) {
+    t = egraph_variable(egraph);
+    egraph_set_term_type(egraph, t, ETYPE_BOOL);
+
+  } else if (strcmp("tvar", buffer) == 0) {
+    t = egraph_variable(egraph);
+    egraph_set_term_type(egraph, t, ETYPE_TUPLE);
+
+  } else if (strcmp("(", buffer) == 0) {
+
+    first_word(&ptr);
+    if (strcmp("distinct", buffer) == 0) {
+      kind = COMPOSITE_DISTINCT;
+    } else if (strcmp("eq", buffer) == 0) {
+      kind = COMPOSITE_EQ;
+    } else if (strcmp("ite", buffer) == 0) {
+      kind = COMPOSITE_ITE;
+    } else if (strcmp("or", buffer) == 0) {
+      kind = COMPOSITE_OR;
+    } else if (strcmp("tuple", buffer) == 0) {
+      kind = COMPOSITE_TUPLE;
+    } else if (strcmp("update", buffer) == 0) {      
+      kind = COMPOSITE_UPDATE;
+      first_word(&ptr);
+      fun = pos_occ(find_term(&dico, buffer));
+    } else {
+      kind = COMPOSITE_APPLY;
+      fun = pos_occ(find_term(&dico, buffer));      
+    }
+
+    i = 0;
+    for (;;) {
+      first_word(&ptr);
+      if (strcmp(")", buffer) == 0) break;
+      if (i >= MAXARITY) {
+	fprintf(stderr, "Maximal arity exceeded (max = %d)\n", MAXARITY);
+	goto error;
+      }
+      if (strcmp("true", buffer) == 0) {
+	a[i] = true_occ;
+      } else if (strcmp("false", buffer) == 0) {
+	a[i] = false_occ;
+      } else if (strcmp("~", buffer) == 0) {
+	first_word(&ptr);
+	a[i] = neg_occ(find_term(&dico, buffer));
+      } else {
+	a[i] = pos_occ(find_term(&dico, buffer));
+      }
+      i ++;
+    }
+
+    egraph_clear_newterm_flag(egraph);
+    switch (kind) {
+    case COMPOSITE_APPLY:
+      if (i < 1) goto error;
+      t = egraph_apply_term(egraph, fun, i, a);
+      break;
+
+    case COMPOSITE_UPDATE:
+      if (i < 2) goto error;
+      t = egraph_update_term(egraph, fun, i-1, a, a[i-1]);
+      break;
+
+    case COMPOSITE_TUPLE:
+      if (i < 1) goto error;
+      t = egraph_tuple_term(egraph, i, a);
+      break;
+
+    case COMPOSITE_EQ:
+      if (i != 2) goto error;
+      t = egraph_eq_term(egraph, a[0], a[1]);
+      break;
+
+    case COMPOSITE_ITE:
+      if (i != 3) goto error;
+      t = egraph_ite_term(egraph, a[0], a[1], a[2]);
+      break;
+
+    case COMPOSITE_DISTINCT:
+      if (i < 2) goto error;
+      t = egraph_distinct_term(egraph, i, a);
+      break;
+
+    case COMPOSITE_OR:
+      if (i < 2) goto error;
+      t = egraph_or_term(egraph, i, a);
+      break;
+    }
+
+    if (egraph_newterm(egraph)) {
+      egraph_activate_composite(egraph, t);
+    }
+
+  } else {
+    goto error;
+  }
+
+  add_entry(&dico, name, t);
+  return t;
+
+ error:
+  fprintf(stderr, "Invalid term: %s\n", body);
+  exit(-1);
+}
+
+
+/*
+ * Parse string s and convert it to a term occurrence
+ */
+static occ_t read_occ(char *s) {
+  char *ptr;
+
+  ptr = s;
+  first_word(&ptr);
+  if (strcmp("true", buffer) == 0) {
+    return true_occ;
+  } else if (strcmp("false", buffer) == 0) {
+    return false_occ;
+  } else if (strcmp("~", buffer) == 0) {
+    first_word(&ptr);
+    return neg_occ(find_term(&dico, buffer));
+  } else {
+    return pos_occ(find_term(&dico, buffer));
+  }
+}
+
+
+
+
+/*
+ * Read test from a file
+ * - build termdef and assertion tables
+ * - file format: one term or assertion per line
+ *   <...> ignored
+ *   TERMS
+ *   <name> <body>
+ *   ...
+ *   EQS
+ *   <lhs> <rhs>
+ */
+static void init_tables() {
+  tsize = INIT_TSIZE;
+  nterms = 0;
+  termdef = (trmdsc_t *) safe_malloc(tsize * sizeof(trmdsc_t));
+
+  asize = INIT_ASIZE;
+  neqs = 0;
+  assertion = (eq_desc_t *) safe_malloc(asize * sizeof(eq_desc_t));
+}
+
+static void delete_tables() {
+  uint32_t i;
+
+  for (i=0; i<nterms; i++) {
+    safe_free(termdef[i].name);
+    safe_free(termdef[i].body);    
+  }
+  safe_free(termdef);
+
+  for (i=0; i<neqs; i++) {
+    safe_free(assertion[i].lhs);
+    safe_free(assertion[i].rhs);
+  }
+  safe_free(assertion);
+}
+
+
+static void add_termdef(char *name, char *body) {
+  uint32_t i;
+
+  i = nterms;
+  if (i >= tsize) {
+    tsize += tsize;
+    termdef = (trmdsc_t *) safe_realloc(termdef, tsize * sizeof(trmdsc_t));
+  }
+  termdef[i].name = name;
+  termdef[i].body = body;
+  nterms = i+1;
+}
+
+static void add_eq(char *lhs, char *rhs) {
+  uint32_t i;
+
+  i = neqs;
+  if (i >= asize) {
+    asize += asize;
+    assertion = (eq_desc_t *) safe_realloc(assertion, asize * sizeof(eq_desc_t));
+  }
+  assertion[i].lhs = lhs;
+  assertion[i].rhs = rhs;
+  neqs = i+1;
+}
+
+static char *clone(char *s) {
+  uint32_t n;
+  char *s0;
+
+  n = strlen(s) + 1;
+  s0 = (char *) safe_malloc(n * sizeof(char));
+  strcpy(s0, s);
+
+  return s0;
+}
+
+static void build_test(FILE *f) {
+  char *s;
+  char *left, *right;
+  uint32_t n;
+
+  init_tables();
+
+  // read until a line with "TERMS"
+  do {
+    s = fgets(line, MAXLINE, f);
+    if (s == NULL) return; // empty spec.
+    first_word(&s);
+  } while (strcmp("TERMS", buffer) != 0);
+
+  // read termdefs until a line with "EQS"
+  for (;;) {
+    s = fgets(line, MAXLINE, f);
+    if (s == NULL) return; // no "EQS" is OK
+    first_word(&s);
+    if (*buffer == '\0') continue; // skip empty lines
+
+    if (strcmp("EQS", buffer) == 0) break;
+
+    left = clone(buffer);
+    // remove spaces
+    while (isspace(*s)) s ++;
+    // remove trailing spaces;
+    n = strlen(s);
+    while (n > 0) {
+      n --;
+      if (! isspace(s[n])) break;
+    }
+    s[n+1] = '\0';
+
+    right = clone(s);
+    add_termdef(left, right);    
+  }
+
+  // read assertions until EOF
+  for (;;) {
+    s = fgets(line, MAXLINE, f);
+    if (s == NULL) return; 
+
+    first_word(&s);
+    if (*buffer == '\0') continue; // skip empty lines
+    left = clone(buffer);
+    first_word(&s);
+    right = clone(buffer);
+    add_eq(left, right);
+  }
+}
+
+
+
+/*
+ * Show all terms in the egraph
+ */
+#if 0
+
+// Not used anymore
+static void dump_egraph() {
+  printf("*** TERMS ***\n");
+  print_egraph_terms(stdout, &egraph);
+  printf("\n\n");
+}
+
+#endif
+
+static void full_dump() {
+  printf("*** TERMS ***\n");
+  print_egraph_terms_details(stdout, &egraph);
+  printf("\n*** CLASSES ***\n");
+  print_egraph_root_classes(stdout, &egraph);
+}
+
+
+static void show_termdef(uint32_t i) {
+  char *b;
+
+  b = termdef[i].body;
+  if (strcmp("var", b) == 0 || strcmp("bvar", b) == 0 || 
+      strcmp("const", b) == 0 || strcmp("tvar", b) == 0) {
+    return;
+  }
+  printf("%s is %s\n", termdef[i].name, b);
+}
+
+
+static void show_terms() {
+  eterm_t t;
+  int32_t i;
+
+  printf("--- All terms ---\n");
+  printf("  name         id    body\n");
+  for (i=0; i<nterms; i++) {
+    printf("  %-10s", termdef[i].name);
+    printf("  ");
+    t = trm[i];
+    print_eterm_id(stdout, t);
+    printf("   %s\n", termdef[i].body);
+  }
+  printf("\n");
+}
+
+static void show_explanations(ivector_t *v) {
+  uint32_t i, j;
+
+  for (i=0; i<v->size; i++) {
+    j = v->data[i];
+    printf("  %s == %s\n", assertion[j].lhs, assertion[j].rhs);
+  }
+}
+
+static void show_dico(dictionary_t *d) {
+  uint32_t i;
+
+  printf("--- Dictionary ---\n");
+  printf("  name        id\n");  
+  for (i=0; i<d->nentries; i++) {
+    printf("  %-10s  ", d->data[i]->name);
+    print_eterm_id(stdout, d->data[i]->tid);
+    printf("\n");
+  }
+  printf("\n");
+}
+
+
+/*
+ * Check all terms: print whether they are true or false
+ */
+static void show_true_false_terms() {
+  uint32_t i;
+  ivector_t expl;
+  occ_t t;
+
+  init_ivector(&expl, 10);
+
+  for (i=0; i<nterms; i++) {
+    t = pos_occ(trm[i]);
+    if (egraph_occ_is_true(&egraph, t)) {
+      printf("%s is true\n", termdef[i].name);
+      show_termdef(i);
+      printf("explanation:\n");
+      ivector_reset(&expl);
+      egraph_explain_equality(&egraph, t, true_occ, &expl);
+      show_explanations(&expl);
+      printf("\n");
+    }
+
+    if (egraph_occ_is_false(&egraph, t)) {
+      printf("%s is false\n", termdef[i].name);
+      show_termdef(i);
+      printf("explanation:\n");
+      ivector_reset(&expl);
+      egraph_explain_equality(&egraph, t, false_occ, &expl);
+      show_explanations(&expl);
+      printf("\n");
+    }
+  }
+
+  delete_ivector(&expl);
+}
+
+static void show_equal_terms() {
+  uint32_t i, j;
+  ivector_t expl;
+  occ_t t1, t2;
+
+  init_ivector(&expl, 10);
+
+  for (i=0; i<nterms; i++) {
+    t1 = pos_occ(trm[i]);
+    for (j=i+1; j<nterms; j++) {
+      t2 = pos_occ(trm[j]);
+      if (egraph_equal_occ(&egraph, t1, t2)) {
+	printf("%s and %s are equal\n", termdef[i].name, termdef[j].name);
+	show_termdef(i);
+	show_termdef(j);
+	printf("explanation:\n");
+	ivector_reset(&expl);
+	egraph_explain_equality(&egraph, t1, t2, &expl);
+	show_explanations(&expl);
+	printf("\n");
+      }
+
+      t2 = neg_occ(trm[j]);
+      if (egraph_equal_occ(&egraph, t1, t2)) {
+	printf("%s and %s are opposite\n", termdef[i].name, termdef[j].name);
+	show_termdef(i);
+	show_termdef(j);
+	printf("explanation:\n");
+	ivector_reset(&expl);
+	egraph_explain_equality(&egraph, t1, t2, &expl);
+	show_explanations(&expl);
+	printf("\n");
+      }
+    }
+  }  
+
+  delete_ivector(&expl);
+}
+
+
+static bool simple_propagation() {
+  bool result;
+
+  printf("\n--- Propagation ---\n");
+  result = egraph_propagate(&egraph);
+
+  if (result) {
+    printf("*** No conflict ***\n");
+    printf("*** Implications ***\n");
+    show_true_false_terms();
+    show_equal_terms();
+  } else {
+
+    printf("*** Conflict detected ***\n");
+    printf("Conflicting assertions:\n");
+    show_explanations(&egraph.expl_vector);
+    printf("\n");
+  }
+
+  return result;
+}
+
+static bool full_propagation() {
+  bool result;
+
+  printf("\n--- Full propagation ---\n");
+  result = egraph_pclause_propagate(&egraph);
+  if (result) {
+    printf("*** No conflict ***\n");
+    printf("*** Implications ***\n");
+    show_true_false_terms();
+    show_equal_terms();
+  } else {
+
+    printf("*** Conflict detected ***\n");
+    printf("Conflicting assertions:\n");
+    show_explanations(&egraph.expl_vector);
+    printf("\n");
+
+  }
+
+  return result;
+}
+
+
+
+int main(int argc, char *argv[]) {
+  int32_t i;
+  occ_t left, right;
+  bool result;
+  FILE *input;
+
+  input = NULL;
+  if (argc == 2) {
+    input = fopen(argv[1], "r");
+    if (input == NULL) {
+      perror(argv[1]);
+      exit(-1);
+    }    
+  }
+
+  init_egraph(&egraph);
+  init_dico(&dico, 10);
+
+  if (input == NULL) {
+    build_test(stdin);
+  } else {
+    build_test(input);
+    fclose(input);
+  }
+
+  trm = (eterm_t *) safe_malloc(nterms * sizeof(eterm_t));
+  for (i=0; i<nterms; i++) {
+    trm[i] = build_term(&egraph, termdef[i].name, termdef[i].body);
+  }
+
+  show_dico(&dico);
+  show_terms();
+
+  printf("\n--- Initial propagation ---\n");
+  result = egraph_propagate(&egraph);
+
+  if (result) {
+    printf("*** No conflict ***\n");
+    full_dump();
+
+  } else {
+    printf("*** Conflict detected ***\n");
+    printf("Conflicting assertions:\n");
+    show_explanations(&egraph.expl_vector);
+    printf("\n");
+    goto cleanup;
+  }
+
+  egraph_open_level(&egraph);
+
+  printf("--- Assertions ---\n");
+  for (i=0; i<neqs; i++) {
+    left = read_occ(assertion[i].lhs);
+    right = read_occ(assertion[i].rhs);
+    printf("  %s == %s\n", assertion[i].lhs, assertion[i].rhs);
+    egraph_assert_eq(&egraph, left, right, i);
+  }
+
+  result = simple_propagation() && full_propagation();
+
+  printf("*** BEFORE BACKTRACKING ***\n");
+  full_dump();
+  printf("\n");
+
+  egraph_backtrack(&egraph, 0);
+
+  printf("*** AFTER BACKTRACKING ***\n");
+  full_dump();
+  printf("\n");
+
+ cleanup:
+  delete_tables();
+  safe_free(trm);
+  delete_dico(&dico);
+  delete_egraph(&egraph);
+  return 0;
+}
