@@ -35,7 +35,7 @@ generic_heap.h:         heap of int32_t integers, with ordering function
 generic_heap.c		defined by the user
 
 index_vectors.h:	vectors of int32_t integers (resizable arrays with hidden
-index_vectors.c         header). Similar to ivector_t in vectors.h but more efficient.
+index_vectors.c         header). Similar to ivector_t in int_vectors.h but more efficient.
 
 internalization_map.h:	resizable tables for mapping integers to integers
 internalization_map.c   support push/pop/reset
@@ -72,6 +72,9 @@ int_partitions.c        based on an equivalence relation provided by the user.
 int_queues.h:           integer queue (implemented as a circular array)
 int_queues.c
 
+int_vectors.h:		vectors of signed 32bit integers (resizable arrays)
+int_vectors.c
+
 pair_hash_map.h:	maps pairs of int32 to (void *) pointers (hash table)
 pair_hash_map.c
 
@@ -93,6 +96,9 @@ ptr_partitions.c        rather than integers.
 ptr_queues.h:		queue of (void*) pointers (implementes as a circular array)
 ptr_queues.c
 
+ptr_vectors.h:		vectors of (void*) pointers (resizable arrays)
+ptr_vectors.c
+
 string_buffers.h:	resizable string buffers
 string_buffers.c
 
@@ -107,9 +113,6 @@ union_finc.c
 
 use_vectors.h:		vectors of tagged pointers (for implementing "use lists")
 use_vectors.c
-
-vectors.h:		generic vectors of integers and pointers (void *)
-vectors.c
 
 vsets.h:		support for storing and hash-consing of sets of 32bit integers
 vsets.c                 each set is stored as an array
@@ -132,7 +135,7 @@ gcd.c
 hash_functions.h:       various hash-functions based on Jensen's code
 hash_functions.c
 
-int_array_sort.h:       basic sort (sort an array of integers in increasing order)
+int_array_sort.h:       sort an array of integers in increasing order
 int_array_sort.c
 
 int_array_sort2.h:	sort an array of integers, ordering supplied by the user
@@ -530,7 +533,7 @@ models.c		- optionally: a model can also include a substitution table
 model_printer.h:	Code to display a model
 model_printer.c
 
-model_eval.h:		Evaluator: compute the (concrete) value of a term in a given model
+model_eval.h:		Evaluator: compute the (concrete) value of a term in a model
 model_eval.c
 
 
@@ -572,7 +575,4 @@ theory_tracer.h:        Print lemmas and more stuff received from theory solvers
 theory_tracer.c
 
 yices_exports.def:      Provisional list of API functions (to build libraries).
-
-
-
 
