@@ -352,16 +352,19 @@ yices_version.c:
 
 
 #
-# Binaries: force generation of yices_version.c on every make bin
+# Binaries
 # 
-bin: $(binaries) $(yices_version_o)
-	rm -f $(yices_version_c)
+bin: $(binaries)
 
-# All objects
+# All objects, except yices_version.o
 objects: $(obj) $(bin_obj)
 
-# Static library
-lib: $(lib_targets)
+#
+# Libraries: include yices_version.o
+# Also force yices_version_c to be generated every time
+#
+lib: $(lib_targets) $(yices_version_o)
+	rm -f $(yices_version_c)
 
 # Object files
 $(objdir)/%.o: %.c
@@ -371,19 +374,18 @@ $(objdir)/%.o: %.c
 #
 # Static library
 #
-$(libyices): $(obj)
+$(libyices): $(obj) $(yices_version_o)
 	@ rm -f $(libyices)
-	$(AR) cr $(libyices) $(obj)
+	$(AR) cr $(libyices) $(obj) $(yices_version_o)
 	$(RANLIB) $(RANLIBFLAGS) $(libyices)
-
 
 
 #
 # We combine all objects into allyices.o then build the libraries
 # from allyices.o
 #
-$(libyices_obj): $(obj)
-	$(LD) -r -x $(LDFLAGS) -o $(libyices_obj) $(obj)
+$(libyices_obj): $(obj) $(yices_version_o)
+	$(LD) -r -x $(LDFLAGS) -o $(libyices_obj) $(obj) $(yices_version_o)
 
 
 
@@ -452,8 +454,8 @@ $(libyices_dylib): $(libyices_obj)
 #
 # Executables
 #
-$(bindir)/%$(EXEEXT): $(objdir)/%.o $(yices_version_o) $(libyices)
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $< $(yices_version_o) $(libyices) $(LIBS)
+$(bindir)/%$(EXEEXT): $(objdir)/%.o $(libyices)
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $< $(libyices) $(LIBS)
 
 
 
