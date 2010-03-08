@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "smt_parser.h"
+#include "smt_logic_codes.h"
 
 #define NUM_TESTS 21
 

@@ -172,19 +172,24 @@ fi
 # 
 if test -z "$1"; then
    #
-   # Some (non-GNU) versions of ld do not recognize --verbose
-   # use LD_LIBRARY_PATH as default in such cases.
+   # Default directories for libraries:
+   # - whatever is returned by ld --verbose (works for GNU ld)
+   # - whatever is in the user's LD_LIBRARY_PATH
+   # - whatever is in LDFLAGS
    #
+   aux_libs=""
+   auxx_libs=""
+   auxxx_libs=""
    if ld --verbose > /dev/null 2>&1; then 
       aux_libs=`ld --verbose | grep SEARCH_DIR | sed -e 's,SEARCH_DIR(\"\?,,g' -e 's,\"\?);,,g'`
-   else
-     if test "x$LD_LIBRARY_PATH" != x; then 
-        aux_libs=`echo $LD_LIBRARY_PATH | sed -e 's,:, ,g'`
-     else
-        aux_libs=""
-     fi
    fi
-   search_libs="$auxlibs /usr/local/lib /usr/lib /lib"
+   if test "x$LD_LIBRARY_PATH" != x; then 
+      auxx_libs=`echo $LD_LIBRARY_PATH | sed -e 's,:, ,g'`
+   fi
+   if test "x$LDFLAGS" != x; then
+      auxxx_libs=`echo $LDFLAGS | set -e 's,-L,,g'`
+   fi
+   search_libs="$auxxx_libs $auxx_libs $aux_libs /usr/local/lib /usr/lib /lib"
    #
    # Add other libraries from $LDFLAGS
    #
