@@ -415,13 +415,8 @@ $(libyices_mingw_dll): $(libyices_obj)
 #
 # Special dynamic library tricks for Mac OS X:
 # - give libyices.dylib as the install_name
-<<<<<<< .mine
-# - include version 2.0
-# 
-=======
 # - the compatibility version is MAJOR.0.0
 #
->>>>>>> .r1299
 $(libyices_dylib): $(libyices_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib \
 	-current_version $(libyices_curr_version) -compatibility_version $(libyices_compat_version) \

@@ -199,6 +199,16 @@ typedef struct param_val_s {
  * - void eval_cmd(term_t t)
  * - void setparam_cmd(char *param, param_val_t *val)
  * - void show_params_cmd(void)
+ *
+ * Two more commands called within define-type or define-term: 
+ * - void type_defined_cmd(char *name, type_t tau):
+ *   called after (define-type name tau) 
+ *             or (define-type name) is executed
+ * - void term_defined_cmd(char *name, term_t t)
+ *   called after (define name::type t) 
+ *            or (define name::type) is executed
+ * Added this to give some feedback to the user when yices_masin
+ * is used in verbose mode.
  */
 typedef void (*exit_cmd_t)(void);
 typedef void (*check_cmd_t)(void);
@@ -213,6 +223,8 @@ typedef void (*assert_cmd_t)(term_t t);
 typedef void (*eval_cmd_t)(term_t t);
 typedef void (*setparam_cmd_t)(char *param, param_val_t *val);
 typedef void (*showparams_cmd_t)(void);
+typedef void (*type_defined_cmd_t)(char *name, type_t tau);
+typedef void (*term_defined_cmd_t)(char *name, term_t t);
 
 typedef struct external_cmd_s {
   exit_cmd_t exit_cmd;
@@ -228,6 +240,8 @@ typedef struct external_cmd_s {
   eval_cmd_t eval_cmd;
   setparam_cmd_t setparam_cmd;
   showparams_cmd_t showparams_cmd;
+  type_defined_cmd_t type_defined_cmd;
+  term_defined_cmd_t term_defined_cmd;
 } external_cmd_t;
 
 
@@ -512,7 +526,7 @@ static inline term_t tstack_get_type(tstack_t *stack) {
 
 
 /*
- * Replace the commands
+ * Replace the fefault commands
  */
 static inline void tstack_set_exit_cmd(tstack_t *stack, exit_cmd_t cmd) {
   stack->externals.exit_cmd = cmd;
@@ -564,6 +578,14 @@ static inline void tstack_set_setparam_cmd(tstack_t *stack, setparam_cmd_t cmd) 
 
 static inline void tstack_set_showparams_cmd(tstack_t *stack, showparams_cmd_t cmd) {
   stack->externals.showparams_cmd = cmd;
+}
+
+static inline void tstack_set_type_defined_cmd(tstack_t *stack, type_defined_cmd_t cmd) {
+  stack->externals.type_defined_cmd = cmd;
+}
+
+static inline void tstack_set_term_defined_cmd(tstack_t *stack, term_defined_cmd_t cmd) {
+  stack->externals.term_defined_cmd = cmd;
 }
 
 

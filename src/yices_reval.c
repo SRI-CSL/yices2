@@ -33,7 +33,6 @@
 #include "model_printer.h"
 #include "yices.h"
 
-
 #include "yices_reval.h"
 
 
@@ -1677,6 +1676,19 @@ static void yices_eval_cmd(term_t t) {
 
 
 
+/*
+ * Feedback for define or define-term
+ */
+static void yices_type_defined_cmd(char *name, type_t tau) {
+  print_ok();
+}
+
+static void yices_term_defined_cmd(char *name, term_t t) {
+  print_ok();
+}
+
+
+
 /**********
  *  MAIN  *
  *********/
@@ -1727,6 +1739,8 @@ EXPORTED int yices_main(int argc, char *argv[]) {
   tstack_set_check_cmd(&stack, yices_check_cmd);
   tstack_set_showmodel_cmd(&stack, yices_showmodel_cmd);
   tstack_set_eval_cmd(&stack, yices_eval_cmd);  
+  tstack_set_type_defined_cmd(&stack, yices_type_defined_cmd);
+  tstack_set_term_defined_cmd(&stack, yices_term_defined_cmd);
   init_parameter_name_table();
 
   init_parser(&parser, &lexer, &stack);

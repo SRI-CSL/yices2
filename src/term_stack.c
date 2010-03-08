@@ -231,6 +231,22 @@ static void tstack_default_showparams_cmd(void) {
 #endif
 }
 
+static void tstack_default_type_defined_cmd(char *name, type_t tau) {
+#ifndef NDEBUG
+  fprintf(stdout, "type definition: %s = ", name);
+  print_type_id(stdout, tau);
+  fprintf(stdout, "\n\n");
+#endif
+}
+
+static void tstack_default_term_defined_cmd(char *name, term_t t) {
+#ifndef NDEBUG
+  fprintf(stdout, "term definition: %s = ", name);
+  print_term_id(stdout, t);
+  fprintf(stdout, "\n\n");
+#endif
+}
+
 
 
 /********************
@@ -290,6 +306,8 @@ void init_tstack(tstack_t *stack) {
   stack->externals.eval_cmd = tstack_default_eval_cmd;
   stack->externals.setparam_cmd = tstack_default_setparam_cmd;
   stack->externals.showparams_cmd = tstack_default_showparams_cmd;
+  stack->externals.type_defined_cmd = tstack_default_type_defined_cmd;
+  stack->externals.term_defined_cmd = tstack_default_term_defined_cmd;
 }
 
 
@@ -2054,6 +2072,10 @@ static void eval_define_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     tau = f[1].val.type;
   }
   yices_set_type_name(tau, f[0].val.symbol);
+
+  // notification: call the defined_type_cmd
+  stack->externals.type_defined_cmd(f[0].val.symbol, tau);
+
   tstack_pop_frame(stack);
   no_result(stack);
 }
@@ -2085,6 +2107,9 @@ static void eval_define_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     }
   }
   yices_set_term_name(t, f[0].val.symbol);
+
+  // notification: call the defined_term_cmd
+  stack->externals.term_defined_cmd(f[0].val.symbol, tau);
 
   tstack_pop_frame(stack);
   no_result(stack);  
