@@ -1459,7 +1459,7 @@ static bool check_maxvars(int32_t n) {
 // Check whether n is less than YICES_MAX_BVSIZE
 static bool check_maxbvsize(int32_t n) {
   if (n > YICES_MAX_BVSIZE) {
-    error.code = TOO_MANY_VARS;
+    error.code = MAX_BVSIZE_EXCEEDED;
     error.badval = n;
     return false;    
   }

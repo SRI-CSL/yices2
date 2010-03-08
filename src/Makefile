@@ -6,10 +6,14 @@
 #   YICES_TOP_DIR = top-level directory for Yices
 #   YICES_MODE = build mode
 #   YICES_MAKE_INCLUDE = configuration file to include
+#   YICES_VERSION = full version
+#   MAJOR = major version number
+#   MINOR = minor version number
+#   PATCH_LEVEL = patch level
 #   ARCH = architecture (e.g, i686-pc-linux-gnu)
 #   POSIXOS = OS (e.g., linux)
 #   BUILD = target build director (normally build/$(ARCH)-$(YICES_MODE))
-#
+#   
 # Config variables are imported by including the file
 #   $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
 #
@@ -121,11 +125,17 @@ libyices_mingw_dll := $(libdir)/libyices.dll
 libyices_implib=$(libdir)/libyices.dll.a
 libyices_def=$(libdir)/libyices.def
 
+# library version for linux
+libyices_soname := libyices.so.$(MAJOR)
+
+# version and compatibility numbers for darwin
+libyices_curr_version := $(MAJOR).$(MINOR).$(PATCH_LEVEL)
+libyices_compat_version := $(MAJOR).0.0
+
 
 # binaries
 binaries := $(bindir)/yices_smt$(EXEEXT) $(bindir)/dl_profile$(EXEEXT) \
 	$(bindir)/yices_smtcomp$(EXEEXT) $(bindir)/yices_main$(EXEEXT)
-
 
 
 
@@ -251,7 +261,9 @@ endif
 
 
 #
-# Which libraries to build
+# Which libraries to build.
+# TODO: build the dynamic library (but linked with libgmp.a)
+# in static mode?
 #
 ifeq ($(YICES_MODE),release)
 lib_targets=$(libyices)  $(libyices_dynamic)
@@ -262,9 +274,60 @@ endif
 
 
 
-################
-#  Make rules  #
-################
+#################
+#  BUILD RULES  #
+#################
+
+#
+# Dependency files
+#
+$(objdir)/%.d: %.c
+	@ echo Building dependency file $@
+	@ $(CC) -MM -MG $(CPPFLAGS) $< > $@.tmp
+	@ $(SED) 's,\($*\).o[ :]*,$(objdir)/\1.o $@ : , g' < $@.tmp > $@
+	@ rm -f $@.tmp
+
+ifneq ($@,clean)
+include $(dep)
+include $(bin_dep)
+endif
+
+
+#
+# Gperf generated tables
+# - we need to give different names to the yices and smt lookup functions
+#
+yices_hash_keywords.h: yices_keywords.txt
+	$(GPERF) -C -G -L ANSI-C -W yices_kw --output-file=yices_hash_keywords.h \
+	--lookup-function-name=in_yices_kw yices_keywords.txt
+
+smt_hash_keywords.h: smt_keywords.txt
+	$(GPERF) -C -G -L ANSI-C -W smt_kw --output-file=smt_hash_keywords.h \
+	--lookup-function-name=in_smt_kw smt_keywords.txt
+
+
+#
+# Version file
+# Compilation date and mode, svn repository and version, and version numbers
+# are copied into yices_version.c.
+#
+now := $(shell date)
+
+url := $(shell ( svn info $(YICES_TOP_DIR) 2>&1 | grep URL ) || echo URL: unknown)
+ifeq ($(url), URL: unknown) 
+  rev := unknown
+else 
+  rev := $(shell ( svnversion $(YICES_TOP_DIR) 2>&1 ) )
+endif
+
+yices_version.c:
+	$(SED) -e 's/YICES_COMPILATION_DATE/$(now)/g' \
+	 -e 's;SVN_URL;$(url);g' -e 's/SVN_REVISION/$(rev)/g' \
+	 -e 's/YICES_ARCH/$(ARCH)/g' -e 's/YICES_BUILD_MODE/$(YICES_MODE)/g' -e 's/YICES_VERSION/$(YICES_VERSION)/g' \
+	yices_version_template.txt > $@
+
+
+
 
 #
 # Binaries: force generation of yices_version.c on every make bin
@@ -278,18 +341,6 @@ objects: $(obj) $(bin_obj)
 # Static library
 lib: $(lib_targets)
 
-# Dependency files
-$(objdir)/%.d: %.c
-	@ echo Building dependency file $@
-	@ $(CC) -MM -MG $(CPPFLAGS) $< > $@.tmp
-	@ $(SED) 's,\($*\).o[ :]*,$(objdir)/\1.o $@ : , g' < $@.tmp > $@
-	@ rm -f $@.tmp
-
-ifneq ($@,clean)
-include $(dep)
-include $(bin_dep)
-endif
-
 # Object files
 $(objdir)/%.o: %.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
@@ -299,6 +350,7 @@ $(libyices): $(obj)
 	@ rm -f $(libyices)
 	$(AR) cr $(libyices) $(obj)
 	$(RANLIB) $(RANLIBFLAGS) $(libyices)
+
 
 
 #
@@ -317,7 +369,8 @@ $(libyices_obj): $(obj)
 # linux + solaris
 #
 $(libyices_so): $(libyices_obj)
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $(libyices_so) $(libyices_obj) $(LIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $(libyices_so) \
+	-Wl,-soname,$(yices_soname) $(libyices_obj) $(LIBS)
 	$(STRIP) -x $(libyices_so)
 
 #
@@ -358,16 +411,13 @@ $(libyices_mingw_dll): $(libyices_obj)
 #
 # Special dynamic library tricks for Mac OS X:
 # - give libyices.dylib as the install_name
-# - for this to work, the dynamic library has to be copied into
-#   the /usr/local/lib directory, with that exact name.
-# - the user can change this by using install_name_tool
-# - we give option -headerpad_max_install_names so that user can safely
-# change the install name using install_name_tool.
-# 
+# - the compatibility version is MAJOR.0.0
+#
 $(libyices_dylib): $(libyices_obj)
-	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib -current_version 2.0 -compatibility_version 2.0 \
-	$(libyices_obj) $(LIBS) -o $(libyices_dylib) \
-	-Wl,-install_name,libyices.dylib
+	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib \
+	-current_version $(libyices_curr_version) -compatibility_version $(libyices_compat_version) \
+	-Wl,-install_name,libyices.dylib \
+	$(libyices_obj) $(LIBS) -o $(libyices_dylib)
 	$(STRIP) -x $(libyices_dylib)
 
 
@@ -379,37 +429,6 @@ $(bindir)/%$(EXEEXT): $(objdir)/%.o $(yices_version_o) $(libyices)
 	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $< $(yices_version_o) $(libyices) $(LIBS)
 
 
-#
-# Gperf generated tables
-# - we need to give different names to the yices and smt lookup functions
-#
-yices_hash_keywords.h: yices_keywords.txt
-	$(GPERF) -C -G -L ANSI-C -W yices_kw --output-file=yices_hash_keywords.h \
-	--lookup-function-name=in_yices_kw yices_keywords.txt
-
-smt_hash_keywords.h: smt_keywords.txt
-	$(GPERF) -C -G -L ANSI-C -W smt_kw --output-file=smt_hash_keywords.h \
-	--lookup-function-name=in_smt_kw smt_keywords.txt
-
-
-#
-# Compilation date + svn repository and version
-#
-now := $(shell date)
-
-url := $(shell ( svn info $(YICES_TOP_DIR) 2>&1 | grep URL ) || echo URL: unknown)
-ifeq ($(url), URL: unknown) 
-  rev := unknown
-else 
-  rev := $(shell ( svnversion $(YICES_TOP_DIR) 2>&1 ) )
-endif
-
-yices_version.c:
-	$(SED) -e 's/YICES_COMPILATION_DATE/$(now)/g' -e 's;SVN_URL;$(url);g' -e 's/SVN_REVISION/$(rev)/g' \
-	  -e 's/YICES_ARCH/$(ARCH)/g' -e 's/YICES_BUILD_MODE/$(YICES_MODE)/g' yices_version_template.txt > $@
-
-
-
 
 
 
@@ -418,17 +437,16 @@ yices_version.c:
 ##########################
 
 #
-# OS-dependent flags for strip + what needs to be copied
-# into the lib directory
-# TODO: adjust this depending on OS
+# Flags for the strip command (applied to binaries)
+# (todo: check for OS dependencies)
 #
-ifeq ($(POSIXOS),linux)
-  STRIPFLAGS= 
-  libs_for_dist = $(lib_targets)
-else 
-  STRIPFLAGS=
-  libs_for_dist = $(lib_targets)
-endif
+STRIPFLAGS =
+
+#
+# Libraries we distribute: they are copied into the distdir sub
+# directories.
+#
+libs_for_dist = $(lib_targets)
 
 #
 # Just copy the required binaries, libraries, include files into
@@ -486,6 +504,7 @@ smt-distribution: bin
 	@ echo "YICES_TOP_DIR is $(YICES_TOP_DIR)"
 	@ echo "YICES_MAKE_INCLUDE is $(YICES_MAKE_INCLUDE)"
 	@ echo "YICES_MODE is $(YICES_MODE)"
+	@ echo "YICES_VERSION is $(YICES_VERSION)"
 	@ echo "BUILD is $(BUILD)"
 	@ echo
 	@ echo "Configuration"

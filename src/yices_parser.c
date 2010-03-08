@@ -240,10 +240,16 @@ static void yices_error(lexer_t *lex, tstack_t *tstack) {
     
   error = yices_get_error_report();
   switch (error->code) {
+  case NO_ERROR:
+    // should not happen
+    fprintf(stderr, "bad error code %"PRIu32" (this is a bug)\n", error->code);
+    break;
   case INVALID_TYPE:
+    // should not happen
     fprintf(stderr, "invalid type %"PRId32" (this is a bug)\n", error->type1);
     break;
   case INVALID_TERM:
+    // should not happen
     fprintf(stderr, "invalid term: %"PRId32" (this is a bug)\n", error->term1);
     break;
   case POS_INT_REQUIRED:
@@ -251,6 +257,15 @@ static void yices_error(lexer_t *lex, tstack_t *tstack) {
     break;
   case NONNEG_INT_REQUIRED:
     fprintf(stderr, "integer argument must be non-negative\n");
+    break;
+  case TOO_MANY_ARGUMENTS:
+    fprintf(stderr, "maximal arity exceeded (limit = %"PRIu32")\n", YICES_MAX_ARITY);
+    break;
+  case TOO_MANY_VARS:
+    fprintf(stderr, "too many variables (limit = %"PRIu32")\n", YICES_MAX_VARS);
+    break;
+  case MAX_BVSIZE_EXCEEDED:
+    fprintf(stderr, "bitvector size too large (max = %"PRIu32")\n", YICES_MAX_BVSIZE);
     break;
   case SCALAR_OR_UTYPE_REQUIRED:
     fprintf(stderr, "invalid type in constant creation\n");
@@ -265,8 +280,7 @@ static void yices_error(lexer_t *lex, tstack_t *tstack) {
     fprintf(stderr, "argument is not a variable\n");
     break;
   case INVALID_CONSTANT_INDEX:
-    fprintf(stderr, "invalid index %"PRId32" in constant creation\n",
-	    error->badval);
+    fprintf(stderr, "invalid index %"PRId32" in constant creation\n", error->badval);
     break;
   case WRONG_NUMBER_OF_ARGUMENTS:
     fprintf(stderr, "wrong number of arguments\n");
@@ -309,8 +323,6 @@ static void yices_error(lexer_t *lex, tstack_t *tstack) {
     break;    
   case EMPTY_BITVECTOR:
     fprintf(stderr, "bitvectors must have positive bitsize\n");
-    break;
-  default:
     break;
   }
 }

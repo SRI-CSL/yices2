@@ -18,7 +18,7 @@
 #endif
 
 
-EXPORTED const char * const yices_version = "2.0 prototype";
+EXPORTED const char * const yices_version = "YICES_VERSION";
 EXPORTED const char * const yices_build_date = "YICES_COMPILATION_DATE";
 EXPORTED const char * const yices_svn_url = "SVN_URL";
 EXPORTED const char * const yices_svn_rev = "SVN_REVISION";

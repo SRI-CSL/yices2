@@ -6,13 +6,16 @@
 #   YICES_TOP_DIR = top-level directory for Yices
 #   YICES_MODE = build mode
 #   YICES_MAKE_INCLUDE = configuration file to include
+#   YICES_VERSION = full version
+#   MAJOR = major version number
+#   MINOR = minor version number
+#   PATCH_LEVEL = patch level
 #   ARCH = architecture (e.g, i686-pc-linux-gnu)
 #   POSIXOS = OS (e.g., linux)
 #
-# Config variables are imported by including the file
-#   $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
-#
-# This file is constructed by running configure on the
+# Configuration variables for this build target are imported by
+# including the file $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE).
+# This file is constructed by running ./configure on the
 # host and it defines the compilation tools and flags
 # and the GMP libraries to use.
 #
@@ -23,7 +26,7 @@ include $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
 
 
 #
-# source directories
+# Source directories
 #
 srcdir = src
 testdir = tests
@@ -40,18 +43,19 @@ bindir = $(build_dir)/bin
 
 
 #
-# Directories and temporary file to build tarfiles
-# - we do this in two steps: the includes, binaries, and library files
-#   to be distributed are constructed by invoking make -C src
-#   and copied into $(distir)
-#   (what's required is defined in src/Makefile and may depend
+# Directories and temporary file to build tarfiles.
+# We do this in two steps: 
+# 1) the includes, binaries, and library files
+#    to be distributed are constructed by invoking make -C src
+#    and copied into $(distir)
+#    (what's required is defined in src/Makefile and may depend
 #    on the OS + compilation mode).
-# - the full tar file is built from $(distdir) + the generic files
-#   that are independent of OS and compilation modes
-# - the name of the tar file depends on ARCH + MODE
+# 2) the full tar file is built from $(distdir) + the generic files
+#    that are independent of OS and compilation modes
+# - the name of the tar file depends on ARCH + MODE + VERSION
 # 
 distdir = $(build_dir)/dist
-bindist_dir = yices-2.0.0
+bindist_dir = yices-$(YICES_VERSION)
 smtdist_dir = yices2smt09
 
 distributions = ./distributions
@@ -72,8 +76,9 @@ endif
 
 
 #
-# Compilation
-#
+# Compilation: all the work is done by the recursive
+# make that uses src/Makefile.
+# 
 all: lib bin test satsolver
 
 objects: build_dir
@@ -88,6 +93,10 @@ bin: build_dir
 	@ echo "=== Building binaries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) bin
 
+#
+# Same thing for test and satsolver: there's a
+# separate compilation Makefile in the corresponding directories.
+#
 test: build_dir lib
 	@ echo "=== Building tests ==="
 	@ $(MAKE) -C $(testdir) BUILD=../$(build_dir) all
@@ -95,7 +104,6 @@ test: build_dir lib
 satsolver: build_dir objects
 	@ echo "=== Building satsolver ==="
 	@ $(MAKE) -C $(satsolverdir) BUILD=../$(build_dir) bin
-
 
 
 
@@ -201,9 +209,6 @@ all_clean:
 
 
 
-
-
-
 .PHONY: recheck build_dir all objects lib bin test satsolver \
 	build_clean clean build-clean arch-clean arch_clean all_clean all-clean 
 
@@ -218,6 +223,7 @@ recheck:
 	@ echo "YICES_TOP_DIR is $(YICES_TOP_DIR)"
 	@ echo "YICES_MAKE_INCLUDE is $(YICES_MAKE_INCLUDE)"
 	@ echo "YICES_MODE is $(YICES_MODE)"
+	@ echo "YICES_VERSION is $(YICES_VERSION)"
 	@ echo
 	@ echo "Configuration"
 	@ echo "  EXEEXT   = $(EXEEXT)"

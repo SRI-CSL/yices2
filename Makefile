@@ -1,13 +1,42 @@
 #
 # Top-level Makefile
 #
-# Determine the architecture and top directory
+# Determine the architecture and top directory.
 # Import architecture files from top-dir/configs/make.include.$(ARCH)
+# Define the version.
+#
+# This Makefile sets some configuration variables and invokes a
+# recursive make (cf. Makefile.build). The only exception is 
+# if this is invoked with 'make source-distribution'.
 #
 
 SHELL=/bin/sh
 
 YICES_TOP_DIR=$(PWD)
+
+#
+# Version numbers: <major>.<minor>.<patch-level>
+# - this determines the distribution tarfile name 
+# - the number is also used in the shared library
+#   for linux: soname is libyices.so.<major>
+#   for darwin: compatibility is <major>.0 
+#               current version is set to <major>.<minor>
+#
+# Conventions we should follow: 
+# <major> increases when the new version is not binary
+#         compatible with older versions (i.e., a program
+#         linked to the old library can't use the new library).
+# <minor> increases when the library's API changes but 
+#         binary compatibility is preserved (e.g., new
+#         functionalities added)
+# <patch-level> increases for bug fixes or other improvements
+#         that don't change the interface.
+#
+MAJOR = 2
+MINOR = 0
+PATCH_LEVEL = 0
+
+YICES_VERSION = $(MAJOR).$(MINOR).$(PATCH_LEVEL)
 
 #
 # Find platform
@@ -110,11 +139,11 @@ endif
 # Source distribution
 #
 distdir=./distributions
-tmpdir=./yices2
-srctarfile=$(distdir)/yices2-src.tar.gz
+tmpdir=./yices-$(YICES_VERSION)
+srctarfile=$(distdir)/yices-$(YICES_VERSION)-src.tar.gz
 
 #
-# Just print configuration
+# Just print the configuration
 #
 check: checkgmake
 	@ echo "ARCH is $(ARCH)"
@@ -122,6 +151,7 @@ check: checkgmake
 	@ echo "YICES_TOP_DIR is $(YICES_TOP_DIR)"
 	@ echo "YICES_MAKE_INCLUDE is $(YICES_MAKE_INCLUDE)"
 	@ echo "YICES_MODE is $(YICES_MODE)"
+	@ echo "YICES_VERSION is $(YICES_VERSION)"
 
 checkgmake:
 	@ ./gmaketest --make=$(MAKE) || \
@@ -143,15 +173,18 @@ checkgmake:
 	'POSIXOS=$(POSIXOS)' \
 	'YICES_TOP_DIR=$(YICES_TOP_DIR)' \
 	'YICES_MAKE_INCLUDE=$(YICES_MAKE_INCLUDE)' \
+	'YICES_VERSION=$(YICES_VERSION)' \
+	'MAJOR=$(MAJOR)' \
+	'MINOR=$(MINOR)' \
+	'PATCH_LEVEL=$(PATCH_LEVEL)' \
 	$@
-
 
 
 
 #
 # Build the source tar file
 # - the sync; sync; sleep 20 is a hack intended to work around
-#   some bugs in the nfs client on some versions of Linux
+#   some bugs/features of the nfs client on some versions of Linux
 # - without it, we get an error from tar:
 #   'file xxx changed as we read it'
 #
