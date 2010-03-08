@@ -99,6 +99,9 @@ ptr_queues.c
 ptr_vectors.h:		vectors of (void*) pointers (resizable arrays)
 ptr_vectors.c
 
+refcount_strings.h:     character strings with reference counter ('\0' terminated)
+refcount_strings.c
+
 string_buffers.h:	resizable string buffers
 string_buffers.c
 

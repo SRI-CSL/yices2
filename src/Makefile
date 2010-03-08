@@ -345,7 +345,10 @@ lib: $(lib_targets)
 $(objdir)/%.o: %.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
-# static Library
+
+#
+# Static library
+#
 $(libyices): $(obj)
 	@ rm -f $(libyices)
 	$(AR) cr $(libyices) $(obj)
@@ -354,11 +357,12 @@ $(libyices): $(obj)
 
 
 #
-# We combine all objects into allyices.o then build the dynamic library 
+# We combine all objects into allyices.o then build the libraries
 # from allyices.o
 #
 $(libyices_obj): $(obj)
-	$(LD) -r $(LDFLAGS) -o $(libyices_obj) $(obj)
+	$(LD) -r -x $(LDFLAGS) -o $(libyices_obj) $(obj)
+
 
 
 #
@@ -392,7 +396,7 @@ $(libyices_dll): $(libyices_obj) $(yices_exports)
 	$(STRIP) $(libyices_dll)
 
 #
-# DLL on mingw: more-or-less like cygwin
+# DLL on mingw: more or less like cygwin
 # the DLL is called libyices.dll
 # the --no-whole-archive file is removed so that libgmp.a gets included in libyices.dll
 # the linker creates libyices.dll.a (import library) and libyices.def
@@ -411,8 +415,13 @@ $(libyices_mingw_dll): $(libyices_obj)
 #
 # Special dynamic library tricks for Mac OS X:
 # - give libyices.dylib as the install_name
+<<<<<<< .mine
+# - include version 2.0
+# 
+=======
 # - the compatibility version is MAJOR.0.0
 #
+>>>>>>> .r1299
 $(libyices_dylib): $(libyices_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib \
 	-current_version $(libyices_curr_version) -compatibility_version $(libyices_compat_version) \
