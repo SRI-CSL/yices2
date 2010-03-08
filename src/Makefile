@@ -374,7 +374,7 @@ $(libyices_obj): $(obj)
 #
 $(libyices_so): $(libyices_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $(libyices_so) \
-	-Wl,-soname,$(yices_soname) $(libyices_obj) $(LIBS)
+	-Wl,-soname,$(libyices_soname) $(libyices_obj) $(LIBS)
 	$(STRIP) -x $(libyices_so)
 
 #
@@ -419,7 +419,8 @@ $(libyices_mingw_dll): $(libyices_obj)
 #
 $(libyices_dylib): $(libyices_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib \
-	-current_version $(libyices_curr_version) -compatibility_version $(libyices_compat_version) \
+	-current_version $(libyices_curr_version) \
+	-compatibility_version $(libyices_compat_version) \
 	-Wl,-install_name,libyices.dylib \
 	$(libyices_obj) $(LIBS) -o $(libyices_dylib)
 	$(STRIP) -x $(libyices_dylib)
