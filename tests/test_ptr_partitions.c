@@ -69,7 +69,7 @@ static void init_testobj2(void) {
  * Print record r
  */
 static void print_ppart_record(ppart_rec_t *r) {
-  printf("[hash = %08x, cid = %"PRId32", data = %p]", r->hash, r->cid, r->data);
+  printf("[hash = %08"PRIx32", cid = %"PRId32", data = %p]", r->hash, r->cid, r->data);
 }
 
 

@@ -26,7 +26,7 @@ static bool match(void *aux, int32_t x, int32_t y) {
  * Print record r
  */
 static void print_ipart_record(ipart_rec_t *r) {
-  printf("[hash = %08x, cid = %"PRId32", data = %"PRId32"]", r->hash, r->cid, r->data);
+  printf("[hash = %08"PRIx32", cid = %"PRId32", data = %"PRId32"]", r->hash, r->cid, r->data);
 }
 
 
