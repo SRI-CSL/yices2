@@ -6,7 +6,7 @@
 #define __YICES_H
 
 #ifdef __cplusplus
-// extern "C" {
+extern "C" {
 #endif
 
 
@@ -1704,7 +1704,7 @@ extern term_t yices_bvlogic_term(bvlogic_buffer_t *b);
 
 
 #ifdef __cplusplus
-//} /* close extern "C" { */
+} /* close extern "C" { */
 #endif
 
 

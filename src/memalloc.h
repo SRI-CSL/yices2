@@ -9,8 +9,10 @@
 #include <stddef.h>
 #include <stdlib.h>
 
+
 /*
  * Print an error message then call exit(YICES_EXIT_OUT_OF_MEMORY)
+ * - this exit code is defined in yices_exit_codes.h
  */
 extern void out_of_memory(void) __attribute__ ((noreturn));
 

@@ -12,7 +12,7 @@
  * - key = pair k0, k1
  * - value = pointer
  * Empty records are marked by setting val == NULL
- * Deleted records are makred by setting val == DELETED_PTR
+ * Deleted records are marked by setting val == DELETED_PTR
  */
 typedef struct pmap_rec_s {
   int32_t k0;

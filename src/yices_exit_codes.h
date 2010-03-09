@@ -1,9 +1,8 @@
 /*
- * On non-recoverable errors, Yices calls exit with a non-zero status.
- * The status values are defined here for different error conditions
- * (incomplete).
- *
- * TODO: check portability, check conventions if any.
+ * On non-recoverable errors, the Yices binary exits with a non-zero status.
+ * The status values are defined here for different error conditions.
+ * - code = 0 means success
+ * - code != 0 means error
  */
 
 #ifndef __YICES_EXIT_CODES_H

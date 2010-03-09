@@ -1,7 +1,11 @@
+/*
+ * PUBLIC TYPES
+ * 
+ * All types that are part of the API must be defined here.
+ */
+
 #ifndef __YICES_TYPES_H
 #define __YICES_TYPES_H
-
-#ifndef __TERMS_H
 
 #include <stdint.h>
 
@@ -10,53 +14,31 @@
  * - term = index in a term table
  * - type = index in a type table
  */
- * - context = assertion context
- * - model = model
- */
 typedef int32_t term_t;
 typedef int32_t type_t;
 
 /*
  * Error values
  */
-#define NULL_TERM INT32_MIN
+#define NULL_TERM (-1)
 #define NULL_TYPE (-1)
 
 /*
- * Opaque types used in term construction
- * - rational = rational constant
- * - bvconstant = bitvector constant
- * - arith_buffer = buffer for arithmetic operations
- * - bvarith_buffer = buffer for bitvector arithmetic
- * - bvlogic_buffer = buffer for other bitvector operations 
- */
-typedef struct rational_s rational_t;
-typedef struct arith_buffer_s arith_buffer_t;
-typedef struct bvconstant_s bvconstant_t;
-typedef struct bvarith_buffer_s bvarith_buffer_t;
-typedef struct bvlogic_buffer_s bvlogic_buffer_t;
-
-
-/*
- * Context and models
+ * Context and models (opaque types)
  */
 typedef struct context_s context_t;
 typedef struct model_s model_t;
-
-#endif
 
 
 /*
  * Error report for term and type construction
  * - when term or type construction fails, the functions return NULL_TYPE or NULL_TERM.
  * - details about the cause of the failure is stored in an error_record
- * - the error record contains:
- *      an error code: see below
+ * - the error record contains an error code: see below
  *    + extra information that depends on the error code. 
  */
 typedef enum {
   NO_ERROR,
-
   INVALID_TYPE,
   INVALID_TERM,
   POS_INT_REQUIRED,
@@ -74,10 +56,8 @@ typedef enum {
   INCOMPATIBLE_TYPES,
   INVALID_TUPLE_INDEX,
   DUPLICATE_VARIABLE,
-
   ARITHTERM_REQUIRED,
   DEGREE_OVERFLOW,
-
   BITVECTOR_REQUIRED,
   INCOMPATIBLE_BVSIZES,
   INVALID_BITSHIFT,

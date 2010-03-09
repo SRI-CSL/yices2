@@ -11,6 +11,17 @@
  *
  * Also removed built-in names "int" "bool"
  * "real" for primitive types.
+ *
+ * March 08, 2009. Updates to the data structures:
+ * - store the pseudo cardinality in the type table (rather than 
+ *   compute it on demand) 
+ * - added flags for each type tau to indicate 
+ *   - whether tau is finite 
+ *   - whether tau is a unit type (finite type with cardinality 1)
+ *   - whether pseudo_card[tau] is exact. (If pseudo_card[tau] 
+ *     is exact, then it's the cardinality of tau. Otherwise,
+ *     pseudo_card[tau] is set to UINT32_MAX.)
+ * - added hash_table to use as caches
  */
 
 #ifndef __TYPES_H
@@ -26,46 +37,14 @@
 #include "bitvectors.h"
 
 
-/*
- * Each type is represented by a non-negative integer id
- */
-typedef int32_t type_t;
-
-/*
- * error value 
- */
-#define NULL_TYPE -1
-
-
-/*
- * Upper limit on the size of a type table.
- * - no more than (2^31 - 1) elements
- * - we also want to ensure that table->size * sizeof(char *)
- *   and table->size * sizeof(type_desc_t) fits into a size_t 
- *   variable. A limit of SIZE_MAX/8 should be safe.
- */
-#if INT32_MAX < (SIZE_MAX/8)
-#define MAX_TYPES INT32_MAX
-#else
-#define MAX_TYPES (SIZE_MAX/8)
-#endif
-
-
-/*
- * Maximum arity for function and tuple types.
- * We want to prevent overflow when computing 
- *   sizeof(tuple_type_t) + n * sizeof(type_t)
- *   sizeof(function_type_t) + n * sizeof(type_t)
- * where n is a 32 bit signed integer and n < MAX_ARITY
- *
- * The following bound should be safe and more than enough.
- */
-#define MAX_TYPE_ARITY (INT32_MAX/16)
+#include "yices_types.h"
+#include "yices_limits.h"
 
 
 /*
  * Different kinds of types:
- * - primitive types are BOOL, INT, REAL, BITVECTOR[n] for any n>0
+ * - primitive types are BOOL, INT, REAL, 
+ *   BITVECTOR[n] for any n (0 < n <= MAX_BVSIZE)
  * - declared types can be either scalar or uninterpreted
  * - constructed types: tuple types and function types
  */
@@ -96,13 +75,13 @@ enum {
  * Descriptors of tuple and function types.
  */
 typedef struct {
-  int32_t nelem;  // number of components (must be positive)
+  uint32_t nelem; // number of components (must be positive)
   type_t elem[0]; // elem[0] .. elem[nelem-1]: component types
 } tuple_type_t;
 
 typedef struct {
   type_t range;     // range type
-  int32_t ndom;     // number of domains (must be positive)
+  uint32_t ndom;    // number of domains (must be positive)
   type_t domain[0]; // domain[0] .. domain[ndom - 1]: domain types
 } function_type_t;
 
@@ -111,7 +90,7 @@ typedef struct {
  * of a bitvector type or scalar type i is stored in desc[i].integer
  */
 typedef union {
-  int32_t integer;
+  uint32_t integer;
   void *ptr;
 } type_desc_t;
 
@@ -122,22 +101,27 @@ typedef union {
  * For each i betwen 0 and nelems - 1,
  * - kind[i] = type kind
  * - desc[i] = type descriptor
+ * - card[i] = cardinality of type i or
+ *             UINT32_MAX if i is infinite or has card > UINT32_MAX
  * - name[i] = string id or NULL.
- * - root: bitvector for garbage collection
- *   if root[i] is 1 then i is marked as a root type (to keep).
- *   if root[i] is 0 then i can be deleted.
+ * - flags[i] = 8bit flags:
+ *    bit 0 of flag[i] is 1 if i is finite
+ *    bit 1 of flag[i] is 1 if i is a unit tupe
+ *    bit 2 of flag[i] is 1 if card[i] is exact
+ *    bit 3 of flag[i] is used as a mark during garbage collection
  * 
  * Other components:
- * - size = size of arrays kind and desc, and length of bit vector keep.
+ * - size = size of all arrays above
+ * - nelems = number of elements in the array
+ * - free_idx = start of the free list (-1 means empty free list).
+ *   The free list contains the deleted types: for each i in the list,
+ *     kind[i] = UNUSED_TYPE
+ *     desc[i].integer = index of i's successor in the list (or -1).
  * - htbl = hash table for hash consing
  * - stbl = symbol table for named types
  *   stbl stores a mapping from strings to type ids.
  *   If name[i] is non-null, then it's in stbl (mapped to i).
  *   There may be other strings that refer to i (aliases).
- * - free_idx = start of the free list (-1 means empty free list).
- *   The free list contains the deleted types: for each i in the list,
- *    kind[i] = UNUSED_TYPE
- *    desc[i].integer = index of i's successor in the list (or -1).
  * Garbage collection:
  * - gc_mark: bit vector used in garbage collection
  * - gc_mark_queue: used in garbage collection
@@ -149,10 +133,11 @@ typedef struct type_table_s type_table_t;
 typedef void (*type_gc_notifier_t)(type_table_t *tbl);
 
 struct type_table_s {
-  unsigned char *kind;
+  uint8_t *kind;
   type_desc_t *desc;
+  uint32_t *card;
+  uint8_t *flags;
   char **name;
-  byte_t *root;
 
   uint32_t size;
   uint32_t nelems;
@@ -165,6 +150,7 @@ struct type_table_s {
   int_queue_t *gc_mark_queue;
   type_gc_notifier_t gc_notifier;
 };
+
 
 
 

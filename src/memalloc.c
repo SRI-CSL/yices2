@@ -8,6 +8,7 @@
 #include "memalloc.h"
 #include "yices_exit_codes.h"
 
+
 /*
  * Fatal error: out of memory
  */
