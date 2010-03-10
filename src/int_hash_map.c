@@ -13,7 +13,7 @@
 /*
  * For degugging: check whether n is 0 or a power of 2
  */
-#ifndef NDBEBUG
+#ifndef NDEBUG
 static bool is_power_of_two(uint32_t n) {
   return (n & (n - 1)) == 0;
 }
