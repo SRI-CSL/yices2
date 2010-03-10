@@ -12,9 +12,10 @@
  * Also removed built-in names "int" "bool"
  * "real" for primitive types.
  *
+ *
  * March 08, 2009. Updates to the data structures:
- * - store the pseudo cardinality in the type table (rather than 
- *   compute it on demand) 
+ * - store the pseudo cardinality in the type table (rather 
+ *   than computing it on demand) 
  * - added flags for each type tau to indicate 
  *   - whether tau is finite 
  *   - whether tau is a unit type (finite type with cardinality 1)
@@ -23,7 +24,8 @@
  *     card[tau] is UINT32_MAX.)
  * - added hash_maps to use as caches to make sure recursive
  *   functions such as is_subtype, super_type, and inf_type don't
- *   blow up.
+ *   explode.
+ * - removed the garbage collection/deletion code (to be added later).
  *
  * Limits are now imported from yices_limits.h:
  * - YICES_MAX_TYPES = maximal size of a type table
@@ -520,6 +522,26 @@ extern bool type_has_finite_range(type_table_t *table, type_t tau);
  */
 
 /*
+ * The subtype relation is defined inductively by the following rules.
+ * 1) int <= real
+ * 2) tau <= tau
+ * 3) if tau_1 <= sigma_1 ... tau_n <= sigma_n then
+ *    [tau_1 ... tau_n] <= [sigma_1 ... sigma_n]
+ * 4) if sigma_1 <= sigma_2 then 
+ *    [tau_1 ... tau_n -> sigma_1] <= [tau_1 ... tau_n -> sigma_2]
+ *
+ * Two types are compatible if they have a common supertype.
+ * 
+ * Consequences:
+ * 1) if tau1 and tau2 are compatible, then they have a smallest
+ *    common supertype sup(tau1, tau2).
+ * 2) tau1 and tau2 are compatible iff they have a common subtype.
+ * 3) if tau1 and tau2 are compatibel, then they have a largest
+ *    common subtype inf(tau1, tau2).
+ */
+
+
+/*
  * Check whether type i is maximal (i.e., no strict supertype)
  */
 static inline bool is_maxtype(type_table_t *tbl, type_t i) {
@@ -556,13 +578,7 @@ extern type_t inf_type(type_table_t *table, type_t tau1, type_t tau2);
 
 
 /*
- * Check whether tau1 is a subtype if tau2, using the rules
- * 1) int <= real
- * 2) tau <= tau
- * 3) if tau_1 <= sigma_1 ... tau_n <= sigma_n then
- *   (tuple-type tau_1 ... tau_n) <= (tuple-typle sigma_1 ... sigma_n)
- * 4) if sigma_1 <= sigma_2 then 
- *   (tau_1 ... tau_n --> sigma_1) <= (tau_1 ... tau_n -> sigma_2)
+ * Check whether tau1 is a subtype if tau2.
  *
  * Side effects: this is implemented using super_type so this may create
  * new types in the table.
@@ -571,11 +587,7 @@ extern bool is_subtype(type_table_t *table, type_t tau1, type_t tau2);
 
 
 /*
- * Check whether tau1 and tau2 are compatible:
- * - they are compatible if they have a common supertype
- * - this is used to typecheck equalities:
- *   if x has type tau1 and y has type tau2 then (eq x y) is well typed
- *   if tau1 and tau2 are compatible.
+ * Check whether tau1 and tau2 are compatible.
  *
  * Side effects: use the super_type function. So this may create new 
  * types in the table.

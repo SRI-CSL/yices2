@@ -107,7 +107,7 @@ static type_t allocate_type_id(type_table_t *table) {
 
 #if 0
 
-// NOT USED YET 
+// NOT USED 
 /*
  * Erase type i: free its descriptor and add i to the free list
  */
@@ -825,177 +825,24 @@ bool type_has_finite_range(type_table_t *table, type_t tau) {
 
 
 
-#if 0
+
 /*
- * SUBTYPE RELATION
+ * COMMON SUPERTYPE
  */
 
 /*
- * Sup of tau1 and tau2:
- * - returns the smallest type tau such that tau1 <= tau and tau2 <= tau
- * - returns NULL_TYPE if tau1 and tau2 are incompatible
+ * Try to compute sup(tau1, tau2) cheaply
+ * - return UNKNOWN_TYPE if that fails
  */
-// construct (tuple-type (sup a[0] b[0]) ... (sup a[n-1] b[n-1]))
-static type_t sup_tuple_types(type_table_t *table, uint32_t n, type_t *a, type_t *b) {
-  type_t tmp[n]; // Warning: GCC/C99 extension 
-  type_t aux;
-  uint32_t i;
+#define UNKNOWN_TYPE (-2)
 
-  for (i=0; i<n; i++) {
-    aux = super_type(table, a[i], b[i]);
-    if (aux == NULL_TYPE) return aux;
-    tmp[i] = aux;
-  }
-
-  return tuple_type(table, n, tmp);
-}
-
-// construct (fun-type a[0] ... a[n-1] --> (sup tau1 tau2))
-static type_t sup_fun_types(type_table_t *table, uint32_t n, type_t *a, type_t tau1, type_t tau2) {
-  type_t range;
-
-  range = super_type(table, tau1, tau2);
-  if (range == NULL_TYPE) return range;
-
-  return function_type(table, range, n, a);
-
-}
-
-
-/*
- * Compute the smallest supertype of tau1 and tau2 and stroe 
- * the result in the sup_tbl cache.
- */
-static type_t super_type_recur(type_table_t *table, int_hmap2_t *sup_tbl, type_t tau1, type_t tau2) {  
-  int_hmap2_rec_t *r;
-  bool new_rec;
-
-  assert(table->sup_tbl == sup_tbl && sup_tbl != NULL && 
-	 good_type(table, tau1) && good_type(table, tau2));
-
-  r = int_hmap2_get(sup_tbl, tau1, tau2, &new);
-  if (new) {
-    // the super type is not in the cache
-    
-  }
-
-  return r->val;
-}
-
-
-/*
- * Compute the smallest supertype of tau1 and tau2
- * - return NULL_TYPE if tau1 and tau2 are not compatible.
- */
-type_t super_type(type_table_t *table, type_t tau1, type_t tau2) {
+static type_t cheap_sup(type_table_t *table, type_t tau1, type_t tau2) {
   assert(good_type(table, tau1) && good_type(table, tau2));
 
   if (tau1 == tau2) {
     return tau1;
   }
 
-  if ((tau1 == int_id && tau2 == real_id) || 
-      (tau1 == real_id && tau2 == int_id)) {
-    return real_id;
-  }
-
-  if (table->kind[tau1] != table->kind[tau2]) {
-    return NULL_TYPE;
-  }
-
-  if (table->kind[tau1] <= UNINTERPRETED_TYPE) {
-    return NULL_TYPE;
-  }
-  
-  // for two tuple types or two function types
-  // use sup_tbl as a cache.
-  return super_type_recur(table, get_sup_table(table), tau1, tau2);
-}
-
-#endif
-
-
-
-#if 0
-
-/*
- * TYPE CHECKING
- */
-
-/*
- * Check whether tau1 is a subtype of tau2, using the rules
- * 1) int <= real
- * 2) tau <= tau
- * 3) if tau_1 <= sigma_1 ... tau_n <= sigma_n then
- *   (tuple-type tau_1 ... tau_n) <= (tuple-typle sigma_1 ... sigma_n)
- * 4) if sigma_1 <= sigma_2 then 
- *   (tau_1 ... tau_n --> sigma_1) <= (tau_1 ... tau_n -> sigma_2)
- */
-bool is_subtype(type_table_t *table, type_t tau1, type_t tau2) {
-  tuple_type_t *tup1, *tup2;
-  function_type_t *fun1, *fun2;
-  int32_t i, n;
-
-  assert(good_type(table, tau1) && good_type(table, tau2));
-
-  if (tau1 == tau2 || (tau1 == int_id && tau2 == real_id)) {
-    return true;
-  }
-
-  switch (table->kind[tau1]) {
-  case TUPLE_TYPE: 
-    if (table->kind[tau2] == TUPLE_TYPE) {
-      tup1 = tuple_type_desc(table, tau1);
-      tup2 = tuple_type_desc(table, tau2);
-      n = tup1->nelem;
-      if (n != tup2->nelem) {
-	return false;
-      }
-      for (i=0; i<n; i++) {
-	if (! is_subtype(table, tup1->elem[i], tup2->elem[i])) {
-	  return false;
-	}
-      }
-      return true;
-    }
-    break;
-
-  case FUNCTION_TYPE:
-    if (table->kind[tau2] == FUNCTION_TYPE) {
-      fun1 = function_type_desc(table, tau1);
-      fun2 = function_type_desc(table, tau2);
-      n = fun1->ndom;
-      if (n != fun2->ndom) {
-	return false;
-      }
-      for (i=0; i<n; i++) {
-	if (fun1->domain[i] != fun2->domain[i]) {
-	  return false;
-	}
-      }
-
-      return is_subtype(table, fun1->range, fun2->range);
-    }
-    break;
-
-  default:
-    break;
-  }
-
-  return false;
-}
-
-
-
-
-type_t super_type(type_table_t *table, type_t tau1, type_t tau2) {
-  tuple_type_t *tup1, *tup2;
-  function_type_t *fun1, *fun2;
-  int32_t i, n;
-
-  if (tau1 == tau2) {
-    return tau1;
-  }
   if ((tau1 == int_id && tau2 == real_id) || 
       (tau1 == real_id && tau2 == int_id)) {
     return real_id;
@@ -1003,380 +850,359 @@ type_t super_type(type_table_t *table, type_t tau1, type_t tau2) {
 
   switch (table->kind[tau1]) {
   case TUPLE_TYPE:
-    if (table->kind[tau2] == TUPLE_TYPE) {
-      tup1 = tuple_type_desc(table, tau1);
-      tup2 = tuple_type_desc(table, tau2);
-      n = tup1->nelem;
-      if (n != tup2->nelem) {
-	return NULL_TYPE;
-      }
-      return sup_tuple_types(table, n, tup1->elem, tup2->elem);
+    if (table->kind[tau2] != TUPLE_TYPE || 
+	tuple_type_arity(table, tau1) != tuple_type_arity(table, tau2)) {
+      return NULL_TYPE;
     }
     break;
 
   case FUNCTION_TYPE:
-    if (table->kind[tau2] == FUNCTION_TYPE) {
-      fun1 = function_type_desc(table, tau1);
-      fun2 = function_type_desc(table, tau2);
-      n = fun1->ndom;
-      if (n != fun2->ndom) {
-	return NULL_TYPE;
-      }
-
-      for (i=0; i<n; i++) {
-	if (fun1->domain[i] != fun2->domain[i]) {
-	  return NULL_TYPE;
-	}
-      }
-      return sup_fun_types(table, n, fun1->domain, fun1->range, fun2->range);
+    if (table->kind[tau2] != FUNCTION_TYPE ||
+	function_type_arity(table, tau1) != function_type_arity(table, tau2)) {
+      return NULL_TYPE;
     }
     break;
 
   default:
-    break;
+    return NULL_TYPE;
   }
 
-  return NULL_TYPE;
+  return UNKNOWN_TYPE;
 }
-
 
 
 
 /*
- * Inf of tau1 and tau2:
- * - returns the largest type tau such that tau <= tau1 and tau <= tau2
- * - returns NULL_TYPE if tau1 and tau2 are incompatible
+ * Construct sup of two tuple types of equal arity n:
+ * - first tuple components are a[0] .... a[n-1]
+ * - second tuple components are b[0] ... b[n-1]
+ * The result is either NULL_TYPE or (tuple s[0] ... s[n-1]) 
+ * where s[i] = sup(a[i], b[i]).
  */
-// construct (tuple-type (inf a[0] b[0]) ... (inf a[n-1] b[n-1]))
-static type_t inf_tuple_types(type_table_t *table, uint32_t n, type_t *a, type_t *b) {
-  type_t tmp[n]; // Warning: GCC/C99 extension 
+static type_t sup_tuple_types(type_table_t *table, uint32_t n, type_t *a, type_t *b) {
+  type_t buffer[8];
+  type_t *s;
   type_t aux;
   uint32_t i;
 
-  for (i=0; i<n; i++) {
-    aux = inf_type(table, a[i], b[i]);
-    if (aux == NULL_TYPE) return aux;
-    tmp[i] = aux;
+  /*
+   * For intermediate results, we use a buffer of 8 types.
+   * That should be enough in most cases. Otherwise
+   * we allocate a larger buffer s.
+   */
+  s = buffer;
+  if (n > 8) {
+    s = (type_t *) safe_malloc(n * sizeof(type_t));    
   }
 
-  return tuple_type(table, n, tmp);
+  for (i=0; i<n; i++) {
+    aux = super_type(table, a[i], b[i]);
+    if (aux == NULL_TYPE) goto done;
+    s[i] = aux;
+  }
+  aux = tuple_type(table, n, s);
+
+ done:
+  if (n > 8) {
+    safe_free(s);
+  }
+  return aux;
 }
 
-// construct (fun-type a[0] ... a[n-1] --> (inf tau1 tau2))
-static type_t inf_fun_types(type_table_t *table, uint32_t n, type_t *a, type_t tau1, type_t tau2) {
-  type_t range;
 
-  range = inf_type(table, tau1, tau2);
-  if (range == NULL_TYPE) return range;
+/*
+ * Check whether a[0 ... n-1] and b[0 ... n-1]
+ * are equal (i.e., same function domain).
+ */
+static bool equal_type_arrays(uint32_t n, type_t *a, type_t *b) {
+  uint32_t i;
 
-  return function_type(table, range, n, a);
-
+  for (i=0; i<n; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }
 
-type_t inf_type(type_table_t *table, type_t tau1, type_t tau2) {
+
+/*
+ * Construct sup of two function types sigma1 and sigma2 of 
+ * equal domain and arity.
+ * - n = arity 
+ * - a[0] ... a[n-1] = domain type
+ * - tau1 = range of sigma1
+ * - tau2 = range of sigma2
+ *
+ * The result is either the function type [a[0] ... a[n-1] --> sup(tau1, tau2)]
+ * or NULL_TYPE.
+ */
+static type_t sup_fun_types(type_table_t *table, uint32_t n, type_t *a, type_t tau1, type_t tau2) {
+  type_t aux;
+
+  aux = super_type(table, tau1, tau2);
+  if (aux != NULL_TYPE) {
+    aux = function_type(table, aux, n, a);
+  }
+  return aux;
+}
+
+
+/*
+ * Compute the smallest supertype of tau1 and tau2.  Use the cheap
+ * method first. If that fails, compute the result and keep the result
+ * in the internal sup_tbl cache.
+ */
+type_t super_type(type_table_t *table, type_t tau1, type_t tau2) {  
   tuple_type_t *tup1, *tup2;
   function_type_t *fun1, *fun2;
-  int32_t i, n;
+  int_hmap2_t *sup_tbl;
+  int_hmap2_rec_t *r;
+  type_t aux;
+
+  assert(good_type(table, tau1) && good_type(table, tau2));
+
+  aux = cheap_sup(table, tau1, tau2);
+  if (aux == UNKNOWN_TYPE) {
+    /*
+     * Cheap_sup failed.
+     * Check whether sup(tau1, tau2) is already in the cache.
+     * If it's not do the computation and add the 
+     * result to the cache.
+     */
+
+    // Normalize. We want tau1 < tau2
+    if (tau1 > tau2) {
+      aux = tau1; tau1 = tau2; tau2 = aux;
+    }
+    assert(tau1 < tau2);
+  
+    sup_tbl = get_sup_table(table);
+    r = int_hmap2_find(sup_tbl, tau1, tau2);
+    if (r != NULL) {
+      aux = r->val;
+    } else {
+      /*
+       * The result is not in the cache.
+       */
+      if (table->kind[tau1] == TUPLE_TYPE) {
+	tup1 = tuple_type_desc(table, tau1);
+	tup2 = tuple_type_desc(table, tau2);
+	assert(tup1->nelem == tup2->nelem);
+	aux = sup_tuple_types(table, tup1->nelem, tup1->elem, tup2->elem);
+
+      } else {
+	fun1 = function_type_desc(table, tau1);
+	fun2 = function_type_desc(table, tau2);
+	assert(fun1->ndom == fun2->ndom);
+	aux = NULL_TYPE;
+	if (equal_type_arrays(fun1->ndom, fun1->domain, fun2->domain)) {
+	  aux = sup_fun_types(table, fun1->ndom, fun1->domain, fun1->range, fun2->range);
+	}
+      }
+
+      int_hmap2_add(sup_tbl, tau1, tau2, aux);
+    }  
+  }
+
+  assert(aux == NULL_TYPE || good_type(table, aux));
+
+  return aux;
+}
+
+
+
+/*
+ * COMMON SUBTYPE
+ */
+
+/*
+ * Try to compute inf(tau1, tau2) cheaply.
+ * Return UNKNOWN_TYPE if that fails.
+ */
+static type_t cheap_inf(type_table_t *table, type_t tau1, type_t tau2) {
+  assert(good_type(table, tau1) && good_type(table, tau2));
 
   if (tau1 == tau2) {
     return tau1;
   }
+
   if ((tau1 == int_id && tau2 == real_id) || 
       (tau1 == real_id && tau2 == int_id)) {
     return int_id;
   }
 
-
   switch (table->kind[tau1]) {
   case TUPLE_TYPE:
-    if (table->kind[tau2] == TUPLE_TYPE) {
-      tup1 = tuple_type_desc(table, tau1);
-      tup2 = tuple_type_desc(table, tau2);
-      n = tup1->nelem;
-      if (n != tup2->nelem) {
-	return NULL_TYPE;
-      }
-
-      return inf_tuple_types(table, n, tup1->elem, tup2->elem);
+    if (table->kind[tau2] != TUPLE_TYPE || 
+	tuple_type_arity(table, tau1) != tuple_type_arity(table, tau2)) {
+      return NULL_TYPE;
     }
     break;
 
   case FUNCTION_TYPE:
-    if (table->kind[tau2] == FUNCTION_TYPE) {
-      fun1 = function_type_desc(table, tau1);
-      fun2 = function_type_desc(table, tau2);
-      n = fun1->ndom;
-      if (n != fun2->ndom) {
-	return NULL_TYPE;
-      }
-
-      for (i=0; i<n; i++) {
-	if (fun1->domain[i] != fun2->domain[i]) {
-	  return NULL_TYPE;
-	}
-      }
-
-      return inf_fun_types(table, n, fun1->domain, fun1->range, fun2->range);
+    if (table->kind[tau2] != FUNCTION_TYPE ||
+	function_type_arity(table, tau1) != function_type_arity(table, tau2)) {
+      return NULL_TYPE;
     }
     break;
 
   default:
-    break;
+    return NULL_TYPE;
   }
 
-  return NULL_TYPE;
+  return UNKNOWN_TYPE;
+}
+
+
+
+/*
+ * Construct inf of two tuple types of equal arity n:
+ * - first tuple components are a[0] .... a[n-1]
+ * - second tuple components are b[0] ... b[n-1]
+ * The result is either NULL_TYPE or (tuple s[0] ... s[n-1]) 
+ * where s[i] = inf(a[i], b[i]).
+ */
+static type_t inf_tuple_types(type_table_t *table, uint32_t n, type_t *a, type_t *b) {
+  type_t buffer[8];
+  type_t *s;
+  type_t aux;
+  uint32_t i;
+
+  /*
+   * For intermediate results, we use a buffer of 8 types.
+   * That should be enough in most cases. Otherwise
+   * we allocate a larger buffer s.
+   */
+  s = buffer;
+  if (n > 8) {
+    s = (type_t *) safe_malloc(n * sizeof(type_t));    
+  }
+
+  for (i=0; i<n; i++) {
+    aux = inf_type(table, a[i], b[i]);
+    if (aux == NULL_TYPE) goto done;
+    s[i] = aux;
+  }
+  aux = tuple_type(table, n, s);
+
+ done:
+  if (n > 8) {
+    safe_free(s);
+  }
+  return aux;
 }
 
 
 /*
- * Check whether tau1 and tau2 are compatible
- * (i.e., have a common supertype)
+ * Construct inf of two function types sigma1 and sigma2 of 
+ * equal domain and arity.
+ * - n = arity 
+ * - a[0] ... a[n-1] = domain type
+ * - tau1 = range of sigma1
+ * - tau2 = range of sigma2
+ *
+ * The result is either the function type [a[0] ... a[n-1] --> inf(tau1, tau2)]
+ * or NULL_TYPE.
  */
-bool compatible_types(type_table_t *table, type_t tau1, type_t tau2) {
+static type_t inf_fun_types(type_table_t *table, uint32_t n, type_t *a, type_t tau1, type_t tau2) {
+  type_t aux;
+
+  aux = inf_type(table, tau1, tau2);
+  if (aux != NULL_TYPE) {
+    aux = function_type(table, aux, n, a);
+  }
+  return aux;
+}
+
+
+/*
+ * Compute the largest common subtype of tau1 and tau2.  Use the cheap
+ * method first. If that fails, compute the result and keep the result
+ * in the internal inf_tbl cache.
+ */
+type_t inf_type(type_table_t *table, type_t tau1, type_t tau2) {  
   tuple_type_t *tup1, *tup2;
   function_type_t *fun1, *fun2;
-  int32_t i, n;
+  int_hmap2_t *inf_tbl;
+  int_hmap2_rec_t *r;
+  type_t aux;
 
-  if (tau1 == tau2 ||
-      (tau1 == int_id && tau2 == real_id) ||
-      (tau1 == real_id && tau2 == int_id)) {
-    return true;
-  }
+  assert(good_type(table, tau1) && good_type(table, tau2));
 
-  switch (table->kind[tau1]) {
-  case TUPLE_TYPE:
-    if (table->kind[tau2] == TUPLE_TYPE) {
-      // Two tuple types
-      tup1 = tuple_type_desc(table, tau1);
-      tup2 = tuple_type_desc(table, tau2);
-      n = tup1->nelem;
-      if (n != tup2->nelem) {
-	return false;
-      }
-      for (i=0; i<n; i++) {
-	if (! compatible_types(table, tup1->elem[i], tup2->elem[i])) {
-	  return false;
+  aux = cheap_inf(table, tau1, tau2);
+  if (aux == UNKNOWN_TYPE) {
+    /*
+     * Cheap_inf failed.
+     * Check whether inf(tau1, tau2) is already in the cache.
+     * If it's not do the computation and add the 
+     * result to the cache.
+     */
+
+    // Normalize. We want tau1 < tau2
+    if (tau1 > tau2) {
+      aux = tau1; tau1 = tau2; tau2 = aux;
+    }
+    assert(tau1 < tau2);
+  
+    inf_tbl = get_inf_table(table);
+    r = int_hmap2_find(inf_tbl, tau1, tau2);
+    if (r != NULL) {
+      aux = r->val;
+    } else {
+      /*
+       * The result is not in the cache.
+       */
+      if (table->kind[tau1] == TUPLE_TYPE) {
+	tup1 = tuple_type_desc(table, tau1);
+	tup2 = tuple_type_desc(table, tau2);
+	assert(tup1->nelem == tup2->nelem);
+	aux = inf_tuple_types(table, tup1->nelem, tup1->elem, tup2->elem);
+
+      } else {
+	fun1 = function_type_desc(table, tau1);
+	fun2 = function_type_desc(table, tau2);
+	assert(fun1->ndom == fun2->ndom);
+	aux = NULL_TYPE;
+	if (equal_type_arrays(fun1->ndom, fun1->domain, fun2->domain)) {
+	  aux = inf_fun_types(table, fun1->ndom, fun1->domain, fun1->range, fun2->range);
 	}
       }
-      return true;
-    }
-    break;
 
-  case FUNCTION_TYPE:
-    if (table->kind[tau2] == FUNCTION_TYPE) {
-      // Two function types
-      fun1 = function_type_desc(table, tau1);
-      fun2 = function_type_desc(table, tau2);
-      n = fun1->ndom;
-      if (n != fun2->ndom) {
-	return false;
-      }
-
-      for (i=0; i<n; i++) {
-	if (fun1->domain[i] != fun2->domain[i]) {
-	  return false;
-	}
-      }
-      return compatible_types(table, fun1->range, fun2->range);
-    }
-    break;
-
-  default:
-    break;
+      int_hmap2_add(inf_tbl, tau1, tau2, aux);
+    }  
   }
 
-  return false;
+  assert(aux == NULL_TYPE || good_type(table, aux));
+
+  return aux;
 }
-
-
-
-
-
 
 
 
 
 /*
- * GARBAGE COLLECTION
+ * SUBTYPE AND COMPATIBILITY
  */
-void set_root_type_flag(type_table_t *table, type_t i) {
-  set_bit(table->root, i);
-}
 
-void clr_root_type_flag(type_table_t *table, type_t i) {
-  clr_bit(table->root, i);
+/*
+ * Check whether tau1 is a subtype if tau2.
+ *
+ * Side effects: this is implemented using super_type so this may create
+ * new types in the table.
+ */
+bool is_subtype(type_table_t *table, type_t tau1, type_t tau2) {
+  return super_type(table, tau1, tau2) == tau2;
 }
 
 
 /*
- * Remove i from the hash-cons table
+ * Check whether tau1 and tau2 are compatible.
+ *
+ * Side effects: use the super_type function. So this may create new 
+ * types in the table.
  */
-static uint32_t hash_bvtype(int32_t size) {
-  return jenkins_hash_pair(size, 0, 0x7838abe2);  
-}
-
-static uint32_t hash_tupletype(tuple_type_t *p) {
-  return jenkins_hash_intarray_var(p->nelem, p->elem, 0x8193ea92);
-}
-
-static uint32_t hash_funtype(function_type_t *p) {
-  uint32_t h;
-  h = jenkins_hash_intarray_var(p->ndom, p->domain, 0x5ad7b72f);
-  return jenkins_hash_pair(p->range, 0, h);
-}
-
-static void erase_hcons_type(type_table_t *table, type_t i) {
-  uint32_t k;
-
-  switch (table->kind[i]) {
-  case BITVECTOR_TYPE:
-    k = hash_bvtype(table->desc[i].integer);
-    break;
-
-  case TUPLE_TYPE:
-    k = hash_tupletype(table->desc[i].ptr);
-    break;
-
-  case FUNCTION_TYPE:
-    k = hash_funtype(table->desc[i].ptr);
-    break;
-
-  default: 
-    return;
-  }
-
-  int_htbl_erase_record(&table->htbl, k, i);
-}
-
-/*
- * Push element t into if it's not already marked
- */
-static void gc_mark_push_type(int_queue_t *q, byte_t *mark, type_t t) {
-  if (! tst_bit(mark, t)) {
-    set_bit(mark, t);
-    int_queue_push(q, t);
-  }
-}
-
-/*
- * Push all unmarked elements of array a into q, and mark them
- */
-static void gc_mark_push_array(int_queue_t *q, byte_t *mark, type_t *a, int32_t n) {
-  int32_t i;
-  for (i=0; i<n; i++) {
-    gc_mark_push_type(q, mark, a[i]);
-  }
-}
-
-/*
- * Mark type t to prevent its deletion. Must be called only from
- * within a gc_notifier. All types reachable from t's definition
- * are marked too.
- */
-void gc_mark_type(type_table_t *table, type_t t) {
-  int_queue_t *q;
-  byte_t *mark;
-  tuple_type_t *td;
-  function_type_t *fd;
-  
-  assert(table->gc_mark != NULL);
-  assert(table->gc_mark_queue != NULL);
-  assert(int_queue_is_empty(table->gc_mark_queue));
-
-  mark = table->gc_mark;
-  if (! tst_bit(mark, t)) {
-    set_bit(mark, t);
-    q = table->gc_mark_queue;
-    for (;;) {
-      switch (table->kind[t]) {
-      case TUPLE_TYPE:
-	td = (tuple_type_t *) table->desc[t].ptr;
-	gc_mark_push_array(q, mark, td->elem, td->nelem);
-	break;
-
-      case FUNCTION_TYPE:
-	fd = (function_type_t *) table->desc[t].ptr;
-	gc_mark_push_type(q, mark, fd->range);
-	gc_mark_push_array(q, mark, fd->domain, fd->ndom);
-	break;
-      }
-
-      if (int_queue_is_empty(q)) break;
-      t = int_queue_pop(q);
-    }
-  }
-  
-}
-
-/*
- * Mark all types with root_flag set and all types accessible from the symbol table.
- */
-static void mark_live_types(type_table_t *table) {
-  stbl_t *sym_table;
-  stbl_bank_t *b;
-  stbl_rec_t *r;
-  uint32_t k;
-  type_t i;
-
-  // scan symbol table
-  sym_table = &table->stbl;
-  k = sym_table->free_idx;
-  for (b = sym_table->bnk; b != NULL; b = b->next) {
-    for (r = b->block + k; r < b->block + STBL_BANK_SIZE; r ++) {
-      if (r->string != NULL) {
-	gc_mark_type(table, r->value);
-      }
-    }
-    k = 0;
-  }
-
-  // mark every type with root_flag == 1
-  for (i=0; i<table->nelems; i++) {
-    if (table->kind[i] != UNUSED_TYPE && tst_bit(table->root, i)) {
-      gc_mark_type(table, i);
-    }
-  }
+bool compatible_types(type_table_t *table, type_t tau1, type_t tau2) {
+  return super_type(table, tau1, tau2) != NULL_TYPE;
 }
 
 
-/*
- * Trigger garbage collection
- */
-void type_table_garbage_collection(type_table_t *table) {
-  int32_t n;
-  int_queue_t queue;
-  byte_t *mark;
-  type_t i;
 
-  // allocate/initialize gc_mark and mark_queue
-  init_int_queue(&queue, 0);
-  n = table->nelems;
-  mark = allocate_bitvector(n);
-  clear_bitvector(mark, n);
-  table->gc_mark = mark;
-  table->gc_mark_queue = &queue;
-
-  // mark types: primitive types + internal + any types marked by the notifier
-  set_bit(mark, bool_id);
-  set_bit(mark, int_id);
-  set_bit(mark, real_id);
-  mark_live_types(table);
-
-  table->gc_notifier(table);
-
-  // delete all unmarked types
-  for (i=0; i<n; i++) {
-    if (! tst_bit(mark, i)) {
-      erase_hcons_type(table, i);
-      erase_type(table, i);
-    }
-  }
-
-  // cleanup
-  table->gc_mark_queue = NULL;
-  table->gc_mark = NULL;
-  delete_bitvector(mark);
-  delete_int_queue(&queue);
-}
-
-#endif
