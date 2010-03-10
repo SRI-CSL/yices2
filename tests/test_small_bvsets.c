@@ -27,7 +27,7 @@ static void print_bvset(small_bvset_t *s) {
   if (s->nelems > 0) {
     printf("  content:");
     n = s->size;
-    for (i=0; i<s->size; i++) {
+    for (i=0; i<n; i++) {
       if (tst_bit(s->set, i)) {
 	printf(" %"PRIu32, i);
       }
