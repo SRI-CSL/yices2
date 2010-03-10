@@ -3,13 +3,13 @@
  */
 
 #ifndef __SYMBOL_TABLES_H
-#define __SYMBOL_TABLES_H 1
+#define __SYMBOL_TABLES_H
 
 #include <stdint.h>
 
 
 /*
- * Symbol table contains lists of records <string, hash, value>
+ * A symbol table contains a lists of records <string, hash, value>.
  * The same string symbol may occur several times in the list.
  * In such a case, the first record masks the others.
  */
@@ -85,7 +85,8 @@ static inline void stbl_set_finalizer(stbl_t *sym_table, stbl_finalizer_t fun) {
 }
 
 /*
- * Delete the full table
+ * Delete the full table. The finalizer is called for all the records
+ * in the table.
  */
 extern void delete_stbl(stbl_t *sym_table);
 

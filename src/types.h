@@ -32,14 +32,14 @@
  */
 
 #ifndef __TYPES_H
-#define __TYPES_H 1
+#define __TYPES_H
 
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
 
 #include "int_hash_tables.h"
-#include "int_hash_maps2.h"
+#include "int_hash_map2.h"
 #include "symbol_tables.h"
 
 #include "yices_types.h"
@@ -152,7 +152,7 @@ typedef struct type_table_s {
   stbl_t stbl;
   int_hmap2_t *sup_tbl;
   int_hmap2_t *inf_tbl;
-};
+} type_table_t;
 
 
 
@@ -424,17 +424,22 @@ static inline type_t function_type_domain(type_table_t *tbl, type_t i, int32_t j
  */
 static inline bool is_finite_type(type_table_t *tbl, type_t i) {
   assert(valid_type(tbl, i));
-  return tbl->flags[i] & TYPE_FINITE_MASK;
+  return tbl->flags[i] & TYPE_IS_FINITE_MASK;
 }
 
 static inline bool is_unit_type(type_table_t *tbl, type_t i) {
   assert(valid_type(tbl, i));
-  return tbl->flags[i] & TYPE_UNIT_MASK;
+  return tbl->flags[i] & TYPE_IS_UNIT_MASK;
 }
 
 static inline bool type_card_is_exact(type_table_t *tbl, type_t i) {
   assert(valid_type(tbl, i));
   return tbl->flags[i] & CARD_IS_EXACT_MASK;
+}
+
+static inline uint8_t type_flags(type_table_t *tbl, type_t i) {
+  assert(valid_type(tbl, i));
+  return tbl->flags[i];
 }
 
 static inline uint32_t type_card(type_table_t *tbl, type_t i) {
