@@ -107,7 +107,7 @@ static type_t allocate_type_id(type_table_t *table) {
 
 #if 0
 
-// NOT USED
+// NOT USED YET 
 /*
  * Erase type i: free its descriptor and add i to the free list
  */
@@ -143,6 +143,127 @@ static void erase_type(type_table_t *table, type_t i) {
 #endif
 
 
+
+/*
+ * INTERNAL CACHES
+ */
+
+/*
+ * Get the sup_table: create and initialize it if needed
+ */
+static int_hmap2_t *get_sup_table(type_table_t *table) {
+  int_hmap2_t *hmap;
+
+  hmap = table->sup_tbl;
+  if (hmap == NULL) {
+    hmap = (int_hmap2_t *) safe_malloc(sizeof(int_hmap2_t));
+    init_int_hmap2(hmap, 0); // default size
+    table->sup_tbl = hmap;
+  }
+
+  return hmap;
+}
+
+
+/*
+ * Get the inf_table: create and initialize it if needed
+ */
+static int_hmap2_t *get_inf_table(type_table_t *table) {
+  int_hmap2_t *hmap;
+
+  hmap = table->inf_tbl;
+  if (hmap == NULL) {
+    hmap = (int_hmap2_t *) safe_malloc(sizeof(int_hmap2_t));
+    init_int_hmap2(hmap, 0); // default size
+    table->inf_tbl = hmap;
+  }
+
+  return hmap;
+}
+
+
+
+
+
+
+/*
+ * SUPPORT FOR CARD/FLAGS COMPUTATION
+ */
+
+/*
+ * Build the conjunction of flags for types a[0 ... n-1]
+ *
+ * In the result we have
+ * - finite flag = 1 if a[0] ... a[n-1] are all finite
+ * - unit   flag = 1 if a[0] ... a[n-1] are all unit types
+ * - exact  flag = 1 if a[0] ... a[n-1] are all small or unit types
+ * - max    flag = 1 if a[0] ... a[n-1] are all maximal types
+ * - min    flag = 1 if a[0] ... a[n-1] are all minimal types
+ */
+static uint32_t type_flags_conjunct(type_table_t *table, uint32_t n, type_t *a) {
+  uint32_t i, flg;
+
+  flg = UNIT_TYPE_FLAGS;
+  for (i=0; i<n; i++) {
+    flg &= type_flags(table, a[i]);
+  }
+
+  return flg;
+}
+
+
+/*
+ * Product of cardinalities of all types in a[0 ... n-1]
+ * - return a value > UINT32_MAX if there's an overflow
+ */
+static uint64_t type_card_product(type_table_t *table, uint32_t n, type_t *a) {
+  uint64_t prod;
+  uint32_t i;
+
+  prod = 1;
+  for (i=0; i<n; i++) {
+    prod *= type_card(table, a[i]);
+    if (prod > UINT32_MAX) break;
+  }
+  return prod;
+}
+
+
+/*
+ * Compute the cardinality of function type e[0] ... e[n-1] --> r
+ * - all types e[0] ... e[n-1] must be small or unit
+ * - r must be small
+ * - return a value > UINT32_MAX if there's an overflow
+ */
+static uint64_t fun_type_card(type_table_t *table, uint32_t n, type_t *e, type_t r) {
+  uint64_t power, dom;
+  uint32_t range;
+
+  dom = type_card_product(table, n, e);  // domain size
+  if (dom >= 32) {
+    // since the range has size 2 or more
+    // power = range^dom does not fit in 32bits
+    power = UINT32_MAX+1;
+  } else {
+    // compute power = range^dom
+    // since dom is small we do this the easy way
+    range = type_card(table, r);
+    assert(2 <= range && dom >= 1);
+    power = range;
+    while (dom > 1) {
+      power *= range;
+      if (power > UINT32_MAX) break;
+      dom --;
+    }
+  }
+
+  return power;
+}
+
+
+
+
+
 /*
  * TYPE CREATION
  */
@@ -165,14 +286,14 @@ static void add_primitive_types(type_table_t *table) {
   table->kind[i] = INT_TYPE;
   table->desc[i].ptr = NULL;
   table->card[i] = UINT32_MAX;
-  table->flags[i] = INFINITE_TYPE_FLAGS;
+  table->flags[i] = (INFINITE_TYPE_FLAGS | TYPE_IS_MINIMAL_MASK);
 
   i = allocate_type_id(table);
   assert(i == real_id);
   table->kind[i] = REAL_TYPE;
   table->desc[i].ptr = NULL;
   table->card[i] = UINT32_MAX;
-  table->flags[i] = INFINITE_TYPE_FLAGS;
+  table->flags[i] = (INFINITE_TYPE_FLAGS | TYPE_IS_MAXIMAL_MASK);
 }
 
 
@@ -224,6 +345,7 @@ type_t new_scalar_type(type_table_t *table, uint32_t k) {
 
 /*
  * Add a new uninterpreted type and return its id
+ * - the type is infinite and both minimal and maximal
  */
 type_t new_uninterpreted_type(type_table_t *table) {
   type_t i;
@@ -232,42 +354,9 @@ type_t new_uninterpreted_type(type_table_t *table) {
   table->kind[i] = UNINTERPRETED_TYPE;
   table->desc[i].ptr = NULL;
   table->card[i] = UINT32_MAX;
-  table->flags[i] = INFINITE_TYPE_FLAGS;
+  table->flags[i] = (INFINITE_TYPE_FLAGS | TYPE_IS_MAXIMAL_MASK | TYPE_IS_MINIMAL_MASK);
 
   return i;
-}
-
-
-/*
- * Build the conjunction of flags for types a[0 ... n-1]
- */
-static uint32_t type_flags_conjunct(type_table_t *table, uint32_t n, type_t *a) {
-  uint32_t i, flg;
-
-  flg = UNIT_TYPE_FLAGS;
-  for (i=0; i<n; i++) {
-    flg &= type_flags(table, a[i]);
-  }
-
-  return flg;
-}
-
-
-
-/*
- * Product of cardinalities of all types in a[0 ... n-1]
- * - return a value > UINT32_MAX if there's an overflow
- */
-static uint64_t type_card_product(type_table_t *table, uint32_t n, type_t *a) {
-  uint64_t prod;
-  uint32_t i;
-
-  prod = 1;
-  for (i=0; i<n; i++) {
-    prod *= type_card(table, a[i]);
-    if (prod > UINT32_MAX) break;
-  }
-  return prod;
 }
 
 
@@ -290,7 +379,11 @@ static type_t new_tuple_type(type_table_t *table, uint32_t n, type_t *e) {
   table->kind[i] = TUPLE_TYPE;
   table->desc[i].ptr = d;
 
-  // set flags and card
+  /*
+   * set flags and card
+   * - type_flags_conjunct sets all the bits correctky
+   *   except possibly the exact card bit
+   */
   flag = type_flags_conjunct(table, n, e);
   switch (flag) {
   case UNIT_TYPE_FLAGS: 
@@ -303,13 +396,15 @@ static type_t new_tuple_type(type_table_t *table, uint32_t n, type_t *e) {
     card = type_card_product(table, n, e);
     if (card > UINT32_MAX) { 
       // the product does not fit in 32bits
+      // change exact card to inexact card
       card = UINT32_MAX;
       flag = LARGE_TYPE_FLAGS;
     }
     break;
 
   default:
-    assert(flag == LARGE_TYPE_FLAGS || flag == INFINITE_TYPE_FLAGS);
+    assert(flag == LARGE_TYPE_FLAGS || 
+	   (flag & CARD_FLAGS_MASK) == INFINITE_TYPE_FLAGS);
     card = UINT32_MAX;
     break;
   }
@@ -322,40 +417,6 @@ static type_t new_tuple_type(type_table_t *table, uint32_t n, type_t *e) {
 }
 
 
-
-
-/*
- * Compute the cardinality of function type e[0] ... e[n-1] --> r
- * - all types e[0] ... e[n-1] are small or unit
- * - r is small
- * - return a value > UINT32_MAX if there's an overflow
- */
-static uint64_t fun_type_card(type_table_t *table, uint32_t n, type_t *e, type_t r) {
-  uint64_t power, dom;
-  uint32_t range;
-
-  dom = type_card_product(table, n, e);  // domain size
-  if (dom >= 32) {
-    // since the range has size 2 or more
-    // power = range^dom does not fit in 32bits
-    power = UINT32_MAX+1;
-  } else {
-    // compute power = range^dom
-    // since dom is small we do this the easy way
-    range = type_card(table, r);
-    assert(2 <= range && dom >= 1);
-    power = range;
-    while (dom > 1) {
-      power *= range;
-      if (power > UINT32_MAX) break;
-      dom --;
-    }
-  }
-
-  return power;
-}
-
-
 /*
  * Add function type: (e[0], ..., e[n-1] --> r)
  */
@@ -363,7 +424,7 @@ static type_t new_function_type(type_table_t *table, uint32_t n, type_t *e, type
   function_type_t *d;
   uint64_t card;
   type_t i;
-  uint32_t j, flag;
+  uint32_t j, flag, minmax;
   
   assert(0 < n && n <= YICES_MAX_ARITY);
 
@@ -376,9 +437,20 @@ static type_t new_function_type(type_table_t *table, uint32_t n, type_t *e, type
   table->kind[i] = FUNCTION_TYPE;
   table->desc[i].ptr = d;
 
+  /*
+   * Three of the function type's flags are inherited from the range:
+   * - fun type is unit iff range is unit
+   * - fun type is maximal iff range is maximal
+   * - fun type is minimal iff range is minimal
+   */
   flag = type_flags(table, r);
+  minmax = flag & MINMAX_FLAGS_MASK; // save min and max bits
+
+  /*
+   * If the range is finite but not unit, then we check
+   * whether all domains are finite.
+   */
   if ((flag & (TYPE_IS_FINITE_MASK|TYPE_IS_UNIT_MASK)) == TYPE_IS_FINITE_MASK) {
-    // finite but non-unit range: conjoin with the domain type flags
     assert(flag == SMALL_TYPE_FLAGS || flag == LARGE_TYPE_FLAGS);
     flag &= type_flags_conjunct(table, n, e);
   }
@@ -390,8 +462,8 @@ static type_t new_function_type(type_table_t *table, uint32_t n, type_t *e, type
     break;
 
   case SMALL_TYPE_FLAGS:
-    // all domains are small finite or unit types
     // the range is small finite
+    // all domains are small finite or unit
     card = fun_type_card(table, n, e, r);
     if (card > UINT32_MAX) {
       card = UINT32_MAX;
@@ -400,19 +472,22 @@ static type_t new_function_type(type_table_t *table, uint32_t n, type_t *e, type
     break;
 
   default:
-    // either the range is infinite (so the function type is also infinite)
-    // or the range all all domains are finite but one of them is large
-    assert(flag == INFINITE_TYPE_FLAGS || flag == LARGE_TYPE_FLAGS);
+    // the range or at least one domain is infinite
+    // or the range and all domains are finite but at least one 
+    // of them is large.
+    assert(flag == LARGE_TYPE_FLAGS || 
+	   (flag | CARD_FLAGS_MASK) == INFINITE_TYPE_FLAGS);
     card = UINT32_MAX;
     break;
   }
 
   assert(0 < card && card <= UINT32_MAX);
   table->card[i] = card;
-  table->flags[i] = flag;
+  table->flags[i] = minmax | (flag & CARD_FLAGS_MASK);
 
   return i;
 }
+
 
 
 /*
@@ -509,6 +584,7 @@ static bool eq_function_type(function_type_hobj_t *p, type_t i) {
   return true;
 }
 
+
 /*
  * Builder functions
  */
@@ -529,20 +605,23 @@ static type_t build_function_type(function_type_hobj_t *p) {
  * Global Hash Objects
  */
 static bv_type_hobj_t bv_hobj = {
-  { (hobj_hash_t) hash_bv_type, (hobj_eq_t) eq_bv_type, (hobj_build_t) build_bv_type },
+  { (hobj_hash_t) hash_bv_type, (hobj_eq_t) eq_bv_type, 
+    (hobj_build_t) build_bv_type },
   NULL,
   0,
 };
 
 static tuple_type_hobj_t tuple_hobj = {
-  { (hobj_hash_t) hash_tuple_type, (hobj_eq_t) eq_tuple_type, (hobj_build_t) build_tuple_type },
+  { (hobj_hash_t) hash_tuple_type, (hobj_eq_t) eq_tuple_type, 
+    (hobj_build_t) build_tuple_type },
   NULL,
   0,
   NULL,
 };
 
 static function_type_hobj_t function_hobj = {
-  { (hobj_hash_t) hash_function_type, (hobj_eq_t) eq_function_type, (hobj_build_t) build_function_type },
+  { (hobj_hash_t) hash_function_type, (hobj_eq_t) eq_function_type,
+    (hobj_build_t) build_function_type },
   NULL,
   0,
   0,
@@ -553,6 +632,12 @@ static function_type_hobj_t function_hobj = {
 
 
 
+/*
+ * TABLE MANAGEMENT + EXPORTED TYPE CONSTRUCTORS
+ *
+ * NOTE: The constructors for uninterpreted and scalar types
+ * are defined above. Thay don't use hash consing.
+ */
 
 
 /*
@@ -646,6 +731,8 @@ type_t function_type(type_table_t *table, type_t range, uint32_t n, type_t dom[]
 }
 
 
+
+
 /*
  * Assign name to type i.
  * - previous mapping of name to other types (if any) are hidden.
@@ -675,6 +762,157 @@ type_t get_type_by_name(type_table_t *table, char *name) {
 void remove_type_name(type_table_t *table, char *name) {
   stbl_remove(&table->stbl, name);
 }
+
+
+
+/*
+ * CARDINALITY
+ */
+
+/*
+ * Approximate cardinality of tau[0] x ... x tau[n-1]
+ * - returns the same value as card_of(tuple_type(tau[0] ... tau[n-1])) but does not
+ *   construct the tuple type.
+ */
+uint32_t card_of_type_product(type_table_t *table, uint32_t n, type_t *tau) {
+  uint64_t card;
+
+  card = type_card_product(table, n, tau);
+  if (card > UINT32_MAX) {
+    card = UINT32_MAX;
+  }
+  assert(1 <= card && card <= UINT32_MAX);
+
+  return (uint32_t) card;
+}
+
+
+
+/*
+ * Approximate cardinality of the domain and range of a function type tau
+ */
+uint32_t card_of_domain_type(type_table_t *table, type_t tau) {
+  function_type_t *d;
+
+  d = function_type_desc(table, tau);
+  return card_of_type_product(table, d->ndom, d->domain);
+}
+
+uint32_t card_of_range_type(type_table_t *table, type_t tau) {
+  return type_card(table, function_type_range(table, tau));
+}
+
+
+
+/*
+ * Check whether a function type has a finite domain or range
+ * - tau must be a function type.
+ */
+bool type_has_finite_domain(type_table_t *table, type_t tau) {
+  function_type_t *fun;
+  uint32_t flag;
+
+  fun = function_type_desc(table, tau);
+  flag = type_flags_conjunct(table, fun->ndom, fun->domain);
+  return flag & TYPE_IS_FINITE_MASK;
+}
+
+bool type_has_finite_range(type_table_t *table, type_t tau) {
+  return is_finite_type(table, function_type_range(table, tau));
+}
+
+
+
+
+
+#if 0
+/*
+ * SUBTYPE RELATION
+ */
+
+/*
+ * Sup of tau1 and tau2:
+ * - returns the smallest type tau such that tau1 <= tau and tau2 <= tau
+ * - returns NULL_TYPE if tau1 and tau2 are incompatible
+ */
+// construct (tuple-type (sup a[0] b[0]) ... (sup a[n-1] b[n-1]))
+static type_t sup_tuple_types(type_table_t *table, uint32_t n, type_t *a, type_t *b) {
+  type_t tmp[n]; // Warning: GCC/C99 extension 
+  type_t aux;
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    aux = super_type(table, a[i], b[i]);
+    if (aux == NULL_TYPE) return aux;
+    tmp[i] = aux;
+  }
+
+  return tuple_type(table, n, tmp);
+}
+
+// construct (fun-type a[0] ... a[n-1] --> (sup tau1 tau2))
+static type_t sup_fun_types(type_table_t *table, uint32_t n, type_t *a, type_t tau1, type_t tau2) {
+  type_t range;
+
+  range = super_type(table, tau1, tau2);
+  if (range == NULL_TYPE) return range;
+
+  return function_type(table, range, n, a);
+
+}
+
+
+/*
+ * Compute the smallest supertype of tau1 and tau2 and stroe 
+ * the result in the sup_tbl cache.
+ */
+static type_t super_type_recur(type_table_t *table, int_hmap2_t *sup_tbl, type_t tau1, type_t tau2) {  
+  int_hmap2_rec_t *r;
+  bool new_rec;
+
+  assert(table->sup_tbl == sup_tbl && sup_tbl != NULL && 
+	 good_type(table, tau1) && good_type(table, tau2));
+
+  r = int_hmap2_get(sup_tbl, tau1, tau2, &new);
+  if (new) {
+    // the super type is not in the cache
+    
+  }
+
+  return r->val;
+}
+
+
+/*
+ * Compute the smallest supertype of tau1 and tau2
+ * - return NULL_TYPE if tau1 and tau2 are not compatible.
+ */
+type_t super_type(type_table_t *table, type_t tau1, type_t tau2) {
+  assert(good_type(table, tau1) && good_type(table, tau2));
+
+  if (tau1 == tau2) {
+    return tau1;
+  }
+
+  if ((tau1 == int_id && tau2 == real_id) || 
+      (tau1 == real_id && tau2 == int_id)) {
+    return real_id;
+  }
+
+  if (table->kind[tau1] != table->kind[tau2]) {
+    return NULL_TYPE;
+  }
+
+  if (table->kind[tau1] <= UNINTERPRETED_TYPE) {
+    return NULL_TYPE;
+  }
+  
+  // for two tuple types or two function types
+  // use sup_tbl as a cache.
+  return super_type_recur(table, get_sup_table(table), tau1, tau2);
+}
+
+#endif
 
 
 
@@ -749,71 +987,6 @@ bool is_subtype(type_table_t *table, type_t tau1, type_t tau2) {
 
 
 
-/*
- * Check whether tau is a maximal type
- */
-bool is_maxtype(type_table_t *table, type_t tau) {
-  tuple_type_t *tup;
-  function_type_t *fun;
-  int32_t i, n;
-
-  assert(good_type(table, tau));
-
-  switch (table->kind[tau]) {
-  case INT_TYPE:
-    return false;
-
-  case TUPLE_TYPE:
-    tup = tuple_type_desc(table, tau);
-    n = tup->nelem;
-    for (i=0; i<n; i++) {
-      if (! is_maxtype(table, tup->elem[i])) {
-	return false;
-      }
-    }
-    return true;
-
-  case FUNCTION_TYPE:
-    fun = function_type_desc(table, tau);
-    return is_maxtype(table, fun->range);
-
-  default:
-    return true;
-  }
-}
-
-
-
-/*
- * Sup of tau1 and tau2:
- * - returns the smallest type tau such that tau1 <= tau and tau2 <= tau
- * - returns NULL_TYPE if tau1 and tau2 are incompatible
- */
-// construct (tuple-type (sup a[0] b[0]) ... (sup a[n-1] b[n-1]))
-static type_t sup_tuple_types(type_table_t *table, uint32_t n, type_t *a, type_t *b) {
-  type_t tmp[n]; // Warning: GCC/C99 extension 
-  type_t aux;
-  uint32_t i;
-
-  for (i=0; i<n; i++) {
-    aux = super_type(table, a[i], b[i]);
-    if (aux == NULL_TYPE) return aux;
-    tmp[i] = aux;
-  }
-
-  return tuple_type(table, n, tmp);
-}
-
-// construct (fun-type a[0] ... a[n-1] --> (sup tau1 tau2))
-static type_t sup_fun_types(type_table_t *table, uint32_t n, type_t *a, type_t tau1, type_t tau2) {
-  type_t range;
-
-  range = super_type(table, tau1, tau2);
-  if (range == NULL_TYPE) return range;
-
-  return function_type(table, range, n, a);
-
-}
 
 type_t super_type(type_table_t *table, type_t tau1, type_t tau2) {
   tuple_type_t *tup1, *tup2;
@@ -1018,289 +1191,6 @@ bool compatible_types(type_table_t *table, type_t tau1, type_t tau2) {
 
 
 
-
-
-/*
- * FINITENESS
- */
-
-
-/*
- * Check whether tau is a singleton type
- */
-bool unit_type(type_table_t *table, type_t tau) {
-  bool result;
-  tuple_type_t *tup;
-  function_type_t *fun;
-  uint32_t i, n;
-
-  assert(good_type(table, tau));
-
-  switch (table->kind[tau]) {
-  case SCALAR_TYPE:
-    result = (scalar_type_cardinal(table, tau) == 1);
-    break;
-
-  case TUPLE_TYPE:
-    tup = tuple_type_desc(table, tau);
-    n = tup->nelem;
-    for (i=0; i<n; i++) {
-      if (! unit_type(table, tup->elem[i])) {
-	result = false;
-	goto done;
-      }
-    }
-    result = true;
-    break;
-
-  case FUNCTION_TYPE:
-    fun = function_type_desc(table, tau);
-    result = unit_type(table, fun->range);
-    break;
-
-  default:
-    result = false;
-    break;
-  }
-
- done:
-  return result;
-}
-
-
-
-/*
- * Check whether all types in array a are finite.
- * n = size of the array
- */
-static bool finite_type_array(type_table_t *table, type_t *a, int32_t n) {
-  int32_t i;
-
-  for (i=0; i<n; i++) {
-    if (! finite_type(table, a[i])) {
-      return false;
-    }
-  }
-  return true;
-}
-
-
-/*
- * Check whether type tau is finite
- * - could be improved. May be expensive for deep tuple types
- */
-bool finite_type(type_table_t *table, type_t tau) {
-  bool result;
-  tuple_type_t *tup;
-  function_type_t *fun;
-
-  assert(good_type(table, tau));
-
-  switch (table->kind[tau]) {
-  case BOOL_TYPE:
-  case BITVECTOR_TYPE:
-  case SCALAR_TYPE:
-    result = true;
-    break;
-
-  case TUPLE_TYPE:
-    tup = tuple_type_desc(table, tau);
-    result = finite_type_array(table, tup->elem, tup->nelem);
-    break;
-
-  case FUNCTION_TYPE:
-    // the domain is non empty so the type is finite
-    // either if range is a singleton type of 
-    // if both domain and range are finite
-    fun = function_type_desc(table, tau);
-    result = unit_type(table, fun->range) || 
-      (finite_type(table, fun->range) && finite_type_array(table, fun->domain, fun->ndom));
-    break;
-
-  default:
-    result = false;
-    break;
-  }
-
-  return result;
-}
-
-
-
-
-/*
- * Check whether a function type has a finite domain
- * - tau must be a function type.
- */
-bool type_has_finite_domain(type_table_t *table, type_t tau) {
-  function_type_t *fun;
-
-  fun = function_type_desc(table, tau);
-  return finite_type_array(table, fun->domain, fun->ndom);
-}
-
-
-
-
-
-/*
- * Approximate cardinality of a tuple type
- * - return UINT32_MAX if the type is infinite or has cardinality >= UINT32_MAX
- */
-static uint32_t tuple_type_card(type_table_t *table, tuple_type_t *d) {
-  uint32_t i, n;
-  uint64_t prod;
-
-  n = d->nelem;
-  prod = 1;
-  for (i=0; i<n; i++) {
-    prod *= card_of_type(table, d->elem[i]);
-    if (prod >= UINT32_MAX) {
-      return UINT32_MAX;
-    }
-  }
-  assert(0 < prod && prod < UINT32_MAX);
-  return (uint32_t) prod;
-}
-
-
-
-/*
- * Approximate cardianal of a function type
- * - return UINT32_MAX if the type is infinite or has cardinality >= UINT32_MAX
- */
-static uint32_t function_type_card(type_table_t *table, function_type_t *d) {
-  uint32_t i, n;
-  uint32_t range;
-  uint64_t dom, power;
-
-  // range size
-  range = card_of_type(table, d->range);
-  assert(range > 0);
-  if (range >= UINT32_MAX) {
-    return UINT32_MAX;
-  }
-  if (range == 1) {
-    return 1;
-  }
-
-
-  // domain size
-  n = d->ndom;
-  dom = 1;
-  for (i=0; i<n; i++) {
-    dom *= card_of_type(table, d->domain[i]);
-    if (dom >= 32) {
-      // since range >= 2, range^dom is >= UINT32_MAX
-      return UINT32_MAX;
-    }
-  }
-
-  // compute range^dom
-  assert(range >= 2 && dom <= 31);
-  power = 1;
-  while (dom > 0) {
-    power *= range;
-    if (power >= UINT32_MAX) {
-      return UINT32_MAX;
-    }
-    dom --;
-  }
-  
-  assert(0 < power && power < UINT32_MAX);
-
-  return (uint32_t) power;
-}
-
-
-
-
-/*
- * Cardinality of type tau
- * - return UINT32_MAX (i.e., 2^32 -1) if tau is infinite or is finite 
- *   and has cardinality >= 2^32 -1
- */
-uint32_t card_of_type(type_table_t *table, type_t tau) {
-  uint32_t card, n;
-
-  assert(good_type(table, tau));
-
-  card = UINT32_MAX;
-
-  switch (table->kind[tau]) {
-  case UNUSED_TYPE:
-    assert(false);
-  case INT_TYPE:
-  case REAL_TYPE:
-  case UNINTERPRETED_TYPE:
-    // infinite types
-    break;
-
-  case BOOL_TYPE:
-    card = 2;
-    break;
-
-  case BITVECTOR_TYPE:
-    n = bv_type_size(table, tau);
-    if (n < 32) {
-      card = 1<<n;
-    }
-    break;
-
-  case SCALAR_TYPE:
-    card = scalar_type_cardinal(table, tau);
-    break;
-
-  case TUPLE_TYPE:
-    card = tuple_type_card(table, tuple_type_desc(table, tau));
-    break;
-
-  case FUNCTION_TYPE:
-    card = function_type_card(table, function_type_desc(table, tau));
-    break;
-  }
-
-  return card;
-}
-
-
-
-
-/*
- * Approximate cardinality of tau[0] x ... x tau[n-1]
- * - return the same as card_of(tuple_type(tau[0] ... tau[n-1])) but does not 
- *   construct the tuple type
- * - return 1 if n=0
- */
-uint32_t card_of_type_product(type_table_t *table, uint32_t n, type_t *tau) {
-  uint32_t i;
-  uint64_t prod;
-
-  prod = 1;
-  for (i=0; i<n; i++) {
-    prod *= card_of_type(table, tau[i]);
-    if (prod >= UINT32_MAX) {
-      return UINT32_MAX;
-    }
-  }
-  assert(0 < prod && prod < UINT32_MAX);
-  return (uint32_t) prod;
-}
-
-
-/*
- * Approximate cardinality of the domain and range of a function type tau
- */
-uint32_t card_of_domain_type(type_table_t *table, type_t tau) {
-  function_type_t *d;
-
-  d = function_type_desc(table, tau);
-  return card_of_type_product(table, d->ndom, d->domain);
-}
-
-uint32_t card_of_range_type(type_table_t *table, type_t tau) {
-  return card_of_type(table, function_type_range(table, tau));
-}
 
 
 

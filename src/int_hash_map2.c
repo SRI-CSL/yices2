@@ -15,7 +15,7 @@
 /*
  * For degugging: check whether n is 0 or a power of 2
  */
-#ifndef NDBEBUG
+#ifndef NDEBUG
 static bool is_power_of_two(uint32_t n) {
   return (n & (n - 1)) == 0;
 }
@@ -226,6 +226,8 @@ int_hmap2_rec_t *int_hmap2_get(int_hmap2_t *hmap, int32_t k0, int32_t k1, bool *
   /*
    * add new record in hmap->data
    */
+  *new = true;
+  hmap->nelems ++;
   if (hmap->nelems >= hmap->resize_threshold) {
     // resize needed
     int_hmap2_extend(hmap);
@@ -236,11 +238,41 @@ int_hmap2_rec_t *int_hmap2_get(int_hmap2_t *hmap, int32_t k0, int32_t k1, bool *
     r->k1 = k1;
   }
 
-  hmap->nelems ++;
-  *new = true;
-
   return r;
 }
+
+
+
+/*
+ * Add record (k0, k1 :-> val) to hmap
+ * - there must not be a record with the same key pair
+ */
+void int_hmap2_add(int_hmap2_t *hmap, int32_t k0, int32_t k1, int32_t val) {
+  uint32_t i, mask;
+
+  assert(k0 >= 0 && k1 >= 0 && hmap->nelems < hmap->size);
+
+  mask = hmap->size - 1;
+  i = hash_pair(k0, k1) & mask;
+  while (hmap->data[i].k0 >= 0) {
+    assert(hmap->data[i].k0 != k0 && hmap->data[i].k1 != k1);
+    i ++;
+    i &= mask;
+  }
+
+  // store the record in data[i]
+  hmap->data[i].k0 = k0;
+  hmap->data[i].k1 = k1;
+  hmap->data[i].val = val;
+  hmap->nelems ++;
+
+  if (hmap->nelems >= hmap->resize_threshold) {
+    int_hmap2_extend(hmap);
+  }
+}
+
+
+
 
 
 /*

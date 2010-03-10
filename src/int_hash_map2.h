@@ -86,9 +86,18 @@ extern int_hmap2_rec_t *int_hmap2_find(int_hmap2_t *hmap, int32_t k0, int32_t k1
  * - otherwise, create a fresh record with key (k0, k1), and 
  *   set *new to false.
  * If a new record is created, val is not initialized.
- * - k0 and k2 must be non-negative.
+ * - k0 and k1 must be non-negative.
  */
 extern int_hmap2_rec_t *int_hmap2_get(int_hmap2_t *hmap, int32_t k0, int32_t k1, bool *new);
+
+
+/*
+ * Add record (k0, k1 :-> val)
+ * - there must not be a record with the same key pair
+ */
+extern void int_hmap2_add(int_hmap2_t *hmap, int32_t k0, int32_t k1, int32_t val);
+
+
 
 /*
  * Remove all records

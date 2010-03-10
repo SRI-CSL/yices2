@@ -51,6 +51,9 @@
  *   BITVECTOR[n] for any n (0 < n <= MAX_BVSIZE)
  * - declared types can be either scalar or uninterpreted
  * - constructed types: tuple types and function types
+ * 
+ * The enumeration order is important. The atomic type kinds must 
+ * be smaller than non-atomic kinds TUPLE and FUNCTION.
  */
 typedef enum {
   UNUSED_TYPE,    // for deleted types 
@@ -116,7 +119,8 @@ typedef union {
  *    bit 0 of flag[i] is 1 if i is finite
  *    bit 1 of flag[i] is 1 if i is a unit tupe
  *    bit 2 of flag[i] is 1 if card[i] is exact
- *    bit 3 of flag[i] is used as a mark during garbage collection
+ *    bit 3 of flag[i] is 1 if i has no strict supertype 
+ *    bit 4 of flag[i] is 1 if i has no strict subtype
  * 
  * Other components:
  * - size = size of all arrays above
@@ -163,16 +167,28 @@ typedef struct type_table_s {
 #define TYPE_IS_UNIT_MASK    ((uint8_t) 0x02)
 #define CARD_IS_EXACT_MASK   ((uint8_t) 0x04)
 
+#define TYPE_IS_MAXIMAL_MASK ((uint8_t) 0x08)
+#define TYPE_IS_MINIMAL_MASK ((uint8_t) 0x10)
+
+// select the cardinality/finiteness bits
+#define CARD_FLAGS_MASK     ((uint8_t) 0x07)
+
+// select the max/min bits
+#define MINMAX_FLAGS_MASK   ((uint8_t) 0x1C)
+
 /*
  * Abbreviations for initializing the flags
  * - UNIT_TYPE: finite, card = 1, exact cardinality
  * - SMALL_TYPE: finite, non-unit, exact cardinality
- * - LARGE_TYPE: finite, non-unit, inexact card
+ * - LARGE_TYPE: finite, non-unit, inexact card * 
  * - INFINITE_TYPE
+ *
+ * All finite types are both minimal and maximal so
+ * we set bit 3 and 4 for them.
  */
-#define UNIT_TYPE_FLAGS     ((uint8_t) 0x07)
-#define SMALL_TYPE_FLAGS    ((uint8_t) 0x05)
-#define LARGE_TYPE_FLAGS    ((uint8_t) 0x01)
+#define UNIT_TYPE_FLAGS     ((uint8_t) 0x1F)
+#define SMALL_TYPE_FLAGS    ((uint8_t) 0x15)
+#define LARGE_TYPE_FLAGS    ((uint8_t) 0x19)
 #define INFINITE_TYPE_FLAGS ((uint8_t) 0x00)
 
 
@@ -332,6 +348,22 @@ static inline type_kind_t type_kind(type_table_t *tbl, type_t i) {
   return tbl->kind[i];
 }
 
+static inline uint32_t type_card(type_table_t *tbl, type_t i) {
+  assert(valid_type(tbl, i));
+  return tbl->card[i];
+}
+
+static inline uint8_t type_flags(type_table_t *tbl, type_t i) {
+  assert(valid_type(tbl, i));
+  return tbl->flags[i];
+}
+
+static inline char *type_name(type_table_t *tbl, type_t i) {
+  assert(valid_type(tbl, i));
+  return tbl->name[i];
+}
+
+// check for deleted types
 static inline bool good_type(type_table_t *tbl, type_t i) {
   return valid_type(tbl, i) && (tbl->kind[i] != UNUSED_TYPE);
 }
@@ -340,9 +372,10 @@ static inline bool bad_type(type_table_t *tbl, type_t i) {
   return ! good_type(tbl, i);
 }
 
-static inline char *type_name(type_table_t *tbl, type_t i) {
-  assert(valid_type(tbl, i));
-  return tbl->name[i];
+// check whether i is atomic (i.e., not a tuple or function type)
+static inline bool is_atomic_type(type_table_t *tbl, type_t i) {
+  assert(good_type(tbl, i));
+  return tbl->kind[i] <= UNINTERPRETED_TYPE;
 }
 
 // bit vector types
@@ -417,10 +450,26 @@ static inline type_t function_type_domain(type_table_t *tbl, type_t i, int32_t j
 
 
 
-
-
 /*
  * FINITENESS AND CARDINALITY
+ */
+
+/*
+ * type_card(tbl, t) is a lower bound on the actual size of type t.
+ * It's equal to the real size of t if that size fits in a 32bit
+ * unsigned integer. It's equal to UINT32_MAX otherwise (largest 32bit
+ * unsigned integer).
+ *
+ * Three bits encode information about a type t's cardinality:
+ *    FINITE_FLAG --> 1 if t is finite, 0 otherwise
+ *    UNIT_FLAG   --> 1 if t has cardinality 1, 0 otherwise
+ *    EXACT_CART  --> 1 if type_card(tbl, t) is exact, 0 otherwise
+ *
+ * There are four valid combinations for these flags:
+ *    0b111 --> t has cardinality 1 
+ *    0b101 --> t is finite, 2 <= size t <= UINT32_MAX (exact card)
+ *    0b001 --> t is finite, UINT32_MAX < size t
+ *    0b000 --> t is infinite
  */
 static inline bool is_finite_type(type_table_t *tbl, type_t i) {
   assert(valid_type(tbl, i));
@@ -437,15 +486,6 @@ static inline bool type_card_is_exact(type_table_t *tbl, type_t i) {
   return tbl->flags[i] & CARD_IS_EXACT_MASK;
 }
 
-static inline uint8_t type_flags(type_table_t *tbl, type_t i) {
-  assert(valid_type(tbl, i));
-  return tbl->flags[i];
-}
-
-static inline uint32_t type_card(type_table_t *tbl, type_t i) {
-  assert(valid_type(tbl, i));
-  return tbl->card[i];
-}
 
 
 /*
@@ -458,9 +498,19 @@ extern uint32_t card_of_type_product(type_table_t *table, uint32_t n, type_t *ta
 
 /*
  * Approximate cardinality of the domain and range of a function type tau
+ * - both function return a 32bit unsigned number (which is a lower bound 
+ *   on the actual domain or range size).
+ * - the resut is exact if its less than UINT32_MAX.
  */
 extern uint32_t card_of_domain_type(type_table_t *table, type_t tau);
 extern uint32_t card_of_range_type(type_table_t *table, type_t tau);
+
+
+/*
+ * Check whether the domain and range of a function type tau are finite
+ */
+extern bool type_has_finite_domain(type_table_t *table, type_t tau);
+extern bool type_has_finite_range(type_table_t *table, type_t tau);
 
 
 
@@ -470,14 +520,22 @@ extern uint32_t card_of_range_type(type_table_t *table, type_t tau);
  */
 
 /*
- * Check whether tau is maximal (i.e., the only supertype of tau is tau itself)
+ * Check whether type i is maximal (i.e., no strict supertype)
  */
-extern bool is_maxtype(type_table_t *table, type_t tau);
+static inline bool is_maxtype(type_table_t *tbl, type_t i) {
+  assert(valid_type(tbl, i));
+  return tbl->flags[i] & TYPE_IS_MAXIMAL_MASK;
+}
+
 
 /*
- * Check whether tau is minimal (no strict subtypes)
+ * Check whether tau is minimal (i.e., no strict subtype)
  */
-extern bool is_mintype(type_table_t *table, type_t tau);
+static inline bool is_mintype(type_table_t *tbl, type_t i) {
+  assert(valid_type(tbl, i));
+  return tbl->flags[i] & TYPE_IS_MINIMAL_MASK;
+}
+
 
 /*
  * Compute the sup of tau1 and tau2
@@ -486,6 +544,7 @@ extern bool is_mintype(type_table_t *table, type_t tau);
  * - return NULL_TYPE otherwise (i.e., if tau1 and tau2 are not compatible)
  */
 extern type_t super_type(type_table_t *table, type_t tau1, type_t tau2);
+
 
 /*
  * Compute the inf of tau1 and tau2
@@ -508,9 +567,7 @@ extern type_t inf_type(type_table_t *table, type_t tau1, type_t tau2);
  * Side effects: this is implemented using super_type so this may create
  * new types in the table.
  */
-static inline bool is_subtype(type_table_t *table, type_t tau1, type_t tau2) {
-  return super_type(table, tau1, tau2) == tau2;
-}
+extern bool is_subtype(type_table_t *table, type_t tau1, type_t tau2);
 
 
 /*
@@ -523,9 +580,7 @@ static inline bool is_subtype(type_table_t *table, type_t tau1, type_t tau2) {
  * Side effects: use the super_type function. So this may create new 
  * types in the table.
  */
-static inline bool compatible_types(type_table_t *table, type_t tau1, type_t tau2) {
-  return super_type(table, tau1, tau2) != NULL_TYPE;
-}
+extern bool compatible_types(type_table_t *table, type_t tau1, type_t tau2);
 
 
 
