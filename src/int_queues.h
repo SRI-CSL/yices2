@@ -30,11 +30,7 @@ typedef struct int_queue_s {
 /*
  * Maximal size: make sure n * sizeof(int32_t) does not overflow
  */
-#if UINT32_MAX < (SIZE_MAX/4) 
-#define MAX_INT_QUEUE_SIZE UINT32_MAX
-#else
-#define MAX_INT_QUEUE_SIZE (SIZE_MAX/4)
-#endif
+#define MAX_INT_QUEUE_SIZE (UINT32_MAX/sizeof(int32_t))
 
 
 /*

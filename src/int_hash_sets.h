@@ -39,11 +39,7 @@ typedef struct int_hset_s {
 /*
  * Maximal size
  */
-#if UINT32_MAX < (SIZE_MAX/4)
-#define MAX_HSET_SIZE UINT32_MAX
-#else
-#define MAX_HSET_SIZE (SIZE_MAX/4)
-#endif
+#define MAX_HSET_SIZE (UINT32_MAX/sizeof(uint32_t))
 
 
 /*

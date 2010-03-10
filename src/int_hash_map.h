@@ -50,7 +50,7 @@ typedef struct int_hmap_s {
 
 /*
  * Initialization:
- * - n = initial size, must be a power of 2
+ * - n = initial size, must be 0 or a power of 2
  * - if n = 0, the default size is used
  */
 extern void init_int_hmap(int_hmap_t *hmap, uint32_t n);

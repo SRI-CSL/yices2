@@ -9,6 +9,16 @@
 #include "memalloc.h"
 #include "int_hash_sets.h"
 
+/*
+ * For debugging: check whether n is a power of two
+ */
+#ifndef NDEBUG
+static bool is_power_of_two(uint32_t n) {
+  return (n & (n - 1)) == 0;
+}
+#endif
+
+
 
 /*
  * Initialize: allocate an array of size n
@@ -17,16 +27,6 @@
 void init_int_hset(int_hset_t *set, uint32_t n) {
   uint32_t *tmp;
 
-#ifndef NDEBUG
-  // check that n is a power of 2
-  uint32_t n2;
-  n2 = n;
-  while (n2 > 1) {
-    assert((n2 & 1) == 0);
-    n2 >>= 1;
-  }
-#endif
-
   if (n == 0) {
     n = INT_HSET_DEFAULT_SIZE;
   }
@@ -34,6 +34,8 @@ void init_int_hset(int_hset_t *set, uint32_t n) {
   if (n >= MAX_HSET_SIZE) {
     out_of_memory(); // abort
   }
+
+  assert(is_power_of_two(n));
 
   // initialize all elements of tmp to zero
   tmp = (uint32_t *) safe_malloc(n * sizeof(uint32_t));

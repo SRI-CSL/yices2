@@ -3,10 +3,22 @@
  * Assumes that keys are non-negative
  */
 
+#include <stdbool.h>
 #include <assert.h>
 
 #include "memalloc.h"
 #include "int_hash_map.h"
+
+
+/*
+ * For degugging: check whether n is 0 or a power of 2
+ */
+#ifndef NDBEBUG
+static bool is_power_of_two(uint32_t n) {
+  return (n & (n - 1)) == 0;
+}
+#endif
+
 
 /*
  * Initialization:
@@ -17,15 +29,6 @@ void init_int_hmap(int_hmap_t *hmap, uint32_t n) {
   uint32_t i;
   int_hmap_pair_t *tmp;
 
-#ifndef NDEBUG
-  uint32_t n2;
-  n2 = n;
-  while (n2 > 1) {
-    assert((n2 & 1) == 0);
-    n2 >>= 1;
-  }
-#endif
-
   if (n == 0) {
     n = INT_HMAP_DEFAULT_SIZE;
   }
@@ -33,6 +36,8 @@ void init_int_hmap(int_hmap_t *hmap, uint32_t n) {
   if (n >= INT_HMAP_MAX_SIZE) {
     out_of_memory();
   }
+
+  assert(is_power_of_two(n));
 
   tmp = (int_hmap_pair_t *) safe_malloc(n * sizeof(int_hmap_pair_t));
   for (i=0; i<n; i++) {

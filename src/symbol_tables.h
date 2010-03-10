@@ -68,11 +68,7 @@ typedef struct stbl_s {
 /*
  * Maximal size
  */
-#if UINT32_MAX < (SIZE_MAX/8)
-#define MAX_STBL_SIZE UINT32_MAX
-#else 
-#define MAX_STBL_SIZE (SIZE_MAX/8)
-#endif
+#define MAX_STBL_SIZE (UINT32_MAX/sizeof(stbl_rec_t))
 
 
 /*

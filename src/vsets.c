@@ -71,6 +71,16 @@ static bool eq_vset(vset_t *p, int32_t *a, uint32_t n) {
  */
 
 /*
+ * For debugging: check whether n is a power of two
+ */
+#ifndef NDEBUG
+static bool is_power_of_two(uint32_t n) {
+  return (n & (n - 1)) == 0;
+}
+#endif
+
+
+/*
  * Initialize table
  * - n = initial size
  * - n must be a power of 2. If n = 0, the default size is used.
@@ -79,16 +89,6 @@ void init_vset_htbl(vset_htbl_t *table, uint32_t n) {
   uint32_t i;
   vset_t **tmp;
 
-#ifndef NDEBUG 
-  // check that n is a power of 2
-  uint32_t n2;
-  n2 = n;
-  while (n2 > 1) {
-    assert((n2 & 1) == 0);
-    n2 >>= 1;
-  }  
-#endif
-
   if (n == 0) {
     n = DEF_VSET_HTBL_SIZE;
   }
@@ -96,6 +96,8 @@ void init_vset_htbl(vset_htbl_t *table, uint32_t n) {
   if (n >= MAX_VSET_HTBL_SIZE) {
     out_of_memory();
   }
+
+  assert(is_power_of_two(n));
 
   tmp = (vset_t **) safe_malloc(n * sizeof(vset_t *));
   for (i=0; i<n; i++) {

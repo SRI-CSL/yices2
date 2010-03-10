@@ -3,10 +3,22 @@
  * - keys are assumed positive, -1 and -2 are special markers
  */
 
+#include <stdbool.h>
 #include <assert.h>
 
 #include "memalloc.h"
 #include "ptr_hash_map.h"
+
+
+/*
+ * For debugging: check whether n is a power of two
+ */
+#ifndef NDEBUG
+static bool is_power_of_two(uint32_t n) {
+  return (n & (n - 1)) == 0;
+}
+#endif
+
 
 /*
  * Initialization:
@@ -17,15 +29,6 @@ void init_ptr_hmap(ptr_hmap_t *hmap, uint32_t n) {
   uint32_t i;
   ptr_hmap_pair_t *tmp;
 
-#ifndef NDEBUG
-  uint32_t n2;
-  n2 = n;
-  while (n2 > 1) {
-    assert((n2 & 1) == 0);
-    n2 >>= 1;
-  }
-#endif
-
   if (n == 0) {
     n = PTR_HMAP_DEFAULT_SIZE;
   }
@@ -33,6 +36,8 @@ void init_ptr_hmap(ptr_hmap_t *hmap, uint32_t n) {
   if (n >= PTR_HMAP_MAX_SIZE) {
     out_of_memory();
   }
+
+  assert(is_power_of_two(n));
 
   tmp = (ptr_hmap_pair_t *) safe_malloc(n * sizeof(ptr_hmap_pair_t));
   for (i=0; i<n; i++) {

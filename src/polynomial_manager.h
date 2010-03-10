@@ -83,15 +83,10 @@ typedef struct {
 /*
  * Maximal size of the manager tables:
  * - we want to make sure there's no arithmetic overflow when 
- * computing n * sizeof(polyvar_desc_t)
+ *   computing n * sizeof(polyvar_desc_t)
  * - also ensure all variables have an index smaller than max_idx
  */
-#if INT32_MAX < (SIZE_MAX/8)
-#define MAX_VARTBL_SIZE INT32_MAX
-#else
-#define MAX_VARTBL_SIZE (SIZE_MAX/8)
-#endif
-
+#define MAX_VARTBL_SIZE (UINT32_MAX/sizeof(polyvar_desc_t))
 
 /*
  * Initialize a manager with initial size = n.

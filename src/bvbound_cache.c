@@ -19,6 +19,15 @@
 #include "bvbound_cache.h"
 
 
+/*
+ * For debugging: check whether n is a power of two
+ */
+#ifndef NDEBUG
+static bool is_power_of_two(uint32_t n) {
+  return (n & (n - 1)) == 0;
+}
+#endif
+
 
 
 /*
@@ -30,16 +39,6 @@ void init_bvbound_cache(bvbound_cache_t *cache, uint32_t n) {
   bvbound_t **tmp;
   uint32_t i;
 
-#ifndef NDEBUG 
-  // check that n is a power of 2
-  uint32_t n2;
-  n2 = n;
-  while (n2 > 1) {
-    assert((n2 & 1) == 0);
-    n2 >>= 1;
-  }  
-#endif
-
   if (n == 0) {
     n = DEF_BVBOUND_CACHE_SIZE;
   }
@@ -47,6 +46,8 @@ void init_bvbound_cache(bvbound_cache_t *cache, uint32_t n) {
   if (n >= MAX_BVBOUND_CACHE_SIZE) {
     out_of_memory();
   }
+
+  assert(is_power_of_two(n));
 
   tmp = (bvbound_t **) safe_malloc(n * sizeof(bvbound_t *));
   for (i=0; i<n; i++) {

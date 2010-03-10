@@ -9,6 +9,17 @@
 #include "memalloc.h"
 #include "pair_hash_map.h"
 
+
+/*
+ * For debugging: check whether n is a power of two
+ */
+#ifndef NDEBUG
+static bool is_power_of_two(uint32_t n) {
+  return (n & (n - 1)) == 0;
+}
+#endif
+
+
 /*
  * Initialization:
  * - n = initial size, must be a power of 2
@@ -18,15 +29,6 @@ void init_pmap(pmap_t *hmap, uint32_t n) {
   uint32_t i;
   pmap_rec_t *tmp;
 
-#ifndef NDEBUG
-  uint32_t n2;
-  n2 = n;
-  while (n2 > 1) {
-    assert((n2 & 1) == 0);
-    n2 >>= 1;
-  }
-#endif
-
   if (n == 0) {
     n = PMAP_DEFAULT_SIZE;
   }
@@ -35,6 +37,7 @@ void init_pmap(pmap_t *hmap, uint32_t n) {
     out_of_memory();
   }
 
+  assert(is_power_of_two(n));
   tmp = (pmap_rec_t *) safe_malloc(n * sizeof(pmap_rec_t));
   for (i=0; i<n; i++) {
     tmp[i].val = NULL;
@@ -262,8 +265,8 @@ pmap_rec_t *pmap_get(pmap_t *hmap, int32_t k0, int32_t k1) {
     aux->k0 = k0;
     aux->k1 = k1;
     aux->val = DEFAULT_PTR;
-    hmap->nelems ++;
   }
+  hmap->nelems ++;
 
   return aux;
 }

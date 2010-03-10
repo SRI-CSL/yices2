@@ -72,7 +72,7 @@ static void ipart_delete_vector(int32_t *v) {
  */
 #ifndef NDEBUG
 static bool is_power_of_two(uint32_t n) {
-  return (n & (- n)) == n;
+  return (n & (n - 1)) == 0;
 }
 #endif
 

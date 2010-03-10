@@ -2,6 +2,7 @@
 #include <stdint.h>
 
 #include "hash_functions.h"
+#include "hash_functions_ori.h"
 #include "cputime.h"
 
 
@@ -22,6 +23,24 @@ static char *test[] = {
   "monday-1", "tuesday-2", "wednesday-3", "thursday-4", "friday-5",
   "saturday-6", "sunday-7",
 };
+
+
+/*
+ * Simple hash for strings
+ */
+static uint32_t hash_string(char *s) {
+  uint32_t h, x;
+
+  h = 0;
+  x = *s;
+  while (x != 0) {
+    h = 31 * h + x;
+    s ++;
+    x = *s;
+  }
+
+  return h;
+}
 
 
 int main() {

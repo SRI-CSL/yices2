@@ -3,6 +3,7 @@
  */
 
 #include <assert.h>
+#include <stdbool.h>
 #include <string.h>
 
 #include "memalloc.h"
@@ -146,22 +147,22 @@ static void stbl_extend(stbl_t *sym_table) {
 
 
 /*
+ * For debugging: check whether n is a power of two
+ */
+#ifndef NDEBUG
+static bool is_power_of_two(uint32_t n) {
+  return (n & (n - 1)) == 0;
+}
+#endif
+
+
+/*
  * Initialize: empty table of size n. n must be a power of 2.
  * If n = 0, the default size is used.
  */
 void init_stbl(stbl_t *sym_table, uint32_t n) {
   uint32_t i;
   stbl_rec_t **tmp;
-
-#ifndef NDEBUG 
-  // check that n is a power of 2
-  uint32_t n2;
-  n2 = n;
-  while (n2 > 1) {
-    assert((n2 & 1) == 0);
-    n2 >>= 1;
-  }  
-#endif
 
   if (n == 0) {
     n = STBL_DEFAULT_SIZE;
@@ -170,6 +171,8 @@ void init_stbl(stbl_t *sym_table, uint32_t n) {
   if (n >= MAX_STBL_SIZE) {    
     out_of_memory(); // abort if too large
   }
+
+  assert(is_power_of_two(n));
 
   tmp = (stbl_rec_t**) safe_malloc(n * sizeof(stbl_rec_t *));
   for (i=0; i<n; i++) {

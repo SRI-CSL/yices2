@@ -58,11 +58,7 @@ typedef struct int_htbl_s {
  * Maximal size: we want to ensure no numerical overflow when
  * computing n * sizeof(int_hrec_t)
  */
-#if UINT32_MAX < (SIZE_MAX/8)
-#define MAX_HTBL_SIZE UINT32_MAX
-#else
-#define MAX_HTBL_SIZE (SIZE_MAX/8)
-#endif
+#define MAX_HTBL_SIZE (UINT32_MAX/sizeof(int_hrec_t))
 
 
 /*

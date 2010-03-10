@@ -7,6 +7,15 @@
 #include "memalloc.h"
 #include "pair_hash_sets.h"
 
+/*
+ * For debugging: check whether n is a power of two
+ */
+#ifndef NDEBUG
+static bool is_power_of_two(uint32_t n) {
+  return (n & (n - 1)) == 0;
+}
+#endif
+
 
 /*
  * Initialize
@@ -17,16 +26,6 @@ void init_pair_hset(pair_hset_t *set, uint32_t n) {
   int_pair_t *tmp;
   uint32_t i;
 
-#ifndef NDEBUG
-  // check that n is a power of 2
-  uint32_t n2;
-  n2 = n;
-  while (n2 > 1) {
-    assert((n2 & 1) == 0);
-    n2 >>= 1;
-  }
-#endif
-
   if (n == 0) {
     n = PAIR_HSET_DEFAULT_SIZE;
   }
@@ -35,7 +34,8 @@ void init_pair_hset(pair_hset_t *set, uint32_t n) {
     out_of_memory();
   }
 
-  
+  assert(is_power_of_two(n));
+
   tmp = (int_pair_t *) safe_malloc(n * sizeof(int_pair_t));
   for (i=0; i<n; i++) {
     tmp[i].left = -1;

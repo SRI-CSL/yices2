@@ -6,6 +6,7 @@
 #include <inttypes.h>
 
 #include "hash_functions.h"
+#include "hash_functions_ori.h"
 #include "cputime.h"
 
 #ifdef MINGW
@@ -31,6 +32,24 @@ static char buffer[1000];
 static char **words;
 static uint32_t n_words;
 static uint32_t size_words;
+
+
+/*
+ * Simple hash for strings
+ */
+uint32_t hash_string(char *s) {
+  uint32_t h, x;
+
+  h = 0;
+  x = *s;
+  while (x != 0) {
+    h = 31 * h + x;
+    s ++;
+    x = *s;
+  }
+
+  return h;
+}
 
 
 static void histogram() {

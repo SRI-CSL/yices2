@@ -44,22 +44,21 @@
 mpq_t *bank_q = NULL;
 
 static int32_t bank_free = -1;
-static int32_t bank_capacity = 0;
-static int32_t bank_size = 0;
+static uint32_t bank_capacity = 0;
+static uint32_t bank_size = 0;
 
 
 /*
  * Maximal size. 
  */
-#define min(a, b) ((a) < (b) ? (a) : (b))
-#define MAX_BANK_SIZE min((uint64_t) INT32_MAX,  (uint64_t) (SIZE_MAX/sizeof(mpq_t)))
+#define MAX_BANK_SIZE (UINT32_MAX/sizeof(mpq_t))
 
 /*
  * Initialize bank for initial capacity n.
  * (n must be positive).
  */
-static void init_bank(int32_t n) {
-  int32_t i;
+static void init_bank(uint32_t n) {
+  uint32_t i;
 
   if (n >= MAX_BANK_SIZE) {
     out_of_memory();
@@ -81,12 +80,11 @@ static void init_bank(int32_t n) {
 /*
  * Increase bank capacity to n.
  */
-static void resize_bank(int32_t n) {
-  int32_t i, old_n;
+static void resize_bank(uint32_t n) {
+  uint32_t i, old_n;
 
   old_n = bank_capacity;
   if (n > old_n) {
-
     if (n >= MAX_BANK_SIZE) {
       out_of_memory();
     }
@@ -105,7 +103,7 @@ static void resize_bank(int32_t n) {
  * Free the bank
  */
 static void clear_bank() {
-  int32_t i, n;
+  uint32_t i, n;
 
   n = bank_capacity;
   for (i=0; i<n; i++) {
@@ -125,7 +123,7 @@ static inline int32_t free_list_next(int32_t i) {
 
 static inline void free_list_insert(int32_t i) {
   assert(0 <= i && i < bank_capacity);
-  assert(-1 <= bank_free && bank_free < bank_capacity); 
+  assert(-1 <= bank_free && bank_free < (int32_t) bank_capacity); 
   mpz_set_si(mpq_numref(bank_q[i]), bank_free);
   bank_free = i;
 }
@@ -146,7 +144,7 @@ static int32_t alloc_mpq() {
       resize_bank(2 * n);
     }
     bank_size = n + 1;
-    assert(-1 <= bank_free && bank_free < bank_capacity); 
+    assert(-1 <= bank_free && bank_free < (int32_t) bank_capacity); 
   }
   return n;
 }

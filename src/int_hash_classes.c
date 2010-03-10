@@ -17,7 +17,7 @@
  */
 #ifndef NDEBUG
 static bool is_power_of_two(uint32_t n) {
-  return (n & (- n)) == n;
+  return (n & (n - 1)) == 0;
 }
 #endif
 
@@ -38,11 +38,11 @@ void init_int_hclass(int_hclass_t *table, uint32_t n, void *aux, iclass_hash_fun
     n = DEF_ICLASS_SIZE;
   }
 
-  assert(is_power_of_two(n));
-
   if (n >= MAX_ICLASS_SIZE) {
     out_of_memory();
   }
+
+  assert(is_power_of_two(n));
 
   // Initialize: empty hash table of size n
   tmp = (int32_t *) safe_malloc(n * sizeof(int32_t));
