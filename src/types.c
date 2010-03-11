@@ -476,7 +476,7 @@ static type_t new_function_type(type_table_t *table, uint32_t n, type_t *e, type
     // or the range and all domains are finite but at least one 
     // of them is large.
     assert(flag == LARGE_TYPE_FLAGS || 
-	   (flag | CARD_FLAGS_MASK) == INFINITE_TYPE_FLAGS);
+	   (flag & CARD_FLAGS_MASK) == INFINITE_TYPE_FLAGS);
     card = UINT32_MAX;
     break;
   }

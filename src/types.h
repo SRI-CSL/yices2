@@ -182,7 +182,7 @@ typedef struct type_table_s {
  * Abbreviations for initializing the flags
  * - UNIT_TYPE: finite, card = 1, exact cardinality
  * - SMALL_TYPE: finite, non-unit, exact cardinality
- * - LARGE_TYPE: finite, non-unit, inexact card * 
+ * - LARGE_TYPE: finite, non-unit, inexact card
  * - INFINITE_TYPE
  *
  * All finite types are both minimal and maximal so
