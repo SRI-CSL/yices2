@@ -319,3 +319,28 @@ void stbl_add(stbl_t *sym_table, char *symbol, int32_t value) {
     stbl_extend(sym_table);
   }
 }
+
+
+
+/*
+ * Iterator: call f(aux, r) for every live record r in the table
+ * - aux is an arbitrary pointer, provided byt the caller
+ * - f must not have side effects (it must not add or remove anything 
+ *   from the symbol table, or modify the record r).
+ */
+void stbl_iterate(stbl_t *sym_table, void *aux, stbl_iterator_t f) {
+  stbl_bank_t *b;
+  stbl_rec_t *r;
+  uint32_t k;
+
+  k = sym_table->free_idx;
+  for (b = sym_table->bnk; b != NULL; b = b->next) {
+    for (r = b->block + k; r < b->block + STBL_BANK_SIZE; r++) {
+      if (r->string != NULL) {
+	// r is a live record
+	f(aux, r);
+      }
+    }
+    k = 0;
+  }
+}

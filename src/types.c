@@ -105,9 +105,6 @@ static type_t allocate_type_id(type_table_t *table) {
 }
 
 
-#if 0
-
-// NOT USED 
 /*
  * Erase type i: free its descriptor and add i to the free list
  */
@@ -140,7 +137,6 @@ static void erase_type(type_table_t *table, type_t i) {
   table->free_idx = i;
 }
 
-#endif
 
 
 
@@ -539,7 +535,26 @@ static uint32_t hash_function_type(function_type_hobj_t *p) {
 
 
 /*
- * Comparison functions
+ * Hash functions used during garbage collection.
+ * Make sure they are consistent with the ones above.
+ */
+static uint32_t hash_bvtype(int32_t size) {
+  return jenkins_hash_pair(size, 0, 0x7838abe2);  
+}
+
+static uint32_t hash_tupletype(tuple_type_t *p) {
+  return jenkins_hash_intarray_var(p->nelem, p->elem, 0x8193ea92);
+}
+
+static uint32_t hash_funtype(function_type_t *p) {
+  uint32_t h;
+  h = jenkins_hash_intarray_var(p->ndom, p->domain, 0x5ad7b72f);
+  return jenkins_hash_pair(p->range, 0, h);
+}
+
+
+/*
+ * Comparison functions for hash consing
  */
 static bool eq_bv_type(bv_type_hobj_t *p, type_t i) {
   type_table_t *table;
@@ -1206,3 +1221,164 @@ bool compatible_types(type_table_t *table, type_t tau1, type_t tau2) {
 
 
 
+/*
+ * GARBAGE COLLECTION
+ */
+
+/*
+ * Remove type i from the hash-consing table
+ */
+static void erase_hcons_type(type_table_t *table, type_t i) {
+  uint32_t k;
+
+  switch (table->kind[i]) {
+  case BITVECTOR_TYPE:
+    k = hash_bvtype(table->desc[i].integer);
+    break;
+
+  case TUPLE_TYPE:
+    k = hash_tupletype(table->desc[i].ptr);
+    break;
+
+  case FUNCTION_TYPE:
+    k = hash_funtype(table->desc[i].ptr);
+    break;
+
+  default: 
+    return;
+  }
+
+  int_htbl_erase_record(&table->htbl, k, i);
+}
+
+
+
+
+/*
+ * Mark all descendants of i whose id is less than ptr.
+ * - i must be a marked type (and not already deleted)
+ *
+ * NOTE: we use a recursive function to propagate the marks.
+ * That should be safe as there's little risk of stack overflow.
+ */
+static void mark_reachable_types(type_table_t *table, type_t ptr, type_t i);
+
+// mark i if it's not marked already then explore its children if i < ptr
+static void mark_and_explore(type_table_t *table, type_t ptr, type_t i) {
+  if (! type_is_marked(table, i)) {
+    type_table_set_gc_mark(table, i);
+    if (i < ptr) {
+      mark_reachable_types(table, ptr, i);
+    }
+  }
+}
+
+static void mark_reachable_types(type_table_t *table, type_t ptr, type_t i) {
+  tuple_type_t *tup;
+  function_type_t *fun;
+  uint32_t n, j;
+
+  assert(type_is_marked(table, i) &&  table->kind[i] != UNUSED_TYPE);
+
+  switch (table->kind[i]) {
+  case TUPLE_TYPE:
+    tup = table->desc[i].ptr;
+    n = tup->nelem;
+    for (j=0; j<n; j++) {
+      mark_and_explore(table, ptr, tup->elem[j]);
+    }
+    break;
+
+  case FUNCTION_TYPE:
+    fun = table->desc[i].ptr;
+    mark_and_explore(table, ptr, fun->range);
+    n = fun->ndom;
+    for (j=0; j<n; j++) {
+      mark_and_explore(table, ptr, fun->domain[j]);
+    }
+    break;
+
+  default:
+    break;
+  }
+}
+
+
+/*
+ * Propagate the marks:
+ * - on entry: all roots are marked
+ * - on exit: every type reachable from a root is marked
+ */
+static void mark_live_types(type_table_t *table) {
+  uint32_t i, n;
+
+  n = table->nelems;
+  for (i=0; i<n; i++) {
+    if (type_is_marked(table, i)) {
+      mark_reachable_types(table, i, i);
+    }
+  }
+}
+
+
+/*
+ * Iterator to mark types present in the symbol table
+ * - aux must be a pointer to the type table
+ * - r = live record in the symbol table so r->value
+ *   is the id of a type to preserve.
+ */
+static void mark_symbol(void *aux, stbl_rec_t *r) {
+  type_table_set_gc_mark(aux, r->value);
+}
+
+
+/*
+ * Keep-alive function for the sup/inf caches
+ * - record (k0, k1 --> x) is kept in the caches 
+ *   if k0, k1, and x haven't been deleted
+ * - aux is a pointer to the type table
+ */
+static bool keep_in_cache(void *aux, int_hmap2_rec_t *r) {
+  return good_type(aux, r->k0) && good_type(aux, r->k1) && 
+    good_type(aux, r->val);
+}
+
+/*
+ * Call the garbage collector:
+ * - delete every type not reachable from a root
+ * - cleanup the caches
+ * - then clear all the marks
+ */
+void type_table_gc(type_table_t *table)  {
+  uint32_t i, n;
+
+  // mark every type present in the symbol table
+  stbl_iterate(&table->stbl, table, mark_symbol);
+
+  // mark the three predefined types
+  type_table_set_gc_mark(table, bool_id);
+  type_table_set_gc_mark(table, int_id);
+  type_table_set_gc_mark(table, real_id);
+
+  // propagate the marks
+  mark_live_types(table);
+
+  // delete every unmarked type
+  n = table->nelems;
+  for (i=0; i<n; i++) {
+    if (! type_is_marked(table, i)) {
+      erase_hcons_type(table, i);
+      erase_type(table, i);
+    }
+    type_table_clr_gc_mark(table, i);
+  }
+
+  // cleanup the inf/sup caches if they exist
+  if (table->sup_tbl != NULL) {
+    int_hmap2_gc(table->sup_tbl, table, keep_in_cache);
+  }
+
+  if (table->inf_tbl != NULL) {
+    int_hmap2_gc(table->inf_tbl, table, keep_in_cache);
+  }
+}

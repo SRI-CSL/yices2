@@ -25,7 +25,6 @@
  * - added hash_maps to use as caches to make sure recursive
  *   functions such as is_subtype, super_type, and inf_type don't
  *   explode.
- * - removed the garbage collection/deletion code (to be added later).
  *
  * Limits are now imported from yices_limits.h:
  * - YICES_MAX_TYPES = maximal size of a type table
@@ -124,6 +123,8 @@ typedef union {
  *    bit 3 of flag[i] is 1 if i has no strict supertype 
  *    bit 4 of flag[i] is 1 if i has no strict subtype
  * 
+ *    bit 7 is used as a mark during garbage collection
+ * 
  * Other components:
  * - size = size of all arrays above
  * - nelems = number of elements in the array
@@ -168,9 +169,11 @@ typedef struct type_table_s {
 #define TYPE_IS_FINITE_MASK  ((uint8_t) 0x01)
 #define TYPE_IS_UNIT_MASK    ((uint8_t) 0x02)
 #define CARD_IS_EXACT_MASK   ((uint8_t) 0x04)
-
 #define TYPE_IS_MAXIMAL_MASK ((uint8_t) 0x08)
 #define TYPE_IS_MINIMAL_MASK ((uint8_t) 0x10)
+
+#define TYPE_GC_MARK         ((uint8_t) 0x80)
+
 
 // select the cardinality/finiteness bits
 #define CARD_FLAGS_MASK     ((uint8_t) 0x07)
@@ -178,15 +181,17 @@ typedef struct type_table_s {
 // select the max/min bits
 #define MINMAX_FLAGS_MASK   ((uint8_t) 0x1C)
 
+
 /*
- * Abbreviations for initializing the flags
+ * Abbreviations for valid flag combinations:
  * - UNIT_TYPE: finite, card = 1, exact cardinality
  * - SMALL_TYPE: finite, non-unit, exact cardinality
  * - LARGE_TYPE: finite, non-unit, inexact card
- * - INFINITE_TYPE
+ * - INFINITE_TYPE: infinite, non-unit, inexact card
  *
- * All finite types are both minimal and maximal so
- * we set bit 3 and 4 for them.
+ * All finite types are both minimal and maximal so we set bit 3 and 4
+ * for them. For infinite types, the minimal and maximal bits must be
+ * set independently. 
  */
 #define UNIT_TYPE_FLAGS     ((uint8_t) 0x1F)
 #define SMALL_TYPE_FLAGS    ((uint8_t) 0x15)
@@ -350,21 +355,6 @@ static inline type_kind_t type_kind(type_table_t *tbl, type_t i) {
   return tbl->kind[i];
 }
 
-static inline uint32_t type_card(type_table_t *tbl, type_t i) {
-  assert(valid_type(tbl, i));
-  return tbl->card[i];
-}
-
-static inline uint8_t type_flags(type_table_t *tbl, type_t i) {
-  assert(valid_type(tbl, i));
-  return tbl->flags[i];
-}
-
-static inline char *type_name(type_table_t *tbl, type_t i) {
-  assert(valid_type(tbl, i));
-  return tbl->name[i];
-}
-
 // check for deleted types
 static inline bool good_type(type_table_t *tbl, type_t i) {
   return valid_type(tbl, i) && (tbl->kind[i] != UNUSED_TYPE);
@@ -373,6 +363,24 @@ static inline bool good_type(type_table_t *tbl, type_t i) {
 static inline bool bad_type(type_table_t *tbl, type_t i) {
   return ! good_type(tbl, i);
 }
+
+
+// access card, flags, name of non-deleted type
+static inline uint32_t type_card(type_table_t *tbl, type_t i) {
+  assert(good_type(tbl, i));
+  return tbl->card[i];
+}
+
+static inline uint8_t type_flags(type_table_t *tbl, type_t i) {
+  assert(good_type(tbl, i));
+  return tbl->flags[i];
+}
+
+static inline char *type_name(type_table_t *tbl, type_t i) {
+  assert(good_type(tbl, i));
+  return tbl->name[i];
+}
+
 
 // check whether i is atomic (i.e., not a tuple or function type)
 static inline bool is_atomic_type(type_table_t *tbl, type_t i) {
@@ -594,6 +602,59 @@ extern bool is_subtype(type_table_t *table, type_t tau1, type_t tau2);
  */
 extern bool compatible_types(type_table_t *table, type_t tau1, type_t tau2);
 
+
+
+
+
+/*
+ * GARBAGE COLLECTION
+ */
+
+/*
+ * We use a simple mark-and-sweep mechanism:
+ * - Nothing gets deleted until an explicit call the type_table_gc.
+ * - type_table_gc marks every type that's reachable from a set of 
+ *   root types then deletes every type that's not marked.
+ * The root types include:
+ * - the three predefined types: bool, int, and real
+ * - every type that's present in the symbol table
+ * - all types that are explicitly marked as roots (using call to set_gc_mark).
+ * At the end of type_table_gc, all marks are cleared.
+ */
+
+/*
+ * Mark i as a root type (i.e., make sure it's not deleted by the next
+ * call to type_table_gc).
+ * - i must be a good type (not already deleted)
+ */
+static inline void type_table_set_gc_mark(type_table_t *tbl, type_t i) {
+  assert(good_type(tbl, i));
+  tbl->flags[i] |= TYPE_GC_MARK;
+}
+
+/*
+ * Clear mark on type i
+ */
+static inline void type_table_clr_gc_mark(type_table_t *tbl, type_t i) {
+  assert(valid_type(tbl, i));
+  tbl->flags[i] &= ~TYPE_GC_MARK;
+}
+
+/*
+ * Test whether i is marked
+ */
+static inline bool type_is_marked(type_table_t *tbl, type_t i) {
+  assert(valid_type(tbl, i));
+  return tbl->flags[i] & TYPE_GC_MARK;
+}
+
+
+/*
+ * Call the garbage collector:
+ * - delete every type not reachable from a root 
+ * - then clear all marks
+ */
+extern void type_table_gc(type_table_t *tbl);
 
 
 
