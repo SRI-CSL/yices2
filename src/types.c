@@ -308,7 +308,7 @@ static type_t new_bitvector_type(type_table_t *table, uint32_t k) {
   table->kind[i] = BITVECTOR_TYPE;
   table->desc[i].integer = k;
   if (k < 32) {
-    table->card[i] = ((uint32_t) 1) << (k - 1);
+    table->card[i] = ((uint32_t) 1) << k;
     table->flags[i] = SMALL_TYPE_FLAGS;
   } else {
     table->card[i] = UINT32_MAX;
@@ -333,7 +333,11 @@ type_t new_scalar_type(type_table_t *table, uint32_t k) {
   table->kind[i] = SCALAR_TYPE;
   table->desc[i].integer = k;
   table->card[i] = k;
-  table->flags[i] = SMALL_TYPE_FLAGS;
+  if (k == 1) {
+    table->flags[i] = UNIT_TYPE_FLAGS;
+  } else {
+    table->flags[i] = SMALL_TYPE_FLAGS;
+  }
 
   return i;
 }

@@ -194,7 +194,7 @@ typedef struct type_table_s {
  * set independently. 
  */
 #define UNIT_TYPE_FLAGS     ((uint8_t) 0x1F)
-#define SMALL_TYPE_FLAGS    ((uint8_t) 0x15)
+#define SMALL_TYPE_FLAGS    ((uint8_t) 0x1D)
 #define LARGE_TYPE_FLAGS    ((uint8_t) 0x19)
 #define INFINITE_TYPE_FLAGS ((uint8_t) 0x00)
 

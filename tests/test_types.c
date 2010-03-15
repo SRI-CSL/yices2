@@ -4,6 +4,7 @@
 #include <inttypes.h>
 
 #include "types.h"
+#include "type_printer.h"
 #include "memalloc.h"
 #include "refcount_strings.h"
 
@@ -146,222 +147,208 @@ static void print_symbol_table(FILE *f, stbl_t *table, uint32_t level) {
 
 
 
-/*
- * Print type i
- */
-static void print_type_aux(FILE *f, type_table_t *table, type_t i, uint32_t level) {
-  int32_t k;
-  switch (type_kind(table, i)) {
-  case UNUSED_TYPE:
-    fprintf(f, "deleted");
-    break;
-  case BOOL_TYPE:
-    fprintf(f, "bool");
-    break;
-  case INT_TYPE:
-    fprintf(f, "int");
-    break;
-  case REAL_TYPE:
-    fprintf(f, "real");
-    break;
-  case BITVECTOR_TYPE:
-    fprintf(f, "(bitvector %"PRId32")", bv_type_size(table, i));
-    break;
-  case SCALAR_TYPE:
-    fprintf(f, "(scalar %"PRId32" %s)", scalar_type_cardinal(table, i), type_name(table, i));
-    break;
-  case UNINTERPRETED_TYPE:
-    fprintf(f, "(uninterpreted %s)", type_name(table, i));
-    break;
-  case TUPLE_TYPE:
-    fprintf(f, "(tuple-type");
-    for (k=0; k<tuple_type_arity(table, i); k++) {
-      fprintf(f, " %"PRId32, tuple_type_component(table, i, k));
-    }
-    fprintf(f, ")");
-    break;
-  case FUNCTION_TYPE:
-    fprintf(f, "(fun-type:");
-    for (k=0; k<function_type_arity(table, i); k++) {
-      fprintf(f, " %"PRId32, function_type_domain(table, i, k));
-    }
-    fprintf(f, " -> %"PRId32")", function_type_range(table, i));
-    break;
-  default:
-    fprintf(f, "(unknown kind %u)", type_kind(table, i));
-    break;
-  }
-
-  if (level >= 1) {
-    fprintf(f, ", card = %"PRIu32", flags = 0x%02x, ", 
-	    type_card(table, i), (unsigned)type_flags(table, i));
-    if (type_name(table, i) != NULL) {
-      fprintf(f, "name = %s", type_name(table, i));
-    } else {
-      fprintf(f, "anonymous");
-    }
-  }
-}
-
-static void print_type_table(FILE *f, type_table_t *table, uint32_t level) {
-  uint32_t i;
-  int32_t k, l;
-
-  fprintf(f, "type table %p\n", table);
-  fprintf(f, "  size = %"PRIu32"\n", table->size);
-  fprintf(f, "  nelems = %"PRIu32"\n", table->nelems);
-  for (i=0; i<table->nelems; i++) {
-    fprintf(f, "  type %"PRId32": ", i);
-    print_type_aux(f, table, i, level);
-    fprintf(f, "\n");
-  }
-
-  if (level >= 1) {
-    k = table->free_idx;
-    if (k < 0) {
-      fprintf(f, "  free list: empty\n");
-    } else {
-      fprintf(f, "  free list:");
-      l = 8;
-      do {
-	l --;
-	if (l == 0) {
-	  l = 8;
-	  fprintf(f, "\n      ");
-	}
-	fprintf(f, " %"PRId32, k);
-	k = table->desc[k].integer;
-      } while (k >= 0);
-      fprintf(f, "\n");
-    }
-  }
-}
-
-
-
 
 
 int main() {
-  type_t bv10, bv32, i, any, enumtype, ft, tt;
+  type_t bv10, bv32, i, any, enumtype, ft, unit, tt;
+  type_t unit2, unit_pair, finite_pair, finite_fun, unit_fun;
 
+  printf("*** Initial table ***\n");
   init_type_table(&table, 0);
+  print_type_table(stdout, &table);
+  printf("\n");
 
-  set_type_name(&table, real_type(&table), clone_string("real"));
+  printf("*** Naming real ***\n");
+  set_type_name(&table, real_type(&table), clone_string("R"));
+  print_type_table(stdout, &table);
+  printf("\n");
 
-  print_type_table(stdout, &table, 10);
+  printf("*** Creating bv10 ***\n");
   bv10 = bv_type(&table, 10);
-  print_type_table(stdout, &table, 10);
+  print_type_table(stdout, &table);
+  printf("\n");
+
   i = bv_type(&table, 10);
-  print_type_table(stdout, &table, 10);
-  printf("\n---> bv10: %"PRId32", i: %"PRId32"\n\n", bv10, i);
+  printf("---> bv10: %"PRId32", i: %"PRId32"\n\n", bv10, i);
+  assert(i == bv10);
+
+  printf("*** Creating bv32 ***\n");
   bv32 = bv_type(&table, 32);
   set_type_name(&table, bv32, clone_string("bv32"));
   set_type_name(&table, bv32, clone_string("int32"));
-  print_type_table(stdout, &table, 10);
+  print_type_table(stdout, &table);
+  printf("\n");
   i = bv_type(&table, 32);
-  print_type_table(stdout, &table, 10);
-  printf("\n---> bv32: %"PRId32", i: %"PRId32"\n\n", bv32, i);
+  printf("---> bv32: %"PRId32", i: %"PRId32"\n\n", bv32, i);
+  assert(i == bv32);
 
+  printf("*** Creating any (uninterpreted) ***\n");
   any = new_uninterpreted_type(&table);
   set_type_name(&table, any, clone_string("any"));
-  print_type_table(stdout, &table, 10);
-  printf("\n---> any: %"PRId32"\n\n", any);
+  print_type_table(stdout, &table);
+  printf("\n");
+  printf("---> any: %"PRId32"\n\n", any);
 
+  printf("*** Creating enum (scalar 5) ***\n");
   enumtype = new_scalar_type(&table, 5);
   set_type_name(&table, enumtype, clone_string("enum"));
-  print_type_table(stdout, &table, 10);
-  printf("\n---> enumtype: %"PRId32"\n\n", enumtype);
+  print_type_table(stdout, &table);
+  printf("\n");
+  printf("---> enum: %"PRId32"\n\n", enumtype);
 
+  printf("*** Creating ftype ***\n");
   ft = binary_function_type(&table, real_type(&table), enumtype, any);
   set_type_name(&table, ft, clone_string("ftype"));
   i = binary_function_type(&table, real_type(&table), enumtype, any);
-  print_type_table(stdout, &table, 10);
-  printf("\n---> ft: %"PRId32", i: %"PRId32"\n\n", ft, i);
+  print_type_table(stdout, &table);
+  printf("\n");
+  printf("---> ft: %"PRId32", i: %"PRId32"\n\n", ft, i);
+  assert(i == ft);
+
+  printf("*** Creating unit (scalar 1) ***\n");
+  unit = new_scalar_type(&table, 1);
+  set_type_name(&table, unit, clone_string("unit"));
+  print_type_table(stdout, &table);
+  printf("\n");
   
+  printf("*** Creating unit2 (scalar 1) ***\n");
+  unit2 = new_scalar_type(&table, 1);
+  print_type_table(stdout, &table);
+  printf("\n");
+
+  printf("*** Creating unit pair ***\n");
+  unit_pair = tuple_type_pair(&table, unit, unit2);
+  print_type_table(stdout, &table);
+  printf("\n");
+
+  printf("*** Creating finite pair ***\n");
+  finite_pair = tuple_type_pair(&table, bool_type(&table), enumtype);
+  print_type_table(stdout, &table);
+  printf("\n");
+
+  printf("*** Creating finite function ***\n");
+  finite_fun = binary_function_type(&table, bool_type(&table), bool_type(&table), enumtype);
+  print_type_table(stdout, &table);
+  printf("\n");
+
+  printf("*** Creating unit function ***\n");
+  unit_fun = binary_function_type(&table, unit, int_type(&table), int_type(&table));
+  print_type_table(stdout, &table);
+  printf("\n");
+ 
+  printf("*** Testing get_by_name ***\n");
   i = get_type_by_name(&table, "real");
-  printf("\n---> type-by-name real: %"PRId32"\n", i);
+  printf("---> type-by-name real: %"PRId32"\n", i);
+  assert(i == NULL_TERM);
+  i = get_type_by_name(&table, "R");
+  printf("---> type-by-name R: %"PRId32"\n", i);
+  assert(i == real_id);
   i = get_type_by_name(&table, "enum");
   printf("---> type-by-name enum: %"PRId32"\n", i);
+  assert(i == enumtype);
   i = get_type_by_name(&table, "any");
   printf("---> type-by-name any: %"PRId32"\n", i);
+  assert(i == any);
   i = get_type_by_name(&table, "bv32");
   printf("---> type-by-name bv32: %"PRId32"\n", i);
+  assert(i == bv32);
   i = get_type_by_name(&table, "int32");
   printf("---> type-by-name int32: %"PRId32"\n", i);
+  assert(i == bv32);
   i = get_type_by_name(&table, "ftype");
   printf("---> type-by-name ftype: %"PRId32"\n", i);
+  assert(i == ft);
   i = get_type_by_name(&table, "bvxxx2");
   printf("---> type-by-name bvxxx2: %"PRId32"\n", i);
+  assert(i == NULL_TYPE);
+  printf("\n\n");
 
-  //  printf("\n--- Garbage Collection ---\n");
-  //  type_table_garbage_collection(&table);
-  //  print_type_table(stdout, &table, 10);
+  printf("*** Garbage Collection ***\n");
+  type_table_gc(&table);
+  print_type_table(stdout, &table);
+  printf("\n");
 
-  printf("\n--- removing bv32 and int32 ---\n");
+  printf("*** removing bv32 and int32 ***\n");
   remove_type_name(&table, "bv32");
   i = get_type_by_name(&table, "bv32");
   printf("---> type-by-name bv32: %"PRId32"\n", i);
+  assert(i == NULL_TYPE);
   remove_type_name(&table, "int32");
   i = get_type_by_name(&table, "int32");
   printf("---> type-by-name int32: %"PRId32"\n", i);
   remove_type_name(&table, "int32");
   i = get_type_by_name(&table, "int32");
-  printf("---> type-by-name int32: %"PRId32"\n", i);
-  print_type_table(stdout, &table, 10);
+  printf("---> type-by-name int32: %"PRId32"\n\n", i);
+  assert(i == NULL_TYPE);
+  print_type_table(stdout, &table);
+  printf("\n");
 
-  //  printf("\n--- Garbage Collection ---\n");
-  //  type_table_garbage_collection(&table);
-  //  print_type_table(stdout, &table, 10);
+  printf("*** Garbage Collection ***\n");
+  type_table_gc(&table);
+  print_type_table(stdout, &table);
+  printf("\n");
 
+  printf("*** Creating pair type ***\n");
   tt = tuple_type_pair(&table, any, enumtype);
   i = tuple_type_pair(&table, any, enumtype);
-  printf("\n---> tt: %"PRId32", i: %"PRId32"\n\n", tt, i);
-  print_type_table(stdout, &table, 10);
+  printf("---> tt: %"PRId32", i: %"PRId32"\n\n", tt, i);
+  assert(i == tt);
+  print_type_table(stdout, &table);
+  printf("\n");
 
+  printf("*** Creating triplets ***\n");
   tt = tuple_type_triple(&table, any, int_type(&table), tt);
   i = tuple_type_triple(&table, bv_type(&table, 24), int_type(&table), tt);
-  printf("\n---> tt: %"PRId32", i: %"PRId32"\n\n", tt, i);
-  print_type_table(stdout, &table, 10);
+  printf("---> tt: %"PRId32", i: %"PRId32"\n\n", tt, i);
+  print_type_table(stdout, &table);
+  printf("\n");
 
   // Check hash consing
   i = tuple_type_triple(&table, bv_type(&table, 24), int_type(&table),
 			tuple_type_triple(&table, any, int_type(&table), 
 					  tuple_type_pair(&table, any, enumtype)));
   printf("\n---> (tuple (bv 24) int (tuple any int (tuple any enum))): %"PRId32"\n\n", i);
-  print_type_table(stdout, &table, 10);
-  
+  print_type_table(stdout, &table);
+  printf("\n");
 
-  // keep tt/delete i
-  //  set_root_type_flag(&table, tt);
-  //  printf("\n--- Garbage Collection ---\n");
-  //  type_table_garbage_collection(&table);
-  //  print_type_table(stdout, &table, 10);
+  // keep tt (triplet)
+  // delete pair and i
+  type_table_set_gc_mark(&table, tt);
+  printf("*** Garbage Collection (marked tau!%"PRId32") ***\n", tt);
+  type_table_gc(&table);
+  print_type_table(stdout, &table);
+  printf("\n");
+
   delete_type_table(&table);
 
 
   printf("\n*** New Table ***\n");
   init_type_table(&table, 20);
-  print_type_table(stdout, &table, 10);
+  print_type_table(stdout, &table);
+  printf("\n");
+
+  printf("*** Creating bv10 and bv32 ***\n");
   bv10 = bv_type(&table, 10);
-  print_type_table(stdout, &table, 10);
   i = bv_type(&table, 10);
-  print_type_table(stdout, &table, 10);
-  printf("\n---> bv10: %"PRId32", i: %"PRId32"\n", bv10, i);
+  printf("---> bv10: %"PRId32", i: %"PRId32"\n", bv10, i);
+  assert(i == bv10);
   bv32 = bv_type(&table, 32);
   set_type_name(&table, bv32, clone_string("bv32"));
   set_type_name(&table, bv32, clone_string("int32"));
-  print_type_table(stdout, &table, 10);
   i = bv_type(&table, 32);
-  print_type_table(stdout, &table, 10);
-  printf("\n---> bv32: %"PRId32", i: %"PRId32"\n\n", bv32, i);
+  printf("---> bv32: %"PRId32", i: %"PRId32"\n\n", bv32, i);
+  print_type_table(stdout, &table);
+  printf("\n");
 
+  printf("*** Creating any (uninterpreted) ***\n");
   any = new_uninterpreted_type(&table);
   set_type_name(&table, any, clone_string("any"));
-  print_type_table(stdout, &table, 10);
-  printf("\n---> any: %"PRId32"\n\n", any);
+  printf("---> any: %"PRId32"\n\n", any);
+  print_type_table(stdout, &table);
+  printf("\n");
 
   printf("\n*** END ***\n");
-  print_type_table(stdout, &table, 10);
+  print_type_table(stdout, &table);
   printf("\n");
   print_symbol_table(stdout, &table.stbl, 10);
   printf("\n");
