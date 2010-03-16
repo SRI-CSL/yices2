@@ -1,18 +1,17 @@
 #include <stdio.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <inttypes.h>
+#include <assert.h>
 
 #include "types.h"
 #include "type_printer.h"
-#include "memalloc.h"
 #include "refcount_strings.h"
 
 
 /*
  * Short cuts
  */
-static type_t binary_function_type(type_table_t *tbl, type_t range, type_t dom1, type_t dom2) {
+static type_t binary_function_type(type_table_t *tbl, type_t dom1, type_t dom2, type_t range) {
   type_t a[2];
 
   a[0] = dom1;
@@ -20,7 +19,7 @@ static type_t binary_function_type(type_table_t *tbl, type_t range, type_t dom1,
   return function_type(tbl, range, 2, a);
 }
 
-extern type_t tuple_type_pair(type_table_t *tbl, type_t t1, type_t t2) {
+static type_t tuple_type_pair(type_table_t *tbl, type_t t1, type_t t2) {
   type_t a[2];
 
   a[0] = t1;
@@ -28,7 +27,7 @@ extern type_t tuple_type_pair(type_table_t *tbl, type_t t1, type_t t2) {
   return tuple_type(tbl, 2, a);
 }
 
-extern type_t tuple_type_triple(type_table_t *tbl, type_t t1, type_t t2, type_t t3) {
+static type_t tuple_type_triple(type_table_t *tbl, type_t t1, type_t t2, type_t t3) {
   type_t a[3];
 
   a[0] = t1;
@@ -151,7 +150,7 @@ static void print_symbol_table(FILE *f, stbl_t *table, uint32_t level) {
 
 int main() {
   type_t bv10, bv32, i, any, enumtype, ft, unit, tt;
-  type_t unit2, unit_pair, finite_pair, finite_fun, unit_fun;
+  type_t unit2, unit_pair, finite_pair, finite_fun, unit_fun, finite_fun2;
 
   printf("*** Initial table ***\n");
   init_type_table(&table, 0);
@@ -197,9 +196,9 @@ int main() {
   printf("---> enum: %"PRId32"\n\n", enumtype);
 
   printf("*** Creating ftype ***\n");
-  ft = binary_function_type(&table, real_type(&table), enumtype, any);
+  ft = binary_function_type(&table, enumtype, any, real_type(&table));
   set_type_name(&table, ft, clone_string("ftype"));
-  i = binary_function_type(&table, real_type(&table), enumtype, any);
+  i = binary_function_type(&table, enumtype, any, real_type(&table));
   print_type_table(stdout, &table);
   printf("\n");
   printf("---> ft: %"PRId32", i: %"PRId32"\n\n", ft, i);
@@ -227,14 +226,20 @@ int main() {
   printf("\n");
 
   printf("*** Creating finite function ***\n");
-  finite_fun = binary_function_type(&table, bool_type(&table), bool_type(&table), enumtype);
+  finite_fun = binary_function_type(&table, bool_type(&table), enumtype, bool_type(&table));
   print_type_table(stdout, &table);
   printf("\n");
 
   printf("*** Creating unit function ***\n");
-  unit_fun = binary_function_type(&table, unit, int_type(&table), int_type(&table));
+  unit_fun = binary_function_type(&table, int_type(&table), int_type(&table), unit);
   print_type_table(stdout, &table);
   printf("\n");
+
+  printf("*** Creating large finite function ***\n");
+  finite_fun2 = binary_function_type(&table, finite_fun, bool_type(&table), enumtype);
+  print_type_table(stdout, &table);
+  printf("\n");
+
  
   printf("*** Testing get_by_name ***\n");
   i = get_type_by_name(&table, "real");
@@ -311,8 +316,14 @@ int main() {
   print_type_table(stdout, &table);
   printf("\n");
 
-  // keep tt (triplet)
-  // delete pair and i
+  // mark last type i:
+  type_table_set_gc_mark(&table, i);
+  printf("*** Garbage Collection (marked tau!%"PRId32") ***\n", i);
+  type_table_gc(&table);
+  print_type_table(stdout, &table);
+  printf("\n");
+
+  // mark tt
   type_table_set_gc_mark(&table, tt);
   printf("*** Garbage Collection (marked tau!%"PRId32") ***\n", tt);
   type_table_gc(&table);

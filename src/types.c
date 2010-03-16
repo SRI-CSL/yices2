@@ -239,7 +239,8 @@ static uint64_t fun_type_card(type_table_t *table, uint32_t n, type_t *e, type_t
   if (dom >= 32) {
     // since the range has size 2 or more
     // power = range^dom does not fit in 32bits
-    power = UINT32_MAX+1;
+    power = UINT32_MAX;
+    power ++;
   } else {
     // compute power = range^dom
     // since dom is small we do this the easy way

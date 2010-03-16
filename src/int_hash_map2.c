@@ -255,7 +255,7 @@ void int_hmap2_add(int_hmap2_t *hmap, int32_t k0, int32_t k1, int32_t val) {
   mask = hmap->size - 1;
   i = hash_pair(k0, k1) & mask;
   while (hmap->data[i].k0 >= 0) {
-    assert(hmap->data[i].k0 != k0 && hmap->data[i].k1 != k1);
+    assert(hmap->data[i].k0 != k0 || hmap->data[i].k1 != k1);
     i ++;
     i &= mask;
   }

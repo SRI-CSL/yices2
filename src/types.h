@@ -179,7 +179,7 @@ typedef struct type_table_s {
 #define CARD_FLAGS_MASK     ((uint8_t) 0x07)
 
 // select the max/min bits
-#define MINMAX_FLAGS_MASK   ((uint8_t) 0x1C)
+#define MINMAX_FLAGS_MASK   ((uint8_t) 0x18)
 
 
 /*

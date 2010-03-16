@@ -4,6 +4,7 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include <string.h>
 #include <inttypes.h>
 
 #include "type_printer.h"
@@ -139,30 +140,88 @@ static void print_type_flags(FILE *f, uint8_t flags) {
 }
 
 
+
+/*
+ * Maximal length of all names in tbl
+ * - return 0 if no type has a name
+ */
+static uint32_t max_name_length(type_table_t *tbl) {
+  char *name;
+  uint32_t max, l, n, i;
+
+  max = 0;
+  n = tbl->nelems;
+  for (i=0; i<n; i++) {
+    if (type_kind(tbl, i) != UNUSED_TYPE) {
+      name = tbl->name[i];
+      if (name != NULL) {
+	l = strlen(name);
+	if (l > max) {
+	  max = l;
+	}
+      }
+    }
+  }
+
+  return max;
+}
+
+/*
+ * Print n blanks
+ */
+static void print_spaces(FILE *f, uint32_t n) {
+  while (n > 0) {
+    fputc(' ', f);
+    n --;
+  }
+}
+
+
+/*
+ * Print string s, and add enough spaces to get to length l.
+ * - if s is too long, print s and add one space
+ */
+static void print_padded_string(FILE *f, char *s, uint32_t l) {
+  if (s == NULL) {
+    print_spaces(f, l);
+  } else if (l >= strlen(s)) {
+    while (*s != '\0') {
+      fputc(*s, f);
+      s ++;
+      l --;
+    }
+    print_spaces(f, l);
+  } else {
+    fprintf(f, "%s ", s);
+  }
+}
+
+
 /*
  * Print the full type table
  */
 void print_type_table(FILE *f, type_table_t *tbl) {
-  char *name;
   uint32_t i, n, j, m;
+  uint32_t name_size;
+
+  name_size = max_name_length(tbl) + 2;
+  if (name_size < 4) {
+    name_size = 4;
+  } else if (name_size > 20) {
+    name_size = 20;
+  }
 
   n = tbl->nelems;
   for (i=0; i<n; i++) {
     if (type_kind(tbl, i) != UNUSED_TYPE) {
-      // flags + card
-      fputc(' ', f);
+      // id, flags, card
+      fprintf(f, "%4"PRIu32" ", i);
       print_type_flags(f, type_flags(tbl, i));
       fprintf(f, " %10"PRIu32"   ", type_card(tbl, i));
 
-      // name
-      name = type_name(tbl, i);
-      if (name != NULL) {
-	fputs(name, f);
-      } else {
-	fprintf(f, "tau!%"PRIu32, i);
-      }
-      fputs(" := ", f);
-      
+      // name + one space
+      print_padded_string(f, type_name(tbl, i), name_size);
+
       // definition      
       switch (type_kind(tbl, i)) {
       case BOOL_TYPE:
@@ -175,10 +234,10 @@ void print_type_table(FILE *f, type_table_t *tbl) {
 	fprintf(f, "(bitvector %"PRIu32")\n", bv_type_size(tbl, i));
 	break;
       case SCALAR_TYPE:
-	fprintf(f, "enum: card = %"PRIu32"\n", scalar_type_cardinal(tbl, i));
+	fprintf(f, "(enum, card = %"PRIu32")\n", scalar_type_cardinal(tbl, i));
 	break;
       case UNINTERPRETED_TYPE:
-	fputs("uninterpreted\n", f);
+	fputs("(uninterpreted)\n", f);
 	break;
       case TUPLE_TYPE:
 	fputs("(tuple", f);
