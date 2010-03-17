@@ -54,7 +54,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-
+#include <assert.h>
 
 /*
  * Four token types (can be stored in two bits b1 b0)
@@ -123,9 +123,9 @@ typedef struct pp_token_s {
  * - get_label(ptr, tk) should return a string of length equal to tk->label_size
  * - get_string(ptr, tk) should return a string of length equal to tk->size
  */
-typedef (char *) (*get_label_fun_t)(void *ptr, pp_token_t *tk);
-typedef (char *) (*get_string_fun_t)(void *ptr, pp_token_t *tk);
-typedef (char *) (*get_truncated_fun_t)(void *ptr, pp_token_t *tk, uint32_t n);
+typedef char *(*get_label_fun_t)(void *ptr, pp_token_t *tk);
+typedef char *(*get_string_fun_t)(void *ptr, pp_token_t *tk);
+typedef char *(*get_truncated_fun_t)(void *ptr, pp_token_t *tk, uint32_t n);
 
 
 
@@ -138,7 +138,7 @@ typedef struct pp_token_converter_s {
   get_label_fun_t get_label;
   get_string_fun_t get_string;
   get_truncated_fun_t get_truncated;
-}
+} pp_token_converter_t;
 
 
 
