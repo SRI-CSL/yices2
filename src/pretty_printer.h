@@ -467,7 +467,7 @@ typedef struct pp_printer_s {
  *    truncate enabled
  *    strech disable
  */
-extern void init_pp_printer(pp_printer_t *pp, pp_converter_t *converter, FILE *file);
+extern void init_pp_printer(pp_printer_t *pp, pp_token_converter_t *converter, FILE *file);
 
 
 /*
