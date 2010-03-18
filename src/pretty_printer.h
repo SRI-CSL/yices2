@@ -337,13 +337,6 @@ static inline bool tk_has_tmode(pp_token_t *tk) {
  * - reserved_colums = space required for the closing parentheses 
  *   at the end of the last_line.
  *
- * We maintain the invariants:
- *   0 <= line <= last_line < height
- *   0 <= reserved_columns < width
- *   close_pars = width * (heigh - last_line - 1) + reserved_columns
- *   indent <= col < width
- *   line = last_line => col < width - reserved_columns
- *
  * Options for dealing with text that can't fit in the display area:
  * - strict (default):
  *   if an atomic token doesn't fit on the current line: truncate it
@@ -361,6 +354,19 @@ static inline bool tk_has_tmode(pp_token_t *tk) {
  * We store these options via two flags:
  * - truncate: truncate atomic tokens that don't fit
  * - stretch: strectch the current line beyond the width
+ *
+ * Invariants:
+ *   0 <= line <= last_line < height
+ *   0 <= reserved_columns < width
+ *   close_pars = width * (heigh - last_line - 1) + reserved_columns
+ * 
+ * More invariants in strict mode:
+ *   indent <= col <= width
+ *   line = last_line => col <= width - reserved columns
+ *
+ * In stretch mode:
+ *   indent <= col <= indent + with
+ *   line = last_line => col <= with + indent - reserved_columns
  */
 
 /*
@@ -452,9 +458,12 @@ typedef struct pp_printer_s {
   uint32_t closing_pars;
 
   /*
-   * Overfull: set when the current line is full
+   * Overfull counter: 
+   * - if it's positive, the current line is full
+   * - it's incremented on every open block
+   * - it's decremented on every close block
    */
-  bool overfull;
+  uint32_t overfull;
 
   /*
    * Special case for truncation:

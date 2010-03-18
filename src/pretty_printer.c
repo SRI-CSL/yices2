@@ -244,7 +244,7 @@ void init_pp_printer(pp_printer_t *pp, pp_token_converter_t *converter, FILE *fi
   init_pp_printer_stack(&pp->stack);
   pp->options = PP_TRUNCATE_OPTION;
   pp->closing_pars = 0;
-  pp->overfull = false;
+  pp->overfull = 0;
   pp->pending_token = NULL;
   pp->converter = *converter;
   pp->stream = file;
@@ -364,4 +364,6 @@ static inline void pp_close_par(pp_printer_t *pp) {
 static inline void pp_ellipsis(pp_printer_t *pp) {
   pp_string(pp, "...", 3);
 }
+
+
 
