@@ -69,7 +69,7 @@
 /*
  * Four token types (can be stored in two bits b1 b0)
  * - we must make sure b1 = 0 for ATOMIC/CLOSE
- *   and b1 = 1 for both OPEN types
+ *   and b1 = 1 for both the two OPEN types
  */
 typedef enum { 
   PP_ATOMIC,
@@ -113,7 +113,7 @@ typedef struct pp_token_s {
   uint32_t header;
   int32_t size;
   uint16_t label_size;
-  uint32_t indent;
+  uint16_t indent;
   int32_t user_tag;
 } pp_token_t;
 
@@ -160,7 +160,7 @@ typedef struct pp_token_converter_s {
  * Header fields:
  * - two low-order bits contain the token type
  * - one bit encodes whether this is the last atomic token
- *   or last block in the enclosing block.
+ *   or last block in the enclosing block (NOT USED?)
  * - one bit per format mode
  *
  * When an open token is created, the format bits of a open token
@@ -213,9 +213,38 @@ typedef struct pp_token_converter_s {
 static inline uint32_t tk_header(uint32_t type, uint32_t lbit, uint32_t formats) {
   assert((type & ~PP_TOKEN_TYPE_MASK) == 0 &&
 	 (lbit & ~PP_TOKEN_LBIT_MASK) == 0 &&
-	 (formats & ~PP_TMODE_MASK) == 0);
-  return type|lbit|formats;
+	 (formats & ~PP_TOKEN_FORMAT_MASK) == 0);
+  return type | lbit | formats;
 }
+
+
+/*
+ * Make tk an atomic token of the given size
+ * - size must be positive.
+ */
+extern void pp_set_atomic_token(pp_token_t *tk, int32_t size, int32_t tag);
+
+/*
+ * Make tk an open-label token:
+ * - formats encodes the set of allowed formats for the block that starts with tk
+ *   (must be a bitwise or of the four PP_..MODE_MASKs, with at least one bit set).
+ * - label_size must be positive
+ */
+extern void pp_set_open_labeled_token(pp_token_t *tk, uint32_t formats, 
+				      uint16_t label_size, uint16_t indent, int32_t tag);
+
+/*
+ * Make tk an open-unlabeled token 
+ * - formats is as for open_labeled_token.
+ */
+extern void pp_set_open_unlabeled_token(pp_token_t *tk, uint32_t formats, 
+					uint16_t indent, int32_t tag);
+
+/*
+ * Make tk a close token
+ */
+extern void pp_set_close_token(pp_token_t *tk);
+
 
 
 /*
@@ -280,13 +309,13 @@ static inline bool tk_has_tmode(pp_token_t *tk) {
  * its width, height, and offset as follows:
  * 
  *                  <----------- width ------------->
- *                   _______________________________   
- * <---- offset --->|                               |   |
+ *                   _______________________________ 
+ * <---- offset --->|                               |   ^
  *                  |                               |   |
  *                  |                               | Height
  *                  |                               |   |
- *                  |                               |   |
- *                   -------------------------------
+ *                  |                               |   v
+ *                   ------------------------------- 
  *
  * The printer keeps track of the current cursor location
  * inside the rectangle using its coordinate:
@@ -320,10 +349,10 @@ static inline bool tk_has_tmode(pp_token_t *tk) {
  *   if an atomic token doesn't fit on the current line: truncate it
  *   if a block doesn't fit: replace it by '...' (and don't print anything
  *   more until we exit from the enclosing block).
- * - relax:
+ * - relaxed:
  *   allow atomic token to extend beyoind the right of the rectangle (never
  *   truncate them)
- *   blocks that don't fit are treated as in stric mode (print '...' etc.)
+ *   blocks that don't fit are treated as in strict mode (print '...' etc.)
  * - stretch:
  *   In this mode, the current line is always of size 'width' no matter
  *   the indentation level (both atomic tokens and non-atomic blocks may 
@@ -335,15 +364,38 @@ static inline bool tk_has_tmode(pp_token_t *tk) {
  */
 
 /*
- * the mode word contains the format_mode (in its low-order bits)
- * then a single bit to specify whether a separator is required
+ * The mode word contains the layout mode (in its low-order bits)
+ * + a single bit to specify whether a separator is required
  */
 typedef struct pp_print_mode_s {
   uint32_t mode;
   uint32_t indent;
 } pp_print_mode_t;
 
+// bitmasks to extract layout mode and separator bit from mode
+#define PP_STACK_MODE_FORMAT_MASK ((uint32_t) 3) // 2 low-order bits
+#define PP_STACK_MODE_SEP_MASK    ((uint32_t) 4) // select bit 2
 
+// bitmasks to set/clr the separator bit
+#define PP_STACK_SEP    PP_STACK_MODE_SEP_MASK
+#define PP_STACK_NOSEP  0
+
+// build mode from format + sep flag
+static inline uint32_t pp_stack_mode(uint32_t format, uint32_t sep) {
+  assert((format & ~PP_STACK_MODE_FORMAT_MASK) == 0 &&
+	 (sep & ~PP_STACK_MODE_SEP_MASK) == 0);
+  return format | sep;
+}
+
+// get format from stack mode
+static inline pp_layout_mode_t pp_stack_layout(uint32_t mode) {
+  return mode & PP_STACK_MODE_FORMAT_MASK;
+}
+
+// test the separation bit
+static inline bool pp_stack_separate(uint32_t mode) {
+  return (mode & PP_STACK_MODE_SEP_MASK) != 0;
+}
 
 
 /*
@@ -414,7 +466,6 @@ typedef struct pp_printer_s {
    */
   pp_token_t *pending_token;
 
-
   /*
    * Token converter + output stream
    */
@@ -475,7 +526,7 @@ extern void init_pp_printer(pp_printer_t *pp, pp_token_converter_t *converter, F
  * - these functions should be called before anything is printed.
  * - width must be at least PP_MINIMAL_WIDTH
  * - height must be at least PP_MINIMAL_HEIGHT
- * - indent must be less than ??
+ * - indent must be less than width
  */
 extern void pp_printer_set_width(pp_printer_t *pp, uint32_t width);
 extern void pp_printer_set_height(pp_printer_t *pp, uint32_t height);
@@ -531,7 +582,8 @@ extern void flush_pp_printer(pp_printer_t *pp);
 
 
 /*
- * Delete the printer:
+ * Delete the printer: free memory
+ * (This may call the free_token function in pp->converter).
  */
 extern void delete_pp_printer(pp_printer_t *pp);
 
