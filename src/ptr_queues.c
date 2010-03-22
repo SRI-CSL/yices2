@@ -50,8 +50,8 @@ void delete_ptr_queue(ptr_queue_t *q) {
 
 
 /*
- * Resize the queue. make data array 50% larger.
- * content of data array is unchanged 
+ * Resize the queue. Make the data array 50% larger.
+ * The array's content is unchanged.
  */
 static void resize_queue(ptr_queue_t *q) {
   uint32_t n;

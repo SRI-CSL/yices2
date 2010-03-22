@@ -11,46 +11,46 @@
  *
  *      open_block token .... token close_block 
  *  
- * The open_block specifies how this block should be displayed.
+ * An open-block has the following attributes:
+ * - label = string to be printed at the start of the block (may be empty)
+ * - whether the block is enclosed by '(' and ')
+ * - whether a space or break is allowed between the label and the next 
+ *   text element
+ * - a set of possible formats for that block. There are four
+ *   choices: horizontal, vertical, mixed, tight
+ * - the indentation for mixed and vertical formats
+ * - the (shorter) indentation for the tight format
  *
- * We use two types of 'open_blocks':
- * - labeled blocks have a 'label' attribute and 
- *   are printed in one of the following formats:
+ * The possible formats are 
  *
- *      (label b_1 .... b_n)   Horizontal mode
+ *      (label b_1 .... b_n)   Horizontal layout
  *
- *      (label b_1             Vertical mode
+ *      (label b_1             Vertical layout
  *             b_2
  *             ...
  *             b_n)
  * 
- *      (label b_1 ....        Mixed HV mode
+ *      (label b_1 ....        Mixed HV layout
  *             b_k .... b_n)
  *
- *      (label                 Tight Vertical mode
- *        b_1
- *        b_2
+ *      (label                 Tight Vertical layout
+ *         b_1
+ *         b_2
+ *         ...
+ *         b_n)
+ *
+ * In the first three layouts (H, V, HV), we require that all subblocks 
+ * be printed in H layout. So if any b_i does not fit on a single line, 
+ * the last layout must be used.
+ *
+ * If a line break is not allowed between label and b_1 then Tight Vertical layout will
+ * be printed as
+ *
+ *     (label b_1
  *        ...
  *        b_n)
  *
- *   For the first three modes, the block components b_1 ... b_n
- *   are printed on one line (i.e., if b_i is itself a block,
- *   it's printed in Horizontal mode).
- *   
- * - unlabeled blocks have no label. They are printed as
- *   labeled blocks with empty labels, except in Tight Vertical
- *   mode, where we save one line:
- *
- *     (b_1
- *      b_1
- *      ...
- *      b_n)
- *
- * Two main components process the sequence of tokens:
- * - a scan component assign a formatting mode to each block
- *   (based on the available display area)
- * - a print component formats the blocks and token according
- *   to the specified layout mode.
+ *  where b_1 may be printed on several lines.
  */
 
 #ifndef __PRETTY_PRINTER_H
@@ -61,67 +61,225 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include "ptr_vectors.h"
+#include "ptr_queues.h"
+
+
+/*
+ * LAYOUTS
+ */
+
+/*
+ * Bit masks to represent a set of layouts
+ * (in the low-order bits on an unsigned int).
+ * - 0001: horizontal
+ * - 0010: vertical
+ * - 0100: mixed horizontal/vertical
+ * - 1000: thight vertical
+ */
+#define PP_HLAYOUT_MASK ((uint32_t) 1)
+#define PP_VLAYOUT_MASK ((uint32_t) 2)
+#define PP_MLAYOUT_MASK ((uint32_t) 4)
+#define PP_TLAYOUT_MASK ((uint32_t) 8)
+
 
 /*
  * TOKENS
  */
 
 /*
- * Four token types (can be stored in two bits b1 b0)
- * - we must make sure b1 = 0 for ATOMIC/CLOSE
- *   and b1 = 1 for both the two OPEN types
+ * Token descriptors encode formatting information.  The string label
+ * of an open token or the content of an atomic are not kept in the
+ * descriptor. They are obtained via calls to user-provided functions.
+ * To help in this conversion, the descriptors include a 32bit user-tag
+ * (which can be anything the conversion functions need to identify
+ * the token).
  */
-typedef enum { 
-  PP_ATOMIC,
-  PP_CLOSE,
-  PP_OPEN_LABELED,
-  PP_OPEN_UNLABELED,
-} pp_token_type_t;
+
+/*
+ * Atomic token descriptor
+ * - size = size of the token when converted to string
+ */
+typedef struct pp_atomic_token_s {
+  uint32_t size;
+  uint32_t user_tag;
+} pp_atomic_token_t;
 
 
 /*
- * Four layout modes
+ * Open block descriptor
+ * - size = size of the block
+ * - label_size = size of the label (0 if there's no label)
+ * - indent = indentation for VLAYOUT or MLAYOUT
+ * - short_indent = indentation for TLAYOUT
+ * - formats = allowed formats
+ * - flags = whether the block is enclosed wih '(' and ')
+ *           whether space/break is allowed after the label
+ * - user_tag = provided by the user
+ *
+ * Initially, formats should contain the set of allowed layouts
+ * for that block and size should be 0. These fields are manipulated
+ * internally by the pretty printer. The other fields are not 
+ * modified.
+ */
+typedef struct pp_open_token_s {
+  uint32_t size;
+  uint8_t formats;
+  uint8_t flags;
+  uint16_t label_size;
+  uint16_t indent;
+  uint16_t short_indent;
+  uint32_t user_tag;
+} pp_open_token_t;
+
+
+/*
+ * bit masks for the flag field:
+ *  b0 --> 1 for blocks that require '(' and ')
+ *         0 for blocks with no delimitors
+ *  b1 --> 1 if space/break is allowed after the label
+ *         0 otherwise
+ */
+#define PP_TOKEN_PAR_MASK ((uint32_t) 0x1)
+#define PP_TOKEN_SEP_MASK ((uint32_t) 0x2)
+
+/*
+ * Test the format bits
+ */
+static inline bool tk_has_hlayout(pp_open_token_t *tk) {
+  return (tk->formats & PP_HLAYOUT_MASK) != 0;
+}
+
+static inline bool tk_has_vlayout(pp_open_token_t *tk) {
+  return (tk->formats & PP_VLAYOUT_MASK) != 0;
+}
+
+static inline bool tk_has_mlayout(pp_open_token_t *tk) {
+  return (tk->formats & PP_HLAYOUT_MASK) != 0;
+}
+
+static inline bool tk_has_tlayout(pp_open_token_t *tk) {
+  return (tk->formats & PP_TLAYOUT_MASK) != 0;
+}
+
+/*
+ * Test the flags
+ */
+static inline bool tk_has_par(pp_open_token_t *tk) {
+  return (tk->flags & PP_TOKEN_PAR_MASK) != 0;
+}
+
+static inline bool tk_sep_allowed(pp_open_token_t *tk) {
+  return (tk->flags & PP_TOKEN_SEP_MASK) != 0;
+}
+
+
+/*
+ * Close block descriptor.
+ * - we just need to know whether the block ends with ')'
+ * - we use the same flags encoding as for open_blocks
+ */
+typedef struct pp_close_token_s {
+  uint32_t flags;
+  uint32_t user_tag;
+} pp_close_token_t;
+
+
+/*
+ * Check the flag
+ */
+static inline bool tk_has_close_par(pp_close_token_t *tk) {
+  return (tk->flags && PP_TOKEN_PAR_MASK) != 0;
+}
+
+
+
+/*
+ * TAGGED POINTERS
+ */
+
+/*
+ * Tokens are accessed via tagged (void *) pointers
+ * The token type is encoded in the lower 2bits:
+ * 00 --> open token
+ * 01 --> atomic token
+ * 10 --> close token
  */
 typedef enum {
-  PP_HORIZONTAL,
-  PP_VERTICAL,
-  PP_MIXED_HV,
-  PP_TIGHT,
-} pp_layout_mode_t;
+  PP_TOKEN_OPEN_TAG,
+  PP_TOKEN_ATOMIC_TAG,
+  PP_TOKEN_CLOSE_TAG,
+} pp_tk_ptr_tag;
 
+#define PTR_TAG_MASK ((size_t) 0x3)
+
+// get the tag of pointer p
+static inline uint32_t ptr_tag(void *p) {
+  return ((size_t) p) & PTR_TAG_MASK;
+}
+
+// untag the pointer
+static inline void *untag_ptr(void *p) {
+  return (void*)(((size_t) p) & ~PTR_TAG_MASK);
+}
+
+// add tag tg to pointer p
+static inline void *tag_ptr(void *p, uint32_t tag) {
+  assert((tag & ~PTR_TAG_MASK) == 0 && ptr_tag(p) == 0);
+  return (void *) (((size_t) p) | (size_t) tag);
+}
+
+
+// check the pointer type
+static inline bool ptr_has_open_tag(void *p) {
+  return ptr_tag(p) == PP_TOKEN_OPEN_TAG;
+}
+
+static inline bool ptr_has_atomic_tag(void *p) {
+  return ptr_tag(p) == PP_TOKEN_ATOMIC_TAG;
+}
+
+static inline bool ptr_has_close_tag(void *p) {
+  return ptr_tag(p) == PP_TOKEN_CLOSE_TAG;
+}
+
+// add a tag to a pointer
+static inline void *tag_open(pp_open_token_t *p) {
+  return tag_ptr(p, PP_TOKEN_OPEN_TAG);
+}
+
+static inline void *tag_atomic(pp_atomic_token_t *p) {
+  return tag_ptr(p, PP_TOKEN_ATOMIC_TAG);
+}
+
+static inline void *tag_close(void *p) {
+  return tag_ptr(p, PP_TOKEN_CLOSE_TAG);
+}
+
+// check and untag
+static inline pp_open_token_t *untag_open(void *p) {
+  assert(ptr_has_open_tag(p));
+  return untag_ptr(p);
+}
+
+static inline pp_atomic_token_t *untag_atomic(void *p) {
+  assert(ptr_has_atomic_tag(p));
+  return untag_ptr(p);
+}
+
+static inline void *untag_close(void *p) {
+  assert(ptr_has_close_tag(p));
+  return untag_ptr(p);
+}
 
 
 /*
- * Token descriptor
- * - header: encodes the type + other parameters
- * - size: 
- *   - for an atomic token, this must be 
- *     the number of character required to print it.
- *   - for an open token, this is used to
- *     compute a lower bound on the block width.
- *   - not used for close token (always 0)
- * - label_size: only used for open_labeled tokens
- *   this must be the size of the label.
- * - indent: indentation for use in Tight Vertical mode.
- *   (used only for the open tokens).
- *
  * The pretty printer requires several user-provided functions to
  * convert tokens to string. To help in this conversion, each token
  * has a user_tag, which must be set when the token is created.
- */
-typedef struct pp_token_s {
-  uint32_t header;
-  int32_t size;
-  uint16_t label_size;
-  uint16_t indent;
-  int32_t user_tag;
-} pp_token_t;
-
-
-
-/*
+ * 
  * Conversion functions:
- * - get_label(ptr, tk): label of an open-labeled token tk
+ * - get_label(ptr, tk): label of an open-block token tk
  * - get_string(ptr, tk): convert atomic token tk to a string.
  * - get_truncated(ptr, tk, n): convert atomic token tk to a 
  *   string of length <= n (where n < tk->size).
@@ -133,175 +291,32 @@ typedef struct pp_token_s {
  * - get_label(ptr, tk) should return a string of length equal to tk->label_size
  * - get_string(ptr, tk) should return a string of length equal to tk->size
  *
- * We also add a free_token function called when the token is no longer
- * needed by the pretty printer.
+ * We also use a free_token functions called when the token is no longer
+ * needed by the pretty printer. All functions + the user-provided 
+ * pointer are stored in a 'pp_token_converter' structure.
  */
-typedef char *(*get_label_fun_t)(void *ptr, pp_token_t *tk);
-typedef char *(*get_string_fun_t)(void *ptr, pp_token_t *tk);
-typedef char *(*get_truncated_fun_t)(void *ptr, pp_token_t *tk, uint32_t n);
-typedef void (*free_token_fun_t)(void *ptr, pp_token_t *tk);
+typedef char *(*get_label_fun_t)(void *ptr, pp_open_token_t *tk);
+typedef char *(*get_string_fun_t)(void *ptr, pp_atomic_token_t *tk);
+typedef char *(*get_truncated_fun_t)(void *ptr, pp_atomic_token_t *tk, uint32_t n);
 
+typedef void (*free_open_token_fun_t)(void *ptr, pp_open_token_t *tk);
+typedef void (*free_atomic_token_fun_t)(void *ptr, pp_atomic_token_t *tk);
+typedef void (*free_close_token_fun_t)(void *ptr, pp_close_token_t *tk);
 
-/*
- * Token converter: include the aux ptr + the conversion
- * functions + free token function.
- */
 typedef struct pp_token_converter_s {
   void *user_ptr;
   get_label_fun_t get_label;
   get_string_fun_t get_string;
   get_truncated_fun_t get_truncated;
-  free_token_fun_t free_token;
+  free_open_token_fun_t free_open_token;
+  free_atomic_token_fun_t free_atomic_token;
+  free_close_token_fun_t free_close_token;
 } pp_token_converter_t;
 
 
 
 /*
- * Header fields:
- * - two low-order bits contain the token type
- * - one bit encodes whether this is the last atomic token
- *   or last block in the enclosing block (NOT USED?)
- * - one bit per format mode
- *
- * When an open token is created, the format bits of a open token
- * indicates which formats are allowed for the block. The pretty
- * printer will then attempt to select an appropriate format among
- * these depending on the block components and size of the print area.
- * In order of preference, the pretty printer will use horizontal mode
- * if possible, then either vert or mixed mode, then tight mode.
- *
- * When an open token is printed, the format bits define the
- * format to use for the correspondin block. There should be only
- * one bit set at that point.
- *
- * Bit masks
- * - 0000011: select the type
- * - 0000100: select the lbit
- * - 1111000: select the format
- * Type encoded in the lowest order bits
- *   00: atomic token
- *   01: close block
- *   10: open labeled block
- *   11: open unlabeeld block
- * Formatting bits: next four bits
- * - 0001000: horizontal mode
- * - 0010000: vertical mode
- * - 0100000: mixed horizontal/vertical mode
- * - 1000000: thight vertical mode
- */
-#define PP_TOKEN_TYPE_MASK ((uint32_t) 3)
-#define PP_TOKEN_LBIT_MASK ((uint32_t) 4)
-
-#define PP_TOKEN_FORMAT_MASK ((uint32_t) 120)
-
-// select bit1
-#define PP_OPEN_MASK  ((uint32_t) 2)
-
-#define PP_HMODE_MASK ((uint32_t) 8)
-#define PP_VMODE_MASK ((uint32_t) 16)
-#define PP_MMODE_MASK ((uint32_t) 32)
-#define PP_TMODE_MASK ((uint32_t) 64)
-
-
-
-/*
- * Build the header:
- * - type = token type
- * - lbit = last block indicator (must be either 0b100 or 0b00)
- * - formats = which formats are allowed
- */
-static inline uint32_t tk_header(uint32_t type, uint32_t lbit, uint32_t formats) {
-  assert((type & ~PP_TOKEN_TYPE_MASK) == 0 &&
-	 (lbit & ~PP_TOKEN_LBIT_MASK) == 0 &&
-	 (formats & ~PP_TOKEN_FORMAT_MASK) == 0);
-  return type | lbit | formats;
-}
-
-
-/*
- * Make tk an atomic token of the given size
- * - size must be positive.
- */
-extern void pp_set_atomic_token(pp_token_t *tk, int32_t size, int32_t tag);
-
-/*
- * Make tk an open-label token:
- * - formats encodes the set of allowed formats for the block that starts with tk
- *   (must be a bitwise or of the four PP_..MODE_MASKs, with at least one bit set).
- * - label_size must be positive
- */
-extern void pp_set_open_labeled_token(pp_token_t *tk, uint32_t formats, 
-				      uint16_t label_size, uint16_t indent, int32_t tag);
-
-/*
- * Make tk an open-unlabeled token 
- * - formats is as for open_labeled_token.
- */
-extern void pp_set_open_unlabeled_token(pp_token_t *tk, uint32_t formats, 
-					uint16_t indent, int32_t tag);
-
-/*
- * Make tk a close token
- */
-extern void pp_set_close_token(pp_token_t *tk);
-
-
-
-/*
- * Header components
- */
-// token type
-static inline pp_token_type_t tk_type(pp_token_t *tk) {
-  return (pp_token_type_t) (tk->header & PP_TOKEN_TYPE_MASK);
-}
-
-static inline bool tk_is_atomic(pp_token_t *tk) {
-  return tk_type(tk) == PP_ATOMIC;
-}
-
-static inline bool tk_is_close(pp_token_t *tk) {
-  return tk_type(tk) == PP_CLOSE;
-}
-
-static inline bool tk_is_open_labeled(pp_token_t *tk) {
-  return tk_type(tk) == PP_OPEN_LABELED;
-}
-
-static inline bool tk_is_open_unlabeled(pp_token_t *tk) {
-  return tk_type(tk) == PP_OPEN_UNLABELED;
-}
-
-static inline bool tk_is_open(pp_token_t *tk) {
-  return (tk->header & PP_OPEN_MASK) != 0;
-}
-
-// test the lbit
-static inline bool tk_is_last(pp_token_t *tk) {
-  return (tk->header & PP_TOKEN_LBIT_MASK) != 0;
-}
-
-
-// format bits
-static inline bool tk_has_hmode(pp_token_t *tk) {
-  return (tk->header & PP_HMODE_MASK) != 0;
-}
-
-static inline bool tk_has_vmode(pp_token_t *tk) {
-  return (tk->header & PP_VMODE_MASK) != 0;
-}
-
-static inline bool tk_has_mmode(pp_token_t *tk) {
-  return (tk->header & PP_HMODE_MASK) != 0;
-}
-
-static inline bool tk_has_tmode(pp_token_t *tk) {
-  return (tk->header & PP_TMODE_MASK) != 0;
-}
-
-
-
-/*
- * PRINTER
+ * DISPLAY AREA
  */
 
 /*
@@ -317,197 +332,159 @@ static inline bool tk_has_tmode(pp_token_t *tk) {
  *                  |                               |   v
  *                   ------------------------------- 
  *
- * The printer keeps track of the current cursor location
- * inside the rectangle using its coordinate:
- * - col = column location (0 <= col < with)
- * - line = current line location (0 <= line < height)
- * The top left corner of the rectangle has coordinate (0, 0).
  *
- * In addition, the printer uses a stack to keep the layout mode
- * and the indentation used by current block (indent 0 means left of
- * the rectangle) + a boolean flag to specify whether a separator is
- * needed before the next atom or block is printed.
+ * The printer keeps track of two lines within thar area:
+ * - the print line is where text is actually printed
+ * - the formatting line is used for deciding how to format
+ *   blocks
+ * The start of each line is defined by its indentation (measured 
+ * from the first column of the rectangle). 
  *
- * The printer also stores the number of closing parentheses required
- * (which is equal to the the number of blocks currently open) and
- * makes sure there's enough space at the bottom and right hand corner
- * of the rectangle to print all the closing parentheses. We keep
- * track of the reserved area using
- * - last_line = last line currently avaible for printing
- * - reserved_colums = space required for the closing parentheses 
- *   at the end of the last_line.
+ * By default, each line has enough space for (width - indent) characters. 
+ * There's a 'stretch' option that can be used to make the lines wider. If
+ * stretch is true, then both the print line and the formatting
+ * line have space for (width) characters (i.e., they may stick out 
+ * by an extra 'indent' characters from the right of the rectangle).
  *
- * Options for dealing with text that can't fit in the display area:
- * - strict (default):
- *   if an atomic token doesn't fit on the current line: truncate it
- *   if a block doesn't fit: replace it by '...' (and don't print anything
- *   more until we exit from the enclosing block).
- * - relaxed:
- *   allow atomic token to extend beyoind the right of the rectangle (never
- *   truncate them)
- *   blocks that don't fit are treated as in strict mode (print '...' etc.)
- * - stretch:
- *   In this mode, the current line is always of size 'width' no matter
- *   the indentation level (both atomic tokens and non-atomic blocks may 
- *   extend to the right of the rectangle).
- *
- * We store these options via two flags:
- * - truncate: truncate atomic tokens that don't fit
- * - stretch: strectch the current line beyond the width
- *
- * Invariants:
- *   0 <= line <= last_line < height
- *   0 <= reserved_columns < width
- *   close_pars = width * (heigh - last_line - 1) + reserved_columns
- * 
- * More invariants in strict mode:
- *   indent <= col <= width
- *   line = last_line => col <= width - reserved columns
- *
- * In stretch mode:
- *   indent <= col <= indent + with
- *   line = last_line => col <= with + indent - reserved_columns
- */
-
-/*
- * The mode word contains the layout mode (in its low-order bits)
- * + a single bit to specify whether a separator is required
- */
-typedef struct pp_print_mode_s {
-  uint32_t mode;
-  uint32_t indent;
-} pp_print_mode_t;
-
-// bitmasks to extract layout mode and separator bit from mode
-#define PP_STACK_MODE_FORMAT_MASK ((uint32_t) 3) // 2 low-order bits
-#define PP_STACK_MODE_SEP_MASK    ((uint32_t) 4) // select bit 2
-
-// bitmasks to set/clr the separator bit
-#define PP_STACK_SEP    PP_STACK_MODE_SEP_MASK
-#define PP_STACK_NOSEP  0
-
-// build mode from format + sep flag
-static inline uint32_t pp_stack_mode(uint32_t format, uint32_t sep) {
-  assert((format & ~PP_STACK_MODE_FORMAT_MASK) == 0 &&
-	 (sep & ~PP_STACK_MODE_SEP_MASK) == 0);
-  return format | sep;
-}
-
-// get format from stack mode
-static inline pp_layout_mode_t pp_stack_layout(uint32_t mode) {
-  return mode & PP_STACK_MODE_FORMAT_MASK;
-}
-
-// test the separation bit
-static inline bool pp_stack_separate(uint32_t mode) {
-  return (mode & PP_STACK_MODE_SEP_MASK) != 0;
-}
-
-
-/*
- * Stack: print modes are stored in data[0 ... top]
- * - size is the total size of the array data
- * - the bottom element data[0] is the initial 
- *   printing mode.
- * - by default this is (horizontal layout, indent = 0, no separator)
- */
-typedef struct pp_printer_stack_s {
-  pp_print_mode_t *data;
-  uint32_t top;
-  uint32_t size;
-} pp_printer_stack_t;
-
-
-// default and maximal size of the stack
-#define DEF_PP_PRINTER_STACK_SIZE 20
-#define MAX_PP_PRINTER_STACK_SIZE (UINT32_MAX/sizeof(pp_print_mode_t))
-
-
-/*
- * Display area
+ * In some cases, an atomic token cannot fit on the print line. The 
+ * printer takes an other option that specifies what to do in that case.
+ * - if 'truncate' is true, the token is truncated (nothing is printed 
+ *   beyond the display area's boundary)
+ * - otherwise, atomic tokens are not truncated and may extend beyond the 
+ *   right boundary.
  */
 typedef struct pp_display_area_s {
-  // dimension + offset
   uint32_t width;
   uint32_t height;
   uint32_t offset;
-  // cursor location
-  uint32_t col;
-  uint32_t line;
-  // space reserved for the closing 
-  // parentheses
-  uint32_t last_line;
-  uint32_t reserved_columns;
+  bool stretch;
+  bool truncate;
 } pp_display_area_t;
-
-
-/*
- * Printer object
- */
-typedef struct pp_printer_s {
-  /*
-   * Main components: area + stack
-   */
-  pp_display_area_t area;
-  pp_printer_stack_t stack;
-
-  /*
-   * Options + number of closing parentheses
-   */
-  uint32_t options;
-  uint32_t closing_pars;
-
-  /*
-   * Overfull counter: 
-   * - if it's positive, the current line is full
-   * - it's incremented on every open block
-   * - it's decremented on every close block
-   */
-  uint32_t overfull;
-
-  /*
-   * Special case for truncation:
-   * - if there's room for tk + another element of small size 
-   *   but there's not enough space for tk + ellipsis, then 
-   *   we can't decide yet whether tk should be truncated or not.
-   *   (We need to see the token that follows tk).
-   * To deal with this case, we save tk here as a pending token.
-   */
-  pp_token_t *pending_token;
-
-  /*
-   * Token converter + output stream
-   */
-  pp_token_converter_t converter;
-  FILE *stream;
-
-} pp_printer_t;
-
-
-
-/*
- * Option flags
- */
-#define PP_TRUNCATE_OPTION ((uint32_t) 1)
-#define PP_STRETCH_OPTION  ((uint32_t) 2)
 
 
 /*
  * Minimal width and height
  */
 #define PP_MINIMAL_WIDTH  3
-#define PP_MIMIMAL_HEIGHT 1
-
+#define PP_MINIMAL_HEIGHT 1
 
 /*
  * Default print area:
  * - 80 columns
  * - infinitely many lines
  * - no offest
+ * - strecth disabled
+ * - truncate enabled
  */
 #define PP_DEFAULT_WIDTH  80
 #define PP_DEFAULT_HEIGHT UINT32_MAX
 #define PP_DEFAULT_OFFSET 0
+#define PP_DEFAULT_STRETCH false
+#define PP_DEFAULT_TRUNCATE true
+
+
+/*
+ * PRINTER
+ */
+
+/*
+ * There are three possible modes for printing:
+ * - HMODE: horizontal, with space as separator
+ * - VMODE: vertical, with a specified indentation
+ * - HVMODE: mix of both.
+ *
+ * If a new atom 's' is to be printed:
+ * - in HMODE: print a space then print s
+ * - in VMODE: print a line break, indent, then print s
+ * - in HVMODE: check whether s fits on the current line
+ *   if yes, print a space then print s
+ *   if no, print a line break, indent, print s.
+ *
+ * There's an immediate correspondence between block layouts 
+ * and print modes:
+ * - HLAYOUT --> HMODE
+ * - VLAYOUT and TLAYOUT --> VMODE
+ */
+typedef enum {
+  PP_HMODE,
+  PP_VMODE,
+  PP_HVMODE,
+} pp_print_mode_t;
+
+/*
+ * A print state keeps track of the current print mode 
+ * and indentation. States are stored on a stack.
+ */
+typedef struct pp_state_s {
+  pp_print_mode_t mode;
+  uint32_t indent; // indent increment
+} pp_state_t;
+
+/*
+ * Stack: print states are stored in data[0 ... top]
+ * - size is the total size of the array data
+ * - the current state is in data[top]
+ * - the bottom element data[0] is the initial printing mode.
+ * - by default this is (horizontal mode, indent = 0,)
+ */
+typedef struct pp_stack_s {
+  pp_state_t *data;
+  uint32_t top;
+  uint32_t size;
+} pp_stack_t;
+
+// default and maximal size of the stack
+#define DEF_PP_STACK_SIZE 20
+#define MAX_PP_STACK_SIZE (UINT32_MAX/sizeof(pp_state_t))
+
+
+/*
+ * The print_line is attached to an output file.
+ * Dimensions are defined by 
+ * - line = line number (0 means top of the display area)
+ * - col = cursor location
+ * - margin = end of the line
+ * - pending_col = column number (location where 
+ *   pending tokens should be printed)
+ * The print routines also use control parameters:
+ * - mode = current print mode
+ * - indent = current indentation
+ * - no_break = true to prevent line break 
+ * - no_space = true to prevent space
+ * - overfull_count = number of open blocks seen since the line is full
+ * - pending_tokens: tokens that fit on the line but can't be
+ *   printed for sure yet
+ */
+typedef struct print_line_s {
+  // output file
+  FILE *file;
+  // dimension + location
+  uint32_t line;
+  uint32_t col;
+  uint32_t margin;
+  uint32_t pending_col;
+  // control parameters
+  pp_print_mode_t mode;
+  uint32_t indent;
+  bool no_break;
+  bool no_space;
+  uint32_t overfull_count;
+  // delayed tokens
+  pvector_t pending_tokens;
+} print_line_t;
+
+
+
+/*
+ * PRETTY PRINTER
+ */
+typedef struct pp_s {
+  pp_display_area_t display;
+  pp_stack_t stack;
+  print_line_t pline;
+  pp_token_converter_t converter;
+} pp_t;
+
 
 
 
@@ -518,52 +495,17 @@ typedef struct pp_printer_s {
 /*
  * Initialization:
  * - converter = converter interface (this
- *   is copied into pp_printer->converter).
- * - file = output stream to use (must be an open file)
+ *   is copied into pp->converter).
+ * - file = output stream to use (must be an open, writable file)
+ * - display = specify display area + truncate + stretch
+ *   if display is NULL then the default is used
+ * - mode = initial print mode
+ * - indent = initial indentation (increment)
  *
- * The printer is initialized with default width, height,
- * and offset. The other settings are
- *    horizontal mode, indent = 0
- *    truncate enabled
- *    strech disable
+ * mode + indent are the bottom stack element
  */
-extern void init_pp_printer(pp_printer_t *pp, pp_token_converter_t *converter, FILE *file);
-
-
-/*
- * Change parameters: 
- * - these functions should be called before anything is printed.
- * - width must be at least PP_MINIMAL_WIDTH
- * - height must be at least PP_MINIMAL_HEIGHT
- * - indent must be less than width
- */
-extern void pp_printer_set_width(pp_printer_t *pp, uint32_t width);
-extern void pp_printer_set_height(pp_printer_t *pp, uint32_t height);
-extern void pp_printer_set_offset(pp_printer_t *pp, uint32_t offset);
-extern void pp_printer_set_mode(pp_printer_t *pp, pp_layout_mode_t mode);
-extern void pp_printer_set_indent(pp_printer_t *pp, uint32_t indent);
-
-
-/*
- * Change options
- */
-static inline void pp_printer_enable_truncate(pp_printer_t *pp) {
-  pp->options &= ~PP_TRUNCATE_OPTION;
-}
-
-static inline void pp_printer_disable_truncate(pp_printer_t *pp) {
-  pp->options |= PP_TRUNCATE_OPTION;
-}
-
-static inline void pp_printer_enable_stretch(pp_printer_t *pp) {
-  pp->options |= PP_STRETCH_OPTION;
-}
-
-static inline void pp_printer_disable_stretch(pp_printer_t *pp) {
-  pp->options &= ~PP_STRETCH_OPTION;
-}
-
-
+extern void init_pp(pp_t *pp, pp_token_converter_t *converter, FILE *file,
+		    pp_display_area_t *display, pp_print_mode_t mode, uint32_t indent);
 
 /*
  * Process token tk
@@ -580,21 +522,19 @@ static inline void pp_printer_disable_stretch(pp_printer_t *pp) {
  *   on the block's width. The block is assumed to fit on the
  *   current line if tk's size is no more than the space left on the line.
  */
-extern void pp_print_token(pp_printer_t *pp, pp_token_t *tk);
-
+extern void pp_push_token(pp_t *pp, void *tk);
 
 /*
  * Flush the printer: print all the closing parentheses required
  * and pop all the modes from the stack (until we're back to level 0).
  */
-extern void flush_pp_printer(pp_printer_t *pp);
-
+extern void flush_pp(pp_t *pp);
 
 /*
  * Delete the printer: free memory
  * (This may call the free_token function in pp->converter).
  */
-extern void delete_pp_printer(pp_printer_t *pp);
+extern void delete_pp(pp_t *pp);
 
 
 #endif /* __PRETTY_PRINTER_H */
