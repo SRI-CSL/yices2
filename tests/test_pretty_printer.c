@@ -27,9 +27,9 @@ static char *atom_strings[NATOMS] = {
  * labels of the open tokens
  */
 static char *open_labels[NOPENS] = {
-  "f0", "f1", "f2", "f3", "f4",
-  "g10000", "g2000000", "g3000000000",
-  "h400000000000", "h5000000000000000",
+  "f0::", "f1::", "f2::", "f3::", "f4::",
+  "g10000::", "g2000000::", "g3000000000::",
+  "h400000000000::", "h5000000000000000::",
 };
 
 
@@ -49,7 +49,8 @@ static void init_tokens(void) {
   for (i=0; i<n; i++) {
     opens[i].size = 0;
     opens[i].formats = PP_HLAYOUT_MASK;
-    opens[i].flags = PP_TOKEN_PAR_MASK|PP_TOKEN_SEP_MASK;
+    //    opens[i].flags = PP_TOKEN_PAR_MASK|PP_TOKEN_SEP_MASK;
+    opens[i].flags = PP_TOKEN_PAR_MASK;
     opens[i].label_size = strlen(open_labels[i]);
     opens[i].indent = opens[i].label_size + 2;
     opens[i].short_indent = 1;
@@ -99,7 +100,7 @@ static pp_token_converter_t converter = {
 /*
  * Display
  */
-static pp_display_area_t display = {
+static pp_area_t display = {
   20, 1, 0, false, false,
 };
 
@@ -137,6 +138,24 @@ static void test2(pp_t *pp) {
   flush_pp(pp);
 }
 
+/*
+ * Test 3: (f3 (f3 (f3 (f3 ccc))))
+ */
+static void test3(pp_t *pp) {
+  printf("*** Test3 ***\n");
+  pp_push_token(pp, tag_open(opens + 3)); // f3
+  pp_push_token(pp, tag_open(opens + 3)); // f3
+  pp_push_token(pp, tag_open(opens + 3)); // f3
+  pp_push_token(pp, tag_open(opens + 3)); // f3
+  pp_push_token(pp, tag_atomic(atoms + 2)); // cc
+  pp_push_token(pp, tag_close(closes + 0));
+  pp_push_token(pp, tag_close(closes + 0));
+  pp_push_token(pp, tag_close(closes + 0));
+  pp_push_token(pp, tag_close(closes + 0));
+  flush_pp(pp);
+}
+
+
 
 /*
  * Global pretty printer
@@ -152,6 +171,7 @@ int main() {
   init_pp(&pp, &converter, stdout, &display, PP_HMODE, 0);
   test1(&pp);
   test2(&pp);
+  test3(&pp);
   delete_pp(&pp);
 
   display.truncate = true;
@@ -161,6 +181,7 @@ int main() {
     init_pp(&pp, &converter, stdout, &display, PP_HMODE, 0);
     test1(&pp);
     test2(&pp);
+    test3(&pp);
     delete_pp(&pp);
   }
 

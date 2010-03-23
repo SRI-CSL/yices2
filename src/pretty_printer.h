@@ -50,7 +50,13 @@
  *        ...
  *        b_n)
  *
- *  where b_1 may be printed on several lines.
+ * where b_1 may be printed on several lines.
+ *
+ * As in Oppen's paper the pretty printer consists of two main components
+ * - a printer does the actual printing
+ * - a formatter computes the size of blocks and selects a layout for 
+ *   each block.
+ * The two components communicate via a token queue.
  */
 
 #ifndef __PRETTY_PRINTER_H
@@ -81,6 +87,78 @@
 #define PP_VLAYOUT_MASK ((uint32_t) 2)
 #define PP_MLAYOUT_MASK ((uint32_t) 4)
 #define PP_TLAYOUT_MASK ((uint32_t) 8)
+
+
+
+
+
+/*
+ * DISPLAY AREA
+ */
+
+/*
+ * The display area is a rectangle characterized by
+ * its width, height, and offset as follows:
+ * 
+ *                  <----------- width ------------->
+ *                   _______________________________ 
+ * <---- offset --->|                               |   ^
+ *                  |                               |   |
+ *                  |                               | Height
+ *                  |                               |   |
+ *                  |                               |   v
+ *                   ------------------------------- 
+ *
+ *
+ * The printer keeps track of two lines within thar area:
+ * - the print line is where text is actually printed
+ * - the formatting line is used for deciding how to format
+ *   blocks
+ * The start of each line is defined by its indentation (measured 
+ * from the first column of the rectangle). 
+ *
+ * By default, each line has enough space for (width - indent) characters. 
+ * There's a 'stretch' option that can be used to make the lines wider. If
+ * stretch is true, then both the print line and the formatting
+ * line have space for (width) characters (i.e., they may stick out 
+ * by an extra 'indent' characters from the right of the rectangle).
+ *
+ * In some cases, an atomic token cannot fit on the print line. The 
+ * printer takes an other option that specifies what to do in that case.
+ * - if 'truncate' is true, the token is truncated (nothing is printed 
+ *   beyond the display area's boundary)
+ * - otherwise, atomic tokens are not truncated and may extend beyond the 
+ *   right boundary.
+ */
+typedef struct pp_area_s {
+  uint32_t width;
+  uint32_t height;
+  uint32_t offset;
+  bool stretch;
+  bool truncate;
+} pp_area_t;
+
+
+/*
+ * Minimal width and height
+ */
+#define PP_MINIMAL_WIDTH  4
+#define PP_MINIMAL_HEIGHT 1
+
+/*
+ * Default print area:
+ * - 80 columns
+ * - infinitely many lines
+ * - no offest
+ * - strecth disabled
+ * - truncate enabled
+ */
+#define PP_DEFAULT_WIDTH  80
+#define PP_DEFAULT_HEIGHT UINT32_MAX
+#define PP_DEFAULT_OFFSET 0
+#define PP_DEFAULT_STRETCH false
+#define PP_DEFAULT_TRUNCATE true
+
 
 
 /*
@@ -155,7 +233,7 @@ static inline bool tk_has_vlayout(pp_open_token_t *tk) {
 }
 
 static inline bool tk_has_mlayout(pp_open_token_t *tk) {
-  return (tk->formats & PP_HLAYOUT_MASK) != 0;
+  return (tk->formats & PP_MLAYOUT_MASK) != 0;
 }
 
 static inline bool tk_has_tlayout(pp_open_token_t *tk) {
@@ -316,79 +394,11 @@ typedef struct pp_token_converter_s {
 
 
 /*
- * DISPLAY AREA
- */
-
-/*
- * The display area is a rectangle characterized by
- * its width, height, and offset as follows:
- * 
- *                  <----------- width ------------->
- *                   _______________________________ 
- * <---- offset --->|                               |   ^
- *                  |                               |   |
- *                  |                               | Height
- *                  |                               |   |
- *                  |                               |   v
- *                   ------------------------------- 
- *
- *
- * The printer keeps track of two lines within thar area:
- * - the print line is where text is actually printed
- * - the formatting line is used for deciding how to format
- *   blocks
- * The start of each line is defined by its indentation (measured 
- * from the first column of the rectangle). 
- *
- * By default, each line has enough space for (width - indent) characters. 
- * There's a 'stretch' option that can be used to make the lines wider. If
- * stretch is true, then both the print line and the formatting
- * line have space for (width) characters (i.e., they may stick out 
- * by an extra 'indent' characters from the right of the rectangle).
- *
- * In some cases, an atomic token cannot fit on the print line. The 
- * printer takes an other option that specifies what to do in that case.
- * - if 'truncate' is true, the token is truncated (nothing is printed 
- *   beyond the display area's boundary)
- * - otherwise, atomic tokens are not truncated and may extend beyond the 
- *   right boundary.
- */
-typedef struct pp_display_area_s {
-  uint32_t width;
-  uint32_t height;
-  uint32_t offset;
-  bool stretch;
-  bool truncate;
-} pp_display_area_t;
-
-
-/*
- * Minimal width and height
- */
-#define PP_MINIMAL_WIDTH  3
-#define PP_MINIMAL_HEIGHT 1
-
-/*
- * Default print area:
- * - 80 columns
- * - infinitely many lines
- * - no offest
- * - strecth disabled
- * - truncate enabled
- */
-#define PP_DEFAULT_WIDTH  80
-#define PP_DEFAULT_HEIGHT UINT32_MAX
-#define PP_DEFAULT_OFFSET 0
-#define PP_DEFAULT_STRETCH false
-#define PP_DEFAULT_TRUNCATE true
-
-
-/*
  * PRINTER
  */
 
 /*
- * There are three possible modes for printing:
+ * There are three possible print modes:
  * - HMODE: horizontal, with space as separator
  * - VMODE: vertical, with a specified indentation
  * - HVMODE: mix of both.
@@ -411,6 +421,7 @@ typedef enum {
   PP_HVMODE,
 } pp_print_mode_t;
 
+
 /*
  * A print state keeps track of the current print mode 
  * and indentation. States are stored on a stack.
@@ -420,8 +431,10 @@ typedef struct pp_state_s {
   uint32_t indent; // indent increment
 } pp_state_t;
 
+
 /*
- * Stack: print states are stored in data[0 ... top]
+ * Stack:
+ * - print states are stored in data[0 ... top]
  * - size is the total size of the array data
  * - the current state is in data[top]
  * - the bottom element data[0] is the initial printing mode.
@@ -439,39 +452,59 @@ typedef struct pp_stack_s {
 
 
 /*
- * The print_line is attached to an output file.
- * Dimensions are defined by 
+ * The printer is attached to an output file, to a converter
+ * structure, and to a display area.
+ *
+ * It keeps track of a current print-line, defined by 
  * - line = line number (0 means top of the display area)
  * - col = cursor location
  * - margin = end of the line
- * - pending_col = column number (location where 
- *   pending tokens should be printed)
- * The print routines also use control parameters:
- * - mode = current print mode
+ *
+ * When we get close to the end of the line, the printer
+ * may have to store pending tokens (that fit on the line
+ * but can't print for sure yet because '...' may be needed). 
+ * These tokens are stored in a 'pending_token' vector and 
+ * the printer keeps track of the column where they will be
+ * printed if possible in 'pending_col'.
+ *
+ * The printer also use control parameters:
+ * - stack = stack of printer states
+ * - mode = current print mode (copied from the stack top)
  * - indent = current indentation
+ * - next_margin = margin to use after the following line break
+ *               = width of the next line
  * - no_break = true to prevent line break 
  * - no_space = true to prevent space
- * - overfull_count = number of open blocks seen since the line is full
- * - pending_tokens: tokens that fit on the line but can't be
- *   printed for sure yet
+ * - full_line = true if the current line is full
+ * - overfull_count = number of open blocks seen 
+ *    since the line is full.
  */
-typedef struct print_line_s {
-  // output file
+typedef struct printer_s {
+  // output file + display area + converter
   FILE *file;
-  // dimension + location
+  pp_area_t area;
+  pp_token_converter_t conv;
+
+  // control parameters
+  pp_stack_t stack;
+  pp_print_mode_t mode;
+  uint32_t indent;
+  uint32_t next_margin;
+  bool no_break;
+  bool no_space;
+  bool full_line;
+  uint32_t overfull_count;
+
+  // current print line
   uint32_t line;
   uint32_t col;
   uint32_t margin;
-  uint32_t pending_col;
-  // control parameters
-  pp_print_mode_t mode;
-  uint32_t indent;
-  bool no_break;
-  bool no_space;
-  uint32_t overfull_count;
-  // delayed tokens
+
+  // pending tokens
   pvector_t pending_tokens;
-} print_line_t;
+  uint32_t pending_col;
+} printer_t;
+
 
 
 
@@ -479,10 +512,8 @@ typedef struct print_line_s {
  * PRETTY PRINTER
  */
 typedef struct pp_s {
-  pp_display_area_t display;
-  pp_stack_t stack;
-  print_line_t pline;
-  pp_token_converter_t converter;
+  pp_area_t area;
+  printer_t printer;
 } pp_t;
 
 
@@ -494,18 +525,17 @@ typedef struct pp_s {
 
 /*
  * Initialization:
- * - converter = converter interface (this
- *   is copied into pp->converter).
+ * - converter = converter interface (copied internally).
  * - file = output stream to use (must be an open, writable file)
- * - display = specify display area + truncate + stretch
- *   if display is NULL then the default is used
+ * - area = specify display area + truncate + stretch
+ *   if its is NULL then the default area is used
  * - mode = initial print mode
  * - indent = initial indentation (increment)
  *
  * mode + indent are the bottom stack element
  */
 extern void init_pp(pp_t *pp, pp_token_converter_t *converter, FILE *file,
-		    pp_display_area_t *display, pp_print_mode_t mode, uint32_t indent);
+		    pp_area_t *area, pp_print_mode_t mode, uint32_t indent);
 
 /*
  * Process token tk
