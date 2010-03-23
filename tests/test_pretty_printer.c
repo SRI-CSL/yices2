@@ -28,8 +28,8 @@ static char *atom_strings[NATOMS] = {
  */
 static char *open_labels[NOPENS] = {
   "f0::", "f1::", "f2::", "f3::", "f4::",
-  "g10000::", "g2000000::", "g3000000000::",
-  "h400000000000::", "h5000000000000000::",
+  "g10000", "g2000000", "g3000000000",
+  "h400000000000", "h5000000000000000",
 };
 
 
@@ -41,20 +41,24 @@ static void init_tokens(void) {
 
   n = NATOMS;
   for (i=0; i<n; i++) {
+    atoms[i].bsize = 0;
     atoms[i].size = strlen(atom_strings[i]);
     atoms[i].user_tag = i;
   }
 
   n = NOPENS;
   for (i=0; i<n; i++) {
-    opens[i].size = 0;
-    opens[i].formats = PP_HLAYOUT_MASK;
-    //    opens[i].flags = PP_TOKEN_PAR_MASK|PP_TOKEN_SEP_MASK;
+    opens[i].bsize = 0;
     opens[i].flags = PP_TOKEN_PAR_MASK;
     opens[i].label_size = strlen(open_labels[i]);
-    opens[i].indent = opens[i].label_size + 2;
+    opens[i].formats = PP_VLAYOUT_MASK;
+    opens[i].indent = opens[i].label_size + 1;
     opens[i].short_indent = 1;
     opens[i].user_tag = i;
+    if (i >= 5){ 
+      opens[i].flags = PP_TOKEN_PAR_MASK|PP_TOKEN_SEP_MASK;
+      opens[i].indent ++;
+    }
   }
 
   closes[0].flags = PP_TOKEN_PAR_MASK;
@@ -156,6 +160,25 @@ static void test3(pp_t *pp) {
 }
 
 
+/*
+ * Test 4: (f3 (f3 (f3 (f3 ccc)) h))
+ */
+static void test4(pp_t *pp) {
+  printf("*** Test4 ***\n");
+  pp_push_token(pp, tag_open(opens + 3)); // f3
+  pp_push_token(pp, tag_open(opens + 3)); // f3
+  pp_push_token(pp, tag_open(opens + 3)); // f3
+  pp_push_token(pp, tag_open(opens + 3)); // f3
+  pp_push_token(pp, tag_atomic(atoms + 2)); // cc
+  pp_push_token(pp, tag_close(closes + 0));
+  pp_push_token(pp, tag_close(closes + 0));
+  pp_push_token(pp, tag_atomic(atoms + 7)); // h
+  pp_push_token(pp, tag_close(closes + 0));
+  pp_push_token(pp, tag_close(closes + 0));
+  flush_pp(pp);
+}
+
+
 
 /*
  * Global pretty printer
@@ -167,23 +190,58 @@ int main() {
 
   init_tokens();
 
-  printf("\nNo truncate, width = %"PRIu32"\n", display.width);
+  printf("\nNo truncate, height = %"PRIu32", width = %"PRIu32"\n", 
+	 display.height, display.width);
   init_pp(&pp, &converter, stdout, &display, PP_HMODE, 0);
   test1(&pp);
   test2(&pp);
   test3(&pp);
+  test4(&pp);
   delete_pp(&pp);
 
   display.truncate = true;
   for (w = 20; w<50; w++) {
     display.width = w;
-    printf("\n\nTruncate, width = %"PRIu32"\n", display.width);
+    printf("\n\nTruncate, height = %"PRIu32", width = %"PRIu32"\n", 
+	 display.height, display.width);
     init_pp(&pp, &converter, stdout, &display, PP_HMODE, 0);
     test1(&pp);
     test2(&pp);
     test3(&pp);
+    test4(&pp);
     delete_pp(&pp);
   }
+
+
+  // tests with height = 4
+  // initial mode = PP_VMODE
+  display.height = 4;
+
+  display.width = 20;
+  display.truncate = false;
+  printf("\nNo truncate, height = %"PRIu32", width = %"PRIu32"\n", 
+	 display.height, display.width);
+  init_pp(&pp, &converter, stdout, &display, PP_VMODE, 0);
+  test1(&pp);
+  test2(&pp);
+  test3(&pp);
+  test4(&pp);
+  delete_pp(&pp);
+
+  display.truncate = true;
+  for (w = 20; w<50; w++) {
+    display.width = w;
+    printf("\n\nTruncate, height = %"PRIu32", width = %"PRIu32"\n", 
+	 display.height, display.width);
+    init_pp(&pp, &converter, stdout, &display, PP_VMODE, 0);
+    test1(&pp);
+    test2(&pp);
+    test3(&pp);
+    test4(&pp);
+    delete_pp(&pp);
+  }
+
+
 
   return 0;
 }

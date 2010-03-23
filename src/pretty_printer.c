@@ -101,6 +101,35 @@ static inline uint32_t pp_stack_top_indent(pp_stack_t *stack) {
 
 
 /*
+ * PRINT AREA
+ */
+
+/*
+ * Line width for a given indentation:
+ * - in stretch mode, the line width is always equal to the area's width
+ * - otherwise we want to preserve the invariant 
+ *     line_width + indent == offset + area width.
+ * - if this can't be done (i.e., indent is too large) then we return 0.
+ */
+static uint32_t line_width_for_indent(pp_area_t *area, uint32_t indent) {
+  uint32_t width;
+  
+  width = area->width;
+  if (! area->stretch) {
+    width += area->offset;
+    if (indent < width) {
+      width -= indent;
+    } else {
+      width = 0;
+    }
+  }
+
+  return width;
+} 
+
+
+
+/*
  * PRINTER STRUCTURE
  */
 
@@ -114,15 +143,28 @@ static inline uint32_t pp_stack_top_indent(pp_stack_t *stack) {
  */
 static void init_printer(printer_t *p, FILE *file, pp_token_converter_t *converter,
 			 pp_area_t *area, pp_print_mode_t mode, uint32_t indent) {
+  uint32_t next_width;
+
   p->file = file;
   p->area = *area;      // make an internal copy
   p->conv = *converter; // internal copy too
+
+
+  // Force HMODE if the print area is too small for the
+  // specified mode and indent.
+  next_width = line_width_for_indent(area, indent + area->offset);
+  if (area->height == 1 || (p->area.truncate && next_width < 4)) {
+    mode = PP_HMODE;
+    indent = 0;
+    next_width = line_width_for_indent(area, area->offset);
+    assert(!p->area.truncate || next_width >= 4);
+  }
 
   // control parameters: no break, no space on the first line
   init_pp_stack(&p->stack, mode, indent);
   p->mode = mode;
   p->indent = indent + area->offset;
-  p->next_margin = area->width;
+  p->next_margin = next_width;
   p->no_break = true;
   p->no_space = true;
   p->full_line = false;
@@ -581,7 +623,7 @@ static void print_open_token(printer_t *p, pp_open_token_t *tk) {
       assert(p->col <= p->margin && p->pending_tokens.size > 0);
 
       // add tk to the pending tokens if it fits
-      new_col = p->col + tk->size + tk_has_par(tk) + (! p->no_space);
+      new_col = p->col + tk->bsize + tk_has_par(tk) + (! p->no_space);
       if (new_col <= p->margin) {
 	p->col = new_col;
 	pvector_push(&p->pending_tokens, tag_open(tk));
@@ -665,10 +707,9 @@ static void print_newline(printer_t *p) {
   }
   
   pp_newline(p);
-  assert(p->margin >= 4);
+  assert(!p->area.truncate || p->margin >= 4);
   p->no_space = true;   // prevent space after the new line
   p->full_line = false;
-  p->overfull_count = 0;
 }
 
 
@@ -677,7 +718,9 @@ static void print_newline(printer_t *p) {
  * - n = size of the next token
  */
 static void check_newline(printer_t *p, uint32_t n) {
-  if (p->no_break || p->line + 1 == p->area.height) {
+  if (p->no_break || 
+      p->line + 1 == p->area.height || 
+      p->overfull_count > 0) {
     // a line break is not allowed
     return;
   }
@@ -698,30 +741,6 @@ static void check_newline(printer_t *p, uint32_t n) {
     break;
   }
 }
-
-
-/*
- * Line width for a given indentation:
- * - in stretch mode, the line width is always equal to the area's width
- * - otherwise we want to preserve the invariant 
- *     line_width + indent == offset + area width.
- * - if this can't be done (i.e., indent is too large) then we return 0.
- */
-static uint32_t line_width_for_indent(pp_area_t *area, uint32_t indent) {
-  uint32_t width;
-  
-  width = area->width;
-  if (! area->stretch) {
-    width += area->offset;
-    if (indent < width) {
-      width -= indent;
-    } else {
-      width = 0;
-    }
-  }
-
-  return width;
-} 
 
 
 /*
@@ -753,7 +772,7 @@ static void printer_push_state(printer_t *p, pp_open_token_t *tk) {
 
   assert(p->mode == pp_stack_top_mode(&p->stack) && 
 	 p->indent >= p->area.offset + pp_stack_top_indent(&p->stack) &&
-	 p->margin >= 4 &&
+	 (!p->area.truncate || p->margin >= 4) &&
 	 p->line < p->area.height);
 
 
@@ -766,14 +785,13 @@ static void printer_push_state(printer_t *p, pp_open_token_t *tk) {
    * - no_break is true in VLAYOUT and MLAYOUT
    *               false in TLAYOUT
    *               irrelevant in HLAYOUT
+   *
+   * We set no_space to the correct value here
+   * and no_break to true. Flag no_break will
+   * be changed in TALYOUT if necessary.
    */
-  if (tk_sep_allowed(tk)) {
-    p->no_space = false;
-    p->no_break = true; // overridden below in TLAYOUT
-  } else {
-    p->no_space = true;
-    p->no_break = true;
-  }
+  p->no_space = !tk_sep_allowed(tk);
+  p->no_break = true; 
 
   /*
    * New mode and indentation increment
@@ -790,6 +808,7 @@ static void printer_push_state(printer_t *p, pp_open_token_t *tk) {
     new_mode = PP_VMODE;
     indent_delta = tk->indent;
   } else {
+    // tight layout: no_space and no_break must be equal
     new_mode = PP_VMODE;
     indent_delta = tk->short_indent;
     p->no_break = p->no_space;
@@ -829,7 +848,7 @@ static void printer_pop_state(printer_t *p) {
 
   assert(p->mode == pp_stack_top_mode(&p->stack) &&
 	 p->indent >= p->area.offset + pp_stack_top_indent(&p->stack) &&
-	 p->margin >= 4 &&
+	 (!p->area.truncate || p->margin >= 4) &&
 	 p->line < p->area.height);
 
   indent_delta = pp_stack_top_indent(&p->stack);
@@ -857,7 +876,7 @@ static void print_token(printer_t *p, void *tk) {
   switch (ptr_tag(tk)) {
   case PP_TOKEN_OPEN_TAG:
     open = untag_open(tk);
-    check_newline(p, open->size);
+    check_newline(p, open->bsize);
     print_open_token(p, open);
     if (p->full_line) {
       p->overfull_count ++;
@@ -868,7 +887,7 @@ static void print_token(printer_t *p, void *tk) {
 
   case PP_TOKEN_ATOMIC_TAG:
     atom = untag_atomic(tk);
-    check_newline(p, atom->size);
+    check_newline(p, atom->bsize);
     print_atomic_token(p, atom);
     p->no_space = false;
     p->no_break = false; // this has no effect in HMODE
@@ -970,6 +989,7 @@ void flush_pp(pp_t *pp) {
   }
   fputc('\n', p->file);
   p->no_space = true;
+  p->no_break = true;
   p->full_line = false;
   p->overfull_count = 0;
   p->line = 0;

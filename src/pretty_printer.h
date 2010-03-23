@@ -177,8 +177,15 @@ typedef struct pp_area_s {
 /*
  * Atomic token descriptor
  * - size = size of the token when converted to string
+ * - bsize = block size = size of the token + number of closing parentheses
+ *   that follow it.
+ *
+ * Size and user_tag should be set appropriately when the token is created.
+ * - bsize should be initialied to 0. It is used and updated internally 
+ *   by the pretty printer.
  */
 typedef struct pp_atomic_token_s {
+  uint32_t bsize;
   uint32_t size;
   uint32_t user_tag;
 } pp_atomic_token_t;
@@ -186,7 +193,8 @@ typedef struct pp_atomic_token_s {
 
 /*
  * Open block descriptor
- * - size = size of the block
+ * - bsize = block size = size of the block + number of closing parentheses
+ *   taht follow it.
  * - label_size = size of the label (0 if there's no label)
  * - indent = indentation for VLAYOUT or MLAYOUT
  * - short_indent = indentation for TLAYOUT
@@ -196,12 +204,12 @@ typedef struct pp_atomic_token_s {
  * - user_tag = provided by the user
  *
  * Initially, formats should contain the set of allowed layouts
- * for that block and size should be 0. These fields are manipulated
+ * for that block and bsize should be 0. These fields are manipulated
  * internally by the pretty printer. The other fields are not 
  * modified.
  */
 typedef struct pp_open_token_s {
-  uint32_t size;
+  uint32_t bsize;
   uint8_t formats;
   uint8_t flags;
   uint16_t label_size;
