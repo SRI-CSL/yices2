@@ -866,13 +866,35 @@ static void printer_pop_state(printer_t *p) {
 }
 
 
+
 /*
  * Process token tk
+ * - if p is in HVMODE and tk is either an atomic or an open token
+ *   then tk->bsize is used to decide whether tk fits on the current line
+ *
+ * We don't want to insert line breaks between tokens and closing
+ * parentheses or between two closing parentheses.
+ * 
+ * The bsize field should then be set appropriately. 
+
+ * 1) For an atomic token. Let m be the number of closing parentheses
+ *    that follow tk in the token stream.
+ *    - if (tk->size + m) is larger than the space available on the
+ *      current line, then tk->bsize must be larger than the space
+ *      available.
+ *    - otherwise, tk->bsize must be equal to (tk->size + m).
+ *
+ * 2) For an open token. Let w be the total size of the corresponding
+ *    block and m be the number of closing parentheses after that
+ *    block.  (w = sum of the widths of all block components +
+ *    internal spaces + closing parenthesis if any).
+ *    - if (m + w) is larger than the space available on the current
+ *      line, then tk->bsize must be larger than the space available
+ *    - otherwise, tk->bsize must be equal to (w + m).
  */
 static void print_token(printer_t *p, void *tk) {
   pp_open_token_t *open;
   pp_atomic_token_t *atom;
-
   switch (ptr_tag(tk)) {
   case PP_TOKEN_OPEN_TAG:
     open = untag_open(tk);
@@ -914,6 +936,293 @@ static void print_token(printer_t *p, void *tk) {
 
 
 
+
+
+/*
+ * FORMATTER BLOCK QUEUE
+ */
+
+/*
+ * Initialize the queue
+ * - use the default size
+ * - the queue is empty
+ */
+static void init_open_block_queue(open_block_queue_t *q) {
+  uint32_t n;
+
+  n = DEF_BLOCK_QUEUE_SIZE;
+  assert(0 < n && n <= MAX_BLOCK_QUEUE_SIZE);
+  q->data = (open_block_t *) safe_malloc(n * sizeof(open_block_t));
+  q->size = n;
+  q->head = 0;
+  q->tail = 0;
+}
+
+
+/*
+ * Delete the queue
+ */
+static void delete_open_block_queue(open_block_queue_t *q) {
+  safe_free(q->data);
+  q->data = NULL;
+}
+
+
+/*
+ * Make the data arry 50% larger
+ */
+static void extend_open_block_queue(open_block_queue_t *q) {
+  uint32_t n;
+
+  n = q->size + 1;
+  n += n>>1;
+
+  if (n >= MAX_BLOCK_QUEUE_SIZE) {
+    out_of_memory();
+  }
+
+  q->data = (open_block_t *) safe_realloc(q->data, n * sizeof(open_block_t));
+  q->size = n;
+}
+
+
+/*
+ * Add a new block at the end of the queue:
+ * - tk = open token for that block
+ * - delta and nsub are initialized to 0
+ */
+static void open_block_queue_push(open_block_queue_t *q, pp_open_token_t *tk) {
+  uint32_t i, n, j;
+
+  // q->tail is always available
+  i = q->tail;
+  assert(i < q->size);
+  q->data[i].delta = 0;
+  q->data[i].nsub = 0;
+  q->data[i].token = tk;
+  i ++;
+  q->tail = i;
+
+  if (i == q->size) {
+    if (q->head == 0) {
+      // full queue stored in data[0 ... size-1]
+      extend_open_block_queue(q);
+    } else {
+      // wrap around
+      q->tail = 0;
+    }    
+  } else if (i == q->head) {
+    /*
+     * full queue stored in data[0 .. i-1] + data[head .. size -1]
+     * make the array larger and shift data[head ... size-1] to 
+     * the end of the new array
+     */
+    assert(i < q->size);
+    n = q->size;
+    extend_open_block_queue(q);
+    j = q->size; // new size
+    do {
+      n --;
+      j --;
+      q->data[j] = q->data[n];
+    } while (n > i);
+    q->head = j;
+  }
+}
+
+
+/*
+ * Check whether the queue is empty
+ */
+static inline bool open_block_queue_is_empty(open_block_queue_t *q) {
+  return q->head == q->tail;
+}
+
+/*
+ * Empty the queue
+ */
+static inline void reset_open_block_queue(open_block_queue_t *q) {
+  q->head = 0;
+  q->tail = 0;
+}
+
+
+
+
+/*
+ * Descriptors of the first and last element in the queue
+ * - the queue must not be empty
+ */
+static inline open_block_t *first_block(open_block_queue_t *q) {
+  assert(q->head != q->tail);
+  return q->data + q->head;
+}
+
+static open_block_t *last_block(open_block_queue_t *q) {
+  uint32_t i;
+
+  assert(q->head != q->tail);
+
+  i = q->tail;
+  if (i == 0) {
+    i = q->size;
+  }
+  assert(i > 0);
+  i --;
+  return q->data + i;
+}
+
+
+
+/*
+ * Remove the first block
+ * - the queue must not be empty
+ */
+static void pop_first_block(open_block_queue_t *q) {
+  uint32_t h;
+
+  assert(q->head != q->tail);
+
+  h = q->head + 1;
+  if (h == q->size) {
+    h = 0;
+  }
+  assert(h < q->size);
+  q->head = h;
+}
+
+
+/*
+ * Remove that last block
+ * - the queue must not be empty
+ */
+static void pop_last_block(open_block_queue_t *q) {
+  uint32_t t;
+
+  assert(q->head != q->tail);
+
+  t = q->tail;
+  if (t == 0) {
+    t = q->size;
+  }
+  assert(t > 0);
+  q->tail = t - 1;
+}
+
+
+
+
+/*
+ * FORMATTER STRUCTURE
+ */
+
+/*
+ * Initialize the formatter f
+ * - area = print area descriptor
+ * - printer = attached printer object
+ * - the queues are both empty
+ */
+static void init_formatter(formatter_t *f, printer_t *printer, pp_area_t *area) {
+  f->printer = printer;
+  f->area = *area;
+
+  init_ptr_queue(&f->token_queue, 0); // use default size
+  init_open_block_queue(&f->open_queue);
+  f->last_atom = NULL;
+
+  // the flags + open line parameters can be arbitrary
+  f->no_break = false;
+  f->no_space = false;
+  f->line = 0;
+  f->col = 0;
+  f->margin = 0;
+}
+
+
+/*
+ * Empty the formatter:
+ * - call free_token for every token in the queue
+ * - empty both queues and clear the last atom
+ */
+static void reset_formatter(formatter_t *f) {
+  while (! ptr_queue_is_empty(&f->token_queue)) {
+    free_token(f->printer, ptr_queue_pop(&f->token_queue));
+  }
+  ptr_queue_reset(&f->token_queue); // not really necessary
+  reset_open_block_queue(&f->open_queue);
+  f->last_atom = NULL;
+}
+
+
+/*
+ * Delete the formatter:
+ * - call free_token for every tk in the queue.
+ * - the printer should not be deleted before the formatter
+ */
+static void delete_formatter(formatter_t *f) {
+  while (! ptr_queue_is_empty(&f->token_queue)) {
+    free_token(f->printer, ptr_queue_pop(&f->token_queue));
+  }
+  delete_ptr_queue(&f->token_queue);
+  delete_open_block_queue(&f->open_queue);
+  f->last_atom = NULL;
+}
+
+
+
+/*
+ * OPEN LINE
+ */
+
+/*
+ * Invariants in the formatter:
+ * - the last_atom and all open tokens in the open queue
+ *   are elements of the token queue.
+ * - so if the token queue is empty, the open queue must
+ *   also be empty and last_atom must be NULL.
+ */
+
+/*
+ * Import the printer's line specification into the formatter.
+ * - the formatter's queue must be empty. 
+ * - this sets the open line parameters to reflects the 
+ *   available space on the print line.
+ */
+static void formatter_import_print_line(formatter_t *f) {
+  printer_t *p;
+
+  assert(ptr_queue_is_empty(&f->token_queue) && 
+	 open_block_queue_is_empty(&f->open_queue) &&
+	 f->last_atom == NULL);
+
+  p = f->printer;
+
+  f->indent = p->indent;
+  f->no_break = p->no_break;
+  f->no_space = p->no_space;
+  f->line = p->line;
+  f->col = 0;
+
+  /*
+   * f->margin = space left on the print line
+   * (p->col > p->margin is possible if truncate is false).
+   */
+  if (p->full_line || p->col >= p->margin) {
+    f->margin = 0;
+  } else {
+    f->margin = p->margin - p->col;
+  }
+}
+
+
+
+
+
+
+
+
+
+
 /*
  * INITIALIZATION
  */
@@ -928,6 +1237,7 @@ static pp_area_t default_area = {
   PP_DEFAULT_STRETCH,
   PP_DEFAULT_TRUNCATE,
 };
+
 
 /*
  * Initialization:
@@ -953,6 +1263,7 @@ void init_pp(pp_t *pp, pp_token_converter_t *converter, FILE *file,
 
   pp->area = *area;
   init_printer(&pp->printer, file, converter, area, mode, indent);
+  init_formatter(&pp->formatter, &pp->printer, area);
 }
 
 
@@ -960,6 +1271,7 @@ void init_pp(pp_t *pp, pp_token_converter_t *converter, FILE *file,
  * Deletion
  */
 void delete_pp(pp_t *pp) {
+  delete_formatter(&pp->formatter);
   delete_printer(&pp->printer);
 }
 

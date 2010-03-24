@@ -7,6 +7,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <assert.h>
+
 
 /*
  * Components:
@@ -62,6 +64,14 @@ static inline bool ptr_queue_is_empty(ptr_queue_t *q) {
  * - q must be non-empty. 
  */
 extern void *ptr_queue_pop(ptr_queue_t *q);
+
+
+/*
+ * Get the first element or last element (don't removie it)
+ * - q must be non-empty
+ */
+extern void *ptr_queue_first(ptr_queue_t *q);
+extern void *ptr_queue_last(ptr_queue_t *q);
 
 
 /*

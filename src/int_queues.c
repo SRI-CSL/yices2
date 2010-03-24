@@ -58,7 +58,7 @@ static void resize_queue(int_queue_t *q) {
  * Push element x at the end of the queue
  */
 void int_queue_push(int_queue_t *q, int32_t x) {
-  uint32_t i, n, h, d;
+  uint32_t i, n, j;
 
   i = q->tail;
   q->data[i] = x;
@@ -83,13 +83,13 @@ void int_queue_push(int_queue_t *q, int32_t x) {
      */
     n = q->size;
     resize_queue(q);
-    d = q->size - n;
-    h = q->head;
+    j = q->size;
     do {
       n --;
-      q->data[n + d] = q->data[n];
-    } while (n > h);
-    q->head = h + d;
+      j --;
+      q->data[j] = q->data[n];
+    } while (n > i);
+    q->head = j;
   }
 }
 

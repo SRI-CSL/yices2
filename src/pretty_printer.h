@@ -39,9 +39,14 @@
  *         ...
  *         b_n)
  *
- * In the first three layouts (H, V, HV), we require that all subblocks 
- * be printed in H layout. So if any b_i does not fit on a single line, 
- * the last layout must be used.
+ * There are constraints between the selected layout for a block and the
+ * allowed layouts for its sublocks:
+ * - if b is printed horizontally, then all its subblocks must also be 
+ *   printed horizontally
+ * - if b is printed in vertical layout or mixed HV layouts, then all
+ *   its subblocks must be printed horizontally
+ * If b is printed in the tight vertical layout, then there are
+ * no constraints on its subblocks.
  *
  * If a line break is not allowed between label and b_1 then Tight Vertical layout will
  * be printed as
@@ -53,10 +58,9 @@
  * where b_1 may be printed on several lines.
  *
  * As in Oppen's paper the pretty printer consists of two main components
- * - a printer does the actual printing
- * - a formatter computes the size of blocks and selects a layout for 
- *   each block.
- * The two components communicate via a token queue.
+ * - a printer does the actual printing.
+ * - a formatter computes the size of blocks, selects a layout for 
+ *   each block, and feeds that information to the printer.
  */
 
 #ifndef __PRETTY_PRINTER_H
@@ -517,11 +521,135 @@ typedef struct printer_s {
 
 
 /*
+ * FORMATTER
+ */
+
+/* 
+ * The formatter stores a queue of tokens that can't be printed yet.
+ * The formatter maintains a provisional layout and computes the size
+ * of each tokens. When a new token is added to the queue and doesn't
+ * fit in the provisional layout, then a new layout is constructed by
+ * selecting a new layout for the outermost open token. 
+ *
+ * To keep track of the current provisional layout, we use:
+ * 1) A queue of all the open blocks. For each open block we store:
+ *    - the corresponding open token
+ *    - the space required to print the start of this block
+ *    - the number of closed sub-blocks within that block
+ * 2) The description of an open-line, that is, the line where new tokens 
+ *    are added, in the provisional layout:
+ *    - line = its index
+ *    - col = where new tokens are added
+ *    - margin = end of that line
+ *    - indent = indentation for that line
+ *    - no_space = prevent a space before the next token
+ *    - no_break = prevent a line break before the next token
+ *
+ * The open line looks (approximately) like this:
+ *
+ *     delta_0        delta_1          delta_n
+ *  <--------------><--------->       <------->
+ *   _________________________________________________________
+ *  |B0            |B1         | .... |B_n     |              |
+ *   ---------------------------------------------------------
+ *                                             ^              ^
+ *                                             col            margin
+ *
+ * where B0, B1, ..., Bn are n open blocks stored in the open queue.
+ * - delta_i is the size from the start of B_i to the start of B_i+1.
+ * - nsub_i is the number of atomic or closed sublocks of B_i that
+ *   occur before the start of B_i+1
+ *
+ * All blocks in the open queue, except possibly the first one, are
+ * formatted in horizontal mode on the open line. If a new token doesn't
+ * fit in the space left (i.e., margin - col) then we try the next possible
+ * layout for B0, which removes B0 from the open line.
+ * 
+ * We also want to compute the block size field of atomic tokens
+ * (i.e., token size + the number of close parentheses that
+ * immediately follow it). For this, we keep a pointer to the last atomic
+ * token in the queue.
+ */
+
+/*
+ * Elements of the open queue:
+ * - delta = size until the next open block on the open line
+ *           (or until the col index)
+ * - nsub = number of subblocks
+ * - token = attached open_token 
+ */
+typedef struct open_block_s {
+  uint32_t delta;
+  uint32_t nsub;
+  pp_open_token_t *token;
+} open_block_t;
+
+
+/*
+ * Queue of open block descriptor (same implementation as int_queue
+ * and ptr_queue):
+ * - data = array elements
+ * - size = size of that array
+ * - head, tail = array indices between 0 and size-1
+ * This forms a list of block descriptors as follows:
+ * - head = tail --> the queue is empty
+ * - head < tail --> the queue is data[head ... tail-1]
+ * - head > tail --> the queue is data[head ... size-1]
+ *                   followed by  data[0 ... tail-1]
+ */
+typedef struct open_block_queue_s {
+  open_block_t *data;
+  uint32_t size;
+  uint32_t head;
+  uint32_t tail;
+} open_block_queue_t;
+
+
+// initial size and maximal size of the queue
+#define DEF_BLOCK_QUEUE_SIZE 20
+#define MAX_BLOCK_QUEUE_SIZE (UINT32_MAX/sizeof(open_block_t))
+
+
+/*
+ * Formatter structure:
+ * - a pointer to the printer
+ * - a copy of the display area (must be equal to the printer's area)
+ * - a queue of tokens (stored as tagged pointers)
+ * - a queue of open block descriptors
+ * - pointer to the last atom in the token queue (or NULL)
+ * - descriptor of the open line
+ */
+typedef struct formatter_s {
+  // printer + display area
+  printer_t *printer;
+  pp_area_t area;
+
+  // queues
+  ptr_queue_t token_queue;
+  open_block_queue_t open_queue;
+  pp_atomic_token_t *last_atom;
+
+  // control flags + indentation
+  uint32_t indent;
+  bool no_break;
+  bool no_space;
+
+  // open line
+  uint32_t line;
+  uint32_t col;
+  uint32_t margin;
+
+} formatter_t;
+
+
+
+/*
  * PRETTY PRINTER
  */
 typedef struct pp_s {
   pp_area_t area;
   printer_t printer;
+  formatter_t formatter;
 } pp_t;
 
 

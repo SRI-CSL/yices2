@@ -73,7 +73,7 @@ static void resize_queue(ptr_queue_t *q) {
  * Push element p at the end of the queue
  */
 void ptr_queue_push(ptr_queue_t *q, void *p) {
-  uint32_t i, n, h, d;
+  uint32_t i, n, j;
 
   i = q->tail;
   q->data[i] = p;
@@ -98,13 +98,14 @@ void ptr_queue_push(ptr_queue_t *q, void *p) {
      */
     n = q->size;
     resize_queue(q);
-    d = q->size - n;
-    h = q->head;
+    j = q->size;
+    assert(n < j);
     do {
       n --;
-      q->data[n + d] = q->data[n];
-    } while (n > h);
-    q->head = h + d;
+      j --;
+      q->data[j] = q->data[n];
+    } while (n > i);
+    q->head = j;
   }
 }
 
@@ -125,4 +126,30 @@ void *ptr_queue_pop(ptr_queue_t *q) {
   q->head = h;
 
   return x;
+}
+
+
+
+/*
+ * First element of q
+ */
+void *ptr_queue_first(ptr_queue_t *q) {
+  assert(q->head != q->tail);
+  return q->data[q->head];
+}
+
+
+/*
+ * Last element of q
+ */
+void *ptr_queue_last(ptr_queue_t *q) {
+  uint32_t i;
+
+  assert(q->head != q->tail);
+  i = q->tail;
+  if (i == 0) {
+    i = q->size;
+  }
+  assert(i > 0);
+  return q->data[i-1];
 }
