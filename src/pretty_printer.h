@@ -539,9 +539,10 @@ typedef struct printer_s {
  * 2) The description of an open-line, that is, the line where new tokens 
  *    are added, in the provisional layout:
  *    - line = its index
- *    - col = where new tokens are added
+ *    - col = where new tokens are added 
  *    - margin = end of that line
  *    - indent = indentation for that line
+ *    - last_open = start of the last block open
  *    - no_space = prevent a space before the next token
  *    - no_break = prevent a line break before the next token
  *
@@ -552,8 +553,8 @@ typedef struct printer_s {
  *   _________________________________________________________
  *  |B0            |B1         | .... |B_n     |              |
  *   ---------------------------------------------------------
- *                                             ^              ^
- *                                             col            margin
+ *                                    ^        ^              ^
+ *                                last_open   col           margin
  *
  * where B0, B1, ..., Bn are n open blocks stored in the open queue.
  * - delta_i is the size from the start of B_i to the start of B_i+1.
@@ -561,14 +562,15 @@ typedef struct printer_s {
  *   occur before the start of B_i+1
  *
  * All blocks in the open queue, except possibly the first one, are
- * formatted in horizontal mode on the open line. If a new token doesn't
- * fit in the space left (i.e., margin - col) then we try the next possible
- * layout for B0, which removes B0 from the open line.
+ * formatted in horizontal mode on the open line. If a new token
+ * doesn't fit in the space left (i.e., margin - col) then we try the
+ * next possible layout for B0, which removes B0 from the open line.
  * 
  * We also want to compute the block size field of atomic tokens
  * (i.e., token size + the number of close parentheses that
- * immediately follow it). For this, we keep a pointer to the last atomic
- * token in the queue.
+ * immediately follow it). For this, we keep a pointer to the last
+ * atomic token in the queue and atom_col = start of that atom in
+ * the open line.
  */
 
 /*
@@ -633,6 +635,10 @@ typedef struct formatter_s {
   uint32_t indent;
   bool no_break;
   bool no_space;
+
+  // location of last open block and last atom
+  uint32_t last_open;
+  uint32_t atom_col;
 
   // open line
   uint32_t line;

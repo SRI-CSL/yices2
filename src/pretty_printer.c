@@ -1131,8 +1131,11 @@ static void init_formatter(formatter_t *f, printer_t *printer, pp_area_t *area) 
   f->last_atom = NULL;
 
   // the flags + open line parameters can be arbitrary
+  f->indent = 0;
   f->no_break = false;
   f->no_space = false;
+  f->last_open = 0;
+  f->atom_col = 0;
   f->line = 0;
   f->col = 0;
   f->margin = 0;
@@ -1200,6 +1203,8 @@ static void formatter_import_print_line(formatter_t *f) {
   f->indent = p->indent;
   f->no_break = p->no_break;
   f->no_space = p->no_space;
+  f->last_open = 0;
+  f->atom_col = 0;
   f->line = p->line;
   f->col = 0;
 
