@@ -83,13 +83,13 @@
  * Bit masks to represent a set of layouts
  * (in the low-order bits on an unsigned int).
  * - 0001: horizontal
- * - 0010: vertical
- * - 0100: mixed horizontal/vertical
+ * - 0010: mixed horizontal/vertical
+ * - 0100: vertical
  * - 1000: thight vertical
  */
 #define PP_HLAYOUT_MASK ((uint32_t) 1)
-#define PP_VLAYOUT_MASK ((uint32_t) 2)
-#define PP_MLAYOUT_MASK ((uint32_t) 4)
+#define PP_MLAYOUT_MASK ((uint32_t) 2)
+#define PP_VLAYOUT_MASK ((uint32_t) 4)
 #define PP_TLAYOUT_MASK ((uint32_t) 8)
 
 
@@ -240,16 +240,35 @@ static inline bool tk_has_hlayout(pp_open_token_t *tk) {
   return (tk->formats & PP_HLAYOUT_MASK) != 0;
 }
 
-static inline bool tk_has_vlayout(pp_open_token_t *tk) {
-  return (tk->formats & PP_VLAYOUT_MASK) != 0;
-}
-
 static inline bool tk_has_mlayout(pp_open_token_t *tk) {
   return (tk->formats & PP_MLAYOUT_MASK) != 0;
 }
 
+static inline bool tk_has_vlayout(pp_open_token_t *tk) {
+  return (tk->formats & PP_VLAYOUT_MASK) != 0;
+}
+
 static inline bool tk_has_tlayout(pp_open_token_t *tk) {
   return (tk->formats & PP_TLAYOUT_MASK) != 0;
+}
+
+/*
+ * Clear the format bits (i.e., remove possible layouts for tk)
+ */
+static inline void clr_tk_hlayout(pp_open_token_t *tk) {
+  tk->formats &= ~PP_HLAYOUT_MASK;
+}
+
+static inline void clr_tk_mlayout(pp_open_token_t *tk) {
+  tk->formats &= ~PP_MLAYOUT_MASK;
+}
+
+static inline void clr_tk_vlayout(pp_open_token_t *tk) {
+  tk->formats &= ~PP_VLAYOUT_MASK;
+}
+
+static inline void clr_tk_tlayout(pp_open_token_t *tk) {
+  tk->formats &= ~PP_TLAYOUT_MASK;
 }
 
 /*
@@ -361,6 +380,16 @@ static inline void *untag_close(void *p) {
   assert(ptr_has_close_tag(p));
   return untag_ptr(p);
 }
+
+
+/*
+ * Large bsize: when we know that a token or block doesn't
+ * fit on the line, we can set its bisze field to any large
+ * enough number. We use the following constant = 2^30.
+ */
+
+#define PP_MAX_BSIZE ((uint32_t) 1073741824)
+
 
 
 /*

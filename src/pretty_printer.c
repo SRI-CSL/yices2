@@ -1177,18 +1177,238 @@ static void delete_formatter(formatter_t *f) {
 
 
 
+
 /*
  * OPEN LINE
  */
 
 /*
- * Invariants in the formatter:
- * - the last_atom and all open tokens in the open queue
- *   are elements of the token queue.
- * - so if the token queue is empty, the open queue must
- *   also be empty and last_atom must be NULL.
- * - nclosed is between 0 and the number of tokens in the queue
+ * Invariants
+ * ----------
+ * 
+ * The last atom and all open tokens in the open queue are elements of
+ * the token queue. (So if the token queue is empty, the block queue
+ * must also be empty and last_atom must be NULL.)
+ *
+ * nclosed is between 0 and the number of tokens in the queue.
+ *
+ * If the block queue is non empty, then its token is the first
+ * element of the token queue.
+ *
+ * If the block queue is empty, then either the token queue is empty
+ * or it contains a single atomic token followed by zero or more close
+ * tokens. In the latter case, last_atom is non NULL and it is the head of the
+ * token queue.
+ *
+ * If the last atom is non NULL and the block queue is non empty, then
+ * last atom is the last atom in the last block.
+ *
+ *
+ * Provisional layout
+ * ------------------
+ * 
+ * If the block queue is non empty, then the provisional layout is
+ * defined by the formats word of the first token (i.e., head of the
+ * token list and token field of the first block).
+ *
+ * If the HLAYOUT bit of the first token is set:
+ * - all the queued tokens fit on the open line.
+ * - all the queued blocks are in HMODE
+ *
+ * else if the MLAYOUT bit is set:
+ * - the first block is in HVMODE
+ * - all the other blocks are in HMODE
+ *
+ * else if the VLAYOUT bit of the first token is set:
+ * - the first block is in VMODE
+ * - all the other blocks are in HMODE
+ * 
+ * Assumptions:
+ * - no open token has both the MLAYOUT and VLAYOUT bits set.
+ * 
  */
+
+
+/*
+ * Send all the tokens in the token queue to the printer
+ * - the open queue must be empty and the last atom must be NULL
+ */
+static void flush_token_queue(formatter_t *f) {
+  printer_t *p;
+  void *tk;
+
+  assert(block_queue_is_empty(&f->block_queue) && 
+	 f->last_atom == NULL);
+
+  p = f->printer;
+  while (! ptr_queue_is_empty(&f->token_queue)) {
+    tk = ptr_queue_pop(&f->token_queue);
+    print_token(p, tk);
+  }
+}
+
+
+/*
+ * Assign a large bsize to the last atom if any, 
+ * then remove it.
+ */
+static void force_wide_last_atom(formatter_t *f) {
+  pp_atomic_token_t *last;
+
+  last = f->last_atom;
+  if (last != NULL) {
+    last->bsize = PP_MAX_BSIZE;
+    f->last_atom = NULL;
+  }
+}
+
+
+/*
+ * Remove the first block from the block queue and
+ * send all tokens that occur before the next block to the printer.
+ */
+static void flush_first_block(formatter_t *f) {
+  printer_t *p;
+  pp_block_t *new_first;
+  void *tk, *tk0;
+
+  pop_first_block(&f->block_queue);
+  if (block_queue_is_empty(&f->block_queue)) {
+    /* 
+     * That was the last block: send all tokens to the printer.
+     * If last_atom != NULL, then it's part of this block.
+     * We set its bsize and clear last_atom before flushing the token queue.
+     */
+    force_wide_last_atom(f);
+    flush_token_queue(f);
+  } else {
+    new_first = first_block(&f->block_queue);
+    /*
+     * Send every token that occurs before new_first->token 
+     * to the printer.
+     */
+    p = f->printer;
+    tk0 = tag_open(new_first->token);
+    do {
+      tk = ptr_queue_pop(&f->token_queue);
+      assert(tk != tk0);
+      print_token(p, tk);
+    } while (ptr_queue_first(&f->token_queue) != tk0);
+  }
+}
+
+
+/*
+ * Try to change the first block's layout to make
+ * room on the open line. If there's only one allowed
+ * layout for the first block, then flush it.
+ *
+ * This function is called when there's not enough space on
+ * the open line for the next token on the open line.
+ */
+static void reformat_or_flush_first_block(formatter_t *f) {
+  pp_block_t *b;
+  pp_open_token_t *tk;
+
+  b = first_block(&f->block_queue);
+  tk = b->token;
+
+  /*
+   * The four lower-order format bits store the current layout and
+   * specifies which layout try next. 
+   * bit 0 --> horizontal layout.
+   * bit 1 --> mixed horiz/vertical layout
+   * bit 2 --> vertical layout
+   * bit 3 --> tight vertical layout
+   *
+   * The first (smallest order) '1' bit is the current layout,
+   * the next '1' bit is the next layout to try.
+   */
+  switch (tk->formats) {
+  case 1: 
+    /* 
+     * Currently in horizontal layout, no alternative.
+     * Since the line is full, we can set bsize to MAX and flush
+     * the first block.
+     */
+    tk->bsize = PP_MAX_BSIZE;
+    flush_first_block(f);
+    break;
+
+  case 3:
+  case 11:
+    /*
+     * bit 0 and bit 1 are set. The block is currently in horizontal
+     * layout, change to mixed layout.
+     */
+    clr_tk_hlayout(tk); // remove hlayout from the set of possible formats
+    
+    break;
+
+  case 5:
+  case 13:
+    /*
+     * bit 0 and 2 are set. Bit 1 is not set. The block is currently
+     * in horizontal layout, change to mixed layout.
+     */
+    clr_tk_hlayout(tk);
+    break;
+
+  case 10:
+    /*
+     * Bit 1 and 3 are set. Current layout = mixed.
+     */
+    clr_tk_mlayout(tk);
+    
+    break;
+
+  case 12:
+    /*
+     * Bit 2 and 3 are set. Current layout = vertical, change to tight.
+     */
+    clr_tk_vlayout(tk);
+    break;
+  }
+}
+
+/*
+ * Set the bsize of the last atom and all closed blocks.
+ * Remove all closed blocks from the block queue.
+ * If this empties the block queue, send everything to the 
+ * printer. (All the tokens have now a valid bsize field and
+ * can be printed ).
+ */
+static void set_bsizes_and_flush(formatter_t *f) {
+  pp_atomic_token_t *last;
+  pp_block_t *b;
+  pp_open_token_t *tk;
+  uint32_t n;
+
+  // last atom
+  last = f->last_atom;
+  if (last != NULL) {
+    assert(f->atom_col <= f->col);
+    last->bsize = f->col - f->atom_col;
+    f->last_atom = NULL;
+  }
+
+  n = f->nclosed;
+  while (n > 0) {
+    b = last_block(&f->block_queue);
+    tk = b->token;
+    assert(b->col <= f->col);
+    tk->bsize = f->col - b->col;
+    pop_last_block(&f->block_queue);
+    n --;
+  }
+  f->nclosed = 0;
+
+  if (block_queue_is_empty(&f->block_queue)) {
+    // all blocks are closed.
+    flush_token_queue(f);
+  }
+}
+
 
 /*
  * Import the print line state into the formatter.
@@ -1225,51 +1445,11 @@ static void formatter_import_print_line(formatter_t *f) {
 
 
 
-
-/*
- * Remove all closed blocks from the block queue
- * - set the bsize field of all the corresponding open tokens
- */
-static void remove_closed_blocks(formatter_t *f) {
-  pp_block_t *b;
-  pp_open_token_t *tk;
-  uint32_t n;
-
-  n = f->nclosed;
-  while (n > 0) {
-    b = last_block(&f->block_queue);
-    tk = b->token;
-    assert(b->col <= f->col);
-    tk->bsize = f->col - b->col;
-    pop_last_block(&f->block_queue);
-    n --;
-  }
-  f->nclosed = 0;
-}
-
-
-/*
- * Set the bsize field of the last atom then reset last_atom to NULL.
- */
-static void remove_last_atom(formatter_t *f) {
-  pp_atomic_token_t *last;
-
-  last = f->last_atom;
-  if (last != NULL) {
-    assert(f->atom_col <= f->col);
-    last->bsize = f->col - f->atom_col;
-    f->last_atom = NULL;
-  }
-}
-
-
 /*
  * Process atomic token tk
  */
 static void process_atomic_token(formatter_t *f, pp_atomic_token_t *tk) {
-  // set bsize of all closed blocks and last_atom
-  remove_closed_blocks(f);
-  remove_last_atom(f);
+  set_bsizes_and_flush(f);
 }
 
 
@@ -1277,16 +1457,28 @@ static void process_atomic_token(formatter_t *f, pp_atomic_token_t *tk) {
  * Process open-block token tk
  */
 static void process_open_token(formatter_t *f, pp_open_token_t *tk) {
-  // set bsize of all closed blocks and last_atom
-  remove_closed_blocks(f);
-  remove_last_atom(f);
+  set_bsizes_and_flush(f);
 }
 
 /*
- * Process close token tk
+ * Process close token tk:
+ * - If the token queue is empty, forward tk to the printer.
+ * - Otherwise, there must be at least one open block in 
+ *   the block queue.
  */
 static void process_close_token(formatter_t *f, pp_close_token_t *tk) {
-  
+  if (ptr_queue_is_empty(&f->token_queue)) {
+    assert(f->last_atom == NULL && block_queue_is_empty(&f->block_queue));
+    print_token(f->printer, tag_close(tk));
+    return;
+  }
+
+  // add a close parenthesis to the open line
+  if (tk_has_close_par(tk)) {
+  }
+
+  // one of the open blocks is closed
+  f->nclosed ++;
 }
 
 
@@ -1382,11 +1574,11 @@ void pp_push_token(pp_t *pp, void *tk) {
   printer_t *p;
 
   p = &pp->printer;
-  if (true || p->mode == PP_HMODE) {
+  if (p->mode == PP_HMODE) {
     // send tk directly to the printer
     print_token(p, tk);
   } else {
-    // add tk to the formatting queue
+    // let the formatter process it
     process_token(&pp->formatter, tk);
   }
 }
