@@ -528,67 +528,90 @@ typedef struct printer_s {
  * The formatter stores a queue of tokens that can't be printed yet.
  * The formatter maintains a provisional layout and computes the size
  * of each tokens. When a new token is added to the queue and doesn't
- * fit in the provisional layout, then a new layout is constructed by
- * selecting a new layout for the outermost open token. 
+ * fit in the provisional layout, then a new provisional layout is
+ * constructed by chaning the new layout of the outermost open token. 
  *
  * To keep track of the current provisional layout, we use:
- * 1) A queue of all the open blocks. For each open block we store:
+ * 1) A queue of block descriptors. For each block we store:
  *    - the corresponding open token
- *    - the space required to print the start of this block
+ *    - the column where the block starts on the open line
  *    - the number of closed sub-blocks within that block
+ *    We also store the number of closed blocks that are in the queue
+ *    (all of them are at the end of the queue).
+ *    
  * 2) The description of an open-line, that is, the line where new tokens 
- *    are added, in the provisional layout:
+ *    are added in the provisional layout:
  *    - line = its index
  *    - col = where new tokens are added 
  *    - margin = end of that line
  *    - indent = indentation for that line
- *    - last_open = start of the last block open
  *    - no_space = prevent a space before the next token
  *    - no_break = prevent a line break before the next token
  *
  * The open line looks (approximately) like this:
  *
- *     delta_0        delta_1          delta_n
- *  <--------------><--------->       <------->
  *   _________________________________________________________
  *  |B0            |B1         | .... |B_n     |              |
  *   ---------------------------------------------------------
- *                                    ^        ^              ^
- *                                last_open   col           margin
+ *  ^              ^                  ^        ^              ^
+ * col_0         col_1              col_n     col           margin
  *
- * where B0, B1, ..., Bn are n open blocks stored in the open queue.
- * - delta_i is the size from the start of B_i to the start of B_i+1.
+ * where B0, B1, ..., Bn are n blocks stored in the block queue.
+ * - col_i is the start of B_i on the open line
  * - nsub_i is the number of atomic or closed sublocks of B_i that
  *   occur before the start of B_i+1
  *
- * All blocks in the open queue, except possibly the first one, are
+ * If there are k closed blocks in the queue then these the k blocks
+ * on the right of the line: B_{n-k+1} ... B_n, and the last of them
+ * is (B_n) is followed by a group of closing parentheses. We keep
+ * these closed blocks in the queue to compute the corresponding bsizes
+ * (i.e., block size + number of closing parentheses that follow each block).
+ *
+ * All blocks in the queue, except possibly the first one, are
  * formatted in horizontal mode on the open line. If a new token
  * doesn't fit in the space left (i.e., margin - col) then we try the
  * next possible layout for B0, which removes B0 from the open line.
  * 
- * We also want to compute the block size field of atomic tokens
- * (i.e., token size + the number of close parentheses that
- * immediately follow it). For this, we keep a pointer to the last
- * atomic token in the queue and atom_col = start of that atom in
- * the open line.
+ * We also want to compute the bsize field of atomic tokens.
+ * For this, we keep 
+ * - last_atom = last atomic token on the open line 
+ * - atom_col = start of that atom on the line
+ * 
+ * The pointer last_atom is non-null if the open line ends with an atomic
+ * token, possibly followed by a set of closing parentheses, as in
+ *  
+ *      ------------------------------------
+ *                           ... atom
+ *      ------------------------------------
+ *                                   ^
+ *                                  col
+ *  or
+ *
+ *      ---------------------------------------
+ *                           ... atom)))
+ *      ---------------------------------------
+ *                                      ^
+ *                                     col
+ *
+ * Then last_atom points to the token for 'atom_k' and atom_col 
+ * is the column index where the 'atom_k' starts. 
  */
 
 /*
- * Elements of the open queue:
- * - delta = size until the next open block on the open line
- *           (or until the col index)
+ * Block descriptor:
+ * - col = start of the block on the open line
  * - nsub = number of subblocks
  * - token = attached open_token 
  */
-typedef struct open_block_s {
-  uint32_t delta;
+typedef struct pp_block_s {
+  uint32_t col;
   uint32_t nsub;
   pp_open_token_t *token;
-} open_block_t;
+} pp_block_t;
 
 
 /*
- * Queue of open block descriptor (same implementation as int_queue
+ * Queue of block descriptor (same implementation as int_queue
  * and ptr_queue):
  * - data = array elements
  * - size = size of that array
@@ -599,17 +622,17 @@ typedef struct open_block_s {
  * - head > tail --> the queue is data[head ... size-1]
  *                   followed by  data[0 ... tail-1]
  */
-typedef struct open_block_queue_s {
-  open_block_t *data;
+typedef struct pp_block_queue_s {
+  pp_block_t *data;
   uint32_t size;
   uint32_t head;
   uint32_t tail;
-} open_block_queue_t;
+} pp_block_queue_t;
 
 
 // initial size and maximal size of the queue
 #define DEF_BLOCK_QUEUE_SIZE 20
-#define MAX_BLOCK_QUEUE_SIZE (UINT32_MAX/sizeof(open_block_t))
+#define MAX_BLOCK_QUEUE_SIZE (UINT32_MAX/sizeof(pp_block_t))
 
 
 /*
@@ -617,7 +640,7 @@ typedef struct open_block_queue_s {
  * - a pointer to the printer
  * - a copy of the display area (must be equal to the printer's area)
  * - a queue of tokens (stored as tagged pointers)
- * - a queue of open block descriptors
+ * - a queue of block descriptors
  * - pointer to the last atom in the token queue (or NULL)
  * - descriptor of the open line
  */
@@ -626,19 +649,19 @@ typedef struct formatter_s {
   printer_t *printer;
   pp_area_t area;
 
-  // queues
+  // queues  + number of closed blocks in block_queue
   ptr_queue_t token_queue;
-  open_block_queue_t open_queue;
-  pp_atomic_token_t *last_atom;
+  pp_block_queue_t block_queue;
+  uint32_t nclosed;
 
+  // last atom and block
+  pp_atomic_token_t *last_atom;
+  uint32_t atom_col;
+  
   // control flags + indentation
   uint32_t indent;
   bool no_break;
   bool no_space;
-
-  // location of last open block and last atom
-  uint32_t last_open;
-  uint32_t atom_col;
 
   // open line
   uint32_t line;

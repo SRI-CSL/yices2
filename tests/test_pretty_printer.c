@@ -229,7 +229,7 @@ int main() {
   delete_pp(&pp);
 
   display.truncate = true;
-  for (w = 20; w<50; w++) {
+  for (w = 4; w<50; w++) {
     display.width = w;
     printf("\n\nTruncate, height = %"PRIu32", width = %"PRIu32"\n", 
 	 display.height, display.width);

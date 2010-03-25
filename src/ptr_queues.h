@@ -67,7 +67,7 @@ extern void *ptr_queue_pop(ptr_queue_t *q);
 
 
 /*
- * Get the first element or last element (don't removie it)
+ * Get the first element or last element (don't remove it)
  * - q must be non-empty
  */
 extern void *ptr_queue_first(ptr_queue_t *q);

@@ -895,6 +895,7 @@ static void printer_pop_state(printer_t *p) {
 static void print_token(printer_t *p, void *tk) {
   pp_open_token_t *open;
   pp_atomic_token_t *atom;
+
   switch (ptr_tag(tk)) {
   case PP_TOKEN_OPEN_TAG:
     open = untag_open(tk);
@@ -947,12 +948,12 @@ static void print_token(printer_t *p, void *tk) {
  * - use the default size
  * - the queue is empty
  */
-static void init_open_block_queue(open_block_queue_t *q) {
+static void init_block_queue(pp_block_queue_t *q) {
   uint32_t n;
 
   n = DEF_BLOCK_QUEUE_SIZE;
   assert(0 < n && n <= MAX_BLOCK_QUEUE_SIZE);
-  q->data = (open_block_t *) safe_malloc(n * sizeof(open_block_t));
+  q->data = (pp_block_t *) safe_malloc(n * sizeof(pp_block_t));
   q->size = n;
   q->head = 0;
   q->tail = 0;
@@ -962,7 +963,7 @@ static void init_open_block_queue(open_block_queue_t *q) {
 /*
  * Delete the queue
  */
-static void delete_open_block_queue(open_block_queue_t *q) {
+static void delete_block_queue(pp_block_queue_t *q) {
   safe_free(q->data);
   q->data = NULL;
 }
@@ -971,7 +972,7 @@ static void delete_open_block_queue(open_block_queue_t *q) {
 /*
  * Make the data arry 50% larger
  */
-static void extend_open_block_queue(open_block_queue_t *q) {
+static void extend_block_queue(pp_block_queue_t *q) {
   uint32_t n;
 
   n = q->size + 1;
@@ -981,7 +982,7 @@ static void extend_open_block_queue(open_block_queue_t *q) {
     out_of_memory();
   }
 
-  q->data = (open_block_t *) safe_realloc(q->data, n * sizeof(open_block_t));
+  q->data = (pp_block_t *) safe_realloc(q->data, n * sizeof(pp_block_t));
   q->size = n;
 }
 
@@ -989,15 +990,17 @@ static void extend_open_block_queue(open_block_queue_t *q) {
 /*
  * Add a new block at the end of the queue:
  * - tk = open token for that block
- * - delta and nsub are initialized to 0
+ * - col = column start for that block
+ * - nsub is initialized to 0
  */
-static void open_block_queue_push(open_block_queue_t *q, pp_open_token_t *tk) {
+static void block_queue_push(pp_block_queue_t *q, 
+			     pp_open_token_t *tk, uint32_t col) {
   uint32_t i, n, j;
 
   // q->tail is always available
   i = q->tail;
   assert(i < q->size);
-  q->data[i].delta = 0;
+  q->data[i].col = col;
   q->data[i].nsub = 0;
   q->data[i].token = tk;
   i ++;
@@ -1006,7 +1009,7 @@ static void open_block_queue_push(open_block_queue_t *q, pp_open_token_t *tk) {
   if (i == q->size) {
     if (q->head == 0) {
       // full queue stored in data[0 ... size-1]
-      extend_open_block_queue(q);
+      extend_block_queue(q);
     } else {
       // wrap around
       q->tail = 0;
@@ -1019,7 +1022,7 @@ static void open_block_queue_push(open_block_queue_t *q, pp_open_token_t *tk) {
      */
     assert(i < q->size);
     n = q->size;
-    extend_open_block_queue(q);
+    extend_block_queue(q);
     j = q->size; // new size
     do {
       n --;
@@ -1034,14 +1037,14 @@ static void open_block_queue_push(open_block_queue_t *q, pp_open_token_t *tk) {
 /*
  * Check whether the queue is empty
  */
-static inline bool open_block_queue_is_empty(open_block_queue_t *q) {
+static inline bool block_queue_is_empty(pp_block_queue_t *q) {
   return q->head == q->tail;
 }
 
 /*
  * Empty the queue
  */
-static inline void reset_open_block_queue(open_block_queue_t *q) {
+static inline void reset_block_queue(pp_block_queue_t *q) {
   q->head = 0;
   q->tail = 0;
 }
@@ -1053,12 +1056,12 @@ static inline void reset_open_block_queue(open_block_queue_t *q) {
  * Descriptors of the first and last element in the queue
  * - the queue must not be empty
  */
-static inline open_block_t *first_block(open_block_queue_t *q) {
+static inline pp_block_t *first_block(pp_block_queue_t *q) {
   assert(q->head != q->tail);
   return q->data + q->head;
 }
 
-static open_block_t *last_block(open_block_queue_t *q) {
+static pp_block_t *last_block(pp_block_queue_t *q) {
   uint32_t i;
 
   assert(q->head != q->tail);
@@ -1078,7 +1081,7 @@ static open_block_t *last_block(open_block_queue_t *q) {
  * Remove the first block
  * - the queue must not be empty
  */
-static void pop_first_block(open_block_queue_t *q) {
+static void pop_first_block(pp_block_queue_t *q) {
   uint32_t h;
 
   assert(q->head != q->tail);
@@ -1096,7 +1099,7 @@ static void pop_first_block(open_block_queue_t *q) {
  * Remove that last block
  * - the queue must not be empty
  */
-static void pop_last_block(open_block_queue_t *q) {
+static void pop_last_block(pp_block_queue_t *q) {
   uint32_t t;
 
   assert(q->head != q->tail);
@@ -1127,15 +1130,16 @@ static void init_formatter(formatter_t *f, printer_t *printer, pp_area_t *area) 
   f->area = *area;
 
   init_ptr_queue(&f->token_queue, 0); // use default size
-  init_open_block_queue(&f->open_queue);
+  init_block_queue(&f->block_queue);
+  f->nclosed = 0;
+
   f->last_atom = NULL;
+  f->atom_col = 0;
 
   // the flags + open line parameters can be arbitrary
   f->indent = 0;
   f->no_break = false;
   f->no_space = false;
-  f->last_open = 0;
-  f->atom_col = 0;
   f->line = 0;
   f->col = 0;
   f->margin = 0;
@@ -1152,7 +1156,7 @@ static void reset_formatter(formatter_t *f) {
     free_token(f->printer, ptr_queue_pop(&f->token_queue));
   }
   ptr_queue_reset(&f->token_queue); // not really necessary
-  reset_open_block_queue(&f->open_queue);
+  reset_block_queue(&f->block_queue);
   f->last_atom = NULL;
 }
 
@@ -1167,7 +1171,7 @@ static void delete_formatter(formatter_t *f) {
     free_token(f->printer, ptr_queue_pop(&f->token_queue));
   }
   delete_ptr_queue(&f->token_queue);
-  delete_open_block_queue(&f->open_queue);
+  delete_block_queue(&f->block_queue);
   f->last_atom = NULL;
 }
 
@@ -1183,10 +1187,11 @@ static void delete_formatter(formatter_t *f) {
  *   are elements of the token queue.
  * - so if the token queue is empty, the open queue must
  *   also be empty and last_atom must be NULL.
+ * - nclosed is between 0 and the number of tokens in the queue
  */
 
 /*
- * Import the printer's line specification into the formatter.
+ * Import the print line state into the formatter.
  * - the formatter's queue must be empty. 
  * - this sets the open line parameters to reflects the 
  *   available space on the print line.
@@ -1195,7 +1200,8 @@ static void formatter_import_print_line(formatter_t *f) {
   printer_t *p;
 
   assert(ptr_queue_is_empty(&f->token_queue) && 
-	 open_block_queue_is_empty(&f->open_queue) &&
+	 block_queue_is_empty(&f->block_queue) &&
+	 f->nclosed == 0 &&
 	 f->last_atom == NULL);
 
   p = f->printer;
@@ -1203,8 +1209,6 @@ static void formatter_import_print_line(formatter_t *f) {
   f->indent = p->indent;
   f->no_break = p->no_break;
   f->no_space = p->no_space;
-  f->last_open = 0;
-  f->atom_col = 0;
   f->line = p->line;
   f->col = 0;
 
@@ -1222,8 +1226,93 @@ static void formatter_import_print_line(formatter_t *f) {
 
 
 
+/*
+ * Remove all closed blocks from the block queue
+ * - set the bsize field of all the corresponding open tokens
+ */
+static void remove_closed_blocks(formatter_t *f) {
+  pp_block_t *b;
+  pp_open_token_t *tk;
+  uint32_t n;
+
+  n = f->nclosed;
+  while (n > 0) {
+    b = last_block(&f->block_queue);
+    tk = b->token;
+    assert(b->col <= f->col);
+    tk->bsize = f->col - b->col;
+    pop_last_block(&f->block_queue);
+    n --;
+  }
+  f->nclosed = 0;
+}
 
 
+/*
+ * Set the bsize field of the last atom then reset last_atom to NULL.
+ */
+static void remove_last_atom(formatter_t *f) {
+  pp_atomic_token_t *last;
+
+  last = f->last_atom;
+  if (last != NULL) {
+    assert(f->atom_col <= f->col);
+    last->bsize = f->col - f->atom_col;
+    f->last_atom = NULL;
+  }
+}
+
+
+/*
+ * Process atomic token tk
+ */
+static void process_atomic_token(formatter_t *f, pp_atomic_token_t *tk) {
+  // set bsize of all closed blocks and last_atom
+  remove_closed_blocks(f);
+  remove_last_atom(f);
+}
+
+
+/*
+ * Process open-block token tk
+ */
+static void process_open_token(formatter_t *f, pp_open_token_t *tk) {
+  // set bsize of all closed blocks and last_atom
+  remove_closed_blocks(f);
+  remove_last_atom(f);
+}
+
+/*
+ * Process close token tk
+ */
+static void process_close_token(formatter_t *f, pp_close_token_t *tk) {
+  
+}
+
+
+
+/*
+ * Add token tk to the formatting state
+ * - the printer must be in HVMODE or VMODE
+ */
+static void process_token(formatter_t *f, void *tk) {  
+  assert(f->printer->mode == PP_HVMODE ||
+	 f->printer->mode == PP_VMODE);
+
+  switch (ptr_tag(tk)) {
+  case PP_TOKEN_OPEN_TAG:
+    process_open_token(f, untag_open(tk));
+    break;
+
+  case PP_TOKEN_ATOMIC_TAG:
+    process_atomic_token(f, untag_atomic(tk));
+    break;
+
+  case PP_TOKEN_CLOSE_TAG:
+    process_close_token(f, untag_close(tk));
+    break;
+  }
+}
 
 
 
@@ -1290,7 +1379,16 @@ void delete_pp(pp_t *pp) {
  * Process token tk
  */
 void pp_push_token(pp_t *pp, void *tk) {
-  print_token(&pp->printer, tk);
+  printer_t *p;
+
+  p = &pp->printer;
+  if (true || p->mode == PP_HMODE) {
+    // send tk directly to the printer
+    print_token(p, tk);
+  } else {
+    // add tk to the formatting queue
+    process_token(&pp->formatter, tk);
+  }
 }
 
 
@@ -1311,5 +1409,6 @@ void flush_pp(pp_t *pp) {
   p->overfull_count = 0;
   p->line = 0;
   p->col = 0;
+  p->margin = p->next_margin;
   fflush(p->file);
 }
