@@ -1260,7 +1260,7 @@ static void flush_token_queue(formatter_t *f) {
  *
  * If k=0 then we also update the lead token based on bsize of B_0.
  */
-static void set_bsizes_and_close(formatter_t *f) {
+void set_bsizes_and_close(formatter_t *f) {
   pp_atomic_token_t *last;
   pp_block_t *b;
   pp_open_token_t *tk;
@@ -1495,7 +1495,7 @@ void pp_push_token(pp_t *pp, void *tk) {
   printer_t *p;
 
   p = &pp->printer;
-  if (true || p->mode == PP_HMODE) {
+  if (false || p->mode == PP_HMODE) {
     // send tk directly to the printer
     print_token(p, tk);
   } else {
