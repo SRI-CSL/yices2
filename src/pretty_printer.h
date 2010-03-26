@@ -95,7 +95,6 @@
 #define PP_HVT_LAYOUT (PP_H_LAYOUT|PP_V_LAYOUT|PP_T_LAYOUT)
 
 
-
 /*
  * DISPLAY AREA
  */
@@ -698,7 +697,6 @@ typedef struct formatter_s {
  * PRETTY PRINTER
  */
 typedef struct pp_s {
-  pp_area_t area;
   printer_t printer;
   formatter_t formatter;
 } pp_t;
@@ -707,7 +705,7 @@ typedef struct pp_s {
 
 
 /*
- * PRINTER INTERFACE
+ * PRETTY-PRINTER INTERFACE
  */
 
 /*
@@ -715,29 +713,64 @@ typedef struct pp_s {
  * - converter = converter interface (copied internally).
  * - file = output stream to use (must be an open, writable file)
  * - area = specify display area + truncate + stretch
- *   if its is NULL then the default area is used
  * - mode = initial print mode
  * - indent = initial indentation (increment)
  *
- * mode + indent are the bottom stack element
+ * If area s is NULL then the default area is used:
+ * width = 80, height = infinite, offset = 0, don't stretch, truncate.
  */
 extern void init_pp(pp_t *pp, pp_token_converter_t *converter, FILE *file,
 		    pp_area_t *area, pp_print_mode_t mode, uint32_t indent);
+
+
+
+/*
+ * Initialize an open token tk and return the tagged pointer tag_open(tk).
+ * - formats = allowed formats for that token (PP_??_LAYOUT)
+ * - lsize = label size
+ * - indent = indentation for V and M layouts
+ * - short_indent = indentation for the T layout
+ * - par: true if the token starts with '('
+ * - sep: true if a space is allowed betwen the label and the next token
+ * - user_tag = whatever the converter needs
+ */
+extern void *init_open_token(pp_open_token_t *tk, uint32_t formats, 
+			     uint16_t lsize, uint16_t indent, uint16_t short_indent,
+			     bool par, bool sep, uint32_t user_tag);
+
+
+/*
+ * Initialize an atomic token tk and return the tagged pointer tag_atomic(tk).
+ * - size = token size (when converted to a string)
+ * - user_tag = whatever the converter needs
+ */
+extern void *init_atomic_token(pp_atomic_token_t *tk, uint32_t size, uint32_t user_tag);
+
+
+/*
+ * Initialize a close token tk and return the tagged pointer tag_close(tk).
+ * - par: true if the token contains ')'
+ * - user_tag: any thing used by the free_close_token in the converter
+ */
+extern void *init_close_token(pp_close_token_t *tk, bool par, uint32_t user_tag);
+
 
 /*
  * Process token tk.
  */
 extern void pp_push_token(pp_t *pp, void *tk);
 
+
 /*
- * Flush the printer: print all the closing parentheses required
- * and pop all the modes from the stack (until we're back to level 0).
+ * Flush the printer: empty the internal queues and print
+ * the pending tokens. Reset the line counter to 0.
  */
 extern void flush_pp(pp_t *pp);
 
+
 /*
- * Delete the printer: free memory
- * (This may call the free_token function in pp->converter).
+ * Delete the printer: free memory.
+ * (This may call the free_token functions in pp->converter).
  */
 extern void delete_pp(pp_t *pp);
 

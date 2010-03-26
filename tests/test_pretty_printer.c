@@ -51,7 +51,7 @@ static void init_tokens(void) {
     opens[i].bsize = 0;
     opens[i].flags = PP_TOKEN_PAR_MASK;
     opens[i].label_size = strlen(open_labels[i]);
-    opens[i].formats = PP_V_LAYOUT;
+    opens[i].formats = PP_HMT_LAYOUT;
     opens[i].indent = opens[i].label_size + 1;
     opens[i].short_indent = 1;
     opens[i].user_tag = i;
@@ -111,44 +111,6 @@ static pp_area_t display = {
 
 
 /*
- * Provisional: show what's in the formatter's queue
- * (empty it too)
- */
-extern void set_bsizes_and_close(formatter_t *f);
-
-static void show_formatter(pp_t *pp) {
-  formatter_t *f;
-  void *tk;
-  pp_open_token_t *o;
-  pp_atomic_token_t *a;
-  pp_close_token_t *c;
-
-  f = &pp->formatter;
-  set_bsizes_and_close(f);
-  while (! ptr_queue_is_empty(&f->token_queue)) {
-    tk = ptr_queue_pop(&f->token_queue);
-    switch (ptr_tag(tk)) {
-    case PP_TOKEN_OPEN_TAG:
-      o = untag_open(tk);
-      printf("open[%"PRIu32"]: %s: bsize = %"PRIu32", csize = %"PRIu32", fsize = %"PRIu32"\n",
-	     o->user_tag, get_label(NULL, o), o->bsize, o->csize, o->fsize);
-      break;
-    case PP_TOKEN_ATOMIC_TAG:
-      a = untag_atomic(tk);
-      printf("atom[%"PRIu32"]: %s: bsize = %"PRIu32"\n", a->user_tag, get_string(NULL, a), a->bsize);
-      break;
-    case PP_TOKEN_CLOSE_TAG:
-      c = untag_close(tk);
-      printf("close[%"PRIu32"]\n", c->user_tag);
-      break;
-    default:
-      printf("*** BUG: invalid token in formatter's token queue ***\n");
-      break;
-    }
-  }
-}
-
-/*
  * Test1: (f0 aaa (h50000 (f2 bbb ccc)) ddd)
  */
 static void test1(pp_t *pp) {
@@ -164,7 +126,6 @@ static void test1(pp_t *pp) {
   pp_push_token(pp, tag_atomic(atoms + 3)); // ddd
   pp_push_token(pp, tag_close(closes + 0));
   flush_pp(pp);
-  show_formatter(pp);
 }
 
 /*
@@ -180,7 +141,6 @@ static void test2(pp_t *pp) {
   pp_push_token(pp, tag_atomic(atoms + 6)); // g
   pp_push_token(pp, tag_close(closes + 0));
   flush_pp(pp);
-  show_formatter(pp);
 }
 
 /*
@@ -198,7 +158,6 @@ static void test3(pp_t *pp) {
   pp_push_token(pp, tag_close(closes + 0));
   pp_push_token(pp, tag_close(closes + 0));
   flush_pp(pp);
-  show_formatter(pp);
 }
 
 
@@ -218,7 +177,6 @@ static void test4(pp_t *pp) {
   pp_push_token(pp, tag_close(closes + 0));
   pp_push_token(pp, tag_close(closes + 0));
   flush_pp(pp);
-  show_formatter(pp);
 }
 
 
@@ -275,6 +233,20 @@ int main() {
   for (w = 4; w<50; w++) {
     display.width = w;
     printf("\n\nTruncate, height = %"PRIu32", width = %"PRIu32"\n", 
+	 display.height, display.width);
+    init_pp(&pp, &converter, stdout, &display, PP_VMODE, 0);
+    test1(&pp);
+    test2(&pp);
+    test3(&pp);
+    test4(&pp);
+    delete_pp(&pp);
+  }
+
+
+  display.truncate = false;
+  for (w = 4; w<50; w++) {
+    display.width = w;
+    printf("\n\nNo truncate, height = %"PRIu32", width = %"PRIu32"\n", 
 	 display.height, display.width);
     init_pp(&pp, &converter, stdout, &display, PP_VMODE, 0);
     test1(&pp);

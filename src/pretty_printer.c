@@ -58,8 +58,9 @@ static void delete_pp_stack(pp_stack_t *stack) {
   stack->data = NULL;
 }
 
+
 /*
- * Push new state on top of the stack
+ * Push a new state on top of the stack.
  * - indent is the new indentation increment
  */
 static void pp_stack_push(pp_stack_t *stack, pp_print_mode_t mode, uint32_t indent) {
@@ -369,7 +370,7 @@ static void print_label(printer_t *p, pp_open_token_t *tk) {
   char *s;
 
   if (tk_has_par(tk)) {
-    pp_open_par(p);
+   pp_open_par(p);
   }
   s = get_label(p, tk);
   pp_string(p, s, tk->label_size);
@@ -416,6 +417,7 @@ static void print_close(printer_t *p, pp_close_token_t *tk) {
 static void print_pending(printer_t *p) {
   pvector_t *v;
   void *tk;
+  bool space;
   uint32_t i, n;
 
   // restore p->col
@@ -423,36 +425,24 @@ static void print_pending(printer_t *p) {
   v = &p->pending_tokens;
   n = v->size;
   assert(n > 0);
-  tk = v->data[0];
   // no space before the first token
-  switch (ptr_tag(tk)) {
-  case PP_TOKEN_OPEN_TAG:
-    print_label(p, untag_open(tk));
-    break;
-  case PP_TOKEN_ATOMIC_TAG:
-    print_atomic(p, untag_atomic(tk));
-    break;
-  case PP_TOKEN_CLOSE_TAG:
-    print_close(p, untag_close(tk));
-    break;
-  default:
-    assert(false);
-    break;
-  }
-
-  for (i=1; i<n; i++) {
+  space = false;
+  for (i=0; i<n; i++) {
     tk = v->data[i];
     switch (ptr_tag(tk)) {
     case PP_TOKEN_OPEN_TAG:
-      pp_space(p);
+      if (space) pp_space(p);
       print_label(p, untag_open(tk));
+      space = tk_sep_allowed(untag_open(tk));
       break;
     case PP_TOKEN_ATOMIC_TAG:
-      pp_space(p);
+      if (space) pp_space(p);
       print_atomic(p, untag_atomic(tk));
+      space = true;
       break;
     case PP_TOKEN_CLOSE_TAG:
       print_close(p, untag_close(tk));
+      space = true;
       break;
     default:
       assert(false);
@@ -1226,23 +1216,8 @@ static void delete_formatter(formatter_t *f) {
 
 
 /*
- * Send all the tokens in the token queue to the printer
- * - the open queue must be empty and the last atom must be NULL
+ * SIZE COMPUTATION
  */
-static void flush_token_queue(formatter_t *f) {
-  printer_t *p;
-  void *tk;
-
-  assert(block_queue_is_empty(&f->block_queue) && 
-	 f->last_atom == NULL);
-
-  p = f->printer;
-  while (! ptr_queue_is_empty(&f->token_queue)) {
-    tk = ptr_queue_pop(&f->token_queue);
-    print_token(p, tk);
-  }
-}
-
 
 /*
  * Set the bsize of the last atom and all closed blocks and
@@ -1258,9 +1233,9 @@ static void flush_token_queue(formatter_t *f) {
  * - the csize and fsize fields of B_i are updated based on 
  *   B{i+1} bsize (for i=n-1 to k-1).
  *
- * If k=0 then we also update the lead token based on bsize of B_0.
+ * If k=0 then we also update the lead token based on B_0's bsize.
  */
-void set_bsizes_and_close(formatter_t *f) {
+static void set_bsizes_and_close(formatter_t *f) {
   pp_atomic_token_t *last;
   pp_block_t *b;
   pp_open_token_t *tk;
@@ -1286,7 +1261,7 @@ void set_bsizes_and_close(formatter_t *f) {
   while (n > 0) {
     b = last_block(&f->block_queue);
     tk = b->token;
-    // csize is the bsize of a sub-block or atom of tk
+    // csize is 0 or the bsize of a sub-block or atom of tk
     if (tk->fsize == 0) { // first sub block closed
       tk->fsize = csize;
       tk->csize = csize;
@@ -1302,34 +1277,35 @@ void set_bsizes_and_close(formatter_t *f) {
     n --;
   }
 
-  /*
-   * Set the csize and fsize of the head block
-   * or of the last (open) block in the queue.
-   */
-  if (block_queue_is_empty(&f->block_queue)) {
-    // all blocks are closed
-    // csize = bsize of block B_0
-    assert(f->queue_size == 0);
-    tk = f->head_token;
-    if (tk != NULL) {
+  if (csize > 0) {
+    /*
+     * Set the csize and fsize of the head block
+     * or of the last (open) block in the queue.
+     */
+    if (block_queue_is_empty(&f->block_queue)) {
+      // all blocks are closed
+      // csize = bsize of block B_0
+      assert(f->queue_size == 0);
+      tk = f->head_token;
+      if (tk != NULL) {
+	if (tk->fsize == 0) {
+	  tk->fsize = csize;
+	  tk->csize = csize;
+	} else if (tk->csize < csize) {
+	  tk->csize = csize;
+	}
+      }
+    } else {
+      // update csize and fsize of the last block
+      // in the queue
+      b = last_block(&f->block_queue);
+      tk = b->token;
       if (tk->fsize == 0) {
 	tk->fsize = csize;
 	tk->csize = csize;
       } else if (tk->csize < csize) {
 	tk->csize = csize;
       }
-      f->head_token = NULL;
-    }
-  } else {
-    // update csize and fsize of the last block
-    // in the queue
-    b = last_block(&f->block_queue);
-    tk = b->token;
-    if (tk->fsize == 0) {
-      tk->fsize = csize;
-      tk->csize = csize;
-    } else if (tk->csize < csize) {
-      tk->csize = csize;
     }
   }
 }
@@ -1390,9 +1366,95 @@ static void process_close_token(formatter_t *f, pp_close_token_t *tk) {
   if (f->nclosed < f->queue_size) {
     f->nclosed ++;
   } else {
+    assert(f->nclosed == f->queue_size);
     f->head_closed = true;
   }
 }
+
+
+
+/*
+ * TOKEN QUEUE
+ */
+
+/*
+ * Print all tokens from the start of the queue to tk (excluding tk).
+ * - tk must be in the token queue
+ */
+static void flush_tokens(formatter_t *f, void *tk) {
+  printer_t *p;
+  void *x;
+
+  p = f->printer;
+  while (ptr_queue_first(&f->token_queue) != tk) {
+    x = ptr_queue_pop(&f->token_queue);
+    print_token(p, x);    
+  }
+}
+
+
+/*
+ * Send all the tokens in the token queue to the printer
+ */
+static void flush_token_queue(formatter_t *f) {
+  printer_t *p;
+  void *tk;
+
+  p = f->printer;
+  while (! ptr_queue_is_empty(&f->token_queue)) {
+    tk = ptr_queue_pop(&f->token_queue);
+    print_token(p, tk);
+  }
+}
+
+
+/*
+ * For any block B_i in the queue, we know that the bsize for 
+ * that block is at least (f->length - B_i->col). 
+ *
+ * If (f->length - B_0->col > f->max_width) then we can set 
+ * B_0's bsize to infinity (PP_MAX_BSIZE), update the csize of the
+ * head token, and remove B_0 from the queue. The head token if any 
+ * is ready to be printed at this point.
+ */
+static void flush_wide_blocks(formatter_t *f) {
+  pp_block_t *b;
+  pp_open_token_t *tk, *head;
+
+  while (!block_queue_is_empty(&f->block_queue)) {
+    b = first_block(&f->block_queue);
+    assert(b->col <= f->length);
+    if (f->length - b->col <= f->max_width) break;
+    /*
+     * b has bsize > max_width: set its bsize to MAX 
+     * then can remove it
+     */
+    tk = b->token;
+    tk->bsize = PP_MAX_BSIZE;
+    head = f->head_token;
+    if (head != NULL) {
+      // update csize and fsize of the head token
+      head->csize = PP_MAX_BSIZE;
+      if (head->fsize == 0) {
+	head->fsize = PP_MAX_BSIZE;
+      }
+      // print head, ..., until tk
+      flush_tokens(f, tag_open(tk));
+    }
+
+    // tk becomes the head token
+    assert(ptr_queue_first(&f->token_queue) == tag_open(tk));
+    f->head_token = tk;
+    if (f->nclosed == f->queue_size) {
+      f->head_closed = true;
+      f->nclosed --;
+    }
+
+    pop_first_block(&f->block_queue);
+    f->queue_size --;
+  }
+}
+
 
 
 /*
@@ -1424,7 +1486,7 @@ static void process_token(formatter_t *f, void *tk) {
   ptr_queue_push(&f->token_queue, tk);
 
   // forward what we can to the printer
-  
+  flush_wide_blocks(f);
 }
 
 
@@ -1468,7 +1530,6 @@ void init_pp(pp_t *pp, pp_token_converter_t *converter, FILE *file,
   assert(area->width >= PP_MINIMAL_WIDTH &&
 	 area->height >= PP_MINIMAL_HEIGHT);
 
-  pp->area = *area;
   init_printer(&pp->printer, file, converter, area, mode, indent);
   init_formatter(&pp->formatter, &pp->printer);
 }
@@ -1485,36 +1546,31 @@ void delete_pp(pp_t *pp) {
 
 
 /*
- * FOR TESTING
- */
-
-/*
  * Process token tk
  */
 void pp_push_token(pp_t *pp, void *tk) {
-  printer_t *p;
-
-  p = &pp->printer;
-  if (false || p->mode == PP_HMODE) {
-    // send tk directly to the printer
-    print_token(p, tk);
-  } else {
-    // let the formatter process it
-    process_token(&pp->formatter, tk);
-  }
+  process_token(&pp->formatter, tk);
 }
 
 
 /*
- * Flush the printer.
+ * Flush: process all tokens in the formatter's queue.
+ * Then print a new line.
  */
 void flush_pp(pp_t *pp) {
   printer_t *p;
 
+  // empty the formatter's queues
+  set_bsizes_and_close(&pp->formatter);
+  flush_token_queue(&pp->formatter);
+
+  // empty the printer
   p = &pp->printer;
   if (p->pending_tokens.size > 0) {
     print_pending(p);
   }
+
+  // start a new line
   fputc('\n', p->file);
   p->no_space = true;
   p->no_break = true;
@@ -1525,3 +1581,73 @@ void flush_pp(pp_t *pp) {
   p->margin = p->next_margin;
   fflush(p->file);
 }
+
+
+
+/*
+ * UTILITIES TO CONSTRUCT TOKENS
+ */
+
+/*
+ * Combine par and sep into an 8bit flags for an open token.
+ * - if par is true, set bit 0 (PP_TOKEN_PAR_MASK)
+ * - if sep is true, set bit 1 (PP_TOPEN_SEP_MASK)
+ */
+static inline uint8_t make_open_flags(bool par, bool sep) {
+  return (uint8_t) (par * PP_TOKEN_PAR_MASK) | (sep * PP_TOKEN_SEP_MASK);
+}
+
+/*
+ * Initialize an open token tk and return the tagged pointer tag_open(tk).
+ * - formats = allowed formats for that token (PP_??_LAYOUT)
+ * - lsize = label size
+ * - indent = indentation for V and M layouts
+ * - short_indent = indentation for the T layout
+ * - par: true if the token starts with '('
+ * - sep: true if a space is allowed betwen the label and the next token
+ * - user_tag = whatever the converter needs
+ */
+void *init_open_token(pp_open_token_t *tk, uint32_t formats, 
+		      uint16_t lsize, uint16_t indent, uint16_t short_indent,
+		      bool par, bool sep, uint32_t user_tag) {
+  // formats must fit in the lower 4 bits 
+  // and at least one of these bits must be set
+  assert((formats & ~((uint32_t) 15)) == 0 && formats != 0);
+
+  tk->formats = formats;
+  tk->flags = make_open_flags(par, sep);
+  tk->label_size = lsize;
+  tk->indent = indent;
+  tk->short_indent = short_indent;
+  tk->user_tag = user_tag;
+
+  return tag_open(tk);
+}
+
+
+/*
+ * Initialize an atomic token tk and return the tagged pointer tag_atomic(tk).
+ * - size = token size (when converted to a string)
+ * - user_tag = whatever the converter needs
+ */
+void *init_atomic_token(pp_atomic_token_t *tk, uint32_t size, uint32_t user_tag) {
+  tk->size = size;
+  tk->user_tag = user_tag;
+
+  return tag_atomic(tk);
+}
+
+
+/*
+ * Initialize a close token tk and return the tagged pointer tag_close(tk).
+ * - par: true if the token contains ')'
+ * - user_tag: any thing used by the free_close_token in the converter
+ */
+void *init_close_token(pp_close_token_t *tk, bool par, uint32_t user_tag) {
+  tk->flags = (par * PP_TOKEN_PAR_MASK);
+  tk->user_tag = user_tag;
+
+  return tag_close(tk);
+}
+
+
