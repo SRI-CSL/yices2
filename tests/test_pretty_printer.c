@@ -51,7 +51,7 @@ static void init_tokens(void) {
     opens[i].bsize = 0;
     opens[i].flags = PP_TOKEN_PAR_MASK;
     opens[i].label_size = strlen(open_labels[i]);
-    opens[i].formats = PP_VLAYOUT_MASK;
+    opens[i].formats = PP_V_LAYOUT;
     opens[i].indent = opens[i].label_size + 1;
     opens[i].short_indent = 1;
     opens[i].user_tag = i;
