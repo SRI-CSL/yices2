@@ -760,13 +760,14 @@ static bool block_fits_horizontally(printer_t *p, pp_open_token_t *tk) {
  *   the current line.
  * - all other blocks must be printed in H layout on a new line 
  *   (adjusted for tk's indent).
+ * - the new width must be at least 4.
  */
 static bool subblocks_fit_horizontally(printer_t *p, pp_open_token_t *tk) {
   uint32_t new_width;
 
   new_width = line_width_for_indent(&p->area, p->indent + tk->indent);
-  return (tk->csize <= new_width) && 
-    (p->col + tk->fsize + (!tk_sep_allowed(tk)) <= p->margin);
+  return new_width >= 4 && tk->csize <= new_width && 
+    p->col + tk->fsize + (!tk_sep_allowed(tk)) <= p->margin;
 }
 
 

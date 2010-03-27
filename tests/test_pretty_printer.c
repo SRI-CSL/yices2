@@ -114,7 +114,6 @@ static pp_area_t display = {
  * Test1: (f0 aaa (h50000 (f2 bbb ccc)) ddd)
  */
 static void test1(pp_t *pp) {
-  printf("*** Test1 ***\n");
   pp_push_token(pp, tag_open(opens + 0)); // f0
   pp_push_token(pp, tag_atomic(atoms + 0)); // aaa
   pp_push_token(pp, tag_open(opens + 9));   // h50000 
@@ -132,7 +131,6 @@ static void test1(pp_t *pp) {
  * Test 2: (g1000 aaa bbb eee fff g)
  */
 static void test2(pp_t *pp) {
-  printf("*** Test2 ***\n");
   pp_push_token(pp, tag_open(opens + 5));   // g1000
   pp_push_token(pp, tag_atomic(atoms + 0)); // aaa
   pp_push_token(pp, tag_atomic(atoms + 1)); // bbb
@@ -147,7 +145,6 @@ static void test2(pp_t *pp) {
  * Test 3: (f3 (f2 (f1 (f0 ccc))))
  */
 static void test3(pp_t *pp) {
-  printf("*** Test3 ***\n");
   pp_push_token(pp, tag_open(opens + 3)); // f3
   pp_push_token(pp, tag_open(opens + 2)); // f2
   pp_push_token(pp, tag_open(opens + 1)); // f1
@@ -165,7 +162,6 @@ static void test3(pp_t *pp) {
  * Test 4: (f3 (f2 (f1 (f0 ccc)) h))
  */
 static void test4(pp_t *pp) {
-  printf("*** Test4 ***\n");
   pp_push_token(pp, tag_open(opens + 3)); // f3
   pp_push_token(pp, tag_open(opens + 2)); // f2
   pp_push_token(pp, tag_open(opens + 1)); // f1
@@ -255,8 +251,6 @@ int main() {
     test4(&pp);
     delete_pp(&pp);
   }
-
-
 
   return 0;
 }
