@@ -13,7 +13,7 @@
  *  
  * An open-block has the following attributes:
  * - label = string to be printed at the start of the block (may be empty)
- * - whether the block is enclosed by '(' and ')
+ * - whether the block is enclosed by '(' and ')'
  * - whether a space or line break is allowed between the label and the 
  *   next text element
  * - a set of possible formats for that block. There are four
@@ -157,9 +157,6 @@ typedef struct pp_area_s {
 #define PP_DEFAULT_OFFSET 0
 #define PP_DEFAULT_STRETCH false
 #define PP_DEFAULT_TRUNCATE true
-
-
-
 
 
 
@@ -703,7 +700,6 @@ typedef struct pp_s {
 
 
 
-
 /*
  * PRETTY-PRINTER INTERFACE
  */
@@ -715,13 +711,31 @@ typedef struct pp_s {
  * - area = specify display area + truncate + stretch
  * - mode = initial print mode
  * - indent = initial indentation (increment)
- *
  * If area s is NULL then the default area is used:
  * width = 80, height = infinite, offset = 0, don't stretch, truncate.
  */
 extern void init_pp(pp_t *pp, pp_token_converter_t *converter, FILE *file,
 		    pp_area_t *area, pp_print_mode_t mode, uint32_t indent);
 
+
+/*
+ * Process token tk.
+ */
+extern void pp_push_token(pp_t *pp, void *tk);
+
+
+/*
+ * Flush the printer: empty the internal queues and print
+ * the pending tokens. Reset the line counter to 0.
+ */
+extern void flush_pp(pp_t *pp);
+
+
+/*
+ * Delete the printer: free memory.
+ * (This may call the free_token functions in pp->converter).
+ */
+extern void delete_pp(pp_t *pp);
 
 
 /*
@@ -753,26 +767,6 @@ extern void *init_atomic_token(pp_atomic_token_t *tk, uint32_t size, uint32_t us
  * - user_tag: any thing used by the free_close_token in the converter
  */
 extern void *init_close_token(pp_close_token_t *tk, bool par, uint32_t user_tag);
-
-
-/*
- * Process token tk.
- */
-extern void pp_push_token(pp_t *pp, void *tk);
-
-
-/*
- * Flush the printer: empty the internal queues and print
- * the pending tokens. Reset the line counter to 0.
- */
-extern void flush_pp(pp_t *pp);
-
-
-/*
- * Delete the printer: free memory.
- * (This may call the free_token functions in pp->converter).
- */
-extern void delete_pp(pp_t *pp);
 
 
 #endif /* __PRETTY_PRINTER_H */
