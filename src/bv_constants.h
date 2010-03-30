@@ -33,26 +33,21 @@
 
 
 
-/*
- * bvconstant: a bitsize + a pointer to an array of words
- * - each word is 32bit.
- * - the array is extended as needed.
- */
-typedef struct bvconstant_s {
-  uint32_t *data;     // the array itself.
-  uint32_t bitsize;   // number of bits
-  uint32_t width;     // ceil(number of bits/32)
-  uint32_t arraysize; // size of the array
-} bvconstant_t;
-
-
 
 /*******************************
  *  ALLOCATION OF WORD ARRAYS  *
  ******************************/
 
 /*
- * Initialization: required before using bvconst_alloc
+ * The module maintains an global store for allocation
+ * of bitvector constants of different sizes. The following
+ * functions must be used to allocate/free vectors in
+ * that global store.
+ */
+
+/*
+ * Initialize the internal store. This must be called first,
+ * before any call to bvconst_alloc.
  */
 extern void init_bvconstants(void);
 
@@ -74,9 +69,22 @@ extern void bvconst_free(uint32_t *bv, uint32_t k);
 
 
 
+/****************************************
+ * OPERATIONS ON BVCONSTANT STRUCTURES  *
+ ***************************************/
+
 /*
- * OPERATIONS ON BVCONSTANT STRUCTURES
+ * bvconstant: a bitsize + a pointer to an array of words
+ * - each word is 32bit.
+ * - the array is extended as needed.
  */
+typedef struct bvconstant_s {
+  uint32_t *data;     // the array itself.
+  uint32_t bitsize;   // number of bits
+  uint32_t width;     // ceil(number of bits/32)
+  uint32_t arraysize; // size of the array
+} bvconstant_t;
+
 
 /*
  * Initialization: bitsize is set to 0
@@ -166,7 +174,8 @@ extern void bvconst_set_array(uint32_t *bv, int32_t *a, uint32_t n);
  * - mode = 1: padding with 1
  * - mode = -1: sign extension (padding = high-order bit).
  */
-extern void bvconst_set_extend(uint32_t *bv, uint32_t n, uint32_t *a, uint32_t m, int32_t mode);
+extern void bvconst_set_extend(uint32_t *bv, uint32_t n, uint32_t *a,
+			       uint32_t m, int32_t mode);
 
 
 /*

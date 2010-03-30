@@ -744,13 +744,12 @@ extern void delete_pp(pp_t *pp);
  * - lsize = label size
  * - indent = indentation for V and M layouts
  * - short_indent = indentation for the T layout
- * - par: true if the token starts with '('
- * - sep: true if a space is allowed betwen the label and the next token
+ * - flags = combination of PP_TOKEN_PAR_MASK and PP_TOKEN_SEP_MASK
  * - user_tag = whatever the converter needs
  */
-extern void *init_open_token(pp_open_token_t *tk, uint32_t formats, 
+extern void *init_open_token(pp_open_token_t *tk, uint32_t formats, uint32_t flags,
 			     uint16_t lsize, uint16_t indent, uint16_t short_indent,
-			     bool par, bool sep, uint32_t user_tag);
+			     uint32_t user_tag);
 
 
 /*

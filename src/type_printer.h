@@ -14,17 +14,17 @@
 extern void print_type_id(FILE *f, type_t tau);
 
 /*
- * Four print functions:
- * - only the name (or a default id if there's no name)
+ * Print functions:
  * - print type expression
- * - print type definition 'name := def'
+ * - print only the name (or a default id if there's no name)
+ * - print definition as im 'name := def'
  */
 extern void print_type(FILE *f, type_table_t *tbl, type_t tau);
 extern void print_type_name(FILE *f, type_table_t *tbl, type_t tau);
 extern void print_type_def(FILE *f, type_table_t *tbl, type_t tau);
 
 /*
- * Print the full type table
+ * Print the type table
  */
 extern void print_type_table(FILE *f, type_table_t *tbl);
 

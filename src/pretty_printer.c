@@ -509,7 +509,8 @@ static void print_pending_truncated(printer_t *p) {
 
 
 /*
- * Print atomic token tk
+ * Print atomic token tk then free it.
+ * - it's always freed
  */
 static void print_atomic_token(printer_t *p, pp_atomic_token_t *tk) {
   uint32_t new_col;
@@ -950,16 +951,20 @@ static void printer_pop_state(printer_t *p) {
 static void print_token(printer_t *p, void *tk) {
   pp_open_token_t *open;
   pp_atomic_token_t *atom;
+  pp_open_token_t copy;
 
   switch (ptr_tag(tk)) {
   case PP_TOKEN_OPEN_TAG:
     open = untag_open(tk);
     check_newline(p, open->bsize);
+    // print_open_token may free the token so we
+    // make a local copy first.
+    copy = *open;
     print_open_token(p, open);
     if (p->full_line) {
       p->overfull_count ++;
     } else {
-      printer_push_state(p, open);
+      printer_push_state(p, &copy);
     }
     break;
 
@@ -1590,33 +1595,23 @@ void flush_pp(pp_t *pp) {
  */
 
 /*
- * Combine par and sep into an 8bit flags for an open token.
- * - if par is true, set bit 0 (PP_TOKEN_PAR_MASK)
- * - if sep is true, set bit 1 (PP_TOPEN_SEP_MASK)
- */
-static inline uint8_t make_open_flags(bool par, bool sep) {
-  return (uint8_t) (par * PP_TOKEN_PAR_MASK) | (sep * PP_TOKEN_SEP_MASK);
-}
-
-/*
  * Initialize an open token tk and return the tagged pointer tag_open(tk).
  * - formats = allowed formats for that token (PP_??_LAYOUT)
+ * - flags = whether '(' and space are required
  * - lsize = label size
  * - indent = indentation for V and M layouts
  * - short_indent = indentation for the T layout
- * - par: true if the token starts with '('
- * - sep: true if a space is allowed betwen the label and the next token
  * - user_tag = whatever the converter needs
  */
-void *init_open_token(pp_open_token_t *tk, uint32_t formats, 
+void *init_open_token(pp_open_token_t *tk, uint32_t formats, uint32_t flags,
 		      uint16_t lsize, uint16_t indent, uint16_t short_indent,
-		      bool par, bool sep, uint32_t user_tag) {
+		      uint32_t user_tag) {
   // formats must fit in the lower 4 bits 
   // and at least one of these bits must be set
   assert((formats & ~((uint32_t) 15)) == 0 && formats != 0);
 
   tk->formats = formats;
-  tk->flags = make_open_flags(par, sep);
+  tk->flags = flags;
   tk->label_size = lsize;
   tk->indent = indent;
   tk->short_indent = short_indent;

@@ -67,7 +67,7 @@ extern void string_buffer_append_mpq(string_buffer_t *s, mpq_t q);
 extern void string_buffer_append_rational(string_buffer_t *s, rational_t *q);
 
 // bv = bitvector, n = size in bits
-extern void string_buffer_append_bvconst(string_buffer_t *s, uint32_t *bv, uint32_t n); 
+extern void string_buffer_append_bvconst(string_buffer_t *s, uint32_t *bv, uint32_t n);
 
 
 /*
