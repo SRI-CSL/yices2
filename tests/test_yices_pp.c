@@ -46,6 +46,11 @@ static void test_atoms(void) {
   pp_bv64(&printer, 0, 55);
   pp_bv64(&printer, UINT64_MAX, 55);
   pp_bv(&printer, bv, 120);
+  pp_string(&printer, 
+	    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
+	    
 
 }
 
@@ -58,6 +63,36 @@ static void test_list(void) {
   pp_close_block(&printer, true);
 }
 
+
+/*
+ * Most lists
+ */
+static void test_list2(void) {
+  pp_open_block(&printer, PP_OPEN_PAR);
+  test_atoms();
+  pp_open_block(&printer, PP_OPEN_PAR);
+  test_atoms();
+  pp_close_block(&printer, true);
+  pp_close_block(&printer, true);
+
+  flush_yices_pp(&printer);
+
+  pp_open_block(&printer, PP_OPEN_PAR);
+  pp_open_block(&printer, PP_OPEN_PAR);
+  pp_open_block(&printer, PP_OPEN_PAR);
+  pp_string(&printer,
+	    "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+	    "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ");
+  pp_string(&printer,
+	    "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY");
+  pp_close_block(&printer, true);
+  pp_uint32(&printer, 2390941091);
+  pp_uint32(&printer, 2193944);
+  pp_close_block(&printer, true);
+  pp_close_block(&printer, true);
+ 
+  flush_yices_pp(&printer);
+}
 
 
 int main() {  
@@ -106,6 +141,28 @@ int main() {
   area.width = 150;
   init_yices_pp(&printer, stdout, &area, PP_VMODE, 0);
   test_list();
+  delete_yices_pp(&printer);
+
+  area.width = 40;
+  printf("\n*** TEST LIST2: VMODE ***\n");
+  init_yices_pp(&printer, stdout, &area, PP_VMODE, 0);
+  test_list2();
+  delete_yices_pp(&printer);
+
+  printf("\n*** TEST LIST2 HVMODE ***\n");
+  init_yices_pp(&printer, stdout, &area, PP_HVMODE, 0);
+  test_list2();
+  delete_yices_pp(&printer);
+
+  printf("\n*** TEST LIST2 HMODE ***\n");
+  init_yices_pp(&printer, stdout, &area, PP_HMODE, 0);
+  test_list2();
+  delete_yices_pp(&printer);
+
+  printf("\n*** TEST LIST2 VMODE WIDE ***\n");
+  area.width = 1500;
+  init_yices_pp(&printer, stdout, &area, PP_VMODE, 0);
+  test_list2();
   delete_yices_pp(&printer);
 
   printf("\n");

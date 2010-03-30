@@ -1290,7 +1290,7 @@ static void set_bsizes_and_close(formatter_t *f) {
      */
     if (block_queue_is_empty(&f->block_queue)) {
       // all blocks are closed
-      // csize = bsize of block B_0
+      // csize = bsize of block B_0 or last_atom
       assert(f->queue_size == 0);
       tk = f->head_token;
       if (tk != NULL) {
@@ -1411,7 +1411,9 @@ static void flush_token_queue(formatter_t *f) {
     tk = ptr_queue_pop(&f->token_queue);
     print_token(p, tk);
   }
+
   f->last_atom = NULL;
+  f->head_token = NULL;
 }
 
 

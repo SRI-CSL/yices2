@@ -283,6 +283,37 @@ static void test_sup_inf(void) {
 }
 
 
+/*
+ * Pretty printing test
+ */
+static void pp_types(void) {
+  yices_pp_t printer;
+  pp_area_t area;
+  uint32_t i;
+  type_t tau;
+
+  init_yices_pp_tables();
+
+  area.width = 80;
+  area.height = UINT32_MAX;
+  area.offset = 11;
+  area.truncate = false;
+  area.stretch = false;
+
+  init_yices_pp(&printer, stdout, &area, PP_VMODE, 0);
+
+  for (i=0; i<num_types; i++) {
+    tau = all_types[i];
+    printf("type[%"PRIu32"]: ", i);
+    if (i < 10) printf(" ");
+    if (i < 100) printf(" ");
+    pp_type(&printer, &types, tau);
+    flush_yices_pp(&printer);
+  }
+
+  delete_yices_pp(&printer);
+}
+
 
 int main() {
   init_types();
@@ -291,6 +322,10 @@ int main() {
   show_types("Added 50 random types");
   test_sup_inf();
   show_types("After test");
+
+  printf("\nPretty printer test\n");
+  pp_types();
+  printf("\n");
 
   garbage_collect(40);
   show_types("After GC: keeping types 0 ... 39");

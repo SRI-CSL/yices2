@@ -325,7 +325,11 @@ static void pp_type_recur(yices_pp_t *printer, type_table_t *tbl, type_t tau, in
 
       case SCALAR_TYPE:
       case UNINTERPRETED_TYPE:
-	pp_id(printer, "tau!", tau);
+	if (name != NULL) {
+	  pp_string(printer, name);
+	} else {
+	  pp_id(printer, "tau!", tau);
+	}
 	break;
 
       case TUPLE_TYPE:
@@ -383,7 +387,7 @@ void pp_type_table(FILE *f, type_table_t *tbl) {
 
   area.width = 60;
   area.height = 2;
-  area.offset = name_size;
+  area.offset = 11;
   area.truncate = true;
   area.stretch = false;
 
@@ -392,22 +396,11 @@ void pp_type_table(FILE *f, type_table_t *tbl) {
   n = tbl->nelems;
   for (i=0; i<n; i++) {
     if (type_kind(tbl, i) != UNUSED_TYPE) {
-      name = type_name(tbl, i);
-      if (name != NULL) {
-	print_padded_string(f, name, name_size);
-	switch (type_kind(tbl, i)) {
-	case SCALAR_TYPE:
-	  fprintf(f, "scalar type: card = %"PRIu32"\n", scalar_type_cardinal(tbl, i));
-	  break;
-	case UNINTERPRETED_TYPE:
-	  fputs("uninterpreted type\n", f);
-	  break;
-	default:
-	  pp_type(&printer, tbl, i);
-	  flush_yices_pp(&printer);
-	  break;
-	}
-      }
+      fprintf(f, "type[%"PRIu32"]: ", i);
+      if (i < 10) fputc(' ', f);
+      if (i < 100) fputc(' ', f);
+      pp_type(&printer, tbl, i);
+      flush_yices_pp(&printer);
     }
   }
 
