@@ -31,6 +31,7 @@ static uint32_t bv[4] = {
  * Test the print atom functions
  */
 static void test_atoms(void) {
+  pp_char(&printer, 'X');
   pp_string(&printer, "test-string");
   pp_id(&printer, "tau!", 231);
   pp_bool(&printer, true);
@@ -52,9 +53,9 @@ static void test_atoms(void) {
  * List of atoms
  */
 static void test_list(void) {
-  pp_open(&printer, PP_OPEN_PAR);
+  pp_open_block(&printer, PP_OPEN_PAR);
   test_atoms();
-  pp_close(&printer, true);
+  pp_close_block(&printer, true);
 }
 
 

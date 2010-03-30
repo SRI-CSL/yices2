@@ -1411,6 +1411,7 @@ static void flush_token_queue(formatter_t *f) {
     tk = ptr_queue_pop(&f->token_queue);
     print_token(p, tk);
   }
+  f->last_atom = NULL;
 }
 
 
@@ -1433,7 +1434,7 @@ static void flush_wide_blocks(formatter_t *f) {
     if (f->length - b->col <= f->max_width) break;
     /*
      * b has bsize > max_width: set its bsize to MAX 
-     * then can remove it
+     * then remove it from the block queue
      */
     tk = b->token;
     tk->bsize = PP_MAX_BSIZE;

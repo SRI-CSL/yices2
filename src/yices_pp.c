@@ -159,6 +159,11 @@ void init_yices_pp_tables(void) {
  * for a specific atom type.
  * - s must be empty when the build function is called
  */
+static void build_char(string_buffer_t *b, char c) {
+  string_buffer_append_char(b, c);
+  string_buffer_close(b);
+}
+
 static void build_id(string_buffer_t *b, char *prefix, int32_t index) {
   string_buffer_append_string(b, prefix);
   string_buffer_append_int32(b, index);
@@ -236,6 +241,10 @@ static char *get_string(yices_pp_t *printer, pp_atomic_token_t *tk) {
 
   atm = (pp_atom_t *) tk;
   switch (tk->user_tag) {
+  case PP_CHAR_ATOM:
+    build_char(buffer, atm->data.c);
+    s = buffer->data;
+    break;
   case PP_STRING_ATOM:
     s = atm->data.string;
     break;
@@ -365,6 +374,14 @@ void init_yices_pp(yices_pp_t *printer, FILE *file, pp_area_t *area,
 }
 
 
+/*
+ * Flush: print everything pending + a newline
+ * - then reset the line counter to 0
+ */
+void flush_yices_pp(yices_pp_t *printer) {
+  flush_pp(&printer->pp);
+}
+
 
 /*
  * Flush then delete a pretty printer
@@ -394,6 +411,20 @@ static inline pp_atom_t *new_atom(yices_pp_t *printer) {
   return (pp_atom_t *) objstore_alloc(&printer->atom_store);
 }
 
+
+/*
+ * Single character c
+ */
+void pp_char(yices_pp_t *printer, char c) {
+  pp_atom_t *atom;
+  void *tk;
+
+  atom = new_atom(printer);
+  tk = init_atomic_token(&atom->tk, 1, PP_CHAR_ATOM);
+  atom->data.c = c;
+
+  pp_push_token(&printer->pp, tk);
+}
 
 /*
  * String s: no copy is made
@@ -608,7 +639,7 @@ static inline pp_open_token_t *new_open_token(yices_pp_t *printer) {
 /*
  * Start an block given the open-block id
  */
-void pp_open(yices_pp_t *printer, pp_open_type_t id) {
+void pp_open_block(yices_pp_t *printer, pp_open_type_t id) {
   pp_open_token_t *open;
   pp_open_desc_t *desc;
   void *tk;
@@ -629,7 +660,7 @@ void pp_open(yices_pp_t *printer, pp_open_type_t id) {
  * - par: true if a parenthesis is required
  *        false to close and print nothing
  */
-void pp_close(yices_pp_t *printer, bool par) {
+void pp_close_block(yices_pp_t *printer, bool par) {
   pp_push_token(&printer->pp, printer->close[par]);
 }
 

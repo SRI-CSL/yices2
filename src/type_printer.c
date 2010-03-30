@@ -56,7 +56,7 @@ void print_type_name(FILE *f, type_table_t *tbl, type_t tau) {
 /*
  * Print type tau
  */
-void print_type(FILE *f, type_table_t *tbl, type_t tau) {
+static void print_type_recur(FILE *f, type_table_t *tbl, type_t tau, int32_t level) {
   char *name;
   uint32_t i, n;
 
@@ -66,7 +66,7 @@ void print_type(FILE *f, type_table_t *tbl, type_t tau) {
     fputs(type2string[tau], f);
   } else {
     name = type_name(tbl, tau);
-    if (name != NULL) {
+    if (name != NULL && level <= 0) {
       fputs(name, f);
     } else {
       switch (type_kind(tbl, tau)) {
@@ -84,7 +84,7 @@ void print_type(FILE *f, type_table_t *tbl, type_t tau) {
 	n = tuple_type_arity(tbl, tau);
 	for (i=0; i<n; i++) {
 	  fputc(' ', f);
-	  print_type(f, tbl, tuple_type_component(tbl, tau, i));
+	  print_type_recur(f, tbl, tuple_type_component(tbl, tau, i), level - 1);
 	}
 	fputc(')', f);
 	break;
@@ -92,10 +92,10 @@ void print_type(FILE *f, type_table_t *tbl, type_t tau) {
 	fputs("(-> ", f);
 	n = function_type_arity(tbl, tau);
 	for (i=0; i<n; i++) {
-	  print_type(f, tbl, function_type_domain(tbl, tau, i));
+	  print_type_recur(f, tbl, function_type_domain(tbl, tau, i), level - 1);
 	  fputc(' ', f);
 	}
-	print_type(f, tbl, function_type_range(tbl, tau));
+	print_type_recur(f, tbl, function_type_range(tbl, tau), level - 1);
 	fputc(')', f);
 	break;
       default:
@@ -104,6 +104,14 @@ void print_type(FILE *f, type_table_t *tbl, type_t tau) {
       }
     }
   }
+}
+
+
+/*
+ * Expand names only at the outer level
+ */
+void print_type(FILE *f, type_table_t *tbl, type_t tau) {
+  print_type_recur(f, tbl, tau, 1);
 }
 
 
@@ -264,4 +272,144 @@ void print_type_table(FILE *f, type_table_t *tbl) {
       }
     }
   }
+}
+
+
+/*
+ * PRETTY PRINTING
+ */
+
+/*
+ * Print type name
+ */
+void pp_type_name(yices_pp_t *printer, type_table_t *tbl, type_t tau) {
+  char *name;
+
+  assert(good_type(tbl, tau));
+
+  if (tau <= real_id) {
+    name = (char*) type2string[tau];
+  } else {
+    name = type_name(tbl, tau);
+  }
+  if (name != NULL) {
+    pp_string(printer, name);
+  } else {
+    pp_id(printer, "tau!", tau);
+  }
+}
+
+
+/*
+ * Print type expression for tau: expand the type names if level > 0
+ */
+static void pp_type_recur(yices_pp_t *printer, type_table_t *tbl, type_t tau, int32_t level) {
+  char *name;
+  uint32_t i, n;
+
+  assert(good_type(tbl, tau));
+
+  if (tau <= real_id) {
+    pp_string(printer, (char *) type2string[tau]);
+  } else {
+    name = type_name(tbl, tau);
+    if (name != NULL && level <= 0) {
+      pp_string(printer, name);
+    } else {
+      switch (type_kind(tbl, tau)) {
+      case BITVECTOR_TYPE:
+	pp_open_block(printer, PP_OPEN_BV_TYPE);
+	pp_uint32(printer, bv_type_size(tbl, tau));
+	pp_close_block(printer, true);
+	break;
+
+      case SCALAR_TYPE:
+      case UNINTERPRETED_TYPE:
+	pp_id(printer, "tau!", tau);
+	break;
+
+      case TUPLE_TYPE:
+	pp_open_block(printer, PP_OPEN_TUPLE_TYPE);
+	n = tuple_type_arity(tbl, tau);
+	for (i=0; i<n; i++) {
+	  pp_type_recur(printer, tbl, tuple_type_component(tbl, tau, i), level - 1);
+	}
+	pp_close_block(printer, true);
+	break;
+
+      case FUNCTION_TYPE:
+	pp_open_block(printer, PP_OPEN_FUN_TYPE);
+	n = function_type_arity(tbl, tau);
+	for (i=0; i<n; i++) {
+	  pp_type_recur(printer, tbl, function_type_domain(tbl, tau, i), level - 1);
+	}
+	pp_type_recur(printer, tbl, function_type_range(tbl, tau), level - 1);
+	pp_close_block(printer, true);
+	break;
+
+      default:
+	assert(false);
+	break;
+      }
+    }
+  }
+}
+
+
+/*
+ * Expand top-level names 
+ */
+void pp_type(yices_pp_t *printer, type_table_t *tbl, type_t tau) {
+  pp_type_recur(printer, tbl, tau, 1);
+}
+
+
+/*
+ * Pretty printing of the full table
+ */
+void pp_type_table(FILE *f, type_table_t *tbl) {
+  yices_pp_t printer;
+  pp_area_t area;
+  char *name;
+  uint32_t name_size;
+  uint32_t i, n;
+
+  name_size = max_name_length(tbl) + 2;
+  if (name_size < 4) {
+    name_size = 4;
+  } else if (name_size > 20) {
+    name_size = 20;
+  }
+
+  area.width = 60;
+  area.height = 2;
+  area.offset = name_size;
+  area.truncate = true;
+  area.stretch = false;
+
+  init_yices_pp(&printer, f, &area, PP_VMODE, 0);
+
+  n = tbl->nelems;
+  for (i=0; i<n; i++) {
+    if (type_kind(tbl, i) != UNUSED_TYPE) {
+      name = type_name(tbl, i);
+      if (name != NULL) {
+	print_padded_string(f, name, name_size);
+	switch (type_kind(tbl, i)) {
+	case SCALAR_TYPE:
+	  fprintf(f, "scalar type: card = %"PRIu32"\n", scalar_type_cardinal(tbl, i));
+	  break;
+	case UNINTERPRETED_TYPE:
+	  fputs("uninterpreted type\n", f);
+	  break;
+	default:
+	  pp_type(&printer, tbl, i);
+	  flush_yices_pp(&printer);
+	  break;
+	}
+      }
+    }
+  }
+
+  delete_yices_pp(&printer);
 }

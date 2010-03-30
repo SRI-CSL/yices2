@@ -6,7 +6,7 @@
 #include "types.h"
 #include "type_printer.h"
 #include "refcount_strings.h"
-
+#include "yices_pp.h"
 
 /*
  * Short cuts
@@ -152,6 +152,8 @@ int main() {
   type_t bv10, bv32, i, any, enumtype, ft, unit, tt;
   type_t unit2, unit_pair, finite_pair, finite_fun, unit_fun, finite_fun2;
 
+  init_yices_pp_tables();
+
   printf("*** Initial table ***\n");
   init_type_table(&table, 0);
   print_type_table(stdout, &table);
@@ -240,6 +242,9 @@ int main() {
   print_type_table(stdout, &table);
   printf("\n");
 
+  printf("*** ALL TYPES ***\n");
+  pp_type_table(stdout, &table);
+  printf("\n\n");
  
   printf("*** Testing get_by_name ***\n");
   i = get_type_by_name(&table, "real");

@@ -27,6 +27,7 @@
  * The user_tag field in the prefix stores the object type/
  */
 typedef enum pp_atom_type {
+  PP_CHAR_ATOM,    // content = a single char
   PP_STRING_ATOM,  // content = string terminated by '\0'
   PP_ID_ATOM,      // identifier = concatenation of a string and an index
   PP_TRUE_ATOM,    // true
@@ -67,6 +68,7 @@ typedef struct pp_bv_s {
 typedef struct pp_atom_s {
   pp_atomic_token_t tk; // prefix defined in pretty_printer.h
   union {
+    char c;
     char *string;
     pp_id_t id;
     int32_t i32;
@@ -173,6 +175,12 @@ static inline void init_default_yices_pp(yices_pp_t *printer,
 
 
 /*
+ * Flush: print everything pending + a newline
+ * - then reset the line counter to 0
+ */
+extern void flush_yices_pp(yices_pp_t *printer);
+
+/*
  * Flush then delete a pretty printer
  * - print everything pending + a newline
  * - then free all memory used
@@ -195,6 +203,7 @@ extern void delete_yices_pp(yices_pp_t *printer);
  * function in pp_id. Function pp_bv does not make a copy
  * of the word array *bv either.
  */
+extern void pp_char(yices_pp_t *printer, char c);
 extern void pp_string(yices_pp_t *printer, char *s);
 extern void pp_id(yices_pp_t *printer, char *prefix, int32_t id);
 extern void pp_bool(yices_pp_t *printer, bool tt);
@@ -215,14 +224,14 @@ extern void pp_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n);
 /*
  * Start an block given the open-block id
  */
-extern void pp_open(yices_pp_t *printer, pp_open_type_t id);
+extern void pp_open_block(yices_pp_t *printer, pp_open_type_t id);
 
 /*
  * Close a block
  * - par: true if a parenthesis is required
  *        false to close and print nothing
  */
-extern void pp_close(yices_pp_t *printer, bool par);
+extern void pp_close_block(yices_pp_t *printer, bool par);
 
 
 #endif /* __YICES_PP_H */
