@@ -133,8 +133,8 @@ static int32_t normalize_varexp_array(varexp_t *a, uint32_t n) {
 
 static varexp_t a[200];
 
-static void show_array(uint n) {
-  uint i, l;
+static void show_array(uint32_t n) {
+  uint32_t i, l;
 
   if (n == 0) {
     printf(" empty\n");
@@ -149,7 +149,7 @@ static void show_array(uint n) {
   printf("\n");
 }
 
-static void normalize_array(uint n) {
+static void normalize_array(uint32_t n) {
   printf("--- original ---\n");
   show_array(n);
   printf("--- normalized ---\n");  

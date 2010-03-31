@@ -172,7 +172,7 @@ uint32_t jenkins_hash_string_var(char *s, uint32_t seed) {
 /*
  * Hash of an array of small integers
  */
-uint32_t jenkins_hash_intarray_var(int n, int32_t *d, uint32_t seed) {
+uint32_t jenkins_hash_intarray_var(uint32_t n, int32_t *d, uint32_t seed) {
   return jenkins_hash_int_var((uint32_t *) d, n, seed);
 }
 

@@ -24,7 +24,7 @@ extern uint32_t jenkins_hash_mix3(uint32_t x, uint32_t y, uint32_t z);
 extern uint32_t jenkins_hash_string_var(char *s, uint32_t seed);
 
 // array of n integers
-extern uint32_t jenkins_hash_intarray_var(int n, int32_t *d, uint32_t seed);
+extern uint32_t jenkins_hash_intarray_var(uint32_t n, int32_t *d, uint32_t seed);
 
 
 /*
@@ -34,7 +34,7 @@ static inline uint32_t jenkins_hash_string(char * s) {
   return jenkins_hash_string_var(s, 0x17838abc);
 }
 
-static inline uint32_t jenkins_hash_intarray(int n, int32_t *d) {
+static inline uint32_t jenkins_hash_intarray(uint32_t n, int32_t *d) {
   return jenkins_hash_intarray_var(n, d, 0x17836abc);
 }
 

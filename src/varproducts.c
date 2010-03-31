@@ -11,7 +11,7 @@
 #include "memalloc.h"
 #include "varproducts.h"
 #include "prng.h"
-
+#include "hash_functions.h"
 
 /*
  * Initialization and deletetion of buffers
@@ -379,6 +379,22 @@ uint32_t varprod_var_degree(varprod_t *p, int32_t x) {
   return varexp_array_var_degree(p->prod, p->len, x);
 }
 
+
+/*
+ * Hash code
+ */
+static uint32_t hash_varexp_array(varexp_t *a, uint32_t n) {
+  assert(n <= VARPROD_MAX_LENGTH);
+  return jenkins_hash_intarray(2 * n, (int32_t *) a);
+}
+
+uint32_t vpbuffer_hash(vpbuffer_t *b) {
+  return hash_varexp_array(b->prod, b->len);
+}
+
+uint32_t varprod_hash(varprod_t *p) {
+  return hash_varexp_array(p->prod, p->len);
+}
 
 
 /*

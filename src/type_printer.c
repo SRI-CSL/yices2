@@ -374,16 +374,7 @@ void pp_type(yices_pp_t *printer, type_table_t *tbl, type_t tau) {
 void pp_type_table(FILE *f, type_table_t *tbl) {
   yices_pp_t printer;
   pp_area_t area;
-  char *name;
-  uint32_t name_size;
   uint32_t i, n;
-
-  name_size = max_name_length(tbl) + 2;
-  if (name_size < 4) {
-    name_size = 4;
-  } else if (name_size > 20) {
-    name_size = 20;
-  }
 
   area.width = 60;
   area.height = 2;

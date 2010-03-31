@@ -86,7 +86,7 @@ static void test_list2(void) {
   pp_string(&printer,
 	    "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY");
   pp_close_block(&printer, true);
-  pp_uint32(&printer, 2390941091);
+  pp_uint32(&printer, 239094109);
   pp_uint32(&printer, 2193944);
   pp_close_block(&printer, true);
   pp_close_block(&printer, true);

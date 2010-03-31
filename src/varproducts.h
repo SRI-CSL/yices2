@@ -119,13 +119,17 @@ static inline bool vpbuffer_is_trivial(vpbuffer_t *b) {
  * Degree computation
  */
 extern uint32_t vpbuffer_degree(vpbuffer_t *b);
-
+static inline uint32_t varprod_degree(varprod_t *p) {
+  return p->degree;
+}
 
 /*
  * Check whether the degree is less than MAX_DEGREE.
  */
 extern bool vpbuffer_below_max_degree(vpbuffer_t *b);
-
+static inline bool varprod_below_max_degree(varprod_t *p) {
+  return p->degree < MAX_DEGREE;
+}
 
 /*
  * Degree of a variable x in product p
@@ -133,6 +137,12 @@ extern bool vpbuffer_below_max_degree(vpbuffer_t *b);
 extern uint32_t vpbuffer_var_degree(vpbuffer_t *b, int32_t x);
 extern uint32_t varprod_var_degree(varprod_t *p, int32_t x);
 
+
+/*
+ * Hash code
+ */
+extern uint32_t vpbuffer_hash(vpbuffer_t *b);
+extern uint32_t varprod_hash(varprod_t *p);
 
 
 /*

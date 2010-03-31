@@ -280,6 +280,8 @@ static char *get_string(yices_pp_t *printer, pp_atomic_token_t *tk) {
     break;
   default:
     assert(false);
+    s = NULL;
+    break;
   }
 
   return s;

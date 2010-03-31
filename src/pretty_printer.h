@@ -61,6 +61,7 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include "tagged_pointers.h"
 #include "ptr_vectors.h"
 #include "ptr_queues.h"
 
@@ -306,25 +307,6 @@ typedef enum {
   PP_TOKEN_CLOSE_TAG,
 } pp_tk_ptr_tag;
 
-#define PTR_TAG_MASK ((size_t) 0x3)
-
-// get the tag of pointer p
-static inline uint32_t ptr_tag(void *p) {
-  return ((size_t) p) & PTR_TAG_MASK;
-}
-
-// untag the pointer
-static inline void *untag_ptr(void *p) {
-  return (void*)(((size_t) p) & ~PTR_TAG_MASK);
-}
-
-// add tag tg to pointer p
-static inline void *tag_ptr(void *p, uint32_t tag) {
-  assert((tag & ~PTR_TAG_MASK) == 0 && ptr_tag(p) == 0);
-  return (void *) (((size_t) p) | (size_t) tag);
-}
-
-
 // check the pointer type
 static inline bool ptr_has_open_tag(void *p) {
   return ptr_tag(p) == PP_TOKEN_OPEN_TAG;
@@ -393,10 +375,6 @@ static inline void *untag_close(void *p) {
  * - free_close_token(ptr, tk)
  * The first argument 'ptr' is the same user-provided pointer as used
  * by the conversion functions.
- *
- *
- * We also use a free_token functions called when the token is no longer
- * needed by the pretty printer.
  *
  * All functions and the user-provided pointer are stored in a
  * 'pp_token_converter' structure.
