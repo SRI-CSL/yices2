@@ -9,15 +9,15 @@
 #include <stdbool.h>
 
 #include "memalloc.h"
-#include "varproducts.h"
+#include "power_products.h"
 #include "prng.h"
 #include "hash_functions.h"
 
 /*
  * Initialization and deletetion of buffers
  */
-void init_vpbuffer(vpbuffer_t *b, uint32_t n) {
-  if (n >= VARPROD_MAX_LENGTH) {
+void init_pp_buffer(pp_buffer_t *b, uint32_t n) {
+  if (n >= PPROD_MAX_LENGTH) {
     out_of_memory();
   }
   b->size = n;
@@ -25,7 +25,7 @@ void init_vpbuffer(vpbuffer_t *b, uint32_t n) {
   b->prod = (varexp_t *) safe_malloc(n * sizeof(varexp_t));
 }
 
-void delete_vpbuffer(vpbuffer_t *b) {
+void delete_pp_buffer(pp_buffer_t *b) {
   safe_free(b->prod);
   b->prod = NULL;
 }
@@ -35,12 +35,12 @@ void delete_vpbuffer(vpbuffer_t *b) {
  * Auxiliary functions
  */
 // make buffer 50% larger
-static void vpbuffer_extend(vpbuffer_t *b) {
+static void pp_buffer_extend(pp_buffer_t *b) {
   uint32_t n;
 
   n = b->size + 1;
   n += n >> 1;
-  if (n >= VARPROD_MAX_LENGTH) {
+  if (n >= PPROD_MAX_LENGTH) {
     out_of_memory();
   }
   b->prod = (varexp_t *) safe_realloc(b->prod, n * sizeof(varexp_t));
@@ -48,7 +48,7 @@ static void vpbuffer_extend(vpbuffer_t *b) {
 }
 
 // make it large enough for at least n elements
-static void vpbuffer_resize(vpbuffer_t *b, uint32_t n) {
+static void pp_buffer_resize(pp_buffer_t *b, uint32_t n) {
   uint32_t new_size;
 
   if (b->size < n) {
@@ -56,7 +56,7 @@ static void vpbuffer_resize(vpbuffer_t *b, uint32_t n) {
     new_size += new_size >> 1;
     if (new_size < n) new_size = n;
 
-    if (new_size >= VARPROD_MAX_LENGTH) {
+    if (new_size >= PPROD_MAX_LENGTH) {
       out_of_memory();
     }
     b->prod = (varexp_t *) safe_realloc(b->prod, new_size * sizeof(varexp_t));
@@ -65,12 +65,12 @@ static void vpbuffer_resize(vpbuffer_t *b, uint32_t n) {
 }
 
 // add pair v^d to the buffer
-static void vpbuffer_pushback(vpbuffer_t *b, int32_t v, uint32_t d) {
+static void pp_buffer_pushback(pp_buffer_t *b, int32_t v, uint32_t d) {
   uint32_t i;
 
   i = b->len;
   if (i == b->size) {
-    vpbuffer_extend(b);
+    pp_buffer_extend(b);
   }
   assert(i < b->size);
   b->prod[i].var = v;
@@ -79,11 +79,11 @@ static void vpbuffer_pushback(vpbuffer_t *b, int32_t v, uint32_t d) {
 }
 
 // add pairs v[0]^d[0] ... v[n-1]^d[n-1]
-static void vpbuffer_pusharray(vpbuffer_t *b, uint32_t n, int32_t *v, uint32_t *d) {
+static void pp_buffer_pusharray(pp_buffer_t *b, uint32_t n, int32_t *v, uint32_t *d) {
   uint32_t i, l;
 
   l = b->len;
-  vpbuffer_resize(b, l + n);
+  pp_buffer_resize(b, l + n);
   for (i=0; i<n; i++) {
     b->prod[l+i].var = v[i];
     b->prod[l+i].exp = d[i];    
@@ -92,11 +92,11 @@ static void vpbuffer_pusharray(vpbuffer_t *b, uint32_t n, int32_t *v, uint32_t *
 }
 
 // add pairs v[0]^1 ... v[n-1]^1
-static void vpbuffer_pushvars(vpbuffer_t *b, uint32_t n, int32_t *v) {
+static void pp_buffer_pushvars(pp_buffer_t *b, uint32_t n, int32_t *v) {
   uint32_t i, l;
 
   l = b->len;
-  vpbuffer_resize(b, l + n);
+  pp_buffer_resize(b, l + n);
   for (i=0; i<n; i++) {
     b->prod[l+i].var = v[i];
     b->prod[l+i].exp = 1;
@@ -105,11 +105,11 @@ static void vpbuffer_pushvars(vpbuffer_t *b, uint32_t n, int32_t *v) {
 }
 
 // variant: pairs are in varexp array a
-static void vpbuffer_push_varexp_array(vpbuffer_t *b, uint32_t n, varexp_t *a) {
+static void pp_buffer_push_varexp_array(pp_buffer_t *b, uint32_t n, varexp_t *a) {
   uint32_t i, l;
 
   l = b->len;
-  vpbuffer_resize(b, l + n);
+  pp_buffer_resize(b, l + n);
   for (i=0; i<n; i++) {
     b->prod[l + i] = a[i];
   }
@@ -237,7 +237,7 @@ static uint32_t normalize_varexp_array(varexp_t *a, uint32_t n) {
 }
 
 
-void vpbuffer_normalize(vpbuffer_t *b) {
+void pp_buffer_normalize(pp_buffer_t *b) {
   b->len = normalize_varexp_array(b->prod, b->len);
 }
 
@@ -245,69 +245,69 @@ void vpbuffer_normalize(vpbuffer_t *b) {
 /*
  * API: exported operations
  */
-void vpbuffer_reset(vpbuffer_t *b) {
+void pp_buffer_reset(pp_buffer_t *b) {
   b->len = 0;
 }
 
-void vpbuffer_set_var(vpbuffer_t *b, int32_t v) {
+void pp_buffer_set_var(pp_buffer_t *b, int32_t v) {
   b->len = 0;
-  vpbuffer_pushback(b, v, 1);
+  pp_buffer_pushback(b, v, 1);
 }
 
-void vpbuffer_set_varexp(vpbuffer_t *b, int32_t v, uint32_t d) {
+void pp_buffer_set_varexp(pp_buffer_t *b, int32_t v, uint32_t d) {
   b->len = 0;
-  vpbuffer_pushback(b, v, d);
+  pp_buffer_pushback(b, v, d);
 }
 
-void vpbuffer_set_vars(vpbuffer_t *b, uint32_t n, int32_t *v) {
+void pp_buffer_set_vars(pp_buffer_t *b, uint32_t n, int32_t *v) {
   b->len = 0;
-  vpbuffer_pushvars(b, n, v);
+  pp_buffer_pushvars(b, n, v);
 }
 
-void vpbuffer_set_varexps(vpbuffer_t *b, uint32_t n, int32_t *v, uint32_t *d) {
+void pp_buffer_set_varexps(pp_buffer_t *b, uint32_t n, int32_t *v, uint32_t *d) {
   b->len = 0;
-  vpbuffer_pusharray(b, n, v, d);
+  pp_buffer_pusharray(b, n, v, d);
 }
 
-void vpbuffer_set_varprod(vpbuffer_t *b, varprod_t *p) {
+void pp_buffer_set_pprod(pp_buffer_t *b, pprod_t *p) {
   b->len = 0;
-  vpbuffer_push_varexp_array(b, p->len, p->prod);
+  pp_buffer_push_varexp_array(b, p->len, p->prod);
 }
 
-void vpbuffer_copy(vpbuffer_t *b, vpbuffer_t *src) {
+void pp_buffer_copy(pp_buffer_t *b, pp_buffer_t *src) {
   b->len = 0;
-  vpbuffer_push_varexp_array(b, src->len, src->prod);
+  pp_buffer_push_varexp_array(b, src->len, src->prod);
 }
 
 
-void vpbuffer_mul_var(vpbuffer_t *b, int32_t v) {
-  vpbuffer_pushback(b, v, 1);
-  vpbuffer_normalize(b);
+void pp_buffer_mul_var(pp_buffer_t *b, int32_t v) {
+  pp_buffer_pushback(b, v, 1);
+  pp_buffer_normalize(b);
 }
 
-void vpbuffer_mul_varexp(vpbuffer_t *b, int32_t v, uint32_t d) {
-  vpbuffer_pushback(b, v, d);
-  vpbuffer_normalize(b);
+void pp_buffer_mul_varexp(pp_buffer_t *b, int32_t v, uint32_t d) {
+  pp_buffer_pushback(b, v, d);
+  pp_buffer_normalize(b);
 }
 
-void vpbuffer_mul_vars(vpbuffer_t *b, uint32_t n, int32_t *v) {
-  vpbuffer_pushvars(b, n, v);
-  vpbuffer_normalize(b);
+void pp_buffer_mul_vars(pp_buffer_t *b, uint32_t n, int32_t *v) {
+  pp_buffer_pushvars(b, n, v);
+  pp_buffer_normalize(b);
 }
 
-void vpbuffer_mul_varexps(vpbuffer_t *b, uint32_t n, int32_t *v, uint32_t *d) {
-  vpbuffer_pusharray(b, n, v, d);
-  vpbuffer_normalize(b);
+void pp_buffer_mul_varexps(pp_buffer_t *b, uint32_t n, int32_t *v, uint32_t *d) {
+  pp_buffer_pusharray(b, n, v, d);
+  pp_buffer_normalize(b);
 }
 
-void vpbuffer_mul_varprod(vpbuffer_t *b, varprod_t *p) {
-  vpbuffer_push_varexp_array(b, p->len, p->prod);
-  vpbuffer_normalize(b);
+void pp_buffer_mul_pprod(pp_buffer_t *b, pprod_t *p) {
+  pp_buffer_push_varexp_array(b, p->len, p->prod);
+  pp_buffer_normalize(b);
 }
 
-void vpbuffer_mul_buffer(vpbuffer_t *b, vpbuffer_t *src) {
-  vpbuffer_push_varexp_array(b, src->len, src->prod);
-  vpbuffer_normalize(b);
+void pp_buffer_mul_buffer(pp_buffer_t *b, pp_buffer_t *src) {
+  pp_buffer_push_varexp_array(b, src->len, src->prod);
+  pp_buffer_normalize(b);
 }
 
 
@@ -326,7 +326,7 @@ static uint32_t varexp_array_degree(varexp_t *a, int32_t n) {
   return d;
 }
 
-uint32_t vpbuffer_degree(vpbuffer_t *b) {
+uint32_t pp_buffer_degree(pp_buffer_t *b) {
   return varexp_array_degree(b->prod, b->len);
 }
 
@@ -348,7 +348,7 @@ static bool below_max_degree(varexp_t *a, uint32_t n) {
   return true;
 }
 
-bool vpbuffer_below_max_degree(vpbuffer_t *b) {
+bool pp_buffer_below_max_degree(pp_buffer_t *b) {
   return below_max_degree(b->prod, b->len);
 }
 
@@ -371,11 +371,11 @@ static uint32_t varexp_array_var_degree(varexp_t *a, uint32_t n, int32_t x) {
   return d;
 }
 
-uint32_t vpbuffer_var_degree(vpbuffer_t *b, int32_t x) {
+uint32_t pp_buffer_var_degree(pp_buffer_t *b, int32_t x) {
   return varexp_array_var_degree(b->prod, b->len, x);
 }
 
-uint32_t varprod_var_degree(varprod_t *p, int32_t x) {
+uint32_t pprod_var_degree(pprod_t *p, int32_t x) {
   return varexp_array_var_degree(p->prod, p->len, x);
 }
 
@@ -384,15 +384,15 @@ uint32_t varprod_var_degree(varprod_t *p, int32_t x) {
  * Hash code
  */
 static uint32_t hash_varexp_array(varexp_t *a, uint32_t n) {
-  assert(n <= VARPROD_MAX_LENGTH);
+  assert(n <= PPROD_MAX_LENGTH);
   return jenkins_hash_intarray(2 * n, (int32_t *) a);
 }
 
-uint32_t vpbuffer_hash(vpbuffer_t *b) {
+uint32_t pp_buffer_hash(pp_buffer_t *b) {
   return hash_varexp_array(b->prod, b->len);
 }
 
-uint32_t varprod_hash(varprod_t *p) {
+uint32_t pprod_hash(pprod_t *p) {
   return hash_varexp_array(p->prod, p->len);
 }
 
@@ -401,14 +401,14 @@ uint32_t varprod_hash(varprod_t *p) {
  * Build a vaprod object by making a copy of a
  * - a must be normalized
  * - n = lentgh of a
- * - n must be less than VARPROD_MAX_LENGTH
+ * - n must be less than PPROD_MAX_LENGTH
  */
-varprod_t *make_varprod(varexp_t *a, uint32_t n) {
-  varprod_t *p;
+pprod_t *make_pprod(varexp_t *a, uint32_t n) {
+  pprod_t *p;
   uint32_t i;
 
-  assert(0 <= n && n < VARPROD_MAX_LENGTH);
-  p = (varprod_t *) safe_malloc(sizeof(varprod_t) + n * sizeof(varexp_t));
+  assert(0 <= n && n < PPROD_MAX_LENGTH);
+  p = (pprod_t *) safe_malloc(sizeof(pprod_t) + n * sizeof(varexp_t));
   p->len = n;
   p->degree = varexp_array_degree(a, n);
   for (i=0; i<n; i++) {
@@ -419,10 +419,10 @@ varprod_t *make_varprod(varexp_t *a, uint32_t n) {
 
 
 /*
- * Construct a varprod object from buffer b
+ * Construct a pprod object from buffer b
  */
-varprod_t *vpbuffer_getprod(vpbuffer_t *b) {
-  return make_varprod(b->prod, b->len);
+pprod_t *pp_buffer_getprod(pp_buffer_t *b) {
+  return make_pprod(b->prod, b->len);
 }
 
 
@@ -529,22 +529,22 @@ static bool varexp_array_divides(varexp_t *a, uint32_t na, varexp_t *b, uint32_t
 /*
  * Exported functions
  */
-int32_t varprod_lex_cmp(varprod_t *p1, varprod_t *p2) {
+int32_t pprod_lex_cmp(pprod_t *p1, pprod_t *p2) {
   return varexp_array_lexcmp(p1->prod, p1->len, p2->prod, p2->len);
 }
 
 /*
  * Check whether buffer b and product p are equal
  */
-bool varprod_equal(varprod_t *p1, varprod_t *p2) {
+bool pprod_equal(pprod_t *p1, pprod_t *p2) {
   return p1->len == p2->len && varexp_array_equal(p1->prod, p2->prod, p1->len);
 }
 
-bool varprod_divides(varprod_t *p1, varprod_t *p2) {
+bool pprod_divides(pprod_t *p1, pprod_t *p2) {
   return varexp_array_divides(p1->prod, p1->len, p2->prod, p2->len);
 }
 
-bool varprod_divisor(vpbuffer_t *b, varprod_t *p1, varprod_t *p2) {
+bool pprod_divisor(pp_buffer_t *b, pprod_t *p1, pprod_t *p2) {
   uint32_t i, j, n;
   int32_t v;
   varexp_t *a1, *a2;
@@ -552,8 +552,8 @@ bool varprod_divisor(vpbuffer_t *b, varprod_t *p1, varprod_t *p2) {
   n = p1->len;
   if (n > p2->len) return false;
 
-  vpbuffer_set_varprod(b, p2);
-  vpbuffer_pushback(b, INT32_MAX, UINT32_MAX); // add an end marker
+  pp_buffer_set_pprod(b, p2);
+  pp_buffer_pushback(b, INT32_MAX, UINT32_MAX); // add an end marker
 
   a1 = p1->prod;
   a2 = b->prod;

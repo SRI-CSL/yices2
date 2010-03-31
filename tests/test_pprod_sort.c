@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "varproducts.h"
+#include "power_products.h"
 #include "prng.h"
 
 #ifdef MINGW

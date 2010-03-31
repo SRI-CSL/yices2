@@ -1,9 +1,11 @@
 /*
- * Products of variables: x_1^d_1 ... x_n^d_n 
+ * Power products: x_1^d_1 ... x_n^d_n 
+ * - each x_i is a 32bit integer
+ * - each exponent d_i is a positive integer
  */
 
-#ifndef __VARPRODUCTS_H
-#define __VARPRODUCTS_H
+#ifndef __POWER_PRODUCTS_H
+#define __POWER_PRODUCTS_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -25,11 +27,12 @@ typedef struct {
   uint32_t exp;
 } varexp_t;
 
+// power product
 typedef struct {
   uint32_t len;
   uint32_t degree;
   varexp_t prod[0]; // real size is len
-} varprod_t;
+} pprod_t;
 
 
 /*
@@ -39,7 +42,7 @@ typedef struct {
   uint32_t size;    // size of the array prod
   uint32_t len;     // elements of prod currently used
   varexp_t *prod;
-} vpbuffer_t;
+} pp_buffer_t;
 
 
 /*
@@ -55,15 +58,15 @@ typedef struct {
  * - this is to ensure we can compute len * sizeof(varexp_t)
  *   on 32bits without overflow
  */ 
-#define VARPROD_MAX_LENGTH ((UINT32_MAX-sizeof(varprod_t))/sizeof(varexp_t))
+#define PPROD_MAX_LENGTH ((UINT32_MAX-sizeof(pprod_t))/sizeof(varexp_t))
 
 
 /*
  * Initialize a buffer of initial size n:
  * - initial value = empty product
  */
-extern void init_vpbuffer(vpbuffer_t *b, uint32_t n);
-extern void delete_vpbuffer(vpbuffer_t *b);
+extern void init_pp_buffer(pp_buffer_t *b, uint32_t n);
+extern void delete_pp_buffer(pp_buffer_t *b);
 
 /*
  * Operations:
@@ -74,43 +77,43 @@ extern void delete_vpbuffer(vpbuffer_t *b);
  * - set to or multiply by v[0]^d[0] * ... * v[n-1]^d[n-1]
  * all modify buffer b.
  */
-extern void vpbuffer_reset(vpbuffer_t *b);
+extern void pp_buffer_reset(pp_buffer_t *b);
 
-extern void vpbuffer_set_var(vpbuffer_t *b, int32_t v);
-extern void vpbuffer_set_varexp(vpbuffer_t *b, int32_t v, uint32_t d);
-extern void vpbuffer_set_vars(vpbuffer_t *b, uint32_t n, int32_t *v);
-extern void vpbuffer_set_varexps(vpbuffer_t *b, uint32_t n, int32_t *v, uint32_t *d);
+extern void pp_buffer_set_var(pp_buffer_t *b, int32_t v);
+extern void pp_buffer_set_varexp(pp_buffer_t *b, int32_t v, uint32_t d);
+extern void pp_buffer_set_vars(pp_buffer_t *b, uint32_t n, int32_t *v);
+extern void pp_buffer_set_varexps(pp_buffer_t *b, uint32_t n, int32_t *v, uint32_t *d);
 
-extern void vpbuffer_mul_var(vpbuffer_t *b, int32_t v);
-extern void vpbuffer_mul_varexp(vpbuffer_t *b, int32_t v, uint32_t d);
-extern void vpbuffer_mul_vars(vpbuffer_t *b, uint32_t n, int32_t *v);
-extern void vpbuffer_mul_varexps(vpbuffer_t *b, uint32_t n, int32_t *v, uint32_t *d);
+extern void pp_buffer_mul_var(pp_buffer_t *b, int32_t v);
+extern void pp_buffer_mul_varexp(pp_buffer_t *b, int32_t v, uint32_t d);
+extern void pp_buffer_mul_vars(pp_buffer_t *b, uint32_t n, int32_t *v);
+extern void pp_buffer_mul_varexps(pp_buffer_t *b, uint32_t n, int32_t *v, uint32_t *d);
 
 /*
  * Assign or multiply b by a power-product p
  */
-extern void vpbuffer_set_varprod(vpbuffer_t *b, varprod_t *p);
-extern void vpbuffer_mul_varprod(vpbuffer_t *b, varprod_t *p);
+extern void pp_buffer_set_pprod(pp_buffer_t *b, pprod_t *p);
+extern void pp_buffer_mul_pprod(pp_buffer_t *b, pprod_t *p);
 
 /*
  * Copy src into b or multiply b by a
  */
-extern void vpbuffer_copy(vpbuffer_t *b, vpbuffer_t *src);
-extern void vpbuffer_mul_buffer(vpbuffer_t *b, vpbuffer_t *a);
+extern void pp_buffer_copy(pp_buffer_t *b, pp_buffer_t *src);
+extern void pp_buffer_mul_buffer(pp_buffer_t *b, pp_buffer_t *a);
 
 
 /*
  * Normalize: remove x^0 and replace x^n * x^m by x^(n+m)
  * also sort in increasing variable order
  */
-extern void vpbuffer_normalize(vpbuffer_t *b);
+extern void pp_buffer_normalize(pp_buffer_t *b);
 
 /*
  * Check whether b contains a trivial product
  * (either empty or a single variable with exponent 1)
  * - b must be normalized
  */
-static inline bool vpbuffer_is_trivial(vpbuffer_t *b) {
+static inline bool pp_buffer_is_trivial(pp_buffer_t *b) {
   return (b->len == 0) || (b->len == 1 && b->prod[0].exp == 1);
 }
 
@@ -118,38 +121,41 @@ static inline bool vpbuffer_is_trivial(vpbuffer_t *b) {
 /*
  * Degree computation
  */
-extern uint32_t vpbuffer_degree(vpbuffer_t *b);
-static inline uint32_t varprod_degree(varprod_t *p) {
+extern uint32_t pp_buffer_degree(pp_buffer_t *b);
+
+static inline uint32_t pprod_degree(pprod_t *p) {
   return p->degree;
 }
 
 /*
  * Check whether the degree is less than MAX_DEGREE.
  */
-extern bool vpbuffer_below_max_degree(vpbuffer_t *b);
-static inline bool varprod_below_max_degree(varprod_t *p) {
+extern bool pp_buffer_below_max_degree(pp_buffer_t *b);
+
+static inline bool pprod_below_max_degree(pprod_t *p) {
   return p->degree < MAX_DEGREE;
 }
 
 /*
  * Degree of a variable x in product p
+ * (0 if x does not occur in p).
  */
-extern uint32_t vpbuffer_var_degree(vpbuffer_t *b, int32_t x);
-extern uint32_t varprod_var_degree(varprod_t *p, int32_t x);
+extern uint32_t pp_buffer_var_degree(pp_buffer_t *b, int32_t x);
+extern uint32_t pprod_var_degree(pprod_t *p, int32_t x);
 
 
 /*
  * Hash code
  */
-extern uint32_t vpbuffer_hash(vpbuffer_t *b);
-extern uint32_t varprod_hash(varprod_t *p);
+extern uint32_t pp_buffer_hash(pp_buffer_t *b);
+extern uint32_t pprod_hash(pprod_t *p);
 
 
 /*
- * Allocate and construct a varprod object from the content of b.
+ * Allocate and construct a pprod object from the content of b.
  * - b must be normalized.
  */
-extern varprod_t *vpbuffer_getprod(vpbuffer_t *b);
+extern pprod_t *pp_buffer_getprod(pp_buffer_t *b);
 
 
 
@@ -164,22 +170,22 @@ extern varprod_t *vpbuffer_getprod(vpbuffer_t *b);
  * if, for some index i, we have
  *   d_1 = c_1 ... d_{i-1} = c_{i-1} and d_i > c_i.
  */
-extern int32_t varprod_lex_cmp(varprod_t *p1, varprod_t *p2);
+extern int32_t pprod_lex_cmp(pprod_t *p1, pprod_t *p2);
 
 /*
  * Check whether p1 and p2 are equal
  */
-extern bool varprod_equal(varprod_t *p1, varprod_t *p2);
+extern bool pprod_equal(pprod_t *p1, pprod_t *p2);
 
 /*
  * Divisibility test: returns true if p1 is a divisor of p2
  */
-extern bool varprod_divides(varprod_t *p1, varprod_t *p2);
+extern bool pprod_divides(pprod_t *p1, pprod_t *p2);
 
 /*
  * Same thing but also computes the divisor in b
  */
-extern bool varprod_divisor(vpbuffer_t *b, varprod_t *p1, varprod_t *p2);
+extern bool pprod_divisor(pp_buffer_t *b, pprod_t *p1, pprod_t *p2);
 
 
 
@@ -196,13 +202,13 @@ extern bool varprod_divisor(vpbuffer_t *b, varprod_t *p1, varprod_t *p2);
 extern bool varexp_array_equal(varexp_t *a, varexp_t *b, uint32_t n);
 
 /*
- * Build a varproduct by making a copy of a
+ * Build a pproduct by making a copy of a
  * - a must be normalized
  * - n must be the length of a
- * - n must be less than VARPROD_MAX_LENGTH
+ * - n must be less than PPROD_MAX_LENGTH
  */
-extern varprod_t *make_varprod(varexp_t *a, uint32_t n);
+extern pprod_t *make_pprod(varexp_t *a, uint32_t n);
 
 
 
-#endif /* __VARPRODUCTS_H */
+#endif /* __POWER_PRODUCTS_H */
