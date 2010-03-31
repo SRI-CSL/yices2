@@ -16,10 +16,8 @@
 /*
  * Initialization and deletetion of buffers
  */
-void init_vpbuffer(vpbuffer_t *b, int32_t n) {
-  assert(n >= 0);
-
-  if (n >= MAX_VARPROD_LENGTH) {
+void init_vpbuffer(vpbuffer_t *b, uint32_t n) {
+  if (n >= VARPROD_MAX_LENGTH) {
     out_of_memory();
   }
   b->size = n;
@@ -38,11 +36,11 @@ void delete_vpbuffer(vpbuffer_t *b) {
  */
 // make buffer 50% larger
 static void vpbuffer_extend(vpbuffer_t *b) {
-  int32_t n;
+  uint32_t n;
 
   n = b->size + 1;
   n += n >> 1;
-  if (n >= MAX_VARPROD_LENGTH) {
+  if (n >= VARPROD_MAX_LENGTH) {
     out_of_memory();
   }
   b->prod = (varexp_t *) safe_realloc(b->prod, n * sizeof(varexp_t));
@@ -50,14 +48,15 @@ static void vpbuffer_extend(vpbuffer_t *b) {
 }
 
 // make it large enough for at least n elements
-static void vpbuffer_resize(vpbuffer_t *b, int32_t n) {
-  int32_t new_size;
+static void vpbuffer_resize(vpbuffer_t *b, uint32_t n) {
+  uint32_t new_size;
+
   if (b->size < n) {
     new_size = b->size + 1;
     new_size += new_size >> 1;
     if (new_size < n) new_size = n;
 
-    if (new_size >= MAX_VARPROD_LENGTH) {
+    if (new_size >= VARPROD_MAX_LENGTH) {
       out_of_memory();
     }
     b->prod = (varexp_t *) safe_realloc(b->prod, new_size * sizeof(varexp_t));
@@ -66,20 +65,23 @@ static void vpbuffer_resize(vpbuffer_t *b, int32_t n) {
 }
 
 // add pair v^d to the buffer
-static void vpbuffer_pushback(vpbuffer_t *b, int32_t v, int32_t d) {
-  int32_t i;
+static void vpbuffer_pushback(vpbuffer_t *b, int32_t v, uint32_t d) {
+  uint32_t i;
+
   i = b->len;
   if (i == b->size) {
     vpbuffer_extend(b);
   }
+  assert(i < b->size);
   b->prod[i].var = v;
   b->prod[i].exp = d;
   b->len = i + 1;
 }
 
 // add pairs v[0]^d[0] ... v[n-1]^d[n-1]
-static void vpbuffer_pusharray(vpbuffer_t *b, int32_t n, int32_t *v, int32_t *d) {
-  int32_t i, l;
+static void vpbuffer_pusharray(vpbuffer_t *b, uint32_t n, int32_t *v, uint32_t *d) {
+  uint32_t i, l;
+
   l = b->len;
   vpbuffer_resize(b, l + n);
   for (i=0; i<n; i++) {
@@ -90,11 +92,11 @@ static void vpbuffer_pusharray(vpbuffer_t *b, int32_t n, int32_t *v, int32_t *d)
 }
 
 // add pairs v[0]^1 ... v[n-1]^1
-static void vpbuffer_pushvars(vpbuffer_t *b, int32_t n, int32_t *v) {
-  int32_t i, l;
+static void vpbuffer_pushvars(vpbuffer_t *b, uint32_t n, int32_t *v) {
+  uint32_t i, l;
+
   l = b->len;
   vpbuffer_resize(b, l + n);
-
   for (i=0; i<n; i++) {
     b->prod[l+i].var = v[i];
     b->prod[l+i].exp = 1;
@@ -103,8 +105,9 @@ static void vpbuffer_pushvars(vpbuffer_t *b, int32_t n, int32_t *v) {
 }
 
 // variant: pairs are in varexp array a
-static void vpbuffer_push_varexp_array(vpbuffer_t *b, int32_t n, varexp_t *a) {
-  int32_t i, l;
+static void vpbuffer_push_varexp_array(vpbuffer_t *b, uint32_t n, varexp_t *a) {
+  uint32_t i, l;
+
   l = b->len;
   vpbuffer_resize(b, l + n);
   for (i=0; i<n; i++) {
@@ -124,10 +127,10 @@ static void vpbuffer_push_varexp_array(vpbuffer_t *b, int32_t n, varexp_t *a) {
  * - a = array of pairs <variable, exponent>
  * - n = size of the array.
  */
-static void isort_varexp_array(varexp_t *a, int32_t n);
-static void qsort_varexp_array(varexp_t *a, int32_t n);
+static void isort_varexp_array(varexp_t *a, uint32_t n);
+static void qsort_varexp_array(varexp_t *a, uint32_t n);
 
-static inline void sort_varexp_array(varexp_t *a, int32_t n) {
+static inline void sort_varexp_array(varexp_t *a, uint32_t n) {
   if (n <= 10) {
     isort_varexp_array(a, n);
   } else {
@@ -135,9 +138,9 @@ static inline void sort_varexp_array(varexp_t *a, int32_t n) {
   }
 }
 
-static void isort_varexp_array(varexp_t *a, int32_t n) {
-  int32_t i, j;
-  int32_t v, d, aux;
+static void isort_varexp_array(varexp_t *a, uint32_t n) {
+  uint32_t i, j, d, e;
+  int32_t v, w;
 
   for (i=1; i<n; i++) {
     v = a[i].var;
@@ -145,8 +148,8 @@ static void isort_varexp_array(varexp_t *a, int32_t n) {
     j = 0;
     while (a[j].var < v) j ++;
     while (j < i) {
-      aux = a[j].var; a[j].var = v; v = aux;
-      aux = a[j].exp; a[j].exp = d; d = aux;
+      w = a[j].var; a[j].var = v; v = w;
+      e = a[j].exp; a[j].exp = d; d = e;
       j ++;
     }
     a[j].var = v;
@@ -154,8 +157,9 @@ static void isort_varexp_array(varexp_t *a, int32_t n) {
   }
 }
 
-static void qsort_varexp_array(varexp_t *a, int32_t n) {
-  int32_t i, j, pivot;
+static void qsort_varexp_array(varexp_t *a, uint32_t n) {
+  uint32_t i, j;
+  int32_t pivot;
   varexp_t aux;
 
   // random pivot
@@ -170,13 +174,13 @@ static void qsort_varexp_array(varexp_t *a, int32_t n) {
   i = 0;
   j = n;
 
-  // test i <= j in second loop is required for termination
+  // The test i <= j in the second loop is required for termination
   // if all elements are smaller than the pivot.
   do { j--; } while (a[j].var > pivot);
   do { i++; } while (i <= j && a[i].var < pivot); 
 
   while (i < j) {
-    aux = a[i]; a[i] = a[j]; a[j] = aux;    
+    aux = a[i]; a[i] = a[j]; a[j] = aux;
 
     do { j--; } while (a[j].var > pivot);
     do { i++; } while (a[i].var < pivot);
@@ -194,12 +198,13 @@ static void qsort_varexp_array(varexp_t *a, int32_t n) {
 
 
 /*
- * Merge pairs <var, d> with the same var.
- * Remove pairs <var, d> with d = 0.
+ * Sort then merge pairs <var, d> with the same var.
+ * Also remove pairs <var, d> with d = 0.
  * return the number of elements remaining after normalization
  */
-static int32_t normalize_varexp_array(varexp_t *a, int32_t n) {
-  int32_t i, j, d, v;
+static uint32_t normalize_varexp_array(varexp_t *a, uint32_t n) {
+  uint32_t i, j, d;
+  int32_t v;
 
   if (n == 0) return n;
 
@@ -249,17 +254,17 @@ void vpbuffer_set_var(vpbuffer_t *b, int32_t v) {
   vpbuffer_pushback(b, v, 1);
 }
 
-void vpbuffer_set_varexp(vpbuffer_t *b, int32_t v, int32_t d) {
+void vpbuffer_set_varexp(vpbuffer_t *b, int32_t v, uint32_t d) {
   b->len = 0;
   vpbuffer_pushback(b, v, d);
 }
 
-void vpbuffer_set_vars(vpbuffer_t *b, int32_t n, int32_t *v) {
+void vpbuffer_set_vars(vpbuffer_t *b, uint32_t n, int32_t *v) {
   b->len = 0;
   vpbuffer_pushvars(b, n, v);
 }
 
-void vpbuffer_set_varexps(vpbuffer_t *b, int32_t n, int32_t *v, int32_t *d) {
+void vpbuffer_set_varexps(vpbuffer_t *b, uint32_t n, int32_t *v, uint32_t *d) {
   b->len = 0;
   vpbuffer_pusharray(b, n, v, d);
 }
@@ -280,17 +285,17 @@ void vpbuffer_mul_var(vpbuffer_t *b, int32_t v) {
   vpbuffer_normalize(b);
 }
 
-void vpbuffer_mul_varexp(vpbuffer_t *b, int32_t v, int32_t d) {
+void vpbuffer_mul_varexp(vpbuffer_t *b, int32_t v, uint32_t d) {
   vpbuffer_pushback(b, v, d);
   vpbuffer_normalize(b);
 }
 
-void vpbuffer_mul_vars(vpbuffer_t *b, int32_t n, int32_t *v) {
+void vpbuffer_mul_vars(vpbuffer_t *b, uint32_t n, int32_t *v) {
   vpbuffer_pushvars(b, n, v);
   vpbuffer_normalize(b);
 }
 
-void vpbuffer_mul_varexps(vpbuffer_t *b, int32_t n, int32_t *v, int32_t *d) {
+void vpbuffer_mul_varexps(vpbuffer_t *b, uint32_t n, int32_t *v, uint32_t *d) {
   vpbuffer_pusharray(b, n, v, d);
   vpbuffer_normalize(b);
 }
@@ -307,40 +312,12 @@ void vpbuffer_mul_buffer(vpbuffer_t *b, vpbuffer_t *src) {
 
 
 
-/*
- * Build a vaprod object by making a copy of a
- * - a must be normalized
- * - n = lentgh of a
- * - n must be less than MAX_VARPROD_LENGTH
- */
-varprod_t *make_varprod(varexp_t *a, int32_t n) {
-  varprod_t *p;
-  int32_t i;
-
-  assert(0 <= n && n < MAX_VARPROD_LENGTH);
-  p = (varprod_t *) safe_malloc(sizeof(varprod_t) + n * sizeof(varexp_t));
-  p->len = n;
-  for (i=0; i<n; i++) {
-    p->prod[i] = a[i];
-  }
-  return p;
-}
-
-
-/*
- * Construct a varprod object from buffer b
- */
-varprod_t *vpbuffer_getprod(vpbuffer_t *b) {
-  return make_varprod(b->prod, b->len);
-}
-
-
 
 /*
  * Degree
  */
-static int32_t varexp_array_degree(varexp_t *a, int32_t n) {
-  int32_t d, i;
+static uint32_t varexp_array_degree(varexp_t *a, int32_t n) {
+  uint32_t d, i;
 
   d = 0;
   for (i=0; i<n; i++) {
@@ -349,20 +326,16 @@ static int32_t varexp_array_degree(varexp_t *a, int32_t n) {
   return d;
 }
 
-int32_t vpbuffer_degree(vpbuffer_t *b) {
+uint32_t vpbuffer_degree(vpbuffer_t *b) {
   return varexp_array_degree(b->prod, b->len);
-}
-
-int32_t varprod_degree(varprod_t *p) {
-  return varexp_array_degree(p->prod, p->len);
 }
 
 
 /*
  * Check that degree is less than MAX_DEGREE
  */
-static bool below_max_degree(varexp_t *a, int32_t n) {
-  int32_t d, i, e;
+static bool below_max_degree(varexp_t *a, uint32_t n) {
+  uint32_t d, i, e;
 
   d = 0;
   for (i=0; i<n; i++) {
@@ -379,17 +352,14 @@ bool vpbuffer_below_max_degree(vpbuffer_t *b) {
   return below_max_degree(b->prod, b->len);
 }
 
-bool varprod_below_max_degree(varprod_t *p) {
-  return below_max_degree(p->prod, p->len);
-}
-
 
 
 /*
  * Degree of a variable x in a product p
+ * - we use a sequential search since n is usually small
  */
-static int32_t varexp_array_var_degree(varexp_t *a, int32_t n, int32_t x) {
-  int32_t d, i;
+static uint32_t varexp_array_var_degree(varexp_t *a, uint32_t n, int32_t x) {
+  uint32_t d, i;
 
   d = 0;
   for (i=0; i<n; i++) {
@@ -401,24 +371,53 @@ static int32_t varexp_array_var_degree(varexp_t *a, int32_t n, int32_t x) {
   return d;
 }
 
-int32_t vpbuffer_var_degree(vpbuffer_t *b, int32_t x) {
+uint32_t vpbuffer_var_degree(vpbuffer_t *b, int32_t x) {
   return varexp_array_var_degree(b->prod, b->len, x);
 }
 
-int32_t varprod_var_degree(varprod_t *p, int32_t x) {
+uint32_t varprod_var_degree(varprod_t *p, int32_t x) {
   return varexp_array_var_degree(p->prod, p->len, x);
 }
 
+
+
+/*
+ * Build a vaprod object by making a copy of a
+ * - a must be normalized
+ * - n = lentgh of a
+ * - n must be less than VARPROD_MAX_LENGTH
+ */
+varprod_t *make_varprod(varexp_t *a, uint32_t n) {
+  varprod_t *p;
+  uint32_t i;
+
+  assert(0 <= n && n < VARPROD_MAX_LENGTH);
+  p = (varprod_t *) safe_malloc(sizeof(varprod_t) + n * sizeof(varexp_t));
+  p->len = n;
+  p->degree = varexp_array_degree(a, n);
+  for (i=0; i<n; i++) {
+    p->prod[i] = a[i];
+  }
+  return p;
+}
+
+
+/*
+ * Construct a varprod object from buffer b
+ */
+varprod_t *vpbuffer_getprod(vpbuffer_t *b) {
+  return make_varprod(b->prod, b->len);
+}
 
 
 
 
 /*
  * Comparison: two arrays of the same length n
- * They must be normalized.
+ * Both arrays must be normalized.
  */
-bool varexp_array_equal(varexp_t *a, varexp_t *b, int32_t n) {
-  int32_t i;
+bool varexp_array_equal(varexp_t *a, varexp_t *b, uint32_t n) {
+  uint32_t i;
 
   for (i=0; i<n; i++) {
     if (a[i].var != b[i].var || a[i].exp != b[i].exp) {
@@ -436,7 +435,7 @@ bool varexp_array_equal(varexp_t *a, varexp_t *b, int32_t n) {
  *  1) a < b => a * c < b * c for any c
  *  2) x < y as variables => x^1 y^0 < x^0 y^1 
  * 
- * Lexical ordering defined as follows works:
+ * The lexical ordering defined as follows works:
  * Let a = x_1^d_1 .... x_n^d_n and b = x_1^c_1 ... x_n^c_n
  * then a < b if for some i we have
  *   d_1 = c_1 and ...  and d_{i-1} = c_{i-1} and d_i > c_i
@@ -444,12 +443,13 @@ bool varexp_array_equal(varexp_t *a, varexp_t *b, int32_t n) {
  * Input:
  * - a and b must be normalized, na = length of a, nb = length of b
  * Output:
- * - negative number if a < b
+ * - a negative number if a < b
  * - zero if a == b
- * - positive number if a > b
+ * - a positive number if a > b
  */
-static int32_t varexp_array_lexcmp(varexp_t *a, int32_t na, varexp_t *b, int32_t nb) {
-  int32_t i, n, x;
+static int32_t varexp_array_lexcmp(varexp_t *a, uint32_t na, varexp_t *b, uint32_t nb) {
+  uint32_t i, n;
+  int32_t x;
 
   n = (na < nb) ? na : nb;
 
@@ -471,7 +471,10 @@ static int32_t varexp_array_lexcmp(varexp_t *a, int32_t na, varexp_t *b, int32_t
      */
     x = a[i].var - b[i].var;
     if (x == 0) {
-      return b[i].exp - a[i].exp;
+      // the conversion to int32_t is safe if the total
+      // degree of a and b is less than MAX_DEGREE
+      assert(((int32_t) b[i].exp >= 0) && ((int32_t) a[i].exp >= 0));
+      return (int32_t) (b[i].exp - a[i].exp);
     } else {
       return x;
     }
@@ -485,10 +488,11 @@ static int32_t varexp_array_lexcmp(varexp_t *a, int32_t na, varexp_t *b, int32_t
 }
 
 /*
- * test whether a divides b
+ * Test whether a divides b
  */
-static bool varexp_array_divides(varexp_t *a, int32_t na, varexp_t *b, int32_t nb) {
-  int32_t i, j, v;
+static bool varexp_array_divides(varexp_t *a, uint32_t na, varexp_t *b, uint32_t nb) {
+  uint32_t i, j;
+  int32_t v;
 
   if (na > nb) return false;
 
@@ -498,8 +502,9 @@ static bool varexp_array_divides(varexp_t *a, int32_t na, varexp_t *b, int32_t n
     while (j < nb && b[j].var < v) { 
       j++; 
     }
-    if (j == nb || b[j].var > v || a[i].exp > b[j].exp) 
+    if (j == nb || b[j].var > v || a[i].exp > b[j].exp) {
       return false;
+    }
   }
 
   return true;
@@ -524,14 +529,15 @@ bool varprod_divides(varprod_t *p1, varprod_t *p2) {
 }
 
 bool varprod_divisor(vpbuffer_t *b, varprod_t *p1, varprod_t *p2) {
-  int32_t i, j, n, v;
+  uint32_t i, j, n;
+  int32_t v;
   varexp_t *a1, *a2;
 
   n = p1->len;
   if (n > p2->len) return false;
 
   vpbuffer_set_varprod(b, p2);
-  vpbuffer_pushback(b, INT32_MAX, INT32_MAX); // add an end marker
+  vpbuffer_pushback(b, INT32_MAX, UINT32_MAX); // add an end marker
 
   a1 = p1->prod;
   a2 = b->prod;

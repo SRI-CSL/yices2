@@ -66,7 +66,8 @@ src_c := arena.c bv_constants.c cache.c command_line.c              \
          refcount_strings.c small_bvsets.c smt_lexer.c              \
          smt_logic_codes.c string_buffers.c symbol_tables.c         \
          uint_rbtrees.c  types.c type_printer.c union_find.c        \
-	 use_vectors.c vsets.c yices_lexer.c yices_pp.c
+	 use_vectors.c varproducts.c vsets.c yices_lexer.c          \
+	 yices_pp.c
 
 
 #

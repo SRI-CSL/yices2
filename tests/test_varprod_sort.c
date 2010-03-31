@@ -22,10 +22,10 @@ static inline int random(void) {
  * - a = array of pairs <variable, exponent>
  * - n = size of the array.
  */
-static void isort_varexp_array(varexp_t *a, int32_t n);
-static void qsort_varexp_array(varexp_t *a, int32_t n);
+static void isort_varexp_array(varexp_t *a, uint32_t n);
+static void qsort_varexp_array(varexp_t *a, uint32_t n);
 
-static inline void sort_varexp_array(varexp_t *a, int32_t n) {
+static inline void sort_varexp_array(varexp_t *a, uint32_t n) {
   if (n <= 10) {
     isort_varexp_array(a, n);
   } else {
@@ -33,9 +33,9 @@ static inline void sort_varexp_array(varexp_t *a, int32_t n) {
   }
 }
 
-static void isort_varexp_array(varexp_t *a, int32_t n) {
-  int32_t i, j;
-  int32_t v, d, aux;
+static void isort_varexp_array(varexp_t *a, uint32_t n) {
+  uint32_t i, j, d, e;
+  int32_t v, w;
 
   for (i=1; i<n; i++) {
     v = a[i].var;
@@ -43,8 +43,8 @@ static void isort_varexp_array(varexp_t *a, int32_t n) {
     j = 0;
     while (a[j].var < v) j ++;
     while (j < i) {
-      aux = a[j].var; a[j].var = v; v = aux;
-      aux = a[j].exp; a[j].exp = d; d = aux;
+      w = a[j].var; a[j].var = v; v = w;
+      e = a[j].exp; a[j].exp = d; d = e;
       j ++;
     }
     a[j].var = v;
@@ -52,8 +52,9 @@ static void isort_varexp_array(varexp_t *a, int32_t n) {
   }
 }
 
-static void qsort_varexp_array(varexp_t *a, int32_t n) {
-  int32_t i, j, pivot;
+static void qsort_varexp_array(varexp_t *a, uint32_t n) {
+  uint32_t i, j;
+  int32_t pivot;
   varexp_t aux;
 
   // random pivot
@@ -96,8 +97,9 @@ static void qsort_varexp_array(varexp_t *a, int32_t n) {
  * Remove pairs <var, d> with d = 0.
  * return the number of elements remaining after normalization
  */
-static int32_t normalize_varexp_array(varexp_t *a, int32_t n) {
-  int32_t i, j, d, v;
+static int32_t normalize_varexp_array(varexp_t *a, uint32_t n) {
+  uint32_t i, j, d;
+  int32_t v;
 
   if (n == 0) return n;
 
@@ -131,8 +133,9 @@ static int32_t normalize_varexp_array(varexp_t *a, int32_t n) {
 
 static varexp_t a[200];
 
-static void show_array(int n) {
-  int i, l;
+static void show_array(uint n) {
+  uint i, l;
+
   if (n == 0) {
     printf(" empty\n");
     return;
@@ -141,12 +144,12 @@ static void show_array(int n) {
   for (i=0; i<n; i++) {
     if (l == 0) { l = 10; printf("\n"); };
     l --; 
-    printf(" (%3"PRId32",%3"PRId32")", a[i].var, a[i].exp);
+    printf(" (%3"PRId32",%3"PRIu32")", a[i].var, a[i].exp);
   }
   printf("\n");
 }
 
-static void normalize_array(int n) {
+static void normalize_array(uint n) {
   printf("--- original ---\n");
   show_array(n);
   printf("--- normalized ---\n");  

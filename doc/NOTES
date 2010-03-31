@@ -49,8 +49,11 @@ int_bv_sets.c
 int_hash_classes.h:     hash table for maintaining equivalence classes of integers
 int_hash_classes.c      the table stores one representative per class
 
-int_hash_map.h: 	maps int32 to int32, implemented as hash tables
-int_hash_map.h
+int_hash_map.h: 	maps int32 to int32, implemented as hash tables.
+int_hash_map.c
+
+int_hash_map2.h:	maps pairs of int32 to int32, implemented as hash tables.
+int_hash_map2,c 
 
 int_hash_sets.h:	sets of unsigned integers (hash sets)
 int_hash_sets.c
@@ -135,8 +138,11 @@ cputime.h:		For measuring computing time
 gcd.h:			gcd of two integers
 gcd.c
 
-hash_functions.h:       various hash-functions based on Jensen's code
+hash_functions.h:       various hash functions based on Jensen's code
 hash_functions.c
+
+hash_functions_ori.h:	older versions of hash functions. Still used by some test modules.
+hash_functions_ori.c
 
 int_array_sort.h:       sort an array of integers in increasing order
 int_array_sort.c
@@ -152,6 +158,9 @@ lexer.c			includes a reader object and stores a current token
 
 memsize.h:		For measuring memory usage of the current process (approximately)
 memsize.c               this does not work on mingw but should work on all other platforms
+
+pretty_printer.h:	Pretty printer core (Oppen-style implementation).
+pretty_printer.c
 
 ptr_array_sort.h:       sort an array of (void *) pointers in increasing address order
 ptr_array_sort.c
