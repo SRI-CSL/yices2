@@ -612,9 +612,9 @@ extern bool compatible_types(type_table_t *table, type_t tau1, type_t tau2);
 
 /*
  * We use a simple mark-and-sweep mechanism:
- * - Nothing gets deleted until an explicit call the type_table_gc.
- * - type_table_gc marks every type that's reachable from a set of 
- *   root types then deletes every type that's not marked.
+ * - Nothing gets deleted until an explicit call to type_table_gc.
+ * - type_table_gc marks every type reachable from a set of 
+ *   root types, then deletes every type that's not marked.
  * The root types include:
  * - the three predefined types: bool, int, and real
  * - every type that's present in the symbol table

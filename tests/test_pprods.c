@@ -28,140 +28,138 @@ static void print_varexp_array(FILE *f, varexp_t *a, uint32_t n) {
   fprintf(f, "]");
 }
 
-static void print_pp_buffer(FILE *f, pp_buffer_t *b, uint32_t level) {
+static void print_pp_buffer(FILE *f, pp_buffer_t *b) {
   fprintf(f, "pp_buffer %p\n", b);
   fprintf(f, "  size = %"PRIu32"\n", b->size);
   fprintf(f, "  len = %"PRIu32"\n", b->len);
   fprintf(f, "  product = ");
   print_varexp_array(f, b->prod, b->len);
-  fprintf(f, "\n\n");
+  fprintf(f, "\n");
 }
 
-static void print_pprod(FILE *f, pprod_t *p, uint32_t level) {
+static void print_pprod(FILE *f, pprod_t *p) {
   fprintf(f, "pprod %p\n", p);
-  fprintf(f, "  len = %"PRIu32"\n", p->len);
-  fprintf(f, "  degree = %"PRIu32"\n", p->degree);
-  fprintf(f, "  product = ");
-  print_varexp_array(f, p->prod, p->len);
-  fprintf(f, "\n\n");
+  if (pp_is_var(p)) {
+    fprintf(f, " var pp = [x_%"PRId32"]\n", var_of_pp(p));    
+  } else if (pp_is_empty(p)) {
+    fprintf(f, " empty\n");
+  } else {
+    fprintf(f, "  len = %"PRIu32"\n", p->len);
+    fprintf(f, "  degree = %"PRIu32"\n", p->degree);
+    fprintf(f, "  product = ");
+    print_varexp_array(f, p->prod, p->len);
+    fprintf(f, "\n");
+  }
 }
 
+static void print_pp_buffer0(FILE *f, pp_buffer_t *b) {
+  print_varexp_array(f, b->prod, b->len);
+  fprintf(f, "\n");
+}
+
+static void print_pprod0(FILE *f, pprod_t *p) {
+  if (pp_is_var(p)) {
+    fprintf(f, "[x_%"PRId32"]\n", var_of_pp(p));
+  } else if (pp_is_empty(p)) {
+    fprintf(f, "[]\n");
+  } else {
+    print_varexp_array(f, p->prod, p->len);
+    fprintf(f, "\n");
+  }
+}
 
 
 
 pp_buffer_t buffer;
-pprod_t *p1, *p2, *p3, *p4, *p5;
+
+#define NUM_PRODS 10
+pprod_t *p[NUM_PRODS];
 
 int main() {
-  init_pp_buffer(&buffer, 0);
+  pprod_t *p1, *p2;
+  uint32_t i, j;  
+  int32_t cmp;
 
-  p1 = pp_buffer_getprod(&buffer);
-  printf("p1 = []\n");
-  print_pprod(stdout, p1, 10);
+  p[0] = empty_pp;
+  p[1] = var_pp(0);
+  p[2] = var_pp(1);
+  p[3] = var_pp(0x3fffffff);
+
+  init_pp_buffer(&buffer, 0);
+  p[4] = pp_buffer_getprod(&buffer);  // empty
+
+  pp_buffer_reset(&buffer);
+  pp_buffer_mul_var(&buffer, 0);
+  p[5] = pp_buffer_getprod(&buffer); // x_0
 
   pp_buffer_reset(&buffer);
   pp_buffer_mul_var(&buffer, 0);
   pp_buffer_mul_var(&buffer, 1);
   pp_buffer_mul_var(&buffer, 0);  
-  p2 = pp_buffer_getprod(&buffer);
-  printf("p2 = x_0 * x_1 * x_0\n");
-  print_pprod(stdout, p2, 10);
-
-  pp_buffer_set_pprod(&buffer, p2);
-  pp_buffer_mul_pprod(&buffer, p1);
-  p3 = pp_buffer_getprod(&buffer);
-  printf("p3 = p1 * p2:\n");
-  print_pprod(stdout, p3, 10);
-
-  pp_buffer_set_pprod(&buffer, p2);
+  p[6] = pp_buffer_getprod(&buffer);  // x_0^2 x_1
+  
+  pp_buffer_reset(&buffer);
   pp_buffer_mul_varexp(&buffer, 1, 2);
   pp_buffer_mul_varexp(&buffer, 4, 3);
-  p4 = pp_buffer_getprod(&buffer);
-  printf("p4 = p2 * x_1^2 * x_4^3\n");
-  print_pprod(stdout, p4, 10);
+  p[7] = pp_buffer_getprod(&buffer);  // x_1^2 x_4^3
 
   pp_buffer_set_varexp(&buffer, 3, 2);
   pp_buffer_mul_varexp(&buffer, 1, 4);
-  p5 = pp_buffer_getprod(&buffer);
-  printf("p5 = x_3^2 * x_1^4\n");
-  print_pprod(stdout, p5, 10);
+  p[8] = pp_buffer_getprod(&buffer);   // x_3^2 x_1^4
 
-  printf("eq p1 p1: %d\n", pprod_equal(p1, p1));
-  printf("eq p1 p2: %d\n", pprod_equal(p1, p2));
-  printf("eq p2 p1: %d\n", pprod_equal(p2, p1));
-  printf("eq p2 p3: %d\n", pprod_equal(p2, p3));
-  printf("eq p3 p2: %d\n", pprod_equal(p3, p2));
-  printf("eq p2 p4: %d\n", pprod_equal(p2, p4));
-  printf("eq p2 p5: %d\n", pprod_equal(p2, p5));
-  printf("eq p4 p2: %d\n", pprod_equal(p4, p2));
-  printf("eq p4 p5: %d\n\n", pprod_equal(p4, p5));  
+  pp_buffer_set_pprod(&buffer, p[7]);
+  pp_buffer_mul_pprod(&buffer, p[1]);
+  pp_buffer_mul_pprod(&buffer, p[8]);
+  p[9] = pp_buffer_getprod(&buffer);
 
-  printf("divides p1 p1: %d\n", pprod_divides(p1, p1));
-  printf("divides p1 p2: %d\n", pprod_divides(p1, p2));
-  printf("divides p2 p1: %d\n", pprod_divides(p2, p1));
-  printf("divides p2 p3: %d\n", pprod_divides(p2, p3));
-  printf("divides p2 p2: %d\n", pprod_divides(p2, p2));
-  printf("divides p3 p2: %d\n", pprod_divides(p3, p2));
-  printf("divides p3 p3: %d\n", pprod_divides(p3, p3));
-
-  printf("divides p2 p5: %d\n", pprod_divides(p2, p5));
-  printf("divides p2 p4: %d\n", pprod_divides(p2, p4));  
-  printf("divides p5 p2: %d\n", pprod_divides(p5, p2));
-  printf("divides p4 p2: %d\n", pprod_divides(p4, p2));  
-  printf("divides p4 p5: %d\n", pprod_divides(p4, p5));
-  printf("divides p5 p4: %d\n", pprod_divides(p5, p4));
-
-  printf("\n");
-  if (pprod_divisor(&buffer, p1, p3)) {
-    printf("p1 divides p3\n");
-    printf("divisor:\n");
-    print_pp_buffer(stdout, &buffer, 10);
-  } else {
-    printf("p1 does not divide p3\n");
+  for (i=0; i<NUM_PRODS; i++) {
+    printf("p[%"PRIu32"] =  ", i);
+    print_pprod(stdout, p[i]);
+    printf(" degree = %"PRIu32"\n\n", pprod_degree(p[i]));    
   }
-
   printf("\n");
-  if (pprod_divisor(&buffer, p2, p3)) {
-    printf("p2 divides p3\n");
-    printf("divisor:\n");
-    print_pp_buffer(stdout, &buffer, 10);
-  } else {
-    printf("p2 does not divide p3\n");
-  }
 
-  printf("\n");
-  if (pprod_divisor(&buffer, p4, p5)) {
-    printf("p4 divides p5\n");
-    printf("divisor:\n");
-    print_pp_buffer(stdout, &buffer, 10);
-  } else {
-    printf("p4 does not divide p5\n");
-  }
-
-  printf("\n");
-  if (pprod_divisor(&buffer, p2, p5)) {
-    printf("p2 divides p5\n");
-    printf("divisor:\n");
-    print_pp_buffer(stdout, &buffer, 10);
-  } else {
-    printf("p2 does not divide p5\n");
-  }
-
-  printf("\n");
-  if (pprod_divisor(&buffer, p3, p4)) {
-    printf("p3 divides p4\n");
-    printf("divisor:\n");
-    print_pp_buffer(stdout, &buffer, 10);
-  } else {
-    printf("p3 does not divide p4\n");
+  for (i=0; i<NUM_PRODS; i++) {
+    p1 = p[i];
+    for (j=0; j<NUM_PRODS; j++) {
+      p2 = p[j];
+      printf("p1: ");
+      print_pprod0(stdout, p1);
+      printf("p2: ");
+      print_pprod0(stdout, p2);
+      if (pprod_equal(p1, p2)) {
+	printf("equal products\n");
+      }
+      if (pprod_divides(p1, p2)) {
+	printf("p1 divides p2\n");
+      }
+      if (pprod_divisor(&buffer, p1, p2)) {
+	printf("p2/p1: ");
+	print_pp_buffer0(stdout, &buffer);	
+      }
+      if (pprod_divides(p2, p1)) {
+	printf("p2 divides p1\n");
+      }
+      if (pprod_divisor(&buffer, p2, p1)) {
+	printf("p1/p2: ");
+	print_pp_buffer0(stdout, &buffer);
+      }
+      cmp = pprod_lex_cmp(p1, p2);
+      if (cmp < 0) {
+	printf("p1 < p2 in lex order\n");
+      } else if (cmp > 0) {
+	printf("p1 > p2 in lex order\n");
+      } else {
+	printf("p1 = p2 in lex order\n");
+      }
+      printf("----\n");
+    }
   }
 
 
-  safe_free(p1);
-  safe_free(p2);
-  safe_free(p3);
-  safe_free(p4);
-  safe_free(p5);
+  for (i=0; i<10; i++) {
+    free_pprod(p[i]);
+  }
 
   delete_pp_buffer(&buffer);
 

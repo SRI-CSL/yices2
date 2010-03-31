@@ -14,7 +14,7 @@
 #include "hash_functions.h"
 
 /*
- * Initialization and deletetion of buffers
+ * Initialization and deletion of buffers
  */
 void init_pp_buffer(pp_buffer_t *b, uint32_t n) {
   if (n >= PPROD_MAX_LENGTH) {
@@ -271,7 +271,11 @@ void pp_buffer_set_varexps(pp_buffer_t *b, uint32_t n, int32_t *v, uint32_t *d) 
 
 void pp_buffer_set_pprod(pp_buffer_t *b, pprod_t *p) {
   b->len = 0;
-  pp_buffer_push_varexp_array(b, p->len, p->prod);
+  if (pp_is_var(p)) {
+    pp_buffer_pushback(b, var_of_pp(p), 1);
+  } else if (!pp_is_empty(p)) {
+    pp_buffer_push_varexp_array(b, p->len, p->prod);
+  }
 }
 
 void pp_buffer_copy(pp_buffer_t *b, pp_buffer_t *src) {
@@ -301,7 +305,11 @@ void pp_buffer_mul_varexps(pp_buffer_t *b, uint32_t n, int32_t *v, uint32_t *d) 
 }
 
 void pp_buffer_mul_pprod(pp_buffer_t *b, pprod_t *p) {
-  pp_buffer_push_varexp_array(b, p->len, p->prod);
+  if (pp_is_var(p)) {
+    pp_buffer_pushback(b, var_of_pp(p), 1);
+  } else if (! pp_is_empty(p)) {
+    pp_buffer_push_varexp_array(b, p->len, p->prod);
+  }
   pp_buffer_normalize(b);
 }
 
@@ -330,6 +338,18 @@ uint32_t pp_buffer_degree(pp_buffer_t *b) {
   return varexp_array_degree(b->prod, b->len);
 }
 
+uint32_t pprod_degree(pprod_t *p) {
+  uint32_t d;
+
+  d = 0;
+  if (pp_is_var(p)) {
+    d = 1;
+  } else if (! pp_is_empty(p)) {
+    d = p->degree;
+  }
+  return d;
+}
+
 
 /*
  * Check that degree is less than MAX_DEGREE
@@ -350,6 +370,10 @@ static bool below_max_degree(varexp_t *a, uint32_t n) {
 
 bool pp_buffer_below_max_degree(pp_buffer_t *b) {
   return below_max_degree(b->prod, b->len);
+}
+
+bool pprod_below_max_degree(pprod_t *p) {
+  return pprod_degree(p) < MAX_DEGREE;
 }
 
 
@@ -376,25 +400,17 @@ uint32_t pp_buffer_var_degree(pp_buffer_t *b, int32_t x) {
 }
 
 uint32_t pprod_var_degree(pprod_t *p, int32_t x) {
-  return varexp_array_var_degree(p->prod, p->len, x);
+  uint32_t d;
+
+  d = 0;
+  if (pp_is_var(p)) {
+    d = (var_of_pp(p) == x);
+  } else if (! pp_is_empty(p)) {
+    d =varexp_array_var_degree(p->prod, p->len, x);
+  }
+  return d;
 }
 
-
-/*
- * Hash code
- */
-static uint32_t hash_varexp_array(varexp_t *a, uint32_t n) {
-  assert(n <= PPROD_MAX_LENGTH);
-  return jenkins_hash_intarray(2 * n, (int32_t *) a);
-}
-
-uint32_t pp_buffer_hash(pp_buffer_t *b) {
-  return hash_varexp_array(b->prod, b->len);
-}
-
-uint32_t pprod_hash(pprod_t *p) {
-  return hash_varexp_array(p->prod, p->len);
-}
 
 
 /*
@@ -408,12 +424,20 @@ pprod_t *make_pprod(varexp_t *a, uint32_t n) {
   uint32_t i;
 
   assert(0 <= n && n < PPROD_MAX_LENGTH);
-  p = (pprod_t *) safe_malloc(sizeof(pprod_t) + n * sizeof(varexp_t));
-  p->len = n;
-  p->degree = varexp_array_degree(a, n);
-  for (i=0; i<n; i++) {
-    p->prod[i] = a[i];
+
+  if (n == 0) {
+    p = empty_pp;
+  } else if (n == 1 && a[0].exp == 1) {
+    p = var_pp(a[0].var);
+  } else {
+    p = (pprod_t *) safe_malloc(sizeof(pprod_t) + n * sizeof(varexp_t));
+    p->len = n;
+    p->degree = varexp_array_degree(a, n);
+    for (i=0; i<n; i++) {
+      p->prod[i] = a[i];
+    }
   }
+
   return p;
 }
 
@@ -426,6 +450,15 @@ pprod_t *pp_buffer_getprod(pp_buffer_t *b) {
 }
 
 
+
+/*
+ * Free the object constructed by make_pprod
+ */
+void free_pprod(pprod_t *p) {
+  if (! pp_is_var(p) && ! pp_is_empty(p)) {
+    safe_free(p);
+  }
+}
 
 
 /*
@@ -446,8 +479,8 @@ bool varexp_array_equal(varexp_t *a, varexp_t *b, uint32_t n) {
 
 
 /*
- * Ordering must be compatible with product and with the ordering on
- * primitive variables. We want 
+ * The ordering between power products must be compatible with the
+ * product and with the ordering on variables. That is, we want
  *  1) a < b => a * c < b * c for any c
  *  2) x < y as variables => x^1 y^0 < x^0 y^1 
  * 
@@ -530,32 +563,100 @@ static bool varexp_array_divides(varexp_t *a, uint32_t na, varexp_t *b, uint32_t
  * Exported functions
  */
 int32_t pprod_lex_cmp(pprod_t *p1, pprod_t *p2) {
-  return varexp_array_lexcmp(p1->prod, p1->len, p2->prod, p2->len);
+  varexp_t aux1, aux2;
+  varexp_t *a, *b;
+  uint32_t na, nb;
+
+  na = 0;
+  a = NULL;
+  if (pp_is_var(p1)) {
+    aux1.var = var_of_pp(p1);
+    aux1.exp = 1;
+    a = &aux1;
+    na = 1;
+  } else if (! pp_is_empty(p1)) {
+    a = p1->prod;
+    na = p1->len;
+  }
+
+  nb = 0;
+  b = NULL;
+  if (pp_is_var(p2)) {
+    aux2.var = var_of_pp(p2);
+    aux2.exp = 1;
+    b = &aux2;
+    nb = 1;
+  } else if (! pp_is_empty(p2)) {
+    b = p2->prod;
+    nb = p2->len;
+  }
+
+  return varexp_array_lexcmp(a, na, b, nb);
 }
 
-/*
- * Check whether buffer b and product p are equal
- */
-bool pprod_equal(pprod_t *p1, pprod_t *p2) {
-  return p1->len == p2->len && varexp_array_equal(p1->prod, p2->prod, p1->len);
-}
 
 bool pprod_divides(pprod_t *p1, pprod_t *p2) {
-  return varexp_array_divides(p1->prod, p1->len, p2->prod, p2->len);
+  varexp_t aux1, aux2;
+  varexp_t *a, *b;
+  uint32_t na, nb;
+
+  na = 0;
+  a = NULL;
+  if (pp_is_var(p1)) {
+    aux1.var = var_of_pp(p1);
+    aux1.exp = 1;
+    a = &aux1;
+    na = 1;
+  } else if (! pp_is_empty(p1)) {
+    a = p1->prod;
+    na = p1->len;
+  }
+
+  nb = 0;
+  b = NULL;
+  if (pp_is_var(p2)) {
+    aux2.var = var_of_pp(p2);
+    aux2.exp = 1;
+    b = &aux2;
+    nb = 1;
+  } else if (! pp_is_empty(p2)) {
+    b = p2->prod;
+    nb = p2->len;
+  }
+
+  return varexp_array_divides(a, na, b, nb);
 }
 
+
+
+
+/*
+ * Check whether p1 divides p2 and if so store (p2/p1) in b
+ */
 bool pprod_divisor(pp_buffer_t *b, pprod_t *p1, pprod_t *p2) {
   uint32_t i, j, n;
   int32_t v;
   varexp_t *a1, *a2;
+  varexp_t aux;
 
-  n = p1->len;
-  if (n > p2->len) return false;
+  if (pp_is_empty(p1)) {
+    n = 0;
+    a1 = NULL;
+  } else if (pp_is_var(p1)) {
+    aux.var = var_of_pp(p1);
+    aux.exp = 1;
+    n = 1;
+    a1 = &aux;
+  } else {
+    n = p1->len;
+    a1 = p1->prod;
+  }
 
   pp_buffer_set_pprod(b, p2);
+  if (n > b->len) return false;
+
   pp_buffer_pushback(b, INT32_MAX, UINT32_MAX); // add an end marker
 
-  a1 = p1->prod;
   a2 = b->prod;
 
   j =0;
@@ -581,3 +682,28 @@ bool pprod_divisor(pp_buffer_t *b, pprod_t *p1, pprod_t *p2) {
 
   return true;
 }
+
+
+/*
+ * Check whether p1 and p2 are equal
+ */
+bool pprod_equal(pprod_t *p1, pprod_t *p2) {  
+  if (p1 == p2) {
+    return true;
+  }
+
+  if (pp_is_var(p1) | pp_is_var(p2)) {
+    // p1 and p2 are distinct variables
+    // or only one of them is a variable
+    return false;
+  }
+
+  if (pp_is_empty(p1) | pp_is_empty(p2)) {
+    // one empty and the other is not
+    return false;
+  }
+
+  // two non-empty, non variable power products
+  return p1->len == p2->len && varexp_array_equal(p1->prod, p2->prod, p1->len);
+}
+

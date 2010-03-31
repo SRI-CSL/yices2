@@ -6,6 +6,7 @@
 #define __TAGGED_POINTERS_H
 
 #include <stdbool.h>
+#include <assert.h>
 
 /*
  * First version: 2bit tags are stored in the two low-order bits 
@@ -45,11 +46,13 @@ static inline bool has_int_tag(void *p) {
 
 // extract the integer from p (as a signed integer)
 static inline int32_t untag_i32(void *p) {
+  assert(has_int_tag(p));
   return ((int32_t) ((size_t) p)) >> 1;
 }
 
 // extract an unsigned integer from p 
 static inline uint32_t untag_u32(void *p) {
+  assert(has_int_tag(p));
   return ((uint32_t)((size_t) p)) >> 1;
 }
 

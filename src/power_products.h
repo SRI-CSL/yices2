@@ -10,6 +10,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "tagged_pointers.h"
+
 /*
  * Product:
  * - len = number of components
@@ -62,6 +64,67 @@ typedef struct {
 
 
 /*
+ * Maximal variable index: variables should be between 0 and MAX_PROD_VAR
+ */
+#define MAX_PPROD_VAR (INT32_MAX/2)
+
+
+/*
+ * POINTER TAGGING
+ */
+
+/*
+ * Power product are part of the polynomail representation. But in many
+ * cases, the polynomials are linear expressions (i.e., each power product
+ * is either the empty product or a single variable with exponent 1). To
+ * compactly encode the common case, we use tagged pointers and the 
+ * following conventions.
+ * - the empty power product is the NULL pointer
+ * - a single variable x is packed in a pprod_t pointer with tag bit set to 1
+ *   (this gives a compact representation for x^1)
+ * - otherwise, the product p is a pointer to an actual pprod_t object
+ */
+
+/*
+ * Empty product
+ */
+#define empty_pp ((pprod_t *) NULL)
+
+/*
+ * Variable x encoded as a power product
+ */
+static inline pprod_t *var_pp(int32_t x) {
+  assert(0 <= x && x <= MAX_PPROD_VAR);
+  return (pprod_t *) tag_i32(x);
+}
+
+/*
+ * Check whether p is empty or a variable
+' */
+static inline bool pp_is_empty(pprod_t *p) {
+  return p == empty_pp;
+}
+
+static inline bool pp_is_var(pprod_t *p) {
+  return has_int_tag(p);
+}
+
+/*
+ * Get the variable index of p if pp_is_var(p) holds
+ */
+static inline int32_t var_of_pp(pprod_t *p) {
+  assert(pp_is_var(p));
+  return untag_i32(p);
+}
+
+
+
+
+/*
+ * PRODUCT BUFFERS
+ */
+
+/*
  * Initialize a buffer of initial size n:
  * - initial value = empty product
  */
@@ -76,6 +139,9 @@ extern void delete_pp_buffer(pp_buffer_t *b);
  * - set to or multiply by v[0] * ... * v[n-1]
  * - set to or multiply by v[0]^d[0] * ... * v[n-1]^d[n-1]
  * all modify buffer b.
+ *
+ * The set_xxx operations do not normalize b.
+ * The mul_xxx operations do normalize b.
  */
 extern void pp_buffer_reset(pp_buffer_t *b);
 
@@ -91,6 +157,7 @@ extern void pp_buffer_mul_varexps(pp_buffer_t *b, uint32_t n, int32_t *v, uint32
 
 /*
  * Assign or multiply b by a power-product p
+ * - p must follow the pointer tagging conventions
  */
 extern void pp_buffer_set_pprod(pp_buffer_t *b, pprod_t *p);
 extern void pp_buffer_mul_pprod(pp_buffer_t *b, pprod_t *p);
@@ -118,45 +185,61 @@ static inline bool pp_buffer_is_trivial(pp_buffer_t *b) {
 }
 
 
+
 /*
  * Degree computation
  */
 extern uint32_t pp_buffer_degree(pp_buffer_t *b);
-
-static inline uint32_t pprod_degree(pprod_t *p) {
-  return p->degree;
-}
 
 /*
  * Check whether the degree is less than MAX_DEGREE.
  */
 extern bool pp_buffer_below_max_degree(pp_buffer_t *b);
 
-static inline bool pprod_below_max_degree(pprod_t *p) {
-  return p->degree < MAX_DEGREE;
-}
-
 /*
  * Degree of a variable x in product p
  * (0 if x does not occur in p).
  */
 extern uint32_t pp_buffer_var_degree(pp_buffer_t *b, int32_t x);
-extern uint32_t pprod_var_degree(pprod_t *p, int32_t x);
 
 
 /*
- * Hash code
- */
-extern uint32_t pp_buffer_hash(pp_buffer_t *b);
-extern uint32_t pprod_hash(pprod_t *p);
-
-
-/*
- * Allocate and construct a pprod object from the content of b.
+ * Convert b's content to a power-product object.
  * - b must be normalized.
+ * - if b is empty or is of the form x^1 then the result is 
+ *   the appropriate tagged pointer.
  */
 extern pprod_t *pp_buffer_getprod(pp_buffer_t *b);
 
+
+
+/*
+ * POWER PRODUCT OPERATIONS
+ */
+
+/*
+ * All the operations assume p follows the tagged pointer
+ * conventions.
+ * - p = NULL denotes the empty product
+ * - p = tagged pointer x denote the product (x^1)
+ * - other wise, p is a pointer to an actual pprod_t structure
+ */
+
+/*
+ * Degree of p
+ */
+extern uint32_t pprod_degree(pprod_t *p);
+
+/*
+ * Check whether p's degree is below MAX_DEGREE
+ */
+extern bool pprod_below_max_degree(pprod_t *p);
+
+/*
+ * Degree of variable x in product p
+ * - returns 0 if x does not occur in p
+ */
+extern uint32_t pprod_var_degree(pprod_t *p, int32_t x);
 
 
 /*
@@ -183,16 +266,25 @@ extern bool pprod_equal(pprod_t *p1, pprod_t *p2);
 extern bool pprod_divides(pprod_t *p1, pprod_t *p2);
 
 /*
- * Same thing but also computes the divisor in b
+ * Same thing but also computes the quotient (p2/p1) in b
  */
 extern bool pprod_divisor(pp_buffer_t *b, pprod_t *p1, pprod_t *p2);
+
+
+
+/*
+ * Free a power-product
+ * - p must be the result of pp_buffer_getprod or make_pprod.
+ * - do nothing if p is empty or a variable.
+ */
+extern void free_pprod(pprod_t *p);
+
 
 
 
 
 /*
  * LOW-LEVEL OPERATIONS
- * - direct operations on arrays of pairs <var, exponent>
  */
 
 /*
@@ -208,6 +300,7 @@ extern bool varexp_array_equal(varexp_t *a, varexp_t *b, uint32_t n);
  * - n must be less than PPROD_MAX_LENGTH
  */
 extern pprod_t *make_pprod(varexp_t *a, uint32_t n);
+
 
 
 
