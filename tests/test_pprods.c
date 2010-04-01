@@ -3,7 +3,6 @@
 #include <inttypes.h>
 
 #include "power_products.h"
-#include "memalloc.h"
 
 
 static void print_varexp_array(FILE *f, varexp_t *a, uint32_t n) {
@@ -69,11 +68,10 @@ static void print_pprod0(FILE *f, pprod_t *p) {
 }
 
 
-
-pp_buffer_t buffer;
-
 #define NUM_PRODS 10
-pprod_t *p[NUM_PRODS];
+
+static pp_buffer_t buffer;
+static pprod_t *p[NUM_PRODS];
 
 int main() {
   pprod_t *p1, *p2;
