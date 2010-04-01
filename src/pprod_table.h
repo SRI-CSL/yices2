@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 
+#include "bitvectors.h"
 #include "int_hash_tables.h"
 #include "power_products.h"
 
@@ -19,9 +20,10 @@
  *   There's a corresponding record (with index i) in the htbl.
  * - data[i] is a deleted product if its tag bit is 1.
  *   In that case, data[i] encodes the next element in a global free list.
+ * - mark[i] is used during garbage collection.
  * 
  * Other components:
- * - size = size of array data
+ * - size = size of array data and bitvector mark
  * - nelems = number of array elements used
  * - free_idx = start of the free list (-1 means that the free list is empty)
  * - htbl = hash table for hash consing
@@ -29,6 +31,8 @@
  */
 typedef struct pprod_table_s {
   pprod_t **data;
+  byte_t *mark;
+
   uint32_t size;
   uint32_t nelems;
   int32_t free_idx;
@@ -88,12 +92,28 @@ extern pprod_t *pprod_mul(pprod_table_t *table, pprod_t *p1, pprod_t *p2);
 
 
 /*
+ * DELETION AND GARBAGE COLLECTION
+ */
+
+/*
  * Remove p from the table and free the corresponding pprod_t object.
  * - p must be present in the table (and must be distinct from end_pp, 
  *   empty_pp, or any tagged variable).
  */
 extern void delete_pprod(pprod_table_t *table, pprod_t *p);
-
  
+/*
+ * Mark p to prevent its deletion during garbage collection
+ * - p must be present in the table
+ */
+extern void pprod_table_set_gc_mark(pprod_table_t *table, pprod_t *p);
+
+/*
+ * Call the garbage collector:
+ * - delete every product not marked
+ * - then clear all the marks
+ */
+extern void pprod_table_gc(pprod_table_t *table);
+
 
 #endif /* __PPROD_TABLE_H */

@@ -50,6 +50,39 @@ static void print_pprod0(FILE *f, pprod_t *p) {
 }
 
 
+/*
+ * Print table
+ */
+static void print_pprod_table(FILE *f, pprod_table_t *table) {
+  pprod_t *p;
+  uint32_t i, n;
+  int32_t l;
+
+  fprintf(f, "pprod_table %p\n", table);
+  fprintf(f, "  size = %"PRIu32"\n", table->size);
+  fprintf(f, "  nelems = %"PRIu32"\n", table->nelems);
+  fprintf(f, "  free_idx = %"PRId32"\n", table->free_idx);
+  fprintf(f, "  content:\n");
+  n = table->nelems;
+  for (i=0; i<n; i++) {
+    p = table->data[i];
+    if (!has_int_tag(p)) {
+      fprintf(f, "  data[%"PRIu32"] = ", i);
+      print_varexp_array(f, p->prod, p->len);
+      fprintf(f, "\n");
+    }
+  }
+  if (table->free_idx >= 0) {
+    fprintf(f, "  free list:");
+    l = table->free_idx;
+    do {
+      fprintf(f, " %"PRId32, l);
+      l = untag_i32(table->data[l]);
+    } while (l >= 0);
+    fprintf(f, "\n");
+  }  
+}
+
 
 /*
  * Table + buffer for tests
@@ -218,6 +251,14 @@ int main(void) {
   print_pprod0(stdout, q);
   printf("\n");
   check_product(q);
+  printf("\n");
+
+  printf("*** Table content before GC ***\n");
+  print_pprod_table(stdout, &ptbl);
+  pprod_table_set_gc_mark(&ptbl, p[num_prods - 1]);
+  pprod_table_gc(&ptbl);
+  printf("\n*** Table content after GC ***\n");
+  print_pprod_table(stdout, &ptbl);
   printf("\n");
 
   delete_pp_buffer(&buffer);

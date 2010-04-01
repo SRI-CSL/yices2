@@ -23,6 +23,7 @@ void init_pprod_table(pprod_table_t *table, uint32_t n) {
   }
 
   table->data = (pprod_t **) safe_malloc(n * sizeof(pprod_t *));
+  table->mark = allocate_bitvector(n);
   table->size = n;
   table->nelems = 0;
   table->free_idx = -1;
@@ -46,6 +47,7 @@ static void extend_pprod_table(pprod_table_t *table) {
   }
 
   table->data = (pprod_t **) safe_realloc(table->data, n * sizeof(pprod_t *));
+  table->mark = extend_bitvector(table->mark, n);
   table->size = n;
 }
 
@@ -66,7 +68,9 @@ void delete_pprod_table(pprod_table_t *table) {
     }
   }
   safe_free(table->data);
+  delete_bitvector(table->mark);
   table->data = NULL;
+  table->mark = NULL;
 
   delete_int_htbl(&table->htbl);
   delete_pp_buffer(&table->buffer);
@@ -76,6 +80,7 @@ void delete_pprod_table(pprod_table_t *table) {
 
 /*
  * Allocate an index i such that data[i] is empty
+ * - clear mark[i]
  */
 static int32_t allocate_pprod_id(pprod_table_t *table) {
   int32_t i;
@@ -92,6 +97,8 @@ static int32_t allocate_pprod_id(pprod_table_t *table) {
     }
     assert(i < table->size);
   }
+
+  clr_bit(table->mark, i);
 
   return i;
 }
@@ -238,6 +245,21 @@ pprod_t *pprod_mul(pprod_table_t *table, pprod_t *p1, pprod_t *p2) {
 
 
 /*
+ * Find the index of p in table
+ * - return -1 if p is not in the table
+ */
+static int32_t find_pprod_id(pprod_table_t *table, pprod_t *p) {
+  assert(p != empty_pp && p != end_pp && !pp_is_var(p));
+
+  // search for p's index using the hash table
+  pprod_hobj.tbl = table;
+  pprod_hobj.array = p->prod;
+  pprod_hobj.len = p->len;
+
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &pprod_hobj);  
+}
+
+/*
  * Remove p from the table and free the corresponding pprod_t object.
  * - p must be present in the table (and must be distinct from end_pp, 
  *   empty_pp, or any tagged variable). 
@@ -254,12 +276,7 @@ void delete_pprod(pprod_table_t *table, pprod_t *p) {
    * We search for p's index i in the hash table then
    * we search the hash table again to delete the record (h, i).
    */
-
-  // search for p's index using the hash table
-  pprod_hobj.tbl = table;
-  pprod_hobj.array = p->prod;
-  pprod_hobj.len = p->len;
-  i = int_htbl_find_obj(&table->htbl, (int_hobj_t *) &pprod_hobj);
+  i = find_pprod_id(table, p);
   assert(i >= 0 && table->data[i] == p);
 
   // keep h = hash code of p
@@ -270,4 +287,46 @@ void delete_pprod(pprod_table_t *table, pprod_t *p) {
 
   // remove the record [h, i] from the hash table
   int_htbl_erase_record(&table->htbl, h, i);
+}
+
+
+/*
+ * Set the garbage collection mark for p
+ * - p must be present in the table (and must be distinct from end_pp, 
+ *   empty_pp, or any tagged variable). 
+ * - once p is marked it will not be deleted on the next call to pprod_table_gc
+ */
+void pprod_table_set_gc_mark(pprod_table_t *table, pprod_t *p) {
+  int32_t i;
+
+  i = find_pprod_id(table, p);
+  assert(i >= 0 && table->data[i] == p);
+  set_bit(table->mark, i);
+}
+
+
+/*
+ * Garbage collection: delete all unmarked products
+ * clear all the marks
+ */
+void pprod_table_gc(pprod_table_t *table) {
+  pprod_t *p;
+  uint32_t i, n, h;
+
+  n = table->nelems;
+  for (i=0; i<n; i++) {
+    if (! tst_bit(table->mark, i)) { 
+      // i is not marked
+      p = table->data[i];
+      if (!has_int_tag(p)) {
+	// not already deleted
+	h = hash_varexp_array(p->prod, p->len);
+	erase_pprod_id(table, i);
+	int_htbl_erase_record(&table->htbl, h, i);
+      }
+    }
+  }
+
+  // clear all the marks
+  clear_bitvector(table->mark, table->size);
 }
