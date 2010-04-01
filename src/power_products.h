@@ -83,12 +83,20 @@ typedef struct {
  * - a single variable x is packed in a pprod_t pointer with tag bit set to 1
  *   (this gives a compact representation for x^1)
  * - otherwise, the product p is a pointer to an actual pprod_t object
+ *
+ * We also use a special end-marker in polynomial representations. 
+ * The end marker is larger than any other power product in the deglex ordering.
  */
 
 /*
  * Empty product
  */
 #define empty_pp ((pprod_t *) NULL)
+
+/*
+ * End marker: all bits are one
+ */
+#define end_pp ((pprod_t *) ~((size_t) 0))
 
 /*
  * Variable x encoded as a power product
@@ -221,29 +229,35 @@ extern pprod_t *pp_buffer_getprod(pp_buffer_t *b);
  * All the operations assume p follows the tagged pointer
  * conventions.
  * - p = NULL denotes the empty product
- * - p = tagged pointer x denote the product (x^1)
+ * - a tagged pointer x denotes the product (x^1) 
  * - other wise, p is a pointer to an actual pprod_t structure
+ *   that must be normalized
  */
 
 /*
  * Degree of p
+ * - p must be distinct from end_pp
  */
 extern uint32_t pprod_degree(pprod_t *p);
 
+
 /*
  * Check whether p's degree is below MAX_DEGREE
+ * - p must be distinct from end_pp
  */
 extern bool pprod_below_max_degree(pprod_t *p);
+
 
 /*
  * Degree of variable x in product p
  * - returns 0 if x does not occur in p
+ * - p must be distinct from end_pp
  */
 extern uint32_t pprod_var_degree(pprod_t *p, int32_t x);
 
 
 /*
- * Comparison:
+ * Lexicographic ordering:
  * - lex_cmp(p1, p2) < 0 means p1 < p2
  * - lex_cmp(p1, p2) = 0 means p1 = p2
  * - lex_cmp(p1, p2) > 0 means p2 < p1
@@ -252,24 +266,51 @@ extern uint32_t pprod_var_degree(pprod_t *p, int32_t x);
  *   x_1^d_1 ... x_n^d_n < x_1^c_1 ... x_n^c_n
  * if, for some index i, we have
  *   d_1 = c_1 ... d_{i-1} = c_{i-1} and d_i > c_i.
+ *
+ * p1 and p2 must be distinct from end_pp
  */
 extern int32_t pprod_lex_cmp(pprod_t *p1, pprod_t *p2);
 
+
+/*
+ * Degree then lex ordering. This ordering is defined by
+ *  p1 < p2 if degree(p1) < degree(p2) 
+ *          or degree(p1) = degree(p2) and (p1 < p2 in lex ordering)
+ *
+ * That's the ordering we use for normalizing polynomials.
+ * p1 or p2 (or both) may be equal to the end marker end_pp.
+ *
+ * There are three cases:
+ * - if p1 = end_pp then
+ *     pprod_precedes(p1, p2) is false for any p2
+ * - if p1 != end_pp and p2 = end_pp then
+ *     pprod_precedes(p1, p2) is true
+ * - otherwise, 
+ *     pprod_precedes(p1, p2) is true 
+ *        iff p1 < p2 in the deglex ordering 
+ */
+extern bool pprod_precedes(pprod_t *p1, pprod_t *p2);
+
+
 /*
  * Check whether p1 and p2 are equal
+ * - p1 and p2 must be distinct from end_pp
  */
 extern bool pprod_equal(pprod_t *p1, pprod_t *p2);
 
+
 /*
  * Divisibility test: returns true if p1 is a divisor of p2
+ * - p1 and p2 must be distinct from end_pp
  */
 extern bool pprod_divides(pprod_t *p1, pprod_t *p2);
 
+
 /*
  * Same thing but also computes the quotient (p2/p1) in b
+ * - p1 and p2 must be distinct from end_pp
  */
 extern bool pprod_divisor(pp_buffer_t *b, pprod_t *p1, pprod_t *p2);
-
 
 
 /*

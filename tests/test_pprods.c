@@ -115,7 +115,11 @@ int main() {
   for (i=0; i<NUM_PRODS; i++) {
     printf("p[%"PRIu32"] =  ", i);
     print_pprod(stdout, p[i]);
-    printf(" degree = %"PRIu32"\n\n", pprod_degree(p[i]));    
+    printf(" total degree = %"PRIu32"\n", pprod_degree(p[i]));
+    for (j=0; j<5; j++) {
+      printf(" degree of x_%"PRIu32" = %"PRIu32"\n", j, pprod_var_degree(p[i], j));
+    }
+    printf("----\n");    
   }
   printf("\n");
 
@@ -151,6 +155,12 @@ int main() {
 	printf("p1 > p2 in lex order\n");
       } else {
 	printf("p1 = p2 in lex order\n");
+      }
+      if (pprod_precedes(p1, p2)) {
+	printf("p1 < p2 in deglex ordering\n");
+      }
+      if (pprod_precedes(p2, p1)) {
+	printf("p2 < p1 in deglex ordering\n");
       }
       printf("----\n");
     }

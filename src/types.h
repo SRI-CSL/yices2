@@ -110,7 +110,7 @@ typedef union {
 /*
  * Type table: valid type indices are between 0 and nelems - 1
  *
- * For each i betwen 0 and nelems - 1,
+ * For each i between 0 and nelems - 1,
  * - kind[i] = type kind
  * - desc[i] = type descriptor
  * - card[i] = cardinality of type i or

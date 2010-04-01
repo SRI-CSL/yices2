@@ -270,6 +270,8 @@ void pp_buffer_set_varexps(pp_buffer_t *b, uint32_t n, int32_t *v, uint32_t *d) 
 }
 
 void pp_buffer_set_pprod(pp_buffer_t *b, pprod_t *p) {
+  assert(p != end_pp);
+
   b->len = 0;
   if (pp_is_var(p)) {
     pp_buffer_pushback(b, var_of_pp(p), 1);
@@ -305,6 +307,8 @@ void pp_buffer_mul_varexps(pp_buffer_t *b, uint32_t n, int32_t *v, uint32_t *d) 
 }
 
 void pp_buffer_mul_pprod(pp_buffer_t *b, pprod_t *p) {
+  assert(p != end_pp);
+
   if (pp_is_var(p)) {
     pp_buffer_pushback(b, var_of_pp(p), 1);
   } else if (! pp_is_empty(p)) {
@@ -340,6 +344,8 @@ uint32_t pp_buffer_degree(pp_buffer_t *b) {
 
 uint32_t pprod_degree(pprod_t *p) {
   uint32_t d;
+
+  assert(p != end_pp);
 
   d = 0;
   if (pp_is_var(p)) {
@@ -401,6 +407,8 @@ uint32_t pp_buffer_var_degree(pp_buffer_t *b, int32_t x) {
 
 uint32_t pprod_var_degree(pprod_t *p, int32_t x) {
   uint32_t d;
+
+  assert(p != end_pp);
 
   d = 0;
   if (pp_is_var(p)) {
@@ -536,36 +544,16 @@ static int32_t varexp_array_lexcmp(varexp_t *a, uint32_t na, varexp_t *b, uint32
   }
 }
 
-/*
- * Test whether a divides b
- */
-static bool varexp_array_divides(varexp_t *a, uint32_t na, varexp_t *b, uint32_t nb) {
-  uint32_t i, j;
-  int32_t v;
-
-  if (na > nb) return false;
-
-  j = 0;
-  for (i=0; i<na; i++) {
-    v = a[i].var;
-    while (j < nb && b[j].var < v) { 
-      j++; 
-    }
-    if (j == nb || b[j].var > v || a[i].exp > b[j].exp) {
-      return false;
-    }
-  }
-
-  return true;
-}
 
 /*
- * Exported functions
+ * Lexicographic comparison: p1 and p2 must be normalized
  */
 int32_t pprod_lex_cmp(pprod_t *p1, pprod_t *p2) {
   varexp_t aux1, aux2;
   varexp_t *a, *b;
   uint32_t na, nb;
+
+  assert(p1 != end_pp && p2 != end_pp);
 
   na = 0;
   a = NULL;
@@ -595,10 +583,56 @@ int32_t pprod_lex_cmp(pprod_t *p1, pprod_t *p2) {
 }
 
 
+
+/*
+ * Check whether p1 precedes p2 (stricly) in the degree + lex ordering
+ */
+bool pprod_precedes(pprod_t *p1, pprod_t *p2) {
+  uint32_t d1, d2;
+
+  if (p1 == p2) return false;
+  if (p1 == end_pp) return false;
+  if (p2 == end_pp) return true;
+
+  d1 = pprod_degree(p1);
+  d2 = pprod_degree(p2);
+  return (d1 < d2) || (d1 == d2 && pprod_lex_cmp(p1, p2) < 0);
+}
+
+
+/*
+ * Test whether a divides b
+ */
+static bool varexp_array_divides(varexp_t *a, uint32_t na, varexp_t *b, uint32_t nb) {
+  uint32_t i, j;
+  int32_t v;
+
+  if (na > nb) return false;
+
+  j = 0;
+  for (i=0; i<na; i++) {
+    v = a[i].var;
+    while (j < nb && b[j].var < v) { 
+      j++; 
+    }
+    if (j == nb || b[j].var > v || a[i].exp > b[j].exp) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+/*
+ * Test whether p1 divides p2
+ */
 bool pprod_divides(pprod_t *p1, pprod_t *p2) {
   varexp_t aux1, aux2;
   varexp_t *a, *b;
   uint32_t na, nb;
+
+  assert(p1 != end_pp && p2 != end_pp);
 
   na = 0;
   a = NULL;
@@ -638,6 +672,8 @@ bool pprod_divisor(pp_buffer_t *b, pprod_t *p1, pprod_t *p2) {
   int32_t v;
   varexp_t *a1, *a2;
   varexp_t aux;
+
+  assert(p1 != end_pp && p2 != end_pp);
 
   if (pp_is_empty(p1)) {
     n = 0;
@@ -688,9 +724,9 @@ bool pprod_divisor(pp_buffer_t *b, pprod_t *p1, pprod_t *p2) {
  * Check whether p1 and p2 are equal
  */
 bool pprod_equal(pprod_t *p1, pprod_t *p2) {  
-  if (p1 == p2) {
-    return true;
-  }
+  assert(p1 != end_pp && p2 != end_pp);
+
+  if (p1 == p2) return true;
 
   if (pp_is_var(p1) | pp_is_var(p2)) {
     // p1 and p2 are distinct variables
