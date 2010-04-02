@@ -24,10 +24,18 @@
  */
 #define YICES_MAX_ARITY (UINT32_MAX/16)
 
+
+/*
+ * Maximal degree of polynomials
+ */
+#define YICES_MAX_DEGREE (UINT32_MAX/2)
+
+
 /*
  * Maximal n in (FORALL/EXISTS (x_1 .... x_n) P)
  */
 #define YICES_MAX_VARS (UINT32_MAX/16)
+
 
 /*
  * Maximal bitvector size

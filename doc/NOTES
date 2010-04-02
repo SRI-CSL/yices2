@@ -237,6 +237,28 @@ poly_buffer.c			 internalization in the arithmetic solvers
 
 
 
+   New Arithmetic
+   --------------
+
+Same general ideas as before, except that we don't use of primitive and auxiliary variables
+to represent power products anymore. Module varproduct is renamed to power_products,
+polynomal_managed and arithmetic_variable_manager disappear.
+
+power_products.h:		Power products = arrays of pairs (x_i, d_i)
+power_products,c                - variable x_i is an integer
+                                - exponent d_i is a non-negative integer
+				Special representations are used (tagged pointers) for
+				simple products (e.g, x_i^1).
+
+pprod_table.h:			Table for hash-consing of power products.
+pprod_table.c
+
+arith_buffer.h:			Buffer for construction and operations on polynomials
+arith_buffer.c			A buffer stores a list of monomials with rational 
+				coefficients.
+
+
+
 
 4) Bitvector Arithmetic
    --------------------

@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <stdbool.h>
 
+#include "yices_limits.h"
 #include "memalloc.h"
 #include "power_products.h"
 #include "prng.h"
@@ -358,7 +359,7 @@ uint32_t pprod_degree(pprod_t *p) {
 
 
 /*
- * Check that degree is less than MAX_DEGREE
+ * Check that degree is less than YICES_MAX_DEGREE
  */
 static bool below_max_degree(varexp_t *a, uint32_t n) {
   uint32_t d, i, e;
@@ -366,9 +367,9 @@ static bool below_max_degree(varexp_t *a, uint32_t n) {
   d = 0;
   for (i=0; i<n; i++) {
     e = a[i].exp;
-    if (e >= MAX_DEGREE) return false;
+    if (e >= YICES_MAX_DEGREE) return false;
     d += e;
-    if (d >= MAX_DEGREE) return false;
+    if (d >= YICES_MAX_DEGREE) return false;
   }
 
   return true;
@@ -379,7 +380,7 @@ bool pp_buffer_below_max_degree(pp_buffer_t *b) {
 }
 
 bool pprod_below_max_degree(pprod_t *p) {
-  return pprod_degree(p) < MAX_DEGREE;
+  return pprod_degree(p) < YICES_MAX_DEGREE;
 }
 
 
@@ -529,7 +530,7 @@ static int32_t varexp_array_lexcmp(varexp_t *a, uint32_t na, varexp_t *b, uint32
     x = a[i].var - b[i].var;
     if (x == 0) {
       // the conversion to int32_t is safe if the total
-      // degree of a and b is less than MAX_DEGREE
+      // degree of a and b is less than YICES_MAX_DEGREE
       assert(((int32_t) b[i].exp >= 0) && ((int32_t) a[i].exp >= 0));
       return (int32_t) (b[i].exp - a[i].exp);
     } else {

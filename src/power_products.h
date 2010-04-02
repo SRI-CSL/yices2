@@ -2,6 +2,11 @@
  * Power products: x_1^d_1 ... x_n^d_n 
  * - each x_i is a 32bit integer
  * - each exponent d_i is a positive integer
+ *
+ * There's a limit on the total degree (YICES_MAX_DEGREE) defined in 'yices_limits.h'.
+ * If power products p1 and p2 have degree less than MAX_DEGREE
+ * then degree(p1) + degree(p2) can be computed without overflow on 32bit numbers.
+ * Power products (and polynomials) of degree >= YICES_MAX_DEGREE are not supported.
  */
 
 #ifndef __POWER_PRODUCTS_H
@@ -48,14 +53,6 @@ typedef struct {
 
 
 /*
- * Maximal degree: to detect overflows in product computations.
- * - bound: if p1 and p2 have degree less than MAX_DEGREE
- *   then degree(p1 * p2) can be computed without overflow on 32bit numbers
- */
-#define MAX_DEGREE (UINT32_MAX/2)
-
-
-/*
  * Maximal number of pairs <variable, exponent> in a product
  * - this is to ensure we can compute len * sizeof(varexp_t)
  *   on 32bits without overflow
@@ -67,6 +64,9 @@ typedef struct {
  * Maximal variable index: variables should be between 0 and MAX_PROD_VAR
  */
 #define MAX_PPROD_VAR (INT32_MAX/2)
+
+
+
 
 
 /*
