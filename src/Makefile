@@ -50,11 +50,11 @@ distdir := $(BUILD)/dist
 #
 # source files for libyices
 #
-src_c := arena.c arith_buffers.c bv_constants.c cache.c             \
-	 command_line.c extended_rationals.c gcd.c generic_heap.c   \
-         hash_functions.c hash_functions_ori.c index_vectors.c      \
-	 int_array_sort.c int_array_sort2.c int_bags.c              \
-         int_bv_sets.c int_hash_classes.c int_hash_map.c            \
+src_c := arena.c arith_buffers.c bv_constants.c bv64_constants.c    \
+         cache.c command_line.c extended_rationals.c gcd.c          \
+         generic_heap.c hash_functions.c hash_functions_ori.c       \
+         index_vectors.c int_array_sort.c int_array_sort2.c         \
+         int_bags.c int_bv_sets.c int_hash_classes.c int_hash_map.c \
          int_hash_map2.c int_hash_sets.c int_hash_tables.c          \
          int_heap.c int_heap2.c int_partitions.c int_powers.c       \
          int_queues.c int_stack.c int_vectors.c                     \

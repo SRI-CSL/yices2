@@ -33,7 +33,6 @@
 
 
 
-
 /*******************************
  *  ALLOCATION OF WORD ARRAYS  *
  ******************************/
@@ -124,10 +123,19 @@ extern void bvconstant_copy(bvconstant_t *b, uint32_t n, uint32_t *a);
  */
 extern void bvconst_normalize(uint32_t *bv, uint32_t n);
 
+
+/*
+ * Hash code of bitconstant a, n = bitsize
+ * - a must be normalized modulo 2^n first.
+ */
+extern uint32_t bvconst_hash(uint32_t *a, uint32_t n);
+
+
 /*
  * Display bv in binary format: 0b.....
  */
 extern void bvconst_print(FILE *f, uint32_t *bv, uint32_t n);
+
 
 /*
  * bit operations. If bv has size k, then i must be between 0 and 32k-1.
@@ -139,10 +147,8 @@ extern void bvconst_flip_bit(uint32_t *bv, uint32_t i);
 extern void bvconst_assign_bit(uint32_t *bv, uint32_t i, bool bit);
 
 
-
 /*
- * Assignments: result is in bv
- * k = size of bv in words
+ * Assignment to array bv of k words.
  * - clear:     bv := 0b000...000
  * - set_one:   bv := 0b000...001
  * - set_minus_one: bv := 0b111...111
@@ -166,9 +172,10 @@ extern void bvconst_set_q(uint32_t *bv, uint32_t k, rational_t *r);
 extern void bvconst_set(uint32_t *bv, uint32_t k, uint32_t *a);
 extern void bvconst_set_array(uint32_t *bv, int32_t *a, uint32_t n);
 
+
 /*
  * Assignment + extension
- * b: n-bit vector, a: m-bit vector with m <= n
+ * b: n-bit vector, a: m-bit vector with 0 < m <= n
  * assign a to b with padding as defined by mode:
  * - mode = 0: padding with 0
  * - mode = 1: padding with 1
@@ -210,21 +217,31 @@ extern int bvconst_set_from_hexa_string(uint32_t *bv, uint32_t n, char *s);
 
 
 /*
- * Conversions: extract value of bv 
- * - as an integer array: a[i] = bit i of bv (0 or 1)
- * - as an mpz integer
- * - as a 32bit integer (may require truncation)
- * - as a 64bit integer (may require truncation)
+ * Store the n lowest order bits of bv into a
+ * - as an integer array: a[i] = bit i of bv (either 0 or 1)
+ * - n must be no more than bv's bit width
  */
 extern void bvconst_get_array(uint32_t *bv, int32_t *a, uint32_t n);
+
+
+/*  
+ * Convert bv to an GMP integer.
+ * - k = size of bv in words.
+ * - as an mpz integer
+ * - bv should be normalized first
+ */
 extern void bvconst_get_mpz(uint32_t *bv, uint32_t k, mpz_t z);
 
-// get 32 low-order bits of bv
+
+/*
+ * Get the 32 or 64 low-order bits of bv
+ * - as a 32bit integer
+ * - as a 64bit integer (bv must be more than 32bits). 
+ */
 static inline uint32_t bvconst_get32(uint32_t *bv) {
   return *bv;
 }
 
-// get 64 low-order bits of bv
 static inline uint64_t bvconst_get64(uint32_t *bv) {
   return ((uint64_t) bv[0]) | (((uint64_t) bv[1]) << 32);
 }
@@ -353,7 +370,7 @@ extern void bvconst_smod2(uint32_t *bv, uint32_t n, uint32_t *a1, uint32_t *a2);
 
 
 /*
- * Same functions except that a zero divisor is allowed, using
+ * Same functions except that a zero divider is allowed, using
  * the following rules:
  *  (udiv a 0) = 0b11...1 
  *  (urem a 0) = a
@@ -405,13 +422,12 @@ extern bool bvconst_is_minus_one(uint32_t *bv, uint32_t n);
 extern int32_t bvconst_is_power_of_two(uint32_t *bv, uint32_t k);
 
 
-
-
 /*
  * Check whether a and b are equal, k = word size
  * - a and b must have the same size and be normalized
  */
 extern bool bvconst_eq(uint32_t *a, uint32_t *b, uint32_t k);
+
 
 /*
  * Check whether a and b are distinct, k = word size
@@ -422,12 +438,12 @@ static inline bool bvconst_neq(uint32_t *a, uint32_t *b, uint32_t k) {
 }
 
 
-
 /*
  * Check whether a <= b (unsigned comparison), n = bit size
  * - a and b must have the same size and be normalized
  */
 extern bool bvconst_le(uint32_t *a, uint32_t *b, uint32_t n);
+
 
 /*
  * Check whether a >= b (unsigned comparison). n = bit size
@@ -436,6 +452,7 @@ static inline bool bvconst_ge(uint32_t *a, uint32_t *b, uint32_t n) {
   return bvconst_le(b, a, n);
 }
 
+
 /*
  * Check whether a < b (unsigned comparison), n = bitsize
  * - a and b must have the same size and be normalized.
@@ -443,6 +460,7 @@ static inline bool bvconst_ge(uint32_t *a, uint32_t *b, uint32_t n) {
 static inline bool bvconst_lt(uint32_t *a, uint32_t *b, uint32_t n) {
   return ! bvconst_le(b, a, n);
 }
+
 
 /*
  * Check whether a > b (unsigned comparison), n = bitsize.
@@ -453,12 +471,12 @@ static inline bool bvconst_gt(uint32_t *a, uint32_t *b, uint32_t n) {
 }
 
 
-
 /*
  * Check whether a <= b (signed comparison), n = bitsize
  * - a and b must have the same size and be normalized
  */
 extern bool bvconst_sle(uint32_t *a, uint32_t *b, uint32_t n);
+
 
 /*
  * Check whether a >= b (signed comparison), n = bitsize
@@ -466,6 +484,7 @@ extern bool bvconst_sle(uint32_t *a, uint32_t *b, uint32_t n);
 static inline bool bvconst_sge(uint32_t *a, uint32_t *b, uint32_t n) {
   return bvconst_sle(b, a, n);
 }
+
 
 /*
  * Check whether a < b (signed comparison), n = bitsize
@@ -475,6 +494,7 @@ static inline bool bvconst_slt(uint32_t *a, uint32_t *b, uint32_t n) {
   return ! bvconst_sle(b, a, n);
 }
 
+
 /*
  * Check whether a > b (signed comparison), n = bitsize.
  * - a and b must have the same size and be normalized.
@@ -482,17 +502,6 @@ static inline bool bvconst_slt(uint32_t *a, uint32_t *b, uint32_t n) {
 static inline bool bvconst_sgt(uint32_t *a, uint32_t *b, uint32_t n) {
   return ! bvconst_sle(a, b, n);
 }
-
-
-
-
-
-
-/*
- * Hash bitconstant a, n = bitsize
- * - a must be normalized modulo 2^n first.
- */
-extern uint32_t bvconst_hash(uint32_t *a, uint32_t n);
 
 
 #endif /* __BV_CONSTANTS_H */

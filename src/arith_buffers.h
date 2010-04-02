@@ -10,7 +10,7 @@
  * In normal form, polynomials have the following properties:
  * - the coefficients are all non zero
  * - the monomials are stored in deg-lex order: lower degree
- *   monomials appear first. Monomials of equal degree are
+ *   monomials appear first; monomials of equal degree are
  *   sorted in lexicographic order.
  */
 
@@ -188,13 +188,11 @@ extern bool arith_buffer_equal(arith_buffer_t *b1, arith_buffer_t *b2);
  *
  * Some operations have a power product r as argument.
  * The power product r must be defined in b's internal 
- * power-product table: either r is empty_pp, or r is
- * a tagged variable, or r occurs in b->ptbl.
+ * power-product table (i.e., either r is empty_pp, or 
+ * r is a tagged variable, or r occurs in b->ptbl).
  *
- * Some operations use another buffer b1. In such cases,
- * b and b1 must have the same power-product table.
- * Unless otherwise indicated, the operations work correctly 
- * if b1 is equal to b (but this use is not recommended).
+ * Some operations use one or two other buffers b1 and b2.  In such
+ * cases, b, b1, and b2 must all have the same power-product table.
  */
 
 /*
@@ -449,7 +447,6 @@ static inline void
 arith_buffer_sub_varmono_times_buffer(arith_buffer_t *b, arith_buffer_t *b1, rational_t *a, int32_t x) {
   arith_buffer_sub_mono_times_buffer(b, b1, a, var_pp(x));
 }
-
 
 
 

@@ -1,5 +1,5 @@
 /*
- * Test division/remainder of bit-vector constants
+ * Test conversion of bit-vector constants to mpz
  */
 
 #include <stdlib.h>
