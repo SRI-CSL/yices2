@@ -379,6 +379,14 @@ static inline void arith_buffer_mul_negvar(arith_buffer_t *b, int32_t x) {
 
 
 /*
+ * Multiply b by a * x
+ */
+static inline void arith_buffer_mul_varmono(arith_buffer_t *b, rational_t *a, int32_t x) {
+  arith_buffer_mul_mono(b, a, var_pp(x));
+}
+
+
+/*
  * Add x to b
  */
 static inline void arith_buffer_add_var(arith_buffer_t *b, int32_t x) {
