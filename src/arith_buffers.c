@@ -610,6 +610,8 @@ void arith_buffer_add_buffer(arith_buffer_t *b, arith_buffer_t *b1) {
   mlist_t *p, *q, *aux, *p1;
   pprod_t *r1;
 
+  assert(b->ptbl == b1->ptbl);
+
   q = fake_start(b);
   p = q->next;
 

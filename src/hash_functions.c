@@ -233,7 +233,7 @@ uint32_t jenkins_hash_mix3(uint32_t x, uint32_t y, uint32_t z) {
 
 
 /*
- * Hash code for an arbitrary pointer ptr 
+ * Hash code for an arbitrary pointer p 
  */
 uint32_t jenkins_hash_ptr(void *p) {
   uint32_t x, y, c;
@@ -241,7 +241,8 @@ uint32_t jenkins_hash_ptr(void *p) {
   c = 0x1839829;
   x = (uint32_t) (((size_t) p) & 0xFFFFFFFF);
   y = 0x3783;
-  mix(x, y, c);
+  final(x, y, c);
+
   return c;
 }
  
