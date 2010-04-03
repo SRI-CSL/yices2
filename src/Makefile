@@ -50,25 +50,25 @@ distdir := $(BUILD)/dist
 #
 # source files for libyices
 #
-src_c := arena.c arith_buffers.c bvarith_buffers.c bv_constants.c   \
-         bv64_constants.c cache.c command_line.c                    \
-         extended_rationals.c gcd.c generic_heap.c hash_functions.c \
-         hash_functions_ori.c index_vectors.c int_array_sort.c      \
-         int_array_sort2.c int_bags.c int_bv_sets.c                 \
-         int_hash_classes.c int_hash_map.c int_hash_map2.c          \
-         int_hash_sets.c int_hash_tables.c int_heap.c int_heap2.c   \
-         int_partitions.c int_powers.c int_queues.c int_stack.c     \
-         int_vectors.c internalization_map.c large_bvsets.c lexer.c \
-         memalloc.c memsize.c mpq_aux.c object_stores.c             \
-         pair_hash_map.c pair_hash_sets.c pointer_vectors.c         \
-         power_products.c pprod_table.c pretty_printer.c            \
-         ptr_array_sort.c ptr_array_sort2.c ptr_hash_map.c          \
-         ptr_heap.c ptr_partitions.c ptr_queues.c ptr_vectors.c     \
-         rationals.c rb_bvsets.c reader.c refcount_strings.c        \
-         small_bvsets.c smt_lexer.c smt_logic_codes.c               \
-         string_buffers.c symbol_tables.c uint_rbtrees.c types.c    \
-         type_printer.c union_find.c use_vectors.c vsets.c          \
-         yices_lexer.c yices_pp.c
+src_c := arena.c arith_buffers.c bvarith_buffers.c                  \
+         bvarith64_buffers.c bv_constants.c bv64_constants.c        \
+         cache.c command_line.c extended_rationals.c gcd.c          \
+         generic_heap.c hash_functions.c hash_functions_ori.c       \
+         index_vectors.c int_array_sort.c int_array_sort2.c         \
+         int_bags.c int_bv_sets.c int_hash_classes.c int_hash_map.c \
+         int_hash_map2.c int_hash_sets.c int_hash_tables.c          \
+         int_heap.c int_heap2.c int_partitions.c int_powers.c       \
+	 int_queues.c int_stack.c int_vectors.c                     \
+         internalization_map.c large_bvsets.c lexer.c memalloc.c    \
+         memsize.c mpq_aux.c object_stores.c pair_hash_map.c        \
+         pair_hash_sets.c pointer_vectors.c power_products.c        \
+         pprod_table.c pretty_printer.c ptr_array_sort.c            \
+         ptr_array_sort2.c ptr_hash_map.c ptr_heap.c                \
+         ptr_partitions.c ptr_queues.c ptr_vectors.c rationals.c    \
+         rb_bvsets.c reader.c refcount_strings.c small_bvsets.c     \
+         smt_lexer.c smt_logic_codes.c string_buffers.c             \
+         symbol_tables.c uint_rbtrees.c types.c type_printer.c      \
+         union_find.c use_vectors.c vsets.c yices_lexer.c yices_pp.c
 
 
 #

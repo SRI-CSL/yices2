@@ -205,7 +205,7 @@ extern bvmlist_t *bvarith_buffer_main_mono(bvarith_buffer_t *b);
 
 /*
  * Check whether b1 and b2 are equal
- * - both must be normalized, use the same ptbl, and have the same bitsize.
+ * - both must be normalized and use the same ptbl
  */
 extern bool bvarith_buffer_equal(bvarith_buffer_t *b1, bvarith_buffer_t *b2);
 
