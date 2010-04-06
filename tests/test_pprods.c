@@ -27,6 +27,9 @@ static void print_varexp_array(FILE *f, varexp_t *a, uint32_t n) {
   fprintf(f, "]");
 }
 
+#if 0
+
+// not used
 static void print_pp_buffer(FILE *f, pp_buffer_t *b) {
   fprintf(f, "pp_buffer %p\n", b);
   fprintf(f, "  size = %"PRIu32"\n", b->size);
@@ -35,6 +38,8 @@ static void print_pp_buffer(FILE *f, pp_buffer_t *b) {
   print_varexp_array(f, b->prod, b->len);
   fprintf(f, "\n");
 }
+
+#endif
 
 static void print_pprod(FILE *f, pprod_t *p) {
   fprintf(f, "pprod %p\n", p);

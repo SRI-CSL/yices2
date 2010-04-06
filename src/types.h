@@ -13,7 +13,7 @@
  * "real" for primitive types.
  *
  *
- * March 08, 2009. Updates to the data structures:
+ * March 08, 2010. Updates to the data structures:
  * - store the pseudo cardinality in the type table (rather 
  *   than computing it on demand) 
  * - added flags for each type tau to indicate 

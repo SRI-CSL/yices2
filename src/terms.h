@@ -35,10 +35,10 @@
  *
  * January 27, 2009. Removed BDD representation of bvlogic_expressions
  *
- * TODO: Rewrite the whole thing. 
- * - Use the same data structures for all composite terms, rather than one per term kind.
- * - Avoid the indirection caused by using arithmetic and bitvector variables.
- *
+ * April 5, 2010. Major update to the data structures:
+ * - removed the arithmetic and bitvector variables
+ * - used polarity bit to represent negation
+ * 
  * The internal terms include:
  * 1) constants:
  *    - constants of uninterpreted/scalar/boolean types
@@ -46,7 +46,6 @@
  * 2) constructed terms used by the core:
  *    - ite c t1 t2
  *    - or t1 .... t_n
- *    - not t
  *    - eq t1 t2
  *    - apply f t1 ... t_n
  *    - mk-tuple t1 ... t_n
@@ -58,7 +57,8 @@
  *    - quantified formulas are of the form (forall v_1 ... v_n term)
  *      where each v_i is a variable
  * 4) arithmetic terms and atoms
- *    - terms are arbitrary polynomials
+ *    - terms are either rational constants, power products, or 
+ *      polynomials with rational coefficients
  *    - atoms are either of the form (p == 0) or (p >= 0)
  *      where p is a polynomial.
  *    - atoms x - y == 0 are rewritten to (x = y)
@@ -83,11 +83,10 @@
  * - name: either a string or NULL
  * - a tag: what kind of term it is
  * - a descriptor (depends on the kind and type)
- * - a theory var: either an arithmetic variable or a bitvector variable, or null.
  */
 
 #ifndef __TERMS_H
-#define __TERMS_H 1
+#define __TERMS_H
 
 #include <stdint.h>
 #include <stdbool.h>

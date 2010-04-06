@@ -1028,3 +1028,380 @@ void arith_buffer_sub_buffer_times_buffer(arith_buffer_t *b, arith_buffer_t *b1,
 
 
 
+
+
+
+/****************************************************
+ *  OPERATIONS BETWEEN BUFFERS AND MONOMIAL ARRAYS  *
+ ***************************************************/
+
+/*
+ * All the operations below take three arguments:
+ * - b is an arithmetic buffer
+ * - p is an array of monomials
+ * - q is an array of power products of the same size as p
+ *   if p[i] is a monomial a_i x_i then q[i] must be the conversion
+ *   of x_i to a power product 
+ *
+ * All operations are in place operations on the first argument b
+ * (i.e., all modify the buffer). There are two requirements 
+ * on p and q:
+ * - p must be terminated by and end-marker (var = max_idx).
+ * - q must be sorted in the deg-lex ordering.
+ */
+
+
+#ifndef NDEBUG
+
+/*
+ * For debugging: check that q contains valid power products
+ * sorted in increasing deg-lex ordering.
+ */
+static bool good_pprod_array(monomial_t *poly, pprod_t **pp) {
+  pprod_t *r;
+
+  if (poly->var < max_idx) {
+    r = *pp;
+    poly ++;
+    pp ++;
+    while (poly->var < max_idx) {
+      if (! pprod_precedes(r, *pp)) return false;
+      r = *pp;
+      pp ++;
+      poly ++;
+    }    
+  }
+
+  return true;
+}
+
+#endif
+
+
+/*
+ * Add poly to buffer b
+ */
+void arith_buffer_add_monarray(arith_buffer_t *b, monomial_t *poly, pprod_t **pp) {
+  mlist_t *p, *q, *aux;
+  pprod_t *r1;
+
+  assert(good_pprod_array(poly, pp));
+
+  q = fake_start(b);
+  p = q->next;
+
+  while (poly->var < max_idx) {
+    // poly points to a pair (coeff, x_i)
+    // r1 = power product for x_i
+    r1 = *pp;
+    while (pprod_precedes(p->prod, r1)) {
+      q = p;
+      p = p->next;
+    }
+    
+    // p points to monomial whose prod is >= r1 in the deg-lex order
+    // q points to the predecessor of p in the list
+    if (p->prod == r1) {
+      q_add(&p->coeff, &poly->coeff);
+      q = p;
+      p = p->next;
+    } else {
+      assert(pprod_precedes(r1, p->prod));
+
+      aux = alloc_list_elem(b->store);
+      aux->next = p;
+      q_set(&aux->coeff, &poly->coeff);
+      aux->prod = r1;
+
+      q->next = aux;
+      b->nterms ++;
+      q = aux;      
+    }
+
+    // move to the next monomial of poly
+    poly ++;
+    pp ++;
+  }  
+}
+
+
+/*
+ * Subtract poly from buffer b
+ */
+void arith_buffer_sub_monarray(arith_buffer_t *b, monomial_t *poly, pprod_t **pp) {
+  mlist_t *p, *q, *aux;
+  pprod_t *r1;
+
+  assert(good_pprod_array(poly, pp));
+
+  q = fake_start(b);
+  p = q->next;
+
+  while (poly->var < max_idx) {
+    r1 = *pp;
+    while (pprod_precedes(p->prod, r1)) {
+      q = p;
+      p = p->next;
+    }
+    
+    // p points to monomial whose prod is >= r1 in the deg-lex order
+    // q points to the predecessor of p in the list
+    if (p->prod == r1) {
+      q_sub(&p->coeff, &poly->coeff);
+      q = p;
+      p = p->next;
+    } else {
+      assert(pprod_precedes(r1, p->prod));
+
+      aux = alloc_list_elem(b->store);
+      aux->next = p;
+      q_set_neg(&aux->coeff, &poly->coeff);
+      aux->prod = r1;
+
+      q->next = aux;
+      b->nterms ++;
+      q = aux;      
+    }
+
+    // move to next monomial of poly
+    poly ++;
+    pp ++;
+  }
+}
+
+
+/*
+ * Add a * poly to buffer b
+ */
+void arith_buffer_add_const_times_monarray(arith_buffer_t *b, monomial_t *poly, pprod_t **pp, rational_t *a) {
+  mlist_t *p, *q, *aux;
+  pprod_t *r1;
+
+  assert(good_pprod_array(poly, pp));
+
+  q = fake_start(b);
+  p = q->next;
+
+  while (poly->var < max_idx) {
+    // poly points to a pair (coeff, x_i)
+    // r1 = power product for x_i
+    r1 = *pp;
+    while (pprod_precedes(p->prod, r1)) {
+      q = p;
+      p = p->next;
+    }
+    
+    // p points to monomial whose prod is >= r1 in the deg-lex order
+    // q points to the predecessor of p in the list
+    if (p->prod == r1) {
+      q_addmul(&p->coeff, &poly->coeff, a);
+      q = p;
+      p = p->next;
+    } else {
+      assert(pprod_precedes(r1, p->prod));
+
+      aux = alloc_list_elem(b->store);
+      aux->next = p;
+      q_addmul(&aux->coeff, &poly->coeff, a); // aux->coeff is initialized to 0 in alloc_list_elem
+      aux->prod = r1;
+
+      q->next = aux;
+      b->nterms ++;
+      q = aux;      
+    }
+
+    // move to the next monomial of poly
+    poly ++;
+    pp ++;
+  }
+}
+
+
+/*
+ * Subtract a * poly from b
+ */
+void arith_buffer_sub_const_times_monarray(arith_buffer_t *b, monomial_t *poly, pprod_t **pp, rational_t *a) {
+  mlist_t *p, *q, *aux;
+  pprod_t *r1;
+
+  assert(good_pprod_array(poly, pp));
+
+  q = fake_start(b);
+  p = q->next;
+
+  while (poly->var < max_idx) {
+    // poly points to a pair (coeff, x_i)
+    // r1 = power product for x_i
+    r1 = *pp;
+    while (pprod_precedes(p->prod, r1)) {
+      q = p;
+      p = p->next;
+    }
+    
+    // p points to monomial whose prod is >= r1 in the deg-lex order
+    // q points to the predecessor of p in the list
+    if (p->prod == r1) {
+      q_submul(&p->coeff, &poly->coeff, a);
+      q = p;
+      p = p->next;
+    } else {
+      assert(pprod_precedes(r1, p->prod));
+
+      aux = alloc_list_elem(b->store);
+      aux->next = p;
+      q_submul(&aux->coeff, &poly->coeff, a); // aux->coeff is initialized to 0 in alloc_list_elem
+      aux->prod = r1;
+
+      q->next = aux;
+      b->nterms ++;
+      q = aux;      
+    }
+
+    // move to the next monomial of poly
+    poly ++;
+    pp ++;
+  }
+}
+
+
+/*
+ * Add a * r * poly to buffer b
+ */
+void arith_buffer_add_mono_times_monarray(arith_buffer_t *b, monomial_t *poly, pprod_t **pp, rational_t *a, pprod_t *r) {
+  mlist_t *p, *q, *aux;
+  pprod_t *r1;
+
+  assert(good_pprod_array(poly, pp));
+
+  q = fake_start(b);
+  p = q->next;
+
+  while (poly->var < max_idx) {
+    // poly points to a pair (coeff, x_i)
+    // r1 = r * power product for x_i 
+    r1 = pprod_mul(b->ptbl, *pp, r);
+    while (pprod_precedes(p->prod, r1)) {
+      q = p;
+      p = p->next;
+    }
+    
+    // p points to monomial whose prod is >= r1 in the deg-lex order
+    // q points to the predecessor of p in the list
+    if (p->prod == r1) {
+      q_addmul(&p->coeff, &poly->coeff, a);
+      q = p;
+      p = p->next;
+    } else {
+      assert(pprod_precedes(r1, p->prod));
+
+      aux = alloc_list_elem(b->store);
+      aux->next = p;
+      q_addmul(&aux->coeff, &poly->coeff, a); // aux->coeff is initialized to 0 in alloc_list_elem
+      aux->prod = r1;
+
+      q->next = aux;
+      b->nterms ++;
+      q = aux;      
+    }
+
+    // move to the next monomial of poly
+    poly ++;
+    pp ++;
+  }
+}
+
+
+/*
+ * Subtract a * poly from b
+ */
+void arith_buffer_sub_mono_times_monarray(arith_buffer_t *b, monomial_t *poly, pprod_t **pp, rational_t *a, pprod_t *r) {
+  mlist_t *p, *q, *aux;
+  pprod_t *r1;
+
+  assert(good_pprod_array(poly, pp));
+
+  q = fake_start(b);
+  p = q->next;
+
+  while (poly->var < max_idx) {
+    // poly points to a pair (coeff, x_i)
+    // r1 = r * power product for x_i
+    r1 = pprod_mul(b->ptbl, *pp, r);
+    while (pprod_precedes(p->prod, r1)) {
+      q = p;
+      p = p->next;
+    }
+    
+    // p points to monomial whose prod is >= r1 in the deg-lex order
+    // q points to the predecessor of p in the list
+    if (p->prod == r1) {
+      q_submul(&p->coeff, &poly->coeff, a);
+      q = p;
+      p = p->next;
+    } else {
+      assert(pprod_precedes(r1, p->prod));
+
+      aux = alloc_list_elem(b->store);
+      aux->next = p;
+      q_submul(&aux->coeff, &poly->coeff, a); // aux->coeff is initialized to 0 in alloc_list_elem
+      aux->prod = r1;
+
+      q->next = aux;
+      b->nterms ++;
+      q = aux;      
+    }
+
+    // move to the next monomial of poly
+    poly ++;
+    pp ++;
+  }
+}
+
+
+
+
+/*
+ * Multiply b by poly
+ */
+void arith_buffer_mul_monarray(arith_buffer_t *b, monomial_t *poly, pprod_t **pp) {
+  mlist_t *p, *q;
+
+  assert(good_pprod_array(poly, pp));
+
+  // keep b's list of monomials in p
+  p = b->list;
+
+  // reset b to zero
+  q = alloc_list_elem(b->store);
+  q->next = NULL;
+  q->prod = end_pp;
+  b->nterms = 0;
+  b->list = q;
+
+  // keep a copy of the list in q to cleanup when we're done
+  q = p;
+
+  // constant term if any
+  if (p->prod == empty_pp) {
+    arith_buffer_add_const_times_monarray(b, poly, pp, &p->coeff);
+    p = p->next;
+  }
+
+  // rest of p
+  while (p->next != NULL) {
+    assert(p->prod != end_pp);
+    arith_buffer_add_mono_times_monarray(b, poly, pp, &p->coeff, p->prod);
+    p = p->next;
+  }
+
+  // cleanup: free list q
+  while (q != NULL) {
+    p = q->next;
+    free_list_elem(b->store, q);
+    q = p;
+  }
+}
+
+
+
+
