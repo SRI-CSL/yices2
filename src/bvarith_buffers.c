@@ -23,7 +23,7 @@
 #include <assert.h>
 
 #include "bvarith_buffers.h"
-
+#include "yices_limits.h"
 
 
 
@@ -118,11 +118,13 @@ void delete_bvarith_buffer(bvarith_buffer_t *b) {
 
 /*
  * Prepare buffer b: clear b then set bit size equal to n
+ * - n must be positive and no more than YICES_MAX_BVSIZE
  */
 void bvarith_buffer_prepare(bvarith_buffer_t *b, uint32_t n) {
   uint32_t w;
 
-  assert(n > 0);
+  assert(0 < n && n <= YICES_MAX_BVSIZE);
+
   if (b->bitsize != 0) {
     bvarith_buffer_clear(b);
   }
@@ -1155,4 +1157,410 @@ void bvarith_buffer_sub_buffer_times_buffer(bvarith_buffer_t *b, bvarith_buffer_
 }
 
 
+
+/*******************************************
+ *  OPERATIONS WITH POLYNOMIAL STRUCTURES  *
+ ******************************************/
+
+/*
+ * All operations below take three arguments:
+ * - b is an arithmetic buffer
+ * - poly is an array of monomials
+ * - pp is an array of power products
+ *   if poly[i] is a monomial a_i x_i then pp[i] must be the conversion
+ *   of x_i to a power product.
+ * - poly must be terminated by and end-marker (var = max_idx).
+ * - pp must be sorted in the deg-lex ordering and have at least
+ *   as many elements as length of mono - 1.
+ */
+
+
+#ifndef NDEBUG
+
+/*
+ * For debugging: check that q contains valid power products
+ * sorted in increasing deg-lex ordering.
+ */
+static bool good_pprod_array(bvmono_t *poly, pprod_t **pp) {
+  pprod_t *r;
+
+  if (poly->var < max_idx) {
+    r = *pp;
+    poly ++;
+    pp ++;
+    while (poly->var < max_idx) {
+      if (! pprod_precedes(r, *pp)) return false;
+      r = *pp;
+      pp ++;
+      poly ++;
+    }    
+  }
+
+  return true;
+}
+
+#endif
+
+
+/*
+ * Add poly to buffer b
+ */
+void bvarith_buffer_add_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp) {
+  bvmlist_t *p, *q, *aux;
+  bvmono_t *m;
+  pprod_t *r1;
+  uint32_t k;
+
+  assert(good_pprod_array(poly->mono, pp) && b->bitsize == poly->bitsize);
+
+  m = poly->mono;
+  k = b->width;
+  q = fake_start(b);
+  p = q->next;
+
+  while (m->var < max_idx) {
+    // m points to a pair (coeff, x_i)
+    // r1 = power product for x_i
+    r1 = *pp;
+    while (pprod_precedes(p->prod, r1)) {
+      q = p;
+      p = p->next;
+    }
+    
+    // p points to monomial whose prod is >= r1 in the deg-lex order
+    // q points to the predecessor of p in the list
+    if (p->prod == r1) {
+      bvconst_add(p->coeff, k, m->coeff);
+      q = p;
+      p = p->next;
+    } else {
+      assert(pprod_precedes(r1, p->prod));
+
+      aux = (bvmlist_t *) objstore_alloc(b->store);
+      aux->next = p;
+      aux->coeff = bvconst_alloc(k);
+      bvconst_set(aux->coeff, k, m->coeff);
+      aux->prod = r1;
+
+      q->next = aux;
+      b->nterms ++;
+      q = aux;      
+    }
+
+    // move to the next monomial
+    m ++;
+    pp ++;
+  }  
+}
+
+
+ /*
+ * Subtract poly from buffer b
+ */
+void bvarith_buffer_sub_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp) {
+  bvmlist_t *p, *q, *aux;
+  bvmono_t *m;
+  pprod_t *r1;
+  uint32_t k;
+
+  assert(good_pprod_array(poly->mono, pp) && b->bitsize == poly->bitsize);
+
+  m = poly->mono;
+  k = b->width;
+  q = fake_start(b);
+  p = q->next;
+
+  while (m->var < max_idx) {
+    // m points to a pair (coeff, x_i)
+    // r1 = power product for x_i
+    r1 = *pp;
+    while (pprod_precedes(p->prod, r1)) {
+      q = p;
+      p = p->next;
+    }
+    
+    // p points to monomial whose prod is >= r1 in the deg-lex order
+    // q points to the predecessor of p in the list
+    if (p->prod == r1) {
+      bvconst_sub(p->coeff, k, m->coeff);
+      q = p;
+      p = p->next;
+    } else {
+      assert(pprod_precedes(r1, p->prod));
+
+      aux = (bvmlist_t *) objstore_alloc(b->store);
+      aux->next = p;
+      aux->coeff = bvconst_alloc(k);
+      bvconst_negate2(aux->coeff, k, m->coeff);
+      aux->prod = r1;
+
+      q->next = aux;
+      b->nterms ++;
+      q = aux;      
+    }
+
+    m ++;
+    pp ++;
+  }  
+}
+
+
+/*
+ * Add a * poly to buffer b
+ */
+void bvarith_buffer_add_const_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp, uint32_t *a) {
+  bvmlist_t *p, *q, *aux;
+  bvmono_t *m;
+  pprod_t *r1;
+  uint32_t k;
+
+  assert(good_pprod_array(poly->mono, pp) && b->bitsize == poly->bitsize);
+
+  m = poly->mono;
+  k = b->width;
+  q = fake_start(b);
+  p = q->next;
+
+  while (m->var < max_idx) {
+    // m points to a pair (coeff, x_i)
+    // r1 = power product for x_i
+    r1 = *pp;
+    while (pprod_precedes(p->prod, r1)) {
+      q = p;
+      p = p->next;
+    }
+    
+    // p points to monomial whose prod is >= r1 in the deg-lex order
+    // q points to the predecessor of p in the list
+    if (p->prod == r1) {
+      bvconst_addmul(p->coeff, k, m->coeff, a);
+      q = p;
+      p = p->next;
+    } else {
+      assert(pprod_precedes(r1, p->prod));
+
+      aux = (bvmlist_t *) objstore_alloc(b->store);
+      aux->next = p;
+      aux->coeff = bvconst_alloc(k);
+      bvconst_mul2(aux->coeff, k, m->coeff, a);
+      aux->prod = r1;
+
+      q->next = aux;
+      b->nterms ++;
+      q = aux;      
+    }
+
+    // move to the next monomial
+    m ++;
+    pp ++;
+  }
+}
+
+
+/*
+ * Subtract a * poly from b
+ */
+void bvarith_buffer_sub_const_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp, uint32_t *a) {
+  bvmlist_t *p, *q, *aux;
+  bvmono_t *m;
+  pprod_t *r1;
+  uint32_t k;
+
+  assert(good_pprod_array(poly->mono, pp) && b->bitsize == poly->bitsize);
+
+  m = poly->mono;
+  k = b->width;
+  q = fake_start(b);
+  p = q->next;
+
+  while (m->var < max_idx) {
+    // m points to a pair (coeff, x_i)
+    // r1 = power product for x_i
+    r1 = *pp;
+    while (pprod_precedes(p->prod, r1)) {
+      q = p;
+      p = p->next;
+    }
+    
+    // p points to monomial whose prod is >= r1 in the deg-lex order
+    // q points to the predecessor of p in the list
+    if (p->prod == r1) {
+      bvconst_submul(p->coeff, k, m->coeff, a);
+      q = p;
+      p = p->next;
+    } else {
+      assert(pprod_precedes(r1, p->prod));
+
+      aux = (bvmlist_t *) objstore_alloc(b->store);
+      aux->next = p;
+      aux->coeff = bvconst_alloc(k);
+      bvconst_clear(aux->coeff, k);
+      bvconst_submul(aux->coeff, k, m->coeff, a);
+      aux->prod = r1;
+
+      q->next = aux;
+      b->nterms ++;
+      q = aux;      
+    }
+
+    // move to the next monomial
+    m ++;
+    pp ++;
+  }  
+}
+
+
+/*
+ * Add a * r * poly to b
+ */
+void bvarith_buffer_add_mono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp, uint32_t *a, pprod_t *r) {
+  bvmlist_t *p, *q, *aux;
+  bvmono_t *m;
+  pprod_t *r1;
+  uint32_t k;
+
+  assert(good_pprod_array(poly->mono, pp) && b->bitsize == poly->bitsize);
+
+  m = poly->mono;
+  k = b->width;
+  q = fake_start(b);
+  p = q->next;
+
+  while (m->var < max_idx) {
+    // m points to a pair (coeff, x_i)
+    // r1 = r * power product for x_i
+    r1 = pprod_mul(b->ptbl, *pp, r);
+    while (pprod_precedes(p->prod, r1)) {
+      q = p;
+      p = p->next;
+    }
+    
+    // p points to monomial whose prod is >= r1 in the deg-lex order
+    // q points to the predecessor of p in the list
+    if (p->prod == r1) {
+      bvconst_addmul(p->coeff, k, m->coeff, a);
+      q = p;
+      p = p->next;
+    } else {
+      assert(pprod_precedes(r1, p->prod));
+
+      aux = (bvmlist_t *) objstore_alloc(b->store);
+      aux->next = p;
+      aux->coeff = bvconst_alloc(k);
+      bvconst_mul2(aux->coeff, k, m->coeff, a);
+      aux->prod = r1;
+
+      q->next = aux;
+      b->nterms ++;
+      q = aux;      
+    }
+
+    // move to the next monomial
+    m ++;
+    pp ++;
+  }  
+}
+
+
+/*
+ * Add -a * r * poly to b
+ */
+void bvarith_buffer_sub_mono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp, uint32_t *a, pprod_t *r) {
+  bvmlist_t *p, *q, *aux;
+  bvmono_t *m;
+  pprod_t *r1;
+  uint32_t k;
+
+  assert(good_pprod_array(poly->mono, pp) && b->bitsize == poly->bitsize);
+
+  m = poly->mono;
+  k = b->width;
+  q = fake_start(b);
+  p = q->next;
+
+  while (m->var < max_idx) {
+    // m points to a pair (coeff, x_i)
+    // r1 = r * power product for x_i
+    r1 = pprod_mul(b->ptbl, *pp, r);
+    while (pprod_precedes(p->prod, r1)) {
+      q = p;
+      p = p->next;
+    }
+    
+    // p points to monomial whose prod is >= r1 in the deg-lex order
+    // q points to the predecessor of p in the list
+    if (p->prod == r1) {
+      bvconst_submul(p->coeff, k, m->coeff, a);
+      q = p;
+      p = p->next;
+    } else {
+      assert(pprod_precedes(r1, p->prod));
+
+      aux = (bvmlist_t *) objstore_alloc(b->store);
+      aux->next = p;
+      aux->coeff = bvconst_alloc(k);
+      bvconst_clear(aux->coeff, k);
+      bvconst_submul(aux->coeff, k, m->coeff, a);
+      aux->prod = r1;
+
+      q->next = aux;
+      b->nterms ++;
+      q = aux;      
+    }
+
+    // move to the next monomial
+    m ++;
+    pp ++;
+  }  
+}
+
+
+/*
+ * Multiply b by poly
+ */
+void bvarith_buffer_mul_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp) {
+  bvmlist_t *p, *q;
+  uint32_t k;
+
+  assert(good_pprod_array(poly->mono, pp) && b->bitsize == poly->bitsize);
+
+  // keep b's current list of monomials in p
+  p = b->list;
+
+  // reset b to the zero polynomial
+  q = (bvmlist_t *) objstore_alloc(b->store);
+  q->next = NULL;
+  q->prod = end_pp;
+  b->nterms = 0;
+  b->list = q;
+
+  // keep a copy of p in q to cleanup when we're done
+  q = p;
+
+  // the constant term of p is first (if any)
+  if (p->prod == empty_pp) {
+    bvarith_buffer_add_const_times_bvpoly(b, poly, pp, p->coeff);
+    p = p->next;
+  }
+
+  // other monomials of p
+  while (p->next != NULL) {
+    assert(p->prod != end_pp);
+    bvarith_buffer_add_mono_times_bvpoly(b, poly, pp, p->coeff, p->prod);
+    p = p->next;
+  }
+
+  // cleanup: free list q
+  k = b->width;
+  while (q->next != NULL) {
+    p = q->next;
+    bvconst_free(q->coeff, k);
+    objstore_free(b->store, q);
+    q = p;
+  }
+
+  // delete the end marker
+  assert(q->prod == end_pp);
+  objstore_free(b->store, q);
+}
 

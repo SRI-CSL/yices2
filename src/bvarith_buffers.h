@@ -17,6 +17,9 @@
  * - the monomials are stored in deg-lex order: lower degree
  *   monomials appear first; monomials of equal degree are
  *   sorted in lexicographic order.
+ *
+ * There's a limit on the coefficients' bitsize defined in
+ * yices_limits.h (YICES_MAX_BVSIZE).
  */
 
 #ifndef __BVARITH_BUFFERS_H
@@ -27,6 +30,7 @@
 #include "bv_constants.h"
 #include "object_stores.h"
 #include "pprod_table.h"
+#include "bv_polynomials.h"
 
 
 /*
@@ -104,7 +108,7 @@ extern void delete_bvarith_buffer(bvarith_buffer_t *b);
 
 /*
  * Prepare b for a polynomial of n bits
- * - n must be positive
+ * - n must be positive and no more than YICES_MAX_BVSIZE
  * - this clears the current content of b  and 
  *   sets b to the 0 polynomial of n bits
  */
@@ -383,9 +387,81 @@ extern void bvarith_buffer_sub_buffer_times_buffer(bvarith_buffer_t *b, bvarith_
 
 
 
+/*******************************************
+ *  OPERATIONS WITH POLYNOMIAL STRUCTURES  *
+ ******************************************/
+
 /*
- * SHORT CUTS
+ * A bit-vector polynomial is an array of monomials of the form 
+ * (coeff, index) where indices are signed integers. Operations 
+ * between buffers and poynomials require a conversion of 
+ * the integer indices used by monomials to power products used by buffers.
+ *
+ * All operations below take three arguments:
+ * - b is an arithmetic buffer
+ * - poly is an array of monomials
+ * - pp is an array of power products
+ *   if poly[i] is a monomial a_i x_i then pp[i] must be the conversion
+ *   of x_i to a power product.
+ *
+ * All operations are in place operations on the first argument b
+ * (i.e., all modify the buffer). There are two requirements 
+ * on mono and pp:
+ * - poly must be terminated by and end-marker (var = max_idx).
+ * - pp must be sorted in the deg-lex ordering and have at least
+ *   as many elements as length of mono - 1.
+ * In particular, if poly contains a constant monomial (with x_i = const_idx),
+ * then that monomial must comes first (i.e., i must be 0) and pp[0] must
+ * be empty_pp.
  */
+
+/*
+ * Add poly to buffer b
+ */
+extern void bvarith_buffer_add_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp);
+
+
+/*
+ * Subtract poly from buffer b
+ */
+extern void bvarith_buffer_sub_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp);
+
+
+/*
+ * Add a * poly to buffer b
+ */
+extern void bvarith_buffer_add_const_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp, uint32_t *a);
+
+
+/*
+ * Subtract a * poly from b
+ */
+extern void bvarith_buffer_sub_const_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp, uint32_t *a);
+
+
+/*
+ * Add a * r * poly to b
+ */
+extern void bvarith_buffer_add_mono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp, uint32_t *a, pprod_t *r);
+
+
+/*
+ * Add -a * r * poly to b
+ */
+extern void bvarith_buffer_sub_mono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp, uint32_t *a, pprod_t *r);
+
+
+/*
+ * Multiply b by poly
+ */
+extern void bvarith_buffer_mul_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp);
+
+
+
+
+/****************
+ *  SHORT CUTS  *
+ ***************/
 
 /*
  * All operations that take a power product r have a variant that takes a single

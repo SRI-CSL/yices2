@@ -20,8 +20,6 @@
 #include "polynomials.h"
 
 
-
-
 /*********************
  *  MONOMIAL ARRAYS  *
  ********************/
@@ -159,7 +157,7 @@ void sort_monarray(monomial_t *a, uint32_t n) {
  * - sorting cannot cause memory leaks so we don't use the assignment or swap functions
  *   from rationals.h 
  */
-static void quick_sort_monarray2(monomial_t *a, void *data, arith_var_cmp_fun_t cmp, 
+static void quick_sort_monarray2(monomial_t *a, void *data, var_cmp_fun_t cmp, 
 				 uint32_t low, uint32_t high) {
   uint32_t i, j, p;
   monomial_t pivot, aux;
@@ -200,7 +198,7 @@ static void quick_sort_monarray2(monomial_t *a, void *data, arith_var_cmp_fun_t 
  * Top-level sort function: n = size of a. 
  * a must be terminated by the end marker, i.e., a[n].var = max_idx. 
  */
-void sort_monarray2(monomial_t *a, uint32_t n, void *data, arith_var_cmp_fun_t cmp) {
+void sort_monarray2(monomial_t *a, uint32_t n, void *data, var_cmp_fun_t cmp) {
   if (n <= 1) return;
   quick_sort_monarray2(a, data, cmp, 0, n);
 }
@@ -496,9 +494,9 @@ void monarray_gcd(monomial_t *p, rational_t *gcd) {
 
 
 
-/*
- * POLYNOMIAL OBJECTS
- */
+/*****************
+ *  POLYNOMIALS  *
+ ****************/
 
 /*
  * Allocate and partially initialize a polyomial of n terms

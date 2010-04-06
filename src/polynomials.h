@@ -3,22 +3,22 @@
  */
 
 /*
- * Polynomials are sums of monomials.
+ * Polynomials represented as arrays of monomials.
  * Each monomial is a pair <coeff, variable>.
  * - coeff is a rational number
  * - variable is a 32bit signed integer.
- *
  * This module provides a more compact representation
- * than arith_buffers: polynomials are stored as arrays
- * of monomials.
+ * than arith_buffers.
  */
 
 #ifndef __POLYNOMIALS_H
 #define __POLYNOMIALS_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "rationals.h"
+#include "polynomial_common.h"
 
 /*
  * Polynomial object:
@@ -59,40 +59,9 @@ typedef struct {
 #define MAX_POLY_SIZE (((UINT32_MAX-sizeof(polynomial_t))/sizeof(monomial_t))-1)
 
 
-/*
- * Variable indices:
- * - null_idx = -1
- * - const_idx = 0: constant
- * - max_idx = INT32_MAX: end marker
- */
-enum {
-  null_idx = -1,
-  const_idx = 0,
-  max_idx = INT32_MAX,
-};
-
 
 /*
- * Type of user-provided comparison functions.  This can be used to
- * normalize polynomials using a different ordering than the default.
- *
- * A comparison function cmp is called with three parameters: 
- * - aux is a generic pointer provided to the sort function 
- * - x and y are two distinct variable indices 
- * - cmp(aux, x, y) must return true if x < y.
- *
- * The ordering must satisfy the following constraints:
- * - const_idx is smaller than any other variable
- * - max_idx is larger than any other variable
- */
-typedef bool (* arith_var_cmp_fun_t)(void *data, int32_t x, int32_t y);
-
-
-
-
-
-/*
- * LOW-LEVEL OPERATIONS: ARRAYS OF MONOMIALS AND NORMALIZATION
+ * ARRAYS OF MONOMIALS AND NORMALIZATION
  */
 
 /*
@@ -129,7 +98,7 @@ extern void sort_monarray(monomial_t *a, uint32_t n);
  *  (i.e., a[n].var must be max_idx).
  * - data = generic pointer passed as first argument to the cmp function.
  */
-extern void sort_monarray2(monomial_t *a, uint32_t n, void *data, arith_var_cmp_fun_t cmp);
+extern void sort_monarray2(monomial_t *a, uint32_t n, void *data, var_cmp_fun_t cmp);
 
 
 /*
@@ -191,9 +160,6 @@ extern bool equal_monarray(monomial_t *p1, monomial_t *p2);
 extern bool must_disequal_monarray(monomial_t *p1, monomial_t *p2);
 
 
-
-
-
 /*
  * INTEGER-ARITHMETIC OPERATION 
  */
@@ -233,8 +199,6 @@ extern void monarray_common_factor(monomial_t *p, rational_t *factor);
  * - if p is constant then period is set to 0
  */
 extern void monarray_gcd(monomial_t *p, rational_t *gcd);
-
-
 
 
 /*
@@ -279,7 +243,6 @@ static inline void free_polynomial(polynomial_t *p) {
 }
 
 
-
 /*
  * Get the main variable of p (i.e., the last variable in 
  * in p's monomial array).
@@ -287,7 +250,6 @@ static inline void free_polynomial(polynomial_t *p) {
  * returns const_idx if p is a constant polynomial.
  */
 extern int32_t polynomial_main_var(polynomial_t *p);
-
 
 
 /*
@@ -320,6 +282,7 @@ extern bool polynomial_is_constant(polynomial_t *p);
  */
 extern bool polynomial_is_nonzero(polynomial_t *p);
 
+
 /*
  * Check whether p is constant and positive, negative, etc.  
  * These checks are incomplete (but cheap). They always return 
@@ -341,8 +304,6 @@ extern bool polynomial_is_const_plus_var(polynomial_t *p, int32_t x);
  * Check whether p == x for variable x
  */
 extern bool polynomial_is_var(polynomial_t *p, int32_t x);
-
-
 
 
 #endif /* __POLYNOMIALS_H */

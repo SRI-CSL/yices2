@@ -420,7 +420,7 @@ extern void arith_buffer_sub_mono_times_monarray(arith_buffer_t *b, monomial_t *
 /*
  * Multiply b by poly
  */
-extern void arith_buffer_mul_monarray(arith_buffer_t *b, monomial_t *poly, pprod_t **q);
+extern void arith_buffer_mul_monarray(arith_buffer_t *b, monomial_t *poly, pprod_t **pp);
 
 
 
