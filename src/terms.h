@@ -45,7 +45,7 @@
  *
  * 2) Removed the AIG-style data structures for bitvectors (these 
  *    are replaced by arrays of boolean terms). Added an n-ary 
- *    (xor ...) term constructor to help representing bv-xro.
+ *    (xor ...) term constructor to help representing bv-xor.
  *
  * 3) Removed the term constructor 'not' for boolean negation.
  *    Used positive/negative polarity bits to replace that:
@@ -105,17 +105,25 @@
  *      bv_sge t1 t2 (signed comparison: t1 >= t2)
  *
  * Every term is an index t in a global term table,
- * where 0 <= t <= 2^30. The two term occurrences
- * t+ and t- are encoded on 32bits (signed integer) with
+ * where 0 <= t <= 2^30. There are two term occurrences
+ * t+ and t- associated with term t.  The two occurrences
+ * are encoded in signed 32bit integers:
  * - bit[31] = sign bit = 0
  * - bits[30 ... 1] = t
- * - bit[0] = polarity bit: 0 means t+, 1 means t-
+ * - bit[0] = polarity bit: 0 for t+, 1 for t-
  *
+ * For a boolean term t, the occurrence t+ means p
+ * and t- means (not p). All occurrences of a 
+ * non-boolean term t are positive.
+ * 
  * For every term, we keep:
  * - type[t] (index in the type table)
- * - name[t] (either a string or NULL)
  * - kind[t] (what kind of term it is)
  * - desc[t] = descriptor that depends on the kind
+ *
+ * It is possible to attach names to term occurrences (but not directly 
+ * to terms). This is required to deal properly with booleans. For example,
+ * we want to allow the user to give different names to t and (not t).
  */
 
 #ifndef __TERMS_H
@@ -130,6 +138,7 @@
 #include "ptr_vectors.h"
 #include "int_hash_tables.h"
 #include "int_hash_map.h"
+#include "ptr_hash_map.h"
 #include "symbol_tables.h"
 
 #include "types.h"
@@ -146,9 +155,9 @@
 /*
  * type_t and term_t are aliases for int32_t, defined in yices_types.h.
  *
- * We use term_t to denote term occurrences (i.e., a pair term index + 
- * polarity bit packed into a singed 32bit integer as defined in 
- * term_occurrences.h).
+ * We use the type term_t to denote term occurrences (i.e., a pair
+ * term index + polarity bit packed into a singed 32bit integer as
+ * defined in term_occurrences.h).
  * 
  * NULL_TERM and NULL_TYPE are also defined in yices_types.h (used to
  * report errors).
@@ -287,13 +296,15 @@ typedef struct bvconst64_term_s {
 
 
 /*
- * Descriptor:
+ * Descriptor: one of
  * - integer index for constant terms and variables
- * - or ptr to a composite, polynomial, or power-product
+ * - rational constant
+ * - ptr to a composite, polynomial, or power-product
  */
 typedef union {
   int32_t integer;
   void *ptr;
+  rational_t rational;
 } term_desc_t;
 
  
@@ -303,7 +314,6 @@ typedef union {
  * For each i between 0 and nelems - 1
  * - kind[i] = term kind
  * - type[i] = type
- * - name[i] = string or NULL
  * - desc[i] = term descriptor
  * - mark[i] = one bit used during garbage collection
  * - size = size of these arrays.
@@ -314,10 +324,16 @@ typedef union {
  *   desc[i].integer is the index of the next term in the free list
  *   (or -1 if i is the last element in the free list).
  *
+ * Symbol table and name table:
+ * - stbl is a symbol table that maps names (strings) to term occurrences.
+ * - the name table is the reverse. If maps term occurrence to a name.
+ * The base name of a term occurrence t, is what's mapped to t in ntbl.
+ * It's used to display t in pretty printing. The symbol table is 
+ * more important.
+ *
  * Other components:
  * - types = pointer to an associated type table
  * - pprods = pointer to an associated power product table
- * - stbl = symbol table that maps names to terms
  * - htbl = hash table for hash consing
  * - utbl = table to map singleton types to the unique term of that type
  *
@@ -329,7 +345,6 @@ typedef struct term_table_s {
   uint8_t *kind;
   term_desc_t *desc;
   type_t *type;
-  char **name;
   byte_t *mark;
 
   uint32_t size;
@@ -341,6 +356,7 @@ typedef struct term_table_s {
   
   int_htbl_t htbl;
   stbl_t stbl;
+  ptr_hmap_t ntbl;
   int_hmap_t utbl;
 
   ivector_t ibuffer;
@@ -382,7 +398,7 @@ extern void delete_term_table(term_table_t *table);
  */
 
 /*
- * Unique constant of the given type and index.
+ * Constant of the given type and index.
  * - tau must be uninterpreted or scalar
  * - if tau is scalar of cardinality n, then index must be between 0 and n-1
  */
@@ -391,7 +407,7 @@ extern term_t constant_term(term_table_t *table, type_t tau, int32_t index);
 
 /*
  * Declare a new uninterpreted constant of type tau.
- * - this always create a frsh term
+ * - this always create a fresh term
  */
 extern term_t new_uninterpreted_term(term_table_t *table, type_t tau);
 
@@ -628,15 +644,15 @@ extern term_t unit_type_rep(term_table_t *table, type_t tau);
  */
 
 /*
- * Assign name to term_of(t).
+ * Assign name to term occurrence t.
  *
  * If name is already mapped to another term t' then the previous mapping
- * is hidden. Next calls to get_term_by_name will return t. After a 
- * call to remove_term_name, the mapping name --> t is removed and 
- * the previous mapping name --> t' is revealed.
+ * is hidden. The next calls to get_term_by_name will return t. After a 
+ * call to remove_term_name, the mapping [name --> t] is removed and 
+ * the previous mapping [name --> t'] is revealed.
  *
- * If t does not have a name already, then 'name' is stored as the 
- * default name for t. That's what's printed for t by the pretty printer.
+ * If t does not have a base name already, then 'name' is stored as the 
+ * base name for t. That's what's printed for t by the pretty printer.
  *
  * Warning: name is stored as a pointer, no copy is made; name must be 
  * created via the clone_string function.
@@ -645,29 +661,36 @@ extern void set_term_name(term_table_t *table, term_t t, char *name);
 
 
 /*
- * Get term with the given name (or NULL_TERM)
+ * Get term occurrence with the given name (or NULL_TERM)
  */
 extern term_t get_term_by_name(term_table_t *table, char *name);
 
 
 /*
- * Remove term name.
+ * Remove a name from the symbol table
  * - if name is not in the symbol table, nothing is done
  * - if name is mapped to a term t, then the mapping [name -> t]
  *   is removed. If name was mapped to a previous term t' then
  *   that mappeing is restored.
  *
- * If name is the default name of a term t, then that remains unchanged.
+ * If name is the base name of a term t, then that remains unchanged.
  */
 extern void remove_term_name(term_table_t *table, char *name);
 
 
 /*
- * Clear name: remove t's name if any.
+ * Get the base name of term occurrence t
+ * - return NULL if t has no base name
+ */
+extern char *term_name(term_table_t *table, term_t t);
+
+
+/*
+ * Clear name: remove t's base name if any.
  * - If t has name 'xxx' then 'xxx' is first removed from the symbol
- *   table (using remove_type_name) then name[t] is reset to NULL.
+ *   table (using remove_type_name) then t's base name is erased.
  *   The reference counter for 'xxx' is decremented twice.
- * - If t doesn't have a name, nothing is done.
+ * - If t doesn't have a base name, nothing is done.
  */
 extern void clear_term_name(type_table_t *table, term_t t);
 
@@ -679,71 +702,68 @@ extern void clear_term_name(type_table_t *table, term_t t);
  * ACCESS TO TERMS
  */
 
-// Generic
-static inline bool valid_term(term_table_t *table, term_t t) {
-  return 0 <= t && t < table->nelems;
+/*
+ * In all these functions, i is a term index and not a term occurrence.
+ */
+static inline bool valid_term(term_table_t *table, int32_t i) {
+  return 0 <= i && i < table->nelems;
 }
 
-static inline term_kind_t term_kind(term_table_t *table, term_t t) {
-  assert(valid_term(table, t));
-  return table->kind[t];
+static inline term_kind_t term_kind(term_table_t *table, int32_t i) {
+  assert(valid_term(table, i));
+  return table->kind[i];
 }
 
-static inline bool good_term(term_table_t *table, term_t t) {
-  return valid_term(table, t) && table->kind[t] != UNUSED_TERM;
+static inline bool good_term(term_table_t *table, int32_t i) {
+  return valid_term(table, i) && table->kind[i] != UNUSED_TERM;
 }
 
-static inline bool bad_term(term_table_t *table, term_t t) {
-  return ! good_term(table, t);
+static inline bool bad_term(term_table_t *table, int32_t i) {
+  return ! good_term(table, i);
 }
 
 
-static inline type_t term_type(term_table_t *table, term_t t) {
-  assert(good_term(table, t));
-  return table->type[t];  
+static inline type_t term_type(term_table_t *table, int32_t i) {
+  assert(good_term(table, i));
+  return table->type[i];
 }
 
-static inline type_kind_t term_type_kind(term_table_t *table, term_t t) {
-  return type_kind(table->types, term_type(table, t));
-}
-
-static inline char *term_name(term_table_t *table, term_t t) {
-  assert(good_term(table, t));
-  return table->name[t];
+static inline type_kind_t term_type_kind(term_table_t *table, int32_t i) {
+  return type_kind(table->types, term_type(table, i));
 }
 
 
 // Checks on the type of t
-static inline bool is_arithmetic_term(term_table_t *table, term_t t) {
-  return is_arithmetic_type(term_type(table, t));
+static inline bool is_arithmetic_term(term_table_t *table, int32_t i) {
+  return is_arithmetic_type(term_type(table, i));
 }
 
-static inline bool is_boolean_term(term_table_t *table, term_t t) {
-  return is_boolean_type(term_type(table, t));
+static inline bool is_boolean_term(term_table_t *table, int32_t i) {
+  return is_boolean_type(term_type(table, i));
 }
 
-static inline bool is_real_term(term_table_t *table, term_t t) {
-  return is_real_type(term_type(table, t));
+static inline bool is_real_term(term_table_t *table, int32_t i) {
+  return is_real_type(term_type(table, i));
 }
 
-static inline bool is_integer_term(term_table_t *table, term_t t) {
-  return is_integer_type(term_type(table, t));
+static inline bool is_integer_term(term_table_t *table, int32_t i) {
+  return is_integer_type(term_type(table, i));
 }
 
-static inline bool is_bitvector_term(term_table_t *table, term_t t) {
-  return term_type_kind(table, t) == BITVECTOR_TYPE;
+static inline bool is_bitvector_term(term_table_t *table, int32_t i) {
+  return term_type_kind(table, i) == BITVECTOR_TYPE;
 }
 
-static inline bool is_scalar_term(term_table_t *table, term_t t) {
-  return term_type_kind(table, t) == SCALAR_TYPE;
+static inline bool is_scalar_term(term_table_t *table, int32_t i) {
+  return term_type_kind(table, i) == SCALAR_TYPE;
 }
 
-static inline bool is_function_term(term_table_t *table, term_t t) {
-  return term_type_kind(table, t) == FUNCTION_TYPE;
+static inline bool is_function_term(term_table_t *table, int32_t i) {
+  return term_type_kind(table, i) == FUNCTION_TYPE;
 }
 
-static inline bool is_tuple_term(term_table_t *table, term_t t) {
-  return term_type_kind(table, t) == TUPLE_TYPE;
+static inline bool is_tuple_term(term_table_t *table, int32_t i) {
+  return term_type_kind(table, i) == TUPLE_TYPE;
 }
 
 
@@ -760,7 +780,7 @@ static inline bool is_tuple_term(term_table_t *table, term_t t) {
  * - before calling the garbage collector, the root terms must be 
  *   marked by calling set_gc_mark.
  * - all the terms that can be accessed by a name (i.e., all the terms
- *   that are present in the symbol table are also considered root terms).
+ *   that are present in the symbol table) are also considered root terms.
  *
  * Garbage collection process:
  * - The predefined term (bool_const) and all the terms that are present
@@ -772,27 +792,27 @@ static inline bool is_tuple_term(term_table_t *table, term_t t) {
  */
 
 /*
- * Set or clear the mark on a term t. If t is marked, ot is preserved
+ * Set or clear the mark on a term i. If i is marked, it is preserved
  * on the next call to the garbage collector (and all terms rechable
- * from t are preserved too).  If the mark is cleared, t may be deleted.
+ * from i are preserved too).  If the mark is cleared, i may be deleted.
  */
-static inline void term_table_set_gc_mark(term_table_t *table, term_t t) {
-  assert(good_term(table, t));
-  set_bit(table->mark, t);
+static inline void term_table_set_gc_mark(term_table_t *table, int32_t i) {
+  assert(good_term(table, i));
+  set_bit(table->mark, i);
 }
 
-static inline void term_table_clr_gc_mark(term_table_t *table, term_t t) {
-  assert(good_term(table, t));
-  clr_bit(table->mark, t);
+static inline void term_table_clr_gc_mark(term_table_t *table, int32_t i) {
+  assert(good_term(table, i));
+  clr_bit(table->mark, i);
 }
 
 
 /*
- * Test whether t is marked
+ * Test whether i is marked
  */
-static inline bool term_is_marked(term_table_t *table, term_t t) {
-  assert(good_term(table, t));
-  return tst_bit(table->mark, t);
+static inline bool term_is_marked(term_table_t *table, int32_t i) {
+  assert(good_term(table, i));
+  return tst_bit(table->mark, i);
 }
 
 

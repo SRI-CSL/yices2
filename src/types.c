@@ -29,7 +29,7 @@ static void typename_finalizer(stbl_rec_t *r) {
  */
 static void type_table_init(type_table_t *table, uint32_t n) {
   // abort if the size is too large
-  if (n >= YICES_MAX_TYPES) {
+  if (n > YICES_MAX_TYPES) {
     out_of_memory();
   }
 
@@ -68,7 +68,7 @@ static void type_table_extend(type_table_t *table) {
    */
   n = table->size + 1;
   n += n >> 1;
-  if (n >= YICES_MAX_TYPES) {
+  if (n > YICES_MAX_TYPES) {
     out_of_memory(); 
   }
 
@@ -794,7 +794,9 @@ void clear_type_name(type_table_t *table, type_t t) {
   if (name != NULL) {
     table->name[t] = NULL;
     string_decref(name);
-    stbl_remove(&table->stbl, name);
+    if (stbl_find(&table->stbl, name) == t) {
+      stbl_remove(&table->stbl, name);
+    }
   }
 }
 
