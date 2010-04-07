@@ -784,6 +784,22 @@ void remove_type_name(type_table_t *table, char *name) {
 }
 
 
+/*
+ * Remove the name of t
+ */
+void clear_type_name(type_table_t *table, type_t t) {
+  char *name;
+
+  name = table->name[t];
+  if (name != NULL) {
+    table->name[t] = NULL;
+    string_decref(name);
+    stbl_remove(&table->stbl, name);
+  }
+}
+
+
+
 
 /*
  * CARDINALITY

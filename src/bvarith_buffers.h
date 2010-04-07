@@ -557,5 +557,23 @@ bvarith_buffer_sub_varmono_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b
 }
 
 
+/*
+ * Add a * x * poly to b
+ */
+static inline void 
+bvarith_buffer_add_varmono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp, uint32_t *a, int32_t x) {
+  bvarith_buffer_add_mono_times_bvpoly(b, poly, pp, a, var_pp(x));
+}
+
+
+/*
+ * Add -a * x * poly to b
+ */
+static inline void
+bvarith_buffer_sub_varmono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp, uint32_t *a, int32_t x) {
+  bvarith_buffer_sub_mono_times_bvpoly(b, poly, pp, a, var_pp(x));
+}
+
+
 
 #endif /* __BVARITH_BUFFERS_H */

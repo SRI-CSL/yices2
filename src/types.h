@@ -152,9 +152,11 @@ typedef struct type_table_s {
   uint32_t *card;
   uint8_t *flags;
   char **name;
+
   uint32_t size;
   uint32_t nelems;
   int32_t free_idx;
+
   int_htbl_t htbl;
   stbl_t stbl;
   int_hmap2_t *sup_tbl;
@@ -204,6 +206,7 @@ typedef struct type_table_s {
  * htbl and stbl have default initial size (i.e., 64)
  */
 extern void init_type_table(type_table_t *table, uint32_t n);
+
 
 /*
  * Delete table and all attached data structures.
@@ -316,6 +319,14 @@ extern type_t get_type_by_name(type_table_t *table, char *name);
 extern void remove_type_name(type_table_t *table, char *name);
 
 
+/*
+ * Clear name: remove t's name if any.
+ * - If t has name 'xxx' then 'xxx' is first removed from the symbol
+ *   table (using remove_type_name) then name[t] is reset to NULL.
+ *   The reference counter for 'xxx' is decremented twice.
+ * - If t doesn't have a name, nothing is done.
+ */
+extern void clear_type_name(type_table_t *table, type_t t);
 
 
 

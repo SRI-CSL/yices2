@@ -20,8 +20,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "bv_constants.h"
 #include "polynomial_common.h"
+
 
 /*
  * Polynomial structure:

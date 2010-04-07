@@ -1,45 +1,67 @@
 /*
- * Internal term representation. Hash consing.
- *
+ * INTERNAL TERM REPRESENTATION AND HASH CONSING
+ */
+
+/*
  * The internal terms include:
  * 1) constants:
- *    - constants of uninterpreted/scalar/boolean types
- *    - global uninterpreted constants
- * 2) constructed terms used by the core:
+ *    - constants of uninterpreted/scalar
+ *    - global uninterpreted constants 
+ * 2) generic terms
  *    - ite c t1 t2
- *    - or t1 .... t_n
- *    - not t
  *    - eq t1 t2
  *    - apply f t1 ... t_n
  *    - mk-tuple t1 ... t_n
  *    - select i tuple
  *    - update f t1 ... t_n v
- * 3) quantifiers and variables
- *    - variables are identified by an index and a type
- *    - forall v_1 ... v_n body
- * 4) arithmetic terms and atoms
- * 5) bitvector terms and atoms
+ *    - distinct t1 ... t_n
+ * 3) variables and quantifiers
+ *    - variables are identified by their type and an integer index.
+ *    - quantified formulas are of the form (forall v_1 ... v_n term)
+ *      where each v_i is a variable
+ * 4) boolean operators
+ *    - or t1 ... t_n
+ *    - xor t1 ... t_n
+ *    - bit i u (extract bit i of a bitvector term u)
+ * 6) arithmetic terms and atoms
+ *    - terms are either rational constants, power products, or 
+ *      polynomials with rational coefficients
+ *    - atoms are either of the form (p == 0) or (p >= 0)
+ *      where p is a polynomial.
+ *    - atoms a x - a y == 0 are rewritten to (x = y)
+ * 7) bitvector terms and atoms
+ *    - bitvector constants
+ *    - power products
+ *    - polynomials
+ *    - bit arrays
+ *    - other operations: divisions/shift
+ *    - atoms: three binary predicates
+ *      bv_eq t1 t2
+ *      bv_ge t1 t2 (unsigned comparison: t1 >= t2)
+ *      bv_sge t1 t2 (signed comparison: t1 >= t2)
  *
- * Every term is an index in a global term table.
+ * Every term is an index t in a global term table,
+ * where 0 <= t <= 2^30. The two term occurrences
+ * t+ and t- are encoded on 32bits (signed integer) with
+ * - bit[31] = sign bit = 0
+ * - bits[30 ... 1] = t
+ * - bit[0] = polarity bit: 0 means t+, 1 means t-
+ *
  * For every term, we keep:
- * - its type (index in the type table)
- * - name: either a string or NULL
- * - a tag: what kind of term it is
- * - a descriptor (depends on the kind and type)
- * - theory_var: arithmetic or bitvector variable attached to
- *   the term (or null_theory_var).
+ * - type[t] (index in the type table)
+ * - name[t] (either a string or NULL)
+ * - kind[t] (what kind of term it is)
+ * - desc[t] = descriptor that depends on the kind
  */
-
-#include <string.h>
-#include <stdbool.h>
-#include <assert.h>
 
 #include "memalloc.h"
 #include "refcount_strings.h"
 #include "hash_functions.h"
-#include "types.h"
+#include "term_occurrences.h"
 #include "terms.h"
 
+
+#if 0
 
 /*
  * Finalizer for term names in the symbol table.
@@ -50,12 +72,6 @@ static void term_name_finalizer(stbl_rec_t *r) {
   string_decref(r->string);
 }
 
-
-/*
- * Default GC notifier: do nothing
- */
-static void default_gc_notifier(term_table_t *table) {
-}
 
 /*
  * Initialize table, with initial size = n.
@@ -2377,3 +2393,5 @@ void term_table_garbage_collection(term_table_t *table) {
   delete_bitvector(mark);
   delete_int_queue(&queue);
 }
+
+#endif

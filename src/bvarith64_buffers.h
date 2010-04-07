@@ -25,6 +25,7 @@
 
 #include "object_stores.h"
 #include "pprod_table.h"
+#include "bv64_polynomials.h"
 
 
 /*
@@ -363,9 +364,85 @@ extern void bvarith64_buffer_sub_buffer_times_buffer(bvarith64_buffer_t *b, bvar
 
 
 
+/*************************************
+ *  OPERATIONS WITH MONOMIAL ARRAYS  *
+ ************************************/
+
 /*
- * SHORT CUTS
+ * A bit-vector polynomial is an array of monomials of the form 
+ * (coeff, index) where indices are signed integers. Operations 
+ * between buffers and poynomials require a conversion of 
+ * the integer indices used by monomials to power products used by buffers.
+ *
+ * All operations below take three arguments:
+ * - b is an arithmetic buffer
+ * - poly is an array of monomials
+ * - pp is an array of power products
+ *   if poly[i] is a monomial a_i x_i then pp[i] must be the conversion
+ *   of x_i to a power product.
+ *
+ * All operations are in place operations on the first argument b
+ * (i.e., all modify the buffer). There are two requirements 
+ * on mono and pp:
+ * - poly must be terminated by and end-marker (var = max_idx).
+ * - pp must be sorted in the deg-lex ordering and have at least
+ *   as many elements as length of mono - 1.
+ * In particular, if poly contains a constant monomial (with x_i = const_idx),
+ * then that monomial must comes first (i.e., i must be 0) and pp[0] must
+ * be empty_pp.
  */
+
+/*
+ * Add poly to buffer b
+ */
+extern void bvarith64_buffer_add_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *poly, pprod_t **pp);
+
+
+/*
+ * Subtract poly from buffer b
+ */
+extern void bvarith64_buffer_sub_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *poly, pprod_t **pp);
+
+
+/*
+ * Add a * poly to buffer b
+ */
+extern void bvarith64_buffer_add_const_times_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *poly, pprod_t **pp, uint64_t a);
+
+
+/*
+ * Subtract a * poly from b
+ */
+extern void bvarith64_buffer_sub_const_times_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *poly, pprod_t **pp, uint64_t a);
+
+
+/*
+ * Add a * r * poly to b
+ */
+extern void bvarith64_buffer_add_mono_times_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *poly, 
+						   pprod_t **pp, uint64_t a, pprod_t *r);
+
+
+/*
+ * Add -a * r * poly to b
+ */
+extern void bvarith64_buffer_sub_mono_times_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *poly,
+						   pprod_t **pp, uint64_t a, pprod_t *r);
+
+
+/*
+ * Multiply b by poly
+ */
+extern void bvarith64_buffer_mul_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *poly, pprod_t **pp);
+
+
+
+
+
+
+/****************
+ *  SHORT CUTS  *
+ ***************/
 
 /*
  * All operations that take a power product r have a variant that takes a single

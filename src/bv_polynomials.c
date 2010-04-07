@@ -6,6 +6,7 @@
 
 #include "memalloc.h"
 #include "bv_polynomials.h"
+#include "bv_constants.h"
 #include "yices_limits.h"
 
 /*
