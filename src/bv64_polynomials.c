@@ -4,8 +4,9 @@
 
 #include <assert.h>
 
-#include "bv64_polynomials.h"
 #include "bv64_constants.h"
+#include "hash_functions.h"
+#include "bv64_polynomials.h"
 
 
 /*
@@ -33,6 +34,26 @@ bvpoly64_t *alloc_bvpoly64(uint32_t n, uint32_t size) {
   tmp->mono[n].coeff = 0;
 
   return tmp;
+}
+
+
+/*
+ * Hash code
+ */
+uint32_t hash_bvpoly64(bvpoly64_t *p) {
+  bvmono64_t *mono;
+  uint32_t h, n;
+
+  h = HASH_BVPOLY64_SEED + p->nterms;
+  n = p->bitsize;
+  mono = p->mono;
+  while (mono->var < max_idx) {
+    h = jenkins_hash_mix3((uint32_t) (mono->coeff >> 32), (uint32_t) mono->coeff, h);
+    h = jenkins_hash_mix3(mono->var, n, h);
+    mono ++;
+  }
+
+  return h;
 }
 
 

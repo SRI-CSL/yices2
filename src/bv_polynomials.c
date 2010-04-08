@@ -5,9 +5,11 @@
 #include <assert.h>
 
 #include "memalloc.h"
-#include "bv_polynomials.h"
 #include "bv_constants.h"
+#include "hash_functions.h"
 #include "yices_limits.h"
+#include "bv_polynomials.h"
+
 
 /*
  * Allocate a bit-vector polynomial
@@ -52,6 +54,30 @@ void free_bvpoly(bvpoly_t *p) {
 }
 
 
+
+/*
+ * Hash code of p
+ */
+uint32_t hash_bvpoly(bvpoly_t *p) {
+  bvmono_t *mono;
+  uint32_t h, k, n;
+
+  h = HASH_BVPOLY_SEED + p->nterms;
+  k = p->width;
+  n = p->bitsize;
+  mono = p->mono;
+  while (mono->var < max_idx) {
+    h = jenkins_hash_array(mono->coeff, k, h);
+    h = jenkins_hash_mix3(mono->var, n, h);
+    mono ++;
+  }
+
+  return h;
+}
+
+
+
+
 /*
  * Main variable of p = last variable
  * - return null_idx if p is zero
@@ -88,6 +114,7 @@ bool equal_bvpoly(bvpoly_t *p1, bvpoly_t *p2) {
     b1 ++;
     b2 ++;
   }
+
   return false;
 }
 
@@ -129,6 +156,6 @@ bool disequal_bvpoly(bvpoly_t *p1, bvpoly_t *p2) {
     b1 ++;
     b2 ++;
   }
-  return false;
 
+  return false;
 }

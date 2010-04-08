@@ -271,7 +271,7 @@ typedef struct composite_term_s {
  */
 typedef struct select_term_s {
   uint32_t idx;
-  term_t occ;
+  term_t arg;
 } select_term_t;
 
 
@@ -698,72 +698,181 @@ extern void clear_term_name(type_table_t *table, term_t t);
 
 
 
+
+/*
+ * TERM INDICES/POLARITY
+ */
+
+/*
+ * Conversion between indices and terms
+ * - the polarity bit is the low-order bit of
+ *   0 means positive polarity
+ *   1 means negative polarity
+ */
+static inline term_t pos_term(int32_t i) {
+  return (i << 1);
+}
+
+static inline term_t neg_term(int32_t i) {
+  return (i << 1) | 1;
+}
+
+/*
+ * Extract term and polarity bit
+ */
+static inline int32_t index_of(term_t x) {
+  return x>>1;
+}
+
+static inline uint32_t polarity_of(term_t x) {
+  return ((uint32_t) x) & 1;
+} 
+
+
+/*
+ * Check polarity
+ */
+static inline bool is_pos_term(term_t x) {
+  return polarity_of(x) == 0;
+}
+
+static inline bool is_neg_term(term_t x) {
+  return polarity_of(x) != 0;
+}
+
+
+/*
+ * Complement of x = same term, opposite polarity
+ */
+static inline term_t opposite_term(term_t x) {
+  return x ^ 1;
+}
+
+
+
 /*
  * ACCESS TO TERMS
  */
 
 /*
- * In all these functions, i is a term index and not a term occurrence.
+ * From a term index i
  */
-static inline bool valid_term(term_table_t *table, int32_t i) {
+static inline bool valid_term_idx(term_table_t *table, int32_t i) {
   return 0 <= i && i < table->nelems;
 }
 
-static inline term_kind_t term_kind(term_table_t *table, int32_t i) {
-  assert(valid_term(table, i));
-  return table->kind[i];
+static inline bool good_term_idx(term_table_t *table, int32_t i) {
+  return valid_term_idx(table, i) && table->kind[i] != UNUSED_TERM;
 }
 
-static inline bool good_term(term_table_t *table, int32_t i) {
-  return valid_term(table, i) && table->kind[i] != UNUSED_TERM;
-}
-
-static inline bool bad_term(term_table_t *table, int32_t i) {
-  return ! good_term(table, i);
-}
-
-
-static inline type_t term_type(term_table_t *table, int32_t i) {
-  assert(good_term(table, i));
+static inline type_t type_for_idx(term_table_t *table, int32_t i) {
+  assert(good_term_idx(table, i));
   return table->type[i];
 }
 
-static inline type_kind_t term_type_kind(term_table_t *table, int32_t i) {
-  return type_kind(table->types, term_type(table, i));
+static inline term_kind_t kind_for_idx(term_table_t *table, int32_t i) {
+  assert(good_term_idx(table, i));
+  return table->kind[i];
+}
+
+// get descriptor converted to an appropriate type
+static inline composite_term_t *composite_for_idx(term_table_t *table, int32_t i) {
+  assert(good_term_idx(table, i));
+  return (composite_term_t *) table->desc[i].ptr;
+}
+
+static inline select_term_t *select_for_idx(term_table_t *table, int32_t i) {
+  assert(good_term_idx(table, i));
+  return (select_term_t *) table->desc[i].ptr;
+}
+
+static inline pprod_t *pprod_for_idx(term_table_t *table, int32_t i) {
+  assert(good_term_idx(table, i));
+  return (pprod_t *) table->desc[i].ptr;
+}
+
+static inline rational_t *rational_for_idx(term_table_t *table, int32_t i) {
+  assert(good_term_idx(table, i));
+  return (rational_t *) table->desc[i].ptr;
+}
+
+static inline polynomial_t *polynomial_for_idx(term_table_t *table, int32_t i) {
+  assert(good_term_idx(table, i));
+  return (polynomial_t *) table->desc[i].ptr;
+}
+
+static inline bvconst64_term_t *bvconst64_for_idx(term_table_t *table, int32_t i) {
+  assert(good_term_idx(table, i));
+  return (bvconst64_term_t *) table->desc[i].ptr;
+}
+
+static inline bvconst_term_t *bvconst_for_idx(term_table_t *table, int32_t i) {
+  assert(good_term_idx(table, i));
+  return (bvconst_term_t *) table->desc[i].ptr;
+}
+
+static inline bvpoly64_t *bvpoly64_for_idx(term_table_t *table, int32_t i) {
+  assert(good_term_idx(table, i));
+  return (bvpoly64_t *) table->desc[i].ptr;
+}
+
+static inline bvpoly_t *bvpoly_for_idx(term_table_t *table, int32_t i) {
+  assert(good_term_idx(table, i));
+  return (bvpoly_t *) table->desc[i].ptr;
+}
+
+
+/*
+ * Access components using term occurrence t
+ */
+static inline bool good_term(term_table_t *table, term_t t) {
+  return good_term_idx(table, index_of(t));
+}
+
+static inline bool bad_term(term_table_t *table, term_t t) {
+  return ! good_term(table, t);
+}
+
+static inline type_t term_type(term_table_t *table, term_t t) {
+  return type_for_idx(table, index_of(t));
+}
+
+static inline type_kind_t term_type_kind(term_table_t *table, term_t t) {
+  return type_kind(table->types, term_type(table, t));
 }
 
 
 // Checks on the type of t
-static inline bool is_arithmetic_term(term_table_t *table, int32_t i) {
-  return is_arithmetic_type(term_type(table, i));
+static inline bool is_arithmetic_term(term_table_t *table, term_t t) {
+  return is_arithmetic_type(term_type(table, t));
 }
 
-static inline bool is_boolean_term(term_table_t *table, int32_t i) {
-  return is_boolean_type(term_type(table, i));
+static inline bool is_boolean_term(term_table_t *table, term_t t) {
+  return is_boolean_type(term_type(table, t));
 }
 
-static inline bool is_real_term(term_table_t *table, int32_t i) {
-  return is_real_type(term_type(table, i));
+static inline bool is_real_term(term_table_t *table, term_t t) {
+  return is_real_type(term_type(table, t));
 }
 
-static inline bool is_integer_term(term_table_t *table, int32_t i) {
-  return is_integer_type(term_type(table, i));
+static inline bool is_integer_term(term_table_t *table, term_t t) {
+  return is_integer_type(term_type(table, t));
 }
 
-static inline bool is_bitvector_term(term_table_t *table, int32_t i) {
-  return term_type_kind(table, i) == BITVECTOR_TYPE;
+static inline bool is_bitvector_term(term_table_t *table, term_t t) {
+  return term_type_kind(table, t) == BITVECTOR_TYPE;
 }
 
-static inline bool is_scalar_term(term_table_t *table, int32_t i) {
-  return term_type_kind(table, i) == SCALAR_TYPE;
+static inline bool is_scalar_term(term_table_t *table, term_t t) {
+  return term_type_kind(table, t) == SCALAR_TYPE;
 }
 
-static inline bool is_function_term(term_table_t *table, int32_t i) {
-  return term_type_kind(table, i) == FUNCTION_TYPE;
+static inline bool is_function_term(term_table_t *table, term_t t) {
+  return term_type_kind(table, t) == FUNCTION_TYPE;
 }
 
-static inline bool is_tuple_term(term_table_t *table, int32_t i) {
-  return term_type_kind(table, i) == TUPLE_TYPE;
+static inline bool is_tuple_term(term_table_t *table, term_t t) {
+  return term_type_kind(table, t) == TUPLE_TYPE;
 }
 
 
@@ -797,12 +906,12 @@ static inline bool is_tuple_term(term_table_t *table, int32_t i) {
  * from i are preserved too).  If the mark is cleared, i may be deleted.
  */
 static inline void term_table_set_gc_mark(term_table_t *table, int32_t i) {
-  assert(good_term(table, i));
+  assert(good_term_idx(table, i));
   set_bit(table->mark, i);
 }
 
 static inline void term_table_clr_gc_mark(term_table_t *table, int32_t i) {
-  assert(good_term(table, i));
+  assert(good_term_idx(table, i));
   clr_bit(table->mark, i);
 }
 
@@ -810,8 +919,8 @@ static inline void term_table_clr_gc_mark(term_table_t *table, int32_t i) {
 /*
  * Test whether i is marked
  */
-static inline bool term_is_marked(term_table_t *table, int32_t i) {
-  assert(good_term(table, i));
+static inline bool term_idx_is_marked(term_table_t *table, int32_t i) {
+  assert(good_term_idx(table, i));
   return tst_bit(table->mark, i);
 }
 

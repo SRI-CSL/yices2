@@ -57,6 +57,12 @@ typedef struct {
 
 
 /*
+ * Seed used in the hash function (must be visible to bvarith_buffer).
+ */
+#define HASH_BVPOLY_SEED ((uint32_t) 0x13f23ef8)
+
+
+/*
  * Allocate a bit-vector polynomial
  * - n = number of terms (excluding the end marker)
  * - n must be less than MAXBV_POLY_SIZE
@@ -71,6 +77,12 @@ extern bvpoly_t *alloc_bvpoly(uint32_t n, uint32_t size);
  * Free p and all the coefficents
  */
 extern void free_bvpoly(bvpoly_t *p);
+
+
+/*
+ * Hash code
+ */
+extern uint32_t hash_bvpoly(bvpoly_t *p);
 
 
 /*

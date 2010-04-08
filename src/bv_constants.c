@@ -1368,7 +1368,7 @@ uint32_t bvconst_hash(uint32_t *a, uint32_t n) {
   uint32_t k;
 
   k = (n + 31) >> 5;
-  return jenkins_hash_intarray_var(k, (int32_t *) a, 0x741a8d7a + n);
+  return jenkins_hash_array(a, k, 0x741a8d7a + n);
 }
 
 

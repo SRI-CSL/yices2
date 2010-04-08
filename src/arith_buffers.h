@@ -426,6 +426,47 @@ extern void arith_buffer_mul_monarray(arith_buffer_t *b, monomial_t *poly, pprod
 
 
 
+/*******************************************************************
+ *  SUPPORT FOR HASH CONSING AND CONVERSION TO POLYNOMIAL OBJECTS  *
+ ******************************************************************/
+
+/*
+ * The conversion of a buffer b to a polynomial object requires two steps:
+ * 1) convert all the power-products in b to integer indices.
+ *    This must map empty_pp to const_idx and end_pp to max_idx.
+ * 2) build a polynomial from the coefficients of b and the integer indices
+ *
+ * The operations below use a buffer b and an integer array v.
+ * The array v stores the conversion from power-products to integer indices:
+ * If b contains a_0 r_0 + ... + a_n r_n then v must have (n+1) elements
+ * and the integer  index for power product r_i is v[i].
+ *
+ * The pair (b, v) defines then a polynomial P(b, v) = a_1 v[1] + ... + a_n v[n],
+ */
+
+/*
+ * Hash code for P(b, v). 
+ * This function is consistent with hash_polynomial defined in polynomials.c:
+ * If P(b, v) = p0 then hash_arith_buffer(b, v) = hash_polynomial(p0).
+ */
+extern uint32_t hash_arith_buffer(arith_buffer_t *b, int32_t *v);
+
+
+/*
+ * Check where P(b, v) is equal to p
+ */
+extern bool arith_buffer_equal_poly(arith_buffer_t *b, int32_t *v, polynomial_t *p);
+
+
+/*
+ * Build P(b, v) (i.e., convert b to a polynomial then reset b).
+ * SIDE EFFECT: b is reset to the zero polynomial.
+ */
+extern polynomial_t *arith_buffer_get_poly(arith_buffer_t *b, int32_t *v);
+
+
+
+
 
 /****************
  *  SHORT CUTS  *

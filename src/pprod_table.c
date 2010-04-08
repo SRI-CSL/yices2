@@ -140,7 +140,7 @@ typedef struct pprod_hobj_s {
  */
 static uint32_t hash_varexp_array(varexp_t *a, uint32_t n) {
   assert(n <= UINT32_MAX/2);
-  return jenkins_hash_intarray(2 * n, (int32_t *) a);
+  return jenkins_hash_intarray((int32_t *) a, 2 * n);
 }
 
 static uint32_t hash_pprod(pprod_hobj_t *o) {

@@ -59,6 +59,12 @@ typedef struct {
 #define MAX_POLY_SIZE (((UINT32_MAX-sizeof(polynomial_t))/sizeof(monomial_t))-1)
 
 
+/*
+ * Seed used in the hash function.
+ */
+#define HASH_POLY_SEED ((uint32_t) 0x923a7a2f)
+
+
 
 /*
  * ARRAYS OF MONOMIALS AND NORMALIZATION
@@ -221,7 +227,7 @@ extern polynomial_t *alloc_raw_polynomial(uint32_t n);
  * - a must be normalized.
  * SIDE EFFECT: a is reset to zero (all coefficients are cleared).
  */
-extern polynomial_t *monarray_getpoly(monomial_t *a, uint32_t n);
+extern polynomial_t *monarray_get_poly(monomial_t *a, uint32_t n);
 
 
 /*
@@ -244,6 +250,13 @@ static inline void free_polynomial(polynomial_t *p) {
 
 
 /*
+ * Hash code for polynomial p
+ * - p must be normalized.
+ */
+extern uint32_t hash_polynomial(polynomial_t *p);
+
+
+/*
  * Get the main variable of p (i.e., the last variable in 
  * in p's monomial array).
  * returns null_idx if p is zero,
@@ -257,6 +270,14 @@ extern int32_t polynomial_main_var(polynomial_t *p);
  */
 static inline bool must_disequal_polynomial(polynomial_t *p1, polynomial_t *p2) {
   return must_disequal_monarray(p1->mono, p2->mono);
+}
+
+
+/*
+ * Check whether p1 == p2
+ */
+static inline bool equal_polynomial(polynomial_t *p1, polynomial_t *p2) {
+  return p1->nterms == p2->nterms && equal_monarray(p1->mono, p2->mono);
 }
 
 

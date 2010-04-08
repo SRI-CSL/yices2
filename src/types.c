@@ -528,13 +528,13 @@ static uint32_t hash_bv_type(bv_type_hobj_t *p) {
 }
 
 static uint32_t hash_tuple_type(tuple_type_hobj_t *p) {
-  return jenkins_hash_intarray_var(p->n, p->elem, 0x8193ea92);
+  return jenkins_hash_intarray2(p->elem, p->n, 0x8193ea92);
 }
 
 static uint32_t hash_function_type(function_type_hobj_t *p) {
   uint32_t h;
 
-  h = jenkins_hash_intarray_var(p->n, p->dom, 0x5ad7b72f);
+  h = jenkins_hash_intarray2(p->dom, p->n, 0x5ad7b72f);
   return jenkins_hash_pair(p->range, 0, h);
 }
 
@@ -548,12 +548,13 @@ static uint32_t hash_bvtype(int32_t size) {
 }
 
 static uint32_t hash_tupletype(tuple_type_t *p) {
-  return jenkins_hash_intarray_var(p->nelem, p->elem, 0x8193ea92);
+  return jenkins_hash_intarray2(p->elem, p->nelem, 0x8193ea92);
 }
 
 static uint32_t hash_funtype(function_type_t *p) {
   uint32_t h;
-  h = jenkins_hash_intarray_var(p->ndom, p->domain, 0x5ad7b72f);
+
+  h = jenkins_hash_intarray2(p->domain, p->ndom, 0x5ad7b72f);
   return jenkins_hash_pair(p->range, 0, h);
 }
 

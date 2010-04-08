@@ -17,6 +17,7 @@
 
 #include "prng.h"
 #include "memalloc.h"
+#include "hash_functions.h"
 #include "polynomials.h"
 
 
@@ -527,7 +528,7 @@ polynomial_t *alloc_raw_polynomial(uint32_t n) {
  * - a must be normalized.
  * - side effect: a is reset to 0.
  */
-polynomial_t *monarray_getpoly(monomial_t *a, uint32_t n) {
+polynomial_t *monarray_get_poly(monomial_t *a, uint32_t n) {
   polynomial_t *p;
   uint32_t i;
 
@@ -573,6 +574,27 @@ polynomial_t *monarray_copy(monomial_t *a, uint32_t n) {
 
   return p;
 }
+
+
+/*
+ * Hash code for polynomial p
+ * - p must be normalized.
+ */
+uint32_t hash_polynomial(polynomial_t *p) {
+  monomial_t *mono;
+  uint32_t h, num, den;
+
+  h = HASH_POLY_SEED + p->nterms;
+  mono = p->mono;
+  while (mono->var < max_idx) {
+    q_hash_decompose(&mono->coeff, &num, &den);
+    h = jenkins_hash_triple(mono->var, num, den, h);
+    mono ++;
+  }
+
+  return h;
+}
+
 
 
 

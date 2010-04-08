@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <assert.h>
 
+#include "hash_functions.h"
 #include "bvarith_buffers.h"
 #include "yices_limits.h"
 
@@ -1564,3 +1565,116 @@ void bvarith_buffer_mul_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp
   objstore_free(b->store, q);
 }
 
+
+
+
+/*******************************************************************
+ *  SUPPORT FOR HASH CONSING AND CONVERSION TO POLYNOMIAL OBJECTS  *
+ ******************************************************************/
+
+/*
+ * The conversion of a buffer b to a polynomial object requires two steps:
+ * 1) convert all the power-products in b to integer indices.
+ *    This must map empty_pp to const_idx and end_pp to max_idx.
+ * 2) build a polynomial from the coefficients of b and the integer indices
+ *
+ * The operations below use a buffer b and an integer array v.
+ * The array v stores the conversion from power-products to integer indices:
+ * If b contains a_0 r_0 + ... + a_n r_n then v must have (n+1) elements
+ * and the integer  index for power product r_i is v[i].
+ *
+ * The pair (b, v) defines then a bitvector polynomial
+ * P(b, v) = a_1 v[1] + ... + a_n v[n],
+ */
+
+/*
+ * Hash code for P(b, v). 
+ * This function is consistent with hash_bvpoly defined in bv_polynomials.c.
+ * If P(b, v) = p0 then hash_bvarith_buffer(b, v) = hash_bvpolynomial(p0).
+ */
+uint32_t hash_bvarith_buffer(bvarith_buffer_t *b, int32_t *v) {
+  bvmlist_t *q;
+  uint32_t h, k, n;
+
+  h = HASH_BVPOLY_SEED + b->nterms;
+  k = b->width;
+  n = b->bitsize;
+  q = b->list;
+  while (q->next != NULL) {
+    // coeff in q, variable in v
+    h = jenkins_hash_array(q->coeff, k, h);
+    h = jenkins_hash_mix3(*v, n, h);
+
+    q = q->next;
+    v ++;
+  }
+
+  return h;
+}
+
+
+
+/*
+ * Check where P(b, v) is equal to p
+ */
+bool bvarith_buffer_equal_bvpoly(bvarith_buffer_t *b, int32_t *v, bvpoly_t *p) {
+  bvmlist_t *q;
+  bvmono_t *mono;
+  uint32_t k;
+  int32_t x1, x2;
+  
+  if (b->nterms == p->nterms && b->bitsize == p->bitsize) {
+    k = b->width;
+    q = b->list;
+    mono = p->mono;
+    x1 = *v;
+    x2 = mono->var;
+    while (x1 == x2) {
+      if (x1 == max_idx) return true;
+      if (bvconst_neq(q->coeff, mono->coeff, k)) return false;
+
+      mono ++;
+      v ++;
+      q = q->next;
+      x1 = *v;
+      x2 = mono->var;
+    }
+  }
+
+  return false;
+}
+
+
+/*
+ * Build P(b, v) (i.e., convert b to a polynomial then reset b).
+ * SIDE EFFECT: b is reset to the zero polynomial.
+ */
+bvpoly_t *bvarith_buffer_get_bvpoly(bvarith_buffer_t *b, int32_t *v) {
+  bvpoly_t *tmp;
+  bvmlist_t *q, *next;
+  uint32_t i, n;
+
+  n = b->nterms;
+  tmp = alloc_bvpoly(n, b->bitsize);
+
+  q = b->list;
+  for (i=0; i<n; i++) {
+    assert(q->prod != end_pp && v[i] < max_idx);
+    // we copy q->coeff into mono[i].coeff directly
+    tmp->mono[i].var = v[i];
+    tmp->mono[i].coeff = q->coeff;
+    // free q
+    next = q->next;
+    objstore_free(b->store, q);
+    q = next;
+  }
+
+  // empty the buffer: q should be the end marker here
+  assert(q->prod == end_pp && q->next == NULL);
+  b->list = q;
+  b->nterms = 0;
+
+  assert(tmp->mono[n].var == max_idx);
+
+  return tmp;
+}

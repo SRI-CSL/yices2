@@ -6,7 +6,6 @@
 #include <inttypes.h>
 
 #include "hash_functions.h"
-#include "hash_functions_ori.h"
 #include "cputime.h"
 
 #ifdef MINGW
@@ -52,6 +51,83 @@ uint32_t hash_string(char *s) {
 }
 
 
+/*
+ * Original jenkins's hash functions (lookup2)
+ */
+
+/* Jenkins's lookup2.c code */
+#define mix(a, b, c)                \
+{                                   \
+  a -= b; a -= c; a ^= (c>>13);     \
+  b -= c; b -= a; b ^= (a<<8);      \
+  c -= a; c -= b; c ^= (b>>13);     \
+  a -= b; a -= c; a ^= (c>>12);     \
+  b -= c; b -= a; b ^= (a<<16);     \
+  c -= a; c -= b; c ^= (b>>5);      \
+  a -= b; a -= c; a ^= (c>>3);      \
+  b -= c; b -= a; b ^= (a<<10);     \
+  c -= a; c -= b; c ^= (b>>15);     \
+}
+
+
+/*
+ * Original Jenkins hash function
+ */
+static uint32_t jenkins_hash_byte_ori(char *k, uint32_t len, uint32_t initval) {
+  uint32_t a, b, c, n;
+
+  a = b = 0x9e3779b9;
+  c = initval;
+  n = len;
+
+  while (n >= 12) {
+    a += (k[0] +((uint32_t)k[1]<<8) +((uint32_t)k[2]<<16) +((uint32_t)k[3]<<24));
+    b += (k[4] +((uint32_t)k[5]<<8) +((uint32_t)k[6]<<16) +((uint32_t)k[7]<<24));
+    c += (k[8] +((uint32_t)k[9]<<8) +((uint32_t)k[10]<<16)+((uint32_t)k[11]<<24));
+    mix(a, b, c);
+    k += 12;
+    n -= 12;
+   }
+
+  c += len;
+  switch (n) {
+  case 11: c+=((uint32_t)k[10]<<24);
+  case 10: c+=((uint32_t)k[9]<<16);
+  case 9 : c+=((uint32_t)k[8]<<8);
+    /* the first byte of c is reserved for the length */
+  case 8 : b+=((uint32_t)k[7]<<24);
+  case 7 : b+=((uint32_t)k[6]<<16);
+  case 6 : b+=((uint32_t)k[5]<<8);
+  case 5 : b+=k[4];
+  case 4 : a+=((uint32_t)k[3]<<24);
+  case 3 : a+=((uint32_t)k[2]<<16);
+  case 2 : a+=((uint32_t)k[1]<<8);
+  case 1 : a+=k[0];
+    /* case 0: nothing left to add */    
+  }
+  mix(a, b, c);
+
+  return c;  
+}
+
+
+
+/*
+ * Hash of a character string.
+ */
+uint32_t jenkins_hash_string_ori(char *s, uint32_t seed) {
+  uint32_t n;
+  n = strlen(s);
+  return jenkins_hash_byte_ori(s, n, seed);
+}
+
+
+
+/*
+ * Histogram:
+ * - input stat[x] = number of elements whose hash code is equal to x
+ * - hist[i] = number of elements x such that stat[x] = i
+ */
 static void histogram() {
   int i, j, last, over;
 
@@ -110,6 +186,10 @@ static void show_stats() {
 }
 #endif
 
+
+/*
+ * Test n strings with the same prefix
+ */
 static void prefix_test(char *prefix, int n) {
   int i;
   uint32_t h;
@@ -138,7 +218,7 @@ static void prefix_test(char *prefix, int n) {
   for (i=0; i<N; i++) stat[i] = 0;
   for (i=0; i<n; i++) {
     sprintf(buffer, "%s%d", prefix, i);
-    h = jenkins_hash_string_var(buffer, 0x17838abc) & MASK;
+    h = jenkins_hash_byte_var((uint8_t *) buffer, 0x17838abc) & MASK;
     stat[h] ++;
   }
 
@@ -156,6 +236,9 @@ static void prefix_test(char *prefix, int n) {
 }
 
 
+/*
+ * Test strings read from a file
+ */
 static void words_from_file(char *filename) {
   FILE *f;
   char *str, *tmp;
@@ -243,7 +326,7 @@ static void file_test(char *filename) {
   for (i=0; i<100000; i++) {
     for (j=0; j<N; j++) stat[j] = 0;
     for (j=0; j<n_words; j++) {
-      h = jenkins_hash_string_var(words[j], 0x17838abc) & MASK;
+      h = jenkins_hash_byte_var((uint8_t *) words[j], 0x17838abc) & MASK;
       stat[h] ++;
     }
   }

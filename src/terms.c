@@ -64,7 +64,8 @@
 #include "memalloc.h"
 #include "refcount_strings.h"
 #include "hash_functions.h"
-#include "term_occurrences.h"
+#include "bv64_constants.h"
+
 #include "terms.h"
 
 
@@ -139,6 +140,12 @@ static void term_table_extend(term_table_t *table) {
 }
 
 
+
+
+/*
+ * TERM ALLOCATION
+ */
+
 /*
  * Allocate a new term id
  * - clear its mark. Nothing else is initialized.
@@ -165,492 +172,249 @@ static int32_t allocate_term_id(term_table_t *table) {
 
 
 /*
- * Add a constant term.
+ * Terms with integer descriptor
+ * - tag = kind
+ * - tau = type
+ * - id = index
  */
-static int32_t new_constant(term_table_t *table, type_t tau, int32_t index) {
+static int32_t new_integer_term(term_table_t *table, term_kind_t tag, type_t tau, int32_t id) {
   int32_t i;
 
   i = allocate_term_id(table);
-  table->kind[i] = CONSTANT_TERM;
+  table->kind[i] = tag;
   table->type[i] = tau;
-  table->desc[i].integer = index;
+  table->desc[i].integer = id;
 
   return i;
 }
 
 
 /*
- * Add a new uninterpreted term.
+ * Terms with pointer descriptor
+ * - tag = kind
+ * - tau = type
+ * - d = descriptor
  */
-static int32_t new_uninterpreted(term_table_t *table, type_t tau) {
-  term_t i;
-
-  i = allocate_term_id(table);
-  table->kind[i] = UNINTERPRETED_TERM;
-  table->type[i] = tau;
-  table->desc[i].ptr = NULL;
-
-  return i;
-}
-
-
-/*
- * Add a new variable of the type tau and given index.
- */
-static int32_t new_variable(term_table_t *table, type_t tau, int32_t index) {
+static int32_t new_ptr_term(term_table_t *table, term_kind_t tag, type_t tau, void *d) {
   int32_t i;
 
   i = allocate_term_id(table);
-  table->kind[i] = VARIABLE;
+  table->kind[i] = tag;
   table->type[i] = tau;
-  table->desc[i].integer = index;
+  table->desc[i].ptr = d;
 
   return i;
 }
 
 
-
 /*
- * Add the boolean constant
+ * Rational descriptors
+ * - tag = kind
+ * - tau = type
+ * - a = value
  */
-static void add_primitive_term(term_table_t *table) {
+static int32_t new_rational_term(term_table_t *table, term_kind_t tag, type_t tau, rational_t *a) {
   int32_t i;
 
   i = allocate_term_id(table);
-  assert(i == bool_const);
-
-  table->kind[i] = CONSTANT_TERM;
-  table->type[i] = bool_type(table->types);
-  table->desc[i].integer = 0;
-}
-
-
-
-#if 0
-
-/*
- * Erase term i.
- */
-static void erase_term_id(term_table_t *table, int32_t i) {
-  // Don't delete the boolean constant
-  if (i == bool_const) return;
-
-  // Free the descriptor if needed
-  switch (table->kind[i]) {
-  case UNUSED_TERM:
-    return;
-  case CONSTANT_TERM:
-  case UNINTERPRETED_TERM:
-  case VARIABLE:
-    break;
-
-  case ITE_TERM:
-  case APP_TERM:
-  case UPDATE_TERM:
-  case TUPLE_TERM:
-  case SELECT_TERM:
-  case EQ_TERM:
-  case DISTINCT_TERM:
-  case OR_TERM:
-  case XOR_TERM:
-  case BIT_TERM:
-  case FORALL_TERM:
-    safe_free(table->desc[i].ptr);
-    break;
-
-  case POWER_PRODUCT:
-    break;
-
-  case ARITH_CONSTANT:
-    q_clear(&table->desc[i].rational);
-    break;
-
-  case ARITH_TERM:
-  case ARITH_EQ_ATOM:
-  case ARITH_GE_ATOM:
-    free_polynomial(table->desc[i].ptr);
-    break;
-
-  case ARITH_BINEQ_ATOM:
-    safe_free(table->desc[i].ptr);
-    break;
-
-  case BV_LOGIC_TERM:    
-  case BV_ARITH_TERM:
-  case BV_CONST_TERM:
-  case BV_EQ_ATOM:
-  case BV_GE_ATOM:
-  case BV_SGE_ATOM:
-  case BV_APPLY_TERM:
-    safe_free(table->desc[i].ptr);
-    break;
-  }
-
-  table->type[i] = NULL_TYPE;
-  table->kind[i] = UNUSED_TERM;
-  table->desc[i].integer = table->free_idx;
-  table->free_idx = i;
-}
-
-
-
-/*
- * Create term (ite c t1 t2).
- * tau must be super_type(t1's type, t2's type)
- */
-static term_t new_ite_term(term_table_t *table, term_t c, term_t t1, term_t t2, type_t tau) {
-  term_t i;
-  ite_term_t *d;
-
-  d = (ite_term_t *) safe_malloc(sizeof(ite_term_t));
-  d->cond = c;
-  d->then_arg = t1;
-  d->else_arg = t2;
-
-  i = allocate_term_id(table);
-  table->kind[i] = ITE_TERM;
+  table->kind[i] = tag;
   table->type[i] = tau;
-  table->desc[i].ptr = d;
+  q_init(&table->desc[i].rational);
+  q_set(&table->desc[i].rational, a);
 
   return i;
 }
 
 
+
 /*
- * Create term (eq t1 t2)
+ * TERM DESCRIPTORS
  */
-static term_t new_eq_term(term_table_t *table, term_t t1, term_t t2) {
-  term_t i;
-  eq_term_t *d;
 
-  d = (eq_term_t *) safe_malloc(sizeof(eq_term_t));
-  d->left = t1;
-  d->right = t2;
-
-  i = allocate_term_id(table);
-  table->kind[i] = EQ_TERM;
-  table->type[i] = bool_type(table->types);
-  table->desc[i].ptr = d;
-
-  return i;
-}
+/*
+ * Limit on n when allocating a composite term descriptor of arity n.
+ * If n <= MAX_COMPOSITE_TERM_ARITY then we can compute the descriptor
+ * size without overflow (on 32bit).
+ */
+#define MAX_COMPOSITE_TERM_ARITY ((UINT32_MAX-sizeof(composite_term_t))/sizeof(term_t))
 
 
 /*
- * Create term (f a[0] ... a[n-1])
+ * Generic n-ary term:
+ * - n = arity
+ * - a[0 ... n-1] = components 
  */
-static term_t new_app_term(term_table_t *table, term_t f, int32_t n, term_t *a) {
-  term_t i;
-  app_term_t *d;
-  int32_t j;
+static composite_term_t *new_composite_term(uint32_t n, term_t *a) {
+  composite_term_t *d;
+  uint32_t j;
 
-  d = (app_term_t *) safe_malloc(sizeof(app_term_t) + n * sizeof(term_t));
-  d->nargs = n;
-  d->fun = f;
-  for (j=0; j<n; j++) d->arg[j] = a[j];
+  assert(n <= MAX_COMPOSITE_TERM_ARITY);
 
-  i = allocate_term_id(table);
-  table->kind[i] = APP_TERM;
-  table->type[i] = function_type_range(table->types, table->type[f]);
-  table->desc[i].ptr = d;
-
-  return i;
-}
-
-
-/*
- * Create disjuncion (or a[0] ... a[n-1])
- */
-static term_t new_or_term(term_table_t *table, int32_t n, term_t *a) {
-  term_t i;
-  or_term_t *d;
-  int32_t j;
-
-  d = (or_term_t *) safe_malloc(sizeof(or_term_t) + n * sizeof(term_t));
-  d->nargs = n;
-  for (j=0; j<n; j++) d->arg[j] = a[j];
-
-  i = allocate_term_id(table);
-  table->kind[i] = OR_TERM;
-  table->type[i] = bool_type(table->types);
-  table->desc[i].ptr = d;
-
-  return i;
-}
-
-
-/*
- * Create tuple literal (mk-tuple a[0] .... a[n-1])
- */
-static term_t new_tuple_term(term_table_t *table, int32_t n, term_t *a) {
-  term_t i;
-  tuple_term_t *d;
-  int32_t j, *b;
-
-  d = (tuple_term_t *) safe_malloc(sizeof(tuple_term_t) + n * sizeof(term_t));
-  d->nargs = n;
-
-  // copy tuple components in d and collect their types
-  resize_buffer(table, n);
-  b = table->buffer;
+  d = (composite_term_t *) safe_malloc(sizeof(composite_term_t) + n * sizeof(term_t));
+  d->arity = n;
   for (j=0; j<n; j++) {
-    i = a[j];
-    d->arg[j] = i;
-    b[j] = table->type[i];
+    d->component[j] = a[j];
   }
 
-  i = allocate_term_id(table);
-  table->kind[i] = TUPLE_TERM;
-  table->type[i] = tuple_type(table->types, n, b);
-  table->desc[i].ptr = d;
-
-  return i;
+  return d;
 }
 
 
 /*
- * Tuple selection
+ * Function application
+ * - f = function (as a term)
+ * - n = arity
+ * - a[0 ... n-1] = arguments to f
  */
-static term_t new_select_term(term_table_t *table, int32_t index, term_t tuple) {
-  term_t i;
+static composite_term_t *new_app_term(term_t f, uint32_t n, term_t *a) {
+  composite_term_t *d;
+  uint32_t j;
+
+  assert(n <= MAX_COMPOSITE_TERM_ARITY - 1);
+
+  d = (composite_term_t *) safe_malloc(sizeof(composite_term_t) + (n+1) * sizeof(term_t));
+  d->arity = n+1;
+  d->component[0] = f;
+  for (j=0; j<n; j++) {
+    d->component[j + 1] = a[j];
+  }
+
+  return d;
+}
+
+
+/*
+ * Function update: (update f a[0] ... a[n-1] v)
+ */
+static composite_term_t *new_update_term(term_t f, uint32_t n, term_t *a, term_t v) {
+  composite_term_t *d;
+  uint32_t j;
+
+  assert(n <= MAX_COMPOSITE_TERM_ARITY - 2);
+
+  d = (composite_term_t *) safe_malloc(sizeof(composite_term_t) + (n+2) * sizeof(term_t));
+  d->arity = n+2;
+  d->component[0] = f;
+  for (j=0; j<n; j++) {
+    d->component[j + 1] = a[j];
+  }
+  d->component[j + 1] = v;
+
+  return d;
+}
+
+
+/*
+ * Select k t: for tuple projection or bitvector selection
+ */
+static select_term_t *new_select_term(uint32_t k, term_t t) {
   select_term_t *d;
 
   d = (select_term_t *) safe_malloc(sizeof(select_term_t));
-  d->idx = index;
-  d->arg = tuple;
+  d->idx = k;
+  d->arg = t;
 
-  i = allocate_term_id(table);
-  table->kind[i] = SELECT_TERM;
-  table->type[i] = tuple_type_component(table->types, table->type[tuple], index);
-  table->desc[i].ptr = d;
+  return d;
+}
 
-  return i;
+
+
+
+
+/*
+ * HASH CODES
+ */
+
+/*
+ * Indexed term defined by (tag, tau, id)
+ */
+static uint32_t hash_integer_term(term_kind_t tag, type_t tau, int32_t id) {
+  return jenkins_hash_triple(tag, tau, id, 0x2839adee);
+}
+
+/*
+ * Rational term defined by (tag, tau, value)
+ */
+static uint32_t hash_rational_term(term_kind_t tag, type_t tau, rational_t *a) {
+  uint32_t num, den;
+
+  q_hash_decompose(a, &num, &den);
+  return jenkins_hash_quad(tag, tau, num, den, 0xf9e34ab9);
+}
+
+/*
+ * Generic composite term: (tag, arity, arg[0] ... arg[n-1])
+ */
+static uint32_t hash_composite_term(term_kind_t tag, uint32_t n, term_t *a) {
+  uint32_t h;
+
+  h = jenkins_hash_intarray(a, n);
+  return jenkins_hash_pair(tag, h, 0x8ede2341);
 }
 
 
 /*
- * Update term: (update f a[0] ... a[n-1] v)
+ * Function application: (f, n, a[0] ... a[n-1])
  */
-static term_t new_update_term(term_table_t *table, term_t f, int32_t n, term_t *a, term_t v) {
-  term_t i;
-  update_term_t *d;
-  int32_t j;
+static uint32_t hash_app_term(term_t f, uint32_t n, term_t *a) {
+  uint32_t h;
 
-  d = (update_term_t *) safe_malloc(sizeof(update_term_t) + n * sizeof(term_t));
-  d->fun = f;
-  d->newval = v;
-  d->nargs = n;
-  for (j=0; j<n; j++) d->arg[j] = a[j];
-
-  i = allocate_term_id(table);
-  table->kind[i] = UPDATE_TERM;
-  table->type[i] = table->type[f];
-  table->desc[i].ptr = d;
-
-  return i;
+  h = jenkins_hash_intarray(a, n);
+  return jenkins_hash_pair(f, h, 0x2a3efb23);
 }
 
 
 /*
- * Create (distinct a[0] .... a[n-1])
+ * Function update: (update f a[0] ... a[n-1] v)
  */
-static term_t new_distinct_term(term_table_t *table, int32_t n, term_t *a) {
-  term_t i;
-  distinct_term_t *d;
-  int32_t j;
+static uint32_t hash_update_term(term_t f, uint32_t n, term_t *a, term_t v) {
+  uint32_t h;
 
-  d = (distinct_term_t *) safe_malloc(sizeof(distinct_term_t) + n * sizeof(term_t));
-  d->nargs = n;
-  for (j=0; j<n; j++) d->arg[j] = a[j];
-
-
-  i = allocate_term_id(table);
-  table->kind[i] = DISTINCT_TERM;
-  table->type[i] = bool_type(table->types);
-  table->desc[i].ptr = d;
-
-  return i;
+  h = jenkins_hash_intarray(a, n);
+  return jenkins_hash_triple(f, v, h, 0x18abe185);
 }
 
 
 /*
- * (forall (var[0] ... var[n-1]) body)
+ * Projection/bit selection: (tag, k, t)
  */
-static term_t new_forall_term(term_table_t *table, int32_t n, term_t *var, term_t body) {
-  term_t i;
-  forall_term_t *d;
-  int32_t j;
-
-  d = (forall_term_t *) safe_malloc(sizeof(forall_term_t) + n * sizeof(term_t));
-  d->nvars = n;
-  d->body = body;
-  for (j=0; j<n; j++) d->var[j] = var[j];
-
-  i = allocate_term_id(table);
-  table->kind[i] = FORALL_TERM;
-  table->type[i] = bool_type(table->types);
-  table->desc[i].ptr = d;
-
-  return i;
+static uint32_t hash_select_term(term_kind_t tag, int32_t k, term_t t) {
+  return jenkins_hash_triple(tag, k, t, 0x98ab3342);
 }
 
 
 /*
- * Arithmetic term
+ * Power product: since the pprod-table already does hash consing,
+ * a power product r is uniquely identified by its address.
  */
-static term_t new_arith_term(term_table_t *table, polynomial_t *p) {
-  term_t i;
-
-  i = allocate_term_id(table);
-  table->kind[i] = ARITH_TERM;
-  if (is_int_monarray(p->mono, table->arith_manager)) {
-    table->type[i] = int_type(table->types);
-  } else {
-    table->type[i] = real_type(table->types);
-  }
-  table->desc[i].ptr = p;
-
-  return i;
+static uint32_t hash_power_product(pprod_t *r) {
+  return jenkins_hash_ptr(r);
 }
 
 
 /*
- * Arithmetic atom: tag must be either ARITH_EQ_ATOM or ARITH_GE_ATOM
+ * For bitvector constant, we can use bvconst_hash defined in bv_constants.c
  */
-static term_t new_arith_atom(term_table_t *table, term_kind_t tag, polynomial_t *p) {
-  term_t i;
-
-  assert(tag == ARITH_EQ_ATOM || tag == ARITH_GE_ATOM);
-  i = allocate_term_id(table);
-  table->kind[i] = tag;
-  table->type[i] = bool_type(table->types);
-  table->desc[i].ptr = p;
-
-  return i;
+static inline uint32_t hash_bvconst_term(uint32_t bitsize, uint32_t *bv) {
+  return bvconst_hash(bv, bitsize);
 }
 
 
 /*
- * New arithmetic equality. t1 and t2 must be arithmetic terms
+ * 64bit constants
  */
-static term_t new_arith_bineq_atom(term_table_t *table, term_t t1, term_t t2) {
-  term_t i;
-  arith_bineq_t *d;
-
-  d = (arith_bineq_t *) safe_malloc(sizeof(arith_bineq_t));
-  d->left = t1;
-  d->right = t2;
-
-  i = allocate_term_id(table);
-  table->kind[i] = ARITH_BINEQ_ATOM;
-  table->type[i] = bool_type(table->types);
-  table->desc[i].ptr = d;
-
-  return i;
+static inline uint32_t hash_bvconst64_term(uint32_t bitsize, uint64_t v) {
+  assert(v == norm64(v, bitsize));
+  return jenkins_hash_mix3((uint32_t)(v >> 32), (uint32_t) v, 0xdeadbeef + bitsize);
 }
+
+
+
 
 
 /*
- * Bit-vector arithmetic term
+ * HASH CONSING
  */
-static term_t new_bvarith_term(term_table_t *table, bvarith_expr_t *bv) {
-  term_t i;
-
-  i = allocate_term_id(table);
-  table->kind[i] = BV_ARITH_TERM;
-  table->type[i] = bv_type(table->types, bv->size);
-  table->desc[i].ptr = bv;
-
-  return i;
-}
-
-
-/*
- * Bit-vector logical term
- */
-static term_t new_bvlogic_term(term_table_t *table, bvlogic_expr_t *bv) {
-  term_t i;
-
-  i = allocate_term_id(table);
-  table->kind[i] = BV_LOGIC_TERM;
-  table->type[i] = bv_type(table->types, bv->nbits);
-  table->desc[i].ptr = bv;
-
-  return i;
-}
-
-
-/*
- * Bitvector constant
- */
-static term_t new_bvconst_term(term_table_t *table, int32_t n, uint32_t *b) {
-  bvconst_term_t *d;
-  int32_t j, w;
-  term_t i;
-
-  w = (n + 31) >> 5; // ceil(n/32)
-  d = (bvconst_term_t *) safe_malloc(sizeof(bvconst_term_t) + w * sizeof(uint32_t));
-  d->nbits = n;
-  for (j=0; j<w; j++) d->bits[j] = b[j];
-
-  i = allocate_term_id(table);
-  table->kind[i] = BV_CONST_TERM;
-  table->type[i] = bv_type(table->types, n);
-  table->desc[i].ptr = d;
-
-  return i;
-}
-
-
-/*
- * Bit-vector atom: tag must be BV_EQ_ATOM, BV_GE_ATOM, BV_SGE_ATOM
- */
-static term_t new_bvatom(term_table_t *table, term_kind_t tag, term_t l, term_t r) {
-  term_t i;
-  bv_atom_t *d;
-
-  assert(tag == BV_EQ_ATOM || tag == BV_GE_ATOM || tag == BV_SGE_ATOM);
-
-  d = (bv_atom_t *) safe_malloc(sizeof(bv_atom_t));
-  d->left = l;
-  d->right = r;
-
-  i = allocate_term_id(table);
-  table->kind[i] = tag;
-  table->type[i] = bool_type(table->types);
-  table->desc[i].ptr = d;
-
-  return i;
-}
-
-/*
- * Overloaded binary operations on bitvectors
- */
-static term_t new_bvapply_term(term_table_t *table, uint32_t op, term_t l, term_t r) {
-  term_t i;
-  bvapply_term_t *d;  
-
-  assert(is_bitvector_term(table, l) && is_bitvector_term(table, r));
-  assert(term_type(table, l) == term_type(table, r));
-
-  d = (bvapply_term_t *) safe_malloc(sizeof(bvapply_term_t));
-  d->op = op;
-  d->arg0 = l;
-  d->arg1 = r;
-
-  i = allocate_term_id(table);
-  table->kind[i] = BV_APPLY_TERM;
-  table->type[i] = term_type(table, l);
-  table->desc[i].ptr = d;
-
-  return i;
-}
-
-
-
-/**************************
- *  HASH CONSING SUPPORT  *
- *************************/
 
 /*
  * Objects for interfacing with int_hash_table
@@ -667,146 +431,152 @@ static term_t new_bvapply_term(term_table_t *table, uint32_t op, term_t l, term_
  *    o->m.eq(o, i): check whether o equals term i
  *    o->m.build(o): add o to the term table and return its index
  */
+
+/*
+ * Terms with integer id
+ * - tag = term kind
+ * - tau = type
+ * - id
+ */
 typedef struct {
   int_hobj_t m;
   term_table_t *tbl;
+  term_kind_t tag;
   type_t tau;
-  int32_t idx;
-} constant_term_hobj_t;
+  int32_t id;
+} term_integer_hobj_t;
 
+/*
+ * Rational terms
+ * - tag = term kind
+ * - tau = type
+ * - a = value
+ */
 typedef struct {
   int_hobj_t m;
   term_table_t *tbl;
+  term_kind_t tag;
   type_t tau;
-  int32_t idx;
-} variable_hobj_t;
- 
-typedef struct {
-  int_hobj_t m;       // methods
-  term_table_t *tbl;  // term table
-  term_t cond, then_arg, else_arg;
-  type_t type; // supertype of then and else's types
-} ite_term_hobj_t;
+  rational_t *a;
+} term_rational_hobj_t;
 
+/*
+ * Generic composite
+ * - tag = term kind
+ * - tau = type
+ * - arity = n 
+ * - arg = array of n term occurrences
+ */
 typedef struct {
   int_hobj_t m;
   term_table_t *tbl;
-  term_t left, right;
-} eq_term_hobj_t;
+  term_kind_t tag;
+  type_t tau;
+  uint32_t arity;
+  term_t *arg;
+} composite_hobj_t;
 
+/*
+ * Function application
+ * - f = function
+ * - n = number of arguments
+ * - arg = array of n arguments
+ * - the type is not needed, it's derived from f's type
+ */ 
 typedef struct {
   int_hobj_t m;
   term_table_t *tbl;
-  int32_t nargs;
-  term_t fun;
+  term_t f;
+  uint32_t n;
   term_t *arg;
 } app_term_hobj_t;
 
-typedef struct {
-  int_hobj_t m;
-  term_table_t *tbl;
-  int32_t nargs;
-  term_t *arg;
-} or_term_hobj_t;
 
+/*
+ * Function update
+ * - tau = result type
+ * - f = function
+ * - n = number of arguments
+ * - arg = array of n arguments
+ * - v = new value
+ */
 typedef struct {
   int_hobj_t m;
   term_table_t *tbl;
-  term_t arg;
-} not_term_hobj_t;
-
-typedef struct {
-  int_hobj_t m;
-  term_table_t *tbl;
-  int32_t nargs;
-  term_t *arg;
-} tuple_term_hobj_t;
-
-typedef struct {
-  int_hobj_t m;
-  term_table_t *tbl;
-  int32_t idx;
-  term_t arg;
-} select_term_hobj_t;
-
-typedef struct {
-  int_hobj_t m;
-  term_table_t *tbl;
-  term_t fun;
-  term_t newval;
-  int32_t nargs;
+  type_t tau;
+  term_t f;
+  term_t v;
+  uint32_t n;  
   term_t *arg;
 } update_term_hobj_t;
 
-typedef struct {
-  int_hobj_t m;
-  term_table_t *tbl;
-  int32_t nargs;
-  term_t *arg;
-} distinct_term_hobj_t;
 
+/*
+ * Select term 
+ * - tag = term kind
+ * - tau = type
+ * - k = index in projection/bitselect
+ * - arg = term
+ */
 typedef struct {
   int_hobj_t m;
   term_table_t *tbl;
-  term_t body;
-  int32_t nvars;
-  type_t *var;
-} forall_term_hobj_t;
+  term_kind_t tag;
+  type_t tau;
+  uint32_t k;
+  term_t arg;
+} select_term_hobj_t;
 
+
+/*
+ * Power product
+ * - tau = type
+ * - r = power product
+ */
 typedef struct {
   int_hobj_t m;
   term_table_t *tbl;
+  type_t tau;
+  pprod_t *r;
+} pprod_term_hobj_t;
+
+
+
+/*
+ * Polynomial and arithmetic atoms.
+ * - a polynomial is constructed from a buffer b
+ *   and an array of term indices v
+ * - tag = term kind (can be ARITH_TERM or ARITH_EQ_ATOM or ARITH_GE_ATOM)
+ * - tau = can be int or real or bool
+ */
+typedef struct {
+  int_hobj_t m;
+  term_table_t *tbl;
+  term_kind_t tag;
+  type_t tau;
   arith_buffer_t *b;
-  term_kind_t tag;
-} arith_buffer_hobj_t;
+  int32_t *v;
+} poly_term_hobj_t;
 
+
+/*
+ * Bit-vector polynomials
+ * - tau = type
+ */
 typedef struct {
   int_hobj_t m;
   term_table_t *tbl;
-  monomial_t *mono;
-  int32_t nterms;
-  term_kind_t tag;
-} monarray_hobj_t;
-
-typedef struct {
-  int_hobj_t m;
-  term_table_t *tbl;
-  term_t left, right;
-} arith_bineq_hobj_t;
-
-typedef struct {
-  int_hobj_t m;
-  term_table_t *tbl;
+  type_t tau;
   bvarith_buffer_t *b;
-} bvarith_hobj_t;
+  int32_t *v;
+} bvpoly_term_hobj_t;
 
-typedef struct {
-  int_hobj_t m;
-  term_table_t *tbl;
-  bvlogic_buffer_t *b;
-} bvlogic_hobj_t;
 
-typedef struct {
-  int_hobj_t m;
-  term_table_t *tbl;
-  int32_t nbits;
-  uint32_t *bits;
-} bvconst_hobj_t;
 
-typedef struct {
-  int_hobj_t m;
-  term_table_t *tbl;
-  term_t left, right;
-  term_kind_t tag;
-} bvatom_hobj_t;
 
-typedef struct {
-  int_hobj_t m;
-  term_table_t *tbl;
-  uint32_t op;
-  term_t arg0, arg1;
-} bvapply_term_hobj_t;
 
+
+#if 0
 
 /*
  * Hash functions
@@ -1400,6 +1170,22 @@ static bvapply_term_hobj_t bvapply_term_hobj = {
 /****************
  *  MODULE API  *
  ***************/
+
+
+/*
+ * Add the boolean constant
+ */
+static void add_primitive_term(term_table_t *table) {
+  int32_t i;
+
+  i = allocate_term_id(table);
+  assert(i == bool_const);
+
+  table->kind[i] = CONSTANT_TERM;
+  table->type[i] = bool_type(table->types);
+  table->desc[i].integer = 0;
+}
+
 
 /*
  * Initialize table with initial size = n.

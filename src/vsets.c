@@ -19,7 +19,7 @@
  * Hash code of set a[0 ...n-1]
  */
 static inline uint32_t hash_vset(int32_t *a, uint32_t n) {
-  return jenkins_hash_intarray(n, a);
+  return jenkins_hash_intarray(a, n);
 }
 
 

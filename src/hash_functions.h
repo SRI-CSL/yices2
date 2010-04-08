@@ -7,36 +7,37 @@
 
 #include <stdint.h>
 
+
 /*
- * Generic hash functions for (small) integers, using Jenkin's mix function
+ * CORE HASH FUNCTIONS
  */
 
-// hash with a seed
+/*
+ * Hash of a null-terminated array of bytes (unsigned char, terminated by '\0')
+ */
+extern uint32_t jenkins_hash_byte_var(uint8_t *s, uint32_t seed);
+
+
+/*
+ * Hash of an array of n small integers
+ * - this works best if the high-order bits of d[0 ... n-1] are zero
+ */
+extern uint32_t jenkins_hash_array_var(uint32_t *d, uint32_t n, uint32_t seed);
+
+
+/*
+ * Hash of an array of n integers 
+ * - use this when the integers are not known to be small
+ */
+extern uint32_t jenkins_hash_array(uint32_t *d, uint32_t n, uint32_t seed);
+
+/*
+ * Hash functions for pairs, triple, and 4-tuples of (small) integers.
+ * - this works best if the 16 high-order bits of a, b, c, d are zero.
+ */
 extern uint32_t jenkins_hash_pair(int32_t a, int32_t b, uint32_t seed);
 extern uint32_t jenkins_hash_triple(int32_t a, int32_t b, int32_t c, uint32_t seed);
 extern uint32_t jenkins_hash_quad(int32_t a, int32_t b, int32_t c, int32_t d, uint32_t seed);
-
-// mix of two or three hash codes
-extern uint32_t jenkins_hash_mix2(uint32_t x, uint32_t y);
-extern uint32_t jenkins_hash_mix3(uint32_t x, uint32_t y, uint32_t z);
-
-// null-termninated string
-extern uint32_t jenkins_hash_string_var(char *s, uint32_t seed);
-
-// array of n integers
-extern uint32_t jenkins_hash_intarray_var(uint32_t n, int32_t *d, uint32_t seed);
-
-
-/*
- * Use default seeds
- */
-static inline uint32_t jenkins_hash_string(char * s) {
-  return jenkins_hash_string_var(s, 0x17838abc);
-}
-
-static inline uint32_t jenkins_hash_intarray(uint32_t n, int32_t *d) {
-  return jenkins_hash_intarray_var(n, d, 0x17836abc);
-}
 
 
 /*
@@ -50,21 +51,58 @@ extern uint32_t jenkins_hash_ptr(void *p);
  */
 extern uint32_t jenkins_hash_uint32(uint32_t x);
 
-// signed integer
-static inline uint32_t jenkins_hash_int32(int32_t x) {
-  return jenkins_hash_uint32(x);
-}
-
-
 /*
  * Hash code for a 64bit integer
  */
 extern uint32_t jenkins_hash_uint64(uint64_t x);
 
-// signed integer
+
+/*
+ * Mix two or three hash codes
+ */
+extern uint32_t jenkins_hash_mix2(uint32_t x, uint32_t y);
+extern uint32_t jenkins_hash_mix3(uint32_t x, uint32_t y, uint32_t z);
+
+
+
+
+/*
+ * VARIANTS
+ */
+
+/*
+ * Hash of null-terminated string s, using a default seed.
+ */
+static inline uint32_t jenkins_hash_string(char * s) {
+  return jenkins_hash_byte_var((uint8_t *) s, 0x17838abc);
+}
+
+/*
+ * Hash of an array of small signed integers, default seed,
+ */
+static inline uint32_t jenkins_hash_intarray(int32_t *d, uint32_t n) {
+  return jenkins_hash_array_var((uint32_t *) d, n, 0x17836abc);
+}
+
+/*
+ * Array of small signed integers, user-provided seed
+ */
+static inline uint32_t jenkins_hash_intarray2(int32_t *d, uint32_t n, uint32_t seed) {
+  return jenkins_hash_array_var((uint32_t *) d, n, seed);
+}
+
+
+/*
+ * Signed 32 or 64 bit integers
+ */
+static inline uint32_t jenkins_hash_int32(int32_t x) {
+  return jenkins_hash_uint32(x);
+}
+
 static inline uint32_t jenkins_hash_int64(int64_t x) {
   return jenkins_hash_uint64(x);
 }
+
 
 
 #endif

@@ -60,11 +60,11 @@
  * for null-terminated strings. The original implementation
  * is in hash_functions_ori.c.
  */
-static uint32_t jenkins_hash_byte_var(char *s, uint32_t initval) {
+uint32_t jenkins_hash_byte_var(uint8_t *s, uint32_t seed) {
   uint32_t a, b, c, x;
 
   a = b = 0x9e3779b9;
-  c = initval;
+  c = seed;
 
   for (;;) {
     x = *s ++;
@@ -130,7 +130,7 @@ static uint32_t jenkins_hash_byte_var(char *s, uint32_t initval) {
  * This assumes that most integers are small (16bits).
  * The original implementation is in hash_functions_ori.c.
  */
-static uint32_t jenkins_hash_int_var(uint32_t *k, uint32_t len, uint32_t initval) {
+uint32_t jenkins_hash_array_var(uint32_t *k, uint32_t len, uint32_t initval) {
   uint32_t a, b, c, x;
 
   a = b = 0x9e3779b9;
@@ -162,18 +162,40 @@ static uint32_t jenkins_hash_int_var(uint32_t *k, uint32_t len, uint32_t initval
   return c;
 }
 
-/*
- * Hash of a character string.
- */
-uint32_t jenkins_hash_string_var(char *s, uint32_t seed) {
-  return jenkins_hash_byte_var(s, seed);
-}
+
 
 /*
- * Hash of an array of small integers
+ * Hash code of an array of unsigned integers.
+ * This is based on Jenkins's lookup3 code.
  */
-uint32_t jenkins_hash_intarray_var(uint32_t n, int32_t *d, uint32_t seed) {
-  return jenkins_hash_int_var((uint32_t *) d, n, seed);
+uint32_t jenkins_hash_array(uint32_t *d, uint32_t n, uint32_t seed) {
+  uint32_t a, b, c;
+
+  a = b = c = 0xdeadbeef + n + seed;
+  while (n > 3) {
+    a += d[0];
+    b += d[1];
+    c += d[2];
+    mixx(a, b, c);
+    d += 3;
+    n -= 3;
+  }
+
+  // last block of 1, 2, or 3 integers
+  switch (n) {
+  case 3: c += d[2];
+  case 2: b += d[1];
+  case 1: a += d[0];
+    final(a, b, c);
+    break;
+
+  default:
+    // empty array: return the seed
+    c = seed;
+    break;
+  }
+
+  return c;
 }
 
 /*
@@ -184,9 +206,11 @@ uint32_t jenkins_hash_pair(int32_t a, int32_t b, uint32_t seed) {
 
   x = 0x9e3779b9 + (uint32_t) a;
   y = 0x9e3779b9 + (uint32_t) b;
-  mix(x, y, seed);
+  final(x, y, seed);
+
   return seed;
 }
+
 
 /*
  * Triple
@@ -196,7 +220,8 @@ uint32_t jenkins_hash_triple(int32_t a, int32_t b, int32_t c, uint32_t seed) {
 
   x = 0x9e3779b9 + (((uint32_t) a) & 0xffff) + (((uint32_t) b) << 16);
   y = 0x9e3779b9 + (uint32_t) c;
-  mix(x, y, seed);
+  final(x, y, seed);
+
   return seed;
 }
 
@@ -209,7 +234,8 @@ uint32_t jenkins_hash_quad(int32_t a, int32_t b, int32_t c, int32_t d, uint32_t 
 
   x = 0x9e3779b9 + (((uint32_t) a) & 0xffff) + (((uint32_t) b) << 16);
   y = 0x9e3779b9 + (((uint32_t) c) & 0xffff) + (((uint32_t) d) << 16);
-  mix(x, y, seed);
+  final(x, y, seed);
+
   return seed;
 }
 
@@ -221,12 +247,14 @@ uint32_t jenkins_hash_mix2(uint32_t x, uint32_t y) {
   uint32_t c;
 
   c = 0x17838abc;
-  mix(x, y, c);
+  final(x, y, c);
+
   return c;
 }
 
 uint32_t jenkins_hash_mix3(uint32_t x, uint32_t y, uint32_t z) {
-  mix(x, y, z);
+  final(x, y, z);
+
   return z;
 }
 

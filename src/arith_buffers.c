@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <assert.h>
 
+#include "hash_functions.h"
 #include "arith_buffers.h"
 
 
@@ -1403,5 +1404,117 @@ void arith_buffer_mul_monarray(arith_buffer_t *b, monomial_t *poly, pprod_t **pp
 }
 
 
+
+
+
+
+/*******************************************************************
+ *  SUPPORT FOR HASH CONSING AND CONVERSION TO POLYNOMIAL OBJECTS  *
+ ******************************************************************/
+
+/*
+ * The conversion of a buffer b to a polynomial object requires two steps:
+ * 1) convert all the power-products in b to integer indices.
+ *    This must map empty_pp to const_idx and end_pp to max_idx.
+ * 2) build a polynomial from the coefficients of b and the integer indices
+ *
+ * The operations below use a buffer b and an integer array v.
+ * The array v stores the conversion from power-products to integer indices:
+ * If b contains a_0 r_0 + ... + a_n r_n then v must have (n+1) elements
+ * and the integer  index for power product r_i is v[i].
+ *
+ * The pair (b, v) defines then a polynomial P(b, v) = a_1 v[1] + ... + a_n v[n],
+ */
+
+/*
+ * Hash code for P(b, v). 
+ * This function is consistent with hash_polynomial defined in polynomials.c:
+ * If P(b, v) = p0 then hash_arith_buffer(b, v) = hash_polynomial(p0).
+ */
+uint32_t hash_arith_buffer(arith_buffer_t *b, int32_t *v) {
+  mlist_t *q;
+  uint32_t h, num, den;
+
+  h = HASH_POLY_SEED + b->nterms;
+  q = b->list;
+  while (q->next != NULL) {
+    // monomial (a_i * x_i) where 
+    // a_i is q->coeff and x_i is *v
+    q_hash_decompose(&q->coeff, &num, &den);
+    h = jenkins_hash_triple(*v, num, den, h);
+
+    q = q->next;
+    v ++;
+  }
+
+  return h;
+}
+
+
+
+/*
+ * Check where P(b, v) is equal to p
+ * - both b and p must be normalized.
+ */
+bool arith_buffer_equal_poly(arith_buffer_t *b, int32_t *v, polynomial_t *p) {
+  mlist_t *q;
+  monomial_t *mono;
+  int32_t x1, x2;
+
+  if (b->nterms == p->nterms) {
+    q = b->list;
+    mono = p->mono;
+    x1 = *v;
+    x2 = mono->var;
+    while (x1 == x2) {
+      if (x1 == max_idx) return true;
+      if (q_neq(&q->coeff, &mono->coeff)) return false;
+
+      mono ++;
+      v ++;
+      q = q->next;
+      x1 = *v;
+      x2 = mono->var;
+    }
+  }
+
+  return false;
+}
+
+
+/*
+ * Build P(b, v) (i.e., convert b to a polynomial then reset b).
+ * SIDE EFFECT: b is reset to the zero polynomial.
+ */
+polynomial_t *arith_buffer_get_poly(arith_buffer_t *b, int32_t *v) {
+  polynomial_t *tmp;
+  mlist_t *q, *next;
+  uint32_t n, i;
+  
+  n = b->nterms;
+  tmp = alloc_raw_polynomial(n);
+
+  q = b->list;  
+  for (i=0; i<n; i++) {
+    assert(q->prod != end_pp && v[i] < max_idx);
+    // monomial i: coeff = q->coeff, var = v[i]
+    tmp->mono[i].var = v[i];
+    q_copy_and_clear(&tmp->mono[i].coeff, &q->coeff);
+
+    // delete the list element
+    next = q->next;
+    objstore_free(b->store, q);
+    q = next;
+  }
+
+  // empty the monomial list in b
+  assert(q->next == NULL && q->prod == end_pp);
+  b->nterms = 0;
+  b->list = q;
+
+  assert(tmp->mono[n].var == max_idx);
+
+  return tmp;
+}
 
 

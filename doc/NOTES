@@ -138,11 +138,8 @@ cputime.h:		For measuring computing time
 gcd.h:			gcd of two integers
 gcd.c
 
-hash_functions.h:       various hash functions based on Jensen's code
+hash_functions.h:       various hash functions based on Bob Jenkins's public-domain code
 hash_functions.c
-
-hash_functions_ori.h:	older versions of hash functions. Still used by some test modules.
-hash_functions_ori.c
 
 int_array_sort.h:       sort an array of integers in increasing order
 int_array_sort.c

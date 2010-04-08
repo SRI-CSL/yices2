@@ -62,6 +62,12 @@ typedef struct {
 
 
 /*
+ * Seed used in the hash function
+ */
+#define HASH_BVPOLY64_SEED ((uint32_t) 0xfe4dea20)
+
+
+/*
  * Allocate a bit-vector polynomial
  * - n = number of terms (excluding the end marker)
  * - n must be less than MAX_BVPOLY64_SIZE
@@ -78,6 +84,12 @@ extern bvpoly64_t *alloc_bvpoly64(uint32_t n, uint32_t size);
 static inline void free_bvpoly64(bvpoly64_t *p) {
   safe_free(p);
 }
+
+
+/*
+ * Hash code of p
+ */
+extern uint32_t hash_bvpoly64(bvpoly64_t *p);
 
 
 /*
