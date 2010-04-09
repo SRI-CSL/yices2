@@ -68,8 +68,8 @@ src_c := arena.c arith_buffers.c bvarith_buffers.c                  \
          ptr_vectors.c rationals.c rb_bvsets.c reader.c             \
          refcount_strings.c small_bvsets.c smt_lexer.c              \
          smt_logic_codes.c string_buffers.c symbol_tables.c terms.c \
-         types.c type_printer.c uint_rbtrees.c union_find.c         \
-         use_vectors.c vsets.c yices_lexer.c yices_pp.c
+         term_printer.c types.c type_printer.c uint_rbtrees.c       \
+	 union_find.c use_vectors.c vsets.c yices_lexer.c yices_pp.c
 
 
 #

@@ -116,6 +116,16 @@ void print_type(FILE *f, type_table_t *tbl, type_t tau) {
 
 
 /*
+ * Definition: name := type
+ */
+void print_type_def(FILE *f, type_table_t *tbl, type_t tau) {
+  print_type_name(f, tbl, tau);
+  fputs(" := ", f);
+  print_type_recur(f, tbl, tau, 1);
+}
+
+
+/*
  * Print type flags as a combination of 3 letters
  */
 static void print_type_flags(FILE *f, uint8_t flags) {
