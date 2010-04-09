@@ -793,11 +793,11 @@ void clear_type_name(type_table_t *table, type_t t) {
 
   name = table->name[t];
   if (name != NULL) {
-    table->name[t] = NULL;
-    string_decref(name);
     if (stbl_find(&table->stbl, name) == t) {
       stbl_remove(&table->stbl, name);
     }
+    table->name[t] = NULL;
+    string_decref(name);
   }
 }
 
@@ -1279,7 +1279,7 @@ static void erase_hcons_type(type_table_t *table, type_t i) {
 
 
 /*
- * Mark all descendants of i whose id is less than ptr.
+ * Mark all descendants of i whose ids are less than ptr.
  * - i must be a marked type (and not already deleted)
  *
  * NOTE: we use a recursive function to propagate the marks.

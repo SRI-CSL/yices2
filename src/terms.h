@@ -90,8 +90,8 @@
  * 6) arithmetic terms and atoms
  *    - terms are either rational constants, power products, or 
  *      polynomials with rational coefficients
- *    - atoms are either of the form (p == 0) or (p >= 0)
- *      where p is a polynomial.
+ *    - atoms are either of the form (t == 0) or (t >= 0)
+ *      where p is a term.
  *    - atoms a x - a y == 0 are rewritten to (x = y)
  * 7) bitvector terms and atoms
  *    - bitvector constants
@@ -181,7 +181,9 @@
  * TERM KINDS
  */
 typedef enum {
-  UNUSED_TERM,    // deleted
+  UNUSED_TERM,    // deleted term
+
+  RESERVED_TERM,  // mark for term indices that can't be used
 
   // Generic atomic terms
   CONSTANT_TERM,  // constant of uninterpreted/scalar/boolean types
@@ -208,7 +210,7 @@ typedef enum {
 
   // Arithmetic terms and atoms
   ARITH_CONSTANT,   // rational constant
-  ARITH_TERM,       // polynomial
+  ARITH_POLY,       // polynomial
   ARITH_EQ_ATOM,    // atom p == 0
   ARITH_GE_ATOM,    // atom p >= 0
   ARITH_BINEQ_ATOM, // equality: (t1 == t2)  (between two arithmetic terms)
@@ -216,8 +218,8 @@ typedef enum {
   // Bitvector terms and atoms
   BV64_CONSTANT,   // compact bitvector constant (64bit at most)
   BV_CONSTANT,     // generic bitvector constant
-  BV64_TERM,       // polynomial with 64bit coefficients
-  BV_TERM,         // generic polynomial
+  BV64_POLY,       // polynomial with 64bit coefficients
+  BV_POLY,         // generic polynomial
   BV_ARRAY,        // array of boolean terms
   BV_DIV,          // unsigned division
   BV_REM,          // unsigned remainder
@@ -240,15 +242,19 @@ typedef enum {
  */
 
 /*
- * The boolean constant true is built-in and always has index 0.
+ * Term index 0 is reserved to make sure there's no possibility
+ * that a real term has index equal to const_idx (= 0) used in 
+ * polynomials.
+ *
+ * The boolean constant true is built-in and always has index 1.
  * This gives two terms:
- * - true_term = pos_occ(bool_const) = 0
- * - false_term = neg_occ(bool_const) = 1
+ * - true_term = pos_occ(bool_const) = 2
+ * - false_term = neg_occ(bool_const) = 3
  */
 enum {
-  bool_const = 0,
-  true_term = 0,
-  false_term = 1,
+  bool_const = 1,
+  true_term = 2,
+  false_term = 3,
 };
 
 
@@ -261,7 +267,7 @@ enum {
  */
 typedef struct composite_term_s {
   uint32_t arity;  // number of subterms
-  term_t component[0];  // real size = arity
+  term_t arg[0];  // real size = arity
 } composite_term_t;
 
 
@@ -483,7 +489,7 @@ extern term_t arith_constant(term_table_t *table, rational_t *a);
 
 
 /*
- * In the three constructors that use an arith_buffer b:
+ * Arithmetic term
  * - all variables of b must be real or integer terms defined in table
  * - b must be normalized and b->ptbl must be the same as table->ptbl
  * - if b contains a non-linear polynomial then the power products that
@@ -491,25 +497,23 @@ extern term_t arith_constant(term_table_t *table, rational_t *a);
  * - then b is turned into a polynomial object a_1 x_1 + ... + a_n x_n,
  *   where x_i is a term.
  *
- * SIDE EFFECT: The three arithmetic constructors reset b to zero.
- */
-
-/*
- * Arithmetic term
+ * SIDE EFFECT: b is reset to zero
  */
 extern term_t arith_term(term_table_t *table, arith_buffer_t *b);
 
 
 /*
- * Atom (b == 0)
+ * Atom (t == 0)
+ * - t must be an arithmetic term
  */
-extern term_t arith_eq_atom(term_table_t *table, arith_buffer_t *b);
+extern term_t arith_eq_atom(term_table_t *table, term_t t);
 
 
 /*
- * Atom (b >= 0)
+ * Atom (t >= 0)
+ * - t must be an arithmetic term
  */
-extern term_t arith_geq_atom(term_table_t *table, arith_buffer_t *b);
+extern term_t arith_geq_atom(term_table_t *table, term_t t);
 
 
 /*
@@ -609,7 +613,8 @@ extern term_t bvsge_atom(term_table_t *table, term_t l, term_t r);
 /*
  * Store t as the unique term of type tau:
  * - tau must be a singleton type
- * - t must be a valid term occurrence
+ * - t must be a valid term occurrence of type tau
+ * - there musn't be a representative for tau already
  */
 extern void add_unit_type_rep(term_table_t *table, type_t tau, term_t t);
 
@@ -634,8 +639,8 @@ extern term_t unit_type_rep(term_table_t *table, type_t tau);
  * implemented in refcount_strings.h.
  *
  * Parameter "name" in set_term_name must be constructed via the
- * clone_string function.  That's not necessary for get_type_by_name
- * or remove_type_name.  When name is added to the term table, its
+ * clone_string function.  That's not necessary for get_term_by_name
+ * or remove_term_name.  When name is added to the term table, its
  * reference counter is increased by 1 or 2.  When remove_term_name is
  * called for an existing symbol, the symbol's reference counter is
  * decremented.  When the table is deleted (via delete_term_table),
@@ -692,7 +697,7 @@ extern char *term_name(term_table_t *table, term_t t);
  *   The reference counter for 'xxx' is decremented twice.
  * - If t doesn't have a base name, nothing is done.
  */
-extern void clear_term_name(type_table_t *table, term_t t);
+extern void clear_term_name(term_table_t *table, term_t t);
 
 
 
@@ -911,7 +916,7 @@ static inline void term_table_set_gc_mark(term_table_t *table, int32_t i) {
 }
 
 static inline void term_table_clr_gc_mark(term_table_t *table, int32_t i) {
-  assert(good_term_idx(table, i));
+  assert(valid_term_idx(table, i));
   clr_bit(table->mark, i);
 }
 
@@ -920,7 +925,7 @@ static inline void term_table_clr_gc_mark(term_table_t *table, int32_t i) {
  * Test whether i is marked
  */
 static inline bool term_idx_is_marked(term_table_t *table, int32_t i) {
-  assert(good_term_idx(table, i));
+  assert(valid_term_idx(table, i));
   return tst_bit(table->mark, i);
 }
 

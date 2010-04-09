@@ -26,8 +26,8 @@
  * 6) arithmetic terms and atoms
  *    - terms are either rational constants, power products, or 
  *      polynomials with rational coefficients
- *    - atoms are either of the form (p == 0) or (p >= 0)
- *      where p is a polynomial.
+ *    - atoms are either of the form (t == 0) or (t >= 0)
+ *      where t is a term.
  *    - atoms a x - a y == 0 are rewritten to (x = y)
  * 7) bitvector terms and atoms
  *    - bitvector constants
@@ -253,7 +253,7 @@ static composite_term_t *new_composite_term(uint32_t n, term_t *a) {
   d = (composite_term_t *) safe_malloc(sizeof(composite_term_t) + n * sizeof(term_t));
   d->arity = n;
   for (j=0; j<n; j++) {
-    d->component[j] = a[j];
+    d->arg[j] = a[j];
   }
 
   return d;
@@ -274,9 +274,9 @@ static composite_term_t *new_app_term(term_t f, uint32_t n, term_t *a) {
 
   d = (composite_term_t *) safe_malloc(sizeof(composite_term_t) + (n+1) * sizeof(term_t));
   d->arity = n+1;
-  d->component[0] = f;
+  d->arg[0] = f;
   for (j=0; j<n; j++) {
-    d->component[j + 1] = a[j];
+    d->arg[j + 1] = a[j];
   }
 
   return d;
@@ -294,11 +294,31 @@ static composite_term_t *new_update_term(term_t f, uint32_t n, term_t *a, term_t
 
   d = (composite_term_t *) safe_malloc(sizeof(composite_term_t) + (n+2) * sizeof(term_t));
   d->arity = n+2;
-  d->component[0] = f;
+  d->arg[0] = f;
   for (j=0; j<n; j++) {
-    d->component[j + 1] = a[j];
+    d->arg[j + 1] = a[j];
   }
-  d->component[j + 1] = v;
+  d->arg[j + 1] = v;
+
+  return d;
+}
+
+
+/*
+ * Quantified term: (forall v[0] ... v[n-1] p)
+ */
+static composite_term_t *new_forall_term(uint32_t n, term_t *v, term_t p) {
+  composite_term_t *d;
+  uint32_t j;
+
+  assert(n <= MAX_COMPOSITE_TERM_ARITY - 1);
+
+  d = (composite_term_t *) safe_malloc(sizeof(composite_term_t) + (n+1) * sizeof(term_t));
+  d->arity = n+1;
+  for (j=0; j<n; j++) {
+    d->arg[j] = v[j];
+  }
+  d->arg[j] = p;
 
   return d;
 }
@@ -318,7 +338,35 @@ static select_term_t *new_select_term(uint32_t k, term_t t) {
 }
 
 
+/*
+ * Bit-vector constant:
+ * - v = array of k words where k = ceil(bitsize/32).
+ */
+static bvconst_term_t *new_bvconst_term(uint32_t bitsize, uint32_t *v) {
+  bvconst_term_t *d;
+  uint32_t k;
 
+  k = (bitsize + 31) >> 5;
+  d = (bvconst_term_t *) safe_malloc(sizeof(bvconst_term_t) + k * sizeof(uint32_t));
+  d->bitsize = bitsize;
+  bvconst_set(d->data, k, v);
+
+  return d;
+}
+
+
+/*
+ * Small bitvector constant
+ */
+static bvconst64_term_t *new_bvconst64_term(uint32_t bitsize, uint64_t v) {
+  bvconst64_term_t *d;
+
+  d = (bvconst64_term_t *) safe_malloc(sizeof(bvconst64_term_t));
+  d->bitsize = bitsize;
+  d->value = v;
+
+  return d;
+}
 
 
 /*
@@ -326,9 +374,15 @@ static select_term_t *new_select_term(uint32_t k, term_t t) {
  */
 
 /*
+ * Hash functions for polynomials, bv_polynomials, and bv64_polynomials are
+ * defined in polynomials.c, bv_polynomials.c, and bv64_polynomials.c.
+ * The following functions deal with the other term descriptors.
+ */
+
+/*
  * Indexed term defined by (tag, tau, id)
  */
-static uint32_t hash_integer_term(term_kind_t tag, type_t tau, int32_t id) {
+static inline uint32_t hash_integer_term(term_kind_t tag, type_t tau, int32_t id) {
   return jenkins_hash_triple(tag, tau, id, 0x2839adee);
 }
 
@@ -376,9 +430,20 @@ static uint32_t hash_update_term(term_t f, uint32_t n, term_t *a, term_t v) {
 
 
 /*
+ * Quantified term: (forall v[0] ... v[n-1] p)
+ */
+static uint32_t hash_forall_term(uint32_t n, term_t *v, term_t p) {
+  uint32_t h;
+
+  h = jenkins_hash_intarray(v, n);
+  return jenkins_hash_pair(p, h, 0xfe3a2788);
+}
+
+
+/*
  * Projection/bit selection: (tag, k, t)
  */
-static uint32_t hash_select_term(term_kind_t tag, int32_t k, term_t t) {
+static inline uint32_t hash_select_term(term_kind_t tag, uint32_t k, term_t t) {
   return jenkins_hash_triple(tag, k, t, 0x98ab3342);
 }
 
@@ -387,7 +452,7 @@ static uint32_t hash_select_term(term_kind_t tag, int32_t k, term_t t) {
  * Power product: since the pprod-table already does hash consing,
  * a power product r is uniquely identified by its address.
  */
-static uint32_t hash_power_product(pprod_t *r) {
+static inline uint32_t hash_power_product(pprod_t *r) {
   return jenkins_hash_ptr(r);
 }
 
@@ -444,7 +509,8 @@ typedef struct {
   term_kind_t tag;
   type_t tau;
   int32_t id;
-} term_integer_hobj_t;
+} integer_term_hobj_t;
+
 
 /*
  * Rational terms
@@ -458,7 +524,8 @@ typedef struct {
   term_kind_t tag;
   type_t tau;
   rational_t *a;
-} term_rational_hobj_t;
+} rational_term_hobj_t;
+
 
 /*
  * Generic composite
@@ -474,18 +541,20 @@ typedef struct {
   type_t tau;
   uint32_t arity;
   term_t *arg;
-} composite_hobj_t;
+} composite_term_hobj_t;
+
 
 /*
  * Function application
+ * - tau = type of (f arg[0] ... arg[n-1])
  * - f = function
  * - n = number of arguments
  * - arg = array of n arguments
- * - the type is not needed, it's derived from f's type
  */ 
 typedef struct {
   int_hobj_t m;
   term_table_t *tbl;
+  type_t tau;
   term_t f;
   uint32_t n;
   term_t *arg;
@@ -512,6 +581,21 @@ typedef struct {
 
 
 /*
+ * Quantified formula: (forall v[0] ... v[n-1] p)
+ * - p = body
+ * - n = number of variables
+ * - arg = array of n variables
+ */
+typedef struct {
+  int_hobj_t m;
+  term_table_t *tbl;
+  term_t p;
+  uint32_t n;  
+  term_t *v;
+} forall_term_hobj_t;
+
+
+/*
  * Select term 
  * - tag = term kind
  * - tau = type
@@ -530,7 +614,7 @@ typedef struct {
 
 /*
  * Power product
- * - tau = type
+ * - tau = type (can be int, real, or bitvector)
  * - r = power product
  */
 typedef struct {
@@ -543,16 +627,14 @@ typedef struct {
 
 
 /*
- * Polynomial and arithmetic atoms.
+ * Polynomial
  * - a polynomial is constructed from a buffer b
  *   and an array of term indices v
- * - tag = term kind (can be ARITH_TERM or ARITH_EQ_ATOM or ARITH_GE_ATOM)
- * - tau = can be int or real or bool
+ * - tau can be int or real
  */
 typedef struct {
   int_hobj_t m;
   term_table_t *tbl;
-  term_kind_t tag;
   type_t tau;
   arith_buffer_t *b;
   int32_t *v;
@@ -561,7 +643,7 @@ typedef struct {
 
 /*
  * Bit-vector polynomials
- * - tau = type
+ * - tau = bitvector type
  */
 typedef struct {
   int_hobj_t m;
@@ -572,611 +654,846 @@ typedef struct {
 } bvpoly_term_hobj_t;
 
 
+/*
+ * Bit vector polynomials with small coefficients.
+ * - tau = bitvector type
+ */
+typedef struct {
+  int_hobj_t m;
+  term_table_t *tbl;
+  type_t tau;
+  bvarith64_buffer_t *b;
+  int32_t *v;
+} bvpoly64_term_hobj_t;
 
-
-
-
-#if 0
 
 /*
- * Hash functions
+ * Bit vector constants
+ * - v = value stored as an array of words
  */
-static uint32_t hash_constant_term(constant_term_hobj_t *p) {
-  return jenkins_hash_pair(p->tau, p->idx, 0x19ef312c);
-}
+typedef struct {
+  int_hobj_t m;
+  term_table_t *tbl;
+  type_t tau;
+  uint32_t bitsize;
+  uint32_t *v;
+} bvconst_term_hobj_t;
 
-static uint32_t hash_variable(variable_hobj_t *p) {
-  return jenkins_hash_pair(p->tau, p->idx, 0x83891aef);
-}
 
-static uint32_t hash_ite_term(ite_term_hobj_t *p) {
-  return jenkins_hash_triple(p->cond, p->then_arg, p->else_arg, 0x9f34197a);
-}
-
-static uint32_t hash_eq_term(eq_term_hobj_t *p) {
-  return jenkins_hash_pair(p->left, p->right, 0x78d2bae1);
-}
-
-static uint32_t hash_app_term(app_term_hobj_t *p) {
-  uint32_t h;
-  h = jenkins_hash_intarray(p->nargs, p->arg);
-  return jenkins_hash_pair(p->fun, 0, h);
-}
-
-static uint32_t hash_or_term(or_term_hobj_t *p) {
-  return jenkins_hash_intarray_var(p->nargs, p->arg, 0xf82bf286);
-}
-
-static uint32_t hash_not_term(not_term_hobj_t *p) {
-  return jenkins_hash_pair(p->arg, 0, 0x183b42e6);
-}
-
-static uint32_t hash_tuple_term(tuple_term_hobj_t *p) {
-  return jenkins_hash_intarray_var(p->nargs, p->arg, 0xae7bd466);
-}
-
-static uint32_t hash_select_term(select_term_hobj_t *p) {
-  return jenkins_hash_pair(p->arg, p->idx, 0x4137bee9);
-}
-
-static uint32_t hash_update_term(update_term_hobj_t *p) {
-  uint32_t h;
-  h = jenkins_hash_intarray_var(p->nargs, p->arg, 0x378a121a);
-  return jenkins_hash_pair(p->fun, p->newval, h);
-}
-
-static uint32_t hash_distinct_term(distinct_term_hobj_t *p) {
-  return jenkins_hash_intarray_var(p->nargs, p->arg, 0x783426);
-}
-
-static uint32_t hash_forall_term(forall_term_hobj_t *p) {
-  uint32_t h;
-  h = jenkins_hash_intarray_var(p->nvars, p->var, 0x9172ea9f);
-  return jenkins_hash_pair(p->body, 0, h);
-}
-
-static uint32_t hash_arith_buffer_term(arith_buffer_hobj_t *p) {
-  uint32_t h;
-  h = arith_buffer_hash(p->b);
-  return jenkins_hash_pair(p->tag, 0, h);
-}
-
-static uint32_t hash_monarray_term(monarray_hobj_t *p) {
-  uint32_t h;
-  h = hash_monarray(p->mono);
-  return jenkins_hash_pair(p->tag, 0, h);
-}
-
-static uint32_t hash_arith_bineq_atom(arith_bineq_hobj_t *p) {
-  return jenkins_hash_pair(p->left, p->right, 0x761bedaf);
-}
-
-static uint32_t hash_bvarith_term(bvarith_hobj_t *p) {
-  return bvarith_buffer_hash(p->b);
-}
-
-static uint32_t hash_bvlogic_term(bvlogic_hobj_t *p) {
-  return bvlogic_buffer_hash(p->b);
-}
-
-static uint32_t hash_bvconst_term(bvconst_hobj_t *p) {
-  int32_t k;
-  k = (p->nbits + 31) >> 5; // number of 32-bit words 
-  return jenkins_hash_intarray_var(k, (int32_t *) p->bits, 0x71837ae4);
-}
-
-static uint32_t hash_bvatom(bvatom_hobj_t *p) {
-  return jenkins_hash_triple(p->left, p->right, p->tag, 0x7aaf3277);
-}
-
-static uint32_t hash_bvapply_term(bvapply_term_hobj_t *p) {
-  return jenkins_hash_triple(p->op, p->arg0, p->arg1, 0x8317ed8);
-}
+/*
+ * Small bit vector constants
+ */
+typedef struct {
+  int_hobj_t m;
+  term_table_t *tbl;
+  type_t tau;
+  uint32_t bitsize;
+  uint64_t v;
+} bvconst64_term_hobj_t;
 
 
 
 /*
- * Equality tests
+ * Hash functions for these objects
  */
-static bool equal_constant_term(constant_term_hobj_t *p, term_t i) {
-  term_table_t *table;
-
-  table = p->tbl;
-  return table->kind[i] == CONSTANT_TERM && table->type[i] == p->tau &&
-    table->desc[i].integer == p->idx;
+static uint32_t hash_integer_hobj(integer_term_hobj_t *o) {
+  return hash_integer_term(o->tag, o->tau, o->id);
 }
 
-static bool equal_variable(variable_hobj_t *p, term_t i) {
-  term_table_t *table;
-
-  table = p->tbl;
-  return table->kind[i] == VARIABLE && table->type[i] == p->tau &&
-    table->desc[i].integer == p->idx;
+static uint32_t hash_rational_hobj(rational_term_hobj_t *o) {
+  return hash_rational_term(o->tag, o->tau, o->a);
 }
 
-static bool equal_ite_term(ite_term_hobj_t *p, term_t i) {
-  term_table_t *table;
-  ite_term_t *d;
-
-  table = p->tbl;
-  if (table->kind[i] != ITE_TERM) return false;
-
-  d = (ite_term_t *) table->desc[i].ptr;
-  return d->cond == p->cond && d->then_arg == p->then_arg && d->else_arg == p->else_arg;
+static uint32_t hash_composite_hobj(composite_term_hobj_t *o) {
+  return hash_composite_term(o->tag, o->arity, o->arg);
 }
 
-static bool equal_eq_term(eq_term_hobj_t *p, term_t i) {
-  term_table_t *table;
-  eq_term_t *d;
-
-  table = p->tbl;
-  if (table->kind[i] != EQ_TERM) return false;
-
-  d = (eq_term_t *) table->desc[i].ptr;
-  return d->left == p->left && d->right == p->right;
+static uint32_t hash_app_hobj(app_term_hobj_t *o) {
+  return hash_app_term(o->f, o->n, o->arg);
 }
 
-static bool equal_app_term(app_term_hobj_t *p, term_t i) {
-  term_table_t *table;
-  app_term_t *d;
-  uint32_t j;
+static uint32_t hash_update_hobj(update_term_hobj_t *o) {
+  return hash_update_term(o->f, o->n, o->arg, o->v);
+}
 
-  table = p->tbl;
+static uint32_t hash_forall_hobj(forall_term_hobj_t *o) {
+  return hash_forall_term(o->n, o->v, o->p);
+}
+
+static uint32_t hash_select_hobj(select_term_hobj_t *o) {
+  return hash_select_term(o->tag, o->k, o->arg);
+}
+
+static uint32_t hash_pprod_hobj(pprod_term_hobj_t *o) {
+  return hash_power_product(o->r);
+}
+
+static uint32_t hash_poly_hobj(poly_term_hobj_t *o) {
+  return hash_arith_buffer(o->b, o->v);
+}
+
+static uint32_t hash_bvpoly_hobj(bvpoly_term_hobj_t *o) {
+  return hash_bvarith_buffer(o->b, o->v);
+}
+
+static uint32_t hash_bvpoly64_hobj(bvpoly64_term_hobj_t *o) {
+  return hash_bvarith64_buffer(o->b, o->v);
+}
+
+static uint32_t hash_bvconst_hobj(bvconst_term_hobj_t *o) {
+  return hash_bvconst_term(o->bitsize, o->v);
+}
+
+static uint32_t hash_bvconst64_hobj(bvconst64_term_hobj_t *o) {
+  return hash_bvconst64_term(o->bitsize, o->v);
+}
+
+
+/*
+ * Equality test: o = hash object, i = index of a term in o->tbl
+ */
+static bool eq_integer_hobj(integer_term_hobj_t *o, int32_t i) {
+  term_table_t *table;
+
+  table = o->tbl;
+  assert(good_term_idx(table, i));
+
+  return table->kind[i] == o->tag && table->type[i] == o->tau 
+    && table->desc[i].integer == o->id;
+}
+
+static bool eq_rational_hobj(rational_term_hobj_t *o, int32_t i) {
+  term_table_t *table;
+
+  table = o->tbl;
+  assert(good_term_idx(table, i));
+
+  return table->kind[i] == o->tag && q_eq(&table->desc[i].rational, o->a);
+}
+
+
+// test whether arrays a and b of size n are equal
+static bool eq_term_arrays(term_t *a, term_t *b, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
+}
+
+static bool eq_composite_hobj(composite_term_hobj_t *o, int32_t i) {
+  term_table_t *table;
+  composite_term_t *d;
+  uint32_t n;
+
+  table = o->tbl;
+  assert(good_term_idx(table, i));
+
+  if (table->kind[i] != o->tag) return false;
+
+  d = table->desc[i].ptr;
+  n = d->arity;
+  return n == o->arity && eq_term_arrays(o->arg, d->arg, n);
+}
+
+static bool eq_app_hobj(app_term_hobj_t *o, int32_t i) {
+  term_table_t *table;
+  composite_term_t *d;
+  uint32_t n;
+
+  table = o->tbl;
+  assert(good_term_idx(table, i));
+
   if (table->kind[i] != APP_TERM) return false;
 
-  d = (app_term_t *) table->desc[i].ptr;
-  if (d->fun != p->fun) return false;
-
-  assert(d->nargs == p->nargs);
-  for (j=0; j<p->nargs; j++) {
-    if (d->arg[j] != p->arg[j]) return false;
-  }
-
-  return true;
+  d = table->desc[i].ptr;
+  n = o->n;
+  return d->arity == n+1 && d->arg[0] == o->f && 
+    eq_term_arrays(o->arg, d->arg + 1, n);
 }
 
-static bool equal_or_term(or_term_hobj_t *p, term_t i) {
+static bool eq_update_hobj(update_term_hobj_t *o, int32_t i) {
   term_table_t *table;
-  or_term_t *d;
-  int32_t j;
+  composite_term_t *d;
+  uint32_t n;
 
-  table = p->tbl;
-  if (table->kind[i] != OR_TERM) return false;
+  table = o->tbl;
+  assert(good_term_idx(table, i));
 
-  d = (or_term_t *) table->desc[i].ptr;
-  if (d->nargs != p->nargs) return false;
+  if (table->kind[i] != UPDATE_TERM) return false;
 
-  for (j=0; j<p->nargs; j++) {
-    if (d->arg[j] != p->arg[j]) return false;
-  }
-
-  return true;
+  d = table->desc[i].ptr;
+  n = o->n;
+  return d->arity == n+2 && d->arg[0] == o->f && 
+    d->arg[n + 1] == o->v &&
+    eq_term_arrays(o->arg, d->arg + 1, n);
 }
 
-static bool equal_not_term(not_term_hobj_t *p, term_t i) {
+static bool eq_forall_hobj(forall_term_hobj_t *o, int32_t i) {
   term_table_t *table;
+  composite_term_t *d;
+  uint32_t n;
 
-  table = p->tbl;
+  table = o->tbl;
+  assert(good_term_idx(table, i));
 
-  return table->kind[i] == NOT_TERM && table->desc[i].integer == p->arg;
+  if (table->kind[i] != FORALL_TERM) return false;
+
+  d = table->desc[i].ptr;
+  n = o->n;
+  return d->arity == n+1 && d->arg[n] == o->p &&
+    eq_term_arrays(o->v, d->arg, n);
 }
 
-static bool equal_tuple_term(tuple_term_hobj_t *p, term_t i) {
-  term_table_t *table;
-  tuple_term_t *d;
-  int32_t j;
-
-  table = p->tbl;
-  if (table->kind[i] != TUPLE_TERM) return false;
-
-  d = (tuple_term_t *) table->desc[i].ptr;
-  if (d->nargs != p->nargs) return false;
-
-  for (j=0; j<p->nargs; j++) {
-    if (d->arg[j] != p->arg[j]) return false;
-  }
-
-  return true;
-}
-
-static bool equal_select_term(select_term_hobj_t *p, term_t i) {
+static bool eq_select_hobj(select_term_hobj_t *o, int32_t i) {
   term_table_t *table;
   select_term_t *d;
 
-  table = p->tbl;
-  if (table->kind[i] != SELECT_TERM) return false;
+  table = o->tbl;
+  assert(good_term_idx(table, i));
 
-  d = (select_term_t *) table->desc[i].ptr;
-  return p->idx == d->idx && p->arg == d->arg;
+  if (table->kind[i] != o->tag) return false;
+
+  d = table->desc[i].ptr;
+  return d->idx == o->k && d->arg == o->arg;
 }
 
-static bool equal_update_term(update_term_hobj_t *p, term_t i) {
+static bool eq_pprod_hobj(pprod_term_hobj_t *o, int32_t i) {
   term_table_t *table;
-  update_term_t *d;
-  int32_t j;
 
-  table = p->tbl;
-  if (table->kind[i] != UPDATE_TERM) return false;
-
-  d = (update_term_t *) table->desc[i].ptr;
-  if (d->fun != p->fun || d->newval != p->newval) return false;
-
-  assert(d->nargs == p->nargs);
-  for (j=0; j<p->nargs; j++) {
-    if (d->arg[j] != p->arg[j]) return false;
-  }
-
-  return true;
+  table = o->tbl;
+  assert(good_term_idx(table, i));
+  return table->kind[i] == POWER_PRODUCT && table->desc[i].ptr == o->r;
 }
 
-static bool equal_distinct_term(distinct_term_hobj_t *p, term_t i) {
+static bool eq_poly_hobj(poly_term_hobj_t *o, int32_t i) {
   term_table_t *table;
-  distinct_term_t *d;
-  int32_t j;
 
-  table = p->tbl;
-  if (table->kind[i] != DISTINCT_TERM) return false;
+  table = o->tbl;
+  assert(good_term_idx(table, i));
 
-  d = (distinct_term_t *) table->desc[i].ptr;
-  if (d->nargs != p->nargs) return false;
-
-  for (j=0; j<p->nargs; j++) {
-    if (d->arg[j] != p->arg[j]) return false;
-  }
-
-  return true;
+  return table->kind[i] == ARITH_POLY && 
+    arith_buffer_equal_poly(o->b, o->v, table->desc[i].ptr);
 }
 
-static bool equal_forall_term(forall_term_hobj_t *p, term_t i) {
+static bool eq_bvpoly_hobj(bvpoly_term_hobj_t *o, int32_t i) {
   term_table_t *table;
-  forall_term_t *d;
-  int32_t j;
 
-  table = p->tbl;
-  if (table->kind[i] != FORALL_TERM) return false;
+  table = o->tbl;
+  assert(good_term_idx(table, i));
 
-  d = (forall_term_t *) table->desc[i].ptr;
-  if (d->nvars != p->nvars || d->body != p->body) return false;
-
-  for (j=0; j<p->nvars; j++) {
-    if (d->var[j] != p->var[j]) return false;
-  }
-
-  return true;
+  return table->kind[i] == BV_POLY && 
+    bvarith_buffer_equal_bvpoly(o->b, o->v, table->desc[i].ptr);
 }
 
-static bool equal_arith_buffer_term(arith_buffer_hobj_t *p, term_t i) {
+static bool eq_bvpoly64_hobj(bvpoly64_term_hobj_t *o, int32_t i) {
   term_table_t *table;
 
-  table = p->tbl;
-  if (table->kind[i] != p->tag) return false;
+  table = o->tbl;
+  assert(good_term_idx(table, i));
 
-  return arith_buffer_equal_polynomial(p->b, (polynomial_t *) table->desc[i].ptr);
+  return table->kind[i] == BV64_POLY && 
+    bvarith64_buffer_equal_bvpoly(o->b, o->v, table->desc[i].ptr);
 }
 
-static bool equal_monarray_term(monarray_hobj_t *p, term_t i) {
+static bool eq_bvconst_hobj(bvconst_term_hobj_t *o, int32_t i) {
   term_table_t *table;
-  polynomial_t *d;
+  bvconst_term_t *d;
+  uint32_t n;
 
-  table = p->tbl;
-  if (table->kind[i] != p->tag) return false;
-  d = (polynomial_t *) table->desc[i].ptr;
-  return p->nterms == d->nterms && equal_monarray(p->mono, d->mono);
+  table = o->tbl;
+  assert(good_term_idx(table, i));
+
+  if (table->kind[i] != BV_CONSTANT) return false;
+
+  d = table->desc[i].ptr;
+  n = d->bitsize;
+  return n == o->bitsize && bvconst_eq(d->data, o->v, (n + 31) >> 5);
 }
 
-static bool equal_arith_bineq_atom(arith_bineq_hobj_t *p, term_t i) {
+static bool eq_bvconst64_hobj(bvconst64_term_hobj_t *o, int32_t i) {
   term_table_t *table;
-  arith_bineq_t *d;
+  bvconst64_term_t *d;
 
-  table = p->tbl;
-  if (table->kind[i] != ARITH_BINEQ_ATOM) return false;
+  table = o->tbl;
+  assert(good_term_idx(table, i));
 
-  d = (arith_bineq_t *) table->desc[i].ptr;
-  return d->left == p->left && d->right == p->right;
-}
+  if (table->kind[i] != BV64_CONSTANT) return false;
 
-static bool equal_bvarith_term(bvarith_hobj_t *p, term_t i) {
-  term_table_t *table;
-
-  table = p->tbl;
-  if (table->kind[i] != BV_ARITH_TERM) return false;
-
-  return bvarith_buffer_equal_expr(p->b, (bvarith_expr_t *) table->desc[i].ptr);
-}
-
-static bool equal_bvlogic_term(bvlogic_hobj_t *p, term_t i) {
-  term_table_t *table;
-
-  table = p->tbl;
-  if (table->kind[i] != BV_LOGIC_TERM) return false;
-  return bvlogic_buffer_equal_expr(p->b, (bvlogic_expr_t *) table->desc[i].ptr);
-}
-
-static bool equal_bvconst_term(bvconst_hobj_t *p, term_t i) {
-  term_table_t *table;
-  bvconst_term_t *d;  
-
-  table = p->tbl;
-  if (table->kind[i] != BV_CONST_TERM) return false;
-
-  d = (bvconst_term_t *) table->desc[i].ptr;
-  return d->nbits == p->nbits && bvconst_eq(d->bits, p->bits, (p->nbits + 31) >> 5);
-}
-
-static bool equal_bvatom(bvatom_hobj_t *p, term_t i) {
-  term_table_t *table;
-  bv_atom_t *d;
-
-  table = p->tbl;
-  if (table->kind[i] != p->tag) return false;
-
-  d = (bv_atom_t *) table->desc[i].ptr;
-  return d->left == p->left && d->right == p->right;
-}
-
-static bool equal_bvapply_term(bvapply_term_hobj_t *p, term_t i) {
-  term_table_t *table;
-  bvapply_term_t *d;
-
-  table = p->tbl;
-  if (table->kind[i] != BV_APPLY_TERM) return false;
-
-  d = (bvapply_term_t *) table->desc[i].ptr;
-  return d->arg0 == p->arg0 && d->arg1 == p->arg1 && d->op == p->op;
+  d = table->desc[i].ptr;
+  return d->bitsize == o->bitsize && d->value == o->v;
 }
 
 
 /*
- * Build functions
+ * Build functions: add a new term to o->tbl and return its index
  */
-static term_t build_constant_term(constant_term_hobj_t *p) {
-  return new_constant_term(p->tbl, p->tau, p->idx);
+static int32_t build_integer_hobj(integer_term_hobj_t *o) {
+  return new_integer_term(o->tbl, o->tag, o->tau, o->id);
 }
 
-static term_t build_variable(variable_hobj_t *p) {
-  return new_variable(p->tbl, p->tau, p->idx);
+static int32_t build_rational_hobj(rational_term_hobj_t *o) {
+  return new_rational_term(o->tbl, o->tag, o->tau, o->a);
 }
 
-static term_t build_ite_term(ite_term_hobj_t *p) {
-  return new_ite_term(p->tbl, p->cond, p->then_arg, p->else_arg, p->type);
+static int32_t build_composite_hobj(composite_term_hobj_t *o) {
+  composite_term_t *d;
+
+  d = new_composite_term(o->arity, o->arg);
+  return new_ptr_term(o->tbl, o->tag, o->tau, d);
 }
 
-static term_t build_eq_term(eq_term_hobj_t *p) {
-  return new_eq_term(p->tbl, p->left, p->right);
+static int32_t build_app_hobj(app_term_hobj_t *o) {
+  composite_term_t *d;
+
+  d = new_app_term(o->f, o->n, o->arg);  
+  return new_ptr_term(o->tbl, APP_TERM, o->tau, d);
 }
 
-static term_t build_app_term(app_term_hobj_t *p) {
-  return new_app_term(p->tbl, p->fun, p->nargs, p->arg);
+static int32_t build_update_hobj(update_term_hobj_t *o) {
+  composite_term_t *d;
+
+  d = new_update_term(o->f, o->n, o->arg, o->v);  
+  return new_ptr_term(o->tbl, UPDATE_TERM, o->tau, d);
 }
 
-static term_t build_or_term(or_term_hobj_t *p) {
-  return new_or_term(p->tbl, p->nargs, p->arg);
+static int32_t build_forall_hobj(forall_term_hobj_t *o) {
+  composite_term_t *d;
+
+  d = new_forall_term(o->n, o->v, o->p);
+  return new_ptr_term(o->tbl, FORALL_TERM, bool_id, d);
 }
 
-static term_t build_not_term(not_term_hobj_t *p) {
-  return new_not_term(p->tbl, p->arg);
+static int32_t build_select_hobj(select_term_hobj_t *o) {
+  select_term_t *d;
+
+  d = new_select_term(o->k, o->arg);
+  return new_ptr_term(o->tbl, o->tag, o->tau, d);
 }
 
-static term_t build_tuple_term(tuple_term_hobj_t *p) {
-  return new_tuple_term(p->tbl, p->nargs, p->arg);
+static int32_t build_pprod_hobj(pprod_term_hobj_t *o) {
+  return new_ptr_term(o->tbl, POWER_PRODUCT, o->tau, o->r);
 }
 
-static term_t build_select_term(select_term_hobj_t *p) {
-  return new_select_term(p->tbl, p->idx, p->arg);
+static int32_t build_poly_hobj(poly_term_hobj_t *o) {
+  polynomial_t *p;
+
+  p = arith_buffer_get_poly(o->b, o->v);
+  return new_ptr_term(o->tbl, ARITH_POLY, o->tau, p);
 }
 
-static term_t build_update_term(update_term_hobj_t *p) {
-  return new_update_term(p->tbl, p->fun, p->nargs, p->arg, p->newval);
+static int32_t build_bvpoly_hobj(bvpoly_term_hobj_t *o) {
+  bvpoly_t *p;
+
+  p = bvarith_buffer_get_bvpoly(o->b, o->v);
+  return new_ptr_term(o->tbl, BV_POLY, o->tau, p);
 }
 
-static term_t build_distinct_term(distinct_term_hobj_t *p) {
-  return new_distinct_term(p->tbl, p->nargs, p->arg);
+static int32_t build_bvpoly64_hobj(bvpoly64_term_hobj_t *o) {
+  bvpoly64_t *p;
+
+  p = bvarith64_buffer_get_bvpoly(o->b, o->v);
+  return new_ptr_term(o->tbl, BV64_POLY, o->tau, p);
 }
 
-static term_t build_forall_term(forall_term_hobj_t *p) {
-  return new_forall_term(p->tbl, p->nvars, p->var, p->body);
+static int32_t build_bvconst_hobj(bvconst_term_hobj_t *o) {
+  bvconst_term_t *c;
+
+  c = new_bvconst_term(o->bitsize, o->v);
+  return new_ptr_term(o->tbl, BV_CONSTANT, o->tau, c);
 }
 
-static term_t build_arith_buffer_term(arith_buffer_hobj_t *p) {
-  polynomial_t *poly;
-  poly = arith_buffer_getpoly(p->b);
-  if (p->tag == ARITH_TERM) {
-    return new_arith_term(p->tbl, poly);
-  } else {
-    return new_arith_atom(p->tbl, p->tag, poly);
-  }
+static int32_t build_bvconst64_hobj(bvconst64_term_hobj_t *o) {
+  bvconst64_term_t *c;
+
+  c = new_bvconst64_term(o->bitsize, o->v);
+  return new_ptr_term(o->tbl, BV64_CONSTANT, o->tau, c);
 }
 
-static term_t build_monarray_term(monarray_hobj_t *p) {
-  polynomial_t *poly;
-  poly = monarray_getpoly(p->mono, p->nterms);
-  if (p->tag == ARITH_TERM) {
-    return new_arith_term(p->tbl, poly);
-  } else {
-    return new_arith_atom(p->tbl, p->tag, poly);
-  }
-}
-
-static term_t build_arith_bineq_atom(arith_bineq_hobj_t *p) {
-  return new_arith_bineq_atom(p->tbl, p->left, p->right);
-}
-
-static term_t build_bvarith_term(bvarith_hobj_t *p) {
-  return new_bvarith_term(p->tbl, bvarith_buffer_get_expr(p->b));
-}
-
-static term_t build_bvlogic_term(bvlogic_hobj_t *p) {
-  return new_bvlogic_term(p->tbl, bvlogic_buffer_get_expr(p->b));
-}
-
-static term_t build_bvconst_term(bvconst_hobj_t *p) {
-  return new_bvconst_term(p->tbl, p->nbits, p->bits);
-}
-
-static term_t build_bvatom(bvatom_hobj_t *p) {
-  return new_bvatom(p->tbl, p->tag, p->left, p->right);
-}
-
-static term_t build_bvapply_term(bvapply_term_hobj_t *p) {
-  return new_bvapply_term(p->tbl, p->op, p->arg0, p->arg1);
-}
 
 
 /*
- * Global hash objects
+ * Global hash-consing objects
  */
-static constant_term_hobj_t constant_hobj = {
-  { (hobj_hash_t) hash_constant_term, (hobj_eq_t) equal_constant_term, 
-    (hobj_build_t) build_constant_term },
+static integer_term_hobj_t integer_hobj = {
+  { (hobj_hash_t) hash_integer_hobj, (hobj_eq_t) eq_integer_hobj, 
+    (hobj_build_t) build_integer_hobj },
   NULL,
-  0, 0,
+  0, 0, 0,
 };
 
-static variable_hobj_t variable_hobj = {
-  { (hobj_hash_t) hash_variable, (hobj_eq_t) equal_variable, 
-    (hobj_build_t) build_variable },
-  NULL,
-  0, 0,
-};
-
-static ite_term_hobj_t ite_hobj = {
-  { (hobj_hash_t) hash_ite_term, (hobj_eq_t) equal_ite_term, 
-    (hobj_build_t) build_ite_term },
-  NULL,
-  0, 0, 0, 0,
-};
-
-static eq_term_hobj_t eq_hobj = {
-  { (hobj_hash_t) hash_eq_term, (hobj_eq_t) equal_eq_term,
-    (hobj_build_t) build_eq_term },
-  NULL,
-  0, 0,
-};
-
-static app_term_hobj_t app_hobj = {
-  { (hobj_hash_t) hash_app_term, (hobj_eq_t) equal_app_term,
-    (hobj_build_t) build_app_term },
+static rational_term_hobj_t rational_hobj = {
+  { (hobj_hash_t) hash_rational_hobj, (hobj_eq_t) eq_rational_hobj, 
+    (hobj_build_t) build_rational_hobj },
   NULL,
   0, 0, NULL,
 };
 
-static or_term_hobj_t or_hobj = {
-  { (hobj_hash_t) hash_or_term, (hobj_eq_t) equal_or_term,
-    (hobj_build_t) build_or_term },
-  NULL,
-  0, NULL,
-};
-
-static not_term_hobj_t not_hobj = {
-  { (hobj_hash_t) hash_not_term, (hobj_eq_t) equal_not_term,
-    (hobj_build_t) build_not_term },
-  NULL,
-  0,
-};
-
-static tuple_term_hobj_t tuple_hobj = {
-  { (hobj_hash_t) hash_tuple_term, (hobj_eq_t) equal_tuple_term,
-    (hobj_build_t) build_tuple_term },
-  NULL,
-  0, NULL,
-};
-
-static select_term_hobj_t select_hobj = {
-  { (hobj_hash_t) hash_select_term, (hobj_eq_t) equal_select_term,
-    (hobj_build_t) build_select_term },
-  NULL,
-  0, 0,
-};
-
-static update_term_hobj_t update_hobj = {
-  { (hobj_hash_t) hash_update_term, (hobj_eq_t) equal_update_term,
-    (hobj_build_t) build_update_term },
+static composite_term_hobj_t composite_hobj = {
+  { (hobj_hash_t) hash_composite_hobj, (hobj_eq_t) eq_composite_hobj, 
+    (hobj_build_t) build_composite_hobj },
   NULL,
   0, 0, 0, NULL,
 };
 
-static distinct_term_hobj_t distinct_hobj = {
-  { (hobj_hash_t) hash_distinct_term, (hobj_eq_t) equal_distinct_term,
-    (hobj_build_t) build_distinct_term },
+static app_term_hobj_t app_hobj = {
+  { (hobj_hash_t) hash_app_hobj, (hobj_eq_t) eq_app_hobj, 
+    (hobj_build_t) build_app_hobj },
+  NULL,  
+  0, 0, 0, NULL,
+};
+
+static update_term_hobj_t update_hobj = {
+  { (hobj_hash_t) hash_update_hobj, (hobj_eq_t) eq_update_hobj, 
+    (hobj_build_t) build_update_hobj },
   NULL,
-  0, NULL,
+  0, 0, 0, 0, NULL,
 };
 
 static forall_term_hobj_t forall_hobj = {
-  { (hobj_hash_t) hash_forall_term, (hobj_eq_t) equal_forall_term,
-    (hobj_build_t) build_forall_term },
+  { (hobj_hash_t) hash_forall_hobj, (hobj_eq_t) eq_forall_hobj, 
+    (hobj_build_t) build_forall_hobj },
   NULL,
   0, 0, NULL,
 };
 
-static arith_buffer_hobj_t arith_buffer_hobj = {
-  { (hobj_hash_t) hash_arith_buffer_term, (hobj_eq_t) equal_arith_buffer_term,
-    (hobj_build_t) build_arith_buffer_term },
+static select_term_hobj_t select_hobj = {
+  { (hobj_hash_t) hash_select_hobj, (hobj_eq_t) eq_select_hobj, 
+    (hobj_build_t) build_select_hobj },
   NULL,
-  NULL, UNUSED_TERM,
+  0, 0, 0, 0,
 };
 
-static monarray_hobj_t monarray_hobj = {
-  { (hobj_hash_t) hash_monarray_term, (hobj_eq_t) equal_monarray_term,
-    (hobj_build_t) build_monarray_term },
-  NULL,
-  NULL, 0, UNUSED_TERM,
-};
-
-static arith_bineq_hobj_t arith_bineq_hobj = {
-  { (hobj_hash_t) hash_arith_bineq_atom, (hobj_eq_t) equal_arith_bineq_atom,
-    (hobj_build_t) build_arith_bineq_atom },
-  NULL,
-  0, 0,
-};
-
-static bvarith_hobj_t bvarith_hobj = {
-  { (hobj_hash_t) hash_bvarith_term, (hobj_eq_t) equal_bvarith_term,
-    (hobj_build_t) build_bvarith_term },
-  NULL,
-  NULL,
-};
-
-static bvlogic_hobj_t bvlogic_hobj = {
-  { (hobj_hash_t) hash_bvlogic_term, (hobj_eq_t) equal_bvlogic_term,
-    (hobj_build_t) build_bvlogic_term },
-  NULL,
-  NULL,
-};
-
-static bvconst_hobj_t bvconst_hobj = {
-  { (hobj_hash_t) hash_bvconst_term, (hobj_eq_t) equal_bvconst_term,
-    (hobj_build_t) build_bvconst_term },
+static pprod_term_hobj_t pprod_hobj = {
+  { (hobj_hash_t) hash_pprod_hobj, (hobj_eq_t) eq_pprod_hobj, 
+    (hobj_build_t) build_pprod_hobj },
   NULL,
   0, NULL,
 };
 
-static bvatom_hobj_t bvatom_hobj = {
-  { (hobj_hash_t) hash_bvatom, (hobj_eq_t) equal_bvatom,
-    (hobj_build_t) build_bvatom },
+static poly_term_hobj_t poly_hobj = {
+  { (hobj_hash_t) hash_poly_hobj, (hobj_eq_t) eq_poly_hobj, 
+    (hobj_build_t) build_poly_hobj },
   NULL,
-  0, 0, UNUSED_TERM,
+  0, NULL, NULL,
 };
 
-static bvapply_term_hobj_t bvapply_term_hobj = {
-  { (hobj_hash_t) hash_bvapply_term, (hobj_eq_t) equal_bvapply_term,
-    (hobj_build_t) build_bvapply_term },
+static bvpoly_term_hobj_t bvpoly_hobj = {
+  { (hobj_hash_t) hash_bvpoly_hobj, (hobj_eq_t) eq_bvpoly_hobj, 
+    (hobj_build_t) build_bvpoly_hobj },
   NULL,
-  0, 0, UNUSED_TERM,
+  0, NULL, NULL,
+};
+
+static bvpoly64_term_hobj_t bvpoly64_hobj = {
+  { (hobj_hash_t) hash_bvpoly64_hobj, (hobj_eq_t) eq_bvpoly64_hobj, 
+    (hobj_build_t) build_bvpoly64_hobj },
+  NULL,
+  0, NULL, NULL,
+};
+
+static bvconst_term_hobj_t bvconst_hobj = {
+  { (hobj_hash_t) hash_bvconst_hobj, (hobj_eq_t) eq_bvconst_hobj, 
+    (hobj_build_t) build_bvconst_hobj },
+  NULL,
+  0, 0, NULL,
+};
+
+static bvconst64_term_hobj_t bvconst64_hobj = {
+  { (hobj_hash_t) hash_bvconst64_hobj, (hobj_eq_t) eq_bvconst64_hobj, 
+    (hobj_build_t) build_bvconst64_hobj },
+  NULL,
+  0, 0, 0,
 };
 
 
-
-/****************
- *  MODULE API  *
- ***************/
 
 
 /*
+ * UNIT TABLE
+ */
+
+/*
+ * Get the representative of type tau in the unit table
+ * - tau must be a unit type
+ * - return NULL_TERM (-1) if there's no representative
+ */
+term_t unit_type_rep(term_table_t *table, type_t tau) {
+  int_hmap_pair_t *p;
+
+  assert(is_unit_type(table->types, tau));
+  p = int_hmap_find(&table->utbl, tau);
+  if (p == NULL) {
+    return NULL_TERM;
+  }
+  assert(good_term(table, p->val) && term_type(table, p->val) == tau);
+
+  return p->val;
+}
+
+
+/*
+ * Store t as the unique term of type tau:
+ * - tau must be a singleton type
+ * - t must be a valid term occurrence of type tau
+ * - there musn't be a representative for tau already
+ */
+void add_unit_type_rep(term_table_t *table, type_t tau, term_t t) {
+  int_hmap_pair_t *p;
+
+  assert(is_unit_type(table->types, tau) && good_term(table, t) && 
+	 term_type(table, t) == tau);
+
+  p = int_hmap_get(&table->utbl, tau);
+  assert(p->val == EMPTY_KEY); // i.e., -1
+  p->val = t;
+}
+
+
+/*
+ * Remove the representative of type tau from the table.
+ * - tau must be a singleton type
+ * - no effect if tau has no representative
+ */
+static void remove_unit_type_rep(term_table_t *table, type_t tau) {
+  int_hmap_pair_t *p;
+
+  assert(is_unit_type(table->types, tau));
+  p = int_hmap_find(&table->utbl, tau);
+  if (p != NULL) {
+    int_hmap_erase(&table->utbl, p);
+  }
+}
+
+
+/*
+ * For debugging, check that the representative for type
+ * tau is equal to t.
+ */
+#ifndef NDEBUG
+static bool is_unit_type_rep(term_table_t *table, type_t tau, term_t t) {  
+  term_t rep;
+
+  rep = unit_type_rep(table, tau);
+  return rep == NULL_TERM || rep == t;
+}
+#endif
+
+
+
+
+
+/*
+ * TERM NAMES
+ */
+
+/*
+ * Get the base name of term occurrence t
+ * - return NULL if t has no base name
+ */
+char *term_name(term_table_t *table, term_t t) {
+  ptr_hmap_pair_t *p;
+
+  assert(good_term(table, t));
+  p = ptr_hmap_find(&table->ntbl, t);
+  if (p == NULL) {
+    return NULL;
+  }
+
+  assert(p->val != NULL);
+  return p->val;
+
+}
+
+
+/*
+ * Assign name to term occurrence t.
+ *
+ * If name is already mapped to another term t' then the previous mapping
+ * is hidden. The next calls to get_term_by_name will return t. After a 
+ * call to remove_term_name, the mapping [name --> t] is removed and 
+ * the previous mapping [name --> t'] is revealed.
+ *
+ * If t does not have a base name already, then 'name' is stored as the 
+ * base name for t. That's what's printed for t by the pretty printer.
+ *
+ * Warning: name is stored as a pointer, no copy is made; name must be 
+ * created via the clone_string function.
+ */
+void set_term_name(term_table_t *table, term_t t, char *name) {
+  ptr_hmap_pair_t *p;
+
+  assert(good_term(table, t) && name != NULL);
+
+  // if t doesn't have a base name then 
+  // add mapping t --> name in ntbl
+  p = ptr_hmap_get(&table->ntbl, t);
+  assert(p != NULL);
+  if (p->val == NULL) {
+    p->val = name;
+    string_incref(name);
+  }
+
+  // add mapping name --> t in the symbol table
+  stbl_add(&table->stbl, name, t);
+  string_incref(name);
+}
+
+
+/*
+ * Get term occurrence with the given name (or NULL_TERM)
+ */
+term_t get_term_by_name(term_table_t *table, char *name) {
+  // NULL_TERM = -1 and stbl_find returns -1 if name is absent
+  return stbl_find(&table->stbl, name);
+}
+
+
+/*
+ * Remove a name from the symbol table
+ * - if name is not in the symbol table, nothing is done
+ * - if name is mapped to a term t, then the mapping [name -> t]
+ *   is removed. If name was mapped to a previous term t' then
+ *   that mappeing is restored.
+ *
+ * If name is the base name of a term t, then that remains unchanged.
+ */
+void remove_term_name(term_table_t *table, char *name) {
+  stbl_remove(&table->stbl, name);
+}
+
+
+/*
+ * Clear name: remove t's base name if any.
+ * - If t has name 'xxx' then 'xxx' is first removed from the symbol
+ *   table (using remove_type_name) then t's base name is erased.
+ * - If t doesn't have a base name, nothing is done.
+ */
+void clear_term_name(term_table_t *table, term_t t) {
+  ptr_hmap_pair_t *p;
+  char *name;
+
+  assert(good_term(table, t));
+  p = ptr_hmap_find(&table->ntbl, t);
+  if (p != NULL) {
+    name = p->val;
+    assert(name != NULL);
+
+    // remove the mapping t --> name from ntbl
+    ptr_hmap_erase(&table->ntbl, p);
+
+    // check whether the mapping name --> t still exists
+    // in the symbol table.
+    if (stbl_find(&table->stbl, name) == t) {
+      stbl_remove(&table->stbl, name);
+    }
+    string_decref(name);
+  }
+}
+
+
+
+
+
+
+
+/*
+ * TERM DELETION
+ */
+
+/*
+ * Delete term i:
+ * - remove pos_term(i) from the unit table
+ * - remove pos_term(i) and neg_term(i) from the name table
+ * - free the descriptor if needed
+ * - remove i from the hash table
+ * - then add i to the free list
+ * 
+ * IMPORTANT: i must not be accessible via the symbol table.
+ * No name in the symbol table must refer to pos_term(i)
+ * or neg_term(i).
+ */
+static void delete_term(term_table_t *table, int32_t i) {
+  composite_term_t *d;
+  select_term_t *s;
+  bvconst_term_t *c;
+  bvconst64_term_t *c64;
+  uint32_t h, n;
+  type_t tau;
+
+  assert(good_term_idx(table, i));
+
+  // make sure the boolean constant and reserved terms are 
+  // never deleted
+  if (i <= bool_const) return; 
+
+  // deal with unit types
+  tau = table->type[i];
+  if (is_unit_type(table->types, tau)) {
+    assert(is_unit_type_rep(table, tau, pos_term(i)));
+    remove_unit_type_rep(table, tau);
+  }
+
+  // remove the default name for pos_term(i) 
+  // and for neg_term(i) if i has boolean type
+  clear_term_name(table, pos_term(i));
+  if (is_boolean_type(tau)) {
+    clear_term_name(table, neg_term(i));
+  }
+
+  h = 0;   // stops GCC warning
+
+  // compute hash and free descriptor
+  switch (table->kind[i]) {
+  case UNINTERPRETED_TERM:
+    // No descriptor, no hash consing
+    goto recycle;
+
+  case CONSTANT_TERM:
+  case VARIABLE:
+  case ARITH_EQ_ATOM:
+  case ARITH_GE_ATOM:
+    // The descriptor is an integer nothing to delete.
+    h = hash_integer_term(table->kind[i], table->type[i], table->desc[i].integer);
+    break;
+
+  case ITE_TERM:
+  case TUPLE_TERM:
+  case EQ_TERM:
+  case DISTINCT_TERM:
+  case OR_TERM:
+  case XOR_TERM:
+  case BV_ARRAY:
+  case BV_DIV:
+  case BV_REM:
+  case BV_SDIV:
+  case BV_SREM:
+  case BV_SMOD:
+  case BV_SHL:
+  case BV_LSHR:
+  case BV_ASHR:
+  case BV_EQ_ATOM:
+  case BV_GE_ATOM:
+  case BV_SGE_ATOM:
+    // Generic composite 
+    d = table->desc[i].ptr;
+    h = hash_composite_term(table->kind[i], d->arity, d->arg);
+    safe_free(d);
+    break;
+
+  case APP_TERM:
+    d = table->desc[i].ptr;
+    n = d->arity;
+    assert(n >= 2);
+    h = hash_app_term(d->arg[0], n-1, d->arg + 1);
+    safe_free(d);
+    break;
+
+  case UPDATE_TERM:
+    d = table->desc[i].ptr;
+    n = d->arity;
+    assert(n >= 3);
+    h = hash_update_term(d->arg[0], n-2, d->arg + 1, d->arg[n-1]);
+    safe_free(d);
+    break;
+
+  case FORALL_TERM:
+    d = table->desc[i].ptr;
+    n = d->arity;
+    assert(n >= 2);
+    h = hash_forall_term(n-1, d->arg, d->arg[n-1]);
+    safe_free(d);
+    break;
+
+  case SELECT_TERM:
+  case BIT_TERM:
+    // Select terms
+    s = table->desc[i].ptr;
+    h = hash_select_term(table->kind[i], s->idx, s->arg);
+    safe_free(s);
+    break;
+
+  case POWER_PRODUCT:
+    // Power products are deleted in garbage collection of pprod.
+    h = hash_power_product(table->desc[i].ptr);
+    break;
+
+  case ARITH_CONSTANT:
+    // Free the rational
+    h = hash_rational_term(ARITH_CONSTANT, table->type[i], &table->desc[i].rational);
+    q_clear(&table->desc[i].rational);
+    break;
+    
+  case ARITH_POLY:
+    h = hash_polynomial(table->desc[i].ptr);
+    free_polynomial(table->desc[i].ptr);
+    break;
+
+  case BV64_CONSTANT:
+    c64 = table->desc[i].ptr;
+    h = hash_bvconst64_term(c64->bitsize, c64->value);
+    safe_free(c64);
+    break;
+
+  case BV_CONSTANT:
+    c = table->desc[i].ptr;
+    h = hash_bvconst_term(c->bitsize, c->data);
+    safe_free(c);
+    break;
+
+  case BV64_POLY:
+    h = hash_bvpoly64(table->desc[i].ptr);
+    free_bvpoly64(table->desc[i].ptr);
+    break;
+
+  case BV_POLY:
+    h = hash_bvpoly(table->desc[i].ptr);
+    free_bvpoly(table->desc[i].ptr);
+    break;
+
+  case UNUSED_TERM:
+  case RESERVED_TERM:
+  default:
+    assert(false);
+    break;
+  }
+
+  // Remove the record [h, i] from the hash-consing table
+  int_htbl_erase_record(&table->htbl, h, i);  
+
+  // Put i in the free list
+ recycle:
+  table->desc[i].integer = table->free_idx;
+  table->free_idx = i;
+  table->kind[i] = UNUSED_TERM;
+}
+
+
+
+
+
+
+
+/*
+ * TABLE INITIALIZATION
+ */
+
+/*
+ * Build a dummy term at index 0 (to make sure nothing collides
+ * with the const_idx used in rationals and bitvector polynomials).
+ *
  * Add the boolean constant
  */
-static void add_primitive_term(term_table_t *table) {
+static void add_primitive_terms(term_table_t *table) {
   int32_t i;
+
+  i = allocate_term_id(table);
+  assert(i == const_idx);
+
+  table->kind[i] = RESERVED_TERM;
+  table->type[i] = NULL_TYPE;
+  table->desc[i].ptr = NULL;
 
   i = allocate_term_id(table);
   assert(i == bool_const);
@@ -1189,68 +1506,128 @@ static void add_primitive_term(term_table_t *table) {
 
 /*
  * Initialize table with initial size = n.
- * Create the built-in constants.
+ * Create the built-in constants and reserved term
  */
-void init_term_table(term_table_t *table, uint32_t n, type_table_t *ttbl, 
-		     arithvar_manager_t *arith_m, bv_var_manager_t *bv_m) {
-  term_table_init(table, n, ttbl, arith_m, bv_m);
+void init_term_table(term_table_t *table, uint32_t n, type_table_t *ttbl, pprod_table_t *ptbl) {
+  term_table_init(table, n, ttbl, ptbl);
   add_primitive_terms(table);
 }
+
+
+
+
+
+/*
+ * TABLE DELETION
+ */
+
+/*
+ * Delete the name table: call decref on all strings.
+ */
+static void delete_name_table(ptr_hmap_t *table) {
+  ptr_hmap_pair_t *p;
+
+  p = ptr_hmap_first_record(table);
+  while (p != NULL) {
+    assert(p->val != NULL);
+    string_decref(p->val);
+    p = ptr_hmap_next_record(table, p);
+  }
+
+  delete_ptr_hmap(table);
+}
+
+
+/*
+ * Delete all the term descriptors
+ */
+static void delete_term_descriptors(term_table_t *table) {
+  uint32_t i, n;
+
+  n = table->nelems;
+  for (i=0; i<n; i++) {    
+    switch (table->kind[i]) {
+    case UNUSED_TERM:
+    case RESERVED_TERM:
+    case CONSTANT_TERM:
+    case UNINTERPRETED_TERM:
+    case VARIABLE:
+    case POWER_PRODUCT:
+    case ARITH_EQ_ATOM:
+    case ARITH_GE_ATOM:
+      break;
+
+    case ITE_TERM:
+    case APP_TERM:
+    case UPDATE_TERM:
+    case TUPLE_TERM:
+    case SELECT_TERM:
+    case EQ_TERM:
+    case DISTINCT_TERM:
+    case FORALL_TERM:
+    case OR_TERM:
+    case XOR_TERM:
+    case BIT_TERM:
+    case BV64_CONSTANT:
+    case BV_CONSTANT:
+    case BV_ARRAY:
+    case BV_DIV:
+    case BV_REM:
+    case BV_SDIV:
+    case BV_SREM:
+    case BV_SMOD:
+    case BV_SHL:
+    case BV_LSHR:
+    case BV_ASHR:
+    case BV_EQ_ATOM:
+    case BV_GE_ATOM:
+    case BV_SGE_ATOM:
+      safe_free(table->desc[i].ptr);
+      break;
+
+    case ARITH_CONSTANT:
+      // Free the rational
+      q_clear(&table->desc[i].rational);
+      break;
+    
+    case ARITH_POLY:
+      free_polynomial(table->desc[i].ptr);
+      break;
+
+    case BV64_POLY:
+      free_bvpoly64(table->desc[i].ptr);
+      break;
+
+    case BV_POLY:
+      free_bvpoly(table->desc[i].ptr);
+      break;
+
+    default:
+      assert(false);
+      break;
+    }
+  }
+}
+
+
 
 /*
  * Delete table
  */
 void delete_term_table(term_table_t *table) {
-  uint32_t i;
+  delete_name_table(&table->ntbl);
+  delete_term_descriptors(table);
+  delete_int_hmap(&table->utbl);
+  delete_int_htbl(&table->htbl);
+  delete_stbl(&table->stbl);
 
-  // delete all descriptors
-  for (i=0; i<table->nelems; i++) {
-    switch (table->kind[i]) {
-    case UNUSED_TERM:
-    case CONSTANT_TERM:
-    case UNINTERPRETED_TERM:
-    case VARIABLE:
-    case NOT_TERM:
-      break;
-
-    case ITE_TERM:
-    case EQ_TERM:
-    case APP_TERM:
-    case OR_TERM:
-    case TUPLE_TERM:
-    case SELECT_TERM:
-    case UPDATE_TERM:
-    case DISTINCT_TERM:
-    case FORALL_TERM:
-      safe_free(table->desc[i].ptr);
-      break;
-
-    case ARITH_TERM:
-    case ARITH_EQ_ATOM:
-    case ARITH_GE_ATOM:
-      free_polynomial(table->desc[i].ptr);
-      break;
-
-    case ARITH_BINEQ_ATOM:
-    case BV_LOGIC_TERM:
-    case BV_ARITH_TERM:
-    case BV_CONST_TERM:
-    case BV_EQ_ATOM:
-    case BV_GE_ATOM:
-    case BV_SGE_ATOM:
-    case BV_APPLY_TERM:
-      safe_free(table->desc[i].ptr);
-      break;
-    }
-  }
-
+  delete_ivector(&table->ibuffer);
+  delete_pvector(&table->pbuffer);
+  
   safe_free(table->kind);
   safe_free(table->type);
   safe_free(table->desc);
   delete_bitvector(table->mark);
-  delete_int_htbl(&table->htbl);
-  delete_stbl(&table->stbl);
-  safe_free(table->buffer);
 
   table->kind = NULL;
   table->type = NULL;
@@ -1260,420 +1637,785 @@ void delete_term_table(term_table_t *table) {
 
 
 
-/***********************
- *  TERM CONSTRUCTION  *
- **********************/
+
+
 
 /*
- * Construct constant term of given type and index.
+ * TYPE COMPUTATIONS
+ */
+
+/*
+ * Type of (tuple arg[0] ... arg[n-1])
+ */
+static type_t type_of_tuple(term_table_t *table, uint32_t n, term_t arg[]) {
+  int32_t *v;
+  type_t tau;
+  uint32_t j;
+
+  // build the type using ibuffer
+  assert(table->ibuffer.size == 0);
+  resize_ivector(&table->ibuffer, n);
+  v = table->ibuffer.data;
+  for (j=0; j<n; j++) {
+    v[j] = term_type(table, arg[j]);
+  }
+  tau = tuple_type(table->types, n, v);
+
+  ivector_reset(&table->ibuffer);
+
+  return tau;
+}
+
+
+/*
+ * Power product r
+ * - r must not be a tagged variable or empty_pp or end_pp
+ * - we assume r is well formed:
+ *   either all variables of r are bitvectors of the same type
+ *   or all variables of r are integer or real.
+ * - type of r = int if all variables are integer
+ *             = real if one variable is real
+ *             = type of the first variable otherwise
+ */
+static type_t type_of_pprod(term_table_t *table, pprod_t *r) {
+  uint32_t i, n;
+  type_t tau;
+
+  n = r->len; 
+  tau = term_type(table, r->prod[0].var);
+
+  if (is_integer_type(tau)) {
+    // check whether all variables of r are integer
+    for (i=1; i<n; i++) {
+      tau = term_type(table, r->prod[i].var);
+      if (! is_integer_type(tau)) break;
+    }
+  }
+
+  return tau;
+}
+
+
+
+
+/*
+ * TERM CONSTRUCTORS
+ */
+
+/*
+ * Constant of the given type and index.
+ * - tau must be uninterpreted or scalar
+ * - if tau is scalar of cardinality n, then index must be between 0 and n-1
  */
 term_t constant_term(term_table_t *table, type_t tau, int32_t index) {
-  constant_hobj.tbl = table;
-  constant_hobj.tau = tau;
-  constant_hobj.idx = index;
+  int32_t i;
 
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &constant_hobj);
+  integer_hobj.tbl = table;
+  integer_hobj.tag = CONSTANT_TERM;
+  integer_hobj.tau = tau;
+  integer_hobj.id = index;
+
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &integer_hobj);
+
+  return pos_term(i);
 }
 
+
 /*
- * Construct variable of type tau and given index
+ * Declare a new uninterpreted constant of type tau.
+ * - this always create a fresh term
+ */
+term_t new_uninterpreted_term(term_table_t *table, type_t tau) {
+  int32_t i;
+
+  i = allocate_term_id(table);
+  table->kind[i] = UNINTERPRETED_TERM;
+  table->type[i] = tau;
+  table->desc[i].ptr = NULL;
+
+  return pos_term(i);
+}
+
+
+/*
+ * Variable of type tau. Index i is used to distinguish it from other variables
+ * of the same type.
  */
 term_t variable(term_table_t *table, type_t tau, int32_t index) {
-  variable_hobj.tbl = table;
-  variable_hobj.tau = tau;
-  variable_hobj.idx = index;
+  int32_t i;
 
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &variable_hobj);
+  integer_hobj.tbl = table;
+  integer_hobj.tag = VARIABLE;
+  integer_hobj.tau = tau;
+  integer_hobj.id = index;
+
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &integer_hobj);
+
+  return pos_term(i);  
 }
+
 
 /*
- * Composite terms
+ * Negation: just flip the polarity bit
+ * - p must be boolean
  */
-term_t ite_term(term_table_t *table, term_t cond, term_t then_term, term_t else_term, type_t tau) {
-  assert(tau == super_type(table->types, term_type(table, then_term), 
-			   term_type(table, else_term)));
-
-  ite_hobj.tbl = table;
-  ite_hobj.cond = cond;
-  ite_hobj.then_arg = then_term;
-  ite_hobj.else_arg = else_term;
-  ite_hobj.type = tau;
-
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &ite_hobj);
+term_t not_term(term_table_t *table, term_t p) {
+  assert(is_boolean_term(table, p));
+  return opposite_term(p);
 }
 
-term_t eq_term(term_table_t *table, term_t left, term_t right) {
-  eq_hobj.tbl = table;
-  eq_hobj.left = left;
-  eq_hobj.right = right;
 
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &eq_hobj);
+/*
+ * If-then-else term (if cond then left else right)
+ * - tau must be the super type of left/right.
+ */
+term_t ite_term(term_table_t *table, type_t tau, term_t cond, term_t left, term_t right) {
+  term_t aux[3];
+  int32_t i;
+
+  aux[0] = cond;
+  aux[1] = left;
+  aux[2] = right;
+
+  composite_hobj.tbl = table;
+  composite_hobj.tag = ITE_TERM;
+  composite_hobj.tau = tau;
+  composite_hobj.arity = 3;
+  composite_hobj.arg = aux;
+
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &composite_hobj);
+
+  return pos_term(i);
 }
 
-term_t app_term(term_table_t *table, term_t fun, int32_t n, term_t arg[]) {
+
+/*
+ * Function application: (fun arg[0] ... arg[n-1])
+ */
+term_t app_term(term_table_t *table, term_t fun, uint32_t n, term_t arg[]) {
+  type_t tau;
+  int32_t i;
+
+  tau = term_type(table, fun);
+
   app_hobj.tbl = table;
-  app_hobj.nargs = n;
-  app_hobj.fun = fun;
+  app_hobj.tau = function_type_range(table->types, tau); // range of fun
+  app_hobj.f = fun;
+  app_hobj.n = n;
   app_hobj.arg = arg;
 
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &app_hobj);
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &app_hobj);
+
+  return pos_term(i);
 }
 
-term_t or_term(term_table_t *table, int32_t n, term_t arg[]) {
-  or_hobj.tbl = table;
-  or_hobj.nargs = n;
-  or_hobj.arg = arg;
 
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &or_hobj);
-}
+/*
+ * Function update: (update fun arg[0] ... arg[n-1] new_v)
+ * - new_v must be in the range of fun (not in a supertype)
+ * - the result has the same type as fun
+ */
+term_t update_term(term_table_t *table, term_t fun, uint32_t n, term_t arg[], term_t new_v) {
+  type_t tau;
+  int32_t i;
 
-term_t not_term(term_table_t *table, term_t arg) {
-  not_hobj.tbl = table;
-  not_hobj.arg = arg;
+  tau = term_type(table, fun);
 
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &not_hobj);
-}
-
-term_t tuple_term(term_table_t *table, int32_t n, term_t arg[]) {
-  tuple_hobj.tbl = table;
-  tuple_hobj.nargs = n;
-  tuple_hobj.arg = arg;
-
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &tuple_hobj);
-}
-
-term_t select_term(term_table_t *table, int32_t index, term_t tuple) {
-  select_hobj.tbl = table;
-  select_hobj.idx = index;
-  select_hobj.arg = tuple;
-
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &select_hobj);  
-}
-
-term_t update_term(term_table_t *table, term_t fun, int32_t n, term_t arg[], term_t new_v) {
   update_hobj.tbl = table;
-  update_hobj.fun = fun;
-  update_hobj.newval = new_v;
-  update_hobj.nargs = n;
+  update_hobj.tau = tau;
+  update_hobj.f = fun;
+  update_hobj.v = new_v;
+  update_hobj.n = n;
   update_hobj.arg = arg;
 
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &update_hobj);
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &update_hobj);
+
+  return pos_term(i);
 }
 
-term_t distinct_term(term_table_t *table, int32_t n, term_t arg[]) {
-  distinct_hobj.tbl = table;
-  distinct_hobj.nargs = n;
-  distinct_hobj.arg = arg;
 
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &distinct_hobj);
+/*
+ * (tuple arg[0] .. arg[n-1])
+ */
+term_t tuple_term(term_table_t *table, uint32_t n, term_t arg[]) {
+  int32_t i;
+
+  composite_hobj.tbl = table;
+  composite_hobj.tag = TUPLE_TERM;
+  composite_hobj.tau = type_of_tuple(table, n, arg);
+  composite_hobj.arity = n;
+  composite_hobj.arg = arg;
+
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &composite_hobj);
+
+  return pos_term(i);
 }
 
-term_t forall_term(term_table_t *table, int32_t n, term_t var[], term_t body) {
+
+/*
+ * Tuple projection (select index tuple)
+ */
+term_t select_term(term_table_t *table, uint32_t index, term_t tuple) {
+  type_t tau;
+  int32_t i;
+
+  tau = term_type(table, tuple);
+
+  select_hobj.tbl = table;
+  select_hobj.tag = SELECT_TERM;
+  select_hobj.tau = tuple_type_component(table->types, tau, index);;
+  select_hobj.k = index;
+  select_hobj.arg = tuple;
+
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &select_hobj);
+
+  return pos_term(i);
+}
+
+
+/*
+ * Binary term defined by (tag, tau, left, right)
+ */
+static term_t binary_term(term_table_t *table, term_kind_t tag, type_t tau, term_t left, term_t right) {
+  term_t aux[2];
+  int32_t i;
+
+  aux[0] = left;
+  aux[1] = right;
+
+  composite_hobj.tbl = table;
+  composite_hobj.tag = tag;
+  composite_hobj.tau = tau;
+  composite_hobj.arity = 2;
+  composite_hobj.arg = aux;
+
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t*) &composite_hobj);
+
+  return pos_term(i);
+}
+
+
+/*
+ * Equality (eq left right)
+ */
+term_t eq_term(term_table_t *table, term_t left, term_t right) {
+  return binary_term(table, EQ_TERM, bool_type(table->types), left, right);
+}
+
+
+/*
+ * (distinct arg[0] ... arg[n-1])
+ */
+term_t distinct_term(term_table_t *table, uint32_t n, term_t arg[]) {
+  int32_t i;
+
+  composite_hobj.tbl = table;
+  composite_hobj.tag = DISTINCT_TERM;
+  composite_hobj.tau = bool_type(table->types);
+  composite_hobj.arity = n;
+  composite_hobj.arg = arg;
+
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &composite_hobj);
+
+  return pos_term(i);
+}
+
+
+/*
+ * (forall var[0] ... var[n-1] body)
+ */
+term_t forall_term(term_table_t *table, uint32_t n, term_t var[], term_t body) {
+  int32_t i;
+
   forall_hobj.tbl = table;
-  forall_hobj.body = body;
-  forall_hobj.nvars = n;
-  forall_hobj.var = var;
+  forall_hobj.p = body;
+  forall_hobj.n = n;
+  forall_hobj.v = var;
 
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &forall_hobj);
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &forall_hobj);
+
+  return pos_term(i);
 }
 
 
 /*
- * Arithmetic terms and atoms
+ * (or arg[0] ... arg[n-1])
  */
-term_t arith_object_from_buffer(term_table_t *table, term_kind_t tag, arith_buffer_t *b) {
-  arith_buffer_hobj.tbl = table;
-  arith_buffer_hobj.b = b;
-  arith_buffer_hobj.tag = tag;
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &arith_buffer_hobj);
-}
+term_t or_term(term_table_t *table, uint32_t n, term_t arg[]) {
+  int32_t i;
 
-term_t arith_object_from_monarray(term_table_t *table, term_kind_t tag, monomial_t *p, int32_t n) {
-  monarray_hobj.tbl = table;
-  monarray_hobj.mono = p;
-  monarray_hobj.nterms = n;
-  monarray_hobj.tag = tag;
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &monarray_hobj);
-}
+  composite_hobj.tbl = table;
+  composite_hobj.tag = OR_TERM;
+  composite_hobj.tau = bool_type(table->types);
+  composite_hobj.arity = n;
+  composite_hobj.arg = arg;
 
-term_t arith_bineq_atom(term_table_t *table, term_t l, term_t r) {
-  arith_bineq_hobj.tbl = table;
-  arith_bineq_hobj.left = l;
-  arith_bineq_hobj.right = r;
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &arith_bineq_hobj);
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &composite_hobj);
+
+  return pos_term(i);
 }
 
 
 /*
- * Bitvector terms and atoms
+ * (xor arg[0] ... arg[n-1])
  */
-term_t bvarith_term(term_table_t *table, bvarith_buffer_t *b) {
-  bvarith_hobj.tbl = table;
-  bvarith_hobj.b = b;
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bvarith_hobj);
+term_t xor_term(term_table_t *table, uint32_t n, term_t arg[]) {
+  int32_t i;
+
+  composite_hobj.tbl = table;
+  composite_hobj.tag = XOR_TERM;
+  composite_hobj.tau = bool_type(table->types);
+  composite_hobj.arity = n;
+  composite_hobj.arg = arg;
+
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &composite_hobj);
+
+  return pos_term(i);
 }
 
-term_t bvlogic_term(term_table_t *table, bvlogic_buffer_t *b) {
-  bvlogic_hobj.tbl = table;
-  bvlogic_hobj.b = b;
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bvlogic_hobj);
+
+/*
+ * Bit-select: get bit k of bit-vector bv
+ */
+term_t bit_term(term_table_t *table, uint32_t k, term_t bv) {
+  int32_t i;
+
+  select_hobj.tbl = table;
+  select_hobj.tag = BIT_TERM;
+  select_hobj.tau = bool_type(table->types);
+  select_hobj.k = k;
+  select_hobj.arg = bv;
+
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &select_hobj);
+
+  return pos_term(i);
 }
 
-term_t bvconst_term(term_table_t *table, int32_t n, uint32_t *b) {
+
+/*
+ * Power product: r must be valid in table->ptbl, and must not be a tagged 
+ * variable or empty_pp.
+ * - each variable index x_i in r must be a term defined in table
+ * - the x_i's must have compatible types: either they are all arithmetic
+ *   terms (type int or real) or they are all bit-vector terms of the 
+ *   same type.
+ * The type of the result is determined from the x_i's types:
+ * - if all x_i's are int, the result is int 
+ * - if some x_i's are int, some are real, the result is real
+ * - if all x_i's have type (bitvector k), the result has type (bitvector k)
+ */
+term_t pprod_term(term_table_t *table, pprod_t *r) {
+  int32_t i;
+
+  pprod_hobj.tbl = table;
+  pprod_hobj.tau = type_of_pprod(table, r);
+  pprod_hobj.r = r;
+
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &pprod_hobj);
+
+  return pos_term(i);
+}
+
+
+/*
+ * Rational constant: the result has type int if a is an integer or real otherwise
+ */
+term_t arith_constant(term_table_t *table, rational_t *a) {
+  type_t tau;
+  int32_t i;
+
+  tau = real_type(table->types);
+  if (q_is_integer(a)) {
+    tau = int_type(table->types);
+  }
+  
+  rational_hobj.tbl = table;
+  rational_hobj.tag = ARITH_CONSTANT;
+  rational_hobj.tau = tau;
+  rational_hobj.a = a;
+
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &rational_hobj);
+
+  return pos_term(i);
+}
+
+
+/*
+ * Atom t == 0 for an arithmetic term t
+ */
+term_t arith_eq_atom(term_table_t *table, term_t t) {
+  int32_t i;
+
+  integer_hobj.tbl = table;
+  integer_hobj.tag = ARITH_EQ_ATOM;
+  integer_hobj.tau = bool_type(table->types);
+  integer_hobj.id = t;
+
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &integer_hobj);
+
+  return pos_term(i);
+}
+
+
+/*
+ * Atom (t >= 0) for an arithmetic term t
+ */
+term_t arith_geq_atom(term_table_t *table, term_t t) {
+  int32_t i;
+
+  integer_hobj.tbl = table;
+  integer_hobj.tag = ARITH_GE_ATOM;
+  integer_hobj.tau = bool_type(table->types);
+  integer_hobj.id = t;
+
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &integer_hobj);
+
+  return pos_term(i);
+}
+
+
+
+/*
+ * Equality between two arithmetic terms (left == right)
+ */
+term_t arith_bineq_atom(term_table_t *table, term_t left, term_t right) {
+  return binary_term(table, ARITH_BINEQ_ATOM, bool_type(table->types), left, right);
+}
+
+
+/*
+ * Small bitvector constant
+ * - n = bitsize (must be between 1 and 64)
+ * - bv = value (must be normalized modulo 2^n)
+ */
+term_t bv64_constant(term_table_t *table, uint32_t n, uint64_t bv) {
+  int32_t i;
+
+  bvconst64_hobj.tbl = table;
+  bvconst64_hobj.tau = bv_type(table->types, n);
+  bvconst64_hobj.bitsize = n;
+  bvconst64_hobj.v = bv;
+
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bvconst64_hobj);
+
+  return pos_term(i);
+}
+
+
+/*
+ * Bitvector constant: 
+ * - n = bitsize
+ * - bv = array of k words (where k = ceil(n/32))
+ * The constant must be normalized (modulo 2^n)
+ * This constructor should be used only for n > 64.
+ */
+term_t bvconst_term(term_table_t *table, uint32_t n, uint32_t *bv) {
+  int32_t i;
+
   bvconst_hobj.tbl = table;
-  bvconst_hobj.nbits = n;
-  bvconst_hobj.bits = b;
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bvconst_hobj);
-}
+  bvconst_hobj.tau = bv_type(table->types, n);
+  bvconst_hobj.bitsize = n;
+  bvconst_hobj.v = bv;
 
-term_t bitvector_atom(term_table_t *table, term_kind_t tag, term_t l, term_t r) {
-  bvatom_hobj.tbl = table;
-  bvatom_hobj.tag = tag;
-  bvatom_hobj.left = l;
-  bvatom_hobj.right = r;
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bvatom_hobj);
-}
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bvconst_hobj);
 
-term_t bvapply_term(term_table_t *table, uint32_t op, term_t l, term_t r) {
-  bvapply_term_hobj.tbl = table;
-  bvapply_term_hobj.arg0 = l;
-  bvapply_term_hobj.arg1 = r;
-  bvapply_term_hobj.op = op;
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bvapply_term_hobj);
+  return pos_term(i);
 }
 
 
 /*
- * Hash code of terms (same as hash_constant_term to hash_bvatom)
+ * Bitvector formed of arg[0] ... arg[n-1]
+ * - n must be positive and no more than YICES_MAX_BVSIZE
+ * - arg[0] ... arg[n-1] must be boolean terms
  */
-static uint32_t hash_constant(type_t tau, int32_t idx) {
-  return jenkins_hash_pair(tau, idx, 0x19ef312c);
+term_t bvarray_term(term_table_t *table, uint32_t n, term_t arg[]) {
+  int32_t i;
+
+  composite_hobj.tbl = table;
+  composite_hobj.tag = BV_ARRAY;
+  composite_hobj.tau = bv_type(table->types, n);
+  composite_hobj.arity = n;
+  composite_hobj.arg = arg;
+
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &composite_hobj);
+
+  return pos_term(i);
 }
 
-static uint32_t hash_var(type_t tau, int32_t idx) {
-  return jenkins_hash_pair(tau, idx, 0x83891aef);
-}
 
-static uint32_t hash_ite(ite_term_t *p) {
-  return jenkins_hash_triple(p->cond, p->then_arg, p->else_arg, 0x9f34197a);
-}
-
-static uint32_t hash_eq(eq_term_t *p) {
-  return jenkins_hash_pair(p->left, p->right, 0x78d2bae1);
-}
-
-static uint32_t hash_app(app_term_t *p) {
-  uint32_t h;
-  h = jenkins_hash_intarray(p->nargs, p->arg);
-  return jenkins_hash_pair(p->fun, 0, h);
-}
-
-static uint32_t hash_or(or_term_t *p) {
-  return jenkins_hash_intarray_var(p->nargs, p->arg, 0xf82bf286);
-}
-
-static uint32_t hash_not(term_t arg) {
-  return jenkins_hash_pair(arg, 0, 0x183b42e6);
-}
-
-static uint32_t hash_tuple(tuple_term_t *p) {
-  return jenkins_hash_intarray_var(p->nargs, p->arg, 0xae7bd466);
-}
-
-static uint32_t hash_select(select_term_t *p) {
-  return jenkins_hash_pair(p->arg, p->idx, 0x4137bee9);
-}
-
-static uint32_t hash_update(update_term_t *p) {
-  uint32_t h;
-  h = jenkins_hash_intarray_var(p->nargs, p->arg, 0x378a121a);
-  return jenkins_hash_pair(p->fun, p->newval, h);
-}
-
-static uint32_t hash_distinct(distinct_term_t *p) {
-  return jenkins_hash_intarray_var(p->nargs, p->arg, 0x783426);
-}
-
-static uint32_t hash_forall(forall_term_t *p) {
-  uint32_t h;
-  h = jenkins_hash_intarray_var(p->nvars, p->var, 0x9172ea9f);
-  return jenkins_hash_pair(p->body, 0, h);
-}
-
-static uint32_t hash_arith(polynomial_t *p, term_kind_t tag) {
-  uint32_t h;
-  h = hash_monarray(p->mono);
-  return jenkins_hash_pair(tag, 0, h);
-}
-
-static uint32_t hash_arith_bineq(arith_bineq_t *p) {
-  return jenkins_hash_pair(p->left, p->right, 0x761bedaf);
-}
-
-static uint32_t hash_bvarith(bvarith_expr_t *p) {
-  return bvarith_expr_hash(p);
-}
-
-static uint32_t hash_bvlogic(bvlogic_expr_t *p) {
-  return bvlogic_expr_hash(p);
-}
-
-static uint32_t hash_bvconst(bvconst_term_t *p) {
-  int32_t k;
-  k = (p->nbits + 31) >> 5; // number of 32-bit words 
-  return jenkins_hash_intarray_var(k, (int32_t *) p->bits, 0x71837ae4);
-}
-
-static uint32_t hash_bvatm(bv_atom_t *p, term_kind_t tag) {
-  return jenkins_hash_triple(p->left, p->right, tag, 0x7aaf3277);
-}
-
-static uint32_t hash_bvterm(bvapply_term_t *p) {
-  return jenkins_hash_triple(p->op, p->arg0, p->arg1, 0x8317ed8);
-}
 
 /*
- * Remove a term t from the hash-consing table
+ * Division and shift operators
+ * - the two arguments must be bitvector terms of the same type
+ * - in the division/remainder operators, b is the divisor
+ * - in the shift operator: a is the bitvector to be shifted 
+ *   and b is the shift amount
+ * - in all cases, the result has the same type as a and b
  */
-static void erase_hcons_record(term_table_t *table, term_t i) {
-  uint32_t k; // hash code
+term_t bvdiv_term(term_table_t *table, term_t a, term_t b) {
+  return binary_term(table, BV_DIV, term_type(table, a), a, b);
+}
 
-  switch (table->kind[i]) {
-  case CONSTANT_TERM:
-    k = hash_constant(table->type[i], table->desc[i].integer);
-    break;
+term_t bvrem_term(term_table_t *table, term_t a, term_t b) {
+  return binary_term(table, BV_REM, term_type(table, a), a, b);
+}
 
-  case VARIABLE:
-    k = hash_var(table->type[i], table->desc[i].integer);
-    break;
-    
-  case NOT_TERM:
-    k = hash_not(table->desc[i].integer);
-    break;
+term_t bvsdiv_term(term_table_t *table, term_t a, term_t b) {
+  return binary_term(table, BV_SDIV, term_type(table, a), a, b);
+}
 
-  case ITE_TERM:
-    k = hash_ite(table->desc[i].ptr);
-    break;
+term_t bvsrem_term(term_table_t *table, term_t a, term_t b) {
+  return binary_term(table, BV_SREM, term_type(table, a), a, b);
+}
 
-  case EQ_TERM:
-    k = hash_eq(table->desc[i].ptr);
-    break;
+term_t bvsmod_term(term_table_t *table, term_t a, term_t b) {
+  return binary_term(table, BV_SMOD, term_type(table, a), a, b);
+}
 
-  case APP_TERM:
-    k = hash_app(table->desc[i].ptr);
-    break;
+term_t bvshl_term(term_table_t *table, term_t a, term_t b) {
+  return binary_term(table, BV_SHL, term_type(table, a), a, b);
+}
 
-  case OR_TERM:
-    k = hash_or(table->desc[i].ptr);
-    break;
+term_t bvlshr_term(term_table_t *table, term_t a, term_t b) {
+  return binary_term(table, BV_LSHR, term_type(table, a), a, b);
+}
 
-  case TUPLE_TERM:
-    k = hash_tuple(table->desc[i].ptr);
-    break;
+term_t bvashr_term(term_table_t *table, term_t a, term_t b) {
+  return binary_term(table, BV_ASHR, term_type(table, a), a, b);
+}
 
-  case SELECT_TERM:
-    k = hash_select(table->desc[i].ptr);
-    break;
 
-  case UPDATE_TERM:
-    k = hash_update(table->desc[i].ptr);
-    break;
+/*
+ * Bitvector atoms: l and r must be bitvector terms of the same type
+ *  (bveq l r): l == r
+ *  (bvge l r): l >= r unsigned
+ *  (bvsge l r): l >= r signed
+ */
+term_t bveq_atom(term_table_t *table, term_t l, term_t r) {
+  return binary_term(table, BV_EQ_ATOM, bool_type(table->types), l, r);
+}
 
-  case DISTINCT_TERM:
-    k = hash_distinct(table->desc[i].ptr);
-    break;
+term_t bvge_atom(term_table_t *table, term_t l, term_t r) {
+  return binary_term(table, BV_GE_ATOM, bool_type(table->types), l, r);
+}
 
-  case FORALL_TERM:
-    k = hash_forall(table->desc[i].ptr);
-    break;
+term_t bvsge_atom(term_table_t *table, term_t l, term_t r) {
+  return binary_term(table, BV_SGE_ATOM, bool_type(table->types), l, r);
+}
 
-  case ARITH_TERM:
-    k = hash_arith(table->desc[i].ptr, ARITH_TERM);
-    break;
 
-  case ARITH_EQ_ATOM:
-    k = hash_arith(table->desc[i].ptr, ARITH_EQ_ATOM);
-    break;
 
-  case ARITH_GE_ATOM:
-    k = hash_arith(table->desc[i].ptr, ARITH_GE_ATOM);
-    break;
+/*
+ * POLYNOMIAL TERM CONSTRUCTORS
+ */
 
-  case ARITH_BINEQ_ATOM:
-    k = hash_arith_bineq(table->desc[i].ptr);
-    break;
+/*
+ * Convert power product r to an equivalent integer index
+ * - empty_pp --> const_idx
+ * - tagged variable x --> x (x must be a term)
+ * - otherwise, build a power product term t for r and return t
+ */
+static int32_t poly_index_for_pprod(term_table_t *table, pprod_t *r) {
+  int32_t i;
 
-  case BV_LOGIC_TERM:
-    k = hash_bvlogic(table->desc[i].ptr);
-    break;
+  assert(r != end_pp);
 
-  case BV_ARITH_TERM:
-    k = hash_bvarith(table->desc[i].ptr);
-    break;
-
-  case BV_CONST_TERM:
-    k = hash_bvconst(table->desc[i].ptr);
-    break;
-
-  case BV_EQ_ATOM:
-    k = hash_bvatm(table->desc[i].ptr, BV_EQ_ATOM);
-    break;
-
-  case BV_GE_ATOM:
-    k = hash_bvatm(table->desc[i].ptr, BV_GE_ATOM);
-    break;
-
-  case BV_SGE_ATOM:
-    k = hash_bvatm(table->desc[i].ptr, BV_SGE_ATOM);
-    break;
-
-  case BV_APPLY_TERM:
-    k = hash_bvterm(table->desc[i].ptr);
-    break;
-
-  default:
-    return;
+  if (pp_is_empty(r)) {
+    i = const_idx;
+  } else if (pp_is_var(r)) {
+    i = var_of_pp(r);
+  } else {
+    i = pprod_term(table, r);
   }
 
-  int_htbl_erase_record(&table->htbl, k, i);
+  return i;
 }
 
 
-/****************
- *  TERM NAMES  *
- ***************/
-
 /*
- * Assign name to term t
- * - name must be a string with refcounter 
+ * Check whether all terms in array v are integers
+ * - skip const_idx if it's in v (it should be first)
  */
-void set_term_name(term_table_t *table, term_t t, char *name) {
-  if (table->name[t] == NULL) {
-    table->name[t] = name;
-    string_incref(name);
+static bool all_integer_terms(term_table_t *table, term_t *v, uint32_t n) {
+  uint32_t i;
+
+  assert(n > 0);
+
+  if (v[0] == const_idx) {
+    v ++;
+    n --;
   }
-  stbl_add(&table->stbl, name, t);
-  string_incref(name);
+
+  for (i=0; i<n; i++) {
+    assert(is_arithmetic_term(table, v[i]));
+    if (is_real_term(table, v[i])) return false;
+  }
+
+  return true;
 }
 
 
 /*
- * Get term of the given name
+ * Arithmetic term
+ * - all variables of b must be real or integer terms defined in table
+ * - b must be normalized and b->ptbl must be the same as table->ptbl
+ * - if b contains a non-linear polynomial then the power products that
+ *   occur in p are converted to terms (using pprod_term)
+ * - then b is turned into a polynomial object a_1 x_1 + ... + a_n x_n,
+ *   where x_i is a term.
+ *
+ * SIDE EFFECT: b is reset to zero
  */
-term_t get_term_by_name(term_table_t *table, char *name) {
-  term_t t;
+term_t arith_term(term_table_t *table, arith_buffer_t *b) {
+  mlist_t *q;
+  int32_t *v;
+  type_t tau;
+  int32_t i;
+  bool all_int;
+  uint32_t j, n;
 
-  t = stbl_find(&table->stbl, name);
-  return (t >= 0) ? t : NULL_TERM;
+  assert(b->ptbl == table->pprods);
+
+  n = b->nterms;
+
+  /*
+   * convert the power products to indices
+   * store the result in ibuffer.
+   * also check whether all coefficients are integer.
+   */
+  assert(table->ibuffer.size == 0);
+
+  resize_ivector(&table->ibuffer, n);
+  v = table->ibuffer.data;
+  q = b->list;
+  all_int = true;
+  for (j=0; j<n; j++) {
+    assert(q->next != NULL);
+    v[j] = poly_index_for_pprod(table, q->prod);
+    all_int = all_int && q_is_integer(&q->coeff);
+    q = q->next;
+  }
+
+  assert(q->next == NULL && q->prod == end_pp);
+
+  // type of b: either int or real
+  tau = real_type(table->types);
+  if (all_int && all_integer_terms(table, v, n)) {
+    tau = int_type(table->types);
+  }
+
+  // hash consing
+  poly_hobj.tbl = table;
+  poly_hobj.tau = tau;
+  poly_hobj.b = b;
+  poly_hobj.v = v;
+
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &poly_hobj);
+
+  // cleanup ibuffer
+  ivector_reset(&table->ibuffer);
+
+  return pos_term(i);
 }
-
 
 /*
- * Remove term name
+ * Bitvector polynomials are constructed from a buffer b
+ * - all variables of b must be bitvector terms defined in table
+ * - b must be normalized and b->ptbl must be the same as table->ptbl
+ * - if b contains non-linear terms, then the power products that
+ *   occur in b are converted to terms (using pprod_term) then 
+ *   a polynomial object is created.
+ *
+ * SIDE EFFECT: b is reset to zero.
  */
-void remove_term_name(term_table_t *table, char *name) {
-  stbl_remove(&table->stbl, name);
+term_t bv64_term(term_table_t *table, bvarith64_buffer_t *b) {
+  bvmlist64_t *q;
+  int32_t *v;
+  int32_t i;
+  uint32_t j, n;
+
+  assert(b->ptbl == table->pprods);
+
+  n = b->nterms;
+
+  /*
+   * Convert the power products.
+   * Store the results in ibuffer.
+   */
+  assert(table->ibuffer.size == 0);
+  resize_ivector(&table->ibuffer, n);
+  v = table->ibuffer.data;
+  q = b->list;
+  for (j=0; j<n; j++) {
+    assert(q->next != NULL);
+    v[j] = poly_index_for_pprod(table, q->prod);
+    q = q->next;
+  }
+
+  assert(q->next == NULL && q->prod == end_pp);
+
+  // hash consing
+  bvpoly64_hobj.tbl = table;
+  bvpoly64_hobj.tau = bv_type(table->types, b->bitsize);
+  bvpoly64_hobj.b = b;
+  bvpoly64_hobj.v = v;
+
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bvpoly64_hobj);
+
+  // cleanup ibuffer
+  ivector_reset(&table->ibuffer);
+
+  return pos_term(i);
 }
+
+
+term_t bv_term(term_table_t *table, bvarith_buffer_t *b) {
+  bvmlist_t *q;
+  int32_t *v;
+  int32_t i;
+  uint32_t j, n;
+
+  assert(b->ptbl == table->pprods);
+
+  n = b->nterms;
+
+  /*
+   * Convert the power products.
+   * Store the results in ibuffer.
+   */
+  assert(table->ibuffer.size == 0);
+  resize_ivector(&table->ibuffer, n);
+  v = table->ibuffer.data;
+  q = b->list;
+  for (j=0; j<n; j++) {
+    assert(q->next != NULL);
+    v[j] = poly_index_for_pprod(table, q->prod);
+    q = q->next;
+  }
+
+  assert(q->next == NULL && q->prod == end_pp);
+
+  // hash consing
+  bvpoly_hobj.tbl = table;
+  bvpoly_hobj.tau = bv_type(table->types, b->bitsize);
+  bvpoly_hobj.b = b;
+  bvpoly_hobj.v = v;
+
+  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bvpoly_hobj);
+
+  // cleanup ibuffer
+  ivector_reset(&table->ibuffer);
+
+  return pos_term(i);
+}
+
+
+
+
+
+
+
+
 
 
 /***********************
@@ -1681,385 +2423,253 @@ void remove_term_name(term_table_t *table, char *name) {
  **********************/
 
 /*
- * Support for type-table garbage collection
- * - mark all types in the term table to prevent them from
- *   being removed from the type table
- * - must be called only via the gc_notifier attached to the type
- *   table table->types.
+ * MARKING
  */
-void mark_term_types(term_table_t *table) {
-  types_t *tbl;
-  term_t i;
-  int32_t n;
-
-  tbl = table->types;
-  n = table->nelems;
-  for (i=0; i<n; i++) {
-    if (table->kind[i] != UNUSED_TERM) {
-      gc_mark_type(tbl, table->type[i]);
-    }
-  }
-}
-
 
 /*
- * Term garbage collection: terms with root_flag set are not deleted.
+ * Mark all descendants of i whose ids are less than ptr
+ * - i must be a marked term index and not already deleted.
+ *
+ * NOTE: check for risks for stack overflow here.
  */
-void set_root_term_flag(term_table_t *table, term_t i) {
-  set_bit(table->mark, i);
-}
+static void mark_reachable_terms(term_table_t *table, int32_t ptr, int32_t i);
 
-void clr_root_term_flag(term_table_t *table, term_t i) {
-  clr_bit(table->mark, i);
-}
-
-
-
-/*
- * Marking for garbage collection of terms
- * - mark_queue = bitvector. One bit per term
- *   if mark_queue[t] = 0 then t will be deleted otherwise it
- *   will be kept.
- * - q = integer queue for processing subterms (breadth-first)
- */
-
-// mark t if it's not already marked and add it to the queue
-static void gc_mark_push_term(int_queue_t *q, byte_t *mark, term_t t) {
-  if (! tst_bit(mark, t)) {
-    set_bit(mark, t);
-    int_queue_push(q, t);
-  }
-}
-
-// same thing for terms a[0] ... a[n-1]
-static void gc_mark_push_array(int_queue_t *q, byte_t *mark, term_t *a, int32_t n) {
+// mark i if it's not already marked then explore its children if i < ptr where i = index_of(t)
+static void mark_and_explore_term(term_table_t *table, int32_t ptr, term_t t) {
   int32_t i;
 
-  for (i=0; i<n; i++) {
-    gc_mark_push_term(q, mark, a[i]);
-  }
-}
-
-// mark components of a term
-static inline void gc_mark_ite(int_queue_t *q, byte_t *mark, ite_term_t *ite) {
-  gc_mark_push_term(q, mark, ite->cond);
-  gc_mark_push_term(q, mark, ite->then_arg);
-  gc_mark_push_term(q, mark, ite->else_arg);
-}
-
-static inline void gc_mark_eq(int_queue_t *q, byte_t *mark, eq_term_t *eq) {
-  gc_mark_push_term(q, mark, eq->left);
-  gc_mark_push_term(q, mark, eq->right);  
-}
-
-static inline void gc_mark_app(int_queue_t *q, byte_t *mark, app_term_t *app) {
-  gc_mark_push_term(q, mark, app->fun);
-  gc_mark_push_array(q, mark, app->arg, app->nargs);
-}
-
-static inline void gc_mark_or(int_queue_t *q, byte_t *mark, or_term_t *or) {
-  gc_mark_push_array(q, mark, or->arg, or->nargs);
-}
-
-static inline void gc_mark_tuple(int_queue_t *q, byte_t *mark, tuple_term_t *tuple) {
-  gc_mark_push_array(q, mark, tuple->arg, tuple->nargs);
-}
-
-static inline void gc_mark_select(int_queue_t *q, byte_t *mark, select_term_t *select) {
-  gc_mark_push_term(q, mark, select->arg);
-}
-
-static inline void gc_mark_update(int_queue_t *q, byte_t *mark, update_term_t *update) {
-  gc_mark_push_term(q, mark, update->fun);
-  gc_mark_push_term(q, mark, update->newval);
-  gc_mark_push_array(q, mark, update->arg, update->nargs);
-}
-
-static inline void gc_mark_distinct(int_queue_t *q, byte_t *mark, distinct_term_t *distinct) {
-  gc_mark_push_array(q, mark, distinct->arg, distinct->nargs);
-}
-
-static inline void gc_mark_forall(int_queue_t *q, byte_t *mark, forall_term_t *forall) {
-  gc_mark_push_array(q, mark, forall->var, forall->nvars);
-  gc_mark_push_term(q, mark, forall->body);
-}
-
-static inline void gc_mark_bvatom(int_queue_t *q, byte_t *mark, bv_atom_t *atom) {
-  gc_mark_push_term(q, mark, atom->left);
-  gc_mark_push_term(q, mark, atom->right);  
-}
-
-static inline void gc_mark_bvterm(int_queue_t *q, byte_t *mark, bvapply_term_t *bvt) {
-  gc_mark_push_term(q, mark, bvt->arg0);
-  gc_mark_push_term(q, mark, bvt->arg1);  
-}
-
-
-/*
- * Mark terms reachable from a polynomial
- * - every variable x in the monomial array that has degree 1 represents a term
- *   in the term table. That term is marked.
- */
-static void gc_mark_polynomial(int_queue_t *q, byte_t *mark, polynomial_manager_t *m, polynomial_t *p) {
-  int32_t i, n;
-  arith_var_t x;
-
-  n = p->nterms;
-  for (i=0; i<n; i++) {
-    x = p->mono[i].var;
-    if (polymanager_var_is_primitive(m, x)) {
-      gc_mark_push_term(q, mark, polymanager_var_index(m, x));
+  i = index_of(t);
+  if (! term_idx_is_marked(table, i)) {
+    term_table_set_gc_mark(table, i);
+    if (i < ptr) {
+      mark_reachable_terms(table, ptr, i);
     }
   }
 }
 
-/*
- * Subterms of an arithmetic equality
- */
-static inline void gc_mark_arith_bineq(int_queue_t *q, byte_t *mark, arith_bineq_t *eq) {
-  gc_mark_push_term(q, mark, eq->left);
-  gc_mark_push_term(q, mark, eq->right);  
-}
-
-
-/*
- * Mark terms reachable from a bitvector arithmetic expression
- * - every variable x in the monomial array that has degree 1 represents a term
- *   in the term table. That term is marked.
- */
-static void gc_mark_bvarith_expr(int_queue_t *q, byte_t *mark, polynomial_manager_t *m, bvarith_expr_t *e) {
-  int32_t i, n;
-  bv_var_t x;
-
-  n = e->nterms;
-  for (i=0; i<n; i++) {
-    x = e->mono[i].var;
-    if (polymanager_var_is_primitive(m, x)) {
-      gc_mark_push_term(q, mark, polymanager_var_index(m, x));
-    }
-  }
-}
-
-
-/*
- * Mark terms reachable from a bdd array:
- * - bm: auxiliary marker to avoid visiting the same node twice
- * - the term marking is done by the callback function attached to 
- *   bm->marker (i.e., mark_term_from_bit_expr)
- */
-static void gc_mark_bvlogic_expr(term_bit_marker_t *bm, bvlogic_expr_t *bv) {
+// mark all terms in composite term d
+static void mark_composite_term(term_table_t *table, int32_t ptr, composite_term_t *d) {
   uint32_t i, n;
 
-  n = bv->nbits;
+  n = d->arity;
   for (i=0; i<n; i++) {
-    bit_marker_visit(&bm->marker, node_of_bit(bv->bit[i]));
+    mark_and_explore_term(table, ptr, d->arg[i]);
+  }
+}
+
+// subterm of d
+static inline void mark_select_term(term_table_t *table, int32_t ptr, select_term_t *d) {
+  mark_and_explore_term(table, ptr, d->arg);
+}
+
+// variables in polynomials
+static void mark_polynomial(term_table_t *table, int32_t ptr, polynomial_t *p) {
+  monomial_t *q;
+
+  q = p->mono;
+  // skip constant monomial if any
+  if (q->var == const_idx) q ++;
+
+  while (q->var != max_idx) {
+    mark_and_explore_term(table, ptr, q->var);
+    q ++;
+  } 
+}
+
+static void mark_bvpoly(term_table_t *table, int32_t ptr, bvpoly_t *p) {
+  bvmono_t *q;
+
+  q = p->mono;
+  // skip constant monomial if any
+  if (q->var == const_idx) q ++;
+
+  while (q->var != max_idx) {
+    mark_and_explore_term(table, ptr, q->var);
+    q ++;
+  }
+}
+
+static void mark_bvpoly64(term_table_t *table, int32_t ptr, bvpoly64_t *p) {
+  bvmono64_t *q;
+
+  q = p->mono;
+  // skip constant monomial if any
+  if (q->var == const_idx) q ++;
+
+  while (q->var != max_idx) {
+    mark_and_explore_term(table, ptr, q->var);
+    q ++;
+  } 
+}
+
+
+// power product r: we mark it in table->pprods, then we explore all variables of r
+static void mark_power_product(term_table_t *table, int32_t ptr, pprod_t *r) {
+  uint32_t i, n;
+
+  assert(r != empty_pp && r != end_pp && !pp_is_var(r));
+  pprod_table_set_gc_mark(table->pprods, r);
+
+  n = r->len;
+  for (i=0; i<n; i++) {
+    mark_and_explore_term(table, ptr, r->prod[i].var);
   }
 }
 
 
-/*
- * Mark term t and all its subterms
- * - must be called only after table->gc_mark and table->gc_mark_queue
- * have been initialized (i.e., within a gc_notifier).
- */
-void gc_mark_term(term_table_t *table, term_t t) {
-  int_queue_t *q;
-  byte_t *mark;
+static void mark_reachable_terms(term_table_t *table, int32_t ptr, int32_t i) {
+  assert(term_idx_is_marked(table, i));
 
-  assert(table->gc_mark != NULL);
-  assert(table->gc_mark_queue != NULL);
+  switch (table->kind[i]) {
+  case UNUSED_TERM:
+  case RESERVED_TERM:
+    // should not happen
+    assert(false);
+    break;
 
-  mark = table->gc_mark;
-  if (! tst_bit(mark, t)) {
-    set_bit(mark, t);
-    q = table->gc_mark_queue;
-    for (;;) {
-      switch(table->kind[t]) {
-      case UNUSED_TERM:
-      case CONSTANT_TERM:    
-      case UNINTERPRETED_TERM:
-      case VARIABLE:
-	break;
-      case NOT_TERM:
-	gc_mark_push_term(q, mark, table->desc[t].integer);
-	break;
-      case ITE_TERM:
-	gc_mark_ite(q, mark, table->desc[t].ptr);
-	break;
-      case EQ_TERM:
-	gc_mark_eq(q, mark, table->desc[t].ptr);
-	break;
-      case APP_TERM:
-	gc_mark_app(q, mark, table->desc[t].ptr);
-	break;
-      case OR_TERM:
-	gc_mark_or(q, mark, table->desc[t].ptr);
-	break;
-      case TUPLE_TERM:
-	gc_mark_tuple(q, mark, table->desc[t].ptr);
-	break;
-      case SELECT_TERM:
-	gc_mark_select(q, mark, table->desc[t].ptr);
-	break;
-      case UPDATE_TERM:
-	gc_mark_update(q, mark, table->desc[t].ptr);
-	break;
-      case DISTINCT_TERM:
-	gc_mark_distinct(q, mark, table->desc[t].ptr);
-	break;
-      case FORALL_TERM:
-	gc_mark_forall(q, mark, table->desc[t].ptr);
-	break;
+  case CONSTANT_TERM:
+  case UNINTERPRETED_TERM:
+  case VARIABLE:
+  case ARITH_CONSTANT:
+  case BV64_CONSTANT:
+  case BV_CONSTANT:
+    // leaf terms
+    break;
 
-      case ARITH_TERM:
-      case ARITH_EQ_ATOM:
-      case ARITH_GE_ATOM:
-	gc_mark_polynomial(q, mark, &table->arith_manager->pm, table->desc[t].ptr);
-	break;
-      case ARITH_BINEQ_ATOM:
-	gc_mark_arith_bineq(q, mark, table->desc[t].ptr);
-	break;
-      case BV_LOGIC_TERM:
-	gc_mark_bvlogic_expr(table->gc_bit_marker, table->desc[t].ptr);
-	break;
-      case BV_ARITH_TERM:
-	gc_mark_bvarith_expr(q, mark, &table->bv_manager->pm, table->desc[t].ptr);
-	break;
+  case ARITH_EQ_ATOM:
+  case ARITH_GE_ATOM:
+    // i has a single subterm stored in desc[i].integer
+    mark_and_explore_term(table, ptr, table->desc[i].integer);
+    break;
 
-      case BV_CONST_TERM:
-	break;
-      case BV_EQ_ATOM:
-      case BV_GE_ATOM:
-      case BV_SGE_ATOM:
-	gc_mark_bvatom(q, mark, table->desc[t].ptr);
-	break;
-      case BV_APPLY_TERM:
-	gc_mark_bvterm(q, mark, table->desc[t].ptr);
-	break;
-      }
+  case ITE_TERM:
+  case APP_TERM:
+  case UPDATE_TERM:
+  case TUPLE_TERM:
+  case EQ_TERM:
+  case DISTINCT_TERM:
+  case FORALL_TERM:
+  case OR_TERM:
+  case XOR_TERM:
+  case BV_ARRAY:
+  case BV_DIV:
+  case BV_REM:
+  case BV_SDIV:
+  case BV_SREM:
+  case BV_SMOD:
+  case BV_SHL:
+  case BV_LSHR:
+  case BV_ASHR:
+  case BV_EQ_ATOM:
+  case BV_GE_ATOM:
+  case BV_SGE_ATOM:
+    // i's descriptor is a composite term 
+    mark_composite_term(table, ptr, table->desc[i].ptr);
+    break;
 
-      if (int_queue_is_empty(q)) break;
-      t = int_queue_pop(q);
-    }
+  case SELECT_TERM:
+  case BIT_TERM:
+    // i's descriptor is a select term
+    mark_select_term(table, ptr, table->desc[i].ptr);
+    break;
+
+  case POWER_PRODUCT:
+    mark_power_product(table, ptr, table->desc[i].ptr);
+    break;
+
+  case ARITH_POLY:
+    mark_polynomial(table, ptr, table->desc[i].ptr);
+    break;
+
+  case BV64_POLY:
+    mark_bvpoly64(table, ptr, table->desc[i].ptr);
+    break;
+
+  case BV_POLY:
+    mark_bvpoly(table, ptr, table->desc[i].ptr);
+    break;
+
+  default:
+    assert(false);
+    break;
   }
+
 }
 
 
-
-
-
 /*
- * Marker function: callback in table->gc_bit_marker.
- *
- * Mark term that may be reachable from the bit-variable of node:
- * - that variable may be attached to a bit-vector variable v
- * - v may be attached to a term t (if v is a primitive variable).
- * Object o store the following data:
- * - nodes: node tables for all bvlogic_expr of the table
- * - pm: bitvector variable manager for all bvlogic and bvarith expressions
- * - mark, q: term marking and queue 
- * 
- * - node is the id of a node reachable from a bvlogic_expr term
- */
-static void mark_term_from_bit_expr(void *o, node_t node) {
-  term_bit_marker_t *p;
-  int32_t v;
-
-  p = (term_bit_marker_t *) o;
-  if (is_variable_node(p->nodes, node)) {
-    v = bv_var_of_node(p->nodes, node);
-    if (v >= 0 && polymanager_var_is_primitive(p->pm, v)) {
-      gc_mark_push_term(p->q, p->mark, polymanager_var_index(p->pm, v));
-    }
-  }
-}
-
-
-
-/*
- * Mark all terms with root_flag set and all terms accessible from the symbol table. 
+ * Mark all live terms:
+ * - on entry: the root terms must be marked
+ * - on exit:
+ *   every term reachable from a root term is marked
+ *   every power product that's live is marked in table->ptbl.
+ *   every type that's attached to a live term is marked in table->types            
  */
 static void mark_live_terms(term_table_t *table) {
-  stbl_t *sym_table;
-  stbl_bank_t *b;
-  stbl_rec_t *r;
-  term_t i;
-  uint32_t k;
+  type_table_t *types;
+  uint32_t i, n;
 
-  // mark terms accessible from the symbol table
-  sym_table = &table->stbl;
-  k = sym_table->free_idx;
-  for (b = sym_table->bnk; b != NULL; b = b->next) {
-    for (r = b->block + k; r < b->block + STBL_BANK_SIZE; r ++) {      
-      if (r->string != NULL) {
-	i = r->value;
-	gc_mark_term(table, i);
-      }
+  n = table->nelems;
+  for (i=0; i<n; i++) {
+    if (term_idx_is_marked(table, i)) {
+      mark_reachable_terms(table, i, i);
     }
-    k = 0;
   }
 
-  // mark terms with root_flag == 1
-  for (i=0; i<table->nelems; i++) {
-    if (table->kind[i] != UNUSED_TERM && tst_bit(table->mark, i)) {
-      gc_mark_term(table, i);
+  // propagate the marks to live types
+  types = table->types;
+  for (i=0; i<n; i++) {
+    if (term_idx_is_marked(table, i)) {
+      type_table_set_gc_mark(types, table->type[i]);
     }
-  }  
+  }
 }
 
 
 /*
- * Garbage collection
+ * Iterator to mark the terms accessible from the symbol table
+ * - aux must be a pointer to the term table
+ * - r is a record in the symbol table: r->value is a term to mark
  */
-void term_table_garbage_collection(term_table_t *table) {
-  int32_t n;
-  term_t i;
-  int_queue_t queue;
-  byte_t *mark;
-  term_bit_marker_t bit_marker;
-  node_table_t *nodes;
+static void mark_symbol(void *aux, stbl_rec_t *r) {
+  term_table_set_gc_mark(aux, index_of(r->value));
+}
 
-  // initialize gc_mark, mark_queue, bdd_marker
-  init_int_queue(&queue, 0);
-  n = table->nelems;
-  mark = allocate_bitvector(n);
-  clear_bitvector(mark, n);
-  nodes = table->bv_manager->bm;
 
-  init_bit_marker(&bit_marker.marker, nodes, mark_term_from_bit_expr);
-  bit_marker.nodes = nodes;
-  bit_marker.pm = &table->bv_manager->pm;
-  bit_marker.mark = mark;
-  bit_marker.q = &queue;
+/*
+ * Garbage collector 
+ * - the roots are all the marked terms and all the terms 
+ *   present in the symbol table.
+ * - every term, type, and power product reachable from these roots
+ *   is preserved
+ * - delete everything else
+ * - clear all the marks
+ */
+void term_table_gc(term_table_t *table) {
+  uint32_t i, n;
 
-  table->gc_mark = mark;
-  table->gc_mark_queue = &queue;
-  table->gc_bit_marker = &bit_marker;
+  // mark the terms present in the symbol table
+  stbl_iterate(&table->stbl, table, mark_symbol);
 
-  // mark root terms and all reachable subterms
-  gc_mark_term(table, false_term_id);
-  gc_mark_term(table, true_term_id);
+  // mark the primitive terms
+  term_table_set_gc_mark(table, const_idx);
+  term_table_set_gc_mark(table, bool_const);
+
+  // propagate the marks
   mark_live_terms(table);
 
-  table->gc_notifier(table);
+  // force garbage collection in the type and power-product tables
+  type_table_gc(table->types);
+  pprod_table_gc(table->pprods);
 
-  // delete all unmarked terms
+  // delete the unmarked terms
+  n = table->nelems;
   for (i=0; i<n; i++) {
-    if (! tst_bit(mark, i)) {
-      erase_hcons_record(table, i);
-      erase_term(table, i);
+    if (! term_idx_is_marked(table, i) && table->kind[i] != UNUSED_TERM) {
+      delete_term(table, i);
     }
   }
 
-  // delete the dead nodes in the bit node table
-  node_table_garbage_collection(nodes);
-
-  // cleanup
-  table->gc_mark = NULL;
-  table->gc_mark_queue = NULL;
-  table->gc_bit_marker = NULL;
-  delete_bitvector(mark);
-  delete_int_queue(&queue);
+  // clear the marks
+  clear_bitvector(table->mark, table->size);
 }
-
-#endif
