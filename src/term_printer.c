@@ -800,11 +800,15 @@ void print_term_table(FILE *f, term_table_t *tbl) {
   for (i=0; i<n; i++) {
     if (tbl->kind[i] != UNUSED_TERM) {
       // id + name
-      fprintf(f, "%4"PRIu32, i);
+      fprintf(f, "%4"PRIu32" ", i);
       print_padded_string(f, term_name(tbl, pos_term(i)), name_size);
 
       // definition
       switch (tbl->kind[i]) {
+      case RESERVED_TERM:
+	fprintf(f, "reserved");
+	break;
+
       case CONSTANT_TERM:
 	fprintf(f, "(const %"PRId32" of type ", tbl->desc[i].integer);
 	print_type_name(f, tbl->types, tbl->type[i]);
@@ -893,8 +897,6 @@ void print_term_table(FILE *f, term_table_t *tbl) {
 	print_bvpoly(f, tbl->desc[i].ptr);
 	break;
 
-      case UNUSED_TERM:
-      case RESERVED_TERM:
       default:
 	fprintf(f, "bad-term-%"PRIu32, i);
 	break;

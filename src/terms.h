@@ -781,6 +781,16 @@ static inline term_kind_t kind_for_idx(term_table_t *table, int32_t i) {
 }
 
 // get descriptor converted to an appropriate type
+static inline int32_t integer_value_for_idx(term_table_t *table, int32_t i) {
+  assert(good_term_idx(table, i));
+  return table->desc[i].integer;
+}
+
+static inline rational_t *rational_value_for_idx(term_table_t *table, int32_t i) {
+  assert(good_term_idx(table, i));
+  return &table->desc[i].rational;
+}
+
 static inline composite_term_t *composite_for_idx(term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return (composite_term_t *) table->desc[i].ptr;
