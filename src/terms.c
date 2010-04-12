@@ -1364,6 +1364,7 @@ static void delete_term(term_table_t *table, int32_t i) {
   case DISTINCT_TERM:
   case OR_TERM:
   case XOR_TERM:
+  case ARITH_BINEQ_ATOM:
   case BV_ARRAY:
   case BV_DIV:
   case BV_REM:
@@ -1568,6 +1569,7 @@ static void delete_term_descriptors(term_table_t *table) {
     case OR_TERM:
     case XOR_TERM:
     case BIT_TERM:
+    case ARITH_BINEQ_ATOM:
     case BV64_CONSTANT:
     case BV_CONSTANT:
     case BV_ARRAY:
@@ -2239,16 +2241,16 @@ static int32_t poly_index_for_pprod(term_table_t *table, pprod_t *r) {
 static bool all_integer_terms(term_table_t *table, term_t *v, uint32_t n) {
   uint32_t i;
 
-  assert(n > 0);
+  if (n > 0) {
+    if (v[0] == const_idx) {
+      v ++;
+      n --;
+    }
 
-  if (v[0] == const_idx) {
-    v ++;
-    n --;
-  }
-
-  for (i=0; i<n; i++) {
-    assert(is_arithmetic_term(table, v[i]));
-    if (is_real_term(table, v[i])) return false;
+    for (i=0; i<n; i++) {
+      assert(is_arithmetic_term(table, v[i]));
+      if (is_real_term(table, v[i])) return false;
+    }
   }
 
   return true;
@@ -2285,7 +2287,7 @@ term_t arith_term(term_table_t *table, arith_buffer_t *b) {
    */
   assert(table->ibuffer.size == 0);
 
-  resize_ivector(&table->ibuffer, n);
+  resize_ivector(&table->ibuffer, n + 1);
   v = table->ibuffer.data;
   q = b->list;
   all_int = true;
@@ -2295,8 +2297,9 @@ term_t arith_term(term_table_t *table, arith_buffer_t *b) {
     all_int = all_int && q_is_integer(&q->coeff);
     q = q->next;
   }
-
+  // add the end marker
   assert(q->next == NULL && q->prod == end_pp);
+  v[j] = max_idx;
 
   // type of b: either int or real
   tau = real_type(table->types);
@@ -2343,7 +2346,7 @@ term_t bv64_term(term_table_t *table, bvarith64_buffer_t *b) {
    * Store the results in ibuffer.
    */
   assert(table->ibuffer.size == 0);
-  resize_ivector(&table->ibuffer, n);
+  resize_ivector(&table->ibuffer, n + 1);
   v = table->ibuffer.data;
   q = b->list;
   for (j=0; j<n; j++) {
@@ -2353,6 +2356,7 @@ term_t bv64_term(term_table_t *table, bvarith64_buffer_t *b) {
   }
 
   assert(q->next == NULL && q->prod == end_pp);
+  v[j] = max_idx;
 
   // hash consing
   bvpoly64_hobj.tbl = table;
@@ -2384,7 +2388,7 @@ term_t bv_term(term_table_t *table, bvarith_buffer_t *b) {
    * Store the results in ibuffer.
    */
   assert(table->ibuffer.size == 0);
-  resize_ivector(&table->ibuffer, n);
+  resize_ivector(&table->ibuffer, n+1);
   v = table->ibuffer.data;
   q = b->list;
   for (j=0; j<n; j++) {
@@ -2394,6 +2398,7 @@ term_t bv_term(term_table_t *table, bvarith_buffer_t *b) {
   }
 
   assert(q->next == NULL && q->prod == end_pp);
+  v[j] = max_idx;
 
   // hash consing
   bvpoly_hobj.tbl = table;
@@ -2523,10 +2528,6 @@ static void mark_reachable_terms(term_table_t *table, int32_t ptr, int32_t i) {
   switch (table->kind[i]) {
   case UNUSED_TERM:
   case RESERVED_TERM:
-    // should not happen
-    assert(false);
-    break;
-
   case CONSTANT_TERM:
   case UNINTERPRETED_TERM:
   case VARIABLE:
@@ -2617,9 +2618,10 @@ static void mark_live_terms(term_table_t *table) {
   }
 
   // propagate the marks to live types
+  // skip the reserved term
   types = table->types;
-  for (i=0; i<n; i++) {
-    if (term_idx_is_marked(table, i)) {
+  for (i=1; i<n; i++) {
+    if (term_idx_is_marked(table, i) ) {
       type_table_set_gc_mark(types, table->type[i]);
     }
   }

@@ -471,8 +471,9 @@ extern void bvarith_buffer_mul_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod
  *
  * The operations below use a buffer b and an integer array v.
  * The array v stores the conversion from power-products to integer indices:
- * If b contains a_0 r_0 + ... + a_n r_n then v must have (n+1) elements
- * and the integer  index for power product r_i is v[i].
+ * If b contains a_0 r_0 + ... + a_n r_n then v must have (n+2) elements
+ * and the integer  index for power product r_i is v[i]. The last element v[n+1]
+ * must be max_idx.
  *
  * The pair (b, v) defines then a bitvector polynomial
  * P(b, v) = a_1 v[1] + ... + a_n v[n],

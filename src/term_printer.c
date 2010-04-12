@@ -35,7 +35,7 @@ static const char * const term2string[] = {
 void print_term_id(FILE *f, term_t t) {
   assert(t >= 0);
 
-  if (t == false_term) {
+  if (t <= false_term) {
     fputs(term2string[t], f);
   } else if (is_neg_term(t)) {
     fprintf(f, "(not t!%"PRId32")", index_of(t));
@@ -363,9 +363,9 @@ static const char * const tag2string[] = {
   "reserved",
   "constant",
   "uninterpreted",
-  "variable"
+  "variable",
   "ite",
-  "", // function application
+  "app", // function application
   "update",
   "tuple",
   "select",
@@ -421,10 +421,25 @@ static void print_composite_term(FILE *f, term_table_t *tbl, term_kind_t tag, co
   fputc(')', f);
 }
 
+// function application
+static void print_app_term(FILE *f, term_table_t *tbl, composite_term_t *d, int32_t level) {
+  uint32_t i, n;
+
+  fputc('(', f);
+  n = d->arity;
+  assert(n > 0);
+  print_term_recur(f, tbl, d->arg[0], level);
+  for (i=1; i<n; i++) {
+    fputc(' ', f);
+    print_term_recur(f, tbl, d->arg[i], level);
+  }
+  fputc(')', f);
+}
+
 // select
 static void print_select_term(FILE *f, term_table_t *tbl, term_kind_t tag, select_term_t *d, int32_t level) {
   assert(0 <= tag && tag <= BV_SGE_ATOM);
-  fprintf(f, "(%s %"PRIu32, tag2string[tag], d->idx);
+  fprintf(f, "(%s %"PRIu32" ", tag2string[tag], d->idx);
   print_term_recur(f, tbl, d->arg, level);
   fputc(')', f);
 }
@@ -566,6 +581,115 @@ static void print_bvconst64_term(FILE *f, bvconst64_term_t *d) {
   print_bvconst64(f, d->value, d->bitsize);
 }
 
+static void print_term_idx_recur(FILE *f, term_table_t *tbl, int32_t i, int32_t level) {
+  char *name;
+
+  name = term_name(tbl, pos_term(i));
+  if (name != NULL && level <= 0) {
+    fputs(name, f);
+  } else {
+    switch (tbl->kind[i]) {
+    case CONSTANT_TERM:
+      fprintf(f, "(const %"PRId32" of type ", tbl->desc[i].integer);
+      print_type_name(f, tbl->types, tbl->type[i]);
+      fputc(')', f);
+      break;
+
+    case UNINTERPRETED_TERM:
+      fprintf(f, "(unint of type ");
+      print_type_name(f, tbl->types, tbl->type[i]);
+      fputc(')', f);
+      break;
+
+    case VARIABLE:
+      fprintf(f, "(var %"PRId32" of type ", tbl->desc[i].integer);
+      print_type_name(f, tbl->types, tbl->type[i]);
+      fputc(')', f);
+      break;
+
+    case ARITH_CONSTANT:
+      q_print(f, &tbl->desc[i].rational);
+      break;
+
+    case BV64_CONSTANT:
+      print_bvconst64_term(f, tbl->desc[i].ptr);
+      break;
+
+    case BV_CONSTANT:
+      print_bvconst_term(f, tbl->desc[i].ptr);
+      break;
+
+    case ARITH_EQ_ATOM:
+      fputs("(arith-eq ", f);
+      print_term_recur(f, tbl, tbl->desc[i].integer, level - 1);
+      fputs(" 0)", f);
+      break;
+
+    case ARITH_GE_ATOM:
+      fputs("(arith-ge ", f);
+      print_term_recur(f, tbl, tbl->desc[i].integer, level - 1);
+      fputs(" 0)", f);
+      break;
+
+    case APP_TERM:
+      print_app_term(f, tbl, tbl->desc[i].ptr, level - 1);
+      break;
+
+    case ITE_TERM:
+    case UPDATE_TERM:
+    case TUPLE_TERM:
+    case EQ_TERM:
+    case DISTINCT_TERM:
+    case FORALL_TERM:
+    case OR_TERM:
+    case XOR_TERM:
+    case ARITH_BINEQ_ATOM:
+    case BV_ARRAY:
+    case BV_DIV:
+    case BV_REM:
+    case BV_SDIV:
+    case BV_SREM:
+    case BV_SMOD:
+    case BV_SHL:
+    case BV_LSHR:
+    case BV_ASHR:
+    case BV_EQ_ATOM:
+    case BV_GE_ATOM:
+    case BV_SGE_ATOM:
+      // i's descriptor is a composite term 
+      print_composite_term(f, tbl, tbl->kind[i], tbl->desc[i].ptr, level - 1);
+      break;
+
+    case SELECT_TERM:
+    case BIT_TERM:
+      print_select_term(f, tbl, tbl->kind[i], tbl->desc[i].ptr, level - 1);
+      break;
+
+    case POWER_PRODUCT:
+      print_power_product_term(f, tbl, tbl->desc[i].ptr, level - 1);
+      break;
+
+    case ARITH_POLY:
+      print_polynomial_term(f, tbl, tbl->desc[i].ptr, level - 1);
+      break;
+
+    case BV64_POLY:
+      print_bvpoly64_term(f, tbl, tbl->desc[i].ptr, level - 1);
+      break;
+	
+    case BV_POLY:
+      print_bvpoly_term(f, tbl, tbl->desc[i].ptr, level - 1);
+      break;
+
+    case UNUSED_TERM:
+    case RESERVED_TERM:
+    default:
+      fprintf(f, "bad-term-%"PRIu32, i);
+      break;
+    }
+  }
+}
+
 static void print_term_recur(FILE *f, term_table_t *tbl, term_t t, int32_t level) {
   char *name;
   int32_t i;
@@ -577,106 +701,14 @@ static void print_term_recur(FILE *f, term_table_t *tbl, term_t t, int32_t level
     if (name != NULL && level <= 0) {
       fputs(name, f);
     } else {
-      if (is_neg_term(t)) fputs("(not ", f);
       i = index_of(t);
-
-      switch (tbl->kind[i]) {
-      case CONSTANT_TERM:
-	fprintf(f, "(const %"PRId32" of type ", tbl->desc[i].integer);
-	print_type_name(f, tbl->types, tbl->type[i]);
-	fputc(')', f);
-	break;
-
-      case UNINTERPRETED_TERM:
-	fprintf(f, "(unint of type ");
-	print_type_id(f, tbl->type[i]);
-	fputc(')', f);
-	break;
-
-      case VARIABLE:
-	fprintf(f, "(var %"PRId32" of type ", tbl->desc[i].integer);
-	print_type_name(f, tbl->types, tbl->type[i]);
-	fputc(')', f);
-	break;
-
-      case ARITH_CONSTANT:
-	q_print(f, &tbl->desc[i].rational);
-	break;
-
-      case BV64_CONSTANT:
-	print_bvconst64_term(f, tbl->desc[i].ptr);
-	break;
-
-      case BV_CONSTANT:
-	print_bvconst_term(f, tbl->desc[i].ptr);
-	break;
-
-      case ARITH_EQ_ATOM:
-	fputs("(arith-eq ", f);
-	print_term_recur(f, tbl, tbl->desc[i].integer, level - 1);
-	fputs(" 0)", f);
-	break;
-
-      case ARITH_GE_ATOM:
-	fputs("(arith-ge ", f);
-	print_term_recur(f, tbl, tbl->desc[i].integer, level - 1);
-	fputs(" 0)", f);
-	break;
-
-      case ITE_TERM:
-      case APP_TERM:
-      case UPDATE_TERM:
-      case TUPLE_TERM:
-      case EQ_TERM:
-      case DISTINCT_TERM:
-      case FORALL_TERM:
-      case OR_TERM:
-      case XOR_TERM:
-      case BV_ARRAY:
-      case BV_DIV:
-      case BV_REM:
-      case BV_SDIV:
-      case BV_SREM:
-      case BV_SMOD:
-      case BV_SHL:
-      case BV_LSHR:
-      case BV_ASHR:
-      case BV_EQ_ATOM:
-      case BV_GE_ATOM:
-      case BV_SGE_ATOM:
-	// i's descriptor is a composite term 
-	print_composite_term(f, tbl, tbl->kind[i], tbl->desc[i].ptr, level - 1);
-	break;
-
-      case SELECT_TERM:
-      case BIT_TERM:
-	print_select_term(f, tbl, tbl->kind[i], tbl->desc[i].ptr, level - 1);
-	break;
-
-      case POWER_PRODUCT:
-	print_power_product_term(f, tbl, tbl->desc[i].ptr, level - 1);
-	break;
-
-      case ARITH_POLY:
-	print_polynomial_term(f, tbl, tbl->desc[i].ptr, level - 1);
-	break;
-
-      case BV64_POLY:
-	print_bvpoly64_term(f, tbl, tbl->desc[i].ptr, level - 1);
-	break;
-
-      case BV_POLY:
-	print_bvpoly_term(f, tbl, tbl->desc[i].ptr, level - 1);
-	break;
-
-      case UNUSED_TERM:
-      case RESERVED_TERM:
-      default:
-	fprintf(f, "bad-term-%"PRIu32, i);
-	break;
+      if (is_neg_term(t)) {
+	fputs("(not ", f);
+	print_term_idx_recur(f, tbl, i, level - 1);
+	fputc(')', f);	
+      } else {
+	print_term_idx_recur(f, tbl, i, level);
       }
-
-      if (is_neg_term(t)) fputc(')', f);
     }
   }
 }
@@ -758,7 +790,7 @@ static void print_padded_string(FILE *f, char *s, uint32_t l) {
 
 
 // generic composite
-static void print_composite(FILE *f, term_kind_t tag, composite_term_t *d) {
+static void print_composite(FILE *f, term_table_t *tbl, term_kind_t tag, composite_term_t *d) {
   uint32_t i, n;
 
   assert(0 <= tag && tag <= BV_SGE_ATOM);
@@ -767,17 +799,174 @@ static void print_composite(FILE *f, term_kind_t tag, composite_term_t *d) {
   n = d->arity;
   for (i=0; i<n; i++) {
     fputc(' ', f);
-    print_term_id(f, d->arg[i]);
+    print_term_name(f, tbl, d->arg[i]);
+  }
+  fputc(')', f);
+}
+
+// function application
+static void print_app(FILE *f, term_table_t *tbl, composite_term_t *d) {
+  uint32_t i, n;
+
+  fputc('(', f);
+  n = d->arity;
+  assert(n > 0);
+  print_term_name(f, tbl, d->arg[0]);
+  for (i=1; i<n; i++) {
+    fputc(' ', f);
+    print_term_name(f, tbl, d->arg[i]);
   }
   fputc(')', f);
 }
 
 // select
-static void print_select(FILE *f, term_kind_t tag, select_term_t *d) {
+static void print_select(FILE *f, term_table_t *tbl, term_kind_t tag, select_term_t *d) {
   assert(0 <= tag && tag <= BV_SGE_ATOM);
-  fprintf(f, "(%s %"PRIu32, tag2string[tag], d->idx);
-  print_term_id(f, d->arg);
+  fprintf(f, "(%s %"PRIu32" ", tag2string[tag], d->idx);
+  print_term_name(f, tbl, d->arg);
   fputc(')', f);
+}
+
+// power product
+static void print_named_varexp_array(FILE *f, term_table_t *tbl, varexp_t *a, uint32_t n) {
+  uint32_t i, d;
+
+  if (n == 0) {
+    fprintf(f, "1");
+    return;
+  }
+  d = a[0].exp;
+  print_term_name(f, tbl, a[0].var);
+  if (d != 1) {
+    fprintf(f, "^%"PRIu32, d);
+  }
+  for (i=1; i<n; i++) {
+    d = a[i].exp;
+    fputc(' ', f);
+    print_term_name(f, tbl, a[i].var);
+    if (d != 1) {
+      fprintf(f, "^%"PRIu32, d);
+    }
+  }
+}
+
+static void print_named_pprod(FILE *f, term_table_t *tbl, pprod_t *r) {
+  if (pp_is_var(r)) {
+    print_term_name(f, tbl, var_of_pp(r));
+  } else if (pp_is_empty(r)) {
+    fputc('1', f);
+  } else if (r == end_pp) {
+    fputs("end_pp", f);
+  } else {
+    print_named_varexp_array(f, tbl, r->prod, r->len);
+  }
+}
+
+// polynomial
+static void print_named_monomial(FILE *f, term_table_t *tbl, rational_t *coeff, int32_t x, bool first) {
+  bool negative;
+  bool abs_one;
+
+  negative = q_is_neg(coeff);
+  if (negative) {
+    if (first) {
+      fprintf(f, "- ");     
+    } else {
+      fprintf(f, " - ");
+    }
+    abs_one = q_is_minus_one(coeff);
+  } else {
+    if (! first) {
+      fprintf(f, " + ");
+    }
+    abs_one = q_is_one(coeff);
+  }
+
+  if (x == const_idx) {
+    q_print_abs(f, coeff);
+  } else {
+    if (! abs_one) {
+      q_print_abs(f, coeff);
+      fprintf(f, " ");
+    }
+    print_term_name(f, tbl, x);
+  }  
+}
+
+static void print_named_polynomial(FILE *f, term_table_t *tbl, polynomial_t *p) {
+  uint32_t i, n;
+  bool first;
+
+  if (polynomial_is_zero(p)) {
+    fputc('0', f);
+  } else {
+    n = p->nterms;
+    first = true;
+    for (i=0; i<n; i++) {
+      print_named_monomial(f, tbl, &p->mono[i].coeff, p->mono[i].var, first);
+      first = false;
+    }
+  }
+}
+
+// bitvector polynomials
+static void print_named_bvmono(FILE *f, term_table_t *tbl, uint32_t *coeff, 
+			       int32_t x, uint32_t n, bool first) {
+  if (! first) {
+    fputs(" + ", f);
+  }
+
+  bvconst_print(f, coeff, n);
+  if (x != const_idx) {
+    fputc(' ', f);
+    print_term_name(f, tbl, x);
+  }
+}
+
+static void print_named_bvpoly(FILE *f, term_table_t *tbl, bvpoly_t *p) {
+  uint32_t i, n;
+  bool first;
+
+  n = p->nterms;
+  if (n == 0) {
+    fputc('0', f);
+  } else {
+    first = true;
+    for (i=0; i<n; i++) {
+      print_named_bvmono(f, tbl, p->mono[i].coeff, p->mono[i].var, p->bitsize, first);
+      first = false;
+    }
+  }
+}
+
+// bitvector polynomials with small coefficients
+static void print_named_bvmono64(FILE *f, term_table_t *tbl, uint64_t coeff, 
+				 int32_t x, uint32_t n, bool first) {
+  if (! first) {
+    fputs(" + ", f);
+  }
+
+  print_bvconst64(f, coeff, n);
+  if (x != const_idx) {
+    fputc(' ', f);
+    print_term_name(f, tbl, x);
+  }
+}
+
+static void print_named_bvpoly64(FILE *f, term_table_t *tbl, bvpoly64_t *p) {
+  uint32_t i, n;
+  bool first;
+
+  n = p->nterms;
+  if (n == 0) {
+    fputc('0', f);
+  } else {
+    first = true;
+    for (i=0; i<n; i++) {
+      print_named_bvmono64(f, tbl, p->mono[i].coeff, p->mono[i].var, p->bitsize, first);
+      first = false;
+    }
+  }
 }
 
 
@@ -841,18 +1030,21 @@ void print_term_table(FILE *f, term_table_t *tbl) {
 
       case ARITH_EQ_ATOM:
 	fputs("(arith-eq ", f);
-	print_term_id(f, tbl->desc[i].integer);
+	print_term_name(f, tbl, tbl->desc[i].integer);
 	fputs(" 0)", f);
 	break;
 
       case ARITH_GE_ATOM:
 	fputs("(arith-ge ", f);
-	print_term_id(f, tbl->desc[i].integer);
+	print_term_name(f, tbl, tbl->desc[i].integer);
 	fputs(" 0)", f);
 	break;
 
-      case ITE_TERM:
       case APP_TERM:
+	print_app(f, tbl, tbl->desc[i].ptr);
+	break;
+
+      case ITE_TERM:
       case UPDATE_TERM:
       case TUPLE_TERM:
       case EQ_TERM:
@@ -873,28 +1065,28 @@ void print_term_table(FILE *f, term_table_t *tbl) {
       case BV_GE_ATOM:
       case BV_SGE_ATOM:
 	// i's descriptor is a composite term 
-	print_composite(f, tbl->kind[i], tbl->desc[i].ptr);
+	print_composite(f, tbl, tbl->kind[i], tbl->desc[i].ptr);
 	break;
 
       case SELECT_TERM:
       case BIT_TERM:
-	print_select(f, tbl->kind[i], tbl->desc[i].ptr);
+	print_select(f, tbl, tbl->kind[i], tbl->desc[i].ptr);
 	break;
 
       case POWER_PRODUCT:
-	print_pprod(f, tbl->desc[i].ptr);
+	print_named_pprod(f, tbl, tbl->desc[i].ptr);
 	break;
 
       case ARITH_POLY:
-	print_polynomial(f, tbl->desc[i].ptr);
+	print_named_polynomial(f, tbl, tbl->desc[i].ptr);
 	break;
 
       case BV64_POLY:
-	print_bvpoly64(f, tbl->desc[i].ptr);
+	print_named_bvpoly64(f, tbl, tbl->desc[i].ptr);
 	break;
 
       case BV_POLY:
-	print_bvpoly(f, tbl->desc[i].ptr);
+	print_named_bvpoly(f, tbl, tbl->desc[i].ptr);
 	break;
 
       default:

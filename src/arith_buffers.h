@@ -438,8 +438,9 @@ extern void arith_buffer_mul_monarray(arith_buffer_t *b, monomial_t *poly, pprod
  *
  * The operations below use a buffer b and an integer array v.
  * The array v stores the conversion from power-products to integer indices:
- * If b contains a_0 r_0 + ... + a_n r_n then v must have (n+1) elements
- * and the integer  index for power product r_i is v[i].
+ * If b contains a_0 r_0 + ... + a_n r_n then v must have (n+2) elements
+ * and the integer index for power product r_i is v[i], and the last element
+ * of v must be max_idx.
  *
  * The pair (b, v) defines then a polynomial P(b, v) = a_1 v[1] + ... + a_n v[n],
  */

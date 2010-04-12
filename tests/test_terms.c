@@ -12,6 +12,8 @@
 
 #include "refcount_strings.h"
 #include "pprod_table.h"
+#include "bv_constants.h"
+#include "bv64_constants.h"
 #include "types.h"
 #include "terms.h"
 
@@ -20,12 +22,14 @@
 
 
 /*
- * Global tables
+ * Global tables + stores for arith, bv, bv64 buffers
  */
 static pprod_table_t pprods;
 static type_table_t types;
 static term_table_t terms;
-
+static object_store_t mlist_store;
+static object_store_t bvmlist_store;
+static object_store_t bvmlist64_store;
 
 /*
  * Initialize the tables
@@ -34,6 +38,11 @@ static void init_globals(void) {
   init_pprod_table(&pprods, 10);
   init_type_table(&types, 10);
   init_term_table(&terms, 10, &types, &pprods);
+  init_mlist_store(&mlist_store);
+  init_bvmlist_store(&bvmlist_store);
+  init_bvmlist64_store(&bvmlist64_store);
+  init_rationals();
+  init_bvconstants();
 }
 
 
@@ -44,6 +53,11 @@ static void delete_globals(void) {
   delete_term_table(&terms);
   delete_type_table(&types);
   delete_pprod_table(&pprods);
+  delete_mlist_store(&mlist_store);
+  delete_bvmlist_store(&bvmlist_store);
+  delete_bvmlist64_store(&bvmlist64_store);
+  cleanup_rationals();
+  cleanup_bvconstants();
 }
 
 
@@ -121,6 +135,8 @@ static type_t tup_type3(type_t t1, type_t t2, type_t t3) {
  * Build the initial types
  */
 static void init_global_types(void) {
+  num_types = 0;
+
   add_type(bool_type(&types), NULL);  // 0
   add_type(int_type(&types), NULL);   // 1
   add_type(real_type(&types), NULL);  // 2
@@ -272,7 +288,6 @@ static term_t test_constant_term(type_t tau, int32_t index, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK: created ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -299,7 +314,6 @@ static term_t test_uninterpreted_term(type_t tau, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK: ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -328,7 +342,6 @@ static term_t test_variable(type_t tau, int32_t index, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK:  ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -358,7 +371,6 @@ static term_t test_not(term_t a, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK: ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -390,7 +402,6 @@ static term_t test_ite(type_t tau, term_t a, term_t b, term_t c, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK: ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -423,7 +434,6 @@ static term_t test_app1(type_t tau, term_t fun, term_t a, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK: ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -459,7 +469,77 @@ static term_t test_app2(type_t tau, term_t fun, term_t a, term_t b, char *name) 
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK: ");
+  print_term(stdout, &terms, x);
+  printf("\n");
+
+  return x;
+}
+
+static term_t test_update1(type_t tau, term_t fun, term_t a, term_t v, char *name) {
+  term_t aux[1];
+  term_t x, y;
+
+  aux[0] = a;
+
+  printf("Testing: (update ");
+  print_term_name(stdout, &terms, fun);
+  printf(" (");
+  print_term_name(stdout, &terms, a);
+  printf(") ");
+  print_term_name(stdout, &terms, v);
+  printf("): ");
+
+  x = update_term(&terms, fun, 1, aux, v);
+  if (! check_composite3(x, UPDATE_TERM, tau, fun, a, v)) {
+    constructor_failed();
+  }
+
+  y = update_term(&terms, fun, 1, aux, v);
+  if (x != y) {
+    hash_consing_failed();
+  }
+
+  if (name != NULL) {
+    set_term_name(&terms, x, clone_string(name));
+  }
+
+  print_term(stdout, &terms, x);
+  printf("\n");
+
+  return x;
+}
+
+static term_t test_update2(type_t tau, term_t fun, term_t a, term_t b, term_t v, char *name) {
+  term_t aux[2];
+  term_t x, y;
+
+  aux[0] = a;
+  aux[1] = b;
+
+  printf("Testing: (update ");
+  print_term_name(stdout, &terms, fun);
+  printf(" (");
+  print_term_name(stdout, &terms, a);
+  printf(" ");
+  print_term_name(stdout, &terms, b);
+  printf(") ");
+  print_term_name(stdout, &terms, v);
+  printf("): ");
+
+  x = update_term(&terms, fun, 2, aux, v);
+  if (! check_composite4(x, UPDATE_TERM, tau, fun, a, b, v)) {
+    constructor_failed();
+  }
+
+  y = update_term(&terms, fun, 2, aux, v);
+  if (x != y) {
+    hash_consing_failed();
+  }
+
+  if (name != NULL) {
+    set_term_name(&terms, x, clone_string(name));
+  }
+
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -490,7 +570,6 @@ static term_t test_tuple1(type_t tau, term_t a, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK: ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -524,7 +603,6 @@ static term_t test_tuple2(type_t tau, term_t a, term_t b, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK: ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -553,7 +631,6 @@ static term_t test_select(type_t tau, term_t a, uint32_t k, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK: ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -583,7 +660,6 @@ static term_t test_eq(term_t a, term_t b, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK:  ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -623,7 +699,6 @@ static term_t test_distinct4(term_t a, term_t b, term_t c, term_t d, char *name)
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK:  ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -655,7 +730,10 @@ static term_t test_forall2(term_t a, term_t b, term_t c, char *name) {
     hash_consing_failed();
   }
 
-  printf("OK:  ");
+  if (name != NULL) {
+    set_term_name(&terms, x, clone_string(name));
+  }
+
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -689,7 +767,6 @@ static term_t test_or2(term_t a, term_t b, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK:  ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -726,7 +803,6 @@ static term_t test_xor3(term_t a, term_t b, term_t c, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK:  ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -754,7 +830,6 @@ static term_t test_bit(term_t a, uint32_t k, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK: ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -782,7 +857,6 @@ static term_t test_arith_eq(term_t a, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK: ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -810,7 +884,6 @@ static term_t test_arith_geq(term_t a, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK: ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -840,7 +913,6 @@ static term_t test_arith_bineq(term_t a, term_t b, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK: ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -880,7 +952,6 @@ static term_t test_bvarray4(term_t a, term_t b, term_t c, term_t d, char *name) 
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK:  ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -910,7 +981,6 @@ static term_t test_bvdiv(type_t tau, term_t a, term_t b, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK:  ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -940,7 +1010,6 @@ static term_t test_bvrem(type_t tau, term_t a, term_t b, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK:  ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -970,7 +1039,6 @@ static term_t test_bvsdiv(type_t tau, term_t a, term_t b, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK:  ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -1000,7 +1068,6 @@ static term_t test_bvsrem(type_t tau, term_t a, term_t b, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK:  ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -1030,7 +1097,6 @@ static term_t test_bvsmod(type_t tau, term_t a, term_t b, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK:  ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -1060,7 +1126,6 @@ static term_t test_bvshl(type_t tau, term_t a, term_t b, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK:  ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -1090,7 +1155,6 @@ static term_t test_bvlshr(type_t tau, term_t a, term_t b, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK:  ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -1120,7 +1184,6 @@ static term_t test_bvashr(type_t tau, term_t a, term_t b, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK:  ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -1150,7 +1213,6 @@ static term_t test_bveq(term_t a, term_t b, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK:  ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -1180,7 +1242,6 @@ static term_t test_bvge(term_t a, term_t b, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK:  ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -1210,7 +1271,6 @@ static term_t test_bvsge(term_t a, term_t b, char *name) {
     set_term_name(&terms, x, clone_string(name));
   }
 
-  printf("OK:  ");
   print_term(stdout, &terms, x);
   printf("\n");
 
@@ -1219,6 +1279,374 @@ static term_t test_bvsge(term_t a, term_t b, char *name) {
 
 
 
+/*
+ * Rational constants
+ */
+static bool check_rational(term_t x, rational_t *a) {
+  type_t tau;
+  int32_t i;
+
+  tau = real_type(&types);
+  if (q_is_integer(a)) {
+    tau = int_type(&types);
+  }
+
+  i = index_of(x);
+  return kind_for_idx(&terms, i) == ARITH_CONSTANT && type_for_idx(&terms, i) == tau &&
+    q_eq(a, rational_for_idx(&terms, i)) && is_pos_term(x);
+}
+    
+static void test_rationals(void) {
+  rational_t a;
+  term_t x, y;
+
+  q_init(&a);
+  q_set_int32(&a, 1, 3);
+
+  printf("Testing: rational ");
+  q_print(stdout, &a);
+  printf(": ");
+  
+  x = arith_constant(&terms, &a);
+  if (! check_rational(x, &a)) {
+    constructor_failed();
+  }
+
+  y  = arith_constant(&terms, &a);
+  if (y != x) {
+    hash_consing_failed();
+  }
+  
+  print_term(stdout, &terms, x);
+  printf("\n");
+
+  q_set_int32(&a, -3, 1);
+
+  printf("Testing: rational ");
+  q_print(stdout, &a);
+  printf(": ");
+  
+  x = arith_constant(&terms, &a);
+  if (! check_rational(x, &a)) {
+    constructor_failed();
+  }
+
+  y  = arith_constant(&terms, &a);
+  if (y != x) {
+    hash_consing_failed();
+  }
+  
+  print_term(stdout, &terms, x);
+  printf("\n");
+  
+  q_clear(&a);
+}
+
+
+/*
+ * Polynomials
+ */
+static bool check_polynomial(term_t x, type_t tau) {
+  int32_t i;
+
+  i = index_of(x);
+  return kind_for_idx(&terms, i) == ARITH_POLY && type_for_idx(&terms, i) == tau
+    && is_pos_term(x);
+}
+
+static void test_polynomials(void) {
+  arith_buffer_t buffer1;
+  arith_buffer_t buffer2;
+  rational_t a;
+  term_t x, y, s, t;
+  pprod_t *r0;
+
+  init_arith_buffer(&buffer1, &pprods, &mlist_store);
+  init_arith_buffer(&buffer2, &pprods, &mlist_store);
+  q_init(&a);
+
+  // integer polynomial: x + 3 x y + 1
+  x = test_uninterpreted_term(int_type(&types), "xx");
+  y = test_uninterpreted_term(int_type(&types), "yy");
+  arith_buffer_add_var(&buffer1, x);
+  r0 = pprod_mul(&pprods, var_pp(x), var_pp(y)); // x * y
+  q_set_int32(&a, 3, 1);
+  arith_buffer_add_mono(&buffer1, &a, r0);
+  q_set_int32(&a, 1, 1);
+  arith_buffer_add_const(&buffer1, &a);
+  arith_buffer_normalize(&buffer1);
+
+  arith_buffer_add_buffer(&buffer2, &buffer1); // make a copy
+  arith_buffer_normalize(&buffer2);
+  assert(arith_buffer_equal(&buffer1, &buffer2));
+  
+  printf("Testing: ");
+  print_arith_buffer(stdout, &buffer1);
+  printf(": ");
+
+  s = arith_term(&terms, &buffer1);
+  if (! check_polynomial(s, int_type(&types))) {
+    constructor_failed();
+  }
+
+  t = arith_term(&terms, &buffer2);
+  if (t != s) {
+    hash_consing_failed();
+  }
+
+  print_term(stdout, &terms, s);
+  printf("\n");
+  
+  // real polynomial x + y - 1/2  
+  arith_buffer_reset(&buffer1);
+  arith_buffer_reset(&buffer2);
+  arith_buffer_add_var(&buffer1, x);
+  arith_buffer_add_var(&buffer1, y);
+  q_set_int32(&a, -1, 2);
+  arith_buffer_add_const(&buffer1, &a);
+  arith_buffer_normalize(&buffer1);
+  printf("Testing: ");
+  print_arith_buffer(stdout, &buffer1);
+  printf(": ");
+
+  arith_buffer_add_buffer(&buffer2, &buffer1); // make a copy
+  arith_buffer_normalize(&buffer2);
+  assert(arith_buffer_equal(&buffer1, &buffer2));
+
+  s = arith_term(&terms, &buffer1);
+  if (! check_polynomial(s, real_type(&types))) {
+    constructor_failed();
+  }
+
+  t = arith_term(&terms, &buffer2);
+  if (t != s) {
+    hash_consing_failed();
+  }
+  
+  print_term(stdout, &terms, s);
+  printf("\n");
+  
+  q_clear(&a);
+  delete_arith_buffer(&buffer1);
+  delete_arith_buffer(&buffer2);
+  printf("\n");
+}
+
+
+/*
+ * Bitvector constants
+ */
+static bool check_bvconst(term_t x, uint32_t *bv, uint32_t n) {
+  bvconst_term_t *d;
+  type_t tau;
+  int32_t i;
+  uint32_t k;
+
+  tau = bv_type(&types, n);
+  i = index_of(x);
+  k = (n + 31) >> 5;
+  d = bvconst_for_idx(&terms, i);
+  return kind_for_idx(&terms, i) == BV_CONSTANT && type_for_idx(&terms, i) == tau && 
+    d->bitsize == n && bvconst_eq(d->data, bv, k);
+}
+
+static void test_bvconst(void) {
+  uint32_t bv[4];
+  term_t x, y;
+
+  bv[0] = 0x55555555;
+  bv[1] = 1;
+  bv[2] = 1;
+  bv[3] = 0;
+  bvconst_normalize(bv, 66);
+  printf("Testing bitvector constant: ");
+  bvconst_print(stdout, bv, 66);
+  printf(": ");
+
+  x = bvconst_term(&terms, 66, bv);
+  if (! check_bvconst(x, bv, 66)) {
+    constructor_failed();
+  }
+
+  y = bvconst_term(&terms, 66, bv);
+  if (y != x) {
+    hash_consing_failed();
+  }
+
+  print_term(stdout, &terms, x);
+  printf("\n");
+}
+
+
+/*
+ * Bitvector polynomials
+ */
+static bool check_bvpoly(term_t x, uint32_t n) {
+  int32_t i;
+  type_t tau;
+
+  i = index_of(x);
+  tau = bv_type(&types, n);
+  return kind_for_idx(&terms, i) == BV_POLY && type_for_idx(&terms, i) == tau
+    && is_pos_term(x);
+}
+
+static void test_bvpoly(void) {
+  bvarith_buffer_t buffer1;
+  bvarith_buffer_t buffer2;
+  uint32_t bv[4];
+  type_t tau;
+  term_t x, y, s, t;
+  pprod_t *r0;
+
+  init_bvarith_buffer(&buffer1, &pprods, &bvmlist_store);
+  init_bvarith_buffer(&buffer2, &pprods, &bvmlist_store);
+
+  bvconst_set_one(bv, 3);
+  bvconst_normalize(bv, 65);
+  tau = bv_type(&types, 65);
+
+  // polynomial: x + x y + 1
+  x = test_uninterpreted_term(tau, "U");
+  y = test_uninterpreted_term(tau, "V");
+  bvarith_buffer_prepare(&buffer1, 65);
+  bvarith_buffer_prepare(&buffer2, 65);
+  
+  bvarith_buffer_add_var(&buffer1, x);
+  r0 = pprod_mul(&pprods, var_pp(x), var_pp(y)); // x * y
+  bvarith_buffer_add_pp(&buffer1, r0);
+  bvarith_buffer_add_const(&buffer1, bv);
+  bvarith_buffer_normalize(&buffer1);
+
+  bvarith_buffer_add_buffer(&buffer2, &buffer1); // make a copy
+  bvarith_buffer_normalize(&buffer2);
+  assert(bvarith_buffer_equal(&buffer1, &buffer2));
+  
+  printf("Testing: ");
+  print_bvarith_buffer(stdout, &buffer1);
+  printf(": ");
+
+  s = bv_term(&terms, &buffer1);
+  if (! check_bvpoly(s, 65)) {
+    constructor_failed();
+  }
+
+  t = bv_term(&terms, &buffer2);
+  if (t != s) {
+    hash_consing_failed();
+  }
+
+  print_term(stdout, &terms, s);
+  printf("\n");
+  
+  delete_bvarith_buffer(&buffer1);
+  delete_bvarith_buffer(&buffer2);
+  printf("\n");
+}
+
+
+
+/*
+ * Bitvector constants
+ */
+static bool check_bvconst64(term_t x, uint64_t c, uint32_t n) {
+  bvconst64_term_t *d;
+  type_t tau;
+  int32_t i;
+
+  tau = bv_type(&types, n);
+  i = index_of(x);
+  d = bvconst64_for_idx(&terms, i);
+  return kind_for_idx(&terms, i) == BV64_CONSTANT && type_for_idx(&terms, i) == tau && 
+    d->bitsize == n && d->value == c;
+}
+
+static void test_bvconst64(void) {
+  uint64_t c;
+  term_t x, y;
+
+  c = norm64(12, 5);
+  printf("Testing bitvector constant: ");
+
+  x = bv64_constant(&terms, 5, c);
+  if (! check_bvconst64(x, c, 5)) {
+    constructor_failed();
+  }
+
+  y = bv64_constant(&terms, 5, c);
+  if (y != x) {
+    hash_consing_failed();
+  }
+
+  print_term(stdout, &terms, x);
+  printf("\n");
+}
+
+
+/*
+ * Bitvector polynomials
+ */
+static bool check_bvpoly64(term_t x, uint32_t n) {
+  int32_t i;
+  type_t tau;
+
+  i = index_of(x);
+  tau = bv_type(&types, n);
+  return kind_for_idx(&terms, i) == BV64_POLY && type_for_idx(&terms, i) == tau
+    && is_pos_term(x);
+}
+
+static void test_bvpoly64(void) {
+  bvarith64_buffer_t buffer1;
+  bvarith64_buffer_t buffer2;
+  uint64_t c;
+  type_t tau;
+  term_t x, y, s, t;
+  pprod_t *r0;
+
+  init_bvarith64_buffer(&buffer1, &pprods, &bvmlist64_store);
+  init_bvarith64_buffer(&buffer2, &pprods, &bvmlist64_store);
+  
+  c = 3;
+  tau = bv_type(&types, 5);
+
+  // polynomial: x + x y + 1
+  x = test_uninterpreted_term(tau, "ZZ");
+  y = test_uninterpreted_term(tau, "YY");
+  bvarith64_buffer_prepare(&buffer1, 5);
+  bvarith64_buffer_prepare(&buffer2, 5);
+  
+  bvarith64_buffer_add_var(&buffer1, x);
+  r0 = pprod_mul(&pprods, var_pp(x), var_pp(y)); // x * y
+  bvarith64_buffer_add_pp(&buffer1, r0);
+  bvarith64_buffer_add_const(&buffer1, c);
+  bvarith64_buffer_normalize(&buffer1);
+
+  bvarith64_buffer_add_buffer(&buffer2, &buffer1); // make a copy
+  bvarith64_buffer_normalize(&buffer2);
+  assert(bvarith64_buffer_equal(&buffer1, &buffer2));
+  
+  printf("Testing: ");
+  print_bvarith64_buffer(stdout, &buffer1);
+  printf(": ");
+
+  s = bv64_term(&terms, &buffer1);
+  if (! check_bvpoly64(s, 5)) {
+    constructor_failed();
+  }
+
+  t = bv64_term(&terms, &buffer2);
+  if (t != s) {
+    hash_consing_failed();
+  }
+
+  print_term(stdout, &terms, s);
+  printf("\n");
+  
+  delete_bvarith64_buffer(&buffer1);
+  delete_bvarith64_buffer(&buffer2);
+  printf("\n");
+}
 
 
 
@@ -1232,19 +1660,21 @@ static uint32_t num_constants;
 
 
 static void test_constants(void) {
-  constant[0] = test_constant_term(type[8], 0, "c0");
-  constant[1] = test_constant_term(type[8], 1, "c1");
-  constant[2] = test_constant_term(type[9], 2, "d2");
-  constant[3] = test_constant_term(type[10], 0, "A");
-  constant[4] = test_constant_term(type[10], 1, "B");
-  constant[5] = test_constant_term(type[10], 2, "C");
-  constant[6] = test_constant_term(type[10], 3, "D");
-  constant[7] = test_constant_term(type[10], 4, "E");
-  constant[8] = test_constant_term(type[11], 0, "e0");
-  constant[9] = test_constant_term(type[11], 4, "e4");
-  constant[10] = test_constant_term(type[12], 0, "u1");
-  constant[11] = test_constant_term(type[13], 0, "u2");
+  constant[0] = test_constant_term(type[8], 0, "c0");  // T1
+  constant[1] = test_constant_term(type[8], 1, "c1");  // T1
+  constant[2] = test_constant_term(type[9], 2, "d2");  // T2
+  constant[3] = test_constant_term(type[10], 0, "A");  // E1
+  constant[4] = test_constant_term(type[10], 1, "B");  // E1
+  constant[5] = test_constant_term(type[10], 2, "C");  // E1
+  constant[6] = test_constant_term(type[10], 3, "D");  // E1
+  constant[7] = test_constant_term(type[10], 4, "E");  // E1
+  constant[8] = test_constant_term(type[11], 0, "e0");  // E2
+  constant[9] = test_constant_term(type[11], 4, "e4");  // E2
+  constant[10] = test_constant_term(type[12], 0, "u1");  // U1
+  constant[11] = test_constant_term(type[13], 0, "u2");  // U2
+
   num_constants = 12;
+  printf("\n");
 }
 
 
@@ -1257,25 +1687,27 @@ static term_t unint[MAX_UNINTERPRETED];
 static uint32_t num_unints;
 
 static void test_unints(void) {
-  unint[0] = test_uninterpreted_term(type[0], "p");
-  unint[1] = test_uninterpreted_term(type[0], "q");
-  unint[2] = test_uninterpreted_term(type[1], "i");
-  unint[3] = test_uninterpreted_term(type[1], "j");
-  unint[4] = test_uninterpreted_term(type[2], "x");
-  unint[5] = test_uninterpreted_term(type[2], "y");
-  unint[6] = test_uninterpreted_term(type[3], "aa");
-  unint[7] = test_uninterpreted_term(type[4], "bb");
-  unint[8] = test_uninterpreted_term(type[5], "cc");
-  unint[9] = test_uninterpreted_term(type[6], "dd");
-  unint[10] = test_uninterpreted_term(type[7], "ee");
-  unint[11] = test_uninterpreted_term(type[14], "F0");
-  unint[12] = test_uninterpreted_term(type[14], "F1");
-  unint[13] = test_uninterpreted_term(type[15], "max");
-  unint[14] = test_uninterpreted_term(type[16], "G0");
-  unint[15] = test_uninterpreted_term(type[17], "H0");
-  unint[16] = test_uninterpreted_term(type[17], "H1");
+  unint[0] = test_uninterpreted_term(type[0], "p");   // bool
+  unint[1] = test_uninterpreted_term(type[0], "q");   // bool
+  unint[2] = test_uninterpreted_term(type[1], "i");   // int
+  unint[3] = test_uninterpreted_term(type[1], "j");   // int 
+  unint[4] = test_uninterpreted_term(type[2], "x");   // real
+  unint[5] = test_uninterpreted_term(type[2], "y");   // real
+  unint[6] = test_uninterpreted_term(type[3], "aa");  // bv1
+  unint[7] = test_uninterpreted_term(type[4], "bb");  // bv6
+  unint[8] = test_uninterpreted_term(type[5], "cc");  // bv63
+  unint[9] = test_uninterpreted_term(type[6], "dd");  // bv64
+  unint[10] = test_uninterpreted_term(type[7], "ee"); // bv65
+
+  unint[11] = test_uninterpreted_term(type[14], "F0"); // bool -> bv1
+  unint[12] = test_uninterpreted_term(type[14], "F1"); // bool -> bv1
+  unint[13] = test_uninterpreted_term(type[15], "max"); // int, int -> int
+  unint[14] = test_uninterpreted_term(type[16], "G0"); // T1 -> T2
+  unint[15] = test_uninterpreted_term(type[17], "H0"); // real -> U1
+  unint[16] = test_uninterpreted_term(type[17], "H1"); // real -> U1
   
   num_unints = 17;
+  printf("\n");
 }
 
 
@@ -1285,6 +1717,7 @@ static void test_unints(void) {
 static void test_variables(void) {
   (void) test_variable(type[18], 0, NULL);
   (void) test_variable(type[18], 1, NULL);
+  printf("\n");
 }
 
 
@@ -1303,15 +1736,57 @@ static void test_composites(void) {
   (void) test_ite(type[8], y, constant[0], constant[1], NULL);
   (void) test_ite(type[8], x, constant[1], constant[0], NULL);
   (void) test_ite(type[8], y, constant[1], constant[0], NULL);
-
   (void) test_ite(type[2], x, unint[2], unint[4], NULL);
   (void) test_ite(type[2], x, unint[3], unint[4], NULL);
 
   (void) test_app1(type[3], unint[11], x, NULL);
   (void) test_app1(type[3], unint[12], y, NULL);
-  (void) test_app2(type[1], unint[15], unint[2], unint[2], NULL);
-  (void) test_app2(type[1], unint[15], unint[2], unint[3], NULL);
+  (void) test_app2(type[1], unint[13], unint[2], unint[2], NULL);
+  (void) test_app2(type[1], unint[13], unint[2], unint[3], NULL);
+
+  (void) test_update1(type[14], unint[12], true_term, unint[6], NULL); // bool -> bv1
+  (void) test_update2(type[15], unint[13], unint[2], unint[3], unint[2], NULL); // int int -> int
+
+  x = test_tuple1(type[18], unint[7], NULL);   // [bv6]
+  y = test_tuple2(type[19], unint[2], unint[5], NULL); // [int real]
+
+  (void) test_select(type[4], x, 0, NULL); 
+  (void) test_select(type[1], y, 0, NULL);
+  (void) test_select(type[2], y, 1, NULL);
   
+  (void) test_eq(y, y, NULL);
+  (void) test_eq(constant[3], constant[4], NULL);
+
+  (void) test_distinct4(constant[4], constant[5], constant[6], constant[7], NULL);
+
+  x = test_variable(type[7], 0, NULL);
+  y = test_variable(type[7], 1, NULL);
+  (void) test_forall2(x, y, unint[1], "xxx");
+
+  x = test_or2(unint[0], unint[1], NULL);
+  y = test_xor3(x, unint[1], false_term, NULL);
+  (void) test_or2(y, x, "test");
+  (void) test_bit(unint[10], 64, NULL);
+  (void) test_bit(unint[10], 12, NULL);
+
+  (void) test_arith_eq(unint[4], NULL);
+  (void) test_arith_geq(unint[3], NULL);
+  (void) test_arith_bineq(unint[2], unint[5], NULL);
+  (void) test_bvarray4(true_term, true_term, true_term, false_term, NULL);
+  (void) test_bvdiv(type[4], unint[7], unint[7], NULL);
+  (void) test_bvrem(type[4], unint[7], unint[7], NULL);
+  (void) test_bvsdiv(type[4], unint[7], unint[7], NULL);
+  (void) test_bvsrem(type[4], unint[7], unint[7], NULL);
+  (void) test_bvsmod(type[4], unint[7], unint[7], NULL);
+  (void) test_bvshl(type[4], unint[7], unint[7], NULL);
+  (void) test_bvlshr(type[4], unint[7], unint[7], NULL);
+  (void) test_bvashr(type[4], unint[7], unint[7], NULL);
+  
+  (void) test_bveq(unint[8], unint[8], NULL);
+  (void) test_bvge(unint[8], unint[8], NULL);
+  (void) test_bvsge(unint[8], unint[8], NULL);
+
+  printf("\n");
 }
 
 
@@ -1320,18 +1795,59 @@ static void test_composites(void) {
 int main() {
   init_globals();
   init_global_types();
-  printf("--- global types ---\n");
-  print_type_table(stdout, &types);
-  printf("---\n");
 
   test_constants();
   test_unints();
   test_variables();
   test_composites();
 
+  printf("--- global types ---\n");
+  print_type_table(stdout, &types);
+  printf("---\n");
+
   printf("--- terms ---\n");
   print_term_table(stdout, &terms);
   printf("---\n");
+
+  // test gc
+  term_table_gc(&terms);
+
+  printf("--- After GC ---\n");
+  print_type_table(stdout, &types);
+  printf("---\n");
+
+  printf("--- terms ---\n");
+  print_term_table(stdout, &terms);
+  printf("---\n");
+
+  init_global_types();
+  test_composites();
+  test_rationals();
+  test_polynomials();
+  test_bvconst();
+  test_bvpoly();
+  test_bvconst64();
+  test_bvpoly64();
+
+
+  printf("--- global types ---\n");
+  print_type_table(stdout, &types);
+  printf("---\n");
+
+  printf("--- terms ---\n");
+  print_term_table(stdout, &terms);
+  printf("---\n");
+
+  term_table_gc(&terms);
+
+  printf("--- After GC ---\n");
+  print_type_table(stdout, &types);
+  printf("---\n");
+
+  printf("--- terms ---\n");
+  print_term_table(stdout, &terms);
+  printf("---\n");
+
 
   delete_globals();
 
