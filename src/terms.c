@@ -114,7 +114,6 @@ static void term_table_init(term_table_t *table, uint32_t n, type_table_t *ttbl,
 
   // buffers
   init_ivector(&table->ibuffer, 20);
-  init_pvector(&table->pbuffer, 20);
 }
 
 
@@ -1624,7 +1623,6 @@ void delete_term_table(term_table_t *table) {
   delete_stbl(&table->stbl);
 
   delete_ivector(&table->ibuffer);
-  delete_pvector(&table->pbuffer);
   
   safe_free(table->kind);
   safe_free(table->type);

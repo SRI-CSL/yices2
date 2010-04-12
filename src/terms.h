@@ -345,7 +345,6 @@ typedef union {
  *
  * Auxilairy vectors
  * - ibuffer: to store an array of integers
- * - pbuffer: to store an array of pointers
  */
 typedef struct term_table_s {
   uint8_t *kind;
@@ -366,7 +365,6 @@ typedef struct term_table_s {
   int_hmap_t utbl;
 
   ivector_t ibuffer;
-  pvector_t pbuffer;
 } term_table_t;
 
 
