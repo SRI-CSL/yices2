@@ -235,6 +235,7 @@ int_hmap_pair_t *int_hmap_get(int_hmap_t *hmap, int32_t k) {
   while (d->key != EMPTY_KEY) {
     j ++;
     j &= mask;
+    d = hmap->data + j;
     if (d->key == k) return d;
   }
 

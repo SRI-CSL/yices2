@@ -235,6 +235,7 @@ ptr_hmap_pair_t *ptr_hmap_get(ptr_hmap_t *hmap, int32_t k) {
   while (d->key != PHMAP_EMPTY_KEY) {
     j ++;
     j &= mask;
+    d = hmap->data + j;
     if (d->key == k) return d;
   }
 

@@ -1580,6 +1580,10 @@ static void test_bvconst64(void) {
 
   print_term(stdout, &terms, x);
   printf("\n");
+
+  // mark it for next GC test
+  printf("Marking term %"PRId32"\n", index_of(x));
+  term_table_set_gc_mark(&terms, index_of(x));
 }
 
 
@@ -1642,6 +1646,10 @@ static void test_bvpoly64(void) {
 
   print_term(stdout, &terms, s);
   printf("\n");
+
+  // mark it for next GC test
+  printf("Marking term %"PRId32"\n", index_of(s));
+  term_table_set_gc_mark(&terms, index_of(s));
   
   delete_bvarith64_buffer(&buffer1);
   delete_bvarith64_buffer(&buffer2);
@@ -1790,6 +1798,191 @@ static void test_composites(void) {
 }
 
 
+/*
+ * Test the unit term maps
+ */
+static void test_units(void) {
+  type_t tau;
+  term_t x;
+
+  // both type[12] and type[13] are singleton types
+  // const[10] and const[11] are constants of these types
+  tau = type[12];
+  printf("Testing unit of type ");
+  print_type_name(stdout, &types, tau);
+  printf("\n");
+
+  x = unit_type_rep(&terms, tau);
+  if (x == NULL_TERM) {
+    printf("--> no representative\n");
+  } else {
+    printf("--> representative is term ");
+    print_term_name(stdout, &terms, x);
+    printf("\n");
+    printf("BUG!\n");
+    fflush(stdout);
+    abort();
+  }
+
+  add_unit_type_rep(&terms, tau, constant[10]);
+  printf("--> recording term ");
+  print_term_name(stdout, &terms, constant[10]);
+  printf(" as representative\n");
+
+  x = unit_type_rep(&terms, tau);
+  if (x == NULL_TERM) {
+    printf("--> no representative\n");
+    printf("BUG!\n");
+    fflush(stdout);
+    abort();
+  } else {
+    printf("--> representative is term ");
+    print_term_name(stdout, &terms, x);
+    printf("\n");
+    if (x != constant[10]) {
+      printf("BUG: rep is wrong\n");
+      fflush(stdout);
+      abort();
+    }
+  }
+
+
+  tau = type[13];
+  printf("Testing unit of type ");
+  print_type_name(stdout, &types, tau);
+  printf("\n");
+
+  x = unit_type_rep(&terms, tau);
+  if (x == NULL_TERM) {
+    printf("--> no representative\n");
+  } else {
+    printf("--> representative is term ");
+    print_term_name(stdout, &terms, x);
+    printf("\n");
+    printf("BUG!\n");
+    fflush(stdout);
+    abort();
+  }
+
+  add_unit_type_rep(&terms, tau, constant[11]);
+  printf("--> recording term ");
+  print_term_name(stdout, &terms, constant[11]);
+  printf(" as representative\n");
+
+  x = unit_type_rep(&terms, tau);
+  if (x == NULL_TERM) {
+    printf("--> no representative\n");
+    printf("BUG!\n");
+    fflush(stdout);
+    abort();
+  } else {
+    printf("--> representative is term ");
+    print_term_name(stdout, &terms, x);
+    printf("\n");
+    if (x != constant[11]) {
+      printf("BUG: rep is wrong\n");
+      fflush(stdout);
+      abort();
+    }
+  }
+
+  printf("\n");
+}
+
+
+/*
+ * Test names
+ */
+// name, y = expected result
+static void test_name(char *name, type_t y) {
+  term_t x;
+
+  x = get_term_by_name(&terms, name);
+  if (x == NULL_TERM) {
+    printf("No term of name '%s'\n", name);
+  } else {
+    printf("Term of name '%s' is ", name);
+    print_term_name(stdout, &terms, x);
+    printf("\n--> ");
+    print_term(stdout, &terms, x);
+    printf("\n");
+  }
+  
+  if (y != x) {
+    printf("BUG: the expected result is ");
+    if (y != NULL_TERM) {
+      print_term_name(stdout, &terms, y);
+      printf("\n");
+    } else {
+      printf("null term\n");
+    }
+    fflush(stdout);
+    abort();
+  }
+
+}
+
+static void test_names(void) {
+  // get all the named terms  after test_constants,
+  // test_unints, test_composites
+  test_name("c0", constant[0]);
+  test_name("c1", constant[1]);
+  test_name("d2", constant[2]);
+  test_name("A", constant[3]);
+  test_name("B", constant[4]);
+  test_name("C", constant[5]);
+  test_name("D", constant[6]);
+  test_name("E", constant[7]);
+  test_name("e0", constant[8]);
+  test_name("e4", constant[9]);
+  test_name("u1", constant[10]);
+  test_name("u2", constant[11]);
+
+  test_name("p", unint[0]);
+  test_name("q", unint[1]);
+  test_name("i", unint[2]);
+  test_name("j", unint[3]);
+  test_name("x", unint[4]);
+  test_name("y", unint[5]);
+  test_name("aa", unint[6]);
+  test_name("bb", unint[7]);
+  test_name("cc", unint[8]);
+  test_name("dd", unint[9]);
+  test_name("ee", unint[10]);
+  test_name("F0", unint[11]);
+  test_name("F1", unint[12]);
+  test_name("max", unint[13]);
+  test_name("G0", unint[14]);
+  test_name("H0", unint[15]);
+  test_name("H1", unint[16]);
+
+  test_name("not_p", opposite_term(unint[0]));
+  test_name("not_not_p", unint[0]);
+
+  test_name("....", NULL_TERM);
+  test_name("", NULL_TERM);
+
+  // constant[2] 
+  printf("\n");
+  printf("removing name 'd2'\n");
+  remove_term_name(&terms, "d2");
+  test_name("d2", NULL_TERM);
+  printf("constant[2]: ");
+  print_term_name(stdout, &terms, constant[2]);
+  printf("\n");
+  printf("clearing name of constant[2]\n");
+  clear_term_name(&terms, constant[2]);
+  printf("constant[2]: ");
+  print_term_name(stdout, &terms, constant[2]);
+  printf("\n");
+  // add a name
+  printf("new name for constant[2] = 'dddd'\n");
+  set_term_name(&terms, constant[2], clone_string("dddd"));
+  test_name("d2", NULL_TERM);
+  test_name("dddd", constant[2]);
+  printf("\n\n");
+}
+
 
 
 int main() {
@@ -1800,6 +1993,8 @@ int main() {
   test_unints();
   test_variables();
   test_composites();
+  test_units();
+  test_names();
 
   printf("--- global types ---\n");
   print_type_table(stdout, &types);
@@ -1828,7 +2023,6 @@ int main() {
   test_bvpoly();
   test_bvconst64();
   test_bvpoly64();
-
 
   printf("--- global types ---\n");
   print_type_table(stdout, &types);
