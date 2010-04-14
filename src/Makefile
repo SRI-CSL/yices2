@@ -220,7 +220,7 @@ endif
 #
 # Warning levels
 #
-CFLAGS += -Wall -Winline -Wredundant-decls
+CFLAGS += -Wall -Winline -Wredundant-decls -Wstrict-aliasing
 ifeq ($(POSIXOS),mingw)
   ifeq ($(findstring -mno-cygwin, $(CFLAGS)), -mno-cygwin)
    # compilation on mingw using the -mno-cygwin flag

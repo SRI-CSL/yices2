@@ -6,6 +6,7 @@
 #define __OBJECT_STORES_H
 
 #include <stdint.h>
+#include <string.h>
 
 /*
  * Bank = a block of objects
@@ -72,7 +73,13 @@ extern void *objstore_alloc(object_store_t *s);
  * next pointer is stored in *object
  */
 static inline void objstore_free(object_store_t *s, void *object) {
-  * ((void **) object) = s->free_list;
+  /*
+   * BUG: This violates the strict aliasing rules and causes
+   * errors when optimizations are enabled? 
+   */
+  //  * ((void **) object) = s->free_list;
+  // Try this hack instead.
+  memcpy(object, &s->free_list, sizeof(void*));
   s->free_list = object;
 }
 

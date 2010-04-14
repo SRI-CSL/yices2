@@ -128,8 +128,18 @@ static unsigned long get_pages(void) {
     return 0;
   }
 
+  /*
+   * In some versions of glibc, fscanf is declared with attribute
+   * warn_unused_result. In such cases, we get a compilation warning,
+   * even though the code is safe. I've changed the code a bit to 
+   * avoid this warning.
+   */
   pages = 0;
-  fscanf(proc_file, "%lu", &pages); // if this fails, pages will remain 0
+  //  fscanf(proc_file, "%lu", &pages); // if this fails, pages will remain 0
+  if (fscanf(proc_file, "%lu", &pages) != 1) {
+    pages = 0;
+  }
+
   fclose(proc_file);
 
   return pages;
