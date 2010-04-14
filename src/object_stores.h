@@ -78,7 +78,7 @@ static inline void objstore_free(object_store_t *s, void *object) {
    * errors when optimizations are enabled? 
    */
   //  * ((void **) object) = s->free_list;
-  // Try this hack instead.
+  // Try this instead.
   memcpy(object, &s->free_list, sizeof(void*));
   s->free_list = object;
 }

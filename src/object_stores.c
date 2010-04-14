@@ -38,7 +38,8 @@ void *objstore_alloc(object_store_t *s) {
 
   tmp = s->free_list;
   if (tmp != NULL) {
-    s->free_list = * ((void **) tmp);
+    //    s->free_list = * ((void **) tmp);
+    memcpy(&s->free_list, tmp, sizeof(void*));
     return tmp;
   }
 
