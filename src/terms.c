@@ -1715,7 +1715,7 @@ term_t constant_term(term_table_t *table, type_t tau, int32_t index) {
   integer_hobj.tau = tau;
   integer_hobj.id = index;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &integer_hobj);
+  i = int_htbl_get_obj(&table->htbl, &integer_hobj.m);
 
   return pos_term(i);
 }
@@ -1749,7 +1749,7 @@ term_t variable(term_table_t *table, type_t tau, int32_t index) {
   integer_hobj.tau = tau;
   integer_hobj.id = index;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &integer_hobj);
+  i = int_htbl_get_obj(&table->htbl, &integer_hobj.m);
 
   return pos_term(i);  
 }
@@ -1783,7 +1783,7 @@ term_t ite_term(term_table_t *table, type_t tau, term_t cond, term_t left, term_
   composite_hobj.arity = 3;
   composite_hobj.arg = aux;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &composite_hobj);
+  i = int_htbl_get_obj(&table->htbl, &composite_hobj.m);
 
   return pos_term(i);
 }
@@ -1804,7 +1804,7 @@ term_t app_term(term_table_t *table, term_t fun, uint32_t n, term_t arg[]) {
   app_hobj.n = n;
   app_hobj.arg = arg;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &app_hobj);
+  i = int_htbl_get_obj(&table->htbl, &app_hobj.m);
 
   return pos_term(i);
 }
@@ -1828,7 +1828,7 @@ term_t update_term(term_table_t *table, term_t fun, uint32_t n, term_t arg[], te
   update_hobj.n = n;
   update_hobj.arg = arg;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &update_hobj);
+  i = int_htbl_get_obj(&table->htbl, &update_hobj.m);
 
   return pos_term(i);
 }
@@ -1846,7 +1846,7 @@ term_t tuple_term(term_table_t *table, uint32_t n, term_t arg[]) {
   composite_hobj.arity = n;
   composite_hobj.arg = arg;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &composite_hobj);
+  i = int_htbl_get_obj(&table->htbl, &composite_hobj.m);
 
   return pos_term(i);
 }
@@ -1867,7 +1867,7 @@ term_t select_term(term_table_t *table, uint32_t index, term_t tuple) {
   select_hobj.k = index;
   select_hobj.arg = tuple;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &select_hobj);
+  i = int_htbl_get_obj(&table->htbl, &select_hobj.m);
 
   return pos_term(i);
 }
@@ -1889,7 +1889,7 @@ static term_t binary_term(term_table_t *table, term_kind_t tag, type_t tau, term
   composite_hobj.arity = 2;
   composite_hobj.arg = aux;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t*) &composite_hobj);
+  i = int_htbl_get_obj(&table->htbl, &composite_hobj.m);
 
   return pos_term(i);
 }
@@ -1915,7 +1915,7 @@ term_t distinct_term(term_table_t *table, uint32_t n, term_t arg[]) {
   composite_hobj.arity = n;
   composite_hobj.arg = arg;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &composite_hobj);
+  i = int_htbl_get_obj(&table->htbl, &composite_hobj.m);
 
   return pos_term(i);
 }
@@ -1932,7 +1932,7 @@ term_t forall_term(term_table_t *table, uint32_t n, term_t var[], term_t body) {
   forall_hobj.n = n;
   forall_hobj.v = var;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &forall_hobj);
+  i = int_htbl_get_obj(&table->htbl, &forall_hobj.m);
 
   return pos_term(i);
 }
@@ -1950,7 +1950,7 @@ term_t or_term(term_table_t *table, uint32_t n, term_t arg[]) {
   composite_hobj.arity = n;
   composite_hobj.arg = arg;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &composite_hobj);
+  i = int_htbl_get_obj(&table->htbl, &composite_hobj.m);
 
   return pos_term(i);
 }
@@ -1968,7 +1968,7 @@ term_t xor_term(term_table_t *table, uint32_t n, term_t arg[]) {
   composite_hobj.arity = n;
   composite_hobj.arg = arg;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &composite_hobj);
+  i = int_htbl_get_obj(&table->htbl, &composite_hobj.m);
 
   return pos_term(i);
 }
@@ -1986,7 +1986,7 @@ term_t bit_term(term_table_t *table, uint32_t k, term_t bv) {
   select_hobj.k = k;
   select_hobj.arg = bv;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &select_hobj);
+  i = int_htbl_get_obj(&table->htbl, &select_hobj.m);
 
   return pos_term(i);
 }
@@ -2011,7 +2011,7 @@ term_t pprod_term(term_table_t *table, pprod_t *r) {
   pprod_hobj.tau = type_of_pprod(table, r);
   pprod_hobj.r = r;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &pprod_hobj);
+  i = int_htbl_get_obj(&table->htbl, &pprod_hobj.m);
 
   return pos_term(i);
 }
@@ -2034,7 +2034,7 @@ term_t arith_constant(term_table_t *table, rational_t *a) {
   rational_hobj.tau = tau;
   rational_hobj.a = a;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &rational_hobj);
+  i = int_htbl_get_obj(&table->htbl, &rational_hobj.m);
 
   return pos_term(i);
 }
@@ -2051,7 +2051,7 @@ term_t arith_eq_atom(term_table_t *table, term_t t) {
   integer_hobj.tau = bool_type(table->types);
   integer_hobj.id = t;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &integer_hobj);
+  i = int_htbl_get_obj(&table->htbl, &integer_hobj.m);
 
   return pos_term(i);
 }
@@ -2068,7 +2068,7 @@ term_t arith_geq_atom(term_table_t *table, term_t t) {
   integer_hobj.tau = bool_type(table->types);
   integer_hobj.id = t;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &integer_hobj);
+  i = int_htbl_get_obj(&table->htbl, &integer_hobj.m);
 
   return pos_term(i);
 }
@@ -2096,7 +2096,7 @@ term_t bv64_constant(term_table_t *table, uint32_t n, uint64_t bv) {
   bvconst64_hobj.bitsize = n;
   bvconst64_hobj.v = bv;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bvconst64_hobj);
+  i = int_htbl_get_obj(&table->htbl, &bvconst64_hobj.m);
 
   return pos_term(i);
 }
@@ -2117,7 +2117,7 @@ term_t bvconst_term(term_table_t *table, uint32_t n, uint32_t *bv) {
   bvconst_hobj.bitsize = n;
   bvconst_hobj.v = bv;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bvconst_hobj);
+  i = int_htbl_get_obj(&table->htbl, &bvconst_hobj.m);
 
   return pos_term(i);
 }
@@ -2137,7 +2137,7 @@ term_t bvarray_term(term_table_t *table, uint32_t n, term_t arg[]) {
   composite_hobj.arity = n;
   composite_hobj.arg = arg;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &composite_hobj);
+  i = int_htbl_get_obj(&table->htbl, &composite_hobj.m);
 
   return pos_term(i);
 }
@@ -2311,7 +2311,7 @@ term_t arith_term(term_table_t *table, arith_buffer_t *b) {
   poly_hobj.b = b;
   poly_hobj.v = v;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &poly_hobj);
+  i = int_htbl_get_obj(&table->htbl, &poly_hobj.m);
 
   // cleanup ibuffer
   ivector_reset(&table->ibuffer);
@@ -2362,7 +2362,7 @@ term_t bv64_term(term_table_t *table, bvarith64_buffer_t *b) {
   bvpoly64_hobj.b = b;
   bvpoly64_hobj.v = v;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bvpoly64_hobj);
+  i = int_htbl_get_obj(&table->htbl, &bvpoly64_hobj.m);
 
   // cleanup ibuffer
   ivector_reset(&table->ibuffer);
@@ -2404,7 +2404,7 @@ term_t bv_term(term_table_t *table, bvarith_buffer_t *b) {
   bvpoly_hobj.b = b;
   bvpoly_hobj.v = v;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bvpoly_hobj);
+  i = int_htbl_get_obj(&table->htbl, &bvpoly_hobj.m);
 
   // cleanup ibuffer
   ivector_reset(&table->ibuffer);

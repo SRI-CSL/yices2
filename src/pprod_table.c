@@ -204,7 +204,7 @@ static pprod_t *get_pprod(pprod_table_t *table, varexp_t *a, uint32_t n) {
   pprod_hobj.array = a;
   pprod_hobj.len = n;
 
-  i = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &pprod_hobj);
+  i = int_htbl_get_obj(&table->htbl, &pprod_hobj.m);
 
   return table->data[i];
 }
@@ -256,7 +256,7 @@ static int32_t find_pprod_id(pprod_table_t *table, pprod_t *p) {
   pprod_hobj.array = p->prod;
   pprod_hobj.len = p->len;
 
-  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &pprod_hobj);  
+  return int_htbl_find_obj(&table->htbl, &pprod_hobj.m);
 }
 
 /*

@@ -38,6 +38,7 @@ void *objstore_alloc(object_store_t *s) {
 
   tmp = s->free_list;
   if (tmp != NULL) {
+    // This may be unsafe. Replaced by memcpy.
     //    s->free_list = * ((void **) tmp);
     memcpy(&s->free_list, tmp, sizeof(void*));
     return tmp;

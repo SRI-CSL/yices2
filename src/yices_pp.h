@@ -23,8 +23,8 @@
 /*
  * Each atomic tokens stores a basic object to be printed as 
  * a single string. It consists of an pp_atomic_token prefix +
- * extra data that discribes the actual object to be printed.
- * The user_tag field in the prefix stores the object type/
+ * extra data that describes the actual object to be printed.
+ * The user_tag field in the prefix stores the object type.
  */
 typedef enum pp_atom_type {
   PP_CHAR_ATOM,    // content = a single char

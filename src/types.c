@@ -725,7 +725,7 @@ type_t bv_type(type_table_t *table, uint32_t size) {
   assert(size > 0);
   bv_hobj.tbl = table;
   bv_hobj.size = size;
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bv_hobj);
+  return int_htbl_get_obj(&table->htbl, &bv_hobj.m);
 }
 
 /*
@@ -736,7 +736,7 @@ type_t tuple_type(type_table_t *table, uint32_t n, type_t elem[]) {
   tuple_hobj.tbl = table;
   tuple_hobj.n = n;
   tuple_hobj.elem = elem;
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &tuple_hobj);
+  return int_htbl_get_obj(&table->htbl, &tuple_hobj.m);
 }
 
 /*
@@ -748,7 +748,7 @@ type_t function_type(type_table_t *table, type_t range, uint32_t n, type_t dom[]
   function_hobj.range = range;
   function_hobj.n = n;
   function_hobj.dom = dom;
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &function_hobj);  
+  return int_htbl_get_obj(&table->htbl, &function_hobj.m);
 }
 
 

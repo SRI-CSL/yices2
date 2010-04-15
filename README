@@ -301,6 +301,9 @@ This will build a tar file called 'yices2-src.tar.gz' in the './distributions' d
 
 
 
+
+
+
 CLEANUP
 -------
 
@@ -360,6 +363,14 @@ listed as gcc4 in the package manager. To select this compiler for Yices.
 type 
 
     ./configure CC=/usr/bin/gcc-4 ...
+
+
+UPDATE (April 2010): THE PARAGRAPH ABOVE ABOUT BUGGY COMPILER IS
+WRONG.  The bug was in Yices. The core in object_store.c and
+object_store.h used pointer conversions that violate the strict
+pointer aliasing rules of C. With optimization level -O2 or better,
+GCC assume that two pointers of different types do not point to the
+same thing. This assumption was not satisfied in object_code.h.
 
 
 2) Supporting both RELEASE and STATIC modes on a Cygwin machine?
@@ -430,11 +441,6 @@ The result will be in ./build/i686-pc-mingw32-release/
 Note: you need to have a version of GMP compiled for mingw32 for this
 to work.
 
-NOTE: ON SOME VERSIONS OF CYGWIN, THE DEFAULT COMPILER /usr/bin/gcc 
-(version 3.4.4-999) MAY BE BUGGY AND INCORRECTLY COMPILE YICES.
-
-
-
 
 2) Using a cross compiler (on Cygwin)
 
@@ -443,7 +449,7 @@ Noted in November 2009: for some versions of Cygwin,
 /usr/bin/gcc supports the -mno-cygwin flag but does not 
              compile Yices properly (incorrect optimization).
 
-/usr/bin/gcc-4 compuiles Yices properly but does not 
+/usr/bin/gcc-4 compiles Yices properly but does not 
                support the -mno-cygwin flag.
 
 
@@ -521,13 +527,13 @@ Then to select this configuration:
 
 
 
-NOTES FOR GCC4.4.x
-------------------
+NOTES FOR GCC 4.4.x
+-------------------
 
 Compiling yices with gcc-4.4 with the default options causes a
 lot of warnings of the form: 
 
-warning: inlining failed in call to 'xxx': call is unlikely and code size would grow
+  inlining failed in call to 'xxx': call is unlikely and code size would grow
 
 The yices functions that are declared 'inline' are small and do not
 cause much code growth. So these warnings are annoying.
@@ -549,7 +555,7 @@ There are several ways to fix this:
    wants and there will be no warnings.
 
 2) add  __attribute__ ((always_inline)) to the inline functions that cause 
-   problem. GCC will stop checking for 
+   problem. GCC will inline them.
 
 3) add option -fno-guess-branch-probability to CFLAGS.
 
