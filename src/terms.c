@@ -114,7 +114,7 @@ static void term_table_init(term_table_t *table, uint32_t n, type_table_t *ttbl,
 
   // buffers
   init_ivector(&table->ibuffer, 20);
-  init_ivector(&table->pbuffer, 20);
+  init_pvector(&table->pbuffer, 20);
 }
 
 
@@ -1324,9 +1324,9 @@ static void delete_term(term_table_t *table, int32_t i) {
 
   assert(good_term_idx(table, i));
 
-  // make sure the boolean constant and reserved terms are 
+  // make sure the reserved and primitive terms are 
   // never deleted
-  if (i <= bool_const) return; 
+  if (i <= zero_const) return; 
 
   // deal with unit types
   tau = table->type[i];
@@ -1484,24 +1484,25 @@ static void delete_term(term_table_t *table, int32_t i) {
  * Build a dummy term at index 0 (to make sure nothing collides
  * with the const_idx used in rationals and bitvector polynomials).
  *
- * Add the boolean constant
+ * Add the boolean constant and the zero constant
  */
 static void add_primitive_terms(term_table_t *table) {
+  rational_t q;
   int32_t i;
 
   i = allocate_term_id(table);
   assert(i == const_idx);
-
   table->kind[i] = RESERVED_TERM;
   table->type[i] = NULL_TYPE;
   table->desc[i].ptr = NULL;
 
-  i = allocate_term_id(table);
-  assert(i == bool_const);
+  i = constant_term(table, bool_type(table->types), 0);
+  assert(i == true_term);
 
-  table->kind[i] = CONSTANT_TERM;
-  table->type[i] = bool_type(table->types);
-  table->desc[i].integer = 0;
+  q_init(&q);
+  i = arith_constant(table, &q);
+  assert(i == zero_term && term_type(table, i) == int_type(table->types)); 
+  q_clear(&q);
 }
 
 
@@ -2418,7 +2419,190 @@ term_t bv_poly(term_table_t *table, bvarith_buffer_t *b) {
 
 
 
+/**********************************
+ *  CONVERSION TO POWER PRODUCTS  *
+ *********************************/
 
+/*
+ * Convert term t to a power product:
+ * - t must be a term (not a term index) present in the table
+ */
+pprod_t *pprod_for_term(term_table_t *table, term_t t) {
+  pprod_t *r;
+  int32_t i;
+
+  assert(is_pos_term(t) && good_term(table, t));
+  assert(is_arithmetic_term(table, t) || is_bitvector_term(table, t));
+
+  r = var_pp(t);
+  i = index_of(t);
+  if (table->kind[i] == POWER_PRODUCT) {
+    r = table->desc[i].ptr;
+  }
+  return r;
+}
+
+
+/*
+ * Degree of x where x = main variable of a polynomial
+ */
+static uint32_t main_var_degree(term_table_t *table, int32_t x) {
+  uint32_t d;
+
+  d = 1;
+  if (x == const_idx) {
+    d = 0;
+  } else {
+    assert(is_pos_term(x) && good_term(table, x));
+    x = index_of(x);
+    if (table->kind[x] == POWER_PRODUCT) {
+      d = pprod_degree(table->desc[x].ptr);
+    }
+  }
+
+  return d;
+}
+
+
+/*
+ * Degree of term t
+ * - t must be a good term of arithmetic or bitvector type
+ */
+uint32_t term_degree(term_table_t *table, term_t t) {
+  uint32_t d;
+  int32_t i;
+
+  assert(is_pos_term(t) && good_term(table, t));
+  assert(is_arithmetic_term(table, t) || is_bitvector_term(table, t));
+
+  d = 1;
+  i = index_of(t);
+  switch (table->kind[i]) {
+  case POWER_PRODUCT:
+    d = pprod_degree(table->desc[i].ptr);
+    break;
+
+  case ARITH_CONSTANT:
+  case BV64_CONSTANT:
+  case BV_CONSTANT:
+    d = 0;
+    break;
+
+  case ARITH_POLY:
+    d = main_var_degree(table, polynomial_main_var(table->desc[i].ptr));
+    break;
+
+  case BV64_POLY:
+    d = main_var_degree(table, bvpoly64_main_var(table->desc[i].ptr));
+    break;
+
+  case BV_POLY:
+    d = main_var_degree(table, bvpoly_main_var(table->desc[i].ptr));
+    break;
+  }
+
+  return d;
+}
+
+
+/*
+ * Convert all variables of p to power products
+ * - store the result in table->pbuffer
+ * - return the array of power products
+ */
+pprod_t **pprods_for_bvpoly64(term_table_t *table, bvpoly64_t *p) {
+  uint32_t i, n;
+  void **v;
+
+  n = p->nterms;
+  resize_pvector(&table->pbuffer, n+1);
+  v = table->pbuffer.data;
+  i = 0;
+
+  // the constant is first in p
+  if (p->mono[0].var == const_idx) {
+    v[0] = empty_pp;
+    i = 1;
+  }
+
+  // rest of p
+  while (i < n) {
+    v[i] = pprod_for_term(table, p->mono[i].var);
+    i ++;
+  }
+  // end marker
+  assert(p->mono[i].var == max_idx);
+  v[i] = end_pp;
+
+  return (pprod_t **) v;
+}
+
+
+/*
+ * Convert all variables of p to power products
+ * - store the result in table->pbuffer
+ * - return the array of power products
+ */
+pprod_t **pprods_for_bvpoly(term_table_t *table, bvpoly_t *p) {
+  uint32_t i, n;
+  void **v;
+
+  n = p->nterms;
+  resize_pvector(&table->pbuffer, n+1);
+  v = table->pbuffer.data;
+  i = 0;
+
+  // the constant is first in p
+  if (p->mono[0].var == const_idx) {
+    v[0] = empty_pp;
+    i = 1;
+  }
+
+  // rest of p
+  while (i < n) {
+    v[i] = pprod_for_term(table, p->mono[i].var);
+    i ++;
+  }
+  // end marker
+  assert(p->mono[i].var == max_idx);
+  v[i] = end_pp;
+
+  return (pprod_t **) v;
+}
+
+
+
+/*
+ * Convert all variables of p to power products
+ * - store the result in table->pbuffer
+ * - return the array of power products
+ */
+pprod_t **pprods_for_poly(term_table_t *table, polynomial_t *p) {
+  uint32_t i, n;
+  void **v;
+
+  n = p->nterms;
+  resize_pvector(&table->pbuffer, n+1);
+  v = table->pbuffer.data;
+  i = 0;
+
+  // the constant is first in p
+  if (p->mono[0].var == const_idx) {
+    v[0] = empty_pp;
+    i = 1;
+  }
+
+  // rest of p
+  while (i < n) {
+    v[i] = pprod_for_term(table, p->mono[i].var);
+    i ++;
+  }
+  // end marker
+  assert(p->mono[i].var == max_idx);
+  v[i] = end_pp;
+
+  return (pprod_t **) v;
+}
 
 
 
@@ -2656,6 +2840,7 @@ void term_table_gc(term_table_t *table) {
   // mark the primitive terms
   term_table_set_gc_mark(table, const_idx);
   term_table_set_gc_mark(table, bool_const);
+  term_table_set_gc_mark(table, zero_const);
 
   // propagate the marks
   mark_live_terms(table);

@@ -200,6 +200,37 @@ bool arith_buffer_is_nonpos(arith_buffer_t *b) {
 }
 
 
+/*
+ * Check whether b is of the form a * X - a * Y
+ * for a non-zero rational a and two products X and Y.
+ * If so return X in *r1 and Y in *r2
+ */
+bool arith_buffer_is_equality(arith_buffer_t *b, pprod_t **r1, pprod_t **r2) {
+  mlist_t *p, *q;
+  pprod_t *x, *y;
+  rational_t a;
+  bool is_eq;
+
+  is_eq = false;
+  if (b->nterms == 2) {
+    p = b->list;
+    q = p->next;
+    x = p->prod;
+    y = p->prod;
+    if (x != empty_pp) {
+      *r1 = x;
+      *r2 = y;
+      q_init(&a);
+      q_set(&a, &p->coeff);
+      q_add(&a, &q->coeff);
+      is_eq = q_is_zero(&a);
+      q_clear(&a);
+    }
+  }
+
+  return is_eq;
+}
+
 
 /*
  * Main monomial = monomial whose pp is the main term
@@ -1516,5 +1547,4 @@ polynomial_t *arith_buffer_get_poly(arith_buffer_t *b, int32_t *v) {
 
   return tmp;
 }
-
 

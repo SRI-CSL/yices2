@@ -182,7 +182,6 @@
  */
 typedef enum {
   UNUSED_TERM,    // deleted term
-
   RESERVED_TERM,  // mark for term indices that can't be used
 
   // Generic atomic terms
@@ -249,11 +248,18 @@ typedef enum {
  * This gives two terms:
  * - true_term = pos_occ(bool_const) = 2
  * - false_term = neg_occ(bool_const) = 3
+ *
+ * The constant 0 is also built-in and always has index 2
+ * - so zero_term = pos_occ(zero_const) = 4
  */
 enum {
+  // indices
   bool_const = 1,
+  zero_const = 2,
+  // terms
   true_term = 2,
   false_term = 3,
+  zero_term = 4,
 };
 
 
@@ -365,6 +371,7 @@ typedef struct term_table_s {
   int_hmap_t utbl;
 
   ivector_t ibuffer;
+  pvector_t pbuffer;
 } term_table_t;
 
 
@@ -759,7 +766,7 @@ static inline term_t opposite_term(term_t x) {
 
 
 /*
- * CONVERSION OF TERM TO POWER PRODUCTS
+ * SUPPORT FOR POLYNOMIAL/BUFFER OPERATIONS
  */
 
 /*
@@ -780,8 +787,21 @@ static inline term_t opposite_term(term_t x) {
 /*
  * Convert term t to a power product:
  * - t must be a term (not a term index) present in the table
+ * - t must have arithmetic or bitvector type
  */
 extern pprod_t *pprod_for_term(term_table_t *table, term_t t);
+
+
+/*
+ * Degree of term t
+ * - t must be a good term of arithmetic or bitvector type
+ *
+ * - if t is a constant --> 0
+ * - if t is a power product --> that product degree
+ * - if t is a polynomial --> degree of that polynomial
+ * - otherwise --> 1
+ */
+extern uint32_t term_degree(term_table_t *table, term_t t);
 
 
 /*
@@ -818,12 +838,11 @@ extern pprod_t **pprods_for_bvpoly64(term_table_t *table, bvpoly64_t *p);
 extern pprod_t **pprods_for_bvpoly(term_table_t *table, bvpoly_t *p);
 
 
-
 /*
  * Reset the internal pbuffer
  */
 static inline void term_table_reset_pbuffer(term_table_t *table) {
-  pbuffer_reset(&table->pbuffer);
+  pvector_reset(&table->pbuffer);
 }
 
 

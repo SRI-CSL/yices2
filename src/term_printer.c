@@ -743,7 +743,7 @@ static uint32_t max_term_name_length(term_table_t *tbl) {
   max = 0;
   n = tbl->nelems;
   for (i=0; i<n; i++) {    
-    if (tbl->kind[i] != UNUSED_TYPE) {
+    if (tbl->kind[i] != UNUSED_TERM) {
       name = term_name(tbl, pos_term(i));
       if (name != NULL) {
 	l = strlen(name);

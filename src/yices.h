@@ -503,6 +503,11 @@ extern term_t yices_exists(uint32_t n, term_t var[], term_t body);
  */
 
 /*
+ * Zero: no error
+ */
+extern term_t yices_zero(void);
+
+/*
  * Integer constants
  */
 extern term_t yices_int32(int32_t val);

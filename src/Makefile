@@ -50,8 +50,9 @@ distdir := $(BUILD)/dist
 #
 # source files for libyices
 #
-src_c := arena.c arith_buffers.c bvarith_buffers.c                  \
-         bvarith64_buffers.c bv_constants.c bv64_constants.c        \
+src_c := arena.c arith_buffers.c arith_buffer_terms.c               \
+	 bvarith_buffers.c bvarith64_buffers.c                      \
+	 bv_constants.c bv64_constants.c                            \
 	 bv_polynomials.c bv64_polynomials.c cache.c                \
          command_line.c extended_rationals.c gcd.c generic_heap.c   \
          hash_functions.c index_vectors.c int_array_sort.c          \
@@ -220,7 +221,7 @@ endif
 #
 # Warning levels
 #
-CFLAGS += -Wall -Winline -Wredundant-decls -Wstrict-aliasing
+CFLAGS += -Wall -Winline -Wredundant-decls
 ifeq ($(POSIXOS),mingw)
   ifeq ($(findstring -mno-cygwin, $(CFLAGS)), -mno-cygwin)
    # compilation on mingw using the -mno-cygwin flag

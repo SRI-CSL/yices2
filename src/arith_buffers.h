@@ -141,6 +141,14 @@ extern bool arith_buffer_is_nonpos(arith_buffer_t *b);
 
 
 /*
+ * Check whether b is of the form a * X - a * Y
+ * for a non-zero rational a and two products X and Y.
+ * If so return X in *r1 and Y in *r2
+ */
+extern bool arith_buffer_is_equality(arith_buffer_t *b, pprod_t **r1, pprod_t **r2);
+
+
+/*
  * Get degree of polynomial in buffer b.
  * - b must be normalized
  * - returns 0 if b is zero
