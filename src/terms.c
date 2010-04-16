@@ -114,6 +114,7 @@ static void term_table_init(term_table_t *table, uint32_t n, type_table_t *ttbl,
 
   // buffers
   init_ivector(&table->ibuffer, 20);
+  init_ivector(&table->pbuffer, 20);
 }
 
 
@@ -1623,6 +1624,7 @@ void delete_term_table(term_table_t *table) {
   delete_stbl(&table->stbl);
 
   delete_ivector(&table->ibuffer);
+  delete_pvector(&table->pbuffer);
   
   safe_free(table->kind);
   safe_free(table->type);
@@ -2266,7 +2268,7 @@ static bool all_integer_terms(term_table_t *table, term_t *v, uint32_t n) {
  *
  * SIDE EFFECT: b is reset to zero
  */
-term_t arith_term(term_table_t *table, arith_buffer_t *b) {
+term_t arith_poly(term_table_t *table, arith_buffer_t *b) {
   mlist_t *q;
   int32_t *v;
   type_t tau;
@@ -2329,7 +2331,7 @@ term_t arith_term(term_table_t *table, arith_buffer_t *b) {
  *
  * SIDE EFFECT: b is reset to zero.
  */
-term_t bv64_term(term_table_t *table, bvarith64_buffer_t *b) {
+term_t bv64_poly(term_table_t *table, bvarith64_buffer_t *b) {
   bvmlist64_t *q;
   int32_t *v;
   int32_t i;
@@ -2371,7 +2373,7 @@ term_t bv64_term(term_table_t *table, bvarith64_buffer_t *b) {
 }
 
 
-term_t bv_term(term_table_t *table, bvarith_buffer_t *b) {
+term_t bv_poly(term_table_t *table, bvarith_buffer_t *b) {
   bvmlist_t *q;
   int32_t *v;
   int32_t i;

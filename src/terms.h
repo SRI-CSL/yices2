@@ -232,7 +232,6 @@ typedef enum {
   BV_EQ_ATOM,      // equality: (t1 == t2)
   BV_GE_ATOM,      // unsigned comparison: (t1 >= t2)
   BV_SGE_ATOM,     // signed comparison (t1 >= t2)
-
 } term_kind_t;
 
 
@@ -345,6 +344,7 @@ typedef union {
  *
  * Auxilairy vectors
  * - ibuffer: to store an array of integers
+ * - pbuffer: to store an array of pprods
  */
 typedef struct term_table_s {
   uint8_t *kind;
@@ -476,6 +476,7 @@ extern term_t pprod_term(term_table_t *table, pprod_t *r);
 
 
 
+
 /*
  * ARITHMETIC TERMS
  */
@@ -487,7 +488,7 @@ extern term_t arith_constant(term_table_t *table, rational_t *a);
 
 
 /*
- * Arithmetic term
+ * Arithmetic polynomial
  * - all variables of b must be real or integer terms defined in table
  * - b must be normalized and b->ptbl must be the same as table->ptbl
  * - if b contains a non-linear polynomial then the power products that
@@ -497,7 +498,7 @@ extern term_t arith_constant(term_table_t *table, rational_t *a);
  *
  * SIDE EFFECT: b is reset to zero
  */
-extern term_t arith_term(term_table_t *table, arith_buffer_t *b);
+extern term_t arith_poly(term_table_t *table, arith_buffer_t *b);
 
 
 /*
@@ -554,8 +555,8 @@ extern term_t bvconst_term(term_table_t *table, uint32_t n, uint32_t *bv);
  *
  * SIDE EFFECT: b is reset to zero.
  */
-extern term_t bv64_term(term_table_t *table, bvarith64_buffer_t *b);
-extern term_t bv_term(term_table_t *table, bvarith_buffer_t *b);
+extern term_t bv64_poly(term_table_t *table, bvarith64_buffer_t *b);
+extern term_t bv_poly(term_table_t *table, bvarith_buffer_t *b);
 
 
 /*
@@ -599,7 +600,7 @@ extern term_t bvsge_atom(term_table_t *table, term_t l, term_t r);
 
 
 /*
- * SINGLETON TYPES AND REPRESTENTATIVE
+ * SINGLETON TYPES AND REPRESENTATIVE
  */
 
 /*
@@ -746,10 +747,86 @@ static inline bool is_neg_term(term_t x) {
 
 /*
  * Complement of x = same term, opposite polarity
+ * - this can be used instead of not_term(table, x)
+ *   if x is known to be a valid boolean term.
  */
 static inline term_t opposite_term(term_t x) {
   return x ^ 1;
 }
+
+
+
+
+
+/*
+ * CONVERSION OF TERM TO POWER PRODUCTS
+ */
+
+/*
+ * The term table store polynomials in the form
+ *      a_0 t_0 + ... + a_n t_n 
+ * where a_i is a coefficient and t_i is a term.
+ *
+ * For arithmetic and bit-vector operations that involve buffers and
+ * terms, we must convert the integer indices t_0 ... t_n to the
+ * power products r_0 ... r_n that buffers require. 
+ *
+ * The translation is defined by:
+ * 1) if t_i is const_idx --> r_i is empty_pp
+ * 2) if t_i is a power product --> r_i = descriptor for t_i
+ * 3) otherwise --> r_i = var_pp(t_i)
+ */
+
+/*
+ * Convert term t to a power product:
+ * - t must be a term (not a term index) present in the table
+ */
+extern pprod_t *pprod_for_term(term_table_t *table, term_t t);
+
+
+/*
+ * Convert all indices in polynomial p to power products
+ * - all variable indices of p must be either const_idx or 
+ *   arithmetic terms present in table.
+ * - the result is stored in table's internal pbuffer.
+ * - the function returns pbuffer->data
+ *
+ * The number of elements in pbuffer is equal to p->nterms + 1.
+ * - pbuffer->data[i] = pprod_for_term(table, p->mono[i].var)
+ * - the last element of buffer->data is the end marker end_pp.
+ */
+extern pprod_t **pprods_for_poly(term_table_t *table, polynomial_t *p);
+
+
+/*
+ * Convert all indices in bitvector polynomial p to power products
+ * - all variable indices of p must be either const_idx or 
+ *   bitvector terms of bitsize <= 64 present in table.
+ * - the result is stored in table's internal pbuffer.
+ * - the function returns pbuffer->data.
+ */
+extern pprod_t **pprods_for_bvpoly64(term_table_t *table, bvpoly64_t *p);
+
+
+/*
+ * Convert all indices in bitvector polynomial p to power products
+ * - all variable indices of p must be either const_idx or 
+ *   arithmetic terms present in table.
+ * - the result is stored in table's internal pbuffer.
+ * - the function returns pbuffer->data.
+ */
+extern pprod_t **pprods_for_bvpoly(term_table_t *table, bvpoly_t *p);
+
+
+
+/*
+ * Reset the internal pbuffer
+ */
+static inline void term_table_reset_pbuffer(term_table_t *table) {
+  pbuffer_reset(&table->pbuffer);
+}
+
+
 
 
 

@@ -36,7 +36,6 @@
 /*
  * A buffer stores a polynomial as a list of monomials
  * - list = list of pairs <coeff, pp> sorted in increasing order
-
  *   - coeff is a pointer to an array of 32bit words
  *   - pp is a power product
  * - the list contains an end marker (with pp = end_pp),

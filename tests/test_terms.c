@@ -1384,12 +1384,12 @@ static void test_polynomials(void) {
   print_arith_buffer(stdout, &buffer1);
   printf(": ");
 
-  s = arith_term(&terms, &buffer1);
+  s = arith_poly(&terms, &buffer1);
   if (! check_polynomial(s, int_type(&types))) {
     constructor_failed();
   }
 
-  t = arith_term(&terms, &buffer2);
+  t = arith_poly(&terms, &buffer2);
   if (t != s) {
     hash_consing_failed();
   }
@@ -1413,12 +1413,12 @@ static void test_polynomials(void) {
   arith_buffer_normalize(&buffer2);
   assert(arith_buffer_equal(&buffer1, &buffer2));
 
-  s = arith_term(&terms, &buffer1);
+  s = arith_poly(&terms, &buffer1);
   if (! check_polynomial(s, real_type(&types))) {
     constructor_failed();
   }
 
-  t = arith_term(&terms, &buffer2);
+  t = arith_poly(&terms, &buffer2);
   if (t != s) {
     hash_consing_failed();
   }
@@ -1526,12 +1526,12 @@ static void test_bvpoly(void) {
   print_bvarith_buffer(stdout, &buffer1);
   printf(": ");
 
-  s = bv_term(&terms, &buffer1);
+  s = bv_poly(&terms, &buffer1);
   if (! check_bvpoly(s, 65)) {
     constructor_failed();
   }
 
-  t = bv_term(&terms, &buffer2);
+  t = bv_poly(&terms, &buffer2);
   if (t != s) {
     hash_consing_failed();
   }
@@ -1634,12 +1634,12 @@ static void test_bvpoly64(void) {
   print_bvarith64_buffer(stdout, &buffer1);
   printf(": ");
 
-  s = bv64_term(&terms, &buffer1);
+  s = bv64_poly(&terms, &buffer1);
   if (! check_bvpoly64(s, 5)) {
     constructor_failed();
   }
 
-  t = bv64_term(&terms, &buffer2);
+  t = bv64_poly(&terms, &buffer2);
   if (t != s) {
     hash_consing_failed();
   }
