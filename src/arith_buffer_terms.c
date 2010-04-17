@@ -19,6 +19,7 @@ void arith_buffer_add_term(arith_buffer_t *b, term_table_t *table, term_t t) {
 
   assert(b->ptbl == table->pprods);
   assert(pos_term(t) && good_term(table, t) && is_arithmetic_term(table, t));
+
   i = index_of(t);
   switch (table->kind[i]) {
   case POWER_PRODUCT:
@@ -55,6 +56,7 @@ void arith_buffer_sub_term(arith_buffer_t *b, term_table_t *table, term_t t) {
 
   assert(b->ptbl == table->pprods);
   assert(pos_term(t) && good_term(table, t) && is_arithmetic_term(table, t));
+
   i = index_of(t);
   switch (table->kind[i]) {
   case POWER_PRODUCT:
@@ -91,6 +93,7 @@ void arith_buffer_mul_term(arith_buffer_t *b, term_table_t *table, term_t t) {
 
   assert(b->ptbl == table->pprods);
   assert(pos_term(t) && good_term(table, t) && is_arithmetic_term(table, t));
+
   i = index_of(t);
   switch (table->kind[i]) {
   case POWER_PRODUCT:
@@ -128,6 +131,7 @@ void arith_buffer_add_const_times_term(arith_buffer_t *b, term_table_t *table, r
 
   assert(b->ptbl == table->pprods);
   assert(pos_term(t) && good_term(table, t) && is_arithmetic_term(table, t));
+
   i = index_of(t);
   switch (table->kind[i]) {
   case POWER_PRODUCT:
@@ -159,7 +163,7 @@ void arith_buffer_add_const_times_term(arith_buffer_t *b, term_table_t *table, r
 /*
  * Convert b to a term and reset b.
  *
- * The following simplification rules are applied:
+ * Normalize b first then applu the following simplification rules:
  * 1) if b is a constant, then a constant rational is created
  * 2) if b is of the form 1.t then t is returned
  * 3) if b is of the form 1.t_1^d_1 x ... x t_n^d_n, then a power product is returned
@@ -207,9 +211,11 @@ term_t arith_buffer_get_term(arith_buffer_t *b, term_table_t *table) {
  * Construct the atom (b == 0) then reset b.
  *
  * Normalize b first.
- * simplify to true if b is the zero polynomial
- * simplify to false if b is constant and non-zero
- * rewrite to (t1 == t2) if that's possible.
+ * - simplify to true if b is the zero polynomial
+ * - simplify to false if b is constant and non-zero
+ * - rewrite to (t1 == t2) if that's possible.
+ * - otherwise, create a polynomial term t from b
+ *   and return the atom (t == 0).
  */
 term_t arith_buffer_get_eq0_atom(arith_buffer_t *b, term_table_t *table) {
   pprod_t *r1, *r2;
@@ -249,3 +255,90 @@ term_t arith_buffer_get_eq0_atom(arith_buffer_t *b, term_table_t *table) {
   return t;
 }
 
+
+
+/*
+ * Construct the atom (b >= 0) then reset b.
+ *
+ * Normalize b first then check for simplifications.
+ * - simplify to true or false if b is a constant
+ * - otherwise term t from b and return the atom (t >= 0)
+ */
+term_t arith_buffer_get_geq0_atom(arith_buffer_t *b, term_table_t *table) {
+  term_t t;
+
+  assert(b->ptbl == table->pprods);
+
+  arith_buffer_normalize(b);
+
+  if (arith_buffer_is_nonneg(b)) {
+    t = true_term;
+  } else if (arith_buffer_is_neg(b)) {
+    t = false_term;
+  } else {
+    t = arith_poly(table, b);
+    t = arith_geq_atom(table, t);
+  }
+
+  arith_buffer_reset(b);
+  assert(good_term(table, t) && is_boolean_term(table, t));
+
+  return t;
+}
+
+
+/*
+ * Atom (b <= 0): rewritten to (-b >= 0)
+ */
+term_t arith_buffer_get_leq0_atom(arith_buffer_t *b, term_table_t *table) {
+  term_t t;
+
+  assert(b->ptbl == table->pprods);
+
+  arith_buffer_normalize(b);
+
+  if (arith_buffer_is_nonpos(b)) {
+    t = true_term;
+  } else if (arith_buffer_is_pos(b)) {
+    t = false_term;
+  } else {
+    arith_buffer_negate(b); // b remains normalized
+    t = arith_poly(table, b);
+    t = arith_geq_atom(table, t);
+  }
+
+  arith_buffer_reset(b);
+  assert(good_term(table, t) && is_boolean_term(table, t));
+
+  return t;
+}
+
+
+/*
+ * Atom (b > 0): rewritten to (not (b <= 0))
+ */
+term_t arith_buffer_get_gt0_atom(arith_buffer_t *b, term_table_t *table) {
+  term_t t;
+
+  t = arith_buffer_get_leq0_atom(b, table);
+#ifndef NDEBUG
+  return not_term(table, t);
+#else 
+  return opposite_term(t);
+#endif
+}
+
+
+/*
+ * Atom (b < 0): rewritten to (not (b >= 0))
+ */
+term_t arith_buffer_get_lt0_atom(arith_buffer_t *b, term_table_t *table) {
+  term_t t;
+
+  t = arith_buffer_get_geq0_atom(b, table);
+#ifndef NDEBUG
+  return not_term(table, t);
+#else 
+  return opposite_term(t);
+#endif
+}

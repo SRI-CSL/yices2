@@ -191,7 +191,7 @@ typedef enum {
 
   // Generic composite terms
   ITE_TERM,       // if-then-else 
-  APP_TERM,       // application of an uninterpreted function
+  APP_TERM,       // application of an uninterpreted function 
   UPDATE_TERM,    // function update
   TUPLE_TERM,     // tuple constructor
   SELECT_TERM,    // tuple projection
@@ -728,6 +728,17 @@ static inline term_t neg_term(int32_t i) {
   return (i << 1) | 1;
 }
 
+
+/*
+ * Term of index i and polarity tt
+ * - true means positive polarity
+ * - false means negative polarity
+ */
+static inline term_t mk_term(int32_t i, bool tt) {
+  return (i << 1) | (((int32_t) tt) ^ 1);
+}
+
+
 /*
  * Extract term and polarity bit
  */
@@ -926,6 +937,13 @@ static inline bvpoly_t *bvpoly_for_idx(term_table_t *table, int32_t i) {
 }
 
 
+// bitsize of bitvector terms
+static inline uint32_t bitsize_for_idx(term_table_t *table, int32_t i) {
+  assert(good_term_idx(table, i));
+  return bv_type_size(table->types, table->type[i]);
+}
+
+
 /*
  * Access components using term occurrence t
  */
@@ -980,7 +998,11 @@ static inline bool is_tuple_term(term_table_t *table, term_t t) {
 }
 
 
-// More TBD.
+// Bitsize of term t
+static inline uint32_t term_bitsize(term_table_t *table, term_t t) {
+  return bitsize_for_idx(table, index_of(t));
+}
+
 
 
 /*

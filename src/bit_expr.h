@@ -1,5 +1,5 @@
 /*
- * XOR/OR/NOT graph used to represent bit-vector expressions
+ * XOR/OR/NOT graph used to represent intermediate bit-vector expressions.
  *
  * We need a new representation to replace BDDs. The BDDs blow
  * up on several benchmarks. 
@@ -12,6 +12,11 @@
  *
  * February 09, 2009:
  * - Added sets of variables to each node
+ *
+ * April 2010:
+ * - adjusted this module to the new term representations
+ * - added a new node type (select k i) for bit-select
+ * - removed the vsets
  */
 
 #ifndef __BIT_EXPR_H
@@ -27,6 +32,7 @@
 #include "int_queues.h"
 #include "vsets.h"
 
+
 /*
  * The graph is stored as a table of nodes
  * - each node is identified by a 30 bit index in the table
@@ -35,12 +41,22 @@
  *     [0|node index|polarity bit]
  *   polarity 0 means positive occurrence
  *   polarity 1 measn negative occurrence
- * - there are four types of nodes
+ * - there are five types of nodes
  *   - the constant node: 0
- *   - variable nodes X (each attached to an external variable in the bv_var_manager)
+ *   - variable node: (term-idx i) where i is an integer
+ *   - select node: (select k i) where k and i are integers
  *   - OR nodes: (OR a b) 
  *   - XOR nodes: (XOR a b) 
  *   where a and b are node occurrences
+ *
+ * (term-idx i) is intended to denote a boolean term of index i 
+ * in the term table
+ *
+ * (select k i) is intended to be bit k of term i where i 
+ * is a bitvector term in the term table.
+ * 
+ * The constant, variable, and select nodes are the leaf nodes
+ * in the DAG. The OR and XOR nodes are non-leaf nodes.
  */
 
 /*
@@ -49,7 +65,8 @@
 typedef enum {
   UNUSED_NODE,    // deleted node
   CONSTANT_NODE,  // 0 = true
-  VARIABLE_NODE,
+  VARIABLE_NODE, 
+  SELECT_NODE,
   OR_NODE,
   XOR_NODE,
 } node_kind_t;
@@ -125,32 +142,27 @@ enum {
 
 /*
  * Node desciptor:
- * - either an integer (for a bitvector variable)
+ * - either an integer (for a variable node)
+ * - of a pair index, var (for a select node)
  * - or a pair of bits (for a binary node).
  */
-typedef union node_desc_u {
+typedef struct select_node_s {
+  uint32_t index;
   int32_t var;
+} select_node_t;
+
+typedef union node_desc_u {
+  int32_t var ;
+  select_node_s sel;
   bit_t c[2];
 } node_desc_t;
 
-
-/*
- * Cache to accelerate the computation of union_vset
- * - just keep the arguments and results of the previous
- *   call to union_vset.
- */
-typedef struct uvset_cache_s {
-  vset_t *last_left;
-  vset_t *last_right;
-  vset_t *last_result;
-} uvset_cache_t;
 
 
 /*
  * Global table of nodes. For each node k, we keep
  * - kind[k] = UNUSED/CONSTANT/VARIABLE/OR/XOR
  * - desc[k] = descriptor
- * - vars[k] = vector of theory variables occurring in k
  *
  * During garbage collection, the high-order bit of kind[k]
  * is used as a mark.
@@ -163,24 +175,17 @@ typedef struct uvset_cache_s {
  * - vector for simplifying OR and XOR
  * - hash table for hash consing of OR and XOR nodes
  * - queue: to explore the DAG breadth-first
- * - int_hash_set allocated on demand. It's used to collect nodes.
- * - vtbl: table of vsets
- * - cache: cache of union
  */
 typedef struct node_table_s {
   uint8_t *kind;
   node_desc_t *desc;
-  vset_t **vars;
   uint32_t size;
   uint32_t nelems;
   int32_t free_idx;
 
   ivector_t aux_buffer;
   int_htbl_t htbl;
-  vset_htbl_t vtbl;
-  uvset_cache_t cache;
   int_queue_t queue;  
-  int_hset_t *node_set;  
 } node_table_t;
 
 
@@ -201,7 +206,6 @@ typedef struct node_table_s {
  * - n = initial size
  * - if n = 0, the default size is used
  * Also create the constant node
- * The node_set is not created (NULL).
  */
 extern void init_node_table(node_table_t *table, uint32_t n);
 
@@ -217,16 +221,25 @@ extern void reset_node_table(node_table_t *table);
 
 
 
+
 /*
  * CONSTRUCTORS
  */
 
-
 /*
- * Create a variable
- * - p = the attached external variable
+ * Create a variable node
+ * - p = external term index
  */
 extern bit_t node_table_alloc_var(node_table_t *table, int32_t p);
+
+
+/*
+ * Create a select node: 
+ * - k = index 
+ * - p = external term
+ */
+extern bit_t node_table_alloc_select(node_table_t *table, uint32_t k, int32_t p);
+
 
 /*
  * Construct (not x)
@@ -302,103 +315,6 @@ extern bit_t bit_xor(node_table_t *table, bit_t *b, uint32_t n);
 
 
 
-
-/*
- * UTILITIES
- */
-
-
-/*
- * Get the internal node set. Allocate and initialized it if needed.
- */
-extern int_hset_t *node_table_get_node_set(node_table_t *table);
-
-
-/*
- * Delete the internal node set. Do nothing if the set hasn't been allocated.
- */
-extern void node_table_delete_node_set(node_table_t *table);
-
-
-
-/*
- * Collect the nodes reachable from b into set
- * - set must be empty and initialized
- * - the result is in compacted form (cf. int_hset_close)
- */
-extern void collect_bitexpr_nodes(node_table_t *table, bit_t b, int_hset_t *set);
-
-/*
- * Add all nodes reachable from b[0] ... b[n-1] to set
- * - set mut be initialized
- * - the result is not compacted
- */
-extern void collect_bitarray_nodes(node_table_t *table, uint32_t n, bit_t *b, int_hset_t *set);
-
-
-/*
- * SUPPORT FOR GARBAGE COLLECTION
- */
-
-/*
- * Marker object to visit a set of nodes
- * - each node is visited once
- * - a callback function is called the first time a node is reached
- * - the callback function takes two arguments:
- *   1) a pointer to the marking object itself
- *   2) the index of the node reached
- * The node table must be unchanged when this is used
- *
- * After marking: the caller must clear all the marks
- * (optionally, also delete the unmarked nodes)
- */
-
-typedef struct bit_marking_obj_s bit_marking_obj_t;
-
-typedef void (*bit_marking_callback_t)(void *, node_t);
-
-struct bit_marking_obj_s {
-  node_table_t *table;
-  bit_marking_callback_t fun; // callback function
-};
-
-
-/*
- * Initialize a marking object
- * - f = the callback function
- */
-static inline void init_bit_marker(bit_marking_obj_t *marker, node_table_t *table, 
-				   bit_marking_callback_t f) {
-  marker->table = table;
-  marker->fun = f;
-}
-
-
-/*
- * Visit all nodes reachable from x:
- * - use depth-first search
- * - all nodes not reached before are marked and the callback function is called
- */
-extern void bit_marker_visit(bit_marking_obj_t *marker, node_t x);
-
-
-/*
- * End of marking: clear all the marks
- */
-extern void node_table_clear_marks(node_table_t *table);
-
-
-/*
- * End or marking: clear the marks and delete the unmarked nodes
- * (Garbage collection)
- */
-extern void node_table_garbage_collection(node_table_t *table);
-
-
-
-
-
-
 /*
  * ACCESS TO THE TABLE
  */
@@ -423,6 +339,10 @@ static inline bool is_variable_node(node_table_t *table, node_t x) {
   return node_kind(table, x) == VARIABLE_NODE;
 }
 
+static inline bool is_select_node(node_table_t *table, node_t x) {
+  return node_kind(tbale, x) == SELECT_NODE;
+}
+
 static inline bool is_or_node(node_table_t *table, node_t x) {
   return node_kind(table, x) == OR_NODE;
 }
@@ -434,7 +354,7 @@ static inline bool is_xor_node(node_table_t *table, node_t x) {
 static inline bool is_leaf_node(node_table_t *table, node_t x) {
   node_kind_t k;
   k = node_kind(table, x);
-  return k == CONSTANT_NODE || k == VARIABLE_NODE;
+  return k == CONSTANT_NODE || k == VARIABLE_NODE || k == SELECT_NODE;
 }
 
 static inline bool is_nonleaf_node(node_table_t *table, node_t x) {
@@ -445,13 +365,30 @@ static inline bool is_nonleaf_node(node_table_t *table, node_t x) {
 
 
 /*
- * Bitvector variable attached to node x
- * - x must be a variable node
+ * Variable of a variable node x
  */
-static inline int32_t bv_var_of_node(node_table_t *table, node_t x) {
+static inline int32_t var_of_node(node_table_t *table, node_t x) {
   assert(is_variable_node(table, x));
   return table->desc[x].var;
 }
+
+
+/*
+ * Variable and index of a select node x
+ */
+static inline select_node_t *select_of_node(node_table_t *table, node_t x) {
+  assert(is_select_node(table, x));
+  return &table->desc[x].sel;
+}
+
+static inline int32_t var_of_select_node(node_table_t *table, node_t x) {
+  return select_of_node(table, x)->var;
+}
+
+static inline uint32_t index_of_select_node(node_table_t *table, node_t x) {
+  return select_of_node(table, x)->index;
+}
+
 
 
 /*
@@ -477,16 +414,6 @@ static inline bit_t left_child_of_node(node_table_t *table, node_t x) {
 static inline bit_t right_child_of_node(node_table_t *table, node_t x) {
   return child_of_node(table, x, 1);
 }
-
-
-/*
- * Variables of node x 
- */
-static inline vset_t *vars_of_node(node_table_t *table, node_t x) {
-  assert(good_node(table, x));
-  return table->vars[x];
-}
-
 
 
 /*

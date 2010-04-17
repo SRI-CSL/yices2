@@ -2,8 +2,8 @@
  * ARITHMETIC OPERATIONS INVOLVING BUFFERS AND TERMS
  */
 
-#ifndef __ARITH_BUFFER_TERMS__
-#define __ARITH_BUFFER_TERMS__
+#ifndef __ARITH_BUFFER_TERMS_H
+#define __ARITH_BUFFER_TERMS_H
 
 #include "arith_buffers.h"
 #include "terms.h"
@@ -20,7 +20,8 @@
 extern void arith_buffer_add_term(arith_buffer_t *b, term_table_t *table, term_t t);
 extern void arith_buffer_sub_term(arith_buffer_t *b, term_table_t *table, term_t t);
 extern void arith_buffer_mul_term(arith_buffer_t *b, term_table_t *table, term_t t);
-extern void arith_buffer_add_const_times_term(arith_buffer_t *b, term_table_t *table, rational_t *a, term_t t);
+extern void arith_buffer_add_const_times_term(arith_buffer_t *b, term_table_t *table, 
+					      rational_t *a, term_t t);
 
 
 /*
@@ -47,4 +48,25 @@ extern term_t arith_buffer_get_term(arith_buffer_t *b, term_table_t *table);
 extern term_t arith_buffer_get_eq0_atom(arith_buffer_t *b, term_table_t *table);
 
 
-#endif /* __ARITH_BUFFER_TERMS__ */
+/*
+ * Construct the atom (b >= 0) then reset b.
+ *
+ * Normalize b first then check for simplifications.
+ * - simplify to true or false if b is a constant
+ * - otherwise term t from b and return the atom (t >= 0)
+ */
+extern term_t arith_buffer_get_geq0_atom(arith_buffer_t *b, term_table_t *table);
+
+
+/*
+ * More atoms:
+ *  (b <= 0) is rewritten to (-b >= 0)
+ *  (b > 0)  is rewritten to (not (-b >= 0))
+ *  (b < 0)  is rewritten to (not (b >= 0))
+ */
+extern term_t arith_buffer_get_leq0_atom(arith_buffer_t *b, term_table_t *table);
+extern term_t arith_buffer_get_gt0_atom(arith_buffer_t *b, term_table_t *table);
+extern term_t arith_buffer_get_lt0_atom(arith_buffer_t *b, term_table_t *table);
+
+
+#endif /* __ARITH_BUFFER_TERMS_H */
