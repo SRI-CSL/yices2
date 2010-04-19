@@ -9,6 +9,11 @@
  *   a lot of memory and the node table blows up on one QF_BV benchmark.
  * - Since flattening does not work, it makes sense to simplify the 
  *   data structures. All OR and XOR nodes are now binary nodes.
+ *
+ * April 2010:
+ * - adjusted this module to the new term representations
+ * - added a new node type (select k i) for bit-select
+ * - removed the vsets
  */
 
 #include <stdint.h>
@@ -19,49 +24,6 @@
 #include "hash_functions.h"
 #include "int_array_sort.h"
 #include "bit_expr.h"
-
-#define TRACE 0
-
-#if TRACE
-#include <stdio.h>
-#include <inttypes.h>
-#endif
-
-
-
-/*
- * Initialize the internal cache
- */
-static inline void init_uvset_cache(uvset_cache_t *cache) {
-  cache->last_left = NULL;
-  cache->last_right = NULL;
-  cache->last_result = NULL;
-}
-
-/*
- * Reset the cache: same as init
- */
-static inline void reset_uvset_cache(uvset_cache_t *cache) {
-  init_uvset_cache(cache);
-}
-
-/*
- * Store (u, v, r) in the cache
- */
-static inline void cache_uvset(uvset_cache_t *cache, vset_t *u, vset_t *v, vset_t *r) {
-  cache->last_left = u;
-  cache->last_right = v;
-  cache->last_result = r;
-}
-
-/*
- * Check whether the result of union_vset(u, v) is in the cache
- */
-static inline bool uvset_in_cache(uvset_cache_t *cache, vset_t *u, vset_t *v) {
-  return cache->last_left == u && cache->last_right == v;
-}
-
-
 
 
 /*
@@ -79,18 +41,13 @@ static void alloc_node_table(node_table_t *table, uint32_t n) {
 
   table->kind = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
   table->desc = (node_desc_t *) safe_malloc(n * sizeof(node_desc_t));
-  table->vars = (vset_t **) safe_malloc(n * sizeof(vset_t *));
   table->size = n;
   table->nelems = 0;
   table->free_idx = -1;
 
   init_ivector(&table->aux_buffer, 0);
   init_int_htbl(&table->htbl, 0);
-  init_uvset_cache(&table->cache);
-  init_vset_htbl(&table->vtbl, 0);  
   init_int_queue(&table->queue, 0);
-
-  table->node_set = NULL;
 }
 
 
@@ -110,7 +67,6 @@ static void extend_node_table(node_table_t *table) {
 
   table->kind = (uint8_t *) safe_realloc(table->kind, n * sizeof(uint8_t));
   table->desc = (node_desc_t *) safe_realloc(table->desc, n * sizeof(node_desc_t));
-  table->vars = (vset_t **) safe_realloc(table->vars, n * sizeof(vset_t *));
   table->size = n;
 }
 
@@ -128,14 +84,19 @@ static node_t allocate_node_id(node_table_t *table) {
   } else {
     i = table->nelems;
     table->nelems ++;
-    if (i >= table->size) {
+    if (i == table->size) {
       extend_node_table(table);
     }
   }
+  assert(i < table->size);
+
   return i;
 }
 
 
+#if 0
+
+// NOT USED
 /*
  * Delete node i: add it to the free list
  */
@@ -149,88 +110,12 @@ static void delete_node(node_table_t *table, node_t i) {
   table->free_idx = i;
 }
 
-
-
-/*
- * Build the empty set of vars
- */
-static inline vset_t *empty_vset(node_table_t *table) {
-  return vset_htbl_get(&table->vtbl, 0, NULL);
-}
-
-
-/*
- * Singleton set {x}
- */
-static inline vset_t *singleton_vset(node_table_t *table, int32_t x) {
-  return vset_htbl_get(&table->vtbl, 1, &x);
-}
-
-
-/*
- * Element of index i in set u
- * - return INT32_MAX if i >= u->nelems
- */
-static inline int32_t elem_of_vset(vset_t *u, uint32_t i) {
-  return (i < u->nelems) ? u->data[i] : INT32_MAX;
-}
-
-/*
- * Build the union of two sets u and v
- */
-static vset_t *union_vset(node_table_t *table, vset_t *u, vset_t *v) {  
-  ivector_t *b;
-  vset_t *r;
-  uint32_t i, j;
-  int32_t x, y;
-
-  assert(u != NULL && v != NULL);
-
-  if (uvset_in_cache(&table->cache, u, v)) {
-    return table->cache.last_result;
-  }
-
-#if TRACE
-  printf("---> union_vset: u = %p, v = %p\n", u, v);
 #endif
-
-  b = &table->aux_buffer;
-  ivector_reset(b);
-
-  i = 0;
-  x = elem_of_vset(u, i);
-  j = 0;
-  y = elem_of_vset(v, j);
-  for (;;) {
-    if (x == y) {
-      if (x == INT32_MAX) break;
-      ivector_push(b, x);
-      i ++;
-      x = elem_of_vset(u, i);
-      j ++;
-      y = elem_of_vset(v, j);
-    } else if (x < y) {
-      ivector_push(b, x);
-      i ++;
-      x = elem_of_vset(u, i);
-    } else { 
-      ivector_push(b, y);
-      j ++;
-      y = elem_of_vset(v, j);      
-    }
-  }
-
-  r = vset_htbl_get(&table->vtbl, b->size, b->data);
-
-  cache_uvset(&table->cache, u, v, r);
-  return r;
-}
-
 
 
 /*
  * Create the constant node:
- * - must be done first
+ * - this must be done first.
  */
 static node_t build_constant_node(node_table_t *table) {
   node_t i;
@@ -240,7 +125,6 @@ static node_t build_constant_node(node_table_t *table) {
   table->kind[i] = CONSTANT_NODE;
   table->desc[i].c[0] = null_bit;
   table->desc[i].c[1] = null_bit;
-  table->vars[i] = empty_vset(table);
 
   return i;
 }
@@ -255,11 +139,24 @@ static node_t new_variable_node(node_table_t *table, int32_t x) {
   i = allocate_node_id(table);
   table->kind[i] = VARIABLE_NODE;
   table->desc[i].var = x;
-  table->vars[i] = singleton_vset(table, x);
+
   return i;
 }
 
 
+/*
+ * Build a select node (k, x)
+ */
+static node_t new_select_node(node_table_t *table, uint32_t k, int32_t x) {
+  node_t i;
+
+  i = allocate_node_id(table);
+  table->kind[i] = SELECT_NODE;
+  table->desc[i].sel.index = k;
+  table->desc[i].sel.var = x;
+
+  return i;
+}
 
 
 /*
@@ -275,7 +172,6 @@ static node_t new_binary_node(node_table_t *table, node_kind_t op, bit_t a, bit_
   table->kind[i] = op;
   table->desc[i].c[0] = a;
   table->desc[i].c[1] = b;
-  table->vars[i] = union_vset(table, table->vars[node_of_bit(a)], table->vars[node_of_bit(b)]);
 
   return i;
 }
@@ -287,8 +183,16 @@ static node_t new_binary_node(node_table_t *table, node_kind_t op, bit_t a, bit_
  */
 
 /*
- * Hash code for (OR a b) and (XOR a b])
+ * Hash codes
  */
+static inline uint32_t hash_var(int32_t x) {
+  return jenkins_hash_int32(x);
+}
+
+static inline uint32_t hash_select(uint32_t k, int32_t x) {
+  return jenkins_hash_pair((int32_t) k, x, 0x13dae100);
+}
+
 static inline uint32_t hash_or(bit_t a, bit_t b) {
   return jenkins_hash_pair(a, b, 0x1298abef);
 }
@@ -296,7 +200,6 @@ static inline uint32_t hash_or(bit_t a, bit_t b) {
 static inline uint32_t hash_xor(bit_t a, bit_t b) {
   return jenkins_hash_pair(a, b, 0xabed31fd);
 }
-
 
 
 /*
@@ -308,6 +211,85 @@ typedef struct node_hobj_s {
   node_table_t *tbl;
   bit_t child[2];
 } node_hobj_t;
+
+typedef struct var_node_hobj_s {
+  int_hobj_t m;
+  node_table_t *tbl;
+  int32_t var;
+} var_node_hobj_t;
+
+typedef struct select_node_hobj_s {
+  int_hobj_t m;
+  node_table_t *tbl;
+  uint32_t index;
+  int32_t var;
+} select_node_hobj_t;
+
+
+
+/*
+ * VAR Nodes
+ */
+static uint32_t hash_var_node(var_node_hobj_t *p) {
+  return hash_var(p->var);
+}
+
+static bool eq_var_node(var_node_hobj_t *p, node_t i) {
+  node_table_t *table;
+
+  table = p->tbl;
+  return table->kind[i] == VARIABLE_NODE && table->desc[i].var == p->var;
+}
+
+static node_t build_var_node(var_node_hobj_t *p) {
+  return new_variable_node(p->tbl, p->var);
+}
+
+static var_node_hobj_t var_node_hobj = {
+  { (hobj_hash_t) hash_var_node, (hobj_eq_t) eq_var_node, (hobj_build_t) build_var_node },
+  NULL,
+  0,
+};
+
+static node_t get_var_node(node_table_t *table, int32_t x) {
+  var_node_hobj.tbl = table;
+  var_node_hobj.var = x;
+  return int_htbl_get_obj(&table->htbl, &var_node_hobj.m);
+}
+
+
+/*
+ * SELECT Nodes
+ */
+static uint32_t hash_select_node(select_node_hobj_t *p) {
+  return hash_select(p->index, p->var);
+}
+
+static bool eq_select_node(select_node_hobj_t *p, node_t i) {
+  node_table_t *table;
+
+  table = p->tbl;
+  return table->kind[i] == SELECT_NODE &&
+    table->desc[i].sel.index == p->index &&
+    table->desc[i].sel.var == p->var;
+}
+
+static node_t build_select_node(select_node_hobj_t *p) {
+  return new_select_node(p->tbl, p->index, p->var);
+}
+
+static select_node_hobj_t select_node_hobj = {
+  { (hobj_hash_t) hash_select_node, (hobj_eq_t) eq_select_node, (hobj_build_t) build_select_node },
+  NULL,
+  0,
+};
+
+static node_t get_select_node(node_table_t *table, uint32_t k, int32_t x) {
+  select_node_hobj.tbl = table;
+  select_node_hobj.index = k;
+  select_node_hobj.var = x;
+  return int_htbl_get_obj(&table->htbl, &select_node_hobj.m);
+}
 
 
 /*
@@ -340,20 +322,8 @@ static node_t get_or_node(node_table_t *table, bit_t a, bit_t b) {
   or_node_hobj.tbl = table;
   or_node_hobj.child[0] = a;
   or_node_hobj.child[1] = b;
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &or_node_hobj);
+  return int_htbl_get_obj(&table->htbl, &or_node_hobj.m);
 }
-
-#if 0
-// NOT USED
-// find: return -1 if the node does not exist, its index otherwise
-static node_t find_or_node(node_table_t *table, bit_t a, bit_t b) {
-  or_node_hobj.tbl = table;
-  or_node_hobj.child[0] = a;
-  or_node_hobj.child[1] = b;
-  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &or_node_hobj);
-}
-
-#endif
 
 
 /*
@@ -386,27 +356,15 @@ static node_t get_xor_node(node_table_t *table, bit_t a, bit_t b) {
   xor_node_hobj.tbl = table;
   xor_node_hobj.child[0] = a;
   xor_node_hobj.child[1] = b;
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &xor_node_hobj);
+  return int_htbl_get_obj(&table->htbl, &xor_node_hobj.m);
 }
 
 
-#if 0
-// NOT USED
-// find: return -1 if the node does not exist, its index otherwise
-static node_t find_xor_node(node_table_t *table, bit_t a, bit_t b) {
-  xor_node_hobj.tbl = table;
-  xor_node_hobj.child[0] = a;
-  xor_node_hobj.child[1] = b;
-  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &xor_node_hobj);
-}
-
-#endif
 
 
-
-
-
-
+/*****************************
+ *  INITIALIZATION/DELETION  *
+ ****************************/
 
 /*
  * Global initialization: allocate and create the constant node
@@ -414,9 +372,8 @@ static node_t find_xor_node(node_table_t *table, bit_t a, bit_t b) {
  */
 void init_node_table(node_table_t *table, uint32_t n) {
   alloc_node_table(table, n);
-  build_constant_node(table);
+  (void) build_constant_node(table);
 }
-
 
 
 /*
@@ -425,19 +382,11 @@ void init_node_table(node_table_t *table, uint32_t n) {
 void delete_node_table(node_table_t *table) {
   safe_free(table->kind);
   safe_free(table->desc);
-  safe_free(table->vars);
   table->kind = NULL;
   table->desc = NULL;
   delete_ivector(&table->aux_buffer);
   delete_int_htbl(&table->htbl);
-  delete_vset_htbl(&table->vtbl);
   delete_int_queue(&table->queue);
-
-  if (table->node_set != NULL) {
-    delete_int_hset(table->node_set);
-    safe_free(table->node_set);
-    table->node_set = NULL;
-  }
 }
 
 
@@ -451,49 +400,8 @@ void reset_node_table(node_table_t *table) {
 
   ivector_reset(&table->aux_buffer);
   reset_int_htbl(&table->htbl);
-  reset_vset_htbl(&table->vtbl);
-  reset_uvset_cache(&table->cache);
   int_queue_reset(&table->queue);
 }
-
-
-
-
-
-/*
- * Return the internal node set
- * - allocate and initialize it if necessary
- */
-int_hset_t *node_table_get_node_set(node_table_t *table) {
-  int_hset_t *tmp;
-
-  tmp = table->node_set;
-  if (tmp == NULL) {
-    tmp = (int_hset_t *) safe_malloc(sizeof(int_hset_t));
-    init_int_hset(tmp, 0);
-    table->node_set = tmp;
-  }
-
-  return tmp;
-}
-
-
-
-/*
- * Delete the internal node set
- */
-void node_table_delete_node_set(node_table_t *table) {
-  int_hset_t *tmp;
-
-  tmp = table->node_set;
-  if (tmp != NULL) {
-    delete_int_hset(tmp);
-    safe_free(tmp);
-    table->node_set = NULL;
-  }
-}
-
-
 
 
 
@@ -526,13 +434,15 @@ typedef enum bit_shape {
  * - kind is one of UNUSED, CONSTANT, VARIABLE, OR_NODE, XOR_NODE
  * - sign is 0 or 1 (0 means positive, 1 means negative)
  */
-static const bit_shape_t const shape[10] = {
+static const bit_shape_t const shape[12] = {
   ERROR,    // UNUSED, POSITIVE
   ERROR,    // UNUSED, NEGATIVE
   ATOMIC,   // CONSTANT, POSITIVE (true)
   ATOMIC,   // CONSTANT, NEGATIVE (false)
   ATOMIC,   // VARIABLE, POSITIVE
   ATOMIC,   // VARIABLE, NEGATIVE
+  ATOMIC,   // SELECT, POSITIVE
+  ATOMIC,   // SELECT, NEGATIVE
   POS_OR,   // OR, POSITIVE
   NEG_OR,   // OR, NEGATIVE
   POS_XOR,  // XOR, POSITIVE
@@ -547,7 +457,7 @@ static inline bit_shape_t shape_of_bit(node_table_t *table, bit_t x) {
   int32_t k;
 
   k = (node_kind(table, node_of_bit(x)) << 1) | sign_of_bit(x);
-  assert(0 <= k && k < 10);
+  assert(0 <= k && k < 12);
   return shape[k]; 
 }
 
@@ -592,11 +502,17 @@ static inline pair_shape_t combine_shapes(bit_shape_t s1, bit_shape_t s2) {
 
 /*
  * Get node (VAR x)
- * - we don't use hash consing here since several distinct nodes
- *   may be mapped to the same bitvector variable x
  */
 bit_t node_table_alloc_var(node_table_t *table, int32_t x) {
-  return pos_bit(new_variable_node(table, x));
+  return pos_bit(get_var_node(table, x));
+}
+
+
+/*
+ * Get node (SELECT k x)
+ */
+bit_t node_table_alloc_select(node_table_t *table, uint32_t k, int32_t x) {
+  return pos_bit(get_select_node(table, k, x));
 }
 
 
@@ -605,7 +521,7 @@ bit_t node_table_alloc_var(node_table_t *table, int32_t x) {
  * - ensure left child < right child
  * - intended to be used when (or a b) cannot be simplified
  */
-static bit_t make_or2(node_table_t *table, bit_t a, bit_t b) {
+static bit_t make_or2(node_table_t *table, bit_t a, bit_t b) { 
   bit_t aux;
 
   assert(node_of_bit(a) != node_of_bit(b) && ! bit_is_const(a) && ! bit_is_const(b));
@@ -1287,6 +1203,10 @@ bit_t bit_xor(node_table_t *table, bit_t *a, uint32_t n) {
 
 
 
+#if 0
+
+// NOT USED ANYMORE 
+
 /**********************
  *  REACHABLES NODES  *
  *********************/
@@ -1447,3 +1367,5 @@ void node_table_garbage_collection(node_table_t *table) {
     }
   }
 }
+
+#endif

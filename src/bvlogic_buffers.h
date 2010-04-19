@@ -6,6 +6,8 @@
  * This representation supports logical operations such as
  * bvand, bvor, bvxor, etc. and structural operations such as 
  * shift, rotate, concat, bvextract, etc.
+ *
+ * Each bit is represented as a node in an OR/XOR/NOT DAG.
  */
 
 #ifndef __BVLOGIC_BUFFERS_H
@@ -15,8 +17,7 @@
 #include <stdbool.h>
 
 #include "bv_constants.h"
-#include "terms.h"
-
+#include "bit_expr.h"
 
 
 /*
@@ -27,11 +28,13 @@
  *   ..
  *   bit[bitsize - 1] = high order bit
  * - terms = the corresponding term table
+ * - nodes = the DAG table
  */
 typedef struct bvlogic_buffer_s {
   uint32_t bitsize;
   uint32_t size;
-  term_t *bit;
+  bit_t *bit;
+  node_table_t *nodes;
   term_table_t *terms;
 } bvlogic_buffer_t;
 
@@ -51,10 +54,11 @@ typedef struct bvlogic_buffer_s {
 
 /*
  * Initialize buffer b
- * - terms = the attached term table
+ * - terms = attached term table
+ * - nodes = attached node table
  * - b is empty
  */
-extern void init_bvlogic_buffer(bvlogic_buffer_t *b, term_table_t *terms);
+extern void init_bvlogic_buffer(bvlogic_buffer_t *b, term_table_t *table, node_table_t *nodes);
 
 /*
  * Delete buffer b
@@ -107,7 +111,7 @@ extern void bvlogic_buffer_get_constant(bvlogic_buffer_t *b, bvconstant_t *c);
  * Check wether all bits in b are equal to term 'bit'
  * - bit must be a valid boolean term
  */
-extern bool bvlogic_buffer_allbits_equal(bvlogic_buffer_t *b, term_t bit);
+extern bool bvlogic_buffer_allbits_equal(bvlogic_buffer_t *b, bit_t bit);
 
 
 
@@ -138,8 +142,9 @@ extern term_t bvlogic_buffer_get_term(bvlogic_buffer_t *b);
  * - the array a used as operand must be an array of n boolean terms.
  */
 extern void bvlogic_buffer_set_constant(bvlogic_buffer_t *b, uint32_t n, uint32_t *c);
-extern void bvlogic_buffer_set_bitarray(bvlogic_buffer_t *b, uint32_t n, term_t *a);
-extern void bvlogic_buffer_set_allbits(bvlogic_buffer_t *b, uint32_t n, term_t bit);
+extern void bvlogic_buffer_set_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a);
+extern void bvlogic_buffer_set_allbits(bvlogic_buffer_t *b, uint32_t n, bit_t bit);
+
 extern void bvlogic_buffer_set_term(bvlogic_buffer_t *b, term_t t);
 
 
@@ -152,9 +157,9 @@ extern void bvlogic_buffer_and_constant(bvlogic_buffer_t *b, uint32_t n, uint32_
 extern void bvlogic_buffer_or_constant(bvlogic_buffer_t *b, uint32_t n, uint32_t *c);
 extern void bvlogic_buffer_xor_constant(bvlogic_buffer_t *b, uint32_t n, uint32_t *c);
 
-extern void bvlogic_buffer_and_bitarray(bvlogic_buffer_t *b, uint32_t n, term_t *a);
-extern void bvlogic_buffer_or_bitarray(bvlogic_buffer_t *b, uint32_t n, term_t *a);
-extern void bvlogic_buffer_xor_bitarray(bvlogic_buffer_t *b, uint32_t n, term_t *a);
+extern void bvlogic_buffer_and_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a);
+extern void bvlogic_buffer_or_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a);
+extern void bvlogic_buffer_xor_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a);
 
 extern void bvlogic_buffer_and_term(bvlogic_buffer_t *b, term_t t);
 extern void bvlogic_buffer_or_term(bvlogic_buffer_t *b, term_t t);
@@ -169,26 +174,26 @@ extern void bvlogic_buffer_xor_term(bvlogic_buffer_t *b, term_t t);
 /*
  * left/right refer to b written in bigendian form, that is, b[n-1] ... b[0]
  */
-extern void bvlogic_buffer_shift_left(bvlogic_buffer_t *b, uint32_t k, term_t padding);
-extern void bvlogic_buffer_shift_right(bvlogic_buffer_t *b, uint32_t k, term_t padding);
+extern void bvlogic_buffer_shift_left(bvlogic_buffer_t *b, uint32_t k, bit_t padding);
+extern void bvlogic_buffer_shift_right(bvlogic_buffer_t *b, uint32_t k, bit_t padding);
 extern void bvlogic_buffer_ashift_right(bvlogic_buffer_t *b, uint32_t k);
 extern void bvlogic_buffer_rotate_left(bvlogic_buffer_t *b, uint32_t k);
 extern void bvlogic_buffer_rotate_right(bvlogic_buffer_t *b, uint32_t k);
 
 static inline void bvlogic_buffer_shift_left0(bvlogic_buffer_t *b, uint32_t k) {
-  bvlogic_buffer_shift_left(b, k, false_term);
+  bvlogic_buffer_shift_left(b, k, false_bit);
 }
 
 static inline void bvlogic_buffer_shift_left1(bvlogic_buffer_t *b, uint32_t k) {
-  bvlogic_buffer_shift_left(b, k, true_term);
+  bvlogic_buffer_shift_left(b, k, true_bit);
 }
 
 static inline void bvlogic_buffer_shift_right0(bvlogic_buffer_t *b, uint32_t k) {
-  bvlogic_buffer_shift_right(b, k, false_term);
+  bvlogic_buffer_shift_right(b, k, false_bit);
 }
 
 static inline void bvlogic_buffer_shift_right1(bvlogic_buffer_t *b, uint32_t k) {
-  bvlogic_buffer_shift_right(b, k, true_term);
+  bvlogic_buffer_shift_right(b, k, true_bit);
 }
 
 
@@ -212,8 +217,8 @@ extern void bvlogic_buffer_extract_subvector(bvlogic_buffer_t *b, uint32_t start
 extern void bvlogic_buffer_concat_left_constant(bvlogic_buffer_t *b, uint32_t n, uint32_t *c);
 extern void bvlogic_buffer_concat_right_constant(bvlogic_buffer_t *b, uint32_t n, uint32_t *c);
 
-extern void bvlogic_buffer_concat_left_bitarray(bvlogic_buffer_t *b, uint32_t n, term_t *a);
-extern void bvlogic_buffer_concat_right_bitarray(bvlogic_buffer_t *b, uint32_t n, term_t *a);
+extern void bvlogic_buffer_concat_left_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a);
+extern void bvlogic_buffer_concat_right_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a);
 
 extern void bvlogic_buffer_concat_left_term(bvlogic_buffer_t *b, term_t t);
 extern void bvlogic_buffer_concat_right_term(bvlogic_buffer_t *b, term_t t);

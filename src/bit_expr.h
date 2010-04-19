@@ -28,9 +28,7 @@
 
 #include "int_vectors.h"
 #include "int_hash_tables.h"
-#include "int_hash_sets.h"
 #include "int_queues.h"
-#include "vsets.h"
 
 
 /*
@@ -152,8 +150,8 @@ typedef struct select_node_s {
 } select_node_t;
 
 typedef union node_desc_u {
-  int32_t var ;
-  select_node_s sel;
+  int32_t var;
+  select_node_t sel;
   bit_t c[2];
 } node_desc_t;
 
@@ -340,7 +338,7 @@ static inline bool is_variable_node(node_table_t *table, node_t x) {
 }
 
 static inline bool is_select_node(node_table_t *table, node_t x) {
-  return node_kind(tbale, x) == SELECT_NODE;
+  return node_kind(table, x) == SELECT_NODE;
 }
 
 static inline bool is_or_node(node_table_t *table, node_t x) {

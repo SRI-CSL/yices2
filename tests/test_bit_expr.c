@@ -453,7 +453,7 @@ static void test_all_pairs(void) {
 }
 
 /*
- * Select a bit store in tt
+ * Select a bit stored in tt
  * - give higher probability to the bits of index < 20
  */
 static bit_t random_bit(void) {
