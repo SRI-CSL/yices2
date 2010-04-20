@@ -1005,6 +1005,8 @@ static inline uint32_t term_bitsize(term_table_t *table, term_t t) {
 
 
 
+
+
 /*
  * GARBAGE COLLECTION
  */

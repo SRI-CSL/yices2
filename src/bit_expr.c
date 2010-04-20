@@ -41,13 +41,13 @@ static void alloc_node_table(node_table_t *table, uint32_t n) {
 
   table->kind = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
   table->desc = (node_desc_t *) safe_malloc(n * sizeof(node_desc_t));
+  table->map = (int32_t *) safe_malloc(n * sizeof(int32_t));
   table->size = n;
   table->nelems = 0;
   table->free_idx = -1;
 
   init_ivector(&table->aux_buffer, 0);
   init_int_htbl(&table->htbl, 0);
-  init_int_queue(&table->queue, 0);
 }
 
 
@@ -67,12 +67,14 @@ static void extend_node_table(node_table_t *table) {
 
   table->kind = (uint8_t *) safe_realloc(table->kind, n * sizeof(uint8_t));
   table->desc = (node_desc_t *) safe_realloc(table->desc, n * sizeof(node_desc_t));
+  table->map = (int32_t *) safe_realloc(table->map, n * sizeof(int32_t));
   table->size = n;
 }
 
 
 /*
  * Allocate a node id
+ * - set map[i] to the default (i.e., -1)
  * - kind and desc are not initialized
  */
 static node_t allocate_node_id(node_table_t *table) {
@@ -89,6 +91,7 @@ static node_t allocate_node_id(node_table_t *table) {
     }
   }
   assert(i < table->size);
+  table->map[i] = -1;
 
   return i;
 }
@@ -382,11 +385,12 @@ void init_node_table(node_table_t *table, uint32_t n) {
 void delete_node_table(node_table_t *table) {
   safe_free(table->kind);
   safe_free(table->desc);
+  safe_free(table->map);
   table->kind = NULL;
   table->desc = NULL;
+  table->map = NULL;
   delete_ivector(&table->aux_buffer);
   delete_int_htbl(&table->htbl);
-  delete_int_queue(&table->queue);
 }
 
 
@@ -400,7 +404,6 @@ void reset_node_table(node_table_t *table) {
 
   ivector_reset(&table->aux_buffer);
   reset_int_htbl(&table->htbl);
-  int_queue_reset(&table->queue);
 }
 
 
@@ -1202,170 +1205,3 @@ bit_t bit_xor(node_table_t *table, bit_t *a, uint32_t n) {
 
 
 
-
-#if 0
-
-// NOT USED ANYMORE 
-
-/**********************
- *  REACHABLES NODES  *
- *********************/
-
-/*
- * Add node of b to queue and set if it's not already in the set
- */
-static inline void node_table_visit(node_table_t *table, int_queue_t *queue, int_hset_t *set, bit_t b) {
-  node_t n;
-
-  n = node_of_bit(b);
-  assert(valid_node(table, n));
-  if (int_hset_add(set, n)) {
-    int_queue_push(queue, n);
-  }
-}
-
-/*
- * BFS exploration: add all nodes reachable from elements of the 
- * queue to set
- */
-static void node_table_visit_queue(node_table_t *table, int_queue_t *queue, int_hset_t *set) {
-  node_t x;
-
-  while (! int_queue_is_empty(queue)) {
-    x = int_queue_pop(queue);
-    if (is_nonleaf_node(table, x)) {
-      node_table_visit(table, queue, set, left_child_of_node(table, x));
-      node_table_visit(table, queue, set, right_child_of_node(table, x));
-    }
-  }
-}
-
-
-/*
- * Collect all the nodes reachable from b into set
- * - set must be empty and initialized
- * - the result is in compacted form and sorted
- */
-void collect_bitexpr_nodes(node_table_t *table, bit_t b, int_hset_t *set) {
-  int_queue_t *queue;
-
-  queue = &table->queue;
-  assert(int_queue_is_empty(queue) && int_hset_is_empty(set));
-
-  node_table_visit(table, queue, set, b);
-  node_table_visit_queue(table, queue, set);
-  int_hset_close(set);
-  int_array_sort((int32_t *) set->data, set->nelems); // the conversion is safe here
-
-  int_queue_reset(queue);
-}
-
-
-
-/*
- * Add all nodes reachable from b[0] ... b[n-1] to set
- * - set mut be initialized
- * - the result is not compacted
- */
-void collect_bitarray_nodes(node_table_t *table, uint32_t n, bit_t *b, int_hset_t *set) {
-  int_queue_t *queue;
-  uint32_t i;
-
-  queue = &table->queue;
-  assert(int_queue_is_empty(queue));
-  for (i=0; i<n; i++) {
-    node_table_visit(table, queue, set, b[i]);
-  }
-  node_table_visit_queue(table, queue, set);
-
-  int_queue_reset(queue);
-}
-
-
-
-
-
-
-/**********************************
- *   GARBAGE COLLECTION/MARKING   *
- *********************************/
-
-// Mask to extract high-order bit of kind
-#define KIND_MARK_MASK ((uint8_t) 0x80)
-
-/*
- * Check whether node x is marked
-- */
-static inline bool node_is_marked(node_table_t *table, node_t x) {
-  return (table->kind[x] & KIND_MARK_MASK) != 0;
-}
-
-static inline bool node_is_unmarked(node_table_t *table, node_t x) {
-  return (table->kind[x] & KIND_MARK_MASK) == 0;
-}
-
-/*
- * Set/clear mark on node x
- */
-static inline void mark_node(node_table_t *table, node_t x) {
-  table->kind[x] |= KIND_MARK_MASK;
-}
-
-static inline void unmark_node(node_table_t *table, node_t x) {
-  table->kind[x] &= ~KIND_MARK_MASK;
-}
-
-
-
-/*
- * Visit all unmarked nodes reachable from x
- */
-void bit_marker_visit(bit_marking_obj_t *marker, node_t x) {
-  node_table_t *table;
-
-  table = marker->table;
-  if (node_is_unmarked(table, x)) {
-    marker->fun(marker, x); // callback
-    if (is_nonleaf_node(table, x)) {
-      // recursively visit the children
-      bit_marker_visit(marker, left_child_of_node(table, x));
-      bit_marker_visit(marker, right_child_of_node(table, x));
-    }
-    mark_node(table, x);
-  }
-}
-
-
-/*
- * Clear all the marks
- */
-void node_table_clear_marks(node_table_t *table) {
-  uint32_t i, n;
-
-  n = table->nelems;
-  for (i=0; i<n; i++) {
-    unmark_node(table, i);
-  }
-}
-
-
-/*
- * Garbage collection:
- * - delete all unmarked nodes
- * - clear the marks of the other nodes
- * - TODO: also delete the unused vsets
- */
-void node_table_garbage_collection(node_table_t *table) {
-  uint32_t i, n;
-
-  n = table->nelems;
-  for (i=0; i<n; i++) {
-    if (node_is_marked(table, i)) {
-      unmark_node(table, i);
-    } else {
-      delete_node(table, i);
-    }
-  }
-}
-
-#endif

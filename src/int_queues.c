@@ -99,6 +99,7 @@ void int_queue_push(int_queue_t *q, int32_t x) {
  */
 int32_t int_queue_pop(int_queue_t *q) {
   int32_t h, x;
+
   assert(q->head != q->tail);
 
   h = q->head;
@@ -108,4 +109,30 @@ int32_t int_queue_pop(int_queue_t *q) {
   q->head = h;
 
   return x;
+}
+
+
+
+/*
+ * Get the first element (don't remove it).
+ */
+int32_t int_queue_first(int_queue_t *q) {
+  assert(q->head != q->tail);
+  return q->data[q->head];
+}
+
+
+/*
+ * Get the last element (don't remove it)
+ */
+int32_t int_queue_last(int_queue_t *q) {
+  uint32_t i;
+
+  assert(q->head != q->tail);
+  i = q->tail;
+  if (i == 0) {
+    i = q->size;
+  }
+  assert(i > 0);
+  return q->data[i-1];  
 }

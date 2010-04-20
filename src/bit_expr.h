@@ -16,6 +16,8 @@
  * April 2010:
  * - adjusted this module to the new term representations
  * - added a new node type (select k i) for bit-select
+ * - added a map field to support conversion from bit representation
+ *   to boolean terms
  * - removed the vsets
  */
 
@@ -28,7 +30,6 @@
 
 #include "int_vectors.h"
 #include "int_hash_tables.h"
-#include "int_queues.h"
 
 
 /*
@@ -88,7 +89,7 @@ static inline bit_t neg_bit(node_t x) {
   return (x<<1)|1;
 }
 
-// sign = 0 or 1
+// sign = 0 or 1 (0 means positive, 1 means negative)
 static inline bit_t mk_bit(node_t x, uint32_t sign) {
   assert((sign & ~1) == 0);
   return (x<<1)|sign;
@@ -161,9 +162,8 @@ typedef union node_desc_u {
  * Global table of nodes. For each node k, we keep
  * - kind[k] = UNUSED/CONSTANT/VARIABLE/OR/XOR
  * - desc[k] = descriptor
- *
- * During garbage collection, the high-order bit of kind[k]
- * is used as a mark.
+ * - map[k] = integer (used in conversion from bits to Boolean terms)
+ *   map[k] is set to -1 when the node is created
  *
  * Free list: the UNUSED nodes are stored in a free list
  * - table->free_list = index of the first node in that list
@@ -172,18 +172,17 @@ typedef union node_desc_u {
  * Auxiliary structures:
  * - vector for simplifying OR and XOR
  * - hash table for hash consing of OR and XOR nodes
- * - queue: to explore the DAG breadth-first
  */
 typedef struct node_table_s {
   uint8_t *kind;
-  node_desc_t *desc;
+  node_desc_t *desc;  
+  int32_t *map;
   uint32_t size;
   uint32_t nelems;
   int32_t free_idx;
 
   ivector_t aux_buffer;
   int_htbl_t htbl;
-  int_queue_t queue;  
 } node_table_t;
 
 
@@ -250,17 +249,16 @@ static inline bit_t bit_not(bit_t b) {
  * Create a constant bit of value equal to tt 
  */
 static inline bit_t bit_constant(bool tt) {
-  // (int32_t) true = 1, false -> 1
-  return false_bit - ((int32_t) tt);
+  return false_bit - ((uint32_t) tt);
 }
 
 /*
  * Conversion of constant bit to integers:
  * - true_bit --> 1, false_bit --> 0
  */
-static inline int32_t bit_const_value(bit_t b) {
+static inline uint32_t bit_const_value(bit_t b) {
   assert(b == true_bit || b == false_bit);
-  return 1 - b;
+  return b ^ 1;
 }
 
 
@@ -360,6 +358,23 @@ static inline bool is_nonleaf_node(node_table_t *table, node_t x) {
   k = node_kind(table, x);
   return k == OR_NODE || k == XOR_NODE;
 }
+
+
+
+/*
+ * Get or set map[x] for a node x
+ * - the default value for map[x] is -1.
+ */
+static inline int32_t map_of_node(node_table_t *table, node_t x) {
+  assert(good_node(table, x));
+  return table->map[x];
+}
+
+static inline void set_map_of_node(node_table_t *table, node_t x, int32_t v) {
+  assert(good_node(table, x));
+  table->map[x] = v;
+}
+
 
 
 /*

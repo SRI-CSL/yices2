@@ -1012,13 +1012,12 @@ void bvlogic_buffer_repeat_concat(bvlogic_buffer_t *b, uint32_t n) {
   bit_t *bit;
 
   assert(n > 0);
-  p = b->nbits;
+  p = b->bitsize;
   np = n * p;
   if (np >= BVLOGIC_BUFFER_MAX_SIZE) {
     out_of_memory();
   }
   bvlogic_buffer_resize(b, (uint32_t) np);
-  b->nbits = np;
 
   bit = b->bit;
   // copy b[0..p-1] n-1 times
@@ -1033,17 +1032,16 @@ void bvlogic_buffer_repeat_concat(bvlogic_buffer_t *b, uint32_t n) {
 /*
  * Sign-extend: extend b from p to n bits by appending the sign
  * bit (n - p) times
- * - n must be larger than or equal to b->nbits = p, and p must be positive
+ * - n must be larger than or equal to b->bitsize = p, and p must be positive
  */
 void bvlogic_buffer_sign_extend(bvlogic_buffer_t *b, uint32_t n) {
   uint32_t i, p;
   bit_t *bit, sign;
 
-  assert(0 < b->nbits && b->nbits <= n);
+  assert(0 < b->bitsize && b->bitsize <= n);
 
-  p = b->nbits;
+  p = b->bitsize;
   bvlogic_buffer_resize(b, n);
-  b->nbits = n;
 
   bit = b->bit;
   sign = bit[p-1];
@@ -1061,11 +1059,10 @@ void bvlogic_buffer_zero_extend(bvlogic_buffer_t *b, uint32_t n) {
   uint32_t i, p;
   bit_t *bit;
 
-  assert(0 < b->nbits && b->nbits <= n);
+  assert(0 < b->bitsize && b->bitsize <= n);
 
   p = b->nbits;
   bvlogic_buffer_resize(b, n);
-  b->nbits = n;
 
   bit = b->bit;
   for (i=p; i<n; i++) {
@@ -1207,3 +1204,5 @@ bool bvlogic_buffer_addmul_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a, u
 
   return true;
 }
+
+

@@ -7,6 +7,11 @@
  *   of x that's not 0
  * - x must be nonzero
  *
+ * uint32_t ctx64(uint64_t x):
+ * - return the index (between 0 and 63) of the lowest-order bit
+ *   of x that's not 0
+ * - x must be nonzero
+ *
  * uint32_t popcount32(uint32_t x):
  * uint32_t popcount64(uint64_t x):
  * - return the number of 1-bits in x
@@ -57,6 +62,15 @@ static inline uint32_t ctz(uint32_t x) {
 #endif
 }
 
+static inline uint32_t ctz64(uint64_t x) {
+  assert(x != 0);
+#if (ULONG_MAX < UINT64_MAX) 
+  return __builtin_ctzll(x);
+#else 
+  return __builtin_ctzl(x);
+#endif
+}
+
 
 static inline uint32_t popcount32(uint32_t x) {
 #if (UINT_MAX < UINT32_MAX)
@@ -98,6 +112,19 @@ static inline uint32_t ctz(uint32_t x) {
   return i;
 }
 
+static inline uint32_t ctz64(uint64_t x) {
+  uint64_t m;
+  uint32_t i;
+
+  assert(x != 0);
+  m = 1;
+  i = 0;
+  while ((x & m) == 0) {
+    i ++;
+    m += m;
+  }
+  return i;
+}
 
 static inline uint32_t popcount32(uint32_t x) {
   uint32_t c;

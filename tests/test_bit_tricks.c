@@ -23,6 +23,25 @@ static inline uint32_t naive_ctz(uint32_t x) {
   return i;
 }
 
+
+/*
+ * Same thing for a 64bit number x
+ */
+static inline uint32_t naive_ctz64(uint64_t x) {
+  uint64_t m;
+  uint32_t i;
+
+  assert(x != 0);
+  m = 1;
+  i = 0;
+  while ((x & m) == 0) {
+    i ++;
+    m += m;
+  }
+  return i;
+}
+
+
 /*
  * Number of 1 bits in x
  */
@@ -37,6 +56,7 @@ static inline uint32_t naive_popcount32(uint32_t x) {
 
   return c;
 }
+
 
 /*
  * Number of 1 bits in 64 bit integer x
@@ -71,7 +91,19 @@ int main() {
 
   for (i=0; i<32; i++) {
     n = 1<<i;
-    printf("__builtin_ctz(%"PRIu32") = %d\n", n, __builtin_ctz(n));
+    printf("__builtin_ctz(%"PRIu32") = %d\n", n, ctz(n));
+  }
+  printf("\n");
+
+  for (i=0; i<64; i++) {
+    x = ((uint64_t) 1) << i;
+    printf("native_ctz64(%"PRIu64") = %"PRIu32"\n", x, naive_ctz64(x));
+  }
+  printf("\n");
+
+  for (i=0; i<64; i++) {
+    x = ((uint64_t) 1) << i;
+    printf("__builtin_ctz64(%"PRIu64") = %"PRIu32"\n", x, ctz64(x));
   }
   printf("\n");
 
@@ -127,10 +159,10 @@ int main() {
   i = 0;
   c = get_cpu_time();
   for (n=0; n<N; n++) {
-    i = __builtin_ctz(n|X);
-    i += __builtin_ctz((n<<8)|X);
-    i += __builtin_ctz((n<<16)|X);
-    i += __builtin_ctz((n<<24)|X);
+    i = ctz(n|X);
+    i += ctz((n<<8)|X);
+    i += ctz((n<<16)|X);
+    i += ctz((n<<24)|X);
   }
   d = get_cpu_time();
   printf("Built-in ctz: %.2f s (i = %"PRIu32")\n\n", (d - c), i);

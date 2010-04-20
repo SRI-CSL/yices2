@@ -6228,7 +6228,7 @@ static literal_t flatten_xor_definition(bv_solver_t *solver, thvar_t x, literal_
      * b is then either (XOR b0 b1) or not (XOR b0 b1)
      * - in the first case, we replace b by b0 in queue and add b1 at the end of the queue
      * - in the second case, we use "b == not (XOR b0 b1) == (XOR (not b0) b1)"
-     *   so we replace b by b0 and (not b0) in the queue and add b1 at the end.
+     *   so we replace b by (not b0) in the queue and add b1 at the end.
      *
      * Note: this is just a precaution to make the function more robust.
      * With the current implementation, the children of (XOR ..) are all positive

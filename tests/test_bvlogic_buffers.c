@@ -2,51 +2,27 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "bv_constants.h"
-#include "bvlogic_expr.h"
-#include "bit_expr.h"
 #include "memalloc.h"
+#include "bv_constants.h"
+#include "bit_expr.h"
+#include "bvlogic_buffers.h"
 
 
-// mpq_aux.h defines ULONG_SIZE to 8 or 4
-#include "mpq_aux.h"
 
-#define GLOBALS 20
-#define VARSIZE 16
-
-static node_table_t manager;
+static node_table_t nodes;
 static bvlogic_buffer_t buffer;
-static bvlogic_expr_t *global[GLOBALS];
-static bit_t v[VARSIZE];
 
 
 // Initialization
 static void init() {
-  uint32_t i;
-
-  for (i=0; i<GLOBALS; i++) {
-    global[i] = NULL;
-  }
-
-  init_node_table(&manager, 10);
-  init_bvlogic_buffer(&buffer, &manager);
-
-  for (i=0; i<VARSIZE; i++) {
-    v[i] = node_table_alloc_var(&manager, -1);
-  }
+  init_node_table(&nodes, 10);
+  init_bvlogic_buffer(&buffer, &nodes);
 }
 
 
 static void cleanup() {
-  uint32_t i;
-
-  for (i=0; i<GLOBALS; i++) {
-    safe_free(global[i]);
-    global[i] = NULL;
-  }
-
   delete_bvlogic_buffer(&buffer);
-  delete_node_table(&manager);
+  delete_node_table(&nodes);
 }
 
 
@@ -66,9 +42,9 @@ static void print_buffer() {
 
   printf("bvlogic buffer %p\n", &buffer);
   printf("  size = %"PRIu32"\n", buffer.size);
-  printf("  nbits = %"PRIu32"\n", buffer.nbits);
+  printf("  bitsize = %"PRIu32"\n", buffer.bitsize);
   printf("  content\n");
-  n = buffer.nbits;
+  n = buffer.bitsize;
   for (i=0; i<n; i++) {
     printf("  bit[%"PRIu32"] = ", i);
     print_bit(buffer.bit[i]);

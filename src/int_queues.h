@@ -73,6 +73,20 @@ extern int32_t int_queue_pop(int_queue_t *q);
 
 
 /*
+ * Get the first element of q but don't remove it.
+ * - q must be non-empty
+ */
+extern int32_t int_queue_first(int_queue_t *q);
+
+
+/*
+ * Get the last element of q (don't remove it)
+ * - q mut be non-empty
+ */
+extern int32_t int_queue_last(int_queue_t *q);
+
+
+/*
  * Empty the queue
  */
 static inline void int_queue_reset(int_queue_t *q) {
