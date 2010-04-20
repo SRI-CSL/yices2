@@ -172,6 +172,12 @@ typedef union node_desc_u {
  * Auxiliary structures:
  * - vector for simplifying OR and XOR
  * - hash table for hash consing of OR and XOR nodes
+ *
+ * Garbage collection:
+ * - crude technique: we keep a global reference counter for the whole
+ *   node table. The counter is the number of external objects that refer
+ *   to nodes in the table.
+ * - when the counter is zero we reset the whole table
  */
 typedef struct node_table_s {
   uint8_t *kind;
@@ -180,6 +186,8 @@ typedef struct node_table_s {
   uint32_t size;
   uint32_t nelems;
   int32_t free_idx;
+
+  uint32_t ref_counter;
 
   ivector_t aux_buffer;
   int_htbl_t htbl;
@@ -307,6 +315,26 @@ extern bit_t bit_and(node_table_t *table, bit_t *b, uint32_t n);
 extern bit_t bit_xor(node_table_t *table, bit_t *b, uint32_t n);
 
 
+
+
+
+/*
+ * GARGAGE COLLECTION
+ */
+// increment the reference counter
+static inline void node_table_incref(node_table_t *table) {
+  table->ref_counter ++;
+}
+
+// decrement the reference counter
+// if it becomes zero, empty the table.
+extern void node_table_decref(node_table_t *table);
+
+
+// force the reference counter to zero: use this before an explicit call to reset
+static inline void node_table_clear_refcount(node_table_t *table) {
+  table->ref_counter = 0;
+}
 
 
 

@@ -46,6 +46,8 @@ static void alloc_node_table(node_table_t *table, uint32_t n) {
   table->nelems = 0;
   table->free_idx = -1;
 
+  table->ref_counter = 0;
+
   init_ivector(&table->aux_buffer, 0);
   init_int_htbl(&table->htbl, 0);
 }
@@ -398,6 +400,8 @@ void delete_node_table(node_table_t *table) {
  * Reset: empty the table
  */
 void reset_node_table(node_table_t *table) {
+  assert(table->ref_counter == 0);
+
   table->free_idx = -1;
   table->nelems = 1;  // keep the constant node
   assert(table->kind[0] == CONSTANT_NODE);
@@ -406,6 +410,19 @@ void reset_node_table(node_table_t *table) {
   reset_int_htbl(&table->htbl);
 }
 
+
+
+/*
+ * Garbage collection: decrement the reference counter
+ * and reset the table if the ref count is zero
+ */
+void node_table_decref(node_table_t *table) {
+  assert(table->ref_counter > 0);
+  table->ref_counter --;
+  if (table->ref_counter == 0) {
+    reset_node_table(table);
+  }
+}
 
 
 

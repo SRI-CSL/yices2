@@ -6,6 +6,7 @@
 
 #include "memalloc.h"
 #include "bit_tricks.h"
+#include "bit_term_conversion.h"
 #include "bv64_constants.h"
 #include "bvlogic_buffers.h"
 
@@ -40,10 +41,9 @@ void delete_bvlogic_buffer(bvlogic_buffer_t *b) {
 
 /*
  * Resize b: make it large enough for at least n bits
- * and set b's bitsize to n
+ * and set b's bitsize to n.
  */
 static void resize_bvlogic_buffer(bvlogic_buffer_t *b, uint32_t n) {
-  b->bitsize = n;
   if (b->size < n) {
     if (n > BVLOGIC_BUFFER_MAX_SIZE) {
       out_of_memory();
@@ -51,8 +51,24 @@ static void resize_bvlogic_buffer(bvlogic_buffer_t *b, uint32_t n) {
     b->bit = (bit_t *) safe_realloc(b->bit, n * sizeof(bit_t));
     b->size = n;
   }
+  if (b->bitsize == 0 && n > 0) {
+    // increment ref counter in b's node table
+    node_table_incref(b->nodes);
+  }
+  b->bitsize = n;
 }
 
+
+
+/*
+ * Empty buffer b and decrement the ref counter in b's node table/
+ */
+void bvlogic_buffer_clear(bvlogic_buffer_t *b) {
+  if (b->bitsize > 0) {
+    node_table_decref(b->nodes);
+    b->bitsize = 0;
+  }
+}
 
 
 
@@ -73,6 +89,63 @@ bool bvlogic_buffer_is_constant(bvlogic_buffer_t *b) {
   }
 
   return true;
+}
+
+
+/*
+ * Check whether bit b is equal to (select i x)
+ */
+static bool check_select_bit(node_table_t *nodes, bit_t b, uint32_t i, int32_t x) {
+  int32_t p;
+
+  p = node_of_bit(b);
+  return bit_is_pos(b) && is_select_node(nodes, p) && 
+    index_of_select_node(nodes, p) == i && var_of_select_node(nodes, p) == x;
+}
+
+/*
+ * Check whether bit b is equal to  (select 0 x) for some x
+ */
+static bool check_select0_bit(node_table_t *nodes, bit_t b) {
+  int32_t p;
+
+  p = node_of_bit(b);
+  return bit_is_pos(b) && is_select_node(nodes, p) && index_of_select_node(nodes, p) == 0;
+}
+
+
+/*
+ * Check whether b is of the form (sel 0 x) ... (sel k-1 x)
+ * - if so return x
+ * - otherwise return -1
+ */
+int32_t bvlogic_buffer_get_var(bvlogic_buffer_t *b) {
+  node_table_t *nodes;
+  uint32_t i, n;
+  bit_t aux;
+  int32_t x;
+
+  x = -1;
+  n = b->bitsize;
+  if (n > 0) {
+    nodes = b->nodes;
+    aux = b->bit[0];
+    if (check_select0_bit(nodes, aux)) {
+      // bit[0] is of the form (select 0 x) for some x
+      x = var_of_select_node(nodes, node_of_bit(aux));
+
+      // check whether the other bits are (select i x)
+      for (i=1; i<n; i++) {
+	aux = b->bit[i];
+	if (! check_select_bit(nodes, aux, i, x)) {
+	  x = -1;
+	  break;
+	}
+      }
+    }    
+  }
+
+  return x;
 }
 
 
@@ -184,7 +257,7 @@ void bvlogic_buffer_set_allbits(bvlogic_buffer_t *b, uint32_t n, bit_t bit) {
   }
 }
 
-void bvlogic_buffer_set_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
+static void bvlogic_buffer_set_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
   uint32_t i;
 
   assert(0 < n);
@@ -196,6 +269,19 @@ void bvlogic_buffer_set_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
   }
 }
 
+
+// array of n boolean terms a[0] ... a[n-1]
+static void bvlogic_buffer_set_term_array(bvlogic_buffer_t *b, term_table_t *table, uint32_t n, term_t *a) {
+  uint32_t i;
+
+  assert(0 < n);
+
+  resize_bvlogic_buffer(b, n);
+
+  for (i=0; i<n; i++) {
+    b->bit[i] = convert_term_to_bit(table, b->nodes, a[i]);
+  }
+}
 
 
 /*
@@ -350,7 +436,7 @@ void bvlogic_buffer_xor_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a) {
  * Bitwise and, or, xor with a bitvector term v
  * - n = bitsize of v (must be equal to b->bitsize)
  */
-void bvlogic_buffer_and_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
+static void bvlogic_buffer_and_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
   node_table_t *nodes;
   bit_t *bit;
   bit_t x;
@@ -366,7 +452,7 @@ void bvlogic_buffer_and_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
   }  
 }
 
-void bvlogic_buffer_or_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
+static void bvlogic_buffer_or_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
   node_table_t *nodes;
   bit_t *bit;
   bit_t x;
@@ -382,7 +468,7 @@ void bvlogic_buffer_or_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
   }  
 }
 
-void bvlogic_buffer_xor_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
+static void bvlogic_buffer_xor_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
   node_table_t *nodes;
   bit_t *bit;
   bit_t x;
@@ -397,6 +483,62 @@ void bvlogic_buffer_xor_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
     bit[i] = bit_xor2simplify(nodes, bit[i], x);
   }  
 }
+
+
+
+/*
+ * Bitwise or/and/xor with an array of n boolean terms a[0] ... a[n-1]
+ */
+static void bvlogic_buffer_and_term_array(bvlogic_buffer_t *b, term_table_t *table, uint32_t n, term_t *a) {
+  node_table_t *nodes;
+  bit_t *bit;
+  bit_t x;
+  uint32_t i;
+
+  assert(n == b->bitsize);
+  nodes = b->nodes;
+  bit = b->bit;
+
+  for (i=0; i<n; i++) {
+    x = convert_term_to_bit(table, nodes, a[i]);
+    bit[i] = bit_and2simplify(nodes, bit[i], x);
+  }
+}
+
+
+static void bvlogic_buffer_or_term_array(bvlogic_buffer_t *b, term_table_t *table, uint32_t n, term_t *a) {
+  node_table_t *nodes;
+  bit_t *bit;
+  bit_t x;
+  uint32_t i;
+
+  assert(n == b->bitsize);
+  nodes = b->nodes;
+  bit = b->bit;
+
+  for (i=0; i<n; i++) {
+    x = convert_term_to_bit(table, nodes, a[i]);
+    bit[i] = bit_or2simplify(nodes, bit[i], x);
+  }
+}
+
+
+static void bvlogic_buffer_xor_term_array(bvlogic_buffer_t *b, term_table_t *table, uint32_t n, term_t *a) {
+  node_table_t *nodes;
+  bit_t *bit;
+  bit_t x;
+  uint32_t i;
+
+  assert(n == b->bitsize);
+  nodes = b->nodes;
+  bit = b->bit;
+
+  for (i=0; i<n; i++) {
+    x = convert_term_to_bit(table, nodes, a[i]);
+    bit[i] = bit_xor2simplify(nodes, bit[i], x);
+  }
+}
+
 
 
 
@@ -505,7 +647,7 @@ void bvlogic_buffer_concat_right_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t
   }
 }
 
-void bvlogic_buffer_concat_left_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
+static void bvlogic_buffer_concat_left_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
   uint32_t i, p;
   bit_t *bit;
 
@@ -518,7 +660,7 @@ void bvlogic_buffer_concat_left_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
   }
 }
 
-void bvlogic_buffer_concat_right_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
+static void bvlogic_buffer_concat_right_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
   uint32_t i, p;
   bit_t *bit;
 
@@ -534,6 +676,39 @@ void bvlogic_buffer_concat_right_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) 
 
   for (i=0; i<n; i++) {
     bit[i] = node_table_alloc_select(b->nodes, i, v);
+  }
+}
+
+
+static void bvlogic_buffer_concat_left_term_array(bvlogic_buffer_t *b, term_table_t *table, uint32_t n, term_t *a) {
+  uint32_t i, p;
+  bit_t *bit;
+
+  p = b->bitsize;
+  resize_bvlogic_buffer(b, n + p);
+
+  bit = b->bit;
+  for (i=0; i<n; i++) {
+    bit[i + p] = convert_term_to_bit(table, b->nodes, a[i]);
+  }
+}
+
+static void bvlogic_buffer_concat_right_term_array(bvlogic_buffer_t *b, term_table_t *table, uint32_t n, term_t *a) {
+  uint32_t i, p;
+  bit_t *bit;
+
+  p = b->bitsize;
+  resize_bvlogic_buffer(b, n + p);
+
+  bit = b->bit;
+  i = p;
+  while (i > 0) {
+    i --;
+    bit[n + i] = bit[i];
+  }
+
+  for (i=0; i<n; i++) {
+    bit[i] = convert_term_to_bit(table, b->nodes, a[i]);
   }
 }
 
@@ -871,7 +1046,7 @@ void bvlogic_buffer_comp_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a) {
 /*
  * COMP with a bitvector variable v
  */
-void bvlogic_buffer_comp_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
+static void bvlogic_buffer_comp_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
   bit_t x;
   uint32_t i;
 
@@ -892,6 +1067,32 @@ void bvlogic_buffer_comp_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
   b->bit[0] = bit_and(b->nodes, b->bit, n);
 }
 
+
+
+
+/*
+ * COMP with an array of n terms
+ */
+static void bvlogic_buffer_comp_term_array(bvlogic_buffer_t *b, term_table_t *table, uint32_t n, term_t *a) {
+  bit_t x;
+  uint32_t i;
+
+  assert(n == b->bitsize);
+
+  /*
+   * first: set b->bit[i] := (eq b->bit[i] a[i]):
+   */
+  for (i=0; i<n; i++) {
+    x = convert_term_to_bit(table, b->nodes, a[i]);
+    b->bit[i] = bit_eq2simplify(b->nodes, b->bit[i], x);
+  }
+
+  /*
+   * Compute the conjunction
+   */
+  resize_bvlogic_buffer(b, 1);
+  b->bit[0] = bit_and(b->nodes, b->bit, n);
+}
 
 
 
@@ -993,4 +1194,350 @@ bool bvlogic_buffer_addmul_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a, u
   return true;
 }
 
+
+
+
+
+/*
+ * OPERATIONS WITH BIT-VECTOR TERMS AS OPERANDS
+ */
+
+
+/*
+ * Copy t into buffer b
+ * - t must be a bitvector term in table
+ */
+void bvlogic_buffer_set_term(bvlogic_buffer_t *b, term_table_t *table, term_t t) {  
+  bvconst64_term_t *c64;
+  bvconst_term_t *c;
+  composite_term_t *d;
+  uint32_t n;
+  int32_t i;
+
+  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t));
+
+  i = index_of(t);
+  switch (table->kind[t]) {
+  case BV64_CONSTANT:
+    c64 = bvconst64_for_idx(table, i);
+    bvlogic_buffer_set_constant64(b, c64->bitsize, c64->value);
+    break;
+
+  case BV_CONSTANT:
+    c = bvconst_for_idx(table, i);
+    bvlogic_buffer_set_constant(b, c->bitsize, c->data);
+    break;
+
+  case BV_ARRAY:
+    d = composite_for_idx(table, i);
+    bvlogic_buffer_set_term_array(b, table, d->arity, d->arg);
+    break;
+
+  default:
+    n = bitsize_for_idx(table, i);
+    bvlogic_buffer_set_bv(b, n, t);
+    break;
+  }  
+}
+
+
+
+/*
+ * Bitwise and/or/xor
+ * - t must be a bitvector term in table of bitsize equal to b's.
+ */
+void bvlogic_buffer_and_term(bvlogic_buffer_t *b, term_table_t *table, term_t t) {
+  bvconst64_term_t *c64;
+  bvconst_term_t *c;
+  composite_term_t *d;
+  uint32_t n;
+  int32_t i;
+
+  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && 
+	 term_bitsize(table, t) == b->bitsize);
+
+  i = index_of(t);
+  switch (table->kind[t]) {
+  case BV64_CONSTANT:
+    c64 = bvconst64_for_idx(table, i);
+    bvlogic_buffer_and_constant64(b, c64->bitsize, c64->value);
+    break;
+
+  case BV_CONSTANT:
+    c = bvconst_for_idx(table, i);
+    bvlogic_buffer_and_constant(b, c->bitsize, c->data);
+    break;
+
+  case BV_ARRAY:
+    d = composite_for_idx(table, i);
+    bvlogic_buffer_and_term_array(b, table, d->arity, d->arg);
+    break;
+
+  default:
+    n = bitsize_for_idx(table, i);
+    bvlogic_buffer_and_bv(b, n, t);
+    break;
+  }  
+}
+
+
+void bvlogic_buffer_or_term(bvlogic_buffer_t *b, term_table_t *table, term_t t) {
+  bvconst64_term_t *c64;
+  bvconst_term_t *c;
+  composite_term_t *d;
+  uint32_t n;
+  int32_t i;
+
+  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && 
+	 term_bitsize(table, t) == b->bitsize);
+
+  i = index_of(t);
+  switch (table->kind[t]) {
+  case BV64_CONSTANT:
+    c64 = bvconst64_for_idx(table, i);
+    bvlogic_buffer_or_constant64(b, c64->bitsize, c64->value);
+    break;
+
+  case BV_CONSTANT:
+    c = bvconst_for_idx(table, i);
+    bvlogic_buffer_or_constant(b, c->bitsize, c->data);
+    break;
+
+  case BV_ARRAY:
+    d = composite_for_idx(table, i);
+    bvlogic_buffer_or_term_array(b, table, d->arity, d->arg);
+    break;
+
+  default:
+    n = bitsize_for_idx(table, i);
+    bvlogic_buffer_or_bv(b, n, t);
+    break;
+  }  
+}
+
+
+void bvlogic_buffer_xor_term(bvlogic_buffer_t *b, term_table_t *table, term_t t) {
+  bvconst64_term_t *c64;
+  bvconst_term_t *c;
+  composite_term_t *d;
+  uint32_t n;
+  int32_t i;
+
+  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && 
+	 term_bitsize(table, t) == b->bitsize);
+
+  i = index_of(t);
+  switch (table->kind[t]) {
+  case BV64_CONSTANT:
+    c64 = bvconst64_for_idx(table, i);
+    bvlogic_buffer_xor_constant64(b, c64->bitsize, c64->value);
+    break;
+
+  case BV_CONSTANT:
+    c = bvconst_for_idx(table, i);
+    bvlogic_buffer_xor_constant(b, c->bitsize, c->data);
+    break;
+
+  case BV_ARRAY:
+    d = composite_for_idx(table, i);
+    bvlogic_buffer_xor_term_array(b, table, d->arity, d->arg);
+    break;
+
+  default:
+    n = bitsize_for_idx(table, i);
+    bvlogic_buffer_xor_bv(b, n, t);
+    break;
+  }  
+}
+
+
+/*
+ * COMP reduction: t must be a valid btivector term of same size as b
+ */
+void bvlogic_buffer_comp_term(bvlogic_buffer_t *b, term_table_t *table, term_t t) {
+  bvconst64_term_t *c64;
+  bvconst_term_t *c;
+  composite_term_t *d;
+  uint32_t n;
+  int32_t i;
+
+  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && 
+	 term_bitsize(table, t) == b->bitsize);
+
+  i = index_of(t);
+  switch (table->kind[t]) {
+  case BV64_CONSTANT:
+    c64 = bvconst64_for_idx(table, i);
+    bvlogic_buffer_comp_constant64(b, c64->bitsize, c64->value);
+    break;
+
+  case BV_CONSTANT:
+    c = bvconst_for_idx(table, i);
+    bvlogic_buffer_comp_constant(b, c->bitsize, c->data);
+    break;
+
+  case BV_ARRAY:
+    d = composite_for_idx(table, i);
+    bvlogic_buffer_comp_term_array(b, table, d->arity, d->arg);
+    break;
+
+  default:
+    n = bitsize_for_idx(table, i);
+    bvlogic_buffer_comp_bv(b, n, t);
+    break;
+  }
+}
+
+
+
+/*
+ * Concatenation: t must be a bitvector term in table
+ */
+void bvlogic_buffer_concat_left_term(bvlogic_buffer_t *b, term_table_t *table, term_t t) {
+  bvconst64_term_t *c64;
+  bvconst_term_t *c;
+  composite_term_t *d;
+  uint32_t n;
+  int32_t i;
+
+  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t));
+
+  i = index_of(t);
+  switch (table->kind[t]) {
+  case BV64_CONSTANT:
+    c64 = bvconst64_for_idx(table, i);
+    bvlogic_buffer_concat_left_constant64(b, c64->bitsize, c64->value);
+    break;
+
+  case BV_CONSTANT:
+    c = bvconst_for_idx(table, i);
+    bvlogic_buffer_concat_left_constant(b, c->bitsize, c->data);
+    break;
+
+  case BV_ARRAY:
+    d = composite_for_idx(table, i);
+    bvlogic_buffer_concat_left_term_array(b, table, d->arity, d->arg);
+    break;
+
+  default:
+    n = bitsize_for_idx(table, i);
+    bvlogic_buffer_concat_left_bv(b, n, t);
+    break;
+  }
+}
+
+void bvlogic_buffer_concat_right_term(bvlogic_buffer_t *b, term_table_t *table, term_t t) {
+  bvconst64_term_t *c64;
+  bvconst_term_t *c;
+  composite_term_t *d;
+  uint32_t n;
+  int32_t i;
+
+  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t));
+
+  i = index_of(t);
+  switch (table->kind[t]) {
+  case BV64_CONSTANT:
+    c64 = bvconst64_for_idx(table, i);
+    bvlogic_buffer_concat_right_constant64(b, c64->bitsize, c64->value);
+    break;
+
+  case BV_CONSTANT:
+    c = bvconst_for_idx(table, i);
+    bvlogic_buffer_concat_right_constant(b, c->bitsize, c->data);
+    break;
+
+  case BV_ARRAY:
+    d = composite_for_idx(table, i);
+    bvlogic_buffer_concat_right_term_array(b, table, d->arity, d->arg);
+    break;
+
+  default:
+    n = bitsize_for_idx(table, i);
+    bvlogic_buffer_concat_right_bv(b, n, t);
+    break;
+  }
+}
+
+
+
+
+/*
+ * CONVERSION TO TERM
+ */
+
+/*
+ * Convert buffer b to a bv_constant term
+ */
+static term_t bvlogic_buffer_get_bvconst(bvlogic_buffer_t *b, term_table_t *table) {
+  bvconstant_t aux;
+  term_t t;
+
+  assert(bvlogic_buffer_is_constant(b));
+
+  init_bvconstant(&aux);
+  bvlogic_buffer_get_constant(b, &aux);
+  t = bvconst_term(table, aux.bitsize, aux.data);
+  delete_bvconstant(&aux);
+
+  return t;
+}
+
+
+/*
+ * Convert buffer b to a bv-array term
+ * - queue is used to convert each bit of b to a boolean term
+ */
+static term_t bvlogic_buffer_get_bvarray(bvlogic_buffer_t *b, term_table_t *table, ivector_t *queue) {
+  uint32_t i, n;
+
+  // translate each bit of b into a boolean term
+  // we store the translation in b->bit
+  n = b->bitsize;
+  for (i=0; i<n; i++) {
+    b->bit[i] = convert_bit_to_term(table, b->nodes, queue, b->bit[i]);
+  }
+
+  // build the term (bvarray b->bit[0] ... b->bit[n-1])
+  return bvarray_term(table, n, b->bit);
+}
+
+
+/*
+ * Convert b to a term then reset b.
+ * - b must not be empty.
+ * - build a bitvector constant if possible
+ * - if b is of the form (select 0 t) ... (select k t) and t has bitsize (k+1)
+ *   then return t
+ * - otherwise build a bitarray term
+ */
+term_t bvlogic_buffer_get_term(bvlogic_buffer_t *b, term_table_t *table, ivector_t *queue) {
+  term_t t;
+  uint32_t n;
+
+  n = b->bitsize;
+  assert(n > 0);
+  if (bvlogic_buffer_is_constant(b)) {
+    if (n <= 64) {
+      // small constant
+      t = bv64_constant(table, n, bvlogic_buffer_get_constant64(b));
+    } else {
+      // wide constant
+      t = bvlogic_buffer_get_bvconst(b, table);
+    }
+
+  } else {
+    t = bvlogic_buffer_get_var(b);
+    if (t < 0 || term_bitsize(table, t) != n) {
+      // not a variable
+      t = bvlogic_buffer_get_bvarray(b, table, queue);
+    }
+  }
+
+  assert(is_bitvector_term(table, t) && term_bitsize(table, t) == n);
+
+  bvlogic_buffer_clear(b);
+  
+  return n;
+}
 

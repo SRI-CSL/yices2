@@ -7,7 +7,19 @@
  * bvand, bvor, bvxor, etc. and structural operations such as 
  * shift, rotate, concat, bvextract, etc.
  *
- * Each bit is represented as a node in an OR/XOR DAG (cf. bit_expr)
+ * Each bit is represented as a node in an OR/XOR DAG (cf. bit_expr).
+ *
+ * IMPORTANT
+ * ---------
+ * For proper garbage collection of the node table, we want
+ * to ensure that the node table's reference counter is equal to
+ * the number of non-empty bvlogic_buffers. This is done in this
+ * module by calling node_table_incref/node_table_decref whenever
+ * the size of a buffer b becomes zero or nonzero.
+ *
+ * But, we don't do any checking when delete_bvlogic_buffer is called.
+ * If a buffer b is deleted and the node table keeps being used, it's
+ * important to call bvlogic_buffer_clear first.
  */
 
 #ifndef __BVLOGIC_BUFFERS_H
@@ -18,6 +30,7 @@
 
 #include "bv_constants.h"
 #include "bit_expr.h"
+#include "terms.h"
 
 
 /*
@@ -59,22 +72,24 @@ typedef struct bvlogic_buffer_s {
 extern void init_bvlogic_buffer(bvlogic_buffer_t *b, node_table_t *nodes);
 
 /*
- * Delete buffer b
+ * Delete buffer b. 
+ *
+ * NOTE: call bvlogic_buffer_clear first if the node table keeps
+ * being used after b is deleted.
  */
 extern void delete_bvlogic_buffer(bvlogic_buffer_t *b);
 
 
 /*
- * Clear b: set it to the empty vector
+ * Clear b: set it to the empty vector (also decrement b's 
+ * node table reference counter if b->bitsize was positive).
  */
-static inline void bvlogic_buffer_clear(bvlogic_buffer_t *b) {
-  b->bitsize = 0;
-}
+extern void bvlogic_buffer_clear(bvlogic_buffer_t *b);
 
- 
+
 
 /*
- * TESTS
+ * TEST A BUFFER'S CONTENT
  */
 
 /*
@@ -124,21 +139,26 @@ extern bool bvlogic_buffer_allbits_equal(bvlogic_buffer_t *b, bit_t bit);
 
 /*
  * In all operations:
- * - n = number of bits in the operand
- * - n must be positive.
+ * - n = number of bits in the operand (n must be positive).
  *
  * set_constant64: copy the n lower order bits of an unsigned 64bit integer c
  * set_constant: copy the n lower order bits of a constant stored in an array 
  *               of 32bit words (cf. bv_constant)
  * set_bitarray: copy a[0] ... a[n-1] into b
  * set_allbits: set all bits of b equal to bit
- * set_bv: store the expression (select v 0) ... (select v n-1) into b
  */
 extern void bvlogic_buffer_set_constant64(bvlogic_buffer_t *b, uint32_t n, uint64_t c);
 extern void bvlogic_buffer_set_constant(bvlogic_buffer_t *b, uint32_t n, uint32_t *c);
 extern void bvlogic_buffer_set_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a);
 extern void bvlogic_buffer_set_allbits(bvlogic_buffer_t *b, uint32_t n, bit_t bit);
-extern void bvlogic_buffer_set_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v);
+
+
+/*
+ * Copy term t into b:
+ * - t must be a bitvector term defined in 'table'
+ */
+extern void bvlogic_buffer_set_term(bvlogic_buffer_t *b, term_table_t *table, term_t t);
+
 
 
 /*
@@ -162,10 +182,14 @@ extern void bvlogic_buffer_and_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *
 extern void bvlogic_buffer_or_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a);
 extern void bvlogic_buffer_xor_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a);
 
-extern void bvlogic_buffer_and_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v);
-extern void bvlogic_buffer_or_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v);
-extern void bvlogic_buffer_xor_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v);
 
+/*
+ * Using a term operand:
+ * - t must be a valid bitvector term in table and must have the same bitsize as b.
+ */
+extern void bvlogic_buffer_and_term(bvlogic_buffer_t *b, term_table_t *table, term_t t);
+extern void bvlogic_buffer_or_term(bvlogic_buffer_t *b, term_table_t *table, term_t t);
+extern void bvlogic_buffer_xor_term(bvlogic_buffer_t *b, term_table_t *table, term_t t);
 
 
 
@@ -186,8 +210,14 @@ extern void bvlogic_buffer_concat_right_constant(bvlogic_buffer_t *b, uint32_t n
 extern void bvlogic_buffer_concat_left_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a);
 extern void bvlogic_buffer_concat_right_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a);
 
-extern void bvlogic_buffer_concat_left_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v);
-extern void bvlogic_buffer_concat_right_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v);
+
+/*
+ * Term concatenation:
+ * - t must be a valid bitvector term in table
+ */
+extern void bvlogic_buffer_concat_left_term(bvlogic_buffer_t *b, term_table_t *table, term_t t);
+extern void bvlogic_buffer_concat_right_term(bvlogic_buffer_t *b, term_table_t *table, term_t t);
+
 
 
 /*
@@ -302,7 +332,15 @@ extern void bvlogic_buffer_redor(bvlogic_buffer_t *b);
 extern void bvlogic_buffer_comp_constant64(bvlogic_buffer_t *b, uint32_t n, uint64_t c);
 extern void bvlogic_buffer_comp_constant(bvlogic_buffer_t *b, uint32_t n, uint32_t *c);
 extern void bvlogic_buffer_comp_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a);
-extern void bvlogic_buffer_comp_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v);
+
+
+/*
+ * COMP reduction with a term t:
+ * - t must be a valid bitvector term in table and must have the same bitsize as b
+ */
+extern void bvlogic_buffer_comp_term(bvlogic_buffer_t *b, term_table_t *table, term_t t);
+
+
 
 
 
@@ -323,6 +361,26 @@ extern void bvlogic_buffer_comp_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v);
  */
 extern bool bvlogic_buffer_addmul_bitarray64(bvlogic_buffer_t *b, uint32_t n, bit_t *a, uint64_t c);
 extern bool bvlogic_buffer_addmul_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a, uint32_t *c);
+
+
+
+
+
+/*
+ * CONVERSION OF A BUFFER TO A TERM
+ */
+
+/*
+ * Convert b to a term:
+ * - b must not be empty (i.e., b->bitsize must be positive).
+ * - build a bitvector constant if possible
+ * - if b is of the form (select 0 t) ... (select k t) and t has bitsize (k+1)
+ *   then return t
+ * - otherwise build a bitarray term
+ *
+ * - queue is an auxiliary vector used in the conversion
+ */
+extern term_t bvlogic_buffer_get_term(bvlogic_buffer_t *b, term_table_t *table, ivector_t *queue);
 
 
 
