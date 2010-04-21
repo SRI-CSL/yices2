@@ -121,6 +121,13 @@ extern uint64_t bvlogic_buffer_get_constant64(bvlogic_buffer_t *b);
 extern void bvlogic_buffer_get_constant(bvlogic_buffer_t *b, bvconstant_t *c);
 
 
+/*
+ * Check whether b is of the form (sel 0 x) ... (sel k-1 x)
+ * - if so return x
+ * - otherwise return -1
+ */
+extern int32_t bvlogic_buffer_get_var(bvlogic_buffer_t *b);
+
 
 /*
  * Check wether all bits in b are equal to term 'bit'
@@ -382,48 +389,5 @@ extern void bvlogic_buffer_comp_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t 
  * - t must be a valid bitvector term in table and must have the same bitsize as b
  */
 extern void bvlogic_buffer_comp_term(bvlogic_buffer_t *b, term_table_t *table, term_t t);
-
-
-
-
-
-
-/*
- * CONVERSION OF ADDITION AND PRODUCT TO BV-SHIFT AND BV-OR
- */
-
-/*
- * Attempt to convert b + c * a into (bv-or b (shift-left a k))
- * - c is a bitvector constant of n bits
- * - a is a bit array of n bits
- * The conversion works if c is a power of 2 (then k = log_2 c)
- * and if for every index i, we have b[i] == ff or a[i+k] == ff.
- *
- * The functions return true and store b + c * a into b if the 
- * conversion is successful. They return false otherwise. 
- */
-extern bool bvlogic_buffer_addmul_bitarray64(bvlogic_buffer_t *b, uint32_t n, bit_t *a, uint64_t c);
-extern bool bvlogic_buffer_addmul_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t *a, uint32_t *c);
-
-
-
-
-
-/*
- * CONVERSION OF A BUFFER TO A TERM
- */
-
-/*
- * Convert b to a term:
- * - b must not be empty (i.e., b->bitsize must be positive).
- * - build a bitvector constant if possible
- * - if b is of the form (select 0 t) ... (select k t) and t has bitsize (k+1)
- *   then return t
- * - otherwise build a bitarray term
- *
- * - queue is an auxiliary vector used in the conversion
- */
-extern term_t bvlogic_buffer_get_term(bvlogic_buffer_t *b, term_table_t *table, ivector_t *queue);
-
 
 #endif /* __BVLOGIC_BUFFERS_H */

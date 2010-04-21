@@ -29,15 +29,4 @@ extern void bvarith_buffer_mul_term(bvarith_buffer_t *b, term_table_t *table, te
 
 
 
-/*
- * Normalize b then convert it to a term and reset b
- *
- * if b is reduced to a single variable x, return the term x
- * if b is reduced to a power product, return that
- * if b is constant, build a BV_CONSTANT term
- * otherwise construct a BV_POLY
- */
-extern term_t bvarith_buffer_get_term(bvarith_buffer_t *b, term_table_t *table);
-
-
 #endif /*  __BVARITH_BUFFER_TERMS_H */

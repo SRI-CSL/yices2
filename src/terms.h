@@ -773,6 +773,12 @@ static inline term_t opposite_term(term_t x) {
 }
 
 
+/*
+ * Conversion of boolean to true_term or false_term
+ */
+static inline term_t bool2term(bool tt) {
+  return mk_term(bool_const, tt);
+}
 
 
 

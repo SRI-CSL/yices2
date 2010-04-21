@@ -1,5 +1,11 @@
 /*
- * Term API: functions declared in yices.h for building types and terms
+ * GLOBAL TERM/TYPE DATABASE
+ */
+
+/*
+ * This module implements the term and type construction API defined in yices.h.
+ * It also implements the functions defined in yices_extensions.h for managing 
+ * buffers and converting buffers to terms.
  */
 
 #include <assert.h>
@@ -10,18 +16,22 @@
 #include "int_array_sort.h"
 #include "dl_lists.h"
 #include "int_vectors.h"
+#include "bit_tricks.h"
+#include "bv64_constants.h"
 
 #include "types.h"
 #include "pprod_table.h"
 #include "bit_expr.h"
 #include "terms.h"
 
+#include "bit_term_conversion.h"
 #include "bvlogic_buffers.h"
 #include "arith_buffer_terms.h"
 #include "bvarith_buffer_terms.h"
 #include "bvarith64_buffer_terms.h"
 
 #include "yices.h"
+#include "yices_extensions.h"
 #include "yices_globals.h"
 
 
@@ -75,6 +85,8 @@ static bvconstant_t bv0;
 static bvconstant_t bv1;
 static bvconstant_t bv2;
 
+// generic integer vector
+static ivector_t vector0;
 
 
 /*
@@ -518,6 +530,8 @@ EXPORTED void yices_init(void) {
   q_init(&r0);
   q_init(&r1);
 
+  init_ivector(&vector0, 10);
+
   // tables
   init_type_table(&types, INIT_TYPE_SIZE);
   init_pprod_table(&pprods, 0);
@@ -573,6 +587,8 @@ EXPORTED void yices_cleanup(void) {
   delete_bvmlist_store(&bvarith_store);
   delete_bvmlist64_store(&bvarith64_store);
 
+  delete_ivector(&vector0);
+
   q_clear(&r0); // not necessary
   q_clear(&r1);
   cleanup_rationals();
@@ -610,15 +626,13 @@ EXPORTED void yices_clear_error(void) {
 
 
 
-
-
 /***********************
  *  BUFFER ALLOCATION  *
  **********************/
 
 /*
  * These functions are not part of the API.
- * They are exported to be used by term_stack.
+ * They are exported to be used by other yices modules.
  */
 
 /*
@@ -693,7 +707,6 @@ void yices_free_bvarith64_buffer(bvarith64_buffer_t *b) {
 }
 
 
-
 /*
  * Allocate and initialize a bvlogic buffer
  * - the buffer is empty (bitsize = 0)
@@ -708,7 +721,6 @@ bvlogic_buffer_t *yices_new_bvlogic_buffer(void) {
 }
 
 
-
 /*
  * Free buffer b allocated by the previous function
  */
@@ -720,7 +732,638 @@ void yices_free_bvlogic_buffer(bvlogic_buffer_t *b) {
 
 
 
+/***********************************************
+ *  CONVERSION OF ARITHMETIC BUFFERS TO TERMS  *
+ **********************************************/
 
+/*
+ * These functions are not part of the API.
+ * They are exported to be used by other yices modules.
+ */
+
+/*
+ * Convert b to a term and reset b.
+ *
+ * Normalize b first then apply the following simplification rules:
+ * 1) if b is a constant, then a constant rational is created
+ * 2) if b is of the form 1.t then t is returned
+ * 3) if b is of the form 1.t_1^d_1 x ... x t_n^d_n, then a power product is returned
+ * 4) otherwise, a polynomial term is returned
+ */
+term_t arith_buffer_get_term(arith_buffer_t *b) {
+  mlist_t *m;
+  pprod_t *r;
+  uint32_t n;
+  term_t t;
+
+  assert(b->ptbl == &pprods);
+
+  arith_buffer_normalize(b);
+
+  n = b->nterms;
+  if (n == 0) {
+    t = zero_term;
+  } else if (n == 1) {
+    m = b->list; // unique monomial of b
+    r = m->prod;
+    if (r == empty_pp) {
+      // constant polynomial
+      t = arith_constant(&terms, &m->coeff);
+    } else if (q_is_one(&m->coeff)) {
+      // term or power product
+      t =  pp_is_var(r) ? var_of_pp(r) : pprod_term(&terms, r);
+    } else {
+    // can't simplify
+      t = arith_poly(&terms, b);
+    }
+  } else {
+    t = arith_poly(&terms, b);
+  }
+
+  arith_buffer_reset(b);
+  assert(good_term(&terms, t) && is_arithmetic_term(&terms, t));
+
+  return t;
+}
+
+
+/*
+ * Construct the atom (b == 0) then reset b.
+ *
+ * Normalize b first.
+ * - simplify to true if b is the zero polynomial
+ * - simplify to false if b is constant and non-zero
+ * - rewrite to (t1 == t2) if that's possible.
+ * - otherwise, create a polynomial term t from b
+ *   and return the atom (t == 0).
+ */
+term_t arith_buffer_get_eq0_atom(arith_buffer_t *b) {
+  pprod_t *r1, *r2;
+  term_t t1, t2, t;
+
+  assert(b->ptbl == &pprods);
+
+  arith_buffer_normalize(b);
+
+  if (arith_buffer_is_zero(b)) {
+    t = true_term;
+  } else if (arith_buffer_is_nonzero(b)) {
+    t = false_term;
+  } else {
+    r1 = empty_pp;
+    r2 = empty_pp;
+    if (arith_buffer_is_equality(b, &r1, &r2)) {
+      // convert to (t1 == t2)
+      t1 = pp_is_var(r1) ? var_of_pp(r1) : pprod_term(&terms, r1);
+      t2 = pp_is_var(r2) ? var_of_pp(r2) : pprod_term(&terms, r2);
+    
+      // normalize
+      if (t1 > t2) {
+	t = t1; t1 = t2; t2 = t;
+      }
+
+      t = arith_bineq_atom(&terms, t1, t2);
+    } else {
+      t = arith_poly(&terms, b);
+      t = arith_eq_atom(&terms, t);
+    }
+  }
+
+  arith_buffer_reset(b);
+  assert(good_term(&terms, t) && is_boolean_term(&terms, t));
+
+  return t;
+}
+
+
+/*
+ * Construct the atom (b >= 0) then reset b.
+ *
+ * Normalize b first then check for simplifications.
+ * - simplify to true or false if b is a constant
+ * - otherwise term t from b and return the atom (t >= 0)
+ */
+term_t arith_buffer_get_geq0_atom(arith_buffer_t *b) {
+  term_t t;
+
+  assert(b->ptbl == &pprods);
+
+  arith_buffer_normalize(b);
+
+  if (arith_buffer_is_nonneg(b)) {
+    t = true_term;
+  } else if (arith_buffer_is_neg(b)) {
+    t = false_term;
+  } else {
+    t = arith_poly(&terms, b);
+    t = arith_geq_atom(&terms, t);
+  }
+
+  arith_buffer_reset(b);
+  assert(good_term(&terms, t) && is_boolean_term(&terms, t));
+
+  return t;
+}
+
+
+/*
+ * Atom (b <= 0): rewritten to (-b >= 0)
+ */
+term_t arith_buffer_get_leq0_atom(arith_buffer_t *b) {
+  term_t t;
+
+  assert(b->ptbl == &pprods);
+
+  arith_buffer_normalize(b);
+
+  if (arith_buffer_is_nonpos(b)) {
+    t = true_term;
+  } else if (arith_buffer_is_pos(b)) {
+    t = false_term;
+  } else {
+    arith_buffer_negate(b); // b remains normalized
+    t = arith_poly(&terms, b);
+    t = arith_geq_atom(&terms, t);
+  }
+
+  arith_buffer_reset(b);
+  assert(good_term(&terms, t) && is_boolean_term(&terms, t));
+
+  return t;
+}
+
+
+/*
+ * Atom (b > 0): rewritten to (not (b <= 0))
+ */
+term_t arith_buffer_get_gt0_atom(arith_buffer_t *b) {
+  term_t t;
+
+  t = arith_buffer_get_leq0_atom(b);
+#ifndef NDEBUG
+  return not_term(&terms, t);
+#else 
+  return opposite_term(t);
+#endif
+}
+
+
+/*
+ * Atom (b < 0): rewritten to (not (b >= 0))
+ */
+term_t arith_buffer_get_lt0_atom(arith_buffer_t *b) {
+  term_t t;
+
+  t = arith_buffer_get_geq0_atom(b);
+#ifndef NDEBUG
+  return not_term(&terms, t);
+#else 
+  return opposite_term(t);
+#endif
+}
+
+
+
+/********************************************
+ *  CONVERSION OF BVLOGIC BUFFERS TO TERMS  *
+ *******************************************/
+
+/*
+ * These functions are not part of the API.
+ * They are exported to be used by other yices modules.
+ */
+
+/*
+ * Convert buffer b to a bv_constant term
+ * - side effect: use bv0
+ */
+static term_t bvlogic_buffer_get_bvconst(bvlogic_buffer_t *b) {
+  assert(bvlogic_buffer_is_constant(b));
+
+  bvlogic_buffer_get_constant(b, &bv0);
+  return bvconst_term(&terms, bv0.bitsize, bv0.data);
+}
+
+
+/*
+ * Convert buffer b to a bv-array term
+ * - side effect: use vector0
+ */
+static term_t bvlogic_buffer_get_bvarray(bvlogic_buffer_t *b) {
+  uint32_t i, n;
+
+  assert(b->nodes == &nodes);
+
+  // translate each bit of b into a boolean term
+  // we store the translation in b->bit
+  n = b->bitsize;
+  for (i=0; i<n; i++) {
+    b->bit[i] = convert_bit_to_term(&terms, &nodes, &vector0, b->bit[i]);
+  }
+
+  // build the term (bvarray b->bit[0] ... b->bit[n-1])
+  return bvarray_term(&terms, n, b->bit);
+}
+
+
+/*
+ * Convert b to a term then reset b.
+ * - b must not be empty.
+ * - build a bitvector constant if possible
+ * - if b is of the form (select 0 t) ... (select k t) and t has bitsize (k+1)
+ *   then return t
+ * - otherwise build a bitarray term
+ */
+term_t bvlogic_buffer_get_term(bvlogic_buffer_t *b) {
+  term_t t;
+  uint32_t n;
+
+  n = b->bitsize;
+  assert(n > 0);
+  if (bvlogic_buffer_is_constant(b)) {
+    if (n <= 64) {
+      // small constant
+      t = bv64_constant(&terms, n, bvlogic_buffer_get_constant64(b));
+    } else {
+      // wide constant
+      t = bvlogic_buffer_get_bvconst(b);
+    }
+
+  } else {
+    t = bvlogic_buffer_get_var(b);
+    if (t < 0 || term_bitsize(&terms, t) != n) {
+      // not a variable
+      t = bvlogic_buffer_get_bvarray(b);
+    }
+  }
+
+  assert(is_bitvector_term(&terms, t) && term_bitsize(&terms, t) == n);
+
+  bvlogic_buffer_clear(b);
+  
+  return n;
+}
+
+
+
+
+/********************************************
+ *  CONVERSION OF BVARITH BUFFERS TO TERMS  *
+ *******************************************/
+
+/*
+ * Store array [false_term, ..., false_term] into vector v
+ */
+static void bvarray_set_zero_bv(ivector_t *v, uint32_t n) {
+  uint32_t i;
+
+  assert(0 < n && n <= YICES_MAX_BVSIZE);
+  resize_ivector(v, n);
+  for (i=0; i<n; i++) {
+    v->data[i] = false_term;
+  }
+}
+
+/*
+ * Store constant c into vector v
+ */
+static void bvarray_copy_constant(ivector_t *v, uint32_t n, uint32_t *c) {
+  uint32_t i;
+
+  assert(0 < n && n <= YICES_MAX_BVSIZE);
+  resize_ivector(v, n);
+  for (i=0; i<n; i++) {
+    v->data[i] = bool2term(bvconst_tst_bit(c, i));
+  }
+}
+
+/*
+ * Same thing for a small constant c
+ */
+static void bvarray_copy_constant64(ivector_t *v, uint32_t n, uint64_t c) {
+  uint32_t i;
+
+  assert(0 < n && n <= 64);
+  resize_ivector(v, n);
+  for (i=0; i<n; i++) {
+    v->data[i] = bool2term(tst_bit64(c, i));
+  }
+}
+
+
+/*
+ * Check whether v + a * x can be converted to (v | (x << k))  for some k
+ * - a must be an array of n boolean terms
+ * - return true if that can be done and update v to (v | (x << k))
+ * - otherwise, return false and keep v unchanged
+ */
+static bool bvarray_check_addmul(ivector_t *v, uint32_t n, uint32_t *c, term_t *a) {
+  uint32_t i, w;
+  int32_t k;
+
+  w = (n + 31) >> 5; // number of words in c
+  if (bvconst_is_zero(c, w)) {
+    return true;
+  }
+
+  k = bvconst_is_power_of_two(c, w);
+  if (k < 0) {
+    return false;
+  }
+
+  // c is 2^k check whether v + (a << k) is equal to v | (a << k)
+  assert(0 <= k && k < n);
+  for (i=k; i<n; i++) {
+    if (v->data[i] != false_term && a[i-k] != false_term) {
+      return false;
+    }
+  }
+
+  // update v here
+  for (i=k; i<n; i++) {
+    if (a[i-k] != false_term) {
+      assert(v->data[i] == false_term);
+      v->data[i] = v->data[i-k];
+    }
+  }
+
+  return true;
+}
+
+
+/*
+ * Same thing for c stored as a small constant (64 bits at most)
+ */
+static bool bvarray_check_addmul64(ivector_t *v, uint32_t n, uint64_t c, term_t *a) {
+  uint32_t i, k;
+
+  assert(0 < n && n <= 64 && c == norm64(c, n));
+
+  if (c == 0) {
+    return true;
+  }
+
+  k = ctz64(c); // k = index of the rightmost 1 in c
+  assert(0 <= k && k <= 63);
+  if (c != (((uint64_t) 1) << k)) {
+    // c != 2^k
+    return false;
+  }
+
+  // c is 2^k check whether v + (a << k) is equal to v | (a << k)
+  assert(0 <= k && k < n);
+  for (i=k; i<n; i++) {
+    if (v->data[i] != false_term && a[i-k] != false_term) {
+      return false;
+    }
+  }
+
+  // update v here
+  for (i=k; i<n; i++) {
+    if (a[i-k] != false_term) {
+      assert(v->data[i] == false_term);
+      v->data[i] = v->data[i-k];
+    }
+  }
+
+  return true;
+}
+
+
+
+
+/*
+ * Check whether power product r is equal to a bit-array term t
+ * - if so return t's descriptor, otherwise return NULL
+ */
+static composite_term_t *pprod_get_bvarray(pprod_t *r) {  
+  composite_term_t *bv;
+  term_t t;
+
+  bv = NULL;
+  if (pp_is_var(r)) {
+    t = var_of_pp(r);
+    if (term_kind(&terms, t) == BV_ARRAY) {
+      bv = composite_for_idx(&terms, index_of(t));
+    }
+  }
+
+  return bv;
+}
+
+/*
+ * Attempt to convert a bvarith buffer to a bv-array term
+ * - b = bvarith buffer (list of monomials)
+ * - return NULL_TERM if the conversion fails
+ * - return a term t if the conversion succeeds.
+ * - side effect: use vector0
+ */
+static term_t convert_bvarith_to_bvarray(bvarith_buffer_t *b) {
+  composite_term_t *bv;
+  bvmlist_t *m;
+  uint32_t n;
+
+  n = b->bitsize;
+  m = b->list; // first monomial
+  if (m->prod == empty_pp) {
+    // copy constant into vector0
+    bvarray_copy_constant(&vector0, n, m->coeff);
+    m = m->next;
+  } else {
+    // initialze vector0 to 0
+    bvarray_set_zero_bv(&vector0, n);
+  }
+
+  while (m->next != NULL) {
+    bv = pprod_get_bvarray(m->prod);
+    if (bv == NULL) return NULL_TERM;
+
+    assert(bv->arity == n);
+
+    // try to convert coeff * v into shift + bitwise or 
+    if (! bvarray_check_addmul(&vector0, n, m->coeff, bv->arg)) {
+      return NULL_TERM;  // conversion failed
+    }
+    m = m->next;
+  }
+
+  // Success: construct a bit array from log_buffer
+  return bvarray_term(&terms, n, vector0.data);
+}
+
+
+/*
+ * Attempt to convert a bvarith64 buffer to a bv-array term
+ * - b = bvarith buffer (list of monomials)
+ * - return NULL_TERM if the conversion fails
+ * - return a term t if the conversion succeeds.
+ * - side effect: use vector0
+ */
+static term_t convert_bvarith64_to_bvarray(bvarith64_buffer_t *b) {
+  composite_term_t *bv;
+  bvmlist64_t *m;
+  uint32_t n;
+
+  n = b->bitsize;
+  m = b->list; // first monomial
+  if (m->prod == empty_pp) {
+    // copy constant into vector0
+    bvarray_copy_constant64(&vector0, n, m->coeff);
+    m = m->next;
+  } else {
+    // initialze vector0 to 0
+    bvarray_set_zero_bv(&vector0, n);
+  }
+
+  while (m->next != NULL) {
+    bv = pprod_get_bvarray(m->prod);
+    if (bv == NULL) return NULL_TERM;
+
+    assert(bv->arity == n);
+
+    // try to convert coeff * v into shift + bitwise or 
+    if (! bvarray_check_addmul64(&vector0, n, m->coeff, bv->arg)) {
+      return NULL_TERM;  // conversion failed
+    }
+    m = m->next;
+  }
+
+  // Success: construct a bit array from log_buffer
+  return bvarray_term(&terms, n, vector0.data);
+}
+
+
+/*
+ * Constant bitvector with all bits 0
+ * - n = bitsize (must satisfy 0 < n && n <= YICES_MAX_BVSIZE)
+ * - side effect: modify bv0
+ */
+static term_t make_zero_bv(uint32_t n) {
+  assert(0 < n && n <= YICES_MAX_BVSIZE);
+  bvconstant_set_all_zero(&bv0, n);
+  return bvconst_term(&terms, bv0.bitsize, bv0.data);
+}
+
+
+/*
+ * These functions are not part of the API.
+ * They are exported to be used by other yices modules.
+ */
+
+/*
+ * Normalize b then convert it to a term and reset b
+ *
+ * if b is reduced to a single variable x, return the term attached to x
+ * if b is reduced to a power product, return that
+ * if b is constant, build a BV_CONSTANT term
+ * if b can be converted to a BV_ARRAY term do it
+ * otherwise construct a BV_POLY
+ */
+term_t bvarith_buffer_get_term(bvarith_buffer_t *b) {
+  bvmlist_t *m;
+  pprod_t *r;
+  uint32_t n, p, k;
+  term_t t;
+
+  assert(b->bitsize > 0);
+  
+  bvarith_buffer_normalize(b);
+
+  n = b->bitsize;
+  k = (n + 31) >> 5;
+  p = b->nterms;
+  if (p == 0) {
+    // zero 
+    t = make_zero_bv(n);
+    goto done;
+  }
+
+  if (p == 1) {
+    m = b->list; // unique monomial of b
+    r = m->prod;
+    if (r == empty_pp) {
+      // constant 
+      t = bvconst_term(&terms, n, m->coeff);
+      goto done;
+    }
+    if (bvconst_is_one(m->coeff, k)) {
+      // power product
+      t = pp_is_var(r) ? var_of_pp(r) : pprod_term(&terms, r);
+      goto done;
+    } 
+  }
+
+  // try to convert to a bvarray term
+  t = convert_bvarith_to_bvarray(b);
+  if (t == NULL_TERM) {
+    // conversion failed: build a bvpoly
+    t = bv_poly(&terms, b);
+  }
+
+ done:
+  bvarith_buffer_prepare(b, 32); // reset b, any positive n would do
+  assert(is_bitvector_term(&terms, t) && term_bitsize(&terms, t) == n);
+
+  return t;  
+}
+
+
+
+/*
+ * Normalize b then convert it to a term and reset b
+ *
+ * if b is reduced to a single variable x, return the term attached to x
+ * if b is reduced to a power product, return that
+ * if b is constant, build a BV64_CONSTANT term
+ * if b can be converted to a BV_ARRAY term do it
+ * otherwise construct a BV64_POLY
+ */
+term_t bvarith64_buffer_get_term(bvarith64_buffer_t *b) {
+  bvmlist64_t *m;
+  pprod_t *r;
+  uint32_t n, p;
+  term_t t;
+
+  assert(b->bitsize > 0);
+  
+  bvarith64_buffer_normalize(b);
+
+  n = b->bitsize;
+  p = b->nterms;
+  if (p == 0) {
+    // zero 
+    t = make_zero_bv(n);
+    goto done;
+  }
+
+  if (p == 1) {
+    m = b->list; // unique monomial of b
+    r = m->prod;
+    if (r == empty_pp) {
+      // constant 
+      t = bv64_constant(&terms, n, m->coeff);
+      goto done;
+    }
+    if (m->coeff == 1) {
+      // power product
+      t = pp_is_var(r) ? var_of_pp(r) : pprod_term(&terms, r);
+      goto done;
+    }
+  }
+
+  // try to convert to a bvarray term
+  t = convert_bvarith64_to_bvarray(b);
+  if (t == NULL_TERM) {
+    // conversion failed: build a bvpoly
+    t = bv64_poly(&terms, b);
+  }
+
+ done:
+  bvarith64_buffer_prepare(b, 32); // reset b, any positive n would do
+  assert(is_bitvector_term(&terms, t) && term_bitsize(&terms, t) == n);
+
+  return t;  
+}
 
 
 
@@ -3898,89 +4541,6 @@ EXPORTED int32_t yices_bvarith_square(bvarith_buffer_t *b) {
  * have to know the detailed internal structure of the 
  * bvarith buffers.
  */
-
-/*
- * Convert the coefficient of p to an array of 32bit words
- * and return a pointer to the result.
- * - p is an element of a bvarith_buffer list of monomials
- * - n = bitsize of the buffer
- * - aux = array for storing the result if a conversion is necessary
- * - if n <= 64, the coefficient is stored as uint64_t in p->coeff.c
- * - if n >64, the coefficient is stored as an array of words pointed to 
- *   by p->coeff.ptr
- */
-static inline uint32_t *coeff_of_bvmlist(bvmlist_t *p, uint32_t n, uint32_t aux[2]) {
-  if (n <= 64) {
-    // convert c to two 32bit words
-    aux[0] = (uint32_t) (p->coeff.c & 0xFFFFFFFF); // 32 low order bits
-    aux[1] = (uint32_t) (p->coeff.c >> 32);        // 32 high order bits
-    return aux;
-  } else {
-    return p->coeff.ptr;
-  }
-}
-
-
-/*
- * Attempt to convert a bvarith buffer to a bvlogic expression
- * - b = bvarith buffer (list of monomials)
- * - return NULL_TERM if the conversion fails
- * - return a term index t for a bvlogic expression if the conversion
- *   succeeds.
- * - side effect: use the internal_bvlogic_buffer
- */
-static term_t convert_bvarith_to_bvlogic_term(bvarith_buffer_t *b) {
-  bvlogic_buffer_t *log_buffer;
-  bv_var_manager_t *m;
-  bvmlist_t *p;
-  bvlogic_expr_t *bv;
-  uint32_t aux[2];
-  bv_var_t v;
-  term_t t;
-  uint32_t n;
-
-  log_buffer = get_internal_bvlogic_buffer();
-  m = &bv_manager;
-  assert(b->manager == m);
-
-  n = b->size;
-
-  p = b->list->next; // first monomial
-  v = p->var;
-
-  if (v == const_idx) {
-    // initialize log_buffer to the coeff of p = constant of b
-    bvlogic_buffer_set_constant(log_buffer, n, coeff_of_bvmlist(p, n, aux));
-    p = p->next;
-    v = p->var;
-  } else {
-    // log_buffer := 0
-    bvlogic_buffer_set_allbits(log_buffer, n, false_bit);
-  }
-
-  while (v < max_idx) {
-    if (bv_var_manager_var_is_aux(m, v)) {
-      return NULL_TERM;  // no term attached to v
-    }
-    t = bv_var_manager_term_of_var(m, v);
-    if (term_kind(&terms, t) != BV_LOGIC_TERM) {
-      return NULL_TERM;  // term attached to v is not a bit array
-    }
-    bv = bvlogic_term_desc(&terms, t);
-    assert(bv->nbits == n);
-
-    // try to convert coeff * v into shift + bitwise or 
-    if (! bvlogic_buffer_addmul_bitarray(log_buffer, n, bv->bit, coeff_of_bvmlist(p, n, aux))) {
-      return NULL_TERM;  // conversion failed
-    }
-
-    p = p->next;
-    v = p->var;
-  }
-
-  // Success: construct a bit array from log_buffer
-  return bvlogic_term(&terms, log_buffer);
-}
 
 
 /*
