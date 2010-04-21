@@ -70,9 +70,9 @@ src_c := arena.c arith_buffers.c arith_buffer_terms.c               \
          ptr_heap.c ptr_partitions.c ptr_queues.c ptr_vectors.c     \
          rationals.c rb_bvsets.c reader.c refcount_strings.c        \
          small_bvsets.c smt_lexer.c smt_logic_codes.c               \
-         string_buffers.c symbol_tables.c terms.c term_printer.c    \
-         types.c type_printer.c uint_rbtrees.c union_find.c         \
-         use_vectors.c vsets.c yices_lexer.c yices_pp.c
+         string_buffers.c symbol_tables.c terms.c term_api.c        \
+         term_printer.c types.c type_printer.c uint_rbtrees.c       \
+         union_find.c use_vectors.c vsets.c yices_lexer.c yices_pp.c
 
 
 #
@@ -172,7 +172,7 @@ old_binaries := $(bindir)/yices_smt$(EXEEXT) $(bindir)/dl_profile$(EXEEXT) \
 #
 # OS-dependent compilation flags + which dynamic libraries to build
 # -fPIC: PIC is the default on Darwin/Cygwin/Mingw (and causes 
-#  compilation warning if present)
+#  a compilation warning if present)
 # -static: is not supported by Darwin or our Solaris2.10 machine
 #
 ifeq ($(POSIXOS),cygwin)

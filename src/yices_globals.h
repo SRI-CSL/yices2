@@ -12,25 +12,19 @@
 #define __YICES_GLOBALS_H
 
 #include "terms.h"
-#include "int_hash_map.h"
+#include "bit_expr.h"
 
 typedef struct yices_globals_s {
-  type_table_t *types;  // type table
-  term_table_t *terms;  // term table
-  int_hmap_t *unit_map; // map singleton types to their unique term 
+  type_table_t *types;   // type table
+  term_table_t *terms;   // term table
+  pprod_table_t *pprods; // power products
+  node_table_t *nodes;   // bit expressions
 
-  // arithmetic
-  arithvar_manager_t *arith_manager;
-  object_store_t *arith_store;
-
-  // bitvectors
-  bv_var_manager_t *bv_manager;
-  object_store_t *bv_store;
-  node_table_t *nodes;
-
+  object_store_t *arith_store;      // mlist used by arith_buffers
+  object_store_t *bvarith_store;    // bvmlist used by bvarith_buffers
+  object_store_t *bvarith64_store;  // bvmlist64 used by bvarith64_buffers
 } yices_globals_t;
 
-// the table
 extern yices_globals_t __yices_globals;
 
 #endif /* __YICES_GLOBALS_H */

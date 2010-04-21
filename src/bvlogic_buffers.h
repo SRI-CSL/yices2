@@ -134,7 +134,7 @@ extern bool bvlogic_buffer_allbits_equal(bvlogic_buffer_t *b, bit_t bit);
 
 
 /*
- * ASSIGNMENTS
+ * ASSIGNMENT OPERATIONS
  */
 
 /*
@@ -163,13 +163,18 @@ extern void bvlogic_buffer_set_term(bvlogic_buffer_t *b, term_table_t *table, te
 
 /*
  * BITWISE BOOLEAN OPERATIONS
- *
- * Same conventions as in the assignment operations,
- * - n = number of bits in the operands: n must be positive and equal to 
- *   b's current bitsize.
+ */
+
+/*
+ * Negate all the bits
  */
 extern void bvlogic_buffer_not(bvlogic_buffer_t *b);
 
+/*
+ * Binary operations:
+ * - n = number of bits in the operands. n must be positive and equal to 
+ *   b's current bitsize.
+ */
 extern void bvlogic_buffer_and_constant64(bvlogic_buffer_t *b, uint32_t n, uint64_t c);
 extern void bvlogic_buffer_or_constant64(bvlogic_buffer_t *b, uint32_t n, uint64_t c);
 extern void bvlogic_buffer_xor_constant64(bvlogic_buffer_t *b, uint32_t n, uint64_t c);
@@ -195,9 +200,11 @@ extern void bvlogic_buffer_xor_term(bvlogic_buffer_t *b, term_table_t *table, te
 
 /*
  * CONCATENATION
- *
- * left/right refer to b written in big-endian form: (b[n-1] ... b[0])
- * if v = v[m-1] ... v[0] is the added to b, then 
+ */
+
+/*
+ * Left/right refer to b written in big-endian form: (b[n-1] ... b[0])
+ * if v = v[m-1] ... v[0] is added to b, then 
  * - concat_left: v[m-1]...v[0] is added to the left of  b[n-1]
  * - concat_right: v[m-1]...v[0] is added to the right of  b[0]
  */
@@ -217,7 +224,6 @@ extern void bvlogic_buffer_concat_right_bitarray(bvlogic_buffer_t *b, uint32_t n
  */
 extern void bvlogic_buffer_concat_left_term(bvlogic_buffer_t *b, term_table_t *table, term_t t);
 extern void bvlogic_buffer_concat_right_term(bvlogic_buffer_t *b, term_table_t *table, term_t t);
-
 
 
 /*
@@ -249,8 +255,10 @@ extern void bvlogic_buffer_zero_extend(bvlogic_buffer_t *b, uint32_t n);
 
 /*
  * SHIFT AND ROTATE
- *
- * left/right refer to b written in bigendian form, that is, b[n-1] ... b[0]
+ */
+
+/*
+ * Left/right refer to b written in bigendian form, that is, b[n-1] ... b[0].
  */
 
 /*
@@ -305,8 +313,40 @@ extern void bvlogic_buffer_rotate_right(bvlogic_buffer_t *b, uint32_t k);
 
 
 /*
+ * Logical shift left or right:
+ * - the shift amount is given by bitvector constant c of n bits
+ * - c is converted to an integer k
+ * - if k is bigger than b's bitsize then all bits of b are cleared
+ *   if k is nonzero, then b is shifted by k bits
+ *   if k is zero, b is unchanged
+ */
+extern void bvlogic_buffer_shl_constant64(bvlogic_buffer_t *b, uint32_t n, uint64_t c);
+extern void bvlogic_buffer_shl_constant(bvlogic_buffer_t *b, uint32_t n, uint32_t *c);
+
+extern void bvlogic_buffer_lshr_constant64(bvlogic_buffer_t *b, uint32_t n, uint64_t c);
+extern void bvlogic_buffer_lshr_constant(bvlogic_buffer_t *b, uint32_t n, uint32_t *c);
+
+
+/*
+ * Arithmetic shift right
+ * - the shift amount is given by bitvector constant c of n bits
+ * - b must not be empty
+ * - c is converted to an integer k
+ * - if k is larger than b's bitsize then the sign bit of b is copied 
+ *   in all bits of b.
+ */
+extern void bvlogic_buffer_ashr_constant64(bvlogic_buffer_t *b, uint32_t n, uint64_t c);
+extern void bvlogic_buffer_ashr_constant(bvlogic_buffer_t *b, uint32_t n, uint32_t *c);
+
+
+
+
+
+/*
  * EXTRACTION
- *
+ */
+
+/*
  * replace b[0...n-1] by b[start ... end]. 
  * require 0 <= start <= end <= n-1
  */
@@ -315,8 +355,11 @@ extern void bvlogic_buffer_extract_subvector(bvlogic_buffer_t *b, uint32_t start
 
 
 /*
- * REDUCTION:
- * - all compute a bitvector of size 1 from their arguments
+ * REDUCTION
+ */
+
+/*
+ * All functions compute a bitvector of size 1 from their arguments
  * - redand b: compute (and b[0] ... b[n-1]) and store it into b[0]
  * - redor b:  compute (or b[0] ... b[n-1]) and store that into b[0]
  * - comp b a: compute (and (bit-eq a[0] b[0]) ... (bit-eq a[n-1] b[n-1])) 
@@ -381,8 +424,6 @@ extern bool bvlogic_buffer_addmul_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_
  * - queue is an auxiliary vector used in the conversion
  */
 extern term_t bvlogic_buffer_get_term(bvlogic_buffer_t *b, term_table_t *table, ivector_t *queue);
-
-
 
 
 #endif /* __BVLOGIC_BUFFERS_H */

@@ -167,7 +167,7 @@ extern bool must_disequal_monarray(monomial_t *p1, monomial_t *p2);
 
 
 /*
- * INTEGER-ARITHMETIC OPERATION 
+ * INTEGER-ARITHMETIC OPERATIONS
  */
 
 /*

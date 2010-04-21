@@ -907,6 +907,101 @@ void bvlogic_buffer_rotate_right(bvlogic_buffer_t *b, uint32_t k) {
 
 
 
+
+/*
+ * SHIFT/ROTATE: SHIFT AMOUNT GIVEN BY A BIT-VECTOR CONSTANT
+ */
+
+/*
+ * Convert bitvector constant c into a shift amound valid for 
+ * a bitvector of m bits.
+ * - c is interpreted as an unsigned integer.
+ * - if c's value is larger than m, return m
+ * - otherwise return c's value
+ * (so the result is always between 0 and m)
+ */
+static inline uint32_t shift_amount64(uint64_t c, uint32_t m) {
+  return (c >= (uint64_t) m) ? m : (uint32_t) c;  
+}
+
+// here n = bitsize of c
+static uint32_t shift_amount(uint32_t *c, uint32_t n, uint32_t m) {
+  uint32_t k, i, s;
+
+  k = (n + 31) >> 5;     // number of words in c
+  s = bvconst_get32(c);  // s = lower-order word of c
+
+  // if any of the higher order words is non-zero, return m
+  for (i=1; i<k; i++) {
+    if (c[i] != 0) return n;
+  }
+
+  // the shift amount is s: truncate to m if s is too laree
+  return (s < m) ? s : m;
+}
+
+
+
+/*
+ * Shift by the amount stored in a 64bit constant
+ */
+void bvlogic_buffer_shl_constant64(bvlogic_buffer_t *b, uint32_t n, uint64_t c) {
+  uint32_t k;
+
+  assert(1 <= n && n <= 64 && c == norm64(c, n));
+  k = shift_amount64(c, b->bitsize);
+  bvlogic_buffer_shift_left0(b, k);
+}
+
+void bvlogic_buffer_lshr_constant64(bvlogic_buffer_t *b, uint32_t n, uint64_t c) {
+  uint32_t k;
+
+  assert(1 <= n && n <= 64 && c == norm64(c, n));
+  k = shift_amount64(c, b->bitsize);
+  bvlogic_buffer_shift_right0(b, k);
+}
+
+void bvlogic_buffer_ashr_constant64(bvlogic_buffer_t *b, uint32_t n, uint64_t c) {
+  uint32_t k;
+
+  assert(1 <= n && n <= 64 && c == norm64(c, n));
+  k = shift_amount64(c, b->bitsize);
+  bvlogic_buffer_ashift_right(b, k);
+}
+
+
+
+/*
+ * Shift by the amount stored in a general constant
+ * - n = bitsize of the constant c
+ */
+void bvlogic_buffer_shl_constant(bvlogic_buffer_t *b, uint32_t n, uint32_t *c) {
+  uint32_t k;
+
+  k = shift_amount(c, n, b->bitsize);
+  bvlogic_buffer_shift_left0(b, k);
+}
+
+void bvlogic_buffer_lshr_constant(bvlogic_buffer_t *b, uint32_t n, uint32_t *c) {
+  uint32_t k;
+
+  k = shift_amount(c, n, b->bitsize);
+  bvlogic_buffer_shift_right0(b, k);
+}
+
+void bvlogic_buffer_ashr_constant(bvlogic_buffer_t *b, uint32_t n, uint32_t *c) {
+  uint32_t k;
+
+  k = shift_amount(c, n, b->bitsize);
+  bvlogic_buffer_ashift_right(b, k);
+}
+
+
+
+
+
+
+
 /*
  * EXTRACTION
  */

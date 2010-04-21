@@ -172,17 +172,20 @@ void bvarith_buffer_mul_term(bvarith_buffer_t *b, term_table_t *table, term_t t)
  * if b is reduced to a single variable x, return the term attached to x
  * if b is reduced to a power product, return that
  * if b is constant, build a BV_CONSTANT term
- * if b can be converted to a bit array return that
  * otherwise construct a BV_POLY
  */
 term_t bvarith_buffer_get_term(bvarith_buffer_t *b, term_table_t *table) {
-  uint32_t n;
+  uint32_t n, p;
 
   assert(b->ptbl == table->pprods && b->bitsize > 0);
   
   bvarith_buffer_normalize(b);
 
   n = b->bitsize;
+  p = b->nterms;
+  if (p == 0) {
+    // zero 
+  }
 
   return NULL_TERM;  
 }

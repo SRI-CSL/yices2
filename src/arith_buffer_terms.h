@@ -24,6 +24,10 @@ extern void arith_buffer_add_const_times_term(arith_buffer_t *b, term_table_t *t
 					      rational_t *a, term_t t);
 
 
+
+#if 0
+
+
 /*
  * Convert b to a term and reset b.
  *
@@ -68,5 +72,7 @@ extern term_t arith_buffer_get_leq0_atom(arith_buffer_t *b, term_table_t *table)
 extern term_t arith_buffer_get_gt0_atom(arith_buffer_t *b, term_table_t *table);
 extern term_t arith_buffer_get_lt0_atom(arith_buffer_t *b, term_table_t *table);
 
+
+#endif
 
 #endif /* __ARITH_BUFFER_TERMS_H */

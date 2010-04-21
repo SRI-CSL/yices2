@@ -8,6 +8,7 @@
 
 #include "yices_types.h"
 
+
 /***************************************
  * EXTENSIONS FOR BITVECTOR CONSTANTS  *
  **************************************/
@@ -58,11 +59,6 @@ extern int32_t yices_bvlogic_ashr_bvconst(bvlogic_buffer_t *b, uint32_t n, uint3
  */
 extern term_t yices_bvconst_term(uint32_t n, uint32_t *bv);
 
-
-/*
- * Generic constructor for bitvector operations
- */
-extern term_t yices_bvoperator(uint32_t op, term_t t1, term_t t2);
 
 
 #endif /* __YICES_EXTENSIONS_H */

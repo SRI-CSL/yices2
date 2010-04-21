@@ -4,7 +4,7 @@
  * THIS INCLUDES FUNCTIONS FOR BUILDING TERMS AND TYPES.
  */
 
-#ifndef __YICES_H
+#ifndef __YICES_H 
 #define __YICES_H
 
 #ifdef __cplusplus
@@ -410,6 +410,9 @@ extern term_t yices_update(term_t fun, uint32_t n, term_t arg[], term_t new_v);
  * Distinct
  *
  * Error report:
+ * if n == 0
+ *    code = POSINT_REQUIRED
+ *    badval = n
  * if n > YICES_MAX_ARITY
  *    code = TOO_MANY_ARGUMENTS
  *    badval = n

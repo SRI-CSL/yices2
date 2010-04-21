@@ -7,11 +7,19 @@
 #include <string.h>
 
 #include "refcount_strings.h"
-#include "terms.h"
-#include "prng.h"
 #include "int_array_sort.h"
-#include "int_hash_map.h"
 #include "dl_lists.h"
+#include "int_vectors.h"
+
+#include "types.h"
+#include "pprod_table.h"
+#include "bit_expr.h"
+#include "terms.h"
+
+#include "bvlogic_buffers.h"
+#include "arith_buffer_terms.h"
+#include "bvarith_buffer_terms.h"
+#include "bvarith64_buffer_terms.h"
 
 #include "yices.h"
 #include "yices_globals.h"
@@ -19,8 +27,8 @@
 
 /*
  * Visibility control: all extern functions declared here are in libyices's API
- * Other extern functions should have visibility=hidden.
- * cf. Makefile
+ *
+ * Other extern functions should have visibility=hidden (cf. Makefile).
  *
  * Note: adding __declspec(dllexport) should have the same effect
  * on cygwin or mingw but that does not seem to work.
@@ -31,29 +39,29 @@
 #define EXPORTED __attribute__((visibility("default")))
 #endif
 
+
+
 /*
- * Global variables for terms and types
+ * Global tables:
  * - type table
  * - term table
- * - hash map to deal with unit types: the table maps unit types (i.e., types
- *   with a unique element to that element)
- * - manager for arithmetic variable + object store for polynomials.
- * - manager for bitvector variables + object store for bitvector polynomials
- *   + node table
+ * - power product table
+ * - node table
+ *
+ * Auxiliary structures:
+ * - object stores used by the arithmetic and bit-vector 
+ *   arithmetic buffers
  */
-// global term and type tables
+// global tables
 static type_table_t types;
 static term_table_t terms;
-static int_hmap_t unit_map;
-
-// arithmetic 
-static arithvar_manager_t arith_manager;
-static object_store_t arith_store;
-
-// bitvectors
-static bv_var_manager_t bv_manager;
-static object_store_t bv_store;
+static pprod_table_t pprods;
 static node_table_t nodes;
+
+// arithmetic stores
+static object_store_t arith_store;
+static object_store_t bvarith_store;
+static object_store_t bvarith64_store;
 
 // error report
 static error_report_t error;
@@ -67,8 +75,10 @@ static bvconstant_t bv0;
 static bvconstant_t bv1;
 static bvconstant_t bv2;
 
+
+
 /*
- * Initial sizes of type and term tables.
+ * Initial sizes of the type and term tables.
  */
 #define INIT_TYPE_SIZE  16
 #define INIT_TERM_SIZE  64
@@ -97,6 +107,17 @@ static dl_list_t bvarith_buffer_list;
 
 
 /*
+ * Variant: 64bit buffers
+ */
+typedef struct {
+  dl_list_t header;
+  bvarith64_buffer_t buffer;
+} bvarith64_buffer_elem_t;
+
+static dl_list_t bvarith64_buffer_list;
+
+
+/*
  * Doubly-linked list of bitvector buffers
  */
 typedef struct {
@@ -114,9 +135,10 @@ static dl_list_t bvlogic_buffer_list;
 static arith_buffer_t *internal_arith_buffer;
 
 /*
- * Auxiliary buffer for bitvector polynomials.
+ * Auxiliary buffers for bitvector polynomials.
  */
 static bvarith_buffer_t *internal_bvarith_buffer;
+static bvarith64_buffer_t *internal_bvarith64_buffer;
 
 /*
  * Auxiliary bitvector buffer.
@@ -155,7 +177,7 @@ static inline arith_buffer_t *arith_buffer(dl_list_t *l) {
 /*
  * Allocate an arithmetic buffer and insert it into the list
  */
-static inline arith_buffer_t *alloc_arith_buffer() {
+static inline arith_buffer_t *alloc_arith_buffer(void) {
   arith_buffer_elem_t *new_elem;
 
   new_elem = (arith_buffer_elem_t *) safe_malloc(sizeof(arith_buffer_elem_t));
@@ -177,7 +199,7 @@ static inline void free_arith_buffer(arith_buffer_t *b) {
 /*
  * Clean up the arith buffer list: free all elements and empty the list
  */
-static void free_arith_buffer_list() {
+static void free_arith_buffer_list(void) {
   dl_list_t *elem, *aux;
 
   elem = arith_buffer_list.next;
@@ -214,7 +236,7 @@ static inline bvarith_buffer_t *bvarith_buffer(dl_list_t *l) {
 /*
  * Allocate a bv-arithmetic buffer and insert it into the list
  */
-static inline bvarith_buffer_t *alloc_bvarith_buffer() {
+static inline bvarith_buffer_t *alloc_bvarith_buffer(void) {
   bvarith_buffer_elem_t *new_elem;
 
   new_elem = (bvarith_buffer_elem_t *) safe_malloc(sizeof(bvarith_buffer_elem_t));
@@ -236,7 +258,7 @@ static inline void free_bvarith_buffer(bvarith_buffer_t *b) {
 /*
  * Clean up the arith buffer list: free all elements and empty the list
  */
-static void free_bvarith_buffer_list() {
+static void free_bvarith_buffer_list(void) {
   dl_list_t *elem, *aux;
 
   elem = bvarith_buffer_list.next;
@@ -252,9 +274,68 @@ static void free_bvarith_buffer_list() {
 
 
 
-/**************************
- *  BV-BUFFER ALLOCATION  *
- *************************/
+/*********************************
+ *  BVARITH64 BUFFER ALLOCATION  *
+ ********************************/
+
+/*
+ * Get header of buffer b, assuming b is embedded into an bvarith64_buffer_elem
+ */
+static inline dl_list_t *bvarith64_buffer_header(bvarith64_buffer_t *b) {
+  return (dl_list_t *)(((char *)b) - offsetof(bvarith64_buffer_elem_t, buffer));
+}
+
+/*
+ * Get buffer of header l
+ */
+static inline bvarith64_buffer_t *bvarith64_buffer(dl_list_t *l) {
+  return (bvarith64_buffer_t *)(((char *) l) + offsetof(bvarith64_buffer_elem_t, buffer));
+}
+
+/*
+ * Allocate a bv-arithmetic buffer and insert it into the list
+ */
+static inline bvarith64_buffer_t *alloc_bvarith64_buffer(void) {
+  bvarith64_buffer_elem_t *new_elem;
+
+  new_elem = (bvarith64_buffer_elem_t *) safe_malloc(sizeof(bvarith64_buffer_elem_t));
+  list_insert_next(&bvarith64_buffer_list, &new_elem->header);
+  return &new_elem->buffer;
+}
+
+/*
+ * Remove b from the list and free b
+ */
+static inline void free_bvarith64_buffer(bvarith64_buffer_t *b) {
+  dl_list_t *elem;
+
+  elem = bvarith64_buffer_header(b);
+  list_remove(elem);
+  safe_free(elem);
+}
+
+/*
+ * Clean up the buffer list: free all elements and empty the list
+ */
+static void free_bvarith64_buffer_list(void) {
+  dl_list_t *elem, *aux;
+
+  elem = bvarith64_buffer_list.next;
+  while (elem != &bvarith_buffer_list) {
+    aux = elem->next;
+    delete_bvarith64_buffer(bvarith64_buffer(elem));
+    safe_free(elem);
+    elem = aux;
+  }
+
+  clear_list(&bvarith64_buffer_list);
+}
+
+
+
+/*****************************
+ *  LOGIC BUFFER ALLOCATION  *
+ ****************************/
 
 /*
  * Get header of buffer b, assuming b is embedded into an bvlogic_buffer_elem
@@ -273,7 +354,7 @@ static inline bvlogic_buffer_t *bvlogic_buffer(dl_list_t *l) {
 /*
  * Allocate an arithmetic buffer and insert it into the list
  */
-static inline bvlogic_buffer_t *alloc_bvlogic_buffer() {
+static inline bvlogic_buffer_t *alloc_bvlogic_buffer(void) {
   bvlogic_buffer_elem_t *new_elem;
 
   new_elem = (bvlogic_buffer_elem_t *) safe_malloc(sizeof(bvlogic_buffer_elem_t));
@@ -295,7 +376,7 @@ static inline void free_bvlogic_buffer(bvlogic_buffer_t *b) {
 /*
  * Clean up the arith buffer list: free all elements and empty the list
  */
-static void free_bvlogic_buffer_list() {
+static void free_bvlogic_buffer_list(void) {
   dl_list_t *elem, *aux;
 
   elem = bvlogic_buffer_list.next;
@@ -328,7 +409,7 @@ static arith_buffer_t *get_internal_arith_buffer(void) {
   b = internal_arith_buffer;
   if (b == NULL) {
     b = alloc_arith_buffer();
-    init_arith_buffer(b, &arith_manager, &arith_store);
+    init_arith_buffer(b, &pprods, &arith_store);
     internal_arith_buffer = b;
   }
 
@@ -345,8 +426,25 @@ static bvarith_buffer_t *get_internal_bvarith_buffer(void) {
   b = internal_bvarith_buffer;
   if (b == NULL) {
     b = alloc_bvarith_buffer();
-    init_bvarith_buffer(b, &bv_manager, &bv_store);
+    init_bvarith_buffer(b, &pprods, &bvarith_store);
     internal_bvarith_buffer = b;
+  }
+
+  return b;
+}
+
+
+/*
+ * Same thing: internal_bvarith64 buffer
+ */
+static bvarith64_buffer_t *get_internal_bvarith64_buffer(void) {
+  bvarith64_buffer_t *b;
+
+  b = internal_bvarith64_buffer;
+  if (b == NULL) {
+    b = alloc_bvarith64_buffer();
+    init_bvarith64_buffer(b, &pprods, &bvarith64_store);
+    internal_bvarith64_buffer = b;
   }
 
   return b;
@@ -383,13 +481,13 @@ static bvlogic_buffer_t *get_internal_bvlogic_buffer(void) {
 static void init_globals(yices_globals_t *glob) {
   glob->types = &types;
   glob->terms = &terms;
-  glob->unit_map = &unit_map;
-  glob->arith_manager = &arith_manager;
-  glob->arith_store = &arith_store;
-  glob->bv_manager = &bv_manager;
-  glob->bv_store = &bv_store;
+  glob->pprods = &pprods;
   glob->nodes = &nodes;
+  glob->arith_store = &arith_store;
+  glob->bvarith_store = &bvarith_store;
+  glob->bvarith64_store = &bvarith64_store;
 }
+
 
 /*
  * Reset all to NULL
@@ -397,20 +495,18 @@ static void init_globals(yices_globals_t *glob) {
 static void clear_globals(yices_globals_t *glob) {
   glob->types = NULL;
   glob->terms = NULL;
-  glob->unit_map = NULL;
-  glob->arith_manager = NULL;
-  glob->arith_store = NULL;
-  glob->bv_manager = NULL;
-  glob->bv_store = NULL;
+  glob->pprods = NULL;
   glob->nodes = NULL;
+  glob->arith_store = NULL;
+  glob->bvarith_store = NULL;
+  glob->bvarith64_store = NULL;
 }
-
 
 
 /*
  * Initialize all global objects
  */
-EXPORTED void yices_init() {
+EXPORTED void yices_init(void) {
   error.code = NO_ERROR;
 
   init_bvconstants();
@@ -422,23 +518,27 @@ EXPORTED void yices_init() {
   q_init(&r0);
   q_init(&r1);
 
-  init_node_table(&nodes, 0);
-  init_bvmlist_store(&bv_store);
-  init_bv_var_manager(&bv_manager, 0, &nodes);
-
-  init_mlist_store(&arith_store);
-  init_arithvar_manager(&arith_manager, 0);
-
+  // tables
   init_type_table(&types, INIT_TYPE_SIZE);
-  init_term_table(&terms, INIT_TERM_SIZE, &types, &arith_manager, &bv_manager);
-  init_int_hmap(&unit_map, 0);
+  init_pprod_table(&pprods, 0);
+  init_node_table(&nodes, 0);
+  init_term_table(&terms, INIT_TERM_SIZE, &types, &pprods);
 
+  // object stores
+  init_mlist_store(&arith_store);
+  init_bvmlist_store(&bvarith_store);
+  init_bvmlist64_store(&bvarith64_store);
+
+  // buffer lists
   clear_list(&arith_buffer_list);
   clear_list(&bvarith_buffer_list);
+  clear_list(&bvarith64_buffer_list);
   clear_list(&bvlogic_buffer_list);
 
+  // internal buffers (allocated on demand)
   internal_arith_buffer = NULL;
   internal_bvarith_buffer = NULL;
+  internal_bvarith64_buffer = NULL;
   internal_bvlogic_buffer = NULL;
 
   // prepare the global table
@@ -449,29 +549,29 @@ EXPORTED void yices_init() {
 /*
  * Cleanup: delete all tables and internal data structures
  */
-EXPORTED void yices_cleanup() {
+EXPORTED void yices_cleanup(void) {
   clear_globals(&__yices_globals);
 
   // internal buffers will be freed via free_arith_buffer_list,
   // free_bvarith_buffer_list, and free_bvlogic_buffer_list
   internal_arith_buffer = NULL;
   internal_bvarith_buffer = NULL;
+  internal_bvarith64_buffer = NULL;
   internal_bvlogic_buffer = NULL;
 
   free_bvlogic_buffer_list();
   free_bvarith_buffer_list();
+  free_bvarith64_buffer_list();
   free_arith_buffer_list();
 
-  delete_int_hmap(&unit_map);
   delete_term_table(&terms);
+  delete_node_table(&nodes);
+  delete_pprod_table(&pprods);
   delete_type_table(&types);
 
-  delete_arithvar_manager(&arith_manager);
   delete_mlist_store(&arith_store);
-
-  delete_bv_var_manager(&bv_manager);
-  delete_bvmlist_store(&bv_store);
-  delete_node_table(&nodes);
+  delete_bvmlist_store(&bvarith_store);
+  delete_bvmlist64_store(&bvarith64_store);
 
   q_clear(&r0); // not necessary
   q_clear(&r1);
@@ -481,7 +581,6 @@ EXPORTED void yices_cleanup() {
   delete_bvconstant(&bv1);
   delete_bvconstant(&bv0);
   cleanup_bvconstants();
-
 }
 
 
@@ -489,15 +588,22 @@ EXPORTED void yices_cleanup() {
 /*
  * Get the last error report
  */
-EXPORTED error_report_t * yices_get_error_report() {
+EXPORTED error_report_t *yices_get_error_report(void) {
   return &error;
 }
 
 
 /*
+ * Get the last error code
+ */
+EXPORTED error_code_t yices_get_error_code(void) {
+  return error.code;
+}
+
+/*
  * Clear the last error report
  */
-EXPORTED void yices_clear_error() {
+EXPORTED void yices_clear_error(void) {
   error.code = NO_ERROR;
 }
 
@@ -505,104 +611,702 @@ EXPORTED void yices_clear_error() {
 
 
 
-/******************************
- *  SORTING OF BOOLEAN TERMS  *
- *****************************/
+
+/***********************
+ *  BUFFER ALLOCATION  *
+ **********************/
 
 /*
- * After sorting an array of boolean terms:
- * - constant true/false come first in the array
- * - terms x and (not x) are adjacent
+ * These functions are not part of the API.
+ * They are exported to be used by term_stack.
  */
-static void isort_bool_terms(term_table_t *tbl, uint32_t n, term_t *a);
-static void qsort_bool_terms(term_table_t *tbl, uint32_t n, term_t *a);
 
-static inline void sort_bool_terms(term_table_t *tbl, uint32_t n, term_t *a) {
-  if (n <= 10) {
-    isort_bool_terms(tbl, n, a);
-  } else {
-    qsort_bool_terms(tbl, n, a);
-  }
+/*
+ * Allocate an arithmetic buffer, initialized to the zero polynomial.
+ * Add it to the buffer list
+ */
+arith_buffer_t *yices_new_arith_buffer() {
+  arith_buffer_t *b;
+  
+  b = alloc_arith_buffer();
+  init_arith_buffer(b, &pprods, &arith_store);
+  return b;
 }
 
-/*
- * Rank function:
- * - ensures that (rank (not x)) = (rank x) +/- 1
- * - note: numerical overflow cannot occur if 0 <= x < MAX_TERMS,
- *   which holds for any good term x.
- */
-static uint32_t bool_rank(term_table_t *tbl, term_t x) {
-  assert(0 <= x && x < INT32_MAX);
-  if (term_kind(tbl, x) == NOT_TERM) {
-    return ((uint32_t) not_term_arg(tbl, x)) << 1 | 1;
-  } else {
-    return ((uint32_t) x) << 1;
-  }
-}
 
 /*
- * Insertion sort: array a[0 ... n-1], no end marker
+ * Free an allocated buffer
  */
-static void isort_bool_terms(term_table_t *tbl, uint32_t n, term_t *a) {
-  uint32_t i, j, r;
-  term_t x, y;
+void yices_free_arith_buffer(arith_buffer_t *b) {
+  delete_arith_buffer(b);
+  free_arith_buffer(b);
+}
+
+
+/*
+ * Allocate and initialize a bvarith_buffer
+ * - the buffer is initialized to 0b0...0 (with n bits)
+ * - n must be positive and no more than YICES_MAX_BVSIZE
+ */
+bvarith_buffer_t *yices_new_bvarith_buffer(uint32_t n) {
+  bvarith_buffer_t *b;
+
+  b = alloc_bvarith_buffer();
+  init_bvarith_buffer(b, &pprods, &bvarith_store);
+  bvarith_buffer_prepare(b, n);
+
+  return b;
+}
+
+
+/*
+ * Free an allocated bvarith_buffer
+ */
+void yices_free_bvarith_buffer(bvarith_buffer_t *b) {
+  delete_bvarith_buffer(b);
+  free_bvarith_buffer(b);
+}
+
+
+/*
+ * Allocate and initialize a bvarith64_buffer
+ * - the buffer is initialized to 0b0000..0 (with n bits)
+ * - n must be between 1 and 64
+ */
+bvarith64_buffer_t *yices_new_bvarith64_buffer(uint32_t n) {
+  bvarith64_buffer_t *b;
+
+  b = alloc_bvarith64_buffer();
+  init_bvarith64_buffer(b, &pprods, &bvarith64_store);
+  bvarith64_buffer_prepare(b, n);
+
+  return b;
+}
+
+
+/*
+ * Free an allocated bvarith64_buffer
+ */
+void yices_free_bvarith64_buffer(bvarith64_buffer_t *b) {
+  delete_bvarith64_buffer(b);
+  free_bvarith64_buffer(b);
+}
+
+
+
+/*
+ * Allocate and initialize a bvlogic buffer
+ * - the buffer is empty (bitsize = 0)
+ */
+bvlogic_buffer_t *yices_new_bvlogic_buffer(void) {
+  bvlogic_buffer_t *b;
+
+  b = alloc_bvlogic_buffer();
+  init_bvlogic_buffer(b, &nodes);
+
+  return b;
+}
+
+
+
+/*
+ * Free buffer b allocated by the previous function
+ */
+void yices_free_bvlogic_buffer(bvlogic_buffer_t *b) {
+  bvlogic_buffer_clear(b);
+  delete_bvlogic_buffer(b);
+  free_bvlogic_buffer(b);
+}
+
+
+
+
+
+
+
+/******************
+ *  TYPECHECKING  *
+ *****************/
+
+/*
+ * All check_ functions return true if the check succeeds.
+ * Otherwise they return false and set the error code and diagnostic data.
+ */
+// Check whether n is positive
+static bool check_positive(uint32_t n) {
+  if (n == 0) {
+    error.code = POS_INT_REQUIRED;
+    error.badval = n;
+    return false;
+  }
+  return true;
+}
+
+// Check whether n is less than YICES_MAX_ARITY
+static bool check_arity(uint32_t n) {
+  if (n > YICES_MAX_ARITY) {
+    error.code = TOO_MANY_ARGUMENTS;
+    error.badval = n;
+    return false;
+  }
+  return true;
+}
+
+// Check whether n is less than YICES_MAX_VARS
+static bool check_maxvars(uint32_t n) {
+  if (n > YICES_MAX_VARS) {
+    error.code = TOO_MANY_VARS;
+    error.badval = n;
+    return false;
+  }
+  return true;
+}
+
+// Check whether n is less than YICES_MAX_BVSIZE
+static bool check_maxbvsize(uint32_t n) {
+  if (n > YICES_MAX_BVSIZE) {
+    error.code = MAX_BVSIZE_EXCEEDED;
+    error.badval = n;
+    return false;    
+  }
+  return true;
+}
+
+// Check whether d is no more than YICES_MAX_DEGREE
+static bool check_maxdegree(uint32_t d) {
+  if (d > YICES_MAX_DEGREE) {
+    error.code = DEGREE_OVERFLOW;
+    error.badval = d;
+    return false;
+  }
+  return true;
+}
+
+// Check whether tau is a valid type
+static bool check_good_type(type_table_t *tbl, type_t tau) {
+  if (bad_type(tbl, tau)) { 
+    error.code = INVALID_TYPE;
+    error.type1 = tau;
+    error.index = -1;
+    return false;
+  }
+  return true;
+}
+
+// Check whether all types in a[0 ... n-1] are valid
+static bool check_good_types(type_table_t *tbl, uint32_t n, type_t *a) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (bad_type(tbl, a[i])) {
+      error.code = INVALID_TYPE;
+      error.type1 = a[i];
+      error.index = i;
+      return false;
+    }
+  }
+  return true;
+}
+
+// Check whether tau is uninterpreted or scalar and whether 
+// i a valid constant index for type tau.
+static bool check_good_constant(type_table_t *tbl, type_t tau, int32_t i) {
+  type_kind_t kind;
+
+  if (bad_type(tbl, tau)) {
+    error.code = INVALID_TYPE;
+    error.type1 = tau;
+    error.index = -1;
+    return false;
+  }
+  kind = type_kind(tbl, tau);
+  if (kind != UNINTERPRETED_TYPE && kind != SCALAR_TYPE) {
+    error.code = SCALAR_OR_UTYPE_REQUIRED;
+    error.type1 = tau;
+    return false;
+  }
+  if (i < 0 || 
+      (kind == SCALAR_TYPE && i >= scalar_type_cardinal(tbl, tau))) {
+    error.code = INVALID_CONSTANT_INDEX;
+    error.type1 = tau;
+    error.badval = i;
+    return false;
+  }
+  return true;
+}
+
+// Check whether t is a valid term
+static bool check_good_term(term_table_t *tbl, term_t t) {
+  if (bad_term(tbl, t)) {
+    error.code = INVALID_TERM;
+    error.term1 = t;
+    error.index = -1;
+    return false;
+  }
+  return true;
+}
+
+// Check that terms in a[0 ... n-1] are valid
+static bool check_good_terms(term_table_t *tbl, uint32_t n, term_t *a) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (bad_term(tbl, a[i])) {
+      error.code = INVALID_TERM;
+      error.term1 = a[i];
+      error.index = i;
+      return false;
+    }
+  }
+  return true;
+}
+
+// check that terms a[0 ... n-1] have types that match tau[0 ... n-1].
+static bool check_arg_types(term_table_t *tbl, uint32_t n, term_t *a, type_t *tau) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (! is_subtype(tbl->types, term_type(tbl, a[i]), tau[i])) {
+      error.code = TYPE_MISMATCH;
+      error.term1 = a[i];
+      error.type1 = tau[i];
+      error.index = i;
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// check whether (f a[0] ... a[n-1]) is typecorrect
+static bool check_good_application(term_table_t *tbl, term_t f, uint32_t n, term_t *a) {
+  function_type_t *ft;
+
+  if (! check_positive(n) || 
+      ! check_good_term(tbl, f) || 
+      ! check_good_terms(tbl, n, a)) {
+    return false;
+  }
+
+  if (! is_function_term(tbl, f)) {
+    error.code = FUNCTION_REQUIRED;
+    error.term1 = f;
+    return false;
+  }  
+
+  ft = function_type_desc(tbl->types, term_type(tbl, f));
+  if (n != ft->ndom) {
+    error.code = WRONG_NUMBER_OF_ARGUMENTS;
+    error.type1 = term_type(tbl, f);
+    error.badval = n;
+    return false;
+  }
+
+  return check_arg_types(tbl, n, a, ft->domain);
+}
+
+// Check whether t is a boolean term. t must be a valid term
+static bool check_boolean_term(term_table_t *tbl, term_t t) {
+  if (! is_boolean_term(tbl, t)) {
+    error.code = TYPE_MISMATCH;
+    error.term1 = t;
+    error.type1 = bool_type(tbl->types);
+    error.index = -1;
+    return false;
+  }
+  return true;
+}
+
+
+// Check whether t is an arithmetic term, t must be valid.
+static bool check_arith_term(term_table_t *tbl, term_t t) {
+  if (! is_arithmetic_term(tbl, t)) {
+    error.code = ARITHTERM_REQUIRED;
+    error.term1 = t;
+    return false;
+  }
+  return true;
+}
+
+
+// Check whether t is a bitvector term, t must be valid
+static bool check_bitvector_term(term_table_t *tbl, term_t t) {
+  if (! is_bitvector_term(tbl, t)) {
+    error.code = BITVECTOR_REQUIRED;
+    error.term1 = t;
+    return false;
+  }
+  return true;
+}
+
+
+// Check whether t1 and t2 have compatible types (i.e., (= t1 t2) is well-typed)
+// t1 and t2 must both be valid
+static bool check_compatible_terms(term_table_t *tbl, term_t t1, term_t t2) {
+  type_t tau1, tau2;
+
+  tau1 = term_type(tbl, t1);
+  tau2 = term_type(tbl, t2);
+  if (! compatible_types(tbl->types, tau1, tau2)) {
+    error.code = INCOMPATIBLE_TYPES;
+    error.term1 = t1;
+    error.type1 = tau1;
+    error.term2 = t2;
+    error.type2 = tau2;
+    return false;
+  }
+
+  return true;
+}
+
+
+// Check whether (= t1 t2) is type correct
+static bool check_good_eq(term_table_t *tbl, term_t t1, term_t t2) {
+  return check_good_term(tbl, t1) && check_good_term(tbl, t2) &&
+    check_compatible_terms(tbl, t1, t2);
+}
+
+// Check whether t1 and t2 are two valid arithmetic terms
+static bool check_both_arith_terms(term_table_t *tbl, term_t t1, term_t t2) {
+  return check_good_term(tbl, t1) && check_good_term(tbl, t2) &&
+    check_arith_term(tbl, t1) && check_arith_term(tbl, t2);
+}
+
+// Check that t1 and t2 are bitvectors of the same size
+static bool check_compatible_bv_terms(term_table_t *tbl, term_t t1, term_t t2) {
+  return check_good_term(tbl, t1) && check_good_term(tbl, t2)
+    && check_bitvector_term(tbl, t1) && check_bitvector_term(tbl, t2) 
+    && check_compatible_terms(tbl, t1, t2);
+}
+
+
+// Check whether terms a[0 ... n-1] are all boolean
+static bool check_boolean_args(term_table_t *tbl, uint32_t n, term_t *a) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (! is_boolean_term(tbl, a[i])) {
+      error.code = TYPE_MISMATCH;
+      error.term1 = a[i];
+      error.type1 = bool_type(tbl->types);
+      error.index = i;
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+// Check whether (tuple-select i t) is well-typed
+static bool check_good_select(term_table_t *tbl, uint32_t i, term_t t) {
+  type_t tau;
+
+  if (! check_good_term(tbl, t)) {
+    return false;
+  }
+
+  tau = term_type(tbl, t);
+  if (type_kind(tbl->types, tau) != TUPLE_TYPE) {
+    error.code = TUPLE_REQUIRED;
+    error.term1 = t;
+    return false;
+  }
+
+  if (i >= tuple_type_arity(tbl->types, tau)) {
+    error.code = INVALID_TUPLE_INDEX;
+    error.type1 = tau;
+    error.badval = i;
+    return false;
+  }
+  
+  return true;
+}
+
+// Check that (update f (a_1 ... a_n) v) is well typed
+static bool check_good_update(term_table_t *tbl, term_t f, uint32_t n, term_t *a, term_t v) {
+  function_type_t *ft;
+
+  if (! check_positive(n) || 
+      ! check_good_term(tbl, f) ||
+      ! check_good_term(tbl, v) ||
+      ! check_good_terms(tbl, n, a)) {
+    return false;
+  }
+
+  if (! is_function_term(tbl, f)) {
+    error.code = FUNCTION_REQUIRED;
+    error.term1 = f;
+    return false;
+  }  
+
+  ft = function_type_desc(tbl->types, term_type(tbl, f));
+  if (n != ft->ndom) {
+    error.code = WRONG_NUMBER_OF_ARGUMENTS;
+    error.type1 = term_type(tbl, f);
+    error.badval = n;
+    return false;
+  }
+
+  if (! is_subtype(tbl->types, term_type(tbl, v), ft->range)) {
+    error.code = TYPE_MISMATCH;
+    error.term1 = v;
+    error.type1 = ft->range;
+    error.index = -1;
+    return false;
+  }
+
+  return check_arg_types(tbl, n, a, ft->domain);
+}
+
+
+// Check (distinct t_1 ... t_n)
+static bool check_good_distinct_term(term_table_t *tbl, uint32_t n, term_t *a) {
+  uint32_t i;
+  type_t tau;
+
+  if (! check_positive(n) ||
+      ! check_arity(n) ||
+      ! check_good_terms(tbl, n, a)) {
+    return false;
+  }
+
+  tau = term_type(tbl, a[0]); 
+  for (i=1; i<n; i++) {
+    tau = super_type(tbl->types, tau, term_type(tbl, a[i]));
+    if (tau == NULL_TYPE) {
+      error.code = INCOMPATIBLE_TYPES;
+      error.term1 = a[0];
+      error.type1 = term_type(tbl, a[0]);
+      error.term2 = a[i];
+      error.type2 = term_type(tbl, a[i]);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// Check quantified formula (FORALL/EXISTS (v_1 ... v_n) body)
+// v must be sorted.
+static bool check_good_quantified_term(term_table_t *tbl, uint32_t n, term_t *v, term_t body) {
+  int32_t i;
+
+  if (! check_positive(n) ||
+      ! check_maxvars(n) ||
+      ! check_good_term(tbl, body) ||
+      ! check_good_terms(tbl, n, v) ||
+      ! check_boolean_term(tbl, body)) {
+    return false;
+  }
+
+  for (i=0; i<n; i++) {
+    if (term_kind(tbl, v[i]) != VARIABLE) {      
+      error.code = VARIABLE_REQUIRED;
+      error.term1 = v[i];
+      error.index = i;
+      return false;
+    }
+  }
 
   for (i=1; i<n; i++) {
-    x = a[i];
-    r = bool_rank(tbl, x);
-    j = 0;
-    while (bool_rank(tbl, a[j]) < r) j++;
-    while (j < i) {
-      y = a[j]; a[j] = x; x = y;
-      j ++;
+    if (v[i-1] == v[i]) {
+      error.code = DUPLICATE_VARIABLE;
+      error.term1 = v[i];
+      error.index = i;
+      return false;
     }
-    a[j] = x;
-  }
-}
-
-/*
- * Quick sort: array a[0 ... n-1], no end marker
- * n must be more than 1.
- */
-static void qsort_bool_terms(term_table_t *tbl, uint32_t n, term_t *a) {
-  uint32_t i, j, r;
-  term_t x, y;
-
-  // random pivot
-  i = random_uint(n);
-  x = a[i];
-  r = bool_rank(tbl, x);
-
-  // swap with a[0]
-  a[i] = a[0];
-  a[0] = x;
-
-  i = 0;
-  j = n;
-
-  do { j--; } while (bool_rank(tbl, a[j]) > r);
-  do { i++; } while (i <= j && bool_rank(tbl, a[i]) < r);
-
-  while (i < j) {
-    y = a[i]; a[i] = a[j]; a[j] = y;
-
-    do { j--; } while (bool_rank(tbl, a[j]) > r);
-    do { i++; } while (bool_rank(tbl, a[i]) < r);
   }
 
-  // place pivot
-  a[0] = a[j];
-  a[j] = x;
-
-  sort_bool_terms(tbl, j, a); // a[0 ... j-1]
-  j ++;
-  sort_bool_terms(tbl, n - j, a + j); // a[j+1 .. n-1]
+  return true;
 }
 
 
+// Check whether (tuple-select i t v) is well-typed
+static bool check_good_tuple_update(term_table_t *tbl, uint32_t i, term_t t, term_t v) {
+  type_t tau;
+  tuple_type_t *desc;
+
+  if (! check_good_term(tbl, t) ||
+      ! check_good_term(tbl, v)) {
+    return false;
+  }
+
+  tau = term_type(tbl, t);
+  if (type_kind(tbl->types, tau) != TUPLE_TYPE) {
+    error.code = TUPLE_REQUIRED;
+    error.term1 = t;
+    return false;
+  }
+
+  desc = tuple_type_desc(tbl->types, tau);
+  if (i >= desc->nelem) {
+    error.code = INVALID_TUPLE_INDEX;
+    error.type1 = tau;
+    error.badval = i;
+    return false;
+  }
+
+  if (! is_subtype(tbl->types, term_type(tbl, v), desc->elem[i])) {
+    error.code = TYPE_MISMATCH;
+    error.term1 = v;
+    error.type1 = desc->elem[i];
+    error.index = -1;
+    return false;
+  }
+  
+  return true;
+}
+
+
+// Check that a polynomial has degree at most MAX_DEGREE
+static inline bool check_arith_buffer_degree(arith_buffer_t *b) {
+  return check_maxdegree(arith_buffer_degree(b));
+}
+
+
+// Same thing for bitvector polynomials
+static inline bool check_bvarith_buffer_degree(bvarith_buffer_t *b) {
+  return check_maxdegree(bvarith_buffer_degree(b));
+}
+
+static inline bool check_bvarith64_buffer_degree(bvarith64_buffer_t *b) {
+  return check_maxdegree(bvarith64_buffer_degree(b));
+}
+
+// Check that the degree of term t is at most MAX_DEGREE
+static inline bool check_term_degree(term_table_t *tbl, term_t t) {
+  return check_maxdegree(term_degree(tbl, t));
+}
 
 
 
+// Check whether t is a bitvector term of size n
+static bool check_bitsize(term_table_t *tbl, term_t t, uint32_t n) {
+  uint32_t s;
+
+  s = term_bitsize(tbl, t);
+  if (s != n) {
+    error.code = INCOMPATIBLE_BVSIZES;
+    error.badval = s;
+    return false;
+  }
+  return true;
+}
+
+
+// Check whether i is a valid shift for bitvectors of size n
+static bool check_bitshift(uint32_t i, uint32_t n) {
+  if (i > n) {
+    error.code = INVALID_BITSHIFT;
+    error.badval = i;
+    return false;
+  }
+
+  return true;
+}
+
+// Check whether [i, j] is a valid segment for bitvectors of size n
+static bool check_bitextract(uint32_t i, uint32_t j, uint32_t n) {
+  if (i < 0 || i > j || j >= n) {
+    error.code = INVALID_BVEXTRACT;
+    return false;
+  }
+  return true;
+}
+
+
+// Check whether terms a[0] to a[n-1] are all bitvector terms of size p
+static bool check_good_bitvectors(term_table_t *tbl, uint32_t n, term_t *a, uint32_t p) {
+  uint32_t i, s;
+  term_t t;
+
+  for (i=0; i<n; i++) {
+    t = a[i];
+    if (! is_bitvector_term(tbl, t)) {
+      error.code = BITVECTOR_REQUIRED;
+      error.term1 = t;
+      error.index = i;
+      return false;
+    }
+
+    s = term_bitsize(tbl, t);
+    if (s != p) {
+      error.code = INCOMPATIBLE_BVSIZES;
+      error.term1 = t;
+      error.index = i;
+      error.badval = s;      
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+
+
+
+
+/***********************
+ *  TYPE CONSTRUCTORS  *
+ **********************/
+
+EXPORTED type_t yices_bool_type() {
+  return bool_type(&types);
+}
+
+EXPORTED type_t yices_int_type() {
+  return int_type(&types);
+}
+
+EXPORTED type_t yices_real_type() {
+  return real_type(&types);
+}
+
+EXPORTED type_t yices_bv_type(uint32_t size) {
+  if (! check_positive(size) || ! check_maxbvsize(size)) {
+    return NULL_TYPE;
+  }
+  return bv_type(&types, size);
+}
+
+EXPORTED type_t yices_new_uninterpreted_type() {
+  return new_uninterpreted_type(&types);
+}
+
+EXPORTED type_t yices_new_scalar_type(uint32_t card) {
+  if (! check_positive(card)) {
+    return NULL_TYPE;
+  }
+  return new_scalar_type(&types, card);
+}
+
+EXPORTED type_t yices_tuple_type(uint32_t n, type_t elem[]) {
+  if (! check_positive(n) || 
+      ! check_arity(n) ||
+      ! check_good_types(&types, n, elem)) {
+    return NULL_TYPE;
+  }
+  return tuple_type(&types, n, elem);
+}
+
+EXPORTED type_t yices_function_type(uint32_t n, type_t dom[], type_t range) {
+  if (! check_positive(n) || 
+      ! check_arity(n) ||
+      ! check_good_type(&types, range) || 
+      ! check_good_types(&types, n, dom)) {
+    return NULL_TYPE;
+  }
+  return function_type(&types, range, n, dom);
+}
+
+
+
+
+
+
+#if 0
 
 
 
@@ -897,7 +1601,7 @@ static term_t mk_lifted_ite_bveq(term_table_t *tbl, term_t c, term_t t, term_t e
   if (x == eq2->left)  return mk_bveq_ite(tbl, c, x, eq1->left, eq2->right);
   if (x == eq2->right) return mk_bveq_ite(tbl, c, x, eq1->left, eq2->left);
 
-  return ite_term(tbl, c, t, e, bool_type(tbl->type_table));
+  return ite_term(tbl, c, t, e, bool_type(tbl->types));
 }
 
 /*
@@ -950,7 +1654,7 @@ static term_t mk_bool_ite(term_table_t *tbl, term_t c, term_t t, term_t e) {
     return mk_lifted_ite_bveq(tbl, c, t, e);
   }
 
-  return ite_term(tbl, c, t, e, bool_type(tbl->type_table));
+  return ite_term(tbl, c, t, e, bool_type(tbl->types));
 }
 
 
@@ -1392,7 +2096,7 @@ static term_t mk_integer_polynomial_ite(term_table_t *tbl, term_t c, term_t t, t
       e = arith_term(tbl, b);
 
       // (ite c p' q')
-      t = ite_term(tbl, c, t, e, int_type(tbl->type_table));
+      t = ite_term(tbl, c, t, e, int_type(tbl->types));
 
       // built r0 * t
       arith_buffer_reset(b);
@@ -1402,744 +2106,7 @@ static term_t mk_integer_polynomial_ite(term_table_t *tbl, term_t c, term_t t, t
   }
   
   // no common factor to lift
-  return ite_term(tbl, c, t, e, int_type(tbl->type_table));
-}
-
-
-
-
-/******************
- *  TYPECHECKING  *
- *****************/
-
-/*
- * All check_ functions return true if the check succeeds.
- * Otherwise they return false and set the error code and diagnostic data.
- */
-// Check whether n is positive
-static bool check_positive(int32_t n) {
-  if (n <= 0) {
-    error.code = POS_INT_REQUIRED;
-    error.badval = n;
-    return false;
-  }
-  return true;
-}
-
-// Check whether n is non-negative
-static bool check_nonneg(int32_t n) {
-  if (n < 0) {
-    error.code = NONNEG_INT_REQUIRED;
-    error.badval = n;
-    return false;
-  }
-  return true;
-}
-
-// Check whether n is less than YICES_MAX_ARITY
-static bool check_arity(int32_t n) {
-  if (n > YICES_MAX_ARITY) {
-    error.code = TOO_MANY_ARGUMENTS;
-    error.badval = n;
-    return false;
-  }
-  return true;
-}
-
-// Check whether n is less than YICES_MAX_VARS
-static bool check_maxvars(int32_t n) {
-  if (n > YICES_MAX_VARS) {
-    error.code = TOO_MANY_VARS;
-    error.badval = n;
-    return false;
-  }
-  return true;
-}
-
-// Check whether n is less than YICES_MAX_BVSIZE
-static bool check_maxbvsize(int32_t n) {
-  if (n > YICES_MAX_BVSIZE) {
-    error.code = MAX_BVSIZE_EXCEEDED;
-    error.badval = n;
-    return false;    
-  }
-  return true;
-}
-
-// Check whether tau is a valid type
-static bool check_good_type(type_table_t *tbl, type_t tau) {
-  if (bad_type(tbl, tau)) { 
-    error.code = INVALID_TYPE;
-    error.type1 = tau;
-    error.index = -1;
-    return false;
-  }
-  return true;
-}
-
-// Check whether all types in a[0 ... n-1] are valid
-static bool check_good_types(type_table_t *tbl, int32_t n, type_t *a) {
-  int32_t i;
-
-  for (i=0; i<n; i++) {
-    if (bad_type(tbl, a[i])) {
-      error.code = INVALID_TYPE;
-      error.type1 = a[i];
-      error.index = i;
-      return false;
-    }
-  }
-  return true;
-}
-
-// Check whether tau is uninterpreted or scalar and whether 
-// i a valid constant index for type tau.
-static bool check_good_constant(type_table_t *tbl, type_t tau, int32_t i) {
-  type_kind_t kind;
-
-  if (bad_type(tbl, tau)) {
-    error.code = INVALID_TYPE;
-    error.type1 = tau;
-    error.index = -1;
-    return false;
-  }
-  kind = type_kind(tbl, tau);
-  if (kind != UNINTERPRETED_TYPE && kind != SCALAR_TYPE) {
-    error.code = SCALAR_OR_UTYPE_REQUIRED;
-    error.type1 = tau;
-    return false;
-  }
-  if (i < 0 || 
-      (kind == SCALAR_TYPE && i >= scalar_type_cardinal(tbl, tau))) {
-    error.code = INVALID_CONSTANT_INDEX;
-    error.type1 = tau;
-    error.badval = i;
-    return false;
-  }
-  return true;
-}
-
-
-// Check whether t is a valid term
-static bool check_good_term(term_table_t *tbl, term_t t) {
-  if (bad_term(tbl, t)) {
-    error.code = INVALID_TERM;
-    error.term1 = t;
-    error.index = -1;
-    return false;
-  }
-  return true;
-}
-
-// check that terms in a[0 ... n-1] are valid
-static bool check_good_terms(term_table_t *tbl, int32_t n, term_t *a) {
-  int32_t i;
-
-  for (i=0; i<n; i++) {
-    if (bad_term(tbl, a[i])) {
-      error.code = INVALID_TERM;
-      error.term1 = a[i];
-      error.index = i;
-      return false;
-    }
-  }
-  return true;
-}
-
-// check that terms a[0 ... n-1] have types that match tau[0 ... n-1].
-static bool check_arg_types(term_table_t *tbl, int32_t n, term_t *a, type_t *tau) {
-  int32_t i;
-
-  for (i=0; i<n; i++) {
-    if (! is_subtype(tbl->type_table, term_type(tbl, a[i]), tau[i])) {
-      error.code = TYPE_MISMATCH;
-      error.term1 = a[i];
-      error.type1 = tau[i];
-      error.index = i;
-      return false;
-    }
-  }
-
-  return true;
-}
-
-// check whether (f a[0] ... a[n-1]) is typecorrect
-static bool check_good_application(term_table_t *tbl, term_t f, int32_t n, term_t *a) {
-  function_type_t *ft;
-
-  if (! check_positive(n) || 
-      ! check_good_term(tbl, f) || 
-      ! check_good_terms(tbl, n, a)) {
-    return false;
-  }
-
-  if (! is_function_term(tbl, f)) {
-    error.code = FUNCTION_REQUIRED;
-    error.term1 = f;
-    return false;
-  }  
-
-  ft = function_type_desc(tbl->type_table, term_type(tbl, f));
-  if (n != ft->ndom) {
-    error.code = WRONG_NUMBER_OF_ARGUMENTS;
-    error.type1 = term_type(tbl, f);
-    error.badval = n;
-    return false;
-  }
-
-  return check_arg_types(tbl, n, a, ft->domain);
-}
-
-// Check whether t is a boolean term. t must be a valid term
-static bool check_boolean_term(term_table_t *tbl, term_t t) {
-  if (! is_boolean_term(tbl, t)) {
-    error.code = TYPE_MISMATCH;
-    error.term1 = t;
-    error.type1 = bool_type(tbl->type_table);
-    error.index = -1;
-    return false;
-  }
-  return true;
-}
-
-
-// Check whether t is an arithmetic term, t must be valid.
-static bool check_arith_term(term_table_t *tbl, term_t t) {
-  if (! is_arithmetic_term(tbl, t)) {
-    error.code = ARITHTERM_REQUIRED;
-    error.term1 = t;
-    return false;
-  }
-  return true;
-}
-
-
-// Check whether t is a bitvector term, t must be valid
-static bool check_bitvector_term(term_table_t *tbl, term_t t) {
-  if (! is_bitvector_term(tbl, t)) {
-    error.code = BITVECTOR_REQUIRED;
-    error.term1 = t;
-    return false;
-  }
-  return true;
-}
-
-
-// Check whether t1 and t2 have compatible types (i.e., (= t1 t2) is well-typed)
-// t1 and t2 must both be valid
-static bool check_compatible_terms(term_table_t *tbl, term_t t1, term_t t2) {
-  type_t tau1, tau2;
-
-  tau1 = term_type(tbl, t1);
-  tau2 = term_type(tbl, t2);
-  if (! compatible_types(tbl->type_table, tau1, tau2)) {
-    error.code = INCOMPATIBLE_TYPES;
-    error.term1 = t1;
-    error.type1 = tau1;
-    error.term2 = t2;
-    error.type2 = tau2;
-    return false;
-  }
-
-  return true;
-}
-
-
-// Check whether (= t1 t2) is type correct
-static bool check_good_eq(term_table_t *tbl, term_t t1, term_t t2) {
-  return check_good_term(tbl, t1) && check_good_term(tbl, t2) &&
-    check_compatible_terms(tbl, t1, t2);
-}
-
-// Check whether t1 and t2 are two valid arithmetic terms
-static bool check_both_arith_terms(term_table_t *tbl, term_t t1, term_t t2) {
-  return check_good_term(tbl, t1) && check_good_term(tbl, t2) &&
-    check_arith_term(tbl, t1) && check_arith_term(tbl, t2);
-}
-
-// Check that t1 and t2 are bitvectors of the same size
-static bool check_compatible_bv_terms(term_table_t *tbl, term_t t1, term_t t2) {
-  return check_good_term(tbl, t1) && check_good_term(tbl, t2)
-    && check_bitvector_term(tbl, t1) && check_bitvector_term(tbl, t2) 
-    && check_compatible_terms(tbl, t1, t2);
-}
-
-
-// Check whether terms a[0 ... n-1] are all boolean
-static bool check_boolean_args(term_table_t *tbl, int32_t n, term_t *a) {
-  int32_t i;
-
-  for (i=0; i<n; i++) {
-    if (! is_boolean_term(tbl, a[i])) {
-      error.code = TYPE_MISMATCH;
-      error.term1 = a[i];
-      error.type1 = bool_type(tbl->type_table);
-      error.index = i;
-      return false;
-    }
-  }
-
-  return true;
-}
-
-
-// Check whether (tuple-select i t) is well-typed
-static bool check_good_select(term_table_t *tbl, int32_t i, term_t t) {
-  type_t tau;
-
-  if (! check_nonneg(i) || ! check_good_term(tbl, t)) {
-    return false;
-  }
-
-  tau = term_type(tbl, t);
-  if (type_kind(tbl->type_table, tau) != TUPLE_TYPE) {
-    error.code = TUPLE_REQUIRED;
-    error.term1 = t;
-    return false;
-  }
-
-  if (i >= tuple_type_ncomponents(tbl->type_table, tau)) {
-    error.code = INVALID_TUPLE_INDEX;
-    error.type1 = tau;
-    error.badval = i;
-    return false;
-  }
-  
-  return true;
-}
-
-// Check that (update f (a_1 ... a_n) v) is well typed
-static bool check_good_update(term_table_t *tbl, term_t f, int32_t n, term_t *a, term_t v) {
-  function_type_t *ft;
-
-  if (! check_positive(n) || 
-      ! check_good_term(tbl, f) ||
-      ! check_good_term(tbl, v) ||
-      ! check_good_terms(tbl, n, a)) {
-    return false;
-  }
-
-  if (! is_function_term(tbl, f)) {
-    error.code = FUNCTION_REQUIRED;
-    error.term1 = f;
-    return false;
-  }  
-
-  ft = function_type_desc(tbl->type_table, term_type(tbl, f));
-  if (n != ft->ndom) {
-    error.code = WRONG_NUMBER_OF_ARGUMENTS;
-    error.type1 = term_type(tbl, f);
-    error.badval = n;
-    return false;
-  }
-
-  if (! is_subtype(tbl->type_table, term_type(tbl, v), ft->range)) {
-    error.code = TYPE_MISMATCH;
-    error.term1 = v;
-    error.type1 = ft->range;
-    error.index = -1;
-    return false;
-  }
-
-  return check_arg_types(tbl, n, a, ft->domain);
-}
-
-
-// Check (distinct t_1 ... t_n)
-static bool check_good_distinct_term(term_table_t *tbl, int32_t n, term_t *a) {
-  int32_t i;
-  type_t tau;
-
-  if (! check_positive(n) ||
-      ! check_good_terms(tbl, n, a)) {
-    return false;
-  }
-
-  tau = term_type(tbl, a[0]); 
-  for (i=1; i<n; i++) {
-    tau = super_type(tbl->type_table, tau, term_type(tbl, a[i]));
-    if (tau == NULL_TYPE) {
-      error.code = INCOMPATIBLE_TYPES;
-      error.term1 = a[0];
-      error.type1 = term_type(tbl, a[0]);
-      error.term2 = a[i];
-      error.type2 = term_type(tbl, a[i]);
-      return false;
-    }
-  }
-
-  return true;
-}
-
-// Check quantified formula (FORALL/EXISTS (v_1 ... v_n) body)
-// v must be sorted.
-static bool check_good_quantified_term(term_table_t *tbl, int32_t n, term_t *v, term_t body) {
-  int32_t i;
-
-  if (! check_positive(n) ||
-      ! check_maxvars(n) ||
-      ! check_good_term(tbl, body) ||
-      ! check_good_terms(tbl, n, v) ||
-      ! check_boolean_term(tbl, body)) {
-    return false;
-  }
-
-  for (i=0; i<n; i++) {
-    if (term_kind(tbl, v[i]) != VARIABLE) {      
-      error.code = VARIABLE_REQUIRED;
-      error.term1 = v[i];
-      error.index = i;
-      return false;
-    }
-  }
-
-  for (i=1; i<n; i++) {
-    if (v[i-1] == v[i]) {
-      error.code = DUPLICATE_VARIABLE;
-      error.term1 = v[i];
-      error.index = i;
-      return false;
-    }
-  }
-
-  return true;
-}
-
-
-// Check whether (tuple-select i t v) is well-typed
-static bool check_good_tuple_update(term_table_t *tbl, int32_t i, term_t t, term_t v) {
-  type_t tau;
-  tuple_type_t *desc;
-
-  if (! check_nonneg(i) || 
-      ! check_good_term(tbl, t) ||
-      ! check_good_term(tbl, v)) {
-    return false;
-  }
-
-  tau = term_type(tbl, t);
-  if (type_kind(tbl->type_table, tau) != TUPLE_TYPE) {
-    error.code = TUPLE_REQUIRED;
-    error.term1 = t;
-    return false;
-  }
-
-  desc = tuple_type_desc(tbl->type_table, tau);
-  if (i >= desc->nelem) {
-    error.code = INVALID_TUPLE_INDEX;
-    error.type1 = tau;
-    error.badval = i;
-    return false;
-  }
-
-  if (! is_subtype(tbl->type_table, term_type(tbl, v), desc->elem[i])) {
-    error.code = TYPE_MISMATCH;
-    error.term1 = v;
-    error.type1 = desc->elem[i];
-    error.index = -1;
-    return false;
-  }
-  
-  return true;
-}
-
-
-// Check that a polynomial has degree at most MAX_DEGREE
-static bool check_arith_buffer_degree(arith_buffer_t *b) {
-  int32_t d;
- 
-  d = arith_buffer_degree(b);
-  if (d > MAX_DEGREE) {
-    error.code = DEGREE_OVERFLOW;
-    return false;
-  }
-  return true;
-}
-
-static bool check_poly_degree(polynomial_t *p) {
-  int32_t d;
-
-  d = polynomial_degree(p, &arith_manager);
-  if (d > MAX_DEGREE) {
-    error.code = DEGREE_OVERFLOW;
-    error.badval = d;
-    return false;
-  }
-  return true;
-}
-
-static bool check_arith_term_degree(term_table_t *tbl, term_t t) {
-  return term_kind(tbl, t) != ARITH_TERM || check_poly_degree(arith_term_desc(tbl, t));
-}
-
-
-// Same thing for bitvector polynomials
-static bool check_bvarith_buffer_degree(bvarith_buffer_t *b) {
-  int32_t d;
- 
-  d = bvarith_buffer_degree(b);
-  if (d > MAX_DEGREE) {
-    error.code = DEGREE_OVERFLOW;
-    return false;
-  }
-  return true;
-}
-
-static bool check_bvarith_expr_degree(bvarith_expr_t *p) {
-  int32_t d;
-
-  d = bvarith_expr_degree(p, &bv_manager);
-  if (d > MAX_DEGREE) {
-    error.code = DEGREE_OVERFLOW;
-    error.badval = d;
-    return false;
-  }
-  return true;
-}
-
-static bool check_bvterm_degree(term_table_t *tbl, term_t t) {
-  return term_kind(tbl, t) != BV_ARITH_TERM || check_bvarith_expr_degree(bvarith_term_desc(tbl, t));
-}
-
-
-
-// Check whether t is a bitvector term of size n
-static bool check_bitsize(term_table_t *tbl, term_t t, int32_t n) {
-  int32_t s;
-
-  s = term_bitsize(tbl, t);
-  if (s != n) {
-    error.code = INCOMPATIBLE_BVSIZES;
-    error.badval = s;
-    return false;
-  }
-  return true;
-}
-
-
-// Check whether i is a valid shift for bitvectors of size n
-static bool check_bitshift(int32_t i, int32_t n) {
-  if (i < 0) {
-    error.code = NONNEG_INT_REQUIRED;
-    error.badval = i;
-    return false;
-  }
-
-  if (i > n) {
-    error.code = INVALID_BITSHIFT;
-    error.badval = i;
-    return false;
-  }
-
-  return true;
-}
-
-// Check whether [i, j] is a valid segment for bitvecotrs of size n
-static bool check_bitextract(int32_t i, int32_t j, int32_t n) {
-  if (i < 0 || i > j || j >= n) {
-    error.code = INVALID_BVEXTRACT;
-    return false;
-  }
-  return true;
-}
-
-
-// Check whether terms a[0] to a[n-1] are all bitvector terms of size p
-static bool check_good_bitvectors(term_table_t *tbl, int32_t n, term_t *a, uint32_t p) {
-  int32_t i, s;
-  term_t t;
-
-  for (i=0; i<n; i++) {
-    t = a[i];
-    if (! is_bitvector_term(tbl, t)) {
-      error.code = BITVECTOR_REQUIRED;
-      error.term1 = t;
-      error.index = i;
-      return false;
-    }
-
-    s = term_bitsize(tbl, t);
-    if (s != p) {
-      error.code = INCOMPATIBLE_BVSIZES;
-      error.term1 = t;
-      error.index = i;
-      error.badval = s;      
-      return false;
-    }
-  }
-
-  return true;
-}
-
-
-
-/****************
- *  UNIT TYPES  *
- ***************/
-
-/*
- * When a singleton type tau is created, we eagerly create
- * the corresponding term t (i.e., the unique element of that term)
- * and we add the mapping tau --> t in unit_map.
- */
-
-/*
- * Get the unique term of type tau
- * - tau must be present in the unit_map table and must be
- *   be mapped to a valid term
- */
-static term_t get_unit(type_t tau) {
-  int_hmap_pair_t *m;
-
-  assert(unit_type(&types, tau));
-  m = int_hmap_find(&unit_map, tau);
-  assert(m != NULL && good_term(&terms, m->val));
-  return m->val;
-}
-
-
-/*
- * Base case: tau is a scalar of 1 element
- */
-static void make_unit_scalar_type(type_t tau) {
-  int_hmap_pair_t *m;
-
-  assert(type_kind(&types, tau) == SCALAR_TYPE && 
-	 scalar_type_cardinal(&types, tau) == 1);
-
-  m = int_hmap_get(&unit_map, tau);
-  assert(m!= NULL && m->key == tau);
-  if (m->val < 0) {
-    m->val = constant_term(&terms, tau, 0);
-  }
-}
-
-
-/*
- * Build the tuple (x_1, ...., x_n)
- * where x_i = unit of type tau[i]
- */
-static term_t make_unit_tuple(type_t *tau, int32_t n) {
-  term_t a[n];
-  int32_t i;
-
-  for (i=0; i<n; i++) {
-    a[i] = get_unit(tau[i]);
-  }
-  return tuple_term(&terms, n, a);
-}
-
-
-/*
- * Tuple type tau = (tuple tau_1 ... tau_n) where
- * tau_1,...,tau_n are all unit types.
- */
-static void make_unit_tuple_type(type_t tau) {
-  int_hmap_pair_t *m;
-  tuple_type_t *d;
-
-  assert(type_kind(&types, tau) == TUPLE_TYPE && unit_type(&types, tau));
-
-  m = int_hmap_get(&unit_map, tau);
-  assert(m != NULL && m->key == tau);
-  if (m->val < 0) {
-    d = tuple_type_desc(&types, tau);    
-    m->val = make_unit_tuple(d->elem, d->nelem);
-  }
-}
-
-
-/*
- * Function type tau = (tau_1 ... tau_n -> sigma)
- * where sigma is a unit type
- */
-static void make_unit_function_type(type_t tau) {
-  int_hmap_pair_t *m;
-
-  assert(type_kind(&types, tau) == FUNCTION_TYPE && unit_type(&types, tau));
-
-  m = int_hmap_get(&unit_map, tau);
-  assert(m != NULL && m->key == tau);
-  if (m->val < 0) {
-    // we don't have lambda terms, so we just create an uninterpreted function
-    m->val = new_uninterpreted_term(&terms, tau);
-  }
-}
-
-
-
-/***********************
- *  TYPE CONSTRUCTORS  *
- **********************/
-
-EXPORTED type_t yices_bool_type() {
-  return bool_type(&types);
-}
-
-EXPORTED type_t yices_int_type() {
-  return int_type(&types);
-}
-
-EXPORTED type_t yices_real_type() {
-  return real_type(&types);
-}
-
-EXPORTED type_t yices_bv_type(int32_t size) {
-  if (! check_positive(size) || ! check_maxbvsize(size)) {
-    return NULL_TYPE;
-  }
-  return bv_type(&types, size);
-}
-
-EXPORTED type_t yices_new_uninterpreted_type() {
-  return new_uninterpreted_type(&types);
-}
-
-EXPORTED type_t yices_new_scalar_type(int32_t card) {
-  type_t tau;
-
-  if (! check_positive(card)) {
-    return NULL_TYPE;
-  }
-  tau = new_scalar_type(&types, card);
-  if (card == 1) {
-    make_unit_scalar_type(tau);
-  }
-  return tau;
-}
-
-EXPORTED type_t yices_tuple_type(int32_t n, type_t elem[]) {
-  type_t tau;
-
-  if (! check_positive(n) || 
-      ! check_arity(n) ||
-      ! check_good_types(&types, n, elem)) {
-    return NULL_TYPE;
-  }
-
-  tau = tuple_type(&types, n, elem);
-  if (unit_type(&types, tau)) {
-    make_unit_tuple_type(tau);
-  }
-  return tau;
-}
-
-EXPORTED type_t yices_function_type(int32_t n, type_t dom[], type_t range) {
-  type_t tau;
-
-  if (! check_positive(n) || 
-      ! check_arity(n) ||
-      ! check_good_type(&types, range) || 
-      ! check_good_types(&types, n, dom)) {
-    return NULL_TYPE;
-  }
-
-  tau = function_type(&types, range, n, dom);
-  if (unit_type(&types, tau)) {
-    make_unit_function_type(tau);
-  }
-
-  return tau;
+  return ite_term(tbl, c, t, e, int_type(tbl->types));
 }
 
 
@@ -2758,26 +2725,6 @@ EXPORTED rational_t *yices_mpq(mpq_t q) {
 /*****************
  *  POLYNOMIALS  *
  ****************/
-
-/*
- * Allocate an arithmetic buffer, initialized to the zero polynomial.
- * Add it to the buffer list
- */
-EXPORTED arith_buffer_t *yices_new_arith_buffer() {
-  arith_buffer_t *b;
-  
-  b = alloc_arith_buffer();
-  init_arith_buffer(b, &arith_manager, &arith_store);
-  return b;
-}
-
-/*
- * Free an allocated buffer
- */
-EXPORTED void yices_free_arith_buffer(arith_buffer_t *b) {
-  delete_arith_buffer(b);
-  free_arith_buffer(b);
-}
 
 /*
  * Reset: set buffer to zero.
@@ -3640,32 +3587,6 @@ EXPORTED bvconstant_t * yices_bvconst_minus_one(int32_t n) {
  *********************************/
 
 /*
- * Allocate and initialize a bvarith_buffer
- * - n = bit size
- * - return NULL if n <= 0.
- */
-EXPORTED bvarith_buffer_t * yices_new_bvarith_buffer(int32_t n) {
-  bvarith_buffer_t *b;
-
-  if (n <= 0) return NULL;
-
-  b = alloc_bvarith_buffer();
-  init_bvarith_buffer(b, &bv_manager, &bv_store);
-  bvarith_buffer_prepare(b, n);
-
-  return b;
-}
-
-/*
- * Free an allocated bvarith_buffer
- */
-EXPORTED void yices_free_bvarith_buffer(bvarith_buffer_t *b) {
-  delete_bvarith_buffer(b);
-  free_bvarith_buffer(b);
-}
-
-
-/*
  * Reset buffer to 0b00...0 with n bits
  * No change if n <= 0.
  */
@@ -4103,27 +4024,6 @@ EXPORTED term_t yices_bvarith_term(bvarith_buffer_t *b) {
 /********************************
  *   BITVECTOR LOGIC BUFFERS    *
  *******************************/
-
-/*
- * Allocate a bvlogic_buffer. It's initially set to the empty bitvector
- */
-EXPORTED bvlogic_buffer_t * yices_new_bvlogic_buffer() {
-  bvlogic_buffer_t *b;
-
-  b = alloc_bvlogic_buffer();
-  init_bvlogic_buffer(b, &nodes);
-  return b;
-}
-
-
-/*
- * Free an allocated buffer.
- */
-EXPORTED void yices_free_bvlogic_buffer(bvlogic_buffer_t *b) {
-  delete_bvlogic_buffer(b);
-  free_bvlogic_buffer(b);  
-}
- 
 
 /*
  * Reset b to the empty vector
@@ -6653,6 +6553,7 @@ int32_t yices_bvlogic_ashr_bvconst(bvlogic_buffer_t *b, uint32_t n, uint32_t *bv
   return 0;
 }
 
+#endif
 
 
 /**************************
@@ -6717,9 +6618,9 @@ bool yices_term_is_function(term_t t) {
  * Size of bitvector term t. 
  * return -1 if t is not a bitvector
  */
-int32_t yices_term_bitsize(term_t t) {
+uint32_t yices_term_bitsize(term_t t) {
   if (! check_bitvector_term(&terms, t)) {
-    return -1;
+    return 0;
   }
   return term_bitsize(&terms, t);
 }
@@ -6808,3 +6709,5 @@ EXPORTED type_t yices_get_type_by_name(char *name) {
 EXPORTED term_t yices_get_term_by_name(char *name) {
   return get_term_by_name(&terms, name);
 }
+
+

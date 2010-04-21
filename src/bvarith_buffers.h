@@ -86,7 +86,7 @@ extern void init_bvmlist_store(object_store_t *s);
 
 
 /*
- * Delete store s: free all attached memory and clear all rationals.
+ * Delete store s: free all attached memory.
  * Must not be called unless all buffers with store s are deleted.
  */
 extern void delete_bvmlist_store(object_store_t *s);

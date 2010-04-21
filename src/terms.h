@@ -955,6 +955,10 @@ static inline bool bad_term(term_table_t *table, term_t t) {
   return ! good_term(table, t);
 }
 
+static inline term_kind_t term_kind(term_table_t *table, term_t t) {
+  return kind_for_idx(table, index_of(t));
+}
+
 static inline type_t term_type(term_table_t *table, term_t t) {
   return type_for_idx(table, index_of(t));
 }
