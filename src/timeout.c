@@ -1,0 +1,251 @@
+/*
+ * SUPPORT FOR A SINGLE TIMEOUT
+ */
+
+/*
+ * Two implementations: one for UNIX (Linux/Darwin/Cygwin)
+ * one for Windows (MinGW).
+ */
+
+#include <assert.h>
+
+#include "timeout.h"
+#include "yices_exit_codes.h"
+
+
+/*
+ * Global structure common to both implementation.
+ */
+static timeout_t the_timeout;
+
+
+#ifndef MINGW
+
+
+/*****************************
+ *  UNIX/C99 IMPLEMENTATION  *
+ ****************************/
+
+#include <unistd.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+
+/*
+ * To save the original SIG_ALRM handler
+ */
+static void (*saved_handler)(int);
+
+
+/*
+ * SIG_ALRM handler:
+ * - do nothing if the timeout is not active
+ * - otherwise, change the state to fired
+ *   then call the handler
+ */
+static void alarm_handler(int signum) {
+  if (the_timeout.state == TIMEOUT_ACTIVE) {
+    the_timeout.state = TIMEOUT_FIRED;
+    the_timeout.handler(the_timeout.param);
+  }
+}
+
+
+/*
+ * Initialization:
+ * - install the alarm_handler
+ * - initialize state to READY
+ */
+void init_timeout(void) {
+  saved_handler = signal(SIGALRM, alarm_handler);  
+  if (saved_handler == SIG_ERR) {
+    perror("Yices: failed to install SIG_ALRM handler: ");
+    exit(YICES_EXIT_INTERNAL_ERROR);
+  }
+
+  the_timeout.state = TIMEOUT_READY;;
+  the_timeout.handler = NULL;
+  the_timeout.param = NULL;
+}
+
+
+
+/*
+ * Activate the timer
+ * - delay = timeout in seconds (must be positive)
+ * - handler = the handler to call
+ * - param = data passed to the handler
+ */
+void start_timeout(uint32_t delay, timeout_handler_t handler, void *param) {
+  assert(delay > 0 && the_timeout.state == TIMEOUT_READY && handler != NULL);
+  the_timeout.state = TIMEOUT_ACTIVE;
+  the_timeout.handler = handler;
+  the_timeout.param = param;
+
+  (void) alarm(delay);
+} 
+
+
+
+/*
+ * Clear timeout:
+ * - cancel the timeout if it's not fired
+ * - set state to READY
+ */
+void clear_timeout(void) {
+  // TODO: Check whether we should block the signals here? 
+  if (the_timeout.state == TIMEOUT_ACTIVE) {
+    // not fired;
+    the_timeout.state = TIMEOUT_CANCELED;
+    (void) alarm(0); // cancel the alarm
+  }
+  the_timeout.state = TIMEOUT_READY;
+}
+
+
+/*
+ * Final cleanup:
+ * - cancel the timeout if it's active
+ * - restore the original handler
+ */
+void delete_timeout(void) {
+  if (the_timeout.state == TIMEOUT_ACTIVE) {
+    (void) alarm(0);
+  }
+  (void) signal(SIGALRM, saved_handler);
+  the_timeout.state = TIMEOUT_NOT_READY;
+}
+
+
+#else 
+
+
+/************************************
+ *   WINDOWS/MINGW IMPLEMENTATION   *
+ ***********************************/
+
+#define _WIN32_WINNT 0x0500
+
+#include <windows.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+
+/*
+ * Global variable:
+ * - handler for a timer queue
+ * - handler for a timer
+ */
+HANDLE timer_queue;
+HANDLE timer;
+
+
+/*
+ * Callback function for the timer
+ * - to nothing id the timeout is not active
+ * - otherwise change the state to fired and 
+ *   call the handler.
+ */
+VOID CALLBACK timer_callback(PVOID param, BOOLEAN timer_or_wait_fired) {
+  if (the_timeout.state == TIMEOUT_ACTIVE) {
+    the_timeout.state = TIMEOUT_FIRED;
+    the_timeout.handler(the_timeout.param);
+  }
+}
+
+
+/*
+ * Initialization: 
+ * - create the timer queue
+ */
+void init_timeout(void) {
+  timer_queue = CreateTimerQueue();
+  if (timer_queue == NULL) {
+    fprintf(stderr, "Yices: CreateTimerQueue failed with error code %d\n", GetLastError());
+    fflush(stderr);
+    exit(YICES_EXIT_INTERNAL_ERROR);
+  }
+
+  the_timeout.state = TIMEOUT_READY;
+  the_timeout.handler = NULL;
+  the_timeoyt.param = NULL;
+}
+
+
+
+/*
+ * Activate:
+ * - delay = timeout in seconds (must be positive)
+ * - handler = handler to call if fired
+ * - param = parameter for the handler
+ */
+void start_timeout(uint32_t delay, timeout_handler_t handler, void *param) {
+  DWORD duetime;
+
+  assert(delay > 0 && the_timeout.state == TIMEOUT_READY && handler != NULL);
+
+  duetime = delay * 1000; // delay in milliseconds
+  if (CreateTimerQueueTimer(&timer, timer_queue, (WAITORTIMERCALLBACK) timer_callback,
+			    NULL, duetime, 0, 0)) {
+    // timer created
+    the_timeout.state = TIMEOUT_ACTIVE;
+    the_timeout.handler = handler;
+    the_timeout.param = param;
+  } else {
+    fprintf(stderr, "Yices: CreateTimerQueueTimer failed with error code %d\n", GetLastError());
+    fflush(stderr);
+    exit(YICES_EXIT_INTERNAL_ERROR);
+  }			    
+}
+
+
+
+/*
+ * Delete the timer
+ */
+void clear_timeout(void) {
+  DWORD error_code;
+
+  if (the_timeout.state == TIMEOUT_ACTIVE || the_timeout.state == TIMEOUT_FIRED) {
+    // active and not fired yet
+    the_timeout.state = TIMEOUT_CANCELED; // will prevent call to handle
+
+    /*
+     * delete the timer.
+     * We give NULL as CompletionEvent so timer_callback will complete
+     * if the timer has fired. That's fine as the timeout state is not
+     * active anymore so the timer_callback does nothing.
+     */
+    if (! DeleteTimerQueueTimer(timer, timer_queue, NULL)) {
+      error_code = GetLastError();
+      if (error_code != ERROR_IO_PENDING) {
+	// The Windows doc says we should try again?
+	fprintf(stderr, "Yices: DeleteTimerQueueTimer failed with error code %d\n", error_code);
+	fflush(stderr);
+	exit(YICES_EXIT_INTERNAL_ERROR);
+      }
+    }
+  }
+
+  the_timeout.sate = TIMEOUT_READY;
+}
+
+
+
+/*
+ * Final cleanup:
+ * - delete the timer_queue
+ */
+void delete_timeout(void) {
+  if (! DeleteTimerQueueEx(timer_queue, NULL)) {
+    fprintf(stderr, "Yices: DeleteTimerQueueEx failed with error code %d\n", GetLastError());
+    fflush(stderr);
+    exit(YICES_EXIT_INTERNAL_ERROR);
+  }
+}
+
+
+
+
+#endif /* MINGW */
