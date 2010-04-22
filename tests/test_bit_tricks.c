@@ -91,7 +91,7 @@ int main() {
 
   for (i=0; i<32; i++) {
     n = 1<<i;
-    printf("__builtin_ctz(%"PRIu32") = %d\n", n, ctz(n));
+    printf("__builtin_ctz(%"PRIu32") = %"PRIu32"\n", n, ctz(n));
   }
   printf("\n");
 

@@ -15,13 +15,17 @@
 /*
  * Timeout handler: set the interrupt flag
  */
-static volatile bool interrupted;
+typedef struct wrapper_s {
+  volatile bool interrupted;
+} wrapper_t;
 
-static void handler(bool *flag) {
-  assert(flag == &interrupted);
+static wrapper_t wrapper;
+
+static void handler(void *ptr) {
+  assert(ptr == &wrapper);
   printf("     timeout received\n");
   fflush(stdout);
-  *flag = true;
+  ((wrapper_t *) ptr)->interrupted = true;
 }
 
 
@@ -54,7 +58,7 @@ static void loop(uint32_t *c, uint32_t n) {
 
   do {
     i = increment(c, n);
-  } while (i == 0 && !interrupted);
+  } while (i == 0 && !wrapper.interrupted);
 }
 
 // print the counter value
@@ -74,21 +78,25 @@ static void test_timeout(uint32_t *c, uint32_t n, uint32_t timeout) {
   double start, end;
 
   printf("---> test: size = %"PRIu32", timeout = %"PRIu32" s\n", n, timeout);
-  interrupted  = false;
-  start_timeout(timeout, (timeout_handler_t) handler, &interrupted);
+  fflush(stdout);
+  wrapper.interrupted  = false;
+  start_timeout(timeout, handler, &wrapper);
   start = get_cpu_time();
   loop(c, n);
   clear_timeout();
   end = get_cpu_time();
   printf("     cpu time = %.2f s\n", end - start);
-  if (interrupted) {
+  fflush(stdout);
+  if (wrapper.interrupted) {
     printf("     interrupted at: ");
     show_counter(c, n);
     printf("\n");
+    fflush(stdout);
   } else {
     printf("     completed: ");
     show_counter(c, n);
     printf("\n");
+    fflush(stdout);
   }
 }
 

@@ -128,6 +128,7 @@ void delete_timeout(void) {
 #define _WIN32_WINNT 0x0500
 
 #include <windows.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -162,14 +163,14 @@ VOID CALLBACK timer_callback(PVOID param, BOOLEAN timer_or_wait_fired) {
 void init_timeout(void) {
   timer_queue = CreateTimerQueue();
   if (timer_queue == NULL) {
-    fprintf(stderr, "Yices: CreateTimerQueue failed with error code %d\n", GetLastError());
+    fprintf(stderr, "Yices: CreateTimerQueue failed with error code %"PRIu32"\n", (uint32_t) GetLastError());
     fflush(stderr);
     exit(YICES_EXIT_INTERNAL_ERROR);
   }
 
   the_timeout.state = TIMEOUT_READY;
   the_timeout.handler = NULL;
-  the_timeoyt.param = NULL;
+  the_timeout.param = NULL;
 }
 
 
@@ -193,7 +194,7 @@ void start_timeout(uint32_t delay, timeout_handler_t handler, void *param) {
     the_timeout.handler = handler;
     the_timeout.param = param;
   } else {
-    fprintf(stderr, "Yices: CreateTimerQueueTimer failed with error code %d\n", GetLastError());
+    fprintf(stderr, "Yices: CreateTimerQueueTimer failed with error code %"PRIu32"\n", (uint32_t) GetLastError());
     fflush(stderr);
     exit(YICES_EXIT_INTERNAL_ERROR);
   }			    
@@ -205,30 +206,34 @@ void start_timeout(uint32_t delay, timeout_handler_t handler, void *param) {
  * Delete the timer
  */
 void clear_timeout(void) {
-  DWORD error_code;
+  // GetLastError returns DWORD, which is an unsigned 32bit integer 
+  uint32_t error_code;
 
   if (the_timeout.state == TIMEOUT_ACTIVE || the_timeout.state == TIMEOUT_FIRED) {
-    // active and not fired yet
-    the_timeout.state = TIMEOUT_CANCELED; // will prevent call to handle
+    if (the_timeout.state == TIMEOUT_ACTIVE) {
+      // active and not fired yet
+      the_timeout.state = TIMEOUT_CANCELED; // will prevent call to handle
+    }
 
     /*
-     * delete the timer.
      * We give NULL as CompletionEvent so timer_callback will complete
      * if the timer has fired. That's fine as the timeout state is not
      * active anymore so the timer_callback does nothing.
+     *
+     * Second try: give INVALID_HANDLE_VALUE? 
+     * This causes SEG FAULT in ntdll.dll
      */
-    if (! DeleteTimerQueueTimer(timer, timer_queue, NULL)) {
-      error_code = GetLastError();
-      if (error_code != ERROR_IO_PENDING) {
-	// The Windows doc says we should try again?
-	fprintf(stderr, "Yices: DeleteTimerQueueTimer failed with error code %d\n", error_code);
-	fflush(stderr);
-	exit(YICES_EXIT_INTERNAL_ERROR);
-      }
+    if (! DeleteTimerQueueTimer(timer_queue, timer, INVALID_HANDLE_VALUE)) {
+      error_code = (uint32_t) GetLastError();
+      // The microsoft doc says we should try again
+      // unless error code is ERROR_IO_PENDING??
+      fprintf(stderr, "Yices: DeleteTimerQueueTimer failed with error code %"PRIu32"\n", error_code);
+      fflush(stderr);
+      exit(YICES_EXIT_INTERNAL_ERROR);
     }
   }
 
-  the_timeout.sate = TIMEOUT_READY;
+  the_timeout.state = TIMEOUT_READY;
 }
 
 
@@ -238,8 +243,8 @@ void clear_timeout(void) {
  * - delete the timer_queue
  */
 void delete_timeout(void) {
-  if (! DeleteTimerQueueEx(timer_queue, NULL)) {
-    fprintf(stderr, "Yices: DeleteTimerQueueEx failed with error code %d\n", GetLastError());
+  if (! DeleteTimerQueueEx(timer_queue, INVALID_HANDLE_VALUE)) {
+    fprintf(stderr, "Yices: DeleteTimerQueueEx failed with error code %"PRIu32"\n", (uint32_t) GetLastError());
     fflush(stderr);
     exit(YICES_EXIT_INTERNAL_ERROR);
   }
