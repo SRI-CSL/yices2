@@ -3,8 +3,25 @@
  */
 
 /*
- * Two implementations: one for UNIX (Linux/Darwin/Cygwin)
+ * Two implementations: 
+ * one for UNIX (Linux/Darwin/Cygwin)
  * one for Windows (MinGW).
+ *
+ * NOTES:
+ * signal has different behavior on different Unix versions.
+ * Here's what the manpage says (on Linux).
+ *
+ * The original Unix signal() would  reset the handler to SIG_DFL, and
+ * System V (and the Linux kernel  and libc4,5) does the same.  On the
+ * other  hand,  BSD  does  not  reset the  handler,  but  blocks  new
+ * instances  of this  signal  from  occurring during  a  call of  the
+ * handler.  The glibc2 library follows the BSD behavior.
+ *
+ * Testing results:
+ * - on solaris 5.10, the signal handler is reset to SIG_DFL before
+ *   the handler is called. So we must restore the handler every time.
+ * - on Linux/Darwin/Cygwin: the signal handler is not changed.
+ * 
  */
 
 #include <assert.h>
@@ -54,15 +71,17 @@ static void alarm_handler(int signum) {
 
 /*
  * Initialization:
- * - install the alarm_handler
+ * - install the alarm_handler (except on Solaris)
  * - initialize state to READY
  */
 void init_timeout(void) {
-  saved_handler = signal(SIGALRM, alarm_handler);  
+#ifndef SOLARIS
+  saved_handler = signal(SIGALRM, alarm_handler);
   if (saved_handler == SIG_ERR) {
     perror("Yices: failed to install SIG_ALRM handler: ");
     exit(YICES_EXIT_INTERNAL_ERROR);
   }
+#endif
 
   the_timeout.state = TIMEOUT_READY;;
   the_timeout.handler = NULL;
@@ -76,12 +95,22 @@ void init_timeout(void) {
  * - delay = timeout in seconds (must be positive)
  * - handler = the handler to call
  * - param = data passed to the handler
+ *
+ * On Solaris: set the signal handler here.
  */
 void start_timeout(uint32_t delay, timeout_handler_t handler, void *param) {
   assert(delay > 0 && the_timeout.state == TIMEOUT_READY && handler != NULL);
   the_timeout.state = TIMEOUT_ACTIVE;
   the_timeout.handler = handler;
   the_timeout.param = param;
+
+#ifdef SOLARIS
+  saved_handler = signal(SIGALRM, alarm_handler);
+  if (saved_handler == SIG_ERR) {
+    perror("Yices: failed to install SIG_ALRM handler: ");
+    exit(YICES_EXIT_INTERNAL_ERROR);
+  }  
+#endif
 
   (void) alarm(delay);
 } 
