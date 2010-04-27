@@ -639,7 +639,7 @@ EXPORTED void yices_clear_error(void) {
  * Allocate an arithmetic buffer, initialized to the zero polynomial.
  * Add it to the buffer list
  */
-arith_buffer_t *yices_new_arith_buffer() {
+arith_buffer_t *yices_new_arith_buffer(void) {
   arith_buffer_t *b;
   
   b = alloc_arith_buffer();
@@ -1425,6 +1425,18 @@ static bool check_maxdegree(uint32_t d) {
   return true;
 }
 
+// Check whether i is a valid variable index (i.e., whether i >= 0)
+static bool check_good_var_index(int32_t i) {
+  if (i < 0) {
+    error.code = INVALID_VAR_INDEX;
+    error.badval = i;
+    return false;
+  }
+
+  return true;
+}
+
+
 // Check whether tau is a valid type
 static bool check_good_type(type_table_t *tbl, type_t tau) {
   if (bad_type(tbl, tau)) { 
@@ -1450,6 +1462,7 @@ static bool check_good_types(type_table_t *tbl, uint32_t n, type_t *a) {
   }
   return true;
 }
+
 
 // Check whether tau is uninterpreted or scalar and whether 
 // i a valid constant index for type tau.
@@ -1895,15 +1908,15 @@ static bool check_good_bitvectors(term_table_t *tbl, uint32_t n, term_t *a, uint
  *  TYPE CONSTRUCTORS  *
  **********************/
 
-EXPORTED type_t yices_bool_type() {
+EXPORTED type_t yices_bool_type(void) {
   return bool_type(&types);
 }
 
-EXPORTED type_t yices_int_type() {
+EXPORTED type_t yices_int_type(void) {
   return int_type(&types);
 }
 
-EXPORTED type_t yices_real_type() {
+EXPORTED type_t yices_real_type(void) {
   return real_type(&types);
 }
 
@@ -1914,7 +1927,7 @@ EXPORTED type_t yices_bv_type(uint32_t size) {
   return bv_type(&types, size);
 }
 
-EXPORTED type_t yices_new_uninterpreted_type() {
+EXPORTED type_t yices_new_uninterpreted_type(void) {
   return new_uninterpreted_type(&types);
 }
 
@@ -1949,51 +1962,14 @@ EXPORTED type_t yices_function_type(uint32_t n, type_t dom[], type_t range) {
 
 
 
-#if 0
-
-
 
 /*******************************
  *  BOOLEAN-TERM CONSTRUCTORS  *
  ******************************/
 
 /*
- * Parameters must all be type correct.
+ * BINARY OR/AND/IMPLIES
  */
-
-/*
- * Negate non-constant boolean term
- */
-static term_t bool_negate(term_table_t *tbl, term_t x) {
-  if (term_kind(tbl, x) == NOT_TERM) {
-    return not_term_arg(tbl, x);
-  } else {
-    return not_term(tbl, x);
-  }
-}
-
-
-/*
- * Simplifications:
- *   not true  --> false
- *   not false --> true
- *   not not x --> x
- */
-static term_t mk_not(term_table_t *tbl, term_t x) {
-  if (x == true_term(tbl)) return false_term(tbl);
-  if (x == false_term(tbl)) return true_term(tbl);
-  return bool_negate(tbl, x);
-}
-
-
-/*
- * check whether x == not y.
- */
-static bool opposite_bool_terms(term_table_t *tbl, term_t x, term_t y) {
-  return (term_kind(tbl, x) == NOT_TERM && not_term_arg(tbl, x) == y) 
-    || (term_kind(tbl, y) == NOT_TERM && not_term_arg(tbl, y) == x);
-}
-
 
 /*
  * Simplifications:
@@ -2008,11 +1984,11 @@ static term_t mk_binary_or(term_table_t *tbl, term_t x, term_t y) {
   term_t aux[2];
   
   if (x == y) return x;
-  if (x == true_term(tbl)) return x;
-  if (y == true_term(tbl)) return y;
-  if (x == false_term(tbl)) return y;
-  if (y == false_term(tbl)) return x;
-  if (opposite_bool_terms(tbl, x, y)) return true_term(tbl);
+  if (x == true_term) return x;
+  if (y == true_term) return y;
+  if (x == false_term) return y;
+  if (y == false_term) return x;
+  if (opposite_bool_terms(x, y)) return true_term;
 
   if (x < y) {
     aux[0] = x; aux[1] = y;
@@ -2025,45 +2001,33 @@ static term_t mk_binary_or(term_table_t *tbl, term_t x, term_t y) {
 
 
 /*
- * Simplifications:
- *   x and x       --> x
- *   x and true    --> x
- *   x and false   --> false
- *   x and (not x) --> false
- *
- * Otherwise;
- *   x and y --> not (or (not x) (not y))
+ * Rewrite (and x y)  to  (not (or (not x) (not y)))
  */
 static term_t mk_binary_and(term_table_t *tbl, term_t x, term_t y) {
-  term_t aux[2];
-
-  if (x == y) return x;
-  if (x == true_term(tbl)) return y;
-  if (y == true_term(tbl)) return x;
-  if (x == false_term(tbl)) return x;
-  if (y == false_term(tbl)) return y;
-  if (opposite_bool_terms(tbl, x, y)) return false_term(tbl);
-
-  // x := not x and y := not y
-  x = bool_negate(tbl, x);
-  y = bool_negate(tbl, y);
-
-  if (x < y) {
-    aux[0] = x; aux[1] = y;
-  } else {
-    aux[0] = y; aux[1] = x;
-  }
-
-  return not_term(tbl, or_term(tbl, 2, aux));
+  return opposite_term(mk_binary_or(tbl, opposite_term(x), opposite_term(y)));
 }
 
 
 /*
- * Check whether x is of the form (not u) where u is uninterpreted
+ * Rewrite (implies x y) to (or (not x) y)
  */
-static inline bool not_bool_var(term_table_t *tbl, term_t x) {
-  return term_kind(tbl, x) == NOT_TERM && term_kind(tbl, not_term_arg(tbl, x)) == UNINTERPRETED_TERM;
+static term_t mk_implies(term_table_t *tbl, term_t x, term_t y) {
+  return mk_binary_or(tbl, opposite_term(x), y);
 }
+
+
+
+/*
+ * IFF AND BINARY XOR
+ */
+
+/*
+ * Check whether x is uninterpreted or the negation of an uninterpreted boolean term
+ */
+static inline bool is_literal(term_table_t *tbl, term_t x) {
+  return kind_for_idx(tbl, index_of(x)) == UNINTERPRETED_TERM;
+}
+
 
 /*
  * Simplifications:
@@ -2075,132 +2039,238 @@ static inline bool not_bool_var(term_table_t *tbl, term_t x) {
  *    iff (not x) (not y) --> eq x y 
  *
  * Optional simplification:
- *    iff (not x) y       --> not (eq x y) 
+ *    iff (not x) y       --> not (eq x y)  (NOT USED ANYMORE)
  *
  * Smaller index is on the left-hand-side of eq
  */
 static term_t mk_iff(term_table_t *tbl, term_t x, term_t y) {
   term_t aux;
-  bool negate;
 
-  if (x == y) return true_term(tbl);
-  if (x == true_term(tbl)) return y;
-  if (y == true_term(tbl)) return x;
-  if (x == false_term(tbl)) return mk_not(tbl, y);
-  if (y == false_term(tbl)) return mk_not(tbl, x);
-  if (opposite_bool_terms(tbl, x, y)) return false_term(tbl);
+  if (x == y) return true_term;
+  if (x == true_term) return y;
+  if (y == true_term) return x;
+  if (x == false_term) return opposite_term(y);
+  if (y == false_term) return opposite_term(x);
+  if (opposite_bool_terms(x, y)) return false_term;
 
-  negate = false;
 
-#if 0
-  // rewrite (iff (not x) y) to not (eq x y)
-  if (term_kind(tbl, x) == NOT_TERM) {
-    x = not_term_arg(tbl, x);
-    negate = true;
-  }
-  if (term_kind(tbl, y) == NOT_TERM) {
-    y = not_term_arg(tbl, y);
-    negate = ! negate;
-  }
-#else 
   /*
-   * variant: 
-   * - rewrite (iff (not x) y) to (eq x (not y)) if x is uninterpreted
-   * - rewrite (iff (not x) (not y)) to (eq x y)
+   * swap if x > y
    */
-  if ((term_kind(tbl, x) == NOT_TERM && term_kind(tbl, y) == NOT_TERM)
-      || not_bool_var(tbl, x) || not_bool_var(tbl, y)) {
-    x = mk_not(tbl, x);
-    y = mk_not(tbl, y); 
-  }
-#endif
-
-  // swap if x > y
   if (x > y) {
     aux = x; x = y; y = aux;
   }
-  aux = eq_term(tbl, x, y);
 
-  return negate ? not_term(tbl, aux) : aux;
+  /*
+   * - rewrite (iff (not x) (not y)) to (eq x y)
+   * - rewrite (iff (not x) y)       to (eq x (not y)) 
+   *   unless y is uninterpreted and x is not
+   */
+  if (is_neg_term(x) && (is_neg_term(y) || is_literal(tbl, x) || !is_literal(tbl, y))) {
+    x = opposite_term(x);
+    y = opposite_term(y); 
+  }
+
+  return eq_term(tbl, x, y);
 }
 
 
 /*
- * Simplifications:
- *    xor x x       --> false
- *    xor x true    --> not x
- *    xor x false   --> x
- *    xor x (not x) --> true
- * 
- *    xor (not x) (not y) --> (not (eq x y))
- *    xor (not x) y       --> (eq x y)
- *    xor x y             --> (not (eq x y))
- *
- * Smaller index is on the left-hand-side of eq
+ * Rewrite (xor x y) to (iff (not x) y)
  */
-static term_t mk_xor(term_table_t *tbl, term_t x, term_t y) {
-  term_t aux;
+static term_t mk_binary_xor(term_table_t *tbl, term_t x, term_t y) {
+  return mk_iff(tbl, opposite_term(x), y);
+}
+
+
+
+
+/*
+ * N-ARY OR/AND
+ */
+
+/*
+ * Construct (or a[0] ... a[n-1])
+ * - all terms are assumed valid and boolean
+ * - array a is modified (sorted)
+ * - n must be positive
+ */
+static term_t mk_or(term_table_t *tbl, uint32_t n, term_t *a) {
+  uint32_t i, j;
+  term_t x, y;
+
+  /*
+   * Sorting the terms ensure:
+   * - true_term shows up first if it's present in a
+   *   then false_term if it's present
+   *   then all the other boolean terms.
+   * - if x and (not x) are both in a, then they occur
+   *   at successive positions in a after sorting.
+   */
+  assert(n > 0);
+  int_array_sort(a, n);
+
+  x = a[0];
+  if (x == true_term) {
+    return true_term;
+  }
+
+  j = 0;
+  if (x != false_term) {
+    a[j] = x;
+    j ++;
+  }
+
+  // remove duplicates and check for x/not x in succession
+  for (i=1; i<n; i++) {
+    y = a[i];
+    if (x != y) {
+      if (y == opposite_term(x)) {
+	return true_term;
+      }
+      assert(y != false_term && y != true_term);
+      x = y;
+      a[j] = x;
+      j ++;
+    }
+  }
+
+  if (j <= 1) { 
+    // if j = 0, then x = false_term and all elements of a are false
+    // if j = 1, then x is the unique non-false term in a
+    return x;
+  } else {
+    return or_term(tbl, j, a);
+  }
+}
+
+
+/*
+ * Construct (and a[0] ... a[n-1])
+ * - n must be positive
+ * - a is modified
+ */
+static term_t mk_and(term_table_t *tbl, uint32_t n, term_t *a) {
+  uint32_t i;
+  
+  for (i=0; i<n; i++) {
+    a[i] = opposite_term(a[i]);
+  }
+
+  return opposite_term(mk_or(tbl,n, a));
+}
+
+
+
+
+
+/*
+ * N-ARY XOR
+ */
+
+/*
+ * Construct (xor a[0] ... a[n-1])
+ * - n must be positive
+ * - all terms in a must be valid and boolean
+ * - a is modified
+ */
+static term_t mk_xor(term_table_t *tbl, uint32_t n, term_t *a) {
+  uint32_t i, j;
+  term_t x, y;
   bool negate;
 
-  if (x == y) return false_term(tbl);
-  if (x == false_term(tbl)) return y;
-  if (y == false_term(tbl)) return x;
-  if (x == true_term(tbl)) return mk_not(tbl, y);
-  if (y == true_term(tbl)) return mk_not(tbl, x);
-  if (opposite_bool_terms(tbl, x, y)) return true_term(tbl);
 
-  negate = true;
-  if (term_kind(tbl, x) == NOT_TERM) {
-    x = not_term_arg(tbl, x);
-    negate = ! negate;
-  }
-  if (term_kind(tbl, y) == NOT_TERM) {
-    y = not_term_arg(tbl, y);
-    negate = ! negate;
+  /*
+   * First pass: remove true_term/false_term and 
+   * replace negative terms by their opposite
+   */
+  negate = false;
+  j = 0;
+  for (i=0; i<n; i++) {
+    x = a[i];
+    if (index_of(x) == bool_const) {
+      assert(x == true_term || x == false_term);
+      negate ^= is_pos_term(x); // flip sign if x is true
+    } else {
+      assert(x != true_term && x != false_term);
+      // apply rule (xor ... (not x) ...) = (not (xor ... x ...))
+      negate ^= is_neg_term(x);    // flip sign for (not x) 
+      x = unsigned_term(x);   // turn (not x) into x
+      a[j] = x;
+      j ++;
+    }
   }
 
-  // swap if x > y
-  if (x > y) {
-    aux = x; x = y; y = aux;
+  /*
+   * Second pass: remove duplicates (i.e., apply the rule (xor x x) --> false
+   */
+  n = j;
+  int_array_sort(a, n);
+  j = 0;
+  i = 0;
+  while (i+1 < n) {
+    x = a[i];
+    if (x == a[i+1]) {
+      i += 2;
+    } else {
+      a[j] = x;
+      j ++;
+      i ++;
+    }
   }
-  aux = eq_term(tbl, x, y);
+  assert(i == n || i + 1 == n);
+  if (i+1 == n) {
+    a[j] = a[i];
+    j ++;
+  }
 
-  return negate ? not_term(tbl, aux) : aux;
+
+  /*
+   * Build the result: (xor negate (xor a[0] ... a[j-1]))
+   */
+  if (j == 0) {
+    return bool2term(negate);
+  }
+
+  if (j == 1) {
+    return negate ^ a[0];
+  }
+
+  if (j == 2) {
+    x = a[0];
+    y = a[1];
+    assert(is_pos_term(x) && is_pos_term(y) && x < y);
+    if (negate) {
+      /*
+       * to be consistent with mk_iff:
+       * not (xor x y) --> (eq (not x) y) if y is uninterpreted and x is not
+       * not (xor x y) --> (eq x (not y)) otherwise
+       */
+      if (is_literal(tbl, y) && !is_literal(tbl, x)) {
+	x = opposite_term(x); 
+      } else {
+	y = opposite_term(y);
+      }
+    } 
+    return eq_term(tbl, x, y);
+  }
+
+  // general case: j >= 3
+  x = xor_term(tbl, j, a);
+  if (negate) {
+    x = opposite_term(x);
+  }
+
+  return x;
 }
+
+
+
 
 
 /*
- * Simplifications:
- *    implies x x        --> true
- *    implies true x     --> x
- *    implies false x    --> true
- *    implies x true     --> true
- *    implies x false    --> (not x)
- *    implies x (not x)  --> (not x)
- *
- *    implies x y    --> (or (not x) y)
+ * BOOLEAN IF-THEN-ELSE
  */
-static term_t mk_implies(term_table_t *tbl, term_t x, term_t y) {
-  term_t aux[2];
-
-  if (x == y) return true_term(tbl);
-  if (x == true_term(tbl)) return y;
-  if (x == false_term(tbl)) return true_term(tbl);
-  if (y == true_term(tbl)) return true_term(tbl);
-  if (y == false_term(tbl)) return bool_negate(tbl, x);
-  if (opposite_bool_terms(tbl, x, y)) return y;
-
-  x = bool_negate(tbl, x);
-  if (x < y) {
-    aux[0] = x; aux[1] = y;
-  } else {
-    aux[0] = y; aux[1] = x;
-  }
-
-  return or_term(tbl, 2, aux);
-}
-
-
 
 /*
  * Build (bv-eq x (ite c y z))
@@ -2221,6 +2291,7 @@ static term_t mk_bveq_ite(term_table_t *tbl, term_t c, term_t x, term_t y, term_
   return bveq_atom(tbl, x, ite);
 }
 
+
 /*
  * Special constructor for (ite c (bveq x y) (bveq z u))
  * 
@@ -2228,24 +2299,28 @@ static term_t mk_bveq_ite(term_table_t *tbl, term_t c, term_t x, term_t y, term_
  * (ite c (bveq x y) (bveq x u))  ---> (bveq x (ite c y u))
  */
 static term_t mk_lifted_ite_bveq(term_table_t *tbl, term_t c, term_t t, term_t e) {
-  bv_atom_t *eq1, *eq2;
+  composite_term_t *eq1, *eq2;
   term_t x;
 
-  assert(term_kind(tbl, t) == BV_EQ_ATOM && term_kind(tbl, e) == BV_EQ_ATOM);
+  assert(is_pos_term(t) && is_pos_term(e) && 
+	 term_kind(tbl, t) == BV_EQ_ATOM && term_kind(tbl, e) == BV_EQ_ATOM);
 
-  eq1 = bvatom_desc(tbl, t);
-  eq2 = bvatom_desc(tbl, e);
+  eq1 = composite_for_idx(tbl, index_of(t));
+  eq2 = composite_for_idx(tbl, index_of(e));
 
-  x = eq1->left;
-  if (x == eq2->left)  return mk_bveq_ite(tbl, c, x, eq1->right, eq2->right);
-  if (x == eq2->right) return mk_bveq_ite(tbl, c, x, eq1->right, eq2->left);
+  assert(eq1->arity == 2 && eq2->arity == 2);
 
-  x = eq1->right;
-  if (x == eq2->left)  return mk_bveq_ite(tbl, c, x, eq1->left, eq2->right);
-  if (x == eq2->right) return mk_bveq_ite(tbl, c, x, eq1->left, eq2->left);
+  x = eq1->arg[0];
+  if (x == eq2->arg[0]) return mk_bveq_ite(tbl, c, x, eq1->arg[1], eq2->arg[1]);
+  if (x == eq2->arg[1]) return mk_bveq_ite(tbl, c, x, eq1->arg[1], eq2->arg[0]);
+
+  x = eq1->arg[1];
+  if (x == eq2->arg[0]) return mk_bveq_ite(tbl, c, x, eq1->arg[0], eq2->arg[1]);
+  if (x == eq2->arg[1]) return mk_bveq_ite(tbl, c, x, eq1->arg[0], eq2->arg[0]);
 
   return ite_term(tbl, c, t, e, bool_type(tbl->types));
 }
+
 
 /*
  * Simplifications:
@@ -2255,149 +2330,49 @@ static term_t mk_lifted_ite_bveq(term_table_t *tbl, term_t c, term_t t, term_t e
  *
  *  ite c x (not x)  --> (c == x)
  *
- *  ite c c x        --> c or x
+ *  ite c c y        --> c or y
  *  ite c x c        --> c and x
- *  ite c (not c) x  --> (not c) and x
+ *  ite c (not c) y  --> (not c) and y
  *  ite c x (not c)  --> (not c) or x
  *
- *  ite x true y     --> x or y
- *  ite x y false    --> x and y
- *  ite x false y    --> (not x) and y
- *  ite x y true     --> (not x) or y
+ *  ite c true y     --> c or y
+ *  ite c x false    --> c and x
+ *  ite c false y    --> (not c) and y
+ *  ite c x true     --> (not c) or x
  *
  * Otherwise:
  *  ite (not c) x y  --> ite c y x
  */
-static term_t mk_bool_ite(term_table_t *tbl, term_t c, term_t t, term_t e) {
+static term_t mk_bool_ite(term_table_t *tbl, term_t c, term_t x, term_t y) {
   term_t aux;
 
-  if (t == e) return t;
-  if (c == true_term(tbl)) return t;
-  if (c == false_term(tbl)) return e;
+  if (x == y) return x;
+  if (c == true_term) return x;
+  if (c == false_term) return y;
 
-  if (opposite_bool_terms(tbl, t, e)) return mk_iff(tbl, c, t);
+  if (opposite_bool_terms(x, y)) return mk_iff(tbl, c, x);
   
-  if (c == t) return mk_binary_or(tbl, c, e);
-  if (c == e) return mk_binary_and(tbl, c, t);
-  if (opposite_bool_terms(tbl, c, t)) return mk_binary_and(tbl, t, e);
-  if (opposite_bool_terms(tbl, c, e)) return mk_binary_or(tbl, t, e);
+  if (c == x) return mk_binary_or(tbl, c, y);
+  if (c == y) return mk_binary_and(tbl, c, x);
+  if (opposite_bool_terms(c, x)) return mk_binary_and(tbl, x, y);
+  if (opposite_bool_terms(c, y)) return mk_binary_or(tbl, x, y);
 
-  if (t == true_term(tbl)) return mk_binary_or(tbl, c, e);
-  if (e == false_term(tbl)) return mk_binary_and(tbl, c, t);
-  if (t == false_term(tbl)) return mk_binary_and(tbl, mk_not(tbl, c), e);
-  if (e == true_term(tbl)) return mk_binary_or(tbl, mk_not(tbl, c), t);
+  if (x == true_term) return mk_binary_or(tbl, c, y);
+  if (y == false_term) return mk_binary_and(tbl, c, x);
+  if (x == false_term) return mk_binary_and(tbl, opposite_term(c), y);
+  if (y == true_term) return mk_binary_or(tbl, opposite_term(c), x);
 
 
-  if (term_kind(tbl, c) == NOT_TERM) {
-    c = not_term_arg(tbl, c);
-    aux = t; t = e; e = aux;
+  if (is_neg_term(c)) {
+    c = opposite_term(c);
+    aux = x; x = y; y = aux;
   }
 
-  if (term_kind(tbl, t) == BV_EQ_ATOM && term_kind(tbl, e) == BV_EQ_ATOM) {
-    return mk_lifted_ite_bveq(tbl, c, t, e);
+  if (term_kind(tbl, x) == BV_EQ_ATOM && term_kind(tbl, y) == BV_EQ_ATOM) {
+    return mk_lifted_ite_bveq(tbl, c, x, y);
   }
 
-  return ite_term(tbl, c, t, e, bool_type(tbl->types));
-}
-
-
-
-/*
- * Construction of (or a[0] ... a[n-1])
- * - all terms are assumed valid (and boolean)
- * - array a is modified (sorted)
- * - n must be positive
- */
-static term_t mk_or(term_table_t *tbl, uint32_t n, term_t *a) {
-  uint32_t i, j;
-  term_t x, y;
-
-  assert(n > 0);
-  sort_bool_terms(tbl, n, a);
-
-  j = 0;
-
-  x = a[0];
-  if (x == true_term(tbl)) {
-    return true_term(tbl);
-  }
-
-  if (x != false_term(tbl)) { 
-    a[j] = x;
-    j ++;
-  }
-
-  for (i=1; i<n; i++) {
-    y = a[i];
-    if (x != y) {
-      if (y == true_term(tbl) || opposite_bool_terms(tbl, x, y)) {
-	return true_term(tbl);
-      }
-      assert(y != false_term(tbl));
-      x = y;
-      a[j] = x;
-      j ++;
-    }
-  }
-
-  if (j <= 1) { 
-    // if j == 0, then x == false_term
-    // if j == 1, then x == unique non-false term in a
-    return x;
-  } else {
-    return or_term(tbl, j, a);
-  }
-}
-
-
-/*
- * Construction of (and a[0] ... a[n-1])
- * - all terms are assumed valid (and boolean)
- * - array a is modified (sorted)
- * - n must be positive
- */
-static term_t mk_and(term_table_t *tbl, uint32_t n, term_t *a) {
-  uint32_t i, j;
-  term_t x, y;
-
-  assert(n > 0);
-  sort_bool_terms(tbl, n, a);
-
-  j = 0;
-
-  x = a[0];
-  if (x == false_term(tbl)) {
-    return false_term(tbl);
-  }
-
-  if (x != true_term(tbl)) { 
-    a[j] = x;
-    j ++;
-  }
-
-  for (i=1; i<n; i++) {
-    y = a[i];
-    if (x != y) {
-      if (y == false_term(tbl) || opposite_bool_terms(tbl, x, y)) {
-	return false_term(tbl);
-      }
-      assert(y != true_term(tbl));
-      x = y;
-      a[j] = x;
-      j ++;
-    }
-  }
-
-  if (j <= 1) { 
-    // if j == 0, then x == true_term
-    // if j == 1, then x == unique non-true term in a
-    return x;
-  } else {
-    for (i=0; i<j; i++) {
-      a[i] = bool_negate(tbl, a[i]);
-    }
-    return not_term(tbl, or_term(tbl, j, a));
-  }
+  return ite_term(tbl, c, x, y, bool_type(tbl->types));
 }
 
 
@@ -2409,6 +2384,8 @@ static term_t mk_and(term_table_t *tbl, uint32_t n, term_t *a) {
 /******************************
  *  CHECKS FOR DISEQUALITIES  *
  *****************************/
+
+#if 0
 
 /*
  * Check whether two terms x and y (of the same type) cannot be equal.
@@ -2753,6 +2730,7 @@ static term_t mk_integer_polynomial_ite(term_table_t *tbl, term_t c, term_t t, t
 }
 
 
+#endif
 
 
 
@@ -2761,11 +2739,11 @@ static term_t mk_integer_polynomial_ite(term_table_t *tbl, term_t c, term_t t, t
  **********************/
 
 EXPORTED term_t yices_true() {
-  return true_term(&terms);
+  return true_term;
 }
 
 EXPORTED term_t yices_false() {
-  return false_term(&terms);
+  return false_term;
 }
 
 EXPORTED term_t yices_constant(type_t tau, int32_t index) {
@@ -2783,7 +2761,7 @@ EXPORTED term_t yices_new_uninterpreted_term(type_t tau) {
 }
 
 EXPORTED term_t yices_variable(type_t tau, int32_t index) {
-  if (! check_nonneg(index) || 
+  if (! check_good_var_index(index) || 
       ! check_good_type(&types, tau)) {
     return NULL_TERM;
   }
@@ -2791,6 +2769,7 @@ EXPORTED term_t yices_variable(type_t tau, int32_t index) {
 }
 
 
+#if 0
 /*
  * Simplifications if fun is an update term:
  *   ((update f (a_1 ... a_n) v) a_1 ... a_n)   -->  v

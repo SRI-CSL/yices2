@@ -177,7 +177,7 @@ static void init_global_types(void) {
 /*
  * Check whether term x matches (tag, tau, index)
  */
-static bool check_term_integer(term_t x, type_kind_t tag, type_t tau, int32_t index) {
+static bool check_term_integer(term_t x, term_kind_t tag, type_t tau, int32_t index) {
   int32_t i;
 
   i = index_of(x);
@@ -189,7 +189,7 @@ static bool check_term_integer(term_t x, type_kind_t tag, type_t tau, int32_t in
 /*
  * Check whether x matches binary composite defined by (tag, tau, a, ..,)
  */
-static bool check_composite1(term_t x, type_kind_t tag, type_t tau, term_t a) {
+static bool check_composite1(term_t x, term_kind_t tag, type_t tau, term_t a) {
   composite_term_t *p;
   int32_t i;
 
@@ -199,7 +199,7 @@ static bool check_composite1(term_t x, type_kind_t tag, type_t tau, term_t a) {
     p->arity == 1 && p->arg[0] == a;
 }
 
-static bool check_composite2(term_t x, type_kind_t tag, type_t tau, term_t a, term_t b) {
+static bool check_composite2(term_t x, term_kind_t tag, type_t tau, term_t a, term_t b) {
   composite_term_t *p;
   int32_t i;
 
@@ -209,7 +209,7 @@ static bool check_composite2(term_t x, type_kind_t tag, type_t tau, term_t a, te
     p->arity == 2 && p->arg[0] == a && p->arg[1] == b;
 }
 
-static bool check_composite3(term_t x, type_kind_t tag, type_t tau, term_t a, term_t b, term_t c) {
+static bool check_composite3(term_t x, term_kind_t tag, type_t tau, term_t a, term_t b, term_t c) {
   composite_term_t *p;
   int32_t i;
 
@@ -219,7 +219,7 @@ static bool check_composite3(term_t x, type_kind_t tag, type_t tau, term_t a, te
     p->arity == 3 && p->arg[0] == a && p->arg[1] == b && p->arg[2] == c;
 }
 
-static bool check_composite4(term_t x, type_kind_t tag, type_t tau, term_t a, term_t b, term_t c, term_t d) {
+static bool check_composite4(term_t x, term_kind_t tag, type_t tau, term_t a, term_t b, term_t c, term_t d) {
   composite_term_t *p;
   int32_t i;
 
@@ -233,7 +233,7 @@ static bool check_composite4(term_t x, type_kind_t tag, type_t tau, term_t a, te
 /*
  * Same thing for (select k a)
  */
-static bool check_select(term_t x, type_kind_t tag, type_t tau, term_t a, uint32_t k) {
+static bool check_select(term_t x, term_kind_t tag, type_t tau, term_t a, uint32_t k) {
   select_term_t *p;
   int32_t i;
 

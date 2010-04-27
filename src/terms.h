@@ -774,6 +774,25 @@ static inline term_t opposite_term(term_t x) {
 
 
 /*
+ * Remove the sign of x:
+ * - if x has positive polarity: return x
+ * - if x has negative polarity: return (not x)
+ */
+static inline term_t unsigned_term(term_t x) {
+  return x & ~1; // clear polarity bit
+}
+
+
+
+/*
+ * Check whether x and y are opposite terms
+ */
+static inline bool opposite_bool_terms(term_t x, term_t y) {
+  return (x ^ y) == 1;
+}
+
+
+/*
  * Conversion of boolean to true_term or false_term
  */
 static inline term_t bool2term(bool tt) {
