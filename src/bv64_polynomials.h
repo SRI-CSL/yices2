@@ -115,4 +115,12 @@ extern bool equal_bvpoly64(bvpoly64_t *p1, bvpoly64_t *p2);
 extern bool disequal_bvpoly64(bvpoly64_t *p1, bvpoly64_t *p2);
 
 
+/*
+ * Check whether p is equal to k + x for a non-zero constant k and a variable x
+ */
+extern bool bvpoly64_is_const_plus_var(bvpoly64_t *p, int32_t x);
+
+
+
+
 #endif /* __BV64_POLYNOMIALS_H */

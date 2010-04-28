@@ -8,7 +8,7 @@
 #define __YICES_H
 
 #ifdef __cplusplus
-extern "C" {
+// extern "C" {
 #endif
 
 
@@ -304,6 +304,7 @@ extern term_t yices_neq(term_t left, term_t right);
 extern term_t yices_or(uint32_t n, term_t arg[]);
 extern term_t yices_and(uint32_t n, term_t arg[]);
 extern term_t yices_xor(uint32_t n, term_t arg[]);
+
 
 /*
  * (not arg)

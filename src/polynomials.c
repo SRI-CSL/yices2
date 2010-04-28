@@ -350,7 +350,7 @@ bool equal_monarray(monomial_t *p1, monomial_t *p2) {
  * Check whether p1 - p2 is a non-zero constant
  * - p1 and p2 must be normalized.
  */
-bool must_disequal_monarray(monomial_t *p1, monomial_t *p2) {
+bool disequal_monarrays(monomial_t *p1, monomial_t *p2) {
   int32_t v1, v2;
 
   v1 = p1->var;

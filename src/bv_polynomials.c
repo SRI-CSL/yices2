@@ -159,3 +159,14 @@ bool disequal_bvpoly(bvpoly_t *p1, bvpoly_t *p2) {
 
   return false;
 }
+
+
+/*
+ * Check whether p is equal to k + x for a non-zero constant k and a variable x
+ * - p must be normalized
+ */
+bool bvpoly_is_const_plus_var(bvpoly_t *p, int32_t x) {
+  return p->nterms == 2 && p->mono[0].var == const_idx && p->mono[1].var == x &&
+    bvconst_is_one(p->mono[1].coeff, p->width);
+}
+

@@ -23,6 +23,7 @@
 #include "pprod_table.h"
 #include "bit_expr.h"
 #include "terms.h"
+#include "term_utils.h"
 
 #include "bit_term_conversion.h"
 #include "bvlogic_buffers.h"
@@ -2268,6 +2269,12 @@ static term_t mk_xor(term_table_t *tbl, uint32_t n, term_t *a) {
 
 
 
+
+
+/******************
+ *  IF-THEN-ELSE  *
+ *****************/
+
 /*
  * BOOLEAN IF-THEN-ELSE
  */
@@ -2380,233 +2387,6 @@ static term_t mk_bool_ite(term_table_t *tbl, term_t c, term_t x, term_t y) {
 
 
 
-
-/******************************
- *  CHECKS FOR DISEQUALITIES  *
- *****************************/
-
-#if 0
-
-/*
- * Check whether two terms x and y (of the same type) cannot be equal.
- * Warning: recursive call could blow up on nested tuples.
- */
-static bool disequal_terms(term_table_t *tbl, term_t x, term_t y);
-
-
-/*
- * The following base cases are handled:
- * - x and y are both TERM_CONSTANT
- * - x and y are boolean  constant, or x = (not y).
- * - x and y are both ARITH_TERM (with polynomials p1 and p2 such that 
- *   (p1 - p2) is a non-zero constant)
- * - x and y are both BVARITH_TERM (with bvexpressions p1 and p2 such that
- *    (p1 - p2) is a non-zero bit-vector constant)
- * - x and y are both BVLOGIC_TERM (with bits x_i and y_i distinct, for some i)
- */
-static inline bool disequal_constant_terms(term_t x, term_t y) {
-  return x != y;
-}
-
-static inline bool disequal_boolean_terms(term_table_t *tbl, term_t x, term_t y) {
-  return (x == true_term(tbl) && y == false_term(tbl))
-    || (x == false_term(tbl) && y == true_term(tbl))
-    || opposite_bool_terms(tbl, x, y);
-}
-
-
-static bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y) {
-  type_kind_t kx, ky;
-  arith_var_t vx, vy;
-
-  kx = term_kind(tbl, x);
-  ky = term_kind(tbl, y);
-  vx = term_theory_var(tbl, x);
-  vy = term_theory_var(tbl, y);
-
-  if (kx == ARITH_TERM && ky == ARITH_TERM) {
-    return must_disequal_polynomial(arith_term_desc(tbl, x), arith_term_desc(tbl, y));
-  } else if (kx == ARITH_TERM && vy != null_theory_var) {
-    return polynomial_is_const_plus_var(arith_term_desc(tbl, x), vy);
-  } else if (ky == ARITH_TERM && vx != null_theory_var) {
-    return polynomial_is_const_plus_var(arith_term_desc(tbl, y), vx);
-  } else {
-    return false;
-  }
-}
-
-static bool disequal_bitvector_terms(term_table_t *tbl, term_t x, term_t y) {
-  term_kind_t kx, ky;
-  bvconst_term_t *cx, *cy;
-  int32_t n;
-
-  kx = term_kind(tbl, x);
-  ky = term_kind(tbl, y);
-
-  if (kx == ky) {
-    switch (kx) {
-    case BV_LOGIC_TERM:
-      return bvlogic_must_disequal_expr(bvlogic_term_desc(tbl, x), bvlogic_term_desc(tbl, y));
-    case BV_ARITH_TERM:
-      return bvarith_must_disequal_expr(bvarith_term_desc(tbl, x), bvarith_term_desc(tbl, y));
-    case BV_CONST_TERM:
-      cx = bvconst_term_desc(tbl, x);
-      cy = bvconst_term_desc(tbl, y);
-      n = cx->nbits;
-      assert(n == cy->nbits);    
-      return bvconst_neq(cx->bits, cy->bits, (n + 31) >> 5);
-    default:
-      return false;
-    }
-
-  } else if (kx == BV_CONST_TERM && ky == BV_LOGIC_TERM) {
-    cx = bvconst_term_desc(tbl, x);
-    n = cx->nbits;
-    return bvlogic_must_disequal_constant(bvlogic_term_desc(tbl, y), n, cx->bits);
-
-  } else if (kx == BV_LOGIC_TERM && ky == BV_CONST_TERM) {
-    cy = bvconst_term_desc(tbl, y);
-    n = cy->nbits;
-    return bvlogic_must_disequal_constant(bvlogic_term_desc(tbl, x), n, cy->bits);
-
-  } else {
-    return false;
-  }
-}
-
-
-/*
- * Tuple terms x and y are trivially distinct if they have components 
- * x_i and y_i that are trivially distinct.
- */
-static bool disequal_tuple_terms(term_table_t *tbl, term_t x, term_t y) {
-  tuple_term_t *tuple_x, *tuple_y;
-  int32_t i, n;
-
-  assert(term_type(tbl, x) == term_type(tbl, y));
-
-  tuple_x = tuple_term_desc(tbl, x);
-  tuple_y = tuple_term_desc(tbl, y);
-
-  n = tuple_x->nargs;
-  assert(n == tuple_y->nargs);
-  for (i=0; i<n; i++) {
-    if (disequal_terms(tbl, tuple_x->arg[i], tuple_y->arg[i])) {
-      return true;
-    }
-  }
-  return false;
-}
-
-
-/*
- * (update f (x1 ... xn) a) is trivially distinct from (update f (x1 ... xn) b)
- * if a is trivially distinct from b.
- */
-static bool disequal_update_terms(term_table_t *tbl, term_t x, term_t y) {
-  int32_t i, n;
-  update_term_t *update_x, *update_y;
-
-  assert(term_type(tbl, x) == term_type(tbl, y));
-
-  update_x = update_term_desc(tbl, x);
-  update_y = update_term_desc(tbl, y);
-
-  if (update_x->fun != update_y->fun) return false;
-
-  n = update_x->nargs;
-  assert(n == update_y->nargs);
-  for (i=0; i<n; i++) {
-    if (update_x->arg[i] != update_y->arg[i]) return false;
-  }
-
-  return disequal_terms(tbl, update_x->newval, update_y->newval);
-}
-
-
-/*
- * Top level
- */
-static bool disequal_terms(term_table_t *tbl, term_t x, term_t y) {
-  term_kind_t kind;
-
-  if (is_boolean_term(tbl, x)) {
-    assert(is_boolean_term(tbl, y));
-    return disequal_boolean_terms(tbl, x, y);
-  }
-
-  if (is_arithmetic_term(tbl, x)) {
-    assert(is_arithmetic_term(tbl, y));
-    return disequal_arith_terms(tbl, x, y);
-  }
-
-  if (is_bitvector_term(tbl, x)) {
-    assert(is_bitvector_term(tbl, y));
-    return disequal_bitvector_terms(tbl, x, y);
-  }
-
-  kind = term_kind(tbl, x);
-  if (kind != term_kind(tbl, y)) return false;
-
-  switch (kind) {
-  case CONSTANT_TERM:
-    return disequal_constant_terms(x, y);
-  case TUPLE_TERM:
-    return disequal_tuple_terms(tbl, x, y);
-  case UPDATE_TERM:
-    return disequal_update_terms(tbl, x, y);
-  default:
-    return false;
-  }
-}
-
-
-/*
- * Auxiliary functions for simplification
- */
-// check whether terms a[0...n-1] and b[0 .. n-1] are equal
-static bool equal_term_arrays(int32_t n, term_t *a, term_t *b) {
-  int32_t i;
-
-  for (i=0; i<n; i++) {
-    if (a[i] != b[i]) return false;
-  }
-  return true;
-}
-
-// check whether a[i] cannot be equal to b[i] for one i
-static bool disequal_term_arrays(term_table_t *tbl, int32_t n, term_t *a, term_t *b) {
-  int32_t i;
-
-  for (i=0; i<n; i++) {
-    if (disequal_terms(tbl, a[i], b[i])) return true;
-  }
-
-  return false;
-}
-
-// check whether all elements of a are disequal
-// this is expensive: quadratic cost, but should fail quickly on most examples
-static bool pairwise_disequal_terms(term_table_t *tbl, int32_t n, term_t *a) {
-  int32_t i, j;
-
-  for (i=0; i<n; i++) {
-    for (j=i+1; j<n; j++) {
-      if (! disequal_terms(tbl, a[i], a[j])) return false;
-    }
-  }
-
-  return true;
-}
-
-
-
-
-
-/**********************************
- *   LIFT FOR IF-THEN-ELSE TERMS  *
- *********************************/
-
 /*
  * Cheap lift-if decomposition:
  * - decompose (ite c x y) (ite c z u) ---> [c, x, z, y, u]
@@ -2626,7 +2406,7 @@ typedef struct lift_result_s {
 
 
 static bool check_for_lift_if(term_table_t *tbl, term_t t1, term_t t2, lift_result_t *d) {
-  ite_term_t *ite1, *ite2;
+  composite_term_t *ite1, *ite2;
   term_t cond;
 
   if (term_kind(tbl, t1) == ITE_TERM) {
@@ -2635,23 +2415,23 @@ static bool check_for_lift_if(term_table_t *tbl, term_t t1, term_t t2, lift_resu
       ite1 = ite_term_desc(tbl, t1);
       ite2 = ite_term_desc(tbl, t2);
       
-      cond = ite1->cond;
-      if (cond == ite2->cond) {
+      cond = ite1->arg[0];
+      if (cond == ite2->arg[0]) {
 	d->cond = cond;
-	d->left1 = ite1->then_arg;
-	d->left2 = ite2->then_arg;
-	d->right1 = ite1->else_arg;
-	d->right2 = ite2->else_arg;
+	d->left1 = ite1->arg[1];
+	d->left2 = ite2->arg[1];
+	d->right1 = ite1->arg[2];
+	d->right2 = ite2->arg[2];
 	return true;
       } 
 
     } else {
       // t1 is (if-then-else ..) t2 is not
       ite1 = ite_term_desc(tbl, t1);
-      d->cond = ite1->cond;
-      d->left1 = ite1->then_arg;
+      d->cond = ite1->arg[0];
+      d->left1 = ite1->arg[1];
       d->left2 = t2;
-      d->right1 = ite1->else_arg;
+      d->right1 = ite1->arg[2];
       d->right2 = t2;
       return true;
       
@@ -2660,11 +2440,11 @@ static bool check_for_lift_if(term_table_t *tbl, term_t t1, term_t t2, lift_resu
     // t2 is (if-then-else ..) t1 is not
 
     ite2 = ite_term_desc(tbl, t2);
-    d->cond = ite2->cond;
+    d->cond = ite2->arg[0];
     d->left1 = t1;
-    d->left2 = ite2->then_arg;
+    d->left2 = ite2->arg[1];
     d->right1 = t1;
-    d->right2 = ite2->else_arg;
+    d->right2 = ite2->arg[2];
     return true;
   }
  
@@ -2674,15 +2454,16 @@ static bool check_for_lift_if(term_table_t *tbl, term_t t1, term_t t2, lift_resu
 
 
 
-/****************************************************
- *  LIFT COMMON FACTORS IN ARITHMETIC IF-THEN-ELSE  *
- ***************************************************/
-
 /*
+ * Attempt to factor out the common factors in t and e.
+ *
  * If t and e are polynomials with integer variables
  * then we can write t as (a * t') and e as (a * e')
  * where a = gcd of coefficients of t and e.
- * Then (ite c t e) is rewritten to a * (ite c t' e')
+ * Then (ite c t e) can be rewritten to a * (ite c t' e')
+ *
+ * This function attempt to rewrite (ite c t e) to a * (ite c t' e')
+ * if the common factor is 1, it just construct (ite c t e).
  */
 static term_t mk_integer_polynomial_ite(term_table_t *tbl, term_t c, term_t t, term_t e) {
   polynomial_t *p, *q;
@@ -2690,8 +2471,8 @@ static term_t mk_integer_polynomial_ite(term_table_t *tbl, term_t c, term_t t, t
 
   assert(is_integer_term(tbl, t) && is_integer_term(tbl, e));
 
-  p = arith_term_desc(tbl, t);  // then part
-  q = arith_term_desc(tbl, e);  // else part
+  p = poly_term_desc(tbl, t);  // then part
+  q = poly_term_desc(tbl, e);  // else part
 
   if (!polynomial_is_zero(p) && !polynomial_is_zero(q)) {
     monarray_common_factor(p->mono, &r0); // r0 = gcd of coefficients of p
@@ -2705,23 +2486,25 @@ static term_t mk_integer_polynomial_ite(term_table_t *tbl, term_t c, term_t t, t
 
       // construct p' := 1/r0 * p
       arith_buffer_reset(b);
-      arith_buffer_add_monarray(b, p->mono);
+      arith_buffer_add_monarray(b, p->mono, pprods_for_poly(tbl, p));
+      term_table_reset_pbuffer(tbl);
       arith_buffer_div_const(b, &r0);
-      t = arith_term(tbl, b);
+      t = arith_poly(tbl, b);
 
       // construct q' := 1/r0 * q
       arith_buffer_reset(b);
-      arith_buffer_add_monarray(b, q->mono);
+      arith_buffer_add_monarray(b, q->mono, pprods_for_poly(tbl, p));
+      term_table_reset_pbuffer(tbl);
       arith_buffer_div_const(b, &r0);
-      e = arith_term(tbl, b);
+      e = arith_poly(tbl, b);
 
       // (ite c p' q')
       t = ite_term(tbl, c, t, e, int_type(tbl->types));
 
       // built r0 * t
       arith_buffer_reset(b);
-      arith_buffer_add_mono(b, get_arithmetic_variable(tbl, t), &r0);
-      return arith_term(tbl, b);
+      arith_buffer_add_varmono(b, &r0, t);
+      return arith_poly(tbl, b);
     }
   }
   
@@ -2730,7 +2513,9 @@ static term_t mk_integer_polynomial_ite(term_table_t *tbl, term_t c, term_t t, t
 }
 
 
-#endif
+
+
+
 
 
 
@@ -2769,15 +2554,27 @@ EXPORTED term_t yices_variable(type_t tau, int32_t index) {
 }
 
 
-#if 0
+
+/*
+ * Auxiliary function: check whether terms a[0...n-1] and b[0 .. n-1] are equal
+ */
+static bool equal_term_arrays(uint32_t n, term_t *a, term_t *b) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
+}
+
 /*
  * Simplifications if fun is an update term:
  *   ((update f (a_1 ... a_n) v) a_1 ... a_n)   -->  v
  *   ((update f (a_1 ... a_n) v) x_1 ... x_n)   -->  (f x_1 ... x_n)
  *         if x_i must disequal a_i
  */
-EXPORTED term_t yices_application(term_t fun, int32_t n, term_t arg[]) {
-  update_term_t *update;
+EXPORTED term_t yices_application(term_t fun, uint32_t n, term_t arg[]) {
+  composite_term_t *update;
 
   if (! check_good_application(&terms, fun, n, arg)) {
     return NULL_TERM;
@@ -2786,16 +2583,22 @@ EXPORTED term_t yices_application(term_t fun, int32_t n, term_t arg[]) {
   while (term_kind(&terms, fun) == UPDATE_TERM) {
     // fun is (update f (a_1 ... a_n) v)
     update = update_term_desc(&terms, fun);
-    assert(update->nargs == n);
+    assert(update->arity == n+2);
 
-    if (equal_term_arrays(n, update->arg, arg)) {
-      return update->newval;
+    /*
+     * update->arg[0] is f
+     * update->arg[1] to update->arg[n] = a_1 to a_n
+     * update->arg[n+1] is v
+     */
+
+    if (equal_term_arrays(n, update->arg + 1, arg)) {
+      return update->arg[n+1];
     }
     
     if (disequal_term_arrays(&terms, n, update->arg, arg)) {
       // ((update f (a_1 ... a_n) v) x_1 ... x_n) ---> (f x_1 ... x_n)
       // repeat simplification if f is an update term again
-      fun = update->fun;
+      fun = update->arg[0];
     } else {
       break;
     }
@@ -2850,11 +2653,12 @@ EXPORTED term_t yices_ite(term_t cond, term_t then_term, term_t else_term) {
 
   // non-boolean:
   if (then_term == else_term) return then_term;
-  if (cond == true_term(&terms)) return then_term;
-  if (cond == false_term(&terms)) return else_term;
+  if (cond == true_term) return then_term;
+  if (cond == false_term) return else_term;
 
-  if (term_kind(&terms, cond) == NOT_TERM) {
-    cond = not_term_arg(&terms, cond);
+  if (is_neg_term(cond)) {
+    // ite (not c) x y  --> ite c y x
+    cond = opposite_term(cond);
     aux = then_term; then_term = else_term; else_term = aux;
   }
 
@@ -2862,8 +2666,8 @@ EXPORTED term_t yices_ite(term_t cond, term_t then_term, term_t else_term) {
   // DISABLE THIS FOR BASELINE TESTING
   // check whether both sides are integer polynomials
   if (is_integer_type(tau) 
-      && term_kind(&terms, then_term) == ARITH_TERM 
-      && term_kind(&terms, else_term) == ARITH_TERM) {
+      && term_kind(&terms, then_term) == ARITH_POLY 
+      && term_kind(&terms, else_term) == ARITH_POLY) {
     return mk_integer_polynomial_ite(&terms, cond, then_term, else_term);
   }
 #endif
@@ -2901,9 +2705,9 @@ EXPORTED term_t yices_eq(term_t left, term_t right) {
   }
 
   // general case
-  if (left == right) return true_term(&terms);
+  if (left == right) return true_term;
   if (disequal_terms(&terms, left, right)) {
-    return false_term(&terms);
+    return false_term;
   }
 
   // put smaller index on the left
@@ -2930,7 +2734,7 @@ EXPORTED term_t yices_neq(term_t left, term_t right) {
 
   if (is_boolean_term(&terms, left)) {
     assert(is_boolean_term(&terms, right));
-    return mk_xor(&terms, left, right);
+    return mk_binary_xor(&terms, left, right);
   }
 
   if (is_arithmetic_term(&terms, left)) {
@@ -2944,9 +2748,9 @@ EXPORTED term_t yices_neq(term_t left, term_t right) {
   }
 
   // non-boolean
-  if (left == right) return false_term(&terms);
+  if (left == right) return false_term;
   if (disequal_terms(&terms, left, right)) {
-    return true_term(&terms);
+    return true_term;
   }
 
   // put smaller index on the left
@@ -2959,11 +2763,10 @@ EXPORTED term_t yices_neq(term_t left, term_t right) {
 
 
 /*
- * or and and may modify arg
+ * OR, AND, and XOR may modify arg
  */
-EXPORTED term_t yices_or(int32_t n, term_t arg[]) {
-  if (! check_nonneg(n) || 
-      ! check_arity(n) ||
+EXPORTED term_t yices_or(uint32_t n, term_t arg[]) {
+  if (! check_arity(n) ||
       ! check_good_terms(&terms, n, arg) || 
       ! check_boolean_args(&terms, n, arg)) {
     return NULL_TERM;
@@ -2971,7 +2774,7 @@ EXPORTED term_t yices_or(int32_t n, term_t arg[]) {
 
   switch (n) {
   case 0:
-    return false_term(&terms);
+    return false_term;
   case 1:
     return arg[0];
   case 2:
@@ -2981,9 +2784,8 @@ EXPORTED term_t yices_or(int32_t n, term_t arg[]) {
   }
 }
 
-EXPORTED term_t yices_and(int32_t n, term_t arg[]) {
-  if (! check_nonneg(n) || 
-      ! check_arity(n) ||
+EXPORTED term_t yices_and(uint32_t n, term_t arg[]) {
+  if (! check_arity(n) ||
       ! check_good_terms(&terms, n, arg) || 
       ! check_boolean_args(&terms, n, arg)) {
     return NULL_TERM;
@@ -2991,7 +2793,7 @@ EXPORTED term_t yices_and(int32_t n, term_t arg[]) {
 
   switch (n) {
   case 0:
-    return true_term(&terms);
+    return true_term;
   case 1:
     return arg[0];
   case 2:
@@ -3001,16 +2803,40 @@ EXPORTED term_t yices_and(int32_t n, term_t arg[]) {
   }
 }
 
+EXPORTED term_t yices_xor(uint32_t n, term_t arg[]) {
+  if (! check_arity(n) ||
+      ! check_good_terms(&terms, n, arg) || 
+      ! check_boolean_args(&terms, n, arg)) {
+    return NULL_TERM;
+  }
+
+  switch (n) {
+  case 0:
+    return false_term;
+  case 1:
+    return arg[0];
+  case 2:
+    return mk_binary_xor(&terms, arg[0], arg[1]);
+  default:
+    return mk_xor(&terms, n, arg);
+  }
+}
+
 EXPORTED term_t yices_not(term_t arg) {
   if (! check_good_term(&terms, arg) || 
       ! check_boolean_term(&terms, arg)) {
     return NULL_TERM;
   }
 
-  return mk_not(&terms, arg);
+  return opposite_term(arg);
 }
 
-EXPORTED term_t yices_xor(term_t left, term_t right) {
+
+
+/*
+ * BINARY VERSIONS OF OR/AND/XOR
+ */
+EXPORTED term_t yices_or2(term_t left, term_t right) {
   if (! check_good_term(&terms, left) ||
       ! check_good_term(&terms, right) || 
       ! check_boolean_term(&terms, left) || 
@@ -3018,7 +2844,29 @@ EXPORTED term_t yices_xor(term_t left, term_t right) {
     return NULL_TERM;
   }
 
-  return mk_xor(&terms, left, right);
+  return mk_binary_or(&terms, left, right);
+}
+
+EXPORTED term_t yices_and2(term_t left, term_t right) {
+  if (! check_good_term(&terms, left) ||
+      ! check_good_term(&terms, right) || 
+      ! check_boolean_term(&terms, left) || 
+      ! check_boolean_term(&terms, right)) {
+    return NULL_TERM;
+  }
+
+  return mk_binary_and(&terms, left, right);
+}
+
+EXPORTED term_t yices_xor2(term_t left, term_t right) {
+  if (! check_good_term(&terms, left) ||
+      ! check_good_term(&terms, right) || 
+      ! check_boolean_term(&terms, left) || 
+      ! check_boolean_term(&terms, right)) {
+    return NULL_TERM;
+  }
+
+  return mk_binary_xor(&terms, left, right);
 }
 
 EXPORTED term_t yices_iff(term_t left, term_t right) {
@@ -3048,8 +2896,8 @@ EXPORTED term_t yices_implies(term_t left, term_t right) {
  * Simplification:
  *   (mk_tuple (select 0 x) ... (select n-1 x)) --> x
  */
-EXPORTED term_t yices_tuple(int32_t n, term_t arg[]) {
-  int32_t i;
+EXPORTED term_t yices_tuple(uint32_t n, term_t arg[]) {
+  uint32_t i;
   term_t x, a;
 
   if (! check_positive(n) || 
@@ -3079,7 +2927,7 @@ EXPORTED term_t yices_tuple(int32_t n, term_t arg[]) {
 /*
  * Simplification: (select i (mk_tuple x_1 ... x_n))  --> x_i
  */
-EXPORTED term_t yices_select(int32_t index, term_t tuple) {
+EXPORTED term_t yices_select(uint32_t index, term_t tuple) {
   if (! check_good_select(&terms, index, tuple)) {
     return NULL_TERM;
   }
@@ -3099,7 +2947,7 @@ EXPORTED term_t yices_select(int32_t index, term_t tuple) {
  *  (update (update f (a_1 ... a_n) v) (a_1 ... a_n) v') --> (update f (a_1 ... a_n) v')
  * TBD
  */
-EXPORTED term_t yices_update(term_t fun, int32_t n, term_t arg[], term_t new_v) {
+EXPORTED term_t yices_update(term_t fun, uint32_t n, term_t arg[], term_t new_v) {
   if (! check_good_update(&terms, fun, n, arg, new_v)) {
     return NULL_TERM;
   }
@@ -3120,8 +2968,8 @@ EXPORTED term_t yices_update(term_t fun, int32_t n, term_t arg[], term_t new_v) 
  * More simplifications uses type information,
  *  (distinct f g h) --> false if f g h are boolean.
  */
-EXPORTED term_t yices_distinct(int32_t n, term_t arg[]) {
-  int32_t i;
+EXPORTED term_t yices_distinct(uint32_t n, term_t arg[]) {
+  uint32_t i;
   type_t tau;
 
   if (n == 2) {
@@ -3135,14 +2983,14 @@ EXPORTED term_t yices_distinct(int32_t n, term_t arg[]) {
   }
 
   if (n == 1) {
-    return true_term(&terms);
+    return true_term;
   }
 
   // check for finite types
   tau = term_type(&terms, arg[0]);
-  if (tau == bool_type(&types) ||
-      (type_kind(&types, tau) == SCALAR_TYPE && scalar_type_cardinal(&types, tau) < n)) {
-    return false_term(&terms);
+  if (type_card(&types, tau) < n && type_card_is_exact(&types, tau)) {
+    // card exact implies that tau is finite (and small)
+    return false_term;
   }
 
   
@@ -3150,13 +2998,13 @@ EXPORTED term_t yices_distinct(int32_t n, term_t arg[]) {
   int_array_sort(arg, n);
   for (i=1; i<n; i++) {
     if (arg[i] == arg[i-1]) {
-      return false_term(&terms);
+      return false_term;
     }
   }
 
   // WARNING: THIS CAN BE EXPENSIVE
   if (pairwise_disequal_terms(&terms, n, arg)) {
-    return true_term(&terms);
+    return true_term;
   }
 
   return distinct_term(&terms, n, arg);
@@ -3173,10 +3021,15 @@ EXPORTED term_t yices_distinct(int32_t n, term_t arg[]) {
  *  (tuple-update t i v) is (mk-tuple (select t 0) ... v  ... (select t n-1))
  *              
  */
-static term_t mk_tuple_aux(term_table_t *tbl, term_t tuple, int32_t n, int32_t i, term_t v) {
-  term_t a[n]; // GCC/C99 extension: can cause stack overflow if n is large
-  int32_t j;
-  tuple_term_t *desc;
+static term_t mk_tuple_aux(term_table_t *tbl, term_t tuple, uint32_t n, uint32_t i, term_t v) {
+  composite_term_t *desc;
+  term_t *a;
+  term_t t;
+  uint32_t j;
+
+  // use vector0 as buffer:
+  resize_ivector(&vector0, n);
+  a = vector0.data;
 
   if (term_kind(tbl, tuple) == TUPLE_TERM) {
     desc = tuple_term_desc(tbl, tuple);
@@ -3197,11 +3050,17 @@ static term_t mk_tuple_aux(term_table_t *tbl, term_t tuple, int32_t n, int32_t i
     }    
   }
 
-  return tuple_term(tbl, n, a);
+  t = tuple_term(tbl, n, a);
+
+  // cleanup
+  ivector_reset(&vector0);
+
+  return t;
 }
 
-EXPORTED term_t yices_tuple_update(term_t tuple, int32_t index, term_t new_v) {
-  int32_t n;
+
+EXPORTED term_t yices_tuple_update(term_t tuple, uint32_t index, term_t new_v) {
+  uint32_t n;
 
   if (! check_good_tuple_update(&terms, tuple, index, new_v)) {
     return NULL_TERM;
@@ -3223,7 +3082,7 @@ EXPORTED term_t yices_tuple_update(term_t tuple, int32_t index, term_t new_v) {
  *  (exists (x_1::t_1 ... x_n::t_n) true) --> true
  *  (exists (x_1::t_1 ... x_n::t_n) false) --> false (types are nonempty)
  */
-EXPORTED term_t yices_forall(int32_t n, term_t var[], term_t body) {
+EXPORTED term_t yices_forall(uint32_t n, term_t var[], term_t body) {
   if (n > 1) { 
     int_array_sort(var, n);    
   }
@@ -3232,13 +3091,13 @@ EXPORTED term_t yices_forall(int32_t n, term_t var[], term_t body) {
     return NULL_TERM;
   }
 
-  if (body == true_term(&terms)) return body;
-  if (body == false_term(&terms)) return body;
+  if (body == true_term) return body;
+  if (body == false_term) return body;
 
   return forall_term(&terms, n, var, body);
 }
 
-EXPORTED term_t yices_exists(int32_t n, term_t var[], term_t body) {
+EXPORTED term_t yices_exists(uint32_t n, term_t var[], term_t body) {
   if (n > 1) { 
     int_array_sort(var, n);    
   }
@@ -3247,17 +3106,17 @@ EXPORTED term_t yices_exists(int32_t n, term_t var[], term_t body) {
     return NULL_TERM;
   }
 
-  if (body == true_term(&terms)) return body;
-  if (body == false_term(&terms)) return body;
+  if (body == true_term) return body;
+  if (body == false_term) return body;
 
   // (not (forall ... (not body))
-  return not_term(&terms, forall_term(&terms, n, var, bool_negate(&terms, body)));
+  return opposite_term(forall_term(&terms, n, var, opposite_term(body)));
 }
 
 
 
 
-
+#if 0
 
 /*************************
  *  RATIONAL CONSTANTS   *
@@ -3621,11 +3480,11 @@ EXPORTED term_t yices_arith_eq0_atom(arith_buffer_t *b) {
   arith_buffer_normalize(b);
 
   if (arith_buffer_is_zero(b)) {
-    return true_term(&terms);
+    return true_term;
   }
 
   if (arith_buffer_is_nonzero(b)) {
-    return false_term(&terms);
+    return false_term;
   }
 
   x = null_theory_var;
@@ -3670,11 +3529,11 @@ EXPORTED term_t yices_arith_geq0_atom(arith_buffer_t *b) {
   arith_buffer_normalize(b);
 
   if (arith_buffer_is_nonneg(b)) {
-    return true_term(&terms);
+    return true_term;
   }
 
   if (arith_buffer_is_neg(b)) {
-    return false_term(&terms);
+    return false_term;
   }
   
   return arith_geq_atom(&terms, b);
@@ -3687,11 +3546,11 @@ EXPORTED term_t yices_arith_leq0_atom(arith_buffer_t *b) {
   arith_buffer_normalize(b);
 
   if (arith_buffer_is_nonpos(b)) {
-    return true_term(&terms);
+    return true_term;
   }
 
   if (arith_buffer_is_pos(b)) {
-    return false_term(&terms);
+    return false_term;
   }
 
   arith_buffer_negate(b); // still normalizedd
@@ -3706,11 +3565,11 @@ EXPORTED term_t yices_arith_gt0_atom(arith_buffer_t *b) {
   arith_buffer_normalize(b);
 
   if (arith_buffer_is_nonpos(b)) {
-    return false_term(&terms);
+    return false_term;
   }
 
   if (arith_buffer_is_pos(b)) {
-    return true_term(&terms);
+    return true_term;
   }
 
   arith_buffer_negate(b);
@@ -3725,11 +3584,11 @@ EXPORTED term_t yices_arith_lt0_atom(arith_buffer_t *b) {
   arith_buffer_normalize(b);
 
   if (arith_buffer_is_nonneg(b)) {
-    return false_term(&terms);
+    return false_term;
   }
 
   if (arith_buffer_is_neg(b)) {
-    return true_term(&terms);
+    return true_term;
   }
 
   return not_term(&terms, arith_geq_atom(&terms, b));
@@ -6583,9 +6442,9 @@ EXPORTED term_t yices_bvsmod(term_t t1, term_t t2) {
 static term_t mk_bveq(term_t t1, term_t t2) {
   term_t aux;
 
-  if (t1 == t2) return true_term(&terms);
+  if (t1 == t2) return true_term;
   if (disequal_bitvector_terms(&terms, t1, t2)) {
-    return false_term(&terms);
+    return false_term;
   }
 
   // put smaller index on the left
@@ -6610,9 +6469,9 @@ EXPORTED term_t yices_bveq_atom(term_t t1, term_t t2) {
 static term_t mk_bvneq(term_t t1, term_t t2) {
   term_t aux;
 
-  if (t1 == t2) return false_term(&terms);
+  if (t1 == t2) return false_term;
   if (disequal_bitvector_terms(&terms, t1, t2)) {
-    return true_term(&terms);
+    return true_term;
   }
 
   // put smaller index on the left
@@ -6722,11 +6581,11 @@ EXPORTED term_t yices_bvge_atom(term_t t1, term_t t2) {
   }
   
   if (t1 == t2 || must_le(t2, t1)) {
-    return true_term(&terms);
+    return true_term;
   }
 
   if (must_lt(t1, t2)) {
-    return false_term(&terms);
+    return false_term;
   }
   
   return bvge_atom(&terms, t1, t2);
@@ -6739,11 +6598,11 @@ EXPORTED term_t yices_bvgt_atom(term_t t1, term_t t2) {
   }
 
   if (t1 == t2 || must_le(t1, t2)) {
-    return false_term(&terms);
+    return false_term;
   }
 
   if (must_lt(t2, t1)) {
-    return true_term(&terms);
+    return true_term;
   }
   
   return not_term(&terms, bvge_atom(&terms, t2, t1));
@@ -6866,11 +6725,11 @@ EXPORTED term_t yices_bvsge_atom(term_t t1, term_t t2) {
   }
 
   if (t1 == t2 || must_sle(t2, t1)) {
-    return true_term(&terms);
+    return true_term;
   }
 
   if (must_slt(t1, t2)) {
-    return false_term(&terms);
+    return false_term;
   }
   
   return bvsge_atom(&terms, t1, t2);
@@ -6883,11 +6742,11 @@ EXPORTED term_t yices_bvsgt_atom(term_t t1, term_t t2) {
   }
 
   if (t1 == t2 || must_sle(t1, t2)) {
-    return false_term(&terms);
+    return false_term;
   }
 
   if (must_slt(t2, t1)) {
-    return true_term(&terms);
+    return true_term;
   }
   
   return not_term(&terms, bvsge_atom(&terms, t2, t1));
@@ -7093,6 +6952,7 @@ int32_t yices_bvlogic_ashr_bvconst(bvlogic_buffer_t *b, uint32_t n, uint32_t *bv
 }
 
 #endif
+
 
 
 /**************************

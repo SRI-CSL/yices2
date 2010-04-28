@@ -153,7 +153,8 @@ extern uint32_t copy_monarray(monomial_t *q, monomial_t *p);
  * Check whether p1 and p2 are equal:
  * - both must be normalized
  */
-extern bool equal_monarray(monomial_t *p1, monomial_t *p2);
+
+extern bool equal_monarrays(monomial_t *p1, monomial_t *p2);
 
 
 /*
@@ -163,7 +164,7 @@ extern bool equal_monarray(monomial_t *p1, monomial_t *p2);
  *   constant, so it's not complete.
  * - p1 and p2 must be normalized
  */
-extern bool must_disequal_monarray(monomial_t *p1, monomial_t *p2);
+extern bool disequal_monarrays(monomial_t *p1, monomial_t *p2);
 
 
 /*
@@ -268,16 +269,16 @@ extern int32_t polynomial_main_var(polynomial_t *p);
 /*
  * Check whether p1 - p2 is a nonzero constant
  */
-static inline bool must_disequal_polynomial(polynomial_t *p1, polynomial_t *p2) {
-  return must_disequal_monarray(p1->mono, p2->mono);
+static inline bool disequal_polynomials(polynomial_t *p1, polynomial_t *p2) {
+  return disequal_monarrays(p1->mono, p2->mono);
 }
 
 
 /*
  * Check whether p1 == p2
  */
-static inline bool equal_polynomial(polynomial_t *p1, polynomial_t *p2) {
-  return p1->nterms == p2->nterms && equal_monarray(p1->mono, p2->mono);
+static inline bool equal_polynomials(polynomial_t *p1, polynomial_t *p2) {
+  return p1->nterms == p2->nterms && equal_monarrays(p1->mono, p2->mono);
 }
 
 

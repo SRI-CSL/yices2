@@ -107,7 +107,7 @@ extern void bvconstant_set_all_zero(bvconstant_t *b, uint32_t n);
 extern void bvconstant_set_all_one(bvconstant_t *b, uint32_t n);
 
 /*
- * Resize and initialize with a
+ * Resize and initialize with a (and normalize).
  */
 extern void bvconstant_copy(bvconstant_t *b, uint32_t n, uint32_t *a);
 

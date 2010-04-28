@@ -106,4 +106,10 @@ extern bool equal_bvpoly(bvpoly_t *p1, bvpoly_t *p2);
 extern bool disequal_bvpoly(bvpoly_t *p1, bvpoly_t *p2);
 
 
+/*
+ * Check whether p is of the form k + x for a non-zero constant k
+ */
+extern bool bvpoly_is_const_plus_var(bvpoly_t *p, int32_t x);
+
+
 #endif /* __BV_POLYNOMIALS_H */

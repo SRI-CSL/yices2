@@ -1033,6 +1033,197 @@ static inline uint32_t term_bitsize(term_table_t *table, term_t t) {
 }
 
 
+/*
+ * Descriptor of term t 
+ */
+static inline int32_t constant_term_index(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == CONSTANT_TERM);
+  return integer_value_for_idx(table, index_of(t));
+}
+
+static inline int32_t variable_term_index(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == VARIABLE);
+  return integer_value_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *composite_term_desc(term_table_t *table, term_t t) {
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline select_term_t *select_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == SELECT_TERM);
+  return select_for_idx(table, index_of(t));
+}
+
+static inline select_term_t *bit_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == BIT_TERM);
+  return select_for_idx(table, index_of(t));
+}
+
+static inline pprod_t *pprod_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == POWER_PRODUCT);
+  return pprod_for_idx(table, index_of(t));
+}
+
+// use with care. The pointer is valid provided no new term is added to the table.
+static inline rational_t *rational_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_CONSTANT);
+  return rational_for_idx(table, index_of(t));
+}
+
+static inline polynomial_t *poly_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_POLY);
+  return polynomial_for_idx(table, index_of(t));
+}
+
+static inline bvconst64_term_t *bvconst64_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == BV64_CONSTANT);
+  return bvconst64_for_idx(table, index_of(t));
+}
+
+static inline bvconst_term_t *bvconst_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == BV_CONSTANT);
+  return bvconst_for_idx(table, index_of(t));
+}
+
+static inline bvpoly64_t *bvpoly64_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == BV64_POLY);
+  return bvpoly64_for_idx(table, index_of(t));
+}
+
+static inline bvpoly_t *bvpoly_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == BV_POLY);
+  return bvpoly_for_idx(table, index_of(t));
+}
+
+
+/*
+ * All the following functions are equivalent to composite_term_desc
+ * or select_term_desc, but, when debugging is enabled, they also check
+ * that the term kind is consistent.
+ */
+static inline composite_term_t *ite_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ITE_TERM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *app_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == APP_TERM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *update_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == UPDATE_TERM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *tuple_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == TUPLE_TERM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *eq_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == EQ_TERM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *distinct_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == DISTINCT_TERM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *forall_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == FORALL_TERM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *or_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == OR_TERM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *xor_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == XOR_TERM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *arith_eq_atom_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_EQ_ATOM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *arith_ge_atom_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_GE_ATOM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *arith_bineq_atom_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_BINEQ_ATOM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *bvarray_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == BV_ARRAY);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *bvdiv_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == BV_DIV);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *bvrem_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == BV_REM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *bvsdiv_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == BV_SDIV);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *bvsrem_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == BV_SREM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *bvsmod_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == BV_SMOD);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *bvshl_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == BV_SHL);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *bvlshr_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == BV_LSHR);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *bvashr_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == BV_ASHR);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *bveq_atom_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == BV_EQ_ATOM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *bvge_atom_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == BV_GE_ATOM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *bvsge_atom_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == BV_SGE_ATOM);
+  return composite_for_idx(table, index_of(t));
+}
+
+
+
 
 
 

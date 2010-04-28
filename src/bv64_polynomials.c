@@ -136,4 +136,11 @@ bool disequal_bvpoly64(bvpoly64_t *p1, bvpoly64_t *p2) {
 
 
 
+/*
+ * Check whether p is equal to k + x for a non-zero constant k and a variable x
+ */
+bool bvpoly64_is_const_plus_var(bvpoly64_t *p, int32_t x) {
+  return p->nterms == 2 && p->mono[0].var == const_idx && p->mono[1].var == x &&
+    p->mono[1].coeff == 1;
+}
 
