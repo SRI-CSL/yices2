@@ -1098,6 +1098,41 @@ static inline bvpoly_t *bvpoly_term_desc(term_table_t *table, term_t t) {
 
 
 /*
+ * Subcomponents of a term t
+ */
+// arity of a composite term
+static inline uint32_t composite_term_arity(term_table_t *table, term_t t) {
+  return composite_term_desc(table, t)->arity;
+}
+
+// i-th argument of term t (t must be a composite term)
+static inline term_t composite_term_arg(term_table_t *table, term_t t, uint32_t i) {
+  assert(i < composite_term_arity(table, t));
+  return composite_term_desc(table, t)->arg[i];
+}
+
+// index of a select term t 
+static inline uint32_t select_term_index(term_table_t *table, term_t t) {
+  return select_term_desc(table, t)->idx;
+}
+
+// argument of select term t
+static inline term_t select_term_arg(term_table_t *table, term_t t) {
+  return select_term_desc(table, t)->arg;
+}
+
+// index of a bit select term t 
+static inline uint32_t bit_term_index(term_table_t *table, term_t t) {
+  return bit_term_desc(table, t)->idx;
+}
+
+// argument of select term t
+static inline term_t bit_term_arg(term_table_t *table, term_t t) {
+  return bit_term_desc(table, t)->arg;
+}
+
+
+/*
  * All the following functions are equivalent to composite_term_desc
  * or select_term_desc, but, when debugging is enabled, they also check
  * that the term kind is consistent.

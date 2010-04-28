@@ -28,6 +28,14 @@ extern bool disequal_terms(term_table_t *tbl, term_t x, term_t y);
 
 
 /*
+ * Special cases:
+ * - two bitvector terms
+ * - two arithmetic terms 
+ */
+extern bool disequal_bitvector_terms(term_table_t *tbl, term_t x, term_t y);
+extern bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y);
+
+/*
  * Check whether a[i] can't equal b[i] for all i in 0 .. n-1
  */
 extern bool disequal_term_arrays(term_table_t *tbl, uint32_t n, term_t *a, term_t *b);

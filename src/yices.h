@@ -282,6 +282,24 @@ extern term_t yices_ite(term_t cond, term_t then_term, term_t else_term);
 extern term_t yices_eq(term_t left, term_t right);
 extern term_t yices_neq(term_t left, term_t right);
 
+
+/*
+ * (not arg)
+ *
+ * Error report:
+ * if arg is invalid
+ *    code = INVALID_TERM
+ *    term1 = arg
+ *    index = -1
+ * if arg is not boolean
+ *    code = TYPE_MISMATCH
+ *    term1 = arg
+ *    type1 = bool (expected type)
+ *    index = -1
+ */
+extern term_t yices_not(term_t arg);
+
+
 /*
  * (or  arg[0] ... arg[n-1])
  * (and arg[0] ... arg[n-1])
@@ -307,20 +325,12 @@ extern term_t yices_xor(uint32_t n, term_t arg[]);
 
 
 /*
- * (not arg)
- *
- * Error report:
- * if arg is invalid
- *    code = INVALID_TERM
- *    term1 = arg
- *    index = -1
- * if arg is not boolean
- *    code = TYPE_MISMATCH
- *    term1 = arg
- *    type1 = bool (expected type)
- *    index = -1
+ * Binary versions of or/and/xor
  */
-extern term_t yices_not(term_t arg);
+extern term_t yices_or2(term_t left, term_t right);
+extern term_t yices_and2(term_t left, term_t right);
+extern term_t yices_xor2(term_t left, term_t right);
+
 
 /*
  * (iff left right)
@@ -344,7 +354,7 @@ extern term_t yices_implies(term_t left, term_t right);
  * Tuple constructor
  *
  * Error report:
- * if n == 0 
+ * if n == 0
  *   code = POSINT_REQUIRED
  *   badval = n
  * if n > YICES_MAX_ARITY
@@ -374,6 +384,7 @@ extern term_t yices_tuple(uint32_t n, term_t arg[]);
  *    badval = index
  */
 extern term_t yices_select(uint32_t index, term_t tuple);
+
 
 /*
  * Function update
@@ -572,7 +583,6 @@ extern term_t yices_parse_rational(char *s);
 extern term_t yices_parse_float(char *s);
 
 
-
 /*
  * ARITHMETIC OPERATIONS
  */
@@ -621,7 +631,7 @@ extern term_t yices_square(term_t t1);             // t1 * t1
  * if t[i] is not an arithmetic term
  *   code = ARITH_TERM_REQUIRED
  *   term1 = t[i]
- *   index = -1
+ *   index = i
  */
 
 /*
@@ -727,6 +737,13 @@ extern term_t yices_arith_lt0_atom(term_t t);   // t < 0
  *
  * The low-order bit of x is bit 0 of the constant.
  *
+ * Error report:
+ * if n = 0
+ *    code = POSINT_REQUIRED
+ *    badval = n
+ * if n > YICES_MAX_BVSIZE
+ *    code = MAX_BVSIZE_EXCEEDED
+ *    badval = n *
  */
 extern term_t yices_bvconst_uint32(uint32_t n, uint32_t x);
 extern term_t yices_bvconst_uint64(uint32_t n, uint64_t x);
@@ -794,7 +811,7 @@ extern term_t yices_parse_bvbin(char *s);
  *
  * Error report:
  * if the format is incorrect:
- *   code = INVALID_BVBIN_FORMAT
+ *   code = INVALID_BVHEX_FORMAT
  * if the result would have more than YICES_MAX_BVSIZE digits
  *   code = MAX_BVSIZE_EXCEEDED
  *   badval = n

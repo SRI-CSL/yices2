@@ -545,6 +545,7 @@ void bvconst_print(FILE *f, uint32_t *bv, uint32_t n) {
  */
 int bvconst_set_from_string(uint32_t *bv, uint32_t n, char *s) {
   char c;
+
   assert(n > 0);
 
   do {

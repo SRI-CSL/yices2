@@ -314,7 +314,7 @@ static inline bool disequal_boolean_terms(term_t x, term_t y) {
  *
  * TODO? we could do more when (x - y) is a polynomial with integer variables.
  */
-static bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y) {
+bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y) {
   type_kind_t kx, ky;
 
   kx = term_kind(tbl, x);
@@ -338,8 +338,6 @@ static bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y) {
 
   return false;
 }
-
-
 
 
 
@@ -435,6 +433,19 @@ static bool disequal_bv_terms(term_table_t *tbl, term_t x, term_t y) {
 }
 
 
+/*
+ * Generic form for two bitvector terms x and y
+ */
+bool disequal_bitvector_terms(term_table_t *tbl, term_t x, term_t y) {
+  assert(is_bitvector_term(tbl, x) && is_bitvector_term(tbl, y) &&
+	 term_bitsize(tbl, x) == term_bitsize(tbl, y));
+  
+  if (term_bitsize(tbl, x) <= 64) {
+    return disequal_bv64_terms(tbl, x, y);
+  } else {
+    return disequal_bv_terms(tbl, x, y);
+  }
+}
 
 
 /*
