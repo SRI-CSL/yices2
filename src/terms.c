@@ -1152,6 +1152,27 @@ void add_unit_type_rep(term_table_t *table, type_t tau, term_t t) {
 
 
 /*
+ * Store t as the unique term of type tau:
+ * - tau must be a singleton type
+ * - t must be a valid term occurrence of type tau
+ * - there musn't be a representative for tau already or 
+ *   the representative must be equal to t
+ */
+void store_unit_type_rep(term_table_t *table, type_t tau, term_t t) {
+  int_hmap_pair_t *p;
+
+  assert(is_unit_type(table->types, tau) && good_term(table, t) && 
+	 term_type(table, t) == tau);
+
+  p = int_hmap_get(&table->utbl, tau);
+  if (p->val == EMPTY_KEY) {
+    p->val = t;
+  }
+  assert(p->val == t);
+}
+
+
+/*
  * Remove the representative of type tau from the table.
  * - tau must be a singleton type
  * - no effect if tau has no representative

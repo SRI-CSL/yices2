@@ -5,6 +5,7 @@
 
 #include <assert.h>
 
+#include "memalloc.h"
 #include "bv64_constants.h"
 #include "term_utils.h"
 
@@ -827,4 +828,83 @@ uint64_t lower_bound_signed64(term_table_t *tbl, term_t t) {
 
   return c;
 }
+
+
+/*
+ * UNIT-TYPE REPRESENTATIVES
+ */
+
+/*
+ * Representative of a singleton type tau:
+ * - for scalar type: the unique constant of that type
+ * - for function type: an uninterpreted term (denoting the constant function)
+ * - for tuple type: (tau_1 ... tau_n)
+ *   representative = (tuple (rep tau_1) ... (rep tau_n))
+ */
+
+/*
+ * Tuple of representative terms.
+ */
+static term_t make_tuple_rep(term_table_t *table, tuple_type_t *d) {
+  term_t aux[8];
+  term_t *a;
+  term_t t;
+  uint32_t i, n;
+
+  n = d->nelem;
+  a = aux;
+  if (n > 8) {
+    a = (term_t *) safe_malloc(n * sizeof(term_t));
+  }
+
+  for (i=0; i<n; i++) {
+    a[i] = get_unit_type_rep(table, d->elem[i]);
+  }
+  t = tuple_term(table, n, a);
+
+  if (n > 8) {
+    safe_free(a);
+  }
+
+  return t;
+}
+
+/*
+ * Return the term representative for unit type tau.
+ * - search the table of unit-types first
+ * - create a new term if there's no entry for tau in that table.
+ */
+term_t get_unit_type_rep(term_table_t *table, type_t tau) {
+  type_table_t *types;
+  term_t t;
+
+  assert(is_unit_type(table->types, tau));
+  
+  t = unit_type_rep(table, tau);
+  if (t == NULL_TERM) {
+    types = table->types;
+    switch (type_kind(types, tau)) {
+    case SCALAR_TYPE:
+      assert(scalar_type_cardinal(types, tau) == 1);
+      t = constant_term(table, tau, 0);
+      break;
+
+    case TUPLE_TYPE:
+      t = make_tuple_rep(table, tuple_type_desc(types, tau));
+      break;
+
+    case FUNCTION_TYPE:
+      t = new_uninterpreted_term(table, tau);
+      break;
+
+    default:
+      assert(false);
+      break;
+    }
+    add_unit_type_rep(table, tau, t);
+  }
+
+  return t;
+}
+
 

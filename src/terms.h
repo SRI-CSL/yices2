@@ -619,10 +619,20 @@ extern term_t bvsge_atom(term_table_t *table, term_t l, term_t r);
 /*
  * Store t as the unique term of type tau:
  * - tau must be a singleton type
- * - t must be a valid term occurrence of type tau
+ * - t must be a valid term of type tau
  * - there musn't be a representative for tau already
  */
 extern void add_unit_type_rep(term_table_t *table, type_t tau, term_t t);
+
+
+/*
+ * Store t as the unique term of type tau (if it's not already)
+ * - tau must be a singleton type
+ * - t must be a valid term of type tau
+ * - if tau has no representative yet, then t is stored
+ *   otherwise nothing happens.
+ */
+extern void store_unit_type_rep(term_table_t *table, type_t tau, term_t t);
 
 
 /*

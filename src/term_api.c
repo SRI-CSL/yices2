@@ -2547,69 +2547,6 @@ static bool check_bitextract(uint32_t i, uint32_t j, uint32_t n) {
 
 
 
-#if 0
-// NOT USED ANYMORE 
-
-// Check that a polynomial has degree at most MAX_DEGREE
-static bool check_arith_buffer_degree(arith_buffer_t *b) {
-  return check_maxdegree(arith_buffer_degree(b));
-}
-
-// Same thing for bitvector polynomials
-static bool check_bvarith_buffer_degree(bvarith_buffer_t *b) {
-  return check_maxdegree(bvarith_buffer_degree(b));
-}
-
-static bool check_bvarith64_buffer_degree(bvarith64_buffer_t *b) {
-  return check_maxdegree(bvarith64_buffer_degree(b));
-}
-
-// Check whether t is a bitvector term of size n
-static bool check_bitsize(term_table_t *tbl, term_t t, uint32_t n) {
-  uint32_t s;
-
-  s = term_bitsize(tbl, t);
-  if (s != n) {
-    error.code = INCOMPATIBLE_BVSIZES;
-    error.badval = s;
-    return false;
-  }
-  return true;
-}
-
-
-// Check whether terms a[0] to a[n-1] are all bitvector terms of size p
-static bool check_good_bitvectors(term_table_t *tbl, uint32_t n, term_t *a, uint32_t p) {
-  uint32_t i, s;
-  term_t t;
-
-  for (i=0; i<n; i++) {
-    t = a[i];
-    if (! is_bitvector_term(tbl, t)) {
-      error.code = BITVECTOR_REQUIRED;
-      error.term1 = t;
-      error.index = i;
-      return false;
-    }
-
-    s = term_bitsize(tbl, t);
-    if (s != p) {
-      error.code = INCOMPATIBLE_BVSIZES;
-      error.term1 = t;
-      error.index = i;
-      error.badval = s;      
-      return false;
-    }
-  }
-
-  return true;
-}
-
-
-#endif
-
-
-
 /***********************
  *  TYPE CONSTRUCTORS  *
  **********************/
@@ -2672,6 +2609,10 @@ EXPORTED type_t yices_function_type(uint32_t n, type_t dom[], type_t range) {
  *  TERM CONSTRUCTORS  *
  **********************/
 
+/*
+ * When constructing a term to singleton type tau, we always
+ * return the representative for tau (except for variables).
+ */
 EXPORTED term_t yices_true(void) {
   return true_term;
 }
@@ -2681,16 +2622,29 @@ EXPORTED term_t yices_false(void) {
 }
 
 EXPORTED term_t yices_constant(type_t tau, int32_t index) {
+  term_t t;
+
   if (! check_good_constant(&types, tau, index)) {
     return NULL_TERM;
   }
-  return constant_term(&terms, tau, index);
+
+  t = constant_term(&terms, tau, index);
+  if (is_unit_type(&types, tau)) {
+    store_unit_type_rep(&terms, tau, t);
+  }
+
+  return t;
 }
 
 EXPORTED term_t yices_new_uninterpreted_term(type_t tau) {
   if (! check_good_type(&types, tau)) {
     return NULL_TERM;
   }
+
+  if (is_unit_type(&types, tau)) {
+    return get_unit_type_rep(&terms, tau);
+  }
+
   return new_uninterpreted_term(&terms, tau);
 }
 
@@ -2723,9 +2677,16 @@ static bool equal_term_arrays(uint32_t n, term_t *a, term_t *b) {
  */
 EXPORTED term_t yices_application(term_t fun, uint32_t n, term_t arg[]) {
   composite_term_t *update;
+  type_t tau;
 
   if (! check_good_application(&terms, fun, n, arg)) {
     return NULL_TERM;
+  }
+
+  // singleton function type
+  tau = term_type(&terms, fun);
+  if (is_unit_type(&types, tau)) {
+    return get_unit_type_rep(&terms, tau);
   }
 
   while (term_kind(&terms, fun) == UPDATE_TERM) {
@@ -3045,6 +3006,7 @@ EXPORTED term_t yices_implies(term_t left, term_t right) {
 EXPORTED term_t yices_tuple(uint32_t n, term_t arg[]) {
   uint32_t i;
   term_t x, a;
+  type_t tau;
 
   if (! check_positive(n) || 
       ! check_arity(n) ||
@@ -3066,7 +3028,14 @@ EXPORTED term_t yices_tuple(uint32_t n, term_t arg[]) {
     return x;
   }
 
-  return tuple_term(&terms, n, arg);
+  // check whether x is unique element of its type
+  x = tuple_term(&terms, n, arg);
+  tau = term_type(&terms, x);
+  if (is_unit_type(&types, tau)) {
+    store_unit_type_rep(&terms, tau, x);
+  }
+
+  return x;
 }
 
 
@@ -3094,8 +3063,17 @@ EXPORTED term_t yices_select(uint32_t index, term_t tuple) {
  * TBD
  */
 EXPORTED term_t yices_update(term_t fun, uint32_t n, term_t arg[], term_t new_v) {
+  type_t tau;
+
   if (! check_good_update(&terms, fun, n, arg, new_v)) {
     return NULL_TERM;
+  }
+
+  // singleton function type
+  tau = term_type(&terms, fun);
+  if (is_unit_type(&types, tau)) {
+    assert(unit_type_rep(&terms, tau) == fun);
+    return fun;
   }
 
   return update_term(&terms, fun, n, arg, new_v);
@@ -3207,9 +3185,17 @@ static term_t mk_tuple_aux(term_table_t *tbl, term_t tuple, uint32_t n, uint32_t
 
 EXPORTED term_t yices_tuple_update(term_t tuple, uint32_t index, term_t new_v) {
   uint32_t n;
+  type_t tau;
 
   if (! check_good_tuple_update(&terms, tuple, index, new_v)) {
     return NULL_TERM;
+  }
+
+  // singleton type
+  tau = term_type(&terms, tuple);
+  if (is_unit_type(&types, tau)) {
+    assert(unit_type_rep(&terms, tau) == tuple);
+    return tuple;
   }
 
   n = composite_term_arity(&terms, tuple);
