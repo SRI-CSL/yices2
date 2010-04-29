@@ -2519,36 +2519,9 @@ static bool check_good_tuple_update(term_table_t *tbl, uint32_t i, term_t t, ter
   return true;
 }
 
-// Check that a polynomial has degree at most MAX_DEGREE
-static inline bool check_arith_buffer_degree(arith_buffer_t *b) {
-  return check_maxdegree(arith_buffer_degree(b));
-}
-
-// Same thing for bitvector polynomials
-static inline bool check_bvarith_buffer_degree(bvarith_buffer_t *b) {
-  return check_maxdegree(bvarith_buffer_degree(b));
-}
-
-static inline bool check_bvarith64_buffer_degree(bvarith64_buffer_t *b) {
-  return check_maxdegree(bvarith64_buffer_degree(b));
-}
-
 // Check that the degree of term t is at most MAX_DEGREE
-static inline bool check_term_degree(term_table_t *tbl, term_t t) {
+static bool check_term_degree(term_table_t *tbl, term_t t) {
   return check_maxdegree(term_degree(tbl, t));
-}
-
-// Check whether t is a bitvector term of size n
-static bool check_bitsize(term_table_t *tbl, term_t t, uint32_t n) {
-  uint32_t s;
-
-  s = term_bitsize(tbl, t);
-  if (s != n) {
-    error.code = INCOMPATIBLE_BVSIZES;
-    error.badval = s;
-    return false;
-  }
-  return true;
 }
 
 
@@ -2565,8 +2538,40 @@ static bool check_bitshift(uint32_t i, uint32_t n) {
 
 // Check whether [i, j] is a valid segment for bitvectors of size n
 static bool check_bitextract(uint32_t i, uint32_t j, uint32_t n) {
-  if (i < 0 || i > j || j >= n) {
+  if (i > j || j >= n) {
     error.code = INVALID_BVEXTRACT;
+    return false;
+  }
+  return true;
+}
+
+
+
+#if 0
+// NOT USED ANYMORE 
+
+// Check that a polynomial has degree at most MAX_DEGREE
+static bool check_arith_buffer_degree(arith_buffer_t *b) {
+  return check_maxdegree(arith_buffer_degree(b));
+}
+
+// Same thing for bitvector polynomials
+static bool check_bvarith_buffer_degree(bvarith_buffer_t *b) {
+  return check_maxdegree(bvarith_buffer_degree(b));
+}
+
+static bool check_bvarith64_buffer_degree(bvarith64_buffer_t *b) {
+  return check_maxdegree(bvarith64_buffer_degree(b));
+}
+
+// Check whether t is a bitvector term of size n
+static bool check_bitsize(term_table_t *tbl, term_t t, uint32_t n) {
+  uint32_t s;
+
+  s = term_bitsize(tbl, t);
+  if (s != n) {
+    error.code = INCOMPATIBLE_BVSIZES;
+    error.badval = s;
     return false;
   }
   return true;
@@ -2601,7 +2606,7 @@ static bool check_good_bitvectors(term_table_t *tbl, uint32_t n, term_t *a, uint
 }
 
 
-
+#endif
 
 
 
@@ -3646,9 +3651,6 @@ EXPORTED term_t yices_poly_mpq(uint32_t n, mpq_t q[], term_t t[]) {
  *  ARITHMETIC ATOMS  *
  *********************/
 
-/*
- * API Calls
- */
 // t1 == t2
 EXPORTED term_t yices_arith_eq_atom(term_t t1, term_t t2) {
   if (! check_both_arith_terms(&terms, t1, t2)) {
@@ -3998,1242 +4000,27 @@ EXPORTED term_t yices_parse_bvhex(char *s) {
 
 
 
-#if 0
-
-/**********************************
- *  BITVECTOR ARITHMETIC BUFFERS  *
- *********************************/
-
-/*
- * Reset buffer to 0b00...0 with n bits
- * No change if n <= 0.
- */
-EXPORTED void yices_bvarith_reset(bvarith_buffer_t *b, int32_t n) {
-  if (n > 0) {
-    bvarith_buffer_prepare(b, n);
-  }
-}
-
-
-/*
- * Assignment: copy a constant into b.
- * - set b's bitsize to that of c
- */
-EXPORTED void yices_bvarith_set_const(bvarith_buffer_t *b, bvconstant_t *c) {
-  uint32_t n;
-
-  n = c->bitsize;
-  assert(n > 0);
-  bvarith_buffer_prepare(b, n);
-  bvarith_buffer_add_const(b, c->data);
-}
-
-/*
- * Copy another buffer into b: b's size is adjusted.
- * no effect if b1 == b
- */
-EXPORTED void yices_bvarith_set_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1) {
-  uint32_t n;
-
-  if (b1 != b) {
-    n = b1->size;
-    bvarith_buffer_prepare(b, n);
-    bvarith_buffer_add_buffer(b, b1);
-  }
-}
-
-
-/*
- * Assignment: copy term t into b.
- * Return -1 if there's an error, 0 otherwise
- *
- * Error report:
- * if t is invalid
- *    code = INVALID_TERM
- *    term1 = t
- *    index = -1
- * if t does not have bitvector type
- *    code = BITVECTOR_REQUIRED
- *    term1 = t
- */
-EXPORTED int32_t yices_bvarith_set_term(bvarith_buffer_t *b, term_t t) {
-  bvarith_expr_t *p;
-  bvconst_term_t *c;
-  int32_t n;
-
-  if (! check_good_term(&terms, t) ||
-      ! check_bitvector_term(&terms, t)) {
-    return -1;
-  }
-
-  n = term_bitsize(&terms, t);
-  bvarith_buffer_prepare(b, n);
-  
-  switch (term_kind(&terms, t)) {
-  case BV_ARITH_TERM:
-    p = bvarith_term_desc(&terms, t);
-    bvarith_buffer_add_expr(b, p);
-    break;
-
-  case BV_CONST_TERM:
-    c = bvconst_term_desc(&terms, t);
-    bvarith_buffer_add_const(b, c->bits);
-    break;
-
-  default:
-    bvarith_buffer_add_var(b, get_bitvector_variable(&terms, t));
-    break;
-  }
-
-  return 0;  
-}
-
-
-
-
-
-/*
- * Bitvector arithmetic operations
- *
- * All return -1 if there's an error, 0 otherwise.
- * Exception: bvnegate never fails.
- *
- * Error report:
- * if buffer and arguments do not have the same size
- *   code = INCOMPATIBLE_BVSIZES
- *   badval = size of argument
- * if term t is not well defined
- *   code = INVALID_TERM
- *   index = -1
- * if t is not a bitvector term
- *   code = BITVECTOR_REQUIRED
- *   term1 = t
- * if degree is too large (in mul operations)
- *   code = DEGREE_OVERFLOW
- */
-EXPORTED void yices_bvarith_negate(bvarith_buffer_t *b) {
-  bvarith_buffer_negate(b);  
-}
-
-EXPORTED int32_t yices_bvarith_add_const(bvarith_buffer_t *b, bvconstant_t *c) {
-  if (b->size != c->bitsize) {
-    error.code = INCOMPATIBLE_BVSIZES;
-    error.badval = c->bitsize;
-    return -1;
-  }
-
-  bvarith_buffer_add_const(b, c->data);
-  return 0;
-}
-
-EXPORTED int32_t yices_bvarith_sub_const(bvarith_buffer_t *b, bvconstant_t *c) {
-  if (b->size != c->bitsize) {
-    error.code = INCOMPATIBLE_BVSIZES;
-    error.badval = c->bitsize;
-    return -1;
-  }
-
-  bvarith_buffer_sub_const(b, c->data);
-  return 0;
-}
-
-EXPORTED int32_t yices_bvarith_mul_const(bvarith_buffer_t *b, bvconstant_t *c) {
-  if (b->size != c->bitsize) {
-    error.code = INCOMPATIBLE_BVSIZES;
-    error.badval = c->bitsize;
-    return -1;
-  }
-
-  if (bvconst_is_zero(c->data, c->width)) {
-    // reset to zero
-    bvarith_buffer_prepare(b, b->size);
-  } else {
-    bvarith_buffer_mul_const(b, c->data);
-  }
-
-  return 0;
-}
-
-
-EXPORTED int32_t yices_bvarith_add_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1) {
-  if (b->size != b1->size) {
-    error.code = INCOMPATIBLE_BVSIZES;
-    error.badval = b1->size;
-    return -1;
-  }
-
-  bvarith_buffer_add_buffer(b, b1);
-  return 0;
-}
-
-EXPORTED int32_t yices_bvarith_sub_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1) {
-  if (b->size != b1->size) {
-    error.code = INCOMPATIBLE_BVSIZES;
-    error.badval = b1->size;
-    return -1;
-  }
-
-  bvarith_buffer_sub_buffer(b, b1);
-  return 0;
-}
-
-EXPORTED int32_t yices_bvarith_mul_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1) {
-  if (b->size != b1->size) {
-    error.code = INCOMPATIBLE_BVSIZES;
-    error.badval = b1->size;
-    return -1;
-  }
-
-  if (! check_bvarith_buffer_degree(b) ||
-      ! check_bvarith_buffer_degree(b1)) {
-    return -1;
-  }
-
-  if (b == b1) {
-    bvarith_buffer_square(b);
-    return 0;
-  }
-
-  bvarith_buffer_mul_buffer(b, b1);
-  return 0;
-}
-
-
-EXPORTED int32_t yices_bvarith_add_term(bvarith_buffer_t *b, term_t t) {
-  bvarith_expr_t *p;
-  bvconst_term_t *c;
-
-  if (! check_good_term(&terms, t) ||
-      ! check_bitvector_term(&terms, t) ||
-      ! check_bitsize(&terms, t, b->size)) {
-    return -1;
-  }
-
-  switch (term_kind(&terms, t)) {
-  case BV_ARITH_TERM:
-    p = bvarith_term_desc(&terms, t);
-    bvarith_buffer_add_expr(b, p);
-    break;
-
-  case BV_CONST_TERM:
-    c = bvconst_term_desc(&terms, t);
-    bvarith_buffer_add_const(b, c->bits);
-    break;
-
-  default:
-    bvarith_buffer_add_var(b, get_bitvector_variable(&terms, t));
-    break;
-  }
-
-  return 0;
-}
-
-EXPORTED int32_t yices_bvarith_sub_term(bvarith_buffer_t *b, term_t t) {
-  bvarith_expr_t *p;
-  bvconst_term_t *c;
-
-  if (! check_good_term(&terms, t) ||
-      ! check_bitvector_term(&terms, t) ||
-      ! check_bitsize(&terms, t, b->size)) {
-    return -1;
-  }
-
-  switch (term_kind(&terms, t)) {
-  case BV_ARITH_TERM:
-    p = bvarith_term_desc(&terms, t);
-    bvarith_buffer_sub_expr(b, p);
-    break;
-
-  case BV_CONST_TERM:
-    c = bvconst_term_desc(&terms, t);
-    bvarith_buffer_sub_const(b, c->bits);
-    break;
-
-  default:
-    bvarith_buffer_sub_var(b, get_bitvector_variable(&terms, t));
-    break;
-  }  
-
-  return 0;
-}
-
-EXPORTED int32_t yices_bvarith_mul_term(bvarith_buffer_t *b, term_t t) {
-  bvarith_expr_t *p;
-  bvconst_term_t *c;
-
-  if (! check_good_term(&terms, t) ||
-      ! check_bitvector_term(&terms, t) ||
-      ! check_bitsize(&terms, t, b->size) ||
-      ! check_bvarith_buffer_degree(b)) {
-    return -1;
-  }
-  
-  switch (term_kind(&terms, t)) {
-  case BV_ARITH_TERM:
-    p = bvarith_term_desc(&terms, t);
-    if (! check_bvarith_expr_degree(p)) {
-      return -1;
-    }
-    bvarith_buffer_mul_expr(b, p);
-    break;
-
-  case BV_CONST_TERM:
-    c = bvconst_term_desc(&terms, t);
-    if (bvconst_is_zero(c->bits, c->nbits)) {
-      bvarith_buffer_prepare(b, b->size); // reset to zero
-    } else {
-      bvarith_buffer_mul_const(b, c->bits);
-    }
-    break;
-
-  default:
-    bvarith_buffer_mul_var(b, get_bitvector_variable(&terms, t));
-    break;
-  }
-
-  return 0;  
-}
-
-EXPORTED int32_t yices_bvarith_square(bvarith_buffer_t *b) {
-  if (! check_bvarith_buffer_degree(b)) {
-    return -1;
-  }
-  bvarith_buffer_square(b);
-  return 0;
-}
-
-
-
-
-
-/*
- * CONVERSION FROM  BVARITH BUFFER TO BVLOGIC BUFFER
- *
- * TODO: Reorganize the code. This module should not
- * have to know the detailed internal structure of the 
- * bvarith buffers.
- */
-
-
-/*
- * Convert b to a term: 
- * if b is reduced to a single variable x, return the term attached to x
- * if b is constant, build a BV_CONST_TERM
- * if b can be converted to a bit array (BV_LOGIC_TERM) return that
- * otherwise construct a BV_ARITH_TERM
- */
-EXPORTED term_t yices_bvarith_term(bvarith_buffer_t *b) {
-  bv_var_t x;
-  term_t t;
-
-  bvarith_buffer_normalize(b);
-
-  if (bvarith_buffer_is_constant(b)) {
-    bvarith_buffer_copy_constant(b, &bv1);
-    return bvconst_term(&terms, bv1.bitsize, bv1.data);
-  }
-
-  if (bvarith_buffer_is_variable(b)) {
-    x = bvarith_buffer_first_var(b);
-    if (polymanager_var_is_primitive(&bv_manager.pm, x)) {
-      t = polymanager_var_index(&bv_manager.pm, x);
-      assert(term_theory_var(&terms, t) == x);
-      return t;
-    }
-  }
-
-  t = convert_bvarith_to_bvlogic_term(b);
-  if (t != NULL_TERM) {
-    return t;
-  }
-
-  return bvarith_term(&terms, b);
-}
-
-
-
-
-/********************************
- *   BITVECTOR LOGIC BUFFERS    *
- *******************************/
-
-/*
- * Reset b to the empty vector
- */
-EXPORTED void yices_bvlogic_reset(bvlogic_buffer_t *b) {
-  bvlogic_buffer_clear(b);
-}
-
-
-/*
- * Copy constant c into b
- */
-EXPORTED void yices_bvlogic_set_const(bvlogic_buffer_t *b, bvconstant_t *c) {
-  bvlogic_buffer_set_constant(b, c->bitsize, c->data);
-}
-
-
-/*
- * Copy buffer b1 into b
- */
-EXPORTED void yices_bvlogic_set_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b1) {
-  if (b != b1) {
-    bvlogic_buffer_set_bitarray(b, b1->nbits, b1->bit);
-  }
-}
-
-
-/*
- * Copy term t into b
- */
-EXPORTED int32_t yices_bvlogic_set_term(bvlogic_buffer_t *b, term_t t) {
-  int32_t n;
-  bvlogic_expr_t *e;
-  bvconst_term_t *c;
-  bv_var_t x;
-  bit_t *bits;
-
-  if (! check_good_term(&terms, t) ||
-      ! check_bitvector_term(&terms, t)) {
-    return -1;
-  }
-
-  switch (term_kind(&terms, t)) {
-  case BV_LOGIC_TERM:
-    e = bvlogic_term_desc(&terms, t);
-    bvlogic_buffer_set_bitarray(b, e->nbits, e->bit);
-    break;
-
-  case BV_CONST_TERM:
-    c = bvconst_term_desc(&terms, t);
-    bvlogic_buffer_set_constant(b, c->nbits, c->bits);
-    break;
-    
-  default:
-    n = term_bitsize(&terms, t);
-    x = get_bitvector_variable(&terms, t);
-    bits = bv_var_manager_get_bit_array(&bv_manager, x);
-    bvlogic_buffer_set_bitarray(b, n, bits);
-    break;    
-  }
-
-  return 0;
-}
-
-
-
-/*
- * Bitwise not 
- */
-EXPORTED void yices_bvlogic_not(bvlogic_buffer_t *b) {
-  bvlogic_buffer_not(b);
-}
-
-
-
-/*
- * Bitwise and, or, xor
- */
-EXPORTED int32_t yices_bvlogic_and_const(bvlogic_buffer_t *b, bvconstant_t *c) {
-  if (b->nbits != c->bitsize) {
-    error.code = INCOMPATIBLE_BVSIZES;
-    error.badval = c->bitsize;
-    return -1;
-  }
-
-  bvlogic_buffer_and_constant(b, c->bitsize, c->data);
-  return 0;
-}
-
-EXPORTED int32_t yices_bvlogic_or_const(bvlogic_buffer_t *b, bvconstant_t *c) {
-  if (b->nbits != c->bitsize) {
-    error.code = INCOMPATIBLE_BVSIZES;
-    error.badval = c->bitsize;
-    return -1;
-  }
-
-  bvlogic_buffer_or_constant(b, c->bitsize, c->data);
-  return 0;
-}
-
-EXPORTED int32_t yices_bvlogic_xor_const(bvlogic_buffer_t *b, bvconstant_t *c) {
-  if (b->nbits != c->bitsize) {
-    error.code = INCOMPATIBLE_BVSIZES;
-    error.badval = c->bitsize;
-    return -1;
-  }
-
-  bvlogic_buffer_xor_constant(b, c->bitsize, c->data);
-  return 0;
-}
-
-// more 
-EXPORTED int32_t yices_bvlogic_nand_const(bvlogic_buffer_t *b, bvconstant_t *c) {
-  int32_t code;
-
-  code = yices_bvlogic_and_const(b, c);
-  if (code == 0) bvlogic_buffer_not(b);
-  return code;
-}
-
-EXPORTED int32_t yices_bvlogic_nor_const(bvlogic_buffer_t *b, bvconstant_t *c) {
-  int32_t code;
-
-  code = yices_bvlogic_or_const(b, c);
-  if (code == 0) bvlogic_buffer_not(b);
-  return code;
-}
-
-EXPORTED int32_t yices_bvlogic_xnor_const(bvlogic_buffer_t *b, bvconstant_t *c) {
-  int32_t code;
-
-  code = yices_bvlogic_xor_const(b, c);
-  if (code == 0) bvlogic_buffer_not(b);
-  return code;
-}
-
-
-/*
- * operation between buffer and another buffer b1
- */
-EXPORTED int32_t yices_bvlogic_and_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b1) {
-  if (b->nbits != b1->nbits) {
-    error.code = INCOMPATIBLE_BVSIZES;
-    error.badval = b1->nbits;
-    return -1;
-  }
-  bvlogic_buffer_and_bitarray(b, b1->nbits, b1->bit);
-
-  return 0;
-}
-
-EXPORTED int32_t yices_bvlogic_or_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b1) {
-  if (b->nbits != b1->nbits) {
-    error.code = INCOMPATIBLE_BVSIZES;
-    error.badval = b1->nbits;
-    return -1;
-  }
-  bvlogic_buffer_or_bitarray(b, b1->nbits, b1->bit);
-
-  return 0;
-}
-
-EXPORTED int32_t yices_bvlogic_xor_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b1) {
-  if (b->nbits != b1->nbits) {
-    error.code = INCOMPATIBLE_BVSIZES;
-    error.badval = b1->nbits;
-    return -1;
-  }
-  bvlogic_buffer_xor_bitarray(b, b1->nbits, b1->bit);
-
-  return 0;
-}
-
-
-EXPORTED int32_t yices_bvlogic_nand_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b1) {
-  int32_t code;
-
-  code = yices_bvlogic_and_buffer(b, b1);
-  if (code == 0) bvlogic_buffer_not(b);
-  return code;
-}
-
-EXPORTED int32_t yices_bvlogic_nor_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b1) {
-  int32_t code;
-
-  code = yices_bvlogic_or_buffer(b, b1);
-  if (code == 0) bvlogic_buffer_not(b);
-  return code;
-}
-
-EXPORTED int32_t yices_bvlogic_xnor_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b1) {
-  int32_t code;
-
-  code = yices_bvlogic_xor_buffer(b, b1);
-  if (code == 0) bvlogic_buffer_not(b);
-  return code;
-}
-
-
-
-/*
- * Bitwise operations with a single term
- */
-EXPORTED int32_t yices_bvlogic_and_term(bvlogic_buffer_t *b, term_t t) {
-  int32_t n;
-  bvlogic_expr_t *e;
-  bvconst_term_t *c;
-  bv_var_t x;
-  bit_t *bits;
-
-  if (! check_good_term(&terms, t) ||
-      ! check_bitvector_term(&terms, t) ||
-      ! check_bitsize(&terms, t, b->nbits)) {    
-    return -1;
-  }
-
-  switch (term_kind(&terms, t)) {
-  case BV_LOGIC_TERM:
-    e = bvlogic_term_desc(&terms, t);
-    assert(e->nbits == b->nbits);
-    bvlogic_buffer_and_bitarray(b, e->nbits, e->bit);
-    break;
-
-  case BV_CONST_TERM:
-    c = bvconst_term_desc(&terms, t);
-    assert(c->nbits == b->nbits);
-    bvlogic_buffer_and_constant(b, c->nbits, c->bits);
-    break;
-
-  default:
-    n = term_bitsize(&terms, t);
-    assert(n == b->nbits);
-    x = get_bitvector_variable(&terms, t);
-    bits = bv_var_manager_get_bit_array(&bv_manager, x);
-    bvlogic_buffer_and_bitarray(b, n, bits);
-    break;
-  }
-
-  return 0;
-}
-
-
-EXPORTED int32_t yices_bvlogic_or_term(bvlogic_buffer_t *b, term_t t) {
-  int32_t n;
-  bvlogic_expr_t *e;
-  bvconst_term_t *c;
-  bv_var_t x;
-  bit_t *bits;
-
-  if (! check_good_term(&terms, t) ||
-      ! check_bitvector_term(&terms, t) ||
-      ! check_bitsize(&terms, t, b->nbits)) {    
-    return -1;
-  }
-
-  switch (term_kind(&terms, t)) {
-  case BV_LOGIC_TERM:
-    e = bvlogic_term_desc(&terms, t);
-    assert(e->nbits == b->nbits);
-    bvlogic_buffer_or_bitarray(b, e->nbits, e->bit);
-    break;
-
-  case BV_CONST_TERM:
-    c = bvconst_term_desc(&terms, t);
-    assert(c->nbits == b->nbits);
-    bvlogic_buffer_or_constant(b, c->nbits, c->bits);
-    break;
-
-  default:
-    n = term_bitsize(&terms, t);
-    assert(n == b->nbits);
-    x = get_bitvector_variable(&terms, t);
-    bits = bv_var_manager_get_bit_array(&bv_manager, x);
-    bvlogic_buffer_or_bitarray(b, n, bits);
-    break;
-  }
-
-  return 0;
-}
-
-
-EXPORTED int32_t yices_bvlogic_xor_term(bvlogic_buffer_t *b, term_t t) {
-  int32_t n;
-  bvlogic_expr_t *e;
-  bvconst_term_t *c;
-  bv_var_t x;
-  bit_t *bits;
-
-  if (! check_good_term(&terms, t) ||
-      ! check_bitvector_term(&terms, t) ||
-      ! check_bitsize(&terms, t, b->nbits)) {    
-    return -1;
-  }
-
-  switch (term_kind(&terms, t)) {
-  case BV_LOGIC_TERM:
-    e = bvlogic_term_desc(&terms, t);
-    assert(e->nbits == b->nbits);
-    bvlogic_buffer_xor_bitarray(b, e->nbits, e->bit);
-    break;
-
-  case BV_CONST_TERM:
-    c = bvconst_term_desc(&terms, t);
-    assert(c->nbits == b->nbits);
-    bvlogic_buffer_xor_constant(b, c->nbits, c->bits);
-    break;
-
-  default:
-    n = term_bitsize(&terms, t);
-    assert(n == b->nbits);
-    x = get_bitvector_variable(&terms, t);
-    bits = bv_var_manager_get_bit_array(&bv_manager, x);
-    bvlogic_buffer_xor_bitarray(b, n, bits);
-    break;
-  }
-
-  return 0;
-}
-
-
-
-EXPORTED int32_t yices_bvlogic_nand_term(bvlogic_buffer_t *b, term_t t) {
-  int32_t code;
-
-  code = yices_bvlogic_and_term(b, t);
-  if (code == 0) bvlogic_buffer_not(b);
-  return code;
-}
-
-EXPORTED int32_t yices_bvlogic_nor_term(bvlogic_buffer_t *b, term_t t) {
-  int32_t code;
-
-  code = yices_bvlogic_or_term(b, t);
-  if (code == 0) bvlogic_buffer_not(b);
-  return code;
-}
-
-EXPORTED int32_t yices_bvlogic_xnor_term(bvlogic_buffer_t *b, term_t t) {
-  int32_t code;
-
-  code = yices_bvlogic_xor_term(b, t);
-  if (code == 0) bvlogic_buffer_not(b);
-  return code;
-}
-
-
-
-/*
- * Bitwise operation with n terms arg[0] ... arg[n-1]
- */
-EXPORTED int32_t yices_bvlogic_and_terms(bvlogic_buffer_t *b, int32_t n, term_t arg[]) {  
-  int32_t i;
-  term_t t;
-  bvlogic_expr_t *e;
-  bvconst_term_t *c;
-  bv_var_t x;
-  bit_t *bits;
-
-  if (! check_good_terms(&terms, n, arg) ||
-      ! check_good_bitvectors(&terms, n, arg, b->nbits)) {
-    return -1;
-  }
-
-  for (i=0; i<n; i++) {
-    t = arg[i];
-    switch (term_kind(&terms, t)) {
-    case BV_LOGIC_TERM:
-      e = bvlogic_term_desc(&terms, t);
-      assert(e->nbits == b->nbits);
-      bvlogic_buffer_and_bitarray(b, e->nbits, e->bit);
-      break;
-
-    case BV_CONST_TERM:
-      c = bvconst_term_desc(&terms, t);
-      assert(c->nbits == b->nbits);
-      bvlogic_buffer_and_constant(b, c->nbits, c->bits);
-      break;
-
-    default:
-      assert(term_bitsize(&terms, t) == b->nbits);
-      x = get_bitvector_variable(&terms, arg[i]);
-      bits = bv_var_manager_get_bit_array(&bv_manager, x);
-      bvlogic_buffer_and_bitarray(b, b->nbits, bits);
-      break;
-    }
-  }
-
-  return 0;
-}
-
-
-
-EXPORTED int32_t yices_bvlogic_or_terms(bvlogic_buffer_t *b, int32_t n, term_t arg[]) {  
-  int32_t i;
-  term_t t;
-  bvlogic_expr_t *e;
-  bvconst_term_t *c;
-  bv_var_t x;
-  bit_t *bits;
-
-  if (! check_good_terms(&terms, n, arg) ||
-      ! check_good_bitvectors(&terms, n, arg, b->nbits)) {
-    return -1;
-  }
-
-  for (i=0; i<n; i++) {
-    t = arg[i];
-    switch (term_kind(&terms, t)) {
-    case BV_LOGIC_TERM:
-      e = bvlogic_term_desc(&terms, t);
-      assert(e->nbits == b->nbits);
-      bvlogic_buffer_or_bitarray(b, e->nbits, e->bit);
-      break;
-
-    case BV_CONST_TERM:
-      c = bvconst_term_desc(&terms, t);
-      assert(c->nbits == b->nbits);
-      bvlogic_buffer_or_constant(b, c->nbits, c->bits);
-      break;
-
-    default:
-      assert(term_bitsize(&terms, t) == b->nbits);
-      x = get_bitvector_variable(&terms, arg[i]);
-      bits = bv_var_manager_get_bit_array(&bv_manager, x);
-      bvlogic_buffer_or_bitarray(b, b->nbits, bits);
-      break;
-    }
-  }
-    
-  return 0;
-}
-
-
-
-EXPORTED int32_t yices_bvlogic_xor_terms(bvlogic_buffer_t *b, int32_t n, term_t arg[]) {  
-  int32_t i;
-  term_t t;
-  bvlogic_expr_t *e;
-  bvconst_term_t *c;
-  bv_var_t x;
-  bit_t *bits;
-
-  if (! check_good_terms(&terms, n, arg) ||
-      ! check_good_bitvectors(&terms, n, arg, b->nbits)) {
-    return -1;
-  }
-
-  for (i=0; i<n; i++) {
-    t = arg[i];
-    switch (term_kind(&terms, t)) {
-    case BV_LOGIC_TERM:
-      e = bvlogic_term_desc(&terms, t);
-      assert(e->nbits == b->nbits);
-      bvlogic_buffer_xor_bitarray(b, e->nbits, e->bit);
-      break;
-
-    case BV_CONST_TERM:
-      c = bvconst_term_desc(&terms, t);
-      assert(c->nbits == b->nbits);
-      bvlogic_buffer_xor_constant(b, c->nbits, c->bits);
-      break;
-
-    default:
-      assert(term_bitsize(&terms, t) == b->nbits);
-      x = get_bitvector_variable(&terms, arg[i]);
-      bits = bv_var_manager_get_bit_array(&bv_manager, x);
-      bvlogic_buffer_xor_bitarray(b, b->nbits, bits);
-      break;
-    }
-  }
-    
-  return 0;
-}
-
-
-EXPORTED int32_t yices_bvlogic_nand_terms(bvlogic_buffer_t *b, int32_t n, term_t arg[]) {
-  int32_t code;
-
-  code = yices_bvlogic_and_terms(b, n, arg);
-  if (code == 0) bvlogic_buffer_not(b);
-  return code;
-}
-
-EXPORTED int32_t yices_bvlogic_nor_terms(bvlogic_buffer_t *b, int32_t n, term_t arg[]) {
-  int32_t code;
-
-  code = yices_bvlogic_or_terms(b, n, arg);
-  if (code == 0) bvlogic_buffer_not(b);
-  return code;
-}
-
-EXPORTED int32_t yices_bvlogic_xnor_terms(bvlogic_buffer_t *b, int32_t n, term_t arg[]) {
-  int32_t code;
-
-  code = yices_bvlogic_xor_terms(b, n, arg);
-  if (code == 0) bvlogic_buffer_not(b);
-  return code;
-}
-
-
-
-/*
- * Shift and rotate
- */
-EXPORTED int32_t yices_bvlogic_shift_left0(bvlogic_buffer_t *b, int32_t n) {
-  if (! check_bitshift(n, b->nbits)) {
-    return -1;
-  }
-
-  bvlogic_buffer_shift_left0(b, n);
-  return 0;
-}
-
-EXPORTED int32_t yices_bvlogic_shift_left1(bvlogic_buffer_t *b, int32_t n) {
-  if (! check_bitshift(n, b->nbits)) {
-    return -1;
-  }
-
-  bvlogic_buffer_shift_left1(b, n);
-  return 0;
-}
-
-EXPORTED int32_t yices_bvlogic_shift_right0(bvlogic_buffer_t *b, int32_t n) {
-  if (! check_bitshift(n, b->nbits)) {
-    return -1;
-  }
-
-  bvlogic_buffer_shift_right0(b, n);
-  return 0;
-}
-
-EXPORTED int32_t yices_bvlogic_shift_right1(bvlogic_buffer_t *b, int32_t n) {
-  if (! check_bitshift(n, b->nbits)) {
-    return -1;
-  }
-
-  bvlogic_buffer_shift_right1(b, n);
-  return 0;
-}
-
-EXPORTED int32_t yices_bvlogic_ashift_right(bvlogic_buffer_t *b, int32_t n) {
-  if (! check_bitshift(n, b->nbits)) {
-    return -1;
-  }
-
-  bvlogic_buffer_ashift_right(b, n);
-  return 0;
-}
-
-EXPORTED int32_t yices_bvlogic_rotate_left(bvlogic_buffer_t *b, int32_t n) {
-  if (! check_bitshift(n, b->nbits)) {
-    return -1;
-  }
-
-  if (n < b->nbits) {
-    // bvlogic_buffer_rotate require n < b->nbits
-    // if n == b->nbits, we do nothing
-    bvlogic_buffer_rotate_left(b, n);
-  }
-
-  return 0;
-}
-
-EXPORTED int32_t yices_bvlogic_rotate_right(bvlogic_buffer_t *b, int32_t n) {
-  if (! check_bitshift(n, b->nbits)) {
-    return -1;
-  }
-
-  if (n < b->nbits) {
-    // bvlogic_buffer_rotate require n < b->nbits
-    // if n == b->nbits, nothing to do
-    bvlogic_buffer_rotate_right(b, n);
-  }
-
-  return 0;
-}
-
-
-
-/*
- * Extract b[j ... i] from b[m-1 ... 0]
- */
-EXPORTED int32_t yices_bvlogic_extract(bvlogic_buffer_t *b, int32_t i, int32_t j) {
-  if (! check_bitextract(i, j, b->nbits)) {
-    return -1;
-  }
-
-  bvlogic_buffer_extract_subvector(b, i, j);
-  return 0;
-}
-
-
-/*
- * Concatenation:
- * if b is b[m-1] ... b[0] then concat left adds bits to the left of b[m-1]
- * concat right adds bits to the right of b[0].
- */
-EXPORTED void yices_bvlogic_concat_left_const(bvlogic_buffer_t *b, bvconstant_t *c) {
-  bvlogic_buffer_concat_left_constant(b, c->bitsize, c->data);
-}
-
-EXPORTED void yices_bvlogic_concat_right_const(bvlogic_buffer_t *b, bvconstant_t *c) {
-  bvlogic_buffer_concat_right_constant(b, c->bitsize, c->data);
-}
-
-EXPORTED void yices_bvlogic_concat_left_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b1) {
-  bvlogic_buffer_concat_left_bitarray(b, b1->nbits, b1->bit);
-}
-
-EXPORTED void yices_bvlogic_concat_right_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b1) {
-  bvlogic_buffer_concat_right_bitarray(b, b1->nbits, b1->bit);
-}
-
-
-EXPORTED int32_t yices_bvlogic_concat_left_term(bvlogic_buffer_t *b, term_t t) {
-  int32_t n;
-  bvlogic_expr_t *e;
-  bvconst_term_t *c;
-  bv_var_t x;
-  bit_t *bits;
-
-  if (! check_good_term(&terms, t) ||
-      ! check_bitvector_term(&terms, t)) {
-    return -1;
-  }
-
-  switch (term_kind(&terms, t)) {
-  case BV_LOGIC_TERM:
-    e = bvlogic_term_desc(&terms, t);
-    bvlogic_buffer_concat_left_bitarray(b, e->nbits, e->bit);
-    break;
-
-  case BV_CONST_TERM:
-    c = bvconst_term_desc(&terms, t);
-    bvlogic_buffer_concat_left_constant(b, c->nbits, c->bits);
-    break;
-
-  default:
-    n = term_bitsize(&terms, t);
-    x = get_bitvector_variable(&terms, t);
-    bits = bv_var_manager_get_bit_array(&bv_manager, x);
-    bvlogic_buffer_concat_left_bitarray(b, n, bits);
-    break;
-  }
-
-  return 0;
-}
-
-
-EXPORTED int32_t yices_bvlogic_concat_right_term(bvlogic_buffer_t *b, term_t t) {
-  int32_t n;
-  bvlogic_expr_t *e;
-  bvconst_term_t *c;
-  bv_var_t x;
-  bit_t *bits;
-
-  if (! check_good_term(&terms, t) ||
-      ! check_bitvector_term(&terms, t)) {
-    return -1;
-  }
-
-  switch (term_kind(&terms, t)) {
-  case BV_LOGIC_TERM:
-    e = bvlogic_term_desc(&terms, t);
-    bvlogic_buffer_concat_right_bitarray(b, e->nbits, e->bit);
-    break;
-
-  case BV_CONST_TERM:
-    c = bvconst_term_desc(&terms, t);
-    bvlogic_buffer_concat_right_constant(b, c->nbits, c->bits);
-    break;
-
-  default:
-    n = term_bitsize(&terms, t);
-    x = get_bitvector_variable(&terms, t);
-    bits = bv_var_manager_get_bit_array(&bv_manager, x);
-    bvlogic_buffer_concat_right_bitarray(b, n, bits);
-    break;
-  }
-
-  return 0;
-}
-
-
-/*
- * Repeat concatenation: make n copies of b
- * - n must be positive
- */
-EXPORTED int32_t yices_bvlogic_repeat(bvlogic_buffer_t *b, int32_t n) {
-  if (! check_positive(n)) {
-    return -1;
-  }
-  bvlogic_buffer_repeat_concat(b, n);
-  return 0;
-}
-
-/*
- * Sign-extension:
- * if b is b[m-1] ... b[0] then copy the sign bit b[m-1] n times to the left of b[m-1] 
- * returns -1 if  m == 0 or n < 0
- */
-EXPORTED int32_t yices_bvlogic_sign_extend(bvlogic_buffer_t *b, int32_t n) {
-  if (b->nbits <= 0 || n < 0) {
-    error.code = INVALID_BVSIGNEXTEND;
-    return -1;
-  }
-
-  bvlogic_buffer_sign_extend(b, b->nbits + n);
-  return 0;
-}
-
-/*
- * Zero-extension:
- * if b is b[m-1] ... b[0] then copy bit 0 n times to the left of b[m-1] 
- * returns -1 if m == 0 or n < 0
- */
-EXPORTED int32_t yices_bvlogic_zero_extend(bvlogic_buffer_t *b, int32_t n) {
-  if (b->nbits <= 0 || n < 0) {
-    error.code = INVALID_BVZEROEXTEND;
-    return -1;
-  }
-
-  bvlogic_buffer_zero_extend(b, b->nbits + n);
-  return 0;
-}
-
-
-
-
-/*
- * AND reduction
- */
-EXPORTED int32_t yices_bvlogic_redand(bvlogic_buffer_t *b) {
-  if (b->nbits == 0) {
-    error.code = EMPTY_BITVECTOR;
-    return -1;
-  }
-
-  bvlogic_buffer_redand(b);
-  return 0;
-}
-
-
-/*
- * OR reduction
- */
-EXPORTED int32_t yices_bvlogic_redor(bvlogic_buffer_t *b) {
-  if (b->nbits == 0) {
-    error.code = EMPTY_BITVECTOR;
-    return -1;
-  }
-
-  bvlogic_buffer_redor(b);
-  return 0;
-}
-
-
-
-/*
- * BITWISE COMPARISON
- */
-EXPORTED int32_t yices_bvlogic_comp_const(bvlogic_buffer_t *b, bvconstant_t *c) {
-  if (b->nbits != c->bitsize) {
-    error.code = INCOMPATIBLE_BVSIZES;
-    error.badval = c->bitsize;
-    return -1;
-  }
-
-  bvlogic_buffer_comp_constant(b, c->bitsize, c->data);
-  return 0;
-}
-
-
-EXPORTED int32_t yices_bvlogic_comp_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b1) {
-  if (b->nbits != b1->nbits) {
-    error.code = INCOMPATIBLE_BVSIZES;
-    error.badval = b1->nbits;
-    return -1;
-  }
-
-  bvlogic_buffer_comp_bitarray(b, b1->nbits, b1->bit);
-  return 0;
-}
-
-
-EXPORTED int32_t yices_bvlogic_comp_term(bvlogic_buffer_t *b, term_t t) {
-  int32_t n;
-  bvlogic_expr_t *e;
-  bvconst_term_t *c;
-  bv_var_t x;
-  bit_t *bits;
-
-  if (! check_good_term(&terms, t) ||
-      ! check_bitvector_term(&terms, t) ||
-      ! check_bitsize(&terms, t, b->nbits)) {    
-    return -1;
-  }
-
-  switch (term_kind(&terms, t)) {
-  case BV_LOGIC_TERM:
-    e = bvlogic_term_desc(&terms, t);
-    assert(e->nbits == b->nbits);
-    bvlogic_buffer_comp_bitarray(b, e->nbits, e->bit);
-    break;
-
-  case BV_CONST_TERM:
-    c = bvconst_term_desc(&terms, t);
-    assert(c->nbits == b->nbits);
-    bvlogic_buffer_comp_constant(b, c->nbits, c->bits);
-    break;
-
-  default:
-    n = term_bitsize(&terms, t);
-    assert(n == b->nbits);
-    x = get_bitvector_variable(&terms, t);
-    bits = bv_var_manager_get_bit_array(&bv_manager, x);
-    bvlogic_buffer_comp_bitarray(b, n, bits);
-    break;
-  }
-
-  return 0;
-}
-
-
-
-
-
-/*
- * Convert buffer to a term
- * return NULL_TERM is b is the empty vector
- *
- * if b is reduced to a single variable x, return the term attached to x
- * if b is constant, build a BV_CONST_TERM
- * otherwise construct a BV_LOGIC_TERM
- */
-EXPORTED term_t yices_bvlogic_term(bvlogic_buffer_t *b) {
-  bv_var_t x;
-  term_t t;
-
-  if (b->nbits == 0) {
-    error.code = EMPTY_BITVECTOR;
-    return NULL_TERM;
-  }
-
-  if (bvlogic_buffer_is_constant(b)) {
-    bvlogic_buffer_copy_constant(b, &bv1);
-    return bvconst_term(&terms, bv1.bitsize, bv1.data);
-  }
-
-  //check whether b is equal to a bv_variable x
-  if (bvlogic_buffer_is_variable(b, &bv_manager)) {
-    x = bvlogic_buffer_get_variable(b);
-    if (polymanager_var_is_primitive(&bv_manager.pm, x)) {
-      t = polymanager_var_index(&bv_manager.pm, x);
-      assert(term_theory_var(&terms, t) == x);
-      return t;
-    }
-  }
-
-  return bvlogic_term(&terms, b);
-}
-
-
-
-#endif
-
-
-
 /***************************
  *  BIT-VECTOR ARITHMETIC  *
  ***************************/
 
-EXPORTED term_t yices_bvadd(term_t t1, term_t t2) {
+/*
+ * Every operation: add/sub/neg/mul/square has two variants
+ * - one for bitvectors of small size (1 to 64 bits)
+ * - one for bitvectors of more than 64 bits
+ */
+static term_t mk_bvadd64(term_t t1, term_t t2) {
+  bvarith64_buffer_t *b;
+
+  b = get_internal_bvarith64_buffer();
+  bvarith64_buffer_set_term(b, &terms, t1);
+  bvarith64_buffer_add_term(b, &terms, t2);
+
+  return bvarith64_buffer_get_term(b);
+}
+
+static term_t mk_bvadd(term_t t1, term_t t2) {
   bvarith_buffer_t *b;
-  
-  if (! check_compatible_bv_terms(&terms, t1, t2)) {
-    return NULL_TERM;
-  }
 
   b = get_internal_bvarith_buffer();
   bvarith_buffer_set_term(b, &terms, t1);
@@ -5242,12 +4029,31 @@ EXPORTED term_t yices_bvadd(term_t t1, term_t t2) {
   return bvarith_buffer_get_term(b);
 }
 
-EXPORTED term_t yices_bvsub(term_t t1, term_t t2) {
-  bvarith_buffer_t *b;
-  
+EXPORTED term_t yices_bvadd(term_t t1, term_t t2) {  
   if (! check_compatible_bv_terms(&terms, t1, t2)) {
     return NULL_TERM;
   }
+
+  if (term_bitsize(&terms, t1) <= 64) {
+    return mk_bvadd64(t1, t2);
+  } else {
+    return mk_bvadd(t1, t2);
+  }
+}
+
+
+static term_t mk_bvsub64(term_t t1, term_t t2) {
+  bvarith64_buffer_t *b;
+
+  b = get_internal_bvarith64_buffer();
+  bvarith64_buffer_set_term(b, &terms, t1);
+  bvarith64_buffer_sub_term(b, &terms, t2);
+
+  return bvarith64_buffer_get_term(b);
+}
+
+static term_t mk_bvsub(term_t t1, term_t t2) {
+  bvarith_buffer_t *b;
 
   b = get_internal_bvarith_buffer();
   bvarith_buffer_set_term(b, &terms, t1);
@@ -5256,13 +4062,31 @@ EXPORTED term_t yices_bvsub(term_t t1, term_t t2) {
   return bvarith_buffer_get_term(b);
 }
 
-EXPORTED term_t yices_bvneg(term_t t1) {
-  bvarith_buffer_t *b;
-  
-  if (! check_good_term(&terms, t1) ||
-      ! check_bitvector_term(&terms, t1)) {
+EXPORTED term_t yices_bvsub(term_t t1, term_t t2) {
+  if (! check_compatible_bv_terms(&terms, t1, t2)) {
     return NULL_TERM;
   }
+
+  if (term_bitsize(&terms, t1) <= 64) {
+    return mk_bvsub64(t1, t2);
+  } else {
+    return mk_bvsub(t1, t2);
+  }
+}
+
+
+static term_t mk_bvneg64(term_t t1) {
+  bvarith64_buffer_t *b;
+
+  b = get_internal_bvarith64_buffer();
+  bvarith64_buffer_set_term(b, &terms, t1);
+  bvarith64_buffer_negate(b);
+
+  return bvarith64_buffer_get_term(b);
+}
+
+static term_t mk_bvneg(term_t t1) {
+  bvarith_buffer_t *b;
 
   b = get_internal_bvarith_buffer();
   bvarith_buffer_set_term(b, &terms, t1);
@@ -5271,14 +4095,32 @@ EXPORTED term_t yices_bvneg(term_t t1) {
   return bvarith_buffer_get_term(b);
 }
 
-EXPORTED term_t yices_bvmul(term_t t1, term_t t2) {
-  bvarith_buffer_t *b;
-
-  if (! check_compatible_bv_terms(&terms, t1, t2) || 
-      ! check_term_degree(&terms, t1) || 
-      ! check_term_degree(&terms, t2)) {
+EXPORTED term_t yices_bvneg(term_t t1) {
+  if (! check_good_term(&terms, t1) ||
+      ! check_bitvector_term(&terms, t1)) {
     return NULL_TERM;
   }
+
+  if (term_bitsize(&terms, t1) <= 64) {
+    return mk_bvneg64(t1);
+  } else {
+    return mk_bvneg(t1);
+  }
+}
+
+
+static term_t mk_bvmul64(term_t t1, term_t t2) {
+  bvarith64_buffer_t *b;
+
+  b = get_internal_bvarith64_buffer();
+  bvarith64_buffer_set_term(b, &terms, t1);
+  bvarith64_buffer_mul_term(b, &terms, t2);
+
+  return bvarith64_buffer_get_term(b);
+}
+
+static term_t mk_bvmul(term_t t1, term_t t2) {
+  bvarith_buffer_t *b;
 
   b = get_internal_bvarith_buffer();
   bvarith_buffer_set_term(b, &terms, t1);
@@ -5287,14 +4129,33 @@ EXPORTED term_t yices_bvmul(term_t t1, term_t t2) {
   return bvarith_buffer_get_term(b);
 }
 
-EXPORTED term_t yices_bvsquare(term_t t1) {
-  bvarith_buffer_t *b;
-  
-  if (! check_good_term(&terms, t1) ||
-      ! check_bitvector_term(&terms, t1) || 
-      ! check_term_degree(&terms, t1)) {
+EXPORTED term_t yices_bvmul(term_t t1, term_t t2) {
+  if (! check_compatible_bv_terms(&terms, t1, t2) || 
+      ! check_term_degree(&terms, t1) || 
+      ! check_term_degree(&terms, t2)) {
     return NULL_TERM;
   }
+
+  if (term_bitsize(&terms, t1) <= 64) {
+    return mk_bvmul64(t1, t2);
+  } else {
+    return mk_bvmul(t1, t2);
+  }
+}
+
+
+static term_t mk_bvsquare64(term_t t1) {
+  bvarith64_buffer_t *b;
+
+  b = get_internal_bvarith64_buffer();
+  bvarith64_buffer_set_term(b, &terms, t1);
+  bvarith64_buffer_square(b);
+
+  return bvarith64_buffer_get_term(b);
+}
+
+static term_t mk_bvsquare(term_t t1) {
+  bvarith_buffer_t *b;
 
   b = get_internal_bvarith_buffer();
   bvarith_buffer_set_term(b, &terms, t1);
@@ -5303,189 +4164,25 @@ EXPORTED term_t yices_bvsquare(term_t t1) {
   return bvarith_buffer_get_term(b);
 }
 
+EXPORTED term_t yices_bvsquare(term_t t1) {
+  if (! check_good_term(&terms, t1) ||
+      ! check_bitvector_term(&terms, t1) || 
+      ! check_term_degree(&terms, t1)) {
+    return NULL_TERM;
+  }
 
-
-#if 0
-
-/*
- * BITWISE LOGICAL OPERATIONS
- */
-static void bvlogic_set(bvlogic_buffer_t *b, term_t t) {
-  bvlogic_expr_t *e;
-  bvconst_term_t *c;
-  bit_t *bits;
-  int32_t n;
-  bv_var_t x;
-
-  switch (term_kind(&terms, t)) {
-  case BV_LOGIC_TERM:
-    e = bvlogic_term_desc(&terms, t);
-    bvlogic_buffer_set_bitarray(b, e->nbits, e->bit);
-    break;
-
-  case BV_CONST_TERM:
-    c = bvconst_term_desc(&terms, t);
-    bvlogic_buffer_set_constant(b, c->nbits, c->bits);
-    break;
-    
-  default:
-    n = term_bitsize(&terms, t);
-    x = get_bitvector_variable(&terms, t);
-    bits = bv_var_manager_get_bit_array(&bv_manager, x);
-    bvlogic_buffer_set_bitarray(b, n, bits);
-    break;    
+  if (term_bitsize(&terms, t1) <= 64) {
+    return mk_bvsquare64(t1);
+  } else {
+    return mk_bvsquare(t1);
   }
 }
 
-static void bvlogic_and(bvlogic_buffer_t *b, term_t t) {
-  bvlogic_expr_t *e;
-  bvconst_term_t *c;
-  bit_t *bits;
-  int32_t n;
-  bv_var_t x;
 
-  switch (term_kind(&terms, t)) {
-  case BV_LOGIC_TERM:
-    e = bvlogic_term_desc(&terms, t);
-    assert(e->nbits == b->nbits);
-    bvlogic_buffer_and_bitarray(b, e->nbits, e->bit);
-    break;
 
-  case BV_CONST_TERM:
-    c = bvconst_term_desc(&terms, t);
-    assert(c->nbits == b->nbits);
-    bvlogic_buffer_and_constant(b, c->nbits, c->bits);
-    break;
-
-  default:
-    n = term_bitsize(&terms, t);
-    assert(n == b->nbits);
-    x = get_bitvector_variable(&terms, t);
-    bits = bv_var_manager_get_bit_array(&bv_manager, x);
-    bvlogic_buffer_and_bitarray(b, n, bits);
-    break;
-  }  
-}
-
-static void bvlogic_or(bvlogic_buffer_t *b, term_t t) {
-  bvlogic_expr_t *e;
-  bvconst_term_t *c;
-  bit_t *bits;
-  int32_t n;
-  bv_var_t x;
-
-  switch (term_kind(&terms, t)) {
-  case BV_LOGIC_TERM:
-    e = bvlogic_term_desc(&terms, t);
-    assert(e->nbits == b->nbits);
-    bvlogic_buffer_or_bitarray(b, e->nbits, e->bit);
-    break;
-
-  case BV_CONST_TERM:
-    c = bvconst_term_desc(&terms, t);
-    assert(c->nbits == b->nbits);
-    bvlogic_buffer_or_constant(b, c->nbits, c->bits);
-    break;
-
-  default:
-    n = term_bitsize(&terms, t);
-    assert(n == b->nbits);
-    x = get_bitvector_variable(&terms, t);
-    bits = bv_var_manager_get_bit_array(&bv_manager, x);
-    bvlogic_buffer_or_bitarray(b, n, bits);
-    break;
-  }  
-}
-
-static void bvlogic_xor(bvlogic_buffer_t *b, term_t t) {
-  bvlogic_expr_t *e;
-  bvconst_term_t *c;
-  bit_t *bits;
-  int32_t n;
-  bv_var_t x;
-
-  switch (term_kind(&terms, t)) {
-  case BV_LOGIC_TERM:
-    e = bvlogic_term_desc(&terms, t);
-    assert(e->nbits == b->nbits);
-    bvlogic_buffer_xor_bitarray(b, e->nbits, e->bit);
-    break;
-
-  case BV_CONST_TERM:
-    c = bvconst_term_desc(&terms, t);
-    assert(c->nbits == b->nbits);
-    bvlogic_buffer_xor_constant(b, c->nbits, c->bits);
-    break;
-
-  default:
-    n = term_bitsize(&terms, t);
-    assert(n == b->nbits);
-    x = get_bitvector_variable(&terms, t);
-    bits = bv_var_manager_get_bit_array(&bv_manager, x);
-    bvlogic_buffer_xor_bitarray(b, n, bits);
-    break;
-  }  
-}
-
-// concat: add t to the left of b (high-order bits are from t)
-static void bvlogic_concat(bvlogic_buffer_t *b, term_t t) {
-  bvlogic_expr_t *e;
-  bvconst_term_t *c;
-  bit_t *bits;
-  bv_var_t x;
-  int32_t n;
-
-  switch (term_kind(&terms, t)) {
-  case BV_LOGIC_TERM:
-    e = bvlogic_term_desc(&terms, t);
-    bvlogic_buffer_concat_left_bitarray(b, e->nbits, e->bit);
-    break;
-
-  case BV_CONST_TERM:
-    c = bvconst_term_desc(&terms, t);
-    bvlogic_buffer_concat_left_constant(b, c->nbits, c->bits);
-    break;
-
-  default:
-    n = term_bitsize(&terms, t);
-    x = get_bitvector_variable(&terms, t);
-    bits = bv_var_manager_get_bit_array(&bv_manager, x);
-    bvlogic_buffer_concat_left_bitarray(b, n, bits);
-    break;
-  }
-}
-
-// bitwise comparion + reduction
-static void bvlogic_comp(bvlogic_buffer_t *b, term_t t) {
-  bvlogic_expr_t *e;
-  bvconst_term_t *c;
-  bit_t *bits;
-  int32_t n;
-  bv_var_t x;
-
-  switch (term_kind(&terms, t)) {
-  case BV_LOGIC_TERM:
-    e = bvlogic_term_desc(&terms, t);
-    assert(e->nbits == b->nbits);
-    bvlogic_buffer_comp_bitarray(b, e->nbits, e->bit);
-    break;
-
-  case BV_CONST_TERM:
-    c = bvconst_term_desc(&terms, t);
-    assert(c->nbits == b->nbits);
-    bvlogic_buffer_comp_constant(b, c->nbits, c->bits);
-    break;
-
-  default:
-    n = term_bitsize(&terms, t);
-    assert(n == b->nbits);
-    x = get_bitvector_variable(&terms, t);
-    bits = bv_var_manager_get_bit_array(&bv_manager, x);
-    bvlogic_buffer_comp_bitarray(b, n, bits);
-    break;
-  }
-}
-
+/***********************************
+ *  BITWISE BIT-VECTOR OPERATIONS  *
+ **********************************/
 
 EXPORTED term_t yices_bvnot(term_t t1) {
   bvlogic_buffer_t *b;
@@ -5496,10 +4193,10 @@ EXPORTED term_t yices_bvnot(term_t t1) {
   }
 
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t1);
+  bvlogic_buffer_set_term(b, &terms, t1);
   bvlogic_buffer_not(b);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
 
@@ -5511,10 +4208,10 @@ EXPORTED term_t yices_bvand(term_t t1, term_t t2) {
   }
 
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t1);
-  bvlogic_and(b, t2);
+  bvlogic_buffer_set_term(b, &terms, t1);
+  bvlogic_buffer_and_term(b, &terms, t2);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
 EXPORTED term_t yices_bvor(term_t t1, term_t t2) {
@@ -5525,10 +4222,10 @@ EXPORTED term_t yices_bvor(term_t t1, term_t t2) {
   }
 
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t1);
-  bvlogic_or(b, t2);
+  bvlogic_buffer_set_term(b ,&terms, t1);
+  bvlogic_buffer_or_term(b, &terms, t2);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
 EXPORTED term_t yices_bvxor(term_t t1, term_t t2) {
@@ -5539,10 +4236,10 @@ EXPORTED term_t yices_bvxor(term_t t1, term_t t2) {
   }
 
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t1);
-  bvlogic_xor(b, t2);
+  bvlogic_buffer_set_term(b, &terms, t1);
+  bvlogic_buffer_xor_term(b, &terms, t2);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
 
@@ -5554,11 +4251,11 @@ EXPORTED term_t yices_bvnand(term_t t1, term_t t2) {
   }
 
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t1);
-  bvlogic_and(b, t2);
+  bvlogic_buffer_set_term(b, &terms, t1);
+  bvlogic_buffer_and_term(b, &terms, t2);
   bvlogic_buffer_not(b);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
 EXPORTED term_t yices_bvnor(term_t t1, term_t t2) {
@@ -5569,11 +4266,11 @@ EXPORTED term_t yices_bvnor(term_t t1, term_t t2) {
   }
 
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t1);
-  bvlogic_or(b, t2);
+  bvlogic_buffer_set_term(b, &terms, t1);
+  bvlogic_buffer_or_term(b, &terms, t2);
   bvlogic_buffer_not(b);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
 EXPORTED term_t yices_bvxnor(term_t t1, term_t t2) {
@@ -5584,19 +4281,19 @@ EXPORTED term_t yices_bvxnor(term_t t1, term_t t2) {
   }
 
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t1);
-  bvlogic_xor(b, t2);
+  bvlogic_buffer_set_term(b, &terms, t1);
+  bvlogic_buffer_xor_term(b, &terms, t2);
   bvlogic_buffer_not(b);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
 
 
 
-/*
- * SHIFT/ROTATION BY A CONSTANT
- */
+/*********************************************
+ *   BITVECTOR SHIFT/ROTATION BY A CONSTANT  *
+ ********************************************/
 
 /*
  * Shift or rotation by an integer constant n
@@ -5619,14 +4316,11 @@ EXPORTED term_t yices_bvxnor(term_t t1, term_t t2) {
  * if t is not a bitvector term
  *   code = BITVECTOR_REQUIRED
  *   term1 = t
- * if n < 0
- *   code = NONNEG_INT_REQUIRED
- *   badval = n
  * if n > size of t
  *   code = INVALID_BITSHIFT
  *   badval = n
  */
-EXPORTED term_t yices_shift_left0(term_t t, int32_t n) {
+EXPORTED term_t yices_shift_left0(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
 
   if (! check_good_term(&terms, t) ||
@@ -5636,13 +4330,13 @@ EXPORTED term_t yices_shift_left0(term_t t, int32_t n) {
   }
   
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t);
+  bvlogic_buffer_set_term(b, &terms, t);
   bvlogic_buffer_shift_left0(b, n);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
-EXPORTED term_t yices_shift_left1(term_t t, int32_t n) {
+EXPORTED term_t yices_shift_left1(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
 
   if (! check_good_term(&terms, t) ||
@@ -5652,13 +4346,13 @@ EXPORTED term_t yices_shift_left1(term_t t, int32_t n) {
   }
   
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t);
+  bvlogic_buffer_set_term(b, &terms, t);
   bvlogic_buffer_shift_left1(b, n);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
-EXPORTED term_t yices_shift_right0(term_t t, int32_t n) {
+EXPORTED term_t yices_shift_right0(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
 
   if (! check_good_term(&terms, t) ||
@@ -5668,13 +4362,13 @@ EXPORTED term_t yices_shift_right0(term_t t, int32_t n) {
   }
   
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t);
+  bvlogic_buffer_set_term(b, &terms, t);
   bvlogic_buffer_shift_right0(b, n);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
-EXPORTED term_t yices_shift_right1(term_t t, int32_t n) {
+EXPORTED term_t yices_shift_right1(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
 
   if (! check_good_term(&terms, t) ||
@@ -5684,14 +4378,13 @@ EXPORTED term_t yices_shift_right1(term_t t, int32_t n) {
   }
   
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t);
+  bvlogic_buffer_set_term(b, &terms, t);
   bvlogic_buffer_shift_right1(b, n);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
-
-EXPORTED term_t yices_ashift_right(term_t t, int32_t n) {
+EXPORTED term_t yices_ashift_right(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
 
   if (! check_good_term(&terms, t) ||
@@ -5701,13 +4394,13 @@ EXPORTED term_t yices_ashift_right(term_t t, int32_t n) {
   }
   
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t);
+  bvlogic_buffer_set_term(b, &terms, t);
   bvlogic_buffer_ashift_right(b, n);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
-EXPORTED term_t yices_rotate_left(term_t t, int32_t n) {
+EXPORTED term_t yices_rotate_left(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
 
   if (! check_good_term(&terms, t) ||
@@ -5717,15 +4410,15 @@ EXPORTED term_t yices_rotate_left(term_t t, int32_t n) {
   }
   
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t);
-  if (n < b->nbits) {
+  bvlogic_buffer_set_term(b, &terms, t);
+  if (n < b->bitsize) {
     bvlogic_buffer_rotate_left(b, n);
   }
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
-EXPORTED term_t yices_rotate_right(term_t t, int32_t n) {
+EXPORTED term_t yices_rotate_right(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
 
   if (! check_good_term(&terms, t) ||
@@ -5735,14 +4428,19 @@ EXPORTED term_t yices_rotate_right(term_t t, int32_t n) {
   }
   
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t);
-  if (n < b->nbits) {
+  bvlogic_buffer_set_term(b, &terms, t);
+  if (n < b->bitsize) {
     bvlogic_buffer_rotate_right(b, n);
   }
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
+
+
+/****************************************
+ *  BITVECTOR EXTRACTION/CONCATENATION  *
+ ***************************************/
 
 /*
  * Extract a subvector of t
@@ -5762,7 +4460,7 @@ EXPORTED term_t yices_rotate_right(term_t t, int32_t n) {
  * if 0 <= i <= j <= m-1 does not hold
  *   code = INVALID_BVEXTRACT
  */
-EXPORTED term_t yices_bvextract(term_t t, int32_t i, int32_t j) {
+EXPORTED term_t yices_bvextract(term_t t, uint32_t i, uint32_t j) {
   bvlogic_buffer_t *b;
 
   if (! check_good_term(&terms, t) ||
@@ -5772,10 +4470,10 @@ EXPORTED term_t yices_bvextract(term_t t, int32_t i, int32_t j) {
   }
 
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t);
+  bvlogic_buffer_set_term(b, &terms, t);
   bvlogic_buffer_extract_subvector(b, i, j);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
 
@@ -5792,6 +4490,9 @@ EXPORTED term_t yices_bvextract(term_t t, int32_t i, int32_t j) {
  * if t1 or t2 is not a bitvector term
  *   code = BITVECTOR_REQUIRED
  *   term1 = t1 or t2
+ * if the size of the result would be larger than MAX_BVSIZE
+ *   code = MAX_BVSIZE_EXCEEDED
+ *   badval = n1 + n2 (n1 = size of t1, n2 = size of t2)
  */
 EXPORTED term_t yices_bvconcat(term_t t1, term_t t2) {
   bvlogic_buffer_t *b;
@@ -5799,15 +4500,16 @@ EXPORTED term_t yices_bvconcat(term_t t1, term_t t2) {
   if (! check_good_term(&terms, t1) ||
       ! check_good_term(&terms, t2) ||
       ! check_bitvector_term(&terms, t1) ||
-      ! check_bitvector_term(&terms, t2)) {
+      ! check_bitvector_term(&terms, t2) || 
+      ! check_maxbvsize(term_bitsize(&terms, t1) + term_bitsize(&terms, t2))) {
     return NULL_TERM;
   }
 
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t2);
-  bvlogic_concat(b, t1);
+  bvlogic_buffer_set_term(b, &terms, t2);
+  bvlogic_buffer_concat_left_term(b, &terms, t1);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
 
@@ -5828,9 +4530,13 @@ EXPORTED term_t yices_bvconcat(term_t t1, term_t t2) {
  * if n <= 0
  *   code = POSINT_REQUIRED
  *   badval = n
+ * if size of the result would be more than MAX_BVSIZE
+ *   code = MAX_BVSIZE_EXCEEDED
+ *   badval = n * bitsize of t
  */
-EXPORTED term_t yices_bvrepeat(term_t t, int32_t n) {
+EXPORTED term_t yices_bvrepeat(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
+  uint64_t m;
 
   if (! check_good_term(&terms, t) ||
       ! check_bitvector_term(&terms, t) ||
@@ -5838,11 +4544,19 @@ EXPORTED term_t yices_bvrepeat(term_t t, int32_t n) {
     return NULL_TERM;
   }
 
+  // check size
+  m = n * term_bitsize(&terms, t);
+  if (m > (uint64_t) YICES_MAX_BVSIZE) {
+    error.code = MAX_BVSIZE_EXCEEDED;
+    error.badval = m;
+    return NULL_TERM;
+  }
+
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t);
+  bvlogic_buffer_set_term(b, &terms, t);
   bvlogic_buffer_repeat_concat(b, n);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
 
@@ -5860,24 +4574,32 @@ EXPORTED term_t yices_bvrepeat(term_t t, int32_t n) {
  * if t is not a bitvector
  *   code = BITVECTOR_REQUIRED
  *   term1 = t
- * if n < 0,
- *   code = NONNEG_INT_REQUIRED
- *   badval = n
+ * if n + bitsize of t is too large:
+ *   code = MAX_BVSIZE_EXCEEDED
+ *   badval = n + bitsize of t
  */
-EXPORTED term_t yices_sign_extend(term_t t, int32_t n) {
+EXPORTED term_t yices_sign_extend(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
+  uint64_t m;
 
   if (! check_good_term(&terms, t) ||
-      ! check_bitvector_term(&terms, t) ||
-      ! check_nonneg(n)) {
+      ! check_bitvector_term(&terms, t)) {
+    return NULL_TERM;
+  }
+
+  // check size
+  m = n + term_bitsize(&terms, t);
+  if (m > (uint64_t) YICES_MAX_BVSIZE) {
+    error.code = MAX_BVSIZE_EXCEEDED;
+    error.badval = m;
     return NULL_TERM;
   }
 
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t);
-  bvlogic_buffer_sign_extend(b, b->nbits + n);
+  bvlogic_buffer_set_term(b, &terms, t);
+  bvlogic_buffer_sign_extend(b, b->bitsize + n);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
 
@@ -5895,24 +4617,29 @@ EXPORTED term_t yices_sign_extend(term_t t, int32_t n) {
  * if t is not a bitvector
  *   code = BITVECTOR_REQUIRED
  *   term1 = t
- * if n < 0,
- *   code = NONNEG_INT_REQUIRED
- *   badval = n
  */
-EXPORTED term_t yices_zero_extend(term_t t, int32_t n) {
+EXPORTED term_t yices_zero_extend(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
+  uint64_t m;
 
   if (! check_good_term(&terms, t) ||
-      ! check_bitvector_term(&terms, t) ||
-      ! check_nonneg(n)) {
+      ! check_bitvector_term(&terms, t)) {
+    return NULL_TERM;
+  }
+
+  // check size
+  m = n + term_bitsize(&terms, t);
+  if (m > (uint64_t) YICES_MAX_BVSIZE) {
+    error.code = MAX_BVSIZE_EXCEEDED;
+    error.badval = m;
     return NULL_TERM;
   }
 
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t);
-  bvlogic_buffer_zero_extend(b, b->nbits + n);
+  bvlogic_buffer_set_term(b, &terms, t);
+  bvlogic_buffer_zero_extend(b, b->bitsize + n);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
 
@@ -5943,10 +4670,10 @@ EXPORTED term_t yices_redand(term_t t) {
   }
 
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t);
+  bvlogic_buffer_set_term(b, &terms, t);
   bvlogic_buffer_redand(b);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
 EXPORTED term_t yices_redor(term_t t) {
@@ -5958,10 +4685,10 @@ EXPORTED term_t yices_redor(term_t t) {
   }
 
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t);
+  bvlogic_buffer_set_term(b, &terms, t);
   bvlogic_buffer_redor(b);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
 
@@ -5994,20 +4721,18 @@ EXPORTED term_t yices_redcomp(term_t t1, term_t t2) {
   }
 
   b = get_internal_bvlogic_buffer();
-  bvlogic_set(b, t1);
-  bvlogic_comp(b, t2);
+  bvlogic_buffer_set_term(b, &terms, t1);
+  bvlogic_buffer_comp_term(b, &terms, t2);
 
-  return yices_bvlogic_term(b);
+  return bvlogic_buffer_get_term(b);
 }
 
 
 
 
-
-
-/*
- * VARIABLE SHIFTS
- */
+/*******************************
+ *  GENERIC BIT-VECTOR SHIFTS  *
+ *****************************/
 
 /*
  * All shift operators takes two bit-vector arguments of the same size.
@@ -6015,128 +4740,130 @@ EXPORTED term_t yices_redcomp(term_t t1, term_t t2) {
  * - bvshl t1 t2: shift left, padding with 0
  * - bvlshr t1 t2: logical shift right (padding with 0)
  * - bvashr t1 t2: arithmetic shift right (copy the sign bit)
+ *
+ * We check whether t2 is a bit-vector constant and convert to
+ * constant bit-shifts in such cases.
  */
 
-
-/*
- * Convert bv's value (as a non-negative integer) into a shift amount. 
- * If bv's value is larger than n, then returns n
- */
-static uint32_t get_shift_amount(uint32_t n, uint32_t *bv) {
-  uint32_t k, i, s;
-
-  k = (n + 31) >> 5; // number of words in bv
-  s = bvconst_get32(bv); // low-order word = shift amount
-
-  // if any of the higher order words in nonzero, return n
-  for (i=1; i<k; i++) {
-    if (bv[i] != 0) return n;
-  }
-
-  // truncate s if required
-  return (n <= s) ? n : s;
-}
-
-/*
- * Copy t into the internal_bvlogic_buffer
- */
-static void copy_term_to_internal_bvlogic_buffer(term_t t) {
+// shift left: shift amount given by a small bitvector constant
+static term_t mk_bvshl_const64(term_t t1, bvconst64_term_t *c) {
   bvlogic_buffer_t *b;
-  bvlogic_expr_t *e;
-  bvconst_term_t *c;
-  bv_var_t x;
-  bit_t *bits;
-  int32_t n;
 
   b = get_internal_bvlogic_buffer();
+  bvlogic_buffer_set_term(b, &terms, t1);
+  bvlogic_buffer_shl_constant64(b, c->bitsize, c->value);
 
-  switch (term_kind(&terms, t)) {
-  case BV_LOGIC_TERM:
-    e = bvlogic_term_desc(&terms, t);
-    bvlogic_buffer_set_bitarray(b, e->nbits, e->bit);
-    break;
+  return bvlogic_buffer_get_term(b);
+}
 
-  case BV_CONST_TERM:
-    c = bvconst_term_desc(&terms, t);
-    bvlogic_buffer_set_constant(b, c->nbits, c->bits);
-    break;
+// shift left: amount given by a large bitvector constant
+static term_t mk_bvshl_const(term_t t1, bvconst_term_t *c) {
+  bvlogic_buffer_t *b;
+
+  b = get_internal_bvlogic_buffer();
+  bvlogic_buffer_set_term(b, &terms, t1);
+  bvlogic_buffer_shl_constant(b, c->bitsize, c->data);
+
+  return bvlogic_buffer_get_term(b);
+}
+
+EXPORTED term_t yices_bvshl(term_t t1, term_t t2) {  
+  if (! check_compatible_bv_terms(&terms, t1, t2)) {
+    return NULL_TERM;
+  }
+
+  switch (term_kind(&terms, t2)) {
+  case BV64_CONSTANT:
+    return mk_bvshl_const64(t1, bvconst64_term_desc(&terms, t2));
+
+  case BV_CONSTANT:
+    return mk_bvshl_const(t1, bvconst_term_desc(&terms, t2));
 
   default:
-    n = term_bitsize(&terms, t);
-    x = get_bitvector_variable(&terms, t);
-    bits = bv_var_manager_get_bit_array(&bv_manager, x);
-    bvlogic_buffer_set_bitarray(b, n, bits);
-    break;
+    return bvshl_term(&terms, t1, t2);
   }
-  
 }
 
-EXPORTED term_t yices_bvshl(term_t t1, term_t t2) {
-  bvlogic_buffer_t *log_buffer;  
-  bvconst_term_t *c;
-  uint32_t s;
 
-  if (! check_compatible_bv_terms(&terms, t1, t2)) {
-    return NULL_TERM;
-  }
 
-  if (term_kind(&terms, t2) == BV_CONST_TERM) {
-    // shift left by a constant/pagging with 0
-    copy_term_to_internal_bvlogic_buffer(t1);
-    c = bvconst_term_desc(&terms, t2);
-    s = get_shift_amount(c->nbits, c->bits);
-    log_buffer = internal_bvlogic_buffer;
-    bvlogic_buffer_shift_left0(log_buffer, s);
-    return yices_bvlogic_term(log_buffer);
-  }
+// logical shift right: amount given by a small bitvector constant
+static term_t mk_bvlshr_const64(term_t t1, bvconst64_term_t *c) {
+  bvlogic_buffer_t *b;
 
-  return bvapply_term(&terms, BVOP_SHL, t1, t2);
+  b = get_internal_bvlogic_buffer();
+  bvlogic_buffer_set_term(b, &terms, t1);
+  bvlogic_buffer_lshr_constant64(b, c->bitsize, c->value);
+
+  return bvlogic_buffer_get_term(b);
 }
 
+// logical shift right: amount given by a large bitvector constant
+static term_t mk_bvlshr_const(term_t t1, bvconst_term_t *c) {
+  bvlogic_buffer_t *b;
+
+  b = get_internal_bvlogic_buffer();
+  bvlogic_buffer_set_term(b, &terms, t1);
+  bvlogic_buffer_lshr_constant(b, c->bitsize, c->data);
+
+  return bvlogic_buffer_get_term(b);
+}
 
 EXPORTED term_t yices_bvlshr(term_t t1, term_t t2) {
-  bvlogic_buffer_t *log_buffer;  
-  bvconst_term_t *c;
-  uint32_t s;
-
   if (! check_compatible_bv_terms(&terms, t1, t2)) {
     return NULL_TERM;
   }
 
-  if (term_kind(&terms, t2) == BV_CONST_TERM) {
-    // shift right by a constant/padding with 0
-    copy_term_to_internal_bvlogic_buffer(t1);
-    c = bvconst_term_desc(&terms, t2);
-    s = get_shift_amount(c->nbits, c->bits);
-    log_buffer = internal_bvlogic_buffer;
-    bvlogic_buffer_shift_right0(log_buffer, s);
-    return yices_bvlogic_term(log_buffer);
-  }
+  switch (term_kind(&terms, t2)) {
+  case BV64_CONSTANT:
+    return mk_bvlshr_const64(t1, bvconst64_term_desc(&terms, t2));
 
-  return bvapply_term(&terms, BVOP_LSHR, t1, t2);
+  case BV_CONSTANT:
+    return mk_bvlshr_const(t1, bvconst_term_desc(&terms, t2));
+
+  default:
+    return bvlshr_term(&terms, t1, t2);
+  }
 }
 
+
+
+// logical shift right: amount given by a small bitvector constant
+static term_t mk_bvashr_const64(term_t t1, bvconst64_term_t *c) {
+  bvlogic_buffer_t *b;
+
+  b = get_internal_bvlogic_buffer();
+  bvlogic_buffer_set_term(b, &terms, t1);
+  bvlogic_buffer_ashr_constant64(b, c->bitsize, c->value);
+
+  return bvlogic_buffer_get_term(b);
+}
+
+// logical shift right: amount given by a large bitvector constant
+static term_t mk_bvashr_const(term_t t1, bvconst_term_t *c) {
+  bvlogic_buffer_t *b;
+
+  b = get_internal_bvlogic_buffer();
+  bvlogic_buffer_set_term(b, &terms, t1);
+  bvlogic_buffer_ashr_constant(b, c->bitsize, c->data);
+
+  return bvlogic_buffer_get_term(b);
+}
 
 EXPORTED term_t yices_bvashr(term_t t1, term_t t2) {
-  bvlogic_buffer_t *log_buffer;  
-  bvconst_term_t *c;
-  uint32_t s;
-
   if (! check_compatible_bv_terms(&terms, t1, t2)) {
     return NULL_TERM;
   }
 
-  if (term_kind(&terms, t2) == BV_CONST_TERM) {
-    // arithmetic shift by a constant
-    copy_term_to_internal_bvlogic_buffer(t1);
-    c = bvconst_term_desc(&terms, t2);
-    s = get_shift_amount(c->nbits, c->bits);
-    log_buffer = internal_bvlogic_buffer;
-    bvlogic_buffer_ashift_right(log_buffer, s);
-    return yices_bvlogic_term(log_buffer);
-  }
+  switch (term_kind(&terms, t2)) {
+  case BV64_CONSTANT:
+    return mk_bvashr_const64(t1, bvconst64_term_desc(&terms, t2));
 
-  return bvapply_term(&terms, BVOP_ASHR, t1, t2);
+  case BV_CONSTANT:
+    return mk_bvashr_const(t1, bvconst_term_desc(&terms, t2));
+
+  default:
+    return bvashr_term(&terms, t1, t2);
+  }
 }
 
 
@@ -6144,10 +4871,9 @@ EXPORTED term_t yices_bvashr(term_t t1, term_t t2) {
 
 
 
-
-/*
- * BITVECTOR DIVISION OPERATORS
- */
+/**********************************
+ *  BITVECTOR DIVISION OPERATORS  *
+ *********************************/
 
 /*
  * These are all new SMTLIB division and remainder operators.
@@ -6157,32 +4883,48 @@ EXPORTED term_t yices_bvashr(term_t t1, term_t t2) {
  * - bvsdiv: quotient in signed division (rounding toward 0)
  * - bvsrem: remainder in signed division
  * - bvsmod: remainder in floor division (signed division, rounding toward -infinity)
+ *
+ * TODO: We could convert division/remainder when t2 is a constant powers of two 
+ * to shift and bit masking operations?
  */
-term_t yices_bvoperator(uint32_t op, term_t t1, term_t t2) {
+EXPORTED term_t yices_bvdiv(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(&terms, t1, t2)) {
     return NULL_TERM;
   }
-  return bvapply_term(&terms, op, t1, t2);
-}
 
-EXPORTED term_t yices_bvdiv(term_t t1, term_t t2) {
-  return yices_bvoperator(BVOP_DIV, t1, t2);
+  return bvdiv_term(&terms, t1, t2);
 }
 
 EXPORTED term_t yices_bvrem(term_t t1, term_t t2) {
-  return yices_bvoperator(BVOP_REM, t1, t2);
+  if (! check_compatible_bv_terms(&terms, t1, t2)) {
+    return NULL_TERM;
+  }
+
+  return bvrem_term(&terms, t1, t2);
 }
 
 EXPORTED term_t yices_bvsdiv(term_t t1, term_t t2) {
-  return yices_bvoperator(BVOP_SDIV, t1, t2);
+  if (! check_compatible_bv_terms(&terms, t1, t2)) {
+    return NULL_TERM;
+  }
+
+  return bvsdiv_term(&terms, t1, t2);
 }
 
 EXPORTED term_t yices_bvsrem(term_t t1, term_t t2) {
-  return yices_bvoperator(BVOP_SREM, t1, t2);
+  if (! check_compatible_bv_terms(&terms, t1, t2)) {
+    return NULL_TERM;
+  }
+
+  return bvsrem_term(&terms, t1, t2);
 }
 
 EXPORTED term_t yices_bvsmod(term_t t1, term_t t2) {
-  return yices_bvoperator(BVOP_SMOD, t1, t2);
+  if (! check_compatible_bv_terms(&terms, t1, t2)) {
+    return NULL_TERM;
+  }
+
+  return bvsmod_term(&terms, t1, t2);
 }
 
 
@@ -6195,11 +4937,8 @@ EXPORTED term_t yices_bvsmod(term_t t1, term_t t2) {
  ********************/
 
 /*
- * Equality
+ * EQUALITY AND DISEQUALITY
  */
-static term_t mk_bveq(term_t t1, term_t t2) {
-}
-
 EXPORTED term_t yices_bveq_atom(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(&terms, t1, t2)) {
     return NULL_TERM;
@@ -6207,25 +4946,6 @@ EXPORTED term_t yices_bveq_atom(term_t t1, term_t t2) {
   return mk_bveq(t1, t2);
 }
 
-
-/*
- * Disequality
- */
-static term_t mk_bvneq(term_t t1, term_t t2) {
-  term_t aux;
-
-  if (t1 == t2) return false_term;
-  if (disequal_bitvector_terms(&terms, t1, t2)) {
-    return true_term;
-  }
-
-  // put smaller index on the left
-  if (t1 > t2) {
-    aux = t1; t1 = t2; t2 = aux;
-  }
-
-  return not_term(&terms, bveq_atom(&terms, t1, t2));
-}
 
 EXPORTED term_t yices_bvneq_atom(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(&terms, t1, t2)) {
@@ -6236,89 +4956,27 @@ EXPORTED term_t yices_bvneq_atom(term_t t1, term_t t2) {
 
 
 /*
- * Upper/lower bound of a bitvector term t (unsigned)
+ * UNSIGNED COMPARISONS
  */
-static void upper_bound_unsigned(term_t t, bvconstant_t *c) {
-  bvlogic_expr_t *e;
-  bvarith_expr_t *p;
-  bvconst_term_t *a;
 
-  switch (term_kind(&terms, t)) {
-  case BV_LOGIC_TERM:
-    e = bvlogic_term_desc(&terms, t);
-    bitarray_upper_bound_unsigned(e->nbits, e->bit, c);
-    break;
-
-  case BV_ARITH_TERM:
-    p = bvarith_term_desc(&terms, t);
-    bvconstant_set_all_one(c, p->size);
-    break;
-
-  case BV_CONST_TERM:
-    a = bvconst_term_desc(&terms, t);
-    bvconstant_copy(c, a->nbits, a->bits);
-    break;
-
-  default:
-    assert(is_bitvector_term(&terms, t));
-    bvconstant_set_all_one(c, term_bitsize(&terms, t));
-    break;
-  }
-}
-
-static void lower_bound_unsigned(term_t t, bvconstant_t *c) {
-  bvlogic_expr_t *e;
-  bvarith_expr_t *p;
-  bvconst_term_t *a;
-
-  switch (term_kind(&terms, t)) {
-  case BV_LOGIC_TERM:
-    e = bvlogic_term_desc(&terms, t);
-    bitarray_lower_bound_unsigned(e->nbits, e->bit, c);
-    break;
-
-  case BV_ARITH_TERM:
-    p = bvarith_term_desc(&terms, t);
-    bvconstant_set_all_zero(c, p->size);
-    break;
-
-  case BV_CONST_TERM:
-    a = bvconst_term_desc(&terms, t);
-    bvconstant_copy(c, a->nbits, a->bits);
-    break;
-
-  default:
-    assert(is_bitvector_term(&terms, t));
-    bvconstant_set_all_zero(c, term_bitsize(&terms, t));
-    break;
-  }
-}
-
-
-/*
- * Check whether t1 < t2 must hold
- */
+// check whether t1 < t2 holds trivially
 static bool must_lt(term_t t1, term_t t2) {
-  upper_bound_unsigned(t1, &bv1); // t1 <= bv1
-  lower_bound_unsigned(t2, &bv2); // bv2 <= t2
+  upper_bound_unsigned(&terms, t1, &bv1); // t1 <= bv1
+  lower_bound_unsigned(&terms, t2, &bv2); // bv2 <= t2
   assert(bv1.bitsize == bv2.bitsize);
 
   return bvconst_lt(bv1.data, bv2.data, bv1.bitsize);
 }
 
-
+// check whether t1 <= t2 holds trivially
 static bool must_le(term_t t1, term_t t2) {
-  upper_bound_unsigned(t1, &bv1);
-  lower_bound_unsigned(t2, &bv2);
+  upper_bound_unsigned(&terms, t1, &bv1);
+  lower_bound_unsigned(&terms, t2, &bv2);
   assert(bv1.bitsize == bv2.bitsize);
 
   return bvconst_le(bv1.data, bv2.data, bv1.bitsize);
 }
 
-
-/*
- * Unsigned inequalities
- */
  // t1 >= t2
 EXPORTED term_t yices_bvge_atom(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(&terms, t1, t2)) {
@@ -6350,7 +5008,7 @@ EXPORTED term_t yices_bvgt_atom(term_t t1, term_t t2) {
     return true_term;
   }
   
-  return not_term(&terms, bvge_atom(&terms, t2, t1));
+  return opposite_term(bvge_atom(&terms, t2, t1));
 }
 
 
@@ -6367,102 +5025,29 @@ EXPORTED term_t yices_bvlt_atom(term_t t1, term_t t2) {
 
 
 
-/*
- * Upper/lower bounds on t, interpreted as a signed integer
- */
-static void upper_bound_signed(term_t t, bvconstant_t *c) {
-  bvlogic_expr_t *e;
-  bvarith_expr_t *p;
-  bvconst_term_t *a;
-  int32_t n;
-
-  switch (term_kind(&terms, t)) {
-  case BV_LOGIC_TERM:
-    e = bvlogic_term_desc(&terms, t);
-    bitarray_upper_bound_signed(e->nbits, e->bit, c);
-    break;
-
-  case BV_ARITH_TERM:
-    p = bvarith_term_desc(&terms, t);
-    bvconstant_set_all_one(c, p->size);
-    bvconst_clr_bit(c->data, p->size - 1); // set sign bit to 0
-    break;
-
-  case BV_CONST_TERM:
-    a = bvconst_term_desc(&terms, t);
-    bvconstant_copy(c, a->nbits, a->bits);
-    break;
-
-  default:
-    assert(is_bitvector_term(&terms, t));
-    n = term_bitsize(&terms, t);
-    bvconstant_set_all_one(c, n);
-    bvconst_clr_bit(c->data, n - 1); // set sign bit to 0    
-    break;
-  }
-}
-
-static void lower_bound_signed(term_t t, bvconstant_t *c) {
-  bvlogic_expr_t *e;
-  bvarith_expr_t *p;
-  bvconst_term_t *a;
-  int32_t n;
-
-  switch (term_kind(&terms, t)) {
-  case BV_LOGIC_TERM:
-    e = bvlogic_term_desc(&terms, t);
-    bitarray_lower_bound_signed(e->nbits, e->bit, c);
-    break;
-
-  case BV_ARITH_TERM:
-    p = bvarith_term_desc(&terms, t);
-    bvconstant_set_all_zero(c, p->size);
-    bvconst_set_bit(c->data, p->size - 1); // set sign bit to 1
-    break;
-
-  case BV_CONST_TERM:
-    a = bvconst_term_desc(&terms, t);
-    bvconstant_copy(c, a->nbits, a->bits);
-    break;
-
-  default:
-    assert(is_bitvector_term(&terms, t));
-    n = term_bitsize(&terms, t);
-    bvconstant_set_all_zero(c, n);
-    bvconst_set_bit(c->data, n - 1); // set sign bit to 1
-    break;
-  }
-}
 
 /*
- * Check whether t1 < t2 must hold (signed comparison)
+ * SIGNED COMPARISONS
  */
+
+// Check whether t1 < t2 holds trivially 
 static bool must_slt(term_t t1, term_t t2) {
-  upper_bound_signed(t1, &bv1);
-  lower_bound_signed(t2, &bv2);
+  upper_bound_signed(&terms, t1, &bv1);
+  lower_bound_signed(&terms, t2, &bv2);
   assert(bv1.bitsize == bv2.bitsize);
 
   return bvconst_slt(bv1.data, bv2.data, bv1.bitsize);
 }
 
-
-/*
- * Check whether t1 <= t2 must hold (signed comparison)
- */
+// Check whether t1 <= t2 holds
 static bool must_sle(term_t t1, term_t t2) {
-  upper_bound_signed(t1, &bv1);
-  lower_bound_signed(t2, &bv2);
+  upper_bound_signed(&terms, t1, &bv1);
+  lower_bound_signed(&terms, t2, &bv2);
   assert(bv1.bitsize == bv2.bitsize);
 
   return bvconst_sle(bv1.data, bv2.data, bv1.bitsize);
 }
 
-
-
-
-/*
- * Signed bitvector inequalities 
- */
 // t1 >= t2
 EXPORTED term_t yices_bvsge_atom(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(&terms, t1, t2)) {
@@ -6494,7 +5079,7 @@ EXPORTED term_t yices_bvsgt_atom(term_t t1, term_t t2) {
     return true_term;
   }
   
-  return not_term(&terms, bvsge_atom(&terms, t2, t1));
+  return opposite_term(bvsge_atom(&terms, t2, t1));
 }
 
 // t1 <= t2
@@ -6509,11 +5094,6 @@ EXPORTED term_t yices_bvslt_atom(term_t t1, term_t t2) {
 
 
 
-
-
-
-
-#endif
 
 
 

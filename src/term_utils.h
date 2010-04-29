@@ -58,7 +58,7 @@ extern bool pairwise_disequal_terms(term_table_t *tbl, uint32_t n, term_t *a);
 extern void upper_bound_unsigned(term_table_t *tbl, term_t t, bvconstant_t *c);
 extern void lower_bound_unsigned(term_table_t *tbl, term_t t, bvconstant_t *c);
 extern void upper_bound_signed(term_table_t *tbl, term_t t, bvconstant_t *c);
-extern void lower_bound_sigend(term_table_t *tbl, term_t t, bvconstant_t *c);
+extern void lower_bound_signed(term_table_t *tbl, term_t t, bvconstant_t *c);
 
 
 /*
