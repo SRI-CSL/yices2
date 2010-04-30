@@ -188,7 +188,7 @@ int_hmap_pair_t *int_hmap_find(int_hmap_t *hmap, int32_t k) {
 /*
  * Add record with key k after hmap was extended:
  * - initialize val to -1
- * - we konw that no record with key k is present
+ * - we know that no record with key k is present
  */
 static int_hmap_pair_t *int_hmap_get_clean(int_hmap_t *hmap, int32_t k) {
   uint32_t mask, j;

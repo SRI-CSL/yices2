@@ -37,7 +37,7 @@ typedef struct model_s model_t;
  * - the error record contains an error code: see below
  *    + extra information that depends on the error code. 
  */
-typedef enum {
+typedef enum error_code {
   NO_ERROR,
   INVALID_TYPE,
   INVALID_TERM,
@@ -117,8 +117,8 @@ typedef struct error_report_s {
   type_t type1;
   term_t term2;
   type_t type2;
-  uint32_t index;
-  uint32_t badval;
+  int32_t index;
+  uint64_t badval;
 } error_report_t;
 
 #endif  /* YICES_TYPES_H */

@@ -8,11 +8,12 @@
 #define __YICES_H
 
 #ifdef __cplusplus
-// extern "C" {
+extern "C" {
 #endif
 
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "yices_types.h"
 #include "yices_limits.h"
@@ -44,12 +45,12 @@ extern void yices_cleanup(void);
 /*
  * Get the last error code
  */
-extern error_code_t yices_get_error_code(void);
+extern error_code_t yices_error_code(void);
 
 /*
  * Get the last error report
  */
-extern error_report_t *yices_get_error_report(void);
+extern error_report_t *yices_error_report(void);
 
 /*
  * Clear the error report
@@ -1130,6 +1131,15 @@ extern type_t yices_get_type_by_name(char *name);
 extern term_t yices_get_term_by_name(char *name);
 
 
+/*
+ * Remove the name of a type tau or of a term t.
+ *
+ * The functions return -1 and set the error report if the 
+ * type or term is invalid. Otherwise, they return 0.
+ */
+extern int32_t yices_clear_type_name(type_t tau);
+extern int32_t yices_clear_term_name(term_t t);
+  
 
 
 

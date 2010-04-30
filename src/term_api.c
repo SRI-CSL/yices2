@@ -34,6 +34,7 @@
 #include "yices.h"
 #include "yices_extensions.h"
 #include "yices_globals.h"
+#include "yices_pp.h"
 
 
 /*
@@ -334,7 +335,7 @@ static void free_bvarith64_buffer_list(void) {
   dl_list_t *elem, *aux;
 
   elem = bvarith64_buffer_list.next;
-  while (elem != &bvarith_buffer_list) {
+  while (elem != &bvarith64_buffer_list) {
     aux = elem->next;
     delete_bvarith64_buffer(bvarith64_buffer(elem));
     safe_free(elem);
@@ -522,6 +523,8 @@ static void clear_globals(yices_globals_t *glob) {
 EXPORTED void yices_init(void) {
   error.code = NO_ERROR;
 
+  init_yices_pp_tables();
+
   init_bvconstants();
   init_bvconstant(&bv0);
   init_bvconstant(&bv1);
@@ -605,7 +608,7 @@ EXPORTED void yices_cleanup(void) {
 /*
  * Get the last error report
  */
-EXPORTED error_report_t *yices_get_error_report(void) {
+EXPORTED error_report_t *yices_error_report(void) {
   return &error;
 }
 
@@ -613,7 +616,7 @@ EXPORTED error_report_t *yices_get_error_report(void) {
 /*
  * Get the last error code
  */
-EXPORTED error_code_t yices_get_error_code(void) {
+EXPORTED error_code_t yices_error_code(void) {
   return error.code;
 }
 
@@ -5236,5 +5239,37 @@ EXPORTED type_t yices_get_type_by_name(char *name) {
 EXPORTED term_t yices_get_term_by_name(char *name) {
   return get_term_by_name(&terms, name);
 }
+
+
+/*
+ * Remove the name of type tau (if any)
+ * Return -1 if tau is not a valid type and set the error code.
+ * Return 0 otherwise.
+ */
+EXPORTED int32_t yices_clear_type_name(type_t tau) {
+  if (! check_good_type(&types, tau)) {
+    return -1;
+  }
+
+  clear_type_name(&types, tau);
+  return 0;
+}
+
+
+/*
+ * Remove the name of term t (if any)
+ *
+ * Return -1 if t is not a valid term (and set the error code)
+ * Return 0 otherwise.
+ */
+EXPORTED int32_t yices_clear_term_name(term_t t) {
+  if (! check_good_term(&terms, t)) {
+    return -1;
+  }
+
+  clear_term_name(&terms, t);
+  return 0;
+}
+
 
 

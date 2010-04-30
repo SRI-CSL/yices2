@@ -316,7 +316,7 @@ static inline bool disequal_boolean_terms(term_t x, term_t y) {
  * TODO? we could do more when (x - y) is a polynomial with integer variables.
  */
 bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y) {
-  type_kind_t kx, ky;
+  term_kind_t kx, ky;
 
   kx = term_kind(tbl, x);
   ky = term_kind(tbl, y);
