@@ -19,8 +19,10 @@
 #include "yices_globals.h"
 #include "type_printer.h"
 #include "term_printer.h"
-#include "rationals.h"
 
+#include "rationals.h"
+#include "bv64_constants.h"
+#include "bv_constants.h"
 
 
 /*
@@ -725,6 +727,146 @@ static void test_arith_constants(void) {
 }
 
 
+/*
+ * BIT-VECTOR CONSTANTS
+ */
+static bool check_bv64_constant(term_t t, uint64_t v, uint32_t n) {  
+  bvconst64_term_t *c;
+  type_t tau;
+
+  if (t < 0 || is_neg_term(t) || term_kind(__yices_globals.terms, t) != BV64_CONSTANT) {
+    return false;
+  }
+
+  tau = term_type(__yices_globals.terms, t);
+  c = bvconst64_term_desc(__yices_globals.terms, t);
+  v = norm64(v, n);
+
+  return c->bitsize == n && c->value == v && check_bv_type(tau, n);
+}
+
+
+static bool check_bv_constant(term_t t, uint32_t *v, uint32_t n) {
+  bvconst_term_t *c;
+  type_t tau;
+
+  if (t < 0 || is_neg_term(t) || term_kind(__yices_globals.terms, t) != BV_CONSTANT) {
+    return false;
+  }
+
+  tau = term_type(__yices_globals.terms, t);
+  c = bvconst_term_desc(__yices_globals.terms, t);
+  bvconst_normalize(v, n);
+
+  return c->bitsize == n && bvconst_eq(c->data, v, (n + 31)>>5) && check_bv_type(tau, n);
+}
+
+
+static void test_bv_constants(void) {
+  uint32_t aux[10];
+  int32_t test[66];
+  mpz_t mpz;
+  term_t x, y;
+  uint32_t i;
+
+  mpz_init(mpz);
+
+  // zero constant 10bits
+  x = yices_bvconst_zero(10);
+  assert(check_bv64_constant(x, 0, 10));
+
+  y = yices_bvconst_uint32(10, 0);
+  assert(y == x);
+
+  y = yices_bvconst_uint64(10, 0);
+  assert(y == x);
+
+  y = yices_bvconst_mpz(10, mpz);
+  assert(y == x);
+
+  y = yices_parse_bvbin("0000000000");
+  assert(y == x);
+
+  // zero constant 65 bits
+  aux[0] = 0;
+  aux[1] = 0;
+  aux[2] = 0;
+  aux[3] = 0;
+  x = yices_bvconst_zero(65);
+  assert(check_bv_constant(x, aux, 65));
+
+  y = yices_bvconst_uint32(65, 0);
+  assert(y == x);
+
+  y = yices_bvconst_uint64(65, 0);
+  assert(y == x);
+
+  y = yices_bvconst_mpz(65, mpz);
+  assert(y == x);
+
+  for (i=0; i<65; i++) {
+    test[i] = 0;
+  }
+  y = yices_bvconst_from_array(65, test);
+  assert(y == x);
+
+  // constant 0b1bit
+  x = yices_bvconst_one(1);
+  assert(check_bv64_constant(x, 1, 1));
+
+  y = yices_bvconst_minus_one(1);
+  assert(y == x);
+  y = yices_bvconst_uint32(1, 1);
+  assert(y == x);
+  y = yices_bvconst_uint64(1, 1);
+  assert(y == x);
+  y = yices_parse_bvbin("1");
+  assert(y == x);
+
+  // constant: 0xFFF... (68 bits)
+  aux[0] = 0xFFFFFFFF;
+  aux[1] = 0xFFFFFFFF;
+  aux[2] = 0x0000000F;
+  x = yices_parse_bvhex("FFFFFFFFFFFFFFFFF");
+  assert(check_bv_constant(x, aux, 68));
+
+  y = yices_parse_bvhex("FFfffffffffffffff");
+  assert(check_bv_constant(y, aux, 68) && y == x);
+
+  y = yices_bvconst_minus_one(68);
+  assert(y == x);
+
+  mpz_set_ui(mpz, 1);
+  mpz_mul_2exp(mpz, mpz, 68);
+  mpz_sub_ui(mpz, mpz, 1);
+  y = yices_bvconst_mpz(68, mpz);
+  assert(y == x);
+
+  // error codes
+  x = yices_bvconst_uint32(0, 0);
+  assert(x == NULL_TERM && yices_error_code() == POS_INT_REQUIRED);
+
+  x = yices_bvconst_uint64(UINT32_MAX, 1);
+  assert(x == NULL_TERM && yices_error_code() == MAX_BVSIZE_EXCEEDED);
+
+  x = yices_parse_bvbin("");
+  assert(x == NULL_TERM && yices_error_code() == INVALID_BVBIN_FORMAT);
+
+  x = yices_parse_bvbin("01xxxxx");
+  assert(x == NULL_TERM && yices_error_code() == INVALID_BVBIN_FORMAT);
+
+  x = yices_parse_bvhex("");
+  assert(x == NULL_TERM && yices_error_code() == INVALID_BVHEX_FORMAT);
+
+  x = yices_parse_bvhex("%%%%%%%%");
+  assert(x == NULL_TERM && yices_error_code() == INVALID_BVHEX_FORMAT);
+
+  mpz_clear(mpz);
+  
+  printf("PASS: %s\n", __func__);
+  fflush(stdout);
+}
+
 
 
 
@@ -743,6 +885,7 @@ int main(void) {
   test_constant_errors();
 
   test_arith_constants();
+  test_bv_constants();
 
   show_types();
   show_terms();

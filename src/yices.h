@@ -807,6 +807,7 @@ extern term_t yices_parse_bvbin(char *s);
 
 /*
  * Parsing from a hexadecimal string
+ * All characters must be '0' to '9' or 'a' to 'f' or 'A' to 'F'
  * - First character = 4 high order bits 
  * - Last character = 4 low-order bits
  * The constant has 4n bits if s has n characters.
