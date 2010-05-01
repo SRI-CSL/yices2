@@ -564,7 +564,8 @@ extern term_t yices_mpq(mpq_t q);
  * decimal digits.
  *
  * Error report:
- * code = INVALID_RATIONAL_FORMAT
+ *   code = INVALID_RATIONAL_FORMAT if s is not in this format
+ *   code = DIVISION_BY_ZERO if the denominator is zero
  */
 extern term_t yices_parse_rational(char *s);
 

@@ -715,10 +715,18 @@ static void print_term_recur(FILE *f, term_table_t *tbl, term_t t, int32_t level
 
 
 /*
- * Print term t: expand names at the outer level only
+ * Print term expression t: expand names at the outer level only
+ */
+void print_term_exp(FILE *f, term_table_t *tbl, term_t t) {
+  print_term_recur(f, tbl, t, 1);
+}
+
+
+/*
+ * Default print: print t's name if it has one, or the expression otherwise
  */
 void print_term(FILE *f, term_table_t *tbl, term_t t) {
-  print_term_recur(f, tbl, t, 1);
+  print_term_recur(f, tbl, t, 0);
 }
 
 

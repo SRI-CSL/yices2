@@ -22,7 +22,7 @@
 
 /*
  * Each atomic tokens stores a basic object to be printed as 
- * a single string. It consists of an pp_atomic_token prefix +
+ * a single string. It consists of a pp_atomic_token prefix +
  * extra data that describes the actual object to be printed.
  * The user_tag field in the prefix stores the object type.
  */
@@ -98,14 +98,43 @@ typedef struct pp_atom_s {
  */
 
 // list of open-block identifiers
-typedef enum { 
-  PP_OPEN_PAR,           // empty label
+typedef enum {
+  PP_OPEN,               // empty label, no parenthesis
+  PP_OPEN_PAR,           // empty label, open parenthesis
+
   PP_OPEN_BV_TYPE,
   PP_OPEN_FUN_TYPE,
   PP_OPEN_TUPLE_TYPE,
+
+  PP_OPEN_ITE,
+  PP_OPEN_UPDATE,
+  PP_OPEN_TUPLE,
+  PP_OPEN_SELECT,
+  PP_OPEN_EQ,
+  PP_OPEN_DISTINCT,
+  PP_OPEN_FORALL,
+  PP_OPEN_NOT,
+  PP_OPEN_OR,
+  PP_OPEN_XOR,
+  PP_OPEN_BIT,
+  PP_OPEN_PROD,
+  PP_OPEN_POWER,
+  PP_OPEN_SUM,
+
+  PP_OPEN_BV_ARRAY,
+  PP_OPEN_BV_DIV,
+  PP_OPEN_BV_REM,
+  PP_OPEN_BV_SDIV,
+  PP_OPEN_BV_SREM,
+  PP_OPEN_BV_SMOD,
+  PP_OPEN_BV_SHL,
+  PP_OPEN_BV_LSHR,
+  PP_OPEN_BV_ASHR,
+  PP_OPEN_BV_GE,
+  PP_OPEN_BV_SGE,  
 } pp_open_type_t;
 
-#define NUM_PP_OPENS ((uint32_t) (PP_OPEN_TUPLE_TYPE + 1))
+#define NUM_PP_OPENS ((uint32_t) (PP_OPEN_BV_SGE + 1))
 
 
 /*

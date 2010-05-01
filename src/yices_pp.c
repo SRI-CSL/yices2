@@ -16,8 +16,8 @@
  * - label = string label
  * - lsize = length of the label
  * - formats = preferred layouts
- * - par = whether the block starts with '('
- * - sep = whether a space or line break is required after the label
+ * - falgs = whether the block starts with '('
+ *         + whether a space or line break is required after the label
  * - indent = indentation level (for M and V layouts)
  * - short_indent = identation in T layout.
  */
@@ -81,20 +81,46 @@ typedef struct pp_nonstandard_block_s {
 /*
  * Table of standard blocks
  */
-#define NUM_STANDARD_BLOCKS 2
+#define NUM_STANDARD_BLOCKS 27
 
 static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_FUN_TYPE, "->" },
   { PP_OPEN_TUPLE_TYPE, "tuple" },
+  { PP_OPEN_ITE, "ite" },
+  { PP_OPEN_UPDATE, "update" },
+  { PP_OPEN_TUPLE, "mk-tuple" },
+  { PP_OPEN_SELECT, "select" },
+  { PP_OPEN_EQ, "=" },
+  { PP_OPEN_DISTINCT, "distinct" },
+  { PP_OPEN_FORALL, "forall" },
+  { PP_OPEN_NOT, "not" },
+  { PP_OPEN_OR, "or" },
+  { PP_OPEN_XOR, "xor" },
+  { PP_OPEN_BIT, "bit" },
+  { PP_OPEN_PROD, "*" },
+  { PP_OPEN_POWER, "^" },
+  { PP_OPEN_SUM, "+" },
+  { PP_OPEN_BV_ARRAY, "bit-array" },
+  { PP_OPEN_BV_DIV, "bv-div" },
+  { PP_OPEN_BV_REM, "bv-rem" },
+  { PP_OPEN_BV_SDIV, "bv-sdiv" },
+  { PP_OPEN_BV_SREM, "bv-srem" },
+  { PP_OPEN_BV_SMOD, "bv-smod" },
+  { PP_OPEN_BV_SHL, "bv-shl" },
+  { PP_OPEN_BV_LSHR, "bv-lshr" },
+  { PP_OPEN_BV_ASHR, "bv-ashr" },
+  { PP_OPEN_BV_GE, "bv-ge" },
+  { PP_OPEN_BV_SGE, "bv-sge" },
 };
 
 
 /*
  * Table of non-standard blocks
  */
-#define NUM_NONSTANDARD_BLOCKS 2
+#define NUM_NONSTANDARD_BLOCKS 3
 
 static const pp_nonstandard_block_t nonstandard_block[NUM_NONSTANDARD_BLOCKS] = {
+  { PP_OPEN, "", PP_HMT_LAYOUT, 0, 1, 1 },
   { PP_OPEN_PAR, "", PP_HMT_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1 },
   { PP_OPEN_BV_TYPE, "bitvector", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
 };

@@ -739,12 +739,14 @@ static int q_set_q0(rational_t *r) {
  *   <+/->numerator/denominator or <+/->numerator
  * with numerator and denominator in base 10.
  * - returns -1 and leaves r unchanged if s is not in that format
+ * - returns -2 and leaves r unchanged if the denominator is zero
  * - returns 0 otherwise
  */
 int q_set_from_string(rational_t *r, char *s) {
   // GMP rejects an initial '+' so skip it
   if (*s == '+') s ++;
   if (mpq_set_str(q0, s, 10) < 0) return -1;
+  if (mpz_sgn(mpq_denref(q0)) == 0) return -2; // the denominator is zero
   mpq_canonicalize(q0);
   return q_set_q0(r);
 }
@@ -762,6 +764,7 @@ int q_set_from_string_base(rational_t *r, char *s, int32_t base) {
   if (*s == '+') s ++;
   assert(0 == base || (2 <= base && base <= 36));
   if (mpq_set_str(q0, s, base) < 0) return -1;
+  if (mpz_sgn(mpq_denref(q0)) == 0) return -2; // the denominator is zero
   mpq_canonicalize(q0);
   return q_set_q0(r);
 }

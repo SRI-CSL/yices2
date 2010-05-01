@@ -32,10 +32,13 @@ extern void print_bvarith64_buffer(FILE *f, bvarith64_buffer_t *b);
  * - term expression
  * - only the name
  * - term definition as 'name := expression'
+ * - print term: print t's name or the expression if t has no name
  */
-extern void print_term(FILE *f, term_table_t *tbl, term_t t);
+extern void print_term_exp(FILE *f, term_table_t *tbl, term_t t);
 extern void print_term_name(FILE *f, term_table_t *tbl, term_t t);
 extern void print_term_def(FILE *f, term_table_t *tbl, term_t t);
+
+extern void print_term(FILE *f, term_table_t *tbl, term_t t);
 
 
 /*

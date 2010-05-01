@@ -200,6 +200,8 @@ extern void q_get_den(rational_t *r1, rational_t *r2);
  *       <exp> is either 'e' or 'E'
  *
  * The functions return -1 if the format is wrong and leave r unchanged.
+ * The functions q_set_from_string and q_set_from_string_base return -2
+ * if the denominator is 0.
  * Otherwise, the functions return 0 and the parsed value is stored in r.
  */
 extern int q_set_from_string(rational_t *r, char *s);

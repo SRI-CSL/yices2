@@ -13,10 +13,13 @@
 #include <stdio.h>
 #include <inttypes.h>
 
+#include <gmp.h>
+
 #include "yices.h"
 #include "yices_globals.h"
 #include "type_printer.h"
 #include "term_printer.h"
+#include "rationals.h"
 
 
 
@@ -370,6 +373,356 @@ static void test_type_errors(void) {
 
 
 
+/*
+ * Check that a term descriptor matches what's expected
+ */
+static bool check_constant_term(term_t t, type_t tau, int32_t idx) {
+  return t >= 0 && is_pos_term(t) && 
+    term_kind(__yices_globals.terms, t) == CONSTANT_TERM &&
+    term_type(__yices_globals.terms, t) == tau && 
+    constant_term_index(__yices_globals.terms, t) == idx;
+}
+
+static bool check_uninterpreted_term(term_t t, type_t tau) {
+  return t >= 0 && is_pos_term(t) && 
+    term_kind(__yices_globals.terms, t) == UNINTERPRETED_TERM &&
+    term_type(__yices_globals.terms, t) == tau;
+}
+
+
+/*
+ * CHECKS ON UNIT-TYPE REPRESENTATIVES
+ */
+
+static bool check_unit_rep(term_t t, type_t tau);
+
+static bool check_unit_tuple(term_t t, type_t tau) {
+  tuple_type_t *d;
+  composite_term_t *c;
+  uint32_t i, n;
+
+  if (t < 0 || is_neg_term(t) || 
+      term_kind(__yices_globals.terms, t) != TUPLE_TERM ||
+      term_type(__yices_globals.terms, t) != tau) {
+    return false;
+  }
+
+  d = tuple_type_desc(__yices_globals.types, tau);
+  c = tuple_term_desc(__yices_globals.terms, t);
+  if (d->nelem != c->arity) {
+    return false;
+  }
+
+  n = d->nelem;
+  for (i=0; i<n; i++) {
+    if (! check_unit_rep(c->arg[i], d->elem[i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+static bool check_unit_rep(term_t t, type_t tau) {
+  if (is_function_type(__yices_globals.types, tau)) {
+    return check_uninterpreted_term(t, tau);
+  } else if (is_scalar_type(__yices_globals.types, tau)) {
+    return check_constant_term(t, tau, 0);
+  } else {
+    assert(is_tuple_type(__yices_globals.types, tau));
+    return check_unit_tuple(t, tau);
+  }  
+}
+
+
+
+/*
+ * Test construction of uninterpreted terms of type tau.
+ */
+static void test_uninterpreted(type_t tau) {
+  term_t x, y, z;
+
+  if (is_unit_type(__yices_globals.types, tau)) {
+    /*
+     * all term constructors of type tau should
+     * return the unique representative of that type.
+     * - for a function type, rep = an uninterpreted constant
+     * - for a scalar type, rep = constant of index 0
+     * - for a tuple type, rep = tuple of reps
+     */
+    x = yices_new_uninterpreted_term(tau);
+    assert(check_unit_rep(x, tau));
+
+    y = yices_new_uninterpreted_term(tau);
+    assert(x == y);
+
+  } else {
+    x = yices_new_uninterpreted_term(tau);
+    assert(check_uninterpreted_term(x, tau));
+
+    y = yices_new_uninterpreted_term(tau);
+    assert(check_uninterpreted_term(y, tau));
+
+    z = yices_new_uninterpreted_term(tau);
+    assert(check_uninterpreted_term(z, tau));
+
+    assert(x != y && y != z && z != x);
+  }
+
+  printf("PASS: %s for type ", __func__);
+  print_type(stdout, __yices_globals.types, tau);
+  printf("\n");
+  fflush(stdout);
+}
+
+
+
+static void test_uninterpreted_all(void) {
+  test_uninterpreted(boolean);
+  test_uninterpreted(integer);
+  test_uninterpreted(real);
+  test_uninterpreted(bv1);
+  test_uninterpreted(bv2);
+  test_uninterpreted(bv32);
+  test_uninterpreted(bv54);
+  test_uninterpreted(bv65);
+  test_uninterpreted(T1);
+  test_uninterpreted(T2);
+  test_uninterpreted(S3);
+  test_uninterpreted(S10);
+  test_uninterpreted(U1);
+  test_uninterpreted(U2);
+  test_uninterpreted(pair_T1_T2);
+  test_uninterpreted(mono_U1);
+  test_uninterpreted(triple_U1_U1_U2);
+  test_uninterpreted(pair_bool);
+  test_uninterpreted(pair_pair_bool);
+  test_uninterpreted(fun_bool_bool);
+  test_uninterpreted(fun_int_bv54);
+  test_uninterpreted(fun_S3_S10_bool);
+  test_uninterpreted(fun_real_U1);
+  test_uninterpreted(fun_real_U2);
+  test_uninterpreted(pair_unit_fun);
+  test_uninterpreted(fun_T1_T2_fun_real_U1);
+}
+
+
+/*
+ * Test the construction of constants of type tau.
+ * tau must be uninterpreted or scalar.
+ */
+static void test_constants(type_t tau) {
+  uint32_t i, n;
+  term_t x, y;
+
+  if (is_uninterpreted_type(__yices_globals.types, tau)) {
+    x = yices_constant(tau, 0);
+    assert(check_constant_term(x, tau, 0));
+
+    y = yices_constant(tau, 0);
+    assert(y == x);
+
+    x = yices_constant(tau, 24);
+    assert(check_constant_term(x, tau, 24));
+
+    y = yices_constant(tau, 24);
+    assert(y == x);
+
+    x = yices_constant(tau, -20);
+    assert(x == NULL_TERM && yices_error_code() == INVALID_CONSTANT_INDEX);
+
+  } else {
+    assert(is_scalar_type(__yices_globals.types, tau));
+
+    n = scalar_type_cardinal(__yices_globals.types, tau);
+    for (i=0; i<n; i++) {
+      x = yices_constant(tau, i);
+      assert(check_constant_term(x, tau, i));
+
+      y = yices_constant(tau, i);
+      assert(y == x);
+    }
+
+    x = yices_constant(tau, -20);
+    assert(x == NULL_TERM && yices_error_code() == INVALID_CONSTANT_INDEX);
+
+    y = yices_constant(tau, n);
+    assert(y == NULL_TERM && yices_error_code() == INVALID_CONSTANT_INDEX);
+
+  }
+
+  printf("PASS: %s for type ", __func__);
+  print_type(stdout, __yices_globals.types, tau);
+  printf("\n");
+  fflush(stdout);
+}
+
+
+
+static void test_constants_all(void) {
+  test_constants(T1);
+  test_constants(T2);
+  test_constants(S3);
+  test_constants(S10);
+  test_constants(U1);
+  test_constants(U2);
+}
+
+
+
+/*
+ * Error codes for constant & uninterpreted term constructors
+ */
+static bool check_invalid_type2(term_t t, type_t tau) {
+  error_report_t *rep;
+
+  rep = yices_error_report();
+  return t == NULL_TERM && yices_error_code() == INVALID_TYPE && 
+    rep->type1 == tau && rep->index == -1;
+}
+
+static bool check_scalar_or_utype_required(term_t t, type_t tau) {
+  error_report_t *rep;
+
+  rep = yices_error_report();
+  return t == NULL_TERM && yices_error_code() == SCALAR_OR_UTYPE_REQUIRED && rep->type1 == tau;
+}
+
+
+static void test_constant_errors(void) {
+  term_t x;
+
+  x = yices_new_uninterpreted_term(-23);
+  assert(check_invalid_type2(x, -23));
+
+  x = yices_constant(10000, 0);
+  assert(check_invalid_type2(x, 10000));
+
+  x = yices_constant(real, 0);
+  assert(check_scalar_or_utype_required(x, real));
+
+  printf("PASS: %s\n", __func__);
+  fflush(stdout);
+}
+
+
+
+
+/*
+ * ARITHMETIC CONSTANTS
+ */
+static bool check_arith_constant(term_t t, rational_t *q) {  
+  type_t tau;
+
+  if (t < 0 || is_neg_term(t) || 
+      term_kind(__yices_globals.terms, t) != ARITH_CONSTANT ||
+      q_neq(rational_term_desc(__yices_globals.terms, t), q)) {
+    return false;
+  }
+
+  tau = term_type(__yices_globals.terms, t);
+  return q_is_integer(q) ? is_integer_type(tau) : is_real_type(tau);  
+}
+
+static void test_arith_constants(void) {
+  mpq_t mpq;
+  mpz_t mpz;
+  rational_t q;
+  term_t x, y;
+
+  q_init(&q);   // q is zero
+
+  // Many ways of constructing 0
+  x = yices_zero();
+  assert(check_arith_constant(x, &q));
+
+  y = yices_int32(0);
+  assert(x == y);
+  y = yices_int64(0);
+  assert(x == y);
+  
+  y = yices_rational32(0, 1);
+  assert(y == x);
+  y = yices_rational64(0, 1);
+  assert(y == x);
+
+  y = yices_parse_rational("+000");
+  assert(y == x);
+
+  y = yices_parse_rational("-0/2");
+  assert(y == x);
+
+  y = yices_parse_float("0.0E-1");
+  assert(y == x);
+  y = yices_parse_float("-0.00000000000000000000000");
+  assert(y == x);
+
+  // Contructing -1/300
+  q_set_int32(&q, -1, 300);
+
+  x = yices_rational32(-1, 300);
+  assert(check_arith_constant(x, &q));
+
+  y = yices_rational64(-5, 1500);
+  assert(y == x);
+
+  mpq_init(mpq);
+  mpq_set_si(mpq, -3, 900);
+  mpq_canonicalize(mpq);
+  y = yices_mpq(mpq);
+  assert(y == x);
+
+  y = yices_parse_rational("-4/1200");
+  assert(y == x);
+
+
+  // Large integer
+  mpz_init(mpz);
+  mpz_set_str(mpz, "123456789123456789223456789", 10);
+  q_set_mpz(&q, mpz);
+
+  x = yices_mpz(mpz);
+  assert(check_arith_constant(x, &q));
+
+  y = yices_parse_float("123456789123456789223456.789e3");
+  assert(y == x);
+
+  mpq_set_z(mpq, mpz);
+  y = yices_mpq(mpq);
+  assert(y == x);
+
+
+  // Error codes
+  x = yices_rational32(1, 0);
+  assert(x == NULL_TERM && yices_error_code() == DIVISION_BY_ZERO);
+
+  x = yices_rational64(-1, 0);
+  assert(x == NULL_TERM && yices_error_code() == DIVISION_BY_ZERO);
+
+  x = yices_parse_rational("");
+  assert(x == NULL_TERM && yices_error_code() == INVALID_RATIONAL_FORMAT);
+
+  x = yices_parse_rational("not a rational");
+  assert(x == NULL_TERM && yices_error_code() == INVALID_RATIONAL_FORMAT);
+
+  x = yices_parse_rational("1/0");
+  assert(x == NULL_TERM && yices_error_code() == DIVISION_BY_ZERO);
+
+  x = yices_parse_float("");
+  assert(x == NULL_TERM && yices_error_code() == INVALID_FLOAT_FORMAT);
+
+  x = yices_parse_float("not a float");
+  assert(x == NULL_TERM && yices_error_code() == INVALID_FLOAT_FORMAT);
+  
+
+  // cleanup
+  q_clear(&q);
+  mpq_clear(mpq);
+  mpz_clear(mpz);
+  
+  printf("PASS: %s\n", __func__);
+  fflush(stdout);
+}
 
 
 
@@ -379,9 +732,18 @@ static void test_type_errors(void) {
 int main(void) {
   yices_init();
 
+  // type constructors
   test_base_types();
   test_composite_types();
   test_type_errors();
+
+  // term constructors
+  test_uninterpreted_all();
+  test_constants_all();  
+  test_constant_errors();
+
+  test_arith_constants();
+
   show_types();
   show_terms();
 

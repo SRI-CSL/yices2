@@ -3332,14 +3332,22 @@ EXPORTED term_t yices_mpq(mpq_t q) {
  * decimal digits.
  *
  * Error report:
- * code = INVALID_RATIONAL_FORMAT
+ *    code = INVALID_RATIONAL_FORMAT
+ * or code = DIVISION_BY_ZERO
  */
 EXPORTED term_t yices_parse_rational(char *s) {
+  int32_t code;
   term_t t;
 
-  if (q_set_from_string(&r0, s) < 0) {
-    // wrong format
-    error.code = INVALID_RATIONAL_FORMAT;
+  code = q_set_from_string(&r0, s);
+  if (code < 0) {
+    if (code == -1) {
+      // wrong format
+      error.code = INVALID_RATIONAL_FORMAT;
+    } else {
+      // denominator is 0
+      error.code = DIVISION_BY_ZERO;
+    }
     return NULL_TERM;
   }
 

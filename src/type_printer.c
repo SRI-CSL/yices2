@@ -110,10 +110,17 @@ static void print_type_recur(FILE *f, type_table_t *tbl, type_t tau, int32_t lev
 /*
  * Expand names only at the outer level
  */
-void print_type(FILE *f, type_table_t *tbl, type_t tau) {
+void print_type_exp(FILE *f, type_table_t *tbl, type_t tau) {
   print_type_recur(f, tbl, tau, 1);
 }
 
+
+/*
+ * Don't expand names
+ */
+void print_type(FILE *f, type_table_t *tbl, type_t tau) {
+  print_type_recur(f, tbl, tau, 0);
+}
 
 /*
  * Definition: name := type
@@ -373,8 +380,16 @@ static void pp_type_recur(yices_pp_t *printer, type_table_t *tbl, type_t tau, in
 /*
  * Expand top-level names 
  */
-void pp_type(yices_pp_t *printer, type_table_t *tbl, type_t tau) {
+void pp_type_exp(yices_pp_t *printer, type_table_t *tbl, type_t tau) {
   pp_type_recur(printer, tbl, tau, 1);
+}
+
+
+/*
+ * Don't expand top-level names
+ */
+void pp_type(yices_pp_t *printer, type_table_t *tbl, type_t tau) {
+  pp_type_recur(printer, tbl, tau, 0);
 }
 
 
