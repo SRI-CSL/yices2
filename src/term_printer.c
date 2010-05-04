@@ -152,7 +152,7 @@ static void print_arith_monomial(FILE *f, rational_t *coeff, pprod_t *r, bool fi
   if (negative) {
     if (first) {
       fprintf(f, "-");
-      if (x != const_idx) {
+      if (!pp_is_empty(r)) {
 	fprintf(f, " ");
       }
     } else {
