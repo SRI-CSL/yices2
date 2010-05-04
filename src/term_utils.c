@@ -457,8 +457,6 @@ static bool disequal_tuple_terms(term_table_t *tbl, term_t x, term_t y) {
   composite_term_t *tuple_x, *tuple_y;
   uint32_t i, n;
 
-  assert(term_type(tbl, x) == term_type(tbl, y));
-
   tuple_x = tuple_term_desc(tbl, x);
   tuple_y = tuple_term_desc(tbl, y);
 

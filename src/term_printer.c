@@ -97,7 +97,10 @@ static void print_monomial(FILE *f, rational_t *coeff, int32_t x, bool first) {
   negative = q_is_neg(coeff);
   if (negative) {
     if (first) {
-      fprintf(f, "- ");     
+      fprintf(f, "-");
+      if (x != const_idx) {
+	fprintf(f, " ");
+      }
     } else {
       fprintf(f, " - ");
     }
@@ -148,7 +151,10 @@ static void print_arith_monomial(FILE *f, rational_t *coeff, pprod_t *r, bool fi
   negative = q_is_neg(coeff);
   if (negative) {
     if (first) {
-      fprintf(f, "- ");     
+      fprintf(f, "-");
+      if (x != const_idx) {
+	fprintf(f, " ");
+      }
     } else {
       fprintf(f, " - ");
     }
@@ -452,7 +458,10 @@ static void print_mono_recur(FILE *f, term_table_t *tbl, rational_t *coeff, int3
   negative = q_is_neg(coeff);
   if (negative) {
     if (first) {
-      fprintf(f, "- ");     
+      fprintf(f, "-");
+      if (x != const_idx) {
+	fprintf(f, " ");
+      }
     } else {
       fprintf(f, " - ");
     }
@@ -878,7 +887,10 @@ static void print_named_monomial(FILE *f, term_table_t *tbl, rational_t *coeff, 
   negative = q_is_neg(coeff);
   if (negative) {
     if (first) {
-      fprintf(f, "- ");     
+      fprintf(f, "-");
+      if (x != const_idx) {
+	fprintf(f, " ");
+      }
     } else {
       fprintf(f, " - ");
     }
@@ -1014,7 +1026,7 @@ void print_term_table(FILE *f, term_table_t *tbl) {
 
       case UNINTERPRETED_TERM:
 	fprintf(f, "(unint of type ");
-	print_type_id(f, tbl->type[i]);
+	print_type_name(f, tbl->types, tbl->type[i]);
 	fputc(')', f);
 	break;
 

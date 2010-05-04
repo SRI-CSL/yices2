@@ -1694,7 +1694,7 @@ static term_t mk_bveq_ite(term_table_t *tbl, term_t c, term_t x, term_t y, term_
 
   assert(term_type(tbl, x) == term_type(tbl, y) && term_type(tbl, x) == term_type(tbl, z));
 
-  ite = ite_term(tbl, c, y, z, term_type(tbl, y));
+  ite = ite_term(tbl, term_type(tbl, y), c, y, z);
 
   // normalize (bveq x ite): put smaller index on the left
   if (x > ite) {
@@ -1731,7 +1731,7 @@ static term_t mk_lifted_ite_bveq(term_table_t *tbl, term_t c, term_t t, term_t e
   if (x == eq2->arg[0]) return mk_bveq_ite(tbl, c, x, eq1->arg[0], eq2->arg[1]);
   if (x == eq2->arg[1]) return mk_bveq_ite(tbl, c, x, eq1->arg[0], eq2->arg[0]);
 
-  return ite_term(tbl, c, t, e, bool_type(tbl->types));
+  return ite_term(tbl, bool_type(tbl->types), c, t, e);
 }
 
 
@@ -1785,7 +1785,7 @@ static term_t mk_bool_ite(term_table_t *tbl, term_t c, term_t x, term_t y) {
     return mk_lifted_ite_bveq(tbl, c, x, y);
   }
 
-  return ite_term(tbl, c, x, y, bool_type(tbl->types));
+  return ite_term(tbl, bool_type(tbl->types), c, x, y);
 }
 
 
@@ -1902,7 +1902,7 @@ static term_t mk_integer_polynomial_ite(term_table_t *tbl, term_t c, term_t t, t
       e = arith_poly(tbl, b);
 
       // (ite c p' q')
-      t = ite_term(tbl, c, t, e, int_type(tbl->types));
+      t = ite_term(tbl, int_type(tbl->types), c, t, e);
 
       // built r0 * t
       arith_buffer_reset(b);
@@ -1912,7 +1912,7 @@ static term_t mk_integer_polynomial_ite(term_table_t *tbl, term_t c, term_t t, t
   }
   
   // no common factor to lift
-  return ite_term(tbl, c, t, e, int_type(tbl->types));
+  return ite_term(tbl, int_type(tbl->types), c, t, e);
 }
 
 
@@ -2784,7 +2784,7 @@ EXPORTED term_t yices_ite(term_t cond, term_t then_term, term_t else_term) {
   }
 #endif
 
-  return ite_term(&terms, cond, then_term, else_term, tau);
+  return ite_term(&terms, tau, cond, then_term, else_term);
 }
 
 
@@ -3190,7 +3190,7 @@ EXPORTED term_t yices_tuple_update(term_t tuple, uint32_t index, term_t new_v) {
   uint32_t n;
   type_t tau;
 
-  if (! check_good_tuple_update(&terms, tuple, index, new_v)) {
+  if (! check_good_tuple_update(&terms, index, tuple, new_v)) {
     return NULL_TERM;
   }
 
@@ -3201,7 +3201,7 @@ EXPORTED term_t yices_tuple_update(term_t tuple, uint32_t index, term_t new_v) {
     return tuple;
   }
 
-  n = composite_term_arity(&terms, tuple);
+  n = tuple_type_arity(&types, tau);
   return mk_tuple_aux(&terms, tuple, n, index, new_v);
 }
 
