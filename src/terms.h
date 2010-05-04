@@ -906,8 +906,12 @@ static inline bool valid_term_idx(term_table_t *table, int32_t i) {
   return 0 <= i && i < table->nelems;
 }
 
-static inline bool good_term_idx(term_table_t *table, int32_t i) {
+static inline bool live_term_idx(term_table_t *table, int32_t i) {
   return valid_term_idx(table, i) && table->kind[i] != UNUSED_TERM;
+}
+
+static inline bool good_term_idx(term_table_t *table, int32_t i) {
+  return valid_term_idx(table, i) && table->kind[i] > RESERVED_TERM;
 }
 
 static inline type_t type_for_idx(term_table_t *table, int32_t i) {
@@ -982,6 +986,10 @@ static inline uint32_t bitsize_for_idx(term_table_t *table, int32_t i) {
 /*
  * Access components using term occurrence t
  */
+static inline bool live_term(term_table_t *table, term_t t) {
+  return live_term_idx(table, index_of(t));
+}
+
 static inline bool good_term(term_table_t *table, term_t t) {
   return good_term_idx(table, index_of(t));
 }

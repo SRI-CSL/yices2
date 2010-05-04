@@ -1039,6 +1039,11 @@ static bool has_compatible_type(type_t tau, term_t t) {
   return compatible_types(__yices_globals.types, sigma, tau);
 }
 
+// t's type is incompatible with tau
+static bool has_incompatible_type(type_t tau, term_t t) {
+  return !has_compatible_type(tau, t);
+}
+
 // any term
 static bool is_term(type_t tau, term_t t) {
   return true;
@@ -1252,6 +1257,206 @@ static void random_tests(uint32_t n) {
 
 
 
+/*
+ * Test of error codes
+ */
+static bool check_pos_int_required(term_t t) {
+  error_report_t *rep;
+
+  rep = yices_error_report();
+  return t == NULL_TERM && yices_error_code() == POS_INT_REQUIRED && rep->badval == 0;
+}
+
+static bool check_invalid_term(term_t t, term_t bad_term, int32_t index) {
+  error_report_t *rep;
+
+  rep = yices_error_report();
+  return t == NULL_TERM && yices_error_code() == INVALID_TERM && rep->term1 == bad_term &&
+    rep->index == index;
+}
+
+static bool check_function_required(term_t t, term_t not_fun) {
+  error_report_t *rep;
+
+  rep = yices_error_report();
+  return t == NULL_TERM && yices_error_code() == FUNCTION_REQUIRED && rep->term1 == not_fun;
+}
+
+static bool check_wrong_number_of_arguments(term_t t, type_t tau, uint32_t bad) {
+  error_report_t *rep;
+
+  rep = yices_error_report();
+  return t == NULL_TERM && yices_error_code() == WRONG_NUMBER_OF_ARGUMENTS && 
+    rep->type1 == tau && rep->badval == bad;
+}
+
+static bool check_type_mismatch(term_t t, term_t bad_arg, type_t expected_tau, int32_t index) {
+  error_report_t *rep;
+
+  rep = yices_error_report();
+  return t == NULL_TERM && yices_error_code() == TYPE_MISMATCH && rep->term1 == bad_arg &&
+    rep->type1 == expected_tau && rep->index == index;
+}
+
+static bool check_incompatible_types(term_t t, term_t bad1, term_t bad2) {
+  error_report_t *rep;
+
+  rep = yices_error_report();
+  return t == NULL_TERM && yices_error_code() == INCOMPATIBLE_TYPES && rep->term1 == bad1 &&
+    rep->term2 == bad2 && rep->type1 == term_type(__yices_globals.terms, bad1) &&
+    rep->type2 == term_type(__yices_globals.terms, bad2);
+}
+
+static bool check_too_many_arguments(term_t t, uint32_t n) {
+  error_report_t *rep;
+
+  rep = yices_error_report();
+  return t == NULL_TERM && yices_error_code() == TOO_MANY_ARGUMENTS && rep->badval == n;
+}
+
+static bool check_tuple_required(term_t t, term_t not_tup) {
+  error_report_t *rep;
+
+  rep = yices_error_report();
+  return t == NULL_TERM && yices_error_code() == TUPLE_REQUIRED && rep->term1 == not_tup;
+}
+
+static bool check_invalid_tuple_index(term_t t, type_t tau, uint32_t i) {
+  error_report_t *rep;
+
+  rep = yices_error_report();
+  return t == NULL_TERM && yices_error_code() == INVALID_TUPLE_INDEX && rep->badval == i &&
+    rep->type1 == tau;
+}
+
+
+static void test_error_codes(void) {
+  term_t aux[2];
+  type_t sigma, tau1, tau2;
+  term_t fun, t1, t2, t3;
+  term_t v;
+  term_t t;
+
+  // error codes for a function application
+  sigma = type_store_sample(&all_types, is_fun_type2);
+  fun = type_store_sample_terms(&all_types, sigma);
+  tau1 = function_type_domain(__yices_globals.types, sigma, 0);
+  t1 = term_store_sample(&all_terms, tau1, has_subtype);
+  tau2 = function_type_domain(__yices_globals.types, sigma, 1);
+  t2 = term_store_sample(&all_terms, tau2, has_subtype);
+
+  t = yices_application(fun, 0, aux);
+  assert(check_pos_int_required(t));
+
+  aux[0] = t1;
+  aux[1] = t2;
+  t = yices_application(-2, 2, aux);
+  assert(check_invalid_term(t, -2, -1));
+
+  aux[0] = 4714789;
+  aux[1] = t2;
+  t = yices_application(fun, 2, aux);
+  assert(check_invalid_term(t, aux[0], 0));
+
+  aux[0] = t1;
+  aux[1] = t2;
+  t = yices_application(true_term, 2, aux);
+  assert(check_function_required(t, true_term));
+
+  t = yices_application(fun, 1, aux);
+  assert(check_wrong_number_of_arguments(t, sigma, 1));
+
+  aux[0] = term_store_sample(&all_terms, tau1, has_incompatible_type);
+  aux[1] = t2;
+  t = yices_application(fun, 2, aux);
+  assert(check_type_mismatch(t, aux[0], tau1, 0));
+
+  aux[0] = t1;
+  aux[1] = term_store_sample(&all_terms, tau2, has_incompatible_type);
+  t = yices_application(fun, 2, aux);
+  assert(check_type_mismatch(t, aux[1], tau2, 1));
+
+  // error codes for if-then-else
+  tau1 = type_store_sample(&all_types, is_type);
+  tau2 = yices_bool_type();
+  t1 = term_store_sample(&all_terms, tau1, has_compatible_type);
+  t2 = term_store_sample(&all_terms, tau1, has_compatible_type);
+  t3 = type_store_sample_terms(&all_types, tau2);
+
+  t = yices_ite(-4, t1, t2);
+  assert(check_invalid_term(t, -4, -1));
+  t = yices_ite(t3, -3, t2);
+  assert(check_invalid_term(t, -3, -1));
+  t = yices_ite(t3, t1, -2);
+  assert(check_invalid_term(t, -2, -1));
+
+  v = term_store_sample(&all_terms, tau2, has_incompatible_type);
+  t = yices_ite(v, t1, t2);
+  assert(check_type_mismatch(t, v, tau2, -1));
+
+  v = term_store_sample(&all_terms, tau1, has_incompatible_type);
+  t = yices_ite(t3, t1, v);
+  assert(check_incompatible_types(t, t1, v));
+
+  // equality 
+  t = yices_eq(v, t1);
+  assert(check_incompatible_types(t, v, t1));
+
+  t = yices_neq(v, t1);
+  assert(check_incompatible_types(t, v, t1));
+  
+  v = 19309390;
+  t = yices_eq(t1, v);
+  assert(check_invalid_term(t , v, -1));
+
+  t = yices_neq(t1, v);
+  assert(check_invalid_term(t , v, -1));
+
+  // tuple
+  aux[0] = t1;
+  aux[1] = false_term;
+  aux[2] = t2;
+  t = yices_tuple(0, aux);
+  assert(check_pos_int_required(t));
+
+  t = yices_tuple(UINT32_MAX, aux);
+  assert(check_too_many_arguments(t, UINT32_MAX));
+
+  aux[1] = -3;
+  t = yices_tuple(3, aux);
+  assert(check_invalid_term(t, aux[1], 1));
+
+  // projection
+  t1 = false_term;
+  t = yices_select(0, t1);
+  assert(check_tuple_required(t, t1));
+  
+  t = yices_select(0, -34);
+  assert(check_invalid_term(t, -34, -1));
+
+  tau1 = type_store_sample(&all_types, is_tup_type);
+  t1 = type_store_sample_terms(&all_types, tau1);
+  t = yices_select(6, t1);
+  assert(check_invalid_tuple_index(t, tau1, 6));
+
+  // tuple update
+  tau2 = tuple_type_component(__yices_globals.types, tau1, 0);
+  v = type_store_sample_terms(&all_types, tau2);
+
+  t = yices_tuple_update(-3, 0, v);
+  assert(check_invalid_term(t, -3, -1));
+  
+  t = yices_tuple_update(true_term, 0, v);
+  assert(check_tuple_required(t, true_term));
+
+  t = yices_tuple_update(t1, 6, v);
+  assert(check_invalid_tuple_index(t, tau1, 6));
+
+  v = term_store_sample(&all_terms, tau2, has_incompatible_type);
+  t = yices_tuple_update(t1, 0, v);
+  assert(check_type_mismatch(t, v, tau2, -1));
+}
+
 
 
 int main(void) {
@@ -1263,8 +1468,10 @@ int main(void) {
   show_terms();
 
   printf("\n\n*** Random tests ***\n");
-  random_tests(10000);
+  random_tests(1000);
   printf("\n****\n\n");
+
+  test_error_codes();
 
   show_types();
   show_terms();

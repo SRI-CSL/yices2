@@ -1216,7 +1216,7 @@ static bool is_unit_type_rep(term_table_t *table, type_t tau, term_t t) {
 char *term_name(term_table_t *table, term_t t) {
   ptr_hmap_pair_t *p;
 
-  assert(good_term(table, t));
+  assert(live_term(table, t));
   p = ptr_hmap_find(&table->ntbl, t);
   if (p == NULL) {
     return NULL;
