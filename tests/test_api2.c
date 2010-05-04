@@ -1224,12 +1224,8 @@ static void random_test(void) {
     t = test_update2(fun, t1, t2, v);
     break;
 
-  case 48:
-  case 49:
-  case 50:
-  case 51:
-  case 52:
-  case 53:
+  default:
+    assert(48 <= k && k <= 53);
     // tuple update
     sigma = type_store_sample(&all_types, is_tup_type);
     t1 = type_store_sample_terms(&all_types, sigma); // tuple term
@@ -1300,11 +1296,13 @@ static bool check_type_mismatch(term_t t, term_t bad_arg, type_t expected_tau, i
 
 static bool check_incompatible_types(term_t t, term_t bad1, term_t bad2) {
   error_report_t *rep;
+  type_t tau1, tau2;
 
+  tau1 = term_type(__yices_globals.terms, bad1);
+  tau2 = term_type(__yices_globals.terms, bad2);
   rep = yices_error_report();
   return t == NULL_TERM && yices_error_code() == INCOMPATIBLE_TYPES && rep->term1 == bad1 &&
-    rep->term2 == bad2 && rep->type1 == term_type(__yices_globals.terms, bad1) &&
-    rep->type2 == term_type(__yices_globals.terms, bad2);
+    rep->term2 == bad2 && rep->type1 == tau1 && rep->type2 == tau2;
 }
 
 static bool check_too_many_arguments(term_t t, uint32_t n) {
@@ -1468,7 +1466,7 @@ int main(void) {
   show_terms();
 
   printf("\n\n*** Random tests ***\n");
-  random_tests(1000);
+  random_tests(100000);
   printf("\n****\n\n");
 
   test_error_codes();

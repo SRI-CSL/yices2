@@ -1790,6 +1790,281 @@ static term_t mk_bool_ite(term_table_t *tbl, term_t c, term_t x, term_t y) {
 
 
 
+
+/*
+ * BIT-VECTOR IF-THEN-ELSE
+ */
+
+/*
+ * Build (ite c x y) when both x and y are boolean constants.
+ */
+static term_t const_ite_simplify(term_t c, term_t x, term_t y) {
+  assert(x == true_term || x == false_term);
+  assert(y == true_term || y == false_term);
+
+  if (x == y) return x;
+  if (x == true_term) {
+    assert(y == false_term);
+    return c;
+  } 
+
+  assert(x == false_term && y == true_term);
+  return opposite_term(c);
+}
+
+
+/*
+ * Convert (ite c u v) into a bvarray term:
+ * - c is a boolean
+ * - u and v are two bv64 constants
+ *
+ * Side effect: use vector0 as a buffer
+ */
+static term_t mk_bvconst64_ite(term_table_t *tbl, term_t c, bvconst64_term_t *u, bvconst64_term_t *v) {
+  uint32_t i, n;  
+  term_t bu, bv;
+  term_t *a;
+
+  n = u->bitsize;
+  assert(v->bitsize == n);
+  resize_ivector(&vector0, n);
+  a = vector0.data;
+
+  for (i=0; i<n; i++) {
+    bu = bool2term(tst_bit64(u->value, i)); // bit i of u
+    bv = bool2term(tst_bit64(v->value, i)); // bit i of v
+
+    a[i] = const_ite_simplify(c, bu, bv); // a[i] = (ite c bu bv)
+  }
+
+  return bvarray_term(tbl, n, a);
+}
+
+
+/*
+ * Same thing with u and v two generic bv constants
+ */
+static term_t mk_bvconst_ite(term_table_t *tbl, term_t c, bvconst_term_t *u, bvconst_term_t *v) {
+  uint32_t i, n;
+  term_t bu, bv;
+  term_t *a;
+
+  n = u->bitsize;
+  assert(v->bitsize == n);
+  resize_ivector(&vector0, n);
+  a = vector0.data;
+
+  for (i=0; i<n; i++) {
+    bu = bool2term(bvconst_tst_bit(u->data, i));
+    bv = bool2term(bvconst_tst_bit(v->data, i));
+
+    a[i] = const_ite_simplify(c, bu, bv);
+  }
+
+  return bvarray_term(tbl, n, a);
+}
+
+
+
+/*
+ * Given three boolean terms c, x, and y, check whether (ite c x y)
+ * simplifies and if so return the result.
+ * - return NULL_TERM if no simplification is found.
+ * - the function assumes c is not a boolean constant
+ */
+static term_t check_ite_simplifies(term_t c, term_t x, term_t y) {
+  assert(c != true_term && c != false_term);
+
+  // (ite c x y) --> (ite c true y)  if c == x
+  // (ite c x y) --> (ite c false y) if c == not x
+  if (c == x) {
+    x = true_term;
+  } else if (opposite_bool_terms(c, x)) {
+    x = false_term;
+  }
+
+  // (ite c x y) --> (ite c x false) if c == y
+  // (ite c x y) --> (ite c x true)  if c == not y
+  if (c == y) {
+    y = false_term;
+  } else if (opposite_bool_terms(c, y)) {
+    y = true_term;
+  }
+
+  // (ite c x x) --> x
+  // (ite c true false) --> c
+  // (ite c false true) --> not c
+  if (x == y) return x;
+  if (x == true_term && y == false_term) return c;
+  if (x == false_term && y == true_term) return opposite_term(c);
+
+  return NULL_TERM;
+}
+
+
+/*
+ * Attempt to convert (ite c u v) into a bvarray term:
+ * - u is a bitvector constant of no more than 64 bits
+ * - v is a bvarray term
+ * Return NULL_TERM if the simplifications fail.
+ */
+static term_t check_ite_bvconst64(term_table_t *tbl, term_t c, bvconst64_term_t *u, composite_term_t *v) {
+  uint32_t i, n;
+  term_t b;
+  term_t *a;
+
+  n = u->bitsize;
+  assert(n == v->arity);
+  resize_ivector(&vector0, n);
+  a = vector0.data;
+
+  for (i=0; i<n; i++) {
+    b = bool2term(tst_bit64(u->value, i)); // bit i of u
+    b = check_ite_simplifies(c, b, v->arg[i]);
+
+    if (b == NULL_TERM) {
+      return NULL_TERM;
+    }
+    a[i] = b;
+  }
+
+  return bvarray_term(tbl, n, a);
+}
+
+
+/*
+ * Same thing for a generic constant u
+ */
+static term_t check_ite_bvconst(term_table_t *tbl, term_t c, bvconst_term_t *u, composite_term_t *v) {
+  uint32_t i, n;
+  term_t b;
+  term_t *a;
+
+  n = u->bitsize;
+  assert(n == v->arity);
+  resize_ivector(&vector0, n);
+  a = vector0.data;
+
+  for (i=0; i<n; i++) {
+    b = bool2term(bvconst_tst_bit(u->data, i)); // bit i of u
+    b = check_ite_simplifies(c, b, v->arg[i]);
+
+    if (b == NULL_TERM) {
+      return NULL_TERM;
+    }
+    a[i] = b;
+  }
+
+  return bvarray_term(tbl, n, a);
+}
+
+
+/*
+ * Same thing when both u and v are bvarray terms.
+ */
+static term_t check_ite_bvarray(term_table_t *tbl, term_t c, composite_term_t *u, composite_term_t *v) {
+  uint32_t i, n;
+  term_t b;
+  term_t *a;
+
+  n = u->arity;
+  assert(n == v->arity);
+  resize_ivector(&vector0, n);
+  a = vector0.data;
+
+  for (i=0; i<n; i++) {
+    b = check_ite_simplifies(c, u->arg[i], v->arg[i]);
+
+    if (b == NULL_TERM) {
+      return NULL_TERM;
+    }
+    a[i] = b;
+  }
+
+  return bvarray_term(tbl, n, a);
+}
+
+
+
+
+/*
+ * Build (ite c x y) c is boolean, x and y are bitvector terms
+ * Use vector0 as a buffer.
+ */
+static term_t mk_bv_ite(term_table_t *tbl, term_t c, term_t x, term_t y) {    
+  term_kind_t kind_x, kind_y;
+  term_t aux;
+
+  assert(term_type(tbl, x) == term_type(tbl, y) && is_bitvector_term(tbl, x) && 
+	 is_boolean_term(tbl, c));
+
+  // Try generic simplification first
+  if (x == y) return x;
+  if (c == true_term) return x;
+  if (c == false_term) return y;
+
+
+  // Check whether (ite c x y) simplifies to a bv_array term
+  kind_x = term_kind(tbl, x);
+  kind_y = term_kind(tbl, y);
+  aux = NULL_TERM;
+  switch (kind_x) {
+  case BV64_CONSTANT:
+    assert(kind_y != BV_CONSTANT);
+    if (kind_y == BV64_CONSTANT) {
+      return mk_bvconst64_ite(tbl, c, bvconst64_term_desc(tbl, x), bvconst64_term_desc(tbl, y));
+    }
+    if (kind_y == BV_ARRAY) {
+      aux = check_ite_bvconst64(tbl, c, bvconst64_term_desc(tbl, x), bvarray_term_desc(tbl, y));
+    }
+    break;
+
+  case BV_CONSTANT:
+    assert(kind_y != BV64_CONSTANT);
+    if (kind_y == BV_CONSTANT) {
+      return mk_bvconst_ite(tbl, c, bvconst_term_desc(tbl, x), bvconst_term_desc(tbl, y));
+    }
+    if (kind_y == BV_ARRAY) {
+      aux = check_ite_bvconst(tbl, c, bvconst_term_desc(tbl, x), bvarray_term_desc(tbl, y));
+    }
+    break;
+
+  case BV_ARRAY:
+    if (kind_y == BV64_CONSTANT) {
+      aux = check_ite_bvconst64(tbl, c, bvconst64_term_desc(tbl, y), bvarray_term_desc(tbl, x));
+    } else if (kind_y == BV_CONSTANT) {
+      aux = check_ite_bvconst(tbl, c, bvconst_term_desc(tbl, y), bvarray_term_desc(tbl, x));      
+    } else if (kind_y == BV_ARRAY) {
+      aux = check_ite_bvarray(tbl, c, bvarray_term_desc(tbl, y), bvarray_term_desc(tbl, x));
+    }
+    break;
+
+  default:
+    break;
+  }
+
+  if (aux != NULL_TERM) {
+    return aux;
+  }
+
+
+  /*
+   * No simplification found: build a standard ite.
+   * Normalize first: (ite (not c) x y) --> (ite c y x)
+   */
+  if (is_neg_term(c)) {
+    c = opposite_term(c);
+    aux = x; x = y; y = aux;
+  }
+
+  return ite_term(tbl, term_type(tbl, x), c, x, y);
+}
+
+
+/*
+ * LIFT IF
+ */
+
 /*
  * Cheap lift-if decomposition:
  * - decompose (ite c x y) (ite c z u) ---> [c, x, z, y, u]
@@ -1991,6 +2266,12 @@ static term_t mk_aritheq(term_t t1, term_t t2) {
   return arith_buffer_get_eq0_atom(internal_arith_buffer);
 }
 
+
+/*
+ * Inequality: (arithgewq t1 t2)
+ *
+ * Try the cheap lift-if rules. 
+ */
 static term_t mk_arithgeq(term_t t1, term_t t2) {
   lift_result_t tmp;
 
@@ -2004,30 +2285,213 @@ static term_t mk_arithgeq(term_t t1, term_t t2) {
   return arith_buffer_get_geq0_atom(internal_arith_buffer);  
 }
 
+
 static inline term_t mk_arithneq(term_t t1, term_t t2) {
   return opposite_term(mk_aritheq(t1, t2));
 }
 
 
 
+
+/*************************
+ *  BIT-VECTOR EQUALITY  *
+ ************************/
+
 /*
- * BIT-VECTOR ATOMS
+ * Check whether (eq b c) simplifies and if so returns the result.
+ * - b and c must be boolean terms (assumed not opposite of each other).
+ * - return NULL_TERM if no simplification is found
+ *
+ * Rules:
+ *   (eq b b)     --> true
+ *   (eq b true)  --> b
+ *   (eq b false) --> (not b)
+ * + symmetric cases for the last two rules
+ */
+static term_t check_biteq_simplifies(term_t b, term_t c) {
+  assert(! opposite_bool_terms(b, c));
+
+  if (b == c) return true_term;
+
+  if (b == true_term)  return c;
+  if (b == false_term) return opposite_term(c); // not c
+  if (c == true_term)  return b;
+  if (c == false_term) return opposite_term(b);
+
+  return NULL_TERM;
+}
+
+
+/*
+ * Check whether (and a (eq b c)) simplifies and, if so, returns the result.
+ * - a, b, and c are three boolean terms.
+ * - return NULL_TERM if no cheap simplification is found
+ *
+ * We assume that the cheaper simplification tests have been tried before:
+ * (i.e., we assume a != false and  b != (not c)).
+ */
+static term_t check_accu_biteq_simplifies(term_t a, term_t b, term_t c) {
+  term_t eq;
+
+
+  // first check whether (eq b c) simplifies
+  eq = check_biteq_simplifies(b, c);
+  if (eq != NULL_TERM) return NULL_TERM;
+
+  /*
+   * try to simplify (and a eq)
+   */
+  assert(a != false_term && eq != false_term);
+
+  if (a == eq) return a;
+  if (opposite_bool_terms(a, eq)) return false;
+
+  if (a == true_term) return eq;
+  if (eq == true_term) return a;
+
+  return NULL_TERM;
+}
+
+
+
+/*
+ * Check whether (bveq u v) simplifies:
+ * - u is a bitvector constant of no more than 64 bits
+ * - v is a bv_array term
+ *
+ * Return NULL_TERM if no cheap simplification is found.
+ */
+static term_t check_eq_bvconst64(bvconst64_term_t *u, composite_term_t *v) {
+  uint32_t i, n;
+  term_t accu, b;
+
+  n = u->bitsize;
+  assert(n == v->arity);
+  accu = true_term;
+
+  for (i=0; i<n; i++) {
+    b = bool2term(tst_bit64(u->value, i)); // bit i of u
+    accu = check_accu_biteq_simplifies(accu, b, v->arg[i]);
+    if (accu == NULL_TERM || accu == false_term) {
+      break;
+    }
+  }
+
+  return accu;
+}
+
+
+/*
+ * Same thing for a generic constant u.
+ */
+static term_t check_eq_bvconst(bvconst_term_t *u, composite_term_t *v) {
+  uint32_t i, n;
+  term_t accu, b;
+
+  n = u->bitsize;
+  assert(n == v->arity);
+  accu = true_term;
+
+  for (i=0; i<n; i++) {
+    b = bool2term(bvconst_tst_bit(u->data, i)); // bit i of u
+    accu = check_accu_biteq_simplifies(accu, b, v->arg[i]);
+    if (accu == NULL_TERM || accu == false_term) {
+      break;
+    }
+  }
+
+  return accu;
+}
+
+
+/*
+ * Same thing for two bv_array terms
+ */
+static term_t check_eq_bvarray(composite_term_t *u, composite_term_t *v) {
+  uint32_t i, n;
+  term_t accu;
+
+  n = u->arity;
+  assert(n == v->arity);
+  accu = true_term;
+
+  for (i=0; i<n; i++) {
+    accu = check_accu_biteq_simplifies(accu, u->arg[i], v->arg[i]);
+    if (accu == NULL_TERM || accu == false_term) {
+      break;
+    }
+  }
+
+  return accu;
+}
+
+
+
+/*
+ * Build (bveq t1 t2)
+ * - try to simplify to true or false
+ * - attempt to simplify the equality if it's between bit-arrays or bit-arrays and constant
+ * - build an atom if no simplification works
  */
 static term_t mk_bveq(term_t t1, term_t t2) {
-    term_t aux;
+  term_kind_t k1, k2;
+  term_t aux;
 
   if (t1 == t2) return true_term;
   if (disequal_bitvector_terms(&terms, t1, t2)) {
     return false_term;
   }
 
-  // put smaller index on the left
+  /*
+   * Try simplifications.  We know that t1 and t2 are not both constant
+   * (because disequal_bitvector_terms returned false).
+   */
+  k1 = term_kind(&terms, t1);
+  k2 = term_kind(&terms, t2);
+  aux = NULL_TERM;
+  switch (k1) {
+  case BV64_CONSTANT:
+    if (k2 == BV_ARRAY) {
+      aux = check_eq_bvconst64(bvconst64_term_desc(&terms, t1), bvarray_term_desc(&terms, t2));
+    }
+    break;
+
+  case BV_CONSTANT:
+    if (k2 == BV_ARRAY) {
+      aux = check_eq_bvconst(bvconst_term_desc(&terms, t1), bvarray_term_desc(&terms, t2));
+    }
+    break;
+
+  case BV_ARRAY:
+    if (k2 == BV64_CONSTANT) {
+      aux = check_eq_bvconst64(bvconst64_term_desc(&terms, t2), bvarray_term_desc(&terms, t1));
+    } else if (k2 == BV_CONSTANT) {
+      aux = check_eq_bvconst(bvconst_term_desc(&terms, t2), bvarray_term_desc(&terms, t1));
+    } else if (k2 == BV_ARRAY) {
+      aux = check_eq_bvarray(bvarray_term_desc(&terms, t1), bvarray_term_desc(&terms, t2));
+    }
+    break;
+
+  default:
+    break;
+  }
+
+  if (aux != NULL_TERM) {
+    // Simplification worked
+    return aux;
+  }
+
+
+  /*
+   * Default: normalize then build a bveq_atom
+   */
   if (t1 > t2) {
     aux = t1; t1 = t2; t2 = aux;
   }
 
   return bveq_atom(&terms, t1, t2);
 }
+
 
 static inline term_t mk_bvneq(term_t t1, term_t t2) {
   return opposite_term(mk_bveq(t1, t2));
@@ -2763,6 +3227,12 @@ EXPORTED term_t yices_ite(term_t cond, term_t then_term, term_t else_term) {
     return mk_bool_ite(&terms, cond, then_term, else_term);
   }
 
+  // bit-vector ite
+  if (is_bitvector_term(&terms, then_term)) {
+    assert(is_bitvector_term(&terms, else_term));
+    return mk_bv_ite(&terms, cond, then_term, else_term);
+  }
+
   // non-boolean:
   if (then_term == else_term) return then_term;
   if (cond == true_term) return then_term;
@@ -3066,6 +3536,7 @@ EXPORTED term_t yices_select(uint32_t index, term_t tuple) {
  * TBD
  */
 EXPORTED term_t yices_update(term_t fun, uint32_t n, term_t arg[], term_t new_v) {
+  composite_term_t *update;
   type_t tau;
 
   if (! check_good_update(&terms, fun, n, arg, new_v)) {
@@ -3077,6 +3548,21 @@ EXPORTED term_t yices_update(term_t fun, uint32_t n, term_t arg[], term_t new_v)
   if (is_unit_type(&types, tau)) {
     assert(unit_type_rep(&terms, tau) == fun);
     return fun;
+  }
+
+  // try simplification
+  while (term_kind(&terms, fun) == UPDATE_TERM) {
+    // fun is (update f b_1 ... b_n v)
+    update = update_term_desc(&terms, fun);
+    assert(update->arity == n+2);
+
+    if (equal_term_arrays(n, update->arg + 1, arg)) {
+      // b_1 = a_1, ..., b_n = a_n so
+      // (update (update fun b_1 ... b_n v0) a_1 ... a_n new_v)) --> (update fun (a_1 ... a_n) new_v)
+      fun = update->arg[0];
+    } else {
+      break;
+    }
   }
 
   return update_term(&terms, fun, n, arg, new_v);
