@@ -198,8 +198,10 @@ int32_t bvconst64_set_from_string(uint64_t *a, uint32_t n, char *s) {
     c = *s;
     s ++;
     if (c == '1') {
-      set_bit64(x, n);
-    } else if (c != '0') {
+      x = (x << 1) | 1;
+    } else if (c == '0') {
+      x = (x << 1);
+    } else {
       return -1;
     }
   } while (n > 0);
@@ -227,10 +229,10 @@ static uint32_t hextoint(char c) {
   if ('0' <= c && c <= '9') {
     return c - '0';
   } else if ('a' <= c && c <= 'f') {
-    return c - 'a';
+    return 10 + (c - 'a');
   } else {
     assert('A' <= c && c <= 'F');
-    return c - 'A';
+    return 10 + (c - 'A');
   }
 }
 
