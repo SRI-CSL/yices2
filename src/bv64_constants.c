@@ -264,3 +264,16 @@ int32_t bvconst64_set_from_hexa_string(uint64_t *a, uint32_t n, char *s) {
   return 0;
 }
 
+
+/*
+ * Display a in binary format. n = number of bits
+ */
+void bvconst64_print(FILE *f, uint64_t a, uint32_t n) {
+  assert(1 <= n && n <= 64);
+
+  fprintf(f, "0b");
+  do {
+    n --;
+    fprintf(f, "%u", (unsigned) tst_bit64(a, n));
+  } while (n > 0);
+}

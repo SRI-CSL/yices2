@@ -18,7 +18,9 @@
 #include "term_stack.h"
 
 
-#ifndef NDEBUG
+// #ifndef NDEBUG
+// provisional
+#if 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -625,7 +627,41 @@ void tstack_push_float(tstack_t *stack, char *s, loc_t *loc) {
 }
 
 
-#if 0
+/*
+ * Push a small bitvector constant:
+ * - n = bitsize (1 <= n <= 64)
+ * - c = value
+ */
+static void tstack_push_bv64(tstack_t *stack, uint32_t n, uint64_t c, loc_t *loc) {
+  stack_elem_t *e;
+  
+  assert(1 <= n && n <= 64 && c == norm64(c, n));
+
+  e = tstack_get_topelem(stack);
+  e->tag = TAG_BV64;
+  e->val.bv64.bitsize = n;
+  e->val.bv64.value = c;
+  e->loc = *loc;
+}
+
+
+/*
+ * Push a generic bitvector constant
+ * - n = bitsize (n > 64)
+ * - c = value as an array of words
+ */
+static void tstack_push_bv(tstack_t *stack, uint32_t n, uint32_t *c, loc_t *loc) {
+  stack_elem_t *e;
+  
+  assert(n > 64);
+
+  e = tstack_get_topelem(stack);
+  e->tag = TAG_BV;
+  e->val.bv.bitsize = n;
+  e->val.bv.data = c;
+  e->loc = *loc;  
+}
+
 
 /*
  * Convert a string to a bitvector constant and push that
@@ -636,44 +672,56 @@ void tstack_push_bvbin(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
   uint32_t k;
   int code;
   uint32_t *tmp;
-  stack_elem_t *e;
+  uint64_t c;
 
-  k = (n + 31) >> 5; // number of words
-  tmp = bvconst_alloc(k);
-  code = bvconst_set_from_string(tmp, n, s);
-  if (code < 0) {
-    push_exception(stack, loc, s, TSTACK_BVBIN_FORMAT);
+  if (n > 64) {
+    // large constant
+    k = (n + 31) >> 5; // number of words
+    tmp = bvconst_alloc(k);
+    code = bvconst_set_from_string(tmp, n, s);
+    if (code < 0) goto error;
+
+    bvconst_normalize(tmp, n);
+    tstack_push_bv(stack, n, tmp, loc);
+
+  } else {
+    // small constant
+    code = bvconst64_set_from_string(&c, n, s);
+    if (code < 0) goto error;
+    tstack_push_bv64(stack, n, c, loc);
   }
+  return;
 
-  bvconst_normalize(tmp, n);
-
-  e = tstack_get_topelem(stack);
-  e->tag = TAG_BITVECTOR;
-  e->val.bvconst.nbits = n;
-  e->val.bvconst.data = tmp;
-  e->loc = *loc;
+ error:
+  push_exception(stack, loc, s, TSTACK_BVBIN_FORMAT);
 }
 
 void tstack_push_bvhex(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
   uint32_t k;
   int code;
   uint32_t *tmp;
-  stack_elem_t *e;
+  uint64_t c;
 
-  k = (n + 7) >> 3; // number of words
-  tmp = bvconst_alloc(k);
-  code = bvconst_set_from_hexa_string(tmp, n, s);
-  if (code < 0) {
-    push_exception(stack, loc, s, TSTACK_BVHEX_FORMAT);
+  if (n > 16) {
+    // large constant
+    k = (n + 7) >> 3; // number of words
+    tmp = bvconst_alloc(k);
+    code = bvconst_set_from_hexa_string(tmp, n, s);
+    if (code < 0) goto error;
+
+    bvconst_normalize(tmp, 4 * n);
+    tstack_push_bv(stack, 4 * n, tmp, loc);
+
+  } else {
+    // small constant
+    code = bvconst64_set_from_hexa_string(&c, n, s);
+    if (code < 0) goto error;
+    tstack_push_bv64(stack, n, c, loc);
   }
+  return;
 
-  bvconst_normalize(tmp, 4 * n);
-
-  e = tstack_get_topelem(stack);
-  e->tag = TAG_BITVECTOR;
-  e->val.bvconst.nbits = 4 * n;
-  e->val.bvconst.data = tmp;
-  e->loc = *loc;
+ error:
+  push_exception(stack, loc, s, TSTACK_BVHEX_FORMAT);
 }
 
 
@@ -825,15 +873,29 @@ static arith_buffer_t *tstack_get_abuffer(tstack_t *stack) {
   return tmp;
 }
 
+
+static bvarith64_buffer_t *tstack_get_bva64buffer(tstack_t *stack) {
+  bvarith64_buffer_t *tmp;
+
+  tmp = stack->bva64buffer;
+  if (tmp == NULL) {
+    tmp = yices_new_bvarith64_buffer(32); // any positive number will do
+    stack->bva64buffer = tmp;
+  } else {
+    bvarith64_buffer_prepare(tmp, 32); // reset
+  }
+  return tmp;
+}
+
 static bvarith_buffer_t *tstack_get_bvabuffer(tstack_t *stack) {
   bvarith_buffer_t *tmp;
 
   tmp = stack->bvabuffer;
   if (tmp == NULL) {
-    tmp = yices_new_bvarith_buffer(32); // any positive number will do
+    tmp = yices_new_bvarith_buffer(100); // any positive number will do
     stack->bvabuffer = tmp;
   } else {
-    bvarith_buffer_prepare(tmp, 32); // reset
+    bvarith_buffer_prepare(tmp, 100); // reset
   }
   return tmp;
 }
@@ -859,16 +921,25 @@ static bvlogic_buffer_t *tstack_get_bvlbuffer(tstack_t *stack) {
  */
 static void recycle_abuffer(tstack_t *stack, arith_buffer_t *b) {
   if (stack->abuffer == NULL) {
-    yices_arith_reset(b);
+    arith_buffer_reset(b);
     stack->abuffer = b;
   } else if (stack->abuffer != b) {
     yices_free_arith_buffer(b);
   }
 }
 
+static void recycle_bva64buffer(tstack_t *stack, bvarith64_buffer_t *b) {
+  if (stack->bva64buffer == NULL) {
+    bvarith64_buffer_prepare(b, 32); // any non-zero value would work
+    stack->bva64buffer = b;
+  } else if (stack->bva64buffer != b) {
+    yices_free_bvarith64_buffer(b);
+  }
+}
+
 static void recycle_bvabuffer(tstack_t *stack, bvarith_buffer_t *b) {
   if (stack->bvabuffer == NULL) {
-    yices_bvarith_reset(b, 32); // any non-zero value would work
+    bvarith_buffer_prepare(b, 100); // any non-zero value would work
     stack->bvabuffer = b;
   } else if (stack->bvabuffer != b) {
     yices_free_bvarith_buffer(b);
@@ -877,7 +948,7 @@ static void recycle_bvabuffer(tstack_t *stack, bvarith_buffer_t *b) {
 
 static void recycle_bvlbuffer(tstack_t *stack, bvlogic_buffer_t *b) {
   if (stack->bvlbuffer == NULL) {
-    yices_bvlogic_reset(b);
+    bvlogic_buffer_clear(b);
     stack->bvlbuffer = b;
   } else if (stack->bvlbuffer != b) {
     yices_free_bvlogic_buffer(b);
@@ -929,9 +1000,9 @@ static void tstack_free_val(tstack_t *stack, stack_elem_t *e) {
   uint32_t k;
 
   switch (e->tag) {
-  case TAG_BITVECTOR:
-    k = (e->val.bvconst.nbits + 31) >> 5;
-    bvconst_free(e->val.bvconst.data, k);
+  case TAG_BV:
+    k = (e->val.bv.bitsize + 31) >> 5;
+    bvconst_free(e->val.bv.data, k);
     break;
   case TAG_RATIONAL:
     q_clear(&e->val.rational);
@@ -1064,6 +1135,18 @@ static void set_arith_result(tstack_t *stack, arith_buffer_t *b) {
   e->val.arith_buffer = b;
 }
 
+// b must be stack->bva64buffer
+static void set_bvarith64_result(tstack_t *stack, bvarith64_buffer_t *b) {
+  stack_elem_t *e;
+
+  assert(b == stack->bva64buffer);
+  stack->bva64buffer = NULL;
+
+  e = stack->elem + (stack->top - 1);
+  e->tag = TAG_BVARITH64_BUFFER;
+  e->val.bvarith64_buffer = b;
+}
+
 // b must be stack->bvabuffer
 static void set_bvarith_result(tstack_t *stack, bvarith_buffer_t *b) {
   stack_elem_t *e;
@@ -1097,13 +1180,22 @@ static void set_binding_result(tstack_t *stack, term_t t, char *symbol) {
   e->val.binding.symbol = symbol;
 }
 
-static void set_bvconst_result(tstack_t *stack, uint32_t nbits, uint32_t *bv) {
+static void set_bv64_result(tstack_t *stack, uint32_t nbits, uint64_t c) {
   stack_elem_t *e;
 
   e = stack->elem + (stack->top - 1);
-  e->tag = TAG_BITVECTOR;
-  e->val.bvconst.nbits = nbits;
-  e->val.bvconst.data = bv;  
+  e->tag = TAG_BV64;
+  e->val.bv64.bitsize = nbits;
+  e->val.bv64.value = c;
+}
+
+static void set_bv_result(tstack_t *stack, uint32_t nbits, uint32_t *bv) {
+  stack_elem_t *e;
+
+  e = stack->elem + (stack->top - 1);
+  e->tag = TAG_BV;
+  e->val.bv.bitsize = nbits;
+  e->val.bv.data = bv;  
 }
 
 
@@ -1148,7 +1240,7 @@ void tstack_reset(tstack_t *stack) {
 
 
 
-#if 0
+#if 1
 
 /*
  * Print element e (for debugging)
@@ -1168,9 +1260,15 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
     printf("<symbol: %s>", e->val.symbol);
     break;
 
-  case TAG_BITVECTOR:
+  case TAG_BV64:
     printf("<bitvector: ");
-    bvconst_print(stdout, e->val.bvconst.data, e->val.bvconst.nbits);
+    bvconst64_print(stdout, e->val.bv64.value, e->val.bv64.bitsize);
+    printf(">");
+    break;
+
+  case TAG_BV:
+    printf("<bitvector: ");
+    bvconst_print(stdout, e->val.bv.data, e->val.bv.bitsize);
     printf(">");
     break;
 
@@ -1195,6 +1293,12 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
   case TAG_ARITH_BUFFER:
     printf("<arith-buffer: ");
     print_arith_buffer(stdout, e->val.arith_buffer);
+    printf(">");
+    break;
+
+  case TAG_BVARITH64_BUFFER:
+    printf("<bvarith64-buffer: ");
+    print_bvarith64_buffer(stdout, e->val.bvarith64_buffer);
     printf(">");
     break;
 
@@ -1224,6 +1328,8 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
 
 #endif
 
+
+#if 0
 
 /***************************************
  *  EVALUATION OF INDIVIDUAL COMMANDS  *
@@ -1379,19 +1485,25 @@ static term_t get_term(tstack_t *stack, stack_elem_t *e) {
       raise_exception(stack, e, TSTACK_UNDEF_TERM);
     }
     break;
-    
-  case TAG_BITVECTOR:    
-    t = yices_bvconst_term(e->val.bvconst.nbits, e->val.bvconst.data);
+
+  case TAG_BV64:
+    t = yices_bvconst64_term(e->val.bv64.bitsize, e->val.bv64.value);
+    break;
+
+  case TAG_BV:
+    t = yices_bvconst_term(e->val.bv.bitsize, e->val.bv.data);
     break;
     
   case TAG_RATIONAL:
-    aux = tstack_get_abuffer(stack);
-    yices_arith_add_const(aux, &e->val.rational);
-    t = yices_arith_term(aux);
+    t = yices_rational_term(aux);
     break;
 
   case TAG_ARITH_BUFFER:
     t = yices_arith_term(e->val.arith_buffer);
+    break;
+
+  case TAG_BVARITH64_BUFFER:
+    t = yices_bvarith64_term(e->val.bvarith64_buffer);
     break;
 
   case TAG_BVARITH_BUFFER:

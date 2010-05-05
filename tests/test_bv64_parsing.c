@@ -71,7 +71,7 @@ static void test_parse_bvbin(uint32_t n, char *s) {
    * Test error code
    */
   s[n-1] = 'x';
-  test = 0x987654321;
+  test = 0x98765432;
   check = test;
   code = bvconst64_set_from_string(&test, n, s);
   assert(code == -1 && test == check); // test should not change
@@ -180,7 +180,7 @@ static void test_parse_bvhex(uint32_t n, char *s) {
    * Test error code
    */
   s[n-1] = 'x';
-  test = 0x987654321;
+  test = 0x98765432;
   check = test;
   code = bvconst64_set_from_hexa_string(&test, n, s);
   assert(code == -1 && test == check); // test should not change

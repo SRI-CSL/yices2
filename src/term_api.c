@@ -928,6 +928,7 @@ term_t arith_buffer_get_lt0_atom(arith_buffer_t *b) {
 
 
 
+
 /********************************************
  *  CONVERSION OF BVLOGIC BUFFERS TO TERMS  *
  *******************************************/
@@ -1369,6 +1370,40 @@ term_t bvarith64_buffer_get_term(bvarith64_buffer_t *b) {
   return t;  
 }
 
+
+
+/*
+ * CONVERT BIT-VECTOR AND RATIONAL CONSTANTS TO TERMS
+ */
+
+/*
+ * Convert a 64bit constant to a term
+ * - n = bitsize (must be positive and no more than 64)
+ * - c = constant value (must be normalized modulo 2^n)
+ */
+term_t yices_bvcons64_term(uint32_t n, uint64_t c) {
+  assert(1 <= n && n <= 64 && c == norm64(c, n));
+  return bv64_constant(&terms, n, c);
+}
+
+
+/*
+ * Convert a bitvector constant to a term
+ * - n = bitsize (must be more than 64 and at most YICES_MAX_BVSIZE)
+ * - v = value as an array of k words (k = ceil(n/32)).
+ */
+term_t yices_bvconst_term(uint32_t n, uint32_t *v) {
+  assert(64 < n && n <= YICES_MAX_BVSIZE);
+  return bvconst_term(&terms, n, v);
+}
+
+
+/*
+ * Convert rational q to a term
+ */
+term_t yices_rational_term(rational_t *q) {
+  return arith_constant(&terms, q);
+}
 
 
 

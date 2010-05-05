@@ -12,16 +12,6 @@
 
 
 /*
- * Provisional: set default visibility for functions used in test_smt_context
- */
-#if defined(CYGWIN) || defined(MINGW)
-#define EXPORTED __attribute__((dllexport))
-#else
-#define EXPORTED __attribute__((visibility("default")))
-#endif
-
-
-/*
  * Ids for primitive terms
  */
 static const char * const term2string[] = {
@@ -338,6 +328,36 @@ void print_bvarith64_buffer(FILE *f, bvarith64_buffer_t *b) {
   }
 }
 
+
+
+/*
+ * Bit-array buffer
+ */
+static void print_bit(FILE *f, bit_t b) {
+  if (b == true_bit) {
+    fprintf(f, "tt");
+  } else if (b == false_bit) {
+    fprintf(f, "ff");
+  } else {
+    if (bit_is_neg(b)) fprintf(f, "~");
+    fprintf(f, "b!%"PRId32, node_of_bit(b));
+  }
+}
+
+void print_bvlogic_buffer(FILE *f, bvlogic_buffer_t *b) {
+  uint32_t i, n;
+
+  n = b->bitsize;
+  fprintf(f, "[");
+  if (n > 0) {
+    print_bit(f, b->bit[0]);
+    for (i=1; i<n; i++) {
+      fprintf(f, " ");
+      print_bit(f, b->bit[i]);
+    }
+  }
+  fprintf(f, "]");
+}
 
 
 /*

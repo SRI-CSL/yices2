@@ -49,20 +49,6 @@ static void print_pprod0(FILE *f, pprod_t *p) {
 /*
  * Print buffer b
  */
-static void bvconst64_print(FILE *f, uint64_t c, uint32_t n) {
-  char x;
-
-  fprintf(f, "0b");
-  while (n > 0) {
-    n --;
-    x = '0';
-    if (tst_bit64(c, n)) {
-      x = '1';
-    }
-    fprintf(f, "%c", x);
-  }
-}
-
 static void print_bv64_monomial(FILE *f, uint64_t coeff, pprod_t *r, uint32_t n, bool first) {
   if (! first) {
     fprintf(f, " + ");

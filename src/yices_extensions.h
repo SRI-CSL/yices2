@@ -150,4 +150,27 @@ extern term_t bvarith_buffer_get_term(bvarith_buffer_t *b);
  */
 extern term_t bvarith64_buffer_get_term(bvarith64_buffer_t *b);
 
+
+/*
+ * Convert a 64bit constant to a term
+ * - n = bitsize (must be positive and no more than 64)
+ * - c = constant value (must be normalized modulo 2^n)
+ */
+extern term_t yices_bvcons64_term(uint32_t n, uint64_t c);
+
+
+/*
+ * Convert a bitvector constant to a term
+ * - n = bitsize (must be more than 64 and at most YICES_MAX_BVSIZE)
+ * - v = value as an array of k words (k = ceil(n/32)).
+ */
+extern term_t yices_bvconst_term(uint32_t n, uint32_t *v);
+
+
+/*
+ * Convert rational q to a term
+ */
+extern term_t yices_rational_term(rational_t *q);
+
+
 #endif /* __YICES_EXTENSIONS_H */

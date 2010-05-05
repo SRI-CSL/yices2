@@ -8,6 +8,8 @@
 #include <stdio.h>
 
 #include "terms.h"
+#include "bvlogic_buffers.h"
+
 
 /*
  * Term id:
@@ -25,6 +27,7 @@ extern void print_bvpoly64(FILE *f, bvpoly64_t *p);
 extern void print_arith_buffer(FILE *f, arith_buffer_t *b);
 extern void print_bvarith_buffer(FILE *f, bvarith_buffer_t *b);
 extern void print_bvarith64_buffer(FILE *f, bvarith64_buffer_t *b);
+extern void print_bvlogic_buffer(FILE *f, bvlogic_buffer_t *b);
 
 
 /*
