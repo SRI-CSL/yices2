@@ -183,4 +183,36 @@ extern uint64_t bvconst64_srem2z(uint64_t x, uint64_t y, uint32_t n);
 extern uint64_t bvconst64_smod2z(uint64_t x, uint64_t y, uint32_t n);
 
 
+
+/*
+ * Convert a string of '0's and '1's to a constant
+ * - n = number of bits (n must be between 1 and 64)
+ * - s must be at least n character long.
+ *
+ * Read the first n characters of s. All must be '0' and '1'
+ * - the string is interpreted as a big-endian format: the
+ *   first character is the high order bit.
+ *
+ * If the string format is wrong, return -1 and leave *a unchanged.
+ * Otherwise, return 0 and store the result in *a (normalized modulo 2^n).
+ */
+extern int32_t bvconst64_set_from_string(uint64_t *a, uint32_t n, char *s);
+
+
+/*
+ * Convert a string interpreted as an hexadecimal number to a constant.
+ * - n = number of characters to read (n must be between 1 and 16)
+ * - s must be at least n character long.
+ *
+ * Read the first n characters of s.
+ * All must be in the ranges '0' to '9' or 'a' to 'f' or 'A' to 'F'.
+ * The string is read in big-endian foramt: first character defines
+ * the four high-order bits.
+ *
+ * Return -1 if the format is wrong (and leave *a unchanged).
+ * Return 0 otherwise and store the result in a, normalized modulo 2^4n.
+ */
+extern int32_t bvconst64_set_from_hexa_string(uint64_t *a, uint32_t n, char *s);
+
+
 #endif /* __BV64_CONSTANTS_H */

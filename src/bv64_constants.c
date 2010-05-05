@@ -2,6 +2,8 @@
  * OPERATIONS ON SMALL BITVECTOR CONSTANTS
  */
 
+#include <ctype.h>
+
 #include "bv64_constants.h"
 
 /*
@@ -167,4 +169,96 @@ uint64_t bvconst64_smod2z(uint64_t x, uint64_t y, uint32_t n) {
   return norm64((uint64_t) r, n);
 }
 
+
+/*
+ * STRING PARSING
+ */
+
+/*
+ * Convert a string of '0's and '1's to a constant
+ * - n = number of bits (n must be between 1 and 64)
+ * - s must be at least n character long.
+ *
+ * Read the first n characters of s. All must be '0' and '1'
+ * - the string is interpreted as a big-endian format: the
+ *   first character is the high order bit.
+ *
+ * If the string format is wrong, return -1 and leave *a unchanged.
+ * Otherwise, return 0 and store the result in *a (normalized modulo 2^n).
+ */
+int32_t bvconst64_set_from_string(uint64_t *a, uint32_t n, char *s) {
+  uint64_t x;
+  char c;
+
+  assert(0 < n && n <= 64);
+
+  x = 0;
+  do {
+    n --;
+    c = *s;
+    s ++;
+    if (c == '1') {
+      set_bit64(x, n);
+    } else if (c != '0') {
+      return -1;
+    }
+  } while (n > 0);
+
+  *a = x;
+
+  return 0;
+}
+
+
+/*
+ * Convert a string interpreted as an hexadecimal number to a constant.
+ * - n = number of characters to read (n must be between 1 and 16)
+ * - s must be at least n character long.
+ *
+ * Read the first n characters of s.
+ * All must be in the ranges '0' to '9' or 'a' to 'f' or 'A' to 'F'.
+ * The string is read in big-endian foramt: first character defines
+ * the four high-order bits.
+ *
+ * Return -1 if the format is wrong (and leave *a unchanged).
+ * Return 0 otherwise and store the result in a, normalized modulo 2^4n.
+ */
+static uint32_t hextoint(char c) {
+  if ('0' <= c && c <= '9') {
+    return c - '0';
+  } else if ('a' <= c && c <= 'f') {
+    return c - 'a';
+  } else {
+    assert('A' <= c && c <= 'F');
+    return c - 'A';
+  }
+}
+
+int32_t bvconst64_set_from_hexa_string(uint64_t *a, uint32_t n, char *s) {
+  uint64_t x;
+  uint32_t hex;
+  char c;
+
+  assert(0 < n && n <= 16);
+
+  x = 0;
+  do {
+    c = *s;
+    s ++;
+    if (isxdigit(c)) {
+      hex = hextoint(c);
+      assert(0 <= hex && hex < 16);
+      // set bits 4n-1 to 4n-4
+      x = (x << 4) | hex;
+      n --;  
+    } else {
+      // error
+      return -1;
+    }
+  } while (n > 0);
+
+  *a = x;
+
+  return 0;
+}
 

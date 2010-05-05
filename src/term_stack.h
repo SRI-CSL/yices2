@@ -28,10 +28,8 @@
 #include <setjmp.h>
 
 #include "arena.h"
-#include "bv_constants.h"
 #include "terms.h"
-#include "yices.h"
-
+#include "bvlogic_buffers.h"
 
 
 /*
@@ -45,16 +43,18 @@
  */
 typedef enum tag_enum {
   TAG_NONE,
-  TAG_OP,
-  TAG_SYMBOL, // or STRING
-  TAG_BITVECTOR,
-  TAG_RATIONAL,
-  TAG_TERM,
-  TAG_TYPE,
-  TAG_ARITH_BUFFER,
-  TAG_BVARITH_BUFFER,
-  TAG_BVLOGIC_BUFFER,
-  TAG_BINDING,  
+  TAG_OP,               // operator
+  TAG_SYMBOL,           // symbol or string
+  TAG_BV64,             // bit-vector constant (1 to 64 bits)
+  TAG_BV,               // bit-vector constant (more than 64 bits)
+  TAG_RATIONAL,         // rational constant
+  TAG_TERM,             // term index + polarity (from the global term table)
+  TAG_TYPE,             // type index (from the global type table);
+  TAG_ARITH_BUFFER,     // polynomial buffer (rational coefficients)
+  TAG_BVARITH64_BUFFER, // polynomial buffer (bitvector coefficients, 1 to 64 bits)
+  TAG_BVARITH_BUFFER,   // polynomial buffer (bitvector coefficients, more than 64 bits)
+  TAG_BVLOGIC_BUFFER,   // array of bits
+  TAG_BINDING,          // pair <name, term>
 } tag_t;
 
 #define NUM_TAGS (TAG_BINDING+1)
@@ -133,13 +133,19 @@ typedef struct loc_s {
   uint32_t column;
 } loc_t;
 
-// yet another representation for bitvector constants
-// initial attempt to allocate bvconst_term_t objects 
-// in the arena was a bad idea.
-typedef struct bv_s {
-  uint32_t nbits; // size in bits
-  uint32_t *data; // constant allocated via bv_constants API
+// two variant representations for bitvector constants
+// one for bitsize between 1 and 64
+// one for bitsize > 64
+typedef struct bv64_s {
+  uint32_t bitsize; // size in bits
+  uint64_t value;   // value (padded to 64 bits)
+} bv64_t;
+
+typedef struct bv_s { 
+  uint32_t bitsize; // size in bits
+  uint32_t *data;   // value as an array of 32bit words
 } bv_t;
+
 
 // element on the stack
 typedef struct stack_elem_s {
@@ -147,11 +153,13 @@ typedef struct stack_elem_s {
   union {
     opval_t opval;
     char *symbol;
-    bv_t bvconst;
+    bv64_t bv64;
+    bv_t bv;
     rational_t rational;
     term_t term;
     type_t type;
     arith_buffer_t *arith_buffer;
+    bvarith64_buffer_t *bvarith64_buffer;
     bvarith_buffer_t *bvarith_buffer;
     bvlogic_buffer_t *bvlogic_buffer;
     binding_t binding;
@@ -200,13 +208,15 @@ typedef struct param_val_s {
  * - void setparam_cmd(char *param, param_val_t *val)
  * - void show_params_cmd(void)
  *
- * Two more commands called within define-type or define-term: 
+ * Two other commands are called within define-type or define-term: 
  * - void type_defined_cmd(char *name, type_t tau):
  *   called after (define-type name tau) 
  *             or (define-type name) is executed
+ *
  * - void term_defined_cmd(char *name, term_t t)
  *   called after (define name::type t) 
  *            or (define name::type) is executed
+ *
  * Added this to give some feedback to the user when yices_masin
  * is used in verbose mode.
  */
@@ -291,8 +301,11 @@ typedef struct tstack_s {
 
   // dynamically allocated buffers
   arith_buffer_t *abuffer;
+  bvarith64_buffer_t *bva64buffer;
   bvarith_buffer_t *bvabuffer;
   bvlogic_buffer_t *bvlbuffer;  
+
+  // counter for variable construction
   int32_t fresh_var_index;
 
   union {

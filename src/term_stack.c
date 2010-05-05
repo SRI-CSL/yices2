@@ -3,21 +3,19 @@
  * Intended to support parsing.
  */
 
-#if defined(CYGWIN) || defined(MINGW)
-#define EXPORTED __attribute__((dllexport))
-#else
-#define EXPORTED __attribute__((visibility("default")))
-#endif
-
-
 #include <assert.h>
 #include <string.h>
 
 #include "memalloc.h"
 #include "hash_functions.h"
-#include "term_stack.h"
+#include "bv_constants.h"
+#include "bv64_constants.h"
+
+#include "yices.h"
 #include "yices_extensions.h"
 #include "yices_globals.h"
+
+#include "term_stack.h"
 
 
 #ifndef NDEBUG
@@ -25,6 +23,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
+#include "type_printer.h"
 #include "term_printer.h"
 
 #endif
@@ -142,9 +141,9 @@ static void tstack_default_dump_cmd(void) {
 #ifndef NDEBUG 
   fprintf(stdout, "(dump) called\n");
   fprintf(stdout, "==== TYPES ====\n");
-  print_all_types(stdout);
+  print_type_table(stdout, __yices_globals.types);
   fprintf(stdout, "\n==== TERMS ====\n");
-  print_all_terms(stdout);
+  print_term_table(stdout, __yices_globals.terms);
   fprintf(stdout, "\n===============\n");
 #endif
 }
@@ -163,23 +162,9 @@ static void tstack_default_include_cmd(char *s) {
 
 static void tstack_default_assert_cmd(term_t t) {
 #ifndef NDEBUG
-  bvlogic_expr_t *e;
-  term_table_t *tbl;
-  int32_t i, n;
-
   fprintf(stdout, "(assert ...) called\n");
   fprintf(stdout, "term is: ");
-  print_termdef(stdout, t);
-  tbl = __yices_globals.terms;
-  if (term_kind(tbl, t) == BV_LOGIC_TERM) {
-    e = bvlogic_term_desc(tbl, t);
-    n = e->nbits;
-    fprintf(stdout, "\n\n--- BIT NODES ---\n");
-    for (i=0; i<n; i++) {
-      print_bit_expr(stdout, e->bit[i]);
-      fprintf(stdout, "\n");
-    }
-  }
+  print_term(stdout, __yices_globals.terms, t);
   fprintf(stdout, "\n\n");  
 #endif
 }
@@ -189,7 +174,7 @@ static void tstack_default_eval_cmd(term_t t) {
 #ifndef NDEBUG
   fprintf(stdout, "(eval ...) called\n");
   fprintf(stdout, "term is: ");
-  print_termdef(stdout, t);
+  print_term(stdout, __yices_globals.terms, t);
   fprintf(stdout, "\n\n");
 #endif
 }
@@ -256,7 +241,6 @@ static void tstack_default_term_defined_cmd(char *name, term_t t) {
 /*
  * Initialize stack with default size
  */
-EXPORTED
 void init_tstack(tstack_t *stack) {
   uint32_t n;
   stack_elem_t *tmp;
@@ -284,6 +268,7 @@ void init_tstack(tstack_t *stack) {
   init_bvconstant(&stack->bvconst_buffer);
 
   stack->abuffer = NULL;
+  stack->bva64buffer = NULL;
   stack->bvabuffer = NULL;
   stack->bvlbuffer = NULL;
   stack->fresh_var_index = 0;
@@ -350,7 +335,7 @@ static uint32_t tstack_get_top(tstack_t *stack) {
  */
 static stack_elem_t *tstack_get_topelem(tstack_t *stack) {
   uint32_t k;
-  // order is important: tstack_get_top has side effects 
+  // The order is important: tstack_get_top has side effects 
   // (including changing stack->elem)!!
   k = tstack_get_top(stack);
   return stack->elem + k;
@@ -361,7 +346,7 @@ static stack_elem_t *tstack_get_topelem(tstack_t *stack) {
 /*
  * Delete the stack
  */
-EXPORTED void delete_tstack(tstack_t *stack) {
+void delete_tstack(tstack_t *stack) {
   tstack_reset(stack);
 
   safe_free(stack->elem);
@@ -377,6 +362,11 @@ EXPORTED void delete_tstack(tstack_t *stack) {
   if (stack->abuffer != NULL) {
     yices_free_arith_buffer(stack->abuffer);
     stack->abuffer = NULL;
+  }
+
+  if (stack->bva64buffer != NULL) {
+    yices_free_bvarith64_buffer(stack->bva64buffer);
+    stack->bva64buffer = NULL;
   }
 
   if (stack->bvabuffer != NULL) {
@@ -609,7 +599,14 @@ void tstack_push_rational(tstack_t *stack, char *s, loc_t *loc) {
   q_init(&e->val.rational);
   code = q_set_from_string(&e->val.rational, s);
   if (code < 0) {
-    push_exception(stack, loc, s, TSTACK_RATIONAL_FORMAT);
+    // -1 means that the format is wrong 
+    // -2 means that the denominator is zero
+    if (code == -1) {
+      push_exception(stack, loc, s, TSTACK_RATIONAL_FORMAT);
+    } else {
+      assert(code == -2);
+      push_exception(stack, loc, s, TSTACK_DIVIDE_BY_ZERO);
+    }
   } 
 }
 
@@ -627,6 +624,8 @@ void tstack_push_float(tstack_t *stack, char *s, loc_t *loc) {
   }
 }
 
+
+#if 0
 
 /*
  * Convert a string to a bitvector constant and push that
@@ -4602,7 +4601,7 @@ static checker_t check[NUM_OPCODES] = {
 /*
  * Use SMT-LIB variants: this is not reversible.
  */
-EXPORTED void tstack_set_smt_mode() {
+void tstack_set_smt_mode() {
   check[MK_EQ] = smt_check_mk_eq;
   check[MK_BV_ROTATE_LEFT] = smt_check_mk_bv_rotate_left;
   check[MK_BV_ROTATE_RIGHT] = smt_check_mk_bv_rotate_right;
@@ -4646,4 +4645,4 @@ void tstack_eval(tstack_t *stack) {
   }
 }
 
-
+#endif

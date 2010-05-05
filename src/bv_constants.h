@@ -196,7 +196,7 @@ extern void bvconst_set_extend(uint32_t *bv, uint32_t n, uint32_t *a,
  *
  * Return code: -1 if the string format is wrong, 0 otherwise.
  */
-extern int bvconst_set_from_string(uint32_t *bv, uint32_t n, char *s);
+extern int32_t bvconst_set_from_string(uint32_t *bv, uint32_t n, char *s);
 
 
 /*
@@ -213,7 +213,7 @@ extern int bvconst_set_from_string(uint32_t *bv, uint32_t n, char *s);
  *
  * Return code: -1 if the string format is wrong, 0 otherwise.
  */
-extern int bvconst_set_from_hexa_string(uint32_t *bv, uint32_t n, char *s);
+extern int32_t bvconst_set_from_hexa_string(uint32_t *bv, uint32_t n, char *s);
 
 
 /*

@@ -4421,7 +4421,7 @@ EXPORTED term_t yices_bvconst_from_array(uint32_t n, int32_t a[]) {
  */
 EXPORTED term_t yices_parse_bvbin(char *s) {
   uint32_t n;
-  int code;
+  int32_t code;
 
   n = strlen(s);
   if (n == 0) {
@@ -4453,7 +4453,7 @@ EXPORTED term_t yices_parse_bvbin(char *s) {
  */
 EXPORTED term_t yices_parse_bvhex(char *s) {
   uint32_t n;
-  int code;
+  int32_t code;
 
   n = strlen(s);
   if (n == 0) {
