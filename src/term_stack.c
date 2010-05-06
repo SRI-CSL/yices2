@@ -11,6 +11,10 @@
 #include "bv_constants.h"
 #include "bv64_constants.h"
 
+#include "arith_buffer_terms.h"
+#include "bvarith_buffer_terms.h"
+#include "bvarith64_buffer_terms.h"
+
 #include "yices.h"
 #include "yices_extensions.h"
 #include "yices_globals.h"
@@ -18,9 +22,7 @@
 #include "term_stack.h"
 
 
-// #ifndef NDEBUG
-// provisional
-#if 1
+#ifndef NDEBUG
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -1010,6 +1012,9 @@ static void tstack_free_val(tstack_t *stack, stack_elem_t *e) {
   case TAG_ARITH_BUFFER:
     recycle_abuffer(stack, e->val.arith_buffer);
     break;
+  case TAG_BVARITH64_BUFFER:
+    recycle_bva64buffer(stack, e->val.bvarith64_buffer);
+    break;
   case TAG_BVARITH_BUFFER:
     recycle_bvabuffer(stack, e->val.bvarith_buffer);
     break;
@@ -1240,7 +1245,7 @@ void tstack_reset(tstack_t *stack) {
 
 
 
-#if 1
+#if 0
 
 /*
  * Print element e (for debugging)
@@ -1329,7 +1334,6 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
 #endif
 
 
-#if 0
 
 /***************************************
  *  EVALUATION OF INDIVIDUAL COMMANDS  *
@@ -1403,8 +1407,9 @@ typedef struct tagged_string_s {
   char *string;
 } tagged_string_t;
 
+
 /*
- * add string s to array a, (as last element)
+ * Add string s to array a, (as last element)
  * n = number of elements currently in a
  * return true if s is already in the array, false otherwise
  */
@@ -1472,7 +1477,6 @@ static void check_distinct_binding_names(tstack_t *stack, stack_elem_t *f, uint3
  */
 static term_t get_term(tstack_t *stack, stack_elem_t *e) {
   term_t t;
-  arith_buffer_t *aux;
 
   switch (e->tag) {
   case TAG_TERM:
@@ -1495,23 +1499,23 @@ static term_t get_term(tstack_t *stack, stack_elem_t *e) {
     break;
     
   case TAG_RATIONAL:
-    t = yices_rational_term(aux);
+    t = yices_rational_term(&e->val.rational);
     break;
 
   case TAG_ARITH_BUFFER:
-    t = yices_arith_term(e->val.arith_buffer);
+    t = arith_buffer_get_term(e->val.arith_buffer);
     break;
 
   case TAG_BVARITH64_BUFFER:
-    t = yices_bvarith64_term(e->val.bvarith64_buffer);
+    t = bvarith64_buffer_get_term(e->val.bvarith64_buffer);
     break;
 
   case TAG_BVARITH_BUFFER:
-    t = yices_bvarith_term(e->val.bvarith_buffer);
+    t = bvarith_buffer_get_term(e->val.bvarith_buffer);
     break;
 
   case TAG_BVLOGIC_BUFFER:
-    t = yices_bvlogic_term(e->val.bvlogic_buffer);
+    t = bvlogic_buffer_get_term(e->val.bvlogic_buffer);
     break;
 
   default:
@@ -1550,9 +1554,9 @@ static int32_t get_integer(tstack_t *stack, stack_elem_t *e) {
 static rational_t *get_divisor(tstack_t *stack, stack_elem_t *den) {
   rational_t *d;
   term_t t;
-  polynomial_t *p;
   arith_buffer_t *c;
   term_table_t *terms;
+  mlist_t *m;
   
   switch (den->tag) {
   case TAG_RATIONAL:
@@ -1565,32 +1569,27 @@ static rational_t *get_divisor(tstack_t *stack, stack_elem_t *den) {
   case TAG_TERM:
     terms = __yices_globals.terms;
     t = den->val.term;
-    // check whether t may be an arithmetic constant
-    if (term_kind(terms, t) != ARITH_TERM) {
-      if (! is_arithmetic_term(terms, t)) {
-	raise_exception(stack, den, TSTACK_ARITH_ERROR);
-      } else {
-	raise_exception(stack, den, TSTACK_NON_CONSTANT_DIVISOR);
+    if (term_kind(terms, t) == ARITH_CONSTANT) {
+      d = rational_term_desc(terms, t);
+      if (q_is_zero(d)) {
+	raise_exception(stack, den, TSTACK_DIVIDE_BY_ZERO);
       }
-    } 
-    p = arith_term_desc(terms, t);
-    if (polynomial_is_zero(p)) {
-      raise_exception(stack, den, TSTACK_DIVIDE_BY_ZERO);
-    }
-    if (polynomial_is_constant(p)) {
-      d = &p->mono[0].coeff;
+    } else if (is_arithmetic_term(terms, t)) { 
+      raise_exception(stack, den, TSTACK_NON_CONSTANT_DIVISOR);     
     } else {
-      raise_exception(stack, den, TSTACK_NON_CONSTANT_DIVISOR);
+      raise_exception(stack, den, TSTACK_ARITH_ERROR);
     }
-    break;    
+    break;
 
   case TAG_ARITH_BUFFER:
     c = den->val.arith_buffer;
-    if (arith_buffer_is_zero(c)) {
-      raise_exception(stack, den, TSTACK_DIVIDE_BY_ZERO);
-    }
     if (arith_buffer_is_constant(c)) {
-      d = &c->list->next->coeff;
+      m = arith_buffer_get_constant_mono(c);
+      if (m == NULL) {
+	assert(arith_buffer_is_zero(c));
+	raise_exception(stack, den, TSTACK_DIVIDE_BY_ZERO);
+      }
+      d = &m->coeff;
     } else {
       raise_exception(stack, den, TSTACK_NON_CONSTANT_DIVISOR);
     }
@@ -1598,6 +1597,7 @@ static rational_t *get_divisor(tstack_t *stack, stack_elem_t *den) {
 
   default:
     raise_exception(stack, den, TSTACK_ARITH_ERROR);
+    break;
   }
 
   return d;
@@ -1605,9 +1605,82 @@ static rational_t *get_divisor(tstack_t *stack, stack_elem_t *den) {
 
 
 
+/*
+ * Bitsize of element e
+ * - raise an exception if e is not a bitvector element
+ * - also raise an exception if e is an empty bvlogic buffer
+ */
+static uint32_t elem_bitsize(tstack_t *stack, stack_elem_t *e) {
+  term_t t;
+  uint32_t n;
+
+  switch (e->tag) {
+  case TAG_BV64:
+    n = e->val.bv64.bitsize;
+    break;
+
+  case TAG_BV:
+    n = e->val.bv.bitsize;
+    break;
+
+  case TAG_TERM:
+    t = e->val.term;
+    if (! yices_check_bv_term(t)) {
+      report_yices_error(stack);
+    }
+    n = term_bitsize(__yices_globals.terms, t);
+    break;
+
+  case TAG_BVARITH64_BUFFER:
+    n = bvarith64_buffer_bitsize(e->val.bvarith64_buffer);
+    break;
+
+  case TAG_BVARITH_BUFFER:
+    n = bvarith_buffer_bitsize(e->val.bvarith_buffer);
+    break;
+
+  case TAG_BVLOGIC_BUFFER:
+    if (! yices_check_bvlogic_buffer(e->val.bvlogic_buffer)) {
+      report_yices_error(stack);
+    }
+    n = bvlogic_buffer_bitsize(e->val.bvlogic_buffer);
+    break;
+
+  default:
+    raise_exception(stack, e, TSTACK_BVARITH_ERROR);
+    break;
+  }
+
+  assert(0 < n && n <= YICES_MAX_BVSIZE);
+
+  return n;
+}
+
+
 
 /*
- * OPERATIONS
+ * Verify that element e is a bitvector term of bitsize equal to n
+ * - e must have tag = TAG_TERM 
+ * - raise an exception if t is not
+ */
+static void check_bv_term(tstack_t *stack, stack_elem_t *e, uint32_t n) {
+  term_t t;
+
+  assert(e->tag == TAG_TERM);
+  t = e->val.term;
+
+  if (! yices_check_bv_term(t)) {
+    report_yices_error(stack);
+  }
+  if (term_bitsize(__yices_globals.terms, t) != n) {
+    raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+  }
+}
+
+
+
+/*
+ * ARITHMETIC
  */
 
 /*
@@ -1617,50 +1690,75 @@ static rational_t *get_divisor(tstack_t *stack, stack_elem_t *den) {
 static void add_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
   switch (e->tag) {
   case TAG_RATIONAL:
-    yices_arith_add_const(b, &e->val.rational);
+    arith_buffer_add_const(b, &e->val.rational);
     break;
+
   case TAG_TERM:
-    if (yices_arith_add_term(b, e->val.term)  < 0) {
-      report_yices_error(stack);
+    if (! yices_check_arith_term(e->val.term)) {
+      report_yices_error(stack);    
     }
+    arith_buffer_add_term(b, __yices_globals.terms, e->val.term);
     break;
+
   case TAG_ARITH_BUFFER:
-    yices_arith_add_buffer(b, e->val.arith_buffer);
+    arith_buffer_add_buffer(b, e->val.arith_buffer);
     break;
+
   default:
     raise_exception(stack, e, TSTACK_ARITH_ERROR);
+    break;
   }  
 }
 
+
 /*
- * Negate element e (in place). Raise an exception if e is not arithmetic
+ * Negate element e (in place). Raise an exception if e is not an arithmetic term.
  */
 static void neg_elem(tstack_t *stack, stack_elem_t *e) {
   arith_buffer_t *b;
+  term_table_t *terms;
+  term_t t;
+
   switch (e->tag) {
   case TAG_RATIONAL:
     q_neg(&e->val.rational);
     break;
+
   case TAG_TERM:
-    b = tstack_get_abuffer(stack);
-    if (yices_arith_add_term(b, e->val.term)  < 0) {
+    t = e->val.term;
+    terms = __yices_globals.terms;
+    if (! yices_check_arith_term(t)) {
       report_yices_error(stack);
     }
-    arith_buffer_negate(b);
-    // overwrite e
-    e->tag = TAG_ARITH_BUFFER;
-    e->val.arith_buffer = b;
-    // reset stack->abuffer to NULL (cf. set_arith_result)
-    assert(b == stack->abuffer);
-    stack->abuffer = NULL;
+    if (term_kind(terms, t) == ARITH_CONSTANT) {
+      // overwrite e: replace it by -(t's value)
+      e->tag = TAG_RATIONAL;
+      q_init(&e->val.rational);
+      q_set_neg(&e->val.rational, rational_term_desc(terms, t));
+    } else {
+      // compute -b
+      b = tstack_get_abuffer(stack);
+      assert(arith_buffer_is_zero(b));
+      arith_buffer_sub_term(b, __yices_globals.terms, e->val.term);
+      // overwrite e
+      e->tag = TAG_ARITH_BUFFER;
+      e->val.arith_buffer = b;
+      // reset stack->abuffer to NULL (cf. set_arith_result)
+      assert(b == stack->abuffer);
+      stack->abuffer = NULL;
+    }
     break;
+
   case TAG_ARITH_BUFFER:
     arith_buffer_negate(e->val.arith_buffer);
     break;
+
   default:
     raise_exception(stack, e, TSTACK_ARITH_ERROR);
+    break;
   }
 }
+
 
 /*
  * Subtract element e from buffer b.
@@ -1668,20 +1766,26 @@ static void neg_elem(tstack_t *stack, stack_elem_t *e) {
 static void sub_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
   switch (e->tag) {
   case TAG_RATIONAL:
-    yices_arith_sub_const(b, &e->val.rational);
+    arith_buffer_sub_const(b, &e->val.rational);
     break;
+
   case TAG_TERM:
-    if (yices_arith_sub_term(b, e->val.term)  < 0) {
+    if (! yices_check_arith_term(e->val.term)) {
       report_yices_error(stack);
     }
+    arith_buffer_sub_term(b, __yices_globals.terms, e->val.term);
     break;
+
   case TAG_ARITH_BUFFER:
-    yices_arith_sub_buffer(b, e->val.arith_buffer);
+    arith_buffer_sub_buffer(b, e->val.arith_buffer);
     break;
+
   default:
     raise_exception(stack, e, TSTACK_ARITH_ERROR);
+    break;
   }  
 }
+
 
 /*
  * Product
@@ -1689,222 +1793,615 @@ static void sub_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
 static void mul_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
   switch (e->tag) {
   case TAG_RATIONAL:
-    yices_arith_mul_const(b, &e->val.rational);
+    arith_buffer_mul_const(b, &e->val.rational);
     break;
+
   case TAG_TERM:
-    if (yices_arith_mul_term(b, e->val.term)  < 0) {
+    if (! yices_check_arith_term(e->val.term) ||
+	! yices_check_mul_term(b, e->val.term)) {
       report_yices_error(stack);
     }
+    arith_buffer_mul_term(b, __yices_globals.terms, e->val.term);
     break;
+
   case TAG_ARITH_BUFFER:
-    if (yices_arith_mul_buffer(b, e->val.arith_buffer) < 0) {
+    if (! yices_check_mul_buffer(b, e->val.arith_buffer)) {
+      // degree overflow
       report_yices_error(stack);
     }
+    arith_buffer_mul_buffer(b, e->val.arith_buffer);
     break;
+
   default:
     raise_exception(stack, e, TSTACK_ARITH_ERROR);
+    break;
   }  
 }
 
 
 
-
+/*
+ * BIT-VECTOR ARITHMETIC: BITSIZE BETWEEN 1 and 64
+ */
 
 /*
- * Store element e into buffer b or raise an exception.
+ * Add element e to buffer b.
+ * - raise an exception if e is not a bitvector of equal size as b
  */
-static void bva_set_elem(tstack_t *stack, bvarith_buffer_t *b, stack_elem_t *e) {
-  int32_t code;
+static void bva64_add_elem(tstack_t *stack, bvarith64_buffer_t *b, stack_elem_t *e) {
+  uint32_t n;
   term_t t;
 
+  n = bvarith64_buffer_bitsize(b);
+
+  assert(1 <= n && n <= 64);
+
   switch (e->tag) {
-  case TAG_BITVECTOR:
-    bvarith_buffer_prepare(b, e->val.bvconst.nbits);
-    bvarith_buffer_add_const(b, e->val.bvconst.data);
-    code = 0;
+  case TAG_BV64:
+    if (e->val.bv64.bitsize != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    bvarith64_buffer_add_const(b, e->val.bv64.value);
+    break;
+
+  case TAG_BV:    
+    assert(e->val.bv.bitsize != n);
+    raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
     break;
 
   case TAG_TERM:
-    code = yices_bvarith_set_term(b, e->val.term);
+    check_bv_term(stack, e, n);
+    bvarith64_buffer_add_term(b, __yices_globals.terms, e->val.term);
+    break;
+
+  case TAG_BVARITH64_BUFFER:
+    if (bvarith64_buffer_bitsize(e->val.bvarith64_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    bvarith64_buffer_add_buffer(b, e->val.bvarith64_buffer);
     break;
 
   case TAG_BVARITH_BUFFER:
-    yices_bvarith_set_buffer(b, e->val.bvarith_buffer);
-    code = 0;
+    assert(bvarith_buffer_bitsize(e->val.bvarith_buffer) != n);
+    raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
     break;
 
   case TAG_BVLOGIC_BUFFER:
-    t = yices_bvlogic_term(e->val.bvlogic_buffer);
-    if (t == NULL_TERM) {
-      code = -1;
-    } else {
-      code = yices_bvarith_set_term(b, t);
+    if (bvlogic_buffer_bitsize(e->val.bvlogic_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);      
     }
+    // convert e to a term then add to b
+    t = bvlogic_buffer_get_term(e->val.bvlogic_buffer);
+    bvarith64_buffer_add_term(b, __yices_globals.terms, t);
     break;
 
   default:
     raise_exception(stack, e, TSTACK_BVARITH_ERROR);
-  }
-
-  if (code < 0) {
-    report_yices_error(stack);
+    break;
   }
 }
 
 
 /*
- * Add bitvector element e to buffer b. Raise an exception if e is not a bitvector.
+ * Subtract element e from buffer b.
+ * - raise an exception if e is not a bitvector of equal size as b
  */
-static void bvadd_elem(tstack_t *stack, bvarith_buffer_t *b, stack_elem_t *e) {
-  int32_t code;
+static void bva64_sub_elem(tstack_t *stack, bvarith64_buffer_t *b, stack_elem_t *e) {
+  uint32_t n;
   term_t t;
 
+  n = bvarith64_buffer_bitsize(b);
+
+  assert(1 <= n && n <= 64);
+
   switch (e->tag) {
-  case TAG_BITVECTOR:
-    code = yices_bvarith_add_bvconst(b, e->val.bvconst.nbits, e->val.bvconst.data);
-    break;
-  case TAG_TERM:
-    code = yices_bvarith_add_term(b, e->val.term);
-    break;
-  case TAG_BVARITH_BUFFER:
-    code = yices_bvarith_add_buffer(b, e->val.bvarith_buffer);
-    break;
-  case TAG_BVLOGIC_BUFFER:
-    t = yices_bvlogic_term(e->val.bvlogic_buffer);
-    if (t == NULL_TERM) {
-      code = -1;
-    } else {
-      code = yices_bvarith_add_term(b, t);
+  case TAG_BV64:
+    if (e->val.bv64.bitsize != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
     }
+    bvarith64_buffer_sub_const(b, e->val.bv64.value);
     break;
+
+  case TAG_BV:    
+    assert(e->val.bv.bitsize != n);
+    raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    break;
+
+  case TAG_TERM:
+    check_bv_term(stack, e, n);
+    bvarith64_buffer_sub_term(b, __yices_globals.terms, e->val.term);
+    break;
+
+  case TAG_BVARITH64_BUFFER:
+    if (bvarith64_buffer_bitsize(e->val.bvarith64_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    bvarith64_buffer_sub_buffer(b, e->val.bvarith64_buffer);
+    break;
+
+  case TAG_BVARITH_BUFFER:
+    assert(bvarith_buffer_bitsize(e->val.bvarith_buffer) != n);
+    raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    break;
+
+  case TAG_BVLOGIC_BUFFER:
+    if (bvlogic_buffer_bitsize(e->val.bvlogic_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);      
+    }
+    // convert e to a term then add to b
+    t = bvlogic_buffer_get_term(e->val.bvlogic_buffer);
+    bvarith64_buffer_sub_term(b, __yices_globals.terms, t);
+    break;
+
   default:
     raise_exception(stack, e, TSTACK_BVARITH_ERROR);
+    break;
   }
+}
 
-  if (code < 0) {
-    report_yices_error(stack);
+
+
+/*
+ * Multiply b by element e
+ * - raise an exception if e is not a bitvector of equal size as b
+ *   or if there's a degree overflow
+ */
+static void bva64_mul_elem(tstack_t *stack, bvarith64_buffer_t *b, stack_elem_t *e) {
+  term_table_t *terms;
+  uint32_t n;
+  term_t t;
+
+  n = bvarith64_buffer_bitsize(b);
+
+  assert(1 <= n && n <= 64);
+
+  switch (e->tag) {
+  case TAG_BV64:
+    if (e->val.bv64.bitsize != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    bvarith64_buffer_mul_const(b, e->val.bv64.value);
+    break;
+
+  case TAG_BV:    
+    assert(e->val.bv.bitsize != n);
+    raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    break;
+
+  case TAG_TERM:
+    check_bv_term(stack, e, n);
+    t = e->val.term;
+    terms = __yices_globals.terms;
+    if (! yices_check_bvmul64_term(b, t)) {
+      report_yices_error(stack);
+    }
+    bvarith64_buffer_mul_term(b, terms, t);
+    break;
+
+  case TAG_BVARITH64_BUFFER:
+    if (bvarith64_buffer_bitsize(e->val.bvarith64_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    if (! yices_check_bvmul64_buffer(b, e->val.bvarith64_buffer)) {
+      report_yices_error(stack);
+    }
+    bvarith64_buffer_mul_buffer(b, e->val.bvarith64_buffer);
+    break;
+
+  case TAG_BVARITH_BUFFER:
+    assert(bvarith_buffer_bitsize(e->val.bvarith_buffer) != n);
+    raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    break;
+
+  case TAG_BVLOGIC_BUFFER:
+    if (bvlogic_buffer_bitsize(e->val.bvlogic_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);      
+    }
+    // convert e to a term then add to b
+    t = bvlogic_buffer_get_term(e->val.bvlogic_buffer);
+    if (! yices_check_bvmul64_term(b, t)) {
+      report_yices_error(stack);
+    }
+    bvarith64_buffer_mul_term(b, __yices_globals.terms, t);
+    break;
+
+  default:
+    raise_exception(stack, e, TSTACK_BVARITH_ERROR);
+    break;
+  }
+}
+
+
+
+
+
+/*
+ * BIT-VECTOR ARITHMETIC: BITSIZE > 64
+ */
+
+/*
+ * Add element e to buffer b.
+ * - raise an exception if e is not a bitvector of equal size as b
+ */
+static void bva_add_elem(tstack_t *stack, bvarith_buffer_t *b, stack_elem_t *e) {
+  uint32_t n;
+  term_t t;
+
+  n = bvarith_buffer_bitsize(b);
+
+  assert(n > 64);
+
+  switch (e->tag) {
+  case TAG_BV64:
+    assert(e->val.bv64.bitsize != n);
+    raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    break;
+
+  case TAG_BV:    
+    if (e->val.bv.bitsize != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    bvarith_buffer_add_const(b, e->val.bv.data);
+    break;
+
+  case TAG_TERM:
+    check_bv_term(stack, e, n);
+    bvarith_buffer_add_term(b, __yices_globals.terms, e->val.term);
+    break;
+
+  case TAG_BVARITH64_BUFFER:
+    assert(bvarith64_buffer_bitsize(e->val.bvarith64_buffer) != n);
+    raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    break;
+
+  case TAG_BVARITH_BUFFER:
+    if (bvarith_buffer_bitsize(e->val.bvarith_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    bvarith_buffer_add_buffer(b, e->val.bvarith_buffer);
+    break;
+
+  case TAG_BVLOGIC_BUFFER:
+    if (bvlogic_buffer_bitsize(e->val.bvlogic_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);      
+    }
+    // convert e to a term then add to b
+    t = bvlogic_buffer_get_term(e->val.bvlogic_buffer);
+    bvarith_buffer_add_term(b, __yices_globals.terms, t);
+    break;
+
+  default:
+    raise_exception(stack, e, TSTACK_BVARITH_ERROR);
+    break;
   }
 }
 
 
 /*
- * Subtract bitvector element e from buffer b.
+ * Subtract element e from buffer b.
+ * - raise an exception if e is not a bitvector of equal size as b
  */
-static void bvsub_elem(tstack_t *stack, bvarith_buffer_t *b, stack_elem_t *e) {
-  int32_t code;
+static void bva_sub_elem(tstack_t *stack, bvarith_buffer_t *b, stack_elem_t *e) {
+  uint32_t n;
   term_t t;
 
+  n = bvarith_buffer_bitsize(b);
+
+  assert(n > 64);
+
   switch (e->tag) {
-  case TAG_BITVECTOR:
-    code = yices_bvarith_sub_bvconst(b, e->val.bvconst.nbits, e->val.bvconst.data);
+  case TAG_BV64:
+    assert(e->val.bv64.bitsize != n);
+    raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
     break;
-  case TAG_TERM:
-    code = yices_bvarith_sub_term(b, e->val.term);
-    break;
-  case TAG_BVARITH_BUFFER:
-    code = yices_bvarith_sub_buffer(b, e->val.bvarith_buffer);
-    break;
-  case TAG_BVLOGIC_BUFFER:
-    t = yices_bvlogic_term(e->val.bvlogic_buffer);
-    if (t == NULL_TERM) {
-      code = -1;
-    } else {
-      code = yices_bvarith_sub_term(b, t);
+
+  case TAG_BV:    
+    if (e->val.bv.bitsize != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
     }
+    bvarith_buffer_sub_const(b, e->val.bv.data);
     break;
+
+  case TAG_TERM:
+    check_bv_term(stack, e, n);
+    bvarith_buffer_sub_term(b, __yices_globals.terms, e->val.term);
+    break;
+
+  case TAG_BVARITH64_BUFFER:
+    assert(bvarith64_buffer_bitsize(e->val.bvarith64_buffer) != n);
+    raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    break;
+
+  case TAG_BVARITH_BUFFER:
+    if (bvarith_buffer_bitsize(e->val.bvarith_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    bvarith_buffer_sub_buffer(b, e->val.bvarith_buffer);
+    break;
+
+  case TAG_BVLOGIC_BUFFER:
+    if (bvlogic_buffer_bitsize(e->val.bvlogic_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);      
+    }
+    // convert e to a term then add to b
+    t = bvlogic_buffer_get_term(e->val.bvlogic_buffer);
+    bvarith_buffer_sub_term(b, __yices_globals.terms, t);
+    break;
+
   default:
     raise_exception(stack, e, TSTACK_BVARITH_ERROR);
-  }
-
-  if (code < 0) {
-    report_yices_error(stack);
+    break;
   }
 }
 
 
 /*
- * Product of e and buffer b. Raise an exception if e is not a bitvector.
+ * Multiply b by element e
+ * - raise an exception if e is not a bitvector of equal size as b
+ *   or if there's a degree overflow
  */
-static void bvmul_elem(tstack_t *stack, bvarith_buffer_t *b, stack_elem_t *e) {
-  int32_t code;
+static void bva_mul_elem(tstack_t *stack, bvarith_buffer_t *b, stack_elem_t *e) {
+  term_table_t *terms;
+  uint32_t n;
   term_t t;
 
+  n = bvarith_buffer_bitsize(b);
+
+  assert(n > 64);
+
   switch (e->tag) {
-  case TAG_BITVECTOR:
-    code = yices_bvarith_mul_bvconst(b, e->val.bvconst.nbits, e->val.bvconst.data);
+  case TAG_BV64:
+    assert(e->val.bv64.bitsize != n);
+    raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
     break;
-  case TAG_TERM:
-    code = yices_bvarith_mul_term(b, e->val.term);
-    break;
-  case TAG_BVARITH_BUFFER:
-    code = yices_bvarith_mul_buffer(b, e->val.bvarith_buffer);
-    break;
-  case TAG_BVLOGIC_BUFFER:
-    t = yices_bvlogic_term(e->val.bvlogic_buffer);
-    if (t == NULL_TERM) {
-      code = -1;
-    } else {
-      code = yices_bvarith_mul_term(b, t);
+
+  case TAG_BV:    
+    if (e->val.bv.bitsize != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
     }
+    bvarith_buffer_mul_const(b, e->val.bv.data);
     break;
+
+  case TAG_TERM:
+    check_bv_term(stack, e, n);
+    t = e->val.term;
+    terms = __yices_globals.terms;
+    if (! yices_check_bvmul_term(b, t)) {
+      report_yices_error(stack);
+    }
+    bvarith_buffer_mul_term(b, terms, t);
+    break;
+
+  case TAG_BVARITH64_BUFFER:
+    assert(bvarith64_buffer_bitsize(e->val.bvarith64_buffer) != n);
+    raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    break;
+
+  case TAG_BVARITH_BUFFER:
+    if (bvarith_buffer_bitsize(e->val.bvarith_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    if (! yices_check_bvmul_buffer(b, e->val.bvarith_buffer)) {
+      report_yices_error(stack);
+    }
+    bvarith_buffer_mul_buffer(b, e->val.bvarith_buffer);
+    break;
+
+  case TAG_BVLOGIC_BUFFER:
+    if (bvlogic_buffer_bitsize(e->val.bvlogic_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);      
+    }
+    // convert e to a term then add to b
+    t = bvlogic_buffer_get_term(e->val.bvlogic_buffer);
+    if (! yices_check_bvmul_term(b, t)) {
+      report_yices_error(stack);
+    }
+    bvarith_buffer_mul_term(b, __yices_globals.terms, t);
+    break;
+
   default:
     raise_exception(stack, e, TSTACK_BVARITH_ERROR);
-  }
-
-  if (code < 0) {
-    report_yices_error(stack);
+    break;
   }
 }
 
 
 
+/*
+ * BV-NEG (for both 64/generic bitsizes)
+ */
+
+/*
+ * Store the opposite of term t in e:
+ * - raise an exception if t is not a bitvector.
+ * - overwrite the current value of e.
+ */
+static void copy_bvneg_term(tstack_t *stack, stack_elem_t *e, term_t t) {
+  bvarith_buffer_t *b;
+  bvarith64_buffer_t *b64;  
+  term_table_t *terms;
+  uint32_t *tmp;
+  uint32_t n, k;
+
+  terms = __yices_globals.terms;
+  if (! yices_check_bv_term(t)) {
+    report_yices_error(stack);
+  }
+
+  n = term_bitsize(terms, t);
+
+  switch (term_kind(terms, t)) {
+  case BV64_CONSTANT:
+    // copy the opposite of t's value into e:
+    assert(n == bvconst64_term_desc(terms, t)->bitsize);
+    e->tag = TAG_BV64;
+    e->val.bv64.bitsize = n;
+    e->val.bv64.value = - bvconst64_term_desc(terms, t)->value;
+    break;
+
+  case BV_CONSTANT:
+    assert(n == bvconst_term_desc(terms, t)->bitsize);
+    // allocate a buffer for the result
+    k = (n + 31) >> 5; // number of words
+    tmp = bvconst_alloc(k);
+    bvconst_negate2(tmp, k, bvconst_term_desc(terms, t)->data); // tmp := - data
+    // store the result as a BV element
+    e->tag = TAG_BV;
+    e->val.bv.bitsize = n;
+    e->val.bv.data = tmp;
+    break;
+
+  default:
+    if (n <= 64) {
+      b64 = tstack_get_bva64buffer(stack);
+      assert(bvarith64_buffer_is_zero(b64));
+      bvarith64_buffer_sub_term(b64, terms, t);
+
+      // overwrite e
+      e->tag = TAG_BVARITH64_BUFFER;
+      e->val.bvarith64_buffer = b64;
+
+      // reset stack->bva64buffer to NULL
+      assert(b64 == stack->bva64buffer);
+      stack->bva64buffer = NULL;
+
+    } else {
+      b = tstack_get_bvabuffer(stack);
+      assert(bvarith_buffer_is_zero(b));
+      bvarith_buffer_sub_term(b, terms, t);
+
+      // overwrite e
+      e->tag = TAG_BVARITH_BUFFER;
+      e->val.bvarith_buffer = b;
+
+      // reset stack->bvabuffer to NULL
+      assert(b == stack->bvabuffer);
+      stack->bvabuffer = NULL;
+    }
+    break;
+  }
+
+}
+
+/*
+ * Negate element e in place. Raise an exception if e is not a bitvector element.
+ */
+static void bvneg_elem(tstack_t *stack, stack_elem_t *e) {
+  bvlogic_buffer_t *b;
+  uint32_t k;
+  term_t t;
+
+  switch (e->tag) {
+  case TAG_BV64:
+    e->val.bv64.value = - e->val.bv64.value;
+    break;
+
+  case TAG_BV:
+    k = (e->val.bv.bitsize + 31) >> 5; // number of words
+    bvconst_negate(e->val.bv.data, k);
+    break;
+
+  case TAG_TERM:
+    t = e->val.term;
+    copy_bvneg_term(stack, e, t);
+    break;
+
+  case TAG_BVARITH64_BUFFER:
+    bvarith64_buffer_negate(e->val.bvarith64_buffer);
+    break;
+
+  case TAG_BVARITH_BUFFER:
+    bvarith_buffer_negate(e->val.bvarith_buffer);
+    break;
+
+  case TAG_BVLOGIC_BUFFER:
+    b = e->val.bvlogic_buffer;
+    if (! yices_check_bvlogic_buffer(b)){
+      report_yices_error(stack);
+    }
+    // convert to a term then negate.
+    t = bvlogic_buffer_get_term(b);
+    recycle_bvlbuffer(stack, b); // since e is going to be overwritten
+    copy_bvneg_term(stack, e, t);
+    break;
+
+  default:
+    raise_exception(stack, e, TSTACK_BVARITH_ERROR);
+    break;
+  }
+}
+
+
+
+
+/*
+ * BITVECTOR LOGICAL OPERATIONS
+ */
 
 /*
  * Copy element e in bvlogic buffer b
  * Raise an exception if e is not a bitvector
  */
 static void bvl_set_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
-  int32_t code;
   term_t t;
 
   switch (e->tag) {
-  case TAG_BITVECTOR:
-    bvlogic_buffer_set_constant(b, e->val.bvconst.nbits, e->val.bvconst.data);
-    return;
-
-  case TAG_TERM:
-    code = yices_bvlogic_set_term(b, e->val.term);
+  case TAG_BV64:
+    bvlogic_buffer_set_constant64(b, e->val.bv64.bitsize, e->val.bv64.value);
+    break;
+    
+  case TAG_BV:
+    bvlogic_buffer_set_constant(b, e->val.bv.bitsize, e->val.bv.data);
     break;
 
+  case TAG_TERM:
+    t = e->val.term;
+    if (! yices_check_bv_term(t)) { // not a bitvector
+      report_yices_error(stack);
+    }
+    bvlogic_buffer_set_term(b, __yices_globals.terms, t);
+    break;
+
+  case TAG_BVARITH64_BUFFER:
+    t = bvarith64_buffer_get_term(e->val.bvarith64_buffer);
+    bvlogic_buffer_set_term(b, __yices_globals.terms, t);
+    break;
+    
   case TAG_BVARITH_BUFFER:
-    t = yices_bvarith_term(e->val.bvarith_buffer);
-    code = yices_bvlogic_set_term(b, t);
+    t = bvarith_buffer_get_term(e->val.bvarith_buffer);
+    bvlogic_buffer_set_term(b, __yices_globals.terms, t);
     break;
 
   case TAG_BVLOGIC_BUFFER:
-    yices_bvlogic_set_buffer(b, e->val.bvlogic_buffer);
-    return;
+    bvlogic_buffer_set_buffer(b, e->val.bvlogic_buffer);
+    break;
 
   default:
     raise_exception(stack, e, TSTACK_BVLOGIC_ERROR);
-  }
-
-  if (code < 0) {
-    report_yices_error(stack);
+    break;
   }
 }
+
 
 
 /*
  * Check whether e is a bitvector constant
  */
 static bool elem_is_bvconst(stack_elem_t *e) {
+  term_kind_t k;
+
   switch (e->tag) {
-  case TAG_BITVECTOR:
+  case TAG_BV64:
+  case TAG_BV:
     return true;
 
   case TAG_TERM:
-    return term_kind(__yices_globals.terms, e->val.term) == BV_CONST_TERM;
+    k = term_kind(__yices_globals.terms, e->val.term);
+    return k == BV64_CONSTANT || k == BV_CONSTANT;
+
+  case TAG_BVARITH64_BUFFER:
+    bvarith64_buffer_normalize(e->val.bvarith64_buffer);
+    return bvarith64_buffer_is_constant(e->val.bvarith64_buffer);
 
   case TAG_BVARITH_BUFFER:
     bvarith_buffer_normalize(e->val.bvarith_buffer);
@@ -1920,21 +2417,43 @@ static bool elem_is_bvconst(stack_elem_t *e) {
 
 
 /*
+ * Copy term t into c:
+ * - t must be a BV_CONSTANT or BV64_CONSTANT
+ */
+static void bvconstant_copy_term(bvconstant_t *c, term_t t) {
+  term_table_t *terms;
+  bvconst_term_t *d;
+  bvconst64_term_t *d64;
+
+  terms = __yices_globals.terms;
+  if (term_kind(terms, t) == BV64_CONSTANT) {
+    d64 = bvconst64_term_desc(terms, t);
+    bvconstant_copy64(c, d64->bitsize, d64->value);
+  } else {
+    d = bvconst_term_desc(terms, t);
+    bvconstant_copy(c, d->bitsize, d->data);
+  }
+}
+
+
+/*
  * Copy the constant value of e into c
  * - e must satisfy elem_is_bvconst(e)
  */
 static void bvconst_set_elem(bvconstant_t *c, stack_elem_t *e) {
-  bvconst_term_t *d;
-
   assert(elem_is_bvconst(e));
+
   switch (e->tag) {
-  case TAG_BITVECTOR:
-    bvconstant_copy(c, e->val.bvconst.nbits, e->val.bvconst.data);
+  case TAG_BV64:
+    bvconstant_copy64(c, e->val.bv64.bitsize, e->val.bv64.value);
+    break;
+
+  case TAG_BV:
+    bvconstant_copy(c, e->val.bv.bitsize, e->val.bv.data);
     break;
 
   case TAG_TERM:
-    d = bvconst_term_desc(__yices_globals.terms, e->val.term);
-    bvconstant_copy(c, d->nbits, d->bits);
+    bvconstant_copy_term(c, e->val.term);
     break;
 
   case TAG_BVARITH_BUFFER:
@@ -1942,176 +2461,278 @@ static void bvconst_set_elem(bvconstant_t *c, stack_elem_t *e) {
     break;
 
   case TAG_BVLOGIC_BUFFER:
-    bvlogic_buffer_copy_constant(e->val.bvlogic_buffer, c);
+    bvlogic_buffer_get_constant(e->val.bvlogic_buffer, c);
     break;
 
   default: // should not happen
+    assert(false);
     break;
   }
 }
 
 
 /*
- * bitwise operations between buffer b and element e
+ * Bitwise operations between buffer b and element e
  */
 static void bvand_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
-  int32_t code;
+  uint32_t n;
   term_t t;
-  
+
+  n = bvlogic_buffer_bitsize(b);
+
   switch (e->tag) {
-  case TAG_BITVECTOR:
-    code = yices_bvlogic_and_bvconst(b, e->val.bvconst.nbits, e->val.bvconst.data);
+  case TAG_BV64:
+    if (e->val.bv64.bitsize != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    bvlogic_buffer_and_constant64(b, e->val.bv64.bitsize, e->val.bv64.value);
+    break;
+
+  case TAG_BV:
+    if (e->val.bv.bitsize != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    bvlogic_buffer_and_constant(b, e->val.bv.bitsize, e->val.bv.data);
     break;
 
   case TAG_TERM:
-    code = yices_bvlogic_and_term(b, e->val.term);
+    check_bv_term(stack, e, n);
+    bvlogic_buffer_and_term(b, __yices_globals.terms, e->val.term);
+    break;
+
+  case TAG_BVARITH64_BUFFER:
+    if (bvarith64_buffer_bitsize(e->val.bvarith64_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);      
+    }
+    t = bvarith64_buffer_get_term(e->val.bvarith64_buffer);
+    bvlogic_buffer_and_term(b, __yices_globals.terms, t);
     break;
 
   case TAG_BVARITH_BUFFER:
-    t = yices_bvarith_term(e->val.bvarith_buffer);
-    code = yices_bvlogic_and_term(b, t);
+    if (bvarith_buffer_bitsize(e->val.bvarith_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);      
+    }
+    t = bvarith_buffer_get_term(e->val.bvarith_buffer);
+    bvlogic_buffer_and_term(b, __yices_globals.terms, t);
     break;
 
   case TAG_BVLOGIC_BUFFER:
-    code = yices_bvlogic_and_buffer(b, e->val.bvlogic_buffer);
+    if (bvlogic_buffer_bitsize(e->val.bvlogic_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);      
+    }
+    bvlogic_buffer_and_buffer(b, e->val.bvlogic_buffer);
     break;
 
   default:
     raise_exception(stack, e, TSTACK_BVLOGIC_ERROR);
-  }
-
-  if (code < 0) {
-    report_yices_error(stack);
   }
 }
 
 static void bvor_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
-  int32_t code;
+  uint32_t n;
   term_t t;
-  
+
+  n = bvlogic_buffer_bitsize(b);
+
   switch (e->tag) {
-  case TAG_BITVECTOR:
-    code = yices_bvlogic_or_bvconst(b, e->val.bvconst.nbits, e->val.bvconst.data);
+  case TAG_BV64:
+    if (e->val.bv64.bitsize != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    bvlogic_buffer_or_constant64(b, e->val.bv64.bitsize, e->val.bv64.value);
+    break;
+
+  case TAG_BV:
+    if (e->val.bv.bitsize != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    bvlogic_buffer_or_constant(b, e->val.bv.bitsize, e->val.bv.data);
     break;
 
   case TAG_TERM:
-    code = yices_bvlogic_or_term(b, e->val.term);
+    check_bv_term(stack, e, n);
+    bvlogic_buffer_or_term(b, __yices_globals.terms, e->val.term);
+    break;
+
+  case TAG_BVARITH64_BUFFER:
+    if (bvarith64_buffer_bitsize(e->val.bvarith64_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);      
+    }
+    t = bvarith64_buffer_get_term(e->val.bvarith64_buffer);
+    bvlogic_buffer_or_term(b, __yices_globals.terms, t);
     break;
 
   case TAG_BVARITH_BUFFER:
-    t = yices_bvarith_term(e->val.bvarith_buffer);
-    code = yices_bvlogic_or_term(b, t);
+    if (bvarith_buffer_bitsize(e->val.bvarith_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);      
+    }
+    t = bvarith_buffer_get_term(e->val.bvarith_buffer);
+    bvlogic_buffer_or_term(b, __yices_globals.terms, t);
     break;
 
   case TAG_BVLOGIC_BUFFER:
-    code = yices_bvlogic_or_buffer(b, e->val.bvlogic_buffer);
+    if (bvlogic_buffer_bitsize(e->val.bvlogic_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);      
+    }
+    bvlogic_buffer_or_buffer(b, e->val.bvlogic_buffer);
     break;
 
   default:
     raise_exception(stack, e, TSTACK_BVLOGIC_ERROR);
-  }
-
-  if (code < 0) {
-    report_yices_error(stack);
   }
 }
 
 static void bvxor_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
-  int32_t code;
+  uint32_t n;
   term_t t;
-  
+
+  n = bvlogic_buffer_bitsize(b);
+
   switch (e->tag) {
-  case TAG_BITVECTOR:
-    code = yices_bvlogic_xor_bvconst(b, e->val.bvconst.nbits, e->val.bvconst.data);
+  case TAG_BV64:
+    if (e->val.bv64.bitsize != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    bvlogic_buffer_xor_constant64(b, e->val.bv64.bitsize, e->val.bv64.value);
+    break;
+
+  case TAG_BV:
+    if (e->val.bv.bitsize != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    bvlogic_buffer_xor_constant(b, e->val.bv.bitsize, e->val.bv.data);
     break;
 
   case TAG_TERM:
-    code = yices_bvlogic_xor_term(b, e->val.term);
+    check_bv_term(stack, e, n);
+    bvlogic_buffer_xor_term(b, __yices_globals.terms, e->val.term);
+    break;
+
+  case TAG_BVARITH64_BUFFER:
+    if (bvarith64_buffer_bitsize(e->val.bvarith64_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);      
+    }
+    t = bvarith64_buffer_get_term(e->val.bvarith64_buffer);
+    bvlogic_buffer_xor_term(b, __yices_globals.terms, t);
     break;
 
   case TAG_BVARITH_BUFFER:
-    t = yices_bvarith_term(e->val.bvarith_buffer);
-    code = yices_bvlogic_xor_term(b, t);
+    if (bvarith_buffer_bitsize(e->val.bvarith_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);      
+    }
+    t = bvarith_buffer_get_term(e->val.bvarith_buffer);
+    bvlogic_buffer_xor_term(b, __yices_globals.terms, t);
     break;
 
   case TAG_BVLOGIC_BUFFER:
-    code = yices_bvlogic_xor_buffer(b, e->val.bvlogic_buffer);
+    if (bvlogic_buffer_bitsize(e->val.bvlogic_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);      
+    }
+    bvlogic_buffer_xor_buffer(b, e->val.bvlogic_buffer);
     break;
 
   default:
     raise_exception(stack, e, TSTACK_BVLOGIC_ERROR);
-  }
-
-  if (code < 0) {
-    report_yices_error(stack);
+    break;
   }
 }
 
-
 static void bvcomp_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
-  int32_t code;
+  uint32_t n;
   term_t t;
 
+  n = bvlogic_buffer_bitsize(b);
+
   switch (e->tag) {
-  case TAG_BITVECTOR:
-    code = yices_bvlogic_comp_bvconst(b, e->val.bvconst.nbits, e->val.bvconst.data);
+  case TAG_BV64:
+    if (e->val.bv64.bitsize != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    bvlogic_buffer_comp_constant64(b, e->val.bv64.bitsize, e->val.bv64.value);
+    break;
+
+  case TAG_BV:
+    if (e->val.bv.bitsize != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    bvlogic_buffer_comp_constant(b, e->val.bv.bitsize, e->val.bv.data);
     break;
 
   case TAG_TERM:
-    code = yices_bvlogic_comp_term(b, e->val.term);
+    check_bv_term(stack, e, n);
+    bvlogic_buffer_comp_term(b, __yices_globals.terms, e->val.term);
+    break;
+
+  case TAG_BVARITH64_BUFFER:
+    if (bvarith64_buffer_bitsize(e->val.bvarith64_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);      
+    }
+    t = bvarith64_buffer_get_term(e->val.bvarith64_buffer);
+    bvlogic_buffer_comp_term(b, __yices_globals.terms, t);
     break;
 
   case TAG_BVARITH_BUFFER:
-    t = yices_bvarith_term(e->val.bvarith_buffer);
-    code = yices_bvlogic_comp_term(b, t);
+    if (bvarith_buffer_bitsize(e->val.bvarith_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);      
+    }
+    t = bvarith_buffer_get_term(e->val.bvarith_buffer);
+    bvlogic_buffer_comp_term(b, __yices_globals.terms, t);
     break;
 
   case TAG_BVLOGIC_BUFFER:
-    code = yices_bvlogic_comp_buffer(b, e->val.bvlogic_buffer);
+    if (bvlogic_buffer_bitsize(e->val.bvlogic_buffer) != n) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);      
+    }
+    bvlogic_buffer_comp_buffer(b, e->val.bvlogic_buffer);
     break;
 
   default:
     raise_exception(stack, e, TSTACK_BVLOGIC_ERROR);
-  }
-
-  if (code < 0) {
-    report_yices_error(stack);
+    break;
   }
 }
 
 
 // add e to the right of b (i.e., high-order bits are from b, low-order bits from e)
 static void bvconcat_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
-  int32_t code;
   term_t t;
   
   switch (e->tag) {
-  case TAG_BITVECTOR:
-    bvlogic_buffer_concat_right_constant(b, e->val.bvconst.nbits, e->val.bvconst.data);
-    return;
+  case TAG_BV64:
+    bvlogic_buffer_concat_right_constant64(b, e->val.bv64.bitsize, e->val.bv64.value);
+    break;
+
+  case TAG_BV:
+    bvlogic_buffer_concat_right_constant(b, e->val.bv.bitsize, e->val.bv.data);
+    break;
 
   case TAG_TERM:
-    code = yices_bvlogic_concat_right_term(b, e->val.term);
+    t = e->val.term;
+    if (! yices_check_bv_term(t)) {
+      report_yices_error(stack);
+    }
+    bvlogic_buffer_concat_right_term(b, __yices_globals.terms, t);
+    break;
+
+  case TAG_BVARITH64_BUFFER:
+    t = bvarith64_buffer_get_term(e->val.bvarith64_buffer);
+    bvlogic_buffer_concat_right_term(b, __yices_globals.terms, t);
     break;
 
   case TAG_BVARITH_BUFFER:
-    t = yices_bvarith_term(e->val.bvarith_buffer);
-    code = yices_bvlogic_concat_right_term(b, t);
+    t = bvarith_buffer_get_term(e->val.bvarith_buffer);
+    bvlogic_buffer_concat_right_term(b, __yices_globals.terms, t);
     break;
 
   case TAG_BVLOGIC_BUFFER:
-    yices_bvlogic_concat_right_buffer(b, e->val.bvlogic_buffer);
-    return;
+    bvlogic_buffer_concat_right_buffer(b, e->val.bvlogic_buffer);
+    break;
 
   default:
     raise_exception(stack, e, TSTACK_BVLOGIC_ERROR);
-  }
-
-  if (code < 0) {
-    report_yices_error(stack);
+    break;
   }
 }
-
 
 
 
@@ -2637,14 +3258,16 @@ static void check_mk_xor(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_xor(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t t;
+  term_t *arg, t;
   uint32_t i;
 
-  t = get_term(stack, f);
+  arg = get_aux_buffer(stack, n);
+
   for (i=1; i<n; i++) {
-    t = yices_xor(t, get_term(stack, f+i));
-    check_term(stack, t);
+    arg[i] = get_term(stack, f+i);
   }
+  t = yices_xor(n, arg);
+  check_term(stack, t);
 
   tstack_pop_frame(stack);
   set_term_result(stack, t);
@@ -2963,7 +3586,7 @@ static void eval_mk_ge(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   b = tstack_get_abuffer(stack);  
   add_elem(stack, b, f);
   sub_elem(stack, b, f+1);
-  t = yices_arith_geq0_atom(b); // term for [f] - [f+1] >= 0
+  t = arith_buffer_get_geq0_atom(b); // term for [f] - [f+1] >= 0
   assert(t != NULL_TERM);
 
   tstack_pop_frame(stack);
@@ -2986,7 +3609,7 @@ static void eval_mk_gt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   b = tstack_get_abuffer(stack);  
   add_elem(stack, b, f);
   sub_elem(stack, b, f+1);
-  t = yices_arith_gt0_atom(b); // term for [f] - [f+1] > 0
+  t = arith_buffer_get_gt0_atom(b); // term for [f] - [f+1] > 0
   assert(t != NULL_TERM);
 
   tstack_pop_frame(stack);
@@ -3009,7 +3632,7 @@ static void eval_mk_le(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   b = tstack_get_abuffer(stack);  
   add_elem(stack, b, f);
   sub_elem(stack, b, f+1);
-  t = yices_arith_leq0_atom(b); // term for [f] - [f+1] <= 0
+  t = arith_buffer_get_leq0_atom(b); // term for [f] - [f+1] <= 0
   assert(t != NULL_TERM);
 
   tstack_pop_frame(stack);
@@ -3032,7 +3655,7 @@ static void eval_mk_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   b = tstack_get_abuffer(stack);  
   add_elem(stack, b, f);
   sub_elem(stack, b, f+1);
-  t = yices_arith_lt0_atom(b); // term for [f] - [f+1] < 0
+  t = arith_buffer_get_lt0_atom(b); // term for [f] - [f+1] < 0
   assert(t != NULL_TERM);
 
   tstack_pop_frame(stack);
@@ -3066,17 +3689,27 @@ static void mk_bv_const_core(tstack_t *stack, stack_elem_t *f, int32_t size, rat
     raise_exception(stack, f, TSTACK_NEGATIVE_BVSIZE);
   }
 
+  if (! yices_check_bvsize((uint32_t) size)) {
+    report_yices_error(stack);
+  }
+
   if (! q_is_integer(val) || ! q_is_nonneg(val)) {
     raise_exception(stack, f, TSTACK_INVALID_BVCONSTANT);
   }
 
-  k = (size + 31) >> 5;
-  tmp = bvconst_alloc(k);
-  bvconst_set_q(tmp, k, val);
-  bvconst_normalize(tmp, size);
+  if (size <= 64) {
+    tstack_pop_frame(stack);
+    set_bv64_result(stack, size, bvconst64_from_q(size, val));
 
-  tstack_pop_frame(stack);
-  set_bvconst_result(stack, size, tmp);
+  } else {
+    k = (size + 31) >> 5;
+    tmp = bvconst_alloc(k);
+    bvconst_set_q(tmp, k, val);
+    bvconst_normalize(tmp, size);
+
+    tstack_pop_frame(stack);
+    set_bv_result(stack, size, tmp);
+  }
 }
 
 static void eval_mk_bv_const(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -3112,16 +3745,29 @@ static void check_mk_bv_add(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_bv_add(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  uint32_t i;
+  uint32_t i, bitsize;
   bvarith_buffer_t *b;
+  bvarith64_buffer_t *b64;
 
-  b = tstack_get_bvabuffer(stack);
-  bva_set_elem(stack, b, f);
-  for (i=1; i<n; i++) {
-    bvadd_elem(stack, b, f+i);
+  bitsize = elem_bitsize(stack, f);
+  if (bitsize <= 64) {
+    b64 = tstack_get_bva64buffer(stack);
+    bvarith64_buffer_prepare(b64, bitsize);
+    for (i=0; i<n; i++) {
+      bva64_add_elem(stack, b64, f+i);
+    }
+    tstack_pop_frame(stack);
+    set_bvarith64_result(stack, b64);
+
+  } else {
+    b = tstack_get_bvabuffer(stack);
+    bvarith_buffer_prepare(b, bitsize);
+    for (i=0; i<n; i++) {
+      bva_add_elem(stack, b, f+i);
+    }
+    tstack_pop_frame(stack);
+    set_bvarith_result(stack, b);
   }
-  tstack_pop_frame(stack);
-  set_bvarith_result(stack, b);
 }
 
 
@@ -3134,16 +3780,33 @@ static void check_mk_bv_sub(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_bv_sub(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  uint32_t i;
+  uint32_t i, bitsize;
   bvarith_buffer_t *b;
+  bvarith64_buffer_t *b64;
 
-  b = tstack_get_bvabuffer(stack);
-  bva_set_elem(stack, b, f);
-  for (i=1; i<n; i++) {
-    bvsub_elem(stack, b, f+i);
+  bitsize = elem_bitsize(stack, f);
+  if (bitsize <= 64) {
+    b64 = tstack_get_bva64buffer(stack);
+    bvarith64_buffer_prepare(b64, bitsize);
+    bva64_add_elem(stack, b64, f);
+    for (i=1; i<n; i++) {
+      bva64_sub_elem(stack, b64, f+i);
+    }
+
+    tstack_pop_frame(stack);
+    set_bvarith64_result(stack, b64);
+
+  } else {
+    b = tstack_get_bvabuffer(stack);
+    bvarith_buffer_prepare(b, bitsize);
+    bva_add_elem(stack, b, f);
+    for (i=1; i<n; i++) {
+      bva_sub_elem(stack, b, f+i);
+    }
+
+    tstack_pop_frame(stack);
+    set_bvarith_result(stack, b);
   }
-  tstack_pop_frame(stack);
-  set_bvarith_result(stack, b);
 }
 
 
@@ -3156,16 +3819,33 @@ static void check_mk_bv_mul(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_bv_mul(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  uint32_t i;
+  uint32_t i, bitsize;
   bvarith_buffer_t *b;
+  bvarith64_buffer_t *b64;
 
-  b = tstack_get_bvabuffer(stack);
-  bva_set_elem(stack, b, f);
-  for (i=1; i<n; i++) {
-    bvmul_elem(stack, b, f+i);
+  bitsize = elem_bitsize(stack, f);
+  if (bitsize <= 64) {
+    b64 = tstack_get_bva64buffer(stack);
+    bvarith64_buffer_prepare(b64, bitsize);
+    bva64_add_elem(stack, b64, f);
+    for (i=1; i<n; i++) {
+      bva64_mul_elem(stack, b64, f+i);
+    }
+
+    tstack_pop_frame(stack);
+    set_bvarith64_result(stack, b64);
+
+  } else {
+    b = tstack_get_bvabuffer(stack);
+    bvarith_buffer_prepare(b, bitsize);
+    bva_add_elem(stack, b, f);
+    for (i=1; i<n; i++) {
+      bva_mul_elem(stack, b, f+i);
+    }
+
+    tstack_pop_frame(stack);
+    set_bvarith_result(stack, b);
   }
-  tstack_pop_frame(stack);
-  set_bvarith_result(stack, b);
 }
 
 
@@ -3178,13 +3858,8 @@ static void check_mk_bv_neg(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_bv_neg(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  bvarith_buffer_t *b;
-
-  b = tstack_get_bvabuffer(stack);
-  bva_set_elem(stack, b, f);
-  bvarith_buffer_negate(b);
-  tstack_pop_frame(stack);
-  set_bvarith_result(stack, b);  
+  bvneg_elem(stack, f);
+  copy_result_and_pop_frame(stack, f);
 }
 
 
@@ -3364,9 +4039,10 @@ static void eval_mk_bv_shift_left0(tstack_t *stack, stack_elem_t *f, uint32_t n)
   index = get_integer(stack, f+1);
   b = tstack_get_bvlbuffer(stack);
   bvl_set_elem(stack, b, f);
-  if (yices_bvlogic_shift_left0(b, index) < 0) {
+  if (! yices_check_bitshift(b, index)) {
     report_yices_error(stack);
   }
+  bvlogic_buffer_shift_left0(b, index);
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
 }
@@ -3388,9 +4064,10 @@ static void eval_mk_bv_shift_left1(tstack_t *stack, stack_elem_t *f, uint32_t n)
   index = get_integer(stack, f+1);
   b = tstack_get_bvlbuffer(stack);
   bvl_set_elem(stack, b, f);
-  if (yices_bvlogic_shift_left1(b, index) < 0) {
+  if (! yices_check_bitshift(b, index)) {
     report_yices_error(stack);
   }
+  bvlogic_buffer_shift_left1(b, index);
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
 }
@@ -3412,9 +4089,10 @@ static void eval_mk_bv_shift_right0(tstack_t *stack, stack_elem_t *f, uint32_t n
   index = get_integer(stack, f+1);
   b = tstack_get_bvlbuffer(stack);
   bvl_set_elem(stack, b, f);
-  if (yices_bvlogic_shift_right0(b, index) < 0) {
+  if (! yices_check_bitshift(b, index)) {
     report_yices_error(stack);
   }
+  bvlogic_buffer_shift_right0(b, index);
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
 }
@@ -3436,9 +4114,10 @@ static void eval_mk_bv_shift_right1(tstack_t *stack, stack_elem_t *f, uint32_t n
   index = get_integer(stack, f+1);
   b = tstack_get_bvlbuffer(stack);
   bvl_set_elem(stack, b, f);
-  if (yices_bvlogic_shift_right1(b, index) < 0) {
+  if (! yices_check_bitshift(b, index)) {
     report_yices_error(stack);
   }
+  bvlogic_buffer_shift_right1(b, index);
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
 }
@@ -3460,9 +4139,10 @@ static void eval_mk_bv_ashift_right(tstack_t *stack, stack_elem_t *f, uint32_t n
   index = get_integer(stack, f+1);
   b = tstack_get_bvlbuffer(stack);
   bvl_set_elem(stack, b, f);
-  if (yices_bvlogic_ashift_right(b, index) < 0) {
+  if (! yices_check_bitshift(b, index)) {
     report_yices_error(stack);
   }
+  bvlogic_buffer_ashift_right(b, index);
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
 }
@@ -3484,8 +4164,12 @@ static void eval_mk_bv_rotate_left(tstack_t *stack, stack_elem_t *f, uint32_t n)
   index = get_integer(stack, f+1);
   b = tstack_get_bvlbuffer(stack);
   bvl_set_elem(stack, b, f);
-  if (yices_bvlogic_rotate_left(b, index) < 0) {
+  if (! yices_check_bitshift(b, index)) {
     report_yices_error(stack);
+  }
+  // we known 0 <= index <= bitsize of b
+  if (index < bvlogic_buffer_bitsize(b)) {
+    bvlogic_buffer_rotate_left(b, index);
   }
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
@@ -3507,8 +4191,12 @@ static void smt_eval_mk_bv_rotate_left(tstack_t *stack, stack_elem_t *f, uint32_
   index = get_integer(stack, f);
   b = tstack_get_bvlbuffer(stack);
   bvl_set_elem(stack, b, f+1);
-  if (yices_bvlogic_rotate_left(b, index) < 0) {
+  if (! yices_check_bitshift(b, index)) {
     report_yices_error(stack);
+  }
+  // we known 0 <= index <= bitsize of b
+  if (index < bvlogic_buffer_bitsize(b)) {
+    bvlogic_buffer_rotate_left(b, index);
   }
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
@@ -3531,8 +4219,12 @@ static void eval_mk_bv_rotate_right(tstack_t *stack, stack_elem_t *f, uint32_t n
   index = get_integer(stack, f+1);
   b = tstack_get_bvlbuffer(stack);
   bvl_set_elem(stack, b, f);
-  if (yices_bvlogic_rotate_right(b, index) < 0) {
+  if (! yices_check_bitshift(b, index)) {
     report_yices_error(stack);
+  }
+  // we known 0 <= index <= bitsize of b
+  if (index < bvlogic_buffer_bitsize(b)) {
+    bvlogic_buffer_rotate_right(b, index);
   }
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
@@ -3555,8 +4247,12 @@ static void smt_eval_mk_bv_rotate_right(tstack_t *stack, stack_elem_t *f, uint32
   index = get_integer(stack, f);
   b = tstack_get_bvlbuffer(stack);
   bvl_set_elem(stack, b, f+1);
-  if (yices_bvlogic_rotate_right(b, index) < 0) {
+  if (! yices_check_bitshift(b, index)) {
     report_yices_error(stack);
+  }
+  // we known 0 <= index <= bitsize of b
+  if (index < bvlogic_buffer_bitsize(b)) {
+    bvlogic_buffer_rotate_right(b, index);
   }
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
@@ -3582,9 +4278,10 @@ static void eval_mk_bv_extract(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   j = get_integer(stack, f+1);      // start index
   b = tstack_get_bvlbuffer(stack);  // vector
   bvl_set_elem(stack, b, f+2);
-  if (yices_bvlogic_extract(b, j, i) < 0) {
+  if (! yices_check_bitextract(b, j, i)) {
     report_yices_error(stack);
   }
+  bvlogic_buffer_extract_subvector(b, j, i);
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
 }
@@ -3621,15 +4318,17 @@ static void check_mk_bv_repeat(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_bv_repeat(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  int32_t i;
   bvlogic_buffer_t *b;
+  int32_t i;
 
   i = get_integer(stack, f+1);
   b = tstack_get_bvlbuffer(stack);
   bvl_set_elem(stack, b, f);
-  if (yices_bvlogic_repeat(b, i) < 0) {
+  // check for overflow or for i <= 0
+  if (! yices_check_bvrepeat(b, i)) {
     report_yices_error(stack);    
   }
+  bvlogic_buffer_repeat_concat(b, i);
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
 }
@@ -3651,9 +4350,12 @@ static void smt_eval_mk_bv_repeat(tstack_t *stack, stack_elem_t *f, uint32_t n) 
   i = get_integer(stack, f);
   b = tstack_get_bvlbuffer(stack);
   bvl_set_elem(stack, b, f+1);
-  if (yices_bvlogic_repeat(b, i) < 0) {
+
+  // check for overflow or for i <= 0
+  if (! yices_check_bvrepeat(b, i)) {
     report_yices_error(stack);    
   }
+  bvlogic_buffer_repeat_concat(b, i);
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
 }
@@ -3677,9 +4379,11 @@ static void mk_bv_sign_extend_core(tstack_t *stack, stack_elem_t *bv, stack_elem
   i = get_integer(stack, idx);
   b = tstack_get_bvlbuffer(stack);
   bvl_set_elem(stack, b, bv);
-  if (yices_bvlogic_sign_extend(b, i) < 0) {
+  if (! yices_check_bvextend(b, i) < 0) {
     report_yices_error(stack);    
   }
+  bvlogic_buffer_sign_extend(b, i + bvlogic_buffer_bitsize(b));
+
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
 }
@@ -3728,9 +4432,11 @@ static void mk_bv_zero_extend_core(tstack_t *stack, stack_elem_t *bv, stack_elem
   i = get_integer(stack, idx);
   b = tstack_get_bvlbuffer(stack);
   bvl_set_elem(stack, b, bv);
-  if (yices_bvlogic_zero_extend(b, i) < 0) {
+  if (! yices_check_bvextend(b, i)) {
     report_yices_error(stack);    
   }
+  bvlogic_buffer_zero_extend(b, i + bvlogic_buffer_bitsize(b));
+
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
 }
@@ -3929,27 +4635,10 @@ static void eval_mk_bv_slt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 
+
 /*
  * NEW BITVECTOR OPERATORS IN SMT-LIB
  */
-
-/*
- * Generic version: build an uninterpreted term.
- * Just intended to ensure hash-consing for operators that can't be 
- * represented using bvlogic or bvarith polynomials.
- */
-static void mk_bvop(tstack_t *stack, stack_elem_t *a0, stack_elem_t *a1, bvop_t op) {
-  term_t t1, t2, t;
- 
-  t1 = get_term(stack, a0);
-  t2 = get_term(stack, a1);
-  t = yices_bvoperator(op, t1, t2);
-  check_term(stack, t);
-
-  tstack_pop_frame(stack);
-  set_term_result(stack, t);
-}
-
 
 /*
  * Shift operators: [shift <bv1> <bv2>]
@@ -3974,22 +4663,34 @@ static void eval_mk_bv_shl(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   bvlogic_buffer_t *b;
   bvconstant_t *c;
   stack_elem_t *e;
+  term_t t1, t2, t;
 
   e = f + 1;
-  if (! elem_is_bvconst(e)) {    
-    mk_bvop(stack, f, f+1, BVOP_SHL);
-    return;
-  }
+  if (! elem_is_bvconst(e)) {
+    // variable shift
+    t1 = get_term(stack, f);
+    t2 = get_term(stack, f+1);
+    t = yices_bvshl(t1, t2);
+    check_term(stack, t);
 
-  b = tstack_get_bvlbuffer(stack);
-  bvl_set_elem(stack, b, f);
-  c = &stack->bvconst_buffer;
-  bvconst_set_elem(c, e);
-  if (yices_bvlogic_shl_bvconst(b, c->bitsize, c->data) < 0) {
-    report_yices_error(stack);
+    tstack_pop_frame(stack);
+    set_term_result(stack, t);
+
+  } else {
+    // constant shift amount
+
+    b = tstack_get_bvlbuffer(stack);
+    bvl_set_elem(stack, b, f);
+    c = &stack->bvconst_buffer;
+    bvconst_set_elem(c, e);
+
+    if (c->bitsize != bvlogic_buffer_bitsize(b)) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    bvlogic_buffer_shl_constant(b, c->bitsize, c->data);
+    tstack_pop_frame(stack);
+    set_bvlogic_result(stack, b);
   }
-  tstack_pop_frame(stack);
-  set_bvlogic_result(stack, b);
 }
 
 
@@ -4005,22 +4706,34 @@ static void eval_mk_bv_lshr(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   bvlogic_buffer_t *b;
   bvconstant_t *c;
   stack_elem_t *e;
+  term_t t1, t2, t;
 
   e = f + 1;
   if (! elem_is_bvconst(e)) {
-    mk_bvop(stack, f, f+1, BVOP_LSHR);
-    return;
-  }
+    // variable shift
+    t1 = get_term(stack, f);
+    t2 = get_term(stack, f+1);
+    t = yices_bvlshr(t1, t2);
+    check_term(stack, t);
 
-  b = tstack_get_bvlbuffer(stack);
-  bvl_set_elem(stack, b, f);
-  c = &stack->bvconst_buffer;
-  bvconst_set_elem(c, e);
-  if (yices_bvlogic_lshr_bvconst(b, c->bitsize, c->data) < 0) {
-    report_yices_error(stack);
+    tstack_pop_frame(stack);
+    set_term_result(stack, t);
+
+  } else {
+    // constant shift amount
+
+    b = tstack_get_bvlbuffer(stack);
+    bvl_set_elem(stack, b, f);
+    c = &stack->bvconst_buffer;
+    bvconst_set_elem(c, e);
+
+    if (c->bitsize != bvlogic_buffer_bitsize(b)) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    bvlogic_buffer_lshr_constant(b, c->bitsize, c->data);
+    tstack_pop_frame(stack);
+    set_bvlogic_result(stack, b);
   }
-  tstack_pop_frame(stack);
-  set_bvlogic_result(stack, b);
 }
 
 /*
@@ -4035,23 +4748,34 @@ static void eval_mk_bv_ashr(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   bvlogic_buffer_t *b;
   bvconstant_t *c;
   stack_elem_t *e;
+  term_t t1, t2, t;
 
   e = f + 1;
   if (! elem_is_bvconst(e)) {
-    mk_bvop(stack, f, f+1, BVOP_ASHR);
-    return;
-  }
+    // variable shift
+    t1 = get_term(stack, f);
+    t2 = get_term(stack, f+1);
+    t = yices_bvashr(t1, t2);
+    check_term(stack, t);
 
-  // the shift amount is a constant
-  b = tstack_get_bvlbuffer(stack);
-  bvl_set_elem(stack, b, f);
-  c = &stack->bvconst_buffer;
-  bvconst_set_elem(c, e);
-  if (yices_bvlogic_ashr_bvconst(b, c->bitsize, c->data) < 0) {
-    report_yices_error(stack);
+    tstack_pop_frame(stack);
+    set_term_result(stack, t);
+
+  } else {
+    // constant shift amount
+
+    b = tstack_get_bvlbuffer(stack);
+    bvl_set_elem(stack, b, f);
+    c = &stack->bvconst_buffer;
+    bvconst_set_elem(c, e);
+
+    if (c->bitsize != bvlogic_buffer_bitsize(b)) {
+      raise_exception(stack, e, TSTACK_INCOMPATIBLE_BVSIZES);
+    }
+    bvlogic_buffer_ashr_constant(b, c->bitsize, c->data);
+    tstack_pop_frame(stack);
+    set_bvlogic_result(stack, b);
   }
-  tstack_pop_frame(stack);
-  set_bvlogic_result(stack, b);
 }
 
 
@@ -4068,7 +4792,15 @@ static void check_mk_bv_div(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_bv_div(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  mk_bvop(stack, f, f+1, BVOP_DIV);
+  term_t t1, t2, t;
+  
+  t1 = get_term(stack, f);
+  t2 = get_term(stack, f+1);
+  t = yices_bvdiv(t1, t2);
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
 }
 
 /*
@@ -4080,7 +4812,15 @@ static void check_mk_bv_rem(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_bv_rem(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  mk_bvop(stack, f, f+1, BVOP_REM);
+  term_t t1, t2, t;
+  
+  t1 = get_term(stack, f);
+  t2 = get_term(stack, f+1);
+  t = yices_bvrem(t1, t2);
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
 }
 
 
@@ -4099,7 +4839,15 @@ static void check_mk_bv_sdiv(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_bv_sdiv(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  mk_bvop(stack, f, f+1, BVOP_SDIV);
+  term_t t1, t2, t;
+  
+  t1 = get_term(stack, f);
+  t2 = get_term(stack, f+1);
+  t = yices_bvsdiv(t1, t2);
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
 }
 
 /*
@@ -4111,7 +4859,15 @@ static void check_mk_bv_srem(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_bv_srem(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  mk_bvop(stack, f, f+1, BVOP_SREM);
+  term_t t1, t2, t;
+  
+  t1 = get_term(stack, f);
+  t2 = get_term(stack, f+1);
+  t = yices_bvsrem(t1, t2);
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
 }
 
 
@@ -4124,7 +4880,15 @@ static void check_mk_bv_smod(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_bv_smod(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  mk_bvop(stack, f, f+1, BVOP_SMOD);
+  term_t t1, t2, t;
+  
+  t1 = get_term(stack, f);
+  t2 = get_term(stack, f+1);
+  t = yices_bvsrem(t1, t2);
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
 }
 
 
@@ -4143,14 +4907,13 @@ static void check_mk_bv_redor(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 static void eval_mk_bv_redor(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   bvlogic_buffer_t *b;
-  int32_t code;
 
   b = tstack_get_bvlbuffer(stack);
   bvl_set_elem(stack, b, f);
-  code = yices_bvlogic_redor(b);
-  if (code < 0) {
-    report_yices_error(stack);
+  if (! yices_check_bvlogic_buffer(b)) {
+    report_yices_error(stack); // empty buffer
   }
+  bvlogic_buffer_redor(b);
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
 }
@@ -4166,14 +4929,13 @@ static void check_mk_bv_redand(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 static void eval_mk_bv_redand(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   bvlogic_buffer_t *b;
-  int32_t code;
 
   b = tstack_get_bvlbuffer(stack);
   bvl_set_elem(stack, b, f);
-  code = yices_bvlogic_redand(b);
-  if (code < 0) {
-    report_yices_error(stack);
+  if (! yices_check_bvlogic_buffer(b)) {
+    report_yices_error(stack); // empty buffer
   }
+  bvlogic_buffer_redand(b);
   tstack_pop_frame(stack);
   set_bvlogic_result(stack, b);
 }
@@ -4757,4 +5519,4 @@ void tstack_eval(tstack_t *stack) {
   }
 }
 
-#endif
+

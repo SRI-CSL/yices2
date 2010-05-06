@@ -101,6 +101,14 @@ static inline bool bvlogic_buffer_is_empty(bvlogic_buffer_t *b) {
 
 
 /*
+ * Get the number of bits
+ */
+static inline uint32_t bvlogic_buffer_bitsize(bvlogic_buffer_t *b) {
+  return b->bitsize;
+}
+
+
+/*
  * Check whether the bitvector stored in b is constant.
  */
 extern bool bvlogic_buffer_is_constant(bvlogic_buffer_t *b);
@@ -389,5 +397,53 @@ extern void bvlogic_buffer_comp_bitarray(bvlogic_buffer_t *b, uint32_t n, bit_t 
  * - t must be a valid bitvector term in table and must have the same bitsize as b
  */
 extern void bvlogic_buffer_comp_term(bvlogic_buffer_t *b, term_table_t *table, term_t t);
+
+
+
+
+/****************
+ *  SHORT CUTS  *
+ ***************/
+
+/*
+ * All operations that take an bitarray argument have a variant that 
+ * use a buffer b2.
+ */
+static inline void bvlogic_buffer_set_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b2) {
+  assert(b != b2);
+  bvlogic_buffer_set_bitarray(b, b2->bitsize, b2->bit);
+}
+
+static inline void bvlogic_buffer_and_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b2) {
+  assert(b != b2);
+  bvlogic_buffer_and_bitarray(b, b2->bitsize, b2->bit);
+}
+
+static inline void bvlogic_buffer_or_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b2) {
+  assert(b != b2);
+  bvlogic_buffer_or_bitarray(b, b2->bitsize, b2->bit);
+}
+
+static inline void bvlogic_buffer_xor_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b2) {
+  assert(b != b2);
+  bvlogic_buffer_xor_bitarray(b, b2->bitsize, b2->bit);
+}
+
+static inline void bvlogic_buffer_concat_left_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b2) {
+  assert(b != b2);
+  bvlogic_buffer_concat_left_bitarray(b, b2->bitsize, b2->bit);
+}
+
+static inline void bvlogic_buffer_concat_right_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b2) {
+  assert(b != b2);
+  bvlogic_buffer_concat_right_bitarray(b, b2->bitsize, b2->bit);
+}
+
+static inline void bvlogic_buffer_comp_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b2) {
+  assert(b != b2);
+  bvlogic_buffer_comp_bitarray(b, b2->bitsize, b2->bit);
+}
+
+
 
 #endif /* __BVLOGIC_BUFFERS_H */

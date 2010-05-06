@@ -5,6 +5,8 @@
 #include <ctype.h>
 
 #include "bv64_constants.h"
+#include "bv_constants.h"
+
 
 /*
  * Convert c into a signed 64 bit number
@@ -263,6 +265,27 @@ int32_t bvconst64_set_from_hexa_string(uint64_t *a, uint32_t n, char *s) {
 
   return 0;
 }
+
+
+
+/*
+ * Convert the n low-order bits of a rational q to a bitvector 
+ * constant of n-bits
+ * - q must be a non-negative integer
+ */
+uint64_t bvconst64_from_q(uint32_t n, rational_t *q) {
+  uint32_t aux[2];
+  uint64_t x;
+
+  assert(1 <= n && n <= 64);
+  
+  bvconst_set_q(aux, 2, q);
+  x = ((uint64_t) aux[0]) | (((uint64_t) aux[1]) << 32);
+
+  return norm64(x, n);
+}
+
+
 
 
 /*

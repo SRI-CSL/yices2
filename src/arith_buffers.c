@@ -256,6 +256,18 @@ mlist_t *arith_buffer_main_mono(arith_buffer_t *b) {
 
 
 /*
+ * Main term = maximal power product of b in the deg-lex ordering.
+ * - b must be normalized and non zero
+ */
+pprod_t *arith_buffer_main_term(arith_buffer_t *b) {
+  mlist_t *p;
+
+  p = arith_buffer_main_mono(b);
+  return p->prod;
+}
+
+
+/*
  * Get degree of polynomial in buffer b.
  * - b must be normalized
  * - returns 0 if b is zero
@@ -270,21 +282,6 @@ uint32_t arith_buffer_degree(arith_buffer_t *b) {
   p = arith_buffer_main_mono(b);
   return pprod_degree(p->prod);
 }
-
-
-
-/*
- * Main term = maximal power product of b in the deg-lex ordering.
- * - b must be normalized and non zero
- */
-pprod_t *arith_buffer_main_term(arith_buffer_t *b) {
-  mlist_t *p;
-
-  p = arith_buffer_main_mono(b);
-  return p->prod;
-}
-
-
 
 
 /*
@@ -310,6 +307,41 @@ uint32_t arith_buffer_var_degree(arith_buffer_t *b, int32_t x) {
   }
 
   return d;
+}
+
+
+/*
+ * Monomial of p whose pp equals r (or NULL)
+ */
+mlist_t *arith_buffer_get_mono(arith_buffer_t *b, pprod_t *r) {
+  mlist_t *p;
+
+  p = b->list;
+  while (pprod_precedes(p->prod, r)) {
+    p = p->next;
+  }
+
+  if (p->prod == r) {
+    return p;
+  } else {
+    assert(pprod_precedes(r, p->prod));
+    return NULL;
+  }
+}
+
+
+/*
+ * Constant monomial of p
+ */
+mlist_t *arith_buffer_get_constant_mono(arith_buffer_t *b) {
+  mlist_t *p;
+
+  p = b->list;
+  if (p->prod == empty_pp) {
+    return p;
+  } else {
+    return NULL;
+  }
 }
 
 

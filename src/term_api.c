@@ -3021,9 +3021,26 @@ static bool check_good_tuple_update(term_table_t *tbl, uint32_t i, term_t t, ter
   return true;
 }
 
-// Check that the degree of term t is at most MAX_DEGREE
-static bool check_term_degree(term_table_t *tbl, term_t t) {
-  return check_maxdegree(term_degree(tbl, t));
+// Check that the degree of t1 * t2 is at most MAX_DEGREE
+static bool check_product_degree(term_table_t *tbl, term_t t1, term_t t2) {
+  uint32_t d1, d2;
+
+  d1 = term_degree(tbl, t1);
+  d2 = term_degree(tbl, t2);
+  assert(d1 <= YICES_MAX_DEGREE && d2 <= YICES_MAX_DEGREE);
+
+  return check_maxdegree(d1 + d2);
+}
+
+
+// Check that the degree of t^2 does not overflow
+static bool check_square_degree(term_table_t *tbl, term_t t) {
+  uint32_t d;
+
+  d = term_degree(tbl, t);
+  assert(d <= YICES_MAX_DEGREE);
+
+  return check_maxdegree(d + d);
 }
 
 
@@ -3979,8 +3996,7 @@ EXPORTED term_t yices_mul(term_t t1, term_t t2) {
   arith_buffer_t *b;
 
   if (! check_both_arith_terms(&terms, t1, t2) ||
-      ! check_term_degree(&terms, t1) || 
-      ! check_term_degree(&terms, t2)) {
+      ! check_product_degree(&terms, t1, t2)) {
     return NULL_TERM;
   }
 
@@ -4001,7 +4017,7 @@ EXPORTED term_t yices_square(term_t t1) {
 
   if (! check_good_term(&terms, t1) || 
       ! check_arith_term(&terms, t1) ||
-      ! check_term_degree(&terms, t1)) {
+      ! check_square_degree(&terms, t1)) {
     return NULL_TERM;
   }
 
@@ -4649,8 +4665,7 @@ static term_t mk_bvmul(term_t t1, term_t t2) {
 
 EXPORTED term_t yices_bvmul(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(&terms, t1, t2) || 
-      ! check_term_degree(&terms, t1) || 
-      ! check_term_degree(&terms, t2)) {
+      ! check_product_degree(&terms, t1, t2)) {
     return NULL_TERM;
   }
 
@@ -4685,7 +4700,7 @@ static term_t mk_bvsquare(term_t t1) {
 EXPORTED term_t yices_bvsquare(term_t t1) {
   if (! check_good_term(&terms, t1) ||
       ! check_bitvector_term(&terms, t1) || 
-      ! check_term_degree(&terms, t1)) {
+      ! check_square_degree(&terms, t1)) {
     return NULL_TERM;
   }
 
@@ -5063,7 +5078,7 @@ EXPORTED term_t yices_bvrepeat(term_t t, uint32_t n) {
   }
 
   // check size
-  m = n * term_bitsize(&terms, t);
+  m = ((uint64_t) n) * term_bitsize(&terms, t);
   if (m > (uint64_t) YICES_MAX_BVSIZE) {
     error.code = MAX_BVSIZE_EXCEEDED;
     error.badval = m;
@@ -5106,7 +5121,7 @@ EXPORTED term_t yices_sign_extend(term_t t, uint32_t n) {
   }
 
   // check size
-  m = n + term_bitsize(&terms, t);
+  m = ((uint64_t) n) + term_bitsize(&terms, t);
   if (m > (uint64_t) YICES_MAX_BVSIZE) {
     error.code = MAX_BVSIZE_EXCEEDED;
     error.badval = m;
@@ -5146,7 +5161,7 @@ EXPORTED term_t yices_zero_extend(term_t t, uint32_t n) {
   }
 
   // check size
-  m = n + term_bitsize(&terms, t);
+  m = ((uint64_t) n) + term_bitsize(&terms, t);
   if (m > (uint64_t) YICES_MAX_BVSIZE) {
     error.code = MAX_BVSIZE_EXCEEDED;
     error.badval = m;
@@ -5682,6 +5697,270 @@ uint32_t yices_term_bitsize(term_t t) {
     return 0;
   }
   return term_bitsize(&terms, t);
+}
+
+
+
+/*
+ * SUPPORT FOR TYPE CHECKING
+ */
+
+/*
+ * Check whether t is a valid arithmetic term
+ * - if not set the internal error report:
+ *
+ * If t is not a valid term:
+ *   code = INVALID_TERM 
+ *   term1 = t
+ *   index = -1
+ * If t is not an arithmetic term; 
+ *   code = ARITHTERM_REQUIRED
+ *   term1 = t
+ */
+bool yices_check_arith_term(term_t t) {
+  return check_good_term(&terms, t) && check_arith_term(&terms, t);
+}
+
+
+/*
+ * Check for degree overflow in the product (b * t) 
+ * - b must be a buffer obtained via yices_new_arith_buffer().
+ * - t must be a valid arithmetic term.
+ *
+ * Return true if there's no overflow.
+ *
+ * Return false otherwise and set the error report:
+ *   code = DEGREE_OVERFLOW
+ *   badval = degree of b + degree of t
+ */
+bool yices_check_mul_term(arith_buffer_t *b, term_t t) {
+  uint32_t d1, d2;
+
+  assert(good_term(&terms, t) && is_arithmetic_term(&terms, t));
+
+  d1 = arith_buffer_degree(b);
+  d2 = term_degree(&terms, t);
+  assert(d1 <= YICES_MAX_DEGREE && d2 <= YICES_MAX_DEGREE);
+
+  return check_maxdegree(d1 + d2);
+}
+
+
+/*
+ * Same thing for the product of two buffers b1 and b2.
+ * - both must be buffers allocated using yices_new_arith_buffer().
+ */
+bool yices_check_mul_buffer(arith_buffer_t *b1, arith_buffer_t *b2) {
+  uint32_t d1, d2;
+
+  d1 = arith_buffer_degree(b1);
+  d2 = arith_buffer_degree(b2);
+  assert(d1 <= YICES_MAX_DEGREE && d2 <= YICES_MAX_DEGREE);
+
+  return check_maxdegree(d1 + d2);  
+}
+
+
+
+/*
+ * Check whether n <= YICES_MAX_BVSIZE and if not set the error report.
+ */
+bool yices_check_bvsize(uint32_t n) {
+  return check_maxbvsize(n);
+}
+
+
+/*
+ * Check whether t is a valid bitvector term
+ * - if not set the internal error report:
+ *
+ * If t is not a valid term:
+ *   code = INVALID_TERM 
+ *   term1 = t
+ *   index = -1
+ * If t is not an arithmetic term; 
+ *   code = BITVECTOR_REQUIRED
+ *   term1 = t
+ */
+bool yices_check_bv_term(term_t t) {
+  return check_good_term(&terms, t) && check_bitvector_term(&terms, t);
+}
+
+
+/*
+ * Check whether b is non empty
+ * Error report:
+ *   code = EMPTY_BITVECTOR
+ */
+bool yices_check_bvlogic_buffer(bvlogic_buffer_t *b) {
+  if (bvlogic_buffer_is_empty(b)) {
+    error.code = EMPTY_BITVECTOR;
+    return false;
+  }
+  return true;
+}
+
+
+/*
+ * Check whether s is a valid shift amount for buffer b:
+ * - return true if 0 <= s <= b->bitsize
+ * - otherwise set the error report and return false.
+ */
+bool yices_check_bitshift(bvlogic_buffer_t *b, int32_t s) {
+  if (s < 0 || s > bvlogic_buffer_bitsize(b)) {
+    error.code = INVALID_BITSHIFT;
+    error.badval = s;
+    return false;
+  }
+
+  return true;
+}
+
+
+/*
+ * Check whether [i, j] is a valid segment for buffer b
+ * - return true if 0 <= i <= j <= b->bitsize
+ * - otherwise set the error report and return false.
+ */
+bool yices_check_bitextract(bvlogic_buffer_t *b, int32_t i, int32_t j) {
+  if (i < 0 || i > j || j >= bvlogic_buffer_bitsize(b)) {
+    error.code = INVALID_BVEXTRACT;
+    return false;
+  }
+
+  return true;
+}
+
+
+/*
+ * Check whether repeat_concat(b, n) is valid
+ * - return true if it is
+ * - returm false and set errort report if it's not.
+ *
+ * Error report:
+ * if n <= 0
+ *   code = POSINT_REQUIRED
+ *   badval = n
+ * if size of the result would be more than MAX_BVSIZE
+ *   code = MAX_BVSIZE_EXCEEDED
+ *   badval = n * bitsize of t
+ */
+bool yices_check_bvrepeat(bvlogic_buffer_t *b, int32_t n) {
+  uint64_t m;
+
+  if (n <= 0) {
+    error.code = POS_INT_REQUIRED;
+    error.badval = n;
+    return false;
+  }
+
+  m = ((uint64_t) n) * bvlogic_buffer_bitsize(b);
+  if (m > ((uint64_t) YICES_MAX_BVSIZE)) {
+    error.code = MAX_BVSIZE_EXCEEDED;
+    error.badval = m;
+    return false;
+  }
+
+  return true;
+}
+
+
+
+/*
+ * Check whether zero_extend(b, n) and sign_extend(b, n) are valid;
+ * - n is the number of bits to add
+ * - return true if 0 <= n, b->bitsize != 0, and (n + b->bitsize) <= MAX_BVSIZE
+ * - return false and set an error report otherwise.
+ *
+ * Error reports:
+ * - if b is empty: EMPTY_BITVECTOR
+ * - if n < 0: NONNEG_INT_REQUIRED
+ * - if n + b->bitsize > MAX_BVSIZE: MAX_BVSIZE_EXCEEDED
+ */
+bool yices_check_bvextend(bvlogic_buffer_t *b, int32_t n) {
+  uint64_t m;
+
+  if (n < 0) {
+    error.code = NONNEG_INT_REQUIRED;
+    error.badval = n;
+    return false;
+  }
+
+  m = bvlogic_buffer_bitsize(b);
+  if (m == 0) {
+    error.code = EMPTY_BITVECTOR;
+    return false;
+  }
+  
+  m += n;
+  if (m >= ((uint64_t) YICES_MAX_BVSIZE)) {
+    error.code = MAX_BVSIZE_EXCEEDED;
+    error.badval = m;
+    return false;
+  }
+
+  return true;
+}
+
+
+/*
+ * Checks for degree overflow in bitvector multiplication:
+ * - four variants depending on the type of buffer used
+ *   and on whether the argument is a term or a buffer
+ *
+ * In all cases, the function set the error report and
+ * return false if there's an overflow:
+ *   code = DEGREE_OVEFLOW
+ *   badval = degree of the product
+ *
+ * All return true if there's no overflow.
+ */
+bool yices_check_bvmul64_term(bvarith64_buffer_t *b, term_t t) {
+  uint32_t d1, d2;
+
+  assert(good_term(&terms, t) && is_bitvector_term(&terms, t));
+
+  d1 = bvarith64_buffer_degree(b);
+  d2 = term_degree(&terms, t);
+
+  assert(d1 <= YICES_MAX_DEGREE && d2 <= YICES_MAX_DEGREE);
+
+  return check_maxdegree(d1 + d2);
+}
+
+bool yices_check_bvmul64_buffer(bvarith64_buffer_t *b1, bvarith64_buffer_t *b2) {
+  uint32_t d1, d2;
+
+  d1 = bvarith64_buffer_degree(b1);
+  d2 = bvarith64_buffer_degree(b2);
+
+  assert(d1 <= YICES_MAX_DEGREE && d2 <= YICES_MAX_DEGREE);
+
+  return check_maxdegree(d1 + d2);
+}
+
+bool yices_check_bvmul_term(bvarith_buffer_t *b, term_t t) {
+  uint32_t d1, d2;
+
+  assert(good_term(&terms, t) && is_bitvector_term(&terms, t));
+
+  d1 = bvarith_buffer_degree(b);
+  d2 = term_degree(&terms, t);
+
+  assert(d1 <= YICES_MAX_DEGREE && d2 <= YICES_MAX_DEGREE);
+
+  return check_maxdegree(d1 + d2);
+}
+
+bool yices_check_bvmul_buffer(bvarith_buffer_t *b1, bvarith_buffer_t *b2) {
+  uint32_t d1, d2;
+
+  d1 = bvarith_buffer_degree(b1);
+  d2 = bvarith_buffer_degree(b2);
+
+  assert(d1 <= YICES_MAX_DEGREE && d2 <= YICES_MAX_DEGREE);
+
+  return check_maxdegree(d1 + d2);
 }
 
 

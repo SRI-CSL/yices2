@@ -180,6 +180,20 @@ extern mlist_t *arith_buffer_main_mono(arith_buffer_t *b);
 
 
 /*
+ * Return the monomial of b whose pp is equal to r
+ * - return NULL if r does not occur in b
+ */
+extern mlist_t *arith_buffer_get_mono(arith_buffer_t *b, pprod_t *r);
+
+
+/*
+ * Copy the constant monomial of b
+ * - return NULL if b does not have a constant monomial
+ */
+extern mlist_t *arith_buffer_get_constant_mono(arith_buffer_t *b);
+
+
+/*
  * Check whether b1 and b2 are equal
  * - both must be normalized and use the same ptbl
  */

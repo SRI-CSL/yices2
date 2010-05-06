@@ -224,6 +224,20 @@ void bvconstant_copy(bvconstant_t *b, uint32_t n, uint32_t *a) {
 
 
 
+/*
+ * Resize and copy constant into b
+ */
+void bvconstant_copy64(bvconstant_t *b, uint32_t n, uint64_t a) {
+  uint32_t k;
+
+  k = (n + 31) >> 5;
+
+  bvconstant_set_bitsize(b, n);
+  bvconst_set64(b->data, k, a);
+  bvconst_normalize(b->data, n);
+}
+
+
 
 
 /****************************************

@@ -36,6 +36,7 @@
 
 #include <gmp.h>
 
+
 /*
  * Initialization: allocate and initialize the 
  * global variables.

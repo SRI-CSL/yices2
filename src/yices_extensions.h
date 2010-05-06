@@ -156,7 +156,7 @@ extern term_t bvarith64_buffer_get_term(bvarith64_buffer_t *b);
  * - n = bitsize (must be positive and no more than 64)
  * - c = constant value (must be normalized modulo 2^n)
  */
-extern term_t yices_bvcons64_term(uint32_t n, uint64_t c);
+extern term_t yices_bvconst64_term(uint32_t n, uint64_t c);
 
 
 /*
@@ -171,6 +171,130 @@ extern term_t yices_bvconst_term(uint32_t n, uint32_t *v);
  * Convert rational q to a term
  */
 extern term_t yices_rational_term(rational_t *q);
+
+
+
+/*
+ * SUPPORT FOR TYPE-CHECKING
+ */
+
+/*
+ * Check whether t is a valid arithmetic term
+ * - if not set the internal error report:
+ *
+ * If t is not a valid term:
+ *   code = INVALID_TERM 
+ *   term1 = t
+ *   index = -1
+ * If t is not an arithmetic term; 
+ *   code = ARITHTERM_REQUIRED
+ *   term1 = t
+ */
+extern bool yices_check_arith_term(term_t t);
+
+
+/*
+ * Check for degree overflow in the product (b * t) 
+ * - b must be a buffer obtained via yices_new_arith_buffer().
+ * - t must be a valid arithmetic term.
+ *
+ * Return true if there's no overflow.
+ *
+ * Return false otherwise and set the error report:
+ *   code = DEGREE_OVERFLOW
+ *   badval = degree of b + degree of t
+ */
+extern bool yices_check_mul_term(arith_buffer_t *b, term_t t);
+
+
+/*
+ * Same thing for the product of two buffers b1 and b2.
+ * - both must be buffers allocated using yices_new_arith_buffer().
+ */
+extern bool yices_check_mul_buffer(arith_buffer_t *b1, arith_buffer_t *b2);
+
+
+
+/*
+ * Check whether n <= YICES_MAX_BVSIZE and if not set the error report:
+ *   code = MAX_BVSIZE_EXCEEDED
+ *   badval = n
+ */
+extern bool yices_check_bvsize(uint32_t n);
+
+
+/*
+ * Check whether t is a valid bit-vector term
+ * - if not set the internal error report.
+ *
+ * If t is not a valid term:
+ *   code = INVALID_TERM 
+ *   term1 = t
+ *   index = -1
+ * If t is not an arithmetic term; 
+ *   code = BITVECTOR_REQUIRED
+ *   term1 = t
+ */
+extern bool yices_check_bv_term(term_t t);
+
+
+/*
+ * Check whether buffer b is non-empty (i.e., can be converted to a term).
+ * - return false if b is empty and set the error report (code = EMPTY_BITVECTOR).
+ * - return true if b is non-empty.
+ */
+extern bool yices_check_bvlogic_buffer(bvlogic_buffer_t *b);
+
+
+/*
+ * Checks for degree overflow in bitvector multiplication:
+ * - four variants depending on the type of buffer used
+ *   and on whether the argument is a term or a buffer
+ *
+ * In all cases, the function set the error report and
+ * return false if there's an overflow:
+ *   code = DEGREE_OVEFLOW
+ *   badval = degree of the product
+ *
+ * All return true if there's no overflow.
+ */
+extern bool yices_check_bvmul64_term(bvarith64_buffer_t *b, term_t t);
+extern bool yices_check_bvmul64_buffer(bvarith64_buffer_t *b1, bvarith64_buffer_t *b2);
+
+extern bool yices_check_bvmul_term(bvarith_buffer_t *b, term_t t);
+extern bool yices_check_bvmul_buffer(bvarith_buffer_t *b1, bvarith_buffer_t *b2);
+
+
+/*
+ * Check whether s is a valid shift amount for buffer b:
+ * - return true if 0 <= s <= b->bitsize
+ * - otherwise set the error report and return false.
+ */
+extern bool yices_check_bitshift(bvlogic_buffer_t *b, int32_t s);
+
+
+/*
+ * Check whether [i, j] is a valid segment for buffer b
+ * - return true if 0 <= i <= j <= b->bitsize
+ * - otherwise set the error report and return false.
+ */
+extern bool yices_check_bitextract(bvlogic_buffer_t *b, int32_t i, int32_t j);
+
+
+/*
+ * Check whether repeat_concat(b, n) is valid
+ * - return true if 0 <= n and (n * b->bitsize) <= MAX_BVSIZE
+ * - return false and set error report otherwise.
+ */
+extern bool yices_check_bvrepeat(bvlogic_buffer_t *b, int32_t n);
+
+
+/*
+ * Check whether sign_extend(b, n) or zero_extend(b, n) is valid
+ * - return true if 0 <= m, b->bitsize != 0 and n + b->bitsize <= MAX_BVSIZE
+ * - return false and set error report otherwise.
+ */
+extern bool yices_check_bvextend(bvlogic_buffer_t *b, int32_t n);
 
 
 #endif /* __YICES_EXTENSIONS_H */

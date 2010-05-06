@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include "rationals.h"
+
 
 /*
  * Mask for normalizing an n-bit constant where 0 < n <= 64
@@ -214,6 +216,14 @@ extern int32_t bvconst64_set_from_string(uint64_t *a, uint32_t n, char *s);
  * Return 0 otherwise and store the result in a, normalized modulo 2^4n.
  */
 extern int32_t bvconst64_set_from_hexa_string(uint64_t *a, uint32_t n, char *s);
+
+
+/*
+ * Convert the n low-order bits of a rational q to a bitvector 
+ * constant of n-bits
+ * - q must be an integer
+ */
+extern uint64_t bvconst64_from_q(uint32_t n, rational_t *q);
 
 
 /*
