@@ -1491,7 +1491,7 @@ static term_t get_term(tstack_t *stack, stack_elem_t *e) {
     break;
 
   case TAG_BV64:
-    t = yices_bvconst64_term(e->val.bv64.bitsize, e->val.bv64.value);
+    t = yices_bvconst_uint64(e->val.bv64.bitsize, e->val.bv64.value);
     break;
 
   case TAG_BV:
@@ -4379,7 +4379,7 @@ static void mk_bv_sign_extend_core(tstack_t *stack, stack_elem_t *bv, stack_elem
   i = get_integer(stack, idx);
   b = tstack_get_bvlbuffer(stack);
   bvl_set_elem(stack, b, bv);
-  if (! yices_check_bvextend(b, i) < 0) {
+  if (! yices_check_bvextend(b, i)) {
     report_yices_error(stack);    
   }
   bvlogic_buffer_sign_extend(b, i + bvlogic_buffer_bitsize(b));
