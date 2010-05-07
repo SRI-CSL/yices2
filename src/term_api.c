@@ -1006,7 +1006,7 @@ term_t bvlogic_buffer_get_term(bvlogic_buffer_t *b) {
 
   bvlogic_buffer_clear(b);
   
-  return n;
+  return t;
 }
 
 
@@ -5300,6 +5300,28 @@ static term_t mk_bvshl_const(term_t t1, bvconst_term_t *c) {
   return bvlogic_buffer_get_term(b);
 }
 
+// special case: if t1 is 0b000...0 then (bvshl t1 t2) = t2 for any t2
+static bool term_is_bvzero(term_t t1) {
+  bvconst64_term_t *u;
+  bvconst_term_t *v;
+  uint32_t k;
+
+  switch (term_kind(&terms, t1)) {
+  case BV64_CONSTANT:
+    u = bvconst64_term_desc(&terms, t1);
+    assert(u->value == norm64(u->value, u->bitsize));
+    return u->value == 0;
+
+  case BV_CONSTANT:
+    v = bvconst_term_desc(&terms, t1);
+    k = (v->bitsize + 31) >> 5; // number of words in v
+    return bvconst_is_zero(v->data, k);
+
+  default:
+    return false;
+  }
+}
+
 EXPORTED term_t yices_bvshl(term_t t1, term_t t2) {  
   if (! check_compatible_bv_terms(&terms, t1, t2)) {
     return NULL_TERM;
@@ -5313,7 +5335,11 @@ EXPORTED term_t yices_bvshl(term_t t1, term_t t2) {
     return mk_bvshl_const(t1, bvconst_term_desc(&terms, t2));
 
   default:
-    return bvshl_term(&terms, t1, t2);
+    if (term_is_bvzero(t1)) {
+      return t1;
+    } else {
+      return bvshl_term(&terms, t1, t2);
+    }
   }
 }
 
@@ -5354,7 +5380,12 @@ EXPORTED term_t yices_bvlshr(term_t t1, term_t t2) {
     return mk_bvlshr_const(t1, bvconst_term_desc(&terms, t2));
 
   default:
-    return bvlshr_term(&terms, t1, t2);
+    // as above: if t1 is zero, then shifting does not change it
+    if (term_is_bvzero(t1)) {
+      return t1;
+    } else {
+      return bvlshr_term(&terms, t1, t2);
+    }
   }
 }
 
@@ -5382,6 +5413,30 @@ static term_t mk_bvashr_const(term_t t1, bvconst_term_t *c) {
   return bvlogic_buffer_get_term(b);
 }
 
+// special case: if t1 is 0b00...00 or 0b11...11 then arithmetic shift
+// leaves t1 unchanged (whatever t2)
+static bool term_is_bvashr_invariant(term_t t1) {
+  bvconst64_term_t *u;
+  bvconst_term_t *v;
+  uint32_t k;
+
+  switch (term_kind(&terms, t1)) {
+  case BV64_CONSTANT:
+    u = bvconst64_term_desc(&terms, t1);
+    assert(u->value == norm64(u->value, u->bitsize));
+    return u->value == 0 || bvconst64_is_minus_one(u->value, u->bitsize);
+
+  case BV_CONSTANT:
+    v = bvconst_term_desc(&terms, t1);
+    k = (v->bitsize + 31) >> 5; // number of words in v
+    return bvconst_is_zero(v->data, k) || bvconst_is_minus_one(v->data, v->bitsize);
+
+  default:
+    return false;
+  }
+
+}
+
 EXPORTED term_t yices_bvashr(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(&terms, t1, t2)) {
     return NULL_TERM;
@@ -5395,7 +5450,11 @@ EXPORTED term_t yices_bvashr(term_t t1, term_t t2) {
     return mk_bvashr_const(t1, bvconst_term_desc(&terms, t2));
 
   default:
-    return bvashr_term(&terms, t1, t2);
+    if (term_is_bvashr_invariant(t1)) {
+      return t1;
+    } else {
+      return bvashr_term(&terms, t1, t2);
+    }
   }
 }
 
@@ -5458,6 +5517,46 @@ EXPORTED term_t yices_bvsmod(term_t t1, term_t t2) {
   }
 
   return bvsmod_term(&terms, t1, t2);
+}
+
+
+
+
+/*
+ * Convert an array of boolean terms arg[0 ... n-1] into
+ * a bitvector term.
+ *
+ * Error report:
+ * if n == 0
+ *    code = POSINT_REQUIRED
+ *    badval = n
+ * if n > YICES_MAX_BVSIZE
+ *    code = MAX_BVSIZE_EXCEEDED
+ *    badval = size
+ * if arg[i] is invalid
+ *    code = INVALID_TERM
+ *    term1 = arg[i]
+ *    index = i
+ * if arg[i] is not a boolean
+ *    code = TYPE_MISMATCH
+ *    term1 = arg[i]
+ *    type1 = bool
+ *    index = i
+ */
+EXPORTED term_t yices_bvarray(uint32_t n, term_t arg[]) {
+  bvlogic_buffer_t *b;
+
+  if (! check_positive(n) ||
+      ! check_maxbvsize(n) ||
+      ! check_good_terms(&terms, n, arg) ||
+      ! check_boolean_args(&terms, n, arg)) {
+    return NULL_TERM;
+  }
+
+  b = get_internal_bvlogic_buffer();
+  bvlogic_buffer_set_term_array(b, &terms, n, arg);
+
+  return bvlogic_buffer_get_term(b);
 }
 
 

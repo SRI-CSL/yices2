@@ -73,7 +73,7 @@ void bvarith64_buffer_add_term(bvarith64_buffer_t *b, term_table_t *table, term_
     bvarith64_buffer_add_const(b, bvconst64_for_idx(table, i)->value);
     break;
 
-  case BV_POLY:
+  case BV64_POLY:
     p = bvpoly64_for_idx(table, i);
     v = pprods_for_bvpoly64(table, p);
     bvarith64_buffer_add_bvpoly(b, p, v);
@@ -107,11 +107,11 @@ void bvarith64_buffer_sub_term(bvarith64_buffer_t *b, term_table_t *table, term_
     bvarith64_buffer_sub_pp(b, pprod_for_idx(table, i));
     break;
 
-  case BV_CONSTANT:
+  case BV64_CONSTANT:
     bvarith64_buffer_sub_const(b, bvconst64_for_idx(table, i)->value);
     break;
 
-  case BV_POLY:
+  case BV64_POLY:
     p = bvpoly64_for_idx(table, i);
     v = pprods_for_bvpoly64(table, p);
     bvarith64_buffer_sub_bvpoly(b, p, v);
@@ -119,7 +119,7 @@ void bvarith64_buffer_sub_term(bvarith64_buffer_t *b, term_table_t *table, term_
     break;
 
   default:
-    bvarith64_buffer_add_var(b, t);
+    bvarith64_buffer_sub_var(b, t);
     break;
   }
 }
@@ -146,11 +146,11 @@ void bvarith64_buffer_mul_term(bvarith64_buffer_t *b, term_table_t *table, term_
     bvarith64_buffer_mul_pp(b, pprod_for_idx(table, i));
     break;
 
-  case BV_CONSTANT:
+  case BV64_CONSTANT:
     bvarith64_buffer_mul_const(b, bvconst64_for_idx(table, i)->value);
     break;
 
-  case BV_POLY:
+  case BV64_POLY:
     p = bvpoly64_for_idx(table, i);
     v = pprods_for_bvpoly64(table, p);
     bvarith64_buffer_mul_bvpoly(b, p, v);
@@ -158,7 +158,7 @@ void bvarith64_buffer_mul_term(bvarith64_buffer_t *b, term_table_t *table, term_
     break;
 
   default:
-    bvarith64_buffer_add_var(b, t);
+    bvarith64_buffer_mul_var(b, t);
     break;
   }
 }

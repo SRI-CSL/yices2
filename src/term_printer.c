@@ -747,6 +747,7 @@ static void print_term_recur(FILE *f, term_table_t *tbl, term_t t, int32_t level
  * Print term expression t: expand names at the outer level only
  */
 void print_term_exp(FILE *f, term_table_t *tbl, term_t t) {
+  assert(good_term(tbl, t));
   print_term_recur(f, tbl, t, 1);
 }
 
@@ -755,6 +756,7 @@ void print_term_exp(FILE *f, term_table_t *tbl, term_t t) {
  * Default print: print t's name if it has one, or the expression otherwise
  */
 void print_term(FILE *f, term_table_t *tbl, term_t t) {
+  assert(good_term(tbl, t));
   print_term_recur(f, tbl, t, 0);
 }
 
@@ -763,6 +765,7 @@ void print_term(FILE *f, term_table_t *tbl, term_t t) {
  * Term definition: name := expr
  */
 void print_term_def(FILE *f, term_table_t *tbl, term_t t) {
+  assert(good_term(tbl, t));
   print_term_name(f, tbl, t);
   fputs(" := ", f);
   print_term_recur(f, tbl, t, 1);

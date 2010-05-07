@@ -1,5 +1,5 @@
 /*
- * TEST API FUNCTIONS
+ * TEST GENERAL API FUNCTIONS
  */
 
 /*
@@ -895,7 +895,7 @@ static term_t test_tuple_update(term_t arg, term_t new_v, uint32_t i) {
 
 /*
  * Sampling: select one type in store that satifies predicate p
- * - return NULL_TYPE if there's no function type in the store.
+ * - return NULL_TYPE if there's no such type
  */
 typedef bool (*predicate_t)(type_t tau);
 
@@ -904,7 +904,7 @@ static type_t type_store_sample(type_store_t *store, predicate_t p) {
   type_t tau, sigma;
 
   n = store->ntypes;
-  m = 0;
+ m = 0;
   sigma = NULL_TYPE;
   for (i=0; i<n; i++) {
     tau = store->type[i];

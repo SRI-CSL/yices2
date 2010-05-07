@@ -540,7 +540,7 @@ static inline term_t tstack_get_type(tstack_t *stack) {
 
 
 /*
- * Replace the fefault commands
+ * Replace the default commands
  */
 static inline void tstack_set_exit_cmd(tstack_t *stack, exit_cmd_t cmd) {
   stack->externals.exit_cmd = cmd;

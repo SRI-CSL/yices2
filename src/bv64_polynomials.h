@@ -50,7 +50,6 @@ typedef struct {
 typedef struct {
   int32_t nterms;
   uint32_t bitsize;
-  uint32_t width;
   bvmono64_t mono[0]; // actual size = nterms + 1
 } bvpoly64_t;
 

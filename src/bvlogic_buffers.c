@@ -270,7 +270,7 @@ static void bvlogic_buffer_set_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
 
 
 // array of n boolean terms a[0] ... a[n-1]
-static void bvlogic_buffer_set_term_array(bvlogic_buffer_t *b, term_table_t *table, uint32_t n, term_t *a) {
+void bvlogic_buffer_set_term_array(bvlogic_buffer_t *b, term_table_t *table, uint32_t n, term_t *a) {
   uint32_t i;
 
   assert(0 < n);
@@ -1208,7 +1208,7 @@ void bvlogic_buffer_set_term(bvlogic_buffer_t *b, term_table_t *table, term_t t)
   assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t));
 
   i = index_of(t);
-  switch (table->kind[t]) {
+  switch (table->kind[i]) {
   case BV64_CONSTANT:
     c64 = bvconst64_for_idx(table, i);
     bvlogic_buffer_set_constant64(b, c64->bitsize, c64->value);
@@ -1248,7 +1248,7 @@ void bvlogic_buffer_and_term(bvlogic_buffer_t *b, term_table_t *table, term_t t)
 	 term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
-  switch (table->kind[t]) {
+  switch (table->kind[i]) {
   case BV64_CONSTANT:
     c64 = bvconst64_for_idx(table, i);
     bvlogic_buffer_and_constant64(b, c64->bitsize, c64->value);
@@ -1283,7 +1283,7 @@ void bvlogic_buffer_or_term(bvlogic_buffer_t *b, term_table_t *table, term_t t) 
 	 term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
-  switch (table->kind[t]) {
+  switch (table->kind[i]) {
   case BV64_CONSTANT:
     c64 = bvconst64_for_idx(table, i);
     bvlogic_buffer_or_constant64(b, c64->bitsize, c64->value);
@@ -1318,7 +1318,7 @@ void bvlogic_buffer_xor_term(bvlogic_buffer_t *b, term_table_t *table, term_t t)
 	 term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
-  switch (table->kind[t]) {
+  switch (table->kind[i]) {
   case BV64_CONSTANT:
     c64 = bvconst64_for_idx(table, i);
     bvlogic_buffer_xor_constant64(b, c64->bitsize, c64->value);
@@ -1356,7 +1356,7 @@ void bvlogic_buffer_comp_term(bvlogic_buffer_t *b, term_table_t *table, term_t t
 	 term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
-  switch (table->kind[t]) {
+  switch (table->kind[i]) {
   case BV64_CONSTANT:
     c64 = bvconst64_for_idx(table, i);
     bvlogic_buffer_comp_constant64(b, c64->bitsize, c64->value);
@@ -1394,7 +1394,7 @@ void bvlogic_buffer_concat_left_term(bvlogic_buffer_t *b, term_table_t *table, t
   assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t));
 
   i = index_of(t);
-  switch (table->kind[t]) {
+  switch (table->kind[i]) {
   case BV64_CONSTANT:
     c64 = bvconst64_for_idx(table, i);
     bvlogic_buffer_concat_left_constant64(b, c64->bitsize, c64->value);
@@ -1427,7 +1427,7 @@ void bvlogic_buffer_concat_right_term(bvlogic_buffer_t *b, term_table_t *table, 
   assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t));
 
   i = index_of(t);
-  switch (table->kind[t]) {
+  switch (table->kind[i]) {
   case BV64_CONSTANT:
     c64 = bvconst64_for_idx(table, i);
     bvlogic_buffer_concat_right_constant64(b, c64->bitsize, c64->value);

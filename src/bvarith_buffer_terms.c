@@ -119,7 +119,7 @@ void bvarith_buffer_sub_term(bvarith_buffer_t *b, term_table_t *table, term_t t)
     break;
 
   default:
-    bvarith_buffer_add_var(b, t);
+    bvarith_buffer_sub_var(b, t);
     break;
   }
 }
@@ -158,7 +158,7 @@ void bvarith_buffer_mul_term(bvarith_buffer_t *b, term_table_t *table, term_t t)
     break;
 
   default:
-    bvarith_buffer_add_var(b, t);
+    bvarith_buffer_mul_var(b, t);
     break;
   }
 }

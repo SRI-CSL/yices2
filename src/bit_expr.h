@@ -164,6 +164,8 @@ typedef union node_desc_u {
  * - desc[k] = descriptor
  * - map[k] = integer (used in conversion from bits to Boolean terms)
  *   map[k] is set to -1 when the node is created
+ *   map[k] is the term index corresponding to node k after conversion to terms
+ *    (cf. bit_term_conversion)
  *
  * Free list: the UNUSED nodes are stored in a free list
  * - table->free_list = index of the first node in that list

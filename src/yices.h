@@ -745,7 +745,7 @@ extern term_t yices_arith_lt0_atom(term_t t);   // t < 0
  *    badval = n
  * if n > YICES_MAX_BVSIZE
  *    code = MAX_BVSIZE_EXCEEDED
- *    badval = n *
+ *    badval = n
  */
 extern term_t yices_bvconst_uint32(uint32_t n, uint32_t x);
 extern term_t yices_bvconst_uint64(uint32_t n, uint64_t x);
@@ -1048,6 +1048,30 @@ extern term_t yices_redor(term_t t);
  */
 extern term_t yices_redcomp(term_t t1, term_t t2);
 
+
+
+/*
+ * Convert an array of boolean terms arg[0 ... n-1] into
+ * a bitvector term.
+ *
+ * Error report:
+ * if n == 0
+ *    code = POSINT_REQUIRED
+ *    badval = n
+ * if n > YICES_MAX_BVSIZE
+ *    code = MAX_BVSIZE_EXCEEDED
+ *    badval = size
+ * if arg[i] is invalid
+ *    code = INVALID_TERM
+ *    term1 = arg[i]
+ *    index = i
+ * if arg[i] is not a boolean
+ *    code = TYPE_MISMATCH
+ *    term1 = arg[i]
+ *    type1 = bool
+ *    index = i
+ */
+extern term_t yices_bvarray(uint32_t n, term_t arg[]);
 
 
 

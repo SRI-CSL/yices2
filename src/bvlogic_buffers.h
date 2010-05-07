@@ -175,6 +175,15 @@ extern void bvlogic_buffer_set_allbits(bvlogic_buffer_t *b, uint32_t n, bit_t bi
 extern void bvlogic_buffer_set_term(bvlogic_buffer_t *b, term_table_t *table, term_t t);
 
 
+/*
+ * Initialize b with n boolean terms: a[0] ... a[n-1]
+ * - n must be positive
+ * - each element of array a must be a boolean term defined in 'table'
+ * - a[0] = low order bit
+ *   a[n] = high order bit
+ */
+extern void bvlogic_buffer_set_term_array(bvlogic_buffer_t *b, term_table_t *table, uint32_t n, term_t *a);
+
 
 /*
  * BITWISE BOOLEAN OPERATIONS

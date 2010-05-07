@@ -12,7 +12,7 @@
  * - t must be a valid boolean term in the term table
  *
  * Side effect: if conversion for t is x, and x is not mapped to anything yet,
- * then map[x] is set to t in the node table.
+ * then map[x] is set to (pos_term(index_of(t)) in the node table.
  */
 bit_t convert_term_to_bit(term_table_t *table, node_table_t *nodes, term_t t) {
   select_term_t *s;
@@ -38,10 +38,10 @@ bit_t convert_term_to_bit(term_table_t *table, node_table_t *nodes, term_t t) {
     break;
   }
 
-  // save the mapping x --> i in the node table
+  // save the mapping x --> pos_term(i) in the node table
   assert(bit_is_pos(x));
   if (map_of_node(nodes, node_of_bit(x)) == -1) {
-    set_map_of_node(nodes, node_of_bit(x), i);
+    set_map_of_node(nodes, node_of_bit(x), pos_term(i));
   }
 
   // flip x's polarity if t has negative polarity
