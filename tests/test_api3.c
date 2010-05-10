@@ -400,7 +400,7 @@ static type_t type_store_sample(type_store_t *store, predicate_t p) {
   type_t tau, sigma;
 
   n = store->ntypes;
- m = 0;
+  m = 0;
   sigma = NULL_TYPE;
   for (i=0; i<n; i++) {
     tau = store->type[i];
@@ -1079,6 +1079,24 @@ static term_t test_ite(term_t c, term_t left, term_t right) {
 }
 
 
+/*
+ * Test bit_extract
+ */
+static term_t test_bitextract(term_t t, uint32_t i) {
+  term_t b;
+
+  printf("test: (bit-extract ");
+  print_term(stdout, __yices_globals.terms, t);
+  printf(" %"PRIu32") --> ", i);
+  b = yices_bitextract(t, i);
+  print_term(stdout, __yices_globals.terms, b);
+  printf("\n");
+  
+  fflush(stdout);
+
+  return b;
+}
+
 
 
 /*
@@ -1140,6 +1158,11 @@ static void full_binary_tests(term_t t1, term_t t2) {
   for (i=0; i<n; i++) {
     test_bvextract(t1, i, i);
     test_bvextract(t2, i, i);
+  }
+
+  for (i=0; i<n; i++) {
+    test_bitextract(t1, i);
+    test_bitextract(t2, i);
   }
 }
 

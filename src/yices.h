@@ -1074,6 +1074,22 @@ extern term_t yices_redcomp(term_t t1, term_t t2);
 extern term_t yices_bvarray(uint32_t n, term_t arg[]);
 
 
+/*
+ * Extract bit i of vector t (as a boolean)
+ *
+ * Error report:
+ * if t is invalid
+ *    code = INVALID_TERM
+ *    term1 = t
+ *    index = -1
+ * if t is not a bitvector term
+ *    code = BITVECTOR_REQUIRES
+ *    term1 = t
+ * if i >= t's bitsize
+ *    code = INVALID_BVEXTRACT
+ */
+extern term_t yices_bitextract(term_t t, uint32_t i);
+
 
 /*
  * BITVECTOR ATOMS

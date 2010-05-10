@@ -5479,12 +5479,83 @@ EXPORTED term_t yices_bvashr(term_t t1, term_t t2) {
  * TODO: We could convert division/remainder when t2 is a constant powers of two 
  * to shift and bit masking operations?
  */
+
+// (div a b): both constants
+static term_t bvdiv_const64(bvconst64_term_t *a, bvconst64_term_t *b) {
+  uint64_t x;
+  uint32_t n;
+
+  n = a->bitsize;
+  assert(n == b->bitsize);
+  x = bvconst64_udiv2z(a->value, b->value, n);
+  assert(x == norm64(x, n));
+
+  return bv64_constant(&terms, n, x);
+}
+
+static term_t bvdiv_const(bvconst_term_t *a, bvconst_term_t *b) {
+  uint32_t n;
+
+  n = a->bitsize;
+  assert(n == b->bitsize && n > 64);
+
+  bvconstant_set_bitsize(&bv0, n);
+  bvconst_udiv2z(bv0.data, n, a->data, b->data);
+  bvconst_normalize(bv0.data, n);
+
+  return bvconst_term(&terms, n, bv0.data);
+}
+
 EXPORTED term_t yices_bvdiv(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(&terms, t1, t2)) {
     return NULL_TERM;
   }
 
+  switch (term_kind(&terms, t2)) {
+  case BV64_CONSTANT:
+    if (term_kind(&terms, t1) == BV64_CONSTANT) {
+      return bvdiv_const64(bvconst64_term_desc(&terms, t1), bvconst64_term_desc(&terms, t2));
+    }
+    break;
+
+  case BV_CONSTANT:
+    if (term_kind(&terms, t1) == BV_CONSTANT) {
+      return bvdiv_const(bvconst_term_desc(&terms, t1), bvconst_term_desc(&terms, t2));
+    }
+    break;
+
+  default:
+    break;
+  }
+
   return bvdiv_term(&terms, t1, t2);
+}
+
+
+// (rem a b): both constants
+static term_t bvrem_const64(bvconst64_term_t *a, bvconst64_term_t *b) {
+  uint64_t x;
+  uint32_t n;
+
+  n = a->bitsize;
+  assert(n == b->bitsize);
+  x = bvconst64_urem2z(a->value, b->value, n);
+  assert(x == norm64(x, n));
+
+  return bv64_constant(&terms, n, x);
+}
+
+static term_t bvrem_const(bvconst_term_t *a, bvconst_term_t *b) {
+  uint32_t n;
+
+  n = a->bitsize;
+  assert(n == b->bitsize && n > 64);
+
+  bvconstant_set_bitsize(&bv0, n);
+  bvconst_urem2z(bv0.data, n, a->data, b->data);
+  bvconst_normalize(bv0.data, n);
+
+  return bvconst_term(&terms, n, bv0.data);
 }
 
 EXPORTED term_t yices_bvrem(term_t t1, term_t t2) {
@@ -5492,7 +5563,51 @@ EXPORTED term_t yices_bvrem(term_t t1, term_t t2) {
     return NULL_TERM;
   }
 
+  switch (term_kind(&terms, t2)) {
+  case BV64_CONSTANT:
+    if (term_kind(&terms, t1) == BV64_CONSTANT) {
+      return bvrem_const64(bvconst64_term_desc(&terms, t1), bvconst64_term_desc(&terms, t2));
+    }
+    break;
+
+  case BV_CONSTANT:
+    if (term_kind(&terms, t1) == BV_CONSTANT) {
+      return bvrem_const(bvconst_term_desc(&terms, t1), bvconst_term_desc(&terms, t2));
+    }
+    break;
+
+  default:
+    break;
+  }
+
   return bvrem_term(&terms, t1, t2);
+}
+
+
+// (sdiv a b): both constants
+static term_t bvsdiv_const64(bvconst64_term_t *a, bvconst64_term_t *b) {
+  uint64_t x;
+  uint32_t n;
+
+  n = a->bitsize;
+  assert(n == b->bitsize);
+  x = bvconst64_sdiv2z(a->value, b->value, n);
+  assert(x == norm64(x, n));
+
+  return bv64_constant(&terms, n, x);
+}
+
+static term_t bvsdiv_const(bvconst_term_t *a, bvconst_term_t *b) {
+  uint32_t n;
+
+  n = a->bitsize;
+  assert(n == b->bitsize && n > 64);
+
+  bvconstant_set_bitsize(&bv0, n);
+  bvconst_sdiv2z(bv0.data, n, a->data, b->data);
+  bvconst_normalize(bv0.data, n);
+
+  return bvconst_term(&terms, n, bv0.data);
 }
 
 EXPORTED term_t yices_bvsdiv(term_t t1, term_t t2) {
@@ -5500,7 +5615,51 @@ EXPORTED term_t yices_bvsdiv(term_t t1, term_t t2) {
     return NULL_TERM;
   }
 
+  switch (term_kind(&terms, t2)) {
+  case BV64_CONSTANT:
+    if (term_kind(&terms, t1) == BV64_CONSTANT) {
+      return bvsdiv_const64(bvconst64_term_desc(&terms, t1), bvconst64_term_desc(&terms, t2));
+    }
+    break;
+
+  case BV_CONSTANT:
+    if (term_kind(&terms, t1) == BV_CONSTANT) {
+      return bvsdiv_const(bvconst_term_desc(&terms, t1), bvconst_term_desc(&terms, t2));
+    }
+    break;
+
+  default:
+    break;
+  }
+
   return bvsdiv_term(&terms, t1, t2);
+}
+
+
+// (srem a b): both constants
+static term_t bvsrem_const64(bvconst64_term_t *a, bvconst64_term_t *b) {
+  uint64_t x;
+  uint32_t n;
+
+  n = a->bitsize;
+  assert(n == b->bitsize);
+  x = bvconst64_srem2z(a->value, b->value, n);
+  assert(x == norm64(x, n));
+
+  return bv64_constant(&terms, n, x);
+}
+
+static term_t bvsrem_const(bvconst_term_t *a, bvconst_term_t *b) {
+  uint32_t n;
+
+  n = a->bitsize;
+  assert(n == b->bitsize && n > 64);
+
+  bvconstant_set_bitsize(&bv0, n);
+  bvconst_srem2z(bv0.data, n, a->data, b->data);
+  bvconst_normalize(bv0.data, n);
+
+  return bvconst_term(&terms, n, bv0.data);
 }
 
 EXPORTED term_t yices_bvsrem(term_t t1, term_t t2) {
@@ -5508,12 +5667,73 @@ EXPORTED term_t yices_bvsrem(term_t t1, term_t t2) {
     return NULL_TERM;
   }
 
+  switch (term_kind(&terms, t2)) {
+  case BV64_CONSTANT:
+    if (term_kind(&terms, t1) == BV64_CONSTANT) {
+      return bvsrem_const64(bvconst64_term_desc(&terms, t1), bvconst64_term_desc(&terms, t2));
+    }
+    break;
+
+  case BV_CONSTANT:
+    if (term_kind(&terms, t1) == BV_CONSTANT) {
+      return bvsrem_const(bvconst_term_desc(&terms, t1), bvconst_term_desc(&terms, t2));
+    }
+    break;
+
+  default:
+    break;
+  }
+
   return bvsrem_term(&terms, t1, t2);
+}
+
+
+// (smod a b): both constants
+static term_t bvsmod_const64(bvconst64_term_t *a, bvconst64_term_t *b) {
+  uint64_t x;
+  uint32_t n;
+
+  n = a->bitsize;
+  assert(n == b->bitsize);
+  x = bvconst64_smod2z(a->value, b->value, n);
+  assert(x == norm64(x, n));
+
+  return bv64_constant(&terms, n, x);
+}
+
+static term_t bvsmod_const(bvconst_term_t *a, bvconst_term_t *b) {
+  uint32_t n;
+
+  n = a->bitsize;
+  assert(n == b->bitsize && n > 64);
+
+  bvconstant_set_bitsize(&bv0, n);
+  bvconst_smod2z(bv0.data, n, a->data, b->data);
+  bvconst_normalize(bv0.data, n);
+
+  return bvconst_term(&terms, n, bv0.data);
 }
 
 EXPORTED term_t yices_bvsmod(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(&terms, t1, t2)) {
     return NULL_TERM;
+  }
+
+  switch (term_kind(&terms, t2)) {
+  case BV64_CONSTANT:
+    if (term_kind(&terms, t1) == BV64_CONSTANT) {
+      return bvsmod_const64(bvconst64_term_desc(&terms, t1), bvconst64_term_desc(&terms, t2));
+    }
+    break;
+
+  case BV_CONSTANT:
+    if (term_kind(&terms, t1) == BV_CONSTANT) {
+      return bvsmod_const(bvconst_term_desc(&terms, t1), bvconst_term_desc(&terms, t2));
+    }
+    break;
+
+  default:
+    break;
   }
 
   return bvsmod_term(&terms, t1, t2);
@@ -5560,6 +5780,56 @@ EXPORTED term_t yices_bvarray(uint32_t n, term_t arg[]) {
 }
 
 
+
+/*
+ * Extract bit i of vector v (as a boolean)
+ *
+ * Error report:
+ * if v is invalid
+ *    code = INVALID_TERM
+ *    term1 = v
+ *    index = -1
+ * if v is not a bitvector term
+ *    code = BITVECTOR_REQUIRES
+ *    term1 = t
+ * if i >= v's bitsize
+ *    code = INVALID_BVEXTRACT
+ */
+term_t yices_bitextract(term_t t, uint32_t i) {
+  bvconst64_term_t *d;
+  bvconst_term_t *c;
+  composite_term_t *bv;
+  term_t u;
+
+  if (! check_good_term(&terms, t) ||
+      ! check_bitvector_term(&terms, t) ||
+      ! check_bitextract(i, i, term_bitsize(&terms, t))) {
+    return NULL_TERM;
+  }
+
+  switch (term_kind(&terms, t)) {
+  case BV64_CONSTANT:
+    d = bvconst64_term_desc(&terms, t);
+    u = bool2term(tst_bit64(d->value, i));
+    break;
+
+  case BV_CONSTANT:
+    c = bvconst_term_desc(&terms, t);
+    u = bool2term(bvconst_tst_bit(c->data, i));
+    break;
+
+  case BV_ARRAY:
+    bv = bvarray_term_desc(&terms, t);
+    u = bv->arg[i];
+    break;
+
+  default:
+    u = bit_term(&terms, i, t);
+    break;
+  }
+
+  return u;
+}
 
 
 
