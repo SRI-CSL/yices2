@@ -1311,11 +1311,11 @@ int main(void) {
   show_types();
   show_terms();
 
-  random_bvarrays(20);
-  random_bvextracts(20);
+  random_bvarrays(200);
+  random_bvextracts(200);
 
-  random_ite(500);
-  random_binary_tests(2000);
+  random_ite(5000);
+  random_binary_tests(6000);
   
   show_types();
   show_terms();

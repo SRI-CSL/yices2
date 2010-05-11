@@ -160,6 +160,14 @@ extern term_t yices_bvconst_term(uint32_t n, uint32_t *v);
 
 
 /*
+ * Convert a 64bit constant to a term
+ * - n = bitsize (must be positive and no more than 64)
+ * - c = constant value (must be normalized modulo 2^n)
+ */
+extern term_t yices_bvconst64_term(uint32_t n, uint64_t c);
+
+
+/*
  * Convert rational q to a term
  */
 extern term_t yices_rational_term(rational_t *q);

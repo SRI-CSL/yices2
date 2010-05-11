@@ -1491,7 +1491,7 @@ static term_t get_term(tstack_t *stack, stack_elem_t *e) {
     break;
 
   case TAG_BV64:
-    t = yices_bvconst_uint64(e->val.bv64.bitsize, e->val.bv64.value);
+    t = yices_bvconst64_term(e->val.bv64.bitsize, e->val.bv64.value);
     break;
 
   case TAG_BV:

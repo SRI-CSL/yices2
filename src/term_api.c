@@ -1381,7 +1381,7 @@ term_t bvarith64_buffer_get_term(bvarith64_buffer_t *b) {
  * - n = bitsize (must be positive and no more than 64)
  * - c = constant value (must be normalized modulo 2^n)
  */
-term_t yices_bvcons64_term(uint32_t n, uint64_t c) {
+term_t yices_bvconst64_term(uint32_t n, uint64_t c) {
   assert(1 <= n && n <= 64 && c == norm64(c, n));
   return bv64_constant(&terms, n, c);
 }
