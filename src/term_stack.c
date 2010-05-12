@@ -3681,9 +3681,12 @@ static void check_mk_bv_const(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_tag(stack, f+1, TAG_RATIONAL);
 }
 
+// Warning: val is a pointer inside a stack element that is reset by q_clear on pop_frame. 
+// So we must make a copy before calling pop_frame
 static void mk_bv_const_core(tstack_t *stack, stack_elem_t *f, int32_t size, rational_t *val) {
   uint32_t k;
   uint32_t *tmp;
+  uint64_t c;
 
   if (size <= 0) {
     raise_exception(stack, f, TSTACK_NEGATIVE_BVSIZE);
@@ -3698,8 +3701,11 @@ static void mk_bv_const_core(tstack_t *stack, stack_elem_t *f, int32_t size, rat
   }
 
   if (size <= 64) {
+    c =  bvconst64_from_q(size, val);
+    assert(c == norm64(c, size));
+
     tstack_pop_frame(stack);
-    set_bv64_result(stack, size, bvconst64_from_q(size, val));
+    set_bv64_result(stack, size, c);
 
   } else {
     k = (size + 31) >> 5;

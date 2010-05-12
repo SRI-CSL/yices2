@@ -169,7 +169,6 @@ typedef struct builtins_s {
  */
 static void init_smt_builtins(builtins_t *b) {
   type_t d;
-  uint32_t aux;
 
   // QF_UF type
   b->utype = yices_new_uninterpreted_type();
@@ -189,10 +188,8 @@ static void init_smt_builtins(builtins_t *b) {
   b->array = b->int_array;
 
   // Bitvector constants
-  aux = 0;
-  b->bit0 = yices_bvconst_term(1, &aux);
-  aux = 1;
-  b->bit1 = yices_bvconst_term(1, &aux);
+  b->bit0 = yices_bvconst64_term(1, 0);
+  b->bit1 = yices_bvconst64_term(1, 1);
 }
 
 
