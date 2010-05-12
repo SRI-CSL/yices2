@@ -3223,7 +3223,7 @@ EXPORTED term_t yices_application(term_t fun, uint32_t n, term_t arg[]) {
       return update->arg[n+1];
     }
     
-    if (disequal_term_arrays(&terms, n, update->arg, arg)) {
+    if (disequal_term_arrays(&terms, n, update->arg + 1, arg)) {
       // ((update f (a_1 ... a_n) v) x_1 ... x_n) ---> (f x_1 ... x_n)
       // repeat simplification if f is an update term again
       fun = update->arg[0];

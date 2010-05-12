@@ -66,7 +66,7 @@ static void collect_reachable_nodes(node_table_t *nodes, node_t x, ivector_t *v)
   ivector_reset(v);  
   map = nodes->map;
   if (map[x] == -1) {
-    map[x] = -2;
+    map[x] = -7;
     ivector_push(v, x);
   }
 
@@ -76,12 +76,12 @@ static void collect_reachable_nodes(node_table_t *nodes, node_t x, ivector_t *v)
     if (is_nonleaf_node(nodes, x)) {
       y = node_of_bit(left_child_of_node(nodes, x));
       if (map[y] == -1) {
-	map[y] = -2;
+	map[y] = -7;
 	ivector_push(v, y);
       }
       y = node_of_bit(right_child_of_node(nodes, x));
       if (map[y] == -1) {
-	map[y] = -2;
+	map[y] = -7;
 	ivector_push(v, y);
       }
     }
@@ -146,7 +146,7 @@ static void map_nodes_to_terms(term_table_t *terms, node_table_t *nodes, ivector
   while (i > 0) {
     i --;
     x = v->data[i];
-    assert(map[x] == -2);
+    assert(map[x] == -7);
     switch (node_kind(nodes, x)) {
     case UNUSED_NODE:
       assert(false);
@@ -203,6 +203,10 @@ static void map_nodes_to_terms(term_table_t *terms, node_table_t *nodes, ivector
 term_t convert_bit_to_term(term_table_t *terms, node_table_t *nodes, ivector_t *queue, bit_t b) {
   term_t t;
 
+  if (b == 419) {
+    printf("*** BUG HERE ***\n");
+    fflush(stdout);
+  }
   collect_reachable_nodes(nodes, node_of_bit(b), queue);
   map_nodes_to_terms(terms, nodes, queue);
   t = map_of_bit(nodes, b);

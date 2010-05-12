@@ -346,6 +346,8 @@ static bvconst_term_t *new_bvconst_term(uint32_t bitsize, uint32_t *v) {
   bvconst_term_t *d;
   uint32_t k;
 
+  assert(bitsize > 64);
+
   k = (bitsize + 31) >> 5;
   d = (bvconst_term_t *) safe_malloc(sizeof(bvconst_term_t) + k * sizeof(uint32_t));
   d->bitsize = bitsize;
@@ -360,6 +362,8 @@ static bvconst_term_t *new_bvconst_term(uint32_t bitsize, uint32_t *v) {
  */
 static bvconst64_term_t *new_bvconst64_term(uint32_t bitsize, uint64_t v) {
   bvconst64_term_t *d;
+
+  assert(1 <= bitsize && bitsize <= 64 && v == norm64(v, bitsize));
 
   d = (bvconst64_term_t *) safe_malloc(sizeof(bvconst64_term_t));
   d->bitsize = bitsize;
