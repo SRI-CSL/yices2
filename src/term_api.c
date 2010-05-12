@@ -2598,7 +2598,7 @@ static bool check_maxdegree(uint32_t d) {
 static bool check_good_var_index(int32_t i) {
   if (i < 0) {
     error.code = INVALID_VAR_INDEX;
-    error.badval = i;
+    error.badidx = i;
     return false;
   }
 
@@ -2652,7 +2652,7 @@ static bool check_good_constant(type_table_t *tbl, type_t tau, int32_t i) {
       (kind == SCALAR_TYPE && i >= scalar_type_cardinal(tbl, tau))) {
     error.code = INVALID_CONSTANT_INDEX;
     error.type1 = tau;
-    error.badval = i;
+    error.badidx = i;
     return false;
   }
   return true;
@@ -2881,7 +2881,7 @@ static bool check_good_select(term_table_t *tbl, uint32_t i, term_t t) {
   if (i >= tuple_type_arity(tbl->types, tau)) {
     error.code = INVALID_TUPLE_INDEX;
     error.type1 = tau;
-    error.badval = i;
+    error.badidx = i;
     return false;
   }
   
@@ -3006,7 +3006,7 @@ static bool check_good_tuple_update(term_table_t *tbl, uint32_t i, term_t t, ter
   if (i >= desc->nelem) {
     error.code = INVALID_TUPLE_INDEX;
     error.type1 = tau;
-    error.badval = i;
+    error.badidx = i;
     return false;
   }
 
@@ -3048,7 +3048,7 @@ static bool check_square_degree(term_table_t *tbl, term_t t) {
 static bool check_bitshift(uint32_t i, uint32_t n) {
   if (i > n) {
     error.code = INVALID_BITSHIFT;
-    error.badval = i;
+    error.badidx = i;
     return false;
   }
 
@@ -3817,6 +3817,7 @@ EXPORTED term_t yices_int64(int64_t val) {
 EXPORTED term_t yices_rational32(int32_t num, uint32_t den) {
   if (den == 0) {
     error.code = DIVISION_BY_ZERO;
+    error.index = -1;
     return NULL_TERM;
   }
 
@@ -3827,6 +3828,7 @@ EXPORTED term_t yices_rational32(int32_t num, uint32_t den) {
 EXPORTED term_t yices_rational64(int64_t num, uint64_t den) {
   if (den == 0) {
     error.code = DIVISION_BY_ZERO;
+    error.index = -1;
     return NULL_TERM;
   }
 
@@ -3885,6 +3887,7 @@ EXPORTED term_t yices_parse_rational(char *s) {
     } else {
       // denominator is 0
       error.code = DIVISION_BY_ZERO;
+      error.index = -1;
     }
     return NULL_TERM;
   }
@@ -4851,7 +4854,7 @@ EXPORTED term_t yices_bvxnor(term_t t1, term_t t2) {
  *   term1 = t
  * if n > size of t
  *   code = INVALID_BITSHIFT
- *   badval = n
+ *   badidx = n
  */
 EXPORTED term_t yices_shift_left0(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
@@ -6178,7 +6181,7 @@ bool yices_check_bvlogic_buffer(bvlogic_buffer_t *b) {
 bool yices_check_bitshift(bvlogic_buffer_t *b, int32_t s) {
   if (s < 0 || s > bvlogic_buffer_bitsize(b)) {
     error.code = INVALID_BITSHIFT;
-    error.badval = s;
+    error.badidx = s;
     return false;
   }
 
@@ -6209,7 +6212,7 @@ bool yices_check_bitextract(bvlogic_buffer_t *b, int32_t i, int32_t j) {
  * Error report:
  * if n <= 0
  *   code = POSINT_REQUIRED
- *   badval = n
+ *   badidx = n
  * if size of the result would be more than MAX_BVSIZE
  *   code = MAX_BVSIZE_EXCEEDED
  *   badval = n * bitsize of t
@@ -6219,7 +6222,7 @@ bool yices_check_bvrepeat(bvlogic_buffer_t *b, int32_t n) {
 
   if (n <= 0) {
     error.code = POS_INT_REQUIRED;
-    error.badval = n;
+    error.badidx = n;
     return false;
   }
 
@@ -6251,7 +6254,7 @@ bool yices_check_bvextend(bvlogic_buffer_t *b, int32_t n) {
 
   if (n < 0) {
     error.code = NONNEG_INT_REQUIRED;
-    error.badval = n;
+    error.badidx = n;
     return false;
   }
 

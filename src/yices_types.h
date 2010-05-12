@@ -50,8 +50,6 @@ typedef enum error_code {
   INVALID_BVHEX_FORMAT,
   INVALID_BITSHIFT,
   INVALID_BVEXTRACT,
-  INVALID_BVSIGNEXTEND,
-  INVALID_BVZEROEXTEND,
   TOO_MANY_ARGUMENTS,
   TOO_MANY_VARS,
   MAX_BVSIZE_EXCEEDED,
@@ -86,30 +84,33 @@ typedef enum error_code {
  *
  *  INVALID_TYPE               type1, index
  *  INVALID_TERM               term1, index
- *  POS_INT_REQUIRED           badval
- *  NONNEG_INT_REQUIRED        badval
- *  TOO_MANY_ARGS              badval
+ *  INVALID_CONSTANT_INDEX     type1, badidx
+ *  INVALID_VAR_INDEX          badidx
+ *  INVALID_TUPLE_INDEX        type1, badidx
+ *  INVALID_RATIONAL_FORMAT    none
+ *  INVALID_FLOAT_FORMAT       none
+ *  INVALID_BVBIN_FORMAT       none
+ *  INVALID_BVHEX_FORMAT       none
+ *  INVALID_BITSHIFT           badidx
+ *  INVALID_BVEXTRACT          none
+ *  TOO_MANY_ARGUMENTS         badval
  *  TOO_MANY_VARS              badval
+ *  MAX_BVSIZE_EXCEEDED        badval
+ *  DEGREE_OVERFLOW            badval
+ *  DIVISION_BY_ZERO           index
+ *  POS_INT_REQUIRED           badval
+ *  NONNEG_INT_REQUIRED        none
  *  SCALAR_OR_UTYPE_REQUIRED   type1
  *  FUNCTION_REQUIRED          term1
  *  TUPLE_REQUIRED             term1
  *  VARIABLE_REQUIRED          term1, index
- *  INVALID_CONSTANT_INDEX     type1, badval
+ *  ARITHTERM_REQUIRED         term1
+ *  BITVECTOR_REQUIRED         term1
  *  WRONG_NUMBER_OF_ARGUMENTS  type1, badval
  *  TYPE_MISMATCH              term1, type1, index
  *  INCOMPATIBLE_TYPES         term1, type1, term2, type2
- *  INVALID_TUPLE_INDEX        type1, badval
  *  DUPLICATE_VARIABLE         term1, index
- *
- *  ARITHTERM_REQUIRED         term1
- *  DEGREE_OVERFLOW            none
- *
- *  BITVECTOR_REQUIRED         term1
- *  INCOMPATIBLE_BVSIZES       badval
- *  INVALID_BITSHIFT           badval
- *  INVALID_BVEXTRACT          none
- *  INVALID_BVSIGNEXTEND       none
- *  INVALID_BVZEROEXTEND       none
+ *  INCOMPATIBLE_BVSIZES       term1, type1, term2, type2
  *  EMPTY_BITVECTOR            none
  */
 typedef struct error_report_s {
@@ -119,6 +120,8 @@ typedef struct error_report_s {
   term_t term2;
   type_t type2;
   int32_t index;
+  
+  int32_t badidx;
   uint64_t badval;
 } error_report_t;
 

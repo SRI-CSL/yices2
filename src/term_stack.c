@@ -2841,7 +2841,7 @@ static void eval_define_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   yices_set_term_name(t, f[0].val.symbol);
 
   // notification: call the defined_term_cmd
-  stack->externals.term_defined_cmd(f[0].val.symbol, tau);
+  stack->externals.term_defined_cmd(f[0].val.symbol, t);
 
   tstack_pop_frame(stack);
   no_result(stack);  
@@ -3263,7 +3263,7 @@ static void eval_mk_xor(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   arg = get_aux_buffer(stack, n);
 
-  for (i=1; i<n; i++) {
+  for (i=0; i<n; i++) {
     arg[i] = get_term(stack, f+i);
   }
   t = yices_xor(n, arg);

@@ -217,7 +217,7 @@ typedef struct param_val_s {
  *   called after (define name::type t) 
  *            or (define name::type) is executed
  *
- * Added this to give some feedback to the user when yices_masin
+ * Added this to give some feedback to the user when yices_main
  * is used in verbose mode.
  */
 typedef void (*exit_cmd_t)(void);

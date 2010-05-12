@@ -64,16 +64,17 @@ src_c := arena.c arith_buffers.c arith_buffer_terms.c               \
          int_queues.c int_stack.c int_vectors.c                     \
          internalization_map.c large_bvsets.c lexer.c memalloc.c    \
          memsize.c mpq_aux.c object_stores.c pair_hash_map.c        \
-         pair_hash_sets.c pointer_vectors.c polynomials.c           \
+         pair_hash_sets.c parser.c pointer_vectors.c polynomials.c  \
          power_products.c pprod_table.c pretty_printer.c            \
          ptr_array_sort.c ptr_array_sort2.c ptr_hash_map.c          \
          ptr_heap.c ptr_partitions.c ptr_queues.c ptr_vectors.c     \
          rationals.c rb_bvsets.c reader.c refcount_strings.c        \
-         small_bvsets.c smt_lexer.c smt_logic_codes.c               \
+         small_bvsets.c smt_lexer.c smt_logic_codes.c smt_parser.c  \
          string_buffers.c symbol_tables.c terms.c term_api.c        \
-         term_printer.c term_stack.c term_utils.c timeout.c types.c \
-         type_printer.c uint_rbtrees.c union_find.c use_vectors.c   \
-         vsets.c yices_lexer.c yices_pp.c
+         term_printer.c term_stack.c term_stack_error.c             \
+         term_utils.c timeout.c types.c type_printer.c              \
+         uint_rbtrees.c union_find.c use_vectors.c                  \
+         vsets.c yices_error.c yices_lexer.c yices_pp.c yices_parser.c
 
 
 #

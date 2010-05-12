@@ -2,15 +2,19 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#include "yices_lexer.h"
-#include "yices_parser.h"
-#include "term_stack.h"
-#include "term_printer.h"
-
 #include "memsize.h"
 #include "command_line.h"
+
+#include "term_printer.h"
+#include "type_printer.h"
+#include "term_stack.h"
+#include "yices_lexer.h"
+#include "yices_parser.h"
+#include "yices.h"
+#include "yices_globals.h"
 #include "yices_version.h"
 #include "yices_exit_codes.h"
+
 
 /*
  * Command-line flags
@@ -201,16 +205,10 @@ int main(int argc, char *argv[]) {
     } 
 
     fprintf(dump, "\n==== ALL TYPES ====\n");
-    print_all_types(dump);
+    print_type_table(dump, __yices_globals.types);
     fflush(dump);
     fprintf(dump, "\n==== ALL TERMS ====\n");
-    print_all_terms(dump);
-    fflush(dump);
-    fprintf(dump, "\n==== ALL BV VARS ====\n");
-    print_all_bv_vars(dump);
-    fflush(dump);
-    fprintf(dump, "\n==== ALL ARITH VARS ====\n");
-    print_all_arith_vars(dump);
+    print_term_table(dump, __yices_globals.terms);
     fflush(dump);
 
     if (dump_filename != NULL) {

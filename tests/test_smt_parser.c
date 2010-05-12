@@ -3,13 +3,17 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-#include "smt_lexer.h"
-#include "smt_parser.h"
-#include "term_stack.h"
-#include "term_printer.h"
 
 #include "cputime.h"
 #include "memsize.h"
+
+#include "term_printer.h"
+#include "type_printer.h"
+#include "term_stack.h"
+#include "smt_lexer.h"
+#include "smt_parser.h"
+#include "yices.h"
+#include "yices_globals.h"
 #include "yices_exit_codes.h"
 
 
@@ -62,20 +66,10 @@ static void dump_benchmark(FILE *f, smt_benchmark_t *bench) {
   fprintf(f, "\n");
 
   fprintf(f, "\n---- All types ----\n");
-  print_all_types(f);  
+  print_type_table(f, __yices_globals.types);  
 
   fprintf(f, "\n\n---- All terms ----\n");
-  print_all_terms(f);
-
-  fprintf(f, "\n\n---- Arithmetic variables ----\n");
-  print_all_arith_vars(f);
-
-  fprintf(f, "\n\n---- Bitvector variables ----\n");
-  print_all_bv_vars(f);
-
-  fprintf(f, "\n\n---- Bit nodes ----\n");
-  print_all_root_bit_exprs(f);
-
+  print_term_table(f, __yices_globals.terms);
   fprintf(f, "\n\n");
   fflush(f);
 }

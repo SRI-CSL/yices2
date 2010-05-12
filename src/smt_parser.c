@@ -12,6 +12,9 @@
 #include "smt_parser.h"
 #include "smt_lexer.h"
 
+#include "term_stack_error.h"
+
+#include "yices.h"
 #include "yices_extensions.h"
 
 
@@ -27,145 +30,6 @@
 
 
 /*
- * Error messages
- */
-static const char * const code2string[NUM_TSTACK_ERRORS] = {
-  "no error",
-  "internal error",
-  "operation not supported",
-  "undefined term",
-  "undefined type",
-  "invalid rational format",
-  "invalid float format",
-  "invalid bitvector binary format",
-  "invalid bitvector hexadecimal format",
-  "cannot redefine type",
-  "cannot redefine term",
-  "duplicate name",
-  "duplicate variable name",
-  "invalid operation",
-  "wrong number of arguments",
-  "constant too large",
-  "constant is not an integer",
-  "symbol required",
-  "numerical constant required",
-  "type required",
-  "error in arithmetic operation",
-  "division by zero",
-  "divisor is not a constant",
-  "bitsize must be positive",
-  "number cannot be converted to a bitvector",
-  "error in bitvector arithmetic operation",
-  "error in bitvector operation",
-  "incompatible types in define",
-  "yices error",
-};
-
-
-/*
- * Translate opcode to string (for diagnosis)
- */
-static const char * const opcode2string[NUM_OPCODES] = {
-  "no_op",
-  "define-type",
-  "define",
-  "bind",
-  "declare_var",
-  "let",
-
-  "bitvector type",
-  "scalar type",   // not in SMT
-  "tuple type",    // not in SMT
-  "function type",
-
-  "function application",
-  "if-then-else",
-  "equality",
-  "disequality",
-  "distinct",
-  "not",
-  "or",
-  "and",
-  "xor",
-  "iff",
-  "implies",
-  "mk-tuple", // not in SMT
-  "select",   // not in SMT
-  "store",
-  "forall",
-  "exists",
-
-  "addition",
-  "subtraction",
-  "negation",
-  "multiplication",
-  "division",
-  "inequality",
-  "inequality",
-  "inequality",
-  "inequality",
-
-  "bv constant",
-  "bvadd",
-  "bvsub",
-  "bvmul",
-  "bvneg",
-  "bvnot",
-  "bvand",
-  "bvor",
-  "bvxor",
-  "bvnand",
-  "bvnor",
-  "bvxnor",
-  "shift_left0",
-  "shift_left1",
-  "shift_right0",
-  "shift_right1",
-  "ashift_right",
-  "rotate_left",
-  "rotate_right",
-  "extract",
-  "concat",
-  "repeat",
-  "sign_extend",
-  "zero_extend",
-  "bitvector inequality",
-  "bitvector inequality",
-  "bitvector inequality",
-  "bitvector inequality",
-  "bitvector inequality",
-  "bitvector inequality",
-  "bitvector inequality",
-  "bitvector inequality",
-
-  "bvshl",
-  "bvlshr",
-  "bvashr",
-  "bvdiv",
-  "bvrem",
-  "bvsdiv",
-  "bvsrem",
-  "bvsmod",
-  "bvredor",
-  "bvredand",
-  "bvcomp",
-
-  "build term",
-  "build type",
-
-  "exit",
-  "check",
-  "echo",
-  "include",
-  "assert",
-  "push",
-  "pop",
-  "dump-context",
-};
-
-
-
-/*
  * Short cuts to save typing
  */
 static inline char *tkval(lexer_t *lex) {
@@ -176,6 +40,14 @@ static inline uint32_t tklen(lexer_t *lex) {
   return current_token_length(lex);
 }
 
+
+
+/*
+ * Name of the current input file (NULL if stdin)
+ */
+static inline char *reader_name(lexer_t *lex) {
+  return lex->reader.name;
+}
 
 
 /*
@@ -249,176 +121,6 @@ static void syntax_error(lexer_t *lex, smt_token_t expected_token) {
     }
   } 
 }
-
-
-/*
- * Error reported by term_api:
- * - tstack->error_op = operation being executed
- * - tstack->error_loc = location of the argument expression (approximative)
- *   that triggered the error
- */
-static void yices_error(lexer_t *lex, tstack_t *tstack) {
-  error_report_t *error;
-  reader_t *rd;
-
-
-  rd = &lex->reader;
-  if (rd->name != NULL) {
-    fprintf(stderr, "%s: ", rd->name);
-  }
-  fprintf(stderr, "error in %s, line %"PRId32", column %"PRId32": ",
-	  opcode2string[tstack->error_op], tstack->error_loc.line, tstack->error_loc.column);
-    
-  error = yices_get_error_report();
-  switch (error->code) {
-  case INVALID_TYPE:
-    fprintf(stderr, "invalid type %"PRId32" (this is a bug)\n", error->type1);
-    break;
-  case INVALID_TERM:
-    fprintf(stderr, "invalid term: %"PRId32" (this is a bug)\n", error->term1);
-    break;
-  case POS_INT_REQUIRED:
-    fprintf(stderr, "integer argument must be positive\n");
-    break;
-  case NONNEG_INT_REQUIRED:
-    fprintf(stderr, "integer argument must be non-negative\n");
-    break;
-  case SCALAR_OR_UTYPE_REQUIRED:
-    fprintf(stderr, "invalid type in constant creation\n");
-    break;
-  case FUNCTION_REQUIRED:
-    fprintf(stderr, "argument is not a function\n");
-    break;
-  case TUPLE_REQUIRED:
-    fprintf(stderr, "argument is not a tuple\n");
-    break;
-  case VARIABLE_REQUIRED:
-    fprintf(stderr, "argument is not a variable\n");
-    break;
-  case INVALID_CONSTANT_INDEX:
-    fprintf(stderr, "invalid index %"PRId32" in constant creation\n",
-	    error->badval);
-    break;
-  case WRONG_NUMBER_OF_ARGUMENTS:
-    fprintf(stderr, "wrong number of arguments\n");
-    break;
-  case TYPE_MISMATCH:
-    fprintf(stderr, "type mismatch: invalid argument\n");
-    break;
-  case INCOMPATIBLE_TYPES:
-    fprintf(stderr, "incompatible types\n");
-    break;
-  case INVALID_TUPLE_INDEX:
-    fprintf(stderr, "invalid index\n");
-    break;
-  case DUPLICATE_VARIABLE:
-    fprintf(stderr, "duplicate variable in quantifier\n");
-    break;
-  case ARITHTERM_REQUIRED:
-    fprintf(stderr, "arithmetic argument required\n");
-    break;
-  case DEGREE_OVERFLOW:
-    fprintf(stderr, "degree is too large\n");
-    break;
-  case BITVECTOR_REQUIRED:
-    fprintf(stderr, "bitvector argument required\n");
-    break;
-  case INCOMPATIBLE_BVSIZES:
-    fprintf(stderr, "incompatible bitsizes\n");
-    break;    
-  case INVALID_BITSHIFT:
-    fprintf(stderr, "invalid index in shift or rotate\n");
-    break;
-  case INVALID_BVEXTRACT:
-    fprintf(stderr, "invalid index in bv-extract\n");
-    break;
-  case INVALID_BVSIGNEXTEND:
-    fprintf(stderr, "invalid index in sign-extend\n");
-    break;
-  case INVALID_BVZEROEXTEND:
-    fprintf(stderr, "invalid index in zero-extend\n");
-    break;    
-  case EMPTY_BITVECTOR:
-    fprintf(stderr, "bitvectors must have positive bitsize\n");
-    break;
-  default:
-    break;
-  }
-}
-
-
-/*
- * Print a message on an exception from tstack
- */
-static void tstack_error(lexer_t *lex, tstack_t *tstack, tstack_error_t exception) {
-  reader_t *rd;
-  
-  assert(exception != TSTACK_NO_ERROR);
-
-  if (exception == TSTACK_YICES_ERROR) {
-    yices_error(lex, tstack);
-    return;
-  }
-
-  rd = &lex->reader;
-  if (rd->name != NULL) {
-    fprintf(stderr, "%s: %s ", rd->name, code2string[exception]);
-  } else {
-    fprintf(stderr, "Error: %s ", code2string[exception]);
-  }
-
-  switch (exception) {
-  case TSTACK_INTERNAL_ERROR:
-  case TSTACK_INVALID_OP:
-  case TSTACK_NOT_A_SYMBOL:
-  case TSTACK_NOT_A_TYPE:
-    fprintf(stderr, "opcode = %d (this is a bug)\n", tstack->error_op);
-    break;
-
-  case TSTACK_INVALID_FRAME:
-    fprintf(stderr, "in %s (line %"PRId32", column %"PRId32")\n",
-	    opcode2string[tstack->error_op], tstack->error_loc.line, tstack->error_loc.column);
-    break;
-
-  case TSTACK_OP_NOT_IMPLEMENTED:
-   fprintf(stderr, "(%s)\n", opcode2string[tstack->error_op]);
-    break;
-    
-
-  case TSTACK_UNDEF_TERM:
-  case TSTACK_UNDEF_TYPE:
-  case TSTACK_DUPLICATE_SCALAR_NAME:
-  case TSTACK_DUPLICATE_VAR_NAME:
-  case TSTACK_RATIONAL_FORMAT:
-  case TSTACK_FLOAT_FORMAT:
-  case TSTACK_BVBIN_FORMAT:
-  case TSTACK_BVHEX_FORMAT:
-  case TSTACK_TYPENAME_REDEF:
-  case TSTACK_TERMNAME_REDEF:
-    fprintf(stderr, "%s (line %"PRId32", column %"PRId32")\n",
-	    tstack->error_string, tstack->error_loc.line, tstack->error_loc.column);
-    break;
-
-  case TSTACK_NOT_A_RATIONAL:
-  case TSTACK_INTEGER_OVERFLOW:
-  case TSTACK_NOT_AN_INTEGER:
-  case TSTACK_ARITH_ERROR:
-  case TSTACK_DIVIDE_BY_ZERO:
-  case TSTACK_NON_CONSTANT_DIVISOR:
-  case TSTACK_NEGATIVE_BVSIZE:
-  case TSTACK_INVALID_BVCONSTANT:
-  case TSTACK_BVARITH_ERROR:
-  case TSTACK_BVLOGIC_ERROR:
-  case TSTACK_TYPE_ERROR_IN_DEFTERM:
-    fprintf(stderr, "(line %"PRId32", column %"PRId32")\n",
-	    tstack->error_loc.line, tstack->error_loc.column);
-    break;
-
-  default:
-    break;
-  }
-}
-
 
 
 
@@ -1677,8 +1379,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
     }
 
   } else {
-
-    tstack_error(lex, tstack, exception);
+    term_stack_smt_error(stderr, reader_name(lex), tstack, exception);
     goto cleanup;
   }
 
