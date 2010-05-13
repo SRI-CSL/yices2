@@ -45,6 +45,7 @@ static const char * const code2string[NUM_TSTACK_ERRORS] = {
   "division by zero",
   "divisor is not a constant",
   "bitsize must be positive",
+  "bitvectors have incompatible sizes",
   "number cannot be converted to a bitvector",
   "error in bitvector arithmetic operation",
   "error in bitvector operation",
@@ -372,6 +373,7 @@ static void base_term_stack_error(FILE *f, char *name, tstack_t *tstack, tstack_
   case TSTACK_NON_CONSTANT_DIVISOR:
   case TSTACK_NEGATIVE_BVSIZE:
   case TSTACK_INVALID_BVCONSTANT:
+  case TSTACK_INCOMPATIBLE_BVSIZES:
   case TSTACK_BVARITH_ERROR:
   case TSTACK_BVLOGIC_ERROR:
   case TSTACK_TYPE_ERROR_IN_DEFTERM:

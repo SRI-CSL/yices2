@@ -3,7 +3,7 @@
  * Constants are represented as fixed-size arrays of 32bit integers
  *
  * These functions are intended to be used for small arrays (128-256 bits at most).
- * For larger sizes, GMP integers should be much faster.
+ * For larger sizes, GMP integers should be faster.
  */
 
 #include <stdio.h>

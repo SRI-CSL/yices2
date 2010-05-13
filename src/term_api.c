@@ -963,7 +963,7 @@ static term_t bvlogic_buffer_get_bvarray(bvlogic_buffer_t *b) {
   // we store the translation in b->bit
   n = b->bitsize;
   for (i=0; i<n; i++) {
-    b->bit[i] = convert_bit_to_term(&terms, &nodes, &vector0, b->bit[i]);
+    b->bit[i] = convert_bit_to_term(&terms, &nodes, b->bit[i]);
   }
 
   // build the term (bvarray b->bit[0] ... b->bit[n-1])
@@ -1245,8 +1245,12 @@ static term_t convert_bvarith64_to_bvarray(bvarith64_buffer_t *b) {
  */
 static term_t make_zero_bv(uint32_t n) {
   assert(0 < n && n <= YICES_MAX_BVSIZE);
-  bvconstant_set_all_zero(&bv0, n);
-  return bvconst_term(&terms, bv0.bitsize, bv0.data);
+  if (n > 64) {
+    bvconstant_set_all_zero(&bv0, n);
+    return bvconst_term(&terms, bv0.bitsize, bv0.data);
+  } else {
+    return bv64_constant(&terms, n, 0);
+  }
 }
 
 
@@ -1391,6 +1395,7 @@ term_t yices_bvconst64_term(uint32_t n, uint64_t c) {
  * Convert a bitvector constant to a term
  * - n = bitsize (must be more than 64 and at most YICES_MAX_BVSIZE)
  * - v = value as an array of k words (k = ceil(n/32)).
+ * - v must be normalized modulo 2^n
  */
 term_t yices_bvconst_term(uint32_t n, uint32_t *v) {
   assert(64 < n && n <= YICES_MAX_BVSIZE);
@@ -2206,7 +2211,7 @@ static term_t mk_integer_polynomial_ite(term_table_t *tbl, term_t c, term_t t, t
 
       // construct q' := 1/r0 * q
       arith_buffer_reset(b);
-      arith_buffer_add_monarray(b, q->mono, pprods_for_poly(tbl, p));
+      arith_buffer_add_monarray(b, q->mono, pprods_for_poly(tbl, q));
       term_table_reset_pbuffer(tbl);
       arith_buffer_div_const(b, &r0);
       e = arith_poly(tbl, b);

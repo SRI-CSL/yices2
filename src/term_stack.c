@@ -221,7 +221,8 @@ static void tstack_default_showparams_cmd(void) {
 }
 
 static void tstack_default_type_defined_cmd(char *name, type_t tau) {
-#ifndef NDEBUG
+  //#ifndef NDEBUG
+#if 0
   fprintf(stdout, "type definition: %s = ", name);
   print_type_id(stdout, tau);
   fprintf(stdout, "\n\n");
@@ -229,7 +230,8 @@ static void tstack_default_type_defined_cmd(char *name, type_t tau) {
 }
 
 static void tstack_default_term_defined_cmd(char *name, term_t t) {
-#ifndef NDEBUG
+  //#ifndef NDEBUG
+#if 0
   fprintf(stdout, "term definition: %s = ", name);
   print_term_id(stdout, t);
   fprintf(stdout, "\n\n");
@@ -876,29 +878,39 @@ static arith_buffer_t *tstack_get_abuffer(tstack_t *stack) {
 }
 
 
-static bvarith64_buffer_t *tstack_get_bva64buffer(tstack_t *stack) {
+static bvarith64_buffer_t *tstack_get_bva64buffer(tstack_t *stack, uint32_t bitsize) {
   bvarith64_buffer_t *tmp;
+
+  assert(1 <= bitsize && bitsize <= 64);
 
   tmp = stack->bva64buffer;
   if (tmp == NULL) {
-    tmp = yices_new_bvarith64_buffer(32); // any positive number will do
+    tmp = yices_new_bvarith64_buffer(bitsize);
     stack->bva64buffer = tmp;
   } else {
-    bvarith64_buffer_prepare(tmp, 32); // reset
+    bvarith64_buffer_prepare(tmp, bitsize); // reset to zero and set size to bitsize
   }
+
+  assert(bvarith64_buffer_is_zero(tmp) && bvarith64_buffer_bitsize(tmp) == bitsize);
+
   return tmp;
 }
 
-static bvarith_buffer_t *tstack_get_bvabuffer(tstack_t *stack) {
+static bvarith_buffer_t *tstack_get_bvabuffer(tstack_t *stack, uint32_t bitsize) {
   bvarith_buffer_t *tmp;
+
+  assert(64 < bitsize && bitsize <= YICES_MAX_BVSIZE);
 
   tmp = stack->bvabuffer;
   if (tmp == NULL) {
-    tmp = yices_new_bvarith_buffer(100); // any positive number will do
+    tmp = yices_new_bvarith_buffer(bitsize);
     stack->bvabuffer = tmp;
   } else {
-    bvarith_buffer_prepare(tmp, 100); // reset
+    bvarith_buffer_prepare(tmp, bitsize); // reset to zero and set size
   }
+
+  assert(bvarith_buffer_is_zero(tmp) && bvarith_buffer_bitsize(tmp) == bitsize);
+
   return tmp;
 }
 
@@ -1476,6 +1488,7 @@ static void check_distinct_binding_names(tstack_t *stack, stack_elem_t *f, uint3
  * Convert element e to a term or raise an exception
  */
 static term_t get_term(tstack_t *stack, stack_elem_t *e) {
+  uint64_t c;
   term_t t;
 
   switch (e->tag) {
@@ -1491,10 +1504,12 @@ static term_t get_term(tstack_t *stack, stack_elem_t *e) {
     break;
 
   case TAG_BV64:
-    t = yices_bvconst64_term(e->val.bv64.bitsize, e->val.bv64.value);
+    c = norm64(e->val.bv64.value, e->val.bv64.bitsize);
+    t = yices_bvconst64_term(e->val.bv64.bitsize, c);
     break;
 
   case TAG_BV:
+    bvconst_normalize(e->val.bv.data, e->val.bv.bitsize);
     t = yices_bvconst_term(e->val.bv.bitsize, e->val.bv.data);
     break;
     
@@ -2253,7 +2268,7 @@ static void copy_bvneg_term(tstack_t *stack, stack_elem_t *e, term_t t) {
 
   default:
     if (n <= 64) {
-      b64 = tstack_get_bva64buffer(stack);
+      b64 = tstack_get_bva64buffer(stack, n);
       assert(bvarith64_buffer_is_zero(b64));
       bvarith64_buffer_sub_term(b64, terms, t);
 
@@ -2266,7 +2281,7 @@ static void copy_bvneg_term(tstack_t *stack, stack_elem_t *e, term_t t) {
       stack->bva64buffer = NULL;
 
     } else {
-      b = tstack_get_bvabuffer(stack);
+      b = tstack_get_bvabuffer(stack, n);
       assert(bvarith_buffer_is_zero(b));
       bvarith_buffer_sub_term(b, terms, t);
 
@@ -3757,8 +3772,7 @@ static void eval_mk_bv_add(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   bitsize = elem_bitsize(stack, f);
   if (bitsize <= 64) {
-    b64 = tstack_get_bva64buffer(stack);
-    bvarith64_buffer_prepare(b64, bitsize);
+    b64 = tstack_get_bva64buffer(stack, bitsize);
     for (i=0; i<n; i++) {
       bva64_add_elem(stack, b64, f+i);
     }
@@ -3766,8 +3780,7 @@ static void eval_mk_bv_add(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     set_bvarith64_result(stack, b64);
 
   } else {
-    b = tstack_get_bvabuffer(stack);
-    bvarith_buffer_prepare(b, bitsize);
+    b = tstack_get_bvabuffer(stack, bitsize);
     for (i=0; i<n; i++) {
       bva_add_elem(stack, b, f+i);
     }
@@ -3792,8 +3805,7 @@ static void eval_mk_bv_sub(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   bitsize = elem_bitsize(stack, f);
   if (bitsize <= 64) {
-    b64 = tstack_get_bva64buffer(stack);
-    bvarith64_buffer_prepare(b64, bitsize);
+    b64 = tstack_get_bva64buffer(stack, bitsize);
     bva64_add_elem(stack, b64, f);
     for (i=1; i<n; i++) {
       bva64_sub_elem(stack, b64, f+i);
@@ -3803,8 +3815,7 @@ static void eval_mk_bv_sub(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     set_bvarith64_result(stack, b64);
 
   } else {
-    b = tstack_get_bvabuffer(stack);
-    bvarith_buffer_prepare(b, bitsize);
+    b = tstack_get_bvabuffer(stack, bitsize);
     bva_add_elem(stack, b, f);
     for (i=1; i<n; i++) {
       bva_sub_elem(stack, b, f+i);
@@ -3831,8 +3842,7 @@ static void eval_mk_bv_mul(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   bitsize = elem_bitsize(stack, f);
   if (bitsize <= 64) {
-    b64 = tstack_get_bva64buffer(stack);
-    bvarith64_buffer_prepare(b64, bitsize);
+    b64 = tstack_get_bva64buffer(stack, bitsize);
     bva64_add_elem(stack, b64, f);
     for (i=1; i<n; i++) {
       bva64_mul_elem(stack, b64, f+i);
@@ -3842,8 +3852,7 @@ static void eval_mk_bv_mul(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     set_bvarith64_result(stack, b64);
 
   } else {
-    b = tstack_get_bvabuffer(stack);
-    bvarith_buffer_prepare(b, bitsize);
+    b = tstack_get_bvabuffer(stack, bitsize);
     bva_add_elem(stack, b, f);
     for (i=1; i<n; i++) {
       bva_mul_elem(stack, b, f+i);

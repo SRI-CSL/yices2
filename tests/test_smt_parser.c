@@ -109,9 +109,9 @@ int main(int argc, char *argv[]) {
   printf("Memory used: %.2f MB\n\n", mem_used);
   fflush(stdout);
 
-  dump = fopen("yices2.dmp", "w");
+  dump = fopen("yices2new.dmp", "w");
   if (dump == NULL) {
-    perror("yices2.dmp");
+    perror("yices2new.dmp");
   } else {
     dump_benchmark(dump, &bench);
     fclose(dump);

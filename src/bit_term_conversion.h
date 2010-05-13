@@ -36,8 +36,6 @@ extern bit_t convert_term_to_bit(term_table_t *terms, node_table_t *nodes, term_
  * Convert bit expression b to a boolean term
  * - b must be a valid bit expression in table 'nodes'
  * - new terms are created in table 'terms'
- * - use auxiliary vector 'queue' to store the nodes reachable from b
- *   (so the current content of queue is lost).
  *
  * The subgraph rooted at b is explored and all nodes reachable from b
  * are converted to boolean terms. No simplification or flattening is
@@ -45,7 +43,7 @@ extern bit_t convert_term_to_bit(term_table_t *terms, node_table_t *nodes, term_
  * 
  * Side effect: the mapping is stored in nodes->map.
  */
-extern term_t convert_bit_to_term(term_table_t *terms, node_table_t *nodes, ivector_t *queue, bit_t b);
+extern term_t convert_bit_to_term(term_table_t *terms, node_table_t *nodes, bit_t b);
 
 
 
