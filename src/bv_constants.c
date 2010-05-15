@@ -17,26 +17,46 @@
 #include "bit_tricks.h"
 
 
+
 /*****************
  *  ALLOCATION   *
  ****************/
 
 /*
- * Block size for each object store
- */
-#define BVCONST_BANK_SIZE 64
-
-/*
- * allocator = array of object_stores
+ * Allocator = array of object_stores
  * - store[0] is unused
- * - store[i] is for vectors of size 2i (and 2i - 1)
+ * - store[i] is for vectors of size 2i and (2i - 1)
+ *   (the size is measured in number of words)
+ *
+ * We must ensure that all bitvectors allocated in store[i]
+ * have size <= MAX_OBJ_SIZE (i.e., 512 bytes). So we want
+ *  2 * i * sizeof(uint32_t) <= MAX_OBJ_SIZE.
+ *
+ * Bitvectors os size larger than that are allocated via
+ * direct calls to malloc/free.
  */
 typedef struct {
   object_store_t *store;
   uint32_t nstores;
 } bvconst_allocator_t;
 
-// global allocator.
+
+/*
+ * i < MAX_NUM_STORE ==> 2 i * sizeof(uint32_t) <= MAX_OBJ_SIZE
+ */
+#define MAX_NUM_STORES ((uint32_t) (1 + (MAX_OBJ_SIZE/(2 * sizeof(uint32_t)))))
+
+ 
+/*
+ * Block size for each object store = number of bitvectors
+ * in each block of the store.
+ */
+#define BVCONST_BANK_SIZE 128
+
+
+/*
+ * Global allocator
+ */
 static bvconst_allocator_t allocator;
 
 
@@ -54,7 +74,7 @@ static void init_allocator(bvconst_allocator_t *s) {
 static void resize_allocator(bvconst_allocator_t *s, uint32_t n) {
   uint32_t new_size, i;
 
-  assert(s->nstores <= n);
+  assert(s->nstores <= n && n < MAX_NUM_STORES);
 
   // new_size = max(s->nstores * 1.5, n+1)
   new_size = s->nstores + 1;
@@ -73,17 +93,25 @@ static void resize_allocator(bvconst_allocator_t *s, uint32_t n) {
  * Allocate a  new vector of size k
  */
 static uint32_t *alloc_vector(bvconst_allocator_t *s, uint32_t k) {
-  uint32_t i;
   object_store_t *m;
+  uint32_t *p;
+  uint32_t i;
 
-  assert(k > 0);
-  i = ((k + 1) >> 1);
-  if (i >= s->nstores) {
-    resize_allocator(s, i);
+  assert(0 < k && k <= (UINT32_MAX/sizeof(uint32_t)));
+  
+  i = ((k + 1) >> 1); // store index for size k
+  if (i < MAX_NUM_STORES) {
+    if (i >= s->nstores) {
+      resize_allocator(s, i);
+    }
+    m = s->store + i;
+    assert(m->objsize >= k * sizeof(uint32_t));
+    p = (uint32_t *) objstore_alloc(m);
+  } else {
+    p = (uint32_t *) safe_malloc(k * sizeof(uint32_t));
   }
-  m = s->store + i;
-  assert(m->objsize >= k * sizeof(uint32_t));
-  return (uint32_t *) objstore_alloc(m);
+
+  return p;
 }
 
 
@@ -95,8 +123,12 @@ static void free_vector(bvconst_allocator_t *s, uint32_t *bv, uint32_t k) {
 
   // store index = ceil(k/2)
   i = ((k + 1) >> 1);
-  assert(0 < i && i < s->nstores);
-  objstore_free(s->store + i, (void *) bv);
+  if (i < MAX_NUM_STORES) {
+    assert(0 < i && i < s->nstores);
+    objstore_free(s->store + i, (void *) bv);
+  } else {
+    safe_free(bv);
+  }
 }
 
 

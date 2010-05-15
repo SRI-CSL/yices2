@@ -2376,7 +2376,7 @@ static term_t check_accu_biteq_simplifies(term_t a, term_t b, term_t c) {
 
   // first check whether (eq b c) simplifies
   eq = check_biteq_simplifies(b, c);
-  if (eq != NULL_TERM) return NULL_TERM;
+  if (eq == NULL_TERM) return NULL_TERM;
 
   /*
    * try to simplify (and a eq)
