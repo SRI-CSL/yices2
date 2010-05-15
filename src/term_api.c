@@ -2384,7 +2384,7 @@ static term_t check_accu_biteq_simplifies(term_t a, term_t b, term_t c) {
   assert(a != false_term && eq != false_term);
 
   if (a == eq) return a;
-  if (opposite_bool_terms(a, eq)) return false;
+  if (opposite_bool_terms(a, eq)) return false_term;
 
   if (a == true_term) return eq;
   if (eq == true_term) return a;
