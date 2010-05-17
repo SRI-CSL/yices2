@@ -46,6 +46,29 @@ static void print_benchmark(FILE *f, smt_benchmark_t *bench) {
 }
 #endif
 
+
+/*
+ * Temporary test. Check whether one of the input assertion is reduced
+ * to false by simplification. This is checked independent of the
+ * logic label.
+ */
+static bool benchmark_reduced_to_false(smt_benchmark_t *bench) {
+  uint32_t i, n;
+  term_t f;
+
+  n = bench->nformulas;
+  for (i=0; i<n; i++) {
+    f = bench->formulas[i];
+    assert(is_boolean_term(__yices_globals.terms, f));
+    if (f == false_term) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
 static void dump_benchmark(FILE *f, smt_benchmark_t *bench) {
   uint32_t i, n;
 
@@ -99,9 +122,15 @@ int main(int argc, char *argv[]) {
   init_benchmark(&bench);
   code = parse_smt_benchmark(&parser, &bench);
   if (code == 0) {
-    printf("No syntax error found\n\n");
+    printf("No syntax error found\n");
     //    print_benchmark(stdout, &bench);
   }
+
+  if (benchmark_reduced_to_false(&bench)) {
+    printf("Reduced to false\n\nunsat\n");
+    fflush(stdout);
+  }
+  printf("\n");
 
   time = get_cpu_time();
   mem_used = mem_size() / (1024 * 1024);

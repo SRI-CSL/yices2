@@ -1088,7 +1088,7 @@ static bool bvarray_check_addmul(ivector_t *v, uint32_t n, uint32_t *c, term_t *
   for (i=k; i<n; i++) {
     if (a[i-k] != false_term) {
       assert(v->data[i] == false_term);
-      v->data[i] = v->data[i-k];
+      v->data[i] = a[i-k];
     }
   }
 
@@ -1127,7 +1127,7 @@ static bool bvarray_check_addmul64(ivector_t *v, uint32_t n, uint64_t c, term_t 
   for (i=k; i<n; i++) {
     if (a[i-k] != false_term) {
       assert(v->data[i] == false_term);
-      v->data[i] = v->data[i-k];
+      v->data[i] = a[i-k];
     }
   }
 
