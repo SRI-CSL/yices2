@@ -149,6 +149,13 @@ extern bool arith_buffer_is_equality(arith_buffer_t *b, pprod_t **r1, pprod_t **
 
 
 /*
+ * Check whether b is of the form 1 * X for a non-null power-product X
+ * If so return X in *r
+ */
+extern bool arith_buffer_is_product(arith_buffer_t *b, pprod_t **r);
+
+
+/*
  * Get degree of polynomial in buffer b.
  * - b must be normalized
  * - returns 0 if b is zero

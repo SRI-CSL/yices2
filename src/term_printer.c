@@ -404,9 +404,9 @@ static const char * const tag2string[] = {
   "pprod",
   "arith-const",
   "arith-poly",
-  "arith-eq-atom",
-  "arith-ge-atom",
-  "arith-bineq-atom",
+  "arith-eq",
+  "arith-ge",
+  "arith-bineq",
   "bv64-const",
   "bv-const",
   "bv64-poly",
@@ -1095,6 +1095,7 @@ void print_term_table(FILE *f, term_table_t *tbl) {
       case FORALL_TERM:
       case OR_TERM:
       case XOR_TERM:
+      case ARITH_BINEQ_ATOM:
       case BV_ARRAY:
       case BV_DIV:
       case BV_REM:

@@ -201,6 +201,27 @@ bool arith_buffer_is_nonpos(arith_buffer_t *b) {
 
 
 /*
+ * Check whether b is of the form 1 * X for a non-null power-product X
+ * If so return X in *r
+ */
+bool arith_buffer_is_product(arith_buffer_t *b, pprod_t **r) {
+  mlist_t *p;
+
+  if (b->nterms == 1) {
+    p = b->list;
+    if (p->prod != empty_pp && q_is_one(&p->coeff)) {
+      assert(p->prod != end_pp);
+      *r = p->prod;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+
+/*
  * Check whether b is of the form a * X - a * Y
  * for a non-zero rational a and two products X and Y.
  * If so return X in *r1 and Y in *r2
@@ -230,6 +251,7 @@ bool arith_buffer_is_equality(arith_buffer_t *b, pprod_t **r1, pprod_t **r2) {
 
   return is_eq;
 }
+
 
 
 /*

@@ -792,6 +792,24 @@ term_t arith_buffer_get_term(arith_buffer_t *b) {
 
 
 /*
+ * Auxiliary function: built binary equality (t1 == t2)
+ * for two arithmetic terms t1 and t2.
+ * - normalize first
+ */
+static term_t mk_arith_bineq_atom(term_t t1, term_t t2) {
+  term_t aux;
+
+  assert(is_arithmetic_term(&terms, t1) && is_arithmetic_term(&terms, t2));
+
+  // normalize: put the smallest term on the left
+  if (t1 > t2) {
+    aux = t1; t1 = t2; t2 = aux;
+  }
+
+  return arith_bineq_atom(&terms, t1, t2);  
+}
+
+/*
  * Construct the atom (b == 0) then reset b.
  *
  * Normalize b first.
@@ -802,36 +820,79 @@ term_t arith_buffer_get_term(arith_buffer_t *b) {
  *   and return the atom (t == 0).
  */
 term_t arith_buffer_get_eq0_atom(arith_buffer_t *b) {
+  mlist_t *m1, *m2;
   pprod_t *r1, *r2;
   term_t t1, t2, t;
+  uint32_t n;
 
   assert(b->ptbl == &pprods);
 
   arith_buffer_normalize(b);
 
-  if (arith_buffer_is_zero(b)) {
-    t = true_term;
-  } else if (arith_buffer_is_nonzero(b)) {
-    t = false_term;
-  } else {
-    r1 = empty_pp;
-    r2 = empty_pp;
-    if (arith_buffer_is_equality(b, &r1, &r2)) {
-      // convert to (t1 == t2)
-      t1 = pp_is_var(r1) ? var_of_pp(r1) : pprod_term(&terms, r1);
-      t2 = pp_is_var(r2) ? var_of_pp(r2) : pprod_term(&terms, r2);
-    
-      // normalize
-      if (t1 > t2) {
-	t = t1; t1 = t2; t2 = t;
-      }
+  n = b->nterms;
+  if (n == 0) {
+    // b is zero
+    t = true_term; 
 
-      t = arith_bineq_atom(&terms, t1, t2);
+  } else if (n == 1) {
+    /*
+     * b is a1 * r1 with a_1 != 0
+     * (a1 * r1 == 0) is false if r1 is the empty product
+     * (a1 * r1 == 0) simplifies to (r1 == 0) otherwisw
+     */
+    m1 = b->list; 
+    r1 = m1->prod;  
+    assert(q_is_nonzero(&m1->coeff));
+    if (r1 == empty_pp) {
+      t = false_term;
     } else {
-      t = arith_poly(&terms, b);
-      t = arith_eq_atom(&terms, t);
+      t1 = pp_is_var(r1) ? var_of_pp(r1) : pprod_term(&terms, r1);
+      t = mk_arith_bineq_atom(zero_term, t1); // atom r1 = 0
     }
+
+  } else if (n == 2) {
+    /*
+     * b is a1 * r1 + a2 * r2
+     * Simplifications:
+     * - rewrite (b == 0) to (r2 == -a2/a1) if r1 is the empty product
+     * - rewrite (b == 0) to (r1 == r2) is a1 + a2 = 0
+     */
+    m1 = b->list;
+    r1 = m1->prod;
+    m2 = m1->next;
+    r2 = m2->prod;
+    assert(q_is_nonzero(&m1->coeff) && q_is_nonzero(&m2->coeff));
+
+    if (r1 == empty_pp) {
+      q_set_neg(&r0, &m2->coeff);
+      q_div(&r0, &m1->coeff);  // r0 is -a2/a1
+      t1 = arith_constant(&terms, &r0);
+      t2 = pp_is_var(r2) ? var_of_pp(r2) : pprod_term(&terms, r2);
+      t = mk_arith_bineq_atom(t1, t2);
+
+    } else {
+      q_set(&r0, &m1->coeff);
+      q_add(&r0, &m2->coeff);
+      if (q_is_zero(&r0)) {
+	t1 = pp_is_var(r1) ? var_of_pp(r1) : pprod_term(&terms, r1);
+	t2 = pp_is_var(r2) ? var_of_pp(r2) : pprod_term(&terms, r2);
+	t = mk_arith_bineq_atom(t1, t2);
+
+      } else {
+	// no simplification
+	t = arith_poly(&terms, b);
+	t = arith_eq_atom(&terms, t);
+      }
+    }
+
+  } else {
+    /*
+     * more than 2 monomials: don't simplify
+     */
+    t = arith_poly(&terms, b);
+    t = arith_eq_atom(&terms, t);    
   }
+
 
   arith_buffer_reset(b);
   assert(good_term(&terms, t) && is_boolean_term(&terms, t));
@@ -848,19 +909,51 @@ term_t arith_buffer_get_eq0_atom(arith_buffer_t *b) {
  * - otherwise term t from b and return the atom (t >= 0)
  */
 term_t arith_buffer_get_geq0_atom(arith_buffer_t *b) {
+  mlist_t *m;
+  pprod_t *r;
   term_t t;
+  uint32_t n;
 
   assert(b->ptbl == &pprods);
 
   arith_buffer_normalize(b);
 
-  if (arith_buffer_is_nonneg(b)) {
+  n = b->nterms;
+  if (n == 0) {
+    // b is zero
     t = true_term;
-  } else if (arith_buffer_is_neg(b)) {
-    t = false_term;
+  } else if (n == 1) {
+    /*
+     * b is a * r with a != 0
+     * if r is the empty product, (b >= 0) simplifies to true or false
+     * otherwise, (b >= 0) simplfies either to r >= 0 or -r >= 0
+     */
+    m = b->list;
+    r = m->prod;
+    if (q_is_pos(&m->coeff)) {
+      // a > 0
+      if (r == empty_pp) {
+	t = true_term;
+      } else {
+	t = pp_is_var(r) ? var_of_pp(r) : pprod_term(&terms, r);
+	t = arith_geq_atom(&terms, t); // r >= 0
+      }
+    } else {
+      // a < 0
+      if (r == empty_pp) {
+	t = false_term;
+      } else {
+	q_set_minus_one(&m->coeff); // force a := -1
+	t = arith_poly(&terms, b);
+	t = arith_geq_atom(&terms, t);
+      }
+    }
+
   } else {
+    // no simplification (for now).
+    // could try to reduce the coefficients?
     t = arith_poly(&terms, b);
-    t = arith_geq_atom(&terms, t);
+    t = arith_geq_atom(&terms, t);    
   }
 
   arith_buffer_reset(b);
@@ -874,26 +967,10 @@ term_t arith_buffer_get_geq0_atom(arith_buffer_t *b) {
  * Atom (b <= 0): rewritten to (-b >= 0)
  */
 term_t arith_buffer_get_leq0_atom(arith_buffer_t *b) {
-  term_t t;
-
   assert(b->ptbl == &pprods);
 
-  arith_buffer_normalize(b);
-
-  if (arith_buffer_is_nonpos(b)) {
-    t = true_term;
-  } else if (arith_buffer_is_pos(b)) {
-    t = false_term;
-  } else {
-    arith_buffer_negate(b); // b remains normalized
-    t = arith_poly(&terms, b);
-    t = arith_geq_atom(&terms, t);
-  }
-
-  arith_buffer_reset(b);
-  assert(good_term(&terms, t) && is_boolean_term(&terms, t));
-
-  return t;
+  arith_buffer_negate(b);
+  return arith_buffer_get_geq0_atom(b);
 }
 
 
