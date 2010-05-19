@@ -5087,6 +5087,7 @@ EXPORTED term_t yices_bvextract(term_t t, uint32_t i, uint32_t j) {
     return NULL_TERM;
   }
 
+  // FIX THIS
   b = get_internal_bvlogic_buffer();
   bvlogic_buffer_set_term(b, &terms, t);
   bvlogic_buffer_extract_subvector(b, i, j);

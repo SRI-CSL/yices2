@@ -263,7 +263,7 @@ CFLAGS := $(CFLAGS) -O3 $(PIC) -pg
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),gcov)
-CFLAGS := $(CFLAGS) -fprofile-arcs -ftest-coverage $(PIC)
+CFLAGS := $(CFLAGS) -O3 -fprofile-arcs -ftest-coverage $(PIC)
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(findstring $(YICES_MODE),valgrind quantify purify),$(YICES_MODE))

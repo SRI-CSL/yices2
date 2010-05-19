@@ -61,6 +61,9 @@
  * we want to allow the user to give different names to t and (not t).
  */
 
+// #include <inttypes.h>
+// #include <stdio.h>
+
 #include "memalloc.h"
 #include "refcount_strings.h"
 #include "hash_functions.h"
@@ -68,7 +71,7 @@
 
 #include "terms.h"
 
-
+// static FILE *trace;
 
 /*
  * Finalizer for term names in the symbol table.
@@ -115,6 +118,12 @@ static void term_table_init(term_table_t *table, uint32_t n, type_table_t *ttbl,
   // buffers
   init_ivector(&table->ibuffer, 20);
   init_pvector(&table->pbuffer, 20);
+
+  //  trace = fopen("trace.txt", "w");
+  //  if (trace == NULL ) {
+  //    perror("trace.txt");
+  //    exit(0);
+  //  }
 }
 
 
@@ -404,10 +413,13 @@ static uint32_t hash_rational_term(term_kind_t tag, type_t tau, rational_t *a) {
  * Generic composite term: (tag, arity, arg[0] ... arg[n-1])
  */
 static uint32_t hash_composite_term(term_kind_t tag, uint32_t n, term_t *a) {
-  uint32_t h;
+  // uint32_t h, r;
 
-  h = jenkins_hash_intarray(a, n);
-  return jenkins_hash_pair(tag, h, 0x8ede2341);
+  //  h = jenkins_hash_intarray(a, n);
+  //  r = jenkins_hash_pair(tag, h, 0x8ede2341);
+  //  fprintf(trace, "%2"PRIu32" %4"PRIu32" %12"PRIu32"\n", tag, n, r);
+
+  return jenkins_hash_array((uint32_t *) a, n, (uint32_t) (0x8ede2341 + tag));
 }
 
 
@@ -860,7 +872,12 @@ static bool eq_select_hobj(select_term_hobj_t *o, int32_t i) {
   if (table->kind[i] != o->tag) return false;
 
   d = table->desc[i].ptr;
-  return d->idx == o->k && d->arg == o->arg;
+  //  return d->idx == o->k && d->arg == o->arg;
+  if (d->idx == o->k && d->arg == o->arg) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 static bool eq_pprod_hobj(pprod_term_hobj_t *o, int32_t i) {
@@ -1643,6 +1660,8 @@ static void delete_term_descriptors(term_table_t *table) {
  * Delete table
  */
 void delete_term_table(term_table_t *table) {
+  //  fclose(trace);
+
   delete_name_table(&table->ntbl);
   delete_term_descriptors(table);
   delete_int_hmap(&table->utbl);

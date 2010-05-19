@@ -4292,6 +4292,8 @@ static void eval_mk_bv_extract(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   i = get_integer(stack, f);        // end index
   j = get_integer(stack, f+1);      // start index
   b = tstack_get_bvlbuffer(stack);  // vector
+
+  // FIX THIS  
   bvl_set_elem(stack, b, f+2);
   if (! yices_check_bitextract(b, j, i)) {
     report_yices_error(stack);
