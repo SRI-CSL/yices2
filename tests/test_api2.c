@@ -1466,7 +1466,7 @@ int main(void) {
   show_terms();
 
   printf("\n\n*** Random tests ***\n");
-  random_tests(100);
+  random_tests(10000);
   printf("\n****\n\n");
 
   test_error_codes();

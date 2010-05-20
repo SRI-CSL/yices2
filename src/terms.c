@@ -235,6 +235,27 @@ static int32_t new_rational_term(term_table_t *table, term_kind_t tag, type_t ta
 }
 
 
+/*
+ * Select k t: for tuple projection or bitvector selection.
+ * - tag = kind
+ * - tau = type
+ * - k = select index
+ * - t = select argument
+ */
+static int32_t new_select_term(term_table_t *table, term_kind_t tag, type_t tau, uint32_t k, term_t t) {
+  int32_t i;
+
+  i = allocate_term_id(table);
+  table->kind[i] = tag;
+  table->type[i] = tau;
+  table->desc[i].select.idx = k;
+  table->desc[i].select.arg = t;
+
+  return i;
+}
+
+
+
 
 /*
  * TERM DESCRIPTORS
@@ -328,20 +349,6 @@ static composite_term_t *new_forall_term(uint32_t n, term_t *v, term_t p) {
     d->arg[j] = v[j];
   }
   d->arg[j] = p;
-
-  return d;
-}
-
-
-/*
- * Select k t: for tuple projection or bitvector selection
- */
-static select_term_t *new_select_term(uint32_t k, term_t t) {
-  select_term_t *d;
-
-  d = (select_term_t *) safe_malloc(sizeof(select_term_t));
-  d->idx = k;
-  d->arg = t;
 
   return d;
 }
@@ -871,13 +878,8 @@ static bool eq_select_hobj(select_term_hobj_t *o, int32_t i) {
 
   if (table->kind[i] != o->tag) return false;
 
-  d = table->desc[i].ptr;
-  //  return d->idx == o->k && d->arg == o->arg;
-  if (d->idx == o->k && d->arg == o->arg) {
-    return true;
-  } else {
-    return false;
-  }
+  d = &table->desc[i].select;
+  return d->idx == o->k && d->arg == o->arg;
 }
 
 static bool eq_pprod_hobj(pprod_term_hobj_t *o, int32_t i) {
@@ -987,10 +989,7 @@ static int32_t build_forall_hobj(forall_term_hobj_t *o) {
 }
 
 static int32_t build_select_hobj(select_term_hobj_t *o) {
-  select_term_t *d;
-
-  d = new_select_term(o->k, o->arg);
-  return new_ptr_term(o->tbl, o->tag, o->tau, d);
+  return new_select_term(o->tbl, o->tag, o->tau, o->k, o->arg);
 }
 
 static int32_t build_pprod_hobj(pprod_term_hobj_t *o) {
@@ -1451,10 +1450,9 @@ static void delete_term(term_table_t *table, int32_t i) {
 
   case SELECT_TERM:
   case BIT_TERM:
-    // Select terms
-    s = table->desc[i].ptr;
+    // Select terms: nothing to delete.
+    s = &table->desc[i].select;
     h = hash_select_term(table->kind[i], s->idx, s->arg);
-    safe_free(s);
     break;
 
   case POWER_PRODUCT:
@@ -1599,19 +1597,19 @@ static void delete_term_descriptors(term_table_t *table) {
     case POWER_PRODUCT:
     case ARITH_EQ_ATOM:
     case ARITH_GE_ATOM:
+    case SELECT_TERM:
+    case BIT_TERM:
       break;
 
     case ITE_TERM:
     case APP_TERM:
     case UPDATE_TERM:
     case TUPLE_TERM:
-    case SELECT_TERM:
     case EQ_TERM:
     case DISTINCT_TERM:
     case FORALL_TERM:
     case OR_TERM:
     case XOR_TERM:
-    case BIT_TERM:
     case ARITH_BINEQ_ATOM:
     case BV64_CONSTANT:
     case BV_CONSTANT:
@@ -2799,7 +2797,7 @@ static void mark_reachable_terms(term_table_t *table, int32_t ptr, int32_t i) {
   case SELECT_TERM:
   case BIT_TERM:
     // i's descriptor is a select term
-    mark_select_term(table, ptr, table->desc[i].ptr);
+    mark_select_term(table, ptr, &table->desc[i].select);
     break;
 
   case POWER_PRODUCT:

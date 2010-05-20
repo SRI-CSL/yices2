@@ -496,9 +496,9 @@ int main(void) {
   show_terms();
   printf("\n\n");
 
-  random_binary_tests(200);
-  random_nary_tests(1000);
-  random_ite(300);
+  random_binary_tests(1000);
+  random_nary_tests(3000);
+  random_ite(3000);
 
   show_terms();
 

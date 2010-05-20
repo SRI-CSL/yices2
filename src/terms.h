@@ -310,12 +310,14 @@ typedef struct bvconst64_term_s {
  * Descriptor: one of
  * - integer index for constant terms and variables
  * - rational constant
- * - ptr to a composite, polynomial, or power-product
+ * - pair  (idx, arg) for select term
+ * - ptr to a composite, polynomial, power-product, or bvconst
  */
 typedef union {
   int32_t integer;
   void *ptr;
   rational_t rational;
+  select_term_t select;
 } term_desc_t;
 
  
@@ -937,7 +939,7 @@ static inline composite_term_t *composite_for_idx(term_table_t *table, int32_t i
 
 static inline select_term_t *select_for_idx(term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
-  return (select_term_t *) table->desc[i].ptr;
+  return &table->desc[i].select;
 }
 
 static inline pprod_t *pprod_for_idx(term_table_t *table, int32_t i) {
@@ -1053,7 +1055,11 @@ static inline uint32_t term_bitsize(term_table_t *table, term_t t) {
 
 
 /*
- * Descriptor of term t 
+ * Descriptor of term t.
+ *
+ * NOTE: select_term_desc, bit_term_desc, and rational_term_desc
+ * should be used with care. They return a pointer that may become
+ * invalid if new terms are added to the table.
  */
 static inline int32_t constant_term_index(term_table_t *table, term_t t) {
   assert(term_kind(table, t) == CONSTANT_TERM);
@@ -1084,7 +1090,6 @@ static inline pprod_t *pprod_term_desc(term_table_t *table, term_t t) {
   return pprod_for_idx(table, index_of(t));
 }
 
-// use with care. The pointer is valid provided no new term is added to the table.
 static inline rational_t *rational_term_desc(term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_CONSTANT);
   return rational_for_idx(table, index_of(t));
@@ -1130,7 +1135,7 @@ static inline term_t composite_term_arg(term_table_t *table, term_t t, uint32_t 
   return composite_term_desc(table, t)->arg[i];
 }
 
-// index of a select term t 
+// index of a select term t
 static inline uint32_t select_term_index(term_table_t *table, term_t t) {
   return select_term_desc(table, t)->idx;
 }
@@ -1152,9 +1157,8 @@ static inline term_t bit_term_arg(term_table_t *table, term_t t) {
 
 
 /*
- * All the following functions are equivalent to composite_term_desc
- * or select_term_desc, but, when debugging is enabled, they also check
- * that the term kind is consistent.
+ * All the following functions are equivalent to composite_term_desc, but, 
+ * when debugging is enabled, they also check that the term kind is consistent.
  */
 static inline composite_term_t *ite_term_desc(term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ITE_TERM);

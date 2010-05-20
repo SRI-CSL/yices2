@@ -691,7 +691,7 @@ static void print_term_idx_recur(FILE *f, term_table_t *tbl, int32_t i, int32_t 
 
     case SELECT_TERM:
     case BIT_TERM:
-      print_select_term(f, tbl, tbl->kind[i], tbl->desc[i].ptr, level - 1);
+      print_select_term(f, tbl, tbl->kind[i], &tbl->desc[i].select, level - 1);
       break;
 
     case POWER_PRODUCT:
@@ -1114,7 +1114,7 @@ void print_term_table(FILE *f, term_table_t *tbl) {
 
       case SELECT_TERM:
       case BIT_TERM:
-	print_select(f, tbl, tbl->kind[i], tbl->desc[i].ptr);
+	print_select(f, tbl, tbl->kind[i], &tbl->desc[i].select);
 	break;
 
       case POWER_PRODUCT:
