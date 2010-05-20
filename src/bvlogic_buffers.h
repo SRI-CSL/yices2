@@ -178,11 +178,32 @@ extern void bvlogic_buffer_set_term(bvlogic_buffer_t *b, term_table_t *table, te
 /*
  * Initialize b with n boolean terms: a[0] ... a[n-1]
  * - n must be positive
- * - each element of array a must be a boolean term defined in 'table'
+ * - each element of array a must be a boolean term defined in table
  * - a[0] = low order bit
  *   a[n] = high order bit
  */
 extern void bvlogic_buffer_set_term_array(bvlogic_buffer_t *b, term_table_t *table, uint32_t n, term_t *a);
+
+
+
+/*
+ * SLICE ASSIGNMENT
+ */
+
+/*
+ * Given a bitvector u of n bits, the following functions store
+ * bits[i ... j] of u into b.
+ * - i and j must satisfy 0 <= i <= j < n.
+ *
+ * The parameters c, a, t are as in the assignment operations above.
+ */
+extern void bvlogic_buffer_set_slice_constant64(bvlogic_buffer_t *b, uint32_t i, uint32_t j, uint64_t c);
+extern void bvlogic_buffer_set_slice_constant(bvlogic_buffer_t *b, uint32_t i, uint32_t j, uint32_t *c);
+extern void bvlogic_buffer_set_slice_bitarray(bvlogic_buffer_t *b, uint32_t i, uint32_t j, bit_t *a);
+extern void bvlogic_buffer_set_slice_term_array(bvlogic_buffer_t *b, term_table_t *table, uint32_t i, uint32_t j, term_t *a);
+
+extern void bvlogic_buffer_set_slice_term(bvlogic_buffer_t *b, term_table_t *table, uint32_t i, uint32_t j, term_t t);
+
 
 
 /*
@@ -422,6 +443,13 @@ static inline void bvlogic_buffer_set_buffer(bvlogic_buffer_t *b, bvlogic_buffer
   assert(b != b2);
   bvlogic_buffer_set_bitarray(b, b2->bitsize, b2->bit);
 }
+
+static inline void bvlogic_buffer_set_slice_buffer(bvlogic_buffer_t *b, uint32_t i, uint32_t j, bvlogic_buffer_t *b2) {
+  assert(b != b2);
+  bvlogic_buffer_set_slice_bitarray(b, i, j, b2->bit);
+}
+
+
 
 static inline void bvlogic_buffer_and_buffer(bvlogic_buffer_t *b, bvlogic_buffer_t *b2) {
   assert(b != b2);

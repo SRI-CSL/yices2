@@ -1323,7 +1323,7 @@ static bool check_invalid_tuple_index(term_t t, type_t tau, uint32_t i) {
   error_report_t *rep;
 
   rep = yices_error_report();
-  return t == NULL_TERM && yices_error_code() == INVALID_TUPLE_INDEX && rep->badval == i &&
+  return t == NULL_TERM && yices_error_code() == INVALID_TUPLE_INDEX && rep->badidx == i &&
     rep->type1 == tau;
 }
 
@@ -1466,7 +1466,7 @@ int main(void) {
   show_terms();
 
   printf("\n\n*** Random tests ***\n");
-  random_tests(100000);
+  random_tests(100);
   printf("\n****\n\n");
 
   test_error_codes();

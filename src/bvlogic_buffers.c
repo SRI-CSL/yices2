@@ -256,6 +256,7 @@ void bvlogic_buffer_set_allbits(bvlogic_buffer_t *b, uint32_t n, bit_t bit) {
   }
 }
 
+// v is interpreted as a bit-vector variable
 static void bvlogic_buffer_set_bv(bvlogic_buffer_t *b, uint32_t n, int32_t v) {
   uint32_t i;
 
@@ -281,6 +282,101 @@ void bvlogic_buffer_set_term_array(bvlogic_buffer_t *b, term_table_t *table, uin
     b->bit[i] = convert_term_to_bit(table, b->nodes, a[i]);
   }
 }
+
+
+
+
+/*
+ * SLICE ASSIGNMENT
+ */
+
+/*
+ * Given a bitvector u of n bits, the following functions store
+ * bits[i ... j] of u into b.
+ * - i and j must satisfy 0 <= i <= j < n.
+ *
+ * The parameters c, a, t are as in the assignment operations above.
+ */
+void bvlogic_buffer_set_slice_constant64(bvlogic_buffer_t *b, uint32_t i, uint32_t j, uint64_t c) {
+  uint32_t k;
+
+  assert(i <= j && j < 64);
+
+  resize_bvlogic_buffer(b, j - i + 1);
+
+  k = 0;
+  do {
+    b->bit[k] = bit_constant(tst_bit64(c, i));
+    k ++;
+    i ++;
+  } while (i <= j);
+} 
+
+void bvlogic_buffer_set_slice_constant(bvlogic_buffer_t *b, uint32_t i, uint32_t j, uint32_t *c) {
+  uint32_t k;
+
+  assert(i <= j);
+
+  resize_bvlogic_buffer(b, j - i + 1);
+
+  k = 0;
+  do {
+    b->bit[k] = bit_constant(bvconst_tst_bit(c, i));
+    k ++;
+    i ++;    
+  } while (i <= j);
+}
+
+void bvlogic_buffer_set_slice_bitarray(bvlogic_buffer_t *b, uint32_t i, uint32_t j, bit_t *a) {
+  uint32_t k;
+
+  assert(i <= j);
+
+  resize_bvlogic_buffer(b, j - i + 1);
+
+  k = 0;
+  do {
+    b->bit[k] = a[i];
+    k ++;
+    i ++;
+  } while (i <= j);
+}
+
+// v = bitvector variable
+static void bvlogic_buffer_set_slice_bv(bvlogic_buffer_t *b, uint32_t i, uint32_t j, int32_t v) {
+  uint32_t k;
+
+  assert(i <= j);
+
+  resize_bvlogic_buffer(b, j - i + 1);
+
+  k = 0;
+  do {
+    b->bit[k] = node_table_alloc_select(b->nodes, i, v);
+    k ++;
+    i ++;
+  } while (i <= j);  
+}
+
+
+// boolean terms a[i] ... a[j]
+void bvlogic_buffer_set_slice_term_array(bvlogic_buffer_t *b, term_table_t *table, uint32_t i, uint32_t j, term_t *a) {
+  uint32_t k;
+
+  assert(i <= j);
+
+  resize_bvlogic_buffer(b, j - i + 1);
+
+  k = 0;
+  do {
+    b->bit[k] = convert_term_to_bit(table, b->nodes, a[i]);
+    k ++; 
+    i ++;
+  } while (i <= j);
+}
+
+
+
 
 
 /*
@@ -1189,10 +1285,10 @@ static void bvlogic_buffer_comp_term_array(bvlogic_buffer_t *b, term_table_t *ta
 }
 
 
+
 /*
  * OPERATIONS WITH BIT-VECTOR TERMS AS OPERANDS
  */
-
 
 /*
  * Copy t into buffer b
@@ -1230,6 +1326,46 @@ void bvlogic_buffer_set_term(bvlogic_buffer_t *b, term_table_t *table, term_t t)
     break;
   }  
 }
+
+
+/*
+ * Copy bits i ... j of t into b
+ */
+void bvlogic_buffer_set_slice_term(bvlogic_buffer_t *b, term_table_t *table, uint32_t i, uint32_t j, term_t t) {
+  bvconst64_term_t *c64;
+  bvconst_term_t *c;
+  composite_term_t *d;
+  int32_t k;
+
+  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && i <= j);
+
+  k = index_of(t);
+  switch (table->kind[k]) {
+  case BV64_CONSTANT:
+    c64 = bvconst64_for_idx(table, k);
+    assert(j < c64->bitsize);
+    bvlogic_buffer_set_slice_constant64(b, i, j, c64->value);
+    break;
+
+  case BV_CONSTANT:
+    c = bvconst_for_idx(table, k);
+    assert(j < c->bitsize);
+    bvlogic_buffer_set_slice_constant(b, i, j, c->data);
+    break;
+
+  case BV_ARRAY:
+    d = composite_for_idx(table, k);
+    assert(j < d->arity);
+    bvlogic_buffer_set_slice_term_array(b, table, i, j, d->arg);
+    break;
+
+  default:
+    assert(j < bitsize_for_idx(table, k));
+    bvlogic_buffer_set_slice_bv(b, i, j, t);
+    break;
+  }
+}
+
 
 
 

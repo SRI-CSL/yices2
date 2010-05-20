@@ -274,11 +274,11 @@ extern bool yices_check_bitshift(bvlogic_buffer_t *b, int32_t s);
 
 
 /*
- * Check whether [i, j] is a valid segment for buffer b
- * - return true if 0 <= i <= j <= b->bitsize
+ * Check whether [i, j] is a valid segment for a bitvector of size n
+ * - return true if 0 <= i <= j < n
  * - otherwise set the error report and return false.
  */
-extern bool yices_check_bitextract(bvlogic_buffer_t *b, int32_t i, int32_t j);
+extern bool yices_check_bvextract(uint32_t n, int32_t i, int32_t j);
 
 
 /*

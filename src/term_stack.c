@@ -2400,6 +2400,57 @@ static void bvl_set_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) 
 
 
 /*
+ * Copy element segment [i .. j] of e into bvlogic buffer b
+ * Raise an exception if e is not a bitvector.
+ * - i and j must be valid (i.e., 0 <= i <= j < e's bitsize)
+ */
+static void bvl_set_slice_elem(tstack_t *stack, bvlogic_buffer_t *b, uint32_t i, uint32_t j, stack_elem_t *e) {
+  term_t t;
+
+  assert(i <= j);
+
+  switch (e->tag) {
+  case TAG_BV64:
+    assert(j < e->val.bv64.bitsize);
+    bvlogic_buffer_set_slice_constant64(b, i, j, e->val.bv64.value);
+    break;
+    
+  case TAG_BV:
+    assert(j < e->val.bv.bitsize);
+    bvlogic_buffer_set_slice_constant(b, i, j, e->val.bv.data);
+    break;
+
+  case TAG_TERM:
+    t = e->val.term;
+    if (! yices_check_bv_term(t)) { // not a bitvector
+      report_yices_error(stack);
+    }
+    bvlogic_buffer_set_slice_term(b, __yices_globals.terms, i, j, t);
+    break;
+
+  case TAG_BVARITH64_BUFFER:
+    t = bvarith64_buffer_get_term(e->val.bvarith64_buffer);
+    bvlogic_buffer_set_slice_term(b, __yices_globals.terms, i, j, t);
+    break;
+    
+  case TAG_BVARITH_BUFFER:
+    t = bvarith_buffer_get_term(e->val.bvarith_buffer);
+    bvlogic_buffer_set_slice_term(b, __yices_globals.terms, i, j, t);
+    break;
+
+  case TAG_BVLOGIC_BUFFER:
+    bvlogic_buffer_set_slice_buffer(b, i, j, e->val.bvlogic_buffer);
+    break;
+
+  default:
+    raise_exception(stack, e, TSTACK_BVLOGIC_ERROR);
+    break;
+  }
+}
+
+
+
+/*
  * Check whether e is a bitvector constant
  */
 static bool elem_is_bvconst(stack_elem_t *e) {
@@ -4285,22 +4336,28 @@ static void check_mk_bv_extract(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_bv_extract(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  int32_t i, j;
   bvlogic_buffer_t *b;
+  int32_t i, j;
+  uint32_t size;
 
   // the syntax is (bv-extract end begin bv)
   i = get_integer(stack, f);        // end index
   j = get_integer(stack, f+1);      // start index
-  b = tstack_get_bvlbuffer(stack);  // vector
-
-  // FIX THIS  
-  bvl_set_elem(stack, b, f+2);
-  if (! yices_check_bitextract(b, j, i)) {
+  size = elem_bitsize(stack, f+2);  // vector 
+  if (! yices_check_bvextract(size, j, i)) {
     report_yices_error(stack);
   }
-  bvlogic_buffer_extract_subvector(b, j, i);
-  tstack_pop_frame(stack);
-  set_bvlogic_result(stack, b);
+
+  if (i == 0 && j == size-1) {
+    // (bv-extract 0 size-1 bv) = bv
+    copy_result_and_pop_frame(stack, f+2);
+  } else {
+    // copy slice [i .. j] into b
+    b = tstack_get_bvlbuffer(stack);    
+    bvl_set_slice_elem(stack, b, j, i, f+2);
+    tstack_pop_frame(stack);
+    set_bvlogic_result(stack, b);
+  }
 }
 
 

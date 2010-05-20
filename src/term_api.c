@@ -5080,19 +5080,25 @@ EXPORTED term_t yices_rotate_right(term_t t, uint32_t n) {
  */
 EXPORTED term_t yices_bvextract(term_t t, uint32_t i, uint32_t j) {
   bvlogic_buffer_t *b;
+  uint32_t n;
 
   if (! check_good_term(&terms, t) ||
-      ! check_bitvector_term(&terms, t) ||
-      ! check_bitextract(i, j, term_bitsize(&terms, t))) {
+      ! check_bitvector_term(&terms, t)) {
     return NULL_TERM;
   }
 
-  // FIX THIS
-  b = get_internal_bvlogic_buffer();
-  bvlogic_buffer_set_term(b, &terms, t);
-  bvlogic_buffer_extract_subvector(b, i, j);
+  n = term_bitsize(&terms, t);
+  if (! check_bitextract(i, j, n)) {
+    return NULL_TERM;
+  }
 
-  return bvlogic_buffer_get_term(b);
+  if (i == 0 && j == n-1) {
+    return t;
+  } else {
+    b = get_internal_bvlogic_buffer();
+    bvlogic_buffer_set_slice_term(b, &terms, i, j, t);
+    return bvlogic_buffer_get_term(b);
+  }
 }
 
 
@@ -6273,12 +6279,12 @@ bool yices_check_bitshift(bvlogic_buffer_t *b, int32_t s) {
 
 
 /*
- * Check whether [i, j] is a valid segment for buffer b
- * - return true if 0 <= i <= j <= b->bitsize
+ * Check whether [i, j] is a valid segment for a vector of n bits
+ * - return true if 0 <= i <= j <= n
  * - otherwise set the error report and return false.
  */
-bool yices_check_bitextract(bvlogic_buffer_t *b, int32_t i, int32_t j) {
-  if (i < 0 || i > j || j >= bvlogic_buffer_bitsize(b)) {
+bool yices_check_bvextract(uint32_t n, int32_t i, int32_t j) {
+  if (i < 0 || i > j || j >= n) {
     error.code = INVALID_BVEXTRACT;
     return false;
   }

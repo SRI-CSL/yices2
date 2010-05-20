@@ -19,25 +19,9 @@ extern uint32_t jenkins_hash_byte_var(uint8_t *s, uint32_t seed);
 
 
 /*
- * Hash of an array of n small integers
- * - this works best if the high-order bits of d[0 ... n-1] are zero
- */
-extern uint32_t jenkins_hash_array_var(uint32_t *d, uint32_t n, uint32_t seed);
-
-
-/*
  * Hash of an array of n integers 
- * - use this when the integers are not known to be small
  */
 extern uint32_t jenkins_hash_array(uint32_t *d, uint32_t n, uint32_t seed);
-
-/*
- * Hash functions for pairs, triple, and 4-tuples of (small) integers.
- * - this works best if the 16 high-order bits of a, b, c, d are zero.
- */
-extern uint32_t jenkins_hash_pair(int32_t a, int32_t b, uint32_t seed);
-extern uint32_t jenkins_hash_triple(int32_t a, int32_t b, int32_t c, uint32_t seed);
-extern uint32_t jenkins_hash_quad(int32_t a, int32_t b, int32_t c, int32_t d, uint32_t seed);
 
 
 /*
@@ -51,10 +35,20 @@ extern uint32_t jenkins_hash_ptr(void *p);
  */
 extern uint32_t jenkins_hash_uint32(uint32_t x);
 
+
 /*
  * Hash code for a 64bit integer
  */
 extern uint32_t jenkins_hash_uint64(uint64_t x);
+
+
+
+/*
+ * Hash functions for pairs, triple, and 4-tuples of integers.
+ */
+extern uint32_t jenkins_hash_pair(uint32_t a, uint32_t b, uint32_t seed);
+extern uint32_t jenkins_hash_triple(uint32_t a, uint32_t b, uint32_t c, uint32_t seed);
+extern uint32_t jenkins_hash_quad(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t seed);
 
 
 /*
@@ -78,17 +72,17 @@ static inline uint32_t jenkins_hash_string(char * s) {
 }
 
 /*
- * Hash of an array of small signed integers, default seed,
+ * Hash of an array of signed integers, default seed,
  */
 static inline uint32_t jenkins_hash_intarray(int32_t *d, uint32_t n) {
-  return jenkins_hash_array_var((uint32_t *) d, n, 0x17836abc);
+  return jenkins_hash_array((uint32_t *) d, n, 0x17836abc);
 }
 
 /*
- * Array of small signed integers, user-provided seed
+ * Array of signed integers, user-provided seed
  */
 static inline uint32_t jenkins_hash_intarray2(int32_t *d, uint32_t n, uint32_t seed) {
-  return jenkins_hash_array_var((uint32_t *) d, n, seed);
+  return jenkins_hash_array((uint32_t *) d, n, seed);
 }
 
 
