@@ -279,7 +279,7 @@ void bvlogic_buffer_set_term_array(bvlogic_buffer_t *b, term_table_t *table, uin
   resize_bvlogic_buffer(b, n);
 
   for (i=0; i<n; i++) {
-    b->bit[i] = convert_term_to_bit(table, b->nodes, a[i]);
+    b->bit[i] = convert_term_to_bit(table, b->nodes, a[i], 1);
   }
 }
 
@@ -369,7 +369,7 @@ void bvlogic_buffer_set_slice_term_array(bvlogic_buffer_t *b, term_table_t *tabl
 
   k = 0;
   do {
-    b->bit[k] = convert_term_to_bit(table, b->nodes, a[i]);
+    b->bit[k] = convert_term_to_bit(table, b->nodes, a[i], 1);
     k ++; 
     i ++;
   } while (i <= j);
@@ -595,7 +595,7 @@ static void bvlogic_buffer_and_term_array(bvlogic_buffer_t *b, term_table_t *tab
   bit = b->bit;
 
   for (i=0; i<n; i++) {
-    x = convert_term_to_bit(table, nodes, a[i]);
+    x = convert_term_to_bit(table, nodes, a[i], 1);
     bit[i] = bit_and2simplify(nodes, bit[i], x);
   }
 }
@@ -612,7 +612,7 @@ static void bvlogic_buffer_or_term_array(bvlogic_buffer_t *b, term_table_t *tabl
   bit = b->bit;
 
   for (i=0; i<n; i++) {
-    x = convert_term_to_bit(table, nodes, a[i]);
+    x = convert_term_to_bit(table, nodes, a[i], 1);
     bit[i] = bit_or2simplify(nodes, bit[i], x);
   }
 }
@@ -629,7 +629,7 @@ static void bvlogic_buffer_xor_term_array(bvlogic_buffer_t *b, term_table_t *tab
   bit = b->bit;
 
   for (i=0; i<n; i++) {
-    x = convert_term_to_bit(table, nodes, a[i]);
+    x = convert_term_to_bit(table, nodes, a[i], 1);
     bit[i] = bit_xor2simplify(nodes, bit[i], x);
   }
 }
@@ -784,7 +784,7 @@ static void bvlogic_buffer_concat_left_term_array(bvlogic_buffer_t *b, term_tabl
 
   bit = b->bit;
   for (i=0; i<n; i++) {
-    bit[i + p] = convert_term_to_bit(table, b->nodes, a[i]);
+    bit[i + p] = convert_term_to_bit(table, b->nodes, a[i], 1);
   }
 }
 
@@ -803,7 +803,7 @@ static void bvlogic_buffer_concat_right_term_array(bvlogic_buffer_t *b, term_tab
   }
 
   for (i=0; i<n; i++) {
-    bit[i] = convert_term_to_bit(table, b->nodes, a[i]);
+    bit[i] = convert_term_to_bit(table, b->nodes, a[i], 1);
   }
 }
 
@@ -1273,7 +1273,7 @@ static void bvlogic_buffer_comp_term_array(bvlogic_buffer_t *b, term_table_t *ta
    * first: set b->bit[i] := (eq b->bit[i] a[i]):
    */
   for (i=0; i<n; i++) {
-    x = convert_term_to_bit(table, b->nodes, a[i]);
+    x = convert_term_to_bit(table, b->nodes, a[i], 1);
     b->bit[i] = bit_eq2simplify(b->nodes, b->bit[i], x);
   }
 

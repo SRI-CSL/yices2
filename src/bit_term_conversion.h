@@ -24,11 +24,12 @@
  * - t must be a valid boolean term in table 'terms'
  * - nodes = table where the bit expression is 
  *   constructed
+ * - n = bound on recursive depth
  *
  * Side effect: if conversion for t is x, and x is not mapped to anything yet,
  * then map[x] is set to t in the node table.
  */
-extern bit_t convert_term_to_bit(term_table_t *terms, node_table_t *nodes, term_t t);
+extern bit_t convert_term_to_bit(term_table_t *terms, node_table_t *nodes, term_t t, uint32_t n);
 
 
 

@@ -10,13 +10,15 @@
 /*
  * Convert a boolean term t to a bit expression
  * - t must be a valid boolean term in the term table
+ * - n = recursion depth
  *
  * Side effect: if conversion for t is x, and x is not mapped to anything yet,
  * then map[x] is set to (pos_term(index_of(t)) in the node table.
  */
-bit_t convert_term_to_bit(term_table_t *table, node_table_t *nodes, term_t t) {
+bit_t convert_term_to_bit(term_table_t *table, node_table_t *nodes, term_t t, uint32_t n) {
   select_term_t *s;
-  bit_t x;
+  composite_term_t *d;
+  bit_t x, b1, b2;
   int32_t i;
 
   assert(good_term(table, t) && is_boolean_term(table, t));
@@ -31,6 +33,28 @@ bit_t convert_term_to_bit(term_table_t *table, node_table_t *nodes, term_t t) {
   case BIT_TERM:
     s = select_for_idx(table, i);
     x = node_table_alloc_select(nodes, s->idx, s->arg);
+    break;
+
+  case OR_TERM:
+    d = composite_for_idx(table, i);
+    if (n > 0 && d->arity == 2) {
+      b1 = convert_term_to_bit(table, nodes, d->arg[0], n-1);
+      b2 = convert_term_to_bit(table, nodes, d->arg[1], n-1);
+      x = bit_or2(nodes, b1, b2);      
+    } else {
+      x = node_table_alloc_var(nodes, pos_term(i));
+    }
+    break;
+
+  case XOR_TERM:
+    d = composite_for_idx(table, i);
+    if (n > 0 && d->arity == 2) {
+      b1 = convert_term_to_bit(table, nodes, d->arg[0], n-1);
+      b2 = convert_term_to_bit(table, nodes, d->arg[1], n-1);
+      x = bit_xor2(nodes, b1, b2);
+    } else {
+      x = node_table_alloc_var(nodes, pos_term(i));
+    }
     break;
 
   default:
