@@ -1,7 +1,7 @@
 /*
  * Generic parser operations. This provides utilities for constructing
  * recursive descent parsers. We use this somewhat complicated approach
- * to avoid issues with stack-overflow that can be caused by deeply
+ * to avoid issues with stack overflow that can be caused by deeply
  * nested formulas (especially in the SMT-LIB benchmarks).
  *
  * The same data structure should work for both the SMT-LIB and Yices languages.
@@ -57,12 +57,12 @@ typedef struct parser_s {
  */
 extern void init_parser(parser_t *parser, lexer_t *lex, tstack_t *tstack);
 
+
 /*
  * Delete: frees the state stack. lex and tstack must be deleted outside
  * this function.
  */
 extern void delete_parser(parser_t *parser);
-
 
 
 /*

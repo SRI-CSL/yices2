@@ -2880,9 +2880,12 @@ void term_table_gc(term_table_t *table) {
   stbl_iterate(&table->stbl, table, mark_symbol);
 
   // mark the primitive terms
-  term_table_set_gc_mark(table, const_idx);
-  term_table_set_gc_mark(table, bool_const);
-  term_table_set_gc_mark(table, zero_const);
+  //  term_table_set_gc_mark(table, const_idx);
+  //  term_table_set_gc_mark(table, bool_const);
+  //  term_table_set_gc_mark(table, zero_const);
+  set_bit(table->mark, const_idx);
+  set_bit(table->mark, bool_const);
+  set_bit(table->mark, zero_const);
 
   // propagate the marks
   mark_live_terms(table);

@@ -54,27 +54,32 @@ static void syntax_error(lexer_t *lex, token_t expected_token) {
   case TK_OPEN_STRING:
     fprintf(stderr, "missing string terminator \" (line %"PRId32", column %"PRId32")\n", 
 	    rd->line, rd->column);
-    return;
+    break;
+
   case TK_EMPTY_BVCONST:
     fprintf(stderr, "invalid binary constant %s (line %"PRId32", column %"PRId32")\n", 
 	    tkval(lex), lex->tk_line, lex->tk_column);
-    return;
+    break;
+
   case TK_EMPTY_HEXCONST:
     fprintf(stderr, "invalid hexadecimal constant %s (line %"PRId32", column %"PRId32")\n", 
 	    tkval(lex), lex->tk_line, lex->tk_column);
-    return;
+    break;
+
   case TK_INVALID_NUM:
     fprintf(stderr, "invalid number %s (line %"PRId32", column %"PRId32")\n", 
 	    tkval(lex), lex->tk_line, lex->tk_column);
-    return;
+    break;
+
   case TK_ZERO_DIVISOR:
     fprintf(stderr, "zero divisor in constant %s (line %"PRId32", column %"PRId32")\n", 
 	    tkval(lex), lex->tk_line, lex->tk_column);
-    return;
+    break;
+
   case TK_ERROR:
     fprintf(stderr, "invalid token %s (line %"PRId32", column %"PRId32")\n", 
 	    tkval(lex), lex->tk_line, lex->tk_column);
-    return;
+    break;
 
   default:
     if (expected_token != -1) {
@@ -84,6 +89,7 @@ static void syntax_error(lexer_t *lex, token_t expected_token) {
       fprintf(stderr, "syntax error (line %"PRId32", column %"PRId32")\n", 
 	      lex->tk_line, lex->tk_column);
     }
+    break;
   } 
 }
 
@@ -997,6 +1003,11 @@ extern term_t parse_yices_term(parser_t *parser) {
   if (yices_parse(parser, e0) < 0) {
     return NULL_TERM;
   }
+
+  /*
+   * Unless there's a bug somewhere. eval cannot generate an exception here.
+   * (cf. eval_build_term in term_stack.c
+   */
   tstack_eval(parser->tstack);
   return tstack_get_term(parser->tstack);
 }

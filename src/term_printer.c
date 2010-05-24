@@ -52,7 +52,7 @@ static void print_varexp_array(FILE *f, varexp_t *a, uint32_t n) {
   }
   for (i=1; i<n; i++) {
     d = a[i].exp;
-    fputc(' ', f);
+    fputc('*', f);
     print_term_id(f, a[i].var);
     if (d != 1) {
       fprintf(f, "^%"PRIu32, d);
@@ -593,7 +593,7 @@ static void print_power_product_term(FILE *f, term_table_t *tbl, pprod_t *r, int
     fprintf(f, "^%"PRIu32, r->prod[0].exp);
   }
   for (i=1; i<n; i++) {
-    fputc(' ', f);
+    fputc('*', f);
     print_term_recur(f, tbl, r->prod[i].var, level);
     if (r->prod[i].exp > 1) {
     fprintf(f, "^%"PRIu32, r->prod[i].exp);
@@ -882,7 +882,7 @@ static void print_named_varexp_array(FILE *f, term_table_t *tbl, varexp_t *a, ui
   }
   for (i=1; i<n; i++) {
     d = a[i].exp;
-    fputc(' ', f);
+    fputc('*', f);
     print_term_name(f, tbl, a[i].var);
     if (d != 1) {
       fprintf(f, "^%"PRIu32, d);

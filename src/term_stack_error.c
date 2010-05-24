@@ -57,7 +57,7 @@ static const char * const code2string[NUM_TSTACK_ERRORS] = {
 /*
  * Translation of term-stack opcodes to string.
  *
- * We use two tables because some operators have a different names in
+ * We use two tables because some operators have a different name in
  * the SMT-LIB notation and in the Yices language.
  */
 static const char * const opcode2smt_string[NUM_OPCODES] = {
@@ -330,7 +330,7 @@ static void base_term_stack_error(FILE *f, char *name, tstack_t *tstack, tstack_
   if (name == NULL) {
     name = "Error";
   }  
-  fprintf(stderr, "%s: %s ", name, code2string[exception]);
+  fprintf(f, "%s: %s ", name, code2string[exception]);
 
   switch (exception) {    
   case TSTACK_INTERNAL_ERROR:
@@ -342,14 +342,13 @@ static void base_term_stack_error(FILE *f, char *name, tstack_t *tstack, tstack_
     break;
 
   case TSTACK_INVALID_FRAME:
-    fprintf(stderr, "in %s (line %"PRId32", column %"PRId32")\n",
+    fprintf(f, "in %s (line %"PRId32", column %"PRId32")\n",
 	    opcode2string[tstack->error_op], tstack->error_loc.line, tstack->error_loc.column);
     break;
 
   case TSTACK_OP_NOT_IMPLEMENTED:
-   fprintf(stderr, "(%s)\n", opcode2string[tstack->error_op]);
+   fprintf(f, "(%s)\n", opcode2string[tstack->error_op]);
     break;
-    
 
   case TSTACK_UNDEF_TERM:
   case TSTACK_UNDEF_TYPE:
@@ -361,7 +360,7 @@ static void base_term_stack_error(FILE *f, char *name, tstack_t *tstack, tstack_
   case TSTACK_BVHEX_FORMAT:
   case TSTACK_TYPENAME_REDEF:
   case TSTACK_TERMNAME_REDEF:
-    fprintf(stderr, "%s (line %"PRId32", column %"PRId32")\n",
+    fprintf(f, "%s (line %"PRId32", column %"PRId32")\n",
 	    tstack->error_string, tstack->error_loc.line, tstack->error_loc.column);
     break;
 
@@ -377,7 +376,7 @@ static void base_term_stack_error(FILE *f, char *name, tstack_t *tstack, tstack_
   case TSTACK_BVARITH_ERROR:
   case TSTACK_BVLOGIC_ERROR:
   case TSTACK_TYPE_ERROR_IN_DEFTERM:
-    fprintf(stderr, "(line %"PRId32", column %"PRId32")\n",
+    fprintf(f, "(line %"PRId32", column %"PRId32")\n",
 	    tstack->error_loc.line, tstack->error_loc.column);
     break;
 
@@ -418,7 +417,7 @@ static uint8_t severity[NUM_YICES_ERRORS] = {
   0, // DIVISION_BY_ZERO
   0, // POS_INT_REQUIRED
   0, // NONNEG_INT_REQUIREF
-  2, // SCALAR_OR_UTYPE_REQUIRED (but in scalar-type construction)
+  2, // SCALAR_OR_UTYPE_REQUIRED (bug in scalar-type construction)
   0, // FUNCTION_REQUIRED
   1, // TUPLE_REQUIRED (no tuples in SMT-LIB)
   2, // VARIABLE_REQUIRED (bug in term_stack)
@@ -451,7 +450,6 @@ static inline bool fatal_smt_error(error_code_t error) {
 
 
 
-
 /*
  * Print an error message on stream f for the given exception.
  * - if name is non- NULL, the error message is 
@@ -472,9 +470,6 @@ void term_stack_error(FILE *f, char *name, tstack_t *tstack, tstack_error_t exce
 }
 
 
-
-
-
 /*
  * Same thing but also abort for exceptions that should not occur in
  * SMT-LIB input (e.g., error codes involving tuples).
@@ -484,6 +479,6 @@ void term_stack_smt_error(FILE *f, char *name, tstack_t *tstack, tstack_error_t 
   base_term_stack_error(f, name, tstack, exception);
 
   if (exception == TSTACK_YICES_ERROR && fatal_smt_error(yices_error_code())) {
-    report_bug("Unexpected error in SMT-LIB");
+    report_bug("Internal error (SMT-LIB)");
   }
 }

@@ -15,10 +15,10 @@ static action_t get_action(state_t s, token_t tk) {
 }
 
 static char* state2string[] = {
-   "r0",  "c0",  "c1",  "c2",  "c3",  "c6",  "c7",  "c9", "c10",
-  "td0", "td1", "td2", "td3",  "t0",  "t1",  "t4",  "t6",  "e0",
-   "e1",  "e3",  "e5",  "e7", "e10", "e11", "e12", "e14", "e15",
-  "e16", "e17", "e19", "e20",
+  "r0",  "c0",  "c1",  "c2",  "c3",  "c6",  "c7",  "c9", "c10", "c11", "c12",
+  "td0", "td1", "td2", "td3",  "t0",  "t1",  "t4",  "t6", 
+  "e0",  "e1",  "e3",  "e5",  "e7", "e10", "e11", "e12",
+  "e14", "e15", "e16", "e17", "e19", "e20",
 };
 
 static char* action2string[] = {
@@ -28,16 +28,25 @@ static char* action2string[] = {
   "check_next_goto_r0",
   "push_next_goto_r0",
   "pop_next_goto_r0",
+  "reset_next_goto_r0",
   "dump_context_next_goto_r0",
   "echo_next_goto_c3",
   "include_next_goto_c3",
   "assert_next_push_r0_goto_e0",
   "deftype_next_goto_c2",
   "defterm_next_goto_c6",
+  "showmodel_next_goto_r0",
+  "eval_next_push_r0_goto_e0",
+  "setparam_next_goto_c11",
+  "showparams_next_goto_r0",
   "typename_next_goto_c10",
   "string_next_goto_r0",
   "termname_next_goto_c7",
   "next_push_c9_goto_t0",
+  "symbol_next_goto_c12",
+  "true_next_goto_r0",
+  "false_next_goto_r0",
+  "float_next_goto_r0",
   "ret",
   "push_r0_goto_e0",
   "push_r0_goto_td0",
@@ -114,6 +123,17 @@ static char* action2string[] = {
   "bv_sgt_next_push_e3_goto_e0",
   "bv_sle_next_push_e3_goto_e0",
   "bv_slt_next_push_e3_goto_e0",
+  "bv_shl_next_push_e3_goto_e0",
+  "bv_lshr_next_push_e3_goto_e0",
+  "bv_ashr_next_push_e3_goto_e0",  
+  "bv_div_next_push_e3_goto_e0",
+  "bv_rem_next_push_e3_goto_e0",
+  "bv_sdiv_next_push_e3_goto_e0",
+  "bv_srem_next_push_e3_goto_e0",
+  "bv_smod_next_push_e3_goto_e0",
+  "bv_redor_next_push_e3_goto_e0",
+  "bv_redand_next_push_e3_goto_e0",
+  "bv_comp_next_push_e3_goto_e0",
   "update_next_push_e5_goto_e0",
   "forall_next_goto_e10",
   "exists_next_goto_e10",
@@ -146,13 +166,16 @@ int main() {
   state_t s;
   token_t tk;
   lexer_t lex;
+  char *c0, *c1;
 
   init_yices_stdin_lexer(&lex);
 
   for (s=0; s<NSTATES; s++) {
     printf("Source state %s\n", state2string[s]);
     for (tk=TK_DEFINE_TYPE; tk<NUM_YICES_TOKENS; tk++) {
-      printf("   %20s     %s\n", yices_token_to_string(tk), action2string[get_action(s, tk)]);
+      c0 = yices_token_to_string(tk);
+      c1 = action2string[get_action(s, tk)];
+      printf("   %20s     %s\n", c0, c1);
     }
     printf("\n");
   }
