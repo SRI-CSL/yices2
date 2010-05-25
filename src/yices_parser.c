@@ -9,6 +9,7 @@
 #include "yices_parse_tables.h"
 #include "yices_parser.h"
 #include "yices_lexer.h"
+#include "yices_globals.h"
 
 #include "term_stack_error.h"
 
@@ -33,60 +34,179 @@ static inline char *reader_name(lexer_t *lex) {
 }
 
 
-
 /*
- * Print a message on a syntax error
- * - lex = the lexer
+ * Store error code and location data for a syntax error
+ * - lex = lexer
  * - expected_token = what was expected or -1
  */
-static void syntax_error(lexer_t *lex, token_t expected_token) {
+static void export_syntax_error(lexer_t *lex, yices_token_t expected_token) {
+  error_report_t *error;
+  reader_t *rd;
+  yices_token_t tk;
+
+  error = __yices_globals.error;
+  rd = &lex->reader;
+  tk = current_token(lex);
+  switch (tk) {    
+  case TK_OPEN_STRING:
+    error->code = INVALID_TOKEN;
+    error->line = rd->line;
+    error->column = rd->column;
+    break;
+
+  case TK_EMPTY_BVCONST:
+    error->code = INVALID_BVBIN_FORMAT;
+    error->line = lex->tk_line;
+    error->column = lex->tk_column;
+    break;
+
+  case TK_EMPTY_HEXCONST:
+    error->code = INVALID_BVHEX_FORMAT;
+    error->line = lex->tk_line;
+    error->column = lex->tk_column;
+    break;
+
+  case TK_INVALID_NUM:
+    error->code = INVALID_TOKEN; // invalid rational or float
+    error->line = lex->tk_line;
+    error->column = lex->tk_column;
+    break;
+
+  case TK_ZERO_DIVISOR:
+    error->code = DIVISION_BY_ZERO;
+    error->line = lex->tk_line;
+    error->column = lex->tk_column;
+    break;
+
+  case TK_ERROR:
+    error->code = INVALID_TOKEN;
+    error->line = lex->tk_line;
+    error->column = lex->tk_column;
+    break;
+
+  default:
+    error->code = SYNTAX_ERROR;
+    error->line = lex->tk_line;
+    error->column = lex->tk_column;
+    break;
+  }
+}
+
+
+/*
+ * Table for conversion of tstack_error code to yices error code
+ * (NO_ERROR means a bug)
+ */
+static error_code_t const tstack_error2yices_error[NUM_TSTACK_ERRORS] = {
+  NO_ERROR,                     //  TSTACK_NO_ERROR
+  NO_ERROR,                     //  TSTACK_INTERNAL_ERROR
+  NO_ERROR,                     //  TSTACK_OP_NOT_IMPLEMENTED
+  UNDEFINED_TERM_NAME,          //  TSTACK_UNDEF_TERM
+  UNDEFINED_TYPE_NAME,          //  TSTACK_UNDEF_TYPE
+  INVALID_RATIONAL_FORMAT,      //  TSTACK_RATIONAL_FORMAT
+  INVALID_FLOAT_FORMAT,         //  TSTACK_FLOAT_FORMAT
+  INVALID_BVBIN_FORMAT,         //  TSTACK_BVBIN_FORMAT
+  INVALID_BVHEX_FORMAT,         //  TSTACK_BVHEX_FORMAT
+  REDEFINED_TYPE_NAME,          //  TSTACK_TYPENAME_REDEF
+  REDEFINED_TERM_NAME,          //  TSTACK_TERMNAME_REDEF
+  DUPLICATE_NAME_IN_SCALAR,     //  TSTACK_DUPLICATE_SCALAR_NAME
+  DUPLICATE_VAR_NAME,           //  TSTACK_DUPLICATE_VAR_NAME
+  NO_ERROR,                     //  TSTACK_INVALID_OP
+  NO_ERROR,                     //  TSTACK_INVALID_FRAME
+  INTEGER_OVERFLOW,             //  TSTACK_INTEGER_OVERFLOW
+  INTEGER_REQUIRED,             //  TSTACK_NOT_AN_INTEGER
+  SYMBOL_REQUIRED,              //  TSTACK_NOT_A_SYMBOL
+  RATIONAL_REQUIRED,            //  TSTACK_NOT_A_RATIONAL
+  TYPE_REQUIRED,                //  TSTACK_NOT_A_TYPE
+  ARITH_ERROR,                  //  TSTACK_ARITH_ERROR
+  DIVISION_BY_ZERO,             //  TSTACK_DIVIDE_BY_ZERO
+  NON_CONSTANT_DIVISOR,         //  TSTACK_NON_CONSTANT_DIVISOR
+  NEGATIVE_BVSIZE,              //  TSTACK_NEGATIVE_BVSIZE
+  INCOMPATIBLE_BVSIZES,         //  TSTACK_INCOMPATIBLE_BVSIZES
+  INVALID_BVCONSTANT,           //  TSTACK_INVALID_BVCONSTANT
+  BVARITH_ERROR,                //  TSTACK_BVARITH_ERROR
+  BVARITH_ERROR,                //  TSTACK_BVLOGIC_ERROR
+  TYPE_MISMATCH_IN_DEF,         //  TSTACK_TYPE_ERROR_IN_DEFTERM
+  NO_ERROR,                     //  TSTACK_YICES_ERROR
+};
+
+/*
+ * Store code and location data for an exception raised by tstack
+ */
+static void export_tstack_error(tstack_t *tstack, tstack_error_t exception) {
+  error_report_t *error;
+
+  error = __yices_globals.error;
+  error->line = tstack->error_loc.line;
+  error->column = tstack->error_loc.column;
+  if (exception != TSTACK_YICES_ERROR) {
+    error->code = tstack_error2yices_error[exception];
+    if (error->code == NO_ERROR) {
+      report_bug("Internal error");
+    }
+  }
+}
+
+
+/*
+ * Syntax error:
+ * - lex = the lexer
+ * - err = error file or NULL
+ * - expected_token = what was expected or -1
+ */
+static void syntax_error(lexer_t *lex, FILE *err, yices_token_t expected_token) {
   yices_token_t tk;
   reader_t *rd;
+
+  if (err == NULL) {
+    export_syntax_error(lex, expected_token);
+    return;
+  }
 
   tk = current_token(lex);
   rd = &lex->reader;
 
   if (rd->name != NULL) {
-    fprintf(stderr, "%s: ", rd->name);
+    fprintf(err, "%s: ", rd->name);
   }
 
   switch (tk) {
   case TK_OPEN_STRING:
-    fprintf(stderr, "missing string terminator \" (line %"PRId32", column %"PRId32")\n", 
+    fprintf(err, "missing string terminator \" (line %"PRId32", column %"PRId32")\n", 
 	    rd->line, rd->column);
     break;
 
   case TK_EMPTY_BVCONST:
-    fprintf(stderr, "invalid binary constant %s (line %"PRId32", column %"PRId32")\n", 
+    fprintf(err, "invalid binary constant %s (line %"PRId32", column %"PRId32")\n", 
 	    tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
   case TK_EMPTY_HEXCONST:
-    fprintf(stderr, "invalid hexadecimal constant %s (line %"PRId32", column %"PRId32")\n", 
+    fprintf(err, "invalid hexadecimal constant %s (line %"PRId32", column %"PRId32")\n", 
 	    tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
   case TK_INVALID_NUM:
-    fprintf(stderr, "invalid number %s (line %"PRId32", column %"PRId32")\n", 
+    fprintf(err, "invalid number %s (line %"PRId32", column %"PRId32")\n", 
 	    tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
   case TK_ZERO_DIVISOR:
-    fprintf(stderr, "zero divisor in constant %s (line %"PRId32", column %"PRId32")\n", 
+    fprintf(err, "zero divisor in constant %s (line %"PRId32", column %"PRId32")\n", 
 	    tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
   case TK_ERROR:
-    fprintf(stderr, "invalid token %s (line %"PRId32", column %"PRId32")\n", 
+    fprintf(err, "invalid token %s (line %"PRId32", column %"PRId32")\n", 
 	    tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
   default:
     if (expected_token != -1) {
-      fprintf(stderr, "syntax error (line %"PRId32", column %"PRId32"): %s expected\n",
+      fprintf(err, "syntax error (line %"PRId32", column %"PRId32"): %s expected\n",
 	      lex->tk_line, lex->tk_column, yices_token_to_string(expected_token));
     } else {
-      fprintf(stderr, "syntax error (line %"PRId32", column %"PRId32")\n", 
+      fprintf(err, "syntax error (line %"PRId32", column %"PRId32")\n", 
 	      lex->tk_line, lex->tk_column);
     }
     break;
@@ -119,9 +239,10 @@ static action_t get_action(state_t s, token_t tk) {
 /*
  * Main parsing procedure
  * - start = initial state
+ * - err = error output file or NULL
  * return -1 if there's an error, 0 otherwise
  */
-static int32_t yices_parse(parser_t *parser, state_t start) {
+static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
   token_t token;
   parser_state_t state;
   parser_stack_t *stack;
@@ -942,38 +1063,41 @@ static int32_t yices_parse(parser_t *parser, state_t start) {
       goto loop;
 
     case error_lpar_expected:
-      syntax_error(lex, TK_LP);
+      syntax_error(lex, err, TK_LP);
       goto cleanup;
 
     case error_symbol_expected:
-      syntax_error(lex, TK_SYMBOL);
+      syntax_error(lex, err, TK_SYMBOL);
       goto cleanup;
 
     case error_string_expected: 
-      syntax_error(lex, TK_STRING);
+      syntax_error(lex, err, TK_STRING);
       goto cleanup;
 
     case error_colon_colon_expected:
-      syntax_error(lex, TK_COLON_COLON);
+      syntax_error(lex, err, TK_COLON_COLON);
       goto cleanup;
 
-   case error_rational_expected:
-      syntax_error(lex, TK_NUM_RATIONAL);
+    case error_rational_expected:
+      syntax_error(lex, err, TK_NUM_RATIONAL);
       goto cleanup;
 
     case error_rpar_expected:
-      syntax_error(lex, TK_RP);
+      syntax_error(lex, err, TK_RP);
       goto cleanup;
 
     case error:
-      syntax_error(lex, -1);
+      syntax_error(lex, err, -1);
       goto cleanup;
-
     }
 
   } else {
     // exception raised by term_stack
-    term_stack_error(stderr, reader_name(lex), tstack, exception);
+    if (err == NULL) {
+      export_tstack_error(tstack, exception);
+    } else {
+      term_stack_error(err, reader_name(lex), tstack, exception);
+    }
     goto cleanup;
   }
 
@@ -990,17 +1114,17 @@ static int32_t yices_parse(parser_t *parser, state_t start) {
 /*
  * Top-level calls:
  */
-extern int32_t parse_yices_command(parser_t *parser) {
-  return yices_parse(parser, c0);
+extern int32_t parse_yices_command(parser_t *parser, FILE *err) {
+  return yices_parse(parser, c0, err);
 }
 
-extern term_t parse_yices_term(parser_t *parser) {
+extern term_t parse_yices_term(parser_t *parser, FILE *err) {
   loc_t loc;
 
   loc.line = 0;
   loc.column = 0;
   tstack_push_op(parser->tstack, BUILD_TERM, &loc);
-  if (yices_parse(parser, e0) < 0) {
+  if (yices_parse(parser, e0, err) < 0) {
     return NULL_TERM;
   }
 
@@ -1008,20 +1132,27 @@ extern term_t parse_yices_term(parser_t *parser) {
    * Unless there's a bug somewhere. eval cannot generate an exception here.
    * (cf. eval_build_term in term_stack.c
    */
+  assert(parser->tstack->top_op == BUILD_TERM);
   tstack_eval(parser->tstack);
   return tstack_get_term(parser->tstack);
 }
 
 
-extern type_t parse_yices_type(parser_t *parser) {
+type_t parse_yices_type(parser_t *parser, FILE *err) {
   loc_t loc;
 
   loc.line = 0;
   loc.column = 0;
   tstack_push_op(parser->tstack, BUILD_TYPE, &loc);
-  if (yices_parse(parser, t0) < 0) {
+  if (yices_parse(parser, t0, err) < 0) {
     return NULL_TYPE;
   }
+
+  /*
+   * Unless there's a bug somewhere. eval cannot generate an exception here.
+   * (cf. eval_build_type in term_stack.c)
+   */
+  assert(parser->tstack->top_op == BUILD_TYPE);
   tstack_eval(parser->tstack);
   return tstack_get_type(parser->tstack);
 }

@@ -8,7 +8,7 @@
 #define __YICES_H
 
 #ifdef __cplusplus
-extern "C" {
+//extern "C" {
 #endif
 
 
@@ -1098,6 +1098,22 @@ extern term_t yices_bvslt_atom(term_t t1, term_t t2);  // t1 < t2
 
 
 
+
+/**************
+ *  PARSING   *
+ *************/
+
+/*
+ * Parsing uses the Yices language.
+ * - convert an input string s to a type or term.
+ * - s must be terminated by '\0'
+ *
+ * The parsing function return NULL_TYPE or NULL_TERM if there's
+ * an error and set the error report. The line/column of the error
+ * give information about the error location.
+ */
+extern type_t yices_parse_type(char *s);
+extern term_t yices_parse_term(char *s);
 
 
 /************

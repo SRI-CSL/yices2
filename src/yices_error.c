@@ -189,12 +189,24 @@ void yices_print_error(FILE *f) {
     fprintf(f, "symbol required\n");
     break;
 
+  case TYPE_REQUIRED:
+    fprintf(f, "type required\n");
+    break;
+
   case NON_CONSTANT_DIVISOR:
     fprintf(f, "invalid division (divisor is not a constant)\n");
     break;
 
   case NEGATIVE_BVSIZE:
     fprintf(f, "invalid bitvector size (negative number)\n");
+    break;
+
+  case INVALID_BVCONSTANT:
+    fprintf(f, "invalid number in 'mk-bv'\n");
+    break;
+
+  case TYPE_MISMATCH_IN_DEF:
+    fprintf(f, "type mismatch in 'define'\n");
     break;
 
   case ARITH_ERROR:
@@ -206,7 +218,7 @@ void yices_print_error(FILE *f) {
     break;
 
   default:
-    fprintf(f, "invalid error code: %"PRId32"\n", error->code);
+    fprintf(f, "invalid error code: %"PRId32"\n", (int32_t) error->code);
     break;
   }
 

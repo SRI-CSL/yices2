@@ -344,10 +344,11 @@ static void base_term_stack_error(FILE *f, char *name, tstack_t *tstack, tstack_
   case TSTACK_INVALID_FRAME:
     fprintf(f, "in %s (line %"PRId32", column %"PRId32")\n",
 	    opcode2string[tstack->error_op], tstack->error_loc.line, tstack->error_loc.column);
+    report_bug("Term-stak  error");
     break;
 
   case TSTACK_OP_NOT_IMPLEMENTED:
-   fprintf(f, "(%s)\n", opcode2string[tstack->error_op]);
+    fprintf(f, "(%s)\n", opcode2string[tstack->error_op]);
     break;
 
   case TSTACK_UNDEF_TERM:
@@ -445,8 +446,11 @@ static uint8_t severity[NUM_YICES_ERRORS] = {
   0, // INTEGER_REQUIRED
   0, // RATIONAL_REQUIRED
   0, // SYMBOL_REQUIRED
+  0, // TYPE_REQUIRED
   0, // NON_CONSTANT_DIVISOR
   0, // NEGATIVE_BVSIZE
+  0, // INVALID_BVCONSTANT
+  0, // TYPE_MISMATCH_IN_DEF
   0, // ARITH_ERROR
   0, // BVARITH_ERROR,
 };

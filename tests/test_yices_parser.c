@@ -178,7 +178,7 @@ int main(int argc, char *argv[]) {
       printf("yices> ");
       fflush(stdout);
     }
-    code = parse_yices_command(&parser);    
+    code = parse_yices_command(&parser, stderr);
     if (code < 0) {
       flush_lexer(&lexer);
     }

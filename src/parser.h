@@ -68,7 +68,7 @@ extern void delete_parser(parser_t *parser);
 /*
  * Start parsing from file:
  * - allocate and initialize a new lexer for that file
- * - all input is read from that lexer until parser_pop_lexer is called.
+ * - input is read from that lexer until parser_pop_lexer is called.
  * - return a negative number if there's an error opening the file.
  * - return 0 otherwise
  */

@@ -6411,6 +6411,30 @@ bool yices_check_bvmul_buffer(bvarith_buffer_t *b1, bvarith_buffer_t *b2) {
 
 
 
+/**************
+ *  PARSING   *
+ *************/
+
+/*
+ * Parse s as a type expression in the Yices language.
+ * Return NULL_TYPE if there's an error.
+ */
+EXPORTED type_t yices_parse_type(char *s) {
+  // TBD
+  return NULL_TYPE;
+}
+
+
+/*
+ * Parse s as a term in the Yices language.
+ * Return NULL_TERM if there's an error.
+ */
+EXPORTED term_t yices_parse_term(char *s) {
+  // TBD
+  return NULL_TERM;
+}
+
+
 
 /************
  *  NAMES   *
