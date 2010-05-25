@@ -395,8 +395,6 @@ static void base_term_stack_error(FILE *f, char *name, tstack_t *tstack, tstack_
  * - severity 1: means bug in SMT parser or something related
  * - severity 2: means bug in term_stack or Yices parser
  */
-#define NUM_YICES_ERRORS (EMPTY_BITVECTOR+1)
-
 static uint8_t severity[NUM_YICES_ERRORS] = {
   2, // NO_ERROR (should never be raised)
   2, // INVALID_TYPE
@@ -429,6 +427,28 @@ static uint8_t severity[NUM_YICES_ERRORS] = {
   2, // DUPLICATE_VARIABLE (bug in term_stack).
   0, // INCOMPATIBLE_BVSIZES
   2, // EMPTY_BITVECTOR
+
+  /*
+   * The following errors are handled directly by the parser
+   * so they should not occur. Since they are benign, they
+   * can have severity 0 anyway.
+   */
+  0, // INVALID_TOKEN
+  0, // SYNTAX_ERROR
+  0, // UNDEFINED_TYPE_NAME
+  0, // UNDEFINED_TERM_NAME
+  0, // REDEFINED_TYPE_NAME 
+  0, // REDEFINED_TERM_NAME
+  0, // DUPLICATE_NAME_IN_SCALAR
+  0, // DUPLICATE_VAR_NAME
+  0, // INTEGER_OVERFLOW
+  0, // INTEGER_REQUIRED
+  0, // RATIONAL_REQUIRED
+  0, // SYMBOL_REQUIRED
+  0, // NON_CONSTANT_DIVISOR
+  0, // NEGATIVE_BVSIZE
+  0, // ARITH_ERROR
+  0, // BVARITH_ERROR,
 };
 
 

@@ -23,6 +23,8 @@ typedef struct yices_globals_s {
   object_store_t *arith_store;      // mlist used by arith_buffers
   object_store_t *bvarith_store;    // bvmlist used by bvarith_buffers
   object_store_t *bvarith64_store;  // bvmlist64 used by bvarith64_buffers
+
+  error_report_t *error; // data structure for error reporting
 } yices_globals_t;
 
 extern yices_globals_t __yices_globals;

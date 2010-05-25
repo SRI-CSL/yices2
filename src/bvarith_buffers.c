@@ -139,46 +139,33 @@ void bvarith_buffer_prepare(bvarith_buffer_t *b, uint32_t n) {
 
 
 /*
- * Fake start element: return a pointer l such
- * that l->next is b->list.
- */
-static inline bvmlist_t *fake_start(bvarith_buffer_t *b) {
-  bvmlist_t *l;
-
-  l = ((bvmlist_t *) &b->list);
-  assert(&l->next == &b->list);
-  return l;
-}
-
-
-/*
  * Normalize the coefficients modulo 2^n (set high-order bits to 0)
  * remove the zero monomials from b
  */
 void bvarith_buffer_normalize(bvarith_buffer_t *b) {
-  bvmlist_t *p, *q;
+  bvmlist_t *p;
+  bvmlist_t **q;
   uint32_t n, k;
 
   n = b->bitsize;
   k = b->width;
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
   assert(p == b->list);
 
   while (p->next != NULL) {
-    // p == q->next and p is not the end marker
-    assert(p == q->next && p->prod != end_pp);
+    assert(p == *q && p->prod != end_pp);
     bvconst_normalize(p->coeff, n);
     if (bvconst_is_zero(p->coeff, k)) {
       // remove p
-      q->next = p->next;
+      *q = p->next;
       bvconst_free(p->coeff, k);
       objstore_free(b->store, p);
       b->nterms --;
     } else {
-      q = p;
+      q = &p->next;
     }
-    p = q->next;
+    p = *q;
   }
 }
 
@@ -521,7 +508,8 @@ void bvarith_buffer_mul_mono(bvarith_buffer_t *b, uint32_t *a, pprod_t *r) {
  * Add a * r to b
  */
 void bvarith_buffer_add_mono(bvarith_buffer_t *b, uint32_t *a, pprod_t *r) {
-  bvmlist_t *p, *q, *aux;
+  bvmlist_t *p, *aux;
+  bvmlist_t **q;
   uint32_t k;
 
   assert(b->bitsize > 0);
@@ -529,12 +517,12 @@ void bvarith_buffer_add_mono(bvarith_buffer_t *b, uint32_t *a, pprod_t *r) {
   k = b->width;
   if (bvconst_is_zero(a, k)) return;
 
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
   assert(p == b->list);
   while (pprod_precedes(p->prod, r)) {
-    q = p;
-    p = p->next;
+    q = &p->next;
+    p = *q;
   }
 
   // p points to a monomial with p->prod >= r
@@ -550,7 +538,7 @@ void bvarith_buffer_add_mono(bvarith_buffer_t *b, uint32_t *a, pprod_t *r) {
     bvconst_set(aux->coeff, k, a);
     aux->prod = r;
 
-    q->next = aux;
+    *q = aux;
     b->nterms ++;
   }
 }
@@ -560,7 +548,8 @@ void bvarith_buffer_add_mono(bvarith_buffer_t *b, uint32_t *a, pprod_t *r) {
  * Add -a * r to b
  */
 void bvarith_buffer_sub_mono(bvarith_buffer_t *b, uint32_t *a, pprod_t *r) {
-  bvmlist_t *p, *q, *aux;
+  bvmlist_t *p, *aux;
+  bvmlist_t **q;
   uint32_t k;
 
   assert(b->bitsize > 0);
@@ -568,12 +557,12 @@ void bvarith_buffer_sub_mono(bvarith_buffer_t *b, uint32_t *a, pprod_t *r) {
   k = b->width;
   if (bvconst_is_zero(a, k)) return;
 
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
   assert(p == b->list);
   while (pprod_precedes(p->prod, r)) {
-    q = p;
-    p = p->next;
+    q = &p->next;
+    p = *q;
   }
 
   // p points to a monomial with p->prod >= r
@@ -589,7 +578,7 @@ void bvarith_buffer_sub_mono(bvarith_buffer_t *b, uint32_t *a, pprod_t *r) {
     bvconst_negate2(aux->coeff, k, a);
     aux->prod = r;
 
-    q->next = aux;
+    *q = aux;
     b->nterms ++;
   }  
 }
@@ -616,19 +605,20 @@ void bvarith_buffer_sub_const(bvarith_buffer_t *b, uint32_t *a) {
  * Add r to b
  */
 void bvarith_buffer_add_pp(bvarith_buffer_t *b, pprod_t *r) {
-  bvmlist_t *p, *q, *aux;
+  bvmlist_t *p, *aux;
+  bvmlist_t **q;
   uint32_t k;
 
   assert(b->bitsize > 0);
 
   k = b->width;
 
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
   assert(p == b->list);
   while (pprod_precedes(p->prod, r)) {
-    q = p;
-    p = p->next;
+    q = &p->next;
+    p = *q;
   }
 
   // p points to a monomial with p->prod >= r
@@ -644,7 +634,7 @@ void bvarith_buffer_add_pp(bvarith_buffer_t *b, pprod_t *r) {
     bvconst_set_one(aux->coeff, k);
     aux->prod = r;
 
-    q->next = aux;
+    *q = aux;
     b->nterms ++;
   }
 }
@@ -654,19 +644,20 @@ void bvarith_buffer_add_pp(bvarith_buffer_t *b, pprod_t *r) {
  * Add -r to b
  */
 void bvarith_buffer_sub_pp(bvarith_buffer_t *b, pprod_t *r) {
-  bvmlist_t *p, *q, *aux;
+  bvmlist_t *p, *aux;
+  bvmlist_t **q;
   uint32_t k;
 
   assert(b->bitsize > 0);
 
   k = b->width;
 
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
   assert(p == b->list);
   while (pprod_precedes(p->prod, r)) {
-    q = p;
-    p = p->next;
+    q = &p->next;
+    p = *q;
   }
 
   // p points to a monomial with p->prod >= r
@@ -682,7 +673,7 @@ void bvarith_buffer_sub_pp(bvarith_buffer_t *b, pprod_t *r) {
     bvconst_set_minus_one(aux->coeff, k);
     aux->prod = r;
 
-    q->next = aux;
+    *q = aux;
     b->nterms ++;
   }
 }
@@ -692,28 +683,29 @@ void bvarith_buffer_sub_pp(bvarith_buffer_t *b, pprod_t *r) {
  * Add b1 to b
  */
 void bvarith_buffer_add_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1) {
-  bvmlist_t *p, *q, *aux, *p1;
+  bvmlist_t *p, *aux, *p1;
+  bvmlist_t **q;
   pprod_t *r1;
   uint32_t k;
 
   assert(b->bitsize > 0 && b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
 
   k = b->width;
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
 
   p1 = b1->list;
   while (p1->next != NULL) {
     r1 = p1->prod;
     while (pprod_precedes(p->prod, r1)) {
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     }
 
     if (p->prod == r1) {
       bvconst_add(p->coeff, k, p1->coeff);
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     } else {
       assert(pprod_precedes(r1, p->prod));
 
@@ -723,9 +715,9 @@ void bvarith_buffer_add_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1) {
       bvconst_set(aux->coeff, k, p1->coeff);
       aux->prod = r1;
 
-      q->next = aux;
+      *q = aux;
+      q = &aux->next;
       b->nterms ++;
-      q = aux;
     }
     p1 = p1->next;
   }
@@ -736,28 +728,29 @@ void bvarith_buffer_add_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1) {
  * Add (-b1) to b
  */
 void bvarith_buffer_sub_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1) {
-  bvmlist_t *p, *q, *aux, *p1;
+  bvmlist_t *p, *aux, *p1;
+  bvmlist_t **q;
   pprod_t *r1;
   uint32_t k;
 
   assert(b->bitsize > 0 && b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
 
   k = b->width;
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
 
   p1 = b1->list;
   while (p1->next != NULL) {
     r1 = p1->prod;
     while (pprod_precedes(p->prod, r1)) {
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     }
 
     if (p->prod == r1) {
       bvconst_sub(p->coeff, k, p1->coeff);
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     } else {
       assert(pprod_precedes(r1, p->prod));
 
@@ -767,9 +760,9 @@ void bvarith_buffer_sub_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1) {
       bvconst_negate2(aux->coeff, k, p1->coeff);
       aux->prod = r1;
 
-      q->next = aux;
+      *q = aux;
+      q = &aux->next;
       b->nterms ++;
-      q = aux;
     }
     p1 = p1->next;
   }
@@ -781,28 +774,29 @@ void bvarith_buffer_sub_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1) {
  * Add a * b1 to b
  */
 void bvarith_buffer_add_const_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, uint32_t *a) {
-  bvmlist_t *p, *q, *aux, *p1;
+  bvmlist_t *p, *aux, *p1;
+  bvmlist_t **q;
   pprod_t *r1;
   uint32_t k;
 
   assert(b->bitsize > 0 && b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
 
   k = b->width;
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
 
   p1 = b1->list;
   while (p1->next != NULL) {
     r1 = p1->prod;
     while (pprod_precedes(p->prod, r1)) {
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     }
 
     if (p->prod == r1) {
       bvconst_addmul(p->coeff, k, p1->coeff, a);
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     } else {
       assert(pprod_precedes(r1, p->prod));
 
@@ -812,9 +806,9 @@ void bvarith_buffer_add_const_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t
       bvconst_mul2(aux->coeff, k, p1->coeff, a); 
       aux->prod = r1;
 
-      q->next = aux;
+      *q = aux;
+      q = &aux->next;
       b->nterms ++;
-      q = aux;
     }
     p1 = p1->next;
   }
@@ -825,28 +819,29 @@ void bvarith_buffer_add_const_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t
  * Add (-a) * b1 to b
  */
 void bvarith_buffer_sub_const_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, uint32_t *a) {
-  bvmlist_t *p, *q, *aux, *p1;
+  bvmlist_t *p, *aux, *p1;
+  bvmlist_t **q;
   pprod_t *r1;
   uint32_t k;
 
   assert(b->bitsize > 0 && b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
 
   k = b->width;
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
 
   p1 = b1->list;
   while (p1->next != NULL) {
     r1 = p1->prod;
     while (pprod_precedes(p->prod, r1)) {
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     }
 
     if (p->prod == r1) {
       bvconst_submul(p->coeff, k, p1->coeff, a);
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     } else {
       assert(pprod_precedes(r1, p->prod));
 
@@ -857,9 +852,9 @@ void bvarith_buffer_sub_const_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t
       bvconst_submul(aux->coeff, k, p1->coeff, a); 
       aux->prod = r1;
 
-      q->next = aux;
+      *q = aux;
+      q = &aux->next;
       b->nterms ++;
-      q = aux;
     }
     p1 = p1->next;
   }
@@ -870,28 +865,29 @@ void bvarith_buffer_sub_const_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t
  * Add r * b1 to b
  */
 void bvarith_buffer_add_pp_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, pprod_t *r) {
-  bvmlist_t *p, *q, *aux, *p1;
+  bvmlist_t *p, *aux, *p1;
+  bvmlist_t **q;
   pprod_t *r1;
   uint32_t k;
 
   assert(b->bitsize > 0 && b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
 
   k = b->width;
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
 
   p1 = b1->list;
   while (p1->next != NULL) {
     r1 = pprod_mul(b->ptbl, p1->prod, r);
     while (pprod_precedes(p->prod, r1)) {
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     }
 
     if (p->prod == r1) {
       bvconst_add(p->coeff, k, p1->coeff);
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     } else {
       assert(pprod_precedes(r1, p->prod));
 
@@ -901,9 +897,9 @@ void bvarith_buffer_add_pp_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b
       bvconst_set(aux->coeff, k, p1->coeff); 
       aux->prod = r1;
 
-      q->next = aux;
+      *q = aux;
+      q = &aux->next;
       b->nterms ++;
-      q = aux;
     }
     p1 = p1->next;
   }
@@ -915,28 +911,29 @@ void bvarith_buffer_add_pp_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b
  * Add - r * b1 to b
  */
 void bvarith_buffer_sub_pp_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, pprod_t *r) {
-  bvmlist_t *p, *q, *aux, *p1;
+  bvmlist_t *p, *aux, *p1;
+  bvmlist_t **q;
   pprod_t *r1;
   uint32_t k;
 
   assert(b->bitsize > 0 && b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
 
   k = b->width;
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
 
   p1 = b1->list;
   while (p1->next != NULL) {
     r1 = pprod_mul(b->ptbl, p1->prod, r);
     while (pprod_precedes(p->prod, r1)) {
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     }
 
     if (p->prod == r1) {
       bvconst_sub(p->coeff, k, p1->coeff);
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     } else {
       assert(pprod_precedes(r1, p->prod));
 
@@ -946,9 +943,9 @@ void bvarith_buffer_sub_pp_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b
       bvconst_negate2(aux->coeff, k, p1->coeff); 
       aux->prod = r1;
 
-      q->next = aux;
+      *q = aux;
+      q = &aux->next;
       b->nterms ++;
-      q = aux;
     }
     p1 = p1->next;
   }
@@ -959,28 +956,29 @@ void bvarith_buffer_sub_pp_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b
  * Add a * r * b1 to b
  */
 void bvarith_buffer_add_mono_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, uint32_t *a, pprod_t *r) {
-  bvmlist_t *p, *q, *aux, *p1;
+  bvmlist_t *p, *aux, *p1;
+  bvmlist_t **q;
   pprod_t *r1;
   uint32_t k;
 
   assert(b->bitsize > 0 && b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
 
   k = b->width;
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
 
   p1 = b1->list;
   while (p1->next != NULL) {
     r1 = pprod_mul(b->ptbl, p1->prod, r);
     while (pprod_precedes(p->prod, r1)) {
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     }
 
     if (p->prod == r1) {
       bvconst_addmul(p->coeff, k, p1->coeff, a);
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     } else {
       assert(pprod_precedes(r1, p->prod));
 
@@ -990,9 +988,9 @@ void bvarith_buffer_add_mono_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t 
       bvconst_mul2(aux->coeff, k, p1->coeff, a);
       aux->prod = r1;
 
-      q->next = aux;
+      *q = aux;
+      q = &aux->next;
       b->nterms ++;
-      q = aux;
     }
     p1 = p1->next;
   }
@@ -1002,28 +1000,29 @@ void bvarith_buffer_add_mono_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t 
  * Add -a * r * b1 to b
  */
 void bvarith_buffer_sub_mono_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, uint32_t *a, pprod_t *r) {
-  bvmlist_t *p, *q, *aux, *p1;
+  bvmlist_t *p, *aux, *p1;
+  bvmlist_t **q;
   pprod_t *r1;
   uint32_t k;
 
   assert(b->bitsize > 0 && b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
 
   k = b->width;
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
 
   p1 = b1->list;
   while (p1->next != NULL) {
     r1 = pprod_mul(b->ptbl, p1->prod, r);
     while (pprod_precedes(p->prod, r1)) {
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     }
 
     if (p->prod == r1) {
       bvconst_submul(p->coeff, k, p1->coeff, a);
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     } else {
       assert(pprod_precedes(r1, p->prod));
 
@@ -1034,9 +1033,9 @@ void bvarith_buffer_sub_mono_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t 
       bvconst_submul(aux->coeff, k, p1->coeff, a);
       aux->prod = r1;
 
-      q->next = aux;
+      *q = aux;
+      q = &aux->next;
       b->nterms ++;
-      q = aux;
     }
     p1 = p1->next;
   }
@@ -1207,7 +1206,8 @@ static bool good_pprod_array(bvmono_t *poly, pprod_t **pp) {
  * Add poly to buffer b
  */
 void bvarith_buffer_add_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp) {
-  bvmlist_t *p, *q, *aux;
+  bvmlist_t *p, *aux;
+  bvmlist_t **q;
   bvmono_t *m;
   pprod_t *r1;
   uint32_t k;
@@ -1216,24 +1216,24 @@ void bvarith_buffer_add_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp
 
   m = poly->mono;
   k = b->width;
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
 
   while (m->var < max_idx) {
     // m points to a pair (coeff, x_i)
     // r1 = power product for x_i
     r1 = *pp;
     while (pprod_precedes(p->prod, r1)) {
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     }
     
     // p points to monomial whose prod is >= r1 in the deg-lex order
     // q points to the predecessor of p in the list
     if (p->prod == r1) {
       bvconst_add(p->coeff, k, m->coeff);
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     } else {
       assert(pprod_precedes(r1, p->prod));
 
@@ -1243,9 +1243,9 @@ void bvarith_buffer_add_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp
       bvconst_set(aux->coeff, k, m->coeff);
       aux->prod = r1;
 
-      q->next = aux;
+      *q = aux;
+      q = &aux->next;
       b->nterms ++;
-      q = aux;      
     }
 
     // move to the next monomial
@@ -1259,7 +1259,8 @@ void bvarith_buffer_add_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp
  * Subtract poly from buffer b
  */
 void bvarith_buffer_sub_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp) {
-  bvmlist_t *p, *q, *aux;
+  bvmlist_t *p, *aux;
+  bvmlist_t **q;
   bvmono_t *m;
   pprod_t *r1;
   uint32_t k;
@@ -1268,24 +1269,24 @@ void bvarith_buffer_sub_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp
 
   m = poly->mono;
   k = b->width;
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
 
   while (m->var < max_idx) {
     // m points to a pair (coeff, x_i)
     // r1 = power product for x_i
     r1 = *pp;
     while (pprod_precedes(p->prod, r1)) {
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     }
     
     // p points to monomial whose prod is >= r1 in the deg-lex order
     // q points to the predecessor of p in the list
     if (p->prod == r1) {
       bvconst_sub(p->coeff, k, m->coeff);
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     } else {
       assert(pprod_precedes(r1, p->prod));
 
@@ -1295,9 +1296,9 @@ void bvarith_buffer_sub_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp
       bvconst_negate2(aux->coeff, k, m->coeff);
       aux->prod = r1;
 
-      q->next = aux;
+      *q = aux;
+      q = &aux->next;
       b->nterms ++;
-      q = aux;      
     }
 
     m ++;
@@ -1310,7 +1311,8 @@ void bvarith_buffer_sub_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp
  * Add a * poly to buffer b
  */
 void bvarith_buffer_add_const_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp, uint32_t *a) {
-  bvmlist_t *p, *q, *aux;
+  bvmlist_t *p, *aux;
+  bvmlist_t **q;
   bvmono_t *m;
   pprod_t *r1;
   uint32_t k;
@@ -1319,24 +1321,24 @@ void bvarith_buffer_add_const_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, 
 
   m = poly->mono;
   k = b->width;
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
 
   while (m->var < max_idx) {
     // m points to a pair (coeff, x_i)
     // r1 = power product for x_i
     r1 = *pp;
     while (pprod_precedes(p->prod, r1)) {
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     }
     
     // p points to monomial whose prod is >= r1 in the deg-lex order
     // q points to the predecessor of p in the list
     if (p->prod == r1) {
       bvconst_addmul(p->coeff, k, m->coeff, a);
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     } else {
       assert(pprod_precedes(r1, p->prod));
 
@@ -1346,9 +1348,10 @@ void bvarith_buffer_add_const_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, 
       bvconst_mul2(aux->coeff, k, m->coeff, a);
       aux->prod = r1;
 
-      q->next = aux;
+      *q = aux;
+      q = &aux->next;
+
       b->nterms ++;
-      q = aux;      
     }
 
     // move to the next monomial
@@ -1362,7 +1365,8 @@ void bvarith_buffer_add_const_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, 
  * Subtract a * poly from b
  */
 void bvarith_buffer_sub_const_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp, uint32_t *a) {
-  bvmlist_t *p, *q, *aux;
+  bvmlist_t *p, *aux;
+  bvmlist_t **q;
   bvmono_t *m;
   pprod_t *r1;
   uint32_t k;
@@ -1371,24 +1375,24 @@ void bvarith_buffer_sub_const_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, 
 
   m = poly->mono;
   k = b->width;
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
 
   while (m->var < max_idx) {
     // m points to a pair (coeff, x_i)
     // r1 = power product for x_i
     r1 = *pp;
     while (pprod_precedes(p->prod, r1)) {
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     }
     
     // p points to monomial whose prod is >= r1 in the deg-lex order
     // q points to the predecessor of p in the list
     if (p->prod == r1) {
       bvconst_submul(p->coeff, k, m->coeff, a);
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     } else {
       assert(pprod_precedes(r1, p->prod));
 
@@ -1399,9 +1403,10 @@ void bvarith_buffer_sub_const_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, 
       bvconst_submul(aux->coeff, k, m->coeff, a);
       aux->prod = r1;
 
-      q->next = aux;
+      *q = aux;
+      q = &aux->next;
+
       b->nterms ++;
-      q = aux;      
     }
 
     // move to the next monomial
@@ -1415,7 +1420,8 @@ void bvarith_buffer_sub_const_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, 
  * Add a * r * poly to b
  */
 void bvarith_buffer_add_mono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp, uint32_t *a, pprod_t *r) {
-  bvmlist_t *p, *q, *aux;
+  bvmlist_t *p, *aux;
+  bvmlist_t **q;
   bvmono_t *m;
   pprod_t *r1;
   uint32_t k;
@@ -1424,24 +1430,24 @@ void bvarith_buffer_add_mono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, p
 
   m = poly->mono;
   k = b->width;
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
 
   while (m->var < max_idx) {
     // m points to a pair (coeff, x_i)
     // r1 = r * power product for x_i
     r1 = pprod_mul(b->ptbl, *pp, r);
     while (pprod_precedes(p->prod, r1)) {
-      q = p;
-      p = p->next;
+      q = &b->list;
+      p = *q;
     }
     
     // p points to monomial whose prod is >= r1 in the deg-lex order
     // q points to the predecessor of p in the list
     if (p->prod == r1) {
       bvconst_addmul(p->coeff, k, m->coeff, a);
-      q = p;
-      p = p->next;
+      q = &b->list;
+      p = *q;
     } else {
       assert(pprod_precedes(r1, p->prod));
 
@@ -1451,9 +1457,9 @@ void bvarith_buffer_add_mono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, p
       bvconst_mul2(aux->coeff, k, m->coeff, a);
       aux->prod = r1;
 
-      q->next = aux;
+      *q = aux;
+      q = &aux->next;
       b->nterms ++;
-      q = aux;      
     }
 
     // move to the next monomial
@@ -1467,7 +1473,8 @@ void bvarith_buffer_add_mono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, p
  * Add -a * r * poly to b
  */
 void bvarith_buffer_sub_mono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp, uint32_t *a, pprod_t *r) {
-  bvmlist_t *p, *q, *aux;
+  bvmlist_t *p, *aux;
+  bvmlist_t **q;
   bvmono_t *m;
   pprod_t *r1;
   uint32_t k;
@@ -1476,24 +1483,24 @@ void bvarith_buffer_sub_mono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, p
 
   m = poly->mono;
   k = b->width;
-  q = fake_start(b);
-  p = q->next;
+  q = &b->list;
+  p = *q;
 
   while (m->var < max_idx) {
     // m points to a pair (coeff, x_i)
     // r1 = r * power product for x_i
     r1 = pprod_mul(b->ptbl, *pp, r);
     while (pprod_precedes(p->prod, r1)) {
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     }
     
     // p points to monomial whose prod is >= r1 in the deg-lex order
     // q points to the predecessor of p in the list
     if (p->prod == r1) {
       bvconst_submul(p->coeff, k, m->coeff, a);
-      q = p;
-      p = p->next;
+      q = &p->next;
+      p = *q;
     } else {
       assert(pprod_precedes(r1, p->prod));
 
@@ -1504,9 +1511,9 @@ void bvarith_buffer_sub_mono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, p
       bvconst_submul(aux->coeff, k, m->coeff, a);
       aux->prod = r1;
 
-      q->next = aux;
+      *q = aux;
+      q = &aux->next;
       b->nterms ++;
-      q = aux;      
     }
 
     // move to the next monomial

@@ -117,7 +117,6 @@ extern type_t yices_new_uninterpreted_type(void);
  * if tau[i] is not well defined (and tau[0] .. tau[i-1] are)
  *   code = INVALID_TYPE
  *   type1 = tau[i]
- *   index = i
  */
 extern type_t yices_tuple_type(uint32_t n, type_t tau[]);
 
@@ -135,11 +134,9 @@ extern type_t yices_tuple_type(uint32_t n, type_t tau[]);
  * if range undefined
  *   code = INVALID_TYPE
  *   type1 = range
- *   index = -1
  * if dom[i] is undefined (and dom[0] ... dom[i-1] are)
  *   code = INVALID_TYPE
  *   type1 = dom[i]
- *   index = i
  */
 extern type_t yices_function_type(uint32_t n, type_t dom[], type_t range);
 
@@ -180,7 +177,6 @@ extern term_t yices_false(void);
  * if tau is undefined
  *   code = INVALID_TYPE
  *   type1 = tau
- *   index = -1
  * if tau is not scalar or uninterpreted,
  *   code = SCALAR_OR_UTYPE_REQUIRED
  *   type1 = tau
@@ -198,7 +194,6 @@ extern term_t yices_constant(type_t tau, int32_t index);
  * if tau is undefined
  *   code = INVALID_TYPE
  *   type1 = tau
- *   index = -1
  */
 extern term_t yices_new_uninterpreted_term(type_t tau);
 
@@ -212,7 +207,6 @@ extern term_t yices_new_uninterpreted_term(type_t tau);
  * if tau is undefined
  *   code = INVALID_TYPE
  *   type1 = tau
- *   index = -1
  */
 extern term_t yices_variable(type_t tau, int32_t index);
 
@@ -226,7 +220,6 @@ extern term_t yices_variable(type_t tau, int32_t index);
  * if fun or arg[i] is not defined
  *   code = INVALID_TERM
  *   term1 = fun or arg[i]
- *   index = -1 or i
  * if fun is not a function
  *   code = FUNCTION_REQUIRED
  *   term1 = fun
@@ -238,7 +231,6 @@ extern term_t yices_variable(type_t tau, int32_t index);
  *   code = TYPE_MISMATCH
  *   term1 = arg[i]
  *   type1 = expected type
- *   index = i
  */
 extern term_t yices_application(term_t fun, uint32_t n, term_t arg[]);
 
@@ -249,12 +241,10 @@ extern term_t yices_application(term_t fun, uint32_t n, term_t arg[]);
  * if cond, then_term, or else_term is not a valid term
  *   code = INVALID_TERM
  *   term1 = whichever of cond, then_term, or else_term is invalid
- *   index = -1
  * if cond is not boolean
  *   code = TYPE_MISMATCH
  *   term1 = cond
  *   type1 = bool (expected type)
- *   index = -1
  * if then_term and else_term have incompatible types
  *   code = INCOMPATIBLE_TYPES
  *   term1 = then_term
@@ -272,7 +262,6 @@ extern term_t yices_ite(term_t cond, term_t then_term, term_t else_term);
  * if left or right is not a valid term
  *   code = INVALID_TERM
  *   term1 = left or right
- *   index = -1
  * if left and right do not have compatible types
  *   code = INCOMPATIBLE_TYPES
  *   term1 = left
@@ -291,12 +280,10 @@ extern term_t yices_neq(term_t left, term_t right);
  * if arg is invalid
  *    code = INVALID_TERM
  *    term1 = arg
- *    index = -1
  * if arg is not boolean
  *    code = TYPE_MISMATCH
  *    term1 = arg
  *    type1 = bool (expected type)
- *    index = -1
  */
 extern term_t yices_not(term_t arg);
 
@@ -313,12 +300,10 @@ extern term_t yices_not(term_t arg);
  * if arg[i] is not a valid term
  *   code = INVALID_TERM
  *   term1 = arg[i]
- *   index = i
  * if arg[i] is not boolean
  *   code = TYPE_MISMATCH
  *   term1 = arg[i]
  *   type1 = bool (expected type)
- *   index = i
  */
 extern term_t yices_or(uint32_t n, term_t arg[]);
 extern term_t yices_and(uint32_t n, term_t arg[]);
@@ -341,11 +326,10 @@ extern term_t yices_xor2(term_t left, term_t right);
  * if left or right is invalid
  *    code = INVALID_TERM
  *    term1 = left/right
- *    index = -1
  * if left or right is not boolean
  *    code = TYPE_MIMATCH
  *    term1 = left/right
- *    index = -1
+ *    type1 = bool (expected type)
  */
 extern term_t yices_iff(term_t left, term_t right);
 extern term_t yices_implies(term_t left, term_t right);
@@ -364,7 +348,6 @@ extern term_t yices_implies(term_t left, term_t right);
  * if one arg[i] is invalid
  *   code = INVALID_TERM
  *   term1 = arg[i]
- *   index = i
  */
 extern term_t yices_tuple(uint32_t n, term_t arg[]);
 
@@ -375,7 +358,6 @@ extern term_t yices_tuple(uint32_t n, term_t arg[]);
  * if tuple is invalid
  *    code = INVALID_TERM
  *    term1 = tuple
- *    index = -1
  * if tuple does not have a tuple type
  *    code = TUPLE_REQUIRED
  *    term1 = tuple
@@ -397,7 +379,6 @@ extern term_t yices_select(uint32_t index, term_t tuple);
  * if fun or new_v, or one of arg[i] is invalid
  *    code = INVALID_TERM
  *    term1 = fun, new_v, or arg[i]
- *    index = -1, or i
  * if fun does not have a function type
  *    code = FUNCTION_REQUIRED
  *    term1 = fun
@@ -409,12 +390,10 @@ extern term_t yices_select(uint32_t index, term_t tuple);
  *    code = TYPE_MISMATCH
  *    term1 = new_v
  *    type1 = fun's range (expected type)
- *    index = -1
  * if arg[i] has a wrong type for i-th arg of fun
  *    code = TYPE_MISMATCH
  *    term1 = arg[i]
  *    type1 = expected type
- *    index = i
  */
 extern term_t yices_update(term_t fun, uint32_t n, term_t arg[], term_t new_v);
 
@@ -432,7 +411,6 @@ extern term_t yices_update(term_t fun, uint32_t n, term_t arg[], term_t new_v);
  * if arg[i] is not a valid term
  *    code = INVALID_TERM
  *    term1 = arg[i]
- *    index = i
  * if two terms arg[i] and arg[j] don't have compatible types
  *    code = INCOMPATIBLE_TYPES
  *    term1 = arg[i]
@@ -450,7 +428,6 @@ extern term_t yices_distinct(uint32_t n, term_t arg[]);
  * if tuple or new_v is invalid
  *    code = INVALID_TERM
  *    term1 = tuple/new_v
- *    index = -1
  * if tuple doesn't have a tuple type
  *    code = TUPLE_REQUIRED
  *    term1 = tuple
@@ -462,7 +439,6 @@ extern term_t yices_distinct(uint32_t n, term_t arg[]);
  *    code = TYPE_MISMATCH
  *    term1 = new_v
  *    type1 = expected type (i-th component type in tuple)
- *    index = -1
  */
 extern term_t yices_tuple_update(term_t tuple, uint32_t index, term_t new_v);
 
@@ -481,20 +457,16 @@ extern term_t yices_tuple_update(term_t tuple, uint32_t index, term_t new_v);
  * if body or one of var[i] is invalid
  *    code = INVALID_TERM
  *    term1 = body or var[i]
- *    index = -1 or i
  * if body is not boolean
  *    code = TYPE_MISMATCH
  *    term1 = body
  *    type1 = bool (expected type)
- *    index = -1
  * if one of var[i] is not a variable
  *    code = VARIABLE_REQUIRED
  *    term1 = var[i]
- *    index = i
  * if one variable occurs twice in var
  *    code = DUPLICATE_VARIABLE
  *    term1 = var[i]
- *    index = i
  */
 extern term_t yices_forall(uint32_t n, term_t var[], term_t body);
 extern term_t yices_exists(uint32_t n, term_t var[], term_t body);
@@ -596,15 +568,14 @@ extern term_t yices_parse_float(char *s);
  * if t1 or t2 is not valid
  *   code = INVALID_TERM
  *   term1 = t1 or t2
- *   index = -1
  * if t1 or t2 is not an arithmetic term
  *   code = ARITH_TERM_REQUIRED
  *   term1 = t1 or t2
- *   index = -1
  *
  * for yices_mul and yices_square, if the result's degree
  * is too large, then the error report is
  *   code = DEGREE_OVERFLOW
+ *   badval = product degree
  */
 extern term_t yices_add(term_t t1, term_t t2);     // t1 + t2
 extern term_t yices_sub(term_t t1, term_t t2);     // t1 - t2
@@ -629,11 +600,9 @@ extern term_t yices_square(term_t t1);             // t1 * t1
  * if t[i] is not valid
  *   code = INVALID_TERM
  *   term1 = t[i]
- *   index = i
  * if t[i] is not an arithmetic term
  *   code = ARITH_TERM_REQUIRED
  *   term1 = t[i]
- *   index = i
  */
 
 /*
@@ -678,11 +647,9 @@ extern term_t yices_poly_mpq(uint32_t n, mpq_t q[], term_t t[]);
  * if t1 or t2 is not valid
  *   code = INVALID_TERM
  *   term1 = t1 or t2
- *   index = -1
  * if t1 or t2 is not an arithmetic term
  *   code = ARITH_TERM_REQUIRED
  *   term1 = t1 or t2
- *   index = -1
  */
 extern term_t yices_arith_eq_atom(term_t t1, term_t t2);   // t1 == t2
 extern term_t yices_arith_neq_atom(term_t t1, term_t t2);  // t1 != t2
@@ -701,11 +668,9 @@ extern term_t yices_arith_lt_atom(term_t t1, term_t t2);   // t1 < t2
  * if t is not valid:
  *   code = INVALID_TERM
  *   term1 = t
- *   index = -1
  * if t is not an arithmetic term
  *   code = ARITH_TERM_REQUIRES
  *   term1 = t
- *   index = -1
  */
 extern term_t yices_arith_eq0_atom(term_t t);   // t == 0
 extern term_t yices_arith_neq0_atom(term_t t);  // t != 0
@@ -836,7 +801,6 @@ extern term_t yices_parse_bvhex(char *s);
  * if t1 or t2 is not valid
  *   code = INVALID_TERM
  *   term1 = t1 or t2
- *   index = -1
  * if t1 or t2 is not a bitvector term
  *   code = BITVECTOR_REQUIRED
  *   term1 = t1 or t2
@@ -1035,7 +999,6 @@ extern term_t yices_redor(term_t t);
  * if t1 or t2 is not valid
  *   code = INVALID_TERM
  *   term1 = t1 or t2
- *   index = -1
  * if t1 or t2 is not a bitvector term
  *   code = BITVECTOR_REQUIRED
  *   term1 = t1 or t2
@@ -1064,12 +1027,10 @@ extern term_t yices_redcomp(term_t t1, term_t t2);
  * if arg[i] is invalid
  *    code = INVALID_TERM
  *    term1 = arg[i]
- *    index = i
  * if arg[i] is not a boolean
  *    code = TYPE_MISMATCH
  *    term1 = arg[i]
  *    type1 = bool
- *    index = i
  */
 extern term_t yices_bvarray(uint32_t n, term_t arg[]);
 
@@ -1081,7 +1042,6 @@ extern term_t yices_bvarray(uint32_t n, term_t arg[]);
  * if t is invalid
  *    code = INVALID_TERM
  *    term1 = t
- *    index = -1
  * if t is not a bitvector term
  *    code = BITVECTOR_REQUIRES
  *    term1 = t
@@ -1102,7 +1062,6 @@ extern term_t yices_bitextract(term_t t, uint32_t i);
  * if t1 or t2 is not valid
  *   code = INVALID_TERM
  *   term1 = t1 or t2
- *   index = -1
  * if t1 or t2 is not a bitvector term
  *   code = BITVECTOR_REQUIRED
  *   term1 = t1 or t2
@@ -1196,7 +1155,6 @@ extern int32_t yices_clear_term_name(term_t t);
  * and set the error report:
  *   code = INVALID_TERM
  *   term1 = t
- *   index = -1
  */
 extern type_t yices_type_of_term(term_t t);
 
@@ -1226,7 +1184,6 @@ extern bool yices_term_is_function(term_t t);
  * if t is not a valid term
  *    code = INVALID_TERM
  *    term1 = t
- *    index = -1
  * if t is not a bitvector term
  *    code = BITVECTOR_REQUIRED
  *    term1 = t

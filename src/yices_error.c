@@ -29,15 +29,15 @@ void yices_print_error(FILE *f) {
     break;
 
   case INVALID_CONSTANT_INDEX:
-    fprintf(f, "invalid index %"PRId32" in constant creation\n", error->badidx);
+    fprintf(f, "invalid index %"PRId64" in constant creation\n", error->badval);
     break;
 
   case INVALID_VAR_INDEX:
-    fprintf(f, "invalid index %"PRId32" in variable creation\n", error->badidx);
+    fprintf(f, "invalid index %"PRId64" in variable creation\n", error->badval);
     break;
 
   case INVALID_TUPLE_INDEX:
-    fprintf(f, "invalid tuple index: %"PRId32"\n", error->badidx);
+    fprintf(f, "invalid tuple index: %"PRId64"\n", error->badval);
     break;
 
   case INVALID_RATIONAL_FORMAT:
@@ -133,17 +133,82 @@ void yices_print_error(FILE *f) {
     break;
 
   case INCOMPATIBLE_BVSIZES:
-    fprintf(stderr, "arguments have incompatible bitsizes\n");
+    fprintf(f, "arguments have incompatible bitsizes\n");
     break;    
 
   case EMPTY_BITVECTOR:
-    fprintf(stderr, "bitvector must have positive bitsize\n");
+    fprintf(f, "bitvector must have positive bitsize\n");
+    break;
+
+    // parser errors here
+  case INVALID_TOKEN:
+    fprintf(f, "invalid token\n");
+    break;
+
+  case SYNTAX_ERROR:
+    fprintf(f, "syntax error\n");
+    break;
+
+  case UNDEFINED_TYPE_NAME:
+    fprintf(f, "undefined type name\n");
+    break;
+
+  case UNDEFINED_TERM_NAME:
+    fprintf(f, "undefined term name\n");
+    break;
+
+  case REDEFINED_TYPE_NAME:
+    fprintf(f, "cannot redefine type\n");
+    break;
+  
+  case REDEFINED_TERM_NAME:
+    fprintf(f, "cannot redefine term\n");
+    break;
+
+  case DUPLICATE_NAME_IN_SCALAR:
+    fprintf(f, "duplicate name in scalar type definition\n");
+    break;
+
+  case  DUPLICATE_VAR_NAME:
+    fprintf(f, "duplicate variable in quantifier\n");
+    break;
+
+  case INTEGER_OVERFLOW:
+    fprintf(f, "integer overflow (constant does not fit in 32bits)\n");
+    break;
+
+  case INTEGER_REQUIRED:
+    fprintf(f, "integer required\n");
+    break;
+
+  case RATIONAL_REQUIRED:
+    fprintf(f, "numeric constant required\n");
+    break;
+
+  case SYMBOL_REQUIRED:
+    fprintf(f, "symbol required\n");
+    break;
+
+  case NON_CONSTANT_DIVISOR:
+    fprintf(f, "invalid division (divisor is not a constant)\n");
+    break;
+
+  case NEGATIVE_BVSIZE:
+    fprintf(f, "invalid bitvector size (negative number)\n");
+    break;
+
+  case ARITH_ERROR:
+    fprintf(f, "error in arithemtic operation\n");
+    break;
+
+  case BVARITH_ERROR:
+    fprintf(f, "error in bitvector operation\n");
     break;
 
   default:
-    fprintf(stderr, "invalid error code: %"PRId32"\n", error->code);
+    fprintf(f, "invalid error code: %"PRId32"\n", error->code);
     break;
   }
 
-  fflush(stderr);
+  fflush(f);
 }

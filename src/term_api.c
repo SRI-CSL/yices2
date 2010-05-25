@@ -500,6 +500,7 @@ static void init_globals(yices_globals_t *glob) {
   glob->arith_store = &arith_store;
   glob->bvarith_store = &bvarith_store;
   glob->bvarith64_store = &bvarith64_store;
+  glob->error = &error;
 }
 
 
@@ -514,6 +515,7 @@ static void clear_globals(yices_globals_t *glob) {
   glob->arith_store = NULL;
   glob->bvarith_store = NULL;
   glob->bvarith64_store = NULL;
+  glob->error = NULL;
 }
 
 
@@ -2680,7 +2682,7 @@ static bool check_maxdegree(uint32_t d) {
 static bool check_good_var_index(int32_t i) {
   if (i < 0) {
     error.code = INVALID_VAR_INDEX;
-    error.badidx = i;
+    error.badval = i;
     return false;
   }
 
@@ -2692,7 +2694,6 @@ static bool check_good_type(type_table_t *tbl, type_t tau) {
   if (bad_type(tbl, tau)) { 
     error.code = INVALID_TYPE;
     error.type1 = tau;
-    error.index = -1;
     return false;
   }
   return true;
@@ -2706,7 +2707,6 @@ static bool check_good_types(type_table_t *tbl, uint32_t n, type_t *a) {
     if (bad_type(tbl, a[i])) {
       error.code = INVALID_TYPE;
       error.type1 = a[i];
-      error.index = i;
       return false;
     }
   }
@@ -2721,7 +2721,6 @@ static bool check_good_constant(type_table_t *tbl, type_t tau, int32_t i) {
   if (bad_type(tbl, tau)) {
     error.code = INVALID_TYPE;
     error.type1 = tau;
-    error.index = -1;
     return false;
   }
   kind = type_kind(tbl, tau);
@@ -2734,7 +2733,7 @@ static bool check_good_constant(type_table_t *tbl, type_t tau, int32_t i) {
       (kind == SCALAR_TYPE && i >= scalar_type_cardinal(tbl, tau))) {
     error.code = INVALID_CONSTANT_INDEX;
     error.type1 = tau;
-    error.badidx = i;
+    error.badval = i;
     return false;
   }
   return true;
@@ -2745,7 +2744,6 @@ static bool check_good_term(term_table_t *tbl, term_t t) {
   if (bad_term(tbl, t)) {
     error.code = INVALID_TERM;
     error.term1 = t;
-    error.index = -1;
     return false;
   }
   return true;
@@ -2759,7 +2757,6 @@ static bool check_good_terms(term_table_t *tbl, uint32_t n, term_t *a) {
     if (bad_term(tbl, a[i])) {
       error.code = INVALID_TERM;
       error.term1 = a[i];
-      error.index = i;
       return false;
     }
   }
@@ -2775,7 +2772,6 @@ static bool check_arg_types(term_table_t *tbl, uint32_t n, term_t *a, type_t *ta
       error.code = TYPE_MISMATCH;
       error.term1 = a[i];
       error.type1 = tau[i];
-      error.index = i;
       return false;
     }
   }
@@ -2816,7 +2812,6 @@ static bool check_boolean_term(term_table_t *tbl, term_t t) {
     error.code = TYPE_MISMATCH;
     error.term1 = t;
     error.type1 = bool_type(tbl->types);
-    error.index = -1;
     return false;
   }
   return true;
@@ -2889,7 +2884,6 @@ static bool check_boolean_args(term_table_t *tbl, uint32_t n, term_t *a) {
       error.code = TYPE_MISMATCH;
       error.term1 = a[i];
       error.type1 = bool_type(tbl->types);
-      error.index = i;
       return false;
     }
   }
@@ -2905,7 +2899,6 @@ static bool check_arithmetic_args(term_table_t *tbl, uint32_t n, term_t *a) {
     if (! is_arithmetic_term(tbl, a[i])) {
       error.code = ARITHTERM_REQUIRED;
       error.term1 = a[i];
-      error.index = i;
       return false;
     }
   }
@@ -2921,7 +2914,6 @@ static bool check_denominators32(uint32_t n, uint32_t *den) {
   for (i=0; i<n; i++) {
     if (den[i] == 0) {
       error.code = DIVISION_BY_ZERO;
-      error.index = i;
       return false;
     }
   }
@@ -2936,7 +2928,6 @@ static bool check_denominators64(uint32_t n, uint64_t *den) {
   for (i=0; i<n; i++) {
     if (den[i] == 0) {
       error.code = DIVISION_BY_ZERO;
-      error.index = i;
       return false;
     }
   }
@@ -2963,7 +2954,7 @@ static bool check_good_select(term_table_t *tbl, uint32_t i, term_t t) {
   if (i >= tuple_type_arity(tbl->types, tau)) {
     error.code = INVALID_TUPLE_INDEX;
     error.type1 = tau;
-    error.badidx = i;
+    error.badval = i;
     return false;
   }
   
@@ -2999,7 +2990,6 @@ static bool check_good_update(term_table_t *tbl, term_t f, uint32_t n, term_t *a
     error.code = TYPE_MISMATCH;
     error.term1 = v;
     error.type1 = ft->range;
-    error.index = -1;
     return false;
   }
 
@@ -3050,7 +3040,6 @@ static bool check_good_quantified_term(term_table_t *tbl, uint32_t n, term_t *v,
     if (term_kind(tbl, v[i]) != VARIABLE) {      
       error.code = VARIABLE_REQUIRED;
       error.term1 = v[i];
-      error.index = i;
       return false;
     }
   }
@@ -3059,7 +3048,6 @@ static bool check_good_quantified_term(term_table_t *tbl, uint32_t n, term_t *v,
     if (v[i-1] == v[i]) {
       error.code = DUPLICATE_VARIABLE;
       error.term1 = v[i];
-      error.index = i;
       return false;
     }
   }
@@ -3088,7 +3076,7 @@ static bool check_good_tuple_update(term_table_t *tbl, uint32_t i, term_t t, ter
   if (i >= desc->nelem) {
     error.code = INVALID_TUPLE_INDEX;
     error.type1 = tau;
-    error.badidx = i;
+    error.badval = i;
     return false;
   }
 
@@ -3096,7 +3084,6 @@ static bool check_good_tuple_update(term_table_t *tbl, uint32_t i, term_t t, ter
     error.code = TYPE_MISMATCH;
     error.term1 = v;
     error.type1 = desc->elem[i];
-    error.index = -1;
     return false;
   }
   
@@ -3130,7 +3117,7 @@ static bool check_square_degree(term_table_t *tbl, term_t t) {
 static bool check_bitshift(uint32_t i, uint32_t n) {
   if (i > n) {
     error.code = INVALID_BITSHIFT;
-    error.badidx = i;
+    error.badval = i;
     return false;
   }
 
@@ -3899,7 +3886,6 @@ EXPORTED term_t yices_int64(int64_t val) {
 EXPORTED term_t yices_rational32(int32_t num, uint32_t den) {
   if (den == 0) {
     error.code = DIVISION_BY_ZERO;
-    error.index = -1;
     return NULL_TERM;
   }
 
@@ -3910,7 +3896,6 @@ EXPORTED term_t yices_rational32(int32_t num, uint32_t den) {
 EXPORTED term_t yices_rational64(int64_t num, uint64_t den) {
   if (den == 0) {
     error.code = DIVISION_BY_ZERO;
-    error.index = -1;
     return NULL_TERM;
   }
 
@@ -3969,7 +3954,6 @@ EXPORTED term_t yices_parse_rational(char *s) {
     } else {
       // denominator is 0
       error.code = DIVISION_BY_ZERO;
-      error.index = -1;
     }
     return NULL_TERM;
   }
@@ -4599,7 +4583,7 @@ EXPORTED term_t yices_parse_bvhex(char *s) {
 
   if (n > YICES_MAX_BVSIZE/4) {
     error.code = MAX_BVSIZE_EXCEEDED;
-    error.badval = n * 4; // can overflow??
+    error.badval = ((uint64_t) n) * 4; // badval is 64bits
     return NULL_TERM;
   }
 
@@ -4936,7 +4920,7 @@ EXPORTED term_t yices_bvxnor(term_t t1, term_t t2) {
  *   term1 = t
  * if n > size of t
  *   code = INVALID_BITSHIFT
- *   badidx = n
+ *   badval = n
  */
 EXPORTED term_t yices_shift_left0(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
@@ -6270,7 +6254,7 @@ bool yices_check_bvlogic_buffer(bvlogic_buffer_t *b) {
 bool yices_check_bitshift(bvlogic_buffer_t *b, int32_t s) {
   if (s < 0 || s > bvlogic_buffer_bitsize(b)) {
     error.code = INVALID_BITSHIFT;
-    error.badidx = s;
+    error.badval = s;
     return false;
   }
 
@@ -6301,7 +6285,7 @@ bool yices_check_bvextract(uint32_t n, int32_t i, int32_t j) {
  * Error report:
  * if n <= 0
  *   code = POSINT_REQUIRED
- *   badidx = n
+ *   badval = n
  * if size of the result would be more than MAX_BVSIZE
  *   code = MAX_BVSIZE_EXCEEDED
  *   badval = n * bitsize of t
@@ -6311,7 +6295,7 @@ bool yices_check_bvrepeat(bvlogic_buffer_t *b, int32_t n) {
 
   if (n <= 0) {
     error.code = POS_INT_REQUIRED;
-    error.badidx = n;
+    error.badval = n;
     return false;
   }
 
@@ -6343,7 +6327,7 @@ bool yices_check_bvextend(bvlogic_buffer_t *b, int32_t n) {
 
   if (n < 0) {
     error.code = NONNEG_INT_REQUIRED;
-    error.badidx = n;
+    error.badval = n;
     return false;
   }
 

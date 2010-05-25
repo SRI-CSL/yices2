@@ -424,6 +424,7 @@ static term_t test_binop(uint32_t i, term_t t1, term_t t2) {
   printf(" ");
   print_term(stdout, __yices_globals.terms, t2);
   printf(") --> ");
+  fflush(stdout);
   t = binop_array[i].fun(t1, t2);
   print_term(stdout, __yices_globals.terms, t);
   printf("\n");
@@ -446,6 +447,7 @@ static term_t test_unary_op(uint32_t i, term_t t1) {
   printf("test: (%s ", unop_array[i].name);
   print_term(stdout, __yices_globals.terms, t1);
   printf(") --> ");
+  fflush(stdout);
   t = unop_array[i].fun(t1);
   print_term(stdout, __yices_globals.terms, t);
   printf("\n");
@@ -568,6 +570,8 @@ static void add_random_terms(uint32_t n) {
 
   while (n > 0) {
     i = random() % (NUM_BINOPS + NUM_UNOPS + 1);
+    printf("---> random term: n = %"PRIu32" i = %"PRIu32"\n", n, i);
+    fflush(stdout);
     if (i < NUM_BINOPS) {
       t1 = term_store_sample(&all_terms, boolean, is_arith);
       t2 = term_store_sample(&all_terms, boolean, is_arith);
@@ -581,6 +585,7 @@ static void add_random_terms(uint32_t n) {
       t2 = term_store_sample(&all_terms, boolean, is_arith);
       t = test_ite(c, t1, t2);
     }
+    assert(t >= 0);
     term_store_add_term(&all_terms, t);
     n --;
   }

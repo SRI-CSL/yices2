@@ -156,12 +156,11 @@ static bool check_too_many_arguments(type_t tau, int64_t n) {
     rep->badval == n && n > (int64_t) YICES_MAX_ARITY;
 }
 
-static bool check_invalid_type(type_t tau, type_t bad, int32_t bad_index) {
+static bool check_invalid_type(type_t tau, type_t bad) {
   error_report_t *rep;
 
   rep = yices_error_report();
-  return tau == NULL_TYPE && bad_type(__yices_globals.types, rep->type1) && 
-    rep->type1 == bad && rep->index == bad_index;
+  return tau == NULL_TYPE && bad_type(__yices_globals.types, rep->type1) && rep->type1 == bad;
 }
 
 
@@ -354,7 +353,7 @@ static void test_type_errors(void) {
   aux[1] = bv2;
   aux[2] = -3;
   test = yices_tuple_type(3, aux);
-  assert(check_invalid_type(test, aux[2], 2));
+  assert(check_invalid_type(test, aux[2]));
 
   test = yices_function_type(0, NULL, real);
   assert(check_pos_int_required(test));
@@ -363,11 +362,11 @@ static void test_type_errors(void) {
   assert(check_too_many_arguments(test, UINT32_MAX));
 
   test = yices_function_type(3, aux, real);
-  assert(check_invalid_type(test, aux[2], 2));
+  assert(check_invalid_type(test, aux[2]));
 
   aux[2] = T2;
   test = yices_function_type(3, aux, -4);
-  assert(check_invalid_type(test, -4, -1));
+  assert(check_invalid_type(test, -4));
 
   printf("PASS: %s\n", __func__);
   fflush(stdout);
@@ -579,8 +578,7 @@ static bool check_invalid_type2(term_t t, type_t tau) {
   error_report_t *rep;
 
   rep = yices_error_report();
-  return t == NULL_TERM && yices_error_code() == INVALID_TYPE && 
-    rep->type1 == tau && rep->index == -1;
+  return t == NULL_TERM && yices_error_code() == INVALID_TYPE && rep->type1 == tau;
 }
 
 static bool check_scalar_or_utype_required(term_t t, type_t tau) {

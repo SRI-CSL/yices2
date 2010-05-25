@@ -358,8 +358,6 @@ static yices_token_t read_symbol(lexer_t *lex) {
   if (kw != NULL) {
     tk = kw->tk;
   }
-  //  tk = stbl_find(lex->keywords, buffer->data);
-  //  if (tk < 0) tk = TK_SYMBOL;
 
   return tk;
 }
