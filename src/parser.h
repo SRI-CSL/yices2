@@ -41,7 +41,7 @@ typedef struct parser_stack_s {
 /*
  * Parser components:
  * - a lexer
- * - a term_stack (for building terms)
+ * - a term stack (for building terms)
  * - a stack of control states
  */
 typedef struct parser_s {
@@ -53,7 +53,8 @@ typedef struct parser_s {
 
 /*
  * Initialization:
- * - use lex and tstack for lexer and term stack (they must be initialized outside this function)
+ * - use lex and tstack for lexer and term stack (they must be initialized 
+ *   outside this function).
  */
 extern void init_parser(parser_t *parser, lexer_t *lex, tstack_t *tstack);
 

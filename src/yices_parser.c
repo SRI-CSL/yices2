@@ -256,7 +256,9 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
   tstack = parser->tstack;
 
   assert(parser_stack_is_empty(stack));
-  assert(tstack_is_empty(tstack));
+  assert(tstack_is_empty(tstack) || 
+	 tstack->top_op == BUILD_TYPE ||
+	 tstack->top_op == BUILD_TERM);
 
   // prepare to catch exceptions in term stack operations
   exception = setjmp(tstack->env);
@@ -1134,6 +1136,10 @@ extern term_t parse_yices_term(parser_t *parser, FILE *err) {
    */
   assert(parser->tstack->top_op == BUILD_TERM);
   tstack_eval(parser->tstack);
+
+  assert(parser_stack_is_empty(&parser->pstack) && 
+	 tstack_is_empty(parser->tstack));
+
   return tstack_get_term(parser->tstack);
 }
 
@@ -1144,7 +1150,7 @@ type_t parse_yices_type(parser_t *parser, FILE *err) {
   loc.line = 0;
   loc.column = 0;
   tstack_push_op(parser->tstack, BUILD_TYPE, &loc);
-  if (yices_parse(parser, t0, err) < 0) {
+  if (yices_parse(parser, td0, err) < 0) {
     return NULL_TYPE;
   }
 
@@ -1154,6 +1160,10 @@ type_t parse_yices_type(parser_t *parser, FILE *err) {
    */
   assert(parser->tstack->top_op == BUILD_TYPE);
   tstack_eval(parser->tstack);
+
+  assert(parser_stack_is_empty(&parser->pstack) && 
+	 tstack_is_empty(parser->tstack));
+
   return tstack_get_type(parser->tstack);
 }
 

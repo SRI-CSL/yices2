@@ -90,6 +90,14 @@ extern void init_string_lexer(lexer_t *lex, char *data, char *name);
 
 
 /*
+ * Change input string of lex to data
+ * - the current lexer name is kept
+ * - lex must be a string lexer (initialized with init_string_lexer).
+ */
+extern void reset_string_lexer(lexer_t *lex, char *data);
+
+
+/*
  * Open a nested lexer for the given filename
  * - keywords and buffer are inherited form parent
  * - lex->next is set to parent.
@@ -98,6 +106,7 @@ extern void init_string_lexer(lexer_t *lex, char *data, char *name);
  * Return 0 otherwise.
  */
 extern int32_t init_nested_lexer(lexer_t *lex, char *filename, lexer_t *parent);
+
 
 /*
  * Open a nested lexer for the data string

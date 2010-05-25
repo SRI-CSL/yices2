@@ -84,6 +84,14 @@ extern void init_string_reader(reader_t *reader, char *data, char *name);
 
 
 /*
+ * Change the input string of reader
+ * - reset position/line/col and current
+ * - reader must be a string reader.
+ */
+extern void reset_string_reader(reader_t *reader, char *data);
+
+
+/*
  * Close file reader:
  * - return EOF on error, 0 otherwise
  * - no effect if reader is a string reader.

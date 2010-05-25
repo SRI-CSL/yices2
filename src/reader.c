@@ -133,6 +133,22 @@ void init_string_reader(reader_t *reader, char *data, char *name) {
 
 
 /*
+ * Reset: change the input string
+ */
+void reset_string_reader(reader_t *reader, char *data) {
+  assert(! reader->is_stream);
+  assert(reader->read == string_reader_next_char);
+
+  reader->current = '\n';
+  reader->input.data = data;
+  reader->pos = 0;
+  reader->line = 0;
+  reader->column = 1;
+}
+
+
+
+/*
  * Close reader: return EOF on error, 0 otherwise
  */
 int close_reader(reader_t *reader) {

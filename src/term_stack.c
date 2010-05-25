@@ -2997,6 +2997,9 @@ static void eval_mk_bv_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   type_t tau;
 
   size = get_integer(stack, f);
+  if (size < 0) {
+    raise_exception(stack, f, TSTACK_NEGATIVE_BVSIZE);
+  }
   tau = yices_bv_type(size);
   check_type(stack, tau);
 
@@ -3754,7 +3757,7 @@ static void mk_bv_const_core(tstack_t *stack, stack_elem_t *f, int32_t size, rat
   uint32_t *tmp;
   uint64_t c;
 
-  if (size <= 0) {
+  if (size < 0) {
     raise_exception(stack, f, TSTACK_NEGATIVE_BVSIZE);
   }
 

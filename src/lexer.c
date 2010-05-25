@@ -69,6 +69,7 @@ void init_stream_lexer(lexer_t *lex, FILE *f, char *name) {
   init_lexer(lex);
 }
 
+
 /*
  * Initilize lexer for a string data
  */
@@ -76,6 +77,21 @@ void init_string_lexer(lexer_t *lex, char *data, char *name) {
   init_string_reader(&lex->reader, data, name);
   init_lexer(lex);
 }
+
+
+/*
+ * Change the input string for lex to data
+ */
+void reset_string_lexer(lexer_t *lex, char *data) {
+  reset_string_reader(&lex->reader, data);
+  // reset token and location
+  lex->token = -1;
+  lex->tk_pos = 0;
+  lex->tk_line = 0;
+  lex->tk_column = 0;  
+  string_buffer_reset(lex->buffer);
+}
+
 
 
 /*

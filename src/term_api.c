@@ -34,7 +34,9 @@
 #include "yices.h"
 #include "yices_extensions.h"
 #include "yices_globals.h"
+#include "yices_parser.h"
 #include "yices_pp.h"
+
 
 
 /*
@@ -89,6 +91,12 @@ static bvconstant_t bv2;
 
 // generic integer vector
 static ivector_t vector0;
+
+// parser, lexer, term stack: all are allocated on demand
+static parser_t *parser;
+static lexer_t *lexer;
+static tstack_t *tstack;
+
 
 
 /*
@@ -483,6 +491,59 @@ static bvlogic_buffer_t *get_internal_bvlogic_buffer(void) {
 
 
 
+/***********************************
+ *  PARSER AND RELATED STRUCTURES  *
+ **********************************/
+
+/*
+ * Return the internal parser 
+ * - with the given string as input
+ * - s must be non-NULL, terminated by '\0'
+ */
+static parser_t *get_parser(char *s) {
+  if (parser == NULL) {
+    assert(lexer == NULL && tstack == NULL);
+    tstack = (tstack_t *) safe_malloc(sizeof(tstack_t));
+    init_tstack(tstack);
+
+    lexer = (lexer_t *) safe_malloc(sizeof(lexer_t));
+    init_string_lexer(lexer, s, "yices");
+    
+    parser = (parser_t *) safe_malloc(sizeof(parser_t));
+    init_parser(parser, lexer, tstack);
+  } else {
+    // reset the input string
+    assert(lexer != NULL && tstack != NULL);
+    reset_string_lexer(lexer, s);
+  }
+
+  return parser;
+}
+
+
+
+/*
+ * Delete the internal parser, lexer, term stack
+ * (it they exist)
+ */
+static void delete_parsing_objects(void) {
+  if (parser != NULL) {
+    assert(lexer != NULL && tstack != NULL);
+    delete_parser(parser);
+    safe_free(parser);
+    parser = NULL;
+
+    close_lexer(lexer);
+    safe_free(lexer);
+    lexer = NULL;
+
+    delete_tstack(tstack);
+    safe_free(tstack);
+    tstack = NULL;
+  }
+}
+
+
 
 
 /***************************************
@@ -561,6 +622,11 @@ EXPORTED void yices_init(void) {
   internal_bvarith64_buffer = NULL;
   internal_bvlogic_buffer = NULL;
 
+  // parser etc.
+  parser = NULL;
+  lexer = NULL;
+  tstack = NULL;
+
   // prepare the global table
   init_globals(&__yices_globals);
 }
@@ -571,6 +637,9 @@ EXPORTED void yices_init(void) {
  */
 EXPORTED void yices_cleanup(void) {
   clear_globals(&__yices_globals);
+
+  // parser etc.
+  delete_parsing_objects();
 
   // internal buffers will be freed via free_arith_buffer_list,
   // free_bvarith_buffer_list, and free_bvlogic_buffer_list
@@ -6420,8 +6489,10 @@ bool yices_check_bvmul_buffer(bvarith_buffer_t *b1, bvarith_buffer_t *b2) {
  * Return NULL_TYPE if there's an error.
  */
 EXPORTED type_t yices_parse_type(char *s) {
-  // TBD
-  return NULL_TYPE;
+  parser_t *p;
+
+  p = get_parser(s);
+  return parse_yices_type(p, NULL);
 }
 
 
@@ -6430,8 +6501,10 @@ EXPORTED type_t yices_parse_type(char *s) {
  * Return NULL_TERM if there's an error.
  */
 EXPORTED term_t yices_parse_term(char *s) {
-  // TBD
-  return NULL_TERM;
+  parser_t *p;
+
+  p = get_parser(s);
+  return parse_yices_term(p, NULL);
 }
 
 
