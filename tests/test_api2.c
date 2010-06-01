@@ -44,7 +44,8 @@ static inline long int random(void) {
  */
 static void show_types(void) {
   printf("\n---- Type table ----\n");
-  print_type_table(stdout, __yices_globals.types);
+  //  print_type_table(stdout, __yices_globals.types);
+  pp_type_table(stdout, __yices_globals.types);
 }
 
 
@@ -53,7 +54,8 @@ static void show_types(void) {
  */
 static void show_terms(void) {
   printf("\n---- Term table -----\n");
-  print_term_table(stdout, __yices_globals.terms);
+  //  print_term_table(stdout, __yices_globals.terms);
+  pp_term_table(stdout, __yices_globals.terms);
 }
 
 

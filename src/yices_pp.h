@@ -120,6 +120,7 @@ typedef enum {
   PP_OPEN_PROD,
   PP_OPEN_POWER,
   PP_OPEN_SUM,
+  PP_OPEN_GE,
 
   PP_OPEN_BV_ARRAY,
   PP_OPEN_BV_DIV,

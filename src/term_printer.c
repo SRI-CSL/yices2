@@ -1142,3 +1142,456 @@ void print_term_table(FILE *f, term_table_t *tbl) {
     }
   }
 }
+
+
+
+
+/*********************
+ *  PRETTY PRINTING  *
+ ********************/
+
+/*
+ * Term name
+ */
+void pp_term_name(yices_pp_t *printer, term_table_t *tbl, term_t t) {
+  char *name;
+
+  assert(good_term(tbl, t));
+
+  if (t <= false_term) {
+    name = (char *) term2string[t];
+  } else {
+    name = term_name(tbl, t);
+  }
+
+  if (name != NULL) {
+    pp_string(printer, name);
+  } else {
+    pp_id(printer, "t!", t);
+  }
+}
+
+
+
+/*
+ * Table: convert term_kind tag into the corresponding open_block tag
+ * term_kind2block[k] = 0 means k is atomic or can't be printed
+ * (Note this is ok, since 0 is PP_OPEN).
+ */
+#define NUM_TERM_KINDS (BV_SGE_ATOM+1)
+
+static const pp_open_type_t const term_kind2block[NUM_TERM_KINDS] = {
+  0,                 //  UNUSED_TERM
+  0,                 //  RESERVED_TERM
+  0,                 //  CONSTANT_TERM
+  0,                 //  UNINTERPRETED_TERM
+  0,                 //  VARIABLE
+  PP_OPEN_ITE,       //  ITE_TERM
+  PP_OPEN_PAR,       //  APP_TERM
+  PP_OPEN_UPDATE,    //  UPDATE_TERM
+  PP_OPEN_TUPLE,     //  TUPLE_TERM
+  PP_OPEN_SELECT,    //  SELECT_TERM
+  PP_OPEN_EQ,        //  EQ_TERM
+  PP_OPEN_DISTINCT,  //  DISTINCT_TERM
+  PP_OPEN_FORALL,    //  FORALL_TERM
+  PP_OPEN_OR,        //  OR_TERM
+  PP_OPEN_XOR,       //  XOR_TERM
+  PP_OPEN_BIT,       //  BIT_TERM
+  PP_OPEN_PROD,      //  POWER_PRODUCT
+  0,                 //  ARITH_CONSTANT
+  PP_OPEN_SUM,       //  ARITH_POLY
+  PP_OPEN_EQ,        //  ARITH_EQ_ATOM
+  PP_OPEN_GE,        //  ARITH_GE_ATOM
+  PP_OPEN_EQ,        //  ARITH_BINEQ_ATOM
+  0,                 //  BV64_CONSTANT
+  0,                 //  BV_CONSTANT
+  PP_OPEN_SUM,       //  BV64_POLY
+  PP_OPEN_SUM,       //  BV_POLY
+  PP_OPEN_BV_ARRAY,  //  BV_ARRAY
+  PP_OPEN_BV_DIV,    //  BV_DIV
+  PP_OPEN_BV_REM,    //  BV_REM
+  PP_OPEN_BV_SDIV,   //  BV_SDIV
+  PP_OPEN_BV_SREM,   //  BV_SREM
+  PP_OPEN_BV_SMOD,   //  BV_SMOD
+  PP_OPEN_BV_SHL,    //  BV_SHL
+  PP_OPEN_BV_LSHR,   //  BV_LSHR
+  PP_OPEN_BV_ASHR,   //  BV_ASHR
+  PP_OPEN_EQ,        //  BV_EQ_ATOM
+  PP_OPEN_BV_GE,     //  BV_GE_ATOM
+  PP_OPEN_BV_SGE,    //  BV_SGE_ATOM
+};
+
+
+/*
+ * Print term t: expand the term names if level > 0
+ */
+static void pp_term_recur(yices_pp_t *printer, term_table_t *tbl, term_t t, int32_t level);
+
+// composite (including function applications)
+static void pp_composite_term(yices_pp_t *printer, term_table_t *tbl, term_kind_t tag, composite_term_t *d, int32_t level) {
+  uint32_t i, n;
+  pp_open_type_t op;
+
+  assert(0 <= tag && tag <= BV_SGE_ATOM);
+  op = term_kind2block[tag];
+  assert(op != 0);
+  pp_open_block(printer, op);
+  n = d->arity;
+  for (i=0; i<n; i++) {
+    pp_term_recur(printer, tbl, d->arg[i], level);
+  }
+  pp_close_block(printer, true);
+}  
+
+// select
+static void pp_select_term(yices_pp_t *printer, term_table_t *tbl, term_kind_t tag, select_term_t *d, int32_t level) {
+  pp_open_type_t op;
+
+  assert(0 <= tag && tag <= BV_SGE_ATOM);
+  op = term_kind2block[tag];
+  assert(op != 0);
+  pp_open_block(printer, op);
+  pp_uint32(printer, d->idx);
+  pp_term_recur(printer, tbl, d->arg, level);
+  pp_close_block(printer, true);
+}
+
+// exponent (^ x d)
+static void pp_exponent(yices_pp_t *printer, term_table_t *tbl, term_t x, uint32_t d, int32_t level) {
+  assert(d > 0);
+  if (d == 1) {
+    pp_term_recur(printer, tbl, x, level);
+  } else {
+    pp_open_block(printer, PP_OPEN_POWER);
+    pp_term_recur(printer, tbl, x, level);
+    pp_uint32(printer, d);
+    pp_close_block(printer, true);
+  }
+}
+
+// power product (* (^ x_1 d_1) ... (^ x_n d_n))
+static void pp_pprod(yices_pp_t *printer, term_table_t *tbl, pprod_t *p, int32_t level) {
+  uint32_t i, n;
+
+  n = p->len;
+  assert(n > 0);
+  if (n == 1) {
+    pp_exponent(printer, tbl, p->prod[0].var, p->prod[0].exp, level);
+  } else {
+    pp_open_block(printer, PP_OPEN_PROD);
+    for (i=0; i<n; i++) {
+      pp_exponent(printer, tbl, p->prod[i].var, p->prod[i].exp, level);
+    }
+    pp_close_block(printer, true);
+  }
+}
+
+// monomial (* coeff x)
+static void pp_mono(yices_pp_t *printer, term_table_t *tbl, rational_t *coeff, int32_t x, int32_t level) {
+  pprod_t *p;
+  uint32_t i, n;
+
+  assert(x == const_idx || good_term(tbl, x));
+
+  if (x == const_idx) {
+    pp_rational(printer, coeff);
+  } else if (q_is_one(coeff)) {
+    pp_term_recur(printer, tbl, x, level);     
+  } else {
+    pp_open_block(printer, PP_OPEN_PROD);
+    pp_rational(printer, coeff);
+    if (term_kind(tbl, x) == POWER_PRODUCT) {
+      p = pprod_term_desc(tbl, x);
+      n = p->len;
+      for (i=0; i<n; i++) {
+	pp_exponent(printer, tbl, p->prod[i].var, p->prod[i].exp, level);
+      }
+    } else {
+      pp_term_recur(printer, tbl, x, level);
+    }
+    pp_close_block(printer, true);
+  }
+}
+
+// polynomial (+ mono1 ... mono_k)
+static void pp_poly(yices_pp_t *printer, term_table_t *tbl, polynomial_t *p, int32_t level) {
+  uint32_t i, n;
+
+  n = p->nterms;
+  pp_open_block(printer, PP_OPEN_SUM);
+  for (i=0; i<n; i++) {
+    pp_mono(printer, tbl, &p->mono[i].coeff, p->mono[i].var, level);
+  }
+  pp_close_block(printer, true);
+}
+
+// bitvector monomial (* c x)
+static void pp_bvmono64(yices_pp_t *printer, term_table_t *tbl, uint64_t c, uint32_t nbits, int32_t x, int32_t level) {
+  pprod_t *p;
+  uint32_t i, n;
+
+  assert(x == const_idx || good_term(tbl, x));
+
+  if (x == const_idx) {
+    pp_bv64(printer, c, nbits);
+  } else if (c == 1) {
+    pp_term_recur(printer, tbl, x, level);
+  } else {
+    pp_open_block(printer, PP_OPEN_PROD);
+    pp_bv64(printer, c, nbits);
+    if (term_kind(tbl, x) == POWER_PRODUCT) {
+      p = pprod_term_desc(tbl, x);
+      n = p->len;
+      for (i=0; i<n; i++) {
+	pp_exponent(printer, tbl, p->prod[i].var, p->prod[i].exp, level);
+      }
+    } else {
+      pp_term_recur(printer, tbl, x, level);
+    }
+    pp_close_block(printer, true);
+  }
+}
+
+// bitvector polynomila (+ mono1 ... mono_k), small coefficients
+static void pp_bvpoly64(yices_pp_t *printer, term_table_t *tbl, bvpoly64_t *p, int32_t level) {
+  uint32_t i, n;
+  uint32_t nbits;
+
+  n = p->nterms;
+  nbits = p->bitsize;
+  pp_open_block(printer, PP_OPEN_SUM);
+  for (i=0; i<n; i++) {
+    pp_bvmono64(printer, tbl, p->mono[i].coeff, nbits, p->mono[i].var, level);
+  }
+  pp_close_block(printer, true);
+}
+
+// bitvector monomial (more than 64bits)
+static void pp_bvmono(yices_pp_t *printer, term_table_t *tbl, uint32_t *c, uint32_t nbits, int32_t x, int32_t level) {
+  pprod_t *p;
+  uint32_t i, n, k;
+
+  assert(x == const_idx || good_term(tbl, x));
+
+  k = (nbits + 31) >> 5; // word size
+
+  if (x == const_idx) {
+    pp_bv(printer, c, nbits);
+  } else if (bvconst_is_one(c, k)) {
+    pp_term_recur(printer, tbl, x, level);
+  } else {
+    pp_open_block(printer, PP_OPEN_PROD);
+    pp_bv(printer, c, nbits);
+    if (term_kind(tbl, x) == POWER_PRODUCT) {
+      p = pprod_term_desc(tbl, x);
+      n = p->len;
+      for (i=0; i<n; i++) {
+	pp_exponent(printer, tbl, p->prod[i].var, p->prod[i].exp, level);
+      }
+    } else {
+      pp_term_recur(printer, tbl, x, level);
+    }
+    pp_close_block(printer, true);
+  }
+}
+
+// bitvector polynomial (more than 64bits)
+static void pp_bvpoly(yices_pp_t *printer, term_table_t *tbl, bvpoly_t *p, int32_t level) {
+  uint32_t i, n;
+  uint32_t nbits;
+
+  n = p->nterms;
+  nbits = p->bitsize;
+  pp_open_block(printer, PP_OPEN_SUM);
+  for (i=0; i<n; i++) {
+    pp_bvmono(printer, tbl, p->mono[i].coeff, nbits, p->mono[i].var, level);
+  }
+  pp_close_block(printer, true);
+}
+
+// bitvector constants
+static void pp_bvconst_term(yices_pp_t *printer, bvconst_term_t *d) {
+  pp_bv(printer, d->data, d->bitsize);
+}
+
+static void pp_bvconst64_term(yices_pp_t *printer, bvconst64_term_t *d) {
+  pp_bv64(printer, d->value, d->bitsize);
+}
+
+// term idx i
+static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32_t level) {
+  char *name;
+
+  name = term_name(tbl, pos_term(i));
+  if (name != NULL && level <= 0) {
+    pp_string(printer, name);
+  } else {
+    switch (tbl->kind[i]) {
+    case CONSTANT_TERM:
+    case UNINTERPRETED_TERM:
+    case VARIABLE:
+      pp_id(printer, "t!", pos_term(i));
+      break;
+
+    case ARITH_CONSTANT:
+      pp_rational(printer, &tbl->desc[i].rational);
+      break;
+
+    case BV64_CONSTANT:
+      pp_bvconst64_term(printer, tbl->desc[i].ptr);
+      break;
+
+    case BV_CONSTANT:
+      pp_bvconst_term(printer, tbl->desc[i].ptr);
+      break;
+
+    case ARITH_EQ_ATOM:
+      pp_open_block(printer, PP_OPEN_EQ);
+      pp_term_recur(printer, tbl, tbl->desc[i].integer, level - 1);
+      pp_int32(printer, 0);
+      pp_close_block(printer, true);
+      break;
+
+    case ARITH_GE_ATOM:
+      pp_open_block(printer, PP_OPEN_GE);
+      pp_term_recur(printer, tbl, tbl->desc[i].integer, level - 1);
+      pp_int32(printer, 0);
+      pp_close_block(printer, true);
+      break;
+
+    case APP_TERM:
+    case ITE_TERM:
+    case UPDATE_TERM:
+    case TUPLE_TERM:
+    case EQ_TERM:
+    case DISTINCT_TERM:
+    case FORALL_TERM:
+    case OR_TERM:
+    case XOR_TERM:
+    case ARITH_BINEQ_ATOM:
+    case BV_ARRAY:
+    case BV_DIV:
+    case BV_REM:
+    case BV_SDIV:
+    case BV_SREM:
+    case BV_SMOD:
+    case BV_SHL:
+    case BV_LSHR:
+    case BV_ASHR:
+    case BV_EQ_ATOM:
+    case BV_GE_ATOM:
+    case BV_SGE_ATOM:
+      // i's descriptor is a composite term 
+      pp_composite_term(printer, tbl, tbl->kind[i], tbl->desc[i].ptr, level - 1);
+      break;
+
+    case SELECT_TERM:
+    case BIT_TERM:
+      pp_select_term(printer, tbl, tbl->kind[i], &tbl->desc[i].select, level - 1);
+      break;
+
+    case POWER_PRODUCT:
+      pp_pprod(printer, tbl, tbl->desc[i].ptr, level - 1);
+      break;
+
+    case ARITH_POLY:
+      pp_poly(printer, tbl, tbl->desc[i].ptr, level - 1);
+      break;
+
+    case BV64_POLY:
+      pp_bvpoly64(printer, tbl, tbl->desc[i].ptr, level - 1);
+      break;
+	
+    case BV_POLY:
+      pp_bvpoly(printer, tbl, tbl->desc[i].ptr, level - 1);
+      break;
+
+    case UNUSED_TERM:
+    case RESERVED_TERM:
+    default:
+      assert(false);
+      break;
+    }
+  }
+}
+
+// term t
+static void pp_term_recur(yices_pp_t *printer, term_table_t *tbl, term_t t, int32_t level) {
+  char *name;
+  int32_t i;
+
+  assert(good_term(tbl, t));
+
+  if (t <= false_term) {
+    pp_string(printer, (char *) term2string[t]);
+  } else {
+    name = term_name(tbl, t);
+    if (name != NULL && level <= 0) {
+      pp_string(printer, name);
+    } else {
+      i = index_of(t);
+      if (is_neg_term(t)) {
+	pp_open_block(printer, PP_OPEN_NOT);
+	pp_term_idx(printer, tbl, i, level - 1);
+	pp_close_block(printer, true);
+      } else {
+	pp_term_idx(printer, tbl, i, level);
+      }
+      
+    }
+  }
+}
+
+
+/*
+ * Expand top-level names 
+ */
+void pp_term_exp(yices_pp_t *printer, term_table_t *tbl, term_t t) {
+  pp_term_recur(printer, tbl, t, 1);
+}
+
+
+/*
+ * Don't expand top-level names
+ */
+void pp_term(yices_pp_t *printer, term_table_t *tbl, term_t t) {
+  pp_term_recur(printer, tbl, t, 0);
+}
+
+
+/*
+ * Pretty print a term table
+ */
+void pp_term_table(FILE *f, term_table_t *tbl) {
+  yices_pp_t printer;
+  pp_area_t area;
+  uint32_t i, n;
+  term_t t;
+  term_kind_t kind;
+
+  area.width = 120;
+  area.height = 6;
+  area.offset = 14;
+  area.truncate = true;
+  area.stretch = false;
+
+  init_yices_pp(&printer, f, &area, PP_VMODE, 0);
+
+  n = tbl->nelems;
+  for (i=0; i<n; i++) {
+    kind = tbl->kind[i];
+    if (kind != UNUSED_TERM && kind != RESERVED_TERM) {
+      t = pos_term(i);
+      fprintf(f, "term[%"PRId32"]: ", t);
+      if (t < 10) fputc(' ', f);
+      if (t < 100) fputc(' ', f);
+      if (t < 1000) fputc(' ', f);
+      if (t < 10000) fputc(' ', f);
+      if (t < 100000) fputc(' ', f);
+      pp_term(&printer, tbl, t);
+      flush_yices_pp(&printer);
+    }
+  }
+
+  delete_yices_pp(&printer);
+}

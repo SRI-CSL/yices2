@@ -81,7 +81,7 @@ typedef struct pp_nonstandard_block_s {
 /*
  * Table of standard blocks
  */
-#define NUM_STANDARD_BLOCKS 27
+#define NUM_STANDARD_BLOCKS 28
 
 static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_FUN_TYPE, "->" },
@@ -100,6 +100,7 @@ static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_PROD, "*" },
   { PP_OPEN_POWER, "^" },
   { PP_OPEN_SUM, "+" },
+  { PP_OPEN_GE, ">=" },
   { PP_OPEN_BV_ARRAY, "bit-array" },
   { PP_OPEN_BV_DIV, "bv-div" },
   { PP_OPEN_BV_REM, "bv-rem" },

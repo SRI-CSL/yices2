@@ -7,12 +7,13 @@
 
 #include <stdio.h>
 
+#include "yices_pp.h"
 #include "terms.h"
 #include "bvlogic_buffers.h"
 
 
 /*
- * Term id:
+ * Term id
  */
 extern void print_term_id(FILE *f, term_t t);
 
@@ -48,6 +49,22 @@ extern void print_term(FILE *f, term_table_t *tbl, term_t t);
  * Print all terms in tbl
  */
 extern void print_term_table(FILE *f, term_table_t *tbl);
+
+
+/*
+ * Pretty printing:
+ * - term expression
+ * - name
+ * - term (name or expression)
+ */
+extern void pp_term_exp(yices_pp_t *printer, term_table_t *tbl, term_t t);
+extern void pp_term_name(yices_pp_t *printer, term_table_t *tbl, term_t  t);
+extern void pp_term(yices_pp_t *printer, term_table_t *tbl, term_t t);
+
+/*
+ * Pretty print a term table
+ */
+extern void pp_term_table(FILE *f, term_table_t *tbl);
 
 
 #endif
