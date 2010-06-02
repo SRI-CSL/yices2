@@ -165,9 +165,9 @@
  * Limits defined in yices_limits.h are relevant here:
  *
  * 1) YICES_MAX_TERMS = bound on the number of terms
- * 2) YICES_MAX_TYPES = bound on the number of tuypes
+ * 2) YICES_MAX_TYPES = bound on the number of types
  * 3) YICES_MAX_ARITY = bound on the term arity
- * 4) YICES_MAX_VARS = bound on n in (FORALL (x_1.... x_n) P)
+ * 4) YICES_MAX_VARS  = bound on n in (FORALL (x_1.... x_n) P)
  * 5) YICES_MAX_DEGREE = bound on the total degree of polynomials and power-products
  * 6) YICES_MAX_BVSIZE = bound on the size of bitvector
  *
