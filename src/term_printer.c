@@ -1318,11 +1318,15 @@ static void pp_poly(yices_pp_t *printer, term_table_t *tbl, polynomial_t *p, int
   uint32_t i, n;
 
   n = p->nterms;
-  pp_open_block(printer, PP_OPEN_SUM);
-  for (i=0; i<n; i++) {
-    pp_mono(printer, tbl, &p->mono[i].coeff, p->mono[i].var, level);
+  if (n == 1) {
+    pp_mono(printer, tbl, &p->mono[0].coeff, p->mono[0].var, level);
+  } else {
+    pp_open_block(printer, PP_OPEN_SUM);
+    for (i=0; i<n; i++) {
+      pp_mono(printer, tbl, &p->mono[i].coeff, p->mono[i].var, level);
+    }
+    pp_close_block(printer, true);
   }
-  pp_close_block(printer, true);
 }
 
 // bitvector monomial (* c x)
@@ -1359,9 +1363,13 @@ static void pp_bvpoly64(yices_pp_t *printer, term_table_t *tbl, bvpoly64_t *p, i
 
   n = p->nterms;
   nbits = p->bitsize;
-  pp_open_block(printer, PP_OPEN_SUM);
-  for (i=0; i<n; i++) {
-    pp_bvmono64(printer, tbl, p->mono[i].coeff, nbits, p->mono[i].var, level);
+  if (n == 1) {
+    pp_bvmono64(printer, tbl, p->mono[0].coeff, nbits, p->mono[0].var, level);
+  } else {
+    pp_open_block(printer, PP_OPEN_SUM);
+    for (i=0; i<n; i++) {
+      pp_bvmono64(printer, tbl, p->mono[i].coeff, nbits, p->mono[i].var, level);
+    }
   }
   pp_close_block(printer, true);
 }
@@ -1402,11 +1410,15 @@ static void pp_bvpoly(yices_pp_t *printer, term_table_t *tbl, bvpoly_t *p, int32
 
   n = p->nterms;
   nbits = p->bitsize;
-  pp_open_block(printer, PP_OPEN_SUM);
-  for (i=0; i<n; i++) {
-    pp_bvmono(printer, tbl, p->mono[i].coeff, nbits, p->mono[i].var, level);
+  if (n == 1) {
+    pp_bvmono(printer, tbl, p->mono[0].coeff, nbits, p->mono[0].var, level);
+  } else {
+    pp_open_block(printer, PP_OPEN_SUM);
+    for (i=0; i<n; i++) {
+      pp_bvmono(printer, tbl, p->mono[i].coeff, nbits, p->mono[i].var, level);
+    }
+    pp_close_block(printer, true);
   }
-  pp_close_block(printer, true);
 }
 
 // bitvector constants
