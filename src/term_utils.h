@@ -26,7 +26,7 @@
  * Check whether two terms x and y can never be equal.
  * This is incomplete and can detect disequalities in simple cases.
  * - if the function returns true, then x and y can't be equal in any interpretation 
- * - if if returns false, we don't know.
+ * - if it returns false, we don't know.
  */
 extern bool disequal_terms(term_table_t *tbl, term_t x, term_t y);
 

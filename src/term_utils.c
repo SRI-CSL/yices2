@@ -301,13 +301,24 @@ static inline bool disequal_boolean_terms(term_t x, term_t y) {
 }
 
 
+
+/*
+ * Test whether x can't be an integer
+ * - incomplete
+ */
+static bool is_non_integer_term(term_table_t *tbl, term_t x) {
+  return term_kind(tbl, x) == ARITH_CONSTANT && !q_is_integer(rational_term_desc(tbl, x));
+}
+
+
 /*
  * Arithmetic: x and y are both arithmetic terms
  *
  * The conversion of arith_buffer to terms ensures that polynomial
  * terms are not constant and not of the form 1.x for some term x.
  *
- * We can deal with 4 simple cases:
+ * We deal with simple cases:
+ * - x is integer and y is not (or conversely)
  * - both x and y are constant 
  * - both x and y are polynomials
  * - x is a polynomial and y is not a constant (i.e., y may occur as a variable in x)
@@ -317,6 +328,14 @@ static inline bool disequal_boolean_terms(term_t x, term_t y) {
  */
 bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y) {
   term_kind_t kx, ky;
+
+  if (is_integer_term(tbl, x) && is_non_integer_term(tbl, y)) {
+    return true;
+  }
+
+  if (is_integer_term(tbl, y) && is_non_integer_term(tbl, x)) {
+    return true;
+  }
 
   kx = term_kind(tbl, x);
   ky = term_kind(tbl, y);

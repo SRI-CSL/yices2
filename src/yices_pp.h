@@ -132,10 +132,15 @@ typedef enum {
   PP_OPEN_BV_LSHR,
   PP_OPEN_BV_ASHR,
   PP_OPEN_BV_GE,
-  PP_OPEN_BV_SGE,  
+  PP_OPEN_BV_SGE,
+
+  PP_OPEN_CONST_DEF,  // (constant i of <type>)
+  PP_OPEN_UNINT_DEF,  // (unint i of <type>)
+  PP_OPEN_VAR_DEF,    // (var i of <type>)
 } pp_open_type_t;
 
-#define NUM_PP_OPENS ((uint32_t) (PP_OPEN_BV_SGE + 1))
+#define NUM_PP_OPENS ((uint32_t) (PP_OPEN_VAR_DEF + 1))
+
 
 
 /*

@@ -90,9 +90,11 @@ static void dump_benchmark(FILE *f, smt_benchmark_t *bench) {
 
   fprintf(f, "\n---- All types ----\n");
   print_type_table(f, __yices_globals.types);  
+  //  pp_type_table(f, __yices_globals.types);  
 
   fprintf(f, "\n\n---- All terms ----\n");
   print_term_table(f, __yices_globals.terms);
+  //  pp_term_table(f, __yices_globals.terms);
   fprintf(f, "\n\n");
   fflush(f);
 }

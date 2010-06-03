@@ -872,6 +872,10 @@ static term_t mk_arith_bineq_atom(term_t t1, term_t t2) {
 
   assert(is_arithmetic_term(&terms, t1) && is_arithmetic_term(&terms, t2));
 
+  if (disequal_arith_terms(&terms, t1, t2)) {
+    return false_term;
+  }
+
   // normalize: put the smallest term on the left
   if (t1 > t2) {
     aux = t1; t1 = t2; t2 = aux;
@@ -909,7 +913,7 @@ term_t arith_buffer_get_eq0_atom(arith_buffer_t *b) {
     /*
      * b is a1 * r1 with a_1 != 0
      * (a1 * r1 == 0) is false if r1 is the empty product
-     * (a1 * r1 == 0) simplifies to (r1 == 0) otherwisw
+     * (a1 * r1 == 0) simplifies to (r1 == 0) otherwise
      */
     m1 = b->list; 
     r1 = m1->prod;  
@@ -925,7 +929,7 @@ term_t arith_buffer_get_eq0_atom(arith_buffer_t *b) {
     /*
      * b is a1 * r1 + a2 * r2
      * Simplifications:
-     * - rewrite (b == 0) to (r2 == -a2/a1) if r1 is the empty product
+     * - rewrite (b == 0) to (r2 == -a1/a2) if r1 is the empty product
      * - rewrite (b == 0) to (r1 == r2) is a1 + a2 = 0
      */
     m1 = b->list;
@@ -935,8 +939,8 @@ term_t arith_buffer_get_eq0_atom(arith_buffer_t *b) {
     assert(q_is_nonzero(&m1->coeff) && q_is_nonzero(&m2->coeff));
 
     if (r1 == empty_pp) {
-      q_set_neg(&r0, &m2->coeff);
-      q_div(&r0, &m1->coeff);  // r0 is -a2/a1
+      q_set_neg(&r0, &m1->coeff);
+      q_div(&r0, &m2->coeff);  // r0 is -a1/a2
       t1 = arith_constant(&terms, &r0);
       t2 = pp_is_var(r2) ? var_of_pp(r2) : pprod_term(&terms, r2);
       t = mk_arith_bineq_atom(t1, t2);
@@ -3423,7 +3427,7 @@ EXPORTED term_t yices_ite(term_t cond, term_t then_term, term_t else_term) {
     return mk_bv_ite(&terms, cond, then_term, else_term);
   }
 
-  // non-boolean:
+  // general case
   if (then_term == else_term) return then_term;
   if (cond == true_term) return then_term;
   if (cond == false_term) return else_term;
