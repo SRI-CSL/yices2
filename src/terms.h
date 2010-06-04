@@ -190,7 +190,8 @@ typedef enum {
   VARIABLE,       // variable in quantifiers 
 
   // Generic composite terms
-  ITE_TERM,       // if-then-else 
+  ITE_TERM,       // if-then-else
+  ITE_SPECIAL,    // special if-then-else term (NEW: EXPERIMENTAL)
   APP_TERM,       // application of an uninterpreted function 
   UPDATE_TERM,    // function update
   TUPLE_TERM,     // tuple constructor
@@ -307,11 +308,28 @@ typedef struct bvconst64_term_s {
 
 
 /*
+ * Special composites: (experimental)
+ * - a composite_term descriptor preceded by a generic (hidden)
+ *   pointer.
+ * - this is an attempt to improve performance on examples
+ *   that contain deeply nested if-then-else terms, where
+ *   all the leaves are constant terms.
+ * - in such a case, we attach the set of leaves (i.e., the
+ *   possible values for that term) to the special term 
+ *   descriptor.
+ */
+typedef struct special_term_s {
+  void *extra;
+  composite_term_t body;
+} special_term_t;
+
+
+/*
  * Descriptor: one of
  * - integer index for constant terms and variables
  * - rational constant
  * - pair  (idx, arg) for select term
- * - ptr to a composite, polynomial, power-product, or bvconst
+ * - ptr to a composite, polynomial, power-product, or bvconst 
  */
 typedef union {
   int32_t integer;
@@ -319,6 +337,16 @@ typedef union {
   rational_t rational;
   select_term_t select;
 } term_desc_t;
+
+
+
+
+/*
+ * Finalizer function: this is called when a special_term
+ * is deleted (to cleanup the spec->extra field).
+ * - the default finalizer calls safe_free(spec->extra).
+ */
+typedef void (*special_finalizer_t)(special_term_t *spec, term_kind_t tag);
 
  
 /*
@@ -347,10 +375,11 @@ typedef union {
  * Other components:
  * - types = pointer to an associated type table
  * - pprods = pointer to an associated power product table
+ * - finalize = finalizer function for special terms
  * - htbl = hash table for hash consing
  * - utbl = table to map singleton types to the unique term of that type
  *
- * Auxilairy vectors
+ * Auxiliary vectors
  * - ibuffer: to store an array of integers
  * - pbuffer: to store an array of pprods
  */
@@ -366,6 +395,7 @@ typedef struct term_table_s {
 
   type_table_t *types;
   pprod_table_t *pprods;
+  special_finalizer_t finalize;
   
   int_htbl_t htbl;
   stbl_t stbl;
@@ -373,7 +403,7 @@ typedef struct term_table_s {
   int_hmap_t utbl;
 
   ivector_t ibuffer;
-  pvector_t pbuffer;
+  pvector_t pbuffer;  
 } term_table_t;
 
 
@@ -397,6 +427,13 @@ extern void init_term_table(term_table_t *table, uint32_t n, type_table_t *ttbl,
  */ 
 extern void delete_term_table(term_table_t *table);
 
+
+/*
+ * Install f as the special finalizer
+ */
+static inline void term_table_set_finalizer(term_table_t *table, special_finalizer_t f) {
+  table->finalize = f;
+}
 
 
 /*
@@ -897,6 +934,9 @@ static inline void term_table_reset_pbuffer(term_table_t *table) {
 
 
 
+
+
+
 /*
  * ACCESS TO TERMS
  */
@@ -926,7 +966,7 @@ static inline term_kind_t kind_for_idx(term_table_t *table, int32_t i) {
   return table->kind[i];
 }
 
-// get descriptor converted to an appropriate type
+// descriptor converted to an appropriate type
 static inline int32_t integer_value_for_idx(term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return table->desc[i].integer;
@@ -983,6 +1023,7 @@ static inline uint32_t bitsize_for_idx(term_table_t *table, int32_t i) {
   assert(good_term_idx(table, i));
   return bv_type_size(table->types, table->type[i]);
 }
+
 
 
 /*
@@ -1045,6 +1086,16 @@ static inline bool is_function_term(term_table_t *table, term_t t) {
 
 static inline bool is_tuple_term(term_table_t *table, term_t t) {
   return term_type_kind(table, t) == TUPLE_TYPE;
+}
+
+
+// Check whether t is if-then-else
+static inline bool is_ite_kind(term_kind_t tag) {
+  return tag == ITE_TERM || tag == ITE_SPECIAL;
+}
+
+static inline bool is_ite_term(term_table_t *table, term_t t) {
+  return is_ite_kind(term_type_kind(table, t));
 }
 
 
@@ -1161,7 +1212,7 @@ static inline term_t bit_term_arg(term_table_t *table, term_t t) {
  * when debugging is enabled, they also check that the term kind is consistent.
  */
 static inline composite_term_t *ite_term_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ITE_TERM);
+  assert(is_ite_kind(term_kind(table, t)));
   return composite_for_idx(table, index_of(t));
 }
 
@@ -1282,6 +1333,28 @@ static inline composite_term_t *bvsge_atom_desc(term_table_t *table, term_t t) {
 
 
 
+/*
+ * Descriptor for special terms
+ */
+static inline special_term_t *special_desc(composite_term_t *p) {
+  return (special_term_t *) (((char *) p) - offsetof(special_term_t, body));
+}
+
+static inline special_term_t *special_for_idx(term_table_t *table, int32_t i) {
+  assert(good_term_idx(table, i));
+  return special_desc(table->desc[i].ptr);
+}
+
+static inline composite_term_t *ite_special_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ITE_SPECIAL);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline special_term_t *ite_special_desc(term_table_t *table, term_t t) {
+  return special_desc(ite_special_term_desc(table, t));
+}
+
+
 
 
 
@@ -1308,7 +1381,7 @@ static inline composite_term_t *bvsge_atom_desc(term_table_t *table, term_t t) {
 
 /*
  * Set or clear the mark on a term i. If i is marked, it is preserved
- * on the next call to the garbage collector (and all terms rechable
+ * on the next call to the garbage collector (and all terms reachable
  * from i are preserved too).  If the mark is cleared, i may be deleted.
  */
 static inline void term_table_set_gc_mark(term_table_t *table, int32_t i) {

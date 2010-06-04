@@ -2279,8 +2279,8 @@ static bool check_for_lift_if(term_table_t *tbl, term_t t1, term_t t2, lift_resu
   composite_term_t *ite1, *ite2;
   term_t cond;
 
-  if (term_kind(tbl, t1) == ITE_TERM) {
-    if (term_kind(tbl, t2) == ITE_TERM) {
+  if (is_ite_term(tbl, t1)) {
+    if (is_ite_term(tbl, t2)) {
       // both are (if-then-else ..) 
       ite1 = ite_term_desc(tbl, t1);
       ite2 = ite_term_desc(tbl, t2);
@@ -2306,7 +2306,7 @@ static bool check_for_lift_if(term_table_t *tbl, term_t t1, term_t t2, lift_resu
       return true;
       
     }
-  } else if (term_kind(tbl, t2) == ITE_TERM) {
+  } else if (is_ite_term(tbl, t2)) {
     // t2 is (if-then-else ..) t1 is not
 
     ite2 = ite_term_desc(tbl, t2);

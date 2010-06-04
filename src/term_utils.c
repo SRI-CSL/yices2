@@ -7,7 +7,158 @@
 
 #include "memalloc.h"
 #include "bv64_constants.h"
+#include "int_array_sort.h"
+#include "int_vectors.h"
+#include "int_hash_sets.h"
 #include "term_utils.h"
+
+
+
+
+/********************
+ *  FINITE DOMAINS  *
+ *******************/
+
+/*
+ * Build a domain descriptor that containts a[0 ... n-1]
+ */
+static finite_domain_t *make_finite_domain(term_t *a, uint32_t n) {
+  finite_domain_t *tmp;
+  uint32_t i;
+
+  assert(n <= MAX_FINITE_DOMAIN_SIZE);
+  tmp = (finite_domain_t *) safe_malloc(sizeof(finite_domain_t) + n * sizeof(term_t));
+  tmp->nelems = n;
+  for (i=0; i<n; i++) {
+    tmp->data[i] = a[i];
+  }
+
+  return tmp;
+}
+
+
+/*
+ * Add all elements of dom that are not in cache into vector v
+ * - also store them in the cache
+ */
+static void add_domain(int_hset_t *cache, ivector_t *v, finite_domain_t *dom) {
+  uint32_t i, n;
+  term_t t;
+
+  n = dom->nelems;
+  for (i=0; i<n; i++) {
+    t = dom->data[i];
+    if (int_hset_add(cache, t)) {
+      ivector_push(v, t);
+    }
+  }
+}
+
+
+/*
+ * Recursively collect all constant terms reachable from t
+ * - add all terms visited to hset 
+ * - add all constants to vector v
+ */
+static void collect_finite_domain(term_table_t *tbl, int_hset_t *cache, ivector_t *v, term_t t) {
+  special_term_t *d;
+
+  if (int_hset_add(cache, t)) {
+    // t not visited yet
+    if (term_kind(tbl, t) == ITE_SPECIAL) {
+      d = ite_special_desc(tbl, t);
+      if (d->extra != NULL) {
+	add_domain(cache, v, d->extra);
+      } else {
+	collect_finite_domain(tbl, cache, v, d->body.arg[1]);
+	collect_finite_domain(tbl, cache, v, d->body.arg[2]);
+      }
+    } else {
+      // t must be a constant, not already in v
+      assert(term_kind(tbl, t) == ARITH_CONSTANT ||
+	     term_kind(tbl, t) == BV64_CONSTANT ||
+	     term_kind(tbl, t) == BV_CONSTANT);
+      ivector_push(v, t);
+    }
+  }
+}
+
+
+/*
+ * Build the domain for (ite c t1 t2)
+ * - d must be the composite descriptor for (ite c t1 t2)
+ */
+static finite_domain_t *build_ite_finite_domain(term_table_t *tbl, composite_term_t *d) {
+  int_hset_t cache;
+  ivector_t buffer;
+  finite_domain_t *dom;
+
+  assert(d->arity == 3);
+  
+  init_int_hset(&cache, 32);
+  init_ivector(&buffer, 20);
+
+  collect_finite_domain(tbl, &cache, &buffer, d->arg[1]);  // then part
+  collect_finite_domain(tbl, &cache, &buffer, d->arg[2]);  // else part
+
+  int_array_sort(buffer.data, buffer.size);
+  dom = make_finite_domain(buffer.data, buffer.size); 
+
+  delete_ivector(&buffer);
+  delete_int_hset(&cache);
+  
+  return dom;
+}
+
+
+/*
+ * Get the finite domain of term t
+ */
+finite_domain_t *special_ite_get_finite_domain(term_table_t *tbl, term_t t) {
+  special_term_t *d;
+
+  d = ite_special_desc(tbl, t);
+  if (d->extra == NULL) {
+    d->extra = build_ite_finite_domain(tbl, &d->body);
+  }
+  return d->extra;
+}
+
+
+
+
+/*
+ * Check whether u belongs to the finite domain of term t 
+ * - t must be a special if-then-else
+ */
+bool term_is_in_finite_domain(term_table_t *tbl, term_t t, term_t u) {
+  finite_domain_t *dom;
+  uint32_t l, h, k;
+
+  dom = special_ite_get_finite_domain(tbl, t);
+  assert(dom->nelems >= 2);
+
+  // binary search
+  l = 0;
+  h = dom->nelems;
+  for (;;) {
+    k = (l + h)/2; // no overflow possible since l+h < MAX_FINITE_DOMAIN_SIZE
+    assert(l <= k && k < h && h <= dom->nelems);
+    if (k == l) break;
+    if (dom->data[k] > u) {
+      h = k;
+    } else {
+      l = k;
+    }
+  }
+
+  assert(l == k && k+1 == h);
+
+  return dom->data[k] == u;
+}
+
+
+
 
 
 
@@ -340,14 +491,22 @@ bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y) {
   kx = term_kind(tbl, x);
   ky = term_kind(tbl, y);
 
-  if (kx == ARITH_CONSTANT && ky == ARITH_CONSTANT) {  
+  if (kx == ARITH_CONSTANT && ky == ARITH_CONSTANT) {
     return x != y; // because of hash consing.
-  } 
+  }
+  
+  if (kx == ARITH_CONSTANT && ky == ITE_SPECIAL) {
+    return ! term_is_in_finite_domain(tbl, y, x);
+  }
+
+  if (kx == ITE_SPECIAL && ky == ARITH_CONSTANT) {
+    return !term_is_in_finite_domain(tbl, x, y);
+  }
   
   if (kx == ARITH_POLY && ky == ARITH_POLY) {
     return disequal_polynomials(poly_term_desc(tbl, x), poly_term_desc(tbl, y));
   }
-  
+
   if (kx == ARITH_POLY && ky != ARITH_CONSTANT) {
     return polynomial_is_const_plus_var(poly_term_desc(tbl, x), y);
   }
@@ -358,6 +517,7 @@ bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y) {
 
   return false;
 }
+
 
 
 

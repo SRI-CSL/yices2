@@ -61,9 +61,6 @@
  * we want to allow the user to give different names to t and (not t).
  */
 
-// #include <inttypes.h>
-// #include <stdio.h>
-
 #include "memalloc.h"
 #include "refcount_strings.h"
 #include "hash_functions.h"
@@ -71,7 +68,6 @@
 
 #include "terms.h"
 
-// static FILE *trace;
 
 /*
  * Finalizer for term names in the symbol table.
@@ -80,6 +76,14 @@
  */
 static void term_name_finalizer(stbl_rec_t *r) {
   string_decref(r->string);
+}
+
+
+/*
+ * Default finalizer for special terms
+ */
+static void default_special_finalizer(special_term_t *s, term_kind_t tag) {
+  safe_free(s->extra);
 }
 
 
@@ -105,6 +109,7 @@ static void term_table_init(term_table_t *table, uint32_t n, type_table_t *ttbl,
 
   table->types = ttbl;
   table->pprods = ptbl;
+  table->finalize = default_special_finalizer;
 
   // initialize hashtable tables with default initial size 
   init_int_htbl(&table->htbl, 0);
@@ -119,11 +124,6 @@ static void term_table_init(term_table_t *table, uint32_t n, type_table_t *ttbl,
   init_ivector(&table->ibuffer, 20);
   init_pvector(&table->pbuffer, 20);
 
-  //  trace = fopen("trace.txt", "w");
-  //  if (trace == NULL ) {
-  //    perror("trace.txt");
-  //    exit(0);
-  //  }
 }
 
 
@@ -389,6 +389,31 @@ static bvconst64_term_t *new_bvconst64_term(uint32_t bitsize, uint64_t v) {
 }
 
 
+
+/*
+ * Special term:
+ * - allocate a special_term_descriptor 
+ * - set the extra field to NULL
+ * - fill in the rest as a composite of arity n
+ * - a[0 ... n-1] = components
+ */
+static composite_term_t *new_special_term(uint32_t n, term_t *a) {
+  special_term_t *d;
+  uint32_t j;
+
+  assert(n <= MAX_COMPOSITE_TERM_ARITY);
+  d = (special_term_t *) safe_malloc(sizeof(special_term_t) + n * sizeof(term_t));
+  d->extra = NULL;
+  d->body.arity = n;
+  for (j=0; j<n; j++) {
+    d->body.arg[j] = a[j];
+  }
+
+  return &d->body;
+}
+
+
+
 /*
  * HASH CODES
  */
@@ -420,12 +445,6 @@ static uint32_t hash_rational_term(term_kind_t tag, type_t tau, rational_t *a) {
  * Generic composite term: (tag, arity, arg[0] ... arg[n-1])
  */
 static uint32_t hash_composite_term(term_kind_t tag, uint32_t n, term_t *a) {
-  // uint32_t h, r;
-
-  //  h = jenkins_hash_intarray(a, n);
-  //  r = jenkins_hash_pair(tag, h, 0x8ede2341);
-  //  fprintf(trace, "%2"PRIu32" %4"PRIu32" %12"PRIu32"\n", tag, n, r);
-
   return jenkins_hash_array((uint32_t *) a, n, (uint32_t) (0x8ede2341 + tag));
 }
 
@@ -967,6 +986,13 @@ static int32_t build_composite_hobj(composite_term_hobj_t *o) {
   return new_ptr_term(o->tbl, o->tag, o->tau, d);
 }
 
+static int32_t build_special_hobj(composite_term_hobj_t *o) {
+  composite_term_t *d;
+
+  d = new_special_term(o->arity, o->arg);
+  return new_ptr_term(o->tbl, o->tag, o->tau, d);
+}
+
 static int32_t build_app_hobj(app_term_hobj_t *o) {
   composite_term_t *d;
 
@@ -1055,6 +1081,13 @@ static composite_term_hobj_t composite_hobj = {
     (hobj_build_t) build_composite_hobj },
   NULL,
   0, 0, 0, NULL,
+};
+
+static composite_term_hobj_t special_hobj = {
+  { (hobj_hash_t) hash_composite_hobj, (hobj_eq_t) eq_composite_hobj, 
+    (hobj_build_t) build_special_hobj },
+  NULL,
+  0, 0, 0, NULL,  
 };
 
 static app_term_hobj_t app_hobj = {
@@ -1424,6 +1457,15 @@ static void delete_term(term_table_t *table, int32_t i) {
     safe_free(d);
     break;
 
+  case ITE_SPECIAL:
+    // Special composite:
+    // call the finalizer before deleting the descriptor
+    d = table->desc[i].ptr;
+    h = hash_composite_term(table->kind[i], d->arity, d->arg);
+    table->finalize(special_desc(d), ITE_SPECIAL);
+    safe_free(special_desc(d));
+    break;
+
   case APP_TERM:
     d = table->desc[i].ptr;
     n = d->arity;
@@ -1628,6 +1670,11 @@ static void delete_term_descriptors(term_table_t *table) {
       safe_free(table->desc[i].ptr);
       break;
 
+    case ITE_SPECIAL:
+      table->finalize(special_desc(table->desc[i].ptr), ITE_SPECIAL);
+      safe_free(special_desc(table->desc[i].ptr));
+      break;
+
     case ARITH_CONSTANT:
       // Free the rational
       q_clear(&table->desc[i].rational);
@@ -1658,8 +1705,6 @@ static void delete_term_descriptors(term_table_t *table) {
  * Delete table
  */
 void delete_term_table(term_table_t *table) {
-  //  fclose(trace);
-
   delete_name_table(&table->ntbl);
   delete_term_descriptors(table);
   delete_int_hmap(&table->utbl);
@@ -1811,8 +1856,24 @@ term_t not_term(term_table_t *table, term_t p) {
 
 
 /*
+ * Check whether (ite ? left right) should be a special if-then-else:
+ * - i.e., left and right are both constant or special.
+ */
+static bool special_or_constant(term_kind_t tag) {
+  return tag == ITE_SPECIAL || tag == ARITH_CONSTANT || 
+    tag == BV_CONSTANT || tag == BV64_CONSTANT;
+}
+
+static bool make_special_ite(term_table_t *table, term_t left, term_t right) {
+  return special_or_constant(term_kind(table, left)) && special_or_constant(term_kind(table, right));
+}
+
+
+/*
  * If-then-else term (if cond then left else right)
  * - tau must be the super type of left/right.
+ * - if left and right are both constant or special if-then-else
+ *   we build a special if-then-else term.
  */
 term_t ite_term(term_table_t *table, type_t tau, term_t cond, term_t left, term_t right) {
   term_t aux[3];
@@ -1822,13 +1883,24 @@ term_t ite_term(term_table_t *table, type_t tau, term_t cond, term_t left, term_
   aux[1] = left;
   aux[2] = right;
 
-  composite_hobj.tbl = table;
-  composite_hobj.tag = ITE_TERM;
-  composite_hobj.tau = tau;
-  composite_hobj.arity = 3;
-  composite_hobj.arg = aux;
+  if (make_special_ite(table, left, right)) {
+    special_hobj.tbl = table;
+    special_hobj.tag = ITE_SPECIAL;
+    special_hobj.tau = tau;
+    special_hobj.arity = 3;
+    special_hobj.arg = aux;
 
-  i = int_htbl_get_obj(&table->htbl, &composite_hobj.m);
+    i = int_htbl_get_obj(&table->htbl, &special_hobj.m);
+
+  } else {
+    composite_hobj.tbl = table;
+    composite_hobj.tag = ITE_TERM;
+    composite_hobj.tau = tau;
+    composite_hobj.arity = 3;
+    composite_hobj.arg = aux;
+
+    i = int_htbl_get_obj(&table->htbl, &composite_hobj.m);
+  }
 
   return pos_term(i);
 }
@@ -2791,6 +2863,11 @@ static void mark_reachable_terms(term_table_t *table, int32_t ptr, int32_t i) {
   case BV_GE_ATOM:
   case BV_SGE_ATOM:
     // i's descriptor is a composite term 
+    mark_composite_term(table, ptr, table->desc[i].ptr);
+    break;
+
+  case ITE_SPECIAL:
+    // TODO: do we need a callback here for scanning the extra component?
     mark_composite_term(table, ptr, table->desc[i].ptr);
     break;
 

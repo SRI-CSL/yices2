@@ -393,6 +393,7 @@ static const char * const tag2string[] = {
   "uninterpreted",
   "variable",
   "ite",
+  "s-ite",
   "app", // function application
   "update",
   "tuple",
@@ -618,21 +619,33 @@ static void print_term_idx_recur(FILE *f, term_table_t *tbl, int32_t i, int32_t 
   name = term_name(tbl, pos_term(i));
   switch (tbl->kind[i]) {
   case CONSTANT_TERM:
-    fprintf(f, "(const %"PRId32" of type ", tbl->desc[i].integer);
-    print_type_name(f, tbl->types, tbl->type[i]);
-    fputc(')', f);
+    if (name != NULL) {
+      fputs(name, f);
+    } else {
+      fprintf(f, "(const %"PRId32" of type ", tbl->desc[i].integer);
+      print_type_name(f, tbl->types, tbl->type[i]);
+      fputc(')', f);
+    }
     break;
 
   case UNINTERPRETED_TERM:
-    fprintf(f, "(unint of type ");
-    print_type_name(f, tbl->types, tbl->type[i]);
-    fputc(')', f);
+    if (name != NULL) {
+      fputs(name, f);
+    } else {
+      fprintf(f, "(unint of type ");
+      print_type_name(f, tbl->types, tbl->type[i]);
+      fputc(')', f);
+    }
     break;
 
   case VARIABLE:
-    fprintf(f, "(var %"PRId32" of type ", tbl->desc[i].integer);
-    print_type_name(f, tbl->types, tbl->type[i]);
-    fputc(')', f);
+    if (name != NULL) {
+      fputs(name, f);
+    } else {
+      fprintf(f, "(var %"PRId32" of type ", tbl->desc[i].integer);
+      print_type_name(f, tbl->types, tbl->type[i]);
+      fputc(')', f);
+    }
     break;
 
   case ARITH_CONSTANT:
@@ -676,6 +689,7 @@ static void print_term_idx_recur(FILE *f, term_table_t *tbl, int32_t i, int32_t 
     break;
 
   case ITE_TERM:
+  case ITE_SPECIAL:
   case UPDATE_TERM:
   case TUPLE_TERM:
   case EQ_TERM:
@@ -1160,6 +1174,7 @@ void print_term_table(FILE *f, term_table_t *tbl) {
 	break;
 
       case ITE_TERM:
+      case ITE_SPECIAL:
       case UPDATE_TERM:
       case TUPLE_TERM:
       case EQ_TERM:
@@ -1263,6 +1278,7 @@ static const pp_open_type_t const term_kind2block[NUM_TERM_KINDS] = {
   0,                 //  UNINTERPRETED_TERM
   0,                 //  VARIABLE
   PP_OPEN_ITE,       //  ITE_TERM
+  PP_OPEN_ITE,       //  ITE_SPECIAL
   PP_OPEN_PAR,       //  APP_TERM
   PP_OPEN_UPDATE,    //  UPDATE_TERM
   PP_OPEN_TUPLE,     //  TUPLE_TERM
@@ -1446,8 +1462,8 @@ static void pp_bvpoly64(yices_pp_t *printer, term_table_t *tbl, bvpoly64_t *p, i
     for (i=0; i<n; i++) {
       pp_bvmono64(printer, tbl, p->mono[i].coeff, nbits, p->mono[i].var, level);
     }
+    pp_close_block(printer, true);
   }
-  pp_close_block(printer, true);
 }
 
 // bitvector monomial (more than 64bits)
@@ -1545,93 +1561,94 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
     }
     break;
 
-    case ARITH_GE_ATOM:
-      if (name != NULL && level <= 0) {
-	pp_string(printer, name);
-      } else {
-	pp_open_block(printer, PP_OPEN_GE);
-	pp_term_recur(printer, tbl, tbl->desc[i].integer, level - 1);
-	pp_int32(printer, 0);
-	pp_close_block(printer, true);
-      }
-      break;
+  case ARITH_GE_ATOM:
+    if (name != NULL && level <= 0) {
+      pp_string(printer, name);
+    } else {
+      pp_open_block(printer, PP_OPEN_GE);
+      pp_term_recur(printer, tbl, tbl->desc[i].integer, level - 1);
+      pp_int32(printer, 0);
+      pp_close_block(printer, true);
+    }
+    break;
 
-    case APP_TERM:
-    case ITE_TERM:
-    case UPDATE_TERM:
-    case TUPLE_TERM:
-    case EQ_TERM:
-    case DISTINCT_TERM:
-    case FORALL_TERM:
-    case OR_TERM:
-    case XOR_TERM:
-    case ARITH_BINEQ_ATOM:
-    case BV_ARRAY:
-    case BV_DIV:
-    case BV_REM:
-    case BV_SDIV:
-    case BV_SREM:
-    case BV_SMOD:
-    case BV_SHL:
-    case BV_LSHR:
-    case BV_ASHR:
-    case BV_EQ_ATOM:
-    case BV_GE_ATOM:
-    case BV_SGE_ATOM:
-      // i's descriptor is a composite term 
-      if (name != NULL && level <= 0) {
-	pp_string(printer, name);
-      } else {
-	pp_composite_term(printer, tbl, tbl->kind[i], tbl->desc[i].ptr, level - 1);
-      }
-      break;
+  case APP_TERM:
+  case ITE_TERM:
+  case ITE_SPECIAL:
+  case UPDATE_TERM:
+  case TUPLE_TERM:
+  case EQ_TERM:
+  case DISTINCT_TERM:
+  case FORALL_TERM:
+  case OR_TERM:
+  case XOR_TERM:
+  case ARITH_BINEQ_ATOM:
+  case BV_ARRAY:
+  case BV_DIV:
+  case BV_REM:
+  case BV_SDIV:
+  case BV_SREM:
+  case BV_SMOD:
+  case BV_SHL:
+  case BV_LSHR:
+  case BV_ASHR:
+  case BV_EQ_ATOM:
+  case BV_GE_ATOM:
+  case BV_SGE_ATOM:
+    // i's descriptor is a composite term 
+    if (name != NULL && level <= 0) {
+      pp_string(printer, name);
+    } else {
+      pp_composite_term(printer, tbl, tbl->kind[i], tbl->desc[i].ptr, level - 1);
+    }
+    break;
 
-    case SELECT_TERM:
-    case BIT_TERM:
-      if (name != NULL && level <= 0) {
-	pp_string(printer, name);
-      } else {
-	pp_select_term(printer, tbl, tbl->kind[i], &tbl->desc[i].select, level - 1);
-      }
-      break;
+  case SELECT_TERM:
+  case BIT_TERM:
+    if (name != NULL && level <= 0) {
+      pp_string(printer, name);
+    } else {
+      pp_select_term(printer, tbl, tbl->kind[i], &tbl->desc[i].select, level - 1);
+    }
+    break;
 
-    case POWER_PRODUCT:
-      if (name != NULL && level <= 0) {
-	pp_string(printer, name);
-      } else {
-	pp_pprod(printer, tbl, tbl->desc[i].ptr, level - 1);
-      }
-      break;
+  case POWER_PRODUCT:
+    if (name != NULL && level <= 0) {
+      pp_string(printer, name);
+    } else {
+      pp_pprod(printer, tbl, tbl->desc[i].ptr, level - 1);
+    }
+    break;
 
-    case ARITH_POLY:
-      if (name != NULL && level <= 0) {
-	pp_string(printer, name);
-      } else {
-	pp_poly(printer, tbl, tbl->desc[i].ptr, level - 1);
-      }
-      break;
+  case ARITH_POLY:
+    if (name != NULL && level <= 0) {
+      pp_string(printer, name);
+    } else {
+      pp_poly(printer, tbl, tbl->desc[i].ptr, level - 1);
+    }
+    break;
 
-    case BV64_POLY:
-      if (name != NULL && level <= 0) {
-	pp_string(printer, name);
-      } else {
-	pp_bvpoly64(printer, tbl, tbl->desc[i].ptr, level - 1);
-      }
-      break;
+  case BV64_POLY:
+    if (name != NULL && level <= 0) {
+      pp_string(printer, name);
+    } else {
+      pp_bvpoly64(printer, tbl, tbl->desc[i].ptr, level - 1);
+    }
+    break;
 	
-    case BV_POLY:
-      if (name != NULL && level <= 0) {
-	pp_string(printer, name);
-      } else {
-	pp_bvpoly(printer, tbl, tbl->desc[i].ptr, level - 1);
-      }
-      break;
+  case BV_POLY:
+    if (name != NULL && level <= 0) {
+      pp_string(printer, name);
+    } else {
+      pp_bvpoly(printer, tbl, tbl->desc[i].ptr, level - 1);
+    }
+    break;
 
-    case UNUSED_TERM:
-    case RESERVED_TERM:
-    default:
-      assert(false);
-      break;
+  case UNUSED_TERM:
+  case RESERVED_TERM:
+  default:
+    assert(false);
+    break;
   }
 }
 

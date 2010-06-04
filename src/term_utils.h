@@ -13,9 +13,49 @@
 #define __TERM_UTILS_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "bv_constants.h"
 #include "terms.h"
+
+
+
+/*
+ * FINITE DOMAINS
+ */
+
+/*
+ * Special if-then-else terms can have a finite number of constant values
+ * - the set of possible values is stored in a domain record and
+ *   attached in the 'extra' field of the special-ite term descriptor.
+ * - a domain record is an array of term indices, sorted in increasing 
+ *   order.
+ */
+typedef struct finite_domain_s {
+  uint32_t nelems; // number of elements in the set
+  term_t data[0];  // actual array of elements (real size = nelems)
+} finite_domain_t;
+
+
+#define MAX_FINITE_DOMAIN_SIZE ((UINT32_MAX-sizeof(finite_domain_t))/sizeof(term_t))
+
+
+/*
+ * Get the finite domain of term t
+ * - t must have type_kind = ITE_SPECIAL
+ * - the function computes the domain and store it in t's descriptor
+ *   if it's not already done
+ */
+extern finite_domain_t *special_ite_get_finite_domain(term_table_t *tbl, term_t t);
+
+
+/*
+ * Check whether u belongs to the finite domain of term t
+ * - t must be a special if-then-else
+ * - build the domain and attach it to t's descriptor if needed
+ */
+extern bool term_is_in_finite_domain(term_table_t *tbl, term_t t, term_t u);
+
 
 
 /*
