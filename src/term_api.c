@@ -862,10 +862,56 @@ term_t arith_buffer_get_term(arith_buffer_t *b) {
 }
 
 
+
+/*
+ * Auxiliary function: try to simplify (t1 == t2)
+ * using the following rules:
+ *   (ite c x y) == x -->  c  provided x != y holds
+ *   (ite c x y) == y --> ~c  provided x != y holds
+ *
+ * - return the result if one of these rules apply
+ * - return NULL_TERM otherwise.
+ */
+static term_t check_aritheq_simplifies(term_table_t *tbl, term_t t1, term_t t2) {
+  composite_term_t *d;
+  term_t x, y;
+
+  assert(is_arithmetic_term(tbl, t1) && is_arithmetic_term(tbl, t2));
+
+  if (is_ite_term(tbl, t1)) {
+    // (ite c x y) == t2
+    d = ite_term_desc(tbl, t1);
+    x = d->arg[1];
+    y = d->arg[2];
+    if (x == t2 && disequal_arith_terms(tbl, y, t2)) {
+      return d->arg[0]; 
+    } 
+    if (y == t2 && disequal_arith_terms(tbl, x, t2)) {
+      return opposite_term(d->arg[0]);
+    }    
+  }
+
+  if (is_ite_term(tbl, t2)) {
+    // t1 == (ite c x y)
+    d = ite_term_desc(tbl, t2);
+    x = d->arg[1];
+    y = d->arg[2];
+    if (x == t1 && disequal_arith_terms(tbl, y, t1)) {
+      return d->arg[0];
+    }
+    if (y == t1 && disequal_arith_terms(tbl, x, t1)) {
+      return opposite_term(d->arg[0]);
+    }
+  }
+
+  return NULL_TERM;
+} 
+
+
 /*
  * Auxiliary function: built binary equality (t1 == t2)
  * for two arithmetic terms t1 and t2.
- * - normalize first
+ * - try simplication and normalize first
  */
 static term_t mk_arith_bineq_atom(term_t t1, term_t t2) {
   term_t aux;
@@ -874,6 +920,11 @@ static term_t mk_arith_bineq_atom(term_t t1, term_t t2) {
 
   if (disequal_arith_terms(&terms, t1, t2)) {
     return false_term;
+  }
+
+  aux = check_aritheq_simplifies(&terms, t1, t2);
+  if (aux != NULL_TERM) {
+    return aux;
   }
 
   // normalize: put the smallest term on the left
@@ -1874,6 +1925,34 @@ static term_t mk_xor(term_table_t *tbl, uint32_t n, term_t *a) {
  *****************/
 
 /*
+ * Simplify t assuming c holds
+ * - c must be a boolean term.
+ *
+ * Rules:
+ *   (ite  c x y) --> x
+ *   (ite ~c x y) --> y
+ */
+static term_t simplify_in_context(term_table_t *tbl, term_t c, term_t t) {
+  composite_term_t *d;
+
+  assert(is_boolean_term(tbl, c) && good_term(tbl, t));
+
+  while (is_ite_term(tbl, t)) {
+    d = ite_term_desc(tbl, t);
+    if (d->arg[0] == c) {
+      t = d->arg[1];
+    } else if (opposite_bool_terms(c, d->arg[0])) {
+      t = d->arg[2];
+    } else {
+      break;
+    }
+  }
+
+  return t;
+}
+
+
+/*
  * BOOLEAN IF-THEN-ELSE
  */
 
@@ -2251,6 +2330,8 @@ static term_t mk_bv_ite(term_table_t *tbl, term_t c, term_t x, term_t y) {
 
   return ite_term(tbl, term_type(tbl, x), c, x, y);
 }
+
+
 
 
 /*
@@ -3380,6 +3461,11 @@ EXPORTED term_t yices_application(term_t fun, uint32_t n, term_t arg[]) {
 
 /*
  * Simplifications
+ *    ite c (ite  c x y) z  --> ite c x z
+ *    ite c (ite ~c x y) z  --> ite c y z
+ *    ite c x (ite  c y z)  --> ite c x z
+ *    ite c x (ite ~c y z)  --> ite c x y 
+ *
  *    ite true x y   --> x
  *    ite false x y  --> y
  *    ite c x x      --> x
@@ -3428,6 +3514,9 @@ EXPORTED term_t yices_ite(term_t cond, term_t then_term, term_t else_term) {
   }
 
   // general case
+  then_term = simplify_in_context(&terms, cond, then_term);
+  else_term = simplify_in_context(&terms, opposite_term(cond), else_term);
+
   if (then_term == else_term) return then_term;
   if (cond == true_term) return then_term;
   if (cond == false_term) return else_term;

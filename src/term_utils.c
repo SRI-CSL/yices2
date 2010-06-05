@@ -20,7 +20,7 @@
  *******************/
 
 /*
- * Build a domain descriptor that containts a[0 ... n-1]
+ * Build a domain descriptor that contains a[0 ... n-1]
  */
 static finite_domain_t *make_finite_domain(term_t *a, uint32_t n) {
   finite_domain_t *tmp;

@@ -1095,7 +1095,7 @@ static inline bool is_ite_kind(term_kind_t tag) {
 }
 
 static inline bool is_ite_term(term_table_t *table, term_t t) {
-  return is_ite_kind(term_type_kind(table, t));
+  return is_ite_kind(term_kind(table, t));
 }
 
 
