@@ -126,7 +126,6 @@ finite_domain_t *special_ite_get_finite_domain(term_table_t *tbl, term_t t) {
 
 
 
-
 /*
  * Check whether u belongs to the finite domain of term t 
  * - t must be a special if-then-else
@@ -157,6 +156,53 @@ bool term_is_in_finite_domain(term_table_t *tbl, term_t t, term_t u) {
   return dom->data[k] == u;
 }
 
+
+
+/*
+ * Check whether two finite domains are disjoint.
+ */
+static bool disjoint_finite_domains(finite_domain_t *d1, finite_domain_t *d2) {
+  uint32_t i1, i2, n1, n2;
+  term_t t1, t2;
+
+  assert(d1->nelems > 0 && d2->nelems > 0);
+
+  n1 = d1->nelems;
+  n2 = d2->nelems;
+  i1 = 0;
+  i2 = 0;
+  t1 = d1->data[0];
+  t2 = d2->data[0];
+  for (;;) {
+    if (t1 == t2) return false;
+    if (t1 < t2) {
+      i1 ++;
+      if (i1 == n1) break;
+      t1 = d1->data[i1];
+    } else {
+      i2 ++;
+      if (i2 == n2) break;
+      t2 = d2->data[i2];
+    }
+  }
+
+  return true;
+}
+
+
+
+/*
+ * Check whether t and u have disjoint finite domains
+ * - both t and u must be special if-then-else
+ * - the domains of t and u are computed if needed.
+ */
+bool terms_have_disjoint_finite_domains(term_table_t *tbl, term_t t, term_t u) {
+  finite_domain_t *d1, *d2;
+
+  d1 = special_ite_get_finite_domain(tbl, t);
+  d2 = special_ite_get_finite_domain(tbl, u);
+  return disjoint_finite_domains(d1, d2);
+}
 
 
 
@@ -502,7 +548,11 @@ bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y) {
   if (kx == ITE_SPECIAL && ky == ARITH_CONSTANT) {
     return !term_is_in_finite_domain(tbl, x, y);
   }
-  
+
+  if (kx == ITE_SPECIAL && ky == ITE_SPECIAL) {
+    return terms_have_disjoint_finite_domains(tbl, x, y);
+  }
+
   if (kx == ARITH_POLY && ky == ARITH_POLY) {
     return disequal_polynomials(poly_term_desc(tbl, x), poly_term_desc(tbl, y));
   }

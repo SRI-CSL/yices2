@@ -57,6 +57,14 @@ extern finite_domain_t *special_ite_get_finite_domain(term_table_t *tbl, term_t 
 extern bool term_is_in_finite_domain(term_table_t *tbl, term_t t, term_t u);
 
 
+/*
+ * Check whether t and u have disjoint finite domains
+ * - both t and u must be special if-then-else
+ * - the domains of t and u are computed if needed.
+ */
+extern bool terms_have_disjoint_finite_domains(term_table_t *tbl, term_t t, term_t u);
+
+
 
 /*
  * DISEQUALITY CHECKS
