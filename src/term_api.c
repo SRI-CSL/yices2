@@ -3428,7 +3428,7 @@ EXPORTED term_t yices_application(term_t fun, uint32_t n, term_t arg[]) {
   // singleton function type
   tau = term_type(&terms, fun);
   if (is_unit_type(&types, tau)) {
-    return get_unit_type_rep(&terms, tau);
+    return get_unit_type_rep(&terms, function_type_range(&types, tau));
   }
 
   while (term_kind(&terms, fun) == UPDATE_TERM) {
