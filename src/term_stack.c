@@ -426,6 +426,7 @@ static const unsigned char assoc[NUM_OPCODES] = {
   0, // MK_IMPLIES
   0, // MK_TUPLE
   0, // MK_SELECT
+  0, // MK_TUPLE_UPDATE,
   0, // MK_UPDATE
   0, // MK_FORALL
   0, // MK_EXISTS
@@ -3436,6 +3437,35 @@ static void eval_mk_select(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 
+
+/*
+ * [mk-tuple-update <tuple> <rational> <newvalue> ]
+ */
+static void check_mk_tuple_update(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_TUPLE_UPDATE);
+  check_size(stack, n == 3);
+  check_tag(stack, f+1, TAG_RATIONAL);
+}
+
+
+/*
+ * As above: tuple indices are number from 1 to tuple_size here
+ * The API uses indices from 0 to tuple_size-1.
+ */
+static void eval_mk_tuple_update(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  int32_t idx;
+  term_t t, new_v;
+
+  idx = get_integer(stack, f+1) - 1;
+  new_v = get_term(stack, f+2);
+  t = yices_tuple_update(get_term(stack, f), idx, new_v);
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
+}
+
+
 /*
  * [mk-update <fun> <arg1> ... <argn> <newvalue>]
  */
@@ -5368,6 +5398,7 @@ static evaluator_t eval[NUM_OPCODES] = {
   eval_mk_implies,
   eval_mk_tuple,
   eval_mk_select,
+  eval_mk_tuple_update,
   eval_mk_update,
   eval_mk_forall,
   eval_mk_exists,
@@ -5472,6 +5503,7 @@ static checker_t check[NUM_OPCODES] = {
   check_mk_implies,
   check_mk_tuple,
   check_mk_select,
+  check_mk_tuple_update,
   check_mk_update,
   check_mk_forall,
   check_mk_exists,

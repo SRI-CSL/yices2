@@ -68,7 +68,7 @@ YICES LANGUAGE
 
    function keywords denote the built-in functions:
 
-	if	ite	=	/=
+	if	ite	=	/=	distinct
 
 	or	and 	not     xor	<=>	=>
 

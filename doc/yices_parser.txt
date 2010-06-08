@@ -72,14 +72,23 @@ function ::=
        | <expression>
 
 function-keyword ::=
-       	if	ite	=	/=	distinct 
+       	if	ite	=	/=	distinct
+
 	or	and 	not	xor	<=>	=>
-	mk-tuple	select	+	-	*
-	/	<	<=	>	>=
+
+	mk-tuple	select	tuple-update
+
+        +	-	*	/	<	<=	>	>=
+
 	mk-bv	bv-add	bv-sub	bv-mul	bv-neg	bv-not	bv-and
 	bv-or	bv-xor	bv-shift-left0 	bv-shift-left1	bv-shift-right0
-	bv-shift-right1	bv-ge 	bv-gt	bv-le	bv-lt	bv-sge	bv-sgt
-	bv-sle	bv-slt	
+	bv-shift-right1
+
+	bv-ge 	bv-gt	bv-le	bv-lt	bv-sge	bv-sgt  bv-sle	bv-slt
+
+       	bv-shl	bv-lshr bv-ashr bv-udiv bv-urem bv-sdiv bv-srem bv-smod
+	bv-redor 	bv-redand	bv-comp
+
 
 
 

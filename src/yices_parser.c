@@ -654,6 +654,12 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       state = e0;
       goto loop;
 
+    case update_tuple_next_push_e3_goto_e0:
+      tstack_push_op(tstack, MK_TUPLE_UPDATE, &loc);
+      parser_push_state(stack, e3);
+      state = e0;
+      goto loop;
+
     case add_next_push_e3_goto_e0:
       tstack_push_op(tstack, MK_ADD, &loc);
       parser_push_state(stack, e3);

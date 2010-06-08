@@ -27,7 +27,8 @@ xor,			TK_XOR
 <=>,			TK_IFF 
 =>,			TK_IMPLIES
 mk-tuple,		TK_MK_TUPLE
-select,			TK_SELECT 
+select,			TK_SELECT
+tuple-update,           TK_UPDATE_TUPLE
 update,			TK_UPDATE
 forall,			TK_FORALL
 exists,			TK_EXISTS

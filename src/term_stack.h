@@ -78,7 +78,7 @@ typedef enum opcode_enum {
   // term constructors
   MK_APPLY, MK_ITE, MK_EQ, MK_DISEQ, MK_DISTINCT,
   MK_NOT, MK_OR, MK_AND, MK_XOR, MK_IFF, 
-  MK_IMPLIES, MK_TUPLE, MK_SELECT, MK_UPDATE,
+  MK_IMPLIES, MK_TUPLE, MK_SELECT, MK_TUPLE_UPDATE, MK_UPDATE,
   MK_FORALL, MK_EXISTS,
 
   // arithmetic

@@ -29,9 +29,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
+
 
 /*
- * specification file must define 
+ * The specification file must define 
  * NSTATES, NTOKENS, DEFAULT_TOKEN, DEFAULT_VALUE, and triple
  */
 #include "yices_parser_tables.h"
@@ -84,7 +86,7 @@ static void add_edge(int i, int x, char * v) {
   desc = state + i;
 
   if (x == DEFAULT_TOKEN) {
-    if (desc->def == DEFAULT_VALUE) {
+    if (strcmp(desc->def, DEFAULT_VALUE) == 0) {
       desc->def = v;
     } else {
       fprintf(stderr, "Error: two default values for state %d\n", i);

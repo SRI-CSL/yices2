@@ -83,6 +83,7 @@ static char* action2string[] = {
   "implies_next_push_e3_goto_e0",
   "mk_tuple_next_push_e3_goto_e0",
   "select_next_push_e3_goto_e0",
+  "update_tuple_next_push_e3_goto_e0",
   "add_next_push_e3_goto_e0",
   "sub_next_push_e3_goto_e0",
   "mul_next_push_e3_goto_e0",

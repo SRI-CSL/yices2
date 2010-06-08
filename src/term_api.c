@@ -3910,9 +3910,12 @@ EXPORTED term_t yices_distinct(uint32_t n, term_t arg[]) {
 /*
  * (tuple-update tuple index new_v) is (tuple with component i set to new_v)
  *
+ * If new_v is (select t i) then
+ *  (tuple-update t i v) is t
+ * 
  * If tuple is (mk-tuple x_0 ... x_i ... x_n-1) then 
  *  (tuple-update t i v) is (mk-tuple x_0 ... v ... x_n-1)
- * 
+ *
  * Otherwise, 
  *  (tuple-update t i v) is (mk-tuple (select t 0) ... v  ... (select t n-1))
  *              
@@ -3922,6 +3925,12 @@ static term_t mk_tuple_aux(term_table_t *tbl, term_t tuple, uint32_t n, uint32_t
   term_t *a;
   term_t t;
   uint32_t j;
+
+  if (term_kind(tbl, v) == SELECT_TERM && 
+      select_term_arg(tbl, v) == tuple &&
+      select_term_index(tbl, v) == i) {
+    return tuple;
+  }
 
   // use vector0 as buffer:
   resize_ivector(&vector0, n);
