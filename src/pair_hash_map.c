@@ -265,8 +265,8 @@ pmap_rec_t *pmap_get(pmap_t *hmap, int32_t k0, int32_t k1) {
     aux->k0 = k0;
     aux->k1 = k1;
     aux->val = DEFAULT_PTR;
+    hmap->nelems ++;
   }
-  hmap->nelems ++;
 
   return aux;
 }
