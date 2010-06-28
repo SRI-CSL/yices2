@@ -18,33 +18,52 @@
 #   $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
 #
 
-
 SHELL=/bin/sh
+
+ifeq (,$(YICES_TOP_DIR)) 
+ $(error "YICES_TOP_DIR is undefined")
+endif
+
+ifeq (,$(YICES_MAKE_INCLUDE))
+ $(error "YICES_MAKE_INCLUDE is undefined")
+endif
 
 conf=$(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
 
-ifeq ($(conf),"/")
-$(error "YICES_TOP_DIR and YICES_MAKE_INCLUDE are undefined")
-else
 include $(conf)
-endif
 
 
 #
-# build subdirectories
+# Build subdirectories
+# --------------------
+# build/obj: object files, in a form suitable for the dynamic libraries
+#            (e.g., compiled with option -fPIC)
+# build/static_obj: object files compiled in a form suitable for libyices.a
+#            (e.g., compiled without -fPIC)
+#
+# build/lib: libraries (GMP not included)
+# build/bin: binaries (GMP not included)
+#
+# build/static_lib: libraries (GMP included)
+# build/static_bin: binaries linked statically with GMP (and other libraries if possible)
 #
 objdir := $(BUILD)/obj
 libdir := $(BUILD)/lib
 bindir := $(BUILD)/bin
 
+static_objdir := $(BUILD)/static_obj
+static_libdir := $(BUILD)/static_lib
+static_bindir := $(BUILD)/static_bin
+
 #
-# distribution subdirectory: tarfiles are constructed
+# Distribution subdirectory: tarfiles are constructed
 # via make binary-distribution or make smt-distribution
 # 
 # In this makefile, we just copy what needs to be included
-# in the distribution tarfiles in $(BUILD)/dist
+# in the distribution tarfiles in $(BUILD)/dist or $(BUILD)/static_dist
 #
 distdir := $(BUILD)/dist
+static_distdir := $(BUILD)/static_dist
 
 
 #
@@ -126,67 +145,103 @@ old_bin_src_c := yices_smt.c dl_profile.c yices_smtcomp.c yices_main.c
 #
 # Auto-generated version file
 #
-yices_version_c := yices_version.c
-yices_version_o := $(objdir)/yices_version.o
+version_c := yices_version.c
 
 #
-# list of exported symbols for dynamic library
-# this is used on cygwin/mingw only
+# Dependencies and object files
 #
-yices_exports := yices_exports.def
-
-# dependencies and object files to build
-dep := $(src_c:%.c=$(objdir)/%.d)
 obj := $(src_c:%.c=$(objdir)/%.o)
+dep := $(src_c:%.c=$(objdir)/%.d)
+static_obj := $(src_c:%.c=$(static_objdir)/%.o)
+static_dep := $(src_c:%.c=$(static_objdir)/%.d)
 
-bin_dep := $(bin_src_c:%.c=$(objdir)/%.d)
 bin_obj := $(bin_src_c:%.c=$(objdir)/%.o)
+bin_dep := $(bin_src_c:%.c=$(objdir)/%.d)
+static_bin_obj = $(bin_src_c:%.c=$(static_objdir)/%.o)
+static_bin_dep = $(bin_src_c:%.c=$(static_objdir)/%.d)
 
-# static library
+version_obj := $(objdir)/yices_version.o
+version_dep := $(version_c:%.c=$(objdir)/%.d)
+static_version_obj := $(static_objdir)/yices_version.o
+static_version_dep := $(static_objdir)/yices_version.d
+
+
+#
+# Static libraries
+#
 libyices := $(libdir)/libyices.a
+static_libyices := $(static_libdir)/libyices.a
 
-# dynamic libraries
-libyices_obj := $(objdir)/allyices.o
-libyices_so := $(libdir)/libyices.so
-libyices_dylib := $(libdir)/libyices.dylib
-libyices_dll := $(libdir)/cygyices.dll
-libyices_mingw_dll := $(libdir)/libyices.dll
+#
+# Binaries
+#
+binaries := $(bindir)/yices_main$(EXEEXT)
+static_binaries := $(static_bindir)/yices_main$(EXEEXT)
 
-# related files for cygwin and mingw
-libyices_implib=$(libdir)/libyices.dll.a
-libyices_def=$(libdir)/libyices.def
 
-# library version for linux
-libyices_soname := libyices.so.$(MAJOR)
+#
+# DYNAMIC LIBRARIES
+#
 
-# version and compatibility numbers for darwin
+#
+# Linux:
+# the library has full versioned name libyices.so.2.0.0
+# soname: libyices.so.2.0
+#
+libyices_so := libyices.so.$(YICES_VERSION)
+libyices_soname := libyices.so.$(MAJOR).$(MINOR)
+
+# 
+# Darwin
+# library name: libyices.2.dylib
+# version and compatibility numbers for Darwin
+# install name: /usr/local/lib/libyices.2.dylib
+#
+libyices_dylib := libyices.$(MAJOR).dylib
 libyices_curr_version := $(MAJOR).$(MINOR).$(PATCH_LEVEL)
-libyices_compat_version := $(MAJOR).0.0
+libyices_compat_version := $(MAJOR).$(MINOR).0
+libyices_install_name := /usr/local/lib/$(libyices_dylib)
 
+#
+# Cygwin and mingw:
+# the DLL is called cygyices.dll on cygwin
+#               and libyices.dll on mingw
+# both systems use an import library called libyices.dll.a
+#
+# On mingw, we also produce libyices.def, which can be
+# used to produce an import library compatible with Microsoft
+# visual studio.
+#
+libyices_dll := cygyices.dll
+libyices_mingw_dll := libyices.dll
 
-# binaries (empty until this gets fixed)
-binaries :=
-old_binaries := $(bindir)/yices_smt$(EXEEXT) $(bindir)/dl_profile$(EXEEXT) \
-	$(bindir)/yices_smtcomp$(EXEEXT) $(bindir)/yices_main$(EXEEXT)
-
+libyices_implib=libyices.dll.a
+libyices_def=libyices.def
 
 
 #
 # OS-dependent compilation flags + which dynamic libraries to build
+#
 # -fPIC: PIC is the default on Darwin/Cygwin/Mingw (and causes 
-#  a compilation warning if present)
+#  compilation warning on the latter two if present)
+#
 # -static: is not supported by Darwin or our Solaris2.10 machine
+#
+# BIN_LDFLAGS: LDFLAGS used when building executables 
+#  this is used to increase the stack size on cygwin/mingw (to 8Mbytes)
 #
 ifeq ($(POSIXOS),cygwin)
   CPPFLAGS := $(CPPFLAGS) -DCYGWIN
   PIC=
   STATIC=-static
+  BIN_LDFLAGS= -Wl,--stack,8388608
   libyices_dynamic=$(libyices_dll)
 else
 ifeq ($(POSIXOS),mingw)
   CPPFLAGS := $(CPPFLAGS) -DMINGW
   PIC=
   STATIC=-static
+  BIN_LDFLAGS= -Wl,--stack,8388608
   libyices_dynamic=$(libyices_mingw_dll)
 else
 ifeq ($(POSIXOS),darwin)
@@ -194,7 +249,7 @@ ifeq ($(POSIXOS),darwin)
   CFLAGS += -fvisibility=hidden
   PIC=-fPIC
   STATIC=
-  RANLIBFLAGS=-s
+  BIN_LDFLAGS=
   libyices_dynamic=$(libyices_dylib)
 else
 ifeq ($(POSIXOS),sunos)
@@ -202,6 +257,7 @@ ifeq ($(POSIXOS),sunos)
   STATIC=
   CPPFLAGS := $(CPPFLAGS) -DSOLARIS
   CFLAGS += -fvisibility=hidden
+  BIN_LDFLAGS=
   libyices_dynamic=$(libyices_so)
 else
 ifeq ($(POSIXOS),linux)
@@ -209,17 +265,16 @@ ifeq ($(POSIXOS),linux)
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DLINUX
   CFLAGS += -fvisibility=hidden
+  BIN_LDFLAGS=
   libyices_dynamic=$(libyices_so)
 else
-  PIC=-fPIC
-  STATIC=-static
-  CFLAGS += -fvisibility=hidden
-  libyices_dynamic=$(libyices_so)
+ $(error "Don't know how to compile on $(POSIXOS)")
 endif
 endif
 endif
 endif
 endif
+
 
 
 #
@@ -228,7 +283,7 @@ endif
 CFLAGS += -Wall -Winline -Wredundant-decls
 ifeq ($(POSIXOS),mingw)
   ifeq ($(findstring -mno-cygwin, $(CFLAGS)), -mno-cygwin)
-   # compilation on mingw using the -mno-cygwin flag
+   # For compilation on mingw using the -mno-cygwin flag,
    # we disable -Wformat warning because mingw uses non-standard
    # formats in printf that cause useless warnings.
    CFLAGS += -Wno-format
@@ -240,38 +295,26 @@ endif
 #
 # Compilation flags dependent on MODE
 #
-# We need to remove -lgmp from LIBS in static mode, otherwise adding
-# $(STATIC_GMP) does not work on Darwin and cygwin
-#
 # Option -fomit-frame-pointer confuses the Mac OS profiling tools
 # (don't use it if MODE=profile)
 #
 ifeq ($(YICES_MODE),release) 
-CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(PIC)
+CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else 
-ifeq ($(YICES_MODE),static)
-ifneq ($(STATIC_GMP_INCLUDE_DIR),)
-CPPFLAGS := -I$(STATIC_GMP_INCLUDE_DIR) $(CPPFLAGS)
-endif
-CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(STATIC)
-CPPFLAGS := $(CPPFLAGS) -DNDEBUG
-LIBS := $(STATIC_GMP) $(subst $(LIBS),-lgmp,)
-else
 ifeq ($(YICES_MODE),profile)
-CFLAGS := $(CFLAGS) -O3 $(PIC) -pg
+CFLAGS := $(CFLAGS) -O3 -pg
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),gcov)
-CFLAGS := $(CFLAGS) -O3 -fprofile-arcs -ftest-coverage $(PIC)
+CFLAGS := $(CFLAGS) -fprofile-arcs -ftest-coverage
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(findstring $(YICES_MODE),valgrind quantify purify),$(YICES_MODE))
-CFLAGS := $(CFLAGS) -O3 -g $(PIC) 
+CFLAGS := $(CFLAGS) -O3 -g
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 CFLAGS := $(CFLAGS) -g
-endif
 endif
 endif
 endif
@@ -292,16 +335,32 @@ endif
 endif
 
 
+
 #
-# Which libraries to build.
-# TODO: build the dynamic library (but linked with libgmp.a)
-# in static mode?
+# More CPPFLAGS for compiling static objects
 #
-ifeq ($(YICES_MODE),release)
-lib_targets=$(libyices)  $(libyices_dynamic)
+ifneq ($(STATIC_GMP_INCLUDE_DIR),)
+  STATIC_CPPFLAGS := -I$(STATIC_GMP_INCLUDE_DIR) $(CPPFLAGS)
 else
-lib_targets=$(libyices)
+  STATIC_CPPFLAGS := $(CPPFLAGS)
 endif
+
+ifeq ($(POSIXOS),cygwin)
+  STATIC_CPPFLAGS += -DNOYICES_DLL
+else
+ifeq ($(POSIXOS),mingw)
+  STATIC_CPPFLAGS += -DNOYICES_DLL
+endif
+endif
+
+
+#
+# LIBS for compiling in static mode
+#
+# We need to remove -lgmp from LIBS in static mode, otherwise adding
+# $(STATIC_GMP) does not work on Darwin and cygwin
+#
+STATIC_LIBS := $(STATIC_GMP) $(subst $(LIBS),-lgmp,)
 
 
 
@@ -319,10 +378,19 @@ $(objdir)/%.d: %.c
 	@ $(SED) 's,\($*\).o[ :]*,$(objdir)/\1.o $@ : , g' < $@.tmp > $@
 	@ rm -f $@.tmp
 
-ifneq ($@,clean)
+$(static_objdir)/%.d: %.c
+	@ echo Building dependency file $@
+	@ $(CC) -MM -MG $(STATIC_CPPFLAGS) $< > $@.tmp
+	@ $(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.tmp > $@
+	@ rm -f $@.tmp
+
 include $(dep)
 include $(bin_dep)
-endif
+include $(version_dep)
+include $(static_dep)
+include $(static_bin_dep)
+include $(static_version_dep)
+
 
 
 #
@@ -352,121 +420,178 @@ else
   rev := $(shell ( svnversion $(YICES_TOP_DIR) 2>&1 ) )
 endif
 
-yices_version.c:
-	$(SED) -e 's/YICES_COMPILATION_DATE/$(now)/g' \
-	 -e 's;SVN_URL;$(url);g' -e 's/SVN_REVISION/$(rev)/g' \
-	 -e 's/YICES_ARCH/$(ARCH)/g' -e 's/YICES_BUILD_MODE/$(YICES_MODE)/g' -e 's/YICES_VERSION/$(YICES_VERSION)/g' \
-	yices_version_template.txt > $@
-
+yices_version.c: yices_version_template.txt
+	$(SED) -e 's/YICES_VERSION/$(YICES_VERSION)/g' -e 's/YICES_COMPILATION_DATE/$(now)/g' \
+               -e 's;SVN_URL;$(url);g' -e 's/SVN_REVISION/$(rev)/g' \
+	       -e 's/YICES_ARCH/$(ARCH)/g' -e 's/YICES_BUILD_MODE/$(YICES_MODE)/g' \
+               yices_version_template.txt > $@
 
 
 
 #
-# Binaries
-# 
-bin: $(binaries)
-
-# All objects, except yices_version.o
-objects: $(obj) $(bin_obj)
-
-#
-# Libraries: include yices_version.o
-# Also force yices_version_c to be generated every time
-#
-lib: $(lib_targets) $(yices_version_o)
-	rm -f $(yices_version_c)
-
 # Object files
+#
 $(objdir)/%.o: %.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PIC) -c $< -o $@
 
+$(static_version_obj): yices_version.c
+	$(CC) -DYICES_STATIC $(STATIC_CPPFLAGS) $(CFLAGS) -c yices_version.c -o $(static_version_obj)
+
+$(static_objdir)/%o: %c
+	$(CC) $(STATIC_CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 #
-# Static library
+# Static libraries
 #
-$(libyices): $(obj) $(yices_version_o)
+# Right now, the dynamic and static libyices.a are the same.
+# I'd like to include libgmp.a in the static libyices.a but 
+# I haven't found a good way to do it.
+# 
+$(libyices): $(obj) $(version_obj)
 	@ rm -f $(libyices)
-	$(AR) cr $(libyices) $(obj) $(yices_version_o)
-	$(RANLIB) $(RANLIBFLAGS) $(libyices)
+	$(AR) cr $(libyices) $(obj) $(version_obj)
+	$(RANLIB) $(libyices)
 
-
-#
-# We combine all objects into allyices.o then build the libraries
-# from allyices.o
-#
-$(libyices_obj): $(obj) $(yices_version_o)
-	$(LD) -r -x $(LDFLAGS) -o $(libyices_obj) $(obj) $(yices_version_o)
-
-
-
-#
-# For dynamic libraries, the rules are platform dependent.
-#
-
-#
-# linux + solaris
-#
-$(libyices_so): $(libyices_obj)
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $(libyices_so) \
-	-Wl,-soname,$(libyices_soname) $(libyices_obj) $(LIBS)
-	$(STRIP) -x $(libyices_so)
-
-#
-# DLL on cygwin
-# the DLL is called cygyices.dll
-# the linker creates libyices.dll.a (import library)
-# the flag --no-whole-archive suppresses inclusion of all objects
-# stored in $(LIBS) in cygyices.dll
-#
-# To use these files on cygwin
-# copy libyices.dll.a in /lib (or /usr/lib)
-# copy cygyices.dll in /bin (or /usr/bin)
-# link the code using the flags -lyices -lgmp
-#
-$(libyices_dll): $(libyices_obj) $(yices_exports)
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $(libyices_dll) \
-	-Wl,--out-implib=$(libyices_implib) --no-whole-archive $(libyices_obj) \
-	$(LIBS) $(yices_exports)
-	$(STRIP) $(libyices_dll)
-
-#
-# DLL on mingw: more or less like cygwin
-# the DLL is called libyices.dll
-# the --no-whole-archive file is removed so that libgmp.a gets included in libyices.dll
-# the linker creates libyices.dll.a (import library) and libyices.def
-#
-# To use libyices.dll on windows
-# construct libyices.lib from def using the Microsoft lib tool
-#    lib /machine:i386 /def:libyices.def
-#
-$(libyices_mingw_dll): $(libyices_obj)
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $(libyices_mingw_dll) \
-	-Wl,--out-implib=$(libyices_implib) -Wl,--output-def,$(libyices_def) \
-	$(libyices_obj) $(LIBS) $(yices_exports)
-	$(STRIP) $(libyices_mingw_dll)
-
-
-#
-# Special dynamic library tricks for Mac OS X:
-# - give libyices.dylib as the install_name
-# - the compatibility version is MAJOR.0.0
-#
-$(libyices_dylib): $(libyices_obj)
-	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib \
-	-current_version $(libyices_curr_version) \
-	-compatibility_version $(libyices_compat_version) \
-	-Wl,-install_name,libyices.dylib \
-	$(libyices_obj) $(LIBS) -o $(libyices_dylib)
-	$(STRIP) -x $(libyices_dylib)
-
+$(static_libyices):  $(static_obj) $(static_version_obj)
+	@ rm -f $(static_libyices)
+	$(AR) cr $(static_libyices) $(static_obj) $(static_version_obj)
+	$(RANLIB) $(static_libyices)
 
 
 #
 # Executables
 #
 $(bindir)/%$(EXEEXT): $(objdir)/%.o $(libyices)
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $< $(libyices) $(LIBS)
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
+           -o $@ $< $(libyices) $(LIBS)
 
+$(static_bindir)/%$(EXEEXT): $(static_objdir)/%.o $(static_libyices)
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIND_LDFLAGS) $(STATIC) \
+          -o $@ $< $(static_libyices) $(STATIC_LIBS)
+
+
+
+#
+# For dynamic libraries, the rules are platform-dependent.
+#
+
+#
+# linux + solaris
+#
+$(libdir)/$(libyices_so): $(obj) $(version_obj)
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
+	-Wl,-soname,$(libyices_soname) $(obj) $(version_obj) $(LIBS)
+	$(STRIP) -x $@
+
+$(static_libdir)/$(libyices_so): $(obj) $(version_obj)
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
+	-Wl,-soname,$(libyices_soname) $(obj) $(version_obj) $(PIC_GMP)
+	$(STRIP) -x $@
+
+
+#
+# DLL on cygwin
+# the DLL is called cygyices.dll
+# the linker creates libyices.dll.a (import library)
+#
+# To use these files on cygwin
+# copy libyices.dll.a in /lib (or /usr/lib)
+# copy cygyices.dll in /bin (or /usr/bin)
+# link the code using the flags -lyices -lgmp
+#
+# Hack: on cygwin/mingw, we must build the GMP-included
+# DLL using the static_objects. This works because on
+# cygwin/mingw, the static objects are PIC.
+# FIX THIS: that's not good, because the static objects
+# are compiled with -DNOYICES_DLL, so the 
+#
+$(libdir)/$(libyices_dll): $(obj) $(version_obj)
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
+	-Wl,--out-implib=$(libdir)/$(libyices_implib) \
+	$(obj) $(version_obj) $(LIBS)
+	$(STRIP) $@
+
+$(static_libdir)/$(libyices_dll): $(static_obj) $(static_version_obj)
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
+	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
+	$(static_obj) $(static_version_obj) $(PIC_GMP)
+	$(STRIP) -x $@
+
+
+#
+# DLL on mingw: more-or-less like cygwin
+# the DLL is called libyices.dll
+# the linker creates libyices.dll.a (import library) and libyices.def
+#
+# To use libyices.dll on windows
+# construct libyices.lib from libyices.def using the Microsoft lib tool
+#    lib /machine:i386 /def:libyices.def
+#
+$(libdir)/$(libyices_mingw_dll): $(obj) $(version_obj)
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
+	-Wl,--out-implib=$(libdir)/$(libyices_implib) \
+	-Wl,--output-def,$(libdir)/$(libyices_def) \
+	$(obj) $(version_obj) $(LIBS)
+	$(STRIP) $@
+
+$(static_libdir)/$(libyices_mingw_dll): $(static_obj) $(static_version_obj)
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
+	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
+	-Wl,--output-def,$(static_libdir)/$(libyices_def) \
+	$(static_obj) $(static_version_obj) $(PIC_GMP)
+	$(STRIP) $@
+
+
+#
+# Special dynamic library tricks for Mac OS X:
+# - give libyices.dylib as the install_name
+# - compatibility version is MAJOR.MINOR.0
+# - current version is MAJOR.MINOR.PATCH_LEVEL
+# - install name: /usr/local/lib/libyices.MAJOR.dylib
+# - option -headerpad_max_install_names allows users to
+#   safely change the install name using install_name_tool.
+#
+$(libdir)/$(libyices_dylib): $(obj) $(version_obj)
+	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib -o $@ \
+	-current_version $(libyices_curr_version) \
+	-compatibility_version $(libyices_compat_version) \
+	-Wl,-install_name,$(libyices_install_name) \
+	-Wl,-headerpad_max_install_names \
+	-Wl,-dead_strip \
+	-Wl,-single_module \
+	$(obj) $(version_obj) $(LIBS) 
+	$(STRIP) -x $@
+
+$(static_libdir)/$(libyices_dylib): $(obj) $(version_obj)
+	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib -o $@ \
+	-current_version $(libyices_curr_version) \
+	-compatibility_version $(libyices_compat_version) \
+	-Wl,-install_name,$(libyices_install_name) \
+	-Wl,-headerpad_max_install_names \
+	-Wl,-dead_strip \
+	-Wl,-single_module \
+	$(obj) $(version_obj) $(PIC_GMP)
+	$(STRIP) -x $@
+
+
+
+# All objects
+obj: $(obj) $(bin_obj)
+
+static-obj: $(static_obj) $(static_bin_obj)
+
+# Binaries
+bin: $(binaries)
+
+static-bin: $(static_binaries)
+
+# Libraries
+lib: $(libyices) $(libdir)/$(libyices_dynamic)
+
+static-lib: $(static_libyices) $(static_libdir)/$(libyices_dynamic)
+
+
+.PHONY: obj static-obj bin static-bin lib static-lib
 
 
 
@@ -476,40 +601,39 @@ $(bindir)/%$(EXEEXT): $(objdir)/%.o $(libyices)
 ##########################
 
 #
-# Flags for the strip command (applied to binaries)
-# (todo: check for OS dependencies)
+# OS-dependent flags for strip
+# TODO: adjust this depending on OS
 #
-STRIPFLAGS =
-
-#
-# Libraries we distribute: they are copied into the distdir sub
-# directories.
-#
-libs_for_dist = $(lib_targets)
+STRIPFLAGS= 
 
 #
 # Just copy the required binaries, libraries, include files into
 # distdir
-# 
-binary-distribution: bin lib
+#
+dist: bin lib
 	rm -r -f $(distdir)/*
-	mkdir $(distdir)/bin
-	cp $(bindir)/yices_main$(EXEEXT) $(distdir)/bin/yices$(EXEEXT)
-	cp $(bindir)/yices_smt$(EXEEXT) $(distdir)/bin/yices_smt$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices_smt$(EXEEXT)
-	mkdir $(distdir)/lib
-	cp $(lib_targets) $(distdir)/lib
 	mkdir $(distdir)/include
 	cp yices.h yices_types.h yices_limits.h yices_exit_codes.h $(distdir)/include
-
-
-smt-distribution: bin
-	rm -r -f $(distdir)/*
 	mkdir $(distdir)/bin
-	cp $(bindir)/yices_smtcomp$(EXEEXT) $(distdir)/bin/yices$(EXEEXT)
+	cp $(bindir)/yices_main$(EXEEXT) $(distdir)/bin/yices$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices$(EXEEXT)
+	mkdir $(distdir)/lib
+	cp $(libdir)/* $(distdir)/lib
+	$(STRIP) -x $(distdir)/lib/libyices.a
 
+static-dist: static-bin static-lib
+	rm -r -f $(static_distdir)/*
+	mkdir $(static_distdir)/include
+	cp yices.h yices_types.h yices_limits.h yices_exit_codes.h $(static_distdir)/include
+	mkdir $(static_distdir)/bin
+	cp $(static_bindir)/yices_main$(EXEEXT) $(static_distdir)/bin/yices$(EXEEXT)
+	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices$(EXEEXT)
+	mkdir $(static_distdir)/lib
+	cp $(static_libdir)/* $(static_distdir)/lib
+	$(STRIP) -x $(static_distdir)/lib/libyices.a
+
+
+.PHONY: dist static-dist
 
 
 ############
@@ -520,7 +644,9 @@ smt-distribution: bin
 # rules to avoid triggering the .DEFAULT rule if .h or .c files have been deleted
 #
 %.h:
+	@ echo
 	@ echo "$@ missing"
+	@ echo 
 
 %.c:
 	@ echo
@@ -543,7 +669,6 @@ smt-distribution: bin
 	@ echo "YICES_TOP_DIR is $(YICES_TOP_DIR)"
 	@ echo "YICES_MAKE_INCLUDE is $(YICES_MAKE_INCLUDE)"
 	@ echo "YICES_MODE is $(YICES_MODE)"
-	@ echo "YICES_VERSION is $(YICES_VERSION)"
 	@ echo "BUILD is $(BUILD)"
 	@ echo
 	@ echo "Configuration"
@@ -563,7 +688,4 @@ smt-distribution: bin
 	@ echo "  STATIC_GMP_INCLUDE_DIR = $(STATIC_GMP_INCLUDE_DIR)"
 	@ echo
 
-
-
-.PHONY: objects lib bin
 

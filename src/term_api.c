@@ -8,6 +8,19 @@
  * buffers and converting buffers to terms.
  */
 
+
+
+/*
+ * Visibility control: all extern functions declared here are in libyices's API
+ * Other extern functions should have visibility=hidden (cf. Makefile).
+ */
+#if defined(CYGWIN) || defined(MINGW)
+#define EXPORTED __declspec(dllexport)
+#define __YICES_DLLSPEC__ EXPORTED
+#else
+#define EXPORTED __attribute__((visibility("default")))
+#endif
+
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
@@ -36,23 +49,6 @@
 #include "yices_globals.h"
 #include "yices_parser.h"
 #include "yices_pp.h"
-
-
-
-/*
- * Visibility control: all extern functions declared here are in libyices's API
- *
- * Other extern functions should have visibility=hidden (cf. Makefile).
- *
- * Note: adding __declspec(dllexport) should have the same effect
- * on cygwin or mingw but that does not seem to work.
- */
-#if defined(CYGWIN) || defined(MINGW)
-#define EXPORTED __declspec(dllexport)
-#else
-#define EXPORTED __attribute__((visibility("default")))
-#endif
-
 
 
 /*
@@ -6274,31 +6270,31 @@ type_t yices_type_of_term(term_t t) {
  * If t is not a valid term, the check functions return false
  * and set the error report as above.
  */
-bool yices_term_is_bool(term_t t) {
+EXPORTED int32_t yices_term_is_bool(term_t t) {
   return check_good_term(&terms, t) && is_boolean_term(&terms, t);
 }
 
-bool yices_term_is_int(term_t t) {
+EXPORTED int32_t yices_term_is_int(term_t t) {
   return check_good_term(&terms, t) && is_integer_term(&terms, t);
 }
 
-bool yices_term_is_real(term_t t) {
+EXPORTED int32_t yices_term_is_real(term_t t) {
   return check_good_term(&terms, t) && is_real_term(&terms, t);
 }
 
-bool yices_term_is_arithmetic(term_t t) {
+EXPORTED int32_t yices_term_is_arithmetic(term_t t) {
   return check_good_term(&terms, t) && is_arithmetic_term(&terms, t);
 }
 
-bool yices_term_is_bitvector(term_t t) {
+EXPORTED int32_t yices_term_is_bitvector(term_t t) {
   return check_good_term(&terms, t) && is_bitvector_term(&terms, t);
 }
 
-bool yices_term_is_tuple(term_t t) {
+EXPORTED int32_t yices_term_is_tuple(term_t t) {
   return check_good_term(&terms, t) && is_tuple_term(&terms, t);
 }
 
-bool yices_term_is_function(term_t t) {
+EXPORTED int32_t yices_term_is_function(term_t t) {
   return check_good_term(&terms, t) && is_function_term(&terms, t);
 }
 
@@ -6308,7 +6304,7 @@ bool yices_term_is_function(term_t t) {
  * Size of bitvector term t. 
  * return -1 if t is not a bitvector
  */
-uint32_t yices_term_bitsize(term_t t) {
+EXPORTED uint32_t yices_term_bitsize(term_t t) {
   if (! check_bitvector_term(&terms, t)) {
     return 0;
   }

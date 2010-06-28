@@ -31,7 +31,6 @@
 #include "terms.h"
 #include "bvlogic_buffers.h"
 
-
 /*
  * Objects on the stack
  * - tag = identifies the object's type

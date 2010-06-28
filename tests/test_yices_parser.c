@@ -12,7 +12,6 @@
 #include "yices_parser.h"
 #include "yices.h"
 #include "yices_globals.h"
-#include "yices_version.h"
 #include "yices_exit_codes.h"
 
 

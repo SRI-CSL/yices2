@@ -1,9 +1,11 @@
+# -*-Makefile-*- (emacs mode)
+
 #
 # Build Makefile
 # 
 # Must be invoked with the following variables set
 #
-#   YICES_TOP_DIR = top-level directory for Yices
+#   YICES_TOP_DIR = top-level directory of Yices
 #   YICES_MODE = build mode
 #   YICES_MAKE_INCLUDE = configuration file to include
 #   YICES_VERSION = full version
@@ -13,14 +15,23 @@
 #   ARCH = architecture (e.g, i686-pc-linux-gnu)
 #   POSIXOS = OS (e.g., linux)
 #
-# Configuration variables for this build target are imported by
-# including the file $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE).
-# This file is constructed by running ./configure on the
+# Config variables are imported by including the file
+#   $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
+#
+# This file is constructed by running configure on the
 # host and it defines the compilation tools and flags
 # and the GMP libraries to use.
 #
 
 SHELL=/bin/sh
+
+ifeq (,$(YICES_TOP_DIR)) 
+ $(error "YICES_TOP_DIR is undefined")
+endif
+
+ifeq (,$(YICES_MAKE_INCLUDE))
+ $(error "YICES_MAKE_INCLUDE is undefined")
+endif
 
 include $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
 
@@ -30,188 +41,375 @@ include $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
 #
 srcdir = src
 testdir = tests
-satsolverdir = sat_solver
 
 #
-# Build directories
+# Build directory: for this architecture and mode
 #
 build_dir = build/$(ARCH)-$(YICES_MODE)
 
-objdir = $(build_dir)/obj
-libdir = $(build_dir)/lib
-bindir = $(build_dir)/bin
+#
+# Build subdirectories
+#
+# build/obj: object files, in a form suitable for the dynamic libraries
+#            (e.g., compiled with option -fPIC)
+# build/static_obj: object files compiled in a form suitable for libyices.a
+#            (e.g., compiled with 
+#
+# build/lib: libraries (GMP not included)
+# build/bin: binaries (GMP not included)
+#
+# build/static_lib: libraries (GMP included)
+# build/static_bin: binaries linked statically with GMP (and other libraries if possible)
+#
+dyn_objdir := $(build_dir)/obj
+dyn_libdir := $(build_dir)/lib
+dyn_bindir := $(build_dir)/bin
+
+static_objdir := $(build_dir)/static_obj
+static_libdir := $(build_dir)/static_lib
+static_bindir := $(build_dir)/static_bin
+
+#
+# Binary distributions:
+#
+# build_dir/dist: binaries + libraries with distribution not linked with GMP
+# build_dir/static_dist: includes GMP (statically linked)
+#
+dist_dir = $(build_dir)/dist
+static_dist_dir = $(build_dir)/static_dist
 
 
 #
-# Directories and temporary file to build tarfiles.
-# We do this in two steps: 
-# 1) the includes, binaries, and library files
-#    to be distributed are constructed by invoking make -C src
-#    and copied into $(distir)
-#    (what's required is defined in src/Makefile and may depend
+# Directories and temporary file to build tarfiles
+# - we do this in two steps: the includes, binaries, and library files
+#   to be distributed are constructed by invoking make -C src
+#   and copied into $(dist_dir)
+#   (what's required is defined in src/Makefile and may depend
 #    on the OS + compilation mode).
-# 2) the full tar file is built from $(distdir) + the generic files
-#    that are independent of OS and compilation modes
-# - the name of the tar file depends on ARCH + MODE + VERSION
-# 
-distdir = $(build_dir)/dist
-bindist_dir = yices-$(YICES_VERSION)
-smtdist_dir = yices2smt09
-
+# - the full tar file is built from $(dist_dir) + the generic files
+#   that are independent of OS and compilation modes
+# - the name of the tar file depends on ARCH + MODE
+#
+# All tarfiles are stored in ./distributions
+#
 distributions = ./distributions
+bindist_dir = yices-$(YICES_VERSION)
 
-ifeq ($(YICES_MODE),release) 
 bindist_tarfile = $(bindist_dir)-$(ARCH).tar.gz
+static_bindist_tarfile = $(bindist_dir)-$(ARCH)-static-gmp.tar.gz
+
+smtdist_dir = yices2smt09
 smtdist_tarfile = $(smtdist_dir)-$(ARCH).tar.gz
-else
-ifeq ($(YICES_MODE),static)
-bindist_tarfile = $(bindist_dir)-$(ARCH)-static-gmp.tar.gz
-smtdist_tarfile = $(smtdist_dir)-$(ARCH)-static-gmp.tar.gz
-else
-bindist_tarfile = $(bindist_dir)-$(ARCH)-$(YICES_MODE).tar.gz
-smtdist_tarfile = $(smtdist_dir)-$(ARCH)-$(YICES_MODE).tar.gz
-endif
-endif
+static_smtdist_tarfile = $(smtdist_dir)-$(ARCH)-static-gmp.tar.gz
+
+
 
 
 
 #
-# Compilation: all the work is done by the recursive
-# make that uses src/Makefile.
-# 
-all: lib bin test satsolver
-
-objects: build_dir
-	@ echo "=== Building objects ==="
-	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) objects
-
-lib: build_dir
-	@ echo "=== Building libraries ==="
-	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) lib
-
-bin: build_dir
-	@ echo "=== Building binaries ==="
-	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) bin
-
+# Build subdirectories if missing
 #
-# Same thing for test and satsolver: there's a
-# separate compilation Makefile in the corresponding directories.
-#
-test: build_dir lib
-	@ echo "=== Building tests ==="
-	@ $(MAKE) -C $(testdir) BUILD=../$(build_dir) all
+$(build_dir):
+	$(MKDIR_P) $(build_dir)
 
-satsolver: build_dir objects
-	@ echo "=== Building satsolver ==="
-	@ $(MAKE) -C $(satsolverdir) BUILD=../$(build_dir) bin
+$(dyn_objdir): 
+	$(MKDIR_P) $(dyn_objdir)
 
+$(dyn_libdir):
+	$(MKDIR_P) $(dyn_libdir)
 
+$(dyn_bindir):
+	$(MKDIR_P) $(dyn_bindir)
 
-#
-# Create build directories if not present
-#
-build_dir: $(objdir) $(libdir) $(bindir)
+$(static_objdir):
+	$(MKDIR_P) $(static_objdir)
 
-$(objdir):
-	$(MKDIR_P) $(objdir)
+$(static_libdir):
+	$(MKDIR_P) $(static_libdir)
 
-$(libdir):
-	$(MKDIR_P) $(libdir)
+$(static_bindir):
+	$(MKDIR_P) $(static_bindir)
 
-$(bindir):
-	$(MKDIR_P) $(bindir)
-
-
-
-#
-# Binary distribution/smt distribution
-#
 $(distdir):
 	$(MKDIR_P) $(distdir)
 
+$(static_distdir):
+	$(MKDIR_P) $(static_distdir)
+
+
+build_subdirs: $(build_dir) $(dyn_objdir) $(dyn_libdir) $(dyn_bindir)\
+	 $(static_objdir) $(static_libdir) $(static_bindir)
+
+.PHONY: build_subdirs
+
+
+
+#
+# Compilation
+#
+all: obj static-obj lib static-lib bin static-bin
+
+
+obj: build_subdirs
+	@ echo "=== Building objects ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) obj
+
+static-obj: build_subdirs
+	@ echo "=== Building static objects ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-obj
+
+lib: build_subdirs version
+	@ echo "=== Building libraries ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) lib
+
+static-lib: build_subdirs version
+	@ echo "=== Building libraries with GMP ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-lib
+
+bin: build_subdirs version
+	@ echo "=== Building binaries ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) bin
+
+static-bin: build_subdirs version
+	@ echo "=== Building static binaries ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-bin
+
+
+#
+# Force a new 'yices_version.c' to be generated
+#
+version:
+	rm -f $(srcdir)/yices_version.c
+
+.PHONY: version
+
+
+
+#
+# Tests: all use libyices.a (in lib)
+#
+test: build_subdirs lib
+	@ echo "=== Building tests ==="
+	@ $(MAKE) -C $(testdir) BUILD=../$(build_dir) all
+
+
+
+.PHONY: all obj static-obj lib static-lib bin static-bin test
+
+
+
+
+#
+# Binary distribution:
+#
+# On mingw, there's a manual step involved. So build the 
+# distribution as follows:
+# 1) make dist (or make static-dist)
+# 2) from a Visual Studio console,
+#    go to ./build/i686-pc-mingw32-release/dist/lib
+#    then type 'lib /machine:x86 /def:libyices.def
+# 3) clean up: remove libyices.def and libyices.exp
+#    from ./build/i686-pc-mingw32-release/dist/lib
+# 4) make tarfile (or make static-tarfile)
+#
+# On other platforms: make binary-distribution or make
+# static-distribution should work.
+#
 $(distributions):
 	$(MKDIR_P) $(distributions)
 
-binary-distribution: binary_distribution
+$(dist_dir):
+	$(MKDIR_P) $(dist_dir)
 
-binary_distribution: build_dir $(distdir) $(distributions)
+$(static_dist_dir):
+	$(MKDIR_P) $(static_dist_dir)
+
+binary-distribution: dist tarfile
+
+static-distribution: static-dist static-tarfile
+
+dist: build_subdirs version $(dist_dir)
 	@ echo "=== Preparing binary distribution ==="
-	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) binary-distribution
-	@ echo "=== Building tarfile ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) dist
+
+static-dist: build_subdirs version $(static_dist_dir)
+	@ echo "=== Preparing static binary distribution ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-dist
+
+
+tarfile: $(distributions)
+	@ echo "=== Building $(bindist_tarfile) ==="
 	rm -f -r $(bindist_dir)
-	mkdir $(bindist_dir)
-	cp -r $(distdir)/* $(bindist_dir)
+	$(MKDIR_P) $(bindist_dir)
+	cp -r $(dist_dir)/* $(bindist_dir)
 	cp etc/LICENSE etc/NOTICES $(bindist_dir)
+	cp etc/README.$(POSIXOS) $(bindist_dir)/README
+	$(MKDIR_P) $(bindist_dir)/examples
+	cp examples/*.ys examples/*.c $(bindist_dir)/examples
+	$(MKDIR_P) $(bindist_dir)/doc
+	cp doc/YICES-LANGUAGE $(bindist_dir)/doc
 	chmod -R og+rX $(bindist_dir)
-	sync
-	sync
 	sleep 10
 	tar -czf $(distributions)/$(bindist_tarfile) $(bindist_dir)
 	chmod -R og+rX $(distributions)
 	rm -f -r $(bindist_dir)
 
-smt-distribution: smt_distribution
+static-tarfile: $(distributions)
+	@ echo "=== Building $(static_bindist_tarfile) ==="
+	rm -f -r $(bindist_dir)
+	$(MKDIR_P) $(bindist_dir)
+	cp -r $(static_dist_dir)/* $(bindist_dir)
+	cp etc/LICENSE etc/NOTICES $(bindist_dir)
+	cp etc/README.static.$(POSIXOS) $(bindist_dir)/README
+	$(MKDIR_P) $(bindist_dir)/examples
+	cp examples/*.ys examples/*.c $(bindist_dir)/examples
+	$(MKDIR_P) $(bindist_dir)/doc
+	cp doc/YICES-LANGUAGE $(bindist_dir)/doc
+	chmod -R og+rX $(bindist_dir)
+	sleep 10
+	tar -czf $(distributions)/$(static_bindist_tarfile) $(bindist_dir)
+	chmod -R og+rX $(distributions)
+	rm -f -r $(bindist_dir)
 
-smt_distribution: build_dir $(distdir) $(distributions)
+
+.PHONY: binary-distribution static-distribution dist static-dist \
+	tarfile static-tarfile
+
+
+#
+# SMT distribution (binary that reads SMT-LIB input)
+#
+smt-distribution: smt-dist smt-tarfile
+
+static-smt-distribution: static-smt-dist static-smt-tarfile
+
+smt-dist: $(build_dir) version
 	@ echo "=== Preparing smt distribution ==="
-	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) smt-distribution
-	@ echo "=== Building tarfile ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) smt-dist
+
+static-smt-dist: $(build_dir) version
+	@ echo "=== Preparing static smt distribution ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) smt-dist
+
+smt-tarfile: $(distributions)
+	@ echo "=== Building $(smtdist_tarfile) ==="
 	rm -f -r $(smtdist_dir)
-	mkdir $(smtdist_dir)
-	cp -r $(distdir)/* $(smtdist_dir)
+	$(MKDIR_P) $(smtdist_dir)
+	cp -r $(dist_dir)/* $(smtdist_dir)
 	cp etc/LICENSE etc/NOTICES $(smtdist_dir)
 	chmod -R og+rX $(smtdist_dir)
-	sync
-	sync
 	sleep 10
 	tar -czf $(distributions)/$(smtdist_tarfile) $(smtdist_dir)
 	chmod -R og+rX $(distributions)
+
+static-smt-tarfile: $(distributions)
+	@ echo "=== Building $(smtdist_static_tarfile) ==="
 	rm -f -r $(smtdist_dir)
+	$(MKDIR_P) $(smtdist_dir)
+	cp -r $(static_dist_dir)/* $(smtdist_dir)
+	cp etc/LICENSE etc/NOTICES $(smtdist_dir)
+	chmod -R og+rX $(smtdist_dir)
+	sleep 10
+	tar -czf $(distributions)/$(smtdist_static_tarfile) $(smtdist_dir)
+	chmod -R og+rX $(distributions)
+
+
+.PHONY: smt-distribution static-smt-distribution smt-dist static-smt-dist \
+	smt-tarfile static-smt-tarfile
+
+
+#
+# Install from the source.
+#
+# The target directories are determined by ./configure:
+#   bindir = where to put binaries
+#   libdir = where to put the libraries
+#   includedir = where to put the include files
+#
+# We assume 'make binary-distribution' was done first,
+# then we copy the $(dist_dir) content:
+#   $(dist_dir)/bin     into $(bindir)
+#   $(dist_dir)/lib     into $(libdir)
+#   $(dist_dir)/include into $(includedir)
+#
+# Problem: we typically need to do 'sudo make install' 
+# but we don't want to compile with 'sudo make binary-distribution'. 
+# That can easily fail if the source and build directory or file 
+# permissions are wrong.
+#
+#
+install: install-$(POSIXOS)
+
+install-default: $(build_dir) $(dist_dir)
+	$(MKDIR_P) $(bindir)
+	$(MKDIR_P) $(libdir)
+	$(MKDIR_P) $(includedir)
+	$(INSTALL) -m 664 $(dist_dir)/include/* $(includedir)
+	$(INSTALL) $(dist_dir)/bin/* $(bindir)
+	$(INSTALL) $(dist_dir)/lib/* $(libdir)
+
+install-darwin: install-default
+	ln -sf libyices.$(MAJOR).dylib $(libdir)/libyices.dylib
+
+install-solaris: install-default
+	/sbin/ldconfig -n $(libdir)
+	ln -sf libyices.$(YICES_VERSION) $(libdir)/libyices.so
+
+install-linux: install-default
+	/sbin/ldconfig -n $(libdir)
+	ln -sf libyices.$(YICES_VERSION) $(libdir)/libyices.so
+
+#
+# cygwin and mingw install: copy the DLLs in $(bindir)
+#
+install-cygwin: $(build_dir) $(dist_dir)
+	$(MKDIR_P) $(bindir)
+	$(MKDIR_P) $(libdir)
+	$(MKDIR_P) $(includedir)
+	$(INSTALL) -m 664 $(dist_dir)/include/* $(includedir)
+	$(INSTALL) $(dist_dir)/bin/* $(bindir)
+	$(INSTALL) $(dist_dir)/lib/*.a $(libdir)
+	$(INSTALL) $(dist_dir)/lib/*.dll $(bindir)
+
+install-mingw: install-cygwin
+
+
+.PHONY: install install-default install-darwin install-solaris \
+	install-linux install-cygwin install-mingw
 
 
 
 #
-# Basic clean: delete objects/libraries/binary files
-# (some tools construct sub-directories in bin)
+# CLEANUP
+#
+
+#
+# Basic clean: deletee build sub-directories for architecture + mode
 #
 clean:
-	rm -rf $(objdir)/*
-	rm -rf $(libdir)/*
-	rm -rf $(bindir)/*
-
-#
-# Deep clean: delete build sub-directories for arch + mode
-#
-build-clean: build_clean
-
-build_clean:
-	rm -rf $(objdir)
-	rm -rf $(libdir)
-	rm -rf $(bindir)
-
+	rm -rf $(build_dir)/*
 
 #
 # Arch clean: delete all build subdirectories for an architecture
 #
-arch-clean: arch_clean
-
-arch_clean:
+arch-clean:
 	rm -rf build/$(ARCH)-*
 
 
 #
 # All clean delete all build directories
 #
-all-clean: all_clean
-
-all_clean:
+all-clean:
 	rm -rf build/*
 
 
+.PHONY: clean arch-clean all-clean
 
-.PHONY: recheck build_dir all objects lib bin test satsolver \
-	build_clean clean build-clean arch-clean arch_clean all_clean all-clean 
 
+
+#
+# Helper rule for debugging Makefiles and configure
+#
 recheck:
 	@ echo
 	@ echo "*** Recursive Makefile ***"
@@ -224,6 +422,9 @@ recheck:
 	@ echo "YICES_MAKE_INCLUDE is $(YICES_MAKE_INCLUDE)"
 	@ echo "YICES_MODE is $(YICES_MODE)"
 	@ echo "YICES_VERSION is $(YICES_VERSION)"
+	@ echo "MAJOR is $(MAJOR)"
+	@ echo "MINOR is $(MINOR)"
+	@ echo "PATCH_LEVEL is $(PATCH_LEVEL)"	
 	@ echo
 	@ echo "Configuration"
 	@ echo "  EXEEXT   = $(EXEEXT)"
@@ -232,6 +433,7 @@ recheck:
 	@ echo "  MKDIR_P  = $(MKDIR_P)"
 	@ echo "  CC       = $(CC)"
 	@ echo "  CPPFLAGS = $(CPPFLAGS)"
+	@ echo "  CFLAGS   = $(CFLAGS)"
 	@ echo "  LIBS     = $(LIBS)"
 	@ echo "  LDFLAGS  = $(LDFLAGS)"
 	@ echo "  LD       = $(LD)"
@@ -243,3 +445,9 @@ recheck:
 	@ echo "  STATIC_GMP = $(STATIC_GMP)"
 	@ echo "  STATIC_GMP_INCLUDE_DIR = $(STATIC_GMP_INCLUDE_DIR)"
 	@ echo
+	@ echo "  PIC_GMP = $(PIC_GMP)"
+	@ echo "  PIC_GMP_INCLUDE_DIR = $(PIC_GMP_INCLUDE_DIR)"
+	@ echo
+
+
+.PHONY: recheck

@@ -3,6 +3,12 @@
  * Intended to support parsing.
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+
 #include <assert.h>
 #include <string.h>
 

@@ -1,23 +1,89 @@
 /*
  * YICES API
- * 
- * THIS INCLUDES FUNCTIONS FOR BUILDING TERMS AND TYPES.
  */
 
 #ifndef __YICES_H 
 #define __YICES_H
 
-#ifdef __cplusplus
-//extern "C" {
+/*
+ * On windows/cygwin/mingw:
+ *
+ *   __YICES_DLLSPEC__ is '__declspec(dllimport) by default
+ * 
+ * This can be overridden as follows:
+ *
+ * 1) give -DNOYICES_DLL as a compilation flag (if you want to
+ *    link with libyices.a rather than the DLL)
+ *
+ * 2) define __YICES_DLLSPEC__ to '__declspec(dllexport)' before
+ *      #include "yices.h"
+ *    when building yices.
+ *
+ *
+ * On any system other than Windows: __YICES_DLLSPEC__ is empty.
+ */
+#if defined(_WIN32) || defined(__CYGWIN__)
+#if defined(NOYICES_DLL)
+#undef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__
+#else
+#if ! defined(__YICES_DLLSPEC__)
+#define __YICES_DLLSPEC__ __declspec(dllimport)
+#endif
+#endif
+#else
+#define __YICES_DLLSPEC__
 #endif
 
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
+/*
+ * WARNING: yices requires the header file <stdint.h>
+ *
+ * It's not available in Microsoft Visual Studio (prior to Visual Studio 2010),
+ * and it's possibly missing from other compilers too.
+ *
+ * If necessary, there are open-source 'stdint.h' that can 
+ * be dowloaded at
+ *      http://code.google.com/p/msinttypes/   (for MS Visual Studio only)
+ *   or http://www.azillionmonkeys.com/qed/pstdint.h
+ */
 #include <stdint.h>
-#include <stdbool.h>
 
 #include "yices_types.h"
 #include "yices_limits.h"
 
+
+
+/*********************
+ *  VERSION NUMBERS  *
+ ********************/
+
+#define __YICES_VERSION            2
+#define __YICES_VERSION_MAJOR      0
+#define __YICES_VERSION_PATCHLEVEL 0
+
+
+/*
+ * The version as a string "x.y.z"
+ */
+__YICES_DLLSPEC__ extern const char *yices_version;
+
+
+/*
+ * More details about the release:
+ * - build_arch is a string like "x86_64-unknown-linux-gnu"
+ * - build_mode is "static" or "release" or "debug"
+ * - build_date is the compilation date as in
+ *    "Wed Jun 16 11:11:57 PDT 2010"
+ */
+__YICES_DLLSPEC__ extern const char *yices_build_arch;
+__YICES_DLLSPEC__ extern const char *yices_build_mode;
+__YICES_DLLSPEC__ extern const char *yices_build_date;
 
 
 /***************************************
@@ -28,12 +94,12 @@
  * Must be called before anything else to initialize 
  * internal data structures.
  */
-extern void yices_init(void);
+__YICES_DLLSPEC__ extern void yices_init(void);
 
 /*
  * Free all allocated memory.
  */
-extern void yices_cleanup(void);
+__YICES_DLLSPEC__ extern void yices_cleanup(void);
 
 
 
@@ -45,17 +111,17 @@ extern void yices_cleanup(void);
 /*
  * Get the last error code
  */
-extern error_code_t yices_error_code(void);
+__YICES_DLLSPEC__ extern error_code_t yices_error_code(void);
 
 /*
  * Get the last error report
  */
-extern error_report_t *yices_error_report(void);
+__YICES_DLLSPEC__ extern error_report_t *yices_error_report(void);
 
 /*
  * Clear the error report
  */
-extern void yices_clear_error(void);
+__YICES_DLLSPEC__ extern void yices_clear_error(void);
 
 
 
@@ -71,9 +137,9 @@ extern void yices_clear_error(void);
 /*
  * Built-in types bool, int, real.
  */
-extern type_t yices_bool_type(void);
-extern type_t yices_int_type(void);
-extern type_t yices_real_type(void);
+__YICES_DLLSPEC__ extern type_t yices_bool_type(void);
+__YICES_DLLSPEC__ extern type_t yices_int_type(void);
+__YICES_DLLSPEC__ extern type_t yices_real_type(void);
 
 /*
  * Bitvectors of given size (number of bits)
@@ -86,7 +152,7 @@ extern type_t yices_real_type(void);
  *   code = MAX_BVSIZE_EXCEEDED
  *   badval = size
  */
-extern type_t yices_bv_type(uint32_t size);
+__YICES_DLLSPEC__ extern type_t yices_bv_type(uint32_t size);
 
 /*
  * New scalar type of given cardinality.
@@ -96,12 +162,12 @@ extern type_t yices_bv_type(uint32_t size);
  *   code = POS_INT_REQUIRED
  *   badval = size
  */
-extern type_t yices_new_scalar_type(uint32_t card);
+__YICES_DLLSPEC__ extern type_t yices_new_scalar_type(uint32_t card);
 
 /*
  * New uninterpreted type. No error report.
  */
-extern type_t yices_new_uninterpreted_type(void);
+__YICES_DLLSPEC__ extern type_t yices_new_uninterpreted_type(void);
 
 /*
  * Typle type tau[0] x ... x tau[n-1].
@@ -118,7 +184,7 @@ extern type_t yices_new_uninterpreted_type(void);
  *   code = INVALID_TYPE
  *   type1 = tau[i]
  */
-extern type_t yices_tuple_type(uint32_t n, type_t tau[]);
+__YICES_DLLSPEC__ extern type_t yices_tuple_type(uint32_t n, type_t tau[]);
 
 /*
  * Function type: dom[0] ... dom[n-1] -> range
@@ -138,7 +204,7 @@ extern type_t yices_tuple_type(uint32_t n, type_t tau[]);
  *   code = INVALID_TYPE
  *   type1 = dom[i]
  */
-extern type_t yices_function_type(uint32_t n, type_t dom[], type_t range);
+__YICES_DLLSPEC__ extern type_t yices_function_type(uint32_t n, type_t dom[], type_t range);
 
 
 
@@ -164,8 +230,8 @@ extern type_t yices_function_type(uint32_t n, type_t dom[], type_t range);
 /*
  * Boolean constants: no error report
  */
-extern term_t yices_true(void);
-extern term_t yices_false(void);
+__YICES_DLLSPEC__ extern term_t yices_true(void);
+__YICES_DLLSPEC__ extern term_t yices_false(void);
 
 /*
  * Constant of type tau and id = index
@@ -185,7 +251,7 @@ extern term_t yices_false(void);
  *   type1 = tau
  *   badval = index
  */
-extern term_t yices_constant(type_t tau, int32_t index);
+__YICES_DLLSPEC__ extern term_t yices_constant(type_t tau, int32_t index);
 
 /*
  * Uninterpreted term of type tau
@@ -195,7 +261,7 @@ extern term_t yices_constant(type_t tau, int32_t index);
  *   code = INVALID_TYPE
  *   type1 = tau
  */
-extern term_t yices_new_uninterpreted_term(type_t tau);
+__YICES_DLLSPEC__ extern term_t yices_new_uninterpreted_term(type_t tau);
 
 /*
  * Variable of type tau and id = index (to be used in quantified expressions)
@@ -208,7 +274,7 @@ extern term_t yices_new_uninterpreted_term(type_t tau);
  *   code = INVALID_TYPE
  *   type1 = tau
  */
-extern term_t yices_variable(type_t tau, int32_t index);
+__YICES_DLLSPEC__ extern term_t yices_variable(type_t tau, int32_t index);
 
 /*
  * Application of an uninterpreted function
@@ -232,7 +298,7 @@ extern term_t yices_variable(type_t tau, int32_t index);
  *   term1 = arg[i]
  *   type1 = expected type
  */
-extern term_t yices_application(term_t fun, uint32_t n, term_t arg[]);
+__YICES_DLLSPEC__ extern term_t yices_application(term_t fun, uint32_t n, term_t arg[]);
 
 /*
  * if-then-else
@@ -252,7 +318,7 @@ extern term_t yices_application(term_t fun, uint32_t n, term_t arg[]);
  *   term2 = else_term
  *   type2 = term2's type
  */
-extern term_t yices_ite(term_t cond, term_t then_term, term_t else_term);
+__YICES_DLLSPEC__ extern term_t yices_ite(term_t cond, term_t then_term, term_t else_term);
 
 /*
  * Equality (= left right)
@@ -269,8 +335,8 @@ extern term_t yices_ite(term_t cond, term_t then_term, term_t else_term);
  *   term2 = right
  *   type2 = term2's type
  */
-extern term_t yices_eq(term_t left, term_t right);
-extern term_t yices_neq(term_t left, term_t right);
+__YICES_DLLSPEC__ extern term_t yices_eq(term_t left, term_t right);
+__YICES_DLLSPEC__ extern term_t yices_neq(term_t left, term_t right);
 
 
 /*
@@ -285,7 +351,7 @@ extern term_t yices_neq(term_t left, term_t right);
  *    term1 = arg
  *    type1 = bool (expected type)
  */
-extern term_t yices_not(term_t arg);
+__YICES_DLLSPEC__ extern term_t yices_not(term_t arg);
 
 
 /*
@@ -305,17 +371,17 @@ extern term_t yices_not(term_t arg);
  *   term1 = arg[i]
  *   type1 = bool (expected type)
  */
-extern term_t yices_or(uint32_t n, term_t arg[]);
-extern term_t yices_and(uint32_t n, term_t arg[]);
-extern term_t yices_xor(uint32_t n, term_t arg[]);
+__YICES_DLLSPEC__ extern term_t yices_or(uint32_t n, term_t arg[]);
+__YICES_DLLSPEC__ extern term_t yices_and(uint32_t n, term_t arg[]);
+__YICES_DLLSPEC__ extern term_t yices_xor(uint32_t n, term_t arg[]);
 
 
 /*
  * Binary versions of or/and/xor
  */
-extern term_t yices_or2(term_t left, term_t right);
-extern term_t yices_and2(term_t left, term_t right);
-extern term_t yices_xor2(term_t left, term_t right);
+__YICES_DLLSPEC__ extern term_t yices_or2(term_t left, term_t right);
+__YICES_DLLSPEC__ extern term_t yices_and2(term_t left, term_t right);
+__YICES_DLLSPEC__ extern term_t yices_xor2(term_t left, term_t right);
 
 
 /*
@@ -331,8 +397,8 @@ extern term_t yices_xor2(term_t left, term_t right);
  *    term1 = left/right
  *    type1 = bool (expected type)
  */
-extern term_t yices_iff(term_t left, term_t right);
-extern term_t yices_implies(term_t left, term_t right);
+__YICES_DLLSPEC__ extern term_t yices_iff(term_t left, term_t right);
+__YICES_DLLSPEC__ extern term_t yices_implies(term_t left, term_t right);
 
 
 /*
@@ -349,7 +415,7 @@ extern term_t yices_implies(term_t left, term_t right);
  *   code = INVALID_TERM
  *   term1 = arg[i]
  */
-extern term_t yices_tuple(uint32_t n, term_t arg[]);
+__YICES_DLLSPEC__ extern term_t yices_tuple(uint32_t n, term_t arg[]);
 
 /*
  * Tuple projection
@@ -366,7 +432,7 @@ extern term_t yices_tuple(uint32_t n, term_t arg[]);
  *    type1 = type of tuple
  *    badval = index
  */
-extern term_t yices_select(uint32_t index, term_t tuple);
+__YICES_DLLSPEC__ extern term_t yices_select(uint32_t index, term_t tuple);
 
 
 /*
@@ -395,7 +461,7 @@ extern term_t yices_select(uint32_t index, term_t tuple);
  *    term1 = arg[i]
  *    type1 = expected type
  */
-extern term_t yices_update(term_t fun, uint32_t n, term_t arg[], term_t new_v);
+__YICES_DLLSPEC__ extern term_t yices_update(term_t fun, uint32_t n, term_t arg[], term_t new_v);
 
 
 /*
@@ -418,7 +484,7 @@ extern term_t yices_update(term_t fun, uint32_t n, term_t arg[], term_t new_v);
  *    term2 = arg[j]
  *    type2 = term2's type
  */
-extern term_t yices_distinct(uint32_t n, term_t arg[]);
+__YICES_DLLSPEC__ extern term_t yices_distinct(uint32_t n, term_t arg[]);
 
 
 /*
@@ -440,7 +506,7 @@ extern term_t yices_distinct(uint32_t n, term_t arg[]);
  *    term1 = new_v
  *    type1 = expected type (i-th component type in tuple)
  */
-extern term_t yices_tuple_update(term_t tuple, uint32_t index, term_t new_v);
+__YICES_DLLSPEC__ extern term_t yices_tuple_update(term_t tuple, uint32_t index, term_t new_v);
 
 /*
  * Quantified terms
@@ -468,8 +534,8 @@ extern term_t yices_tuple_update(term_t tuple, uint32_t index, term_t new_v);
  *    code = DUPLICATE_VARIABLE
  *    term1 = var[i]
  */
-extern term_t yices_forall(uint32_t n, term_t var[], term_t body);
-extern term_t yices_exists(uint32_t n, term_t var[], term_t body);
+__YICES_DLLSPEC__ extern term_t yices_forall(uint32_t n, term_t var[], term_t body);
+__YICES_DLLSPEC__ extern term_t yices_exists(uint32_t n, term_t var[], term_t body);
 
 
 
@@ -493,13 +559,13 @@ extern term_t yices_exists(uint32_t n, term_t var[], term_t body);
 /*
  * Zero: no error
  */
-extern term_t yices_zero(void);
+__YICES_DLLSPEC__ extern term_t yices_zero(void);
 
 /*
  * Integer constants
  */
-extern term_t yices_int32(int32_t val);
-extern term_t yices_int64(int64_t val);
+__YICES_DLLSPEC__ extern term_t yices_int32(int32_t val);
+__YICES_DLLSPEC__ extern term_t yices_int64(int64_t val);
 
 
 /*
@@ -511,8 +577,8 @@ extern term_t yices_int64(int64_t val);
  * if den is zero
  *   code = DIVISION_BY_ZERO
  */
-extern term_t yices_rational32(int32_t num, uint32_t den);
-extern term_t yices_rational64(int64_t num, uint64_t den);
+__YICES_DLLSPEC__ extern term_t yices_rational32(int32_t num, uint32_t den);
+__YICES_DLLSPEC__ extern term_t yices_rational64(int64_t num, uint64_t den);
 
 
 /*
@@ -520,8 +586,8 @@ extern term_t yices_rational64(int64_t num, uint64_t den);
  * - q must be canonicalized
  */
 #ifdef __GMP_H__
-extern term_t yices_mpz(mpz_t z);
-extern term_t yices_mpq(mpq_t q);
+__YICES_DLLSPEC__ extern term_t yices_mpz(mpz_t z);
+__YICES_DLLSPEC__ extern term_t yices_mpq(mpq_t q);
 #endif
 
 
@@ -539,7 +605,7 @@ extern term_t yices_mpq(mpq_t q);
  *   code = INVALID_RATIONAL_FORMAT if s is not in this format
  *   code = DIVISION_BY_ZERO if the denominator is zero
  */
-extern term_t yices_parse_rational(char *s);
+__YICES_DLLSPEC__ extern term_t yices_parse_rational(char *s);
 
 /*
  * Convert a string in floating point format to a rational
@@ -554,7 +620,7 @@ extern term_t yices_parse_rational(char *s);
  * Error report:
  * code = INVALID_FLOAT_FORMAT
  */
-extern term_t yices_parse_float(char *s);
+__YICES_DLLSPEC__ extern term_t yices_parse_float(char *s);
 
 
 /*
@@ -577,11 +643,11 @@ extern term_t yices_parse_float(char *s);
  *   code = DEGREE_OVERFLOW
  *   badval = product degree
  */
-extern term_t yices_add(term_t t1, term_t t2);     // t1 + t2
-extern term_t yices_sub(term_t t1, term_t t2);     // t1 - t2
-extern term_t yices_neg(term_t t1);                // -t1
-extern term_t yices_mul(term_t t1, term_t t2);     // t1 * t2
-extern term_t yices_square(term_t t1);             // t1 * t1
+__YICES_DLLSPEC__ extern term_t yices_add(term_t t1, term_t t2);     // t1 + t2
+__YICES_DLLSPEC__ extern term_t yices_sub(term_t t1, term_t t2);     // t1 - t2
+__YICES_DLLSPEC__ extern term_t yices_neg(term_t t1);                // -t1
+__YICES_DLLSPEC__ extern term_t yices_mul(term_t t1, term_t t2);     // t1 * t2
+__YICES_DLLSPEC__ extern term_t yices_square(term_t t1);             // t1 * t1
 
 
 
@@ -609,8 +675,8 @@ extern term_t yices_square(term_t t1);             // t1 * t1
  * Polynomial with integer coefficients
  * - a and t must both be arrays of size n
  */
-extern term_t yices_poly_int32(uint32_t n, int32_t a[], term_t t[]);
-extern term_t yices_poly_int64(uint32_t n, int64_t a[], term_t t[]);
+__YICES_DLLSPEC__ extern term_t yices_poly_int32(uint32_t n, int32_t a[], term_t t[]);
+__YICES_DLLSPEC__ extern term_t yices_poly_int64(uint32_t n, int64_t a[], term_t t[]);
 
 /*
  * Polynomial with rational coefficients
@@ -621,8 +687,8 @@ extern term_t yices_poly_int64(uint32_t n, int64_t a[], term_t t[]);
  * if num[i] is 0
  *   code = DIVISION_BY_ZERO
  */
-extern term_t yices_poly_rational32(uint32_t n, int32_t num[], uint32_t den[], term_t t[]);
-extern term_t yices_poly_rational64(uint32_t n, int64_t num[], uint64_t den[], term_t t[]);
+__YICES_DLLSPEC__ extern term_t yices_poly_rational32(uint32_t n, int32_t num[], uint32_t den[], term_t t[]);
+__YICES_DLLSPEC__ extern term_t yices_poly_rational64(uint32_t n, int64_t num[], uint64_t den[], term_t t[]);
 
 
 /*
@@ -630,8 +696,8 @@ extern term_t yices_poly_rational64(uint32_t n, int64_t num[], uint64_t den[], t
  * - the rationals q[0 ... n-1] must all be canonicalized
  */
 #ifdef __GMP_H__
-extern term_t yices_poly_mpz(uint32_t n, mpz_t z[], term_t t[]);
-extern term_t yices_poly_mpq(uint32_t n, mpq_t q[], term_t t[]);
+__YICES_DLLSPEC__ extern term_t yices_poly_mpz(uint32_t n, mpz_t z[], term_t t[]);
+__YICES_DLLSPEC__ extern term_t yices_poly_mpq(uint32_t n, mpq_t q[], term_t t[]);
 #endif
 
 
@@ -651,12 +717,12 @@ extern term_t yices_poly_mpq(uint32_t n, mpq_t q[], term_t t[]);
  *   code = ARITH_TERM_REQUIRED
  *   term1 = t1 or t2
  */
-extern term_t yices_arith_eq_atom(term_t t1, term_t t2);   // t1 == t2
-extern term_t yices_arith_neq_atom(term_t t1, term_t t2);  // t1 != t2
-extern term_t yices_arith_geq_atom(term_t t1, term_t t2);  // t1 >= t2
-extern term_t yices_arith_leq_atom(term_t t1, term_t t2);  // t1 <= t2
-extern term_t yices_arith_gt_atom(term_t t1, term_t t2);   // t1 > t2
-extern term_t yices_arith_lt_atom(term_t t1, term_t t2);   // t1 < t2
+__YICES_DLLSPEC__ extern term_t yices_arith_eq_atom(term_t t1, term_t t2);   // t1 == t2
+__YICES_DLLSPEC__ extern term_t yices_arith_neq_atom(term_t t1, term_t t2);  // t1 != t2
+__YICES_DLLSPEC__ extern term_t yices_arith_geq_atom(term_t t1, term_t t2);  // t1 >= t2
+__YICES_DLLSPEC__ extern term_t yices_arith_leq_atom(term_t t1, term_t t2);  // t1 <= t2
+__YICES_DLLSPEC__ extern term_t yices_arith_gt_atom(term_t t1, term_t t2);   // t1 > t2
+__YICES_DLLSPEC__ extern term_t yices_arith_lt_atom(term_t t1, term_t t2);   // t1 < t2
 
 
 /*
@@ -672,12 +738,12 @@ extern term_t yices_arith_lt_atom(term_t t1, term_t t2);   // t1 < t2
  *   code = ARITH_TERM_REQUIRES
  *   term1 = t
  */
-extern term_t yices_arith_eq0_atom(term_t t);   // t == 0
-extern term_t yices_arith_neq0_atom(term_t t);  // t != 0
-extern term_t yices_arith_geq0_atom(term_t t);  // t >= 0
-extern term_t yices_arith_leq0_atom(term_t t);  // t <= 0
-extern term_t yices_arith_gt0_atom(term_t t);   // t > 0
-extern term_t yices_arith_lt0_atom(term_t t);   // t < 0
+__YICES_DLLSPEC__ extern term_t yices_arith_eq0_atom(term_t t);   // t == 0
+__YICES_DLLSPEC__ extern term_t yices_arith_neq0_atom(term_t t);  // t != 0
+__YICES_DLLSPEC__ extern term_t yices_arith_geq0_atom(term_t t);  // t >= 0
+__YICES_DLLSPEC__ extern term_t yices_arith_leq0_atom(term_t t);  // t <= 0
+__YICES_DLLSPEC__ extern term_t yices_arith_gt0_atom(term_t t);   // t > 0
+__YICES_DLLSPEC__ extern term_t yices_arith_lt0_atom(term_t t);   // t < 0
 
 
 
@@ -712,11 +778,11 @@ extern term_t yices_arith_lt0_atom(term_t t);   // t < 0
  *    code = MAX_BVSIZE_EXCEEDED
  *    badval = n
  */
-extern term_t yices_bvconst_uint32(uint32_t n, uint32_t x);
-extern term_t yices_bvconst_uint64(uint32_t n, uint64_t x);
+__YICES_DLLSPEC__ extern term_t yices_bvconst_uint32(uint32_t n, uint32_t x);
+__YICES_DLLSPEC__ extern term_t yices_bvconst_uint64(uint32_t n, uint64_t x);
 
 #ifdef __GMP_H__
-extern term_t yices_bvconst_mpz(uint32_t n, mpz_t x);
+__YICES_DLLSPEC__ extern term_t yices_bvconst_mpz(uint32_t n, mpz_t x);
 #endif
 
 
@@ -733,9 +799,9 @@ extern term_t yices_bvconst_mpz(uint32_t n, mpz_t x);
  *    code = MAX_BVSIZE_EXCEEDED
  *    badval = n
  */
-extern term_t yices_bvconst_zero(uint32_t n);
-extern term_t yices_bvconst_one(uint32_t n);
-extern term_t yices_bvconst_minus_one(uint32_t n);
+__YICES_DLLSPEC__ extern term_t yices_bvconst_zero(uint32_t n);
+__YICES_DLLSPEC__ extern term_t yices_bvconst_one(uint32_t n);
+__YICES_DLLSPEC__ extern term_t yices_bvconst_minus_one(uint32_t n);
 
 
 
@@ -752,7 +818,7 @@ extern term_t yices_bvconst_minus_one(uint32_t n);
  *    code = MAX_BVSIZE_EXCEEDED
  *    badval = n
  */
-extern term_t yices_bvconst_from_array(uint32_t n, int32_t a[]);
+__YICES_DLLSPEC__ extern term_t yices_bvconst_from_array(uint32_t n, int32_t a[]);
 
 
 /*
@@ -768,7 +834,7 @@ extern term_t yices_bvconst_from_array(uint32_t n, int32_t a[]);
  *   code = MAX_BVSIZE_EXCEEDED
  *   badval = n
  */
-extern term_t yices_parse_bvbin(char *s);
+__YICES_DLLSPEC__ extern term_t yices_parse_bvbin(char *s);
 
 /*
  * Parsing from a hexadecimal string
@@ -784,7 +850,7 @@ extern term_t yices_parse_bvbin(char *s);
  *   code = MAX_BVSIZE_EXCEEDED
  *   badval = n
  */
-extern term_t yices_parse_bvhex(char *s);
+__YICES_DLLSPEC__ extern term_t yices_parse_bvhex(char *s);
 
 
 
@@ -814,29 +880,29 @@ extern term_t yices_parse_bvhex(char *s);
  * for bvmul or bvsquare, if the degree is too large
  *   code = DEGREE_OVERFLOW
  */
-extern term_t yices_bvadd(term_t t1, term_t t2);   // addition (t1 + t2
-extern term_t yices_bvsub(term_t t1, term_t t2);   // subtraction (t1 - t2)
-extern term_t yices_bvneg(term_t t1);              // negation (- t1)
-extern term_t yices_bvmul(term_t t1, term_t t2);   // multiplication (t1 * t2)
-extern term_t yices_bvsquare(term_t t1);           // square (t1 * t1)
+__YICES_DLLSPEC__ extern term_t yices_bvadd(term_t t1, term_t t2);   // addition (t1 + t2
+__YICES_DLLSPEC__ extern term_t yices_bvsub(term_t t1, term_t t2);   // subtraction (t1 - t2)
+__YICES_DLLSPEC__ extern term_t yices_bvneg(term_t t1);              // negation (- t1)
+__YICES_DLLSPEC__ extern term_t yices_bvmul(term_t t1, term_t t2);   // multiplication (t1 * t2)
+__YICES_DLLSPEC__ extern term_t yices_bvsquare(term_t t1);           // square (t1 * t1)
 
-extern term_t yices_bvdiv(term_t t1, term_t t2);   // unsigned div
-extern term_t yices_bvrem(term_t t1, term_t t2);   // unsigned rem
-extern term_t yices_bvsdiv(term_t t1, term_t t2);  // signed div
-extern term_t yices_bvsrem(term_t t1, term_t t2);  // signed rem
-extern term_t yices_bvsmod(term_t t1, term_t t2);  // signed mod
+__YICES_DLLSPEC__ extern term_t yices_bvdiv(term_t t1, term_t t2);   // unsigned div
+__YICES_DLLSPEC__ extern term_t yices_bvrem(term_t t1, term_t t2);   // unsigned rem
+__YICES_DLLSPEC__ extern term_t yices_bvsdiv(term_t t1, term_t t2);  // signed div
+__YICES_DLLSPEC__ extern term_t yices_bvsrem(term_t t1, term_t t2);  // signed rem
+__YICES_DLLSPEC__ extern term_t yices_bvsmod(term_t t1, term_t t2);  // signed mod
 
-extern term_t yices_bvnot(term_t t1);              // bitwise not
-extern term_t yices_bvand(term_t t1, term_t t2);   // bitwise and
-extern term_t yices_bvor(term_t t1, term_t t2);    // bitwise or
-extern term_t yices_bvxor(term_t t1, term_t t2);   // bitwise exclusive or
-extern term_t yices_bvnand(term_t t1, term_t t2);  // bitwise not and
-extern term_t yices_bvnor(term_t t1, term_t t2);   // bitwise not or
-extern term_t yices_bvxnor(term_t t1, term_t t2);  // bitwise not xor
+__YICES_DLLSPEC__ extern term_t yices_bvnot(term_t t1);              // bitwise not
+__YICES_DLLSPEC__ extern term_t yices_bvand(term_t t1, term_t t2);   // bitwise and
+__YICES_DLLSPEC__ extern term_t yices_bvor(term_t t1, term_t t2);    // bitwise or
+__YICES_DLLSPEC__ extern term_t yices_bvxor(term_t t1, term_t t2);   // bitwise exclusive or
+__YICES_DLLSPEC__ extern term_t yices_bvnand(term_t t1, term_t t2);  // bitwise not and
+__YICES_DLLSPEC__ extern term_t yices_bvnor(term_t t1, term_t t2);   // bitwise not or
+__YICES_DLLSPEC__ extern term_t yices_bvxnor(term_t t1, term_t t2);  // bitwise not xor
 
-extern term_t yices_bvshl(term_t t1, term_t t2);   // shift t1 left by k bits where k = value of t2
-extern term_t yices_bvlshr(term_t t1, term_t t2);  // logical shift t1 right by k bits, where k = value of t2
-extern term_t yices_bvashr(term_t t1, term_t t2);  // arithmetic shift t1 right by k bits, k = value of t2
+__YICES_DLLSPEC__ extern term_t yices_bvshl(term_t t1, term_t t2);   // shift t1 left by k bits where k = value of t2
+__YICES_DLLSPEC__ extern term_t yices_bvlshr(term_t t1, term_t t2);  // logical shift t1 right by k bits, where k = value of t2
+__YICES_DLLSPEC__ extern term_t yices_bvashr(term_t t1, term_t t2);  // arithmetic shift t1 right by k bits, k = value of t2
 
 
 
@@ -865,13 +931,13 @@ extern term_t yices_bvashr(term_t t1, term_t t2);  // arithmetic shift t1 right 
  *   code = INVALID_BITSHIFT
  *   badval = n
  */
-extern term_t yices_shift_left0(term_t t, uint32_t n);
-extern term_t yices_shift_left1(term_t t, uint32_t n);
-extern term_t yices_shift_right0(term_t t, uint32_t n);
-extern term_t yices_shift_right1(term_t t, uint32_t n);
-extern term_t yices_ashift_right(term_t t, uint32_t n);
-extern term_t yices_rotate_left(term_t t, uint32_t n);
-extern term_t yices_rotate_right(term_t t, uint32_t n);
+__YICES_DLLSPEC__ extern term_t yices_shift_left0(term_t t, uint32_t n);
+__YICES_DLLSPEC__ extern term_t yices_shift_left1(term_t t, uint32_t n);
+__YICES_DLLSPEC__ extern term_t yices_shift_right0(term_t t, uint32_t n);
+__YICES_DLLSPEC__ extern term_t yices_shift_right1(term_t t, uint32_t n);
+__YICES_DLLSPEC__ extern term_t yices_ashift_right(term_t t, uint32_t n);
+__YICES_DLLSPEC__ extern term_t yices_rotate_left(term_t t, uint32_t n);
+__YICES_DLLSPEC__ extern term_t yices_rotate_right(term_t t, uint32_t n);
 
 
 /*
@@ -892,7 +958,7 @@ extern term_t yices_rotate_right(term_t t, uint32_t n);
  * if i <= j <= m-1 does not hold
  *   code = INVALID_BVEXTRACT
  */
-extern term_t yices_bvextract(term_t t, uint32_t i, uint32_t j);
+__YICES_DLLSPEC__ extern term_t yices_bvextract(term_t t, uint32_t i, uint32_t j);
 
 
 /*
@@ -909,7 +975,7 @@ extern term_t yices_bvextract(term_t t, uint32_t i, uint32_t j);
  *   code = BITVECTOR_REQUIRED
  *   term1 = t1 or t2
  */
-extern term_t yices_bvconcat(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_bvconcat(term_t t1, term_t t2);
 
 
 /*
@@ -930,7 +996,7 @@ extern term_t yices_bvconcat(term_t t1, term_t t2);
  *   code = POSINT_REQUIRED
  *   badval = n
  */
-extern term_t yices_bvrepeat(term_t t, uint32_t n);
+__YICES_DLLSPEC__ extern term_t yices_bvrepeat(term_t t, uint32_t n);
 
 
 /*
@@ -947,7 +1013,7 @@ extern term_t yices_bvrepeat(term_t t, uint32_t n);
  *   code = BITVECTOR_REQUIRED
  *   term1 = t
  */
-extern term_t yices_sign_extend(term_t t, uint32_t n);
+__YICES_DLLSPEC__ extern term_t yices_sign_extend(term_t t, uint32_t n);
 
 
 /*
@@ -964,7 +1030,7 @@ extern term_t yices_sign_extend(term_t t, uint32_t n);
  *   code = BITVECTOR_REQUIRED
  *   term1 = t
  */
-extern term_t yices_zero_extend(term_t t, uint32_t n);
+__YICES_DLLSPEC__ extern term_t yices_zero_extend(term_t t, uint32_t n);
 
 
 
@@ -985,8 +1051,8 @@ extern term_t yices_zero_extend(term_t t, uint32_t n);
  *   code = BITVECTOR_REQUIRED
  *   term1 = t
  */
-extern term_t yices_redand(term_t t);
-extern term_t yices_redor(term_t t); 
+__YICES_DLLSPEC__ extern term_t yices_redand(term_t t);
+__YICES_DLLSPEC__ extern term_t yices_redor(term_t t); 
 
 
 /*
@@ -1009,7 +1075,7 @@ extern term_t yices_redor(term_t t);
  *   term2 = t2
  *   type2 = type of t2
  */
-extern term_t yices_redcomp(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_redcomp(term_t t1, term_t t2);
 
 
 
@@ -1032,7 +1098,7 @@ extern term_t yices_redcomp(term_t t1, term_t t2);
  *    term1 = arg[i]
  *    type1 = bool
  */
-extern term_t yices_bvarray(uint32_t n, term_t arg[]);
+__YICES_DLLSPEC__ extern term_t yices_bvarray(uint32_t n, term_t arg[]);
 
 
 /*
@@ -1048,7 +1114,7 @@ extern term_t yices_bvarray(uint32_t n, term_t arg[]);
  * if i >= t's bitsize
  *    code = INVALID_BVEXTRACT
  */
-extern term_t yices_bitextract(term_t t, uint32_t i);
+__YICES_DLLSPEC__ extern term_t yices_bitextract(term_t t, uint32_t i);
 
 
 /*
@@ -1076,25 +1142,25 @@ extern term_t yices_bitextract(term_t t, uint32_t i);
 /*
  * Equality and disequality
  */
-extern term_t yices_bveq_atom(term_t t1, term_t t2);
-extern term_t yices_bvneq_atom(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_bveq_atom(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_bvneq_atom(term_t t1, term_t t2);
 
 /*
  * Unsigned inequalities
  */
-extern term_t yices_bvge_atom(term_t t1, term_t t2);  // t1 >= t2
-extern term_t yices_bvgt_atom(term_t t1, term_t t2);  // t1 > t2
-extern term_t yices_bvle_atom(term_t t1, term_t t2);  // t1 <= t2
-extern term_t yices_bvlt_atom(term_t t1, term_t t2);  // t1 < t2
+__YICES_DLLSPEC__ extern term_t yices_bvge_atom(term_t t1, term_t t2);  // t1 >= t2
+__YICES_DLLSPEC__ extern term_t yices_bvgt_atom(term_t t1, term_t t2);  // t1 > t2
+__YICES_DLLSPEC__ extern term_t yices_bvle_atom(term_t t1, term_t t2);  // t1 <= t2
+__YICES_DLLSPEC__ extern term_t yices_bvlt_atom(term_t t1, term_t t2);  // t1 < t2
 
 
 /*
  * Signed inequalities
  */
-extern term_t yices_bvsge_atom(term_t t1, term_t t2);  // t1 >= t2
-extern term_t yices_bvsgt_atom(term_t t1, term_t t2);  // t1 > t2
-extern term_t yices_bvsle_atom(term_t t1, term_t t2);  // t1 <= t2
-extern term_t yices_bvslt_atom(term_t t1, term_t t2);  // t1 < t2
+__YICES_DLLSPEC__ extern term_t yices_bvsge_atom(term_t t1, term_t t2);  // t1 >= t2
+__YICES_DLLSPEC__ extern term_t yices_bvsgt_atom(term_t t1, term_t t2);  // t1 > t2
+__YICES_DLLSPEC__ extern term_t yices_bvsle_atom(term_t t1, term_t t2);  // t1 <= t2
+__YICES_DLLSPEC__ extern term_t yices_bvslt_atom(term_t t1, term_t t2);  // t1 < t2
 
 
 
@@ -1112,8 +1178,8 @@ extern term_t yices_bvslt_atom(term_t t1, term_t t2);  // t1 < t2
  * an error and set the error report. The line/column of the error
  * give information about the error location.
  */
-extern type_t yices_parse_type(char *s);
-extern term_t yices_parse_term(char *s);
+__YICES_DLLSPEC__ extern type_t yices_parse_type(char *s);
+__YICES_DLLSPEC__ extern term_t yices_parse_term(char *s);
 
 
 /************
@@ -1130,22 +1196,22 @@ extern term_t yices_parse_term(char *s);
  *
  * A copy of string name is made internally.
  */
-extern int32_t yices_set_type_name(type_t tau, char *name);
-extern int32_t yices_set_term_name(term_t t, char *name);
+__YICES_DLLSPEC__ extern int32_t yices_set_type_name(type_t tau, char *name);
+__YICES_DLLSPEC__ extern int32_t yices_set_term_name(term_t t, char *name);
 
 /*
  * Remove mapping from name to type or term
  * - no effect if name is not assigned to a term or type
  */
-extern void yices_remove_type_name(char *name);
-extern void yices_remove_term_name(char *name);
+__YICES_DLLSPEC__ extern void yices_remove_type_name(char *name);
+__YICES_DLLSPEC__ extern void yices_remove_term_name(char *name);
 
 /*
  * Get type or term of the given name
  * - return NULL_TYPE or NULL_TERM if there's no type or term with that name
  */
-extern type_t yices_get_type_by_name(char *name);
-extern term_t yices_get_term_by_name(char *name);
+__YICES_DLLSPEC__ extern type_t yices_get_type_by_name(char *name);
+__YICES_DLLSPEC__ extern term_t yices_get_term_by_name(char *name);
 
 
 /*
@@ -1154,8 +1220,8 @@ extern term_t yices_get_term_by_name(char *name);
  * The functions return -1 and set the error report if the 
  * type or term is invalid. Otherwise, they return 0.
  */
-extern int32_t yices_clear_type_name(type_t tau);
-extern int32_t yices_clear_term_name(term_t t);
+__YICES_DLLSPEC__ extern int32_t yices_clear_type_name(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_clear_term_name(term_t t);
   
 
 
@@ -1172,24 +1238,28 @@ extern int32_t yices_clear_term_name(term_t t);
  *   code = INVALID_TERM
  *   term1 = t
  */
-extern type_t yices_type_of_term(term_t t);
+__YICES_DLLSPEC__ extern type_t yices_type_of_term(term_t t);
 
 
 /*
  * Check the type of a term t:
+ * - return 0 for false, 1 for true
+ *
  * - term_is_arithmetic check whether t's type is either int or real
- * - term_is_real check whether t's type is real (return false if t's type is int)
+ * - term_is_real check whether t's type is real
  * - term_is_int check whether t's type is int 
  * If t is not a valid term, the check functions return false
  * and set the error report as above.
+ *
+ * 
  */
-extern bool yices_term_is_bool(term_t t);
-extern bool yices_term_is_int(term_t t);
-extern bool yices_term_is_real(term_t t);
-extern bool yices_term_is_arithmetic(term_t t);
-extern bool yices_term_is_bitvector(term_t t);
-extern bool yices_term_is_tuple(term_t t);
-extern bool yices_term_is_function(term_t t);
+__YICES_DLLSPEC__ extern int32_t yices_term_is_bool(term_t t);
+__YICES_DLLSPEC__ extern int32_t yices_term_is_int(term_t t);
+__YICES_DLLSPEC__ extern int32_t yices_term_is_real(term_t t);
+__YICES_DLLSPEC__ extern int32_t yices_term_is_arithmetic(term_t t);
+__YICES_DLLSPEC__ extern int32_t yices_term_is_bitvector(term_t t);
+__YICES_DLLSPEC__ extern int32_t yices_term_is_tuple(term_t t);
+__YICES_DLLSPEC__ extern int32_t yices_term_is_function(term_t t);
 
 
 /*
@@ -1204,10 +1274,7 @@ extern bool yices_term_is_function(term_t t);
  *    code = BITVECTOR_REQUIRED
  *    term1 = t
  */
-extern uint32_t yices_term_bitsize(term_t t);
-
-
-
+__YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
 
 
 #ifdef __cplusplus

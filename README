@@ -3,36 +3,49 @@ CONTENT AND DIRECTORY STRUCTURE
 
 The source subdirectories include
 
-./src:	       source code for Yices proper
-./tests:       source code for test programs
-./sat_solver:  source code for stand-alone Yices sat solvers
-./doc:	       documentation
-./examples:    example input files for testing
+  ./src:         source code for Yices proper
+  ./tests:       source code for test programs
+  ./doc:         documentation
+  ./examples:    example input files for testing
+  ./etc:         miscellaneous files that get added to the tar files
 
-./distributions: directory where tarfiles are built (for both sources and 
-                 binary distributions)
 
 The build subdirectory is organized by platform + compilation mode.
-Compilation modes are release, debug, static + others for profiling.
+Compilation modes are release, debug, and others for profiling. 
+The default mdoe is 'relase'.
+
+For example, on an intel Mac, there may be two directories below build:
+
+  ./build/i386-apple-darwin8.9.1-release
+  ./build/i386-apple-darwin8.9.1-debug
+
+Each of these directories contains subdirectories for objects,
+libraries, binaries, etc. In each build mode, there are two variant
+compilation options, namely, with or without GMP statically linked.
+So this gives 6 different subdirectories:
+
+  ./build/i386-apple-darwin8.9.1-release/obj
+  ./build/i386-apple-darwin8.9.1-release/lib
+  ./build/i386-apple-darwin8.9.1-release/bin
+
+  ./build/i386-apple-darwin8.9.1-release/static_obj
+  ./build/i386-apple-darwin8.9.1-release/static_lib
+  ./build/i386-apple-darwin8.9.1-release/static_bin
 
 
-For example, on an intel Mac, there may be three directories below build:
+When a distribution is built, the relevant files are copied
+into one of the subdirectories:
 
-./build/i386-apple-darwin8.9.1-release/
-./build/i386-apple-darwin8.9.1-debug/
-./build/i386-apple-darwin8.9.1-static/
+  ./build/i386-apple-darwin8.9.1-release/dist
+  ./build/i386-apple-darwin8.9.1-release/static_dist
 
+The distribution tarfiles are built from the contetn of these 
+dist or static_dist directories and they are stored into
 
-Each of these directories contains three subdirectories: for object,
-libraries, and binaries, e.g., 
+  ./distributions
 
-./build/i386-apple-darwin8.9.1-release/obj/
-./build/i386-apple-darwin8.9.1-release/lib/
-./build/i386-apple-darwin8.9.1-release/bin/
-
-
-This is where all object files, libraries, and binaries are located for
-platform 'i386-apple-darwin8.9.1' and compilation mode 'release'.
+This is also where the source tarfile is stored if a source
+distribution is built.
 
 
 
@@ -54,7 +67,7 @@ version.
 The Makefile in the top-level directory determines the architecture
 and OS, and checks the compilation mode. The platform is determined
 from the architecture and OS and 'make' reads the configuration file
-for that platform. This sets five variables that are passed to a
+for that platform. This sets several variables that are passed to a
 recursive make:
 
   ARCH=<target-platform>
@@ -62,6 +75,10 @@ recursive make:
   YICES_TOP_DIR=<top-level directory>
   YICES_MAKE_INCLUDE=<config file to use>
   YICES_MODE=<compilation mode>
+  YICES_VERSION=2.x.y
+  MAJOR=2
+  MINOR=x
+  PATCH_LEVEL=y
 
 
 To see how these variables are set just type 'make' or 'make MODE=<mode>'. 
@@ -72,6 +89,7 @@ For example on a linux/x86_64 platform, typing 'make MODE=debug' gives
   YICES_TOP_DIR is /homes/bruno/yices2
   YICES_MAKE_INCLUDE is configs/make.include.x86_64-unknown-linux-gnu
   YICES_MODE is debug
+  YICES_VERSION is 2.x.y
 
 
 More variables are set during configuration. For trouble-shooting, you
@@ -80,22 +98,57 @@ directory. In most cases, these variables (CC, LD, etc.) are set to
 good default values, but the defaults may be overriden by giving
 options to the ./configure script.
 
-Two Yices-specific variables are set at configuration time for dealing
+
+
+
+Some Yices-specific variables are set at configuration time for dealing
 with GMP:
 
-  STATIC_GMP=<path to libgmp.a>
-  STATIC_GMP_INCLUDE_DIR=<path to an include directory containing gmp.h>
+  STATIC_GMP=<path to a libgmp.a to use for static binaries>
+  STATIC_GMP_INCLUDE_DIR=<path to directory where 'gmp.h' compatible
+                          with STATIC_GMP can be found>
 
-There's usually no need to play with these variables, except if you
-want to build Yices in both 'static' and 'release' modes on Cygwin.
+  PIC_GMP=<path to a libgmp.a suitable for inclusion in a dynamic library>
+  PIC_GMP_INCLUDE_DIR=<as above but for PIC_GMP>
 
+
+The STATC_GMP and STATIC_GMP_INCLUDE_DIR are useful for building
+static yices binaries on Mingw or Cygwin. On these systems, it's not
+possible to have both static and dynamic GMP libraries in standard
+locations. The Yices build makefiles use STATIC_GMP and
+STATIC_GMP_INCLUDE_DIR when building static binaries on these systems.
+
+To build a dynamic Yices library that's statically linked with GMP, we
+need a version of libgmp.a that's compiled as position-independent
+code. By default, libgmp.a is not position-independent on most systems,
+so we need to build special version of libgmp.a. The PIC_GMP variable
+must be set to point to that special libgmp.a.
+
+
+The ./configure script tries to set reasonable default values for
+these four variables. If that fails, or if the defaults are wrong, the
+following options to ./configure can be used:
+
+   --with-static-gmp=<path to libgmp.a>
+   --with-static-gmp-include-dir=<corresponding include dir>
+
+   --with-pic-gmp=<path to PIC libgmp,a>
+   --with-pic-gmp-include-dir=<corresponding include dir>
+
+
+(NOTE: the PIC_GMP_INCLUDE_DIR is currently ignored)
+
+
+
+In addition to these GMP-related options, the standard ./configure
+options are supported. Type ./configure --help for more details.
 
 
 
 BUILDING YICES USING THE DEFAULT CONFIGURATION
 ----------------------------------------------
 
-To builds Yices from the source on a new platform:
+To build Yices from the source on a new platform:
 
 1) run autoconf
 
@@ -107,20 +160,54 @@ To builds Yices from the source on a new platform:
 
 3) compile using the default mode (same as MODE=release)
 
-   make all
+      make all
 
-   This produces binaries and libraries with GMP dynamically linked.
-   The binaries are in ./build/<platform>-release/bin
-   The libraries are in ./build/<platform>-release/lib
+   This produces two versions of the binaries and libraries 
+   (with and without GMP statically linked) in:
+       
+      ./build/<platform>-release/bin 
+      ./build/<platfomr>-release/static_bin
+      ./build/<platform>-release/lib
+      ./build/<platfomr>-release/static_lib
+       
+
+   To compile only part of this, use;
+
+      make bin 
+      make lib
+      make static-bin
+      make staic-lib
 
 
-4) compile in static mode
+4) building the distribution tarfiles:
 
-   make all MODE=static
+      make binary-distribution
 
-   This produces binaries and libraries with GMP statically linked.
-   The binaries are in ./build/<platform>-static/bin
-   The libraries are in ./build/<platform>-static/lib
+   builds ./distributions/yices-2.x.y-<platform>.tar.gz
+   that contains binaries + libraries dynamically linked with GMP.
+
+      make static-distribition
+
+   builds ./distributions/yices-2.x.y-<platform>-static-gmp.tar.gz
+   that contains binaries + libraries statically linked with GMP.
+
+
+   On mingw: there's a manual step involved. The distributions
+   can be built as follows:
+
+      make dist
+      <manual step to create missing lib files>
+      make tarfile
+
+   or make static-dist
+      <manual step ...>
+      make static-tarfile
+
+
+
+5) to compile all the tests:
+
+      make test
 
 
 
@@ -177,209 +264,37 @@ The result will be in ./build/i686-unknown-linux-gnu-debug/
 
 
 
-
-
-
-MORE OPTIONS
-------------
-
-It's not required to type 'make all'. If you don't want everything
-to be build, you can specify something else than 'all':
-
-
-1) To compile the yices binaries only, type
-
-   make MODE=<compilation mode> bin
-
-
-2) To compile all the tests, type
-
-   make MODE=<compilation mode> test
-
-
-3) To compile the sat_solvers, type
-
-   make MODE=<compilation mode> satsolver
-
-
-4) To compile the libraries, type
-
-   make MODE=<compilation mode> lib
-
-
-
-5) To compile the objects only:
-
-   make MODE=<compilation mode> objects
-
-
-The resulting executables are in ./build/<platform>-<mode>/bin
-The libraries are in ./build/<platform>-<mode>/lib
-The objects are in ./build/<platform>-<mode>/obj
-
-
-
-The possible compilation modes are defined in src/Makefile and test/Makefile.
-Currently the possible compilation modes are:
-  
-  release
-  static
-  debug
-
-  profile
-  valgrind
-  quantify
-  purify
-  gcov
-
-
-If nothing is specified, the default MODE is release.
-
-
-
-To select an alternative configuration, add OPTION=<option> to all
-make commands. Currently only three options are allowed:
-
-  OPTION=64bits     to compile in 64bits on a Mac OS/X platform
-  OPTION=32bits     to compile in 32bits on a Linux/x86_64 platform
-  OPTION=no-cygwin  to compile for Windows native on cygwin
-
-
-
-
-
-
-
-
-SOURCE AND BINARY DISTRIBUTIONS
--------------------------------
-
-1) source distribution:
-
-Type 'make source-distribution'. 
-
-This will build a tar file called 'yices2-src.tar.gz' in the './distributions' directory.
-
-
-
-2) binary distributions:
-
-   There are two types of distributions (as of Sept. 14th 2009).
-
-   2a) SMT-COMP distribution. 
-
-   This includes a version of Yices~2 similar to the one that entered the 
-   SMT Competition in 2009. The binary can read formulas in SMT-LIB
-   format and return SAT/UNSAT and can optionally construct a model.
-
-
-   To build it do 
-
-     'make smt-distribution'.
-
-   This builds a tarfile whose name depends on the architecture and MODE.  
-   
-     yices2smt09-$(ARCH).tar.gz              if MODE=release (i.e. the default mode)
-     yices2smt09-$(ARCH)-static-gmp.tar.gz   if MODE=static
-
-     yices2smt09-$(ARCH)-$(MODE).tar.gz      for all other modes (this shouldn't be used much)         
-
-   As above, the tarfiles are stored in './distributions'    
-
-
-   2b) Full distribution. 
-
-   This will include full binary distribution of Yices~2 (including binaries, libraries,
-   include files + documentation and examples). 
-
-   To build it, type
-
-     'make binary-distribution'
-
-   This builds a tarfile 'yices-2.0.0-$(ARCH)...' in ./distributions. As above, the 
-   exact name depends on the architecture and compilation mode.
-
-
-
-
-
-
 CLEANUP
 -------
 
-1) To cleanup the ./build/<platform>-<mode> directory:
+To cleanup the ./build/<platform>-<mode> directory:
 
-   make MODE=<compilation mode> clean
+   make MODE=<mode> clean
 
 this removes libraries, binaries, and object files.
-
-The directories 
-
-   ./build/<platform>-<mode>/obj
-   ./build/<platform>-<mode>/bin
-   ./build/<platform>-<mode>/lib
-
-are preserved
-
-
-2) Deeper cleanup:
- 
-To remove the build directory for the current platform and mode  (i.e., 
-./build/<platform>-<mode> and everything in there):
-
-   make build-clean MODE=mode
-   make build_clean MODE=mode
 
 
 To remove all build directories for the current platform: ./build/<platform>-*
 
    make arch-clean
-   make arch_clean
 
 
 To remove all build directories: ./build/*
 
    make all-clean
-   make all_clean
 
 
 
 
 
-NOTES FOR CYGWIN BUILDS
------------------------
-
-1) BEWARE OF BUGGY COMPILER
-
-Noted in November 2009: The default Cygwin compiler (in /usr/bin/gcc) is
-buggy and does not compile Yices properly.  This compiler is shown as
-gcc version 3.4.4-999 in Cygwin's package manager (setup.exe), but
-gcc --version returns:
-
-    gcc (GCC) version 3.4.4 (cygming special, gdc 0.12, using dmd 0.125).
-
-There's another compiler in /usr/bin/gcc-4 that works fine. It's
-listed as gcc4 in the package manager. To select this compiler for Yices. 
-type 
-
-    ./configure CC=/usr/bin/gcc-4 ...
-
-
-UPDATE (April 2010): THE PARAGRAPH ABOVE ABOUT BUGGY COMPILER IS
-WRONG.  The bug was in Yices. The core in object_store.c and
-object_store.h used pointer conversions that violate the strict
-pointer aliasing rules of C. With optimization level -O2 or better,
-GCC assume that two pointers of different types do not point to the
-same thing. This assumption was not satisfied in object_code.h.
-
-
-2) Supporting both RELEASE and STATIC modes on a Cygwin machine?
+NOTES FOR CYGWIN AND MINGW BUILDS
+---------------------------------
 
 It's somewhat more complicated to build Yices in static and release
-modes on Cygwin than on other platforms. The issue is that GMP can't
-be installed in the standard place as both a static and a dynamic
-library in cygwin. That's because each library uses a different 'gmp.h' 
-include file (which is by default in /usr/include). 
+modes on Cygwin and Mingw than on other platforms. The issue is that
+GMP can't be installed in the standard place as both a static and a
+dynamic library. That's because each library uses a different 'gmp.h'
+include file (which is by default in /usr/include).
 
 A solution is to compile GMP twice and install the dynamic and static
 libraries in different locations:
@@ -389,10 +304,11 @@ libraries in different locations:
    when configuring GMP). The corresponding 'gmp.h' will be in /usr/include.
 
   Then, build GMP as a static library in a different location (say
-  /tools/static_gmp/). This can be done by giving using --disable-shared
-  --enable-static --prefix=/tools/static_gmp to GMP's configure script.
-  This will install 'libgmp.a' in /tools/static_gmp/lib and 'gmp.h'
-  in /tools/static_gmp/include.
+  /tools/static_gmp/). This can be done by giving options
+      --disable-share --enable-static --prefix=/tools/static_gmp 
+  to GMP's configure script.  This will install 
+       'libgmp.a' in /tools/static_gmp/lib 
+   and 'gmp.h' in /tools/static_gmp/include.
 
 
 After you've done that, you need to give special flags to the Yices's
@@ -403,7 +319,11 @@ to type
     ./configure --with-static-gmp=/tools/static_gmp/lib/libgmp.a \
     --with-static-gmp-include-dir=/tools/static_gmp/include
 
-when you configure Yices on cygwin.
+when you configure Yices on cygwin or mingw.
+
+On both cygwin and mingw, the static 'libgmp.a' is position independent
+code so there's no need to specify a different PIC gmp. The option 
+--with-pic-gmp should not be used on cygwin or mingw.
 
 
 
@@ -417,10 +337,10 @@ To build a version of Yices that can run on a native Windows machine,
 one can either install mingw and msys and compile from there, or compile
 from Cygwin using --build=i686-pc-mingw32 to select a mingw32 configuration.
 For the result to work, one must either give the flag -mno-cygwin to gcc 
-or use a cross compiler. (The -mno-cygwin is easier but may become obsolete).
+or use a cross compiler. Using -mno-cygwin is easier but may become obsolete.
 
 
-1) Using the -mno-cygwin
+1) Using the -mno-cygwin flag
 
 On cygwin, the default compilation produces code that requires cygwin
 libraries at run time. This code cannot run on a native Windows machine
@@ -438,23 +358,28 @@ default, add OPTION=no-cywgin when invoking make. For example,
  
 The result will be in ./build/i686-pc-mingw32-release/
 
-Note: you need to have a version of GMP compiled for mingw32 for this
-to work.
+You need to have a version of GMP compiled for mingw32 for this to
+work. The path to that library can be given using --with-static-gmp,
+etc. or by giving options LDPATH=... CPPFLAGS=... to ./configure
+
+
 
 
 2) Using a cross compiler (on Cygwin)
 
-Noted in November 2009: for some versions of Cygwin,
+Noted in November 2009:
 
-/usr/bin/gcc supports the -mno-cygwin flag but does not 
-             compile Yices properly (incorrect optimization).
+Some versions of GCC on cygwin do not support the option -mno-cygwin.
 
-/usr/bin/gcc-4 compiles Yices properly but does not 
-               support the -mno-cygwin flag.
+On my cygwin machine, there are two compilers:
+  /usr/bin/gcc supports the -mno-cygwin flag
+  /usr/bin/gcc-4 does not support the -mno-cygwin flag.
 
 
-Possible fix: build and install a gcc cross compiler then compile
-Yices with it.
+It looks like -mno-cygwin won't be supported much longer by GCC. If
+your compiler does not have it. It's possible to build and install a
+GCC cross compiler (that runs on cygwin and targets mingw32), then
+compile Yices with it.
 
 It's a good idea to read the GCC documentation first to learn how to
 do this (although it does not explain everything well). A Google
@@ -463,7 +388,7 @@ examples/instructions on how to build GCC as a mingw32 cross
 compiler. However none of the instructions I found via Google actually
 worked for me, so here is what I did:
 
-  a) compile and install binutil from the source:
+  a) compile and install binutil from the source for 'mingw32'
 
      Give options --prefix=/xcompile --target=i686-pc-mingw32 to ./configure
 
@@ -526,39 +451,4 @@ Then to select this configuration:
    make OPTION=no-cygwin ....
 
 
-
-NOTES FOR GCC 4.4.x
--------------------
-
-Compiling yices with gcc-4.4 with the default options causes a
-lot of warnings of the form: 
-
-  inlining failed in call to 'xxx': call is unlikely and code size would grow
-
-The yices functions that are declared 'inline' are small and do not
-cause much code growth. So these warnings are annoying.
-
-This is caused by heuristics GCC employs to determine whether inlining
-a function call is worth doing. GCC attempts to determine whether a
-basic block is executed frequently enough before inlining the function
-calls in that block. By default, GCC uses crude heuristics to guess
-the execution frequency of each block (and other heuristics to
-estimate code growth).
-
-The part about 'code size would grow' can be misleading. The warning
-will be produced even if inlining does not cause any code growth at
-all, probably because the code-growth estimate is not very accurate.
-
-There are several ways to fix this:
-
-1) remove -Winline from the compilation flags. GCC will inline whatever it
-   wants and there will be no warnings.
-
-2) add  __attribute__ ((always_inline)) to the inline functions that cause 
-   problem. GCC will inline them.
-
-3) add option -fno-guess-branch-probability to CFLAGS.
-
-4) play with the parameters that control what GCC considers high enough frequency
-   (e.g., add option --param hot-bb-frequency-fraction=2000)
 

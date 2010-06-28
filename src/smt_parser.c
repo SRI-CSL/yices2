@@ -2,6 +2,12 @@
  * Parser for benchmarks in the SMT-LIB language.
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+
 #include <stdio.h>
 #include <setjmp.h>
 #include <string.h>
@@ -16,17 +22,6 @@
 
 #include "yices.h"
 #include "yices_extensions.h"
-
-
-/*
- * Provisional: set default visibility for functions used in test_smt_context
- */
-#if defined(CYGWIN) || defined(MINGW)
-#define EXPORTED __attribute__((dllexport))
-#else
-#define EXPORTED __attribute__((visibility("default")))
-#endif
-
 
 
 /*
@@ -201,7 +196,6 @@ static void init_smt_builtins(builtins_t *b) {
 /*
  * Initialization
  */
-EXPORTED
 void init_benchmark(smt_benchmark_t *bench) {
   bench->name = NULL;
   bench->logic_name = NULL;
@@ -293,7 +287,6 @@ static void add_assertion(smt_benchmark_t *bench, term_t t) {
 /*
  * Delete bench object
  */
-EXPORTED
 void delete_benchmark(smt_benchmark_t *bench) {
   if (bench->name != NULL) {
     string_decref(bench->name);
@@ -1395,7 +1388,6 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
 /*
  * Top-level call
  */
-EXPORTED
 int32_t parse_smt_benchmark(parser_t *parser, smt_benchmark_t *bench) {
   return smt_parse(parser, bench, b0);
 }

@@ -38,13 +38,17 @@ libyices := $(libdir)/libyices.a
 # -static: not supported by Darwin and our Solaris2.10 
 # matchine
 #
+# All tests are linked with libyices.a
+# so we don't want any dllimport/export in yices.h 
+# So we use -DNOYICES_DLL on cygwin and mingw
+#
 ifeq ($(POSIXOS),cygwin)
-  CPPFLAGS := $(CPPFLAGS) -DCYGWIN
+  CPPFLAGS := $(CPPFLAGS) -DCYGWIN -DNOYICES_DLL
   PIC=
   STATIC=-static
 else
 ifeq ($(POSIXOS),mingw)
-  CPPFLAGS := $(CPPFLAGS) -DMINGW
+  CPPFLAGS := $(CPPFLAGS) -DMINGW -DNOYICES_DLL
   PIC=
   STATIC=-static
 else
@@ -70,7 +74,6 @@ endif
 endif
 endif
 endif
-
 
 
 
@@ -113,7 +116,7 @@ CFLAGS := $(CFLAGS) -O3 $(PIC) -pg
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),gcov)
-CFLAGS := $(CFLAGS) -O3 -fprofile-arcs -ftest-coverage $(PIC)
+CFLAGS := $(CFLAGS) -fprofile-arcs -ftest-coverage $(PIC)
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(findstring $(YICES_MODE),valgrind quantify purify),$(YICES_MODE))

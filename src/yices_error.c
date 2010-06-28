@@ -3,11 +3,16 @@
  * maintained by term_api.
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+
 #include <stdint.h>
 #include <inttypes.h>
 
 #include "yices.h"
-#include "yices_types.h"
 #include "yices_globals.h"
 
 

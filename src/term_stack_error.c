@@ -2,13 +2,18 @@
  * ERROR MESSAGES/DIAGNOSIS ON EXCEPTION RAISED BY TERM STACK
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <inttypes.h>
 #include <assert.h>
 
 #include "yices_error.h"
-#include "yices_version.h"
 #include "yices_exit_codes.h"
 #include "yices.h"
 
