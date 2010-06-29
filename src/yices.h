@@ -5,6 +5,7 @@
 #ifndef __YICES_H 
 #define __YICES_H
 
+
 /*
  * On windows/cygwin/mingw:
  *
@@ -18,7 +19,6 @@
  * 2) define __YICES_DLLSPEC__ to '__declspec(dllexport)' before
  *      #include "yices.h"
  *    when building yices.
- *
  *
  * On any system other than Windows: __YICES_DLLSPEC__ is empty.
  */
@@ -77,13 +77,14 @@ __YICES_DLLSPEC__ extern const char *yices_version;
 /*
  * More details about the release:
  * - build_arch is a string like "x86_64-unknown-linux-gnu"
- * - build_mode is "static" or "release" or "debug"
+ * - build_mode is "release" or "debug"
  * - build_date is the compilation date as in
  *    "Wed Jun 16 11:11:57 PDT 2010"
  */
 __YICES_DLLSPEC__ extern const char *yices_build_arch;
 __YICES_DLLSPEC__ extern const char *yices_build_mode;
 __YICES_DLLSPEC__ extern const char *yices_build_date;
+
 
 
 /***************************************
@@ -1180,6 +1181,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvslt_atom(term_t t1, term_t t2);  // t1 <
  */
 __YICES_DLLSPEC__ extern type_t yices_parse_type(char *s);
 __YICES_DLLSPEC__ extern term_t yices_parse_term(char *s);
+
 
 
 /************
