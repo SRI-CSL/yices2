@@ -89,11 +89,11 @@ src_c := arena.c arith_buffers.c arith_buffer_terms.c               \
          ptr_heap.c ptr_partitions.c ptr_queues.c ptr_vectors.c     \
          rationals.c rb_bvsets.c reader.c refcount_strings.c        \
          small_bvsets.c smt_lexer.c smt_logic_codes.c smt_parser.c  \
-         string_buffers.c symbol_tables.c terms.c term_api.c        \
-         term_printer.c term_stack.c term_stack_error.c             \
-         term_utils.c timeout.c types.c type_printer.c              \
-         uint_rbtrees.c union_find.c use_vectors.c                  \
-         vsets.c yices_error.c yices_lexer.c yices_pp.c yices_parser.c
+         string_buffers.c symbol_tables.c terms.c term_printer.c    \
+         term_stack.c term_stack_error.c term_utils.c timeout.c     \
+         types.c type_printer.c uint_rbtrees.c union_find.c         \
+         use_vectors.c vsets.c yices_api.c yices_error.c            \
+         yices_lexer.c yices_pp.c yices_parser.c
 
 
 #

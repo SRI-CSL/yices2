@@ -193,8 +193,11 @@ test: build_subdirs lib
 	@ $(MAKE) -C $(testdir) BUILD=../$(build_dir) all
 
 
+static-test: build_subdirs static-lib
+	@ echo "=== Building tests ==="
+	@ $(MAKE) -C $(testdir) BUILD=../$(build_dir) all-static
 
-.PHONY: all obj static-obj lib static-lib bin static-bin test
+.PHONY: all obj static-obj lib static-lib bin static-bin test static-test
 
 
 

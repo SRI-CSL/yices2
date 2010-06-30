@@ -4,12 +4,7 @@
 
 
 /*
- * Visibility control: all extern functions declared here are in libyices's API
- * Other extern functions should have visibility=hidden.
- * cf. Makefile
- *
- * Note: adding __declspec(dllexport) should have the same effect
- * on cygwin or mingw but that does not seem to work.
+ * Visibility control: version strings are part of the API.
  */
 #if defined(CYGWIN) || defined(MINGW)
 #define EXPORTED __declspec(dllexport)
@@ -20,7 +15,13 @@
 
 EXPORTED const char * const yices_version = "YICES_VERSION";
 EXPORTED const char * const yices_build_date = "YICES_COMPILATION_DATE";
-EXPORTED const char * const yices_svn_url = "SVN_URL";
-EXPORTED const char * const yices_svn_rev = "SVN_REVISION";
 EXPORTED const char * const yices_build_arch = "YICES_ARCH";
+
+#if defined(YICES_STATIC)
+EXPORTED const char * const yices_build_mode = "YICES_BUILD_MODE/static";
+#else
 EXPORTED const char * const yices_build_mode = "YICES_BUILD_MODE";
+#endif
+
+const char * const yices_svn_url = "SVN_URL";
+const char * const yices_svn_rev = "SVN_REVISION";

@@ -78,8 +78,7 @@ __YICES_DLLSPEC__ extern const char *yices_version;
  * More details about the release:
  * - build_arch is a string like "x86_64-unknown-linux-gnu"
  * - build_mode is "release" or "debug"
- * - build_date is the compilation date as in
- *    "Wed Jun 16 11:11:57 PDT 2010"
+ * - build_date is the compilation date as in "Wed Jun 16 11:11:57 PDT 2010"
  */
 __YICES_DLLSPEC__ extern const char *yices_build_arch;
 __YICES_DLLSPEC__ extern const char *yices_build_mode;
@@ -789,7 +788,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvconst_mpz(uint32_t n, mpz_t x);
 
 /*
  * bvconst_zero: set all bits to 0
- * bvconst_one: set low-order bit to 1, all the others to 0
+ * bvconst_one: set low-order bit to 1, all the other bits to 0
  * bvconst_minus_one: set all bits to 1
  *
  * Error report:
@@ -996,6 +995,9 @@ __YICES_DLLSPEC__ extern term_t yices_bvconcat(term_t t1, term_t t2);
  * if n == 0
  *   code = POSINT_REQUIRED
  *   badval = n
+ * if n * size of t > MAX_BVSIZE
+ *   code = MAX_BVSIZE_EXCEEDED
+ *   badval = n * sizeof t
  */
 __YICES_DLLSPEC__ extern term_t yices_bvrepeat(term_t t, uint32_t n);
 
@@ -1013,6 +1015,9 @@ __YICES_DLLSPEC__ extern term_t yices_bvrepeat(term_t t, uint32_t n);
  * if t is not a bitvector
  *   code = BITVECTOR_REQUIRED
  *   term1 = t
+ * if n + size of t > MAX_BVSIZE
+ *   code = MAX_BVSIZE_EXCEEDED
+ *   badval = n * sizeof t
  */
 __YICES_DLLSPEC__ extern term_t yices_sign_extend(term_t t, uint32_t n);
 
@@ -1030,6 +1035,9 @@ __YICES_DLLSPEC__ extern term_t yices_sign_extend(term_t t, uint32_t n);
  * if t is not a bitvector
  *   code = BITVECTOR_REQUIRED
  *   term1 = t
+ * if n + size of t > MAX_BVSIZE
+ *   code = MAX_BVSIZE_EXCEEDED
+ *   badval = n * sizeof t
  */
 __YICES_DLLSPEC__ extern term_t yices_zero_extend(term_t t, uint32_t n);
 

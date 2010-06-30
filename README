@@ -11,8 +11,8 @@ The source subdirectories include
 
 
 The build subdirectory is organized by platform + compilation mode.
-Compilation modes are release, debug, and others for profiling. 
-The default mdoe is 'relase'.
+The possible compilation modes are release, debug, and others for profiling. 
+The default mode is 'release'.
 
 For example, on an intel Mac, there may be two directories below build:
 
@@ -39,7 +39,7 @@ into one of the subdirectories:
   ./build/i386-apple-darwin8.9.1-release/dist
   ./build/i386-apple-darwin8.9.1-release/static_dist
 
-The distribution tarfiles are built from the contetn of these 
+The distribution tarfiles are built from the content of these 
 dist or static_dist directories and they are stored into
 
   ./distributions
@@ -95,7 +95,7 @@ For example on a linux/x86_64 platform, typing 'make MODE=debug' gives
 More variables are set during configuration. For trouble-shooting, you
 can see the full list by typing 'make recheck' from the toplevel Yices
 directory. In most cases, these variables (CC, LD, etc.) are set to
-good default values, but the defaults may be overriden by giving
+good default values, but the defaults may be overridden by giving
 options to the ./configure script.
 
 
@@ -115,14 +115,14 @@ with GMP:
 The STATC_GMP and STATIC_GMP_INCLUDE_DIR are useful for building
 static yices binaries on Mingw or Cygwin. On these systems, it's not
 possible to have both static and dynamic GMP libraries in standard
-locations. The Yices build makefiles use STATIC_GMP and
+locations. The Yices makefiles use STATIC_GMP and
 STATIC_GMP_INCLUDE_DIR when building static binaries on these systems.
 
 To build a dynamic Yices library that's statically linked with GMP, we
-need a version of libgmp.a that's compiled as position-independent
-code. By default, libgmp.a is not position-independent on most systems,
-so we need to build special version of libgmp.a. The PIC_GMP variable
-must be set to point to that special libgmp.a.
+need a version of libgmp.a compiled as position-independent code. By
+default, libgmp.a is not position-independent on most systems, so we
+must build a special version of libgmp.a. The PIC_GMP variable must
+be set to point to that special libgmp.a.
 
 
 The ./configure script tries to set reasonable default values for
@@ -168,7 +168,7 @@ To build Yices from the source on a new platform:
       ./build/<platform>-release/bin 
       ./build/<platfomr>-release/static_bin
       ./build/<platform>-release/lib
-      ./build/<platfomr>-release/static_lib
+      ./build/<platform>-release/static_lib
        
 
    To compile only part of this, use;
@@ -176,27 +176,28 @@ To build Yices from the source on a new platform:
       make bin 
       make lib
       make static-bin
-      make staic-lib
+      make static-lib
 
 
-4) building the distribution tarfiles:
+4) build the distribution tarfiles:
 
       make binary-distribution
 
    builds ./distributions/yices-2.x.y-<platform>.tar.gz
    that contains binaries + libraries dynamically linked with GMP.
 
-      make static-distribition
+      make static-distribution
 
    builds ./distributions/yices-2.x.y-<platform>-static-gmp.tar.gz
    that contains binaries + libraries statically linked with GMP.
 
 
-   On mingw: there's a manual step involved. The distributions
-   can be built as follows:
+   On Mingw: there's a manual step involved to create a 'libyices.lib'
+   file using Microsoft's Visual Studio tools. The distributions
+   must be built as follows:
 
       make dist
-      <manual step to create missing lib files>
+      <manual step to create libyices.lib>
       make tarfile
 
    or make static-dist
@@ -209,6 +210,12 @@ To build Yices from the source on a new platform:
 
       make test
 
+   to compile the test statically
+
+      make static-test
+
+   The test executables are in ./build-<platform>-<mode>/bin or 
+    ./build-<platform>-<mode>/static_bin.
 
 
 
@@ -245,7 +252,7 @@ The result will be in ./build/x86-64-apple-darwin9.2.2-static/
 2) Compiling in 32bits on Linux/x86_64 platforms
 
 On Linux/x86_64 platforms, it may be possible to also compile in 32 bit mode.
-This depends on libraries and gcc versions, but it can work. By default the 
+This depends on libraries and GCC versions, but it can work. By default the 
 makefiles will compile in 64bit mode for this platforms. 
 
 To override this, build an alternative configuration file for the platform
@@ -290,11 +297,11 @@ To remove all build directories: ./build/*
 NOTES FOR CYGWIN AND MINGW BUILDS
 ---------------------------------
 
-It's somewhat more complicated to build Yices in static and release
-modes on Cygwin and Mingw than on other platforms. The issue is that
-GMP can't be installed in the standard place as both a static and a
-dynamic library. That's because each library uses a different 'gmp.h'
-include file (which is by default in /usr/include).
+It's somewhat more complicated to build Yices with both static and
+dynamic GMP libraries on Cygwin and Mingw than on other platforms. The
+issue is that GMP can't be installed in the standard place as both a
+static and a dynamic library. That's because each library uses a
+different 'gmp.h' include file (which is by default in /usr/include).
 
 A solution is to compile GMP twice and install the dynamic and static
 libraries in different locations:
@@ -319,11 +326,11 @@ to type
     ./configure --with-static-gmp=/tools/static_gmp/lib/libgmp.a \
     --with-static-gmp-include-dir=/tools/static_gmp/include
 
-when you configure Yices on cygwin or mingw.
+when you configure Yices on Cygwin or Mingw.
 
-On both cygwin and mingw, the static 'libgmp.a' is position independent
+On both Cygwin and Mingw, the static 'libgmp.a' is position independent
 code so there's no need to specify a different PIC gmp. The option 
---with-pic-gmp should not be used on cygwin or mingw.
+--with-pic-gmp should not be used on Cygwin or Mingw.
 
 
 
@@ -334,19 +341,20 @@ BUILDING A WINDOWS VERSION FROM CYGWIN
 --------------------------------------
 
 To build a version of Yices that can run on a native Windows machine,
-one can either install mingw and msys and compile from there, or compile
-from Cygwin using --build=i686-pc-mingw32 to select a mingw32 configuration.
-For the result to work, one must either give the flag -mno-cygwin to gcc 
-or use a cross compiler. Using -mno-cygwin is easier but may become obsolete.
+one can either install Mingw and msys and compile from there, or
+compile from Cygwin using --build=i686-pc-mingw32 to select a Mingw32
+configuration.  For the result to work, one must either give the flag
+-mno-cygwin to GCC or use a cross compiler. Using -mno-cygwin is
+easier but may no longer be supported by new versions of GCC.
 
 
 1) Using the -mno-cygwin flag
 
-On cygwin, the default compilation produces code that requires cygwin
+On Cygwin, the default compilation produces code that requires Cygwin
 libraries at run time. This code cannot run on a native Windows machine
-that does not have cygwin installed. To build code that can run natively
+that does not have Cygwin installed. To build code that can run natively
 on Windows, it is possible to compile with options -mno-cygwin on a
-cygwin installation. To do this, type
+Cygwin installation. To do this, type
 
    ./configure --build=i686-pc-mingw32 CFLAGS=-mno-cygwin
 
@@ -369,22 +377,22 @@ etc. or by giving options LDPATH=... CPPFLAGS=... to ./configure
 
 Noted in November 2009:
 
-Some versions of GCC on cygwin do not support the option -mno-cygwin.
+Some versions of GCC on Cygwin do not support the option -mno-cygwin.
 
-On my cygwin machine, there are two compilers:
+On my Cygwin machine, there are two compilers:
   /usr/bin/gcc supports the -mno-cygwin flag
   /usr/bin/gcc-4 does not support the -mno-cygwin flag.
 
 
 It looks like -mno-cygwin won't be supported much longer by GCC. If
 your compiler does not have it. It's possible to build and install a
-GCC cross compiler (that runs on cygwin and targets mingw32), then
+GCC cross compiler (that runs on Cygwin and targets Mingw32), then
 compile Yices with it.
 
 It's a good idea to read the GCC documentation first to learn how to
 do this (although it does not explain everything well). A Google
-search on 'gcc cross compile mingw32' also helps and gives
-examples/instructions on how to build GCC as a mingw32 cross
+search on 'gcc cross compile Mingw32' also helps and gives
+examples/instructions on how to build GCC as a Mingw32 cross
 compiler. However none of the instructions I found via Google actually
 worked for me, so here is what I did:
 
@@ -398,9 +406,9 @@ worked for me, so here is what I did:
          /xcompile/i686-pc-mingw32/bin/ld.exe
 
 
-  b) install the mingw runtime support:
+  b) install the Mingw runtime support:
 
-     Get the following tarfiles from the MinGW sourceforge: 
+     Get the following tarfiles from the Mingw sourceforge: 
 
         mingwrt-3.16-mingw32-dev.tar.gz
         mingwrt-3.16-mingw32-dll.tar.gz (not sure that one is really necessary)
@@ -433,7 +441,7 @@ worked for me, so here is what I did:
 
 
 
-Before compiling Yices, you need to compile GMP for mingw32 (and install it
+Before compiling Yices, you need to compile GMP for Mingw32 (and install it
 in /xcompile/lib).
 
 To configure Yices for cross compilation on a Cygwin system, I used

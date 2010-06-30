@@ -5393,6 +5393,9 @@ EXPORTED term_t yices_sign_extend(term_t t, uint32_t n) {
  * if t is not a bitvector
  *   code = BITVECTOR_REQUIRED
  *   term1 = t
+ * if n + bitsize of t is too large:
+ *   code = MAX_BVSIZE_EXCEEDED
+ *   badval = n + bitsize of t
  */
 EXPORTED term_t yices_zero_extend(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;

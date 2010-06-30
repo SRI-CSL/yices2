@@ -16,7 +16,18 @@
 
 SHELL=/bin/sh
 
-include $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
+ifeq (,$(YICES_TOP_DIR)) 
+ $(error "YICES_TOP_DIR is undefined")
+endif
+
+ifeq (,$(YICES_MAKE_INCLUDE))
+ $(error "YICES_MAKE_INCLUDE is undefined")
+endif
+
+conf=$(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
+
+include $(conf)
+
 
 
 #
@@ -26,9 +37,33 @@ objdir := $(BUILD)/obj
 libdir := $(BUILD)/lib
 bindir := $(BUILD)/bin
 
+static_objdir := $(BUILD)/static_obj
+static_libdir := $(BUILD)/static_lib
+static_bindir := $(BUILD)/static_bin
 
-# library
+
+#
+# All source files in this directory
+#
+src_c := $(wildcard *.c)
+
+#
+# Dependencies and binaries
+#
+dep := $(src_c:%.c=$(objdir)/%.d)
+static_dep := $(src_c:%.c=$(static_objdir)/%.d)
+
+tests := $(src_c:%.c=$(bindir)/%$(EXEEXT))
+static_tests := $(src_c:%.c=$(static_bindir)/%$(EXEEXT))
+
+# 
+# Archives to link with:
+# - libyices: objects compiled with the PIC option
+# - static_libyices: compiled without the PIC option
+#
 libyices := $(libdir)/libyices.a
+static_libyices := $(static_libdir)/libyices.a
+
 
 
 #
@@ -46,11 +81,13 @@ ifeq ($(POSIXOS),cygwin)
   CPPFLAGS := $(CPPFLAGS) -DCYGWIN -DNOYICES_DLL
   PIC=
   STATIC=-static
+  LDFLAGS += -Wl,--stack,8388608
 else
 ifeq ($(POSIXOS),mingw)
   CPPFLAGS := $(CPPFLAGS) -DMINGW -DNOYICES_DLL
   PIC=
   STATIC=-static
+  LDFLAGS += -Wl,--stack,8388608
 else
 ifeq ($(POSIXOS),darwin)
   CPPFLAGS := $(CPPFLAGS) -DMACOSX
@@ -103,14 +140,6 @@ ifeq ($(YICES_MODE),release)
 CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(PIC)
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else 
-ifeq ($(YICES_MODE),static)
-ifneq ($(STATIC_GMP_INCLUDE_DIR),)
-CPPFLAGS := -I$(STATIC_GMP_INCLUDE_DIR) $(CPPFLAGS)
-endif
-CFLAGS := $(CFLAGS) -O3 $(STATIC)
-CPPFLAGS := $(CPPFLAGS) -DNDEBUG
-LIBS := $(STATIC_GMP) $(subst $(LIBS),-lgmp,)
-else
 ifeq ($(YICES_MODE),profile)
 CFLAGS := $(CFLAGS) -O3 $(PIC) -pg
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
@@ -128,7 +157,7 @@ endif
 endif
 endif
 endif
-endif
+
 
 
 #
@@ -152,21 +181,33 @@ CPPFLAGS := $(CPPFLAGS) -I../src
 
 
 #
-# All source files in this directory
+# More CPPFLAGS for compiling static objects
 #
-src_c := $(wildcard *.c)
-tests := $(src_c:%.c=$(bindir)/%$(EXEEXT))
-dep := $(src_c:%.c=$(objdir)/%.d)
+ifneq ($(STATIC_GMP_INCLUDE_DIR),)
+  STATIC_CPPFLAGS := -I$(STATIC_GMP_INCLUDE_DIR) $(CPPFLAGS)
+else
+  STATIC_CPPFLAGS := $(CPPFLAGS)
+endif
 
-# library
-libyices := $(libdir)/libyices.a
+ifeq ($(POSIXOS),cygwin)
+  STATIC_CPPFLAGS += -DNOYICES_DLL
+else
+ifeq ($(POSIXOS),mingw)
+  STATIC_CPPFLAGS += -DNOYICES_DLL
+endif
+endif
 
 
-# All test binaries
-all: $(tests)
+#
+# LIBS for compiling in static mode
+#
+# We need to remove -lgmp from LIBS in static mode, otherwise adding
+# $(STATIC_GMP) does not work on Darwin and cygwin
+#
+STATIC_LIBS := $(STATIC_GMP) $(subst $(LIBS),-lgmp,)
 
-$(bindir)/%$(EXEEXT): %.c $(libyices)
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $<  $(libyices) $(LIBS) -lm 
+
+
 
 # Dependency file
 $(objdir)/%.d: %.c
@@ -175,14 +216,49 @@ $(objdir)/%.d: %.c
 	@ $(SED) 's,\($*\).o[ :]*,$(objdir)/\1.o $@ : , g' < $@.tmp > $@
 	@ rm -f $@.tmp
 
+$(static_objdir)/%.d: %.c
+	@ echo Building dependency file $@
+	@ $(CC) -MM $(CPPFLAGS) $< > $@.tmp
+	@ $(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.tmp > $@
+	@ rm -f $@.tmp
+
 include $(dep)
+include $(static_dep)
 
-# avoid .DEFAULT when .h files have been deleted
+
+
+# All test binaries, using dynamic GMP library
+all: $(tests)
+
+$(bindir)/%$(EXEEXT): %.c $(libyices)
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $<  $(libyices) $(LIBS)
+
+
+# Test binaries compiled statically
+all-static: $(static_tests)
+
+$(static_bindir)/%$(EXEEXT): %.c $(static_libyices)
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ $<  $(static_libyices) $(STATIC_LIBS)
+
+
+.PHONY: all all-static
+
+
+#
+# rules to avoid triggering the .DEFAULT rule if .h or .c files have been deleted
+#
 %.h:
+	@ echo
 	@ echo "$@ missing"
+	@ echo 
+
+%.c:
+	@ echo
+	@ echo "Missing source file: $@"
+	@ echo
 
 
-.PHONY: all 
+
 
 # For debugging
 .DEFAULT:
