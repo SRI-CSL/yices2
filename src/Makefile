@@ -139,8 +139,7 @@ old_src_c := abstract_values.c arena.c arithmetic_variable_manager.c \
 #
 # additional source files for the binaries
 #
-bin_src_c := 
-old_bin_src_c := yices_smt.c dl_profile.c yices_smtcomp.c yices_main.c
+bin_src_c := yices_main.c
 
 #
 # Auto-generated version file
