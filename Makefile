@@ -204,7 +204,7 @@ source-distribution:
 	cp README Makefile Makefile.build make.include.in $(tmpdir)
 	cp autoconf/* $(tmpdir)/autoconf
 	cp src/Makefile src/*.h src/*.c src/yices_keywords.txt \
-	  src/yices_exports.def src/yices_version_template.txt $(tmpdir)/src
+	  src/yices_version_template.txt $(tmpdir)/src
 	cp tests/Makefile tests/*.c $(tmpdir)/tests
 	cp doc/NOTES doc/YICES-LANGUAGE doc/yices_parser.txt doc/yices_parser_tables.h \
 	  doc/table_builder.c $(tmpdir)/doc
