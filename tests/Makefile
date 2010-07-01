@@ -133,26 +133,24 @@ endif
 
 #
 # Compilation flags dependent on MODE
-# TODO: fix LIBS in static mode. Need to remove -lgmp from LIBS
-# otherwise adding $(STATIC_GMP) does not work on Darwin or cygwin
 #
 ifeq ($(YICES_MODE),release) 
-CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(PIC)
-CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+  CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer
+  CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else 
 ifeq ($(YICES_MODE),profile)
-CFLAGS := $(CFLAGS) -O3 $(PIC) -pg
-CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+  CFLAGS := $(CFLAGS) -O3 -pg
+  CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),gcov)
-CFLAGS := $(CFLAGS) -fprofile-arcs -ftest-coverage $(PIC)
-CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+  CFLAGS := $(CFLAGS) -fprofile-arcs -ftest-coverage
+  CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(findstring $(YICES_MODE),valgrind quantify purify),$(YICES_MODE))
-CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer -g $(PIC) 
-CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+  CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer -g
+  CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
-CFLAGS := $(CFLAGS) -g
+  CFLAGS := $(CFLAGS) -g
 endif
 endif
 endif
@@ -175,7 +173,7 @@ endif
 
 
 #
-# Need include path
+# Include path
 #
 CPPFLAGS := $(CPPFLAGS) -I../src
 
