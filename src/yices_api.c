@@ -631,7 +631,7 @@ EXPORTED void yices_init(void) {
 /*
  * Cleanup: delete all tables and internal data structures
  */
-EXPORTED void yices_cleanup(void) {
+EXPORTED void yices_exit(void) {
   clear_globals(&__yices_globals);
 
   // parser etc.

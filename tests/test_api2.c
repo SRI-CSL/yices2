@@ -1476,7 +1476,7 @@ int main(void) {
   show_terms();
   
   delete_store();
-  yices_cleanup();
+  yices_exit();
 
   return 0;
 }

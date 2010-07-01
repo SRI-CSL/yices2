@@ -507,7 +507,7 @@ int main(void) {
   delete_term_store(&all_terms);
   delete_ivector(&buffer);
 
-  yices_cleanup();
+  yices_exit();
 
   return 0;
 }

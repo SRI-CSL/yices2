@@ -136,7 +136,7 @@ int main(void) {
   show_types();
   show_terms();
 
-  yices_cleanup();
+  yices_exit();
 
   return 0;
 }

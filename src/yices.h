@@ -99,7 +99,7 @@ __YICES_DLLSPEC__ extern void yices_init(void);
 /*
  * Free all allocated memory.
  */
-__YICES_DLLSPEC__ extern void yices_cleanup(void);
+__YICES_DLLSPEC__ extern void yices_exit(void);
 
 
 

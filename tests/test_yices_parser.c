@@ -218,7 +218,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  yices_cleanup();
+  yices_exit();
 
   return 0;
 }
