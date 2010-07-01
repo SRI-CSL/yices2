@@ -175,8 +175,8 @@ static_libyices := $(static_libdir)/libyices.a
 #
 # Binaries
 #
-binaries := $(bindir)/yices_main$(EXEEXT)
-static_binaries := $(static_bindir)/yices_main$(EXEEXT)
+binaries := $(bin_src_c:%.c=$(bindir)/%$(EXEEXT))
+static_binaries := $(bin_src_c:%.c=$(static_bindir)/%$(EXEEXT))
 
 
 #
