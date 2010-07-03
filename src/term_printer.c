@@ -390,30 +390,24 @@ static const char * const tag2string[] = {
   "unused",
   "reserved",
   "constant",
-  "uninterpreted",
+  "arith-const",
+  "bv64-const",
+  "bv-const",
   "variable",
+  "uninterpreted",
+  "arith-eq",
+  "arith-ge",
   "ite",
   "s-ite",
   "app", // function application
   "update",
   "tuple",
-  "select",
   "eq",
   "distinct",
   "forall",
   "or",
   "xor",
-  "bit",
-  "pprod",
-  "arith-const",
-  "arith-poly",
-  "arith-eq",
-  "arith-ge",
   "arith-bineq",
-  "bv64-const",
-  "bv-const",
-  "bv64-poly",
-  "bv-poly",
   "bv-array",  
   "bvdiv",
   "bvrem",
@@ -426,6 +420,12 @@ static const char * const tag2string[] = {
   "bveq",
   "bvge",
   "bvsge",
+  "select",
+  "bit",
+  "pprod",
+  "arith-poly",
+  "bv64-poly",
+  "bv-poly",
 };
 
 
@@ -439,7 +439,7 @@ static void print_term_recur(FILE *f, term_table_t *tbl, term_t t, int32_t level
 static void print_composite_term(FILE *f, term_table_t *tbl, term_kind_t tag, composite_term_t *d, int32_t level) {
   uint32_t i, n;
 
-  assert(0 <= tag && tag <= BV_SGE_ATOM);
+  assert(ITE_TERM <= tag && tag <= BV_SGE_ATOM);
   fputc('(', f);
   fputs(tag2string[tag], f);
   n = d->arity;
@@ -467,7 +467,7 @@ static void print_app_term(FILE *f, term_table_t *tbl, composite_term_t *d, int3
 
 // select
 static void print_select_term(FILE *f, term_table_t *tbl, term_kind_t tag, select_term_t *d, int32_t level) {
-  assert(0 <= tag && tag <= BV_SGE_ATOM);
+  assert(SELECT_TERM <= tag && tag <= BIT_TERM);
   fprintf(f, "(%s %"PRIu32" ", tag2string[tag], d->idx);
   print_term_recur(f, tbl, d->arg, level);
   fputc(')', f);
@@ -914,7 +914,7 @@ static void print_padded_string(FILE *f, char *s, uint32_t l) {
 static void print_composite(FILE *f, term_table_t *tbl, term_kind_t tag, composite_term_t *d) {
   uint32_t i, n;
 
-  assert(0 <= tag && tag <= BV_SGE_ATOM);
+  assert(ITE_TERM <= tag && tag <= BV_SGE_ATOM);
   fputc('(', f);
   fputs(tag2string[tag], f);
   n = d->arity;
@@ -942,7 +942,7 @@ static void print_app(FILE *f, term_table_t *tbl, composite_term_t *d) {
 
 // select
 static void print_select(FILE *f, term_table_t *tbl, term_kind_t tag, select_term_t *d) {
-  assert(0 <= tag && tag <= BV_SGE_ATOM);
+  assert(SELECT_TERM <= tag && tag <= BIT_TERM);
   fprintf(f, "(%s %"PRIu32" ", tag2string[tag], d->idx);
   print_name_or_constant(f, tbl, d->arg);
   fputc(')', f);
@@ -1269,36 +1269,32 @@ void pp_term_name(yices_pp_t *printer, term_table_t *tbl, term_t t) {
  * term_kind2block[k] = 0 means k is atomic or can't be printed
  * (Note this is ok, since 0 is PP_OPEN).
  */
-#define NUM_TERM_KINDS (BV_SGE_ATOM+1)
-
 static const pp_open_type_t const term_kind2block[NUM_TERM_KINDS] = {
   0,                 //  UNUSED_TERM
   0,                 //  RESERVED_TERM
+
   0,                 //  CONSTANT_TERM
-  0,                 //  UNINTERPRETED_TERM
+  0,                 //  ARITH_CONSTANT
+  0,                 //  BV64_CONSTANT
+  0,                 //  BV_CONSTANT
+
   0,                 //  VARIABLE
+  0,                 //  UNINTERPRETED_TERM
+
+  PP_OPEN_EQ,        //  ARITH_EQ_ATOM
+  PP_OPEN_GE,        //  ARITH_GE_ATOM
+
   PP_OPEN_ITE,       //  ITE_TERM
   PP_OPEN_ITE,       //  ITE_SPECIAL
   PP_OPEN_PAR,       //  APP_TERM
   PP_OPEN_UPDATE,    //  UPDATE_TERM
   PP_OPEN_TUPLE,     //  TUPLE_TERM
-  PP_OPEN_SELECT,    //  SELECT_TERM
   PP_OPEN_EQ,        //  EQ_TERM
   PP_OPEN_DISTINCT,  //  DISTINCT_TERM
   PP_OPEN_FORALL,    //  FORALL_TERM
   PP_OPEN_OR,        //  OR_TERM
   PP_OPEN_XOR,       //  XOR_TERM
-  PP_OPEN_BIT,       //  BIT_TERM
-  PP_OPEN_PROD,      //  POWER_PRODUCT
-  0,                 //  ARITH_CONSTANT
-  PP_OPEN_SUM,       //  ARITH_POLY
-  PP_OPEN_EQ,        //  ARITH_EQ_ATOM
-  PP_OPEN_GE,        //  ARITH_GE_ATOM
   PP_OPEN_EQ,        //  ARITH_BINEQ_ATOM
-  0,                 //  BV64_CONSTANT
-  0,                 //  BV_CONSTANT
-  PP_OPEN_SUM,       //  BV64_POLY
-  PP_OPEN_SUM,       //  BV_POLY
   PP_OPEN_BV_ARRAY,  //  BV_ARRAY
   PP_OPEN_BV_DIV,    //  BV_DIV
   PP_OPEN_BV_REM,    //  BV_REM
@@ -1311,6 +1307,14 @@ static const pp_open_type_t const term_kind2block[NUM_TERM_KINDS] = {
   PP_OPEN_EQ,        //  BV_EQ_ATOM
   PP_OPEN_BV_GE,     //  BV_GE_ATOM
   PP_OPEN_BV_SGE,    //  BV_SGE_ATOM
+
+  PP_OPEN_SELECT,    //  SELECT_TERM
+  PP_OPEN_BIT,       //  BIT_TERM
+
+  PP_OPEN_PROD,      //  POWER_PRODUCT
+  PP_OPEN_SUM,       //  ARITH_POLY
+  PP_OPEN_SUM,       //  BV64_POLY
+  PP_OPEN_SUM,       //  BV_POLY
 };
 
 
@@ -1324,7 +1328,7 @@ static void pp_composite_term(yices_pp_t *printer, term_table_t *tbl, term_kind_
   uint32_t i, n;
   pp_open_type_t op;
 
-  assert(0 <= tag && tag <= BV_SGE_ATOM);
+  assert(ITE_TERM <= tag && tag <= BV_SGE_ATOM);
   op = term_kind2block[tag];
   assert(op != 0);
   pp_open_block(printer, op);
@@ -1339,7 +1343,7 @@ static void pp_composite_term(yices_pp_t *printer, term_table_t *tbl, term_kind_
 static void pp_select_term(yices_pp_t *printer, term_table_t *tbl, term_kind_t tag, select_term_t *d, int32_t level) {
   pp_open_type_t op;
 
-  assert(0 <= tag && tag <= BV_SGE_ATOM);
+  assert(SELECT_TERM <= tag && tag <= BIT_TERM);
   op = term_kind2block[tag];
   assert(op != 0);
   pp_open_block(printer, op);

@@ -135,7 +135,7 @@ static bool equal_array(int32_t *a, uint32_t m, int32_array_t *b) {
   uint32_t i;
 
   for (i=0; i<m; i++) {
-    if (a[i] != int32_array_read(b, i)) {
+    if (a[i] != ai32_read(b, i)) {
       return false;
     }
   }
@@ -152,7 +152,7 @@ static void write_array(test_elem_t *a, uint32_t n, int32_array_t *b) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
-    int32_array_write(b, a[i].index, a[i].value);
+    ai32_write(b, a[i].index, a[i].value);
   }
 }
 

@@ -125,26 +125,41 @@ extern void int32_array_pop(int32_array_t *a);
  * Store x in a[i].
  * - save the previous value of a[i] if necessary
  */
-extern void int32_array_write(int32_array_t *a, int32_t i, int32_t x);
+extern void ai32_write(int32_array_t *a, int32_t i, int32_t x);
 
 
 /*
  * Read the current value at index i
  */
-static inline int32_t int32_array_read(int32_array_t *a, int32_t i) {
+static inline int32_t ai32_read(int32_array_t *a, int32_t i) {
   assert(i >= 0);
   return (i < a->top) ? a->map[i] : a->def;
 }
 
 
+/*
+ * Direct read: i must be between 0 and a->top
+ */
+static inline int32_t ai32_get(int32_array_t *a, int32_t i) {
+  assert(0 <= i && i < a->top);
+  return a->map[i];
+}
 
+
+/*
+ * Direct write: i must be between 0 and a->top,
+ * - this does not save the current value
+ */
+static inline void ai32_set(int32_array_t *a, int32_t i, int32_t x) {
+  assert(0 <= i && i < a->top);
+  a->map[i] = x;
+}
 
 
 
 /*
  * ARRAYS OF 8bit ELEMENTS
  */
-
 typedef struct uint8_array_s {
   uint8_t *map;
   uint8_t def;
@@ -198,17 +213,34 @@ extern void uint8_array_pop(uint8_array_t *a);
  * Store x in a[i].
  * - save the previous value of a[i] if necessary
  */
-extern void uint8_array_write(uint8_array_t *a, int32_t i, uint8_t x);
+extern void au8_write(uint8_array_t *a, int32_t i, uint8_t x);
 
 
 /*
  * Read the current value at index i
  */
-static inline uint8_t uint8_array_read(uint8_array_t *a, int32_t i) {
+static inline uint8_t au8_read(uint8_array_t *a, int32_t i) {
   assert(i >= 0);
   return (i < a->top) ? a->map[i] : a->def;
 }
 
+
+/*
+ * Direct read: i must be between 0 and a->top
+ */
+static inline uint8_t au8_get(uint8_array_t *a, int32_t i) {
+  assert(0 <= i && i < a->top);
+  return a->map[i];
+}
+
+/*
+ * Direct write: i must be between 0 and a->top 
+ * - the current value a->map[i] is not saved
+ */
+static inline void au8_set(uint8_array_t *a, int32_t i, uint8_t x) {
+  assert(0 <= i && i < a->top);
+  a->map[i] = x;
+}
 
 
 

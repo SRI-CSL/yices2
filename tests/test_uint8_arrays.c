@@ -135,7 +135,7 @@ static bool equal_array(uint8_t *a, uint32_t m, uint8_array_t *b) {
   uint32_t i;
 
   for (i=0; i<m; i++) {
-    if (a[i] != uint8_array_read(b, i)) {
+    if (a[i] != au8_read(b, i)) {
       return false;
     }
   }
@@ -152,7 +152,7 @@ static void write_array(test_elem_t *a, uint32_t n, uint8_array_t *b) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
-    uint8_array_write(b, a[i].index, a[i].value);
+    au8_write(b, a[i].index, a[i].value);
   }
 }
 

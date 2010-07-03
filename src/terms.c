@@ -1860,8 +1860,7 @@ term_t not_term(term_table_t *table, term_t p) {
  * - i.e., left and right are both constant or special.
  */
 static bool special_or_constant(term_kind_t tag) {
-  return tag == ITE_SPECIAL || tag == ARITH_CONSTANT || 
-    tag == BV_CONSTANT || tag == BV64_CONSTANT;
+  return tag == ITE_SPECIAL || is_const_kind(tag);
 }
 
 static bool make_special_ite(term_table_t *table, term_t left, term_t right) {

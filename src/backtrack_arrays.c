@@ -334,7 +334,7 @@ static void int32_array_set_default(int32_array_t *a, uint32_t i, uint32_t def) 
  * Store x in a[i].
  * - save the previous value of a[i] if necessary
  */
-void int32_array_write(int32_array_t *a, int32_t i, int32_t x) {
+void ai32_write(int32_array_t *a, int32_t i, int32_t x) {
   assert(0 <= i);
 
   if (i < a->top) {
@@ -489,7 +489,7 @@ static void uint8_array_set_default(uint8_array_t *a, uint32_t i, uint8_t def) {
  * Store x in a[i].
  * - save the previous value of a[i] if necessary
  */
-void uint8_array_write(uint8_array_t *a, int32_t i, uint8_t x) {
+void au8_write(uint8_array_t *a, int32_t i, uint8_t x) {
   assert(0 <= i);
 
   if (i < a->top) {

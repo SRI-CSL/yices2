@@ -180,59 +180,72 @@
 /*
  * TERM KINDS
  */
+/*
+ * The enumeartion order is significant so that we can
+ * cheaply check whether a term is constant, variable or composite.
+ */
 typedef enum {
+  /*
+   * Special marks
+   */
   UNUSED_TERM,    // deleted term
   RESERVED_TERM,  // mark for term indices that can't be used
 
-  // Generic atomic terms
-  CONSTANT_TERM,  // constant of uninterpreted/scalar/boolean types
-  UNINTERPRETED_TERM,  // (i.e., global variables, can't be bound).
-  VARIABLE,       // variable in quantifiers 
-
-  // Generic composite terms
-  ITE_TERM,       // if-then-else
-  ITE_SPECIAL,    // special if-then-else term (NEW: EXPERIMENTAL)
-  APP_TERM,       // application of an uninterpreted function 
-  UPDATE_TERM,    // function update
-  TUPLE_TERM,     // tuple constructor
-  SELECT_TERM,    // tuple projection
-
-  // Boolean terms
-  EQ_TERM,        // equality
-  DISTINCT_TERM,  // distinct t_1 ... t_n
-  FORALL_TERM,    // quantifier
-  OR_TERM,        // n-ary OR
-  XOR_TERM,       // n-ary XOR
-  BIT_TERM,       // bit-select
-
-  // Power products: can be either arithmetic or bitvector terms
-  POWER_PRODUCT,
-
-  // Arithmetic terms and atoms
+  /*
+   * Constants
+   */
+  CONSTANT_TERM,    // constant of uninterpreted/scalar/boolean types
   ARITH_CONSTANT,   // rational constant
-  ARITH_POLY,       // polynomial
-  ARITH_EQ_ATOM,    // atom p == 0
-  ARITH_GE_ATOM,    // atom p >= 0
-  ARITH_BINEQ_ATOM, // equality: (t1 == t2)  (between two arithmetic terms)
+  BV64_CONSTANT,    // compact bitvector constant (64 bits at most)
+  BV_CONSTANT,      // generic bitvector constant (more than 64 bits)
 
-  // Bitvector terms and atoms
-  BV64_CONSTANT,   // compact bitvector constant (64bit at most)
-  BV_CONSTANT,     // generic bitvector constant
-  BV64_POLY,       // polynomial with 64bit coefficients
-  BV_POLY,         // generic polynomial
-  BV_ARRAY,        // array of boolean terms
-  BV_DIV,          // unsigned division
-  BV_REM,          // unsigned remainder
-  BV_SDIV,         // signed division
-  BV_SREM,         // remainder in signed division (rounding to 0)
-  BV_SMOD,         // remainder in signed division (rounding to -infinity)
-  BV_SHL,          // shift left (padding with 0)
-  BV_LSHR,         // logical shift right (padding with 0)
-  BV_ASHR,         // arithmetic shift right (padding wih sign bit)
-  BV_EQ_ATOM,      // equality: (t1 == t2)
-  BV_GE_ATOM,      // unsigned comparison: (t1 >= t2)
-  BV_SGE_ATOM,     // signed comparison (t1 >= t2)
+  /*
+   * Non-constant, atomic terms
+   */
+  VARIABLE,            // variable in quantifiers 
+  UNINTERPRETED_TERM,  // (i.e., global variables, can't be bound).
+
+  /*
+   * Composites
+   */
+  ARITH_EQ_ATOM,    // atom t == 0
+  ARITH_GE_ATOM,    // atom t >= 0
+
+  ITE_TERM,         // if-then-else
+  ITE_SPECIAL,      // special if-then-else term (NEW: EXPERIMENTAL)
+  APP_TERM,         // application of an uninterpreted function 
+  UPDATE_TERM,      // function update
+  TUPLE_TERM,       // tuple constructor
+  EQ_TERM,          // equality
+  DISTINCT_TERM,    // distinct t_1 ... t_n
+  FORALL_TERM,      // quantifier
+  OR_TERM,          // n-ary OR
+  XOR_TERM,         // n-ary XOR
+  ARITH_BINEQ_ATOM, // equality: (t1 == t2)  (between two arithmetic terms)
+  BV_ARRAY,         // array of boolean terms
+  BV_DIV,           // unsigned division
+  BV_REM,           // unsigned remainder
+  BV_SDIV,          // signed division
+  BV_SREM,          // remainder in signed division (rounding to 0)
+  BV_SMOD,          // remainder in signed division (rounding to -infinity)
+  BV_SHL,           // shift left (padding with 0)
+  BV_LSHR,          // logical shift right (padding with 0)
+  BV_ASHR,          // arithmetic shift right (padding wih sign bit)
+  BV_EQ_ATOM,       // equality: (t1 == t2)
+  BV_GE_ATOM,       // unsigned comparison: (t1 >= t2)
+  BV_SGE_ATOM,      // signed comparison (t1 >= t2)
+
+  SELECT_TERM,      // tuple projection
+  BIT_TERM,         // bit-select
+
+  // Polynomials
+  POWER_PRODUCT,    // power products: (t1^d1 * ... * t_n^d_n)
+  ARITH_POLY,       // polynomial with rational coefficients
+  BV64_POLY,        // polynomial with 64bit coefficients
+  BV_POLY,          // polynomial with generic bitvector coefficients
 } term_kind_t;
+
+#define NUM_TERM_KINDS (BV_POLY+1)
 
 
 
@@ -1099,10 +1112,31 @@ static inline bool is_ite_term(term_table_t *table, term_t t) {
 }
 
 
+// Check whether t is a constant
+static inline bool is_const_kind(term_kind_t tag) {
+  return CONSTANT_TERM <= tag && tag <= BV_CONSTANT;
+}
+
+static inline bool is_const_term(term_table_t *table, term_t t) {
+  return is_const_kind(term_kind(table, t));
+}
+
+
+// Check whether t is atomic
+static inline bool is_atomic_kind(term_kind_t tag) {
+  return CONSTANT_TERM <= tag && tag <= UNINTERPRETED_TERM;
+}
+
+static inline bool is_atomic_term(term_table_t *table, term_t t) {
+  return is_atomic_kind(term_kind(table, t));
+}
+
+
 // Bitsize of term t
 static inline uint32_t term_bitsize(term_table_t *table, term_t t) {
   return bitsize_for_idx(table, index_of(t));
 }
+
 
 
 /*
@@ -1205,6 +1239,24 @@ static inline uint32_t bit_term_index(term_table_t *table, term_t t) {
 static inline term_t bit_term_arg(term_table_t *table, term_t t) {
   return bit_term_desc(table, t)->arg;
 }
+
+// argument of arith eq and arith ge atoms
+static inline term_t arith_atom_arg(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_EQ_ATOM || 
+	 term_kind(table, t) == ARITH_GE_ATOM);
+  return integer_value_for_idx(table, index_of(t));
+}
+
+static inline term_t arith_eq_arg(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_EQ_ATOM);
+  return integer_value_for_idx(table, index_of(t));
+}
+
+static inline term_t arith_ge_arg(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == ARITH_GE_ATOM);
+  return integer_value_for_idx(table, index_of(t));
+}
+
 
 
 /*
