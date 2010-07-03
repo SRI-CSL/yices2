@@ -121,6 +121,7 @@ int main(int argc, char *argv[]) {
 
   i = 0;
   for (;;) {
+    elem.s_value = NULL;
     cmdline_parse_element(&parser, &elem);
     show_cmdline_element(&elem, i);
     if (elem.status == cmdline_done) break;
