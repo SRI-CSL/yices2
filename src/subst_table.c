@@ -116,14 +116,6 @@ static int_queue_t *subst_get_queue(subst_table_t *subst) {
  * UNION-FIND OPERATIONS
  */
 
-/*
- * Check whether t is present in the table
- */
-bool subst_table_member(subst_table_t *subst, term_t t) {
-  assert(term_kind(subst->terms, t) == UNINTERPRETED_TERM);
-  return ai32_read(&subst->parent, t) != NULL_TERM;
-}
-
 
 /*
  * Get the term mapped to t in the substitution table

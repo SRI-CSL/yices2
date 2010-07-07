@@ -16,20 +16,6 @@
  *    that contains both x and y has type <int, int>).
  *
  * If t is stored in that table, then subst(t) is the root of t's class.
- *
- * For each term t in the union-find strucure:
- * - parent[t] = term id
- * - type[t] = type label
- * - rank[t] = an 8bit value (for keeping the union-find structure balanced)
- * - t is the root of its class if we have parent[t] == t, and then type[t]
- *   is the type of the class.
- * - t is not in a class if  parent[t] is NULL_TERM
- *
- * Special code:
- * - if rank[t] is 255, then t is a root and it's not an uninterpreted term.
- *
- * Other components: 
- * - terms and types = pointer to the term and type tables
  */
 
 #include <stdbool.h>
@@ -44,7 +30,25 @@
 
 
 /*
- * Table structure: we use backtrackable arrays for push/pop
+ * A term t is a 32bit integer that includes a term idx + a polarity bit.
+ * The polarity bit is 0 except for boolean terms. For a boolean index i, 
+ * there are two terms 2i and 2i+1 that denote i and (not i), respectively.
+ *
+ * The subst_table consists of three arrays indexed by i:
+ * - parent[i] = is a term
+ * - type[i] = type label
+ * - rank[i] = an 8bit value (for keeping the union-find structure balanced)
+ * - i is the root of its class if we have parent[i] == i, and then type[i]
+ *   is the type of the class.
+ * - i is not in a class if  parent[i] is NULL_TERM
+ *
+ * Special code:
+ * - if rank[i] is 255, then i is a root and it's not an uninterpreted term.
+ *
+ * Other components: 
+ * - terms and types = pointer to the term and type tables
+ *
+ * We use backtrackable arrays for implementing push/pop
  * - the queue and cache are used to detect substitution cycles
  */
 typedef struct subst_table_s {
@@ -93,21 +97,35 @@ extern void subst_table_pop(subst_table_t *subst);
 /*
  * Check whether t is present in the substitution table
  * - t must be an uninterpreted term
+ * - t must have positive polarity
  */
-extern bool subst_table_member(subst_table_t *subst, term_t t);
+static inline bool subst_table_member(subst_table_t *subst, term_t t) {
+  assert(is_pos_term(t) && term_kind(subst->terms, t) == UNINTERPRETED_TERM);
+  return ai32_read(&subst->parent, index_of(t)) != NULL_TERM;
+}
 
+
+
+/*
+ * Parent of a term t:
+ * - if t has positive polarity then parent(t) = parent(index_of(t))
+ * - if t has negative polarity then parent(t) = opposite of parent(index_of(t))
+ */
+static inline term_t subst_table_parent(subst_table_t *subst, term_t t) {
+  return ai32_read(&subst->parent, index_of(t)) ^ polarity_of(t);
+}
 
 /*
  * Check whether t is present and root of its class
  */
 static inline bool subst_table_is_root(subst_table_t *subst, term_t t) {
-  return ai32_read(&subst->parent, t) == t;
+  return subst_table_parent(subst, t) == t;
 }
 
 
 /*
  * Get the term mapped to t in the substitution table
- * - t must be an uninterpreted term
+ * - t must be an uninterpreted term and have positive polarity
  * - return t if t is not present in the table
  *   return the root of t's class otherwise (which may be t itself)
  * Side effect: applies path compression
@@ -123,11 +141,11 @@ extern term_t find_subst_value(subst_table_t *subst, term_t t);
 
 /*
  * Get the substitution type for r
- * - r must be a root
+ * - r must be a root in the substitution table
  */
 static inline type_t subst_type(subst_table_t *subst, term_t r) {
   assert(subst_table_is_root(subst, r));
-  return ai32_get(&subst->type, r);
+  return ai32_get(&subst->type, index_of(r));
 }
 
 
@@ -139,7 +157,7 @@ static inline type_t subst_type(subst_table_t *subst, term_t r) {
  *
  * The substitution is valid if the following conditions are satisfied:
  * - there's no existing substitution for t: either t is not in the
- *   table or all terms in t's class are uninterpreted
+ *   table or all terms in t's class are uninterpreted.
  * - replacing t by v does not introduce a cycle.
  */
 extern bool subst_is_valid(subst_table_t *subst, term_t t, term_t v);
