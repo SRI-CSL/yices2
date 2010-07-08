@@ -3,10 +3,9 @@
  */
 
 /*
- * terms.h and terms.c implement basic term construction
- * functions.
+ * terms.h and terms.c implement basic term construction functions.
  *
- * We put here helper functions to support rewriting and simplification,
+ * We put helper functions here to support rewriting and simplification,
  */
 
 #ifndef __TERM_UTILS_H

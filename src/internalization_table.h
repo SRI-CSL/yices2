@@ -37,13 +37,9 @@
  *               by clearing the sign bit.
  *   map[i] >= 0 if i is not a root, then map[i] is a term (term index + polarity bit)
  *
- * For boolean classes, the polarity bit is significant. It's used for both
- * the terms and the internalization object:
- * 1) if r is the root of a boolean class then the low-order bit of map[r] is the 
- *    polarity bit of r's internalization value.
- *    if map[r] = x, then pos_term(r) --> x and neg_term(r) --> not(x).
- * 2) if i is not a root then map[i] is a boolean term t
- *    pos_term(i) --> t and neg_term(i) --> not(t).
+ * For boolean classes, the polarity bit is significant: the substitution
+ * may map a boolean index 'i' to a negative term '(not t)'. Then the root
+ * of 'i' is '(not t)'.
  */
 
 #include <stdint.h>
@@ -77,7 +73,7 @@ typedef struct intern_tbl_s {
 /*
  * Marker for NULL: map[i] = NULL_MAP means i is not internalized yet.
  */
-#define NULL_MAP (-INT32_MAX)
+#define NULL_MAP (-1)
 
 
 /*
@@ -148,32 +144,49 @@ extern term_t intern_tbl_find_root(intern_tbl_t *tbl, term_t t);
  */
 
 /*
- * Check whether r is mapped to something (i.e., not NULL_MAP)
+ * For a root index k, the id of the corresponding solver object is
+ * stored in the 31 low-order bits of map[k]. The sign bit of map[k]
+ * is 1.  Because NULL_MAP is -1, id must be between 0 and
+ * INT32_MAX-1.
+ *
+ * For Boolean classes, we use the convention that map[k] is the
+ * object mapped to r = pos_term(k). So all operations that extract or
+ * set the map of r require a term r of positive polarity (so we use k =
+ * index_of(r)).
  */
-static inline bool intern_tbl_root_is_mapped(intern_tbl_t *tbl, term_t t) {
-  assert(intern_tbl_is_root(tbl, t));
-  return ai32_read(&tbl->map, index_of(t)) != NULL_MAP;
+
+
+/*
+ * Check whether r is mapped to something (i.e., not NULL_MAP)
+ * - r must be a root (it may have negative polarity).
+ */
+static inline bool intern_tbl_root_is_mapped(intern_tbl_t *tbl, term_t r) {
+  assert(intern_tbl_is_root(tbl, r));
+  return ai32_read(&tbl->map, index_of(r)) != NULL_MAP;
 }								  
 
 /*
- * Object mapped to r: clear the sign bit
+ * Type of r's class (return the type of r if r is not in tbl)
+ * - r must be a root (it may have negative polarity)
  */
-static inline int32_t intern_tbl_map_of_root(intern_tbl_t *tbl, term_t t) {
-  assert(intern_tbl_is_root(tbl, t));
-  return ai32_read(&tbl->map, index_of(t)) & INT32_MAX;
-}
+extern type_t intern_tbl_type_of_root(intern_tbl_t *tbl, term_t r);
+
 
 /*
- * Type of r's class (return the type of r if r is not in tbl)
+ * Get the object mapped to r: clear the sign bit
+ * - r must be a root and must have positive polarity
  */
-extern type_t intern_tbl_type_of_root(intern_tbl_t *tbl, term_t t);
+static inline int32_t intern_tbl_map_of_root(intern_tbl_t *tbl, term_t r) {
+  assert(is_pos_term(r) && intern_tbl_is_root(tbl, r));
+  return ai32_read(&tbl->map, index_of(r)) & INT32_MAX;
+}
 
 
 /*
  * Map r to object x
  * - x must be non-negative and strictly smaller than INT32_MAX
- *   the low order bit of x is interpreted as a polarity bit.
- * - r must be a root, not mapped to anything yet
+ * - r must be a root, not mapped to anything yet, and must have positive
+ *   polarity.
  */
 extern void intern_tbl_map_root(intern_tbl_t *tbl, term_t r, int32_t x);
 
@@ -185,7 +198,7 @@ extern void intern_tbl_map_root(intern_tbl_t *tbl, term_t r, int32_t x);
 
 /*
  * Check whether r is a free root:
- * - r must be a root
+ * - r must be a root (may have negative polarity)
  * - if r is in the table, return true if rank[r] < 255, 
  *   otherwise, return true if r is uninterpreted.
  */
@@ -195,6 +208,7 @@ extern bool intern_tbl_root_is_free(intern_tbl_t *tbl, term_t r);
 /*
  * Check whether the substitution [r1 := r2] is valid
  * - both r1 and r2 must be roots and they must have compatible types.
+ * - r1 must have positive polarity.
  * - r2 must not be a constant term.
  * - returns true if r1 is a free root, and the substitution does not 
  *   create a cycle.
@@ -207,6 +221,7 @@ extern bool intern_tbl_valid_subst(intern_tbl_t *tbl, term_t r1, term_t r2);
 /*
  * Check whether the substitution [r1 := r2] is valid. 
  * - r1 must be a root and r2 must be a constant
+ * - r1 must have positive polarity
  * - returns true if r1 is a free root and 
  *   if r2's type is a subtype of r1's class type.
  *
@@ -223,8 +238,8 @@ extern void intern_tbl_add_subst(intern_tbl_t *tbl, term_t r1, term_t r2);
 
 
 /*
- * Merge the classes of r1 and r2
- * - both r1 and r2 must be free roots and have compatible types
+ * Merge the classes of r1 and r2 
+ * - both r1 and r2 must be free roots of positive polarity and have compatible types
  *
  * This adds either the substitution [r1 := r2] or [r2 := r1]
  */

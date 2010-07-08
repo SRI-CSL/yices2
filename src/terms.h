@@ -744,7 +744,7 @@ extern term_t get_term_by_name(term_table_t *table, char *name);
  * - if name is not in the symbol table, nothing is done
  * - if name is mapped to a term t, then the mapping [name -> t]
  *   is removed. If name was mapped to a previous term t' then
- *   that mappeing is restored.
+ *   that mapping is restored.
  *
  * If name is the base name of a term t, then that remains unchanged.
  */
@@ -761,7 +761,7 @@ extern char *term_name(term_table_t *table, term_t t);
 /*
  * Clear name: remove t's base name if any.
  * - If t has name 'xxx' then 'xxx' is first removed from the symbol
- *   table (using remove_type_name) then t's base name is erased.
+ *   table (using remove_term_name) then t's base name is erased.
  *   The reference counter for 'xxx' is decremented twice.
  * - If t doesn't have a base name, nothing is done.
  */
@@ -1102,6 +1102,12 @@ static inline bool is_tuple_term(term_table_t *table, term_t t) {
 }
 
 
+// Bitsize of term t
+static inline uint32_t term_bitsize(term_table_t *table, term_t t) {
+  return bitsize_for_idx(table, index_of(t));
+}
+
+
 // Check whether t is if-then-else
 static inline bool is_ite_kind(term_kind_t tag) {
   return tag == ITE_TERM || tag == ITE_SPECIAL;
@@ -1109,16 +1115,6 @@ static inline bool is_ite_kind(term_kind_t tag) {
 
 static inline bool is_ite_term(term_table_t *table, term_t t) {
   return is_ite_kind(term_kind(table, t));
-}
-
-
-// Check whether t is a constant
-static inline bool is_const_kind(term_kind_t tag) {
-  return CONSTANT_TERM <= tag && tag <= BV_CONSTANT;
-}
-
-static inline bool is_const_term(term_table_t *table, term_t t) {
-  return is_const_kind(term_kind(table, t));
 }
 
 
@@ -1132,10 +1128,28 @@ static inline bool is_atomic_term(term_table_t *table, term_t t) {
 }
 
 
-// Bitsize of term t
-static inline uint32_t term_bitsize(term_table_t *table, term_t t) {
-  return bitsize_for_idx(table, index_of(t));
+// Check whether t is atomic and constant
+static inline bool is_const_kind(term_kind_t tag) {
+  return CONSTANT_TERM <= tag && tag <= BV_CONSTANT;
 }
+
+static inline bool is_const_term(term_table_t *table, term_t t) {
+  return is_const_kind(term_kind(table, t));
+}
+
+
+/*
+ * Check whether t is a constant tuple
+ * - t must be a tuple term
+ */
+extern bool is_constant_tuple(term_table_t *table, term_t t);
+
+
+/*
+ * Generic version: return true if t is an atomic constant
+ * or a constant tuple.
+ */
+extern bool is_constant_term(term_table_t *table, term_t t);
 
 
 

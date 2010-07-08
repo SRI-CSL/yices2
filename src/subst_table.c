@@ -194,7 +194,8 @@ term_t find_subst_value(subst_table_t *subst, term_t t) {
 static void partition_add(subst_table_t *subst, term_t t) {
   type_t tau;
 
-  assert(ai32_read(&subst->parent, t) == NULL_TERM &&
+  assert(is_pos_term(t) && 
+	 ai32_read(&subst->parent, t) == NULL_TERM &&
 	 term_kind(subst->terms, t) == UNINTERPRETED_TERM);
 
   tau = term_type(subst->terms, t);
@@ -207,7 +208,7 @@ static void partition_add(subst_table_t *subst, term_t t) {
 /*
  * Add t to the partition as a frozen class
  * - t must not be present already
- * - this creates a singleton class as above, but rank[t] = 255
+ * - this creates a singleton class as above, but with rank[t] = 255.
  */
 static void partition_add_root(subst_table_t *subst, term_t t) {
   type_t tau;

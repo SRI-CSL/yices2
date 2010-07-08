@@ -2720,6 +2720,60 @@ pprod_t **pprods_for_poly(term_table_t *table, polynomial_t *p) {
 
 
 
+/********************
+ *  CONSTANT TERMS  *
+ *******************/
+
+/*
+ * Check whether t is a constant tuple.
+ *
+ * This uses a naive recursion without marking so subterms of t may be
+ * visited many times (there's a risk of exponential cost). That
+ * should not be a problem in practice unless people use deeply nested
+ * tuples of tuples of tuples ...
+ */
+bool is_constant_tuple(term_table_t *table, term_t t) {
+  composite_term_t *tup;
+  term_kind_t tag;
+  uint32_t i, n;
+
+  tup = tuple_term_desc(table, t);
+  n = tup->arity;
+
+  // first pass: avoid recursive calls
+  for (i=0; i<n; i++) {
+    tag = term_kind(table, tup->arg[i]);
+    if (! is_const_kind(tag) && tag != TUPLE_TERM) {
+      return false;
+    }
+  }
+
+  // second pass: recursively check all subterms
+  for (i=0; i<n; i++) {
+    if (! is_const_term(table, tup->arg[i]) && 
+	! is_constant_tuple(table, tup->arg[i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+
+/*
+ * Generic version: return true if t is an atomic constant
+ * or a constant tuple.
+ */
+bool is_constant_term(term_table_t *table, term_t t) {
+  return is_const_term(table, t) || 
+    (term_kind(table, t) == TUPLE_TERM && is_constant_tuple(table, t));
+}
+
+
+
+
+
 /***********************
  * GARBAGE COLLECTION  *
  **********************/
