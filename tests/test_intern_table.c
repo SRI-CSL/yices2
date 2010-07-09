@@ -183,7 +183,7 @@ static void add_base_types(test_store_t *s) {
  */
 static void add_random_types(test_store_t *s, uint32_t n) {
   uint32_t i;
-  type_t aux[2];
+  type_t aux[4];
   type_t tau, sigma;
   ivector_t buffer;
 
@@ -205,7 +205,6 @@ static void add_random_types(test_store_t *s, uint32_t n) {
       tau = yices_tuple_type(3, aux);
       break;
 
-
     case 2:
       // unary functions
       multi_sample_vector(&s->types, aux, 1);
@@ -219,7 +218,12 @@ static void add_random_types(test_store_t *s, uint32_t n) {
       sigma = sample_vector(&s->types);
       tau = yices_function_type(2, aux, sigma);
       break;
+
+    default:
+      assert(false);
+      break;
     }
+
     ivector_push(&buffer, tau); 
   }
 
