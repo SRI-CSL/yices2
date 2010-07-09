@@ -218,10 +218,6 @@ static void add_random_types(test_store_t *s, uint32_t n) {
       sigma = sample_vector(&s->types);
       tau = yices_function_type(2, aux, sigma);
       break;
-
-    default:
-      assert(false);
-      break;
     }
 
     ivector_push(&buffer, tau); 
