@@ -583,7 +583,7 @@ bool intern_tbl_valid_subst(intern_tbl_t *tbl, term_t r1, term_t r2) {
   assert(is_pos_term(r1) && 
 	 intern_tbl_is_root(tbl, r1) && 
 	 intern_tbl_is_root(tbl, r2) && 
-	 !is_const_term(tbl->terms, r2));
+	 !is_constant_term(tbl->terms, r2));
 
 
   return intern_tbl_root_is_free(tbl, r1) && ! bfs_occurs_check(tbl, r1, r2);
@@ -607,7 +607,7 @@ bool intern_tbl_valid_const_subst(intern_tbl_t *tbl, term_t r1, term_t r2) {
   assert(is_pos_term(r1) && 
 	 intern_tbl_is_root(tbl, r1) &&
 	 intern_tbl_is_root(tbl, r2) &&
-	 is_const_term(tbl->terms, r2));
+	 is_constant_term(tbl->terms, r2));
 
   ok = false;
 

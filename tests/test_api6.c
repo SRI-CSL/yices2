@@ -1,6 +1,7 @@
 /*
- * TEST PARSER FUNCTIONS
+ * TEST THE PARSER FUNCTIONS
  */
+
 /*
  * Force assert to work even if compiled with debug disabled
  */

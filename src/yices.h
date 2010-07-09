@@ -1183,9 +1183,9 @@ __YICES_DLLSPEC__ extern term_t yices_bvslt_atom(term_t t1, term_t t2);  // t1 <
  * - convert an input string s to a type or term.
  * - s must be terminated by '\0'
  *
- * The parsing function return NULL_TYPE or NULL_TERM if there's
- * an error and set the error report. The line/column of the error
- * give information about the error location.
+ * The parsing function return NULL_TYPE or NULL_TERM if there's an
+ * error and set the error report. The line and column fields of the
+ * error report give information about the error location.
  */
 __YICES_DLLSPEC__ extern type_t yices_parse_type(char *s);
 __YICES_DLLSPEC__ extern term_t yices_parse_term(char *s);
@@ -1260,8 +1260,6 @@ __YICES_DLLSPEC__ extern type_t yices_type_of_term(term_t t);
  * - term_is_int check whether t's type is int 
  * If t is not a valid term, the check functions return false
  * and set the error report as above.
- *
- * 
  */
 __YICES_DLLSPEC__ extern int32_t yices_term_is_bool(term_t t);
 __YICES_DLLSPEC__ extern int32_t yices_term_is_int(term_t t);
