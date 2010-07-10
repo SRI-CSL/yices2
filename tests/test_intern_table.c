@@ -11,6 +11,7 @@
 
 #include "yices.h"
 #include "yices_globals.h"
+#include "yices_pp.h"
 #include "type_printer.h"
 #include "term_printer.h"
 
@@ -296,16 +297,16 @@ static void add_base_constants(test_store_t *s) {
 
 
 /*
- * Add n variables of type tau, named pref<0> to pref<n-1>
+ * Add n variables of type tau, named pref<k> to pref<k+n-1>
  */
-static void add_variables_of_type(test_store_t *s, uint32_t n, type_t tau, char *pref) {
+static void add_variables_of_type(test_store_t *s, uint32_t n, type_t tau, char *pref, uint32_t k) {
   uint32_t i;
   term_t t;
 
   for (i=0; i<n; i++) {
     string_buffer_reset(&string_buffer);
     string_buffer_append_string(&string_buffer, pref);
-    string_buffer_append_uint32(&string_buffer, i);
+    string_buffer_append_uint32(&string_buffer, k+i);
     string_buffer_close(&string_buffer);
 
     t = yices_new_uninterpreted_term(tau);
@@ -320,26 +321,31 @@ static void add_variables_of_type(test_store_t *s, uint32_t n, type_t tau, char 
  * Create n uninterpreted terms of base types and other types in s->types
  */
 static void add_variables(test_store_t *s, uint32_t n) {
+  uint32_t tup_base, fun_base;
   uint32_t i, k;
   type_t tau;
 
-  add_variables_of_type(s, n, yices_bool_type(), "p");
-  add_variables_of_type(s, n, yices_int_type(),  "i");
-  add_variables_of_type(s, n, yices_real_type(), "x");
-  add_variables_of_type(s, n, yices_bv_type(1),  "u");
-  add_variables_of_type(s, n, yices_bv_type(32), "v");
-  add_variables_of_type(s, n, yices_bv_type(65), "w");
-  add_variables_of_type(s, n, unint1, "a");
-  add_variables_of_type(s, n, unint2, "b");
-  add_variables_of_type(s, n, compass, "c");
+  add_variables_of_type(s, n, yices_bool_type(), "p", 0);
+  add_variables_of_type(s, n, yices_int_type(),  "i", 0);
+  add_variables_of_type(s, n, yices_real_type(), "x", 0);
+  add_variables_of_type(s, n, yices_bv_type(1),  "u", 0);
+  add_variables_of_type(s, n, yices_bv_type(32), "v", 0);
+  add_variables_of_type(s, n, yices_bv_type(65), "w", 0);
+  add_variables_of_type(s, n, unint1, "a", 0);
+  add_variables_of_type(s, n, unint2, "b", 0);
+  add_variables_of_type(s, n, compass, "c", 0);
 
+  tup_base = 0;
+  fun_base = 0;
   k = s->types.size;
   for (i=0; i<k; i++) {
     tau = s->types.data[i];
     if (is_tuple_type(__yices_globals.types, tau)) {
-      add_variables_of_type(s, n, tau, "tup");
+      add_variables_of_type(s, n, tau, "r", tup_base);
+      tup_base += n;
     } else if (is_function_type(__yices_globals.types, tau)) {
-      add_variables_of_type(s, n, tau, "f");
+      add_variables_of_type(s, n, tau, "f", fun_base);
+      fun_base += n;
     }
   }
 }
@@ -472,7 +478,7 @@ static term_t random_term_of_subtype(ivector_t *v, type_t tau) {
     }
   }
 
-  return t;
+  return pick;
 }
 
 
@@ -1082,73 +1088,99 @@ static term_t random_bvslt(test_store_t *s) {
 
 
 
+
 /*
- * A random term using one of the above constructors
+ * Table to select one of the above constructors
+ * Each record in the table contains:
+ * - function pointer
+ * - name 
+ * - weight
+ * The probability of selecting i is weight[i]/sum of all weights
+ * - sum of all weights = 10000 (50 * 200)
  */
 typedef term_t (*rand_cnstr_t)(test_store_t *s);
 
+typedef struct rand_desc_s {
+  rand_cnstr_t fun;
+  char *name;
+  uint32_t weight;
+} rand_desc_t;
+
 #define NUM_RAND_CONSTRUCTORS 50
 
-static const rand_cnstr_t random_constr[NUM_RAND_CONSTRUCTORS] = {
-  random_ite,
-  random_apply,
-  random_eq,
-  random_or,
-  random_and,
-  random_xor,
-  random_pair,
-  random_triple,
-  random_select,
-  random_update,
-  random_distinct,
-  random_add,
-  random_sub,
-  random_neg,
-  random_mul,
-  random_square,
-  random_geq,
-  random_leq,
-  random_gt,
-  random_lt,
-  random_bvadd,
-  random_bvsub,
-  random_bvneg,
-  random_bvmul,
-  random_bvsquare,
-  random_bvdiv,
-  random_bvrem,
-  random_bvsdiv,
-  random_bvsrem,
-  random_bvnot,
-  random_bvand,
-  random_bvor,
-  random_bvxor,
-  random_bvshl,
-  random_bvlshr,
-  random_bvashr,
-  random_bvconcat,
-  random_bvextract,
-  random_sign_extend,
-  random_zero_extend,
-  random_bvarray,
-  random_bitextract,
-  random_bvge,
-  random_bvle,
-  random_bvgt,
-  random_bvlt,
-  random_bvsge,
-  random_bvsle,
-  random_bvsgt,
-  random_bvslt,
+static const rand_desc_t random_constr[NUM_RAND_CONSTRUCTORS] = {
+  { random_ite, "random_ite", 500 },
+  { random_apply, "random_apply", 500 },
+  { random_eq, "random_eq", 500 },
+  { random_update, "random_update", 300 },
+  { random_distinct, "random_distinct", 200 },  // 2000
+
+  { random_or, "random_or", 400 },
+  { random_and, "random_and", 400 },
+  { random_xor, "random_xor", 200 }, // 1000
+
+  { random_pair, "random_pair", 250 },
+  { random_triple, "random_triple", 250 },
+  { random_select, "random_select", 500 }, // 1000
+
+  { random_add, "random_add", 500 }, 
+  { random_sub, "random_sub", 500 },
+  { random_neg, "random_neg", 500 },
+  { random_mul, "random_mul", 300 },
+  { random_square, "random_square", 200 }, // 2000
+
+  { random_geq, "random_geq", 250 },
+  { random_leq, "random_leq", 250 },
+  { random_gt, "random_gt", 250 },
+  { random_lt, "random_lt", 250 },        // 1000
+
+  { random_bvadd, "random_bvadd", 150 },
+  { random_bvsub, "random_bvsub", 150 },
+  { random_bvneg, "random_bvneg", 150 },
+  { random_bvmul, "random_bvmul", 150 },
+  { random_bvsquare, "random_bvsquare", 50 },
+  { random_bvdiv, "random_bvdiv", 50 },
+  { random_bvrem, "random_bvrem", 50 },
+  { random_bvsdiv, "random_bvsdiv", 50 },
+  { random_bvsrem, "random_bvsrem", 50 },
+  { random_bvnot, "random_bvnot",  100 },
+  { random_bvand, "random_bvand", 100 },
+  { random_bvor, "random_bvor", 100 },
+  { random_bvxor, "random_bvxor", 100 },
+  { random_bvshl, "random_bvshl", 100 },
+  { random_bvlshr, "random_bvlshr", 75 },
+  { random_bvashr, "random_bvashr", 75 },
+  { random_bvconcat, "random_bvconcat", 100 },
+  { random_bvextract, "random_bvextract", 100 },
+  { random_sign_extend, "random_sign_extend", 100 },
+  { random_zero_extend, "random_zero_extend", 100 },
+  { random_bvarray, "random_bvarray", 50 },
+  { random_bitextract, "random_bitextract", 50 }, // 2000
+
+  { random_bvge, "random_bvge", 125 },
+  { random_bvle, "random_bvle", 125 },
+  { random_bvgt, "random_bvgt", 125 },
+  { random_bvlt, "random_bvlt", 125 },
+  { random_bvsge, "random_bvsge", 125 },
+  { random_bvsle, "random_bvsle", 125 },
+  { random_bvsgt, "random_bvsgt", 125 },
+  { random_bvslt, "random_bvslt", 125 },   // 1000 
 };
 
 
 static term_t make_random_term(test_store_t *s) {
-  uint32_t i;
+  uint32_t k, i, sum;
 
-  i = ((uint32_t) random()) % NUM_RAND_CONSTRUCTORS;
+  k = ((uint32_t) random()) % 10000;
+  i = 0;
+  sum = random_constr[0].weight;
+  while (sum < k) {
+    i ++;
+    assert(i < NUM_RAND_CONSTRUCTORS);
+    sum += random_constr[i].weight;
+  }
 
-  return random_constr[i](s);
+  return random_constr[i].fun(s);
 }
 
 
@@ -1178,36 +1210,217 @@ static void add_random_terms(test_store_t *s, uint32_t n) {
 
 
 
-
 /*
- * Global store + internalization table
+ * GLOBAL STORE
  */
 static test_store_t store;
-static intern_tbl_t intern;
 
 
-int main() {
-  yices_init();
-
+/*
+ * Top-level store initialization:
+ * - ntypes = number of random types
+ * - nvars = number of variables per type
+ * - nterms = number of random terms
+ */
+static void build_store(uint32_t ntypes, uint32_t nvars, uint32_t nterms) {
   init_string_buffer(&string_buffer, 40);
   init_store(&store);
   add_base_types(&store);
-  add_random_types(&store, 30);
+  add_random_types(&store, ntypes);
   add_base_constants(&store);
-  add_variables(&store, 4);
+  add_variables(&store, nvars);
   collect_vars_and_constants(&store);
-  add_random_terms(&store, 10000);
+  add_random_terms(&store, nterms);
 
   show_types();
   show_terms();
+}
+
+
+/*
+ * Delete the whole thing
+ */
+static void close_store(void) {
+  delete_store(&store);
+  delete_string_buffer(&string_buffer);
+}
+
+
+
+
+
+
+/*
+ * INTERNALIZATION TABLE
+ */
+
+/*
+ * Print the substitutions
+ */
+static void show_subst(yices_pp_t *printer, intern_tbl_t *tbl) {
+  term_table_t *terms;
+  uint32_t i, n;
+  term_t t, r;
+
+  terms = __yices_globals.terms;
+  n = tbl->map.top; // number of terms in tbl->map
+  for (i=0; i<n; i++) {
+    if (good_term_idx(terms, i) && !intern_tbl_is_root_idx(tbl, i)) {
+      t = pos_term(i);
+      r = intern_tbl_find_root(tbl, t);
+      pp_open_block(printer, PP_OPEN);
+      pp_term_name(printer, terms, t);
+      pp_string(printer, " -> ");
+      pp_term(printer, terms, r);
+      pp_close_block(printer, false);
+    }
+  }
+}
+
+
+/*
+ * Print the internalization mapping
+ */
+static void show_mapping(yices_pp_t *printer, intern_tbl_t *tbl) {
+  term_table_t *terms;
+  type_table_t *types;
+  uint32_t i, n;
+  term_t r;
+  int32_t k;
+  type_t tau;
+
+  terms = __yices_globals.terms;
+  types = __yices_globals.types;
+
+  n = tbl->map.top; // number of terms in tbl->map
+  for (i=0; i<n; i++) {
+    if (good_term_idx(terms, i) && intern_tbl_is_root_idx(tbl, i)) {
+      r = pos_term(i);
+      if (intern_tbl_root_is_mapped(tbl, r)) {
+	k = intern_tbl_map_of_root(tbl, r);
+	tau = intern_tbl_type_of_root(tbl, r);
+
+	pp_open_block(printer, PP_OPEN);
+	pp_term_name(printer, terms, r);
+	pp_string(printer, " mapped to ");
+	pp_int32(printer, k);
+	pp_string(printer, " type ");
+	pp_type(printer, types, tau);
+	pp_close_block(printer, false);
+      }
+    }
+  }  
+}
+
+
+
+/*
+ * Print the full table
+ */
+static void pp_intern_tbl(FILE *f, intern_tbl_t *tbl) {
+  yices_pp_t printer;
+  pp_area_t area;
+
+  area.width = 120;
+  area.height = UINT32_MAX;
+  area.offset = 0;
+  area.stretch = false;
+  area.truncate = true;
+
+  init_default_yices_pp(&printer, f, &area);
+  show_subst(&printer, tbl);
+  show_mapping(&printer, tbl);
+  delete_yices_pp(&printer);
+}
+
+
+/*
+ * Add substitution x := t to the table if it's valid
+ */
+static void test_subst(intern_tbl_t *tbl) {
+  term_t x, t;
+
+  x = sample_vector(&store.vars); // random variable
+  t = random_compatible_term(&store.terms, x); // term of compatible type
+
+  printf("\ntesting subst: ");
+  print_term_name(stdout, __yices_globals.terms, x);
+  printf(" := ");
+  print_term(stdout, __yices_globals.terms, t);
+  printf("\n");
+
+  x = intern_tbl_get_root(tbl, x);
+  t = intern_tbl_get_root(tbl, t);
+  if (is_constant_term(__yices_globals.terms, t)) {
+    if (intern_tbl_valid_const_subst(tbl, x, t)) {
+      printf("good constant substitution\n");
+      intern_tbl_add_subst(tbl, x, t);
+    } else {
+      printf("invaid constant substitution\n");
+    }
+  } else {
+    if (intern_tbl_valid_subst(tbl, x, t)) {
+      printf("good substitution\n");
+      intern_tbl_add_subst(tbl, x, t);
+    } else {
+      printf("invalid substitution\n");
+    }
+  }  
+}
+
+
+
+/*
+ * Test subst n times
+ */
+static void repeat_test_subst(intern_tbl_t *tbl, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    test_subst(tbl);
+  }
+
+  printf("\n---\nNew intern table\n");
+  pp_intern_tbl(stdout, tbl);
+  printf("---\n\n");
+}
+
+
+static intern_tbl_t intern;
+
+
+int main(void) {
+  yices_init();
+  build_store(10, 4, 10000);
 
   init_intern_tbl(&intern, 0, __yices_globals.terms);
 
+  printf("\nINITIAL\n");
+  pp_intern_tbl(stdout, &intern);
+  repeat_test_subst(&intern, 10);
+  repeat_test_subst(&intern, 10);
+
+  printf("\nPUSH\n");
+  intern_tbl_push(&intern);
+  repeat_test_subst(&intern, 10);
+  repeat_test_subst(&intern, 10);
+
+  printf("\nPUSH\n");
+  intern_tbl_push(&intern);
+  repeat_test_subst(&intern, 10);
+  repeat_test_subst(&intern, 10);
+  
+  printf("\nPOP\n");
+  intern_tbl_pop(&intern);
+  pp_intern_tbl(stdout, &intern);
+
+  printf("\nPOP\n");
+  intern_tbl_pop(&intern);
+  pp_intern_tbl(stdout, &intern);
 
   delete_intern_tbl(&intern);
 
-  delete_store(&store);
-  delete_string_buffer(&string_buffer);
+  close_store();
   yices_exit();
 
   return 0;

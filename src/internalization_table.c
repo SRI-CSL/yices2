@@ -173,7 +173,7 @@ static term_t intern_tbl_root_pos(intern_tbl_t *tbl, term_t t) {
     return t;
   }
 
-  z = ai32_get(&tbl->map, index_of(y));
+  z = ai32_read(&tbl->map, index_of(y));
   if (z < 0) { // y is t's parent and it's a root
     return y;
   }
@@ -181,7 +181,7 @@ static term_t intern_tbl_root_pos(intern_tbl_t *tbl, term_t t) {
   // find the root
   do {
     y = z;
-    z = ai32_get(&tbl->map, index_of(y));
+    z = ai32_read(&tbl->map, index_of(y));
   } while (z >= 0);
 
   // y is the root: perform path compression starting from t
@@ -215,7 +215,7 @@ static term_t intern_tbl_find_root_pos(intern_tbl_t *tbl, term_t t) {
   y = ai32_read(&tbl->map, index_of(t));
   while (y >= 0) {
     t = y;
-    y = ai32_get(&tbl->map, index_of(t));
+    y = ai32_read(&tbl->map, index_of(t));
   }
 
   return t;
@@ -279,7 +279,7 @@ bool intern_tbl_root_is_free(intern_tbl_t *tbl, term_t r) {
   assert(intern_tbl_is_root(tbl, r));
 
   if (intern_tbl_term_present(tbl, r)) {
-    return au8_read(&tbl->rank, r) < 255;
+    return au8_read(&tbl->rank, index_of(r)) < 255;
   } else {
     return is_pos_term(r) && term_kind(tbl->terms, r) == UNINTERPRETED_TERM;
   }
@@ -361,7 +361,7 @@ type_t intern_tbl_type_of_root(intern_tbl_t *tbl, term_t r) {
 
 
 /*
- * Add the mapping r --> x 
+ * Add the mapping r --> x then freeze r
  * - x must be non-negative and strictly smaller than INT32_MAX
  * - r must be a root, not mapped to anything yet, and must have positive
  *   polarity.
@@ -370,8 +370,18 @@ void intern_tbl_map_root(intern_tbl_t *tbl, term_t r, int32_t x) {
   assert(0 <= x && x < INT32_MAX &&
 	 is_pos_term(r) && ai32_read(&tbl->map, index_of(r)) == NULL_MAP);
 
+  // Freeze r and record its type if needed
+  if (! intern_tbl_term_present(tbl, r)) {
+    partition_add_frozen(tbl, r);
+  } else if (au8_read(&tbl->rank, index_of(r)) < 255) {
+    au8_write(&tbl->rank, index_of(r), 255);
+  }
+
+  // add the mapping
   ai32_write(&tbl->map, index_of(r), (INT32_MIN|x));
-  assert(intern_tbl_map_of_root(tbl, r) == x);
+
+  assert(intern_tbl_map_of_root(tbl, r) == x && 
+	 intern_tbl_is_root(tbl, r) && !intern_tbl_root_is_free(tbl, r));
 }
 
 

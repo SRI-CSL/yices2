@@ -66,7 +66,7 @@ typedef struct array_trail_s {
  *   array[i] = map[i]  if 0 <= i < top
  *   array[i] = def if top <= i
  * - backtop = top of the array on the preceding push
- *   a write a index i requires saveing the previous a[i]
+ *   a write at index i requires saving the previous a[i]
  *   only if i < backtop.
  * - size is the total size of map (as allocated)
  * - invariant backtop <= top <= size holds
