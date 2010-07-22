@@ -278,10 +278,12 @@ static inline bool intern_tbl_term_present(intern_tbl_t *tbl, term_t t) {
 bool intern_tbl_root_is_free(intern_tbl_t *tbl, term_t r) {
   assert(intern_tbl_is_root(tbl, r));
 
-  if (intern_tbl_term_present(tbl, r)) {
+  if (is_neg_term(r)) {
+    return false;
+  } else if (intern_tbl_term_present(tbl, r)) {
     return au8_read(&tbl->rank, index_of(r)) < 255;
   } else {
-    return is_pos_term(r) && term_kind(tbl->terms, r) == UNINTERPRETED_TERM;
+    return term_kind(tbl->terms, r) == UNINTERPRETED_TERM;
   }
 }
 
@@ -438,29 +440,57 @@ static void bfs_visit_pprod(intern_tbl_t *tbl, pprod_t *p) {
 }
 
 static void bfs_visit_poly(intern_tbl_t *tbl, polynomial_t *p) {
+  monomial_t *m;
   uint32_t i, n;
 
   n = p->nterms;
+  m = p->mono;
+
+  // skip the constant if any
+  assert(n > 0);
+  if (m[0].var == const_idx) {
+    m ++;
+    n --;
+  }
+
   for (i=0; i<n; i++) {
-    bfs_visit_term(tbl, p->mono[i].var);
+    bfs_visit_term(tbl, m[i].var);
   }
 }
 
 static void bfs_visit_bvpoly(intern_tbl_t *tbl, bvpoly_t *p) {
+  bvmono_t *m;
   uint32_t i, n;
 
   n = p->nterms;
+  m = p->mono;
+
+  assert(n > 0);
+  if (m[0].var == const_idx) {
+    m ++;
+    n --;
+  }
+
   for (i=0; i<n; i++) {
-    bfs_visit_term(tbl, p->mono[i].var);
+    bfs_visit_term(tbl, m[i].var);
   }
 }
 
 static void bfs_visit_bvpoly64(intern_tbl_t *tbl, bvpoly64_t *p) {
+  bvmono64_t *m;
   uint32_t i, n;
 
+  m = p->mono;
   n = p->nterms;
+
+  assert(n > 0);
+  if (m[0].var == const_idx) {
+    m ++;
+    n --;
+  }
+
   for (i=0; i<n; i++) {
-    bfs_visit_term(tbl, p->mono[i].var);
+    bfs_visit_term(tbl, m[i].var);
   }
 }
 

@@ -992,6 +992,9 @@ static void print_token(printer_t *p, void *tk) {
     assert(false);
     break;
   }
+
+  // for debugging
+  fflush(p->file);
 }
 
 

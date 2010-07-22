@@ -1232,8 +1232,8 @@ static void build_store(uint32_t ntypes, uint32_t nvars, uint32_t nterms) {
   collect_vars_and_constants(&store);
   add_random_terms(&store, nterms);
 
-  show_types();
-  show_terms();
+  //  show_types();
+  //  show_terms();
 }
 
 
@@ -1273,6 +1273,7 @@ static void show_subst(yices_pp_t *printer, intern_tbl_t *tbl) {
       pp_string(printer, " -> ");
       pp_term(printer, terms, r);
       pp_close_block(printer, false);
+      flush_yices_pp(printer);
     }
   }
 }
@@ -1302,11 +1303,12 @@ static void show_mapping(yices_pp_t *printer, intern_tbl_t *tbl) {
 
 	pp_open_block(printer, PP_OPEN);
 	pp_term_name(printer, terms, r);
-	pp_string(printer, " mapped to ");
+	pp_string(printer, "\tmapped to ");
 	pp_int32(printer, k);
 	pp_string(printer, " type ");
 	pp_type(printer, types, tau);
 	pp_close_block(printer, false);
+	flush_yices_pp(printer);
       }
     }
   }  
@@ -1329,6 +1331,7 @@ static void pp_intern_tbl(FILE *f, intern_tbl_t *tbl) {
 
   init_default_yices_pp(&printer, f, &area);
   show_subst(&printer, tbl);
+  printf("\n");
   show_mapping(&printer, tbl);
   delete_yices_pp(&printer);
 }
@@ -1352,22 +1355,26 @@ static void test_subst(intern_tbl_t *tbl) {
   x = intern_tbl_get_root(tbl, x);
   t = intern_tbl_get_root(tbl, t);
   if (is_constant_term(__yices_globals.terms, t)) {
-    if (intern_tbl_valid_const_subst(tbl, x, t)) {
+    if (is_pos_term(x) && intern_tbl_valid_const_subst(tbl, x, t)) {
       printf("good constant substitution\n");
       intern_tbl_add_subst(tbl, x, t);
     } else {
       printf("invaid constant substitution\n");
     }
   } else {
-    if (intern_tbl_valid_subst(tbl, x, t)) {
-      printf("good substitution\n");
-      intern_tbl_add_subst(tbl, x, t);
+    if (is_pos_term(x) && intern_tbl_valid_subst(tbl, x, t)) {
+      if (intern_tbl_root_is_free(tbl, t)) {
+	printf("variable merging\n");
+	intern_tbl_merge_classes(tbl, x, t);
+      } else {
+	printf("good substitution\n");
+	intern_tbl_add_subst(tbl, x, t);
+      }
     } else {
       printf("invalid substitution\n");
     }
   }  
 }
-
 
 
 /*
@@ -1386,12 +1393,56 @@ static void repeat_test_subst(intern_tbl_t *tbl, uint32_t n) {
 }
 
 
+
+/*
+ * Select a random term and map it to integer x
+ */
+static void test_map(intern_tbl_t *tbl, int32_t x) {
+  term_t t;
+
+  t = sample_vector(&store.terms);
+
+  printf("\ntesting map: ");
+  print_term_name(stdout, __yices_globals.terms, t);
+  printf(" --> %"PRId32"\n", x);
+  
+  t = intern_tbl_get_root(tbl, t);
+  if (is_neg_term(t)) {
+    printf("invalid map: root ");
+    print_term_name(stdout, __yices_globals.terms, t);
+    printf(" has negative polarity\n");
+  } else if (intern_tbl_root_is_mapped(tbl, t)) {
+    printf("invalid map: root ");
+    print_term_name(stdout, __yices_globals.terms, t);
+    printf(" is already mapped to %"PRId32"\n", intern_tbl_map_of_root(tbl, t));
+  } else {
+    printf("good map\n");
+    intern_tbl_map_root(tbl, t, x);
+  }
+} 
+
+/*
+ * Internalize n terms (map them to integers)
+ */
+static void repeat_test_map(intern_tbl_t *tbl, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    test_map(tbl, i);
+  }
+
+  printf("\n---\nNew intern table\n");
+  pp_intern_tbl(stdout, tbl);
+  printf("---\n\n");
+}
+
+
 static intern_tbl_t intern;
 
 
 int main(void) {
   yices_init();
-  build_store(10, 4, 10000);
+  build_store(10, 10, 10000);
 
   init_intern_tbl(&intern, 0, __yices_globals.terms);
 
@@ -1400,16 +1451,25 @@ int main(void) {
   repeat_test_subst(&intern, 10);
   repeat_test_subst(&intern, 10);
 
+  repeat_test_map(&intern, 100);
+  repeat_test_map(&intern, 100);
+
   printf("\nPUSH\n");
   intern_tbl_push(&intern);
   repeat_test_subst(&intern, 10);
   repeat_test_subst(&intern, 10);
+
+  repeat_test_map(&intern, 100);
+  repeat_test_map(&intern, 100);
 
   printf("\nPUSH\n");
   intern_tbl_push(&intern);
   repeat_test_subst(&intern, 10);
   repeat_test_subst(&intern, 10);
   
+  repeat_test_map(&intern, 100);
+  repeat_test_map(&intern, 100);
+
   printf("\nPOP\n");
   intern_tbl_pop(&intern);
   pp_intern_tbl(stdout, &intern);
@@ -1417,6 +1477,27 @@ int main(void) {
   printf("\nPOP\n");
   intern_tbl_pop(&intern);
   pp_intern_tbl(stdout, &intern);
+
+  printf("\nRESET\n");
+  reset_intern_tbl(&intern);
+  pp_intern_tbl(stdout, &intern);
+
+  printf("\nPUSH\n");
+  intern_tbl_push(&intern);
+  printf("\nPUSH\n");
+  intern_tbl_push(&intern);
+  printf("\nPUSH\n");
+  intern_tbl_push(&intern);
+  repeat_test_subst(&intern, 20000);
+  printf("\nPOP\n");
+  intern_tbl_pop(&intern);
+  pp_intern_tbl(stdout, &intern);
+  printf("\nPOP\n");
+  intern_tbl_pop(&intern);
+  pp_intern_tbl(stdout, &intern);
+  printf("\nPOP\n");
+  intern_tbl_pop(&intern);
+  pp_intern_tbl(stdout, &intern);  
 
   delete_intern_tbl(&intern);
 
