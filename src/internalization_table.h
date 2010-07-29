@@ -55,7 +55,7 @@
 /*
  * To support push and pop, we use backtrackable arrays.
  * The auxiliary queue and cache are used in "occurs-check"
- * to prevent circular subsitutions.
+ * to prevent circular substitutions.
  */
 typedef struct intern_tbl_s {
   int32_array_t map;
@@ -83,6 +83,7 @@ typedef struct intern_tbl_s {
  * - the table stores the empty mapping
  */
 extern void init_intern_tbl(intern_tbl_t *tbl, uint32_t n, term_table_t *terms);
+
 
 /*
  * Delete: free memory

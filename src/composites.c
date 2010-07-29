@@ -570,7 +570,7 @@ void separate_composite(composite_t *c, elabel_t *label, use_vector_t *u, class_
     if (k >= 0 && c0 != r0) {
       clear_use_vector_entry(u + c0, k);
     }
-  }    
+  }
 }
 
 /*

@@ -123,7 +123,6 @@ static void term_table_init(term_table_t *table, uint32_t n, type_table_t *ttbl,
   // buffers
   init_ivector(&table->ibuffer, 20);
   init_pvector(&table->pbuffer, 20);
-
 }
 
 
@@ -3010,9 +3009,6 @@ void term_table_gc(term_table_t *table) {
   stbl_iterate(&table->stbl, table, mark_symbol);
 
   // mark the primitive terms
-  //  term_table_set_gc_mark(table, const_idx);
-  //  term_table_set_gc_mark(table, bool_const);
-  //  term_table_set_gc_mark(table, zero_const);
   set_bit(table->mark, const_idx);
   set_bit(table->mark, bool_const);
   set_bit(table->mark, zero_const);
