@@ -72,7 +72,7 @@ static matrix_t matrix;
 /*
  * Print a variable
  */
-static void print_arith_var(FILE *f, arith_var_t v) {
+static void print_arith_var(FILE *f, int32_t v) {
   if (0 <= v && v < NUMVARS) {
     fprintf(f, "%s", name[v]);
   } else {
@@ -251,7 +251,7 @@ static uint32_t make_random_poly(uint32_t m, uint32_t d) {
   monarray[i].var = max_idx;
 
   // normalize
-  varsort_monarray(monarray, i);
+  sort_monarray(monarray, i);
   return normalize_monarray(monarray, i);
 }
 

@@ -22,7 +22,7 @@ static inline int random(void) {
 /*
  * Print a monomial (copied from term_printer.c)
  */
-static void print_monomial(thvar_t v, rational_t *coeff, bool first) {
+static void print_monomial(int32_t v, rational_t *coeff, bool first) {
   bool negative;
   bool abs_one;
 

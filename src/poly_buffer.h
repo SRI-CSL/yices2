@@ -1,10 +1,6 @@
 /*
- * Buffer for polynomial construction in an arithmetic solver
- * - a poly_buffer is simpler than arith_buffer_t defined in polynomials.h
- * - it's independent of any arithmetic manager
- * - not all operations from polynomials.h are supported by poly_buffers;
- *   they should be used mostly for internalization of an original polynomial p,
- *   by renaming variables of p to solver variables.
+ * Buffer for polynomial construction in an arithmetic solver.
+ * (Simpler than arith_buffers/Supports only linear arithmetic).
  *
  * The buffer may be normalized or not.
  * - once the buffer is normalized, the monomials are sorted, all coefficients 
@@ -22,7 +18,6 @@
 
 #include "polynomials.h"
 #include "matrices.h"
-#include "egraph_base_types.h"
 
 
 /*
@@ -72,7 +67,6 @@ extern void init_poly_buffer(poly_buffer_t *buffer);
 extern void delete_poly_buffer(poly_buffer_t *buffer);
 
 
-
 /*
  * Reset the buffer: clear all mpq_t numbers it contains
  * and reset it to zero.
@@ -98,19 +92,19 @@ extern void reset_poly_buffer(poly_buffer_t *buffer);
  *
  * The result is not in normal form.
  */
-extern void poly_buffer_add_monomial(poly_buffer_t *buffer, thvar_t x, rational_t *a);
-extern void poly_buffer_sub_monomial(poly_buffer_t *buffer, thvar_t x, rational_t *a);
-extern void poly_buffer_add_var(poly_buffer_t *buffer, thvar_t x);
-extern void poly_buffer_sub_var(poly_buffer_t *buffer, thvar_t x);
-extern void poly_buffer_submul_monomial(poly_buffer_t *buffer, thvar_t x, rational_t *a, rational_t *b);
-extern void poly_buffer_addmul_monomial(poly_buffer_t *buffer, thvar_t x, rational_t *a, rational_t *b);
+extern void poly_buffer_add_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a);
+extern void poly_buffer_sub_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a);
+extern void poly_buffer_add_var(poly_buffer_t *buffer, int32_t x);
+extern void poly_buffer_sub_var(poly_buffer_t *buffer, int32_t x);
+extern void poly_buffer_submul_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a, rational_t *b);
+extern void poly_buffer_addmul_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a, rational_t *b);
 
 
 /*
  * Clear a monomial: make coefficient of x equal to zero
  * - x must be between 0 and max_idx - 1
  */
-extern void poly_buffer_clear_monomial(poly_buffer_t *buffer, thvar_t x);
+extern void poly_buffer_clear_monomial(poly_buffer_t *buffer, int32_t x);
 
 
 /*
@@ -180,7 +174,7 @@ extern void poly_buffer_substitution(poly_buffer_t *buffer, matrix_t *matrix);
  * - if buffer is not normalized, this function returns true if x
  *    occurs with coefficient 0 in buffer.
  */
-static inline bool poly_buffer_has_var(poly_buffer_t *buffer, thvar_t x) {
+static inline bool poly_buffer_has_var(poly_buffer_t *buffer, int32_t x) {
   assert(0 <= x && x < max_idx);
   return x <= buffer->i_size && buffer->index[x] >= 0;
 }
@@ -191,7 +185,7 @@ static inline bool poly_buffer_has_var(poly_buffer_t *buffer, thvar_t x) {
  * - returns NULL if x does not occur in the buffer
  * - IMPORTANT: the pointer may become invalid after the next add/sub/addmul/submul
  */
-extern rational_t *poly_buffer_var_coeff(poly_buffer_t *buffer, thvar_t x);
+extern rational_t *poly_buffer_var_coeff(poly_buffer_t *buffer, int32_t x);
 
 
 /*
@@ -199,8 +193,7 @@ extern rational_t *poly_buffer_var_coeff(poly_buffer_t *buffer, thvar_t x);
  * - x must be between 0 and max_idx.
  * - a is set to zero if x does not occur in buffer
  */
-extern void poly_buffer_copy_var_coeff(poly_buffer_t *buffer, rational_t *a, thvar_t x);
-
+extern void poly_buffer_copy_var_coeff(poly_buffer_t *buffer, rational_t *a, int32_t x);
 
 
 
@@ -214,21 +207,18 @@ extern void poly_buffer_copy_var_coeff(poly_buffer_t *buffer, rational_t *a, thv
 extern void normalize_poly_buffer(poly_buffer_t *buffer);
 
 
-
-
 /*
  * Multiply by -1
  * - this keeps buffer normalized if it is when the function is called
  */
 extern void poly_buffer_negate(poly_buffer_t *buffer);
 
+
 /*
  * Multiply by constant a (a must not be zero)
  * - this keeps the buffer normalized if it is when the function is called
  */
 extern void poly_buffer_rescale(poly_buffer_t *buffer, rational_t *a);
-
-
 
 
 /*
@@ -376,13 +366,13 @@ extern void poly_buffer_get_den_lcm(poly_buffer_t *buffer, rational_t *a);
 /*
  * Check whether the normalized buffer is reduced to a single variable or equal to 1
  * (i.e., if it's 1.x for some variable x, where x may be const_idx)
- * - if so return x, otherwise return null_thvar = -1
+ * - if so return x, otherwise return null_idx = -1
  */
-static inline thvar_t poly_buffer_convert_to_var(poly_buffer_t *buffer) {  
+static inline int32_t poly_buffer_convert_to_var(poly_buffer_t *buffer) {  
   if (buffer->nterms == 1 && q_is_one(&buffer->mono[0].coeff)) {
     return buffer->mono[0].var;
   }
-  return null_thvar;
+  return null_idx;
 }
 
 
@@ -390,9 +380,9 @@ static inline thvar_t poly_buffer_convert_to_var(poly_buffer_t *buffer) {
  * Check whether the non-constant part of buffer is reduced to a single variable 
  * or equal to 0 (i.e., the buffer is either a + x or x, where a
  * is a constant).
- * - if so return x, otherwise return null_thvar = -1
+ * - if so return x, otherwise return null_idx = -1
  */
-extern thvar_t poly_buffer_nonconstant_convert_to_var(poly_buffer_t *buffer);
+extern int32_t poly_buffer_nonconstant_convert_to_var(poly_buffer_t *buffer);
 
 
 /*

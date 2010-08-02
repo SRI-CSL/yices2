@@ -19,6 +19,7 @@
 
 #include "rationals.h"
 #include "polynomial_common.h"
+#include "memalloc.h"
 
 /*
  * Polynomial object:

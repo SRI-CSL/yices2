@@ -73,7 +73,7 @@ void reset_poly_buffer(poly_buffer_t *buffer) {
  * - this makes sure the array is large enough to store index[x]
  * - this must be called only if x >= buffer->i_size
  */
-static void poly_buffer_resize_index(poly_buffer_t *buffer, thvar_t x) {
+static void poly_buffer_resize_index(poly_buffer_t *buffer, int32_t x) {
   int32_t *tmp;
   uint32_t i, n;
 
@@ -145,7 +145,7 @@ static int32_t poly_buffer_alloc_mono(poly_buffer_t *buffer) {
  * Get buffer->index[x] 
  * - if i_size is too small, make the index array large enough
  */
-static inline int32_t poly_buffer_get_index(poly_buffer_t *buffer, thvar_t x) {
+static inline int32_t poly_buffer_get_index(poly_buffer_t *buffer, int32_t x) {
   assert(0 <= x && x < max_idx);
   if (x >= buffer->i_size) {
     poly_buffer_resize_index(buffer, x);
@@ -157,7 +157,7 @@ static inline int32_t poly_buffer_get_index(poly_buffer_t *buffer, thvar_t x) {
 /*
  * Add monomial a * x to the buffer
  */
-void poly_buffer_add_monomial(poly_buffer_t *buffer, thvar_t x, rational_t *a) {
+void poly_buffer_add_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a) {
   int32_t i;
 
   i = poly_buffer_get_index(buffer, x);
@@ -176,7 +176,7 @@ void poly_buffer_add_monomial(poly_buffer_t *buffer, thvar_t x, rational_t *a) {
 /*
  * Add monomial b * a * x to the buffer
  */
-void poly_buffer_addmul_monomial(poly_buffer_t *buffer, thvar_t x, rational_t *a, rational_t *b) {
+void poly_buffer_addmul_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a, rational_t *b) {
   int32_t i;
 
   i = poly_buffer_get_index(buffer, x);
@@ -196,7 +196,7 @@ void poly_buffer_addmul_monomial(poly_buffer_t *buffer, thvar_t x, rational_t *a
 /*
  * Subtract monomial a * x from the buffer
  */
-void poly_buffer_sub_monomial(poly_buffer_t *buffer, thvar_t x, rational_t *a) {
+void poly_buffer_sub_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a) {
   int32_t i;
 
   i = poly_buffer_get_index(buffer, x);
@@ -215,7 +215,7 @@ void poly_buffer_sub_monomial(poly_buffer_t *buffer, thvar_t x, rational_t *a) {
 /*
  * Subtract monomial b * a * x to the buffer
  */
-void poly_buffer_submul_monomial(poly_buffer_t *buffer, thvar_t x, rational_t *a, rational_t *b) {
+void poly_buffer_submul_monomial(poly_buffer_t *buffer, int32_t x, rational_t *a, rational_t *b) {
   int32_t i;
 
   i = poly_buffer_get_index(buffer, x);
@@ -237,7 +237,7 @@ void poly_buffer_submul_monomial(poly_buffer_t *buffer, thvar_t x, rational_t *a
 /*
  * Add monomial 1 * x to the buffer
  */
-void poly_buffer_add_var(poly_buffer_t *buffer, thvar_t x) {
+void poly_buffer_add_var(poly_buffer_t *buffer, int32_t x) {
   int32_t i;
 
   i = poly_buffer_get_index(buffer, x);
@@ -256,7 +256,7 @@ void poly_buffer_add_var(poly_buffer_t *buffer, thvar_t x) {
 /*
  * Add monomial -1 * x to the buffer
  */
-void poly_buffer_sub_var(poly_buffer_t *buffer, thvar_t x) {
+void poly_buffer_sub_var(poly_buffer_t *buffer, int32_t x) {
   int32_t i;
 
   i = poly_buffer_get_index(buffer, x);
@@ -276,7 +276,7 @@ void poly_buffer_sub_var(poly_buffer_t *buffer, thvar_t x) {
 /*
  * Set coefficient of x equal to zero
  */
-void poly_buffer_clear_monomial(poly_buffer_t *buffer, thvar_t x) {
+void poly_buffer_clear_monomial(poly_buffer_t *buffer, int32_t x) {
   int32_t i;
 
   assert(0 <= x && x < max_idx);
@@ -352,7 +352,7 @@ void poly_buffer_submul_poly(poly_buffer_t *buffer, polynomial_t *p, rational_t 
  * - returns NULL if x does not occur in the buffer
  * - IMPORTANT: the pointer may become invalid after the next add/sub/addmul/submul
  */
-rational_t *poly_buffer_var_coeff(poly_buffer_t *buffer, thvar_t x) {
+rational_t *poly_buffer_var_coeff(poly_buffer_t *buffer, int32_t x) {
   int32_t i;
 
   assert(0 <= x && x < max_idx);
@@ -371,7 +371,7 @@ rational_t *poly_buffer_var_coeff(poly_buffer_t *buffer, thvar_t x) {
  * Copy the coefficient of x into a
  * - x must be between 0 and max_idx.
  */
-void poly_buffer_copy_var_coeff(poly_buffer_t *buffer, rational_t *a, thvar_t x) {
+void poly_buffer_copy_var_coeff(poly_buffer_t *buffer, rational_t *a, int32_t x) {
   int32_t i;
 
   assert(0 <= x && x < max_idx);
@@ -432,9 +432,8 @@ void normalize_poly_buffer(poly_buffer_t *buffer) {
 
   // sort and normalize
   assert(n == buffer->nterms);
-  varsort_monarray(buffer->mono, n);
+  sort_monarray(buffer->mono, n);
   buffer->nterms = normalize_monarray(buffer->mono, n);
-
 
   // restore the indices
   n = buffer->nterms;
@@ -851,58 +850,43 @@ void poly_buffer_get_den_lcm(poly_buffer_t *buffer, rational_t *a) {
  * Check whether the non-constant part of buffer is reduced to a single variable 
  * or equal to 0 (i.e., the buffer is either a + x or x, where a
  * is a constant).
- * - if so return x, otherwise return null_thvar = -1
+ * - if so return x, otherwise return null_idx = -1
  */
-thvar_t poly_buffer_nonconstant_convert_to_var(poly_buffer_t *buffer) {
+int32_t poly_buffer_nonconstant_convert_to_var(poly_buffer_t *buffer) {
   uint32_t n;
-  thvar_t x;
+  int32_t x;
 
   n = buffer->nterms;
   if (n == 1) {
     if (q_is_one(&buffer->mono[0].coeff)) {
       x = buffer->mono[0].var;
-      return (x == const_idx) ? null_thvar : x;
+      return (x == const_idx) ? null_idx : x;
     } else {
-      return null_thvar;
+      return null_idx;
     }
   } else if (n == 2) {
     if (buffer->mono[0].var == const_idx && q_is_one(&buffer->mono[1].coeff)) {
       return buffer->mono[1].var;
     } else {
-      return null_thvar;
+      return null_idx;
     }
   } else {
-    return null_thvar;
+    return null_idx;
   }
 }
 
 
 
-// THE NEXT FUNCTIONS MAY BE UNUSED. KEEP THEM FOR NOW
-
-/*
- * Construct a polynomial object from buffer
- * - side effect: resets buffer
- */
-polynomial_t *poly_buffer_getpoly(poly_buffer_t *buffer) {
-  polynomial_t *p;
-
-  p = monarray_getpoly(buffer->mono, buffer->nterms);
-  buffer->nterms = 0;
-  return p;
-}
-
-
 /*
  * Check whether buffer contains a polynomial of the form 1.x
- * - if so return x otherwise return null_thvar
+ * - if so return x otherwise return null_idx
  * - x may be equal to const_idx but that's OK
  */
-thvar_t poly_buffer_getvar(poly_buffer_t *buffer) {
+int32_t poly_buffer_getvar(poly_buffer_t *buffer) {
   if (buffer->nterms == 1 && q_is_one(&buffer->mono[0].coeff)) {
     return buffer->mono[0].var;
   } else {
-    return null_thvar;
+    return null_idx;
   }
 }
 
@@ -915,7 +899,7 @@ thvar_t poly_buffer_getvar(poly_buffer_t *buffer) {
 polynomial_t *poly_buffer_get_poly(poly_buffer_t *buffer) {
   polynomial_t *p;
   uint32_t i, n;
-  thvar_t x;
+  int32_t x;
 
   // clear the indices
   n = buffer->nterms;
@@ -925,7 +909,7 @@ polynomial_t *poly_buffer_get_poly(poly_buffer_t *buffer) {
     buffer->index[x] = -1;
   }
 
-  p = monarray_getpoly(buffer->mono, buffer->nterms);
+  p = monarray_get_poly(buffer->mono, buffer->nterms);
   buffer->nterms = 0;
   return p;
 }

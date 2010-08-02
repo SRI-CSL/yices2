@@ -16,7 +16,6 @@
 #include <assert.h>
 
 #include "prng.h"
-#include "memalloc.h"
 #include "hash_functions.h"
 #include "polynomials.h"
 
