@@ -63,7 +63,7 @@ static inline bool egraph_term_is_valid(egraph_t *egraph, eterm_t t) {
 
 // same thing for x = t+ or t-
 static inline bool egraph_occ_is_valid(egraph_t *egraph, occ_t x) {
-  return egraph_term_is_valid(egraph, term_of(x));
+  return egraph_term_is_valid(egraph, term_of_occ(x));
 }
 
 // same thing for a class c
@@ -96,7 +96,7 @@ static inline class_t egraph_term_class(egraph_t *egraph, eterm_t t) {
 
 static inline eterm_t egraph_term_next(egraph_t *egraph, eterm_t t) {
   assert(egraph_term_is_valid(egraph, t));
-  return term_of(egraph->terms.next[t]);
+  return term_of_occ(egraph->terms.next[t]);
 }
 
 static inline type_t egraph_term_real_type(egraph_t *egraph, eterm_t t) {
@@ -265,29 +265,29 @@ static inline bool egraph_term_is_function(egraph_t *egraph, eterm_t t) {
  * Class and label for a term occurrence x = t+ or t-
  */
 static inline elabel_t egraph_label(egraph_t *egraph, occ_t x) {
-  return egraph_term_label(egraph, term_of(x)) ^ polarity_of(x);
+  return egraph_term_label(egraph, term_of_occ(x)) ^ polarity_of_occ(x);
 }
 
 static inline class_t egraph_class(egraph_t *egraph, occ_t x) {
-  return egraph_term_class(egraph, term_of(x));
+  return egraph_term_class(egraph, term_of_occ(x));
 }
 
 // successor occurrence of x in its class
 static inline occ_t egraph_next(egraph_t *egraph, occ_t x) {
   assert(egraph_occ_is_valid(egraph, x));
-  return egraph->terms.next[term_of(x)] ^ polarity_of(x);
+  return egraph->terms.next[term_of_occ(x)] ^ polarity_of_occ(x);
 }
 
 // assign label c to x
 static inline void egraph_set_label(egraph_t *egraph, occ_t x, elabel_t l) {
   assert(egraph_occ_is_valid(egraph, x));
-  egraph->terms.label[term_of(x)] = l ^ polarity_of(x);
+  egraph->terms.label[term_of_occ(x)] = l ^ polarity_of_occ(x);
 }
 
 // assign y as successor of x
 static inline void egraph_set_next(egraph_t *egraph, occ_t x, occ_t y) {
   assert(egraph_occ_is_valid(egraph, x) && egraph_occ_is_valid(egraph, y));
-  egraph->terms.next[term_of(x)] = y ^ polarity_of(x);
+  egraph->terms.next[term_of_occ(x)] = y ^ polarity_of_occ(x);
 }
 
 
@@ -305,7 +305,7 @@ static inline thvar_t egraph_thvar(egraph_t *egraph, occ_t x) {
 
 // variable attached to x at the base level (null_thvar if none)
 static inline thvar_t egraph_base_thvar(egraph_t *egraph, occ_t x) {
-  return egraph_term_base_thvar(egraph, term_of(x));
+  return egraph_term_base_thvar(egraph, term_of_occ(x));
 }
 
 // check theory for occurrence x
@@ -406,8 +406,8 @@ static inline bool egraph_class_is_root_class(egraph_t *egraph, class_t c) {
  * - eq->lhs or eq->rhs must be either t+ or t- 
  */
 static inline eterm_t edge_next(equeue_elem_t *eq, eterm_t t) {
-  assert(term_of(eq->lhs) == t || term_of(eq->rhs) == t);
-  return term_of(eq->lhs ^ eq->rhs) ^ t;
+  assert(term_of_occ(eq->lhs) == t || term_of_occ(eq->rhs) == t);
+  return term_of_occ(eq->lhs ^ eq->rhs) ^ t;
 }
 
 /*
@@ -419,7 +419,8 @@ static inline eterm_t edge_next(equeue_elem_t *eq, eterm_t t) {
  *   (not u) ^ v ^ u == (u ^ 0x1) ^ v ^ u == v ^ 0x1 == (not v)
  */
 static inline occ_t edge_next_occ(equeue_elem_t *eq, occ_t u) {
-  assert(term_of(eq->lhs) == term_of(u) || term_of(eq->rhs) == term_of(u));
+  assert(term_of_occ(eq->lhs) == term_of_occ(u) || 
+	 term_of_occ(eq->rhs) == term_of_occ(u));
   return eq->lhs ^ eq->rhs ^ u;
 }
 

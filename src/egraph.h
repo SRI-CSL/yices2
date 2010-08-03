@@ -252,7 +252,7 @@ static inline occ_t egraph_literal2occ(egraph_t *egraph, literal_t l) {
  */
 static inline literal_t egraph_occ2literal(egraph_t *egraph, occ_t t) {
   assert(egraph_occ_is_bool(egraph, t));
-  return mk_lit(egraph_term_base_thvar(egraph, term_of(t)), polarity_of(t));
+  return mk_lit(egraph_term_base_thvar(egraph, term_of_occ(t)), polarity_of_occ(t));
 }
 
 /*

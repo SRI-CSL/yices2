@@ -10,7 +10,9 @@
 
 #include "smt_core.h"
 #include "egraph.h"
-#include "solver_printer.h"
+
+#include "egraph_printer.h"
+#include "smt_core_printer.h"
 
 #include "yices.h"
 #include "yices_globals.h"
@@ -198,6 +200,6 @@ int main() {
   yices_init();
   test1();
   test2();
-  yices_cleanup();
+  yices_exit();
   return 0;
 }

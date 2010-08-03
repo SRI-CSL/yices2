@@ -570,12 +570,12 @@ bool force_maps_to_differ(pstore_t *store, function_type_t *f, uint32_t n, map_t
   types = store->types;
   tau = f->range;
 
-  if (unit_type(types, tau)) {
+  if (is_unit_type(types, tau)) {
     return false;
   }
 
-  if (finite_type(types, tau)) {
-    c = card_of_type(types, tau);
+  if (is_finite_type(types, tau)) {
+    c = type_card(types, tau);
     k = ceil_log(c, n);
   } else {
     c = n;

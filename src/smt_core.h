@@ -78,7 +78,7 @@ enum {
   null_literal = -1,
 
   // boolean constants
-  bool_const = 0,
+  const_bvar = 0,
   true_literal = 0,
   false_literal = 1,
 };

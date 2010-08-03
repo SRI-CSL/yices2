@@ -216,7 +216,7 @@ static uint32_t hash_label(label_hobj_t *o) {
 }
 
 static uint32_t hash_tuple(tuple_hobj_t *o) {
-  return jenkins_hash_intarray(o->nelems, o->elem);
+  return jenkins_hash_intarray(o->elem, o->nelems);
 }
 
 
@@ -781,7 +781,7 @@ particle_t get_distinct_particle(pstore_t *store, type_t tau, uint32_t p, partic
 
   if (k == null_particle) {
     // create a fresh particle if the type isn't saturated
-    card = card_of_type(store->types, tau);
+    card = type_card(store->types, tau);
     if (set->nelems < card) {
       k = pstore_fresh_particle(store, tau);
     }
@@ -802,7 +802,7 @@ particle_t get_new_particle(pstore_t *store, type_t tau) {
   particle_t k;
 
   set = get_pset_for_type(&store->psets, tau);
-  card = card_of_type(store->types, tau);
+  card = type_card(store->types, tau);
   k = null_particle;
   if (set->nelems < card) {
     k = pstore_fresh_particle(store, tau);
@@ -1307,7 +1307,7 @@ static particle_t add_fresh_particles_and_build_tuple(pstore_t *store, uint32_t 
   while (i > 0) {
     i --;
     set = get_pset_for_type(&store->psets, tau[i]);
-    card = card_of_type(store->types, tau[i]);
+    card = type_card(store->types, tau[i]);
     if (set->nelems == 0 || (!fresh_elem && set->nelems< card)) {
       // create a fresh particle of type tau[i]
       store->aux[i] = pstore_fresh_particle(store, tau[i]);

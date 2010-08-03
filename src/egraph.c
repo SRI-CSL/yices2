@@ -24,7 +24,8 @@
 
 #include <stdio.h>
 #include <inttypes.h>
-#include "solver_printer.h"
+
+#include "egraph_printer.h"
 
 #endif
 
@@ -1878,7 +1879,7 @@ bool egraph_check_diseq(egraph_t *egraph, occ_t t1, occ_t t2) {
   c2 = egraph_class(egraph, t2);
 
   if (c1 == c2) {
-    return polarity_of(t1) != polarity_of(t2);
+    return polarity_of_occ(t1) != polarity_of_occ(t2);
   }
 
   dmask = egraph->classes.dmask;
@@ -1908,8 +1909,8 @@ bool egraph_check_theory_diseq(egraph_t *egraph, occ_t t1, occ_t t2) {
   case ETYPE_REAL:
   case ETYPE_BV:
   case ETYPE_FUNCTION:
-    x1 = egraph_term_base_thvar(egraph, term_of(t1));
-    x2 = egraph_term_base_thvar(egraph, term_of(t2));
+    x1 = egraph_term_base_thvar(egraph, term_of_occ(t1));
+    x2 = egraph_term_base_thvar(egraph, term_of_occ(t2));
     return x1 != null_thvar && x2 != null_thvar && 
       egraph->eg[i] != NULL && 
       egraph->eg[i]->check_diseq(egraph->th[i], x1, x2);
@@ -2317,7 +2318,7 @@ static occ_t egraph_reduce_apply(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a
 
   g = f;
   assert(is_pos_occ(g));
-  cmp = egraph_term_body(egraph, term_of(g));
+  cmp = egraph_term_body(egraph, term_of_occ(g));
   while (composite_body(cmp) && composite_kind(cmp) == COMPOSITE_UPDATE) {
     assert(composite_arity(cmp) == n + 2);
     // g is (update h b[0] .. b[n-1] v)
@@ -2325,7 +2326,7 @@ static occ_t egraph_reduce_apply(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a
       // (apply g a[0] ... a[n-1]) --> (apply h a[0] ... a[n-1])
       g = composite_child(cmp, 0); // g := h
       assert(is_pos_occ(g));
-      cmp = egraph_term_body(egraph, term_of(g));
+      cmp = egraph_term_body(egraph, term_of_occ(g));
     } else if (egraph_check_eq_arrays(egraph, n, cmp->child + 1, a)) {
       // (apply g a[0] ... a[n-1]) --> v
       return composite_child(cmp, n+1);
@@ -2337,7 +2338,7 @@ static occ_t egraph_reduce_apply(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a
 	if (egraph_term_is_fresh(egraph, t)) {
 	  type_t tau;
 
-	  tau = egraph_term_real_type(egraph, term_of(g));
+	  tau = egraph_term_real_type(egraph, term_of_occ(g));
 	  tau = function_type_range(egraph->types, tau);
 	  auto_activate(egraph, t, tau);
 	}
@@ -2667,9 +2668,9 @@ static void egraph_init_constant(egraph_t *egraph) {
 
   t0 = new_eterm(&egraph->terms, mk_constant_body(0));
   assert(t0 == true_eterm);
-  create_egraph_atom(egraph, bool_const, t0);
+  create_egraph_atom(egraph, const_bvar, t0);
   egraph_set_term_real_type(egraph, t0, bool_type(egraph->types));
-  egraph_activate_term(egraph, t0, ETYPE_BOOL, bool_const);
+  egraph_activate_term(egraph, t0, ETYPE_BOOL, const_bvar);
 }
 
 
@@ -2985,8 +2986,8 @@ static void propagate_tuple_equality(egraph_t *egraph, eterm_t v1, eterm_t v2) {
 /*
  * When boolean variable v1 and v2 are merged into the same boolean class
  * - this means that either v1 == v2 or v1 == (not v2)
- * - if v1 == bool_const, then v2 is now true or false.
- * - (v2 is never equal to bool_const)
+ * - if v1 == const_bvar, then v2 is now true or false.
+ * - (v2 is never equal to const_bvar)
  */
 static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2) {
   atom_t *atm1, *atm2, *atm;
@@ -2999,7 +3000,7 @@ static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2) {
   atm1 = get_bvar_atom(core, v1);
   atm2 = get_bvar_atom(core, v2);
 
-  if (v1 == bool_const) {
+  if (v1 == const_bvar) {
     atm = atm2;
     do {
       /*
@@ -3342,7 +3343,7 @@ static bool check_atom_propagation(egraph_t *egraph, occ_t t) {
 
   assert(egraph_class(egraph, t) == bool_constant_class);
 
-  atom = egraph_term_body(egraph, term_of(t));  
+  atom = egraph_term_body(egraph, term_of_occ(t));  
   if (composite_body(atom)) {
     assert(atom != NULL);
     switch (composite_kind(atom)) {
@@ -3381,7 +3382,7 @@ static void invert_branch(egraph_t *egraph, occ_t x) {
   eq = egraph->stack.eq;
   edge = egraph->terms.edge;
 
-  t = term_of(x);
+  t = term_of_occ(x);
   i = null_edge;
   for (;;) {
     j = edge[t];
@@ -3466,13 +3467,13 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
   printf(" == ");
   print_occurrence(stdout, t2);
   printf("\n");
-  if (egraph_term_is_composite(egraph, term_of(t1))) {
+  if (egraph_term_is_composite(egraph, term_of_occ(t1))) {
     printf("---> ");
-    print_eterm_def(stdout, egraph, term_of(t1));
+    print_eterm_def(stdout, egraph, term_of_occ(t1));
   }
-  if (egraph_term_is_composite(egraph, term_of(t2))) {
+  if (egraph_term_is_composite(egraph, term_of_occ(t2))) {
     printf("---> ");
-    print_eterm_def(stdout, egraph, term_of(t2));
+    print_eterm_def(stdout, egraph, term_of_occ(t2));
   }
 #endif
 
@@ -3524,8 +3525,8 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
 
   // update explanation tree: make t2 root of its tree
   invert_branch(egraph, t2);
-  assert(egraph->terms.edge[term_of(t2)] == null_edge);
-  egraph->terms.edge[term_of(t2)] = i; // new edge: t2 ---> t1
+  assert(egraph->terms.edge[term_of_occ(t2)] == null_edge);
+  egraph->terms.edge[term_of_occ(t2)] = i; // new edge: t2 ---> t1
 
   /*
    * remove c2's parents from the congruence table
@@ -3553,7 +3554,7 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
   do {
     egraph_set_label(egraph, t, l);
     t = egraph_next(egraph, t);
-    assert(term_of(t) != term_of(t2) || t == t2);
+    assert(term_of_occ(t) != term_of_occ(t2) || t == t2);
   } while (t != t2);
 
   // update dmask of c1
@@ -3904,7 +3905,7 @@ static void undo_merge(egraph_t *egraph, occ_t t2, elabel_t l2) {
   c1 = egraph_class(egraph, t2);
   c2 = class_of(l2);
 
-  i = egraph->terms.edge[term_of(t2)];
+  i = egraph->terms.edge[term_of_occ(t2)];
   assert(0 <= i && i < egraph->stack.top);
 
   t1 = edge_next_occ(egraph->stack.eq + i, t2);
@@ -3946,14 +3947,14 @@ static void undo_merge(egraph_t *egraph, occ_t t2, elabel_t l2) {
   do {
     egraph_set_label(egraph, t, l2);
     t = egraph_next(egraph, t);
-    assert(term_of(t) != term_of(t2) || t == t2);
+    assert(term_of_occ(t) != term_of_occ(t2) || t == t2);
   } while (t != t2);
 
   // restore dmask of c1
   egraph->classes.dmask[c1] &= ~egraph->classes.dmask[c2];
 
   // remove edge from t2 --> t1 then restore branch t2 ---> c2.root
-  egraph->terms.edge[term_of(t2)] = null_edge;
+  egraph->terms.edge[term_of_occ(t2)] = null_edge;
   invert_branch(egraph, egraph->classes.root[c2]);
 
   /*
@@ -4044,8 +4045,8 @@ static void egraph_gen_ackermann_lemmas(egraph_t *egraph, uint32_t back_level) {
   k = stack->level_index[back_level + 1];
   for (i=k; i<stack->prop_ptr; i++) {
     if (stack->etag[i] == EXPL_BASIC_CONGRUENCE && stack->activity[i] > 0) {
-      c1 = egraph_term_body(egraph, term_of(stack->eq[i].lhs));
-      c2 = egraph_term_body(egraph, term_of(stack->eq[i].rhs));
+      c1 = egraph_term_body(egraph, term_of_occ(stack->eq[i].lhs));
+      c2 = egraph_term_body(egraph, term_of_occ(stack->eq[i].rhs));
       create_ackermann_lemma(egraph, c1, c2);
     }
   }
@@ -4437,7 +4438,7 @@ void egraph_make_interface_eq(egraph_t *egraph, eterm_t t1, eterm_t t2) {
  * Check whether child i of p is a function
  */
 static inline bool composite_child_is_function(egraph_t *egraph, composite_t *cmp, uint32_t i) {
-  return egraph_term_is_function(egraph, term_of(composite_child(cmp, i)));
+  return egraph_term_is_function(egraph, term_of_occ(composite_child(cmp, i)));
 }
 
 /*
@@ -4647,7 +4648,7 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
 
 /*
  * Assert (t == true) with explanation l
- * - term_of(t) must be a boolean term
+ * - term_of_occ(t) must be a boolean term
  */
 void egraph_assert_term(egraph_t *egraph, occ_t t, literal_t l) {
   int32_t k;
@@ -4658,9 +4659,9 @@ void egraph_assert_term(egraph_t *egraph, occ_t t, literal_t l) {
   printf(", expl = ");
   print_literal(stdout, l);
   printf(", decision level = %"PRIu32"\n", egraph->decision_level);
-  if (egraph_term_is_composite(egraph, term_of(t))) {
+  if (egraph_term_is_composite(egraph, term_of_occ(t))) {
     printf("---> ");
-    print_eterm_def(stdout, egraph, term_of(t));
+    print_eterm_def(stdout, egraph, term_of_occ(t));
   }
   if (egraph_occ_is_true(egraph, t)) {
     printf("---> EGRAPH: Term ");
@@ -4756,9 +4757,9 @@ void egraph_assert_axiom(egraph_t *egraph, occ_t t) {
   printf("---> EGRAPH: Asserting axiom ");
   print_occurrence(stdout, t);
   printf(", decision level = %"PRIu32"\n", egraph->decision_level);
-  if (egraph_term_is_composite(egraph, term_of(t))) {
+  if (egraph_term_is_composite(egraph, term_of_occ(t))) {
     printf("---> ");
-    print_eterm_def(stdout, egraph, term_of(t));
+    print_eterm_def(stdout, egraph, term_of_occ(t));
   }
 #endif
 
@@ -4836,7 +4837,7 @@ void egraph_assert_distinct_axiom(egraph_t *egraph, uint32_t n, occ_t *t) {
   d = egraph_distinct_term(egraph, n, t);
   if (d != null_eterm) {
     if (egraph_term_is_fresh(egraph, d)) {
-      egraph_activate_term(egraph, d, ETYPE_BOOL, bool_const);
+      egraph_activate_term(egraph, d, ETYPE_BOOL, const_bvar);
     }
 #if TRACE
     printf("---> EGRAPH: Asserting axiom ");
@@ -4875,7 +4876,7 @@ void egraph_assert_notdistinct_axiom(egraph_t *egraph, uint32_t n, occ_t *t) {
 
 /*
  * Assert (f a_1 ... a_n) as an axiom
- * - build term t := (f a_1 ... a_n) and add bool_const as its theory variable
+ * - build term t := (f a_1 ... a_n) and add const_bvar as its theory variable
  * - push equality (t == true)
  */
 void egraph_assert_pred_axiom(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a) {
@@ -4890,10 +4891,10 @@ void egraph_assert_pred_axiom(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a) {
      * (thvar[t] is used by the ackermann lemma function)
      */
     egraph_activate_term(egraph, t, ETYPE_BOOL, null_thvar);
-    egraph->terms.thvar[t] = bool_const;
+    egraph->terms.thvar[t] = const_bvar;
 
   } else if (egraph->terms.thvar[t] == null_thvar) {
-    egraph->terms.thvar[t] = bool_const;
+    egraph->terms.thvar[t] = const_bvar;
   }
 
   k = egraph_stack_push_eq(&egraph->stack, true_occ, pos_occ(t));
@@ -5369,7 +5370,7 @@ uint32_t egraph_get_labels_for_type(egraph_t *egraph, type_t tau, elabel_t *a, u
     k = 0;
     for (c=0; c<p; c++) {
       if (egraph_class_is_root_class(egraph, c)) {
-	t = term_of(egraph_class_root(egraph, c));
+	t = term_of_occ(egraph_class_root(egraph, c));
 	if (egraph_term_real_type(egraph, t) == tau) {
 	  assert(k < n);
 	  a[k] = pos_label(c);
@@ -5398,7 +5399,7 @@ uint32_t egraph_num_classes_of_type(egraph_t *egraph, type_t tau) {
   n = egraph_num_classes(egraph);
   for (c=0; c<n; c++) {
     if (egraph_class_is_root_class(egraph, c)) {
-      t = term_of(egraph_class_root(egraph, c));
+      t = term_of_occ(egraph_class_root(egraph, c));
       if (egraph_term_real_type(egraph, t) == tau) {
 	k ++;
       }
@@ -5530,7 +5531,7 @@ static type_t egraph_real_type_of_class(egraph_t *egraph, class_t c) {
   occ_t t, u;
 
   t = egraph_class_root(egraph, c);
-  tau = egraph_term_real_type(egraph, term_of(t));
+  tau = egraph_term_real_type(egraph, term_of_occ(t));
   assert(tau != NULL_TYPE);
 
   types = egraph->types;
@@ -5540,8 +5541,8 @@ static type_t egraph_real_type_of_class(egraph_t *egraph, class_t c) {
     do {
       // check whether there's an integer object in the class
       u = egraph_next(egraph, u);
-      assert(term_of(t) != term_of(u) || t == u);      
-      tau = egraph_term_real_type(egraph, term_of(u));
+      assert(term_of_occ(t) != term_of_occ(u) || t == u);      
+      tau = egraph_term_real_type(egraph, term_of_occ(u));
       assert(is_arithmetic_type(tau));
     } while (t != u && is_real_type(tau));
     break;
@@ -5553,8 +5554,8 @@ static type_t egraph_real_type_of_class(egraph_t *egraph, class_t c) {
       // refine the type tau
       // TODO: we could optimize this to avoid creating the
       // intermediate subtypes??
-      assert(term_of(t) != term_of(u));      
-      sigma = egraph_term_real_type(egraph, term_of(u));
+      assert(term_of_occ(t) != term_of_occ(u));      
+      sigma = egraph_term_real_type(egraph, term_of_occ(u));
       tau = inf_type(types, tau, sigma);
       assert(tau != NULL_TYPE);
       u = egraph_next(egraph, u);
@@ -5632,7 +5633,7 @@ static value_t make_fresh_tuple(egraph_t *egraph, value_table_t *vtbl, type_t ta
   uint32_t i, n;
 
   types = egraph->types;
-  n = tuple_type_ncomponents(types, tau);
+  n = tuple_type_arity(types, tau);
   aux = buffer;
   if (n > 10) {
     aux = (value_t *) safe_malloc(n * sizeof(value_t));
@@ -5833,7 +5834,7 @@ static value_t egraph_concretize_map(egraph_t *egraph, value_table_t *vtbl, map_
   value_t v;
   uint32_t i, n, m;
 
-  n = function_type_ndomains(egraph->types, tau);
+  n = function_type_arity(egraph->types, tau);
   m = map->nelems;
 
   all_maps = (value_t *) safe_malloc(m * sizeof(value_t));
@@ -6168,15 +6169,15 @@ static value_t egraph_value_of_uninterpreted_class(egraph_t *egraph, value_table
    */
   root = egraph_class_root(egraph, c);
   assert(is_pos_occ(root));
-  tau = egraph_term_real_type(egraph, term_of(root));
+  tau = egraph_term_real_type(egraph, term_of_occ(root));
   assert(tau != NULL_TYPE);
 
   if ((egraph->classes.dmask[c] & 0x1) != 0) {
     // the class contains a constant
-    t = term_of(root);
+    t = term_of_occ(root);
     while (! constant_body(egraph_term_body(egraph, t))) {
-      t = term_of(egraph->terms.next[t]);
-      assert(t != term_of(root)); // make sure we don't loop forever
+      t = term_of_occ(egraph->terms.next[t]);
+      assert(t != term_of_occ(root)); // make sure we don't loop forever
     }
 
     // v = constant of type tau and same id as t, no name

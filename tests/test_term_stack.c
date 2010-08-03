@@ -9,6 +9,9 @@
 
 #include "term_stack.h"
 #include "term_printer.h"
+#include "type_printer.h"
+#include "yices.h"
+#include "yices_globals.h"
 
 
 static char *code2string[NUM_TSTACK_ERRORS] = {
@@ -77,7 +80,7 @@ int main() {
       printf("*** bool not defined as a type ***\n");
     } else {
       printf("*** bool --> ");
-      print_typedef(stdout, tau);
+      print_type_def(stdout, __yices_globals.types, tau);
       printf("\n");
       printf("*** yices_get_type_by_name(bool) = %"PRId32"\n", tau);
       printf("*** yices_bool_type() = %"PRId32"\n", yices_bool_type());
@@ -109,7 +112,7 @@ int main() {
       printf("*** BUG: bv5 not defined as a type ***\n");
     } else {
       printf("*** bv5 --> ");
-      print_typedef(stdout, tau);
+      print_type_def(stdout, __yices_globals.types, tau);
       printf("\n");
       printf("*** yices_get_type_by_name(bv5) = %"PRId32"\n", tau);
       printf("*** yices_bv_type(5) = %"PRId32"\n", yices_bv_type(5));
@@ -165,7 +168,7 @@ int main() {
       printf("*** BUG: xxx not defined as a term ***\n");
     } else {
       printf("*** xxx --> ");
-      print_termdef(stdout, t);
+      print_term_def(stdout, __yices_globals.terms, t);
       printf("\n");
     }
 
@@ -218,7 +221,7 @@ int main() {
       printf("*** BUG: yyy not defined as a term ***\n");
     } else {
       printf("*** yyy --> ");
-      print_termdef(stdout, t);
+      print_term_def(stdout, __yices_globals.terms, t);
       printf("\n");
     }
 
@@ -236,6 +239,6 @@ int main() {
 
   printf("\n");
   delete_tstack(&stack);
-  yices_cleanup();
+  yices_exit();
   return 0;
 }

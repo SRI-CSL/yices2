@@ -102,7 +102,7 @@ static void print_assignment(smt_core_t *core) {
   assert(smt_status(core) == STATUS_SAT);
   n = num_vars(core);
   k = 0;
-  for (x = bool_const + 1; x<n; x++) {
+  for (x = const_bvar + 1; x<n; x++) {
     printf("  ");
     print_var_value(core, x);
     k ++;

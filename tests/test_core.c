@@ -9,7 +9,7 @@
 #include <assert.h>
 
 #include "smt_core.h"
-#include "solver_printer.h"
+#include "smt_core_printer.h"
 
 
 /*

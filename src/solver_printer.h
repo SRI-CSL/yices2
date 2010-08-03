@@ -10,6 +10,10 @@
 #include "int_vectors.h"
 #include "smt_core.h"
 #include "gates_hash_table.h"
+
+#if 0
+// NOT DONE YET
+
 #include "egraph_types.h"
 #include "idl_floyd_warshall.h"
 #include "rdl_floyd_warshall.h"
@@ -18,6 +22,9 @@
 #include "bit_solver.h"
 #include "bvsolver.h"
 #include "context.h"
+
+#endif
+
 
 /*
  * Basic objects
@@ -63,6 +70,7 @@ extern void print_gate_table_htbl(FILE *f, gate_table_t *tbl);
 extern void print_gate_table(FILE *f, gate_table_t *tbl);
 
 
+#if 0
 /*
  * Initialize the internal name table based on a context
  * (must be called after internalization).
@@ -279,5 +287,7 @@ extern void print_bvsolver_bitmaps(FILE *f, bv_solver_t *solver);
 extern void print_bvsolver_atoms(FILE *f, bv_solver_t *solver);
 extern void print_bvsolver_partition(FILE *f, bv_solver_t *solver);
 
+
+#endif
 
 #endif /* __SOLVER_PRINTER_H */

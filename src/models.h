@@ -24,6 +24,7 @@
 #include "terms.h"
 #include "concrete_values.h"
 #include "int_hash_map.h"
+#include "yices_types.h"
 
 
 /*
@@ -38,13 +39,13 @@
  *   the internal substitution table (alias_map). (NOTE: has_alias
  *   is set at construction time and it may be true even if alias_map is NULL).
  */
-typedef struct model_s {
+struct model_s {
   value_table_t vtbl;
   int_hmap_t map;
   int_hmap_t *alias_map;
   term_table_t *terms;
   bool has_alias;
-} model_t;
+};
 
 
 

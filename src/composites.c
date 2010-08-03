@@ -482,7 +482,7 @@ uint32_t hash_composite(composite_t *c) {
  * Get class id for t (i.e., remove the polarity bits)
  */
 static inline class_t get_class(elabel_t *label, occ_t t) {
-  return class_of(label[term_of(t)]);
+  return class_of(label[term_of_occ(t)]);
 }
 
 /*
@@ -491,7 +491,7 @@ static inline class_t get_class(elabel_t *label, occ_t t) {
  * - if t has negative polarity, that's label[term_of(t)] ^ 1 (flipped polarity)
  */
 static inline elabel_t get_label(elabel_t *label, occ_t t) {
-  return label[term_of(t)] ^ polarity_of(t);
+  return label[term_of_occ(t)] ^ polarity_of_occ(t);
 }
 
 /*

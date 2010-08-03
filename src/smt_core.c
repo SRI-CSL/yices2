@@ -1389,11 +1389,11 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   /*
    * Initialize data structures for true_literal and false_literal
    */
-  assert(bool_const == 0 && true_literal == 0 && false_literal == 1 && s->nvars > 0);
-  s->level[bool_const] = 0;
+  assert(const_bvar == 0 && true_literal == 0 && false_literal == 1 && s->nvars > 0);
+  s->level[const_bvar] = 0;
   s->value[true_literal] = VAL_TRUE;
   s->value[false_literal] = VAL_FALSE;
-  set_bit(s->mark, bool_const);
+  set_bit(s->mark, const_bvar);
   s->bin[true_literal] = NULL;
   s->bin[false_literal] = NULL;
   s->watch[true_literal] = NULL_LINK;

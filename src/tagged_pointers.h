@@ -1,12 +1,9 @@
-/*
- * Tagged pointers. 
- */
-
 #ifndef __TAGGED_POINTERS_H
 #define __TAGGED_POINTERS_H
 
 #include <stdbool.h>
 #include <assert.h>
+
 
 /*
  * First version: 2bit tags are stored in the two low-order bits 

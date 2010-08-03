@@ -44,20 +44,20 @@ static inline occ_t mk_occ(eterm_t t, uint32_t polarity) {
   return (t << 1) | polarity;
 }
 
-static inline eterm_t term_of(occ_t x) {
+static inline eterm_t term_of_occ(occ_t x) {
   return x>>1;
 }
 
-static inline uint32_t polarity_of(occ_t x) {
+static inline uint32_t polarity_of_occ(occ_t x) {
   return ((uint32_t) x) & 1;
 } 
 
 static inline bool is_pos_occ(occ_t x) {
-  return polarity_of(x) == 0;
+  return polarity_of_occ(x) == 0;
 }
 
 static inline bool is_neg_occ(occ_t x) {
-  return polarity_of(x) != 0;
+  return polarity_of_occ(x) != 0;
 }
 
 // complement of x = same term, opposite polarity

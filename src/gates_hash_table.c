@@ -87,7 +87,7 @@ static boolgate_t *new_descriptor(uint32_t tag, literal_t *a, uint32_t level) {
 static uint32_t hash(uint32_t tag, literal_t *a) {
   uint32_t n;
   n = tag_indegree(tag);
-  return jenkins_hash_mix2(tag, jenkins_hash_intarray(n, a));
+  return jenkins_hash_mix2(tag, jenkins_hash_intarray(a, n));
 }
 
 

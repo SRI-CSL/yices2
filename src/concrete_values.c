@@ -72,7 +72,7 @@ static void reset_map_htbl(map_htbl_t *htbl) {
 static uint32_t hash_fun_app(value_t f, uint32_t n, value_t *a) {
   uint32_t h;
 
-  h = jenkins_hash_intarray_var(n, a, 0x83421bca);
+  h = jenkins_hash_intarray2(a, n, 0x83421bca);
   return jenkins_hash_pair(f, 0, h);
 }
 
@@ -329,7 +329,7 @@ static uint32_t hash_map_object(value_table_t *table, value_t i) {
 
   assert(object_is_map(table, i));
   map = (value_map_t *) table->desc[i].ptr;
-  return jenkins_hash_intarray_var(map->arity, map->arg, 0x543f1a83);
+  return jenkins_hash_intarray2(map->arg, map->arity, 0x543f1a83);
 }
 
 
@@ -1021,27 +1021,27 @@ static uint32_t hash_bv_value(bv_hobj_t *o) {
 }
 
 static uint32_t hash_tuple_value(tuple_hobj_t *o) {
-  return jenkins_hash_intarray_var(o->nelems, o->elem, 0x21398aba);
+  return jenkins_hash_intarray2(o->elem, o->nelems, 0x21398aba);
 }
 
 static uint32_t hash_map_value(map_hobj_t *o) {
   uint32_t h;
 
-  h = jenkins_hash_intarray_var(o->arity, o->arg, 0xabde6320);
+  h = jenkins_hash_intarray2(o->arg, o->arity, 0xabde6320);
   return jenkins_hash_pair(o->val, 0, h);
 }
 
 static uint32_t hash_fun_value(fun_hobj_t *o) {
   uint32_t h;
 
-  h = jenkins_hash_intarray_var(o->map_size, o->map, 0x9765aef5);
+  h = jenkins_hash_intarray2(o->map, o->map_size, 0x9765aef5);
   return jenkins_hash_pair(o->def, 0, h);
 }
 
 static uint32_t hash_update_value(update_hobj_t *o) {
   uint32_t h;
 
-  h = jenkins_hash_intarray_var(o->map_size, o->map, 0x9765aef5);
+  h = jenkins_hash_intarray2(o->map, o->map_size, 0x9765aef5);
   return jenkins_hash_pair(o->def, 0, h);
 }
 
@@ -1567,7 +1567,7 @@ value_t vtbl_mk_function(value_table_t *table, type_t tau, uint32_t n, value_t *
 
   fun_hobj.table = table;
   fun_hobj.type = tau;
-  fun_hobj.arity = function_type_ndomains(table->type_table, tau);
+  fun_hobj.arity = function_type_arity(table->type_table, tau);
   fun_hobj.def = def;
   fun_hobj.map_size = n;
   fun_hobj.map = a;
@@ -1610,7 +1610,7 @@ value_t vtbl_mk_update(value_table_t *table, value_t f, uint32_t n, value_t *a, 
   // hash consing 
   update_hobj.table = table;
   update_hobj.type = tau;
-  update_hobj.arity = function_type_ndomains(table->type_table, tau);
+  update_hobj.arity = function_type_arity(table->type_table, tau);
   update_hobj.fun = f;
   update_hobj.updt = u;
   update_hobj.def = def;

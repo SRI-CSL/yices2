@@ -13,39 +13,14 @@
 
 #include "term_printer.h"
 #include "solver_printer.h"
-#include "theory_explanations.h"
-#include "egraph_utils.h"
-#include "translation.h"
 
-
-/*
- * Provisional: set default visibility for functions used in test_smt_context
- */
-#if defined(CYGWIN) || defined(MINGW)
-#define EXPORTED __attribute__((dllexport))
-#else
-#define EXPORTED __attribute__((visibility("default")))
-#endif
+// #include "theory_explanations.h"
+// #include "egraph_utils.h"
+// #include "translation.h"
 
 
 
-// UNUSED
-/*
- * Crude spacing
- */
-// Print 1 to 3 spaces depending on the number of digits in x
-static void print_space(FILE *f, int32_t x) {
-  if (x < 0) return;
-  if (x < 10) {
-    fputs("   ", f);
-  } else if (x < 100) {
-    fputs("  ", f);
-  } else {
-    fputs(" ", f);
-  }
-}
-
-
+#if 0
 
 /****************
  *  NAME TABLE  *
@@ -127,7 +102,7 @@ void printer_cleanup(void) {
 }
 
 
-
+#endif
 
 
 
@@ -220,6 +195,9 @@ void print_literal(FILE *f, literal_t l) {
     fprintf(f, "p!%"PRId32, var_of(l));
   }
 }
+
+
+#if 0
 
 /*
  * Basic egraph objects
@@ -356,6 +334,7 @@ void print_dmask(FILE *f, uint32_t d) {
   }
 }
 
+#endif
 
 
 /*
@@ -580,7 +559,6 @@ void print_conflict(FILE *f, smt_core_t *core) {
  * Print current state of core
  * (This needs to be exported for now, because it's used in the tests)
  */
-EXPORTED
 void print_smt_core(FILE *f, smt_core_t *core) {
   fprintf(f, "SMT Core %p\n", core);
   fprintf(f, "  %"PRIu32" variables\n", core->nvars);
@@ -725,6 +703,8 @@ void print_gate_table(FILE *f, gate_table_t *tbl) {
   }
 }
 
+
+#if 0
 
 
 /*
@@ -3405,3 +3385,5 @@ void print_bvsolver_partition(FILE *f, bv_solver_t *solver) {
     }
   }
 }
+
+#endif

@@ -154,7 +154,7 @@ static void map_path(egraph_t *egraph, int_hmap_t *imap, occ_t t) {
   t &= ~0x1; // clear sign bit: start with t positive
   u = t;
   for (;;) {
-    x = term_of(u);
+    x = term_of_occ(u);
 
     p = int_hmap_get(imap, x);
     if (p->val >= 0) break;;
@@ -176,7 +176,7 @@ static void map_path(egraph_t *egraph, int_hmap_t *imap, occ_t t) {
 static void map_false_node(int_hmap_t *imap) {
   int_hmap_pair_t *p;
 
-  p = int_hmap_get(imap, term_of(false_occ));
+  p = int_hmap_get(imap, term_of_occ(false_occ));
   if (p->val < 0) {
     p->val = false_occ;
   }
@@ -197,10 +197,10 @@ static occ_t find_in_path(egraph_t *egraph, int_hmap_t *imap, occ_t t) {
   edge = egraph->terms.edge;
   eq = egraph->stack.eq;
 
-  sgn = polarity_of(t);
+  sgn = polarity_of_occ(t);
 
   for (;;) {
-    x = term_of(t);
+    x = term_of_occ(t);
 
     p = int_hmap_find(imap, x);
     if (p != NULL) break;
@@ -366,8 +366,8 @@ static void explain_eq(egraph_t *egraph, occ_t x, occ_t y) {
 
   assert(egraph_same_class(egraph, x, y));
 
-  tx = term_of(x);
-  ty = term_of(y);
+  tx = term_of_occ(x);
+  ty = term_of_occ(y);
 
   if (tx == ty) return;
 
@@ -390,10 +390,10 @@ static void explain_eq(egraph_t *egraph, occ_t x, occ_t y) {
 static occ_t constant_in_class(egraph_t *egraph, occ_t x) {
   eterm_t t;
 
-  t = term_of(x);
+  t = term_of_occ(x);
   while (! constant_body(egraph_term_body(egraph, t))) {
-    t = term_of(egraph->terms.next[t]);
-    assert(t != term_of(x));
+    t = term_of_occ(egraph->terms.next[t]);
+    assert(t != term_of_occ(x));
   }
 
   return pos_occ(t);
@@ -787,7 +787,7 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v) {
 
     case EXPL_SIMP_OR:
       // eq[i].lhs = (or ...), rhs == false or term occurrence
-      t1 = term_of(eq[i].lhs);
+      t1 = term_of_occ(eq[i].lhs);
       assert(composite_body(body[t1]));
       if (eq[i].rhs == false_occ) {
 	explain_simp_or_false(egraph, body[t1]);
@@ -797,52 +797,52 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v) {
       break;
 
     case EXPL_BASIC_CONGRUENCE:
-      t1 = term_of(eq[i].lhs);
-      t2 = term_of(eq[i].rhs);
+      t1 = term_of_occ(eq[i].lhs);
+      t2 = term_of_occ(eq[i].rhs);
       explain_congruence(egraph, body[t1], body[t2]);
       break;
 
     case EXPL_EQ_CONGRUENCE1:
-      t1 = term_of(eq[i].lhs);
-      t2 = term_of(eq[i].rhs);
+      t1 = term_of_occ(eq[i].lhs);
+      t2 = term_of_occ(eq[i].rhs);
       explain_eq_congruence1(egraph, body[t1], body[t2]);
       break;
 
     case EXPL_EQ_CONGRUENCE2:
-      t1 = term_of(eq[i].lhs);
-      t2 = term_of(eq[i].rhs);
+      t1 = term_of_occ(eq[i].lhs);
+      t2 = term_of_occ(eq[i].rhs);
       explain_eq_congruence2(egraph, body[t1], body[t2]);
       break;
 
     case EXPL_ITE_CONGRUENCE1:
-      t1 = term_of(eq[i].lhs);
-      t2 = term_of(eq[i].rhs);
+      t1 = term_of_occ(eq[i].lhs);
+      t2 = term_of_occ(eq[i].rhs);
       explain_ite_congruence1(egraph, body[t1], body[t2]);
       break;
 
     case EXPL_ITE_CONGRUENCE2:
-      t1 = term_of(eq[i].lhs);
-      t2 = term_of(eq[i].rhs);
+      t1 = term_of_occ(eq[i].lhs);
+      t2 = term_of_occ(eq[i].rhs);
       explain_ite_congruence2(egraph, body[t1], body[t2]);
       break;
 
     case EXPL_OR_CONGRUENCE:
-      t1 = term_of(eq[i].lhs);
-      t2 = term_of(eq[i].rhs);
+      t1 = term_of_occ(eq[i].lhs);
+      t2 = term_of_occ(eq[i].rhs);
       explain_or_congruence(egraph, body[t1], body[t2], edata[i].ptr);
       break;
 
     case EXPL_DISTINCT_CONGRUENCE:
-      t1 = term_of(eq[i].lhs);
-      t2 = term_of(eq[i].rhs);
+      t1 = term_of_occ(eq[i].lhs);
+      t2 = term_of_occ(eq[i].rhs);
       explain_distinct_congruence(egraph, body[t1], body[t2], edata[i].ptr);
       break;
 
     case EXPL_ARITH_PROPAGATION:
     case EXPL_BV_PROPAGATION:
     case EXPL_FUN_PROPAGATION:
-      t1 = term_of(eq[i].lhs);
-      t2 = term_of(eq[i].rhs);
+      t1 = term_of_occ(eq[i].lhs);
+      t2 = term_of_occ(eq[i].rhs);
       explain_theory_equality(egraph, etag[i], t1, t2, edata[i].ptr, v);
       break;
 
@@ -1053,12 +1053,12 @@ void egraph_store_diseq_pre_expl(egraph_t *egraph, eterm_t t1, eterm_t t2, compo
 
   u = find_equal_child(egraph, hint, pos_occ(t1));
   assert(u != null_occurrence && is_pos_occ(u) && egraph_equal_occ(egraph, pos_occ(t1), u));
-  p->u1 = term_of(u);
+  p->u1 = term_of_occ(u);
 
 
   u = find_equal_child(egraph, hint, pos_occ(t2));
   assert(u != null_occurrence && is_pos_occ(u) && egraph_equal_occ(egraph, pos_occ(t2), u));
-  p->u2 = term_of(u);
+  p->u2 = term_of_occ(u);
 
   assert(p->u1 != p->u2);
 }

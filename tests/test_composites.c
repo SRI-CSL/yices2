@@ -10,7 +10,7 @@
 
 #include "egraph_types.h"
 #include "composites.h"
-#include "solver_printer.h"
+#include "egraph_printer.h"
 #include "arena.h"
 
 

@@ -8,7 +8,9 @@
 #include <assert.h>
 
 #include "gates_hash_table.h"
-#include "solver_printer.h"
+#include "smt_core_printer.h"
+#include "gates_printer.h"
+
 
 /*
  * Global table
