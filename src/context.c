@@ -3,6 +3,7 @@
  */
 
 #include "memalloc.h"
+#include "term_utils.h"
 #include "context.h"
 
 
@@ -11,10 +12,8 @@
  ******************************/
 
 /*
- * Flatten and simplify assertion f.
- *
- * Perform top-down boolean propagation and add all subterms of f
- * that can't be flattened to four vectors:
+ * Assertions are processed by performing top-down boolean propagation
+ * and collecting all subterms that can't be flattened into four vectors:
  *
  * 1) ctx->top_eqs = top-level equalities.
  *    Every t in top_eqs is (eq t1 t2) (or a variant) asserted true.
@@ -35,8 +34,140 @@
  *    l or g must be asserted true in later stages.
  * 
  * If variable elimination is enabled, some top-level equalities 
- * (eq x <term>) are converted into substitutions [x := term].  
+ * (eq x <term>) are converted into substitutions [x := term].
  *
+ * Flattening is done breadth-first:
+ * - the subterms to process are stored into ctx->queue.
+ * - each subterm in that queue is a boolean term that's asserted true
+ */
+
+
+/*
+ * Each function below processes an assertion of the form (r == tt)
+ * where r is a boolean term (with positive polarity) and tt is either
+ * true or false. The term r is a root in the internalization table
+ * and r is not internalized yet.
+ *
+ * Processing:
+ * - try to simplify (r == tt) to a boolean term q. If that works
+ *   add q to the internal queue.
+ * - check for boolean propagation from (r == tt) to r's children.
+ *   Example: (or t_1 ... t_n) == false ---> (t_1 == false), etc.
+ * - if (r == tt) can be rewritten to an equality (t1 == t2), check
+ *   whether we can eliminate t1 or t2 by substitution.
+ * - otherwise, add r or (not r) to one of top_eqs, top_atoms, or top_formulas.
+ */
+
+/*
+ * Atoms, except equalities
+ */
+// r is (p t_1 ... t_n)
+static void flatten_bool_app(context_t *ctx, term_t r, bool tt) {
+  ivector_push(&ctx->top_atoms, signed_term(r, tt));
+}
+
+// r is (distinct t1 .... t_n)
+static void flatten_distinct(context_t *ctx, term_t r, bool tt) {
+  if (tt) {
+    ivector_push(&ctx->top_atoms, r);
+  } else {
+    // not (distinct ...) expands to an or 
+    ivector_push(&ctx->top_formulas, not(r));
+  }
+}
+
+// r is (select i t) for a tuple t
+static void flatten_select(context_t *ctx, term_t r, bool tt) {
+  select_term_t *sel;
+  composite_term_t *tuple;
+  term_t t;
+
+  sel = select_term_desc(ctx->terms, r);  
+  t = intern_tbl_get_root(&ctx->intern, sel->arg);
+  if (term_kind(ctx->terms, t) == TUPLE_TERM) {
+    // select i (tuple ... t_i ...) --> t_i
+    // push t_i into the queue
+    tuple = tuple_term_desc(ctx->terms, t);
+    r = tuple->arg[sel->idx];
+    assert(is_boolean_term(ctx->terms, r));
+    int_queue_push(&ctx->queue, signed_term(r, tt));
+  } else {
+    ivector_push(&ctx->top_atoms, signed_term(r, tt));
+  }
+}
+
+// r is (bit i t) for a bitvector term t
+static void flatten_bit_select(context_t *ctx, term_t r, bool tt) {
+  select_term_t *sel;
+  term_t t;
+
+  sel = bit_term_desc(ctx->terms, r);
+  t = intern_tbl_get_root(&ctx->intern, sel->arg);
+  t = extract_bit(ctx->terms, t, sel->idx);
+  if (t != NULL_TERM) {
+    int_queue_push(&ctx->queue, signed_term(t, tt));
+  } else {
+    ivector_push(&ctx->top_atoms, signed_term(r, tt));
+  }
+}
+
+// r is (t >= 0) for an arithmetic term t
+static void flatten_arith_geq0(context_t *ctx, term_t r, bool tt) {
+  term_t t;
+
+  t = arith_ge_arg(ctx->terms, r);
+  t = intern_tbl_get_root(&ctx->intern, t);
+  
+}
+
+// r is (bvge t1 t2) for two bitvector terms t1 and t2
+static void flatten_bvge(context_t *ctx, term_t r, bool tt) {
+}
+
+// r is (bvsge t1 t2) for two bitvector terms t1 and t2
+static void flatten_bvsge(context_t *ctx, term_t r, bool tt) {
+}
+
+
+/*
+ * Equalities
+ */
+// r is (t == 0) for an arithmetic term t
+static void flatten_arith_eq0(context_t *ctx, term_t r, bool tt) {
+}
+
+// r is (t1 == t2) for two arithemtic terms t1 and t2
+static void flatten_arith_eq(context_t *ctx, term_t r, bool tt) {
+}
+
+// r is (eq t1 t2): t1 and t2 are either boolean or tuples or uninterpreted
+static void flatten_eq(context_t *ctx, term_t r, bool tt) {
+}
+
+// r is (bveq t1 t2) for two bitvector terms t1 and t2
+static void flatten_bveq(context_t *ctx, term_t r, bool tt) {
+}
+
+
+/*
+ * Non-atomic terms
+ */
+// r is (or t1 .... t_n)
+static void flatten_or(context_t *ctx, term_t r, bool tt) {
+}
+
+// r is (xor t1 ... t_n)
+static void flatten_xor(context_t *ctx, term_t r, bool tt) {
+}
+
+// r is (ite c t1 t2) where t1 and t2 are boolean terms
+static void flatten_bool_ite(context_t *ctx, term_t r, bool tt) {
+}
+
+
+/*
+ * Simplify and flatten assertion f.
+ * 
  * Raise an exception via longjmp if there's an error or if a
  * contradiction is detected.
  */
@@ -65,11 +196,8 @@ static void flatten_assertion(context_t *ctx, term_t f) {
      * and polarity is either true or false
      */
     r = intern_tbl_get_root(intern, t); // r == t by substitution
-    tt = true;
-    if (is_neg_term(r)) {
-      tt = false;
-      r = opposite_term(r);
-    }
+    tt = is_pos_term(r);
+    r = unsigned_term(r);
 
     assert(is_pos_term(r) && intern_tbl_is_root(intern, r));
 
@@ -86,10 +214,7 @@ static void flatten_assertion(context_t *ctx, term_t f) {
       }
 
       if (x != bool2code(tt)) {
-	if (! tt) {
-	  r = opposite_term(r);
-	}
-	ivector_push(&ctx->top_interns, r);
+	ivector_push(&ctx->top_interns, signed_term(r, tt));
       }
 
     } else {
@@ -138,22 +263,79 @@ static void flatten_assertion(context_t *ctx, term_t f) {
 	break;
 
       case ARITH_EQ_ATOM:
+	intern_tbl_map_root(intern, r, bool2code(tt));
+	flatten_arith_eq0(ctx, r, tt);
+	break;
+
       case ARITH_GE_ATOM:
+	intern_tbl_map_root(intern, r, bool2code(tt));
+	flatten_arith_geq0(ctx, r, tt);
+	break;
+
       case ITE_TERM:
       case ITE_SPECIAL:
+	intern_tbl_map_root(intern, r, bool2code(tt));
+	flatten_bool_ite(ctx, r, tt);
+	break;
+
       case APP_TERM:
+	intern_tbl_map_root(intern, r, bool2code(tt));
+	flatten_bool_app(ctx, r, tt);
+	break;
+
       case EQ_TERM:
+	intern_tbl_map_root(intern, r, bool2code(tt));
+	flatten_eq(ctx, r, tt);
+	break;
+
       case DISTINCT_TERM:
+	intern_tbl_map_root(intern, r, bool2code(tt));
+	flatten_distinct(ctx, r, tt);
+	break;
+
       case FORALL_TERM:
+	intern_tbl_map_root(intern, r, bool2code(tt));
+	ivector_push(&ctx->top_atoms, signed_term(r, tt));
+	break;
+
       case OR_TERM:
+	intern_tbl_map_root(intern, r, bool2code(tt));
+	flatten_or(ctx, r, tt);
+	break;
+
       case XOR_TERM:
+	intern_tbl_map_root(intern, r, bool2code(tt));
+	flatten_xor(ctx, r, tt);
+	break;
+
       case ARITH_BINEQ_ATOM:
+	intern_tbl_map_root(intern, r, bool2code(tt));
+	flatten_arith_eq(ctx, r, tt);
+	break;
+
       case BV_EQ_ATOM:
+	intern_tbl_map_root(intern, r, bool2code(tt));
+	flatten_bveq(ctx, r, tt);
+	break;
+
       case BV_GE_ATOM:
+	intern_tbl_map_root(intern, r, bool2code(tt));
+	flatten_bvge(ctx, r, tt);
+	break;
+
       case BV_SGE_ATOM:
+	intern_tbl_map_root(intern, r, bool2code(tt));
+	flatten_bvsge(ctx, r, tt);
+	break;
+
       case SELECT_TERM:
-      case BIT_TERM:	
-	intern_tbl_map_root(intern, r, bool2code(tt));      
+	intern_tbl_map_root(intern, r, bool2code(tt));
+	flatten_select(ctx, r, tt);
+	break;
+
+      case BIT_TERM:
+	intern_tbl_map_root(intern, r, bool2code(tt));
+	flatten_bit_select(ctx, r, tt);
 	break;
       }
     }

@@ -64,6 +64,22 @@ extern bool term_is_in_finite_domain(term_table_t *tbl, term_t t, term_t u);
 extern bool terms_have_disjoint_finite_domains(term_table_t *tbl, term_t t, term_t u);
 
 
+/*
+ * Check whether all elements in t's domain are non-negative
+ * - t must be a special if-then-else of arithmetic type
+ * - the domain of t is computed if required
+ */
+extern bool term_has_nonneg_finite_domain(term_table_t *tbl, term_t t);
+
+
+/*
+ * Check whether all elements in t's domain are negative
+ * - t must be a special if-then-else term of arithemtic type
+ * - the domain of t is computed if rrequired
+ */
+extern bool term_has_negative_finite_domain(term_table_t *tbl, term_t t);
+
+
 
 /*
  * DISEQUALITY CHECKS
@@ -100,6 +116,32 @@ extern bool disequal_term_arrays(term_table_t *tbl, uint32_t n, term_t *a, term_
 extern bool pairwise_disequal_terms(term_table_t *tbl, uint32_t n, term_t *a);
 
 
+
+/*
+ * BOUNDS ON ARITHMETIC TERMS
+ */
+
+/*
+ * Check whether t is non-negative. This is incomplete and 
+ * deals only with simple cases. 
+ * - return true if the checks can determine that t >= 0
+ * - return false otherwise
+ */
+extern bool arith_term_is_nonneg(term_table_t *tbl, term_t t);
+
+
+/*
+ * Check whether t is negative (incomplete)
+ * - return true if the checks succeed and determine that t < 0
+ * - return false otherwise
+ */
+extern bool arith_term_is_negative(term_table_t *tbl, term_t t);
+
+
+
+
+
+
 /*
  * BOUNDS ON BITVECTOR TERMS
  */
@@ -126,6 +168,17 @@ extern uint64_t upper_bound_unsigned64(term_table_t *tbl, term_t t);
 extern uint64_t lower_bound_unsigned64(term_table_t *tbl, term_t t);
 extern uint64_t upper_bound_signed64(term_table_t *tbl, term_t t);
 extern uint64_t lower_bound_signed64(term_table_t *tbl, term_t t);
+
+
+/*
+ * Get bit i of term t:
+ * - return NULL_TERM if the bit can't be determined
+ * - return true or false if t is a bitvector constant
+ * - return b_i if t is (bv-array b_0 .. b_i ...)
+ *
+ * t must be a bitvector term of size >= i
+ */
+extern term_t extract_bit(term_table_t *tbl, term_t t, uint32_t i);
 
 
 

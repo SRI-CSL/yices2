@@ -206,6 +206,79 @@ bool terms_have_disjoint_finite_domains(term_table_t *tbl, term_t t, term_t u) {
 
 
 
+/*
+ * FINITE RATIONAL DOMAIN
+ */
+
+/*
+ * Check whether all elements in domain d are >= 0
+ * - d must be an arithmetic domain (i.e., all elements in d are rational constants)
+ */
+static bool finite_domain_is_nonneg(term_table_t *tbl, finite_domain_t *d) {
+  uint32_t i, n;
+  term_t t;
+
+  n = d->nelems;
+  for (i=0; i<n; i++) {
+    t = d->data[i];
+    if (q_is_neg(rational_term_desc(tbl, t))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+/*
+ * Check whether all elements in domain d are negative
+ * - d must be an arithmetic domain
+ */
+static bool finite_domain_is_neg(term_table_t *tbl, finite_domain_t *d) {
+  uint32_t i, n;
+  term_t t;
+
+  n = d->nelems;
+  for (i=0; i<n; i++) {
+    t = d->data[i];
+    if (q_is_nonneg(rational_term_desc(tbl, t))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+/*
+ * Check whether all elements in t's domain are non-negative
+ * - t must be a special if-then-else of arithmetic type
+ * - the domain of t is computed if required
+ */
+bool term_has_nonneg_finite_domain(term_table_t *tbl, term_t t) {
+  finite_domain_t *d;
+
+  d = special_ite_get_finite_domain(tbl, t);
+  return finite_domain_is_nonneg(tbl, d);
+}
+
+
+/*
+ * Check whether all elements in t's domain are negative
+ * - t must be a special if-then-else term of arithemtic type
+ * - the domain of t is computed if rrequired
+ */
+bool term_has_negative_finite_domain(term_table_t *tbl, term_t t) {
+  finite_domain_t *d;
+
+  d = special_ite_get_finite_domain(tbl, t);
+  return finite_domain_is_neg(tbl, d);
+}
+
+
+
+
+
 
 
 /***********************************
@@ -593,6 +666,10 @@ static bool disequal_bv64_terms(term_table_t *tbl, term_t x, term_t y) {
       return disequal_bitarrays(bvarray_term_desc(tbl, x), bvarray_term_desc(tbl, y));
     }
 
+    if (kx == ITE_SPECIAL) {
+      return terms_have_disjoint_finite_domains(tbl, x, y);
+    }
+
   } else {
    
     if (kx == BV64_CONSTANT && ky == BV_ARRAY) {
@@ -601,6 +678,14 @@ static bool disequal_bv64_terms(term_table_t *tbl, term_t x, term_t y) {
 
     if (ky == BV64_CONSTANT && kx == BV_ARRAY) {
       return disequal_bitarray_bvconst64(bvarray_term_desc(tbl, x), bvconst64_term_desc(tbl, y));
+    }
+
+    if (kx == BV64_CONSTANT && ky == ITE_SPECIAL) {
+      return !term_is_in_finite_domain(tbl, y, x);
+    }
+
+    if (ky == BV64_CONSTANT && kx == ITE_SPECIAL) {
+      return !term_is_in_finite_domain(tbl, x, y);
     }
 
     if (kx == BV64_POLY && ky != BV64_CONSTANT) {
@@ -639,6 +724,10 @@ static bool disequal_bv_terms(term_table_t *tbl, term_t x, term_t y) {
       return disequal_bitarrays(bvarray_term_desc(tbl, x), bvarray_term_desc(tbl, y));
     }
 
+    if (kx == ITE_SPECIAL) {
+      return terms_have_disjoint_finite_domains(tbl, x, y);
+    }
+
   } else {
    
     if (kx == BV_CONSTANT && ky == BV_ARRAY) {
@@ -647,6 +736,14 @@ static bool disequal_bv_terms(term_table_t *tbl, term_t x, term_t y) {
 
     if (ky == BV_CONSTANT && kx == BV_ARRAY) {
       return disequal_bitarray_bvconst(bvarray_term_desc(tbl, x), bvconst_term_desc(tbl, y));
+    }
+
+    if (kx == BV_CONSTANT && ky == ITE_SPECIAL) {
+      return !term_is_in_finite_domain(tbl, y, x);
+    }
+
+    if (ky == BV_CONSTANT && kx == ITE_SPECIAL) {
+      return !term_is_in_finite_domain(tbl, x, y);
     }
 
     if (kx == BV_POLY && ky != BV_CONSTANT) {
@@ -1055,6 +1152,52 @@ uint64_t lower_bound_signed64(term_table_t *tbl, term_t t) {
 
   return c;
 }
+
+
+
+
+/*
+ * Get bit i of term t:
+ * - return NULL_TERM if the bit can't be determined
+ * - return true or false if t is a bitvector constant
+ * - return b_i if t is (bv-array b_0 .. b_i ...)
+ *
+ * t must be a bitvector term of size > i
+ */
+term_t extract_bit(term_table_t *tbl, term_t t, uint32_t i) {
+  uint32_t *d;
+  uint64_t c;  
+  term_t bit;
+
+  assert(is_bitvector_term(tbl, t) && term_bitsize(tbl, t) > i);
+
+  switch (term_kind(tbl, t)) {
+  case BV64_CONSTANT:
+    c = bvconst64_term_desc(tbl, t)->value;
+    bit = bool2term(tst_bit64(c, i));
+    break;
+
+  case BV_CONSTANT:
+    d = bvconst_term_desc(tbl, t)->data;
+    bit = bool2term(bvconst_tst_bit(d, i));
+    break;
+
+  case BV_ARRAY:
+    bit = bvarray_term_desc(tbl, t)->arg[i];
+    break;
+
+  default:
+    bit = NULL_TERM;
+    break;
+  }
+
+  return bit;
+}
+
+
+
+
+
 
 
 /*

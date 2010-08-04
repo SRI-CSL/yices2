@@ -1028,7 +1028,7 @@ term_t arith_buffer_get_eq0_atom(arith_buffer_t *b) {
  *
  * Normalize b first then check for simplifications.
  * - simplify to true or false if b is a constant
- * - otherwise term t from b and return the atom (t >= 0)
+ * - otherwise build a term t from b and return the atom (t >= 0)
  */
 term_t arith_buffer_get_geq0_atom(arith_buffer_t *b) {
   mlist_t *m;
@@ -1048,7 +1048,7 @@ term_t arith_buffer_get_geq0_atom(arith_buffer_t *b) {
     /*
      * b is a * r with a != 0
      * if r is the empty product, (b >= 0) simplifies to true or false
-     * otherwise, (b >= 0) simplfies either to r >= 0 or -r >= 0
+     * otherwise, (b >= 0) simplifies either to r >= 0 or -r >= 0
      */
     m = b->list;
     r = m->prod;

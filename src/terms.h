@@ -845,6 +845,15 @@ static inline term_t unsigned_term(term_t x) {
 }
 
 
+/*
+ * Add polarity tt to term x:
+ * - if tt is true: return x
+ * - if tt is false: return (not x)
+ */
+static inline term_t signed_term(term_t x, bool tt) {
+  return x ^ (((int32_t) tt) ^ 1);
+}
+
 
 /*
  * Check whether x and y are opposite terms
@@ -1319,16 +1328,6 @@ static inline composite_term_t *or_term_desc(term_table_t *table, term_t t) {
 
 static inline composite_term_t *xor_term_desc(term_table_t *table, term_t t) {
   assert(term_kind(table, t) == XOR_TERM);
-  return composite_for_idx(table, index_of(t));
-}
-
-static inline composite_term_t *arith_eq_atom_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ARITH_EQ_ATOM);
-  return composite_for_idx(table, index_of(t));
-}
-
-static inline composite_term_t *arith_ge_atom_desc(term_table_t *table, term_t t) {
-  assert(term_kind(table, t) == ARITH_GE_ATOM);
   return composite_for_idx(table, index_of(t));
 }
 
