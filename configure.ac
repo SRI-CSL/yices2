@@ -260,7 +260,8 @@ int main() {
    mpz_t tst;
    mpz_init(tst);
    mpz_clear(tst);
-   if ((__GNU_MP_VERSION < 4) || (__GNU_MP_VERSION_MINOR < 1)) {
+   if ((__GNU_MP_VERSION < 4) || 
+       ((__GNU_MP_VERSION == 4) && (__GNU_MP_VERSION_MINOR < 1))) {
      return 1;
    }
    return 0;

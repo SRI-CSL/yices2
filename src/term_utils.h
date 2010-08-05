@@ -75,9 +75,23 @@ extern bool term_has_nonneg_finite_domain(term_table_t *tbl, term_t t);
 /*
  * Check whether all elements in t's domain are negative
  * - t must be a special if-then-else term of arithemtic type
- * - the domain of t is computed if rrequired
+ * - the domain of t is computed if required
  */
 extern bool term_has_negative_finite_domain(term_table_t *tbl, term_t t);
+
+
+/*
+ * Check whether all elements in t's domain are negative
+ * - t must be a special if-then-else term of arithmetic type
+ * - the domain of t is computed if required
+ */
+static inline bool term_has_nonzero_finite_domain(term_table_t *tbl, term_t t) {
+  assert(is_arithmetic_term(tbl, t));
+  return !term_is_in_finite_domain(tbl, t, zero_term);
+}
+
+
+
 
 
 
@@ -101,6 +115,7 @@ extern bool disequal_terms(term_table_t *tbl, term_t x, term_t y);
  */
 extern bool disequal_bitvector_terms(term_table_t *tbl, term_t x, term_t y);
 extern bool disequal_arith_terms(term_table_t *tbl, term_t x, term_t y);
+
 
 /*
  * Check whether a[i] can't equal b[i] for all i in 0 .. n-1
@@ -138,6 +153,13 @@ extern bool arith_term_is_nonneg(term_table_t *tbl, term_t t);
 extern bool arith_term_is_negative(term_table_t *tbl, term_t t);
 
 
+/*
+ * Check whether t is non-zero (incomplete)
+ * - return true if the checks succeed and determine that t != 0
+ * - return false otherwise
+ */
+extern bool arith_term_is_nonzero(term_table_t *tbl, term_t t); 
+
 
 
 
@@ -170,6 +192,11 @@ extern uint64_t upper_bound_signed64(term_table_t *tbl, term_t t);
 extern uint64_t lower_bound_signed64(term_table_t *tbl, term_t t);
 
 
+
+/*
+ * SIMPLIFICATION OF BIT-VECTOR TERMS
+ */
+
 /*
  * Get bit i of term t:
  * - return NULL_TERM if the bit can't be determined
@@ -179,6 +206,23 @@ extern uint64_t lower_bound_signed64(term_table_t *tbl, term_t t);
  * t must be a bitvector term of size >= i
  */
 extern term_t extract_bit(term_table_t *tbl, term_t t, uint32_t i);
+
+
+/*
+ * Try to simplify (bv-eq t1 t2) to a boolean term
+ * - if t1 and t2 can be rewritten as arrays of bits 
+ *   [b0 .. b_n] and [c_0 ... c_n], respectively,
+ *   then the function checks whether 
+ *      (and (b0 == c0) ... (b_n == c_n))
+ *   simplifies to a single boolean term.
+ * - return NULL_TERM if no simplification is found
+ *
+ * NOTE: this function does not deal with the simpler cases where both
+ * t1 and t2 are constant, or t1 == t2. Check whether t1 == t2 and
+ * call disequal_bivector_terms(tbl, t1, t2) first before calling this
+ * function.
+ */
+extern term_t simplify_bveq(term_table_t *tbl, term_t t1, term_t t2);
 
 
 

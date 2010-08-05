@@ -43,6 +43,313 @@
 
 
 /*
+ * Check whether t is true or false (i.e., mapped to 'true_occ' or 'false_occ'
+ * in the internalization table.
+ * - t must be a root in the internalization table
+ */
+static bool term_is_true(context_t *ctx, term_t t) {
+  bool tt;
+
+  assert(intern_tbl_is_root(&ctx->intern, t));
+  tt = is_pos_term(t);
+  t = unsigned_term(t);
+  
+  return intern_tbl_root_is_mapped(&ctx->intern, t) && 
+    intern_tbl_map_of_root(&ctx->intern, t) == bool2code(tt);
+}
+
+static bool term_is_false(context_t *ctx, term_t t) {
+  bool tt;
+
+  assert(intern_tbl_is_root(&ctx->intern, t));
+  tt = is_pos_term(t);
+  t = unsigned_term(t);
+  
+  return intern_tbl_root_is_mapped(&ctx->intern, t) && 
+    intern_tbl_map_of_root(&ctx->intern, t) == bool2code(! tt);
+}
+
+
+
+/*
+ * Check whether [t1 := t2] is a possible substitution
+ * - both t1 and t2 are root terms of positive polarity
+ *   in the internalization table (non boolean)
+ * - return true if the substitution works
+ * - raise an exception via longjmp if the equality is unsat
+ *   (e.g., x := 1/2 when x is an integer).
+ * - return false otherwise.
+ */
+static bool good_subst(context_t *ctx, term_t t1, term_t t2) {
+  intern_tbl_t *intern;
+
+  intern = &ctx->intern;
+  if (is_constant_term(ctx->terms, t2)) {
+    if (intern_tbl_valid_const_subst(intern, t1, t2)) {
+      return true;
+    } else {
+      // trivially unsat by type incompatibility
+      longjmp(ctx->env, TRIVIALLY_UNSAT);
+    }
+  } else {
+    return intern_tbl_valid_subst(intern, t1, t2);
+  }
+}
+
+
+/*
+ * Attempt to turn (eq t1 t2) into a variable substitution
+ * - both t1 and t2 are root terms in the internalization table
+ *   (and t1 and t2 are not boolean so they have positive polarity)
+ * - e is a term equivalent to (eq t1 t2)
+ */
+static void try_substitution(context_t *ctx, term_t t1, term_t t2, term_t e) {
+  intern_tbl_t *intern;
+  bool free1, free2;
+
+  assert(is_pos_term(t1) && is_pos_term(t2));
+
+  if (context_var_elim_enabled(ctx)) {
+    intern = &ctx->intern;
+
+    free1 = intern_tbl_root_is_free(intern, t1);
+    free2 = intern_tbl_root_is_free(intern, t2);
+
+    if (free1 && free2) {
+      intern_tbl_merge_classes(intern, t1, t2);
+      return;
+    }
+    
+    if (free1 && good_subst(ctx, t1, t2)) {
+      intern_tbl_add_subst(intern, t1, t2);
+      return;
+    }
+
+    if (free2 && good_subst(ctx, t2, t1)) {
+      intern_tbl_add_subst(intern, t2, t1);
+      return;
+    }
+  }
+
+  // no substitution: record e as a top-equality
+  ivector_push(&ctx->top_eqs, e);
+}
+
+
+/*
+ * Attempt to turn (eq t1 t2) into a variable substitution 
+ * - both t1 and t2 are boolean root terms in the internalization table
+ * - e is a term equivalent to (eq t1 t2)
+ * - neither t1 nor t2 are constant
+ */
+static void try_bool_substitution(context_t *ctx, term_t t1, term_t t2, term_t e) {
+  intern_tbl_t *intern;
+
+  if (context_var_elim_enabled(ctx)) {
+    intern = &ctx->intern;
+
+    if (intern_tbl_root_is_free(intern, unsigned_term(t1))) {
+      /* 
+       * Either t1 is free or (not t1) is free
+       */
+      if (is_neg_term(t1)) {
+	t1 = opposite_term(t1);
+	t2 = opposite_term(t2);
+      }
+
+      assert(is_pos_term(t1) && intern_tbl_root_is_free(intern, t1));
+
+      if (intern_tbl_root_is_free(intern, t2)) {
+	// both t1 and t2 are free
+	intern_tbl_merge_classes(intern, t1, t2);
+	return;
+      } else if (intern_tbl_valid_subst(intern, t1, t2)) {
+	intern_tbl_add_subst(intern, t1, t2);
+	return;
+      }
+      
+
+    } else if (intern_tbl_root_is_free(intern, unsigned_term(t2))) {
+      /*
+       * Either t2 or (not t2) is free
+       */
+      if (is_neg_term(t2)) {
+	t1 = opposite_term(t1);
+	t2 = opposite_term(t2);
+      }
+
+      assert(is_pos_term(t2) && intern_tbl_root_is_free(intern, t2));
+
+      if (intern_tbl_valid_subst(intern, t2, t1)) {
+	intern_tbl_add_subst(intern, t2, t1);
+	return;
+      }
+    }
+
+  }
+  
+  // no substitution
+  ivector_push(&ctx->top_eqs, e);
+}
+
+
+
+
+/*
+ * Simplification: all functions below attempt to rewrite a (boolean)
+ * term r to an equivalent (boolean) term q. They return NULL_TERM if 
+ * the simplification fails.
+ */
+static term_t simplify_select(context_t *ctx, term_t r) {
+  select_term_t *sel;
+  composite_term_t *tuple;
+  term_t t;
+
+  sel = select_term_desc(ctx->terms, r);  
+  t = intern_tbl_get_root(&ctx->intern, sel->arg);
+  if (term_kind(ctx->terms, t) == TUPLE_TERM) {
+    // select i (tuple ... t_i ...) --> t_i
+    tuple = tuple_term_desc(ctx->terms, t);
+    return tuple->arg[sel->idx];
+  }
+
+  return NULL_TERM;
+}
+
+static term_t simplify_bit_select(context_t *ctx, term_t r) {
+  select_term_t *sel;
+  term_t t;
+
+  sel = bit_term_desc(ctx->terms, r);
+  t = intern_tbl_get_root(&ctx->intern, sel->arg);
+  return extract_bit(ctx->terms, t, sel->idx);
+}
+
+static term_t simplify_arith_geq0(context_t *ctx, term_t r) {
+  term_table_t *terms;
+  composite_term_t *d;
+  term_t t, x, y;
+
+  terms = ctx->terms;
+  t = arith_ge_arg(terms, r);
+  t = intern_tbl_get_root(&ctx->intern, t);
+  if (is_ite_term(terms, t)) {
+    /*
+     * (ite c x y) >= 0 --> c  if (x >= 0) and (y < 0)
+     * (ite c x y) >= 0 --> ~c if (x < 0) and (y >= 0)
+     */
+    d = ite_term_desc(terms, t);
+    x = intern_tbl_get_root(&ctx->intern, d->arg[1]);
+    y = intern_tbl_get_root(&ctx->intern, d->arg[2]);
+
+    if (arith_term_is_nonneg(terms, x) && 
+	arith_term_is_negative(terms, y)) {
+      return d->arg[0];
+    }
+
+    if (arith_term_is_negative(terms, x) && 
+	arith_term_is_nonneg(terms, y)) {
+      return opposite_term(d->arg[0]);
+    }
+  }
+
+  return NULL_TERM;
+}
+
+static term_t simplify_arith_eq0(context_t *ctx, term_t r) {
+  term_table_t *terms;
+  composite_term_t *d;
+  term_t t, x, y;
+
+  terms = ctx->terms;
+  t = arith_eq_arg(terms, r);
+  t = intern_tbl_get_root(&ctx->intern, t);
+  if (is_ite_term(terms, t)) {
+    /*
+     * (ite c 0 y) == 0 -->  c if y != 0
+     * (ite c x 0) == 0 --> ~c if x != 0
+     */
+    d = ite_term_desc(terms, t);
+    x = intern_tbl_get_root(&ctx->intern, d->arg[1]);
+    y = intern_tbl_get_root(&ctx->intern, d->arg[2]);
+
+    if (x == zero_term && arith_term_is_nonzero(terms, y)) {
+      return d->arg[0];
+    }
+
+    if (y == zero_term && arith_term_is_nonzero(terms, x)) {
+      return opposite_term(d->arg[0]);
+    }
+  }
+
+  return NULL_TERM;
+}
+
+
+/*
+ * Simplification for equalities between two terms t1 and t2.
+ * - both t1 and t2 are root terms in the internalization table
+ * - all simplification functions either a boolean term t equivalent
+ *   to (t1 == t2) or return NULL_TERM if no simplification is found
+ */
+
+// t1 and t2 are arithmetic terms
+static term_t simplify_arith_bineq(context_t *ctx, term_t t1, term_t t2) {
+  term_table_t *terms;
+  composite_term_t *d;
+  term_t x, y;
+
+  terms = ctx->terms;
+  if (is_ite_term(terms, t1)) {
+    /*
+     * (ite c x y) == x --> c  if x != y
+     * (ite c x y) == y --> ~c if x != y
+     */
+    d = ite_term_desc(terms, t1);
+    x = intern_tbl_get_root(&ctx->intern, d->arg[1]);
+    y = intern_tbl_get_root(&ctx->intern, d->arg[2]);
+
+    if (x == t2 && disequal_arith_terms(terms, y, t2)) {
+      return d->arg[0];
+    }
+
+    if (y == t2 && disequal_arith_terms(terms, x, t2)) {
+      return opposite_term(d->arg[0]);
+    }
+  }
+
+  if (is_ite_term(terms, t2)) {
+    // symmetric case
+    d = ite_term_desc(terms, t2);
+    x = intern_tbl_get_root(&ctx->intern, d->arg[1]);
+    y = intern_tbl_get_root(&ctx->intern, d->arg[2]);
+
+    if (x == t1 && disequal_arith_terms(terms, y, t1)) {
+      return d->arg[0];
+    }
+
+    if (y == t1 && disequal_arith_terms(terms, x, t1)) {
+      return opposite_term(d->arg[0]);
+    }    
+  }
+
+  return NULL_TERM;
+}
+
+// t1 and t2 are boolean terms
+static term_t simplify_bool_eq(context_t *ctx, term_t t1, term_t t2) {
+  if (term_is_true(ctx, t1)) return t2;  // (eq true t2) --> t2
+  if (term_is_true(ctx, t2)) return t1;  // (eq t1 true) --> t1
+  if (term_is_false(ctx, t1)) return opposite_term(t2); // (eq false t2) --> not t2
+  if (term_is_false(ctx, t2)) return opposite_term(t1); // (eq t1 false) --> not t1
+
+  return NULL_TERM;
+}
+
+
+
+
+/*
  * Each function below processes an assertion of the form (r == tt)
  * where r is a boolean term (with positive polarity) and tt is either
  * true or false. The term r is a root in the internalization table
@@ -78,32 +385,21 @@ static void flatten_distinct(context_t *ctx, term_t r, bool tt) {
 
 // r is (select i t) for a tuple t
 static void flatten_select(context_t *ctx, term_t r, bool tt) {
-  select_term_t *sel;
-  composite_term_t *tuple;
   term_t t;
 
-  sel = select_term_desc(ctx->terms, r);  
-  t = intern_tbl_get_root(&ctx->intern, sel->arg);
-  if (term_kind(ctx->terms, t) == TUPLE_TERM) {
-    // select i (tuple ... t_i ...) --> t_i
-    // push t_i into the queue
-    tuple = tuple_term_desc(ctx->terms, t);
-    r = tuple->arg[sel->idx];
-    assert(is_boolean_term(ctx->terms, r));
-    int_queue_push(&ctx->queue, signed_term(r, tt));
+  t = simplify_select(ctx, r);
+  if (t != NULL_TERM) {
+    int_queue_push(&ctx->queue, signed_term(t, tt));
   } else {
-    ivector_push(&ctx->top_atoms, signed_term(r, tt));
+    ivector_push(&ctx->top_atoms, signed_term(r, tt));    
   }
 }
 
 // r is (bit i t) for a bitvector term t
 static void flatten_bit_select(context_t *ctx, term_t r, bool tt) {
-  select_term_t *sel;
   term_t t;
 
-  sel = bit_term_desc(ctx->terms, r);
-  t = intern_tbl_get_root(&ctx->intern, sel->arg);
-  t = extract_bit(ctx->terms, t, sel->idx);
+  t = simplify_bit_select(ctx, r);
   if (t != NULL_TERM) {
     int_queue_push(&ctx->queue, signed_term(t, tt));
   } else {
@@ -115,17 +411,22 @@ static void flatten_bit_select(context_t *ctx, term_t r, bool tt) {
 static void flatten_arith_geq0(context_t *ctx, term_t r, bool tt) {
   term_t t;
 
-  t = arith_ge_arg(ctx->terms, r);
-  t = intern_tbl_get_root(&ctx->intern, t);
-  
+  t = simplify_arith_geq0(ctx, r);
+  if (t != NULL_TERM) {
+    int_queue_push(&ctx->queue, signed_term(t, tt));
+  } else {
+    ivector_push(&ctx->top_atoms, signed_term(r, tt));
+  }
 }
 
 // r is (bvge t1 t2) for two bitvector terms t1 and t2
 static void flatten_bvge(context_t *ctx, term_t r, bool tt) {
+  ivector_push(&ctx->top_atoms, signed_term(r, tt));
 }
 
 // r is (bvsge t1 t2) for two bitvector terms t1 and t2
 static void flatten_bvsge(context_t *ctx, term_t r, bool tt) {
+  ivector_push(&ctx->top_atoms, signed_term(r, tt));
 }
 
 
@@ -134,18 +435,97 @@ static void flatten_bvsge(context_t *ctx, term_t r, bool tt) {
  */
 // r is (t == 0) for an arithmetic term t
 static void flatten_arith_eq0(context_t *ctx, term_t r, bool tt) {
+  term_t t;
+
+  t = simplify_arith_eq0(ctx, r);
+  if (t != NULL_TERM) {
+    int_queue_push(&ctx->queue, signed_term(t, tt));
+  } else if (tt) {
+    ivector_push(&ctx->top_eqs, r);
+  } else {
+    ivector_push(&ctx->top_atoms, opposite_term(r));
+  }
 }
 
 // r is (t1 == t2) for two arithemtic terms t1 and t2
 static void flatten_arith_eq(context_t *ctx, term_t r, bool tt) {
+  composite_term_t *eq;
+  term_t t1, t2, t;
+
+  eq = arith_bineq_atom_desc(ctx->terms, r);
+  t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
+  t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
+
+  t = simplify_arith_bineq(ctx, t1, t2);
+  if (t != NULL_TERM) {
+    int_queue_push(&ctx->queue, signed_term(t, tt));
+  } else if (tt) {
+    try_substitution(ctx, t1, t2, r);
+  } else {
+    ivector_push(&ctx->top_atoms, opposite_term(r));
+  }
 }
 
 // r is (eq t1 t2): t1 and t2 are either boolean or tuples or uninterpreted
 static void flatten_eq(context_t *ctx, term_t r, bool tt) {
+  term_table_t *terms;
+  composite_term_t *eq;
+  term_t t1, t2, t;
+
+  terms = ctx->terms;
+  eq = eq_term_desc(terms, r);
+  t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
+  t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
+
+  if (is_boolean_term(terms, t1)) {
+    /*
+     * Boolean equality
+     */
+    assert(is_boolean_term(terms, t2));
+
+    t = simplify_bool_eq(ctx, t1, t2);
+    if (t != NULL_TERM) {
+      int_queue_push(&ctx->queue, signed_term(t, tt));
+    } else {
+      // not (eq t1 t2) --> (eq t1 (not t2))
+      if (! tt) {
+	r = opposite_term(r);
+	t2 = opposite_term(t2);
+      }
+      try_bool_substitution(ctx, t1, t2, r);
+    }
+
+  } else {
+    /*
+     * Non-boolean
+     */
+    if (tt) {
+      try_substitution(ctx, t1, t2, r);
+    } else {
+      ivector_push(&ctx->top_atoms, opposite_term(r));
+    }
+  }
 }
 
 // r is (bveq t1 t2) for two bitvector terms t1 and t2
 static void flatten_bveq(context_t *ctx, term_t r, bool tt) {
+  term_table_t *terms;
+  composite_term_t *eq;
+  term_t t1, t2, t;
+
+  terms = ctx->terms;
+  eq = bveq_atom_desc(terms, r);
+  t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
+  t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
+
+  t = simplify_bveq(terms, t1, t2);
+  if (t != NULL_TERM) {
+    int_queue_push(&ctx->queue, signed_term(t, tt));
+  } else if (tt) {
+    try_substitution(ctx, t1, t2, r);
+  } else {
+    ivector_push(&ctx->top_atoms, opposite_term(r));
+  }
 }
 
 
@@ -154,14 +534,28 @@ static void flatten_bveq(context_t *ctx, term_t r, bool tt) {
  */
 // r is (or t1 .... t_n)
 static void flatten_or(context_t *ctx, term_t r, bool tt) {
+  composite_term_t *d;
+  uint32_t i, n;
+
+  if (tt) {
+    ivector_push(&ctx->top_formulas, r);
+  } else {
+    d = or_term_desc(ctx->terms, r);
+    n = d->arity;
+    for (i=0; i<n; i++) {
+      int_queue_push(&ctx->queue, opposite_term(d->arg[i]));
+    }
+  }
 }
 
 // r is (xor t1 ... t_n)
 static void flatten_xor(context_t *ctx, term_t r, bool tt) {
+  ivector_push(&ctx->top_formulas, signed_term(r, tt));
 }
 
 // r is (ite c t1 t2) where t1 and t2 are boolean terms
 static void flatten_bool_ite(context_t *ctx, term_t r, bool tt) {
+  ivector_push(&ctx->top_formulas, signed_term(r, tt));
 }
 
 

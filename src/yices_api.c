@@ -2597,7 +2597,7 @@ static term_t mk_aritheq(term_t t1, term_t t2) {
 
 
 /*
- * Inequality: (arithgewq t1 t2)
+ * Inequality: (arithgeq t1 t2)
  *
  * Try the cheap lift-if rules. 
  */
@@ -2627,143 +2627,12 @@ static inline term_t mk_arithneq(term_t t1, term_t t2) {
  ************************/
 
 /*
- * Check whether (eq b c) simplifies and if so returns the result.
- * - b and c must be boolean terms (assumed not opposite of each other).
- * - return NULL_TERM if no simplification is found
- *
- * Rules:
- *   (eq b b)     --> true
- *   (eq b true)  --> b
- *   (eq b false) --> (not b)
- * + symmetric cases for the last two rules
- */
-static term_t check_biteq_simplifies(term_t b, term_t c) {
-  assert(! opposite_bool_terms(b, c));
-
-  if (b == c) return true_term;
-
-  if (b == true_term)  return c;
-  if (b == false_term) return opposite_term(c); // not c
-  if (c == true_term)  return b;
-  if (c == false_term) return opposite_term(b);
-
-  return NULL_TERM;
-}
-
-
-/*
- * Check whether (and a (eq b c)) simplifies and, if so, returns the result.
- * - a, b, and c are three boolean terms.
- * - return NULL_TERM if no cheap simplification is found
- *
- * We assume that the cheaper simplification tests have been tried before:
- * (i.e., we assume a != false and  b != (not c)).
- */
-static term_t check_accu_biteq_simplifies(term_t a, term_t b, term_t c) {
-  term_t eq;
-
-
-  // first check whether (eq b c) simplifies
-  eq = check_biteq_simplifies(b, c);
-  if (eq == NULL_TERM) return NULL_TERM;
-
-  /*
-   * try to simplify (and a eq)
-   */
-  assert(a != false_term && eq != false_term);
-
-  if (a == eq) return a;
-  if (opposite_bool_terms(a, eq)) return false_term;
-
-  if (a == true_term) return eq;
-  if (eq == true_term) return a;
-
-  return NULL_TERM;
-}
-
-
-
-/*
- * Check whether (bveq u v) simplifies:
- * - u is a bitvector constant of no more than 64 bits
- * - v is a bv_array term
- *
- * Return NULL_TERM if no cheap simplification is found.
- */
-static term_t check_eq_bvconst64(bvconst64_term_t *u, composite_term_t *v) {
-  uint32_t i, n;
-  term_t accu, b;
-
-  n = u->bitsize;
-  assert(n == v->arity);
-  accu = true_term;
-
-  for (i=0; i<n; i++) {
-    b = bool2term(tst_bit64(u->value, i)); // bit i of u
-    accu = check_accu_biteq_simplifies(accu, b, v->arg[i]);
-    if (accu == NULL_TERM || accu == false_term) {
-      break;
-    }
-  }
-
-  return accu;
-}
-
-
-/*
- * Same thing for a generic constant u.
- */
-static term_t check_eq_bvconst(bvconst_term_t *u, composite_term_t *v) {
-  uint32_t i, n;
-  term_t accu, b;
-
-  n = u->bitsize;
-  assert(n == v->arity);
-  accu = true_term;
-
-  for (i=0; i<n; i++) {
-    b = bool2term(bvconst_tst_bit(u->data, i)); // bit i of u
-    accu = check_accu_biteq_simplifies(accu, b, v->arg[i]);
-    if (accu == NULL_TERM || accu == false_term) {
-      break;
-    }
-  }
-
-  return accu;
-}
-
-
-/*
- * Same thing for two bv_array terms
- */
-static term_t check_eq_bvarray(composite_term_t *u, composite_term_t *v) {
-  uint32_t i, n;
-  term_t accu;
-
-  n = u->arity;
-  assert(n == v->arity);
-  accu = true_term;
-
-  for (i=0; i<n; i++) {
-    accu = check_accu_biteq_simplifies(accu, u->arg[i], v->arg[i]);
-    if (accu == NULL_TERM || accu == false_term) {
-      break;
-    }
-  }
-
-  return accu;
-}
-
-
-
-/*
  * Build (bveq t1 t2)
  * - try to simplify to true or false
  * - attempt to simplify the equality if it's between bit-arrays or bit-arrays and constant
  * - build an atom if no simplification works
  */
 static term_t mk_bveq(term_t t1, term_t t2) {
-  term_kind_t k1, k2;
   term_t aux;
 
   if (t1 == t2) return true_term;
@@ -2775,41 +2644,11 @@ static term_t mk_bveq(term_t t1, term_t t2) {
    * Try simplifications.  We know that t1 and t2 are not both constant
    * (because disequal_bitvector_terms returned false).
    */
-  k1 = term_kind(&terms, t1);
-  k2 = term_kind(&terms, t2);
-  aux = NULL_TERM;
-  switch (k1) {
-  case BV64_CONSTANT:
-    if (k2 == BV_ARRAY) {
-      aux = check_eq_bvconst64(bvconst64_term_desc(&terms, t1), bvarray_term_desc(&terms, t2));
-    }
-    break;
-
-  case BV_CONSTANT:
-    if (k2 == BV_ARRAY) {
-      aux = check_eq_bvconst(bvconst_term_desc(&terms, t1), bvarray_term_desc(&terms, t2));
-    }
-    break;
-
-  case BV_ARRAY:
-    if (k2 == BV64_CONSTANT) {
-      aux = check_eq_bvconst64(bvconst64_term_desc(&terms, t2), bvarray_term_desc(&terms, t1));
-    } else if (k2 == BV_CONSTANT) {
-      aux = check_eq_bvconst(bvconst_term_desc(&terms, t2), bvarray_term_desc(&terms, t1));
-    } else if (k2 == BV_ARRAY) {
-      aux = check_eq_bvarray(bvarray_term_desc(&terms, t1), bvarray_term_desc(&terms, t2));
-    }
-    break;
-
-  default:
-    break;
-  }
-
+  aux = simplify_bveq(&terms, t1, t2);
   if (aux != NULL_TERM) {
     // Simplification worked
     return aux;
   }
-
 
   /*
    * Default: normalize then build a bveq_atom

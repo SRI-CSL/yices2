@@ -250,6 +250,7 @@ static bool finite_domain_is_neg(term_table_t *tbl, finite_domain_t *d) {
 }
 
 
+
 /*
  * Check whether all elements in t's domain are non-negative
  * - t must be a special if-then-else of arithmetic type
@@ -266,7 +267,7 @@ bool term_has_nonneg_finite_domain(term_table_t *tbl, term_t t) {
 /*
  * Check whether all elements in t's domain are negative
  * - t must be a special if-then-else term of arithemtic type
- * - the domain of t is computed if rrequired
+ * - the domain of t is computed if required
  */
 bool term_has_negative_finite_domain(term_table_t *tbl, term_t t) {
   finite_domain_t *d;
@@ -274,8 +275,6 @@ bool term_has_negative_finite_domain(term_table_t *tbl, term_t t) {
   d = special_ite_get_finite_domain(tbl, t);
   return finite_domain_is_neg(tbl, d);
 }
-
-
 
 
 
@@ -943,6 +942,28 @@ bool arith_term_is_negative(term_table_t *tbl, term_t t) {
 }
 
 
+/*
+ * Check whether t is non-zero (incomplete)
+ * - return true if the checks succeed and determine that t != 0
+ * - return false otherwise
+ */
+bool arith_term_is_nonzero(term_table_t *tbl, term_t t) {
+  assert(is_arithmetic_term(tbl, t));
+
+  switch (term_kind(tbl, t)) {
+  case ARITH_CONSTANT:
+    return t != zero_term;
+
+  case ITE_SPECIAL:
+    return term_has_nonzero_finite_domain(tbl, t);
+
+  case ARITH_POLY:
+    return polynomial_is_nonzero(poly_term_desc(tbl, t));
+
+  default:
+    return false;    
+  }
+}
 
 
 
@@ -1211,6 +1232,9 @@ uint64_t lower_bound_signed64(term_table_t *tbl, term_t t) {
 
 
 
+/*****************************************
+ *  SIMPLIFICATION OF BIT-VECTOR TERMS   *
+ ****************************************/
 
 /*
  * Get bit i of term t:
@@ -1252,6 +1276,186 @@ term_t extract_bit(term_table_t *tbl, term_t t, uint32_t i) {
 
 
 
+
+/*
+ * Check whether (eq b c) simplifies and if so returns the result.
+ * - b and c must be boolean terms (assumed not opposite of each other).
+ * - return NULL_TERM if no simplification is found
+ *
+ * Rules:
+ *   (eq b b)     --> true
+ *   (eq b true)  --> b
+ *   (eq b false) --> (not b)
+ * + symmetric cases for the last two rules
+ */
+static term_t check_biteq_simplifies(term_t b, term_t c) {
+  assert(! opposite_bool_terms(b, c));
+
+  if (b == c) return true_term;
+
+  if (b == true_term)  return c;
+  if (b == false_term) return opposite_term(c); // not c
+  if (c == true_term)  return b;
+  if (c == false_term) return opposite_term(b);
+
+  return NULL_TERM;
+}
+
+
+/*
+ * Check whether (and a (eq b c)) simplifies and, if so, returns the result.
+ * - a, b, and c are three boolean terms.
+ * - return NULL_TERM if no cheap simplification is found
+ *
+ * We assume that the cheaper simplification tests have been tried before:
+ * (i.e., we assume a != false and  b != (not c)).
+ */
+static term_t check_accu_biteq_simplifies(term_t a, term_t b, term_t c) {
+  term_t eq;
+
+
+  // first check whether (eq b c) simplifies
+  eq = check_biteq_simplifies(b, c);
+  if (eq == NULL_TERM) return NULL_TERM;
+
+  /*
+   * try to simplify (and a eq)
+   */
+  assert(a != false_term && eq != false_term);
+
+  if (a == eq) return a;
+  if (opposite_bool_terms(a, eq)) return false_term;
+
+  if (a == true_term) return eq;
+  if (eq == true_term) return a;
+
+  return NULL_TERM;
+}
+
+
+
+/*
+ * Check whether (bveq u v) simplifies:
+ * - u is a bitvector constant of no more than 64 bits
+ * - v is a bv_array term
+ *
+ * Return NULL_TERM if no cheap simplification is found.
+ */
+static term_t check_eq_bvconst64(bvconst64_term_t *u, composite_term_t *v) {
+  uint32_t i, n;
+  term_t accu, b;
+
+  n = u->bitsize;
+  assert(n == v->arity);
+  accu = true_term;
+
+  for (i=0; i<n; i++) {
+    b = bool2term(tst_bit64(u->value, i)); // bit i of u
+    accu = check_accu_biteq_simplifies(accu, b, v->arg[i]);
+    if (accu == NULL_TERM || accu == false_term) {
+      break;
+    }
+  }
+
+  return accu;
+}
+
+
+/*
+ * Same thing for a generic constant u.
+ */
+static term_t check_eq_bvconst(bvconst_term_t *u, composite_term_t *v) {
+  uint32_t i, n;
+  term_t accu, b;
+
+  n = u->bitsize;
+  assert(n == v->arity);
+  accu = true_term;
+
+  for (i=0; i<n; i++) {
+    b = bool2term(bvconst_tst_bit(u->data, i)); // bit i of u
+    accu = check_accu_biteq_simplifies(accu, b, v->arg[i]);
+    if (accu == NULL_TERM || accu == false_term) {
+      break;
+    }
+  }
+
+  return accu;
+}
+
+
+/*
+ * Same thing for two bv_array terms
+ */
+static term_t check_eq_bvarray(composite_term_t *u, composite_term_t *v) {
+  uint32_t i, n;
+  term_t accu;
+
+  n = u->arity;
+  assert(n == v->arity);
+  accu = true_term;
+
+  for (i=0; i<n; i++) {
+    accu = check_accu_biteq_simplifies(accu, u->arg[i], v->arg[i]);
+    if (accu == NULL_TERM || accu == false_term) {
+      break;
+    }
+  }
+
+  return accu;
+}
+
+
+
+/*
+ * Try to simplify (bv-eq t1 t2) to a boolean term
+ * - if t1 and t2 can be rewritten as arrays of bits 
+ *   [b0 .. b_n] and [c_0 ... c_n], respectively,
+ *   then the function checks whether 
+ *      (and (b0 == c0) ... (b_n == c_n))
+ *   simplifies to a single boolean term.
+ * - return NULL_TERM if no simplification is found
+ */
+term_t simplify_bveq(term_table_t *tbl, term_t t1, term_t t2) {
+  term_kind_t k1, k2;
+  term_t aux;
+
+  assert(is_bitvector_term(tbl, t1) && is_bitvector_term(tbl, t2) && 
+	 term_bitsize(tbl, t1) == term_bitsize(tbl, t2));
+
+  k1 = term_kind(tbl, t1);
+  k2 = term_kind(tbl, t2);
+  aux = NULL_TERM;
+  switch (k1) {
+  case BV64_CONSTANT:
+    if (k2 == BV_ARRAY) {
+      aux = check_eq_bvconst64(bvconst64_term_desc(tbl, t1), bvarray_term_desc(tbl, t2));
+    }
+    break;
+
+  case BV_CONSTANT:
+    if (k2 == BV_ARRAY) {
+      aux = check_eq_bvconst(bvconst_term_desc(tbl, t1), bvarray_term_desc(tbl, t2));
+    }
+    break;
+
+  case BV_ARRAY:
+    if (k2 == BV64_CONSTANT) {
+      aux = check_eq_bvconst64(bvconst64_term_desc(tbl, t2), bvarray_term_desc(tbl, t1));
+    } else if (k2 == BV_CONSTANT) {
+      aux = check_eq_bvconst(bvconst_term_desc(tbl, t2), bvarray_term_desc(tbl, t1));
+    } else if (k2 == BV_ARRAY) {
+      aux = check_eq_bvarray(bvarray_term_desc(tbl, t1), bvarray_term_desc(tbl, t2));
+    }
+    break;
+
+  default:
+    break;
+  }
+
+
+  return aux;
+}
 
 
 
