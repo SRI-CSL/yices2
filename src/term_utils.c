@@ -890,6 +890,62 @@ bool pairwise_disequal_terms(term_table_t *tbl, uint32_t n, term_t *a) {
 
 
 
+/********************************
+ *  BOUNDS ON ARITHMETIC TERMS  *
+ *******************************/
+
+/*
+ * Check whether t is non-negative. This is incomplete and 
+ * deals only with simple cases. 
+ * - return true if the checks can determine that t >= 0
+ * - return false otherwise
+ */
+bool arith_term_is_nonneg(term_table_t *tbl, term_t t) {
+  assert(is_arithmetic_term(tbl, t));
+
+  switch (term_kind(tbl, t)) {
+  case ARITH_CONSTANT:
+    return q_is_nonneg(rational_term_desc(tbl, t));
+
+  case ITE_SPECIAL:
+    return term_has_nonneg_finite_domain(tbl, t);
+
+  case ARITH_POLY:
+    return polynomial_is_nonneg(poly_term_desc(tbl, t));
+
+  default:
+    return false;    
+  }
+}
+
+
+/*
+ * Check whether t is negative (incomplete)
+ * - return true if the checks succeed and determine that t < 0
+ * - return false otherwise
+ */
+bool arith_term_is_negative(term_table_t *tbl, term_t t) {
+  assert(is_arithmetic_term(tbl, t));
+
+  switch (term_kind(tbl, t)) {
+  case ARITH_CONSTANT:
+    return q_is_neg(rational_term_desc(tbl, t));
+
+  case ITE_SPECIAL:
+    return term_has_negative_finite_domain(tbl, t);
+
+  case ARITH_POLY:
+    return polynomial_is_neg(poly_term_desc(tbl, t));
+
+  default:
+    return false;    
+  }
+}
+
+
+
+
+
 /*******************************
  *  BOUNDS ON BITVECTOR TERMS  *
  ******************************/

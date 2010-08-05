@@ -1023,6 +1023,66 @@ term_t arith_buffer_get_eq0_atom(arith_buffer_t *b) {
 }
 
 
+
+/*
+ * Auxiliary function: try to simplify (t >= 0)
+ * using the following rules:
+ *   (ite c x y) >= 0 --> c     if x >= 0 and y < 0
+ *   (ite c x y) >= 0 --> ~c    if x < 0 and y >= 0
+ *
+ * return NULL_TERM if these simplifications don't work.
+ * return the result otherwise
+ */
+static term_t check_arithge_simplifies(term_table_t *tbl, term_t t) {
+  composite_term_t *d;
+  term_t x, y;
+
+  assert(is_arithmetic_term(tbl, t));
+
+  if (is_ite_term(tbl, t)) {
+    d = ite_term_desc(tbl, t);
+    x = d->arg[1];
+    y = d->arg[2];
+
+    if (arith_term_is_nonneg(tbl, x) && 
+	arith_term_is_negative(tbl, y)) {
+      return d->arg[0];
+    }
+
+    if (arith_term_is_negative(tbl, x) &&
+	arith_term_is_nonneg(tbl, y)) {
+      return opposite_term(d->arg[0]);
+    }
+  }
+
+  return NULL_TERM;
+}
+
+
+
+/*
+ * Build the atom (t >= 0)
+ * - try simplifications first
+ */
+static term_t mk_arith_geq_atom(term_t t) {
+  term_t aux;
+
+  assert(is_arithmetic_term(&terms, t));
+
+  if (arith_term_is_nonneg(&terms, t)) {
+    return true_term;
+  }
+
+  aux = check_arithge_simplifies(&terms, t);
+  if (aux != NULL_TERM) {
+    return aux;
+  }
+
+  return arith_geq_atom(&terms, t);
+}
+
+
+
 /*
  * Construct the atom (b >= 0) then reset b.
  *
@@ -1058,7 +1118,7 @@ term_t arith_buffer_get_geq0_atom(arith_buffer_t *b) {
 	t = true_term;
       } else {
 	t = pp_is_var(r) ? var_of_pp(r) : pprod_term(&terms, r);
-	t = arith_geq_atom(&terms, t); // r >= 0
+	t = mk_arith_geq_atom(t); // r >= 0
       }
     } else {
       // a < 0
@@ -1067,7 +1127,7 @@ term_t arith_buffer_get_geq0_atom(arith_buffer_t *b) {
       } else {
 	q_set_minus_one(&m->coeff); // force a := -1
 	t = arith_poly(&terms, b);
-	t = arith_geq_atom(&terms, t);
+	t = mk_arith_geq_atom(t);
       }
     }
 
@@ -1075,7 +1135,7 @@ term_t arith_buffer_get_geq0_atom(arith_buffer_t *b) {
     // no simplification (for now).
     // could try to reduce the coefficients?
     t = arith_poly(&terms, b);
-    t = arith_geq_atom(&terms, t);    
+    t = mk_arith_geq_atom(t);
   }
 
   arith_buffer_reset(b);
