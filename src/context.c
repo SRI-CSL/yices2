@@ -867,6 +867,48 @@ static const uint32_t const mode2options[NUM_MODES] = {
 
 
 
+/******************
+ *  EMPTY SOLVER  *
+ *****************/
+
+/*
+ * We need an empty theory solver for initializing
+ * the core if the architecture is NOSOLVERS.
+ */
+static void donothing(void *solver) {  
+}
+
+static void null_backtrack(void *solver, uint32_t backlevel) {
+}
+
+static bool null_propagate(void *solver) {
+  return true;
+}
+
+static fcheck_code_t null_final_check(void *solver) {
+  return FCHECK_SAT;
+}
+
+static th_ctrl_interface_t null_ctrl = {
+  donothing,        // start_internalization
+  donothing,        // start_search
+  null_propagate,   // propagate
+  null_final_check, // final check
+  donothing,        // increase_decision_level
+  null_backtrack,   // backtrack
+  donothing,        // push
+  donothing,        // pop
+  donothing,        // reset
+};
+
+
+// for the smt interface, nothing should be called since there are no atoms
+static th_smt_interface_t null_smt = {
+  NULL, NULL, NULL, NULL, NULL,
+};
+
+
+
 
 /*****************************
  *  CONTEXT INITIALIZATION   *
@@ -893,6 +935,8 @@ static inline bool valid_arch(context_arch_t arch) {
  */
 void init_context(context_t *ctx, term_table_t *terms,
 		  context_mode_t mode, context_arch_t arch, bool qflag) {  
+  smt_mode_t cmode;
+
   assert(valid_mode(mode) && valid_arch(arch));
 
   /*
@@ -950,7 +994,11 @@ void init_context(context_t *ctx, term_table_t *terms,
    */
   init_istack(&ctx->istack);
   init_int_queue(&ctx->queue, 0);
-  
+
+
+  // TEMPORARY HACK: INITIALIZE THE CORE WITH THE EMPTY SOLVER
+  cmode = core_mode[mode];
+  init_smt_core(ctx->core, CTX_DEFAULT_CORE_SIZE, NULL, &null_ctrl, &null_smt, cmode);
 }
 
 
@@ -1034,6 +1082,8 @@ void context_pop(context_t *ctx) {
   intern_tbl_pop(&ctx->intern);
   ctx->base_level --;
 }
+
+
 
 
 
