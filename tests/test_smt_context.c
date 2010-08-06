@@ -55,10 +55,11 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
 static void print_internalization_code(int32_t code) {
   assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
   if (code == TRIVIALLY_UNSAT) {
+    printf("Internalization OK\n\n");
     printf("Assertions simplify to false\n\n"); 
     printf("unsat\n");
   } else if (code == CTX_NO_ERROR) {
-    printf("Internlization OK\n\n");
+    printf("Internalization OK\n\n");
     printf("unknown\n");
   } else {
     printf("unknown\n");
