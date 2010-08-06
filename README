@@ -460,3 +460,39 @@ Then to select this configuration:
 
 
 
+
+NOTES FOR GCC4.4.x
+------------------
+
+Compiling yices with gcc-4.4 with the default options causes a
+lot of warnings of the form: 
+
+warning: inlining failed in call to 'xxx': call is unlikely and code size would grow
+
+The yices functions that are declared 'inline' are small and do not
+cause much code growth. So these warnings are annoying.
+
+This is caused by heuristics GCC employs to determine whether inlining
+a function call is worth doing. GCC attempts to determine whether a
+basic block is executed frequently enough before inlining the function
+calls in that block. By default, GCC uses crude heuristics to guess
+the execution frequency of each block (and other heuristics to
+estimate code growth).
+
+The part about 'code size would grow' can be misleading. The warning
+will be produced even if inlining does not cause any code growth at
+all, probably because the code-growth estimate is not very accurate.
+
+There are several ways to fix this:
+
+1) remove -Winline from the compilation flags. GCC will inline whatever it
+   wants and there will be no warnings.
+
+2) add  __attribute__ ((always_inline)) to the inline functions that cause 
+   problem. GCC will stop checking for 
+
+3) add option -fno-guess-branch-probability to CFLAGS.
+
+4) play with the parameters that control what GCC considers high enough frequency
+   (e.g., add option --param hot-bb-frequency-fraction=2000)
+
