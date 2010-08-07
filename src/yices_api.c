@@ -1211,7 +1211,6 @@ static term_t bvlogic_buffer_get_bvconst(bvlogic_buffer_t *b) {
 
 /*
  * Convert buffer b to a bv-array term
- * - side effect: use vector0
  */
 static term_t bvlogic_buffer_get_bvarray(bvlogic_buffer_t *b) {
   uint32_t i, n;
@@ -1267,7 +1266,6 @@ term_t bvlogic_buffer_get_term(bvlogic_buffer_t *b) {
   
   return t;
 }
-
 
 
 
@@ -1667,6 +1665,148 @@ term_t yices_bvconst_term(uint32_t n, uint32_t *v) {
  */
 term_t yices_rational_term(rational_t *q) {
   return arith_constant(&terms, q);
+}
+
+
+
+/************************************************
+ *  CONVERSION OF ARRAYS OF BOOLEANS TO TERMS   *
+ ***********************************************/
+
+/*
+ * Check whether all elements of a are boolean constants
+ * - n = size of the array
+ */
+static bool bvarray_is_constant(term_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (index_of(a[i]) != bool_const) return false;
+    assert(a[i] == true_term || a[i] == false_term);
+  }
+
+  return true;
+}
+
+/*
+ * Convert a to a 64bit value (padded with 0)
+ */
+static uint64_t bvarray_get_constant64(term_t *a, uint32_t n) {
+  uint64_t c;
+
+  assert(n <= 64);
+  c = 0;
+  while (n > 0) {
+    n --;
+    assert(a[n] == true_term || a[n] == false_term);
+    c = (c << 1) | (uint64_t) (1 ^ polarity_of(a[n]));
+  }
+
+  return c;
+}
+
+
+/*
+ * Copy constant array into c
+ */
+static void bvarray_get_constant(term_t *a, uint32_t n, bvconstant_t *c) {
+  uint32_t i, k;
+
+  assert(n > 64);
+  k = (n + 31) >> 5;
+  bvconstant_set_bitsize(c, n);
+
+  bvconst_clear(c->data, k);
+  for (i=0; i<n; i++) {
+    assert(a[i] == true_term || a[i] == false_term);
+    if (a[i] == true_term) {
+      bvconst_set_bit(c->data, i);
+    }
+  }
+}
+
+
+/*
+ * Check whether term b is (bit i x)
+ */
+static bool term_is_bit_i(term_table_t *tbl, term_t b, uint32_t i, term_t x) {
+  select_term_t *s;
+
+  if (term_kind(tbl, b) == BIT_TERM) {
+    s = bit_term_desc(tbl, b);
+    return s->idx == i && s->arg == x;
+  }
+
+  return false;
+}
+
+
+/*
+ * Check whether b is (bit 0 x) for some x
+ * if so return x, otherwise return NULL_TERM
+ */
+static term_t term_is_bit0(term_table_t *tbl, term_t b) {
+  select_term_t *s;
+
+  if (term_kind(tbl, b) == BIT_TERM) {
+    s = bit_term_desc(tbl, b);
+    if (s->idx == 0) {
+      return s->arg;
+    }
+  }
+
+  return NULL_TERM;
+}
+
+
+/*
+ * Check whether b is of the form (bit 0 x) ... (bit n-1 x)
+ * - if so return x
+ * - otherwise return NULL_TERM
+ */
+static term_t bvarray_get_var(term_table_t *tbl, term_t *a, uint32_t n) {
+  term_t x;
+  uint32_t i;
+
+  assert(n > 0);
+
+  x = term_is_bit0(tbl, a[0]);
+  if (x == NULL_TERM) return x;
+
+  for (i=1; i<n; i++) {
+    if (! term_is_bit_i(tbl, a[i], i, x)) {
+      return NULL_TERM;
+    }
+  }
+
+  return x;
+}
+
+/*
+ * Convert array a to a term
+ * - side effect: use bv0
+ */
+static term_t bvarray_get_term(term_table_t *tbl, term_t *a, uint32_t n) {  
+  term_t t;
+
+  assert(n > 0);
+  if (bvarray_is_constant(a, n)) {
+    if (n <= 64) {
+      t = bv64_constant(tbl, n, bvarray_get_constant64(a, n));
+    } else {
+      bvarray_get_constant(a, n, &bv0);
+      assert(bv0.bitsize == n);
+      t = bvconst_term(tbl, n, bv0.data);
+    }
+  } else {
+    // try to convert to an existing t
+    t = bvarray_get_var(tbl, a, n);
+    if (t == NULL_TERM || term_bitsize(tbl, t) != n) {
+      t = bvarray_term(tbl, n, a);
+    }
+  }
+
+  return t;
 }
 
 
@@ -2164,7 +2304,8 @@ static term_t mk_bvconst64_ite(term_table_t *tbl, term_t c, bvconst64_term_t *u,
     a[i] = const_ite_simplify(c, bu, bv); // a[i] = (ite c bu bv)
   }
 
-  return bvarray_term(tbl, n, a);
+  //  return bvarray_term(tbl, n, a);
+  return bvarray_get_term(tbl, a, n);
 }
 
 
@@ -2188,7 +2329,8 @@ static term_t mk_bvconst_ite(term_table_t *tbl, term_t c, bvconst_term_t *u, bvc
     a[i] = const_ite_simplify(c, bu, bv);
   }
 
-  return bvarray_term(tbl, n, a);
+  //  return bvarray_term(tbl, n, a);
+  return bvarray_get_term(tbl, a, n);
 }
 
 
@@ -2255,7 +2397,8 @@ static term_t check_ite_bvconst64(term_table_t *tbl, term_t c, bvconst64_term_t 
     a[i] = b;
   }
 
-  return bvarray_term(tbl, n, a);
+  //  return bvarray_term(tbl, n, a);
+  return bvarray_get_term(tbl, a, n);
 }
 
 
@@ -2282,7 +2425,8 @@ static term_t check_ite_bvconst(term_table_t *tbl, term_t c, bvconst_term_t *u, 
     a[i] = b;
   }
 
-  return bvarray_term(tbl, n, a);
+  //  return bvarray_term(tbl, n, a);
+  return bvarray_get_term(tbl, a, n);
 }
 
 
@@ -2308,7 +2452,8 @@ static term_t check_ite_bvarray(term_table_t *tbl, term_t c, composite_term_t *u
     a[i] = b;
   }
 
-  return bvarray_term(tbl, n, a);
+  //  return bvarray_term(tbl, n, a);
+  return bvarray_get_term(tbl, a, n);
 }
 
 
@@ -2358,11 +2503,11 @@ static term_t mk_bv_ite(term_table_t *tbl, term_t c, term_t x, term_t y) {
 
   case BV_ARRAY:
     if (kind_y == BV64_CONSTANT) {
-      aux = check_ite_bvconst64(tbl, c, bvconst64_term_desc(tbl, y), bvarray_term_desc(tbl, x));
+      aux = check_ite_bvconst64(tbl, opposite_term(c), bvconst64_term_desc(tbl, y), bvarray_term_desc(tbl, x));
     } else if (kind_y == BV_CONSTANT) {
-      aux = check_ite_bvconst(tbl, c, bvconst_term_desc(tbl, y), bvarray_term_desc(tbl, x));      
+      aux = check_ite_bvconst(tbl, opposite_term(c), bvconst_term_desc(tbl, y), bvarray_term_desc(tbl, x));      
     } else if (kind_y == BV_ARRAY) {
-      aux = check_ite_bvarray(tbl, c, bvarray_term_desc(tbl, y), bvarray_term_desc(tbl, x));
+      aux = check_ite_bvarray(tbl, opposite_term(c), bvarray_term_desc(tbl, y), bvarray_term_desc(tbl, x));
     }
     break;
 

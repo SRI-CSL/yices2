@@ -457,6 +457,8 @@ static void flatten_arith_eq(context_t *ctx, term_t r, bool tt) {
   t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
   t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
 
+  if (t1 == t2) return;
+
   t = simplify_arith_bineq(ctx, t1, t2);
   if (t != NULL_TERM) {
     int_queue_push(&ctx->queue, signed_term(t, tt));
@@ -493,6 +495,14 @@ static void flatten_eq(context_t *ctx, term_t r, bool tt) {
 	r = opposite_term(r);
 	t2 = opposite_term(t2);
       }
+
+      if (index_of(t1) == index_of(t2)) {
+	// either (eq t1 t1) or (eq t1 (not t1))
+	if (t1 == t2) return;
+	assert(opposite_bool_terms(t1, t2));
+	longjmp(ctx->env, TRIVIALLY_UNSAT);
+      }
+
       try_bool_substitution(ctx, t1, t2, r);
     }
 
@@ -500,6 +510,8 @@ static void flatten_eq(context_t *ctx, term_t r, bool tt) {
     /*
      * Non-boolean
      */
+    if (t1 == t2) return;
+
     if (tt) {
       try_substitution(ctx, t1, t2, r);
     } else {
@@ -518,6 +530,8 @@ static void flatten_bveq(context_t *ctx, term_t r, bool tt) {
   eq = bveq_atom_desc(terms, r);
   t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
   t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
+
+  if (t1 == t2) return;
 
   t = simplify_bveq(terms, t1, t2);
   if (t != NULL_TERM) {
