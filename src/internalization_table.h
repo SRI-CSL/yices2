@@ -240,8 +240,8 @@ extern void intern_tbl_add_subst(intern_tbl_t *tbl, term_t r1, term_t r2);
 
 /*
  * Merge the classes of r1 and r2 
- * - both r1 and r2 must be free roots of positive polarity and have compatible types
- *
+ * - both r1 and r2 must be free roots and have compatible types
+ * - if both r1 and r2 are boolean, they may have arbitrary polarity
  * This adds either the substitution [r1 := r2] or [r2 := r1]
  */
 extern void intern_tbl_merge_classes(intern_tbl_t *tbl, term_t r1, term_t r2);

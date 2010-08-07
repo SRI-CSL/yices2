@@ -230,15 +230,14 @@ term_t intern_tbl_find_root(intern_tbl_t *tbl, term_t t) {
 
 /*
  * Add t to the union-find structure:
- * - t must be uninterpreted and have positive polarity
+ * - t must be uninterpreted 
  * - this creates a new singleton class with t as root
  *   and rank[t] is 0.
  */
 static void partition_add(intern_tbl_t *tbl, term_t t) {
   type_t tau;
 
-  assert(is_pos_term(t) && 
-	 term_kind(tbl->terms, t) == UNINTERPRETED_TERM &&
+  assert(term_kind(tbl->terms, t) == UNINTERPRETED_TERM &&
 	 ai32_read(&tbl->map, index_of(t)) == NULL_MAP);
 
   tau = term_type(tbl->terms, t);
@@ -278,9 +277,7 @@ static inline bool intern_tbl_term_present(intern_tbl_t *tbl, term_t t) {
 bool intern_tbl_root_is_free(intern_tbl_t *tbl, term_t r) {
   assert(intern_tbl_is_root(tbl, r));
 
-  if (is_neg_term(r)) {
-    return false;
-  } else if (intern_tbl_term_present(tbl, r)) {
+  if (intern_tbl_term_present(tbl, r)) {
     return au8_read(&tbl->rank, index_of(r)) < 255;
   } else {
     return term_kind(tbl->terms, r) == UNINTERPRETED_TERM;
@@ -314,16 +311,16 @@ static void partition_merge(intern_tbl_t *tbl, term_t x, term_t y) {
 
   if (r_x < r_y) {
     // y stays root and is made parent of x in the union-find tree
-    assert(is_pos_term(x) && term_kind(tbl->terms, x) == UNINTERPRETED_TERM);
-    ai32_write(&tbl->map, index_of(x), y);
+    assert(term_kind(tbl->terms, x) == UNINTERPRETED_TERM);
+    ai32_write(&tbl->map, index_of(x), (y ^ polarity_of(x)));
     // update type[y] if needed
     if (tau != tau_y) {
       ai32_write(&tbl->type, index_of(y), tau);
     }
   } else {
     // x stays root and is made parent of y in the tree
-    assert(is_pos_term(y) && term_kind(tbl->terms, y) == UNINTERPRETED_TERM);
-    ai32_write(&tbl->map, index_of(y), x);
+    assert(term_kind(tbl->terms, y) == UNINTERPRETED_TERM);
+    ai32_write(&tbl->map, index_of(y), (x ^ polarity_of(y)));
     // update type[x] if needed
     if (tau != tau_x) {
       ai32_write(&tbl->type, index_of(x), tau);
@@ -683,8 +680,8 @@ void intern_tbl_add_subst(intern_tbl_t *tbl, term_t r1, term_t r2) {
 
 /*
  * Merge the classes of r1 and r2 
- * - both r1 and r2 must be free roots of positive polarity and have compatible types
- *
+ * - both r1 and r2 must be free roots and have compatible types
+ * - if both r1 and r2 are boolean, they may have arbitrary polarity
  * This adds either the substitution [r1 := r2] or [r2 := r1]
  */
 void intern_tbl_merge_classes(intern_tbl_t *tbl, term_t r1, term_t r2) {

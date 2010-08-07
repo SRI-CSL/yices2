@@ -148,37 +148,38 @@ static void try_bool_substitution(context_t *ctx, term_t t1, term_t t2, term_t e
   if (context_var_elim_enabled(ctx)) {
     intern = &ctx->intern;
 
-    if (intern_tbl_root_is_free(intern, unsigned_term(t1))) {
-      /* 
-       * Either t1 is free or (not t1) is free
-       */
-      if (is_neg_term(t1)) {
-	t1 = opposite_term(t1);
-	t2 = opposite_term(t2);
-      }
-
-      assert(is_pos_term(t1) && intern_tbl_root_is_free(intern, t1));
-
+    if (intern_tbl_root_is_free(intern, t1)) {
       if (intern_tbl_root_is_free(intern, t2)) {
-	// both t1 and t2 are free
+	/*
+	 * Both t1 and t2 are free
+	 */
 	intern_tbl_merge_classes(intern, t1, t2);
 	return;
-      } else if (intern_tbl_valid_subst(intern, t1, t2)) {
-	intern_tbl_add_subst(intern, t1, t2);
-	return;
+
+      } else {
+	/* 
+	 * t1 is free, t2 is not free
+	 */
+	if (is_neg_term(t1)) {
+	  t1 = opposite_term(t1);
+	  t2 = opposite_term(t2);
+	}
+
+	if (intern_tbl_valid_subst(intern, t1, t2)) {
+	  intern_tbl_add_subst(intern, t1, t2);
+	  return;
+	}
+
       }
       
-
-    } else if (intern_tbl_root_is_free(intern, unsigned_term(t2))) {
+    } else if (intern_tbl_root_is_free(intern, t2)) {
       /*
-       * Either t2 or (not t2) is free
+       * t2 is free, t1 is not free
        */
       if (is_neg_term(t2)) {
 	t1 = opposite_term(t1);
 	t2 = opposite_term(t2);
       }
-
-      assert(is_pos_term(t2) && intern_tbl_root_is_free(intern, t2));
 
       if (intern_tbl_valid_subst(intern, t2, t1)) {
 	intern_tbl_add_subst(intern, t2, t1);
@@ -652,7 +653,7 @@ static void flatten_assertion(context_t *ctx, term_t f) {
 	if (context_var_elim_enabled(ctx)) {
 	  intern_tbl_add_subst(intern, r, bool2term(tt));
 	} else {
-	  intern_tbl_map_root(intern, r, bool2code(tt));      
+	  intern_tbl_map_root(intern, r, bool2code(tt));
 	}
 	break;
 

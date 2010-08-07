@@ -1354,7 +1354,17 @@ static void test_subst(intern_tbl_t *tbl) {
 
   x = intern_tbl_get_root(tbl, x);
   t = intern_tbl_get_root(tbl, t);
-  if (is_constant_term(__yices_globals.terms, t)) {
+  if (intern_tbl_root_is_free(tbl, x) && intern_tbl_root_is_free(tbl, t)) {
+    if (index_of(x) != index_of(t)) {
+      printf("variable merging\n");
+      intern_tbl_merge_classes(tbl, x, t);
+    } else if (x == opposite_term(t)) {
+      printf("invalid substitution\n");
+    } else {
+      assert(x == t);
+      printf("no change\n");
+    }
+  } else if (is_constant_term(__yices_globals.terms, t)) {
     if (is_pos_term(x) && intern_tbl_valid_const_subst(tbl, x, t)) {
       printf("good constant substitution\n");
       intern_tbl_add_subst(tbl, x, t);
@@ -1363,13 +1373,8 @@ static void test_subst(intern_tbl_t *tbl) {
     }
   } else {
     if (is_pos_term(x) && intern_tbl_valid_subst(tbl, x, t)) {
-      if (intern_tbl_root_is_free(tbl, t)) {
-	printf("variable merging\n");
-	intern_tbl_merge_classes(tbl, x, t);
-      } else {
-	printf("good substitution\n");
-	intern_tbl_add_subst(tbl, x, t);
-      }
+      printf("good substitution\n");
+      intern_tbl_add_subst(tbl, x, t);
     } else {
       printf("invalid substitution\n");
     }
@@ -1442,7 +1447,7 @@ static intern_tbl_t intern;
 
 int main(void) {
   yices_init();
-  build_store(10, 10, 10000);
+  build_store(10, 100, 10000);
 
   init_intern_tbl(&intern, 0, __yices_globals.terms);
 
