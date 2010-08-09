@@ -840,7 +840,9 @@ static void print_name_or_constant(FILE *f, term_table_t *tbl, term_t t) {
     break;
     
   default:
-    if (is_neg_term(t)) {
+    if (t <= false_term) {
+      fputs(term2string[t], f);
+    } else if (is_neg_term(t)) {
       fputs("(not ", f);
       print_term_name(f, tbl, opposite_term(t));
       fputc(')', f);

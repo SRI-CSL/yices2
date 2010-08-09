@@ -2304,7 +2304,6 @@ static term_t mk_bvconst64_ite(term_table_t *tbl, term_t c, bvconst64_term_t *u,
     a[i] = const_ite_simplify(c, bu, bv); // a[i] = (ite c bu bv)
   }
 
-  //  return bvarray_term(tbl, n, a);
   return bvarray_get_term(tbl, a, n);
 }
 
@@ -2329,7 +2328,6 @@ static term_t mk_bvconst_ite(term_table_t *tbl, term_t c, bvconst_term_t *u, bvc
     a[i] = const_ite_simplify(c, bu, bv);
   }
 
-  //  return bvarray_term(tbl, n, a);
   return bvarray_get_term(tbl, a, n);
 }
 
@@ -2397,7 +2395,6 @@ static term_t check_ite_bvconst64(term_table_t *tbl, term_t c, bvconst64_term_t 
     a[i] = b;
   }
 
-  //  return bvarray_term(tbl, n, a);
   return bvarray_get_term(tbl, a, n);
 }
 
@@ -2425,7 +2422,6 @@ static term_t check_ite_bvconst(term_table_t *tbl, term_t c, bvconst_term_t *u, 
     a[i] = b;
   }
 
-  //  return bvarray_term(tbl, n, a);
   return bvarray_get_term(tbl, a, n);
 }
 
@@ -2452,7 +2448,6 @@ static term_t check_ite_bvarray(term_table_t *tbl, term_t c, composite_term_t *u
     a[i] = b;
   }
 
-  //  return bvarray_term(tbl, n, a);
   return bvarray_get_term(tbl, a, n);
 }
 
@@ -2518,7 +2513,6 @@ static term_t mk_bv_ite(term_table_t *tbl, term_t c, term_t x, term_t y) {
   if (aux != NULL_TERM) {
     return aux;
   }
-
 
   /*
    * No simplification found: build a standard ite.
