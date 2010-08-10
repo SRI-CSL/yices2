@@ -260,15 +260,6 @@ static void partition_add_frozen(intern_tbl_t *tbl, term_t t) {
 
 
 /*
- * Check whether t is in the table
- */
-static inline bool intern_tbl_term_present(intern_tbl_t *tbl, term_t t) {
-  assert(good_term(tbl->terms, t));
-  return ai32_read(&tbl->type, index_of(t)) != NULL_TYPE;
-}
-
-
-/*
  * Check whether r is a free root:
  * - r must be a root
  * - it's free if rank[r] < 255 (not frozen) or if r 

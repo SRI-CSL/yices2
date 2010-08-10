@@ -41,8 +41,12 @@ extern void print_bvlogic_buffer(FILE *f, bvlogic_buffer_t *b);
 extern void print_term_exp(FILE *f, term_table_t *tbl, term_t t);
 extern void print_term_name(FILE *f, term_table_t *tbl, term_t t);
 extern void print_term_def(FILE *f, term_table_t *tbl, term_t t);
-
 extern void print_term(FILE *f, term_table_t *tbl, term_t t);
+
+/*
+ * Print t's descriptor
+ */
+extern void print_term_desc(FILE *f, term_table_t *tbl, term_t t);
 
 
 /*

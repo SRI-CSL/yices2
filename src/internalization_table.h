@@ -111,6 +111,15 @@ extern void intern_tbl_pop(intern_tbl_t *tbl);
  */
 
 /*
+ * Check whether t is in the table
+ */
+static inline bool intern_tbl_term_present(intern_tbl_t *tbl, term_t t) {
+  assert(good_term(tbl->terms, t));
+  return ai32_read(&tbl->type, index_of(t)) != NULL_TYPE;
+}
+
+
+/*
  * Check whether i is a root: this returns true if i is not 
  * present in the table.
  */

@@ -33,14 +33,27 @@
  *    and is mapped to a literal l or an egraph occurrence g.
  *    l or g must be asserted true in later stages.
  * 
- * If variable elimination is enabled, some top-level equalities 
- * (eq x <term>) are converted into substitutions [x := term].
- *
  * Flattening is done breadth-first:
  * - the subterms to process are stored into ctx->queue.
  * - each subterm in that queue is a boolean term that's asserted true
+ *
+ * If variable elimination is enabled, some top-level equalities (eq x
+ * <term>) are converted into substitutions [x := term] and variable x
+ * is eliminated. This is done in three steps:
+ *
+ * 1) Cheap substitutions (X := constant or X := variable) are performed first.
+ *    Other possible substitutions (X := <term>) are stored into vector subst_eqs.
+ *
+ * 2) After flattening, the terms in subst_eqs are scanned and converted to 
+ *    potential substitutions [X --> <term>] whenever possible. Terms in subst_eqs
+ *    that are no longer possible substitutions are copied into top_eqs.
+ *
+ * 3) Substitution cycles are removed. Every substitution that does not cause
+ *    a cycle is stored in intern_table.
+ *
+ * NOTE: it's too expensive to check for cycles in every candidate substitution
+ * (i.e., we can't call intern_tbl_valid_subst in phase 1).
  */
-
 
 /*
  * Check whether t is true or false (i.e., mapped to 'true_occ' or 'false_occ'
@@ -70,32 +83,29 @@ static bool term_is_false(context_t *ctx, term_t t) {
 }
 
 
-
 /*
- * Check whether [t1 := t2] is a possible substitution
- * - both t1 and t2 are root terms of positive polarity
- *   in the internalization table (non boolean)
- * - return true if the substitution works
- * - raise an exception via longjmp if the equality is unsat
- *   (e.g., x := 1/2 when x is an integer).
- * - return false otherwise.
+ * Process candidate substitution [t1 := t2]
+ * - e is a term equivalent to (eq t1 t2)
+ * - both t1 and t2 are roots in the internalization table
+ * - t1 is free and t2 is not
+ * - if t2 is constant: perform the substitution now
+ * - otherwise store e into subst_eqs for phase 2 processing
  */
-static bool good_subst(context_t *ctx, term_t t1, term_t t2) {
+static void process_candidate_subst(context_t *ctx, term_t t1, term_t t2, term_t e) {
   intern_tbl_t *intern;
 
   intern = &ctx->intern;
   if (is_constant_term(ctx->terms, t2)) {
     if (intern_tbl_valid_const_subst(intern, t1, t2)) {
-      return true;
+      intern_tbl_add_subst(intern, t1, t2);
     } else {
-      // trivially unsat by type incompatibility
+      // unsat by type incompatibility
       longjmp(ctx->env, TRIVIALLY_UNSAT);
     }
   } else {
-    return intern_tbl_valid_subst(intern, t1, t2);
+    ivector_push(&ctx->subst_eqs, e);
   }
 }
-
 
 /*
  * Attempt to turn (eq t1 t2) into a variable substitution
@@ -120,13 +130,13 @@ static void try_substitution(context_t *ctx, term_t t1, term_t t2, term_t e) {
       return;
     }
     
-    if (free1 && good_subst(ctx, t1, t2)) {
-      intern_tbl_add_subst(intern, t1, t2);
+    if (free1) {
+      process_candidate_subst(ctx, t1, t2, e);
       return;
     }
 
-    if (free2 && good_subst(ctx, t2, t1)) {
-      intern_tbl_add_subst(intern, t2, t1);
+    if (free2) {
+      process_candidate_subst(ctx, t2, t1, e);
       return;
     }
   }
@@ -144,49 +154,28 @@ static void try_substitution(context_t *ctx, term_t t1, term_t t2, term_t e) {
  */
 static void try_bool_substitution(context_t *ctx, term_t t1, term_t t2, term_t e) {
   intern_tbl_t *intern;
+  bool free1, free2;
 
   if (context_var_elim_enabled(ctx)) {
     intern = &ctx->intern;
 
-    if (intern_tbl_root_is_free(intern, t1)) {
-      if (intern_tbl_root_is_free(intern, t2)) {
-	/*
-	 * Both t1 and t2 are free
-	 */
-	intern_tbl_merge_classes(intern, t1, t2);
-	return;
+    free1 = intern_tbl_root_is_free(intern, t1);
+    free2 = intern_tbl_root_is_free(intern, t2);
 
-      } else {
-	/* 
-	 * t1 is free, t2 is not free
-	 */
-	if (is_neg_term(t1)) {
-	  t1 = opposite_term(t1);
-	  t2 = opposite_term(t2);
-	}
-
-	if (intern_tbl_valid_subst(intern, t1, t2)) {
-	  intern_tbl_add_subst(intern, t1, t2);
-	  return;
-	}
-
-      }
-      
-    } else if (intern_tbl_root_is_free(intern, t2)) {
+    if (free1 && free2) {
       /*
-       * t2 is free, t1 is not free
+       * Both t1 and t2 are free
        */
-      if (is_neg_term(t2)) {
-	t1 = opposite_term(t1);
-	t2 = opposite_term(t2);
-      }
-
-      if (intern_tbl_valid_subst(intern, t2, t1)) {
-	intern_tbl_add_subst(intern, t2, t1);
-	return;
-      }
+      intern_tbl_merge_classes(intern, t1, t2);
+      return;
     }
 
+    if (free1 || free2) {
+      /*
+       * Only one is free: save in subst_eqs for future processing
+       */
+      ivector_push(&ctx->subst_eqs, e);
+    }
   }
   
   // no substitution
@@ -775,6 +764,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
   ivector_reset(&ctx->top_atoms);
   ivector_reset(&ctx->top_formulas);
   ivector_reset(&ctx->top_interns);
+  ivector_reset(&ctx->subst_eqs);
 
   code = setjmp(ctx->env);
   if (code == 0) {
@@ -1007,6 +997,7 @@ void init_context(context_t *ctx, term_table_t *terms,
   /*
    * Auxiliary internalization buffers
    */
+  init_ivector(&ctx->subst_eqs, CTX_DEFAULT_VECTOR_SIZE);
   init_istack(&ctx->istack);
   init_int_queue(&ctx->queue, 0);
 
@@ -1046,6 +1037,7 @@ void delete_context(context_t *ctx) {
   delete_ivector(&ctx->top_formulas);
   delete_ivector(&ctx->top_interns);
 
+  delete_ivector(&ctx->subst_eqs);
   delete_istack(&ctx->istack);
   delete_int_queue(&ctx->queue);
 }
@@ -1072,7 +1064,7 @@ void reset_context(context_t *ctx) {
   // Force the internalization mapping for true and false
   intern_tbl_map_root(&ctx->intern, true_term, bool2code(true));
 
-
+  ivector_reset(&ctx->subst_eqs);
   reset_istack(&ctx->istack);
   int_queue_reset(&ctx->queue);
 }

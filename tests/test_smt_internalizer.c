@@ -13,6 +13,7 @@
 #include "smt_lexer.h"
 #include "smt_parser.h"
 #include "context.h"
+#include "context_printer.h"
 
 #include "yices.h"
 #include "yices_globals.h"
@@ -55,7 +56,7 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
 static void print_internalization_code(int32_t code) {
   assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
   if (code == TRIVIALLY_UNSAT) {
-    printf("Internalization OK\n\n");
+    printf("Internalization OK\n");
     printf("Assertions simplify to false\n\n"); 
     printf("unsat\n");
   } else if (code == CTX_NO_ERROR) {
@@ -75,6 +76,25 @@ static void print_internalization_code(int32_t code) {
 
 
 
+/*
+ * Print the context:
+ */
+static void dump_context(FILE *f, context_t *ctx) {
+  fprintf(f, "--- Substitutions ---\n");
+  print_context_intern_subst(f, ctx);
+  fprintf(f, "\n--- Mapped terms ---\n\n");
+  print_context_intern_mapping(f, ctx);
+
+  fprintf(f, "--- Auxiliary vectors ---\n\n");
+  print_context_subst_eqs(f, ctx);
+  print_context_top_eqs(f, ctx);
+  print_context_top_atoms(f, ctx);
+  print_context_top_formulas(f, ctx);
+  print_context_top_interns(f, ctx);
+
+  fprintf(f, "\n");
+  fflush(f);
+}
 
 
 /*
@@ -103,6 +123,7 @@ static bool benchmark_reduced_to_false(smt_benchmark_t *bench) {
  * Test the context internalization functions
  */
 static void test_internalization(smt_benchmark_t *bench) {
+  FILE *f;
   int32_t code;
 
   init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, CTX_ARCH_EGFUNSPLXBV, false);
@@ -110,6 +131,14 @@ static void test_internalization(smt_benchmark_t *bench) {
 
   code = assert_formulas(&context, bench->nformulas, bench->formulas);
   print_internalization_code(code);
+
+  f = fopen("yices2intern.dmp", "w");
+  if (f == NULL) {
+    perror("yices2intern.dmp");
+  } else {
+    dump_context(f, &context);
+    fclose(f);
+  }
 
   delete_context(&context);  
 }

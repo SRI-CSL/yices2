@@ -1234,6 +1234,122 @@ void print_term_table(FILE *f, term_table_t *tbl) {
 
 
 
+/*************************
+ *  NON-RECURSIVE PRINT  *
+ ************************/
+
+/*
+ * Descriptor of term idx i
+ */
+static void print_term_idx_desc(FILE *f, term_table_t *tbl, int32_t i) {
+  switch (tbl->kind[i]) {
+  case UNUSED_TERM:
+  case RESERVED_TERM:
+    fprintf(f, "bad-term%"PRId32, i);
+    break;
+
+  case CONSTANT_TERM:    
+  case UNINTERPRETED_TERM:
+  case VARIABLE:
+    print_term_name(f, tbl, pos_term(i));
+    break;
+
+  case ARITH_CONSTANT:
+    q_print(f, &tbl->desc[i].rational);
+    break;
+
+  case BV64_CONSTANT:
+    print_bvconst64_term(f, tbl->desc[i].ptr);
+    break;
+
+  case BV_CONSTANT:
+    print_bvconst_term(f, tbl->desc[i].ptr);
+    break;
+
+  case ARITH_EQ_ATOM:
+    fputs("(arith-eq ", f);
+    print_name_or_constant(f, tbl, tbl->desc[i].integer);
+    fputs(" 0)", f);
+    break;
+    
+  case ARITH_GE_ATOM:
+    fputs("(arith-ge ", f);
+    print_name_or_constant(f, tbl, tbl->desc[i].integer);
+    fputs(" 0)", f);
+    break;
+
+  case APP_TERM:
+    print_app(f, tbl, tbl->desc[i].ptr);
+    break;
+
+  case ITE_TERM:
+  case ITE_SPECIAL:
+  case UPDATE_TERM:
+  case TUPLE_TERM:
+  case EQ_TERM:
+  case DISTINCT_TERM:
+  case FORALL_TERM:
+  case OR_TERM:
+  case XOR_TERM:
+  case ARITH_BINEQ_ATOM:
+  case BV_ARRAY:
+  case BV_DIV:
+  case BV_REM:
+  case BV_SDIV:
+  case BV_SREM:
+  case BV_SMOD:
+  case BV_SHL:
+  case BV_LSHR:
+  case BV_ASHR:
+  case BV_EQ_ATOM:
+  case BV_GE_ATOM:
+  case BV_SGE_ATOM:
+    // i's descriptor is a composite term 
+    print_composite(f, tbl, tbl->kind[i], tbl->desc[i].ptr);
+    break;
+    
+  case SELECT_TERM:
+  case BIT_TERM:
+    print_select(f, tbl, tbl->kind[i], &tbl->desc[i].select);
+    break;
+    
+  case POWER_PRODUCT:
+    print_named_pprod(f, tbl, tbl->desc[i].ptr);
+    break;
+
+  case ARITH_POLY:
+    print_named_polynomial(f, tbl, tbl->desc[i].ptr);
+    break;
+
+  case BV64_POLY:
+    print_named_bvpoly64(f, tbl, tbl->desc[i].ptr);
+    break;
+
+  case BV_POLY:
+    print_named_bvpoly(f, tbl, tbl->desc[i].ptr);
+    break;
+
+  default:
+    fprintf(f, "bad-term%"PRId32, i);
+    break;
+  }
+}
+
+/*
+ * Print t's descriptor
+ */
+void print_term_desc(FILE *f, term_table_t *tbl, term_t t) {
+  assert(t >= 0);
+
+  if (t <= false_term) {
+    fputs(term2string[t], f);
+  } else {
+    if (is_neg_term(t)) fputs("(not ", f);
+    print_term_idx_desc(f, tbl, index_of(t));
+    if (is_neg_term(t)) fputc(')', f);
+  }
+}
+
 
 /*********************
  *  PRETTY PRINTING  *

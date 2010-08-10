@@ -196,13 +196,15 @@ struct context_s {
   intern_tbl_t intern;
   ivector_t assertions;
 
-  // support for flattening and simplification
+  // result of flattening and simplification
   ivector_t top_eqs;
   ivector_t top_atoms;
   ivector_t top_formulas;
   ivector_t top_interns;
 
+  
   // auxiliary buffers and structures for internalization
+  ivector_t subst_eqs;  
   int_stack_t istack;
   int_queue_t queue;  
 

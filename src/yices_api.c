@@ -2121,144 +2121,6 @@ static term_t mk_xor(term_table_t *tbl, uint32_t n, term_t *a) {
  *****************/
 
 /*
- * Simplify t assuming c holds
- * - c must be a boolean term.
- *
- * Rules:
- *   (ite  c x y) --> x
- *   (ite ~c x y) --> y
- */
-static term_t simplify_in_context(term_table_t *tbl, term_t c, term_t t) {
-  composite_term_t *d;
-
-  assert(is_boolean_term(tbl, c) && good_term(tbl, t));
-
-  while (is_ite_term(tbl, t)) {
-    d = ite_term_desc(tbl, t);
-    if (d->arg[0] == c) {
-      t = d->arg[1];
-    } else if (opposite_bool_terms(c, d->arg[0])) {
-      t = d->arg[2];
-    } else {
-      break;
-    }
-  }
-
-  return t;
-}
-
-
-/*
- * BOOLEAN IF-THEN-ELSE
- */
-
-/*
- * Build (bv-eq x (ite c y z))
- * - c not true/false
- */
-static term_t mk_bveq_ite(term_table_t *tbl, term_t c, term_t x, term_t y, term_t z) {
-  term_t ite, aux;
-
-  assert(term_type(tbl, x) == term_type(tbl, y) && term_type(tbl, x) == term_type(tbl, z));
-
-  ite = ite_term(tbl, term_type(tbl, y), c, y, z);
-
-  // normalize (bveq x ite): put smaller index on the left
-  if (x > ite) {
-    aux = x; x = ite; ite = aux;
-  }
-
-  return bveq_atom(tbl, x, ite);
-}
-
-
-/*
- * Special constructor for (ite c (bveq x y) (bveq z u))
- * 
- * Apply lift-if rule:
- * (ite c (bveq x y) (bveq x u))  ---> (bveq x (ite c y u))
- */
-static term_t mk_lifted_ite_bveq(term_table_t *tbl, term_t c, term_t t, term_t e) {
-  composite_term_t *eq1, *eq2;
-  term_t x;
-
-  assert(is_pos_term(t) && is_pos_term(e) && 
-	 term_kind(tbl, t) == BV_EQ_ATOM && term_kind(tbl, e) == BV_EQ_ATOM);
-
-  eq1 = composite_for_idx(tbl, index_of(t));
-  eq2 = composite_for_idx(tbl, index_of(e));
-
-  assert(eq1->arity == 2 && eq2->arity == 2);
-
-  x = eq1->arg[0];
-  if (x == eq2->arg[0]) return mk_bveq_ite(tbl, c, x, eq1->arg[1], eq2->arg[1]);
-  if (x == eq2->arg[1]) return mk_bveq_ite(tbl, c, x, eq1->arg[1], eq2->arg[0]);
-
-  x = eq1->arg[1];
-  if (x == eq2->arg[0]) return mk_bveq_ite(tbl, c, x, eq1->arg[0], eq2->arg[1]);
-  if (x == eq2->arg[1]) return mk_bveq_ite(tbl, c, x, eq1->arg[0], eq2->arg[0]);
-
-  return ite_term(tbl, bool_type(tbl->types), c, t, e);
-}
-
-
-/*
- * Simplifications:
- *  ite c x x        --> x
- *  ite true x y     --> x
- *  ite false x y    --> y
- *
- *  ite c x (not x)  --> (c == x)
- *
- *  ite c c y        --> c or y
- *  ite c x c        --> c and x
- *  ite c (not c) y  --> (not c) and y
- *  ite c x (not c)  --> (not c) or x
- *
- *  ite c true y     --> c or y
- *  ite c x false    --> c and x
- *  ite c false y    --> (not c) and y
- *  ite c x true     --> (not c) or x
- *
- * Otherwise:
- *  ite (not c) x y  --> ite c y x
- */
-static term_t mk_bool_ite(term_table_t *tbl, term_t c, term_t x, term_t y) {
-  term_t aux;
-
-  if (x == y) return x;
-  if (c == true_term) return x;
-  if (c == false_term) return y;
-
-  if (opposite_bool_terms(x, y)) return mk_iff(tbl, c, x);
-  
-  if (c == x) return mk_binary_or(tbl, c, y);
-  if (c == y) return mk_binary_and(tbl, c, x);
-  if (opposite_bool_terms(c, x)) return mk_binary_and(tbl, x, y);
-  if (opposite_bool_terms(c, y)) return mk_binary_or(tbl, x, y);
-
-  if (x == true_term) return mk_binary_or(tbl, c, y);
-  if (y == false_term) return mk_binary_and(tbl, c, x);
-  if (x == false_term) return mk_binary_and(tbl, opposite_term(c), y);
-  if (y == true_term) return mk_binary_or(tbl, opposite_term(c), x);
-
-
-  if (is_neg_term(c)) {
-    c = opposite_term(c);
-    aux = x; x = y; y = aux;
-  }
-
-  if (term_kind(tbl, x) == BV_EQ_ATOM && term_kind(tbl, y) == BV_EQ_ATOM) {
-    return mk_lifted_ite_bveq(tbl, c, x, y);
-  }
-
-  return ite_term(tbl, bool_type(tbl->types), c, x, y);
-}
-
-
-
-
-/*
  * BIT-VECTOR IF-THEN-ELSE
  */
 
@@ -2525,6 +2387,147 @@ static term_t mk_bv_ite(term_table_t *tbl, term_t c, term_t x, term_t y) {
 
   return ite_term(tbl, term_type(tbl, x), c, x, y);
 }
+
+
+
+
+
+/*
+ * BOOLEAN IF-THEN-ELSE
+ */
+
+/*
+ * Simplify t assuming c holds
+ * - c must be a boolean term.
+ *
+ * Rules:
+ *   (ite  c x y) --> x
+ *   (ite ~c x y) --> y
+ */
+static term_t simplify_in_context(term_table_t *tbl, term_t c, term_t t) {
+  composite_term_t *d;
+
+  assert(is_boolean_term(tbl, c) && good_term(tbl, t));
+
+  while (is_ite_term(tbl, t)) {
+    d = ite_term_desc(tbl, t);
+    if (d->arg[0] == c) {
+      t = d->arg[1];
+    } else if (opposite_bool_terms(c, d->arg[0])) {
+      t = d->arg[2];
+    } else {
+      break;
+    }
+  }
+
+  return t;
+}
+
+
+/*
+ * Build (bv-eq x (ite c y z))
+ * - c not true/false
+ */
+static term_t mk_bveq_ite(term_table_t *tbl, term_t c, term_t x, term_t y, term_t z) {
+  term_t ite, aux;
+
+  assert(term_type(tbl, x) == term_type(tbl, y) && term_type(tbl, x) == term_type(tbl, z));
+
+  //  ite = ite_term(tbl, term_type(tbl, y), c, y, z);
+  ite = mk_bv_ite(tbl, c, y, z);
+
+  // normalize (bveq x ite): put smaller index on the left
+  if (x > ite) {
+    aux = x; x = ite; ite = aux;
+  }
+
+  return bveq_atom(tbl, x, ite);
+}
+
+
+/*
+ * Special constructor for (ite c (bveq x y) (bveq z u))
+ * 
+ * Apply lift-if rule:
+ * (ite c (bveq x y) (bveq x u))  ---> (bveq x (ite c y u))
+ */
+static term_t mk_lifted_ite_bveq(term_table_t *tbl, term_t c, term_t t, term_t e) {
+  composite_term_t *eq1, *eq2;
+  term_t x;
+
+  assert(is_pos_term(t) && is_pos_term(e) && 
+	 term_kind(tbl, t) == BV_EQ_ATOM && term_kind(tbl, e) == BV_EQ_ATOM);
+
+  eq1 = composite_for_idx(tbl, index_of(t));
+  eq2 = composite_for_idx(tbl, index_of(e));
+
+  assert(eq1->arity == 2 && eq2->arity == 2);
+
+  x = eq1->arg[0];
+  if (x == eq2->arg[0]) return mk_bveq_ite(tbl, c, x, eq1->arg[1], eq2->arg[1]);
+  if (x == eq2->arg[1]) return mk_bveq_ite(tbl, c, x, eq1->arg[1], eq2->arg[0]);
+
+  x = eq1->arg[1];
+  if (x == eq2->arg[0]) return mk_bveq_ite(tbl, c, x, eq1->arg[0], eq2->arg[1]);
+  if (x == eq2->arg[1]) return mk_bveq_ite(tbl, c, x, eq1->arg[0], eq2->arg[0]);
+
+  return ite_term(tbl, bool_type(tbl->types), c, t, e);
+}
+
+
+/*
+ * Simplifications:
+ *  ite c x x        --> x
+ *  ite true x y     --> x
+ *  ite false x y    --> y
+ *
+ *  ite c x (not x)  --> (c == x)
+ *
+ *  ite c c y        --> c or y
+ *  ite c x c        --> c and x
+ *  ite c (not c) y  --> (not c) and y
+ *  ite c x (not c)  --> (not c) or x
+ *
+ *  ite c true y     --> c or y
+ *  ite c x false    --> c and x
+ *  ite c false y    --> (not c) and y
+ *  ite c x true     --> (not c) or x
+ *
+ * Otherwise:
+ *  ite (not c) x y  --> ite c y x
+ */
+static term_t mk_bool_ite(term_table_t *tbl, term_t c, term_t x, term_t y) {
+  term_t aux;
+
+  if (x == y) return x;
+  if (c == true_term) return x;
+  if (c == false_term) return y;
+
+  if (opposite_bool_terms(x, y)) return mk_iff(tbl, c, x);
+  
+  if (c == x) return mk_binary_or(tbl, c, y);
+  if (c == y) return mk_binary_and(tbl, c, x);
+  if (opposite_bool_terms(c, x)) return mk_binary_and(tbl, x, y);
+  if (opposite_bool_terms(c, y)) return mk_binary_or(tbl, x, y);
+
+  if (x == true_term) return mk_binary_or(tbl, c, y);
+  if (y == false_term) return mk_binary_and(tbl, c, x);
+  if (x == false_term) return mk_binary_and(tbl, opposite_term(c), y);
+  if (y == true_term) return mk_binary_or(tbl, opposite_term(c), x);
+
+
+  if (is_neg_term(c)) {
+    c = opposite_term(c);
+    aux = x; x = y; y = aux;
+  }
+
+  if (term_kind(tbl, x) == BV_EQ_ATOM && term_kind(tbl, y) == BV_EQ_ATOM) {
+    return mk_lifted_ite_bveq(tbl, c, x, y);
+  }
+
+  return ite_term(tbl, bool_type(tbl->types), c, x, y);
+}
+
 
 
 
