@@ -461,6 +461,42 @@ Then to select this configuration:
 
 
 
+FOR WINDOWS/MINGW DISTRIBUTIONS: MANUAL STEPS TO BUILD libyices.lib
+-------------------------------------------------------------------
+
+This must be done when building the mingw32 distribution (after
+make dist or make static-dist, and before make tarfile or make 
+static-tarfile).
+
+1) Open a Visual studio C++ command prompt (in Windows)
+
+2) Go to the directory dist/lib or static_dist/lib directory for 
+   Yices/mingw32:
+
+      c:\cygwin\home\...\build\i686-pc-mingw32-release\dist\lib
+   or c:\cygwin\home\...\build\i686-pc-mingw32-release\static_dist\lib
+     
+   These directories should contain:
+ 
+       libyices.a
+       libyices.dll.a
+       libyices.dll
+       libyices.def
+
+3) From the Visual studio prompt, type
+
+       lib /machine:x86 /def:libyices.def
+
+   This will create libyices.lib and libyices.exp
+
+4) Cleanup: delete libyices.def and libyices.exp 
+   (they are not needed).
+
+5) Build the tarfile.
+
+
+
+
 NOTES FOR GCC4.4.x
 ------------------
 
