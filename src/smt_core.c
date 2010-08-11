@@ -522,6 +522,10 @@ static void reset_heap(var_heap_t *heap) {
     heap->activity[i] = 0.0;
   }
   heap->heap_last = 0; 
+
+  // reset actitivity parameters: this makes a difference (2010/08/10)
+  heap->act_increment = INIT_VAR_ACTIVITY_INCREMENT;
+  heap->inv_act_decay = 1/VAR_DECAY_FACTOR;
 }
 
 
@@ -1516,6 +1520,7 @@ void reset_smt_core(smt_core_t *s) {
   s->nvars = 1;
   s->nlits = 2;
   s->nb_clauses = 0;
+  s->nb_prob_clauses = 0;  // fixed 2010/08/10 (was missing)
   s->nb_bin_clauses = 0;
   s->nb_unit_clauses = 0;
   s->simplify_bottom = 0;
@@ -1523,6 +1528,11 @@ void reset_smt_core(smt_core_t *s) {
   s->simplify_threshold = 0;
   s->decision_level = 0;
   s->base_level = 0;
+
+  // heuristic parameters: it makes a difference to reset cla_inc
+  s->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
+  s->inv_cla_decay = 1/CLAUSE_DECAY_FACTOR;
+  s->scaled_random = (uint32_t) (VAR_RANDOM_FACTOR * VAR_RANDOM_SCALE);
 
   // reset conflict data
   s->inconsistent = false;
