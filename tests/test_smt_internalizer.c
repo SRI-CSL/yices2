@@ -132,6 +132,9 @@ static void test_internalization(smt_benchmark_t *bench) {
   code = assert_formulas(&context, bench->nformulas, bench->formulas);
   print_internalization_code(code);
 
+  printf("subst_eqs: %"PRIu32" elements\n", context.subst_eqs.size);
+  printf("term table: %"PRIu32" elements\n", context.terms->nelems);
+
   f = fopen("yices2intern.dmp", "w");
   if (f == NULL) {
     perror("yices2intern.dmp");
@@ -140,7 +143,7 @@ static void test_internalization(smt_benchmark_t *bench) {
     fclose(f);
   }
 
-  delete_context(&context);  
+  delete_context(&context);
 }
 
 

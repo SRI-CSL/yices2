@@ -1054,21 +1054,22 @@ uint32_t hash_arg_signature(composite_t *c, elabel_t *label) {
  *********************/
 
 /*
+ * For debugging: check whether n is a power of two
+ */
+#ifndef NDEBUG
+static bool is_power_of_two(uint32_t n) {
+  return (n & (n - 1)) == 0;
+}
+#endif
+
+
+/*
  * Initialization.
  * - n = size, if n = 0, the default size is used.
  */
 void init_congruence_table(congruence_table_t *tbl, uint32_t n) {
   uint32_t i;
   composite_t **tmp;
-
-#ifndef NDEBUG
-  uint32_t n2;
-  n2 = n;
-  while (n2 > 1) {
-    assert((n2 & 1) == 0);
-    n2 >>= 1;
-  }
-#endif
 
   if (n == 0) {
     n = DEFAULT_CONGRUENCE_TBL_SIZE;
@@ -1077,6 +1078,8 @@ void init_congruence_table(congruence_table_t *tbl, uint32_t n) {
   if (n >= MAX_CONGRUENCE_TBL_SIZE) {
     out_of_memory();
   }
+
+  assert(is_power_of_two(n));
 
   tmp = (composite_t **) safe_malloc(n * sizeof(composite_t *));
   for (i=0; i<n; i++) {
