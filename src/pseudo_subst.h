@@ -55,7 +55,7 @@ typedef struct subst_triple_s {
  * We want to be able so scan the all set of triples in
  * chronological order.
  */
-#define ST_BANK_SIZE 6
+#define ST_BANK_SIZE 650
 
 typedef struct st_block_s {
   struct st_block_s *next;
