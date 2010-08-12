@@ -3,22 +3,23 @@
  */
 
 /*
- * If variable elimination is enabled, the context attempt to
+ * If variable elimination is enabled, the context attempts to
  * eliminate variable X in equalities of the form (X == term).
  * 
  * On large benchmarks, it's too expensive to check every time whether
  * X occurs in term. Instead, variable elimination is done in three
  * phases:
- * 1) do all cheap substitutions: (X == Y) or (X == constant)
+ *
+ * 1) do the cheap substitutions: (X == Y) or (X == constant)
  *    record all other possible substitutions (X == term) into 
  *    a subst_eq vector.
  *
  * 2) process the subst_eq vector: if equality (X == term) in that
- *    vector is still a possible subsitution (i.e., X is still free)
- *    then build record the substitution [X := term] as a candidate.
+ *    vector is still a possible substitution (i.e., X is still free)
+ *    then record the substitution [X := term] as a candidate.
  * 
  * 3) apply a global cycle detection algorithm and remove all
- *    candidate substitutions that cause a cycles.
+ *    candidate substitutions that cause cycles.
  *
  * The data structures defined here are used to record the candidate
  * substitutions.
@@ -54,11 +55,11 @@ typedef struct subst_triple_s {
  * We want to be able so scan the all set of triples in
  * chronological order.
  */
-#define ST_BANK_SIZE 650
+#define ST_BANK_SIZE 6
 
 typedef struct st_block_s {
-  subst_triple_t data[ST_BANK_SIZE];
   struct st_block_s *next;
+  subst_triple_t data[ST_BANK_SIZE];
 } st_block_t;
 
 typedef struct st_bank_s {
