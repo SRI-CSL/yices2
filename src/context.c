@@ -55,40 +55,17 @@
  * (i.e., we can't call intern_tbl_valid_subst in phase 1).
  */
 
+
 /*
- * Check whether t is true or false (i.e., mapped to 'true_occ' or 'false_occ'
- * in the internalization table.
- * - t must be a root in the internalization table
+ * VARIABLE ELIMINATION
  */
-static bool term_is_true(context_t *ctx, term_t t) {
-  bool tt;
-
-  assert(intern_tbl_is_root(&ctx->intern, t));
-  tt = is_pos_term(t);
-  t = unsigned_term(t);
-  
-  return intern_tbl_root_is_mapped(&ctx->intern, t) && 
-    intern_tbl_map_of_root(&ctx->intern, t) == bool2code(tt);
-}
-
-static bool term_is_false(context_t *ctx, term_t t) {
-  bool tt;
-
-  assert(intern_tbl_is_root(&ctx->intern, t));
-  tt = is_pos_term(t);
-  t = unsigned_term(t);
-  
-  return intern_tbl_root_is_mapped(&ctx->intern, t) && 
-    intern_tbl_map_of_root(&ctx->intern, t) == bool2code(! tt);
-}
-
 
 /*
- * Process candidate substitution [t1 := t2]
+ * Process a candidate substitution [t1 := t2]
  * - e is a term equivalent to (eq t1 t2)
  * - both t1 and t2 are roots in the internalization table
  * - t1 is free and t2 is not
- * - if t2 is constant: perform the substitution now
+ * - if t2 is constant, perform the substitution now
  * - otherwise store e into subst_eqs for phase 2 processing
  */
 static void process_candidate_subst(context_t *ctx, term_t t1, term_t t2, term_t e) {
@@ -112,6 +89,11 @@ static void process_candidate_subst(context_t *ctx, term_t t1, term_t t2, term_t
  * - both t1 and t2 are root terms in the internalization table
  *   (and t1 and t2 are not boolean so they have positive polarity)
  * - e is a term equivalent to (eq t1 t2)
+ * - if both t1 and t2 are free merge their classes in the internalization table
+ * - if one is free and the other is a constant perform the substitution now
+ * - if one is free and the other is not a constant store e in subst_eqs for future
+ *   processing
+ * - otherwise, add e to the top_eqs
  */
 static void try_substitution(context_t *ctx, term_t t1, term_t t2, term_t e) {
   intern_tbl_t *intern;
@@ -182,6 +164,38 @@ static void try_bool_substitution(context_t *ctx, term_t t1, term_t t2, term_t e
   ivector_push(&ctx->top_eqs, e);
 }
 
+
+
+/*
+ * SIMPLIFICATION
+ */
+
+/*
+ * Check whether t is true or false (i.e., mapped to 'true_occ' or 'false_occ'
+ * in the internalization table.
+ * - t must be a root in the internalization table
+ */
+static bool term_is_true(context_t *ctx, term_t t) {
+  bool tt;
+
+  assert(intern_tbl_is_root(&ctx->intern, t));
+  tt = is_pos_term(t);
+  t = unsigned_term(t);
+  
+  return intern_tbl_root_is_mapped(&ctx->intern, t) && 
+    intern_tbl_map_of_root(&ctx->intern, t) == bool2code(tt);
+}
+
+static bool term_is_false(context_t *ctx, term_t t) {
+  bool tt;
+
+  assert(intern_tbl_is_root(&ctx->intern, t));
+  tt = is_pos_term(t);
+  t = unsigned_term(t);
+  
+  return intern_tbl_root_is_mapped(&ctx->intern, t) && 
+    intern_tbl_map_of_root(&ctx->intern, t) == bool2code(! tt);
+}
 
 
 
@@ -277,6 +291,22 @@ static term_t simplify_arith_eq0(context_t *ctx, term_t r) {
 
 
 /*
+ * Simplification of a if-then-else: (ite c t1 t2)
+ * - c, t1, and t2 are all root terms in the internalization table
+ * - flatten_bool_ite does more simplifications
+ */
+static term_t simplify_ite(context_t *ctx, term_t c, term_t t1, term_t t2) {
+  if (t1 == t2) return t1;                // (ite c t1 t1) --> t1
+  if (term_is_true(ctx, c)) return t1;    // (ite true t1 t2) --> t1
+  if (term_is_false(ctx, c)) return t2;   // (ite false t1 t2) --> t2
+
+  return NULL_TERM;
+}
+										
+
+
+
+/*
  * Simplification for equalities between two terms t1 and t2.
  * - both t1 and t2 are root terms in the internalization table
  * - all simplification functions either a boolean term t equivalent
@@ -338,6 +368,9 @@ static term_t simplify_bool_eq(context_t *ctx, term_t t1, term_t t2) {
 
 
 
+/*
+ * FLATTENING
+ */
 
 /*
  * Each function below processes an assertion of the form (r == tt)
@@ -559,7 +592,59 @@ static void flatten_xor(context_t *ctx, term_t r, bool tt) {
 
 // r is (ite c t1 t2) where t1 and t2 are boolean terms
 static void flatten_bool_ite(context_t *ctx, term_t r, bool tt) {
-  ivector_push(&ctx->top_formulas, signed_term(r, tt));
+  term_table_t *terms;
+  composite_term_t *d;
+  term_t c, t1, t2, t;
+
+  terms = ctx->terms;
+  d = ite_term_desc(terms, r);
+  c = intern_tbl_get_root(&ctx->intern, d->arg[0]);
+  t1 = intern_tbl_get_root(&ctx->intern, d->arg[1]);
+  t2 = intern_tbl_get_root(&ctx->intern, d->arg[2]);
+
+  t = simplify_ite(ctx, c, t1, t2);
+  if (t != NULL_TERM) {
+    int_queue_push(&ctx->queue, signed_term(t, tt));
+  } else {
+
+    if (tt) {
+      if (c == t2 || term_is_false(ctx, t2)) {
+	// assert (ite c a false) --> assert c and a
+	// assert (ite c a c)     --> assert c and a
+	int_queue_push(&ctx->queue, c);
+	int_queue_push(&ctx->queue, t1);
+	return;
+      }
+
+      if (opposite_bool_terms(c, t1) || term_is_false(ctx, t1)) {
+	// assert (ite c false b)   --> assert (not c) and b
+	// assert (ite c (not c) b) --> assert (not c) and b
+	int_queue_push(&ctx->queue, opposite_term(c));
+	int_queue_push(&ctx->queue, t2);
+	return;
+      }
+
+    } else {
+      if (opposite_bool_terms(c, t2) || term_is_true(ctx, t2)) {
+	// assert not (ite c a true)    --> assert c and (not a)
+	// assert not (ite c a (not c)) --> assert c and (not a)
+	int_queue_push(&ctx->queue, c);
+	int_queue_push(&ctx->queue, opposite_term(t1));
+	return;
+      }
+
+      if (c == t1 || term_is_true(ctx, t1)) {
+	// assert not (ite c true b) --> assert (not c) and (not b)
+	// assert not (ite c c b)    --> assert (not c) and (not b)
+	int_queue_push(&ctx->queue, opposite_term(c));
+	int_queue_push(&ctx->queue, opposite_term(t2));
+	return;
+      }
+    }
+
+    // no flattening found
+    ivector_push(&ctx->top_formulas, signed_term(r, tt));
+  }
 }
 
 
