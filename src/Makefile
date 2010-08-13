@@ -87,21 +87,22 @@ src_c := abstract_values.c arena.c arith_buffers.c                  \
          int_heap.c int_heap2.c int_partitions.c int_powers.c       \
          int_queues.c int_stack.c int_vectors.c                     \
          internalization_table.c internalization_printer.c          \
-         large_bvsets.c lexer.c matrices.c memalloc.c memsize.c     \
-         models.c mpq_aux.c object_stores.c pair_hash_map.c         \
-         pair_hash_sets.c parser.c pointer_vectors.c polynomials.c  \
-         poly_buffer.c power_products.c pprod_table.c               \
-         pretty_printer.c pseudo_subst.c ptr_array_sort.c           \
-         ptr_array_sort2.c ptr_hash_map.c ptr_heap.c                \
-         ptr_partitions.c ptr_queues.c ptr_vectors.c rationals.c    \
-         rb_bvsets.c reader.c refcount_strings.c small_bvsets.c     \
-         smt_core.c smt_core_printer.c smt_lexer.c                  \
-         smt_logic_codes.c smt_parser.c string_buffers.c            \
-         symbol_tables.c terms.c term_printer.c term_stack.c        \
-         term_stack_error.c term_utils.c theory_explanations.c      \
-         timeout.c types.c type_printer.c uint_rbtrees.c            \
-         union_find.c use_vectors.c vsets.c yices_api.c             \
-         yices_error.c yices_lexer.c yices_pp.c yices_parser.c
+         large_bvsets.c lexer.c mark_vectors.c matrices.c           \
+         memalloc.c memsize.c models.c mpq_aux.c object_stores.c    \
+         pair_hash_map.c pair_hash_sets.c parser.c                  \
+         pointer_vectors.c polynomials.c poly_buffer.c              \
+         power_products.c pprod_table.c pretty_printer.c            \
+         pseudo_subst.c ptr_array_sort.c ptr_array_sort2.c          \
+         ptr_hash_map.c ptr_heap.c ptr_partitions.c ptr_queues.c    \
+         ptr_vectors.c rationals.c rb_bvsets.c reader.c             \
+         refcount_strings.c small_bvsets.c smt_core.c               \
+         smt_core_printer.c smt_lexer.c smt_logic_codes.c           \
+         smt_parser.c string_buffers.c symbol_tables.c terms.c      \
+         term_printer.c term_stack.c term_stack_error.c             \
+         term_utils.c theory_explanations.c timeout.c types.c       \
+         type_printer.c uint_rbtrees.c union_find.c use_vectors.c   \
+         vsets.c yices_api.c yices_error.c yices_lexer.c yices_pp.c \
+         yices_parser.c
 
 
 #
