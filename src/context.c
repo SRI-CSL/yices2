@@ -4,6 +4,11 @@
 
 #include "memalloc.h"
 #include "term_utils.h"
+#include "pseudo_subst.h"
+#include "mark_vectors.h"
+
+#include "term_printer.h"
+
 #include "context.h"
 
 
@@ -57,7 +62,7 @@
 
 
 /*
- * VARIABLE ELIMINATION
+ * VARIABLE ELIMINATION: PHASE 1
  */
 
 /*
@@ -66,7 +71,7 @@
  * - both t1 and t2 are roots in the internalization table
  * - t1 is free and t2 is not
  * - if t2 is constant, perform the substitution now
- * - otherwise store e into subst_eqs for phase 2 processing
+ * - otherwise store e into subst_eqs for Phase 2 processing
  */
 static void process_candidate_subst(context_t *ctx, term_t t1, term_t t2, term_t e) {
   intern_tbl_t *intern;
@@ -91,8 +96,7 @@ static void process_candidate_subst(context_t *ctx, term_t t1, term_t t2, term_t
  * - e is a term equivalent to (eq t1 t2)
  * - if both t1 and t2 are free merge their classes in the internalization table
  * - if one is free and the other is a constant perform the substitution now
- * - if one is free and the other is not a constant store e in subst_eqs for future
- *   processing
+ * - if one is free and the other is not a constant store e in subst_eqs for Phase 2
  * - otherwise, add e to the top_eqs
  */
 static void try_substitution(context_t *ctx, term_t t1, term_t t2, term_t e) {
@@ -154,7 +158,7 @@ static void try_bool_substitution(context_t *ctx, term_t t1, term_t t2, term_t e
 
     if (free1 || free2) {
       /*
-       * Only one is free: save in subst_eqs for future processing
+       * Only one is free: save e in subst_eqs for future processing
        */
       ivector_push(&ctx->subst_eqs, e);
     }
@@ -167,7 +171,7 @@ static void try_bool_substitution(context_t *ctx, term_t t1, term_t t2, term_t e
 
 
 /*
- * SIMPLIFICATION
+ * VARIABLE ELIMINATION: PHASE 2
  */
 
 /*
@@ -198,11 +202,142 @@ static bool term_is_false(context_t *ctx, term_t t) {
 }
 
 
+/*  
+ * Check whether x is already mapped in the candidate substitution
+ * - if not, store [x := t] as a candidate
+ * - otherwise, add e to the top_eqs vector
+ */
+static void try_pseudo_subst(context_t *ctx, pseudo_subst_t *subst, term_t x, term_t t, term_t e) {
+  subst_triple_t *s;
+
+  assert(is_pos_term(x) && intern_tbl_root_is_free(&ctx->intern, x));
+
+  s = pseudo_subst_get(subst, x);
+  assert(s->var == x);
+  if (s->map == NULL_TERM) {
+    // x := t is a candidate
+    assert(s->eq == NULL_TERM);
+    s->map = t;
+    s->eq = e;
+
+    printf("Add subst candidate ");
+    print_term_desc(stdout, ctx->terms, x);
+    printf(" := ");;
+    print_term_desc(stdout, ctx->terms, t);
+    printf(" by assertion ");
+    print_term_desc(stdout, ctx->terms, e);
+    printf("\n");
+    fflush(stdout);
+    
+  } else {
+    ivector_push(&ctx->top_eqs, e);
+  }
+} 
 
 /*
- * Simplification: all functions below attempt to rewrite a (boolean)
- * term r to an equivalent (boolean) term q. They return NULL_TERM if 
- * the simplification fails.
+ * Check whether (eq t1 t2) can still be turned into a substitution (X := term)
+ * - if so add the candidate substitution [X --> term] to subst
+ * - otherwise, move e to the top-level equalities
+ * - both t1 and t2 are root terms in the internalization table
+ * - e is equivalent to (eq t1 t2))
+ * - t1 and t2 are not boolean terms
+ */
+static void check_candidate_subst(context_t *ctx, pseudo_subst_t *subst, term_t t1, term_t t2, term_t e) {
+  assert(is_pos_term(t1) && is_pos_term(t2));
+
+  if (intern_tbl_root_is_free(&ctx->intern, t1)) {
+    try_pseudo_subst(ctx, subst, t1, t2, e);
+  } else if (intern_tbl_root_is_free(&ctx->intern, t2)) {
+    try_pseudo_subst(ctx, subst, t2, t1, e);
+  } else {
+    ivector_push(&ctx->top_eqs, e);
+  }
+}
+
+
+
+/*
+ * Same thing for an equality between booleans terms
+ */
+static void check_candidate_bool_subst(context_t *ctx, pseudo_subst_t *subst, term_t t1, term_t t2, term_t e) {
+  assert(is_boolean_term(ctx->terms, t1) && is_boolean_term(ctx->terms, t2));
+
+  if (intern_tbl_root_is_free(&ctx->intern, t1)) {
+    // if t1 is (not u1), rewrite to (u1 == not t2)
+    t2 ^= polarity_of(t1);
+    t1 = unsigned_term(t1);
+    try_pseudo_subst(ctx, subst, t1, t2, e);
+  } else if (intern_tbl_root_is_free(&ctx->intern, t2)) {
+    // fix polarities too
+    t1 ^= polarity_of(t2);
+    t2 = unsigned_term(t2);
+    try_pseudo_subst(ctx, subst, t2, t1, e);
+  } else {
+    ivector_push(&ctx->top_eqs, e);
+  }
+}
+
+
+/*
+ * Process all elements in subst_eqs:
+ * - turn them into substitution candidates or move them to top_eqs
+ */
+static void process_subst_eqs(context_t *ctx, pseudo_subst_t *subst) {
+  term_table_t *terms;
+  ivector_t *subst_eqs;
+  composite_term_t *eq;
+  term_t e, t1, t2;
+  uint32_t i, n;
+
+  terms = ctx->terms;
+  subst_eqs = &ctx->subst_eqs;
+
+  n = subst_eqs->size;
+  for (i=0; i<n; i++) {
+    e = subst_eqs->data[i];
+    switch (term_kind(terms, e)) {
+    case EQ_TERM:
+    case ARITH_BINEQ_ATOM:
+    case BV_EQ_ATOM:      
+      eq = composite_term_desc(terms, e);
+      assert(eq->arity == 2);
+      t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
+      t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
+
+      if (is_boolean_term(terms, t1)) {
+	if (term_is_false(ctx, e)) {
+	  // rewrite not (eq t1 t2) to (eq t1 (not t2))
+	  assert(is_boolean_term(terms, t2));
+	  e = opposite_term(e);
+	  t2 = opposite_term(t2);
+	}
+	assert(term_is_true(ctx, e));
+	check_candidate_bool_subst(ctx, subst, t1, t2, e);
+      } else {
+	assert(term_is_true(ctx, e));
+	check_candidate_subst(ctx, subst, t1, t2, e);
+      }
+      break;
+
+    default:
+      assert(false);
+      break;
+    }
+  }
+}
+
+
+
+
+
+/*
+ * SIMPLIFICATION
+ */
+
+/*
+ * All functions below attempt to rewrite a (boolean) term r to an
+ * equivalent (boolean) term q. They return NULL_TERM if the
+ * simplification fails.
  */
 static term_t simplify_select(context_t *ctx, term_t r) {
   select_term_t *sel;
@@ -833,6 +968,24 @@ static void flatten_assertion(context_t *ctx, term_t f) {
 }
 
 
+
+/*
+ * Process all candidate substitutions after flattening
+ * - the candidate substitutions are in ctx->subst_eqs
+ * - each element in ctx->subst_eqs is a boolean term e 
+ *   such that e is true or false (by flatteing)
+ *         and e is equivalent to an equality (t1 == t2)
+ *   where one of t1 and t2 is a variable.
+ */
+static void context_process_candidate_subst(context_t *ctx) {
+  pseudo_subst_t subst;
+
+  init_pseudo_subst(&subst, 0);
+  process_subst_eqs(ctx, &subst);
+  ivector_reset(&ctx->subst_eqs);
+  delete_pseudo_subst(&subst);
+}
+
 /*
  * Flatten and internalize assertions a[0 ... n-1]
  * - all elements a[i] must be valid boolean term in ctx->terms
@@ -855,6 +1008,11 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
   if (code == 0) {
     for (i=0; i<n; i++) {
       flatten_assertion(ctx, a[i]);
+    }
+
+    // deal with variable substitutions if any
+    if (ctx->subst_eqs.size > 0) {
+      context_process_candidate_subst(ctx);
     }
 
     return CTX_NO_ERROR;
