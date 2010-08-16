@@ -4,12 +4,79 @@
 
 #include "memalloc.h"
 #include "term_utils.h"
-#include "pseudo_subst.h"
-#include "mark_vectors.h"
-
-#include "term_printer.h"
 
 #include "context.h"
+
+#define TRACE_SUBST 1
+
+#if TRACE_SUBST
+
+#include <stdio.h>
+#include "term_printer.h"
+
+#endif
+
+
+/***************
+ *  UTILITIES  *
+ **************/
+
+/*
+ * Allocate and initialize ctx->subst
+ */
+static pseudo_subst_t *context_get_subst(context_t *ctx) {
+  pseudo_subst_t *tmp;
+
+  tmp = ctx->subst;
+  if (tmp == NULL) {
+    tmp = (pseudo_subst_t *) safe_malloc(sizeof(pseudo_subst_t));
+    init_pseudo_subst(tmp, 0);
+    ctx->subst = tmp;
+  }
+
+  return tmp;
+}
+
+
+/*
+ * Free ctx->subst
+ */
+static void context_free_subst(context_t *ctx) {
+  if (ctx->subst != NULL) {
+    delete_pseudo_subst(ctx->subst);
+    safe_free(ctx->subst);
+    ctx->subst = NULL;
+  }
+}
+
+
+/*
+ * Allocate and initialize mark vectors
+ */
+static mark_vector_t *context_get_marks(context_t *ctx) {
+  mark_vector_t *tmp;
+
+  tmp = ctx->marks;
+  if (tmp == NULL) {
+    tmp = (mark_vector_t *) safe_malloc(sizeof(mark_vector_t));
+    init_mark_vector(tmp, 100, WHITE);
+    ctx->marks = tmp;
+  }
+
+  return tmp;
+}
+
+
+/*
+ * Free the mark vector
+ */
+static void context_free_marks(context_t *ctx) {
+  if (ctx->marks != NULL) {
+    delete_mark_vector(ctx->marks);
+    safe_free(ctx->marks);
+    ctx->marks = NULL;
+  }
+}
 
 
 /*******************************
@@ -220,6 +287,7 @@ static void try_pseudo_subst(context_t *ctx, pseudo_subst_t *subst, term_t x, te
     s->map = t;
     s->eq = e;
 
+#if TRACE_SUBST && 0
     printf("Add subst candidate ");
     print_term_desc(stdout, ctx->terms, x);
     printf(" := ");;
@@ -228,6 +296,7 @@ static void try_pseudo_subst(context_t *ctx, pseudo_subst_t *subst, term_t x, te
     print_term_desc(stdout, ctx->terms, e);
     printf("\n");
     fflush(stdout);
+#endif
     
   } else {
     ivector_push(&ctx->top_eqs, e);
@@ -327,7 +396,336 @@ static void process_subst_eqs(context_t *ctx, pseudo_subst_t *subst) {
 }
 
 
+/*
+ * VARIABLE ELIMINATION PHASE 3: CYCLE REMOVAL
+ */
 
+/*
+ * We use a depth-first search in the dependency graph:
+ * - vertices are terms,
+ * - edges are of two forms: 
+ *    t --> u if u is a child subterm of t
+ *    x := t  if x is a variable and t is the substitution candidate for x
+ *
+ * By construction, the graph restricted to edges t --> u (without the 
+ * substitution edges) is a DAG. So we can remove cycles by removing some 
+ * substitution edges x := t.
+ */
+
+/*
+ * Substitution candidate for term t:
+ * - return NULL_TERM if there's no candidate
+ */
+static term_t subst_candidate(context_t *ctx, term_t t) {
+  subst_triple_t *s;
+
+  assert(ctx->subst != NULL);
+  s = pseudo_subst_find(ctx->subst, t);
+  if (s == NULL) {
+    return NULL_TERM;
+  } else {
+    assert(s->var == t);
+    return s->map;
+  }
+}
+
+
+/*
+ * Remove substitution candidate for t
+ */
+static void remove_subst_candidate(context_t *ctx, term_t t) {
+  subst_triple_t *s;
+
+  assert(ctx->subst != NULL);
+  s = pseudo_subst_find(ctx->subst, t);
+  assert(s != NULL && s->var == t && s->map != NULL_TERM);
+
+#if TRACE_SUBST
+  printf("Removing subst candidate ");
+  print_term_desc(stdout, ctx->terms, t);
+  printf(" := ");;
+  print_term_desc(stdout, ctx->terms, s->map);
+  printf("\n");
+  fflush(stdout);
+#endif
+
+  s->map = NULL_TERM;
+}
+
+
+/*
+ * Visit t: return true if t is on a cycle.
+ */
+static bool visit(context_t *ctx, term_t t);
+
+static bool visit_composite(context_t *ctx, composite_term_t *c) {
+  uint32_t i, n;
+
+  n = c->arity;
+  for (i=0; i<n; i++) {
+    if (visit(ctx, c->arg[i])) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+static bool visit_pprod(context_t *ctx, pprod_t *p) {
+  uint32_t i, n;
+
+  n = p->len;
+  for (i=0; i<n; i++) {
+    if (visit(ctx, p->prod[i].var)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static bool visit_arith_poly(context_t *ctx, polynomial_t *p) {
+  monomial_t *m;
+  uint32_t i, n;
+
+  m = p->mono;
+  n = p->nterms;
+  assert(n > 0);
+  // skip constant marker
+  if (m[0].var == const_idx) {
+    m++;
+    n--;
+  }
+
+  for (i=0; i<n; i++) {
+    if (visit(ctx, m[i].var)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static bool visit_bv_poly(context_t *ctx, bvpoly_t *p) {
+  bvmono_t *m;
+  uint32_t i, n;
+
+  m = p->mono;
+  n = p->nterms;
+  assert(n > 0);
+  // skip constant marker
+  if (m[0].var == const_idx) {
+    m++;
+    n--;
+  }
+
+  for (i=0; i<n; i++) {
+    if (visit(ctx, m[i].var)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+static bool visit_bv64_poly(context_t *ctx, bvpoly64_t *p) {
+  bvmono64_t *m;
+  uint32_t i, n;
+
+  m = p->mono;
+  n = p->nterms;
+  assert(n > 0);
+  // skip constant marker
+  if (m[0].var == const_idx) {
+    m++;
+    n--;
+  }
+
+  for (i=0; i<n; i++) {
+    if (visit(ctx, m[i].var)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+static bool visit(context_t *ctx, term_t t) {
+  term_table_t *terms;
+  term_t r;
+  int32_t i;
+  bool result;
+  uint8_t color;
+
+  assert(ctx->marks != NULL);
+  i = index_of(t);
+  color = mark_vector_get_mark(ctx->marks, i);
+
+  if (color == WHITE) {
+    /*
+     * i not visited yet
+     */
+    terms = ctx->terms;
+    mark_vector_add_mark(ctx->marks, i, GREY);
+
+    switch (kind_for_idx(terms, i)) {
+    case CONSTANT_TERM:
+    case ARITH_CONSTANT:
+    case BV64_CONSTANT:
+    case BV_CONSTANT:
+    case VARIABLE:
+      result = false;
+      break;
+
+    case UNINTERPRETED_TERM:
+      r = intern_tbl_get_root(&ctx->intern, t);
+      if (r != t) {
+	result = visit(ctx, r);
+      } else {
+	r = subst_candidate(ctx, pos_term(i));
+	if (r != NULL_TERM && visit(ctx, r)) {
+	  /*
+	   * There's a cycle u --> ... --> t := r --> ... --> u
+	   * remove the substitution t := r to break the cycle
+	   */
+	  remove_subst_candidate(ctx, pos_term(i));
+	}
+	result = false;
+      }
+      break;
+
+    case ARITH_EQ_ATOM:
+    case ARITH_GE_ATOM:
+      result = visit(ctx, integer_value_for_idx(terms, i));
+      break;
+
+    case ITE_TERM:
+    case ITE_SPECIAL:
+    case APP_TERM:
+    case UPDATE_TERM:
+    case TUPLE_TERM:
+    case EQ_TERM:
+    case DISTINCT_TERM:
+    case FORALL_TERM:
+    case OR_TERM:
+    case XOR_TERM:
+    case ARITH_BINEQ_ATOM:
+    case BV_ARRAY:
+    case BV_DIV:
+    case BV_REM:
+    case BV_SDIV:
+    case BV_SREM:
+    case BV_SMOD:
+    case BV_SHL:
+    case BV_LSHR:
+    case BV_ASHR:
+    case BV_EQ_ATOM:
+    case BV_GE_ATOM:
+    case BV_SGE_ATOM:
+      result = visit_composite(ctx, composite_for_idx(terms, i));
+      break;
+
+    case SELECT_TERM:
+    case BIT_TERM:
+      result = visit(ctx, select_for_idx(terms, i)->arg);
+      break;
+
+    case POWER_PRODUCT:
+      result = visit_pprod(ctx, pprod_for_idx(terms, i));
+      break;
+
+    case ARITH_POLY:
+      result = visit_arith_poly(ctx, polynomial_for_idx(terms, i));
+      break;
+
+    case BV64_POLY:
+      result = visit_bv64_poly(ctx, bvpoly64_for_idx(terms, i));
+      break;
+
+    case BV_POLY:
+      result = visit_bv_poly(ctx, bvpoly_for_idx(terms, i));
+      break;
+
+    case UNUSED_TERM:
+    case RESERVED_TERM:
+    default:
+      assert(false);
+      longjmp(ctx->env, INTERNAL_ERROR);
+      break;
+    }
+
+    if (result) {
+      /*
+       * t is on a cycle of grey terms:
+       *  v --> .. x := u --> ... --> t --> ... --> v
+       * all terms on the cycle must be cleared except v
+       */
+      mark_vector_add_mark(ctx->marks, i, WHITE);
+    } else {
+      // no cycle containing t: mark i black
+      mark_vector_add_mark(ctx->marks, i, BLACK);
+    }
+
+  } else {
+    /*
+     * i already visited before
+     * - if it's black there's no cycle
+     * - if it's grey, we've just detected a cycle
+     */
+    assert(color == GREY || color == BLACK);
+    result = (color == GREY);
+  }
+
+  return result;
+}
+
+
+/*
+ * Iterator for remove cycle:
+ * - s is a triple [x, t, e] for a candidate substitution x := t
+ */
+static void visit_subst_candidate(context_t *ctx, subst_triple_t *s) {
+  term_t x;
+
+  x = s->var;
+  assert(intern_tbl_is_root(&ctx->intern, x) && intern_tbl_root_is_free(&ctx->intern, x));
+  if (mark_vector_get_mark(ctx->marks, index_of(x)) == WHITE) {
+    (void) visit(ctx, x);
+  }
+}
+
+
+/*
+ * Remove cycles in the candidate substitutions
+ */
+static void remove_subst_cycles(context_t *ctx) {
+  pseudo_subst_iterate(ctx->subst, ctx, (pseudo_subst_iterator_t) visit_subst_candidate);
+}
+
+
+/*
+ * Iterator for finalize subst:
+ * - s is a triple [x, t, e] 
+ * - if t is NULL_TERM, that's no longer a good substitution: add e to top_eqs
+ * - otherwise add x := t as a substitution in the internalization table
+ */
+static void finalize_subst_triple(context_t *ctx, subst_triple_t *s) {
+  if (s->map != NULL_TERM) {
+    intern_tbl_add_subst(&ctx->intern, s->var, s->map);
+  } else {
+    ivector_push(&ctx->top_eqs, s->eq);
+  }  
+}
+
+
+/*
+ * Finalize all candidate substitutions
+ */
+static void finalize_subst_candidates(context_t *ctx) {
+  pseudo_subst_iterate(ctx->subst, ctx, (pseudo_subst_iterator_t) finalize_subst_triple);  
+}
 
 
 /*
@@ -968,7 +1366,6 @@ static void flatten_assertion(context_t *ctx, term_t f) {
 }
 
 
-
 /*
  * Process all candidate substitutions after flattening
  * - the candidate substitutions are in ctx->subst_eqs
@@ -978,12 +1375,16 @@ static void flatten_assertion(context_t *ctx, term_t f) {
  *   where one of t1 and t2 is a variable.
  */
 static void context_process_candidate_subst(context_t *ctx) {
-  pseudo_subst_t subst;
+  pseudo_subst_t *subst;
+  mark_vector_t *marks;
 
-  init_pseudo_subst(&subst, 0);
-  process_subst_eqs(ctx, &subst);
+  subst = context_get_subst(ctx);
+  marks = context_get_marks(ctx);
+  process_subst_eqs(ctx, subst);
+  remove_subst_cycles(ctx);
+  finalize_subst_candidates(ctx);
+
   ivector_reset(&ctx->subst_eqs);
-  delete_pseudo_subst(&subst);
 }
 
 /*
@@ -1023,6 +1424,8 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
      */
     reset_istack(&ctx->istack);
     int_queue_reset(&ctx->queue);
+    context_free_subst(ctx);
+    context_free_marks(ctx);
 
     return (int32_t) code;
   }
@@ -1243,7 +1646,8 @@ void init_context(context_t *ctx, term_table_t *terms,
   init_ivector(&ctx->subst_eqs, CTX_DEFAULT_VECTOR_SIZE);
   init_istack(&ctx->istack);
   init_int_queue(&ctx->queue, 0);
-
+  ctx->subst = NULL;
+  ctx->marks = NULL;
 
   // TEMPORARY HACK: INITIALIZE THE CORE WITH THE EMPTY SOLVER
   cmode = core_mode[mode];
@@ -1283,6 +1687,9 @@ void delete_context(context_t *ctx) {
   delete_ivector(&ctx->subst_eqs);
   delete_istack(&ctx->istack);
   delete_int_queue(&ctx->queue);
+
+  context_free_subst(ctx);
+  context_free_marks(ctx);
 }
 
 
@@ -1310,6 +1717,8 @@ void reset_context(context_t *ctx) {
   ivector_reset(&ctx->subst_eqs);
   reset_istack(&ctx->istack);
   int_queue_reset(&ctx->queue);
+  context_free_subst(ctx);
+  context_free_marks(ctx);
 }
 
 

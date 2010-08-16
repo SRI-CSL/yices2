@@ -272,3 +272,30 @@ subst_triple_t *pseudo_subst_get(pseudo_subst_t *subst, term_t x) {
   return d;
 }
 
+/*
+ * ITERATOR
+ */
+
+/*
+ * Apply function f(aux, s) to all substitution triples s in subst
+ * - aux is an arbitrary pointer provided by the caller
+ * - f must not have side effects on subst
+ */
+void pseudo_subst_iterate(pseudo_subst_t *subst, void *aux, pseudo_subst_iterator_t f) {
+  st_block_t *b;
+  uint32_t i, n;
+
+  b = subst->bank.head;
+  n = ST_BANK_SIZE;
+  while (b != NULL) {
+    if (b == subst->bank.tail) {
+      n = subst->bank.free_idx;
+    }
+    for (i=0; i<n; i++) {
+      f(aux, b->data + i);
+    }
+    b = b->next;
+  }
+}
+
+

@@ -165,5 +165,19 @@ static inline bool pseudo_subst_var_is_mapped(pseudo_subst_t *subst, term_t x) {
 
 
 
+/*
+ * ITERATOR
+ */
+
+/*
+ * Apply function f(aux, s) to all substitution triples s in subst
+ * - aux is an arbitrary pointer provided by the caller
+ * - f must not have side effects on subst
+ */
+typedef void (*pseudo_subst_iterator_t)(void *aux, subst_triple_t *s);
+
+extern void pseudo_subst_iterate(pseudo_subst_t *subst, void *aux, pseudo_subst_iterator_t f);
+
+
 
 #endif /* __PSEUDO_SUBST_H */

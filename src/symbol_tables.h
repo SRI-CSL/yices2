@@ -118,7 +118,7 @@ extern void stbl_add(stbl_t *sym_table, char *symbol, int32_t val);
 
 /*
  * Iterator: call f(aux, r) for every live record r in the table
- * - aux is an arbitrary pointer, provided byt the caller
+ * - aux is an arbitrary pointer, provided by the caller
  * - f must not have side effects (it must not add or remove anything 
  *   from the symbol table, or modify the record r).
  */

@@ -22,6 +22,8 @@
 #include "terms.h"
 #include "internalization_table.h"
 #include "internalization_codes.h"
+#include "pseudo_subst.h"
+#include "mark_vectors.h"
 
 #include "gates_manager.h"
 #include "smt_core.h"
@@ -155,6 +157,17 @@ typedef enum {
 #define ALLTH_MASK (UF_MASK|BV_MASK|ARITH_MASK|FUN_MASK)
 
 
+/*
+ * Marks for cycle detection:
+ * - white: term not visited
+ * - grey: term found but not fully explored yet
+ * - black: fully explored term
+ */
+enum {
+  WHITE = 0,
+  GREY = 1,
+  BLACK = 2,
+};
 
 
 /**************
@@ -201,17 +214,17 @@ struct context_s {
   ivector_t top_atoms;
   ivector_t top_formulas;
   ivector_t top_interns;
-
   
   // auxiliary buffers and structures for internalization
-  ivector_t subst_eqs;  
+  ivector_t subst_eqs;
   int_stack_t istack;
-  int_queue_t queue;  
+  int_queue_t queue;
+  pseudo_subst_t *subst;
+  mark_vector_t *marks;
 
   // for exception handling
   jmp_buf env;
 };
-
 
 
 
