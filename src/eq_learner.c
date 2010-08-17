@@ -14,6 +14,33 @@
 #include <stdio.h>
 #include "term_printer.h"
 
+
+/*
+ * Print a term partition
+ */
+void print_epartition(FILE *f, term_table_t *terms, epartition_t *p) {
+  term_t *q, t;
+  uint32_t i, n;
+
+  n = p->nclasses;
+  if (n == 0) {
+    fprintf(f, "empty");
+  } else {
+    q = p->data;
+    for (i=0; i<n; i++) {
+      fprintf(f, " {");
+      t = *q ++;
+      while (t >= 0) {
+	fputc(' ', f);
+	print_term_name(f, terms, t);
+	t = *q ++;
+      }
+      fprintf(f, " }");
+    }
+  }
+}
+
+
 #endif
 
 
@@ -316,13 +343,14 @@ static epartition_t *eq_abstract(eq_learner_t *learner, term_t f, bool polarity)
  */
 epartition_t *eq_learner_process(eq_learner_t *learner, term_t f) {
   epartition_t *p;
+
   p = eq_abstract(learner, f, true);
 
 #if TRACE
   printf("---> ABS: ");
-  print_termdef(stdout, f);
+  print_term_def(stdout, learner->terms, f);
   printf("\n---> result = ");
-  print_epartition(stdout, p);
+  print_epartition(stdout, learner->terms, p);
   printf("\n");
 #endif
 
