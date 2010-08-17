@@ -77,7 +77,7 @@ void init_epartition_manager(epartition_manager_t *m) {
   m->sc_size = n;
   m->subclass = (int32_t *) safe_malloc(n * sizeof(int32_t));
   
-  // sublcas[i] must be -1 for all i
+  // sublcass[i] must be -1 for all i
   for (i=0; i<n; i++) {
     m->subclass[i] = -1;
   }

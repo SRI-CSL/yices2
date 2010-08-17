@@ -10,6 +10,9 @@
  * - to compute abs(F) we represent the set of equalities as a term partition
  * - this module implements the computation of 'meets' and 'joins' in the 
  *   abstract domain.
+ *
+ * TODO? improve the implementation to take advantage of the new term
+ * indexing (i.e., terms are now (index + polarity)).
  */
 
 #ifndef __EQ_ABSTRACTION_H
@@ -22,7 +25,7 @@
 
 
 /*
- * Compact represtentation of a term partition:
+ * Compact representation of a term partition:
  * - we just store the classes in an array
  * - each class is separated from the next by an end marker (NULL_TERM)
  * - the partition header contains the number of classes
@@ -43,11 +46,10 @@ typedef struct epartition_s {
 
 /*
  * Auxiliary structure for computing meet and join
- * Data structure used for both meet and join
  * - for a term t, label[t] = an integer index
  * - each class is stored as a circular list of terms
  *   next[t] = successor of t in its class
- * - for each class i,  root[i] is the root of the class
+ * - for each class i, root[i] is the root of the class
  *   some classes may be marked as empty by setting root[i] to NULL_TERM
  * - subclass = array used for join (to split a class c)
  * The label is interpreted in different ways during meet and join

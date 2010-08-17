@@ -78,11 +78,12 @@ src_c := abstract_values.c arena.c arith_buffers.c                  \
          cache.c command_line.c composites.c concrete_values.c      \
          context.c context_printer.c egraph_assertion_queues.c      \
          egraph_explanations.c egraph_utils.c egraph.c              \
-         egraph_printer.c extended_rationals.c fun_maps.c           \
-         fun_trees.c gates_hash_table.c gates_manager.c             \
-         gates_printer.c gcd.c generic_heap.c hash_functions.c      \
-         index_vectors.c int_array_sort.c int_array_sort2.c         \
-         int_bags.c int_bv_sets.c int_hash_classes.c int_hash_map.c \
+         egraph_printer.c eq_abstraction.c eq_learner.c             \
+         extended_rationals.c fun_maps.c fun_trees.c                \
+         gates_hash_table.c gates_manager.c gates_printer.c gcd.c   \
+         generic_heap.c hash_functions.c index_vectors.c            \
+         int_array_sort.c int_array_sort2.c int_bags.c              \
+         int_bv_sets.c int_hash_classes.c int_hash_map.c            \
          int_hash_map2.c int_hash_sets.c int_hash_tables.c          \
          int_heap.c int_heap2.c int_partitions.c int_powers.c       \
          int_queues.c int_stack.c int_vectors.c                     \

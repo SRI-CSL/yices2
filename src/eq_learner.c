@@ -7,7 +7,7 @@
 
 #include "eq_learner.h"
 
-#define TRACE 0
+#define TRACE 1
 
 #if TRACE
 
@@ -49,18 +49,15 @@ void delete_eq_learner(eq_learner_t *learner) {
 
 
 /*
- * Find record for formula f or (not f) in the cache
- * - if polarity is true, search record for f
- * - if polarity if false, search record for (not f)
- * if the record is not present, return NULL
+ * Find record for formula f in the cache.
+ * If the record is not present, return NULL
  */
-static epartition_t *find_cached_abstraction(eq_learner_t *learner, term_t f, bool polarity) {
-  int32_t key;
+static epartition_t *find_cached_abstraction(eq_learner_t *learner, term_t f) {
   ptr_hmap_pair_t *p;
 
-  assert(0 <= f && f < INT32_MAX/2 && term_kind(learner->terms, f) != NOT_TERM);
-  key = (f << 1) | polarity;
-  p = ptr_hmap_find(&learner->cache, key);
+  assert(good_term(learner->terms, f) && is_boolean_term(learner->terms, f));
+
+  p = ptr_hmap_find(&learner->cache, f);
   if (p != NULL) {
     assert(p->val != NULL);
     return p->val;
@@ -70,62 +67,57 @@ static epartition_t *find_cached_abstraction(eq_learner_t *learner, term_t f, bo
 }
 
 /*
- * Store that (f, polarity) is abstracted to p
- * - there must not be a record for (f, polarity) in the cache
+ * Store that f is abstracted to p
+ * - there must not be a record for f in the cache
  */
-static void cache_abstraction(eq_learner_t *learner, term_t f, bool polarity, epartition_t *p) {
-  int32_t key;
+static void cache_abstraction(eq_learner_t *learner, term_t f, epartition_t *p) {
   ptr_hmap_pair_t *r;
 
-  assert(0 <= f && f < INT32_MAX/2 && term_kind(learner->terms, f) != NOT_TERM && p != NULL);  
-  key = (f << 1) | polarity;
-  r = ptr_hmap_get(&learner->cache, key);
+  assert(good_term(learner->terms, f) && is_boolean_term(learner->terms, f) && p != NULL);  
+  r = ptr_hmap_get(&learner->cache, f);
   assert(r->val == NULL);
   r->val = p;
 }
 
 
 /*
- * Get abstraction for f or (not f) in the cache
+ * Get abstraction for f in the cache
  * - this works only if the corresponding record exists
  */
-static epartition_t *get_cached_abstraction(eq_learner_t *learner, term_t f, bool polarity) {
-  int32_t key;
+static epartition_t *get_cached_abstraction(eq_learner_t *learner, term_t f) {
   ptr_hmap_pair_t *p;
-  term_table_t *terms;  
 
-  terms = learner->terms;
-  while (term_kind(terms, f) == NOT_TERM) {
-    f = not_term_arg(terms, f);
-    polarity = ! polarity;
-  }
-
-  assert(0 <= f && f < INT32_MAX/2);
-  key = (f << 1) | polarity;
-  p = ptr_hmap_find(&learner->cache, key);
+  assert(good_term(learner->terms, f) && is_boolean_term(learner->terms, f));
+  p = ptr_hmap_find(&learner->cache, f);
   assert(p != NULL);
+
   return p->val;
 }
 
 
 /*
- * Compute the abstraction of formula f if polarity is true,
- * or of formula (not f) if polarity is false.
+ * Compute the abstraction of formula f or (not f)
+ * - if polarity is true: abstract f
+ * - if polarity is false: abstract (not f)
  */
 static epartition_t *eq_abstract(eq_learner_t *learner, term_t f, bool polarity);
 
+
 /*
  * Build the abstraction for an (OR ...) formula or its negation
+ * - if polarity is true: abstraction of (OR t1 ... tn)
+ * - if polarity is false: abstraction of not (OR t1 ... tn) 
+ *   (i.e., abstraction of (AND (not t1) ... (not tn)))
  */
-static epartition_t *eq_abstract_or(eq_learner_t *learner, or_term_t *or, bool polarity) {
+static epartition_t *eq_abstract_or(eq_learner_t *learner, composite_term_t *or, bool polarity) {
   uint32_t i, n;
   epartition_manager_t *m;
   epartition_t *p;
 
-  assert(or->nargs > 1);
+  assert(or->arity > 1);
 
   // abstract the arguments 
-  n = or->nargs;
+  n = or->arity;
   for (i=0; i<n; i++) {
     (void) eq_abstract(learner, or->arg[i], polarity);
   }
@@ -133,23 +125,25 @@ static epartition_t *eq_abstract_or(eq_learner_t *learner, or_term_t *or, bool p
   /*
    * for (OR t1 ... t_n): construct the join of abs(t1) ... abs(t_n)
    * for not (OR t1 ... t_n) <=> (and (not t1) ... (not t_n)): 
-   *  construct meet(abs (not t1) ... (not t_n))
+   *  construct meet(abs (not t1) ... abs(not t_n))
    */
   m = &learner->manager;
-  p = get_cached_abstraction(learner, or->arg[0], polarity);
-
   if (polarity) {
+    // (OR t1 ... t_n)
+    p = get_cached_abstraction(learner, or->arg[0]);
     epartition_init_for_join(m, p);
     for (i=1; i<n; i++) {
-      p = get_cached_abstraction(learner, or->arg[i], true);
+      p = get_cached_abstraction(learner, or->arg[i]);
       epartition_join(m, p);
     }
     return epartition_get_join(m);
 
   } else {
+    // (AND (not t1) ... (not t_n))
+    p = get_cached_abstraction(learner, opposite_term(or->arg[0]));
     epartition_init_for_meet(m, p);
     for (i=1; i<n; i++) {
-      p = get_cached_abstraction(learner, or->arg[i], false);
+      p = get_cached_abstraction(learner, opposite_term(or->arg[i]));
       epartition_meet(m, p);
     }
     return epartition_get_meet(m);
@@ -177,17 +171,19 @@ static epartition_t *eq_abstract_join(epartition_manager_t *m, epartition_t *p1,
 
 /*
  * Abstraction of (eq t1 t2):
- * - if t1 and t2 are boolean, we rewrite the formulas as (t1 ==> t2) AND (t2 ==> t1)
+ * - if t1 and t2 are boolean, we rewrite the formula as (t1 ==> t2) AND (t2 ==> t1)
  * - if t1 and t2 are non boolean build a basic partition
  */
-static epartition_t *eq_abstract_eq(eq_learner_t *learner, eq_term_t *eq, bool polarity) {
+static epartition_t *eq_abstract_eq(eq_learner_t *learner, composite_term_t *eq, bool polarity) {
   term_t t1, t2;
   epartition_t *p1, *q1, *p2, *q2;
   epartition_manager_t *m;
 
+  assert(eq->arity == 2);
+
   m = &learner->manager;
-  t1 = eq->left;
-  t2 = eq->right;
+  t1 = eq->arg[0];
+  t2 = eq->arg[1];
 
   assert(t1 != t2);
 
@@ -232,15 +228,17 @@ static epartition_t *eq_abstract_eq(eq_learner_t *learner, eq_term_t *eq, bool p
 /*
  * Abstraction of (ite c t1 t2)
  */
-static epartition_t *eq_abstract_ite(eq_learner_t *learner, ite_term_t *ite, bool polarity) {
+static epartition_t *eq_abstract_ite(eq_learner_t *learner, composite_term_t *ite, bool polarity) {
   term_t c, t1, t2;
   epartition_t *p, *q, *p1, *p2;
   epartition_manager_t *m;
 
+  assert(ite->arity == 3);
+
   m = &learner->manager;
-  c = ite->cond;
-  t1 = ite->then_arg;
-  t2 = ite->else_arg;
+  c = ite->arg[0];
+  t1 = ite->arg[1];
+  t2 = ite->arg[2];
 
   /*
    * - for positive polarity: let u1=t1 and u2=t2, then 
@@ -278,22 +276,25 @@ static epartition_t *eq_abstract(eq_learner_t *learner, term_t f, bool polarity)
   epartition_t *a;
 
   assert(is_boolean_term(learner->terms, f));
-
-  // remove top-level NOT
-  terms = learner->terms;
-  while (term_kind(terms, f) == NOT_TERM) {
-    f = not_term_arg(terms, f);
-    polarity = ! polarity;
-  }
   
-  a = find_cached_abstraction(learner, f, polarity);
+  a = find_cached_abstraction(learner, signed_term(f, polarity));
   if (a == NULL) {
     // not in the cache
+
+    // remove top-level negation
+    if (is_neg_term(f)) {
+      f = opposite_term(f);
+      polarity = !polarity;
+    }
+
+    // explore f
+    terms = learner->terms;
     switch (term_kind(terms, f)) {
     case EQ_TERM:
       a = eq_abstract_eq(learner, eq_term_desc(terms, f), polarity);
       break;
     case ITE_TERM:
+    case ITE_SPECIAL:
       a = eq_abstract_ite(learner, ite_term_desc(terms, f), polarity);
       break;
     case OR_TERM:
@@ -303,7 +304,7 @@ static epartition_t *eq_abstract(eq_learner_t *learner, term_t f, bool polarity)
       a = empty_epartition(&learner->manager);
       break;
     }
-    cache_abstraction(learner, f, polarity, a);
+    cache_abstraction(learner, signed_term(f, polarity), a);
   }
 
   return a;

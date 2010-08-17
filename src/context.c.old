@@ -2638,7 +2638,7 @@ static void init_dlstats(context_t *ctx) {
  * - if idl is false, x must be a real variable
  *
  * NOTE: we could check whether the term t attached to x is uninterpreted,
- * but that will be detected in later phaes of internalization anyway.
+ * but that will be detected in later phases of internalization anyway.
  */
 static inline bool good_dlvar(context_t *ctx, arith_var_t x, bool idl) {
   return arithvar_manager_var_is_primitive(ctx->arith_manager, x) &&
