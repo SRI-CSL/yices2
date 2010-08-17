@@ -6,6 +6,7 @@
 #include "term_utils.h"
 
 #include "context.h"
+#include "eq_learner.h"
 
 #define TRACE_SUBST 1
 
@@ -1387,49 +1388,126 @@ static void context_process_candidate_subst(context_t *ctx) {
   ivector_reset(&ctx->subst_eqs);
 }
 
+
+
+/************************
+ *  EQUALITY LEARNING   *
+ ***********************/
+
 /*
- * Flatten and internalize assertions a[0 ... n-1]
- * - all elements a[i] must be valid boolean term in ctx->terms
- * - return code: 
- *   TRIVIALLY_UNSAT if there's an easy contradiction
- *   CTX_NO_ERROR if the assertions were processed without error
- *   a negative error code otherwise.
+ * Process implied equality (x == y):
+ * - x and y should not be boolean, bitvector, or arithmetic terms,
+ * - we check whether (eq x y) is true or false
+ * - if it's false, the return code is TRIVIALLY_UNSAT
+ * - if it's true, we do nothing
+ * - otherwise, (eq x y) is added to top_eqs, and assigned to true
  */
-static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a) {
-  uint32_t i;
-  int code;
+static int32_t add_aux_eq(context_t *ctx, term_t x, term_t y) {
+  term_table_t *terms;
+  term_t eq;
+  int32_t code;
 
-  ivector_reset(&ctx->top_eqs);
-  ivector_reset(&ctx->top_atoms);
-  ivector_reset(&ctx->top_formulas);
-  ivector_reset(&ctx->top_interns);
-  ivector_reset(&ctx->subst_eqs);
+  x = intern_tbl_get_root(&ctx->intern, x);
+  y = intern_tbl_get_root(&ctx->intern, y);
 
-  code = setjmp(ctx->env);
-  if (code == 0) {
-    for (i=0; i<n; i++) {
-      flatten_assertion(ctx, a[i]);
-    }
-
-    // deal with variable substitutions if any
-    if (ctx->subst_eqs.size > 0) {
-      context_process_candidate_subst(ctx);
-    }
-
-    return CTX_NO_ERROR;
-
-  } else {
+  if (x != y) {
     /*
-     * Exception: return from longjmp(ctx->env, code);
+     * Build/get term (eq x y)
      */
-    reset_istack(&ctx->istack);
-    int_queue_reset(&ctx->queue);
-    context_free_subst(ctx);
-    context_free_marks(ctx);
+    terms = ctx->terms;  
+    if (x > y) {
+      eq = eq_term(terms, y, x);
+    } else {
+      eq = eq_term(terms, x, y);
+    }
 
-    return (int32_t) code;
+    assert(intern_tbl_is_root(&ctx->intern, eq));
+
+#if TRACE_EQ_ABS || 1
+    printf("---> learned equality: ");
+    print_term_def(stdout, ctx->terms, eq);
+    printf("\n");
+#endif 
+
+    if (intern_tbl_root_is_mapped(&ctx->intern, eq)) {
+      // eq is already internalized
+      code = intern_tbl_map_of_root(&ctx->intern, eq);
+      if (code == bool2code(false)) {
+	return TRIVIALLY_UNSAT;
+      } 
+
+      if (code != bool2code(true)) {
+	ivector_push(&ctx->top_interns, eq);
+      }
+
+    } else {
+      // map e to true and add it to top_eqs
+      intern_tbl_map_root(&ctx->intern, eq, bool2code(true));
+      ivector_push(&ctx->top_eqs, eq);
+    }    
+
   }
+
+  return CTX_NO_ERROR;
 }
+
+
+/*
+ * Add implied top_level equalities defined by the partition p
+ * - return CTX_NO_ERROR if the equalities could be added
+ * - return TRIVIALLY_UNSAT if an equality to add is known to be false
+ */
+static int32_t add_implied_equalities(context_t *ctx, epartition_t *p) {
+  uint32_t i, n;
+  term_t *q, x, y;
+  int32_t k;
+  
+  n = p->nclasses;
+  q = p->data;
+  for (i=0; i<n; i++) {
+    x = *q++;
+    assert(x >= 0);
+    y = *q ++;
+    while (y >= 0) {
+      k = add_aux_eq(ctx, x, y);
+      if (k != CTX_NO_ERROR) return k;
+      y = *q ++;
+    }
+  }
+  return CTX_NO_ERROR;
+}
+
+/*
+ * Attempt to learn global equalities implied 
+ * by the formulas stored in ctx->top_formulas.
+ * Any such equality is added to ctx->top_eqs
+ * - return CTX_NO_ERROR if no contradiction is found
+ * - return TRIVIALLY_UNSAT if a contradiction is found
+ */
+static int32_t analyze_uf(context_t *ctx) {
+  ivector_t *v;
+  uint32_t i, n;
+  eq_learner_t eql;
+  epartition_t *p;
+  int32_t k;
+
+  init_eq_learner(&eql, ctx->terms);
+  v = &ctx->top_formulas;
+  n = v->size;
+
+  k = CTX_NO_ERROR;
+  for (i=0; i<n; i++) {
+    p = eq_learner_process(&eql, v->data[i]);
+    if (p->nclasses > 0) {
+      k = add_implied_equalities(ctx, p);
+      if (k != CTX_NO_ERROR) break;
+    }
+  }
+
+  delete_eq_learner(&eql);
+  return k;
+}
+
 
 
 
@@ -1749,6 +1827,72 @@ void context_pop(context_t *ctx) {
 /****************************
  *   ASSERTIONS AND CHECK   *
  ***************************/
+
+/*
+ * Flatten and internalize assertions a[0 ... n-1]
+ * - all elements a[i] must be valid boolean term in ctx->terms
+ * - return code: 
+ *   TRIVIALLY_UNSAT if there's an easy contradiction
+ *   CTX_NO_ERROR if the assertions were processed without error
+ *   a negative error code otherwise.
+ */
+static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a) {
+  uint32_t i;
+  int code;
+
+  ivector_reset(&ctx->top_eqs);
+  ivector_reset(&ctx->top_atoms);
+  ivector_reset(&ctx->top_formulas);
+  ivector_reset(&ctx->top_interns);
+  ivector_reset(&ctx->subst_eqs);
+
+  code = setjmp(ctx->env);
+  if (code == 0) {
+    // flatten
+    for (i=0; i<n; i++) {
+      flatten_assertion(ctx, a[i]);
+    }
+
+    // deal with variable substitutions if any
+    if (ctx->subst_eqs.size > 0) {
+      context_process_candidate_subst(ctx);
+    }
+
+    // optional processing
+    switch (ctx->arch) {
+    case CTX_ARCH_EG:
+      if (context_eq_abstraction_enabled(ctx)) {
+	code = analyze_uf(ctx);
+	if (code != CTX_NO_ERROR) return code;
+      }
+      break;
+
+    case CTX_ARCH_AUTO_IDL:
+    case CTX_ARCH_IFW:
+    case CTX_ARCH_AUTO_RDL:
+    case CTX_ARCH_RFW:
+      break;
+
+    default:
+      break;
+    }
+
+    return CTX_NO_ERROR;
+
+  } else {
+    /*
+     * Exception: return from longjmp(ctx->env, code);
+     */
+    reset_istack(&ctx->istack);
+    int_queue_reset(&ctx->queue);
+    context_free_subst(ctx);
+    context_free_marks(ctx);
+
+    return (int32_t) code;
+  }
+}
+
+
 
 /*
  * Assert a boolean formula f.

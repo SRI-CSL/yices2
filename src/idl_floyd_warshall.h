@@ -60,6 +60,37 @@
 #include "context.h"
 
 
+/********************
+ *  VARIABLE TABLE  *
+ *******************/
+
+/*
+ * New: August 2010. To be compatible with the new term representation
+ * and the arithmetic interface used by the context, we use an 
+ * intermediate variable table.
+ * - each variable in the table denotes either a vertex in the graph
+ *   or an IDL polynomial (i.e., a polynomial of the form (x - y + c),
+ *   where x and y are vertices, and c is an integer constant).
+ */
+
+/*
+ * For an IDL polynomial p = (x - y + c) then 
+ * - source_var = x
+ * - target_var = y
+ * - constant = c
+ */
+typedef struct idl_poly_s {
+  int32_t source_var;
+  int32_t target_var;
+  int32_t constant;
+} idl_poly_t;
+
+
+
+
+
+
+
 /***********
  *  GRAPH  *
  **********/
@@ -257,22 +288,6 @@ typedef struct idl_astack_s {
  * (so any atom index fits in 30 bits).
  */
 #define MAX_IDL_ATOMS MAX_IDL_ATBL_SIZE
-
-
-/*
- * Auxiliary buffer for internalization.
- * The input to the internalization is a polynomial p.
- * We want to extract source_var, target_var, constant:
- * If p is (x - y + d) then 
- * - source_var = x
- * - target_var = y
- * - constant = d
- */
-typedef struct idl_poly_s {
-  int32_t source_var;
-  int32_t target_var;
-  int32_t constant;
-} idl_poly_t;
 
 
 /****************

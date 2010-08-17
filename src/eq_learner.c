@@ -7,7 +7,7 @@
 
 #include "eq_learner.h"
 
-#define TRACE 1
+#define TRACE 0
 
 #if TRACE
 

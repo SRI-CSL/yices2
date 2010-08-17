@@ -126,8 +126,9 @@ static void test_internalization(smt_benchmark_t *bench) {
   FILE *f;
   int32_t code;
 
-  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, CTX_ARCH_EGFUNSPLXBV, false);
+  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, CTX_ARCH_EG, false);
   enable_variable_elimination(&context);
+  enable_eq_abstraction(&context);
 
   code = assert_formulas(&context, bench->nformulas, bench->formulas);
   print_internalization_code(code);
