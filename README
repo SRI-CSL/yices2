@@ -525,7 +525,8 @@ There are several ways to fix this:
    wants and there will be no warnings.
 
 2) add  __attribute__ ((always_inline)) to the inline functions that cause 
-   problem. GCC will stop checking for 
+   problem. GCC will stop checking whether the size grows and whether the 
+   call is likely.
 
 3) add option -fno-guess-branch-probability to CFLAGS.
 
