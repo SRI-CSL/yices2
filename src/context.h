@@ -711,6 +711,15 @@ extern int32_t assert_formula(context_t *ctx, term_t f);
 extern int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f);
 
 
+/*
+ * Clear boolean assignment and return to the IDLE state.
+ * - this can be called after check returns UNKNOWN or SEARCHING
+ *   provided the context's mode isn't ONECHECK
+ * - after this call, additional formulas can be asserted and 
+ *   another call to check_context is allowed. Model construction 
+ *   is no longer possible.
+ */
+extern void context_clear(context_t *ctx);
 
 
 
@@ -947,6 +956,35 @@ static inline bool context_supports_pushpop(context_t *ctx) {
 
 static inline bool context_supports_cleaninterrupt(context_t *ctx) {
   return (ctx->options & CLEANINT_OPTION_MASK) != 0;
+}
+
+
+
+
+
+/***************
+ *  UTILITIES  *
+ **************/
+
+/*
+ * Read the status: returns one of 
+ *  STATUS_IDLE        (before check_context)
+ *  STATUS_SEARCHING   (during check_context)
+ *  STATUS_UNKNOWN
+ *  STATUS_SAT
+ *  STATUS_UNSAT
+ *  STATUS_INTERRUPTED
+ */
+static inline smt_status_t context_status(context_t *ctx) {
+  return smt_status(ctx->core);
+}
+
+
+/*
+ * Read the base_level (= number of calls to push)
+ */
+static inline uint32_t context_base_level(context_t *ctx) {
+  return ctx->base_level;
 }
 
 

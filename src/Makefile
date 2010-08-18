@@ -103,47 +103,7 @@ src_c := abstract_values.c arena.c arith_buffers.c                  \
          term_utils.c theory_explanations.c timeout.c types.c       \
          type_printer.c uint_rbtrees.c union_find.c use_vectors.c   \
          vsets.c yices_api.c yices_error.c yices_lexer.c yices_pp.c \
-         yices_parser.c
-
-
-#
-# Old version. To be cleaned up.
-#
-old_src_c := abstract_values.c arena.c arithmetic_variable_manager.c \
-         arith_atomtable.c arith_vartable.c bit_blaster.c        \
-	 bit_expr.c bit_solver.c bitvector_variable_manager.c    \
-	 bv_constants.c bvarith_expr.c bvbound_cache.c           \
-         bvlogic_expr.c bvpoly_buffer.c bvsolver.c cache.c       \
-	 command_line.c composites.c concrete_values.c context.c \
-	 context_solver.c diophantine_systems.c diseq_stacks.c   \
-	 dsolver_printer.c egraph_assertion_queues.c             \
-	 egraph_explanations.c egraph_utils.c egraph.c           \
-	 eq_abstraction.c eq_learner.c extended_rationals.c      \
-	 fun_maps.c fun_solver.c fun_trees.c gates_hash_table.c  \
-	 gates_manager.c gcd.c generic_heap.c hash_functions.c   \
-	 idl_floyd_warshall.c index_vectors.c int_array_sort.c   \
-	 int_array_sort2.c int_bags.c int_bv_sets.c              \
-         int_hash_classes.c int_hash_map.c int_hash_sets.c       \
-         int_hash_tables.c int_heap.c int_heap2.c                \
-         int_partitions.c int_powers.c int_queues.c int_stack.c  \
-	 int_vectors.c internalization_map.c large_bvsets.c      \
-         lexer.c matrices.c memalloc.c memsize.c mini_simplex.c  \
-         models.c model_eval.c model_printer.c mpq_aux.c         \
-         object_stores.c pair_hash_map.c pair_hash_sets.c        \
-	 parser.c pointer_vectors.c poly_buffer.c                \
-         polynomial_manager.c polynomials.c ptr_array_sort.c     \
-         ptr_array_sort2.c ptr_hash_map.c ptr_heap.c             \
-         ptr_partitions.c ptr_queues.c ptr_vectors.c             \
-         rationals.c rb_bvsets.c rdl_floyd_warshall.c reader.c   \
-	 refcount_strings.c remap_table.c simplex.c              \
-         simplex_prop_table.c small_bvsets.c smt_core.c          \
-         smt_lexer.c smt_parser.c solver_printer.c               \
-         solver_export.c string_buffers.c symbol_tables.c        \
-         term_api.c term_printer.c term_stack.c terms.c          \
-         theory_explanations.c theory_tracer.c tree_stack.c      \
-         types.c uint_rbtrees.c union_find.c use_vectors.c       \
-         varproducts.c vsets.c yices_lexer.c yices_parser.c      \
-         yices_reval.c yices_version.c
+         yices_parser.c yices_reval.c
 
 
 #

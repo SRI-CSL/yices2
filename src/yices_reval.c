@@ -16,40 +16,22 @@
 #include "memsize.h"
 #include "command_line.h"
 #include "rationals.h"
-#include "yices_version.h"
 #include "yices_exit_codes.h"
 
 // Need PRNG_DEFAULT_SEED in show-params
 #include "prng.h"
 
 // FOR DUMP
-#include "solver_printer.h"
 #include "term_printer.h"
+#include "type_printer.h"
+#include "solver_printer.h"
+#include "context_printer.h"
 
 // TODO: should need only yices.h
 #include "context.h"
-#include "models.h"
-#include "model_eval.h"
-#include "model_printer.h"
 #include "yices.h"
-
+#include "yices_globals.h"
 #include "yices_reval.h"
-
-
-/*
- * Visibility control: all extern functions declared here are in libyices's API
- * Other extern functions should have visibility=hidden.
- * cf. Makefile
- *
- * Note: adding __declspec(dllexport) should have the same effect
- * on cygwin or mingw but that does not seem to work.
- */
-#if defined(CYGWIN) || defined(MINGW)
-#define EXPORTED __declspec(dllexport)
-#else
-#define EXPORTED __attribute__((visibility("default")))
-#endif
-
 
 
 
@@ -85,7 +67,6 @@ static tstack_t stack;
  * Context, model, and solver parameters
  */
 static context_t *context;
-static model_t *model;
 static param_t parameters;
 
 
@@ -410,9 +391,9 @@ static void sigint_handler(int signum) {
     printf("\nInterrupted by signal %d\n", signum);
     fflush(stdout);
   }
-  if (context_status(context) == STATUS_SEARCHING) {
-    context_stop_search(context);
-  }
+  //  if (context_status(context) == STATUS_SEARCHING) {
+  //    context_stop_search(context);
+  //  }
 }
 
 
@@ -604,14 +585,49 @@ static void print_ok(void) {
  ***************************/
 
 /*
+ * Placeholder: initialize the parameters
+ */
+static void init_params_to_defaults(param_t *p) {
+  p->fast_restart = false;
+  p->c_threshold = 100;
+  p->d_threshold = 100;
+  p->c_factor = 1.5;
+  p->d_factor = 1.5;
+  p->r_threshold = 1000;
+  p->r_fraction = 0.25;
+  p->r_factor = 1.05;
+  p->var_decay = 0.95;
+  p->randomness = 0.02;
+  p->branching = BRANCHING_DEFAULT;
+  p->clause_decay  = 0.999;
+  p->cache_tclauses = false;
+  p->tclause_size = 0;
+  p->use_dyn_ack = false;
+  p->use_bool_dyn_ack = false;
+  p->max_ackermann = 1000;
+  p->max_boolackermann = 600000;
+  p->aux_eq_quota = 100;
+  p->aux_eq_ratio = 0.3;
+  p->max_interface_eqs = 200;
+  p->use_simplex_prop = false;
+  p->max_prop_row_size = 30;
+  p->bland_threshold = 1000;
+  p->integer_check_period = 99999999;
+  p->max_update_conflicts = 20;
+  p->max_extensionality = 1;
+}
+
+/*
  * Allocate and initialize the global context and model.
  * Initialize the parameter table with default values.
  * Set the signal handlers.
  */
 static void init_ctx(void) {
-  model = NULL;
   context = (context_t *) safe_malloc(sizeof(context_t));
-  init_context(context, CTX_MODE_INTERACTIVE, CTX_ARCH_EGFUNSPLXBV, false);
+  init_context(context, __yices_globals.terms, CTX_MODE_INTERACTIVE, CTX_ARCH_EG, false);
+  enable_variable_elimination(context);
+  enable_eq_abstraction(context);
+
   init_params_to_defaults(&parameters);
   init_handlers();
 }
@@ -623,10 +639,6 @@ static void init_ctx(void) {
 static void delete_ctx(void) {
   assert(context != NULL);
   reset_handlers();
-  if (model != NULL) {
-    free_model(model);
-    model = NULL;
-  }
   delete_context(context);
   safe_free(context);
   context = NULL;
@@ -1385,33 +1397,16 @@ static void yices_showparams_cmd(void) {
 static void yices_dump_cmd(void) {
   assert(context != NULL);
 
-  fputs("\n==== TYPES ====\n", stdout);
-  print_all_types(stdout);
-  fputs("\n==== EGRAPH TERMS ====\n", stdout);
-  print_egraph_terms(stdout, context->egraph);
-  fputs("\n==== EGRAPH ATOMS ====\n", stdout);
-  print_egraph_atoms(stdout, context->egraph);
-  fputs("\n==== SIMPLEX VARIABLES ====\n", stdout);
-  print_simplex_vars(stdout, context->arith_solver);
-  fputs("\n==== SIMPLEX ATOMS ====\n", stdout);
-  print_simplex_atoms(stdout, context->arith_solver);
-  fputs("\n==== SIMPLEX TABLEAU ====\n", stdout);
-  print_simplex_matrix(stdout, context->arith_solver);
-  fputs("\n==== SIMPLEX BOUNDS ====\n", stdout);
-  print_simplex_bounds(stdout, context->arith_solver);
-  fputs("\n==== SIMPLEX ASSIGNMENT ====\n", stdout);
-  print_simplex_assignment(stdout, context->arith_solver);
-  fputs("\n==== BVSOLVER PARTITION ====\n", stdout);
-  print_bvsolver_partition(stdout, context->bv_solver);
-  fputs("\n==== BVSOLVER TERMS ====\n", stdout);
-  print_bvsolver_bitmaps(stdout, context->bv_solver);
-  fputs("\n==== BVSOLVER ATOMS ====\n", stdout);
-  print_bvsolver_atoms(stdout, context->bv_solver);
-  fputs("\n==== CLAUSES ====\n", stdout);
-  print_clauses(stdout, context->core);
-  fputs("\n==== BOOLEAN ASSIGNMENT ====\n", stdout);
-  print_boolean_assignment(stdout, context->core);
-  fputs("\n\n", stdout); 
+  printf("--- Substitutions ---\n");
+  print_context_intern_subst(stdout, context);
+  printf("--- Auxiliary vectors ---\n\n");
+  print_context_subst_eqs(stdout, context);
+  print_context_top_eqs(stdout, context);
+  print_context_top_atoms(stdout, context);
+  print_context_top_formulas(stdout, context);
+  print_context_top_interns(stdout, context);
+  printf("\n");
+  fflush(stdout);
 }
 
 
@@ -1420,10 +1415,6 @@ static void yices_dump_cmd(void) {
  * Reset
  */
 static void yices_reset_cmd(void) {
-  if (model != NULL) {
-    free_model(model);
-    model = NULL;
-  }
   reset_context(context);
   print_ok();
 }
@@ -1439,11 +1430,7 @@ static void yices_push_cmd(void) {
     switch (context_status(context)) {
     case STATUS_UNKNOWN:
     case STATUS_SAT:
-      // cleanup model and return to IDLE
-      if (model != NULL) {
-	free_model(model);
-	model = NULL;
-      }
+      // return to IDLE
       context_clear(context);
       assert(context_status(context) == STATUS_IDLE);
       // fall-through intended.
@@ -1484,10 +1471,6 @@ static void yices_pop_cmd(void) {
     case STATUS_UNKNOWN:
     case STATUS_SAT:
       // delete the model first
-      if (model != NULL) {
-	free_model(model);
-	model = NULL;
-      }
       context_clear(context);
       assert(context_status(context) == STATUS_IDLE);
       // fall-through intended
@@ -1517,10 +1500,6 @@ static void yices_assert_cmd(term_t f) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
     // cleanup then return to the idle state
-    if (model != NULL) {
-      free_model(model);
-      model = NULL;
-    }
     context_clear(context); 
     assert(context_status(context) == STATUS_IDLE);
     // fall-through intended
@@ -1570,15 +1549,7 @@ static void yices_check_cmd(void) {
     break;
 
   case STATUS_IDLE:
-    // run check
-    stat = check_context(context, &parameters, true);
-    fputc('\n', stdout);
-    fputs(status2string[stat], stdout);
-    fputc('\n', stdout);
-    if (stat == STATUS_INTERRUPTED) {
-      context_cleanup(context);
-      assert(context_status(context) == STATUS_IDLE);
-    }
+    fputs("Check not supported\n", stdout);
     break;
 
   case STATUS_SEARCHING:
@@ -1596,32 +1567,7 @@ static void yices_check_cmd(void) {
  * Build model if needed and display it
  */
 static void yices_showmodel_cmd(void) {
-  switch (context_status(context)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
-    if (model == NULL) {
-      model = context_build_model(context, true);
-    }    
-    model_print(stdout, model);
-    break;
-
-  case STATUS_UNSAT:
-    fputs("The context is unsat. No model.\n", stdout);
-    fflush(stdout);
-    break;
-
-  case STATUS_IDLE:
-    fputs("Can't build a model. Call (check) first.\n", stdout);
-    fflush(stdout);
-    break;
-
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
-  default:
-    // this should not happen
-    report_bug("unexpected context status in show-model");
-    break;
-  }
+  fputs("Not supported\n", stdout);
 }
 
 
@@ -1631,47 +1577,7 @@ static void yices_showmodel_cmd(void) {
  * - build the model if needed
  */
 static void yices_eval_cmd(term_t t) {
-  evaluator_t evaluator;
-  value_t v;
-
-  switch (context_status(context)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
-    if (model == NULL) {
-      model = context_build_model(context, true);
-    }    
-    init_evaluator(&evaluator, model);
-    v = eval_in_model(&evaluator, t);
-    if (v >= 0) {
-      vtbl_print_object(stdout, model_get_vtbl(model), v);
-      if (object_is_function(model_get_vtbl(model), v)) {
-	fputc('\n', stdout);
-	vtbl_print_function(stdout, model_get_vtbl(model), v, true);
-      }
-      fputc('\n', stdout);
-    } else {
-      fputs("unknown\n", stdout);
-    }
-    delete_evaluator(&evaluator);
-    break;
-
-  case STATUS_UNSAT:
-    fputs("The context is unsat. No model.\n", stdout);
-    fflush(stdout);
-    break;
-
-  case STATUS_IDLE:
-    fputs("No model.\n", stdout);
-    fflush(stdout);
-    break;
-
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
-  default:
-    // this should not happen
-    report_bug("unexpected context status in eval");
-    break;
-  }
+  fputs("Not supported\n", stdout);
 }
 
 
@@ -1693,12 +1599,11 @@ static void yices_term_defined_cmd(char *name, term_t t) {
  *  MAIN  *
  *********/
 
-
 /*
- * yices_main is part of the API.
- * We use it to invoke yices via foreign function calls in LISP
+ * This is a separate function so that we can use it to invoke yices
+ * via foreign function calls in LISP.
  */
-EXPORTED int yices_main(int argc, char *argv[]) {
+int yices_main(int argc, char *argv[]) {
   int32_t code;
 
   // Deal with command-line options
@@ -1762,7 +1667,7 @@ EXPORTED int yices_main(int argc, char *argv[]) {
       fputs("yices> ", stdout);
       fflush(stdout);
     }
-    code = parse_yices_command(&parser);
+    code = parse_yices_command(&parser, stderr);
     if (code < 0) {
       // error
       if (interactive) {
@@ -1793,22 +1698,8 @@ EXPORTED int yices_main(int argc, char *argv[]) {
     close_lexer(&lexer);
   }
   delete_tstack(&stack);
-  yices_cleanup();
+  yices_exit();
 
   return YICES_EXIT_SUCCESS;
 }
 
-
-
-// TEST
-EXPORTED int run_yices(void) {
-  char *argc[1];
-  int code;
-
-  argc[0] = "foreign";
-  printf("*** ENTERING YICES ***\n");
-  fflush(stdout);
-
-  code = yices_main(1, argc);
-  exit(code);
-}

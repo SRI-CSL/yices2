@@ -1893,6 +1893,54 @@ static th_smt_interface_t null_smt = {
 
 
 
+/*********************
+ *  SIMPLEX OPTIONS  *
+ ********************/
+
+/*
+ * Which version of the arithmetic solver is present
+ */
+bool context_has_idl_solver(context_t *ctx) {
+  uint8_t solvers;
+  solvers = arch_components[ctx->arch];
+  return ctx->arith_solver != NULL && (solvers & IFW);
+}
+
+bool context_has_rdl_solver(context_t *ctx) {
+  uint8_t solvers;
+  solvers = arch_components[ctx->arch];
+  return ctx->arith_solver != NULL && (solvers & RFW);
+}
+
+bool context_has_simplex_solver(context_t *ctx) {
+  uint8_t solvers;
+  solvers = arch_components[ctx->arch];
+  return ctx->arith_solver != NULL && (solvers & SPLX);
+}
+
+
+/*
+ * If the simplex solver already exists, the options are propagated.
+ * Otherwise, they are recorded into the option flags. They will
+ * be set up when the simplex solver is created.
+ */
+void enable_splx_eager_lemmas(context_t *ctx) {
+  ctx->options |= SPLX_EGRLMAS_OPTION_MASK;
+}
+
+void disable_splx_eager_lemmas(context_t *ctx) {
+  ctx->options &= ~SPLX_EGRLMAS_OPTION_MASK;
+}
+
+
+void enable_splx_periodic_icheck(context_t *ctx) {
+  ctx->options |= SPLX_ICHECK_OPTION_MASK;
+}
+
+void disable_splx_periodic_icheck(context_t *ctx) {
+  ctx->options &= ~SPLX_ICHECK_OPTION_MASK;
+}
+
 
 /*****************************
  *  CONTEXT INITIALIZATION   *
@@ -2201,5 +2249,17 @@ int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f) {
   }
 
   return code;
+}
+
+
+
+/*
+ * Clear: prepare for more assertions and checks
+ * - free the boolean assignment
+ * - reset the status to IDLE
+ */
+void context_clear(context_t *ctx) {
+  assert(context_supports_multichecks(ctx));
+  smt_clear(ctx->core);
 }
 
