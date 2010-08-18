@@ -161,33 +161,52 @@ static int_queue_t *intern_tbl_get_queue(intern_tbl_t *tbl) {
  */
 
 /*
- * Root of t's class where t has positive polarity
+ * Parent of term t in tbl
+ * - return a negative number if t is a root
  */
-static term_t intern_tbl_root_pos(intern_tbl_t *tbl, term_t t) {
+static inline term_t intern_tbl_read_parent(intern_tbl_t *tbl, term_t t) {
+  return ai32_read(&tbl->map, index_of(t)) ^ polarity_of(t);
+}
+
+static inline term_t intern_tbl_get_parent(intern_tbl_t *tbl, term_t t) {
+  return ai32_get(&tbl->map, index_of(t)) ^ polarity_of(t);
+}
+
+// write p as parent of t in tbl
+static inline void intern_tbl_write_parent(intern_tbl_t *tbl, term_t t, term_t p) {
+  ai32_write(&tbl->map, index_of(t), p ^ polarity_of(t));
+}
+
+
+/*
+ * Root of t's class
+ * - apply path compression
+ */
+term_t intern_tbl_get_root(intern_tbl_t *tbl, term_t t) {
   term_t y, z;
 
-  assert(is_pos_term(t) && good_term_idx(tbl->terms, index_of(t)));
-
-  y = ai32_read(&tbl->map, index_of(t));
-  if (y < 0) { // t is not in the table or it's a root
+  assert(good_term(tbl->terms, t));
+  y = intern_tbl_read_parent(tbl, t);
+  if (y < 0) { // t is not in the table of it's a root
     return t;
   }
 
-  z = ai32_read(&tbl->map, index_of(y));
-  if (z < 0) { // y is t's parent and it's a root
+  z = intern_tbl_read_parent(tbl, y);
+  if (z < 0) { // y is a root: skip path compression
     return y;
   }
 
-  // find the root
+  // find the root: we have t --> y --> z
   do {
     y = z;
-    z = ai32_read(&tbl->map, index_of(y));
+    z = intern_tbl_read_parent(tbl, y);
   } while (z >= 0);
 
-  // y is the root: perform path compression starting from t
+  // path compression: we have t --> .... --> y
+  // and y is the root of all terms on that path
   do {
-    z = ai32_get(&tbl->map, index_of(t));
-    ai32_write(&tbl->map, index_of(t), y); // map[t] := y
+    z = intern_tbl_get_parent(tbl, t);
+    intern_tbl_write_parent(tbl, t, y);
     t = z;
   } while (t != y);
 
@@ -195,35 +214,21 @@ static term_t intern_tbl_root_pos(intern_tbl_t *tbl, term_t t) {
 }
 
 
-/*
- * Generic form: t may have negative polarity here
- */
-term_t intern_tbl_get_root(intern_tbl_t *tbl, term_t t) {
-  return intern_tbl_root_pos(tbl, unsigned_term(t)) ^ polarity_of(t);
-}
-
-
 
 /*
  * Variant: don't apply path compression
  */
-static term_t intern_tbl_find_root_pos(intern_tbl_t *tbl, term_t t) {
+term_t intern_tbl_find_root(intern_tbl_t *tbl, term_t t) {
   term_t y;
 
-  assert(is_pos_term(t) && good_term_idx(tbl->terms, index_of(t)));
-
-  y = ai32_read(&tbl->map, index_of(t));
+  assert(good_term(tbl->terms, t));
+  y = intern_tbl_read_parent(tbl, t);
   while (y >= 0) {
     t = y;
-    y = ai32_read(&tbl->map, index_of(t));
+    y = intern_tbl_read_parent(tbl, t);
   }
 
   return t;
-}
-
-
-term_t intern_tbl_find_root(intern_tbl_t *tbl, term_t t) {
-  return intern_tbl_find_root_pos(tbl, unsigned_term(t)) ^ polarity_of(t);
 }
 
 
@@ -389,7 +394,7 @@ void intern_tbl_map_root(intern_tbl_t *tbl, term_t r, int32_t x) {
 static void bfs_visit_index(intern_tbl_t *tbl, int32_t i) {
   if (kind_for_idx(tbl->terms, i) == UNINTERPRETED_TERM) {
     // replace i by its root
-    i = index_of(intern_tbl_root_pos(tbl, pos_term(i)));
+    i = index_of(intern_tbl_get_root(tbl, pos_term(i)));
   }
 
   if (int_hset_add(tbl->cache, i)) {

@@ -1399,7 +1399,10 @@ static void yices_dump_cmd(void) {
 
   printf("--- Substitutions ---\n");
   print_context_intern_subst(stdout, context);
-  printf("--- Auxiliary vectors ---\n\n");
+  printf("--- Internalization ---\n");
+  print_context_intern_mapping(stdout, context);
+  
+  printf("--- Auxiliary vectors ---\n");
   print_context_subst_eqs(stdout, context);
   print_context_top_eqs(stdout, context);
   print_context_top_atoms(stdout, context);
