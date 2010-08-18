@@ -19,6 +19,7 @@
 #include "int_queues.h"
 #include "int_stack.h"
 #include "int_vectors.h"
+#include "int_hash_sets.h"
 #include "terms.h"
 #include "internalization_table.h"
 #include "internalization_codes.h"
@@ -456,10 +457,15 @@ struct context_s {
   
   // auxiliary buffers and structures for internalization
   ivector_t subst_eqs;
+  ivector_t aux_vector;
   int_stack_t istack;
   int_queue_t queue;
+
   pseudo_subst_t *subst;
   mark_vector_t *marks;
+  int_hset_t *small_cache;
+
+  arith_buffer_t *arith_buffer;
 
   // for exception handling
   jmp_buf env;
@@ -470,8 +476,6 @@ struct context_s {
 /*
  * Default initial size of auxiliary buffers and vectors
  */
-#define CTX_DEFAULT_AUX_SIZE 20
-#define CTX_MAX_AUX_SIZE (UINT32_MAX/4)
 #define CTX_DEFAULT_VECTOR_SIZE 10
 
 

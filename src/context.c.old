@@ -3152,7 +3152,7 @@ static void flatten_or(context_t *ctx, ivector_t *v, or_term_t *or) {
  *****************************************/
 
 /*
- * Check whether t is equal a polynomial expression p and return p
+ * Check whether t is equal to a polynomial expression p and return p
  * - return NULL if not
  */
 static bvarith_expr_t *context_subst_bvarith_term(context_t *ctx, term_t t) {
@@ -3188,7 +3188,7 @@ static inline bvarith_expr_t *context_subst_bvvar(context_t *ctx, bv_var_t x) {
 
 
 /*
- * Check whether subsituting variables in product d is possible and 
+ * Check whether substituting variables in product d is possible and 
  * cheap enough
  * - d is x_1^d_1 * ... * x_n ^ d_n
  * - cheap enough for now means that if x_i can be replaced then d_i equals 1

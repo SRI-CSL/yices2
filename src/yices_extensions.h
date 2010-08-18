@@ -97,7 +97,7 @@ extern term_t arith_buffer_get_eq0_atom(arith_buffer_t *b);
  *
  * Normalize b first then check for simplifications.
  * - simplify to true or false if b is a constant
- * - otherwise term t from b and return the atom (t >= 0)
+ * - otherwise, create term t from b and return the atom (t >= 0)
  */
 extern term_t arith_buffer_get_geq0_atom(arith_buffer_t *b);
 

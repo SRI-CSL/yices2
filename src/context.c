@@ -4,6 +4,8 @@
 
 #include "memalloc.h"
 #include "term_utils.h"
+#include "yices_extensions.h"
+#include "arith_buffer_terms.h"
 
 #include "context.h"
 #include "eq_learner.h"
@@ -16,6 +18,7 @@
 #include "term_printer.h"
 
 #endif
+
 
 
 /***************
@@ -80,9 +83,461 @@ static void context_free_marks(context_t *ctx) {
 }
 
 
-/*******************************
- *  FLATTENING/SIMPLIFICATION  *
- ******************************/
+/*
+ * Allocate and initialize the internal small_cache if needed
+ */
+static int_hset_t *context_get_small_cache(context_t *ctx) {
+  int_hset_t *tmp;
+
+  tmp = ctx->small_cache;
+  if (tmp == NULL) {
+    tmp = (int_hset_t *) safe_malloc(sizeof(int_hset_t));
+    init_int_hset(tmp, 32);
+    ctx->small_cache = tmp;
+  }
+  return tmp;
+}
+
+
+/*
+ * Empty the small_cache
+ */
+static void context_reset_small_cache(context_t *ctx) {
+  int_hset_t *tmp;
+
+  tmp = ctx->small_cache;
+  if (tmp != NULL) {
+    int_hset_reset(tmp);
+  }
+}
+
+/*
+ * Free the small_cache
+ */
+static void context_free_small_cache(context_t *ctx) {
+  int_hset_t *tmp;
+
+  tmp = ctx->small_cache;
+  if (tmp != NULL) {
+    delete_int_hset(tmp);
+    safe_free(tmp);
+    ctx->small_cache = NULL;
+  }
+}
+
+
+/*
+ * Internal arithmetic buffer
+ */
+static arith_buffer_t *context_get_arith_buffer(context_t *ctx) {
+  arith_buffer_t *tmp;
+
+  tmp = ctx->arith_buffer;
+  if (tmp == NULL) {
+    tmp = yices_new_arith_buffer();
+    ctx->arith_buffer = tmp;
+  }
+  
+  return tmp;
+}
+
+
+/*
+ * Free the arithmetic buffer
+ */
+static void context_free_arith_buffer(context_t *ctx) {
+  arith_buffer_t *tmp;
+
+  tmp = ctx->arith_buffer;
+  if (tmp != NULL) {
+    yices_free_arith_buffer(tmp);
+    ctx->arith_buffer = NULL;
+  }
+}
+
+
+/*****************************
+ *  FORMULA SIMPLIFICATION   *
+ ****************************/
+
+/*
+ * Check whether t is true or false (i.e., mapped to 'true_occ' or 'false_occ'
+ * in the internalization table.
+ * - t must be a root in the internalization table
+ */
+static bool term_is_true(context_t *ctx, term_t t) {
+  bool tt;
+
+  assert(intern_tbl_is_root(&ctx->intern, t));
+  tt = is_pos_term(t);
+  t = unsigned_term(t);
+  
+  return intern_tbl_root_is_mapped(&ctx->intern, t) && 
+    intern_tbl_map_of_root(&ctx->intern, t) == bool2code(tt);
+}
+
+static bool term_is_false(context_t *ctx, term_t t) {
+  bool tt;
+
+  assert(intern_tbl_is_root(&ctx->intern, t));
+  tt = is_pos_term(t);
+  t = unsigned_term(t);
+  
+  return intern_tbl_root_is_mapped(&ctx->intern, t) && 
+    intern_tbl_map_of_root(&ctx->intern, t) == bool2code(! tt);
+}
+
+
+/*
+ * All functions below attempt to rewrite a (boolean) term r to an
+ * equivalent (boolean) term q. They return NULL_TERM if the
+ * simplification fails.
+ */
+static term_t simplify_select(context_t *ctx, term_t r) {
+  select_term_t *sel;
+  composite_term_t *tuple;
+  term_t t;
+
+  sel = select_term_desc(ctx->terms, r);  
+  t = intern_tbl_get_root(&ctx->intern, sel->arg);
+  if (term_kind(ctx->terms, t) == TUPLE_TERM) {
+    // select i (tuple ... t_i ...) --> t_i
+    tuple = tuple_term_desc(ctx->terms, t);
+    return tuple->arg[sel->idx];
+  }
+
+  return NULL_TERM;
+}
+
+static term_t simplify_bit_select(context_t *ctx, term_t r) {
+  select_term_t *sel;
+  term_t t;
+
+  sel = bit_term_desc(ctx->terms, r);
+  t = intern_tbl_get_root(&ctx->intern, sel->arg);
+  return extract_bit(ctx->terms, t, sel->idx);
+}
+
+static term_t simplify_arith_geq0(context_t *ctx, term_t r) {
+  term_table_t *terms;
+  composite_term_t *d;
+  term_t t, x, y;
+
+  terms = ctx->terms;
+  t = arith_ge_arg(terms, r);
+  t = intern_tbl_get_root(&ctx->intern, t);
+  if (is_ite_term(terms, t)) {
+    /*
+     * (ite c x y) >= 0 --> c  if (x >= 0) and (y < 0)
+     * (ite c x y) >= 0 --> ~c if (x < 0) and (y >= 0)
+     */
+    d = ite_term_desc(terms, t);
+    x = intern_tbl_get_root(&ctx->intern, d->arg[1]);
+    y = intern_tbl_get_root(&ctx->intern, d->arg[2]);
+
+    if (arith_term_is_nonneg(terms, x) && 
+	arith_term_is_negative(terms, y)) {
+      return d->arg[0];
+    }
+
+    if (arith_term_is_negative(terms, x) && 
+	arith_term_is_nonneg(terms, y)) {
+      return opposite_term(d->arg[0]);
+    }
+  }
+
+  return NULL_TERM;
+}
+
+static term_t simplify_arith_eq0(context_t *ctx, term_t r) {
+  term_table_t *terms;
+  composite_term_t *d;
+  term_t t, x, y;
+
+  terms = ctx->terms;
+  t = arith_eq_arg(terms, r);
+  t = intern_tbl_get_root(&ctx->intern, t);
+  if (is_ite_term(terms, t)) {
+    /*
+     * (ite c 0 y) == 0 -->  c if y != 0
+     * (ite c x 0) == 0 --> ~c if x != 0
+     */
+    d = ite_term_desc(terms, t);
+    x = intern_tbl_get_root(&ctx->intern, d->arg[1]);
+    y = intern_tbl_get_root(&ctx->intern, d->arg[2]);
+
+    if (x == zero_term && arith_term_is_nonzero(terms, y)) {
+      return d->arg[0];
+    }
+
+    if (y == zero_term && arith_term_is_nonzero(terms, x)) {
+      return opposite_term(d->arg[0]);
+    }
+  }
+
+  return NULL_TERM;
+}
+
+
+/*
+ * Simplification of a if-then-else: (ite c t1 t2)
+ * - c, t1, and t2 are all root terms in the internalization table
+ * - flatten_bool_ite does more simplifications
+ */
+static term_t simplify_ite(context_t *ctx, term_t c, term_t t1, term_t t2) {
+  if (t1 == t2) return t1;                // (ite c t1 t1) --> t1
+  if (term_is_true(ctx, c)) return t1;    // (ite true t1 t2) --> t1
+  if (term_is_false(ctx, c)) return t2;   // (ite false t1 t2) --> t2
+
+  return NULL_TERM;
+}
+										
+
+
+/*
+ * Simplification for equalities between two terms t1 and t2.
+ * - both t1 and t2 are root terms in the internalization table
+ * - all simplification functions either a boolean term t equivalent
+ *   to (t1 == t2) or return NULL_TERM if no simplification is found
+ */
+
+// t1 and t2 are arithmetic terms
+static term_t simplify_arith_bineq(context_t *ctx, term_t t1, term_t t2) {
+  term_table_t *terms;
+  composite_term_t *d;
+  term_t x, y;
+
+  terms = ctx->terms;
+  if (is_ite_term(terms, t1)) {
+    /*
+     * (ite c x y) == x --> c  if x != y
+     * (ite c x y) == y --> ~c if x != y
+     */
+    d = ite_term_desc(terms, t1);
+    x = intern_tbl_get_root(&ctx->intern, d->arg[1]);
+    y = intern_tbl_get_root(&ctx->intern, d->arg[2]);
+
+    if (x == t2 && disequal_arith_terms(terms, y, t2)) {
+      return d->arg[0];
+    }
+
+    if (y == t2 && disequal_arith_terms(terms, x, t2)) {
+      return opposite_term(d->arg[0]);
+    }
+  }
+
+  if (is_ite_term(terms, t2)) {
+    // symmetric case
+    d = ite_term_desc(terms, t2);
+    x = intern_tbl_get_root(&ctx->intern, d->arg[1]);
+    y = intern_tbl_get_root(&ctx->intern, d->arg[2]);
+
+    if (x == t1 && disequal_arith_terms(terms, y, t1)) {
+      return d->arg[0];
+    }
+
+    if (y == t1 && disequal_arith_terms(terms, x, t1)) {
+      return opposite_term(d->arg[0]);
+    }    
+  }
+
+  return NULL_TERM;
+}
+
+// t1 and t2 are boolean terms
+static term_t simplify_bool_eq(context_t *ctx, term_t t1, term_t t2) {
+  if (term_is_true(ctx, t1)) return t2;  // (eq true t2) --> t2
+  if (term_is_true(ctx, t2)) return t1;  // (eq t1 true) --> t1
+  if (term_is_false(ctx, t1)) return opposite_term(t2); // (eq false t2) --> not t2
+  if (term_is_false(ctx, t2)) return opposite_term(t1); // (eq t1 false) --> not t1
+
+  return NULL_TERM;
+}
+
+
+
+
+
+/********************************
+ *  FLATTENING OF DISJUNCTIONS  *
+ *******************************/
+
+/*
+ * This does two things:
+ * 1) rewrite nested OR terms to flat OR terms
+ * 2) replace arithmetic disequality by disjunctions of strict inequalities
+ *    (i.e., rewrite (x != 0) to (or (x < 0) (x > 0))
+ */
+
+/*
+ * Build the atom (t < 0)
+ */
+static term_t lt0_atom(context_t *ctx, term_t t) {
+  arith_buffer_t *b;
+
+  assert(is_pos_term(t) && is_arithmetic_term(ctx->terms, t));
+
+  b = ctx->arith_buffer;
+  assert(b != NULL && arith_buffer_is_zero(b));
+
+  arith_buffer_add_term(b, ctx->terms, t);
+  return arith_buffer_get_lt0_atom(b);
+}
+
+/*
+ * Build a term equivalent to (t > 0)
+ */
+static term_t gt0_atom(context_t *ctx, term_t t) {
+  arith_buffer_t *b;
+
+  assert(is_pos_term(t) && is_arithmetic_term(ctx->terms, t));
+
+  b = ctx->arith_buffer;
+  assert(b != NULL && arith_buffer_is_zero(b));
+
+  arith_buffer_add_term(b, ctx->terms, t);
+  return arith_buffer_get_gt0_atom(b);  
+}
+
+
+/*
+ * Flatten term t:
+ * - if t is already internalized, keep t and add it to v
+ * - if t is (OR t1 ... t_n), recursively flatten t_1 ... t_n
+ * - if flattening of disequalities is enabled, and t is (NOT (x == 0)) then
+ *   we rewrite (NOT (x == 0)) to (OR (< x 0) (> x 0))
+ * - otherwise store t into v
+ * All terms already in v must be in the small cache
+ */
+static void flatten_or_recur(context_t *ctx, ivector_t *v, term_t t) {
+  term_table_t *terms;
+  composite_term_t *or;
+  uint32_t i, n;
+  term_kind_t kind;
+  term_t x;
+
+  assert(is_boolean_term(ctx->terms, t));
+
+  // apply substitutions
+  t = intern_tbl_get_root(&ctx->intern, t);
+
+  if (int_hset_add(ctx->small_cache, t)) {
+    /*
+     * t not already in v and not visited before
+     */
+    if (intern_tbl_root_is_mapped(&ctx->intern, t)) {
+      // t is already internalized, keep it as is
+      ivector_push(v, t); 
+    } else {
+      terms = ctx->terms;
+      kind = term_kind(terms, t);
+      if (is_pos_term(t) && kind == OR_TERM) {
+	// recursively flatten t
+	or = or_term_desc(terms, t);
+	n = or->arity;
+	for (i=0; i<n; i++) {
+	  flatten_or_recur(ctx, v, or->arg[i]);
+	}
+      } else if (is_neg_term(t) && kind == ARITH_EQ_ATOM && 
+		 context_flatten_diseq_enabled(ctx)) {
+	// t is (not (eq x 0)): rewrite to (or (x < 0) (x > 0))
+	x = intern_tbl_get_root(&ctx->intern, arith_eq_arg(terms, t));
+	ivector_push(v, lt0_atom(ctx, x));
+	ivector_push(v, gt0_atom(ctx, x));
+
+      } else {
+	// can't flatten
+	ivector_push(v, t);
+      }
+    }
+  }
+}
+
+
+/*
+ * Flatten a top-level (or t1 .... tp)
+ * - initialize the small_cache, then calls the recursive function
+ * - the result is stored in v
+ */
+static void flatten_or_term(context_t *ctx, ivector_t *v, composite_term_t *or) {
+  uint32_t i, n;
+
+  assert(v->size == 0);
+
+  (void) context_get_small_cache(ctx); // initialize the cache
+  if (context_flatten_diseq_enabled(ctx)) {
+    (void) context_get_arith_buffer(ctx);  // allocate the internal buffer
+  }
+
+  n = or->arity;
+  for (i=0; i<n; i++) {
+    flatten_or_recur(ctx, v, or->arg[i]);
+  }
+  //  context_delete_small_cache(ctx);
+  context_reset_small_cache(ctx);
+}
+
+
+
+
+/****************************************************
+ *  SIMPLIFICATIONS FOR SPECIAL IF-THEN-ELSE TERMS  *
+ ***************************************************/
+
+/*
+ * If t is (ite c a b), we can try to rewrite (= t k) into a conjunction
+ * of terms using the two rules:
+ *   (= (ite c a b) k) --> c and (= a k)        if k != b holds
+ *   (= (ite c a b) k) --> (not c) and (= b k)  if k != a holds
+ *
+ * This works best for the NEC benchmarks in SMT LIB, where many terms
+ * are deeply nested if-then-else terms with constant leaves.
+ *
+ * The function below does that: it rewrites (eq t k) to (and c_0 ... c_n (eq t' k))
+ * - the boolean terms c_0 ... c_n are added to vector v
+ * - the term t' is returned
+ * So the simplification worked it the returned term t' is different from t
+ * (and then v->size is not 0).
+ */
+static term_t flatten_ite_equality(context_t *ctx, ivector_t *v, term_t t, term_t k) {
+  term_table_t *terms;
+  composite_term_t *ite;
+
+  assert(v->size == 0);
+
+  terms = ctx->terms;
+  assert(is_pos_term(t) && good_term(terms, t));
+
+  while (term_kind(terms, t)) {
+    // t is (ite c a b)
+    ite = ite_term_desc(terms, t);
+    assert(ite->arity == 3);
+
+    if (disequal_terms(terms, k, ite->arg[1])) {
+      // (t == k) is (not c) and (t == b)
+      ivector_push(v, opposite_term(ite->arg[0]));
+      t = intern_tbl_get_root(&ctx->intern, ite->arg[2]);
+
+    } else if (disequal_terms(terms, k, ite->arg[2])) {
+      // (t == k) is c and (t == a)
+      ivector_push(v, ite->arg[0]);
+      t = intern_tbl_get_root(&ctx->intern, ite->arg[1]);
+
+    } else {
+      // no more flattening possible
+      break;
+    }
+  }
+
+  return t;
+}
+
+
+
+
+/***************************************************
+ *  ASSERTION FLATTENING AND VARIABLE ELIMINATION  *
+ **************************************************/
 
 /*
  * Assertions are processed by performing top-down boolean propagation
@@ -241,34 +696,6 @@ static void try_bool_substitution(context_t *ctx, term_t t1, term_t t2, term_t e
 /*
  * VARIABLE ELIMINATION: PHASE 2
  */
-
-/*
- * Check whether t is true or false (i.e., mapped to 'true_occ' or 'false_occ'
- * in the internalization table.
- * - t must be a root in the internalization table
- */
-static bool term_is_true(context_t *ctx, term_t t) {
-  bool tt;
-
-  assert(intern_tbl_is_root(&ctx->intern, t));
-  tt = is_pos_term(t);
-  t = unsigned_term(t);
-  
-  return intern_tbl_root_is_mapped(&ctx->intern, t) && 
-    intern_tbl_map_of_root(&ctx->intern, t) == bool2code(tt);
-}
-
-static bool term_is_false(context_t *ctx, term_t t) {
-  bool tt;
-
-  assert(intern_tbl_is_root(&ctx->intern, t));
-  tt = is_pos_term(t);
-  t = unsigned_term(t);
-  
-  return intern_tbl_root_is_mapped(&ctx->intern, t) && 
-    intern_tbl_map_of_root(&ctx->intern, t) == bool2code(! tt);
-}
-
 
 /*  
  * Check whether x is already mapped in the candidate substitution
@@ -729,181 +1156,9 @@ static void finalize_subst_candidates(context_t *ctx) {
 }
 
 
-/*
- * SIMPLIFICATION
- */
 
 /*
- * All functions below attempt to rewrite a (boolean) term r to an
- * equivalent (boolean) term q. They return NULL_TERM if the
- * simplification fails.
- */
-static term_t simplify_select(context_t *ctx, term_t r) {
-  select_term_t *sel;
-  composite_term_t *tuple;
-  term_t t;
-
-  sel = select_term_desc(ctx->terms, r);  
-  t = intern_tbl_get_root(&ctx->intern, sel->arg);
-  if (term_kind(ctx->terms, t) == TUPLE_TERM) {
-    // select i (tuple ... t_i ...) --> t_i
-    tuple = tuple_term_desc(ctx->terms, t);
-    return tuple->arg[sel->idx];
-  }
-
-  return NULL_TERM;
-}
-
-static term_t simplify_bit_select(context_t *ctx, term_t r) {
-  select_term_t *sel;
-  term_t t;
-
-  sel = bit_term_desc(ctx->terms, r);
-  t = intern_tbl_get_root(&ctx->intern, sel->arg);
-  return extract_bit(ctx->terms, t, sel->idx);
-}
-
-static term_t simplify_arith_geq0(context_t *ctx, term_t r) {
-  term_table_t *terms;
-  composite_term_t *d;
-  term_t t, x, y;
-
-  terms = ctx->terms;
-  t = arith_ge_arg(terms, r);
-  t = intern_tbl_get_root(&ctx->intern, t);
-  if (is_ite_term(terms, t)) {
-    /*
-     * (ite c x y) >= 0 --> c  if (x >= 0) and (y < 0)
-     * (ite c x y) >= 0 --> ~c if (x < 0) and (y >= 0)
-     */
-    d = ite_term_desc(terms, t);
-    x = intern_tbl_get_root(&ctx->intern, d->arg[1]);
-    y = intern_tbl_get_root(&ctx->intern, d->arg[2]);
-
-    if (arith_term_is_nonneg(terms, x) && 
-	arith_term_is_negative(terms, y)) {
-      return d->arg[0];
-    }
-
-    if (arith_term_is_negative(terms, x) && 
-	arith_term_is_nonneg(terms, y)) {
-      return opposite_term(d->arg[0]);
-    }
-  }
-
-  return NULL_TERM;
-}
-
-static term_t simplify_arith_eq0(context_t *ctx, term_t r) {
-  term_table_t *terms;
-  composite_term_t *d;
-  term_t t, x, y;
-
-  terms = ctx->terms;
-  t = arith_eq_arg(terms, r);
-  t = intern_tbl_get_root(&ctx->intern, t);
-  if (is_ite_term(terms, t)) {
-    /*
-     * (ite c 0 y) == 0 -->  c if y != 0
-     * (ite c x 0) == 0 --> ~c if x != 0
-     */
-    d = ite_term_desc(terms, t);
-    x = intern_tbl_get_root(&ctx->intern, d->arg[1]);
-    y = intern_tbl_get_root(&ctx->intern, d->arg[2]);
-
-    if (x == zero_term && arith_term_is_nonzero(terms, y)) {
-      return d->arg[0];
-    }
-
-    if (y == zero_term && arith_term_is_nonzero(terms, x)) {
-      return opposite_term(d->arg[0]);
-    }
-  }
-
-  return NULL_TERM;
-}
-
-
-/*
- * Simplification of a if-then-else: (ite c t1 t2)
- * - c, t1, and t2 are all root terms in the internalization table
- * - flatten_bool_ite does more simplifications
- */
-static term_t simplify_ite(context_t *ctx, term_t c, term_t t1, term_t t2) {
-  if (t1 == t2) return t1;                // (ite c t1 t1) --> t1
-  if (term_is_true(ctx, c)) return t1;    // (ite true t1 t2) --> t1
-  if (term_is_false(ctx, c)) return t2;   // (ite false t1 t2) --> t2
-
-  return NULL_TERM;
-}
-										
-
-
-
-/*
- * Simplification for equalities between two terms t1 and t2.
- * - both t1 and t2 are root terms in the internalization table
- * - all simplification functions either a boolean term t equivalent
- *   to (t1 == t2) or return NULL_TERM if no simplification is found
- */
-
-// t1 and t2 are arithmetic terms
-static term_t simplify_arith_bineq(context_t *ctx, term_t t1, term_t t2) {
-  term_table_t *terms;
-  composite_term_t *d;
-  term_t x, y;
-
-  terms = ctx->terms;
-  if (is_ite_term(terms, t1)) {
-    /*
-     * (ite c x y) == x --> c  if x != y
-     * (ite c x y) == y --> ~c if x != y
-     */
-    d = ite_term_desc(terms, t1);
-    x = intern_tbl_get_root(&ctx->intern, d->arg[1]);
-    y = intern_tbl_get_root(&ctx->intern, d->arg[2]);
-
-    if (x == t2 && disequal_arith_terms(terms, y, t2)) {
-      return d->arg[0];
-    }
-
-    if (y == t2 && disequal_arith_terms(terms, x, t2)) {
-      return opposite_term(d->arg[0]);
-    }
-  }
-
-  if (is_ite_term(terms, t2)) {
-    // symmetric case
-    d = ite_term_desc(terms, t2);
-    x = intern_tbl_get_root(&ctx->intern, d->arg[1]);
-    y = intern_tbl_get_root(&ctx->intern, d->arg[2]);
-
-    if (x == t1 && disequal_arith_terms(terms, y, t1)) {
-      return d->arg[0];
-    }
-
-    if (y == t1 && disequal_arith_terms(terms, x, t1)) {
-      return opposite_term(d->arg[0]);
-    }    
-  }
-
-  return NULL_TERM;
-}
-
-// t1 and t2 are boolean terms
-static term_t simplify_bool_eq(context_t *ctx, term_t t1, term_t t2) {
-  if (term_is_true(ctx, t1)) return t2;  // (eq true t2) --> t2
-  if (term_is_true(ctx, t2)) return t1;  // (eq t1 true) --> t1
-  if (term_is_false(ctx, t1)) return opposite_term(t2); // (eq false t2) --> not t2
-  if (term_is_false(ctx, t2)) return opposite_term(t1); // (eq t1 false) --> not t1
-
-  return NULL_TERM;
-}
-
-
-
-/*
- * FLATTENING
+ * ASSERTION FLATTENING
  */
 
 /*
@@ -1722,10 +1977,13 @@ void init_context(context_t *ctx, term_table_t *terms,
    * Auxiliary internalization buffers
    */
   init_ivector(&ctx->subst_eqs, CTX_DEFAULT_VECTOR_SIZE);
+  init_ivector(&ctx->aux_vector, CTX_DEFAULT_VECTOR_SIZE);
   init_istack(&ctx->istack);
   init_int_queue(&ctx->queue, 0);
   ctx->subst = NULL;
   ctx->marks = NULL;
+  ctx->small_cache = NULL;
+  ctx->arith_buffer = NULL;
 
   // TEMPORARY HACK: INITIALIZE THE CORE WITH THE EMPTY SOLVER
   cmode = core_mode[mode];
@@ -1763,11 +2021,14 @@ void delete_context(context_t *ctx) {
   delete_ivector(&ctx->top_interns);
 
   delete_ivector(&ctx->subst_eqs);
+  delete_ivector(&ctx->aux_vector);
   delete_istack(&ctx->istack);
   delete_int_queue(&ctx->queue);
 
   context_free_subst(ctx);
   context_free_marks(ctx);
+  context_free_small_cache(ctx);
+  context_free_arith_buffer(ctx);
 }
 
 
@@ -1793,10 +2054,14 @@ void reset_context(context_t *ctx) {
   intern_tbl_map_root(&ctx->intern, true_term, bool2code(true));
 
   ivector_reset(&ctx->subst_eqs);
+  ivector_reset(&ctx->aux_vector);
   reset_istack(&ctx->istack);
   int_queue_reset(&ctx->queue);
+
   context_free_subst(ctx);
   context_free_marks(ctx);
+  context_reset_small_cache(ctx);
+  context_free_arith_buffer(ctx);
 }
 
 
