@@ -55,15 +55,14 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <setjmp.h>
 
 #include "bitvectors.h"
 #include "int_hash_tables.h"
 #include "arena.h"
 #include "int_vectors.h"
+#include "rationals.h"
 
 #include "smt_core.h"
-#include "context.h"
 
 
 
@@ -294,22 +293,6 @@ typedef struct rdl_astack_s {
 #define MAX_RDL_ATOMS MAX_RDL_ATBL_SIZE
 
 
-/*
- * Auxiliary buffer for internalization.
- * The input to the internalization is a polynomial p.
- * We want to extract source_var, target_var, constant:
- * If p is (x - y + d) then 
- * - source_var = x
- * - target_var = y
- * - constant = d
- */
-typedef struct rdl_poly_s {
-  int32_t source_var;
-  int32_t target_var;
-  rational_t constant;
-} rdl_poly_t;
-
-
 
 /****************
  *  UNDO STACK  *
@@ -372,10 +355,9 @@ typedef struct rdl_trail_stack_s {
 
 typedef struct rdl_solver_s {
   /*
-   * Attached smt core + gate manager
+   * Attached smt core
    */
   smt_core_t *core;
-  gate_manager_t *gate_manager;
 
   /*
    * Base level and decision level (same interpretation as in smt_core)
@@ -416,9 +398,8 @@ typedef struct rdl_solver_s {
    */
   int_htbl_t htbl;   // for hash-consing of atoms
   arena_t arena;     // for storing explanations of implied atoms
-  ivector_t expl_buffer;  // for constructing explanations
-  rdl_poly_t poly;   // for internalization
-  rdl_const_t c1;    // internal use
+  ivector_t expl_buffer; // for constructing explanations
+  rdl_const_t c1;        // internal use
   rational_t zero_const; // initialized to zero.
 
 
@@ -434,10 +415,6 @@ typedef struct rdl_solver_s {
   rational_t aux2;
   rational_t *value;
 
-  /*
-   * Jump buffer for exception handling during internalization
-   */
-  jmp_buf *env;
 } rdl_solver_t;
 
 
@@ -459,14 +436,9 @@ typedef struct rdl_solver_s {
 /*
  * Initialize an rdl solver
  * - core = the attached smt-core object
- * - gates = the gate manager for core
  */
-extern void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core, gate_manager_t *gates);
+extern void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core);
 
-/*
- * Attach a jump buffer for execptions
- */
-extern void rdl_solver_init_jmpbuf(rdl_solver_t *solver, jmp_buf *buffer);
 
 /*
  * Delete: free all allocated memory
@@ -480,74 +452,58 @@ extern void delete_rdl_solver(rdl_solver_t *solver);
 extern th_ctrl_interface_t *rdl_ctrl_interface(rdl_solver_t *solver);
 extern th_smt_interface_t  *rdl_smt_interface(rdl_solver_t *solver);
 
-/*
- * Interface to the internalization functions.
- */
-extern arith_interface_t *rdl_arith_interface(rdl_solver_t *solver);
 
 
 
-
-/*******************************
- *  INTERNALIZATION FUNCTIONS  *
- ******************************/
-
-/*
- * These functions are used by the context to create atoms and 
- * variables in the solver. We export them for testing, but the
- * context calls them via the arith_interface_t descriptor.
- */
+/******************************
+ *  VERTEX AND ATOM CREATION  *
+ *****************************/
 
 /*
  * Create a new theory variable = a new vertex
- * - is_int indicates whether the variable should be an integer,
- *   so it should always be false for this solver.
+ * - return null_rdl_vertex if there are too many vertices
  */
-extern int32_t rdl_create_var(rdl_solver_t *solver, bool is_int);
-
-/*
- * Create a theory variable equal to p
- * - p must be of the form x + k
- * - arith_map maps variables of p to corresponding theory variables
- *   in the solver. (i.e., if maps x to a variable returned by create_var)
- */
-extern int32_t rdl_create_poly(rdl_solver_t *solver, polynomial_t *p, itable_t *arith_map);
+extern int32_t rdl_new_vertex(rdl_solver_t *solver);
 
 
 /*
- * Create the atom p == 0 or p >= 0
- * - p must be of the form x - y + k (or any variant that can be turned into an RDL atom)
- * - arith_map maps arithmetic variables of p to theroy variables
- * - this attach the atom to the smt_core.
+ * Return the zero_vertex (create it if needed)
+ * - return null_rdl_vertex if the vertex can't be created
+ *   (i.e. too many vertices)
  */
-extern literal_t rdl_create_eq_atom(rdl_solver_t *solver, polynomial_t *p, itable_t *arith_map);
-extern literal_t rdl_create_ge_atom(rdl_solver_t *solver, polynomial_t *p, itable_t *arith_map);
+extern int32_t rdl_zero_vertex(rdl_solver_t *solver);
 
 
 /*
- * Create the atom x - y == 0
- * - x and y are two theory variables
+ * Create the atom (x - y <= c) and return the corresponding literal
+ * - x and y must be vertices in the solver
+ * - if x - y <= c simplifies to true or false (given the current graph)
+ *   return true_literal or false_literal
  */
-extern literal_t rdl_create_vareq_atom(rdl_solver_t *solver, int32_t x, int32_t y);
+extern literal_t rdl_make_atom(rdl_solver_t *solver, int32_t x, int32_t y, rational_t *c);
 
 
 /*
- * Assert a top-level constraint (either p == 0 or p != 0 or p >= 0 or p < 0)
- * - p must be of the form x - y + k (or variants)
- * - arith_maps maps x and y to internal theory variables
- * - tt indicates whether the constraint or its negation must be asserted
- *   tt == true  --> assert p == 0 (or p >= 0)
- *   tt == false --> assert p != 0 (or p < 0)
+ * Assert (x - y <= c) or (x - y < c) as an axiom
+ * - x and y must be vertices in solver
+ * - the solver must be at base level (i.e., solver->decision_level == solver->base_level)
+ * - strict true means  assert (x - y < c)
+ *   strict false means assert (x - y <= c)
+ *
+ * - this adds an edge from x to y with cost c to the graph 
+ * - if the edge causes a conflict, then solver->unsat_before_search is set to true
  */
-extern void rdl_assert_eq_axiom(rdl_solver_t *solver, polynomial_t *p, itable_t *arith_map, bool tt);
-extern void rdl_assert_ge_axiom(rdl_solver_t *solver, polynomial_t *p, itable_t *arith_map, bool tt);
+extern void rdl_add_axiom_edge(rdl_solver_t *solver, int32_t x, int32_t y, rational_t *c, bool strict);
 
 
 /*
- * If tt == true --> assert x = y
- * If tt == false --> assert x != y
+ * Assert (x - y == d) as an axiom:
+ * - add edge x ---> y with cost d   (x - y <= d)
+ *   and edge y ---> x with cost -d  (y - x <= -d)
  */
-extern void rdl_assert_vareq_axiom(rdl_solver_t *solver, int32_t x, int32_t y, bool tt);
+extern void rdl_add_axiom_eq(rdl_solver_t *solver, int32_t x, int32_t y, rational_t *d);
+
+
 
 
 
@@ -625,6 +581,34 @@ extern fcheck_code_t rdl_final_check(rdl_solver_t *solver);
  * - literals l_0 ... l_k that must be stored into v
  */
 extern void rdl_expand_explanation(rdl_solver_t *solver, literal_t l, literal_t *expl, ivector_t *v);
+
+
+
+
+/************************
+ *  MODEL CONSTRUCTION  *
+ ***********************/
+
+/*
+ * Build a model: assign an integer value to all vertices
+ * - the zero vertex has value 0 (if it exists)
+ * - the solver must be in a consistent state
+ * - the mapping is stored internally in solver->value
+ */
+extern void rdl_build_model(rdl_solver_t *solver);
+
+
+/*
+ * Copy the value of x into q
+ */
+extern void rdl_value_in_model(rdl_solver_t *solver, int32_t x, rational_t *q);
+
+
+/*
+ * Free the model
+ */
+extern void rdl_free_model(rdl_solver_t *solver);
+
 
 
 

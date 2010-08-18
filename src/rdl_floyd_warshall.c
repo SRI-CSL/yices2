@@ -10,16 +10,16 @@
 #include "memalloc.h"
 #include "hash_functions.h"
 #include "rdl_floyd_warshall.h"
-#include "solver_printer.h"
+
+
+#define LOCAL_STATISTICS 1
+
+#if LOCAL_STATISTICS || !defined(NDEBUG)
 
 #include <stdio.h>
 #include <inttypes.h>
 
-
-#define LOCAL_STATISTICS 0
-
-#if LOCAL_STATISTICS
-
+#include "rdl_fw_printer.h"
 
 // STATISTICS: TEMPORARY VARIABLES
 
@@ -1415,19 +1415,14 @@ static inline void delete_rdl_trail_stack(rdl_trail_stack_t *stack) {
 
 /*
  * Create a new vertex and return its index
- * - fails if there are too many vertices or if the variable requested
- *   is an integer variable.
+ * - return null_rdl_verex if there are too many vertices
  */
-int32_t rdl_create_var(rdl_solver_t *solver, bool is_int) {
+int32_t rdl_new_vertex(rdl_solver_t *solver) {
   uint32_t n;
 
   n = solver->nvertices;
-  if (n >= MAX_RDL_VERTICES || is_int) {
-    // exception
-    if (solver->env != NULL) {
-      longjmp(*solver->env, ARITHSOLVER_EXCEPTION);
-    }
-    abort();
+  if (n >= MAX_RDL_VERTICES) {
+    return null_rdl_vertex;
   }
   solver->nvertices = n + 1;
   return n;
@@ -1436,13 +1431,14 @@ int32_t rdl_create_var(rdl_solver_t *solver, bool is_int) {
 
 /*
  * Get the zero vertex (create a new vertex if needed)
+ * - return null_rdl_vertex if the new vertex can't be created
  */
-static int32_t zero_rdl_vertex(rdl_solver_t *solver) {
+int32_t rdl_zero_vertex(rdl_solver_t *solver) {
   int32_t z;
 
   z = solver->zero_vertex;
   if (z == null_rdl_vertex) {
-    z = rdl_create_var(solver, false);
+    z = rdl_new_vertex(solver);
     solver->zero_vertex = z;
   }
   return z;
@@ -1536,7 +1532,7 @@ static bvar_t bvar_for_atom(rdl_solver_t *solver, int32_t x, int32_t y, rational
  * Get literal for atom (x - y <= c): simplify and normalize first
  * Side effect: modify solver->c1
  */
-static literal_t rdl_make_atom(rdl_solver_t *solver, int32_t x, int32_t y, rational_t *c) {
+literal_t rdl_make_atom(rdl_solver_t *solver, int32_t x, int32_t y, rational_t *c) {
   assert(0 <= x && x < solver->nvertices && 0 <= y && y < solver->nvertices);
 
   if (x == y) {
@@ -1588,7 +1584,7 @@ static literal_t rdl_make_atom(rdl_solver_t *solver, int32_t x, int32_t y, ratio
  * - attach true_literal to the edge
  * Side effect: solver->graph.c0 is modified (so d must be different from solver->graph.c0)
  */
-static void rdl_add_axiom_edge(rdl_solver_t *solver, int32_t x, int32_t y, rdl_const_t *d) {
+static void rdl_axiom_edge(rdl_solver_t *solver, int32_t x, int32_t y, rdl_const_t *d) {
   rdl_cell_t *cell;
   int32_t k;
   rdl_const_t *aux;
@@ -1635,17 +1631,33 @@ static void rdl_add_axiom_edge(rdl_solver_t *solver, int32_t x, int32_t y, rdl_c
 
 
 /*
+ * Assert (x - y <= d) or (x - y < d) as an axiom
+ * Side effect: modifies solver->c1
+ */
+void rdl_add_axiom_edge(rdl_solver_t *solver, int32_t x, int32_t y, rational_t *d, bool strict) {
+  rdl_const_t *aux;
+
+  aux = &solver->c1;
+  rdl_const_set_rational(aux, d);
+  if (strict) {
+    aux->delta = -1;
+  }
+  rdl_axiom_edge(solver, x, y, aux);
+}
+
+
+/*
  * Assert (x - y == d) as an axiom: (x - y <= d && y - x <= -d)
  * Side effect: modifies solver->c1
  */
-static void rdl_add_axiom_eq(rdl_solver_t *solver, int32_t x, int32_t y, rational_t *d) {
+void rdl_add_axiom_eq(rdl_solver_t *solver, int32_t x, int32_t y, rational_t *d) {
   rdl_const_t *aux;
 
   aux = &solver->c1;
   rdl_const_set_rational(aux, d);  
-  rdl_add_axiom_edge(solver, x, y, aux);
+  rdl_axiom_edge(solver, x, y, aux);
   rdl_const_negate(aux);
-  rdl_add_axiom_edge(solver, y, x, aux);
+  rdl_axiom_edge(solver, y, x, aux);
 }
 
 
@@ -1820,353 +1832,6 @@ static void rdl_atom_propagation(rdl_solver_t *solver) {
 
 
 /********************
- *  RDL POLYNOMIAL  *
- *******************/
-
-/*
- * Initialization and deletion
- */
-static void init_rdl_poly(rdl_poly_t *r) {
-  q_init(&r->constant);
-}
-
-static void delete_rdl_poly(rdl_poly_t *r) {
-  q_clear(&r->constant);
-}
-
-
-
-/**********************
- *  INTERNALIZATION   *
- *********************/
-
-
-/*
- * Write p as x - y + d then store x, y, and d into r.
- * - imap maps the arithmetic variables of p to RDL variables in solver
- * - if p is not an RDL polynomial, force an exit by calling longjmp
- */
-static void decompose_polynomial(rdl_solver_t *solver, polynomial_t *p, itable_t *imap, rdl_poly_t *r) {
-  arith_var_t x, y;
-  monomial_t *m;
-
-  r->source_var = null_rdl_vertex;
-  r->target_var = null_rdl_vertex;
-
-  // the constant is first
-  m = p->mono;
-  if (m->var == const_idx) {
-    q_set(&r->constant, &m->coeff);
-    m ++;
-  } else {
-    q_clear(&r->constant); // constant := 0
-  }
-
-  // x = first variable
-  x = m->var;
-  if (x == max_idx) goto error; // p is a constant polynomial
-
-  if (q_is_one(&m->coeff)) {    
-    r->source_var = itable_get(imap, x);
-    assert(0 <= r->source_var && r->source_var < solver->nvertices);
-    m++;
-    y = m->var;
-    if (y == max_idx) {
-      r->target_var = null_rdl_vertex;
-    } else if (q_is_minus_one(&m->coeff)) {
-      r->target_var = itable_get(imap, y);
-      assert(0 <= r->target_var && r->target_var < solver->nvertices);
-    } else {
-      goto error;
-    }    
-	   
-    return;
-  }
-
-  if (q_is_minus_one(&m->coeff)) {
-    r->target_var = itable_get(imap, x);
-    assert(0 <= r->target_var && r->target_var < solver->nvertices);
-    m ++;
-    y = m->var;
-    if (y == max_idx) {
-      r->source_var = null_rdl_vertex;
-    } else if (q_is_one(&m->coeff)) {
-      r->source_var = itable_get(imap, y);
-      assert(0 <= r->source_var && r->source_var < solver->nvertices);
-    } else {
-      goto error;
-    }
-
-    return;
-  }
-
- error:
-  if (solver->env != NULL) {
-    longjmp(*solver->env, FORMULA_NOT_RDL);
-  }
-  abort();
-}
-
-
-/*
- * Create a theory variable equal to p
- * - p must be of the form x + k
- * - arith_map maps variables of p to corresponding theory variables
- *   in the solver (i.e., it maps x to a variable returned by create_var).
- *
- * TODO: use hash-consing to avoid duplicate variables?
- */
-int32_t rdl_create_poly(rdl_solver_t *solver, polynomial_t *p, itable_t *arith_map) {
-  rdl_poly_t *d;
-  int32_t x;
-
-  d = &solver->poly;
-  decompose_polynomial(solver, p, arith_map, d);
-  if (d->target_var != null_rdl_vertex) goto error;
-  if (d->source_var == null_rdl_vertex) {
-    d->source_var = zero_rdl_vertex(solver);
-  }
-
-  if (q_is_zero(&d->constant)) { 
-    x = d->source_var;
-  } else {
-    x = rdl_create_var(solver, false);
-    rdl_add_axiom_eq(solver, x, d->source_var, &d->constant);
-  }
-  return x;
-
- error: // error: p is not of the form x + k
-  if (solver->env != NULL) {
-    longjmp(*solver->env, FORMULA_NOT_RDL);
-  }
-  abort();
-
-}
-
-
-/*
- * After decompose polynomial, d.source_var or d.target_var may be null_vertex
- * If so they must be converted to the zero vertex. This is done here.
- * NODE: It's suboptimal to create zero_vertex if d.source_var == d.target_var == null_vertex,
- * but that should be fine.
- */
-static void add_zero_rdl_vertex(rdl_solver_t *solver, rdl_poly_t *d) {
-  if (d->source_var == null_rdl_vertex) {
-    d->source_var = zero_rdl_vertex(solver);
-  }
-  if (d->target_var == null_rdl_vertex) {
-    d->target_var = zero_rdl_vertex(solver);
-  }
-}
-
-
-/*
- * Create the atom p == 0
- * - well that's not an atom, that's the conjunction of two atoms: (p >= 0) and (p <= 0)
- */
-literal_t rdl_create_eq_atom(rdl_solver_t *solver, polynomial_t *p, itable_t *arith_map) {
-  rdl_poly_t *d;
-  literal_t l1, l2;
-
-  d = &solver->poly;
-  decompose_polynomial(solver, p, arith_map, d);
-  add_zero_rdl_vertex(solver, d);
-  // p is (x - y + k) where x is source, y is target, k is constant
-  l2 = rdl_make_atom(solver, d->target_var, d->source_var, &d->constant);  // y - x <= k
-  q_neg(&d->constant);
-  l1 = rdl_make_atom(solver, d->source_var, d->target_var, &d->constant);  // x - y <= -k
-  return mk_and_gate2(solver->gate_manager, l1, l2);
-}
-
-
-
-/*
- * Create the atom p >= 0
- */
-literal_t rdl_create_ge_atom(rdl_solver_t *solver, polynomial_t *p, itable_t *arith_map) {
-  rdl_poly_t *d;
-
-  d = &solver->poly;
-  decompose_polynomial(solver, p, arith_map, d);
-  add_zero_rdl_vertex(solver, d);
-  /*
-   * p is equal to (x - y + k) where 
-   * x = d.source_var, y = d.target_var, k = d.constant
-   * p >= 0 is equivalent to y - x <= k
-   */
-  return rdl_make_atom(solver, d->target_var, d->source_var, &d->constant);
-}
-
-
-/*
- * Create the atom (x - y == 0)
- */
-literal_t rdl_create_vareq_atom(rdl_solver_t *solver, int32_t x, int32_t y) {
-  literal_t l1, l2;
-
-  if (x == y) return true_literal;
-
-  l1 = rdl_make_atom(solver, x, y, &solver->zero_const);
-  l2 = rdl_make_atom(solver, y, x, &solver->zero_const);
-  return mk_and_gate2(solver->gate_manager, l1, l2);
-}
-
-
-/*
- * Create the atom (x == p)
- * - p must be of the form y + k
- * - rewrite (x == p) as y - x + k == 0
- */
-literal_t rdl_create_polyeq_atom(rdl_solver_t *solver, int32_t x, polynomial_t *p, itable_t *arith_map) {
-  rdl_poly_t *d;
-  literal_t l1, l2;
-
-  d = &solver->poly;
-  decompose_polynomial(solver, p, arith_map, d);
-  if (d->target_var != null_rdl_vertex) goto error;
-  if (d->source_var == null_rdl_vertex) {
-    d->source_var = zero_rdl_vertex(solver);
-  }
-
-  // the atom is (y - x + k) == 0, where y = d->source_var, k = d->constant
-  l2 = rdl_make_atom(solver, x, d->source_var, &d->constant);  // x - y <= k
-  q_neg(&d->constant);
-  l1 = rdl_make_atom(solver, d->source_var, x, &d->constant);  // y - x <= -k
-  return mk_and_gate2(solver->gate_manager, l1, l2);
-
- error: // p is not of the form (y + k)
-  if (solver->env != NULL) {
-    longjmp(*solver->env, FORMULA_NOT_RDL);
-  }
-  abort();
-}
-
-
-/*
- * Assert p == 0 or p != 0 as an axiom
- */
-void rdl_assert_eq_axiom(rdl_solver_t *solver, polynomial_t *p, itable_t *arith_map, bool tt) {
-  rdl_poly_t *d;  
-  literal_t l1, l2;
-
-  d = &solver->poly;
-  decompose_polynomial(solver, p, arith_map, d); // p is (x - y + k)
-  add_zero_rdl_vertex(solver, d);
-  if (tt) {
-    // (x - y + k == 0) is equivalent to (y - x == k)
-    rdl_add_axiom_eq(solver, d->target_var, d->source_var, &d->constant);
-  } else {
-    // (x - y + k != 0) is equivalent to (not (y - x <= k)) or (not (x - y <= -k))
-    l1 = rdl_make_atom(solver, d->target_var, d->source_var, &d->constant); // y - x <= k
-    q_neg(&d->constant);
-    l2 = rdl_make_atom(solver, d->source_var, d->target_var, &d->constant); // x - y <= -k
-    add_binary_clause(solver->core, not(l1), not(l2));
-  }
-}
-
-
-/*
- * Assert p >= 0 or p < 0 as an axiom
- * Modifies solver->c1
- */
-void rdl_assert_ge_axiom(rdl_solver_t *solver, polynomial_t *p, itable_t *arith_map, bool tt) {
-  rdl_poly_t *d;
-  rdl_const_t *aux;
-
-  d = &solver->poly;
-  aux = &solver->c1;
-
-  decompose_polynomial(solver, p, arith_map, d);
-  add_zero_rdl_vertex(solver, d);
-  /*
-   * p is equal to (x - y + k) where 
-   * x = d.source_var, y = d.target_var, k = d.constant
-   */
-  if (tt) {
-    // p >= 0 is equivalent to y - x <= k
-    rdl_const_set_rational(aux, &d->constant);
-    rdl_add_axiom_edge(solver, d->target_var, d->source_var, aux);
-  } else {
-    // p < 0  is equivalent to x - y <= -k -delta
-    rdl_const_set_lt_rational(aux, &d->constant);
-    rdl_add_axiom_edge(solver, d->source_var, d->target_var, aux);
-  }
-}
-
-
-/*
- * If tt == true --> assert (x - y == 0)
- * If tt == false --> assert (x - y != 0)
- */
-void rdl_assert_vareq_axiom(rdl_solver_t *solver, int32_t x, int32_t y, bool tt) {
-  literal_t l1, l2;
-
-  assert(q_is_zero(&solver->zero_const));
-
-  if (tt) {
-    rdl_add_axiom_eq(solver, x, y, &solver->zero_const);
-  } else {
-    l1 = rdl_make_atom(solver, x, y, &solver->zero_const);
-    l2 = rdl_make_atom(solver, y, x, &solver->zero_const);
-    add_binary_clause(solver->core, not(l1), not(l2));
-  }
-}
-
-
-/*
- * Assert (c ==> x - y == 0)
- * - we encode this as (c ==> (x - y <= 0)) and (c ==> (y - x <= 0))
- */
-void rdl_assert_cond_vareq_axiom(rdl_solver_t *solver, literal_t c, int32_t x, int32_t y) {
-  literal_t l1, l2;
-
-  assert(q_is_zero(&solver->zero_const));
-
-  l1 = rdl_make_atom(solver, x, y, &solver->zero_const);
-  l2 = rdl_make_atom(solver, y, x, &solver->zero_const);
-  add_binary_clause(solver->core, not(c), l1); // c ==> (x - y <= 0)
-  add_binary_clause(solver->core, not(c), l2); // c ==> (y - x <= 0)
-}
-
-
-/*
- * Assert (c ==> x - p == 0)
- * - p must be of the form y + k
- * - the constraint is asserted as (c ==> (x - y <= k)) and (c ==> (y - x <= -k))
- */
-void rdl_assert_cond_polyeq_axiom(rdl_solver_t *solver, literal_t c, int32_t x, polynomial_t *p, itable_t *arith_map) {
-  rdl_poly_t *d;
-  literal_t l1, l2;
-
-  d = &solver->poly;
-  decompose_polynomial(solver, p, arith_map, d);
-  if (d->target_var != null_rdl_vertex) goto error;
-  if (d->source_var == null_rdl_vertex) {
-    d->source_var = zero_rdl_vertex(solver);
-  }
-
-  // the atom is (y - x + k) == 0, where y = d.source_var, k = d.constant
-  l2 = rdl_make_atom(solver, x, d->source_var, &d->constant);  // x - y <= k
-  q_neg(&d->constant);
-  l1 = rdl_make_atom(solver, d->source_var, x, &d->constant); // y - x <= -k
-  add_binary_clause(solver->core, not(c), l1); // c ==> (y - x <= -k)
-  add_binary_clause(solver->core, not(c), l2); // c ==> (x - y <= k)
-
- error: // p is not of the form (y + k)
-  if (solver->env != NULL) {
-    longjmp(*solver->env, FORMULA_NOT_IDL);
-  }
-  abort();
-}
-
-
-
-
-
-
-
-
-/********************
  *  SMT OPERATIONS  *
  *******************/
 
@@ -2216,7 +1881,7 @@ void rdl_increase_decision_level(rdl_solver_t *solver) {
  * - a stores the index of an atom attached to a boolean variable v
  * - l is either pos_lit(v) or neg_lit(v)
  * - pos_lit means assert atom (x - y <= c)
- * - neg_lit means assert its negation (y - x <= -c-1)
+ * - neg_lit means assert its negation (y - x < -c)
  * We just push the corresponding atom index onto the propagation queue
  */
 bool rdl_assert_atom(rdl_solver_t *solver, void *a, literal_t l) {
@@ -2732,7 +2397,7 @@ static bool good_rdl_model(rdl_solver_t *solver) {
 /*
  * Build a mapping from variables to rationals
  */
-static void rdl_build_model(rdl_solver_t *solver) {
+void rdl_build_model(rdl_solver_t *solver) {
   byte_t *mark;
   uint32_t nvars;
   rational_t *aux;
@@ -2773,7 +2438,7 @@ static void rdl_build_model(rdl_solver_t *solver) {
 /*
  * Free the model
  */
-static void rdl_free_model(rdl_solver_t *solver) {
+void rdl_free_model(rdl_solver_t *solver) {
   assert(solver->value != NULL);
   free_rational_array(solver->value, solver->nvertices);
   solver->value = NULL;
@@ -2785,10 +2450,9 @@ static void rdl_free_model(rdl_solver_t *solver) {
 /*
  * Value of variable x in the model
  */
-static bool rdl_value_in_model(rdl_solver_t *solver, int32_t x, rational_t *v) {
+void rdl_value_in_model(rdl_solver_t *solver, int32_t x, rational_t *v) {
   assert(solver->value != NULL && 0 <= x && x < solver->nvertices);
   q_set(v, solver->value + x);
-  return true;
 }
 
 
@@ -2823,31 +2487,6 @@ static th_smt_interface_t rdl_smt = {
 };
 
 
-/* 
- * Interface descriptor for the context
- */
-static arith_interface_t rdl_context = {
-  (create_var_fun_t) rdl_create_var,
-  (create_poly_fun_t) rdl_create_poly,
-  NULL, // attach eterm is not supported
-  NULL, // eterm_of_var not supported either
-  (create_arith_atom_fun_t) rdl_create_eq_atom,
-  (create_arith_atom_fun_t) rdl_create_ge_atom,
-  (create_arith_vareq_atom_fun_t) rdl_create_vareq_atom,
-  (create_arith_polyeq_atom_fun_t) rdl_create_polyeq_atom,
-  // axioms
-  (assert_arith_axiom_fun_t) rdl_assert_eq_axiom,
-  (assert_arith_axiom_fun_t) rdl_assert_ge_axiom,
-  (assert_arith_vareq_axiom_fun_t) rdl_assert_vareq_axiom,
-  (assert_arith_cond_vareq_axiom_fun_t) rdl_assert_cond_vareq_axiom,
-  (assert_arith_cond_polyeq_axiom_fun_t) rdl_assert_cond_polyeq_axiom,
-  // model construction
-  (build_model_fun_t) rdl_build_model,
-  (free_model_fun_t) rdl_free_model,
-  (arith_val_in_model_fun_t) rdl_value_in_model,
-};
-
-
 
 /*****************
  *  FULL SOLVER  *
@@ -2856,11 +2495,9 @@ static arith_interface_t rdl_context = {
 /*
  * Initialze solver: 
  * - core = attached smt_core solver
- * - gates = corresponding gate_manager 
  */
-void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core, gate_manager_t *gates) {
+void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core) {
   solver->core = core;
-  solver->gate_manager = gates;
   solver->base_level = 0;
   solver->decision_level = 0;
   solver->unsat_before_search = false;
@@ -2875,7 +2512,6 @@ void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core, gate_manager_t *gat
   init_int_htbl(&solver->htbl, 0);
   init_arena(&solver->arena);
   init_ivector(&solver->expl_buffer, DEFAULT_RDL_BUFFER_SIZE);
-  init_rdl_poly(&solver->poly);
   init_rdl_const(&solver->c1);
   q_init(&solver->zero_const); // initial value = 0.
 
@@ -2885,9 +2521,6 @@ void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core, gate_manager_t *gat
   q_init(&solver->aux);
   q_init(&solver->aux2);
   solver->value = NULL;
-
-  // Jump buffer
-  solver->env = NULL;
 
   // undo record for level 0
   push_undo_record(&solver->stack, -1, 0, 0);
@@ -2911,7 +2544,6 @@ void delete_rdl_solver(rdl_solver_t *solver) {
 
   q_clear(&solver->zero_const);
   clear_rdl_const(&solver->c1);
-  delete_rdl_poly(&solver->poly);
   delete_ivector(&solver->expl_buffer);
   delete_arena(&solver->arena);
   delete_int_htbl(&solver->htbl);
@@ -2924,14 +2556,6 @@ void delete_rdl_solver(rdl_solver_t *solver) {
 
 
 /*
- * Attach a pointer to buffer
- */
-void rdl_solver_init_jmpbuf(rdl_solver_t *solver, jmp_buf *buffer) {
-  solver->env = buffer;
-}
-
-
-/*
  * Get the control and smt interfaces
  */
 th_ctrl_interface_t *rdl_ctrl_interface(rdl_solver_t *solver) {
@@ -2940,14 +2564,6 @@ th_ctrl_interface_t *rdl_ctrl_interface(rdl_solver_t *solver) {
 
 th_smt_interface_t *rdl_smt_interface(rdl_solver_t *solver) {
   return &rdl_smt;
-}
-
-
-/*
- * Get the context interface
- */
-arith_interface_t *rdl_arith_interface(rdl_solver_t *solver) {
-  return &rdl_context;
 }
 
 

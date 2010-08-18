@@ -1,6 +1,13 @@
 /*
- * INCREMENTAL FORM OF THE FLOYD-WARSHALL ALGORITHM,
- * ONLY FOR INTEGER-DIFFERENCE LOGIC.
+ * INCREMENTAL FORM OF THE FLOYD-WARSHALL ALGORITHM FOR INTEGER DIFFERENCE LOGIC.
+ */
+
+/*
+ * This solver is for integer difference logic only. It cannot be 
+ * attached to the egraph. 
+ *
+ * WARNING: All path length computations are done using signed 32bit
+ * integers and the code does not check for overflow.
  */
 
 /*
@@ -49,7 +56,6 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <setjmp.h>
 
 #include "bitvectors.h"
 #include "int_hash_tables.h"
@@ -57,37 +63,6 @@
 #include "int_vectors.h"
 
 #include "smt_core.h"
-#include "context.h"
-
-
-/********************
- *  VARIABLE TABLE  *
- *******************/
-
-/*
- * New: August 2010. To be compatible with the new term representation
- * and the arithmetic interface used by the context, we use an 
- * intermediate variable table.
- * - each variable in the table denotes either a vertex in the graph
- *   or an IDL polynomial (i.e., a polynomial of the form (x - y + c),
- *   where x and y are vertices, and c is an integer constant).
- */
-
-/*
- * For an IDL polynomial p = (x - y + c) then 
- * - source_var = x
- * - target_var = y
- * - constant = c
- */
-typedef struct idl_poly_s {
-  int32_t source_var;
-  int32_t target_var;
-  int32_t constant;
-} idl_poly_t;
-
-
-
-
 
 
 
@@ -290,6 +265,7 @@ typedef struct idl_astack_s {
 #define MAX_IDL_ATOMS MAX_IDL_ATBL_SIZE
 
 
+
 /****************
  *  UNDO STACK  *
  ***************/
@@ -351,10 +327,9 @@ typedef struct idl_trail_stack_s {
 
 typedef struct idl_solver_s {
   /*
-   * Attached smt core + gate manager
+   * Attached smt core
    */
   smt_core_t *core;
-  gate_manager_t *gate_manager;
 
   /*
    * Base level and decision level (same interpretation as in smt_core)
@@ -363,7 +338,7 @@ typedef struct idl_solver_s {
   uint32_t decision_level;
 
   /*
-   * Unsat flag: set to true if asserted axioms are inconsistent
+   * Unsat flag: set to true if the asserted axioms are inconsistent
    */
   bool unsat_before_search;
 
@@ -403,10 +378,6 @@ typedef struct idl_solver_s {
    */
   int32_t *value;
 
-  /*
-   * Jump buffer for exception handling during internalization
-   */
-  jmp_buf *env;
 } idl_solver_t;
 
 
@@ -428,14 +399,9 @@ typedef struct idl_solver_s {
 /*
  * Initialize an idl solver
  * - core = the attached smt-core object
- * - gates = the gate manager for core
  */
-extern void init_idl_solver(idl_solver_t *solver, smt_core_t *core, gate_manager_t *gates);
+extern void init_idl_solver(idl_solver_t *solver, smt_core_t *core);
 
-/*
- * Attach a jump buffer for exceptions
- */
-extern void idl_solver_init_jmpbuf(idl_solver_t *solver, jmp_buf *buffer);
 
 /*
  * Delete: free all allocated memory
@@ -449,81 +415,62 @@ extern void delete_idl_solver(idl_solver_t *solver);
 extern th_ctrl_interface_t *idl_ctrl_interface(idl_solver_t *solver);
 extern th_smt_interface_t  *idl_smt_interface(idl_solver_t *solver);
 
-/*
- * Interface to the internalization functions.
- */
-extern arith_interface_t *idl_arith_interface(idl_solver_t *solver);
 
 
 
-
-/*******************************
- *  INTERNALIZATION FUNCTIONS  *
- ******************************/
-
-/*
- * These functions are used by the context to create atoms and 
- * variables in the solver. We export them for testing, but the
- * context calls them via the arith_interface_t descriptor.
- */
+/******************************
+ *  VERTEX AND ATOM CREATION  *
+ *****************************/
 
 /*
  * Create a new theory variable = a new vertex
- * - is_int indicates whether the variable should be an integer,
- *   so it should always be true for this solver.
+ * - return null_idl_vertex if there are too many vertices
  */
-extern int32_t idl_create_var(idl_solver_t *solver, bool is_int);
-
-/*
- * Create a theory variable equal to p
- * - p must be of the form x + k
- * - arith_map maps variables of p to corresponding theory variables
- *   in the solver. (i.e., if maps x to a variable returned by create_var)
- */
-extern int32_t idl_create_poly(idl_solver_t *solver, polynomial_t *p, itable_t *arith_map);
+extern int32_t idl_new_vertex(idl_solver_t *solver);
 
 
 /*
- * Create the atom p == 0 or p >= 0
- * - p must be of the form x - y + k (or any variant that can be turned into an IDL atom)
- * - arith_map maps arithmetic variables of p to theroy variables
- * - this attach the atom to the smt_core.
+ * Return the zero_vertex (create it if needed)
+ * - return null_idl_vertex if the vertex can't be created
+ *   (i.e. too many vertices)
  */
-extern literal_t idl_create_eq_atom(idl_solver_t *solver, polynomial_t *p, itable_t *arith_map);
-extern literal_t idl_create_ge_atom(idl_solver_t *solver, polynomial_t *p, itable_t *arith_map);
+extern int32_t idl_zero_vertex(idl_solver_t *solver);
 
 
 /*
- * Create the atom x - y == 0
- * - x and y are two theory variables
+ * Create the atom (x - y <= d) and return the corresponding literal
+ * - x and y must be vertices in the solver
+ * - if x - y <= d simplifies to true or false (given the current graph)
+ *   return true_literal or false_literal
  */
-extern literal_t idl_create_vareq_atom(idl_solver_t *solver, int32_t x, int32_t y);
+extern literal_t idl_make_atom(idl_solver_t *solver, int32_t x, int32_t y, int32_t d);
 
 
 /*
- * Assert a top-level constraint (either p == 0 or p != 0 or p >= 0 or p < 0)
- * - p must be of the form x - y + k (or variants)
- * - arith_maps maps x and y to internal theory variables
- * - tt indicates whether the constraint or its negation must be asserted
- *   tt == true  --> assert p == 0 (or p >= 0)
- *   tt == false --> assert p != 0 (or p < 0)
+ * Assert (x - y <= d) as an axiom
+ * - x and y must be vertices in solver
+ * - the solver must be at base level (i.e., solver->decision_level == solver->base_level)
+ *
+ * - this adds an edge from x to y with cost d to the graph 
+ * - if the edge causes a conflict, then solver->unsat_before_search is set to true
  */
-extern void idl_assert_eq_axiom(idl_solver_t *solver, polynomial_t *p, itable_t *arith_map, bool tt);
-extern void idl_assert_ge_axiom(idl_solver_t *solver, polynomial_t *p, itable_t *arith_map, bool tt);
+extern void idl_add_axiom_edge(idl_solver_t *solver, int32_t x, int32_t y, int32_t d);
 
 
 /*
- * If tt == true --> assert x = y
- * If tt == false --> assert x != y
+ * Assert (x - y == d) as an axiom:
+ * - add edge x ---> y with cost d   (x - y <= d)
+ *   and edge y ---> x with cost -d  (y - x <= -d)
  */
-extern void idl_assert_vareq_axiom(idl_solver_t *solver, int32_t x, int32_t y, bool tt);
+extern void idl_add_axiom_eq(idl_solver_t *solver, int32_t x, int32_t y, int32_t d);
 
 
 
 
-/***********************
- *  SOLVER FUNCTIONS   *
- **********************/
+
+/**********************
+ *  SOLVER FUNCTIONS  *
+ *********************/
 
 /*
  * These functions are used by the core. They form the th_ctrl and
@@ -584,7 +531,6 @@ extern literal_t idl_select_polarity(idl_solver_t *solver, void *atom, literal_t
 extern fcheck_code_t idl_final_check(idl_solver_t *solver);
 
 
-
 /*
  * Explain why literal l is true.
  * - l is a literal set true by solver in the core (via implied_literal)
@@ -595,6 +541,37 @@ extern fcheck_code_t idl_final_check(idl_solver_t *solver);
  * - literals l_0 ... l_k that must be stored into v
  */
 extern void idl_expand_explanation(idl_solver_t *solver, literal_t l, literal_t *expl, ivector_t *v);
+
+
+
+
+
+/************************
+ *  MODEL CONSTRUCTION  *
+ ***********************/
+
+/*
+ * Build a model: assign an integer value to all vertices
+ * - the zero vertex has value 0 (if it exists)
+ * - the solver must be in a consistent state
+ * - the mapping is stored internally in solver->value
+ */
+extern void idl_build_model(idl_solver_t *solver);
+
+
+/*
+ * Value of vertex x in the model
+ */
+static inline int32_t idl_value_in_model(idl_solver_t *solver, int32_t x) {
+  assert(solver->value != NULL && 0 <= x && x < solver->nvertices);
+  return solver->value[x];
+}
+
+
+/*
+ * Free the model
+ */
+extern void idl_free_model(idl_solver_t *solver);
 
 
 

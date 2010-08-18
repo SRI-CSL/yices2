@@ -3,12 +3,6 @@
  */
 
 /*
- * This version is for integer difference logic only. All variables
- * are assumed to be integer.  All constants are signed 32bit integer
- * and the code does not check for overflows.
- */
-
-/*
  * In several places, we assume that -d-1 gives the right value for any 32bit
  * signed integer d, including when d is (-2^31) = INT32_MIN. 
  * This is true if signed integer operations are done modulo 2^32. 
@@ -26,15 +20,17 @@
 #include "idl_floyd_warshall.h"
 
 
-#define TRACE 0
+#define TRACE 1
 
 #if TRACE || !defined(NDEBUG)
 
 #include <stdio.h>
 #include <inttypes.h>
-#include "solver_printer.h"
+
+#include "idl_fw_printer.h"
 
 #endif
+
 
 
 /****************
@@ -143,7 +139,6 @@ static void resize_idl_matrix(idl_matrix_t *matrix, uint32_t n) {
   uint32_t i, j, d;
   idl_cell_t *src, *dst;
 
-  
   // d = current dimension, n = new dimension
   d = matrix->dim;
   matrix->dim = n;
@@ -173,7 +168,7 @@ static void resize_idl_matrix(idl_matrix_t *matrix, uint32_t n) {
       }
     }
 
-    // initialize cells [d.. n-1] in rows 0 to d-1
+    // initialize cells [d ... n-1] in rows 0 to d-1
     dst = matrix->data;
     for (i=0; i<d; i++) {
       for (j=d; j<n; j++) {
@@ -1146,19 +1141,13 @@ static inline void delete_idl_trail_stack(idl_trail_stack_t *stack) {
 
 /*
  * Create a new vertex and return its index
- * - fails if there are too many vertices or if the variable requested
- * is not an integer variable.
  */
-int32_t idl_create_var(idl_solver_t *solver, bool is_int) {
+int32_t idl_new_vertex(idl_solver_t *solver) {
   uint32_t n;
 
   n = solver->nvertices;
-  if (n >= MAX_IDL_VERTICES || ! is_int) {
-    // exception
-    if (solver->env != NULL) {
-      longjmp(*solver->env, ARITHSOLVER_EXCEPTION);
-    }
-    abort();
+  if (n >= MAX_IDL_VERTICES) {
+    return null_idl_vertex;
   }
   solver->nvertices = n + 1;
   return n;
@@ -1168,12 +1157,12 @@ int32_t idl_create_var(idl_solver_t *solver, bool is_int) {
 /*
  * Get the zero vertex (create a new vertex if needed)
  */
-static int32_t zero_idl_vertex(idl_solver_t *solver) {
+int32_t idl_zero_vertex(idl_solver_t *solver) {
   int32_t z;
 
   z = solver->zero_vertex;
   if (z == null_idl_vertex) {
-    z = idl_create_var(solver, true);
+    z = idl_new_vertex(solver);
     solver->zero_vertex = z;
   }
   return z;
@@ -1261,9 +1250,8 @@ static bvar_t bvar_for_atom(idl_solver_t *solver, int32_t x, int32_t y, int32_t 
 
 /*
  * Get literal for atom (x - y <= d): simplify and normalize first
- * - if x or y is null_vertex, replace them by the zero_idl_vertex
  */
-static literal_t idl_make_atom(idl_solver_t *solver, int32_t x, int32_t y, int32_t d) {
+literal_t idl_make_atom(idl_solver_t *solver, int32_t x, int32_t y, int32_t d) {
   assert(0 <= x && x < solver->nvertices && 0 <= y && y < solver->nvertices);
 
 #if TRACE
@@ -1343,7 +1331,7 @@ static literal_t idl_make_atom(idl_solver_t *solver, int32_t x, int32_t y, int32
  * Assert (x - y <= d) as an axiom: 
  * - attach true_literal to the edge
  */
-static void idl_add_axiom_edge(idl_solver_t *solver, int32_t x, int32_t y, int32_t d) {
+void idl_add_axiom_edge(idl_solver_t *solver, int32_t x, int32_t y, int32_t d) {
   idl_cell_t *cell;
   int32_t k;
 
@@ -1384,7 +1372,7 @@ static void idl_add_axiom_edge(idl_solver_t *solver, int32_t x, int32_t y, int32
 /*
  * Assert (x - y == d) as an axiom: (x - y <= d && y - x <= -d)
  */
-static void idl_add_axiom_eq(idl_solver_t *solver, int32_t x, int32_t y, int32_t d) {
+void idl_add_axiom_eq(idl_solver_t *solver, int32_t x, int32_t y, int32_t d) {
   idl_add_axiom_edge(solver, x, y, d);
   idl_add_axiom_edge(solver, y, x, -d);
 }
@@ -1553,317 +1541,6 @@ static void idl_atom_propagation(idl_solver_t *solver) {
 
 
 
-
-/**********************
- *  INTERNALIZATION   *
- *********************/
-
-/*
- * Write p as x - y + d then store x, y, and d into r.
- * - imap maps the arithmetic variables of p to IDL variables in solver
- * - if p is not an IDL polynomial, force an exit by calling longjmp
- */
-static void decompose_polynomial(idl_solver_t *solver, polynomial_t *p, itable_t *imap, idl_poly_t *r) {
-  arith_var_t x, y;
-  monomial_t *m;
-
-  r->source_var = null_idl_vertex;
-  r->target_var = null_idl_vertex;
-
-  // the constant is first
-  m = p->mono;
-  r->constant = 0;
-  if (m->var == const_idx) {
-    if (! q_is_smallint(&m->coeff)) goto overflow_error; // constant is too large
-    r->constant = q_get_smallint(&m->coeff);
-    m ++;
-  }
-
-  // x = first variable
-  x = m->var;
-  if (x == max_idx) goto error; // p is a constant polynomial
-
-  if (q_is_one(&m->coeff)) {    
-    r->source_var = itable_get(imap, x);
-    m++;
-    y = m->var;
-    if (y == max_idx) {
-      r->target_var = null_idl_vertex;
-    } else if (q_is_minus_one(&m->coeff)) {
-      r->target_var = itable_get(imap, y);
-      assert(0 <= r->target_var && r->target_var < solver->nvertices);
-    } else {
-      goto error;
-    }    
-    return;
-  }
-
-  if (q_is_minus_one(&m->coeff)) {
-    r->target_var = itable_get(imap, x);
-    m ++;
-    y = m->var;
-    if (y == max_idx) {
-      r->source_var = null_idl_vertex;
-    } else if (q_is_one(&m->coeff)) {
-      r->source_var = itable_get(imap, y);
-      assert(0 <= r->source_var && r->source_var < solver->nvertices);
-    } else {
-      goto error;
-    }
-
-    return;
-  }
-
- error:
-  if (solver->env != NULL) {
-    longjmp(*solver->env, FORMULA_NOT_IDL);
-  }
-  abort();
-
- overflow_error:
-  if (solver->env != NULL) {
-    longjmp(*solver->env, ARITHSOLVER_EXCEPTION);
-  }
-  abort();
-}
-
-
-/*
- * Create a theory variable equal to p
- * - p must be of the form x + k
- * - arith_map maps variables of p to corresponding theory variables
- *   in the solver (i.e., it maps x to a variable returned by create_var).
- *
- * TODO: use hash-consing to avoid duplicate variables?
- */
-int32_t idl_create_poly(idl_solver_t *solver, polynomial_t *p, itable_t *arith_map) {
-  idl_poly_t d;
-  int32_t x;
-
-  decompose_polynomial(solver, p, arith_map, &d);
-  if (d.target_var != null_idl_vertex) goto error;
-
-  if (d.source_var == null_idl_vertex) {
-    d.source_var = zero_idl_vertex(solver);
-  }
-  if (d.constant == 0) { 
-    x = d.source_var;
-  } else {
-    x = idl_create_var(solver, true);
-    idl_add_axiom_eq(solver, x, d.source_var, d.constant);
-  }
-  return x;
-
- error: // error: p is not of the form x + k
-  if (solver->env != NULL) {
-    longjmp(*solver->env, FORMULA_NOT_IDL);
-  }
-  abort();
-
-}
-
-
-/*
- * After decompose polynomial, d.source_var or d.target_var may be null_vertex
- * If so they must be converted to the zero vertex. This is done here.
- * NODE: It's suboptimal to create zero_vertex if d.source_var == d.target_var == null_vertex,
- * but that should be fine.
- */
-static void add_zero_vertex(idl_solver_t *solver, idl_poly_t *d) {
-  if (d->source_var == null_idl_vertex) {
-    d->source_var = zero_idl_vertex(solver);
-  }
-  if (d->target_var == null_idl_vertex) {
-    d->target_var = zero_idl_vertex(solver);
-  }
-}
-
-/*
- * Create the atom p == 0
- * - well that's not an atom, that's the conjunction of two atoms: (p >= 0) and (p <= 0)
- */
-literal_t idl_create_eq_atom(idl_solver_t *solver, polynomial_t *p, itable_t *arith_map) {
-  idl_poly_t d;
-  literal_t l1, l2;
-
-  decompose_polynomial(solver, p, arith_map, &d);
-  add_zero_vertex(solver, &d);
-  // p is (x - y + k) where x is source, y is target, k is constant
-  l1 = idl_make_atom(solver, d.source_var, d.target_var, -d.constant); // x - y <= -k
-  l2 = idl_make_atom(solver, d.target_var, d.source_var, d.constant);  // y - x <= k
-  return mk_and_gate2(solver->gate_manager, l1, l2);
-}
-
-
-
-/*
- * Create the atom p >= 0
- */
-literal_t idl_create_ge_atom(idl_solver_t *solver, polynomial_t *p, itable_t *arith_map) {
-  idl_poly_t d;
-
-  decompose_polynomial(solver, p, arith_map, &d);
-  add_zero_vertex(solver, &d);
-  /*
-   * p is equal to (x - y + k) where 
-   * x = d.source_var, y = d.target_var, k = d.constant
-   * p >= 0 is equivalent to y - x <= k
-   */
-  return idl_make_atom(solver, d.target_var, d.source_var, d.constant);
-}
-
-
-/*
- * Create the atom (x - y == 0)
- */
-literal_t idl_create_vareq_atom(idl_solver_t *solver, int32_t x, int32_t y) {
-  literal_t l1, l2;
-
-  if (x == y) return true_literal;
-
-  l1 = idl_make_atom(solver, x, y, 0);
-  l2 = idl_make_atom(solver, y, x, 0);
-  return mk_and_gate2(solver->gate_manager, l1, l2);
-}
-
-
-/*
- * Create the atom (x == p)
- * - p must be of the form y + k
- * - rewrite (x == p) as y - x + k == 0
- */
-literal_t idl_create_polyeq_atom(idl_solver_t *solver, int32_t x, polynomial_t *p, itable_t *arith_map) {
-  idl_poly_t d;
-  literal_t l1, l2;
-
-  decompose_polynomial(solver, p, arith_map, &d);
-  if (d.target_var != null_idl_vertex) goto error;
-  if (d.source_var == null_idl_vertex) {
-    d.source_var = zero_idl_vertex(solver);
-  }
-
-  // the atom is (y - x + k) == 0, where y = d.source_var, k = d.constant
-  l1 = idl_make_atom(solver, d.source_var, x, -d.constant); // y - x <= -k
-  l2 = idl_make_atom(solver, x, d.source_var, d.constant);  // x - y <= k
-  return mk_and_gate2(solver->gate_manager, l1, l2);
-
- error: // p is not of the form (y + k)
-  if (solver->env != NULL) {
-    longjmp(*solver->env, FORMULA_NOT_IDL);
-  }
-  abort();
-}
-
-
-/*
- * Assert p == 0 or p != 0 as an axiom
- */
-void idl_assert_eq_axiom(idl_solver_t *solver, polynomial_t *p, itable_t *arith_map, bool tt) {
-  idl_poly_t d;  
-  literal_t l1, l2;
-
-  decompose_polynomial(solver, p, arith_map, &d); // p is (x - y + k)
-  add_zero_vertex(solver, &d);
-  if (tt) {
-    // (x - y + k == 0) is equivalent to (y - x == k)
-    idl_add_axiom_eq(solver, d.target_var, d.source_var, d.constant);
-  } else {
-    // (x - y + k != 0) is equivalent to (not (y - x <= k)) or (not (x - y <= -k))
-    l1 = idl_make_atom(solver, d.target_var, d.source_var, d.constant);
-    l2 = idl_make_atom(solver, d.source_var, d.target_var, - d.constant);
-    add_binary_clause(solver->core, not(l1), not(l2));
-  }
-}
-
-
-/*
- * Assert p >= 0 or p < 0 as an axiom
- */
-void idl_assert_ge_axiom(idl_solver_t *solver, polynomial_t *p, itable_t *arith_map, bool tt) {
-  idl_poly_t d;
-
-  decompose_polynomial(solver, p, arith_map, &d);
-  add_zero_vertex(solver, &d);
-  /*
-   * p is equal to (x - y + k) where 
-   * x = d.source_var, y = d.target_var, k = d.constant
-   */
-  if (tt) {
-    // p >= 0 is equivalent to y - x <= k
-    idl_add_axiom_edge(solver, d.target_var, d.source_var, d.constant);
-  } else {
-    // p < 0  is equivalent to x - y <= -k -1
-    idl_add_axiom_edge(solver, d.source_var, d.target_var, - d.constant - 1);
-  }
-}
-
-
-
-/*
- * If tt == true --> assert (x - y == 0)
- * If tt == false --> assert (x - y != 0)
- */
-void idl_assert_vareq_axiom(idl_solver_t *solver, int32_t x, int32_t y, bool tt) {
-  literal_t l1, l2;
-
-  if (tt) {
-    idl_add_axiom_eq(solver, x, y, 0);
-  } else {
-    l1 = idl_make_atom(solver, x, y, 0);
-    l2 = idl_make_atom(solver, y, x, 0);
-    add_binary_clause(solver->core, not(l1), not(l2));
-  }
-}
-
-
-
-/*
- * Assert (c ==> x - y == 0)
- * - we encode this as (c ==> (x - y <= 0)) and (c ==> (y - x <= 0))
- */
-void idl_assert_cond_vareq_axiom(idl_solver_t *solver, literal_t c, int32_t x, int32_t y) {
-  literal_t l1, l2;
-
-  l1 = idl_make_atom(solver, x, y, 0);
-  l2 = idl_make_atom(solver, y, x, 0);
-  add_binary_clause(solver->core, not(c), l1); // c ==> (x - y <= 0)
-  add_binary_clause(solver->core, not(c), l2); // c ==> (y - x <= 0)
-}
-
-
-/*
- * Assert (c ==> x - p == 0)
- * - p must be of the form y + k
- * - the constraint is asserted as (c ==> (x - y <= k)) and (c ==> (y - x <= -k))
- */
-void idl_assert_cond_polyeq_axiom(idl_solver_t *solver, literal_t c, int32_t x, polynomial_t *p, itable_t *arith_map) {
-  idl_poly_t d;
-  literal_t l1, l2;
-
-  decompose_polynomial(solver, p, arith_map, &d);
-  if (d.target_var != null_idl_vertex) goto error;
-  if (d.source_var == null_idl_vertex) {
-    d.source_var = zero_idl_vertex(solver);
-  }
-
-  // the atom is (y - x + k) == 0, where y = d.source_var, k = d.constant
-  l1 = idl_make_atom(solver, d.source_var, x, -d.constant); // y - x <= -k
-  l2 = idl_make_atom(solver, x, d.source_var, d.constant);  // x - y <= k
-  add_binary_clause(solver->core, not(c), l1); // c ==> (y - x <= -k)
-  add_binary_clause(solver->core, not(c), l2); // c ==> (x - y <= k)
-
- error: // p is not of the form (y + k)
-  if (solver->env != NULL) {
-    longjmp(*solver->env, FORMULA_NOT_IDL);
-  }
-  abort();
-}
-
-
-
-
-
-
 /********************
  *  SMT OPERATIONS  *
  *******************/
@@ -1873,6 +1550,7 @@ void idl_assert_cond_polyeq_axiom(idl_solver_t *solver, literal_t c, int32_t x, 
  */
 void idl_start_internalization(idl_solver_t *solver) {
 }
+
 
 /*
  * Start search: if unsat flag is true, force a conflict in the core.
@@ -2112,7 +1790,7 @@ void idl_pop(idl_solver_t *solver) {
 /*
  * Reset
  */
-void reset_idl_solver(idl_solver_t *solver) {
+void idl_reset(idl_solver_t *solver) {
   solver->base_level = 0;
   solver->decision_level = 0;
   solver->unsat_before_search = false;
@@ -2330,15 +2008,6 @@ void idl_free_model(idl_solver_t *solver) {
   solver->value = NULL;
 }
 
-/*
- * Copy the value of variable x in the model into v
- */
-bool idl_value_in_model(idl_solver_t *solver, int32_t x, rational_t *v) {
-  assert(solver->value != NULL && 0 <= x && x < solver->nvertices);
-  q_set32(v, solver->value[x]);
-  return true;
-}
-
 
 
 
@@ -2354,7 +2023,7 @@ static th_ctrl_interface_t idl_control = {
   (backtrack_fun_t) idl_backtrack,
   (push_fun_t) idl_push,
   (pop_fun_t) idl_pop,
-  (reset_fun_t) reset_idl_solver,
+  (reset_fun_t) idl_reset,
 };
 
 
@@ -2370,31 +2039,6 @@ static th_smt_interface_t idl_smt = {
 };
 
 
-/* 
- * Interface descriptor for the context: internalization + model construction
- */
-static arith_interface_t idl_context = {
-  (create_var_fun_t) idl_create_var,
-  (create_poly_fun_t) idl_create_poly,
-  NULL, // attach eterm is not supported
-  NULL, // eterm of var not supported either
-  (create_arith_atom_fun_t) idl_create_eq_atom,
-  (create_arith_atom_fun_t) idl_create_ge_atom,
-  (create_arith_vareq_atom_fun_t) idl_create_vareq_atom,
-  (create_arith_polyeq_atom_fun_t) idl_create_polyeq_atom,
-  // axioms
-  (assert_arith_axiom_fun_t) idl_assert_eq_axiom,
-  (assert_arith_axiom_fun_t) idl_assert_ge_axiom,
-  (assert_arith_vareq_axiom_fun_t) idl_assert_vareq_axiom,
-  (assert_arith_cond_vareq_axiom_fun_t) idl_assert_cond_vareq_axiom,
-  (assert_arith_cond_polyeq_axiom_fun_t) idl_assert_cond_polyeq_axiom,
-  // model construction
-  (build_model_fun_t) idl_build_model,
-  (free_model_fun_t) idl_free_model,
-  (arith_val_in_model_fun_t) idl_value_in_model,
-};
-
-
 
 /*****************
  *  FULL SOLVER  *
@@ -2403,11 +2047,9 @@ static arith_interface_t idl_context = {
 /*
  * Initialze solver: 
  * - core = attached smt_core solver
- * - gates = corresponding gate_manager 
  */
-void init_idl_solver(idl_solver_t *solver, smt_core_t *core, gate_manager_t *gates) {
+void init_idl_solver(idl_solver_t *solver, smt_core_t *core) {
   solver->core = core;
-  solver->gate_manager = gates;
   solver->base_level = 0;
   solver->decision_level = 0;
   solver->unsat_before_search = false;
@@ -2423,7 +2065,6 @@ void init_idl_solver(idl_solver_t *solver, smt_core_t *core, gate_manager_t *gat
   init_arena(&solver->arena);
   init_ivector(&solver->expl_buffer, DEFAULT_IDL_BUFFER_SIZE);
   solver->value = NULL;
-  solver->env = NULL;
 
   // undo record for level 0
   push_undo_record(&solver->stack, -1, 0, 0);
@@ -2453,14 +2094,6 @@ void delete_idl_solver(idl_solver_t *solver) {
 
 
 /*
- * Attach a pointer to buffer
- */
-void idl_solver_init_jmpbuf(idl_solver_t *solver, jmp_buf *buffer) {
-  solver->env = buffer;
-}
-
-
-/*
  * Get the control and smt interfaces
  */
 th_ctrl_interface_t *idl_ctrl_interface(idl_solver_t *solver) {
@@ -2469,12 +2102,5 @@ th_ctrl_interface_t *idl_ctrl_interface(idl_solver_t *solver) {
 
 th_smt_interface_t *idl_smt_interface(idl_solver_t *solver) {
   return &idl_smt;
-}
-
-/*
- * Get the internalization interface
- */
-arith_interface_t *idl_arith_interface(idl_solver_t *solver) {
-  return &idl_context;
 }
 
