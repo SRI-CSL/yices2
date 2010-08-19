@@ -4,10 +4,32 @@
 
 #include <assert.h>
 #include <stdint.h>
-#include <limits.h>
+#include <stdbool.h>
 
 #include "memalloc.h"
 #include "arena.h"
+
+
+#ifndef NDEBUG
+
+/*
+ * For debugging: check alignment
+ */
+static bool size_is_multiple_of_eight(size_t x) {
+  return (x & ((size_t) 7)) == 0;
+}
+
+static bool ptr_is_aligned(void *p) {
+  return size_is_multiple_of_eight((size_t) p);
+}
+
+// p <= q here
+static bool offset_is_aligned(void *p, void *q) {
+  return size_is_multiple_of_eight(((size_t) q) - ((size_t) p));
+}
+
+#endif
+
 
 /*
  * Allocate a new block of size n
@@ -19,7 +41,10 @@ static block_t *new_block(size_t n) {
     out_of_memory();
   }
   tmp = (block_t *) safe_malloc(sizeof(block_t) + n);
-  tmp->size = n;
+  tmp->p.h.size = n;
+
+  assert(offset_is_aligned(tmp, tmp->data));
+
   return tmp;
 }
 
@@ -32,15 +57,15 @@ static void alloc_block(arena_t *a) {
 
   blk = a->free_block;
   if (blk != NULL) {
-    a->free_block = blk->next;
+    a->free_block = blk->p.h.next;
   } else {
     blk = new_block(DEFAULT_BLOCK_SIZE);
   }
 
   // blk = new current block
-  blk->next = a->current_block;
+  blk->p.h.next = a->current_block;
   a->current_block = blk;
-  a->index = blk->size;
+  a->index = blk->p.h.size;
 }
 
 /*
@@ -50,7 +75,7 @@ static void alloc_big_block(arena_t *a, size_t n) {
   block_t *blk;
 
   blk = new_block(n);
-  blk->next = a->current_block;
+  blk->p.h.next = a->current_block;
   a->current_block = blk;
   a->index = n;
 }
@@ -59,7 +84,7 @@ static void alloc_big_block(arena_t *a, size_t n) {
  * Recycle block
  */
 static void free_block(arena_t *a, block_t *blk) {
-  blk->next = a->free_block;
+  blk->p.h.next = a->free_block;
   a->free_block = blk;
 }
 
@@ -82,14 +107,14 @@ void delete_arena(arena_t *a) {
 
   blk = a->free_block;
   while (blk != NULL) {
-    next = blk->next;
+    next = blk->p.h.next;
     safe_free(blk);
     blk = next;
   }
 
   blk = a->current_block;
   while (blk != NULL) {
-    next = blk->next;
+    next = blk->p.h.next;
     safe_free(blk);
     blk = next;
   }
@@ -100,17 +125,10 @@ void delete_arena(arena_t *a) {
 
 
 /*
- * Round size_t to next multiple of 4 on 32bit machines,
- * or 8 on 64 bit machines.
+ * Round n to the next multiple of 8 for pointer alignment
  */
 static inline size_t align_size(size_t n) {
-#if (ULONG_MAX == 4294967295UL) 
-  return (n + 3) & ~((size_t) 3);
-#elif (ULONG_MAX == 18446744073709551615UL)
   return (n + 7) & ~((size_t) 7);
-#else
-#error Could not find pointer alignment
-#endif  
 }
 
 
@@ -134,6 +152,10 @@ void *arena_alloc(arena_t *a, size_t n) {
   }
   idx -= n;
   a->index = idx;
+
+  assert(size_is_multiple_of_eight(idx) &&
+	 ptr_is_aligned(a->current_block->data + idx));
+
   return a->current_block->data + idx;
 }
 
@@ -164,7 +186,7 @@ void arena_pop(arena_t *a) {
   mark_blk = mrk->blk;
   blk = a->current_block;
   while (blk != mark_blk) {
-    next = blk->next;
+    next = blk->p.h.next;
     free_block(a, blk);
     blk = next;
   }
@@ -184,7 +206,7 @@ void arena_reset(arena_t *a) {
 
   blk = a->current_block;
   while (blk != NULL) {
-    next = blk->next;
+    next = blk->p.h.next;
     free_block(a, blk);
     blk = next;
   }

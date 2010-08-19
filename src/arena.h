@@ -11,12 +11,23 @@
 /*
  * Memory block: array of char + header
  * header includes: pointer to the next block and size
+ *
+ * The offset  (block->data - block) should be a multiple of 8,
+ * on both 32 and 64bit machines. Just in case, I've added 
+ * a padding array to the header. It can be fixed if necessary.
  */
 typedef struct block_s block_t;
 
-struct block_s {
+typedef struct block_header_s {
   block_t *next;
   size_t size;
+} block_header_t;
+
+struct block_s {
+  union {
+    block_header_t h;
+    char padding[1]; // use to fix alignment if needed
+  } p;
   char data[0]; // real size = size
 };
 
@@ -34,7 +45,7 @@ struct arena_mark_s {
 /*
  * Default and max block size 
  */
-#define DEFAULT_BLOCK_SIZE 4096
+#define DEFAULT_BLOCK_SIZE (4096-sizeof(block_t))
 #define MAX_BLOCK_SIZE (SIZE_MAX/2)
 
 /*

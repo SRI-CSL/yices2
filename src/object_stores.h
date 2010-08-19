@@ -10,11 +10,24 @@
 
 /*
  * Bank = a block of objects
+ * - blocks are linked in a list
+ * - for correct pointer alignment, we (try to) force the offset
+ *   (bank->block - bank) to be a multiple of 8)
+ * - we also force object sizes to be multiple of 8 byts
+ *
+ * All this is based on the assumption that addresses that are
+ * multiple of 8 have the right alignment for all hardware we
+ * support.
  */
-typedef struct object_bank_s {
-  struct object_bank_s *next;
+typedef struct object_bank_s object_bank_t;
+
+struct object_bank_s {
+  union {
+    object_bank_t *next;
+    char padding[8]; // for alignment
+  } h;
   char block[0]; // real size determined at allocation time
-} object_bank_t;
+};
 
 /*
  * Store = a list of blocks

@@ -3,9 +3,31 @@
  */
 
 #include <assert.h>
+#include <stdbool.h>
 
 #include "memalloc.h"
 #include "object_stores.h"
+
+#ifndef NDEBUG
+
+/*
+ * For debugging: check alignment
+ */
+static bool size_is_multiple_of_eight(size_t x) {
+  return (x & ((size_t) 7)) == 0;
+}
+
+static bool ptr_is_aligned(void *p) {
+  return size_is_multiple_of_eight((size_t) p);
+}
+
+// p <= q here
+static bool offset_is_aligned(void *p, void *q) {
+  return size_is_multiple_of_eight(((size_t) q) - ((size_t) p));
+}
+
+#endif
+
 
 
 /*
@@ -41,15 +63,20 @@ void *objstore_alloc(object_store_t *s) {
     // This may be unsafe. Replaced by memcpy.
     //    s->free_list = * ((void **) tmp);
     memcpy(&s->free_list, tmp, sizeof(void*));
+
+    assert(ptr_is_aligned(tmp));
+
     return tmp;
   }
 
   i = s->free_index;
   if (i == 0) {
     new_bank = (object_bank_t *) safe_malloc(sizeof(object_bank_t) + s->blocksize * sizeof(char));
-    new_bank->next = s->bnk;
+    new_bank->h.next = s->bnk;
     s->bnk = new_bank;
     i = s->blocksize;
+
+    assert(offset_is_aligned(new_bank, new_bank->block));
   }
 
   assert(i >= s->objsize);
@@ -57,6 +84,8 @@ void *objstore_alloc(object_store_t *s) {
   i -= s->objsize;
   s->free_index = i;
   tmp = s->bnk->block + i;
+
+  assert(ptr_is_aligned(tmp));
 
   return tmp;
 }
@@ -70,7 +99,7 @@ void delete_objstore(object_store_t *s) {
 
   b = s->bnk;
   while (b != NULL) {
-    next = b->next;
+    next = b->h.next;
     safe_free(b);
     b = next;
   }
@@ -92,7 +121,7 @@ void objstore_delete_finalize(object_store_t *s, void (*f)(void *)) {
   b = s->bnk;
   k = s->free_index;
   while (b != NULL) {
-    next = b->next;
+    next = b->h.next;
     for (i=k; i<s->blocksize; i += s->objsize) {
       obj = (void *) (b->block + i);
       f(obj);      
@@ -117,11 +146,11 @@ void reset_objstore(object_store_t *s) {
 
   b = s->bnk;
   if (b != NULL) {
-    next = b->next;
+    next = b->h.next;
     while (next != NULL) {
       safe_free(b);
       b = next;
-      next = b->next;
+      next = b->h.next;
     }
   }
 
