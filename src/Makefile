@@ -223,7 +223,7 @@ ifeq ($(POSIXOS),darwin)
   libyices_dynamic=$(libyices_dylib)
 else
 ifeq ($(POSIXOS),sunos)
-  PIC=-fpic
+  PIC=-fPIC
   STATIC=
   CPPFLAGS := $(CPPFLAGS) -DSOLARIS
   CFLAGS += -fvisibility=hidden

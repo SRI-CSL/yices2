@@ -1,2 +1,2 @@
 (echo "\nRecursive include\n")
-(include "recursive_include")
+(include "recursive_include.ys")

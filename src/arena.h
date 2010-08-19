@@ -41,7 +41,7 @@ struct arena_mark_s {
  * Arena:
  * 1) list of active blocks
  * - current_block = head of that list = block where memory is allocated 
- * - index = allocation index in current_block
+ * - index = allocation index in the current_block
  * 2) list of free blocks 
  * 3) top mark (or null)
  */
