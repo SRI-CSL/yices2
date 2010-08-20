@@ -236,7 +236,7 @@ $(bindir)/%$(EXEEXT): %.c $(libyices)
 all-static: $(static_tests)
 
 $(static_bindir)/%$(EXEEXT): %.c $(static_libyices)
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ $<  $(static_libyices) $(STATIC_LIBS)
+	$(LNK) $(STATIC_CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ $<  $(static_libyices) $(STATIC_LIBS)
 
 
 .PHONY: all all-static

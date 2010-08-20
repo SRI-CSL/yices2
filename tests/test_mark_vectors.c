@@ -79,7 +79,7 @@ static void test1(void) {
 
   printf("Check map\n");
   for (i=0; i<40; i++) {
-    printf("  map[%"PRId32"] = %"PRIu32"\n", i, mark_vector_get_mark(&vector, i));
+    printf("  map[%"PRId32"] = %"PRIu8"\n", i, mark_vector_get_mark(&vector, i));
   }
   printf("\n");
 
@@ -102,7 +102,7 @@ static void test1(void) {
 
   printf("Check map\n");
   for (i=0; i<40; i++) {
-    printf("  map[%"PRId32"] = %"PRIu32"\n", i, mark_vector_get_mark(&vector, i));
+    printf("  map[%"PRId32"] = %"PRIu8"\n", i, mark_vector_get_mark(&vector, i));
   }
   printf("\n");
 
@@ -119,7 +119,8 @@ static void test1(void) {
  */
 static void test2(uint32_t n) {
   uint32_t i;
-  int32_t j, x;
+  int32_t j;
+  uint8_t x;
 
   printf("\nTEST2\n\n");
   init_mark_vector(&vector, 20, 255);

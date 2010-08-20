@@ -1330,7 +1330,7 @@ static bool check_invalid_tuple_index(term_t t, type_t tau, uint32_t i) {
 
 
 static void test_error_codes(void) {
-  term_t aux[2];
+  term_t aux[3];
   type_t sigma, tau1, tau2;
   term_t fun, t1, t2, t3;
   term_t v;
