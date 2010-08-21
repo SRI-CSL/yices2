@@ -76,10 +76,10 @@ src_c := abstract_values.c arena.c arith_buffers.c                  \
          bvarith64_buffer_terms.c bvlogic_buffers.c bv_constants.c  \
          bv64_constants.c bv_polynomials.c bv64_polynomials.c       \
          cache.c command_line.c composites.c concrete_values.c      \
-         context.c context_printer.c egraph_assertion_queues.c      \
-         egraph_explanations.c egraph_utils.c egraph.c              \
-         egraph_printer.c eq_abstraction.c eq_learner.c             \
-         extended_rationals.c fun_maps.c fun_trees.c                \
+         context.c context_printer.c dl_front_end.c                 \
+         egraph_assertion_queues.c egraph_explanations.c            \
+         egraph_utils.c egraph.c egraph_printer.c eq_abstraction.c  \
+         eq_learner.c extended_rationals.c fun_maps.c fun_trees.c   \
          gates_hash_table.c gates_manager.c gates_printer.c gcd.c   \
          generic_heap.c hash_functions.c idl_floyd_warshall.c       \
 	 idl_fw_printer.c index_vectors.c int_array_sort.c          \

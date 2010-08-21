@@ -44,6 +44,8 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
   "not an IDL formula",
   "not an RDL formula",
   "non-linear arithmetic not supported",
+  "too many variables for the arithmetic solver",
+  "too many atoms for the arithmetic solver",
   "arithmetic solver exception",
   "bitvector solver exception",
 };
@@ -63,14 +65,12 @@ static void print_internalization_code(int32_t code) {
     printf("Internalization OK\n\n");
     printf("unknown\n");
   } else {
-    printf("unknown\n");
+    assert(code < 0);
     code = - code;
-    if (code <= NONLINEAR_NOT_SUPPORTED) {
-      printf("Internalization error: %s\n\n", code2error[code]);
-    } else {
-      printf("%s\n\n", code2error[code]);
-    }
-  }
+    printf("unknown\n");
+    printf("Internalization error: %s\n\n", code2error[code]);
+  }    
+
   fflush(stdout);
 }
 

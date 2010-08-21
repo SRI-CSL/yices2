@@ -549,6 +549,8 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
   "not an IDL formula",
   "not an RDL formula",
   "non-linear arithmetic not supported",
+  "too many variables for the arithmetic solver",
+  "too many atoms for the arithmetic solver",
   "arithmetic solver exception",
   "bitvector solver exception",
 };

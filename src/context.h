@@ -188,21 +188,26 @@ enum {
  *
  * Term constructors
  * -----------------
+ * A term in the arithmetic solver is identified by an integer index (arithmetic variable).
+ *
  * 1) thvar_t create_var(void *solver, bool is_int)
  *    - this must return the index of a new arithmetic variable (no eterm attached)
- *    - if is_int is true, that variable must have integer type, 
- *      otherwise, it must be a real.
+ *    - if is_int is true, that variable must have integer type, otherwise, it must 
+ *      be a real.
  *
  * 2) thvar_t create_const(void *solver, rational_t *q)
  *    - this must create a theory variable equal to q and return it (no eterm attached)
  *
  * 3) thvar_t create_poly(void *solver, polynomial_t *p, thvar_t *map)
- *    - must return a theory variable equal to p with variables defined by map
- *    - p is of the form a_0 t_0 + ... + a_n t_n where t_0 ... t_n are 
- *      arithmetic terms
- *    - map is an array of n+1 variables:
- *      map[i] is the arithmetic variable x_i that's mapped to term t_i
- *    - the solver must return a variable y equal to a_0 x_0 + ... + a_n x_n
+ *    - this must return a theory variable equal to p with variable renamed as 
+ *      defined by map
+ *    - p is of the form a_0 t_0 + a_1 t1 ... + a_n t_n, 
+ *       where t_0 is either the special marker const_idx (= 0) or an arithmetic term
+ *         and t_1 ... t_n are arithmetic terms
+ *    - map is an array of n+1 theory variables:
+ *      map[i] = the theory variable x_i mapped to t_i (with the convention that const_idx
+ *               is always mapped to null_thvar)
+ *    - the solver must return a theory variable y equal to a_0 x_0 + ... + a_n x_n
  * 
  * 4) thvar_t create_pprod(void *solver, pprod_t *r, thvar_t *map)
  *    - must return a theory variable equal to r with variables defined by map
@@ -210,9 +215,11 @@ enum {
  *      terms
  *    - map is an array of n+1 variables: map[i] = variable x_i mapped to t_i
  *    - the solver must return an arithmetic varable y equal to (x_0^d_0 x ... x x_n^d_n)
- *    
+ *
+ *
  * Atom constructors
  * -----------------
+ *
  * 5) literal_t create_eq_atom(void *solver, thvar_t x)
  *    - must create the atom (x == 0) and return the corresponding literal
  *    - x is an existing theory variable in solver
@@ -224,54 +231,51 @@ enum {
  * 7) literal_t create_vareq_atom(void *solver, thvar_t x, thvar_t y)
  *    - create the atom x == y where x and y are two existing variables in solver
  *
- * 8) literal_t create_polyeq_atom(void *solver, thvar_t x, polynomial_t *p, thvar_t *map)
- *    - create the atom x == p and return the corresponding literal
- *    - variables of p must be renamed as defined by arith_map.
  *
  * Assertion of top-level axioms
  * -----------------------------
- * 9) void assert_eq_axiom(void *solver, thvar_t x, bool tt)
+ *
+ * 8) void assert_eq_axiom(void *solver, thvar_t x, bool tt)
  *    - if tt assert (x == 0) otherwise assert (x != 0)
  * 
- * 10) void assert_ge_axiom(void *solver, thvar_t x, bool tt)
- *    - if tt assert (p >= 0) otherwise assert (p < 0)
+ * 9) void assert_ge_axiom(void *solver, thvar_t x, bool tt)
+ *    - if tt assert (x >= 0) otherwise assert (x < 0)
  *
- * 11) void assert_vareq_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
+ * 10) void assert_vareq_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
  *     - if tt assert x == y, otherwise assert x != y
  *
- * 12) void assert_cond_vareq_axiom(void *solver, literal_t c, thvar_t x, thvar_t y)
+ * 11) void assert_cond_vareq_axiom(void *solver, literal_t c, thvar_t x, thvar_t y)
  *     - assert (c implies x == y) as an axiom
- *     - this is used as part of the if-then-else conversion
+ *     - this is used to convert if-then-else equalities:
+ *        (x == (ite c y1 y2)) is flattened to   (c implies x = y1) 
+ *                                         and (not c implies x = y2)
  *
- * ?? NOT SURE THAT'S NEEDED ANYMORE
- * 13) void assert_cond_polyeq_axiom(void *solver, literal_t c, thvar_t x, polynomial_t *p, thvar_t *map)
- *     - assert (c implies x = p) as an axiom
- *     - the variables of p must be renamed as defined by arith_map
- *     - this is used as part of the if-then-else conversion
- * 
  * Egraph connection
- * ------------------
- * 14) void attach_eterm(void *solver, thvar_t v, eterm_t t)
+ * -----------------
+ *
+ * 12) void attach_eterm(void *solver, thvar_t v, eterm_t t)
  *    - attach egraph term t to theory variable v
  *    - this function may be omitted for standalone solvers (no egraph is used in that case)
  *
- * 16) eterm_t eterm_of_var(void *solver, thvar_t v)
+ * 13) eterm_t eterm_of_var(void *solver, thvar_t v)
  *    - must return the eterm t attached to v (if any) or null_eterm if v has no term attached
  *    - this function may be omitted for standalone solvers (no egraph)
  *
  * NOTE: these functions are also used by the egraph.
  *
+ *
  * Model construction
  * ------------------
- * The following functions are used when the context_solver reaches SAT (or UNKNOWN) 
- * First build_model is called. The solver must construct an assignment M from variables to 
- * rationals at that point. Then the context can query for the value of a variable x in M.
+ *
+ * The following functions are used when the context_solver reaches SAT (or UNKNOWN).
+ * First, build_model is called. The solver must construct an assignment M from variables to 
+ * rationals at that point. Then, the context can query for the value of a variable x in M.
  * If the solver cannot assign a rational value to x, it can signal this when value_in_model
  * is called. M must not be changed until the context calls free_model.
  *
  * 14) void build_model(void *solver)
  *    - build a model M: maps variable to rationals.
- *  (or do nothing if the solver does not support model construction).
+ *     (or do nothing if the solver does not support model construction).
  *
  * 15) bool value_in_model(void *solver, thvar_t x, rational_t *v)
  *    - must return true and copy the value of x in M into v if that value is available.
@@ -281,12 +285,20 @@ enum {
  * 16) void free_model(void *solver)
  *    - notify solver that M is no longer needed.
  *
- * EXCEPTION MECHANISM
+ *
+ * Exception mechanism
  * -------------------
- * - when the solver is created and initialized it's given a pointer b to a jmp_buf internal to
- *   the context. If the solver fails in some way during internalization, it can call 
- *   longjmp(*b, error_code) to interrupt the internalization and return control to the 
- *   context. The valid error_codes are defined below.
+ * When the solver is created and initialized it's given a pointer b to a jmp_buf internal to
+ * the context. If the solver fails in some way during internalization, it can call 
+ * longjmp(*b, error_code) to interrupt the internalization and return control to the 
+ * context. For arithmetic solvers, the following error codes should be used:
+ *
+ *   FORMULA_NOT_IDL         (the solver supports only integer difference logic)
+ *   FORMULA_NOT_RDL         (the solver supports only real difference logic)
+ *   FORMULA_NOT_LINEAR      (the solver supports only linear arithmetic)
+ *   TOO_MANY_ARITH_VARS     (solver limit is reached)
+ *   TOO_MANY_ARITH_ATOMS    (solver limit is reached)
+ *   ARITHSOLVER_EXCEPTION   (any other failure)
  *
  */
 typedef thvar_t (*create_arith_var_fun_t)(void *solver, bool is_int);
@@ -296,12 +308,10 @@ typedef thvar_t (*create_arith_pprod_fun_t)(void *solver, pprod_t *p, thvar_t *m
 
 typedef literal_t (*create_arith_atom_fun_t)(void *solver, thvar_t x);
 typedef literal_t (*create_arith_vareq_atom_fun_t)(void *solver, thvar_t x, thvar_t y);
-typedef literal_t (*create_arith_polyeq_atom_fun_t)(void *solver, thvar_t x, polynomial_t *p, thvar_t *map);
 
 typedef void (*assert_arith_axiom_fun_t)(void *solver, thvar_t x, bool tt);
 typedef void (*assert_arith_vareq_axiom_fun_t)(void *solver, thvar_t x, thvar_t y, bool tt);
 typedef void (*assert_arith_cond_vareq_axiom_fun_t)(void* solver, literal_t c, thvar_t x, thvar_t y);
-typedef void (*assert_arith_cond_polyeq_axiom_fun_t)(void* solver, literal_t c, thvar_t x, polynomial_t *p, thvar_t *map);
 
 typedef void    (*attach_eterm_fun_t)(void *solver, thvar_t v, eterm_t t);
 typedef eterm_t (*eterm_of_var_fun_t)(void *solver, thvar_t v);
@@ -319,13 +329,11 @@ typedef struct arith_interface_s {
   create_arith_atom_fun_t create_eq_atom;
   create_arith_atom_fun_t create_ge_atom;
   create_arith_vareq_atom_fun_t create_vareq_atom;
-  create_arith_polyeq_atom_fun_t create_polyeq_atom;
 
   assert_arith_axiom_fun_t assert_eq_axiom;
   assert_arith_axiom_fun_t assert_ge_axiom;
   assert_arith_vareq_axiom_fun_t assert_vareq_axiom;
   assert_arith_cond_vareq_axiom_fun_t assert_cond_vareq_axiom;
-  assert_arith_cond_polyeq_axiom_fun_t assert_cond_polyeq_axiom;
 
   attach_eterm_fun_t attach_eterm;
   eterm_of_var_fun_t eterm_of_var;
@@ -493,8 +501,10 @@ struct context_s {
 enum {
   TRIVIALLY_UNSAT = 1,   // simplifies to false
   CTX_NO_ERROR = 0,      // internalization succeeds/not solved
+  // bugs
   INTERNAL_ERROR = -1,
   TYPE_ERROR = -2,
+  // general errors
   FREE_VARIABLE_IN_FORMULA = -3,
   LOGIC_NOT_SUPPORTED = -4,
   UF_NOT_SUPPORTED = -5,
@@ -502,14 +512,22 @@ enum {
   BV_NOT_SUPPORTED = -7,
   FUN_NOT_SUPPORTED = -8,
   QUANTIFIERS_NOT_SUPPORTED = -9,
+  // arithmetic solver errors
   FORMULA_NOT_IDL = -10,
   FORMULA_NOT_RDL = -11,
-  NONLINEAR_NOT_SUPPORTED = -12,
-  ARITHSOLVER_EXCEPTION = -13,
-  BVSOLVER_EXCEPTION = -14,
+  FORMULA_NOR_LINEAR = -12,
+  TOO_MANY_ARITH_VARS = -13,
+  TOO_MANY_ARITH_ATOMS = -14,
+  ARITHSOLVER_EXCEPTION = -15,
+  // bv solver errors
+  BVSOLVER_EXCEPTION = -16,
 };
 
-#define NUM_INTERNALIZATION_ERRORS 15
+
+/*
+ * NUM_INTERNALIZATION_ERRORS: must be (1 + number of negative codes)
+ */
+#define NUM_INTERNALIZATION_ERRORS 17
 
 
 
