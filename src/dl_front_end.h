@@ -31,7 +31,7 @@
  *
  * The triple is interpreted as the term (c + x - y):
  *   (c, nil, nil) --> c
- *   (c, x,   nil) --> c + x 
+ *   (c, x,   nil) --> c + x
  *   (c, nil, y)   --> c - y
  *   (c, x,   y)   --> c + x - y (with x != y)
  *
@@ -39,9 +39,9 @@
  * vertex of y ---> x of cost c in the solver graph.
  */
 typedef struct dl_triple_s {
-  rational_t q;    // constant c
   int32_t target;  // variable x
   int32_t source;  // variable y
+  rational_t q;    // constant c
 } dl_triple_t;
 
 
@@ -224,8 +224,10 @@ typedef struct dl_front_end_s {
   idl_interface_t idl;
 
   /*
-   * Auxiliary buffers: TBD
+   * Auxiliary buffers
    */
+  dl_triple_t aux;
+  rational_t q0;
 
   /*
    * Jmp buffer for internalization exceptions
@@ -275,7 +277,15 @@ extern void dl_front_end_init_jmpbuf(dl_front_end_t *dl, jmp_buf *buffer);
 /*
  * Delete: free memory
  */
-extern void delete_fron_end(dl_front_end_t *dl);
+extern void delete_dl_front_end(dl_front_end_t *dl);
+
+
+/*
+ * Push/pop/reset
+ */
+extern void dl_front_end_push(dl_front_end_t *dl);
+extern void dl_front_end_pop(dl_front_end_t *dl);
+extern void dl_front_end_reset(dl_front_end_t *dl);
 
 
 
