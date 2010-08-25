@@ -596,7 +596,7 @@ bool convert_poly_buffer_to_dl_triple(poly_buffer_t *b, dl_triple_t *d) {
 
   // divide the constant by a
   if (! q_is_one(&a)) {
-    q_div(&d->constant, a);
+    q_div(&d->constant, &a);
   }
 
   q_clear(&a);
