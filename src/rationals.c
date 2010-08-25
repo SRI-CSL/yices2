@@ -1490,6 +1490,7 @@ int q_cmp(rational_t *r1, rational_t *r2) {
     }
   }
 }
+
   
 /*
  * Compare r1 and num/den
@@ -1515,6 +1516,27 @@ int q_cmp_int64(rational_t *r1, int64_t num, uint64_t den) {
   }
 }
 
+
+
+/*
+ * Check whether r1 and r2 are opposite
+ */
+bool q_opposite(rational_t *r1, rational_t *r2) {
+  rational_t aux;
+  bool result;
+
+  if (r1->den == 1 && r2->den == 1) {
+    return r1->num + r2->num == 0;
+  }
+
+  q_clear(&aux);
+  q_set(&aux, r1);
+  q_add(&aux, r2);
+  result = q_is_zero(&aux);
+  q_clear(&aux);
+
+  return result;
+}
 
 
 

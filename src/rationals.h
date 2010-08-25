@@ -354,6 +354,10 @@ static inline bool q_neq(rational_t *r1, rational_t *r2) {
 }
 
 
+/*
+ * Check whether r1 and r2 are opposite (i.e., r1 + r2 = 0)
+ */
+extern bool q_opposite(rational_t *r1, rational_t *r2);
 
 
 /*

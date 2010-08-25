@@ -361,29 +361,38 @@ static bool sub_dl_triple(dl_triple_t *t1, dl_triple_t *t2) {
  * Add/subtract triple t to/from buffer b
  */
 static void poly_buffer_add_triple(poly_buffer_t *b, dl_triple_t *t) {
-  poly_buffer_add_var(b, t->target);
-  poly_buffer_sub_var(b, t->source);
+  assert(dl_triple_is_normalized(t));
+
+  if (t->target >= 0) poly_buffer_add_var(b, t->target);
+  if (t->source >= 0) poly_buffer_sub_var(b, t->source);
   poly_buffer_add_const(b, &t->constant);
 }
 
 static void poly_buffer_sub_triple(poly_buffer_t *b, dl_triple_t *t) {
-  poly_buffer_sub_var(b, t->target);
-  poly_buffer_add_var(b, t->source);
+  assert(dl_triple_is_normalized(t));
+
+  if (t->target >= 0) poly_buffer_sub_var(b, t->target);
+  if (t->source >= 0) poly_buffer_add_var(b, t->source);
   poly_buffer_sub_const(b, &t->constant);
 }
+
 
 /*
  * Add/subtract a * t to/from buffer b
  */
 static void poly_buffer_addmul_triple(poly_buffer_t *b, dl_triple_t *t, rational_t *a) {
-  poly_buffer_add_monomial(b, t->target, a);
-  poly_buffer_sub_monomial(b, t->source, a);
+  assert(dl_triple_is_normalized(t));
+
+  if (t->target >= 0) poly_buffer_add_monomial(b, t->target, a);
+  if (t->source >= 0) poly_buffer_sub_monomial(b, t->source, a);
   poly_buffer_addmul_monomial(b, const_idx, &t->constant, a);
 }
 
 static void poly_buffer_submul_triple(poly_buffer_t *b, dl_triple_t *t, rational_t *a) {
-  poly_buffer_sub_monomial(b, t->target, a);
-  poly_buffer_add_monomial(b, t->source, a);
+  assert(dl_triple_is_normalized(t));
+
+  if (t->target >= 0) poly_buffer_sub_monomial(b, t->target, a);
+  if (t->source >= 0) poly_buffer_add_monomial(b, t->source, a);
   poly_buffer_submul_monomial(b, const_idx, &t->constant, a);  
 }
 
@@ -516,4 +525,83 @@ void addmul_dl_var_to_buffer(dl_vartable_t *table, poly_buffer_t *b, thvar_t x, 
 void submul_dl_var_from_buffer(dl_vartable_t *table, poly_buffer_t *b, thvar_t x, rational_t *a) {
   poly_buffer_submul_triple(b, dl_var_triple(table, x), a);
 }
+
+
+/*
+ * Try to convert poly buffer *b to a triple [x, y, c]
+ * - b must be normalized.
+ * - if the conversion works, the returned triple satisfies the property
+ *    (b >= 0) <==> (x - y + c >= 0)
+ * - return true if the conversion works and store the result into d.
+ * - return false otherwise.
+ */
+bool convert_poly_buffer_to_dl_triple(poly_buffer_t *b, dl_triple_t *d) {
+  rational_t a;
+  monomial_t *p;
+  uint32_t n;
+  int32_t x, y;
+
+  n = poly_buffer_nterms(b);
+  p = poly_buffer_mono(b);
+  if (n >= 4 || (n == 3 && p[0].var != const_idx)) {
+    return false; // can't convert
+  }
+
+
+  /*
+   * Attempt to write b as (a x - a y + c) with a > 0 
+   * and  c is stored in d->constant.
+   * Then return (x - y + c/a) as the result.
+   * There are special cases for 
+   *    b = a x + c (then y = nil), 
+   *    b = - a y + c (then x = nil), etc.
+   */
+  q_init(&a);
+  q_set_one(&a);
+  q_clear(&d->constant);
+  x = nil_vertex;
+  y = nil_vertex;
+
+  // constant term of b
+  if (n > 0 && p[0].var == const_idx) {
+    q_set(&d->constant, &p[0].coeff);
+    n --;
+    p ++;
+  }
+
+  if (n == 1) {
+    if (q_is_pos(&p[0].coeff)) {
+      q_set(&a, &p[0].coeff);
+      x = p[0].var;
+    } else {
+      q_set_neg(&a, &p[0].coeff);
+      y = p[0].var;
+    }
+
+  } else if (n == 2 && q_opposite(&p[0].coeff, &p[1].coeff)) {
+    if (q_is_pos(&p[0].coeff)) {
+      q_set(&a, &p[0].coeff);
+      x = p[0].var;
+      y = p[1].var;
+    } else {
+      assert(q_is_pos(&p[1].coeff));
+      q_set(&a, &p[1].coeff);
+      x = p[1].var;
+      y = p[0].var;
+    }
+  } else {
+    q_clear(&a); // cleanup
+    return false;
+  }
+
+  // divide the constant by a
+  if (! q_is_one(&a)) {
+    q_div(&d->constant, a);
+  }
+
+  q_clear(&a);
+
+  return true;
+}
+
 

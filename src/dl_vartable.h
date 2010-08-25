@@ -208,5 +208,16 @@ extern void addmul_dl_var_to_buffer(dl_vartable_t *table, poly_buffer_t *b, thva
 extern void submul_dl_var_from_buffer(dl_vartable_t *table, poly_buffer_t *b, thvar_t x, rational_t *a);
 
 
+/*
+ * Try to convert poly buffer *b to a triple [x, y, c]
+ * - b must be normalized.
+ * - d->constant must be initialized.
+ * - if the conversion works, the returned triple satisfies the property
+ *    (b >= 0) <==> (x - y + c >= 0)
+ * - return true if the conversion works and store the result into d.
+ * - return false otherwise.
+ */
+extern bool convert_poly_buffer_to_dl_triple(poly_buffer_t *b, dl_triple_t *d);
+
 
 #endif /* __DL_VARTABLE_H */
