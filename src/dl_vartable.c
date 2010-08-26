@@ -528,6 +528,68 @@ void submul_dl_var_from_buffer(dl_vartable_t *table, poly_buffer_t *b, thvar_t x
 
 
 /*
+ * Check whether b is a triple (x - y + c) and store the result in d if so
+ * - b must be normalized
+ * - d->constant must be initialized
+ * - return true if the conversion works
+ * - return false otherwise
+ */
+bool convert_poly_buffer_to_dl_triple(poly_buffer_t *b, dl_triple_t *d) {
+  monomial_t *p;
+  uint32_t n;
+
+  n = poly_buffer_nterms(b);
+  p = poly_buffer_mono(b);
+  if (n >= 4 || (n == 3 && p[0].var != const_idx)) {
+    return false; // can't convert
+  }
+
+  // default: zero triple
+  d->target = nil_vertex;
+  d->source = nil_vertex;
+  q_clear(&d->constant);
+  
+  // get the constant term of b if any
+  if (n > 0 && p[0].var == const_idx) {
+    q_set(&d->constant, &p[0].coeff);
+    n --;
+    p ++;
+  }
+
+  // check whether the non-constant terms have the right form
+  if (n == 0) {
+    return true;
+
+  } else if (n == 1) {
+    if (q_is_one(&p[0].coeff)) {
+      d->target = p[0].var;
+      return true;
+    } 
+
+    if (q_is_minus_one(&p[0].coeff)) {
+      d->source = p[0].var;
+      return true;
+    }
+    
+  } else if (n == 2 && q_opposite(&p[0].coeff, &p[1].coeff)) {
+    if (q_is_one(&p[0].coeff)) {
+      d->target = p[0].var;
+      d->source = p[1].var;
+      return true;
+    }
+
+    if (q_is_one(&p[1].coeff)) {
+      d->target = p[1].var;
+      d->source = p[0].var;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+/*
  * Try to convert poly buffer *b to a triple [x, y, c]
  * - b must be normalized.
  * - if the conversion works, the returned triple satisfies the property
@@ -535,7 +597,7 @@ void submul_dl_var_from_buffer(dl_vartable_t *table, poly_buffer_t *b, thvar_t x
  * - return true if the conversion works and store the result into d.
  * - return false otherwise.
  */
-bool convert_poly_buffer_to_dl_triple(poly_buffer_t *b, dl_triple_t *d) {
+bool rescale_poly_buffer_to_dl_triple(poly_buffer_t *b, dl_triple_t *d) {
   rational_t a;
   monomial_t *p;
   uint32_t n;
@@ -578,23 +640,27 @@ bool convert_poly_buffer_to_dl_triple(poly_buffer_t *b, dl_triple_t *d) {
       y = p[0].var;
     }
 
-  } else if (n == 2 && q_opposite(&p[0].coeff, &p[1].coeff)) {
-    if (q_is_pos(&p[0].coeff)) {
-      q_set(&a, &p[0].coeff);
-      x = p[0].var;
-      y = p[1].var;
+  } else if (n == 2) {
+    if (q_opposite(&p[0].coeff, &p[1].coeff)) {
+      if (q_is_pos(&p[0].coeff)) {
+	q_set(&a, &p[0].coeff);
+	x = p[0].var;
+	y = p[1].var;
+      } else {
+	assert(q_is_pos(&p[1].coeff));
+	q_set(&a, &p[1].coeff);
+	x = p[1].var;
+	y = p[0].var;
+      }
+
     } else {
-      assert(q_is_pos(&p[1].coeff));
-      q_set(&a, &p[1].coeff);
-      x = p[1].var;
-      y = p[0].var;
+      q_clear(&a); // cleanup
+      return false;
     }
-  } else {
-    q_clear(&a); // cleanup
-    return false;
   }
 
-  // divide the constant by a
+  d->target = x;
+  d->source = y;
   if (! q_is_one(&a)) {
     q_div(&d->constant, &a);
   }

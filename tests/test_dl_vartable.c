@@ -60,7 +60,7 @@ static void print_polynomial(monomial_t *a, uint32_t n) {
 /*
  * Print the content of a poly_buffer b
  */
-static void print_poly_buffer_details(poly_buffer_t *b) {
+static void print_poly_buffer(poly_buffer_t *b) {
   print_polynomial(b->mono, b->nterms);
 }
 
@@ -143,11 +143,11 @@ static void random_rational(rational_t *a) {
 }
 
 /*
- * Create a random index between 0 and n-1
+ * Create a random index between 1 and n
  */
 static int32_t random_vertex(uint32_t n) {
   assert(n > 0);
-  return (int32_t) (random() % n);
+  return 1 + (int32_t) (random() % n);
 }
 
 
@@ -230,13 +230,59 @@ static void test_diff(dl_vartable_t *table, int32_t x, int32_t y, dl_triple_t *a
 
 
 /*
+ * Test sum using a poly buffer
+ */
+static void test_sum_buffer(dl_vartable_t *table, poly_buffer_t *buffer, int32_t x, int32_t y, dl_triple_t *aux) {
+  printf("Testing sum2: var!%"PRId32" + var!%"PRId32":\n", x, y);
+  reset_poly_buffer(buffer);
+  add_dl_var_to_buffer(table, buffer, x);
+  add_dl_var_to_buffer(table, buffer, y);
+  normalize_poly_buffer(buffer);
+  printf("--> result = ");
+  print_poly_buffer(buffer);
+  printf("\n");
+  if (convert_poly_buffer_to_dl_triple(buffer, aux)) {
+    printf("--> convertible to triple: ");
+    print_dl_triple(aux);
+    printf("\n");
+  } else {
+    printf("--> not convertible to a triple\n");
+  }
+}
+
+
+static void test_diff_buffer(dl_vartable_t *table, poly_buffer_t *buffer, int32_t x, int32_t y, dl_triple_t *aux) {
+  printf("Testing diff2: var!%"PRId32" + var!%"PRId32":\n", x, y);
+  reset_poly_buffer(buffer);
+  add_dl_var_to_buffer(table, buffer, x);
+  sub_dl_var_from_buffer(table, buffer, y);
+  normalize_poly_buffer(buffer);
+  printf("--> result = ");
+  print_poly_buffer(buffer);
+  printf("\n");
+  if (convert_poly_buffer_to_dl_triple(buffer, aux)) {
+    printf("--> convertible to triple: ");
+    print_dl_triple(aux);
+    printf("\n");
+  } else {
+    printf("--> not convertible to a triple\n");
+  }
+}
+
+
+
+/*
  * Test sum and difference of triples
  */
 static void test_add_diff(dl_vartable_t *table) {
   uint32_t i, j, n;
   dl_triple_t test;
+  dl_triple_t test2;
+  poly_buffer_t buffer;
 
+  init_poly_buffer(&buffer);
   q_init(&test.constant);
+  q_init(&test2.constant);
 
   n = table->nvars;
   for (i=0; i<n; i++) {
@@ -248,14 +294,20 @@ static void test_add_diff(dl_vartable_t *table) {
       print_dl_triple(dl_var_triple(table, j));
       printf("\n");
       test_sum(table, i, j, &test);
+      test_sum_buffer(table, &buffer, i, j, &test2);
+      printf("\n");
       test_diff(table, i, j, &test);
+      test_diff_buffer(table, &buffer, i, j, &test2);
       printf("\n");
     }
   }
 
   q_clear(&test.constant);
+  q_clear(&test2.constant);
+  delete_poly_buffer(&buffer);
 }
 						
+
 
 /*
  * GLOBAL VARIABLE TABLE
