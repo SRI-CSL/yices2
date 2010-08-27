@@ -363,16 +363,16 @@ static bool sub_dl_triple(dl_triple_t *t1, dl_triple_t *t2) {
 static void poly_buffer_add_triple(poly_buffer_t *b, dl_triple_t *t) {
   assert(dl_triple_is_normalized(t));
 
-  if (t->target >= 0) poly_buffer_add_var(b, t->target);
-  if (t->source >= 0) poly_buffer_sub_var(b, t->source);
+  if (t->target >= 0) poly_buffer_add_var(b, t->target + 1);
+  if (t->source >= 0) poly_buffer_sub_var(b, t->source + 1);
   poly_buffer_add_const(b, &t->constant);
 }
 
 static void poly_buffer_sub_triple(poly_buffer_t *b, dl_triple_t *t) {
   assert(dl_triple_is_normalized(t));
 
-  if (t->target >= 0) poly_buffer_sub_var(b, t->target);
-  if (t->source >= 0) poly_buffer_add_var(b, t->source);
+  if (t->target >= 0) poly_buffer_sub_var(b, t->target + 1);
+  if (t->source >= 0) poly_buffer_add_var(b, t->source + 1);
   poly_buffer_sub_const(b, &t->constant);
 }
 
@@ -383,16 +383,16 @@ static void poly_buffer_sub_triple(poly_buffer_t *b, dl_triple_t *t) {
 static void poly_buffer_addmul_triple(poly_buffer_t *b, dl_triple_t *t, rational_t *a) {
   assert(dl_triple_is_normalized(t));
 
-  if (t->target >= 0) poly_buffer_add_monomial(b, t->target, a);
-  if (t->source >= 0) poly_buffer_sub_monomial(b, t->source, a);
+  if (t->target >= 0) poly_buffer_add_monomial(b, t->target + 1, a);
+  if (t->source >= 0) poly_buffer_sub_monomial(b, t->source + 1, a);
   poly_buffer_addmul_monomial(b, const_idx, &t->constant, a);
 }
 
 static void poly_buffer_submul_triple(poly_buffer_t *b, dl_triple_t *t, rational_t *a) {
   assert(dl_triple_is_normalized(t));
 
-  if (t->target >= 0) poly_buffer_sub_monomial(b, t->target, a);
-  if (t->source >= 0) poly_buffer_add_monomial(b, t->source, a);
+  if (t->target >= 0) poly_buffer_sub_monomial(b, t->target + 1, a);
+  if (t->source >= 0) poly_buffer_add_monomial(b, t->source + 1, a);
   poly_buffer_submul_monomial(b, const_idx, &t->constant, a);  
 }
 
@@ -562,25 +562,25 @@ bool convert_poly_buffer_to_dl_triple(poly_buffer_t *b, dl_triple_t *d) {
 
   } else if (n == 1) {
     if (q_is_one(&p[0].coeff)) {
-      d->target = p[0].var;
+      d->target = p[0].var - 1;
       return true;
     } 
 
     if (q_is_minus_one(&p[0].coeff)) {
-      d->source = p[0].var;
+      d->source = p[0].var - 1;
       return true;
     }
     
   } else if (n == 2 && q_opposite(&p[0].coeff, &p[1].coeff)) {
     if (q_is_one(&p[0].coeff)) {
-      d->target = p[0].var;
-      d->source = p[1].var;
+      d->target = p[0].var - 1;
+      d->source = p[1].var - 1;
       return true;
     }
 
     if (q_is_one(&p[1].coeff)) {
-      d->target = p[1].var;
-      d->source = p[0].var;
+      d->target = p[1].var - 1;
+      d->source = p[0].var - 1;
       return true;
     }
   }
@@ -634,23 +634,23 @@ bool rescale_poly_buffer_to_dl_triple(poly_buffer_t *b, dl_triple_t *d) {
   if (n == 1) {
     if (q_is_pos(&p[0].coeff)) {
       q_set(&a, &p[0].coeff);
-      x = p[0].var;
+      x = p[0].var - 1;
     } else {
       q_set_neg(&a, &p[0].coeff);
-      y = p[0].var;
+      y = p[0].var - 1;
     }
 
   } else if (n == 2) {
     if (q_opposite(&p[0].coeff, &p[1].coeff)) {
       if (q_is_pos(&p[0].coeff)) {
 	q_set(&a, &p[0].coeff);
-	x = p[0].var;
-	y = p[1].var;
+	x = p[0].var - 1;
+	y = p[1].var - 1;
       } else {
 	assert(q_is_pos(&p[1].coeff));
 	q_set(&a, &p[1].coeff);
-	x = p[1].var;
-	y = p[0].var;
+	x = p[1].var - 1;
+	y = p[0].var - 1;
       }
 
     } else {

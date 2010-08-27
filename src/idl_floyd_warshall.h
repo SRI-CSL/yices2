@@ -7,7 +7,7 @@
  * attached to the egraph. 
  *
  * WARNING: All path length computations are done using signed 32bit
- * integers and the code does not check for overflow.
+ * integers. There's some check for this now (not very precise).
  */
 
 /*
@@ -56,14 +56,17 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <setjmp.h>
 
 #include "bitvectors.h"
 #include "int_hash_tables.h"
 #include "arena.h"
 #include "int_vectors.h"
+#include "poly_buffer.h"
+#include "dl_vartable.h"
 
 #include "smt_core.h"
-
+#include "context.h"
 
 
 /***********
@@ -327,9 +330,10 @@ typedef struct idl_trail_stack_s {
 
 typedef struct idl_solver_s {
   /*
-   * Attached smt core
+   * Attached smt core + gate manager
    */
   smt_core_t *core;
+  gate_manager_t *gate_manager;
 
   /*
    * Base level and decision level (same interpretation as in smt_core)
@@ -341,6 +345,14 @@ typedef struct idl_solver_s {
    * Unsat flag: set to true if the asserted axioms are inconsistent
    */
   bool unsat_before_search;
+
+  /*
+   * Variable table
+   * - every variable (used by the context) is mapped to a
+   *   difference logic triple (x - y + c) where x and y are vertices
+   *   in the graph.
+   */
+  dl_vartable_t vtbl;
 
   /*
    * Graph
@@ -368,16 +380,22 @@ typedef struct idl_solver_s {
   /*
    * Auxiliary buffers and data structures
    */
-  int_htbl_t htbl;   // for hash-consing of atoms
-  arena_t arena;     // for storing explanations of implied atoms
+  int_htbl_t htbl;        // for hash-consing of atoms
+  arena_t arena;          // for storing explanations of implied atoms
   ivector_t expl_buffer;  // for constructing explanations
 
+  dl_triple_t triple;     // for variable construction
+  poly_buffer_t buffer;   // for internal polynomial operations
 
   /*
    * Variable assignment: allocated when needed in build_model
    */
   int32_t *value;
 
+  /*
+   * Jump buffer for exception handling during internalization
+   */
+  jmp_buf *env;
 } idl_solver_t;
 
 
@@ -399,8 +417,15 @@ typedef struct idl_solver_s {
 /*
  * Initialize an idl solver
  * - core = the attached smt-core object
+ * - gates = the attached gate manager
  */
-extern void init_idl_solver(idl_solver_t *solver, smt_core_t *core);
+extern void init_idl_solver(idl_solver_t *solver, smt_core_t *core, gate_manager_t *gates);
+
+
+/*
+ * Attach a jump buffer for internalization exception
+ */
+extern void idl_solver_init_jmpbuf(idl_solver_t *solver, jmp_buf *buffer);
 
 
 /*
@@ -414,6 +439,12 @@ extern void delete_idl_solver(idl_solver_t *solver);
  */
 extern th_ctrl_interface_t *idl_ctrl_interface(idl_solver_t *solver);
 extern th_smt_interface_t  *idl_smt_interface(idl_solver_t *solver);
+
+
+/*
+ * Get interface descriptor for the internalization functions.
+ */
+extern arith_interface_t *idl_arith_interface(idl_solver_t *solver);
 
 
 
@@ -468,6 +499,104 @@ extern void idl_add_axiom_eq(idl_solver_t *solver, int32_t x, int32_t y, int32_t
 
 
 
+/*******************************
+ *  INTERNALIZATION FUNCTIONS  *
+ ******************************/
+
+/*
+ * These functions are used by the context to convert terms to
+ * variables and literals. They form the arith_interface descriptor.
+ */
+
+/*
+ * Create a new theory variable
+ * - is_int indicates whether the variable should be an integer,
+ *   so it should always be true for this solver.
+ * - raise exception NOT_IDL if is_int is false
+ * - raise exception TOO_MANY_VARS if we can't create a new vertex
+ *   for that variable
+ */
+extern thvar_t idl_create_var(idl_solver_t *solver, bool is_int);
+
+
+/*
+ * Create a variable that represents the constant q
+ * - if the internal solver is for IDL, fails if q is not an integer
+ */
+extern thvar_t idl_create_const(idl_solver_t *solver, rational_t *q);
+
+
+/*
+ * Create a variable for a polynomial p, with variables defined by map:
+ * - p is of the form a_0 t_0 + ... + a_n t_n where t_0, ..., t_n
+ *   are arithmetic terms.
+ * - map[i] is the theory variable x_i for t_i 
+ *   (with map[0] = null_thvar if t_0 is const_idx)
+ * - the function constructs a variable equal to a_0 x_0 + ... + a_n x_n
+ *
+ * - fails if a_0 x_0 + ... + a_n x_n is not an IDL polynomial 
+ *   (i.e., not of the form x - y + c)
+ */
+extern thvar_t idl_create_poly(idl_solver_t *solver, polynomial_t *p, thvar_t *map);
+
+
+/*
+ * Internalization for a product: always fails with NOT_IDL exception
+ */
+extern thvar_t idl_create_pprod(idl_solver_t *solver, pprod_t *p, thvar_t *map);
+
+
+/*
+ * Create the atom x = 0
+ */
+extern literal_t idl_create_eq_atom(idl_solver_t *solver, thvar_t x);
+
+
+/*
+ * Create the atom x >= 0
+ */
+extern literal_t idl_create_ge_atom(idl_solver_t *solver, thvar_t x);
+
+
+/*
+ * Create the atom (x = y)
+ */
+extern literal_t idl_create_vareq_atom(idl_solver_t *solver, thvar_t x, thvar_t y);
+
+
+/*
+ * Assert the top-level constraint (x == 0) or (x != 0)
+ * - if tt is true: assert x == 0
+ * - if tt is false: assert x != 0
+ */
+extern void idl_assert_eq_axiom(idl_solver_t *solver, thvar_t x, bool tt);
+
+
+/*
+ * Assert the top-level constraint (x >= 0) or (x < 0)
+ * - if tt is true: assert (x >= 0)
+ * - if tt is false: assert (x < 0)
+ */
+extern void idl_assert_ge_axiom(idl_solver_t *solver, thvar_t x, bool tt);
+
+
+/*
+ * Assert (x == y) or (x != y)
+ * - if tt is true: assert (x == y)
+ * - if tt is false: assert (x != y)
+ */
+extern void idl_assert_vareq_axiom(idl_solver_t *solver, thvar_t x, thvar_t y, bool tt);
+
+
+/*
+ * Assert (c ==> x == y)
+ */
+extern void idl_assert_cond_vareq_axiom(idl_solver_t *solver, literal_t c, thvar_t x, thvar_t y);
+
+
+
+
+
 /**********************
  *  SOLVER FUNCTIONS  *
  *********************/
@@ -481,6 +610,7 @@ extern void idl_add_axiom_eq(idl_solver_t *solver, int32_t x, int32_t y, int32_t
  * Start the search
  */
 extern void idl_start_search(idl_solver_t *solver);
+
 
 /*
  * Increase the decision level/backtrack
@@ -506,6 +636,7 @@ extern void idl_reset(idl_solver_t *solver);
  *   return true otherwise
  */
 extern bool idl_assert_atom(idl_solver_t *solver, void *atom, literal_t l);
+
 
 /*
  * Propagate: process the assertion queue

@@ -178,6 +178,13 @@ extern bool mpq_fits_int32(mpq_t q);
 
 
 /*
+ * Check whether q is equal to a 32bit or 64bit signed integer:
+ */
+extern bool mpq_is_int64(mpq_t q);
+extern bool mpq_is_int32(mpq_t q);
+
+
+/*
  * Conversions to and from 64 bit numbers
  */
 #if ULONG_SIZE == 4

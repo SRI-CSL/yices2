@@ -345,6 +345,29 @@ bool mpq_fits_int64(mpq_t q) {
 }
 
 
+/*
+ * Check whether q is convertible to a 32bit integer
+ * - the numerator fits into a 32bit number and the denominator is 1
+ */
+bool mpq_is_int32(mpq_t q) {
+  return mpz_fits_slong_p(mpq_numref(q)) && mpz_cmp_ui(mpq_denref(q), 1UL) == 0;
+}
+
+
+/*
+ * Check whether q is convertible to a 64bit integer
+ * - i.e., the numerator fits into a 64bit number and the denominator is 1
+ */
+bool mpq_is_int64(mpq_t q) {
+  if (mpz_cmp_ui(mpq_denref(q), 1UL) == 0) {
+    mpz_fdiv_q_2exp(z0, mpq_numref(q), 32); // z0 = numerator >> 32
+    return mpz_fits_slong_p(z0);
+  } else {
+    return false;
+  }
+}
+
+
 #else
 
 /*
@@ -367,6 +390,32 @@ bool mpq_fits_int32(mpq_t q) {
 bool mpq_fits_int64(mpq_t q) {
   return mpz_fits_slong_p(mpq_numref(q)) && mpz_fits_ulong_p(mpq_denref(q));
 }
+
+
+/*
+ * Check whether q is convertible to a 32bit integer
+ * - the numerator fits into a 32bit number and the denominator is 1
+ */
+bool mpq_is_int32(mpq_t q) {
+  signed long num;
+
+  if (mpz_fits_slong_p(mpq_numref(q)) && mpz_cmp_ui(mpq_denref(q), 1UL) == 0) {
+    num = mpz_get_si(mpq_numref(q));
+    return INT32_MIN <= num && num <= INT32_MAX;
+  } else {
+    return false;
+  }
+}
+
+
+/*
+ * Check whether q is convertible to a 64bit integer
+ * - i.e., the numerator fits into a 64bit number and the denominator is 1
+ */
+bool mpq_is_int64(mpq_t q) {
+  return mpz_fits_slong_p(mpq_numref(q)) && mpz_cmp_ui(mpq_denref(q), 1UL) == 0;
+}
+
 
 
 #endif

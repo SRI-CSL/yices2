@@ -26,12 +26,23 @@ static void convert_int32_test(rational_t *r1) {
     if (! q_eq(r1, &check)) {
       printf("---> BUG\n");
       fflush(stdout);
-      exit(0);
+      exit(1);
     }
+    if (! q_fits_int32(r1)) {
+      printf("---> BUG\n");
+      fflush(stdout);
+      exit(1);
+    }
+    q_clear(&check);
   } else {
     printf("Rational: ");
     q_print(stdout, r1);
     printf(" not convertible to 32bit integers\n");
+    if (q_fits_int32(r1)) {
+      printf("---> BUG\n");
+      fflush(stdout);
+      exit(1);
+    }
   }  
 }
 
@@ -50,13 +61,23 @@ static void convert_int64_test(rational_t *r1) {
     if (! q_eq(r1, &check)) {
       printf("---> BUG\n");
       fflush(stdout);
-      exit(0);
+      exit(1);
+    }
+    if (! q_fits_int64(r1)) {
+      printf("---> BUG\n");
+      fflush(stdout);
+      exit(1);
     }
     q_clear(&check);
   } else {
     printf("Rational: ");
     q_print(stdout, r1);
     printf(" not convertible to 64bit integers\n");
+    if (q_fits_int64(r1)) {
+      printf("---> BUG\n");
+      fflush(stdout);
+      exit(1);
+    }
   }  
 }
 
@@ -77,13 +98,23 @@ static void convert32_test(rational_t *r1) {
     if (! q_eq(r1, &check)) {
       printf("---> BUG\n");
       fflush(stdout);
-      exit(0);
+      exit(1);
+    }
+    if (! q_is_int32(r1)) {
+      printf("---> BUG\n");
+      fflush(stdout);
+      exit(1);
     }
     q_clear(&check);
   } else {
     printf("Rational: ");
     q_print(stdout, r1);
     printf(" not convertible to a 32bit integer\n");
+    if (q_is_int32(r1)) {
+      printf("---> BUG\n");
+      fflush(stdout);
+      exit(1);
+    }
   }
 }
 
@@ -101,13 +132,23 @@ static void convert64_test(rational_t *r1) {
     if (! q_eq(r1, &check)) {
       printf("---> BUG\n");
       fflush(stdout);
-      exit(0);
+      exit(1);
+    }
+    if (! q_is_int64(r1)) {
+      printf("---> BUG\n");
+      fflush(stdout);
+      exit(1);
     }
     q_clear(&check);
   } else {
     printf("Rational: ");
     q_print(stdout, r1);
     printf(" not convertible to a 64bit integer\n");
+    if (q_is_int64(r1)) {
+      printf("---> BUG\n");
+      fflush(stdout);
+      exit(1);
+    }
   }
 }
 

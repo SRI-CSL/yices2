@@ -458,6 +458,16 @@ extern bool q_get_int32(rational_t *r, int32_t *num, uint32_t *den);
 extern bool q_get_int64(rational_t *r, int64_t *num, uint64_t *den);
 
 
+/*
+ * Similar to the conversion functions above but just check
+ * whether the conversions are possible.
+ */
+extern bool q_is_int32(rational_t *r);   // r is a/1 where a is int32
+extern bool q_is_int64(rational_t *r);   // r is a/1 where a is int64
+extern bool q_fits_int32(rational_t *r); // r is a/b where a is int32, b is uint32
+extern bool q_fits_int64(rational_t *r); // r is a/b where a is int64, b is uint64
+
+
 
 /*
  * CONVERSION TO GMP OBJECTS

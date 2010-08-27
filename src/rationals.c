@@ -1617,6 +1617,30 @@ bool q_get_int64(rational_t *r, int64_t *num, uint64_t *den) {
 }
 
 
+
+/*
+ * Check whether r can be converted to a 32bit integer, 
+ * a 64bit integer, or two a pair num/den of 32bit or 64bit integers.
+ */
+bool q_is_int32(rational_t *r) {
+  return r->den == 1 || (r->den == 0 && mpq_is_int32(bank_q[r->num]));
+}
+
+bool q_is_int64(rational_t *r) {
+  return r->den == 1 || (r->den == 0 && mpq_is_int64(bank_q[r->num]));
+}
+
+bool q_fits_int32(rational_t *r) {
+  return r->den != 0 || mpq_fits_int32(bank_q[r->num]);
+}
+
+bool q_fits_int64(rational_t *r) {
+  return r->den != 0 || mpq_fits_int64(bank_q[r->num]);
+}
+
+
+
+
 /*
  * Convert r to a GMP integer
  * - return false if r is not an integer

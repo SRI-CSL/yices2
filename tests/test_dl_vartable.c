@@ -5,8 +5,10 @@
 
 #include "dl_vartable.h"
 
+
 /*
  * Print a monomial (copied from term_printer.c)
+ * - variables v is converted to vertex id i-1
  */
 static void print_monomial(int32_t v, rational_t *coeff, bool first) {
   bool negative;
@@ -35,7 +37,7 @@ static void print_monomial(int32_t v, rational_t *coeff, bool first) {
       q_print_abs(stdout, coeff);
       printf(" * ");
     }
-    printf("x!%"PRId32, v);
+    printf("x!%"PRId32, v-1);
   }
 }
 
@@ -143,11 +145,11 @@ static void random_rational(rational_t *a) {
 }
 
 /*
- * Create a random index between 1 and n
+ * Create a random index between 0 and n-1
  */
 static int32_t random_vertex(uint32_t n) {
   assert(n > 0);
-  return 1 + (int32_t) (random() % n);
+  return (int32_t) (random() % n);
 }
 
 
@@ -203,7 +205,6 @@ static void test_random_triple(dl_vartable_t *table) {
  * Test sum of triples for x and y
  */
 static void test_sum(dl_vartable_t *table, int32_t x, int32_t y, dl_triple_t *aux) {
-  printf("Testing sum: var!%"PRId32" + var!%"PRId32":\n", x, y);
   if (sum_dl_vars(table, x, y, aux)) {
     printf("--> result = ");
     print_dl_triple(aux);
@@ -218,7 +219,6 @@ static void test_sum(dl_vartable_t *table, int32_t x, int32_t y, dl_triple_t *au
  * Test difference of triples for x and y
  */
 static void test_diff(dl_vartable_t *table, int32_t x, int32_t y, dl_triple_t *aux) {
-  printf("Testing diff: var!%"PRId32" - var!%"PRId32":\n", x, y);
   if (diff_dl_vars(table, x, y, aux)) {
     printf("--> result = ");
     print_dl_triple(aux);
@@ -233,7 +233,6 @@ static void test_diff(dl_vartable_t *table, int32_t x, int32_t y, dl_triple_t *a
  * Test sum using a poly buffer
  */
 static void test_sum_buffer(dl_vartable_t *table, poly_buffer_t *buffer, int32_t x, int32_t y, dl_triple_t *aux) {
-  printf("Testing sum2: var!%"PRId32" + var!%"PRId32":\n", x, y);
   reset_poly_buffer(buffer);
   add_dl_var_to_buffer(table, buffer, x);
   add_dl_var_to_buffer(table, buffer, y);
@@ -248,11 +247,17 @@ static void test_sum_buffer(dl_vartable_t *table, poly_buffer_t *buffer, int32_t
   } else {
     printf("--> not convertible to a triple\n");
   }
+  if (rescale_poly_buffer_to_dl_triple(buffer, aux)) {
+    printf("--> convertible by rescaling to triple: ");
+    print_dl_triple(aux);
+    printf("\n");
+  } else {
+    printf("--> not convertible to a triple by rescaling\n");
+  }
 }
 
 
 static void test_diff_buffer(dl_vartable_t *table, poly_buffer_t *buffer, int32_t x, int32_t y, dl_triple_t *aux) {
-  printf("Testing diff2: var!%"PRId32" + var!%"PRId32":\n", x, y);
   reset_poly_buffer(buffer);
   add_dl_var_to_buffer(table, buffer, x);
   sub_dl_var_from_buffer(table, buffer, y);
@@ -266,6 +271,13 @@ static void test_diff_buffer(dl_vartable_t *table, poly_buffer_t *buffer, int32_
     printf("\n");
   } else {
     printf("--> not convertible to a triple\n");
+  }
+  if (rescale_poly_buffer_to_dl_triple(buffer, aux)) {
+    printf("--> convertible by rescaling to triple: ");
+    print_dl_triple(aux);
+    printf("\n");
+  } else {
+    printf("--> not convertible to a triple by rescaling\n");
   }
 }
 
@@ -287,17 +299,26 @@ static void test_add_diff(dl_vartable_t *table) {
   n = table->nvars;
   for (i=0; i<n; i++) {
     for (j=0; j<n; j++) {
-      printf("---> var!%"PRId32" : ", i);
+      printf("Testing sum: var!%"PRIu32" + var!%"PRIu32":\n", i, j);
+      printf("--> var!%"PRIu32" : ", i);
       print_dl_triple(dl_var_triple(table, i));
       printf("\n");
-      printf("---> var!%"PRId32" : ", j);
+      printf("--> var!%"PRIu32" : ", j);
       print_dl_triple(dl_var_triple(table, j));
       printf("\n");
-      test_sum(table, i, j, &test);
       test_sum_buffer(table, &buffer, i, j, &test2);
+      test_sum(table, i, j, &test);
       printf("\n");
-      test_diff(table, i, j, &test);
+
+      printf("Testing diff: var!%"PRIu32" - var!%"PRIu32":\n", i, j);
+      printf("--> var!%"PRIu32" : ", i);
+      print_dl_triple(dl_var_triple(table, i));
+      printf("\n");
+      printf("--> var!%"PRIu32" : ", j);
+      print_dl_triple(dl_var_triple(table, j));
+      printf("\n");
       test_diff_buffer(table, &buffer, i, j, &test2);
+      test_diff(table, i, j, &test);
       printf("\n");
     }
   }

@@ -1742,6 +1742,7 @@ void idl_backtrack(idl_solver_t *solver, uint32_t back_level) {
 void idl_push(idl_solver_t *solver) {
   assert(solver->base_level == solver->decision_level);
 
+  dl_vartable_push(&solver->vtbl);
   idl_trail_stack_save(&solver->trail_stack, solver->nvertices, solver->atoms.natoms);
   solver->base_level ++;
   idl_increase_decision_level(solver);
@@ -1759,6 +1760,9 @@ void idl_pop(idl_solver_t *solver) {
 
   assert(solver->base_level > 0 && solver->base_level == solver->decision_level);
   top = idl_trail_stack_top(&solver->trail_stack);
+
+  // remove variables
+  dl_vartable_pop(&solver->vtbl);
 
   // remove atoms from the hash table
   p = top->natoms;
@@ -1797,13 +1801,20 @@ void idl_reset(idl_solver_t *solver) {
   solver->nvertices = 0;
   solver->zero_vertex = null_idl_vertex;
 
+  reset_dl_vartable(&solver->vtbl);
   reset_idl_graph(&solver->graph);
   reset_idl_atbl(&solver->atoms);
   reset_idl_astack(&solver->astack);
   reset_idl_undo_stack(&solver->stack);
   reset_idl_trail_stack(&solver->trail_stack);
   reset_int_htbl(&solver->htbl);
-  arena_reset(&solver->arena);  
+  arena_reset(&solver->arena);
+
+
+  solver->triple.target = nil_vertex;
+  solver->triple.source = nil_vertex;
+  q_clear(&solver->triple.constant);
+  reset_poly_buffer(&solver->buffer);
 
   if (solver->value != NULL) {
     safe_free(solver->value);
@@ -1857,6 +1868,436 @@ literal_t idl_select_polarity(idl_solver_t *solver, void *a, literal_t l) {
     return l;
   }
 }
+
+
+
+/**********************
+ *  INTERNALIZATION   *
+ *********************/
+
+/*
+ * Raise exception or abort
+ */
+static __attribute__ ((noreturn)) void idl_exception(idl_solver_t *solver, int code) {
+  if (solver->env != NULL) {
+    longjmp(*solver->env, code);
+  }
+  abort();
+}
+
+
+/*
+ * Store a triple (x, y, c) into the internal triple
+ * create/get the corresponding variable from vtbl.
+ * - x = target vertex 
+ * - y = source vertex
+ * - c = constant
+ * This returns a variable id whose descriptor is (x - y + c).
+ */
+static thvar_t idl_var_for_triple(idl_solver_t *solver, int32_t x, int32_t y, int32_t c) {
+  dl_triple_t *triple;
+
+  triple = &solver->triple;
+  triple->target = x;
+  triple->source = y;
+  q_set32(&triple->constant, c);
+
+  return get_dl_var(&solver->vtbl, triple);
+}
+
+
+
+/*
+ * Create a new theory variable
+ * - is_int indicates whether the variable should be an integer,
+ *   so it should always be true for this solver.
+ * - raise exception NOT_IDL if is_int is false
+ * - raise exception TOO_MANY_VARS if we can't create a new vertex
+ *   for that variable
+ */
+thvar_t idl_create_var(idl_solver_t *solver, bool is_int) {
+  int32_t v;
+
+  if (! is_int) {
+    idl_exception(solver, FORMULA_NOT_IDL);
+  }
+
+  v = idl_new_vertex(solver);
+  if (v < 0) {
+    idl_exception(solver, TOO_MANY_ARITH_VARS);
+  }
+
+  return idl_var_for_triple(solver, v, nil_vertex, 0);
+}
+
+
+/*
+ * Create a variable that represents the constant q
+ * - fails if q is not an integer
+ */
+thvar_t idl_create_const(idl_solver_t *solver, rational_t *q) {
+  int32_t c;
+
+  if (! q_get32(q, &c)) {
+    /*
+     * We could do a more precise diagnosis here:
+     * There are two possibilities:
+     * q is not an integer
+     * q is an integer but it doesn't fit in 32bits
+     */
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
+
+  return idl_var_for_triple(solver, nil_vertex, nil_vertex, c);
+}
+
+
+/*
+ * Create a variable for a polynomial p, with variables defined by map:
+ * - p is of the form a_0 t_0 + ... + a_n t_n where t_0, ..., t_n
+ *   are arithmetic terms.
+ * - map[i] is the theory variable x_i for t_i 
+ *   (with map[0] = null_thvar if t_0 is const_idx)
+ * - the function constructs a variable equal to a_0 x_0 + ... + a_n x_n
+ *
+ * - fails if a_0 x_0 + ... + a_n x_n is not an IDL polynomial 
+ *   (i.e., not of the form x - y + c)
+ */
+thvar_t idl_create_poly(idl_solver_t *solver, polynomial_t *p, thvar_t *map) {
+  poly_buffer_t *b;
+  monomial_t *mono;
+  dl_triple_t *triple;
+  uint32_t i, n;
+
+  b = &solver->buffer;
+  reset_poly_buffer(b);
+
+  n = p->nterms;
+  mono = p->mono;
+
+  // deal with p's constant term if any
+  if (map[0] == null_thvar) {
+    assert(mono[0].var == const_idx);
+    poly_buffer_add_const(b, &mono[0].coeff);
+    n --;
+    map ++;
+    mono ++;
+  }
+
+  for (i=0; i<n; i++) {
+    assert(mono[i].var != const_idx);
+    addmul_dl_var_to_buffer(&solver->vtbl, b, map[i], &mono[i].coeff);
+  }
+
+  normalize_poly_buffer(b);
+
+  // b contains a_0 x_0 + ... + a_n x_n
+  triple = &solver->triple;
+  if (! convert_poly_buffer_to_dl_triple(b, triple) || 
+      ! q_is_int32(&triple->constant)) {
+    /*
+     * Exception here: either b is not of the right form
+     * or the constant is not an integer
+     * or the constant is an integer but it doesn't fit in 32bits
+     */
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
+
+  return get_dl_var(&solver->vtbl, triple);    
+}
+
+
+/*
+ * Internalization for a product: always fails with NOT_IDL exception
+ */
+thvar_t idl_create_pprod(idl_solver_t *solver, pprod_t *p, thvar_t *map) {
+  idl_exception(solver, FORMULA_NOT_IDL);
+}
+
+
+
+/*
+ * Create the zero_vertex but raise an exception if that fails.
+ */
+static int32_t idl_get_zero_vertex(idl_solver_t *solver) {
+  int32_t z;
+
+  z = idl_zero_vertex(solver);
+  if (z < 0) {
+    idl_exception(solver, TOO_MANY_ARITH_VARS);
+  }
+  return z;
+}
+
+
+/*
+ * Create the atom (x - y + c) == 0 for d = (x - y + c)
+ */
+static literal_t idl_eq_from_triple(idl_solver_t *solver, dl_triple_t *d) {
+  literal_t l1, l2;
+  int32_t c, x, y;
+
+  x = d->target;
+  y = d->source;
+  if (! q_get32(&d->constant, &c)) {
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
+
+  /*
+   * d is (x - y + c)
+   */
+  if (x == y) {
+    if (c == 0) {
+      return true_literal;
+    } else {
+      return false_literal;
+    }
+  } 
+
+  // a nil_vertex in triples denote 'zero'
+  if (x < 0) {
+    x = idl_get_zero_vertex(solver);
+  } else if (y < 0) {
+    y = idl_get_zero_vertex(solver);
+  }
+
+  // v == 0 is the conjunction of (y - x <= c) and (x - y <= -c)
+  if (c == INT32_MIN) {
+    // we can't represent -c
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
+
+  l1 = idl_make_atom(solver, y, x, c);  // atom (y - x <= c)
+  l2 = idl_make_atom(solver, x, y, -c); // atom (x - y <= -c)
+  return mk_and_gate2(solver->gate_manager, l1, l2);
+}
+
+
+/*
+ * Create the atom v = 0
+ */
+literal_t idl_create_eq_atom(idl_solver_t *solver, thvar_t v) {
+  return idl_eq_from_triple(solver, dl_var_triple(&solver->vtbl, v));
+}
+
+
+/*
+ * Create the atom v >= 0
+ */
+literal_t idl_create_ge_atom(idl_solver_t *solver, thvar_t v) {
+  dl_triple_t *d;
+  int32_t c, x, y;
+
+  d = dl_var_triple(&solver->vtbl, v);
+  x = d->target;
+  y = d->source;
+  if (! q_get32(&d->constant, &c)) {
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
+
+  // v --> (x - y + c)
+  if (x == y) {
+    if (c >= 0) {
+      return true_literal;
+    } else {
+      return false_literal;
+    }
+  }
+
+  if (x < 0) {
+    x = idl_get_zero_vertex(solver);
+  } else if (y < 0) {
+    y = idl_get_zero_vertex(solver);
+  }
+
+  // v >= 0 is (y - x <= c)
+  return idl_make_atom(solver, y, x, c);
+}
+
+
+/*
+ * Create the atom (v = w)
+ */
+literal_t idl_create_vareq_atom(idl_solver_t *solver, thvar_t v, thvar_t w) {  
+  dl_triple_t *triple;
+
+  triple = &solver->triple;
+  if (! diff_dl_vars(&solver->vtbl, v, w, triple)) {
+    // v - w is not expressible as (target - source + c) 
+    idl_exception(solver, FORMULA_NOT_IDL);
+  }
+
+  return idl_eq_from_triple(solver, triple);
+}
+
+
+
+/*
+ * Assert (x - y + c) == 0 or (x - y + c) != 0, given a triple d = x - y + c
+ * - tt true: assert the equality
+ * - tt false: assert the disequality
+ */
+static void idl_assert_triple_eq(idl_solver_t *solver, dl_triple_t *d, bool tt) {
+  int32_t x, y, c;
+  literal_t l1, l2;
+
+  x = d->target;
+  y = d->source;
+  if (! q_get32(&d->constant, &c)) {
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
+
+  // d is (x - y + c)
+  if (x == y) {
+    if ((c == 0) != tt) {
+      solver->unsat_before_search = true;
+    }
+    return;
+  }
+
+  if (x < 0) {
+    x = idl_get_zero_vertex(solver);
+  } else if (y < 0) {
+    y = idl_get_zero_vertex(solver);
+  }
+
+  if (tt) {
+    idl_add_axiom_eq(solver, x, y, c);
+  } else {
+    // (x - y + c) != 0 is equivalent to
+    // (not (y - x <= c)) or (not (x - y <= -c))
+    if (c == INT32_MIN) {
+      idl_exception(solver, ARITHSOLVER_EXCEPTION);
+    }
+
+    l1 = idl_make_atom(solver, y, x, c);   // atom (y - x <= c)
+    l2 = idl_make_atom(solver, x, y, -c);  // atom (x - y <= -c)
+    add_binary_clause(solver->core, not(l1), not(l2));
+  }
+}
+
+
+/*
+ * Assert the top-level constraint (v == 0) or (v != 0)
+ * - if tt is true: assert v == 0
+ * - if tt is false: assert v != 0
+ */
+void idl_assert_eq_axiom(idl_solver_t *solver, thvar_t v, bool tt) {
+  idl_assert_triple_eq(solver, dl_var_triple(&solver->vtbl, v), tt);
+}
+
+
+/*
+ * Assert the top-level constraint (v >= 0) or (v < 0)
+ * - if tt is true: assert (v >= 0)
+ * - if tt is false: assert (v < 0)
+ */
+void idl_assert_ge_axiom(idl_solver_t *solver, thvar_t v, bool tt) {
+  dl_triple_t *d;
+  int32_t x, y, c;
+
+  d = dl_var_triple(&solver->vtbl, v);
+  x = d->target;
+  y = d->source;
+  if (! q_get32(&d->constant, &c)) {
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
+
+  // d is (x - y + c)
+  if (x == y) {
+    if ((c >= 0) != tt) {
+      solver->unsat_before_search = true;
+    }
+    return;
+  }
+
+
+  if (x < 0) {
+    x = idl_get_zero_vertex(solver);
+  } else if (y < 0) {
+    y = idl_get_zero_vertex(solver);
+  }
+
+  if (tt) {
+    // (x - y + c) >= 0 is equivalent to (y - x <= c)
+    idl_add_axiom_edge(solver, y, x, c);
+  } else {
+    // (x - y + c) < 0 is equivalent to (x - y <= -c-1)
+    // Note: (-c)-1 gives the right result even if c is INT32_MIN
+    idl_add_axiom_edge(solver, x, y, -c-1);
+  }
+}
+
+
+/*
+ * Assert (v == w) or (v != w)
+ * - if tt is true: assert (v == w)
+ * - if tt is false: assert (v != w)
+ */
+void idl_assert_vareq_axiom(idl_solver_t *solver, thvar_t v, thvar_t w, bool tt) {
+  dl_triple_t *triple;
+
+  triple = &solver->triple;
+  if (! diff_dl_vars(&solver->vtbl, v, w, triple)) {
+    idl_exception(solver, FORMULA_NOT_IDL);
+  }
+
+  idl_assert_triple_eq(solver, triple, tt);
+}
+
+
+/*
+ * Assert (c ==> v == w)
+ */
+void idl_assert_cond_vareq_axiom(idl_solver_t *solver, literal_t c, thvar_t v, thvar_t w) {
+  dl_triple_t *triple;
+  int32_t x, y, d;
+  literal_t l1, l2;
+
+  triple = &solver->triple;
+  if (! diff_dl_vars(&solver->vtbl, v, w, triple)) {
+    idl_exception(solver, FORMULA_NOT_IDL);
+  }
+
+  x = triple->target;
+  y = triple->source;
+  if (! q_get32(&triple->constant, &d)) {
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
+
+  // v == w is equivalent to (x - y + d) == 0
+  if (x == y) {
+    if (d != 0) {
+      // (x - y + d) == 0 is false
+      add_unit_clause(solver->core, not(c));
+    }
+    return;
+  }
+
+  
+  if (x < 0) {
+    x = idl_get_zero_vertex(solver);
+  } else if (y < 0) {
+    y = idl_get_zero_vertex(solver);
+  }
+
+  /*
+   * Assert (c ==> (x - y + d) == 0) as two clauses:
+   *  c ==> (y - x <= d)
+   *  c ==> (x - y <= -d)
+   */
+  if (d == INT32_MIN) {
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
+
+  l1 = idl_make_atom(solver, y, x, d);  // (y - x <= d)
+  l2 = idl_make_atom(solver, x, y, -d); // (x - y <= -d)
+  add_binary_clause(solver->core, not(c), l1);
+  add_binary_clause(solver->core, not(c), l2);
+}
+
+
+
 
 
 
@@ -2047,24 +2488,39 @@ static th_smt_interface_t idl_smt = {
 /*
  * Initialze solver: 
  * - core = attached smt_core solver
+ * - gates = the attached gate manager
  */
-void init_idl_solver(idl_solver_t *solver, smt_core_t *core) {
+void init_idl_solver(idl_solver_t *solver, smt_core_t *core, gate_manager_t *gates) {
   solver->core = core;
+  solver->gate_manager = gates;
   solver->base_level = 0;
   solver->decision_level = 0;
   solver->unsat_before_search = false;
   solver->nvertices = 0;
   solver->zero_vertex = null_idl_vertex;
 
+  init_dl_vartable(&solver->vtbl);
   init_idl_graph(&solver->graph);
   init_idl_atbl(&solver->atoms, DEFAULT_IDL_ATBL_SIZE);
   init_idl_astack(&solver->astack, DEFAULT_IDL_ASTACK_SIZE);
   init_idl_undo_stack(&solver->stack, DEFAULT_IDL_UNDO_STACK_SIZE);
   init_idl_trail_stack(&solver->trail_stack);
+
   init_int_htbl(&solver->htbl, 0);
   init_arena(&solver->arena);
   init_ivector(&solver->expl_buffer, DEFAULT_IDL_BUFFER_SIZE);
+
+  // initialize the internal triple + buffer
+  solver->triple.target = nil_vertex;
+  solver->triple.source = nil_vertex;
+  q_init(&solver->triple.constant);
+  init_poly_buffer(&solver->buffer);
+
+  // this gets allocated in create_model
   solver->value = NULL;
+
+  // no jump buffer yet
+  solver->env = NULL;
 
   // undo record for level 0
   push_undo_record(&solver->stack, -1, 0, 0);
@@ -2077,19 +2533,33 @@ void init_idl_solver(idl_solver_t *solver, smt_core_t *core) {
  * Delete solver
  */
 void delete_idl_solver(idl_solver_t *solver) {
-  delete_ivector(&solver->expl_buffer);
-  delete_arena(&solver->arena);
-  delete_int_htbl(&solver->htbl);
-  delete_idl_trail_stack(&solver->trail_stack);
-  delete_idl_undo_stack(&solver->stack);
-  delete_idl_astack(&solver->astack);
-  delete_idl_atbl(&solver->atoms);
+  delete_dl_vartable(&solver->vtbl);
   delete_idl_graph(&solver->graph);
+  delete_idl_atbl(&solver->atoms);
+  delete_idl_astack(&solver->astack);
+  delete_idl_undo_stack(&solver->stack);
+  delete_idl_trail_stack(&solver->trail_stack);
+
+  delete_int_htbl(&solver->htbl);
+  delete_arena(&solver->arena);
+  delete_ivector(&solver->expl_buffer);
+
+  q_clear(&solver->triple.constant);
+  delete_poly_buffer(&solver->buffer);
 
   if (solver->value != NULL) {
     safe_free(solver->value);
     solver->value = NULL;
   }
+}
+
+
+
+/*
+ * Attach a jump buffer
+ */
+void idl_solver_init_jmpbuf(idl_solver_t *solver, jmp_buf *buffer) {
+  solver->env = buffer;
 }
 
 

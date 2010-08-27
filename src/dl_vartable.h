@@ -194,6 +194,25 @@ extern bool sum_dl_vars(dl_vartable_t *table, thvar_t x, thvar_t y, dl_triple_t 
 extern bool diff_dl_vars(dl_vartable_t *table, thvar_t x, thvar_t y, dl_triple_t *d);
 
 
+
+
+/*
+ * POLYNOMIAL BUFFERS
+ */
+
+/*
+ * When converting between difference logic triples and polynomials,
+ * we shift all variable id by +1 or -1. In triples, target/source
+ * are vertex indices in a graph. Vertices can be indexed from 0 to ..
+ * In polynomials, variable index 0 is reserved for the constant term.
+ *
+ * The translation from vertex id to polynomial variable is then given by
+ * - polynomial variable for vertex i is i+1
+ * - vertex id for variable x is defined only if x>0 and it's equal to x-1
+ *
+ * All the following operations use this convention.
+ */
+
 /*
  * Operation between a poly buffer and a triple:
  * - add_dl_var_to_buffer:       add triple(x) to b
