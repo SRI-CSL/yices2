@@ -10,15 +10,15 @@
 
 
 /*
- * Print rdl variable x
+ * Print vertex x
  */
-void print_rdl_var(FILE *f, int32_t x) {
+void print_rdl_vertex(FILE *f, int32_t x) {
   if (x >= 0) {
-    fprintf(f, "x!%"PRId32, x);
+    fprintf(f, "v!%"PRId32, x);
   } else if (x == null_rdl_vertex) {
-    fputs("null", f);
+    fputs("nil", f);
   } else {
-    fprintf(f, "RDLV%"PRId32, x);
+    fprintf(f, "<RDL-vertex%"PRId32">", x);
   }
 }
 
@@ -63,44 +63,16 @@ void print_rdl_const(FILE *f, rdl_const_t *c) {
 }
 
 
-/*
- * Print atom
- */
-void print_rdl_atom(FILE *f, rdl_atom_t *atom) {
-  fputc('[', f);
-  print_bvar(f, atom->boolvar);
-  fputs(" := (", f);
-  print_rdl_var(f, atom->source);
-  fputs(" - ", f);
-  print_rdl_var(f, atom->target);
-  fprintf(f, " <= ");
-  q_print(f, &atom->cost);
-  fprintf(f, ")]");
-}
 
 
 /*
- * Print all atoms in rdl solver
- */
-void print_rdl_atoms(FILE *f, rdl_solver_t *rdl) {
-  uint32_t i, n;
-
-  n = rdl->atoms.natoms;
-  for (i=0; i<n; i++) {
-    print_rdl_atom(f, rdl->atoms.atoms + i);
-    fputc('\n', f);
-  }
-}
-
-
-/*
- * Value of var v in the rdl solver
+ * Value of vertex x in the rdl solver
  *
  * HACK:
  * - we use distance[0, v] as the value
  * - if the distance is not defined we print ???
  */
-void print_rdl_var_value(FILE *f, rdl_solver_t *rdl, int32_t v) {
+void print_rdl_vertex_value(FILE *f, rdl_solver_t *rdl, int32_t v) {
   rdl_matrix_t *m;
   rdl_cell_t *cell;
   int32_t z;
@@ -123,3 +95,109 @@ void print_rdl_var_value(FILE *f, rdl_solver_t *rdl, int32_t v) {
 
 
 
+
+/*
+ * Print atom
+ */
+void print_rdl_atom(FILE *f, rdl_atom_t *atom) {
+  fputc('[', f);
+  print_bvar(f, atom->boolvar);
+  fputs(" := (", f);
+  print_rdl_vertex(f, atom->source);
+  fputs(" - ", f);
+  print_rdl_vertex(f, atom->target);
+  fprintf(f, " <= ");
+  q_print(f, &atom->cost);
+  fprintf(f, ")]");
+}
+
+
+/*
+ * Print all atoms in rdl solver
+ */
+void print_rdl_atoms(FILE *f, rdl_solver_t *rdl) {
+  uint32_t i, n;
+
+  n = rdl->atoms.natoms;
+  for (i=0; i<n; i++) {
+    print_rdl_atom(f, rdl->atoms.atoms + i);
+    fputc('\n', f);
+  }
+}
+
+
+/*
+ * Difference logic triple (x - y + d)
+ * - x and y are vertices
+ */
+void print_rdl_triple(FILE *f, dl_triple_t *triple) {
+  bool space;
+
+  space = false;
+  if (triple->target >= 0) {
+    print_rdl_vertex(f, triple->target); // x
+    space = true;
+  }
+  if (triple->source >= 0) {
+    if (space) fputc(' ', f);
+    fputs("- ", f);
+    print_rdl_vertex(f, triple->source); // y
+  }
+
+
+  if (! space) {
+    q_print(f, &triple->constant); 
+  } else if (q_is_pos(&triple->constant)) {
+    printf(" + ");
+    q_print(f, &triple->constant);
+  } else if (q_is_neg(&triple->constant)) {
+    printf(" - ");
+    q_print_abs(f, &triple->constant);
+  }
+}
+
+
+
+/*
+ * Variable name
+ */
+void print_rdl_var_name(FILE *f, thvar_t u) {
+  if (u >= 0) {
+    fprintf(f, "x!%"PRId32, u);
+  } else if (u == null_thvar) {
+    fputs("nil-var", f);
+  } else {
+    fprintf(f, "<RDL-var%"PRId32">", u);
+  }
+} 
+
+
+/*
+ * Print u + its descriptor
+ */
+void print_rdl_var_def(FILE *f, rdl_solver_t *solver, thvar_t u) {
+  dl_vartable_t *vtbl;
+
+  vtbl = &solver->vtbl;
+  print_rdl_var_name(f, u);
+  if (0 <= u && u < vtbl->nvars) {
+    fputs(" := ", f);
+    print_rdl_triple(f, dl_var_triple(vtbl, u));
+  } else {
+    fputs(" ???", f);
+  }
+}
+
+
+/*
+ * Print the full variable table
+ */
+void print_rdl_var_table(FILE *f, rdl_solver_t *solver) {
+  uint32_t i, n;
+
+  n = solver->vtbl.nvars;
+  for (i=0; i<n; i++) {
+    print_rdl_var_def(f, solver, i);
+    fputc('\n', f);
+  }
+}

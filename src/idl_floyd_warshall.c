@@ -2,12 +2,13 @@
  * INCREMENTAL FORM OF THE FLOYD-WARSHALL ALGORITHM,
  */
 
+
 /*
- * In several places, we assume that -d-1 gives the right value for any 32bit
- * signed integer d, including when d is (-2^31) = INT32_MIN. 
- * This is true if signed integer operations are done modulo 2^32. 
- * The C standard does not require this, but this can be
- * considered safe (see the autoconf documentation).
+ * We assume that -d-1 gives the right value for any 32bit signed
+ * integer d, including when d is (-2^31) = INT32_MIN.  This is true
+ * if signed integer operations are done modulo 2^32.  The C standard
+ * does not require this, but this can be considered safe (see the
+ * autoconf documentation).
  */
 
 
@@ -430,9 +431,9 @@ static void idl_graph_add_edge(idl_graph_t *graph, int32_t x, int32_t y, int32_t
 
 #if TRACE
   printf("---> IDL: adding edge: ");
-  print_idl_var(stdout, x);
+  print_idl_vertex(stdout, x);
   printf(" ---> ");
-  print_idl_var(stdout, y);
+  print_idl_vertex(stdout, y);
   printf(" cost: %"PRId32"\n", c);
 #endif
 
@@ -1256,9 +1257,9 @@ literal_t idl_make_atom(idl_solver_t *solver, int32_t x, int32_t y, int32_t d) {
 
 #if TRACE
   printf("---> IDL: creating atom: ");
-  print_idl_var(stdout, x);
+  print_idl_vertex(stdout, x);
   printf(" - ");
-  print_idl_var(stdout, y);
+  print_idl_vertex(stdout, y);
   printf(" <= %"PRId32"\n", d);
   if (x == y) {
     if (d >= 0) {
@@ -1282,9 +1283,9 @@ literal_t idl_make_atom(idl_solver_t *solver, int32_t x, int32_t y, int32_t d) {
     if (cell->id >= 0 && cell->dist <= d) {
 #if TRACE
       printf("---> true atom: dist[");
-      print_idl_var(stdout, x);
+      print_idl_vertex(stdout, x);
       printf(", ");
-      print_idl_var(stdout, y);
+      print_idl_vertex(stdout, y);
       printf("] = %"PRId32"\n",  cell->dist);
 #endif
       return true_literal;
@@ -1293,9 +1294,9 @@ literal_t idl_make_atom(idl_solver_t *solver, int32_t x, int32_t y, int32_t d) {
     if (cell->id >= 0 && cell->dist < -d) {
 #if TRACE
       printf("---> false atom: dist[");
-      print_idl_var(stdout, y);
+      print_idl_vertex(stdout, y);
       printf(", ");
-      print_idl_var(stdout, x);
+      print_idl_vertex(stdout, x);
       printf("] = %"PRId32"\n",  cell->dist);
 #endif
       return false_literal;
@@ -1490,9 +1491,9 @@ static void check_atom_for_propagation(idl_solver_t *solver, int32_t i) {
     printf("---> IDL propagation: ");
     print_idl_atom(stdout, a);
     printf(" is true: dist[");
-    print_idl_var(stdout, x);
+    print_idl_vertex(stdout, x);
     printf(", ");
-    print_idl_var(stdout, y);
+    print_idl_vertex(stdout, y);
     printf("] = %"PRId32"\n", cell->dist);
 #endif
     return;
@@ -1509,9 +1510,9 @@ static void check_atom_for_propagation(idl_solver_t *solver, int32_t i) {
     printf("---> IDL propagation: ");
     print_idl_atom(stdout, a);
     printf(" is false: dist[");
-    print_idl_var(stdout, y);
+    print_idl_vertex(stdout, y);
     printf(", ");
-    print_idl_var(stdout, x);
+    print_idl_vertex(stdout, x);
     printf("] = %"PRId32"\n", cell->dist);
 #endif
   }
@@ -1798,18 +1799,21 @@ void idl_reset(idl_solver_t *solver) {
   solver->base_level = 0;
   solver->decision_level = 0;
   solver->unsat_before_search = false;
-  solver->nvertices = 0;
-  solver->zero_vertex = null_idl_vertex;
 
   reset_dl_vartable(&solver->vtbl);
+
+  solver->nvertices = 0;
+  solver->zero_vertex = null_idl_vertex;
   reset_idl_graph(&solver->graph);
+
   reset_idl_atbl(&solver->atoms);
   reset_idl_astack(&solver->astack);
   reset_idl_undo_stack(&solver->stack);
   reset_idl_trail_stack(&solver->trail_stack);
+
   reset_int_htbl(&solver->htbl);
   arena_reset(&solver->arena);
-
+  ivector_reset(&solver->expl_buffer);
 
   solver->triple.target = nil_vertex;
   solver->triple.source = nil_vertex;
@@ -2383,15 +2387,15 @@ static bool good_model(idl_solver_t *solver) {
       if (cell->id >= 0 && val[x] - val[y] > cell->dist) {
 	printf("---> BUG: invalid IDL model\n");
 	printf("   val[");
-	print_idl_var(stdout, x);
+	print_idl_vertex(stdout, x);
 	printf("] = %"PRId32"\n", val[x]);
 	printf("   val[");
-	print_idl_var(stdout, y);
+	print_idl_vertex(stdout, y);
 	printf("] = %"PRId32"\n", val[y]);
 	printf("   dist[");
-	print_idl_var(stdout, x);
+	print_idl_vertex(stdout, x);
 	printf(", ");
-	print_idl_var(stdout, y);
+	print_idl_vertex(stdout, y);
 	printf("] = %"PRId32"\n", cell->dist);
 	fflush(stdout);
 
@@ -2407,7 +2411,7 @@ static bool good_model(idl_solver_t *solver) {
 
 
 /*
- * Build a mapping from variables to integers
+ * Build a mapping from vertices to integers
  */
 void idl_build_model(idl_solver_t *solver) {
   byte_t *mark;
@@ -2450,10 +2454,41 @@ void idl_free_model(idl_solver_t *solver) {
 }
 
 
+/*
+ * Value of variable x in the model
+ * - copy the value in v and return true
+ */
+bool idl_value_in_model(idl_solver_t *solver, thvar_t x, rational_t *v) {
+  dl_triple_t *d;
+  int32_t aux;
 
+  assert(solver->value != NULL && 0 <= x && x < solver->vtbl.nvars);
+  d = dl_var_triple(&solver->vtbl, x);
+
+  // d is of the form (target - source + constant)
+  aux = 0;
+  if (d->target >= 0) {
+    aux = idl_vertex_value(solver, d->target);
+  }
+  if (d->source >= 0) {
+    aux -= idl_vertex_value(solver, d->source);
+  }
+
+  q_set32(v, aux); // aux is the value of (target - source) in the model
+  q_add(v, &d->constant);
+
+  return true;
+}
+
+
+
+
+/***************************
+ *  INTERFACE DESCRIPTORS  *
+ **************************/
 
 /*
- * Control interface descriptor
+ * Control interface
  */
 static th_ctrl_interface_t idl_control = {
   (start_intern_fun_t) idl_start_internalization,
@@ -2469,7 +2504,7 @@ static th_ctrl_interface_t idl_control = {
 
 
 /*
- * SMT interface descriptor: delete_atom and end_atom_deletion are not supported.
+ * SMT interface: delete_atom and end_atom_deletion are not supported.
  */
 static th_smt_interface_t idl_smt = {
   (assert_fun_t) idl_assert_atom,
@@ -2478,6 +2513,35 @@ static th_smt_interface_t idl_smt = {
   NULL,
   NULL,
 };
+
+
+
+/*
+ * Internalization interface
+ */
+static arith_interface_t idl_intern = {
+  (create_arith_var_fun_t) idl_create_var,
+  (create_arith_const_fun_t) idl_create_const,
+  (create_arith_poly_fun_t) idl_create_poly,
+  (create_arith_pprod_fun_t) idl_create_pprod,
+
+  (create_arith_atom_fun_t) idl_create_eq_atom,
+  (create_arith_atom_fun_t) idl_create_ge_atom,
+  (create_arith_vareq_atom_fun_t) idl_create_vareq_atom,
+
+  (assert_arith_axiom_fun_t) idl_assert_eq_axiom,
+  (assert_arith_axiom_fun_t) idl_assert_ge_axiom,
+  (assert_arith_vareq_axiom_fun_t) idl_assert_vareq_axiom,
+  (assert_arith_cond_vareq_axiom_fun_t) idl_assert_cond_vareq_axiom,
+
+  NULL, // attach_eterm is not supported
+  NULL, // eterm of var is not supported
+
+  (build_model_fun_t) idl_build_model,
+  (free_model_fun_t) idl_free_model,
+  (arith_val_in_model_fun_t) idl_value_in_model,
+};
+
 
 
 
@@ -2496,11 +2560,13 @@ void init_idl_solver(idl_solver_t *solver, smt_core_t *core, gate_manager_t *gat
   solver->base_level = 0;
   solver->decision_level = 0;
   solver->unsat_before_search = false;
-  solver->nvertices = 0;
-  solver->zero_vertex = null_idl_vertex;
 
   init_dl_vartable(&solver->vtbl);
+
+  solver->nvertices = 0;
+  solver->zero_vertex = null_idl_vertex;
   init_idl_graph(&solver->graph);
+
   init_idl_atbl(&solver->atoms, DEFAULT_IDL_ATBL_SIZE);
   init_idl_astack(&solver->astack, DEFAULT_IDL_ASTACK_SIZE);
   init_idl_undo_stack(&solver->stack, DEFAULT_IDL_UNDO_STACK_SIZE);
@@ -2574,3 +2640,10 @@ th_smt_interface_t *idl_smt_interface(idl_solver_t *solver) {
   return &idl_smt;
 }
 
+
+/*
+ * Get the internalization interface
+ */
+arith_interface_t *idl_arih_interface(idl_solver_t *solver) {
+  return &idl_intern;
+}

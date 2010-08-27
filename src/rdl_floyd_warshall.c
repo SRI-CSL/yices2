@@ -2042,6 +2042,7 @@ void rdl_backtrack(rdl_solver_t *solver, uint32_t back_level) {
 void rdl_push(rdl_solver_t *solver) {
   assert(solver->base_level == solver->decision_level);
 
+  dl_vartable_push(&solver->vtbl);
   rdl_trail_stack_save(&solver->trail_stack, solver->nvertices, solver->atoms.natoms);
   solver->base_level ++;
   rdl_increase_decision_level(solver);
@@ -2059,6 +2060,9 @@ void rdl_pop(rdl_solver_t *solver) {
 
   assert(solver->base_level > 0 && solver->base_level == solver->decision_level);
   top = rdl_trail_stack_top(&solver->trail_stack);
+
+  // remove variables
+  dl_vartable_pop(&solver->vtbl);
 
   // remove atoms from the hash table
   p = top->natoms;
@@ -2090,27 +2094,42 @@ void rdl_pop(rdl_solver_t *solver) {
 /*
  * Reset
  */
-void reset_rdl_solver(rdl_solver_t *solver) {
-  q_clear(&solver->aux2);
-  q_clear(&solver->aux);
-  q_clear(&solver->factor);
-  q_clear(&solver->epsilon);
-  if (solver->value != NULL) {
-    free_rational_array(solver->value, solver->nvertices);
-    solver->value = NULL;
-  }
-
+void rdl_reset(rdl_solver_t *solver) {
   solver->base_level = 0;
   solver->decision_level = 0;
   solver->unsat_before_search = false;
-  solver->nvertices = 1;
+
+  reset_dl_vartable(&solver->vtbl);
+
+  solver->nvertices = 0;
+  solver->zero_vertex = null_rdl_vertex;
   reset_rdl_graph(&solver->graph);
+
   reset_rdl_atbl(&solver->atoms);
   reset_rdl_astack(&solver->astack);
   reset_rdl_undo_stack(&solver->stack);
   reset_rdl_trail_stack(&solver->trail_stack);
+
   reset_int_htbl(&solver->htbl);
   arena_reset(&solver->arena);  
+  ivector_reset(&solver->expl_buffer);
+  reset_rdl_const(&solver->c1);
+  q_clear(&solver->q);
+
+  solver->triple.target = nil_vertex;
+  solver->triple.source = nil_vertex;
+  q_clear(&solver->triple.constant);
+  reset_poly_buffer(&solver->buffer);
+
+  q_clear(&solver->epsilon);
+  q_clear(&solver->factor);
+  q_clear(&solver->aux);
+  q_clear(&solver->aux2);
+
+  if (solver->value != NULL) {
+    free_rational_array(solver->value, solver->nvertices);
+    solver->value = NULL;
+  }
 
   // undo record for level 0
   push_undo_record(&solver->stack, -1, 0, 0);
@@ -2160,6 +2179,392 @@ literal_t rdl_select_polarity(rdl_solver_t *solver, void *a, literal_t l) {
     return l;
   }
 }
+
+
+
+
+/**********************
+ *  INTERNALIZATION   *
+ *********************/
+
+/*
+ * Raise exception or abort
+ */
+static __attribute__ ((noreturn)) void rdl_exception(rdl_solver_t *solver, int code) {
+  if (solver->env != NULL) {
+    longjmp(*solver->env, code);
+  }
+  abort();
+}
+
+
+
+/*
+ * Create a new theory variable
+ * - is_int indicates whether the variable should be an integer,
+ *   so it should always be true for this solver.
+ * - raise exception NOT_RDL if is_int is true
+ * - raise exception TOO_MANY_VARS if we can't create a new vertex
+ *   for that variable
+ */
+thvar_t rdl_create_var(rdl_solver_t *solver, bool is_int) {
+  dl_triple_t *triple;
+  int32_t v;
+
+  if (is_int) {
+    rdl_exception(solver, FORMULA_NOT_RDL);
+  }
+
+  v = rdl_new_vertex(solver);
+  if (v < 0) {
+    rdl_exception(solver, TOO_MANY_ARITH_VARS);
+  }
+
+  // new variable descriptor = [v, nil, 0]
+  triple = &solver->triple;
+  triple->target = v;
+  triple->source = nil_vertex;
+  q_clear(&triple->constant);
+
+  return get_dl_var(&solver->vtbl, triple);
+}
+
+
+/*
+ * Create a variable that represents the constant q
+ */
+thvar_t rdl_create_const(rdl_solver_t *solver, rational_t *q) {
+  dl_triple_t *triple;
+  
+  triple = &solver->triple;
+  triple->target = nil_vertex;
+  triple->source = nil_vertex;
+  q_set(&triple->constant, q);
+
+  return get_dl_var(&solver->vtbl, triple);
+}
+
+
+/*
+ * Create a variable for a polynomial p, with variables defined by map:
+ * - p is of the form a_0 t_0 + ... + a_n t_n where t_0, ..., t_n
+ *   are arithmetic terms.
+ * - map[i] is the theory variable x_i for t_i 
+ *   (with map[0] = null_thvar if t_0 is const_idx)
+ * - the function constructs a variable equal to a_0 x_0 + ... + a_n x_n
+ *
+ * - fails if a_0 x_0 + ... + a_n x_n is not an RDL polynomial 
+ *   (i.e., not of the form x - y + c)
+ */
+thvar_t rdl_create_poly(rdl_solver_t *solver, polynomial_t *p, thvar_t *map) {
+  poly_buffer_t *b;
+  monomial_t *mono;
+  dl_triple_t *triple;
+  uint32_t i, n;
+
+  b = &solver->buffer;
+  reset_poly_buffer(b);
+
+  n = p->nterms;
+  mono = p->mono;
+
+  // deal with p's constant term if any
+  if (map[0] == null_thvar) {
+    assert(mono[0].var == const_idx);
+    poly_buffer_add_const(b, &mono[0].coeff);
+    n --;
+    map ++;
+    mono ++;
+  }
+
+  for (i=0; i<n; i++) {
+    assert(mono[i].var != const_idx);
+    addmul_dl_var_to_buffer(&solver->vtbl, b, map[i], &mono[i].coeff);
+  }
+
+  normalize_poly_buffer(b);
+
+  // b contains a_0 x_0 + ... + a_n x_n
+  triple = &solver->triple;
+  if (! convert_poly_buffer_to_dl_triple(b, triple)) {
+    /*
+     * Exception here: b is not of the right form
+     */
+    rdl_exception(solver, FORMULA_NOT_RDL);
+  }
+
+  return get_dl_var(&solver->vtbl, triple);    
+}
+
+
+/*
+ * Internalization for a product: always fails with NOT_RDL exception
+ */
+thvar_t rdl_create_pprod(rdl_solver_t *solver, pprod_t *p, thvar_t *map) {
+  rdl_exception(solver, FORMULA_NOT_RDL);
+}
+
+
+
+/*
+ * Create the zero_vertex but raise an exception if that fails.
+ */
+static int32_t rdl_get_zero_vertex(rdl_solver_t *solver) {
+  int32_t z;
+
+  z = rdl_zero_vertex(solver);
+  if (z < 0) {
+    rdl_exception(solver, TOO_MANY_ARITH_VARS);
+  }
+  return z;
+}
+
+
+/*
+ * Create the atom (x - y + c) == 0 for d = (x - y + c)
+ */
+static literal_t rdl_eq_from_triple(rdl_solver_t *solver, dl_triple_t *d) {
+  literal_t l1, l2;
+  int32_t x, y;
+
+  x = d->target;
+  y = d->source;
+
+  /*
+   * d is (x - y + c)
+   */
+  if (x == y) {
+    if (q_is_zero(&d->constant)) {
+      return true_literal;
+    } else {
+      return false_literal;
+    }
+  } 
+
+  // a nil_vertex in triples denote 'zero'
+  if (x < 0) {
+    x = rdl_get_zero_vertex(solver);
+  } else if (y < 0) {
+    y = rdl_get_zero_vertex(solver);
+  }
+
+  // d == 0 is the conjunction of (y - x <= c) and (x - y <= -c)
+  l1 = rdl_make_atom(solver, y, x, &d->constant); // atom (y - x <= c)
+  q_set_neg(&solver->q, &d->constant);            // q := -c
+  l2 = rdl_make_atom(solver, x, y, &solver->q);   // atom (x - y <= -c)
+
+  return mk_and_gate2(solver->gate_manager, l1, l2);
+}
+
+
+/*
+ * Create the atom v = 0
+ */
+literal_t rdl_create_eq_atom(rdl_solver_t *solver, thvar_t v) {
+  return rdl_eq_from_triple(solver, dl_var_triple(&solver->vtbl, v));
+}
+
+
+/*
+ * Create the atom v >= 0
+ */
+literal_t rdl_create_ge_atom(rdl_solver_t *solver, thvar_t v) {
+  dl_triple_t *d;
+  int32_t x, y;
+
+  d = dl_var_triple(&solver->vtbl, v);
+  x = d->target;
+  y = d->source;
+
+  // v --> (x - y + c)
+  if (x == y) {
+    if (q_is_nonneg(&d->constant)) { // c >= 0
+      return true_literal;
+    } else {
+      return false_literal;
+    }
+  }
+
+  if (x < 0) {
+    x = rdl_get_zero_vertex(solver);
+  } else if (y < 0) {
+    y = rdl_get_zero_vertex(solver);
+  }
+
+  // v >= 0 is (y - x <= c)
+  return rdl_make_atom(solver, y, x, &d->constant);
+}
+
+
+/*
+ * Create the atom (v = w)
+ */
+literal_t rdl_create_vareq_atom(rdl_solver_t *solver, thvar_t v, thvar_t w) {  
+  dl_triple_t *triple;
+
+  triple = &solver->triple;
+  if (! diff_dl_vars(&solver->vtbl, v, w, triple)) {
+    // v - w is not expressible as (target - source + c) 
+    rdl_exception(solver, FORMULA_NOT_RDL);
+  }
+
+  return rdl_eq_from_triple(solver, triple);
+}
+
+
+
+/*
+ * Assert (x - y + c) == 0 or (x - y + c) != 0, given a triple d = x - y + c
+ * - tt true: assert the equality
+ * - tt false: assert the disequality
+ */
+static void rdl_assert_triple_eq(rdl_solver_t *solver, dl_triple_t *d, bool tt) {
+  int32_t x, y;
+  literal_t l1, l2;
+
+  x = d->target;
+  y = d->source;
+
+  // d is (x - y + c)
+  if (x == y) {
+    if (q_is_zero(&d->constant) != tt) {
+      solver->unsat_before_search = true;
+    }
+    return;
+  }
+
+  if (x < 0) {
+    x = rdl_get_zero_vertex(solver);
+  } else if (y < 0) {
+    y = rdl_get_zero_vertex(solver);
+  }
+
+  if (tt) {
+    rdl_add_axiom_eq(solver, x, y, &d->constant);
+  } else {
+    // (x - y + c) != 0 is equivalent to
+    // (not (y - x <= c)) or (not (x - y <= -c))
+    l1 = rdl_make_atom(solver, y, x, &d->constant); // atom (y - x <= c)
+    q_set_neg(&solver->q, &d->constant);            // q := -c
+    l2 = rdl_make_atom(solver, x, y, &solver->q);   // atom (x - y <= -c)
+
+    add_binary_clause(solver->core, not(l1), not(l2));
+  }
+}
+
+
+/*
+ * Assert the top-level constraint (v == 0) or (v != 0)
+ * - if tt is true: assert v == 0
+ * - if tt is false: assert v != 0
+ */
+void rdl_assert_eq_axiom(rdl_solver_t *solver, thvar_t v, bool tt) {
+  rdl_assert_triple_eq(solver, dl_var_triple(&solver->vtbl, v), tt);
+}
+
+
+/*
+ * Assert the top-level constraint (v >= 0) or (v < 0)
+ * - if tt is true: assert (v >= 0)
+ * - if tt is false: assert (v < 0)
+ */
+void rdl_assert_ge_axiom(rdl_solver_t *solver, thvar_t v, bool tt) {
+  dl_triple_t *d;
+  int32_t x, y;
+
+  d = dl_var_triple(&solver->vtbl, v);
+  x = d->target;
+  y = d->source;
+
+  // d is (x - y + c)
+  if (x == y) {
+    if (q_is_nonneg(&d->constant) != tt) {
+      // either c >= 0 and tt is false or c < 0 and tt is true
+      solver->unsat_before_search = true;
+    }
+    return;
+  }
+
+
+  if (x < 0) {
+    x = rdl_get_zero_vertex(solver);
+  } else if (y < 0) {
+    y = rdl_get_zero_vertex(solver);
+  }
+
+  if (tt) {
+    // (x - y + c) >= 0 is equivalent to (y - x <= c)
+    rdl_add_axiom_edge(solver, y, x, &d->constant, false);
+  } else {
+    // (x - y + c) < 0 is equivalent to (x - y < -c)
+    q_set_neg(&solver->q, &d->constant);
+    rdl_add_axiom_edge(solver, x, y, &solver->q, true);
+  }
+}
+
+
+/*
+ * Assert (v == w) or (v != w)
+ * - if tt is true: assert (v == w)
+ * - if tt is false: assert (v != w)
+ */
+void rdl_assert_vareq_axiom(rdl_solver_t *solver, thvar_t v, thvar_t w, bool tt) {
+  dl_triple_t *triple;
+
+  triple = &solver->triple;
+  if (! diff_dl_vars(&solver->vtbl, v, w, triple)) {
+    rdl_exception(solver, FORMULA_NOT_RDL);
+  }
+
+  rdl_assert_triple_eq(solver, triple, tt);
+}
+
+
+/*
+ * Assert (c ==> v == w)
+ */
+void rdl_assert_cond_vareq_axiom(rdl_solver_t *solver, literal_t c, thvar_t v, thvar_t w) {
+  dl_triple_t *triple;
+  int32_t x, y;
+  literal_t l1, l2;
+
+  triple = &solver->triple;
+  if (! diff_dl_vars(&solver->vtbl, v, w, triple)) {
+    rdl_exception(solver, FORMULA_NOT_RDL);
+  }
+
+  x = triple->target;
+  y = triple->source;
+  // v == w is equivalent to (x - y + d) == 0
+  if (x == y) {
+    if (q_is_nonzero(&triple->constant)) {
+      // (x - y + d) == 0 is false
+      add_unit_clause(solver->core, not(c));
+    }
+    return;
+  }
+
+  
+  if (x < 0) {
+    x = rdl_get_zero_vertex(solver);
+  } else if (y < 0) {
+    y = rdl_get_zero_vertex(solver);
+  }
+
+  /*
+   * Assert (c ==> (x - y + d) == 0) as two clauses:
+   *  c ==> (y - x <= d)
+   *  c ==> (x - y <= -d)
+   */
+  l1 = rdl_make_atom(solver, y, x, &triple->constant);  // (y - x <= d)
+  q_set_neg(&solver->q, &triple->constant);             /// q := -d
+  l2 = rdl_make_atom(solver, x, y, &solver->q);         // (x - y <= -d)
+  add_binary_clause(solver->core, not(c), l1);
+  add_binary_clause(solver->core, not(c), l2);
+}
+
+
+
 
 
 
@@ -2364,19 +2769,19 @@ static bool good_rdl_model(rdl_solver_t *solver) {
 	if (rdl_const_lt_q(&cell->dist, aux)) {
 	  printf("---> BUG: invalid RDL model\n");
 	  printf("   val[");
-	  print_rdl_var(stdout, x);
+	  print_rdl_vertex(stdout, x);
 	  printf("] = ");
 	  q_print(stdout, val + x);
 	  printf("\n");
 	  printf("   val[");
-	  print_rdl_var(stdout, y);
+	  print_rdl_vertex(stdout, y);
 	  printf("] = ");
 	  q_print(stdout, val + y);
 	  printf("\n");
 	  printf("   dist[");
-	  print_rdl_var(stdout, x);
+	  print_rdl_vertex(stdout, x);
 	  printf(", ");
-	  print_rdl_var(stdout, y);
+	  print_rdl_vertex(stdout, y);
 	  printf("] = ");
 	  print_rdl_const(stdout, &cell->dist);
 	  printf("\n");
@@ -2447,20 +2852,39 @@ void rdl_free_model(rdl_solver_t *solver) {
 }
 
 
+
 /*
  * Value of variable x in the model
+ * - copy the value in v and return true
  */
-void rdl_value_in_model(rdl_solver_t *solver, int32_t x, rational_t *v) {
-  assert(solver->value != NULL && 0 <= x && x < solver->nvertices);
-  q_set(v, solver->value + x);
+bool rdl_value_in_model(rdl_solver_t *solver, thvar_t x, rational_t *v) {
+  dl_triple_t *d;
+
+  assert(solver->value != NULL && 0 <= x && x < solver->vtbl.nvars);
+  d = dl_var_triple(&solver->vtbl, x);
+
+  q_clear(v);
+  if (d->target >= 0) {
+    q_set(v, rdl_vertex_value(solver, d->target));
+  }
+
+  if (d->source >= 0) {
+    q_sub(v, rdl_vertex_value(solver, d->source));
+  }
+
+  q_add(v, &d->constant);
+
+  return true;
 }
 
 
 
-
+/****************************
+ *  INTERFACE DESCRIPTORS   *
+ ***************************/
 
 /*
- * Control interface descriptor
+ * Control interface
  */
 static th_ctrl_interface_t rdl_control = {
   (start_intern_fun_t) rdl_start_internalization,
@@ -2471,12 +2895,12 @@ static th_ctrl_interface_t rdl_control = {
   (backtrack_fun_t) rdl_backtrack,
   (push_fun_t) rdl_push,
   (pop_fun_t) rdl_pop,
-  (reset_fun_t) reset_rdl_solver,
+  (reset_fun_t) rdl_reset,
 };
 
 
 /*
- * SMT interface descriptor: delete_atom and end_atom_deletion are not supported.
+ * SMT interface: delete_atom and end_atom_deletion are not supported.
  */
 static th_smt_interface_t rdl_smt = {
   (assert_fun_t) rdl_assert_atom,
@@ -2487,6 +2911,36 @@ static th_smt_interface_t rdl_smt = {
 };
 
 
+/*
+ * Internalization interface
+ */
+static arith_interface_t rdl_intern = {
+  (create_arith_var_fun_t) rdl_create_var,
+  (create_arith_const_fun_t) rdl_create_const,
+  (create_arith_poly_fun_t) rdl_create_poly,
+  (create_arith_pprod_fun_t) rdl_create_pprod,
+
+  (create_arith_atom_fun_t) rdl_create_eq_atom,
+  (create_arith_atom_fun_t) rdl_create_ge_atom,
+  (create_arith_vareq_atom_fun_t) rdl_create_vareq_atom,
+
+  (assert_arith_axiom_fun_t) rdl_assert_eq_axiom,
+  (assert_arith_axiom_fun_t) rdl_assert_ge_axiom,
+  (assert_arith_vareq_axiom_fun_t) rdl_assert_vareq_axiom,
+  (assert_arith_cond_vareq_axiom_fun_t) rdl_assert_cond_vareq_axiom,
+
+  NULL, // attach_eterm is not supported
+  NULL, // eterm of var is not supported
+
+  (build_model_fun_t) rdl_build_model,
+  (free_model_fun_t) rdl_free_model,
+  (arith_val_in_model_fun_t) rdl_value_in_model,
+};
+
+
+
+
+
 
 /*****************
  *  FULL SOLVER  *
@@ -2495,25 +2949,37 @@ static th_smt_interface_t rdl_smt = {
 /*
  * Initialze solver: 
  * - core = attached smt_core solver
+ * - gates = the attached gate manager
  */
-void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core) {
+void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core, gate_manager_t *gates) {
   solver->core = core;
+  solver->gate_manager = gates;
   solver->base_level = 0;
   solver->decision_level = 0;
   solver->unsat_before_search = false;
+
+  init_dl_vartable(&solver->vtbl);
+
   solver->nvertices = 0;
   solver->zero_vertex = null_rdl_vertex;
-
   init_rdl_graph(&solver->graph);
+
   init_rdl_atbl(&solver->atoms, DEFAULT_RDL_ATBL_SIZE);
   init_rdl_astack(&solver->astack, DEFAULT_RDL_ASTACK_SIZE);
   init_rdl_undo_stack(&solver->stack, DEFAULT_RDL_UNDO_STACK_SIZE);
   init_rdl_trail_stack(&solver->trail_stack);
+
   init_int_htbl(&solver->htbl, 0);
   init_arena(&solver->arena);
   init_ivector(&solver->expl_buffer, DEFAULT_RDL_BUFFER_SIZE);
   init_rdl_const(&solver->c1);
-  q_init(&solver->zero_const); // initial value = 0.
+  q_init(&solver->q);
+
+  // triple + poly buffer
+  solver->triple.target = nil_vertex;
+  solver->triple.source = nil_vertex;
+  q_init(&solver->triple.constant);
+  init_poly_buffer(&solver->buffer);
 
   // Model construction objects
   q_init(&solver->epsilon);
@@ -2521,6 +2987,9 @@ void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core) {
   q_init(&solver->aux);
   q_init(&solver->aux2);
   solver->value = NULL;
+
+  // No jump buffer yet
+  solver->env = NULL;
 
   // undo record for level 0
   push_undo_record(&solver->stack, -1, 0, 0);
@@ -2533,25 +3002,33 @@ void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core) {
  * Delete solver
  */
 void delete_rdl_solver(rdl_solver_t *solver) {
+  delete_dl_vartable(&solver->vtbl);
+  delete_rdl_graph(&solver->graph);
+  delete_rdl_atbl(&solver->atoms);
+  delete_rdl_astack(&solver->astack);
+  delete_rdl_undo_stack(&solver->stack);
+  delete_rdl_trail_stack(&solver->trail_stack);
+
+  delete_int_htbl(&solver->htbl);
+  delete_arena(&solver->arena);
+  delete_ivector(&solver->expl_buffer);
+  clear_rdl_const(&solver->c1);
+  q_clear(&solver->q);
+
+  q_clear(&solver->triple.constant);
+  delete_poly_buffer(&solver->buffer);
+
+  q_clear(&solver->epsilon);
+  q_clear(&solver->factor);
+  q_clear(&solver->aux);
+  q_clear(&solver->aux2);
+
   if (solver->value != NULL) {
     free_rational_array(solver->value, solver->nvertices);
     solver->value = NULL;
   }
-  q_clear(&solver->aux2);
-  q_clear(&solver->aux);
-  q_clear(&solver->factor);
-  q_clear(&solver->epsilon);
 
-  q_clear(&solver->zero_const);
-  clear_rdl_const(&solver->c1);
-  delete_ivector(&solver->expl_buffer);
-  delete_arena(&solver->arena);
-  delete_int_htbl(&solver->htbl);
-  delete_rdl_trail_stack(&solver->trail_stack);
-  delete_rdl_undo_stack(&solver->stack);
-  delete_rdl_astack(&solver->astack);
-  delete_rdl_atbl(&solver->atoms);
-  delete_rdl_graph(&solver->graph);
+
 }
 
 
@@ -2567,3 +3044,9 @@ th_smt_interface_t *rdl_smt_interface(rdl_solver_t *solver) {
 }
 
 
+/*
+ * Get the internalization interface
+ */
+arith_interface_t *rdl_arith_interface(rdl_solver_t *solver) {
+  return &rdl_intern;
+}

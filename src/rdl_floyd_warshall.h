@@ -55,14 +55,18 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <setjmp.h>
 
 #include "bitvectors.h"
 #include "int_hash_tables.h"
 #include "arena.h"
 #include "int_vectors.h"
 #include "rationals.h"
+#include "poly_buffer.h"
+#include "dl_vartable.h"
 
 #include "smt_core.h"
+#include "context.h"
 
 
 
@@ -355,9 +359,10 @@ typedef struct rdl_trail_stack_s {
 
 typedef struct rdl_solver_s {
   /*
-   * Attached smt core
+   * Attached smt core and gate manager
    */
   smt_core_t *core;
+  gate_manager_t *gate_manager;
 
   /*
    * Base level and decision level (same interpretation as in smt_core)
@@ -369,6 +374,14 @@ typedef struct rdl_solver_s {
    * Unsat flag: set to true if asserted axioms are inconsistent
    */
   bool unsat_before_search;
+
+  /*
+   * Variable table
+   * - every variable (used by the context) is mapped to a
+   *   difference logic triple (x - y + c) where x and y are vertices
+   *   in the graph.
+   */
+  dl_vartable_t vtbl;
 
   /*
    * Graph
@@ -396,12 +409,14 @@ typedef struct rdl_solver_s {
   /*
    * Auxiliary buffers and data structures
    */
-  int_htbl_t htbl;   // for hash-consing of atoms
-  arena_t arena;     // for storing explanations of implied atoms
+  int_htbl_t htbl;       // for hash-consing of atoms
+  arena_t arena;         // for storing explanations of implied atoms
   ivector_t expl_buffer; // for constructing explanations
-  rdl_const_t c1;        // internal use
-  rational_t zero_const; // initialized to zero.
+  rdl_const_t c1;        // for internal use
+  rational_t q;          // for internalization
 
+  dl_triple_t triple;     // for variable construction
+  poly_buffer_t buffer;   // for internal polynomial operations
 
   /*
    * Structures used for building a model
@@ -415,6 +430,10 @@ typedef struct rdl_solver_s {
   rational_t aux2;
   rational_t *value;
 
+  /*
+   * Jump buffer for exception handling during internalization
+   */
+  jmp_buf *env;
 } rdl_solver_t;
 
 
@@ -436,8 +455,15 @@ typedef struct rdl_solver_s {
 /*
  * Initialize an rdl solver
  * - core = the attached smt-core object
+ * - gates = the attached gate manager
  */
-extern void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core);
+extern void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core, gate_manager_t *gates);
+
+
+/*
+ * Attach a jump buffer for exceptions
+ */
+extern void rdl_solver_init_jmpbuf(rdl_solver_t *solver, jmp_buf *buffer);
 
 
 /*
@@ -452,6 +478,11 @@ extern void delete_rdl_solver(rdl_solver_t *solver);
 extern th_ctrl_interface_t *rdl_ctrl_interface(rdl_solver_t *solver);
 extern th_smt_interface_t  *rdl_smt_interface(rdl_solver_t *solver);
 
+
+/*
+ * Get interface descriptor for the internalization functions.
+ */
+extern arith_interface_t *rdl_arith_interface(rdl_solver_t *solver);
 
 
 
@@ -502,6 +533,103 @@ extern void rdl_add_axiom_edge(rdl_solver_t *solver, int32_t x, int32_t y, ratio
  *   and edge y ---> x with cost -d  (y - x <= -d)
  */
 extern void rdl_add_axiom_eq(rdl_solver_t *solver, int32_t x, int32_t y, rational_t *d);
+
+
+
+
+
+/*******************************
+ *  INTERNALIZATION FUNCTIONS  *
+ ******************************/
+
+/*
+ * These functions are used by the context to convert terms to
+ * variables and literals. They form the arith_interface descriptor.
+ */
+
+/*
+ * Create a new theory variable
+ * - is_int indicates whether the variable should be an integer,
+ *   so it should always be true for this solver.
+ * - raise exception NOT_RDL if is_int is true
+ * - raise exception TOO_MANY_VARS if we can't create a new vertex
+ *   for that variable
+ */
+extern thvar_t rdl_create_var(rdl_solver_t *solver, bool is_int);
+
+
+/*
+ * Create a variable that represents the constant q
+ */
+extern thvar_t rdl_create_const(rdl_solver_t *solver, rational_t *q);
+
+
+/*
+ * Create a variable for a polynomial p, with variables defined by map:
+ * - p is of the form a_0 t_0 + ... + a_n t_n where t_0, ..., t_n
+ *   are arithmetic terms.
+ * - map[i] is the theory variable x_i for t_i 
+ *   (with map[0] = null_thvar if t_0 is const_idx)
+ * - the function constructs a variable equal to a_0 x_0 + ... + a_n x_n
+ *
+ * - fails if a_0 x_0 + ... + a_n x_n is not an RDL polynomial 
+ *   (i.e., not of the form x - y + c)
+ */
+extern thvar_t rdl_create_poly(rdl_solver_t *solver, polynomial_t *p, thvar_t *map);
+
+
+/*
+ * Internalization for a product: always fails with NOT_RDL exception
+ */
+extern thvar_t rdl_create_pprod(rdl_solver_t *solver, pprod_t *p, thvar_t *map);
+
+
+/*
+ * Create the atom x = 0
+ */
+extern literal_t rdl_create_eq_atom(rdl_solver_t *solver, thvar_t x);
+
+
+/*
+ * Create the atom x >= 0
+ */
+extern literal_t rdl_create_ge_atom(rdl_solver_t *solver, thvar_t x);
+
+
+/*
+ * Create the atom (x = y)
+ */
+extern literal_t rdl_create_vareq_atom(rdl_solver_t *solver, thvar_t x, thvar_t y);
+
+
+/*
+ * Assert the top-level constraint (x == 0) or (x != 0)
+ * - if tt is true: assert x == 0
+ * - if tt is false: assert x != 0
+ */
+extern void rdl_assert_eq_axiom(rdl_solver_t *solver, thvar_t x, bool tt);
+
+
+/*
+ * Assert the top-level constraint (x >= 0) or (x < 0)
+ * - if tt is true: assert (x >= 0)
+ * - if tt is false: assert (x < 0)
+ */
+extern void rdl_assert_ge_axiom(rdl_solver_t *solver, thvar_t x, bool tt);
+
+
+/*
+ * Assert (x == y) or (x != y)
+ * - if tt is true: assert (x == y)
+ * - if tt is false: assert (x != y)
+ */
+extern void rdl_assert_vareq_axiom(rdl_solver_t *solver, thvar_t x, thvar_t y, bool tt);
+
+
+/*
+ * Assert (c ==> x == y)
+ */
+extern void rdl_assert_cond_vareq_axiom(rdl_solver_t *solver, literal_t c, thvar_t x, thvar_t y);
 
 
 
@@ -599,9 +727,20 @@ extern void rdl_build_model(rdl_solver_t *solver);
 
 
 /*
- * Copy the value of x into q
+ * Return (a pointer to) the value of edge x in the model
  */
-extern void rdl_value_in_model(rdl_solver_t *solver, int32_t x, rational_t *q);
+static inline rational_t *rdl_vertex_value(rdl_solver_t *solver, int32_t x) {
+  assert(solver->value != NULL && 0 <= x && x < solver->nvertices);
+  return solver->value + x;
+}
+
+
+/*
+ * Value of variable v in the model
+ * - copy the value into q and return true
+ */
+extern bool rdl_value_in_model(rdl_solver_t *solver, thvar_t v, rational_t *q);
+
 
 
 /*

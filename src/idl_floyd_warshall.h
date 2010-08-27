@@ -693,10 +693,17 @@ extern void idl_build_model(idl_solver_t *solver);
 /*
  * Value of vertex x in the model
  */
-static inline int32_t idl_value_in_model(idl_solver_t *solver, int32_t x) {
+static inline int32_t idl_vertex_value(idl_solver_t *solver, int32_t x) {
   assert(solver->value != NULL && 0 <= x && x < solver->nvertices);
   return solver->value[x];
 }
+
+
+/*
+ * Value of variable v in the model
+ * - copy the value in rational q and return true
+ */
+extern bool idl_value_in_model(idl_solver_t *solver, thvar_t v, rational_t *q);
 
 
 /*

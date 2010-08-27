@@ -11,14 +11,21 @@
 
 
 /*
- * Name of RDL variable x
+ * Name of vertex x
  */
-extern void print_rdl_var(FILE *f, int32_t x);
+extern void print_rdl_vertex(FILE *f, int32_t x);
 
 /*
  * RDL constant c (q + k.delta)
  */
 extern void print_rdl_const(FILE *f, rdl_const_t *c);
+
+/*
+ * Value of vertex x in the graph
+ * - this prints distance[0, x] as the value
+ * - of ??? if there's no path from 0 to x
+ */
+extern void print_rdl_vertex_value(FILE *f, rdl_solver_t *rdl, int32_t x);
 
 /*
  * Atom in format: [<boolvar> := (x - y <= const)
@@ -27,7 +34,22 @@ extern void print_rdl_atom(FILE *f, rdl_atom_t *atom);
 extern void print_rdl_atoms(FILE *f, rdl_solver_t *rdl);
 
 
-extern void print_rdl_var_value(FILE *f, rdl_solver_t *rdl, int32_t x);
+/*
+ * Difference logic triple (x - y + d)
+ * - x and y are vertices
+ */
+extern void print_rdl_triple(FILE *f, dl_triple_t *triple);
+
+
+/*
+ * Variable triples: in the format u := (x - y + d)
+ * - x and y are vertices
+ * - u is a theory variable
+ */
+extern void print_rdl_var_name(FILE *f, thvar_t u);
+extern void print_rdl_var_def(FILE *f, rdl_solver_t *solver, thvar_t u);
+extern void print_rdl_var_table(FILE *f, rdl_solver_t *solver);
+
 
 
 #endif
