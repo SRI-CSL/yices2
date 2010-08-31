@@ -626,7 +626,7 @@ static void create_auto_idl_solver(context_t *ctx) {
   }
 
   if (sum_const >= 1073741824) {
-    // simplex rquired because of arithmetic overflow
+    // simplex required because of arithmetic overflow
     create_simplex_solver(ctx);
     ctx->arch = CTX_ARCH_SPLX;
   } else if (profile->num_vars >= 1000) {

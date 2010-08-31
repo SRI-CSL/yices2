@@ -20,6 +20,9 @@
 #include "int_stack.h"
 #include "int_vectors.h"
 #include "int_hash_sets.h"
+#include "int_bv_sets.h"
+#include "poly_buffer.h"
+
 #include "terms.h"
 #include "internalization_table.h"
 #include "internalization_codes.h"
@@ -416,6 +419,29 @@ typedef struct arith_interface_s {
 
 
 
+/******************************
+ *  DIFFERENCE LOGIC PROFILE  *
+ *****************************/
+
+/*
+ * For difference logic, we can use either the simplex solver
+ * or a specialized Floyd-Warshall solver. The decision is 
+ * based on the following parameters:
+ * - density = number of atoms / number of variables
+ * - sum_const = sum of the absolute values of all constants in the 
+ *   difference logic atoms
+ * - num_eqs = number of equalities (among all atoms)
+ * dl_data stores the relevant data
+ */
+typedef struct dl_data_s {
+  rational_t sum_const;
+  uint32_t num_vars;
+  uint32_t num_atoms;
+  uint32_t num_eqs;
+} dl_data_t;
+
+
+
 
 
 /**************
@@ -465,15 +491,18 @@ struct context_s {
   
   // auxiliary buffers and structures for internalization
   ivector_t subst_eqs;
+  int_queue_t queue;
   ivector_t aux_vector;
   int_stack_t istack;
-  int_queue_t queue;
 
+  // optional components: allocated if needed
   pseudo_subst_t *subst;
   mark_vector_t *marks;
+  int_bvset_t *cache;
   int_hset_t *small_cache;
-
   arith_buffer_t *arith_buffer;
+  poly_buffer_t *poly_buffer;
+  dl_data_t *dl_profile;
 
   // for exception handling
   jmp_buf env;
@@ -528,6 +557,7 @@ enum {
  * NUM_INTERNALIZATION_ERRORS: must be (1 + number of negative codes)
  */
 #define NUM_INTERNALIZATION_ERRORS 17
+
 
 
 

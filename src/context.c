@@ -84,6 +84,14 @@ static void context_free_marks(context_t *ctx) {
 
 
 /*
+ * There are two internal caches for visiting formulas/terms.
+ * - the 'cache' uses a bitvector implementation and should be 
+ *   better for operations that visit many terms.
+ * - the 'small_cache' uses a hash table and should be better
+ *   for operations that visit a small number of terms.
+ */
+
+/*
  * Allocate and initialize the internal small_cache if needed
  */
 static int_hset_t *context_get_small_cache(context_t *ctx) {
@@ -127,7 +135,50 @@ static void context_free_small_cache(context_t *ctx) {
 
 
 /*
- * Internal arithmetic buffer
+ * Allocate and initialize the cache
+ */
+static int_bvset_t *context_get_cache(context_t *ctx) {
+  int_bvset_t *tmp;
+
+  tmp = ctx->cache;
+  if (tmp == NULL) {
+    tmp = (int_bvset_t *) safe_malloc(sizeof(int_bvset_t));
+    init_int_bvset(tmp, 0);
+    ctx->cache = tmp;
+  }
+
+  return tmp;
+}
+
+
+
+/*
+ * Free the cache
+ */
+static void context_free_cache(context_t *ctx) {
+  int_bvset_t *tmp;
+
+  tmp = ctx->cache;
+  if (tmp != NULL) {
+    delete_int_bvset(tmp);
+    safe_free(tmp);
+    ctx->cache = NULL;
+  }
+}
+
+
+
+/*
+ * There are two buffers for internal construction of polynomials
+ * - arith_buffer is more expensive (requires more memory) but 
+ *   it supports more operations (e.g., term constructors in yices_api.c
+ *   take arith_buffers as arguments).
+ * - poly_buffer is a cheaper data structure, but it does not support 
+ *   all the operations
+ */
+
+/*
+ * Allocate the arithmetic buffer
  */
 static arith_buffer_t *context_get_arith_buffer(context_t *ctx) {
   arith_buffer_t *tmp;
@@ -154,6 +205,88 @@ static void context_free_arith_buffer(context_t *ctx) {
     ctx->arith_buffer = NULL;
   }
 }
+
+
+
+/*
+ * Allocate the poly_buffer
+ */
+static poly_buffer_t *context_get_poly_buffer(context_t *ctx) {
+  poly_buffer_t *tmp;
+
+  tmp = ctx->poly_buffer;
+  if (tmp == NULL) {
+    tmp = (poly_buffer_t *) safe_malloc(sizeof(poly_buffer_t));
+    init_poly_buffer(tmp);
+    ctx->poly_buffer = tmp;
+  }
+
+  return tmp;
+}
+
+
+/*
+ * Free it
+ */
+static void context_free_poly_buffer(context_t *ctx) {
+  poly_buffer_t *tmp;
+
+  tmp = ctx->poly_buffer;
+  if (tmp != NULL) {
+    delete_poly_buffer(tmp);
+    safe_free(tmp);
+    ctx->poly_buffer = NULL;
+  }
+}
+
+
+/*
+ * Reset it
+ */
+static void context_reset_poly_buffer(context_t *ctx) {
+  if (ctx->poly_buffer != NULL) {
+    reset_poly_buffer(ctx->poly_buffer);
+  }
+}
+
+
+
+
+/*
+ * Difference-logic profile: 
+ * - allocate and initialize the structure if it does not exist
+ */
+static dl_data_t *context_get_dl_profile(context_t *ctx) {
+  dl_data_t *tmp;
+
+  tmp = ctx->dl_profile;
+  if (tmp == NULL) {
+    tmp = (dl_data_t *) safe_malloc(sizeof(dl_data_t));
+    q_init(&tmp->sum_const);
+    tmp->num_vars = 0;
+    tmp->num_atoms = 0;
+    tmp->num_eqs = 0;
+    ctx->dl_profile = tmp;
+  }
+
+  return tmp;
+}
+
+
+/*
+ * Free the profile record
+ */
+static void context_free_dl_profile(context_t *ctx) {
+  dl_data_t *tmp;
+
+  tmp = ctx->dl_profile;
+  if (tmp != NULL) {
+    q_clear(&tmp->sum_const);
+    safe_free(tmp);
+    ctx->dl_profile = NULL;
+  }
+}
+
 
 
 /*****************************
@@ -1497,6 +1630,11 @@ static void flatten_assertion(context_t *ctx, term_t f) {
       case UNUSED_TERM:
       case RESERVED_TERM:
       case CONSTANT_TERM:
+	/*
+	 * NOTE: the constant boolean terms are true and false, which
+	 * should always be internalized to true_literal or false_literal.
+	 * That's why we don't have a separate 'CONSTANT_TERM' case.
+	 */
 	exception = INTERNAL_ERROR;
 	goto abort;
 	
@@ -1766,6 +1904,455 @@ static int32_t analyze_uf(context_t *ctx) {
 
 
 
+/*************************************************
+ *  ANALYSIS FOR THE DIFFERENCE LOGIC FRAGMENTS  *
+ ************************************************/
+
+/*
+ * Increment the number of variables if t has not been seen before
+ */
+static void count_dl_var(context_t *ctx, dl_data_t *stats, term_t t) {
+  int32_t idx;
+
+  assert(is_pos_term(t) && intern_tbl_is_root(&ctx->intern, t));
+
+  idx = index_of(t);
+  if (int_bvset_add(ctx->cache, idx)) {
+    stats->num_vars ++;
+  }
+}
+
+
+/*
+ * Check whether (x - y <= a) or (x - y = a) is a valid IDL or RDL atom
+ * If so, update the statistics array stats and return true.
+ * Otherwise return false.
+ * - x and y are arithmetic terms (x or y or both may be the zero_term).
+ * - x and y must be roots in ctx->intern
+ * - a is either a rational constant or NULL (if NULL, that's interpreted as zero)
+ *
+ * TODO: use a hash table? The same atom may be counted twice.
+ *
+ * NOTE: we could check whether x and y are uninterpreted, but that
+ * will be detected in later phases of internalization anyway.
+ */
+static bool check_dl_atom(context_t *ctx, dl_data_t *stats, term_t x, term_t y, rational_t *a, bool idl) {
+  term_table_t *terms;
+
+  terms = ctx->terms;
+
+  assert(is_arithmetic_term(terms, x) && is_pos_term(x) && intern_tbl_is_root(&ctx->intern, x));
+  assert(is_arithmetic_term(terms, y) && is_pos_term(y) && intern_tbl_is_root(&ctx->intern, y));
+
+  // check the types first
+  if (x != zero_term && is_integer_term(terms, x) != idl) {
+    return false;
+  }
+  if (y != zero_term && is_integer_term(terms, y) != idl) {
+    return false;
+  }
+  if (idl && a != NULL && ! q_is_integer(a)) {
+    return false;
+  }
+
+  // if x == y, we ignore the atom. It will simplify to true or false anyway.
+  if (x != y) {
+    count_dl_var(ctx, stats, x); // we must count zero_term as a variable
+    count_dl_var(ctx, stats, y); // same thing
+
+    /*
+     * stats->sum_const is intended to be an upper bound on the
+     * longest path in the difference-logic graph.
+     * 
+     * for idl, we add max( |a|, |-a -1|) to sum_const
+     * for rdl, we add |a| to sum_const
+     */
+    if (a != NULL) {
+      if (q_is_neg(a)) {	
+	// a < 0  so max(|a|, |-a - 1|) is - a
+	q_sub(&stats->sum_const, a);
+      } else {
+	// a >= 0 so max(|a|, |-a - 1|) is a + 1
+	q_add(&stats->sum_const, a);
+	if (idl) q_add_one(&stats->sum_const);
+      }
+    } else if (idl) {
+      // a = 0
+      q_add_one(&stats->sum_const);
+    }
+  }
+  
+  stats->num_atoms ++;
+
+  return true;
+}
+
+
+/*
+ * Check whether aux contains a difference logic term, i.e., 
+ * a term of the form (a + x - y) or (a + x) or (a - y) or (x - y) or +x or -y.
+ * where a is a constant and x and y are two arithmetic variables.
+ *
+ * All terms of aux must be roots in ctx->intern.
+ */
+static bool check_dl_poly_buffer(context_t *ctx, dl_data_t *stats, poly_buffer_t *aux, bool idl) {
+  uint32_t n;
+  rational_t *a;
+  monomial_t *q;
+
+  n = poly_buffer_nterms(aux);
+  if (n > 3) return false;
+
+  a = NULL;
+  q = poly_buffer_mono(aux);
+
+  // get a pointer to the constant if any
+  if (q[0].var == const_idx) {
+    a = &q[0].coeff;
+    q ++;
+    n --; 
+  }
+
+  // deal with the non-constant terms
+  if (n == 2 && q_opposite(&q[0].coeff, &q[1].coeff)) {
+    if (q_is_one(&q[0].coeff)) {
+      // a_0 + x_1 - x_2 >= 0  <--> (x_2 - x_1 <= a_0)
+      return check_dl_atom(ctx, stats, q[1].var, q[0].var, a, idl);
+    }
+      
+    if (q_is_one(&q[1].coeff)) {
+      // a_0 - x_1 + x_2 >= 0  <--> (x_1 - x_2 <= a_0)
+      return check_dl_atom(ctx, stats, q[0].var, q[1].var, a, idl);
+    }
+
+  } else if (n == 1) {
+    if (q_is_one(&q[0].coeff)) {
+      // a_0 + x_1 >= 0  <--> (0 - x_1 <= a_0)
+      return check_dl_atom(ctx, stats, zero_term, q[0].var, a, idl);
+    }
+
+    if (q_is_minus_one(&q[0].coeff)) {
+      // a_0 - x_1 >= 0  <--> (x_1 - 0 <= a_0)
+      return check_dl_atom(ctx, stats, q[0].var, zero_term, a, idl);
+    }
+  }
+
+  return n == 0;
+}
+
+
+/*
+ * Add a * t to a buffer (and variants).
+ * - we must deal with the case where t is a constant here.
+ */
+static void poly_buffer_addmul_term(term_table_t *terms, poly_buffer_t *aux, term_t t, rational_t *a) {
+  assert(is_arithmetic_term(terms, t) && is_pos_term(t));
+
+  if (term_kind(terms, t) == ARITH_CONSTANT) {
+    poly_buffer_addmul_monomial(aux, const_idx, a, rational_term_desc(terms, t));
+  } else {
+    poly_buffer_add_monomial(aux, t, a);
+  }
+}												     
+
+static void poly_buffer_add_term(term_table_t *terms, poly_buffer_t *aux, term_t t) {
+  assert(is_arithmetic_term(terms, t) && is_pos_term(t));
+
+  if (term_kind(terms, t) == ARITH_CONSTANT) {
+    poly_buffer_add_const(aux, rational_term_desc(terms, t));
+  } else {
+    poly_buffer_add_var(aux, t);
+  }
+}
+
+static void poly_buffer_sub_term(term_table_t *terms, poly_buffer_t *aux, term_t t) {
+  assert(is_arithmetic_term(terms, t) && is_pos_term(t));
+
+  if (term_kind(terms, t) == ARITH_CONSTANT) {
+    poly_buffer_sub_const(aux, rational_term_desc(terms, t));
+  } else {
+    poly_buffer_sub_var(aux, t);
+  }
+}
+
+
+
+/*
+ * Apply substitutions then check whether p is a difference logic term
+ */
+static bool check_diff_logic_poly(context_t *ctx, dl_data_t *stats, polynomial_t *p, bool idl) {
+  poly_buffer_t *aux;
+  monomial_t *mono;
+  term_table_t *terms;
+  uint32_t i, n;
+  term_t t;
+
+  aux = context_get_poly_buffer(ctx);
+  reset_poly_buffer(aux);
+
+  assert(poly_buffer_is_zero(aux));
+
+  n = p->nterms;
+  mono = p->mono;
+
+  /*
+   * p is of the form a0 + a_1 t_1 + ... + a_n t_n 
+   * We replace t_i by its root in S(t_i) in the intern table.
+   * The result a0 + a_1 S(t_1) + ... + a_n S(t_n) is stored in buffer aux..
+   * Then we check whether aux is a difference logic polynomial.
+   */
+  assert(n > 0); // because zero polynomial is converted to 0 constant 
+  
+  // deal with the constant first
+  if (mono[0].var == const_idx) {
+    poly_buffer_add_const(aux, &mono[0].coeff);
+    n --;
+    mono ++;
+  }
+
+  terms = ctx->terms;
+  for (i=0; i<n; i++) {
+    t = intern_tbl_get_root(&ctx->intern, mono[i].var);
+    poly_buffer_addmul_term(terms, aux, t, &mono[i].coeff);
+  }
+
+  normalize_poly_buffer(aux);
+
+  return check_dl_poly_buffer(ctx, stats, aux, idl);
+}
+
+
+/*
+ * Check whether (x - y) is a difference logic term
+ */
+static bool check_diff_logic_eq(context_t *ctx, dl_data_t *stats, term_t x, term_t y, bool idl) {
+  term_table_t *terms;
+  poly_buffer_t *aux;
+
+  assert(is_arithmetic_term(ctx->terms, x) && is_pos_term(x) &&
+	 is_arithmetic_term(ctx->terms, y) && is_pos_term(y));
+
+  aux = context_get_poly_buffer(ctx);
+  reset_poly_buffer(aux);
+  assert(poly_buffer_is_zero(aux));
+
+  // build polynomial (x - y) after applying substitutions
+  terms = ctx->terms;
+  poly_buffer_add_term(terms, aux, intern_tbl_get_root(&ctx->intern, x));
+  poly_buffer_sub_term(terms, aux, intern_tbl_get_root(&ctx->intern, x));    
+
+  return check_dl_poly_buffer(ctx, stats, aux, idl);
+}
+
+
+
+
+/*
+ * Check whether term t is a difference logic term and update stats
+ * - if idl is true, check whether t is in the IDL fragment
+ * - otherwise, check whether t is in the RDL fragment
+ *
+ * The difference logic fragment contains terms of the following forms:
+ *   a + x - y
+ *   a + x
+ *   a - y
+ *   a
+ * where x and y are arithmetic variables and a is a constant (possibly a = 0).
+ *
+ * In IDL, x and y must be integer variables and 'a' must be an integer constant.
+ * (TODO: We could relax that and accept rational a?)
+ * In RDL, x and y must be real variables.
+ */
+static bool check_diff_logic_term(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
+  term_table_t *terms;
+
+
+  assert(is_arithmetic_term(ctx->terms, t));
+
+  terms = ctx->terms;
+
+  // apply substitution
+  t = intern_tbl_get_root(&ctx->intern, t);
+
+  assert(is_arithmetic_term(terms, t) && is_pos_term(t) 
+	 && intern_tbl_is_root(&ctx->intern, t));
+
+  switch (term_kind(terms, t)) {
+  case ARITH_CONSTANT:
+    return !idl || q_is_integer(rational_term_desc(terms, t));
+
+  case UNINTERPRETED_TERM:
+    if (is_integer_term(terms, t) == idl) {
+      count_dl_var(ctx, stats, t);
+      return true;
+    } else {
+      assert((idl && is_real_term(terms, t)) || (!idl && is_integer_term(terms, t)));
+      return false;
+    }
+    
+  case ARITH_POLY:
+    return check_diff_logic_poly(ctx, stats, poly_term_desc(terms, t), idl);
+
+  default:
+    // TODO: we could accept if-then-else here?
+    return false;
+  }
+}
+
+
+/*
+ * Analyze all arithmetic atoms in term t and fill in stats
+ * - if idl is true, this checks for integer difference logic
+ *   otherwise, checks for real difference logic
+ * - cache must be initialized and contain all the terms already visited
+ */
+static void analyze_dl(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
+  term_table_t *terms;
+  composite_term_t *cmp;
+  uint32_t i, n;
+  int32_t idx;
+  term_t r;
+
+  assert(is_boolean_term(ctx->terms, t));
+
+  idx = index_of(t); // remove negation
+
+  if (int_bvset_add(ctx->cache, idx)) {
+    /*
+     * idx not visited yet
+     */
+    terms = ctx->terms;
+    switch (kind_for_idx(terms, idx)) {
+    case UNINTERPRETED_TERM:
+      // follow the substitutions if any
+      r = intern_tbl_get_root(&ctx->intern, pos_term(idx));
+      if (r != pos_term(idx)) {
+	analyze_dl(ctx, stats, r, idl);
+      }
+      break;
+      
+    case ITE_TERM:
+    case ITE_SPECIAL:
+    case OR_TERM:
+    case XOR_TERM:
+      cmp = composite_for_idx(terms, idx);
+      n = cmp->arity;
+      for (i=0; i<n; i++) {
+	analyze_dl(ctx, stats, cmp->arg[i], idl);
+      }
+      break;
+
+    case EQ_TERM:
+      cmp = composite_for_idx(terms, idx);
+      assert(cmp->arity == 2);
+      if (is_boolean_term(terms, cmp->arg[0])) {
+	// boolean equality
+	analyze_dl(ctx, stats, cmp->arg[0], idl);
+	analyze_dl(ctx, stats, cmp->arg[1], idl);
+      } else {
+	goto abort;
+      }
+      break;
+
+    case ARITH_EQ_ATOM:
+      // term (x == 0): check whether x is a difference logic term
+      if (! check_diff_logic_term(ctx, stats, integer_value_for_idx(terms, idx), idl)) {
+	goto abort;
+      }
+      stats->num_eqs ++;
+      break;
+
+    case ARITH_GE_ATOM:
+      // term (x >= 0): check whether x is a difference logic term
+      if (! check_diff_logic_term(ctx, stats, integer_value_for_idx(terms, idx), idl)) {
+	goto abort;
+      }
+      break;
+
+    case ARITH_BINEQ_ATOM:
+      // term (x == y): check whether x - y is a difference logic term
+      cmp = composite_for_idx(terms, idx);
+      assert(cmp->arity == 2);
+      if (! check_diff_logic_eq(ctx, stats, cmp->arg[0], cmp->arg[1], idl)) {
+	goto abort;
+      }
+      break;
+
+    default:
+      goto abort;
+    }
+  }
+
+  return;
+
+ abort:  
+  longjmp(ctx->env, LOGIC_NOT_SUPPORTED);
+}
+  
+
+/*
+ * Check all terms in vector v
+ */
+static void analyze_diff_logic_vector(context_t *ctx, dl_data_t *stats, ivector_t *v, bool idl) {
+  uint32_t i, n;
+
+  n = v->size;
+  for (i=0; i<n; i++) {
+    analyze_dl(ctx, stats, v->data[i], idl);
+  }
+}
+
+
+/*
+ * Check difference logic after flattening:
+ * - check whether all formulas in top_eqs, top_atoms, and top_formulas
+ *   are in the difference logic fragment. If so, compute the benchmark 
+ *   profile (i.e., statistics on number of variables + atoms)
+ * - if idl is true, all variables must be integer (i.e., the formula is 
+ *   in the IDL fragment), otherwise all variables must be real (i.e., the 
+ *   formula is in the RDL fragment).
+ *
+ * - if all assertions are in IDL or RDL.
+ *   the statistics are stored in ctx->dl_profile. 
+ * - raise an exception 'LOGIC_NOT_SUPPORTED' otherwise.
+ *
+ * This function is used to decide whether to use simplex or a
+ * specialized solver when the architecture is CTX_AUTO_IDL or
+ * CTX_AUTO_RDL.  Because this function is called before the actual
+ * arithmetic solver is created, we assume that no arithmetic term is
+ * internalized, and that top_interns is empty.
+ */
+static void analyze_diff_logic(context_t *ctx, bool idl) {
+  dl_data_t *stats;
+
+  stats = context_get_dl_profile(ctx);
+  (void) context_get_cache(ctx); // allocate and initialize the cache
+
+  analyze_diff_logic_vector(ctx, stats, &ctx->top_eqs, idl);
+  analyze_diff_logic_vector(ctx, stats, &ctx->top_atoms, idl);
+  analyze_diff_logic_vector(ctx, stats, &ctx->top_formulas, idl);
+
+
+#if (TRACE || TEST_DL)
+  printf("==== Difference logic ====\n");
+  if (idl) {
+    printf("---> IDL\n");
+  } else {
+    printf("---> RDL\n");
+  }
+  printf("---> %"PRIu32" variables\n", stats->num_vars);
+  printf("---> %"PRIu32" atoms\n", stats->num_atoms);
+  printf("---> %"PRIu32" equalities\n", stats->num_eqs);
+  printf("---> sum const = ");
+  q_print(stdout, &stats->sum_const);
+  printf("\n");
+#endif
+
+  context_free_cache(ctx);
+}
+
+
+
 /************************
  *  PARAMETERS/OPTIONS  *
  ***********************/
@@ -1942,6 +2529,8 @@ void disable_splx_periodic_icheck(context_t *ctx) {
 }
 
 
+
+
 /*****************************
  *  CONTEXT INITIALIZATION   *
  ****************************/
@@ -2030,8 +2619,11 @@ void init_context(context_t *ctx, term_table_t *terms,
   init_int_queue(&ctx->queue, 0);
   ctx->subst = NULL;
   ctx->marks = NULL;
+  ctx->cache = NULL;
   ctx->small_cache = NULL;
   ctx->arith_buffer = NULL;
+  ctx->poly_buffer = NULL;
+  ctx->dl_profile = NULL;
 
   // TEMPORARY HACK: INITIALIZE THE CORE WITH THE EMPTY SOLVER
   cmode = core_mode[mode];
@@ -2075,8 +2667,11 @@ void delete_context(context_t *ctx) {
 
   context_free_subst(ctx);
   context_free_marks(ctx);
+  context_free_cache(ctx);
   context_free_small_cache(ctx);
   context_free_arith_buffer(ctx);
+  context_free_poly_buffer(ctx);
+  context_free_dl_profile(ctx);
 }
 
 
@@ -2110,6 +2705,8 @@ void reset_context(context_t *ctx) {
   context_free_marks(ctx);
   context_reset_small_cache(ctx);
   context_free_arith_buffer(ctx);
+  context_reset_poly_buffer(ctx);
+  context_free_dl_profile(ctx);
 }
 
 
@@ -2171,6 +2768,13 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
       context_process_candidate_subst(ctx);
     }
 
+    /*
+     * At this point, the assertions are stored into the four vectors
+     * top_eqs, top_atoms, top_formulas, and top_interns, and
+     * ctx->intern stores the internalized terms and the variable
+     * substitutions.
+     */
+
     // optional processing
     switch (ctx->arch) {
     case CTX_ARCH_EG:
@@ -2181,9 +2785,11 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
       break;
 
     case CTX_ARCH_AUTO_IDL:
-    case CTX_ARCH_IFW:
+      analyze_diff_logic(ctx, true);
+      break;
+      
     case CTX_ARCH_AUTO_RDL:
-    case CTX_ARCH_RFW:
+      analyze_diff_logic(ctx, false);
       break;
 
     default:
@@ -2208,8 +2814,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
 
 
 /*
- * Assert a boolean formula f.
- *
+ * Assert all formulas f[0] ... f[n-1]
  * The context status must be IDLE.
  *
  * Return code:
@@ -2217,17 +2822,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
  *   (in that case the context status is set to UNSAT)
  * - CTX_NO_ERROR means no internalization error and status not 
  *   determined
- * - otherwise, the code is negative. The assertion could 
- *   not be processed.
- */
-int32_t assert_formula(context_t *ctx, term_t f) {
-  return assert_formulas(ctx, 1, &f);
-}
-
-
-/*
- * Assert all formulas f[0] ... f[n-1]
- * same return code as above.
+ * - otherwise, the code is negative to report an error.
  */
 int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f) {
   int32_t code;
@@ -2251,6 +2846,24 @@ int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f) {
   return code;
 }
 
+
+
+/*
+ * Assert a boolean formula f.
+ *
+ * The context status must be IDLE.
+ *
+ * Return code:
+ * - TRIVIALLY_UNSAT means that an inconsistency is detected
+ *   (in that case the context status is set to UNSAT)
+ * - CTX_NO_ERROR means no internalization error and status not 
+ *   determined
+ * - otherwise, the code is negative. The assertion could 
+ *   not be processed.
+ */
+int32_t assert_formula(context_t *ctx, term_t f) {
+  return assert_formulas(ctx, 1, &f);
+}
 
 
 /*
