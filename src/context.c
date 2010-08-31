@@ -2182,14 +2182,8 @@ static bool check_diff_logic_term(context_t *ctx, dl_data_t *stats, term_t t, bo
     return !idl || q_is_integer(rational_term_desc(terms, t));
 
   case UNINTERPRETED_TERM:
-    if (is_integer_term(terms, t) == idl) {
-      count_dl_var(ctx, stats, t);
-      return true;
-    } else {
-      assert((idl && is_real_term(terms, t)) || (!idl && is_integer_term(terms, t)));
-      return false;
-    }
-    
+    return check_diff_logic_eq(ctx, stats, t, zero_term, idl);
+
   case ARITH_POLY:
     return check_diff_logic_poly(ctx, stats, poly_term_desc(terms, t), idl);
 
