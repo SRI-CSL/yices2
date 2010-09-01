@@ -179,8 +179,8 @@ libyices_install_name := /usr/local/lib/$(libyices_dylib)
 # both systems use an import library called libyices.dll.a
 #
 # On mingw, we also produce libyices.def, which can be
-# used to produce an import library compatible with Microsoft
-# visual studio.
+# used to produce an import library compatible with the Microsoft
+# compilation tools (and Visual Studio).
 #
 libyices_dll := cygyices.dll
 libyices_mingw_dll := libyices.dll
@@ -469,12 +469,6 @@ $(static_libdir)/$(libyices_so): $(obj) $(version_obj)
 # copy cygyices.dll in /bin (or /usr/bin)
 # link the code using the flags -lyices -lgmp
 #
-# Hack: on cygwin/mingw, we must build the GMP-included
-# DLL using the static_objects. This works because on
-# cygwin/mingw, the static objects are PIC.
-# FIX THIS: that's not good, because the static objects
-# are compiled with -DNOYICES_DLL, so the 
-#
 $(libdir)/$(libyices_dll): $(obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(libdir)/$(libyices_implib) \
@@ -513,10 +507,9 @@ $(static_libdir)/$(libyices_mingw_dll): $(static_obj) $(static_version_obj)
 
 
 #
-# Special dynamic library tricks for Mac OS X:
-# - give libyices.dylib as the install_name
-# - compatibility version is MAJOR.MINOR.0
-# - current version is MAJOR.MINOR.PATCH_LEVEL
+# Special dynamic tricks for Mac OS X:
+# - the compatibility version is MAJOR.MINOR.0
+# - the current version is MAJOR.MINOR.PATCH_LEVEL
 # - install name: /usr/local/lib/libyices.MAJOR.dylib
 # - option -headerpad_max_install_names allows users to
 #   safely change the install name using install_name_tool.

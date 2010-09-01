@@ -56,7 +56,7 @@ static_dep := $(src_c:%.c=$(static_objdir)/%.d)
 tests := $(src_c:%.c=$(bindir)/%$(EXEEXT))
 static_tests := $(src_c:%.c=$(static_bindir)/%$(EXEEXT))
 
-# 
+#
 # Archives to link with:
 # - libyices: objects compiled with the PIC option
 # - static_libyices: compiled without the PIC option
