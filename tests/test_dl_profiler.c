@@ -12,6 +12,7 @@
 #include "term_stack.h"
 #include "smt_lexer.h"
 #include "smt_parser.h"
+#include "smt_logic_codes.h"
 #include "context.h"
 #include "context_printer.h"
 
@@ -76,8 +77,10 @@ static void print_internalization_code(int32_t code) {
 
 
 
+#if 0
+
 /*
- * Print the context:
+ * Print the context: not used
  */
 static void dump_context(FILE *f, context_t *ctx) {
   fprintf(f, "--- Substitutions ---\n");
@@ -95,6 +98,8 @@ static void dump_context(FILE *f, context_t *ctx) {
   fprintf(f, "\n");
   fflush(f);
 }
+
+#endif
 
 
 /*
@@ -131,13 +136,35 @@ static bool context_is_empty(context_t *ctx) {
 
 
 /*
- * Test the context internalization functions
+ * Test the context internalization functions + difference logic profiling 
  */
-static void test_internalization(smt_benchmark_t *bench) {
-  FILE *f;
+static int32_t test_dl_profiling(smt_benchmark_t *bench) {
+  dl_data_t *profile;
+  smt_logic_t logic;
+  context_arch_t arch;
   int32_t code;
 
-  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, CTX_ARCH_EG, false);
+  if (bench->logic_name != NULL) {
+    logic = smt_logic_code(bench->logic_name);
+    switch (logic) {
+    case QF_IDL:
+      arch = CTX_ARCH_AUTO_IDL;
+      break;
+
+    case QF_RDL:
+      arch = CTX_ARCH_AUTO_RDL;
+      break;
+
+    default:
+      print_internalization_code(LOGIC_NOT_SUPPORTED);
+      return YICES_EXIT_ERROR;
+    }
+  } else {
+    printf("No logic specified\n");
+    return YICES_EXIT_ERROR;
+  }
+
+  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, arch, false);
   enable_variable_elimination(&context);
   enable_eq_abstraction(&context);
 
@@ -150,15 +177,23 @@ static void test_internalization(smt_benchmark_t *bench) {
 
   printf("term table: %"PRIu32" elements\n", context.terms->nelems);
 
-  f = fopen("yices2intern.dmp", "w");
-  if (f == NULL) {
-    perror("yices2intern.dmp");
+  profile = context.dl_profile;
+  if (profile != NULL) {    
+    printf("profile:\n");
+    printf("  %"PRIu32" variables\n", profile->num_vars);
+    printf("  %"PRIu32" atoms\n", profile->num_atoms);
+    printf("  %"PRIu32" equalities\n", profile->num_eqs);    
+    printf("  sum const = ");
+    q_print(stdout, &profile->sum_const);
+    printf("\n");
   } else {
-    dump_context(f, &context);
-    fclose(f);
+    printf("no profile data\n");
   }
+  fflush(stdout);
 
   delete_context(&context);
+
+  return 0;
 }
 
 
@@ -196,7 +231,8 @@ int main(int argc, char *argv[]) {
   if (benchmark_reduced_to_false(&bench)) {
     printf("Reduced to false\n\nunsat\n");
   } else {
-    test_internalization(&bench);
+    code = test_dl_profiling(&bench);
+    if (code != 0) exit(code);
   }
   printf("\n");
   fflush(stdout);

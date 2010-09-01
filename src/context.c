@@ -10,9 +10,12 @@
 #include "context.h"
 #include "eq_learner.h"
 
-#define TRACE_SUBST 1
+#define TRACE_SUBST  0
+#define TRACE_EQ_ABS 0
+#define TRACE_DL     0
+#define TRACE        0
 
-#if TRACE_SUBST
+#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DL || TRACE
 
 #include <stdio.h>
 #include "term_printer.h"
@@ -848,7 +851,7 @@ static void try_pseudo_subst(context_t *ctx, pseudo_subst_t *subst, term_t x, te
     s->map = t;
     s->eq = e;
 
-#if TRACE_SUBST && 0
+#if TRACE_SUBST
     printf("Add subst candidate ");
     print_term_desc(stdout, ctx->terms, x);
     printf(" := ");;
@@ -1816,7 +1819,7 @@ static int32_t add_aux_eq(context_t *ctx, term_t x, term_t y) {
 
     assert(intern_tbl_is_root(&ctx->intern, eq));
 
-#if TRACE_EQ_ABS || 1
+#if TRACE_EQ_ABS
     printf("---> learned equality: ");
     print_term_def(stdout, ctx->terms, eq);
     printf("\n");
@@ -1990,7 +1993,7 @@ static bool check_dl_atom(context_t *ctx, dl_data_t *stats, term_t x, term_t y, 
 
 /*
  * Check whether aux contains a difference logic term, i.e., 
- * a term of the form (a + x - y) or (a + x) or (a - y) or (x - y) or +x or -y.
+ * a term of the form (a + x - y) or (a + x) or (a - y) or (x - y) or +x or -y or a,
  * where a is a constant and x and y are two arithmetic variables.
  *
  * All terms of aux must be roots in ctx->intern.
@@ -2002,6 +2005,7 @@ static bool check_dl_poly_buffer(context_t *ctx, dl_data_t *stats, poly_buffer_t
 
   n = poly_buffer_nterms(aux);
   if (n > 3) return false;
+  if (n == 0) return true;
 
   a = NULL;
   q = poly_buffer_mono(aux);
@@ -2139,7 +2143,8 @@ static bool check_diff_logic_eq(context_t *ctx, dl_data_t *stats, term_t x, term
   // build polynomial (x - y) after applying substitutions
   terms = ctx->terms;
   poly_buffer_add_term(terms, aux, intern_tbl_get_root(&ctx->intern, x));
-  poly_buffer_sub_term(terms, aux, intern_tbl_get_root(&ctx->intern, x));    
+  poly_buffer_sub_term(terms, aux, intern_tbl_get_root(&ctx->intern, y));    
+  normalize_poly_buffer(aux);
 
   return check_dl_poly_buffer(ctx, stats, aux, idl);
 }
@@ -2217,6 +2222,10 @@ static void analyze_dl(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
      */
     terms = ctx->terms;
     switch (kind_for_idx(terms, idx)) {
+    case CONSTANT_TERM:
+      assert(idx == bool_const);
+      break;
+
     case UNINTERPRETED_TERM:
       // follow the substitutions if any
       r = intern_tbl_get_root(&ctx->intern, pos_term(idx));
@@ -2327,7 +2336,7 @@ static void analyze_diff_logic(context_t *ctx, bool idl) {
   analyze_diff_logic_vector(ctx, stats, &ctx->top_formulas, idl);
 
 
-#if (TRACE || TEST_DL)
+#if (TRACE || TRACE_DL)
   printf("==== Difference logic ====\n");
   if (idl) {
     printf("---> IDL\n");
