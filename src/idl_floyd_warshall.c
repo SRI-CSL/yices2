@@ -2644,6 +2644,6 @@ th_smt_interface_t *idl_smt_interface(idl_solver_t *solver) {
 /*
  * Get the internalization interface
  */
-arith_interface_t *idl_arih_interface(idl_solver_t *solver) {
+arith_interface_t *idl_arith_interface(idl_solver_t *solver) {
   return &idl_intern;
 }

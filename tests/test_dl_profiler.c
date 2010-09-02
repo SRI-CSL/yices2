@@ -205,15 +205,21 @@ int main(int argc, char *argv[]) {
   int32_t code;
   double time, mem_used;
 
-  if (argc != 2) {
+  if (argc > 2) {
     fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
     exit(YICES_EXIT_USAGE);
   }
 
-  filename = argv[1];
-  if (init_smt_file_lexer(&lexer, filename) < 0) {
-    perror(filename);
-    exit(YICES_EXIT_FILE_NOT_FOUND);
+  if (argc == 2) {
+    // read from file
+    filename = argv[1];
+    if (init_smt_file_lexer(&lexer, filename) < 0) {
+      perror(filename);
+      exit(YICES_EXIT_FILE_NOT_FOUND);
+    }
+  } else {
+    // read from stdin
+    init_smt_stdin_lexer(&lexer);
   }
 
   yices_init();

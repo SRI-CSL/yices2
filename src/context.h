@@ -472,6 +472,9 @@ struct context_s {
   void *bv_solver;
   void *fun_solver;
 
+  // solver internalization interfaces
+  arith_interface_t arith;
+
   // input are all from the following tables (from yices_globals.h)
   type_table_t *types; 
   term_table_t *terms;

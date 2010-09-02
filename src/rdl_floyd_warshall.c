@@ -3032,6 +3032,16 @@ void delete_rdl_solver(rdl_solver_t *solver) {
 }
 
 
+
+/*
+ * Attach a jump buffer
+ */
+void rdl_solver_init_jmpbuf(rdl_solver_t *solver, jmp_buf *buffer) {
+  solver->env = buffer;
+}
+
+
+
 /*
  * Get the control and smt interfaces
  */

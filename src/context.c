@@ -9,6 +9,9 @@
 
 #include "context.h"
 #include "eq_learner.h"
+#include "idl_floyd_warshall.h"
+#include "rdl_floyd_warshall.h"
+
 
 #define TRACE_SUBST  0
 #define TRACE_EQ_ABS 0
@@ -292,9 +295,12 @@ static void context_free_dl_profile(context_t *ctx) {
 
 
 
+
+
 /*****************************
  *  FORMULA SIMPLIFICATION   *
  ****************************/
+
 
 /*
  * Check whether t is true or false (i.e., mapped to 'true_occ' or 'false_occ'
@@ -416,7 +422,7 @@ static term_t simplify_arith_eq0(context_t *ctx, term_t r) {
 
 
 /*
- * Simplification of a if-then-else: (ite c t1 t2)
+ * Simplification of if-then-else: (ite c t1 t2)
  * - c, t1, and t2 are all root terms in the internalization table
  * - flatten_bool_ite does more simplifications
  */
@@ -494,216 +500,14 @@ static term_t simplify_bool_eq(context_t *ctx, term_t t1, term_t t2) {
 
 
 
-/********************************
- *  FLATTENING OF DISJUNCTIONS  *
- *******************************/
+/**************************
+ *  VARIABLE ELIMINATION  *
+ *************************/
 
 /*
- * This does two things:
- * 1) rewrite nested OR terms to flat OR terms
- * 2) replace arithmetic disequality by disjunctions of strict inequalities
- *    (i.e., rewrite (x != 0) to (or (x < 0) (x > 0))
- */
-
-/*
- * Build the atom (t < 0)
- */
-static term_t lt0_atom(context_t *ctx, term_t t) {
-  arith_buffer_t *b;
-
-  assert(is_pos_term(t) && is_arithmetic_term(ctx->terms, t));
-
-  b = ctx->arith_buffer;
-  assert(b != NULL && arith_buffer_is_zero(b));
-
-  arith_buffer_add_term(b, ctx->terms, t);
-  return arith_buffer_get_lt0_atom(b);
-}
-
-/*
- * Build a term equivalent to (t > 0)
- */
-static term_t gt0_atom(context_t *ctx, term_t t) {
-  arith_buffer_t *b;
-
-  assert(is_pos_term(t) && is_arithmetic_term(ctx->terms, t));
-
-  b = ctx->arith_buffer;
-  assert(b != NULL && arith_buffer_is_zero(b));
-
-  arith_buffer_add_term(b, ctx->terms, t);
-  return arith_buffer_get_gt0_atom(b);  
-}
-
-
-/*
- * Flatten term t:
- * - if t is already internalized, keep t and add it to v
- * - if t is (OR t1 ... t_n), recursively flatten t_1 ... t_n
- * - if flattening of disequalities is enabled, and t is (NOT (x == 0)) then
- *   we rewrite (NOT (x == 0)) to (OR (< x 0) (> x 0))
- * - otherwise store t into v
- * All terms already in v must be in the small cache
- */
-static void flatten_or_recur(context_t *ctx, ivector_t *v, term_t t) {
-  term_table_t *terms;
-  composite_term_t *or;
-  uint32_t i, n;
-  term_kind_t kind;
-  term_t x;
-
-  assert(is_boolean_term(ctx->terms, t));
-
-  // apply substitutions
-  t = intern_tbl_get_root(&ctx->intern, t);
-
-  if (int_hset_add(ctx->small_cache, t)) {
-    /*
-     * t not already in v and not visited before
-     */
-    if (intern_tbl_root_is_mapped(&ctx->intern, t)) {
-      // t is already internalized, keep it as is
-      ivector_push(v, t); 
-    } else {
-      terms = ctx->terms;
-      kind = term_kind(terms, t);
-      if (is_pos_term(t) && kind == OR_TERM) {
-	// recursively flatten t
-	or = or_term_desc(terms, t);
-	n = or->arity;
-	for (i=0; i<n; i++) {
-	  flatten_or_recur(ctx, v, or->arg[i]);
-	}
-      } else if (is_neg_term(t) && kind == ARITH_EQ_ATOM && 
-		 context_flatten_diseq_enabled(ctx)) {
-	// t is (not (eq x 0)): rewrite to (or (x < 0) (x > 0))
-	x = intern_tbl_get_root(&ctx->intern, arith_eq_arg(terms, t));
-	ivector_push(v, lt0_atom(ctx, x));
-	ivector_push(v, gt0_atom(ctx, x));
-
-      } else {
-	// can't flatten
-	ivector_push(v, t);
-      }
-    }
-  }
-}
-
-
-/*
- * Flatten a top-level (or t1 .... tp)
- * - initialize the small_cache, then calls the recursive function
- * - the result is stored in v
- */
-static void flatten_or_term(context_t *ctx, ivector_t *v, composite_term_t *or) {
-  uint32_t i, n;
-
-  assert(v->size == 0);
-
-  (void) context_get_small_cache(ctx); // initialize the cache
-  if (context_flatten_diseq_enabled(ctx)) {
-    (void) context_get_arith_buffer(ctx);  // allocate the internal buffer
-  }
-
-  n = or->arity;
-  for (i=0; i<n; i++) {
-    flatten_or_recur(ctx, v, or->arg[i]);
-  }
-  //  context_delete_small_cache(ctx);
-  context_reset_small_cache(ctx);
-}
-
-
-
-
-/****************************************************
- *  SIMPLIFICATIONS FOR SPECIAL IF-THEN-ELSE TERMS  *
- ***************************************************/
-
-/*
- * If t is (ite c a b), we can try to rewrite (= t k) into a conjunction
- * of terms using the two rules:
- *   (= (ite c a b) k) --> c and (= a k)        if k != b holds
- *   (= (ite c a b) k) --> (not c) and (= b k)  if k != a holds
- *
- * This works best for the NEC benchmarks in SMT LIB, where many terms
- * are deeply nested if-then-else terms with constant leaves.
- *
- * The function below does that: it rewrites (eq t k) to (and c_0 ... c_n (eq t' k))
- * - the boolean terms c_0 ... c_n are added to vector v
- * - the term t' is returned
- * So the simplification worked it the returned term t' is different from t
- * (and then v->size is not 0).
- */
-static term_t flatten_ite_equality(context_t *ctx, ivector_t *v, term_t t, term_t k) {
-  term_table_t *terms;
-  composite_term_t *ite;
-
-  assert(v->size == 0);
-
-  terms = ctx->terms;
-  assert(is_pos_term(t) && good_term(terms, t));
-
-  while (term_kind(terms, t)) {
-    // t is (ite c a b)
-    ite = ite_term_desc(terms, t);
-    assert(ite->arity == 3);
-
-    if (disequal_terms(terms, k, ite->arg[1])) {
-      // (t == k) is (not c) and (t == b)
-      ivector_push(v, opposite_term(ite->arg[0]));
-      t = intern_tbl_get_root(&ctx->intern, ite->arg[2]);
-
-    } else if (disequal_terms(terms, k, ite->arg[2])) {
-      // (t == k) is c and (t == a)
-      ivector_push(v, ite->arg[0]);
-      t = intern_tbl_get_root(&ctx->intern, ite->arg[1]);
-
-    } else {
-      // no more flattening possible
-      break;
-    }
-  }
-
-  return t;
-}
-
-
-
-
-/***************************************************
- *  ASSERTION FLATTENING AND VARIABLE ELIMINATION  *
- **************************************************/
-
-/*
- * Assertions are processed by performing top-down boolean propagation
- * and collecting all subterms that can't be flattened into four vectors:
- *
- * 1) ctx->top_eqs = top-level equalities.
- *    Every t in top_eqs is (eq t1 t2) (or a variant) asserted true.
- *    t is mapped to true_occ in the internalization table.
- *
- * 2) ctx->top_atoms = top-level atoms.
- *    Every t in top_atoms is an atom (that can't go into top_eqs).
- *    t is mapped to true_occ or false_occ in the internalization table.
- *
- * 3) ctx->top_formulas = non-atomic terms.
- *    Every t in top_formulas is either an (OR ...) or (ITE ...) or (XOR ...)
- *    that can't be further flattend.
- *    t is mapped to true_occ or false_occ.
- *
- * 4) ctx->top_interns = already internalized terms.
- *    Every t in top_interns is a term that's been internalized before
- *    and is mapped to a literal l or an egraph occurrence g.
- *    l or g must be asserted true in later stages.
- * 
- * Flattening is done breadth-first:
- * - the subterms to process are stored into ctx->queue.
- * - each subterm in that queue is a boolean term that's asserted true
- *
  * If variable elimination is enabled, some top-level equalities (eq x
  * <term>) are converted into substitutions [x := term] and variable x
- * is eliminated. This is done in three steps:
+ * is eliminated. This is done in three phases:
  *
  * 1) Cheap substitutions (X := constant or X := variable) are performed first.
  *    Other possible substitutions (X := <term>) are stored into vector subst_eqs.
@@ -726,7 +530,7 @@ static term_t flatten_ite_equality(context_t *ctx, ivector_t *v, term_t t, term_
 
 /*
  * Process a candidate substitution [t1 := t2]
- * - e is a term equivalent to (eq t1 t2)
+ * - e is a term equivalent to (eq t1 t2) and e has been asserted true
  * - both t1 and t2 are roots in the internalization table
  * - t1 is free and t2 is not
  * - if t2 is constant, perform the substitution now
@@ -734,6 +538,8 @@ static term_t flatten_ite_equality(context_t *ctx, ivector_t *v, term_t t, term_
  */
 static void process_candidate_subst(context_t *ctx, term_t t1, term_t t2, term_t e) {
   intern_tbl_t *intern;
+
+  assert(term_is_true(ctx, e));
 
   intern = &ctx->intern;
   if (is_constant_term(ctx->terms, t2)) {
@@ -762,7 +568,7 @@ static void try_substitution(context_t *ctx, term_t t1, term_t t2, term_t e) {
   intern_tbl_t *intern;
   bool free1, free2;
 
-  assert(is_pos_term(t1) && is_pos_term(t2));
+  assert(is_pos_term(t1) && is_pos_term(t2) && term_is_true(ctx, e));
 
   if (context_var_elim_enabled(ctx)) {
     intern = &ctx->intern;
@@ -801,6 +607,8 @@ static void try_bool_substitution(context_t *ctx, term_t t1, term_t t2, term_t e
   intern_tbl_t *intern;
   bool free1, free2;
 
+  assert(term_is_true(ctx, e));
+
   if (context_var_elim_enabled(ctx)) {
     intern = &ctx->intern;
 
@@ -820,6 +628,7 @@ static void try_bool_substitution(context_t *ctx, term_t t1, term_t t2, term_t e
        * Only one is free: save e in subst_eqs for future processing
        */
       ivector_push(&ctx->subst_eqs, e);
+      return;
     }
   }
   
@@ -841,7 +650,7 @@ static void try_bool_substitution(context_t *ctx, term_t t1, term_t t2, term_t e
 static void try_pseudo_subst(context_t *ctx, pseudo_subst_t *subst, term_t x, term_t t, term_t e) {
   subst_triple_t *s;
 
-  assert(is_pos_term(x) && intern_tbl_root_is_free(&ctx->intern, x));
+  assert(is_pos_term(x) && intern_tbl_root_is_free(&ctx->intern, x) && term_is_true(ctx, e));
 
   s = pseudo_subst_get(subst, x);
   assert(s->var == x);
@@ -876,7 +685,7 @@ static void try_pseudo_subst(context_t *ctx, pseudo_subst_t *subst, term_t x, te
  * - t1 and t2 are not boolean terms
  */
 static void check_candidate_subst(context_t *ctx, pseudo_subst_t *subst, term_t t1, term_t t2, term_t e) {
-  assert(is_pos_term(t1) && is_pos_term(t2));
+  assert(is_pos_term(t1) && is_pos_term(t2) && term_is_true(ctx, e));
 
   if (intern_tbl_root_is_free(&ctx->intern, t1)) {
     try_pseudo_subst(ctx, subst, t1, t2, e);
@@ -893,7 +702,7 @@ static void check_candidate_subst(context_t *ctx, pseudo_subst_t *subst, term_t 
  * Same thing for an equality between booleans terms
  */
 static void check_candidate_bool_subst(context_t *ctx, pseudo_subst_t *subst, term_t t1, term_t t2, term_t e) {
-  assert(is_boolean_term(ctx->terms, t1) && is_boolean_term(ctx->terms, t2));
+  assert(is_boolean_term(ctx->terms, t1) && is_boolean_term(ctx->terms, t2) && term_is_true(ctx, e));
 
   if (intern_tbl_root_is_free(&ctx->intern, t1)) {
     // if t1 is (not u1), rewrite to (u1 == not t2)
@@ -928,6 +737,8 @@ static void process_subst_eqs(context_t *ctx, pseudo_subst_t *subst) {
   n = subst_eqs->size;
   for (i=0; i<n; i++) {
     e = subst_eqs->data[i];
+    assert(term_is_true(ctx, e));
+
     switch (term_kind(terms, e)) {
     case EQ_TERM:
     case ARITH_BINEQ_ATOM:
@@ -938,16 +749,20 @@ static void process_subst_eqs(context_t *ctx, pseudo_subst_t *subst) {
       t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
 
       if (is_boolean_term(terms, t1)) {
-	if (term_is_false(ctx, e)) {
-	  // rewrite not (eq t1 t2) to (eq t1 (not t2))
-	  assert(is_boolean_term(terms, t2));
-	  e = opposite_term(e);
-	  t2 = opposite_term(t2);
-	}
-	assert(term_is_true(ctx, e));
+	/*
+	 * e was asserted true
+	 * it's either (eq t1 t2) or (not (eq t1 t2))
+	 * in the latter case, we use the equivalence
+	 *  (not (eq t1 t2)) <--> (eq t1 (not t2))
+	 * i.e., we flip t2's polarity if e has negative polarity
+	 */
+	t2 ^= polarity_of(e);
 	check_candidate_bool_subst(ctx, subst, t1, t2, e);
       } else {
-	assert(term_is_true(ctx, e));
+	/*
+	 * e is (eq t1 t2) for two non-boolean terms t1 and t2
+	 */
+	assert(is_pos_term(e));
 	check_candidate_subst(ctx, subst, t1, t2, e);
       }
       break;
@@ -1276,11 +1091,13 @@ static void remove_subst_cycles(context_t *ctx) {
  * - otherwise add x := t as a substitution in the internalization table
  */
 static void finalize_subst_triple(context_t *ctx, subst_triple_t *s) {
+  assert(s->eq != NULL_TERM && term_is_true(ctx, s->eq));
+
   if (s->map != NULL_TERM) {
     intern_tbl_add_subst(&ctx->intern, s->var, s->map);
   } else {
     ivector_push(&ctx->top_eqs, s->eq);
-  }  
+  }
 }
 
 
@@ -1293,9 +1110,40 @@ static void finalize_subst_candidates(context_t *ctx) {
 
 
 
+
+/***************************
+ *  ASSERTION FLATTENING   *
+ **************************/
+
 /*
- * ASSERTION FLATTENING
+ * Assertions are processed by performing top-down boolean propagation
+ * and collecting all subterms that can't be flattened into four vectors:
+ *
+ * 1) ctx->top_eqs = top-level equalities.
+ *    Every t in top_eqs is (eq t1 t2) (or a variant) asserted true.
+ *    t is mapped to true in the internalization table.
+ *
+ * 2) ctx->top_atoms = top-level atoms.
+ *    Every t in top_atoms is an atom or the negation of an atom (that 
+ *    can't go into top_eqs).
+ *    t is mapped to true in the internalization table.
+ *
+ * 3) ctx->top_formulas = non-atomic terms.
+ *    Every t in top_formulas is either an (OR ...) or (ITE ...) or (XOR ...) 
+ *    or the negation of such a term.
+ *    t is mapped to true in the internalization table.
+ *
+ * 4) ctx->top_interns = already internalized terms.
+ *    Every t in top_interns is a term that's been internalized before
+ *    and is mapped to a literal l or an egraph occurrence g in
+ *    the internalization table.
+ *    l or g must be asserted true in later stages.
+ * 
+ * Flattening is done breadth-first:
+ * - the subterms to process are stored into ctx->queue.
+ * - each subterm in that queue is a boolean term that's asserted true
  */
+
 
 /*
  * Each function below processes an assertion of the form (r == tt)
@@ -1613,7 +1461,7 @@ static void flatten_assertion(context_t *ctx, term_t f) {
       /*
        * r already mapped to something
        * check for trivial unsat 
-       * then add r or not r to top_intern
+       * then add r or (not r) to top_intern
        */
       x = intern_tbl_map_of_root(intern, r);
       if (x == bool2code(! tt)) {
@@ -1763,6 +1611,8 @@ static void flatten_assertion(context_t *ctx, term_t f) {
 }
 
 
+
+
 /*
  * Process all candidate substitutions after flattening
  * - the candidate substitutions are in ctx->subst_eqs
@@ -1781,8 +1631,191 @@ static void context_process_candidate_subst(context_t *ctx) {
   remove_subst_cycles(ctx);
   finalize_subst_candidates(ctx);
 
+  // cleanup
   ivector_reset(&ctx->subst_eqs);
+  reset_pseudo_subst(subst);
+  reset_mark_vector(marks);
 }
+
+
+
+
+/********************************
+ *  FLATTENING OF DISJUNCTIONS  *
+ *******************************/
+
+/*
+ * This does two things:
+ * 1) rewrite nested OR terms to flat OR terms
+ * 2) replace arithmetic disequality by disjunctions of strict inequalities
+ *    (i.e., rewrite (x != 0) to (or (x < 0) (x > 0))
+ */
+
+/*
+ * Build the atom (t < 0)
+ */
+static term_t lt0_atom(context_t *ctx, term_t t) {
+  arith_buffer_t *b;
+
+  assert(is_pos_term(t) && is_arithmetic_term(ctx->terms, t));
+
+  b = ctx->arith_buffer;
+  assert(b != NULL && arith_buffer_is_zero(b));
+
+  arith_buffer_add_term(b, ctx->terms, t);
+  return arith_buffer_get_lt0_atom(b);
+}
+
+/*
+ * Build a term equivalent to (t > 0)
+ */
+static term_t gt0_atom(context_t *ctx, term_t t) {
+  arith_buffer_t *b;
+
+  assert(is_pos_term(t) && is_arithmetic_term(ctx->terms, t));
+
+  b = ctx->arith_buffer;
+  assert(b != NULL && arith_buffer_is_zero(b));
+
+  arith_buffer_add_term(b, ctx->terms, t);
+  return arith_buffer_get_gt0_atom(b);  
+}
+
+
+/*
+ * Flatten term t:
+ * - if t is already internalized, keep t and add it to v
+ * - if t is (OR t1 ... t_n), recursively flatten t_1 ... t_n
+ * - if flattening of disequalities is enabled, and t is (NOT (x == 0)) then
+ *   we rewrite (NOT (x == 0)) to (OR (< x 0) (> x 0))
+ * - otherwise store t into v
+ * All terms already in v must be in the small cache
+ */
+static void flatten_or_recur(context_t *ctx, ivector_t *v, term_t t) {
+  term_table_t *terms;
+  composite_term_t *or;
+  uint32_t i, n;
+  term_kind_t kind;
+  term_t x;
+
+  assert(is_boolean_term(ctx->terms, t));
+
+  // apply substitutions
+  t = intern_tbl_get_root(&ctx->intern, t);
+
+  if (int_hset_add(ctx->small_cache, t)) {
+    /*
+     * t not already in v and not visited before
+     */
+    if (intern_tbl_root_is_mapped(&ctx->intern, t)) {
+      // t is already internalized, keep it as is
+      ivector_push(v, t); 
+    } else {
+      terms = ctx->terms;
+      kind = term_kind(terms, t);
+      if (is_pos_term(t) && kind == OR_TERM) {
+	// recursively flatten t
+	or = or_term_desc(terms, t);
+	n = or->arity;
+	for (i=0; i<n; i++) {
+	  flatten_or_recur(ctx, v, or->arg[i]);
+	}
+      } else if (is_neg_term(t) && kind == ARITH_EQ_ATOM && 
+		 context_flatten_diseq_enabled(ctx)) {
+	// t is (not (eq x 0)): rewrite to (or (x < 0) (x > 0))
+	x = intern_tbl_get_root(&ctx->intern, arith_eq_arg(terms, t));
+	ivector_push(v, lt0_atom(ctx, x));
+	ivector_push(v, gt0_atom(ctx, x));
+
+      } else {
+	// can't flatten
+	ivector_push(v, t);
+      }
+    }
+  }
+}
+
+
+/*
+ * Flatten a top-level (or t1 .... tp)
+ * - initialize the small_cache, then calls the recursive function
+ * - the result is stored in v
+ */
+static void flatten_or_term(context_t *ctx, ivector_t *v, composite_term_t *or) {
+  uint32_t i, n;
+
+  assert(v->size == 0);
+
+  (void) context_get_small_cache(ctx); // initialize the cache
+  if (context_flatten_diseq_enabled(ctx)) {
+    (void) context_get_arith_buffer(ctx);  // allocate the internal buffer
+  }
+
+  n = or->arity;
+  for (i=0; i<n; i++) {
+    flatten_or_recur(ctx, v, or->arg[i]);
+  }
+  //  context_delete_small_cache(ctx);
+  context_reset_small_cache(ctx);
+}
+
+
+
+
+/****************************************************
+ *  SIMPLIFICATIONS FOR SPECIAL IF-THEN-ELSE TERMS  *
+ ***************************************************/
+
+/*
+ * If t is (ite c a b), we can try to rewrite (= t k) into a conjunction
+ * of terms using the two rules:
+ *   (= (ite c a b) k) --> c and (= a k)        if k != b holds
+ *   (= (ite c a b) k) --> (not c) and (= b k)  if k != a holds
+ *
+ * This works best for the NEC benchmarks in SMT LIB, where many terms
+ * are deeply nested if-then-else terms with constant leaves.
+ *
+ * The function below does that: it rewrites (eq t k) to (and c_0 ... c_n (eq t' k))
+ * - the boolean terms c_0 ... c_n are added to vector v
+ * - the term t' is returned
+ * So the simplification worked it the returned term t' is different from t
+ * (and then v->size is not 0).
+ */
+static term_t flatten_ite_equality(context_t *ctx, ivector_t *v, term_t t, term_t k) {
+  term_table_t *terms;
+  composite_term_t *ite;
+
+  assert(v->size == 0);
+
+  terms = ctx->terms;
+  assert(is_pos_term(t) && good_term(terms, t));
+
+  while (term_kind(terms, t)) {
+    // t is (ite c a b)
+    ite = ite_term_desc(terms, t);
+    assert(ite->arity == 3);
+
+    if (disequal_terms(terms, k, ite->arg[1])) {
+      // (t == k) is (not c) and (t == b)
+      ivector_push(v, opposite_term(ite->arg[0]));
+      t = intern_tbl_get_root(&ctx->intern, ite->arg[2]);
+
+    } else if (disequal_terms(terms, k, ite->arg[2])) {
+      // (t == k) is c and (t == a)
+      ivector_push(v, ite->arg[0]);
+      t = intern_tbl_get_root(&ctx->intern, ite->arg[1]);
+
+    } else {
+      // no more flattening possible
+      break;
+    }
+  }
+
+  return t;
+}
+
+
+
 
 
 
@@ -2356,6 +2389,54 @@ static void analyze_diff_logic(context_t *ctx, bool idl) {
 
 
 
+/**********************
+ *  INTERNALIZATION   *
+ *********************/
+
+/*
+ * Main internalization functions:
+ * - convert a term t to an egraph term
+ * - convert a boolean term t to a literal
+ * - convert an integer or real term t to an arithmetic variable
+ * - convert a bitvector term t to a bitvector variable
+ */
+static occ_t internalize_to_eterm(context_t *ctx, term_t t);
+static literal_t internalize_to_literal(context_t *ctx, term_t t);
+static thvar_t internalize_to_arith(context_t *ctx, term_t t);
+static thvar_t internalize_to_bv(context_t *ctx, term_t t);
+
+
+/*
+ * Place holders for now
+ */
+static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
+  if (! context_has_egraph(ctx)) {
+    longjmp(ctx->env, UF_NOT_SUPPORTED);
+  }
+  return null_occurrence;
+}
+
+static literal_t internalize_to_literal(context_t *ctx, term_t t) {
+  return null_literal;
+}
+
+static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
+  if (! context_has_arith_solver(ctx)) {
+    longjmp(ctx->env, ARITH_NOT_SUPPORTED);
+  }
+  return null_thvar;
+}
+
+static thvar_t internalize_to_bv(context_t *ctx, term_t t) {
+  if (! context_has_bv_solver(ctx)) {
+    longjmp(ctx->env, BV_NOT_SUPPORTED);
+  }
+  return null_thvar;
+}
+
+
+
+
 /************************
  *  PARAMETERS/OPTIONS  *
  ***********************/
@@ -2533,6 +2614,151 @@ void disable_splx_periodic_icheck(context_t *ctx) {
 
 
 
+/****************************
+ *  SOLVER INITIALIZATION   *
+ ***************************/
+
+/*
+ * Create and initialize the egraph
+ * - the core must be created first
+ */
+static void create_egraph(context_t *ctx) {
+  egraph_t *egraph;
+
+  assert(ctx->egraph == NULL);
+
+  egraph = (egraph_t *) safe_malloc(sizeof(egraph_t));
+  init_egraph(egraph, ctx->types);
+  ctx->egraph = egraph;
+}
+
+
+/*
+ * Create and initialize the idl solver and attach it to the core
+ * - there must be no other solvers and no egraph
+ * - also initialize the core
+ * - copy the solver's internalization interface into arith
+ */
+static void create_idl_solver(context_t *ctx) {
+  idl_solver_t *solver;
+  smt_mode_t cmode;
+
+  assert(ctx->egraph == NULL && ctx->arith_solver == NULL && ctx->bv_solver == NULL &&
+	 ctx->fun_solver == NULL && ctx->core != NULL);
+
+  cmode = core_mode[ctx->mode];
+  solver = (idl_solver_t *) safe_malloc(sizeof(idl_solver_t));
+  init_idl_solver(solver, ctx->core, &ctx->gate_manager);
+  init_smt_core(ctx->core, CTX_DEFAULT_CORE_SIZE, solver, idl_ctrl_interface(solver),
+		idl_smt_interface(solver), cmode);
+  idl_solver_init_jmpbuf(solver, &ctx->env);
+  ctx->arith_solver = solver;
+  ctx->arith = * idl_arith_interface(solver);
+}
+
+
+/*
+ * Create and initialize the rdl solver and attach it to the core.
+ * - there must be no other solvers and no egraph
+ * - also initialize the core
+ * - copy the solver's internalization interface in ctx->arith
+ */
+static void create_rdl_solver(context_t *ctx) {
+  rdl_solver_t *solver;
+  smt_mode_t cmode;
+
+  assert(ctx->egraph == NULL && ctx->arith_solver == NULL && ctx->bv_solver == NULL &&
+	 ctx->fun_solver == NULL && ctx->core != NULL);
+
+  cmode = core_mode[ctx->mode];
+  solver = (rdl_solver_t *) safe_malloc(sizeof(rdl_solver_t));
+  init_rdl_solver(solver, ctx->core, &ctx->gate_manager);
+  init_smt_core(ctx->core, CTX_DEFAULT_CORE_SIZE, solver, rdl_ctrl_interface(solver),
+		rdl_smt_interface(solver), cmode);
+  rdl_solver_init_jmpbuf(solver, &ctx->env);
+  ctx->arith_solver = solver;
+  ctx->arith = * rdl_arith_interface(solver);
+}
+
+
+
+/*
+ * Allocate and initialize solvers based on architecture and mode
+ * - core and gate manager must exist at this point 
+ * - if the architecture is either AUTO_IDL or AUTO_RDL, nothing is done yet,
+ *   and the core is not initialized.
+ * - otherwise, all components are ready and initialized, including the core.
+ */
+static void init_solvers(context_t *ctx) {
+  uint8_t solvers;
+  smt_core_t *core;
+  smt_mode_t cmode;
+  egraph_t *egraph;
+
+  solvers = arch_components[ctx->arch];
+
+  ctx->egraph = NULL;
+  ctx->arith_solver = NULL;
+  ctx->bv_solver = NULL;
+  ctx->fun_solver = NULL;
+
+  // Create egraph first, then satellite solvers
+  if (solvers & EGRPH) {
+    create_egraph(ctx);
+  }
+
+  // Arithmetic solver
+  if (solvers & IFW) {
+    create_idl_solver(ctx);
+  } else if (solvers & RFW) {
+    create_rdl_solver(ctx);
+  }
+
+  /*
+   * At this point all solvers are ready and initialized,
+   * except the egraph and core if the egraph is present 
+   * or the core if there are no solvers
+   */
+  cmode = core_mode[ctx->mode];   // initialization mode for the core
+  egraph = ctx->egraph;
+  core = ctx->core;
+  if (egraph != NULL) {
+    init_smt_core(core, CTX_DEFAULT_CORE_SIZE, egraph, egraph_ctrl_interface(egraph), 
+		  egraph_smt_interface(egraph), cmode);
+    egraph_attach_core(egraph, core);
+
+  } else if (ctx->theories == 0) {
+    /*
+     * Boolean solver only
+     */
+    assert(ctx->arith_solver == NULL && ctx->bv_solver == NULL && ctx->fun_solver == NULL);
+    init_smt_core(core, CTX_DEFAULT_CORE_SIZE, NULL, &null_ctrl, &null_smt, cmode);
+  }
+}
+
+
+
+
+/*
+ * Delete the arithmetic solver
+ */
+static void delete_arith_solver(context_t *ctx) {
+  uint8_t solvers;
+
+  assert(ctx->arith_solver != NULL);
+
+  solvers = arch_components[ctx->arch];
+  if (solvers & IFW) {
+    delete_idl_solver(ctx->arith_solver);    
+  } else if (solvers & RFW) {
+    delete_rdl_solver(ctx->arith_solver);
+  }
+  safe_free(ctx->arith_solver);
+  ctx->arith_solver = NULL;
+}
+
+
+
 
 /*****************************
  *  CONTEXT INITIALIZATION   *
@@ -2559,8 +2785,6 @@ static inline bool valid_arch(context_arch_t arch) {
  */
 void init_context(context_t *ctx, term_table_t *terms,
 		  context_mode_t mode, context_arch_t arch, bool qflag) {  
-  smt_mode_t cmode;
-
   assert(valid_mode(mode) && valid_arch(arch));
 
   /*
@@ -2628,9 +2852,12 @@ void init_context(context_t *ctx, term_table_t *terms,
   ctx->poly_buffer = NULL;
   ctx->dl_profile = NULL;
 
-  // TEMPORARY HACK: INITIALIZE THE CORE WITH THE EMPTY SOLVER
-  cmode = core_mode[mode];
-  init_smt_core(ctx->core, CTX_DEFAULT_CORE_SIZE, NULL, &null_ctrl, &null_smt, cmode);
+
+  /*
+   * Allocate and initialize the solvers and core
+   * NOTE: the core is not initialized yet if arch is AUTO_IDL or AUTO_RDL
+   */
+  init_solvers(ctx);
 }
 
 
@@ -2652,6 +2879,10 @@ void delete_context(context_t *ctx) {
     delete_egraph(ctx->egraph);
     safe_free(ctx->egraph);
     ctx->egraph = NULL;
+  }
+
+  if (ctx->arith_solver != NULL) {
+    delete_arith_solver(ctx);
   }
 
   delete_gate_manager(&ctx->gate_manager);
