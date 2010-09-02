@@ -4997,7 +4997,7 @@ static void eval_mk_bv_smod(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   
   t1 = get_term(stack, f);
   t2 = get_term(stack, f+1);
-  t = yices_bvsrem(t1, t2);
+  t = yices_bvsmod(t1, t2);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
