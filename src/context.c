@@ -1762,6 +1762,9 @@ static void flatten_or_term(context_t *ctx, ivector_t *v, composite_term_t *or) 
 
 
 
+
+
+
 /****************************************************
  *  SIMPLIFICATIONS FOR SPECIAL IF-THEN-ELSE TERMS  *
  ***************************************************/
@@ -2410,29 +2413,483 @@ static thvar_t internalize_to_bv(context_t *ctx, term_t t);
  * Place holders for now
  */
 static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
-  if (! context_has_egraph(ctx)) {
-    longjmp(ctx->env, UF_NOT_SUPPORTED);
-  }
+  longjmp(ctx->env, UF_NOT_SUPPORTED);
   return null_occurrence;
 }
 
-static literal_t internalize_to_literal(context_t *ctx, term_t t) {
-  return null_literal;
-}
-
 static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
-  if (! context_has_arith_solver(ctx)) {
-    longjmp(ctx->env, ARITH_NOT_SUPPORTED);
-  }
+  longjmp(ctx->env, ARITH_NOT_SUPPORTED);
   return null_thvar;
 }
 
 static thvar_t internalize_to_bv(context_t *ctx, term_t t) {
-  if (! context_has_bv_solver(ctx)) {
-    longjmp(ctx->env, BV_NOT_SUPPORTED);
-  }
+  longjmp(ctx->env, BV_NOT_SUPPORTED);
   return null_thvar;
 }
+
+
+
+/*
+ * CONVERSION TO LITERALS
+ */
+
+/*
+ * Boolean if-then-else
+ */
+static literal_t map_ite_to_literal(context_t *ctx, composite_term_t *ite) {
+  literal_t l1, l2, l3;
+
+  assert(ite->arity == 3);
+  l1 = internalize_to_literal(ctx, ite->arg[0]); // condition
+  if (l1 == true_literal) {
+    return internalize_to_literal(ctx, ite->arg[1]);
+  }
+  if (l1 == false_literal) {
+    return internalize_to_literal(ctx, ite->arg[2]);
+  }
+
+  l2 = internalize_to_literal(ctx, ite->arg[2]);
+  l3 = internalize_to_literal(ctx, ite->arg[3]);
+
+  return mk_ite_gate(&ctx->gate_manager, l1, l2, l3);
+}
+
+static literal_t map_eq_to_literal(context_t *ctx, composite_term_t *eq) {
+  occ_t u, v;
+  literal_t l1, l2, l;
+
+  assert(eq->arity == 2);
+
+  if (is_boolean_term(ctx->terms, eq->arg[0])) {
+    assert(is_boolean_term(ctx->terms, eq->arg[1]));
+
+    l1 = internalize_to_literal(ctx, eq->arg[0]);
+    l2 = internalize_to_literal(ctx, eq->arg[1]);
+    l = mk_iff_gate(&ctx->gate_manager, l1, l2);
+  } else {
+    u = internalize_to_eterm(ctx, eq->arg[0]);
+    v = internalize_to_eterm(ctx, eq->arg[1]);
+    l = egraph_make_eq(ctx->egraph, u, v);
+  }
+
+  return l;
+}
+
+static literal_t map_or_to_literal(context_t *ctx, composite_term_t *or) {
+  int32_t *a;
+  ivector_t *v;
+  literal_t l;
+  uint32_t i, n;
+
+  if (context_flatten_or_enabled(ctx)) {
+    // flatten (or ...): store result in v
+    v = &ctx->aux_vector;
+    assert(v->size == 0);
+    flatten_or_term(ctx, v, or);
+
+    // make a copy of v
+    n = v->size;
+    a = alloc_istack_array(&ctx->istack, n);
+    for (i=0; i<n; i++) {
+      a[i] = v->data[i];
+    }
+    ivector_reset(v);
+
+    // internalize a[0 ... n-1]
+    for (i=0; i<n; i++) {
+      a[i] = internalize_to_literal(ctx, a[i]);
+    }
+
+  } else {
+    // no flattening
+    n = or->arity;
+    a = alloc_istack_array(&ctx->istack, n);
+    for (i=0; i<n; i++) {
+      a[i] = internalize_to_literal(ctx, or->arg[i]);
+    }
+  }
+
+  l = mk_or_gate(&ctx->gate_manager, n, a);
+  free_istack_array(&ctx->istack, a);
+
+  return l;
+}
+
+static literal_t map_xor_to_literal(context_t *ctx, composite_term_t *xor) {
+  int32_t *a;
+  literal_t l;
+  uint32_t i, n;
+
+  // TODO: add flattening here?
+
+  n = xor->arity;
+  a = alloc_istack_array(&ctx->istack, n);
+  for (i=0; i<n; i++) {
+    a[i] = internalize_to_literal(ctx, xor->arg[i]);
+  }
+
+  l = mk_xor_gate(&ctx->gate_manager, n, a);
+  free_istack_array(&ctx->istack, a);
+
+  return l;
+}
+
+
+/*
+ * Translate an internalization code x to a literal
+ * - if x is the code of an egraph occurrence u, we return the 
+ *   theory variable for u in the egraph
+ * - otherwise, x should be the code of a literal l in the core
+ */
+static literal_t translate_code_to_literal(context_t *ctx, int32_t x) {
+  occ_t u;
+  literal_t l;
+
+  assert(code_is_valid(x));
+  if (code_is_eterm(x)) {
+    u = code2occ(x);
+    if (term_of_occ(u) == true_term) {
+      l = mk_lit(bool_const, polarity_of(u));
+
+      assert((u == true_occ && l == true_literal) || 
+	     (u == false_occ && l == false_literal));
+    } else {
+      assert(ctx->egraph != NULL);
+      l = egraph_occ2literal(ctx->egraph, u);
+    }
+  } else {
+    l = code2literal(x);
+  }
+
+  return l;
+}
+
+static literal_t internalize_to_literal(context_t *ctx, term_t t) {
+  term_table_t *terms;
+  int32_t code;
+  uint32_t polarity;
+  term_t r;
+  literal_t l;
+
+  assert(is_boolean_term(ctx->terms, t));  
+
+  r = intern_tbl_get_root(&ctx->intern, t);
+  polarity = polarity_of(r);
+  r = unsigned_term(r);
+
+  /*
+   * At this point:
+   * 1) r is a positive root in the internalization table
+   * 2) polarity is 1 or 0
+   * 3) if polarity is 0, then t is equal to r by substitution
+   *    if polarity is 1, then t is equal to (not r)
+   *
+   * We get l := internalization of r
+   * then return l or (not l) depending on polarity.
+   */
+
+  if (intern_tbl_root_is_mapped(&ctx->intern, r)) {
+    /*
+     * r already internalized
+     */
+    code = intern_tbl_map_of_root(&ctx->intern, r);
+    l = translate_code_to_literal(ctx, r);
+
+  } else {
+    /*
+     * Recursively compute r's internalization
+     */
+    terms = ctx->terms;
+    switch (term_kind(terms, r)) {
+    case CONSTANT_TERM:
+      assert(r == true_term);
+      l = true_literal;
+      break;
+
+    case UNINTERPRETED_TERM:
+      l = pos_lit(create_boolean_variable(ctx->core));
+      break;
+
+    case ITE_TERM:
+    case ITE_SPECIAL:
+      l = map_ite_to_literal(ctx, ite_term_desc(terms, r));
+      break;
+
+    case EQ_TERM:
+      l = map_eq_to_literal(ctx, eq_term_desc(terms, r));
+      break;
+
+    case OR_TERM:
+      l = map_or_to_literal(ctx, or_term_desc(terms, r));
+      break;
+
+    case XOR_TERM:
+      l = map_xor_to_literal(ctx, xor_term_desc(terms, r));
+      break;
+
+    default:
+      longjmp(ctx->env, LOGIC_NOT_SUPPORTED);
+      break;
+    }
+
+    // map r to l in the internalization table
+    intern_tbl_map_root(&ctx->intern, r, literal2code(l));
+  }
+
+
+  return l ^ polarity;
+}
+
+
+
+/*****************************************************
+ *  INTERNALIZATION OF TOP-LEVEL ATOMS AND FORMULAS  *
+ ****************************************************/
+
+/*
+ * Top-level equality assertion (eq t1 t2):
+ * - if tt is true, assert (t1 == t2)
+ *   if tt is false, assert (t1 != t2)
+ */
+static void assert_toplevel_eq(context_t *ctx, composite_term_t *eq, bool tt) {
+  occ_t u1, u2;
+  literal_t l1, l2;
+
+  assert(eq->arity == 2);
+
+  if (is_boolean_term(ctx->terms, eq->arg[0])) {
+    assert(is_boolean_term(ctx->terms, eq->arg[1]));
+
+    l1 = internalize_to_literal(ctx, eq->arg[0]);
+    l2 = internalize_to_literal(ctx, eq->arg[1]);
+    assert_iff(&ctx->gate_manager, l1, l2, tt);
+
+  } else {
+    u1 = internalize_to_eterm(ctx, eq->arg[0]);
+    u2 = internalize_to_eterm(ctx, eq->arg[1]);
+    if (tt) {
+      egraph_assert_eq_axiom(ctx->egraph, u1, u2);
+    } else {
+      egraph_assert_diseq_axiom(ctx->egraph, u1, u2);
+    }
+  }
+}
+
+
+/*
+ * Top-level boolean if-then-else (ite c t1 t2)
+ * - if tt is true: assert (ite c t1 t2)
+ * - if tt is false: assert (not (ite c t1 t2))
+ */
+static void assert_toplevel_ite(context_t *ctx, composite_term_t *ite, bool tt) {
+  literal_t l1, l2, l3;
+
+  assert(ite->arity == 3);
+
+  // TODO: use simplification/flattening
+  l1 = internalize_to_literal(ctx, ite->arg[0]);
+  l2 = internalize_to_literal(ctx, ite->arg[1]);
+  l3 = internalize_to_literal(ctx, ite->arg[2]);
+  assert_ite(&ctx->gate_manager, l1, l2, l3, tt);
+}
+
+
+/*
+ * Top-level (or t1 ... t_n)
+ * - it tt is true: add a clause
+ * - it tt is false: add unit clauses
+ */
+static void assert_toplevel_or(context_t *ctx, composite_term_t *or, bool tt) {
+  ivector_t *v;
+  int32_t *a;
+  uint32_t i, n;
+  literal_t l;
+
+  // TODO: improve this
+  if (context_flatten_or_enabled(ctx)) {
+    // flatten: the result is in v
+    v = &ctx->aux_vector;
+    assert(v->size == 0);
+    flatten_or_term(ctx, v, or);
+
+    // make a copy of v
+    n = v->size;
+    a = alloc_istack_array(&ctx->istack, n);
+    for (i=0; i<n; i++) {
+      a[i] = v->data[i];
+    }
+    ivector_reset(v);
+
+    // internalize all elements of a
+    for (i=0; i<n; i++) {
+      a[i] = internalize_to_literal(ctx, a[i]);
+    }
+
+    if (tt) {
+      // assert (or a[0] ... a[n-1]) 
+      add_clause(ctx->core, n, a);
+    } else {
+      // assert (not a[0]) ... (not a[n-1])
+      for (i=0; i<n; i++) {
+	add_unit_clause(ctx->core, not(a[i]));
+      }
+    }
+
+    free_istack_array(&ctx->istack, a);
+
+  } else if (tt) {
+    // no flattening, asserted true
+    n = or->arity;
+    a = alloc_istack_array(&ctx->istack, n);
+    for (i=0; i<n; i++) {
+      a[i] = internalize_to_literal(ctx, or->arg[i]);
+    }
+
+    add_clause(ctx->core, n, a);
+    free_istack_array(&ctx->istack, a);
+
+  } else {
+    // no flattening, asserted false
+    n = or->arity;
+    for (i=0; i<n; i++) {
+      l = internalize_to_literal(ctx, or->arg[i]);
+      add_unit_clause(ctx->core, not(l));
+    }
+  }
+}
+
+
+/*
+ * Top-level (xor t1 ... t_n) == tt
+ */
+static void assert_toplevel_xor(context_t *ctx, composite_term_t *xor, bool tt) {
+  int32_t *a;
+  uint32_t i, n;
+
+  n = xor->arity;
+  a = alloc_istack_array(&ctx->istack, n);
+  for (i=0; i<n; i++) {
+    a[i] = internalize_to_literal(ctx, xor->arg[i]);
+  }
+
+  assert_xor(&ctx->gate_manager, n, a, tt);
+  free_istack_array(&ctx->istack, a);
+}
+ 
+
+
+/*
+ * - term t is an atom or the negation of an atom
+ * - t is mapped to true in the internalization table and is a root in
+ *   the internalization table
+ */
+static void assert_toplevel_atom(context_t *ctx, term_t t) {
+  term_table_t *terms;
+  int32_t code;
+  bool tt;
+  
+  assert(is_boolean_term(ctx->terms, t) && 
+	 intern_tbl_is_root(&ctx->intern, t) &&
+	 term_is_true(ctx, t));
+
+  tt = is_pos_term(t);
+  t = unsigned_term(t);
+
+  /*
+   * Now: t is a root and has positive polarity
+   * - tt indicates whether we assert t or (not t):
+   *   tt true: assert t
+   *   tt false: assert (not t)
+   */
+  terms = ctx->terms;
+  switch (term_kind(terms, t)) {
+  case CONSTANT_TERM:
+  case UNINTERPRETED_TERM:
+  case ITE_TERM:
+  case ITE_SPECIAL:
+  case OR_TERM:
+  case XOR_TERM:
+    // not atoms
+    code = INTERNAL_ERROR;
+    goto abort;
+
+  case EQ_TERM:
+    assert_toplevel_eq(ctx, eq_term_desc(terms, t), tt);
+    break;
+
+  default:
+    code = LOGIC_NOT_SUPPORTED;
+    goto abort;
+  }
+
+  return;
+
+ abort:
+  longjmp(ctx->env, code);
+}
+
+
+
+/*
+ * Top-level formula t
+ * - t is a boolean term (or the negation of a boolean term)
+ * - t is mapped to true in the internalization table and is a root in
+ *   the internalization table
+ */
+static void assert_toplevel_formual(context_t *ctx, term_t t) {
+  term_table_t *terms;
+  int32_t code;
+  bool tt;
+
+  assert(is_boolean_term(ctx->terms, t) && 
+	 intern_tbl_is_root(&ctx->intern, t) &&
+	 term_is_true(ctx, t));
+
+  tt = is_pos_term(t);
+  t = unsigned_term(t);
+
+  /*
+   * Now: t is a root and has positive polarity
+   * - tt indicates whether we assert t or (not t):
+   *   tt true: assert t
+   *   tt false: assert (not t)
+   */
+  terms = ctx->terms;
+  switch (term_kind(terms, t)) {
+  case CONSTANT_TERM:
+  case UNINTERPRETED_TERM:
+    // should be eliminated by flattening
+    code = INTERNAL_ERROR;
+    goto abort;
+
+  case ITE_TERM:
+  case ITE_SPECIAL:
+    assert_toplevel_ite(ctx, ite_term_desc(terms, t), tt);
+    break;
+
+  case OR_TERM:
+    assert_toplevel_or(ctx, or_term_desc(terms, t), tt);
+    break;
+
+  case XOR_TERM:
+    assert_toplevel_xor(ctx, xor_term_desc(terms, t), tt);
+    break;
+
+  case EQ_TERM:
+    assert_toplevel_eq(ctx, eq_term_desc(terms, t), tt);
+    break;
+
+  default:
+    code = LOGIC_NOT_SUPPORTED;
+    goto abort;
+  }
+
+  return;
+
+ abort:
+  longjmp(ctx->env, code);
+}
+
 
 
 

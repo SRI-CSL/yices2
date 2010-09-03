@@ -1732,7 +1732,7 @@ static void bvarray_get_constant(term_t *a, uint32_t n, bvconstant_t *c) {
 static bool term_is_bit_i(term_table_t *tbl, term_t b, uint32_t i, term_t x) {
   select_term_t *s;
 
-  if (term_kind(tbl, b) == BIT_TERM) {
+  if (is_pos_term(b) && term_kind(tbl, b) == BIT_TERM) {
     s = bit_term_desc(tbl, b);
     return s->idx == i && s->arg == x;
   }
@@ -1748,7 +1748,7 @@ static bool term_is_bit_i(term_table_t *tbl, term_t b, uint32_t i, term_t x) {
 static term_t term_is_bit0(term_table_t *tbl, term_t b) {
   select_term_t *s;
 
-  if (term_kind(tbl, b) == BIT_TERM) {
+  if (is_pos_term(b) && term_kind(tbl, b) == BIT_TERM) {
     s = bit_term_desc(tbl, b);
     if (s->idx == 0) {
       return s->arg;
