@@ -1409,7 +1409,10 @@ static void yices_dump_cmd(void) {
   print_context_intern_subst(stdout, context);
   printf("--- Internalization ---\n");
   print_context_intern_mapping(stdout, context);
-  
+  printf("--- Clauses ---\n");
+  print_clauses(stdout, context->core);
+  printf("\n");
+
   printf("--- Auxiliary vectors ---\n");
   print_context_subst_eqs(stdout, context);
   print_context_top_eqs(stdout, context);

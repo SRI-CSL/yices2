@@ -2593,7 +2593,7 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
      * r already internalized
      */
     code = intern_tbl_map_of_root(&ctx->intern, r);
-    l = translate_code_to_literal(ctx, r);
+    l = translate_code_to_literal(ctx, code);
 
   } else {
     /*
@@ -2836,7 +2836,7 @@ static void assert_toplevel_atom(context_t *ctx, term_t t) {
  * - t is mapped to true in the internalization table and is a root in
  *   the internalization table
  */
-static void assert_toplevel_formual(context_t *ctx, term_t t) {
+static void assert_toplevel_formula(context_t *ctx, term_t t) {
   term_table_t *terms;
   int32_t code;
   bool tt;
@@ -2891,6 +2891,48 @@ static void assert_toplevel_formual(context_t *ctx, term_t t) {
 }
 
 
+
+
+/*********************************
+ *  PRE-INTERNALIZED ASSERTIONS  *
+ ********************************/
+
+/*
+ * Assert t == true where t is a term that's already mapped
+ * either to a literal or to an egraph occurrence.
+ * - t must be a root in the internalization table
+ */
+static void assert_toplevel_intern(context_t *ctx, term_t t) {
+  int32_t code;
+  occ_t g;
+  literal_t l;
+  bool tt;
+
+  assert(is_boolean_term(ctx->terms, t) && 
+	 intern_tbl_is_root(&ctx->intern, t) &&
+	 intern_tbl_root_is_mapped(&ctx->intern, t));
+
+  tt = is_pos_term(t);
+  t = unsigned_term(t);
+  code = intern_tbl_map_of_root(&ctx->intern, t);
+
+  assert(code_is_valid(code));
+  if (code_is_eterm(code)) {
+    assert(ctx->egraph != NULL);
+    g = code2occ(code);
+    if (! tt) {
+      g = opposite_occ(g);
+    }
+    egraph_assert_axiom(ctx->egraph, g);
+
+  } else {
+    l = code2literal(code);
+    if (! tt) {
+      l = not(l);
+    }
+    add_unit_clause(ctx->core, l);    
+  }
+}
 
 
 
@@ -3438,6 +3480,7 @@ void context_pop(context_t *ctx) {
  *   a negative error code otherwise.
  */
 static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a) {
+  ivector_t *v;
   uint32_t i;
   int code;
 
@@ -3485,6 +3528,40 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
 
     default:
       break;
+    }
+
+
+    internalization_start(ctx->core); // ?? Get rid of this?
+
+    /*
+     * Now assert top_eqs, top_atoms, top_formulas, top_interns
+     */
+    // first: all terms that are already internalized
+    v = &ctx->top_interns;
+    n = v->size;
+    for (i=0; i<n; i++) {
+      assert_toplevel_intern(ctx, v->data[i]);
+    }
+
+    // second: all top-level equalities
+    v = &ctx->top_eqs;
+    n = v->size;
+    for (i=0; i<n; i++) {
+      assert_toplevel_atom(ctx, v->data[i]);
+    }
+
+    // third: all top-level atoms (other than equalities)
+    v = &ctx->top_atoms;
+    n = v->size;
+    for (i=0; i<n; i++) {
+      assert_toplevel_atom(ctx, v->data[i]);
+    }
+
+    // last: all non-atomic, formulas
+    v =  &ctx->top_formulas;
+    n = v->size;
+    for (i=0; i<n; i++) {
+      assert_toplevel_formula(ctx, v->data[i]);
     }
 
     return CTX_NO_ERROR;

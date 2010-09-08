@@ -773,6 +773,26 @@ extern int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f);
 extern void context_clear(context_t *ctx);
 
 
+/*
+ * Initialize params with default values
+ * (Can't declare it here since that conflicts with yices_reval.c)
+ */
+///extern void init_params_to_defaults(param_t *parameters);
+
+
+/*
+ * Check whether the context is consistent
+ * - parameters = search and heuristic parameters to use
+ * - if parameters is NULL, the default values are used
+ * - if verbose is true, some statistics are displayed on stdout
+ *   at every restart.
+ *
+ * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN, 
+ * STATUS_INTERRUPTED (these codes are defined in smt_core.h)
+ */
+extern smt_status_t check_context(context_t *ctx, param_t *parameters, bool verbose);
+
+
 
 
 
