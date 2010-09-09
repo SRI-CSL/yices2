@@ -146,6 +146,7 @@ static void test_internalization(smt_benchmark_t *bench) {
   init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, CTX_ARCH_EG, false);
   enable_variable_elimination(&context);
   enable_eq_abstraction(&context);
+  enable_diseq_and_or_flattening(&context);
 
   code = assert_formulas(&context, bench->nformulas, bench->formulas);
   if (code == CTX_NO_ERROR && context_is_empty(&context)) {
