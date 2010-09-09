@@ -2448,14 +2448,14 @@ static literal_t map_ite_to_literal(context_t *ctx, composite_term_t *ite) {
     return internalize_to_literal(ctx, ite->arg[2]);
   }
 
-  l2 = internalize_to_literal(ctx, ite->arg[2]);
-  l3 = internalize_to_literal(ctx, ite->arg[3]);
+  l2 = internalize_to_literal(ctx, ite->arg[1]);
+  l3 = internalize_to_literal(ctx, ite->arg[2]);
 
   return mk_ite_gate(&ctx->gate_manager, l1, l2, l3);
 }
 
 static literal_t map_eq_to_literal(context_t *ctx, composite_term_t *eq) {
-  occ_t u, v;
+  //  occ_t u, v;
   literal_t l1, l2, l;
 
   assert(eq->arity == 2);
@@ -2467,9 +2467,14 @@ static literal_t map_eq_to_literal(context_t *ctx, composite_term_t *eq) {
     l2 = internalize_to_literal(ctx, eq->arg[1]);
     l = mk_iff_gate(&ctx->gate_manager, l1, l2);
   } else {
+    // HACK FOR TESTING
+#if 0
     u = internalize_to_eterm(ctx, eq->arg[0]);
     v = internalize_to_eterm(ctx, eq->arg[1]);
     l = egraph_make_eq(ctx->egraph, u, v);
+#endif
+
+    l = pos_lit(create_boolean_variable(ctx->core));
   }
 
   return l;
@@ -2627,6 +2632,21 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
       l = map_xor_to_literal(ctx, xor_term_desc(terms, r));
       break;
 
+      // HACK FOR TESTING: MAP ANY ATOM TO A FRESH BOOLEAN VARIABLE
+    case ARITH_EQ_ATOM:
+    case ARITH_GE_ATOM:
+    case APP_TERM:
+    case DISTINCT_TERM:
+    case FORALL_TERM:
+    case ARITH_BINEQ_ATOM:
+    case SELECT_TERM:
+    case BIT_TERM:
+    case BV_EQ_ATOM:
+    case BV_GE_ATOM:
+    case BV_SGE_ATOM:
+      l = pos_lit(create_boolean_variable(ctx->core));
+      break;
+
     default:
       longjmp(ctx->env, LOGIC_NOT_SUPPORTED);
       break;
@@ -2642,9 +2662,75 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
 
 
 
+/*********************************
+ *  PRE-INTERNALIZED ASSERTIONS  *
+ ********************************/
+
+/*
+ * Assert (x == tt) for an internalization code x
+ */
+static void assert_internalization_code(context_t *ctx, int32_t x, bool tt) {
+  occ_t g;
+  literal_t l;
+  
+  assert(code_is_valid(x));
+
+  if (code_is_eterm(x)) {
+    // normalize to assertion (g == true)
+    g = code2occ(x);
+    if (! tt) g = opposite_occ(g);
+
+    // We must deal with 'true_occ/false_occ' separately
+    // since they may be used even if there's no actual egraph.
+    if (g == false_occ) {
+      longjmp(ctx->env, TRIVIALLY_UNSAT);
+    } else if (g != true_occ) {
+      assert(ctx->egraph != NULL);
+      egraph_assert_axiom(ctx->egraph, g);
+    }
+  } else {
+    l = code2literal(x);
+    if (! tt) l = not(l);
+    add_unit_clause(ctx->core, l);    
+  }
+}
+
+/*
+ * Assert t == true where t is a term that's already mapped
+ * either to a literal or to an egraph occurrence.
+ * - t must be a root in the internalization table
+ */
+static void assert_toplevel_intern(context_t *ctx, term_t t) {
+  int32_t code;
+  bool tt;
+
+  assert(is_boolean_term(ctx->terms, t) && 
+	 intern_tbl_is_root(&ctx->intern, t) &&
+	 intern_tbl_root_is_mapped(&ctx->intern, t));
+
+  tt = is_pos_term(t);
+  t = unsigned_term(t);
+  code = intern_tbl_map_of_root(&ctx->intern, t);
+
+  assert_internalization_code(ctx, code, tt);
+}
+
+
+
+
+
 /*****************************************************
  *  INTERNALIZATION OF TOP-LEVEL ATOMS AND FORMULAS  *
  ****************************************************/
+
+/*
+ * Recursive function: assert (t == tt) for a boolean term t
+ * - this is used when a toplevel formula simplified to t
+ *   For example (ite c t u) --> t if c is true.
+ * - t is not necessarily a root in the internalization table
+ */ 
+static void assert_term(context_t *ctx, term_t t, bool tt);
+
 
 /*
  * Top-level equality assertion (eq t1 t2):
@@ -2652,7 +2738,7 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
  *   if tt is false, assert (t1 != t2)
  */
 static void assert_toplevel_eq(context_t *ctx, composite_term_t *eq, bool tt) {
-  occ_t u1, u2;
+  //  occ_t u1, u2;
   literal_t l1, l2;
 
   assert(eq->arity == 2);
@@ -2665,6 +2751,7 @@ static void assert_toplevel_eq(context_t *ctx, composite_term_t *eq, bool tt) {
     assert_iff(&ctx->gate_manager, l1, l2, tt);
 
   } else {
+#if 0
     u1 = internalize_to_eterm(ctx, eq->arg[0]);
     u2 = internalize_to_eterm(ctx, eq->arg[1]);
     if (tt) {
@@ -2672,6 +2759,8 @@ static void assert_toplevel_eq(context_t *ctx, composite_term_t *eq, bool tt) {
     } else {
       egraph_assert_diseq_axiom(ctx->egraph, u1, u2);
     }
+    // HACK: FOR TESTING. NOTHING TO DO
+#endif
   }
 }
 
@@ -2686,11 +2775,16 @@ static void assert_toplevel_ite(context_t *ctx, composite_term_t *ite, bool tt) 
 
   assert(ite->arity == 3);
 
-  // TODO: use simplification/flattening
   l1 = internalize_to_literal(ctx, ite->arg[0]);
-  l2 = internalize_to_literal(ctx, ite->arg[1]);
-  l3 = internalize_to_literal(ctx, ite->arg[2]);
-  assert_ite(&ctx->gate_manager, l1, l2, l3, tt);
+  if (l1 == true_literal) {
+    assert_term(ctx, ite->arg[1], tt); 
+  } else if (l1 == false_literal) {
+    assert_term(ctx, ite->arg[2], tt);
+  } else {
+    l2 = internalize_to_literal(ctx, ite->arg[1]);
+    l3 = internalize_to_literal(ctx, ite->arg[2]);
+    assert_ite(&ctx->gate_manager, l1, l2, l3, tt);
+  }
 }
 
 
@@ -2779,62 +2873,9 @@ static void assert_toplevel_xor(context_t *ctx, composite_term_t *xor, bool tt) 
 
 
 /*
- * - term t is an atom or the negation of an atom
- * - t is mapped to true in the internalization table and is a root in
- *   the internalization table
- */
-static void assert_toplevel_atom(context_t *ctx, term_t t) {
-  term_table_t *terms;
-  int32_t code;
-  bool tt;
-  
-  assert(is_boolean_term(ctx->terms, t) && 
-	 intern_tbl_is_root(&ctx->intern, t) &&
-	 term_is_true(ctx, t));
-
-  tt = is_pos_term(t);
-  t = unsigned_term(t);
-
-  /*
-   * Now: t is a root and has positive polarity
-   * - tt indicates whether we assert t or (not t):
-   *   tt true: assert t
-   *   tt false: assert (not t)
-   */
-  terms = ctx->terms;
-  switch (term_kind(terms, t)) {
-  case CONSTANT_TERM:
-  case UNINTERPRETED_TERM:
-  case ITE_TERM:
-  case ITE_SPECIAL:
-  case OR_TERM:
-  case XOR_TERM:
-    // not atoms
-    code = INTERNAL_ERROR;
-    goto abort;
-
-  case EQ_TERM:
-    assert_toplevel_eq(ctx, eq_term_desc(terms, t), tt);
-    break;
-
-  default:
-    code = LOGIC_NOT_SUPPORTED;
-    goto abort;
-  }
-
-  return;
-
- abort:
-  longjmp(ctx->env, code);
-}
-
-
-
-/*
- * Top-level formula t
+ * Top-level formula t:
  * - t is a boolean term (or the negation of a boolean term)
- * - t is mapped to true in the internalization table and is a root in
- *   the internalization table
+ * - t must be a root in the internalization table and must be mapped to true
  */
 static void assert_toplevel_formula(context_t *ctx, term_t t) {
   term_table_t *terms;
@@ -2879,6 +2920,20 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
     assert_toplevel_eq(ctx, eq_term_desc(terms, t), tt);
     break;
 
+      // HACK FOR TESTING: DON'T ABORT ON ATOMS
+  case ARITH_EQ_ATOM:
+  case ARITH_GE_ATOM:
+  case APP_TERM:
+  case DISTINCT_TERM:
+  case FORALL_TERM:
+  case ARITH_BINEQ_ATOM:
+  case SELECT_TERM:
+  case BIT_TERM:
+  case BV_EQ_ATOM:
+  case BV_GE_ATOM:
+  case BV_SGE_ATOM:
+    break;
+
   default:
     code = LOGIC_NOT_SUPPORTED;
     goto abort;
@@ -2892,47 +2947,93 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
 
 
 
-
-/*********************************
- *  PRE-INTERNALIZED ASSERTIONS  *
- ********************************/
-
 /*
- * Assert t == true where t is a term that's already mapped
- * either to a literal or to an egraph occurrence.
- * - t must be a root in the internalization table
+ * Assert (t == tt) for a boolean term t:
+ * - if t is not internalized, record the mapping 
+ *   (root t) --> tt in the internalization table 
  */
-static void assert_toplevel_intern(context_t *ctx, term_t t) {
+static void assert_term(context_t *ctx, term_t t, bool tt) {
+  term_table_t *terms;
   int32_t code;
-  occ_t g;
-  literal_t l;
-  bool tt;
+  
+  assert(is_boolean_term(ctx->terms, t));
 
-  assert(is_boolean_term(ctx->terms, t) && 
-	 intern_tbl_is_root(&ctx->intern, t) &&
-	 intern_tbl_root_is_mapped(&ctx->intern, t));
-
-  tt = is_pos_term(t);
+  /*
+   * Apply substitution + fix polarity
+   */
+  t = intern_tbl_get_root(&ctx->intern, t);
+  tt ^= is_neg_term(t);
   t = unsigned_term(t);
-  code = intern_tbl_map_of_root(&ctx->intern, t);
 
-  assert(code_is_valid(code));
-  if (code_is_eterm(code)) {
-    assert(ctx->egraph != NULL);
-    g = code2occ(code);
-    if (! tt) {
-      g = opposite_occ(g);
-    }
-    egraph_assert_axiom(ctx->egraph, g);
+  if (intern_tbl_root_is_mapped(&ctx->intern, t)) {
+    /*
+     * The root is already mapped:
+     * Either t is already internalized, or it occurs in
+     * one of the vectors top_eqs, top_atoms, top_formulas
+     * and it will be internalize/asserted later.
+     */
+    code = intern_tbl_map_of_root(&ctx->intern, t);
+    assert_internalization_code(ctx, code, tt);
 
   } else {
-    l = code2literal(code);
-    if (! tt) {
-      l = not(l);
+    // store the mapping t --> tt
+    intern_tbl_map_root(&ctx->intern, t, bool2code(tt));
+
+    // internalize and assert
+    terms = ctx->terms;
+    switch (term_kind(terms, t)) {
+    case CONSTANT_TERM:
+      // should always be internalized
+      code = INTERNAL_ERROR;
+      goto abort;
+
+    case UNINTERPRETED_TERM: 
+      // nothing to do: t --> true/false in the internalization table
+      break;
+
+    case ITE_TERM:
+    case ITE_SPECIAL:
+      assert_toplevel_ite(ctx, ite_term_desc(terms, t), tt);
+      break;
+
+    case OR_TERM:
+      assert_toplevel_or(ctx, or_term_desc(terms, t), tt);
+      break;
+
+    case XOR_TERM:
+      assert_toplevel_xor(ctx, xor_term_desc(terms, t), tt);
+      break;
+
+    case EQ_TERM:
+      assert_toplevel_eq(ctx, eq_term_desc(terms, t), tt);
+      break;
+
+      // HACK FOR TESTING: DON'T ABORT ON ATOMS
+    case ARITH_EQ_ATOM:
+    case ARITH_GE_ATOM:
+    case APP_TERM:
+    case DISTINCT_TERM:
+    case FORALL_TERM:
+    case ARITH_BINEQ_ATOM:
+    case SELECT_TERM:
+    case BIT_TERM:
+    case BV_EQ_ATOM:
+    case BV_GE_ATOM:
+    case BV_SGE_ATOM:
+      break;
+
+    default:
+      code = LOGIC_NOT_SUPPORTED;
+      goto abort;
     }
-    add_unit_clause(ctx->core, l);    
   }
-}
+
+  return;
+
+ abort:
+  longjmp(ctx->env, code);
+} 
+
 
 
 
@@ -3530,7 +3631,6 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
       break;
     }
 
-
     internalization_start(ctx->core); // ?? Get rid of this?
 
     /*
@@ -3547,14 +3647,14 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
     v = &ctx->top_eqs;
     n = v->size;
     for (i=0; i<n; i++) {
-      assert_toplevel_atom(ctx, v->data[i]);
+      assert_toplevel_formula(ctx, v->data[i]);
     }
 
     // third: all top-level atoms (other than equalities)
     v = &ctx->top_atoms;
     n = v->size;
     for (i=0; i<n; i++) {
-      assert_toplevel_atom(ctx, v->data[i]);
+      assert_toplevel_formula(ctx, v->data[i]);
     }
 
     // last: all non-atomic, formulas
@@ -3564,7 +3664,13 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
       assert_toplevel_formula(ctx, v->data[i]);
     }
 
-    return CTX_NO_ERROR;
+    // one round of propagation
+    code = CTX_NO_ERROR;
+    if (! base_propagate(ctx->core)) {
+      code = TRIVIALLY_UNSAT;
+    }
+
+    return code;
 
   } else {
     /*

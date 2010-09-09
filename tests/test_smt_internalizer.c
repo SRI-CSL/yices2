@@ -14,6 +14,7 @@
 #include "smt_parser.h"
 #include "context.h"
 #include "context_printer.h"
+#include "smt_core_printer.h"
 
 #include "yices.h"
 #include "yices_globals.h"
@@ -84,13 +85,18 @@ static void dump_context(FILE *f, context_t *ctx) {
   print_context_intern_subst(f, ctx);
   fprintf(f, "\n--- Mapped terms ---\n\n");
   print_context_intern_mapping(f, ctx);
+  fprintf(f, "--- Clauses ---\n");
+  print_clauses(f, ctx->core);
+  printf("\n");
 
+#if 0
   fprintf(f, "--- Auxiliary vectors ---\n\n");
   print_context_subst_eqs(f, ctx);
   print_context_top_eqs(f, ctx);
   print_context_top_atoms(f, ctx);
   print_context_top_formulas(f, ctx);
   print_context_top_interns(f, ctx);
+#endif
 
   fprintf(f, "\n");
   fflush(f);
