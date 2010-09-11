@@ -143,7 +143,7 @@ the GMP configure script.
 
    lipo -create -output libgmp.a libgmp-x86.a libgmp-amd64.a
 
-   This works too for dynamic libraries (to build libgmp.dylib
+   This works for dynamic libraries too (to build libgmp.dylib
    from libgmp-x86.dylib and libgmp-amd64.dylib).
 
 

@@ -241,10 +241,10 @@ Darwin. Adjust this as needed).
 To use this configuration, add OPTION=64bits to the command line
 when using make. For example
 
-   make all MODE=static OPTION=64bits
+   make all OPTION=64bits
 
 
-The result will be in ./build/x86-64-apple-darwin9.2.2-static/
+The result will be in ./build/x86-64-apple-darwin9.2.2-release/
 
 
 
