@@ -119,6 +119,20 @@ extern uint32_t normalize_monarray(monomial_t *a, uint32_t n);
 
 
 /*
+ * Hash code
+ * - a must be normalized (and terminated by the end marker)
+ * - n = number of terms in a (not counting the end marker)
+ *
+ * This hash code is consistent with function hash_polynomial:
+ * If h = hash_monarray(p) and p has n monomials, 
+ * then  hash_polynomial(monarray_get_poly(p, n)) = h.
+ * (i.e., the code is not changed when p is converted to 
+ * a polynomial_t object).
+ */
+extern uint32_t hash_monarray(monomial_t *a, uint32_t n);
+
+
+/*
  * Copy the constant term of p into c
  * - p must be normalized
  */
@@ -143,6 +157,8 @@ extern void in_place_negate_monarray(monomial_t *p);
  * into q[0 ... n]. The function returns n.
  */
 extern uint32_t copy_monarray(monomial_t *q, monomial_t *p);
+
+
 
 
 

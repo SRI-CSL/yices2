@@ -263,6 +263,8 @@ uint32_t normalize_monarray(monomial_t *a, uint32_t n) {
 
 
 
+
+
 /*
  * OPERATION/COMPARISON
  */
@@ -366,6 +368,26 @@ bool disequal_monarrays(monomial_t *p1, monomial_t *p2) {
 
   // check whether non-constant monomials are equal
   return equal_monarray(p1, p2);
+}
+
+
+
+/*
+ * Hash code
+ * - a must be normalized (and terminated by the end marker)
+ * - n = number of terms in a (not counting the end marker)
+ */
+uint32_t hash_monarray(monomial_t *a, uint32_t n) {
+  uint32_t h, num, den;
+
+  h = HASH_POLY_SEED + n;
+  while (a->var < max_idx) {
+    q_hash_decompose(&a->coeff, &num, &den);
+    h = jenkins_hash_triple(a->var, num, den, h);
+    a ++;
+  }
+
+  return h;
 }
 
 
@@ -580,18 +602,7 @@ polynomial_t *monarray_copy(monomial_t *a, uint32_t n) {
  * - p must be normalized.
  */
 uint32_t hash_polynomial(polynomial_t *p) {
-  monomial_t *mono;
-  uint32_t h, num, den;
-
-  h = HASH_POLY_SEED + p->nterms;
-  mono = p->mono;
-  while (mono->var < max_idx) {
-    q_hash_decompose(&mono->coeff, &num, &den);
-    h = jenkins_hash_triple(mono->var, num, den, h);
-    mono ++;
-  }
-
-  return h;
+  return hash_monarray(p->mono, p->nterms);
 }
 
 

@@ -24,12 +24,41 @@
 
 
 /*
+ * HASH CODES
+ */
+
+/*
+ * For power products, we use a hash function local to
+ * this module (rather than relying on pprod_table).
+ */
+static inline uint32_t hash_pprod(varexp_t *p, uint32_t n) {
+  return jenkins_hash_array((uint32_t *) p, 2 * n, 0x1238932f);
+}
+
+// variant
+static inline uint32_t hash_pprod2(pprod_t *p) {
+  return hash_pprod(p->prod, p->len);
+}
+
+/*
+ * Hash code for rational q
+ */
+static uint32_t hash_rational(rational_t *q) {
+  uint32_t num, den;
+
+  q_hash_decompose(q, &num, &den);
+  return jenkins_hash_pair(num, den, 0xf82fadbe);
+}
+
+
+
+/*
  * INITIALIZATION/DELETION/RESET
  */
 
 /*
  * Initialization: use default sizes
- * - eterm_of is not allocated yet
+ * - eterm is not allocated yet
  */
 void init_arith_vartable(arith_vartable_t *table) {
   uint32_t n;
@@ -39,14 +68,13 @@ void init_arith_vartable(arith_vartable_t *table) {
   table->ivars = 0;
   table->size = n;
   table->def = (void **) safe_malloc(n * sizeof(void *));
-  table->i_flag = allocate_bitvector(n);
   table->atoms = (int32_t **) safe_malloc(n * sizeof(int32_t *));
-  table->eterm_of = NULL;
+  table->eterm = NULL;
+  table->tag = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
 
   table->value = (xrational_t *) safe_malloc(n * sizeof(xrational_t));
   table->lower_index = (int32_t *) safe_malloc(n * sizeof(int32_t));
   table->upper_index = (int32_t *) safe_malloc(n * sizeof(int32_t));
-  table->tag = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
   
   init_int_htbl(&table->htbl, 0); // use the default size defined in int_hash_tables.h
 }
@@ -68,16 +96,15 @@ static void extend_arith_vartable(arith_vartable_t *table) {
   
   table->size = n;
   table->def = (void **) safe_realloc(table->def, n * sizeof(void *));
-  table->i_flag = extend_bitvector(table->i_flag, n);
   table->atoms = (int32_t **) safe_realloc(table->atoms, n * sizeof(int32_t *));
-  if (table->eterm_of != NULL) {
-    table->eterm_of = (eterm_t *) safe_realloc(table->eterm_of, n * sizeof(eterm_t));
+  if (table->eterm != NULL) {
+    table->eterm = (eterm_t *) safe_realloc(table->eterm, n * sizeof(eterm_t));
   }
+  table->tag = (uint8_t *) safe_realloc(table->tag, n * sizeof(uint8_t));
 
   table->value = (xrational_t *) safe_realloc(table->value, n * sizeof(xrational_t));
   table->lower_index = (int32_t *) safe_realloc(table->lower_index, n * sizeof(int32_t));
   table->upper_index = (int32_t *) safe_realloc(table->upper_index, n * sizeof(int32_t));
-  table->tag = (uint8_t *) safe_realloc(table->tag, n * sizeof(uint8_t));
 }
 
 
@@ -92,36 +119,43 @@ void delete_arith_vartable(arith_vartable_t *table) {
   n = table->nvars;
   for (i=0; i<n; i++) {
     delete_index_vector(table->atoms[i]);
-    xq_clear(table->value + i);
+    xq_clear(table->value + i);    
     p = table->def[i];
-    if (p != NULL) {
-      if (get_ptr_tag(p) == POLY_PTR_TAG) {
-	free_polynomial(untag_poly_ptr(p));
-      } else {
-	assert(get_ptr_tag(p) == VARPROD_PTR_TAG);
-	safe_free(untag_varprd_ptr(p));
-      }
+    switch (arith_var_kind(table, i)) {
+    case AVAR_FREE: // nothing to delete
+      break;
+
+    case AVAR_POLY:
+      free_polynomial(p);
+      break;
+
+    case AVAR_PPROD:
+      safe_free(p);
+      break;
+
+    case AVAR_CONST:
+      q_clear(p);
+      safe_free(p);
+      break;
     }
   }
 
 
   safe_free(table->def);
-  delete_bitvector(table->i_flag);
   safe_free(table->atoms);
-  safe_free(table->eterm_of);
+  safe_free(table->eterm);
+  safe_free(table->tag);
   safe_free(table->value);
   safe_free(table->lower_index);
   safe_free(table->upper_index);
-  safe_free(table->tag);
 
   table->def = NULL;
-  table->i_flag = NULL;
   table->atoms = NULL;
-  table->eterm_of = NULL;
+  table->eterm = NULL;
+  table->tag = NULL;
   table->value = NULL;
   table->lower_index = NULL;
   table->upper_index = NULL;
-  table->tag = NULL;
 
   delete_int_htbl(&table->htbl);
 }
@@ -129,7 +163,8 @@ void delete_arith_vartable(arith_vartable_t *table) {
 
 
 /*
- * Reset table: delete all polynomials and products
+ * Reset table:
+ * - delete all descriptors
  * - free all the extended rationals
  */
 void reset_arith_vartable(arith_vartable_t *table) {
@@ -139,14 +174,23 @@ void reset_arith_vartable(arith_vartable_t *table) {
   n = table->nvars;
   for (i=0; i<n; i++) {
     p = table->def[i];
-    if (p != NULL) {
-      if (get_ptr_tag(p) == POLY_PTR_TAG) {
-	free_polynomial(untag_poly_ptr(p));
-      } else {
-	assert(get_ptr_tag(p) == VARPROD_PTR_TAG);
-	safe_free(untag_varprd_ptr(p));
-      }
-    }
+    switch (arith_var_kind(table, i)) {
+    case AVAR_FREE: // nothing to do
+      break;
+
+    case AVAR_POLY:
+      free_polynomial(p);
+      break;
+
+    case AVAR_PPROD:
+      safe_free(p);
+      break;
+
+    case AVAR_CONST:
+      q_clear(p);
+      safe_free(p);
+      break;
+    }    
   }
 
   for (i=0; i<n; i++) {
@@ -162,63 +206,19 @@ void reset_arith_vartable(arith_vartable_t *table) {
 
 
 
-/*
- * Remove all variables of index >= nvars
- */
-void arith_vartable_remove_vars(arith_vartable_t *table, uint32_t nvars) {
-  uint32_t i, n, k;
-  void *p;
-  polynomial_t *poly;
-  varprod_t *vp;
-
-  n = table->nvars;
-  for (i=nvars; i<n; i++) {
-    p = table->def[i];
-    if (p != NULL) {
-      if (get_ptr_tag(p) == POLY_PTR_TAG) {
-	poly = untag_poly_ptr(p);
-	// make sure the hash matches hash_poly(poly_hobj_t *o)
-	k = hash_monarray(poly->mono); 
-	int_htbl_erase_record(&table->htbl, k, i);
-	free_polynomial(poly);
-
-      } else {
-	assert(get_ptr_tag(p) == VARPROD_PTR_TAG);
-	vp = untag_varprd_ptr(p);
-	// make sure this one matches hash_varprod(varprod_hobj_t *o)
-	k = jenkins_hash_intarray(2 * vp->len, (int32_t *) vp->prod);
-	int_htbl_erase_record(&table->htbl, k, i);
-	safe_free(vp);
-      }
-    }
-
-    if (tst_bit(table->i_flag, i)) {
-      table->ivars --;
-    }
-
-    delete_index_vector(table->atoms[i]);
-    xq_clear(table->value + i);
-
-  }
-
-  table->nvars = nvars;  
-}
-
-
-#if 0
+#ifndef NDEBUG
 
 /*
- * Get the number of integer variables in table
+ * The number of integer variables in table
  */
-uint32_t num_integer_vars(arith_vartable_t *table) {
+uint32_t dbg_integer_vars(arith_vartable_t *table) {
   uint32_t i, n, t;
 
   t = 0;
   n = table->nvars;
   for (i=0; i<n; i++) {
-    t += tst_bit(table->i_flag, i);
+    t += arith_var_is_int(table, i);
   }
-  assert(t == table->ivars);
   return t;
 }
 
@@ -228,8 +228,73 @@ uint32_t num_integer_vars(arith_vartable_t *table) {
 
 
 /*
+ * Remove all variables of index >= nvars
+ */
+void arith_vartable_remove_vars(arith_vartable_t *table, uint32_t nvars) {
+  uint32_t i, n, k;
+  void *p;
+
+  n = table->nvars;
+  for (i=nvars; i<n; i++) {
+    p = table->def[i];
+    switch (arith_var_kind(table, i)) {
+    case AVAR_FREE:
+      break;
+
+    case AVAR_POLY:
+      k = hash_polynomial(p);
+      int_htbl_erase_record(&table->htbl, k, i);
+      free_polynomial(p);
+      break;
+
+    case AVAR_PPROD:
+      k = hash_pprod2(p);
+      int_htbl_erase_record(&table->htbl, k, i);
+      safe_free(p);
+      break;
+
+    case AVAR_CONST:
+      k = hash_rational(p);
+      q_clear(p);
+      safe_free(p);
+      break;
+    }
+
+    table->ivars -= arith_var_is_int(table, i);
+
+    delete_index_vector(table->atoms[i]);
+    xq_clear(table->value + i);
+  }
+
+  table->nvars = nvars;  
+
+  assert(table->ivars == dbg_integer_vars(table));
+}
+
+
+
+
+/*
  * VARIABLE CREATION
  */
+
+/*
+ * Check whether the INT bit of tg is set
+ */
+static inline bool is_int_tag(uint8_t tg) {
+  return (tg & AVARTAG_INT_MASK) != 0;
+}
+
+/*
+ * Build a tag for the given kind + is_int flag
+ * - bit 0, 1, 2 are 0: no mark
+ */
+static inline uint8_t mk_arith_vartag(avar_kind_t kind, bool is_int) {
+  assert(AVAR_FREE <= kind && kind <= AVAR_CONST);
+  assert(is_int == 0 || is_int == 1);
+  return (uint8_t) ((kind << 4) | (is_int << 3));
+}
+
 
 /*
  * Allocate a new variable: return its index v
@@ -237,11 +302,10 @@ uint32_t num_integer_vars(arith_vartable_t *table) {
  * - initialize atoms[v] to NULL
  * - initialize value[v] to 0
  * - initialize lower_index[v] and upper_index[v] to -1
- * - initialize tag to 0
- * - i_flag[v] is 1 if is_int is true, 0 otherwise
- * - if eterm_of exists, then eterm_of[v] is initialized to null_eterm
+ * - initialize tag to tg
+ * - if eterm exists, then eterm[v] is initialized to null_eterm
  */
-static thvar_t new_arith_var(arith_vartable_t *table, void *def, bool is_int) {
+static thvar_t new_arith_var(arith_vartable_t *table, void *def, uint8_t tg) {
   uint32_t v;
 
   v = table->nvars;
@@ -249,20 +313,20 @@ static thvar_t new_arith_var(arith_vartable_t *table, void *def, bool is_int) {
     extend_arith_vartable(table);
   }
   assert(v < table->size);
-  table->def[v] = def;
-  assign_bit(table->i_flag, v, is_int);
+
+  table->def[v] = def;  
   table->atoms[v] = NULL;
-  if (table->eterm_of != NULL) {
-    table->eterm_of[v] = null_eterm;
+  if (table->eterm != NULL) {
+    table->eterm[v] = null_eterm;
   }
+  table->tag[v] = tg;
 
   xq_init(table->value + v);
   table->lower_index[v] = -1;
   table->upper_index[v] = -1;
-  table->tag[v] = 0;
 
   table->nvars = v+1;
-  table->ivars += is_int;
+  table->ivars += is_int_tag(tg);
 
   return v;
 }
@@ -272,7 +336,7 @@ static thvar_t new_arith_var(arith_vartable_t *table, void *def, bool is_int) {
  * Create a new variable
  */
 thvar_t create_arith_var(arith_vartable_t *table, bool is_int) {
-  return new_arith_var(table, NULL, is_int);
+  return new_arith_var(table, NULL, mk_arith_vartag(AVAR_FREE, is_int));
 }
 
 
@@ -285,7 +349,7 @@ void attach_eterm_to_arith_var(arith_vartable_t *table, thvar_t x, eterm_t t) {
 
   assert(0 <= x && x < table->nvars && t != null_eterm);
 
-  tmp = table->eterm_of;
+  tmp = table->eterm;
   if (tmp == NULL) {
     n = table->size;
     tmp = (eterm_t *) safe_malloc(n * sizeof(eterm_t));
@@ -293,7 +357,7 @@ void attach_eterm_to_arith_var(arith_vartable_t *table, thvar_t x, eterm_t t) {
     for (i=0; i<n; i++) {
       tmp[i] = null_eterm;
     }
-    table->eterm_of = tmp;
+    table->eterm = tmp;
   }
 
   assert(tmp[x] == null_eterm);
@@ -324,23 +388,107 @@ void detach_atom_from_arith_var(arith_vartable_t *table, thvar_t x, int32_t i) {
 
 
 
+/*
+ * HASH CONSING FOR RATIONAL CONSTANTS
+ */
 
 /*
- * HASH CONSING FOR PRODUCTS OF VARIABLES
+ * Hash consing object (cf. int_hash_tables.h)
+ */
+typedef struct {
+  int_hobj_t m;
+  arith_vartable_t *table;
+  rational_t *q;
+} rational_hobj_t;
+
+
+/*
+ * Hash code/equality check/constructor
+ */
+static uint32_t hash_rational_hobj(rational_hobj_t *o) {
+  return hash_rational(o->q);
+}
+
+static bool eq_rational_hobj(rational_hobj_t *o, thvar_t x) {
+  arith_vartable_t *table;
+
+  table = o->table;
+  return arith_var_def_is_rational(table, x) 
+    && q_eq(arith_var_rational_def(table, x), o->q);
+}
+
+static thvar_t build_rational_hobj(rational_hobj_t *o) {
+  arith_vartable_t *table;
+  rational_t *a;
+
+  table = o->table;
+  a = (rational_t *) safe_malloc(sizeof(rational_t));
+  q_init(a);
+  q_set(a, o->q);
+
+  return new_arith_var(table, a, mk_arith_vartag(AVAR_CONST, q_is_integer(a)));
+}
+
+
+/*
+ * Hash consing object
+ */
+static rational_hobj_t rational_hobj = {
+  { (hobj_hash_t) hash_rational_hobj, (hobj_eq_t) eq_rational_hobj, (hobj_build_t) build_rational_hobj },
+  NULL,
+  NULL,
+};
+
+
+/*
+ * Return a variable equal to rational q
+ * - return null_thvar if there's no such variable in table
+ */
+thvar_t find_var_for_constant(arith_vartable_t *table, rational_t *q) {
+  rational_hobj.table = table;
+  rational_hobj.q = q;
+  return int_htbl_find_obj(&table->htbl, &rational_hobj.m);
+}
+
+
+/*
+ * Create or find a variable whose definition is the empty product
+ * - set *new_var to true if the variable is created
+ * - otherwise, set it to false
+ */
+thvar_t get_var_for_constant(arith_vartable_t *table, rational_t *q, bool *new_var) {
+  uint32_t nv;
+  thvar_t x;
+
+  nv = table->nvars;
+  rational_hobj.table = table;
+  rational_hobj.q = q;
+  x = int_htbl_get_obj(&table->htbl, &rational_hobj.m);
+  *new_var = table->nvars > nv;
+
+  return x;
+}
+
+
+
+
+/*
+ * HASH CONSING FOR POWER PRODUCTS
  */
 
 /*
  * Hash-consing object
  * - the definition is in array a = array of pairs <variable, exponent>
  * - len = length of array a
- * - a must be normalized (as defined in varproducts.c)
+ * - a must be normalized (as defined in power_products.c)
  */
-typedef struct varprod_hobj_s {
+typedef struct pprod_hobj_s {
   int_hobj_t m;
   arith_vartable_t *table;
   varexp_t *a;
   uint32_t len;
-} varprod_hobj_t;
+} pprod_hobj_t;
+
 
 /*
  * Hash code for a product v
@@ -348,25 +496,25 @@ typedef struct varprod_hobj_s {
  * - v must be stored in table->prod_buffer
  * - the buffer must be normalized
  */
-static uint32_t hash_varprod(varprod_hobj_t *o) {
-  return jenkins_hash_intarray(2 * o->len, (int32_t *) o->a);
+static uint32_t hash_pprod_hobj(pprod_hobj_t *o) {
+  return hash_pprod(o->a, o->len);
 }
 
 /*
  * Check whether x is equal to the product in o
  * - o points to a hash consing object
  */
-static bool eq_varprod(varprod_hobj_t *o, thvar_t x) {
+static bool eq_pprod_hobj(pprod_hobj_t *o, thvar_t x) {
   arith_vartable_t *table;
-  void *p;
-  varprod_t *prod;
+  pprod_t *p;
 
   table = o->table;
-  p = table->def[x];
-  if (p == NULL || get_ptr_tag(p) != VARPROD_PTR_TAG) return false;
+  if (arith_var_def_is_product(table, x)) {
+    p = arith_var_product_def(table, x);
+    return p->len == o->len && varexp_array_equal(p->prod, o->a, p->len);
+  }
 
-  prod = untag_varprd_ptr(p);
-  return prod->len == o->len && varexp_array_equal(prod->prod, o->a, prod->len);
+  return false;
 }
 
 
@@ -380,31 +528,33 @@ static bool integer_varexp(arith_vartable_t *table, varexp_t *p, uint32_t n) {
 
   for (i=0; i<n; i++) {
     x = p[i].var;
-    assert(0 <= x && x < table->nvars);
-    if (! tst_bit(table->i_flag, x)) return false;
+    if (! arith_var_is_int(table, x)) {
+      return false;
+    }
   }
   return true;
 }
+
 
 /*
  * Build a new product and add it to the table
  * - o points to a hash consing object
  */
-static thvar_t build_varprod(varprod_hobj_t *o) {
+static thvar_t build_pprod_hobj(pprod_hobj_t *o) {
   arith_vartable_t *table;
-  varprod_t *p;
+  pprod_t *p;
 
   table = o->table;
-  p = make_varprod(o->a, o->len);
-  return new_arith_var(table, tag_varprod_ptr(p), integer_varexp(table, o->a, o->len));
+  p = make_pprod(o->a, o->len);
+  return new_arith_var(table, p, mk_arith_vartag(AVAR_PPROD, integer_varexp(table, o->a, o->len)));
 }
 
 
 /*
  * Hash consing object
  */
-static varprod_hobj_t varprod_hobj = {
-  { (hobj_hash_t) hash_varprod, (hobj_eq_t) eq_varprod, (hobj_build_t) build_varprod },
+static pprod_hobj_t pprod_hobj = {
+  { (hobj_hash_t) hash_pprod_hobj, (hobj_eq_t) eq_pprod_hobj, (hobj_build_t) build_pprod_hobj },
   NULL,
   NULL,
   0,
@@ -414,107 +564,43 @@ static varprod_hobj_t varprod_hobj = {
 
 /*
  * Search for a variable whose definition is equal to p
+ * - p = array of pairs <variable, exponent>
+ * - n = number of pairs in p
+ * - p must be normalized and have degree at least 2
  * - return null_thvar if there no such variable in the table
  */
-thvar_t find_var_for_product(arith_vartable_t *table, varprod_t *p) {
-  varprod_hobj.table = table;
-  varprod_hobj.a = p->prod;
-  varprod_hobj.len = p->len;
+thvar_t find_var_for_product(arith_vartable_t *table, varexp_t *p, uint32_t n) {
+  assert(n >= 2 || (n == 1 && p[0].exp >= 2));
+
+  pprod_hobj.table = table;
+  pprod_hobj.a = p;
+  pprod_hobj.len = n;
+
   /*
    * int_htbl_find_obj returns NULL_VALUE == -1 if the object is
    * not found. This is the same as null_thvar == -1.
    */
-  return int_htbl_find_obj(&table->htbl, (int_hobj_t*) &varprod_hobj);
+  return int_htbl_find_obj(&table->htbl, &pprod_hobj.m);
 }
 
 
 /*
- * Create the variable if needed
+ * Get the variable for p: create a fresh variable if needed
  */
-thvar_t get_var_for_product(arith_vartable_t *table, varprod_t *p, bool *new_var) {
-  uint32_t n;
+thvar_t get_var_for_product(arith_vartable_t *table, varexp_t *p, uint32_t n, bool *new_var) {
+  uint32_t nv;
   thvar_t x;
 
-  n = table->nvars;
-  varprod_hobj.table = table;
-  varprod_hobj.a = p->prod;
-  varprod_hobj.len = p->len;
-  x = int_htbl_get_obj(&table->htbl, (int_hobj_t*) &varprod_hobj);
-  *new_var = table->nvars > n;
-  return x;
-}
- 
+  assert(n >= 2 || (n == 1 && p[0].exp >= 2));
 
-/*
- * Variants: input is stored in a vpbuffer rather than a varprod object
- */
+  nv = table->nvars;
+  pprod_hobj.table = table;
+  pprod_hobj.a = p;
+  pprod_hobj.len = n;
 
-/*
- * Search for a variable whose definition is equal to p
- * - return null_thvar if there no such variable in the table
- */
-thvar_t find_var_for_vpbuffer(arith_vartable_t *table, vpbuffer_t *b) {
-  varprod_hobj.table = table;
-  varprod_hobj.a = b->prod;
-  varprod_hobj.len = b->len;
-  /*
-   * int_htbl_find_obj returns NULL_VALUE == -1 if the object is
-   * not found. This is the same as null_thvar == -1.
-   */
-  return int_htbl_find_obj(&table->htbl, (int_hobj_t*) &varprod_hobj);
-}
+  x = int_htbl_get_obj(&table->htbl, &pprod_hobj.m);
+  *new_var = table->nvars > nv;
 
-
-/*
- * Create the variable if needed
- */
-thvar_t get_var_for_vpbuffer(arith_vartable_t *table, vpbuffer_t *b, bool *new_var) {
-  uint32_t n;
-  thvar_t x;
-
-  n = table->nvars;
-  varprod_hobj.table = table;
-  varprod_hobj.a = b->prod;
-  varprod_hobj.len = b->len;
-  x = int_htbl_get_obj(&table->htbl, (int_hobj_t*) &varprod_hobj);
-  *new_var = table->nvars > n;
-  return x;
-}
- 
-
-
-
-
-/*
- * FIND/CREATE THE CONSTANT
- */
-
-/*
- * Return -1 or a variable whose definition is the empty product
- */
-thvar_t find_var_for_constant(arith_vartable_t *table) {
-  varprod_hobj.table = table;
-  varprod_hobj.a = NULL; // this is safe since len is 0
-  varprod_hobj.len = 0;
-  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &varprod_hobj);
-}
-
-
-/*
- * Create or find a variable whose definition is the empty product
- * - set *new_var to true if the variable is created
- * - otherwise, set it to false
- */
-thvar_t get_var_for_constant(arith_vartable_t *table, bool *new_var) {
-  uint32_t n;
-  thvar_t x;
-
-  n = table->nvars;
-  varprod_hobj.table = table;
-  varprod_hobj.a = NULL;
-  varprod_hobj.len = 0;
-  x = int_htbl_get_obj(&table->htbl, (int_hobj_t*) &varprod_hobj);
-  *new_var = table->nvars > n;
   return x;
 }
 
@@ -543,23 +629,25 @@ typedef struct poly_hobj_s {
 /*
  * Hash code for polynomial stored in o
  */
-static uint32_t hash_poly(poly_hobj_t *o) {
-  return hash_monarray(o->poly);
+static uint32_t hash_poly_hobj(poly_hobj_t *o) {
+  return hash_monarray(o->poly, o->len);
 }
 
 /*
  * Check whether x's def is equal to poly in o
  */
-static bool eq_poly(poly_hobj_t *o, thvar_t x) {
+static bool eq_poly_hobj(poly_hobj_t *o, thvar_t x) {
   arith_vartable_t *table;
-  void *p;
+  polynomial_t *p;
 
   table = o->table;
-  p = table->def[x];
-  if (p == NULL || get_ptr_tag(p) != POLY_PTR_TAG) return false;
-  return equal_monarray(untag_poly_ptr(p)->mono, o->poly);
-}
+  if (arith_var_def_is_poly(table, x)) {
+    p = table->def[x];
+    return p->nterms == o->len && equal_monarrays(p->mono, o->poly);
+  } 
 
+  return false;
+}
 
 
 /*
@@ -572,7 +660,7 @@ static bool integer_poly(arith_vartable_t *table, monomial_t *p) {
   x = p->var;
   while (x < max_idx) {
     assert(0 <= x && x < table->nvars);
-    if (! tst_bit(table->i_flag, x)) return false;
+    if (! arith_var_is_int(table, x)) return false;
     if (! q_is_integer(&p->coeff)) return false;
     p ++;
     x = p->var;
@@ -584,13 +672,13 @@ static bool integer_poly(arith_vartable_t *table, monomial_t *p) {
 /*
  * Build a new polynomial and add it to the table
  */
-static thvar_t build_poly(poly_hobj_t *o) {
+static thvar_t build_poly_hobj(poly_hobj_t *o) {
   arith_vartable_t *table;
   polynomial_t *p;
 
   table = o->table;
-  p = monarray_copy(o->poly, o->len);
-  return new_arith_var(table, tag_poly_ptr(p), integer_poly(table, p->mono));
+  p = monarray_copy_to_poly(o->poly, o->len);
+  return new_arith_var(table, p, mk_arith_vartag(AVAR_POLY, integer_poly(table, p->mono)));
 }
 
 
@@ -598,7 +686,7 @@ static thvar_t build_poly(poly_hobj_t *o) {
  * Hash-object for polynomials
  */
 static poly_hobj_t poly_hobj = {
-  { (hobj_hash_t) hash_poly, (hobj_eq_t) eq_poly, (hobj_build_t) build_poly },
+  { (hobj_hash_t) hash_poly_hobj, (hobj_eq_t) eq_poly_hobj, (hobj_build_t) build_poly_hobj },
   NULL,
   NULL,
   0,
@@ -617,9 +705,11 @@ static poly_hobj_t poly_hobj = {
 thvar_t find_var_for_poly(arith_vartable_t *table, monomial_t *p, uint32_t n) {
   poly_hobj.table = table;
   poly_hobj.poly = p;
+
   poly_hobj.len = n;
-  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &poly_hobj);
+  return int_htbl_find_obj(&table->htbl, &poly_hobj.m);
 }
+
 
 /*
  * Get a variable whose definition is equal to p
@@ -628,22 +718,22 @@ thvar_t find_var_for_poly(arith_vartable_t *table, monomial_t *p, uint32_t n) {
  * - if an existing variable is returned, then *new_var is set false
  */
 thvar_t get_var_for_poly(arith_vartable_t *table, monomial_t *p, uint32_t n, bool *new_var) {
-  uint32_t k;
+  uint32_t nv;
   thvar_t x;
 
-  k = table->nvars;
+  nv = table->nvars;
   poly_hobj.table = table;
   poly_hobj.poly = p;
   poly_hobj.len = n;
-  x = int_htbl_get_obj(&table->htbl, (int_hobj_t*) &poly_hobj);
-  *new_var = table->nvars > k;
+  x = int_htbl_get_obj(&table->htbl, &poly_hobj.m);
+  *new_var = table->nvars > nv;
   return x;
 }
 
 
 /*
  * Find a variable whose definition is equal to the non-constant part of p
- * - i.e., write p as k + q where k is the constant term, then find variable for q
+ * - i.e., write p as k + q where k is the constant term, then find a variable for q
  */
 thvar_t find_var_for_poly_offset(arith_vartable_t *table, monomial_t *p, uint32_t n) {
   if (n > 0 && p->var == const_idx) {
@@ -657,7 +747,7 @@ thvar_t find_var_for_poly_offset(arith_vartable_t *table, monomial_t *p, uint32_
 
 /*
  * Get a variable whose definition is equal to the non-constant part of p
- * - i.e., write p as k + q where k is the constant term, then get variable for q
+ * - i.e., write p as k + q where k is the constant term, then get the variable for q
  */
 thvar_t get_var_for_poly_offset(arith_vartable_t *table, monomial_t *p, uint32_t n, bool *new_var) {
   if (n > 0 && p->var == const_idx) {
