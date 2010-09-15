@@ -1577,7 +1577,7 @@ static void eliminate_column(dsolver_t *solver, dcolumn_t *c, ptr_queue_t *queue
      * Sort p and negate its coefficients if needed
      */
     assert(t == p->nterms);
-    varsort_monarray(p->mono, p->nterms);
+    sort_monarray(p->mono, p->nterms);
     if (negate) {
       in_place_negate_monarray(p->mono);
     }
