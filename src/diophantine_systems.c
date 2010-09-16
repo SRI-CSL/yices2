@@ -17,7 +17,7 @@
 
 #define TRACE 0
 
-#if TRACE || 1
+#if TRACE
 #include <stdio.h>
 #include <inttypes.h>
 
@@ -2028,9 +2028,6 @@ bool dsolver_is_feasible(dsolver_t *solver) {
 
   solver->num_process_rows = 0;
   solver->num_reduce_ops = 0;
-  //  printf("---> dsolver is feasible: %"PRIu32" columns, %"PRIu32" main rows, %"PRIu32" eliminated rows\n", 
-  //	 solver->ncolumns, solver->main_rows, solver->elim.nelems);
-  //  start = get_cpu_time();
 
   to_process = &solver->rows_to_process;
   while (! generic_heap_is_empty(to_process)) {
@@ -2043,16 +2040,10 @@ bool dsolver_is_feasible(dsolver_t *solver) {
       dsolver_print_status(stdout, solver);
 #endif
 
-      //      printf("     infeasible. %"PRIu32" process rows, %"PRIu32" column operations, %.4f s\n", 
-      //	     solver->num_process_rows, solver->num_reduce_ops, time_diff(get_cpu_time(), start));
-      
       return false;
     }
   }
 
-  //  printf("     feasible. %"PRIu32" process rows, %"PRIu32" column operations, %.4f s\n", 
-  //	 solver->num_process_rows, solver->num_reduce_ops, time_diff(get_cpu_time(), start));
-      
   solver->status = DSOLVER_SOLVED_SAT;
   return true;
 }
