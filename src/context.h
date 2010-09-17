@@ -240,7 +240,7 @@ enum {
  *
  * 8) void assert_eq_axiom(void *solver, thvar_t x, bool tt)
  *    - if tt assert (x == 0) otherwise assert (x != 0)
- * 
+ *
  * 9) void assert_ge_axiom(void *solver, thvar_t x, bool tt)
  *    - if tt assert (x >= 0) otherwise assert (x < 0)
  *
@@ -249,9 +249,8 @@ enum {
  *
  * 11) void assert_cond_vareq_axiom(void *solver, literal_t c, thvar_t x, thvar_t y)
  *     - assert (c implies x == y) as an axiom
- *     - this is used to convert if-then-else equalities:
- *        (x == (ite c y1 y2)) is flattened to   (c implies x = y1) 
- *                                         and (not c implies x = y2)
+ *     - this is used to convert if-then-else equalities: 
+ *        (x == (ite c y1 y2)) is flattened to (c implies x = y1) and (not c implies x = y2)
  *
  * Egraph connection
  * -----------------
@@ -547,7 +546,7 @@ enum {
   // arithmetic solver errors
   FORMULA_NOT_IDL = -10,
   FORMULA_NOT_RDL = -11,
-  FORMULA_NOR_LINEAR = -12,
+  FORMULA_NOT_LINEAR = -12,
   TOO_MANY_ARITH_VARS = -13,
   TOO_MANY_ARITH_ATOMS = -14,
   ARITHSOLVER_EXCEPTION = -15,

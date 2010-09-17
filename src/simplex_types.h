@@ -20,7 +20,7 @@
 
 /*
  * Simplex solver:
- * - a global set of linear equalities A  X = 0
+ * - a global set of linear equalities A X = 0
  *   where A is a matrix and X is the vector of variables
  * - all atoms are of the form (x <= b) or (x >= b) where
  *   x is a variable and b is a rational constant.
@@ -28,8 +28,21 @@
  *   an extended rational is of the form (b + c \delta) where b and c
  *   are rationals and \delta is infinitesimal.
  *
+ * Variable table:
+ * - each variable x is stored in the simplex's variable table
+ * - the table maps x to a descriptor
+ * - we use only two kinds of descriptors here (cf. arith_vartable):
+ *   either x is a free variable          (kind = AVAR_FREE)
+ *       or x has a polynomial definition (kind = AVAR_POLY)
+ *   We convert any rational constant to a constant polynomial before
+ *   adding it to the variable table (i.e., we don't use kind = AVAR_CONST).
+ * 
+ * Variable substitutions: if x's definition is a simple polynomial of
+ * the form (c + b.y) then the solver always replace x by c + b.y
+ * (rather than adding the row c - x + b.y = 0 to the matrix).
+ * 
  * Matrix/tableau:
- * - We use a two-stage approach to building the constraints AX=0.
+ * - We use a two-stage approach to building the constraints A X = 0.
  * - The constraint matrix is built during formula internalization. 
  *   It contains two types of rows:
  *   - variable definitions: rows of the form (x - p) == 0,
@@ -615,7 +628,6 @@ typedef struct simplex_solver_s {
    * Table of variables and atoms + pointer to the variable manager
    * for all input polynomials
    */
-  arithvar_manager_t *arith_manager;
   arith_atomtable_t atbl;
   arith_vartable_t  vtbl;
 

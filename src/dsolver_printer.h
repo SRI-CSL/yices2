@@ -10,7 +10,6 @@
 
 #include "matrices.h"
 #include "diophantine_systems.h"
-#include "mini_simplex.h"
 
 
 /*
@@ -103,54 +102,6 @@ extern void dsolver_print_gen_solution(FILE *f, dsolver_t *solver);
  * - a variable k of index m ... is printed as i_<k> (i.e., as a parameter)
  */
 extern void dsolver_print_tableau(FILE *f, matrix_t *matrix, int32_t param_idx);
-
-
-/*
- * Same thing for the tableau in a simplex solver s
- */
-static inline void dsolver_splx_print_tableau(FILE *f, mini_simplex_t *s) {
-  fputs("--- Tableau ---\n", f);
-  dsolver_print_tableau(f, &s->matrix, s->nvars);
-  fputc('\n', f);
-}
-
-
-/*
- * Print varibable x
- */
-extern void dsolver_splx_print_var(FILE *f, mini_simplex_t *s, int32_t x);
-
-
-/*
- * Print the current assigmment in simplex solver s
- */
-extern void dsolver_splx_print_solution(FILE *f, mini_simplex_t *s);
-
-
-/*
- * Print the asserted bounds in simplex solver s
- */
-extern void dsolver_splx_print_bounds(FILE *f, mini_simplex_t *s);
-
-
-/*
- * Print assignment and bounds in a more compact format
- */
-extern void dsolver_splx_print_sol_and_bounds(FILE *f, mini_simplex_t *s);
-
-
-
-/*
- * Print the status of simplex solver s
- * + a summary explanation if status is a conflict
- */
-extern void dsolver_splx_print_status(FILE *f, mini_simplex_t *s);
-
-
-/*
- * Print the list of infeasible vars
- */
-extern void dsolver_splx_print_infeasible_vars(FILE *f, mini_simplex_t *s);
 
 
 

@@ -17,7 +17,7 @@
  * - if col_idx < 0, the triple is not used. A list of free elements
  *   is maintained, links are stored in the c_ptr field.
  * - if col_idx >= 0, then it's the index k of a variable x_k
- *   the triple represents a * x_k and and c_ptr is an index in the array
+ *   the triple represents a * x_k and c_ptr is an index in the array
  *   column[k]
  *
  * Each column is an array of pairs (row_idx, r_ptr)

@@ -275,6 +275,30 @@ void arith_vartable_remove_vars(arith_vartable_t *table, uint32_t nvars) {
 
 
 /*
+ * Collect the set of integer variables as a bit vector
+ * - i.e., retrun a bitvector V of size n = table->nvars
+ * - bit i of V is 1 if variable i has integer type.
+ * - V must be deleted when no longer used by calling delete_bitvector(V)
+ *   (cf. bitvectors.h)
+ */
+byte_t *get_integer_vars_vector(arith_vartable_t *table) {
+  byte_t *v;
+  uint32_t i, n;
+
+  n = table->nvars;
+  v = allocate_bitvector(n);
+  for (i=0; i<n; i++) {
+    assign_bit(v, i, arith_var_is_int(table, i));
+  }
+
+  return v;
+}
+
+
+
+
+
+/*
  * VARIABLE CREATION
  */
 
@@ -307,6 +331,9 @@ static inline uint8_t mk_arith_vartag(avar_kind_t kind, bool is_int) {
  */
 static thvar_t new_arith_var(arith_vartable_t *table, void *def, uint8_t tg) {
   uint32_t v;
+
+  // all bits of tg except kind + int bits must be 0
+  assert((tg & ~(AVARTAG_KIND_MASK|AVARTAG_INT_MASK)) == 0);
 
   v = table->nvars;
   if (v == table->size) {

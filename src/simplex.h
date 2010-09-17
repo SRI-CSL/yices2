@@ -25,15 +25,12 @@ extern char *simplex_prop_level;
  * - core = the attached smt-core object
  * - gates = the gate manager for core
  * - egraph = the attached egraph (or NULL)
- * - vm = variable manager for the input polynomials
- *   (vm is used during internalization to check for non-linear polynomials)
  *
  * Default settings:
  * - no row saving, no jump buffer (exceptions cause abort)
  */
 extern void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, 
-				gate_manager_t *gates, egraph_t *egraph, 
-				arithvar_manager_t *vm);
+				gate_manager_t *gates, egraph_t *egraph);
 
 
 /*
@@ -183,45 +180,67 @@ static inline void simplex_disable_periodic_icheck(simplex_solver_t *solver) {
  */
 extern thvar_t simplex_create_var(simplex_solver_t *solver, bool is_int);
 
+
+/*
+ * Create a variable that represents constant q
+ */
+extern thvar_t simplex_create_const(simplex_solver_t *solver, rational_t *q);
+
+
 /*
  * Create a theory variable equal to p
- * - arith_map maps variables of p to corresponding theory variables
- *   in the solver
+ * - map defines a mapping from terms of p to simplex variables:
+ *   p is of the form a_0 t_0 + ... + a_n t_n where t_0, ..., t_n are arithmetic terms
+ *   map[i] is the simplex variable that's the internalization of t_i
+ *   (except that map[0] = null_thvar if t_0 is const_idx)
+ * - the function creates a simplex variable y that represents 
+ *   a_0 map[0] + ... + a_n map[n] 
  */
-extern thvar_t simplex_create_poly(simplex_solver_t *solver, polynomial_t *p, itable_t *arith_map);
+extern thvar_t simplex_create_poly(simplex_solver_t *solver, polynomial_t *p, thvar_t *map);
 
 
 /*
- * Create the atom p == 0 or p >= 0
- * - arith_map maps arithmetic variables of p to theory variables
+ * Product internalization: always fails with exception FORMULA_NOT_LINEAR
+ */
+extern thvar_t simplex_create_pprod(simplex_solver_t *solver, pprod_t *p, thvar_t *map);
+
+
+/*
+ * Create the atom x == 0 or x >= 0
  * - this attach the atom to the smt_core
  */
-extern literal_t simplex_create_eq_atom(simplex_solver_t *solver, polynomial_t *p, itable_t *arith_map);
-extern literal_t simplex_create_ge_atom(simplex_solver_t *solver, polynomial_t *p, itable_t *arith_map);
+extern literal_t simplex_create_eq_atom(simplex_solver_t *solver, thvar_t x);
+extern literal_t simplex_create_ge_atom(simplex_solver_t *solver, thvar_t x);
 
 
 /*
  * Create the atom x - y == 0
  * - x and y are two theory variables
  */
-extern literal_t simplex_create_vareq_atom(simplex_solver_t *solver, int32_t x, int32_t y);
+extern literal_t simplex_create_vareq_atom(simplex_solver_t *solver, thvar_t x, thvar_t y);
 
 
 /*
- * Assert a top-level constraint (either p == 0 or p != 0 or p >= 0 or p < 0)
- * - arith_maps maps p's variables to internal theory variables
+ * Assert a top-level constraint (either x == 0 or x != 0 or x >= 0 or x < 0)
  * - tt indicates whether the constraint or its negation must be asserted
- *   tt == true  --> assert p == 0 (or p >= 0)
- *   tt == false --> assert p != 0 (or p < 0)
+ *   tt == true  --> assert x == 0 (or x >= 0)
+ *   tt == false --> assert x != 0 (or x < 0)
  */
-extern void simplex_assert_eq_axiom(simplex_solver_t *solver, polynomial_t *p, itable_t *arith_map, bool tt);
-extern void simplex_assert_ge_axiom(simplex_solver_t *solver, polynomial_t *p, itable_t *arith_map, bool tt);
+extern void simplex_assert_eq_axiom(simplex_solver_t *solver, thvar_t x, bool tt);
+extern void simplex_assert_ge_axiom(simplex_solver_t *solver, thvar_t x, bool tt);
+
 
 /*
  * If tt == true --> assert (x - y == 0)
  * If tt == false --> assert (x - y != 0)
  */
-extern void simplex_assert_vareq_axiom(simplex_solver_t *solver, int32_t x, int32_t y, bool tt);
+extern void simplex_assert_vareq_axiom(simplex_solver_t *solver, thvar_t x, thvar_t y, bool tt);
+
+
+/*
+ * Assert (c ==> x == y)
+ */
+extern void simplex_assert_cond_vareq_axiom(simplex_solver_t *solver, literal_t c, thvar_t x, thvar_t y);
 
 
 /*

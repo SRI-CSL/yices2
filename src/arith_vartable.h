@@ -26,10 +26,6 @@
  * - a vector of atoms indices (all the atoms whose variable is v)
  * - the value of v in the current assignment
  * - the index of lower/upper bounds on v
- *
- * There can be a special variable used to represent constant terms in
- * polynomials. The definition for that variable is the empty varprod
- * objects (i.e., 1). Its value is always 1.
  */
 
 #ifndef __ARITH_VARTABLE_H
@@ -41,6 +37,7 @@
 
 #include "int_hash_tables.h"
 #include "index_vectors.h"
+#include "bitvectors.h"
 
 #include "power_products.h"
 #include "polynomials.h"
@@ -59,12 +56,17 @@
  * and other simplex operations.
  * - whether value[x] is equal to the lower bound on x 
  * - whether value[x] is equal to the upper bound on x 
- * - a generic 1bit mark 
+ * - a generic 1bit mark
  *
  * This data is stored into an 8bit variable tag
  * - bit 0: mark
  * - bit 1: x == lower bound
  * - bit 2: x == upper bound
+ *
+ * The mark bit is currently used only in simplex make_feasible
+ * - variable x is marked if it was the leaving variable in a pivoting step
+ * - this is used to switch to Blend's rule after too many variables 
+ *   leave the basis
  *
  * Other bits in this tag store information about x's type and
  * definition:
@@ -74,14 +76,19 @@
  *    01 --> def[x] is a polynomial
  *    10 --> def[x] is a power product
  *    11 --> def[x] is a rational constant
+ *
+ * - bit 6 is 1 if x's definition is encoded in the simplex tableau
+ *   (i.e., if there's a row of the tableau of the form x - p = 0
+ *    where p is x's definition). We say then that 'x is active'.
  */
 
 #define AVARTAG_MARK_MASK  ((uint8_t) 0x1)
 #define AVARTAG_ATLB_MASK  ((uint8_t) 0x2)
 #define AVARTAG_ATUB_MASK  ((uint8_t) 0x4)
+#define AVARTAG_INT_MASK    ((uint8_t) 0x8)
 
-#define AVARTAG_INT_MASK   ((uint8_t) 0x8)
-#define AVARTAG_KIND_MASK  ((uint8_t) 0x30)
+#define AVARTAG_KIND_MASK   ((uint8_t) 0x30)
+#define AVARTAG_ACTIVE_MASK ((uint8_t) 0x40)
 
 
 /*
@@ -151,6 +158,11 @@ typedef struct arith_vartable_s {
 
 
 
+
+/**********************
+ *  TABLE OPERATIONS  *
+ *********************/
+
 /*
  * Initialization:
  * - the table is initialized with its default size
@@ -193,12 +205,23 @@ static inline uint32_t num_integer_vars(arith_vartable_t *table) {
   return table->ivars;
 }
 
+
 /*
  * Number of variables not marked as integer
  */
 static inline uint32_t num_real_vars(arith_vartable_t *table) {
   return table->nvars - num_integer_vars(table);
 }
+
+
+/*
+ * Collect the set of integer variables as a bit vector
+ * - i.e., return a bitvector V of size n = table->nvars
+ * - bit i of V is 1 if variable i has integer type.
+ * - V must be deleted when no longer used by calling delete_bitvector(V)
+ *   (cf. bitvectors.h)
+ */
+extern byte_t *get_integer_vars_vector(arith_vartable_t *table);
 
 
 
@@ -212,6 +235,9 @@ static inline uint32_t num_real_vars(arith_vartable_t *table) {
  * - empty atom vector
  * - value = 0
  * - lower bound and upper bound indices = -1
+ * - all flags are 0 (not marked, not at lower/upper bound, not active)
+ *
+ * The kind and the integer bit set according to the definition
  */
 
 /*
@@ -235,7 +261,6 @@ extern thvar_t find_var_for_constant(arith_vartable_t *table, rational_t *q);
  * - otherwise, set new_var to false
  */
 extern thvar_t get_var_for_constant(arith_vartable_t *table, rational_t *q, bool *new_var);
-
 
 
 /*
@@ -276,8 +301,6 @@ extern thvar_t find_var_for_poly_offset(arith_vartable_t *table, monomial_t *p, 
 extern thvar_t get_var_for_poly_offset(arith_vartable_t *table, monomial_t *p, uint32_t n, bool *new_var);
 
 
-
-
 /*
  * Find a variable whose definition is equal to the product p
  * - if there's no such variable, return null_thvar = -1
@@ -305,150 +328,222 @@ extern thvar_t get_var_for_product(arith_vartable_t *table, varexp_t *p, uint32_
 
 
 
-
-
 /*
  * ACCESS TO VARIABLE DATA
  */
 
-static inline bool valid_arith_var(arith_vartable_t *table, thvar_t v) {
-  return 0 <= v && v < table->nvars;
-}
-
-static inline bool arith_var_is_int(arith_vartable_t *table, thvar_t v) {
-  assert(valid_arith_var(table, v));
-  return (table->tag[v] & AVARTAG_INT_MASK) != 0;
-}
-
 /*
- * Tag/kind/definition
+ * Check whether x is a valid variable index
  */
-// get the full 8-bit tag for v
-static inline uint8_t arith_var_tag(arith_vartable_t *table, thvar_t v) {
-  assert(valid_arith_var(table, v));
-  return table->tag[v];
-}
-
-static inline avar_kind_t arith_var_kind(arith_vartable_t *table, thvar_t v) {
-  assert(valid_arith_var(table, v));
-  return (avar_kind_t)(table->tag[v] >> 4);
-}
-
-static inline bool arith_var_is_free(arith_vartable_t *table, thvar_t v) {
-  assert(valid_arith_var(table, v));
-  return (table->tag[v] & AVARTAG_KIND_MASK) == AVARTAG_KIND_FREE;
-}
-
-static inline bool arith_var_def_is_poly(arith_vartable_t *table, thvar_t v) {
-  assert(valid_arith_var(table, v));
-  return (table->tag[v] & AVARTAG_KIND_MASK) == AVARTAG_KIND_POLY;
-}
-
-static inline bool arith_var_def_is_product(arith_vartable_t *table, thvar_t v) {
-  assert(valid_arith_var(table, v));
-  return (table->tag[v] & AVARTAG_KIND_MASK) == AVARTAG_KIND_PPROD;
-}
-
-static inline bool arith_var_def_is_rational(arith_vartable_t *table, thvar_t v) {
-  assert(valid_arith_var(table, v));
-  return (table->tag[v] & AVARTAG_KIND_MASK) == AVARTAG_KIND_CONST;
-}
-
-// definition of v
-static inline void* arith_var_def(arith_vartable_t *table, thvar_t v) {
-  assert(valid_arith_var(table, v));
-  return table->def[v];
-}
-
-static inline polynomial_t *arith_var_poly_def(arith_vartable_t *table, thvar_t v) {
-  assert(arith_var_def_is_poly(table, v));
-  return table->def[v];
-}
-
-static inline pprod_t *arith_var_product_def(arith_vartable_t *table, thvar_t v) {
-  assert(arith_var_def_is_product(table, v));
-  return table->def[v];
-}
-
-static inline rational_t *arith_var_rational_def(arith_vartable_t *table, thvar_t v) {
-  assert(arith_var_def_is_rational(table, v));
-  return table->def[v];
+static inline bool valid_arith_var(arith_vartable_t *table, thvar_t x) {
+  return 0 <= x && x < table->nvars;
 }
 
 
 /*
- * Atoms involving v
+ * Check type: integer or not
  */
-static inline int32_t *arith_var_atom_vector(arith_vartable_t *table, thvar_t v) {
-  assert(valid_arith_var(table, v));
-  return table->atoms[v];
+static inline bool arith_var_is_int(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  return (table->tag[x] & AVARTAG_INT_MASK) != 0;
 }
 
-static inline bool arith_var_has_atoms(arith_vartable_t *table, thvar_t v) {
-  return arith_var_atom_vector(table, v) != NULL;
+
+/*
+ * Get/check the kind
+ */
+static inline avar_kind_t arith_var_kind(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  return (avar_kind_t)(table->tag[x] >> 4);
 }
 
-// number of atoms with variable v
-static inline uint32_t arith_var_num_atoms(arith_vartable_t *table, thvar_t v) {
+static inline bool arith_var_is_free(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  return (table->tag[x] & AVARTAG_KIND_MASK) == AVARTAG_KIND_FREE;
+}
+
+static inline bool arith_var_def_is_poly(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  return (table->tag[x] & AVARTAG_KIND_MASK) == AVARTAG_KIND_POLY;
+}
+
+static inline bool arith_var_def_is_product(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  return (table->tag[x] & AVARTAG_KIND_MASK) == AVARTAG_KIND_PPROD;
+}
+
+static inline bool arith_var_def_is_rational(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  return (table->tag[x] & AVARTAG_KIND_MASK) == AVARTAG_KIND_CONST;
+}
+
+
+/*
+ * Definition of x
+ */
+static inline void* arith_var_def(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  return table->def[x];
+}
+
+static inline polynomial_t *arith_var_poly_def(arith_vartable_t *table, thvar_t x) {
+  assert(arith_var_def_is_poly(table, x));
+  return table->def[x];
+}
+
+static inline pprod_t *arith_var_product_def(arith_vartable_t *table, thvar_t x) {
+  assert(arith_var_def_is_product(table, x));
+  return table->def[x];
+}
+
+static inline rational_t *arith_var_rational_def(arith_vartable_t *table, thvar_t x) {
+  assert(arith_var_def_is_rational(table, x));
+  return table->def[x];
+}
+
+
+/*
+ * Atoms involving x
+ */
+static inline int32_t *arith_var_atom_vector(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  return table->atoms[x];
+}
+
+static inline bool arith_var_has_atoms(arith_vartable_t *table, thvar_t x) {
+  return arith_var_atom_vector(table, x) != NULL;
+}
+
+// number of atoms with variable x
+static inline uint32_t arith_var_num_atoms(arith_vartable_t *table, thvar_t x) {
   int32_t *tmp;
-  tmp = arith_var_atom_vector(table, v);
+  tmp = arith_var_atom_vector(table, x);
   return tmp == NULL ? 0 : iv_size(tmp);
 }
 
 
 /*
- * Value of v in the current assignment
+ * Value of x in the current assignment
  */
-static inline xrational_t *arith_var_value(arith_vartable_t *table, thvar_t v) {
-  assert(valid_arith_var(table, v));
-  return table->value + v;
+static inline xrational_t *arith_var_value(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  return table->value + x;
 }
 
 
 /*
  * Lower and upper bound indices
  */
-static inline int32_t arith_var_lower_index(arith_vartable_t *table, thvar_t v) {
-  assert(valid_arith_var(table, v));
-  return table->lower_index[v];
+static inline int32_t arith_var_lower_index(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  return table->lower_index[x];
 }
 
-static inline int32_t arith_var_upper_index(arith_vartable_t *table, thvar_t v) {
-  assert(valid_arith_var(table, v));
-  return table->upper_index[v];
+static inline int32_t arith_var_upper_index(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  return table->upper_index[x];
 }
 
 
 /*
- * Check the flags of v
+ * Check the flags of x
  */
-static inline bool arith_var_is_marked(arith_vartable_t *table, thvar_t v) {
-  assert(valid_arith_var(table, v));
-  return (table->tag[v] & AVARTAG_MARK_MASK) != 0;
+static inline bool arith_var_is_marked(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  return (table->tag[x] & AVARTAG_MARK_MASK) != 0;
 }
 
-static inline bool arith_var_at_lower_bound(arith_vartable_t *table, thvar_t v) {
-  assert(valid_arith_var(table, v));
-  return (table->tag[v] & AVARTAG_ATLB_MASK) != 0;
+static inline bool arith_var_is_active(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  return (table->tag[x] & AVARTAG_ACTIVE_MASK) != 0;
 }
 
-static inline bool arith_var_at_upper_bound(arith_vartable_t *table, thvar_t v) {
-  assert(valid_arith_var(table, v));
-  return (table->tag[v] & AVARTAG_ATUB_MASK) != 0;
+static inline bool arith_var_is_inactive(arith_vartable_t *table, thvar_t x) {
+  return !arith_var_is_active(table, x);
 }
 
-// check whether v is at its lower or upper bound
-static inline bool arith_var_at_bound(arith_vartable_t *table, thvar_t v) {
-  assert(valid_arith_var(table, v));
-  return (table->tag[v] & (AVARTAG_ATLB_MASK|AVARTAG_ATUB_MASK)) != 0;
+static inline bool arith_var_at_lower_bound(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  return (table->tag[x] & AVARTAG_ATLB_MASK) != 0;
 }
 
-// check whether v is a fixed variable (both flags are set)
-static inline bool arith_var_is_fixed(arith_vartable_t *table, thvar_t v) {
-  assert(valid_arith_var(table, v));
-  return (table->tag[v] & (AVARTAG_ATLB_MASK|AVARTAG_ATUB_MASK)) == 
+static inline bool arith_var_at_upper_bound(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  return (table->tag[x] & AVARTAG_ATUB_MASK) != 0;
+}
+
+// check whether x is at its lower or upper bound
+static inline bool arith_var_at_bound(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  return (table->tag[x] & (AVARTAG_ATLB_MASK|AVARTAG_ATUB_MASK)) != 0;
+}
+
+// check whether x is a fixed variable (both flags are set)
+static inline bool arith_var_is_fixed(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  return (table->tag[x] & (AVARTAG_ATLB_MASK|AVARTAG_ATUB_MASK)) == 
     (AVARTAG_ATLB_MASK|AVARTAG_ATUB_MASK);
 }
+
+// get the full 8-bit tag
+static inline uint8_t arith_var_tag(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  return table->tag[x];
+}
+
+
+
+/*
+ * Set or clear the flags for x
+ */
+static inline void set_arith_var_mark(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  table->tag[x] |= AVARTAG_MARK_MASK;
+}
+
+static inline void clear_arith_var_mark(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  table->tag[x] &= ~AVARTAG_MARK_MASK;
+}
+
+static inline void set_arith_var_lb(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  table->tag[x] |= AVARTAG_ATLB_MASK;
+}
+
+static inline void clear_arith_var_lb(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  table->tag[x] &= ~AVARTAG_ATLB_MASK;
+}
+
+static inline void set_arith_var_ub(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  table->tag[x] |= AVARTAG_ATUB_MASK;
+}
+
+static inline void clear_arith_var_ub(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  table->tag[x] &= ~AVARTAG_ATUB_MASK;
+}
+
+static inline void mark_arith_var_active(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  table->tag[x] |= AVARTAG_ACTIVE_MASK;
+}
+
+static inline void mark_arith_var_inactive(arith_vartable_t *table, thvar_t x) {
+  assert(valid_arith_var(table, x));
+  table->tag[x] &= ~AVARTAG_ACTIVE_MASK;
+}
+
+// set the full tag
+static inline void set_arith_var_tag(arith_vartable_t *table, thvar_t x, uint8_t tg) {
+  assert(valid_arith_var(table, x));
+  table->tag[x] = tg;
+}
+
+
+
 
 
 
@@ -516,7 +611,7 @@ extern void detach_atom_from_arith_var(arith_vartable_t *table, thvar_t x, int32
 
 
 /*
- * SET ASSIGNMENT, BOUNDS, FLAGS
+ * ASSIGNMENT AND BOUNDS
  */
 
 /*
@@ -568,46 +663,6 @@ static inline void set_arith_var_lower_index(arith_vartable_t *table, thvar_t x,
 static inline void set_arith_var_upper_index(arith_vartable_t *table, thvar_t x, int32_t i) {
   assert(valid_arith_var(table, x));
   table->upper_index[x] = i;
-}
-
-
-/*
- * Set/clear the mark for v
- */
-static inline void set_arith_var_mark(arith_vartable_t *table, thvar_t x) {
-  assert(valid_arith_var(table, x));
-  table->tag[x] |= AVARTAG_MARK_MASK;
-}
-
-static inline void clear_arith_var_mark(arith_vartable_t *table, thvar_t x) {
-  assert(valid_arith_var(table, x));
-  table->tag[x] &= ~AVARTAG_MARK_MASK;
-}
-
-static inline void set_arith_var_lb(arith_vartable_t *table, thvar_t x) {
-  assert(valid_arith_var(table, x));
-  table->tag[x] |= AVARTAG_ATLB_MASK;
-}
-
-static inline void clear_arith_var_lb(arith_vartable_t *table, thvar_t x) {
-  assert(valid_arith_var(table, x));
-  table->tag[x] &= ~AVARTAG_ATLB_MASK;
-}
-
-static inline void set_arith_var_ub(arith_vartable_t *table, thvar_t x) {
-  assert(valid_arith_var(table, x));
-  table->tag[x] |= AVARTAG_ATUB_MASK;
-}
-
-static inline void clear_arith_var_ub(arith_vartable_t *table, thvar_t x) {
-  assert(valid_arith_var(table, x));
-  table->tag[x] &= ~AVARTAG_ATUB_MASK;
-}
-
-// set the full tag
-static inline void set_arith_var_tag(arith_vartable_t *table, thvar_t x, uint8_t tg) {
-  assert(valid_arith_var(table, x));
-  table->tag[x] = tg;
 }
 
 

@@ -77,9 +77,10 @@ src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c \
          bv64_constants.c bv_polynomials.c bv64_polynomials.c        \
          cache.c command_line.c composites.c concrete_values.c       \
          context.c context_printer.c diophantine_systems.c           \
-         dl_vartable.c egraph_assertion_queues.c egraph_explanations.c \
-         egraph_utils.c egraph.c egraph_printer.c eq_abstraction.c   \
-         eq_learner.c extended_rationals.c fun_maps.c fun_trees.c    \
+         dl_vartable.c dsolver_printer.c egraph_assertion_queues.c   \
+         egraph_explanations.c egraph_utils.c egraph.c               \
+         egraph_printer.c eq_abstraction.c eq_learner.c              \
+         extended_rationals.c fun_maps.c fun_trees.c                 \
          gates_hash_table.c gates_manager.c gates_printer.c gcd.c    \
          generic_heap.c hash_functions.c idl_floyd_warshall.c        \
 	 idl_fw_printer.c index_vectors.c int_array_sort.c           \
@@ -96,15 +97,15 @@ src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c \
          pseudo_subst.c ptr_array_sort.c ptr_array_sort2.c           \
          ptr_hash_map.c ptr_heap.c ptr_partitions.c ptr_queues.c     \
          ptr_vectors.c rationals.c rb_bvsets.c rdl_floyd_warshall.c  \
-         rdl_fw_printer.c reader.c refcount_strings.c                \
-         small_bvsets.c smt_core.c smt_core_printer.c smt_lexer.c    \
-         smt_logic_codes.c smt_parser.c string_buffers.c             \
-         symbol_tables.c terms.c term_printer.c term_stack.c         \
-         term_stack_error.c term_utils.c theory_explanations.c       \
-         timeout.c types.c type_printer.c uint_rbtrees.c             \
-         union_find.c use_vectors.c vsets.c yices_api.c              \
-         yices_error.c yices_lexer.c yices_pp.c yices_parser.c       \
-         yices_reval.c
+         rdl_fw_printer.c reader.c refcount_strings.c simplex.c      \
+         simplex_printer.c small_bvsets.c smt_core.c                 \
+         smt_core_printer.c smt_lexer.c smt_logic_codes.c            \
+         smt_parser.c string_buffers.c symbol_tables.c terms.c       \
+         term_printer.c term_stack.c term_stack_error.c term_utils.c \
+         theory_explanations.c timeout.c types.c type_printer.c      \
+         uint_rbtrees.c union_find.c use_vectors.c vsets.c           \
+         yices_api.c yices_error.c yices_lexer.c yices_pp.c          \
+         yices_parser.c yices_reval.c
 
 
 #
