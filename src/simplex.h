@@ -365,6 +365,7 @@ extern void simplex_collect_statistics(simplex_solver_t *solver);
  * These functions record egraph assertions in the simplex queue. Assertions
  * are processed when simplex_propagate is called.
  */
+
 /*
  * Assert that x1 and x2 are equal
  * - x1 and x2 are two variables attached to two egraph terms t1 and t2

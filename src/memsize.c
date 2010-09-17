@@ -20,7 +20,6 @@
 #include <sys/types.h>
 
 #include <mach/mach.h>
-#include <mach/shared_memory_server.h>
 #include <mach/mach_error.h>
 #include <mach/vm_region.h>
 
@@ -47,7 +46,8 @@ double mem_size(void) {
   do {
     count = VM_REGION_TOP_INFO_COUNT;
     error = vm_region_64(port, &address, &size, VM_REGION_TOP_INFO,
-		      (vm_region_info_t) &top_info, &count, &object_name);
+			 (vm_region_info_t) &top_info, &count, &object_name);
+
     if (error != KERN_SUCCESS) {
       //      mach_error("vm_region", error);
       goto end;

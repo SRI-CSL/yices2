@@ -20,15 +20,15 @@
  * To export the initial problem for Yices1, set YEXPORT to 1
  * To trace simplifications and tableau initialization set TRACE_INIT to 1
  */
-#define TRACE   0
+#define TRACE   1
 #define DEBUG   0
 #define DUMP    0
 #define YEXPORT 0
 
-#define TRACE_INIT 0
-#define TRACE_PROPAGATION 0
-#define TRACE_THEORY 0
-#define TRACE_BB 0
+#define TRACE_INIT 1
+#define TRACE_PROPAGATION 1
+#define TRACE_THEORY 1
+#define TRACE_BB 1
 
 
 #if TRACE || DEBUG || TRACE_INIT || DUMP || YEXPORT || TRACE_PROPAGATION || TRACE_BB || !defined(NDEBUG) || 1
@@ -39,6 +39,7 @@
 #include "term_printer.h"
 #include "dsolver_printer.h"
 #include "egraph_printer.h"
+#include "gates_printer.h"
 #include "smt_core_printer.h"
 #include "simplex_printer.h"
 
@@ -1689,7 +1690,7 @@ literal_t simplex_create_ge_atom(simplex_solver_t *solver, thvar_t x) {
 
 #if TRACE
   printf("\n---> simplex_create_ge_atom: ");
-  print_simplex_var(stdout, x);
+  print_simplex_var(stdout, solver, x);
   printf(" >= 0\n");
   printf("---> renaming: ");
   print_simplex_buffer(stdout, solver);
@@ -1898,7 +1899,7 @@ literal_t simplex_create_eq_atom(simplex_solver_t *solver, thvar_t x) {
 
 #if TRACE
   printf("\n---> simplex_create_eq_atom: ");
-  print_simplex_var(stdout, x);
+  print_simplex_var(stdout, solver, x);
   printf(" == 0\n");
   printf("---> renaming: ");
   print_simplex_buffer(stdout, solver);
@@ -4782,6 +4783,7 @@ static void collect_non_integer_basic_vars(simplex_solver_t *solver, ivector_t *
 static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
   xrational_t *bound;
   int32_t new_idx;
+  literal_t l;
 
   assert(arith_var_is_int(&solver->vtbl, x) & ! arith_var_value_is_int(&solver->vtbl, x));
 
@@ -4799,7 +4801,7 @@ static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
 #endif
 
 
-  (void) get_literal_for_ge_atom(&solver->atbl, x, true, &bound->main, &new_idx);
+  l = get_literal_for_ge_atom(&solver->atbl, x, true, &bound->main, &new_idx);
   /*
    * BD: TEMPORATY HACK (to support periodic calls to make_integer_feasible)
    * - we don't always call make_feasible in final check 

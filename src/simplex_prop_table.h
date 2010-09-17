@@ -7,6 +7,7 @@
  * - rows are added on the fly
  * - each row has an activity, similar to the activity of learned clauses 
  *   in smt_core.
+ *
  * For row deletion:
  * - a row is locked if it's used as explanation for an implied literal/atom
  *   (the lock for is the first implied literal in the smt_core's queue).
