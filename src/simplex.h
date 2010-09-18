@@ -343,6 +343,15 @@ extern void simplex_reset(simplex_solver_t *solver);
 
 
 
+/*
+ * Model construction
+ */
+extern void simplex_build_model(simplex_solver_t *solver);
+extern bool simplex_value_in_model(simplex_solver_t *solver, int32_t x, rational_t *v);
+extern void simplex_free_model(simplex_solver_t *solver);
+
+
+
 /*********************
  *  GET STATISTICS   *
  ********************/
@@ -407,10 +416,6 @@ extern uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_e
 
 
 
-/*
- * For testing
- */
-extern void simplex_print_matrix_size(simplex_solver_t *solver);
 
 
 #endif /* __SIMPLEX_H */
