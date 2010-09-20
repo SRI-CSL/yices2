@@ -171,10 +171,12 @@ void print_binary_clauses(FILE *f, smt_core_t *core) {
 static void print_clause_vector(FILE *f, clause_t **vector) {
   uint32_t i, n;
 
-  n = get_cv_size(vector);
-  for (i=0; i<n; i++) {
-    print_clause(f, vector[i]);
-    fputc('\n', f);
+  if (vector != NULL) {
+    n = get_cv_size(vector);
+    for (i=0; i<n; i++) {
+      print_clause(f, vector[i]);
+      fputc('\n', f);
+    }
   }
 }
 
@@ -289,6 +291,14 @@ void print_conflict(FILE *f, smt_core_t *core) {
   }
 }
 
+
+/*
+ * Size of a clause vector (deal with the case v == NULL)
+ */
+static inline uint32_t cv_size(clause_t **v) {
+  return v == NULL ? 0 : get_cv_size(v);
+}
+
 /*
  * Print current state of core
  * (This needs to be exported for now, because it's used in the tests)
@@ -298,8 +308,8 @@ void print_smt_core(FILE *f, smt_core_t *core) {
   fprintf(f, "  %"PRIu32" variables\n", core->nvars);
   fprintf(f, "  %"PRIu32" unit clauses\n", core->nb_unit_clauses);
   fprintf(f, "  %"PRIu32" binary clauses\n", core->nb_bin_clauses);
-  fprintf(f, "  %"PRIu32" problem clauses\n", get_cv_size(core->problem_clauses));
-  fprintf(f, "  %"PRIu32" learned clauses\n", get_cv_size(core->learned_clauses));
+  fprintf(f, "  %"PRIu32" problem clauses\n", cv_size(core->problem_clauses));
+  fprintf(f, "  %"PRIu32" learned clauses\n", cv_size(core->learned_clauses));
   fprintf(f, "status = %s\n", status2string[core->status]);
   fprintf(f, "base_level = %"PRIu32"\n", core->base_level);
   fprintf(f, "decision_level = %"PRIu32"\n", core->decision_level);

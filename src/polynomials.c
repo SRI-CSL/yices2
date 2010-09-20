@@ -328,7 +328,7 @@ uint32_t copy_monarray(monomial_t *p, monomial_t *p1) {
  * Comparison between two monomial_arrays.
  * - p1 and p2 must be normalized.
  */
-bool equal_monarray(monomial_t *p1, monomial_t *p2) {
+bool equal_monarrays(monomial_t *p1, monomial_t *p2) {
   int32_t v1, v2;
 
   v1 = p1->var;
@@ -367,7 +367,7 @@ bool disequal_monarrays(monomial_t *p1, monomial_t *p2) {
   if (v2 == const_idx) p2++;
 
   // check whether non-constant monomials are equal
-  return equal_monarray(p1, p2);
+  return equal_monarrays(p1, p2);
 }
 
 
@@ -575,7 +575,7 @@ polynomial_t *monarray_get_poly(monomial_t *a, uint32_t n) {
  * - a must be normalized.
  * - no side effect.
  */
-polynomial_t *monarray_copy(monomial_t *a, uint32_t n) {
+polynomial_t *monarray_copy_to_poly(monomial_t *a, uint32_t n) {
   polynomial_t *p;
   uint32_t i;
 

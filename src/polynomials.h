@@ -170,7 +170,6 @@ extern uint32_t copy_monarray(monomial_t *q, monomial_t *p);
  * Check whether p1 and p2 are equal:
  * - both must be normalized
  */
-
 extern bool equal_monarrays(monomial_t *p1, monomial_t *p2);
 
 
@@ -255,7 +254,7 @@ extern polynomial_t *monarray_get_poly(monomial_t *a, uint32_t n);
  * This function makes a copy of all coefficients (so it has no side effects).
  * This may be somewhat expensive if the coefficients are large GMP numbers.
  */
-extern polynomial_t *monarray_copy_to_poly(monomial_t *a, int32_t n);
+extern polynomial_t *monarray_copy_to_poly(monomial_t *a, uint32_t n);
 
 
 /*

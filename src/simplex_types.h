@@ -28,10 +28,12 @@
  *   an extended rational is of the form (b + c \delta) where b and c
  *   are rationals and \delta is infinitesimal.
  *
- * Variable table:
+ * Variable table: (cf. arith_vartable):
  * - each variable x is stored in the simplex's variable table
  * - the table maps x to a descriptor
- * - we use only two kinds of descriptors here (cf. arith_vartable):
+ * - variable 0 is always the constant (const_idx = 0)
+ *   its descriptor is the rational 1/1 (kind = AVAR_CONST)
+ * - for all other variables, we use only two kinds of descriptors 
  *   either x is a free variable          (kind = AVAR_FREE)
  *       or x has a polynomial definition (kind = AVAR_POLY)
  *   We convert any rational constant to a constant polynomial before

@@ -11,7 +11,7 @@
 #include "eq_learner.h"
 #include "idl_floyd_warshall.h"
 #include "rdl_floyd_warshall.h"
-
+#include "simplex.h"
 
 #define TRACE_SUBST  0
 #define TRACE_EQ_ABS 0
@@ -2553,8 +2553,8 @@ static literal_t translate_code_to_literal(context_t *ctx, int32_t x) {
   assert(code_is_valid(x));
   if (code_is_eterm(x)) {
     u = code2occ(x);
-    if (term_of_occ(u) == true_term) {
-      l = mk_lit(bool_const, polarity_of(u));
+    if (term_of_occ(u) == true_eterm) {
+      l = mk_lit(const_bvar, polarity_of(u));
 
       assert((u == true_occ && l == true_literal) || 
 	     (u == false_occ && l == false_literal));
@@ -3253,7 +3253,7 @@ static void create_idl_solver(context_t *ctx) {
 		idl_smt_interface(solver), cmode);
   idl_solver_init_jmpbuf(solver, &ctx->env);
   ctx->arith_solver = solver;
-  ctx->arith = * idl_arith_interface(solver);
+  ctx->arith = *idl_arith_interface(solver);
 }
 
 
@@ -3277,9 +3277,144 @@ static void create_rdl_solver(context_t *ctx) {
 		rdl_smt_interface(solver), cmode);
   rdl_solver_init_jmpbuf(solver, &ctx->env);
   ctx->arith_solver = solver;
-  ctx->arith = * rdl_arith_interface(solver);
+  ctx->arith = *rdl_arith_interface(solver);
 }
 
+
+/*
+ * Create an initialize the simplex solver and attach it to the core
+ * or to the egraph if the egraph exists.
+ */
+static void create_simplex_solver(context_t *ctx) {
+  simplex_solver_t *solver;
+  smt_mode_t cmode;
+
+  assert(ctx->arith_solver == NULL && ctx->core != NULL);
+
+  cmode = core_mode[ctx->mode];
+  solver = (simplex_solver_t *) safe_malloc(sizeof(simplex_solver_t));
+  init_simplex_solver(solver, ctx->core, &ctx->gate_manager, ctx->egraph);
+
+  // set simplex options
+  if (splx_eager_lemmas_enabled(ctx)) {
+    simplex_enable_eager_lemmas(solver);
+  }
+  if (splx_periodic_icheck_enabled(ctx)) {
+    simplex_enable_periodic_icheck(solver);
+  }
+
+  // row saving must be enabled unless we're in ONECHECK mode
+  if (ctx->mode != CTX_MODE_ONECHECK) {
+    simplex_enable_row_saving(solver);
+  }
+
+  if (ctx->egraph != NULL) {
+    // attach the simplex solver as a satellite solver to the egraph
+    egraph_attach_arithsolver(ctx->egraph, solver, simplex_ctrl_interface(solver),
+			      simplex_smt_interface(solver), simplex_egraph_interface(solver),
+			      simplex_arith_egraph_interface(solver));
+  } else {
+    // attach simplex to the core and initialize the core
+    init_smt_core(ctx->core, CTX_DEFAULT_CORE_SIZE, solver, simplex_ctrl_interface(solver),
+		  simplex_smt_interface(solver), cmode);
+  }
+
+  simplex_solver_init_jmpbuf(solver, &ctx->env);
+  ctx->arith_solver = solver;
+  ctx->arith = *simplex_arith_interface(solver);
+}
+
+
+/*
+ * Create IDL/SIMPLEX solver based on ctx->dl_profile
+ */
+static void create_auto_idl_solver(context_t *ctx) {
+  dl_data_t *profile;
+  int32_t sum_const;
+  double atom_density;
+
+  assert(ctx->dl_profile != NULL);
+  profile = ctx->dl_profile;
+
+  if (q_is_smallint(&profile->sum_const)) {
+    sum_const = q_get_smallint(&profile->sum_const);
+  } else {
+    sum_const = INT32_MAX;
+  }
+
+  if (sum_const >= 1073741824) {
+    // simplex required because of arithmetic overflow
+    create_simplex_solver(ctx);
+    ctx->arch = CTX_ARCH_SPLX;
+  } else if (profile->num_vars >= 1000) {
+    // too many variables for FW
+    create_simplex_solver(ctx);
+    ctx->arch = CTX_ARCH_SPLX;
+  } else if (profile->num_vars <= 200 || profile->num_eqs == 0) {
+    // use FW for now, until we've tested SIMPLEX more
+    // 0 equalities usually means a scheduling problem
+    // --flatten works better on IDL/FW
+    create_idl_solver(ctx);
+    ctx->arch = CTX_ARCH_IFW;
+    enable_diseq_and_or_flattening(ctx);
+
+  } else {
+
+    // problem density
+    if (profile->num_vars > 0) {
+      atom_density = ((double) profile->num_atoms)/profile->num_vars;
+    } else {
+      atom_density = 0;
+    }    
+
+    if (atom_density >= 10.0) {
+      // high density: use FW
+      create_idl_solver(ctx);
+      ctx->arch = CTX_ARCH_IFW;
+      enable_diseq_and_or_flattening(ctx);
+    } else {
+      create_simplex_solver(ctx);
+      ctx->arch = CTX_ARCH_SPLX;
+    }
+  }
+}
+
+
+/*
+ * Create RDL/SIMPLEX solver based on ctx->dl_profile
+ */
+static void create_auto_rdl_solver(context_t *ctx) {
+  dl_data_t *profile;
+  double atom_density;
+
+  assert(ctx->dl_profile != NULL);
+  profile = ctx->dl_profile;
+
+  if (profile->num_vars >= 1000) {
+    create_simplex_solver(ctx);
+    ctx->arch = CTX_ARCH_SPLX;
+  } else if (profile->num_vars <= 200 || profile->num_eqs == 0) {
+    create_rdl_solver(ctx); 
+    ctx->arch = CTX_ARCH_RFW;
+  } else {
+    // problem density
+    if (profile->num_vars > 0) {
+      atom_density = ((double) profile->num_atoms)/profile->num_vars;
+    } else {
+      atom_density = 0;
+    }    
+
+    if (atom_density >= 7.0) {
+      // high density: use FW
+      create_rdl_solver(ctx);
+      ctx->arch = CTX_ARCH_RFW;
+    } else {
+      // low-density: use SIMPLEX
+      create_simplex_solver(ctx);
+      ctx->arch = CTX_ARCH_SPLX;
+    }
+  }
+}
 
 
 /*
@@ -3308,7 +3443,9 @@ static void init_solvers(context_t *ctx) {
   }
 
   // Arithmetic solver
-  if (solvers & IFW) {
+  if (solvers & SPLX) {
+    create_simplex_solver(ctx);
+  } else if (solvers & IFW) {
     create_idl_solver(ctx);
   } else if (solvers & RFW) {
     create_rdl_solver(ctx);
@@ -3352,6 +3489,8 @@ static void delete_arith_solver(context_t *ctx) {
     delete_idl_solver(ctx->arith_solver);    
   } else if (solvers & RFW) {
     delete_rdl_solver(ctx->arith_solver);
+  } else if (solvers & SPLX) {
+    delete_simplex_solver(ctx->arith_solver);
   }
   safe_free(ctx->arith_solver);
   ctx->arith_solver = NULL;
@@ -3621,10 +3760,12 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
 
     case CTX_ARCH_AUTO_IDL:
       analyze_diff_logic(ctx, true);
+      create_auto_idl_solver(ctx);
       break;
       
     case CTX_ARCH_AUTO_RDL:
       analyze_diff_logic(ctx, false);
+      create_auto_rdl_solver(ctx);
       break;
 
     default:

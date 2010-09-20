@@ -20,9 +20,9 @@
  * To export the initial problem for Yices1, set YEXPORT to 1
  * To trace simplifications and tableau initialization set TRACE_INIT to 1
  */
-#define TRACE   1
+#define TRACE   0
 #define DEBUG   1
-#define DUMP    1
+#define DUMP    0
 #define YEXPORT 0
 
 #define TRACE_INIT 0
@@ -955,7 +955,7 @@ static aprop_t *make_simplex_prop_object(simplex_solver_t *solver, int32_t k) {
 /*
  * Create the constant:
  * - variable of index 0 in vartable, with definition = 1 
- *   (as a constant polynomial)
+ *   (as a rational constant)
  * - set its value to 1
  * - assert that its lower and upper bound are 1
  * This must be done before any other variable is created,
@@ -963,19 +963,15 @@ static aprop_t *make_simplex_prop_object(simplex_solver_t *solver, int32_t k) {
  */
 static void simplex_create_constant(simplex_solver_t *solver) {
   xrational_t *v;
-  poly_buffer_t *b;
   bool new_var;
   thvar_t x;
 
   assert(solver->vtbl.nvars == 0 && solver->matrix.ncolumns == 0);
 
   // create the variable in vtbl
-  b = &solver->buffer;
-  assert(poly_buffer_is_zero(b));
-  poly_buffer_add_one(b);
-  x = get_var_for_poly(&solver->vtbl, b->mono, b->nterms, &new_var);
+  q_set_one(&solver->constant);
+  x = get_var_for_constant(&solver->vtbl, &solver->constant, &new_var);
   assert(new_var && x == const_idx);
-  reset_poly_buffer(b);
   
   // create column 0 for const_idx
   matrix_add_column(&solver->matrix); 
@@ -1281,6 +1277,7 @@ static bool simple_poly(polynomial_t *p) {
 
 /*
  * Check whether to substitute x by its definition in polynomials or atoms
+ * - x must be different form const_idx
  * - the substitution x := p is applied if it's cheap enough
  */
 static bool trivial_variable(arith_vartable_t *tbl, thvar_t x) {
@@ -1307,7 +1304,7 @@ static bool trivial_variable(arith_vartable_t *tbl, thvar_t x) {
 static void add_mono_or_subst(simplex_solver_t *solver, poly_buffer_t *b, thvar_t x, rational_t *a) {
   polynomial_t *p;
 
-  if (trivial_variable(&solver->vtbl, x)) {
+  if (x != const_idx && trivial_variable(&solver->vtbl, x)) {
     // replace x by its definition
     p = arith_var_poly_def(&solver->vtbl, x);
     assert(p->nterms <= 2);
@@ -1325,7 +1322,7 @@ static void add_mono_or_subst(simplex_solver_t *solver, poly_buffer_t *b, thvar_
 static void add_var_or_subst(simplex_solver_t *solver, poly_buffer_t *b, thvar_t x) {
   polynomial_t *p;
 
-  if (trivial_variable(&solver->vtbl, x)) {
+  if (x != const_idx && trivial_variable(&solver->vtbl, x)) {
     p = arith_var_poly_def(&solver->vtbl, x);
     poly_buffer_add_poly(b, p);
   } else {
@@ -1341,7 +1338,7 @@ static void add_var_or_subst(simplex_solver_t *solver, poly_buffer_t *b, thvar_t
 static void sub_var_or_subst(simplex_solver_t *solver, poly_buffer_t *b, thvar_t x) {
   polynomial_t *p;
 
-  if (trivial_variable(&solver->vtbl, x)) {
+  if (x != const_idx && trivial_variable(&solver->vtbl, x)) {
     p = arith_var_poly_def(&solver->vtbl, x);
     poly_buffer_sub_poly(b, p);
   } else {

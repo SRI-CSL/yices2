@@ -15,6 +15,7 @@
 #include "context.h"
 #include "context_printer.h"
 #include "smt_core_printer.h"
+#include "smt_logic_codes.h"
 
 #include "yices.h"
 #include "yices_globals.h"
@@ -142,11 +143,126 @@ static bool context_is_empty(context_t *ctx) {
 static void test_internalization(smt_benchmark_t *bench) {
   FILE *f;
   int32_t code;
+  bool need_icheck;
+  smt_logic_t logic;
+  context_arch_t arch;
 
-  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, CTX_ARCH_EG, false);
+  /*
+   * Select the architecture based on the benchmark logic
+   */
+  need_icheck = false;
+  arch = CTX_ARCH_NOSOLVERS;
+  if (bench->logic_name != NULL) {
+    logic = smt_logic_code(bench->logic_name);
+    switch (logic) {
+    case QF_AUFLIA:
+      /*
+       * Arrays + uf + simplex
+       */
+      arch = CTX_ARCH_EGFUNSPLX;
+      break;
+
+    case QF_AX:
+      /*
+       * Egraph + array solver
+       */
+      arch = CTX_ARCH_EGFUN;
+      break;
+
+    case QF_IDL:
+      /*
+       * Default for QF_IDL: automatic 
+       */
+      arch = CTX_ARCH_AUTO_IDL;
+      break;
+
+    case QF_RDL:
+      /*
+       * Default for QF_RDL: automatic 
+       */
+      arch = CTX_ARCH_AUTO_RDL;
+      break;
+
+    case QF_UF:
+      /*
+       * Egraph only
+       */
+      arch = CTX_ARCH_EG;
+      break;
+
+
+    case QF_LRA:
+      /*
+       * SIMPLEX only
+       */
+      arch = CTX_ARCH_SPLX;
+      break;
+
+    case QF_LIA:
+      /*
+       * SIMPLEX only, activate periodic integer checks
+       */
+      need_icheck = true;
+      arch = CTX_ARCH_SPLX;
+      break;
+
+    case QF_UFIDL:
+      /*
+       * The default is EGRAPH + SIMPLEX.
+       */
+      arch = CTX_ARCH_EGSPLX;
+      break;
+
+    case QF_UFLRA:
+      /*
+       * EGRAPH + SIMPLEX
+       */
+      arch = CTX_ARCH_EGSPLX;
+      break;
+
+    case QF_UFLIA:
+      /*
+       * EGRAPH + SIMPLEX, activate periodic integer checks
+       */
+      need_icheck = true;
+      arch = CTX_ARCH_EGSPLX;
+      break;
+
+    case QF_AUFBV:
+      /*
+       * EGRAPH + BITVECTOR + ARRAY solver
+       */
+      arch = CTX_ARCH_EGFUNBV;
+      break;
+
+    case QF_UFBV32:
+      /*
+       * EGRAPH + BITVECTOR solver
+       */
+      arch = CTX_ARCH_EGBV;
+      break;
+
+    case QF_BV:
+      /*
+       * Pure bit-vector problem
+       */
+      //      arch = CTX_ARCH_BV; not supported yet
+      break;
+
+    default: // use CTX_NOSOLVERS?
+      break;
+    }
+  }
+
+  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, arch, false);
   enable_variable_elimination(&context);
   enable_eq_abstraction(&context);
   enable_diseq_and_or_flattening(&context);
+  enable_arith_elimination(&context);
+  enable_bvarith_elimination(&context);
+  if (need_icheck) {
+    enable_splx_periodic_icheck(&context);
+  }
 
   code = assert_formulas(&context, bench->nformulas, bench->formulas);
   if (code == CTX_NO_ERROR && context_is_empty(&context)) {
@@ -154,8 +270,6 @@ static void test_internalization(smt_benchmark_t *bench) {
   } else {
     print_internalization_code(code);
   }
-
-  printf("term table: %"PRIu32" elements\n", context.terms->nelems);
 
   f = fopen("yices2intern.dmp", "w");
   if (f == NULL) {
@@ -202,16 +316,16 @@ int main(int argc, char *argv[]) {
   code = parse_smt_benchmark(&parser, &bench);
   if (code == 0) {
     printf("No syntax error found\n");
+    printf("term table: %"PRIu32" elements\n", __yices_globals.terms->nelems);
   } else {
     exit(YICES_EXIT_SYNTAX_ERROR);
   }
 
   if (benchmark_reduced_to_false(&bench)) {
-    printf("Reduced to false\n\nunsat\n");
+    printf("Reduced to false\n\nunsat\n\n");
   } else {
     test_internalization(&bench);
   }
-  printf("\n");
   fflush(stdout);
 
   time = get_cpu_time();
@@ -219,7 +333,6 @@ int main(int argc, char *argv[]) {
   printf("Construction time: %.4f s\n", time);
   printf("Memory used: %.2f MB\n\n", mem_used);
   fflush(stdout);
-
 
   delete_benchmark(&bench);
   delete_parser(&parser);
