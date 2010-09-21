@@ -380,6 +380,20 @@ void intern_tbl_map_root(intern_tbl_t *tbl, term_t r, int32_t x) {
 }
 
 
+/*
+ * Change the mapping of r:
+ * - replace the current mapping by x
+ * - r must be a root, already mapped, and with positive polarity
+ */
+void intern_tbl_remap_root(intern_tbl_t *tbl, term_t r, int32_t x) {
+  assert(0 <= x && x < INT32_MAX && is_pos_term(r) && 
+	 intern_tbl_is_root(tbl, r) && intern_tbl_root_is_mapped(tbl, r));
+
+  ai32_write(&tbl->map, index_of(r), (INT32_MIN|x));
+
+  assert(intern_tbl_map_of_root(tbl, r) == x);
+}
+
 
 
 /*

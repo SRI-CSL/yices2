@@ -502,8 +502,11 @@ struct context_s {
   mark_vector_t *marks;
   int_bvset_t *cache;
   int_hset_t *small_cache;
+
+  // buffers for arithmetic simplification/internalization
   arith_buffer_t *arith_buffer;
   poly_buffer_t *poly_buffer;
+  polynomial_t *aux_poly;
   dl_data_t *dl_profile;
 
   // for exception handling

@@ -201,6 +201,14 @@ static inline int32_t intern_tbl_map_of_root(intern_tbl_t *tbl, term_t r) {
 extern void intern_tbl_map_root(intern_tbl_t *tbl, term_t r, int32_t x);
 
 
+/*
+ * Map r to a new object x
+ * - x must be non-negative and strictly smaller than INT32_MAX
+ * - r must be a root, mapped to something, and must have positive polarity
+ */
+extern void intern_tbl_remap_root(intern_tbl_t *tbl, term_t r, int32_t x);
+
+
 
 /*
  * SUBSTITUTIONS

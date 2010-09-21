@@ -175,12 +175,13 @@ static void context_free_cache(context_t *ctx) {
 
 
 /*
- * There are two buffers for internal construction of polynomials
+ * There are three buffers for internal construction of polynomials
  * - arith_buffer is more expensive (requires more memory) but 
  *   it supports more operations (e.g., term constructors in yices_api.c
  *   take arith_buffers as arguments).
  * - poly_buffer is a cheaper data structure, but it does not support 
  *   all the operations
+ * - aux_poly is even cheaper, but it's for direct construction only 
  */
 
 /*
@@ -252,6 +253,41 @@ static void context_free_poly_buffer(context_t *ctx) {
 static void context_reset_poly_buffer(context_t *ctx) {
   if (ctx->poly_buffer != NULL) {
     reset_poly_buffer(ctx->poly_buffer);
+  }
+}
+
+
+/*
+ * Allocate the auxiliary polynomial buffer and make it large enough
+ * for n monomials.
+ */
+static monomial_t *context_get_monarray(context_t *ctx, uint32_t n) {
+  polynomial_t *p;
+
+  p = ctx->aux_poly;
+  if (p == NULL) {
+    if (n < 10) n = 10;
+    p = alloc_raw_polynomial(n);
+    ctx->aux_poly = p;
+  } else if (p->nterms < n) {
+    free_polynomial(p);
+    p = alloc_raw_polynomial(n);
+    ctx->aux_poly = p;
+  }
+
+  return p->mono;
+}
+
+/*
+ * Reset the auxiliary polynomial
+ */
+static void context_free_aux_poly(context_t *ctx) {
+  polynomial_t *p;
+  
+  p = ctx->aux_poly;
+  if (p != NULL) {
+    free_polynomial(p);
+    ctx->aux_poly = NULL;
   }
 }
 
@@ -2412,11 +2448,6 @@ static thvar_t internalize_to_bv(context_t *ctx, term_t t);
 /*
  * Place holders for now
  */
-static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
-  longjmp(ctx->env, UF_NOT_SUPPORTED);
-  return null_occurrence;
-}
-
 static thvar_t internalize_to_bv(context_t *ctx, term_t t) {
   longjmp(ctx->env, BV_NOT_SUPPORTED);
   return null_thvar;
@@ -2425,15 +2456,16 @@ static thvar_t internalize_to_bv(context_t *ctx, term_t t) {
 
 
 
-/**************************************
- *  CONVERSION TO EGRAPH OCCURRENCES  *
- *************************************/
+/****************************************
+ *  CONSTRUCTION OF EGRAPH OCCURRENCES  *
+ ***************************************/
 
 /*
  * Create a new egraph constant of the given type
  */
 static eterm_t make_egraph_constant(context_t *ctx, type_t type, int32_t id) {
-  assert(type_kind(ctx->types, type) == UNINTERPRETED_TYPE || type_kind(ctx->types, type) == SCALAR_TYPE);
+  assert(type_kind(ctx->types, type) == UNINTERPRETED_TYPE || 
+	 type_kind(ctx->types, type) == SCALAR_TYPE);
   return egraph_make_constant(ctx->egraph, type, id);
 }
 
@@ -2454,6 +2486,7 @@ static eterm_t make_egraph_variable(context_t *ctx, type_t type) {
   }
   return u;
 }
+
 
 /*
  * Add the tuple skolemization axiom for term occurrence 
@@ -2520,6 +2553,111 @@ static eterm_t skolem_tuple(context_t *ctx, term_t t, occ_t u1) {
   return u;
 }
 
+
+/*
+ * Convert arithmetic variable x to an egraph term
+ * - tau = type of x (int or real)
+ */
+static occ_t translate_arithvar_to_eterm(context_t *ctx, thvar_t x, type_t tau) {
+  eterm_t u;
+
+  u = ctx->arith.eterm_of_var(ctx->arith_solver, x);
+  if (u == null_eterm) {
+    u = egraph_thvar2term(ctx->egraph, x, tau);
+  }
+
+  return pos_occ(u);
+}
+
+
+/*
+ * Same thing for a bit-vector variable x
+ */
+static occ_t translate_bvvar_to_eterm(context_t *ctx, thvar_t x, type_t tau) {
+#if 0
+  eterm_t u;
+
+  u = ctx->bv.eterm_of_var(ctx->bv_solver, v);
+  if (u == null_eterm) {
+    u = egraph_thvar2term(ctx->egraph, v, tau);
+  }
+
+  return pos_occ(u);
+#endif
+
+  longjmp(ctx->env, BV_NOT_SUPPORTED);
+  return null_occurrence;
+}
+
+
+/*
+ * Convert variable x into an eterm internalization for t
+ * - tau = type of t
+ * - if x is mapped to an existing eterm u, return pos_occ(u)
+ * - otherwise, create an egraph variable u and attach x to u
+ *   then record the converse mapping [x --> u] in the relevant
+ *   theory solver
+ */
+static occ_t translate_thvar_to_eterm(context_t *ctx, thvar_t x, type_t tau) {
+  if (is_arithmetic_type(tau)) {
+    return translate_arithvar_to_eterm(ctx, x, tau);
+  } else if (is_bv_type(ctx->types, tau)) {
+    return translate_bvvar_to_eterm(ctx, x, tau);
+  } else {
+    longjmp(ctx->env, INTERNAL_ERROR);
+  }
+}
+
+
+/*
+ * Convert internalization code x for a term t into an egraph term
+ * - t must be a root in the internalization table and must have
+ *   positive polarity
+ */
+static occ_t translate_code_to_eterm(context_t *ctx, term_t t, int32_t x) {
+  occ_t u;
+  type_t tau;
+
+  assert(is_pos_term(t) && intern_tbl_is_root(&ctx->intern, t) &&
+	 intern_tbl_map_of_root(&ctx->intern, t) == x);
+
+  if (code_is_eterm(x)) {
+    u = code2occ(x);
+  } else {
+    // x encodes a theory variable or a literal
+    // convert that to an egraph term
+    tau = term_type(ctx->terms, t);
+    switch (type_kind(ctx->types, tau)) {
+    case BOOL_TYPE:
+      u = egraph_literal2occ(ctx->egraph, code2literal(x));
+      break;
+
+    case INT_TYPE:
+    case REAL_TYPE:
+      u = translate_arithvar_to_eterm(ctx, code2thvar(x), tau);
+      break;
+
+    case BITVECTOR_TYPE:
+      u = translate_bvvar_to_eterm(ctx, code2thvar(x), tau);
+      break;
+
+    default:
+      assert(false);
+      longjmp(ctx->env, INTERNAL_ERROR);
+    }
+
+    // remap x to u
+    intern_tbl_remap_root(&ctx->intern, x, occ2code(u));
+  }
+
+  return u;
+}
+
+
+
+/***********************************************
+ *  CONVERSION OF COMPOSITES TO EGRAPH TERMS   *
+ **********************************************/
 
 /*
  * Map apply term to an eterm
@@ -2659,43 +2797,50 @@ static occ_t map_tuple_to_eterm(context_t *ctx, composite_term_t *tuple, type_t 
 }
 
 
-
-
-
-/****************************************
- *  CONVERSION TO ARITHMETIC VARIABLES  *
- ***************************************/
-
 /*
- * Translate internalization code x to an arithmetic variable
- * - if the code is for an egraph term u, then we return the 
- *   theory variable attached to u in the egraph.
- * - otherwise, x must be the code of an arithmetic variable v,
- *   we return v.
+ * Convert arithmetic and bitvector constants to eterm
+ * - check whether the relevant solver exists first
+ * - then map the constant to a solver variable x
+ *   and convert x to an egraph occurrence
  */
-static thvar_t translate_code_to_arith(context_t *ctx, int32_t x) {
-  eterm_t u;
-  thvar_t v;
+static occ_t map_arith_constant_to_eterm(context_t *ctx, rational_t *q) {
+  thvar_t x;
+  type_t tau;
 
-  assert(code_is_valid(x));
-  
-  if (code_is_eterm(x)) {
-    u = code2eterm(x);
-    assert(ctx->egraph != NULL && egraph_term_is_arith(ctx->egraph, u));
-    v = egraph_term_base_thvar(ctx->egraph, u);
-  } else {
-    v = code2thvar(x);
+  if (! context_has_arith_solver(ctx)) {
+    longjmp(ctx->env, ARITH_NOT_SUPPORTED);
   }
 
-  assert(v != null_thvar);
-  return v;
+  x = ctx->arith.create_const(ctx->arith_solver, q);
+  tau = real_type(ctx->types);
+  if (q_is_integer(q)) {
+    tau = int_type(ctx->types);
+  }
+
+  return translate_arithvar_to_eterm(ctx, x, tau);
+}
+
+static occ_t map_bvconst64_to_eterm(context_t *ctx, bvconst64_term_t *c) {
+  // TBD
+  longjmp(ctx->env, BV_NOT_SUPPORTED);
+  return null_occurrence;
+}
+
+static occ_t map_bvconst_to_eterm(context_t *ctx, bvconst_term_t *c) {
+  // TBD
+  longjmp(ctx->env, BV_NOT_SUPPORTED);
+  return null_occurrence;
 }
 
 
 
 
+/******************************************************
+ *  CONVERSION OF COMPOSITES TO ARITHMETIC VARIABLES  *
+ *****************************************************/
+
 /*
- * Convert if-then-else to arithmetic variable
+ * Convert if-then-else to an arithmetic variable
  * - if is_int is true, the if-then-else term is integer
  * - otherwise, it's real
  */
@@ -2781,6 +2926,642 @@ static thvar_t map_poly_to_arith(context_t *ctx, polynomial_t *p) {
   free_istack_array(&ctx->istack, a);
 
   return x;
+}
+
+
+/******************************************************
+ *  CONVERSION OF COMPOSITES TO BIT-VECTOR VARIABLES  *
+ *****************************************************/
+
+/*
+ * Array of bits b
+ */
+static thvar_t map_bvarray_to_bv(context_t *ctx, composite_term_t *b) {
+  longjmp(ctx->env, BV_NOT_SUPPORTED);
+  return null_thvar;
+}
+
+
+/*
+ * Unsigned division: quotient (div u v)
+ */
+static thvar_t map_bvdiv_to_bv(context_t *ctx, composite_term_t *div) {
+  assert(div->arity == 2);
+  longjmp(ctx->env, BV_NOT_SUPPORTED);
+  return null_thvar;
+}
+
+
+/*
+ * Unsigned division: remainder (rem u v)
+ */
+static thvar_t map_bvrem_to_bv(context_t *ctx, composite_term_t *rem) {
+  assert(rem->arity == 2);
+  longjmp(ctx->env, BV_NOT_SUPPORTED);
+  return null_thvar;
+}
+
+
+/*
+ * Signed division/rounding toward 0: quotient (sdiv u v)
+ */
+static thvar_t map_bvsdiv_to_bv(context_t *ctx, composite_term_t *sdiv) {
+  assert(sdiv->arity == 2);
+  longjmp(ctx->env, BV_NOT_SUPPORTED);
+  return null_thvar;
+}
+
+
+/*
+ * Signed division/rounding toward 0: remainder (srem u v)
+ */
+static thvar_t map_bvsrem_to_bv(context_t *ctx, composite_term_t *srem) {
+  assert(srem->arity == 2);
+  longjmp(ctx->env, BV_NOT_SUPPORTED);
+  return null_thvar;
+}
+
+
+/*
+ * Signed division/rounding toward -infinity: remainder (smod u v)
+ */
+static thvar_t map_bvsmod_to_bv(context_t *ctx, composite_term_t *smod) {
+  assert(smod->arity == 2);
+  longjmp(ctx->env, BV_NOT_SUPPORTED);
+  return null_thvar;
+}
+
+
+/*
+ * Left shift: (shl u v)
+ */
+static thvar_t map_bvshl_to_bv(context_t *ctx, composite_term_t *shl) {
+  assert(shl->arity == 2);
+  longjmp(ctx->env, BV_NOT_SUPPORTED);
+  return null_thvar;
+}
+
+
+/*
+ * Logical shift right: (lshr u v)
+ */
+static thvar_t map_bvlshr_to_bv(context_t *ctx, composite_term_t *lshr) {
+  assert(lshr->arity == 2);
+  longjmp(ctx->env, BV_NOT_SUPPORTED);
+  return null_thvar;
+}
+
+
+/*
+ * Arithmetic shift right: (ashr u v)
+ */
+static thvar_t map_bvashr_to_bv(context_t *ctx, composite_term_t *ashr) {
+  assert(ashr->arity == 2);
+  longjmp(ctx->env, BV_NOT_SUPPORTED);
+  return null_thvar;
+}
+
+
+/*
+ * Power product
+ */
+static thvar_t map_pprod_to_bv(context_t *ctx, pprod_t *p) {
+  longjmp(ctx->env, BV_NOT_SUPPORTED);
+  return null_thvar;  
+}
+
+
+/*
+ * Bitvector polynomial, 64bit coefficients
+ */
+static thvar_t map_bvpoly64_to_bv(context_t *ctx, bvpoly64_t *p) {
+  longjmp(ctx->env, BV_NOT_SUPPORTED);
+  return null_thvar;
+}
+
+
+/*
+ * Bitvector polynomial, coefficients have more than 64bits
+ */
+static thvar_t map_bvpoly_to_bv(context_t *ctx, bvpoly_t *p) {
+  longjmp(ctx->env, BV_NOT_SUPPORTED);
+  return null_thvar;
+}
+
+
+
+
+/****************************
+ *  CONVERSION TO LITERALS  *
+ ***************************/
+
+/*
+ * Boolean if-then-else
+ */
+static literal_t map_ite_to_literal(context_t *ctx, composite_term_t *ite) {
+  literal_t l1, l2, l3;
+
+  assert(ite->arity == 3);
+  l1 = internalize_to_literal(ctx, ite->arg[0]); // condition
+  if (l1 == true_literal) {
+    return internalize_to_literal(ctx, ite->arg[1]);
+  }
+  if (l1 == false_literal) {
+    return internalize_to_literal(ctx, ite->arg[2]);
+  }
+
+  l2 = internalize_to_literal(ctx, ite->arg[1]);
+  l3 = internalize_to_literal(ctx, ite->arg[2]);
+
+  return mk_ite_gate(&ctx->gate_manager, l1, l2, l3);
+}
+
+
+/*
+ * Generic equality: (eq t1 t2)
+ * - t1 and t2 are not arithmetic or bitvector terms
+ */
+static literal_t map_eq_to_literal(context_t *ctx, composite_term_t *eq) {
+  occ_t u, v;
+  literal_t l1, l2, l;
+
+  assert(eq->arity == 2);
+
+  if (is_boolean_term(ctx->terms, eq->arg[0])) {
+    assert(is_boolean_term(ctx->terms, eq->arg[1]));
+
+    l1 = internalize_to_literal(ctx, eq->arg[0]);
+    l2 = internalize_to_literal(ctx, eq->arg[1]);
+    l = mk_iff_gate(&ctx->gate_manager, l1, l2);
+  } else {
+    u = internalize_to_eterm(ctx, eq->arg[0]);
+    v = internalize_to_eterm(ctx, eq->arg[1]);
+    l = egraph_make_eq(ctx->egraph, u, v);
+  }
+
+  return l;
+}
+
+
+/*
+ * (or t1 ... t_n)
+ */
+static literal_t map_or_to_literal(context_t *ctx, composite_term_t *or) {
+  int32_t *a;
+  ivector_t *v;
+  literal_t l;
+  uint32_t i, n;
+
+  if (context_flatten_or_enabled(ctx)) {
+    // flatten (or ...): store result in v
+    v = &ctx->aux_vector;
+    assert(v->size == 0);
+    flatten_or_term(ctx, v, or);
+
+    // make a copy of v
+    n = v->size;
+    a = alloc_istack_array(&ctx->istack, n);
+    for (i=0; i<n; i++) {
+      a[i] = v->data[i];
+    }
+    ivector_reset(v);
+
+    // internalize a[0 ... n-1]
+    for (i=0; i<n; i++) {
+      a[i] = internalize_to_literal(ctx, a[i]);
+    }
+
+  } else {
+    // no flattening
+    n = or->arity;
+    a = alloc_istack_array(&ctx->istack, n);
+    for (i=0; i<n; i++) {
+      a[i] = internalize_to_literal(ctx, or->arg[i]);
+    }
+  }
+
+  l = mk_or_gate(&ctx->gate_manager, n, a);
+  free_istack_array(&ctx->istack, a);
+
+  return l;
+}
+
+
+/*
+ * (xor t1 ... t_n)
+ */
+static literal_t map_xor_to_literal(context_t *ctx, composite_term_t *xor) {
+  int32_t *a;
+  literal_t l;
+  uint32_t i, n;
+
+  // TODO: add flattening here?
+
+  n = xor->arity;
+  a = alloc_istack_array(&ctx->istack, n);
+  for (i=0; i<n; i++) {
+    a[i] = internalize_to_literal(ctx, xor->arg[i]);
+  }
+
+  l = mk_xor_gate(&ctx->gate_manager, n, a);
+  free_istack_array(&ctx->istack, a);
+
+  return l;
+}
+
+
+/*
+ * Convert (p t_1 .. t_n) to a literal
+ * - create an egraph atom
+ */
+static literal_t map_apply_to_literal(context_t *ctx, composite_term_t *app) {
+  occ_t *a;
+  uint32_t i, n;
+  literal_t l;
+
+  assert(app->arity > 0);
+  n = app->arity;
+  a = alloc_istack_array(&ctx->istack, n);
+  for (i=0; i<n; i++) {
+    a[i] = internalize_to_eterm(ctx, app->arg[i]);
+  }
+
+  // a[0] = predicate
+  // a[1 ...n-1] = arguments
+  l = egraph_make_pred(ctx->egraph, a[0], n-1, a + 1);
+  free_istack_array(&ctx->istack, a);
+
+  return l;
+}
+
+
+
+/*
+ * Auxiliary function: translate (distinct a[0 ... n-1]) to a literal,
+ * when a[0] ... a[n-1] are arithmetic variables. 
+ * 
+ * We expand this into a quadratic number of disequalities.
+ */
+static literal_t make_arith_distinct(context_t *ctx, uint32_t n, thvar_t *a) {
+  uint32_t i, j;
+  ivector_t *v;
+  literal_t l;
+
+  assert(n >= 2);
+
+  v = &ctx->aux_vector;
+  assert(v->size == 0);
+  for (i=0; i<n-1; i++) {
+    for (j=i+1; j<n; j++) {
+      l = ctx->arith.create_vareq_atom(ctx->arith_solver, a[i], a[j]);
+      ivector_push(v, l);
+    }
+  }
+  l = mk_or_gate(&ctx->gate_manager, v->size, v->data);
+  ivector_reset(v);
+  return not(l);
+}
+
+/*
+ * Auxiliary function: translate (distinct a[0 ... n-1]) to a literal,
+ * when a[0] ... a[n-1] are bitvector variables. 
+ * 
+ * We expand this into a quadratic number of disequalities.
+ */
+static literal_t make_bv_distinct(context_t *ctx, uint32_t n, thvar_t *a) {
+#if 0
+  uint32_t i, j;
+  ivector_t *v;
+  literal_t l;
+
+  assert(n >= 2);
+
+  v = &ctx->aux_vector;
+  assert(v->size == 0);
+  for (i=0; i<n-1; i++) {
+    for (j=i+1; j<n; j++) {
+      l = ctx->bv.create_eq_atom(ctx->arith_solver, a[i], a[j]);
+      ivector_push(v, l);
+    }
+  }
+  l = mk_or_gate(&ctx->gate_manager, v->size, v->data);
+  ivector_reset(v);
+  return not(l);
+#endif
+
+  longjmp(ctx->env, BV_NOT_SUPPORTED);
+  return null_literal;
+}
+
+
+/*
+ * Convert (distinct t_1 ... t_n) to a literal
+ */
+static literal_t map_distinct_to_literal(context_t *ctx, composite_term_t *distinct) {
+  int32_t *a;
+  literal_t l;
+  uint32_t i, n;
+
+  n = distinct->arity;
+  a = alloc_istack_array(&ctx->istack, n);
+  if (context_has_egraph(ctx)) {
+    // default: translate to the egraph
+    for (i=0; i<n; i++) {
+      a[i] = internalize_to_eterm(ctx, distinct->arg[i]);
+    }
+    l = egraph_make_distinct(ctx->egraph, n, a);
+
+  } else if (is_arithmetic_term(ctx->terms, distinct->arg[0])) {
+    // translate to arithmetic variables
+    for (i=0; i<n; i++) {
+      a[i] = internalize_to_arith(ctx, distinct->arg[i]);
+    }
+    l = make_arith_distinct(ctx, n, a);
+
+  } else if (is_bitvector_term(ctx->terms, distinct->arg[0])) {
+    // translate to bitvector variables
+    for (i=0; i<n; i++) {
+      a[i] = internalize_to_bv(ctx, distinct->arg[i]);
+    }
+    l = make_bv_distinct(ctx, n, a);
+
+  } else {
+    longjmp(ctx->env, UF_NOT_SUPPORTED);
+  }
+
+  free_istack_array(&ctx->istack, a);
+
+  return l;
+}
+
+
+
+/*
+ * Arithmetic atom: (t == 0)
+ */
+static literal_t map_arith_eq_to_literal(context_t *ctx, term_t t) {
+  thvar_t x;
+
+  x = internalize_to_arith(ctx, t);
+  return ctx->arith.create_eq_atom(ctx->arith_solver, x);
+}
+
+
+/*
+ * Arithmetic atom: (t >= 0)
+ */
+static literal_t map_arith_geq_to_literal(context_t *ctx, term_t t) {
+  thvar_t x;
+
+  x = internalize_to_arith(ctx, t);
+  return ctx->arith.create_ge_atom(ctx->arith_solver, x);
+}
+
+
+/*
+ * Arithmetic atom: (eq t1 t2)
+ */
+static literal_t map_arith_bineq_to_literal(context_t *ctx, composite_term_t *eq) {
+  thvar_t x, y;
+  occ_t u, v;
+  literal_t l;
+
+  // add it to the egraph if possible
+  if (context_has_egraph(ctx)) {
+    u = internalize_to_eterm(ctx, eq->arg[0]);
+    v = internalize_to_eterm(ctx, eq->arg[1]);
+    l = egraph_make_eq(ctx->egraph, u, v);
+  } else {
+    x = internalize_to_arith(ctx, eq->arg[0]);
+    y = internalize_to_arith(ctx, eq->arg[1]);
+    l = ctx->arith.create_vareq_atom(ctx->arith_solver, x, y);
+  }
+
+  return l;
+}
+
+
+
+/****************************************
+ *  INTERNALIZATION TO ETERM: TOPLEVEL  *
+ ***************************************/
+
+static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
+  term_table_t *terms;
+  term_t r;
+  uint32_t polarity;
+  int32_t code;
+  int32_t exception;
+  type_t tau;
+  occ_t u;
+  literal_t l;
+  thvar_t x;
+
+  if (! context_has_egraph(ctx)) {
+    exception = UF_NOT_SUPPORTED;
+    goto abort;
+  }
+
+  r = intern_tbl_get_root(&ctx->intern, t);
+  polarity = polarity_of(r);
+  r  = unsigned_term(r);
+
+  /*
+   * r is a positive root in the internalization table
+   * polarity is 0 or 1
+   * if polarity is 0, then t is equal to r by substitution
+   * if polarity is 1, then t is equal to (not r)
+   */
+
+  if (intern_tbl_root_is_mapped(&ctx->intern, r)) {
+    /*
+     * r already internalized
+     */
+    code = intern_tbl_map_of_root(&ctx->intern, r);
+    u = translate_code_to_eterm(ctx, r, code);
+  } else {
+    /*
+     * Compute r's internalization:
+     * - if it's a boolean term, convert r to a literal l then
+     *   remap l to an egraph term
+     * - otherwise, recursively construct an egraph term and map it to r
+     */
+    terms = ctx->terms;
+    tau = term_type(terms, r);
+    if (is_boolean_type(tau)) {
+      l = internalize_to_literal(ctx, r);
+      u = egraph_literal2occ(ctx->egraph, l);
+      intern_tbl_remap_root(&ctx->intern, r, u);
+    } else {
+      /*
+       * r is not a boolean term
+       */
+      assert(polarity == 0);
+
+      switch (term_kind(terms, r)) {
+      case CONSTANT_TERM:
+	u = pos_occ(make_egraph_constant(ctx, tau, constant_term_index(terms, r)));
+	break;
+
+      case ARITH_CONSTANT:
+	u = map_arith_constant_to_eterm(ctx, rational_term_desc(terms, r));
+	break;
+
+      case BV64_CONSTANT:
+	u = map_bvconst64_to_eterm(ctx, bvconst64_term_desc(terms, r));
+	break;
+
+      case BV_CONSTANT:
+	u = map_bvconst_to_eterm(ctx, bvconst_term_desc(terms, r));
+	break;
+
+      case VARIABLE:
+	exception = FREE_VARIABLE_IN_FORMULA;
+	goto abort;
+
+      case UNINTERPRETED_TERM:
+	u = pos_occ(make_egraph_variable(ctx, tau));
+	skolemize_if_tuple(ctx, u, tau);
+	break;
+
+      case ITE_TERM:
+      case ITE_SPECIAL:
+	u = map_ite_to_eterm(ctx, ite_term_desc(terms, r), tau);
+	break;
+
+      case APP_TERM:
+	u = map_apply_to_eterm(ctx, app_term_desc(terms, r), tau);
+	break;
+
+      case TUPLE_TERM:
+	u = map_tuple_to_eterm(ctx, tuple_term_desc(terms, r), tau);
+	break;
+
+      case SELECT_TERM:
+	u = map_select_to_eterm(ctx, select_term_desc(terms, r), tau);
+	break;
+
+      case UPDATE_TERM:
+	u = map_update_to_eterm(ctx, update_term_desc(terms, r), tau);
+	break;
+
+      case BV_ARRAY:
+	x = map_bvarray_to_bv(ctx, bvarray_term_desc(terms, r));
+	u = translate_thvar_to_eterm(ctx, x, tau);
+	break;
+
+      case BV_DIV:
+	x = map_bvdiv_to_bv(ctx, bvdiv_term_desc(terms, r));
+	u = translate_thvar_to_eterm(ctx, x, tau);
+	break;
+
+      case BV_REM:
+	x = map_bvrem_to_bv(ctx, bvrem_term_desc(terms, r));
+	u = translate_thvar_to_eterm(ctx, x, tau);
+	break;
+
+      case BV_SDIV:
+	x = map_bvsdiv_to_bv(ctx, bvsdiv_term_desc(terms, r));
+	u = translate_thvar_to_eterm(ctx, x, tau);
+	break;
+
+      case BV_SREM:
+	x = map_bvsrem_to_bv(ctx, bvsrem_term_desc(terms, r));
+	u = translate_thvar_to_eterm(ctx, x, tau);
+	break;
+
+      case BV_SMOD:
+	x = map_bvsmod_to_bv(ctx, bvsmod_term_desc(terms, r));
+	u = translate_thvar_to_eterm(ctx, x, tau);
+	break;
+
+      case BV_SHL:
+	x = map_bvshl_to_bv(ctx, bvshl_term_desc(terms, r));
+	u = translate_thvar_to_eterm(ctx, x, tau);
+	break;
+
+      case BV_LSHR:
+	x = map_bvlshr_to_bv(ctx, bvlshr_term_desc(terms, r));
+	u = translate_thvar_to_eterm(ctx, x, tau);
+	break;
+
+      case BV_ASHR:
+	x = map_bvashr_to_bv(ctx, bvashr_term_desc(terms, r));
+	u = translate_thvar_to_eterm(ctx, x, tau);
+	break;
+
+      case POWER_PRODUCT:
+	if (is_arithmetic_type(tau)) {
+	  x = map_pprod_to_arith(ctx, pprod_term_desc(terms, r));
+	} else {
+	  assert(is_bv_type(ctx->types, tau));
+	  x = map_pprod_to_bv(ctx, pprod_term_desc(terms, r));
+	}
+	u = translate_thvar_to_eterm(ctx, x, tau);
+	break;
+
+      case ARITH_POLY:
+	x = map_poly_to_arith(ctx, poly_term_desc(terms, r));
+	u = translate_thvar_to_eterm(ctx, x, tau);
+	break;
+
+      case BV64_POLY:
+	x = map_bvpoly64_to_bv(ctx, bvpoly64_term_desc(terms, r));
+	u = translate_thvar_to_eterm(ctx, x, tau);
+	break;
+
+      case BV_POLY:
+	x = map_bvpoly_to_bv(ctx, bvpoly_term_desc(terms, r));
+	u = translate_thvar_to_eterm(ctx, x, tau);
+	break;
+
+      default:
+	exception = INTERNAL_ERROR;
+	goto abort;
+      }
+
+      // store the mapping r --> u
+      intern_tbl_map_root(&ctx->intern, r, occ2code(u));
+    }
+  }
+
+  // fix the polarity
+  return u ^ polarity;
+
+ abort:
+  longjmp(ctx->env, exception);
+}
+
+
+
+
+/****************************************
+ *  CONVERSION TO ARITHMETIC VARIABLES  *
+ ***************************************/
+
+/*
+ * Translate internalization code x to an arithmetic variable
+ * - if the code is for an egraph term u, then we return the 
+ *   theory variable attached to u in the egraph.
+ * - otherwise, x must be the code of an arithmetic variable v,
+ *   we return v.
+ */
+static thvar_t translate_code_to_arith(context_t *ctx, int32_t x) {
+  eterm_t u;
+  thvar_t v;
+
+  assert(code_is_valid(x));
+  
+  if (code_is_eterm(x)) {
+    u = code2eterm(x);
+    assert(ctx->egraph != NULL && egraph_term_is_arith(ctx->egraph, u));
+    v = egraph_term_base_thvar(ctx->egraph, u);
+  } else {
+    v = code2thvar(x);
+  }
+
+  assert(v != null_thvar);
+  return v;
 }
 
 
@@ -2877,180 +3658,9 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
 }
 
 
-
 /****************************
  *  CONVERSION TO LITERALS  *
  ***************************/
-
-/*
- * Boolean if-then-else
- */
-static literal_t map_ite_to_literal(context_t *ctx, composite_term_t *ite) {
-  literal_t l1, l2, l3;
-
-  assert(ite->arity == 3);
-  l1 = internalize_to_literal(ctx, ite->arg[0]); // condition
-  if (l1 == true_literal) {
-    return internalize_to_literal(ctx, ite->arg[1]);
-  }
-  if (l1 == false_literal) {
-    return internalize_to_literal(ctx, ite->arg[2]);
-  }
-
-  l2 = internalize_to_literal(ctx, ite->arg[1]);
-  l3 = internalize_to_literal(ctx, ite->arg[2]);
-
-  return mk_ite_gate(&ctx->gate_manager, l1, l2, l3);
-}
-
-static literal_t map_eq_to_literal(context_t *ctx, composite_term_t *eq) {
-  occ_t u, v;
-  literal_t l1, l2, l;
-
-  assert(eq->arity == 2);
-
-  if (is_boolean_term(ctx->terms, eq->arg[0])) {
-    assert(is_boolean_term(ctx->terms, eq->arg[1]));
-
-    l1 = internalize_to_literal(ctx, eq->arg[0]);
-    l2 = internalize_to_literal(ctx, eq->arg[1]);
-    l = mk_iff_gate(&ctx->gate_manager, l1, l2);
-  } else {
-    u = internalize_to_eterm(ctx, eq->arg[0]);
-    v = internalize_to_eterm(ctx, eq->arg[1]);
-    l = egraph_make_eq(ctx->egraph, u, v);
-  }
-
-  return l;
-}
-
-static literal_t map_or_to_literal(context_t *ctx, composite_term_t *or) {
-  int32_t *a;
-  ivector_t *v;
-  literal_t l;
-  uint32_t i, n;
-
-  if (context_flatten_or_enabled(ctx)) {
-    // flatten (or ...): store result in v
-    v = &ctx->aux_vector;
-    assert(v->size == 0);
-    flatten_or_term(ctx, v, or);
-
-    // make a copy of v
-    n = v->size;
-    a = alloc_istack_array(&ctx->istack, n);
-    for (i=0; i<n; i++) {
-      a[i] = v->data[i];
-    }
-    ivector_reset(v);
-
-    // internalize a[0 ... n-1]
-    for (i=0; i<n; i++) {
-      a[i] = internalize_to_literal(ctx, a[i]);
-    }
-
-  } else {
-    // no flattening
-    n = or->arity;
-    a = alloc_istack_array(&ctx->istack, n);
-    for (i=0; i<n; i++) {
-      a[i] = internalize_to_literal(ctx, or->arg[i]);
-    }
-  }
-
-  l = mk_or_gate(&ctx->gate_manager, n, a);
-  free_istack_array(&ctx->istack, a);
-
-  return l;
-}
-
-static literal_t map_xor_to_literal(context_t *ctx, composite_term_t *xor) {
-  int32_t *a;
-  literal_t l;
-  uint32_t i, n;
-
-  // TODO: add flattening here?
-
-  n = xor->arity;
-  a = alloc_istack_array(&ctx->istack, n);
-  for (i=0; i<n; i++) {
-    a[i] = internalize_to_literal(ctx, xor->arg[i]);
-  }
-
-  l = mk_xor_gate(&ctx->gate_manager, n, a);
-  free_istack_array(&ctx->istack, a);
-
-  return l;
-}
-
-
-/*
- * Convert (p t_1 .. t_n) to a literal
- * - create an egraph atom
- */
-static literal_t map_apply_to_literal(context_t *ctx, composite_term_t *app) {
-  occ_t *a;
-  uint32_t i, n;
-  literal_t l;
-
-  assert(app->arity > 0);
-  n = app->arity;
-  a = alloc_istack_array(&ctx->istack, n);
-  for (i=0; i<n; i++) {
-    a[i] = internalize_to_eterm(ctx, app->arg[i]);
-  }
-
-  // a[0] = predicate
-  // a[1 ...n-1] = arguments
-  l = egraph_make_pred(ctx->egraph, a[0], n-1, a + 1);
-  free_istack_array(&ctx->istack, a);
-
-  return l;
-}
-
-/*
- * Arithmetic atom: (t == 0)
- */
-static literal_t map_arith_eq_to_literal(context_t *ctx, term_t t) {
-  thvar_t x;
-
-  x = internalize_to_arith(ctx, t);
-  return ctx->arith.create_eq_atom(ctx->arith_solver, x);
-}
-
-/*
- * Arithmetic atom: (t >= 0)
- */
-static literal_t map_arith_geq_to_literal(context_t *ctx, term_t t) {
-  thvar_t x;
-
-  x = internalize_to_arith(ctx, t);
-  return ctx->arith.create_ge_atom(ctx->arith_solver, x);
-}
-
-
-/*
- * Arithmetic atom: (eq t1 t2)
- */
-static literal_t map_arith_bineq_to_literal(context_t *ctx, composite_term_t *eq) {
-  thvar_t x, y;
-  occ_t u, v;
-  literal_t l;
-
-  // add it to the egraph if possible
-  if (context_has_egraph(ctx)) {
-    u = internalize_to_eterm(ctx, eq->arg[0]);
-    v = internalize_to_eterm(ctx, eq->arg[1]);
-    l = egraph_make_eq(ctx->egraph, u, v);
-  } else {
-    x = internalize_to_arith(ctx, eq->arg[0]);
-    y = internalize_to_arith(ctx, eq->arg[1]);
-    l = ctx->arith.create_vareq_atom(ctx->arith_solver, x, y);
-  }
-
-  return l;
-}
-
 
 /*
  * Translate an internalization code x to a literal
@@ -3170,9 +3780,13 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
       assert(egraph_term_is_bool(ctx->egraph, term_of_occ(u)));
       intern_tbl_map_root(&ctx->intern, r, occ2code(u));
       l = egraph_occ2literal(ctx->egraph, u);
-      return l;
+      // we don't want to map r to l here
+      goto done;
 
     case DISTINCT_TERM:
+      l = map_distinct_to_literal(ctx, distinct_term_desc(terms, r));
+      break;
+
     case FORALL_TERM:
     case BIT_TERM:
     case BV_EQ_ATOM:
@@ -3191,15 +3805,15 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
     intern_tbl_map_root(&ctx->intern, r, literal2code(l));
   }
 
-
+ done:
   return l ^ polarity;
 }
 
 
 
-/*********************************
- *  PRE-INTERNALIZED ASSERTIONS  *
- ********************************/
+/******************************************************
+ *  TOP-LEVEL ASSERTIONS: TERMS ALREADY INTERNALIZED  *
+ *****************************************************/
 
 /*
  * Assert (x == tt) for an internalization code x
@@ -3449,6 +4063,84 @@ static void assert_toplevel_eq(context_t *ctx, composite_term_t *eq, bool tt) {
 
 
 /*
+ * Assertion (distinct a[0] .... a[n-1]) == tt
+ * when a[0] ... a[n-1] are arithmetic variables.
+ */
+static void assert_arith_distinct(context_t *ctx, uint32_t n, thvar_t *a, bool tt) {
+  literal_t l;
+
+  l = make_arith_distinct(ctx, n, a);
+  if (! tt) {
+    l = not(l);
+  }
+  add_unit_clause(ctx->core, l);
+}
+
+
+/*
+ * Assertion (distinct a[0] .... a[n-1]) == tt
+ * when a[0] ... a[n-1] are bitvector variables.
+ */
+static void assert_bv_distinct(context_t *ctx, uint32_t n, thvar_t *a, bool tt) {
+  literal_t l;
+
+  l = make_bv_distinct(ctx, n, a);
+  if (! tt) {
+    l = not(l);
+  }
+  add_unit_clause(ctx->core, l);
+}
+
+
+/*
+ * Generic (distinct t1 .. t_n)
+ * - if tt: assert (distinct t_1 ... t_n)
+ * - otherwise: assert (not (distinct t_1 ... t_n))
+ */
+static void assert_toplevel_distinct(context_t *ctx, composite_term_t *distinct, bool tt) {
+  uint32_t i, n;
+  int32_t *a;
+
+  n = distinct->arity;
+  assert(n >= 2);
+
+  a = alloc_istack_array(&ctx->istack, n);
+
+  if (context_has_egraph(ctx)) {
+    // forward the assertion to the egraph
+    for (i=0; i<n; i++) {
+      a[i] = internalize_to_eterm(ctx, distinct->arg[i]);
+    }
+
+    if (tt) {
+      egraph_assert_distinct_axiom(ctx->egraph, n, a);
+    } else {
+      egraph_assert_notdistinct_axiom(ctx->egraph, n, a);
+    }
+
+  } else if (is_arithmetic_term(ctx->terms, distinct->arg[0])) {
+    // translate to arithmetic then assert
+    for (i=0; i<n; i++) {
+      a[i] = internalize_to_arith(ctx, distinct->arg[i]);
+    }
+    assert_arith_distinct(ctx, n, a, tt);
+
+  } else if (is_bitvector_term(ctx->terms, distinct->arg[0])) {
+    // translate to bitvectors then assert
+    for (i=0; i<n; i++) {
+      a[i] = internalize_to_bv(ctx, distinct->arg[i]);
+    }
+    assert_bv_distinct(ctx, n, a, tt);
+
+  } else {
+    longjmp(ctx->env, UF_NOT_SUPPORTED);
+  }
+
+  free_istack_array(&ctx->istack, a);
+}
+
+
+/*
  * Top-level arithmetic equality:
  * - t is an arithmetic term
  * - if tt is true, assert (t == 0)
@@ -3685,12 +4377,15 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
     break;
 
   case DISTINCT_TERM:
+    assert_toplevel_distinct(ctx, distinct_term_desc(terms, t), tt);
+    break;
+
   case FORALL_TERM:
   case BIT_TERM:
   case BV_EQ_ATOM:
   case BV_GE_ATOM:
   case BV_SGE_ATOM:
-    // HACK FOR TESTING: DON'T ABORT 
+    // FOR TESTING: DON'T ABORT 
     break;
 
   default:
@@ -3788,14 +4483,15 @@ static void assert_term(context_t *ctx, term_t t, bool tt) {
       break;
 
     case DISTINCT_TERM:
-    case FORALL_TERM:
+      assert_toplevel_distinct(ctx, distinct_term_desc(terms, t), tt);
       break;
 
+    case FORALL_TERM:
     case BIT_TERM:
     case BV_EQ_ATOM:
     case BV_GE_ATOM:
     case BV_SGE_ATOM:
-      // HACK FOR TESTING: DON'T ABORT ON ATOMS
+      // FOR TESTING: DON'T ABORT
       break;
 
     default:
@@ -4363,8 +5059,10 @@ void init_context(context_t *ctx, term_table_t *terms,
   ctx->marks = NULL;
   ctx->cache = NULL;
   ctx->small_cache = NULL;
+
   ctx->arith_buffer = NULL;
   ctx->poly_buffer = NULL;
+  ctx->aux_poly = NULL;
   ctx->dl_profile = NULL;
 
 
@@ -4418,8 +5116,10 @@ void delete_context(context_t *ctx) {
   context_free_marks(ctx);
   context_free_cache(ctx);
   context_free_small_cache(ctx);
+
   context_free_arith_buffer(ctx);
   context_free_poly_buffer(ctx);
+  context_free_aux_poly(ctx);
   context_free_dl_profile(ctx);
 }
 
@@ -4453,8 +5153,10 @@ void reset_context(context_t *ctx) {
   context_free_subst(ctx);
   context_free_marks(ctx);
   context_reset_small_cache(ctx);
+
   context_free_arith_buffer(ctx);
   context_reset_poly_buffer(ctx);
+  context_free_aux_poly(ctx);
   context_free_dl_profile(ctx);
 }
 
