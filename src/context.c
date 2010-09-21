@@ -2417,11 +2417,6 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
   return null_occurrence;
 }
 
-static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
-  longjmp(ctx->env, ARITH_NOT_SUPPORTED);
-  return null_thvar;
-}
-
 static thvar_t internalize_to_bv(context_t *ctx, term_t t) {
   longjmp(ctx->env, BV_NOT_SUPPORTED);
   return null_thvar;
@@ -2429,9 +2424,463 @@ static thvar_t internalize_to_bv(context_t *ctx, term_t t) {
 
 
 
+
+/**************************************
+ *  CONVERSION TO EGRAPH OCCURRENCES  *
+ *************************************/
+
 /*
- * CONVERSION TO LITERALS
+ * Create a new egraph constant of the given type
  */
+static eterm_t make_egraph_constant(context_t *ctx, type_t type, int32_t id) {
+  assert(type_kind(ctx->types, type) == UNINTERPRETED_TYPE || type_kind(ctx->types, type) == SCALAR_TYPE);
+  return egraph_make_constant(ctx->egraph, type, id);
+}
+
+
+/*
+ * Create a new egraph variable
+ * - type = its type
+ */
+static eterm_t make_egraph_variable(context_t *ctx, type_t type) {
+  eterm_t u;
+  bvar_t v;
+  
+  if (type == bool_type(ctx->types)) {
+    v = create_boolean_variable(ctx->core);
+    u = egraph_bvar2term(ctx->egraph, v);
+  } else {
+    u = egraph_make_variable(ctx->egraph, type);    
+  }
+  return u;
+}
+
+/*
+ * Add the tuple skolemization axiom for term occurrence 
+ * u of type tau, if needed.
+ */
+static void skolemize_if_tuple(context_t *ctx, occ_t u, type_t tau) {
+  type_table_t *types;
+  tuple_type_t *d;
+  uint32_t i, n;
+  occ_t *arg;
+  eterm_t tup;
+
+  types = ctx->types;
+  if (type_kind(types, tau) == TUPLE_TYPE && !is_maxtype(types, tau)) {
+    // instantiate the axiom
+    d = tuple_type_desc(types, tau);
+    n = d->nelem;
+    arg = alloc_istack_array(&ctx->istack, n);
+    for (i=0; i<n; i++) {
+      arg[i] = pos_occ(make_egraph_variable(ctx, d->elem[i]));
+      // recursively skolemize
+      skolemize_if_tuple(ctx, arg[i], d->elem[i]);
+    }
+
+    tup = egraph_make_tuple(ctx->egraph, n, arg, tau);
+    free_istack_array(&ctx->istack, arg);
+
+    egraph_assert_eq_axiom(ctx->egraph, u, pos_occ(tup));
+  }
+}
+
+
+/*
+ * Build a tuple of same type as t then assert that it's equal to t
+ * - t must be a root in the internalization table
+ * - u1 must be equal to t's internalization (as stored in intern_table)
+ * This is the skolemization of (exist (x1...x_n) t == (tuple x1 ... x_n))
+ */
+static eterm_t skolem_tuple(context_t *ctx, term_t t, occ_t u1) {
+  type_t tau;
+  eterm_t u;
+  tuple_type_t *d;
+  uint32_t i, n;
+  occ_t *arg;
+
+  assert(intern_tbl_is_root(&ctx->intern, t) && is_pos_term(t) &&
+	 intern_tbl_map_of_root(&ctx->intern, t) == occ2code(u1));
+
+  tau = intern_tbl_type_of_root(&ctx->intern, t);
+  d = tuple_type_desc(ctx->types, tau);
+  n = d->nelem;
+  arg = alloc_istack_array(&ctx->istack, n);
+  for (i=0; i<n; i++) {
+    arg[i] = pos_occ(make_egraph_variable(ctx, d->elem[i]));
+    // recursively skolemize
+    skolemize_if_tuple(ctx, arg[i], d->elem[i]);
+  }
+
+  u = egraph_make_tuple(ctx->egraph, n, arg, tau);
+  free_istack_array(&ctx->istack, arg);
+
+  egraph_assert_eq_axiom(ctx->egraph, u1, pos_occ(u));
+  
+  return u;
+}
+
+
+/*
+ * Map apply term to an eterm
+ * - tau = type of that term
+ */
+static occ_t map_apply_to_eterm(context_t *ctx, composite_term_t *app, type_t tau) {
+  eterm_t u;
+  occ_t *a;
+  uint32_t i, n;
+
+  assert(app->arity > 0);
+  n = app->arity;
+  a = alloc_istack_array(&ctx->istack, n);
+  for (i=0; i<n; i++) {
+    a[i] = internalize_to_eterm(ctx, app->arg[i]);
+  }
+
+  // a[0] = function
+  // a[1 ... n-1] are the arguments
+  u = egraph_make_apply(ctx->egraph, a[0], n-1, a+1, tau);
+  free_istack_array(&ctx->istack, a);
+
+  skolemize_if_tuple(ctx, pos_occ(u), tau);
+  return pos_occ(u);
+}
+
+
+/*
+ * Convert (select i t) to an egraph term 
+ * - tau must be the type of that term (should not be bool)
+ * - if a new eterm u is created, attach a theory variable to it
+ */
+static occ_t map_select_to_eterm(context_t *ctx, select_term_t *s, type_t tau) {
+  occ_t u1;
+  eterm_t tuple;
+  composite_t *tp;
+
+  u1 = internalize_to_eterm(ctx, s->arg);
+  tuple = egraph_get_tuple_in_class(ctx->egraph, term_of_occ(u1));
+  if (tuple == null_eterm) {
+    tuple = skolem_tuple(ctx, s->arg, u1);
+  }
+
+  tp = egraph_term_body(ctx->egraph, tuple);
+  assert(composite_body(tp) && tp != NULL && composite_kind(tp) == COMPOSITE_TUPLE);
+
+  return tp->child[s->idx];
+}
+
+
+/*
+ * Convert (ite c t1 t2) to an egraph term
+ * - tau = type of (ite c t1 t2)
+ */
+static occ_t map_ite_to_eterm(context_t *ctx, composite_term_t *ite, type_t tau) {
+  eterm_t u;
+  occ_t u1, u2, u3;
+  literal_t c, l1, l2;
+
+  c = internalize_to_literal(ctx, ite->arg[0]);
+  if (c == true_literal) {
+    return internalize_to_eterm(ctx, ite->arg[1]);
+  }
+  if (c == false_literal) {
+    return internalize_to_eterm(ctx, ite->arg[2]);
+  }
+
+  u2 = internalize_to_eterm(ctx, ite->arg[1]);
+  u3 = internalize_to_eterm(ctx, ite->arg[2]);
+
+  if (context_keep_ite_enabled(ctx)) {
+    // build the if-then-else in the egraph
+    u1 = egraph_literal2occ(ctx->egraph, c);
+    u = egraph_make_ite(ctx->egraph, u1, u2, u3, tau);
+  } else {
+    // eliminate the if-then-else
+    u = make_egraph_variable(ctx, tau);
+    l1 = egraph_make_eq(ctx->egraph, pos_occ(u), u2); 
+    l2 = egraph_make_eq(ctx->egraph, pos_occ(u), u3);
+
+    assert_ite(&ctx->gate_manager, c, l1, l2, true);
+  }
+
+  return pos_occ(u);
+}
+
+
+
+/*
+ * Convert (update f t_1 ... t_n v) to a term
+ * - tau = type of that term
+ */
+static occ_t map_update_to_eterm(context_t *ctx, composite_term_t *update, type_t tau) {
+  eterm_t u;
+  occ_t *a;
+  uint32_t i, n;
+
+  assert(update->arity > 2);
+
+  n = update->arity; 
+  a = alloc_istack_array(&ctx->istack, n);
+  for (i=0; i<n; i++) {
+    a[i] = internalize_to_eterm(ctx, update->arg[i]);
+  }
+
+  // a[0]: function f
+  // a[1] ... a[n-2]: t_1 .. t_{n-2}
+  // a[n-1]: new value v
+  u = egraph_make_update(ctx->egraph, a[0], n-2, a+1, a[n-1], tau);
+
+  free_istack_array(&ctx->istack, a);
+
+  return pos_occ(u);
+}
+
+
+
+/*
+ * Convert (tuple t_1 ... t_n) to a term
+ * - tau = type of the tuple
+ */
+static occ_t map_tuple_to_eterm(context_t *ctx, composite_term_t *tuple, type_t tau) {
+  eterm_t u;
+  occ_t *a;
+  uint32_t i, n;
+
+  n = tuple->arity;
+  a = alloc_istack_array(&ctx->istack, n);
+  for (i=0; i<n; i++) {
+    a[i] = internalize_to_eterm(ctx, tuple->arg[i]);
+  }
+
+  u = egraph_make_tuple(ctx->egraph, n, a, tau);
+  free_istack_array(&ctx->istack, a);
+
+  return pos_occ(u);
+}
+
+
+
+
+
+/****************************************
+ *  CONVERSION TO ARITHMETIC VARIABLES  *
+ ***************************************/
+
+/*
+ * Translate internalization code x to an arithmetic variable
+ * - if the code is for an egraph term u, then we return the 
+ *   theory variable attached to u in the egraph.
+ * - otherwise, x must be the code of an arithmetic variable v,
+ *   we return v.
+ */
+static thvar_t translate_code_to_arith(context_t *ctx, int32_t x) {
+  eterm_t u;
+  thvar_t v;
+
+  assert(code_is_valid(x));
+  
+  if (code_is_eterm(x)) {
+    u = code2eterm(x);
+    assert(ctx->egraph != NULL && egraph_term_is_arith(ctx->egraph, u));
+    v = egraph_term_base_thvar(ctx->egraph, u);
+  } else {
+    v = code2thvar(x);
+  }
+
+  assert(v != null_thvar);
+  return v;
+}
+
+
+
+
+/*
+ * Convert if-then-else to arithmetic variable
+ * - if is_int is true, the if-then-else term is integer
+ * - otherwise, it's real
+ */
+static thvar_t map_ite_to_arith(context_t *ctx, composite_term_t *ite, bool is_int) {
+  literal_t c;
+  thvar_t v, x;
+
+  assert(ite->arity == 3);
+
+  c = internalize_to_literal(ctx, ite->arg[0]); // condition
+  if (c == true_literal) {
+    return internalize_to_arith(ctx, ite->arg[1]);
+  }
+  if (c == false_literal) {
+    return internalize_to_arith(ctx, ite->arg[2]);
+  }
+
+  /*
+   * no simplification: create a fresh variable v and assert (c ==> v = t1)
+   * and (not c ==> v = t2)
+   */
+  v = ctx->arith.create_var(ctx->arith_solver, is_int);
+
+  x = internalize_to_arith(ctx, ite->arg[1]);  
+  ctx->arith.assert_cond_vareq_axiom(ctx->arith_solver, c, v, x); // c ==> v = t1
+
+  x = internalize_to_arith(ctx, ite->arg[2]);
+  ctx->arith.assert_cond_vareq_axiom(ctx->arith_solver, not(c), v, x); // (not c) ==> v = t2
+
+  return v;
+}
+
+
+
+/*
+ * Convert a power product to an arithmetic variable
+ */
+static thvar_t map_pprod_to_arith(context_t *ctx, pprod_t *p) {
+  uint32_t i, n;
+  thvar_t *a;
+  thvar_t x;
+
+  n = p->len;
+  a = alloc_istack_array(&ctx->istack, n);
+  for (i=0; i<n; i++) {
+    a[i] = internalize_to_arith(ctx, p->prod[i].var);
+  }
+
+  x = ctx->arith.create_pprod(ctx->arith_solver, p, a);
+  free_istack_array(&ctx->istack, a);
+
+  return x;
+}
+
+
+/*
+ * Convert polynomial p to an arithmetic variable
+ */
+static thvar_t map_poly_to_arith(context_t *ctx, polynomial_t *p) {
+  uint32_t i, n;
+  monomial_t *mono;
+  thvar_t *a;
+  thvar_t x;
+
+  n = p->nterms;
+  a = alloc_istack_array(&ctx->istack, n);
+  mono = p->mono;
+
+  // skip the constant if any
+  if (mono[0].var == const_idx) {
+    a[0] = null_thvar;
+    mono ++;
+    n --;
+  }
+
+  // deal with the non-constant monomials
+  for (i=0; i<n; i++) {
+    a[i] = internalize_to_arith(ctx, mono[i].var);
+  }
+
+  // build the polynomial
+  x = ctx->arith.create_poly(ctx->arith_solver, p, a);
+  free_istack_array(&ctx->istack, a);
+
+  return x;
+}
+
+
+static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
+  term_table_t *terms;
+  int32_t exception;
+  int32_t code;
+  term_t r;
+  occ_t u;
+  thvar_t x;
+
+  assert(is_arithmetic_term(ctx->terms, t));
+
+  if (! context_has_arith_solver(ctx)) {
+    exception = ARITH_NOT_SUPPORTED;
+    goto abort;
+  }
+
+  /*
+   * Apply term substitution: t --> r
+   */
+  r = intern_tbl_get_root(&ctx->intern, t);
+  if (intern_tbl_root_is_mapped(&ctx->intern, r)) {
+    /*
+     * r already internalized
+     */
+    code = intern_tbl_map_of_root(&ctx->intern, r);
+    x = translate_code_to_arith(ctx, code);
+
+  } else {
+    /*
+     * Compute the internalization
+     */
+    terms = ctx->terms;
+
+    switch (term_kind(terms, r)) {
+    case ARITH_CONSTANT:
+      x = ctx->arith.create_const(ctx->arith_solver, rational_term_desc(terms, r));
+      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
+      break;
+
+    case UNINTERPRETED_TERM:
+      x = ctx->arith.create_var(ctx->arith_solver, is_integer_term(terms, r));
+      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
+      break;
+
+    case ITE_TERM:
+    case ITE_SPECIAL:
+      x = map_ite_to_arith(ctx, ite_term_desc(terms, r), is_integer_term(terms, r));
+      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
+      break;
+
+    case APP_TERM:
+      u = map_apply_to_eterm(ctx, app_term_desc(terms, r), term_type(terms, r));
+      assert(egraph_term_is_arith(ctx->egraph, term_of_occ(u)));
+      intern_tbl_map_root(&ctx->intern, r, occ2code(u));
+      x = egraph_term_base_thvar(ctx->egraph, term_of_occ(u));
+      assert(x != null_thvar);
+      break;
+
+    case SELECT_TERM:
+      u = map_select_to_eterm(ctx, select_term_desc(terms, r), term_type(terms, r));
+      assert(egraph_term_is_arith(ctx->egraph, term_of_occ(u)));
+      intern_tbl_map_root(&ctx->intern, r, occ2code(u));
+      x = egraph_term_base_thvar(ctx->egraph, term_of_occ(u));
+      assert(x != null_thvar);
+      break;
+
+    case POWER_PRODUCT:
+      x = map_pprod_to_arith(ctx, pprod_term_desc(terms, r));
+      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
+      break;
+
+    case ARITH_POLY:
+      x = map_poly_to_arith(ctx, poly_term_desc(terms, r));
+      intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
+      break;
+
+    case VARIABLE:
+      exception = FREE_VARIABLE_IN_FORMULA;
+      goto abort;
+
+    default:
+      exception = INTERNAL_ERROR;
+      goto abort;
+    }
+
+  }
+
+  return x;
+
+ abort:
+  longjmp(ctx->env, exception);
+}
+
+
+
+/****************************
+ *  CONVERSION TO LITERALS  *
+ ***************************/
 
 /*
  * Boolean if-then-else
@@ -2455,7 +2904,7 @@ static literal_t map_ite_to_literal(context_t *ctx, composite_term_t *ite) {
 }
 
 static literal_t map_eq_to_literal(context_t *ctx, composite_term_t *eq) {
-  //  occ_t u, v;
+  occ_t u, v;
   literal_t l1, l2, l;
 
   assert(eq->arity == 2);
@@ -2467,14 +2916,9 @@ static literal_t map_eq_to_literal(context_t *ctx, composite_term_t *eq) {
     l2 = internalize_to_literal(ctx, eq->arg[1]);
     l = mk_iff_gate(&ctx->gate_manager, l1, l2);
   } else {
-    // HACK FOR TESTING
-#if 0
     u = internalize_to_eterm(ctx, eq->arg[0]);
     v = internalize_to_eterm(ctx, eq->arg[1]);
     l = egraph_make_eq(ctx->egraph, u, v);
-#endif
-
-    l = pos_lit(create_boolean_variable(ctx->core));
   }
 
   return l;
@@ -2541,6 +2985,74 @@ static literal_t map_xor_to_literal(context_t *ctx, composite_term_t *xor) {
 
 
 /*
+ * Convert (p t_1 .. t_n) to a literal
+ * - create an egraph atom
+ */
+static literal_t map_apply_to_literal(context_t *ctx, composite_term_t *app) {
+  occ_t *a;
+  uint32_t i, n;
+  literal_t l;
+
+  assert(app->arity > 0);
+  n = app->arity;
+  a = alloc_istack_array(&ctx->istack, n);
+  for (i=0; i<n; i++) {
+    a[i] = internalize_to_eterm(ctx, app->arg[i]);
+  }
+
+  // a[0] = predicate
+  // a[1 ...n-1] = arguments
+  l = egraph_make_pred(ctx->egraph, a[0], n-1, a + 1);
+  free_istack_array(&ctx->istack, a);
+
+  return l;
+}
+
+/*
+ * Arithmetic atom: (t == 0)
+ */
+static literal_t map_arith_eq_to_literal(context_t *ctx, term_t t) {
+  thvar_t x;
+
+  x = internalize_to_arith(ctx, t);
+  return ctx->arith.create_eq_atom(ctx->arith_solver, x);
+}
+
+/*
+ * Arithmetic atom: (t >= 0)
+ */
+static literal_t map_arith_geq_to_literal(context_t *ctx, term_t t) {
+  thvar_t x;
+
+  x = internalize_to_arith(ctx, t);
+  return ctx->arith.create_ge_atom(ctx->arith_solver, x);
+}
+
+
+/*
+ * Arithmetic atom: (eq t1 t2)
+ */
+static literal_t map_arith_bineq_to_literal(context_t *ctx, composite_term_t *eq) {
+  thvar_t x, y;
+  occ_t u, v;
+  literal_t l;
+
+  // add it to the egraph if possible
+  if (context_has_egraph(ctx)) {
+    u = internalize_to_eterm(ctx, eq->arg[0]);
+    v = internalize_to_eterm(ctx, eq->arg[1]);
+    l = egraph_make_eq(ctx->egraph, u, v);
+  } else {
+    x = internalize_to_arith(ctx, eq->arg[0]);
+    y = internalize_to_arith(ctx, eq->arg[1]);
+    l = ctx->arith.create_vareq_atom(ctx->arith_solver, x, y);
+  }
+
+  return l;
+}
+
+
+/*
  * Translate an internalization code x to a literal
  * - if x is the code of an egraph occurrence u, we return the 
  *   theory variable for u in the egraph
@@ -2575,6 +3087,7 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
   uint32_t polarity;
   term_t r;
   literal_t l;
+  occ_t u;
 
   assert(is_boolean_term(ctx->terms, t));  
 
@@ -2611,6 +3124,10 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
       l = true_literal;
       break;
 
+    case VARIABLE:
+      longjmp(ctx->env, FREE_VARIABLE_IN_FORMULA);
+      break;
+	      
     case UNINTERPRETED_TERM:
       l = pos_lit(create_boolean_variable(ctx->core));
       break;
@@ -2632,18 +3149,36 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
       l = map_xor_to_literal(ctx, xor_term_desc(terms, r));
       break;
 
-      // HACK FOR TESTING: MAP ANY ATOM TO A FRESH BOOLEAN VARIABLE
     case ARITH_EQ_ATOM:
+      l = map_arith_eq_to_literal(ctx, arith_eq_arg(terms, r));
+      break;
+
     case ARITH_GE_ATOM:
+      l = map_arith_geq_to_literal(ctx, arith_ge_arg(terms, r));
+      break;
+
+    case ARITH_BINEQ_ATOM:
+      l = map_arith_bineq_to_literal(ctx, arith_bineq_atom_desc(terms, r));
+      break;
+
     case APP_TERM:
+      l = map_apply_to_literal(ctx, app_term_desc(terms, r));
+      break;
+
+    case SELECT_TERM:
+      u = map_select_to_eterm(ctx, select_term_desc(terms, r), bool_type(ctx->types));
+      assert(egraph_term_is_bool(ctx->egraph, term_of_occ(u)));
+      intern_tbl_map_root(&ctx->intern, r, occ2code(u));
+      l = egraph_occ2literal(ctx->egraph, u);
+      return l;
+
     case DISTINCT_TERM:
     case FORALL_TERM:
-    case ARITH_BINEQ_ATOM:
-    case SELECT_TERM:
     case BIT_TERM:
     case BV_EQ_ATOM:
     case BV_GE_ATOM:
     case BV_SGE_ATOM:
+      // HACK FOR TESTING: MAP TO A FRESH BOOLEAN VARIABLE
       l = pos_lit(create_boolean_variable(ctx->core));
       break;
 
@@ -2719,6 +3254,113 @@ static void assert_toplevel_intern(context_t *ctx, term_t t) {
 
 
 
+
+
+/********************************
+ *   ARITHMETIC SUBSTITUTIONS   *
+ *******************************/
+
+/*
+ * Check whether term t can be eliminated by an arithmetic substitution
+ * - t's root must be uninterpreted and not internalized yet
+ */
+static bool is_elimination_candidate(context_t *ctx, term_t t) {
+  term_t r;
+
+  r = intern_tbl_get_root(&ctx->intern, t);
+  return intern_tbl_root_is_free(&ctx->intern, r);
+}
+
+
+/*
+ * Auxiliary function: check whether p/a is an integral polynomial
+ * assuming all variables are integer.
+ * - check whether all coefficients are multiple of a
+ * - a must be non-zero
+ */
+static bool integralpoly_after_div(polynomial_t *p, rational_t *a) {
+  uint32_t i, n;
+
+  if (q_is_one(a) || q_is_minus_one(a)) {
+    return true;
+  }
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    if (! q_divides(a, &p->mono[i].coeff)) return false;
+  }
+  return true;
+}
+
+
+/*
+ * Check whether a top-level assertion (p == 0) can be
+ * rewritten (t == q) where t is not internalized yet.
+ * - all_int is true if p is an integer polynomial (i.e., 
+ *   all coefficients and all terms of p are integer).
+ * - p = input polynomial
+ * - return t or null_term if no adequate t is found
+ */
+static term_t try_poly_substitution(context_t *ctx, polynomial_t *p, bool all_int) {
+  uint32_t i, n;
+  term_t t;
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    t = p->mono[i].var;
+    if (t != const_idx && is_elimination_candidate(ctx, t)) {
+      if (is_real_term(ctx->terms, t) || 
+	  (all_int && integralpoly_after_div(p, &p->mono[i].coeff))) {
+	// t is candidate for elimination
+	return t;
+      }
+    }
+  }
+
+  return NULL_TERM;
+}
+
+
+/*
+ * Build polynomial - p/a + x in the context's monarray where a = coefficient of x in p
+ */
+static void build_poly_substitution(context_t *ctx, polynomial_t *p, term_t x) {
+  monomial_t *q;
+  uint32_t i, n;
+  term_t y;
+  rational_t *a;
+
+  n = p->nterms;
+
+  // first get coefficient of x in p
+  a = NULL; // otherwise GCC complains
+  for (i=0; i<n; i++) {
+    y = p->mono[i].var;
+    if (y == x) {
+      a = &p->mono[i].coeff;
+    }
+  }
+  assert(a != NULL);
+
+  q = context_get_monarray(ctx, n);
+
+  // compute - p/a (but skip monomial a.x)
+  for (i=0; i<n; i++) {
+    y = p->mono[i].var;
+    if (y != x) {
+      q->var = y;
+      q_set_neg(&q->coeff, &p->mono[i].coeff);
+      q_div(&q->coeff, a);
+      q ++;
+    }
+  }
+
+  // end marker
+  q->var = max_idx;
+}
+
+
+
 /*****************************************************
  *  INTERNALIZATION OF TOP-LEVEL ATOMS AND FORMULAS  *
  ****************************************************/
@@ -2732,13 +3374,57 @@ static void assert_toplevel_intern(context_t *ctx, term_t t) {
 static void assert_term(context_t *ctx, term_t t, bool tt);
 
 
+
+/*
+ * Top-level predicate: (p t_1 .. t_n)
+ * - if tt is true: assert (p t_1 ... t_n)
+ * - if tt is false: assert (not (p t_1 ... t_n))
+ */
+static void assert_toplevel_apply(context_t *ctx, composite_term_t *app, bool tt) {
+  occ_t *a;
+  uint32_t i, n;
+
+  assert(app->arity > 0);
+
+  n = app->arity;
+  a = alloc_istack_array(&ctx->istack, n);
+  for (i=0; i<n; i++) {
+    a[i] = internalize_to_eterm(ctx, app->arg[i]);
+  }
+
+  if (tt) {
+    egraph_assert_pred_axiom(ctx->egraph, a[0], n-1, a+1);
+  } else {
+    egraph_assert_notpred_axiom(ctx->egraph, a[0], n-1, a+1);
+  }
+
+  free_istack_array(&ctx->istack, a);
+}
+
+
+/*
+ * Top-level (select i t)
+ * - if tt is true: assert (select i t)
+ * - if tt is false: assert (not (select i t))
+ */
+static void assert_toplevel_select(context_t *ctx, select_term_t *select, bool tt) {
+  occ_t u;
+
+  u = map_select_to_eterm(ctx, select, bool_type(ctx->types));
+  if (! tt) {
+    u = opposite_occ(u);
+  }
+  egraph_assert_axiom(ctx->egraph, u);
+}
+
+
 /*
  * Top-level equality assertion (eq t1 t2):
  * - if tt is true, assert (t1 == t2)
  *   if tt is false, assert (t1 != t2)
  */
 static void assert_toplevel_eq(context_t *ctx, composite_term_t *eq, bool tt) {
-  //  occ_t u1, u2;
+  occ_t u1, u2;
   literal_t l1, l2;
 
   assert(eq->arity == 2);
@@ -2751,7 +3437,6 @@ static void assert_toplevel_eq(context_t *ctx, composite_term_t *eq, bool tt) {
     assert_iff(&ctx->gate_manager, l1, l2, tt);
 
   } else {
-#if 0
     u1 = internalize_to_eterm(ctx, eq->arg[0]);
     u2 = internalize_to_eterm(ctx, eq->arg[1]);
     if (tt) {
@@ -2759,9 +3444,68 @@ static void assert_toplevel_eq(context_t *ctx, composite_term_t *eq, bool tt) {
     } else {
       egraph_assert_diseq_axiom(ctx->egraph, u1, u2);
     }
-    // HACK: FOR TESTING. NOTHING TO DO
-#endif
   }
+}
+
+
+/*
+ * Top-level arithmetic equality:
+ * - t is an arithmetic term
+ * - if tt is true, assert (t == 0)
+ * - otherwise, assert (t != 0)
+ */
+static void assert_toplevel_arith_eq(context_t *ctx, term_t t, bool tt) {
+  term_table_t *terms;
+  polynomial_t *p;
+  thvar_t x;
+
+  assert(is_arithmetic_term(ctx->terms, t));
+  terms = ctx->terms;
+  if (tt && context_arith_elim_enabled(ctx) && term_kind(terms, t) == ARITH_POLY) {
+    /*
+     * Polynomial equality: a_1 t_1 + ... + a_n t_n = 0
+     * attempt to eliminate one of t_1 ... t_n
+     */
+    p = poly_term_desc(terms, t);
+
+  }
+
+  // default
+  x = internalize_to_arith(ctx, t);
+  ctx->arith.assert_eq_axiom(ctx->arith_solver, x, tt);
+}
+
+
+/*
+ * Top-level arithmetic inequality:
+ * - t is an arithmetic term
+ * - if tt is true, assert (t >= 0)
+ * - if tt is false, assert (t < 0)
+ */
+static void assert_toplevel_arith_geq(context_t *ctx, term_t t, bool tt) {
+  thvar_t x;
+
+  assert(is_arithmetic_term(ctx->terms, t));
+
+  x = internalize_to_arith(ctx, t);
+  ctx->arith.assert_ge_axiom(ctx->arith_solver, x, tt);
+}
+
+
+/*
+ * Top-level binary equality: (eq t u)
+ * - both t and u are arithmetic terms
+ * - if tt is true, assert (t == u)
+ * - if tt is false, assert (t != u)
+ */
+static void assert_toplevel_arith_bineq(context_t *ctx, composite_term_t *eq, bool tt) {
+  thvar_t x, y;
+
+  assert(eq->arity == 2);
+
+  x = internalize_to_arith(ctx, eq->arg[0]);
+  y = internalize_to_arith(ctx, eq->arg[1]);
+  ctx->arith.assert_vareq_axiom(ctx, x, y, tt);
 }
 
 
@@ -2920,18 +3664,33 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
     assert_toplevel_eq(ctx, eq_term_desc(terms, t), tt);
     break;
 
-      // HACK FOR TESTING: DON'T ABORT ON ATOMS
   case ARITH_EQ_ATOM:
+    assert_toplevel_arith_eq(ctx, arith_eq_arg(terms, t), tt);
+    break;
+
   case ARITH_GE_ATOM:
+    assert_toplevel_arith_geq(ctx, arith_ge_arg(terms, t), tt);
+    break;
+
+  case ARITH_BINEQ_ATOM:
+    assert_toplevel_arith_bineq(ctx, arith_bineq_atom_desc(terms, t), tt);
+    break;
+
   case APP_TERM:
+    assert_toplevel_apply(ctx, app_term_desc(terms, t), tt);
+    break;
+
+  case SELECT_TERM:
+    assert_toplevel_select(ctx, select_term_desc(terms, t), tt);
+    break;
+
   case DISTINCT_TERM:
   case FORALL_TERM:
-  case ARITH_BINEQ_ATOM:
-  case SELECT_TERM:
   case BIT_TERM:
   case BV_EQ_ATOM:
   case BV_GE_ATOM:
   case BV_SGE_ATOM:
+    // HACK FOR TESTING: DON'T ABORT 
     break;
 
   default:
@@ -3008,18 +3767,35 @@ static void assert_term(context_t *ctx, term_t t, bool tt) {
       assert_toplevel_eq(ctx, eq_term_desc(terms, t), tt);
       break;
 
-      // HACK FOR TESTING: DON'T ABORT ON ATOMS
     case ARITH_EQ_ATOM:
+      assert_toplevel_arith_eq(ctx, arith_eq_arg(terms, t), tt);
+      break;
+
     case ARITH_GE_ATOM:
+      assert_toplevel_arith_geq(ctx, arith_ge_arg(terms, t), tt);
+      break;
+
+    case ARITH_BINEQ_ATOM:
+      assert_toplevel_arith_bineq(ctx, arith_bineq_atom_desc(terms, t), tt);
+      break;
+
     case APP_TERM:
+      assert_toplevel_apply(ctx, app_term_desc(terms, t), tt);
+      break;
+
+    case SELECT_TERM:
+      assert_toplevel_select(ctx, select_term_desc(terms, t), tt);
+      break;
+
     case DISTINCT_TERM:
     case FORALL_TERM:
-    case ARITH_BINEQ_ATOM:
-    case SELECT_TERM:
+      break;
+
     case BIT_TERM:
     case BV_EQ_ATOM:
     case BV_GE_ATOM:
     case BV_SGE_ATOM:
+      // HACK FOR TESTING: DON'T ABORT ON ATOMS
       break;
 
     default:
@@ -3772,6 +4548,10 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
       break;
     }
 
+
+    /*
+     * Notify the core + solver(s)
+     */
     internalization_start(ctx->core); // ?? Get rid of this?
 
     /*

@@ -132,6 +132,7 @@ extern bool pairwise_disequal_terms(term_table_t *tbl, uint32_t n, term_t *a);
 
 
 
+
 /*
  * BOUNDS ON ARITHMETIC TERMS
  */
@@ -159,7 +160,6 @@ extern bool arith_term_is_negative(term_table_t *tbl, term_t t);
  * - return false otherwise
  */
 extern bool arith_term_is_nonzero(term_table_t *tbl, term_t t); 
-
 
 
 
