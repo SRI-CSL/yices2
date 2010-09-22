@@ -12,7 +12,7 @@
 #include "rdl_floyd_warshall.h"
 
 
-#define LOCAL_STATISTICS 1
+#define LOCAL_STATISTICS 0
 
 #if LOCAL_STATISTICS || !defined(NDEBUG)
 

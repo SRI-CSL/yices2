@@ -21,7 +21,7 @@
 #include "idl_floyd_warshall.h"
 
 
-#define TRACE 1
+#define TRACE 0
 
 #if TRACE || !defined(NDEBUG)
 

@@ -45,7 +45,6 @@ extern void print_simplex_bound(FILE *f, simplex_solver_t *solver, uint32_t i);
 extern void print_simplex_var_value(FILE *f, simplex_solver_t *solver, thvar_t v);
 
 
-
 /*
  * Print row in a simplified form: replace fixed variables by their value
  */

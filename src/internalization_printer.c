@@ -27,12 +27,12 @@ static void print_intern_code(FILE *f, int32_t x, type_table_t *types, type_t ta
     if (is_boolean_type(tau)) {
       print_literal(f, code2literal(x));      
     } else if (is_integer_type(tau)) {
-      fprintf(f, "i%"PRId32, code2thvar(x));
+      fprintf(f, "i!%"PRId32, code2thvar(x));
     } else if (is_real_type(tau)) {
-      fprintf(f, "x%"PRId32, code2thvar(x));
+      fprintf(f, "x!%"PRId32, code2thvar(x));
     } else {
       assert(is_bv_type(types, tau));
-      fprintf(f, "u%"PRId32, code2thvar(x));
+      fprintf(f, "u!%"PRId32, code2thvar(x));
     }
   }
 }
@@ -147,12 +147,11 @@ void print_intern_mapping(FILE *f, intern_tbl_t *tbl) {
       if (intern_tbl_root_is_mapped(tbl, r)) {
 	tau = intern_tbl_type_of_root(tbl, r);
 	code = intern_tbl_map_of_root(tbl, r);
-	print_term_name(f, terms, r);
-	fputs(": ", f);
+	fprintf(f, "t!%"PRIu32": ", i);
 	print_term_desc(f, terms, r);
 	fputs(" mapped to ", f);
 	print_intern_code(f, code, types, tau);
-	fputs("\n\n", f);
+	fputs("\n", f);
       }
     }
   }

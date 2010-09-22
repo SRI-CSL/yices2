@@ -475,6 +475,7 @@ static term_t simplify_ite(context_t *ctx, term_t c, term_t t1, term_t t2) {
 /*
  * Simplification for equalities between two terms t1 and t2.
  * - both t1 and t2 are root terms in the internalization table
+ * - the simplification functions don't check whether t1 = t2
  * - all simplification functions either a boolean term t equivalent
  *   to (t1 == t2) or return NULL_TERM if no simplification is found
  */
@@ -1288,7 +1289,12 @@ static void flatten_arith_eq(context_t *ctx, term_t r, bool tt) {
   t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
   t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
 
-  if (t1 == t2) return;
+  if (t1 == t2) {
+    if (!tt) {
+      longjmp(ctx->env, TRIVIALLY_UNSAT);
+    }
+    return; // redundant
+  }
 
   t = simplify_arith_bineq(ctx, t1, t2);
   if (t != NULL_TERM) {
@@ -1341,7 +1347,12 @@ static void flatten_eq(context_t *ctx, term_t r, bool tt) {
     /*
      * Non-boolean
      */
-    if (t1 == t2) return;
+    if (t1 == t2) {
+      if (! tt) {
+	longjmp(ctx->env, TRIVIALLY_UNSAT);
+      }
+      return;
+    }
 
     if (tt) {
       try_substitution(ctx, t1, t2, r);
@@ -1362,7 +1373,12 @@ static void flatten_bveq(context_t *ctx, term_t r, bool tt) {
   t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
   t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
 
-  if (t1 == t2) return;
+  if (t1 == t2) {
+    if (!tt) {
+      longjmp(ctx->env, TRIVIALLY_UNSAT);
+    }
+    return;
+  }
 
   t = simplify_bveq(terms, t1, t2);
   if (t != NULL_TERM) {
@@ -2874,7 +2890,6 @@ static thvar_t map_ite_to_arith(context_t *ctx, composite_term_t *ite, bool is_i
 }
 
 
-
 /*
  * Convert a power product to an arithmetic variable
  */
@@ -2901,24 +2916,23 @@ static thvar_t map_pprod_to_arith(context_t *ctx, pprod_t *p) {
  */
 static thvar_t map_poly_to_arith(context_t *ctx, polynomial_t *p) {
   uint32_t i, n;
-  monomial_t *mono;
   thvar_t *a;
   thvar_t x;
 
   n = p->nterms;
   a = alloc_istack_array(&ctx->istack, n);
-  mono = p->mono;
 
   // skip the constant if any
-  if (mono[0].var == const_idx) {
+  i = 0;
+  if (p->mono[0].var == const_idx) {
     a[0] = null_thvar;
-    mono ++;
-    n --;
+    i ++;
   }
 
   // deal with the non-constant monomials
-  for (i=0; i<n; i++) {
-    a[i] = internalize_to_arith(ctx, mono[i].var);
+  while (i<n) {
+    a[i] = internalize_to_arith(ctx, p->mono[i].var);
+    i ++;
   }
 
   // build the polynomial
@@ -4197,7 +4211,7 @@ static void assert_toplevel_arith_bineq(context_t *ctx, composite_term_t *eq, bo
 
   x = internalize_to_arith(ctx, eq->arg[0]);
   y = internalize_to_arith(ctx, eq->arg[1]);
-  ctx->arith.assert_vareq_axiom(ctx, x, y, tt);
+  ctx->arith.assert_vareq_axiom(ctx->arith_solver, x, y, tt);
 }
 
 

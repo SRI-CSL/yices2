@@ -51,5 +51,12 @@ extern void print_rdl_var_def(FILE *f, rdl_solver_t *solver, thvar_t u);
 extern void print_rdl_var_table(FILE *f, rdl_solver_t *solver);
 
 
+/*
+ * Edges
+ */
+extern void print_rdl_axioms(FILE *f, rdl_solver_t *solver);
+extern void print_rdl_edges(FILE *f, rdl_solver_t *solver);
+
+
 
 #endif

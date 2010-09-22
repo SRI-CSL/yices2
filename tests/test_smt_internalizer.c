@@ -7,15 +7,20 @@
 #include "cputime.h"
 #include "memsize.h"
 
-#include "term_printer.h"
-#include "type_printer.h"
-#include "term_stack.h"
 #include "smt_lexer.h"
 #include "smt_parser.h"
 #include "context.h"
-#include "context_printer.h"
-#include "smt_core_printer.h"
 #include "smt_logic_codes.h"
+#include "term_stack.h"
+
+#include "term_printer.h"
+#include "type_printer.h"
+#include "idl_fw_printer.h"
+#include "rdl_fw_printer.h"
+#include "simplex_printer.h"
+#include "egraph_printer.h"
+#include "smt_core_printer.h"
+#include "context_printer.h"
 
 #include "yices.h"
 #include "yices_globals.h"
@@ -79,16 +84,84 @@ static void print_internalization_code(int32_t code) {
 
 
 /*
+ * Print the egraph state
+ */
+static void dump_egraph(FILE *f, egraph_t *egraph) {
+  fprintf(f, "\n--- Egraph Variables ---\n");
+  print_egraph_terms(f, egraph);
+  fprintf(f, "\n--- Egraph Atoms ---\n");
+  print_egraph_atoms(f, egraph);
+}
+
+
+/*
+ * Print the arithmetic solver state
+ */
+static void dump_idl_solver(FILE *f, idl_solver_t *idl) {
+  fprintf(f, "\n--- IDL Variables ---\n");
+  print_idl_var_table(f, idl);
+  fprintf(f, "\n--- IDL Atoms ---\n");
+  print_idl_atoms(f, idl);
+  fprintf(f, "\n--- IDL Constraints ---\n");
+  print_idl_axioms(f, idl);
+}
+
+static void dump_rdl_solver(FILE *f, rdl_solver_t *rdl) {
+  fprintf(f, "\n--- RDL Variables ---\n");
+  print_rdl_var_table(f, rdl);
+  fprintf(f, "\n--- RDL Atoms ---\n");
+  print_rdl_atoms(f, rdl);
+  fprintf(f, "\n--- RDL Constraints ---\n");
+  print_rdl_axioms(f, rdl);
+}
+
+static void dump_simplex_solver(FILE *f, simplex_solver_t *simplex) {
+  fprintf(f, "\n--- Simplex Variables ---\n");
+  print_simplex_vars(f, simplex);
+  fprintf(f, "\n--- Simplex Atoms ---\n");
+  print_simplex_atoms(f, simplex);
+  fprintf(f, "\n--- Simplex Tableau ---\n");
+  print_simplex_matrix(f, simplex);
+}
+
+
+/*
  * Print the context:
  */
 static void dump_context(FILE *f, context_t *ctx) {
   fprintf(f, "--- Substitutions ---\n");
   print_context_intern_subst(f, ctx);
-  fprintf(f, "\n--- Mapped terms ---\n\n");
+  fprintf(f, "\n--- Internalization ---\n");
   print_context_intern_mapping(f, ctx);
-  fprintf(f, "--- Clauses ---\n");
-  print_clauses(f, ctx->core);
-  printf("\n");
+
+  if (context_has_egraph(ctx)) {
+    dump_egraph(f, ctx->egraph);
+  }
+
+  if (context_has_arith_solver(ctx)) {
+    if (context_has_idl_solver(ctx)) {
+      dump_idl_solver(f, ctx->arith_solver);
+    } else if (context_has_rdl_solver(ctx)) {
+      dump_rdl_solver(f, ctx->arith_solver);
+    } else {
+      assert(context_has_simplex_solver(ctx));
+      dump_simplex_solver(f, ctx->arith_solver);
+    }
+  }
+
+  /*
+   * If arch is still AUTO_IDL or AUTO_RDL,
+   * then flattening + simplification returned unsat
+   * but the core is not initialized
+   * so we can't print the clauses.
+   */
+  if (ctx->arch != CTX_ARCH_AUTO_IDL &&
+      ctx->arch != CTX_ARCH_AUTO_RDL) {
+    fprintf(f, "--- Clauses ---\n");
+    print_clauses(f, ctx->core);
+    fprintf(f, "\n");
+  }
+
 
 #if 0
   fprintf(f, "--- Auxiliary vectors ---\n\n");
@@ -97,9 +170,9 @@ static void dump_context(FILE *f, context_t *ctx) {
   print_context_top_atoms(f, ctx);
   print_context_top_formulas(f, ctx);
   print_context_top_interns(f, ctx);
+  fprintf(f, "\n");
 #endif
 
-  fprintf(f, "\n");
   fflush(f);
 }
 
@@ -173,14 +246,16 @@ static void test_internalization(smt_benchmark_t *bench) {
       /*
        * Default for QF_IDL: automatic 
        */
-      arch = CTX_ARCH_AUTO_IDL;
+      //      arch = CTX_ARCH_AUTO_IDL;
+      arch = CTX_ARCH_IFW;
       break;
 
     case QF_RDL:
       /*
        * Default for QF_RDL: automatic 
        */
-      arch = CTX_ARCH_AUTO_RDL;
+      //      arch = CTX_ARCH_AUTO_RDL;
+      arch = CTX_ARCH_RFW;
       break;
 
     case QF_UF:

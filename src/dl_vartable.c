@@ -129,6 +129,7 @@ static void extend_dl_vartable(dl_vartable_t *tbl) {
     out_of_memory();
   }
   tbl->triple = (dl_triple_t *) safe_realloc(tbl->triple, n * sizeof(dl_triple_t));
+  tbl->size = n;
 }
 
 /*

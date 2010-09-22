@@ -148,10 +148,10 @@ void print_rdl_triple(FILE *f, dl_triple_t *triple) {
   if (! space) {
     q_print(f, &triple->constant); 
   } else if (q_is_pos(&triple->constant)) {
-    printf(" + ");
+    fprintf(f, " + ");
     q_print(f, &triple->constant);
   } else if (q_is_neg(&triple->constant)) {
-    printf(" - ");
+    fprintf(f, " - ");
     q_print_abs(f, &triple->constant);
   }
 }
@@ -199,5 +199,78 @@ void print_rdl_var_table(FILE *f, rdl_solver_t *solver) {
   for (i=0; i<n; i++) {
     print_rdl_var_def(f, solver, i);
     fputc('\n', f);
+  }
+}
+
+
+
+
+/*
+ * Cell x, y
+ */
+static inline rdl_cell_t *rdl_cell(rdl_matrix_t *m, uint32_t x, uint32_t y) {
+  assert(0 <= x && x < m->dim && 0 <= y && y < m->dim);
+  return m->data + x * m->dim + y;
+}
+
+/*
+ * Distance from x to y
+ */
+static inline rdl_const_t *rdl_dist(rdl_matrix_t *m, uint32_t x, uint32_t y) {
+  assert(rdl_cell(m, x, y)->id >= 0);
+  return &rdl_cell(m, x, y)->dist;
+}
+
+
+
+/*
+ * Print edge i
+ */
+static void print_rdl_edge(FILE *f, rdl_solver_t *solver, uint32_t i) {
+  rdl_matrix_t *m;
+  rdl_edge_t *e;
+  rdl_const_t *d;
+  thvar_t x, y;
+
+  assert(0 < i && i < solver->graph.edges.top);
+  e = solver->graph.edges.data + i;
+  m = &solver->graph.matrix;
+
+  x = e->source;
+  y = e->target;
+  d = rdl_dist(m, x, y);
+
+  fprintf(f, "edge[%"PRIu32"]: v!%"PRId32" - v!%"PRId32" <= ", i, x, y);
+  print_rdl_const(f, d);
+}
+
+
+/*
+ * Print all edges
+ */
+void print_rdl_edges(FILE *f, rdl_solver_t *solver) {
+  uint32_t i, n;
+
+  n = solver->graph.edges.top;
+  for (i=1; i<n; i++) {
+    print_rdl_edge(f, solver, i);
+    fputc('\n', f);
+  }
+}
+
+
+
+/*
+ * All axioms: edges labeled with true_literal
+ */
+void print_rdl_axioms(FILE *f, rdl_solver_t *solver) {
+  uint32_t i, n;
+
+  n = solver->graph.edges.top;
+  for (i=1; i<n; i++) {
+    if (solver->graph.edges.lit[i] == true_literal) {
+      print_rdl_edge(f, solver, i);
+      fputc('\n', f);
+    }
   }
 }

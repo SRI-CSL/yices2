@@ -49,4 +49,11 @@ extern void print_idl_var_def(FILE *f, idl_solver_t *solver, thvar_t u);
 extern void print_idl_var_table(FILE *f, idl_solver_t *solver);
 
 
+/*
+ * Edges
+ */
+extern void print_idl_axioms(FILE *f, idl_solver_t *solver);
+extern void print_idl_edges(FILE *f, idl_solver_t *solver);
+
+
 #endif /* __IDL_FW_PRINTER_H */
