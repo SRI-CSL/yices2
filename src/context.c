@@ -2697,6 +2697,7 @@ static occ_t map_apply_to_eterm(context_t *ctx, composite_term_t *app, type_t ta
   free_istack_array(&ctx->istack, a);
 
   skolemize_if_tuple(ctx, pos_occ(u), tau);
+
   return pos_occ(u);
 }
 
@@ -5270,6 +5271,8 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
      */
     internalization_start(ctx->core); // ?? Get rid of this?
 
+    code = CTX_NO_ERROR;
+
     /*
      * Now assert top_eqs, top_atoms, top_formulas, top_interns
      */
@@ -5280,6 +5283,12 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
       assert_toplevel_intern(ctx, v->data[i]);
     }
 
+    // one round of propagation
+    if (! base_propagate(ctx->core)) {
+      code = TRIVIALLY_UNSAT;
+      goto done;
+    }
+
     // second: all top-level equalities
     v = &ctx->top_eqs;
     n = v->size;
@@ -5287,11 +5296,23 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
       assert_toplevel_formula(ctx, v->data[i]);
     }
 
+    // one round of propagation
+    if (! base_propagate(ctx->core)) {
+      code = TRIVIALLY_UNSAT;
+      goto done;
+    }
+
     // third: all top-level atoms (other than equalities)
     v = &ctx->top_atoms;
     n = v->size;
     for (i=0; i<n; i++) {
       assert_toplevel_formula(ctx, v->data[i]);
+    }
+
+    // one round of propagation
+    if (! base_propagate(ctx->core)) {
+      code = TRIVIALLY_UNSAT;
+      goto done;
     }
 
     // last: all non-atomic, formulas
@@ -5302,12 +5323,9 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
     }
 
     // one round of propagation
-    code = CTX_NO_ERROR;
     if (! base_propagate(ctx->core)) {
       code = TRIVIALLY_UNSAT;
     }
-
-    return code;
 
   } else {
     /*
@@ -5317,9 +5335,10 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
     int_queue_reset(&ctx->queue);
     context_free_subst(ctx);
     context_free_marks(ctx);
-
-    return (int32_t) code;
   }
+
+ done:
+  return code;
 }
 
 

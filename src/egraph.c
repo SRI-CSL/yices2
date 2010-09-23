@@ -2019,6 +2019,35 @@ bool egraph_fast_check_distinct_true(egraph_t *egraph, composite_t *d) {
  *   PREDICATE/BOOLEAN TERM CONSTRUCTORS   *
  ******************************************/
 
+#ifndef NDEBUG
+
+/*
+ * For debugging: check whether (t == false) is in the assertion queue
+ * - i.e., t was asserted to be false, but egraph_term_is_false(egraph, t)
+ *   does not hold yet.
+ */
+static bool egraph_term_asserted_false(egraph_t *egraph, eterm_t t) {
+  equeue_elem_t *e;
+  uint32_t i, n;
+  occ_t u;
+
+  u = pos_occ(t);
+
+  n = egraph->stack.top;
+  for (i=egraph->stack.prop_ptr; i<n; i++) {
+    e = egraph->stack.eq + i;
+    if ((e->lhs == u && e->rhs == false_occ) || 
+	(e->lhs == false_occ && e->rhs == u)) {
+      return true;
+    }      
+  }
+
+  return false;
+}
+
+#endif
+
+
 /*
  * Atoms (type = BOOL, theory variable = a fresh boolean variable)
  * - all return pos_occ(theory_variable)
@@ -2047,7 +2076,16 @@ static literal_t egraph_term2literal(egraph_t *egraph, eterm_t t) {
     assert(egraph_term_type(egraph, t) == ETYPE_BOOL);
     v = egraph->terms.thvar[t];
     if (v == null_thvar) {
-      assert(egraph_term_is_eq(egraph, t) && egraph_term_is_false(egraph, t));
+      /*
+       * This assertion is wrong: the equality t == false may no 
+       * be processed yet (i.e., still in the queue). If that's the 
+       * case, egraph_term_is_false(egraph, t) will return false and
+       * the assertion will fail.
+       */
+      //      assert(egraph_term_is_eq(egraph, t) && egraph_term_is_false(egraph, t));
+      assert(egraph_term_is_eq(egraph, t)); 
+      assert(egraph_term_is_false(egraph, t) || egraph_term_asserted_false(egraph, t));
+
       return false_literal;
     }
 #endif
@@ -4813,7 +4851,7 @@ void egraph_assert_diseq_axiom(egraph_t *egraph, occ_t t1, occ_t t2) {
 
   assert(egraph->decision_level == egraph->base_level);
 #if CONSERVATIVE_DISEQ_AXIOMS
-  // conservative appraoch
+  // conservative approach
   l = egraph_make_eq(egraph, t1, t2);
   add_unit_clause(egraph->core, not(l));
 #else
@@ -4837,6 +4875,7 @@ void egraph_assert_distinct_axiom(egraph_t *egraph, uint32_t n, occ_t *t) {
   d = egraph_distinct_term(egraph, n, t);
   if (d != null_eterm) {
     if (egraph_term_is_fresh(egraph, d)) {
+      egraph_set_term_real_type(egraph, d, bool_type(egraph->types));
       egraph_activate_term(egraph, d, ETYPE_BOOL, const_bvar);
     }
 #if TRACE
@@ -4890,6 +4929,7 @@ void egraph_assert_pred_axiom(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a) {
      * but we attach no theory variable to the class of t
      * (thvar[t] is used by the ackermann lemma function)
      */
+    egraph_set_term_real_type(egraph, t, bool_type(egraph->types));
     egraph_activate_term(egraph, t, ETYPE_BOOL, null_thvar);
     egraph->terms.thvar[t] = const_bvar;
 

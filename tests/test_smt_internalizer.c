@@ -247,7 +247,7 @@ static void test_internalization(smt_benchmark_t *bench) {
        * Default for QF_IDL: automatic 
        */
       //      arch = CTX_ARCH_AUTO_IDL;
-      arch = CTX_ARCH_IFW;
+      arch = CTX_ARCH_SPLX;
       break;
 
     case QF_RDL:
@@ -255,7 +255,7 @@ static void test_internalization(smt_benchmark_t *bench) {
        * Default for QF_RDL: automatic 
        */
       //      arch = CTX_ARCH_AUTO_RDL;
-      arch = CTX_ARCH_RFW;
+      arch = CTX_ARCH_SPLX;
       break;
 
     case QF_UF:

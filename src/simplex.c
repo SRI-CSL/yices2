@@ -1283,8 +1283,8 @@ static bool simple_poly(polynomial_t *p) {
 static bool trivial_variable(arith_vartable_t *tbl, thvar_t x) {
   polynomial_t *q;
 
-  assert(arith_var_kind(tbl, x) == AVARTAG_KIND_FREE ||
-	 arith_var_kind(tbl, x) == AVARTAG_KIND_POLY);
+  assert(arith_var_kind(tbl, x) == AVAR_FREE ||
+	 arith_var_kind(tbl, x) == AVAR_POLY);
 
   /*
    * arith_var_def returns a void* pointer
@@ -1474,15 +1474,27 @@ static thvar_t get_var_from_buffer(simplex_solver_t *solver) {
   bool new_var;
 
   b = &solver->buffer;
+
   // check whether b is reduced to a single variable x
   x = poly_buffer_convert_to_var(b);
-  if (x < 0) {
+
+  /*
+   * HACK: the result of poly_buffer_convert_to_var can be
+   *    -1 (null_idx) if b is not of the form 1.x
+   *     0 (const_idx) if b is 1
+   *     a good variable x if b is 1.x (with x>0)
+   *
+   * We must build a poly for x in the first two cases.
+   */
+  if (x <= 0) {
+    assert(x == const_idx || x == null_idx);
     x = get_var_for_poly(&solver->vtbl, poly_buffer_mono(b), poly_buffer_nterms(b), &new_var);
     if (new_var) {
       matrix_add_column(&solver->matrix);
     }
   }
   reset_poly_buffer(b);
+
   return x;
 }
 
@@ -2235,8 +2247,8 @@ void simplex_assert_ge_axiom(simplex_solver_t *solver, thvar_t x, bool tt){
   polynomial_t *q;
   poly_buffer_t *b;
 
-  assert(arith_var_kind(&solver->vtbl, x) == AVARTAG_KIND_FREE ||
-	 arith_var_kind(&solver->vtbl, x) == AVARTAG_KIND_POLY);
+  assert(arith_var_kind(&solver->vtbl, x) == AVAR_FREE ||
+	 arith_var_kind(&solver->vtbl, x) == AVAR_POLY);
 
 #if TRACE
   printf("\n---> simplex_assert_ge_axiom: ");
@@ -2297,8 +2309,8 @@ void simplex_assert_eq_axiom(simplex_solver_t *solver, thvar_t x, bool tt) {
   literal_t l, l1, l2;
   bool is_int;
 
-  assert(arith_var_kind(&solver->vtbl, x) == AVARTAG_KIND_FREE ||
-	 arith_var_kind(&solver->vtbl, x) == AVARTAG_KIND_POLY);
+  assert(arith_var_kind(&solver->vtbl, x) == AVAR_FREE ||
+	 arith_var_kind(&solver->vtbl, x) == AVAR_POLY);
 
 
 #if TRACE

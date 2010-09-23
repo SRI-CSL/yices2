@@ -354,7 +354,7 @@ static inline bool arith_var_is_int(arith_vartable_t *table, thvar_t x) {
  */
 static inline avar_kind_t arith_var_kind(arith_vartable_t *table, thvar_t x) {
   assert(valid_arith_var(table, x));
-  return (avar_kind_t)(table->tag[x] >> 4);
+  return (avar_kind_t)((table->tag[x] >> 4) & 3);
 }
 
 static inline bool arith_var_is_free(arith_vartable_t *table, thvar_t x) {
