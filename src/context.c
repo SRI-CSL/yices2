@@ -2662,8 +2662,8 @@ static occ_t translate_code_to_eterm(context_t *ctx, term_t t, int32_t x) {
       longjmp(ctx->env, INTERNAL_ERROR);
     }
 
-    // remap x to u
-    intern_tbl_remap_root(&ctx->intern, x, occ2code(u));
+    // remap t to u
+    intern_tbl_remap_root(&ctx->intern, t, occ2code(u));
   }
 
   return u;
@@ -5271,60 +5271,77 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
      */
     internalization_start(ctx->core); // ?? Get rid of this?
 
+    /*
+     * Assert top_eqs, top_atoms, top_formulas, top_interns
+     */
     code = CTX_NO_ERROR;
 
-    /*
-     * Now assert top_eqs, top_atoms, top_formulas, top_interns
-     */
     // first: all terms that are already internalized
     v = &ctx->top_interns;
     n = v->size;
-    for (i=0; i<n; i++) {
-      assert_toplevel_intern(ctx, v->data[i]);
-    }
+    if (n > 0) {
+      i = 0;
+      do {
+	assert_toplevel_intern(ctx, v->data[i]);
+	i ++;
+      } while (i < n);
 
-    // one round of propagation
-    if (! base_propagate(ctx->core)) {
-      code = TRIVIALLY_UNSAT;
-      goto done;
+      // one round of propagation
+      if (! base_propagate(ctx->core)) {
+	code = TRIVIALLY_UNSAT;
+	goto done;
+      }
     }
 
     // second: all top-level equalities
     v = &ctx->top_eqs;
     n = v->size;
-    for (i=0; i<n; i++) {
-      assert_toplevel_formula(ctx, v->data[i]);
-    }
+    if (n > 0) {
+      i = 0;
+      do {
+	assert_toplevel_formula(ctx, v->data[i]);
+	i ++;
+      } while (i < n);
 
-    // one round of propagation
-    if (! base_propagate(ctx->core)) {
-      code = TRIVIALLY_UNSAT;
-      goto done;
+      // one round of propagation
+      if (! base_propagate(ctx->core)) {
+	code = TRIVIALLY_UNSAT;
+	goto done;
+      }
     }
 
     // third: all top-level atoms (other than equalities)
     v = &ctx->top_atoms;
     n = v->size;
-    for (i=0; i<n; i++) {
-      assert_toplevel_formula(ctx, v->data[i]);
-    }
+    if (n > 0) {
+      i = 0;
+      do {
+	assert_toplevel_formula(ctx, v->data[i]);
+	i ++;
+      } while (i < n);
 
-    // one round of propagation
-    if (! base_propagate(ctx->core)) {
-      code = TRIVIALLY_UNSAT;
-      goto done;
+      // one round of propagation
+      if (! base_propagate(ctx->core)) {
+	code = TRIVIALLY_UNSAT;
+	goto done;
+      }
     }
 
     // last: all non-atomic, formulas
     v =  &ctx->top_formulas;
     n = v->size;
-    for (i=0; i<n; i++) {
-      assert_toplevel_formula(ctx, v->data[i]);
-    }
+    if (n > 0) {
+      i = 0;
+      do {
+	assert_toplevel_formula(ctx, v->data[i]);
+	i ++;
+      } while (i < n);
 
-    // one round of propagation
-    if (! base_propagate(ctx->core)) {
-      code = TRIVIALLY_UNSAT;
+      // one round of propagation
+      if (! base_propagate(ctx->core)) {
+	code = TRIVIALLY_UNSAT;
+	goto done;
+      }
     }
 
   } else {

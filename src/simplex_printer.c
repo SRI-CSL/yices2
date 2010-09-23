@@ -197,7 +197,7 @@ void print_matrix(FILE *f, arith_vartable_t *vtbl, matrix_t *matrix) {
 
   n = matrix->nrows;
   for (i=0; i<n; i++) {
-    fprintf(f, "  row[%"PRIu32"]:", i);
+    fprintf(f, "  row[%"PRIu32"]: ", i);
     print_space(f, i, n);
     print_row(f, vtbl, matrix->row[i]);
     fputc('\n', f);
@@ -211,7 +211,7 @@ void print_elim_matrix(FILE *f, arith_vartable_t *vtbl, elim_matrix_t *elim) {
 
   n = elim->nrows;
   for (i=0; i<n; i++) {
-    fprintf(f, "  elim[%"PRIu32"]:", i);
+    fprintf(f, "  elim[%"PRIu32"]: ", i);
     print_space(f, i, n);
     print_avar_poly(f, vtbl, elim->row[i]);
     fputs("  (", f);
@@ -227,7 +227,7 @@ void print_fixed_var_vector(FILE *f, arith_vartable_t *vtbl, fvar_vector_t *fvar
 
   n = fvars->nvars;
   for (i=0; i<n; i++) {
-    fprintf(f, "  fixed[%"PRIu32"]:", i);
+    fprintf(f, "  fixed[%"PRIu32"]: ", i);
     print_space(f, i, n);
     print_avar(f, vtbl, fvars->fvar[i].var);
     fputs(" == ", f);
