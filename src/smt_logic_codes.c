@@ -17,6 +17,7 @@ static const char * const smt_logic_names[NUM_SMT_LOGIC_NAMES] = {
   "AUFLIA",
   "AUFLIRA",
   "AUFNIRA",
+  "LRA",
   "QF_AUFBV",
   "QF_AUFLIA",
   "QF_AX",
@@ -24,24 +25,28 @@ static const char * const smt_logic_names[NUM_SMT_LOGIC_NAMES] = {
   "QF_IDL",
   "QF_LIA",
   "QF_LRA",
+  "QF_NIA",
   "QF_RDL",
   "QF_UF",
-  "QF_UFBV32",
+  "QF_UFBV",
   "QF_UFIDL",
   "QF_UFLIA",
   "QF_UFLRA",
+  "QF_UFNRA",
+  "UFNIA",
 };
 
 
 /*
  * Code table: smt_code[i] = code for smt_logic_name[i]
- * - for now this is not very useful, but it may help later if 
+ * - for now, this is not very useful, but it may help later if 
  *   different names correspond to the same logic
  */
 static const smt_logic_t smt_code[NUM_SMT_LOGIC_NAMES] = {
   AUFLIA,
   AUFLIRA,
   AUFNIRA,
+  LRA,
   QF_AUFBV,
   QF_AUFLIA,
   QF_AX,
@@ -49,12 +54,15 @@ static const smt_logic_t smt_code[NUM_SMT_LOGIC_NAMES] = {
   QF_IDL,
   QF_LIA,
   QF_LRA,
+  QF_NIA,
   QF_RDL,
   QF_UF,
-  QF_UFBV32,
+  QF_UFBV,
   QF_UFIDL,
   QF_UFLIA,
   QF_UFLRA,
+  QF_UFNRA,
+  UFNIA,
 };
 
 

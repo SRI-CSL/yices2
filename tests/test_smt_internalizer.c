@@ -58,7 +58,6 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
 };
 
 
-
 /*
  * Print the translation code returned by assert_formulas
  */
@@ -74,8 +73,8 @@ static void print_internalization_code(int32_t code) {
   } else {
     assert(code < 0);
     code = - code;
-    printf("unknown\n");
     printf("Internalization error: %s\n\n", code2error[code]);
+    printf("unknown\n");
   }    
 
   fflush(stdout);
@@ -210,132 +209,161 @@ static bool context_is_empty(context_t *ctx) {
 }
 
 
+
+/*
+ * Conversion of SMT logic code to architecture code
+ * -1 means not supported
+ */
+static const int32_t logic2arch[NUM_SMT_LOGICS + 1] = {
+#if 0
+  // These are the real codes
+  -1,                  // AUFLIA
+  -1,                  // AUFLIRA
+  -1,                  // AUFNIRA
+  -1,                  // LRA
+  CTX_ARCH_EGFUNBV,    // QF_AUFBV
+  CTX_ARCH_EGFUNSPLX,  // QF_AUFLIA
+  CTX_ARCH_EGFUN,      // QF_AX
+  CTX_ARCH_BV,         // QF_BV
+  CTX_ARCH_AUTO_IDL,   // QF_IDL
+  CTX_ARCH_SPLX,       // QF_LIA
+  CTX_ARCH_SPLX,       // QF_LRA
+  -1,                  // QF_NIA
+  CTX_ARCH_AUTO_RDL,   // QF_RDL
+  CTX_ARCH_EG,         // QF_UF
+  CTX_ARCH_EGBV,       // QF_UFBV[xx]
+  CTX_ARCH_EGSPLX,     // QF_UFIDL
+  CTX_ARCH_EGSPLX,     // QF_UFLIA
+  CTX_ARCH_EGSPLX,     // QF_UFLRA
+  -1,                  // QF_UFNRA
+  -1,                  // UFNIA
+#endif
+
+  /*
+   * For testing: use a default architecture
+   * even for logic we don't support yet.
+   */
+  CTX_ARCH_EGSPLX,     // AUFLIA
+  CTX_ARCH_EGSPLX,     // AUFLIRA
+  CTX_ARCH_EGSPLX,     // AUFNIRA
+  CTX_ARCH_EGSPLX,     // LRA
+  CTX_ARCH_EGFUNBV,    // QF_AUFBV
+  CTX_ARCH_EGFUNSPLX,  // QF_AUFLIA
+  CTX_ARCH_EGFUN,      // QF_AX
+
+  CTX_ARCH_EG,         // QF_BV
+
+  CTX_ARCH_AUTO_IDL,   // QF_IDL
+  CTX_ARCH_SPLX,       // QF_LIA
+  CTX_ARCH_SPLX,       // QF_LRA
+  CTX_ARCH_SPLX,       // QF_NIA
+  CTX_ARCH_AUTO_RDL,   // QF_RDL
+  CTX_ARCH_EG,         // QF_UF
+  CTX_ARCH_EGBV,       // QF_UFBV[xx]
+  CTX_ARCH_EGSPLX,     // QF_UFIDL
+  CTX_ARCH_EGSPLX,     // QF_UFLIA
+  CTX_ARCH_EGSPLX,     // QF_UFLRA
+  CTX_ARCH_EGSPLX,     // QF_UFNRA
+  CTX_ARCH_EGSPLX,     // UFNIA  
+
+  -1,                  // SMT_UNKNOWN (error)
+};
+
+
+/*
+ * Specify whether the integer solver should be activated
+ */
+static const bool logic2iflag[NUM_SMT_LOGICS] = {
+  true,   // AUFLIA
+  true,   // AUFLIRA
+  true,   // AUFNIRA
+  false,  // LRA
+  false,  // QF_AUFBV
+  true,   // QF_AUFLIA
+  false,  // QF_AX
+  false,  // QF_BV
+  false,  // QF_IDL
+  true,   // QF_LIA
+  false,  // QF_LRA
+  true,   // QF_NIA
+  false,  // QF_RDL
+  false,  // QF_UF
+  false,  // QF_UFBV[x]
+  false,  // QF_UFIDL
+  true,   // QF_UFLIA
+  false,  // QF_UFLRA
+  false,  // QF_UFNRA
+  true,   // UFNIA
+};
+
+
+/*
+ * Specify whether quantifier support is needed
+ */
+static const bool logic2qflag[NUM_SMT_LOGICS] = {
+  true,   // AUFLIA
+  true,   // AUFLIRA
+  true,   // AUFNIRA
+  true,   // LRA
+  false,  // QF_AUFBV
+  false,  // QF_AUFLIA
+  false,  // QF_AX
+  false,  // QF_BV
+  false,  // QF_IDL
+  false,  // QF_LIA
+  false,  // QF_LRA
+  false,  // QF_NIA
+  false,  // QF_RDL
+  false,  // QF_UF
+  false,  // QF_UFBV[x]
+  false,  // QF_UFIDL
+  false,  // QF_UFLIA
+  false,  // QF_UFLRA
+  false,  // QF_UFNRA
+  true,   // UFNIA
+};
+
+
+
 /*
  * Test the context internalization functions
  */
 static void test_internalization(smt_benchmark_t *bench) {
   FILE *f;
   int32_t code;
-  bool need_icheck;
   smt_logic_t logic;
   context_arch_t arch;
+  bool iflag;
+  bool qflag;
 
   /*
    * Select the architecture based on the benchmark logic
    */
-  need_icheck = false;
-  arch = CTX_ARCH_NOSOLVERS;
-  if (bench->logic_name != NULL) {
-    logic = smt_logic_code(bench->logic_name);
-    switch (logic) {
-    case QF_AUFLIA:
-      /*
-       * Arrays + uf + simplex
-       */
-      arch = CTX_ARCH_EGFUNSPLX;
-      break;
+  if (bench->logic_name == NULL) {
+    printf("No logic specified\n\nunknown\n");
+    return;    
+  } 
 
-    case QF_AX:
-      /*
-       * Egraph + array solver
-       */
-      arch = CTX_ARCH_EGFUN;
-      break;
-
-    case QF_IDL:
-      /*
-       * Default for QF_IDL: automatic 
-       */
-      //      arch = CTX_ARCH_AUTO_IDL;
-      arch = CTX_ARCH_SPLX;
-      break;
-
-    case QF_RDL:
-      /*
-       * Default for QF_RDL: automatic 
-       */
-      //      arch = CTX_ARCH_AUTO_RDL;
-      arch = CTX_ARCH_SPLX;
-      break;
-
-    case QF_UF:
-      /*
-       * Egraph only
-       */
-      arch = CTX_ARCH_EG;
-      break;
-
-
-    case QF_LRA:
-      /*
-       * SIMPLEX only
-       */
-      arch = CTX_ARCH_SPLX;
-      break;
-
-    case QF_LIA:
-      /*
-       * SIMPLEX only, activate periodic integer checks
-       */
-      need_icheck = true;
-      arch = CTX_ARCH_SPLX;
-      break;
-
-    case QF_UFIDL:
-      /*
-       * The default is EGRAPH + SIMPLEX.
-       */
-      arch = CTX_ARCH_EGSPLX;
-      break;
-
-    case QF_UFLRA:
-      /*
-       * EGRAPH + SIMPLEX
-       */
-      arch = CTX_ARCH_EGSPLX;
-      break;
-
-    case QF_UFLIA:
-      /*
-       * EGRAPH + SIMPLEX, activate periodic integer checks
-       */
-      need_icheck = true;
-      arch = CTX_ARCH_EGSPLX;
-      break;
-
-    case QF_AUFBV:
-      /*
-       * EGRAPH + BITVECTOR + ARRAY solver
-       */
-      arch = CTX_ARCH_EGFUNBV;
-      break;
-
-    case QF_UFBV32:
-      /*
-       * EGRAPH + BITVECTOR solver
-       */
-      arch = CTX_ARCH_EGBV;
-      break;
-
-    case QF_BV:
-      /*
-       * Pure bit-vector problem
-       */
-      //      arch = CTX_ARCH_BV; not supported yet
-      break;
-
-    default: // use CTX_NOSOLVERS?
-      break;
-    }
+  logic = smt_logic_code(bench->logic_name);
+  assert(AUFLIA <= logic && logic <= SMT_UNKNOWN);
+  code = logic2arch[logic];
+  if (code < 0) {
+    printf("Logic %s is not supported\n\nunknown\n", bench->logic_name);
+    return;
   }
 
-  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, arch, false);
+  assert(AUFLIA <= logic && logic <= UFNIA);
+  iflag = logic2iflag[logic];
+  qflag = logic2qflag[logic];
+  arch = (context_arch_t) code;
+
+  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, arch, qflag);
   enable_variable_elimination(&context);
   enable_eq_abstraction(&context);
   enable_diseq_and_or_flattening(&context);
   enable_arith_elimination(&context);
   enable_bvarith_elimination(&context);
-  if (need_icheck) {
+  if (iflag) {
     enable_splx_periodic_icheck(&context);
   }
 

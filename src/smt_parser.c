@@ -1225,8 +1225,6 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
 	if (default_bvsize <= 0) {
 	  fprintf(stderr, "invalid bitsize in :theory QF_UFBV\n");
 	  goto cleanup;
-	} else {
-	  fprintf(stderr, "default bitsize: %"PRId32"\n", default_bvsize);
 	}
       }
       state = b3;

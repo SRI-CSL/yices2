@@ -330,11 +330,6 @@ extern void delete_fun_solver(fun_solver_t *solver);
 
 
 /*
- * Get the internalization interface
- */
-extern funsolver_interface_t *fun_solver_funsolver_interface(fun_solver_t *solver);
-
-/*
  * Get the control interface
  */
 extern th_ctrl_interface_t *fun_solver_ctrl_interface(fun_solver_t *solver);

@@ -12,40 +12,14 @@
 #include "rdl_floyd_warshall.h"
 
 
-#define LOCAL_STATISTICS 0
-
-#if LOCAL_STATISTICS || !defined(NDEBUG)
+#ifndef NDEBUG
 
 #include <stdio.h>
-#include <inttypes.h>
 
 #include "rdl_fw_printer.h"
 
-// STATISTICS: TEMPORARY VARIABLES
-
-static uint32_t ncalls_to_add_edge = 0;
-static uint32_t nmodified_cells = 0;
-static uint32_t nsaved_cells = 0;
-static uint32_t ncalls_to_atom_propagation;
-static uint32_t nvisited_atoms = 0;
-static uint32_t npropagated_atoms = 0;
-
-
-static void show_local_statistics(void) {
-  if (ncalls_to_atom_propagation % 500 == 0) {
-    printf("---> add_edge calls: %6"PRIu32", modif/saved cells  = %"PRIu32"/%"PRIu32
-	   "\n---> prop calls:     %6"PRIu32", visited/prop atoms = %"PRIu32"/%"PRIu32"\n",
-	   ncalls_to_add_edge, nmodified_cells, nsaved_cells, ncalls_to_atom_propagation, nvisited_atoms, npropagated_atoms);
-    fflush(stdout);
-    nmodified_cells = 0;
-    nsaved_cells = 0;
-    nvisited_atoms = 0;
-    npropagated_atoms = 0;
-    ncalls_to_add_edge = 0;
-  }
-}
-
 #endif
+
 
 
 /****************
@@ -653,10 +627,6 @@ static void rdl_graph_add_edge(rdl_graph_t *graph, int32_t x, int32_t y, rdl_con
   int32_t *aux;
   uint32_t i, n;  
 
-#if LOCAL_STATISTICS
-  ncalls_to_add_edge ++;
-#endif
-
   m = &graph->matrix;
   d = &graph->c0;
   assert(0 <= x && x < m->dim && 0 <= y && y < m->dim && x != y && c != d);
@@ -711,15 +681,9 @@ static void rdl_graph_add_edge(rdl_graph_t *graph, int32_t x, int32_t y, rdl_con
 	    // save then update cell[w, z]
 	    if (r[z].id < k) {
 	      rdl_graph_save_cell(graph, r + z);
-#if LOCAL_STATISTICS
-	      nsaved_cells ++;
-#endif
 	    }
 	    r[z].id = id;
 	    rdl_const_set(&r[z].dist, d);
-#if LOCAL_STATISTICS
-	    nmodified_cells ++;
-#endif
 	  }
 	}
       }
@@ -1781,9 +1745,6 @@ static void check_atom_for_propagation(rdl_solver_t *solver, int32_t i) {
     mark_atom_assigned(&solver->atoms, i);
     push_atom_index(&solver->astack, pos_index(i));
     propagate_literal(solver->core, pos_lit(a->boolvar), expl);
-#if LOCAL_STATISTICS
-    npropagated_atoms ++;
-#endif
     return;
   }
 
@@ -1795,9 +1756,6 @@ static void check_atom_for_propagation(rdl_solver_t *solver, int32_t i) {
     mark_atom_assigned(&solver->atoms, i);
     push_atom_index(&solver->astack, neg_index(i));
     propagate_literal(solver->core, neg_lit(a->boolvar), expl);
-#if LOCAL_STATISTICS
-    npropagated_atoms ++;
-#endif
   }
 }
 
@@ -1811,16 +1769,10 @@ static void rdl_atom_propagation(rdl_solver_t *solver) {
   rdl_atbl_t *tbl;
   int32_t i;
 
-#if LOCAL_STATISTICS
-  ncalls_to_atom_propagation ++;
-#endif
   assert(solver->astack.top == solver->astack.prop_ptr);
 
   tbl = &solver->atoms;
   for (i=first_unassigned_atom(tbl); i >= 0; i = next_unassigned_atom(tbl, i)) {
-#if LOCAL_STATISTICS
-    nvisited_atoms ++;
-#endif
     check_atom_for_propagation(solver, i);
   }
   
@@ -1941,10 +1893,6 @@ bool rdl_propagate(rdl_solver_t *solver) {
 
   // theory propagation
   rdl_atom_propagation(solver);
-
-#if LOCAL_STATISTICS
-  show_local_statistics();
-#endif
 
   return true;
 }

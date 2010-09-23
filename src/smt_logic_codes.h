@@ -1,17 +1,19 @@
 /*
- * Codes for SMT Logic categories (as of June 2008)
+ * Codes for SMT Logic categories
+ * - as of June 09
  */
 
 #ifndef __SMT_LOGIC_CODES_H
 #define __SMT_LOGIC_CODES_H
 
 /*
- * Codes for the logic (based on benchmarks available in June 2008)
+ * Codes for the logic (based on benchmarks available in June 2009)
  */
 typedef enum smt_logic {
   AUFLIA,
   AUFLIRA,
   AUFNIRA,
+  LRA,
   QF_AUFBV,
   QF_AUFLIA,
   QF_AX,
@@ -19,12 +21,15 @@ typedef enum smt_logic {
   QF_IDL,
   QF_LIA,
   QF_LRA,
+  QF_NIA,
   QF_RDL,
   QF_UF,
-  QF_UFBV32,
+  QF_UFBV,
   QF_UFIDL,
   QF_UFLIA,
   QF_UFLRA,
+  QF_UFNRA,
+  UFNIA,
   SMT_UNKNOWN, // error code
 } smt_logic_t;
 

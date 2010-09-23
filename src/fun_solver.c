@@ -41,7 +41,9 @@
 
 #include <stdio.h>
 #include <inttypes.h>
-#include "solver_printer.h"
+
+#include "smt_core_printer.h"
+#include "egraph_printer.h"
 
 #endif
 
@@ -1641,7 +1643,7 @@ static thvar_t root_app_var(egraph_t *egraph, composite_t *c) {
   eterm_t f;
 
   assert(composite_kind(c) == COMPOSITE_APPLY);
-  f = term_of(c->child[0]);
+  f = term_of_occ(c->child[0]);
   return egraph_class_thvar(egraph, egraph_term_class(egraph, f));
 }
 
@@ -2026,7 +2028,7 @@ thvar_t fun_solver_create_var(fun_solver_t *solver, type_t tau) {
   vtbl = &solver->vtbl;
   x = fun_vartable_alloc(vtbl);
   vtbl->type[x] = tau;
-  vtbl->arity[x] = function_type_ndomains(solver->types, tau);
+  vtbl->arity[x] = function_type_arity(solver->types, tau);
   assign_bit(vtbl->fdom, x, type_has_finite_domain(solver->types, tau));
   vtbl->eterm[x] = null_eterm;
   vtbl->edges[x] = NULL;
@@ -2083,8 +2085,8 @@ void fun_solver_attach_eterm(fun_solver_t *solver, thvar_t x, eterm_t t) {
   if (composite_body(cmp) && composite_kind(cmp) == COMPOSITE_UPDATE) {
     // t is (update f i_1 ... i_n v)
     f = composite_child(cmp, 0);
-    y = egraph_term_base_thvar(egraph, term_of(f));
-    assert(0 <= y && y < solver->vtbl.nvars && solver->vtbl.eterm[y] == term_of(f));
+    y = egraph_term_base_thvar(egraph, term_of_occ(f));
+    assert(0 <= y && y < solver->vtbl.nvars && solver->vtbl.eterm[y] == term_of_occ(f));
     // create the edge y ---> x
     fun_solver_add_edge(solver, y, x, cmp);
 
@@ -2401,14 +2403,14 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
 
     // v->data[m ... i-1] = components of type tau (one variable per component)
     sigma = function_type_range(types, tau);
-    if (finite_type(types, sigma)) {
+    if (is_finite_type(types, sigma)) {
       /*
        * Finite range
        */
 
       // First, attempt to use fresh values
       p = egraph_num_classes_of_type(solver->egraph, sigma); // number of classes of type sigma in the egraph
-      h = card_of_type(solver->types, sigma);
+      h = type_card(solver->types, sigma);
 
 #if TRACE
       printf("---> assign base value: sigma = %"PRId32", card = %"PRIu32", num classes = %"PRIu32"\n",
@@ -2715,7 +2717,7 @@ static uint32_t fun_solver_model_hash(fun_solver_t *solver, thvar_t x) {
     sgn[4] = app_size;
   }
 
-  return jenkins_hash_intarray(5, sgn);
+  return jenkins_hash_intarray(sgn, 5);
 }
 
 
@@ -3115,7 +3117,9 @@ static void build_maps_for_type(fun_solver_t *solver, type_t tau, uint32_t n, th
 
   if (collision) {
     // this should not happen unless f has finite range and infinite domain
-    assert(solver->reconciled && finite_type(solver->types, sigma) && !type_has_finite_domain(solver->types, tau));
+    assert(solver->reconciled && is_finite_type(solver->types, sigma) && 
+	   !type_has_finite_domain(solver->types, tau));
+
     // update the base maps to make them all distinct
     fix_base_maps(solver, store, f, v, n);
 
@@ -3274,14 +3278,6 @@ void fun_solver_free_model(fun_solver_t *solver) {
  **************************/
 
 /*
- * Internationalization descriptor (used by the context)
- */
-static funsolver_interface_t fsolver_context = {
-  (create_fvar_fun_t) fun_solver_create_var,
-  (attach_eterm_fun_t) fun_solver_attach_eterm,
-};
-
-/*
  * Control and generic interface for the egraph
  */
 static th_ctrl_interface_t fsolver_control = {
@@ -3323,10 +3319,6 @@ static fun_egraph_interface_t fsolver_fun_egraph = {
 /*
  * Access to the interface descriptors
  */
-funsolver_interface_t *fun_solver_funsolver_interface(fun_solver_t *solver) {
-  return &fsolver_context;
-}
-
 th_ctrl_interface_t *fun_solver_ctrl_interface(fun_solver_t *solver) {
   return &fsolver_control;
 }

@@ -418,6 +418,7 @@ typedef struct arith_interface_s {
 
 
 
+
 /******************************
  *  DIFFERENCE LOGIC PROFILE  *
  *****************************/

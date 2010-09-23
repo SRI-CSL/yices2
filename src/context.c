@@ -12,6 +12,8 @@
 #include "idl_floyd_warshall.h"
 #include "rdl_floyd_warshall.h"
 #include "simplex.h"
+#include "fun_solver.h"
+
 
 #define TRACE_SUBST  0
 #define TRACE_EQ_ABS 0
@@ -4904,6 +4906,27 @@ static void create_auto_rdl_solver(context_t *ctx) {
 }
 
 
+
+/*
+ * Create the array/function theory solver and attach it to the egraph
+ */
+static void create_fun_solver(context_t *ctx) {
+  fun_solver_t *solver;
+
+  assert(ctx->egraph != NULL && ctx->fun_solver == NULL);
+
+  solver = (fun_solver_t *) safe_malloc(sizeof(fun_solver_t));
+  init_fun_solver(solver, ctx->core, &ctx->gate_manager, ctx->egraph, ctx->types);
+  egraph_attach_funsolver(ctx->egraph, solver, fun_solver_ctrl_interface(solver),
+			  fun_solver_egraph_interface(solver),
+			  fun_solver_fun_egraph_interface(solver));
+
+  ctx->fun_solver = solver;
+}
+
+
+
+
 /*
  * Allocate and initialize solvers based on architecture and mode
  * - core and gate manager must exist at this point 
@@ -4936,6 +4959,11 @@ static void init_solvers(context_t *ctx) {
     create_idl_solver(ctx);
   } else if (solvers & RFW) {
     create_rdl_solver(ctx);
+  }
+
+  // Array solver
+  if (solvers & FSLVR) {
+    create_fun_solver(ctx);
   }
 
   /*
@@ -5111,6 +5139,12 @@ void delete_context(context_t *ctx) {
 
   if (ctx->arith_solver != NULL) {
     delete_arith_solver(ctx);
+  }
+
+  if (ctx->fun_solver != NULL) {
+    delete_fun_solver(ctx->fun_solver);
+    safe_free(ctx->fun_solver);
+    ctx->fun_solver = NULL;
   }
 
   delete_gate_manager(&ctx->gate_manager);
