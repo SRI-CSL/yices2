@@ -243,17 +243,6 @@ extern void simplex_assert_vareq_axiom(simplex_solver_t *solver, thvar_t x, thva
 extern void simplex_assert_cond_vareq_axiom(simplex_solver_t *solver, literal_t c, thvar_t x, thvar_t y);
 
 
-/*
- * Prepare for new assertions:
- * - delete the current tableau
- * - rebuild the contraint matrix
- *
- * This requires solver->saved_row to be true, and it's 
- * necessary if multichecks or push/pop are used.
- */
-extern void simplex_reset_tableau(simplex_solver_t *solver);
-
-
 
 /***************************
  *  SMT/CONTROL FUNCTIONS  *

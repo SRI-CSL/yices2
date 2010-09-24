@@ -183,6 +183,15 @@ extern type_t intern_tbl_type_of_root(intern_tbl_t *tbl, term_t r);
 
 
 /*
+ * Check whether r's class is integer
+ * - r must be a root
+ */
+static inline bool intern_tbl_is_integer_root(intern_tbl_t *tbl, term_t r) {
+  return intern_tbl_type_of_root(tbl, r) == int_type(tbl->types);
+}
+
+
+/*
  * Get the object mapped to r: clear the sign bit
  * - r must be a root and must have positive polarity
  */

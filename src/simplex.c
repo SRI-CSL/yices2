@@ -462,11 +462,12 @@ static void init_arith_trail(arith_trail_stack_t *stack) {
  * - nv = number of variables
  * - na = number of atoms
  * - nr = number of saved rows
+ * - nx = number of active variables saved
  * - pa = propagation pointer in the assertion stack
  * - pb = propagation pointer in the bound stack
  */
-static void arith_trail_save(arith_trail_stack_t *stack, uint32_t nv, uint32_t na, uint32_t nr, 
-			     uint32_t pa, uint32_t pb) {
+static void arith_trail_save(arith_trail_stack_t *stack, uint32_t nv, uint32_t na, 
+			     uint32_t nr, uint32_t nx, uint32_t pa, uint32_t pb) {
   uint32_t i, n;
 
   i = stack->top;
@@ -488,6 +489,7 @@ static void arith_trail_save(arith_trail_stack_t *stack, uint32_t nv, uint32_t n
   stack->data[i].nvars = nv;
   stack->data[i].natoms = na;
   stack->data[i].nsaved_rows = nr;
+  stack->data[i].nsaved_vars = nx;
   stack->data[i].bound_ptr = pb;
   stack->data[i].assertion_ptr = pa;
 
@@ -531,9 +533,9 @@ static inline void reset_arith_trail(arith_trail_stack_t *stack) {
 
 
 
-/****************
- *  SAVED ROWS  *
- ***************/
+/**************************************
+ *  SAVED ROWS AND ACTIVE VARIABLES   *
+ *************************************/
 
 /*
  * Delete polynomials in vector *v
@@ -543,6 +545,8 @@ static void delete_saved_rows(pvector_t *v, uint32_t n) {
   uint32_t i, k;
 
   k = v->size;
+  assert(n <= k);
+
   for (i=n; i<k; i++) {
     free_polynomial(v->data[i]);
     v->data[i] = NULL;
@@ -550,6 +554,30 @@ static void delete_saved_rows(pvector_t *v, uint32_t n) {
   pvector_shrink(v, n);
 }
 
+
+/*
+ * Clear the active marks on all variables in v->data[n ... v->size - 1]
+ * where v = saved_vars, then resize v to n
+ */
+static void deactivate_saved_vars(simplex_solver_t *solver, uint32_t n) {
+  arith_vartable_t *vtbl;
+  ivector_t *v;
+  uint32_t i, k;
+  thvar_t x;
+
+  vtbl = &solver->vtbl;
+  v = &solver->saved_vars;
+  k = v->size;
+  assert(n <= k);
+
+  for (i=n; i<k; i++) {
+    x = v->data[i];
+    assert(arith_var_is_active(vtbl, x));
+    mark_arith_var_inactive(vtbl, x);
+  }
+
+  ivector_shrink(v, n);
+}
 
 
 
@@ -1031,6 +1059,7 @@ void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, gate_manage
 
   init_matrix(&solver->matrix, 0, 0);
   solver->tableau_ready = false;
+  solver->matrix_ready = true;
   solver->save_rows = false;
 
   init_int_heap(&solver->infeasible_vars, 0, 0);
@@ -1038,8 +1067,10 @@ void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, gate_manage
   init_arith_astack(&solver->assertion_queue, DEF_ARITH_ASTACK_SIZE);
   init_eassertion_queue(&solver->egraph_queue);
   init_arith_undo_stack(&solver->stack, DEF_ARITH_UNDO_STACK_SIZE);
+
   init_arith_trail(&solver->trail_stack);
   init_pvector(&solver->saved_rows, 0);
+  init_ivector(&solver->saved_vars, 0);
 
   init_elim_matrix(&solver->elim);
   init_fvar_vector(&solver->fvars);
@@ -1580,7 +1611,22 @@ static void activate_variable(simplex_solver_t *solver, thvar_t x) {
   if (p != NULL && arith_var_is_inactive(vtbl, x)) {
     matrix_add_eq(&solver->matrix, x, p->mono, p->nterms);
     mark_arith_var_active(vtbl, x);
+
+    if (solver->base_level > 0) {
+      /*
+       * save_rows is true if  multichek or push/pop are enabled.
+       * if x was created at an earlier base level, then we 
+       * add it to saved_vars so it can be deactivated on the next 'pop'
+       */
+      assert(solver->save_rows && solver->trail_stack.top == solver->base_level);
+      if (x >= arith_trail_top(&solver->trail_stack)->nvars) {
+	// x was created at level k < n and 
+	// activated as level n = the current base level
+	ivector_push(&solver->saved_vars, x);
+      }
+    }
   }
+
 }
 
 
@@ -2828,6 +2874,7 @@ static void simplex_init_assignment(simplex_solver_t *solver) {
 
   // mark that the tableau is ready
   solver->tableau_ready = true;
+  solver->matrix_ready = false;
 }
 
 
@@ -4404,60 +4451,75 @@ static bool simplex_add_derived_upper_bound(simplex_solver_t *solver, thvar_t x,
  **********************************/
 
 /*
+ * Delete the tableau + elimination matrices etc.
+ */
+static void simplex_reset_tableau(simplex_solver_t *solver) {
+  if (solver->tableau_ready) {
+    assert(solver->save_rows);
+
+    reset_elim_matrix(&solver->elim);
+    reset_fvar_vector(&solver->fvars);
+    reset_matrix(&solver->matrix);
+    
+    // clear statistics
+    solver->stats.num_elim_rows = 0;
+    solver->stats.num_simpl_fvars = 0;
+    solver->stats.num_simpl_rows = 0;
+
+    // reset the propagator if any
+    if (solver->propagator != NULL) {
+      simplex_reset_propagator(solver);
+    }
+
+    // reset the diophantine subsolver if any
+    if (solver->dsolver != NULL) {
+      reset_dsolver(solver->dsolver);
+    }
+
+    solver->tableau_ready = false; 
+  }
+}
+
+
+/*
  * Prepare for new assertions:
- * - reset the current tableau, eliminated rows, and fixed variables structures
  * - rebuild the constraint matrix as it was before the previous call to 
  *   start_search (modulo reordering, the rows may be permuted)
  */
-void simplex_reset_tableau(simplex_solver_t *solver) {
+static void simplex_restore_matrix(simplex_solver_t *solver) {
   pvector_t *v;
   polynomial_t *p;
   uint32_t i, n;
 
-  assert(solver->save_rows && solver->matrix.ncolumns >= solver->vtbl.nvars);
-  
-  reset_elim_matrix(&solver->elim);
-  reset_fvar_vector(&solver->fvars);
-  reset_matrix(&solver->matrix);
+  if (! solver->matrix_ready) {
+    assert(solver->save_rows && solver->matrix.nrows == 0 && 
+	   solver->matrix.ncolumns == 0);
 
-  // rebuild n empty columns in the matrix
-  matrix_add_columns(&solver->matrix, solver->vtbl.nvars);
+    // rebuild n empty columns in the matrix
+    matrix_add_columns(&solver->matrix, solver->vtbl.nvars);
 
-  // restore all the saved rows
-  v = &solver->saved_rows;
-  n = v->size;
-  for (i=0; i<n; i++) {
-    p = v->data[i];
-    matrix_add_row(&solver->matrix, p->mono, p->nterms);
-  }
+    // restore all the saved rows
+    v = &solver->saved_rows;
+    n = v->size;
+    for (i=0; i<n; i++) {
+      p = v->data[i];
+      matrix_add_row(&solver->matrix, p->mono, p->nterms);
+    }
 
-  // restore the variable definitions
-  n = solver->vtbl.nvars;
-  for (i=0; i<n; i++) {
-    if (arith_var_def_is_poly(&solver->vtbl, i)) {
-      p = arith_var_poly_def(&solver->vtbl, i);
-      if (! simple_poly(p)) {
+    // restore the definitions of all active variables
+    n = solver->vtbl.nvars;
+    for (i=0; i<n; i++) {
+      if (arith_var_is_active(&solver->vtbl, i)) {
+	p = arith_var_poly_def(&solver->vtbl, i);
+	assert(!simple_poly(p));
 	matrix_add_eq(&solver->matrix, i, p->mono, p->nterms);
       }
     }
+
+    // mark that the matrix is ready
+    solver->matrix_ready = true;
   }
 
-  // reset the propagator if any
-  if (solver->propagator != NULL) {
-    simplex_reset_propagator(solver);
-  }
-
-  // reset the diophantine subsolver if any
-  if (solver->dsolver != NULL) {
-    reset_dsolver(solver->dsolver);
-  }
-
-  // clear statistics
-  solver->stats.num_elim_rows = 0;
-  solver->stats.num_simpl_fvars = 0;
-  solver->stats.num_simpl_rows = 0;
-  
-  solver->tableau_ready = false;
 }
 
 
@@ -6432,9 +6494,13 @@ static bool simplex_process_egraph_assertions(simplex_solver_t *solver) {
 /*
  * This is called before any new atom/variable is created
  * (before start_search).
+ * - we reset the tableau and restore the matrix if needed
  */
 void simplex_start_internalization(simplex_solver_t *solver) {
-  // do nothing
+  simplex_reset_tableau(solver);
+  simplex_restore_matrix(solver);
+
+  assert(solver->matrix_ready && ! solver->tableau_ready);
 }
 
 
@@ -6465,6 +6531,8 @@ void simplex_start_search(simplex_solver_t *solver) {
   }
   printf("\n");
 #endif
+
+  assert(solver->matrix_ready && !solver->tableau_ready);
 
   // reset the search statistics
   simplex_set_initial_stats(solver);
@@ -6543,7 +6611,7 @@ void simplex_start_search(simplex_solver_t *solver) {
   export_state(solver);
 #endif
 
-#if 1
+#if 0
   //  printf("\n\n*** SIMPLEX START ***\n");
   printf("==== Simplex variables ====\n");
   print_simplex_vars(stdout, solver);
@@ -6919,16 +6987,18 @@ void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
  * Start a new base level
  */
 void simplex_push(simplex_solver_t *solver) {
-  uint32_t nv, na, nr, pa, pb;
+  uint32_t nv, na, nr, nx, pa, pb;
 
-  assert(solver->decision_level == solver->base_level);
+  assert(solver->decision_level == solver->base_level && 
+	 solver->save_rows);
 
   nv = solver->vtbl.nvars;
   na = solver->atbl.natoms;
   nr = solver->saved_rows.size;
+  nx = solver->saved_vars.size;
   pa = solver->assertion_queue.prop_ptr;
   pb = solver->bstack.prop_ptr;
-  arith_trail_save(&solver->trail_stack, nv, na, nr, pa, pb);
+  arith_trail_save(&solver->trail_stack, nv, na, nr, nx, pa, pb);
 
   if (solver->cache != NULL) {
     cache_push(solver->cache);
@@ -6945,7 +7015,9 @@ void simplex_push(simplex_solver_t *solver) {
 void simplex_pop(simplex_solver_t *solver) {
   arith_trail_t *top;
 
-  assert(solver->base_level > 0 && solver->base_level == solver->decision_level);
+  assert(solver->base_level > 0 && 
+	 solver->base_level == solver->decision_level && 
+	 solver->save_rows);
 
   solver->base_level --;
   simplex_backtrack(solver, solver->base_level);
@@ -6954,6 +7026,7 @@ void simplex_pop(simplex_solver_t *solver) {
   arith_vartable_remove_vars(&solver->vtbl, top->nvars);
   arith_atomtable_remove_atoms(&solver->atbl, top->natoms);  
   delete_saved_rows(&solver->saved_rows, top->nsaved_rows);
+  deactivate_saved_vars(solver, top->nsaved_vars);
 
   if (solver->cache != NULL) {
     cache_pop(solver->cache);
@@ -6965,6 +7038,9 @@ void simplex_pop(simplex_solver_t *solver) {
 
   // remove trail object
   arith_trail_pop(&solver->trail_stack);
+
+  // delete the tableau
+  simplex_reset_tableau(solver);
 }
 
 
@@ -6998,6 +7074,8 @@ void simplex_reset(simplex_solver_t *solver) {
 
   reset_matrix(&solver->matrix);
   solver->tableau_ready = false;
+  solver->matrix_ready = true;
+
   solver->last_conflict_row = -1;
   solver->recheck = false;
   solver->integer_solving = false;
@@ -7019,8 +7097,10 @@ void simplex_reset(simplex_solver_t *solver) {
   reset_arith_astack(&solver->assertion_queue);
   reset_eassertion_queue(&solver->egraph_queue);
   reset_arith_undo_stack(&solver->stack);
+
   reset_arith_trail(&solver->trail_stack);
   delete_saved_rows(&solver->saved_rows, 0);
+  ivector_reset(&solver->saved_vars);
 
   reset_elim_matrix(&solver->elim);
   reset_fvar_vector(&solver->fvars);

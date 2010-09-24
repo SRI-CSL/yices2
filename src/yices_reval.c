@@ -30,7 +30,11 @@
 // FOR DUMP
 #include "term_printer.h"
 #include "type_printer.h"
-#include "solver_printer.h"
+#include "idl_fw_printer.h"
+#include "rdl_fw_printer.h"
+#include "simplex_printer.h"
+#include "egraph_printer.h"
+#include "smt_core_printer.h"
 #include "context_printer.h"
 
 // TODO: should need only yices.h
@@ -58,10 +62,20 @@
  * - done: set to true when exit is called, or if there's an error and
  *   interactive is false (i.e., we exit on the first error unless we're
  *   in the interactive mode).
+ *
+ * CONTEXT SETTING
+ * - arch:  context architectur to use
+ * - iflag: true if the integer solver is necessary
+ * - qflag: true to support quantifiers
  */
 static bool interactive;
 static bool done;
 static bool verbose;
+
+static context_arch_t arch;
+static bool iflag;
+static bool qflag;
+
 static uint32_t include_depth;
 static char *input_filename;
 static lexer_t lexer;
@@ -629,12 +643,22 @@ static void init_params_to_defaults(param_t *p) {
  * Allocate and initialize the global context and model.
  * Initialize the parameter table with default values.
  * Set the signal handlers.
+ * - arch = architecture to use
+ * - iflag = true to active the integer solver
+ * - qflag = true to support quantifiers
  */
-static void init_ctx(void) {
+static void init_ctx(context_arch_t arch, bool iflag, bool qflag) {
   context = (context_t *) safe_malloc(sizeof(context_t));
-  init_context(context, __yices_globals.terms, CTX_MODE_INTERACTIVE, CTX_ARCH_EG, false);
+  init_context(context, __yices_globals.terms, CTX_MODE_INTERACTIVE, arch, qflag);
+
   enable_variable_elimination(context);
   enable_eq_abstraction(context);
+  enable_diseq_and_or_flattening(context);
+  enable_arith_elimination(context);
+  enable_bvarith_elimination(context);
+  if (iflag) {
+    enable_splx_periodic_icheck(context);
+  }
 
   init_params_to_defaults(&parameters);
   init_handlers();
@@ -1401,18 +1425,84 @@ static void yices_showparams_cmd(void) {
 
 /*
  * Dump: print all internal tables
+ * + the egraph/core and theory solvers
  */
+static void dump_egraph(FILE *f, egraph_t *egraph) {
+  fprintf(f, "\n--- Egraph Variables ---\n");
+  print_egraph_terms(f, egraph);
+  fprintf(f, "\n--- Egraph Atoms ---\n");
+  print_egraph_atoms(f, egraph);
+}
+
+static void dump_idl_solver(FILE *f, idl_solver_t *idl) {
+  fprintf(f, "\n--- IDL Variables ---\n");
+  print_idl_var_table(f, idl);
+  fprintf(f, "\n--- IDL Atoms ---\n");
+  print_idl_atoms(f, idl);
+  fprintf(f, "\n--- IDL Constraints ---\n");
+  print_idl_axioms(f, idl);
+}
+
+static void dump_rdl_solver(FILE *f, rdl_solver_t *rdl) {
+  fprintf(f, "\n--- RDL Variables ---\n");
+  print_rdl_var_table(f, rdl);
+  fprintf(f, "\n--- RDL Atoms ---\n");
+  print_rdl_atoms(f, rdl);
+  fprintf(f, "\n--- RDL Constraints ---\n");
+  print_rdl_axioms(f, rdl);
+}
+
+static void dump_simplex_solver(FILE *f, simplex_solver_t *simplex) {
+  fprintf(f, "\n--- Simplex Variables ---\n");
+  print_simplex_vars(f, simplex);
+  fprintf(f, "\n--- Simplex Atoms ---\n");
+  print_simplex_atoms(f, simplex);
+  fprintf(f, "\n--- Simplex Tableau ---\n");
+  print_simplex_matrix(f, simplex);
+  fprintf(f, "--- Simplex Bounds ---\n");
+  print_simplex_bounds(f, simplex);
+  fprintf(f, "\n");
+}
+
+
 static void yices_dump_cmd(void) {
   assert(context != NULL);
 
   printf("--- Substitutions ---\n");
   print_context_intern_subst(stdout, context);
-  printf("--- Internalization ---\n");
-  print_context_intern_mapping(stdout, context);
-  printf("--- Clauses ---\n");
-  print_clauses(stdout, context->core);
-  printf("\n");
 
+  printf("\n--- Internalization ---\n");
+  print_context_intern_mapping(stdout, context);
+
+  if (context_has_egraph(context)) {
+    dump_egraph(stdout, context->egraph);
+  }
+
+  if (context_has_arith_solver(context)) {
+    if (context_has_idl_solver(context)) {
+      dump_idl_solver(stdout, context->arith_solver);
+    } else if (context_has_rdl_solver(context)) {
+      dump_rdl_solver(stdout, context->arith_solver);
+    } else {
+      assert(context_has_simplex_solver(context));
+      dump_simplex_solver(stdout, context->arith_solver);
+    }
+  }
+
+  /*
+   * If arch is still AUTO_IDL or AUTO_RDL,
+   * then flattening + simplification returned unsat
+   * but the core is not initialized
+   * so we can't print the clauses.
+   */
+  if (context->arch != CTX_ARCH_AUTO_IDL && 
+      context->arch != CTX_ARCH_AUTO_RDL) {
+    printf("--- Clauses ---\n");
+    print_clauses(stdout, context->core);
+    printf("\n");
+  }
+
+#if 0
   printf("--- Auxiliary vectors ---\n");
   print_context_subst_eqs(stdout, context);
   print_context_top_eqs(stdout, context);
@@ -1420,6 +1510,8 @@ static void yices_dump_cmd(void) {
   print_context_top_formulas(stdout, context);
   print_context_top_interns(stdout, context);
   printf("\n");
+#endif
+
   fflush(stdout);
 }
 
@@ -1620,6 +1712,11 @@ static void yices_term_defined_cmd(char *name, term_t t) {
 int yices_main(int argc, char *argv[]) {
   int32_t code;
 
+  // Default architecture and flags
+  arch = CTX_ARCH_EGFUNSPLX; // egraph + simplex + array solver
+  iflag = true;
+  qflag = false;
+
   // Deal with command-line options
   process_command_line(argc, argv);
 
@@ -1667,7 +1764,7 @@ int yices_main(int argc, char *argv[]) {
     print_version();
   }
 
-  init_ctx();
+  init_ctx(arch, iflag, qflag);
 
   /*
    * Read-eval loop

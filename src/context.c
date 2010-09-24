@@ -1149,6 +1149,28 @@ static void finalize_subst_candidates(context_t *ctx) {
 
 
 
+/****************************************************
+ *  TYPES AFTER SUBSTITUTIONS/VARIABLE ELIMINATION  *
+ ***************************************************/
+
+/*
+ * Get the type of r's class
+ * - r must be a root in the internalization table
+ */
+static inline type_t type_of_root(context_t *ctx, term_t r) {
+  return intern_tbl_type_of_root(&ctx->intern, r);
+}
+
+
+/*
+ * Check whether r is root of an integer class
+ * - r must be a root in the internalization table
+ */
+static inline bool is_integer_root(context_t *ctx, term_t r) {
+  return intern_tbl_is_integer_root(&ctx->intern, r);
+}
+
+
 
 /***************************
  *  ASSERTION FLATTENING   *
@@ -2038,10 +2060,10 @@ static bool check_dl_atom(context_t *ctx, dl_data_t *stats, term_t x, term_t y, 
   assert(is_arithmetic_term(terms, y) && is_pos_term(y) && intern_tbl_is_root(&ctx->intern, y));
 
   // check the types first
-  if (x != zero_term && is_integer_term(terms, x) != idl) {
+  if (x != zero_term && is_integer_root(ctx, x) != idl) {
     return false;
   }
-  if (y != zero_term && is_integer_term(terms, y) != idl) {
+  if (y != zero_term && is_integer_root(ctx, y) != idl) {
     return false;
   }
   if (idl && a != NULL && ! q_is_integer(a)) {
@@ -2644,7 +2666,7 @@ static occ_t translate_code_to_eterm(context_t *ctx, term_t t, int32_t x) {
   } else {
     // x encodes a theory variable or a literal
     // convert that to an egraph term
-    tau = term_type(ctx->terms, t);
+    tau = type_of_root(ctx, t);
     switch (type_kind(ctx->types, tau)) {
     case BOOL_TYPE:
       u = egraph_literal2occ(ctx->egraph, code2literal(x));
@@ -3404,7 +3426,7 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
      * - otherwise, recursively construct an egraph term and map it to r
      */
     terms = ctx->terms;
-    tau = term_type(terms, r);
+    tau = type_of_root(ctx, r);
     if (is_boolean_type(tau)) {
       l = internalize_to_literal(ctx, r);
       u = egraph_literal2occ(ctx->egraph, l);
@@ -3621,18 +3643,18 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
       break;
 
     case UNINTERPRETED_TERM:
-      x = ctx->arith.create_var(ctx->arith_solver, is_integer_term(terms, r));
+      x = ctx->arith.create_var(ctx->arith_solver, is_integer_root(ctx, r));
       intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
       break;
 
     case ITE_TERM:
     case ITE_SPECIAL:
-      x = map_ite_to_arith(ctx, ite_term_desc(terms, r), is_integer_term(terms, r));
+      x = map_ite_to_arith(ctx, ite_term_desc(terms, r), is_integer_root(ctx, r));
       intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
       break;
 
     case APP_TERM:
-      u = map_apply_to_eterm(ctx, app_term_desc(terms, r), term_type(terms, r));
+      u = map_apply_to_eterm(ctx, app_term_desc(terms, r), type_of_root(ctx, r));
       assert(egraph_term_is_arith(ctx->egraph, term_of_occ(u)));
       intern_tbl_map_root(&ctx->intern, r, occ2code(u));
       x = egraph_term_base_thvar(ctx->egraph, term_of_occ(u));
@@ -3640,7 +3662,7 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
       break;
 
     case SELECT_TERM:
-      u = map_select_to_eterm(ctx, select_term_desc(terms, r), term_type(terms, r));
+      u = map_select_to_eterm(ctx, select_term_desc(terms, r), type_of_root(ctx, r));
       assert(egraph_term_is_arith(ctx->egraph, term_of_occ(u)));
       intern_tbl_map_root(&ctx->intern, r, occ2code(u));
       x = egraph_term_base_thvar(ctx->egraph, term_of_occ(u));
