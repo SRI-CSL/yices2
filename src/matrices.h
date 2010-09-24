@@ -375,6 +375,17 @@ extern void matrix_add_tableau_eq(matrix_t *matrix, int32_t x, monomial_t *a, ui
 
 
 
+/*
+ * REMOVE ROWS AND COLUMNS
+ */
+
+/*
+ * Reduce the matrix to dimension n x m 
+ * - n = number of rows to keep
+ * - m = number of columns to keep
+ */
+extern void matrix_shrink(matrix_t *matrix, uint32_t n, uint32_t m);
+
 
 /*
  * ACCESS TO MATRIX COMPONENTS

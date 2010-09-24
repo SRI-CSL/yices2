@@ -295,6 +295,21 @@ byte_t *get_integer_vars_vector(arith_vartable_t *table) {
 }
 
 
+/*
+ * Number of active variables
+ */
+uint32_t num_active_vars(arith_vartable_t *table) {
+  uint32_t i, n, a;
+
+  a = 0;
+  n = table->nvars;
+  for (i=0; i<n; i++) {
+    a += arith_var_is_active(table, i);
+  }
+
+  return a;
+}
+
 
 
 

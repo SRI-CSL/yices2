@@ -224,6 +224,12 @@ static inline uint32_t num_real_vars(arith_vartable_t *table) {
 extern byte_t *get_integer_vars_vector(arith_vartable_t *table);
 
 
+/*
+ * Number of active variables
+ */
+extern uint32_t num_active_vars(arith_vartable_t *table);
+
+
 
 /*
  * VARIABLE CREATION

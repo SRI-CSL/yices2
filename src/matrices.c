@@ -987,7 +987,67 @@ static void compact_matrix(matrix_t *matrix) {
 
 
 
+/*
+ * REMOVAL OF ROWS AND COLUMNS
+ */
 
+/*
+ * Remove rows[n ... nrows-1]
+ */
+static void matrix_remove_rows(matrix_t *matrix, uint32_t n) {
+  uint32_t i, p;
+  row_t *row;
+
+  assert(n <= matrix->nrows);
+
+  p = matrix->nrows;
+  for (i=n; i<p; i++) {
+    row = matrix->row[i];    
+    matrix_detach_row(matrix, row);
+    delete_row(row);
+    matrix->row[i] = NULL;
+  }
+
+  matrix->nrows = n;
+}
+
+
+/*
+ * Remove columns[n ... ncolumns- 1]
+ */
+static void matrix_remove_columns(matrix_t *matrix, uint32_t n) {
+  uint32_t i, p;
+  column_t *col;
+
+  assert(n <= matrix->ncolumns);
+
+  p = matrix->ncolumns;
+  for (i=n; i<p; i++) {
+    col = matrix->column[i];
+    if (col != NULL) {
+      assert(col->nelems == 0);
+      delete_column(col);
+      matrix->column[i] = NULL;
+    }
+  }
+
+  matrix->ncolumns = n;
+}
+
+
+/*
+ * Reduce the matrix to dimension n x m 
+ * - n = number of rows to keep
+ * - m = number of columns to keep
+ */
+void matrix_shrink(matrix_t *matrix, uint32_t n, uint32_t m) {
+  assert(good_matrix(matrix));
+
+  matrix_remove_rows(matrix, n);
+  matrix_remove_columns(matrix, m);
+
+  assert(good_matrix(matrix));
+}
 
 
 

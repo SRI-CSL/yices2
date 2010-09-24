@@ -6967,7 +6967,9 @@ void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
 
 #if DEBUG
   check_vartags(solver);
-  check_nonbasic_assignment(solver);
+  if (solver->tableau_ready) {
+    check_nonbasic_assignment(solver);
+  }
 #endif
 
 #if TRACE
@@ -7014,6 +7016,7 @@ void simplex_push(simplex_solver_t *solver) {
  */
 void simplex_pop(simplex_solver_t *solver) {
   arith_trail_t *top;
+  uint32_t nrows, ncolumns;
 
   assert(solver->base_level > 0 && 
 	 solver->base_level == solver->decision_level && 
@@ -7023,10 +7026,11 @@ void simplex_pop(simplex_solver_t *solver) {
   simplex_backtrack(solver, solver->base_level);
 
   top = arith_trail_top(&solver->trail_stack);
-  arith_vartable_remove_vars(&solver->vtbl, top->nvars);
-  arith_atomtable_remove_atoms(&solver->atbl, top->natoms);  
   delete_saved_rows(&solver->saved_rows, top->nsaved_rows);
   deactivate_saved_vars(solver, top->nsaved_vars);
+
+  arith_vartable_remove_vars(&solver->vtbl, top->nvars);
+  arith_atomtable_remove_atoms(&solver->atbl, top->natoms);  
 
   if (solver->cache != NULL) {
     cache_pop(solver->cache);
@@ -7039,8 +7043,16 @@ void simplex_pop(simplex_solver_t *solver) {
   // remove trail object
   arith_trail_pop(&solver->trail_stack);
 
-  // delete the tableau
-  simplex_reset_tableau(solver);
+  if (solver->tableau_ready) {
+    // delete the tableau
+    simplex_reset_tableau(solver);
+  } else if (solver->matrix_ready) {
+    // push/pop called without check 
+    // remove dead rows and columns
+    nrows = solver->saved_rows.size + num_active_vars(&solver->vtbl);
+    ncolumns = num_arith_vars(&solver->vtbl);
+    matrix_shrink(&solver->matrix, nrows, ncolumns);
+  }
 }
 
 
