@@ -7333,9 +7333,11 @@ void delete_simplex_solver(simplex_solver_t *solver) {
   delete_arith_astack(&solver->assertion_queue);
   delete_eassertion_queue(&solver->egraph_queue);
   delete_arith_undo_stack(&solver->stack);
+
   delete_arith_trail(&solver->trail_stack);
   delete_saved_rows(&solver->saved_rows, 0);
   delete_pvector(&solver->saved_rows);
+  delete_ivector(&solver->saved_vars);
 
   delete_elim_matrix(&solver->elim);
   delete_fvar_vector(&solver->fvars);

@@ -1,5 +1,5 @@
 /*
- * ASSERTION CONTEXT
+ * Assertion CONTEXT
  */
 
 #include "memalloc.h"
@@ -20,7 +20,7 @@
 #define TRACE_DL     0
 #define TRACE        0
 
-#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DL || TRACE
+#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DL || TRACE || 1
 
 #include <stdio.h>
 #include "term_printer.h"
@@ -263,22 +263,32 @@ static void context_reset_poly_buffer(context_t *ctx) {
  * Allocate the auxiliary polynomial buffer and make it large enough
  * for n monomials.
  */
-static monomial_t *context_get_monarray(context_t *ctx, uint32_t n) {
+static polynomial_t *context_get_aux_poly(context_t *ctx, uint32_t n) {
   polynomial_t *p;
+  uint32_t k;
+
+  assert(n > 0);
 
   p = ctx->aux_poly;
-  if (p == NULL) {
-    if (n < 10) n = 10;
-    p = alloc_raw_polynomial(n);
+  k = ctx->aux_poly_size;
+  if (k < n) {
+    if (k == 0) {
+      assert(p == NULL);
+      if (n < 10) n = 10;
+      p = alloc_raw_polynomial(n);
+    } else {
+      free_polynomial(p);
+      p = alloc_raw_polynomial(n);
+    }
     ctx->aux_poly = p;
-  } else if (p->nterms < n) {
-    free_polynomial(p);
-    p = alloc_raw_polynomial(n);
-    ctx->aux_poly = p;
+    ctx->aux_poly_size = n;
   }
 
-  return p->mono;
+  assert(p != NULL && ctx->aux_poly_size >= n);
+  
+  return p;
 }
+
 
 /*
  * Reset the auxiliary polynomial
@@ -290,8 +300,11 @@ static void context_free_aux_poly(context_t *ctx) {
   if (p != NULL) {
     free_polynomial(p);
     ctx->aux_poly = NULL;
+    ctx->aux_poly_size = 0;
   }
 }
+
+
 
 
 
@@ -3975,10 +3988,13 @@ static term_t try_poly_substitution(context_t *ctx, polynomial_t *p, bool all_in
 
 
 /*
- * Build polynomial - p/a + x in the context's monarray where a = coefficient of x in p
+ * Build polynomial - p/a + x in the context's aux_poly buffer
+ * where a = coefficient of x in p
+ * - x must occur in p
  */
-static void build_poly_substitution(context_t *ctx, polynomial_t *p, term_t x) {
-  monomial_t *q;
+static polynomial_t *build_poly_substitution(context_t *ctx, polynomial_t *p, term_t x) {
+  polynomial_t *q;
+  monomial_t *mono;
   uint32_t i, n;
   term_t y;
   rational_t *a;
@@ -3993,24 +4009,96 @@ static void build_poly_substitution(context_t *ctx, polynomial_t *p, term_t x) {
       a = &p->mono[i].coeff;
     }
   }
-  assert(a != NULL);
+  assert(a != NULL && n > 0);
 
-  q = context_get_monarray(ctx, n);
+  q = context_get_aux_poly(ctx, n);
+  q->nterms = n-1;
+  mono = q->mono;
 
   // compute - p/a (but skip monomial a.x)
   for (i=0; i<n; i++) {
     y = p->mono[i].var;
     if (y != x) {
-      q->var = y;
-      q_set_neg(&q->coeff, &p->mono[i].coeff);
-      q_div(&q->coeff, a);
-      q ++;
+      mono->var = y;
+      q_set_neg(&mono->coeff, &p->mono[i].coeff);
+      q_div(&mono->coeff, a);
+      mono ++;
     }
   }
 
   // end marker
-  q->var = max_idx;
+  mono->var = max_idx;
+
+  return q;
 }
+
+
+
+/*
+ * Try to eliminate a toplevel equality (p == 0) by variable substitution:
+ * - i.e., try to rewrite p == 0 into (x - q) == 0 where x is a free variable
+ *   then store the substitution x --> q in the internalization table.
+ * - all_int is true if p is an integer polynomial (i.e., all variables and all 
+ *   coefficients of p are integer)
+ *
+ * - return true if the elimination succeeds
+ * - return false otherwise
+ */
+static bool try_arithvar_elim(context_t *ctx, polynomial_t *p, bool all_int) {
+  polynomial_t *q;
+  uint32_t i, n;
+  term_t t, u, r;
+  thvar_t x;
+
+  /*
+   * First pass: internalize every term of p that's not a variable
+   * - we do that first to avoid circular substitutions (occurs-check)
+   */
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    t = p->mono[i].var;
+    if (t != const_idx && ! is_elimination_candidate(ctx, t)) {
+      (void) internalize_to_arith(ctx, t);
+    }
+  }
+
+  /*
+   * Search for a variable to substitute
+   */
+  u = try_poly_substitution(ctx, p, all_int);
+  if (u == NULL_TERM) {
+    return false; // no substitution found
+  }
+
+
+  /*
+   * p is of the form a.u + p0, we rewrite (p == 0) to (u == q)
+   * where q = -1/a * p0
+   */
+  q = build_poly_substitution(ctx, p, u); // q is in ctx->aux_poly
+  
+  // convert q to a theory variable in the arithmetic solver
+  x = map_poly_to_arith(ctx, q);
+    
+  // map u (and its root) to x
+  r = intern_tbl_get_root(&ctx->intern, u);
+  assert(intern_tbl_root_is_free(&ctx->intern, r) && is_pos_term(r));
+  intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
+
+#if TRACE || 1
+  printf("---> toplevel equality: ");
+  print_polynomial(stdout, p);
+  printf(" == 0\n");
+  printf("     simplified to ");
+  print_term(stdout, ctx->terms, u);
+  printf(" := ");
+  print_polynomial(stdout, q);
+  printf("\n");
+#endif
+
+  return true;
+}
+
 
 
 
@@ -4188,6 +4276,7 @@ static void assert_toplevel_distinct(context_t *ctx, composite_term_t *distinct,
 static void assert_toplevel_arith_eq(context_t *ctx, term_t t, bool tt) {
   term_table_t *terms;
   polynomial_t *p;
+  bool all_int;
   thvar_t x;
 
   assert(is_arithmetic_term(ctx->terms, t));
@@ -4198,7 +4287,10 @@ static void assert_toplevel_arith_eq(context_t *ctx, term_t t, bool tt) {
      * attempt to eliminate one of t_1 ... t_n
      */
     p = poly_term_desc(terms, t);
-
+    all_int = is_integer_term(terms, t);
+    if (try_arithvar_elim(ctx, p, all_int)) { // elimination worked
+      return;
+    }
   }
 
   // default
@@ -5125,11 +5217,11 @@ void init_context(context_t *ctx, term_table_t *terms,
   ctx->cache = NULL;
   ctx->small_cache = NULL;
 
+  ctx->dl_profile = NULL;
   ctx->arith_buffer = NULL;
   ctx->poly_buffer = NULL;
   ctx->aux_poly = NULL;
-  ctx->dl_profile = NULL;
-
+  ctx->aux_poly_size = 0;
 
   /*
    * Allocate and initialize the solvers and core
@@ -5188,10 +5280,10 @@ void delete_context(context_t *ctx) {
   context_free_cache(ctx);
   context_free_small_cache(ctx);
 
+  context_free_dl_profile(ctx);
   context_free_arith_buffer(ctx);
   context_free_poly_buffer(ctx);
   context_free_aux_poly(ctx);
-  context_free_dl_profile(ctx);
 }
 
 

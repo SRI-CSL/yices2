@@ -504,11 +504,14 @@ struct context_s {
   int_bvset_t *cache;
   int_hset_t *small_cache;
 
+  // buffer to store difference-logic data
+  dl_data_t *dl_profile;
+
   // buffers for arithmetic simplification/internalization
   arith_buffer_t *arith_buffer;
   poly_buffer_t *poly_buffer;
   polynomial_t *aux_poly;
-  dl_data_t *dl_profile;
+  uint32_t aux_poly_size;  // number of monomials in aux_poly
 
   // for exception handling
   jmp_buf env;
