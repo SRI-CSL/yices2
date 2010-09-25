@@ -1184,6 +1184,18 @@ static inline bool is_integer_root(context_t *ctx, term_t r) {
 }
 
 
+/*
+ * Check whethre t is in an integer or real class
+ */
+static inline bool in_integer_class(context_t *ctx, term_t t) {
+  return is_integer_root(ctx, intern_tbl_get_root(&ctx->intern, t));
+}
+
+static inline bool in_real_class(context_t *ctx, term_t t) {
+  return is_real_type(type_of_root(ctx, intern_tbl_get_root(&ctx->intern, t)));
+}
+
+
 
 /***************************
  *  ASSERTION FLATTENING   *
@@ -3927,6 +3939,15 @@ static void assert_toplevel_intern(context_t *ctx, term_t t) {
  *******************************/
 
 /*
+ * TODO: improve this in the integer case:
+ * - all_int is based on p's type in the term table and does 
+ *   not take the context's substitutions into account.
+ * - integral_poly_after_div requires all coefficients
+ *   to be integer. This could be generalized to polynomials
+ *   with integer variables and rational coefficients.
+ */
+
+/*
  * Check whether term t can be eliminated by an arithmetic substitution
  * - t's root must be uninterpreted and not internalized yet
  */
@@ -3940,7 +3961,7 @@ static bool is_elimination_candidate(context_t *ctx, term_t t) {
 
 /*
  * Auxiliary function: check whether p/a is an integral polynomial
- * assuming all variables are integer.
+ * assuming all variables and coefficients of p are integer.
  * - check whether all coefficients are multiple of a
  * - a must be non-zero
  */
@@ -3975,7 +3996,7 @@ static term_t try_poly_substitution(context_t *ctx, polynomial_t *p, bool all_in
   for (i=0; i<n; i++) {
     t = p->mono[i].var;
     if (t != const_idx && is_elimination_candidate(ctx, t)) {
-      if (is_real_term(ctx->terms, t) || 
+      if (in_real_class(ctx, t) || 
 	  (all_int && integralpoly_after_div(p, &p->mono[i].coeff))) {
 	// t is candidate for elimination
 	return t;

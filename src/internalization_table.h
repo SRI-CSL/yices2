@@ -40,6 +40,20 @@
  * For boolean classes, the polarity bit is significant: the substitution
  * may map a boolean index 'i' to a negative term '(not t)'. Then the root
  * of 'i' is '(not t)'.
+ *
+ * The type of a class (attached to the class root) is the intersection type
+ * of all the class elements. If the root is not frozen this is the exact
+ * type of the class.
+ *
+ * The exact type of other classes requires recomputing the types as classes 
+ * are merged. For example:
+ *   x :: real
+ *   i :: int
+ *   r :: 3 x + 1
+ * then r has type real in the term table. But if we merge x and i (i.e., after
+ * asserting x == i), then the exact type of r becomes int. We don't do this
+ * dynamic type computation. Type[r] is set when r is added to a class, and it
+ * remain unchanged, independent of substitutions like x == i.
  */
 
 #include <stdint.h>

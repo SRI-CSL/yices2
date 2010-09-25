@@ -311,7 +311,7 @@ static option_val_t opt_val[NUM_OPTIONS];
  * Processing of these options
  */
 static void print_version(void) {
-  printf("Yices %s. Copyright SRI International, 2009\n"
+  printf("Yices %s. Copyright SRI International.\n"
 	 "GMP %s. Copyright Free Software Foundation, Inc.\n"
 	 "Build date: %s\n"
 	 "Platform: %s (%s)\n"

@@ -67,6 +67,7 @@ static const char * const code2string[NUM_TSTACK_ERRORS] = {
  */
 static const char * const opcode2smt_string[NUM_OPCODES] = {
   "no_op",
+
   "define-type",
   "define",
   "bind",
@@ -91,6 +92,7 @@ static const char * const opcode2smt_string[NUM_OPCODES] = {
   "implies",
   "mk-tuple", // not in SMT
   "select",   // not in SMT
+  "tuple update", // not in SMT
   "store",
   "forall",
   "exists",
@@ -160,6 +162,11 @@ static const char * const opcode2smt_string[NUM_OPCODES] = {
   "assert",
   "push",
   "pop",
+  "reset",
+  "show-model",
+  "eval",
+  "set-param",
+  "show-params",
   "dump-context",
 };
 
@@ -170,6 +177,7 @@ static const char * const opcode2smt_string[NUM_OPCODES] = {
  */
 static const char * const opcode2yices_string[NUM_OPCODES] = {
   "no_op",
+
   "define-type",
   "define",
   "bind",
@@ -194,6 +202,7 @@ static const char * const opcode2yices_string[NUM_OPCODES] = {
   "=>",
   "mk-tuple",
   "select",
+  "tuple update",
   "update",
   "forall",
   "exists",
@@ -266,6 +275,8 @@ static const char * const opcode2yices_string[NUM_OPCODES] = {
   "reset",
   "show-model",
   "eval",
+  "set-param",
+  "show-params",
   "dump-context",
 };
 

@@ -2,7 +2,6 @@
  * MAPPING OF TERMS TO SOLVER OBJECTS
  */
 
-
 /*
  * An internalization table keeps track of variable substitutions and
  * of the internal object (egraph term or other) mapped to terms.  The
