@@ -103,6 +103,7 @@ static void dump_idl_solver(FILE *f, idl_solver_t *idl) {
   print_idl_atoms(f, idl);
   fprintf(f, "\n--- IDL Constraints ---\n");
   print_idl_axioms(f, idl);
+  fprintf(f, "\n");
 }
 
 static void dump_rdl_solver(FILE *f, rdl_solver_t *rdl) {
@@ -112,6 +113,7 @@ static void dump_rdl_solver(FILE *f, rdl_solver_t *rdl) {
   print_rdl_atoms(f, rdl);
   fprintf(f, "\n--- RDL Constraints ---\n");
   print_rdl_axioms(f, rdl);
+  fprintf(f, "\n");
 }
 
 static void dump_simplex_solver(FILE *f, simplex_solver_t *simplex) {
