@@ -37,7 +37,7 @@
 
 #define TRACE 0
 
-#if TRACE || 1
+#if TRACE
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -899,7 +899,7 @@ static literal_t apply_edge_equal_args(fun_solver_t *solver, composite_t *c, fun
   if (n == 2) {
     l = egraph_make_eq(egraph, composite_child(c, 1), e->index[0]);
 
-#if TRACE || 1
+#if TRACE
     printf("edge constraint: f!%"PRId32" --> f!%"PRId32"\n", e->source, e->target);
     print_literal(stdout, l);
     printf(" := ");
@@ -917,7 +917,7 @@ static literal_t apply_edge_equal_args(fun_solver_t *solver, composite_t *c, fun
     }
     l = mk_and_gate(solver->gate_manager, v->size, v->data);
 
-#if TRACE || 1
+#if TRACE
     printf("edge constraint: f!%"PRId32" --> f!%"PRId32"\n", e->source, e->target);
     print_literal(stdout, l);
     printf(" := (AND");
@@ -1012,7 +1012,7 @@ static void fun_solver_extensionality_axiom(fun_solver_t *solver, thvar_t x, thv
   l1 = egraph_make_eq(egraph, pos_occ(t), pos_occ(u));
   l2 = egraph_make_eq(egraph, pos_occ(vtbl->eterm[x]), pos_occ(vtbl->eterm[y]));
 
-#if TRACE || 1
+#if TRACE
   printf("\n---- Extensionality axiom for f!%"PRId32" /= f!%"PRId32" ----\n", x, y);
   print_eterm_def(stdout, solver->egraph, vtbl->eterm[x]);
   print_eterm_def(stdout, solver->egraph, vtbl->eterm[y]);
@@ -1427,7 +1427,7 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
 
   vtbl = &solver->vtbl;
 
-#if TRACE || 1
+#if TRACE
   printf("\n--- Update conflict ---\n");
 #if 0
   printf("Classes:\n");
@@ -1469,7 +1469,7 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
   assert(lemma->size == 0);
   // collect the path atoms + equal args atom
   collect_path_atoms(solver, x, z, c, d, lemma);
-#if TRACE || 1
+#if TRACE
   printf("Path length = %"PRIu32"\n", lemma->size);
   fflush(stdout);
 #endif
@@ -1480,7 +1480,7 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
 #endif
 
   if (lemma->size > 0) {
-#if TRACE || 1
+#if TRACE
     printf("path constraints:\n");
     if (lemma->size == 1) {
       print_egraph_atom_of_literal(stdout, solver->egraph, lemma->data[0]);
@@ -1515,7 +1515,7 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
   l = equal_applies(solver, c, d);
   ivector_push(lemma, l);
 
-#if TRACE || 1
+#if TRACE
   printf("consequent:\n");
   print_literal(stdout, l);
   printf(" := ");
@@ -1525,7 +1525,7 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
   
   add_clause(solver->core, lemma->size, lemma->data);
 
-#if TRACE || 1
+#if TRACE
   printf("clause:\n  (OR");
   for (i=0; i<lemma->size; i++) {
     printf(" ");
@@ -1696,7 +1696,7 @@ static bool update_conflicts(fun_solver_t *solver) {
 
 
  done:
-#if TRACE || 1
+#if TRACE
   if (num_updates > 0) {
     printf("---> update axiom in %"PRIu32" classes out of %"PRIu32"\n", num_updates, n);
   }

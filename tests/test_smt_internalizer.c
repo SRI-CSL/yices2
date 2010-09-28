@@ -38,7 +38,7 @@ static context_t context;
  * Conversion of internalization code to an error message
  */
 static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
-  "no error", 
+  "no error",
   "internal error",
   "type error",
   "formula contains free variables",
@@ -360,11 +360,12 @@ static void test_internalization(smt_benchmark_t *bench) {
   arch = (context_arch_t) code;
 
   init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, arch, qflag);
+  sloppy_mode(&context); // FOR TESTING
   enable_variable_elimination(&context);
   enable_eq_abstraction(&context);
   enable_diseq_and_or_flattening(&context);
   enable_arith_elimination(&context);
-  enable_bvarith_elimination(&context);
+  enable_bvarith_elimination(&context);  
   if (iflag) {
     enable_splx_periodic_icheck(&context);
   }
@@ -427,7 +428,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (benchmark_reduced_to_false(&bench)) {
-    printf("Reduced to false\n\nunsat\n\n");
+    printf("Reduced to false\n\nunsat\n");
   } else {
     test_internalization(&bench);
   }
@@ -435,7 +436,7 @@ int main(int argc, char *argv[]) {
 
   time = get_cpu_time();
   mem_used = mem_size() / (1024 * 1024);
-  printf("Construction time: %.4f s\n", time);
+  printf("\nConstruction time: %.4f s\n", time);
   printf("Memory used: %.2f MB\n\n", mem_used);
   fflush(stdout);
 

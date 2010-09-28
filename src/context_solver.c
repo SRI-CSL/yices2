@@ -562,7 +562,7 @@ smt_status_t check_context(context_t *ctx, param_t *params, bool verbose) {
 
 
 
-
+#if 0
 
 /*
  * MODEL CONSTRUCTION
@@ -793,4 +793,4 @@ model_t *context_build_model(context_t *ctx, bool keep_subst) {
 }
 
 
-
+#endif

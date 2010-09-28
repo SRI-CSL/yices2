@@ -31,7 +31,7 @@
 #define TRACE_BB 0
 
 
-#if TRACE || DEBUG || TRACE_INIT || DUMP || YEXPORT || TRACE_PROPAGATION || TRACE_BB || !defined(NDEBUG) || 1
+#if TRACE || DEBUG || TRACE_INIT || DUMP || YEXPORT || TRACE_PROPAGATION || TRACE_BB || !defined(NDEBUG)
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -4572,7 +4572,7 @@ static thvar_t decompose_and_get_dynamic_var(simplex_solver_t *solver) {
       assert(0 <= r && r < matrix->nrows);
       simplex_set_basic_var_value(solver, x, matrix_row(matrix, r));
 
-#if TRACE || 1
+#if TRACE
       printf("     new simplex variable: ");
       print_simplex_vardef(stdout, solver, x);
 #endif
@@ -6011,7 +6011,7 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
 
   assert(arith_var_has_eterm(&solver->vtbl, x1) && arith_var_has_eterm(&solver->vtbl, x2) && x1 != x2);
 
-#if TRACE || 1
+#if TRACE
   printf("---> Simplex: process egraph equality: ");
   print_simplex_var(stdout, solver, x1);
   printf(" = ");
@@ -6049,7 +6049,7 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
     c = &solver->constant;
   }
 
-#if TRACE || 1
+#if TRACE
   printf("     asserting ");
   print_simplex_var(stdout, solver, y);
   printf(" == ");
@@ -6083,7 +6083,7 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
     if (cmp_lb > 0) {
       record_egraph_eq_conflict(solver, k, x1, x2);
 
-#if TRACE || 1
+#if TRACE
       printf("     conflict with bound ");
       print_simplex_bound(stdout, solver, k);
       printf("\n");
@@ -6098,7 +6098,7 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
     if (cmp_ub < 0) {
       record_egraph_eq_conflict(solver, k, x1, x2);
 
-#if TRACE || 1
+#if TRACE
       printf("     conflict with bound ");
       print_simplex_bound(stdout, solver, k);
       printf("\n");
@@ -6178,7 +6178,7 @@ static void simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, thvar
     y = x1; x1 = x2; x2 = y;
   }
 
-#if TRACE || 1
+#if TRACE
   t1 = arith_var_eterm(&solver->vtbl, x1);
   t2 = arith_var_eterm(&solver->vtbl, x2);
   printf("---> Simplex: trichotomy lemma:\n");
@@ -6215,7 +6215,7 @@ static void simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, thvar
     assert(t1 != null_eterm && t2 != null_eterm);
     l = egraph_make_simple_eq(solver->egraph, pos_occ(t1), pos_occ(t2));
 
-#if TRACE || 1
+#if TRACE
     printf("     trichotomy lemma: egraph atom: ");
     print_egraph_atom_of_literal(stdout, solver->egraph, l);
     printf("\n");
@@ -6229,7 +6229,7 @@ static void simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, thvar
     l0 = simplify_dynamic_vareq(solver, x1, x2);
     if (l0 == false_literal) {
       // x1 = x2 is false: add (not (eq t1 t2)))) as an axiom for the egraph
-#if TRACE || 1
+#if TRACE
       printf("     reduced to 1 != 0\n");
       printf("     add unit clause: ");
       print_egraph_atom_of_literal(stdout, solver->egraph, not(l));
@@ -6248,7 +6248,7 @@ static void simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, thvar
       l1 = create_pos_atom(solver, y, c);
       l2 = create_neg_atom(solver, y, c);
 
-#if TRACE || 1
+#if TRACE
       printf("     reduced to: ");
       print_simplex_var(stdout, solver, y);
       printf(" != ");
@@ -6431,7 +6431,7 @@ static void simplex_process_var_distinct(simplex_solver_t *solver, uint32_t n, t
 static void simplex_process_var_diseq(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
   assert(arith_var_has_eterm(&solver->vtbl, x1) && arith_var_has_eterm(&solver->vtbl, x2) && x1 != x2);
 
-#if TRACE || 1
+#if TRACE
   printf("---> Simplex: egraph disequality: ");
   print_simplex_var(stdout, solver, x1);
   printf(" != ");

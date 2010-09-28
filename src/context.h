@@ -75,6 +75,11 @@ typedef enum {
  * Options passed to the simplex solver when it's created
  * - EAGER_LEMMAS
  * - ENABLE_ICHECK
+ *
+ * Options for testing and debugging
+ * - SLOPPY_OPTION: try to keep going when the assertions contain unsupported
+ *                  constructs (e.g., quantifiers/bitvectors).
+ * - DUMP_OPTION
  */
 #define VARELIM_OPTION_MASK      0x10
 #define FLATTENOR_OPTION_MASK    0x20
@@ -92,6 +97,7 @@ typedef enum {
 #define SPLX_ICHECK_OPTION_MASK   0x20000
 
 // FOR TESTING
+#define SLOPPY_OPTION_MASK      0x40000000
 #define DUMP_OPTION_MASK        0x80000000
 
 
@@ -769,21 +775,10 @@ extern int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f);
 
 
 /*
- * Clear boolean assignment and return to the IDLE state.
- * - this can be called after check returns UNKNOWN or SEARCHING
- *   provided the context's mode isn't ONECHECK
- * - after this call, additional formulas can be asserted and 
- *   another call to check_context is allowed. Model construction 
- *   is no longer possible.
- */
-extern void context_clear(context_t *ctx);
-
-
-/*
  * Initialize params with default values
  * (Can't declare it here since that conflicts with yices_reval.c)
  */
-///extern void init_params_to_defaults(param_t *parameters);
+extern void init_params_to_defaults(param_t *parameters);
 
 
 /*
@@ -798,6 +793,51 @@ extern void context_clear(context_t *ctx);
  */
 extern smt_status_t check_context(context_t *ctx, param_t *parameters, bool verbose);
 
+
+/*
+ * Build a model: the context's status must be STATUS_SAT or STATUS_UNKNOWN
+ * - this function allocates a new model and return a pointer to it
+ * - the model maps a value to every uninterpreted terms present in ctx's 
+ *   internalization tables
+ * - if keep_subst is true, the model also stores the current substitution
+ *   as defined by ctx->pseudo_subst
+ * - the user must delete this model using free_model (declared in models.h)
+ */
+extern model_t *context_build_model(context_t *ctx, bool keep_subst);
+
+
+
+/*
+ * Interrupt the search
+ * - this can be called after check_context from a signal handler
+ * - this interrupts the current search
+ * - if clean_interrupt is enabled, calling context_cleanup will
+ *   restore the solver to a good state, equivalent to the state 
+ *   before the call to check_context
+ * - otherwise, the solver is in a bad state from which new assertions
+ *   can't be processed. Cleanup is possible via pop (if push/pop is supported)
+ *   or reset.
+ */
+extern void context_stop_search(context_t *ctx);
+
+
+/*
+ * Cleanup after check is interrupted
+ * - must not be called if the clean_interupt option is disabled
+ * - restore the context to a good state (status = IDLE)
+ */
+extern void context_cleanup(context_t *ctx);
+
+
+/*
+ * Clear boolean assignment and return to the IDLE state.
+ * - this can be called after check returns UNKNOWN or SEARCHING
+ *   provided the context's mode isn't ONECHECK
+ * - after this call, additional formulas can be asserted and 
+ *   another call to check_context is allowed. Model construction 
+ *   is no longer possible.
+ */
+extern void context_clear(context_t *ctx);
 
 
 
@@ -934,8 +974,18 @@ static inline void disable_dump(context_t *ctx) {
   ctx->options &= ~DUMP_OPTION_MASK;
 }
 
+// Sloppy mode
+static inline void sloppy_mode(context_t *ctx) {
+  ctx->options |= SLOPPY_OPTION_MASK;
+}
 
+static inline void strict_mode(context_t *ctx) {
+  ctx->options &= ~SLOPPY_OPTION_MASK;
+}
 
+static inline bool context_in_strict_mode(context_t *ctx) {
+  return (ctx->options & SLOPPY_OPTION_MASK) == 0;
+}
 
 
 /********************************
@@ -1018,6 +1068,14 @@ extern bool context_has_rdl_solver(context_t *ctx);
 extern bool context_has_simplex_solver(context_t *ctx);
 
 
+
+/*
+ * Get the difference-logic profile record (only useful for contexts
+ * with architecture CTX_ARCH_AUTO_IDL or CTX_ARCH_AUTO_RDL).
+ */
+static inline dl_data_t *get_diff_logic_profile(context_t *ctx) {
+  return ctx->dl_profile;
+}
 
 
 /*

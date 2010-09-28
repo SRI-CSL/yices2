@@ -606,6 +606,7 @@ static void print_ok(void) {
  *  CONTEXT INITIALIZATION  *  
  ***************************/
 
+#if 0
 /*
  * Placeholder: initialize the parameters
  */
@@ -638,6 +639,8 @@ static void init_params_to_defaults(param_t *p) {
   p->max_update_conflicts = 20;
   p->max_extensionality = 1;
 }
+
+#endif
 
 /*
  * Allocate and initialize the global context and model.

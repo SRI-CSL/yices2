@@ -20,7 +20,7 @@
 #define TRACE_DL     0
 #define TRACE        0
 
-#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DL || TRACE || 1
+#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DL || TRACE
 
 #include <stdio.h>
 #include "term_printer.h"
@@ -3434,10 +3434,6 @@ static inline literal_t map_arith_bineq_to_literal(context_t *ctx, composite_ter
 
   } else {
     // build (and (t2 == u2) v[0] ... v[n-1])
-    
-    fputc('f', stdout);
-    fflush(stdout);
-
     // first make a copy of v into a[0 .. n-1]
     a = alloc_istack_array(&ctx->istack, n+1);
     for (i=0; i<n; i++) {
@@ -3912,16 +3908,26 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
       break;
 
     case FORALL_TERM:
+      if (context_in_strict_mode(ctx)) {
+	longjmp(ctx->env, QUANTIFIERS_NOT_SUPPORTED);
+      }
+      // sloppy mode: turn forall into a proposition
+      l = pos_lit(create_boolean_variable(ctx->core));
+      break;
+
     case BIT_TERM:
     case BV_EQ_ATOM:
     case BV_GE_ATOM:
     case BV_SGE_ATOM:
-      // HACK FOR TESTING: MAP TO A FRESH BOOLEAN VARIABLE
+      if (context_in_strict_mode(ctx)) {
+	longjmp(ctx->env, BV_NOT_SUPPORTED);
+      }
+      // sloppy mode: turn bitvector atoms into propositions
       l = pos_lit(create_boolean_variable(ctx->core));
       break;
 
     default:
-      longjmp(ctx->env, LOGIC_NOT_SUPPORTED);
+      longjmp(ctx->env, INTERNAL_ERROR);
       break;
     }
 
@@ -4166,7 +4172,7 @@ static bool try_arithvar_elim(context_t *ctx, polynomial_t *p, bool all_int) {
   assert(intern_tbl_root_is_free(&ctx->intern, r) && is_pos_term(r));
   intern_tbl_map_root(&ctx->intern, r, thvar2code(x));
 
-#if TRACE || 1
+#if TRACE
   printf("---> toplevel equality: ");
   print_polynomial(stdout, p);
   printf(" == 0\n");
@@ -4439,10 +4445,6 @@ static void assert_toplevel_arith_bineq(context_t *ctx, composite_term_t *eq, bo
   } else {
     // make a copy of v[0 ... n-1]
     // + reserve a[n] for the literal (eq t2 u2)
-
-    fputc('F', stdout);
-    fflush(stdout);
-
     a = alloc_istack_array(&ctx->istack, n+1);
     for (i=0; i<n; i++) {
       a[i] = v->data[i];
@@ -4665,16 +4667,29 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
     assert_toplevel_distinct(ctx, distinct_term_desc(terms, t), tt);
     break;
 
+  case VARIABLE:
+    code = FREE_VARIABLE_IN_FORMULA;
+    goto abort;
+
   case FORALL_TERM:
+    if (context_in_strict_mode(ctx)) {
+      code = QUANTIFIERS_NOT_SUPPORTED;
+      goto abort;
+    }
+    break;
+
   case BIT_TERM:
   case BV_EQ_ATOM:
   case BV_GE_ATOM:
   case BV_SGE_ATOM:
-    // FOR TESTING: DON'T ABORT 
+    if (context_in_strict_mode(ctx)) {
+      code = BV_NOT_SUPPORTED;
+      goto abort;
+    }
     break;
 
   default:
-    code = LOGIC_NOT_SUPPORTED;
+    code = INTERNAL_ERROR;
     goto abort;
   }
 
@@ -4771,16 +4786,29 @@ static void assert_term(context_t *ctx, term_t t, bool tt) {
       assert_toplevel_distinct(ctx, distinct_term_desc(terms, t), tt);
       break;
 
+    case VARIABLE:
+      code = FREE_VARIABLE_IN_FORMULA;
+      goto abort;
+
     case FORALL_TERM:
+      if (context_in_strict_mode(ctx)) {
+	code = QUANTIFIERS_NOT_SUPPORTED;
+	goto abort;
+      }
+      break;
+
     case BIT_TERM:
     case BV_EQ_ATOM:
     case BV_GE_ATOM:
     case BV_SGE_ATOM:
-      // FOR TESTING: DON'T ABORT
+      if (context_in_strict_mode(ctx)) {
+	code = BV_NOT_SUPPORTED;
+	goto abort;
+      }
       break;
 
     default:
-      code = LOGIC_NOT_SUPPORTED;
+      code = INTERNAL_ERROR;
       goto abort;
     }
   }
@@ -4918,6 +4946,8 @@ static th_ctrl_interface_t null_ctrl = {
 static th_smt_interface_t null_smt = {
   NULL, NULL, NULL, NULL, NULL,
 };
+
+
 
 
 

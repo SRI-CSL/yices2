@@ -14,15 +14,19 @@
 #include "smt_lexer.h"
 #include "smt_parser.h"
 #include "term_stack.h"
+#include "context.h"
+#include "smt_logic_codes.h"
+
 #include "simplex.h"
 #include "idl_floyd_warshall.h"
 #include "rdl_floyd_warshall.h"
 #include "fun_solver.h"
-#include "bvsolver.h"
-#include "context.h"
-#include "model_printer.h"
+// #include "bvsolver.h"
+// #include "model_printer.h"
 #include "command_line.h"
-#include "yices_version.h"
+
+#include "yices.h"
+#include "yices_globals.h"
 #include "yices_exit_codes.h"
 
 
@@ -34,7 +38,7 @@
 /*
  * Define this to nonzero to enable command-line options
  */
-#define COMMAND_LINE_OPTIONS 1
+#define COMMAND_LINE_OPTIONS 0
 
 
 
@@ -83,6 +87,8 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
   "not an IDL formula",
   "not an RDL formula",
   "non-linear arithmetic not supported",
+  "too many variables for the arithmetic solver",
+  "too many atoms for the arithmetic solver",
   "arithmetic solver exception",
   "bitvector solver exception",
 };
@@ -243,6 +249,9 @@ static void parse_command_line(int argc, char *argv[]) {
 
 #if SHOW_STATISTICS
 
+extern const char * const yices_svn_url;
+extern const char * const yices_svn_rev;
+
 /*
  * Version header
  */
@@ -360,6 +369,7 @@ static void show_simplex_stats(simplex_stats_t *stat) {
 }
 
 
+#if 0
 /*
  * Bitvector solver statistics
  */
@@ -372,6 +382,7 @@ static void show_bvsolver_stats(bv_solver_t *solver) {
   printf(" sge atoms               : %"PRIu32"\n", bv_solver_num_sge_atoms(solver));
 }
 
+#endif
 
 /*
  * Get the arithmetic solver
@@ -433,9 +444,11 @@ static void print_results() {
     }
   }
 
+#if 0
   if (context_has_bv_solver(&context)) {
     show_bvsolver_stats(context.bv_solver);
   }
+#endif
 
   printf("\nSearch time             : %.4f s\n", search_time);
   mem_used = mem_size() / (1024 * 1024);
@@ -467,13 +480,6 @@ static void print_presearch_stats() {
   core = context.core;
   egraph = context.egraph;
 
-
-  printf("eliminated equalities   : %"PRIu32"\n", num_eliminated_eqs(&context));
-  printf("subst candidates        : %"PRIu32"\n", num_subst_candidates(&context));
-  printf("subtitutions            : %"PRIu32"\n", num_substitutions(&context));
-  printf("top equalities          : %"PRIu32"\n", num_top_eqs(&context));
-  printf("top atoms               : %"PRIu32"\n", num_top_atoms(&context));
-  printf("top formulas            : %"PRIu32"\n", num_top_formulas(&context));
 
   printf("boolean variables       : %"PRIu32"\n", core->nvars);
   printf("atoms                   : %"PRIu32"\n", core->atoms.natoms);
@@ -636,7 +642,7 @@ static void print_internalization_code(int32_t code) {
   } else if (code < 0) {
     printf("unknown\n");
     code = - code;
-    if (code <= NONLINEAR_NOT_SUPPORTED) {
+    if (code <= BVSOLVER_EXCEPTION) {
       printf("Internalization error: %s\n\n", code2error[code]);
     } else {
       printf("%s\n\n", code2error[code]);
@@ -833,7 +839,7 @@ static int process_benchmark(void) {
       arch = CTX_ARCH_EGFUNBV;
       break;
 
-    case QF_UFBV32:
+    case QF_UFBV:
       /*
        * EGRAPH + BITVECTOR solver
        */
@@ -845,7 +851,6 @@ static int process_benchmark(void) {
        * Pure bit-vector problem
        */
       arch = CTX_ARCH_BV;
-      //      arch = CTX_ARCH_EGBV;
       break;
 
     default:
@@ -867,7 +872,7 @@ static int process_benchmark(void) {
    * and global search options
    */
   init_params_to_defaults(&params);
-  init_context(&context, CTX_MODE_ONECHECK, arch, false);
+  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, arch, false);
   switch (arch) {
   case CTX_ARCH_EG:
     // QF_UF options: --var-elim --cache-tclauses --learn-eq --dyn-bool-ack
@@ -1054,7 +1059,7 @@ static int process_benchmark(void) {
    */
   delete_context(&context);
   delete_benchmark(&bench);
-  yices_cleanup();
+  yices_exit();
 
   return YICES_EXIT_SUCCESS;
 }
