@@ -1889,12 +1889,10 @@ static term_t flatten_ite_equality(context_t *ctx, ivector_t *v, term_t t, term_
   term_table_t *terms;
   composite_term_t *ite;
 
-  assert(v->size == 0);
-
   terms = ctx->terms;
   assert(is_pos_term(t) && good_term(terms, t));
 
-  while (term_kind(terms, t)) {
+  while (is_ite_term(terms, t)) {
     // t is (ite c a b)
     ite = ite_term_desc(terms, t);
     assert(ite->arity == 3);
@@ -3385,23 +3383,85 @@ static literal_t map_arith_geq_to_literal(context_t *ctx, term_t t) {
 /*
  * Arithmetic atom: (eq t1 t2)
  */
-static literal_t map_arith_bineq_to_literal(context_t *ctx, composite_term_t *eq) {
+static literal_t map_arith_bineq_to_literal_aux(context_t *ctx, term_t t1, term_t t2) {
   thvar_t x, y;
   occ_t u, v;
   literal_t l;
 
-  // add it to the egraph if possible
+  // add the atom to the egraph if possible
   if (context_has_egraph(ctx)) {
-    u = internalize_to_eterm(ctx, eq->arg[0]);
-    v = internalize_to_eterm(ctx, eq->arg[1]);
+    u = internalize_to_eterm(ctx, t1);
+    v = internalize_to_eterm(ctx, t2);
     l = egraph_make_eq(ctx->egraph, u, v);
   } else {
-    x = internalize_to_arith(ctx, eq->arg[0]);
-    y = internalize_to_arith(ctx, eq->arg[1]);
+    x = internalize_to_arith(ctx, t1);
+    y = internalize_to_arith(ctx, t2);
     l = ctx->arith.create_vareq_atom(ctx->arith_solver, x, y);
   }
 
+  return l;  
+}
+
+static inline literal_t map_arith_bineq_to_literal(context_t *ctx, composite_term_t *eq) {
+#if 1
+  ivector_t *v;
+  int32_t *a;
+  uint32_t i, n;
+  term_t t1, u1, t2, u2;
+  literal_t l;
+
+  assert(eq->arity == 2);
+  t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
+  u1 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
+
+  /*
+   * Try to flatten the if-then-else equalities
+   */
+  v = &ctx->aux_vector;
+  assert(v->size == 0);
+  t2 = flatten_ite_equality(ctx, v, t1, u1);
+  u2 = flatten_ite_equality(ctx, v, u1, t2);
+
+  /*
+   * (t1 == u1) is equivalent to (and (t2 == u2) v[0] ... v[n-1])
+   * where v[i] = element i of v
+   */
+  n = v->size;
+  if (n == 0) {
+    // empty v: return (t2 == u2)
+    assert(t1 == t2 && u1 == u2);
+    l = map_arith_bineq_to_literal_aux(ctx, t2, u2);
+
+  } else {
+    // build (and (t2 == u2) v[0] ... v[n-1])
+    
+    fputc('f', stdout);
+    fflush(stdout);
+
+    // first make a copy of v into a[0 .. n-1]
+    a = alloc_istack_array(&ctx->istack, n+1);
+    for (i=0; i<n; i++) {
+      a[i] = v->data[i];
+    }
+    ivector_reset(v);
+
+    // build the internalization of a[0 .. n-1]
+    for (i=0; i<n; i++) {
+      a[i] = internalize_to_literal(ctx, a[i]);
+    }
+    a[n] = map_arith_bineq_to_literal_aux(ctx, t2, u2);
+
+    // build (and a[0] ... a[n])
+    l = mk_and_gate(&ctx->gate_manager, n+1, a);
+    free_istack_array(&ctx->istack, a);
+  }
+
   return l;
+
+#else
+  assert(eq->arity == 2);
+  return map_arith_bineq_to_literal_aux(ctx, eq->arg[0], eq->arg[1]);
+#endif
 }
 
 
@@ -4343,6 +4403,77 @@ static void assert_toplevel_arith_geq(context_t *ctx, term_t t, bool tt) {
  * - if tt is false, assert (t != u)
  */
 static void assert_toplevel_arith_bineq(context_t *ctx, composite_term_t *eq, bool tt) {
+#if 1
+  ivector_t *v;
+  int32_t *a;
+  uint32_t i, n;
+  term_t t1, u1, t2, u2;
+  thvar_t x, y;
+  literal_t l;
+
+  assert(eq->arity == 2);
+  t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
+  u1 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
+
+  /*
+   * eq is equivalent to (t1 == u1)
+   * try flattening of if-then-else equality
+   */
+  v = &ctx->aux_vector;
+  assert(v->size == 0);
+  t2 = flatten_ite_equality(ctx, v, t1, u1);
+  u2 = flatten_ite_equality(ctx, v, u1, t2);
+
+  /*
+   * (t1 == u1) is now equivalent to 
+   * the conjunction of (t2 == u2) and all the terms in v
+   */
+  n = v->size;
+  if (n == 0) {
+    // not simplification found
+    assert(t1 == t2 && u1 == u2);
+    x = internalize_to_arith(ctx, t2);
+    y = internalize_to_arith(ctx, u2);
+    ctx->arith.assert_vareq_axiom(ctx->arith_solver, x, y, tt);
+
+  } else {
+    // make a copy of v[0 ... n-1]
+    // + reserve a[n] for the literal (eq t2 u2)
+
+    fputc('F', stdout);
+    fflush(stdout);
+
+    a = alloc_istack_array(&ctx->istack, n+1);
+    for (i=0; i<n; i++) {
+      a[i] = v->data[i];
+    }
+    ivector_reset(v);
+
+    // l := (eq t2 u2)
+    l = map_arith_bineq_to_literal_aux(ctx, t2, u2);
+
+    if (tt) {
+      // assert (and l a[0] ... a[n-1])
+      if (l == false_literal) {
+	longjmp(ctx->env, TRIVIALLY_UNSAT);
+      }
+      add_unit_clause(ctx->core, l);
+      for (i=0; i<n; i++) {
+	assert_term(ctx, a[i], true);
+      }
+
+    } else {
+      // assert (or (not a[0]) ... (not a[n-1]) (not l))
+      for (i=0; i<n; i++) {
+	a[i] = not(internalize_to_literal(ctx, a[i]));
+      }
+      a[n] = not(l);
+      add_clause(ctx->core, n+1, a);
+    }
+
+    free_istack_array(&ctx->istack, a);
+  }
+#else
   thvar_t x, y;
 
   assert(eq->arity == 2);
@@ -4350,6 +4481,8 @@ static void assert_toplevel_arith_bineq(context_t *ctx, composite_term_t *eq, bo
   x = internalize_to_arith(ctx, eq->arg[0]);
   y = internalize_to_arith(ctx, eq->arg[1]);
   ctx->arith.assert_vareq_axiom(ctx->arith_solver, x, y, tt);
+
+#endif
 }
 
 

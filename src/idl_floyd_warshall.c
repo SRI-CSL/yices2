@@ -2166,7 +2166,8 @@ static void idl_assert_triple_eq(idl_solver_t *solver, dl_triple_t *d, bool tt) 
   }
 
   if (tt) {
-    idl_add_axiom_eq(solver, x, y, c);
+    // (x - y + c) == 0 is equivalent to y - x == c
+    idl_add_axiom_eq(solver, y, x, c);
   } else {
     // (x - y + c) != 0 is equivalent to
     // (not (y - x <= c)) or (not (x - y <= -c))

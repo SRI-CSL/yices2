@@ -2388,7 +2388,8 @@ static void rdl_assert_triple_eq(rdl_solver_t *solver, dl_triple_t *d, bool tt) 
   }
 
   if (tt) {
-    rdl_add_axiom_eq(solver, x, y, &d->constant);
+    // (x - y + c) == 0 is equivalent to y - x == c
+    rdl_add_axiom_eq(solver, y, x, &d->constant);
   } else {
     // (x - y + c) != 0 is equivalent to
     // (not (y - x <= c)) or (not (x - y <= -c))

@@ -98,8 +98,8 @@ void print_idl_triple(FILE *f, dl_triple_t *triple) {
     if (space) fputc(' ', f);
     fputs("- ", f);
     print_idl_vertex(f, triple->source); // y
+    space = true;
   }
-
 
   if (! space) {
     q_print(f, &triple->constant); 
