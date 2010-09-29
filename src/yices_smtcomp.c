@@ -850,7 +850,9 @@ static int process_benchmark(void) {
       /*
        * Pure bit-vector problem
        */
-      arch = CTX_ARCH_BV;
+      //      arch = CTX_ARCH_BV;
+      arch = CTX_ARCH_NOSOLVERS; 
+      // Hack: replace BV by empty solver (to exercise the internalization functions).
       break;
 
     default:

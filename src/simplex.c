@@ -21,7 +21,7 @@
  * To trace simplifications and tableau initialization set TRACE_INIT to 1
  */
 #define TRACE   0
-#define DEBUG   1
+#define DEBUG   0
 #define DUMP    0
 #define YEXPORT 0
 
@@ -1447,6 +1447,41 @@ static bool all_integer_vars(simplex_solver_t *solver) {
 
 
 
+/*
+ * Activate variable x if necessary
+ * - if x is a free variable, nothing to do
+ * - if x is attached to a polynomial p and is not active already
+ *   add the row x - p == 0 to the matrix
+ */
+static void activate_variable(simplex_solver_t *solver, thvar_t x) {
+  arith_vartable_t *vtbl;
+  polynomial_t *p;
+
+  assert(! trivial_variable(&solver->vtbl, x));
+
+  vtbl = &solver->vtbl;
+  p = arith_var_def(vtbl, x);
+  if (p != NULL && arith_var_is_inactive(vtbl, x)) {
+    matrix_add_eq(&solver->matrix, x, p->mono, p->nterms);
+    mark_arith_var_active(vtbl, x);
+
+    if (solver->base_level > 0) {
+      /*
+       * save_rows is true if  multichek or push/pop are enabled.
+       * if x was created at an earlier base level, then we 
+       * add it to saved_vars so it can be deactivated on the next 'pop'
+       */
+      assert(solver->save_rows && solver->trail_stack.top == solver->base_level);
+      if (x >= arith_trail_top(&solver->trail_stack)->nvars) {
+	// x was created at level k < n and 
+	// activated as level n = the current base level
+	ivector_push(&solver->saved_vars, x);
+      }
+    }
+  }
+
+}
+
 
 
 /**********************
@@ -1522,6 +1557,9 @@ static thvar_t get_var_from_buffer(simplex_solver_t *solver) {
     x = get_var_for_poly(&solver->vtbl, poly_buffer_mono(b), poly_buffer_nterms(b), &new_var);
     if (new_var) {
       matrix_add_column(&solver->matrix);
+      if (! trivial_variable(&solver->vtbl, x)) {
+	activate_variable(solver, x);
+      }
     }
   }
   reset_poly_buffer(b);
@@ -1593,42 +1631,6 @@ eterm_t simplex_eterm_of_var(simplex_solver_t *solver, thvar_t v) {
 /*
  * ATOM CONSTRUCTION
  */
-
-/*
- * Activate variable x if necessary
- * - if x is a free variable, nothing to do
- * - if x is attached to a polynomial p and is not active already
- *   add the row x - p == 0 to the matrix
- */
-static void activate_variable(simplex_solver_t *solver, thvar_t x) {
-  arith_vartable_t *vtbl;
-  polynomial_t *p;
-
-  assert(! trivial_variable(&solver->vtbl, x));
-
-  vtbl = &solver->vtbl;
-  p = arith_var_def(vtbl, x);
-  if (p != NULL && arith_var_is_inactive(vtbl, x)) {
-    matrix_add_eq(&solver->matrix, x, p->mono, p->nterms);
-    mark_arith_var_active(vtbl, x);
-
-    if (solver->base_level > 0) {
-      /*
-       * save_rows is true if  multichek or push/pop are enabled.
-       * if x was created at an earlier base level, then we 
-       * add it to saved_vars so it can be deactivated on the next 'pop'
-       */
-      assert(solver->save_rows && solver->trail_stack.top == solver->base_level);
-      if (x >= arith_trail_top(&solver->trail_stack)->nvars) {
-	// x was created at level k < n and 
-	// activated as level n = the current base level
-	ivector_push(&solver->saved_vars, x);
-      }
-    }
-  }
-
-}
-
 
 /*
  * Create the atom (x >= c) or (x <= c)
@@ -1709,6 +1711,9 @@ static thvar_t decompose_and_get_var(simplex_solver_t *solver) {
     x = get_var_for_poly_offset(&solver->vtbl, poly_buffer_mono(b), poly_buffer_nterms(b), &new_var);
     if (new_var) {
       matrix_add_column(&solver->matrix);
+      if (! trivial_variable(&solver->vtbl, x)) {
+	activate_variable(solver, x);
+      }
     }
   }
   reset_poly_buffer(b);
@@ -4567,6 +4572,9 @@ static thvar_t decompose_and_get_dynamic_var(simplex_solver_t *solver) {
       normalize_poly_buffer(b);
       matrix_add_tableau_eq(matrix, x, poly_buffer_mono(b), poly_buffer_nterms(b));
 
+      // mark x as an active variable
+      mark_arith_var_active(&solver->vtbl, x);
+
       // compute the value of x
       r = matrix_basic_row(matrix, x);
       assert(0 <= r && r < matrix->nrows);
@@ -6802,7 +6810,7 @@ fcheck_code_t simplex_final_check(simplex_solver_t *solver) {
     if (simplex_make_integer_feasible(solver)) {
       return FCHECK_SAT;
     } else {
-      printf("---> not integer feasible\n");
+      //      printf("---> not integer feasible\n");
       return FCHECK_CONTINUE;
     }
   } else {
