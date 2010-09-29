@@ -246,6 +246,15 @@ when using make. For example
 
 The result will be in ./build/x86-64-apple-darwin9.2.2-release/
 
+UPDATE: 09/28/2010. 
+
+On Mac OS X snow leopard (darwin10.x.y), the config.guess script
+that's part of the Yices source returns i386-apple-darwin10.x.y as the
+target, but the default compiler /usr/bin/gcc (4.2.1) builds for
+x86_64. To force compilation in 32bit on these platforms, use
+
+  ./configure CFLAGS=-m32 ...
+
 
 
 
