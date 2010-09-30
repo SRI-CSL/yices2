@@ -95,13 +95,26 @@ void print_arith_vartable(FILE *f, arith_vartable_t *table) {
   n = table->nvars;
   for (i=0; i<n; i++) {
     print_avar(f, table, i);
-    if (arith_var_def_is_poly(table, i)) {
+    switch (arith_var_kind(table, i)) {
+    case AVAR_FREE:
+      break;
+
+    case AVAR_POLY:
       fputs(" := ", f);
       print_avar_poly(f, table, arith_var_poly_def(table, i));
-    } else if (arith_var_def_is_product(table, i)) {
+      break;
+
+    case AVAR_PPROD:
       fputs(" := ", f);
       print_avar_product(f, table, arith_var_product_def(table, i));
+      break;
+
+    case AVAR_CONST:
+      fputs(" := ", f);
+      q_print(f, arith_var_rational_def(table, i));
+      break;
     }
+
     if (arith_var_has_eterm(table, i)) {
       fputs(" --> ", f);
       print_eterm_id(f, arith_var_eterm(table, i));

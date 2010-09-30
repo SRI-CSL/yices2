@@ -123,6 +123,9 @@ static void dump_simplex_solver(FILE *f, simplex_solver_t *simplex) {
   print_simplex_atoms(f, simplex);
   fprintf(f, "\n--- Simplex Tableau ---\n");
   print_simplex_matrix(f, simplex);
+  fprintf(f, "\n--- Simplex Bounds ---\n");
+  print_simplex_bounds(f, simplex);
+  fprintf(f, "\n");
 }
 
 

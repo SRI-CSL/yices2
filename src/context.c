@@ -4984,19 +4984,31 @@ bool context_has_simplex_solver(context_t *ctx) {
  */
 void enable_splx_eager_lemmas(context_t *ctx) {
   ctx->options |= SPLX_EGRLMAS_OPTION_MASK;
+  if (context_has_simplex_solver(ctx)) {
+    simplex_enable_eager_lemmas(ctx->arith_solver);
+  }  
 }
 
 void disable_splx_eager_lemmas(context_t *ctx) {
   ctx->options &= ~SPLX_EGRLMAS_OPTION_MASK;
+  if (context_has_simplex_solver(ctx)) {
+    simplex_disable_eager_lemmas(ctx->arith_solver);
+  }  
 }
 
 
 void enable_splx_periodic_icheck(context_t *ctx) {
   ctx->options |= SPLX_ICHECK_OPTION_MASK;
+  if (context_has_simplex_solver(ctx)) {
+    simplex_enable_periodic_icheck(ctx->arith_solver);
+  }
 }
 
 void disable_splx_periodic_icheck(context_t *ctx) {
   ctx->options &= ~SPLX_ICHECK_OPTION_MASK;
+  if (context_has_simplex_solver(ctx)) {
+    simplex_disable_periodic_icheck(ctx->arith_solver);
+  }
 }
 
 

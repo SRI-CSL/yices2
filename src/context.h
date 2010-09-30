@@ -237,23 +237,39 @@ enum {
  *    - must create the atom (x >= 0) and return the corresponding literal
  *    - x is an existing theory variable in solver
  *
- * 7) literal_t create_vareq_atom(void *solver, thvar_t x, thvar_t y)
+ * 7) literal_t create_poly_eq_atom(void *solver, polynomial_t *p, thvar_t *map)
+ *    - must create the atom (p == 0) and return the corresponding literal
+ *    - p and map are as in create_poly
+ *
+ * 8) literal_t create_poly_ge_atom(void *solver, polynomial_t *p, thvar_t *map)
+ *    - must create the atom (p >= 0) and return the corresponding literal
+ *    - p and map are as in create_poly
+ *
+ * 9) literal_t create_vareq_atom(void *solver, thvar_t x, thvar_t y)
  *    - create the atom x == y where x and y are two existing variables in solver
  *
  *
  * Assertion of top-level axioms
  * -----------------------------
  *
- * 8) void assert_eq_axiom(void *solver, thvar_t x, bool tt)
- *    - if tt assert (x == 0) otherwise assert (x != 0)
+ * 10) void assert_eq_axiom(void *solver, thvar_t x, bool tt)
+ *     - if tt assert (x == 0) otherwise assert (x != 0)
  *
- * 9) void assert_ge_axiom(void *solver, thvar_t x, bool tt)
- *    - if tt assert (x >= 0) otherwise assert (x < 0)
+ * 11) void assert_ge_axiom(void *solver, thvar_t x, bool tt)
+ *     - if tt assert (x >= 0) otherwise assert (x < 0)
  *
- * 10) void assert_vareq_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
+ * 12) void assert_poly_eq_axiom(void *solver, polynomial_t *p, thvar_t *map, bool tt)
+ *     - if tt assert (p == 0) otherwise assert (p != 0)
+ *     - p and map are as in create_poly
+ *
+ * 13) void assert_poly_ge_axiom(void *solver, polynomial_t *p, thvar_t *map, bool tt)
+ *     - if tt assert (p >= 0) otherwise assert (p < 0)
+ *     - p and map are as in create_poly     
+ *
+ * 14) void assert_vareq_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
  *     - if tt assert x == y, otherwise assert x != y
  *
- * 11) void assert_cond_vareq_axiom(void *solver, literal_t c, thvar_t x, thvar_t y)
+ * 15) void assert_cond_vareq_axiom(void *solver, literal_t c, thvar_t x, thvar_t y)
  *     - assert (c implies x == y) as an axiom
  *     - this is used to convert if-then-else equalities: 
  *        (x == (ite c y1 y2)) is flattened to (c implies x = y1) and (not c implies x = y2)
@@ -261,11 +277,11 @@ enum {
  * Egraph connection
  * -----------------
  *
- * 12) void attach_eterm(void *solver, thvar_t v, eterm_t t)
+ * 16) void attach_eterm(void *solver, thvar_t v, eterm_t t)
  *    - attach egraph term t to theory variable v
  *    - this function may be omitted for standalone solvers (no egraph is used in that case)
  *
- * 13) eterm_t eterm_of_var(void *solver, thvar_t v)
+ * 17) eterm_t eterm_of_var(void *solver, thvar_t v)
  *    - must return the eterm t attached to v (if any) or null_eterm if v has no term attached
  *    - this function may be omitted for standalone solvers (no egraph)
  *
@@ -281,16 +297,16 @@ enum {
  * If the solver cannot assign a rational value to x, it can signal this when value_in_model
  * is called. M must not be changed until the context calls free_model.
  *
- * 14) void build_model(void *solver)
+ * 18) void build_model(void *solver)
  *    - build a model M: maps variable to rationals.
  *     (or do nothing if the solver does not support model construction).
  *
- * 15) bool value_in_model(void *solver, thvar_t x, rational_t *v)
+ * 19) bool value_in_model(void *solver, thvar_t x, rational_t *v)
  *    - must return true and copy the value of x in M into v if that value is available.
  *    - return false otherwise (e.g., if model construction is not supported by
  *    solver or x has an irrational value).
  *
- * 16) void free_model(void *solver)
+ * 20) void free_model(void *solver)
  *    - notify solver that M is no longer needed.
  *
  *
