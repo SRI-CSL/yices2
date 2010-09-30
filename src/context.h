@@ -77,8 +77,8 @@ typedef enum {
  * - ENABLE_ICHECK
  *
  * Options for testing and debugging
- * - SLOPPY_OPTION: try to keep going when the assertions contain unsupported
- *                  constructs (e.g., quantifiers/bitvectors).
+ * - LAX_OPTION: try to keep going when the assertions contain unsupported
+ *               constructs (e.g., quantifiers/bitvectors).
  * - DUMP_OPTION
  */
 #define VARELIM_OPTION_MASK      0x10
@@ -97,7 +97,7 @@ typedef enum {
 #define SPLX_ICHECK_OPTION_MASK   0x20000
 
 // FOR TESTING
-#define SLOPPY_OPTION_MASK      0x40000000
+#define LAX_OPTION_MASK      0x40000000
 #define DUMP_OPTION_MASK        0x80000000
 
 
@@ -331,9 +331,11 @@ typedef thvar_t (*create_arith_poly_fun_t)(void *solver, polynomial_t *p, thvar_
 typedef thvar_t (*create_arith_pprod_fun_t)(void *solver, pprod_t *p, thvar_t *map);
 
 typedef literal_t (*create_arith_atom_fun_t)(void *solver, thvar_t x);
+typedef literal_t (*create_arith_patom_fun_t)(void *solver, polynomial_t *p, thvar_t *map);
 typedef literal_t (*create_arith_vareq_atom_fun_t)(void *solver, thvar_t x, thvar_t y);
 
 typedef void (*assert_arith_axiom_fun_t)(void *solver, thvar_t x, bool tt);
+typedef void (*assert_arith_paxiom_fun_t)(void *solvr, polynomial_t *p, thvar_t *map, bool tt);
 typedef void (*assert_arith_vareq_axiom_fun_t)(void *solver, thvar_t x, thvar_t y, bool tt);
 typedef void (*assert_arith_cond_vareq_axiom_fun_t)(void* solver, literal_t c, thvar_t x, thvar_t y);
 
@@ -352,10 +354,14 @@ typedef struct arith_interface_s {
 
   create_arith_atom_fun_t create_eq_atom;
   create_arith_atom_fun_t create_ge_atom;
+  create_arith_patom_fun_t create_poly_eq_atom;
+  create_arith_patom_fun_t create_poly_ge_atom;
   create_arith_vareq_atom_fun_t create_vareq_atom;
 
   assert_arith_axiom_fun_t assert_eq_axiom;
   assert_arith_axiom_fun_t assert_ge_axiom;
+  assert_arith_paxiom_fun_t assert_poly_eq_axiom;
+  assert_arith_paxiom_fun_t assert_poly_ge_axiom;
   assert_arith_vareq_axiom_fun_t assert_vareq_axiom;
   assert_arith_cond_vareq_axiom_fun_t assert_cond_vareq_axiom;
 
@@ -990,17 +996,17 @@ static inline void disable_dump(context_t *ctx) {
   ctx->options &= ~DUMP_OPTION_MASK;
 }
 
-// Sloppy mode
-static inline void sloppy_mode(context_t *ctx) {
-  ctx->options |= SLOPPY_OPTION_MASK;
+// Lax mode
+static inline void enable_lax_mode(context_t *ctx) {
+  ctx->options |= LAX_OPTION_MASK;
 }
 
-static inline void strict_mode(context_t *ctx) {
-  ctx->options &= ~SLOPPY_OPTION_MASK;
+static inline void disable_lax_mode(context_t *ctx) {
+  ctx->options &= ~LAX_OPTION_MASK;
 }
 
 static inline bool context_in_strict_mode(context_t *ctx) {
-  return (ctx->options & SLOPPY_OPTION_MASK) == 0;
+  return (ctx->options & LAX_OPTION_MASK) == 0;
 }
 
 

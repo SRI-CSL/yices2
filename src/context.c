@@ -3911,7 +3911,7 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
       if (context_in_strict_mode(ctx)) {
 	longjmp(ctx->env, QUANTIFIERS_NOT_SUPPORTED);
       }
-      // sloppy mode: turn forall into a proposition
+      // lax mode: turn forall into a proposition
       l = pos_lit(create_boolean_variable(ctx->core));
       break;
 
@@ -3922,7 +3922,7 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
       if (context_in_strict_mode(ctx)) {
 	longjmp(ctx->env, BV_NOT_SUPPORTED);
       }
-      // sloppy mode: turn bitvector atoms into propositions
+      // lax mode: turn bitvector atoms into propositions
       l = pos_lit(create_boolean_variable(ctx->core));
       break;
 

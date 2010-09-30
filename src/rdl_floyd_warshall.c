@@ -2871,10 +2871,14 @@ static arith_interface_t rdl_intern = {
 
   (create_arith_atom_fun_t) rdl_create_eq_atom,
   (create_arith_atom_fun_t) rdl_create_ge_atom,
+  NULL, // rdl_create_poly_eq_atom: TBD
+  NULL, // rdl_create_poly_ge_atom: TBD
   (create_arith_vareq_atom_fun_t) rdl_create_vareq_atom,
 
   (assert_arith_axiom_fun_t) rdl_assert_eq_axiom,
   (assert_arith_axiom_fun_t) rdl_assert_ge_axiom,
+  NULL, // rdl_create_poly_eq_atom: TBD
+  NULL, // rdl_create_poly_ge_atom: TBD
   (assert_arith_vareq_axiom_fun_t) rdl_assert_vareq_axiom,
   (assert_arith_cond_vareq_axiom_fun_t) rdl_assert_cond_vareq_axiom,
 

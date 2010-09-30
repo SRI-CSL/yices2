@@ -2528,10 +2528,14 @@ static arith_interface_t idl_intern = {
 
   (create_arith_atom_fun_t) idl_create_eq_atom,
   (create_arith_atom_fun_t) idl_create_ge_atom,
+  NULL, // idl_create_poly_eq_atom: TBD
+  NULL, // idl_create_poly_ge_atom: TBD
   (create_arith_vareq_atom_fun_t) idl_create_vareq_atom,
 
   (assert_arith_axiom_fun_t) idl_assert_eq_axiom,
   (assert_arith_axiom_fun_t) idl_assert_ge_axiom,
+  NULL, // idl_create_poly_eq_atom: TBD
+  NULL, // idl_create_poly_ge_atom: TBD
   (assert_arith_vareq_axiom_fun_t) idl_assert_vareq_axiom,
   (assert_arith_cond_vareq_axiom_fun_t) idl_assert_cond_vareq_axiom,
 

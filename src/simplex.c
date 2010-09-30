@@ -555,6 +555,9 @@ static void delete_saved_rows(pvector_t *v, uint32_t n) {
 }
 
 
+#if 0
+
+// NOT USED
 /*
  * Clear the active marks on all variables in v->data[n ... v->size - 1]
  * where v = saved_vars, then resize v to n
@@ -579,7 +582,7 @@ static void deactivate_saved_vars(simplex_solver_t *solver, uint32_t n) {
   ivector_shrink(v, n);
 }
 
-
+#endif
 
 
 /***********************
@@ -1465,6 +1468,7 @@ static void activate_variable(simplex_solver_t *solver, thvar_t x) {
     matrix_add_eq(&solver->matrix, x, p->mono, p->nterms);
     mark_arith_var_active(vtbl, x);
 
+#if 0
     if (solver->base_level > 0) {
       /*
        * save_rows is true if  multichek or push/pop are enabled.
@@ -1478,57 +1482,16 @@ static void activate_variable(simplex_solver_t *solver, thvar_t x) {
 	ivector_push(&solver->saved_vars, x);
       }
     }
+#endif
+
   }
-
 }
 
 
 
-/**********************
- *  INTERNALIZATION   *
- *********************/
-
-/*
- * TERM CONSTRUCTION
- */
-
-/*
- * Create a new theory variable
- * - is_int indicates whether the variable should be an integer
- * - also add a matrix column
- */
-thvar_t simplex_create_var(simplex_solver_t *solver, bool is_int) {
-  matrix_add_column(&solver->matrix);
-  return create_arith_var(&solver->vtbl, is_int);
-}
-
-
-/*
- * Create a new variable that represents constant q
- * - add a matrix column if that's a new variable
- */
-thvar_t simplex_create_const(simplex_solver_t *solver, rational_t *q) {
-  poly_buffer_t *b;
-  thvar_t x;
-  bool new_var;
-
-  b = &solver->buffer;
-  assert(poly_buffer_nterms(b) == 0);
-  poly_buffer_add_const(b, q);
-  normalize_poly_buffer(b);
-  x = get_var_for_poly(&solver->vtbl, poly_buffer_mono(b), poly_buffer_nterms(b), &new_var);  
-  if (new_var) {
-    matrix_add_column(&solver->matrix);
-  }
-
-  reset_poly_buffer(b);
-
-  assert(trivial_variable(&solver->vtbl, x));
-
-  return x;
-}
-
-
+/****************************************
+ *  SUPPORT FOR TERM/ATOM CONSTRUCTION  *
+ ***************************************/
 
 /*
  * Get a variable x whose definition is equal to the buffer then reset the buffer
@@ -1569,73 +1532,8 @@ static thvar_t get_var_from_buffer(simplex_solver_t *solver) {
 
 
 /*
- * Create a theory variable equal to p
- * - arith_map maps variables of p to corresponding theory variables
- *   in the solver
- */
-thvar_t simplex_create_poly(simplex_solver_t *solver, polynomial_t *p, thvar_t *map) {  
-#if TRACE
-  thvar_t x;
-
-  printf("\n---> simplex_create_poly: ");
-  print_polynomial(stdout, p);
-  printf("\n");
-  rename_poly(solver, p, map);
-  printf("---> renaming: ");
-  print_simplex_buffer(stdout, solver);
-  printf("\n");
-  x = get_var_from_buffer(solver);
-  printf("---> var: ");
-  print_simplex_vardef(stdout, solver, x);
-  printf("\n");
-
-  return x;
-#else
-  rename_poly(solver, p, map);
-  return get_var_from_buffer(solver);
-#endif
-}
-
-
-
-/*
- * Placeholder for a power product p: raise an exception
- */
-thvar_t simplex_create_pprod(simplex_solver_t *solver, pprod_t *p, thvar_t *map) {
-  if (solver->env != NULL) {
-    longjmp(*solver->env, FORMULA_NOT_LINEAR);
-  }
-  abort();
-}
-
-
-
-/*
- * Attach egraph term t to a variable v
- * - v must not have an eterm attached already
- */
-void simplex_attach_eterm(simplex_solver_t *solver, thvar_t v, eterm_t t) {
-  attach_eterm_to_arith_var(&solver->vtbl, v, t);
-}
-
-
-/*
- * Get the egraph term t attached to v
- * - return null_eterm if v has no eterm attached
- */
-eterm_t simplex_eterm_of_var(simplex_solver_t *solver, thvar_t v) {
-  return arith_var_get_eterm(&solver->vtbl, v);
-}
-
-
-/*
- * ATOM CONSTRUCTION
- */
-
-/*
  * Create the atom (x >= c) or (x <= c)
  * - is_int indicates whether x is an integer variable or not
- * - activate x
  */
 static literal_t get_ge_atom(simplex_solver_t *solver, thvar_t x, bool is_int, rational_t *c) {
   literal_t l;
@@ -1659,7 +1557,6 @@ static literal_t get_ge_atom(simplex_solver_t *solver, thvar_t x, bool is_int, r
   if (new_idx >= 0) {
     build_binary_lemmas_for_atom(solver, x, new_idx);
     attach_atom_to_arith_var(&solver->vtbl, x, new_idx);
-    activate_variable(solver, x);
   }
   return l;  
 }
@@ -1686,7 +1583,6 @@ static literal_t get_le_atom(simplex_solver_t *solver, thvar_t x, bool is_int, r
   if (new_idx >= 0) {
     build_binary_lemmas_for_atom(solver, x, new_idx);
     attach_atom_to_arith_var(&solver->vtbl, x, new_idx);
-    activate_variable(solver, x);
   }
   return l;
 }
@@ -1721,30 +1617,16 @@ static thvar_t decompose_and_get_var(simplex_solver_t *solver) {
 }
 
 
-
 /*
- * Create the atom x >= 0
- * - this attach the atom to the smt_core
+ * Create the atom p >= 0 where p is stored in the solver's buffer
+ * - the buffer must be normalized
  */
-literal_t simplex_create_ge_atom(simplex_solver_t *solver, thvar_t x) {
+static literal_t make_ge_atom(simplex_solver_t *solver) {
   poly_buffer_t *b;
   bool negated, is_int;
+  thvar_t x;
 
-  assert(valid_arith_var(&solver->vtbl, x));
-
-  // replace x by its definition if it's a trivial variable
   b = &solver->buffer;
-  add_var_or_subst(solver, b, x);
-  normalize_poly_buffer(b);
-
-#if TRACE
-  printf("\n---> simplex_create_ge_atom: ");
-  print_simplex_var(stdout, solver, x);
-  printf(" >= 0\n");
-  printf("---> renaming: ");
-  print_simplex_buffer(stdout, solver);
-  printf("\n");
-#endif
 
   /*
    * Check whether the atom is trivially true or false
@@ -1780,6 +1662,8 @@ literal_t simplex_create_ge_atom(simplex_solver_t *solver, thvar_t x) {
     x = decompose_and_get_var(solver);
     assert(arith_var_is_int(&solver->vtbl, x));
     // strengthen the bound
+    // TODO: if x is a polynomial, we could strengthen more, i.e., 
+    //       divide by the GCD of x's coefficients?
     if (negated) {
       q_floor(&solver->constant);
     } else {
@@ -1832,11 +1716,8 @@ literal_t simplex_create_ge_atom(simplex_solver_t *solver, thvar_t x) {
 #endif
 
     return get_ge_atom(solver, x, is_int, &solver->constant);
-  }
+  }  
 }
-
-
-
 
 
 /*
@@ -1933,67 +1814,6 @@ static literal_t make_eq_atom(simplex_solver_t *solver) {
 }
 
 
-/*
- * Create the atom x == 0
- * - this attach the atom to the smt_core
- */
-literal_t simplex_create_eq_atom(simplex_solver_t *solver, thvar_t x) {
-  poly_buffer_t *b;
-
-  // replace x by its definition if it's a trivial variable
-  b = &solver->buffer;
-  add_var_or_subst(solver, b, x);
-  normalize_poly_buffer(b);
-
-
-#if TRACE
-  printf("\n---> simplex_create_eq_atom: ");
-  print_simplex_var(stdout, solver, x);
-  printf(" == 0\n");
-  printf("---> renaming: ");
-  print_simplex_buffer(stdout, solver);
-  printf("\n");
-#endif
-
-  return make_eq_atom(solver);
-}
-
-
-/*
- * Create the atom x - y == 0
- * - x and y are two theory variables
- */
-literal_t simplex_create_vareq_atom(simplex_solver_t *solver, thvar_t x, thvar_t y) {  
-  poly_buffer_t *b;
-
-  assert(valid_arith_var(&solver->vtbl, x) && valid_arith_var(&solver->vtbl, y));
-
-  b = &solver->buffer;
-  assert(poly_buffer_nterms(b) == 0);
-  add_var_or_subst(solver, b, x);
-  sub_var_or_subst(solver, b, y);
-  normalize_poly_buffer(b);
-
-#if TRACE
-  printf("\n---> simplex_create_vareq_atom: ");
-  print_simplex_var(stdout, solver, x);
-  printf(" == ");
-  print_simplex_var(stdout, solver, y);
-  printf("\n");
-  printf("---> after subst: ");
-  print_simplex_buffer(stdout, solver);
-  printf("\n");
-#endif
-
-  return make_eq_atom(solver);
-}
-
-
-
-
-/*
- * AXIOMS (BASE-LEVEL ASSERTIONS)
- */
 
 /*
  * Assert c as lower bound for x
@@ -2048,7 +1868,6 @@ static void add_lb_axiom(simplex_solver_t *solver, thvar_t x, rational_t *c, boo
     return;
   }
 
-  activate_variable(solver, x);
   push_lb_axiom(solver, x, b);
 }
 
@@ -2107,7 +1926,6 @@ static void add_ub_axiom(simplex_solver_t *solver, thvar_t x, rational_t *c, boo
     return;
   }
 
-  activate_variable(solver, x);
   push_ub_axiom(solver, x, b);
 }
 
@@ -2127,7 +1945,6 @@ static void add_eq_axiom(simplex_solver_t *solver) {
   print_simplex_buffer(stdout, solver);
   printf(" == 0\n");
 #endif
-
 
   b = &solver->buffer;
   if (poly_buffer_is_zero(b)) {
@@ -2164,7 +1981,6 @@ static void add_eq_axiom(simplex_solver_t *solver) {
 #if TRACE
   printf("---> new row\n");
 #endif
-
   if (solver->save_rows) {
     // make a copy so that the matrix can be restored if needed
     pvector_push(&solver->saved_rows, monarray_copy_to_poly(poly_buffer_mono(b), poly_buffer_nterms(b)));
@@ -2173,6 +1989,39 @@ static void add_eq_axiom(simplex_solver_t *solver) {
 
  done:
   reset_poly_buffer(b);
+}
+
+
+/*
+ * Assert the axiom (p == 0) or (p != 0), where p is stored in the solver's buffer
+ * - if tt is true  --> assert (p == 0)
+ * - if tt is false --> assert (p != 0)
+ */
+static void add_eq_or_diseq_axiom(simplex_solver_t *solver, bool tt) {
+  literal_t l, l1, l2;
+
+  if (tt) {
+    add_eq_axiom(solver); 
+  } else {
+    // Add the clause (or (not (p >= 0)) (not (p <= 0)))
+    l = simplify_eq_atom(solver, &l1, &l2);
+    if (l == null_literal) {
+      	// l1 is (p >= 0), l2 is (p <= 0): assert (or (not l1) (not l2))
+	add_binary_clause(solver->core, not(l1), not(l2));
+
+#if TRACE
+	printf("---> adding clause: ");
+	print_binary_clause(stdout, not(l1), not(l2));
+	printf("\n");
+	print_simplex_atomdef(stdout, solver, var_of(l1));
+	print_simplex_atomdef(stdout, solver, var_of(l2));
+#endif
+
+    } else if (l == true_literal) {
+      // p == 0 is true: mark the whole thing as unsat
+      solver->unsat_before_search = true;
+    } // otherwise l == false_literal: nothing to do
+  }
 }
 
 
@@ -2239,6 +2088,7 @@ static void add_ge_axiom(simplex_solver_t *solver, bool tt) {
     x = decompose_and_get_var(solver);
     assert(arith_var_is_int(&solver->vtbl, x));
     if (negated) {
+      // TODO: strengthen more if x is a polynomial (divide by GCD of x's coefficients)
       q_floor(&solver->constant);
       if (tt) {
 	// (p >= 0) is equivalent to (x <= constant)
@@ -2249,6 +2099,7 @@ static void add_ge_axiom(simplex_solver_t *solver, bool tt) {
 	add_lb_axiom(solver, x, &solver->constant, false);
       }
     } else {
+      // TODO: strengthen more if x is a polynomial (divide by GCD of x's coefficients)
       q_ceil(&solver->constant);
       if (tt) {
 	// (p >= 0) is equivalent to (x >= constant)
@@ -2287,6 +2138,239 @@ static void add_ge_axiom(simplex_solver_t *solver, bool tt) {
 
 
 
+
+/**********************
+ *  INTERNALIZATION   *
+ *********************/
+
+/*
+ * TERM CONSTRUCTION
+ */
+
+/*
+ * Create a new theory variable
+ * - is_int indicates whether the variable should be an integer
+ * - also add a matrix column
+ */
+thvar_t simplex_create_var(simplex_solver_t *solver, bool is_int) {
+  matrix_add_column(&solver->matrix);
+  return create_arith_var(&solver->vtbl, is_int);
+}
+
+
+/*
+ * Create a new variable that represents constant q
+ * - add a matrix column if that's a new variable
+ */
+thvar_t simplex_create_const(simplex_solver_t *solver, rational_t *q) {
+  poly_buffer_t *b;
+  thvar_t x;
+  bool new_var;
+
+  b = &solver->buffer;
+  assert(poly_buffer_nterms(b) == 0);
+  poly_buffer_add_const(b, q);
+  normalize_poly_buffer(b);
+  x = get_var_for_poly(&solver->vtbl, poly_buffer_mono(b), poly_buffer_nterms(b), &new_var);  
+  if (new_var) {
+    matrix_add_column(&solver->matrix);
+  }
+  reset_poly_buffer(b);
+
+  assert(trivial_variable(&solver->vtbl, x));
+
+  return x;
+}
+
+
+/*
+ * Create a theory variable equal to p
+ * - arith_map maps variables of p to corresponding theory variables
+ *   in the solver
+ */
+thvar_t simplex_create_poly(simplex_solver_t *solver, polynomial_t *p, thvar_t *map) {  
+#if TRACE
+  thvar_t x;
+
+  printf("\n---> simplex_create_poly: ");
+  print_polynomial(stdout, p);
+  printf("\n");
+  rename_poly(solver, p, map);
+  printf("---> renaming: ");
+  print_simplex_buffer(stdout, solver);
+  printf("\n");
+  x = get_var_from_buffer(solver);
+  printf("---> var: ");
+  print_simplex_vardef(stdout, solver, x);
+  printf("\n");
+
+  return x;
+#else
+  rename_poly(solver, p, map);
+  return get_var_from_buffer(solver);
+#endif
+}
+
+
+/*
+ * Placeholder for a power product p: raise an exception
+ */
+thvar_t simplex_create_pprod(simplex_solver_t *solver, pprod_t *p, thvar_t *map) {
+  if (solver->env != NULL) {
+    longjmp(*solver->env, FORMULA_NOT_LINEAR);
+  }
+  abort();
+}
+
+
+/*
+ * Attach egraph term t to a variable v
+ * - v must not have an eterm attached already
+ */
+void simplex_attach_eterm(simplex_solver_t *solver, thvar_t v, eterm_t t) {
+  attach_eterm_to_arith_var(&solver->vtbl, v, t);
+}
+
+
+/*
+ * Get the egraph term t attached to v
+ * - return null_eterm if v has no eterm attached
+ */
+eterm_t simplex_eterm_of_var(simplex_solver_t *solver, thvar_t v) {
+  return arith_var_get_eterm(&solver->vtbl, v);
+}
+
+
+/*
+ * ATOM CONSTRUCTION
+ */
+
+/*
+ * Create the atom x >= 0
+ * - this attach the atom to the smt_core
+ */
+literal_t simplex_create_ge_atom(simplex_solver_t *solver, thvar_t x) {
+  poly_buffer_t *b;
+
+  assert(valid_arith_var(&solver->vtbl, x));
+
+  // replace x by its definition if it's a trivial variable
+  b = &solver->buffer;
+  add_var_or_subst(solver, b, x);
+  normalize_poly_buffer(b);
+
+#if TRACE
+  printf("\n---> simplex_create_ge_atom: ");
+  print_simplex_var(stdout, solver, x);
+  printf(" >= 0\n");
+  printf("---> renaming: ");
+  print_simplex_buffer(stdout, solver);
+  printf("\n");
+#endif
+
+  return make_ge_atom(solver);
+}
+
+
+/*
+ * Create the atom p >= 0 and return the corresponding literal
+ * - replace the variables of p as defined by map
+ */
+literal_t simplex_create_poly_ge_atom(simplex_solver_t *solver, polynomial_t *p, thvar_t *map) {
+  rename_poly(solver, p, map);
+
+#if TRACE
+  printf("\n---> simplex_create_poly_ge_atom: ");
+  print_polynomial(stdout, p);
+  printf(" >= 0\n");
+  printf("---> renaming: ");
+  print_simplex_buffer(stdout, solver);
+  printf("\n");
+#endif
+
+  return make_ge_atom(solver);
+}
+
+
+
+/*
+ * Create the atom x == 0
+ * - this attach the atom to the smt_core
+ */
+literal_t simplex_create_eq_atom(simplex_solver_t *solver, thvar_t x) {
+  poly_buffer_t *b;
+
+  // replace x by its definition if it's a trivial variable
+  b = &solver->buffer;
+  add_var_or_subst(solver, b, x);
+  normalize_poly_buffer(b);
+
+#if TRACE
+  printf("\n---> simplex_create_eq_atom: ");
+  print_simplex_var(stdout, solver, x);
+  printf(" == 0\n");
+  printf("---> renaming: ");
+  print_simplex_buffer(stdout, solver);
+  printf("\n");
+#endif
+
+  return make_eq_atom(solver);
+}
+
+
+/*
+ * Create the atom p == 0
+ * - apply the renaming defined by map
+ */
+literal_t simplex_create_poly_eq_atom(simplex_solver_t *solver, polynomial_t *p, thvar_t *map) {
+  rename_poly(solver, p, map);
+
+#if TRACE
+  printf("\n---> simplex_create_poly_eq_atom: ");
+  print_polynomial(stdout, p);
+  printf(" == 0\n");
+  printf("---> renaming: ");
+  print_simplex_buffer(stdout, solver);
+  printf("\n");
+#endif
+
+  return make_eq_atom(solver);
+}
+
+/*
+ * Create the atom x - y == 0
+ * - x and y are two theory variables
+ */
+literal_t simplex_create_vareq_atom(simplex_solver_t *solver, thvar_t x, thvar_t y) {  
+  poly_buffer_t *b;
+
+  assert(valid_arith_var(&solver->vtbl, x) && valid_arith_var(&solver->vtbl, y));
+
+  b = &solver->buffer;
+  assert(poly_buffer_nterms(b) == 0);
+  add_var_or_subst(solver, b, x);
+  sub_var_or_subst(solver, b, y);
+  normalize_poly_buffer(b);
+
+#if TRACE
+  printf("\n---> simplex_create_vareq_atom: ");
+  print_simplex_var(stdout, solver, x);
+  printf(" == ");
+  print_simplex_var(stdout, solver, y);
+  printf("\n");
+  printf("---> after subst: ");
+  print_simplex_buffer(stdout, solver);
+  printf("\n");
+#endif
+
+  return make_eq_atom(solver);
+}
+
+
+/*
+ * AXIOMS (BASE-LEVEL ASSERTIONS)
+ */
+
 /*
  * Assert a top-level inequality (either x >= 0 or x < 0)
  * - tt indicates whether the constraint or its negation must be asserted
@@ -2294,12 +2378,14 @@ static void add_ge_axiom(simplex_solver_t *solver, bool tt) {
  *   tt == false --> assert x < 0
  */
 void simplex_assert_ge_axiom(simplex_solver_t *solver, thvar_t x, bool tt){
-  arith_vartable_t *vtbl;
-  polynomial_t *q;
   poly_buffer_t *b;
 
-  assert(arith_var_kind(&solver->vtbl, x) == AVAR_FREE ||
-	 arith_var_kind(&solver->vtbl, x) == AVAR_POLY);
+  assert(valid_arith_var(&solver->vtbl, x));
+
+  // replace x by its definition if it's a trivial variable
+  b = &solver->buffer;
+  add_var_or_subst(solver, b, x);
+  normalize_poly_buffer(b);
 
 #if TRACE
   printf("\n---> simplex_assert_ge_axiom: ");
@@ -2309,42 +2395,38 @@ void simplex_assert_ge_axiom(simplex_solver_t *solver, thvar_t x, bool tt){
   } else {
     printf(" < 0\n");
   }
+  printf("---> renaming: ");
+  print_simplex_buffer(stdout, solver);
+  printf("\n");
 #endif  
 
-  vtbl = &solver->vtbl;
-  q = arith_var_def(vtbl, x);
-  if (q == NULL || arith_var_is_active(vtbl, x)) {
-    /*
-     * Directly add the bound on x
-     */
-    q_clear(&solver->constant);
-    if (tt) {
-      // add bound x >= 0
-      add_lb_axiom(solver, x, &solver->constant, false);
-    } else if (arith_var_is_int(vtbl, x)) {
-      // add bound x <= -1
-      q_set_minus_one(&solver->constant);
-      add_ub_axiom(solver, x, &solver->constant, false);
-    } else {
-      // x < 0
-      add_ub_axiom(solver, x, &solver->constant, true);
-    }
-    
-  } else {
-    /*
-     * Replace x byt its definition:
-     * - assert q >= 0 or (q < 0)
-     */
-    b = &solver->buffer;
-    assert(poly_buffer_nterms(b) == 0);
-    poly_buffer_add_poly(b, q);
-    normalize_poly_buffer(b);
-    add_ge_axiom(solver, tt);
-  }
-
+  add_ge_axiom(solver, tt);
 }
 
 
+/*
+ * Assert a top-level inequality (either p >= 0 or p < 0)
+ * - map: convert p's variables to simplex variables
+ * - tt indicates whih of the two inequalities to assert
+ */
+void simplex_assert_poly_ge_axiom(simplex_solver_t *solver, polynomial_t *p, thvar_t *map, bool tt) {
+  rename_poly(solver, p, map);
+
+#if TRACE
+  printf("\n---> simplex_assert_poly_ge_axiom: ");
+  print_polynomial(stdout, p);
+  if (tt) {
+    printf(" >= 0\n");
+  } else {
+    printf(" < 0\n");
+  }
+  printf("---> renaming: ");
+  print_simplex_buffer(stdout, solver);
+  printf("\n");
+#endif  
+
+  add_ge_axiom(solver, tt);
+}
 
 
 /*
@@ -2354,15 +2436,14 @@ void simplex_assert_ge_axiom(simplex_solver_t *solver, thvar_t x, bool tt){
  *   tt == false --> assert x != 0
  */
 void simplex_assert_eq_axiom(simplex_solver_t *solver, thvar_t x, bool tt) {
-  arith_vartable_t *vtbl;
-  polynomial_t *q;
   poly_buffer_t *b;
-  literal_t l, l1, l2;
-  bool is_int;
 
-  assert(arith_var_kind(&solver->vtbl, x) == AVAR_FREE ||
-	 arith_var_kind(&solver->vtbl, x) == AVAR_POLY);
+  assert(valid_arith_var(&solver->vtbl, x));
 
+  // replace x by its definition if it's a trivial variable
+  b = &solver->buffer;
+  add_var_or_subst(solver, b, x);
+  normalize_poly_buffer(b);
 
 #if TRACE
   printf("\n---> simplex_assert_eq_axiom: ");
@@ -2372,76 +2453,38 @@ void simplex_assert_eq_axiom(simplex_solver_t *solver, thvar_t x, bool tt) {
   } else {
     printf(" != 0\n");
   }
+  printf("---> renaming: ");
+  print_simplex_buffer(stdout, solver);
+  printf("\n");
 #endif
 
+  add_eq_or_diseq_axiom(solver, tt);
+}
 
-  vtbl = &solver->vtbl;
-  q = arith_var_def(vtbl, x);
-  if (q == NULL || arith_var_is_active(vtbl, x)) {
-    q_clear(&solver->constant);
-    if (tt) {
-      /*
-       * Add the bounds (x <= 0) and (x >= 0) on x
-       */
-      add_lb_axiom(solver, x, &solver->constant, false);
-      add_ub_axiom(solver, x, &solver->constant, false);      
-    } else {
-      /*
-       * Create the atoms (x >= 0) and (x <= 0)
-       * and add the clause (or (not (x >= 0)) (not (x <= 0)))
-       */
-      is_int = arith_var_is_int(vtbl, x);
-      l1 = get_ge_atom(solver, x, is_int, &solver->constant);  // x >= 0
-      l2 = get_le_atom(solver, x, is_int, &solver->constant);  // x <= 0
-      add_binary_clause(solver->core, not(l1), not(l2));
+
+/*
+ * Assert top-level equality or disequality (either p == 0 or p != 0)
+ * - map: convert p's variables to simplex variables
+ * - if tt is true  ---> assert p == 0
+ * - if tt is false ---> assert p != 0
+ */
+void simplex_assert_poly_eq_axiom(simplex_solver_t *solver, polynomial_t *p, thvar_t *map, bool tt) {
+  rename_poly(solver, p, map);
 
 #if TRACE
-      printf("---> adding clause: ");
-      print_binary_clause(stdout, not(l1), not(l2));
-      printf("\n");
-      print_simplex_atomdef(stdout, solver, var_of(l1));
-      print_simplex_atomdef(stdout, solver, var_of(l2));
-#endif
-    }
-
+  printf("\n---> simplex_assert_poly_eq_axiom: ");
+  print_polynomial(stdout, p);
+  if (tt) {
+    printf(" == 0\n");
   } else {
-    /*
-     * Replace x by its definition q
-     */
-    b = &solver->buffer;
-    assert(poly_buffer_nterms(b) == 0);
-    poly_buffer_add_poly(b, q);
-    normalize_poly_buffer(b);
-    
-    if (tt) {
-      /*
-       * Assert q == 0
-       */
-      add_eq_axiom(solver);
-
-    } else {
-      /*
-       * Assert (or (not (q >= 0) (not (q <= 0))))
-       */
-      l = simplify_eq_atom(solver, &l1, &l2);
-      if (l == null_literal) {
-	// l1 is (q >= 0), l2 is (q <= 0): assert (or (not l1) (not l2))
-	add_binary_clause(solver->core, not(l1), not(l2));
-
-#if TRACE
-	printf("---> adding clause: ");
-	print_binary_clause(stdout, not(l1), not(l2));
-	printf("\n");
-	print_simplex_atomdef(stdout, solver, var_of(l1));
-	print_simplex_atomdef(stdout, solver, var_of(l2));
-#endif
-
-      } else if (l == true_literal) {
-	// q == 0 is true
-	solver->unsat_before_search = true;
-      } // if l == false, q != 0 is true 
-    }
+    printf(" != 0\n");
   }
+  printf("---> renaming: ");
+  print_simplex_buffer(stdout, solver);
+  printf("\n");
+#endif  
+
+  add_eq_or_diseq_axiom(solver, tt);
 }
 
 
@@ -2451,7 +2494,6 @@ void simplex_assert_eq_axiom(simplex_solver_t *solver, thvar_t x, bool tt) {
  */
 void simplex_assert_vareq_axiom(simplex_solver_t *solver, thvar_t x, thvar_t y, bool tt) {
   poly_buffer_t *b;
-  literal_t l, l1, l2;
 
   assert(valid_arith_var(&solver->vtbl, x) && valid_arith_var(&solver->vtbl, y));
 
@@ -2471,31 +2513,8 @@ void simplex_assert_vareq_axiom(simplex_solver_t *solver, thvar_t x, thvar_t y, 
   }
 #endif
 
-  if (tt) {
-    add_eq_axiom(solver);
-  } else {
-    l = simplify_eq_atom(solver, &l1, &l2);
-    if (l == null_literal) {
-
-#if TRACE
-      printf("---> adding clause: ");
-      print_binary_clause(stdout, not(l1), not(l2));
-      printf("\n");
-      print_simplex_atomdef(stdout, solver, var_of(l1));
-      print_simplex_atomdef(stdout, solver, var_of(l2));
-#endif
-
-      // l1 is (p >= 0), l2 is (p <= 0): assert (or (not l1) (not l2))
-      add_binary_clause(solver->core, not(l1), not(l2));
-    } else if (l == true_literal) {
-      // p == 0 is true
-      solver->unsat_before_search = true;
-    } // if l == false_literal, p != 0 is true
-  }
+  add_eq_or_diseq_axiom(solver, tt);
 }
-
-
-
 
 
 /*
@@ -7035,7 +7054,7 @@ void simplex_pop(simplex_solver_t *solver) {
 
   top = arith_trail_top(&solver->trail_stack);
   delete_saved_rows(&solver->saved_rows, top->nsaved_rows);
-  deactivate_saved_vars(solver, top->nsaved_vars);
+  //  deactivate_saved_vars(solver, top->nsaved_vars);
 
   arith_vartable_remove_vars(&solver->vtbl, top->nvars);
   arith_atomtable_remove_atoms(&solver->atbl, top->natoms);  
@@ -8225,10 +8244,14 @@ static arith_interface_t simplex_context = {
 
   (create_arith_atom_fun_t) simplex_create_eq_atom,
   (create_arith_atom_fun_t) simplex_create_ge_atom,
+  (create_arith_patom_fun_t) simplex_create_poly_eq_atom,
+  (create_arith_patom_fun_t) simplex_create_poly_ge_atom,
   (create_arith_vareq_atom_fun_t) simplex_create_vareq_atom,
 
   (assert_arith_axiom_fun_t) simplex_assert_eq_axiom,
   (assert_arith_axiom_fun_t) simplex_assert_ge_axiom,
+  (assert_arith_paxiom_fun_t) simplex_assert_poly_eq_axiom,
+  (assert_arith_paxiom_fun_t) simplex_assert_poly_ge_axiom,
   (assert_arith_vareq_axiom_fun_t) simplex_assert_vareq_axiom,
   (assert_arith_cond_vareq_axiom_fun_t) simplex_assert_cond_vareq_axiom,
 

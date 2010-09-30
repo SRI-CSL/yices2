@@ -363,7 +363,7 @@ static void test_internalization(smt_benchmark_t *bench) {
   arch = (context_arch_t) code;
 
   init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, arch, qflag);
-  sloppy_mode(&context); // FOR TESTING
+  enable_lax_mode(&context); // FOR TESTING
   enable_variable_elimination(&context);
   enable_eq_abstraction(&context);
   enable_diseq_and_or_flattening(&context);
