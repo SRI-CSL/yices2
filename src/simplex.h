@@ -10,7 +10,7 @@
  ***********************/
 
 /*
- * This string is set in simplex_propagator module depending on compile-time options.
+ * This string is set in simplex_propagator depending on compile-time options.
  */
 extern char *simplex_prop_level;
 
@@ -214,6 +214,14 @@ extern literal_t simplex_create_ge_atom(simplex_solver_t *solver, thvar_t x);
 
 
 /*
+ * Create the atom p == 0 or p >= 0
+ * - p and map are as in create_poly
+ */
+extern literal_t simplex_create_poly_eq_atom(simplex_solver_t *solver, polynomial_t *p, thvar_t *map);
+extern literal_t simplex_create_poly_ge_atom(simplex_solver_t *solver, polynomial_t *p, thvar_t *map);
+
+
+/*
  * Create the atom x - y == 0
  * - x and y are two theory variables
  */
@@ -228,6 +236,17 @@ extern literal_t simplex_create_vareq_atom(simplex_solver_t *solver, thvar_t x, 
  */
 extern void simplex_assert_eq_axiom(simplex_solver_t *solver, thvar_t x, bool tt);
 extern void simplex_assert_ge_axiom(simplex_solver_t *solver, thvar_t x, bool tt);
+
+
+/*
+ * Assert a top-level constraint (either p == 0 or p != 0 or p >= 0 or p < 0)
+ * - p and map are as in create_poly
+ * - tt indicates whether the constraint or its negation must be asserted
+ *   tt == true  --> assert p == 0 or p >= 0
+ *   tt == false --> assert p != 0 or p < 0
+ */
+extern void simplex_assert_poly_eq_axiom(simplex_solver_t *solver, polynomial_t *p, thvar_t *map, bool tt);
+extern void simplex_assert_poly_ge_axiom(simplex_solver_t *solver, polynomial_t *p, thvar_t *map, bool tt);
 
 
 /*

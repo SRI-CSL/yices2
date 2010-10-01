@@ -3357,15 +3357,86 @@ static literal_t map_distinct_to_literal(context_t *ctx, composite_term_t *disti
 }
 
 
+/*
+ * Arithmetic atom: p == 0
+ */
+static literal_t map_poly_eq_to_literal(context_t *ctx, polynomial_t *p) {
+  uint32_t i, n;
+  thvar_t *a;
+  literal_t l;
+
+  n = p->nterms;
+  a = alloc_istack_array(&ctx->istack, n);
+
+  // skip the constant if any
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    a[0] = null_thvar;
+    i ++;
+  }
+
+  // deal with the non-constant monomials
+  while (i<n) {
+    a[i] = internalize_to_arith(ctx, p->mono[i].var);
+    i ++;
+  }
+
+  // build the atom
+  l = ctx->arith.create_poly_eq_atom(ctx->arith_solver, p, a);
+  free_istack_array(&ctx->istack, a);
+
+  return l;
+}
+
 
 /*
  * Arithmetic atom: (t == 0)
  */
 static literal_t map_arith_eq_to_literal(context_t *ctx, term_t t) {
+  term_table_t *terms;
   thvar_t x;
+  literal_t l;
 
-  x = internalize_to_arith(ctx, t);
-  return ctx->arith.create_eq_atom(ctx->arith_solver, x);
+  terms = ctx->terms;
+  if (term_kind(terms, t) == ARITH_POLY) {
+    l = map_poly_eq_to_literal(ctx, poly_term_desc(terms, t));
+  } else {
+    x = internalize_to_arith(ctx, t);
+    l =ctx->arith.create_eq_atom(ctx->arith_solver, x);
+  }
+  return l;
+}
+
+
+/*
+ * Arithmetic atom: (p >= 0)
+ */
+static literal_t map_poly_ge_to_literal(context_t *ctx, polynomial_t *p) {
+  uint32_t i, n;
+  thvar_t *a;
+  literal_t l;
+
+  n = p->nterms;
+  a = alloc_istack_array(&ctx->istack, n);
+
+  // skip the constant if any
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    a[0] = null_thvar;
+    i ++;
+  }
+
+  // deal with the non-constant monomials
+  while (i<n) {
+    a[i] = internalize_to_arith(ctx, p->mono[i].var);
+    i ++;
+  }
+
+  // build the atom
+  l = ctx->arith.create_poly_ge_atom(ctx->arith_solver, p, a);
+  free_istack_array(&ctx->istack, a);
+
+  return l;
 }
 
 
@@ -3373,10 +3444,19 @@ static literal_t map_arith_eq_to_literal(context_t *ctx, term_t t) {
  * Arithmetic atom: (t >= 0)
  */
 static literal_t map_arith_geq_to_literal(context_t *ctx, term_t t) {
+  term_table_t *terms;
   thvar_t x;
+  literal_t l;
 
-  x = internalize_to_arith(ctx, t);
-  return ctx->arith.create_ge_atom(ctx->arith_solver, x);
+  terms = ctx->terms;
+  if (term_kind(terms, t) == ARITH_POLY) {
+    l = map_poly_ge_to_literal(ctx, poly_term_desc(terms, t));
+  } else {
+    x = internalize_to_arith(ctx, t);
+    l =ctx->arith.create_ge_atom(ctx->arith_solver, x);
+  }
+
+  return l;
 }
 
 
@@ -4354,6 +4434,38 @@ static void assert_toplevel_distinct(context_t *ctx, composite_term_t *distinct,
 }
 
 
+
+/*
+ * Top-level arithmetic assertion: 
+ * - if tt is true, assert p == 0 
+ * - if tt is false, assert p != 0
+ */
+static void assert_toplevel_poly_eq(context_t *ctx, polynomial_t *p, bool tt) {
+  uint32_t i, n;
+  thvar_t *a;
+
+  n = p->nterms;
+  a = alloc_istack_array(&ctx->istack, n);;
+  // skip the constant if any
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    a[0] = null_thvar;
+    i ++;
+  }
+
+  // deal with the non-constant monomials
+  while (i<n) {
+    a[i] = internalize_to_arith(ctx, p->mono[i].var);
+    i ++;
+  }
+
+  // assertion
+  ctx->arith.assert_poly_eq_axiom(ctx->arith_solver, p, a, tt);
+  free_istack_array(&ctx->istack, a);
+}
+
+
+
 /*
  * Top-level arithmetic equality:
  * - t is an arithmetic term
@@ -4367,6 +4479,7 @@ static void assert_toplevel_arith_eq(context_t *ctx, term_t t, bool tt) {
   thvar_t x;
 
   assert(is_arithmetic_term(ctx->terms, t));
+
   terms = ctx->terms;
   if (tt && context_arith_elim_enabled(ctx) && term_kind(terms, t) == ARITH_POLY) {
     /*
@@ -4381,9 +4494,46 @@ static void assert_toplevel_arith_eq(context_t *ctx, term_t t, bool tt) {
   }
 
   // default
-  x = internalize_to_arith(ctx, t);
-  ctx->arith.assert_eq_axiom(ctx->arith_solver, x, tt);
+  if (term_kind(terms, t) == ARITH_POLY) {
+    assert_toplevel_poly_eq(ctx, poly_term_desc(terms, t), tt);
+  } else {
+    x = internalize_to_arith(ctx, t);
+    ctx->arith.assert_eq_axiom(ctx->arith_solver, x, tt);
+  }
 }
+
+
+
+
+/*
+ * Top-level arithmetic assertion: 
+ * - if tt is true, assert p >= 0 
+ * - if tt is false, assert p < 0
+ */
+static void assert_toplevel_poly_geq(context_t *ctx, polynomial_t *p, bool tt) {
+  uint32_t i, n;
+  thvar_t *a;
+
+  n = p->nterms;
+  a = alloc_istack_array(&ctx->istack, n);;
+  // skip the constant if any
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    a[0] = null_thvar;
+    i ++;
+  }
+
+  // deal with the non-constant monomials
+  while (i<n) {
+    a[i] = internalize_to_arith(ctx, p->mono[i].var);
+    i ++;
+  }
+
+  // assertion
+  ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, a, tt);
+  free_istack_array(&ctx->istack, a);
+}
+
 
 
 /*
@@ -4393,12 +4543,18 @@ static void assert_toplevel_arith_eq(context_t *ctx, term_t t, bool tt) {
  * - if tt is false, assert (t < 0)
  */
 static void assert_toplevel_arith_geq(context_t *ctx, term_t t, bool tt) {
+  term_table_t *terms;
   thvar_t x;
 
   assert(is_arithmetic_term(ctx->terms, t));
 
-  x = internalize_to_arith(ctx, t);
-  ctx->arith.assert_ge_axiom(ctx->arith_solver, x, tt);
+  terms = ctx->terms;
+  if (term_kind(terms, t) == ARITH_POLY) {
+    assert_toplevel_poly_geq(ctx, poly_term_desc(terms, t), tt);
+  } else {
+    x = internalize_to_arith(ctx, t);
+    ctx->arith.assert_ge_axiom(ctx->arith_solver, x, tt);
+  }
 }
 
 

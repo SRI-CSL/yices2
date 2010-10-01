@@ -1,5 +1,5 @@
 /*
- * INCREMENTAL FORM OF THE FLOYD-WARSHALL ALGORITHM,
+ * INCREMENTAL FORM OF THE FLOYD-WARSHALL ALGORITHM
  */
 
 
@@ -1912,65 +1912,15 @@ static thvar_t idl_var_for_triple(idl_solver_t *solver, int32_t x, int32_t y, in
 
 
 /*
- * Create a new theory variable
- * - is_int indicates whether the variable should be an integer,
- *   so it should always be true for this solver.
- * - raise exception NOT_IDL if is_int is false
- * - raise exception TOO_MANY_VARS if we can't create a new vertex
- *   for that variable
+ * Apply renaming and substitution to polynomial p
+ * - map is a variable renaming: if p is a_0 t_0 + ... + a_n t_n
+ *   then map[i] is the theory variable x_i that replaces t_i.
+ * - so the function construct p = a_0 x_0 + ... + a_n x_n
+ * The result is stored into solver->buffer.
  */
-thvar_t idl_create_var(idl_solver_t *solver, bool is_int) {
-  int32_t v;
-
-  if (! is_int) {
-    idl_exception(solver, FORMULA_NOT_IDL);
-  }
-
-  v = idl_new_vertex(solver);
-  if (v < 0) {
-    idl_exception(solver, TOO_MANY_ARITH_VARS);
-  }
-
-  return idl_var_for_triple(solver, v, nil_vertex, 0);
-}
-
-
-/*
- * Create a variable that represents the constant q
- * - fails if q is not an integer
- */
-thvar_t idl_create_const(idl_solver_t *solver, rational_t *q) {
-  int32_t c;
-
-  if (! q_get32(q, &c)) {
-    /*
-     * We could do a more precise diagnosis here:
-     * There are two possibilities:
-     * q is not an integer
-     * q is an integer but it doesn't fit in 32bits
-     */
-    idl_exception(solver, ARITHSOLVER_EXCEPTION);
-  }
-
-  return idl_var_for_triple(solver, nil_vertex, nil_vertex, c);
-}
-
-
-/*
- * Create a variable for a polynomial p, with variables defined by map:
- * - p is of the form a_0 t_0 + ... + a_n t_n where t_0, ..., t_n
- *   are arithmetic terms.
- * - map[i] is the theory variable x_i for t_i 
- *   (with map[0] = null_thvar if t_0 is const_idx)
- * - the function constructs a variable equal to a_0 x_0 + ... + a_n x_n
- *
- * - fails if a_0 x_0 + ... + a_n x_n is not an IDL polynomial 
- *   (i.e., not of the form x - y + c)
- */
-thvar_t idl_create_poly(idl_solver_t *solver, polynomial_t *p, thvar_t *map) {
+static void idl_rename_poly(idl_solver_t *solver, polynomial_t *p, thvar_t *map) {
   poly_buffer_t *b;
   monomial_t *mono;
-  dl_triple_t *triple;
   uint32_t i, n;
 
   b = &solver->buffer;
@@ -1993,29 +1943,7 @@ thvar_t idl_create_poly(idl_solver_t *solver, polynomial_t *p, thvar_t *map) {
     addmul_dl_var_to_buffer(&solver->vtbl, b, map[i], &mono[i].coeff);
   }
 
-  normalize_poly_buffer(b);
-
-  // b contains a_0 x_0 + ... + a_n x_n
-  triple = &solver->triple;
-  if (! convert_poly_buffer_to_dl_triple(b, triple) || 
-      ! q_is_int32(&triple->constant)) {
-    /*
-     * Exception here: either b is not of the right form
-     * or the constant is not an integer
-     * or the constant is an integer but it doesn't fit in 32bits
-     */
-    idl_exception(solver, ARITHSOLVER_EXCEPTION);
-  }
-
-  return get_dl_var(&solver->vtbl, triple);    
-}
-
-
-/*
- * Internalization for a product: always fails with NOT_IDL exception
- */
-thvar_t idl_create_pprod(idl_solver_t *solver, pprod_t *p, thvar_t *map) {
-  idl_exception(solver, FORMULA_NOT_IDL);
+  normalize_poly_buffer(b);  
 }
 
 
@@ -2078,28 +2006,17 @@ static literal_t idl_eq_from_triple(idl_solver_t *solver, dl_triple_t *d) {
 
 
 /*
- * Create the atom v = 0
+ * Create the atom (x - y + c) >= 0 for d = (x - y + c)
  */
-literal_t idl_create_eq_atom(idl_solver_t *solver, thvar_t v) {
-  return idl_eq_from_triple(solver, dl_var_triple(&solver->vtbl, v));
-}
-
-
-/*
- * Create the atom v >= 0
- */
-literal_t idl_create_ge_atom(idl_solver_t *solver, thvar_t v) {
-  dl_triple_t *d;
+static literal_t idl_ge_from_triple(idl_solver_t *solver, dl_triple_t *d) {
   int32_t c, x, y;
 
-  d = dl_var_triple(&solver->vtbl, v);
   x = d->target;
   y = d->source;
   if (! q_get32(&d->constant, &c)) {
     idl_exception(solver, ARITHSOLVER_EXCEPTION);
   }
 
-  // v --> (x - y + c)
   if (x == y) {
     if (c >= 0) {
       return true_literal;
@@ -2114,26 +2031,9 @@ literal_t idl_create_ge_atom(idl_solver_t *solver, thvar_t v) {
     y = idl_get_zero_vertex(solver);
   }
 
-  // v >= 0 is (y - x <= c)
+  // (x - y + c >= 0) is (y - x <= c)
   return idl_make_atom(solver, y, x, c);
 }
-
-
-/*
- * Create the atom (v = w)
- */
-literal_t idl_create_vareq_atom(idl_solver_t *solver, thvar_t v, thvar_t w) {  
-  dl_triple_t *triple;
-
-  triple = &solver->triple;
-  if (! diff_dl_vars(&solver->vtbl, v, w, triple)) {
-    // v - w is not expressible as (target - source + c) 
-    idl_exception(solver, FORMULA_NOT_IDL);
-  }
-
-  return idl_eq_from_triple(solver, triple);
-}
-
 
 
 /*
@@ -2183,25 +2083,13 @@ static void idl_assert_triple_eq(idl_solver_t *solver, dl_triple_t *d, bool tt) 
 
 
 /*
- * Assert the top-level constraint (v == 0) or (v != 0)
- * - if tt is true: assert v == 0
- * - if tt is false: assert v != 0
+ * Assert (x - y + c) >= 0 or (x - y + c) < 0, given a triple d = x - y + c
+ * - tt true: assert  (x - y + c) >= 0
+ * - tt false: assert (x - y + c) < 0 
  */
-void idl_assert_eq_axiom(idl_solver_t *solver, thvar_t v, bool tt) {
-  idl_assert_triple_eq(solver, dl_var_triple(&solver->vtbl, v), tt);
-}
-
-
-/*
- * Assert the top-level constraint (v >= 0) or (v < 0)
- * - if tt is true: assert (v >= 0)
- * - if tt is false: assert (v < 0)
- */
-void idl_assert_ge_axiom(idl_solver_t *solver, thvar_t v, bool tt) {
-  dl_triple_t *d;
+static void idl_assert_triple_ge(idl_solver_t *solver, dl_triple_t *d, bool tt) {
   int32_t x, y, c;
 
-  d = dl_var_triple(&solver->vtbl, v);
   x = d->target;
   y = d->source;
   if (! q_get32(&d->constant, &c)) {
@@ -2215,7 +2103,6 @@ void idl_assert_ge_axiom(idl_solver_t *solver, thvar_t v, bool tt) {
     }
     return;
   }
-
 
   if (x < 0) {
     x = idl_get_zero_vertex(solver);
@@ -2235,6 +2122,257 @@ void idl_assert_ge_axiom(idl_solver_t *solver, thvar_t v, bool tt) {
 
 
 /*
+ * TERM CONSTRUCTORS
+ */
+
+/*
+ * Create a new theory variable
+ * - is_int indicates whether the variable should be an integer,
+ *   so it should always be true for this solver.
+ * - raise exception NOT_IDL if is_int is false
+ * - raise exception TOO_MANY_VARS if we can't create a new vertex
+ *   for that variable
+ */
+thvar_t idl_create_var(idl_solver_t *solver, bool is_int) {
+  int32_t v;
+
+  if (! is_int) {
+    idl_exception(solver, FORMULA_NOT_IDL);
+  }
+
+  v = idl_new_vertex(solver);
+  if (v < 0) {
+    idl_exception(solver, TOO_MANY_ARITH_VARS);
+  }
+
+  return idl_var_for_triple(solver, v, nil_vertex, 0);
+}
+
+
+/*
+ * Create a variable that represents the constant q
+ * - fails if q is not an integer
+ */
+thvar_t idl_create_const(idl_solver_t *solver, rational_t *q) {
+  int32_t c;
+
+  if (! q_get32(q, &c)) {
+    /*
+     * We could do a more precise diagnosis here:
+     * There are two possibilities:
+     * q is not an integer
+     * q is an integer but it doesn't fit in 32bits
+     */
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
+
+  return idl_var_for_triple(solver, nil_vertex, nil_vertex, c);
+}
+
+
+/*
+ * Create a variable for a polynomial p, with variables defined by map:
+ * - p is of the form a_0 t_0 + ... + a_n t_n where t_0, ..., t_n
+ *   are arithmetic terms.
+ * - map[i] is the theory variable x_i for t_i 
+ *   (with map[0] = null_thvar if t_0 is const_idx)
+ * - the function constructs a variable equal to a_0 x_0 + ... + a_n x_n
+ *
+ * - fails if a_0 x_0 + ... + a_n x_n is not an IDL polynomial 
+ *   (i.e., not of the form x - y + c)
+ */
+thvar_t idl_create_poly(idl_solver_t *solver, polynomial_t *p, thvar_t *map) {
+  poly_buffer_t *b;
+  dl_triple_t *triple;
+
+  // apply renaming and substitutions
+  idl_rename_poly(solver, p, map);
+  b = &solver->buffer;
+
+  // b contains a_0 x_0 + ... + a_n x_n
+  triple = &solver->triple;
+  if (! convert_poly_buffer_to_dl_triple(b, triple) || 
+      ! q_is_int32(&triple->constant)) {
+    /*
+     * Exception here: either b is not of the right form
+     * or the constant is not an integer
+     * or the constant is an integer but it doesn't fit in 32bits
+     */
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
+
+  return get_dl_var(&solver->vtbl, triple);    
+}
+
+
+/*
+ * Internalization for a product: always fails with NOT_IDL exception
+ */
+thvar_t idl_create_pprod(idl_solver_t *solver, pprod_t *p, thvar_t *map) {
+  idl_exception(solver, FORMULA_NOT_IDL);
+}
+
+
+
+/*
+ * ATOM CONSTRUCTORS
+ */
+
+/*
+ * Create the atom v = 0
+ */
+literal_t idl_create_eq_atom(idl_solver_t *solver, thvar_t v) {
+  return idl_eq_from_triple(solver, dl_var_triple(&solver->vtbl, v));
+}
+
+
+/*
+ * Create the atom v >= 0
+ */
+literal_t idl_create_ge_atom(idl_solver_t *solver, thvar_t v) {
+  return idl_ge_from_triple(solver, dl_var_triple(&solver->vtbl, v));
+}
+
+
+/*
+ * Create the atom (v = w)
+ */
+literal_t idl_create_vareq_atom(idl_solver_t *solver, thvar_t v, thvar_t w) {  
+  dl_triple_t *triple;
+
+  triple = &solver->triple;
+  if (! diff_dl_vars(&solver->vtbl, v, w, triple)) {
+    // v - w is not expressible as (target - source + c) 
+    idl_exception(solver, FORMULA_NOT_IDL);
+  }
+
+  return idl_eq_from_triple(solver, triple);
+}
+
+
+/*
+ * Create the atom (p = 0)
+ * - map = variable renaming (as in create_poly)
+ */
+literal_t idl_create_poly_eq_atom(idl_solver_t *solver, polynomial_t *p, thvar_t *map) {
+  poly_buffer_t *b;
+  dl_triple_t *triple;
+
+  // apply renaming and substitutions
+  idl_rename_poly(solver, p, map);
+
+  b = &solver->buffer;
+  triple = &solver->triple;
+  if (! rescale_poly_buffer_to_dl_triple(b, triple) ||
+      ! q_is_int32(&triple->constant)) {
+    // exception: either p is not convertible to an IDL polynomial
+    // or the constant is too large
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
+
+  return idl_eq_from_triple(solver, triple);
+}
+
+
+
+/*
+ * Create the atom (p >= 0)
+ * - map = variable renaming (as in create_poly)
+ */
+literal_t idl_create_poly_ge_atom(idl_solver_t *solver, polynomial_t *p, thvar_t *map) {
+  poly_buffer_t *b;
+  dl_triple_t *triple;
+
+  // apply renaming and substitutions
+  idl_rename_poly(solver, p, map);
+
+  b = &solver->buffer;
+  triple = &solver->triple;
+  if (! rescale_poly_buffer_to_dl_triple(b, triple) ||
+      ! q_is_int32(&triple->constant)) {
+    // exception: either p is not convertible to an IDL polynomial
+    // or the constant is too large
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
+
+  return idl_ge_from_triple(solver, triple);
+}
+
+
+
+
+/*
+ * TOP-LEVEL ASSERTIONS
+ */
+
+/*
+ * Assert the top-level constraint (v == 0) or (v != 0)
+ * - if tt is true: assert v == 0
+ * - if tt is false: assert v != 0
+ */
+void idl_assert_eq_axiom(idl_solver_t *solver, thvar_t v, bool tt) {
+  idl_assert_triple_eq(solver, dl_var_triple(&solver->vtbl, v), tt);
+}
+
+
+/*
+ * Assert the top-level constraint (v >= 0) or (v < 0)
+ * - if tt is true: assert (v >= 0)
+ * - if tt is false: assert (v < 0)
+ */
+void idl_assert_ge_axiom(idl_solver_t *solver, thvar_t v, bool tt) {
+  idl_assert_triple_ge(solver, dl_var_triple(&solver->vtbl, v), tt);
+}
+
+
+/*
+ * Assert (p == 0) or (p != 0) depending on tt
+ */
+void idl_assert_poly_eq_axiom(idl_solver_t *solver, polynomial_t *p, thvar_t *map, bool tt) {
+  poly_buffer_t *b;
+  dl_triple_t *triple;
+
+  // apply renaming and substitutions
+  idl_rename_poly(solver, p, map);
+
+  b = &solver->buffer;
+  triple = &solver->triple;
+  if (! rescale_poly_buffer_to_dl_triple(b, triple) ||
+      ! q_is_int32(&triple->constant)) {
+    // exception: either p is not convertible to an IDL polynomial
+    // or the constant is too large
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
+
+  idl_assert_triple_eq(solver, triple, tt);
+}
+
+
+/*
+ * Assert (p >= 0) or (p < 0) depending on tt
+ */
+void idl_assert_poly_ge_axiom(idl_solver_t *solver, polynomial_t *p, thvar_t *map, bool tt) {
+  poly_buffer_t *b;
+  dl_triple_t *triple;
+
+  // apply renaming and substitutions
+  idl_rename_poly(solver, p, map);
+
+  b = &solver->buffer;
+  triple = &solver->triple;
+  if (! rescale_poly_buffer_to_dl_triple(b, triple) ||
+      ! q_is_int32(&triple->constant)) {
+    // exception: either p is not convertible to an IDL polynomial
+    // or the constant is too large
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
+
+  idl_assert_triple_ge(solver, triple, tt);
+}
+
+
+
+/*
  * Assert (v == w) or (v != w)
  * - if tt is true: assert (v == w)
  * - if tt is false: assert (v != w)
@@ -2249,6 +2387,8 @@ void idl_assert_vareq_axiom(idl_solver_t *solver, thvar_t v, thvar_t w, bool tt)
 
   idl_assert_triple_eq(solver, triple, tt);
 }
+
+
 
 
 /*
@@ -2528,14 +2668,14 @@ static arith_interface_t idl_intern = {
 
   (create_arith_atom_fun_t) idl_create_eq_atom,
   (create_arith_atom_fun_t) idl_create_ge_atom,
-  NULL, // idl_create_poly_eq_atom: TBD
-  NULL, // idl_create_poly_ge_atom: TBD
+  (create_arith_patom_fun_t) idl_create_poly_eq_atom,
+  (create_arith_patom_fun_t) idl_create_poly_ge_atom,
   (create_arith_vareq_atom_fun_t) idl_create_vareq_atom,
 
   (assert_arith_axiom_fun_t) idl_assert_eq_axiom,
   (assert_arith_axiom_fun_t) idl_assert_ge_axiom,
-  NULL, // idl_create_poly_eq_atom: TBD
-  NULL, // idl_create_poly_ge_atom: TBD
+  (assert_arith_paxiom_fun_t) idl_assert_poly_eq_axiom,
+  (assert_arith_paxiom_fun_t) idl_assert_poly_ge_axiom,
   (assert_arith_vareq_axiom_fun_t) idl_assert_vareq_axiom,
   (assert_arith_cond_vareq_axiom_fun_t) idl_assert_cond_vareq_axiom,
 

@@ -597,6 +597,22 @@ extern literal_t rdl_create_ge_atom(rdl_solver_t *solver, thvar_t x);
 
 
 /*
+ * Create the atom p = 0
+ * - map is used as in create_poly
+ * - fails if p is not of the form (x - y + c)
+ */
+extern literal_t rdl_create_poly_eq_atom(rdl_solver_t *solver, polynomial_t *p, thvar_t *map);
+
+
+/*
+ * Create the atom p >= 0
+ * - map is used as in create_poly
+ * - fails if p is not of the form (x - y + c)
+ */
+extern literal_t rdl_create_poly_ge_atom(rdl_solver_t *solver, polynomial_t *p, thvar_t *map);
+
+
+/*
  * Create the atom (x = y)
  */
 extern literal_t rdl_create_vareq_atom(rdl_solver_t *solver, thvar_t x, thvar_t y);
@@ -616,6 +632,26 @@ extern void rdl_assert_eq_axiom(rdl_solver_t *solver, thvar_t x, bool tt);
  * - if tt is false: assert (x < 0)
  */
 extern void rdl_assert_ge_axiom(rdl_solver_t *solver, thvar_t x, bool tt);
+
+
+/*
+ * Assert the top-level constraint (p == 0) or (p != 0)
+ * - map is as in create_poly
+ * - if tt is true: assert p == 0
+ * - if tt is false: assert p != 0
+ * - fails if p is not of the form (x - y + c)
+ */
+extern void rdl_assert_poly_eq_axiom(rdl_solver_t *solver, polynomial_t *p, thvar_t *map, bool tt);
+
+
+/*
+ * Assert the top-level constraint (p >= 0) or (p < 0)
+ * - map is as in create_poly
+ * - if tt is true: assert (p >= 0)
+ * - if tt is false: assert (p < 0)
+ * - fails if p is not of the form (x - y + c)
+ */
+extern void rdl_assert_poly_ge_axiom(rdl_solver_t *solver, polynomial_t *p, thvar_t *map, bool tt);
 
 
 /*

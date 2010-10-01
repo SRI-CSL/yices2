@@ -2146,6 +2146,205 @@ static __attribute__ ((noreturn)) void rdl_exception(rdl_solver_t *solver, int c
 }
 
 
+/*
+ * Apply renaming and substitution to polynomial p
+ * - map is a variable renaming: if p is a_0 t_0 + ... + a_n t_n then
+ *   map[i] = x_i is the theory variable that replaces t_i
+ *   (with the exception that map[0] = null_thvar if t_0 is const_idx)
+ * The function constructs a_0 x_0 + ... + a_n x_n and stores
+ * the result into solver->buffer.
+ */
+static void rdl_rename_poly(rdl_solver_t *solver, polynomial_t *p, thvar_t *map) {
+  poly_buffer_t *b;
+  monomial_t *mono;
+  uint32_t i, n;
+
+  b = &solver->buffer;
+  reset_poly_buffer(b);
+
+  n = p->nterms;
+  mono = p->mono;
+
+  // deal with p's constant term if any
+  if (map[0] == null_thvar) {
+    assert(mono[0].var == const_idx);
+    poly_buffer_add_const(b, &mono[0].coeff);
+    n --;
+    map ++;
+    mono ++;
+  }
+
+  for (i=0; i<n; i++) {
+    assert(mono[i].var != const_idx);
+    addmul_dl_var_to_buffer(&solver->vtbl, b, map[i], &mono[i].coeff);
+  }
+
+  normalize_poly_buffer(b);
+}
+
+
+
+/*
+ * Create the zero_vertex but raise an exception if that fails.
+ */
+static int32_t rdl_get_zero_vertex(rdl_solver_t *solver) {
+  int32_t z;
+
+  z = rdl_zero_vertex(solver);
+  if (z < 0) {
+    rdl_exception(solver, TOO_MANY_ARITH_VARS);
+  }
+  return z;
+}
+
+
+/*
+ * Create the atom (x - y + c) == 0 for d = (x - y + c)
+ */
+static literal_t rdl_eq_from_triple(rdl_solver_t *solver, dl_triple_t *d) {
+  literal_t l1, l2;
+  int32_t x, y;
+
+  x = d->target;
+  y = d->source;
+
+  /*
+   * d is (x - y + c)
+   */
+  if (x == y) {
+    if (q_is_zero(&d->constant)) {
+      return true_literal;
+    } else {
+      return false_literal;
+    }
+  } 
+
+  // a nil_vertex in triples denote 'zero'
+  if (x < 0) {
+    x = rdl_get_zero_vertex(solver);
+  } else if (y < 0) {
+    y = rdl_get_zero_vertex(solver);
+  }
+
+  // d == 0 is the conjunction of (y - x <= c) and (x - y <= -c)
+  l1 = rdl_make_atom(solver, y, x, &d->constant); // atom (y - x <= c)
+  q_set_neg(&solver->q, &d->constant);            // q := -c
+  l2 = rdl_make_atom(solver, x, y, &solver->q);   // atom (x - y <= -c)
+
+  return mk_and_gate2(solver->gate_manager, l1, l2);
+}
+
+
+
+/*
+ * Create the atom (x - y + c) >= 0 for d = (x - y + c)
+ */
+static literal_t rdl_ge_from_triple(rdl_solver_t *solver, dl_triple_t *d) {
+  int32_t x, y;
+  x = d->target;
+  y = d->source;
+
+  if (x == y) {
+    if (q_is_nonneg(&d->constant)) { // c >= 0
+      return true_literal;
+    } else {
+      return false_literal;
+    }
+  }
+
+  if (x < 0) {
+    x = rdl_get_zero_vertex(solver);
+  } else if (y < 0) {
+    y = rdl_get_zero_vertex(solver);
+  }
+
+  // (x - y + c >= 0) is (y - x <= c)
+  return rdl_make_atom(solver, y, x, &d->constant);
+}
+
+
+/*
+ * Assert (x - y + c) == 0 or (x - y + c) != 0, given a triple d = x - y + c
+ * - tt true: assert the equality
+ * - tt false: assert the disequality
+ */
+static void rdl_assert_triple_eq(rdl_solver_t *solver, dl_triple_t *d, bool tt) {
+  int32_t x, y;
+  literal_t l1, l2;
+
+  x = d->target;
+  y = d->source;
+
+  // d is (x - y + c)
+  if (x == y) {
+    if (q_is_zero(&d->constant) != tt) {
+      solver->unsat_before_search = true;
+    }
+    return;
+  }
+
+  if (x < 0) {
+    x = rdl_get_zero_vertex(solver);
+  } else if (y < 0) {
+    y = rdl_get_zero_vertex(solver);
+  }
+
+  if (tt) {
+    // (x - y + c) == 0 is equivalent to y - x == c
+    rdl_add_axiom_eq(solver, y, x, &d->constant);
+  } else {
+    // (x - y + c) != 0 is equivalent to
+    // (not (y - x <= c)) or (not (x - y <= -c))
+    l1 = rdl_make_atom(solver, y, x, &d->constant); // atom (y - x <= c)
+    q_set_neg(&solver->q, &d->constant);            // q := -c
+    l2 = rdl_make_atom(solver, x, y, &solver->q);   // atom (x - y <= -c)
+
+    add_binary_clause(solver->core, not(l1), not(l2));
+  }
+}
+
+
+/*
+ * Assert either (x - y + c >= 0) or (x - y + c < 0) (depending on tt)
+ * - if tt is true:  assert x - y + c >= 0
+ * - if tt is false: assert x - y + x < 0
+ */
+static void rdl_assert_triple_ge(rdl_solver_t *solver, dl_triple_t *d, bool tt) {
+  int32_t x, y;
+
+  x = d->target;
+  y = d->source;
+
+  // d is (x - y + c)
+  if (x == y) {
+    if (q_is_nonneg(&d->constant) != tt) {
+      // either c >= 0 and tt is false or c < 0 and tt is true
+      solver->unsat_before_search = true;
+    }
+    return;
+  }
+
+  if (x < 0) {
+    x = rdl_get_zero_vertex(solver);
+  } else if (y < 0) {
+    y = rdl_get_zero_vertex(solver);
+  }
+
+  if (tt) {
+    // (x - y + c) >= 0 is equivalent to (y - x <= c)
+    rdl_add_axiom_edge(solver, y, x, &d->constant, false);
+  } else {
+    // (x - y + c) < 0 is equivalent to (x - y < -c)
+    q_set_neg(&solver->q, &d->constant);
+    rdl_add_axiom_edge(solver, x, y, &solver->q, true);
+  }
+}
+
+
+
+/*
+ * TERM CONSTRUCTORS
+ */
 
 /*
  * Create a new theory variable
@@ -2206,31 +2405,11 @@ thvar_t rdl_create_const(rdl_solver_t *solver, rational_t *q) {
  */
 thvar_t rdl_create_poly(rdl_solver_t *solver, polynomial_t *p, thvar_t *map) {
   poly_buffer_t *b;
-  monomial_t *mono;
   dl_triple_t *triple;
-  uint32_t i, n;
 
+  // apply renaming
+  rdl_rename_poly(solver, p, map);
   b = &solver->buffer;
-  reset_poly_buffer(b);
-
-  n = p->nterms;
-  mono = p->mono;
-
-  // deal with p's constant term if any
-  if (map[0] == null_thvar) {
-    assert(mono[0].var == const_idx);
-    poly_buffer_add_const(b, &mono[0].coeff);
-    n --;
-    map ++;
-    mono ++;
-  }
-
-  for (i=0; i<n; i++) {
-    assert(mono[i].var != const_idx);
-    addmul_dl_var_to_buffer(&solver->vtbl, b, map[i], &mono[i].coeff);
-  }
-
-  normalize_poly_buffer(b);
 
   // b contains a_0 x_0 + ... + a_n x_n
   triple = &solver->triple;
@@ -2255,55 +2434,8 @@ thvar_t rdl_create_pprod(rdl_solver_t *solver, pprod_t *p, thvar_t *map) {
 
 
 /*
- * Create the zero_vertex but raise an exception if that fails.
+ * ATOM CONSTRUCTORS
  */
-static int32_t rdl_get_zero_vertex(rdl_solver_t *solver) {
-  int32_t z;
-
-  z = rdl_zero_vertex(solver);
-  if (z < 0) {
-    rdl_exception(solver, TOO_MANY_ARITH_VARS);
-  }
-  return z;
-}
-
-
-/*
- * Create the atom (x - y + c) == 0 for d = (x - y + c)
- */
-static literal_t rdl_eq_from_triple(rdl_solver_t *solver, dl_triple_t *d) {
-  literal_t l1, l2;
-  int32_t x, y;
-
-  x = d->target;
-  y = d->source;
-
-  /*
-   * d is (x - y + c)
-   */
-  if (x == y) {
-    if (q_is_zero(&d->constant)) {
-      return true_literal;
-    } else {
-      return false_literal;
-    }
-  } 
-
-  // a nil_vertex in triples denote 'zero'
-  if (x < 0) {
-    x = rdl_get_zero_vertex(solver);
-  } else if (y < 0) {
-    y = rdl_get_zero_vertex(solver);
-  }
-
-  // d == 0 is the conjunction of (y - x <= c) and (x - y <= -c)
-  l1 = rdl_make_atom(solver, y, x, &d->constant); // atom (y - x <= c)
-  q_set_neg(&solver->q, &d->constant);            // q := -c
-  l2 = rdl_make_atom(solver, x, y, &solver->q);   // atom (x - y <= -c)
-
-  return mk_and_gate2(solver->gate_manager, l1, l2);
-}
-
 
 /*
  * Create the atom v = 0
@@ -2317,31 +2449,51 @@ literal_t rdl_create_eq_atom(rdl_solver_t *solver, thvar_t v) {
  * Create the atom v >= 0
  */
 literal_t rdl_create_ge_atom(rdl_solver_t *solver, thvar_t v) {
-  dl_triple_t *d;
-  int32_t x, y;
-
-  d = dl_var_triple(&solver->vtbl, v);
-  x = d->target;
-  y = d->source;
-
-  // v --> (x - y + c)
-  if (x == y) {
-    if (q_is_nonneg(&d->constant)) { // c >= 0
-      return true_literal;
-    } else {
-      return false_literal;
-    }
-  }
-
-  if (x < 0) {
-    x = rdl_get_zero_vertex(solver);
-  } else if (y < 0) {
-    y = rdl_get_zero_vertex(solver);
-  }
-
-  // v >= 0 is (y - x <= c)
-  return rdl_make_atom(solver, y, x, &d->constant);
+  return rdl_ge_from_triple(solver, dl_var_triple(&solver->vtbl, v));
 }
+
+
+/*
+ * Atom p == 0
+ */
+literal_t rdl_create_poly_eq_atom(rdl_solver_t *solver, polynomial_t *p, thvar_t *map) {
+  poly_buffer_t *b;
+  dl_triple_t *triple;
+
+  // apply renaming
+  rdl_rename_poly(solver, p, map);
+
+  b = &solver->buffer;
+  triple = &solver->triple;
+  if (! rescale_poly_buffer_to_dl_triple(b, triple)) {
+    // not convertible to (x - y + c) == 0
+    rdl_exception(solver, FORMULA_NOT_RDL);
+  }
+
+  return rdl_eq_from_triple(solver, triple);
+}
+
+
+/*
+ * Atom p >= 0
+ */
+literal_t rdl_create_poly_ge_atom(rdl_solver_t *solver, polynomial_t *p, thvar_t *map) {
+  poly_buffer_t *b;
+  dl_triple_t *triple;
+
+  // apply renaming
+  rdl_rename_poly(solver, p, map);
+
+  b = &solver->buffer;
+  triple = &solver->triple;
+  if (! rescale_poly_buffer_to_dl_triple(b, triple)) {
+    // not convertible to (x - y + c) == 0
+    rdl_exception(solver, FORMULA_NOT_RDL);
+  }
+
+  return rdl_ge_from_triple(solver, triple);
+}
+
 
 
 /*
@@ -2362,45 +2514,8 @@ literal_t rdl_create_vareq_atom(rdl_solver_t *solver, thvar_t v, thvar_t w) {
 
 
 /*
- * Assert (x - y + c) == 0 or (x - y + c) != 0, given a triple d = x - y + c
- * - tt true: assert the equality
- * - tt false: assert the disequality
+ * TOP-LEVEL ASSERTIONS
  */
-static void rdl_assert_triple_eq(rdl_solver_t *solver, dl_triple_t *d, bool tt) {
-  int32_t x, y;
-  literal_t l1, l2;
-
-  x = d->target;
-  y = d->source;
-
-  // d is (x - y + c)
-  if (x == y) {
-    if (q_is_zero(&d->constant) != tt) {
-      solver->unsat_before_search = true;
-    }
-    return;
-  }
-
-  if (x < 0) {
-    x = rdl_get_zero_vertex(solver);
-  } else if (y < 0) {
-    y = rdl_get_zero_vertex(solver);
-  }
-
-  if (tt) {
-    // (x - y + c) == 0 is equivalent to y - x == c
-    rdl_add_axiom_eq(solver, y, x, &d->constant);
-  } else {
-    // (x - y + c) != 0 is equivalent to
-    // (not (y - x <= c)) or (not (x - y <= -c))
-    l1 = rdl_make_atom(solver, y, x, &d->constant); // atom (y - x <= c)
-    q_set_neg(&solver->q, &d->constant);            // q := -c
-    l2 = rdl_make_atom(solver, x, y, &solver->q);   // atom (x - y <= -c)
-
-    add_binary_clause(solver->core, not(l1), not(l2));
-  }
-}
-
 
 /*
  * Assert the top-level constraint (v == 0) or (v != 0)
@@ -2418,38 +2533,53 @@ void rdl_assert_eq_axiom(rdl_solver_t *solver, thvar_t v, bool tt) {
  * - if tt is false: assert (v < 0)
  */
 void rdl_assert_ge_axiom(rdl_solver_t *solver, thvar_t v, bool tt) {
-  dl_triple_t *d;
-  int32_t x, y;
-
-  d = dl_var_triple(&solver->vtbl, v);
-  x = d->target;
-  y = d->source;
-
-  // d is (x - y + c)
-  if (x == y) {
-    if (q_is_nonneg(&d->constant) != tt) {
-      // either c >= 0 and tt is false or c < 0 and tt is true
-      solver->unsat_before_search = true;
-    }
-    return;
-  }
-
-
-  if (x < 0) {
-    x = rdl_get_zero_vertex(solver);
-  } else if (y < 0) {
-    y = rdl_get_zero_vertex(solver);
-  }
-
-  if (tt) {
-    // (x - y + c) >= 0 is equivalent to (y - x <= c)
-    rdl_add_axiom_edge(solver, y, x, &d->constant, false);
-  } else {
-    // (x - y + c) < 0 is equivalent to (x - y < -c)
-    q_set_neg(&solver->q, &d->constant);
-    rdl_add_axiom_edge(solver, x, y, &solver->q, true);
-  }
+  rdl_assert_triple_ge(solver, dl_var_triple(&solver->vtbl, v), tt);
 }
+
+
+/*
+ * Assert p == 0 if tt is true or p != 0 if tt is false
+ * - map = variable renaming (as in create_poly)
+ */
+void rdl_assert_poly_eq_axiom(rdl_solver_t *solver, polynomial_t *p, thvar_t *map, bool tt) {
+  poly_buffer_t *b;
+  dl_triple_t *triple;
+
+  // apply renaming
+  rdl_rename_poly(solver, p, map);
+
+  b = &solver->buffer;
+  triple = &solver->triple;
+  if (! rescale_poly_buffer_to_dl_triple(b, triple)) {
+    // not convertible to (x - y + c) == 0
+    rdl_exception(solver, FORMULA_NOT_RDL);
+  }
+
+  rdl_assert_triple_eq(solver, triple, tt);
+}
+
+
+/*
+ * Assert p >= 0 if tt is true or p < 0 if tt is false
+ * - map = variable renaming (as in create_poly)
+ */
+void rdl_assert_poly_ge_axiom(rdl_solver_t *solver, polynomial_t *p, thvar_t *map, bool tt) {
+  poly_buffer_t *b;
+  dl_triple_t *triple;
+
+  // apply renaming
+  rdl_rename_poly(solver, p, map);
+
+  b = &solver->buffer;
+  triple = &solver->triple;
+  if (! rescale_poly_buffer_to_dl_triple(b, triple)) {
+    // not convertible to (x - y + c) >= 0
+    rdl_exception(solver, FORMULA_NOT_RDL);
+  }
+
+  rdl_assert_triple_ge(solver, triple, tt);
+}
+
 
 
 /*
@@ -2871,14 +3001,14 @@ static arith_interface_t rdl_intern = {
 
   (create_arith_atom_fun_t) rdl_create_eq_atom,
   (create_arith_atom_fun_t) rdl_create_ge_atom,
-  NULL, // rdl_create_poly_eq_atom: TBD
-  NULL, // rdl_create_poly_ge_atom: TBD
+  (create_arith_patom_fun_t) rdl_create_poly_eq_atom,
+  (create_arith_patom_fun_t) rdl_create_poly_ge_atom,
   (create_arith_vareq_atom_fun_t) rdl_create_vareq_atom,
 
   (assert_arith_axiom_fun_t) rdl_assert_eq_axiom,
   (assert_arith_axiom_fun_t) rdl_assert_ge_axiom,
-  NULL, // rdl_create_poly_eq_atom: TBD
-  NULL, // rdl_create_poly_ge_atom: TBD
+  (assert_arith_paxiom_fun_t) rdl_assert_poly_eq_axiom,
+  (assert_arith_paxiom_fun_t) rdl_assert_poly_ge_axiom,
   (assert_arith_vareq_axiom_fun_t) rdl_assert_vareq_axiom,
   (assert_arith_cond_vareq_axiom_fun_t) rdl_assert_cond_vareq_axiom,
 

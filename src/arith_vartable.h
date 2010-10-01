@@ -80,6 +80,7 @@
  * - bit 6 is 1 if x's definition is encoded in the simplex tableau
  *   (i.e., if there's a row of the tableau of the form x - p = 0
  *    where p is x's definition). We say then that 'x is active'.
+ *   NOT USED ANYMORE
  */
 
 #define AVARTAG_MARK_MASK  ((uint8_t) 0x1)

@@ -358,30 +358,29 @@ typedef struct arith_undo_stack_s {
  * The matrix contains two types of rows:
  * - rows of the form (p == 0) added on calls to assert_eq_axiom
  * - rows of the form (x - q = 0) where x is a variable and q is a polynomial.
- *   The latter rows are added when bounds on x are asserted. The polynomial
- *   q is x's definition obtained from the variable table. Such a variable x
- *   is marked as active.
+ *   The polynomial q is x's definition obtained from the variable table.
+ * 
+ * We don't add the row (x - q = 0) if q is simple. Currently
+ * simple means that q is of the form (k + a.y) for two constants k and a.
+ * For such polynomials, we replace x by q eagerly, everywhere x is referenced.
+ * (and x is a trivial variable).
  *
  * To restore the matrix to its old state:
- * 1) we keep a copy of all polynomials p_1, ..., p_k that form the first type of 
- *    rows. These polynomials are stored in vector simplex->saved_rows.
- * 2) we keep a copy of all active variables x_1 ... x_m that define the second
- *    type of rows. These variables are stored in vector simplex->saved_vars
- *    and the corresponding q_i's are stored in simplex->vtbl.
+ * - we keep a copy of all polynomials p_1, ..., p_k that form the first type of 
+ *   rows. These polynomials are stored in vector simplex->saved_rows.
+ * - we reconstruct the rows (x - q = 0) for all the non-trivial variables.
  */
 
 /*
  * On entry to a new base level, we save 
  * - the number of variables and atoms
  * - the size of the saved row vector
- * - the size of the active vars vector
  * - the current propagation pointer for both assertion_queue and bound stack
  */
 typedef struct arith_trail_s {
   uint32_t nvars;
   uint32_t natoms;
   uint32_t nsaved_rows;
-  uint32_t nsaved_vars;
   uint32_t bound_ptr;
   uint32_t assertion_ptr;
 } arith_trail_t;
@@ -664,19 +663,19 @@ typedef struct simplex_solver_s {
    * - save_rows is true if the top-level rows must be saved (i.e.,
    *   if the context supports push/pop or multiple checks).
    *
-   * The flags are set as follows to support push/pop/multicheck"
+   * The flags are set as follows to support push/pop/multicheck:
    * - initially, the matrix is empty:
    *      tableau_ready = false
    *      matrix_ready = true
-   * - in start_search, the matrix is converted to tableau:
+   * - in start_search, the matrix is converted to a tableau:
    *   so after start_search,
    *      tableau_ready = true
    *      matrix_ready = false
    * - after pop, the tableau is emptied:
    *      tableau_ready = false
-   *      matrix_ready = true or false
+   *      matrix_ready keeps its current value
    * - in start_internalization, we restore the constraint matrix
-   *   and empty rest the tableau if needed:
+   *   and reset the tableau if needed:
    *      tableau_ready = false
    *      matrix_ready = true
    */
@@ -708,12 +707,10 @@ typedef struct simplex_solver_s {
   arith_undo_stack_t stack;
 
   /*
-   * Push/pop stack + saved toplevel rows + saved active variables
+   * Push/pop stack + saved rows
    */
   arith_trail_stack_t trail_stack;
   pvector_t saved_rows;
-  ivector_t saved_vars;
-
   
   /*
    * Result of matrix simplification
