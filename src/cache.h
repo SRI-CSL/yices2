@@ -68,7 +68,7 @@ typedef struct cache_bank_s {
  * - the stack elements are in data[0 ... nmarks-1]
  * - current_level = current allocation level (incremented by push)
  * - top_level = 0 if the stack is empty
- *   othersiwe top_level = maximal level in stack = data[nmarks-1].level
+ *   otherwise top_level = maximal level in stack = data[nmarks-1].level
  */
 typedef struct cache_mark_s {
   uint32_t level;

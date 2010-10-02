@@ -20,7 +20,7 @@
 #define TRACE_DL     0
 #define TRACE        0
 
-#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DL || TRACE
+#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DL || TRACE || 1
 
 #include <stdio.h>
 #include "term_printer.h"
@@ -3281,8 +3281,10 @@ static literal_t make_arith_distinct(context_t *ctx, uint32_t n, thvar_t *a) {
   }
   l = mk_or_gate(&ctx->gate_manager, v->size, v->data);
   ivector_reset(v);
+
   return not(l);
 }
+
 
 /*
  * Auxiliary function: translate (distinct a[0 ... n-1]) to a literal,
@@ -3460,16 +3462,57 @@ static literal_t map_arith_geq_to_literal(context_t *ctx, term_t t) {
 }
 
 
+
 /*
- * Arithmetic atom: (eq t1 t2)
+ * Arithmetic equalities (eq t1 t2)
+ * 1) try to flatten the if-then-elses
+ * 2) also apply cheap lift-if rule: (eq (ite c t1 t2) u1) --> (ite c (eq t1 u1) (eq t2 u1))
  */
-static literal_t map_arith_bineq_to_literal_aux(context_t *ctx, term_t t1, term_t t2) {
+static literal_t map_arith_bineq(context_t *ctx, term_t t1, term_t u1);
+
+/*
+ * Lift equality: (eq (ite c u1 u2) t) --> (ite c (eq u1 t) (eq u2 t))
+ */
+static literal_t map_ite_arith_bineq(context_t *ctx, composite_term_t *ite, term_t t) {
+  literal_t l1, l2, l3;
+
+  assert(ite->arity == 3);
+  l1 = internalize_to_literal(ctx, ite->arg[0]);
+  if (l1 == true_literal) {
+    // (eq (ite true u1 u2) t) --> (eq u1 t)
+    return map_arith_bineq(ctx, ite->arg[1], t);
+  }
+  if (l1 == false_literal) {
+    // (eq (ite true u1 u2) t) --> (eq u2 t)
+    return map_arith_bineq(ctx, ite->arg[2], t);
+  }
+
+  // apply lift-if here
+  l2 = map_arith_bineq(ctx, ite->arg[1], t);
+  l3 = map_arith_bineq(ctx, ite->arg[2], t);
+
+  return mk_ite_gate(&ctx->gate_manager, l1, l2, l3);
+}
+
+static literal_t map_arith_bineq_aux(context_t *ctx, term_t t1, term_t t2) {
+  term_table_t *terms;
   thvar_t x, y;
   occ_t u, v;
   literal_t l;
 
-  // add the atom to the egraph if possible
-  if (context_has_egraph(ctx)) {
+  /*
+   * Try to apply lift-if rule: (eq (ite c u1 u2) t2) --> (ite c (eq u1 t2) (eq u2 t2))
+   * do this only if t2 is not an if-then-else term.
+   *
+   * Otherwise add the atom (eq t1 t2) to the egraph if possible
+   * or create (eq t1 t2) in the arithmetic solver.
+   */
+  terms = ctx->terms;
+  if (is_ite_term(terms, t1) && ! is_ite_term(terms, t2)) {
+    l = map_ite_arith_bineq(ctx, ite_term_desc(terms, t1), t2); 
+  } else if (is_ite_term(terms, t2) && !is_ite_term(terms, t1)) {
+    l = map_ite_arith_bineq(ctx, ite_term_desc(terms, t2), t1);
+  } else if (context_has_egraph(ctx)) {
     u = internalize_to_eterm(ctx, t1);
     v = internalize_to_eterm(ctx, t2);
     l = egraph_make_eq(ctx->egraph, u, v);
@@ -3479,20 +3522,27 @@ static literal_t map_arith_bineq_to_literal_aux(context_t *ctx, term_t t1, term_
     l = ctx->arith.create_vareq_atom(ctx->arith_solver, x, y);
   }
 
-  return l;  
+  return l;
 }
 
-static inline literal_t map_arith_bineq_to_literal(context_t *ctx, composite_term_t *eq) {
-#if 1
+static literal_t map_arith_bineq(context_t *ctx, term_t t1, term_t u1) {
   ivector_t *v;
   int32_t *a;
   uint32_t i, n;
-  term_t t1, u1, t2, u2;
+  term_t t2, u2;
   literal_t l;
 
-  assert(eq->arity == 2);
-  t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
-  u1 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
+#if 1
+  printf("map_arith_bineq: ");
+  print_term_desc(stdout, ctx->terms, t1);
+  printf(" == ");
+  print_term_desc(stdout, ctx->terms, u1);
+  printf("\n");
+  fflush(stdout);
+#endif
+
+  t1 = intern_tbl_get_root(&ctx->intern, t1);
+  u1 = intern_tbl_get_root(&ctx->intern, u1);
 
   /*
    * Try to flatten the if-then-else equalities
@@ -3510,7 +3560,7 @@ static inline literal_t map_arith_bineq_to_literal(context_t *ctx, composite_ter
   if (n == 0) {
     // empty v: return (t2 == u2)
     assert(t1 == t2 && u1 == u2);
-    l = map_arith_bineq_to_literal_aux(ctx, t2, u2);
+    l = map_arith_bineq_aux(ctx, t2, u2);
 
   } else {
     // build (and (t2 == u2) v[0] ... v[n-1])
@@ -3525,7 +3575,7 @@ static inline literal_t map_arith_bineq_to_literal(context_t *ctx, composite_ter
     for (i=0; i<n; i++) {
       a[i] = internalize_to_literal(ctx, a[i]);
     }
-    a[n] = map_arith_bineq_to_literal_aux(ctx, t2, u2);
+    a[n] = map_arith_bineq_aux(ctx, t2, u2);
 
     // build (and a[0] ... a[n])
     l = mk_and_gate(&ctx->gate_manager, n+1, a);
@@ -3533,11 +3583,13 @@ static inline literal_t map_arith_bineq_to_literal(context_t *ctx, composite_ter
   }
 
   return l;
+}
 
-#else
+
+
+static inline literal_t map_arith_bineq_to_literal(context_t *ctx, composite_term_t *eq) {
   assert(eq->arity == 2);
-  return map_arith_bineq_to_literal_aux(ctx, eq->arg[0], eq->arg[1]);
-#endif
+  return map_arith_bineq(ctx, eq->arg[0], eq->arg[1]);
 }
 
 
@@ -4592,8 +4644,12 @@ static void assert_toplevel_arith_bineq(context_t *ctx, composite_term_t *eq, bo
    */
   n = v->size;
   if (n == 0) {
-    // not simplification found
+    /*
+     * No flattening: try if-then-else lifting:
+     * (eq (ite c t1 t2) u) --> (ite c (eq t1 u) (eq t2 u))
+     */
     assert(t1 == t2 && u1 == u2);
+
     x = internalize_to_arith(ctx, t2);
     y = internalize_to_arith(ctx, u2);
     ctx->arith.assert_vareq_axiom(ctx->arith_solver, x, y, tt);
@@ -4608,7 +4664,7 @@ static void assert_toplevel_arith_bineq(context_t *ctx, composite_term_t *eq, bo
     ivector_reset(v);
 
     // l := (eq t2 u2)
-    l = map_arith_bineq_to_literal_aux(ctx, t2, u2);
+    l = map_arith_bineq_aux(ctx, t2, u2);
 
     if (tt) {
       // assert (and l a[0] ... a[n-1])
