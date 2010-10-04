@@ -3533,7 +3533,7 @@ static literal_t map_arith_bineq(context_t *ctx, term_t t1, term_t u1) {
   literal_t l;
 
 #if 1
-  printf("map_arith_bineq: ");
+  printf(" map_arith_bineq: ");
   print_term_desc(stdout, ctx->terms, t1);
   printf(" == ");
   print_term_desc(stdout, ctx->terms, u1);
@@ -3571,6 +3571,15 @@ static literal_t map_arith_bineq(context_t *ctx, term_t t1, term_t u1) {
     }
     ivector_reset(v);
 
+#if 1
+    printf(" flattened to: ");
+    print_term_desc(stdout, ctx->terms, t2);
+    printf(" == ");
+    print_term_desc(stdout, ctx->terms, u2);
+    printf("\n");
+    fflush(stdout);
+#endif
+
     // build the internalization of a[0 .. n-1]
     for (i=0; i<n; i++) {
       a[i] = internalize_to_literal(ctx, a[i]);
@@ -3588,8 +3597,29 @@ static literal_t map_arith_bineq(context_t *ctx, term_t t1, term_t u1) {
 
 
 static inline literal_t map_arith_bineq_to_literal(context_t *ctx, composite_term_t *eq) {
+#if 1
+  literal_t l;
+
+  printf("\nmap_arith_bineq_to_literal: ");
+  print_term_desc(stdout, ctx->terms, eq->arg[0]);
+  printf(" == ");
+  print_term_desc(stdout, ctx->terms, eq->arg[1]);
+  printf("\n");
+  fflush(stdout);
+
+  l = map_arith_bineq(ctx, eq->arg[0], eq->arg[1]);
+  printf("done: ");
+  print_term_desc(stdout, ctx->terms, eq->arg[0]);
+  printf(" == ");
+  print_term_desc(stdout, ctx->terms, eq->arg[1]);
+  printf("\n");
+  fflush(stdout);
+
+  return l;
+#else
   assert(eq->arity == 2);
   return map_arith_bineq(ctx, eq->arg[0], eq->arg[1]);
+#endif
 }
 
 
