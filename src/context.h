@@ -21,6 +21,7 @@
 #include "int_vectors.h"
 #include "int_hash_sets.h"
 #include "int_bv_sets.h"
+#include "pair_hash_map2.h"
 #include "poly_buffer.h"
 
 #include "terms.h"
@@ -531,7 +532,8 @@ struct context_s {
   mark_vector_t *marks;
   int_bvset_t *cache;
   int_hset_t *small_cache;
-
+  pmap2_t *eq_cache;
+  
   // buffer to store difference-logic data
   dl_data_t *dl_profile;
 

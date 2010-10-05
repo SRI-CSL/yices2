@@ -34,6 +34,14 @@
  **************/
 
 /*
+ * SUBST AND MARK VECTOR
+ *
+ * If variable elimination is enabled, then ctx->subst is used to
+ * store candidate substitutions before we check for substitution
+ * cycles. The mark vector is used to mark terms during cycle detection.
+ */
+
+/*
  * Allocate and initialize ctx->subst
  */
 static pseudo_subst_t *context_get_subst(context_t *ctx) {
@@ -60,6 +68,8 @@ static void context_free_subst(context_t *ctx) {
     ctx->subst = NULL;
   }
 }
+
+
 
 
 /*
@@ -92,6 +102,8 @@ static void context_free_marks(context_t *ctx) {
 
 
 /*
+ * CACHES
+ *
  * There are two internal caches for visiting formulas/terms.
  * - the 'cache' uses a bitvector implementation and should be 
  *   better for operations that visit many terms.
@@ -175,8 +187,9 @@ static void context_free_cache(context_t *ctx) {
 }
 
 
-
 /*
+ * ARITHMETIC BUFFERS
+ *
  * There are three buffers for internal construction of polynomials
  * - arith_buffer is more expensive (requires more memory) but 
  *   it supports more operations (e.g., term constructors in yices_api.c
@@ -306,8 +319,82 @@ static void context_free_aux_poly(context_t *ctx) {
 
 
 
+/*
+ * CACHE/HASH MAP FOR LIFTED EQUALITIES
+ *
+ * If lift-if is enabled then arithmetic equalities
+ *  (eq (ite c t1 t2) u) are rewritten to (ite c (eq t1 u) (eq t2 u))
+ * We don't create new terms (eq t1 u) or (eq t2 u). Instead, we store
+ * the internalization of equalities (eq t1 u) in a the eq_cache:
+ * This cache maps pairs of terms <t, u> to a literal l (such that
+ * l is the internalization of (t == u)).
+ */
+
+/*
+ * Allocate and initialize the cache
+ */
+static pmap2_t *context_get_eq_cache(context_t *ctx) {
+  pmap2_t *tmp;
+
+  tmp = ctx->eq_cache;
+  if (tmp == NULL) {
+    tmp = (pmap2_t *) safe_malloc(sizeof(pmap2_t));
+    init_pmap2(tmp);
+    pmap2_set_level(tmp, ctx->base_level);
+    ctx->eq_cache = tmp;
+  }
+
+  return tmp;
+}
 
 
+/*
+ * Free the cache
+ */
+static void context_free_eq_cache(context_t *ctx) {
+  pmap2_t *tmp;
+
+  tmp = ctx->eq_cache;
+  if (tmp != NULL) {
+    delete_pmap2(tmp);
+    safe_free(tmp);
+    ctx->eq_cache = NULL;
+  }
+}
+
+
+/*
+ * Push/pop/reset if the cache exists
+ */
+static void context_eq_cache_push(context_t *ctx) {
+  pmap2_t *tmp;
+
+  tmp = ctx->eq_cache;
+  if (tmp != NULL) {
+    pmap2_push(tmp);
+  }
+}
+
+static void context_eq_cache_pop(context_t *ctx) {
+  pmap2_t *tmp;
+
+  tmp = ctx->eq_cache;
+  if (tmp != NULL) {
+    pmap2_pop(tmp);
+  }
+}
+
+static inline void context_reset_eq_cache(context_t *ctx) {
+  context_free_eq_cache(ctx);
+}
+
+
+
+
+
+/*
+ * DIFFERENCE-LOGIC DATA
+ */
 
 /*
  * Difference-logic profile: 
@@ -1718,7 +1805,7 @@ static void flatten_assertion(context_t *ctx, term_t f) {
  * Process all candidate substitutions after flattening
  * - the candidate substitutions are in ctx->subst_eqs
  * - each element in ctx->subst_eqs is a boolean term e 
- *   such that e is true or false (by flatteing)
+ *   such that e is true or false (by flattening)
  *         and e is equivalent to an equality (t1 == t2)
  *   where one of t1 and t2 is a variable.
  */
@@ -1858,62 +1945,6 @@ static void flatten_or_term(context_t *ctx, ivector_t *v, composite_term_t *or) 
   }
   //  context_delete_small_cache(ctx);
   context_reset_small_cache(ctx);
-}
-
-
-
-
-
-
-
-/****************************************************
- *  SIMPLIFICATIONS FOR SPECIAL IF-THEN-ELSE TERMS  *
- ***************************************************/
-
-/*
- * If t is (ite c a b), we can try to rewrite (= t k) into a conjunction
- * of terms using the two rules:
- *   (= (ite c a b) k) --> c and (= a k)        if k != b holds
- *   (= (ite c a b) k) --> (not c) and (= b k)  if k != a holds
- *
- * This works best for the NEC benchmarks in SMT LIB, where many terms
- * are deeply nested if-then-else terms with constant leaves.
- *
- * The function below does that: it rewrites (eq t k) to (and c_0 ... c_n (eq t' k))
- * - the boolean terms c_0 ... c_n are added to vector v
- * - the term t' is returned
- * So the simplification worked it the returned term t' is different from t
- * (and then v->size is not 0).
- */
-static term_t flatten_ite_equality(context_t *ctx, ivector_t *v, term_t t, term_t k) {
-  term_table_t *terms;
-  composite_term_t *ite;
-
-  terms = ctx->terms;
-  assert(is_pos_term(t) && good_term(terms, t));
-
-  while (is_ite_term(terms, t)) {
-    // t is (ite c a b)
-    ite = ite_term_desc(terms, t);
-    assert(ite->arity == 3);
-
-    if (disequal_terms(terms, k, ite->arg[1])) {
-      // (t == k) is (not c) and (t == b)
-      ivector_push(v, opposite_term(ite->arg[0]));
-      t = intern_tbl_get_root(&ctx->intern, ite->arg[2]);
-
-    } else if (disequal_terms(terms, k, ite->arg[2])) {
-      // (t == k) is c and (t == a)
-      ivector_push(v, ite->arg[0]);
-      t = intern_tbl_get_root(&ctx->intern, ite->arg[1]);
-
-    } else {
-      // no more flattening possible
-      break;
-    }
-  }
-
-  return t;
 }
 
 
@@ -2488,6 +2519,117 @@ static void analyze_diff_logic(context_t *ctx, bool idl) {
 
   context_free_cache(ctx);
 }
+
+
+
+
+
+/****************************************************
+ *  SIMPLIFICATIONS FOR SPECIAL IF-THEN-ELSE TERMS  *
+ ***************************************************/
+
+/*
+ * If t is (ite c a b), we can try to rewrite (= t k) into a conjunction
+ * of terms using the two rules:
+ *   (= (ite c a b) k) --> c and (= a k)        if k != b holds
+ *   (= (ite c a b) k) --> (not c) and (= b k)  if k != a holds
+ *
+ * This works best for the NEC benchmarks in SMT LIB, where many terms
+ * are deeply nested if-then-else terms with constant leaves.
+ *
+ * The function below does that: it rewrites (eq t k) to (and c_0 ... c_n (eq t' k))
+ * - the boolean terms c_0 ... c_n are added to vector v
+ * - the term t' is returned
+ * So the simplification worked it the returned term t' is different from t
+ * (and then v->size is not 0).
+ */
+static term_t flatten_ite_equality(context_t *ctx, ivector_t *v, term_t t, term_t k) {
+  term_table_t *terms;
+  composite_term_t *ite;
+
+  terms = ctx->terms;
+  assert(is_pos_term(t) && good_term(terms, t));
+
+  while (is_ite_term(terms, t)) {
+    // t is (ite c a b)
+    ite = ite_term_desc(terms, t);
+    assert(ite->arity == 3);
+
+    if (disequal_terms(terms, k, ite->arg[1])) {
+      // (t == k) is (not c) and (t == b)
+      ivector_push(v, opposite_term(ite->arg[0]));
+      t = intern_tbl_get_root(&ctx->intern, ite->arg[2]);
+
+    } else if (disequal_terms(terms, k, ite->arg[2])) {
+      // (t == k) is c and (t == a)
+      ivector_push(v, ite->arg[0]);
+      t = intern_tbl_get_root(&ctx->intern, ite->arg[1]);
+
+    } else {
+      // no more flattening possible
+      break;
+    }
+  }
+
+  return t;
+}
+
+
+
+/*
+ * Check what's mapped to (t1, t2) in the internal eq_cache.
+ * - return null_literal if nothing is mapped to (t1, t2) (or if the cache does not exit)
+ */
+static literal_t find_in_eq_cache(context_t *ctx, term_t t1, term_t t2) {
+  pmap2_t *eq_cache;
+  pmap2_rec_t *eq;
+  term_t aux;
+  literal_t l;
+
+  l = null_literal;
+  eq_cache = ctx->eq_cache;
+  if (eq_cache != NULL) {
+    // normalize the pair: we want t1 >= t2
+    if (t1 < t2) {
+      aux = t1; t1 = t2; t2 = aux;
+    }
+    assert(t1 >= t2);
+
+    eq = pmap2_find(eq_cache, t1, t2);
+    if (eq != NULL) {
+      l = eq->val;
+      assert(l != null_literal);
+    }
+  }
+
+  return l;
+}
+
+
+
+/*
+ * Add the mapping (t1, t2) --> l to the equality cache.
+ * - allocate and initialize the cache if needed.
+ * - the pair (t1, t2) must not be in the cache already.
+ * - l must be different from null_literal
+ */
+static void add_to_eq_cache(context_t *ctx, term_t t1, term_t t2, literal_t l) {
+  pmap2_t *eq_cache;
+  pmap2_rec_t *eq;
+  term_t aux;
+
+  assert(l != null_literal);
+
+  eq_cache = context_get_eq_cache(ctx);
+  if (t1 < t2) {
+    aux = t1; t1 = t2; t2 = aux;
+  }
+  eq = pmap2_get(eq_cache, t1, t2);
+  assert(eq != NULL && eq->val == -1);
+  eq->val = l;
+}
+
+
 
 
 
@@ -3532,63 +3674,61 @@ static literal_t map_arith_bineq(context_t *ctx, term_t t1, term_t u1) {
   term_t t2, u2;
   literal_t l;
 
-#if 1
-  printf(" map_arith_bineq: ");
-  print_term_desc(stdout, ctx->terms, t1);
-  printf(" == ");
-  print_term_desc(stdout, ctx->terms, u1);
-  printf("\n");
-  fflush(stdout);
-#endif
-
   t1 = intern_tbl_get_root(&ctx->intern, t1);
   u1 = intern_tbl_get_root(&ctx->intern, u1);
 
-  /*
-   * Try to flatten the if-then-else equalities
-   */
-  v = &ctx->aux_vector;
-  assert(v->size == 0);
-  t2 = flatten_ite_equality(ctx, v, t1, u1);
-  u2 = flatten_ite_equality(ctx, v, u1, t2);
+  if (t1 == u1) {
+    return true_literal;
+  } 
 
   /*
-   * (t1 == u1) is equivalent to (and (t2 == u2) v[0] ... v[n-1])
-   * where v[i] = element i of v
+   * Check the cache
    */
-  n = v->size;
-  if (n == 0) {
-    // empty v: return (t2 == u2)
-    assert(t1 == t2 && u1 == u2);
-    l = map_arith_bineq_aux(ctx, t2, u2);
+  l = find_in_eq_cache(ctx, t1, u1);
+  if (l == null_literal) {
+    /*
+     * The pair (t1, u1) is not mapped already.
+     * Try to flatten the if-then-else equalities
+     */
+    v = &ctx->aux_vector;
+    assert(v->size == 0);
+    t2 = flatten_ite_equality(ctx, v, t1, u1);
+    u2 = flatten_ite_equality(ctx, v, u1, t2);
 
-  } else {
-    // build (and (t2 == u2) v[0] ... v[n-1])
-    // first make a copy of v into a[0 .. n-1]
-    a = alloc_istack_array(&ctx->istack, n+1);
-    for (i=0; i<n; i++) {
-      a[i] = v->data[i];
+    /*
+     * (t1 == u1) is equivalent to (and (t2 == u2) v[0] ... v[n-1])
+     * where v[i] = element i of v
+     */
+    n = v->size;
+    if (n == 0) {
+      // empty v: return (t2 == u2)
+      assert(t1 == t2 && u1 == u2);
+      l = map_arith_bineq_aux(ctx, t2, u2);
+
+    } else {
+      // build (and (t2 == u2) v[0] ... v[n-1])
+      // first make a copy of v into a[0 .. n-1]
+      a = alloc_istack_array(&ctx->istack, n+1);
+      for (i=0; i<n; i++) {
+	a[i] = v->data[i];
+      }
+      ivector_reset(v);
+
+      // build the internalization of a[0 .. n-1]
+      for (i=0; i<n; i++) {
+	a[i] = internalize_to_literal(ctx, a[i]);
+      }
+      a[n] = map_arith_bineq_aux(ctx, t2, u2);
+
+      // build (and a[0] ... a[n])
+      l = mk_and_gate(&ctx->gate_manager, n+1, a);
+      free_istack_array(&ctx->istack, a);
     }
-    ivector_reset(v);
 
-#if 1
-    printf(" flattened to: ");
-    print_term_desc(stdout, ctx->terms, t2);
-    printf(" == ");
-    print_term_desc(stdout, ctx->terms, u2);
-    printf("\n");
-    fflush(stdout);
-#endif
-
-    // build the internalization of a[0 .. n-1]
-    for (i=0; i<n; i++) {
-      a[i] = internalize_to_literal(ctx, a[i]);
-    }
-    a[n] = map_arith_bineq_aux(ctx, t2, u2);
-
-    // build (and a[0] ... a[n])
-    l = mk_and_gate(&ctx->gate_manager, n+1, a);
-    free_istack_array(&ctx->istack, a);
+    /*
+     * Store the mapping (t1, u1) --> l in the cache
+     */
+    add_to_eq_cache(ctx, t1, u1, l);
   }
 
   return l;
@@ -3597,29 +3737,8 @@ static literal_t map_arith_bineq(context_t *ctx, term_t t1, term_t u1) {
 
 
 static inline literal_t map_arith_bineq_to_literal(context_t *ctx, composite_term_t *eq) {
-#if 1
-  literal_t l;
-
-  printf("\nmap_arith_bineq_to_literal: ");
-  print_term_desc(stdout, ctx->terms, eq->arg[0]);
-  printf(" == ");
-  print_term_desc(stdout, ctx->terms, eq->arg[1]);
-  printf("\n");
-  fflush(stdout);
-
-  l = map_arith_bineq(ctx, eq->arg[0], eq->arg[1]);
-  printf("done: ");
-  print_term_desc(stdout, ctx->terms, eq->arg[0]);
-  printf(" == ");
-  print_term_desc(stdout, ctx->terms, eq->arg[1]);
-  printf("\n");
-  fflush(stdout);
-
-  return l;
-#else
   assert(eq->arity == 2);
   return map_arith_bineq(ctx, eq->arg[0], eq->arg[1]);
-#endif
 }
 
 
@@ -4693,25 +4812,25 @@ static void assert_toplevel_arith_bineq(context_t *ctx, composite_term_t *eq, bo
     }
     ivector_reset(v);
 
-    // l := (eq t2 u2)
-    l = map_arith_bineq_aux(ctx, t2, u2);
-
     if (tt) {
-      // assert (and l a[0] ... a[n-1])
-      if (l == false_literal) {
-	longjmp(ctx->env, TRIVIALLY_UNSAT);
-      }
-      add_unit_clause(ctx->core, l);
+      // assert (and a[0] ... a[n-1] l)
       for (i=0; i<n; i++) {
 	assert_term(ctx, a[i], true);
       }
+
+      // l := (eq t2 u2)
+      l = map_arith_bineq_aux(ctx, t2, u2);      
+      add_unit_clause(ctx->core, l);
 
     } else {
       // assert (or (not a[0]) ... (not a[n-1]) (not l))
       for (i=0; i<n; i++) {
 	a[i] = not(internalize_to_literal(ctx, a[i]));
       }
+      // l := (eq t2 u2)
+      l = map_arith_bineq_aux(ctx, t2, u2);      
       a[n] = not(l);
+
       add_clause(ctx->core, n+1, a);
     }
 
@@ -5654,6 +5773,7 @@ void init_context(context_t *ctx, term_table_t *terms,
   ctx->marks = NULL;
   ctx->cache = NULL;
   ctx->small_cache = NULL;
+  ctx->eq_cache = NULL;
 
   ctx->dl_profile = NULL;
   ctx->arith_buffer = NULL;
@@ -5717,6 +5837,7 @@ void delete_context(context_t *ctx) {
   context_free_marks(ctx);
   context_free_cache(ctx);
   context_free_small_cache(ctx);
+  context_free_eq_cache(ctx);
 
   context_free_dl_profile(ctx);
   context_free_arith_buffer(ctx);
@@ -5754,6 +5875,7 @@ void reset_context(context_t *ctx) {
   context_free_subst(ctx);
   context_free_marks(ctx);
   context_reset_small_cache(ctx);
+  context_reset_eq_cache(ctx);
 
   context_free_arith_buffer(ctx);
   context_reset_poly_buffer(ctx);
@@ -5771,6 +5893,8 @@ void context_push(context_t *ctx) {
   smt_push(ctx->core);  // propagates to all solvers
   gate_manager_push(&ctx->gate_manager);
   intern_tbl_push(&ctx->intern);
+  context_eq_cache_push(ctx);
+
   ctx->base_level ++;
 }
 
@@ -5779,6 +5903,8 @@ void context_pop(context_t *ctx) {
   smt_pop(ctx->core);   // propagates to all solvers
   gate_manager_pop(&ctx->gate_manager);
   intern_tbl_pop(&ctx->intern);
+  context_eq_cache_pop(ctx);
+
   ctx->base_level --;
 }
 
