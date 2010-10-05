@@ -25,9 +25,9 @@
  *
  *   If rank[r] is less than 255, then the root is free. This means
  *   that r is an uninterprreted term and is not mapped to any object
- *   yet (i.e., map[r] = NULL). The class of r contains has size >=
- *   2^rank[r] and all elements in the class are uninterpreted. It's
- *   possible to merge the class of r with another class.
+ *   yet (i.e., map[r] = NULL). The class of r has size >= 2^rank[r]
+ *   and all elements in the class are uninterpreted. It's possible to
+ *   merge the r's class with another class.
  *
  * - a non-root i must be an uninterpreted term index and map[i] is the 
  *   parent of i in the union-find tree.
@@ -45,15 +45,18 @@
  * of all the class elements. If the root is not frozen this is the exact
  * type of the class.
  *
- * The exact type of other classes requires recomputing the types as classes 
- * are merged. For example:
- *   x :: real
- *   i :: int
- *   r :: 3 x + 1
- * then r has type real in the term table. But if we merge x and i (i.e., after
- * asserting x == i), then the exact type of r becomes int. We don't do this
- * dynamic type computation. Type[r] is set when r is added to a class, and it
- * remain unchanged, independent of substitutions like x == i.
+ * WARNING: If a root r is frozen, then type[r] is guaranteed to be a
+ * supertype of the class's type, but type[r] may be inexact. Finding
+ * the exact type of frozen classes would require dynamically
+ * recomputing the types as classes are merged. For example, given
+ * the declarations:
+ *   x :: real 
+ *   i :: int 
+ *   r := 3 x + 1
+ * then r has type real. But if we merge x and i (i.e., assert x == i), 
+ * then the type of r becomes int.  We don't do this dynamic type computation. 
+ * Type[r] is set when r is added to a class, and it remain unchanged, 
+ * independent of substitutions like x == i.
  */
 
 #include <stdint.h>

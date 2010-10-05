@@ -292,7 +292,7 @@ static void cache_htbl_clean_copy(cache_elem_t **data, cache_elem_t *e, uint32_t
  *  ((size_t) DELETED_ELEM) == 1 
  */
 static inline bool live_element(cache_elem_t *e) {
-  return ((size_t) e) >> 1 != 0;
+  return (((size_t) e) >> 1) != 0;
 }
 
 

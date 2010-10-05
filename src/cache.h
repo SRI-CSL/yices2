@@ -37,10 +37,10 @@ typedef struct cache_elem_s {
  * - block is an array of size 'capacity'
  * - for 0 <= i < nblocks: 
  *   block[i] is a pointer to an allocated block (an array of 
- *     BASE_CACHE_BLOCK_SIZE records)
+ *     CACHE_BLOCK_SIZE records)
  * - for nblocks <= i < capacity: block[i] is not initialized
- * - for 0 <= i < free_blocks: block[i] contains data
- * - for free_blocks <= i < nblocks, block[i] is empty 
+ * - for 0 <= i < free_block: block[i] contains data
+ * - for free_block <= i < nblocks, block[i] is empty 
  * If the bank is empty, then free_blocks = 0
  * Otherwise, free_block > 0 and records are allocated in block[free_block-1]
  * - alloc_ptr = index of the first available slot in block[free_block-1]
@@ -63,7 +63,7 @@ typedef struct cache_bank_s {
 /*
  * Stack of allocation marks for push/pop operations
  * - each element in the stack has a level k>0 
- *   and keep a pointer to the first record allocated at that level
+ *   and keeps a pointer to the first record allocated at that level
  *   the pointer consists of a pair <block id, index in block>
  * - the stack elements are in data[0 ... nmarks-1]
  * - current_level = current allocation level (incremented by push)
