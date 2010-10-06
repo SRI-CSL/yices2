@@ -4867,7 +4867,9 @@ static void assert_arith_bineq_aux(context_t *ctx, term_t t1, term_t t2, bool tt
     free2 = intern_tbl_root_is_free(intern, t2);
 
     if (free1 && free2) {
-      intern_tbl_merge_classes(intern, t1, t2);
+      if (t1 != t2) {
+	intern_tbl_merge_classes(intern, t1, t2);
+      }
       return;
     }
 
@@ -4906,7 +4908,7 @@ static void assert_arith_bineq(context_t *ctx, term_t t1, term_t u1, bool tt) {
    * Apply substitutions then try if-then-else flattening
    */
   t1 = intern_tbl_get_root(&ctx->intern, t1);
-  u1 = intern_tbl_get_root(&ctx->intern, t1);
+  u1 = intern_tbl_get_root(&ctx->intern, u1);
 
   v = &ctx->aux_vector;
   assert(v->size == 0);
