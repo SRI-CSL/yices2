@@ -4799,9 +4799,18 @@ static void assert_toplevel_arith_bineq(context_t *ctx, composite_term_t *eq, bo
      */
     assert(t1 == t2 && u1 == u2);
 
+#if 0
     x = internalize_to_arith(ctx, t2);
     y = internalize_to_arith(ctx, u2);
     ctx->arith.assert_vareq_axiom(ctx->arith_solver, x, y, tt);
+#else
+    l = map_arith_bineq_aux(ctx, t2, u2);      
+    if (tt) {
+      add_unit_clause(ctx->core, l);
+    } else {
+      add_unit_clause(ctx->core, not(l));
+    }
+#endif
 
   } else {
     // make a copy of v[0 ... n-1]
