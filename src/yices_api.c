@@ -813,6 +813,41 @@ void yices_free_bvlogic_buffer(bvlogic_buffer_t *b) {
  */
 
 /*
+ * Convert b to a term and reset b: auxiliary function
+ */
+static term_t arith_buffer_to_term(term_table_t *terms, arith_buffer_t *b) {
+  mlist_t *m;
+  pprod_t *r;
+  uint32_t n;
+  term_t t;
+
+  assert(b->ptbl == terms->pprods);
+  n = b->nterms;
+  if (n == 0) {
+    t = zero_term;
+  } else if (n == 1) {
+    m = b->list; // unique monomial of b
+    r = m->prod;
+    if (r == empty_pp) {
+      // constant polynomial
+      t = arith_constant(terms, &m->coeff);
+    } else if (q_is_one(&m->coeff)) {
+      // term or power product
+      t =  pp_is_var(r) ? var_of_pp(r) : pprod_term(terms, r);
+    } else {
+    // can't simplify
+      t = arith_poly(terms, b);
+    }
+  } else {
+    t = arith_poly(terms, b);
+  }
+
+  arith_buffer_reset(b);
+
+  return t;
+}
+
+/*
  * Convert b to a term and reset b.
  *
  * Normalize b first then apply the following simplification rules:
@@ -822,41 +857,11 @@ void yices_free_bvlogic_buffer(bvlogic_buffer_t *b) {
  * 4) otherwise, a polynomial term is returned
  */
 term_t arith_buffer_get_term(arith_buffer_t *b) {
-  mlist_t *m;
-  pprod_t *r;
-  uint32_t n;
-  term_t t;
-
   assert(b->ptbl == &pprods);
 
   arith_buffer_normalize(b);
-
-  n = b->nterms;
-  if (n == 0) {
-    t = zero_term;
-  } else if (n == 1) {
-    m = b->list; // unique monomial of b
-    r = m->prod;
-    if (r == empty_pp) {
-      // constant polynomial
-      t = arith_constant(&terms, &m->coeff);
-    } else if (q_is_one(&m->coeff)) {
-      // term or power product
-      t =  pp_is_var(r) ? var_of_pp(r) : pprod_term(&terms, r);
-    } else {
-    // can't simplify
-      t = arith_poly(&terms, b);
-    }
-  } else {
-    t = arith_poly(&terms, b);
-  }
-
-  arith_buffer_reset(b);
-  assert(good_term(&terms, t) && is_arithmetic_term(&terms, t));
-
-  return t;
+  return arith_buffer_to_term(&terms, b);
 }
-
 
 
 /*
@@ -2638,14 +2643,16 @@ static term_t mk_integer_polynomial_ite(term_table_t *tbl, term_t c, term_t t, t
       arith_buffer_add_monarray(b, p->mono, pprods_for_poly(tbl, p));
       term_table_reset_pbuffer(tbl);
       arith_buffer_div_const(b, &r0);
-      t = arith_poly(tbl, b);
+      //      t = arith_poly(tbl, b);
+      t = arith_buffer_to_term(tbl, b);
 
       // construct q' := 1/r0 * q
       arith_buffer_reset(b);
       arith_buffer_add_monarray(b, q->mono, pprods_for_poly(tbl, q));
       term_table_reset_pbuffer(tbl);
       arith_buffer_div_const(b, &r0);
-      e = arith_poly(tbl, b);
+      //      e = arith_poly(tbl, b);
+      e = arith_buffer_to_term(tbl, b);
 
       // (ite c p' q')
       t = ite_term(tbl, int_type(tbl->types), c, t, e);
