@@ -20,6 +20,8 @@
 #include "rationals.h"
 #include "polynomial_common.h"
 #include "memalloc.h"
+#include "int_vectors.h"
+
 
 /*
  * Polynomial object:
@@ -183,12 +185,13 @@ extern bool equal_monarrays(monomial_t *p1, monomial_t *p2);
 extern bool disequal_monarrays(monomial_t *p1, monomial_t *p2);
 
 
+
 /*
  * INTEGER-ARITHMETIC OPERATIONS
  */
 
 /*
- * Compute period and phase of polynomial p:
+ * Compute the period and phase of polynomial p:
  * Let p be b_0 + a_1 x_1 + ... + a_n x_n where x_1 ... x_n are 
  * integer variables and b_0, a_1, ..., a_n are rationals.
  * The period Q and phase R are rationals such that 
@@ -199,7 +202,7 @@ extern bool disequal_monarrays(monomial_t *p1, monomial_t *p2);
  *
  * Input: p must be normalized and terminated by the end marker
  * - period and phase must be initialized rationals
- * Output: thre result is copied into *period and *phase
+ * Output: the results are copied into *period and *phase
  * - if p is a constant polynomial then period is set to 0
  *   and phase is equal to p.
  */
@@ -222,6 +225,62 @@ extern void monarray_common_factor(monomial_t *p, rational_t *factor);
  * - if p is constant then period is set to 0
  */
 extern void monarray_gcd(monomial_t *p, rational_t *gcd);
+
+
+
+/*
+ * SUPPORT FOR SIMPLIFYING IF-THEN-ELSE
+ */
+
+/*
+ * 1) If p and q are two polynomials and c is a boolean term, we 
+ *    may want to rewrite (ite c p q) to r + (ite c p' q') where
+ *    r is the common part of p and q (i.e., r is the sum of 
+ *    all monomials then occur both in p and q).
+ *
+ * 2) Then if p' and q' can be factored into (a.p'') and (a.q''),
+ *    respectively, then we way further rewrite 
+ *     (ite c p' q') to  a.(ite c p'' q'').
+ *
+ * This leads to the full simplification:
+ *
+ *      (ite c p q) --> r + a.u 
+ *
+ * where 
+ *       r is the common part of p and q,  
+ *       p = r + a p''
+ *       q = r + a q''
+ *       u = (ite c p'' q'')
+ *
+ * Function monarray_pair_common_part computes r.
+ * Function monarray_pair_common_gcd computes a (if p and q are integer
+ * polynomials).
+ */
+
+/*
+ * Extract the common part of p and q:
+ * - p and q must both be normalized
+ * - the set of variables x_1, ..., x_k such that
+ *   x_i occurs with the same coefficient in p and q is added to vector v.
+ * - these variables are in increasing order
+ */
+extern void monarray_pair_common_part(monomial_t *p, monomial_t *q, ivector_t *v);
+
+
+/*
+ * Given p and q as above and v = array of variable indices
+ * - n = size of array v
+ * - the variables of v must be in increasing order
+ * - p and q must be normalized.
+ *
+ * - collect all the monomials of p and q whose variable in not in v
+ * - all these monomials must have integer coefficients.
+ * - compute the GCD of the coefficients in these monomial.
+ * - the result is returned in factor.
+ */
+extern void monarray_pair_common_gcd(monomial_t *p, monomial_t *q, int32_t *v, uint32_t n, 
+				     rational_t *factor);
+
 
 
 /*

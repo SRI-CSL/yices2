@@ -516,6 +516,65 @@ void monarray_gcd(monomial_t *p, rational_t *gcd) {
 
 
 
+/*
+ * SUPPORT FOR SIMPLIFYING IF-THEN-ELSE
+ */
+
+/*
+ * Extract the common part of p and q:
+ * - p and q must both be normalized
+ * - the set of variables x_1, ..., x_k such that
+ *   x_i occurs with the same coefficient in p and q is added to vector v.
+ * - these variables are in increasing order
+ */
+void monarray_pair_common_part(monomial_t *p, monomial_t *q, ivector_t *v) {
+  int32_t x, y;
+
+  x = p->var;
+  y = q->var;    
+  while (x < max_idx && y < max_idx) {
+    if (x < y) {
+      p ++;
+      x = p->var;
+    } else if (y < x) {
+      q ++;
+      y = q->var;
+    } else {
+      if (q_eq(&p->coeff, &q->coeff)) {
+	ivector_push(v, x);
+      }
+      p ++;
+      x = p->var;
+      q ++;
+      y = q->var;
+    }
+  }
+}
+
+
+/*
+ * Given p and q as above and v = array of variable indices
+ * - n = size of array v
+ * - the variables of v must be in increasing order
+ * - p and q must be normalized.
+ *
+ * - collect all the monomials of p and q whose variable in not in v
+ * - all these monomials must have integer coefficients.
+ * - compute the GCD of the coefficients in these monomial.
+ * - the result is returned in factor.
+ */
+void monarray_pair_common_gcd(monomial_t *p, monomial_t *q, int32_t *v, uint32_t n, rational_t *factor) {
+  int32_t x, y;
+
+  
+}
+
+
+
+
+
+
+
 /*****************
  *  POLYNOMIALS  *
  ****************/
