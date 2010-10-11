@@ -228,9 +228,9 @@ extern int q_set_from_float_string(rational_t *r, char *s);
  *    q_submul: subtract r2 * r3 from r1
  *    q_addone: add 1 to r1
  *    q_subone: subtract 1 from r1
- * - lcm/gcd operations (assume r1 and r2 are integers)
+ * - lcm/gcd operations (r1 and r2 must be integers)
  *    q_lcm: store lcm(r1, r2) into r1
- *    q_gcd: store gcd(r1, r2) into r1
+ *    q_gcd: store gcd(r1, r2) into r1 (r1 and r2 must not be zero)
  * - floor and ceiling are also in-place operations:
  *    q_floor: store largest integer <= r into r 
  *    q_ceil: store smaller integer >= r into r

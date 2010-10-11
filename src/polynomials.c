@@ -553,20 +553,57 @@ void monarray_pair_common_part(monomial_t *p, monomial_t *q, ivector_t *v) {
 
 
 /*
- * Given p and q as above and v = array of variable indices
- * - n = size of array v
- * - the variables of v must be in increasing order
- * - p and q must be normalized.
- *
- * - collect all the monomials of p and q whose variable in not in v
- * - all these monomials must have integer coefficients.
- * - compute the GCD of the coefficients in these monomial.
- * - the result is returned in factor.
+ * Store gcd(a, b) into a
+ * - if a is zero, copy b's absolute value into a
+ * - a and b must be integer
+ * - b must be non zero
  */
-void monarray_pair_common_gcd(monomial_t *p, monomial_t *q, int32_t *v, uint32_t n, rational_t *factor) {
+static void aux_gcd(rational_t *a, rational_t *b) {
+  assert(q_is_integer(a) && q_is_integer(b));
+
+  if (q_is_zero(a)) {
+    q_set_abs(a, b);
+  } else {
+    q_gcd(a, b);
+  }
+}
+
+/*
+ * Given p and q as above
+ * - p and q must be normalized and have integer coefficients
+ * - compute the GCD of all coefficients in p and q that are not
+ *   in the common part.
+ * - the result is returned in factor. 
+ * - if p = q, then the result is 0
+ */
+void monarray_pair_non_common_gcd(monomial_t *p, monomial_t *q, rational_t *factor) {
   int32_t x, y;
 
-  
+  q_clear(factor);
+  x = p->var;
+  y = p->var;
+  for (;;) {
+    if (x == y) {
+      if (x == max_idx) break;
+      if (q_neq(&p->coeff, &q->coeff)) {
+	// a.x and b.x not in the common part
+	aux_gcd(factor, &p->coeff);
+	aux_gcd(factor, &q->coeff);
+      }
+      p ++;
+      x = p->var;
+      q ++;
+      y = p->var;
+    } else if (x < y) {
+      aux_gcd(factor, &p->coeff);
+      p ++;
+      x = p->var;
+    } else {
+      aux_gcd(factor, &q->coeff);
+      q ++;
+      y = p->var;
+    }
+  }
 }
 
 
