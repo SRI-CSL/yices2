@@ -411,9 +411,9 @@ static void sigint_handler(int signum) {
     printf("\nInterrupted by signal %d\n", signum);
     fflush(stdout);
   }
-  //  if (context_status(context) == STATUS_SEARCHING) {
-  //    context_stop_search(context);
-  //  }
+  if (context_status(context) == STATUS_SEARCHING) {
+    context_stop_search(context);
+  }
 }
 
 
@@ -1658,7 +1658,15 @@ static void yices_check_cmd(void) {
     break;
 
   case STATUS_IDLE:
-    fputs("Check not supported\n", stdout);
+    // run check
+    stat = check_context(context, &parameters, true);
+    fputc('\n', stdout);
+    fputs(status2string[stat], stdout);
+    fputc('\n', stdout);
+    if (stat == STATUS_INTERRUPTED) {
+      context_cleanup(context);
+      assert(context_status(context) == STATUS_IDLE);
+    }
     break;
 
   case STATUS_SEARCHING:
@@ -1716,7 +1724,8 @@ int yices_main(int argc, char *argv[]) {
   int32_t code;
 
   // Default architecture and flags
-  arch = CTX_ARCH_EGFUNSPLX; // egraph + simplex + array solver
+  //  arch = CTX_ARCH_EGFUNSPLX; // egraph + simplex + array solver
+  arch = CTX_ARCH_SPLX;
   iflag = true;
   qflag = false;
 

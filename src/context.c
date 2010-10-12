@@ -6246,6 +6246,29 @@ int32_t assert_formula(context_t *ctx, term_t f) {
 }
 
 
+
+
+/*
+ * Interrupt the search
+ */
+void context_stop_search(context_t *ctx) {
+  stop_search(ctx->core);
+}
+
+
+
+/*
+ * Cleanup: restore ctx to a good state after check_context 
+ * is interrupted.
+ */
+void context_cleanup(context_t *ctx) {
+  // restore the state to IDLE, propagate to all solvers (via pop)
+  assert(context_supports_cleaninterrupt(ctx));
+  smt_cleanup(ctx->core);
+}
+
+
+
 /*
  * Clear: prepare for more assertions and checks
  * - free the boolean assignment
@@ -6255,4 +6278,5 @@ void context_clear(context_t *ctx) {
   assert(context_supports_multichecks(ctx));
   smt_clear(ctx->core);
 }
+
 
