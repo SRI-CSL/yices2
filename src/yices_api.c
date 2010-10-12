@@ -2612,60 +2612,205 @@ static bool check_for_lift_if(term_table_t *tbl, term_t t1, term_t t2, lift_resu
  * Attempt to factor out the common factors in t and e.
  *
  * If t and e are polynomials with integer variables
- * then we can write t as (a * t') and e as (a * e')
- * where a = gcd of coefficients of t and e.
- * Then (ite c t e) can be rewritten to a * (ite c t' e')
- *
- * This function attempt to rewrite (ite c t e) to a * (ite c t' e')
- * if the common factor is 1, it just construct (ite c t e).
+ * then we can write t as r + (a * t') and e as r + (a * e')
+ * where 
+ *   r = common part of t and e (cf. polynomials.h)
+ *   a = gcd of coefficients of (t - r) and (e - r).
+ * Then (ite c t e) can be rewritten to (r + a * (ite c t' e'))
+ */
+
+/*
+ * Remove every monomial of p whose variable is in a then divide the 
+ * result by c
+ * - a = array of terms sorted in increasing order
+ *   a is terminatated by max_idx
+ * - every element of a must be a variable of p
+ * - c must be non-zero
+ * - return the term (p - r)/c
+ */
+static term_t remove_monomials(term_table_t *tbl, polynomial_t *p, term_t *a, rational_t *c) {
+  arith_buffer_t *b;
+  monomial_t *mono;
+  uint32_t i;
+  term_t x;
+
+  assert(q_is_nonzero(c));
+
+  b = get_internal_arith_buffer();
+  arith_buffer_reset(b);
+
+  i = 0;
+  mono = p->mono;
+  x = mono->var;
+
+  // deal with the constant if any
+  if (x == const_idx) {
+    if (x == a[i]) {
+      i ++;
+    } else {
+      assert(x < a[i]);
+      arith_buffer_add_const(b, &mono->coeff);
+    }
+    mono ++;
+    x = mono->var;
+  }
+
+  // non constant monomials
+  while (x < max_idx) {
+    if (x == a[i]) {
+      // skip t
+      i ++;
+    } else {
+      assert(x < a[i]);
+      arith_buffer_add_mono(b, &mono->coeff, pprod_for_term(tbl, x));
+    }
+    mono ++;
+    x = mono->var;
+  }
+
+  // divide by c
+  if (! q_is_one(c)) {
+    arith_buffer_div_const(b, c);
+  }
+
+  // build the term from b
+  arith_buffer_normalize(b);
+  return arith_buffer_to_term(tbl, b);
+}  
+
+
+/*
+ * Remove every monomial of p whose variable is not in a
+ * then add c * t to the result.
+ * - a must be an array of terms sorted in increasing order and terminated by max_idx
+ * - all elements of a must be variables of p
+ */
+static term_t add_mono_to_common_part(term_table_t *tbl, polynomial_t *p, term_t *a, rational_t *c, term_t t) {
+  arith_buffer_t *b;
+  monomial_t *mono;
+  uint32_t i;
+  term_t x;
+
+  b = get_internal_arith_buffer();
+  arith_buffer_reset(b);
+
+  i = 0;
+  mono = p->mono;
+  x = mono->var;
+
+  // constant monomial
+  if (x == const_idx) {
+    assert(x <= a[i]);
+    if (x == a[i]) {
+      arith_buffer_add_const(b, &mono->coeff);
+      i ++;
+    }
+    mono ++;
+    x = mono->var;
+  }
+
+  // non constant monomials
+  while (x < max_idx) {
+    assert(x <= a[i]);
+    if (x == a[i]) {
+      arith_buffer_add_mono(b, &mono->coeff, pprod_for_term(tbl, x));
+      i ++;
+    }
+    mono ++;
+    x = mono->var;
+  }
+
+  // add c * t
+  arith_buffer_add_mono(b, c, pprod_for_term(tbl, t));
+
+  arith_buffer_normalize(b);
+  return arith_buffer_to_term(tbl, b);
+}
+
+
+
+/*
+ * Build  t := p/c where c is a non-zero rational
+ */
+static term_t polynomial_div_const(term_table_t *tbl, polynomial_t *p, rational_t *c) {
+  arith_buffer_t *b;
+
+  b = get_internal_arith_buffer();
+  arith_buffer_reset(b);
+  arith_buffer_add_monarray(b, p->mono, pprods_for_poly(tbl, p));
+  term_table_reset_pbuffer(tbl);
+  arith_buffer_div_const(b, c);
+
+  return arith_buffer_to_term(tbl, b);
+}
+
+
+/*
+ * Build t := u * c
+ */
+static term_t mk_mul_term_const(term_table_t *tbl, term_t t, rational_t *c) {
+  arith_buffer_t *b;
+
+  b = get_internal_arith_buffer();
+  arith_buffer_reset(b);
+  arith_buffer_add_mono(b, c, pprod_for_term(tbl, t));
+
+  return arith_buffer_to_term(tbl, b);
+}
+
+
+/*
+ * Attempt to rewrite (ite c t e) to (r + a * (ite c t' e'))
+ * - t and e must be distinct integer polynomials
+ * - if r is null and a is one, it builds (ite c t e)
+ * - if r is null and a is more than one, it builds a * (ite t' e')
  */
 static term_t mk_integer_polynomial_ite(term_table_t *tbl, term_t c, term_t t, term_t e) {
   polynomial_t *p, *q;
-  arith_buffer_t *b;
+  term_t ite;
 
   assert(is_integer_term(tbl, t) && is_integer_term(tbl, e));
 
   p = poly_term_desc(tbl, t);  // then part
   q = poly_term_desc(tbl, e);  // else part
+  assert(! equal_polynomials(p, q));
 
-  if (!polynomial_is_zero(p) && !polynomial_is_zero(q)) {
-    monarray_common_factor(p->mono, &r0); // r0 = gcd of coefficients of p
-    monarray_common_factor(q->mono, &r1); // r1 = gcd of coefficients of q
-    q_gcd(&r0, &r1);  // r0 = common factor a above
+  /*
+   * Collect the common part of p and q into v
+   * + the common factor into r0
+   */
+  ivector_reset(&vector0);
+  monarray_pair_common_part(p->mono, q->mono, &vector0);
+  ivector_push(&vector0, max_idx); // end marker
 
-    assert(q_is_pos(&r0) && q_is_integer(&r0));
-    if (! q_is_one(&r0)) {
-      // use internal arith buffer for operations
-      b = get_internal_arith_buffer();
+  monarray_pair_non_common_gcd(p->mono, q->mono, &r0);
+  assert(q_is_pos(&r0) && q_is_integer(&r0));
 
-      // construct p' := 1/r0 * p
-      arith_buffer_reset(b);
-      arith_buffer_add_monarray(b, p->mono, pprods_for_poly(tbl, p));
-      term_table_reset_pbuffer(tbl);
-      arith_buffer_div_const(b, &r0);
-      //      t = arith_poly(tbl, b);
-      t = arith_buffer_to_term(tbl, b);
-
-      // construct q' := 1/r0 * q
-      arith_buffer_reset(b);
-      arith_buffer_add_monarray(b, q->mono, pprods_for_poly(tbl, q));
-      term_table_reset_pbuffer(tbl);
-      arith_buffer_div_const(b, &r0);
-      //      e = arith_poly(tbl, b);
-      e = arith_buffer_to_term(tbl, b);
-
-      // (ite c p' q')
-      t = ite_term(tbl, int_type(tbl->types), c, t, e);
-
-      // built r0 * t
-      arith_buffer_reset(b);
-      arith_buffer_add_varmono(b, &r0, t);
-      return arith_poly(tbl, b);
-    }
+  if (vector0.size > 0) {
+    // the common part is non-null
+    t = remove_monomials(tbl, p, vector0.data, &r0);  // t is (p - common)/r0
+    e = remove_monomials(tbl, q, vector0.data, &r0);  // e is (q - common)/r0
+  } else if (! q_is_one(&r0)) {
+    // no common part, common factor > 1
+    t = polynomial_div_const(tbl, p, &r0);   // t is p/r0
+    e = polynomial_div_const(tbl, q, &r0);   // e is q/r0
   }
-  
-  // no common factor to lift
-  return ite_term(tbl, int_type(tbl->types), c, t, e);
+
+  // build (ite c t e): type int
+  ite = ite_term(tbl, int_type(tbl->types), c, e, t);
+
+  if (vector0.size > 0) {
+    // build common + r0 * ite
+    ite = add_mono_to_common_part(tbl, p, vector0.data, &r0, ite);
+  } else if (! q_is_one(&r0)) {
+    // common factor > 1: build r0 * ite
+    ite = mk_mul_term_const(tbl, ite, &r0);
+  }
+
+  // cleanup
+  ivector_reset(&vector0);
+
+  return ite;
 }
 
 

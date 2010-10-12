@@ -581,7 +581,7 @@ void monarray_pair_non_common_gcd(monomial_t *p, monomial_t *q, rational_t *fact
 
   q_clear(factor);
   x = p->var;
-  y = p->var;
+  y = q->var;
   for (;;) {
     if (x == y) {
       if (x == max_idx) break;
@@ -593,7 +593,7 @@ void monarray_pair_non_common_gcd(monomial_t *p, monomial_t *q, rational_t *fact
       p ++;
       x = p->var;
       q ++;
-      y = p->var;
+      y = q->var;
     } else if (x < y) {
       aux_gcd(factor, &p->coeff);
       p ++;
@@ -601,7 +601,7 @@ void monarray_pair_non_common_gcd(monomial_t *p, monomial_t *q, rational_t *fact
     } else {
       aux_gcd(factor, &q->coeff);
       q ++;
-      y = p->var;
+      y = q->var;
     }
   }
 }
