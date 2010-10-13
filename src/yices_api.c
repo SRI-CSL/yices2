@@ -2797,7 +2797,7 @@ static term_t mk_integer_polynomial_ite(term_table_t *tbl, term_t c, term_t t, t
   }
 
   // build (ite c t e): type int
-  ite = ite_term(tbl, int_type(tbl->types), c, e, t);
+  ite = ite_term(tbl, int_type(tbl->types), c, t, e);
 
   if (vector0.size > 0) {
     // build common + r0 * ite
