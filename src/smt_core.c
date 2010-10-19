@@ -5523,6 +5523,11 @@ void start_search(smt_core_t *s) {
   }
 
   s->status = STATUS_SEARCHING;
+  s->inconsistent = false;
+  s->theory_conflict = false;
+  s->conflict = NULL;
+  s->false_clause = NULL;
+
   s->stats.restarts = 0;
   s->stats.simplify_calls = 0;
   s->stats.reduce_calls = 0;

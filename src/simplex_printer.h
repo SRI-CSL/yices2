@@ -24,10 +24,12 @@ extern void print_matrix(FILE *f, arith_vartable_t *vtbl, matrix_t *matrix);
 extern void print_elim_matrix(FILE *f, arith_vartable_t *vtbl, elim_matrix_t *elim);
 extern void print_fixed_var_vector(FILE *f, arith_vartable_t *vtbl, fvar_vector_t *fvars);
 
+extern void print_simplex_flags(FILE *f, simplex_solver_t *solver);
 extern void print_simplex_vars(FILE *f, simplex_solver_t *solver);
 extern void print_simplex_atoms(FILE *f, simplex_solver_t *solver);
 extern void print_simplex_row(FILE *f, simplex_solver_t *solver, row_t *row);
 extern void print_simplex_matrix(FILE *f, simplex_solver_t *solver);
+extern void print_simplex_saved_rows(FILE *f, simplex_solver_t *solver);
 extern void print_simplex_basic_vars(FILE *f, simplex_solver_t *solver);
 extern void print_simplex_bounds(FILE *f, simplex_solver_t *solver);
 extern void print_simplex_assignment(FILE *f, simplex_solver_t *solver);

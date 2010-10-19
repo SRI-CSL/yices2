@@ -353,6 +353,21 @@ void print_simplex_matrix(FILE *f, simplex_solver_t *solver) {
   print_matrix(f, &solver->vtbl, &solver->matrix);
 }
 
+void print_simplex_saved_rows(FILE *f, simplex_solver_t *solver) {
+  pvector_t *v;
+  uint32_t i, n;
+
+  v = &solver->saved_rows;
+  n = v->size;
+  for (i=0; i<n; i++) {
+    fprintf(f, "saved[%"PRIu32"]: ", i);
+    print_avar_poly(f, &solver->vtbl, v->data[i]);
+    fputc('\n', f);
+  }
+  fputc('\n', f);
+}
+
+
 void print_simplex_basic_vars(FILE *f, simplex_solver_t *solver) {
   matrix_t *matrix;
   uint32_t i, n;
@@ -498,6 +513,23 @@ void print_simplex_bound(FILE *f, simplex_solver_t *solver, uint32_t i) {
   } else {
     fprintf(f, "<INVALID BOUND INDEX>");
   }
+}
+
+
+
+/*
+ * FLAGS/BASE LEVEL
+ */
+static char *bool2string(bool x) {
+  return x ? "true" : "false";
+}
+
+void print_simplex_flags(FILE *f, simplex_solver_t *solver) {
+  fprintf(f, "base level:     %"PRIu32"\n", solver->base_level);
+  fprintf(f, "decision level: %"PRIu32"\n", solver->decision_level);
+  fprintf(f, "matrix ready:   %s\n", bool2string(solver->matrix_ready));
+  fprintf(f, "tableau ready:  %s\n", bool2string(solver->tableau_ready));
+  fprintf(f, "save rows:      %s\n", bool2string(solver->save_rows));
 }
 
 

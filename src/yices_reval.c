@@ -1645,13 +1645,16 @@ static void dump_rdl_solver(FILE *f, rdl_solver_t *rdl) {
 }
 
 static void dump_simplex_solver(FILE *f, simplex_solver_t *simplex) {
-  fprintf(f, "\n--- Simplex Variables ---\n");
+  fprintf(f, "\n--- Simplex ---\n");
+  fprintf(f, "status:         %s\n", status2string[simplex->core->status]);
+  print_simplex_flags(f, simplex);
+  fprintf(f, "\n");
   print_simplex_vars(f, simplex);
-  fprintf(f, "\n--- Simplex Atoms ---\n");
+  print_simplex_saved_rows(f, simplex);
   print_simplex_atoms(f, simplex);
-  fprintf(f, "\n--- Simplex Tableau ---\n");
+  fprintf(f, "\n--- Tableau ---\n");
   print_simplex_matrix(f, simplex);
-  fprintf(f, "--- Simplex Bounds ---\n");
+  fprintf(f, "---  Bounds ---\n");
   print_simplex_bounds(f, simplex);
   fprintf(f, "\n");
 }

@@ -25,7 +25,7 @@
 #define DUMP    0
 #define YEXPORT 0
 
-#define TRACE_INIT 1
+#define TRACE_INIT 0
 #define TRACE_PROPAGATION 0
 #define TRACE_THEORY 0
 #define TRACE_BB 0
@@ -6494,6 +6494,14 @@ void simplex_start_search(simplex_solver_t *solver) {
   printf("\n");
 #endif
 
+  /*
+   * If start_search is called after pop and without an intervening
+   * start_internalization, then matrix_ready and tableau_ready are both false.
+   * We force restore matrix here. This does nothing if the matrix is ready
+   * alreday.
+   */
+  simplex_restore_matrix(solver);
+
   assert(solver->matrix_ready && !solver->tableau_ready);
 
   // reset the search statistics
@@ -6834,6 +6842,12 @@ void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
 
   /*
    * stack->data[back_level + 1] = record created on entry to back_level + 1
+   * so undo->n_bounds = number of bounds processed at back_level
+   *    undo->n_assertions = number of assertions processed at back_level
+   *
+   * When back_level + 1 was entered, simplex_propagate had completed without conflict
+   * so bstack->fix_ptr and bstack->prop_ptr were both equal to bstack->top,
+   * and assertion_queue->prop_ptr was equal to assertion_queue->top.
    */
   assert(back_level + 1 < solver->stack.top);
   undo = solver->stack.data + back_level + 1;
@@ -6841,9 +6855,13 @@ void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
   vtbl = &solver->vtbl;
   bstack = &solver->bstack;
 
+
   /*
    * Remove the bounds and fix the lb/ub tags
    */
+  assert(undo->n_bounds <= bstack->prop_ptr && bstack->prop_ptr <= bstack->fix_ptr && 
+	 bstack->fix_ptr <= bstack->top);
+
   i = bstack->top;
 
   /*
@@ -6894,6 +6912,9 @@ void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
   /*
    * Remove the assertions
    */
+  assert(undo->n_assertions <= solver->assertion_queue.prop_ptr &&
+	 solver->assertion_queue.prop_ptr <= solver->assertion_queue.top);
+
   n = undo->n_assertions;
   a = solver->assertion_queue.data;
   i = solver->assertion_queue.top;  
@@ -6954,7 +6975,9 @@ void simplex_push(simplex_solver_t *solver) {
   uint32_t nv, na, nr, pa, pb;
 
   assert(solver->decision_level == solver->base_level && 
-	 solver->save_rows);
+	 solver->bstack.prop_ptr == solver->bstack.fix_ptr &&
+	 solver->save_rows && 
+	 eassertion_queue_is_empty(&solver->egraph_queue));
 
   nv = solver->vtbl.nvars;
   na = solver->atbl.natoms;
@@ -6977,18 +7000,55 @@ void simplex_push(simplex_solver_t *solver) {
  */
 void simplex_pop(simplex_solver_t *solver) {
   arith_trail_t *top;
+  arith_undo_record_t *undo;
   uint32_t nrows, ncolumns;
 
   assert(solver->base_level > 0 && 
 	 solver->base_level == solver->decision_level && 
 	 solver->save_rows);
 
+  solver->unsat_before_search = false;
+
+
+  /*
+   * HACKISH: Backtrack to the previous base_level
+   *
+   * undo = trail object saved on entry to the current base_level
+   * undo->n_bounds = number of bounds in bstack on entry to base_level
+   * undo->n_assertions = number of assertions in asssertion_queue on
+   *                  entry to current base_level
+   *
+   * If simplex_pop is called without a simplex_check then the 
+   * preconditions of simplex_backtrack may not hold. We may have 
+   *     bstack->fix_ptr  < undo->n_bounds
+   *     bstack->prop_ptr < unod->n_bounds
+   *     assertion_queue->prop_ptr < assertion_queue->n_assertions.
+   * 
+   * In such a case, we fix the fix/prop_ptr before calling 
+   * backtrack. This does not cause problem since, we'll restore
+   * fix_ptr/prop_ptr after simplex_backtrack anyway.
+   */
+  undo = solver->stack.data + solver->base_level;
   solver->base_level --;
+
+  if (solver->bstack.fix_ptr < undo->n_bounds) {
+    solver->bstack.fix_ptr = undo->n_bounds;
+  }
+  if (solver->bstack.prop_ptr < undo->n_bounds) {
+    solver->bstack.prop_ptr = undo->n_bounds;
+  }
+  if (solver->assertion_queue.prop_ptr < undo->n_assertions) {
+    solver->assertion_queue.prop_ptr = undo->n_assertions;
+  }
   simplex_backtrack(solver, solver->base_level);
 
+
+  /*
+   * Remove saved_rows, variables, and atoms that were
+   * created at the current base_level.
+   */
   top = arith_trail_top(&solver->trail_stack);
   delete_saved_rows(&solver->saved_rows, top->nsaved_rows);
-
   arith_vartable_remove_vars(&solver->vtbl, top->nvars);
   arith_atomtable_remove_atoms(&solver->atbl, top->natoms);  
 
@@ -6998,6 +7058,7 @@ void simplex_pop(simplex_solver_t *solver) {
 
   // restore the propagation pointers
   solver->bstack.prop_ptr = top->bound_ptr;
+  solver->bstack.fix_ptr = top->bound_ptr;
   solver->assertion_queue.prop_ptr = top->assertion_ptr;
 
   // remove trail object
