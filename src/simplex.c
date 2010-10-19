@@ -25,7 +25,7 @@
 #define DUMP    0
 #define YEXPORT 0
 
-#define TRACE_INIT 0
+#define TRACE_INIT 1
 #define TRACE_PROPAGATION 0
 #define TRACE_THEORY 0
 #define TRACE_BB 0
@@ -2630,6 +2630,8 @@ static void simplex_simplify_matrix(simplex_solver_t *solver) {
  * Compute the initial tableau
  */
 static void simplex_init_tableau(simplex_solver_t *solver) {
+  assert(solver->matrix_ready);
+
   markowitz_tableau_construction(&solver->matrix, &solver->fvars);
   solver->stats.num_rows = solver->matrix.nrows;
   solver->stats.num_fixed_vars = solver->fvars.nvars;  
@@ -2643,6 +2645,10 @@ static void simplex_init_tableau(simplex_solver_t *solver) {
 #if TRACE_THEORY
   trace_tableau();
 #endif
+
+  // mark that the tableau is ready
+  solver->tableau_ready = true;
+  solver->matrix_ready = false;
 }
 
 
@@ -2832,10 +2838,6 @@ static void simplex_init_assignment(simplex_solver_t *solver) {
 
   // set the fix_ptr
   solver->bstack.fix_ptr = solver->bstack.top;
-
-  // mark that the tableau is ready
-  solver->tableau_ready = true;
-  solver->matrix_ready = false;
 }
 
 
@@ -4469,8 +4471,8 @@ static void simplex_restore_matrix(simplex_solver_t *solver) {
 
     // restore the definitions of all non-trivial variables
     n = solver->vtbl.nvars;
-    for (i=0; i<n; i++) {
-      p = arith_var_poly_def(&solver->vtbl, i);
+    for (i=1; i<n; i++) {
+      p = arith_var_def(&solver->vtbl, i);
       if (p != NULL && !simple_poly(p)) {
 	matrix_add_eq(&solver->matrix, i, p->mono, p->nterms);
       }

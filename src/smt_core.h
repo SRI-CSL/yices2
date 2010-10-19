@@ -1730,11 +1730,12 @@ static inline void end_search_unknown(smt_core_t *s) {
 
 
 /*
- * If clean_interrupt is enabled, and s has been interrupted then
- * this function restores s to what it was at the start of the search.
- * - cleanup removes all learned clauses and all the lemmas, variables, 
- *   and atoms created during the search.
- * - must not be called if clean_interrupt is disabled.
+ * If the search was interrupted, this function
+ * restores s to what it was at the start of the search.
+ * - remove all learned clauses and all the lemmas, variables, and atoms created
+ *   during the search.
+ * - reset s->status to IDLE 
+ * - this must not be called if clean_interrupt is disabled.
  */
 extern void smt_cleanup(smt_core_t *s);
 
@@ -1747,6 +1748,15 @@ extern void smt_cleanup(smt_core_t *s);
  */
 extern void smt_clear(smt_core_t *s);
 
+
+/*
+ * Cleanup after the search returned unsat
+ * - if clean_interrupt is enabled, this restores s to its state
+ *   before the search: learned clauses are deleted, lemmas, variables
+ *   and atoms created during the search are deleted.
+ * - if clean_interrupt is disabled, this does nothing.
+ */
+extern void smt_clear_unsat(smt_core_t *s);
 
 
 

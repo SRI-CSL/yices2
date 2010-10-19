@@ -490,7 +490,6 @@ smt_status_t check_context(context_t *ctx, param_t *params, bool verbose) {
   if (stat == STATUS_IDLE) {
     /*
      * Clean state: search can proceed
-     * TODO: report an error if stat is not IDLE
      */
     if (params == NULL) {
       params = &default_settings;

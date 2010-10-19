@@ -6020,7 +6020,7 @@ void context_push(context_t *ctx) {
 }
 
 void context_pop(context_t *ctx) {
-  assert(ctx->base_level > 0);
+  assert(context_supports_pushpop(ctx) && ctx->base_level > 0);
   smt_pop(ctx->core);   // propagates to all solvers
   gate_manager_pop(&ctx->gate_manager);
   intern_tbl_pop(&ctx->intern);
@@ -6280,3 +6280,10 @@ void context_clear(context_t *ctx) {
 }
 
 
+
+/*
+ * Clear_unsat: prepare for pop
+ */
+void context_clear_unsat(context_t *ctx) {
+  smt_clear_unsat(ctx->core);
+}

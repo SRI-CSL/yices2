@@ -22,6 +22,9 @@
 #include "memsize.h"
 #include "command_line.h"
 #include "rationals.h"
+
+#include "smt_logic_codes.h"
+#include "arith_solver_codes.h"
 #include "yices_exit_codes.h"
 
 // Need PRNG_DEFAULT_SEED in show-params
@@ -45,6 +48,7 @@
 
 
 
+
 /********************
  *  GLOBAL OBJECTS  *
  *******************/
@@ -64,24 +68,40 @@
  *   in the interactive mode).
  *
  * CONTEXT SETTING
- * - arch:  context architectur to use
- * - iflag: true if the integer solver is necessary
- * - qflag: true to support quantifiers
+ * - logic_name = NULL (default) or a logic identified (based on the SMT-LOGIC codes)
+ * - arith_name = NULL (default) or the name of the arithmetic solver
+ *   (currently the valid names are "simplex" "floyd-warshall" or "auto")
+ *
+ * - logic_name and arith_name are converted to integer codes:
+ *   logic_code = logic identifier as defined in smt_logic_codes.h
+ *   arith_code = solver identifier as defined in arith_solver_codes.h
+ *
+ * - logic_name + arith_code determine the following flags, which 
+ *   are used to initialize the context.
+ *    - arch:  context architecture to use 
+ *    - mode: whether PUSH/POP and INTERACTIVE can be used
+ *    - iflag: true if the integer solver is necessary
+ *    - qflag: true to support quantifiers
  */
-static bool interactive;
-static bool done;
-static bool verbose;
-
-static context_arch_t arch;
-static bool iflag;
-static bool qflag;
-
-static uint32_t include_depth;
 static char *input_filename;
 static lexer_t lexer;
 static parser_t parser;
 static tstack_t stack;
+static uint32_t include_depth;
 
+static bool interactive;
+static bool done;
+static bool verbose;
+
+static char *logic_name;
+static char *arith_name;
+
+static smt_logic_t logic_code;
+static arith_code_t arith_code;
+static context_arch_t arch;
+static context_mode_t mode;
+static bool iflag;
+static bool qflag;
 
 /*
  * Context, model, and solver parameters
@@ -94,6 +114,24 @@ static param_t parameters;
  * Random seed: we keep a copy here for (show-params ...)
  */
 static uint32_t the_seed;
+
+
+
+/*******************
+ *  GLOBAL TABLES  *
+ ******************/
+
+/*
+ * Table to convert  smt_status to a string
+ */
+static const char * const status2string[] = {
+  "idle",
+  "searching",
+  "unknown",
+  "sat",
+  "unsat",
+  "interrupted",
+};
 
 
 /*
@@ -252,26 +290,93 @@ static const branch_t branching_code[NUM_BRANCHING_MODES] = {
 
 
 
+
 /*
- * smt_status --> string
+ * CONTEXT SETTING FOR A GIVEN LOGIC CODE
  */
-static const char * const status2string[] = {
-  "idle",
-  "searching",
-  "unknown",
-  "sat",
-  "unsat",
-  "interrupted",
+
+/*
+ * Conversion of SMT logic code to architecture code
+ * -1 means not supported
+ */
+static const int32_t logic2arch[NUM_SMT_LOGICS] = {
+  -1,                  // AUFLIA
+  -1,                  // AUFLIRA
+  -1,                  // AUFNIRA
+  -1,                  // LRA
+  CTX_ARCH_EGFUNBV,    // QF_AUFBV
+  CTX_ARCH_EGFUNSPLX,  // QF_AUFLIA
+  CTX_ARCH_EGFUN,      // QF_AX
+  CTX_ARCH_BV,         // QF_BV
+  CTX_ARCH_AUTO_IDL,   // QF_IDL
+  CTX_ARCH_SPLX,       // QF_LIA
+  CTX_ARCH_SPLX,       // QF_LRA
+  -1,                  // QF_NIA
+  CTX_ARCH_AUTO_RDL,   // QF_RDL
+  CTX_ARCH_EG,         // QF_UF
+  CTX_ARCH_EGBV,       // QF_UFBV[xx]
+  CTX_ARCH_EGSPLX,     // QF_UFIDL
+  CTX_ARCH_EGSPLX,     // QF_UFLIA
+  CTX_ARCH_EGSPLX,     // QF_UFLRA
+  -1,                  // QF_UFNRA
+  -1,                  // UFNIA
+};
+
+/*
+ * Specify whether the integer solver should be activated
+ */
+static const bool logic2iflag[NUM_SMT_LOGICS] = {
+  true,   // AUFLIA
+  true,   // AUFLIRA
+  true,   // AUFNIRA
+  false,  // LRA
+  false,  // QF_AUFBV
+  true,   // QF_AUFLIA
+  false,  // QF_AX
+  false,  // QF_BV
+  false,  // QF_IDL
+  true,   // QF_LIA
+  false,  // QF_LRA
+  true,   // QF_NIA
+  false,  // QF_RDL
+  false,  // QF_UF
+  false,  // QF_UFBV[x]
+  false,  // QF_UFIDL
+  true,   // QF_UFLIA
+  false,  // QF_UFLRA
+  false,  // QF_UFNRA
+  true,   // UFNIA
+};
+
+
+/*
+ * Specify whether quantifier support is needed
+ */
+static const bool logic2qflag[NUM_SMT_LOGICS] = {
+  true,   // AUFLIA
+  true,   // AUFLIRA
+  true,   // AUFNIRA
+  true,   // LRA
+  false,  // QF_AUFBV
+  false,  // QF_AUFLIA
+  false,  // QF_AX
+  false,  // QF_BV
+  false,  // QF_IDL
+  false,  // QF_LIA
+  false,  // QF_LRA
+  false,  // QF_NIA
+  false,  // QF_RDL
+  false,  // QF_UF
+  false,  // QF_UFBV[x]
+  false,  // QF_UFIDL
+  false,  // QF_UFLIA
+  false,  // QF_UFLRA
+  false,  // QF_UFNRA
+  true,   // UFNIA
 };
 
 
 
-/*
- * Tables for converting parameter id to parameter name
- * and branching code to branching name.
- */
-static const char *param2string[NUM_PARAMETERS];
-static const char *branching2string[NUM_BRANCHING_MODES];
 
 
 
@@ -281,6 +386,8 @@ static const char *branching2string[NUM_BRANCHING_MODES];
  *************************/
 
 enum {
+  logic_option,
+  arith_option,
   version_flag,
   help_flag,
   verbose_flag,
@@ -289,14 +396,17 @@ enum {
 #define NUM_OPTIONS (verbose_flag+1)
 
 static option_desc_t options[NUM_OPTIONS] = {
+  { "logic", '\0', MANDATORY_STRING, logic_option },
+  { "arith-solver", '\0', MANDATORY_STRING, arith_option },
   { "version", 'V', FLAG_OPTION, version_flag },
   { "help", 'h', FLAG_OPTION, help_flag },
   { "verbose", 'v', FLAG_OPTION, verbose_flag },
 };
 
 
+
 /*
- * Base options
+ * Version and help
  */
 static void print_version(void) {
   printf("Yices %s. Copyright SRI International.\n"
@@ -312,34 +422,48 @@ static void print_version(void) {
 }
 
 static void print_help(char *progname) {
-  printf("Usage: %s [options] filename\n", progname);
+  printf("Usage: %s [options] filename\n\n", progname);
   printf("Options:\n"
 	 "  --version, -V           Display version and exit\n"
 	 "  --help, -h              Display this information\n"
 	 "  --verbose, -v           Run in verbose mode\n"
+	 "  --logic=name            Configure for the given logic\n"
+	 "                          name must be an SMT-LIB logic code (e.g., QF_UFLIA)\n"
+	 "  --arith-solver=solver   Select the arithmetic solver\n"
+	 "                          solver muse be either 'simplex' or 'floyd-warshall' or 'auto'\n"
 	 "\n"
 	 "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
 }
 
+
+/*
+ * Print this if there's an error in the command line arguments
+ */
 static void print_usage(char *progname) {
-  fprintf(stderr, "Usage: %s [options] <input_file>\n", progname);
-  fprintf(stderr, "Try '%s --help' for more information\n", progname);  
+  fprintf(stderr, "Try '%s --help' for more information\n", progname);
 }
 
 
 /*
  * Processing of the command-line flags
- * - set the global variable input_filename
- * - input_filename = NULL means no filename on the command lineo
+ * - set input_filename, logic_name, and arith_name
+ *   input_filename = NULL means no filename on the command line
+ *   same thing for logic_name and arith_name.
  * - deal with --help, --version or with errors
  */
 static void process_command_line(int argc, char *argv[]) {
   cmdline_parser_t parser;
   cmdline_elem_t elem;
+  int32_t arch_code;
 
+  // set all options to their default value
   input_filename = NULL;
+  logic_name = NULL;
+  arith_name = NULL;
   verbose = false;
+  logic_code = SMT_UNKNOWN;
+  arith_code = ARITH_SIMPLEX;
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
 
@@ -360,6 +484,34 @@ static void process_command_line(int argc, char *argv[]) {
 
     case cmdline_option:
       switch (elem.key) {
+      case logic_option:
+	if (logic_name == NULL) {
+	  logic_name = elem.s_value;
+	  logic_code = smt_logic_code(logic_name);
+	  if (logic_code == SMT_UNKNOWN) {
+	    fprintf(stderr, "%s: invalid logic %s\n", parser.command_name, logic_name);
+	    goto bad_usage;
+	  }
+	} else if (strcmp(logic_name, elem.s_value) != 0) {
+	  fprintf(stderr, "%s: only one logic can be specified\n", parser.command_name);
+	  goto bad_usage;
+	}
+	break;
+
+      case arith_option:
+	if (arith_name == NULL) {
+	  arith_name = elem.s_value;
+	  arith_code = arith_solver_code(arith_name);
+	  if (arith_code == ARITH_UNKNOWN) {
+	    fprintf(stderr, "%s: invalid arithmetic solver %s\n", parser.command_name, arith_name);
+	    goto bad_usage;
+	  }
+	} else if (strcmp(arith_name, elem.s_value) != 0) {
+	  fprintf(stderr, "%s: only one arithmetic solver can be specified\n", parser.command_name);
+	  goto bad_usage;
+	}
+	break;
+
       case version_flag:
 	print_version();
 	goto quick_exit;
@@ -384,15 +536,77 @@ static void process_command_line(int argc, char *argv[]) {
     }
   }
 
+ done:
+  /*
+   * convert logic and arith solver codes to context architecture + mode
+   * also set iflag and qflag
+   */
+  switch (logic_code) {
+  case SMT_UNKNOWN:
+    if (arith_code == ARITH_FLOYD_WARSHALL) {
+      fprintf(stderr, "%s: please specify the logic (either QF_IDL or QF_RDL)\n", parser.command_name);
+      goto bad_usage;
+    }
+    // use default settings
+    arch = CTX_ARCH_EGFUNSPLX;
+    mode = CTX_MODE_INTERACTIVE;
+    iflag = true;
+    qflag = false;
+    break;
+    
+  case QF_IDL:    
+    if (arith_code == ARITH_SIMPLEX) {
+      arch = CTX_ARCH_SPLX;
+      mode = CTX_MODE_INTERACTIVE;
+    } else if (arith_code == ARITH_FLOYD_WARSHALL) {
+      arch = CTX_ARCH_IFW;
+      mode = CTX_MODE_ONECHECK;
+    } else {
+      arch = CTX_ARCH_AUTO_IDL;
+      mode = CTX_MODE_ONECHECK;
+    }
+    iflag = false;
+    qflag = false;
+    break;
+
+  case QF_RDL:
+    if (arith_code == ARITH_SIMPLEX) {
+      arch = CTX_ARCH_SPLX;
+      mode = CTX_MODE_INTERACTIVE;
+    } else if (arith_code == ARITH_FLOYD_WARSHALL) {
+      arch = CTX_ARCH_RFW;
+      mode = CTX_MODE_ONECHECK;
+    } else {
+      arch = CTX_ARCH_AUTO_RDL;
+      mode = CTX_MODE_ONECHECK;
+    }
+    iflag = false;
+    qflag = false;
+    break;
+
+
+  default:
+    assert(logic_name != NULL && 0 <= logic_code && logic_code < NUM_SMT_LOGICS);
+    arch_code = logic2arch[logic_code];
+    if (arch_code < 0) {
+      fprintf(stderr, "%s: logic %s is not supported\n", parser.command_name, logic_name);
+      exit(YICES_EXIT_ERROR);
+    }
+    arch = (context_arch_t) arch_code;
+    mode = CTX_MODE_INTERACTIVE;
+    iflag = logic2iflag[logic_code];
+    qflag = logic2qflag[logic_code];
+    break;
+  }
+
+  return;
+
  quick_exit:
   exit(YICES_EXIT_SUCCESS);
   
  bad_usage:
   print_usage(parser.command_name);
   exit(YICES_EXIT_USAGE);
-
- done:
-  return;
 }
 
 
@@ -606,53 +820,18 @@ static void print_ok(void) {
  *  CONTEXT INITIALIZATION  *  
  ***************************/
 
-#if 0
-/*
- * Placeholder: initialize the parameters
- */
-static void init_params_to_defaults(param_t *p) {
-  p->fast_restart = false;
-  p->c_threshold = 100;
-  p->d_threshold = 100;
-  p->c_factor = 1.5;
-  p->d_factor = 1.5;
-  p->r_threshold = 1000;
-  p->r_fraction = 0.25;
-  p->r_factor = 1.05;
-  p->var_decay = 0.95;
-  p->randomness = 0.02;
-  p->branching = BRANCHING_DEFAULT;
-  p->clause_decay  = 0.999;
-  p->cache_tclauses = false;
-  p->tclause_size = 0;
-  p->use_dyn_ack = false;
-  p->use_bool_dyn_ack = false;
-  p->max_ackermann = 1000;
-  p->max_boolackermann = 600000;
-  p->aux_eq_quota = 100;
-  p->aux_eq_ratio = 0.3;
-  p->max_interface_eqs = 200;
-  p->use_simplex_prop = false;
-  p->max_prop_row_size = 30;
-  p->bland_threshold = 1000;
-  p->integer_check_period = 99999999;
-  p->max_update_conflicts = 20;
-  p->max_extensionality = 1;
-}
-
-#endif
-
 /*
  * Allocate and initialize the global context and model.
  * Initialize the parameter table with default values.
  * Set the signal handlers.
  * - arch = architecture to use
+ * - mode = which optional features are supported
  * - iflag = true to active the integer solver
  * - qflag = true to support quantifiers
  */
-static void init_ctx(context_arch_t arch, bool iflag, bool qflag) {
+static void init_ctx(context_arch_t arch, context_mode_t mode, bool iflag, bool qflag) {
   context = (context_t *) safe_malloc(sizeof(context_t));
-  init_context(context, __yices_globals.terms, CTX_MODE_INTERACTIVE, arch, qflag);
+  init_context(context, __yices_globals.terms, mode, arch, qflag);
 
   enable_variable_elimination(context);
   enable_eq_abstraction(context);
@@ -685,6 +864,15 @@ static void delete_ctx(void) {
 /***************************************
  *  UTILITIES TO DEAL WITH PARAMETERS  *
  **************************************/
+
+/*
+ * Tables for converting parameter id to parameter name
+ * and branching code to branching name.
+ */
+static const char *param2string[NUM_PARAMETERS];
+static const char *branching2string[NUM_BRANCHING_MODES];
+
+
 
 /*
  * Initialize the table [parameter id --> string]
@@ -737,6 +925,7 @@ static int32_t binary_search_string(const char *s, const char * const *a, int32_
     }
   }
 }
+
 
 /*
  * Search for a parameter of the given name
@@ -1579,12 +1768,17 @@ static void yices_pop_cmd(void) {
     switch (context_status(context)) {
     case STATUS_UNKNOWN:
     case STATUS_SAT:
-      // delete the model first
+      // cleanup model
       context_clear(context);
       assert(context_status(context) == STATUS_IDLE);
       // fall-through intended
     case STATUS_IDLE:
+      context_pop(context);
+      print_ok();
+      break;
+
     case STATUS_UNSAT:
+      context_clear_unsat(context);
       context_pop(context);
       print_ok();
       break;
@@ -1717,17 +1911,11 @@ static void yices_term_defined_cmd(char *name, term_t t) {
  *********/
 
 /*
- * This is a separate function so that we can use it to invoke yices
- * via foreign function calls in LISP.
+ * This is a separate function so that we can invoke yices via foreign
+ * a function call in LISP.
  */
 int yices_main(int argc, char *argv[]) {
   int32_t code;
-
-  // Default architecture and flags
-  //  arch = CTX_ARCH_EGFUNSPLX; // egraph + simplex + array solver
-  arch = CTX_ARCH_SPLX;
-  iflag = true;
-  qflag = false;
 
   // Deal with command-line options
   process_command_line(argc, argv);
@@ -1776,7 +1964,7 @@ int yices_main(int argc, char *argv[]) {
     print_version();
   }
 
-  init_ctx(arch, iflag, qflag);
+  init_ctx(arch, mode, iflag, qflag);
 
   /*
    * Read-eval loop

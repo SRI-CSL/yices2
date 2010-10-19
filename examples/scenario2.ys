@@ -1,0 +1,52 @@
+(echo "\nBASE\n")
+(dump-context)
+(echo "===============================\n")
+(push)
+
+(define a::int)
+(define b::int)
+(define c::int)
+(assert (= (+ a b c) 0))
+(echo "AFTER (assert (= (+ a b c) 0))\n")
+(dump-context)
+(echo "===============================\n")
+
+(check)
+(echo "AFTER (check)\n")
+(dump-context)
+
+(define d::int)
+(assert (> (+ a d) 0))
+(echo "AFTER (assert (> (+ a d) 0))\n")
+(dump-context)
+(echo "===============================\n")
+
+
+(check)
+(echo "AFTER (check)\n")
+(dump-context)
+(echo "===============================\n")
+
+(assert (and (= b 1) (= c 1)))
+(echo "AFTER (assert (and (= b 1) (= c 1)))\n")
+(dump-context)
+(echo "===============================\n")
+
+(check)
+(echo "AFTER (check)\n")
+(dump-context)
+(echo "===============================\n")
+
+(assert (> a 1))
+(echo "AFTER (assert (> a 1))\n")
+(dump-context)
+(echo "===============================\n")
+
+(check)
+(echo "AFTER (check)\n")
+(dump-context)
+(echo "===============================\n")
+
+(pop)
+(echo "after (pop)\n")
+(dump-context)

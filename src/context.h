@@ -859,9 +859,21 @@ extern void context_cleanup(context_t *ctx);
  *   provided the context's mode isn't ONECHECK
  * - after this call, additional formulas can be asserted and 
  *   another call to check_context is allowed. Model construction 
- *   is no longer possible.
+ *   is no longer possible until the next call to check_context.
  */
 extern void context_clear(context_t *ctx);
+
+
+/*
+ * Cleanup after the search returned UNSAT
+ * - if the clean_interrupt option is enabled, this restore
+ *   the state to what it was at the start of search
+ * - otherwise, this does nothing.
+ *
+ * NOTE: Call this before context_pop(ctx) if the context status
+ * is unsat.
+ */
+extern void context_clear_unsat(context_t *ctx);
 
 
 

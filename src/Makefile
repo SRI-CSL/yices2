@@ -70,15 +70,15 @@ static_distdir := $(BUILD)/static_dist
 # source files for libyices
 #
 src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c \
-         arith_buffer_terms.c arith_vartable.c backtrack_arrays.c    \
-         bit_expr.c bit_term_conversion.c bvarith_buffers.c          \
-         bvarith_buffer_terms.c bvarith64_buffers.c                  \
-         bvarith64_buffer_terms.c bvlogic_buffers.c bv_constants.c   \
-         bv64_constants.c bv_polynomials.c bv64_polynomials.c        \
-         cache.c command_line.c composites.c concrete_values.c       \
-         context.c context_printer.c context_solver.c                \
-         diophantine_systems.c diseq_stacks.c dl_vartable.c          \
-         dsolver_printer.c egraph_assertion_queues.c                 \
+         arith_buffer_terms.c arith_solver_codes.c arith_vartable.c  \
+         backtrack_arrays.c bit_expr.c bit_term_conversion.c         \
+         bvarith_buffers.c bvarith_buffer_terms.c                    \
+         bvarith64_buffers.c bvarith64_buffer_terms.c                \
+         bvlogic_buffers.c bv_constants.c bv64_constants.c           \
+         bv_polynomials.c bv64_polynomials.c cache.c command_line.c  \
+         composites.c concrete_values.c context.c context_printer.c  \
+         context_solver.c diophantine_systems.c diseq_stacks.c       \
+         dl_vartable.c dsolver_printer.c egraph_assertion_queues.c   \
          egraph_explanations.c egraph_utils.c egraph.c               \
          egraph_printer.c eq_abstraction.c eq_learner.c              \
          extended_rationals.c fun_maps.c fun_solver.c fun_trees.c    \

@@ -5070,13 +5070,13 @@ void smt_pop(smt_core_t *s) {
 
 
 /*
- * Cleanup after search was interrupted:
+ * Cleanup after search was interrupted or returned unsat
  * - the clean state was pushed on the trail stack on start_search
  * - we just call pop
  */
 void smt_cleanup(smt_core_t *s) {
-  assert(s->status == STATUS_INTERRUPTED &&
-	 (s->option_flag & CLEAN_INTERRUPT_MASK) != 0); 
+  assert((s->status == STATUS_INTERRUPTED || s->status == STATUS_UNSAT) 
+	 && (s->option_flag & CLEAN_INTERRUPT_MASK) != 0); 
   s->status = STATUS_IDLE; // make sure pop does not abort
   smt_pop(s);
 }
@@ -5102,6 +5102,20 @@ void smt_clear(smt_core_t *s) {
 }
 
 
+/*
+ * Cleanup after unsat.
+ */
+void smt_clear_unsat(smt_core_t *s) {
+  assert(s->status == STATUS_UNSAT);
+  /*
+   * In clean-interrupt mode, we restore the state to what it was 
+   * before the search started (using pop).
+   */
+  if ((s->option_flag & CLEAN_INTERRUPT_MASK) != 0) {
+    smt_pop(s);
+    s->status = STATUS_UNSAT;
+  }
+}
 
 
 

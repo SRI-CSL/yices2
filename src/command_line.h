@@ -154,8 +154,8 @@ extern void init_cmdline_parser(cmdline_parser_t *p,
 
 
 /*
- * Fill-in e with next option or command line element
- * increment p->scan_index to point to whatever follows.
+ * Fill-in e with the next option or command line element.
+ * Increment p->scan_index to point to whatever follows.
  */
 extern void cmdline_parse_element(cmdline_parser_t *p, cmdline_elem_t *e);
 
