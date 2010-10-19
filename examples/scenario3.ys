@@ -1,0 +1,66 @@
+(define a::int)
+(define b::int)
+(define c::int)
+(define d::int)
+
+(push)
+(assert (= (+ a b c) 0))
+(echo "AFTER (assert (= (+ a b c) 0))\n")
+(dump-context)
+(echo "===============================\n")
+
+(push)
+(assert (> (+ a d) 0))
+(echo "AFTER (assert (> (+ a d) 0))\n")
+(dump-context)
+(echo "===============================\n")
+
+(push)
+(assert (and (= b 1) (= c 1)))
+(echo "AFTER (assert (and (= b 1) (= c 1)))\n")
+(dump-context)
+(echo "===============================\n")
+
+(push)
+(assert (> a 1))
+(echo "AFTER (assert (> a 1))\n")
+(dump-context)
+(echo "===============================\n")
+
+(push)
+(check) ;; should be unsat
+(echo "AFTER (push)(check)\n") 
+(dump-context)
+(echo "===============================\n")
+
+(pop)
+(check) ;; should still be unsat
+(echo "AFTER (pop)(check)\n")
+(dump-context)
+(echo "===============================\n")
+
+(pop)
+(check) ;; should be sat
+(echo "AFTER (pop)(check)\n")
+(dump-context)
+(echo "===============================\n")
+
+(pop)
+(check) ;; should be sat
+(echo "AFTER (pop)(check)\n")
+(dump-context)
+(echo "===============================\n")
+
+(pop)
+(check)
+(echo "AFTER (pop)(check)\n")
+(dump-context)
+(echo "===============================\n")
+
+(pop)
+(check)
+(echo "AFTER (pop)(check)\n")
+(dump-context)
+(echo "===============================\n")
+
+(pop) ;; should report an error
