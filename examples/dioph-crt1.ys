@@ -1,0 +1,14 @@
+(define x1::int)
+
+(define i1::int)
+(define i2::int)
+(define i3::int)
+
+(assert (= x1 (+ 127 (* 317 i1))))
+(assert (= x1 (+ 281 (* 791 i2))))
+(assert (= x1 (+ 12 (* 128 i3))))
+
+(dump-context)
+(check)
+
+(dump-context)
