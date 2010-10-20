@@ -3,106 +3,144 @@
 (define c::int)
 (define d::int)
 
+(echo "\nFIRST CHECK: sat expected\n")
 (check) ;; should be sat
-(echo "AFTER (check)\n")
+
+(echo "\nAFTER (check)\n")
 (dump-context)
 (echo "===============================\n")
-
 
 (push)
 (assert (= (+ a b c) 0))
-(echo "AFTER (assert (= (+ a b c) 0))\n")
+(echo "\nAFTER (push) (assert (= (+ a b c) 0))\n")
 (dump-context)
 (echo "===============================\n")
 
+(echo "\nSECOND CHECK: sat expected\n")
 (check) ;; should be sat
-(echo "AFTER (check)\n")
+
+(echo "\nAFTER (check)\n")
 (dump-context)
 (echo "===============================\n")
 
 (push)
 (assert (> (+ a d) 0))
-(echo "AFTER (assert (> (+ a d) 0))\n")
+(echo "\nAFTER (push) (assert (> (+ a d) 0))\n")
 (dump-context)
 (echo "===============================\n")
 
+(echo "\nTHIRD CHECK: sat expected\n")
 (check) ;; should be sat
-(echo "AFTER (check)\n")
+
+(echo "\nAFTER (check)\n")
 (dump-context)
 (echo "===============================\n")
 
 (push)
 (assert (and (= b 1) (= c 1)))
-(echo "AFTER (assert (and (= b 1) (= c 1)))\n")
+(echo "\nAFTER (push) (assert (and (= b 1) (= c 1)))\n")
 (dump-context)
 (echo "===============================\n")
 
+(echo "\nFOURTH CHECK: sat expected\n")
 (check) ;; should be sat
-(echo "AFTER (check)\n")
+
+(echo "\nAFTER (check)\n")
 (dump-context)
 (echo "===============================\n")
 
 (push)
 (assert (> a 1))
-(echo "AFTER (assert (> a 1))\n")
+(echo "\nAFTER (push) (assert (> a 1))\n")
 (dump-context)
 (echo "===============================\n")
 
+(echo "\nFIFTH CHECK: unsat expected\n")
 (check) ;; should be unsat
-(echo "AFTER (check)\n")
+
+(echo "\nAFTER (check)\n")
 (dump-context)
 (echo "===============================\n")
 
 (push) ;; should complain
-(echo "AFTER (push)\n") 
+(echo "\nAFTER (push)\n") 
 (dump-context)
 (echo "===============================\n")
 
 (pop)
+(echo "\nAFTER (pop)\n");
+(dump-context)
+(echo "===============================\n")
+
+(echo "\nSIXTH CHECK: sat expected\n")
 (check) ;; should be sat
-(echo "AFTER (pop)(check)\n")
+
+(echo "\nAFTER (check)\n")
 (dump-context)
 (echo "===============================\n")
 
 (pop)
+(echo "\nAFTER (pop)\n");
+(dump-context)
+(echo "===============================\n")
+
+(echo "\nSEVENTH CHECK: sat expected\n")
 (check) ;; should be sat
-(echo "AFTER (pop)(check)\n")
+
+(echo "\nAFTER (check)\n")
 (dump-context)
 (echo "===============================\n")
 
 (push)
 (assert (> a 1))
-(echo "AFTER (push) (assert (> a 1))\n")
+(echo "\nAFTER (push) (assert (> a 1))\n")
 (dump-context)
 (echo "===============================\n")
 
+(echo "\nEIGHTH CHECK: sat expected\n")
 (check) ;; should be sat
-(echo "AFTER (pop)(check)\n")
+
+(echo "\nAFTER (check)\n")
 (dump-context)
 (echo "===============================\n")
 
 (pop)
+(echo "\nAFTER (pop)\n");
+(dump-context)
+(echo "===============================\n")
+
+(echo "\nNINTH CHECK: sat expected\n")
 (check)
-(echo "AFTER (pop)(check)\n")
+
+(echo "\nAFTER (check)\n")
 (dump-context)
 (echo "===============================\n")
 
 (pop)
-(check)
-(echo "AFTER (pop)(check)\n")
+(echo "\nAFTER (pop)\n");
 (dump-context)
 (echo "===============================\n")
 
+(echo "\nTENTH CHECK: sat expected\n")
+(check)
+
+(echo "\nAFTER (check)\n")
+(dump-context)
+(echo "===============================\n")
 
 (pop)
-(check)
-(echo "AFTER (pop)(check)\n")
+(echo "\nAFTER (pop)\n");
 (dump-context)
 (echo "===============================\n")
 
-(pop)
+(echo "\nELEVENTH CHECK: sat expected\n")
 (check)
-(echo "AFTER (pop)(check)\n")
+
+(echo "\nAFTER (check)\n")
 (dump-context)
 (echo "===============================\n")
 
+(reset)
+(echo "\nAFTER (reset)\n")
+(dump-context)
+(echo "===============================\n")

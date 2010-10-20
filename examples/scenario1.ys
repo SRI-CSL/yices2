@@ -1,22 +1,37 @@
-(echo "base\n")
+;;
+;; Simple test of push/pop
+;;
+
+(echo "\nBASE: EMPTY CONTEXT\n")
 (dump-context)
 (push)
+
 (define a::int)
 (define b::int)
 (define c::int)
 (assert (= (+ a b c) 0))
-(echo "after (assert (= (+ a b c) 0))\n")
+
+(echo "\nAFTER (assert (= (+ a b c) 0))\n")
 (dump-context)
+
+(echo "\nFIRST CHECK: sat expected\n")
 (check)
-(echo "after (check)\n")
+
+(echo "\nAFTER (check)\n")
 (dump-context)
+
 (define d::int)
 (assert (> (+ a d) 0))
+
+(echo "\nAFTER (assert (> (+ a d) 0))\n")
 (dump-context)
-(echo "after (assert (> (+ a d) 0))\n")
+
+(echo "\nSECOND CHECK: sat expected\n")
 (check)
-(echo "after (check)\n")
+
+(echo "\nAFTER (check)\n")
 (dump-context)
+
 (pop)
-(echo "after (pop)\n")
+(echo "\nAFTER (pop)\n")
 (dump-context)

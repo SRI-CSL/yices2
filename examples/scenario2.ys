@@ -11,9 +11,12 @@
 (dump-context)
 (echo "===============================\n")
 
+(echo "FIRST CHECK: sat expected\n")
 (check)
+
 (echo "AFTER (check)\n")
 (dump-context)
+(echo "===============================\n")
 
 (define d::int)
 (assert (> (+ a d) 0))
@@ -22,7 +25,9 @@
 (echo "===============================\n")
 
 
+(echo "SECOND CHECK: sat expected\n")
 (check)
+
 (echo "AFTER (check)\n")
 (dump-context)
 (echo "===============================\n")
@@ -32,7 +37,9 @@
 (dump-context)
 (echo "===============================\n")
 
+(echo "THIRD CHECK: sat expected\n")
 (check)
+
 (echo "AFTER (check)\n")
 (dump-context)
 (echo "===============================\n")
@@ -42,11 +49,14 @@
 (dump-context)
 (echo "===============================\n")
 
+(echo "FOURTH CHECK: unsat expected\n")
 (check)
+
 (echo "AFTER (check)\n")
 (dump-context)
 (echo "===============================\n")
 
 (pop)
-(echo "after (pop)\n")
+(echo "AFTER (pop)\n")
 (dump-context)
+(echo "===============================\n")

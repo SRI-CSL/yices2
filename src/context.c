@@ -6102,7 +6102,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
     /*
      * Notify the core + solver(s)
      */
-    internalization_start(ctx->core); // ?? Get rid of this?
+    internalization_start(ctx->core);
 
     /*
      * Assert top_eqs, top_atoms, top_formulas, top_interns
@@ -6282,8 +6282,20 @@ void context_clear(context_t *ctx) {
 
 
 /*
- * Clear_unsat: prepare for pop
+ * Clear_unsat: prepare for pop if the status is UNSAT
+ * - if clean interrupt is enabled, then there may be a mismatch between
+ *   the context's base_level and the core base_level.
+ * - it's possible to have ctx->core.base_level = ctx->base_level + 1
+ * - this happens because start_search in smt_core does an internal smt_push
+ *   to allow the core to be restored to a clean state if search is interrupted.
+ * - if search is not interrupted and the search return UNSAT, then we're
+ *   in a state with core base level = context base level + 1.
  */
 void context_clear_unsat(context_t *ctx) {
-  smt_clear_unsat(ctx->core);
+  if (smt_base_level(ctx->core) > ctx->base_level) {
+    assert(smt_base_level(ctx->core) == ctx->base_level + 1);
+    smt_clear_unsat(ctx->core);
+  }
+
+  assert(smt_base_level(ctx->core) == ctx->base_level);
 }

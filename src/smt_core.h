@@ -1558,6 +1558,7 @@ extern void add_clause(smt_core_t *s, uint32_t n, literal_t *a);
  * - this is called before base_propagate or any other function
  *   creating atoms, clauses, etc.
  * - this propagates to the theory solver.
+ * - the current status must be IDLE and it remains IDLE.
  */
 extern void internalization_start(smt_core_t *s);
 
@@ -1588,7 +1589,9 @@ extern void start_search(smt_core_t *s);
 
 
 /*
- * Stop the search: set status to INTERRUPTED
+ * Stop the search:
+ * - if s->status is SEARCHING, this sets status to INTERRUPTED
+ *   otherwise, this has no effect.
  * - this can be called from a signal handler to interrupt the solver
  * - if clean_interrupt is enabled,  the state at start_search can be restored by
  *   calling smt_cleanup
@@ -1598,6 +1601,7 @@ extern void stop_search(smt_core_t *s);
 
 /*
  * Perform a (branching) decision: assign l to true
+ * - s->status must be SEARCHING
  * - l must be an unassigned literal
  * - the decision level is incremented and l is pushed on the 
  *   propagation stack with empty antecedent.
@@ -1607,6 +1611,7 @@ extern void decide_literal(smt_core_t *s, literal_t l);
 
 /*
  * Cause a restart: backtrack to the base_level
+ * - s->status must be SEARCHING
  */
 extern void smt_restart(smt_core_t *s);
 
@@ -1751,6 +1756,7 @@ extern void smt_clear(smt_core_t *s);
 
 /*
  * Cleanup after the search returned unsat
+ * - s->status must be UNSAT.
  * - if clean_interrupt is enabled, this restores s to its state
  *   before the search: learned clauses are deleted, lemmas, variables
  *   and atoms created during the search are deleted.

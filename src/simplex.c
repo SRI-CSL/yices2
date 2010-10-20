@@ -21,7 +21,7 @@
  * To trace simplifications and tableau initialization set TRACE_INIT to 1
  */
 #define TRACE   0
-#define DEBUG   1
+#define DEBUG   0
 #define DUMP    0
 #define YEXPORT 0
 
@@ -2795,6 +2795,8 @@ static void simplex_init_assignment(simplex_solver_t *solver) {
   int32_t i;
   thvar_t x;
 
+  assert(int_heap_is_empty(&solver->infeasible_vars));
+
   vtbl = &solver->vtbl;
   matrix = &solver->matrix;
   bound = solver->bstack.bound;
@@ -4514,7 +4516,7 @@ static thvar_t decompose_and_get_dynamic_var(simplex_solver_t *solver) {
   b = &solver->buffer;
 
   poly_buffer_get_neg_constant(b, &solver->constant); // store -a, b is (p + a)
-  x = poly_buffer_nonconstant_convert_to_var(b);     // check whether p is a variable
+  x = poly_buffer_nonconstant_convert_to_var(b);      // check whether p is a variable
   if (x < 0) {
     x = get_var_for_poly_offset(&solver->vtbl, poly_buffer_mono(b), poly_buffer_nterms(b), &new_var);
     if (new_var) {
@@ -6430,12 +6432,15 @@ static bool simplex_process_egraph_assertions(simplex_solver_t *solver) {
 	return false;
       }
       break;
+
     case EGRAPH_VAR_DISEQ:
       simplex_process_var_diseq(solver, a->var[0], a->var[1]);
       break;
+
     case EGRAPH_VAR_DISTINCT:
       //      simplex_process_var_distinct(solver, eassertion_get_arity(a), a->var, a->hint);
       break;
+
     default:
       assert(false);
       break;
@@ -6444,6 +6449,61 @@ static bool simplex_process_egraph_assertions(simplex_solver_t *solver) {
   }
 
   reset_eassertion_queue(&solver->egraph_queue);
+  return true;
+}
+
+
+
+
+/*
+ * EGRAPH ASSERTIONS RECEIVED BEFORE START SEARCH
+ */
+
+/*
+ * Process all assertions in the egraph queue within 'base_propagate'
+ * - the tableau is not ready when this function is called
+ * - we deal only with equalities here. The reconcile_model function
+ *   will generate trichotomy axioms lazily if they're needed later on.
+ * - return true if no conflict is found
+ * - return false otherwise
+ */
+static bool simplex_process_egraph_base_assertions(simplex_solver_t *solver) {
+  eassertion_t *a, *end;
+
+  assert(! solver->tableau_ready && 
+	 ! solver->unsat_before_search && 
+	 solver->base_level == solver->decision_level);
+
+  a = eassertion_queue_start(&solver->egraph_queue);
+  end = eassertion_queue_end(&solver->egraph_queue);
+
+  while (a < end) {
+    switch (eassertion_get_kind(a)) {
+    case EGRAPH_VAR_EQ:
+      /*
+       * Since we're at the base level, we can treat the equality
+       * as an axiom.
+       */
+      simplex_assert_vareq_axiom(solver, a->var[0], a->var[1], true);
+      if (solver->unsat_before_search) {
+	reset_eassertion_queue(&solver->egraph_queue);
+	return false;
+      }
+      break;
+
+    case EGRAPH_VAR_DISEQ:
+    case EGRAPH_VAR_DISTINCT:
+      break;
+
+    default:
+      assert(false);
+      break;
+    }
+    a = eassertion_next(a);
+  }
+
+  reset_eassertion_queue(&solver->egraph_queue);
+
   return true;
 }
 
@@ -6497,8 +6557,7 @@ void simplex_start_search(simplex_solver_t *solver) {
   /*
    * If start_search is called after pop and without an intervening
    * start_internalization, then matrix_ready and tableau_ready are both false.
-   * We force restore matrix here. This does nothing if the matrix is ready
-   * alreday.
+   * We force restore matrix here. This does nothing if the matrix is ready.
    */
   simplex_restore_matrix(solver);
 
@@ -6538,10 +6597,12 @@ void simplex_start_search(simplex_solver_t *solver) {
     goto done;
   }
 
-  // compute the initial assignment
+  // compute the initial variable assignment
+  reset_int_heap(&solver->infeasible_vars);
   simplex_init_assignment(solver);
   feasible = simplex_make_feasible(solver);
   if (! feasible) goto done;
+
   solver->last_conflict_row = -1;
 
   // integer solving flags
@@ -6630,6 +6691,9 @@ bool simplex_propagate(simplex_solver_t *solver) {
     }
 
     feasible = simplex_process_assertions(solver);
+    if (! feasible) goto done;
+
+    feasible = simplex_process_egraph_base_assertions(solver);
     goto done;
   }
   
@@ -6950,6 +7014,15 @@ void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
 
 #if DEBUG
   if (solver->tableau_ready) {
+    /*
+     * NOTE: this may give false alarms if backtrack is called
+     * within simplex_pop because the context may be known to
+     * be UNSAT before make_feasible or init_assignment have
+     * been called.
+     * 
+     *
+     * TODO: Fix this.
+     */
     check_vartags(solver);
     check_nonbasic_assignment(solver);
   }
@@ -6976,7 +7049,7 @@ void simplex_push(simplex_solver_t *solver) {
 
   assert(solver->decision_level == solver->base_level && 
 	 solver->bstack.prop_ptr == solver->bstack.fix_ptr &&
-	 solver->save_rows && 
+	 solver->save_rows &&
 	 eassertion_queue_is_empty(&solver->egraph_queue));
 
   nv = solver->vtbl.nvars;
@@ -7021,6 +7094,28 @@ static void simplex_detach_dead_atoms(simplex_solver_t *solver, uint32_t na) {
       // x is still a good variable
       detach_atom_from_arith_var(vtbl, x, i);
     }
+  }
+}
+
+
+/*
+ * Remove all eterms whose id is >= nt from the term table
+ * - this is required to synchronize the egraph and simplex solver after pop.
+ * - the egraph removes the dead eterms first then invoke the pop function
+ *   of all satellite solvers.
+ * - if arithmetic variable x is kept after pop but the egraph term
+ *   eterm[x] is not kept, then we must clear eterm[x]
+ *
+ * NOTE: this work because the 'pop' function in the egraph removes
+ * its own dead terms before calling the 'pop' function of all
+ * satellite solvers.
+ */
+static void simplex_remove_dead_eterms(simplex_solver_t *solver) {
+  uint32_t nterms;
+
+  if (solver->egraph != NULL) {
+    nterms = egraph_num_terms(solver->egraph);
+    arith_vartable_remove_eterms(&solver->vtbl, nterms);
   }
 }
 
@@ -7082,6 +7177,7 @@ void simplex_pop(simplex_solver_t *solver) {
   arith_vartable_remove_vars(&solver->vtbl, top->nvars);
   simplex_detach_dead_atoms(solver, top->natoms);
   arith_atomtable_remove_atoms(&solver->atbl, top->natoms);  
+  simplex_remove_dead_eterms(solver);
 
   if (solver->cache != NULL) {
     cache_pop(solver->cache);

@@ -186,9 +186,17 @@ extern void reset_arith_vartable(arith_vartable_t *table);
 
 
 /*
- * Support for push: delete all variables of index >= nvars
+ * Support for pop: delete all variables of index >= nvars
  */
 extern void arith_vartable_remove_vars(arith_vartable_t *table, uint32_t nvars);
+
+
+/*
+ * Support for pop: remove all references to egraph terms of indices >= nterms.
+ * - go through all variables x in the table.
+ *   if eterm[x] is defined and >= nterms, then it's reset to null_eterm
+ */
+extern void arith_vartable_remove_eterms(arith_vartable_t *table, uint32_t nterms);
 
 
 /*

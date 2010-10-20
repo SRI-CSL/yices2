@@ -83,6 +83,7 @@
 
 ;; BUG HERE: IF WE REMOVE THE NEXT (check) 
 ;; THE CONTEXT IS NOT RESTORED PROPERLY
+;; FIXED 2010/10/19
 (echo "FIFTH CHECK: sat expected\n")
 ;; (check) ;; should be sat
 
@@ -92,13 +93,7 @@
 (push)
 (dump-context)
 
-(echo "ASSERT BUG HERE\n")
-
-(assert true)
-(dump-context)
-
 (assert (and (/= (- x1 x2) 5) (/= (- x1 x2) -5)))
-
 (assert (and (/= (- x1 x3) 4) (/= (- x1 x3) -4)))
 (assert (and (/= (- x1 x5) 2) (/= (- x1 x5) -2)))
 (assert (and (/= (- x1 x6) 1) (/= (- x1 x6) -1)))
@@ -121,12 +116,16 @@
 ;; Backtrack
 (pop)
 
+(dump-context)
+
 ;; Recheck the N-queens. Should still be sat
 (echo "SEVENTH CHECK: sat expected\n")
 (check)
 
 ;; Remove all
 (pop)
+
+(dump-context)
 
 ;; Empty check: sat
 (echo "LAST CHECK: sat expected\n")

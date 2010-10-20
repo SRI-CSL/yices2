@@ -273,6 +273,28 @@ void arith_vartable_remove_vars(arith_vartable_t *table, uint32_t nvars) {
 
 
 
+/*
+ * Remove all references to egraph terms of indices >= nterms
+ */
+void arith_vartable_remove_eterms(arith_vartable_t *table, uint32_t nterms) {
+  eterm_t *tmp;  
+  uint32_t i, n;
+  eterm_t t;
+
+  tmp = table->eterm;
+
+  if (tmp != NULL) {
+    n = table->nvars;
+    for (i=0; i<n; i++) {
+      t = tmp[i];
+      if (t != null_eterm && t >= nterms) {
+	tmp[i] = null_eterm;
+      }
+    }
+  }
+}
+
+
 
 /*
  * Collect the set of integer variables as a bit vector

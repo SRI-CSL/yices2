@@ -1837,7 +1837,7 @@ void decide_literal(smt_core_t *s, literal_t l) {
   uint32_t k;
   bvar_t v;
 
-  assert(s->value[l] == VAL_UNDEF);
+  assert(s->status == STATUS_SEARCHING && s->value[l] == VAL_UNDEF);
 
   s->stats.decisions ++;
 
@@ -1899,18 +1899,6 @@ static void implied_literal(smt_core_t *s, literal_t l, antecedent_t a) {
   }
 }
 
-
-#if 0
-/*
- * Special form of implied literal for theory propagation
- */
-void propagate_literal(smt_core_t *s, literal_t l, void *expl) {
-  assert(bvar_has_atom(s, var_of(l)));
-  s->stats.th_props ++;
-  implied_literal(s, l, mk_generic_antecedent(expl));
-}
-
-#endif
 
 void propagate_literal(smt_core_t *s, literal_t l, void *expl) {
   bvar_t v;
@@ -4356,14 +4344,13 @@ void reduce_clause_database(smt_core_t *s) {
   clause_t **v;
   float act_threshold;
 
-  assert(get_cv_size(s->learned_clauses) > 0);
+  v = s->learned_clauses;
+  n = get_cv_size(v);
+  if (n == 0) return;
 
   // put the clauses with lowest activity in the upper
   // half of the learned clause vector.
-  reorder_clause_vector(s->learned_clauses);
-
-  v = s->learned_clauses;
-  n = get_cv_size(v);
+  reorder_clause_vector(v);
 
   act_threshold = s->cla_inc/n;
 
@@ -5064,12 +5051,8 @@ void smt_pop(smt_core_t *s) {
 
   trail_stack_pop(&s->trail_stack);
 
-  // reset status and conflict data
+  // reset status
   s->status = STATUS_IDLE;
-  s->inconsistent = false;
-  s->theory_conflict = false;
-  s->conflict = NULL;
-  s->false_clause = NULL;
 }
 
 
@@ -5113,7 +5096,8 @@ void smt_clear_unsat(smt_core_t *s) {
   assert(s->status == STATUS_UNSAT);
   /*
    * In clean-interrupt mode, we restore the state to what it was 
-   * before the search started (using pop).
+   * before the search started (using pop), but we leave 
+   * status UNSAT.
    */
   if ((s->option_flag & CLEAN_INTERRUPT_MASK) != 0) {
     smt_pop(s);
@@ -5461,13 +5445,14 @@ static void purge_all_dynamic_atoms(smt_core_t *s) {
  * New round of assertions
  */
 void internalization_start(smt_core_t *s) {
-  assert(s->status == STATUS_IDLE);
+  assert(s->status == STATUS_IDLE && s->decision_level == s->base_level);
 
 #if TRACE
   printf("\n---> DPLL START\n");
   fflush(stdout);
 #endif
-  
+
+  s->inconsistent = false;
   s->th_ctrl.start_internalization(s->th_solver);
 }
 
@@ -5511,7 +5496,7 @@ bool base_propagate(smt_core_t *s) {
  *   enable cleanup after interrupt (this uses push)
  */
 void start_search(smt_core_t *s) {
-  assert(s->status == STATUS_IDLE);
+  assert(s->status == STATUS_IDLE && s->decision_level == s->base_level);
 
 #if TRACE
   printf("\n---> DPLL START\n");
@@ -5656,6 +5641,8 @@ void smt_final_check(smt_core_t *s) {
  * (do nothing if decision_level == base_level)
  */
 void smt_restart(smt_core_t *s) {
+  assert(s->status == STATUS_SEARCHING);
+
 #if TRACE
   printf("\n---> DPLL RESTART\n");
 #endif
