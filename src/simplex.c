@@ -6996,6 +6996,36 @@ void simplex_push(simplex_solver_t *solver) {
 
 
 /*
+ * Remove all atoms whose id is >= na from the variable indices
+ * - this is called before the atoms are actually removed from
+ *   the atom table
+ */
+static void simplex_detach_dead_atoms(simplex_solver_t *solver, uint32_t na) {
+  arith_vartable_t *vtbl;
+  arith_atomtable_t *atbl;
+  arith_atom_t *atm;
+  uint32_t i, n, nv;
+  thvar_t x;
+
+  assert(na <= solver->atbl.natoms);
+
+  atbl = &solver->atbl;
+  vtbl = &solver->vtbl;
+
+  nv = vtbl->nvars;
+  n = atbl->natoms;
+  for (i=na; i<n; i++) {
+    atm = arith_atom(atbl, i);
+    x = var_of_atom(atm);
+    if (x < nv) {
+      // x is still a good variable
+      detach_atom_from_arith_var(vtbl, x, i);
+    }
+  }
+}
+
+
+/*
  * Return to the previous base level
  */
 void simplex_pop(simplex_solver_t *solver) {
@@ -7050,6 +7080,7 @@ void simplex_pop(simplex_solver_t *solver) {
   top = arith_trail_top(&solver->trail_stack);
   delete_saved_rows(&solver->saved_rows, top->nsaved_rows);
   arith_vartable_remove_vars(&solver->vtbl, top->nvars);
+  simplex_detach_dead_atoms(solver, top->natoms);
   arith_atomtable_remove_atoms(&solver->atbl, top->natoms);  
 
   if (solver->cache != NULL) {
