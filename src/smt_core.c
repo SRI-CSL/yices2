@@ -5064,8 +5064,12 @@ void smt_pop(smt_core_t *s) {
 
   trail_stack_pop(&s->trail_stack);
 
-  // reset status
+  // reset status and conflict data
   s->status = STATUS_IDLE;
+  s->inconsistent = false;
+  s->theory_conflict = false;
+  s->conflict = NULL;
+  s->false_clause = NULL;
 }
 
 
@@ -5534,6 +5538,9 @@ void start_search(smt_core_t *s) {
   s->stats.decisions = 0;
   s->stats.random_decisions = 0;
   s->stats.conflicts = 0;
+  s->simplify_bottom = 0;
+  s->simplify_props = 0;
+  s->simplify_threshold = 0;
 
   /*
    * Allow theory solver to do whatever initializations it needs

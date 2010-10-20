@@ -21,7 +21,7 @@
  * To trace simplifications and tableau initialization set TRACE_INIT to 1
  */
 #define TRACE   0
-#define DEBUG   0
+#define DEBUG   1
 #define DUMP    0
 #define YEXPORT 0
 
@@ -6949,8 +6949,8 @@ void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
   solver->decision_level = back_level;
 
 #if DEBUG
-  check_vartags(solver);
   if (solver->tableau_ready) {
+    check_vartags(solver);
     check_nonbasic_assignment(solver);
   }
 #endif
