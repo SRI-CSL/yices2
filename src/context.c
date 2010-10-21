@@ -4843,6 +4843,7 @@ static void assert_arith_bineq_aux(context_t *ctx, term_t t1, term_t t2, bool tt
   intern_tbl_t *intern;;
   bool free1, free2;
   thvar_t x, y;
+  occ_t u, v;
 
   assert(is_pos_term(t1) && intern_tbl_is_root(&ctx->intern, t1) &&
 	 is_pos_term(t2) && intern_tbl_is_root(&ctx->intern, t2));
@@ -4885,10 +4886,23 @@ static void assert_arith_bineq_aux(context_t *ctx, term_t t1, term_t t2, bool tt
     
   }
 
-  // Default
-  x = internalize_to_arith(ctx, t1);
-  y = internalize_to_arith(ctx, t2);
-  ctx->arith.assert_vareq_axiom(ctx->arith_solver, x, y, tt);
+  /*
+   * Default: assert the constraint in the egraph or in the arithmetic
+   * solver if there's no egraph.
+   */
+  if (context_has_egraph(ctx)) {
+    u = internalize_to_eterm(ctx, t1);
+    v = internalize_to_eterm(ctx, t2);
+    if (tt) {
+      egraph_assert_eq_axiom(ctx->egraph, u, v);
+    } else {
+      egraph_assert_diseq_axiom(ctx->egraph, u, v);
+    }
+  } else {
+    x = internalize_to_arith(ctx, t1);
+    y = internalize_to_arith(ctx, t2);
+    ctx->arith.assert_vareq_axiom(ctx->arith_solver, x, y, tt);
+  }
 }
 
 

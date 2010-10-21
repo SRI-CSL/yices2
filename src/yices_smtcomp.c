@@ -933,7 +933,8 @@ static int process_benchmark(void) {
     params.tclause_size = 8;
     if (need_icheck) {
       enable_splx_periodic_icheck(&context);
-      params.max_interface_eqs = 15;
+      //      params.max_interface_eqs = 15;
+      params.max_interface_eqs = 30;
     }
     break;
 
