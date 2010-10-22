@@ -928,13 +928,15 @@ static int process_benchmark(void) {
     params.use_dyn_ack = true;
     params.use_bool_dyn_ack = true;
     params.use_simplex_prop = true;
-    params.branching = BRANCHING_THEORY;
+    // new: 
+    params.max_prop_row_size = 20;
+    //    params.branching = BRANCHING_THEORY;
+    params.branching = BRANCHING_NEGATIVE;
     params.cache_tclauses = true;
     params.tclause_size = 8;
     if (need_icheck) {
       enable_splx_periodic_icheck(&context);
-      //      params.max_interface_eqs = 15;
-      params.max_interface_eqs = 30;
+      params.max_interface_eqs = 15;
     }
     break;
 
