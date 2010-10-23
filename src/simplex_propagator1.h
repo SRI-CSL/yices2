@@ -14,11 +14,11 @@
  *    called in start search after simplify_matrix but before the tableau is constructed
  *    and checked for feasibiliy
  * 2) simplex_start_propagator
- *    called in start_search after tableau is constructed, feasible, and all initial bounds 
- *    are known
+ *    called in start_search after the tableau is constructed, feasible, and all initial 
+ *    bounds  are known
  * 3) simplex_reset_propagator: called in simplex_reset and simplex_reset_tableau
  * 4) simplex_delete_propagator: called in delete_simplex_solver 
- * 5) simplex_do_propagation: called in simplex_propagate if tableau is feasible 
+ * 5) simplex_do_propagation: called in simplex_propagate if the tableau is feasible 
  */
 
 
@@ -302,7 +302,7 @@ static inline bool good_ub_antecedent(simplex_solver_t *solver, thvar_t x) {
  * - skip the monomial that contains variable x
  * - the explanations are bound indices stored in vector v
  * - explanation for a.y <= c is the current upper index on y if a>0
- *                            or the current lower index of y if a<0
+ *                            or the current lower index on y if a<0
  */
 static void explain_upper_bounds(simplex_solver_t *solver, thvar_t x, row_t *p, ivector_t *v) {
   arith_vartable_t *vtbl;

@@ -6,24 +6,25 @@
 
 #include "prng.h"
 #include "bitvectors.h"
-
 #include "int_hash_classes.h"
 #include "hash_functions.h"
-
 #include "simplex.h"
 
 
+
 /*
- * To enable trace, set TRACE to 1
+ * To enable general trace, set TRACE to 1
  * To enable the debugging code, set DEBUG to 1
  * To dump the initial tableau, set DUMP to 1
- * To export the initial problem for Yices1, set YEXPORT to 1
+ *
  * To trace simplifications and tableau initialization set TRACE_INIT to 1
+ * To trace the theory propagation set TRACE_PROPAGATION to 1
+ * To trace the theory lemmas set TRACE_THEORY to 1
+ * To trace the branch&bound algorithm set TRACE_BB to 1
  */
 #define TRACE   0
 #define DEBUG   0
 #define DUMP    0
-#define YEXPORT 0
 
 #define TRACE_INIT 0
 #define TRACE_PROPAGATION 0
@@ -31,7 +32,7 @@
 #define TRACE_BB 0
 
 
-#if TRACE || DEBUG || TRACE_INIT || DUMP || YEXPORT || TRACE_PROPAGATION || TRACE_BB || !defined(NDEBUG)
+#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG)
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -49,10 +50,6 @@
 #include "theory_tracer.h"
 #endif
 
-#if YEXPORT
-#include "solver_export.h"
-#endif
-
 
 
 /*
@@ -65,11 +62,6 @@ static void dump_state(simplex_solver_t *solver);
 
 #endif
 
-#if YEXPORT
-
-static void export_state(simplex_solver_t *solver);
-
-#endif
 
 #if DEBUG
 
@@ -5316,7 +5308,7 @@ static bool strengthen_bounds_on_integer_variable(simplex_solver_t *solver, dsol
 	ok = simplex_add_derived_upper_bound(solver, x, bound, q);
 
 #if TRACE_THEORY
-	if (ok) trace_simplex_derived_lb(x, bound, q);
+	if (ok) trace_simplex_derived_ub(x, bound, q);
 #endif
 
 	ivector_pop(q); // remove k for cleanup
@@ -6636,10 +6628,6 @@ void simplex_start_search(simplex_solver_t *solver) {
  done:
 #if DUMP
   dump_state(solver);
-#endif
-
-#if YEXPORT
-  export_state(solver);
 #endif
 
 #if 0
@@ -8634,20 +8622,6 @@ static void dump_final_state(simplex_solver_t *solver) {
 
 #endif
 
-
-#if YEXPORT
-
-static void export_state(simplex_solver_t *solver) {
-  FILE *f;
-
-  f = fopen("simplex.ys", "w");
-  if (f == NULL) return;
-  export_simplex(f, solver);
-  fputs("\n(check)\n", f);
-  fclose(f);
-}
-
-#endif
 
 
 #if DEBUG
