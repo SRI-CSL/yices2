@@ -52,9 +52,9 @@ static void check_watched_literals(smt_core_t *s, uint32_t n, literal_t *a);
  **********************************/
 
 #if USE_END_WATCH
-char *smt_compile_option = "end_watch";
+const char * const smt_compile_option = "end_watch";
 #else
-char *smt_compile_option = "no end_watch";
+const char * const smt_compile_option = "no end_watch";
 #endif
 
 

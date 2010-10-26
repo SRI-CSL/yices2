@@ -26,14 +26,13 @@
  */
 #define USE_REDUCE  1
 
-
 /*
  * Externalize USE_REDUCE flag 
  */
 #if USE_REDUCE
-char *reduce_compile_option = "reduce";
+const char * const reduce_compile_option = "reduce";
 #else
-char *reduce_compile_option = "remove";
+const char * const reduce_compile_option = "remove";
 #endif
 
 

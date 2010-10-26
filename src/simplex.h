@@ -5,16 +5,6 @@
 
 
 
-/************************
- *  COMPILE-TIME FLAGS  *
- ***********************/
-
-/*
- * This string is set in simplex_propagator depending on compile-time options.
- */
-extern char *simplex_prop_level;
-
-
 
 /*********************
  *  MAIN OPERATIONS  *

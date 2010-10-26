@@ -47,10 +47,6 @@
  */
 #define USE_END_WATCH 0
 
-/*
- * String for showing whether USE_END_WATCH is on
- */
-extern char *smt_compile_option;
 
 
 /***************************************

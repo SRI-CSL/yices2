@@ -113,7 +113,7 @@ src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c \
 #
 # additional source files for the binaries
 #
-bin_src_c := yices_main.c yices_smtcomp.c
+bin_src_c := yices_main.c yices_smtcomp.c yices_smt.c
 
 #
 # Auto-generated version file

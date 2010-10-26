@@ -9,29 +9,49 @@
 #include <inttypes.h>
 #include <gmp.h>
 
+#include "cputime.h"
+#include "memsize.h"
 #include "smt_lexer.h"
 #include "smt_parser.h"
 #include "term_stack.h"
-#include "term_printer.h"
-
 #include "context.h"
+#include "smt_logic_codes.h"
+#include "command_line.h"
+
+#include "term_printer.h"
+#include "type_printer.h"
+#include "idl_fw_printer.h"
+#include "rdl_fw_printer.h"
+#include "simplex_printer.h"
+#include "egraph_printer.h"
+#include "smt_core_printer.h"
+#include "context_printer.h"
+
 #include "simplex.h"
 #include "idl_floyd_warshall.h"
 #include "rdl_floyd_warshall.h"
 #include "fun_solver.h"
-#include "bvsolver.h"
-#include "solver_printer.h"
-#include "model_printer.h"
+// #include "bvsolver.h"
+// #include "solver_printer.h"
+// #include "model_printer.h"
 
-#include "cputime.h"
-#include "memsize.h"
-#include "command_line.h"
-
-#include "yices_version.h"
+#include "yices.h"
+#include "yices_globals.h"
 #include "yices_exit_codes.h"
 
-#include "terms.h"
-#include "yices_globals.h"
+
+/*
+ * Compile-time options:
+ * - smt_compile_option: defined in smt_core.c
+ * - reduce_compile_option: defined in context_solver.c
+ * - simplex_prop_level: defined in simplex_propagator1.h
+ * - yices_svn_url, yices_svn_rev: set up at compile time in yices_version.c
+ */
+extern const char * const smt_compile_option;
+extern const char * const reduce_compile_option;
+extern const char * const simplex_prop_level;
+extern const char * const yices_svn_url;
+extern const char * const yices_svn_rev;
 
 
 // to enable theory tracing
@@ -48,7 +68,7 @@
 
 
 /*
- * GLOBRAL OBJECTS
+ * GLOBAL OBJECTS
  */
 static lexer_t lexer;
 static parser_t parser;
@@ -90,6 +110,8 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
   "not an IDL formula",
   "not an RDL formula",
   "non-linear arithmetic not supported",
+  "too many variables for the arithmetic solver",
+  "too many atoms for the arithmetic solver",
   "arithmetic solver exception",
   "bitvector solver exception",
 };
@@ -1000,7 +1022,7 @@ static void print_yices_header(FILE *f) {
 static void print_benchmark(FILE *f, smt_benchmark_t *bench) {
   fprintf(f, "Benchmark: %s\n", bench->name);
   fprintf(f, "Logic: %s\n", bench->logic_name);
-  fprintf(f, "Status field: %s\n", status2string[bench->status]);
+  fprintf(f, "Status: %s\n", status2string[bench->status]);
 }
 
 
@@ -1097,6 +1119,8 @@ static void show_simplex_stats(simplex_stats_t *stat) {
 }
 
 
+#if 0
+
 /*
  * Bitvector solver statistics
  */
@@ -1109,6 +1133,7 @@ static void show_bvsolver_stats(bv_solver_t *solver) {
   printf(" sge atoms               : %"PRIu32"\n", bv_solver_num_sge_atoms(solver));
 }
 
+#endif
 
 /*
  * Get the arithmetic solver
@@ -1170,9 +1195,11 @@ static void print_results() {
     }
   }
 
+#if 0
   if (context_has_bv_solver(&context)) {
     show_bvsolver_stats(context.bv_solver);
   }
+#endif
 
   printf("\nSearch time             : %.4f s\n", search_time);
   mem_used = mem_size() / (1024 * 1024);
@@ -1203,13 +1230,6 @@ static void print_presearch_stats() {
   core = context.core;
   egraph = context.egraph;
 
-
-  printf("eliminated equalities   : %"PRIu32"\n", num_eliminated_eqs(&context));
-  printf("subst candidates        : %"PRIu32"\n", num_subst_candidates(&context));
-  printf("subtitutions            : %"PRIu32"\n", num_substitutions(&context));
-  printf("top equalities          : %"PRIu32"\n", num_top_eqs(&context));
-  printf("top atoms               : %"PRIu32"\n", num_top_atoms(&context));
-  printf("top formulas            : %"PRIu32"\n", num_top_formulas(&context));
 
   printf("boolean variables       : %"PRIu32"\n", core->nvars);
   printf("atoms                   : %"PRIu32"\n", core->atoms.natoms);
@@ -1351,12 +1371,12 @@ static void print_internalization_code(int32_t code) {
     fflush(stdout);
   } else if (code < 0) {
     code = - code;
-    if (code <= NONLINEAR_NOT_SUPPORTED) {
+    if (code <= BVSOLVER_EXCEPTION) {
       fprintf(stderr, "Internalization error: %s\n\n", code2error[code]);
     } else {
       fprintf(stderr, "%s\n\n", code2error[code]);
     }
-  }
+  }  
 }
 
 
@@ -1406,7 +1426,7 @@ static void test_evaluator(FILE *f, model_t *model) {
 }
 #endif
 
-
+#if 0
 static void check_model(FILE *f, smt_benchmark_t *bench, model_t *model) {
   evaluator_t eval;
   term_table_t *terms;
@@ -1444,7 +1464,7 @@ static void check_model(FILE *f, smt_benchmark_t *bench, model_t *model) {
   delete_evaluator(&eval);
 }
 
-
+#endif
 
 /*
  * DUMP SOLVER STATE AFTER INTERNALIZATION
@@ -1453,10 +1473,11 @@ static void check_model(FILE *f, smt_benchmark_t *bench, model_t *model) {
 /*
  * Dump the internalization table into file f
  */
-static void dump_internalization_table(FILE *f, context_t *context) {
-  fprintf(f, "\n==== Internalization table ====\n");
-  print_internalization_table(f, context);
-  fprintf(f, "\n");
+static void dump_internalization_table(FILE *f, context_t *ctx) {
+  fprintf(f, "--- Substitutions ---\n");
+  print_context_intern_subst(f, ctx);
+  fprintf(f, "\n--- Internalization ---\n");
+  print_context_intern_mapping(f, ctx);
 }
 
 
@@ -1465,7 +1486,9 @@ static void dump_internalization_table(FILE *f, context_t *context) {
  */
 static void dump_the_context(context_t *context, smt_benchmark_t *bench, char *filename) {
   FILE *dump;
+#if 0
   bv_solver_t *bv;
+#endif
 
   dump = fopen(filename, "w");
   if (dump == NULL) return;
@@ -1477,7 +1500,7 @@ static void dump_the_context(context_t *context, smt_benchmark_t *bench, char *f
 
   if (context_has_egraph(context)) {
     fprintf(dump, "\n==== TYPE TABLE ====\n");
-    print_all_types(dump);
+    print_type_table(dump, __yices_globals.types);
     fprintf(dump, "\n==== EGRAPH TERMS ====\n");
     print_egraph_terms(dump, context->egraph);
     //    fprintf(dump, "\n==== EGRAPH CLASSES ====\n");
@@ -1505,6 +1528,7 @@ static void dump_the_context(context_t *context, smt_benchmark_t *bench, char *f
     print_simplex_assignment(dump, context->arith_solver);
   }
 
+#if 0
   if (context_has_bv_solver(context)) {
     bv = context->bv_solver;
     fprintf(dump, "\n==== BVSOLVER PARTITION ====\n");
@@ -1515,6 +1539,7 @@ static void dump_the_context(context_t *context, smt_benchmark_t *bench, char *f
     fprintf(dump, "\n==== BVSOLVER ATOMS ====\n");
     print_bvsolver_atoms(dump, bv);
   }
+#endif
 
   fprintf(dump, "\n==== CLAUSES ====\n");
   print_clauses(dump, context->core);
@@ -1575,7 +1600,7 @@ static bool benchmark_reduced_to_false(smt_benchmark_t *bench) {
   for (i=0; i<n; i++) {
     f = bench->formulas[i];
     assert(is_boolean_term(terms, f));
-    if (f == false_term(terms)) {
+    if (f == false_term) {
       return true;
     }
   }
@@ -1592,7 +1617,7 @@ static bool benchmark_reduced_to_false(smt_benchmark_t *bench) {
  */
 static int process_benchmark(char *filename) {
   param_t *search_options;
-  model_t *model;
+  //  model_t *model;
   int32_t code;
   double mem_used;
   context_arch_t arch;
@@ -1640,7 +1665,7 @@ static int process_benchmark(char *filename) {
     printf("\nReduced to false\n\nunsat\n");
     fflush(stdout);
     delete_benchmark(&bench);
-    yices_cleanup();
+    yices_exit();
 
     return YICES_EXIT_SUCCESS;
   }
@@ -1766,7 +1791,7 @@ static int process_benchmark(char *filename) {
       arch = CTX_ARCH_EGFUNBV;
       break;
 
-    case QF_UFBV32:
+    case QF_UFBV:
       /*
        * EGRAPH + BITVECTOR solver
        */
@@ -1799,7 +1824,7 @@ static int process_benchmark(char *filename) {
   /*
    * Initialize the context and set options
    */
-  init_context(&context, CTX_MODE_ONECHECK, arch, false);
+  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, arch, false);
   if (var_elim) {
     enable_variable_elimination(&context);
   }
@@ -1841,7 +1866,6 @@ static int process_benchmark(char *filename) {
   }
 
   if (dump_context || dump_internalization) {
-    printer_init(&context);
     dump_the_context(&context, &bench, "yices_start.dmp");
   }
 
@@ -1874,6 +1898,7 @@ static int process_benchmark(char *filename) {
     end_theory_tracer();
 #endif
 
+#if 0
     if (show_model && (code == STATUS_SAT || code == STATUS_UNKNOWN)) {
       model = context_build_model(&context, true);
       printf("\nMODEL\n");
@@ -1883,15 +1908,16 @@ static int process_benchmark(char *filename) {
       // FOR TESTING
 #if TEST_EVALUATOR
       test_evaluator(stdout, model);
-#endif
+#endif 
       check_model(stdout, &bench, model);
       free_model(model);
     }
+#endif
+
   }
 
   if (dump_context || dump_internalization) {
     dump_the_context(&context, &bench, "yices_end.dmp");
-    printer_cleanup();
   }
 
   /*
@@ -1899,7 +1925,7 @@ static int process_benchmark(char *filename) {
    */
   delete_context(&context);
   delete_benchmark(&bench);
-  yices_cleanup();
+  yices_exit();
 
   return YICES_EXIT_SUCCESS;
 }

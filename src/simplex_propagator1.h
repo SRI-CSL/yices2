@@ -60,31 +60,31 @@
 #define PROP_LEVEL (4*ROW_SELECTION + 2*TRANSITIVE_PROPAGATION + ALL_DERIVED_BOUNDS)
 
 #if PROP_LEVEL == 11
-char *simplex_prop_level = "prop level 11";
+const char * const simplex_prop_level = "prop level 11";
 #elif PROP_LEVEL == 10
-char *simplex_prop_level = "prop level 10";
+const char * const simplex_prop_level = "prop level 10";
 #elif PROP_LEVEL == 9
-char *simplex_prop_level = "prop level 09";
+const char * const simplex_prop_level = "prop level 09";
 #elif PROP_LEVEL == 8
-char *simplex_prop_level = "prop level 08";
+const char * const simplex_prop_level = "prop level 08";
 #elif PROP_LEVEL == 7
-char *simplex_prop_level = "prop level 07";
+const char * const simplex_prop_level = "prop level 07";
 #elif PROP_LEVEL == 6
-char *simplex_prop_level = "prop level 06";
+const char * const simplex_prop_level = "prop level 06";
 #elif PROP_LEVEL == 5
-char *simplex_prop_level = "prop level 05";
+const char * const simplex_prop_level = "prop level 05";
 #elif PROP_LEVEL == 4
-char *simplex_prop_level = "prop level 04";
+const char * const simplex_prop_level = "prop level 04";
 #elif PROP_LEVEL == 3
-char *simplex_prop_level = "prop level 03";
+const char * const simplex_prop_level = "prop level 03";
 #elif PROP_LEVEL == 2
-char *simplex_prop_level = "prop level 02";
+const char * const simplex_prop_level = "prop level 02";
 #elif PROP_LEVEL == 1
-char *simplex_prop_level = "prop level 01";
+const char * const simplex_prop_level = "prop level 01";
 #elif PROP_LEVEL == 0
-char *simplex_prop_level = "prop level 00";
+const char * const simplex_prop_level = "prop level 00";
 #else
-char *simplex_prop_level = "prop level ??";
+const char * const simplex_prop_level = "prop level ??";
 #endif
 
 
