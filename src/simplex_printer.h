@@ -33,6 +33,7 @@ extern void print_simplex_saved_rows(FILE *f, simplex_solver_t *solver);
 extern void print_simplex_basic_vars(FILE *f, simplex_solver_t *solver);
 extern void print_simplex_bounds(FILE *f, simplex_solver_t *solver);
 extern void print_simplex_assignment(FILE *f, simplex_solver_t *solver);
+extern void print_simplex_bounds_and_assignment(FILE *f, simplex_solver_t *solver);
 extern void print_simplex_allvars(FILE *f, simplex_solver_t *solver);
 
 extern void print_simplex_vardef(FILE *f, simplex_solver_t *solver, thvar_t v);
@@ -46,6 +47,8 @@ extern void print_simplex_bound(FILE *f, simplex_solver_t *solver, uint32_t i);
 // value of v in the current assignment
 extern void print_simplex_var_value(FILE *f, simplex_solver_t *solver, thvar_t v);
 
+// bounds on v (prints nothing if v has no bounds)
+extern void print_simplex_var_bounds(FILE *f, simplex_solver_t *solver, thvar_t v);
 
 /*
  * Print row in a simplified form: replace fixed variables by their value

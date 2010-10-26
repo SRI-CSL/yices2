@@ -3717,6 +3717,9 @@ void egraph_start_search(egraph_t *egraph) {
 #if TRACE
   printf("---> EGRAPH START_SEARCH [dlevel = %"PRIu32", decisions = %"PRIu64"]\n", 
 	 egraph->decision_level, egraph->core->stats.decisions);
+  printf("\n=== EGRAPH TERMS ===\n");
+  print_egraph_terms(stdout, egraph);
+  printf("\n");
 #endif
 
   assert(egraph->core != NULL && egraph->decision_level == egraph->base_level);
@@ -5039,6 +5042,9 @@ void egraph_expand_explanation(egraph_t *egraph, literal_t l, void *expl, ivecto
  * - forward to the appropriate subsolver 
  */
 static literal_t egraph_select_polarity(egraph_t *egraph, void *atom, literal_t l) {
+  atom_t *a;
+  composite_t *c;
+
   switch (atom_tag(atom)) {
   case ARITH_ATM_TAG:
     return egraph->arith_smt->select_polarity(egraph->th[ETYPE_INT], untag_atom(atom), l);
@@ -5048,9 +5054,14 @@ static literal_t egraph_select_polarity(egraph_t *egraph, void *atom, literal_t 
 
   case EGRAPH_ATM_TAG:
   default:
-    //    return neg_lit(var_of(l));
+    // PROVISIONAL: FORCE EQUALITIES TO TRUE
+    a = (atom_t *) untag_atom(atom);
+    assert(a->boolvar == var_of(l));
+    c = egraph_term_body(egraph, a->eterm);
+    if (composite_body(c) && composite_kind(c) == COMPOSITE_EQ) {
+      l = pos_lit(var_of(l));
+    }
     return l;
-    //    return pos_lit(var_of(l));
   }
 }
 

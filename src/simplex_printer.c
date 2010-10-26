@@ -331,6 +331,37 @@ static void print_avar_full(FILE *f, simplex_solver_t *solver, thvar_t x) {
 
 
 /*
+ * Bounds + value of x
+ */
+static void print_avar_bounds_and_value(FILE *f, simplex_solver_t *solver, thvar_t x) {
+  int32_t lb, ub;
+
+  lb = arith_var_lower_index(&solver->vtbl, x);
+  ub = arith_var_upper_index(&solver->vtbl, x);
+
+  fputs("  ", f);
+  print_avar(f, &solver->vtbl, x);
+  fputs(" = ", f);
+  xq_print(f, arith_var_value(&solver->vtbl, x));
+
+  if (lb >= 0 || ub >= 0) {
+    fputc('\t', f);
+    if (lb >= 0) {
+      xq_print(f, solver->bstack.bound + lb);
+      fputs(" <= ", f);
+    }
+    print_avar(f, &solver->vtbl, x);
+    if (ub >= 0) {
+      fputs(" <= ", f);
+      xq_print(f, solver->bstack.bound + ub);
+    }
+  }
+
+  fputc('\n', f);
+}
+
+
+/*
  * Simplex components
  */
 void print_simplex_vars(FILE *f, simplex_solver_t *solver) {
@@ -421,6 +452,16 @@ void print_simplex_allvars(FILE *f, simplex_solver_t *solver) {
 }
 
 
+void print_simplex_bounds_and_assignment(FILE *f, simplex_solver_t *solver) {
+  uint32_t i, n;
+
+  n = num_arith_vars(&solver->vtbl);
+  for (i=0; i<n; i++) {
+    print_avar_bounds_and_value(f, solver, i);
+  }
+  fputc('\n', f);
+}
+
 void print_simplex_vardef(FILE *f, simplex_solver_t *solver, thvar_t v) {
   arith_vartable_t *table;
 
@@ -442,6 +483,10 @@ void print_simplex_var(FILE *f, simplex_solver_t *solver, thvar_t v) {
 
 void print_simplex_var_value(FILE *f, simplex_solver_t *solver, thvar_t v) {
   xq_print(f, arith_var_value(&solver->vtbl, v));
+}
+
+void print_simplex_var_bounds(FILE *f, simplex_solver_t *solver, thvar_t v) {
+  print_avar_bounds(f, solver, v);
 }
 
 void print_simplex_atomdef(FILE *f, simplex_solver_t *solver, bvar_t v) {

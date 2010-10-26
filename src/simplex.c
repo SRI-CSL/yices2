@@ -6392,15 +6392,17 @@ static void simplex_process_var_diseq(simplex_solver_t *solver, thvar_t x1, thva
   print_simplex_var(stdout, solver, x1);
   printf(" != ");
   print_simplex_var(stdout, solver, x2);
-  printf(" [dlevel = %"PRIu32"]\n", solver->core->decision_level);
+  printf(" [dlevel = %"PRIu32", decisions = %"PRIu64"]\n", solver->core->decision_level, solver->core->stats.decisions);
   if (! arith_var_is_free(&solver->vtbl, x1)) {
     printf("     ");
     print_simplex_vardef(stdout, solver, x1);
   }
+  print_simplex_var_bounds(stdout, solver, x1);
   if (! arith_var_is_free(&solver->vtbl, x2)) {
     printf("     ");
     print_simplex_vardef(stdout, solver, x2);
   }
+  print_simplex_var_bounds(stdout, solver, x2);
 #endif
 }
   
@@ -7690,14 +7692,13 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
 
 #if 0
   printf("\n\n*** SIMPLEX RECONCILE ***\n");
-  printf("==== Simplex variables ====\n");
-  print_simplex_vars(stdout, solver);
-  printf("\n==== Tableau ====\n");
-  print_simplex_matrix(stdout, solver);
-  printf("\n==== Assignment ====\n");
-  print_simplex_assignment(stdout, solver);
-  printf("\n==== Bounds  ====\n");
-  print_simplex_bounds(stdout, solver);
+  //  printf("==== Egraph ====\n");
+  //  print_egraph_terms(stdout, solver->egraph);
+  //  printf("\n==== Simplex variables ====\n");
+  //  print_simplex_vars(stdout, solver);
+  //  printf("\n==== Tableau ====\n");
+  //  print_simplex_matrix(stdout, solver);
+  print_simplex_bounds_and_assignment(stdout, solver);
 #endif
 
 
