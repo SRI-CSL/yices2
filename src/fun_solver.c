@@ -2157,11 +2157,19 @@ void fun_solver_assert_var_distinct(fun_solver_t *solver, uint32_t n, thvar_t *a
  * Check whether x1 and x2 are distinct at the base level
  * - do nothing for now. Always return false.
  */ 
-extern bool fun_solver_check_disequality(fun_solver_t *solver, thvar_t x1, thvar_t x2) {
+bool fun_solver_check_disequality(fun_solver_t *solver, thvar_t x1, thvar_t x2) {
   assert(0 <= x1 && x1 < solver->vtbl.nvars && 0 <= x2 && x2 < solver->vtbl.nvars);
   return false;
 }
 
+
+/*
+ * Select whether to branch on (x1 == x2) or (x1 != x2)
+ * - always return (not l): branch on (x1 != x2)
+ */
+literal_t fun_solver_select_eq_polarity(fun_solver_t *solver, thvar_t x1, thvar_t x2, literal_t l) {
+  return not(l);
+}
 
 
 /*
@@ -3301,6 +3309,7 @@ static th_egraph_interface_t fsolver_egraph = {
   (reconcile_model_fun_t) fun_solver_reconcile_model, 
   (attach_to_var_fun_t) fun_solver_attach_eterm,
   (get_eterm_fun_t) fun_solver_get_eterm_of_var,
+  (select_eq_polarity_fun_t) fun_solver_select_eq_polarity,
 };
 
 

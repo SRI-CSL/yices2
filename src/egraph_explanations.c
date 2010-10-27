@@ -1055,7 +1055,6 @@ void egraph_store_diseq_pre_expl(egraph_t *egraph, eterm_t t1, eterm_t t2, compo
   assert(u != null_occurrence && is_pos_occ(u) && egraph_equal_occ(egraph, pos_occ(t1), u));
   p->u1 = term_of_occ(u);
 
-
   u = find_equal_child(egraph, hint, pos_occ(t2));
   assert(u != null_occurrence && is_pos_occ(u) && egraph_equal_occ(egraph, pos_occ(t2), u));
   p->u2 = term_of_occ(u);

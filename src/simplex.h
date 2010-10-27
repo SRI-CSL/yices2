@@ -414,6 +414,14 @@ extern uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_e
 
 
 
+/*
+ * Select polarity when branching on decision literal l
+ * - l is attached to an egraph equality atom (eq u1 u2)
+ * - x1 and x2 are the theory variables attached to u1 and u2, respectively
+ * - return l is x1 and x2 have the same value in the current tableau 
+ *   return (not l) otherwise
+ */
+extern literal_t simplex_select_eq_polarity(simplex_solver_t *solver, thvar_t x1, thvar_t x2, literal_t l);
 
 
 #endif /* __SIMPLEX_H */

@@ -7458,6 +7458,23 @@ literal_t simplex_select_polarity(simplex_solver_t *solver, void *a, literal_t l
 
 
 
+/*
+ * Select polarity when branching on an egraph equality
+ * - l is attached to an egraph atom (eq u1 u2)
+ * - x1 and x2 are the theory variables for u1 and u2, respectively
+ * - return l if (x1 == x2) in the current assignment
+ *   return (not l) otherwise
+ */
+literal_t simplex_select_eq_polarity(simplex_solver_t *solver, thvar_t x1, thvar_t x2, literal_t l) {
+  if (xq_eq(arith_var_value(&solver->vtbl, x1), arith_var_value(&solver->vtbl, x2))) {
+    return l;
+  } else {
+    return not(l);
+  }
+}
+
+
+
 
 /**********************
  * DELETE THE SOLVER  *
@@ -8471,6 +8488,7 @@ static th_egraph_interface_t simplex_egraph = {
   (reconcile_model_fun_t) simplex_reconcile_model,
   (attach_to_var_fun_t) simplex_attach_eterm,
   (get_eterm_fun_t) simplex_eterm_of_var,
+  (select_eq_polarity_fun_t) simplex_select_eq_polarity,
 };
 
 

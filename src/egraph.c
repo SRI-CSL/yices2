@@ -5044,6 +5044,39 @@ void egraph_expand_explanation(egraph_t *egraph, literal_t l, void *expl, ivecto
  ************************/
 
 /*
+ * For an equality atom c = (eq t1 t2) and l attached to that atom
+ * select whether to branch on l or (not l)
+ * - if t1 and t2 are attached to theory variables, the decision is 
+ *   made by the satellite solver
+ * - otherwise, return l
+ */
+static literal_t egraph_select_eq_polarity(egraph_t *egraph, composite_t *c, literal_t l) {
+  occ_t t1, t2;
+  class_t c1, c2;
+  thvar_t v1, v2;
+  etype_t i;
+
+  assert(composite_kind(c) == COMPOSITE_EQ);
+
+  t1 = c->child[0];
+  t2 = c->child[1];
+  i = egraph_type(egraph, t1);
+  if (i < NUM_SATELLITES) {
+    c1 = egraph_class(egraph, t1);
+    v1 = egraph->classes.thvar[c1];
+    c2 = egraph_class(egraph, t2);
+    v2 = egraph->classes.thvar[c2];
+    if (v1 != null_thvar && v2 != null_thvar) {
+      assert(egraph->eg[i] != NULL);
+      return egraph->eg[i]->select_eq_polarity(egraph->th[i], v1, v2, pos_lit(var_of(l)));
+    }
+  }
+
+  return l;
+}
+
+
+/*
  * Select whether to branch on l or (not l)
  * - atom = the atom attached to var_of(l)
  * - forward to the appropriate subsolver 
@@ -5061,12 +5094,12 @@ static literal_t egraph_select_polarity(egraph_t *egraph, void *atom, literal_t 
 
   case EGRAPH_ATM_TAG:
   default:
-    // PROVISIONAL: FORCE EQUALITIES TO TRUE
+    // FOR EQUALITY ATOMS: defer to the satellite solver if any
     a = (atom_t *) untag_atom(atom);
     assert(a->boolvar == var_of(l));
     c = egraph_term_body(egraph, a->eterm);
     if (composite_body(c) && composite_kind(c) == COMPOSITE_EQ) {
-      l = pos_lit(var_of(l));
+      l = egraph_select_eq_polarity(egraph, c, l);
     }
     return l;
   }

@@ -695,26 +695,6 @@ typedef struct egraph_trail_stack_s {
  * egraph_explain_term_eq or egraph_explain_term_diseq. Both functions are defined in
  * egraph_explanation.c. The hint must be passed as a argument in egraph_explain_term_diseq.
  *
- * NOTE: BUG FIX: egraph_explain_term_diseq cannot be used reliably to lazily build an 
- * explanation for (x1 != x2) as it may compute an incorrect (non-causal) explanation. The hint
- * passed to assert_distinct and assert_disequality is not enough to rebuild the correct
- * explanation in all cases (cf. egraph_explanation.c).
- *
- * If the satellite solver performs an inference or theory propagation with 
- * (x1 != x2) as antecedent, it must use an intermediate 'pre_expl' object that keeps 
- * enough information to build an explanation for (x1 != x2) if it is needed later. At the 
- * time of the inference: the satellite must record the pre_expl data using function
- *   egraph_store_diseq_pre_expl(egraph, t1, t2, hint, pre_expl) where 
- *   - t1 must be the egraph term attached to x1
- *   - t2 must be the egraph term attached to x2
- *   - hint is the composite provided by the egraph in assert_disequality or assert_distinct
- *   - pre_expl is a pointer to a pre_expl_t structure
- * If the explanation for (x1 != x2) is needed later on (i.e., must be expanded to a list of
- * literal), then the satellite solver must call 
- *   egraph_expand_diseq_pre_expl(egraph, pre_expl, ..)
- * at that time.
- * 
- *
  * Optional function: necessary if the solver propagates equalities to the egraph
  *
  * 5) void expand_th_explanation(void *solver, thvar_t x1, thvar_t x2, void *expl, th_explanation_t *result)
@@ -734,7 +714,37 @@ typedef struct egraph_trail_stack_s {
  *    The set of constraints is stored in a th_explanation data structure: maintains 
  *    three resizable vectors, for atoms, equalities, and diseq constraints.
  *
+ *
+ *
+ * NOTE (BUG FIX)
+ * --------------
+ * egraph_explain_term_diseq cannot be used reliably to lazily build an 
+ * explanation for (x1 != x2) as it may compute an incorrect (non-causal) explanation. The hint
+ * passed to assert_distinct and assert_disequality is not enough to rebuild the correct
+ * explanation in all cases (cf. egraph_explanation.c).
+ *
+ * If the satellite solver performs an inference or theory propagation with 
+ * (x1 != x2) as antecedent, it must use an intermediate 'pre_expl' object that keeps 
+ * enough information to build an explanation for (x1 != x2) if it is needed later. 
+ * At the time of the inference: the satellite must record the pre_expl data using function
+ *  
+ *   egraph_store_diseq_pre_expl(egraph, t1, t2, hint, pre_expl) where 
+ *   - t1 must be the egraph term attached to x1
+ *   - t2 must be the egraph term attached to x2
+ *   - hint is the composite provided by the egraph in assert_disequality or assert_distinct
+ *   - pre_expl is a pointer to a pre_expl_t structure
+ *
+ * If the explanation for (x1 != x2) is needed later on (i.e., must be expanded to a list of
+ * literal), then the satellite solver must call
+ *
+ *   egraph_expand_diseq_pre_expl(egraph, pre_expl, ..)
+ *
+ * at that time.
  * 
+ * Functions egraph_store_diseq_pre_expl and egraph_expand_diseq_pre_expl are defined in
+ * egraph_explanations.c
+ *
+ *
  * New API for interface equalities (2010/01/13)
  * ---------------------------------------------
  * 
@@ -770,6 +780,20 @@ typedef struct egraph_trail_stack_s {
  *    return the eterm t attached to v (or null_eterm if v has no eterm attached).
  *    This must be the same function as used by the context.
  *
+ *
+ * New function for theory branching (2010/10/27)
+ * ----------------------------------------------
+ *
+ * If theory branching is enabled, the egraph must decide whether an atom l := (eq u1 u2) 
+ * must be assigned true or false when l is selected as decision literal. If u1 and u2 are both
+ * attached to two theory variables x1 and x2, then the egraph can delegate the decision to
+ * the theory solver. For this purpose, it calls the function
+ * 
+ * 9) literal_t select_eq_polarity(void *solver, thvar_t x1, thvar_t x2, literal_t l)
+ *    - l is a decision literal attached to an egraph atom (eq u1 u2)
+ *    - x1 and x2 are the theory variables for u1 and u2, respectively
+ *    - the theory solver must decide between assigning l true or false
+ *    - the function must return l to set l := true or (not l) to set l := false
  *
  *
  * THEORY-SPECIFIC INTERFACES
@@ -944,16 +968,18 @@ typedef void (*expand_eq_exp_fun_t)(void *satellite, thvar_t x1, thvar_t x2, voi
 typedef uint32_t (*reconcile_model_fun_t)(void *satellite, uint32_t max_eq);
 typedef void (*attach_to_var_fun_t)(void *satellite, thvar_t x, eterm_t t);
 typedef eterm_t (*get_eterm_fun_t)(void *satellite, thvar_t x);
+typedef literal_t (*select_eq_polarity_fun_t)(void *satellite, thvar_t x, thvar_t y, literal_t l);
 
 typedef struct th_egraph_interface_s {
-  assert_eq_fun_t       assert_equality;
-  assert_diseq_fun_t    assert_disequality;
-  assert_distinct_fun_t assert_distinct;
-  check_diseq_fun_t     check_diseq;
-  expand_eq_exp_fun_t   expand_th_explanation;
-  reconcile_model_fun_t reconcile_model;
-  attach_to_var_fun_t   attach_eterm;
-  get_eterm_fun_t       eterm_of_var;
+  assert_eq_fun_t          assert_equality;
+  assert_diseq_fun_t       assert_disequality;
+  assert_distinct_fun_t    assert_distinct;
+  check_diseq_fun_t        check_diseq;
+  expand_eq_exp_fun_t      expand_th_explanation;
+  reconcile_model_fun_t    reconcile_model;
+  attach_to_var_fun_t      attach_eterm;
+  get_eterm_fun_t          eterm_of_var;
+  select_eq_polarity_fun_t select_eq_polarity;
 } th_egraph_interface_t;
 
 
