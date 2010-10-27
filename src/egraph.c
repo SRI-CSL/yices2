@@ -4195,11 +4195,13 @@ void egraph_backtrack(egraph_t *egraph, uint32_t back_level) {
 
 /*
  * Delete composite p
- * remove it from the congruence table and parent vectors
- * if it's a congruence root
+ * - remove it from the congruence table and parent vectors
+ *   if it's a congruence root
+ * - also remove the corresponding record from the htbl
  */
 static void delete_composite(egraph_t *egraph, composite_t *p) {
   elabel_t *label;
+  uint32_t h;
 
   label = egraph->terms.label;
 
@@ -4210,6 +4212,11 @@ static void delete_composite(egraph_t *egraph, composite_t *p) {
   if (congruence_table_remove_if_present(&egraph->ctable, p)) {
     detach_composite(p, label, egraph->classes.parents);
   }
+
+  // hash code used in hash-consing
+  h = hash_composite(p);
+  int_htbl_erase_record(&egraph->htbl, h, p->id);
+
   safe_free(p);
 }
 

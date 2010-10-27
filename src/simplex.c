@@ -1027,6 +1027,7 @@ void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, gate_manage
   init_arith_bstack(&solver->bstack, DEF_ARITH_BSTACK_SIZE);
   init_arith_astack(&solver->assertion_queue, DEF_ARITH_ASTACK_SIZE);
   init_eassertion_queue(&solver->egraph_queue);
+  init_diseq_stack(&solver->dstack);
   init_arith_undo_stack(&solver->stack, DEF_ARITH_UNDO_STACK_SIZE);
 
   init_arith_trail(&solver->trail_stack);
@@ -6408,6 +6409,25 @@ static void simplex_process_var_diseq(simplex_solver_t *solver, thvar_t x1, thva
   
 
 /*
+ * Assert that all variables a[0] ... a[n-1] are pairwise distinct
+ * - they are attached to egraph terms t[0] ... t[n-1]
+ * - the function is called when (distinct t[0] ... t[n-1]) is asserted in the egraph
+ * - always return true: conflict are detected later
+ */
+static void simplex_process_var_distinct(simplex_solver_t *solver, uint32_t n, thvar_t *a, composite_t *hint) {
+#if TRACE
+  uint32_t i, j;
+
+  for (i=0; i<n-1; i++) {
+    for (j=i+1; j<n; j++) {
+      simplex_process_var_diseq(solver, a[i], a[j], hint);
+    }
+  }
+#endif
+}
+
+
+/*
  * Process all assertions in the egraph queue
  * - return true if no conflict is found
  * - return false and add a conflict clause to the core otherwise.
@@ -6432,7 +6452,7 @@ static bool simplex_process_egraph_assertions(simplex_solver_t *solver) {
       break;
 
     case EGRAPH_VAR_DISTINCT:
-      //      simplex_process_var_distinct(solver, eassertion_get_arity(a), a->var, a->hint);
+      simplex_process_var_distinct(solver, eassertion_get_arity(a), a->var, a->hint);
       break;
 
     default:
@@ -6443,6 +6463,7 @@ static bool simplex_process_egraph_assertions(simplex_solver_t *solver) {
   }
 
   reset_eassertion_queue(&solver->egraph_queue);
+
   return true;
 }
 
@@ -6486,7 +6507,11 @@ static bool simplex_process_egraph_base_assertions(simplex_solver_t *solver) {
       break;
 
     case EGRAPH_VAR_DISEQ:
+      simplex_process_var_diseq(solver, a->var[0], a->var[1]);
+      break;
+
     case EGRAPH_VAR_DISTINCT:
+      simplex_process_var_distinct(solver, eassertion_get_arity(a), a->var, a->hint);
       break;
 
     default:
@@ -6864,6 +6889,9 @@ void simplex_increase_decision_level(simplex_solver_t *solver) {
   // new scope in arena
   arena_push(&solver->arena);
 
+  // save diseq stack
+  diseq_stack_increase_dlevel(&solver->dstack, solver->decision_level);
+
 #if TRACE
   printf("\n---> Simplex: increase decision level to %"PRIu32"\n", solver->decision_level);
 #endif
@@ -6997,10 +7025,16 @@ void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
   reset_eassertion_queue(&solver->egraph_queue);
 
   /*
+   * Restore the disequality stack
+   */
+  diseq_stack_backtrack(&solver->dstack, back_level);
+
+  /*
    * Restore the undo stack and the decision level
    */
   solver->stack.top = back_level + 1;
   solver->decision_level = back_level;
+  
 
 #if DEBUG
   if (solver->tableau_ready) {
@@ -7246,6 +7280,7 @@ void simplex_reset(simplex_solver_t *solver) {
   reset_arith_bstack(&solver->bstack);
   reset_arith_astack(&solver->assertion_queue);
   reset_eassertion_queue(&solver->egraph_queue);
+  reset_diseq_stack(&solver->dstack);
   reset_arith_undo_stack(&solver->stack);
 
   reset_arith_trail(&solver->trail_stack);
@@ -7469,6 +7504,7 @@ void delete_simplex_solver(simplex_solver_t *solver) {
   delete_arith_bstack(&solver->bstack);
   delete_arith_astack(&solver->assertion_queue);
   delete_eassertion_queue(&solver->egraph_queue);
+  delete_diseq_stack(&solver->dstack);
   delete_arith_undo_stack(&solver->stack);
 
   delete_arith_trail(&solver->trail_stack);

@@ -132,6 +132,7 @@
 #include "matrices.h"
 #include "diophantine_systems.h"
 #include "egraph_assertion_queues.h"
+#include "diseq_stacks.h"
 
 #include "smt_core.h"
 #include "gates_manager.h"
@@ -697,9 +698,11 @@ typedef struct simplex_solver_s {
   arith_astack_t assertion_queue;
 
   /*
-   * Queue of egraph assertions
+   * Queue of egraph assertions + disequalities received from 
+   * the egraph (disequalities are stored in a stack)
    */
   eassertion_queue_t egraph_queue;
+  diseq_stack_t dstack;
 
   /*
    * Undo stack
