@@ -7546,7 +7546,6 @@ void delete_simplex_solver(simplex_solver_t *solver) {
   delete_ivector(&solver->rows_to_process);
 
   delete_arena(&solver->arena);
-
 }
 
 

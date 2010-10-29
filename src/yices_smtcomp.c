@@ -930,16 +930,15 @@ static int process_benchmark(void) {
     params.use_simplex_prop = true;
     params.cache_tclauses = true;
     params.tclause_size = 8;
-    //    if (logic == QF_UFLIA) {
-    //      params.branching = BRANCHING_NEGATIVE;
-    //    } else {
-    //      params.branching = BRANCHING_THEORY;
-    //    }
-    params.branching = BRANCHING_THEORY;
-    params.max_interface_eqs = 30;
+    if (logic == QF_UFLIA) {
+      params.branching = BRANCHING_NEGATIVE;
+      params.max_interface_eqs = 15;
+    } else {
+      params.branching = BRANCHING_THEORY;
+      params.max_interface_eqs = 30;
+    }
     if (need_icheck) {
       enable_splx_periodic_icheck(&context);
-      //      params.max_interface_eqs = 15;
     }
     break;
 

@@ -764,7 +764,8 @@ typedef struct egraph_trail_stack_s {
  *
  *     The solver should attempt to resolve such conflicts by changing the 
  *     values of x1 and x2 if that's possible. Otherwise, it must construct
- *     the interface equality (eq t1 t2) in the egraph (by calling egraph_make_interface_eq).
+ *     the interface equality (eq t1 t2) in the egraph (by calling egraph_make_simple_eq or 
+ *     egraph_make_interface_eq).
  *     - max_eq is a bound on the number of interface equalities the solver is 
  *       allowed to generate
  *     - the function must return the number of interface equalities actually created
