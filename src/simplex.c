@@ -1865,10 +1865,13 @@ static void add_ub_axiom(simplex_solver_t *solver, thvar_t x, rational_t *c, boo
  * Add the axiom p == 0 where p is stored in the solver's buffer
  * - if p == 0 simplifies to false, set the 'unsat_before_search' flag
  * - if p == 0 simplifies to true, do nothing
+ * - if p == 0 is equivalent to x == c for a variable x and constant c
+ &   then add the bounds (x <= c) and (x >= c)
  * - otherwise, add the row p == 0 to the matrix
  */
 static void add_eq_axiom(simplex_solver_t *solver) {
   poly_buffer_t *b;
+  thvar_t x;
 
 #if TRACE
   printf("---> simplex_add_eq_axiom: ");
@@ -1907,6 +1910,24 @@ static void add_eq_axiom(simplex_solver_t *solver) {
       goto done;
     }
   }
+
+
+  // Check whether p == 0 can be rewritten to (x == constant)
+  x = poly_buffer_convert_to_vareq(b, &solver->constant);
+  if (x >= 0) {
+#if TRACE
+    printf("---> simplified to ");
+    print_simplex_var(stdout, solver, x);
+    printf(" == ");
+    q_print(stdout, &solver->constant);
+    printf("\n");
+#endif
+    // assert bounds (x <= constant) and (x >= constant)
+    add_ub_axiom(solver, x, &solver->constant, false);
+    add_lb_axiom(solver, x, &solver->constant, false);
+    goto done;
+  }
+
 
 #if TRACE
   printf("---> new row\n");
@@ -6501,6 +6522,8 @@ static bool simplex_process_egraph_base_assertions(simplex_solver_t *solver) {
        */
       simplex_assert_vareq_axiom(solver, a->var[0], a->var[1], true);
       if (solver->unsat_before_search) {
+	// record the conflict in core
+	record_empty_theory_conflict(solver->core);
 	reset_eassertion_queue(&solver->egraph_queue);
 	return false;
       }

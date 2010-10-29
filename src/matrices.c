@@ -1094,8 +1094,8 @@ void matrix_collect_constants(matrix_t *matrix) {
  */
 void matrix_eliminate_fixed_variable(matrix_t *matrix, int32_t x, rational_t *a) {
   column_t *col;
-  uint32_t i, n, j, r_ptr, c_ptr;
-  int32_t k;
+  uint32_t i, n;
+  int32_t j, k, r_ptr, c_ptr;
   row_elem_t *e, *cnst;
 
   assert(0 <= x && x < matrix->ncolumns && x != const_idx);

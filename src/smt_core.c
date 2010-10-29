@@ -5453,6 +5453,9 @@ void internalization_start(smt_core_t *s) {
 #endif
 
   s->inconsistent = false;
+  s->theory_conflict = false;
+  s->conflict = NULL;
+  s->false_clause = NULL;
   s->th_ctrl.start_internalization(s->th_solver);
 }
 

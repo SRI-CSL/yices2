@@ -876,15 +876,45 @@ int32_t poly_buffer_nonconstant_convert_to_var(poly_buffer_t *buffer) {
 }
 
 
-
 /*
- * Check whether buffer contains a polynomial of the form 1.x
- * - if so return x otherwise return null_idx
- * - x may be equal to const_idx but that's OK
+ * Given p = content of buffer, check whehter (p == 0) can be rewritten
+ * to x = a where x is a variable and a is a rational constant.
+ * - if so return the variable index x and copy the constant in a
+ * - otherwise, return null_idx and leave a unchanged
  */
-int32_t poly_buffer_getvar(poly_buffer_t *buffer) {
-  if (buffer->nterms == 1 && q_is_one(&buffer->mono[0].coeff)) {
-    return buffer->mono[0].var;
+int32_t poly_buffer_convert_to_vareq(poly_buffer_t *buffer, rational_t *a) {
+  uint32_t n;
+  int32_t x;
+
+  n = buffer->nterms;
+  if (n == 1) {
+    x = buffer->mono[0].var;
+    if (x == const_idx) {
+      return null_idx;
+
+    } else {
+      /* 
+       * p is b.x for some non-zero b 
+       * so p == 0 is equivalent to x == 0
+       */
+      assert(q_is_nonzero(&buffer->mono[0].coeff));
+      q_clear(a);
+
+      return x;
+    }
+
+  } else if (n == 2 && buffer->mono[0].var == const_idx) {
+    /*
+     * p is c + b x for some non-zero b and c
+     * so p == 0 is equivalent to x == -c/b
+     */
+    x = buffer->mono[1].var;
+    assert(q_is_nonzero(&buffer->mono[1].coeff));
+    q_set_neg(a, &buffer->mono[0].coeff);
+    q_div(a, &buffer->mono[1].coeff);
+
+    return x;
+
   } else {
     return null_idx;
   }

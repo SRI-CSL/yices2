@@ -79,7 +79,6 @@ extern void reset_poly_buffer(poly_buffer_t *buffer);
  * CONSTRUCTION OF POLYNOMIALS
  */
 
-
 /*
  * Add monomials to the buffer
  * - poly_buffer_add_monomial: add              a * x 
@@ -346,7 +345,7 @@ extern bool poly_buffer_gcd_test(poly_buffer_t *buffer);
 
 
 /*
- * Copy the constant term of buffer (or its opposite) into a
+ * Copy the constant term of buffer, or its opposite, into a
  *
  * NOTE: This is used to construct atoms: for example, to rewrite
  * atom (a + q) >= 0 to (q >= -a) 
@@ -383,6 +382,16 @@ static inline int32_t poly_buffer_convert_to_var(poly_buffer_t *buffer) {
  * - if so return x, otherwise return null_idx = -1
  */
 extern int32_t poly_buffer_nonconstant_convert_to_var(poly_buffer_t *buffer);
+
+
+/*
+ * Given p = content of buffer, check whehter (p == 0) can be rewritten
+ * to x = a where x is a variable and a is a rational constant.
+ * - if so return the variable index x and copy the constant in a
+ * - otherwise, return null_idx and leave a unchanged
+ * - buffer must be normalized
+ */
+extern int32_t poly_buffer_convert_to_vareq(poly_buffer_t *buffer, rational_t *a);
 
 
 /*
