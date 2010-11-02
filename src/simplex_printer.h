@@ -43,6 +43,7 @@ extern void print_simplex_atomdef(FILE *f, simplex_solver_t *solver, bvar_t v);
 extern void print_simplex_atom_of_literal(FILE *f, simplex_solver_t *solver, literal_t l);
 extern void print_simplex_buffer(FILE *f, simplex_solver_t *solver);
 extern void print_simplex_bound(FILE *f, simplex_solver_t *solver, uint32_t i);
+extern void print_simplex_dstack(FILE *f, simplex_solver_t *solver);
 
 // value of v in the current assignment
 extern void print_simplex_var_value(FILE *f, simplex_solver_t *solver, thvar_t v);

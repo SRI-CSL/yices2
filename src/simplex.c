@@ -6140,8 +6140,11 @@ static literal_t create_neg_atom(simplex_solver_t *solver, thvar_t y, rational_t
 /*
  * Create the lemma (eq t1 t2) or (x1 - x2 > 0) or (x1 - x2 < 0)
  * - x1 and x2 must be two distinct variables, attached to the eterms t1 and t2
+ * - return the number of lemmas created (which is either 1 or 
+ * - if the lemma already exist (i.e. no need to generate it again), return 0
+ * - otherwise create the lemma and return 1
  */
-static void simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
+static uint32_t simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
   cache_t *cache;
   cache_elem_t *e;
   rational_t *c;
@@ -6182,85 +6185,98 @@ static void simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, thvar
 
   cache = simplex_get_cache(solver);
   e = cache_get(cache, TRICHOTOMY_LEMMA, x1, x2);
-  if (e->flag == NEW_CACHE_ELEM) {
-    e->flag = ACTIVE_ARITH_LEMMA; 
+  if (e->flag != NEW_CACHE_ELEM) {
+    // trichotomy instance already exists for x1 and x2
+#if TRACE
+    printf("     redundant\n");
+#endif
+    return 0;
+  }
 
-    /*
-     * create the egraph equality l := (eq t1 t2)
-     */
-    t1 = arith_var_eterm(&solver->vtbl, x1);
-    t2 = arith_var_eterm(&solver->vtbl, x2);
-    assert(t1 != null_eterm && t2 != null_eterm);
-    l = egraph_make_simple_eq(solver->egraph, pos_occ(t1), pos_occ(t2));
+  e->flag = ACTIVE_ARITH_LEMMA; 
+
+  /*
+   * create the egraph equality l := (eq t1 t2)
+   */
+  t1 = arith_var_eterm(&solver->vtbl, x1);
+  t2 = arith_var_eterm(&solver->vtbl, x2);
+  assert(t1 != null_eterm && t2 != null_eterm);
+  l = egraph_make_simple_eq(solver->egraph, pos_occ(t1), pos_occ(t2));
 
 #if TRACE
-    printf("     trichotomy lemma: egraph atom: ");
-    print_egraph_atom_of_literal(stdout, solver->egraph, l);
+  printf("     trichotomy lemma: egraph atom: ");
+  print_egraph_atom_of_literal(stdout, solver->egraph, l);
+  printf("\n");
+#endif
+
+  /*
+   * build p such that p=0 is equivalent to (x1 = x2)
+   * p is stored in solver->buffer
+   * l0 = simplification code
+   */
+  l0 = simplify_dynamic_vareq(solver, x1, x2);
+  if (l0 == false_literal) {
+    /*
+     * x1 = x2 is false: add (not (eq t1 t2)))) as an axiom for the egraph
+     */
+#if TRACE
+    printf("     reduced to 1 != 0\n");
+    printf("     add unit clause: ");
+    print_egraph_atom_of_literal(stdout, solver->egraph, not(l));
     printf("\n");
 #endif
+    add_unit_clause(solver->core, not(l));
+    reset_poly_buffer(&solver->buffer);
+
+  } else {
+    assert(l0 != true_literal); // since x1 != x2
 
     /*
-     * build p such that p=0 is equivalent to (x1 = x2)
-     * p is stored in solver->buffer
-     * l0 = simplification code
+     * get y and c such that y = c is equivalent to x1 = x2
      */
-    l0 = simplify_dynamic_vareq(solver, x1, x2);
-    if (l0 == false_literal) {
-      // x1 = x2 is false: add (not (eq t1 t2)))) as an axiom for the egraph
-#if TRACE
-      printf("     reduced to 1 != 0\n");
-      printf("     add unit clause: ");
-      print_egraph_atom_of_literal(stdout, solver->egraph, not(l));
-      printf("\n");
-#endif
-      add_unit_clause(solver->core, not(l));
-      reset_poly_buffer(&solver->buffer);
+    y = decompose_and_get_dynamic_var(solver); // store c in solver->constant and reset buffer
+    c = &solver->constant;
 
-    } else {
-      assert(l0 != true_literal); // since x1 != x2
-
-      // get y and c such that y = c is equivalent to x1 = x2
-      y = decompose_and_get_dynamic_var(solver); // store c in solver->constant and reset buffer
-      c = &solver->constant;
-
-      l1 = create_pos_atom(solver, y, c);
-      l2 = create_neg_atom(solver, y, c);
+    l1 = create_pos_atom(solver, y, c);   // l1 := y > c
+    l2 = create_neg_atom(solver, y, c);   // l2 := y < c
 
 #if TRACE
-      printf("     reduced to: ");
-      print_simplex_var(stdout, solver, y);
-      printf(" != ");
-      q_print(stdout, c);
-      printf("\n");
-      if (! arith_var_is_free(&solver->vtbl, y)) {
-	printf("     ");
-	print_simplex_vardef(stdout, solver, y);	
-      }
-      printf("     trichotomy clauses:\n");
-      printf("     (OR ");
-      print_egraph_atom_of_literal(stdout, solver->egraph, l);
-      printf(" ");
-      print_simplex_atom_of_literal(stdout, solver, l1);
-      printf(" ");
-      print_simplex_atom_of_literal(stdout, solver, l2);
-      printf(")\n");
-      printf("     (OR ");
-      print_simplex_atom_of_literal(stdout, solver, not(l1));
-      printf(" ");
-      print_egraph_atom_of_literal(stdout, solver->egraph, not(l));
-      printf(")\n");
-      printf("     (OR ");
-      print_simplex_atom_of_literal(stdout, solver, not(l2));
-      printf(" ");
-      print_egraph_atom_of_literal(stdout, solver->egraph, not(l));
-      printf(")\n");
-#endif
-
-      add_ternary_clause(solver->core, l, l1, l2);
-      add_binary_clause(solver->core, not(l), not(l1));
-      add_binary_clause(solver->core, not(l), not(l2));
+    printf("     reduced to: ");
+    print_simplex_var(stdout, solver, y);
+    printf(" != ");
+    q_print(stdout, c);
+    printf("\n");
+    if (! arith_var_is_free(&solver->vtbl, y)) {
+      printf("     ");
+      print_simplex_vardef(stdout, solver, y);	
     }
+    printf("     trichotomy clauses:\n");
+    printf("     (OR ");
+    print_egraph_atom_of_literal(stdout, solver->egraph, l);
+    printf(" ");
+    print_simplex_atom_of_literal(stdout, solver, l1);
+    printf(" ");
+    print_simplex_atom_of_literal(stdout, solver, l2);
+    printf(")\n");
+    printf("     (OR ");
+    print_simplex_atom_of_literal(stdout, solver, not(l1));
+    printf(" ");
+    print_egraph_atom_of_literal(stdout, solver->egraph, not(l));
+    printf(")\n");
+    printf("     (OR ");
+    print_simplex_atom_of_literal(stdout, solver, not(l2));
+    printf(" ");
+    print_egraph_atom_of_literal(stdout, solver->egraph, not(l));
+    printf(")\n");
+#endif
+
+    add_ternary_clause(solver->core, l, l1, l2);
+    add_binary_clause(solver->core, not(l), not(l1));
+    add_binary_clause(solver->core, not(l), not(l2));
+
   }
+
+  return 1;
 }
 
 
@@ -6426,6 +6442,8 @@ static void simplex_process_var_diseq(simplex_solver_t *solver, thvar_t x1, thva
   }
   print_simplex_var_bounds(stdout, solver, x2);
 #endif
+
+  diseq_stack_push(&solver->dstack, x1, x2);
 }
   
 
@@ -6455,9 +6473,14 @@ static void simplex_process_var_distinct(simplex_solver_t *solver, uint32_t n, t
  */
 static bool simplex_process_egraph_assertions(simplex_solver_t *solver) {
   eassertion_t *a, *end;
+  thvar_t x, y, z;
+  thvar_t pre_x, pre_y;
 
   a = eassertion_queue_start(&solver->egraph_queue);
   end = eassertion_queue_end(&solver->egraph_queue);
+
+  pre_x = null_thvar;
+  pre_y = null_thvar;
 
   while (a < end) {
     switch (eassertion_get_kind(a)) {
@@ -6469,7 +6492,22 @@ static bool simplex_process_egraph_assertions(simplex_solver_t *solver) {
       break;
 
     case EGRAPH_VAR_DISEQ:
-      simplex_process_var_diseq(solver, a->var[0], a->var[1]);
+      x = a->var[0];
+      y = a->var[1];
+      if (x > y) {
+	z = x; x = y; y = z;
+      }
+      if (pre_x != x || pre_y != y) {
+	/*
+	 * We use pre_x and pre_y as a cache to filter out duplicate
+	 * disequalities.  That's imperfect but that filters out a lot
+	 * of redundant disequalities, since the egraph tends to send
+	 * several times the same disequality in a sequence.
+	 */
+	simplex_process_var_diseq(solver, x, y);
+	pre_x = x;
+	pre_y = y;
+      }
       break;
 
     case EGRAPH_VAR_DISTINCT:
@@ -6681,7 +6719,7 @@ void simplex_start_search(simplex_solver_t *solver) {
 #endif
 
 #if 0
-  //  printf("\n\n*** SIMPLEX START ***\n");
+  printf("\n\n*** SIMPLEX START ***\n");
   printf("==== Simplex variables ====\n");
   print_simplex_vars(stdout, solver);
   printf("\n==== Tableau ====\n");
@@ -7751,6 +7789,33 @@ static inline bool is_root_var(simplex_solver_t *solver, thvar_t x) {
 
 
 /*
+ * Generate at most max_eq trichotomy axioms from the content of the dstack
+ * - if (x1 != x2) is in the disquality statck but x1 and x2 are equal in
+ *   the model, then this generates an instance of the trichotomy axiom
+ * - return the number of trichotomy instances generated
+ */
+static uint32_t simplex_process_dstack(simplex_solver_t *solver, uint32_t max_eq) {
+  diseq_stack_t *dstack;
+  uint32_t i, n, neq;
+  thvar_t x, y;
+
+  neq = 0;
+  dstack = &solver->dstack;
+  n = dstack->top;
+  for (i=0; i<n; i++) {
+    x = dstack->data[i].left;
+    y = dstack->data[i].right;
+    if (simplex_var_equal_in_model(solver, x, y)) {
+      neq += simplex_trichotomy_lemma(solver, x, y);
+      if (neq == max_eq) break;
+    }
+  }
+
+  return neq;
+}
+
+
+/*
  * Replacement for build_model, var_equal_in_model, and release_model
  * - attempt to build a model that's consistent with the egraph
  * - construct at most max_eq interface equalities if that's not possible
@@ -7774,28 +7839,32 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
   //  printf("\n==== Tableau ====\n");
   //  print_simplex_matrix(stdout, solver);
   print_simplex_bounds_and_assignment(stdout, solver);
+  printf("\n==== Disequalities ====\n");
+  print_simplex_dstack(stdout, solver);
 #endif
 
+  // give priority to the explicit disequalities (in dstack)
+  neq = simplex_process_dstack(solver, max_eq);
 
-  init_int_hclass(&hclass, 0, solver, (iclass_hash_fun_t) simplex_model_hash,
-		  (iclass_match_fun_t) simplex_var_equal_in_model);
+  if (neq < max_eq) {
+    init_int_hclass(&hclass, 0, solver, (iclass_hash_fun_t) simplex_model_hash,
+		    (iclass_match_fun_t) simplex_var_equal_in_model);
 
-  neq = 0;
-  n = solver->vtbl.nvars;
-  for (i=0; i<n; i++) {
-    if (is_root_var(solver, i)) {
-      x = int_hclass_get_rep(&hclass, i);
-      if (x != i) {
-	// x and i have the same value in the model
-	// but are in different classes in the egraph
-	simplex_trichotomy_lemma(solver, x, i);
-	neq ++;
-	if (neq == max_eq) break;
+    n = solver->vtbl.nvars;
+    for (i=0; i<n; i++) {
+      if (is_root_var(solver, i)) {
+	x = int_hclass_get_rep(&hclass, i);
+	if (x != i) {
+	  // x and i have the same value in the model
+	  // but are in different classes in the egraph
+	  neq += simplex_trichotomy_lemma(solver, x, i);
+	  if (neq == max_eq) break;
+	}
       }
     }
+    
+    delete_int_hclass(&hclass);
   }
-
-  delete_int_hclass(&hclass);
 
   return neq;
 }

@@ -4673,9 +4673,9 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
 #if TRACE
   printf("---> END EGRAPH FINAL CHECK\n");
   if (i > 0) {
-    printf("    %"PRIu32" interface equalities created\n", i);
+    printf("     %"PRIu32" interface equalities created\n", i);
   }
-  printf("---> stack top = %"PRIu32"\n\n", egraph->stack.top);
+  //  printf("---> stack top = %"PRIu32"\n\n", egraph->stack.top);
   fflush(stdout);
 #endif
 

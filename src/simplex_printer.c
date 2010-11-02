@@ -561,6 +561,30 @@ void print_simplex_bound(FILE *f, simplex_solver_t *solver, uint32_t i) {
 }
 
 
+void print_simplex_dstack(FILE *f, simplex_solver_t *solver) {
+  diseq_stack_t *dstack;
+  thvar_t x1, x2;
+  uint32_t i, n;
+
+  dstack = &solver->dstack;
+  n = dstack->top;
+  for (i=0; i<n; i ++) {
+    x1 = dstack->data[i].left;
+    x2 = dstack->data[i].right;
+    fprintf(f, "diseq[%"PRIu32"]: ", i);
+    print_simplex_var(f, solver, x1);
+    fprintf(f, " != ");
+    print_simplex_var(f, solver, x2);
+    if (xq_eq(arith_var_value(&solver->vtbl, x1), arith_var_value(&solver->vtbl, x2))) {
+      fprintf(f, "     XXXXXXXX");
+    }
+    fprintf(f, "\n");
+  }
+}
+
+
+
+
 
 /*
  * FLAGS/BASE LEVEL
