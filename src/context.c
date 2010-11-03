@@ -2695,9 +2695,9 @@ static eterm_t make_egraph_variable(context_t *ctx, type_t type) {
 
 /*
  * Add the tuple skolemization axiom for term occurrence 
- * u of type tau, if needed.
+ * u of type tau, if tau is not a maximal type.
  */
-static void skolemize_if_tuple(context_t *ctx, occ_t u, type_t tau) {
+static void skolemize_tuple(context_t *ctx, occ_t u, type_t tau) {
   type_table_t *types;
   tuple_type_t *d;
   uint32_t i, n;
@@ -2705,7 +2705,8 @@ static void skolemize_if_tuple(context_t *ctx, occ_t u, type_t tau) {
   eterm_t tup;
 
   types = ctx->types;
-  if (type_kind(types, tau) == TUPLE_TYPE && !is_maxtype(types, tau)) {
+  assert(type_kind(types, tau) == TUPLE_TYPE);
+  if (!is_maxtype(types, tau)) {
     // instantiate the axiom
     d = tuple_type_desc(types, tau);
     n = d->nelem;
@@ -2713,13 +2714,64 @@ static void skolemize_if_tuple(context_t *ctx, occ_t u, type_t tau) {
     for (i=0; i<n; i++) {
       arg[i] = pos_occ(make_egraph_variable(ctx, d->elem[i]));
       // recursively skolemize
-      skolemize_if_tuple(ctx, arg[i], d->elem[i]);
+      if (type_kind(types, d->elem[i]) == TUPLE_TYPE) {
+	skolemize_tuple(ctx, arg[i], d->elem[i]);
+      }
     }
 
     tup = egraph_make_tuple(ctx->egraph, n, arg, tau);
     free_istack_array(&ctx->istack, arg);
 
     egraph_assert_eq_axiom(ctx->egraph, u, pos_occ(tup));
+  }
+}
+
+
+/*
+ * Add the axiom (t == const(0) or t == const(1) or ... )
+ * for a term t of scalar type tau.
+ */
+static void build_scalar_axiom(context_t *ctx, occ_t t, type_t tau) {
+  uint32_t i, n;
+  occ_t k;
+  literal_t *a;
+
+  n = scalar_type_cardinal(ctx->types, tau);
+  a = alloc_istack_array(&ctx->istack, n);
+
+  for (i=0; i<n; i++) {
+    k = pos_occ(make_egraph_constant(ctx, tau, i));
+    a[i] = egraph_make_eq(ctx->egraph, t, k);
+  }
+
+  add_clause(ctx->core, n, a);
+
+  free_istack_array(&ctx->istack, a);
+}
+
+
+/*
+ * Add the type constraints for term t of type tau:
+ * - if tau is a scalar type of size n, then add the clause
+ *   (t = const(tau, 0) or ... or t = const(tau, n-1))
+ * - if tau is a tuple type then we add the skolemization axiom
+ *   for t (i.e., t = (tuple x1 ... x_n) for fresh variable x_1 ... x_n
+ */
+static void add_type_constraints(context_t *ctx, occ_t t, type_t tau) {
+  type_table_t *types;
+  
+  types = ctx->types;;
+  switch (type_kind(types, tau)) {
+  case SCALAR_TYPE:
+    build_scalar_axiom(ctx, t, tau);
+    break;
+
+  case TUPLE_TYPE:
+    skolemize_tuple(ctx, t, tau);
+    break;
+
+  default:
+    break;
   }
 }
 
@@ -2747,7 +2799,9 @@ static eterm_t skolem_tuple(context_t *ctx, term_t t, occ_t u1) {
   for (i=0; i<n; i++) {
     arg[i] = pos_occ(make_egraph_variable(ctx, d->elem[i]));
     // recursively skolemize
-    skolemize_if_tuple(ctx, arg[i], d->elem[i]);
+    if (type_kind(ctx->types, d->elem[i]) == TUPLE_TYPE) {
+      skolemize_tuple(ctx, arg[i], d->elem[i]);
+    }
   }
 
   u = egraph_make_tuple(ctx->egraph, n, arg, tau);
@@ -2885,7 +2939,7 @@ static occ_t map_apply_to_eterm(context_t *ctx, composite_term_t *app, type_t ta
   u = egraph_make_apply(ctx->egraph, a[0], n-1, a+1, tau);
   free_istack_array(&ctx->istack, a);
 
-  skolemize_if_tuple(ctx, pos_occ(u), tau);
+  add_type_constraints(ctx, pos_occ(u), tau);
 
   return pos_occ(u);
 }
@@ -3822,7 +3876,7 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
 
       case UNINTERPRETED_TERM:
 	u = pos_occ(make_egraph_variable(ctx, tau));
-	skolemize_if_tuple(ctx, u, tau);
+	add_type_constraints(ctx, u, tau);
 	break;
 
       case ITE_TERM:

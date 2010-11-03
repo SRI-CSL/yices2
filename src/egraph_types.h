@@ -1206,7 +1206,8 @@ struct egraph_s {
   /*
    * Auxiliary buffers and structures
    */
-  int_htbl_t htbl;            // for hash-consing
+  int_htbl_t *const_htbl;     // for hash-consing of constants (allocated on demand)
+  int_htbl_t htbl;            // for hash-consing of composite terms
   object_store_t atom_store;  // for creating atoms
   cache_t cache;              // for creating lemmas
 

@@ -11,6 +11,7 @@
 #include "theory_explanations.h"
 #include "prng.h"
 #include "ptr_partitions.h"
+#include "hash_functions.h"
 
 #include "composites.h"
 #include "egraph_utils.h"
@@ -953,6 +954,7 @@ static eterm_t new_distinct(egraph_t *egraph, uint32_t n, occ_t *a) {
 
 
 
+
 /*
  * HASH CONSING FOR COMPOSITES
  */
@@ -1318,6 +1320,117 @@ static eterm_t egraph_find_or_term(egraph_t *egraph, uint32_t n, occ_t *a) {
 
 
 
+/*************************************
+ *  HASH CONSING FOR CONSTANT TERMS  *
+ ************************************/
+
+/*
+ * Get the hash-table for constants: allocate it if needed.
+ */
+static int_htbl_t *egraph_get_const_htbl(egraph_t *egraph) {
+  int_htbl_t *tmp;
+
+  tmp = egraph->const_htbl;
+  if (tmp == NULL) {
+    tmp = (int_htbl_t *) safe_malloc(sizeof(int_htbl_t));
+    init_int_htbl(tmp, 0);
+    egraph->const_htbl = tmp;
+  }
+
+  return tmp;
+}
+
+
+/*
+ * Delete the hash-table for constants if it exists
+ */
+static void egraph_free_const_htbl(egraph_t *egraph) {
+  int_htbl_t *tmp;
+
+  tmp = egraph->const_htbl;
+  if (tmp != NULL) {
+    delete_int_htbl(tmp);
+    safe_free(tmp);
+    egraph->const_htbl = NULL;
+  }
+}
+
+
+
+/*
+ * Hash consing object; a constant if defined by its type tau and its index id
+ */
+typedef struct {
+  int_hobj_t m;
+  egraph_t *egraph;
+  type_t tau;
+  int32_t id;
+} const_hobj_t;
+
+
+static inline uint32_t hash_constant(type_t tau, int32_t id) {
+  return jenkins_hash_pair(tau, id, 0x1889aed2);
+}
+
+// interface to the htbl
+static uint32_t hash_const_hobj(const_hobj_t *p) {
+  return hash_constant(p->tau, p->id);
+}
+
+static bool equal_const_hobj(const_hobj_t *p, eterm_t i) {
+  eterm_table_t *terms;
+
+  terms = &p->egraph->terms;
+  return terms->real_type[i] == p->tau && constant_body_id(terms->body[i]) == p->id;
+}
+
+// build function: just create a new term with descriptor = constant(id)
+// the type must be set later, after a class is created
+static eterm_t build_const_hobj(const_hobj_t *p) {
+  return new_eterm(&p->egraph->terms, mk_constant_body(p->id));
+}
+
+
+static const_hobj_t const_hobj = {
+  { (hobj_hash_t) hash_const_hobj, (hobj_eq_t) equal_const_hobj, (hobj_build_t) build_const_hobj },
+  NULL,
+  0, 0,
+};
+
+
+
+/*
+ * Get the constant term defined by (tau, id):
+ * - if that's a new term, the initialization is not complete yet
+ */
+static eterm_t egraph_constant_term(egraph_t *egraph, type_t tau, int32_t id) {
+  int_htbl_t *const_htbl;
+
+  const_hobj.egraph = egraph;
+  const_hobj.tau = tau;
+  const_hobj.id = id;
+
+  const_htbl = egraph_get_const_htbl(egraph);
+
+  return int_htbl_get_obj(const_htbl, (int_hobj_t *) &const_hobj);
+}
+
+
+/*
+ * Remove the htbl record for constant term t
+ */
+static void egraph_delete_constant(egraph_t *egraph, eterm_t t) {
+  type_t tau;
+  int32_t id;
+  uint32_t h;
+  
+  assert(egraph_term_is_constant(egraph, t) && egraph->const_htbl != NULL);
+
+  tau = egraph_term_real_type(egraph, t);
+  id = constant_body_id(egraph_term_body(egraph, t));
+  h = hash_constant(tau, id);
+  int_htbl_erase_record(egraph->const_htbl, h, t);
+}
 
 
 
@@ -2500,8 +2613,13 @@ static void auto_activate(egraph_t *egraph, eterm_t u, type_t type) {
 eterm_t egraph_make_constant(egraph_t *egraph, type_t tau, int32_t id) {
   eterm_t t;
 
-  t = new_eterm(&egraph->terms, mk_constant_body(id));
-  auto_activate(egraph, t, tau);
+  t = egraph_constant_term(egraph, tau, id);
+  if (egraph_term_is_fresh(egraph, t)) {
+    egraph_set_term_real_type(egraph, t, tau);
+    egraph_activate_term(egraph, t, ETYPE_NONE, null_thvar);
+  }
+
+
   return t;
 }
 
@@ -3854,6 +3972,7 @@ void egraph_reset(egraph_t *egraph) {
   reset_congruence_table(&egraph->ctable);
   reset_egraph_trail(&egraph->trail_stack);
 
+  egraph_free_const_htbl(egraph);
   reset_int_htbl(&egraph->htbl);
   reset_objstore(&egraph->atom_store);  // delete all atoms
   reset_cache(&egraph->cache);
@@ -4238,6 +4357,8 @@ static void restore_eterms(egraph_t *egraph, uint32_t n) {
     cmp = egraph_term_body(egraph, t);
     if (composite_body(cmp)) {
       delete_composite(egraph, cmp);
+    } else if (constant_body(cmp)) {
+      egraph_delete_constant(egraph, t);
     }
 
     x = egraph_term_base_thvar(egraph, t);
@@ -5185,6 +5306,7 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
 
 
   // auxiliary buffers and data structures
+  egraph->const_htbl = NULL;
   init_int_htbl(&egraph->htbl, 0);
   init_objstore(&egraph->atom_store, sizeof(atom_t), ATOM_BANK_SIZE); 
   init_cache(&egraph->cache);
@@ -5329,6 +5451,7 @@ void delete_egraph(egraph_t *egraph) {
   delete_cache(&egraph->cache);
   delete_objstore(&egraph->atom_store);
   delete_int_htbl(&egraph->htbl);
+  egraph_free_const_htbl(egraph);
   delete_egraph_trail(&egraph->trail_stack);
   delete_congruence_table(&egraph->ctable);  
   delete_undo_stack(&egraph->undo);
