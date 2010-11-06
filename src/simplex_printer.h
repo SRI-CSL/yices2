@@ -34,6 +34,7 @@ extern void print_simplex_basic_vars(FILE *f, simplex_solver_t *solver);
 extern void print_simplex_bounds(FILE *f, simplex_solver_t *solver);
 extern void print_simplex_assignment(FILE *f, simplex_solver_t *solver);
 extern void print_simplex_bounds_and_assignment(FILE *f, simplex_solver_t *solver);
+extern void print_simplex_vars_summary(FILE *f, simplex_solver_t *solver);
 extern void print_simplex_allvars(FILE *f, simplex_solver_t *solver);
 
 extern void print_simplex_vardef(FILE *f, simplex_solver_t *solver, thvar_t v);

@@ -440,6 +440,15 @@ void print_simplex_assignment(FILE *f, simplex_solver_t *solver) {
   }
 }
 
+void print_simplex_bounds_and_assignment(FILE *f, simplex_solver_t *solver) {
+  uint32_t i, n;
+
+  n = num_arith_vars(&solver->vtbl);
+  for (i=0; i<n; i++) {
+    print_avar_bounds_and_value(f, solver, i);
+  }
+  fputc('\n', f);
+}
 
 void print_simplex_allvars(FILE *f, simplex_solver_t *solver) {
   uint32_t i, n;
@@ -452,15 +461,50 @@ void print_simplex_allvars(FILE *f, simplex_solver_t *solver) {
 }
 
 
-void print_simplex_bounds_and_assignment(FILE *f, simplex_solver_t *solver) {
+void print_simplex_vars_summary(FILE *f, simplex_solver_t *solver) {
+  arith_vartable_t *table;
   uint32_t i, n;
+  int32_t lb, ub;
 
-  n = num_arith_vars(&solver->vtbl);
+  table = &solver->vtbl;  
+  n = num_arith_vars(table);
   for (i=0; i<n; i++) {
-    print_avar_bounds_and_value(f, solver, i);
+    lb = arith_var_lower_index(&solver->vtbl, i);
+    ub = arith_var_upper_index(&solver->vtbl, i);
+    fputs("  ", f);
+    print_avar(f, table, i);
+    fputs(" = ", f);
+    xq_print(f, arith_var_value(&solver->vtbl, i));
+
+    if (lb >= 0 || ub >= 0) {
+      fputs("\t", f);
+      if (lb >= 0) {
+	xq_print(f, solver->bstack.bound + lb);
+	fputs(" <= ", f);
+      }
+      print_avar(f, &solver->vtbl, i);
+      if (ub >= 0) {
+	fputs(" <= ", f);
+	xq_print(f, solver->bstack.bound + ub);
+      }
+    }
+
+    if (arith_var_has_eterm(table, i)) {
+      fputs("\t\teterm: ", f);
+      print_eterm_id(f, arith_var_eterm(table, i));
+    }
+    if (arith_var_def_is_poly(table, i)) {
+      fputs("\t\tdef: ", f);
+      print_avar_poly(f, table, arith_var_poly_def(table, i));
+    } else if (arith_var_def_is_product(table, i)) {
+      fputs("\t\tdef: ", f);
+      print_avar_product(f, table, arith_var_product_def(table, i));
+    }
+    fputc('\n', f);
   }
   fputc('\n', f);
 }
+
 
 void print_simplex_vardef(FILE *f, simplex_solver_t *solver, thvar_t v) {
   arith_vartable_t *table;

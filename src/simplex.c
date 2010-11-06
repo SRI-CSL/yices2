@@ -32,7 +32,7 @@
 #define TRACE_BB 0
 
 
-#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG)
+#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG) || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -6718,19 +6718,20 @@ void simplex_start_search(simplex_solver_t *solver) {
   dump_state(solver);
 #endif
 
-#if 0
+#if 1
   printf("\n\n*** SIMPLEX START ***\n");
-  printf("==== Simplex variables ====\n");
-  print_simplex_vars(stdout, solver);
-  printf("\n==== Tableau ====\n");
-  print_simplex_matrix(stdout, solver);
+  print_simplex_vars_summary(stdout, solver);
+  //  printf("==== Simplex variables ====\n");
+  //  print_simplex_vars(stdout, solver);
+  //  printf("\n==== Tableau ====\n");
+  //  print_simplex_matrix(stdout, solver);
   //  printf("\n==== Assignment ====\n");
   //  print_simplex_assignment(stdout, solver);
-  printf("\n==== Bounds  ====\n");
-  print_simplex_bounds(stdout, solver);
-  //  printf("\n==== Atoms ====\n");
-  //  print_simplex_atoms(stdout, solver);
-  //  printf("\n");
+  //  printf("\n==== Bounds  ====\n");
+  //  print_simplex_bounds(stdout, solver);
+  printf("\n==== Atoms ====\n");
+  print_simplex_atoms(stdout, solver);
+  printf("\n");
 #endif
   return;
 }
@@ -7830,7 +7831,7 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
   
   simplex_prepare_model(solver);
 
-#if 0
+#if 1
   printf("\n\n*** SIMPLEX RECONCILE ***\n");
   //  printf("==== Egraph ====\n");
   //  print_egraph_terms(stdout, solver->egraph);
@@ -7838,7 +7839,7 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
   //  print_simplex_vars(stdout, solver);
   //  printf("\n==== Tableau ====\n");
   //  print_simplex_matrix(stdout, solver);
-  print_simplex_bounds_and_assignment(stdout, solver);
+  print_simplex_vars_summary(stdout, solver);
   printf("\n==== Disequalities ====\n");
   print_simplex_dstack(stdout, solver);
 #endif
