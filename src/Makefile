@@ -98,10 +98,10 @@ src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c \
          pretty_printer.c pseudo_subst.c ptr_array_sort.c            \
          ptr_array_sort2.c ptr_hash_map.c ptr_heap.c                 \
          ptr_partitions.c ptr_queues.c ptr_vectors.c rationals.c     \
-         rb_bvsets.c rdl_floyd_warshall.c rdl_fw_printer.c reader.c  \
-         refcount_strings.c simplex.c simplex_printer.c              \
-         simplex_prop_table.c small_bvsets.c smt_core.c              \
-         smt_core_printer.c smt_lexer.c smt_logic_codes.c            \
+	 rational_hash_maps.c rb_bvsets.c rdl_floyd_warshall.c       \
+         rdl_fw_printer.c reader.c refcount_strings.c simplex.c      \
+         simplex_printer.c simplex_prop_table.c small_bvsets.c       \
+         smt_core.c smt_core_printer.c smt_lexer.c smt_logic_codes.c \
          smt_parser.c string_buffers.c symbol_tables.c terms.c       \
          term_printer.c term_stack.c term_stack_error.c term_utils.c \
          theory_explanations.c timeout.c types.c type_printer.c      \

@@ -261,7 +261,7 @@ void int_hmap_erase(int_hmap_t *hmap, int_hmap_pair_t *r) {
   r->key = DELETED_KEY;
   hmap->nelems --;
   hmap->ndeleted ++;
-  if (hmap->ndeleted > hmap->cleanup_threshold) {
+  if (hmap->ndeleted >= hmap->cleanup_threshold) {
     int_hmap_cleanup(hmap);
   }
 }

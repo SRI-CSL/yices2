@@ -7878,6 +7878,78 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
  ***********************/
 
 /*
+ * If the egraph is present, then reconcile model ensures that
+ * for all variables x_i and x_j, if x_i is attached to egraph term t1,
+ * and x_j is attached to egraph term t2, and t1 != t2, then
+ * value[x_i] != value[x_j] where the values are extended rationals.
+ *
+ * We want to preserve this property after value[x_i] and value[x_j] 
+ * are concretized to rational numbers.
+ * 
+ * If value[x_i] = a_i + b_i \delta  and value[x_j] = a_j + b_j \delta
+ * and x_i and x_j are attached to distinct eterms, then we want 
+ *  (a_i + b_i epsilon) != (a_j + b_j epsilon).
+ *
+ * It is enough to ensure epsilon < (a_j - a_i)/(b_i - b_j) whenever
+ * (a_j > a_i) and (b_i > b_j) and x_i and x_j are attached to egraph terms.
+ */
+
+/*
+ * Adjust epsilon to ensure concretization of (a1 + b1 \delta) != concretization of (a2 + b2 \delta)
+ * if (b1 > b2) and (a1 < a2).
+ * - q1 = a1 + b1 \delta
+ * - q2 = a2 + b2 \delta
+ */
+static void epsilon_for_diseq(simplex_solver_t *solver, xrational_t *q1, xrational_t *q2) {
+  rational_t *aux, *factor;
+
+  if (q_lt(&q1->main, &q2->main) && q_gt(&q1->delta, &q2->delta)) {
+    // (a1 < a2) and (b1 > b2)
+    factor = &solver->factor;
+    q_set(factor, &q1->delta);
+    q_sub(factor, &q2->delta); // factor = b1 - b2
+    aux = &solver->aux;
+    q_set(aux, &q2->main);
+    q_sub(aux, &q1->main);     // aux = a2 - a1
+    q_div(aux, factor);        // aux = (a2 - a1)/(b1 - b2)
+    assert(q_is_pos(aux));
+    if (q_le(aux, &solver->epsilon)) {
+      // force 0 < epsilon < (a2 - a1)/(b1 - b2)
+      q_set_int32(factor, 1, 2);
+      q_set(&solver->epsilon, aux);
+      q_mul(&solver->epsilon, factor);
+      assert(q_is_pos(&solver->epsilon) && q_lt(&solver->epsilon, aux));
+    }
+  }
+}
+
+  
+/*
+ * Force epsilon < (a_j - a_i)/(b_i - b_j) for all pairs of variables
+ * x_i, x_j attached to egraph terms.
+ */
+static void epsilon_for_egraph(simplex_solver_t *solver) {
+  arith_vartable_t *vtbl;
+  xrational_t *q1, *q2;
+  uint32_t i, j, n;
+
+  vtbl = &solver->vtbl;
+  n = vtbl->nvars;
+  for (i=1; i<n; i++) {
+    if (arith_var_has_eterm(vtbl, i)) {
+      q1 = arith_var_value(vtbl, i);
+      for (j=i+1; j<n; j++) {
+	if (arith_var_has_eterm(vtbl, j)) {
+	  q2 = arith_var_value(vtbl, j);
+	  epsilon_for_diseq(solver, q1, q2);
+	}
+      }
+    }
+  }
+}
+
+
+/*
  * Ajust epsilon to ensure concretization of q1 <= concretization of q2 
  * - q1 is a + b \delta  --> concrete rational value = a + b * epsilon
  * - q2 is c + d \delta  --> concrete rational value = c + d * epsilon
@@ -7912,7 +7984,7 @@ static void epsilon_for_le(simplex_solver_t *solver, xrational_t *q1, xrational_
 
 
 /*
- * Adjust solver->epsilon to ensure that rational value of x 
+ * Adjust solver->epsilon to ensure that the rational value of x 
  * is between the lower and upper bounds on x
  */
 static void simplex_adjust_epsilon(simplex_solver_t *solver, thvar_t x) {
@@ -8271,11 +8343,72 @@ static bool model_is_integer_feasible(simplex_solver_t *solver) {
 
 
 /*
+ * Check that the model is consistent with the egraph
+ */
+static bool model_is_consistent_with_egraph(simplex_solver_t *solver) {
+  egraph_t *egraph;
+  arith_vartable_t *vtbl;
+  uint32_t i, j, n;
+  eterm_t t, u;
+
+  egraph = solver->egraph;
+  if (egraph != NULL) {
+    vtbl = &solver->vtbl;
+    n = vtbl->nvars;
+    for (i=0; i<n; i++) {
+      t = arith_var_get_eterm(vtbl, i);
+      if (t != null_eterm) {
+	for (j=i+1; j<n; j++) {
+	  u = arith_var_get_eterm(vtbl, j);
+	  if (u != null_eterm && !egraph_equal_terms(egraph, t, u)) {
+	    // t != u in the egraph so we want value[i] != value[j]
+	    if (q_eq(solver->value + i, solver->value + j)) {
+	      printf("---> BUG: invalid Simplex model\n");
+	      printf("The model is not consistent with the egraph\n");
+	      printf(" ");
+	      print_simplex_var(stdout, solver, i);
+	      printf(" is attached to egraph term: ");
+	      print_eterm_id(stdout, t);
+	      printf("\n ");
+	      print_simplex_var(stdout, solver, j);
+	      printf(" is attached to egraph term: ");
+	      print_eterm_id(stdout, u);
+	      printf("\n");
+
+	      printf(" value[");
+	      print_simplex_var(stdout, solver, i);
+	      printf("] = ");
+	      q_print(stdout, solver->value + i);
+	      printf("\n");
+	      printf(" value[");
+	      print_simplex_var(stdout, solver, j);
+	      printf("] = ");
+	      q_print(stdout, solver->value + j);
+	      printf("\n");
+
+	      printf(" but ");
+	      print_eterm_id(stdout, t);
+	      printf(" != ");
+	      print_eterm_id(stdout, u);
+	      printf(" in the egraph\n");
+
+	      return false;
+	    }
+	  }
+	}
+      }
+    }
+  }
+
+  return true;
+}
+
+/*
  * Check that the model is valid
  */
 static bool good_simplex_model(simplex_solver_t *solver) {
   return equations_hold_in_model(solver) && assertions_hold_in_model(solver) && 
-    model_is_integer_feasible(solver);
+    model_is_integer_feasible(solver) && model_is_consistent_with_egraph(solver);
 }
 
 
@@ -8309,6 +8442,10 @@ void simplex_build_model(simplex_solver_t *solver) {
    * Compute a safe value for epsilon
    */
   q_set_one(&solver->epsilon); // default positive value
+  if (solver->egraph != NULL) {
+    // remove epsilon values that would cause a conflict with the egraph model.
+    epsilon_for_egraph(solver);
+  }
   for (i=1; i<n; i++) {
     if (! tst_bit(mark, i)) {
       simplex_adjust_epsilon(solver, i);
