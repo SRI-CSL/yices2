@@ -4203,7 +4203,7 @@ static void egraph_gen_ackermann_lemmas(egraph_t *egraph, uint32_t back_level) {
 
   stack = &egraph->stack;
   k = stack->level_index[back_level + 1];
-  for (i=k; i<stack->prop_ptr; i++) {
+  for (i=k; i < stack->prop_ptr; i++) {
     if (stack->etag[i] == EXPL_BASIC_CONGRUENCE && stack->activity[i] > 0) {
       c1 = egraph_term_body(egraph, term_of_occ(stack->eq[i].lhs));
       c2 = egraph_term_body(egraph, term_of_occ(stack->eq[i].rhs));
@@ -4479,7 +4479,10 @@ static bool egraph_internal_propagation(egraph_t *egraph) {
   i = egraph->stack.prop_ptr;
   while (i < egraph->stack.top) {
     e = egraph->stack.eq + i;
-    if (! process_equality(egraph, e->lhs, e->rhs, i)) return false;
+    if (! process_equality(egraph, e->lhs, e->rhs, i)) {
+      egraph->stack.prop_ptr = i;
+      return false;
+    }
     i ++;
   }
   egraph->stack.prop_ptr = i;

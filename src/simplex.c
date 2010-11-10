@@ -8,6 +8,7 @@
 #include "bitvectors.h"
 #include "int_hash_classes.h"
 #include "hash_functions.h"
+#include "rational_hash_maps.h"
 #include "simplex.h"
 
 
@@ -2104,8 +2105,17 @@ static void add_ge_axiom(simplex_solver_t *solver, bool tt) {
  * - also add a matrix column
  */
 thvar_t simplex_create_var(simplex_solver_t *solver, bool is_int) {
+  // TEST: initialize value to non-zero
+  thvar_t x;
+  xrational_t *q;
+
   matrix_add_column(&solver->matrix);
-  return create_arith_var(&solver->vtbl, is_int);
+  x = create_arith_var(&solver->vtbl, is_int);
+
+  q = arith_var_value(&solver->vtbl, x);
+  q_set32(&q->main, x);
+
+  return x;
 }
 
 
@@ -6718,7 +6728,7 @@ void simplex_start_search(simplex_solver_t *solver) {
   dump_state(solver);
 #endif
 
-#if 1
+#if 0
   printf("\n\n*** SIMPLEX START ***\n");
   print_simplex_vars_summary(stdout, solver);
   //  printf("==== Simplex variables ====\n");
@@ -7745,6 +7755,7 @@ static void simplex_prepare_model(simplex_solver_t *solver) {
 }
 
 
+
 /*
  * Check whether x1 and x2 are equal in the model
  */
@@ -7817,6 +7828,33 @@ static uint32_t simplex_process_dstack(simplex_solver_t *solver, uint32_t max_eq
 
 
 /*
+ * Attempt to modify the current model to minimize the number of
+ * conflicts with the egraph classes.
+ */
+static void simplex_adjust_model(simplex_solver_t *solver) {
+  xq_hmap_t hmap;
+  arith_vartable_t *vtbl;
+  uint32_t i, n;
+  
+  init_xq_hmap(&hmap, 0);
+
+  vtbl = &solver->vtbl;
+  n = vtbl->nvars;
+  for (i=0; i<n; i++) {
+    if (is_root_var(solver, i)) {
+      xq_hmap_add_entry(&hmap, arith_var_value(vtbl, i));
+    }
+  }
+
+  printf("---> adjust model: %"PRIu32" entries, %"PRIu32" classes\n",
+	 xq_hmap_num_entries(&hmap), xq_hmap_num_classes(&hmap));
+
+  delete_xq_hmap(&hmap);
+}
+
+
+
+/*
  * Replacement for build_model, var_equal_in_model, and release_model
  * - attempt to build a model that's consistent with the egraph
  * - construct at most max_eq interface equalities if that's not possible
@@ -7831,7 +7869,11 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
   
   simplex_prepare_model(solver);
 
-#if 1
+  if (true || simplex_option_enabled(solver, SIMPLEX_ADJUST_MODEL)) {
+    simplex_adjust_model(solver);
+  }
+
+#if 0
   printf("\n\n*** SIMPLEX RECONCILE ***\n");
   //  printf("==== Egraph ====\n");
   //  print_egraph_terms(stdout, solver->egraph);
@@ -7839,9 +7881,9 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
   //  print_simplex_vars(stdout, solver);
   //  printf("\n==== Tableau ====\n");
   //  print_simplex_matrix(stdout, solver);
-  print_simplex_vars_summary(stdout, solver);
-  printf("\n==== Disequalities ====\n");
-  print_simplex_dstack(stdout, solver);
+  //  print_simplex_vars_summary(stdout, solver);
+  //  printf("\n==== Disequalities ====\n");
+  //  print_simplex_dstack(stdout, solver);
 #endif
 
   // give priority to the explicit disequalities (in dstack)
@@ -7866,6 +7908,8 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
     
     delete_int_hclass(&hclass);
   }
+
+  printf("---> reconcile model: %"PRIu32" trichotomy lemmas\n", neq);
 
   return neq;
 }

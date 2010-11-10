@@ -135,6 +135,7 @@ static void xq_hmap_clean_copy(xq_hmap_rec_t *a, xq_hmap_rec_t *r, uint32_t mask
 }
 
 
+
 /*
  * Remove all the deleted records
  */
@@ -331,3 +332,85 @@ void xq_hmap_remove_entry(xq_hmap_t *hmap, xrational_t *q) {
     }
   }  
 }
+
+
+
+
+/*
+ * Copy the content of r into a fresh table a.
+ * This is like clean_copy above except that it makes a real
+ * copy of r->key (rather than a shallow copy).
+ * - mask = size of a - 1 (the size of a must be a power of 2)
+ */
+static void xq_hmap_clean_copy2(xq_hmap_rec_t *a, xq_hmap_rec_t *r, uint32_t mask) {
+  uint32_t j;
+
+  assert(r->value> 0);
+
+  j = hash_xq(&r->key) & mask;
+  while (a[j].value > 0) {
+    j ++;
+    j &= mask;
+  }
+
+  a[j].value = r->value;
+  xq_set(&a[j].key, &r->key);
+}
+
+
+/*
+ * Copy the content of hmap2 into hmap1
+ * - hmap1 must be initialized
+ * - if hmap1 is not empty, it's reset first
+ */
+void copy_xq_hmap(xq_hmap_t *hmap1, xq_hmap_t *hmap2) {
+  xq_hmap_rec_t *tmp, *r;
+  uint32_t i, n1, n2, mask;
+
+  if (hmap1->nelems + hmap1->ndeleted > 0) {
+    reset_xq_hmap(hmap1);
+  }
+
+  assert(hmap1->nentries == 0 && hmap1->nelems == 0 && 
+	 hmap1->ndeleted == 0);
+
+
+  n1 = hmap1->size;
+  mask = n1 - 1;
+  tmp = hmap1->data;
+
+  n2 = hmap2->size;
+
+  assert(is_power_of_two(n1) && is_power_of_two(n2));
+
+  if (n1 < n2) {
+    // make sure hmap1 is at least as large as hmap2
+    assert(n2 < XQ_HMAP_MAX_SIZE);
+    safe_free(tmp);
+
+    tmp = (xq_hmap_rec_t *) safe_malloc(n2 * sizeof(xq_hmap_rec_t));
+    for (i=0; i<n2; i++) {
+      tmp[i].value = 0;
+      xq_init(&tmp[i].key);
+    }
+
+    mask = n2 - 1;
+    hmap1->data = tmp;
+    hmap1->size = n2;
+    hmap1->resize_threshold = (uint32_t) (n2 * XQ_HMAP_RESIZE_RATIO);
+    hmap2->cleanup_threshold = (uint32_t) (n2 * XQ_HMAP_CLEANUP_RATIO);
+  }
+
+  r = hmap2->data;
+  for (i=0; i<n2; i++) {
+    if (r->value > 0 && r->value != UINT32_MAX) {
+      xq_hmap_clean_copy2(tmp, r, mask);
+    }
+    r ++;
+  }
+
+  hmap1->nentries = hmap2->nentries;
+  hmap1->nelems = hmap2->nelems;
+}
+
+

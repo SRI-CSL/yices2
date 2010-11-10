@@ -81,6 +81,14 @@ extern void delete_xq_hmap(xq_hmap_t *hmap);
 extern void reset_xq_hmap(xq_hmap_t *hmap);
 
 
+/*
+ * Copy the content of hmap2 into hmap1:
+ * - hmap1 must be initialized
+ * - if hmap1 is not empty, it is reset first
+ */
+extern void copy_xq_hmap(xq_hmap_t *hmap1, xq_hmap_t *hmap2);
+
+
 
 /*
  * Add an entry of key = q:

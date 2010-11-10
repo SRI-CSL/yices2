@@ -786,6 +786,8 @@ typedef struct simplex_solver_s {
  *   relating it to other atoms on x are added to the clause set.
  * - PROPAGATION: enable propagation via rows
  * - ICHECK: enable periodic integer checking
+ * - ADJUST_MODEL: attempt to modify the variable assignment to
+ *   make the simplex model consistent with the egraph (as much as possible).
  *
  * Bland's rule threshold: based on the count of repeat
  * leaving variable. The counter is incremented whenever
@@ -798,6 +800,7 @@ typedef struct simplex_solver_s {
 #define SIMPLEX_EAGER_LEMMAS        0x1
 #define SIMPLEX_PROPAGATION         0x2
 #define SIMPLEX_ICHECK              0x4
+#define SIMPLEX_ADJUST_MODEL        0x8
 
 #define SIMPLEX_DISABLE_ALL_OPTIONS 0x0
 
