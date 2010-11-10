@@ -875,6 +875,7 @@ static int process_benchmark(void) {
    */
   init_params_to_defaults(&params);
   init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, arch, false);
+  context_exists = true;
   switch (arch) {
   case CTX_ARCH_EG:
     // QF_UF options: --var-elim --cache-tclauses --learn-eq --dyn-bool-ack
