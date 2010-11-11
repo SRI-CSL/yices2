@@ -926,6 +926,8 @@ static int process_benchmark(void) {
     enable_variable_elimination(&context);
     enable_arith_elimination(&context);
     enable_diseq_and_or_flattening(&context);
+    // TEST: enable eager lemmas
+    //    enable_splx_eager_lemmas(&context);
     params.use_dyn_ack = true;
     params.use_bool_dyn_ack = true;
     params.use_simplex_prop = true;
@@ -953,15 +955,6 @@ static int process_benchmark(void) {
     params.c_factor = 1.1;  
     params.d_factor = 1.1; 
     params.randomness = 0.0;
-    // TEST: default --> 200
-    //       r1263b/r1268b--> 40
-    //       r1263c/r1268c --> 60
-    //       r1263d --> 80
-    //       r1268e --> 10
-    //       r1268f --> 1
-    //       r1268g --> 20
-    //       r1268h --> 30
-    //       r1268i --> 15
     params.max_interface_eqs = 15;
     break;
 

@@ -702,7 +702,6 @@ typedef struct simplex_solver_s {
    * the egraph (disequalities are stored in a stack)
    */
   eassertion_queue_t egraph_queue;
-  diseq_stack_t dstack;
 
   /*
    * Undo stack

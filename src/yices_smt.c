@@ -54,19 +54,6 @@ extern const char * const yices_svn_url;
 extern const char * const yices_svn_rev;
 
 
-// to enable theory tracing
-#define TRACE_THEORY 0
-
-// to enable full testing of the evaluator
-#define TEST_EVALUATOR 0
-
-#if TRACE_THEORY
-
-#include "theory_tracer.h"
-
-#endif
-
-
 /*
  * GLOBAL OBJECTS
  */
@@ -1870,15 +1857,6 @@ static int process_benchmark(char *filename) {
   }
 
   if (code != TRIVIALLY_UNSAT) {
-
-#if TRACE_THEORY
-    start_theory_tracer(&context, "theory.dump");
-    print_benchmark(trace_theory_file(), &bench);
-    print_options(trace_theory_file(), &context);
-    fputs("\n====\n\n", trace_theory_file());
-    fflush(trace_theory_file());
-#endif
-
     /*
      * Search
      */
@@ -1893,10 +1871,6 @@ static int process_benchmark(char *filename) {
     start_search_time = get_cpu_time();
     code = check_context(&context, search_options, true);
     print_results();
-
-#if TRACE_THEORY
-    end_theory_tracer();
-#endif
 
 #if 0
     if (show_model && (code == STATUS_SAT || code == STATUS_UNKNOWN)) {

@@ -20,7 +20,6 @@
  *
  * To trace simplifications and tableau initialization set TRACE_INIT to 1
  * To trace the theory propagation set TRACE_PROPAGATION to 1
- * To trace the theory lemmas set TRACE_THEORY to 1
  * To trace the branch&bound algorithm set TRACE_BB to 1
  */
 #define TRACE   0
@@ -29,7 +28,6 @@
 
 #define TRACE_INIT 0
 #define TRACE_PROPAGATION 0
-#define TRACE_THEORY 0
 #define TRACE_BB 0
 
 
@@ -46,11 +44,6 @@
 #include "simplex_printer.h"
 
 #endif
-
-#if TRACE_THEORY
-#include "theory_tracer.h"
-#endif
-
 
 
 /*
@@ -1028,7 +1021,6 @@ void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, gate_manage
   init_arith_bstack(&solver->bstack, DEF_ARITH_BSTACK_SIZE);
   init_arith_astack(&solver->assertion_queue, DEF_ARITH_ASTACK_SIZE);
   init_eassertion_queue(&solver->egraph_queue);
-  init_diseq_stack(&solver->dstack);
   init_arith_undo_stack(&solver->stack, DEF_ARITH_UNDO_STACK_SIZE);
 
   init_arith_trail(&solver->trail_stack);
@@ -2105,17 +2097,8 @@ static void add_ge_axiom(simplex_solver_t *solver, bool tt) {
  * - also add a matrix column
  */
 thvar_t simplex_create_var(simplex_solver_t *solver, bool is_int) {
-  // TEST: initialize value to non-zero
-  thvar_t x;
-  xrational_t *q;
-
   matrix_add_column(&solver->matrix);
-  x = create_arith_var(&solver->vtbl, is_int);
-
-  q = arith_var_value(&solver->vtbl, x);
-  q_set32(&q->main, x);
-
-  return x;
+  return create_arith_var(&solver->vtbl, is_int);
 }
 
 
@@ -2664,10 +2647,6 @@ static void simplex_init_tableau(simplex_solver_t *solver) {
   printf("---> %"PRIu32" rows in initial tableau\n", solver->matrix.nrows);
   printf("---> %"PRIu32" fixed variables detected:\n\n", solver->fvars.nvars);
   print_fixed_var_vector(stdout, &solver->vtbl, &solver->fvars);
-#endif
-
-#if TRACE_THEORY
-  trace_tableau();
 #endif
 
   // mark that the tableau is ready
@@ -3436,10 +3415,6 @@ static void build_conflict_for_increase(simplex_solver_t *solver, row_t *row, th
   ivector_push(v, null_literal);
   record_theory_conflict(solver->core, v->data);
 
-#if TRACE_THEORY
-  trace_simplex_conflict(row, v->data);
-#endif
-
   solver->stats.num_conflicts ++;
 }
 
@@ -3489,10 +3464,6 @@ static void build_conflict_for_decrease(simplex_solver_t *solver, row_t *row, th
   // record expl_vector as a conflict (first add the null-literal terminator)
   ivector_push(v, null_literal);
   record_theory_conflict(solver->core, v->data);
-
-#if TRACE_THEORY
-  trace_simplex_conflict(row, v->data);
-#endif
 
   solver->stats.num_conflicts ++;
 }
@@ -3760,11 +3731,6 @@ static void record_simple_conflict(simplex_solver_t *solver, int32_t k, literal_
   record_theory_conflict(solver->core, v->data);
 
   solver->stats.num_conflicts ++;
-
-#if TRACE_THEORY
-  trace_simplex_assertion_conflict(k, l, v->data);
-#endif
-
 }
 
 
@@ -4063,9 +4029,6 @@ static void simplex_implied_literal(simplex_solver_t *solver, int32_t atm, int32
   push_assertion(&solver->assertion_queue, mk_assertion(atm, sign_of(l)));
   mark_arith_atom(&solver->atbl, atm);
 
-#if TRACE_THEORY
-  trace_simplex_implied_literal(i, l);
-#endif
 }
 
 
@@ -4330,11 +4293,6 @@ static bool simplex_add_derived_lower_bound(simplex_solver_t *solver, thvar_t x,
   if (k >= 0 && xq_lt(solver->bstack.bound + k, b)) {
     // conflict: ub[x] = bound[k] < b
     record_derived_conflict(solver, k, v);
-
-#if TRACE_THEORY
-    trace_simplex_derived_lb_conflict(k, x, b, v, solver->expl_vector.data);
-#endif
-
     return false;
   }
 
@@ -4389,11 +4347,6 @@ static bool simplex_add_derived_upper_bound(simplex_solver_t *solver, thvar_t x,
   if (k >= 0 && xq_gt(solver->bstack.bound + k, b)) {
     // conflict: lb[x] = bound[k] > b
     record_derived_conflict(solver, k, v);
-
-#if TRACE_THEORY
-    trace_simplex_derived_ub_conflict(k, x, b, v, solver->expl_vector.data);
-#endif
-
     return false;
   }
 
@@ -5098,10 +5051,6 @@ static void build_gcd_conflict(simplex_solver_t *solver, row_t *row) {
   record_theory_conflict(solver->core, v->data);
 
   solver->stats.num_gcd_conflicts ++;
-
-#if TRACE_THEORY
-  trace_simplex_gcd_conflict(row, v->data);
-#endif
 }
 
 
@@ -5133,10 +5082,6 @@ static void build_dsolver_conflict(simplex_solver_t *solver, ivector_t *v) {
   record_theory_conflict(solver->core, w->data);
 
   solver->stats.num_dioph_conflicts ++;
-
-#if TRACE_THEORY
-  trace_simplex_dsolver_conflict(v, w->data);
-#endif
 }
 
 
@@ -5257,10 +5202,6 @@ static bool strengthen_bounds_on_integer_variable(simplex_solver_t *solver, dsol
     // get the constant of p
     monarray_constant(p->mono, constant);
 
-#if TRACE_THEORY
-    trace_dsolver_var_phase_and_period(x, gcd, constant);
-#endif
-
     //try to strengthen the lower bound on x
     k = arith_var_lower_index(&solver->vtbl, x);
     if (k >= 0) {
@@ -5294,10 +5235,6 @@ static bool strengthen_bounds_on_integer_variable(simplex_solver_t *solver, dsol
 
 	// add the new bound as a derived bound with antecedent q
 	ok = simplex_add_derived_lower_bound(solver, x, bound, q);
-
-#if TRACE_THEORY
-	if (ok) trace_simplex_derived_lb(x, bound, q);
-#endif
 
 	ivector_pop(q); // remove k from q but keep the rest
 
@@ -5338,10 +5275,6 @@ static bool strengthen_bounds_on_integer_variable(simplex_solver_t *solver, dsol
 
 	// add the new bound with antecedent q
 	ok = simplex_add_derived_upper_bound(solver, x, bound, q);
-
-#if TRACE_THEORY
-	if (ok) trace_simplex_derived_ub(x, bound, q);
-#endif
 
 	ivector_pop(q); // remove k for cleanup
       }
@@ -5978,10 +5911,6 @@ static void record_egraph_eq_conflict(simplex_solver_t *solver, int32_t k, thvar
   record_theory_conflict(solver->core, v->data);
 
   solver->stats.num_conflicts ++;
-
-#if TRACE_THEORY
-  trace_simplex_egraph_eq_conflict(k, x1, x2, v->data);
-#endif
 }
 
 
@@ -6281,6 +6210,13 @@ static uint32_t simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, t
 #endif
 
     add_ternary_clause(solver->core, l, l1, l2);
+
+    /*
+     * The following two clauses encode
+     *   (t1 = t2) => (x1 - x2) <= 0
+     *   (t1 = t2) => (x1 - x2) >= 0
+     * They are redundant but adding them improves performance.
+     */
     add_binary_clause(solver->core, not(l), not(l1));
     add_binary_clause(solver->core, not(l), not(l2));
 
@@ -6291,146 +6227,10 @@ static uint32_t simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, t
 
 
 
-#if 0
-
-// DISABLE THIS: DEAL WITH TRICHOTOMY IN RECONCILE MODEL
-
 /*
  * Process (x1 != x2)
  * - x1 and x2 are two variables attached to two egraph terms t1 and t2
- * - this function is called when t1 and t2 become distinct in the egraph
- * - it creates a trichotomy clause equivalent to 
- *         ((eq t2 t2) or (x1 - x2 > 0) or (x1 - x2 < 0))
- */
-static void simplex_process_var_diseq(simplex_solver_t *solver, thvar_t x1, thvar_t x2, composite_t *hint) {
-  cache_t *cache;
-  cache_elem_t *e;
-  aprop_egraph_diseq_t *expl;
-  rational_t *c;
-  thvar_t y;
-  eterm_t t1, t2, aux;
-  literal_t l, l0, l1, l2;
-
-  assert(x1 != x2);
-
-#if TRACE
-  printf("\n---> Simplex: process egraph disequality: ");
-  print_simplex_var(stdout, solver, x1);
-  printf(" != ");
-  print_simplex_var(stdout, solver, x2);
-  printf(" [dlevel = %"PRIu32"]\n", solver->core->decision_level);
-#endif
-
-  t1 = arith_var_eterm(&solver->vtbl, x1);
-  t2 = arith_var_eterm(&solver->vtbl, x2);
-
-  // normalize: we want t1 <= t2
-  if (t2 < t1) {
-    aux = t1; t1 = t2; t2 = aux;
-  }
-
-  l = egraph_make_eq(solver->egraph, pos_occ(t1), pos_occ(t2));  // egraph atom (eq t1 t2)
-
-#if TRACE
-  printf("---> corresponding egraph atom: ");
-  print_egraph_atom_of_literal(stdout, solver->egraph, l);
-  printf("\n");
-#endif
-
-  cache = simplex_get_cache(solver);
-  e = cache_get(cache, TRICHOTOMY_LEMMA, t1, t2);
-  if (e->flag == NEW_CACHE_ELEM) {
-    // create the trichotomy clause
-    e->flag = ACTIVE_ARITH_LEMMA; 
-
-    // build p such that p=0 is equivalent to (x1 = x2)
-    // p is stored in solver->buffer
-    // l0 = simplification code
-    l0 = simplify_dynamic_vareq(solver, x1, x2);
-
-    if (l0 == false_literal) {
-      // x1 = x2 is false: add (not (eq t1 t2)))) as an axiom
-#if TRACE
-      printf("---> constraint: 1 != 0\n");
-      printf("---> add unit clause: ");
-      print_egraph_atom_of_literal(stdout, solver->egraph, not(l));
-      printf("\n");
-#endif
-      add_unit_clause(solver->core, not(l));
-      reset_poly_buffer(&solver->buffer);
-
-    } else {
-      assert(l0 != true_literal);
-
-      // get y and c such that y = c is equivalent to x1 = x2
-      y = decompose_and_get_dynamic_var(solver); // store c in solver->constant and reset buffer
-      c = &solver->constant;
-
-      l1 = create_pos_atom(solver, y, c);
-      l2 = create_neg_atom(solver, y, c);
-
-#if TRACE
-      printf("---> constraint: ");
-      print_simplex_var(stdout, solver, y);
-      printf(" != ");
-      q_print(stdout, c);
-      printf("\n");
-      printf("---> add trichotomy clause:\n");
-      printf("     (OR ");
-      print_egraph_atom_of_literal(stdout, solver->egraph, l);
-      printf(" ");
-      print_simplex_atom_of_literal(stdout, solver, l1);
-      printf(" ");
-      print_simplex_atom_of_literal(stdout, solver, l2);
-      printf(")\n");
-#endif
-
-      add_ternary_clause(solver->core, l, l1, l2);
-    }
-  }
-
-  /*
-   * propagate (not l) to the core if it's not already false
-   * TODO: check whether it's safe to skip this
-   */
-  if (literal_value(solver->core, l) == VAL_UNDEF) {
-#if TRACE
-    printf("---> propagating ");
-    print_literal(stdout, not(l));
-    printf("\n");
-#endif
-
-    expl = make_egraph_diseq_prop_object(solver, x1, x2, hint);
-    propagate_literal(solver->core, not(l), expl);
-    solver->stats.num_props ++;
-  }
-
-  assert(literal_value(solver->core, l) == VAL_FALSE);
-}
-
-
-/*
- * Assert that all variables a[0] ... a[n-1] are pairwise distinct
- * - they are attached to egraph terms t[0] ... t[n-1]
- * - the function is called when (distinct t[0] ... t[n-1]) is asserted in the egraph
- * - always return true: conflict are detected later
- */
-static void simplex_process_var_distinct(simplex_solver_t *solver, uint32_t n, thvar_t *a, composite_t *hint) {
-  uint32_t i, j;
-
-  for (i=0; i<n-1; i++) {
-    for (j=i+1; j<n; j++) {
-      simplex_process_var_diseq(solver, a[i], a[j], hint);
-    }
-  }
-}
-
-#endif
-
-
-/*
- * Process (x1 != x2)
- * - x1 and x2 are two variables attached to two egraph terms t1 and t2
+ * - this does nothing: all disequalities are handled lazily in reconcile_model
  */
 static void simplex_process_var_diseq(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
   assert(arith_var_has_eterm(&solver->vtbl, x1) && arith_var_has_eterm(&solver->vtbl, x2) && x1 != x2);
@@ -6452,8 +6252,6 @@ static void simplex_process_var_diseq(simplex_solver_t *solver, thvar_t x1, thva
   }
   print_simplex_var_bounds(stdout, solver, x2);
 #endif
-
-  diseq_stack_push(&solver->dstack, x1, x2);
 }
   
 
@@ -6461,7 +6259,7 @@ static void simplex_process_var_diseq(simplex_solver_t *solver, thvar_t x1, thva
  * Assert that all variables a[0] ... a[n-1] are pairwise distinct
  * - they are attached to egraph terms t[0] ... t[n-1]
  * - the function is called when (distinct t[0] ... t[n-1]) is asserted in the egraph
- * - always return true: conflict are detected later
+ * - this does nothing: just print trace if TRACE is enabled
  */
 static void simplex_process_var_distinct(simplex_solver_t *solver, uint32_t n, thvar_t *a, composite_t *hint) {
 #if TRACE
@@ -6851,24 +6649,14 @@ bool simplex_propagate(simplex_solver_t *solver) {
       if (solver->core->stats.decisions == 0) {
 	feasible = simplex_dsolver_check_at_start(solver);
       } else {
-	//	printf(".");
-	//	fflush(stdout);
 	feasible = simplex_dsolver_check(solver);
       }
-      if (! feasible) {
-	//	printf("D");
-	//	fflush(stdout);
-	goto done;
-      }
+      if (! feasible) goto done;
 
       if (solver->recheck) {
 	simplex_fix_nonbasic_assignment(solver);
 	feasible = simplex_make_feasible(solver);
-	if (! feasible) {
-	  //	  printf("R");
-	  //	  fflush(stdout);
-	  goto done;
-	}
+	if (! feasible) goto done;
       } else {
 	// bounds may have been strengthened 
 	// but don't require fixing the assignment
@@ -6960,9 +6748,6 @@ void simplex_increase_decision_level(simplex_solver_t *solver) {
 
   // new scope in arena
   arena_push(&solver->arena);
-
-  // save diseq stack
-  diseq_stack_increase_dlevel(&solver->dstack, solver->decision_level);
 
 #if TRACE
   printf("\n---> Simplex: increase decision level to %"PRIu32"\n", solver->decision_level);
@@ -7095,11 +6880,6 @@ void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
    * Empty the egraph queue
    */
   reset_eassertion_queue(&solver->egraph_queue);
-
-  /*
-   * Restore the disequality stack
-   */
-  diseq_stack_backtrack(&solver->dstack, back_level);
 
   /*
    * Restore the undo stack and the decision level
@@ -7352,7 +7132,6 @@ void simplex_reset(simplex_solver_t *solver) {
   reset_arith_bstack(&solver->bstack);
   reset_arith_astack(&solver->assertion_queue);
   reset_eassertion_queue(&solver->egraph_queue);
-  reset_diseq_stack(&solver->dstack);
   reset_arith_undo_stack(&solver->stack);
 
   reset_arith_trail(&solver->trail_stack);
@@ -7593,7 +7372,6 @@ void delete_simplex_solver(simplex_solver_t *solver) {
   delete_arith_bstack(&solver->bstack);
   delete_arith_astack(&solver->assertion_queue);
   delete_eassertion_queue(&solver->egraph_queue);
-  delete_diseq_stack(&solver->dstack);
   delete_arith_undo_stack(&solver->stack);
 
   delete_arith_trail(&solver->trail_stack);
@@ -7801,33 +7579,6 @@ static inline bool is_root_var(simplex_solver_t *solver, thvar_t x) {
 
 
 /*
- * Generate at most max_eq trichotomy axioms from the content of the dstack
- * - if (x1 != x2) is in the disquality statck but x1 and x2 are equal in
- *   the model, then this generates an instance of the trichotomy axiom
- * - return the number of trichotomy instances generated
- */
-static uint32_t simplex_process_dstack(simplex_solver_t *solver, uint32_t max_eq) {
-  diseq_stack_t *dstack;
-  uint32_t i, n, neq;
-  thvar_t x, y;
-
-  neq = 0;
-  dstack = &solver->dstack;
-  n = dstack->top;
-  for (i=0; i<n; i++) {
-    x = dstack->data[i].left;
-    y = dstack->data[i].right;
-    if (simplex_var_equal_in_model(solver, x, y)) {
-      neq += simplex_trichotomy_lemma(solver, x, y);
-      if (neq == max_eq) break;
-    }
-  }
-
-  return neq;
-}
-
-
-/*
  * Attempt to modify the current model to minimize the number of
  * conflicts with the egraph classes.
  */
@@ -7870,44 +7621,29 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
   simplex_prepare_model(solver);
 
   if (true || simplex_option_enabled(solver, SIMPLEX_ADJUST_MODEL)) {
+    // FOR TESTING
     simplex_adjust_model(solver);
   }
 
-#if 0
-  printf("\n\n*** SIMPLEX RECONCILE ***\n");
-  //  printf("==== Egraph ====\n");
-  //  print_egraph_terms(stdout, solver->egraph);
-  //  printf("\n==== Simplex variables ====\n");
-  //  print_simplex_vars(stdout, solver);
-  //  printf("\n==== Tableau ====\n");
-  //  print_simplex_matrix(stdout, solver);
-  //  print_simplex_vars_summary(stdout, solver);
-  //  printf("\n==== Disequalities ====\n");
-  //  print_simplex_dstack(stdout, solver);
-#endif
 
-  // give priority to the explicit disequalities (in dstack)
-  neq = simplex_process_dstack(solver, max_eq);
+  init_int_hclass(&hclass, 0, solver, (iclass_hash_fun_t) simplex_model_hash,
+		  (iclass_match_fun_t) simplex_var_equal_in_model);
 
-  if (neq < max_eq) {
-    init_int_hclass(&hclass, 0, solver, (iclass_hash_fun_t) simplex_model_hash,
-		    (iclass_match_fun_t) simplex_var_equal_in_model);
-
-    n = solver->vtbl.nvars;
-    for (i=0; i<n; i++) {
-      if (is_root_var(solver, i)) {
-	x = int_hclass_get_rep(&hclass, i);
-	if (x != i) {
-	  // x and i have the same value in the model
-	  // but are in different classes in the egraph
-	  neq += simplex_trichotomy_lemma(solver, x, i);
-	  if (neq == max_eq) break;
-	}
+  neq = 0;
+  n = solver->vtbl.nvars;
+  for (i=0; i<n; i++) {
+    if (is_root_var(solver, i)) {
+      x = int_hclass_get_rep(&hclass, i);
+      if (x != i) {
+	// x and i have the same value in the model
+	// but are in different classes in the egraph
+	neq += simplex_trichotomy_lemma(solver, x, i);
+	if (neq == max_eq) break;
       }
     }
-    
-    delete_int_hclass(&hclass);
   }
+  
+  delete_int_hclass(&hclass);
 
   printf("---> reconcile model: %"PRIu32" trichotomy lemmas\n", neq);
 

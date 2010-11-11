@@ -15,20 +15,13 @@
 
 #define TRACE 0
 #define DEBUG 0
-#define TRACE_THEORY 0
 
-#if (DEBUG || TRACE || 1)
+#if DEBUG || TRACE
 #include <stdio.h>
 #include <inttypes.h>
 
 extern void print_literal(FILE *f, literal_t l);
 extern void print_bval(FILE *f, bval_t b);
-
-#endif
-
-#if TRACE_THEORY
-
-#include "theory_tracer.h"
 
 #endif
 
@@ -1075,10 +1068,6 @@ static void push_lemma(lemma_queue_t *queue, uint32_t n, literal_t *a) {
   b[i] = null_literal; // end-marker;
   i++;
   blk->ptr += i;
-
-#if TRACE_THEORY
-  trace_theory_lemma(n, a);
-#endif
 }
 
 
@@ -2296,10 +2285,6 @@ void record_theory_conflict(smt_core_t *s, literal_t *a) {
   check_theory_conflict(s, a);
 #endif
 
-#if TRACE_THEORY
-  trace_theory_conflict(a);
-#endif
-
   assert(! s->inconsistent && ! s->theory_conflict);
   s->stats.th_conflicts ++;
   s->inconsistent = true;
@@ -3135,11 +3120,6 @@ static void explain_antecedent(smt_core_t *s, literal_t l, antecedent_t a) {
 #if DEBUG
   check_theory_explanation(s, l);
 #endif
-
-#if TRACE_THEORY
-  trace_theory_propagation(s->explanation.size, s->explanation.data, l);
-#endif
-  
 }
 
 

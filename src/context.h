@@ -98,7 +98,7 @@ typedef enum {
 #define SPLX_ICHECK_OPTION_MASK   0x20000
 
 // FOR TESTING
-#define LAX_OPTION_MASK      0x40000000
+#define LAX_OPTION_MASK         0x40000000
 #define DUMP_OPTION_MASK        0x80000000
 
 
