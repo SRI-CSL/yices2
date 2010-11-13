@@ -356,11 +356,6 @@ typedef struct eterm_table_s {
  * - Propagation via pseudo-clauses and Ackermann propagation are not used anymore.
  * - Equalities propagated from a satellite solver: the antecedent is a pointer
  *   The tag identifies the solver 
- *
- * EXPERIMENTAL (2009/20/07)
- * - new explanation type to improve the generation of interface equalities
- *   EXPL_MODEL for (t1 == t2) means that t1 and t2 have equal values
- *   in a satellite model (either arithmetic or bitvector solver).
  */
 typedef enum expl_tag {
   EXPL_AXIOM,
@@ -385,8 +380,6 @@ typedef enum expl_tag {
   EXPL_BV_PROPAGATION,
   EXPL_FUN_PROPAGATION,
 
-  // for interface equalities
-  EXPL_MODEL,
 } expl_tag_t;
 
 
