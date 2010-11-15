@@ -742,7 +742,6 @@ static void explain_theory_equality(egraph_t *egraph, expl_tag_t id, eterm_t t1,
  * Expand the marked egdes into a vector of literals
  * - v = result vector: literals are added to it (v is not reset)
  * - if an interface edge is encountered, it's added to egraph->interface_eqs
- * - if mark_active is true, increment the activity counter of all edges involved
  */
 static void build_explanation_vector(egraph_t *egraph, ivector_t *v, bool mark_active) {
   equeue_elem_t *eq;
@@ -855,7 +854,7 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v, bool mark_a
     i = queue->data[k];
     assert(i >= 0 && tst_bit(mark, i));
     clr_bit(mark, i);
-    if (mark_active) {
+    if (true || mark_active) {
       act[i] ++;
       if (act[i] == 0) { // overflow
 	act[i] = 255;
