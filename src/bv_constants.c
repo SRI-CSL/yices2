@@ -644,7 +644,7 @@ int32_t bvconst_set_from_hexa_string(uint32_t *bv, uint32_t n, char *s) {
   do {
     c = *s;
     s ++;
-    if (isxdigit(c)) {
+    if (isxdigit((int) c)) {
       hex = hextoint(c);
       // set bits n-1 to n-4
       // suboptimal but that should do for now

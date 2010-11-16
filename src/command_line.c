@@ -149,7 +149,7 @@ static integer_parse_code_t parse_as_integer(char *s, int32_t *val) {
   long aux;
   char *b;
 
-  while (isspace(*s)) s ++;
+  while (isspace((int) *s)) s ++;
   errno = 0;
   aux = strtol(s, &b, 10);
   if (errno == ERANGE) {
@@ -160,7 +160,7 @@ static integer_parse_code_t parse_as_integer(char *s, int32_t *val) {
     return integer_overflow;
   }
 
-  while (isspace(*b)) b++;
+  while (isspace((int) *b)) b++;
 
   if (*b == '\0' && b != s) {
     *val = (int32_t) aux;
@@ -262,14 +262,14 @@ static double_parse_code_t parse_as_double(char *s, double *val) {
   double aux;
   char *b;
 
-  while (isspace(*s)) s ++;
+  while (isspace((int) *s)) s ++;
   errno = 0;
   aux = strtod(s, &b);
   if (errno == ERANGE) {
     return double_overflow;  //overflow or underflow
   }
 
-  while (isspace(*b)) b++;
+  while (isspace((int) *b)) b++;
 
   if (*b == '\0' && b != s) {
     *val = aux;
@@ -354,7 +354,7 @@ static void parse_optional_double(cmdline_parser_t *p, cmdline_elem_t *e) {
  * Check whether s is a blank string
  */
 static bool blank_string(char *s) {
-  while (isspace(*s)) s++;
+  while (isspace((int) *s)) s++;
   return *s == '\0';
 }
 
@@ -505,7 +505,7 @@ static void check_option_parameter(cmdline_parser_t *p, cmdline_elem_t *e,
 static void parse_short_option(cmdline_parser_t *p, cmdline_elem_t *e, char *a) {
   option_desc_t *d;
 
-  if (isalpha(a[0]) && a[1] == '\0') {
+  if (isalpha((int) a[0]) && a[1] == '\0') {
     e->format = cmdline_short;
 
     d = find_by_abbrev(p->options, p->noptions, a[0]);
@@ -546,7 +546,7 @@ static void parse_long_option(cmdline_parser_t *p, cmdline_elem_t *e, char *a) {
       e->e_code = cmdline_arg_missing;
     }
 
-  } else if (isalpha(a[0])) {
+  } else if (isalpha((int) a[0])) {
     d = find_by_name(p->options, p->noptions, a, &suffix);
 
     if (d == NULL) {

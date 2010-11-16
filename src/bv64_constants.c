@@ -249,7 +249,7 @@ int32_t bvconst64_set_from_hexa_string(uint64_t *a, uint32_t n, char *s) {
   do {
     c = *s;
     s ++;
-    if (isxdigit(c)) {
+    if (isxdigit((int) c)) {
       hex = hextoint(c);
       assert(0 <= hex && hex < 16);
       // set bits 4n-1 to 4n-4

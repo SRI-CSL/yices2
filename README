@@ -343,6 +343,17 @@ code so there's no need to specify a different PIC gmp. The option
 
 
 
+Another compiler issue on Cygwin (noted 2010/11/16): on the cygwin
+version just installed on a Windows 7 machine, there are two gcc
+version (/usr/bin/gcc-3 and /usr/bin/gcc-4). The gcc-4 does not
+compile Yices in static mode (i.e., make static_bin fails). This seems
+to be due to the lack of libgcc_s.a on that installation.  Don't know
+what this library is about. Possible fixes:
+
+1) Force compilation with gcc-3: add CC=/usr/bin/gcc-3 to the
+   ./configure script
+
+2) Add option -static-libgcc when building in static mode (cf. src/Makefile)
 
 
 

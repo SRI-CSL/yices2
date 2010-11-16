@@ -206,7 +206,7 @@ libyices_def=libyices.def
 ifeq ($(POSIXOS),cygwin)
   CPPFLAGS := $(CPPFLAGS) -DCYGWIN
   PIC=
-  STATIC=-static
+  STATIC=-static -static-libgcc
   BIN_LDFLAGS= -Wl,--stack,8388608
   libyices_dynamic=$(libyices_dll)
 else

@@ -2,6 +2,12 @@
  * Yices solver for SMT benchmarks
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>

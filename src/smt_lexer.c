@@ -480,14 +480,16 @@ static token_t symbol_type(string_buffer_t *buffer) {
     } else if (n > 5 && s[2] == 'h' && s[3] == 'e' && s[4] == 'x') {
       // bvhex prefix
       for (i=5; i<n; i++) {
-	if (! isxdigit(s[i])) return SMT_TK_SYMBOL;
+	// need coercion here to stop a warning
+	if (! isxdigit((int) s[i])) return SMT_TK_SYMBOL;
       }
       return SMT_TK_BV_HEXCONSTANT;
 
     } else {
       // bv prefix
       for (i=2; i<n; i++) {
-	if (! isdigit(s[i])) return SMT_TK_SYMBOL;
+	// need coercion here to stop a warning
+	if (! isdigit((int) s[i])) return SMT_TK_SYMBOL;
       }
       // constant in decimal
       return SMT_TK_BV_CONSTANT;
