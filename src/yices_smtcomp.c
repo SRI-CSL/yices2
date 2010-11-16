@@ -430,6 +430,7 @@ static void print_results() {
   if (egraph != NULL) {
     show_egraph_stats(&egraph->stats);
     printf(" egraph terms            : %"PRIu32"\n", egraph->terms.nterms);
+    printf(" egraph eq_quota         : %"PRIu32"\n", egraph->aux_eq_quota);
     if (context_has_fun_solver(&context)) {
       fsolver = context.fun_solver;
       show_funsolver_stats(&fsolver->stats);
@@ -884,6 +885,7 @@ static int process_benchmark(void) {
     params.use_bool_dyn_ack = true;
     params.cache_tclauses = true;
     params.tclause_size = 8;
+    params.use_dyn_ack = true;  // TEST
     break;
 
   case CTX_ARCH_SPLX: 

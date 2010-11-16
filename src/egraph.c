@@ -2979,47 +2979,47 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
 
     b1 = c1->id;
     b2 = c2->id;
-    if (egraph_term_type(egraph, b1) == ETYPE_BOOL && 
-	egraph_option_enabled(egraph, EGRAPH_DYNAMIC_BOOLACKERMANN) &&
-	egraph->stats.boolack_lemmas < egraph->max_boolackermann) {
+    if (egraph_term_type(egraph, b1) == ETYPE_BOOL) {
+      if (egraph_option_enabled(egraph, EGRAPH_DYNAMIC_BOOLACKERMANN) &&
+	  egraph->stats.boolack_lemmas < egraph->max_boolackermann) {
 
-      /*
-       * Boolean case: (f t_1 ... t_n) and (f u_1 ... u_n) are boolean
-       * find boolevan variables
-       *   x1 <==> (f t_1 ... t_n) and x2 <==> (f u_1 ... u_n)
-       * add two clause:
-       *  (eq t_1 u_1) AND ... AND (eq t_n u_n) AND x1 ==> x2
-       *  (eq t_1 u_1) AND ... AND (eq t_n u_n) AND x2 ==> x1
-       */
+	/*
+	 * Boolean case: (f t_1 ... t_n) and (f u_1 ... u_n) are boolean
+	 * find boolean variables
+	 *   x1 <==> (f t_1 ... t_n) and x2 <==> (f u_1 ... u_n)
+	 * add two clause:
+	 *  (eq t_1 u_1) AND ... AND (eq t_n u_n) AND x1 ==> x2
+	 *  (eq t_1 u_1) AND ... AND (eq t_n u_n) AND x2 ==> x1
+	 */
 
-      assert(egraph_term_type(egraph, b2) == ETYPE_BOOL);
-      x1 = egraph_term_base_thvar(egraph, b1);
-      x2 = egraph_term_base_thvar(egraph, b2);
-      if (x1 != null_thvar && x2 != null_thvar) {
-	// generate the clause
-	v = &egraph->aux_buffer;
-	ivector_reset(v);
-	n = composite_arity(c1);
-	for (i=0; i<n; i++) {
-	  l = egraph_make_aux_eq(egraph, c1->child[i], c2->child[i]);
-	  if (l == null_literal) return; // quota exceeded: fail
-	  if (l != true_literal) {
-	    ivector_push(v, not(l));
+	assert(egraph_term_type(egraph, b2) == ETYPE_BOOL);
+	x1 = egraph_term_base_thvar(egraph, b1);
+	x2 = egraph_term_base_thvar(egraph, b2);
+	if (x1 != null_thvar && x2 != null_thvar) {
+	  // generate the clause
+	  v = &egraph->aux_buffer;
+	  ivector_reset(v);
+	  n = composite_arity(c1);
+	  for (i=0; i<n; i++) {
+	    l = egraph_make_aux_eq(egraph, c1->child[i], c2->child[i]);
+	    if (l == null_literal) return; // quota exceeded: fail
+	    if (l != true_literal) {
+	      ivector_push(v, not(l));
+	    }
 	  }
-	}
-	i = v->size;
-	// add x1 ==> x2
-	ivector_push(v, neg_lit(x1));
-	ivector_push(v, pos_lit(x2));	
-	add_clause(egraph->core, v->size, v->data);
-	// add x2 ==> x1
-	v->data[i] = neg_lit(x2);
-	v->data[i+1] = pos_lit(x1);
-	add_clause(egraph->core, v->size, v->data); 
+	  i = v->size;
+	  // add x1 ==> x2
+	  ivector_push(v, neg_lit(x1));
+	  ivector_push(v, pos_lit(x2));	
+	  add_clause(egraph->core, v->size, v->data);
+	  // add x2 ==> x1
+	  v->data[i] = neg_lit(x2);
+	  v->data[i+1] = pos_lit(x1);
+	  add_clause(egraph->core, v->size, v->data); 
 
-	egraph->stats.boolack_lemmas ++;
+	  egraph->stats.boolack_lemmas ++;
+	}
       }
-      return;
 
     } else if (egraph_option_enabled(egraph, EGRAPH_DYNAMIC_ACKERMANN) &&
 	       egraph->stats.ack_lemmas < egraph->max_ackermann) {
@@ -4195,14 +4195,30 @@ static void deactivate_congruence_root(egraph_t *egraph, composite_t *p) {
  */
 static void egraph_gen_ackermann_lemmas(egraph_t *egraph, uint32_t back_level) {
   egraph_stack_t *stack;
-  uint32_t i, k;
+  ivector_t *edges;
   composite_t *c1, *c2;
+  uint32_t i, j, k, n;
 
   assert(egraph_option_enabled(egraph, EGRAPH_DYNAMIC_ACKERMANN | EGRAPH_DYNAMIC_BOOLACKERMANN));
   assert(egraph->base_level <= back_level && back_level < egraph->decision_level);
 
   stack = &egraph->stack;
-  k = stack->level_index[back_level + 1];
+  k = stack->level_index[back_level + 1];    
+
+  // EXPERIMENT: Process the expl_edges vector first
+  edges = &egraph->expl_edges;
+  n = edges->size;
+  for (j=0; j<n; j++) {
+    i = edges->data[j];
+    assert(stack->etag[i] == EXPL_BASIC_CONGRUENCE && stack->activity[i] > 0);
+    if (i >= k) {
+      c1 = egraph_term_body(egraph, term_of_occ(stack->eq[i].lhs));
+      c2 = egraph_term_body(egraph, term_of_occ(stack->eq[i].rhs));
+      create_ackermann_lemma(egraph, c1, c2);
+    }
+  }
+  ivector_reset(edges);
+
   for (i=k; i < stack->prop_ptr; i++) {
     if (stack->etag[i] == EXPL_BASIC_CONGRUENCE && stack->activity[i] > 0) {
       c1 = egraph_term_body(egraph, term_of_occ(stack->eq[i].lhs));
@@ -5319,7 +5335,7 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   init_arena(&egraph->arena);
   init_ivector(&egraph->expl_queue, DEFAULT_EXPL_VECTOR_SIZE);
   init_ivector(&egraph->expl_vector, DEFAULT_EXPL_VECTOR_SIZE);
-  init_ivector(&egraph->interface_eqs, DEFAULT_EXPL_VECTOR_SIZE);
+  init_ivector(&egraph->expl_edges, DEFAULT_EXPL_VECTOR_SIZE);
   init_pvector(&egraph->cmp_vector, DEFAULT_CMP_VECTOR_SIZE);
   init_ivector(&egraph->aux_buffer, 0);  
   init_pvector(&egraph->reanalyze_vector, 0);
@@ -5441,7 +5457,7 @@ void delete_egraph(egraph_t *egraph) {
   delete_pvector(&egraph->reanalyze_vector);
   delete_ivector(&egraph->aux_buffer);
   delete_pvector(&egraph->cmp_vector);
-  delete_ivector(&egraph->interface_eqs);
+  delete_ivector(&egraph->expl_edges);
   delete_ivector(&egraph->expl_vector);
   delete_ivector(&egraph->expl_queue);
   delete_arena(&egraph->arena);

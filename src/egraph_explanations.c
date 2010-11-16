@@ -741,9 +741,9 @@ static void explain_theory_equality(egraph_t *egraph, expl_tag_t id, eterm_t t1,
 /*
  * Expand the marked egdes into a vector of literals
  * - v = result vector: literals are added to it (v is not reset)
- * - if an interface edge is encountered, it's added to egraph->interface_eqs
+ * - collect_edges: if true, the congruence edges are stored in egraph->expl_edges
  */
-static void build_explanation_vector(egraph_t *egraph, ivector_t *v, bool mark_active) {
+static void build_explanation_vector(egraph_t *egraph, ivector_t *v, bool collect_edges) {
   equeue_elem_t *eq;
   byte_t *mark;
   ivector_t *queue;
@@ -754,6 +754,8 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v, bool mark_a
   uint32_t k;
   int32_t i;
   uint8_t *act;
+
+  assert(!collect_edges || egraph->expl_edges.size == 0);
 
   eq = egraph->stack.eq;
   mark = egraph->stack.mark;
@@ -797,6 +799,9 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v, bool mark_a
       break;
 
     case EXPL_BASIC_CONGRUENCE:
+      if (collect_edges) {
+	ivector_push(&egraph->expl_edges, i);
+      }
       t1 = term_of_occ(eq[i].lhs);
       t2 = term_of_occ(eq[i].rhs);
       explain_congruence(egraph, body[t1], body[t2]);
@@ -854,11 +859,9 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v, bool mark_a
     i = queue->data[k];
     assert(i >= 0 && tst_bit(mark, i));
     clr_bit(mark, i);
-    if (true || mark_active) {
-      act[i] ++;
-      if (act[i] == 0) { // overflow
-	act[i] = 255;
-      }
+    act[i] ++;
+    if (act[i] == 0) { // overflow
+      act[i] = 255;
     }
   }
   ivector_reset(queue);
