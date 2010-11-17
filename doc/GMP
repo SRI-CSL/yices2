@@ -210,3 +210,44 @@ and install it somewhere else:
       --with-static-gmp-include-dir=/tools/static_gmp/include
 
 
+
+Building GMP for mingw32 from cygwin
+------------------------------------
+
+From cygwin, we can build code for the mingw32 target (i.e., it can run
+on windows native without requiring the cygwin libraries). 
+
+There are two options:
+
+1) use a version of gcc that supports -mno-cygwin (e.g., 
+   /usr/bin/gcc-3 on cygwin). Unfortunately, new versions of GCC
+   no longer support this.
+
+2) use a cross compiler. 
+
+   There two cross compilers for mingw32 and mingw64 in the cygwin
+   repository/mirrors. They can be installed using cygwin's setup.exe
+   utility: They are in the 'devel' section and have names like:
+   mingw64-x86_64-gcc-...  mingw64-i686-gcc-...
+
+
+To build a GMP dll for mingw from cygwin, give the following options to
+GMP's configure script:
+
+  ./configure --disable-static --enable-shared  \ 
+     --prefix=<where to install the mingw GMP library> \
+     CC=<mingw-compiler> CC_FOR_BUILD=<cygwin-compiler> \
+     --host=i686-pc-mingw32 --build=i686-pc-cygwin ABI=32
+
+then type
+   make
+   make check 
+   make install
+
+NOTE: make check works from cygwin even though the tests are mingw32
+executables (that's because it's possible to run windows native
+executables in cygwin).
+
+To build libgmp.a, replace --disable-static --enable-shared by
+--enable-static --disable-shared.
+
