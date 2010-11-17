@@ -409,6 +409,13 @@ your compiler does not have it. It's possible to build and install a
 GCC cross compiler (that runs on Cygwin and targets Mingw32), then
 compile Yices with it.
 
+UPDATE 2010/11/15: There's now an easier way. There are now precompiled
+cross compilers in the Cygwin distribution. They can be installed using
+the setup.exe utility.
+
+
+TO DO IT THE HARD WAY, FOLLOW THESE INSTRUCIONS:
+
 It's a good idea to read the GCC documentation first to learn how to
 do this (although it does not explain everything well). A Google
 search on 'gcc cross compile Mingw32' also helps and gives
