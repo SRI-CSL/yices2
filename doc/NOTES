@@ -24,7 +24,7 @@ object_stores.c
 1.2) Miscellaneous utilities
      -----------------------
 
-bit_tricks.h:		Low-level bit-mask opeations (via GCC's __builtins or replacement 
+bit_tricks.h:		Low-level bit-mask operations (via GCC's __builtins or replacement 
                         if they're not present).
 
 cputime.h:		For measuring computing time
@@ -63,7 +63,7 @@ timeout.c               signal/alarm on Unix or using timer queues on Windows/Mi
 
 
 
-1.3) Generic datastructures
+1.3) Generic data structures
      ----------------------
 
 bitvectors.h:           bit-vectors
@@ -114,7 +114,7 @@ generic_heap.c		defined by the user.
 
 int_heap2.h:            heap of int32_t integers, user-provided ordering
 int_heap2.c             (duplicates are allowed. this stores a bag).
-			Tnis is simpler than generic_heap: removal is not supported.
+			This is simpler than generic_heap: removal is not supported.
 
 ptr_heap.h:		heap of (void*) pointers, user-supplied ordering
 ptr_heap.c
@@ -145,7 +145,7 @@ ptr_partitions.h:	similar to int_partitions but for object represented by pointe
 ptr_partitions.c        rather than integers.
 
 union_find.h:		a union-find data structure for 32bit non-negative integers
-union_finc.c            
+union_find.c            
 
 
 1.3.f  Character strings
@@ -180,7 +180,7 @@ int_hash_tables.c       more general than int_hash_maps.h
 pair_hash_map.h:	maps pairs of int32 to (void *) pointers (hash table)
 pair_hash_map.c
 
-pair_hash_map2.h:       maps pairs fo int32 to int32 
+pair_hash_map2.h:       maps pairs of int32 to int32 
 pair_hash_map2.c
 
 pair_hash_sets.h:	sets of pairs of integers (implemented as a hash table)
@@ -267,7 +267,7 @@ coefficients are represented:
     arbitrary size
 
 The  indices   occurring  in  monomials  and   polynomials  are  32bit
-(nonnegative) signed integer:
+(non negative) signed integer:
 
   - the special index  const_idx = 0 is used  to identify the constant
     part of a polynomial
@@ -325,7 +325,7 @@ bvarith64_buffers.h:		Buffers for constructing these polynomials
 bvarith64_buffers.c
 
 
-bv_polynomials.h:		Polynomials with aribitrary-size bitvector coefficients
+bv_polynomials.h:		Polynomials with arbitrary-size bitvector coefficients
 bv_polynomials.c
 
 bvarith64_buffers.h:		Buffers for constructing these polynomials
@@ -554,7 +554,7 @@ egraph_utils.c
 composites.h:		    Support for construction of composite terms (for the egraph)
 composites.c                and implementation of a congruence table.
 
-egraph_explanations.h:	    Generation of explanations from the exgraph
+egraph_explanations.h:	    Generation of explanations from the egraph
 egraph_explanations.c
 
 egraph_assertion_queues.h:  Queues to store equalities/disequalities/distinct predicate
@@ -564,7 +564,7 @@ theory_explanation.h:       Data structure to store explanations produced by sat
 theory_explanation.c	    - not used for now, may be useful for theory solvers that can
 			    propagate equalities to the egraph
 
-diseq_stacks.h:	            Stack that can be used by satellite solvers to store disequalitie
+diseq_stacks.h:	            Stack that can be used by satellite solvers to store disequalities
 diseq_stacks.c              they receive from the egraph.
 
 
@@ -583,7 +583,7 @@ egraph_printer.c
 
 dl_vartable.h:	  	Table that stores variable descriptors for difference logic solvers
 dl_vartable.c           - each variable is mapped to a triple [x, y, c] (which denotes
-                          the term x - y + c
+                          the term x - y + c)
 
 idl_floydwarshall.h:	Solver for integer difference logic problems, implemented using an 
 idl_floydwarshall.c	incremental form of the Floyd-Warshall algorithm (for dense problems)
@@ -720,7 +720,7 @@ internalization_printer.c
 
 
 pseudo_subst.h:		      Store a candidate variable substitution. 
-pseudo_subst.c		      This is a mapping from uinterpreted term to other terms.
+pseudo_subst.c		      This is a mapping from uninterpreted term to other terms.
 			      It can be turned into a real substitution after substitution
 			      cycles are removed.
 

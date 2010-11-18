@@ -62,7 +62,7 @@ AC_CHECK_PROG(GPERF,gperf,gperf,nogperf)
 # of gperf
 #
 if test "$GPERF" = nogperf; then
-  AC_MSG_ERROR([*** gperf not found. It is required to build Yices (Version 3.0 or higher) ***])
+  AC_MSG_ERROR([*** gperf not found. gperf version 3.0 or higher is required to build Yices ***])
 else
   AC_MSG_CHECKING([gperf version])
   gperfversion=`"$GPERF" --version 2>&1 | awk '/^GNU/ { print $3 }'`
@@ -98,7 +98,7 @@ dnl we need a version of libgmp.a that's position independent code.
 dnl On systems where -fPIC is not the default, we must build
 dnl a specific version of GMP from the source, using option CFLAG=-fPIC.
 dnl
-dnl To build dynmic executables and libraries without GMP include,
+dnl To build dynamic executables and libraries without GMP included,
 dnl we need a a dynamic version of the GMP library (e.g., /usr/local/libgmp.so). 
 dnl
 dnl On mingw and cygwin, dynamic and static GMP libraries do not coexist well.  
@@ -335,7 +335,7 @@ if test -z "$1"; then
      fi
    done
    #
-   # now $search_libs contain all the directories to search
+   # now $search_libs contains all the directories to search
    #
    AC_MSG_NOTICE([Searching in $search_libs])
    for ldir in $search_libs; do

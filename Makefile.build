@@ -246,6 +246,8 @@ tarfile: $(distributions)
 	cp -r $(dist_dir)/* $(bindist_dir)
 	cp etc/LICENSE etc/NOTICES $(bindist_dir)
 	cp etc/README.$(POSIXOS) $(bindist_dir)/README
+	$(MKDIR_P) $(bindist_dir)/etc
+	cp etc/pstdint.h $(bindist_dir)/etc
 	$(MKDIR_P) $(bindist_dir)/examples
 	for file in `ls examples | $(EGREP) '*.ys|*.txt|*.smt|*.c' ` ; do \
 	  cp examples/$$file $(bindist_dir)/examples ; \
@@ -265,6 +267,8 @@ static-tarfile: $(distributions)
 	cp -r $(static_dist_dir)/* $(bindist_dir)
 	cp etc/LICENSE etc/NOTICES $(bindist_dir)
 	cp etc/README.static.$(POSIXOS) $(bindist_dir)/README
+	$(MKDIR_P) $(bindist_dir)/etc
+	cp etc/pstdint.h $(bindist_dir)/etc
 	$(MKDIR_P) $(bindist_dir)/examples
 	for file in `ls examples | $(EGREP) '*.ys|*.txt|*.smt|*.c' ` ; do \
 	  cp examples/$$file $(bindist_dir)/examples ; \

@@ -7,7 +7,7 @@ As many as three different versions of GMP can be used to build Yices.
    that are linked with a dynamic GMP library. A compatible GMP library
    must be present on the client's machine to use this release version.
 
-2) In static mode, we build an executable and dynamic yices library
+2) In static mode, we build an executable and a dynamic yices library
    that are statically linked with libgmp.a. For the executable, a
    standard libgmp.a works. For the dynamic yices library, we need a
    version of libgmp.a that's position-independent code (i.e.,
@@ -60,7 +60,7 @@ This was done using X-code 3.1.4.
 1) There are two gcc compilers with this X-code version: 
 
    /usr/bin/gcc     (i686-apple-darwin9-gcc-4.0.1)
-   /usr/bin/gcc-4.2 (i686-apple-darwin9-gcc-4.0.1)
+   /usr/bin/gcc-4.2 (i686-apple-darwin9-gcc-4.2.1)
 
 The first one can't be used for GMP, so we must give 'CC=gcc-4.2' to
 the GMP configure script.
@@ -155,9 +155,9 @@ Building GMP on cygwin or mingw
 -------------------------------
 
 On cygwin/mingw/Windows, it's not possible to build both libgmp.a and
-the dynamic GMP library at the same time.  Both versions require a
-different header file 'gmp.h' so they must be installed in different
-locations. 
+the dynamic GMP library at the same time.  The two versions require
+two different header file 'gmp.h' so they must be installed in
+different locations.
 
 For compiling Yices, it's best to install a dynamic GMP library + include
 file in the default location and to build a separate static GMP library

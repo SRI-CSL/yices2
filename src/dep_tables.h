@@ -37,7 +37,7 @@ typedef struct dep_table_s {
 
 
 #define DEP_TABLE_DEF_SIZE 100
-#define DEP_TABLE_MAX_SIZE (UINT32_MAX/sizeof(int32_t **))
+#define DEP_TABLE_MAX_SIZE (UINT32_MAX/sizeof(int32_t *))
 
 
 /*
