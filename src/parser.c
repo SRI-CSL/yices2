@@ -13,16 +13,6 @@
 #include "parser.h"
 #include "memalloc.h"
 
-/*
- * Provisional: set default visibility for functions used in test_smt_context
- */
-#if defined(CYGWIN) || defined(MINGW)
-#define EXPORTED __attribute__((dllexport))
-#else
-#define EXPORTED __attribute__((visibility("default")))
-#endif
-
-
 
 
 /*
@@ -150,14 +140,12 @@ static void parser_pop_all_lexers(parser_t *parser) {
 /*
  * Initialize/delete parser
  */
-EXPORTED
 void init_parser(parser_t *parser, lexer_t *lex, tstack_t *tstack) {
   init_parser_stack(&parser->pstack, DEFAULT_PARSER_STACK_SIZE);
   parser->lex = lex;
   parser->tstack = tstack;
 }
 
-EXPORTED
 void delete_parser(parser_t *parser) {
   delete_parser_stack(&parser->pstack);
   parser_pop_all_lexers(parser);

@@ -6,16 +6,6 @@
 #include <assert.h>
 
 /*
- * Provisional: set default visibility for functions used in test_smt_context
- */
-#if defined(CYGWIN) || defined(MINGW)
-#define EXPORTED __attribute__((dllexport))
-#else
-#define EXPORTED __attribute__((visibility("default")))
-#endif
-
-
-/*
  * smt_hash_keywords.h is generated using gperf
  * from input file smt_keywords.txt
  */
@@ -196,13 +186,11 @@ static void init_smttoken2string() {
 /*
  * Lexer initialization
  */
-EXPORTED
 int32_t init_smt_file_lexer(lexer_t *lex, char *filename) {
   init_smttoken2string();
   return init_file_lexer(lex, filename);
 }
 
-EXPORTED
 void init_smt_stream_lexer(lexer_t *lex, FILE *f, char *name) {
   init_smttoken2string();
   init_stream_lexer(lex, f, name);
