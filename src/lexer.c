@@ -13,18 +13,6 @@
 
 
 /*
- * Provisional: set default visibility for functions used in test_smt_context
- */
-#if defined(CYGWIN) || defined(MINGW)
-#define EXPORTED __attribute__((dllexport))
-#else
-#define EXPORTED __attribute__((visibility("default")))
-#endif
-
-
-
-
-/*
  * Allocate and initialize buffer
  * set default values for token, tk_pos etc.
  */
@@ -140,7 +128,6 @@ void init_nested_string_lexer(lexer_t *lex, char *data, char *name, lexer_t *par
  * Close lexer. If lex has no parent, delete the allocated
  * string buffer.
  */
-EXPORTED
 int close_lexer(lexer_t *lex) {
   int code;
 
@@ -160,9 +147,7 @@ int close_lexer(lexer_t *lex) {
  * - this allows us to attach a lexer to stdin, then close it
  *   without closing stdin.
  * - if lex->next is NULL (toplevel lexer), delete the internal buffer
- *  and symbol table.
  */
-EXPORTED 
 void close_lexer_only(lexer_t *lex) {
   if (lex->next == NULL) {
     if (lex->buffer != NULL) {

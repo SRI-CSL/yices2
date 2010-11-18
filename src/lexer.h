@@ -15,7 +15,6 @@
 
 #include "reader.h"
 #include "string_buffers.h"
-#include "symbol_tables.h"
 
 
 // token type
@@ -117,7 +116,7 @@ extern void init_nested_string_lexer(lexer_t *lex, char *data, char *name, lexer
 /*
  * Close lex:
  * - if lex is attached to a file (or stream) then that file is closed
- * - if lex->next == NULL, delete internal buffer and symbol table.
+ * - if lex->next == NULL, delete the internal buffer.
  * return code: EOF if there's an error in closing the file, 0 otherwise.
  */
 extern int close_lexer(lexer_t *lex);
@@ -128,8 +127,7 @@ extern int close_lexer(lexer_t *lex);
  * Variant: close lex but not the file/stream attached if any.
  * - this allows us to attach a lexer to stdin, then close it
  *   without closing stdin.
- * - if lex->next is NULL (toplevel lexer), delete the internal buffer
- *  and symbol table.
+ * - if lex->next is NULL (toplevel lexer), delete the internal buffer.
  */
 extern void close_lexer_only(lexer_t *lex);
 
