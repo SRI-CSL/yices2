@@ -248,6 +248,14 @@ NOTE: make check works from cygwin even though the tests are mingw32
 executables (that's because it's possible to run windows native
 executables in cygwin).
 
+
 To build libgmp.a, replace --disable-static --enable-shared by
 --enable-static --disable-shared.
+
+NOTE: make check failed when using cross compilation with --disable-shared.
+The failure was a compilation error on tests/misc/t-locale.c (the complaint
+was about redefinition of a type or constant). So I just disabled that
+specific test by editing the Makefile in tests/misc (search for 
+check_PROGRAMS). All tests passed after that.
+
 

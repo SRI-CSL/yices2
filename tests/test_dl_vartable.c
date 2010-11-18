@@ -5,6 +5,18 @@
 
 #include "dl_vartable.h"
 
+#ifdef MINGW
+
+/*
+ * Need some version of random()
+ * rand() exists on mingw
+ */
+static inline long int random(void) {
+  return rand();
+}
+
+#endif
+
 
 /*
  * Print a monomial (copied from term_printer.c)
