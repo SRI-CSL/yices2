@@ -7975,39 +7975,44 @@ static void simplex_safe_adjust_interval(simplex_solver_t *solver, interval_t *s
 /*
  * Test the interval computation code
  */
-static void test_adjust_interval(simplex_solver_t *solver) {
+static void test_adjust_intervals(simplex_solver_t *solver) {
   interval_t interval;
   uint32_t i, n;
 
   init_interval(&interval);  
   n = solver->vtbl.nvars;
-  for (i=0; i<n; i++) {
-    if (matrix_is_nonbasic_var(&solver->matrix, i)) {
+  for (i=1; i<n; i++) {
+    /*
+     * Skip all the dependent variables (i.e.. basic variable
+     * and trivial variables) and all variables that have
+     * equal lower and upper bounds.
+     */
+    if (matrix_is_nonbasic_var(&solver->matrix, i) &&
+	!trivial_variable(&solver->vtbl, i) && 
+	!simplex_fixed_variable(solver, i)) {
+
       // compute the safe interval for i
       simplex_safe_adjust_interval(solver, &interval, i);
 
-      printf("Shift interval for ");
+      printf("interval for ");
       print_simplex_var(stdout, solver, i);
-      printf(":\n");
       if (interval.has_lb) {
-	printf("   lower bound: ");
+	printf(": lower bound = ");
 	xq_print(stdout, &interval.lb);
-	printf("\n");
       } else {
-	printf("   no lower bound\n");
+	printf(": no lower bound");
       }
-
+      
       if (interval.has_ub) {
-	printf("   upper bound: ");
+	printf(", upper bound = ");
 	xq_print(stdout, &interval.ub);
-	printf("\n");
       } else {
-	printf("   no upper bound\n");
+	printf(", no upper bound");
       }
 
-      printf("   period: ");
+      printf(", period = ");
       q_print(stdout, &interval.period);
-      printf("\n---\n");
+      printf("\n");
     }
   }
 
@@ -8039,10 +8044,14 @@ static void simplex_adjust_model(simplex_solver_t *solver) {
     }
   }
 
+  printf("\n*** ADJUST MODEL ***\n");  
+  //  print_simplex_vars_summary(stdout, solver);
+  //  print_simplex_matrix(stdout, solver);
+
+  test_adjust_intervals(solver);
+
   printf("---> adjust model: %"PRIu32" entries, %"PRIu32" classes\n",
 	 xq_hmap_num_entries(&hmap), xq_hmap_num_classes(&hmap));
-
-  test_adjust_interval(solver);
 
   delete_dep_table(&deps);
   delete_xq_hmap(&hmap);
@@ -8094,7 +8103,7 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
   
   delete_int_hclass(&hclass);
 
-  printf("---> reconcile model: %"PRIu32" trichotomy lemmas\n", neq);
+  printf("---> reconcile model: %"PRIu32" trichotomy lemmas\n\n", neq);
 
   return neq;
 }
