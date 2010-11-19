@@ -414,3 +414,54 @@ void copy_xq_hmap(xq_hmap_t *hmap1, xq_hmap_t *hmap2) {
 }
 
 
+
+/*
+ * Shift entry q by delta
+ * - q must be present in the table.
+ * - this removes one entry for q and add one entry for (q + delta)
+ */
+void xq_hmap_shift_entry(xq_hmap_t *hmap, xrational_t *q, rational_t *delta) {
+  xrational_t aux;
+
+  xq_init(&aux);
+  xq_set(&aux, q);
+  xq_add_q(&aux, delta);
+
+  xq_hmap_remove_entry(hmap, q);
+  xq_hmap_add_entry(hmap, &aux);
+  xq_clear(&aux);
+}
+
+
+/*
+ * Variant: shift entry q by a * delta
+ */
+void xq_hmap_addmul_entry(xq_hmap_t *hmap, xrational_t *q, rational_t *a, rational_t *delta) {
+  xrational_t aux;
+
+  xq_init(&aux);
+  xq_set(&aux, q);
+  q_addmul(&aux.main, a, delta);
+
+  xq_hmap_remove_entry(hmap, q);
+  xq_hmap_add_entry(hmap, &aux);
+  xq_clear(&aux);
+}
+
+ 
+/*
+ * Variant: shift entry q by - a * delta
+ */
+void xq_hmap_submul_entry(xq_hmap_t *hmap, xrational_t *q, rational_t *a, rational_t *delta) {
+  xrational_t aux;
+
+  xq_init(&aux);
+  xq_set(&aux, q);
+  q_submul(&aux.main, a, delta);
+
+  xq_hmap_remove_entry(hmap, q);
+  xq_hmap_add_entry(hmap, &aux);
+  xq_clear(&aux);
+}
+
+ 

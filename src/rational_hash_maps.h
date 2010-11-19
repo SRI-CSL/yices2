@@ -84,10 +84,9 @@ extern void reset_xq_hmap(xq_hmap_t *hmap);
 /*
  * Copy the content of hmap2 into hmap1:
  * - hmap1 must be initialized
- * - if hmap1 is not empty, it is reset first
+ * - hmap1 is reset first
  */
 extern void copy_xq_hmap(xq_hmap_t *hmap1, xq_hmap_t *hmap2);
-
 
 
 /*
@@ -108,6 +107,24 @@ extern void xq_hmap_add_entry(xq_hmap_t *hmap, xrational_t *q);
  *   deleted if the value becomes 0.
  */
 extern void xq_hmap_remove_entry(xq_hmap_t *hmap, xrational_t *q);
+
+
+/*
+ * Shift entry q by delta
+ * - q must be present in the table.
+ * - this removes one entry for q and add one entry for (q + delta)
+ */
+extern void xq_hmap_shift_entry(xq_hmap_t *hmap, xrational_t *q, rational_t *delta);
+
+
+/*
+ * Shift variants
+ * addmul: replace entry q by (q + a * delta)
+ * submul: replace entry q by (q - a * delta)
+ */
+extern void xq_hmap_addmul_entry(xq_hmap_t *hmap, xrational_t *q, rational_t *a, rational_t *delta);
+extern void xq_hmap_submul_entry(xq_hmap_t *hmap, xrational_t *q, rational_t *a, rational_t *delta);
+
 
 
 /*

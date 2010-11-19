@@ -9,6 +9,7 @@
 #include "int_hash_classes.h"
 #include "hash_functions.h"
 #include "rational_hash_maps.h"
+#include "dep_tables.h"
 #include "simplex.h"
 
 
@@ -617,6 +618,83 @@ static void simplex_free_freshval_set(simplex_freshval_t *set) {
   safe_free(set);
 }
 
+
+
+
+/**********************
+ *  INTERVAL RECORDS  *
+ *********************/
+
+/*
+ * Initialize the record:
+ * - all rationals are zero, no bounds
+ */
+static void init_interval(interval_t *s) {
+  s->has_lb = false;
+  s->has_ub = false;
+  xq_init(&s->lb);
+  xq_init(&s->ub);
+  q_init(&s->period);
+}
+
+
+/*
+ * Reset all to zero, no bounds
+ */
+static void reset_interval(interval_t *s) {
+  s->has_lb = false;
+  s->has_ub = false;
+  xq_clear(&s->lb);
+  xq_clear(&s->ub);
+  q_clear(&s->period);
+}
+
+
+/*
+ * Delete: free the rationals
+ */
+static void delete_interval(interval_t *s) {
+  xq_clear(&s->lb);
+  xq_clear(&s->ub);
+  q_clear(&s->period);
+}
+
+
+/*
+ * Update the lower bound to max(s->lb, a)
+ */
+static void interval_update_lb(interval_t *s, xrational_t *a) {
+  if (!s->has_lb || xq_gt(a, &s->lb)) {    
+    s->has_lb = true;
+    xq_set(&s->lb, a);
+  }
+}
+
+
+/*
+ * Update the upper bound to min(s->lb, a)
+ */
+static void interval_update_ub(interval_t *s, xrational_t *a) {
+  if (!s->has_ub || xq_lt(a, &s->ub)) {
+    s->has_ub = true;
+    xq_set(&s->ub, a);
+  }
+}
+
+
+/*
+ * Update the period to LCM(s->period, a)
+ * - if s->period is (b/c) and a is (d/e) 
+ *   then LCM = lcm(b, d)/gcd(c, e)
+ * (this is a generalized LCM for rationals)
+ */
+static void interval_update_period(interval_t *s, rational_t *a) {
+  if (q_is_zero(&s->period)) {
+    q_set(&s->period, a);
+  } else {
+    q_generalized_lcm(&s->period, a);
+  }
+}
 
 
 
@@ -1249,7 +1327,7 @@ static void build_binary_lemmas_for_atom(simplex_solver_t *solver, thvar_t x, in
  ****************************/
 
 /*
- * Check whether p is a simple polynomial (cheap to substitute)
+ * Check whether p is a simple polynomial (cheap to substitute for variable x)
  * - return true if p is either (c + b.y) or c or b.y or 0
  */
 static bool simple_poly(polynomial_t *p) {
@@ -7478,6 +7556,10 @@ bool simplex_check_disequality(simplex_solver_t *solver, thvar_t x1, thvar_t x2)
 
 
 /*
+ * MODEL PREPARATION FOR RECONCILE MODEL
+ */
+
+/*
  * Support for build model: evaluate polynomial p in the current assignment.
  * - store the result in q
  */
@@ -7578,32 +7660,399 @@ static inline bool is_root_var(simplex_solver_t *solver, thvar_t x) {
 }
 
 
+
+/*
+ * MODEL ADJUSTMENT
+ */
+
+/*
+ * Check wether x is a non-constant, trivial variable
+ * - i.e. x's definition is either x := b y or x := a + b y
+ */
+static bool simple_dependent_var(arith_vartable_t *tbl, thvar_t x) {
+  polynomial_t *q;
+  uint32_t n;
+
+  assert(arith_var_kind(tbl, x) == AVAR_FREE ||
+	 arith_var_kind(tbl, x) == AVAR_POLY);
+
+  q = arith_var_def(tbl, x);
+  if (q != NULL) {
+    n = q->nterms;
+    return (n == 1 && q->mono[0].var != const_idx) // q is b.y 
+        || (n == 2 && q->mono[0].var == const_idx);  // q is a + b.y
+  }
+  return false;
+}
+
+
+/*
+ * Get the monomual b.y in x's definition
+ * - x must be a simple dependent variable
+ */
+static monomial_t *simple_depvar_mono(arith_vartable_t *tbl, thvar_t x) {
+  polynomial_t *q;
+
+  assert(simple_dependent_var(tbl, x));
+
+  q = arith_var_poly_def(tbl, x);
+  return q->mono + (q->nterms - 1); // b.y is the last monomial of q
+}
+
+
+/*
+ * Get the variable y in the definition of x
+ * - x must be a simple dependent variable
+ */
+static inline thvar_t simple_depvar_source(arith_vartable_t *tbl, thvar_t x) {
+  return simple_depvar_mono(tbl, x)->var;
+}
+
+
+/*
+ * Get the coefficient b in x's definition
+ * - x must be a simple dependent variable
+ */
+static rational_t *simple_depvar_coeff(arith_vartable_t *tbl, thvar_t x) {
+  return &simple_depvar_mono(tbl, x)->coeff;
+}
+
+
+/*
+ * Given a trivial variable x := a + b y.
+ * record the dependency y --> x into dtbl
+ */
+static void record_simple_var_dep(arith_vartable_t *tbl, dep_table_t *dep, thvar_t x) {
+  thvar_t y;
+
+  y = simple_depvar_source(tbl, x);
+  add_dependent(dep, y, x); // add x as a dependent of y
+}
+
+
+/*
+ * Update the value of x: add delta to it
+ * - x must be a root variable
+ * - record the effect in hmap
+ */
+static inline void model_adjust_var(xq_hmap_t *hmap, arith_vartable_t *tbl, thvar_t x, rational_t *delta) {
+  xq_hmap_shift_entry(hmap, arith_var_value(tbl, x), delta);
+}
+
+
+/*
+ * Update the value of x's dependents when x's value is shifted by delta
+ * - record the effect in hmap
+ */
+static void model_adjust_var_dependents(xq_hmap_t *hmap, arith_vartable_t *tbl, dep_table_t *deps, 
+					thvar_t x, rational_t *delta) {
+  int32_t *v;
+  uint32_t i, n;
+  thvar_t y;
+
+  v = get_dependents(deps, x);
+  if (v != NULL) {
+    n = iv_size(v);
+    for (i=0; i<n; i++) {
+      y = v[i]; // y depends on x
+      assert(simple_depvar_source(tbl, y) == x);
+      xq_hmap_addmul_entry(hmap, arith_var_value(tbl, y), simple_depvar_coeff(tbl, y), delta);
+    }
+  }
+}
+
+
+/*
+ * Update the value of all basic variables that depend on x when x's value is
+ * shifted by delta. This is done only for basic variables that are roots (e.g,.
+ * they have an attache egraph term and that term is root of its equivalence 
+ * class in the egraph).
+ * - x must be a non-basic variable
+ * - record the effect in hmap
+ */
+static void model_adjust_var_base_dependents(simplex_solver_t *solver, xq_hmap_t *hmap, dep_table_t *deps,
+					     thvar_t x, rational_t *delta) {
+  matrix_t *matrix;
+  arith_vartable_t *vtbl;
+  column_t *col;
+  rational_t a;
+  uint32_t i, n;
+  int32_t r, j;
+  thvar_t y;
+
+  vtbl = &solver->vtbl;
+  matrix = &solver->matrix;
+
+  assert(matrix_is_nonbasic_var(matrix, x));
+
+  col = matrix_column(matrix, x);
+
+  if (col != NULL) {
+    q_init(&a);
+
+    n = col->nelems;
+    for (i=0; i<n; i++) {
+      r = col->data[i].r_idx;
+      if (r >= 0) {
+	// x occurs in row r
+	y = matrix_basic_var(matrix, r); // y = basic variable for row r
+	assert(y != null_thvar);
+	if (is_root_var(solver, y)) {
+	  /*
+	   * Adjust y: 
+	   * - let c be the coefficient of x in row r
+	   * - the row is (y + .... + c.x + ... = 0)
+	   * - so new_val[y] must be val[y] - c * delta
+	   */
+	  j = col->data[i].r_ptr;
+	  q_set_neg(&a, matrix_coeff(matrix, r, j)); // - c
+	  q_mul(&a, delta);  // -c * delta
+	  
+	  model_adjust_var(hmap, vtbl, y, &a); // Update y
+	  model_adjust_var_dependents(hmap, vtbl, deps, y, &a); // Update y's dependents
+	}
+      }
+    }
+    
+    q_clear(&a);;
+  }
+}
+
+
+/*
+ * Full adjustment for variable x:
+ * - adjust x itself if it's a root variable
+ * - adjust x's dependents
+ * - adjust all the basic variables that depend on x
+ * 
+ * x must not be a basic variable
+ */
+static void simplex_full_adjust_var(simplex_solver_t *solver, xq_hmap_t *hmap, dep_table_t *deps,
+				    thvar_t x, rational_t *delta) {
+  if (is_root_var(solver, x)) {
+    model_adjust_var(hmap, &solver->vtbl, x, delta);
+  }
+  model_adjust_var_dependents(hmap, &solver->vtbl, deps, x, delta);
+  model_adjust_var_base_dependents(solver, hmap, deps, x, delta);
+}
+
+
+
+/*
+ * Compute the safe delta interval for x
+ * - x must be a non-basic variable
+ * - store the result in s
+ */
+static void simplex_safe_adjust_interval(simplex_solver_t *solver, interval_t *s, thvar_t x) {
+  xrational_t aux;
+  rational_t inv_a;
+  matrix_t *matrix;
+  arith_vartable_t *vtbl;
+  column_t *col;
+  uint32_t i, n;
+  int32_t r, j;
+  thvar_t y;
+
+  vtbl = &solver->vtbl;
+  matrix = &solver->matrix;
+  
+  assert(matrix_is_nonbasic_var(matrix, x));
+
+  xq_init(&aux);
+
+
+  /*
+   * Initialize s using the bounds on x
+   */
+  reset_interval(s);
+  j = arith_var_lower_index(vtbl, x);
+  if (j >= 0) {
+    /* 
+     * x has a lower bound L:
+     * to ensure x + delta >= L, we want delta >= L - val[x]
+     */
+    xq_set(&aux, &solver->bstack.bound[j]);
+    xq_sub(&aux, arith_var_value(vtbl, x));
+    interval_update_lb(s, &aux);
+  }
+
+  j = arith_var_upper_index(vtbl, x);
+  if (j >= 0) {
+    /*
+     * we want delta <= U - val[x]
+     */
+    xq_set(&aux, &solver->bstack.bound[j]);
+    xq_sub(&aux, arith_var_value(vtbl, x));
+    interval_update_ub(s, &aux);
+  }
+
+  if (arith_var_is_int(vtbl, x)) {
+    // delta must be an integer
+    q_set_one(&s->period);
+  }
+
+
+  /*
+   * Check the bounds on all variables that depend on x
+   */
+  col = matrix_column(matrix, x);
+  if (col != NULL) {
+    q_init(&inv_a);
+
+    n = col->nelems;
+    for (i=0; i<n; i++) {
+      r = col->data[i].r_idx;
+      if (r >= 0) {
+	/* 
+	 * x occurs in row r with coefficient a (a != 0)
+	 * store 1/a in inv_a
+	 */
+	j = col->data[i].r_ptr;
+	q_set(&inv_a, matrix_coeff(matrix, r, j)); // coefficient of x in row r
+	assert(q_is_nonzero(&inv_a));
+	q_inv(&inv_a);
+
+	y = matrix_basic_var(matrix, r); // basic variable in row r
+	assert(y != x);
+
+	/*
+	 * Update the interval using the bounds on y + the type of y:
+	 * when val[x] is moved to val[x] + delta
+	 *      val[y] shifts to val[y] - a * delta
+	 */
+	j = arith_var_lower_index(vtbl, y);
+	if (j >= 0) {
+	  /*
+	   * y has a lower bound L:
+	   * if a > 0, we want delta <= (val[y] - L)/a
+	   * if a < 0, we want delta >= (val[y] - L)/a
+	   */
+	  xq_set(&aux, arith_var_value(vtbl, y));
+	  xq_sub(&aux, &solver->bstack.bound[j]); 
+	  xq_mul(&aux, &inv_a);   // aux := (val[y] - L)/a
+	  if (q_is_pos(&inv_a)) {
+	    interval_update_ub(s, &aux);
+	  } else {
+	    interval_update_lb(s, &aux);
+	  }
+	}
+
+	j = arith_var_upper_index(vtbl, y);
+	if (j >= 0) {
+	  /*
+	   * y has an upper bound U:
+	   * if a > 0, we want delta >= (val[y] - U)/a
+	   * if a < 0, we want delta <= (val[y] - U)/a
+	   */
+	  xq_set(&aux, arith_var_value(vtbl, y));
+	  xq_sub(&aux, &solver->bstack.bound[j]);
+	  xq_mul(&aux, &inv_a);   // aux := (val[y] - U)/a
+	  if (q_is_pos(&inv_a)) {
+	    interval_update_lb(s, &aux);
+	  } else {
+	    interval_update_ub(s, &aux);
+	  }
+	}
+
+	if (arith_var_is_int(vtbl, y)) {
+	  /*
+	   * We want a * delta to be an integer so 
+	   * delta must be a multiple of 1/a
+	   */
+	  interval_update_period(s, &inv_a);
+	}	
+      }
+    }
+
+    q_clear(&inv_a);
+  }
+
+  xq_clear(&aux);
+  
+}
+
+
+/*
+ * Test the interval computation code
+ */
+static void test_adjust_interval(simplex_solver_t *solver) {
+  interval_t interval;
+  uint32_t i, n;
+
+  init_interval(&interval);  
+  n = solver->vtbl.nvars;
+  for (i=0; i<n; i++) {
+    if (matrix_is_nonbasic_var(&solver->matrix, i)) {
+      // compute the safe interval for i
+      simplex_safe_adjust_interval(solver, &interval, i);
+
+      printf("Shift interval for ");
+      print_simplex_var(stdout, solver, i);
+      printf(":\n");
+      if (interval.has_lb) {
+	printf("   lower bound: ");
+	xq_print(stdout, &interval.lb);
+	printf("\n");
+      } else {
+	printf("   no lower bound\n");
+      }
+
+      if (interval.has_ub) {
+	printf("   upper bound: ");
+	xq_print(stdout, &interval.ub);
+	printf("\n");
+      } else {
+	printf("   no upper bound\n");
+      }
+
+      printf("   period: ");
+      q_print(stdout, &interval.period);
+      printf("\n---\n");
+    }
+  }
+
+  delete_interval(&interval);
+}
+
+
 /*
  * Attempt to modify the current model to minimize the number of
  * conflicts with the egraph classes.
  */
 static void simplex_adjust_model(simplex_solver_t *solver) {
   xq_hmap_t hmap;
+  dep_table_t deps;
   arith_vartable_t *vtbl;
   uint32_t i, n;
   
   init_xq_hmap(&hmap, 0);
+  init_dep_table(&deps, 0);
 
   vtbl = &solver->vtbl;
   n = vtbl->nvars;
   for (i=0; i<n; i++) {
     if (is_root_var(solver, i)) {
       xq_hmap_add_entry(&hmap, arith_var_value(vtbl, i));
+      if (simple_dependent_var(vtbl, i)) {
+	record_simple_var_dep(vtbl, &deps, i);
+      }
     }
   }
 
   printf("---> adjust model: %"PRIu32" entries, %"PRIu32" classes\n",
 	 xq_hmap_num_entries(&hmap), xq_hmap_num_classes(&hmap));
 
+  test_adjust_interval(solver);
+
+  delete_dep_table(&deps);
   delete_xq_hmap(&hmap);
 }
 
 
+
+/*
+ * RECONCILE MODEL
+ */
 
 /*
  * Replacement for build_model, var_equal_in_model, and release_model

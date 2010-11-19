@@ -280,6 +280,14 @@ extern void q_integer_rem(rational_t *r1, rational_t *r2);
 
 
 
+/*
+ * Generalized LCM: compute the smallest non-negative rational q
+ * such that q/r1 is an integer and q/r2 is an integer.
+ * - r1 and r2 can be arbitrary rationals.
+ * - the result is stored in r1
+ */
+extern void q_generalized_lcm(rational_t *r1, rational_t *r2);
+
 
 
 /*

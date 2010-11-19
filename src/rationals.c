@@ -1456,6 +1456,47 @@ bool q_divides(rational_t *r1, rational_t *r2) {
 
 
 
+/**********************
+ *  GENERALIZED LCM   *
+ *********************/
+
+/*
+ * This computes the LCM of r1 and r2 for arbitrary rationals:
+ * - if r1 is (a1/b1) and r2 is (a2/b2) then the result is
+ *    lcm(a1, a2)/gcd(b1, b2).
+ * - the result is stored in r1
+ */
+void q_generalized_lcm(rational_t *r1, rational_t *r2) {
+  rational_t a1, b1;
+  rational_t a2, b2;
+
+  if (q_is_integer(r1) && q_is_integer(r2)) {
+    q_lcm(r1, r2);
+  } else {
+    q_init(&a1);
+    q_get_num(&a1, r1);
+    q_init(&b1);
+    q_get_den(&b1, r1);
+    
+    q_init(&a2);
+    q_get_num(&a2, r2);
+    q_init(&b2);
+    q_get_den(&b2, r2);
+    
+    q_lcm(&a1, &a2); // a1 := lcm(a1, a2)
+    q_gcd(&b1, &b2); // b1 := gcd(b1, b2)
+
+    // copy the result in r1
+    q_set(r1, &a1);
+    q_div(r1, &b1);
+
+    q_clear(&a1);
+    q_clear(&b1);
+    q_clear(&a2);
+    q_clear(&b2);
+  }
+}
+
 
 
 /*****************
