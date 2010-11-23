@@ -697,6 +697,13 @@ static void interval_update_period(interval_t *s, rational_t *a) {
 }
 
 
+/*
+ * Check whether the interval is reduced to a single point
+ */
+static bool singleton_interval(interval_t *s) {
+  return s->has_ub && s->has_lb && xq_eq(&s->lb, &s->ub);
+}
+
 
 
 /*********************************
@@ -7837,6 +7844,36 @@ static void simplex_full_adjust_var(simplex_solver_t *solver, xq_hmap_t *hmap, d
 }
 
 
+/*
+ * Check whether adjusting x can make a difference:
+ * - i.e., x or one of its dependent variables is a root variable
+ */
+static bool simplex_useful_adjust_var(simplex_solver_t *solver, dep_table_t *deps, thvar_t x) {
+  matrix_t *matrix;
+  column_t *col;
+  uint32_t i, n;
+  int32_t r;
+
+  if (is_root_var(solver, x) || get_dependents(deps, x) != NULL) {
+    return true;
+  }
+
+  matrix = &solver->matrix;
+  col = matrix_column(matrix, x);
+  if (col != NULL) {
+    n = col->nelems;
+    for (i=0; i<n; i++) {
+      r  = col->data[i].r_idx;
+      if (r >= 0 && is_root_var(solver, matrix_basic_var(matrix, r))) {
+	// the basic variable in row r is root
+	return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 
 /*
  * Compute the safe delta interval for x
@@ -7968,18 +8005,168 @@ static void simplex_safe_adjust_interval(simplex_solver_t *solver, interval_t *s
   }
 
   xq_clear(&aux);
-  
+}
+
+
+
+/*
+ * Update the value of all trivial variables in deps[x]
+ * - delta = shift on x
+ */
+static void simplex_shift_var_dependents(arith_vartable_t *tbl, dep_table_t *deps, thvar_t x, rational_t *delta) {
+  int32_t *v;
+  uint32_t i, n;
+  thvar_t y;
+
+  v = get_dependents(deps, x);
+  if (v != NULL) {
+    n = iv_size(v);
+    for (i=0; i<n; i++) {
+      y = v[i];
+      assert(simple_depvar_source(tbl, y) == x);
+      xq_addmul_q(arith_var_value(tbl, y), simple_depvar_coeff(tbl, y), delta);
+    }
+  }
 }
 
 
 /*
- * Test the interval computation code
+ * Shift the value of x by delta and propagate to all dependent variables
+ * - this modifies the variable assignments in vartable
+ *
+ * NOTE: this does not update the values of trivial variables that
+ * depend on x but are not in x's dependent vectors.
  */
-static void test_adjust_intervals(simplex_solver_t *solver) {
-  interval_t interval;
+static void simplex_shift_var_value(simplex_solver_t *solver, dep_table_t *deps, thvar_t x, rational_t *delta) {
+  arith_vartable_t *vtbl;
+  matrix_t *matrix;
+  column_t *col;
+  rational_t a;
+  uint32_t i, n;
+  int32_t r, j;
+  thvar_t y;
+
+  vtbl = &solver->vtbl;
+
+  xq_add_q(arith_var_value(vtbl, x), delta); // value[x] := value[x] + delta
+  assert(value_satisfies_bounds(solver, x));
+
+  simplex_shift_var_dependents(vtbl, deps, x, delta); // simple dependents
+
+  matrix = &solver->matrix;
+  col = matrix_column(matrix, x);
+  if (col != NULL) {
+    q_init(&a);
+
+    n = col->nelems;
+    for (i=0; i<n; i++) {
+      r = col->data[i].r_ptr;
+      if (r >= 0) {
+	y = matrix_basic_var(matrix, r);   // y = basic var in row r
+	assert(y != null_thvar);
+
+	// delta on y = - delta * coeff of x in row r
+	j = col->data[i].r_ptr;
+	q_set_neg(&a, matrix_coeff(matrix, r, j));
+	q_mul(&a, delta);
+
+	// value[y] := value[y] + delta on y
+	xq_add_q(arith_var_value(vtbl, y), &a);
+	assert(value_satisfies_bounds(solver, y));
+
+	simplex_shift_var_dependents(vtbl, deps, y, &a); // shift y's dependents
+      }
+    }
+  }
+}
+
+
+/*
+ * Select a possible delta in the specified interval
+ * - i = selection index (i.e., the function must return a sequence
+ *   of distinct delta_i with indices i=0, 1, 2, ...)
+ * - return value = true if delta_i exists (then its value is stored in delta)
+ * - return false otherwise.
+ */
+static bool simplex_get_shift_candidate(rational_t *delta, interval_t *interval, uint32_t i) {
+  // TBD
+  return false;
+}
+
+
+/*
+ * Compute the best adjustment for variable x:
+ * - deps = dependency table
+ * - hmap = partition for the current variable assignment
+ * - aux = auxiliary hmap for computations
+ * - interval = adjustment interval for x
+ */
+static void simplex_adjust_var(simplex_solver_t *solver, dep_table_t *deps, xq_hmap_t *hmap, xq_hmap_t *aux,
+			       interval_t *interval, thvar_t x) {
+  rational_t delta;
+  rational_t best_delta;
+  uint32_t best_num_classes;
   uint32_t i, n;
 
-  init_interval(&interval);  
+  q_init(&best_delta);
+  best_num_classes = xq_hmap_num_classes(hmap);
+
+  /*
+   * Search for delta := shift of x's value that maximizes
+   * the number of classes in xq_hmap
+   */
+  q_init(&delta);
+  for (i=0; i<20; i++) { // try at most 20 candidates
+    if (! simplex_get_shift_candidate(&delta, interval, i)) break;
+    // aux := the new partition for this delta
+    copy_xq_hmap(aux, hmap);
+    simplex_full_adjust_var(solver, aux, deps, x, &delta);
+    n = xq_hmap_num_classes(aux);
+
+    assert(xq_hmap_num_entries(aux) == xq_hmap_num_entries(hmap));
+
+    if (n > best_num_classes) {
+      q_set(&best_delta, &delta);
+      best_num_classes = n;
+      if (n == xq_hmap_num_entries(aux)) {
+	// n is optimal
+	break;
+      }
+    }
+  }
+
+  /*
+   * Apply the best shift to the current model and 
+   * to hmap.
+   */
+  if (! q_is_zero(&best_delta)) {
+    // We must adjust hmap first
+    simplex_full_adjust_var(solver, hmap, deps, x, &best_delta);
+    assert(xq_hmap_num_classes(hmap) == best_num_classes);
+
+    // shift x and update its dependents
+    simplex_shift_var_value(solver, deps, x, &best_delta);    
+  }
+
+  q_clear(&delta);
+  q_clear(&best_delta);
+}
+
+
+
+/*
+ * Attempt to modify the current assignment 
+ * - deps = dependency table
+ * - hmap = current partition table
+ */
+static void simplex_adjust_assignment(simplex_solver_t *solver, dep_table_t *deps, xq_hmap_t *hmap) {
+  interval_t interval;
+  xq_hmap_t aux;
+  uint32_t i, n;
+
+  init_xq_hmap(&aux, 0);
+  init_interval(&interval);
+
   n = solver->vtbl.nvars;
   for (i=1; i<n; i++) {
     /*
@@ -7989,34 +8176,46 @@ static void test_adjust_intervals(simplex_solver_t *solver) {
      */
     if (matrix_is_nonbasic_var(&solver->matrix, i) &&
 	!trivial_variable(&solver->vtbl, i) && 
-	!simplex_fixed_variable(solver, i)) {
+	!simplex_fixed_variable(solver, i) && 
+	simplex_useful_adjust_var(solver, deps, i)) {
 
       // compute the safe interval for i
       simplex_safe_adjust_interval(solver, &interval, i);
+      if (! singleton_interval(&interval)) {
+	/*
+	 * Modify the value of x to maximize the number of classes in hmap
+	 */
+	printf("interval for ");
+	print_simplex_var(stdout, solver, i);
+	if (interval.has_lb) {
+	  printf(": lower bound = ");
+	  xq_print(stdout, &interval.lb);
+	} else {
+	  printf(": no lower bound");
+	}
+	
+	if (interval.has_ub) {
+	  printf(", upper bound = ");
+	  xq_print(stdout, &interval.ub);
+	} else {
+	  printf(", no upper bound");
+	}
 
-      printf("interval for ");
-      print_simplex_var(stdout, solver, i);
-      if (interval.has_lb) {
-	printf(": lower bound = ");
-	xq_print(stdout, &interval.lb);
-      } else {
-	printf(": no lower bound");
-      }
-      
-      if (interval.has_ub) {
-	printf(", upper bound = ");
-	xq_print(stdout, &interval.ub);
-      } else {
-	printf(", no upper bound");
-      }
+	printf(", period = ");
+	q_print(stdout, &interval.period);
+	printf("\n");
 
-      printf(", period = ");
-      q_print(stdout, &interval.period);
-      printf("\n");
+	simplex_adjust_var(solver, deps, hmap, &aux, &interval, i);
+	if (xq_hmap_num_classes(hmap) == xq_hmap_num_entries(hmap)) {
+	  // no improvement possible
+	  break;
+	}
+      }      
     }
   }
 
   delete_interval(&interval);
+  delete_xq_hmap(&aux);
 }
 
 
@@ -8044,14 +8243,14 @@ static void simplex_adjust_model(simplex_solver_t *solver) {
     }
   }
 
-  printf("\n*** ADJUST MODEL ***\n");  
-  //  print_simplex_vars_summary(stdout, solver);
-  //  print_simplex_matrix(stdout, solver);
+  if (xq_hmap_num_classes(&hmap) < xq_hmap_num_entries(&hmap)) {
+    printf("---> before adjustment: %"PRIu32" entries, %"PRIu32" classes\n",
+	   xq_hmap_num_entries(&hmap), xq_hmap_num_classes(&hmap));
+    simplex_adjust_assignment(solver, &deps, &hmap);
+    printf("---> after adjustment: %"PRIu32" entries, %"PRIu32" classes\n",
+	   xq_hmap_num_entries(&hmap), xq_hmap_num_classes(&hmap));
+  }
 
-  test_adjust_intervals(solver);
-
-  printf("---> adjust model: %"PRIu32" entries, %"PRIu32" classes\n",
-	 xq_hmap_num_entries(&hmap), xq_hmap_num_classes(&hmap));
 
   delete_dep_table(&deps);
   delete_xq_hmap(&hmap);

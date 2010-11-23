@@ -329,6 +329,22 @@ static inline void xq_submul(xrational_t *r1, xrational_t *r2, rational_t *q) {
 
 
 /*
+ * Add q1 * q2 to r
+ */
+static inline void xq_addmul_q(xrational_t *r, rational_t *q1, rational_t *q2) {
+  q_addmul(&r->main, q1, q2);
+}
+
+
+/*
+ * Subtract q1 * q2 from r
+ */
+static inline void xq_submul_q(xrational_t *r, rational_t *q1, rational_t *q2) {
+  q_submul(&r->main, q1, q2);
+}
+
+
+/*
  * Add +/-1 or +/-delta to r
  */
 static inline void xq_add_one(xrational_t *r) {
