@@ -8082,6 +8082,13 @@ static void simplex_shift_var_value(simplex_solver_t *solver, dep_table_t *deps,
 
 
 /*
+ * Parameter used by the candidate selection heuristics below:
+ * - max number of candidates to try
+ */
+#define MAX_SHIFT_CANDIDATES 20
+
+
+/*
  * Select a possible delta in the specified interval
  * - i = selection index (i.e., the function must return a sequence
  *   of distinct delta_i with indices i=0, 1, 2, ...)
@@ -8089,7 +8096,6 @@ static void simplex_shift_var_value(simplex_solver_t *solver, dep_table_t *deps,
  * - return false otherwise.
  */
 static bool simplex_get_shift_candidate(rational_t *delta, interval_t *interval, uint32_t i) {
-  // TBD
   return false;
 }
 
@@ -8109,14 +8115,33 @@ static void simplex_adjust_var(simplex_solver_t *solver, dep_table_t *deps, xq_h
   uint32_t i, n;
 
   q_init(&best_delta);
+  q_init(&delta);
   best_num_classes = xq_hmap_num_classes(hmap);
 
+
+  /*
+   * To prepare for get_shift_candidate, make sure period is not zero.
+   * Change it to (upper bound - lower bound)/MAX_SHIFT_CANDIDATES
+   * or to 1 if there's no upper or no lower bound
+   */
+  if (q_is_zero(&interval->period)) {
+    if (interval->has_ub && interval->has_lb) {
+      q_set_int32(&delta, 1, MAX_SHIFT_CANDIDATES); // delta = 1/MAX_SHIFT_CANDIDATES
+      q_set(&interval->period, &interval->ub.main);
+      q_sub(&interval->period, &interval->lb.main);
+      q_mul(&interval->period, &delta);
+      q_clear(&delta);
+    } else {
+      q_set_one(&interval->period);
+    }
+  }
+  
+  
   /*
    * Search for delta := shift of x's value that maximizes
    * the number of classes in xq_hmap
    */
-  q_init(&delta);
-  for (i=0; i<20; i++) { // try at most 20 candidates
+  for (i=0; i<MAX_SHIFT_CANDIDATES; i++) { // try at most 20 candidates
     if (! simplex_get_shift_candidate(&delta, interval, i)) break;
     // aux := the new partition for this delta
     copy_xq_hmap(aux, hmap);
