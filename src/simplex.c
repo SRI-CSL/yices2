@@ -67,6 +67,8 @@ static void check_infeasible_vars(simplex_solver_t *solver);
 static void check_integer_bounds(simplex_solver_t *solver);
 static void check_bound_marks(simplex_solver_t *solver);
 
+static void check_equation_satisfied(simplex_solver_t *solver, uint32_t r);
+
 #endif
 
 
@@ -628,6 +630,7 @@ static void simplex_free_freshval_set(simplex_freshval_t *set) {
 /*
  * Initialize the record:
  * - all rationals are zero, no bounds
+ * - tag, k_min, k_max are not initialized yet
  */
 static void init_interval(interval_t *s) {
   s->has_lb = false;
@@ -690,7 +693,7 @@ static void interval_update_ub(interval_t *s, xrational_t *a) {
  */
 static void interval_update_period(interval_t *s, rational_t *a) {
   if (q_is_zero(&s->period)) {
-    q_set(&s->period, a);
+    q_set_abs(&s->period, a);
   } else {
     q_generalized_lcm(&s->period, a);
   }
@@ -702,6 +705,77 @@ static void interval_update_period(interval_t *s, rational_t *a) {
  */
 static bool singleton_interval(interval_t *s) {
   return s->has_ub && s->has_lb && xq_eq(&s->lb, &s->ub);
+}
+
+
+#ifndef NDEBUG
+/*
+ * For debugging: check whether delta is between s->lb and s->ub
+ */
+static bool sample_in_interval(interval_t *s, rational_t *delta) {
+  return (!s->has_lb || xq_le_q(&s->lb, delta)) && (!s->has_ub || xq_ge_q(&s->ub, delta));
+}
+#endif
+
+/*
+ * Prepare the interval s for sampling:
+ * - this sets tag, k_min, and k_max
+ * - if the period is 0, then it's replaced by a non-zero number
+ * - input: n = max number of samples
+ */
+static void interval_prepare_for_sampling(interval_t *s, uint32_t n) {
+  xrational_t aux;
+  rational_t div;
+  
+  assert(n > 0 && !singleton_interval(s));
+
+  if (q_is_zero(&s->period)) {
+    /*
+     * Force a non-zero period: try (ub - lb)/n
+     */
+    if (s->has_ub && s->has_lb && q_neq(&s->lb.main, &s->ub.main)) {
+      q_init(&div);
+      q_set_int32(&div, 1, n);
+      q_set(&s->period, &s->ub.main);
+      q_sub(&s->period, &s->lb.main);
+      q_mul(&s->period, &div);  // period = (ub - lb)/n
+    } else {
+      q_set_one(&s->period);
+    }
+  }
+
+  assert(q_is_pos(&s->period));
+  
+  /*
+   * Compute k_min = ceil(lb/period) and k_max = floor(up/period)
+   */
+  xq_init(&aux);
+  s->k_min = INT32_MIN;
+  if (s->has_lb) {
+    xq_set(&aux, &s->lb);
+    xq_div(&aux, &s->period);
+    xq_ceil(&aux);
+    assert(xq_sgn(&aux) <= 0 && xq_is_integer(&aux));
+    q_normalize(&aux.main);
+    if (q_is_smallint(&aux.main)) {
+      s->k_min = q_get_smallint(&aux.main);
+    } // else leave k_min = INT32_MIN
+  }
+
+  s->k_max = INT32_MAX;
+  if (s->has_ub) {
+    xq_set(&aux, &s->ub);
+    xq_div(&aux, &s->period);
+    xq_floor(&aux);
+    assert(xq_sgn(&aux) >= 0 && xq_is_integer(&aux));
+    q_normalize(&aux.main);
+    if (q_is_smallint(&aux.main)) {
+      s->k_max = q_get_smallint(&aux.main);
+    } // else leave k_max = INT32_MAX
+  }
+
+  xq_clear(&aux);
+  assert(s->k_min <= 0 && 0 <= s->k_max);  
 }
 
 
@@ -6352,7 +6426,7 @@ static void simplex_process_var_distinct(simplex_solver_t *solver, uint32_t n, t
 
   for (i=0; i<n-1; i++) {
     for (j=i+1; j<n; j++) {
-      simplex_process_var_diseq(solver, a[i], a[j], hint);
+      simplex_process_var_diseq(solver, a[i], a[j]);
     }
   }
 #endif
@@ -7797,7 +7871,7 @@ static void model_adjust_var_base_dependents(simplex_solver_t *solver, xq_hmap_t
   if (col != NULL) {
     q_init(&a);
 
-    n = col->nelems;
+    n = col->size;
     for (i=0; i<n; i++) {
       r = col->data[i].r_idx;
       if (r >= 0) {
@@ -7861,7 +7935,7 @@ static bool simplex_useful_adjust_var(simplex_solver_t *solver, dep_table_t *dep
   matrix = &solver->matrix;
   col = matrix_column(matrix, x);
   if (col != NULL) {
-    n = col->nelems;
+    n = col->size;
     for (i=0; i<n; i++) {
       r  = col->data[i].r_idx;
       if (r >= 0 && is_root_var(solver, matrix_basic_var(matrix, r))) {
@@ -7936,7 +8010,7 @@ static void simplex_safe_adjust_interval(simplex_solver_t *solver, interval_t *s
   if (col != NULL) {
     q_init(&inv_a);
 
-    n = col->nelems;
+    n = col->size;
     for (i=0; i<n; i++) {
       r = col->data[i].r_idx;
       if (r >= 0) {
@@ -8029,7 +8103,6 @@ static void simplex_shift_var_dependents(arith_vartable_t *tbl, dep_table_t *dep
   }
 }
 
-
 /*
  * Shift the value of x by delta and propagate to all dependent variables
  * - this modifies the variable assignments in vartable
@@ -8049,6 +8122,8 @@ static void simplex_shift_var_value(simplex_solver_t *solver, dep_table_t *deps,
   vtbl = &solver->vtbl;
 
   xq_add_q(arith_var_value(vtbl, x), delta); // value[x] := value[x] + delta
+  simplex_set_bound_flags(solver, x);
+
   assert(value_satisfies_bounds(solver, x));
 
   simplex_shift_var_dependents(vtbl, deps, x, delta); // simple dependents
@@ -8058,9 +8133,9 @@ static void simplex_shift_var_value(simplex_solver_t *solver, dep_table_t *deps,
   if (col != NULL) {
     q_init(&a);
 
-    n = col->nelems;
+    n = col->size;
     for (i=0; i<n; i++) {
-      r = col->data[i].r_ptr;
+      r = col->data[i].r_idx;
       if (r >= 0) {
 	y = matrix_basic_var(matrix, r);   // y = basic var in row r
 	assert(y != null_thvar);
@@ -8074,11 +8149,15 @@ static void simplex_shift_var_value(simplex_solver_t *solver, dep_table_t *deps,
 	xq_add_q(arith_var_value(vtbl, y), &a);
 	assert(value_satisfies_bounds(solver, y));
 
+#if DEBUG
+	check_equation_satisfied(solver, r);
+#endif
 	simplex_shift_var_dependents(vtbl, deps, y, &a); // shift y's dependents
       }
     }
   }
 }
+
 
 
 /*
@@ -8096,8 +8175,35 @@ static void simplex_shift_var_value(simplex_solver_t *solver, dep_table_t *deps,
  * - return false otherwise.
  */
 static bool simplex_get_shift_candidate(rational_t *delta, interval_t *interval, uint32_t i) {
-  return false;
+  int64_t w;
+  int32_t k;
+
+  w = (int64_t) interval->k_max - (int64_t) interval->k_min;
+  if (w <= MAX_SHIFT_CANDIDATES + 1) {
+    k = i;
+    k += interval->k_min;
+    if (k > interval->k_max) return false;
+  } else if (w < 1000 * MAX_SHIFT_CANDIDATES) {
+    k = irand(w);
+    k += interval->k_min;
+  } else {
+    k = irand(1000 * MAX_SHIFT_CANDIDATES);
+    if (interval->k_min > -500 * MAX_SHIFT_CANDIDATES) {
+      k += interval->k_min;
+    } else if (interval->k_max < 500 * MAX_SHIFT_CANDIDATES) {
+      k = interval->k_max - k;
+    } else {
+      k -= 500 * MAX_SHIFT_CANDIDATES;
+    }
+  }
+
+  assert(interval->k_min <= k && k <= interval->k_max);
+  q_set32(delta, k);
+  q_mul(delta, &interval->period);
+
+  return !interval->has_ub || xq_ge_q(&interval->ub, delta);
 }
+
 
 
 /*
@@ -8118,24 +8224,7 @@ static void simplex_adjust_var(simplex_solver_t *solver, dep_table_t *deps, xq_h
   q_init(&delta);
   best_num_classes = xq_hmap_num_classes(hmap);
 
-
-  /*
-   * To prepare for get_shift_candidate, make sure period is not zero.
-   * Change it to (upper bound - lower bound)/MAX_SHIFT_CANDIDATES
-   * or to 1 if there's no upper or no lower bound
-   */
-  if (q_is_zero(&interval->period)) {
-    if (interval->has_ub && interval->has_lb) {
-      q_set_int32(&delta, 1, MAX_SHIFT_CANDIDATES); // delta = 1/MAX_SHIFT_CANDIDATES
-      q_set(&interval->period, &interval->ub.main);
-      q_sub(&interval->period, &interval->lb.main);
-      q_mul(&interval->period, &delta);
-      q_clear(&delta);
-    } else {
-      q_set_one(&interval->period);
-    }
-  }
-  
+  interval_prepare_for_sampling(interval, MAX_SHIFT_CANDIDATES);
   
   /*
    * Search for delta := shift of x's value that maximizes
@@ -8143,19 +8232,28 @@ static void simplex_adjust_var(simplex_solver_t *solver, dep_table_t *deps, xq_h
    */
   for (i=0; i<MAX_SHIFT_CANDIDATES; i++) { // try at most 20 candidates
     if (! simplex_get_shift_candidate(&delta, interval, i)) break;
-    // aux := the new partition for this delta
-    copy_xq_hmap(aux, hmap);
-    simplex_full_adjust_var(solver, aux, deps, x, &delta);
-    n = xq_hmap_num_classes(aux);
 
-    assert(xq_hmap_num_entries(aux) == xq_hmap_num_entries(hmap));
+    assert(sample_in_interval(interval, &delta));
 
-    if (n > best_num_classes) {
-      q_set(&best_delta, &delta);
-      best_num_classes = n;
-      if (n == xq_hmap_num_entries(aux)) {
-	// n is optimal
-	break;
+    if (! q_is_zero(&delta)) {
+      // aux := the new partition for this delta
+      copy_xq_hmap(aux, hmap);
+      simplex_full_adjust_var(solver, aux, deps, x, &delta);
+      n = xq_hmap_num_classes(aux);
+
+      printf("    delta = ");
+      q_print(stdout, &delta);
+      printf(": %"PRIu32" classes\n", n);
+      
+      assert(xq_hmap_num_entries(aux) == xq_hmap_num_entries(hmap));
+
+      if (n > best_num_classes) {
+	q_set(&best_delta, &delta);
+	best_num_classes = n;
+	if (n == xq_hmap_num_entries(aux)) {
+	  // n is optimal
+	  break;
+	}
       }
     }
   }
@@ -8165,6 +8263,9 @@ static void simplex_adjust_var(simplex_solver_t *solver, dep_table_t *deps, xq_h
    * to hmap.
    */
   if (! q_is_zero(&best_delta)) {
+    printf("    adjustment: delta = ");
+    q_print(stdout, &best_delta);
+    printf(": %"PRIu32" classes\n", best_num_classes);
     // We must adjust hmap first
     simplex_full_adjust_var(solver, hmap, deps, x, &best_delta);
     assert(xq_hmap_num_classes(hmap) == best_num_classes);
@@ -8188,6 +8289,13 @@ static void simplex_adjust_assignment(simplex_solver_t *solver, dep_table_t *dep
   interval_t interval;
   xq_hmap_t aux;
   uint32_t i, n;
+
+#if DEBUG
+  check_assignment(solver);
+  check_integer_bounds(solver);
+  check_vartags(solver);
+  check_bound_marks(solver);
+#endif
 
   init_xq_hmap(&aux, 0);
   init_interval(&interval);
@@ -8231,6 +8339,14 @@ static void simplex_adjust_assignment(simplex_solver_t *solver, dep_table_t *dep
 	printf("\n");
 
 	simplex_adjust_var(solver, deps, hmap, &aux, &interval, i);
+
+#if DEBUG
+	check_assignment(solver);
+	check_integer_bounds(solver);
+	check_vartags(solver);
+	check_bound_marks(solver);
+#endif
+
 	if (xq_hmap_num_classes(hmap) == xq_hmap_num_entries(hmap)) {
 	  // no improvement possible
 	  break;
@@ -9440,7 +9556,6 @@ static void check_assertion(simplex_solver_t *solver, int32_t a) {
   arith_atom_t *atom;
   uint32_t i;
   bool b;
-  
 
   i = atom_of_assertion(a);
   atom = arith_atom(&solver->atbl, i);

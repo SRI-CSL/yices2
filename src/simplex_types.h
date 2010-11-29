@@ -532,25 +532,28 @@ typedef struct simplex_freshval_s {
  ********************/
 
 /*
- * When we adjust the model (in reconcile model), we try to shift 
- * the current value of a non-basic variable x by some delta, then
- * adjust the value of all basic variables that depend on x.
- * We want this shift to preserve feasibility (without requiring any
- * pivoting)
+ * When we adjust the model (in reconcile model), we try to shift the
+ * current value of a non-basic variable x by some delta, then adjust
+ * the value of all basic variables that depend on x.  We want this
+ * shift to preserve feasibility (without requiring any pivoting)
  *
- * To do this, we compute an interval of values for x that maintain
- * feasibility and we also need a rational D that defines which 
- * delta maintain integer feasibility. All these components are stored
- * in the following record.
+ * To do this, we compute an interval of values for delta that maintain
+ * feasibility and we also need a rational D that defines which delta
+ * maintain integer feasibility. All these components are stored in
+ * the following record.
  *
  * - lb and ub are lower and upper bounds 
  * - has_lb is true if lb is valid, otherwise, there's no lower bound
- *   (or the lower bound is minus infinity)
  * - has_ub is true if ub is valid, otherwise, there's no upper bound
- *   (i.e., the upper bound is plus infinity)
  * - period is a rational number, if it's not zero then the allowed
  *   shifts on x must be multiple of period. (If it's zero, the allowed
  *   shifts on x can be anything).
+ *
+ * Two more components are used for sampling
+ * - k_min = smallest integer k such that lb <= k period 
+ *   (i.e., k_min = ceil(lb/period))
+ * - k_max = larest integer k such that k period <= ub
+ *   (i.e., k_max = floor(ub/period))
  */
 typedef struct interval_s {
   bool has_lb;
@@ -558,6 +561,8 @@ typedef struct interval_s {
   xrational_t lb;
   xrational_t ub;
   rational_t period;
+  int32_t k_min;
+  int32_t k_max;
 } interval_t;
 
 

@@ -297,18 +297,25 @@ CSL_CHECK_GMP_HEADER($2,--with-static-gmp-include-dir)
 if test -z "$1"; then
    #
    # Some (non-GNU) versions of ld do not recognize --verbose
-   # use LD_LIBRARY_PATH as default in such cases.
    #
    if ld --verbose > /dev/null 2>&1; then 
-      aux_libs=`ld --verbose | grep SEARCH_DIR | sed -e 's,SEARCH_DIR(\"\?,,g' -e 's,\"\?);,,g'`
+      base_libs=`ld --verbose | grep SEARCH_DIR | sed -e 's,SEARCH_DIR(\"\?,,g' -e 's,\"\?);,,g'`
    else
-     if test "x$LD_LIBRARY_PATH" != x; then 
-        aux_libs=`echo $LD_LIBRARY_PATH | sed -e 's,:, ,g'`
-     else
-        aux_libs=""
-     fi
+      base_libs=""
    fi
-   search_libs="$auxlibs /usr/local/lib /usr/lib /lib"
+   #
+   # Add LD_LIBRARY_PATH or DYLD_LIBRARY_PATH if they are defined
+   #
+   if test "x$LD_LIBRARY_PATH" != x; then 
+      aux_libs=`echo $LD_LIBRARY_PATH | sed -e 's,:, ,g'`
+   else
+      if test "x$DYLD_LIBRARY_PATH" != x; then
+         aux_libs=`echo $DYLD_LIBRARY_PATH | sed -e 's,:, ,g'`
+      else
+         aux_libs=""
+      fi
+   fi
+   search_libs="$aux_libs $base_libs /usr/local/lib /usr/lib /lib"
    #
    # Add other libraries from $LDFLAGS
    #

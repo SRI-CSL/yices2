@@ -90,7 +90,7 @@ extern int xq_cmp_q(xrational_t *r, rational_t *q);
  *  xq_gt_q(r, q) tests whether r > q
  *  xq_ge_q(r, q) tests whether r >= q
  *  xq_eq_q(r, q) tests whether r == q
- *  xq_neg_q(r, q) tests whehter r != q
+ *  xq_neg_q(r, q) tests whether r != q
  */
 static inline bool xq_le_q(xrational_t *r, rational_t *q) {
   return xq_cmp_q(r, q) <= 0;
@@ -151,7 +151,7 @@ static inline bool xq_is_integer(xrational_t *r) {
  * - xq_sgn(r) = -1 if r < 0
  * - xq_sgn(r) = +1 if r > 0
  */
-static inline bool xq_sgn(xrational_t *r) {
+static inline int xq_sgn(xrational_t *r) {
   if (q_is_zero(&r->main)) {
     return q_sgn(&r->delta);
   } else {

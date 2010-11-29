@@ -26,7 +26,7 @@
  * - dep = array of vectors (we use index_vectors)
  *
  * We always have 0 <= nelems <= size.
- * - dep[i] is initialize for 0 <= i < nelems
+ * - dep[i] is initialized for 0 <= i < nelems
  * - dep[i] is not initialized for nelems <= i < size.
  */
 typedef struct dep_table_s {
@@ -77,7 +77,7 @@ extern void add_dependent(dep_table_t *table, int32_t i, int32_t j);
  */
 static inline int32_t *get_dependents(dep_table_t *table, int32_t i) {
   assert(0 <= i);
-  return (i < table->size) ? table->dep[i] : NULL;
+  return (i < table->nelems) ? table->dep[i] : NULL;
 }
 
 

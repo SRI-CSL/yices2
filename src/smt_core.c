@@ -3897,7 +3897,7 @@ static bool preprocess_clause(smt_core_t *s, uint32_t *n, literal_t *a) {
  * - if a clause is added on the fly, when decision_level > base_level,
  *   we copy it into the lemma queue for future processing.
  * The theory solver may call the clause-addition function within 
- * its propagate or its backtrack functions.
+ * its propagate or backtrack functions.
  */
 
 /*
@@ -3947,7 +3947,7 @@ void add_empty_clause(smt_core_t *s) {
  * Add a unit clause
  */
 void add_unit_clause(smt_core_t *s, literal_t l) {
-  if (on_the_fly(s)) {
+  if (on_the_fly(s) && s->decision_level > s->base_level) {
     push_lemma(&s->lemmas, 1, &l);
     return;
   }
