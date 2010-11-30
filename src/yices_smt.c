@@ -230,6 +230,7 @@ typedef enum optid {
   simplex_eager_lemmas,       // generate simple lemmas eagerly
   simplex_prop_enabled,       // enable row-based propagation
   simplex_prop_threshold,     // max size of rows in propagation table
+  simplex_adjust_model,       // enable optimized model reconciliation (egraph + simplex)
   simplex_bland_threshold,    // threshold that triggers activation of Bland's rule
   simplex_check_period,       // for integer arithmetic: period of calls to integer_check
 
@@ -297,6 +298,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "eager-lemmas", '\0', FLAG_OPTION, simplex_eager_lemmas },
   { "simplex-prop", '\0', FLAG_OPTION, simplex_prop_enabled },
   { "prop-threshold", '\0', MANDATORY_INT, simplex_prop_threshold },
+  { "simplex-adjust-model", '\0', FLAG_OPTION, simplex_adjust_model },
   { "bland-threshold", '\0', MANDATORY_INT, simplex_bland_threshold },
   { "icheck-period", '\0', MANDATORY_INT, simplex_check_period },
 
@@ -393,6 +395,7 @@ static void yices_help(char *progname) {
 	 "   --eager-lemmas\n"
 	 "   --simplex-prop\n"
 	 "   --prop-threshold\n"
+         "   --simplex-adjust-model\n"
 	 "   --bland-threshold\n"
 	 "   --icheck-period\n"
 	 "  Array solver options:\n"
@@ -547,6 +550,15 @@ static void check_parameters(char *progname) {
       goto error;
     }
     params.integer_check_period = v;
+    use_default_params = false;
+  }
+
+  if (opt_set[simplex_adjust_model]) {
+    if (arith_solver == ARITH_SOLVER_FLOYD_WARSHALL) {
+      fprintf(stderr, "%s: Simplex option %s not usable if Floyd-Warshall solver is selected\n", progname, opt_name(simplex_adjust_model));
+      goto error;
+    }
+    params.adjust_simplex_model = true;
     use_default_params = false;
   }
 
@@ -940,6 +952,7 @@ static void parse_command_line(int argc, char *argv[]) {
       case use_simplex:
       case simplex_eager_lemmas:
       case simplex_prop_enabled:
+      case simplex_adjust_model:
 	break;
 
 	// integer parameters
@@ -1287,6 +1300,10 @@ static void print_options(FILE *f, context_t *ctx) {
       if (simplex_option_enabled(simplex, SIMPLEX_PROPAGATION) || 
 	  params.use_simplex_prop) {
 	fprintf(f, " --simplex-prop --prop-threshold=%"PRIu32, params.max_prop_row_size);
+      }
+      if (simplex_option_enabled(simplex, SIMPLEX_ADJUST_MODEL) ||
+	  params.adjust_simplex_model) {
+	fprintf(f, " --simplex-adjust-model");
       }
       fprintf(f, " --bland-threshold=%"PRIu32, params.bland_threshold);
       fprintf(f, " --icheck-period=%"PRId32, params.integer_check_period);

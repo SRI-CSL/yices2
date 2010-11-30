@@ -106,8 +106,10 @@ const char * const reduce_compile_option = "remove";
  * - SIMPLEX_DEFAULT_PROP_ROW_SIZE = 30
  * - SIMPLEX_DEFAULT_CHECK_PERIOD = infinity
  * - propagation is disabled by default
+ * - model adjustment is also disabled
  */
 #define DEFAULT_SIMPLEX_PROP_FLAG     false
+#define DEFAULT_SIMPLEX_ADJUST_FLAG   false
 
 
 /*
@@ -148,6 +150,7 @@ static param_t default_settings = {
   DEFAULT_MAX_INTERFACE_EQS,
 
   DEFAULT_SIMPLEX_PROP_FLAG,
+  DEFAULT_SIMPLEX_ADJUST_FLAG,
   SIMPLEX_DEFAULT_PROP_ROW_SIZE,
   SIMPLEX_DEFAULT_BLAND_THRESHOLD,
   SIMPLEX_DEFAULT_CHECK_PERIOD,
@@ -375,9 +378,6 @@ static void show_progress(smt_core_t *core,
 static void solve(smt_core_t *core, param_t *params, bool verbose) {
   uint32_t c_threshold, d_threshold; // Picosat-style
   uint32_t reduce_threshold;
-#if 0
-  uint32_t n_reductions; // not used anymore?
-#endif
 
   assert(smt_status(core) == STATUS_IDLE);
 
@@ -387,9 +387,6 @@ static void solve(smt_core_t *core, param_t *params, bool verbose) {
     d_threshold = params->d_threshold;
   }
 
-#if 0
-  n_reductions = num_reduce_calls(core);
-#endif
   reduce_threshold = (uint32_t) (num_prob_clauses(core) * params->r_fraction);
   if (reduce_threshold < params->r_threshold) {
     reduce_threshold = params->r_threshold;
@@ -443,15 +440,6 @@ static void solve(smt_core_t *core, param_t *params, bool verbose) {
 	  c_threshold = params->c_threshold;
 	  d_threshold = (uint32_t) (d_threshold * params->d_factor);
 	}
-
-#if 0
-	if (n_reductions < num_reduce_calls(core)) {
-	  // Not good in slow_start mode.
-	  // This leads to too many calls to reduce_clause_database
-	  n_reductions = num_reduce_calls(core);
-	  reduce_threshold = (uint32_t) (reduce_threshold * params->r_factor);
-	}
-#endif
 
 	if (verbose) {
 	  show_progress(core, d_threshold, reduce_threshold, false);
@@ -536,6 +524,9 @@ smt_status_t check_context(context_t *ctx, param_t *params, bool verbose) {
       if (params->use_simplex_prop) {
 	simplex_enable_propagation(simplex);
 	simplex_set_prop_threshold(simplex, params->max_prop_row_size);
+      }
+      if (params->adjust_simplex_model) {
+	simplex_enable_adjust_model(simplex);
       }
       simplex_set_bland_threshold(simplex, params->bland_threshold);
       simplex_set_integer_check_period(simplex, params->integer_check_period);

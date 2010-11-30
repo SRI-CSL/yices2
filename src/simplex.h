@@ -152,6 +152,14 @@ static inline void simplex_disable_periodic_icheck(simplex_solver_t *solver) {
   simplex_disable_options(solver, SIMPLEX_ICHECK);
 }
 
+static inline void simplex_enable_adjust_model(simplex_solver_t *solver) {
+  simplex_enable_options(solver, SIMPLEX_ADJUST_MODEL);
+}
+
+static inline void simplex_disable_adjust_model(simplex_solver_t *solver) {
+  simplex_disable_options(solver, SIMPLEX_ADJUST_MODEL);
+}
+
 
 
 /*******************************

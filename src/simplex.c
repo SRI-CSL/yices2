@@ -32,7 +32,7 @@
 #define TRACE_BB 0
 
 
-#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG) || 1
+#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG)
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -8164,7 +8164,7 @@ static void simplex_shift_var_value(simplex_solver_t *solver, dep_table_t *deps,
  * Parameter used by the candidate selection heuristics below:
  * - max number of candidates to try
  */
-#define MAX_SHIFT_CANDIDATES 20
+#define MAX_SHIFT_CANDIDATES 5
 
 
 /*
@@ -8241,9 +8241,11 @@ static void simplex_adjust_var(simplex_solver_t *solver, dep_table_t *deps, xq_h
       simplex_full_adjust_var(solver, aux, deps, x, &delta);
       n = xq_hmap_num_classes(aux);
 
+#if TRACE
       printf("    delta = ");
       q_print(stdout, &delta);
       printf(": %"PRIu32" classes\n", n);
+#endif
       
       assert(xq_hmap_num_entries(aux) == xq_hmap_num_entries(hmap));
 
@@ -8263,9 +8265,11 @@ static void simplex_adjust_var(simplex_solver_t *solver, dep_table_t *deps, xq_h
    * to hmap.
    */
   if (! q_is_zero(&best_delta)) {
+#if TRACE
     printf("    adjustment: delta = ");
     q_print(stdout, &best_delta);
     printf(": %"PRIu32" classes\n", best_num_classes);
+#endif
     // We must adjust hmap first
     simplex_full_adjust_var(solver, hmap, deps, x, &best_delta);
     assert(xq_hmap_num_classes(hmap) == best_num_classes);
@@ -8318,6 +8322,7 @@ static void simplex_adjust_assignment(simplex_solver_t *solver, dep_table_t *dep
 	/*
 	 * Modify the value of x to maximize the number of classes in hmap
 	 */
+#if TRACE
 	printf("interval for ");
 	print_simplex_var(stdout, solver, i);
 	if (interval.has_lb) {
@@ -8337,6 +8342,7 @@ static void simplex_adjust_assignment(simplex_solver_t *solver, dep_table_t *dep
 	printf(", period = ");
 	q_print(stdout, &interval.period);
 	printf("\n");
+#endif
 
 	simplex_adjust_var(solver, deps, hmap, &aux, &interval, i);
 
@@ -8385,11 +8391,15 @@ static void simplex_adjust_model(simplex_solver_t *solver) {
   }
 
   if (xq_hmap_num_classes(&hmap) < xq_hmap_num_entries(&hmap)) {
+#if TRACE
     printf("---> before adjustment: %"PRIu32" entries, %"PRIu32" classes\n",
 	   xq_hmap_num_entries(&hmap), xq_hmap_num_classes(&hmap));
+#endif
     simplex_adjust_assignment(solver, &deps, &hmap);
+#if TRACE
     printf("---> after adjustment: %"PRIu32" entries, %"PRIu32" classes\n",
 	   xq_hmap_num_entries(&hmap), xq_hmap_num_classes(&hmap));
+#endif
   }
 
 
@@ -8418,8 +8428,7 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
   
   simplex_prepare_model(solver);
 
-  if (true || simplex_option_enabled(solver, SIMPLEX_ADJUST_MODEL)) {
-    // FOR TESTING
+  if (simplex_option_enabled(solver, SIMPLEX_ADJUST_MODEL)) {
     simplex_adjust_model(solver);
   }
 
@@ -8443,7 +8452,9 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
   
   delete_int_hclass(&hclass);
 
+#if TRACE
   printf("---> reconcile model: %"PRIu32" trichotomy lemmas\n\n", neq);
+#endif
 
   return neq;
 }

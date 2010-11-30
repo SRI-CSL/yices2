@@ -706,15 +706,17 @@ typedef struct param_s {
   /*
    * SIMPLEX PARAMETERS
    * - simplex_prop: if true enable propagation via propagation table
+   * - adjust_simplex_model: if true, enable adjustment in 
+   *   reconciliation of the egraph and simplex models
    * - max_prop_row_size: limit on the size of the propagation rows
    * - bland_threshold: threshold that triggers switching to Bland's rule
    * - integer_check_period: how often the integer solver is called
    */
   bool     use_simplex_prop;
+  bool     adjust_simplex_model;
   uint32_t max_prop_row_size;
   uint32_t bland_threshold;
   int32_t  integer_check_period;
-
 
   /*
    * ARRAY SOLVER PARAMETERS

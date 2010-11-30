@@ -551,6 +551,10 @@ static void print_options(FILE *f, context_t *ctx) {
 	  params.use_simplex_prop) {
 	fprintf(f, " --simplex-prop --prop-threshold=%"PRIu32, params.max_prop_row_size);
       }
+      if (simplex_option_enabled(simplex, SIMPLEX_ADJUST_MODEL) ||
+	  params.adjust_simplex_model) {
+	fprintf(f, " --simplex-ajust-model");
+      }
       fprintf(f, " --bland-threshold=%"PRIu32, params.bland_threshold);
       fprintf(f, " --icheck-period=%"PRId32, params.integer_check_period);
     } else if (context_has_rdl_solver(ctx) || context_has_idl_solver(ctx)) {
@@ -934,11 +938,10 @@ static int process_benchmark(void) {
     enable_variable_elimination(&context);
     enable_arith_elimination(&context);
     enable_diseq_and_or_flattening(&context);
-    // TEST: enable eager lemmas
-    //    enable_splx_eager_lemmas(&context);
     params.use_dyn_ack = true;
     params.use_bool_dyn_ack = true;
     params.use_simplex_prop = true;
+    params.adjust_simplex_model = true;
     params.cache_tclauses = true;
     params.tclause_size = 8;
     if (logic == QF_UFLIA) {
