@@ -360,7 +360,6 @@ static void base_term_stack_error(FILE *f, char *name, tstack_t *tstack, tstack_
   case TSTACK_INVALID_FRAME:
     fprintf(f, "in %s (line %"PRId32", column %"PRId32")\n",
 	    opcode2string[tstack->error_op], tstack->error_loc.line, tstack->error_loc.column);
-    report_bug("Term-stak  error");
     break;
 
   case TSTACK_OP_NOT_IMPLEMENTED:

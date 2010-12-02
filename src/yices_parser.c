@@ -94,7 +94,7 @@ static void export_syntax_error(lexer_t *lex, yices_token_t expected_token) {
 
 
 /*
- * Table for conversion of tstack_error code to yices error code
+ * Table for conversion of tstack error codes to yices error codes
  * (NO_ERROR means a bug)
  */
 static error_code_t const tstack_error2yices_error[NUM_TSTACK_ERRORS] = {
@@ -112,7 +112,7 @@ static error_code_t const tstack_error2yices_error[NUM_TSTACK_ERRORS] = {
   DUPLICATE_NAME_IN_SCALAR,     //  TSTACK_DUPLICATE_SCALAR_NAME
   DUPLICATE_VAR_NAME,           //  TSTACK_DUPLICATE_VAR_NAME
   NO_ERROR,                     //  TSTACK_INVALID_OP
-  NO_ERROR,                     //  TSTACK_INVALID_FRAME
+  WRONG_NUMBER_OF_ARGUMENTS,    //  TSTACK_INVALID_FRAME
   INTEGER_OVERFLOW,             //  TSTACK_INTEGER_OVERFLOW
   INTEGER_REQUIRED,             //  TSTACK_NOT_AN_INTEGER
   SYMBOL_REQUIRED,              //  TSTACK_NOT_A_SYMBOL

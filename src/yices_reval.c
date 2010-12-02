@@ -67,21 +67,6 @@
  *   interactive is false (i.e., we exit on the first error unless we're
  *   in the interactive mode).
  *
- * CONTEXT SETTING
- * - logic_name = NULL (default) or a logic identified (based on the SMT-LOGIC codes)
- * - arith_name = NULL (default) or the name of the arithmetic solver
- *   (currently the valid names are "simplex" "floyd-warshall" or "auto")
- *
- * - logic_name and arith_name are converted to integer codes:
- *   logic_code = logic identifier as defined in smt_logic_codes.h
- *   arith_code = solver identifier as defined in arith_solver_codes.h
- *
- * - logic_name + arith_code determine the following flags, which 
- *   are used to initialize the context.
- *    - arch:  context architecture to use 
- *    - mode: whether PUSH/POP and INTERACTIVE can be used
- *    - iflag: true if the integer solver is necessary
- *    - qflag: true to support quantifiers
  */
 static char *input_filename;
 static lexer_t lexer;
@@ -179,6 +164,7 @@ typedef enum yices_param {
   // simplex parameters
   PARAM_EAGER_LEMMAS,
   PARAM_SIMPLEX_PROP,
+  PARAM_SIMPLEX_ADJUST,
   PARAM_PROP_THRESHOLD,
   PARAM_BLAND_THRESHOLD,
   PARAM_ICHECK,
@@ -220,6 +206,7 @@ static const char * const param_names[NUM_PARAMETERS] = {
   "r-threshold",
   "random-seed",
   "randomness",
+  "simplex-adjust",
   "simplex-prop",
   "tclause-size",
   "var-decay",
@@ -257,6 +244,7 @@ static const yices_param_t param_code[NUM_PARAMETERS] = {
   PARAM_R_THRESHOLD,
   PARAM_RANDOM_SEED,
   PARAM_RANDOMNESS,
+  PARAM_SIMPLEX_ADJUST,
   PARAM_SIMPLEX_PROP,
   PARAM_TCLAUSE_SIZE,
   PARAM_VAR_DECAY,
@@ -767,7 +755,7 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
   "no error", 
   "internal error",
   "type error",
-  "formula contains free-variables",
+  "formula contains free variables",
   "logic not supported",
   "context does not support UF",
   "context does not support arithmetic",
@@ -1254,6 +1242,10 @@ static void show_param(yices_param_t p, uint32_t n) {
     show_bool_param(param2string[p], parameters.use_simplex_prop, n);
     break;
 
+  case PARAM_SIMPLEX_ADJUST:
+    show_bool_param(param2string[p], parameters.adjust_simplex_model, n);
+    break;
+
   case PARAM_PROP_THRESHOLD:
     show_pos32_param(param2string[p], parameters.max_prop_row_size, n);
     break;
@@ -1557,6 +1549,13 @@ static void yices_setparam_cmd(char *param, param_val_t *val) {
   case PARAM_SIMPLEX_PROP:
     if (param_val_to_bool(param, val, &tt)) {
       parameters.use_simplex_prop = tt;
+      print_ok();
+    }
+    break;
+
+  case PARAM_SIMPLEX_ADJUST:
+    if (param_val_to_bool(param, val, &tt)) {
+      parameters.adjust_simplex_model = tt;
       print_ok();
     }
     break;
