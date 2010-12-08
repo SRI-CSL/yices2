@@ -21,7 +21,7 @@
 
 #define TRACE 0
 
-#if TRACE
+#if TRACE || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -319,11 +319,6 @@ static void reset_eterm_table(eterm_table_t *tbl) {
 
 
 
-
-
-
-
-
 /********************
  *  DISTINCT TABLE  *
  *******************/
@@ -336,6 +331,7 @@ static void init_distinct_table(distinct_table_t *tbl) {
 static inline void reset_distinct_table(distinct_table_t *tbl) {
   init_distinct_table(tbl);
 }
+
 
 
 /***********************
@@ -2962,8 +2958,9 @@ static cache_elem_t *cache_get_ackermann_lemma(cache_t *cache, eterm_t t1, eterm
  *   (eq t_1 u_1) ... (eq t_n u_n) IMPLIES (eq (f t_1 ... t_n) (f u_1 ... u_n))
  * - c1 = (f t_1 ... t_n)
  * - c2 = (f u_1 ... u_n)
+ * - if bool_only is true, only generate a lemma if c1 and c2 are boolean terms
  */
-static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_t *c2) {
+static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_t *c2, bool bool_only) {
   uint32_t i, n;
   ivector_t *v;
   cache_elem_t *e;
@@ -3021,7 +3018,8 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
 	}
       }
 
-    } else if (egraph_option_enabled(egraph, EGRAPH_DYNAMIC_ACKERMANN) &&
+    } else if (!bool_only && 
+               egraph_option_enabled(egraph, EGRAPH_DYNAMIC_ACKERMANN) &&
 	       egraph->stats.ack_lemmas < egraph->max_ackermann) {
       /*
        * Non-boolean case: stop after max_ackermann lemmas have been
@@ -3040,10 +3038,35 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
       }
       l = egraph_make_eq(egraph, pos_occ(b1), pos_occ(b2));
       ivector_push(v, l);
+
+#if 1
+      printf("---> ackermann lemma[%"PRIu32"]:\n", egraph->stats.ack_lemmas + 1);
+      n = v->size;
+      assert(n > 0);
+      if (n > 1) {
+	printf("(or ");
+      }
+      for (i=0; i<n; i++) {
+	printf(" ");
+	print_egraph_atom_of_literal(stdout, egraph, v->data[i]);
+      }
+      if (n > 1) {
+	printf(")");
+      }
+      printf("\n");
+      printf("      ");
+      print_eterm_def(stdout, egraph,  c1->id);
+      printf("      ");
+      print_eterm_def(stdout, egraph,  c2->id);
+      fflush(stdout);
+#endif
+
       add_clause(egraph->core, v->size, v->data);
-      
+
       // update statistics
       egraph->stats.ack_lemmas ++;
+
+      
     }
   }
 }
@@ -4205,25 +4228,31 @@ static void egraph_gen_ackermann_lemmas(egraph_t *egraph, uint32_t back_level) {
   stack = &egraph->stack;
   k = stack->level_index[back_level + 1];    
 
-  // EXPERIMENT: Process the expl_edges vector first
+  // Process the expl_edges vector first
   edges = &egraph->expl_edges;
   n = edges->size;
   for (j=0; j<n; j++) {
     i = edges->data[j];
     assert(stack->etag[i] == EXPL_BASIC_CONGRUENCE && stack->activity[i] > 0);
     if (i >= k) {
+#if 1
+      printf("---> gen ack for edge %"PRIu32" from expl, activity = %"PRIu8"\n", i, stack->activity[i]);
+#endif
       c1 = egraph_term_body(egraph, term_of_occ(stack->eq[i].lhs));
       c2 = egraph_term_body(egraph, term_of_occ(stack->eq[i].rhs));
-      create_ackermann_lemma(egraph, c1, c2);
+      create_ackermann_lemma(egraph, c1, c2, true);
     }
   }
   ivector_reset(edges);
 
-  for (i=k; i < stack->prop_ptr; i++) {
+  for (i=k; i<stack->prop_ptr; i++) {
     if (stack->etag[i] == EXPL_BASIC_CONGRUENCE && stack->activity[i] > 0) {
+#if 1
+      printf("---> gen ack for edge %"PRIu32", activity = %"PRIu8"\n", i, stack->activity[i]);
+#endif
       c1 = egraph_term_body(egraph, term_of_occ(stack->eq[i].lhs));
       c2 = egraph_term_body(egraph, term_of_occ(stack->eq[i].rhs));
-      create_ackermann_lemma(egraph, c1, c2);
+      create_ackermann_lemma(egraph, c1, c2, stack->activity[i] < 10);
     }
   }
 }

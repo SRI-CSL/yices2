@@ -892,7 +892,7 @@ static int process_benchmark(void) {
     // QF_UF options: --var-elim --cache-tclauses --learn-eq --dyn-bool-ack
     enable_variable_elimination(&context);
     enable_eq_abstraction(&context);
-    params.use_bool_dyn_ack = true;
+    params.use_bool_dyn_ack = true; // TEST
     params.cache_tclauses = true;
     params.tclause_size = 8;
     params.use_dyn_ack = true;  // TEST
