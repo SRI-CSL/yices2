@@ -718,8 +718,6 @@ typedef struct th_smt_interface_s {
 
 
 
-
-
 /*****************
  *  LEMMA QUEUE  *
  ****************/

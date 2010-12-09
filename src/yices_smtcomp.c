@@ -896,6 +896,7 @@ static int process_benchmark(void) {
     params.cache_tclauses = true;
     params.tclause_size = 8;
     params.use_dyn_ack = true;  // TEST
+    params.max_ackermann = 400;
     break;
 
   case CTX_ARCH_SPLX: 

@@ -21,7 +21,7 @@
 
 #define TRACE 0
 
-#if TRACE || 1
+#if TRACE
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -3039,7 +3039,7 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
       l = egraph_make_eq(egraph, pos_occ(b1), pos_occ(b2));
       ivector_push(v, l);
 
-#if 1
+#if 0
       printf("---> ackermann lemma[%"PRIu32"]:\n", egraph->stats.ack_lemmas + 1);
       n = v->size;
       assert(n > 0);
@@ -3856,11 +3856,11 @@ void egraph_start_search(egraph_t *egraph) {
   uint32_t i;
 
 #if TRACE
-  printf("---> EGRAPH START_SEARCH [dlevel = %"PRIu32", decisions = %"PRIu64"]\n", 
-	 egraph->decision_level, egraph->core->stats.decisions);
-  printf("\n=== EGRAPH TERMS ===\n");
+  fprintf(stdout, "---> EGRAPH START_SEARCH [dlevel = %"PRIu32", decisions = %"PRIu64"]\n", 
+	  egraph->decision_level, egraph->core->stats.decisions);
+  fprintf(stdout, "\n=== EGRAPH TERMS ===\n");
   print_egraph_terms(stdout, egraph);
-  printf("\n");
+  fprintf(stdout, "\n");
 #endif
 
   assert(egraph->core != NULL && egraph->decision_level == egraph->base_level);
@@ -4218,9 +4218,8 @@ static void deactivate_congruence_root(egraph_t *egraph, composite_t *p) {
  */
 static void egraph_gen_ackermann_lemmas(egraph_t *egraph, uint32_t back_level) {
   egraph_stack_t *stack;
-  ivector_t *edges;
   composite_t *c1, *c2;
-  uint32_t i, j, k, n;
+  uint32_t i, k;
 
   assert(egraph_option_enabled(egraph, EGRAPH_DYNAMIC_ACKERMANN | EGRAPH_DYNAMIC_BOOLACKERMANN));
   assert(egraph->base_level <= back_level && back_level < egraph->decision_level);
@@ -4228,31 +4227,17 @@ static void egraph_gen_ackermann_lemmas(egraph_t *egraph, uint32_t back_level) {
   stack = &egraph->stack;
   k = stack->level_index[back_level + 1];    
 
-  // Process the expl_edges vector first
-  edges = &egraph->expl_edges;
-  n = edges->size;
-  for (j=0; j<n; j++) {
-    i = edges->data[j];
-    assert(stack->etag[i] == EXPL_BASIC_CONGRUENCE && stack->activity[i] > 0);
-    if (i >= k) {
-#if 1
-      printf("---> gen ack for edge %"PRIu32" from expl, activity = %"PRIu8"\n", i, stack->activity[i]);
-#endif
-      c1 = egraph_term_body(egraph, term_of_occ(stack->eq[i].lhs));
-      c2 = egraph_term_body(egraph, term_of_occ(stack->eq[i].rhs));
-      create_ackermann_lemma(egraph, c1, c2, true);
-    }
-  }
-  ivector_reset(edges);
-
-  for (i=k; i<stack->prop_ptr; i++) {
+  //  for (i=k; i<stack->prop_ptr; i++) {
+  i = stack->prop_ptr;
+  while (i > k) {
+    i --;
     if (stack->etag[i] == EXPL_BASIC_CONGRUENCE && stack->activity[i] > 0) {
-#if 1
+#if 0
       printf("---> gen ack for edge %"PRIu32", activity = %"PRIu8"\n", i, stack->activity[i]);
 #endif
       c1 = egraph_term_body(egraph, term_of_occ(stack->eq[i].lhs));
       c2 = egraph_term_body(egraph, term_of_occ(stack->eq[i].rhs));
-      create_ackermann_lemma(egraph, c1, c2, stack->activity[i] < 10);
+      create_ackermann_lemma(egraph, c1, c2, false);
     }
   }
 }
@@ -5364,7 +5349,6 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   init_arena(&egraph->arena);
   init_ivector(&egraph->expl_queue, DEFAULT_EXPL_VECTOR_SIZE);
   init_ivector(&egraph->expl_vector, DEFAULT_EXPL_VECTOR_SIZE);
-  init_ivector(&egraph->expl_edges, DEFAULT_EXPL_VECTOR_SIZE);
   init_pvector(&egraph->cmp_vector, DEFAULT_CMP_VECTOR_SIZE);
   init_ivector(&egraph->aux_buffer, 0);  
   init_pvector(&egraph->reanalyze_vector, 0);
@@ -5486,7 +5470,6 @@ void delete_egraph(egraph_t *egraph) {
   delete_pvector(&egraph->reanalyze_vector);
   delete_ivector(&egraph->aux_buffer);
   delete_pvector(&egraph->cmp_vector);
-  delete_ivector(&egraph->expl_edges);
   delete_ivector(&egraph->expl_vector);
   delete_ivector(&egraph->expl_queue);
   delete_arena(&egraph->arena);
@@ -6579,3 +6562,7 @@ void egraph_free_model(egraph_t *egraph) {
   }
   reset_egraph_model(&egraph->mdl);
 }
+
+
+
+

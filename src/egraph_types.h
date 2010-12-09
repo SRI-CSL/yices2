@@ -1209,7 +1209,6 @@ struct egraph_s {
   arena_t arena;             // stack-based allocation
   ivector_t expl_queue;      // vector used as a queue of edges (explanation queue)
   ivector_t expl_vector;     // vector of literals for conflict/explanations
-  ivector_t expl_edges;      // vector of congruence edges in a conflict explanation
   pvector_t cmp_vector;      // generic vector to store composites
   ivector_t aux_buffer;      // generic buffer used in term construction
 

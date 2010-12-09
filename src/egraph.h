@@ -88,8 +88,6 @@ extern void delete_egraph(egraph_t *egraph);
 
 
 
-
-
 /*************************
  *   TERM CONSTRUCTORS   *
  ************************/

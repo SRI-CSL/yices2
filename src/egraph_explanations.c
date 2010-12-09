@@ -741,9 +741,8 @@ static void explain_theory_equality(egraph_t *egraph, expl_tag_t id, eterm_t t1,
 /*
  * Expand the marked egdes into a vector of literals
  * - v = result vector: literals are added to it (v is not reset)
- * - collect_edges: if true, the congruence edges are stored in egraph->expl_edges
  */
-static void build_explanation_vector(egraph_t *egraph, ivector_t *v, bool collect_edges) {
+static void build_explanation_vector(egraph_t *egraph, ivector_t *v) {
   equeue_elem_t *eq;
   byte_t *mark;
   ivector_t *queue;
@@ -754,8 +753,6 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v, bool collec
   uint32_t k;
   int32_t i;
   uint8_t *act;
-
-  assert(!collect_edges || egraph->expl_edges.size == 0);
 
   eq = egraph->stack.eq;
   mark = egraph->stack.mark;
@@ -799,9 +796,6 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v, bool collec
       break;
 
     case EXPL_BASIC_CONGRUENCE:
-      if (collect_edges) {
-	ivector_push(&egraph->expl_edges, i);
-      }
       t1 = term_of_occ(eq[i].lhs);
       t2 = term_of_occ(eq[i].rhs);
       explain_congruence(egraph, body[t1], body[t2]);
@@ -879,7 +873,7 @@ void egraph_explain_edge(egraph_t *egraph, int32_t i, ivector_t *v) {
   assert(0 <= i && i < egraph->stack.top);
   assert(egraph->expl_queue.size == 0 && ! tst_bit(egraph->stack.mark, i));
   enqueue_edge(&egraph->expl_queue, egraph->stack.mark, i);
-  build_explanation_vector(egraph, v, false);
+  build_explanation_vector(egraph, v);
 }
 
 
@@ -890,7 +884,7 @@ void egraph_explain_equality(egraph_t *egraph, occ_t t1, occ_t t2, ivector_t *v)
   assert(egraph_equal_occ(egraph, t1, t2));
   assert(egraph->expl_queue.size == 0);
   explain_eq(egraph, t1, t2);
-  build_explanation_vector(egraph, v, false);
+  build_explanation_vector(egraph, v);
 }
 
 
@@ -953,7 +947,7 @@ void egraph_explain_disequality(egraph_t *egraph, occ_t t1, occ_t t2, ivector_t 
   } else {
     explain_diseq(egraph, t1, t2);
   }
-  build_explanation_vector(egraph, v, false);
+  build_explanation_vector(egraph, v);
 }
 
 
@@ -986,7 +980,7 @@ void egraph_explain_term_diseq(egraph_t *egraph, eterm_t t1, eterm_t t2, composi
   } else {
     explain_diseq_via_distinct(egraph, pos_occ(t1), pos_occ(t2), hint);
   }
-  build_explanation_vector(egraph, v, false);
+  build_explanation_vector(egraph, v);
 }
 
 
@@ -1080,7 +1074,7 @@ void egraph_expand_diseq_pre_expl(egraph_t *egraph, diseq_pre_expl_t *p, ivector
   explain_eq(egraph, pos_occ(p->t1), pos_occ(p->u1));
   explain_eq(egraph, pos_occ(p->t2), pos_occ(p->u2));
   
-  build_explanation_vector(egraph, v, false);
+  build_explanation_vector(egraph, v);
 }
 
 
@@ -1202,7 +1196,7 @@ static void explain_distinct(egraph_t *egraph, composite_t *d) {
 void egraph_explain_distinct_via_dmask(egraph_t *egraph, composite_t *d, uint32_t dmsk, ivector_t *v) {
   assert(egraph->expl_queue.size == 0);  
   explain_distinct_via_dmask(egraph, d, dmsk);
-  build_explanation_vector(egraph, v, false);
+  build_explanation_vector(egraph, v);
 }
 
 /*
@@ -1212,7 +1206,7 @@ void egraph_explain_distinct_via_dmask(egraph_t *egraph, composite_t *d, uint32_
 void egraph_explain_distinct(egraph_t *egraph, composite_t *d, ivector_t *v) {
   assert(egraph->expl_queue.size == 0);
   explain_distinct(egraph, d);
-  build_explanation_vector(egraph, v, false);
+  build_explanation_vector(egraph, v);
 }
 
 
@@ -1251,7 +1245,7 @@ void egraph_explain_not_distinct(egraph_t *egraph, composite_t *d, ivector_t *v)
   explain_eq(egraph, t1, t2);
 
   ivector_reset(v);
-  build_explanation_vector(egraph, v, false);
+  build_explanation_vector(egraph, v);
 }
 
 
@@ -1268,7 +1262,7 @@ void egraph_explain_not_distinct_conflict(egraph_t *egraph, composite_t *d, ivec
   explain_eq(egraph, pos_occ(d->id), false_occ);
   explain_distinct(egraph, d);
   ivector_reset(v);
-  build_explanation_vector(egraph, v, false);
+  build_explanation_vector(egraph, v);
 }
 
 
@@ -1326,7 +1320,7 @@ bool egraph_inconsistent_edge(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i, i
   // add edge i to the explanation queue
   enqueue_edge(&egraph->expl_queue, egraph->stack.mark, i);
   ivector_reset(v);
-  build_explanation_vector(egraph, v, true);
+  build_explanation_vector(egraph, v);
   return true;
 }
 
@@ -1376,7 +1370,7 @@ bool egraph_inconsistent_distinct(egraph_t *egraph, composite_t *d, ivector_t *v
   explain_eq(egraph, t1, t2);
   
   ivector_reset(v);
-  build_explanation_vector(egraph, v, true);
+  build_explanation_vector(egraph, v);
 
   return true;  
 }
@@ -1474,7 +1468,7 @@ bool egraph_inconsistent_not_distinct(egraph_t *egraph, composite_t *d, ivector_
   
   // expand the explanations
   ivector_reset(v);
-  build_explanation_vector(egraph, v, true);
+  build_explanation_vector(egraph, v);
 
   return true;
 }
