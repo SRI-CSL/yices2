@@ -424,6 +424,45 @@ static void test_sdiv_const(uint32_t n, literal_t *a, literal_t *b) {
 }
 
 
+/*
+ * Test smod of a by b: size n
+ */
+static void test_smod(uint32_t n, literal_t *a, literal_t *b) {
+  literal_t *r;
+
+  printf("a = ");
+  print_bitvector(n, a);
+  printf("\n");
+  printf("b = ");
+  print_bitvector(n, b);
+  printf("\n");
+
+  r = remap_table_fresh_array(&remap, n);
+  bit_blaster_make_smod(&blaster, a, b, r, n);
+  printf("(bsmod a b) = ");
+  print_pseudo_vector(n, r);
+  printf("\n\n");
+
+  remap_table_free_array(r);
+}
+
+// constant input
+static void test_smod_const(uint32_t n, literal_t *a, literal_t *b) {
+  literal_t *r;
+
+  r = remap_table_fresh_array(&remap, n);
+  bit_blaster_make_smod(&blaster, a, b, r, n);
+
+  printf("(bvsmod ");
+  print_litarray_as_int32(n, a);
+  printf(" ");
+  print_litarray_as_int32(n, b);
+  printf(") = ");
+  print_pseudo_vector_as_int32(n, r);
+  printf("\n");
+
+  remap_table_free_array(r);
+}
 
 
 
@@ -600,10 +639,24 @@ static void all_sdiv_tests(void) {
 }
 
 
+static void all_smod_tests(void) {
+  printf("\n"
+	 "******************\n"
+	 "*  BVSMOD TESTS  *\n"
+	 "******************\n\n");
+
+  init();
+  truth_table_test4(test_smod_const);
+  base_test4(test_smod);
+  random_tests4(100, test_smod);
+  cleanup();
+}
+
 
 int main(void) {
   all_udiv_tests();
   all_sdiv_tests();
+  all_smod_tests();
 
   return 0;
 }
