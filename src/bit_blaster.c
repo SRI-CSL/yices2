@@ -9,12 +9,12 @@
 
 
 
-#define TRACE 0
+#define TRACE 1
 
 #if TRACE
 
 #include <stdio.h>
-#include "solver_printer.h"
+#include "smt_core_printer.h"
 
 static void trace_cbuffer(cbuffer_t *buffer);
 
@@ -3434,6 +3434,136 @@ void bit_blaster_make_sdivision(bit_blaster_t *s, literal_t *a, literal_t *b,
 
 
 /*
+ * FLOOR DIVISION
+ */
+
+/*
+ * Store (bvadd a b) into c
+ * - a and b must be arrays of n literals
+ * - c must be an empty array of size n
+ */
+static void bvadd_litarray(bit_blaster_t *s, literal_t *a, literal_t *b, literal_t *c, uint32_t n) {
+  literal_t carry, sum, d;
+  uint32_t i;
+
+  carry = false_literal;
+  for (i=0; i<n; i++) {
+    find_full_add(s, a[i], b[i], carry, &sum, &d); // full adder: sum = a[i] + b[i] + carry, d = carry out
+    if (sum == null_literal) {
+      /* 
+       * the sum does no simplify and the adder does not 
+       * exist yet, create it
+       */
+      assert(d == null_literal);
+      sum = bit_blaster_fresh_literal(s);
+      d = bit_blaster_fresh_literal(s);
+      make_full_add(s, a[i], b[i], carry, sum, d);
+    }
+    c[i] = sum;
+    carry = d;
+  }
+}
+
+/*
+ * Remainder in the floor division of a by b:
+ * - a and b must be literal arrays of size n
+ * - r must be an array of n pseudo literals
+ *
+ * Assert r = (bvsmod a b)
+ */
+void bit_blaster_make_smod(bit_blaster_t *s, literal_t *a, literal_t *b, literal_t *r, uint32_t n) {
+  ivector_t *v;
+  literal_t *aux;
+  literal_t *abs_b;
+  literal_t *r2, *r3;
+  literal_t l, sa, sb, same_sign, z;
+  uint32_t i;
+
+  assert(n > 0);
+
+  v = &s->aux_vector2;
+  resize_ivector(v, 2 * n);
+  ivector_reset(v);
+  aux = v->data;
+  bvabs_litarray(s, a, aux, n);
+  zero_extend_litarray(aux, n); // aux = absolute value of a, zero extended to 2n bits
+
+  v = &s->aux_vector3;
+  resize_ivector(v, n);
+  ivector_reset(v);
+  abs_b = v->data;
+  bvabs_litarray(s, b, abs_b, n); // abs_b = absolute value of b
+
+  /*
+   * Division: absolute value of a divided by the absolute value of b
+   */
+  i = n;
+  while (i > 0) {
+    i --;
+    l = bit_blaster_make_bvuge(s, aux+i, abs_b, n);
+    bit_blaster_submul(s, aux+i, abs_b, l, n);
+  }
+
+  /*
+   * At this point aux[n-1 ... 0] contains the remainder r1
+   * of the absolute value of a divided by the absolute value of b.
+   *
+   * There are 5 cases:
+   * - if r1=0 then r=0  (b divides a)
+   * otherwise
+   * - if a>=0 and b>=0 then r = r1
+   * - if a>=0 and b<0  then r = b + r1
+   * - if a<0  and b>=0 then r = b - r1
+   * - if a<0  and b<0  then r = - r1
+   *
+   * Equivalently, we do:
+   * - r2 := if a>=0 then r1 else -r1
+   * - same_sign := (sign of a = sign of b)
+   * - l := same_sign or (r2 = 0)
+   * - r3 := if l then r2 else r2 + b
+   * and assert (r = r3).
+   */
+  sa = a[n-1]; // sign bit of a
+  sb = b[n-1]; // sign bit of b
+  same_sign = bit_blaster_make_eq(s, sa, sb);
+
+  // build r2
+  if (sa == false_literal) { // a >= 0 is true
+    r2 = aux;
+  } else {
+    v = &s->aux_vector4;
+    resize_ivector(v, n);
+    ivector_reset(v);
+    r2 = v->data;
+    bvneg_litarray(s, aux, r2, n);              // r2 := neg r1
+    bvmux_litarray(s, not(sa), aux, r2, r2, n); // r2 := if a>=0 then r1 else (neg r1)
+  }
+
+  // build l := ((sign of a) = (sign of b)) or (r2 = 0)
+  if (same_sign == true_literal) {
+    l = true_literal;
+  } else {
+    z = not(bit_blaster_make_or(s, n, r2));
+    l = bit_blaster_make_or2(s, same_sign, z);
+  }
+
+  // build r3 := (if l then r2 else (r2 + b))
+  if (l == true_literal) {
+    r3 = r2;
+  } else {
+    // we reuse aux_vector3 (that currently contains abs_b)
+    r3 = abs_b;
+    bvadd_litarray(s, r2, b, r3, n);     // r3 := r2 + b
+    bvmux_litarray(s, l, r2, r3, r3, n); // r3 := if l then r2 else r2 + b
+  }
+
+  // assert r == r3
+  bit_blaster_pseudo_bveq(s, r, r3, n);
+}
+
+
+
+/*
  * UNSIGNED DIVISION: VERSION 2
  */
 
@@ -3930,7 +4060,7 @@ static uint32_t shifter_last_control_bit(bit_blaster_t *s, literal_t *b, uint32_
   
   while (w > 0) {
     l = eval_literal(s, b[w-1]);
-    if (var_of(l) != bool_const) {
+    if (var_of(l) != const_bvar) {
       break;
     }
     w --;
@@ -4123,7 +4253,7 @@ void bit_blaster_make_shift_left(bit_blaster_t *s, literal_t *a, literal_t *b, l
       shift = 1;
       for (i=0; i<k-1; i++) {
 	c = b[i];
-	if (var_of(c) != bool_const) {
+	if (var_of(c) != const_bvar) {
 	  // aux := (ite c (aux << 2^i) aux)
 	  conditional_shift_left(s, aux, c, aux, n, shift);
 	}
@@ -4132,7 +4262,7 @@ void bit_blaster_make_shift_left(bit_blaster_t *s, literal_t *a, literal_t *b, l
 
       // last stage: assert (u == (ite c (aux << 2^(k-1)) aux)
       c = b[k-1];
-      assert(var_of(c) != bool_const);
+      assert(var_of(c) != const_bvar);
       assert_conditional_shift_left(s, u, c, aux, n, shift);
     }
 
@@ -4143,7 +4273,7 @@ void bit_blaster_make_shift_left(bit_blaster_t *s, literal_t *a, literal_t *b, l
     shift = 1;
     for (i=0; i<k; i++) {
       c = b[i];
-      if (var_of(c) != bool_const) {
+      if (var_of(c) != const_bvar) {
 	// aux := (ite c (aux << 2^i) aux)
 	conditional_shift_left(s, aux, c, aux, n, shift);
       }
@@ -4291,7 +4421,7 @@ void bit_blaster_make_lshift_right(bit_blaster_t *s, literal_t *a, literal_t *b,
       shift = 1;
       for (i=0; i<k-1; i++) {
 	c = b[i];
-	if (var_of(c) != bool_const) {
+	if (var_of(c) != const_bvar) {
 	  // aux := (ite c (aux << 2^i) aux)
 	  conditional_lshift_right(s, aux, c, aux, n, shift);
 	}
@@ -4300,7 +4430,7 @@ void bit_blaster_make_lshift_right(bit_blaster_t *s, literal_t *a, literal_t *b,
 
       // last stage: assert (u == (ite c (aux << 2^(k-1)) aux)
       c = b[k-1];
-      assert(var_of(c) != bool_const);
+      assert(var_of(c) != const_bvar);
       assert_conditional_lshift_right(s, u, c, aux, n, shift);
     }
 
@@ -4311,7 +4441,7 @@ void bit_blaster_make_lshift_right(bit_blaster_t *s, literal_t *a, literal_t *b,
     shift = 1;
     for (i=0; i<k; i++) {
       c = b[i];
-      if (var_of(c) != bool_const) {
+      if (var_of(c) != const_bvar) {
 	// aux := (ite c (aux << 2^i) aux)
 	conditional_lshift_right(s, aux, c, aux, n, shift);
       }
@@ -4468,7 +4598,7 @@ void bit_blaster_make_ashift_right(bit_blaster_t *s, literal_t *a, literal_t *b,
       shift = 1;
       for (i=0; i<k-1; i++) {
 	c = b[i];
-	if (var_of(c) != bool_const) {
+	if (var_of(c) != const_bvar) {
 	  // aux := (ite c (aux << 2^i) aux)
 	  conditional_ashift_right(s, aux, c, aux, n, shift);
 	}
@@ -4477,7 +4607,7 @@ void bit_blaster_make_ashift_right(bit_blaster_t *s, literal_t *a, literal_t *b,
 
       // last stage: assert (u == (ite c (aux << 2^(k-1)) aux)
       c = b[k-1];
-      assert(var_of(c) != bool_const);
+      assert(var_of(c) != const_bvar);
       assert_conditional_ashift_right(s, u, c, aux, n, shift);
     }
 
@@ -4488,7 +4618,7 @@ void bit_blaster_make_ashift_right(bit_blaster_t *s, literal_t *a, literal_t *b,
     shift = 1;
     for (i=0; i<k; i++) {
       c = b[i];
-      if (var_of(c) != bool_const) {
+      if (var_of(c) != const_bvar) {
 	// aux := (ite c (aux << 2^i) aux)
 	conditional_ashift_right(s, aux, c, aux, n, shift);
       }

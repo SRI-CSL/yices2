@@ -118,6 +118,7 @@ typedef struct bit_blaster_s {
  */
 extern void init_bit_blaster(bit_blaster_t *blaster, bool use_core, void *solver, remap_table_t *remap);
 
+
 /*
  * Deletion: don't delete the solver, just the hash table 
  */
@@ -550,8 +551,8 @@ extern void bit_blaster_make_udivision2(bit_blaster_t *blaster, literal_t *a, li
  * - r = either NULL of an array of n pseudo literals
  *
  * If both r and q are non-null, the function asserts
- *   q = (bvudiv a b): quotient 
- *   r = (bvurem a b): remainder
+ *   q = (bvsdiv a b): quotient 
+ *   r = (bvsrem a b): remainder
  * If r is NULL only the first part is asserted.
  * If q is NULL only the secont equality is asserted.
  *
@@ -577,6 +578,24 @@ extern void bit_blaster_make_sdivision2(bit_blaster_t *blaster, literal_t *a, li
 
 
 
+
+/*
+ * FLOOR DIVISION REMAINDER.
+ *
+ * - a and b must be literal arrays of size n
+ * - r must be an array of n pseudo literals
+ *
+ * This asserts r = bvsmod(a, b)
+ * - if b is zero, then bsvmod(a, b) = a
+ * - otherwise, bvsmod(a, b) = a - b * floor(a/b)
+ *
+ * This is similar to fdiv in GMP: division with 
+ * rounding toward minus infinity.
+ *
+ * For b > 0, we have 0 <= r <  b
+ * For b < 0, we have b <  r <= 0
+ */
+extern void bit_blaster_make_smod(bit_blaster_t *blaster, literal_t *a, literal_t *b, literal_t *r, uint32_t n);
 
 
 /*

@@ -789,9 +789,9 @@ void init_bit_solver(bit_solver_t *solver, uint32_t n) {
   /*
    * Initialize data structures for true/false literals
    */
-  assert(bool_const == 0 && true_literal == 0 && false_literal == 1 && solver->nvars > 0);
-  solver->level[bool_const] = 0;
-  set_bit(solver->mark, bool_const);  // set for all variables assigned at level 0
+  assert(const_bvar == 0 && true_literal == 0 && false_literal == 1 && solver->nvars > 0);
+  solver->level[const_bvar] = 0;
+  set_bit(solver->mark, const_bvar);  // set for all variables assigned at level 0
   solver->value[true_literal] = VAL_TRUE;
   solver->value[false_literal] = VAL_FALSE;
   solver->bin[true_literal] = NULL;
