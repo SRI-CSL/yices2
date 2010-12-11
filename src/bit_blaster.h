@@ -151,9 +151,10 @@ static inline void bit_blaster_pop(bit_blaster_t *blaster) {
 
 /* 
  * The basic gates are listed in gates_hash_table.h.  All functions
- * below add clauses encoding the constraints for a specific gate. The
- * clauses are simplified as much as possible. If the contraints are
- * inconsistent then the empty clause is added to solver.
+ * below add clauses that encode the definition of a specific
+ * gate. The clauses are simplified as much as possible. If the
+ * contraints are inconsistent then the empty clause is added to
+ * the solver.
  */
 
 /*
@@ -213,6 +214,7 @@ extern void bit_blaster_maj3(bit_blaster_t *blaster, literal_t a, literal_t b, l
  * Constraint: x = (or a[0] ... a[n-1])
  */
 extern void bit_blaster_or_gate(bit_blaster_t *blaster, uint32_t n, literal_t *a, literal_t x);
+
 
 /*
  * Constraint: x = (xor a[0] ... a[n-1])
@@ -481,7 +483,7 @@ extern void bit_blaster_assert_bvslt(bit_blaster_t *blaster, literal_t *a, liter
  *   circuit constructions assign a real literal to u[i] 
  *   (and all elements of its class)
  * - if pseudo-literal u[i] is mapped to a real literal l, then the functions
- *   add clause to encode the equality between l and the circuit output 
+ *   add clauses to encode the equality between l and the circuit output 
  *   (e.g., for the adder circuit: assert l = bit[i] in sum of a and b).
  *
  * If the constraint is inconsistent, then a conflict is recorded 
