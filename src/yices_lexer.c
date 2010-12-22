@@ -139,6 +139,7 @@ static keyword_t yices_keywords[] = {
   { "show-model", TK_SHOW_MODEL },
   { "eval", TK_EVAL },
   { "set-param", TK_SET_PARAM },
+  { "show-param", TK_SHOW_PARAM },
   { "show-params", TK_SHOW_PARAMS },
 
   // end-marker

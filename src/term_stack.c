@@ -220,6 +220,13 @@ static void tstack_default_setparam_cmd(char *s, param_val_t *v) {
 }
 
 
+static void tstack_default_showparam_cmd(char *s) {
+#ifndef NDEBUG
+  fprintf(stdout, "(show-param %s) called\n", s);
+#endif
+}
+
+
 static void tstack_default_showparams_cmd(void) {
 #ifndef NDEBUG
   fprintf(stdout, "(show-params) called\n");
@@ -302,6 +309,7 @@ void init_tstack(tstack_t *stack) {
   stack->externals.assert_cmd = tstack_default_assert_cmd;
   stack->externals.eval_cmd = tstack_default_eval_cmd;
   stack->externals.setparam_cmd = tstack_default_setparam_cmd;
+  stack->externals.showparam_cmd = tstack_default_showparam_cmd;
   stack->externals.showparams_cmd = tstack_default_showparams_cmd;
   stack->externals.type_defined_cmd = tstack_default_type_defined_cmd;
   stack->externals.term_defined_cmd = tstack_default_term_defined_cmd;
@@ -492,6 +500,7 @@ static const unsigned char assoc[NUM_OPCODES] = {
 
   0, // BUILD_TERM
   0, // BUILD_TYPE
+
   0, // EXIT_CMD
   0, // CHECK_CMD
   0, // ECHO_CMD
@@ -503,6 +512,8 @@ static const unsigned char assoc[NUM_OPCODES] = {
   0, // SHOWMODEL_CMD
   0, // EVAL_CMD
   0, // SET_PARAM_CMD
+  0, // SHOW_PARAM_CMD
+  0, // SHOW_PARAMS_CMD
   0, // DUMP_CMD
 };
 
@@ -5346,6 +5357,22 @@ static void eval_setparam_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
+ * [show-param <symbol>]
+ */
+static void check_showparam_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SHOW_PARAM_CMD);
+  check_size(stack, n == 1);
+  check_tag(stack, f, TAG_SYMBOL);
+}
+
+static void eval_showparam_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  stack->externals.showparam_cmd(f->val.symbol);
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
  * [show-params-cmd]
  */
 static void check_showparams_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -5476,6 +5503,7 @@ static evaluator_t eval[NUM_OPCODES] = {
   eval_showmodel_cmd,
   eval_eval_cmd,
   eval_setparam_cmd,
+  eval_showparam_cmd,
   eval_showparams_cmd,
   eval_dump_cmd,
 };
@@ -5581,6 +5609,7 @@ static checker_t check[NUM_OPCODES] = {
   check_showmodel_cmd,
   check_eval_cmd,
   check_setparam_cmd,
+  check_showparam_cmd,
   check_showparams_cmd,
   check_dump_cmd,
 };

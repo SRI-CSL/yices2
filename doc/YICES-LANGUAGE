@@ -63,7 +63,8 @@ YICES LANGUAGE
 
 	define-type	define		assert	check	push	pop
 	reset		dump-context	exit	echo	include
-	show-model	eval		set-param
+	show-model	eval		set-param	show-param
+	show-params
 
 
    function keywords denote the built-in functions:
@@ -106,6 +107,8 @@ YICES LANGUAGE
             | ( echo <string> )
             | ( include <string> )
             | ( set-param <symbol> <immediate-value> )
+	    | ( show-param <symbol> )
+	    | ( show-params )
             | ( dump-context )
             | EOS
   

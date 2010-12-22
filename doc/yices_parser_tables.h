@@ -3,7 +3,7 @@
 
 typedef enum state_s {
   r0, 
-  c0, c1, c2, c3, c6, c7, c9, c10, c11, c12,
+  c0, c1, c2, c3, c6, c7, c9, c10, c11, c12, c13,
   td0, td1, td2, td3,
   t0, t1, t4, t6,
   e0, e1, e3, e5, e7, e10, e11, e12, e14, e15, e16, e17, e19, e20,
@@ -37,6 +37,7 @@ enum actions {
   showmodel_next_goto_r0,
   eval_next_push_r0_goto_e0,
   setparam_next_goto_c11,
+  showparam_next_goto_c13,
   showparams_next_goto_r0,
   typename_next_goto_c10, // token must be a free typename (TK_SYMBOL)
   string_next_goto_r0,
@@ -46,6 +47,7 @@ enum actions {
   true_next_goto_r0,      // in (set-param ... true)
   false_next_goto_r0,     // in (set-param ... false)
   float_next_goto_r0,     // in (set-param ... <float>)
+  symbol_next_goto_r0,    // in (show-param <symbol>)
   ret,                    // return
   push_r0_goto_e0,
   push_r0_goto_td0,
@@ -189,6 +191,7 @@ static triple_t triples[] = {
   { c1, TK_SHOW_MODEL, "showmodel_next_goto_r0" },
   { c1, TK_EVAL, "eval_next_push_r0_goto_e0" },
   { c1, TK_SET_PARAM, "setparam_next_goto_c11" },
+  { c1, TK_SHOW_PARAM, "showparam_next_goto_c13" },
   { c1, TK_SHOW_PARAMS, "showparams_next_goto_r0" },
 
   { c2, TK_SYMBOL, "typename_next_goto_c10" },
@@ -217,6 +220,8 @@ static triple_t triples[] = {
   { c12, TK_NUM_RATIONAL, "rational_next_goto_r0" },
   { c12, TK_NUM_FLOAT, "float_next_goto_r0" },
   { c12, TK_SYMBOL, "string_next_goto_r0" },
+
+  { c13, TK_SYMBOL, "symbol_next_goto_r0" },
 
   { td0, TK_INT, "int_return" },
   { td0, TK_REAL, "real_return" },

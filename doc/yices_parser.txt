@@ -28,6 +28,7 @@ Grammar
         | ( echo <string> )
         | ( include <string> )
         | ( set-param <symbol> <immediate-value> )
+	| ( show-param <symbol> )
 	| ( show-params )
         | ( dump-context )
 	| EOS
@@ -137,6 +138,7 @@ c1	 define-type		c2
          reset                  c4
          show-params            c4
          set-param              c11
+	 show-param             c13
 c2	 <symbol>		c10
 c3	 <string>		c4 
 c4       )                      DONE
@@ -154,6 +156,7 @@ c12      true                   c4
          <rational>             c4
          <float>                c4
          <symbol>               c4
+c13      <symbol>               c4
 
 
 parse-typedef: share states t2, t3, t4 with parse-type
@@ -343,6 +346,7 @@ c1       exit           next; goto r0
          dump-context   next; goto r0
          set-param      next; goto c11
 	 show-params    next; goto r0
+	 show-param     next; goto c13
 c2       <symbol>       next; goto c10
 c3       <string>       next; goto r0
 c6       <symbol>       next; goto c7
@@ -357,6 +361,7 @@ c12      true           next; goto r0
          <rational>     next; goto r0
          <float>        next; goto r0
          <symbol>       next; goto r0
+c13      <symbol>       next; goto r0
 
 
 td0      int            return
@@ -429,63 +434,3 @@ else
 
 
 
-
-Tokens and states in which they can occur
------------------------------------------
-
-exit            c1
-check           c1
-echo            c1
-include         c1
-assert          c1
-define-type     c1
-define          c1
-show-model      c1
-eval            c1
-push            c1
-pop             c1
-reset           c1
-dump-context    c1
-<string>        c3
-scalar          td1
-true            e0
-false           e0
-<float>         e0
-<binary bv>     e0
-<hexa bv>       e0
-<function-kw>   e1
-update          e1
-forall          e1
-exists          e1
-let             e1
-::              c7 e12
-int             td0 t0
-real            td0 t0
-bool            td0 t0
-bitvector       td1 t1
-tuple           td1 t1
-->              td1 t1
-<rational>      t4 e0
-(               c0 td0 t0 e0 e5 e10 e15 e16 e20
-)               c9 c10 td3 t6 e3 e7 e14 e19 e20 r0
-<symbol>        c2 c6 td0 td2 td3 t0 e0 e11 e14 e17
-
-
-states that are source of a unique transition
-c0 c2 c3 c6 c7 td2 t4 e5 e7 e10 e11 e12 e15 e16 e17 e19 r0
-
-
-Tables
-- for a state c,
-  default[c] = default action (can be error)
-  base[c] = index in array act
-- for an index i 
-  act[i] = an action 
-  check[i] = a state
-
-to find action from c on token tk:
-- let i = base[c] + tk
-  if check[i] = c then 
-     return act[i]
-  else 
-    return default[c]

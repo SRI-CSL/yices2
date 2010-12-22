@@ -108,7 +108,7 @@ typedef enum opcode_enum {
   // external operations: 
   EXIT_CMD, CHECK_CMD, ECHO_CMD, INCLUDE_CMD, ASSERT_CMD,
   PUSH_CMD, POP_CMD, RESET_CMD, SHOWMODEL_CMD, EVAL_CMD, 
-  SET_PARAM_CMD, SHOW_PARAMS_CMD, DUMP_CMD,
+  SET_PARAM_CMD, SHOW_PARAM_CMD, SHOW_PARAMS_CMD, DUMP_CMD,
 } opcode_t;
 
 #define NUM_OPCODES (DUMP_CMD+1)
@@ -205,6 +205,7 @@ typedef struct param_val_s {
  * - void assert_cmd(term_t t)
  * - void eval_cmd(term_t t)
  * - void setparam_cmd(char *param, param_val_t *val)
+ * - void show_param_cmd(char *param)
  * - void show_params_cmd(void)
  *
  * Two other commands are called within define-type or define-term: 
@@ -231,6 +232,7 @@ typedef void (*include_cmd_t)(char *s);
 typedef void (*assert_cmd_t)(term_t t);
 typedef void (*eval_cmd_t)(term_t t);
 typedef void (*setparam_cmd_t)(char *param, param_val_t *val);
+typedef void (*showparam_cmd_t)(char *param);
 typedef void (*showparams_cmd_t)(void);
 typedef void (*type_defined_cmd_t)(char *name, type_t tau);
 typedef void (*term_defined_cmd_t)(char *name, term_t t);
@@ -248,6 +250,7 @@ typedef struct external_cmd_s {
   assert_cmd_t assert_cmd;
   eval_cmd_t eval_cmd;
   setparam_cmd_t setparam_cmd;
+  showparam_cmd_t showparam_cmd;
   showparams_cmd_t showparams_cmd;
   type_defined_cmd_t type_defined_cmd;
   term_defined_cmd_t term_defined_cmd;
@@ -587,6 +590,10 @@ static inline void tstack_set_eval_cmd(tstack_t *stack, eval_cmd_t cmd) {
 
 static inline void tstack_set_setparam_cmd(tstack_t *stack, setparam_cmd_t cmd) {
   stack->externals.setparam_cmd = cmd;
+}
+
+static inline void tstack_set_showparam_cmd(tstack_t *stack, showparam_cmd_t cmd) {
+  stack->externals.showparam_cmd = cmd;
 }
 
 static inline void tstack_set_showparams_cmd(tstack_t *stack, showparams_cmd_t cmd) {

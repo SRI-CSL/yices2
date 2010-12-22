@@ -1602,6 +1602,22 @@ static void yices_setparam_cmd(char *param, param_val_t *val) {
 
 
 /*
+ * Print parameter of the given name
+ */
+static void yices_showparam_cmd(char *param) {
+  yices_param_t i;
+
+  i = find_param(param);
+  if (i != PARAM_UNKNOWN) {
+    assert(0 <= i && i < NUM_PARAMETERS);
+    show_param(i, 20);
+  } else {
+    report_invalid_param(param);
+  }
+}
+
+
+/*
  * Print all the parameter settings
  */
 static void yices_showparams_cmd(void) {
@@ -1948,6 +1964,7 @@ int yices_main(int argc, char *argv[]) {
   tstack_set_echo_cmd(&stack, yices_echo_cmd);
   tstack_set_include_cmd(&stack, yices_include_cmd);
   tstack_set_setparam_cmd(&stack, yices_setparam_cmd);
+  tstack_set_showparam_cmd(&stack, yices_showparam_cmd);
   tstack_set_showparams_cmd(&stack, yices_showparams_cmd);
   tstack_set_dump_cmd(&stack, yices_dump_cmd);
   tstack_set_reset_cmd(&stack, yices_reset_cmd);

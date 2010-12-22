@@ -12,7 +12,7 @@
  * States
  */
 typedef enum state_s {
-  r0, c0, c1, c2, c3, c6, c7, c9, c10, c11, c12,
+  r0, c0, c1, c2, c3, c6, c7, c9, c10, c11, c12, c13,
   td0, td1, td2, td3, t0, t1, t4, t6,
   e0, e1, e3, e5, e7, e10, e11, e12, 
   e14, e15, e16, e17, e19, e20,
@@ -39,6 +39,7 @@ typedef enum actions {
   showmodel_next_goto_r0,
   eval_next_push_r0_goto_e0,
   setparam_next_goto_c11,
+  showparam_next_goto_c13,
   showparams_next_goto_r0,
   typename_next_goto_c10, // token must be a free typename (TK_SYMBOL)
   string_next_goto_r0,
@@ -48,6 +49,7 @@ typedef enum actions {
   true_next_goto_r0,      // in (set-param ... true)
   false_next_goto_r0,     // in (set-param ... false)
   float_next_goto_r0,     // in (set-param ... <float>)
+  symbol_next_goto_r0,    // in (show-param <symbol>)
   ret,                    // return
   push_r0_goto_e0,
   push_r0_goto_td0,
@@ -180,8 +182,8 @@ typedef enum actions {
  */
 
 // Table sizes
-#define NSTATES 33
-#define BSIZE 169
+#define NSTATES 34
+#define BSIZE 171
 
 // Default values for each state
 static const uint8_t default_value[NSTATES] = {
@@ -195,6 +197,7 @@ static const uint8_t default_value[NSTATES] = {
   push_r0_goto_e0,
   push_r0_goto_td0,
   error_symbol_expected,
+  error,
   error,
   error,
   error,
@@ -223,34 +226,35 @@ static const uint8_t default_value[NSTATES] = {
 // Base values for each state
 static const uint8_t base[NSTATES] = {
      0,   0,   0,   0,   0,   1,   0,   4,   5,   2,
-     7,   8,  13,   5,   6,  21,  21,  17,  22,  35,
-    49,  37,  39,  48,  50,  42,  52,  54,  56,  57,
-    49,  58,  60,
+     7,   5,   8,  13,   6,  21,  23,  23,   2,  20,
+    37,  51,  30,  40,  40,  51,  43,  51,  55,  57,
+    58,  50,  59,  61,
 };
 
 // Check table
-static uint8_t check[BSIZE] = {
+static const uint8_t check[BSIZE] = {
      2,   2,   2,   2,   2,   2,   2,   2,   2,   2,
-     2,   2,   2,   2,   2,  33,  33,  33,  33,   1,
-     0,   6,   1,   4,   7,   8,  14,  11,   3,   5,
-     9,  10,  10,  13,  14,  10,  11,  11,  11,  11,
-    15,  17,  18,  10,  10,  12,  12,  12,  12,  15,
-    15,  15,  15,  16,  19,  16,  16,  21,  22,  19,
-    19,  19,  19,  19,  20,  20,  20,  20,  23,  24,
-    25,  19,  19,  26,  27,  28,  29,  30,  31,  32,
-    32,  33,  27,  33,  33,  33,  33,  20,  20,  20,
-    20,  20,  20,  20,  20,  20,  20,  20,  20,  20,
-    20,  20,  20,  20,  20,  20,  20,  20,  20,  20,
-    20,  20,  20,  20,  20,  20,  20,  20,  20,  20,
-    20,  20,  20,  20,  20,  20,  20,  20,  20,  20,
-    20,  20,  20,  20,  20,  20,  20,  20,  20,  20,
-    20,  20,  20,  20,  20,  20,  20,  20,  20,  20,
-    20,  20,  33,  33,  33,  33,  33,  33,  33,  33,
-    33,  33,  33,  33,  33,  33,  33,  33,  33,
+     2,   2,   2,   2,   2,   2,  34,  34,  34,  34,
+     1,   0,   6,   1,   4,   7,   8,  18,  12,   3,
+     5,   9,  10,  10,  11,  14,  10,  12,  12,  12,
+    12,  19,  15,  16,  10,  10,  13,  13,  13,  13,
+    15,  22,  16,  16,  16,  16,  17,  20,  17,  17,
+    23,  24,  20,  20,  20,  20,  20,  21,  21,  21,
+    21,  25,  26,  27,  20,  20,  28,  29,  30,  31,
+    32,  33,  33,  34,  28,  34,  34,  34,  34,  34,
+    21,  21,  21,  21,  21,  21,  21,  21,  21,  21,
+    21,  21,  21,  21,  21,  21,  21,  21,  21,  21,
+    21,  21,  21,  21,  21,  21,  21,  21,  21,  21,
+    21,  21,  21,  21,  21,  21,  21,  21,  21,  21,
+    21,  21,  21,  21,  21,  21,  21,  21,  21,  21,
+    21,  21,  21,  21,  21,  21,  21,  21,  21,  21,
+    21,  21,  21,  21,  21,  34,  34,  34,  34,  34,
+    34,  34,  34,  34,  34,  34,  34,  34,  34,  34,
+    34,
 };
 
 // Value table
-static uint8_t value[BSIZE] = {
+static const uint8_t value[BSIZE] = {
   deftype_next_goto_c2,
   defterm_next_goto_c6,
   assert_next_push_r0_goto_e0,
@@ -265,6 +269,7 @@ static uint8_t value[BSIZE] = {
   showmodel_next_goto_r0,
   eval_next_push_r0_goto_e0,
   setparam_next_goto_c11,
+  showparam_next_goto_c13,
   showparams_next_goto_r0,
   error,
   error,
@@ -277,29 +282,31 @@ static uint8_t value[BSIZE] = {
   string_next_goto_r0,
   ret,
   ret,
-  ret,
+  rational_next_goto_r0,
   next_goto_td1,
   typename_next_goto_c10,
   termname_next_goto_c7,
   symbol_next_goto_c12,
   rational_next_goto_r0,
   float_next_goto_r0,
-  termname_next_goto_td3,
+  symbol_next_goto_r0,
   termname_next_goto_td3,
   string_next_goto_r0,
   typesymbol_return,
   bool_return,
   int_return,
   real_return,
-  next_goto_t1,
-  rational_next_goto_r0,
   ret,
+  ret,
+  next_goto_t1,
   true_next_goto_r0,
   false_next_goto_r0,
   bitvector_next_goto_t4,
   scalar_next_goto_td2,
   tuple_next_push_t6_goto_t0,
   arrow_next_push_t6_push_t0_goto_t0,
+  termname_next_goto_td3,
+  ret,
   typesymbol_return,
   bool_return,
   int_return,
@@ -308,8 +315,8 @@ static uint8_t value[BSIZE] = {
   next_goto_e1,
   tuple_next_push_t6_goto_t0,
   arrow_next_push_t6_push_t0_goto_t0,
-  ret,
   next_push_e7_goto_e0,
+  next_push_r0_goto_e0,
   rational_return,
   float_return,
   bvbin_return,
@@ -319,12 +326,11 @@ static uint8_t value[BSIZE] = {
   forall_next_goto_e10,
   exists_next_goto_e10,
   let_next_goto_e15,
-  next_push_r0_goto_e0,
   next_goto_e11,
   e11_varname_next_goto_e12,
+  next_push_e14_goto_t0,
   true_return,
   false_return,
-  next_push_e14_goto_t0,
   e14_next_push_r0_goto_e0,
   next_goto_e16,
   next_goto_e17,
@@ -334,6 +340,7 @@ static uint8_t value[BSIZE] = {
   next_push_r0_goto_e0,
   error,
   e14_varname_next_goto_e12,
+  error,
   error,
   error,
   error,
@@ -403,7 +410,6 @@ static uint8_t value[BSIZE] = {
   bv_redor_next_push_e3_goto_e0,
   bv_redand_next_push_e3_goto_e0,
   bv_comp_next_push_e3_goto_e0,
-  error,
   error,
   error,
   error,

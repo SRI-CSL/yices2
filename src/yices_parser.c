@@ -359,6 +359,11 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       state = c11;
       goto loop;
 
+    case showparam_next_goto_c13:
+      tstack_push_op(tstack, SHOW_PARAM_CMD, &loc);
+      state = c13;
+      goto loop;
+
     case showparams_next_goto_r0:
       tstack_push_op(tstack, SHOW_PARAMS_CMD, &loc);
       state = r0;
@@ -404,6 +409,12 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
 
     case float_next_goto_r0:
       tstack_push_float(tstack, tkval(lex), &loc);
+      state = r0;
+      goto loop;
+
+    case symbol_next_goto_r0:
+      // symbol in (show-param <symbol>)
+      tstack_push_string(tstack, tkval(lex), tklen(lex), &loc);
       state = r0;
       goto loop;
 
