@@ -320,6 +320,12 @@ extern value_t vtbl_mk_true(value_table_t *table);
 extern value_t vtbl_mk_false(value_table_t *table);
 
 /*
+ * Negate v (v must be either true or false)
+ */
+extern value_t vtbl_mk_not(value_table_t *table, value_t v);
+
+
+/*
  * Rational (or integer) constant (make a copy)
  */
 extern value_t vtbl_mk_rational(value_table_t *table, rational_t *v);

@@ -122,6 +122,15 @@ extern void intern_tbl_pop(intern_tbl_t *tbl);
 
 
 
+/*
+ * Get a bound on the number of terms in tbl:
+ * - if n = intern_tbl_num_terms(tbl) then terms of 
+ *   index >= n are roots and not mapped to anything
+ */
+static inline uint32_t intern_tbl_num_terms(intern_tbl_t *tbl) {
+  return tbl->map.top;
+}
+
 
 /*
  * ACCESS TO ROOTS

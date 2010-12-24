@@ -18,7 +18,6 @@ void init_evaluator(evaluator_t *eval, model_t *model) {
   eval->vtbl = &model->vtbl;
 
   init_int_hmap(&eval->cache, 0); // use the default hmap size
-  eval->bit_cache = NULL;
   init_istack(&eval->stack);
   // eval->env is not initialized
 }
@@ -32,11 +31,6 @@ void delete_evaluator(evaluator_t *eval) {
   eval->terms = NULL;
   eval->vtbl = NULL;
   delete_int_hmap(&eval->cache);
-  if (eval->bit_cache != NULL) {
-    delete_int_hmap(eval->bit_cache);
-    safe_free(eval->bit_cache);
-    eval->bit_cache = NULL;
-  }
   delete_istack(&eval->stack);
 }
 
@@ -50,9 +44,6 @@ void reset_evaluator(evaluator_t *eval) {
   value_table_end_tmp(eval->vtbl);
   int_hmap_reset(&eval->cache);
   reset_istack(&eval->stack);
-  if (eval->bit_cache != NULL) {
-    int_hmap_reset(eval->bit_cache);
-  }
 }
 
 
@@ -92,58 +83,6 @@ static void eval_cache_map(evaluator_t *eval, term_t t, value_t v) {
 
 
 /*
- * Get the boolean mapped to node n in bit_cache
- * - return code: -1 means nothing mapped to n
- *                 0 means n is false
- *                 1 means n is true
- */
-static int32_t eval_cached_node_value(evaluator_t *eval, node_t n) {
-  int_hmap_t *bit_cache;
-  int_hmap_pair_t *r;
-
-  assert(0 <= n);
-  bit_cache = eval->bit_cache;
-  if (bit_cache != NULL) {
-    r = int_hmap_find(bit_cache, n);
-    if (r != NULL) {
-      assert(r->val == 0 || r->val == 1);
-      return r->val;
-    }
-  }
-
-  return -1;
-}
-
-
-
-/*
- * Add the mapping node n --> true/false in bit_cache
- * - n must not be mapped to anything yet
- */
-static void eval_cache_node_map(evaluator_t *eval, node_t n, bool v) {
-  int_hmap_t *bit_cache;
-  int_hmap_pair_t *r;
-
-  assert(0 <= n);
-  bit_cache = eval->bit_cache;
-  if (bit_cache == NULL) {
-    bit_cache = (int_hmap_t *) safe_malloc(sizeof(int_hmap_t));
-    init_int_hmap(bit_cache, 0); // default initial size
-    eval->bit_cache = bit_cache;
-  }
-
-  r = int_hmap_get(bit_cache, n);
-  assert(r->val < 0);
-  r->val = (int32_t) v;
-}
-
-
-
-
-
-
-
-/*
  * EVALUATION:
  *
  * Compute the value v of term t in the model 
@@ -168,23 +107,27 @@ static void eval_term_array(evaluator_t *eval, term_t *t, value_t *a, uint32_t n
 /*
  * Evaluate basic constructs
  */
-static value_t eval_ite(evaluator_t *eval, ite_term_t *ite) {
+static value_t eval_ite(evaluator_t *eval, composite_term_t *ite) {
   value_t c;
 
-  c = eval_term(eval, ite->cond);
+  assert(ite->arity == 3);
+
+  c = eval_term(eval, ite->arg[0]);
   if (is_true(eval->vtbl, c)) {
-    return eval_term(eval, ite->then_arg);
+    return eval_term(eval, ite->arg[1]);
   } else {
     assert(is_false(eval->vtbl, c));
-    return eval_term(eval, ite->else_arg);
+    return eval_term(eval, ite->arg[2]);
   }
 }
 
-static value_t eval_eq(evaluator_t *eval, eq_term_t *eq) {
+static value_t eval_eq(evaluator_t *eval, composite_term_t *eq) {
   value_t v1, v2;
 
-  v1 = eval_term(eval, eq->left); 
-  v2 = eval_term(eval, eq->right);
+  assert(eq->arity == 2);
+
+  v1 = eval_term(eval, eq->arg[0]); 
+  v2 = eval_term(eval, eq->arg[1]);
   return vtbl_eval_eq(eval->vtbl, v1, v2);
 }
 
@@ -192,33 +135,34 @@ static value_t eval_eq(evaluator_t *eval, eq_term_t *eq) {
 /*
  * app is (fun arg[0] ... arg[n-1]) 
  */ 
-static value_t eval_app(evaluator_t *eval, app_term_t *app) {
+static value_t eval_app(evaluator_t *eval, composite_term_t *app) {
   value_t *a;
   value_t *b;
-  update_term_t *update;
+  composite_term_t *update;
   value_t v, f;
   uint32_t n;
   term_t fun;
 
   // eval the arguments first
-  n = app->nargs;
+  assert(app->arity >= 2);
+  n = app->nargs - 1;
   a = alloc_istack_array(&eval->stack, n);
-  eval_term_array(eval, app->arg, a, n); // a[i] = eval(arg[i])
+  eval_term_array(eval, app->arg+1, a, n); // a[i] = eval(arg[i])
 
   /*
    * Try to avoid evaluating fun if it's an update.
    * TODO: check whether that matters??
    */
-  fun = app->fun;
+  fun = app->arg[0];
   if (term_kind(eval->terms, fun) == UPDATE_TERM) {
     b = alloc_istack_array(&eval->stack, n);
     do {
       // fun is (update f (x_1 ... x_n) v)
       update = update_term_desc(eval->terms, fun);
-      assert(update->nargs == n);
+      assert(update->arity == n + 2);
 
       // evaluate x_1 ... x_n
-      eval_term_array(eval, update->arg, b, n); // b[i] = eval(x_{i+1})
+      eval_term_array(eval, update->arg+1, b, n); // b[i] = eval(x_{i+1})
 
       // check equality
       v = vtbl_eval_array_eq(eval->vtbl, a, b, n);
@@ -229,7 +173,7 @@ static value_t eval_app(evaluator_t *eval, app_term_t *app) {
 
       } else if (is_true(eval->vtbl, v)) {
 	// ((update f (x_1 ... x_n) v) a[0] ... a[n-1]) --> v
-	v = eval_term(eval, update->newval);
+	v = eval_term(eval, update->arg[n+1]);
 	free_istack_array(&eval->stack, b);
 	goto done;
 
@@ -256,11 +200,11 @@ static value_t eval_app(evaluator_t *eval, app_term_t *app) {
   return v;
 }
 
-static value_t eval_or(evaluator_t *eval, or_term_t *or) {
+static value_t eval_or(evaluator_t *eval, composite_term_t *or) {
   uint32_t i, n;
   value_t v;
 
-  n = or->nargs;
+  n = or->arity;
   for (i=0; i<n; i++) {
     v = eval_term(eval, or->arg[i]);
     if (is_true(eval->vtbl, v)) {
@@ -273,12 +217,12 @@ static value_t eval_or(evaluator_t *eval, or_term_t *or) {
 }
 
 
-static value_t eval_tuple(evaluator_t *eval, tuple_term_t *tuple) {
+static value_t eval_tuple(evaluator_t *eval, composite_term_t *tuple) {
   value_t *a;
   value_t v;
   uint32_t i, n;
 
-  n = tuple->nargs;
+  n = tuple->arity;
   a = alloc_istack_array(&eval->stack, n);
   for (i=0; i<n; i++) {
     a[i] = eval_term(eval, tuple->arg[i]);
@@ -300,18 +244,20 @@ static value_t eval_select(evaluator_t *eval, select_term_t *select) {
   return t->elem[select->idx];
 }
 
-static value_t eval_update(evaluator_t *eval, update_term_t *update) {
+static value_t eval_update(evaluator_t *eval, composite_term_t *update) {
   value_t *a;
   value_t v, f;
   uint32_t i, n;
 
-  n = update->nargs;
+  assert(update->arity >= 3);
+
+  n = update->arity - 2;
   a = alloc_istack_array(&eval->stack, n);
+  f = eval_term(eval, update->arg[0]);
   for (i=0; i<n; i++) {
-    a[i] = eval_term(eval, update->arg[i]);
+    a[i] = eval_term(eval, update->arg[i+1]);
   }  
-  f = eval_term(eval, update->fun);
-  v = eval_term(eval, update->newval);
+  v = eval_term(eval, update->arg[n+1]);
 
   v = vtbl_mk_update(eval->vtbl, f, n, a, v);
   free_istack_array(&eval->stack, a);
@@ -319,12 +265,12 @@ static value_t eval_update(evaluator_t *eval, update_term_t *update) {
   return v;
 }
 
-static value_t eval_distinct(evaluator_t *eval, distinct_term_t *distinct) {
+static value_t eval_distinct(evaluator_t *eval, composite_term_t *distinct) {
   value_t *a;
   value_t v, eq;
   uint32_t i, j, n;
 
-  n = distinct->nargs;
+  n = distinct->arity;
   a = alloc_istack_array(&eval->stack, n);
   for (i=0; i<n; i++) {
     v = eval_term(eval, distinct->arg[i]);

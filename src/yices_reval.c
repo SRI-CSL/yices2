@@ -40,8 +40,10 @@
 #include "smt_core_printer.h"
 #include "context_printer.h"
 
-// TODO: should need only yices.h
 #include "context.h"
+#include "models.h"
+// #include "model_eval.h"
+#include "model_printer.h"
 #include "yices.h"
 #include "yices_globals.h"
 #include "yices_reval.h"
@@ -88,10 +90,12 @@ static context_mode_t mode;
 static bool iflag;
 static bool qflag;
 
+
 /*
  * Context, model, and solver parameters
  */
 static context_t *context;
+static model_t *model;
 static param_t parameters;
 
 
@@ -818,6 +822,7 @@ static void print_ok(void) {
  * - qflag = true to support quantifiers
  */
 static void init_ctx(context_arch_t arch, context_mode_t mode, bool iflag, bool qflag) {
+  model = NULL;
   context = (context_t *) safe_malloc(sizeof(context_t));
   init_context(context, __yices_globals.terms, mode, arch, qflag);
 
@@ -841,6 +846,10 @@ static void init_ctx(context_arch_t arch, context_mode_t mode, bool iflag, bool 
 static void delete_ctx(void) {
   assert(context != NULL);
   reset_handlers();
+  if (model != NULL) {
+    free_model(model);
+    model = NULL;
+  }
   delete_context(context);
   safe_free(context);
   context = NULL;
@@ -1731,6 +1740,10 @@ static void yices_dump_cmd(void) {
  * Reset
  */
 static void yices_reset_cmd(void) {
+  if (model != NULL) {
+    free_model(model);
+    model = NULL;
+  }
   reset_context(context);
   print_ok();
 }
@@ -1746,7 +1759,11 @@ static void yices_push_cmd(void) {
     switch (context_status(context)) {
     case STATUS_UNKNOWN:
     case STATUS_SAT:
-      // return to IDLE
+      // cleanup model and return to IDLE
+      if (model != NULL) {
+	free_model(model);
+	model = NULL;
+      }
       context_clear(context);
       assert(context_status(context) == STATUS_IDLE);
       // fall-through intended.
@@ -1786,7 +1803,11 @@ static void yices_pop_cmd(void) {
     switch (context_status(context)) {
     case STATUS_UNKNOWN:
     case STATUS_SAT:
-      // cleanup model
+      // delete the model first
+      if (model != NULL) {
+	free_model(model);
+	model = NULL;
+      }
       context_clear(context);
       assert(context_status(context) == STATUS_IDLE);
       // fall-through intended
@@ -1821,6 +1842,10 @@ static void yices_assert_cmd(term_t f) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
     // cleanup then return to the idle state
+    if (model != NULL) {
+      free_model(model);
+      model = NULL;
+    }
     context_clear(context); 
     assert(context_status(context) == STATUS_IDLE);
     // fall-through intended
@@ -1896,7 +1921,32 @@ static void yices_check_cmd(void) {
  * Build model if needed and display it
  */
 static void yices_showmodel_cmd(void) {
-  fputs("Not supported\n", stdout);
+  switch (context_status(context)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    if (model == NULL) {
+      model = context_build_model(context, true);
+    }    
+    model_print(stdout, model);
+    break;
+
+  case STATUS_UNSAT:
+    fputs("The context is unsat. No model.\n", stdout);
+    fflush(stdout);
+    break;
+
+  case STATUS_IDLE:
+    fputs("Can't build a model. Call (check) first.\n", stdout);
+    fflush(stdout);
+    break;
+
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+  default:
+    // this should not happen
+    report_bug("unexpected context status in show-model");
+    break;
+  }
 }
 
 
@@ -1906,7 +1956,51 @@ static void yices_showmodel_cmd(void) {
  * - build the model if needed
  */
 static void yices_eval_cmd(term_t t) {
-  fputs("Not supported\n", stdout);
+#if 0
+  evaluator_t evaluator;
+  value_t v;
+
+  switch (context_status(context)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    if (model == NULL) {
+      model = context_build_model(context, true);
+    }    
+    init_evaluator(&evaluator, model);
+    v = eval_in_model(&evaluator, t);
+    if (v >= 0) {
+      vtbl_print_object(stdout, model_get_vtbl(model), v);
+      if (object_is_function(model_get_vtbl(model), v)) {
+	fputc('\n', stdout);
+	vtbl_print_function(stdout, model_get_vtbl(model), v, true);
+      }
+      fputc('\n', stdout);
+    } else {
+      fputs("unknown\n", stdout);
+    }
+    delete_evaluator(&evaluator);
+    break;
+
+  case STATUS_UNSAT:
+    fputs("The context is unsat. No model.\n", stdout);
+    fflush(stdout);
+    break;
+
+  case STATUS_IDLE:
+    fputs("No model.\n", stdout);
+    fflush(stdout);
+    break;
+
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+  default:
+    // this should not happen
+    report_bug("unexpected context status in eval");
+    break;
+  }
+#else
+  fputs("Not supported yet\n", stdout);
+#endif
 }
 
 

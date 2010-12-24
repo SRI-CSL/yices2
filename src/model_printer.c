@@ -7,7 +7,7 @@
 #include <string.h>
 
 #include "int_vectors.h"
-#include "model_eval.h"
+// #include "model_eval.h"
 #include "model_printer.h"
 
 
@@ -295,6 +295,10 @@ void model_print(FILE *f, model_t *model) {
  * FULL MODEL: USE EVALUATOR
  */
 
+#if 0
+
+// NEED TO FIX model_eval FIRST
+
 /*
  * Print the assignment for t as computed by the evaluator
  * - t must be a valid, uninterpreted term
@@ -553,7 +557,6 @@ static void model_collect_all_terms(model_t *model, ivector_t *v) {
 }
 
 
-
 /*
  * Print model, including the aliased terms
  * - one line per term 
@@ -587,4 +590,6 @@ void model_print_full(FILE *f, model_t *model) {
     vtbl_print_anonymous_functions(f, &model->vtbl, true);
   }
 }
+
+#endif
 

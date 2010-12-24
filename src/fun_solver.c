@@ -3271,6 +3271,8 @@ void fun_solver_free_model(fun_solver_t *solver) {
   if (solver->vtbl.nvars > 0) {
     fun_solver_delete_values(solver);
     fun_solver_cleanup(solver);
+    safe_free(solver->base_value);
+    solver->base_value = NULL;
   }
 }
 

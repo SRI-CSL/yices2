@@ -14,8 +14,6 @@
 #include "context.h"
 #include "simplex.h"
 #include "fun_solver.h"
-
-// HACK
 #include "prng.h"
 
 
@@ -551,7 +549,6 @@ smt_status_t check_context(context_t *ctx, param_t *params, bool verbose) {
 
 
 
-#if 0
 
 /*
  * MODEL CONSTRUCTION
@@ -589,7 +586,7 @@ static value_t arith_value(context_t *ctx, value_table_t *vtbl, thvar_t x) {
   assert(context_has_arith_solver(ctx));
 
   a = &ctx->aux;
-  if (ctx->arith->value_in_model(ctx->arith_solver, x, a)) {
+  if (ctx->arith.value_in_model(ctx->arith_solver, x, a)) {
     v = vtbl_mk_rational(vtbl, a);
   } else {
     v = vtbl_mk_unknown(vtbl);
@@ -598,6 +595,8 @@ static value_t arith_value(context_t *ctx, value_table_t *vtbl, thvar_t x) {
   return v;
 }
 
+
+#if 0
 
 /*
  * Value of bitvector variable x in ctx->bv_solver
@@ -618,6 +617,7 @@ static value_t bv_value(context_t *ctx, value_table_t *vtbl, thvar_t x) {
   return v;
 }
 
+#endif
 
 /*
  * Get a value for term t in the solvers or egraph
@@ -629,93 +629,92 @@ static value_t bv_value(context_t *ctx, value_table_t *vtbl, thvar_t x) {
  */
 static void build_term_value(context_t *ctx, model_t *model, term_t t, bool keep_subst) {
   value_table_t *vtbl;
-  term_t u;
-  icode_t x;
+  term_t r;
+  uint32_t polarity;
+  int32_t x;
   type_t tau;
   value_t v;
 
-  x = code_of_term(&ctx->trans, t); // x = internalization code for t
-  if (! code_is_valid(x)) { 
-    // t may have been eliminated via variable elimination
-    // so try substitution
-    u = context_find_term_subst(ctx, t);
-    if (u == NULL_TERM) {
-      // no substituon for t
-      return;
-    }
-
-    // substitution found: [t --> u]
-    // see if we can map u to a concrete value
-    x = code_of_term(&ctx->trans, u);
-    if (! code_is_valid(x)) {
-      if (keep_subst) {
-      // keep the substitution [t --> u] in the model
-	model_add_substitution(model, t, u);
-      }
-      return;
-    }
-  }
-
-  assert(code_is_valid(x));
-
   /*
-   * map t to the concrete object attached for x
+   * Get the root of t in the substitution table
    */
-  vtbl = model_get_vtbl(model);
-  if (code_is_eterm(x)) {
+  r = intern_tbl_get_root(&ctx->intern, t);
+  if (intern_tbl_root_is_mapped(&ctx->intern, r)) {
     /*
-     * t is mapped to a term in the egraph or to true_occ/false_occ
+     * r is mapped to some object x in egraph/core/or theory solvers
+     * - keep track of polarity then force r to positive polarity
      */
-    if (x == occ2code(false_occ)) {
-      v = vtbl_mk_false(vtbl);
-    } else if (x == occ2code(true_occ)) {
-      v = vtbl_mk_true(vtbl);
+    vtbl = model_get_vtbl(model);
+    polarity = polarity_of(r);
+    r = unsigned_term(r);
+
+    /*
+     * Convert x to a concrete value
+     */
+    x = intern_tbl_map_of_root(&ctx->intern, r);
+    if (code_is_eterm(x)) {
+      // x refers to an egraph object or true_occ/false_occ
+      if (x == bool2code(true)) {
+	v = vtbl_mk_true(vtbl);
+      } else if (x == bool2code(false)) {
+	v = vtbl_mk_false(vtbl);
+      } else {
+	assert(context_has_egraph(ctx));
+	v = egraph_get_value(ctx->egraph, vtbl, code2occ(x));
+      }
+
     } else {
-      assert(context_has_egraph(ctx));
-      v = egraph_get_value(ctx->egraph, vtbl, code2occ(x));
+      // x refers to a literal or a theory variable
+      tau = term_type(ctx->terms, r);
+      switch (type_kind(ctx->types, tau)) {
+      case BOOL_TYPE:
+	v = bool_value(ctx, vtbl, code2literal(x));
+	break;
+
+      case INT_TYPE:
+      case REAL_TYPE:
+	v = arith_value(ctx, vtbl, code2thvar(x));
+	break;
+
+      case BITVECTOR_TYPE:
+	// not supported yet
+	v = vtbl_mk_unknown(vtbl);
+	break;
+
+      default:
+	/*
+	 * This should never happen: 
+	 * scalar, uninterpreted, tuple, function terms
+	 * are mapped to egraph terms.
+	 */
+	assert(false); 
+	v = vtbl_mk_unknown(vtbl); // prevent GCC warning
+	break;
+      }
     }
-      
+
+    /*
+     * Restore polarity then add mapping [t --> v] in the model
+     */
+    if (! object_is_unknown(vtbl, v)) {
+      if (object_is_boolean(vtbl, v)) {
+	if (polarity) {
+	  // negate the value
+	  v = vtbl_mk_not(vtbl, v);
+	}
+      }
+      model_map_term(model, t, v);
+    }
+
   } else {
     /*
-     * t is mapped to a literal or a theory variable
+     * r is not mapped to anything
      */
-    tau = term_type(ctx->terms, t);
-    switch (type_kind(ctx->types, tau)) {
-    case BOOL_TYPE:
-      v = bool_value(ctx, vtbl, code2literal(x));
-      break;
-      
-    case INT_TYPE:
-    case REAL_TYPE:
-      v = arith_value(ctx, vtbl, code2var(x));
-      break;
-
-    case BITVECTOR_TYPE:
-      v = bv_value(ctx, vtbl, code2var(x));
-      break;
-
-
-    case UNUSED_TYPE:
-    case SCALAR_TYPE:
-    case UNINTERPRETED_TYPE:
-    case TUPLE_TYPE:
-    case FUNCTION_TYPE: 
-    default:
-      /*
-       * This should never happen: 
-       * scalar, uninterpreted, tuple, function terms
-       * are mapped to egraph terms.
-       */
-      assert(false); 
-      v = vtbl_mk_unknown(vtbl); // prevent GCC warning
-      break;
+    if (keep_subst && t != r) {
+      // keep the substitution [t --> r] in the model
+      model_add_substitution(model, t, r);
     }
   }
-
-  if (! object_is_unknown(vtbl, v)) {
-    model_map_term(model, t, v);
-  }
-
 }
 
 
@@ -731,6 +730,7 @@ model_t *context_build_model(context_t *ctx, bool keep_subst) {
   term_table_t *terms;
   model_t *model;
   uint32_t i, n;
+  term_t t;
 
   assert(smt_status(ctx->core) == STATUS_SAT || smt_status(ctx->core) == STATUS_UNKNOWN);
   
@@ -739,11 +739,13 @@ model_t *context_build_model(context_t *ctx, bool keep_subst) {
    * and get the val_in_model functions for the egraph
    */
   if (context_has_arith_solver(ctx)) {
-    ctx->arith->build_model(ctx->arith_solver);
+    ctx->arith.build_model(ctx->arith_solver);
   }
+#if 0
   if (context_has_bv_solver(ctx)) {
-    ctx->bv->build_model(ctx->bv_solver);
+    ctx->bv.build_model(ctx->bv_solver);
   }
+#endif
 
   // allocate the model
   terms = ctx->terms;
@@ -757,10 +759,11 @@ model_t *context_build_model(context_t *ctx, bool keep_subst) {
   }
 
   // scan the internalization table
-  n = number_of_terms(&ctx->trans);
-  for (i=0; i<n; i++) {
-    if (term_kind(terms, i) == UNINTERPRETED_TERM) {
-      build_term_value(ctx, model, i, keep_subst);
+  n = intern_tbl_num_terms(&ctx->intern);
+  for (i=1; i<n; i++) { // first real term has index 1 (i.e. true_term)
+    t = pos_occ(i);
+    if (term_kind(terms, t) == UNINTERPRETED_TERM) {
+      build_term_value(ctx, model, t, keep_subst);
     }
   }
 
@@ -768,11 +771,15 @@ model_t *context_build_model(context_t *ctx, bool keep_subst) {
    * Cleanup
    */
   if (context_has_arith_solver(ctx)) {
-    ctx->arith->free_model(ctx->arith_solver);
+    ctx->arith.free_model(ctx->arith_solver);
   }
+
+#if 0
   if (context_has_bv_solver(ctx)) {
-    ctx->bv->free_model(ctx->bv_solver);
+    ctx->bv.free_model(ctx->bv_solver);
   }
+#endif
+
   if (context_has_egraph(ctx)) {
     egraph_free_model(ctx->egraph);
   }
@@ -782,4 +789,3 @@ model_t *context_build_model(context_t *ctx, bool keep_subst) {
 }
 
 
-#endif

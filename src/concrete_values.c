@@ -738,6 +738,19 @@ value_t vtbl_mk_bool(value_table_t *table, int32_t val) {
 }
 
 
+/*
+ * Negation of v
+ */
+value_t vtbl_mk_not(value_table_t *table, value_t v) {
+  assert(v >= 0 && (v == table->true_value || v == table->false_value));
+
+  if (v == table->true_value) {
+    return vtbl_mk_false(table);
+  } else {
+    return vtbl_mk_true(table);
+  }
+}
+
 
 /*
  * Uninterpreted constant of type tau

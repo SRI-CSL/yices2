@@ -543,6 +543,10 @@ struct context_s {
   polynomial_t *aux_poly;
   uint32_t aux_poly_size;  // number of monomials in aux_poly
 
+  // auxiliary buffers for model construction
+  rational_t aux;
+  bvconstant_t bv_buffer;
+
   // for exception handling
   jmp_buf env;
 };

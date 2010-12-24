@@ -35,8 +35,6 @@ enum {
  *   (term table and value table are extracted from
  *    model when the evaluator is initialized)
  * - cache: keeps track of the value of evaluated terms
- * - bit_cache: allocated when needed: maps nodes from
- *   the bit_expr DAG to true or false.
  * - env: jump buffer for error handling
  * - stack of integer arrays
  */
@@ -45,7 +43,6 @@ typedef struct evaluator_s {
   term_table_t *terms;
   value_table_t *vtbl;
   int_hmap_t cache;
-  int_hmap_t *bit_cache;
   int_stack_t stack;
   jmp_buf env;
 } evaluator_t;
@@ -83,8 +80,6 @@ extern void reset_evaluator(evaluator_t *eval);
  * reset_evaluator.
  */
 extern value_t eval_in_model(evaluator_t *eval, term_t t);
-
-
 
 
 

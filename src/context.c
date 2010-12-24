@@ -3827,7 +3827,6 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
    * if polarity is 0, then t is equal to r by substitution
    * if polarity is 1, then t is equal to (not r)
    */
-
   if (intern_tbl_root_is_mapped(&ctx->intern, r)) {
     /*
      * r already internalized
@@ -5970,6 +5969,9 @@ void init_context(context_t *ctx, term_table_t *terms,
   ctx->aux_poly = NULL;
   ctx->aux_poly_size = 0;
 
+  q_init(&ctx->aux);
+  init_bvconstant(&ctx->bv_buffer);
+
   /*
    * Allocate and initialize the solvers and core
    * NOTE: the core is not initialized yet if arch is AUTO_IDL or AUTO_RDL
@@ -6032,6 +6034,9 @@ void delete_context(context_t *ctx) {
   context_free_arith_buffer(ctx);
   context_free_poly_buffer(ctx);
   context_free_aux_poly(ctx);
+
+  q_clear(&ctx->aux);
+  delete_bvconstant(&ctx->bv_buffer);
 }
 
 
@@ -6070,6 +6075,8 @@ void reset_context(context_t *ctx) {
   context_reset_poly_buffer(ctx);
   context_free_aux_poly(ctx);
   context_free_dl_profile(ctx);
+
+  q_clear(&ctx->aux);
 }
 
 
