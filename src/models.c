@@ -11,36 +11,34 @@
 
 
 /*
- * Allocate an initialize a model
- * - terms = the attached term table
+ * Initialize model
+ * - terms = attached term table
+ * - keep_subst = whether to support alias_map or not
  * - map and vtbl are given default sizes
  * - alias_map is NULL
  */
-model_t *new_model(term_table_t *terms, bool keep_subst) {
-  model_t *model;
-
-  model = (model_t *) safe_malloc(sizeof(model_t));
+void init_model(model_t *model, term_table_t *terms, bool keep_subst) {
   init_value_table(&model->vtbl, 0, terms->types);
   init_int_hmap(&model->map, 0);
   model->alias_map = NULL;
   model->terms = terms;
   model->has_alias = keep_subst;
-
-  return model;
 }
 
+
 /*
- * Delete a model
+ * Delete model: free all memory
  */
-void free_model(model_t *model) {
+void delete_model(model_t *model) {
   delete_value_table(&model->vtbl);
   delete_int_hmap(&model->map);
   if (model->alias_map != NULL) {
     delete_int_hmap(model->alias_map);
     safe_free(model->alias_map);
+    model->alias_map = NULL;
   }
-  safe_free(model);
 }
+
 
 
 /*

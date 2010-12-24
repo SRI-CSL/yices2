@@ -826,14 +826,13 @@ extern smt_status_t check_context(context_t *ctx, param_t *parameters, bool verb
 
 /*
  * Build a model: the context's status must be STATUS_SAT or STATUS_UNKNOWN
- * - this function allocates a new model and return a pointer to it
+ * - model must be initialized (and empty)
  * - the model maps a value to every uninterpreted terms present in ctx's 
  *   internalization tables
- * - if keep_subst is true, the model also stores the current substitution
- *   as defined by ctx->pseudo_subst
- * - the user must delete this model using free_model (declared in models.h)
+ * - model->has_alias is true, the term substitution defined by ctx->intern_tbl
+ *   is copied into the model
  */
-extern model_t *context_build_model(context_t *ctx, bool keep_subst);
+extern void context_build_model(model_t *model, context_t *ctx);
 
 
 

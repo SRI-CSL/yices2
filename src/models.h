@@ -48,21 +48,21 @@ struct model_s {
 };
 
 
-
 /*
- * Allocate an initialize a model
- * - terms = the attached term table
+ * Initialize model
+ * - terms = attached term table
  * - keep_subst = whether to support alias_map or not
  * - map and vtbl are given default sizes
  * - alias_map is NULL
  */
-extern model_t *new_model(term_table_t *terms, bool keep_subst);
+extern void init_model(model_t *model, term_table_t *terms, bool keep_subst);
 
 
 /*
- * Delete a model
+ * Delete model
+ * - free all internal memory
  */
-extern void free_model(model_t *model);
+extern void delete_model(model_t *model);
 
 
 /*

@@ -661,7 +661,6 @@ static void reset_handlers(void) {
 
 
 
-
 /********************
  *  ERROR MESSAGES  *
  *******************/
@@ -808,6 +807,34 @@ static void print_ok(void) {
 
 
 
+
+/***************************
+ *  MODEL ALLOCATION/FREE  *
+ **************************/
+
+/*
+ * Allocate and initialize a model
+ * - set has_alias true
+ */
+static model_t *new_model(void) {
+  model_t *tmp;
+
+  tmp = (model_t *) safe_malloc(sizeof(model_t));
+  init_model(tmp, __yices_globals.terms, true);
+  return tmp;
+}
+
+
+/*
+ * Free model
+ */
+static void free_model(model_t *model) {
+  delete_model(model);
+  safe_free(model);
+}
+
+
+
 /****************************
  *  CONTEXT INITIALIZATION  *  
  ***************************/
@@ -854,7 +881,6 @@ static void delete_ctx(void) {
   safe_free(context);
   context = NULL;
 }
-
 
 
 
@@ -1925,7 +1951,8 @@ static void yices_showmodel_cmd(void) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
     if (model == NULL) {
-      model = context_build_model(context, true);
+      model = new_model();
+      context_build_model(model, context);
     }    
     model_print(stdout, model);
     break;

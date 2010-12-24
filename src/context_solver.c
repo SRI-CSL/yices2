@@ -623,11 +623,11 @@ static value_t bv_value(context_t *ctx, value_table_t *vtbl, thvar_t x) {
  * Get a value for term t in the solvers or egraph
  * - attach the mapping from t to that value in model
  * - if we don't have a concrete object for t but t is 
- *   mapped to a term u and the flag keep_subst is true, 
+ *   mapped to a term u and the model->has_alias is true, 
  *   then we store the mapping [t --> u] in the model's 
  *   alias map. 
  */
-static void build_term_value(context_t *ctx, model_t *model, term_t t, bool keep_subst) {
+static void build_term_value(context_t *ctx, model_t *model, term_t t) {
   value_table_t *vtbl;
   term_t r;
   uint32_t polarity;
@@ -710,7 +710,7 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t, bool keep
     /*
      * r is not mapped to anything
      */
-    if (keep_subst && t != r) {
+    if (t != r && model->has_alias) {
       // keep the substitution [t --> r] in the model
       model_add_substitution(model, t, r);
     }
@@ -723,12 +723,11 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t, bool keep
 /*
  * Build a model for the current context
  * - the context status must be SAT (or UNKNOWN)
- * - if keep_subst is true, we store the term substitution 
- *   defined by ctx->pseudo_subst into the model
+ * - if model->has_alias is true, we store the term substitution 
+ *   defined by ctx->intern_tbl into the model
  */
-model_t *context_build_model(context_t *ctx, bool keep_subst) {
+void context_build_model(model_t *model, context_t *ctx) {
   term_table_t *terms;
-  model_t *model;
   uint32_t i, n;
   term_t t;
 
@@ -749,7 +748,6 @@ model_t *context_build_model(context_t *ctx, bool keep_subst) {
 
   // allocate the model
   terms = ctx->terms;
-  model = new_model(terms, keep_subst);
 
   /*
    * Construct the egraph model
@@ -763,7 +761,7 @@ model_t *context_build_model(context_t *ctx, bool keep_subst) {
   for (i=1; i<n; i++) { // first real term has index 1 (i.e. true_term)
     t = pos_occ(i);
     if (term_kind(terms, t) == UNINTERPRETED_TERM) {
-      build_term_value(ctx, model, t, keep_subst);
+      build_term_value(ctx, model, t);
     }
   }
 
@@ -783,9 +781,7 @@ model_t *context_build_model(context_t *ctx, bool keep_subst) {
   if (context_has_egraph(ctx)) {
     egraph_free_model(ctx->egraph);
   }
-  
 
-  return model;
 }
 
 
