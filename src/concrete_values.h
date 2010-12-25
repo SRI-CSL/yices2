@@ -354,6 +354,13 @@ extern value_t vtbl_mk_bv_from_bv(value_table_t *table, uint32_t n, uint32_t *a)
  */
 extern value_t vtbl_mk_bv_from_constant(value_table_t *table, bvconstant_t *b);
 
+/*
+ * Variant: input is a 64bit unsigned integer
+ * - n = number of bits to use (n <= 64)
+ * - c = integer constant
+ */
+extern value_t vtbl_mk_bv_from_bv64(value_table_t *table, uint32_t n, uint64_t c);
+
 
 /*
  * Tuple:

@@ -7,7 +7,7 @@
 #include <string.h>
 
 #include "int_vectors.h"
-// #include "model_eval.h"
+#include "model_eval.h"
 #include "model_printer.h"
 
 
@@ -294,10 +294,6 @@ void model_print(FILE *f, model_t *model) {
 /*
  * FULL MODEL: USE EVALUATOR
  */
-
-#if 0
-
-// NEED TO FIX model_eval FIRST
 
 /*
  * Print the assignment for t as computed by the evaluator
@@ -591,5 +587,4 @@ void model_print_full(FILE *f, model_t *model) {
   }
 }
 
-#endif
 

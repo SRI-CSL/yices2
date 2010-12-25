@@ -42,7 +42,7 @@
 
 #include "context.h"
 #include "models.h"
-// #include "model_eval.h"
+#include "model_eval.h"
 #include "model_printer.h"
 #include "yices.h"
 #include "yices_globals.h"
@@ -1983,7 +1983,6 @@ static void yices_showmodel_cmd(void) {
  * - build the model if needed
  */
 static void yices_eval_cmd(term_t t) {
-#if 0
   evaluator_t evaluator;
   value_t v;
 
@@ -1991,7 +1990,8 @@ static void yices_eval_cmd(term_t t) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
     if (model == NULL) {
-      model = context_build_model(context, true);
+      model = new_model();
+      context_build_model(model, context);
     }    
     init_evaluator(&evaluator, model);
     v = eval_in_model(&evaluator, t);
@@ -2025,9 +2025,6 @@ static void yices_eval_cmd(term_t t) {
     report_bug("unexpected context status in eval");
     break;
   }
-#else
-  fputs("Not supported yet\n", stdout);
-#endif
 }
 
 

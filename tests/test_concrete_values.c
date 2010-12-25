@@ -138,11 +138,28 @@ static void test_constants(void) {
   // all bitvector constants of size 5
   for (i=0; i<32; i++) {
     v = vtbl_mk_bv_from_bv(&vtbl, 5, &i);
-    printf("(mk-bv %"PRId32" 5): v = %"PRId32"\n", i, v);
+    printf("(mk-bv %"PRIu32" 5): v = %"PRId32"\n", i, v);
     v1 = vtbl_mk_bv_from_bv(&vtbl, 5, &i);
     assert(v == v1);
     bits_of_uint32(i, 5, b);
     v1 = vtbl_mk_bv(&vtbl, 5, b);
+    assert(v == v1);
+    v1 = vtbl_mk_bv_from_bv64(&vtbl, 5, (uint64_t) i);
+  }
+
+  // bitvector contants: 0 to 31, size 35
+  for (i=0; i<32; i++) {
+    v = vtbl_mk_bv_from_bv64(&vtbl, 35, (uint64_t) i);
+    printf("(mk-bv %"PRIu32" 35): v = %"PRId32"\n", i, v);
+    v1 = vtbl_mk_bv_from_bv64(&vtbl, 35, (uint64_t) i);
+    assert(v == v1);
+  }
+
+  // bitvector contants: -0 to -31, size 35
+  for (i=0; i<32; i++) {
+    v = vtbl_mk_bv_from_bv64(&vtbl, 35, - ((uint64_t) i));
+    printf("(mk-bv %"PRId32" 35): v = %"PRId32"\n", -((int32_t) i), v);
+    v1 = vtbl_mk_bv_from_bv64(&vtbl, 35, - ((uint64_t) i));
     assert(v == v1);
   }
 

@@ -1495,6 +1495,17 @@ value_t vtbl_mk_bv_from_constant(value_table_t *table, bvconstant_t *b) {
 }
 
 
+/*
+ * Bit vector constant defined by a 64bit integer c
+ * - n = number of bits to use
+ */
+value_t vtbl_mk_bv_from_bv64(value_table_t *table, uint32_t n, uint64_t c) {
+  uint32_t aux[2];
+
+  aux[0] = (uint32_t) c;
+  aux[1] = (uint32_t) (c >> 32);
+  return vtbl_mk_bv_from_bv(table, n, aux);
+}
 
 
 /*

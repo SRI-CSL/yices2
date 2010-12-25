@@ -6,7 +6,7 @@
 #include <stdbool.h>
 
 #include "model_eval.h"
-
+#include "bv64_constants.h"
 
 
 /*
@@ -105,6 +105,585 @@ static void eval_term_array(evaluator_t *eval, term_t *t, value_t *a, uint32_t n
 
 
 /*
+ * Bitvector constant: 64bits or less
+ */
+static value_t eval_bv64_constant(evaluator_t *eval, bvconst64_term_t *c) {
+  return vtbl_mk_bv_from_bv64(eval->vtbl, c->bitsize, c->value);
+}
+
+
+/*
+ * Bitvector constant
+ */
+static value_t eval_bv_constant(evaluator_t *eval, bvconst_term_t *c) {
+  return vtbl_mk_bv_from_bv(eval->vtbl, c->bitsize, c->data);
+}
+
+
+/*
+ * Arithmetic atom: t == 0
+ */
+static value_t eval_arith_eq(evaluator_t *eval, term_t t) {
+  value_t v;
+
+  v = eval_term(eval, t);
+  return vtbl_mk_bool(eval->vtbl, q_is_zero(vtbl_rational(eval->vtbl, v)));
+}
+
+
+/*
+ * Arithmetic atom: t >= 0
+ */
+static value_t eval_arith_ge(evaluator_t *eval, term_t t) {
+  value_t v;
+
+  v = eval_term(eval, t);
+  return vtbl_mk_bool(eval->vtbl, q_is_nonneg(vtbl_rational(eval->vtbl, v)));
+}
+
+
+/*
+ * Arithmetic atom: v1 == v2
+ */
+static value_t eval_arith_bineq(evaluator_t *eval, composite_term_t *eq) {
+  value_t v1, v2;
+
+  assert(eq->arity == 2);
+
+  v1 = eval_term(eval, eq->arg[0]);
+  v2 = eval_term(eval, eq->arg[1]);
+  assert(object_is_rational(eval->vtbl, v1) && 
+	 object_is_rational(eval->vtbl, v2));
+
+  return vtbl_mk_bool(eval->vtbl, v1 == v2); // because of hash consing
+}
+
+
+/*
+ * Power product: arithmetic
+ */
+static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p) {
+  rational_t prod;
+  uint32_t i, n;
+  term_t t;
+  value_t o;
+
+  q_init(&prod);
+  q_set_one(&prod);
+
+  n = p->len;
+  for (i=0; i<n; i++) {
+    t = p->prod[i].var;
+    o = eval_term(eval, t);
+    // prod[i] is v ^ k so q := q * (o ^ k)
+    q_mulexp(&prod, vtbl_rational(eval->vtbl, o), p->prod[i].exp);
+  }
+
+  o = vtbl_mk_rational(eval->vtbl, &prod);
+
+  q_clear(&prod);
+
+  return o;
+}
+
+
+/*
+ * Arithmetic polynomial
+ */
+static value_t eval_arith_poly(evaluator_t *eval, polynomial_t *p) {
+  rational_t sum;
+  uint32_t i, n;
+  term_t t;
+  value_t v;
+
+  q_init(&sum); // sum = 0
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    t = p->mono[i].var;
+    if (t == const_idx) {
+      q_add(&sum, &p->mono[i].coeff);
+    } else {
+      v = eval_term(eval, t);
+      q_addmul(&sum, &p->mono[i].coeff, vtbl_rational(eval->vtbl, v)); // sum := sum + coeff * aux
+    }
+  }
+
+  // convert sum to an object
+  v = vtbl_mk_rational(eval->vtbl, &sum);
+
+  q_clear(&sum);
+
+  return v;
+}
+
+
+
+/*
+ * Bitvector terms
+ */
+static value_t eval_bv_array(evaluator_t *eval, composite_term_t *array) {
+  uint32_t i, n;
+  int32_t *a;
+  value_t v;
+
+  n = array->arity;
+  a = alloc_istack_array(&eval->stack, n);
+  for (i=0; i<n; i++) {
+    v = eval_term(eval, array->arg[i]);
+    a[i] = boolobj_value(eval->vtbl, v);
+  }
+
+  v = vtbl_mk_bv(eval->vtbl, n, a);
+
+  free_istack_array(&eval->stack, a);
+
+  return v;
+}
+
+static value_t eval_bit(evaluator_t *eval, select_term_t *select) {
+  value_t v;
+  value_bv_t *bv;
+  bool b;
+
+  v = eval_term(eval, select->arg);
+  bv = vtbl_bitvector(eval->vtbl, v);
+  assert(select->idx < bv->nbits);
+
+  b = bvconst_tst_bit(bv->data, select->idx);
+
+  return vtbl_mk_bool(eval->vtbl, b);
+}
+
+static term_t eval_bv_div(evaluator_t *eval, composite_term_t *app) {
+  uint32_t *aux;
+  uint32_t n, w;
+  value_t v1, v2, v;
+  value_bv_t *bv1, *bv2;  
+
+  assert(app->arity == 2);
+
+  v1 = eval_term(eval, app->arg[0]);
+  v2 = eval_term(eval, app->arg[1]);
+  bv1 = vtbl_bitvector(eval->vtbl, v1);
+  bv2 = vtbl_bitvector(eval->vtbl, v2);
+  assert(bv1->nbits == bv2->nbits);
+
+  n = bv1->nbits;
+  w = bv1->width;
+  assert(n>0 && w>0);
+
+  aux = (uint32_t *) alloc_istack_array(&eval->stack, w);
+  bvconst_udiv2z(aux, n, bv1->data, bv2->data);
+  v = vtbl_mk_bv_from_bv(eval->vtbl, n, aux);
+
+  free_istack_array(&eval->stack, (int32_t *) aux);
+
+  return v;
+}
+
+static term_t eval_bv_rem(evaluator_t *eval, composite_term_t *app) {
+  uint32_t *aux;
+  uint32_t n, w;
+  value_t v1, v2, v;
+  value_bv_t *bv1, *bv2;  
+
+  assert(app->arity == 2);
+
+  v1 = eval_term(eval, app->arg[0]);
+  v2 = eval_term(eval, app->arg[1]);
+  bv1 = vtbl_bitvector(eval->vtbl, v1);
+  bv2 = vtbl_bitvector(eval->vtbl, v2);
+  assert(bv1->nbits == bv2->nbits);
+
+  n = bv1->nbits;
+  w = bv1->width;
+  assert(n>0 && w>0);
+
+  aux = (uint32_t *) alloc_istack_array(&eval->stack, w);
+  bvconst_urem2z(aux, n, bv1->data, bv2->data);
+  v = vtbl_mk_bv_from_bv(eval->vtbl, n, aux);
+
+  free_istack_array(&eval->stack, (int32_t *) aux);
+
+  return v;
+}
+
+static term_t eval_bv_sdiv(evaluator_t *eval, composite_term_t *app) {
+  uint32_t *aux;
+  uint32_t n, w;
+  value_t v1, v2, v;
+  value_bv_t *bv1, *bv2;  
+
+  assert(app->arity == 2);
+
+  v1 = eval_term(eval, app->arg[0]);
+  v2 = eval_term(eval, app->arg[1]);
+  bv1 = vtbl_bitvector(eval->vtbl, v1);
+  bv2 = vtbl_bitvector(eval->vtbl, v2);
+  assert(bv1->nbits == bv2->nbits);
+
+  n = bv1->nbits;
+  w = bv1->width;
+  assert(n>0 && w>0);
+
+  aux = (uint32_t *) alloc_istack_array(&eval->stack, w);
+  bvconst_sdiv2z(aux, n, bv1->data, bv2->data);
+  v = vtbl_mk_bv_from_bv(eval->vtbl, n, aux);
+
+  free_istack_array(&eval->stack, (int32_t *) aux);
+
+  return v;
+}
+
+static term_t eval_bv_srem(evaluator_t *eval, composite_term_t *app) {
+  uint32_t *aux;
+  uint32_t n, w;
+  value_t v1, v2, v;
+  value_bv_t *bv1, *bv2;  
+
+  assert(app->arity == 2);
+
+  v1 = eval_term(eval, app->arg[0]);
+  v2 = eval_term(eval, app->arg[1]);
+  bv1 = vtbl_bitvector(eval->vtbl, v1);
+  bv2 = vtbl_bitvector(eval->vtbl, v2);
+  assert(bv1->nbits == bv2->nbits);
+
+  n = bv1->nbits;
+  w = bv1->width;
+  assert(n>0 && w>0);
+
+  aux = (uint32_t *) alloc_istack_array(&eval->stack, w);
+  bvconst_srem2z(aux, n, bv1->data, bv2->data);
+  v = vtbl_mk_bv_from_bv(eval->vtbl, n, aux);
+
+  free_istack_array(&eval->stack, (int32_t *) aux);
+
+  return v;
+}
+
+static term_t eval_bv_smod(evaluator_t *eval, composite_term_t *app) {
+  uint32_t *aux;
+  uint32_t n, w;
+  value_t v1, v2, v;
+  value_bv_t *bv1, *bv2;
+
+  assert(app->arity == 2);
+
+  v1 = eval_term(eval, app->arg[0]);
+  v2 = eval_term(eval, app->arg[1]);
+  bv1 = vtbl_bitvector(eval->vtbl, v1);
+  bv2 = vtbl_bitvector(eval->vtbl, v2);
+  assert(bv1->nbits == bv2->nbits);
+
+  n = bv1->nbits;
+  w = bv1->width;
+  assert(n>0 && w>0);
+
+  aux = (uint32_t *) alloc_istack_array(&eval->stack, w);
+  bvconst_smod2z(aux, n, bv1->data, bv2->data);
+  v = vtbl_mk_bv_from_bv(eval->vtbl, n, aux);
+
+  free_istack_array(&eval->stack, (int32_t *) aux);
+
+  return v;
+}
+
+
+/*
+ * Convert bv's value (interpreted as a non-negative integer) into a shift amount. 
+ * If bv's value is larger than nbits, then returns bv->nbits
+ */
+static uint32_t get_shift_amount(value_bv_t *bv) {
+  uint32_t n, k, i, s;
+
+  s = bvconst_get32(bv->data); // low-order word = shift amount
+  n = bv->nbits;
+
+  if (s < n) {
+    k = bv->width;
+    // if any of the higher order words is nonzero, return n
+    for (i=1; i<k; i++) {
+      if (bv->data[i] != 0) { 
+	return n;
+      }
+    }
+    return s;
+  }
+   
+  return n;
+}
+
+
+/*
+ * Bitvector shift operators
+ */
+static term_t eval_bv_shl(evaluator_t *eval, composite_term_t *app) {
+  uint32_t *aux;
+  uint32_t n, w;
+  value_t v1, v2, v;
+  value_bv_t *bv1, *bv2;
+
+  assert(app->arity == 2);
+
+  v1 = eval_term(eval, app->arg[0]);
+  v2 = eval_term(eval, app->arg[1]);
+  bv1 = vtbl_bitvector(eval->vtbl, v1);
+  bv2 = vtbl_bitvector(eval->vtbl, v2);
+  assert(bv1->nbits == bv2->nbits);
+
+  n = bv1->nbits;
+  w = bv1->width;
+  assert(n>0 && w>0);
+
+  aux = (uint32_t *) alloc_istack_array(&eval->stack, w);
+  bvconst_set(aux, w, bv1->data);
+  w = get_shift_amount(bv2);
+  bvconst_shift_left(aux, n, w, 0); // padding with 0
+
+  v = vtbl_mk_bv_from_bv(eval->vtbl, n, aux);
+
+  free_istack_array(&eval->stack, (int32_t *) aux);
+
+  return v;
+}
+
+static term_t eval_bv_lshr(evaluator_t *eval, composite_term_t *app) {
+  uint32_t *aux;
+  uint32_t n, w;
+  value_t v1, v2, v;
+  value_bv_t *bv1, *bv2;
+
+  assert(app->arity == 2);
+
+  v1 = eval_term(eval, app->arg[0]);
+  v2 = eval_term(eval, app->arg[1]);
+  bv1 = vtbl_bitvector(eval->vtbl, v1);
+  bv2 = vtbl_bitvector(eval->vtbl, v2);
+  assert(bv1->nbits == bv2->nbits);
+
+  n = bv1->nbits;
+  w = bv1->width;
+  assert(n>0 && w>0);
+
+  aux = (uint32_t *) alloc_istack_array(&eval->stack, w);
+  bvconst_set(aux, w, bv1->data);
+  w = get_shift_amount(bv2);
+  bvconst_shift_right(aux, n, w, 0); // padding with 0
+
+  v = vtbl_mk_bv_from_bv(eval->vtbl, n, aux);
+
+  free_istack_array(&eval->stack, (int32_t *) aux);
+
+  return v;
+}
+
+static term_t eval_bv_ashr(evaluator_t *eval, composite_term_t *app) {
+  uint32_t *aux;
+  uint32_t n, w;
+  value_t v1, v2, v;
+  value_bv_t *bv1, *bv2;
+
+  assert(app->arity == 2);
+
+  v1 = eval_term(eval, app->arg[0]);
+  v2 = eval_term(eval, app->arg[1]);
+  bv1 = vtbl_bitvector(eval->vtbl, v1);
+  bv2 = vtbl_bitvector(eval->vtbl, v2);
+  assert(bv1->nbits == bv2->nbits);
+
+  n = bv1->nbits;
+  w = bv1->width;
+  assert(n>0 && w>0);
+
+  aux = (uint32_t *) alloc_istack_array(&eval->stack, w);
+  bvconst_set(aux, w, bv1->data);
+  w = get_shift_amount(bv2);
+  bvconst_shift_right(aux, n, w, bvconst_tst_bit(aux, n-1)); // padding with sign bit
+
+  v = vtbl_mk_bv_from_bv(eval->vtbl, n, aux);
+
+  free_istack_array(&eval->stack, (int32_t *) aux);
+
+  return v;
+}
+
+
+
+/*
+ * Bitvector atoms
+ */
+static value_t eval_bveq(evaluator_t *eval, composite_term_t *eq) {
+  value_t v1, v2;
+
+  assert(eq->arity == 2);
+
+  v1 = eval_term(eval, eq->arg[0]);
+  v2 = eval_term(eval, eq->arg[1]);
+  assert(object_is_bitvector(eval->vtbl, v1) &&
+	 object_is_bitvector(eval->vtbl, v2));
+
+  return vtbl_mk_bool(eval->vtbl, v1 == v2);
+}
+
+static value_t eval_bvge(evaluator_t *eval, composite_term_t *ge) {
+  value_t v1, v2;
+  value_bv_t *bv1, *bv2;
+  bool test;
+
+  assert(ge->arity == 2);
+
+  v1 = eval_term(eval, ge->arg[0]);
+  v2 = eval_term(eval, ge->arg[1]);
+  bv1 = vtbl_bitvector(eval->vtbl, v1);
+  bv2 = vtbl_bitvector(eval->vtbl, v2);
+  assert(bv1->nbits == bv2->nbits);
+  test = bvconst_ge(bv1->data, bv2->data, bv1->nbits);
+
+  return vtbl_mk_bool(eval->vtbl, test);
+}
+
+static value_t eval_bvsge(evaluator_t *eval, composite_term_t *sge) {
+  value_t v1, v2;
+  value_bv_t *bv1, *bv2;
+  bool test;
+
+  assert(sge->arity == 2);
+
+  v1 = eval_term(eval, sge->arg[0]);
+  v2 = eval_term(eval, sge->arg[1]);
+  bv1 = vtbl_bitvector(eval->vtbl, v1);
+  bv2 = vtbl_bitvector(eval->vtbl, v2);
+  assert(bv1->nbits == bv2->nbits);
+  test = bvconst_sge(bv1->data, bv2->data, bv1->nbits);
+
+  return vtbl_mk_bool(eval->vtbl, test);
+}
+
+
+
+/*
+ * Power product: bitvector of nbits
+ */
+static value_t eval_bv_pprod(evaluator_t *eval, pprod_t *p, uint32_t nbits) {
+  uint32_t *a;
+  uint32_t i, n, w;
+  term_t t;
+  value_t o;
+
+  // get bitsize
+  w = (nbits + 31) >> 5; // width in words
+  a = (uint32_t *) alloc_istack_array(&eval->stack, w);
+  bvconst_set_one(a, w);
+  
+  n = p->len;
+  for (i=0; i<n; i++) {
+    t = p->prod[i].var;
+    o = eval_term(eval, t);
+    // prod[i] is v ^ k so q := q * (o ^ k)
+    bvconst_mulpower(a, w, vtbl_bitvector(eval->vtbl, o)->data, p->prod[i].exp);
+  }
+
+  // convert to object
+  bvconst_normalize(a, nbits);
+  o = vtbl_mk_bv_from_bv(eval->vtbl, nbits, a);
+
+  // cleanup  
+  free_istack_array(&eval->stack, (int32_t *) a);
+
+  return o;
+}
+
+
+/*
+ * Bitvector polynomial: wide coefficients
+ */
+static value_t eval_bv_poly(evaluator_t *eval, bvpoly_t *p) {
+  uint32_t *sum;
+  uint32_t i, n, nbits, w;
+  term_t t;
+  value_t v;
+
+  nbits = p->bitsize;
+  w = p->width;
+
+  sum = (uint32_t *) alloc_istack_array(&eval->stack, w);
+  bvconst_clear(sum, w);
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    t = p->mono[i].var;
+    if (t == const_idx) {
+      bvconst_add(sum, w, p->mono[i].coeff);
+    } else {
+      v = eval_term(eval, t);
+      // sum := sum + coeff * v
+      bvconst_addmul(sum, w, p->mono[i].coeff, vtbl_bitvector(eval->vtbl, v)->data);
+    }
+  }
+
+  // convert sum to an object
+  bvconst_normalize(sum, nbits);
+  v = vtbl_mk_bv_from_bv(eval->vtbl, nbits, sum);
+
+  free_istack_array(&eval->stack, (int32_t *) sum);
+
+  return v;
+}
+
+
+/*
+ * Convert bivector object o to a 64bit unsigned integer
+ * - o must have between 1 and 64bits
+ */
+static uint64_t bvobj_to_uint64(value_bv_t *o) {
+  uint64_t c;
+
+  assert(1 <= o->nbits && o->nbits <= 64);
+  c = o->data[0];
+  if (o->nbits > 32) {
+    c += ((uint64_t) o->data[1]) << 32;
+  }
+  return c;
+}
+
+
+/*
+ * Bitvector polynomial: 64bit coefficients
+ */
+static value_t eval_bv64_poly(evaluator_t *eval, bvpoly64_t *p) {
+  uint64_t sum;
+  uint32_t i, n, nbits;
+  term_t t;
+  value_t v;
+  
+  nbits = p->bitsize;
+  assert(0 < nbits && nbits <= 64);
+
+  sum = 0;
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    t = p->mono[i].var;
+    if (t == const_idx) {
+      sum += p->mono[i].coeff;
+    } else {
+      v = eval_term(eval, t);    
+      sum += p->mono[i].coeff * bvobj_to_uint64(vtbl_bitvector(eval->vtbl, v));
+    }
+  }
+
+  // convert sum to an object
+  sum = norm64(sum, nbits);
+  v = vtbl_mk_bv_from_bv64(eval->vtbl, nbits, sum);
+
+  return v;
+}
+
+
+
+/*
  * Evaluate basic constructs
  */
 static value_t eval_ite(evaluator_t *eval, composite_term_t *ite) {
@@ -145,7 +724,7 @@ static value_t eval_app(evaluator_t *eval, composite_term_t *app) {
 
   // eval the arguments first
   assert(app->arity >= 2);
-  n = app->nargs - 1;
+  n = app->arity - 1;
   a = alloc_istack_array(&eval->stack, n);
   eval_term_array(eval, app->arg+1, a, n); // a[i] = eval(arg[i])
 
@@ -179,7 +758,7 @@ static value_t eval_app(evaluator_t *eval, composite_term_t *app) {
 
       } else {
 	// ((update f  ... v) a[0] ... a[n-1]) --> (f a[0] ... a[n-1])
-	fun = update->fun;
+	fun = update->arg[0];
       }
 
     } while (term_kind(eval->terms, fun) == UPDATE_TERM);
@@ -200,6 +779,7 @@ static value_t eval_app(evaluator_t *eval, composite_term_t *app) {
   return v;
 }
 
+
 static value_t eval_or(evaluator_t *eval, composite_term_t *or) {
   uint32_t i, n;
   value_t v;
@@ -214,6 +794,22 @@ static value_t eval_or(evaluator_t *eval, composite_term_t *or) {
   }
 
   return vtbl_mk_false(eval->vtbl);
+}
+
+
+static value_t eval_xor(evaluator_t *eval, composite_term_t *xor) {
+  uint32_t i, n;
+  value_t v, w;
+
+  n = xor->arity;
+  v = vtbl_mk_false(eval->vtbl);
+  for (i=0; i<n; i++) {
+    w = eval_term(eval, xor->arg[i]);
+    // v := v xor w: true if v != w, false if v == w
+    v = vtbl_mk_bool(eval->vtbl, v != w);
+  }
+
+  return v;
 }
 
 
@@ -233,6 +829,7 @@ static value_t eval_tuple(evaluator_t *eval, composite_term_t *tuple) {
   return v;
 }
 
+
 static value_t eval_select(evaluator_t *eval, select_term_t *select) {
   value_t v;
   value_tuple_t *t;
@@ -243,6 +840,7 @@ static value_t eval_select(evaluator_t *eval, select_term_t *select) {
 
   return t->elem[select->idx];
 }
+
 
 static value_t eval_update(evaluator_t *eval, composite_term_t *update) {
   value_t *a;
@@ -264,6 +862,7 @@ static value_t eval_update(evaluator_t *eval, composite_term_t *update) {
 
   return v;
 }
+
 
 static value_t eval_distinct(evaluator_t *eval, composite_term_t *distinct) {
   value_t *a;
@@ -299,466 +898,6 @@ static value_t eval_distinct(evaluator_t *eval, composite_term_t *distinct) {
 
 
 
-
-/*
- * Arithmetic variable: store the value of v in q
- * We don't cache the value of v, because recomputing
- * it should be reasonably cheap. 
- *
- * We may need to change this, if the evaluation requires
- * computing products of large rationals.
- */
-static void eval_arith_var(evaluator_t *eval, arith_var_t v, rational_t *q) {
-  arithvar_manager_t *m;
-  varprod_t *vp;
-  uint32_t i, n;
-  value_t o;
-
-  m = eval->terms->arith_manager;
-  if (arithvar_manager_var_is_primitive(m, v)) {
-    o = eval_term(eval, arithvar_manager_term_of_var(m, v));
-    q_set(q, vtbl_rational(eval->vtbl, o));
-
-  } else {
-    vp = arithvar_manager_var_product(m, v);
-
-    q_set_one(q);
-    n = vp->len;
-    for (i=0; i<n; i++) {
-      v = vp->prod[i].var;
-      o = eval_term(eval, arithvar_manager_term_of_var(m, v));
-      // prod[i] is v ^ k so q := q * (o ^ k)
-      q_mulexp(q, vtbl_rational(eval->vtbl, o), vp->prod[i].exp);
-    }
-  }
-}
-
-
-
-/*
- * Arithmetic terms
- */
-static value_t eval_arith(evaluator_t *eval, polynomial_t *p) {
-  rational_t sum;
-  rational_t aux;
-  uint32_t i, n;
-  arith_var_t x;
-  value_t v;
-
-  q_init(&sum); // sum = 0
-  q_init(&aux);
-
-  n = p->nterms;
-  for (i=0; i<n; i++) {
-    x = p->mono[i].var;
-    eval_arith_var(eval, x, &aux);
-    q_addmul(&sum, &p->mono[i].coeff, &aux); // sum := sum + coeff * aux
-  }
-
-  // convert sum to an object
-  v = vtbl_mk_rational(eval->vtbl, &sum);
-
-  q_clear(&sum);
-  q_clear(&aux);
-
-  return v;
-}
-
-
-// p == 0
-static value_t eval_arith_eq(evaluator_t *eval, polynomial_t *p) {
-  value_t v;
-
-  v = eval_arith(eval, p);
-  return vtbl_mk_bool(eval->vtbl, q_is_zero(vtbl_rational(eval->vtbl, v)));
-}
-
-// p>=0
-static value_t eval_arith_ge(evaluator_t *eval, polynomial_t *p) {
-  value_t v;
-
-  v = eval_arith(eval, p);
-  return vtbl_mk_bool(eval->vtbl, q_is_nonneg(vtbl_rational(eval->vtbl, v)));
-}
-
-// v1 == v2
-static value_t eval_arith_bineq(evaluator_t *eval, arith_bineq_t *eq) {
-  value_t v1, v2;
-
-  v1 = eval_term(eval, eq->left);
-  v2 = eval_term(eval, eq->right);
-  assert(object_is_rational(eval->vtbl, v1) && 
-	 object_is_rational(eval->vtbl, v2));
-
-  return vtbl_mk_bool(eval->vtbl, v1 == v2); // because of hash consing
-}
-
-
-
-/*
- * Nodes in the bit_expr graph
- * - the value is a boolean (not value_t)
- */
-static bool eval_node(evaluator_t *eval, node_table_t *table, node_t n);
-
-static bool eval_bit(evaluator_t *eval, node_table_t *table, bit_t b) {
-  bool v;
-
-  v = eval_node(eval, table, node_of_bit(b));
-  if (bit_is_neg(b)) {
-    v = !v;
-  }
-  return v;
-}
-
-// evaluate a variable node n
-static term_t eval_var_node(evaluator_t *eval, node_table_t *table, node_t n) {
-  bv_var_manager_t *m;
-  value_bv_t *bv;
-  bv_var_t u;
-  value_t v;
-  int32_t k;
-
-  assert(is_variable_node(table, n));
-
-  m = eval->terms->bv_manager;
-  u = bv_var_of_node(table, n); // bit-vector variable
-  k = bv_var_manager_get_index_of_node(m, u, pos_bit(n)); // u[k] = pos_bit(n)
-  v = eval_term(eval, bv_var_manager_term_of_var(m, u)); // v = eval term of u
-
-  bv = vtbl_bitvector(eval->vtbl, v);
-  assert(0 <= k && k < bv->nbits);
-  return bvconst_tst_bit(bv->data, k);
-}
-
-static bool eval_node(evaluator_t *eval, node_table_t *table, node_t n) {
-  bool b;
-  int32_t x;
-
-  assert(good_node(table, n));
-
-  switch (node_kind(table, n)) {
-  case CONSTANT_NODE:
-    b = true;
-    break;
-
-  case VARIABLE_NODE:
-    b = eval_var_node(eval, table, n);    
-    break;
-
-  case OR_NODE:
-    x = eval_cached_node_value(eval, n);
-    b = (bool) x;
-    if (x < 0) {
-      b = eval_bit(eval, table, left_child_of_node(table, n)) ||
-	eval_bit(eval, table, right_child_of_node(table, n));
-      eval_cache_node_map(eval, n, b);
-    }
-    break;
-
-  case XOR_NODE:
-    x = eval_cached_node_value(eval, n);
-    b = (bool) x;
-    if (x < 0) {
-      b = (eval_bit(eval, table, left_child_of_node(table, n)) !=
-	   eval_bit(eval, table, right_child_of_node(table, n)));
-      eval_cache_node_map(eval, n, b);
-    }
-    break;
-
-  default:
-    assert(false);
-    abort();
-    break;
-  }
-
-  return b;
-}
-
-
-/*
- * Bitvector terms
- */
-static value_t eval_bvconst(evaluator_t *eval, bvconst_term_t *bv) {
-  return vtbl_mk_bv_from_bv(eval->vtbl, bv->nbits, bv->bits);
-}
-
-static value_t eval_bvlogic(evaluator_t *eval, bvlogic_expr_t *bv) {
-  node_table_t *nodes;
-  int32_t *a;
-  value_t v;
-  uint32_t i, n;
-
-  n = bv->nbits;
-  a = alloc_istack_array(&eval->stack, n);
-
-  nodes = eval->terms->bv_manager->bm;
-  for (i=0; i<n; i++) {
-    a[i] = (int32_t) eval_bit(eval, nodes, bv->bit[i]);
-  }
-
-  v = vtbl_mk_bv(eval->vtbl, n, a);
-  free_istack_array(&eval->stack, a);
-  return v;
-}
-
-
-/*
- * Bitvector variable (no caching)
- * - store the value of v into word array a.
- * - p = number of bits in a
- */
-static void eval_bitvector_var(evaluator_t *eval, bv_var_t v, uint32_t *a, uint32_t p) {
-  bv_var_manager_t *m;
-  varprod_t *vp;
-  uint32_t i, n, w;
-  value_t o;
-
-  w = (p + 31) >> 5; // width of a in words
-  m = eval->terms->bv_manager;
-  if (bv_var_manager_var_is_primitive(m, v)) {
-    o = eval_term(eval, bv_var_manager_term_of_var(m, v));
-    bvconst_set(a, w, vtbl_bitvector(eval->vtbl, o)->data);
-
-  } else {
-    vp = bv_var_manager_var_product(m, v);
-
-    bvconst_set_one(a, w);
-    n = vp->len;
-    for (i=0; i<n; i++) {
-      v = vp->prod[i].var;
-      o = eval_term(eval, bv_var_manager_term_of_var(m, v));
-
-      bvconst_mulpower(a, w, vtbl_bitvector(eval->vtbl, o)->data, vp->prod[i].exp);
-    }
-  }
-
-  bvconst_normalize(a, p);
-}
-
-
-// bit-vector arithmetic: small coefficients
-static value_t eval_bvarith64(evaluator_t *eval, bvarith_expr_t *bv) {
-  uint64_t sum;
-  uint32_t a[2];
-  uint32_t i, n, p;
-  bv_var_t x;
-
-  p = bv->size;
-  assert(0 < p && p <= 64);
-
-  sum = 0;
-  n = bv->nterms;
-  for (i=0; i<n; i++) {
-    x = bv->mono[i].var;
-    a[0] = 0;
-    a[1] = 0; // important to set high-order bits to 0
-    eval_bitvector_var(eval, x, a, p);    
-    sum += bvconst_get64(a) * bv->mono[i].coeff.c;
-  }
-
-  // normalize sum: force high-order bits to 0
-  sum &= (~((uint64_t) 0)) >> (64 - p);
-
-  // convert sum to a concrete value
-  a[0] = (uint32_t) sum; // low-order half of sum
-  a[1] = (uint32_t) (sum >> 32); // high-order half of sum
-  
-  return  vtbl_mk_bv_from_bv(eval->vtbl, p, a);    
-}
-
-// bit-vector arithmetic: large coefficients
-static value_t eval_bvarith_big(evaluator_t *eval, bvarith_expr_t *bv) {
-  uint32_t *sum;
-  uint32_t *a;
-  uint32_t i, n, p, w;
-  bv_var_t x;
-  value_t v;
-
-  w = bv->width;
-  p = bv->size;
-  assert(w >= 3);
-
-  sum = (uint32_t *) alloc_istack_array(&eval->stack, w);
-  a = (uint32_t *) alloc_istack_array(&eval->stack, w);
-  bvconst_clear(sum, w);
-
-  n = bv->nterms;
-  for (i=0; i<n; i++) {
-    x = bv->mono[i].var;
-    eval_bitvector_var(eval, x, a, p);
-    bvconst_addmul(sum, w, a, bv->mono[i].coeff.ptr);
-  }
-
-  bvconst_normalize(sum, bv->size);
-  v = vtbl_mk_bv_from_bv(eval->vtbl, bv->size, sum);
-
-  free_istack_array(&eval->stack, (int32_t *) a);
-  free_istack_array(&eval->stack, (int32_t *) sum);
-
-  return v;
-}
-
-
-
-static value_t eval_bvarith(evaluator_t *eval, bvarith_expr_t *bv) {
-  value_t v;
-
-  if (bv->size <= 64) {
-    v = eval_bvarith64(eval, bv);
-  } else {
-    v = eval_bvarith_big(eval, bv);
-  }
-  return v;
-}
-
-
-/*
- * Bitvector atoms
- */
-static value_t eval_bveq(evaluator_t *eval, bv_atom_t *eq) {
-  value_t v1, v2;
-
-  v1 = eval_term(eval, eq->left);
-  v2 = eval_term(eval, eq->right);
-  assert(object_is_bitvector(eval->vtbl, v1) &&
-	 object_is_bitvector(eval->vtbl, v2));
-
-  return vtbl_mk_bool(eval->vtbl, v1 == v2);
-}
-
-static value_t eval_bvge(evaluator_t *eval, bv_atom_t *ge) {
-  value_t v1, v2;
-  value_bv_t *bv1, *bv2;
-  bool test;
-
-  v1 = eval_term(eval, ge->left);
-  v2 = eval_term(eval, ge->right);
-  bv1 = vtbl_bitvector(eval->vtbl, v1);
-  bv2 = vtbl_bitvector(eval->vtbl, v2);
-  assert(bv1->nbits == bv2->nbits);
-  test = bvconst_ge(bv1->data, bv2->data, bv1->nbits);
-  return vtbl_mk_bool(eval->vtbl, test);
-}
-
-static value_t eval_bvsge(evaluator_t *eval, bv_atom_t *sge) {
-  value_t v1, v2;
-  value_bv_t *bv1, *bv2;
-  bool test;
-
-  v1 = eval_term(eval, sge->left);
-  v2 = eval_term(eval, sge->right);
-  bv1 = vtbl_bitvector(eval->vtbl, v1);
-  bv2 = vtbl_bitvector(eval->vtbl, v2);
-  assert(bv1->nbits == bv2->nbits);
-  test = bvconst_sge(bv1->data, bv2->data, bv1->nbits);
-
-  return vtbl_mk_bool(eval->vtbl, test);
-}
-
-
-
-
-/*
- * Convert bv's value (interpreted as a non-negative integer) into a shift amount. 
- * If bv's value is larger than nbits, then returns bv->nbits
- */
-static uint32_t get_shift_amount(value_bv_t *bv) {
-  uint32_t n, k, i, s;
-
-  s = bvconst_get32(bv->data); // low-order word = shift amount
-  n = bv->nbits;
-
-  if (s < n) {
-    k = bv->width;
-    // if any of the higher order words is nonzero, return n
-    for (i=1; i<k; i++) {
-      if (bv->data[i] != 0) { 
-	return n;
-      }
-    }
-    return s;
-  }
-   
-  return n;
-}
-
-
-/*
- * General binary bitvector operations
- */
-static value_t eval_bvapply(evaluator_t *eval, bvapply_term_t *app) {
-  uint32_t *aux;
-  uint32_t n, w;
-  value_t v1, v2, v;
-  value_bv_t *bv1, *bv2;  
-  
-  v1 = eval_term(eval, app->arg0);
-  v2 = eval_term(eval, app->arg1);
-  bv1 = vtbl_bitvector(eval->vtbl, v1);
-  bv2 = vtbl_bitvector(eval->vtbl, v2);
-  assert(bv1->nbits == bv2->nbits);
-
-  n = bv1->nbits;
-  w = bv1->width;
-  assert(n>0 && w>0);
-
-  aux = (uint32_t *) alloc_istack_array(&eval->stack, w);
-
-  switch (app->op) {
-  case BVOP_DIV:
-    bvconst_udiv2z(aux, n, bv1->data, bv2->data);
-    break;
-
-  case BVOP_REM:
-    bvconst_urem2z(aux, n, bv1->data, bv2->data);
-    break;
-
-  case BVOP_SDIV:
-    bvconst_sdiv2z(aux, n, bv1->data, bv2->data);
-    break;
-
-  case BVOP_SREM:
-    bvconst_srem2z(aux, n, bv1->data, bv2->data);
-    break;
-
-  case BVOP_SMOD:
-    bvconst_smod2z(aux, n, bv1->data, bv2->data);
-    break;
-
-  case BVOP_SHL:
-    bvconst_set(aux, w, bv1->data);
-    w = get_shift_amount(bv2);
-    bvconst_shift_left(aux, n, w, 0); // padding with 0
-    break;
-
-  case BVOP_LSHR:
-    bvconst_set(aux, w, bv1->data);
-    w = get_shift_amount(bv2);
-    bvconst_shift_right(aux, n, w, 0); // padding with 0
-    break;
-
-  case BVOP_ASHR:
-    bvconst_set(aux, w, bv1->data);
-    w = get_shift_amount(bv2);
-    bvconst_shift_right(aux, n, w, bvconst_tst_bit(aux, n-1)); // padding with sign bit
-    break;
-
-  default:
-    assert(false);
-    break;
-  }
-
-  // convert aux to an object in vtbl
-  v = vtbl_mk_bv_from_bv(eval->vtbl, n, aux);
-
-  free_istack_array(&eval->stack, (int32_t *) aux);
-
-  return v;
-}
-
-
-
 /*
  * Return a default value of type tau
  */
@@ -768,7 +907,7 @@ static value_t make_default_value(evaluator_t *eval, type_t tau) {
   value_t v, d;
   uint32_t i, n, w;
 
-  types = eval->terms->type_table;
+  types = eval->terms->types;
 
   switch (type_kind(types, tau)) {
   case BOOL_TYPE:
@@ -795,7 +934,7 @@ static value_t make_default_value(evaluator_t *eval, type_t tau) {
     break;
 
   case TUPLE_TYPE:
-    n = tuple_type_ncomponents(types, tau);
+    n = tuple_type_arity(types, tau);
     a = alloc_istack_array(&eval->stack, n);
     for (i=0; i<n; i++) {
       a[i] = make_default_value(eval, tuple_type_component(types, tau, i));
@@ -855,7 +994,11 @@ static value_t eval_uninterpreted(evaluator_t *eval, term_t t) {
  */
 static value_t eval_term(evaluator_t *eval, term_t t) {
   term_table_t *terms;
+  bool negative;
   value_t v;
+
+  negative = is_neg_term(t);
+  t = unsigned_term(t);
 
   /*
    * First check the model itself then check the cache.
@@ -870,14 +1013,31 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
 
       switch (term_kind(terms, t)) {
       case CONSTANT_TERM:
-	if (t == true_term(terms)) {
+	if (t == true_term) {
 	  v = vtbl_mk_true(eval->vtbl);
-	} else if (t == false_term(terms)) {
+	} else if (t == false_term) {
 	  v = vtbl_mk_false(eval->vtbl); 
 	} else {
 	  v = vtbl_mk_const(eval->vtbl, term_type(terms, t), constant_term_index(terms, t), 
 			    term_name(terms, t));
 	}
+	break;
+
+      case ARITH_CONSTANT:
+	v = vtbl_mk_rational(eval->vtbl, rational_term_desc(terms, t));
+	break;
+
+      case BV64_CONSTANT:
+	v = eval_bv64_constant(eval, bvconst64_term_desc(terms, t));
+	break;
+
+      case BV_CONSTANT:
+	v = eval_bv_constant(eval, bvconst_term_desc(terms, t));
+	break;
+
+      case VARIABLE:
+	// free variable
+	longjmp(eval->env, MDL_EVAL_FREEVAR_IN_TERM);
 	break;
 
       case UNINTERPRETED_TERM:
@@ -889,42 +1049,33 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
 	}
 	break;
 
-      case VARIABLE:
-	// free variable
-	longjmp(eval->env, MDL_EVAL_FREEVAR_IN_TERM);
+      case ARITH_EQ_ATOM:
+	v = eval_arith_eq(eval, arith_eq_arg(terms, t));
 	break;
-	
-      case NOT_TERM:
-	v = eval_term(eval, not_term_arg(terms, t));
-	v = vtbl_mk_bool(eval->vtbl, !boolobj_value(eval->vtbl, v));
+
+      case ARITH_GE_ATOM:
+	v = eval_arith_ge(eval, arith_ge_arg(terms, t));
 	break;
 
       case ITE_TERM:
+      case ITE_SPECIAL:
 	v = eval_ite(eval, ite_term_desc(terms, t));
-	break;
-
-      case EQ_TERM:
-	v = eval_eq(eval, eq_term_desc(terms, t));
 	break;
 
       case APP_TERM:
 	v = eval_app(eval, app_term_desc(terms, t));
 	break;
 
-      case OR_TERM:
-	v = eval_or(eval, or_term_desc(terms, t));
+      case UPDATE_TERM:
+	v = eval_update(eval, update_term_desc(terms, t));
 	break;
 
       case TUPLE_TERM:
 	v = eval_tuple(eval, tuple_term_desc(terms, t));
 	break;
 
-      case SELECT_TERM:
-	v = eval_select(eval, select_term_desc(terms, t));
-	break;
-
-      case UPDATE_TERM:
-	v = eval_update(eval, update_term_desc(terms, t));
+      case EQ_TERM:
+	v = eval_eq(eval, eq_term_desc(terms, t));
 	break;
 
       case DISTINCT_TERM:
@@ -937,48 +1088,93 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
 	longjmp(eval->env, MDL_EVAL_QUANTIFIER);
 	break;
 
-      case ARITH_TERM:
-	v = eval_arith(eval, arith_term_desc(terms, t));
+      case OR_TERM:
+	v = eval_or(eval, or_term_desc(terms, t));
 	break;
 
-      case ARITH_EQ_ATOM:
-	v = eval_arith_eq(eval, arith_atom_desc(terms, t));
-	break;
-
-      case ARITH_GE_ATOM:
-	v = eval_arith_ge(eval, arith_atom_desc(terms, t));
+      case XOR_TERM:
+	v = eval_xor(eval, xor_term_desc(terms, t));
 	break;
 
       case ARITH_BINEQ_ATOM:
-	v = eval_arith_bineq(eval, arith_bineq_desc(terms, t));
+	v = eval_arith_bineq(eval, arith_bineq_atom_desc(terms, t));
 	break;
 
-      case BV_LOGIC_TERM:
-	v = eval_bvlogic(eval, bvlogic_term_desc(terms, t));
+      case BV_ARRAY:
+	v = eval_bv_array(eval, bvarray_term_desc(terms, t));
 	break;
 
-      case BV_ARITH_TERM:
-	v = eval_bvarith(eval, bvarith_term_desc(terms, t));
+      case BV_DIV:
+	v = eval_bv_div(eval, bvdiv_term_desc(terms, t));
 	break;
 
-      case BV_CONST_TERM:
-	v = eval_bvconst(eval, bvconst_term_desc(terms, t));
+      case BV_REM:
+	v = eval_bv_rem(eval, bvrem_term_desc(terms, t));
+	break;
+
+      case BV_SDIV:
+	v = eval_bv_sdiv(eval, bvsdiv_term_desc(terms, t));
+	break;
+
+      case BV_SREM:
+	v = eval_bv_srem(eval, bvsrem_term_desc(terms, t));
+	break;
+
+      case BV_SMOD:
+	v = eval_bv_smod(eval, bvsmod_term_desc(terms, t));
+	break;
+
+      case BV_SHL:
+	v = eval_bv_shl(eval, bvshl_term_desc(terms, t));
+	break;
+
+      case BV_LSHR:
+	v = eval_bv_lshr(eval, bvlshr_term_desc(terms, t));
+	break;
+
+      case BV_ASHR:
+	v = eval_bv_ashr(eval, bvashr_term_desc(terms, t));
 	break;
 
       case BV_EQ_ATOM:
-	v = eval_bveq(eval, bvatom_desc(terms, t));
+	v = eval_bveq(eval, bveq_atom_desc(terms, t));
 	break;
 
       case BV_GE_ATOM:
-	v = eval_bvge(eval, bvatom_desc(terms, t));
+	v = eval_bvge(eval, bvge_atom_desc(terms, t));
 	break;
 
       case BV_SGE_ATOM:
-	v = eval_bvsge(eval, bvatom_desc(terms, t));
+	v = eval_bvsge(eval, bvsge_atom_desc(terms, t));
 	break;
 
-      case BV_APPLY_TERM:
-	v = eval_bvapply(eval, bvapply_term_desc(terms, t));
+      case SELECT_TERM:
+	v = eval_select(eval, select_term_desc(terms, t));
+	break;
+
+      case BIT_TERM:
+	v = eval_bit(eval, bit_term_desc(terms, t));
+	break;
+
+      case POWER_PRODUCT:
+	if (is_bitvector_term(terms, t)) {
+	  v = eval_bv_pprod(eval, pprod_term_desc(terms, t), term_bitsize(terms, t));
+	} else {
+	  assert(is_arithmetic_term(terms, t));
+	  v = eval_arith_pprod(eval, pprod_term_desc(terms, t));
+	}
+	break;
+
+      case ARITH_POLY:
+	v = eval_arith_poly(eval, poly_term_desc(terms, t));
+	break;
+
+      case BV64_POLY:
+	v = eval_bv64_poly(eval, bvpoly64_term_desc(terms, t));
+	break;
+
+      case BV_POLY:
+	v = eval_bv_poly(eval, bvpoly_term_desc(terms, t));
 	break;
 
       default:
@@ -994,6 +1190,10 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
 
       eval_cache_map(eval, t, v);
     }
+  }
+
+  if (negative) {
+    v = vtbl_mk_not(eval->vtbl, v);
   }
 
   return v;

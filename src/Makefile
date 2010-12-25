@@ -93,7 +93,7 @@ src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c \
          int_vectors.c internalization_table.c                       \
          internalization_printer.c large_bvsets.c lexer.c            \
          mark_vectors.c matrices.c memalloc.c memsize.c models.c     \
-	 model_printer.c mpq_aux.c object_stores.c                   \
+	 model_eval.c model_printer.c mpq_aux.c object_stores.c      \
          pair_hash_map.c pair_hash_map2.c pair_hash_sets.c           \
          parser.c pointer_vectors.c polynomials.c poly_buffer.c      \
          power_products.c pprod_table.c pretty_printer.c             \
