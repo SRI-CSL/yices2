@@ -9,6 +9,7 @@
 #define __SMT_LEXER_H
 
 #include "lexer.h"
+#include "smt_logic_codes.h"
 
 
 /*
@@ -37,7 +38,6 @@ enum smt_token {
 
   // bitvector constants in binary "bvbin<bits>" and hexadecimal "bvhex<bits>"
   SMT_TK_BV_BINCONSTANT, SMT_TK_BV_HEXCONSTANT,
-
 
   // SMT-LIB keywords (independent of the logic and theories)
   SMT_TK_DISTINCT, SMT_TK_ITE, SMT_TK_EQ,
@@ -105,6 +105,12 @@ static inline void init_smt_stdin_lexer(lexer_t *lex) {
 }
 
 extern void init_smt_string_lexer(lexer_t *lex, char *data, char *name);
+
+
+/*
+ * Select built-in symbols for logic
+ */
+extern void smt_lexer_activate_logic(smt_logic_t logic);
 
 
 /*

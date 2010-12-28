@@ -1189,6 +1189,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
 
     case logicname_next_goto_b8:
       set_logic_name(bench, lex);
+      smt_lexer_activate_logic(smt_logic_code(bench->logic_name));
       if (strcmp(bench->logic_name, "QF_UF") == 0) {
 	// declare the predefined type "U"
 	yices_set_type_name(builtins.utype, "U");

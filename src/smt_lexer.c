@@ -184,20 +184,271 @@ static void init_smttoken2string() {
 
 
 /*
+ * ACTIVE/INACTIVE TOKENS
+ */
+
+/*
+ * Depending on the smt-lib logic, some keywords are interpreted as
+ * built-in operators. If they are inactive, they are just interpreted
+ * as ordinary symbols. We control which keywords are active using
+ * array smt_token_active.
+ *
+ * As of 2009 (SMT-LIB 1.2), the following logics/theories/type names 
+ * are used:
+ *   AUFLIA         Int_ArraysEx                      Int Array
+ *   AUFLIRA        Int_Int_Real_Array_ArraysEx       Int Real Array1 Array2
+ *   AUFNIRA        Int_Int_Real_Array_ArraysEx       Int Real Array1 Array2
+ *   LRA            Reals
+ *   QF_AUFBV       BitVector_ArraysEx                Array BitVec
+ *   QF_AUFLIA      Int_ArraysEx                      Int Array
+ *   QF_AX          ArraysEx                          Array Index Element
+ *   QF_BV          Fixed_Size_BitVectors             BitVec
+ *   QF_IDL         Ints
+ *   QF_LIA         Ints
+ *   QF_LRA         Reals
+ *   QF_NIA         Ints
+ *   QF_RDL         Reals
+ *   QF_UF          Empty
+ *   QF_UFIDL       Ints 
+ *   QF_UFBV        Fixed_Size_BitVectors             BitVec
+ *   QF_UFLIA       Ints
+ *   QF_UFLRA       Reals
+ *   QF_UFNRA       Reals
+ *   UFNIA          Ints
+ */
+static uint8_t smt_token_active[NUM_SMT_TOKENS];
+
+
+/*
+ * Default: activate all symbols that are not theory dependent
+ */
+static void activate_default_tokens(void) {
+  uint32_t i;
+
+  for (i=0; i<NUM_SMT_TOKENS; i++) {
+    smt_token_active[i] = false;
+  }
+
+  smt_token_active[SMT_TK_DISTINCT] = true;
+  smt_token_active[SMT_TK_ITE] = true;
+  smt_token_active[SMT_TK_EQ] = true;
+  smt_token_active[SMT_TK_TRUE] = true;
+  smt_token_active[SMT_TK_FALSE] = true;
+  smt_token_active[SMT_TK_NOT] = true;
+  smt_token_active[SMT_TK_IMPLIES] = true;
+  smt_token_active[SMT_TK_IF_THEN_ELSE] = true;
+  smt_token_active[SMT_TK_AND] = true;
+  smt_token_active[SMT_TK_OR] = true;
+  smt_token_active[SMT_TK_XOR] = true;
+  smt_token_active[SMT_TK_IFF] = true;
+  smt_token_active[SMT_TK_EXISTS] = true;
+  smt_token_active[SMT_TK_FORALL] = true;
+  smt_token_active[SMT_TK_LET] = true;
+  smt_token_active[SMT_TK_FLET] = true;
+
+  smt_token_active[SMT_TK_BENCHMARK] = true;
+  smt_token_active[SMT_TK_SAT] = true;
+  smt_token_active[SMT_TK_UNSAT] = true;
+  smt_token_active[SMT_TK_UNKNOWN] = true;
+  smt_token_active[SMT_TK_LOGIC] = true;
+  smt_token_active[SMT_TK_ASSUMPTION] = true;
+  smt_token_active[SMT_TK_FORMULA] = true;
+  smt_token_active[SMT_TK_STATUS] = true;
+  smt_token_active[SMT_TK_EXTRASORTS] = true;
+  smt_token_active[SMT_TK_EXTRAFUNS] = true;
+  smt_token_active[SMT_TK_EXTRAPREDS] = true;
+  smt_token_active[SMT_TK_NOTES] = true;
+}
+
+
+/*
+ * Arithmetic symbols
+ */
+static void activate_arith_tokens(void) {
+  smt_token_active[SMT_TK_ADD] = true;
+  smt_token_active[SMT_TK_SUB] = true;
+  smt_token_active[SMT_TK_MUL] = true;
+  smt_token_active[SMT_TK_DIV] = true;
+  smt_token_active[SMT_TK_TILDE] = true;
+  smt_token_active[SMT_TK_LT] = true;
+  smt_token_active[SMT_TK_LE] = true;
+  smt_token_active[SMT_TK_GT] = true;
+  smt_token_active[SMT_TK_GE] = true;
+}
+
+/*
+ * Activate the array symbols
+ */
+static void activate_array_tokens(void) {
+  smt_token_active[SMT_TK_SELECT] = true;
+  smt_token_active[SMT_TK_STORE] = true;
+  smt_token_active[SMT_TK_ARRAY] = true;
+}
+
+
+/*
+ * Activate the bitvector symbols (old version): logic QF_UFBV[32]
+ */
+static void activate_old_bv_tokens(void) {
+  smt_token_active[SMT_TK_BITVEC] = true;
+  smt_token_active[SMT_TK_BVADD] = true;
+  smt_token_active[SMT_TK_BVSUB] = true;
+  smt_token_active[SMT_TK_BVMUL] = true;
+  smt_token_active[SMT_TK_BVNEG] = true;
+  smt_token_active[SMT_TK_BVOR] = true;
+  smt_token_active[SMT_TK_BVAND] = true;
+  smt_token_active[SMT_TK_BVXOR] = true;
+  smt_token_active[SMT_TK_BVNOT] = true;
+  smt_token_active[SMT_TK_BVLT] = true;
+  smt_token_active[SMT_TK_BVLEQ] = true;
+  smt_token_active[SMT_TK_BVGT] = true;
+  smt_token_active[SMT_TK_BVGEQ] = true;
+  smt_token_active[SMT_TK_BVSLT] = true;
+  smt_token_active[SMT_TK_BVSLEQ] = true;
+  smt_token_active[SMT_TK_BVSGT] = true;
+  smt_token_active[SMT_TK_BVSGEQ] = true;
+  smt_token_active[SMT_TK_CONCAT] = true;
+  smt_token_active[SMT_TK_EXTRACT] = true;
+  smt_token_active[SMT_TK_SIGN_EXTEND] = true;
+  smt_token_active[SMT_TK_SHIFT_LEFT0] = true;
+  smt_token_active[SMT_TK_SHIFT_LEFT1] = true;
+  smt_token_active[SMT_TK_SHIFT_RIGHT0] = true;
+  smt_token_active[SMT_TK_SHIFT_RIGHT1] = true;
+  smt_token_active[SMT_TK_BIT0] = true;
+  smt_token_active[SMT_TK_BIT1] = true;  
+}
+
+
+/*
+ * Activate the new bitvector symbols: logic QF_BV
+ */
+static void activate_new_bv_tokens(void) {
+  smt_token_active[SMT_TK_BITVEC] = true;
+  smt_token_active[SMT_TK_BVADD] = true;
+  smt_token_active[SMT_TK_BVSUB] = true;
+  smt_token_active[SMT_TK_BVMUL] = true;
+  smt_token_active[SMT_TK_BVNEG] = true;
+  smt_token_active[SMT_TK_BVOR] = true;
+  smt_token_active[SMT_TK_BVAND] = true;
+  smt_token_active[SMT_TK_BVXOR] = true;
+  smt_token_active[SMT_TK_BVNOT] = true;
+  smt_token_active[SMT_TK_BVUDIV] = true;
+  smt_token_active[SMT_TK_BVUREM] = true;
+  smt_token_active[SMT_TK_BVSDIV] = true;
+  smt_token_active[SMT_TK_BVSREM] = true;
+  smt_token_active[SMT_TK_BVSMOD] = true;
+  smt_token_active[SMT_TK_BVSHL] = true;
+  smt_token_active[SMT_TK_BVLSHR] = true;
+  smt_token_active[SMT_TK_BVASHR] = true;
+  smt_token_active[SMT_TK_BVNAND] = true;
+  smt_token_active[SMT_TK_BVNOR] = true;
+  smt_token_active[SMT_TK_BVXNOR] = true;
+  smt_token_active[SMT_TK_BVREDOR] = true;
+  smt_token_active[SMT_TK_BVREDAND] = true;
+  smt_token_active[SMT_TK_BVCOMP] = true;
+  smt_token_active[SMT_TK_REPEAT] = true;
+  smt_token_active[SMT_TK_ZERO_EXTEND] = true;
+  smt_token_active[SMT_TK_ROTATE_LEFT] = true;
+  smt_token_active[SMT_TK_ROTATE_RIGHT] = true;
+
+  smt_token_active[SMT_TK_CONCAT] = true;
+  smt_token_active[SMT_TK_EXTRACT] = true;
+  smt_token_active[SMT_TK_SIGN_EXTEND] = true;
+  smt_token_active[SMT_TK_BIT0] = true;
+  smt_token_active[SMT_TK_BIT1] = true;  
+
+  smt_token_active[SMT_TK_BVULT] = true;
+  smt_token_active[SMT_TK_BVULE] = true;
+  smt_token_active[SMT_TK_BVUGT] = true;
+  smt_token_active[SMT_TK_BVUGE] = true;
+  smt_token_active[SMT_TK_BVSLT] = true;
+  smt_token_active[SMT_TK_BVSLE] = true;
+  smt_token_active[SMT_TK_BVSGT] = true;
+  smt_token_active[SMT_TK_BVSGE] = true;
+}
+
+
+
+/*
+ * Configure the lexer for a given SMT-LIB Logic
+ */
+void smt_lexer_activate_logic(smt_logic_t code) {
+  switch (code) {
+  case AUFLIA:
+  case QF_AUFLIA:
+    activate_array_tokens();
+    activate_arith_tokens();
+    smt_token_active[SMT_TK_INT] = true;
+    break;
+
+  case AUFLIRA:
+  case AUFNIRA:
+    activate_array_tokens();
+    activate_arith_tokens();
+    smt_token_active[SMT_TK_ARRAY1] = true;
+    smt_token_active[SMT_TK_ARRAY2] = true;
+    smt_token_active[SMT_TK_REAL] = true;
+    smt_token_active[SMT_TK_INT] = true;
+    break;
+
+  case QF_AX:
+    activate_array_tokens();
+    break;
+
+  case QF_AUFBV:
+    activate_array_tokens();
+    activate_new_bv_tokens();
+    break;
+
+  case QF_BV:
+    activate_new_bv_tokens();
+    break;
+
+  case QF_UFBV:
+    activate_old_bv_tokens();
+    break;
+
+  case LRA:
+  case QF_LRA:
+  case QF_RDL:
+  case QF_UFLRA:
+  case QF_UFNRA:
+  case QF_IDL:
+  case QF_LIA:
+  case QF_NIA:
+  case QF_UFIDL:
+  case QF_UFLIA:
+  case UFNIA:
+    activate_arith_tokens();
+    smt_token_active[SMT_TK_REAL] = true;
+    smt_token_active[SMT_TK_INT] = true;
+    break;
+
+  case QF_UF:
+  case SMT_UNKNOWN:
+    break;
+  }
+}
+
+
+/*
  * Lexer initialization
  */
 int32_t init_smt_file_lexer(lexer_t *lex, char *filename) {
   init_smttoken2string();
+  activate_default_tokens();
   return init_file_lexer(lex, filename);
 }
 
 void init_smt_stream_lexer(lexer_t *lex, FILE *f, char *name) {
   init_smttoken2string();
+  activate_default_tokens();
   init_stream_lexer(lex, f, name);
 }
 
 void init_smt_string_lexer(lexer_t *lex, char *data, char *name) {
   init_smttoken2string();
+  activate_default_tokens();
   init_string_lexer(lex, data, name);
 }
 
@@ -495,7 +746,7 @@ static token_t smt_read_symbol(lexer_t *lex) {
   smt_read_identifier(lex);
   buffer = lex->buffer;
   kw = in_smt_kw(buffer->data, buffer->index);
-  if (kw == NULL) {
+  if (kw == NULL || !smt_token_active[kw->tk]) {
     tk = symbol_type(buffer);
   } else {
     tk = kw->tk;
