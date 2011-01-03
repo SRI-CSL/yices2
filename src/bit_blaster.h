@@ -478,7 +478,7 @@ extern void bit_blaster_assert_bvslt(bit_blaster_t *blaster, literal_t *a, liter
  * The following functions encode a bit-vector circuit with arrays of literals 
  * as input and an array u of pseudo-literal as output.
  * - all elements in arrays a and b must be valid literals in the bit_solver
- * - all elements of u[i] must be non-null pseudo literals ih the remap table
+ * - all elements of u must be non-null pseudo literals in the remap table
  * - if pseudo-literal u[i] is not mapped to a real literal, then the 
  *   circuit constructions assign a real literal to u[i] 
  *   (and all elements of its class)

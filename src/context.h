@@ -398,53 +398,115 @@ typedef struct arith_interface_s {
  *    - must return a theory variable that represents p with variables renamed as 
  *      defined by map: 
  *      p is a_0 t_0 + ... + a_n t_n and map[i] = variable x_i mapped to t_i
+ *      with the exception that map[0] = null_thvar if x_0 is const_idx
  *
  * 4) thvar_t create_pprod(void *solver, pprod_t *r, thvar_t *map)
  *    - return a theory variable to represent the product (t_0 ^ d_0 ... t_n ^ d_n)
  *    - map is an array of n+1 theory variables x_0 ... x_n such that 
  *      x_i is mapped to t_i in the internalization table.
  *
- * 5) thvar_t create_bvarray(void *solver, composite_term_t *b, literal_t *map)
- *    - must return a theory variable that represent expr, with variables renamed as
- *      defined by bv_map.
- *    - for every variable x of expr (occurring in the leaf nodes), itable_get(bv_map, x)
- *      is a theory variable that corresponds to x in solver.
- *
- * 5) thvar_t create_bvop(void *solver, bvop_t op, thvar_t x, thvar_t y)
- *    - create (op x y): x and y are two theory variables in solver
- *    - op is one of the bvop codes defined in terms.h
+ * 5) thvar_t create_bvarray(void *solver, literal_t *a, uint32_t n)
+ *    - must return a theory variable that represent the array a[0 ... n-1]
+ *    - a[0 ... n-1] are all literals in the core
+ *    - a[0] is the low order bit, a[n-1] is the high order bit
  *
  * 6) thvar_t create_bvite(void *solver, literal_t c, thvar_t x, thvar_t y) 
  *    - create (ite c x y): x and y are two theory variables in solver,
- *    and c is a literal in the core.
+ *      and c is a literal in the core.
  *
- * 7) void attach_eterm(void *solver, thvar_t v, eterm_t t)
- *    - attach egraph term t to theory variable v of solver
+ * 7) binary operators
+ *    thvar_t create_bvdiv(void *solver, thvar_t x, thvar_t y)   
+ *    thvar_t create_bvrem(void *solver, thvar_t x, thvar_t y)
+ *    thvar_t create_bvsdiv(void *solver, thvar_t x, thvar_t y)
+ *    thvar_t create_bvsrem(void *solver, thvar_t x, thvar_t y)
+ *    thvar_t create_bvsmod(void *solver, thvar_t x, thvar_t y)
+ *    thvar_t create_bvshl(void *solver, thvar_t x, thvar_t y)
+ *    thvar_t create_bvlshr(void *solver, thvar_t x, thvar_t y)
+ *    thvar_t create_bvashr(void *solver, thvar_t x, thvar_t y)
  *
- * 8) eterm_t eterm_of_var(void *solver, thvar_t v)
- *    - return the egraph term attached to v in solver (or null_eterm
- *    if v has no egraph term attached).
+ * 8) bit extraction
+ *    literal_t select_bit(void *solver, thvar_t x, uint32_t i)
+ *    - must return bit i of theory variable x as a literal in the core
  *
  * Atom creation:
- * 8) literal_t create_eq_atom(void *solver, thvar_t x, thvar_t y)
- * 9) literal_t create_ge_atom(void *solver, thvar_t x, thvar_t y)
- * 10) literal_t create_sge_atom(void *solver, thvar_t x, thvar_t y)
+ * 9) literal_t create_eq_atom(void *solver, thvar_t x, thvar_t y)
+ * 10) literal_t create_ge_atom(void *solver, thvar_t x, thvar_t y)
+ * 11) literal_t create_sge_atom(void *solver, thvar_t x, thvar_t y)
  *
  * Axiom assertion:
  * assert axiom if tt is true, the negation of axiom otherwise
- * 11) void assert_eq_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
- * 12) void assert_ge_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
- * 13) void assert_sge_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
+ * 12) void assert_eq_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
+ * 13) void assert_ge_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
+ * 14) void assert_sge_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
+ * 
+ * 15) void set_bit(void *solver, thvar_t x, uint32_t i, bool tt)
+ *   - assign bit i of x to true or false (depending on tt)
+ *
+ * Egraph interface
+ * 16) void attach_eterm(void *solver, thvar_t v, eterm_t t)
+ *    - attach egraph term t to theory variable v of solver
+ *
+ * 17) eterm_t eterm_of_var(void *solver, thvar_t v)
+ *    - return the egraph term attached to v in solver (or null_eterm
+ *      if v has no egraph term attached).
  *
  * Model construction: same functions as in arithmetic solvers
- * 14) void build_model(void *solver)
- * 15) void free_model(void *solver)
- * 16) bool value_in_model(void *solver, thvar_t x, bvconstant_t *v):
+ * 18) void build_model(void *solver)
+ * 19) void free_model(void *solver)
+ * 20) bool value_in_model(void *solver, thvar_t x, bvconstant_t *v):
  *     must copy the value of x into v and return true. If model construction is 
  *     not supported or the value is not available, must return false.
  */
+typedef thvar_t (*create_bv_var_fun_t)(void *solver, uint32_t nbits);
+typedef thvar_t (*create_bv_const_fun_t)(void *solver, bvconst_term_t *c);
+typedef thvar_t (*create_bv64_const_fun_t)(void *solver, bvconst64_term_t *c);
+typedef thvar_t (*create_bv_poly_fun_t)(void *solver, bvpoly_t *p, thvar_t *map);
+typedef thvar_t (*create_bv64_poly_fun_t)(void *solver, bvpoly64_t *p, thvar_t *map);
+typedef thvar_t (*create_bv_pprod_fun_t)(void *solver, pprod_t *p, thvar_t *map);
+typedef thvar_t (*create_bv_array_fun_t)(void *solver, literal_t *a, uint32_t n);
+typedef thvar_t (*create_bv_ite_fun_t)(void *solver, literal_t c, thvar_t x, thvar_t y);
+typedef thvar_t (*create_bv_binop_fun_t)(void *solver, thvar_t x, thvar_t y);
+typedef literal_t (*create_bv_atom_fun_t)(void *solver, thvar_t x, thvar_t y);
+typedef literal_t (*select_bit_fun_t)(void *solver, thvar_t x, uint32_t i);
+typedef void (*assert_bv_atom_fun_t)(void *solver, thvar_t x, thvar_t y, bool tt);
+typedef void (*set_bit_fun_t)(void *solver, thvar_t x, uint32_t i, bool tt);
+typedef bool (*bv_val_in_model_fun_t)(void *solver, thvar_t x, bvconstant_t *v);
 
+typedef struct bv_interface_s {
+  create_bv_var_fun_t create_var;
+  create_bv_const_fun_t create_const;
+  create_bv64_const_fun_t create_const64;
+  create_bv_poly_fun_t create_poly;
+  create_bv64_poly_fun_t create_poly64;
+  create_bv_pprod_fun_t create_pprod;
+  create_bv_array_fun_t create_bvarray;
+  create_bv_ite_fun_t create_bvite;
+  create_bv_binop_fun_t create_bvdiv;
+  create_bv_binop_fun_t create_bvrem;
+  create_bv_binop_fun_t create_bvsdiv;
+  create_bv_binop_fun_t create_bvsrem;
+  create_bv_binop_fun_t create_bvsmod;
+  create_bv_binop_fun_t create_bvshl;
+  create_bv_binop_fun_t create_bvlshr;
+  create_bv_binop_fun_t create_bvashr;
 
+  select_bit_fun_t select_bit;
+  create_bv_atom_fun_t create_eq_atom;
+  create_bv_atom_fun_t create_ge_atom;
+  create_bv_atom_fun_t create_sge_atom;
+
+  assert_bv_atom_fun_t assert_eq_axiom;
+  assert_bv_atom_fun_t assert_ge_axiom;
+  assert_bv_atom_fun_t assert_sge_axiom;
+  set_bit_fun_t set_bit;
+
+  attach_eterm_fun_t attach_eterm;
+  eterm_of_var_fun_t eterm_of_var;
+
+  build_model_fun_t build_model;
+  free_model_fun_t free_model;
+  bv_val_in_model_fun_t value_in_model;
+} bv_interface_t;
 
 
 
@@ -477,9 +539,6 @@ typedef struct dl_data_s {
  *  CONTEXT   *
  *************/
 
-/*
- * Context: minimal for now
- */
 struct context_s {
     // mode + architecture
   context_mode_t mode;
@@ -503,6 +562,7 @@ struct context_s {
 
   // solver internalization interfaces
   arith_interface_t arith;
+  bv_interface_t bv;
 
   // input are all from the following tables (from yices_globals.h)
   type_table_t *types; 
