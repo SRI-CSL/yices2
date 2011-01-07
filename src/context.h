@@ -42,7 +42,8 @@
  **********************/
 
 /*
- * Bit mask for specifying which features are supported
+ * Bit mask for specifying which features are supported by a context.
+ * These are set when the context is created.
  */
 #define MULTICHECKS_OPTION_MASK 0x1
 #define PUSHPOP_OPTION_MASK     0x2
@@ -50,7 +51,8 @@
 
 
 /*
- * Possible modes
+ * Possible modes: each mode defines which of the three above
+ * bits are set.
  */
 typedef enum {
   CTX_MODE_ONECHECK,
@@ -428,12 +430,14 @@ typedef struct arith_interface_s {
  *    literal_t select_bit(void *solver, thvar_t x, uint32_t i)
  *    - must return bit i of theory variable x as a literal in the core
  *
- * Atom creation:
+ * Atom creation
+ * -------------
  * 9) literal_t create_eq_atom(void *solver, thvar_t x, thvar_t y)
  * 10) literal_t create_ge_atom(void *solver, thvar_t x, thvar_t y)
  * 11) literal_t create_sge_atom(void *solver, thvar_t x, thvar_t y)
  *
- * Axiom assertion:
+ * Axiom assertion
+ * ---------------
  * assert axiom if tt is true, the negation of axiom otherwise
  * 12) void assert_eq_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
  * 13) void assert_ge_axiom(void *solver, thvar_t x, thvar_t y, bool tt)
@@ -443,6 +447,7 @@ typedef struct arith_interface_s {
  *   - assign bit i of x to true or false (depending on tt)
  *
  * Egraph interface
+ * ----------------
  * 16) void attach_eterm(void *solver, thvar_t v, eterm_t t)
  *    - attach egraph term t to theory variable v of solver
  *
@@ -450,12 +455,19 @@ typedef struct arith_interface_s {
  *    - return the egraph term attached to v in solver (or null_eterm
  *      if v has no egraph term attached).
  *
- * Model construction: same functions as in arithmetic solvers
+ * Model construction
+ * ------------------
+ * Same functions as for the arithmetic solvers
+ *
  * 18) void build_model(void *solver)
+ *     - build a model (that maps solver variables to bitvector constants)
+ *
  * 19) void free_model(void *solver)
+ *     - notify the solver that the model is no longer needed
+ *
  * 20) bool value_in_model(void *solver, thvar_t x, bvconstant_t *v):
- *     must copy the value of x into v and return true. If model construction is 
- *     not supported or the value is not available, must return false.
+ *     - copy the value of x into v and return true. 
+ *     - if model construction is not supported or the value is not available, return false.
  */
 typedef thvar_t (*create_bv_var_fun_t)(void *solver, uint32_t nbits);
 typedef thvar_t (*create_bv_const_fun_t)(void *solver, bvconst_term_t *c);
@@ -866,7 +878,6 @@ extern int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f);
 
 /*
  * Initialize params with default values
- * (Can't declare it here since that conflicts with yices_reval.c)
  */
 extern void init_params_to_defaults(param_t *parameters);
 
@@ -893,7 +904,6 @@ extern smt_status_t check_context(context_t *ctx, param_t *parameters, bool verb
  *   is copied into the model
  */
 extern void context_build_model(model_t *model, context_t *ctx);
-
 
 
 /*

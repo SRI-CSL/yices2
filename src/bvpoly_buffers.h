@@ -1,7 +1,6 @@
 /*
  * Buffer for construction of bitvector polynomials
- * - simpler than the bvarith_buffer defined in bvarith_expr.h
- * - independent of any variable manager
+ * - simpler than the bvarith_buffer and bvarith64_buffer
  */
 
 #ifndef __BVPOLY_BUFFER_H
@@ -10,7 +9,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "bitvectors.h"
 #include "bvarith_expr.h"
 #include "egraph_base_types.h"
 
@@ -26,9 +24,6 @@
  * - if size if more than 64 bits, the coefficients are 
  *   stored in arrays of 32bit words (cf. bv_constants.h).
  *   The array pointers are p[0...nterms-1]
- * - sign = a sign bit for each coeffcient (0 ... nterms-1)
- *   sign bit = 1 means negated
- *   The sign bit is set after normalization. 
  *
  * Index array:
  * - if variable x is present in the polynomial, i.e., var[i] = x
@@ -51,7 +46,6 @@ typedef struct bvpoly_buffer_s {
   thvar_t *var;
   uint64_t *c;
   uint32_t **p;
-  byte_t *sign;
   uint32_t nterms;
   uint32_t bitsize;
   uint32_t width;
@@ -173,8 +167,6 @@ static inline void bvpoly_buffer_sub_one(bvpoly_buffer_t *buffer) {
 /*
  * Normalize buffer:
  * - normalize all the coefficients (reduce them modulo 2^n where n = bitsize)
- * - replace coeff a by -a if (-a) has fewer 1-bits than a 
- *   (e.g., if a is 0b111...1, then it's replaced by - 0b000001)
  * - sort the terms in increasing order of variables
  *   (the constant term comes first if any)
  * - remove all terms with a zero coefficient

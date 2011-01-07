@@ -1,7 +1,5 @@
 /*
  * Buffer for construction of bitvector polynomials
- * - simpler than the bvarith_buffer defined in bvarith_expr.h
- * - independent of any variable manager
  */
 
 #include <assert.h>
@@ -42,7 +40,6 @@ void init_bvpoly_buffer(bvpoly_buffer_t *buffer) {
   n = DEF_BVPOLYBUFFER_SIZE;
   buffer->var = (thvar_t *) safe_malloc(n * sizeof(thvar_t));
   buffer->c = (uint64_t *) safe_malloc(n * sizeof(uint64_t));
-  buffer->sign = allocate_bitvector(n);
   buffer->m_size = n;
 
   buffer->p = NULL; // allocated only if needed
@@ -64,12 +61,10 @@ void delete_bvpoly_buffer(bvpoly_buffer_t *buffer) {
   safe_free(buffer->index);
   safe_free(buffer->var);
   safe_free(buffer->c);
-  delete_bitvector(buffer->sign);
 
   buffer->index = NULL;
   buffer->var = NULL;
   buffer->c = NULL;
-  buffer->sign = NULL;
   
   p = buffer->p;
   if (p != NULL) {
@@ -220,7 +215,6 @@ static void bvpoly_buffer_extend_mono(bvpoly_buffer_t *buffer) {
 
   buffer->var = (thvar_t *) safe_realloc(buffer->var, n * sizeof(thvar_t));
   buffer->c = (uint64_t *) safe_realloc(buffer->c, n * sizeof(uint64_t));
-  buffer->sign = extend_bitvector(buffer->sign, n);
 
   p = buffer->p;
   if (p != NULL) {

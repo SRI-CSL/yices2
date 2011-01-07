@@ -40,7 +40,7 @@ some versions of GCC do not compile GMP properly on 64bit machines.
    ./configure --prefix=/homes/bruno/tools/xi386-linux/reloc_gmp \
       ABI=32 CFLAGS='-fPIC -m32' CPPFLAGS=-DPIC --disable-shared
 
-NOTE: it's important to always built GMP from a clean state, and doing
+NOTE: it's important to always build GMP from a clean state, and doing
 'make clean' form the GMP source directory does not make it clean enough.
 The safest method is to delete the source directory and extract the 
 sources from a tarfile every time.
@@ -70,6 +70,7 @@ the GMP configure script.
 2) GMP for 32bit/PIC/static only
 
    ./configure --prefix=... 
+               --disable-shared
                CC=gcc-4.2
                ABI=32
                CFLAGS='-fPIC -m32'
@@ -116,6 +117,7 @@ the GMP configure script.
 3) GMP for 64bit/PIC/static only
 
    ./configure --prefix=... 
+               --disable-shared
                CC=gcc-4.2
                ABI=64
                CFLAGS='-fPIC -m64'
