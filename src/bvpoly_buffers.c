@@ -8,8 +8,9 @@
 #include "prng.h"
 #include "memalloc.h"
 #include "bv_constants.h"
+#include "bv64_constants.h"
 #include "bit_tricks.h"
-#include "bvpoly_buffer.h"
+#include "bvpoly_buffers.h"
 
 
 /***********************
@@ -200,7 +201,6 @@ static void bvpoly_buffer_resize_index(bvpoly_buffer_t *buffer, thvar_t x) {
 
 /*
  * Increase the size of arrays var and c, and p if it's non NULL.
- * Also increase the sign bitarray
  * - if p is non-null, the new elements of p are initialized to NULL
  */
 static void bvpoly_buffer_extend_mono(bvpoly_buffer_t *buffer) {
@@ -722,73 +722,6 @@ static void bvpoly_buffer_reduce_coefficients(bvpoly_buffer_t *buffer) {
 
 
 /*
- * Set the coefficient signs and negate coefficients if that's
- * avantageous. Fewer 1 bits in 'a' means fewer adders 
- * to represent 'a * x', when that gets converted to a circuit).
- * 
- * Heuristics (used if coefficients are large)
- * ----------
- * If popcount(a) = k and a has n bits then popcount(-a) <= (n - k) + 1.
- * More precisely, we have
- * - popcount(-a) = (n - k) + 1 if lowest order bit of a is 1,
- * - popcount(-a) <= (n - k) if lowest order bit of a is 0
- * So it saves to replace a by -a if 2k > n + lower bit of a
- *
- * This must be done after reducing the coefficients modulo 2^n
- */
-static void bvpoly_buffer_reduce_ones(bvpoly_buffer_t *buffer) {
-  uint32_t *p;
-  uint64_t mask, a;
-  uint32_t i, n, w, b, k;
-
-  b = buffer->bitsize;
-  n = buffer->nterms;  
-  if (b > 64) {
-    /*
-     * Large coefficients
-     */
-    w = buffer->width;
-    for (i=0; i<n; i++) {
-      p = buffer->p[i];
-      k = bvconst_popcount(p, w);
-      assert(1 <= k && k <= b);
-      if (2 * k > b + bvconst_tst_bit(p, 0)) {
-	// negate coefficient and set the sign bit
-	bvconst_negate(p, w);
-	bvconst_normalize(p, b);
-	set_bit(buffer->sign, i);
-      } else {
-	// do nothing: clear the sign bit
-	clr_bit(buffer->sign, i);
-      }
-      assert(bvconst_popcount(p, w) <= (b+1)/2);
-    }
-  } else {
-    /*
-     * Small coefficients
-     */
-    mask = (~((uint64_t) 0)) >> (64 - b);
-    for (i=0; i<n; i++) {
-      a = buffer->c[i];
-      k = popcount64(a);
-      assert(1 <= k && k <= b);
-      // compare with opposite of a
-      a = (-a) & mask;      
-      if (popcount64(a) < k) {
-	// use the negative coeff + set the sign bit
-	buffer->c[i] = a;
-	set_bit(buffer->sign, i);
-      } else {
-	// clear the sign bit
-	clr_bit(buffer->sign, i);
-      }
-      assert(popcount64(buffer->c[i]) <= (b+1)/2);
-    }
-  }
-}
-
-
-/*
  * Normalize buffer:
  * - normalize all the coefficients (reduce them modulo 2^n where n = bitsize)
  * - replace coeff a by -a if (-a) has fewer 1-bits than a 
@@ -800,7 +733,6 @@ static void bvpoly_buffer_reduce_ones(bvpoly_buffer_t *buffer) {
 void normalize_bvpoly_buffer(bvpoly_buffer_t *buffer) {
   poly_buffer_sort(buffer);
   bvpoly_buffer_reduce_coefficients(buffer);  
-  bvpoly_buffer_reduce_ones(buffer);
 }
 
 

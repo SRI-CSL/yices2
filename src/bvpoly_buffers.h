@@ -3,14 +3,15 @@
  * - simpler than the bvarith_buffer and bvarith64_buffer
  */
 
-#ifndef __BVPOLY_BUFFER_H
-#define __BVPOLY_BUFFER_H
+#ifndef __BVPOLY_BUFFERS_H
+#define __BVPOLY_BUFFERS_H
 
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "bvarith_expr.h"
+#include "polynomial_common.h"
 #include "egraph_base_types.h"
+
 
 /*
  * Buffer:
@@ -58,9 +59,11 @@ typedef struct bvpoly_buffer_s {
 /*
  * Default and maximal sizes for the buffer components
  */
+// for m_size
 #define DEF_BVPOLYBUFFER_SIZE 10
-#define MAX_BVPOLYBUFFER_SIZE MAX_BVPOLY_SIZE
+#define MAX_BVPOLYBUFFER_SIZE (UINT32_MAX/8)
 
+// for i_size
 #define DEF_BVPOLYBUFFER_ISIZE 100
 #define MAX_BVPOLYBUFFER_ISIZE (UINT32_MAX/4)
 
@@ -213,26 +216,6 @@ static inline uint32_t *bvpoly_buffer_coeff(bvpoly_buffer_t *b, uint32_t i) {
   return b->p[i];
 }
 
-/*
- * Test the sign of coefficient i.
- * The bit sign is valid only after normalization
- * - sign_bit returns 0 or 1  (0 means positive coefficiemt
- * - is_pos, is_neg check the sign bit
- */
-static inline uint32_t bvpoly_buffer_sign(bvpoly_buffer_t *b, uint32_t i) {
-  assert(i < b->nterms);
-  return tst_bit(b->sign, i);
-}
-
-static inline bool bvpoly_buffer_is_neg(bvpoly_buffer_t *b, uint32_t i) {
-  assert(i < b->nterms);
-  return tst_bit(b->sign, i);
-}
-
-static inline bool bvpoly_buffer_is_pos(bvpoly_buffer_t *b, uint32_t i) {
-  return ! bvpoly_buffer_is_neg(b, i);
-}
 
 
-
-#endif /* __BVPOLY_BUFFER_H */
+#endif /* __BVPOLY_BUFFERS_H */
