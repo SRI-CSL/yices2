@@ -9,9 +9,8 @@
 #include "memalloc.h"
 #include "bv_constants.h"
 #include "bv64_constants.h"
-#include "bit_tricks.h"
+#include "hash_functions.h"
 #include "bvpoly_buffers.h"
-
 
 /***********************
  *  CREATION/DELETION  *
@@ -39,7 +38,7 @@ void init_bvpoly_buffer(bvpoly_buffer_t *buffer) {
   buffer->i_size = n;
 
   n = DEF_BVPOLYBUFFER_SIZE;
-  buffer->var = (thvar_t *) safe_malloc(n * sizeof(thvar_t));
+  buffer->var = (int32_t *) safe_malloc(n * sizeof(int32_t));
   buffer->c = (uint64_t *) safe_malloc(n * sizeof(uint64_t));
   buffer->m_size = n;
 
@@ -130,7 +129,7 @@ static void bvpoly_reset_coeff_array(bvpoly_buffer_t *buffer) {
 void reset_bvpoly_buffer(bvpoly_buffer_t *buffer, uint32_t bitsize) {
   uint32_t w, w_size;
   uint32_t i, n;
-  thvar_t x;
+  int32_t x;
 
   assert(bitsize > 0);
 
@@ -170,7 +169,7 @@ void reset_bvpoly_buffer(bvpoly_buffer_t *buffer, uint32_t bitsize) {
  * - this makes sure the index array is large enough to store index[x]
  * - x must be >= buffer->i_size
  */
-static void bvpoly_buffer_resize_index(bvpoly_buffer_t *buffer, thvar_t x) {
+static void bvpoly_buffer_resize_index(bvpoly_buffer_t *buffer, int32_t x) {
   int32_t *tmp;
   uint32_t i, n;
 
@@ -213,7 +212,7 @@ static void bvpoly_buffer_extend_mono(bvpoly_buffer_t *buffer) {
     out_of_memory();
   }
 
-  buffer->var = (thvar_t *) safe_realloc(buffer->var, n * sizeof(thvar_t));
+  buffer->var = (int32_t *) safe_realloc(buffer->var, n * sizeof(int32_t));
   buffer->c = (uint64_t *) safe_realloc(buffer->c, n * sizeof(uint64_t));
 
   p = buffer->p;
@@ -261,7 +260,7 @@ static int32_t bvpoly_buffer_alloc_mono(bvpoly_buffer_t *buffer) {
 /*
  * Get buffer->index[x] (resize the index array if needed)
  */
-static inline int32_t bvpoly_buffer_get_index(bvpoly_buffer_t *buffer, thvar_t x) {
+static inline int32_t bvpoly_buffer_get_index(bvpoly_buffer_t *buffer, int32_t x) {
   assert(0 <= x && x < max_idx);
   if (x >= buffer->i_size) {
     bvpoly_buffer_resize_index(buffer, x);
@@ -279,7 +278,7 @@ static inline int32_t bvpoly_buffer_get_index(bvpoly_buffer_t *buffer, thvar_t x
  * Add monomial a * x to buffer
  * - buffer->bitsize must be no more than 64
  */
-void bvpoly_buffer_add_mono64(bvpoly_buffer_t *buffer, thvar_t x, uint64_t a) {
+void bvpoly_buffer_add_mono64(bvpoly_buffer_t *buffer, int32_t x, uint64_t a) {
   int32_t i;
 
   assert(0 < buffer->bitsize && buffer->bitsize <= 64);
@@ -301,7 +300,7 @@ void bvpoly_buffer_add_mono64(bvpoly_buffer_t *buffer, thvar_t x, uint64_t a) {
  * Subtract monomial a * x from buffer
  * - buffer->bitsize must be no more than 64
  */
-void bvpoly_buffer_sub_mono64(bvpoly_buffer_t *buffer, thvar_t x, uint64_t a) {
+void bvpoly_buffer_sub_mono64(bvpoly_buffer_t *buffer, int32_t x, uint64_t a) {
   int32_t i;
 
   assert(0 < buffer->bitsize && buffer->bitsize <= 64);
@@ -323,7 +322,7 @@ void bvpoly_buffer_sub_mono64(bvpoly_buffer_t *buffer, thvar_t x, uint64_t a) {
  * Add a * b * x to buffer
  * - buffer->bitsize must be no more than 64
  */
-void bvpoly_buffer_addmul_mono64(bvpoly_buffer_t *buffer, thvar_t x, uint64_t a, uint64_t b) {
+void bvpoly_buffer_addmul_mono64(bvpoly_buffer_t *buffer, int32_t x, uint64_t a, uint64_t b) {
   int32_t i;
 
   assert(0 < buffer->bitsize && buffer->bitsize <= 64);
@@ -345,7 +344,7 @@ void bvpoly_buffer_addmul_mono64(bvpoly_buffer_t *buffer, thvar_t x, uint64_t a,
  * Subtract a * b * x from buffer
  * - buffer->bitsize must be no more than 64
  */
-void bvpoly_buffer_submul_mono64(bvpoly_buffer_t *buffer, thvar_t x, uint64_t a, uint64_t b) {
+void bvpoly_buffer_submul_mono64(bvpoly_buffer_t *buffer, int32_t x, uint64_t a, uint64_t b) {
   int32_t i;
 
   assert(0 < buffer->bitsize && buffer->bitsize <= 64);
@@ -372,7 +371,7 @@ void bvpoly_buffer_submul_mono64(bvpoly_buffer_t *buffer, thvar_t x, uint64_t a,
  * - buffer->bitsize must be more than 64
  * - a must be an array of w words (where w = ceil(bitsize / 32)
  */
-void bvpoly_buffer_add_monomial(bvpoly_buffer_t *buffer, thvar_t x, uint32_t *a) {
+void bvpoly_buffer_add_monomial(bvpoly_buffer_t *buffer, int32_t x, uint32_t *a) {
   uint32_t w;
   int32_t i;
 
@@ -396,7 +395,7 @@ void bvpoly_buffer_add_monomial(bvpoly_buffer_t *buffer, thvar_t x, uint32_t *a)
  * - buffer->bitsize must be more than 64
  * - a must be an array of w words (where w = ceil(bitsize / 32)
  */
-void bvpoly_buffer_sub_monomial(bvpoly_buffer_t *buffer, thvar_t x, uint32_t *a) {
+void bvpoly_buffer_sub_monomial(bvpoly_buffer_t *buffer, int32_t x, uint32_t *a) {
   uint32_t w;
   int32_t i;
 
@@ -419,7 +418,7 @@ void bvpoly_buffer_sub_monomial(bvpoly_buffer_t *buffer, thvar_t x, uint32_t *a)
  * - buffer->bitsize must be more than 64
  * - a and b must be arrays of w words (where w = ceil(bitsize / 32)
  */
-void bvpoly_buffer_addmul_monomial(bvpoly_buffer_t *buffer, thvar_t x, uint32_t *a, uint32_t *b) {
+void bvpoly_buffer_addmul_monomial(bvpoly_buffer_t *buffer, int32_t x, uint32_t *a, uint32_t *b) {
   uint32_t w;
   int32_t i;
 
@@ -444,7 +443,7 @@ void bvpoly_buffer_addmul_monomial(bvpoly_buffer_t *buffer, thvar_t x, uint32_t 
  * - buffer->bitsize must be more than 64
  * - a and b must be arrays of w words (where w = ceil(bitsize / 32)
  */
-void bvpoly_buffer_submul_monomial(bvpoly_buffer_t *buffer, thvar_t x, uint32_t *a, uint32_t *b) {
+void bvpoly_buffer_submul_monomial(bvpoly_buffer_t *buffer, int32_t x, uint32_t *a, uint32_t *b) {
   uint32_t w;
   int32_t i;
 
@@ -470,7 +469,7 @@ void bvpoly_buffer_submul_monomial(bvpoly_buffer_t *buffer, thvar_t x, uint32_t 
 /*
  * Add x to buffer (i.e., monomial 1 * x)
  */
-void bvpoly_buffer_add_var(bvpoly_buffer_t *buffer, thvar_t x) {
+void bvpoly_buffer_add_var(bvpoly_buffer_t *buffer, int32_t x) {
   uint32_t w;
   int32_t i;
 
@@ -500,7 +499,7 @@ void bvpoly_buffer_add_var(bvpoly_buffer_t *buffer, thvar_t x) {
 /*
  * Subtract x from buffer (i.e., monomial 1 * x)
  */
-void bvpoly_buffer_sub_var(bvpoly_buffer_t *buffer, thvar_t x) {
+void bvpoly_buffer_sub_var(bvpoly_buffer_t *buffer, int32_t x) {
   uint32_t w;
   int32_t i;
 
@@ -531,12 +530,11 @@ void bvpoly_buffer_sub_var(bvpoly_buffer_t *buffer, thvar_t x) {
  *  NORMALIZATION  *
  ******************/
 
-
 /*
  * Utility for sorting: swap monomials at indices i and j
  */
 static void swap_monomials(bvpoly_buffer_t *buffer, uint32_t i, uint32_t j) {
-  thvar_t x, y;
+  int32_t x, y;
   uint64_t aux;
   uint32_t *p;
 
@@ -579,7 +577,7 @@ static void sort_buffer(bvpoly_buffer_t *buffer, uint32_t l, uint32_t h);
  */
 static void isort_buffer(bvpoly_buffer_t *buffer, uint32_t l, uint32_t h) {
   uint32_t i, j;
-  thvar_t x;
+  int32_t x;
 
   assert(l <= h);
 
@@ -599,7 +597,7 @@ static void isort_buffer(bvpoly_buffer_t *buffer, uint32_t l, uint32_t h) {
  */
 static void qsort_buffer(bvpoly_buffer_t *buffer, uint32_t l, uint32_t h) {
   uint32_t i, j;
-  thvar_t x;
+  int32_t x;
 
   assert(h > l);
 
@@ -660,7 +658,7 @@ static void bvpoly_buffer_reduce_coefficients(bvpoly_buffer_t *buffer) {
   uint32_t *p;
   uint64_t mask;
   uint32_t i, j, n, b, w;
-  thvar_t x;
+  int32_t x;
   
 
   b = buffer->bitsize;
@@ -696,7 +694,7 @@ static void bvpoly_buffer_reduce_coefficients(bvpoly_buffer_t *buffer) {
     /*
      * Small coefficients
      */
-    mask = (~((uint64_t) 0)) >> (64 - b);
+    mask = mask64(b);
     j = 0;
     for (i=0; i<n; i++) {
       assert(j <= i);
@@ -722,10 +720,63 @@ static void bvpoly_buffer_reduce_coefficients(bvpoly_buffer_t *buffer) {
 
 
 /*
+ * For debugging: check whether buffer is normalized
+ */
+#ifndef NDEBUG
+
+// aux function: check whethter word array c is normalized
+// n = number of bits
+static bool bvconst_is_normalized(uint32_t *c, uint32_t n) {
+  uint32_t k, r;
+
+  r = (n & 0x1f); // r = n mod 32
+  k = n>>5;       // floor(n/32)
+
+  // c is normalized if r == 0 or the 32-r high-order bits
+  // of c[k] are zero.
+  return (c[k] & ((1 << r) - 1)) == 0;
+}
+
+static bool bvpoly_buffer_is_normalized(bvpoly_buffer_t *buffer) {  
+  uint32_t i, n, b, w;
+  uint64_t c;
+
+  n = buffer->nterms;
+  // check that the variables are in increasing order
+  for (i=1; i<n; i++) {
+    if (buffer->var[i-1] >= buffer->var[i]) {
+      return false;
+    }
+  }
+
+  // check that the coefficients are normalized and non-zero
+  b = buffer->bitsize;
+  if (b > 64) {
+    w = buffer->width;
+    for (i=0; i<n; i++) {
+      if (bvconst_is_zero(buffer->p[i], w) ||
+	  ! bvconst_is_normalized(buffer->p[i], b)) {
+	return false;
+      }
+    }
+  } else {
+    for (i=0; i<n; i++) {
+      c = buffer->c[i];
+      if (c == 0 || c != norm64(c, b)) {
+	return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+#endif
+
+
+/*
  * Normalize buffer:
  * - normalize all the coefficients (reduce them modulo 2^n where n = bitsize)
- * - replace coeff a by -a if (-a) has fewer 1-bits than a 
- *   (e.g., if a is 0b111...1, then it's replaced by - 0b000001)
  * - sort the terms in increasing order of variables
  *   (the constant term comes first if any)
  * - remove all terms with a zero coefficient
@@ -733,7 +784,171 @@ static void bvpoly_buffer_reduce_coefficients(bvpoly_buffer_t *buffer) {
 void normalize_bvpoly_buffer(bvpoly_buffer_t *buffer) {
   poly_buffer_sort(buffer);
   bvpoly_buffer_reduce_coefficients(buffer);  
+  assert(bvpoly_buffer_is_normalized(buffer));
 }
 
 
+
+/*
+ * Convert b to a bvpoly64 object
+ * - b must be normalized and have bitsize <= 64
+ * - the resulting object can be deleted using safe_free (or free_bvpoly64)
+ */
+bvpoly64_t *bvpoly_buffer_getpoly64(bvpoly_buffer_t *b) {
+  bvpoly64_t *p;
+  uint32_t i, n, size;
+
+  assert(b->bitsize > 0 && b->bitsize <= 64);
+  assert(bvpoly_buffer_is_normalized(b));
+
+  size = b->bitsize;
+  n = b->nterms;
+  p = alloc_bvpoly64(n, size);
+  for (i=0; i<n; i++) {
+    p->mono[i].var = b->var[i];
+    p->mono[i].coeff = b->c[i];
+  }
+
+  return p;
+}
+
+
+/*
+ * Convert b to a bvpoly object
+ * - b must be normalized and have bitsize > 64
+ * - the resulting bvpoly can be deleted using free_bvpoly
+ */
+bvpoly_t *bvpoly_buffer_getpoly(bvpoly_buffer_t *b) {
+  bvpoly_t *p;
+  uint32_t *c;
+  uint32_t i, n, size, w;;
+
+  assert(b->bitsize > 64);
+  assert(bvpoly_buffer_is_normalized(b));
+
+  size = b->bitsize;
+  w = b->width;
+  n = b->nterms;
+  p = alloc_bvpoly(n, size);
+  for (i=0; i<n; i++) {
+    // allocate a bvconst c and copy p[i] into c
+    c = bvconst_alloc(w);
+    bvconst_set(c, w, b->p[i]);
+    bvconst_normalize(c, size); // redundant since b is normalized?
+
+    p->mono[i].var = b->var[i];
+    p->mono[i].coeff = c;
+  }
+
+  return p;
+}
+
+
+
+/*
+ * Check whether b is equal to a bvpoly64 p
+ * - b must be normalized
+ */
+bool bvpoly_buffer_equal_poly64(bvpoly_buffer_t *b, bvpoly64_t *p) {
+  uint32_t i, n;
+
+  assert(bvpoly_buffer_is_normalized(b));
+
+  n = b->nterms;
+  if (b->bitsize != p->bitsize || n != p->nterms) {
+    return false;
+  }
+
+  for (i=0; i<n; i++) {
+    if (b->var[i] != p->mono[i].var || b->c[i] != p->mono[i].coeff) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+
+/*
+ * Check whether b is equal to a bvpoly p
+ * - b must be normalized
+ */
+bool bvpoly_buffer_equal_bvpoly(bvpoly_buffer_t *b, bvpoly_t *p) {
+  uint32_t i, n, w;
+
+  assert(bvpoly_buffer_is_normalized(b));
+
+  n = b->nterms;
+  if (b->bitsize != p->bitsize || n != p->nterms) {
+    return false;
+  }
+
+  w = b->width;
+  assert(p->width == w);
+
+  for (i=0; i<n; i++) {
+    if (b->var[i] != p->mono[i].var || 
+	bvconst_neq(b->p[i], p->mono[i].coeff, w)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+
+/*
+ * Hash function1
+ * - b must be normalized and have bitsize <= 64
+ *
+ * This follows the definition of hash_bvpoly64 in bv64_polynomials:
+ * - if b is equal to a bvpoly64 p then 
+ *   hash_bvpoly64(p) == bvpoly_buffer_hash64(b)
+ */
+uint32_t bvpoly_buffer_hash64(bvpoly_buffer_t *b) {
+  uint32_t h, n, size, i;
+
+  assert(b->bitsize > 0 && b->bitsize <= 64);
+  assert(bvpoly_buffer_is_normalized(b));
+
+  n = b->nterms;
+  h = HASH_BVPOLY64_SEED + n;
+  size = b->bitsize;
+  for (i=0; i<n; i++) {
+    h = jenkins_hash_mix3((uint32_t) (b->c[i] >> 32), (uint32_t) b->c[i], h);
+    h = jenkins_hash_mix3(b->var[i], size, h);    
+  }
+
+  return h;
+}
+
+
+/*
+ * Hash function2:
+ * - b must be normalized and have bitsize > 64
+ *
+ * This follows the definition of hash_bvpoly in bv_polynomials.
+ * - if b is equal to a bvpoly p then
+ *   hash_bvpoly(p) == bvpoly_buffer_hash(b)
+ */
+uint32_t bvpoly_buffer_hash(bvpoly_buffer_t *b) {
+  uint32_t h, n, size, i, k;
+
+  assert(b->bitsize > 64);
+  assert(bvpoly_buffer_is_normalized(b));
+
+  n = b->nterms;
+  h = HASH_BVPOLY_SEED + n;
+  k = b->width;
+  size = b->bitsize;
+
+  for (i=0; i<n; i++) {
+    h = jenkins_hash_array(b->p[i], k, h);
+    h = jenkins_hash_mix3(b->var[i], size, h);
+  }
+
+  return h;
+}
 

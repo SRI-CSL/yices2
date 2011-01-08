@@ -15,8 +15,12 @@
  * Initialize a bit-vector solver
  * - core = the attached smt core
  * - egraph = the attached egraph (or NULL)
+ * - vm = bit-vector variable manager for all input
+ * - tbl = node table for the XOR/OR graph
  */
-extern void init_bv_solver(bv_solver_t *solver, smt_core_t *core, egraph_t *egraph);
+extern void init_bv_solver(bv_solver_t *solver, smt_core_t *core,
+			   egraph_t *egraph, bv_var_manager_t *vm, 
+			   node_table_t *tbl);
 
 
 /*
@@ -35,7 +39,7 @@ extern void delete_bv_solver(bv_solver_t *solver);
  * Get the solver's interface descriptors
  */
 // internalization interface (used by the context)
-extern bv_interface_t *bv_solver_bv_interface(bv_solver_t *solver);
+extern bvsolver_interface_t *bv_solver_bv_interface(bv_solver_t *solver);
 
 // control and smt interfaces (used by the core and egraph)
 extern th_ctrl_interface_t *bv_solver_ctrl_interface(bv_solver_t *solver);
@@ -68,33 +72,28 @@ extern thvar_t bv_solver_create_var(bv_solver_t *solver, uint32_t n);
  * Create a variable equal to constant c
  */
 extern thvar_t bv_solver_create_const(bv_solver_t *solver, bvconst_term_t *c);
-extern thvar_t bv_solver_create_const64(bv_solver_t *solver, bvconst64_term_t *c);
 
 
 /*
- * Internalize the polynomial p
- * - map defines how terms of p are replaced by variables of solver:
- *   if p is of the form a_0 t_0 + ... + a_n t_n
- *   then map containts n+1 elements variables, and map[i] is the internalization of t_i
- * - exception: if t_0 is const_idx then map[0] = null_thvar
+ * Internalize the bvarith expression p
+ * - bv_map = store variable renaming. For every variable x of p,
+ *   itable_get(bv_map, x) is the theory variable v that corresponds to x
+ *   in the solver.
  */
-extern thvar_t bv_solver_create_bvpoly(bv_solver_t *solver, bvpoly_t *p, thvar_t *map);
-extern thvar_t bv_solver_create_bvpoly64(bv_solver_t *solver, bvpoly_t *p, thvar_t *map);
+extern thvar_t bv_solver_create_bvpoly(bv_solver_t *solver, bvarith_expr_t *p, itable_t *bv_map);
 
 
 /*
- * Internalize the power-product p = t_0^d_0 * ... * t_n^d_n
- * - map[i] stores the theory variable equal to the internalization of t_i
+ * Internalize the bit array b
+ * - bv_map = variable renaming as above
  */
-extern thvar_t bv_solver_create_pprod(bv_solver_t *solver, pprod_t *p, thvar_t *map);
+extern thvar_t bv_solver_create_bvlogic(bv_solver_t *solver, bvlogic_expr_t *b, itable_t *bv_map);
 
 
 /*
- * Internalize the bit array a[0 ... n-1]
- * - each element a[i] is a literal in the core
+ * Internalize the binary operation (op x y)
  */
-extern thvar_t bv_solver_create_bvarray(bv_solver_t *solver, literal_t *a, uint32_t n);
-
+extern thvar_t bv_solver_create_bvop(bv_solver_t *solver, bvop_t op, thvar_t x, thvar_t y);
 
 /*
  * Internalize the if-then-else term (ite c x y)
@@ -105,23 +104,16 @@ extern thvar_t bv_solver_create_ite(bv_solver_t *solver, literal_t c, thvar_t x,
 
 
 /*
- * Internalize the binary operations
+ * Attach egraph term t to variable x
  */
-extern thvar_t bv_solver_create_bvdiv(bv_solver_t *solver, thvar_t x, thvar_t y);
-extern thvar_t bv_solver_create_bvrem(bv_solver_t *solver, thvar_t x, thvar_t y);
-extern thvar_t bv_solver_create_bvsdiv(bv_solver_t *solver, thvar_t x, thvar_t y);
-extern thvar_t bv_solver_create_bvsrem(bv_solver_t *solver, thvar_t x, thvar_t y);
-extern thvar_t bv_solver_create_bvsmod(bv_solver_t *solver, thvar_t x, thvar_t y);
-
-extern thvar_t bv_solver_create_bvshl(bv_solver_t *solver, thvar_t x, thvar_t y);
-extern thvar_t bv_solver_create_bvlshr(bv_solver_t *solver, thvar_t x, thvar_t y);
-extern thvar_t bv_solver_create_bvashr(bv_solver_t *solver, thvar_t x, thvar_t y);
+extern void bv_solver_attach_eterm(bv_solver_t *solver, thvar_t x, eterm_t t);
 
 
 /*
- * Return the i-th bit of theory variable x as a literal
+ * Get the egraph term attached to x 
+ * - return null_eterm if x has no term attached
  */
-extern literal_t bv_solver_select_bit(bv_solver_t *solver, thvar_t x, uint32_t i);
+extern eterm_t bv_solver_eterm_of_var(bv_solver_t *solver, thvar_t x);
 
 
 /*
@@ -145,26 +137,6 @@ extern literal_t bv_solver_create_sge_atom(bv_solver_t *solver, thvar_t x, thvar
 extern void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool tt);
 extern void bv_solver_assert_ge_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool tt);
 extern void bv_solver_assert_sge_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool tt);
-
-
-/*
- * Assert that bit i of x is equal to tt
- */
-extern void bv_solver_set_bit(bv_solver_t *solver, thvar_t x, uint32_t i, bool tt);
-
-
-/*
- * Attach egraph term t to variable x
- */
-extern void bv_solver_attach_eterm(bv_solver_t *solver, thvar_t x, eterm_t t);
-
-
-/*
- * Get the egraph term attached to x 
- * - return null_eterm if x has no term attached
- */
-extern eterm_t bv_solver_eterm_of_var(bv_solver_t *solver, thvar_t x);
-
 
 
 

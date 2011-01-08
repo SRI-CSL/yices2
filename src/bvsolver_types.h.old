@@ -6,6 +6,9 @@
  * Version 2: pure bit-blasting/no subsolver. All bit-blasting
  * is done directly in the core.
  * 
+ * The solver stores a set of bit-vector and bit variables.
+ * A bit-variable is a boolean.
+ *
  * For each variable x, we store
  * - bit_size[x] = number of bits in x
  * - kind[x] = tag that defines how the definition is to 
@@ -14,12 +17,9 @@
  * - eterm[x] = attached egraph term (optional)
  * - map[x] = literal or array of literals (bit blasting)
  *
- * Bit vector atoms are of three kinds:
- * - bveq x y
- * - bvge x y: x <= y, where x and y are interpreted 
- *   as unsigned integers
- * - bvsge x y: x <= y, where x and y are as signed
- *   integers
+ * We also store boolean objects (bits) in the table
+ * (same representation as in bit_expr.h)
+ * - x is a boolean if bit_size[x] = 0
  */
 
 #ifndef __BVSOLVER_TYPES_H
@@ -29,9 +29,18 @@
 #include <setjmp.h>
 
 #include "int_hash_tables.h"
+#include "int_queues.h"
+#include "arena.h"
 #include "int_vectors.h"
-#include "bvpoly_buffers.h"
-#include "power_products.h"
+#include "bv_constants.h"
+#include "bvpoly_buffer.h"
+#include "internalization_map.h"
+#include "remap_table.h"
+#include "bvbound_cache.h"
+#include "bit_blaster.h"
+#include "cache.h"
+#include "small_bvsets.h"
+#include "rb_bvsets.h"
 #include "egraph_assertion_queues.h"
 
 #include "smt_core.h"
@@ -55,23 +64,38 @@
  */
 typedef enum bvvar_tag {
   BVTAG_VAR,           // uninterpreted bitvector
-  BVTAG_CONST64,       // constant represented as a 64bit unsigned integer
-  BVTAG_CONST,         // constant represented as an array of 32bit words 
-  BVTAG_POLY64,        // polynomial with small coefficients
-  BVTAG_POLY,          // polynomial with large coefficients 
-  BVTAG_PPROD,         // power product
-  BVTAG_BIT_ARRAY,     // array of literals
-  BVTAG_ITE,           // if-then-else (mux)
-  BVTAG_UDIV,          // quotient in unsigned division
-  BVTAG_UREM,          // remainder in unsigned division
-  BVTAG_SDIV,          // quotient in signed division (rounding towards 0)
-  BVTAG_SREM,          // remainder in signed division (rounding towards 0)
-  BVTAG_SMOD,          // remainder in floor division (rounding towards -infinity)
+  BVTAG_SMALL_CONST,   // constant represented as a 64bit unsigned integer
+  BVTAG_BIG_CONST,     // constant represented as an array of 32bit words 
+  BVTAG_TRUE,          // boolean constant
+  BVTAG_SELECT,        // (bit i x) = bit i of variable x
+  BVTAG_XOR,           // (xor x y): x and y are variable indices with polarity
+  BVTAG_OR,            // (or x y): same thing
+  BVTAG_BIT,           // [x]: where x is a bit variable + polarity
+  BVTAG_BIT_ARRAY,     // [x_0, ..., x_{n-1}]: x_i is a variable + polarity
+  BVTAG_ADD,
+  BVTAG_SUB,
+  BVTAG_NEG,
+  BVTAG_MUL,
+  BVTAG_UDIV,
+  BVTAG_UREM,
+  BVTAG_SDIV,
+  BVTAG_SREM,
+  BVTAG_SMOD,
   BVTAG_SHL,           // shift left
   BVTAG_LSHR,          // logical shift right
   BVTAG_ASHR,          // arithmetic shift right
+  BVTAG_ITE,           // if-then-else (mux)
 } bvvar_tag_t;
 
+
+
+/*
+ * Descriptor for (bit i x)
+ */
+typedef struct bv_select_s {
+  uint32_t idx;   // i
+  thvar_t var;    // x
+} bv_select_t;
 
 /*
  * Descriptor for (if c then x else y)
@@ -87,10 +111,31 @@ typedef struct bv_ite_s {
  * Descriptor (definition)
  */
 typedef union bvvar_desc_u {
-  uint64_t val;     // for const64
-  thvar_t op[2];    // two variable operands
-  void *ptr;        // pointer to polynomial/pprod/ite  
+  uint64_t ival;     // for small const
+  bv_select_t sel;   // bit i of x
+  thvar_t op[2];     // two variable operands
+  bit_t bop[2];      // two bit operands (for OR/XOR)
+  bit_t bval;        // array of 1 bit
+  uint32_t *pval;    // for big const = array of N words where N = ceil(nbits/32)
+  bit_t *bit;        // array of n bits
+  bv_ite_t *ite;     // if-then-else
 } bvvar_desc_t;
+
+
+/*
+ * Conversion after bit-blasting:
+ * - bitvector variables are mapped to arrays of literals in bit_solver.
+ * - bit variables are mapped to literals in bit_solver.
+ *
+ * To store the mapping, we use a union type
+ * - for a bivector variable of size > 1, map.array is an array of literals
+ * - for a bitector variable of size 1 or a bit variable, map.lit is a single 
+ *   literal.
+ */
+typedef union bvvar_map_u {
+  literal_t *array;
+  literal_t lit;
+} bvvar_map_t;
 
 
 /*
@@ -113,7 +158,7 @@ typedef struct bv_vartable_s {
   eterm_t *eterm;
 
   // mapping to literals
-  literal_t **map;
+  bvvar_map_t *map;
 
   // hash consing
   int_htbl_t htbl;
@@ -133,6 +178,17 @@ static inline bvvar_tag_t tag_of_kind(uint8_t k) {
 
 static inline bool kind_is_marked(uint8_t k) {
   return (k & ((uint8_t) 0x80)) != 0;
+}
+
+
+/*
+ * Bits are represented as in bit_expr.h
+ * - format = [0|var id|sign_bit]
+ * - sign bit = 0 means positive polarity
+ * - sign bit = 1 means negative polarity
+ */
+static inline thvar_t var_of_bit(bit_t x) {
+  return (x>>1);
 }
 
 
@@ -160,28 +216,34 @@ static inline uint32_t bvvar_bitsize(bv_vartable_t *table, thvar_t x) {
   return table->bit_size[x];
 }
 
+static inline bool bvvar_is_small_const(bv_vartable_t *table, thvar_t x) {
+  return bvvar_tag(table, x) == BVTAG_SMALL_CONST;
+}
+
+static inline bool bvvar_is_big_const(bv_vartable_t *table, thvar_t x) {
+  return bvvar_tag(table, x) == BVTAG_BIG_CONST;
+}
+
 static inline bool bvvar_is_uninterpreted(bv_vartable_t *table, thvar_t x) {
   return bvvar_tag(table, x) == BVTAG_VAR;
 }
 
-static inline bool bvvar_is_const64(bv_vartable_t *table, thvar_t x) {
-  return bvvar_tag(table, x) == BVTAG_CONST64;
+static inline uint64_t small_const_value(bv_vartable_t *table, thvar_t x) {
+  assert(bvvar_is_small_const(table, x));
+  return table->def[x].ival;
 }
 
-static inline bool bvvar_is_const(bv_vartable_t *table, thvar_t x) {
-  return bvvar_tag(table, x) == BVTAG_CONST;
+static inline uint32_t *big_const_value(bv_vartable_t *table, thvar_t x) {
+  assert(bvvar_is_big_const(table, x));
+  return table->def[x].pval;
 }
 
-static inline bool bvvar_is_poly64(bv_vartable_t *table, thvar_t x) {
-  return bvvar_tag(table, x) == BVTAG_POLY64;
+static inline bool valid_bitvar(bv_vartable_t *table, thvar_t x) {
+  return valid_bvvar(table, x) && bvvar_bitsize(table, x) == 0;
 }
 
-static inline bool bvvar_is_poly(bv_vartable_t *table, thvar_t x) {
-  return bvvar_tag(table, x) == BVTAG_POLY;
-}
-
-static inline bool bvvar_is_pprod(bv_vartable_t *table, thvar_t x) {
-  return bvvar_tag(table, x) == BVTAG_PPROD;
+static inline bool valid_bit(bv_vartable_t *table, bit_t x) {
+  return valid_bitvar(table, var_of_bit(x));
 }
 
 
@@ -190,7 +252,11 @@ static inline bool bvvar_is_pprod(bv_vartable_t *table, thvar_t x) {
  */
 static inline bool bvvar_is_mapped(bv_vartable_t *table, thvar_t x) {
   assert(valid_bvvar(table, x));
-  return table->map[x] != NULL;
+  if (table->bit_size[x] <= 1) {
+    return table->map[x].lit != null_literal;
+  } else {
+    return table->map[x].array != NULL;
+  }
 }
 
 
@@ -202,10 +268,89 @@ static inline void bvvar_set_mark(bv_vartable_t *table, thvar_t x) {
   table->kind[x] |= ((uint8_t) 0x80);
 }
 
+
 static inline void bvvar_clr_mark(bv_vartable_t *table, thvar_t x) {
   assert(valid_bvvar(table, x));
   table->kind[x] &= ((uint8_t) 0x7F);
 }
+
+
+
+
+/***************
+ *  PARTITION  *
+ **************/
+
+/*
+ * The partition is a union-find data structure that encodes the 
+ * top-level equalities. This is similar to the union-find structure used
+ * in context.c, except that we don't keep type[x].
+ *
+ * Each index in the table is a variable x (defined in the bv_vartable)
+ * - parent[x] is -1 if x is not in the table
+ * - parent[x] = term equal of x 
+ * Parent[x] is a bitvector variable y of same size as x, such that (x == y) 
+ * was asserted as an axiom. Variable x is a root iff parent[x] == x.
+ *
+ * To balance the partitions, we use an 8bit rank, meaningful only if x is a
+ * root. Rank[x] is close to the log of the size of its class. 
+ * A variable x can be marked so that it always stays root of its class. This is 
+ * done by setting rank[x] == 255.
+ *
+ * For push/pop, we keep track of the merge operations in a trail stack.
+ * We don't use path compression so that it's easy to undo a merge.
+ * Each element in the trail stack consists of a variable y + a bit.
+ *
+ * When the classes of x and y are merged and x is chosen as root of the 
+ * of the combined class, then 
+ *  - parent[y] is set to x
+ *  - rank[x] remains unchanged or is incremented
+ * We store y in the trail stack and save 1 bit to remenber whether
+ * rank[x] was incremented or not.
+ * When y is added initially, it's the unique element of its class
+ * so parent[y] is set to y. We also push y on the trail stack at that 
+ * point (with bit 0).
+ */
+
+/*
+ * Trailer stack for push/pop
+ * - the stack is in data[0... top-1]. It's organized in frames.
+ * - size = size of the full data array
+ * - top = top of the stack
+ * - top_frame = start of the top frame
+ *   if top_frame = k then the top frame is data[k+1, ..., top-1]
+ *   and data[k] = index of the previous frame
+ */
+typedef struct bv_ptrail_s {
+  uint32_t size;
+  uint32_t top;
+  int32_t top_frame;
+  int32_t *data;
+} bv_ptrail_t;
+
+#define DEF_BVTRAIL_SIZE 100
+#define MAX_BVTRAIL_SIZE (UINT32_MAX/sizeof(int32_t))
+
+/*
+ * Partition table:
+ * - size = size of arrays parent and rank
+ * - nelems = 1 + the largest x present in the table
+ * - level = base level = number of calls to push
+ * - trail = trail stack
+ * - if level is 0, the trail stack is not used
+ */
+typedef struct bv_partition_s {
+  uint32_t nelems;
+  uint32_t size;
+  int32_t *parent;
+  uint8_t *rank;
+  uint32_t level;
+  bv_ptrail_t trail;
+} bv_partition_t;
+
+
+#define DEF_BVPARTITION_SIZE 100
+#define MAX_BVPARTITION_SIZE (UINT32_MAX/sizeof(int32_t))
 
 
 
@@ -316,9 +461,44 @@ typedef struct bv_atomtable_s {
 
 
 #define DEF_BVATOMTABLE_SIZE 100
-#define MAX_BVATOMTABLE_SIZE (UINT32_MAX/sizeof(bvatm_t))
+#define MAX_BVATOMTABLE_SIZE (UINT32_MAX/sizeof(bv_atom_t))
 
 
+
+
+
+
+
+
+/***********************
+ *  PROPAGATION QUEUE  *
+ **********************/
+
+/*
+ * We can do boolean propagation before bit blasting. Boolean
+ * propagation can be triggered by the top-level equalities.  For
+ * example, if x is (bitarray b0 ... bn) and y is a constant, then,
+ * after the top-level equality (x == y) is asserted, we can assign a
+ * truth-value to the bits b0 ... bn. By propagating further from
+ * there, we can discover that some atoms are true/false.
+ *
+ * To implement Boolean propagation we use a propagation queue (queue
+ * of integers) + an array that stores the truth value of bit variables.
+ *
+ * TODO: clean this up. We should be able to use the literal mapping in
+ * the variable table rather than an additional truth assignment here.
+ */
+typedef struct bv_prop_queue_s {
+  uint32_t nvars;    // value is defined for x such that 0 <= x < nvars
+  uint32_t size;     // size = size of the array value
+  bool unsat;        // flag true if a conflict is discovered by propagation
+  uint8_t *value;  
+  int_queue_t queue; // store bit-variables to process  
+} bv_prop_queue_t;
+
+
+#define DEF_BV_PROPQUEUE_SIZE 100
+#define MAX_BV_PROPQUEUE_SIZE (UINT32_MAX/sizeof(uint8_t))
 
 
 
@@ -383,7 +563,6 @@ typedef enum bv_lemma_flag {
 
 
 
-
 /***********************
  * SETS OF USED VALUES *
  **********************/
@@ -427,9 +606,6 @@ typedef struct used_bvval_s {
  *  SOLVER  * 
  ***********/
 
-/*
- * Minimal solver for now: to test internalization
- */
 typedef struct bv_solver_s {
   /*
    * Attached smt core + egraph
@@ -445,10 +621,52 @@ typedef struct bv_solver_s {
 
   /*
    * Variable + atom tables
+   * - pointer to the bitvector manager for all input 
+   *   bvarith/bvlogic expr
+   * - pointer to the node_table used by the bvlogic expressions
+   * - node_map: used as a cache when internalizing bvlogic expression
+   *   keeps a mapping from external node ids (in table nodes) to internal
+   *   bits (in vtbl).
+   * - partition table for top-level equalities
    */
+  bv_var_manager_t *bv_manager;
+  node_table_t *nodes;
   bv_vartable_t vtbl;
   bv_atomtable_t atbl;
+  itable_t node_map;
+  bv_partition_t partition;
 
+  /*
+   * Cache for bounds on variables: allocated on demand
+   */
+  bvbound_cache_t *bounds;
+
+  /*
+   * Propagation queue: allocated on demand
+   */
+  bv_prop_queue_t *queue;
+
+  /*
+   * Optional cache for lemmas: allocated on demand
+   */
+  cache_t *cache;
+
+  /*
+   * Data structures for bit-blasting
+   * - the flag bit_blasted is true after all constraints 
+   *   and atoms are translated to clauses in the core
+   * - blaster + remap table are allocated  
+   *   during bit blasting
+   */
+  bit_blaster_t *blaster;
+  remap_table_t *remap;
+  bool bit_blasted;
+
+  /*
+   * Queue of egraph assertions
+   */
+  eassertion_queue_t egraph_queue;
+  
   /*
    * Push/pop stack
    */
@@ -458,13 +676,19 @@ typedef struct bv_solver_s {
    * Auxiliary buffers for internalization
    */
   bvpoly_buffer_t buffer;
-  pp_buffer_t prod_buffer;
+  vpbuffer_t prod_buffer;
   ivector_t aux_vector;
   bvconstant_t aux1;
   bvconstant_t aux2;
   // buffers for bit-blasting
   ivector_t a_vector;
   ivector_t b_vector;
+
+
+  /*
+   * Sets for generating fresh values
+   */
+  used_bvval_t used_vals;
 
   /*
    * Jump buffer for exception handling during internalization

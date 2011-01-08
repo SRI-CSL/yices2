@@ -5,13 +5,33 @@
 #include <assert.h>
 
 #include "memalloc.h"
+#include "bv_constants.h"
 #include "hash_functions.h"
-#include "bv64_constants.h"
-#include "small_bvsets.h"
-#include "rb_bvsets.h"
+#include "int_powers.h"
+#include "int_partitions.h"
+// #include "int_hash_classes.h"
 
 #include "bvsolver.h"
 
+#define TRACE 0
+#define DUMP  0
+
+#if TRACE || DUMP || 1
+
+#include <stdio.h>
+#include <inttypes.h>
+
+#include "cputime.h"
+#include "solver_printer.h"
+
+#endif
+
+
+#if DUMP
+
+static void bv_solver_dump_state(bv_solver_t *solver, char *filename);
+
+#endif
 
 
 /********************
@@ -36,7 +56,7 @@ static void init_bv_vartable(bv_vartable_t *table) {
   table->kind = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
   table->def = (bvvar_desc_t *) safe_malloc(n * sizeof(bvvar_desc_t));
   table->eterm = NULL;
-  table->map = (literal_t **) safe_malloc(n * sizeof(literal_t *));
+  table->map = (bvvar_map_t *) safe_malloc(n * sizeof(bvvar_map_t));
 
   init_int_htbl(&table->htbl, 0);
 }
@@ -61,7 +81,7 @@ static void extend_bv_vartable(bv_vartable_t *table) {
   if (table->eterm != NULL) {
     table->eterm = (eterm_t *) safe_realloc(table->eterm, n * sizeof(eterm_t));
   }
-  table->map = (literal_t **) safe_realloc(table->map, n * sizeof(literal_t *));
+  table->map = (bvvar_map_t *) safe_realloc(table->map, n * sizeof(bvvar_map_t));
 
   table->size = n;
 }
@@ -75,20 +95,19 @@ static void delete_bv_vartable(bv_vartable_t *table) {
 
   n = table->nvars;
   for (i=0; i<n; i++) {
-    safe_free(table->map[i]);
+    if (table->bit_size[i] >= 2) {
+      safe_free(table->map[i].array);
+    }
     switch (bvvar_tag(table, i)) {
-    case BVTAG_CONST:
-    case BVTAG_POLY64:
-    case BVTAG_PPROD:
+    case BVTAG_BIG_CONST:
+      safe_free(table->def[i].pval);
+      break;
     case BVTAG_BIT_ARRAY:
+      safe_free(table->def[i].bit);
+      break;
     case BVTAG_ITE:
-      safe_free(table->def[i].ptr);
+      safe_free(table->def[i].ite);
       break;
-
-    case BVTAG_POLY:
-      free_bvpoly(table->def[i].ptr);
-      break;
-
     default:
       break;
     }
@@ -118,23 +137,22 @@ static void reset_bv_vartable(bv_vartable_t *table) {
 
   n = table->nvars;
   for (i=0; i<n; i++) {
-    safe_free(table->map[i]);
+    if (table->bit_size[i] >= 2) {
+      safe_free(table->map[i].array);
+    }
     switch (bvvar_tag(table, i)) {
-    case BVTAG_CONST:
-    case BVTAG_POLY64:
-    case BVTAG_PPROD:
+    case BVTAG_BIG_CONST:
+      safe_free(table->def[i].pval);
+      break;
     case BVTAG_BIT_ARRAY:
+      safe_free(table->def[i].bit);
+      break;
     case BVTAG_ITE:
-      safe_free(table->def[i].ptr);
+      safe_free(table->def[i].ite);
       break;
-
-    case BVTAG_POLY:
-      free_bvpoly(table->def[i].ptr);
-      break;
-
     default:
       break;
-    }
+    }    
   }
 
   table->nvars = 0;
@@ -146,85 +164,50 @@ static void reset_bv_vartable(bv_vartable_t *table) {
 
 
 /*
- * Hash codes of a variable descriptor
- *
- * For bvpoly and bvpoly64 we use
- * hash_bvpoly   (in bv_polynomials)
- * hash_bvpoly64 (in bv64_polynomials)
- * 
+ * Hash codes
  */
 // n = number of bits
-static inline uint32_t hash_bvconst64(uint64_t c, uint32_t n) {
+static inline uint32_t hash_small_const(uint64_t c, uint32_t n) {
   uint32_t a, b;
   a = jenkins_hash_int64((int64_t) c);
   b = jenkins_hash_int32((int32_t) n);
   return jenkins_hash_mix2(a, b);
 }
 
-static inline uint32_t hash_bvconst(uint32_t *c, uint32_t n) {
+static inline uint32_t hash_big_const(uint32_t *c, uint32_t n) {
   return bvconst_hash(c, n);
 }
 
-// array of k pairs (variable, exponent)
-static inline uint32_t hash_bvpprod_array(varexp_t *a, uint32_t k) {
-  assert(k <= UINT32_MAX/2);
-  return jenkins_hash_intarray((int32_t *) a, 2 * k);
+static inline uint32_t hash_select(uint32_t i, thvar_t x) {
+  return jenkins_hash_pair(i, x, 0x328a63e0);
 }
 
-static inline uint32_t hash_bvpprod(pprod_t *p) {
-  return hash_bvpprod_array(p->prod, p->len);
+static inline uint32_t hash_bitop(bvvar_tag_t op, bit_t x, bit_t y) {
+  return jenkins_hash_triple(op, x, y, 0x43896432);
 }
 
-static inline uint32_t hash_bvarray(literal_t *b, uint32_t n) {
-  return jenkins_hash_intarray2(b, n, 0xaed32b8);
+static inline uint32_t hash_bit(bit_t b) {
+  return jenkins_hash_int32(b);
+}
+
+static inline uint32_t hash_bit_array(bit_t *b, uint32_t n) {
+  return jenkins_hash_intarray_var(n, b, 0xaed32b8);
+}
+
+static inline uint32_t hash_bvop(bvvar_tag_t op, thvar_t x, thvar_t y) {
+  return jenkins_hash_triple(op, x, y, 0x328fae23);
 }
 
 static inline uint32_t hash_bvite(literal_t c, thvar_t x, thvar_t y) {
   return jenkins_hash_triple(c, x, y, 0xfe2efd45);
 }
 
-static inline uint32_t hash_bvite_ptr(bv_ite_t *d) {
-  return hash_bvite(d->cond, d->left, d->right);
-}
-
-static inline uint32_t hash_bvdiv(thvar_t x, thvar_t y) {
-  return jenkins_hash_pair(x, y, 0x2389a23f);
-}
-
-static inline uint32_t hash_bvrem(thvar_t x, thvar_t y) {
-  return jenkins_hash_pair(x, y, 0x237bc32f);
-}
-
-static inline uint32_t hash_bvsdiv(thvar_t x, thvar_t y) {
-  return jenkins_hash_pair(x, y, 0x9afe2ab2);
-}
-
-static inline uint32_t hash_bvsrem(thvar_t x, thvar_t y) {
-  return jenkins_hash_pair(x, y, 0xbe7bca36);
-}
-
-static inline uint32_t hash_bvsmod(thvar_t x, thvar_t y) {
-  return jenkins_hash_pair(x, y, 0xeab2d457);
-}
-
-static inline uint32_t hash_bvshl(thvar_t x, thvar_t y) {
-  return jenkins_hash_pair(x, y, 0xc2ad173f);
-}
-
-static inline uint32_t hash_bvlshr(thvar_t x, thvar_t y) {
-  return jenkins_hash_pair(x, y, 0x81023ae5);
-}
-
-static inline uint32_t hash_bvashr(thvar_t x, thvar_t y) {
-  return jenkins_hash_pair(x, y, 0xc3e4fed1);
-}
-
-
 
 /*
  * Remove all variables of index >= nv
  */
 static void bv_vartable_remove_vars(bv_vartable_t *table, uint32_t nv) {
+  bvvar_tag_t tag;
   uint32_t i, n, h;
 
   assert(nv <= table->nvars);
@@ -233,81 +216,54 @@ static void bv_vartable_remove_vars(bv_vartable_t *table, uint32_t nv) {
 
   n = table->nvars;
   for (i=nv; i<n; i++) {
-    switch (bvvar_tag(table, i)) {
-    case BVTAG_VAR:
-      // no hash consing, no descriptor
-      safe_free(table->map[i]);
+    tag = bvvar_tag(table, i);
+    switch (tag) {
+    case BVTAG_VAR:  // no hash consing for variables
+      continue; 
+    case BVTAG_SMALL_CONST:
+      h = hash_small_const(table->def[i].ival, table->bit_size[i]);
+      break;
+    case BVTAG_BIG_CONST:
+      h = hash_big_const(table->def[i].pval, table->bit_size[i]);
+      safe_free(table->def[i].pval);
+      break;
+    case BVTAG_TRUE: // should not happen
+      assert(false);
       continue;
-
-    case BVTAG_CONST64:
-      h = hash_bvconst64(table->def[i].val, table->bit_size[i]);
+    case BVTAG_SELECT:
+      h = hash_select(table->def[i].sel.idx, table->def[i].sel.var);
       break;
-
-    case BVTAG_CONST:
-      h = hash_bvconst(table->def[i].ptr, table->bit_size[i]);
-      safe_free(table->def[i].ptr);
+    case BVTAG_XOR:
+    case BVTAG_OR:
+      h = hash_bitop(tag, table->def[i].bop[0], table->def[i].bop[1]);
       break;
-
-    case BVTAG_POLY64:
-      h = hash_bvpoly64(table->def[i].ptr);
-      safe_free(table->def[i].ptr);
+    case BVTAG_BIT:
+      h = hash_bit(table->def[i].bval);
       break;
-
-    case BVTAG_POLY:
-      h = hash_bvpoly(table->def[i].ptr);
-      free_bvpoly(table->def[i].ptr);
-      break;
-
-    case BVTAG_PPROD:
-      h = hash_bvpprod(table->def[i].ptr);
-      safe_free(table->def[i].ptr);
-      break;
-
     case BVTAG_BIT_ARRAY:
-      h = hash_bvarray(table->map[i], table->bit_size[i]);
-      safe_free(table->def[i].ptr);
+      h = hash_bit_array(table->def[i].bit, table->bit_size[i]);
+      safe_free(table->def[i].bit);
       break;
-
-    case BVTAG_ITE:
-      h = hash_bvite_ptr(table->def[i].ptr);
-      safe_free(table->def[i].ptr);
-      break;
-
+    case BVTAG_ADD:
+    case BVTAG_SUB:
+    case BVTAG_NEG:
+    case BVTAG_MUL:
     case BVTAG_UDIV:
-      h = hash_bvdiv(table->def[i].op[0], table->def[i].op[1]);
-      break;
-
     case BVTAG_UREM:
-      h = hash_bvrem(table->def[i].op[0], table->def[i].op[1]);
-      break;
-
     case BVTAG_SDIV:
-      h = hash_bvsdiv(table->def[i].op[0], table->def[i].op[1]);
-      break;
-
     case BVTAG_SREM:
-      h = hash_bvsrem(table->def[i].op[0], table->def[i].op[1]);
-      break;
-
     case BVTAG_SMOD:
-      h = hash_bvsmod(table->def[i].op[0], table->def[i].op[1]);
-      break;
-
     case BVTAG_SHL:
-      h = hash_bvshl(table->def[i].op[0], table->def[i].op[1]);
-      break;
-
     case BVTAG_LSHR:
-      h = hash_bvlshr(table->def[i].op[0], table->def[i].op[1]);
-      break;
-
     case BVTAG_ASHR:
-      h = hash_bvashr(table->def[i].op[0], table->def[i].op[1]);
+      h = hash_bvop(tag, table->def[i].op[0], table->def[i].op[1]);
+      break;
+    case BVTAG_ITE:
+      h = hash_bvite(table->def[i].ite->cond, table->def[i].ite->left, table->def[i].ite->right);
+      safe_free(table->def[i].ite);
       break;
     }
-
     int_htbl_erase_record(&table->htbl, h, i);
-    safe_free(table->map[i]);
   }
 
   table->nvars = nv;
@@ -320,7 +276,7 @@ static void bv_vartable_remove_vars(bv_vartable_t *table, uint32_t nv) {
  * - the descriptors are partially initialized:
  *   bit_size = n
  *   eterm = null_eterm if table->eterm exists
- *   map = NULL
+ *   bits = NULL
  * - def and kind are not set
  */
 static thvar_t bv_vartable_alloc_id(bv_vartable_t *table, uint32_t n) {
@@ -332,7 +288,11 @@ static thvar_t bv_vartable_alloc_id(bv_vartable_t *table, uint32_t n) {
   }
   assert(x < table->size);
   table->bit_size[x] = n;
-  table->map[x] = NULL;
+  if (n >= 2) {
+    table->map[x].array = NULL;
+  } else {
+    table->map[x].lit = null_literal;
+  }
   if (table->eterm != NULL) {
     table->eterm[x] = null_eterm;
   }
@@ -345,11 +305,9 @@ static thvar_t bv_vartable_alloc_id(bv_vartable_t *table, uint32_t n) {
 
 
 /*
- * Constructors: 
- * - all constructors create a new theory variable with the given definition
- * - when present n = bitsize of the new variable
+ * Constructors
  */
-static thvar_t make_bvvar(bv_vartable_t *table, uint32_t n) {
+static inline thvar_t make_var(bv_vartable_t *table, uint32_t n) {
   thvar_t x;
 
   x = bv_vartable_alloc_id(table, n);
@@ -358,18 +316,17 @@ static thvar_t make_bvvar(bv_vartable_t *table, uint32_t n) {
   return x;
 }
 
-static thvar_t make_bvconst64(bv_vartable_t *table, uint32_t n, uint64_t val) {
-  thvar_t x;
+static inline thvar_t make_small_const(bv_vartable_t *table, uint32_t n, uint64_t val) {
+  thvar_t x;  
 
-  assert(norm64(val, n) == val);
   x = bv_vartable_alloc_id(table, n);
-  table->kind[x] = BVTAG_CONST64;
-  table->def[x].val = val;
+  table->kind[x] = BVTAG_SMALL_CONST;
+  table->def[x].ival = val;
 
   return x;
 }
 
-static thvar_t make_bvconst(bv_vartable_t *table, uint32_t n, uint32_t *val) {
+static inline thvar_t make_big_const(bv_vartable_t *table, uint32_t n, uint32_t *val) {
   uint32_t *tmp;
   thvar_t x;
   uint32_t w;
@@ -381,61 +338,89 @@ static thvar_t make_bvconst(bv_vartable_t *table, uint32_t n, uint32_t *val) {
   bvconst_normalize(tmp, n);
  
   x = bv_vartable_alloc_id(table, n);
-  table->kind[x] = BVTAG_CONST;
-  table->def[x].ptr = tmp;
+  table->kind[x] = BVTAG_BIG_CONST;
+  table->def[x].pval = tmp;
 
   return x;
 }
 
-static thvar_t make_bvpoly64(bv_vartable_t *table, bvpoly_buffer_t *b) {
+static inline thvar_t make_bit_true(bv_vartable_t *table) {
   thvar_t x;
 
-  x = bv_vartable_alloc_id(table, b->bitsize);
-  table->kind[x] = BVTAG_POLY64;
-  table->def[x].ptr = bvpoly_buffer_getpoly64(b);
+  x = bv_vartable_alloc_id(table, 0);
+  table->kind[x] = BVTAG_TRUE;
 
   return x;
 }
 
-static thvar_t make_bvpoly(bv_vartable_t *table, bvpoly_buffer_t *b) {
+static inline thvar_t make_select(bv_vartable_t *table, uint32_t i, thvar_t v) {
   thvar_t x;
 
-  x = bv_vartable_alloc_id(table, b->bitsize);
-  table->kind[x] = BVTAG_POLY;
-  table->def[x].ptr = bvpoly_buffer_getpoly(b);
+  x = bv_vartable_alloc_id(table, 0);
+  table->kind[x] = BVTAG_SELECT;
+  table->def[x].sel.idx = i;
+  table->def[x].sel.var = v;
 
   return x;
 }
 
-static thvar_t make_bvpprod(bv_vartable_t *table, uint32_t n, pp_buffer_t *b) {
+
+static inline thvar_t make_bitop(bv_vartable_t *table, bvvar_tag_t op, bit_t left, bit_t right) {
   thvar_t x;
 
-  x = bv_vartable_alloc_id(table, n);
-  table->kind[x] = BVTAG_PPROD;
-  table->def[x].ptr = pp_buffer_getprod(b);
+  assert(op == BVTAG_XOR || op == BVTAG_OR);
+
+  x = bv_vartable_alloc_id(table, 0);
+  table->kind[x] = op;
+  table->def[x].bop[0] = left;
+  table->def[x].bop[1] = right;
 
   return x;
 }
 
-static thvar_t make_bvarray(bv_vartable_t *table, uint32_t n, literal_t *a) {
-  literal_t *b;
+static inline thvar_t make_bit(bv_vartable_t *table, bit_t b) {
+  thvar_t x;
+
+  x = bv_vartable_alloc_id(table, 1);
+  table->kind[x] = BVTAG_BIT;
+  table->def[x].bval = b;
+
+  return x;
+}
+
+static inline thvar_t make_bitarray(bv_vartable_t *table, uint32_t n, bit_t *a) {
+  bit_t *b;
   uint32_t i;
   thvar_t x;
 
   // make a copy of a
-  b = (literal_t *) safe_malloc(n * sizeof(literal_t));
+  b = (bit_t *) safe_malloc(n * sizeof(bit_t));
   for (i=0; i<n; i++) {
     b[i] = a[i];
   }
 
   x = bv_vartable_alloc_id(table, n);
   table->kind[x] = BVTAG_BIT_ARRAY;
-  table->def[x].ptr = b;
+  table->def[x].bit = b;
 
   return x;
 }
 
-static thvar_t make_bvite(bv_vartable_t *table, uint32_t n, literal_t c, thvar_t left, thvar_t right) {
+static inline thvar_t make_binop(bv_vartable_t *table, uint32_t n, bvvar_tag_t op, thvar_t left, thvar_t right) {
+  thvar_t x;
+
+  assert(BVTAG_ADD <= op && op <= BVTAG_ASHR);
+
+  x = bv_vartable_alloc_id(table, n);
+  table->kind[x] = op;
+  table->def[x].op[0] = left;
+  table->def[x].op[1] = right;
+
+  return x;
+}
+
+
+static inline thvar_t make_bvite(bv_vartable_t *table, uint32_t n, literal_t c, thvar_t left, thvar_t right) {
   bv_ite_t *b;
   thvar_t x;
 
@@ -446,284 +431,164 @@ static thvar_t make_bvite(bv_vartable_t *table, uint32_t n, literal_t c, thvar_t
 
   x = bv_vartable_alloc_id(table, n);
   table->kind[x] = BVTAG_ITE;
-  table->def[x].ptr = b;
+  table->def[x].ite = b;
 
   return x;
 }
 
-static thvar_t make_bvdiv(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  thvar_t z;
 
-  z = bv_vartable_alloc_id(table, n);
-  table->kind[z] = BVTAG_UDIV;
-  table->def[z].op[0] = x;
-  table->def[z].op[1] = y;
-
-  return x;
-} 
-
-static thvar_t make_bvrem(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  thvar_t z;
-
-  z = bv_vartable_alloc_id(table, n);
-  table->kind[z] = BVTAG_UREM;
-  table->def[z].op[0] = x;
-  table->def[z].op[1] = y;
-
-  return x;
-} 
-
-static thvar_t make_bvsdiv(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  thvar_t z;
-
-  z = bv_vartable_alloc_id(table, n);
-  table->kind[z] = BVTAG_SDIV;
-  table->def[z].op[0] = x;
-  table->def[z].op[1] = y;
-
-  return x;
-} 
-
-static thvar_t make_bvsrem(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  thvar_t z;
-
-  z = bv_vartable_alloc_id(table, n);
-  table->kind[z] = BVTAG_SREM;
-  table->def[z].op[0] = x;
-  table->def[z].op[1] = y;
-
-  return x;
-} 
-
-static thvar_t make_bvsmod(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  thvar_t z;
-
-  z = bv_vartable_alloc_id(table, n);
-  table->kind[z] = BVTAG_SMOD;
-  table->def[z].op[0] = x;
-  table->def[z].op[1] = y;
-
-  return x;
-} 
-
-static thvar_t make_bvshl(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  thvar_t z;
-
-  z = bv_vartable_alloc_id(table, n);
-  table->kind[z] = BVTAG_SHL;
-  table->def[z].op[0] = x;
-  table->def[z].op[1] = y;
-
-  return x;
-} 
-
-static thvar_t make_bvlshr(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  thvar_t z;
-
-  z = bv_vartable_alloc_id(table, n);
-  table->kind[z] = BVTAG_LSHR;
-  table->def[z].op[0] = x;
-  table->def[z].op[1] = y;
-
-  return x;
-} 
-
-static thvar_t make_bvashr(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  thvar_t z;
-
-  z = bv_vartable_alloc_id(table, n);
-  table->kind[z] = BVTAG_ASHR;
-  table->def[z].op[0] = x;
-  table->def[z].op[1] = y;
-
-  return x;
-} 
 
 
 
 /*
- * HASH CONSING OBJECTS (cf. int_hash_tables)
+ * HASH CONSING
  */
-typedef struct bvconst64_hobj_s {
+typedef struct small_const_hobj_s {
   int_hobj_t m;
   bv_vartable_t *tbl;
   uint64_t val;
   uint32_t nbits;
-} bvconst64_hobj_t;
+} small_const_hobj_t;
 
-typedef struct bvconst_hobj_s {
+typedef struct big_const_hobj_s {
   int_hobj_t m;
   bv_vartable_t *tbl;
   uint32_t *val;
   uint32_t nbits;
-} bvconst_hobj_t;
+} big_const_hobj_t;
 
-typedef struct bvpoly_hobj_s {
+typedef struct select_hobj_s {
   int_hobj_t m;
   bv_vartable_t *tbl;
-  bvpoly_buffer_t *buffer;
-} bvpoly_hobj_t;
+  uint32_t idx;
+  thvar_t var;
+} select_hobj_t;
 
-typedef struct bvpprod_hobj_s {
+typedef struct bitop_hobj_s {
   int_hobj_t m;
   bv_vartable_t *tbl;
-  pp_buffer_t *buffer;
+  bvvar_tag_t op;
+  bit_t left;
+  bit_t right;
+} bitop_hobj_t;
+
+typedef struct bit_hobj_s {
+  int_hobj_t m;
+  bv_vartable_t *tbl;
+  bit_t val;
+} bit_hobj_t;
+
+typedef struct bit_array_hobj_s {
+  int_hobj_t m;
+  bv_vartable_t *tbl;
+  bit_t *val;
   uint32_t nbits;
-} bvpprod_hobj_t;
+} bit_array_hobj_t;
 
-typedef struct bvarray_hobj_s {
+typedef struct binop_hobj_s {
   int_hobj_t m;
   bv_vartable_t *tbl;
-  literal_t *val;
+  bvvar_tag_t op;
+  thvar_t left;
+  thvar_t right;
   uint32_t nbits;
-} bvarray_hobj_t;
+} binop_hobj_t;
 
 typedef struct bvite_hobj_s {
   int_hobj_t m;
   bv_vartable_t *tbl;
   literal_t cond;
-  thvar_t left;
-  thvar_t right;
+  bit_t left;
+  bit_t right;
   uint32_t nbits;
 } bvite_hobj_t;
-
-// for all binary constructors
-typedef struct bvop_hobj_s {
-  int_hobj_t m;
-  bv_vartable_t *tbl;
-  thvar_t left;
-  thvar_t right;
-  uint32_t nbits;
-}  bvop_hobj_t;
 
 
 /*
  * Hash functions
  */
-static uint32_t hash_bvconst64_hobj(bvconst64_hobj_t *p) {
-  return hash_bvconst64(p->val, p->nbits);
+static uint32_t hash_small_const_hobj(small_const_hobj_t *p) {
+  return hash_small_const(p->val, p->nbits);
 }
 
-static uint32_t hash_bvconst_hobj(bvconst_hobj_t *p) {
-  return hash_bvconst(p->val, p->nbits);
+static uint32_t hash_big_const_hobj(big_const_hobj_t *p) {
+  return hash_big_const(p->val, p->nbits);
 }
 
-static uint32_t hash_bvpoly64_hobj(bvpoly_hobj_t *p) {
-  return bvpoly_buffer_hash64(p->buffer);
+static uint32_t hash_select_hobj(select_hobj_t *p) {
+  return hash_select(p->idx, p->var);
 }
 
-static uint32_t hash_bvpoly_hobj(bvpoly_hobj_t *p) {
-  return bvpoly_buffer_hash(p->buffer);
+static uint32_t hash_bitop_hobj(bitop_hobj_t *p) {
+  return hash_bitop(p->op, p->left, p->right);
 }
 
-static uint32_t hash_bvpprod_hobj(bvpprod_hobj_t *p) {
-  pp_buffer_t *b;
-
-  b = p->buffer;
-  return hash_bvpprod_array(b->prod, b->len);
+static uint32_t hash_bit_hobj(bit_hobj_t *p) {
+  return hash_bit(p->val);
 }
 
-static uint32_t hash_bvarray_hobj(bvarray_hobj_t *p) {
-  return hash_bvarray(p->val, p->nbits);
+static uint32_t hash_bit_array_hobj(bit_array_hobj_t *p) {
+  return hash_bit_array(p->val, p->nbits);
+}
+
+static uint32_t hash_binop_hobj(binop_hobj_t *p) {
+  return hash_bvop(p->op, p->left, p->right);
 }
 
 static uint32_t hash_bvite_hobj(bvite_hobj_t *p) {
   return hash_bvite(p->cond, p->left, p->right);
 }
 
-static uint32_t hash_bvdiv_hobj(bvop_hobj_t *p) {
-  return hash_bvdiv(p->left, p->right);
-}
-
-static uint32_t hash_bvrem_hobj(bvop_hobj_t *p) {
-  return hash_bvrem(p->left, p->right);
-}
-
-static uint32_t hash_bvsdiv_hobj(bvop_hobj_t *p) {
-  return hash_bvsdiv(p->left, p->right);
-}
-
-static uint32_t hash_bvsrem_hobj(bvop_hobj_t *p) {
-  return hash_bvsrem(p->left, p->right);
-}
-
-static uint32_t hash_bvsmod_hobj(bvop_hobj_t *p) {
-  return hash_bvsmod(p->left, p->right);
-}
-
-static uint32_t hash_bvshl_hobj(bvop_hobj_t *p) {
-  return hash_bvshl(p->left, p->right);
-}
-
-static uint32_t hash_bvlshr_hobj(bvop_hobj_t *p) {
-  return hash_bvlshr(p->left, p->right);
-}
-
-static uint32_t hash_bvashr_hobj(bvop_hobj_t *p) {
-  return hash_bvashr(p->left, p->right);
-}
-
 
 /*
  * Equality tests
  */
-static bool eq_bvconst64_hobj(bvconst64_hobj_t *p, thvar_t i) {
+static bool eq_small_const_hobj(small_const_hobj_t *p, thvar_t i) {
   bv_vartable_t *table;
 
   table = p->tbl;
-  return bvvar_tag(table, i) == BVTAG_CONST64 && 
-    table->bit_size[i] == p->nbits && table->def[i].val == p->val;
+  return bvvar_tag(table, i) == BVTAG_SMALL_CONST && 
+    table->bit_size[i] == p->nbits && table->def[i].ival == p->val;
 }
 
-static bool eq_bvconst_hobj(bvconst_hobj_t *p, thvar_t i) {
+static bool eq_big_const_hobj(big_const_hobj_t *p, thvar_t i) {
   bv_vartable_t *table;
   uint32_t w;
 
   table = p->tbl;
-  if (bvvar_tag(table, i) != BVTAG_CONST || table->bit_size[i] != p->nbits) {
+  if (bvvar_tag(table, i) != BVTAG_BIG_CONST || table->bit_size[i] != p->nbits) {
     return false;
  }
   w = (p->nbits + 31) >> 5;
-  return bvconst_eq(p->val, table->def[i].ptr, w);
+  return bvconst_eq(p->val, table->def[i].pval, w);
 }
 
-static bool eq_bvpoly64_hobj(bvpoly_hobj_t *p, thvar_t i) {
+static bool eq_select_hobj(select_hobj_t *p, thvar_t i) {
   bv_vartable_t *table;
 
   table = p->tbl;
-  return bvvar_tag(table, i) == BVTAG_POLY64 && 
-    bvpoly_buffer_equal_poly64(p->buffer, table->def[i].ptr);
+  return bvvar_tag(table, i) == BVTAG_SELECT && table->def[i].sel.idx == p->idx &&
+    table->def[i].sel.var == p->var;
 }
 
-static bool eq_bvpoly_hobj(bvpoly_hobj_t *p, thvar_t i) {
+static bool eq_bitop_hobj(bitop_hobj_t *p, thvar_t i) {
   bv_vartable_t *table;
 
   table = p->tbl;
-  return bvvar_tag(table, i) == BVTAG_POLY && 
-    bvpoly_buffer_equal_poly(p->buffer, table->def[i].ptr);
+  return bvvar_tag(table, i) == p->op && table->def[i].bop[0] == p->left &&
+    table->def[i].bop[1] == p->right;
 }
 
-
-// helper function
-static bool pp_buffer_eq_pprod(pp_buffer_t *buffer, pprod_t *p) {
-  uint32_t n;
-
-  n = buffer->len;
-  return p->len == n && varexp_array_equal(buffer->prod, p->prod, n);
-}
-
-static bool eq_bvpprod_hobj(bvpprod_hobj_t *p, thvar_t i) {
+static bool eq_bit_hobj(bit_hobj_t *p, thvar_t i) {
   bv_vartable_t *table;
 
   table = p->tbl;
-  return bvvar_tag(table, i) == BVTAG_PPROD && 
-    pp_buffer_eq_pprod(p->buffer, table->def[i].ptr);
+  return bvvar_tag(table, i) == BVTAG_BIT && table->def[i].bval == p->val;
 }
 
-
-static bool eq_bvarray_hobj(bvarray_hobj_t *p, thvar_t i) {
+static bool eq_bit_array_hobj(bit_array_hobj_t *p, thvar_t i) {
   bv_vartable_t *table;
-  literal_t *a;
+  bit_t *a;
   uint32_t j, n;
 
   table = p->tbl;
@@ -732,12 +597,20 @@ static bool eq_bvarray_hobj(bvarray_hobj_t *p, thvar_t i) {
     return false;
   }
 
-  a = table->def[i].ptr;
+  a = table->def[i].bit;
   for (j=0; j<n; j++) {
     if (a[j] != p->val[j]) return false;
   }
 
   return true;
+}
+
+static bool eq_binop_hobj(binop_hobj_t *p, thvar_t i) {
+  bv_vartable_t *table;
+
+  table = p->tbl;
+  return bvvar_tag(table, i) == p->op && table->def[i].op[0] == p->left &&
+    table->def[i].op[1] == p->right;
 }
 
 static bool eq_bvite_hobj(bvite_hobj_t *p, thvar_t i) {
@@ -746,179 +619,93 @@ static bool eq_bvite_hobj(bvite_hobj_t *p, thvar_t i) {
 
   table = p->tbl;
   if (bvvar_tag(table, i) == BVTAG_ITE) {
-    d = table->def[i].ptr;
+    d = table->def[i].ite;
     return d->cond == p->cond && d->left == p->left && d->right == p->right;
   } else {
     return false;
   }
 }
 
-static bool eq_bvdiv_hobj(bvop_hobj_t *p, thvar_t i) {
-  bv_vartable_t *table;
-
-  table = p->tbl;
-  return bvvar_tag(table, i) == BVTAG_UDIV && table->def[i].op[0] == p->left &&
-    table->def[i].op[1] == p->right;
-}
-
-static bool eq_bvrem_hobj(bvop_hobj_t *p, thvar_t i) {
-  bv_vartable_t *table;
-
-  table = p->tbl;
-  return bvvar_tag(table, i) == BVTAG_UREM && table->def[i].op[0] == p->left &&
-    table->def[i].op[1] == p->right;
-}
-
-static bool eq_bvsdiv_hobj(bvop_hobj_t *p, thvar_t i) {
-  bv_vartable_t *table;
-
-  table = p->tbl;
-  return bvvar_tag(table, i) == BVTAG_SDIV && table->def[i].op[0] == p->left &&
-    table->def[i].op[1] == p->right;
-}
-
-static bool eq_bvsrem_hobj(bvop_hobj_t *p, thvar_t i) {
-  bv_vartable_t *table;
-
-  table = p->tbl;
-  return bvvar_tag(table, i) == BVTAG_SREM && table->def[i].op[0] == p->left &&
-    table->def[i].op[1] == p->right;
-}
-
-static bool eq_bvsmod_hobj(bvop_hobj_t *p, thvar_t i) {
-  bv_vartable_t *table;
-
-  table = p->tbl;
-  return bvvar_tag(table, i) == BVTAG_SMOD && table->def[i].op[0] == p->left &&
-    table->def[i].op[1] == p->right;
-}
-
-static bool eq_bvshl_hobj(bvop_hobj_t *p, thvar_t i) {
-  bv_vartable_t *table;
-
-  table = p->tbl;
-  return bvvar_tag(table, i) == BVTAG_SHL && table->def[i].op[0] == p->left &&
-    table->def[i].op[1] == p->right;
-}
-
-static bool eq_bvlshr_hobj(bvop_hobj_t *p, thvar_t i) {
-  bv_vartable_t *table;
-
-  table = p->tbl;
-  return bvvar_tag(table, i) == BVTAG_LSHR && table->def[i].op[0] == p->left &&
-    table->def[i].op[1] == p->right;
-}
-
-static bool eq_bvashr_hobj(bvop_hobj_t *p, thvar_t i) {
-  bv_vartable_t *table;
-
-  table = p->tbl;
-  return bvvar_tag(table, i) == BVTAG_ASHR && table->def[i].op[0] == p->left &&
-    table->def[i].op[1] == p->right;
-}
-
 
 /*
  * Build
  */
-static thvar_t build_bvconst64_hobj(bvconst64_hobj_t *p) {
-  return make_bvconst64(p->tbl, p->nbits, p->val);
+static thvar_t build_small_const_hobj(small_const_hobj_t *p) {
+  return make_small_const(p->tbl, p->nbits, p->val);
 }
 
-static thvar_t build_bvconst_hobj(bvconst_hobj_t *p) {
-  return make_bvconst(p->tbl, p->nbits, p->val);
+static thvar_t build_big_const_hobj(big_const_hobj_t *p) {
+  return make_big_const(p->tbl, p->nbits, p->val);
 }
 
-static thvar_t build_bvpoly64_hobj(bvpoly_hobj_t *p) {
-  return make_bvpoly64(p->tbl, p->buffer);
+static thvar_t build_select_hobj(select_hobj_t *p) {
+  return make_select(p->tbl, p->idx, p->var);
 }
 
-static thvar_t build_bvpoly_hobj(bvpoly_hobj_t *p) {
-  return make_bvpoly(p->tbl, p->buffer);
+static thvar_t build_bitop_hobj(bitop_hobj_t *p) {
+  return make_bitop(p->tbl, p->op, p->left, p->right);
 }
 
-static thvar_t build_bvpprod_hobj(bvpprod_hobj_t *p) {
-  return make_bvpprod(p->tbl, p->nbits, p->buffer);
+static thvar_t build_bit_hobj(bit_hobj_t *p) {
+  return make_bit(p->tbl, p->val);
 }
 
-static thvar_t build_bvarray_hobj(bvarray_hobj_t *p) {
-  return make_bvarray(p->tbl, p->nbits, p->val);
+static thvar_t build_bit_array_hobj(bit_array_hobj_t *p) {
+  return make_bitarray(p->tbl, p->nbits, p->val);
+}
+
+static thvar_t build_binop_hobj(binop_hobj_t *p) {
+  return make_binop(p->tbl, p->nbits, p->op, p->left, p->right);
 }
 
 static thvar_t build_bvite_hobj(bvite_hobj_t *p) {
   return make_bvite(p->tbl, p->nbits, p->cond, p->left, p->right);
 }
 
-static thvar_t build_bvdiv_hobj(bvop_hobj_t *p) {
-  return make_bvdiv(p->tbl, p->nbits, p->left, p->right);
-}
-
-static thvar_t build_bvrem_hobj(bvop_hobj_t *p) {
-  return make_bvrem(p->tbl, p->nbits, p->left, p->right);
-}
-
-static thvar_t build_bvsdiv_hobj(bvop_hobj_t *p) {
-  return make_bvsdiv(p->tbl, p->nbits, p->left, p->right);
-}
-
-static thvar_t build_bvsrem_hobj(bvop_hobj_t *p) {
-  return make_bvsrem(p->tbl, p->nbits, p->left, p->right);
-}
-
-static thvar_t build_bvsmod_hobj(bvop_hobj_t *p) {
-  return make_bvsmod(p->tbl, p->nbits, p->left, p->right);
-}
-
-static thvar_t build_bvshl_hobj(bvop_hobj_t *p) {
-  return make_bvshl(p->tbl, p->nbits, p->left, p->right);
-}
-
-static thvar_t build_bvlshr_hobj(bvop_hobj_t *p) {
-  return make_bvlshr(p->tbl, p->nbits, p->left, p->right);
-}
-
-static thvar_t build_bvashr_hobj(bvop_hobj_t *p) {
-  return make_bvashr(p->tbl, p->nbits, p->left, p->right);
-}
-
 
 /*
  * Hash objects
  */
-static bvconst64_hobj_t bvconst64_hobj = {
-  { (hobj_hash_t) hash_bvconst64_hobj, (hobj_eq_t) eq_bvconst64_hobj, (hobj_build_t) build_bvconst64_hobj },
+static small_const_hobj_t small_const_hobj = {
+  { (hobj_hash_t) hash_small_const_hobj, (hobj_eq_t) eq_small_const_hobj, (hobj_build_t) build_small_const_hobj },
   NULL,
   0, 0,
 };
 
-static bvconst_hobj_t bvconst_hobj = {
-  { (hobj_hash_t) hash_bvconst_hobj, (hobj_eq_t) eq_bvconst_hobj, (hobj_build_t) build_bvconst_hobj },
+static big_const_hobj_t big_const_hobj = {
+  { (hobj_hash_t) hash_big_const_hobj, (hobj_eq_t) eq_big_const_hobj, (hobj_build_t) build_big_const_hobj },
   NULL,
   NULL, 0,
 };
 
-static bvpoly_hobj_t bvpoly64_hobj = {
-  { (hobj_hash_t) hash_bvpoly64_hobj, (hobj_eq_t) eq_bvpoly64_hobj, (hobj_build_t) build_bvpoly64_hobj },
+static select_hobj_t select_hobj = {
+  { (hobj_hash_t) hash_select_hobj, (hobj_eq_t) eq_select_hobj, (hobj_build_t) build_select_hobj },
   NULL,
-  NULL,
+  0, 0,
 };
 
-static bvpoly_hobj_t bvpoly_hobj = {
-  { (hobj_hash_t) hash_bvpoly_hobj, (hobj_eq_t) eq_bvpoly_hobj, (hobj_build_t) build_bvpoly_hobj },
+static bitop_hobj_t bitop_hobj = {
+  { (hobj_hash_t) hash_bitop_hobj, (hobj_eq_t) eq_bitop_hobj, (hobj_build_t) build_bitop_hobj },
   NULL,
-  NULL,
+  0, 0, 0,
 };
 
-static bvpprod_hobj_t bvpprod_hobj = {
-  { (hobj_hash_t) hash_bvpprod_hobj, (hobj_eq_t) eq_bvpprod_hobj, (hobj_build_t) build_bvpprod_hobj },
+static bit_hobj_t bit_hobj = {
+  { (hobj_hash_t) hash_bit_hobj, (hobj_eq_t) eq_bit_hobj, (hobj_build_t) build_bit_hobj },
   NULL,
-  NULL, 0,
+  0.
 };
 
-static bvarray_hobj_t bvarray_hobj = {
-  { (hobj_hash_t) hash_bvarray_hobj, (hobj_eq_t) eq_bvarray_hobj, (hobj_build_t) build_bvarray_hobj },
+static bit_array_hobj_t bit_array_hobj = {
+  { (hobj_hash_t) hash_bit_array_hobj, (hobj_eq_t) eq_bit_array_hobj, (hobj_build_t) build_bit_array_hobj },
   NULL,
   NULL, 0.
+};
+
+static binop_hobj_t binop_hobj = {
+  { (hobj_hash_t) hash_binop_hobj, (hobj_eq_t) eq_binop_hobj, (hobj_build_t) build_binop_hobj },
+  NULL,
+  0, 0, 0, 0,
 };
 
 static bvite_hobj_t bvite_hobj = {
@@ -927,96 +714,59 @@ static bvite_hobj_t bvite_hobj = {
   0, 0, 0, 0,
 };
 
-static bvop_hobj_t bvdiv_hobj = {
-  { (hobj_hash_t) hash_bvdiv_hobj, (hobj_eq_t) eq_bvdiv_hobj, (hobj_build_t) build_bvdiv_hobj },
-  NULL,
-  0, 0, 0,
-};
-
-static bvop_hobj_t bvrem_hobj = {
-  { (hobj_hash_t) hash_bvrem_hobj, (hobj_eq_t) eq_bvrem_hobj, (hobj_build_t) build_bvrem_hobj },
-  NULL,
-  0, 0, 0,
-};
-
-static bvop_hobj_t bvsdiv_hobj = {
-  { (hobj_hash_t) hash_bvsdiv_hobj, (hobj_eq_t) eq_bvsdiv_hobj, (hobj_build_t) build_bvsdiv_hobj },
-  NULL,
-  0, 0, 0,
-};
-
-static bvop_hobj_t bvsrem_hobj = {
-  { (hobj_hash_t) hash_bvsrem_hobj, (hobj_eq_t) eq_bvsrem_hobj, (hobj_build_t) build_bvsrem_hobj },
-  NULL,
-  0, 0, 0,
-};
-
-static bvop_hobj_t bvsmod_hobj = {
-  { (hobj_hash_t) hash_bvsmod_hobj, (hobj_eq_t) eq_bvsmod_hobj, (hobj_build_t) build_bvsmod_hobj },
-  NULL,
-  0, 0, 0,
-};
-
-static bvop_hobj_t bvshl_hobj = {
-  { (hobj_hash_t) hash_bvshl_hobj, (hobj_eq_t) eq_bvshl_hobj, (hobj_build_t) build_bvshl_hobj },
-  NULL,
-  0, 0, 0,
-};
-
-static bvop_hobj_t bvlshr_hobj = {
-  { (hobj_hash_t) hash_bvlshr_hobj, (hobj_eq_t) eq_bvlshr_hobj, (hobj_build_t) build_bvlshr_hobj },
-  NULL,
-  0, 0, 0,
-};
-
-static bvop_hobj_t bvashr_hobj = {
-  { (hobj_hash_t) hash_bvashr_hobj, (hobj_eq_t) eq_bvashr_hobj, (hobj_build_t) build_bvashr_hobj },
-  NULL,
-  0, 0, 0,
-};
-
 
 /*
  * Hash-consing constructors
  */
-static thvar_t get_bvconst64(bv_vartable_t *table, uint32_t n, uint64_t val) {
-  bvconst64_hobj.tbl = table;
-  bvconst64_hobj.val = val;
-  bvconst64_hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &bvconst64_hobj.m);
+static thvar_t get_small_const(bv_vartable_t *table, uint32_t n, uint64_t val) {
+  small_const_hobj.tbl = table;
+  small_const_hobj.val = val;
+  small_const_hobj.nbits = n;
+  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &small_const_hobj);
 }
 
-static thvar_t get_bvconst(bv_vartable_t *table, uint32_t n, uint32_t *val) {
-  bvconst_hobj.tbl = table;
-  bvconst_hobj.val = val;
-  bvconst_hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &bvconst_hobj.m);
+static thvar_t get_big_const(bv_vartable_t *table, uint32_t n, uint32_t *val) {
+  big_const_hobj.tbl = table;
+  big_const_hobj.val = val;
+  big_const_hobj.nbits = n;
+  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &big_const_hobj);
 }
 
-static thvar_t get_bvpoly64(bv_vartable_t *table, bvpoly_buffer_t *buffer) {
-  bvpoly64_hobj.tbl = table;
-  bvpoly64_hobj.buffer = buffer;
-  return int_htbl_get_obj(&table->htbl, &bvpoly64_hobj.m);
+static thvar_t get_select(bv_vartable_t *table, uint32_t idx, thvar_t x) {
+  select_hobj.tbl = table;
+  select_hobj.idx = idx;
+  select_hobj.var = x;
+  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &select_hobj);
 }
 
-static thvar_t get_bvpoly(bv_vartable_t *table, bvpoly_buffer_t *buffer) {
-  bvpoly_hobj.tbl = table;
-  bvpoly_hobj.buffer = buffer;
-  return int_htbl_get_obj(&table->htbl, &bvpoly_hobj.m);
+static thvar_t get_bitop(bv_vartable_t *table, bvvar_tag_t op, bit_t left, bit_t right) {
+  bitop_hobj.tbl = table;
+  bitop_hobj.op = op;
+  bitop_hobj.left = left;
+  bitop_hobj.right = right;
+  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bitop_hobj);
 }
 
-static thvar_t get_bvpprod(bv_vartable_t *table, uint32_t n, pp_buffer_t *buffer) {
-  bvpprod_hobj.tbl = table;
-  bvpprod_hobj.buffer = buffer;
-  bvpprod_hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &bvpoly_hobj.m);
+static thvar_t get_bit(bv_vartable_t *table, bit_t b) {
+  bit_hobj.tbl = table;
+  bit_hobj.val = b;
+  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bit_hobj);
 }
 
-static thvar_t get_bvarray(bv_vartable_t *table, uint32_t n, literal_t *a) {
-  bvarray_hobj.tbl = table;
-  bvarray_hobj.val = a;
-  bvarray_hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &bvarray_hobj.m);
+static thvar_t get_bit_array(bv_vartable_t *table, uint32_t n, bit_t *a) {
+  bit_array_hobj.tbl = table;
+  bit_array_hobj.val = a;
+  bit_array_hobj.nbits = n;
+  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bit_array_hobj);
+}
+
+static thvar_t get_binop(bv_vartable_t *table, uint32_t n, bvvar_tag_t op, thvar_t x, thvar_t y) {
+  binop_hobj.tbl = table;
+  binop_hobj.op = op;
+  binop_hobj.left = x;
+  binop_hobj.right = y;
+  binop_hobj.nbits = n;
+  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &binop_hobj);
 }
 
 static thvar_t get_bvite(bv_vartable_t *table, uint32_t n, literal_t l, thvar_t x, thvar_t y) {
@@ -1025,106 +775,229 @@ static thvar_t get_bvite(bv_vartable_t *table, uint32_t n, literal_t l, thvar_t 
   bvite_hobj.left = x;
   bvite_hobj.right = y;
   bvite_hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &bvite_hobj.m);
+  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bvite_hobj);
 }
 
-static thvar_t get_bvdiv(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  bvdiv_hobj.tbl = table;
-  bvdiv_hobj.left = x;
-  bvdiv_hobj.right = y;
-  bvdiv_hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &bvdiv_hobj.m);
+
+
+/*
+ * Bit-level operations
+ * - normalize and return a bit
+ * - for (xor x y): ensure x < y and both children have positive polarity
+ * - for (or x y): ensure x < y
+ */
+static bit_t get_xor(bv_vartable_t *table, bit_t x, bit_t y) {
+  uint32_t sign;
+  bit_t aux;
+
+  assert(valid_bit(table, x) && valid_bit(table, y));
+
+  sign = sign_of_bit(x) ^ sign_of_bit(y);
+  x &= ~1; // clear sign bit 
+  y &= ~1; // clear sign bit
+
+  if (x > y) {
+    aux = x; x = y; y = aux;
+  }
+
+  return mk_bit(get_bitop(table, BVTAG_XOR, x, y), sign);
 }
 
-static thvar_t get_bvrem(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  bvrem_hobj.tbl = table;
-  bvrem_hobj.left = x;
-  bvrem_hobj.right = y;
-  bvrem_hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &bvrem_hobj.m);
-}
 
-static thvar_t get_bvsdiv(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  bvsdiv_hobj.tbl = table;
-  bvsdiv_hobj.left = x;
-  bvsdiv_hobj.right = y;
-  bvsdiv_hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &bvsdiv_hobj.m);
-}
+static bit_t get_or(bv_vartable_t *table, bit_t x, bit_t y) {
+  bit_t aux;
 
-static thvar_t get_bvsrem(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  bvsrem_hobj.tbl = table;
-  bvsrem_hobj.left = x;
-  bvsrem_hobj.right = y;
-  bvsrem_hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &bvsrem_hobj.m);
-}
+  assert(valid_bit(table, x) && valid_bit(table, y));
 
-static thvar_t get_bvsmod(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  bvsmod_hobj.tbl = table;
-  bvsmod_hobj.left = x;
-  bvsmod_hobj.right = y;
-  bvsmod_hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &bvsmod_hobj.m);
-}
+  if (x > y) {
+    aux = x; x = y; y = aux;
+  }
 
-static thvar_t get_bvshl(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  bvshl_hobj.tbl = table;
-  bvshl_hobj.left = x;
-  bvshl_hobj.right = y;
-  bvshl_hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &bvshl_hobj.m);
-}
-
-static thvar_t get_bvlshr(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  bvlshr_hobj.tbl = table;
-  bvlshr_hobj.left = x;
-  bvlshr_hobj.right = y;
-  bvlshr_hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &bvlshr_hobj.m);
-}
-
-static thvar_t get_bvashr(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  bvashr_hobj.tbl = table;
-  bvashr_hobj.left = x;
-  bvashr_hobj.right = y;
-  bvashr_hobj.nbits = n;
-  return int_htbl_get_obj(&table->htbl, &bvashr_hobj.m);
+  return pos_bit(get_bitop(table, BVTAG_OR, x, y));
 }
 
 
 /*
- * Search for (div x y), (rem x y), etc.
- * - return -1 if the term is not in the table
+ * Normalization and construction
  */
-static thvar_t find_div(bv_vartable_t *table, thvar_t x, thvar_t y) {
+static thvar_t get_add(bv_vartable_t *table, thvar_t x, thvar_t y) {
+  thvar_t aux;
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
 	 table->bit_size[x] == table->bit_size[y]);
 
+  if (x > y) {
+    aux = x; x = y; y = aux;
+  }
   n = table->bit_size[x];
-  bvdiv_hobj.tbl = table;
-  bvdiv_hobj.left = x;
-  bvdiv_hobj.right = y;
-  bvdiv_hobj.nbits = n;
 
-  return int_htbl_find_obj(&table->htbl, &bvdiv_hobj.m);
+  return get_binop(table, n, BVTAG_ADD, x, y);
 }
 
-static thvar_t find_rem(bv_vartable_t *table, thvar_t x, thvar_t y) {
+static thvar_t get_sub(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
 	 table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
-  bvrem_hobj.tbl = table;
-  bvrem_hobj.left = x;
-  bvrem_hobj.right = y;
-  bvrem_hobj.nbits = n;
+  return get_binop(table, n, BVTAG_SUB, x, y);
+}
 
-  return int_htbl_find_obj(&table->htbl, &bvrem_hobj.m);
+static thvar_t get_neg(bv_vartable_t *table, thvar_t x) {
+  uint32_t n;
+
+  assert(valid_bvvar(table, x));
+  n = table->bit_size[x];
+  return get_binop(table, n, BVTAG_NEG, x, null_thvar);
+}
+
+static thvar_t get_mul(bv_vartable_t *table, thvar_t x, thvar_t y) {
+  thvar_t aux;
+  uint32_t n;
+
+  assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
+	 table->bit_size[x] == table->bit_size[y]);
+
+  if (x > y) {
+    aux = x; x = y; y = aux;
+  }
+  n = table->bit_size[x];
+
+  return get_binop(table, n, BVTAG_MUL, x, y);
+}
+
+static thvar_t get_udiv(bv_vartable_t *table, thvar_t x, thvar_t y) {
+  uint32_t n;
+
+  assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
+	 table->bit_size[x] == table->bit_size[y]);
+
+  n = table->bit_size[x];
+  return get_binop(table, n, BVTAG_UDIV, x, y);
+}
+
+static thvar_t get_urem(bv_vartable_t *table, thvar_t x, thvar_t y) {
+  uint32_t n;
+
+  assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
+	 table->bit_size[x] == table->bit_size[y]);
+
+  n = table->bit_size[x];
+  return get_binop(table, n, BVTAG_UREM, x, y);
+}
+
+static thvar_t get_sdiv(bv_vartable_t *table, thvar_t x, thvar_t y) {
+  uint32_t n;
+
+  assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
+	 table->bit_size[x] == table->bit_size[y]);
+
+  n = table->bit_size[x];
+  return get_binop(table, n, BVTAG_SDIV, x, y);
+}
+
+static thvar_t get_srem(bv_vartable_t *table, thvar_t x, thvar_t y) {
+  uint32_t n;
+
+  assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
+	 table->bit_size[x] == table->bit_size[y]);
+
+  n = table->bit_size[x];
+  return get_binop(table, n, BVTAG_SREM, x, y);
+}
+
+static thvar_t get_smod(bv_vartable_t *table, thvar_t x, thvar_t y) {
+  uint32_t n;
+
+  assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
+	 table->bit_size[x] == table->bit_size[y]);
+
+  n = table->bit_size[x];
+  return get_binop(table, n, BVTAG_SMOD, x, y);
+}
+
+static thvar_t get_shl(bv_vartable_t *table, thvar_t x, thvar_t y) {
+  uint32_t n;
+
+  assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
+	 table->bit_size[x] == table->bit_size[y]);
+
+  n = table->bit_size[x];
+  return get_binop(table, n, BVTAG_SHL, x, y);
+}
+
+static thvar_t get_lshr(bv_vartable_t *table, thvar_t x, thvar_t y) {
+  uint32_t n;
+
+  assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
+	 table->bit_size[x] == table->bit_size[y]);
+
+  n = table->bit_size[x];
+  return get_binop(table, n, BVTAG_LSHR, x, y);  
+}
+
+static thvar_t get_ashr(bv_vartable_t *table, thvar_t x, thvar_t y) {
+  uint32_t n;
+
+  assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
+	 table->bit_size[x] == table->bit_size[y]);
+
+  n = table->bit_size[x];
+  return get_binop(table, n, BVTAG_ASHR, x, y);  
+}
+
+static thvar_t get_ite(bv_vartable_t *table, literal_t c, thvar_t x, thvar_t y) {
+  uint32_t n;
+  thvar_t aux;
+
+  assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
+	 table->bit_size[x] == table->bit_size[y]);
+ 
+  // Normalization: rewrite (ite (not b) x y) to (ite b y x)
+  // Could check whether c is true or false?? 
+  if (is_neg(c)) {
+    aux = x; x = y; y = aux;
+    c = not(c);
+  }
+
+  n = table->bit_size[x];
+  return get_bvite(table, n, c, x, y);
+}
+
+
+
+/*
+ * Search for (op x y). Return -1 if it's not in the table.
+ */
+static thvar_t find_binop(bv_vartable_t *table, uint32_t n, bvvar_tag_t op, thvar_t x, thvar_t y) {
+  binop_hobj.tbl = table;
+  binop_hobj.op = op;
+  binop_hobj.left = x;
+  binop_hobj.right = y;
+  binop_hobj.nbits = n;
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &binop_hobj);
+}
+
+static thvar_t find_udiv(bv_vartable_t *table, thvar_t x, thvar_t y) {
+  uint32_t n;
+
+  assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
+	 table->bit_size[x] == table->bit_size[y]);
+
+  n = table->bit_size[x];
+  return find_binop(table, n, BVTAG_UDIV, x, y);
+}
+
+static thvar_t find_urem(bv_vartable_t *table, thvar_t x, thvar_t y) {
+  uint32_t n;
+
+  assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
+	 table->bit_size[x] == table->bit_size[y]);
+
+  n = table->bit_size[x];
+  return find_binop(table, n, BVTAG_UREM, x, y);
 }
 
 static thvar_t find_sdiv(bv_vartable_t *table, thvar_t x, thvar_t y) {
@@ -1134,12 +1007,7 @@ static thvar_t find_sdiv(bv_vartable_t *table, thvar_t x, thvar_t y) {
 	 table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
-  bvsdiv_hobj.tbl = table;
-  bvsdiv_hobj.left = x;
-  bvsdiv_hobj.right = y;
-  bvsdiv_hobj.nbits = n;
-
-  return int_htbl_find_obj(&table->htbl, &bvsdiv_hobj.m);
+  return find_binop(table, n, BVTAG_SDIV, x, y);
 }
 
 static thvar_t find_srem(bv_vartable_t *table, thvar_t x, thvar_t y) {
@@ -1149,12 +1017,7 @@ static thvar_t find_srem(bv_vartable_t *table, thvar_t x, thvar_t y) {
 	 table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
-  bvsrem_hobj.tbl = table;
-  bvsrem_hobj.left = x;
-  bvsrem_hobj.right = y;
-  bvsrem_hobj.nbits = n;
-
-  return int_htbl_find_obj(&table->htbl, &bvsrem_hobj.m);
+  return find_binop(table, n, BVTAG_SREM, x, y);
 }
 
 
@@ -1206,6 +1069,420 @@ static inline eterm_t bvvar_get_eterm(bv_vartable_t *table, thvar_t x) {
     t = table->eterm[x];
   }
   return t;
+}
+
+
+
+
+
+/***************
+ *  PARTITION  *
+ **************/
+
+/*
+ * TRAIL STACK
+ */
+
+/*
+ * Initialize the stack: don't allocate anything yet
+ */
+static void init_bv_ptrail(bv_ptrail_t *stack) {
+  stack->size = 0;
+  stack->top = 0;
+  stack->top_frame = -1;
+  stack->data = NULL;
+}
+
+
+/*
+ * Delete the stack
+ */
+static void delete_bv_ptrail(bv_ptrail_t *stack) {
+  safe_free(stack->data);
+  stack->data = NULL;
+}
+
+
+/*
+ * Empty the stack
+ */
+static void reset_bv_ptrail(bv_ptrail_t *stack) {
+  stack->top = 0;
+  stack->top_frame = -1;
+}
+
+/*
+ * Extend: allocate the initial data array or make it 50% larger
+ */
+static void extend_bv_ptrail(bv_ptrail_t *stack) {
+  uint32_t n;
+
+  n = stack->size;
+  if (n == 0) {
+    n = DEF_BVTRAIL_SIZE;
+  } else {
+    assert(n >= 2);
+    n += (n >> 1);
+  }
+
+  if (n >= MAX_BVTRAIL_SIZE) {
+    out_of_memory();
+  }
+
+  stack->data = (int32_t *) safe_realloc(stack->data, n * sizeof(int32_t));
+  stack->size = n;
+}
+
+
+
+/*
+ * Push integer u on top of the stack
+ */
+static void bv_ptrail_push(bv_ptrail_t *stack, int32_t u) {
+  uint32_t i;
+
+  i = stack->top;
+  if (i == stack->size) {
+    extend_bv_ptrail(stack);
+  }
+  assert(i < stack->size);
+  stack->data[i] = u;
+  stack->top = i+1;
+}
+
+
+/*
+ * Start a new frame
+ */
+static void bv_ptrail_new_frame(bv_ptrail_t *stack) {
+  int32_t k;
+
+  k = stack->top;
+  bv_ptrail_push(stack, stack->top_frame);
+  stack->top_frame = k;
+}
+
+
+/*
+ * Remove the top frame
+ */
+static void bv_ptrail_pop_frame(bv_ptrail_t *stack) {
+  int32_t k;
+
+  assert(stack->top_frame >= 0);
+
+  k = stack->top_frame;
+  stack->top_frame = stack->data[k];
+  stack->top = k;
+}
+
+
+/*
+ * Encoding of variable + increment bit
+ * - incr true means bit = 1, false: bit = 0
+ */
+static inline int32_t merge_code(thvar_t y, bool incr) {
+  return (((int32_t) y) << 1) | (int32_t) incr;
+}
+
+
+/*
+ * Conversion of code back to variable & increment bit
+ */
+static inline thvar_t var_of_merge_code(int32_t c) {
+  return (thvar_t) (c >> 1);
+}
+
+static inline bool incr_of_merge_code(int32_t c) {
+  return (c & 1);
+}
+
+
+
+/*
+ * Push code for (y, incr)
+ */
+static inline void bv_ptrail_push_code(bv_ptrail_t *stack, thvar_t y, bool incr) {
+  bv_ptrail_push(stack, merge_code(y, incr));
+}
+
+
+
+/*
+ * PARTITION TABLE
+ */
+
+/*
+ * Initialization: create an empty table
+ */
+static void init_bv_partition(bv_partition_t *p) {
+  p->nelems = 0;
+  p->size = 0;
+  p->parent = NULL;
+  p->rank = NULL;
+  p->level = 0;
+  init_bv_ptrail(&p->trail);
+}
+
+
+/*
+ * Deletion
+ */
+static void delete_bv_partition(bv_partition_t *p) {
+  safe_free(p->parent);
+  safe_free(p->rank);
+  p->parent = NULL;
+  p->rank = NULL;
+  delete_bv_ptrail(&p->trail);
+}
+
+
+/*
+ * Reset: empty the table
+ */
+static inline void reset_bv_partition(bv_partition_t *p) {
+  p->nelems = 0;
+  p->level = 0;
+  reset_bv_ptrail(&p->trail);
+}
+
+
+/*
+ * Make sure the arrays parent and rank are large enough to store
+ * parent[x] and rank[x]. Do nothing if x < p->nelems.
+ * Otherwise, make parent and rank large enough and initialize
+ * parent[y] to -1 for all y from p->nelems to x.
+ */
+static void resize_bv_partition(bv_partition_t *p, thvar_t x) {
+  uint32_t n;
+  thvar_t y;
+
+  n = p->size;
+  if (n <= x) {
+    if (n == 0) {
+      n = DEF_BVPARTITION_SIZE;
+    } else {
+      n += n>>1; // try to increase by 50%
+    }
+    if (n <= x) {
+      n = x+1;
+    }
+    if (n >= MAX_BVPARTITION_SIZE) {
+      out_of_memory();
+    }
+
+    p->size = n;
+    p->parent = (int32_t *) safe_realloc(p->parent, n * sizeof(int32_t));
+    p->rank = (uint8_t *) safe_realloc(p->rank, n * sizeof(uint8_t));
+  }
+
+  assert(x < p->size);
+
+  for (y = p->nelems; y <= x; y++) {
+    p->parent[y] = -1;
+  }
+  p->nelems = y;
+}
+
+
+
+
+/*
+ * PARTITION OPERATIONS FOR BIT-VECTOR VARIABLES
+ */
+
+/*
+ * Add bit-vector variable x to the partition table with initial rank rnk
+ * - x must not be present in p
+ * - rnk must be either 0 or 255
+ * - x is made root of its class
+ * If level > 0, x is saved on the trail stack.
+ */
+static void bv_partition_add_aux(bv_partition_t *p, thvar_t x, uint8_t rnk) {
+  assert(x >= 0);
+  if (x >= p->nelems) {
+    resize_bv_partition(p, x);
+  }
+  assert(p->parent[x] == -1);
+  p->parent[x] = x;
+  p->rank[x] = rnk;
+
+  if (p->level > 0) {
+    bv_ptrail_push_code(&p->trail, x, false);
+  }
+}
+
+// add x with rank 0
+static inline void bv_partition_add(bv_partition_t *p, thvar_t x) {
+  bv_partition_add_aux(p, x, 0);
+}
+
+// add x with maximal rank
+static inline void bv_partition_add_root(bv_partition_t *p, thvar_t x) {
+  bv_partition_add_aux(p, x, 255);
+}
+
+
+/*
+ * Find the root of a bit-vector variable x in p
+ * - return null_thvar if x is not in the table
+ * We don't use path compression here since we may have to undo the 
+ * merging of classes.
+ */
+static thvar_t bv_partition_find_root(bv_partition_t *p, thvar_t x) {
+  thvar_t *parent;
+  thvar_t y;
+
+  assert(x >= 0);
+
+  if (x >= p->nelems) return null_thvar;
+
+  parent = p->parent;
+  y = parent[x];
+  if (y < 0) return null_thvar;
+
+  // find the root
+  while (x != y) {
+    x = y;
+    y = parent[x];
+  }
+
+  return y;
+}
+
+
+
+/*
+ * Get the root of x in p. Return x itself if x is not in the table.
+ */
+static thvar_t bv_partition_get_root(bv_partition_t *p, thvar_t x) {
+  thvar_t r;
+
+  r = bv_partition_find_root(p, x);
+  if (r == null_thvar) {
+    return x;
+  } else {
+    return r;
+  }
+}
+
+
+
+/*
+ * Check whether x is a root variable
+ */
+static inline bool bv_is_root(bv_partition_t *p, thvar_t x) {
+  assert(x >= 0);
+  return x < p->nelems && p->parent[x] == x;
+}
+
+
+/*
+ * Merge the classes of x and y
+ * - x and y must be distinct root 
+ * - x or y must have rank < 255
+ */
+static void merge_bv_classes(bv_partition_t *p, thvar_t x, thvar_t y) {
+  uint8_t rx, ry;
+
+  assert(bv_is_root(p, x) && bv_is_root(p, y) && x != y);
+
+  rx = p->rank[x];
+  ry = p->rank[y];
+
+  assert(rx < 255 || ry < 255);
+
+  if (p->level == 0) {
+    // nothing saved on the trail stack
+    if (rx < ry) {
+      // y stays root
+      p->parent[x] = y;
+    } else {
+      // x stays root, increment its rank if rx == ry
+      p->parent[y] = x;
+      if (rx == ry) {
+	p->rank[x] = rx + 1;
+      }
+    }
+  } else {
+    // save whichever of x or y is no longer root
+    if (rx < ry) {
+      p->parent[x] = y;
+      bv_ptrail_push_code(&p->trail, x, false);
+    } else if (ry < rx) {
+      p->parent[y] = x;
+      bv_ptrail_push_code(&p->trail, y, false);
+    } else {
+      // keep x as root
+      p->parent[y] = x;
+      p->rank[x] = rx + 1;
+      bv_ptrail_push_code(&p->trail, y, true);
+    }
+  }
+}
+
+
+/*
+ * Check whether x is mapped to another variable y
+ */
+static inline bool bv_is_replaced(bv_partition_t *p, thvar_t x) {
+  assert(x >= 0);
+  return x < p->nelems && p->parent[x] != x && p->parent[x] != null_thvar;
+}
+
+
+
+/*
+ * PUSH/POP
+ */
+
+
+/*
+ * Push: start a new frame
+ */
+static void bv_partition_push(bv_partition_t *p) {
+  p->level ++;
+  bv_ptrail_new_frame(&p->trail);
+}
+
+
+/*
+ * Pop: restore the previous partition
+ */
+static void bv_partition_pop(bv_partition_t *p) {
+  bv_ptrail_t *stack;
+  uint32_t n, k;
+  int32_t c;
+  thvar_t y, x;
+
+  assert(p->level > 0 && p->trail.top_frame >= 0 && 
+	 p->trail.top > p->trail.top_frame);
+
+  stack = &p->trail;
+  k = stack->top_frame;
+  n = stack->top - 1;
+  while (n > k) {
+    c = stack->data[n];
+    y = var_of_merge_code(c);
+    assert(0 <= y && y < p->nelems);
+    x = p->parent[y];
+    assert(0 <= x && x < p->nelems);
+    if (x == y) {
+      // undo add y
+      p->parent[y] = -1;
+    } else {
+      // undo merge x y
+      p->parent[y] = y;
+      if (incr_of_merge_code(c)) {	
+	p->rank[x] --;
+	assert(p->rank[x] == p->rank[y]);
+      }
+    }
+    n --;
+  }
+
+  bv_ptrail_pop_frame(stack);
+  p->level --;
 }
 
 
@@ -1426,6 +1703,113 @@ static inline int32_t find_bvsge_atom(bv_atomtable_t *table, thvar_t x, thvar_t 
 
 
 
+/***********************
+ *  PROPAGATION QUEUE  *
+ **********************/
+
+/*
+ * Initialization: use the default size
+ */
+static void init_bv_prop_queue(bv_prop_queue_t *queue) {
+  uint32_t n;
+
+  n = DEF_BV_PROPQUEUE_SIZE;
+  assert(n < MAX_BV_PROPQUEUE_SIZE);
+
+  queue->nvars = 0;
+  queue->size = n;
+  queue->unsat = false;
+  queue->value = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
+  init_int_queue(&queue->queue, 0);
+}
+
+
+/*
+ * Deletion
+ */
+static void delete_bv_prop_queue(bv_prop_queue_t *queue) {
+  safe_free(queue->value);
+  queue->value = NULL;
+  delete_int_queue(&queue->queue);
+}
+
+
+/*
+ * Make the queue large enough to store value[x]
+ * - do nothing if x < queue->nvars
+ * - otherwise, make value large enough and initialize value[y] to UNDEF 
+ *   for all nvars <= y <= x
+ */
+static void resize_bv_prop_queue(bv_prop_queue_t *queue, thvar_t x) {
+  uint32_t i, n;
+
+  n = queue->size;
+  if (n <= x) {
+    n += n>>1;   // try to make the queue 50% larger
+    if (n <= x) {
+      n = x+1;
+    } 
+
+    if (n >= MAX_BV_PROPQUEUE_SIZE) {
+      out_of_memory();
+    } 
+
+    queue->size = n;
+    queue->value = (uint8_t *) safe_realloc(queue->value, n * sizeof(uint8_t));
+  }
+
+  assert(x < queue->size);
+
+  for (i = queue->nvars; i <= x; i++) {
+    queue->value[i] = VAL_UNDEF;
+  }
+  queue->nvars = i;
+}
+
+
+
+/*
+ * Assign value v to x
+ */
+static void bv_prop_queue_assign(bv_prop_queue_t *queue, thvar_t x, bval_t v) {
+  resize_bv_prop_queue(queue, x);
+  queue->value[x] = v;
+}
+
+/*
+ * Get the value of x in the queue
+ */
+static inline bval_t bv_prop_queue_get_val(bv_prop_queue_t *queue, thvar_t x) {
+  if (x >= queue->nvars) {
+    return VAL_UNDEF;
+  } else {
+    return queue->value[x];
+  }
+}
+
+/*
+ * Same thing for bit b
+ */
+static bval_t bv_prop_queue_get_bit_val(bv_prop_queue_t *queue, bit_t b) {
+  bval_t vx;
+
+  vx = bv_prop_queue_get_val(queue, var_of_bit(b));
+  if (is_neg(b)) {
+    vx = opposite_bval(vx);
+  }
+  return vx;
+}
+
+/*
+ * Add x to the queue
+ */
+static inline void bv_prop_queue_push(bv_prop_queue_t *queue, thvar_t x) {
+  int_queue_push(&queue->queue, x);
+}
+
+
+
+
 /********************
  *  PUSH/POP STACK  *
  *******************/
@@ -1506,6 +1890,83 @@ static inline void delete_bv_trail(bv_trail_stack_t *stack) {
 static inline void reset_bv_trail(bv_trail_stack_t *stack) {
   stack->top = 0;
 }
+
+
+
+
+
+/**************************************
+ *  CACHE FOR LOWER AND UPPER BOUNDS  *
+ *************************************/
+
+/*
+ * Get a bound descriptor for x in the bounds cache
+ * - return NULL if there's no cache or if the requested
+ *   descriptor is not present in the cache
+ * - tag must be either BVBOUND_SIGNED or BVBOUND_UNSIGNED
+ */
+static bvbound_t *get_cached_bvbound(bv_solver_t *solver, thvar_t x, bvbound_tag_t tag) {
+  bvbound_cache_t *cache;
+  bvbound_t *b;
+
+  assert(valid_bvvar(&solver->vtbl, x));
+
+  cache = solver->bounds;
+  b = NULL;
+  if (cache != NULL) {
+    b = find_bvbound(cache, tag, x);
+  }
+
+  return b;
+}
+
+
+/*
+ * Return the internal cache
+ * - allocate and initialize it if needed
+ */
+static bvbound_cache_t *get_bounds_cache(bv_solver_t *solver) {
+  bvbound_cache_t *cache;
+
+  cache = solver->bounds;
+  if (cache == NULL) {
+    cache = (bvbound_cache_t *) safe_malloc(sizeof(bvbound_cache_t));
+    init_bvbound_cache(cache, 0); // use default initial size
+    solver->bounds = cache;
+  }
+  
+  return cache;
+}
+
+
+/*
+ * Store bounds on x in the cache
+ * - the first function is for bounds computed as 64bit numbers
+ * - the second function works in all cases: lower and upper as bounds
+ *   represented as arrays of 32bit words
+ * Return the bvbound object created
+ */
+static bvbound_t *add_bvbound64_to_cache(bv_solver_t *solver, thvar_t x, bvbound_tag_t tag, uint64_t lower, uint64_t upper) {
+  bvbound_cache_t *cache;
+  uint32_t n;
+
+  cache = get_bounds_cache(solver);
+  n = bvvar_bitsize(&solver->vtbl, x);
+  return cache_bvbound64(cache, tag, x, n, lower, upper);  
+}
+
+#if 0
+// NOT USED
+static bvbound_t *add_bvbound_to_cache(bv_solver_t *solver, thvar_t x, bvbound_tag_t tag, uint32_t *lower, uint32_t *upper) {
+  bvbound_cache_t *cache;
+  uint32_t n;
+
+  cache = get_bounds_cache(solver);
+  n = bvvar_bitsize(&solver->vtbl, x);
+  return cache_bvbound(cache, tag, x, n, lower, upper);
+}
+
+#endif
 
 
 
@@ -1649,7 +2110,6 @@ static rb_bvset_t *new_rb_bvset(uint32_t k) {
 
 
 
-#if 0
 
 /***************
  *  UTILITIES  *
@@ -9314,8 +9774,5 @@ static void bv_solver_dump_state(bv_solver_t *solver, char *filename) {
     fclose(f);
   }
 }
-
-#endif
-
 
 #endif

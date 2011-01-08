@@ -9,8 +9,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "polynomial_common.h"
-#include "egraph_base_types.h"
+#include "bv64_polynomials.h"
+#include "bv_polynomials.h"
 
 
 /*
@@ -44,7 +44,7 @@
  */
 typedef struct bvpoly_buffer_s {
   int32_t *index;
-  thvar_t *var;
+  int32_t *var;
   uint64_t *c;
   uint32_t **p;
   uint32_t nterms;
@@ -118,19 +118,19 @@ extern void delete_bvpoly_buffer(bvpoly_buffer_t *buffer);
  * 
  */
 // small coefficients (no more than 64 bits)
-extern void bvpoly_buffer_add_mono64(bvpoly_buffer_t *buffer, thvar_t x, uint64_t a);
-extern void bvpoly_buffer_sub_mono64(bvpoly_buffer_t *buffer, thvar_t x, uint64_t a);
-extern void bvpoly_buffer_addmul_mono64(bvpoly_buffer_t *buffer, thvar_t x, uint64_t a, uint64_t b);
-extern void bvpoly_buffer_submul_mono64(bvpoly_buffer_t *buffer, thvar_t x, uint64_t a, uint64_t b);
+extern void bvpoly_buffer_add_mono64(bvpoly_buffer_t *buffer, int32_t x, uint64_t a);
+extern void bvpoly_buffer_sub_mono64(bvpoly_buffer_t *buffer, int32_t x, uint64_t a);
+extern void bvpoly_buffer_addmul_mono64(bvpoly_buffer_t *buffer, int32_t x, uint64_t a, uint64_t b);
+extern void bvpoly_buffer_submul_mono64(bvpoly_buffer_t *buffer, int32_t x, uint64_t a, uint64_t b);
 
 // large coefficients (more than 64 bits) a = array of words
-extern void bvpoly_buffer_add_monomial(bvpoly_buffer_t *buffer, thvar_t x, uint32_t *a);
-extern void bvpoly_buffer_sub_monomial(bvpoly_buffer_t *buffer, thvar_t x, uint32_t *a);
-extern void bvpoly_buffer_addmul_monomial(bvpoly_buffer_t *buffer, thvar_t x, uint32_t *a, uint32_t *b);
-extern void bvpoly_buffer_submul_monomial(bvpoly_buffer_t *buffer, thvar_t x, uint32_t *a, uint32_t *b);
+extern void bvpoly_buffer_add_monomial(bvpoly_buffer_t *buffer, int32_t x, uint32_t *a);
+extern void bvpoly_buffer_sub_monomial(bvpoly_buffer_t *buffer, int32_t x, uint32_t *a);
+extern void bvpoly_buffer_addmul_monomial(bvpoly_buffer_t *buffer, int32_t x, uint32_t *a, uint32_t *b);
+extern void bvpoly_buffer_submul_monomial(bvpoly_buffer_t *buffer, int32_t x, uint32_t *a, uint32_t *b);
 
-extern void bvpoly_buffer_add_var(bvpoly_buffer_t *buffer, thvar_t x);
-extern void bvpoly_buffer_sub_var(bvpoly_buffer_t *buffer, thvar_t x);
+extern void bvpoly_buffer_add_var(bvpoly_buffer_t *buffer, int32_t x);
+extern void bvpoly_buffer_sub_var(bvpoly_buffer_t *buffer, int32_t x);
 
 
 // add/subtract constants
@@ -216,6 +216,64 @@ static inline uint32_t *bvpoly_buffer_coeff(bvpoly_buffer_t *b, uint32_t i) {
   return b->p[i];
 }
 
+
+
+/*******************************
+ *  CONVERSION TO POLYNOMIALS  *
+ ******************************/
+
+/*
+ * Convert b to a bvpoly64 object
+ * - b must be normalized and have bitsize <= 64
+ * - the resulting object can be deleted using safe_free (or free_bvpoly64)
+ */
+extern bvpoly64_t *bvpoly_buffer_getpoly64(bvpoly_buffer_t *b);
+
+
+/*
+ * Convert b to a bvpoly object
+ * - b must be normalized and have bitsize > 64
+ * - the resulting bvpoly can be deleted using free_bvpoly
+ */
+extern bvpoly_t *bvpoly_buffer_getpoly(bvpoly_buffer_t *b);
+
+
+
+/*********************************
+ *  COMPARISON WITH POLYNOMIALS  *
+ ********************************/
+
+/*
+ * Check whether b equals p
+ * - b must be normalized
+ */
+extern bool bvpoly_buffer_equal_poly64(bvpoly_buffer_t *b, bvpoly64_t *p);
+
+
+/*
+ * Same thing for a bvpoly 
+ * - b must be normalized
+ */
+extern bool bvpoly_buffer_equal_poly(bvpoly_buffer_t *b, bvpoly_t *p);
+
+
+
+/*
+ * Hash function1
+ * - b must be normalized and have bitsize <= 64
+ * - if b is equal to a bvpoly64 p then 
+ *   hash_bvpoly64(p) == bvpoly_buffer_hash64(b)
+ */
+extern uint32_t bvpoly_buffer_hash64(bvpoly_buffer_t *b);
+
+
+/*
+ * Hash function2:
+ * - b must be normalized and have bitsize > 64
+ * - if b is equal to a bvpoly p then
+ *   hash_bvpoly(p) == bvpoly_buffer_hash(b)
+ */
+extern uint32_t bvpoly_buffer_hash(bvpoly_buffer_t *b);
 
 
 #endif /* __BVPOLY_BUFFERS_H */

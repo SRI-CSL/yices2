@@ -45,6 +45,7 @@ typedef struct {
 /*
  * Buffer for intermediate computations.
  */
+
 typedef struct {
   uint32_t size;    // size of the array prod
   uint32_t len;     // elements of prod currently used
