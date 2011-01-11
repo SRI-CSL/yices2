@@ -218,6 +218,7 @@ static inline uint32_t *bvpoly_buffer_coeff(bvpoly_buffer_t *b, uint32_t i) {
 
 
 
+
 /*******************************
  *  CONVERSION TO POLYNOMIALS  *
  ******************************/

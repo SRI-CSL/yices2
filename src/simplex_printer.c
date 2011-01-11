@@ -23,7 +23,7 @@ static void print_avar(FILE *f, arith_vartable_t *table, thvar_t v) {
 static void print_avar_power(FILE *f, arith_vartable_t *table, varexp_t *p) {
   print_avar(f, table, p->var);
   if (p->exp > 1) {
-    fprintf(f, "^%"PRId32, p->exp);
+    fprintf(f, "^%"PRIu32, p->exp);
   }
 }
 

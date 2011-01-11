@@ -874,7 +874,7 @@ bool bvpoly_buffer_equal_poly64(bvpoly_buffer_t *b, bvpoly64_t *p) {
  * Check whether b is equal to a bvpoly p
  * - b must be normalized
  */
-bool bvpoly_buffer_equal_bvpoly(bvpoly_buffer_t *b, bvpoly_t *p) {
+bool bvpoly_buffer_equal_poly(bvpoly_buffer_t *b, bvpoly_t *p) {
   uint32_t i, n, w;
 
   assert(bvpoly_buffer_is_normalized(b));

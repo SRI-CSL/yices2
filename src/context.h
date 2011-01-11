@@ -480,7 +480,7 @@ typedef thvar_t (*create_bv_ite_fun_t)(void *solver, literal_t c, thvar_t x, thv
 typedef thvar_t (*create_bv_binop_fun_t)(void *solver, thvar_t x, thvar_t y);
 typedef literal_t (*create_bv_atom_fun_t)(void *solver, thvar_t x, thvar_t y);
 typedef literal_t (*select_bit_fun_t)(void *solver, thvar_t x, uint32_t i);
-typedef void (*assert_bv_atom_fun_t)(void *solver, thvar_t x, thvar_t y, bool tt);
+typedef void (*assert_bv_axiom_fun_t)(void *solver, thvar_t x, thvar_t y, bool tt);
 typedef void (*set_bit_fun_t)(void *solver, thvar_t x, uint32_t i, bool tt);
 typedef bool (*bv_val_in_model_fun_t)(void *solver, thvar_t x, bvconstant_t *v);
 
@@ -507,9 +507,9 @@ typedef struct bv_interface_s {
   create_bv_atom_fun_t create_ge_atom;
   create_bv_atom_fun_t create_sge_atom;
 
-  assert_bv_atom_fun_t assert_eq_axiom;
-  assert_bv_atom_fun_t assert_ge_axiom;
-  assert_bv_atom_fun_t assert_sge_axiom;
+  assert_bv_axiom_fun_t assert_eq_axiom;
+  assert_bv_axiom_fun_t assert_ge_axiom;
+  assert_bv_axiom_fun_t assert_sge_axiom;
   set_bit_fun_t set_bit;
 
   attach_eterm_fun_t attach_eterm;

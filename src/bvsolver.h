@@ -79,7 +79,7 @@ extern thvar_t bv_solver_create_const64(bv_solver_t *solver, bvconst64_term_t *c
  * - exception: if t_0 is const_idx then map[0] = null_thvar
  */
 extern thvar_t bv_solver_create_bvpoly(bv_solver_t *solver, bvpoly_t *p, thvar_t *map);
-extern thvar_t bv_solver_create_bvpoly64(bv_solver_t *solver, bvpoly_t *p, thvar_t *map);
+extern thvar_t bv_solver_create_bvpoly64(bv_solver_t *solver, bvpoly64_t *p, thvar_t *map);
 
 
 /*

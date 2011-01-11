@@ -13,6 +13,7 @@
 #include "rdl_floyd_warshall.h"
 #include "simplex.h"
 #include "fun_solver.h"
+#include "bvsolver.h"
 
 
 #define TRACE_SUBST  0
@@ -6177,6 +6178,38 @@ static void create_auto_rdl_solver(context_t *ctx) {
 
 
 /*
+ * Create the bitvector solver
+ * - attach it to the egraph if there's an egraph
+ * - attach it to the core and initialize the core otherwise
+ */
+static void create_bv_solver(context_t *ctx) {
+  bv_solver_t *solver;
+  smt_mode_t cmode;
+
+  assert(ctx->bv_solver == NULL && ctx->core != NULL);
+
+  cmode = core_mode[ctx->mode];
+  solver = (bv_solver_t *) safe_malloc(sizeof(bv_solver_t));
+  init_bv_solver(solver, ctx->core, ctx->egraph);
+
+  if (ctx->egraph != NULL) {
+    // attach as a satellite to the egraph
+    egraph_attach_bvsolver(ctx->egraph, solver, bv_solver_ctrl_interface(solver),
+			   bv_solver_smt_interface(solver), bv_solver_egraph_interface(solver),
+			   bv_solver_bv_egraph_interface(solver));
+  } else {
+    // attach to the core and initialize the core
+    init_smt_core(ctx->core, CTX_DEFAULT_CORE_SIZE, solver, bv_solver_ctrl_interface(solver),
+		  bv_solver_smt_interface(solver), cmode);
+  }
+
+  bv_solver_init_jmpbuf(solver, &ctx->env);
+  ctx->bv_solver = solver;
+  ctx->bv = *bv_solver_bv_interface(solver);
+}
+
+
+/*
  * Create the array/function theory solver and attach it to the egraph
  */
 static void create_fun_solver(context_t *ctx) {
@@ -6228,6 +6261,11 @@ static void init_solvers(context_t *ctx) {
     create_idl_solver(ctx);
   } else if (solvers & RFW) {
     create_rdl_solver(ctx);
+  }
+
+  // Bitvector solver
+  if (solvers & BVSLVR) {
+    create_bv_solver(ctx);
   }
 
   // Array solver

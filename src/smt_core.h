@@ -105,6 +105,17 @@ static inline literal_t mk_lit(bvar_t x, uint32_t sign) {
   return (x<<1)|sign;
 }
 
+
+/*
+ * add polarity tt to l:
+ * - if tt is true return l
+ * - if tt is false, return (not l)
+ */
+static inline literal_t signed_literal(literal_t l, bool tt) {
+  return l ^ (((int32_t) tt) ^ 1);
+}
+
+
 static inline bvar_t var_of(literal_t l) {
   return l>>1;
 }

@@ -18,6 +18,7 @@
 #include "idl_fw_printer.h"
 #include "rdl_fw_printer.h"
 #include "simplex_printer.h"
+#include "bvsolver_printer.h"
 #include "egraph_printer.h"
 #include "smt_core_printer.h"
 #include "context_printer.h"
@@ -130,6 +131,18 @@ static void dump_simplex_solver(FILE *f, simplex_solver_t *simplex) {
 
 
 /*
+ * Print the bitvector solver state
+ */
+static void dump_bv_solver(FILE *f, bv_solver_t *solver) {
+  fprintf(f, "\n--- Bitvector Variables ---\n");
+  print_bv_solver_vars(f, solver);
+  fprintf(f, "\n--- Bitvector Atoms ---\n");
+  print_bv_solver_atoms(f, solver);
+  fprintf(f, "\n");
+}
+
+
+/*
  * Print the context:
  */
 static void dump_context(FILE *f, context_t *ctx) {
@@ -151,6 +164,10 @@ static void dump_context(FILE *f, context_t *ctx) {
       assert(context_has_simplex_solver(ctx));
       dump_simplex_solver(f, ctx->arith_solver);
     }
+  }
+
+  if (context_has_bv_solver(ctx)) {
+    dump_bv_solver(f, ctx->bv_solver);
   }
 
   /*
@@ -256,7 +273,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS + 1] = {
   CTX_ARCH_EGFUNSPLX,  // QF_AUFLIA
   CTX_ARCH_EGFUN,      // QF_AX
 
-  CTX_ARCH_EG,         // QF_BV
+  CTX_ARCH_BV,         // QF_BV
 
   CTX_ARCH_AUTO_IDL,   // QF_IDL
   CTX_ARCH_SPLX,       // QF_LIA
@@ -264,7 +281,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS + 1] = {
   CTX_ARCH_SPLX,       // QF_NIA
   CTX_ARCH_AUTO_RDL,   // QF_RDL
   CTX_ARCH_EG,         // QF_UF
-  CTX_ARCH_EGBV,       // QF_UFBV[xx]
+  CTX_ARCH_BV,         // QF_UFBV[xx]
   CTX_ARCH_EGSPLX,     // QF_UFIDL
   CTX_ARCH_EGSPLX,     // QF_UFLIA
   CTX_ARCH_EGSPLX,     // QF_UFLRA

@@ -252,7 +252,7 @@ void print_bvarith_buffer(FILE *f, bvarith_buffer_t *b) {
 
 
 /*
- * Bit-vector polynomial, small coeffcients
+ * Bit-vector polynomial, small coefficients
  */
 static void print_bvconst64(FILE *f, uint64_t c, uint32_t n) {
   char x;

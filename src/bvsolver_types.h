@@ -32,7 +32,8 @@
 #include "int_vectors.h"
 #include "bvpoly_buffers.h"
 #include "power_products.h"
-#include "egraph_assertion_queues.h"
+#include "remap_table.h"
+#include "bit_blaster.h"
 
 #include "smt_core.h"
 #include "egraph.h"
@@ -184,6 +185,63 @@ static inline bool bvvar_is_pprod(bv_vartable_t *table, thvar_t x) {
   return bvvar_tag(table, x) == BVTAG_PPROD;
 }
 
+static inline bool bvvar_is_bvarray(bv_vartable_t *table, thvar_t x) {
+  return bvvar_tag(table, x) == BVTAG_BIT_ARRAY;
+}
+
+static inline bool bvvar_is_ite(bv_vartable_t *table, thvar_t x) {
+  return bvvar_tag(table, x) == BVTAG_ITE;
+}
+
+
+/*
+ * Value of a constant
+ */
+static inline uint64_t bvvar_val64(bv_vartable_t *table, thvar_t x) {
+  assert(bvvar_is_const64(table, x));
+  return table->def[x].val;
+}
+
+static inline uint32_t *bvvar_val(bv_vartable_t *table, thvar_t x) {
+  assert(bvvar_is_const(table, x));
+  return table->def[x].ptr;
+}
+
+
+/*
+ * Definition of a variable x
+ */
+static inline bvpoly_t *bvvar_poly_def(bv_vartable_t *table, thvar_t x) {
+  assert(bvvar_is_poly(table, x));
+  return table->def[x].ptr;
+}
+
+static inline bvpoly64_t *bvvar_poly64_def(bv_vartable_t *table, thvar_t x) {
+  assert(bvvar_is_poly64(table, x));
+  return table->def[x].ptr;
+}
+
+static inline pprod_t *bvvar_pprod_def(bv_vartable_t *table, thvar_t x) {
+  assert(bvvar_is_pprod(table, x));
+  return table->def[x].ptr;
+}
+
+static inline literal_t *bvvar_bvarray_def(bv_vartable_t *table, thvar_t x) {
+  assert(bvvar_is_bvarray(table, x));
+  return table->def[x].ptr;
+}
+
+static inline bv_ite_t *bvvar_ite_def(bv_vartable_t *table, thvar_t x) {
+  assert(bvvar_is_ite(table, x));
+  return table->def[x].ptr;
+}
+
+// pair of operands
+static inline thvar_t *bvvar_binop(bv_vartable_t *table, thvar_t x) {
+  assert(bvvar_tag(table, x) >= BVTAG_UDIV);
+  return table->def[x].op;
+}
+
 
 /*
  * Check whether variable x is mapped to something
@@ -191,6 +249,24 @@ static inline bool bvvar_is_pprod(bv_vartable_t *table, thvar_t x) {
 static inline bool bvvar_is_mapped(bv_vartable_t *table, thvar_t x) {
   assert(valid_bvvar(table, x));
   return table->map[x] != NULL;
+}
+
+/*
+ * Return the literal array mapped to x (NULL if nothing is mapped)
+ */
+static inline literal_t *bvvar_get_map(bv_vartable_t *table, thvar_t x) {
+  assert(valid_bvvar(table, x));
+  return table->map[x];
+}
+
+
+/*
+ * Map literal array a to variable x
+ * - a must be non-null
+ */
+static inline void bvvar_set_map(bv_vartable_t *table, thvar_t x, literal_t *a) {
+  assert(! bvvar_is_mapped(table, x) && a != NULL);
+  table->map[x] = a;  
 }
 
 
@@ -455,6 +531,14 @@ typedef struct bv_solver_s {
   bv_trail_stack_t trail_stack;
 
   /*
+   * Data structures for bit-blasting
+   * - blaster + remap table are allocated on demand
+   */
+  bit_blaster_t *blaster;
+  remap_table_t *remap;
+  
+
+  /*
    * Auxiliary buffers for internalization
    */
   bvpoly_buffer_t buffer;
@@ -465,6 +549,12 @@ typedef struct bv_solver_s {
   // buffers for bit-blasting
   ivector_t a_vector;
   ivector_t b_vector;
+
+
+  /*
+   * Sets for generating fresh values
+   */
+  used_bvval_t used_vals;
 
   /*
    * Jump buffer for exception handling during internalization
