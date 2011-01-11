@@ -80,7 +80,7 @@ static_libyices := $(static_libdir)/libyices.a
 ifeq ($(POSIXOS),cygwin)
   CPPFLAGS := $(CPPFLAGS) -DCYGWIN -DNOYICES_DLL
   PIC=
-  STATIC=-static
+  STATIC=-static -static-libgcc
   LDFLAGS += -Wl,--stack,8388608
 else
 ifeq ($(POSIXOS),mingw)
