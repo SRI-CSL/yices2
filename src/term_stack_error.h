@@ -22,14 +22,14 @@
  * The function aborts and prints a request for a bug report if the
  * error is internal to Yices.
  */
-extern void term_stack_error(FILE *f, char *name, tstack_t *tstack, tstack_error_t exception);
+extern void term_stack_error(FILE *f, const char *name, tstack_t *tstack, tstack_error_t exception);
 
 
 /*
  * Same thing but abort also for exceptions that should not occur in
  * SMT-LIB input (e.g., error codes involving tuples).
  */
-extern void term_stack_smt_error(FILE *f, char *name, tstack_t *tstack, tstack_error_t exception);
+extern void term_stack_smt_error(FILE *f, const char *name, tstack_t *tstack, tstack_error_t exception);
 
 
 /*

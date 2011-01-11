@@ -60,7 +60,7 @@
  * for null-terminated strings. The original implementation
  * is in hash_functions_ori.c.
  */
-uint32_t jenkins_hash_byte_var(uint8_t *s, uint32_t seed) {
+uint32_t jenkins_hash_byte_var(const uint8_t *s, uint32_t seed) {
   uint32_t a, b, c, x;
 
   a = b = 0x9e3779b9;
@@ -128,7 +128,7 @@ uint32_t jenkins_hash_byte_var(uint8_t *s, uint32_t seed) {
  * Hash code of an array of unsigned integers.
  * This is based on Jenkins's lookup3 code.
  */
-uint32_t jenkins_hash_array(uint32_t *d, uint32_t n, uint32_t seed) {
+uint32_t jenkins_hash_array(const uint32_t *d, uint32_t n, uint32_t seed) {
   uint32_t a, b, c;
 
   a = b = c = 0xdeadbeef + n + seed;

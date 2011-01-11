@@ -734,7 +734,7 @@ static bool bvconst_is_normalized(uint32_t *c, uint32_t n) {
 
   // c is normalized if r == 0 or the 32-r high-order bits
   // of c[k] are zero.
-  return (c[k] & ((1 << r) - 1)) == 0;
+  return r == 0 || (c[k] & ~((uint32_t) ((1 << r) - 1))) == 0;
 }
 
 static bool bvpoly_buffer_is_normalized(bvpoly_buffer_t *buffer) {  

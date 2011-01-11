@@ -38,7 +38,7 @@ static void init_lexer(lexer_t *lex) {
  * - the reader is initialized
  * - token is set to -1
  */
-int32_t init_file_lexer(lexer_t *lex, char *filename) {
+int32_t init_file_lexer(lexer_t *lex, const char *filename) {
   int32_t code;
   
   code = init_file_reader(&lex->reader, filename);
@@ -52,7 +52,7 @@ int32_t init_file_lexer(lexer_t *lex, char *filename) {
 /*
  * Same thing, starting from an already open stream f
  */
-void init_stream_lexer(lexer_t *lex, FILE *f, char *name) {
+void init_stream_lexer(lexer_t *lex, FILE *f, const char *name) {
   init_stream_reader(&lex->reader, f, name);
   init_lexer(lex);
 }
@@ -61,7 +61,7 @@ void init_stream_lexer(lexer_t *lex, FILE *f, char *name) {
 /*
  * Initilize lexer for a string data
  */
-void init_string_lexer(lexer_t *lex, char *data, char *name) {
+void init_string_lexer(lexer_t *lex, const char *data, const char *name) {
   init_string_reader(&lex->reader, data, name);
   init_lexer(lex);
 }
@@ -70,7 +70,7 @@ void init_string_lexer(lexer_t *lex, char *data, char *name) {
 /*
  * Change the input string for lex to data
  */
-void reset_string_lexer(lexer_t *lex, char *data) {
+void reset_string_lexer(lexer_t *lex, const char *data) {
   reset_string_reader(&lex->reader, data);
   // reset token and location
   lex->token = -1;
@@ -88,7 +88,7 @@ void reset_string_lexer(lexer_t *lex, char *data) {
  * TODO: report an error if there's a circular nesting
  * (i.e., same file is already open in an enclosing lexer)
  */
-int32_t init_nested_lexer(lexer_t *lex, char *filename, lexer_t *parent) {
+int32_t init_nested_lexer(lexer_t *lex, const char *filename, lexer_t *parent) {
   int32_t code;
 
   lex->token = -1;
@@ -113,7 +113,7 @@ int32_t init_nested_lexer(lexer_t *lex, char *filename, lexer_t *parent) {
 /*
  * Nested lexer using a string data
  */
-void init_nested_string_lexer(lexer_t *lex, char *data, char *name, lexer_t *parent) {
+void init_nested_string_lexer(lexer_t *lex, const char *data, const char *name, lexer_t *parent) {
   lex->token = -1;
   lex->tk_pos = 0;
   lex->tk_line = 0;

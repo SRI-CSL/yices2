@@ -204,9 +204,9 @@ extern void q_get_den(rational_t *r1, rational_t *r2);
  * if the denominator is 0.
  * Otherwise, the functions return 0 and the parsed value is stored in r.
  */
-extern int q_set_from_string(rational_t *r, char *s);
-extern int q_set_from_string_base(rational_t *r, char *s, int32_t b);
-extern int q_set_from_float_string(rational_t *r, char *s);
+extern int q_set_from_string(rational_t *r, const char *s);
+extern int q_set_from_string_base(rational_t *r, const char *s, int32_t b);
+extern int q_set_from_float_string(rational_t *r, const char *s);
 
 
 

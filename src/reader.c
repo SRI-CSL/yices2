@@ -80,7 +80,7 @@ static int string_reader_next_char(reader_t *reader) {
  *   any subsequent attempt to read will return EOF
  * - if the file can be opened, current is set to '\n'
  */
-int32_t init_file_reader(reader_t *reader, char *filename) {
+int32_t init_file_reader(reader_t *reader, const char *filename) {
   FILE *f;
 
   f = fopen(filename, "r");
@@ -105,7 +105,7 @@ int32_t init_file_reader(reader_t *reader, char *filename) {
  * Initialize reader for an already opened stream
  * - set filename to name
  */ 
-void init_stream_reader(reader_t *reader, FILE *f, char *name) {
+void init_stream_reader(reader_t *reader, FILE *f, const char *name) {
   reader->current = '\n';
   reader->input.stream = f;
   reader->pos = 0;
@@ -120,7 +120,7 @@ void init_stream_reader(reader_t *reader, FILE *f, char *name) {
 /*
  * Initialize reader for string data
  */
-void init_string_reader(reader_t *reader, char *data, char *name) {
+void init_string_reader(reader_t *reader, const char *data, const char *name) {
   reader->current = '\n';
   reader->input.data = data;
   reader->pos = 0;
@@ -135,7 +135,7 @@ void init_string_reader(reader_t *reader, char *data, char *name) {
 /*
  * Reset: change the input string
  */
-void reset_string_reader(reader_t *reader, char *data) {
+void reset_string_reader(reader_t *reader, const char *data) {
   assert(! reader->is_stream);
   assert(reader->read == string_reader_next_char);
 

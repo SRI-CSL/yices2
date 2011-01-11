@@ -496,7 +496,7 @@ static bvlogic_buffer_t *get_internal_bvlogic_buffer(void) {
  * - with the given string as input
  * - s must be non-NULL, terminated by '\0'
  */
-static parser_t *get_parser(char *s) {
+static parser_t *get_parser(const char *s) {
   if (parser == NULL) {
     assert(lexer == NULL && tstack == NULL);
     tstack = (tstack_t *) safe_malloc(sizeof(tstack_t));
@@ -4302,7 +4302,7 @@ EXPORTED term_t yices_mpq(mpq_t q) {
  *    code = INVALID_RATIONAL_FORMAT
  * or code = DIVISION_BY_ZERO
  */
-EXPORTED term_t yices_parse_rational(char *s) {
+EXPORTED term_t yices_parse_rational(const char *s) {
   int32_t code;
   term_t t;
 
@@ -4338,7 +4338,7 @@ EXPORTED term_t yices_parse_rational(char *s) {
  * Error report:
  * code = INVALID_FLOAT_FORMAT
  */
-EXPORTED term_t yices_parse_float(char *s) {
+EXPORTED term_t yices_parse_float(const char *s) {
   term_t t;
 
   if (q_set_from_float_string(&r0, s) < 0) {
@@ -4899,7 +4899,7 @@ EXPORTED term_t yices_bvconst_from_array(uint32_t n, int32_t a[]) {
  * - the string is in read in big-endian format: the first character
  *   is the high-order bit.
  */
-EXPORTED term_t yices_parse_bvbin(char *s) {
+EXPORTED term_t yices_parse_bvbin(const char *s) {
   uint32_t n;
   int32_t code;
 
@@ -4931,7 +4931,7 @@ EXPORTED term_t yices_parse_bvbin(char *s) {
  * - the string is read in big-endian format (the first character defines
  *   the four high-order bits).
  */
-EXPORTED term_t yices_parse_bvhex(char *s) {
+EXPORTED term_t yices_parse_bvhex(const char *s) {
   uint32_t n;
   int32_t code;
 
@@ -6782,7 +6782,7 @@ bool yices_check_bvmul_buffer(bvarith_buffer_t *b1, bvarith_buffer_t *b2) {
  * Parse s as a type expression in the Yices language.
  * Return NULL_TYPE if there's an error.
  */
-EXPORTED type_t yices_parse_type(char *s) {
+EXPORTED type_t yices_parse_type(const char *s) {
   parser_t *p;
 
   p = get_parser(s);
@@ -6794,7 +6794,7 @@ EXPORTED type_t yices_parse_type(char *s) {
  * Parse s as a term in the Yices language.
  * Return NULL_TERM if there's an error.
  */
-EXPORTED term_t yices_parse_term(char *s) {
+EXPORTED term_t yices_parse_term(const char *s) {
   parser_t *p;
 
   p = get_parser(s);
@@ -6815,7 +6815,7 @@ EXPORTED term_t yices_parse_term(char *s) {
  * return -1 if tau is invalid and set error report
  * return 0 otherwise.
  */
-EXPORTED int32_t yices_set_type_name(type_t tau, char *name) {
+EXPORTED int32_t yices_set_type_name(type_t tau, const char *name) {
   char *clone;
 
   if (! check_good_type(&types, tau)) {
@@ -6838,7 +6838,7 @@ EXPORTED int32_t yices_set_type_name(type_t tau, char *name) {
  * return -1 if  is invalid and set error report
  * return 0 otherwise.
  */
-EXPORTED int32_t yices_set_term_name(term_t t, char *name) {
+EXPORTED int32_t yices_set_term_name(term_t t, const char *name) {
   char *clone;
 
   if (! check_good_term(&terms, t)) {
@@ -6856,7 +6856,7 @@ EXPORTED int32_t yices_set_term_name(term_t t, char *name) {
 /*
  * Remove name from the type table.
  */
-EXPORTED void yices_remove_type_name(char *name) {
+EXPORTED void yices_remove_type_name(const char *name) {
   remove_type_name(&types, name);
 }
 
@@ -6864,7 +6864,7 @@ EXPORTED void yices_remove_type_name(char *name) {
 /*
  * Remove name from the term table.
  */
-EXPORTED void yices_remove_term_name(char *name) {
+EXPORTED void yices_remove_term_name(const char *name) {
   remove_term_name(&terms, name);
 }
 
@@ -6872,7 +6872,7 @@ EXPORTED void yices_remove_term_name(char *name) {
 /*
  * Get type of the given name or return NULL_TYPE (-1)
  */
-EXPORTED type_t yices_get_type_by_name(char *name) {
+EXPORTED type_t yices_get_type_by_name(const char *name) {
   return get_type_by_name(&types, name);
 }
 
@@ -6880,7 +6880,7 @@ EXPORTED type_t yices_get_type_by_name(char *name) {
 /*
  * Get term of the given name or return NULL_TERM
  */
-EXPORTED term_t yices_get_term_by_name(char *name) {
+EXPORTED term_t yices_get_term_by_name(const char *name) {
   return get_term_by_name(&terms, name);
 }
 

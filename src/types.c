@@ -772,7 +772,7 @@ void set_type_name(type_table_t *table, type_t i, char *name) {
 /*
  * Get type mapped to the name (or NULL_TYPE)
  */
-type_t get_type_by_name(type_table_t *table, char *name) {
+type_t get_type_by_name(type_table_t *table, const char *name) {
   // NULL_TYPE = -1 and stbl_find returns -1 if name is absent
   return stbl_find(&table->stbl, name);
 }
@@ -780,7 +780,7 @@ type_t get_type_by_name(type_table_t *table, char *name) {
 /*
  * Remove a type name.
  */
-void remove_type_name(type_table_t *table, char *name) {
+void remove_type_name(type_table_t *table, const char *name) {
   stbl_remove(&table->stbl, name);
 }
 

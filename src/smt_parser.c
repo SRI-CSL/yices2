@@ -40,7 +40,7 @@ static inline uint32_t tklen(lexer_t *lex) {
 /*
  * Name of the current input file (NULL if stdin)
  */
-static inline char *reader_name(lexer_t *lex) {
+static inline const char *reader_name(lexer_t *lex) {
   return lex->reader.name;
 }
 

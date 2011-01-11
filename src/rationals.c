@@ -742,7 +742,7 @@ static int q_set_q0(rational_t *r) {
  * - returns -2 and leaves r unchanged if the denominator is zero
  * - returns 0 otherwise
  */
-int q_set_from_string(rational_t *r, char *s) {
+int q_set_from_string(rational_t *r, const char *s) {
   // GMP rejects an initial '+' so skip it
   if (*s == '+') s ++;
   if (mpq_set_str(q0, s, 10) < 0) return -1;
@@ -759,7 +759,7 @@ int q_set_from_string(rational_t *r, char *s) {
  * Prefixes  0x or 0b or 0 indicate base 16, 2, or 8,
  * otherwise, the base is 10.
  */
-int q_set_from_string_base(rational_t *r, char *s, int32_t base) {
+int q_set_from_string_base(rational_t *r, const char *s, int32_t base) {
   // GMP rejects an initial '+' so skip it
   if (*s == '+') s ++;
   assert(0 == base || (2 <= base && base <= 36));
@@ -781,7 +781,7 @@ int q_set_from_string_base(rational_t *r, char *s, int32_t base) {
  * - returns -1 and leaves r unchanged if the string is not in that format
  * - returns 0 otherwise
  */
-int q_set_from_float_string(rational_t *r, char *s) {
+int q_set_from_float_string(rational_t *r, const char *s) {
   int len, frac_len, sign;
   long int exponent;
   char *b, c;

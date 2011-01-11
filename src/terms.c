@@ -1317,7 +1317,7 @@ void set_term_name(term_table_t *table, term_t t, char *name) {
 /*
  * Get term occurrence with the given name (or NULL_TERM)
  */
-term_t get_term_by_name(term_table_t *table, char *name) {
+term_t get_term_by_name(term_table_t *table, const char *name) {
   // NULL_TERM = -1 and stbl_find returns -1 if name is absent
   return stbl_find(&table->stbl, name);
 }
@@ -1332,7 +1332,7 @@ term_t get_term_by_name(term_table_t *table, char *name) {
  *
  * If name is the base name of a term t, then that remains unchanged.
  */
-void remove_term_name(term_table_t *table, char *name) {
+void remove_term_name(term_table_t *table, const char *name) {
   stbl_remove(&table->stbl, name);
 }
 

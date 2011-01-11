@@ -320,8 +320,8 @@ void report_bug(const char *s) {
  * - tstack->error_loc = location of the argument expression (approximative)
  *   that triggered the error
  */
-static void yices_error(FILE *f, char *name, tstack_t *tstack) {
-  if (name == NULL) {
+static void yices_error(FILE *f, const char *name, tstack_t *tstack) {
+  if (name != NULL) {
     fprintf(f, "%s: ", name);
   }
   fprintf(f, "error in %s, line %"PRId32", column %"PRId32": ",
@@ -335,7 +335,7 @@ static void yices_error(FILE *f, char *name, tstack_t *tstack) {
 /*
  * Print an error message for the given exception
  */
-static void base_term_stack_error(FILE *f, char *name, tstack_t *tstack, tstack_error_t exception) {
+static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, tstack_error_t exception) {
   assert(exception != TSTACK_NO_ERROR);
 
   if (exception == TSTACK_YICES_ERROR) {
@@ -344,9 +344,10 @@ static void base_term_stack_error(FILE *f, char *name, tstack_t *tstack, tstack_
   }
 
   if (name == NULL) {
-    name = "Error";
-  }  
-  fprintf(f, "%s: %s ", name, code2string[exception]);
+    fprintf(f, "Error: %s ", code2string[exception]);
+  } else { 
+    fprintf(f, "%s: %s ", name, code2string[exception]);
+  }
 
   switch (exception) {    
   case TSTACK_INTERNAL_ERROR:
@@ -500,7 +501,7 @@ static inline bool fatal_smt_error(error_code_t error) {
  * Abort and print a request for a bug report if the error is 
  * internal to Yices. 
  */
-void term_stack_error(FILE *f, char *name, tstack_t *tstack, tstack_error_t exception) {
+void term_stack_error(FILE *f, const char *name, tstack_t *tstack, tstack_error_t exception) {
   opcode2string = opcode2yices_string;
   base_term_stack_error(f, name, tstack, exception);
   if (exception == TSTACK_YICES_ERROR && fatal_error(yices_error_code())) {
@@ -513,7 +514,7 @@ void term_stack_error(FILE *f, char *name, tstack_t *tstack, tstack_error_t exce
  * Same thing but also abort for exceptions that should not occur in
  * SMT-LIB input (e.g., error codes involving tuples).
  */
-void term_stack_smt_error(FILE *f, char *name, tstack_t *tstack, tstack_error_t exception) {
+void term_stack_smt_error(FILE *f, const char *name, tstack_t *tstack, tstack_error_t exception) {
   opcode2string = opcode2smt_string;
   base_term_stack_error(f, name, tstack, exception);
 

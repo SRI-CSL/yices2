@@ -605,7 +605,7 @@ __YICES_DLLSPEC__ extern term_t yices_mpq(mpq_t q);
  *   code = INVALID_RATIONAL_FORMAT if s is not in this format
  *   code = DIVISION_BY_ZERO if the denominator is zero
  */
-__YICES_DLLSPEC__ extern term_t yices_parse_rational(char *s);
+__YICES_DLLSPEC__ extern term_t yices_parse_rational(const char *s);
 
 /*
  * Convert a string in floating point format to a rational
@@ -620,7 +620,7 @@ __YICES_DLLSPEC__ extern term_t yices_parse_rational(char *s);
  * Error report:
  * code = INVALID_FLOAT_FORMAT
  */
-__YICES_DLLSPEC__ extern term_t yices_parse_float(char *s);
+__YICES_DLLSPEC__ extern term_t yices_parse_float(const char *s);
 
 
 /*
@@ -834,7 +834,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvconst_from_array(uint32_t n, int32_t a[]
  *   code = MAX_BVSIZE_EXCEEDED
  *   badval = n
  */
-__YICES_DLLSPEC__ extern term_t yices_parse_bvbin(char *s);
+__YICES_DLLSPEC__ extern term_t yices_parse_bvbin(const char *s);
 
 /*
  * Parsing from a hexadecimal string
@@ -850,7 +850,7 @@ __YICES_DLLSPEC__ extern term_t yices_parse_bvbin(char *s);
  *   code = MAX_BVSIZE_EXCEEDED
  *   badval = n
  */
-__YICES_DLLSPEC__ extern term_t yices_parse_bvhex(char *s);
+__YICES_DLLSPEC__ extern term_t yices_parse_bvhex(const char *s);
 
 
 
@@ -1187,8 +1187,8 @@ __YICES_DLLSPEC__ extern term_t yices_bvslt_atom(term_t t1, term_t t2);  // t1 <
  * error and set the error report. The line and column fields of the
  * error report give information about the error location.
  */
-__YICES_DLLSPEC__ extern type_t yices_parse_type(char *s);
-__YICES_DLLSPEC__ extern term_t yices_parse_term(char *s);
+__YICES_DLLSPEC__ extern type_t yices_parse_type(const char *s);
+__YICES_DLLSPEC__ extern term_t yices_parse_term(const char *s);
 
 
 
@@ -1206,22 +1206,22 @@ __YICES_DLLSPEC__ extern term_t yices_parse_term(char *s);
  *
  * A copy of string name is made internally.
  */
-__YICES_DLLSPEC__ extern int32_t yices_set_type_name(type_t tau, char *name);
-__YICES_DLLSPEC__ extern int32_t yices_set_term_name(term_t t, char *name);
+__YICES_DLLSPEC__ extern int32_t yices_set_type_name(type_t tau, const char *name);
+__YICES_DLLSPEC__ extern int32_t yices_set_term_name(term_t t, const char *name);
 
 /*
  * Remove mapping from name to type or term
  * - no effect if name is not assigned to a term or type
  */
-__YICES_DLLSPEC__ extern void yices_remove_type_name(char *name);
-__YICES_DLLSPEC__ extern void yices_remove_term_name(char *name);
+__YICES_DLLSPEC__ extern void yices_remove_type_name(const char *name);
+__YICES_DLLSPEC__ extern void yices_remove_term_name(const char *name);
 
 /*
  * Get type or term of the given name
  * - return NULL_TYPE or NULL_TERM if there's no type or term with that name
  */
-__YICES_DLLSPEC__ extern type_t yices_get_type_by_name(char *name);
-__YICES_DLLSPEC__ extern term_t yices_get_term_by_name(char *name);
+__YICES_DLLSPEC__ extern type_t yices_get_type_by_name(const char *name);
+__YICES_DLLSPEC__ extern term_t yices_get_term_by_name(const char *name);
 
 
 /*

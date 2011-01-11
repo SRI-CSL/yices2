@@ -736,7 +736,7 @@ extern void set_term_name(term_table_t *table, term_t t, char *name);
 /*
  * Get term occurrence with the given name (or NULL_TERM)
  */
-extern term_t get_term_by_name(term_table_t *table, char *name);
+extern term_t get_term_by_name(term_table_t *table, const char *name);
 
 
 /*
@@ -748,7 +748,7 @@ extern term_t get_term_by_name(term_table_t *table, char *name);
  *
  * If name is the base name of a term t, then that remains unchanged.
  */
-extern void remove_term_name(term_table_t *table, char *name);
+extern void remove_term_name(term_table_t *table, const char *name);
 
 
 /*

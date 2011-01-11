@@ -100,12 +100,12 @@ extern void reset_stbl(stbl_t *sym_table);
  * If symbol is in the table, then the finalizer is called on the corresponding
  * record.
  */
-extern void stbl_remove(stbl_t *sym_table, char *symbol);
+extern void stbl_remove(stbl_t *sym_table, const char *symbol);
 
 /*
  * Return value attached to symbol or -1 if symbol is not in the table.
  */
-extern int32_t stbl_find(stbl_t *sym_table, char *symbol);
+extern int32_t stbl_find(stbl_t *sym_table, const char *symbol);
 
 /*
  * Add mapping symbol --> value. The previous value mapped to

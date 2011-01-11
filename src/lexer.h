@@ -68,12 +68,12 @@ typedef struct keyword_s {
  * - the reader is initialized
  * - token is set to -1
  */
-extern int32_t init_file_lexer(lexer_t *lex, char *filename);
+extern int32_t init_file_lexer(lexer_t *lex, const char *filename);
 
 /*
  * Variant: initialize from an open stream
  */
-extern void init_stream_lexer(lexer_t *lex, FILE *f,  char *name);
+extern void init_stream_lexer(lexer_t *lex, FILE *f,  const char *name);
 
 /*
  * Use stdin
@@ -85,7 +85,7 @@ static inline void init_stdin_lexer(lexer_t *lex) {
 /*
  * Read from a string
  */
-extern void init_string_lexer(lexer_t *lex, char *data, char *name);
+extern void init_string_lexer(lexer_t *lex, const char *data, const char *name);
 
 
 /*
@@ -93,7 +93,7 @@ extern void init_string_lexer(lexer_t *lex, char *data, char *name);
  * - the current lexer name is kept
  * - lex must be a string lexer (initialized with init_string_lexer).
  */
-extern void reset_string_lexer(lexer_t *lex, char *data);
+extern void reset_string_lexer(lexer_t *lex, const char *data);
 
 
 /*
@@ -104,13 +104,13 @@ extern void reset_string_lexer(lexer_t *lex, char *data);
  * Return a negative number if the file can't be opened
  * Return 0 otherwise.
  */
-extern int32_t init_nested_lexer(lexer_t *lex, char *filename, lexer_t *parent);
+extern int32_t init_nested_lexer(lexer_t *lex, const char *filename, lexer_t *parent);
 
 
 /*
  * Open a nested lexer for the data string
  */
-extern void init_nested_string_lexer(lexer_t *lex, char *data, char *name, lexer_t *parent);
+extern void init_nested_string_lexer(lexer_t *lex, const char *data, const char *name, lexer_t *parent);
 
 
 /*

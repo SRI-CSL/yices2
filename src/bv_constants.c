@@ -589,7 +589,7 @@ void bvconst_print(FILE *f, uint32_t *bv, uint32_t n) {
  *
  * Return code: -1 if the string format is wrong, 0 otherwise.
  */
-int32_t bvconst_set_from_string(uint32_t *bv, uint32_t n, char *s) {
+int32_t bvconst_set_from_string(uint32_t *bv, uint32_t n, const char *s) {
   char c;
 
   assert(n > 0);
@@ -634,7 +634,7 @@ static uint32_t hextoint(char c) {
   }
 }
 
-int32_t bvconst_set_from_hexa_string(uint32_t *bv, uint32_t n, char *s) {
+int32_t bvconst_set_from_hexa_string(uint32_t *bv, uint32_t n, const char *s) {
   char c;
   uint32_t hex;
   

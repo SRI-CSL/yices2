@@ -252,7 +252,7 @@ void reset_stbl(stbl_t *sym_table) {
  * Remove first occurrence of symbol.
  * No effect if symbol is not present.
  */
-void stbl_remove(stbl_t *sym_table, char *symbol) {
+void stbl_remove(stbl_t *sym_table, const char *symbol) {
   uint32_t h, mask, i;
   stbl_rec_t *r, *p;
 
@@ -280,7 +280,7 @@ void stbl_remove(stbl_t *sym_table, char *symbol) {
  * Return value of first occurrence of symbol, or -1 if symbol is not
  * present
  */
-int32_t stbl_find(stbl_t *sym_table, char *symbol) {
+int32_t stbl_find(stbl_t *sym_table, const char *symbol) {
   uint32_t mask, i, h;
   stbl_rec_t *r;
 

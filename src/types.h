@@ -304,7 +304,7 @@ extern void set_type_name(type_table_t *table, type_t i, char *name);
 /*
  * Get type with the given name or NULL_TYPE if no such type exists.
  */
-extern type_t get_type_by_name(type_table_t *table, char *name);
+extern type_t get_type_by_name(type_table_t *table, const char *name);
 
 /*
  * Remove a type name: removes the current mapping for name and
@@ -316,7 +316,7 @@ extern type_t get_type_by_name(type_table_t *table, char *name);
  * If name is the default type name for some type tay, then it will
  * still be kept as name[tau] for pretty printing.
  */
-extern void remove_type_name(type_table_t *table, char *name);
+extern void remove_type_name(type_table_t *table, const char *name);
 
 
 /*
