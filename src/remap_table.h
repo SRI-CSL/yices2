@@ -56,24 +56,86 @@
  *   for each v in 0, .., nvars-1, there are two pseudo literals,
  *   namely, pos_lit(v) and neg_lit(w).
  * - merge_bit[v] = mark to distinguish subsituted/root variables
- * - remap[v] = mapping for v:
- *   initially, merge_bit[v] = 0, remap[v] = null_literal
- *   after a substitution v := l,  we set merge_bit[v] = 1, remap[v] = l
+ * - map[v] = mapping for v:
+ *   initially, merge_bit[v] = 0, map[v] = null_literal
+ *   after a substitution v := l,  we set merge_bit[v] = 1, map[v] = l
  *   after bit blasting v is assigned a literal l0, then we set
- *   remap[v] = l0.
+ *   map[v] = l0.
  *
  * We enforce remap[0] = true_literal. If l is the pseudo true_literal or
  * false_literal, then the corresponding real literal is equal to l.
+ *
+ *
+ * Support for push/pop:
+ * - when variable v is remapped either to a pseudo literal l or to 
+ *   a real literal l0, then we push s onto the undo stack
+ * - for each level: we keep track of nvars and top of the undo stack
+ */
+
+/*
+ * Undo stack:
+ * - element in the stack are variables
+ * - top = top of the stack
+ * - size = full size of array data
+ */
+typedef struct remap_undo_stack_s {
+  uint32_t size;
+  uint32_t top;
+  int32_t *data;
+} remap_undo_stack_t;
+
+#define DEF_REMAP_UNDO_SIZE 100
+#define MAX_REMAP_UNDO_SIZE (UINT32_MAX/sizeof(int32_t))
+
+
+/*
+ * Trail stack:
+ * - for each level, we keep track of the top of the undo_stack
+ *   and the size of the remap (i.e., last variables
+ *   that was mapped to anyting) on entry to that level.
+ */
+typedef struct remap_trail_elem_s {
+  uint32_t undo_top;
+  uint32_t map_top;
+} remap_trail_elem_t;
+ 
+typedef struct remap_trail_s {
+  uint32_t size;
+  uint32_t top;
+  remap_trail_elem_t *data;
+} remap_trail_t;
+
+#define DEF_REMAP_TRAIL_SIZE 30
+#define MAX_REMAP_TRAIL_SIZE (UINT32_MAX/sizeof(remap_trail_elem_t))
+
+
+/*
+ * Remap table:
+ * - the current map is defined by map[0 ... nvars - 1]
+ *   and by merge_bit[0 ... nvars - 1]
+ * - for any variable x, we have
+ *   remap[x] = map[x]        if 0 <= x < nvars
+ *   remap[x] = null_literal  otherwise
+ * - if 0 <= x < nvars and merge_bit[x] is 1 then map[x] is a pseudo literal
+ *   otherwise map[x] is a real literal in the core.
+ * - prev_top = value of nvars before the preceding push (or 0 initially)
+ *   when we write something in map[x] then x must be saved only if
+ *   0 <= x < prevtop
+ * - size = full size of the remap and merge_bit arrays
  */
 typedef struct remap_table_s {
-  uint32_t nvars;
-  uint32_t size;
-  literal_t *remap;
+  literal_t *map;
   byte_t *merge_bit;  
+  uint32_t nvars;
+  uint32_t prev_top;
+  uint32_t size;
+  remap_undo_stack_t undo;
+  remap_trail_t trail;
 } remap_table_t;
 
 #define DEF_REMAP_TABLE_SIZE 100
 #define MAX_REMAP_TABLE_SIZE (UINT32_MAX/sizeof(literal_t))
+
 
 
 
@@ -83,7 +145,7 @@ typedef struct remap_table_s {
 
 /*
  * Initialization: create a table of default size
- * - create var 0 mapped to true_literal
+ * - var 0 is mapped to true_literal
  */
 extern void init_remap_table(remap_table_t *table);
 
@@ -95,16 +157,42 @@ extern void delete_remap_table(remap_table_t *table);
 
 
 /*
- * Create a fresh pseudo literal
+ * Reset the table (empty)
  */
-extern literal_t remap_table_fresh_lit(remap_table_t *table);
+extern void reset_remap_table(remap_table_t *table);
 
 
 /*
+ * Start a new level
+ */
+extern void remap_table_push(remap_table_t *table);
+
+
+/*
+ * Backtrack to the previous level
+ * (the trail stack must be non-empty)
+ */
+extern void remap_table_pop(remap_table_t *table);
+
+
+
+
+/*
+ * PSEUDO-LITERAL ALLOCATION
+ */
+
+/*
+ * Create a fresh pseudo literal l = pos_lit(v) where v is a fresh
+ * variable. 
+ * - map[v] is null_literal, merge_bit[v] is 0
+ */
+extern literal_t remap_table_fresh_lit(remap_table_t *table);
+
+/*
  * Allocate and initialize an array of n fresh pseudo literals.
+ * - all literals in the array are initialized as in fresh_lit above.
  */
 extern literal_t *remap_table_fresh_array(remap_table_t *table, uint32_t n);
-
 
 /*
  * Delete array a created by the previous function
@@ -116,7 +204,10 @@ static inline void remap_table_free_array(literal_t *a) {
 
 
 /*
- * MERGING
+ * MERGING/SUBSTITUTIONS
+ */
+
+/*
  * - the pseudo-literals can be organized into equivalence classes
  * - this is done by the merge operation below
  * - each equivalence class has a representative (its root).
@@ -158,6 +249,9 @@ extern void remap_table_merge(remap_table_t *table, literal_t l1, literal_t l2);
 
 /*
  * LITERAL ASSIGNMENT
+ */
+
+/*
  * - the table stores a mapping from pseudo literals to real literals
  * - all pseudo literals in the same class are mapped to the same literal
  * - the class of 'true_literal' is always mapped to true_literal
@@ -169,14 +263,9 @@ extern void remap_table_merge(remap_table_t *table, literal_t l1, literal_t l2);
  * Assign l1 to the class of l
  * - l1 must be a non-null 'real' literal
  * - the class must not be assigned to anything yet
+ * - this assings map[root(l)] := l1
  */
-static inline void remap_table_assign(remap_table_t *table, literal_t l, literal_t l1) {
-  assert(l1 != null_literal);
-  l = remap_table_find_root(table, l);
-  assert(table->remap[var_of(l)] == null_literal);
-  table->remap[var_of(l)] = l1 ^ sign_of_lit(l);
-}
-
+extern void remap_table_assign(remap_table_t *table, literal_t l, literal_t l1);
 
 /*
  * Auxiliary function used below: 
@@ -188,12 +277,12 @@ static inline literal_t xor_sign(literal_t l, uint32_t sgn) {
 }
 
 /*
- * Return the literal assigned to to the class of l 
+ * Return the literal assigned to the class of l 
  * return null_literal if no literal is assigned to the class
  */
 static inline literal_t remap_table_find(remap_table_t *table, literal_t l) {
   l = remap_table_find_root(table, l);
-  return xor_sign(table->remap[var_of(l)], sign_of_lit(l));
+  return xor_sign(table->map[var_of(l)], sign_of_lit(l));
 }
 
 
