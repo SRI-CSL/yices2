@@ -1816,6 +1816,150 @@ static term_t bvarray_get_term(term_table_t *tbl, term_t *a, uint32_t n) {
 
 
 
+/*
+ * BITVECTORS OF SIZE 1
+ */
+
+/*
+ * Check whether x is (bveq a 0b0) or (bveq a 0b1) where a is a term 
+ * of type (bitvector 1).
+ * - if x is (bveq a 0b0): return a and set polarity to false
+ * - if x is (bveq a 0b1): return a and set polarity to true
+ * - otherwise, return NULL_TERM (leave polarity unchanged)
+ */
+static term_t term_is_bveq1(term_table_t *tbl, term_t x, bool *polarity) {
+  composite_term_t *eq; 
+  bvconst64_term_t *c;
+  term_t a, b;
+
+  if (term_kind(tbl, x) == BV_EQ_ATOM) {
+    eq = bveq_atom_desc(tbl, x);
+    a = eq->arg[0];
+    b = eq->arg[1];
+    if (term_bitsize(tbl, a) == 1) {
+      assert(term_bitsize(tbl, b) == 1);
+      if (term_kind(tbl, a) == BV64_CONSTANT) {
+	// a is either 0b0 or 0b1
+	c = bvconst64_term_desc(tbl, a);
+	assert(c->value == 0 || c->value == 1);
+	*polarity = (bool) c->value;
+	return b;
+      }
+
+      if (term_kind(tbl, b) == BV64_CONSTANT) {
+	// b is either 0b0 or 0b1
+	c = bvconst64_term_desc(tbl, b);
+	assert(c->value == 0 || c->value == 1);
+	*polarity = (bool) c->value;
+	return a;
+      }
+    }
+  }
+
+  return NULL_TERM;
+}
+
+
+/*
+ * Auxiliary function: build (bveq t1 t2)
+ * - try to simplify to true or false
+ * - attempt to simplify the equality if it's between bit-arrays or bit-arrays and constant
+ * - build an atom if no simplification works
+ */
+static term_t mk_bitvector_eq(term_table_t *tbl, term_t t1, term_t t2) {
+  term_t aux;
+
+  if (t1 == t2) return true_term;
+  if (disequal_bitvector_terms(tbl, t1, t2)) {
+    return false_term;
+  }
+
+  /*
+   * Try simplifications.  We know that t1 and t2 are not both constant
+   * (because disequal_bitvector_terms returned false).
+   */
+  aux = simplify_bveq(tbl, t1, t2);
+  if (aux != NULL_TERM) {
+    // Simplification worked
+    return aux;
+  }
+
+  /*
+   * Default: normalize then build a bveq_atom
+   */
+  if (t1 > t2) {
+    aux = t1; t1 = t2; t2 = aux;
+  }
+
+  return bveq_atom(tbl, t1, t2);
+}
+
+
+
+/*
+ * Special constructor for (iff x y) when x or y (or both)
+ * is of the form (bveq a 0b0) or (bveq a 0b1).
+ *
+ * Try the following rewrite rules:
+ *   iff (bveq a 0b0) (bveq b 0b0) ---> (bveq a b)
+ *   iff (bveq a 0b0) (bveq b 0b1) ---> (not (bveq a b))
+ *   iff (bveq a 0b1) (bveq b 0b0) ---> (not (bveq a b))
+ *   iff (bveq a 0b1) (bveq b 0b1) ---> (bveq a b)
+ *
+ *   iff (bveq a 0b0) y   ---> (not (bveq a (bvarray y)))
+ *   iff (bveq a 0b1) y)  ---> (bveq a (bvarray y))
+ *
+ * return NULL_TERM if none of these rules can be applied
+ */
+static term_t try_iff_bveq_simplification(term_table_t *tbl, term_t x, term_t y) {
+  term_t a, b, t;
+  bool pa, pb;
+
+  a = term_is_bveq1(tbl, x, &pa);
+  b = term_is_bveq1(tbl, y, &pb);
+  if (a != NULL_TERM || b != NULL_TERM) {
+    if (a != NULL_TERM && b != NULL_TERM) {
+      /*
+       * x is (bveq a <constant>)
+       * y is (bveq b <constant>)
+       */
+      t = mk_bitvector_eq(tbl, a, b);
+      t = signed_term(t, (pa == pb));
+      return t;
+    }
+
+    if (a != NULL_TERM) {
+      /*
+       * x is (bveq a <constant>):
+       * if pa is true: 
+       *   (iff (bveq a 0b1) y) --> (bveq a (bvarray y))
+       * if pa is false:
+       *   (iff (bveq a 0b0) y) --> (not (bveq a (bvarray y)))
+       *
+       * TODO? We could rewrite to (bveq a (bvarray ~y))??
+       */
+      t = bvarray_get_term(tbl, &y, 1);
+      t = mk_bitvector_eq(tbl, a, t);
+      t = signed_term(t, pa);
+      return t;
+    }
+
+    if (b != NULL_TERM) {
+      /*
+       * y is (bveq b <constant>)
+       */
+      t = bvarray_get_term(tbl, &x, 1);
+      t = mk_bitvector_eq(tbl, b, t);
+      t = signed_term(t, pb);
+      return t;
+    }
+  }
+
+  return NULL_TERM;
+}
+
+
+
 
 /*******************************
  *  BOOLEAN-TERM CONSTRUCTORS  *
@@ -1907,6 +2051,13 @@ static term_t mk_iff(term_table_t *tbl, term_t x, term_t y) {
   if (y == false_term) return opposite_term(x);
   if (opposite_bool_terms(x, y)) return false_term;
 
+  /*
+   * Try iff/bveq simplifications.
+   */
+  aux = try_iff_bveq_simplification(tbl, x, y);
+  if (aux != NULL_TERM) {
+    return aux;
+  }
 
   /*
    * swap if x > y
@@ -2926,32 +3077,8 @@ static inline term_t mk_arithneq(term_t t1, term_t t2) {
  * - attempt to simplify the equality if it's between bit-arrays or bit-arrays and constant
  * - build an atom if no simplification works
  */
-static term_t mk_bveq(term_t t1, term_t t2) {
-  term_t aux;
-
-  if (t1 == t2) return true_term;
-  if (disequal_bitvector_terms(&terms, t1, t2)) {
-    return false_term;
-  }
-
-  /*
-   * Try simplifications.  We know that t1 and t2 are not both constant
-   * (because disequal_bitvector_terms returned false).
-   */
-  aux = simplify_bveq(&terms, t1, t2);
-  if (aux != NULL_TERM) {
-    // Simplification worked
-    return aux;
-  }
-
-  /*
-   * Default: normalize then build a bveq_atom
-   */
-  if (t1 > t2) {
-    aux = t1; t1 = t2; t2 = aux;
-  }
-
-  return bveq_atom(&terms, t1, t2);
+static inline term_t mk_bveq(term_t t1, term_t t2) {
+  return mk_bitvector_eq(&terms, t1, t2);
 }
 
 
