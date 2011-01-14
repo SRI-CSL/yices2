@@ -526,6 +526,113 @@ void bvpoly_buffer_sub_var(bvpoly_buffer_t *buffer, int32_t x) {
 
 
 
+/*************************
+ *  POLYNOMIAL ADDITION  *
+ ************************/
+
+/*
+ * Polynomials with 64bit coefficients or less
+ */
+void bvpoly_buffer_add_poly64(bvpoly_buffer_t *buffer, bvpoly64_t *p) {
+  uint32_t i, n;
+
+  assert(p->bitsize == buffer->bitsize);
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    bvpoly_buffer_add_mono64(buffer, p->mono[i].var, p->mono[i].coeff);
+  }
+}
+
+
+void bvpoly_buffer_sub_poly64(bvpoly_buffer_t *buffer, bvpoly64_t *p) {
+  uint32_t i, n;
+
+  assert(p->bitsize == buffer->bitsize);
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    bvpoly_buffer_sub_mono64(buffer, p->mono[i].var, p->mono[i].coeff);
+  }
+}
+
+
+void bvpoly_buffer_addmul_poly64(bvpoly_buffer_t *buffer, bvpoly64_t *p, uint64_t a) {
+  uint32_t i, n;
+
+  assert(p->bitsize == buffer->bitsize);
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    bvpoly_buffer_addmul_mono64(buffer, p->mono[i].var, p->mono[i].coeff, a);
+  }
+}
+
+
+void bvpoly_buffer_submul_poly64(bvpoly_buffer_t *buffer, bvpoly64_t *p, uint64_t a) {
+  uint32_t i, n;
+
+  assert(p->bitsize == buffer->bitsize);
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    bvpoly_buffer_submul_mono64(buffer, p->mono[i].var, p->mono[i].coeff, a);
+  }
+}
+
+
+/*
+ * Generic polynomials
+ */
+void bvpoly_buffer_add_poly(bvpoly_buffer_t *buffer, bvpoly_t *p) {
+  uint32_t i, n;
+
+  assert(p->bitsize == buffer->bitsize);
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    bvpoly_buffer_add_monomial(buffer, p->mono[i].var, p->mono[i].coeff);
+  }
+}
+
+
+void bvpoly_buffer_sub_poly(bvpoly_buffer_t *buffer, bvpoly_t *p) {
+  uint32_t i, n;
+
+  assert(p->bitsize == buffer->bitsize);
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    bvpoly_buffer_sub_monomial(buffer, p->mono[i].var, p->mono[i].coeff);
+  }
+}
+
+
+void bvpoly_buffer_addmul_poly(bvpoly_buffer_t *buffer, bvpoly_t *p, uint32_t *a) {
+  uint32_t i, n;
+
+  assert(p->bitsize == buffer->bitsize);
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    bvpoly_buffer_addmul_monomial(buffer, p->mono[i].var, p->mono[i].coeff, a);
+  }
+}
+
+
+void bvpoly_buffer_submul_poly(bvpoly_buffer_t *buffer, bvpoly_t *p, uint32_t *a) {
+  uint32_t i, n;
+
+  assert(p->bitsize == buffer->bitsize);
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    bvpoly_buffer_submul_monomial(buffer, p->mono[i].var, p->mono[i].coeff, a);
+  }
+}
+
+
+
 /*******************
  *  NORMALIZATION  *
  ******************/

@@ -163,6 +163,29 @@ static inline void bvpoly_buffer_sub_one(bvpoly_buffer_t *buffer) {
 
 
 
+/*****************************
+ *  ADDITION OF POLYNOMIALS  *
+ ****************************/
+
+/*
+ * Operations:
+ * - add_poly:           add      p
+ * - sub_poly:           subtract p
+ * - addmu_poly:         add      a * p
+ * - submul_poly:        subtract a * p
+ *
+ * Each operation exists in two versions (for bvpoly64 and bvpoly).
+ * The bitsize of p must match the buffer's bitsize.
+ */
+extern void bvpoly_buffer_add_poly64(bvpoly_buffer_t *buffer, bvpoly64_t *p);
+extern void bvpoly_buffer_sub_poly64(bvpoly_buffer_t *buffer, bvpoly64_t *p);
+extern void bvpoly_buffer_addmul_poly64(bvpoly_buffer_t *buffer, bvpoly64_t *p, uint64_t a);
+extern void bvpoly_buffer_submul_poly64(bvpoly_buffer_t *buffer, bvpoly64_t *p, uint64_t a);
+
+extern void bvpoly_buffer_add_poly(bvpoly_buffer_t *buffer, bvpoly_t *p);
+extern void bvpoly_buffer_sub_poly(bvpoly_buffer_t *buffer, bvpoly_t *p);
+extern void bvpoly_buffer_addmul_poly(bvpoly_buffer_t *buffer, bvpoly_t *p, uint32_t *a);
+extern void bvpoly_buffer_submul_poly(bvpoly_buffer_t *buffer, bvpoly_t *p, uint32_t *a);
 
 
 /*******************
