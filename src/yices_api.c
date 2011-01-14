@@ -1915,6 +1915,9 @@ static term_t try_iff_bveq_simplification(term_table_t *tbl, term_t x, term_t y)
   term_t a, b, t;
   bool pa, pb;
 
+  pa = false;
+  pb = false; // to prevent GCC warning
+
   a = term_is_bveq1(tbl, x, &pa);
   b = term_is_bveq1(tbl, y, &pb);
   if (a != NULL_TERM || b != NULL_TERM) {
