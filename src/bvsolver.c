@@ -1737,6 +1737,36 @@ static literal_t *bv_solver_get_pseudo_map(bv_solver_t *solver, thvar_t x) {
  ****************************************/
 
 /*
+ * Add a * x to buffer b
+ * - replace x by its value if it's a constant
+ * - b, a, and x must all have the same bitsize
+ */
+static void bvbuffer_add_mono64(bv_solver_t *solver, bvpoly_buffer_t *b, thvar_t x, uint64_t a) {
+  bv_vartable_t *vtbl;
+
+  vtbl = &solver->vtbl;
+  if (bvvar_is_const64(vtbl, x)) {
+    bvpoly_buffer_add_const64(b, a * bvvar_val64(vtbl, x));
+  } else {
+    bvpoly_buffer_add_mono64(b, x, a);
+  }
+}
+
+// same thing for bitsize > 64
+static void bvbuffer_add_mono(bv_solver_t *solver, bvpoly_buffer_t *b, thvar_t x, uint32_t *a) {
+  bv_vartable_t *vtbl;
+
+  vtbl = &solver->vtbl;
+  if (bvvar_is_const(vtbl, x)) {
+    // add const_idx * a * value of x
+    bvpoly_buffer_addmul_monomial(b, const_idx, a, bvvar_val(vtbl, x));
+  } else {
+    bvpoly_buffer_add_monomial(b, x, a);
+  }
+}
+
+
+/*
  * Build the variable for a polynomial stored in buffer:
  * - check whether buffer is reduced to a constant or a variable
  */
@@ -2380,7 +2410,7 @@ thvar_t bv_solver_create_bvpoly(bv_solver_t *solver, bvpoly_t *p, thvar_t *map) 
   // rest of p
   while (i < n) {
     assert(valid_bvvar(&solver->vtbl, map[i]));
-    bvpoly_buffer_add_monomial(buffer, map[i], p->mono[i].coeff);
+    bvbuffer_add_mono(solver, buffer, map[i], p->mono[i].coeff);
     i ++;
   }
 
@@ -2410,7 +2440,7 @@ thvar_t bv_solver_create_bvpoly64(bv_solver_t *solver, bvpoly64_t *p, thvar_t *m
   // rest of p
   while (i < n) {
     assert(valid_bvvar(&solver->vtbl, map[i]));
-    bvpoly_buffer_add_mono64(buffer, map[i], p->mono[i].coeff);
+    bvbuffer_add_mono64(solver, buffer, map[i], p->mono[i].coeff);
     i ++;
   }
 

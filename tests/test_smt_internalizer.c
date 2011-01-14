@@ -134,6 +134,8 @@ static void dump_simplex_solver(FILE *f, simplex_solver_t *simplex) {
  * Print the bitvector solver state
  */
 static void dump_bv_solver(FILE *f, bv_solver_t *solver) {
+  fprintf(f, "\n--- Bitvector Partition ---\n");
+  print_bv_solver_partition(f, solver);
   fprintf(f, "\n--- Bitvector Variables ---\n");
   print_bv_solver_vars(f, solver);
   fprintf(f, "\n--- Bitvector Atoms ---\n");

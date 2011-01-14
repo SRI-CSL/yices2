@@ -23,6 +23,13 @@ extern void print_bv_atomtable(FILE *f, bv_atomtable_t *atbl);
 extern void print_bv_solver_vars(FILE *f, bv_solver_t *solver);
 extern void print_bv_solver_atoms(FILE *f, bv_solver_t *solver);
 
+
+/*
+ * Variable partitions (in merge table)
+ */
+extern void print_bv_solver_partition(FILE *f, bv_solver_t *solver);
+
+
 /*
  * Individual variable or atom
  */

@@ -190,13 +190,26 @@ void print_arith_buffer(FILE *f, arith_buffer_t *b) {
 /*
  * Bit-vector polynomial
  */
-static void print_bvmono(FILE *f, uint32_t *coeff, int32_t x, uint32_t n, bool first) {
-  if (! first) {
-    fputs(" + ", f);
-  }
+static void print_bvmono(FILE *f, uint32_t *coeff, int32_t x, uint32_t n, bool first) {  
+  uint32_t w;
 
-  bvconst_print(f, coeff, n);
-  if (x != const_idx) {
+  w = (n + 31) >> 5; // number of words in coeff
+  if (x == const_idx) {
+    if (! first) fputs(" + ", f);
+    bvconst_print(f, coeff, n);
+
+  } else if (bvconst_is_one(coeff, w)) {
+    if (! first) fputs(" + ", f);
+    print_term_id(f, x);
+
+  } else if (bvconst_is_minus_one(coeff, n)) {
+    if (! first) fputc(' ', f);
+    fputs("- ", f);
+    print_term_id(f, x);
+
+  } else {
+    if (! first) fputs(" + ", f);
+    bvconst_print(f, coeff, n);
     fputc('*', f);
     print_term_id(f, x);
   }
@@ -223,11 +236,25 @@ void print_bvpoly(FILE *f, bvpoly_t *p) {
  * Print buffer b
  */
 static void print_bvarith_mono(FILE *f, uint32_t *coeff, pprod_t *r, uint32_t n, bool first) {
-  if (! first) {
-    fprintf(f, " + ");
-  }
-  bvconst_print(f, coeff, n);
-  if (! pp_is_empty(r)) {
+  uint32_t w;
+
+  w = (n + 31) >> 5;
+  if (pp_is_empty(r)) {
+    if (! first) fprintf(f, " + ");
+    bvconst_print(f, coeff, n);
+
+  } else if (bvconst_is_one(coeff, w)) {
+    if (! first) fprintf(f, " + ");
+    print_pprod(f, r);
+
+  } else if (bvconst_is_minus_one(coeff, n)) {
+    if (! first) fprintf(f, " ");
+    fprintf(f, "- ");
+    print_pprod(f, r);
+
+  } else { 
+    if (! first) fprintf(f, " + ");
+    bvconst_print(f, coeff, n);
     fprintf(f, " ");
     print_pprod(f, r);
   }
@@ -269,12 +296,22 @@ static void print_bvconst64(FILE *f, uint64_t c, uint32_t n) {
 }
 
 static void print_bvmono64(FILE *f, uint64_t coeff, int32_t x, uint32_t n, bool first) {
-  if (! first) {
-    fputs(" + ", f);
-  }
+  if (x == const_idx) {
+    if (! first) fputs(" + ", f);
+    print_bvconst64(f, coeff, n);
 
-  print_bvconst64(f, coeff, n);
-  if (x != const_idx) {
+  } else if (coeff == 1) {
+    if (! first) fputs(" + ", f);
+    print_term_id(f, x);
+
+  } else if (bvconst64_is_minus_one(coeff, n)) {
+    if (! first) fputc(' ', f);
+    fputs("- ", f);
+    print_term_id(f, x);
+
+  } else {
+    if (! first) fputs(" + ", f);
+    print_bvconst64(f, coeff, n);
     fputc('*', f);
     print_term_id(f, x);
   }
@@ -301,11 +338,22 @@ void print_bvpoly64(FILE *f, bvpoly64_t *p) {
  * Print buffer b
  */
 static void print_bvarith64_mono(FILE *f, uint64_t coeff, pprod_t *r, uint32_t n, bool first) {
-  if (! first) {
-    fprintf(f, " + ");
-  }
-  print_bvconst64(f, coeff, n);
-  if (! pp_is_empty(r)) {
+  if (pp_is_empty(r)) { 
+    if (! first) fprintf(f, " + ");
+    print_bvconst64(f, coeff, n);
+
+  } else if (coeff == 1) {
+    if (! first) fprintf(f, " + ");
+    print_pprod(f, r);
+
+  } else if (bvconst64_is_minus_one(coeff, n)) {
+    if (! first) fprintf(f, " ");
+    fprintf(f, "- ");
+    print_pprod(f, r);
+
+  } else {
+    if (! first) fprintf(f, " + ");
+    print_bvconst64(f, coeff, n);
     fprintf(f, " ");
     print_pprod(f, r);
   }
@@ -525,12 +573,25 @@ static void print_polynomial_term(FILE *f, term_table_t *tbl, polynomial_t *p, i
 
 // bitvector polynomial
 static void print_bvmono_recur(FILE *f, term_table_t *tbl, uint32_t *coeff, int32_t x, uint32_t n, bool first, int32_t level) {
-  if (! first) {
-    fputs(" + ", f);
-  }
+  uint32_t w;
 
-  bvconst_print(f, coeff, n);
-  if (x != const_idx) {
+  w = (n + 31) >> 5;
+  if (x == const_idx) {
+    if (! first) fputs(" + ", f);
+    bvconst_print(f, coeff, n);
+
+  } else if (bvconst_is_one(coeff, w)) {
+    if (! first) fputs(" + ", f);
+    print_term_recur(f, tbl, x, level);
+
+  } else if (bvconst_is_minus_one(coeff, n)) {
+    if (! first) fputc(' ', f);
+    fputs("- ", f);
+    print_term_recur(f, tbl, x, level);
+
+  } else {
+    if (! first) fputs(" + ", f);
+    bvconst_print(f, coeff, n);
     fputc('*', f);
     print_term_recur(f, tbl, x, level);
   }
@@ -554,12 +615,22 @@ static void print_bvpoly_term(FILE *f, term_table_t *tbl, bvpoly_t *p, int32_t l
 
 // 64bit bit-vector polynomial
 static void print_bvmono64_recur(FILE *f, term_table_t *tbl, uint64_t coeff, int32_t x, uint32_t n, bool first, int32_t level) {
-  if (! first) {
-    fputs(" + ", f);
-  }
+  if (x == const_idx) {
+    if (! first) fputs(" + ", f);
+    print_bvconst64(f, coeff, n);
 
-  print_bvconst64(f, coeff, n);
-  if (x != const_idx) {
+  } else if (coeff == 1) {
+    if (! first) fputs(" + ", f);
+    print_term_recur(f, tbl, x, level);
+
+  } else if (bvconst64_is_minus_one(coeff, n)) {
+    if (! first) fputc(' ', f);
+    fputs("- ", f);
+    print_term_recur(f, tbl, x, level);
+
+  } else {
+    if (! first) fputs(" + ", f);
+    print_bvconst64(f, coeff, n);
     fputc('*', f);
     print_term_recur(f, tbl, x, level);
   }
@@ -1038,14 +1109,28 @@ static void print_named_polynomial(FILE *f, term_table_t *tbl, polynomial_t *p) 
 // bitvector polynomials
 static void print_named_bvmono(FILE *f, term_table_t *tbl, uint32_t *coeff, 
 			       int32_t x, uint32_t n, bool first) {
-  if (! first) {
-    fputs(" + ", f);
-  }
+  uint32_t w;
 
-  bvconst_print(f, coeff, n);
-  if (x != const_idx) {
+  w = (n + 31) >> 5;
+  if (x == const_idx) { 
+    if (! first) fputs(" + ", f);
+    bvconst_print(f, coeff, n);
+
+  } else if (bvconst_is_one(coeff, w)) {
+    if (! first) fputs(" + ", f);
+    print_name_or_constant(f, tbl, x);
+
+  } else if (bvconst_is_minus_one(coeff, n)) {
+    if (! first) fputc(' ', f);
+    fputs("- ", f);
+    print_name_or_constant(f, tbl, x);
+
+  } else {
+    if (! first) fputs(" + ", f);
+    bvconst_print(f, coeff, n);
     fputc('*', f);
     print_name_or_constant(f, tbl, x);
+
   }
 }
 
@@ -1068,12 +1153,22 @@ static void print_named_bvpoly(FILE *f, term_table_t *tbl, bvpoly_t *p) {
 // bitvector polynomials with small coefficients
 static void print_named_bvmono64(FILE *f, term_table_t *tbl, uint64_t coeff, 
 				 int32_t x, uint32_t n, bool first) {
-  if (! first) {
-    fputs(" + ", f);
-  }
+  if (x == const_idx) {
+    if (! first) fputs(" + ", f);
+    print_bvconst64(f, coeff, n);
 
-  print_bvconst64(f, coeff, n);
-  if (x != const_idx) {
+  } else if (coeff == 1) {
+    if (! first) fputs(" + ", f);
+    print_name_or_constant(f, tbl, x);
+
+  } else if (bvconst64_is_minus_one(coeff, n)) {
+    if (! first) fputc(' ', f);
+    fputs("- ", f);
+    print_name_or_constant(f, tbl, x);
+
+  } else {
+    if (! first) fputs(" + ", f);
+    print_bvconst64(f, coeff, n);
     fputc('*', f);
     print_name_or_constant(f, tbl, x);
   }

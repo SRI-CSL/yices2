@@ -47,14 +47,30 @@ static void print_bv_product(FILE *f, pprod_t *p) {
 
 // c = coeff, x = variable, n = number of bits
 static void print_bv_mono64(FILE *f, uint64_t c, thvar_t x, uint32_t n, bool first) {
-  if (! first) {
-    fputs(" + ", f);
-  }
-
-  bvconst64_print(f, c, n);
-  if (x != const_idx) {
-    fputc('*', f);
+  if (c == 1) {
+    if (! first) {
+      fputs(" + ", f);
+    }
     print_bvvar(f, x);
+
+  } else if (bvconst64_is_minus_one(c, n)) {
+    if (first) {
+      fputs("- ", f);
+    } else {
+      fputs(" - ", f);
+    }
+    print_bvvar(f, x);
+
+  } else {
+    if (! first) {
+      fputs(" + ", f);
+    }
+
+    bvconst64_print(f, c, n);
+    if (x != const_idx) {
+      fputc('*', f);
+      print_bvvar(f, x);
+    }
   }
 }
 
@@ -78,14 +94,33 @@ static void print_bv_poly64(FILE *f, bvpoly64_t *p) {
 
 // monomial c * x: n = number of bits
 static void print_bv_mono(FILE *f, uint32_t *c, thvar_t x, uint32_t n, bool first) {
-  if (! first) {
-    fputs(" + ", f);
-  }
+  uint32_t w;
 
-  bvconst_print(f, c, n);
-  if (x != const_idx) {
-    fputc('*', f);
+  w = (n + 31) >> 5; // number of words in c 
+  if (bvconst_is_one(c, w)) {
+    if (! first) {
+      fputs(" + ", f);
+    }
     print_bvvar(f, x);
+
+  } else if (bvconst_is_minus_one(c, n)) {
+    if (first) {
+      fputs("- ", f);
+    } else {
+      fputs(" - ", f);
+    }
+    print_bvvar(f, x);
+
+  } else {
+    if (! first) {
+      fputs(" + ", f);
+    }
+
+    bvconst_print(f, c, n);
+    if (x != const_idx) {
+      fputc('*', f);
+      print_bvvar(f, x);
+    }
   }
 }
 
@@ -254,7 +289,6 @@ void print_bv_solver_vars(FILE *f, bv_solver_t *solver) {
 /*
  * ATOMS
  */
-
 static void print_atom_aux(FILE *f, const char *op, thvar_t left, thvar_t right) {
   fprintf(f, "(%s ", op);
   print_bvvar(f, left);
@@ -359,3 +393,29 @@ void print_bv_solver_atom_of_literal(FILE *f, bv_solver_t *solver, literal_t l) 
     putc(')', f);
   }
 }
+
+
+
+/*
+ * VARIABLE SUBSTITUTIONS
+ */
+void print_bv_solver_partition(FILE *f, bv_solver_t *solver) {
+  mtbl_t *mtbl;
+  uint32_t i, n;
+  thvar_t x;
+
+  mtbl = &solver->mtbl;
+  n = mtbl->top;
+  for (i=0; i<n; i++) {
+    x = mtbl_get_root(mtbl, i);
+    if (x != i) {
+      print_bvvar(f, i);
+      fputs(" --> ", f);
+      print_bvvar(f, x);
+      fputc('\n', f);
+    }
+  }
+}
+
+
+
