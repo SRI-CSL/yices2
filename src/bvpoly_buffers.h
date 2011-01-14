@@ -102,13 +102,15 @@ extern void delete_bvpoly_buffer(bvpoly_buffer_t *buffer);
 
 /*
  * There are two versions depending on the coefficient size
+ *
  * Operations are
  * - add_monomial:    add        a * x
  * - sub_monomial:    subtract   a * x
- * - add_var:         add        1 * x
- * - sub_var:         subtract   1 * x
  * - addmul_monomial: add        a * b * x
  * - submul_monomial: subtract   a * b * x
+ *
+ * - add_var:         add        1 * x
+ * - sub_var:         subtract   1 * x
  *
  * The word-size and bit size are taken from the buffer's internal 
  * width and bitsize. That must be set before all operations by
@@ -129,6 +131,7 @@ extern void bvpoly_buffer_sub_monomial(bvpoly_buffer_t *buffer, int32_t x, uint3
 extern void bvpoly_buffer_addmul_monomial(bvpoly_buffer_t *buffer, int32_t x, uint32_t *a, uint32_t *b);
 extern void bvpoly_buffer_submul_monomial(bvpoly_buffer_t *buffer, int32_t x, uint32_t *a, uint32_t *b);
 
+// no coeffients
 extern void bvpoly_buffer_add_var(bvpoly_buffer_t *buffer, int32_t x);
 extern void bvpoly_buffer_sub_var(bvpoly_buffer_t *buffer, int32_t x);
 
@@ -149,7 +152,6 @@ static inline void bvpoly_buffer_add_constant(bvpoly_buffer_t *buffer, uint32_t 
 static inline void bvpoly_buffer_sub_constant(bvpoly_buffer_t *buffer, uint32_t *a) {
   bvpoly_buffer_sub_monomial(buffer, const_idx, a);
 }
-
 
 static inline void bvpoly_buffer_add_one(bvpoly_buffer_t *buffer) {
   bvpoly_buffer_add_var(buffer, const_idx);

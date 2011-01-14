@@ -1165,6 +1165,11 @@ static thvar_t get_bvashr(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y
 }
 
 
+
+#if 0
+
+// NOT USED YET
+
 /*
  * Search for (div x y), (rem x y), etc.
  * - return -1 if the term is not in the table
@@ -1230,6 +1235,7 @@ static thvar_t find_srem(bv_vartable_t *table, thvar_t x, thvar_t y) {
 }
 
 
+#endif
 
 
 /****************
@@ -1414,6 +1420,10 @@ static inline int32_t get_bvsge_atom(bv_atomtable_t *table, thvar_t x, thvar_t y
 
 
 
+#if 0 
+
+// NOT USED YET
+
 /*
  * Search for an atom
  * - return the atom id if it exists
@@ -1444,7 +1454,7 @@ static inline int32_t find_bvsge_atom(bv_atomtable_t *table, thvar_t x, thvar_t 
   return find_bv_atom(table, BVSGE_ATM, x, y);
 }
 
-
+#endif
 
 
 /********************
@@ -1578,6 +1588,11 @@ static void delete_used_vals(used_bvval_t *used_vals) {
 }
 
 
+
+#if 0
+
+// NOT USED YET
+
 /*
  * Allocate a set descriptor
  * - return its id
@@ -1611,7 +1626,6 @@ static uint32_t used_vals_new_set(used_bvval_t *used_vals) {
 
   return i;
 }
-
 
 
 /*
@@ -1667,7 +1681,7 @@ static rb_bvset_t *new_rb_bvset(uint32_t k) {
   return tmp;
 }
 
-
+#endif
 
 
 /********************************
@@ -2065,6 +2079,8 @@ void bv_solver_increase_decision_level(bv_solver_t *solver) {
 }
 
 void bv_solver_backtrack(bv_solver_t *solver, uint32_t backlevel) {
+  assert(solver->base_level <= backlevel && backlevel < solver->decision_level);
+  reset_eassertion_queue(&solver->egraph_queue);
   solver->decision_level = backlevel;
 }
 
@@ -2135,10 +2151,14 @@ void init_bv_solver(bv_solver_t *solver, smt_core_t *core, egraph_t *egraph) {
 
   init_bv_vartable(&solver->vtbl);
   init_bv_atomtable(&solver->atbl);
-  init_bv_trail(&solver->trail_stack);
+  init_mtbl(&solver->mtbl);
 
   solver->blaster = NULL;
   solver->remap = NULL;
+
+  init_eassertion_queue(&solver->egraph_queue);
+
+  init_bv_trail(&solver->trail_stack);
 
   init_bvpoly_buffer(&solver->buffer);
   init_pp_buffer(&solver->prod_buffer, 10);
@@ -2168,7 +2188,7 @@ void bv_solver_init_jmpbuf(bv_solver_t *solver, jmp_buf *buffer) {
 void delete_bv_solver(bv_solver_t *solver) {
   delete_bv_vartable(&solver->vtbl);
   delete_bv_atomtable(&solver->atbl);
-  delete_bv_trail(&solver->trail_stack);
+  delete_mtbl(&solver->mtbl);
 
   if (solver->blaster != NULL) {
     delete_bit_blaster(solver->blaster);
@@ -2182,6 +2202,10 @@ void delete_bv_solver(bv_solver_t *solver) {
     solver->remap = NULL;
   }
 
+  delete_eassertion_queue(&solver->egraph_queue);
+
+  delete_bv_trail(&solver->trail_stack);
+
   delete_bvpoly_buffer(&solver->buffer);
   delete_pp_buffer(&solver->prod_buffer);
   delete_ivector(&solver->aux_vector);
@@ -2189,6 +2213,7 @@ void delete_bv_solver(bv_solver_t *solver) {
   delete_bvconstant(&solver->aux2);
   delete_ivector(&solver->a_vector);
   delete_ivector(&solver->b_vector);
+
   delete_used_vals(&solver->used_vals);
 }
 
@@ -2208,6 +2233,8 @@ void bv_solver_push(bv_solver_t *solver) {
   nv = solver->vtbl.nvars;
   na = solver->atbl.natoms;
   bv_trail_save(&solver->trail_stack, nv, na);
+
+  mtbl_push(&solver->mtbl);
 
   solver->base_level ++;
   bv_solver_increase_decision_level(solver);
@@ -2248,6 +2275,8 @@ void bv_solver_pop(bv_solver_t *solver) {
   bv_atomtable_remove_atoms(&solver->atbl, top->natoms);
   bv_solver_remove_dead_eterms(solver);
 
+  mtbl_pop(&solver->mtbl);
+
   bv_trail_pop(&solver->trail_stack);
 }
 
@@ -2259,7 +2288,7 @@ void bv_solver_pop(bv_solver_t *solver) {
 void bv_solver_reset(bv_solver_t *solver) {
   reset_bv_vartable(&solver->vtbl);
   reset_bv_atomtable(&solver->atbl);
-  reset_bv_trail(&solver->trail_stack);
+  reset_mtbl(&solver->mtbl);
 
   if (solver->blaster != NULL) {
     delete_bit_blaster(solver->blaster);
@@ -2273,11 +2302,16 @@ void bv_solver_reset(bv_solver_t *solver) {
     solver->remap = NULL;
   }
 
+  reset_eassertion_queue(&solver->egraph_queue);
+
+  reset_bv_trail(&solver->trail_stack);
+
   reset_bvpoly_buffer(&solver->buffer, 32);
   pp_buffer_reset(&solver->prod_buffer);
   ivector_reset(&solver->aux_vector);
   ivector_reset(&solver->a_vector);
   ivector_reset(&solver->b_vector);
+
   reset_used_vals(&solver->used_vals);
 
   solver->base_level = 0;
@@ -2497,6 +2531,8 @@ thvar_t bv_solver_create_ite(bv_solver_t *solver, literal_t c, thvar_t x, thvar_
     c = not(c);
   }
 
+  assert(c != false_literal);
+    
   if (c == true_literal) {
     return x; 
   } else {

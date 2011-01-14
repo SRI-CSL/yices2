@@ -120,8 +120,8 @@ bool equal_bvpoly(bvpoly_t *p1, bvpoly_t *p2) {
 
 
 /*
- * Check for simple disequality: return true if (p1 - p2) is a non-zero constant
- * bitvector.
+ * Check for simple disequality:
+ * - return true if (p1 - p2) is a non-zero constant bitvector.
  * - p1 and p2 must have the same bitsize
  */
 bool disequal_bvpoly(bvpoly_t *p1, bvpoly_t *p2) {

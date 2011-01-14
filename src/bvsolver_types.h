@@ -34,6 +34,8 @@
 #include "power_products.h"
 #include "remap_table.h"
 #include "bit_blaster.h"
+#include "merge_table.h"
+#include "egraph_assertion_queues.h"
 
 #include "smt_core.h"
 #include "egraph.h"
@@ -526,9 +528,9 @@ typedef struct bv_solver_s {
   bv_atomtable_t atbl;
 
   /*
-   * Push/pop stack
+   * Table to merge equal variables
    */
-  bv_trail_stack_t trail_stack;
+  mtbl_t mtbl;
 
   /*
    * Data structures for bit-blasting
@@ -536,7 +538,17 @@ typedef struct bv_solver_s {
    */
   bit_blaster_t *blaster;
   remap_table_t *remap;
-  
+
+  /*
+   * Queue of egraph assertions
+   */
+  eassertion_queue_t egraph_queue;
+
+  /*
+   * Push/pop stack
+   */
+  bv_trail_stack_t trail_stack;
+
 
   /*
    * Auxiliary buffers for internalization
