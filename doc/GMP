@@ -55,7 +55,7 @@ This can be easy or hard depending on the GMP version and GCC compiler
 available on Mac OS X.
 
 Here is how to build gmp-4.3.2 on an Intel MacBook running Darwin-9.8.0.
-This was done using X-code 3.1.4. 
+This was done using X-code 3.1.4.
 
 1) There are two gcc compilers with this X-code version: 
 
@@ -150,7 +150,24 @@ the GMP configure script.
 
 
 
-   
+5) What if configure rejects option ABI=64? 
+
+   This may happen on some Mac hardware that's not properly recognized
+   but the GMP ./configure script. For example, for GMP-4.3.2, 
+
+      ./configure ABI=64
+
+   fails on a MacBook Pro that has an Intel Core i5 CPU, but it works 
+   fine on a MacBool Pro that has an Intel Core 2 Duo. 
+
+   The simplest solution to such problems is to give a specific build
+   triple to bypass the ./configure guesses. This can be done using
+
+     ./configure --build=x86_64-apple-darwin10.6.0
+
+   (in general the option is --build=<CPU>-<VENDOR>-<OS>).
+
+
 
 
 Building GMP on cygwin or mingw
@@ -227,9 +244,9 @@ There are two options:
 
 2) use a cross compiler. 
 
-   There two cross compilers for mingw32 and mingw64 in the cygwin
+   There are two cross compilers for mingw32 and mingw64 in the cygwin
    repository/mirrors. They can be installed using cygwin's setup.exe
-   utility: They are in the 'devel' section and have names like:
+   utility. They are in the 'devel' section and have names like:
    mingw64-x86_64-gcc-...  mingw64-i686-gcc-...
 
 
@@ -252,7 +269,9 @@ executables in cygwin).
 
 
 To build libgmp.a, replace --disable-static --enable-shared by
---enable-static --disable-shared.
+--enable-static --disable-shared. Just as for cygwin, the static
+and dynamic versions of GMP must be installed in different locations.
+
 
 NOTE: make check failed when using cross compilation with --disable-shared.
 The failure was a compilation error on tests/misc/t-locale.c (the complaint
