@@ -75,6 +75,8 @@ typedef enum bvvar_tag {
   BVTAG_ASHR,          // arithmetic shift right
 } bvvar_tag_t;
 
+#define NUM_BVTAGS (BVTAG_ASHR + 1)
+
 
 /*
  * Descriptor for (if c then x else y)

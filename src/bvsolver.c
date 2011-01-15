@@ -1729,6 +1729,120 @@ static literal_t *bv_solver_get_pseudo_map(bv_solver_t *solver, thvar_t x) {
 
 
 
+/**********************
+ *  VARIABLE MERGING  *
+ *********************/
+
+/*
+ * We attempt to keep the simplest element of the class as
+ * root of its class, using the following ranking:
+ * - constants are simplest:       rank 0
+ * - bvarray are next              rank 1
+ * - all non-variable are next:    rank 2
+ * - variables are last            rank 3
+ *
+ * The following functions checks whether a is striclty simpler than b
+ * based on this ranking.
+ */
+static const uint8_t bvtag2rank[NUM_BVTAGS] = {
+  3,      // BVTAG_VAR
+  0,      // BVTAG_CONST64
+  0,      // BVTAG_CONST
+  2,      // BVTAG_POLY64
+  2,      // BVTAG_POLY
+  2,      // BVTAG_PPROD
+  1,      // BVTAG_BIT_ARRAY
+  2,      // BVTAG_ITE
+  2,      // BVTAG_UDIV
+  2,      // BVTAG_UREM
+  2,      // BVTAG_SDIV
+  2,      // BVTAG_SREM
+  2,      // BVTAG_SMOD
+  2,      // BVTAG_SHL
+  2,      // BVTAG_LSHR
+  2,      // BVTAG_ASHR
+};
+
+static inline bool simpler_bvtag(bvvar_tag_t a, bvvar_tag_t b) {
+  return bvtag2rank[a] < bvtag2rank[b];
+}
+
+
+/*
+ * Check whether tag is for a constant
+ */
+static inline bool constant_bvtag(bvvar_tag_t a) {
+  return a == BVTAG_CONST64 || a == BVTAG_CONST;
+}
+
+
+
+/*
+ * Merge the equivalence classes of x and y
+ * - both x and y must be root of their class
+ * - x and y must be distinct variables
+ */
+static void bv_solver_merge_vars(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  mtbl_t *mtbl;
+  bvvar_tag_t tag_x, tag_y;
+  thvar_t aux;
+
+  mtbl = &solver->mtbl;
+
+  assert(x != y && mtbl_is_root(mtbl, x) && mtbl_is_root(mtbl, y));
+
+  tag_x = bvvar_tag(&solver->vtbl, x);
+  tag_y = bvvar_tag(&solver->vtbl, y);
+
+  if (simpler_bvtag(tag_y, tag_x)) {
+    aux = x; x = y; y = aux;
+  }
+
+  // x is simpler than y, we set map[y] := x
+  mtbl_map(mtbl, y, x);
+}
+
+
+
+/*
+ * Check whether the root of x's class is a 64bit constant
+ * - if so return the root, otherwise return x
+ */
+static thvar_t bvvar_root_if_const64(bv_solver_t *solver, thvar_t x) {
+  thvar_t y;
+
+  y = mtbl_get_root(&solver->mtbl, x);
+  if (bvvar_is_const64(&solver->vtbl, y)) {
+    x = y;
+  }
+
+  return x;
+}
+
+
+/*
+ * Check whether the root of x's class is a generic constant
+ * - if so return the root, otherwise return x
+ */
+static thvar_t bvvar_root_if_const(bv_solver_t *solver, thvar_t x) {
+  thvar_t y;
+
+  y = mtbl_get_root(&solver->mtbl, x);
+  if (bvvar_is_const(&solver->vtbl, y)) {
+    x = y;
+  }
+
+  return x;
+}
+
+
+/*
+ * Check whether x and y are known to be equal (i.e., they 
+ * are in the same equivalence class in the merge table).
+ */
+static inline bool equal_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  return mtbl_equiv(&solver->mtbl, x, y);
+}
 
 
 
@@ -1739,14 +1853,17 @@ static literal_t *bv_solver_get_pseudo_map(bv_solver_t *solver, thvar_t x) {
 /*
  * Add a * x to buffer b
  * - replace x by its value if it's a constant
+ * - also replace x by its root value if the root is a constant
  * - b, a, and x must all have the same bitsize
  */
 static void bvbuffer_add_mono64(bv_solver_t *solver, bvpoly_buffer_t *b, thvar_t x, uint64_t a) {
   bv_vartable_t *vtbl;
+  thvar_t y;
 
   vtbl = &solver->vtbl;
-  if (bvvar_is_const64(vtbl, x)) {
-    bvpoly_buffer_add_const64(b, a * bvvar_val64(vtbl, x));
+  y = bvvar_root_if_const64(solver, x);
+  if (bvvar_is_const64(vtbl, y)) {
+    bvpoly_buffer_add_const64(b, a * bvvar_val64(vtbl, y));
   } else {
     bvpoly_buffer_add_mono64(b, x, a);
   }
@@ -1755,11 +1872,13 @@ static void bvbuffer_add_mono64(bv_solver_t *solver, bvpoly_buffer_t *b, thvar_t
 // same thing for bitsize > 64
 static void bvbuffer_add_mono(bv_solver_t *solver, bvpoly_buffer_t *b, thvar_t x, uint32_t *a) {
   bv_vartable_t *vtbl;
+  thvar_t y;
 
   vtbl = &solver->vtbl;
-  if (bvvar_is_const(vtbl, x)) {
-    // add const_idx * a * value of x
-    bvpoly_buffer_addmul_monomial(b, const_idx, a, bvvar_val(vtbl, x));
+  y = bvvar_root_if_const(solver, x);
+  if (bvvar_is_const(vtbl, y)) {
+    // add const_idx * a * value of y
+    bvpoly_buffer_addmul_monomial(b, const_idx, a, bvvar_val(vtbl, y));
   } else {
     bvpoly_buffer_add_monomial(b, x, a);
   }
@@ -2658,6 +2777,9 @@ literal_t bv_solver_select_bit(bv_solver_t *solver, thvar_t x, uint32_t i) {
 
   assert(valid_bvvar(&solver->vtbl, x) && i < bvvar_bitsize(&solver->vtbl, x));
 
+  // apply substitutions
+  x = mtbl_get_root(&solver->mtbl, x);
+
   vtbl = &solver->vtbl;
   switch (bvvar_tag(vtbl, x)) {
   case BVTAG_CONST64:
@@ -2788,8 +2910,24 @@ literal_t bv_solver_create_sge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
 void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool tt) {
   literal_t l;
 
-  l = bv_solver_create_eq_atom(solver, x, y);
-  add_unit_clause(solver->core, signed_literal(l, tt));
+  // crude version for now
+  if (equal_bvvar(solver, x, y)) {
+    if (! tt) {
+      // Contradiction
+      add_empty_clause(solver->core);
+    }
+
+  } else if (tt) {
+    // Merge the classes of x and y
+    x = mtbl_get_root(&solver->mtbl, x);
+    y = mtbl_get_root(&solver->mtbl, y);
+    bv_solver_merge_vars(solver, x, y);
+
+  } else {
+    // Disequality
+    l = bv_solver_create_eq_atom(solver, x, y);
+    add_unit_clause(solver->core, not(l));
+  }
 }
 
 
