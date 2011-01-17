@@ -249,7 +249,7 @@ void print_bv_vartable(FILE *f, bv_vartable_t *vtbl) {
   uint32_t i, n;
 
   n = vtbl->nvars;
-  for (i=0; i<n; i++) {
+  for (i=1; i<n; i++) {
     print_bv_vardef(f, vtbl, i);
     fputc('\n', f);
   }

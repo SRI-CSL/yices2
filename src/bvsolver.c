@@ -24,20 +24,27 @@
  * - use the default size
  * - the eterm array is not allocated here, but on the first
  *   call to attach_eterm
+ * - variable 0 is reserved to prevent confusion with const_idx
  */
 static void init_bv_vartable(bv_vartable_t *table) {
   uint32_t n;
 
   n = DEF_BVVARTABLE_SIZE;
-  assert(n < MAX_BVVARTABLE_SIZE);
+  assert(1 <= n && n < MAX_BVVARTABLE_SIZE);
 
-  table->nvars = 0;
+  table->nvars = 1;
   table->size = n;
   table->bit_size = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
   table->kind = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
   table->def = (bvvar_desc_t *) safe_malloc(n * sizeof(bvvar_desc_t));
   table->eterm = NULL;
   table->map = (literal_t **) safe_malloc(n * sizeof(literal_t *));
+
+  // fake descriptor for variable 0
+  table->map[0] = NULL;
+  table->def[0].ptr = NULL;
+  table->kind[0] = BVTAG_VAR;
+  table->bit_size[0] = 0;
 
   init_int_htbl(&table->htbl, 0);
 }
@@ -75,7 +82,7 @@ static void delete_bv_vartable(bv_vartable_t *table) {
   uint32_t i, n;
 
   n = table->nvars;
-  for (i=0; i<n; i++) {
+  for (i=1; i<n; i++) {
     safe_free(table->map[i]);
     switch (bvvar_tag(table, i)) {
     case BVTAG_CONST:
@@ -118,7 +125,7 @@ static void reset_bv_vartable(bv_vartable_t *table) {
   uint32_t i, n;
 
   n = table->nvars;
-  for (i=0; i<n; i++) {
+  for (i=1; i<n; i++) {
     safe_free(table->map[i]);
     switch (bvvar_tag(table, i)) {
     case BVTAG_CONST:
@@ -138,7 +145,7 @@ static void reset_bv_vartable(bv_vartable_t *table) {
     }
   }
 
-  table->nvars = 0;
+  table->nvars = 1;
 
   reset_int_htbl(&table->htbl);  
 }
@@ -152,7 +159,7 @@ static void attach_eterm_to_bvvar(bv_vartable_t *table, thvar_t x, eterm_t t) {
   eterm_t *tmp;
   uint32_t i, n;
 
-  assert(0 <= x && x < table->nvars && t != null_eterm);
+  assert(1 <= x && x < table->nvars && t != null_eterm);
 
   tmp = table->eterm;
   if (tmp == NULL) {
@@ -173,7 +180,7 @@ static void attach_eterm_to_bvvar(bv_vartable_t *table, thvar_t x, eterm_t t) {
  * Check whether x has an eterm attached
  */
 static inline bool bvvar_has_eterm(bv_vartable_t *table, thvar_t x) {
-  assert(0 <= x && x < table->nvars);
+  assert(1 <= x && x < table->nvars);
   return table->eterm != NULL && table->eterm[x] != null_eterm;
 }
 
@@ -184,7 +191,7 @@ static inline bool bvvar_has_eterm(bv_vartable_t *table, thvar_t x) {
 static inline eterm_t bvvar_get_eterm(bv_vartable_t *table, thvar_t x) {
   eterm_t t;
 
-  assert(0 <= x && x < table->nvars);
+  assert(1 <= x && x < table->nvars);
   t = null_eterm;
   if (table->eterm != NULL) {
     t = table->eterm[x];
@@ -206,7 +213,7 @@ static void bv_vartable_remove_eterms(bv_vartable_t *table, uint32_t nterms) {
 
   if (tmp != NULL) {
     n = table->nvars;
-    for (i=0; i<n; i++) {
+    for (i=1; i<n; i++) {
       t = tmp[i];
       if (t != null_eterm && t >= nterms) {
 	tmp[i] = null_eterm;
@@ -299,7 +306,7 @@ static inline uint32_t hash_bvashr(thvar_t x, thvar_t y) {
 static void bv_vartable_remove_vars(bv_vartable_t *table, uint32_t nv) {
   uint32_t i, n, h;
 
-  assert(nv <= table->nvars);
+  assert(1 <= nv && nv <= table->nvars);
 
   h = 0; // stop GCC warning
 
@@ -523,93 +530,18 @@ static thvar_t make_bvite(bv_vartable_t *table, uint32_t n, literal_t c, thvar_t
   return x;
 }
 
-static thvar_t make_bvdiv(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
+
+// binary operator: tag must be in BVTAG_UDIV ... BVTAG_ASHR
+static thvar_t make_bvbinop(bv_vartable_t *table, bvvar_tag_t tag, uint32_t n, thvar_t x, thvar_t y) {
   thvar_t z;
 
   z = bv_vartable_alloc_id(table, n);
-  table->kind[z] = BVTAG_UDIV;
+  table->kind[z] = tag;
   table->def[z].op[0] = x;
   table->def[z].op[1] = y;
 
-  return x;
-} 
-
-static thvar_t make_bvrem(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  thvar_t z;
-
-  z = bv_vartable_alloc_id(table, n);
-  table->kind[z] = BVTAG_UREM;
-  table->def[z].op[0] = x;
-  table->def[z].op[1] = y;
-
-  return x;
-} 
-
-static thvar_t make_bvsdiv(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  thvar_t z;
-
-  z = bv_vartable_alloc_id(table, n);
-  table->kind[z] = BVTAG_SDIV;
-  table->def[z].op[0] = x;
-  table->def[z].op[1] = y;
-
-  return x;
-} 
-
-static thvar_t make_bvsrem(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  thvar_t z;
-
-  z = bv_vartable_alloc_id(table, n);
-  table->kind[z] = BVTAG_SREM;
-  table->def[z].op[0] = x;
-  table->def[z].op[1] = y;
-
-  return x;
-} 
-
-static thvar_t make_bvsmod(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  thvar_t z;
-
-  z = bv_vartable_alloc_id(table, n);
-  table->kind[z] = BVTAG_SMOD;
-  table->def[z].op[0] = x;
-  table->def[z].op[1] = y;
-
-  return x;
-} 
-
-static thvar_t make_bvshl(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  thvar_t z;
-
-  z = bv_vartable_alloc_id(table, n);
-  table->kind[z] = BVTAG_SHL;
-  table->def[z].op[0] = x;
-  table->def[z].op[1] = y;
-
-  return x;
-} 
-
-static thvar_t make_bvlshr(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  thvar_t z;
-
-  z = bv_vartable_alloc_id(table, n);
-  table->kind[z] = BVTAG_LSHR;
-  table->def[z].op[0] = x;
-  table->def[z].op[1] = y;
-
-  return x;
-} 
-
-static thvar_t make_bvashr(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
-  thvar_t z;
-
-  z = bv_vartable_alloc_id(table, n);
-  table->kind[z] = BVTAG_ASHR;
-  table->def[z].op[0] = x;
-  table->def[z].op[1] = y;
-
-  return x;
-} 
+  return z;
+}
 
 
 
@@ -922,35 +854,35 @@ static thvar_t build_bvite_hobj(bvite_hobj_t *p) {
 }
 
 static thvar_t build_bvdiv_hobj(bvop_hobj_t *p) {
-  return make_bvdiv(p->tbl, p->nbits, p->left, p->right);
+  return make_bvbinop(p->tbl, BVTAG_UDIV, p->nbits, p->left, p->right);
 }
 
 static thvar_t build_bvrem_hobj(bvop_hobj_t *p) {
-  return make_bvrem(p->tbl, p->nbits, p->left, p->right);
+  return make_bvbinop(p->tbl, BVTAG_UREM, p->nbits, p->left, p->right);
 }
 
 static thvar_t build_bvsdiv_hobj(bvop_hobj_t *p) {
-  return make_bvsdiv(p->tbl, p->nbits, p->left, p->right);
+  return make_bvbinop(p->tbl, BVTAG_SDIV, p->nbits, p->left, p->right);
 }
 
 static thvar_t build_bvsrem_hobj(bvop_hobj_t *p) {
-  return make_bvsrem(p->tbl, p->nbits, p->left, p->right);
+  return make_bvbinop(p->tbl, BVTAG_SREM, p->nbits, p->left, p->right);
 }
 
 static thvar_t build_bvsmod_hobj(bvop_hobj_t *p) {
-  return make_bvsmod(p->tbl, p->nbits, p->left, p->right);
+  return make_bvbinop(p->tbl, BVTAG_SMOD, p->nbits, p->left, p->right);
 }
 
 static thvar_t build_bvshl_hobj(bvop_hobj_t *p) {
-  return make_bvshl(p->tbl, p->nbits, p->left, p->right);
+  return make_bvbinop(p->tbl, BVTAG_SHL, p->nbits, p->left, p->right);
 }
 
 static thvar_t build_bvlshr_hobj(bvop_hobj_t *p) {
-  return make_bvlshr(p->tbl, p->nbits, p->left, p->right);
+  return make_bvbinop(p->tbl, BVTAG_LSHR, p->nbits, p->left, p->right);
 }
 
 static thvar_t build_bvashr_hobj(bvop_hobj_t *p) {
-  return make_bvashr(p->tbl, p->nbits, p->left, p->right);
+  return make_bvbinop(p->tbl, BVTAG_ASHR, p->nbits, p->left, p->right);
 }
 
 
@@ -2692,50 +2624,235 @@ thvar_t bv_solver_create_ite(bv_solver_t *solver, literal_t c, thvar_t x, thvar_
 
 /*
  * Binary operators
- * TODO: check for simplifications
+ */
+
+/*
+ * Quotient x/y: unsigned, rounding toward 0
+ * - simplify if x and y are both constants
  */
 thvar_t bv_solver_create_bvdiv(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  bv_vartable_t *vtbl;
+  bvconstant_t *aux;
+  bvvar_tag_t xtag, ytag;
+  uint64_t c;
   uint32_t n;
 
-  n = bvvar_bitsize(&solver->vtbl, x);
-  assert(bvvar_bitsize(&solver->vtbl, y) == n);
+  vtbl = &solver->vtbl;
 
-  return get_bvdiv(&solver->vtbl, n, x, y);
+  x = mtbl_get_root(&solver->mtbl, x);
+  y = mtbl_get_root(&solver->mtbl, y);
+
+  n = bvvar_bitsize(vtbl, x);
+  assert(n == bvvar_bitsize(vtbl, y));
+
+  xtag = bvvar_tag(vtbl, x);
+  ytag = bvvar_tag(vtbl, y);
+
+  // deal with constants
+  if (xtag == ytag) {
+    if (xtag == BVTAG_CONST64) {
+      // small constants
+      assert(n <= 64);
+      c = bvconst64_udiv2z(bvvar_val64(vtbl, x), bvvar_val64(vtbl, y), n);
+      return get_bvconst64(vtbl, n, c);
+    }
+
+    if (xtag == BVTAG_CONST) {
+      // large constants
+      assert(n > 64);
+      aux = &solver->aux1;
+      bvconstant_set_bitsize(aux, n);
+      bvconst_udiv2z(aux->data, n, bvvar_val(vtbl, x), bvvar_val(vtbl, y));
+      bvconst_normalize(aux->data, n);
+      return get_bvconst(vtbl, n, aux->data);
+    }
+  }
+
+  // no simplification
+  return get_bvdiv(vtbl, n, x, y);
 }
 
+
+/*
+ * Remainder of x/y: unsigned division, rounding toward 0
+ */
 thvar_t bv_solver_create_bvrem(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  bv_vartable_t *vtbl;
+  bvconstant_t *aux;
+  bvvar_tag_t xtag, ytag;
+  uint64_t c;
   uint32_t n;
 
-  n = bvvar_bitsize(&solver->vtbl, x);
-  assert(bvvar_bitsize(&solver->vtbl, y) == n);
+  vtbl = &solver->vtbl;
 
+  x = mtbl_get_root(&solver->mtbl, x);
+  y = mtbl_get_root(&solver->mtbl, y);
+
+  n = bvvar_bitsize(vtbl, x);
+  assert(n == bvvar_bitsize(vtbl, y));
+
+  xtag = bvvar_tag(vtbl, x);
+  ytag = bvvar_tag(vtbl, y);
+
+  // deal with constants
+  if (xtag == ytag) {
+    if (xtag == BVTAG_CONST64) {
+      // small constants
+      assert(n <= 64);
+      c = bvconst64_urem2z(bvvar_val64(vtbl, x), bvvar_val64(vtbl, y), n);
+      return get_bvconst64(vtbl, n, c);
+    }
+
+    if (xtag == BVTAG_CONST) {
+      // large constants
+      assert(n > 64);
+      aux = &solver->aux1;
+      bvconstant_set_bitsize(aux, n);
+      bvconst_urem2z(aux->data, n, bvvar_val(vtbl, x), bvvar_val(vtbl, y));
+      bvconst_normalize(aux->data, n);
+      return get_bvconst(vtbl, n, aux->data);
+    }
+  }
+
+  // no simplification
   return get_bvrem(&solver->vtbl, n, x, y);
 }
 
+
+/*
+ * Quotient x/y: signed division, rounding toward 0
+ */
 thvar_t bv_solver_create_bvsdiv(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  bv_vartable_t *vtbl;
+  bvconstant_t *aux;
+  bvvar_tag_t xtag, ytag;
+  uint64_t c;
   uint32_t n;
 
-  n = bvvar_bitsize(&solver->vtbl, x);
-  assert(bvvar_bitsize(&solver->vtbl, y) == n);
+  vtbl = &solver->vtbl;
 
+  x = mtbl_get_root(&solver->mtbl, x);
+  y = mtbl_get_root(&solver->mtbl, y);
+
+  n = bvvar_bitsize(vtbl, x);
+  assert(n == bvvar_bitsize(vtbl, y));
+  
+  xtag = bvvar_tag(vtbl, x);
+  ytag = bvvar_tag(vtbl, y);
+
+  // deal with constants
+  if (xtag == ytag) {
+    if (xtag == BVTAG_CONST64) {
+      // small constants
+      assert(n <= 64);
+      c = bvconst64_sdiv2z(bvvar_val64(vtbl, x), bvvar_val64(vtbl, y), n);
+      return get_bvconst64(vtbl, n, c);
+    }
+
+    if (xtag == BVTAG_CONST) {
+      // large constants
+      assert(n > 64);
+      aux = &solver->aux1;
+      bvconstant_set_bitsize(aux, n);
+      bvconst_sdiv2z(aux->data, n, bvvar_val(vtbl, x), bvvar_val(vtbl, y));
+      bvconst_normalize(aux->data, n);
+      return get_bvconst(vtbl, n, aux->data);
+    }
+  }
+
+  // no simplification
   return get_bvsdiv(&solver->vtbl, n, x, y);
 }
 
+
+/*
+ * Remainder of x/y: signed division, rounding toward 0
+ */
 thvar_t bv_solver_create_bvsrem(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  bv_vartable_t *vtbl;
+  bvconstant_t *aux;
+  bvvar_tag_t xtag, ytag;
+  uint64_t c;
   uint32_t n;
 
-  n = bvvar_bitsize(&solver->vtbl, x);
-  assert(bvvar_bitsize(&solver->vtbl, y) == n);
+  vtbl = &solver->vtbl;
 
+  x = mtbl_get_root(&solver->mtbl, x);
+  y = mtbl_get_root(&solver->mtbl, y);
+
+  n = bvvar_bitsize(vtbl, x);
+  assert(n == bvvar_bitsize(vtbl, y));
+  
+  xtag = bvvar_tag(vtbl, x);
+  ytag = bvvar_tag(vtbl, y);
+
+  // deal with constants
+  if (xtag == ytag) {
+    if (xtag == BVTAG_CONST64) {
+      // small constants
+      assert(n <= 64);
+      c = bvconst64_srem2z(bvvar_val64(vtbl, x), bvvar_val64(vtbl, y), n);
+      return get_bvconst64(vtbl, n, c);
+    }
+
+    if (xtag == BVTAG_CONST) {
+      // large constants
+      assert(n > 64);
+      aux = &solver->aux1;
+      bvconstant_set_bitsize(aux, n);
+      bvconst_srem2z(aux->data, n, bvvar_val(vtbl, x), bvvar_val(vtbl, y));
+      bvconst_normalize(aux->data, n);
+      return get_bvconst(vtbl, n, aux->data);
+    }
+  }
+
+  // no simplification
   return get_bvsrem(&solver->vtbl, n, x, y);
 }
 
+
+/*
+ * Remainder in x/y: signed division, rounding toward -infinity
+ */
 thvar_t bv_solver_create_bvsmod(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  bv_vartable_t *vtbl;
+  bvconstant_t *aux;
+  bvvar_tag_t xtag, ytag;
+  uint64_t c;
   uint32_t n;
 
-  n = bvvar_bitsize(&solver->vtbl, x);
-  assert(bvvar_bitsize(&solver->vtbl, y) == n);
+  vtbl = &solver->vtbl;
 
+  x = mtbl_get_root(&solver->mtbl, x);
+  y = mtbl_get_root(&solver->mtbl, y);
+
+  n = bvvar_bitsize(vtbl, x);
+  assert(n == bvvar_bitsize(vtbl, y));
+
+  xtag = bvvar_tag(vtbl, x);
+  ytag = bvvar_tag(vtbl, y);
+
+  // deal with constants
+  if (xtag == ytag) {
+    if (xtag == BVTAG_CONST64) {
+      // small constants
+      assert(n <= 64);
+      c = bvconst64_smod2z(bvvar_val64(vtbl, x), bvvar_val64(vtbl, y), n);
+      return get_bvconst64(vtbl, n, c);
+    }
+
+    if (xtag == BVTAG_CONST) {
+      // large constants
+      assert(n > 64);
+      aux = &solver->aux1;
+      bvconstant_set_bitsize(aux, n);
+      bvconst_smod2z(aux->data, n, bvvar_val(vtbl, x), bvvar_val(vtbl, y));
+      bvconst_normalize(aux->data, n);
+      return get_bvconst(vtbl, n, aux->data);
+    }
+  }
+
+  // no simplification
   return get_bvsmod(&solver->vtbl, n, x, y);
 }
 
