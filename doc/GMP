@@ -47,6 +47,40 @@ sources from a tarfile every time.
 
 
 
+Building PIC libgmp.a on Sparc Solaris 2.8 (gmp-4.3.2)
+------------------------------------------------------
+
+1) install normal GMP, and keep track of the configuration
+
+On mission.ai.sri.com, I got:
+
+   ABI=32
+   CC="gcc -std=gnu99"
+   CFLAGS="-m32 -O2 -pedantic -Wa,-xarch=v8plus -mcpu=ultrasparc"
+   CPPFLAGS=""
+   MPN_PATH=" sparc32/v9 sparc32/v8 sparc32 generic"
+
+
+2) Cleanup then configure GMP again, this time for PIC compilation.
+   Make sure to give the same CFLAGS as above and add -fPIC
+
+   ./configure 
+       --prefix=/home/labrea5/dutertre/reloc_gmp 
+       CFLAGS='-fPIC -O2 -pedantic -Wa,-xarch=v8plus -mcpu=ultrasparc'
+       CPPFLAGS=-DPIC 
+       --disable-shared
+
+   Then, the usual
+
+    make
+    make check
+    make install
+
+   worked fine.
+
+
+
+
 
 Building GMP on Mac OS X (including PIC)
 ----------------------------------------

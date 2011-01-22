@@ -10,6 +10,16 @@
 
 
 /*
+ * It seems that we need an explicit declaration of getc_unlocked on
+ * Solaris (to avoid a compilation warning). Not sure whether this
+ * is required on all Solaris versions?
+ */
+#if defined(SOLARIS)
+extern int getc_unlocked(FILE *);
+#endif
+
+
+/*
  * Read and return the next char from a stream reader
  * - update pos, line, column 
  */

@@ -191,6 +191,12 @@ srctarfile=$(distdir)/yices-$(YICES_VERSION)-src.tar.gz
 # - without it, we get an error from tar:
 #   'file xxx changed as we read it'
 #
+# NOTE: chmod -R .. may fail on some Solaris versions
+# - a workaround is to use a GNU/fileutils version of chmod
+#   instead of SUN's own version
+# - on CSL ungoliant: make sure /csl/bin is in the path before /bin
+#   and /usr/bin
+#
 source-distribution:
 	rm -f -r $(tmpdir)
 	mkdir $(tmpdir)
