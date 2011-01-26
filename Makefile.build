@@ -305,13 +305,13 @@ smt-dist: build_subdirs version $(smt_dist_dir)
 
 static-smt-dist: build_subdirs version $(static_smt_dist_dir)
 	@ echo "=== Preparing static smt distribution ==="
-	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) smt-dist
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-smt-dist
 
 smt-tarfile: $(distributions)
 	@ echo "=== Building $(smtdist_tarfile) ==="
 	rm -f -r $(smtdist_dir)
 	$(MKDIR_P) $(smtdist_dir)
-	cp -r $(dist_dir)/* $(smtdist_dir)
+	cp -r $(smt_dist_dir)/* $(smtdist_dir)
 	cp etc/LICENSE etc/NOTICES $(smtdist_dir)
 	chmod -R og+rX $(smtdist_dir)
 	tar -czf $(distributions)/$(smtdist_tarfile) $(smtdist_dir)
@@ -322,7 +322,7 @@ static-smt-tarfile: $(distributions)
 	@ echo "=== Building $(static_smtdist_tarfile) ==="
 	rm -f -r $(smtdist_dir)
 	$(MKDIR_P) $(smtdist_dir)
-	cp -r $(static_dist_dir)/* $(smtdist_dir)
+	cp -r $(static_smt_dist_dir)/* $(smtdist_dir)
 	cp etc/LICENSE etc/NOTICES $(smtdist_dir)
 	chmod -R og+rX $(smtdist_dir)
 	tar -czf $(distributions)/$(static_smtdist_tarfile) $(smtdist_dir)
