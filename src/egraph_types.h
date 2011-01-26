@@ -316,10 +316,10 @@ typedef struct eterm_table_s {
  * - axiom:          (t1 == t2) needs no explanation
  * - assert(l):      (t1 == t2) was asserted (by setting l to true)
  * - eq(u, v):       (u == v) implies (t1 == t2)
- * - distinct(u, v): (u != v) implies (t1 == t2) 
- *      where u != v is obtained via dmasks
  * - distinct0(u, v): (u != v) implies (t1 == t2)
  *      where u != v is obtained via constants (bit 0 of dmask)
+ * - distinct[i](u, v): (u != v) implies (t1 == t2) 
+ *      where u != v is obtained via dmask (bit i of dmask)
  * - simp_or is used in two cases:
  *    (or u_1 ... u_n) == false (for all i, u_i == false)
  *    (or u_1 ... u_n) == v  (for all i, u_i == false or u_i == v)
@@ -361,8 +361,43 @@ typedef enum expl_tag {
   EXPL_AXIOM,
   EXPL_ASSERT,
   EXPL_EQ,
-  EXPL_DISTINCT,
+
+  // Hackish: for EXPL_DISTINCT, we need to keep track of which bit of dmask
+  // caused the propagation (i.e., the composite in egraph->dtable.distinct[i])
+  // We use 32 tags since there are at most 32bits
   EXPL_DISTINCT0,
+  EXPL_DISTINCT1,
+  EXPL_DISTINCT2,
+  EXPL_DISTINCT3,
+  EXPL_DISTINCT4,
+  EXPL_DISTINCT5,
+  EXPL_DISTINCT6,
+  EXPL_DISTINCT7,
+  EXPL_DISTINCT8,
+  EXPL_DISTINCT9,
+  EXPL_DISTINCT10,
+  EXPL_DISTINCT11,
+  EXPL_DISTINCT12,
+  EXPL_DISTINCT13,
+  EXPL_DISTINCT14,
+  EXPL_DISTINCT15,
+  EXPL_DISTINCT16,
+  EXPL_DISTINCT17,
+  EXPL_DISTINCT18,
+  EXPL_DISTINCT19,
+  EXPL_DISTINCT20,
+  EXPL_DISTINCT21,
+  EXPL_DISTINCT22,
+  EXPL_DISTINCT23,
+  EXPL_DISTINCT24,
+  EXPL_DISTINCT25,
+  EXPL_DISTINCT26,
+  EXPL_DISTINCT27,
+  EXPL_DISTINCT28,
+  EXPL_DISTINCT29,
+  EXPL_DISTINCT30,
+  EXPL_DISTINCT31,
+
   EXPL_SIMP_OR,
   
   // congruence rules

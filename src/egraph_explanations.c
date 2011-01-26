@@ -489,28 +489,13 @@ static void explain_diseq_via_distinct(egraph_t *egraph, occ_t x, occ_t y, compo
 
 /*
  * Explanation for (x != y) via the dmasks
- * - find a distinct assertion (distinct t1 ... tn) 
- *   with x == t_i and y == t_j 
+ * - i = index of the distinct term that implied (x != y)
+ * - i must be between 1 and 31
  */
-static void explain_diseq_via_dmasks(egraph_t *egraph, occ_t x, occ_t y) {
-  class_t cx, cy;
-  uint32_t *dmask, i;
+static void explain_diseq_via_dmasks(egraph_t *egraph, occ_t x, occ_t y, uint32_t i) {
   composite_t *dpred;
 
-  cx = egraph_class(egraph, x);
-  cy = egraph_class(egraph, y);
-  dmask = egraph->classes.dmask;
-
-  /*
-   * i --> index of the lowest-order bit that's 1 
-   * in both dmask[cx] and dmask[cy]
-   * we force i>0 and we examine distinct[i]
-   *
-   * Important: taking the lowest-order bit gives the oldest distinct
-   * assertion that implies x != y. So this preserves causality.
-   */
-  i = ctz(dmask[cx] & dmask[cy] & ~0x1); 
-  assert(0 < i && i < egraph->dtable.npreds);
+  assert(1 <= i && i < egraph->dtable.npreds);
   
   dpred = egraph->dtable.distinct[i];
   assert(dpred != NULL && composite_kind(dpred) == COMPOSITE_DISTINCT);
@@ -776,12 +761,42 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v) {
       explain_eq(egraph, edata[i].t[0], edata[i].t[1]);
       break;
 
-    case EXPL_DISTINCT:
-      explain_diseq_via_dmasks(egraph, edata[i].t[0], edata[i].t[1]);
-      break;
-
     case EXPL_DISTINCT0:
       explain_diseq_via_constants(egraph, edata[i].t[0], edata[i].t[1]);
+      break;
+
+    case EXPL_DISTINCT1:
+    case EXPL_DISTINCT2:
+    case EXPL_DISTINCT3:
+    case EXPL_DISTINCT4:
+    case EXPL_DISTINCT5:
+    case EXPL_DISTINCT6:
+    case EXPL_DISTINCT7:
+    case EXPL_DISTINCT8:
+    case EXPL_DISTINCT9:
+    case EXPL_DISTINCT10:
+    case EXPL_DISTINCT11:
+    case EXPL_DISTINCT12:
+    case EXPL_DISTINCT13:
+    case EXPL_DISTINCT14:
+    case EXPL_DISTINCT15:
+    case EXPL_DISTINCT16:
+    case EXPL_DISTINCT17:
+    case EXPL_DISTINCT18:
+    case EXPL_DISTINCT19:
+    case EXPL_DISTINCT20:
+    case EXPL_DISTINCT21:
+    case EXPL_DISTINCT22:
+    case EXPL_DISTINCT23:
+    case EXPL_DISTINCT24:
+    case EXPL_DISTINCT25:
+    case EXPL_DISTINCT26:
+    case EXPL_DISTINCT27:
+    case EXPL_DISTINCT28:
+    case EXPL_DISTINCT29:
+    case EXPL_DISTINCT30:
+    case EXPL_DISTINCT31:
+      explain_diseq_via_dmasks(egraph, edata[i].t[0], edata[i].t[1], (uint32_t) (etag[i] - EXPL_DISTINCT0));
       break;
 
     case EXPL_SIMP_OR:
@@ -909,7 +924,8 @@ static void explain_diseq(egraph_t *egraph, occ_t t1, occ_t t2) {
     explain_diseq_via_constants(egraph, t1, t2);
     return;
   } else if (msk != 0){
-    explain_diseq_via_dmasks(egraph, t1, t2);
+    assert(1 <= ctz(msk) && ctz(msk) < egraph->dtable.npreds);
+    explain_diseq_via_dmasks(egraph, t1, t2, ctz(msk));
     return;
   }
 
@@ -1295,7 +1311,8 @@ bool egraph_inconsistent_edge(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i, i
     explain_diseq_via_constants(egraph, t1, t2); 
     goto conflict;
   } else if (msk != 0) {
-    explain_diseq_via_dmasks(egraph, t1, t2);
+    assert(1 <= ctz(msk) && ctz(msk) < egraph->dtable.npreds);
+    explain_diseq_via_dmasks(egraph, t1, t2, ctz(msk));
     goto conflict;
   }
 

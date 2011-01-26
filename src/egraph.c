@@ -1480,14 +1480,17 @@ static inline void add_eq_implies_eq(egraph_t *egraph, composite_t *p, occ_t x, 
 static inline void add_diseq_implies_eq(egraph_t *egraph, composite_t *p, occ_t x, 
 					occ_t t1, occ_t t2, uint32_t dmsk) {
   int32_t k;
+  uint32_t i;
 
   // don't add anything if (p->id == x) already holds
   if (egraph_equal_occ(egraph, pos_occ(p->id), x)) return;
 
   k = egraph_stack_push_eq(&egraph->stack, pos_occ(p->id), x);
 
-  // tag depends on bit 0 of dmsk
-  egraph->stack.etag[k] = (dmsk & 1) ? EXPL_DISTINCT0: EXPL_DISTINCT;
+  // the tag depends on bit i of dmsk
+  i = ctz(dmsk);
+  assert(0 <= i && i < egraph->dtable.npreds);
+  egraph->stack.etag[k] = (expl_tag_t) (i + EXPL_DISTINCT0);
   egraph->stack.edata[k].t[0] = t1;
   egraph->stack.edata[k].t[1] = t2;
 

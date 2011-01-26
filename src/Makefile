@@ -64,6 +64,8 @@ static_bindir := $(BUILD)/static_bin
 #
 distdir := $(BUILD)/dist
 static_distdir := $(BUILD)/static_dist
+smt_distdir := $(BUILD)/smt_dist
+static_smt_distdir := $(BUILD)/static_smt_dist
 
 
 #
@@ -601,6 +603,19 @@ static-dist: static-bin static-lib
 	mkdir $(static_distdir)/lib
 	cp $(static_libdir)/* $(static_distdir)/lib
 	$(STRIP) -x $(static_distdir)/lib/libyices.a
+
+
+smt-dist: bin
+	rm -r -f $(smt_distdir)/*
+	mkdir $(smt_distdir)/bin
+	cp $(bindir)/yices_smtcomp$(EXEEXT) $(smt_distdir)/bin/yices$(EXEEXT)
+	$(STRIP) $(STRIPFLAGS) $(smt_distdir)/bin/yices$(EXEEXT)
+
+static-smt-dist: static-bin
+	rm -r -f $(static_smt_distdir)/*
+	mkdir $(static_smt_distdir)/bin
+	cp $(bindir)/yices_smtcomp$(EXEEXT) $(static_smt_distdir)/bin/yices$(EXEEXT)
+	$(STRIP) $(STRIPFLAGS) $(static_smt_distdir)/bin/yices$(EXEEXT)
 
 
 .PHONY: dist static-dist

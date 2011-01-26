@@ -186,10 +186,13 @@ srctarfile=$(distdir)/yices-$(YICES_VERSION)-src.tar.gz
 
 #
 # Build the source tar file
-# - the sleep 10 is a hack intended to work around
-#   some bugs in the nfs client on some versions of Linux
-# - without it, we get an error from tar:
+#
+# NOTE: tar czf ... may fail if the file system is NFS mounted
+# and there's synchronization issues between NFS client and NFS server
+# - the symptom is an error from tar:
 #   'file xxx changed as we read it'
+# - This can be fixed by adding 'sleep xxx' before tar in the
+#   rule below
 #
 # NOTE: chmod -R .. may fail on some Solaris versions
 # - a workaround is to use a GNU/fileutils version of chmod
@@ -205,21 +208,23 @@ source-distribution:
 	mkdir $(tmpdir)/src
 	mkdir $(tmpdir)/tests
 	mkdir $(tmpdir)/doc
+	mkdir $(tmpdir)/etc
 	mkdir $(tmpdir)/examples
 	cp install-sh config.guess configure configure.ac config.sub gmaketest $(tmpdir)
 	cp README Makefile Makefile.build make.include.in $(tmpdir)
 	cp autoconf/* $(tmpdir)/autoconf
-	cp src/Makefile src/*.h src/*.c src/yices_keywords.txt \
-	  src/yices_version_template.txt $(tmpdir)/src
+	cp src/Makefile src/*.h src/*.c \
+	   src/yices_keywords.txt src/smt_keywords.txt \
+	   src/yices_version_template.txt $(tmpdir)/src
 	cp tests/Makefile tests/*.c $(tmpdir)/tests
 	cp doc/NOTES doc/YICES-LANGUAGE doc/yices_parser.txt doc/yices_parser_tables.h \
-	  doc/table_builder.c $(tmpdir)/doc
+	   doc/table_builder.c $(tmpdir)/doc
+	cp etc/* $(tmpdir)/etc
 	for file in `ls examples | grep -e '*.ys|*.txt|*.smt|*.c' ` ; do \
 	  cp examples/$$file $(tmpdir)/examples ; \
-        done
+        done || true
 	chmod -R og+rX $(tmpdir)
 	mkdir -p $(distdir)
-	sleep 10
 	tar -czf $(srctarfile) $(tmpdir)
 	chmod -R og+rX $(distdir)
 	rm -f -r $(tmpdir)

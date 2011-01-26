@@ -73,9 +73,13 @@ static_bindir := $(build_dir)/static_bin
 #
 # build_dir/dist: binaries + libraries with distribution not linked with GMP
 # build_dir/static_dist: includes GMP (statically linked)
+# build_dir/smt_dist: binaries for an SMT-COMP distribution (not linked with GMP)
+# build_dir/static_smt_dist: binaries for SMTP-COMP, statically linked
 #
 dist_dir = $(build_dir)/dist
 static_dist_dir = $(build_dir)/static_dist
+smt_dist_dir := $(build_dir)/smt_dist
+static_smt_dist_dir := $(build_dir)/static_smt_dist
 
 
 #
@@ -100,8 +104,6 @@ static_bindist_tarfile = $(bindist_dir)-$(ARCH)-static-gmp.tar.gz
 smtdist_dir = yices2smt09
 smtdist_tarfile = $(smtdist_dir)-$(ARCH).tar.gz
 static_smtdist_tarfile = $(smtdist_dir)-$(ARCH)-static-gmp.tar.gz
-
-
 
 
 
@@ -251,11 +253,10 @@ tarfile: $(distributions)
 	$(MKDIR_P) $(bindist_dir)/examples
 	for file in `ls examples | $(EGREP) '*.ys|*.txt|*.smt|*.c' ` ; do \
 	  cp examples/$$file $(bindist_dir)/examples ; \
-        done
+        done || true
 	$(MKDIR_P) $(bindist_dir)/doc
 	cp doc/YICES-LANGUAGE $(bindist_dir)/doc
 	chmod -R og+rX $(bindist_dir)
-	sleep 10
 	tar -czf $(distributions)/$(bindist_tarfile) $(bindist_dir)
 	chmod -R og+rX $(distributions)
 	rm -f -r $(bindist_dir)
@@ -272,11 +273,10 @@ static-tarfile: $(distributions)
 	$(MKDIR_P) $(bindist_dir)/examples
 	for file in `ls examples | $(EGREP) '*.ys|*.txt|*.smt|*.c' ` ; do \
 	  cp examples/$$file $(bindist_dir)/examples ; \
-        done
+        done || true
 	$(MKDIR_P) $(bindist_dir)/doc
 	cp doc/YICES-LANGUAGE $(bindist_dir)/doc
 	chmod -R og+rX $(bindist_dir)
-	sleep 10
 	tar -czf $(distributions)/$(static_bindist_tarfile) $(bindist_dir)
 	chmod -R og+rX $(distributions)
 	rm -f -r $(bindist_dir)
@@ -289,15 +289,21 @@ static-tarfile: $(distributions)
 #
 # SMT distribution (binary that reads SMT-LIB input)
 #
+$(smt_dist_dir):
+	$(MKDIR_P) $(smt_dist_dir)
+
+$(static_smt_dist_dir):
+	$(MKDIR_P) $(static_smt_dist_dir)
+
 smt-distribution: smt-dist smt-tarfile
 
 static-smt-distribution: static-smt-dist static-smt-tarfile
 
-smt-dist: $(build_dir) version
+smt-dist: build_subdirs version $(smt_dist_dir)
 	@ echo "=== Preparing smt distribution ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) smt-dist
 
-static-smt-dist: $(build_dir) version
+static-smt-dist: build_subdirs version $(static_smt_dist_dir)
 	@ echo "=== Preparing static smt distribution ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) smt-dist
 
@@ -308,20 +314,20 @@ smt-tarfile: $(distributions)
 	cp -r $(dist_dir)/* $(smtdist_dir)
 	cp etc/LICENSE etc/NOTICES $(smtdist_dir)
 	chmod -R og+rX $(smtdist_dir)
-	sleep 10
 	tar -czf $(distributions)/$(smtdist_tarfile) $(smtdist_dir)
 	chmod -R og+rX $(distributions)
+	rm -f -r $(smtdist_dir)
 
 static-smt-tarfile: $(distributions)
-	@ echo "=== Building $(smtdist_static_tarfile) ==="
+	@ echo "=== Building $(static_smtdist_tarfile) ==="
 	rm -f -r $(smtdist_dir)
 	$(MKDIR_P) $(smtdist_dir)
 	cp -r $(static_dist_dir)/* $(smtdist_dir)
 	cp etc/LICENSE etc/NOTICES $(smtdist_dir)
 	chmod -R og+rX $(smtdist_dir)
-	sleep 10
-	tar -czf $(distributions)/$(smtdist_static_tarfile) $(smtdist_dir)
+	tar -czf $(distributions)/$(static_smtdist_tarfile) $(smtdist_dir)
 	chmod -R og+rX $(distributions)
+	rm -f -r $(smtdist_dir)
 
 
 .PHONY: smt-distribution static-smt-distribution smt-dist static-smt-dist \

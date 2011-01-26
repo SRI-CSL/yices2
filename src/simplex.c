@@ -6303,6 +6303,8 @@ static uint32_t simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, t
 
 #if TRACE
   printf("     trichotomy lemma: egraph atom: ");
+  print_literal(stdout, l);
+  printf(" := ");
   print_egraph_atom_of_literal(stdout, solver->egraph, l);
   printf("\n");
 #endif
@@ -6348,6 +6350,16 @@ static uint32_t simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, t
       printf("     ");
       print_simplex_vardef(stdout, solver, y);	
     }
+    printf("     simplex atom:\n      ");
+    print_literal(stdout, l1);
+    printf(" := ");
+    print_simplex_atom_of_literal(stdout, solver, l1);
+    printf("\n      ");
+    print_literal(stdout, l2);
+    printf(" := ");
+    print_simplex_atom_of_literal(stdout, solver, l2);
+    printf("\n");
+
     printf("     trichotomy clauses:\n");
     printf("     (OR ");
     print_egraph_atom_of_literal(stdout, solver->egraph, l);
@@ -8431,7 +8443,6 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
   if (simplex_option_enabled(solver, SIMPLEX_ADJUST_MODEL)) {
     simplex_adjust_model(solver);
   }
-
 
   init_int_hclass(&hclass, 0, solver, (iclass_hash_fun_t) simplex_model_hash,
 		  (iclass_match_fun_t) simplex_var_equal_in_model);
