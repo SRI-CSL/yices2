@@ -3106,6 +3106,63 @@ eterm_t bv_solver_eterm_of_var(bv_solver_t *solver, thvar_t x) {
 
 
 
+/******************************
+ *  NUMBER OF ATOMS PER TYPE  *
+ *****************************/
+
+uint32_t bv_solver_num_eq_atoms(bv_solver_t *solver) {
+  bv_atomtable_t *atbl;
+  uint32_t i, n, c;
+
+  c = 0;
+  atbl = &solver->atbl;
+  n = atbl->natoms;
+  for (i=0; i<n; i++) {
+    if (bvatm_is_eq(atbl->data + i)) {
+      c ++;
+    }
+  }
+
+  return c;
+}
+
+uint32_t bv_solver_num_ge_atoms(bv_solver_t *solver) {
+  bv_atomtable_t *atbl;
+  uint32_t i, n, c;
+
+  c = 0;
+  atbl = &solver->atbl;
+  n = atbl->natoms;
+  for (i=0; i<n; i++) {
+    if (bvatm_is_ge(atbl->data + i)) {
+      c ++;
+    }
+  }
+
+  return c;
+}
+
+
+uint32_t bv_solver_num_sge_atoms(bv_solver_t *solver) {
+  bv_atomtable_t *atbl;
+  uint32_t i, n, c;
+
+  c = 0;
+  atbl = &solver->atbl;
+  n = atbl->natoms;
+  for (i=0; i<n; i++) {
+    if (bvatm_is_sge(atbl->data + i)) {
+      c ++;
+    }
+  }
+
+  return c;
+}
+
+
+
+
+
 /*******************************
  *  INTERNALIZATION INTERFACE  *
  ******************************/

@@ -440,7 +440,6 @@ static void context_free_dl_profile(context_t *ctx) {
  *  FORMULA SIMPLIFICATION   *
  ****************************/
 
-
 /*
  * Check whether t is true or false (i.e., mapped to 'true_occ' or 'false_occ'
  * in the internalization table.
@@ -1282,6 +1281,9 @@ static inline bool in_integer_class(context_t *ctx, term_t t) {
 static inline bool in_real_class(context_t *ctx, term_t t) {
   return is_real_type(type_of_root(ctx, intern_tbl_get_root(&ctx->intern, t)));
 }
+
+
+
 
 
 
@@ -4713,21 +4715,49 @@ static bool is_elimination_candidate(context_t *ctx, term_t t) {
 
 
 /*
+ * Replace every variable of t by the root of t in the internalization table
+ * - the result is stored in buffer
+ */
+static void apply_renaming_to_poly(context_t *ctx, polynomial_t *p,  poly_buffer_t *buffer) {
+  uint32_t i, n;
+  term_t t;
+  
+  reset_poly_buffer(buffer);
+
+  assert(poly_buffer_is_zero(buffer));
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    t = p->mono[i].var;
+    if (t == const_idx) {
+      poly_buffer_add_const(buffer, &p->mono[i].coeff);
+    } else {
+      // replace t by its root 
+      t = intern_tbl_get_root(&ctx->intern, t);
+      poly_buffer_addmul_term(ctx->terms, buffer, t, &p->mono[i].coeff);
+    }
+  }
+
+  normalize_poly_buffer(buffer);
+}
+
+
+/*
  * Auxiliary function: check whether p/a is an integral polynomial
  * assuming all variables and coefficients of p are integer.
  * - check whether all coefficients are multiple of a
  * - a must be non-zero
  */
-static bool integralpoly_after_div(polynomial_t *p, rational_t *a) {
+static bool integralpoly_after_div(poly_buffer_t *buffer, rational_t *a) {
   uint32_t i, n;
 
   if (q_is_one(a) || q_is_minus_one(a)) {
     return true;
   }
 
-  n = p->nterms;
+  n = buffer->nterms;
   for (i=0; i<n; i++) {
-    if (! q_divides(a, &p->mono[i].coeff)) return false;
+    if (! q_divides(a, &buffer->mono[i].coeff)) return false;
   }
   return true;
 }
@@ -4741,16 +4771,17 @@ static bool integralpoly_after_div(polynomial_t *p, rational_t *a) {
  * - p = input polynomial
  * - return t or null_term if no adequate t is found
  */
-static term_t try_poly_substitution(context_t *ctx, polynomial_t *p, bool all_int) {
+static term_t try_poly_substitution(context_t *ctx, poly_buffer_t *buffer, bool all_int) {
   uint32_t i, n;
   term_t t;
 
-  n = p->nterms;
+  // check for a free variable in buffer
+  n = buffer->nterms;
   for (i=0; i<n; i++) {
-    t = p->mono[i].var;
+    t = buffer->mono[i].var;
     if (t != const_idx && is_elimination_candidate(ctx, t)) {
       if (in_real_class(ctx, t) || 
-	  (all_int && integralpoly_after_div(p, &p->mono[i].coeff))) {
+	  (all_int && integralpoly_after_div(buffer, &buffer->mono[i].coeff))) {
 	// t is candidate for elimination
 	return t;
       }
@@ -4766,21 +4797,21 @@ static term_t try_poly_substitution(context_t *ctx, polynomial_t *p, bool all_in
  * where a = coefficient of x in p
  * - x must occur in p
  */
-static polynomial_t *build_poly_substitution(context_t *ctx, polynomial_t *p, term_t x) {
+static polynomial_t *build_poly_substitution(context_t *ctx, poly_buffer_t *buffer, term_t x) {
   polynomial_t *q;
   monomial_t *mono;
   uint32_t i, n;
   term_t y;
   rational_t *a;
 
-  n = p->nterms;
+  n = buffer->nterms;
 
-  // first get coefficient of x in p
+  // first get coefficient of x in buffer
   a = NULL; // otherwise GCC complains
   for (i=0; i<n; i++) {
-    y = p->mono[i].var;
+    y = buffer->mono[i].var;
     if (y == x) {
-      a = &p->mono[i].coeff;
+      a = &buffer->mono[i].coeff;
     }
   }
   assert(a != NULL && n > 0);
@@ -4789,12 +4820,12 @@ static polynomial_t *build_poly_substitution(context_t *ctx, polynomial_t *p, te
   q->nterms = n-1;
   mono = q->mono;
 
-  // compute - p/a (but skip monomial a.x)
+  // compute - buffer/a (but skip monomial a.x)
   for (i=0; i<n; i++) {
-    y = p->mono[i].var;
+    y = buffer->mono[i].var;
     if (y != x) {
       mono->var = y;
-      q_set_neg(&mono->coeff, &p->mono[i].coeff);
+      q_set_neg(&mono->coeff, &buffer->mono[i].coeff);
       q_div(&mono->coeff, a);
       mono ++;
     }
@@ -4819,6 +4850,7 @@ static polynomial_t *build_poly_substitution(context_t *ctx, polynomial_t *p, te
  * - return false otherwise
  */
 static bool try_arithvar_elim(context_t *ctx, polynomial_t *p, bool all_int) {
+  poly_buffer_t *buffer;
   polynomial_t *q;
   uint32_t i, n;
   term_t t, u, r;
@@ -4836,20 +4868,29 @@ static bool try_arithvar_elim(context_t *ctx, polynomial_t *p, bool all_int) {
     }
   }
 
+
+  /*
+   * Apply variable renaming: this is to avoid circularities
+   * if p is of the form ... + a x + ... + b y + ...
+   * where both x and y are variables in the same class (i.e.,
+   * both are elimination candidates).
+   */
+  buffer = context_get_poly_buffer(ctx);
+  apply_renaming_to_poly(ctx, p, buffer);
+
   /*
    * Search for a variable to substitute
    */
-  u = try_poly_substitution(ctx, p, all_int);
+  u = try_poly_substitution(ctx, buffer, all_int);
   if (u == NULL_TERM) {
     return false; // no substitution found
   }
 
-
   /*
-   * p is of the form a.u + p0, we rewrite (p == 0) to (u == q)
+   * buffer is of the form a.u + p0, we rewrite (buffer == 0) to (u == q)
    * where q = -1/a * p0
    */
-  q = build_poly_substitution(ctx, p, u); // q is in ctx->aux_poly
+  q = build_poly_substitution(ctx, buffer, u); // q is in ctx->aux_poly
   
   // convert q to a theory variable in the arithmetic solver
   x = map_poly_to_arith(ctx, q);

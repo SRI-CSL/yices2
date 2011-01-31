@@ -1,6 +1,7 @@
 (set-param var-elim true)
 (set-param arith-elim true)
 (set-param branching theory)
+(set-param bland-threshold 2000000)
 
 (define s1_obj::real)
 (define s2_obj::real)
@@ -1269,12 +1270,7 @@
 (assert (= (+ r48_nutr_r r233) 0))
 (assert (= (+ (- r838) r599) 0))
 (assert (= (+ (- r658b) r658a (- r541) r242 r60) 0))
-
-;; BUG HERE: try_arith_elim introduces a cycle
-
-(echo "BUG HERE\n")
 (assert (= (+ (- r704b) r704a r658b (- r658a)) 0))
-
 (assert (= (+ r846 (- r742)) 0))
 (assert (= (+ r273b (- r273a)) 0))
 (assert (= (+ r701b (- r701a)) 0))
@@ -3081,8 +3077,6 @@
 (assert (and (<= 0 r917a) (<= r917a 1000)))
 (assert (and (<= 0 r917b) (<= r917b 1000)))
 
-(xxx)
-
 (assert (or (= s1_obj 0) (= s1_obj 1)))
 (assert (or (= s2_obj 0) (= s2_obj 1)))
 (assert (or (= s3_obj 0) (= s3_obj 1)))
@@ -3135,8 +3129,6 @@
 (assert (or (= s52_secrt 0) (= s52_secrt 1)))
 (assert (or (= s53_secrt 0) (= s53_secrt 1)))
 (assert (or (= s54_secrt 0) (= s54_secrt 1)))
-
-(xxxx)
 
 (assert (and (>= s1_obj 0) (<= s1_obj 1)))
 (assert (and (>= s2_obj 0) (<= s2_obj 1)))
@@ -3192,11 +3184,6 @@
 (assert (and (>= s54_secrt 0) (<= s54_secrt 1)))
 
 
-(dump-context)
-
-(check)
-
-
 (define obj::real 
   (+ (* 1000 (+ s1_obj s2_obj s3_obj s4_obj s5_obj s6_obj s7_obj s8_obj s9_obj s10_obj 
                 s11_obj s12_obj s13_obj s14_obj s15_obj s16_obj s17_obj s18_obj s19_obj s20_obj
@@ -3207,9 +3194,8 @@
       (* -2 (+ s52_secrt s53_secrt s54_secrt))))
 
 
-(assert (> obj 100000))
-
-(dump-context)
+;; optimal? 19992
+(assert (>= obj 19992))
 
 (check)
 

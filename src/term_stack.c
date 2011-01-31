@@ -1566,10 +1566,12 @@ static term_t get_term(tstack_t *stack, stack_elem_t *e) {
  * Raise an exception if e is too large or is not an integer.
  */
 static int32_t get_integer(tstack_t *stack, stack_elem_t *e) {
+  int32_t v;
+
   assert(e->tag == TAG_RATIONAL);
 
-  if (q_is_smallint(&e->val.rational)) {
-    return q_get_smallint(&e->val.rational);
+  if (q_get32(&e->val.rational, &v)) {
+    return v;
   }
 
   if (q_is_integer(&e->val.rational)) {

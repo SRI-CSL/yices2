@@ -29,6 +29,7 @@
 #include "idl_fw_printer.h"
 #include "rdl_fw_printer.h"
 #include "simplex_printer.h"
+#include "bvsolver_printer.h"
 #include "egraph_printer.h"
 #include "smt_core_printer.h"
 #include "context_printer.h"
@@ -37,9 +38,8 @@
 #include "idl_floyd_warshall.h"
 #include "rdl_floyd_warshall.h"
 #include "fun_solver.h"
-// #include "bvsolver.h"
-// #include "solver_printer.h"
-// #include "model_printer.h"
+#include "bvsolver.h"
+#include "model_printer.h"
 
 #include "yices.h"
 #include "yices_globals.h"
@@ -1125,8 +1125,6 @@ static void show_simplex_stats(simplex_stats_t *stat) {
 }
 
 
-#if 0
-
 /*
  * Bitvector solver statistics
  */
@@ -1139,7 +1137,7 @@ static void show_bvsolver_stats(bv_solver_t *solver) {
   printf(" sge atoms               : %"PRIu32"\n", bv_solver_num_sge_atoms(solver));
 }
 
-#endif
+
 
 /*
  * Get the arithmetic solver
@@ -1201,11 +1199,9 @@ static void print_results() {
     }
   }
 
-#if 0
   if (context_has_bv_solver(&context)) {
     show_bvsolver_stats(context.bv_solver);
   }
-#endif
 
   printf("\nSearch time             : %.4f s\n", search_time);
   mem_used = mem_size() / (1024 * 1024);
@@ -1390,6 +1386,26 @@ static void print_internalization_code(int32_t code) {
 }
 
 
+/*
+ * Allocate and initialize a model
+ * - set has_alias true
+ */
+static model_t *new_model(void) {
+  model_t *tmp;
+
+  tmp = (model_t *) safe_malloc(sizeof(model_t));
+  init_model(tmp, __yices_globals.terms, true);
+  return tmp;
+}
+
+
+/*
+ * Free model
+ */
+static void free_model(model_t *model) {
+  delete_model(model);
+  safe_free(model);
+}
 
 
 /*
@@ -1436,7 +1452,6 @@ static void test_evaluator(FILE *f, model_t *model) {
 }
 #endif
 
-#if 0
 static void check_model(FILE *f, smt_benchmark_t *bench, model_t *model) {
   evaluator_t eval;
   term_table_t *terms;
@@ -1456,7 +1471,7 @@ static void check_model(FILE *f, smt_benchmark_t *bench, model_t *model) {
       fprintf(f, "\n==== Assertion[%"PRIu32"] ====\n", i);
       print_term_id(f, t);
       fprintf(f, " = ");
-      print_term(f, t);
+      print_term(f, __yices_globals.terms, t);
       fprintf(f, "\n");
       fflush(f);
       fprintf(f, "evaluates to: ");
@@ -1474,7 +1489,6 @@ static void check_model(FILE *f, smt_benchmark_t *bench, model_t *model) {
   delete_evaluator(&eval);
 }
 
-#endif
 
 /*
  * DUMP SOLVER STATE AFTER INTERNALIZATION
@@ -1496,9 +1510,7 @@ static void dump_internalization_table(FILE *f, context_t *ctx) {
  */
 static void dump_the_context(context_t *context, smt_benchmark_t *bench, char *filename) {
   FILE *dump;
-#if 0
   bv_solver_t *bv;
-#endif
 
   dump = fopen(filename, "w");
   if (dump == NULL) return;
@@ -1538,18 +1550,15 @@ static void dump_the_context(context_t *context, smt_benchmark_t *bench, char *f
     print_simplex_assignment(dump, context->arith_solver);
   }
 
-#if 0
   if (context_has_bv_solver(context)) {
     bv = context->bv_solver;
     fprintf(dump, "\n==== BVSOLVER PARTITION ====\n");
-    print_bvsolver_partition(dump, bv);
+    print_bv_solver_partition(dump, bv);
     fprintf(dump, "\n==== BVSOLVER TERMS ====\n");
-    //    print_bvsolver_vars(dump, bv);
-    print_bvsolver_bitmaps(dump, bv);
+    print_bv_solver_vars(dump, bv);
     fprintf(dump, "\n==== BVSOLVER ATOMS ====\n");
-    print_bvsolver_atoms(dump, bv);
+    print_bv_solver_atoms(dump, bv);
   }
-#endif
 
   fprintf(dump, "\n==== CLAUSES ====\n");
   print_clauses(dump, context->core);
@@ -1627,7 +1636,7 @@ static bool benchmark_reduced_to_false(smt_benchmark_t *bench) {
  */
 static int process_benchmark(char *filename) {
   param_t *search_options;
-  //  model_t *model;
+  model_t *model;
   int32_t code;
   double mem_used;
   context_arch_t arch;
@@ -1895,9 +1904,9 @@ static int process_benchmark(char *filename) {
     code = check_context(&context, search_options, true);
     print_results();
 
-#if 0
     if (show_model && (code == STATUS_SAT || code == STATUS_UNKNOWN)) {
-      model = context_build_model(&context, true);
+      model = new_model();
+      context_build_model(model, &context);
       printf("\nMODEL\n");
       model_print(stdout, model);
       printf("----\n");
@@ -1909,7 +1918,6 @@ static int process_benchmark(char *filename) {
       check_model(stdout, &bench, model);
       free_model(model);
     }
-#endif
 
   }
 

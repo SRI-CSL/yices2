@@ -118,6 +118,9 @@ int main(void) {
   test_parse_type("(scalar X)");
   test_parse_type("not_a_type");
   test_parse_type("(bitvector -1929)");
+  test_parse_type("(bitvector 0)");
+  test_parse_type("(bitvector 321211213456777733887738)");
+  test_parse_type("(bitvector 1073741824)");
   test_parse_type("(bitvector 178447/43)");
   test_parse_type("(bitvector 31.4e1)");
   test_parse_type("(bitvector 31.4e-3)");

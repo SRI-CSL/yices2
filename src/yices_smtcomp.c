@@ -27,8 +27,8 @@
 #include "idl_floyd_warshall.h"
 #include "rdl_floyd_warshall.h"
 #include "fun_solver.h"
-// #include "bvsolver.h"
-// #include "model_printer.h"
+#include "bvsolver.h"
+#include "model_printer.h"
 #include "command_line.h"
 
 #include "yices.h"
@@ -280,9 +280,6 @@ static void print_benchmark(FILE *f, smt_benchmark_t *bench) {
 }
 
 
-
-
-
 /*
  * Statistics in the smt_core
  */
@@ -308,6 +305,7 @@ static void show_stats(dpll_stats_t *stat) {
   printf(" deleted learned clauses : %"PRIu64"\n", stat->learned_clauses_deleted);
   printf(" deleted binary clauses  : %"PRIu64"\n", stat->bin_clauses_deleted);  
 }
+
 
 /*
  * Egraph statistics
@@ -375,7 +373,6 @@ static void show_simplex_stats(simplex_stats_t *stat) {
 }
 
 
-#if 0
 /*
  * Bitvector solver statistics
  */
@@ -388,7 +385,6 @@ static void show_bvsolver_stats(bv_solver_t *solver) {
   printf(" sge atoms               : %"PRIu32"\n", bv_solver_num_sge_atoms(solver));
 }
 
-#endif
 
 /*
  * Get the arithmetic solver
@@ -451,11 +447,9 @@ static void print_results() {
     }
   }
 
-#if 0
   if (context_has_bv_solver(&context)) {
     show_bvsolver_stats(context.bv_solver);
   }
-#endif
 
   printf("\nSearch time             : %.4f s\n", search_time);
   mem_used = mem_size() / (1024 * 1024);
@@ -711,7 +705,6 @@ static int process_benchmark(void) {
 #if SHOW_STATISTICS
   double mem_used;
 #endif
-
 
 #if SHOW_STATISTICS
   print_yices_header(stdout);

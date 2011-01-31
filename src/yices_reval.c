@@ -422,7 +422,7 @@ static void print_help(char *progname) {
 	 "  --logic=name            Configure for the given logic\n"
 	 "                          name must be an SMT-LIB logic code (e.g., QF_UFLIA)\n"
 	 "  --arith-solver=solver   Select the arithmetic solver\n"
-	 "                          solver muse be either 'simplex' or 'floyd-warshall' or 'auto'\n"
+	 "                          solver must be either 'simplex' or 'floyd-warshall' or 'auto'\n"
 	 "\n"
 	 "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
