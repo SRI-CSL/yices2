@@ -23,8 +23,6 @@
 #include "term_printer.h"
 #include "yices.h"
 #include "yices_globals.h"
-#include "yices_error.h"
-
 
 
 

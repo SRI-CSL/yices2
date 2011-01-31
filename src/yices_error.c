@@ -16,7 +16,7 @@
 #include "yices_globals.h"
 
 
-void yices_print_error(FILE *f) {
+void print_error(FILE *f) {
   error_report_t *error;
 
   error = yices_error_report();

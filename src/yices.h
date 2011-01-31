@@ -37,7 +37,7 @@
 
 
 #ifdef __cplusplus
-extern "C" {
+// extern "C" {
 #endif
 
 
@@ -53,6 +53,7 @@ extern "C" {
  *   or http://www.azillionmonkeys.com/qed/pstdint.h
  */
 #include <stdint.h>
+#include <stdio.h>
 
 #include "yices_types.h"
 #include "yices_limits.h"
@@ -122,6 +123,13 @@ __YICES_DLLSPEC__ extern error_report_t *yices_error_report(void);
  * Clear the error report
  */
 __YICES_DLLSPEC__ extern void yices_clear_error(void);
+
+/*
+ * Print an error message on stream f.  This convert the current error
+ * code + error report structure into an error message.
+ */
+__YICES_DLLSPEC__ extern void yices_print_error(FILE *f);
+
 
 
 
@@ -1285,8 +1293,14 @@ __YICES_DLLSPEC__ extern int32_t yices_term_is_function(term_t t);
 __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
 
 
+
+
+
+
+
+
 #ifdef __cplusplus
-} /* close extern "C" { */
+/// } /* close extern "C" { */
 #endif
 
 

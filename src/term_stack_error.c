@@ -327,7 +327,7 @@ static void yices_error(FILE *f, const char *name, tstack_t *tstack) {
   fprintf(f, "error in %s, line %"PRId32", column %"PRId32": ",
 	  opcode2string[tstack->error_op], tstack->error_loc.line, tstack->error_loc.column);
 
-  yices_print_error(f);
+  print_error(f);
 }
 
 

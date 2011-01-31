@@ -45,6 +45,7 @@
 #include "bvarith64_buffer_terms.h"
 
 #include "yices.h"
+#include "yices_error.h"
 #include "yices_extensions.h"
 #include "yices_globals.h"
 #include "yices_parser.h"
@@ -687,11 +688,20 @@ EXPORTED error_code_t yices_error_code(void) {
   return error.code;
 }
 
+
 /*
  * Clear the last error report
  */
 EXPORTED void yices_clear_error(void) {
   error.code = NO_ERROR;
+}
+
+
+/*
+ * Print an error message on f
+ */
+EXPORTED void yices_print_error(FILE *f) {
+  print_error(f);
 }
 
 
