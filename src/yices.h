@@ -37,7 +37,7 @@
 
 
 #ifdef __cplusplus
-// extern "C" {
+extern "C" {
 #endif
 
 
@@ -1297,10 +1297,376 @@ __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
 
 
 
+/***************
+ *  CONTEXTS   *
+ **************/
+
+/*
+ * A context is basically a set of assertions.
+ *
+ * The intended use is:
+ * 1) create a context (empty)
+ * 2) assert one or more formulas in the context.
+ *    (it's allowed to call assert several times before check).
+ * 3) check satisfiability
+ * 4) if the context is satisfiable, optionally build a model
+ * 5) reset the context and go back to 2
+ * 6) delete the context
+ *
+ *
+ * A context can be in one of the following states:
+ * 1) IDLE: this is the initial state.
+ *    In this state, it's possible to assert formulas.
+ *    After assertions, the status may change to UNSAT (if
+ *    the assertions are trivially unsatisfiable). Otherwise
+ *    status remains IDLE.
+ * 
+ * 2) SEARCHING: this is the context status during search.
+ *    The context moves into that state after a call to 'check'
+ *    and remains in that state until the solver completes
+ *    or the search is interrupted.
+ *
+ * 3) SAT/UNSAT/UNKNOWN: status returned after a search
+ *    - UNSAT means the assertions are not satisifiable.
+ *    - SAT means they are satisfiable.
+ *    - UNKNOWN means that the solver could not determine whether
+ *      the assertions are SAT or UNSAT. This may happen if 
+ *      Yices is not complete for the specific logic used (e.g.,
+ *      if the formula includes quantifiers).
+ *
+ * 4) INTERRUPTED: if the context is in the SEARCHING state,
+ *    then it can be interrupted via a call to stop_search.
+ *    The status INTERRUPTED indicates that.
+ *
+ *
+ * For fine tuning: there are options that determine which internal
+ * simplifications are applied when formulas are asserted, and
+ * other options to control heuristics used by the solver.
+ */
+
+/*
+ * Create a new context
+ */
+__YICES_DLLSPEC__ extern context_t *yices_new_context(void);
+
+
+/*
+ * Deletion
+ */
+__YICES_DLLSPEC__ extern void yices_free_context(context_t *ctx);
+
+
+/*
+ * Get status: return the context's status flag
+ * - return one of the codes defined in yices_types.h
+ */
+__YICES_DLLSPEC__ extern smt_status_t yices_context_status(context_t *ctx);
+
+
+/*
+ * Reset: remove all assertions and restore ctx's 
+ * status to IDLE.
+ */
+__YICES_DLLSPEC__ extern void yices_reset_context(context_t *ctx);
+
+
+/*
+ * Push: mark a backtrack point
+ * - return 0 if this operation is supported by the context
+ *         -1 otherwise
+ *
+ * Error report:
+ * - if the context is not configured to support push/pop
+ *   code = CTX_OPERATION_NOT_SUPPORTED
+ * - if the context status is UNSAT or SEARCHING or INTERRUPTED
+ *   code = CTX_INVALID_OPERATION
+ */
+__YICES_DLLSPEC__ extern int32_t yices_push(context_t *ctx);
+
+
+/*
+ * Pop: backtrack to the previous backtrack point (i.e., the matching
+ * call to yices_push).
+ * - return 0 if the operation succeeds, -1 otherwise.
+ *
+ * Error report:
+ * - if the context is not configured to support push/pop
+ *   code = CTX_OPERATION_NOT_SUPPORTED
+ * - if there's no matching push (i.e., the context stack is empty)
+ *   or if the context's status is SEARCHING or INTERRUPTED
+ *   code = CTX_INVALID_OPERATION
+ */
+__YICES_DLLSPEC__ extern int32_t yices_pop(context_t *ctx);
+
+
+/*
+ * Assert formula t in ctx
+ * - ctx status must be IDLE or UNSAT
+ * - t must be a boolean term
+ *
+ * If ctx's status is UNSAT, nothing is done.
+ * 
+ * If cts's status is IDLE, then the formula is simplified
+ * and asserted in the context. The context status is changed
+ * to UNSAT if the formula is simplified to 'false'.
+ * 
+ * This returns 0 if there's no error or -1 if there's an error.
+ * 
+ * Error report:
+ * if t is invalid
+ *   code = INVALID_TERM
+ *   term1 = t
+ * if t is not boolean
+ *   code = TYPE_MISMATCH
+ *   term1 = t
+ *   type1 = bool (expected type)
+ * if ctx's status is not IDLE or UNSAT
+ *   code = CTX_INVALID_OPERATION
+ *
+ * For future extensions, other error codes are defined in
+ * yices_types.h to report that t is outside the logic supported 
+ * by ctx. These should never happen with this version of Yices.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_assert_formula(context_t *ctx, term_t t);
+
+
+/*
+ * Same thing for an array of n formulas t[0 ... n-1]
+ * - ctx's status must be IDLE or UNSAT
+ * - all t[i]'s must be valid boolean terms.
+ * - n must be non-negative
+ *
+ * The function returns -1 on error, 0 otherwise.
+ *
+ * The error report is set as in the previous function.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, int32_t n, term_t t[]);
+
+
+/*
+ * Check satisfiability: check whether the assertions stored in ctx
+ * are satisfiable.  
+ * - params is an optional structure that stores heurisitic parameters.
+ * - if params is NULL, default parameter settings are used.
+ *
+ * It's better to keep params=NULL unless you encounter performance
+ * problems.  Then you may want to play with the heuristics to see if
+ * performance improves.
+ *
+ * The behavior and returned value depend on ctx's current status:
+ *
+ * 1) If ctx's status is SAT, UNSAT, or UNKNOWN, the function 
+ *    does nothing and just return the status.
+ *
+ * 2) If ctx's status is IDLE, then the solver searches for a
+ *    satisfying assignment. If param != NULL, the search parameters
+ *    defined by params are used.
+ * 
+ *    The function returns one of the following codes:
+ *    - SAT: the context is satisfiable
+ *    - UNSAT: the context is not satisfiable
+ *    - UNKNOWN: satisfiability can't be proved or disproved 
+ *    - INTERRUPTED: the search was interrupted
+ *
+ *    The returned status is also stored as the new ctx's status flag.
+ *
+ * 3) Otherwise, the function does nothing and returns 'STATUS_ERROR', 
+ *    it also sets the yices error report (code = CTX_INVALID_OPERATION).
+ */
+__YICES_DLLSPEC__ extern smt_status_t yices_check_context(context_t *ctx, const param_t *params);
+
+
+/*
+ * Interrupt the search:
+ * - this can be called from a signal handler to stop the search,
+ *   after a call to yices_check_context to interrupt the solver.
+ *
+ * If ctx's status is SEARCHING, then the current search is
+ * interrupted and ctx's status flag is updated to
+ * INTERRUPTED. Otherwise, the function does nothing.
+ */
+__YICES_DLLSPEC__ extern void yices_stop_search(context_t *ctx);
+
+
+
+/*
+ * SIMPLIFICATION OPTIONS
+ */
+
+/*
+ * Several options determine how much simplication is performed
+ * when formulas are asserted. It's best to leave them untouched
+ * unless you really know what you're doing.
+ *
+ * The following functions selectively enable/disable a preprocessing
+ * option. (MORE DOC TBD).
+ * 
+ */
+__YICES_DLLSPEC__ extern void yices_context_enable_option(context_t *ctx, const char *option);
+__YICES_DLLSPEC__ extern void yices_context_disable_option(context_t *ctx, const char *option);
+
+
+
+/*
+ * SEARCH PARAMETERS
+ */
+
+/*
+ * A parameter structure is an opaque object that stores various
+ * search parameters and options that control the heuristics used by
+ * the solver. 
+ *
+ * A parameter structure is created by calling 
+ * - yices_new_param_structure(void)
+ * This returns a parameter structure initialized with default
+ * settings.
+ *
+ * Then individual parameters can be set using function
+ * - yices_set_param(s, name, value) where both name and value are 
+ *   character strings.
+ * - an unknown/unsupported parameter name is ignored
+ *
+ * Then the param object can be passed on as argument to yices_check_context.
+ *
+ * When it's no longer needed, the object must be deleted by 
+ * calling yices_free_param_structure(parma).
+ */
+
+/*
+ * Returned a parameter structure initialized with default settings.
+ */
+__YICES_DLLSPEC__ extern param_t *yices_new_param_structure(void);
+
+
+/*
+ * Set a parameter in stucture s
+ * - pname = parameter name
+ * - value = setting
+ *
+ * Return -1 if there's an error, 0 otherwise
+ */
+__YICES_DLLSPEC__ extern int32_t yices_set_param(param_t *p, const char *pname, const char *value);
+
+
+/*
+ * Delete the param structure
+ */
+__YICES_DLLSPEC__ extern void yices_free_param_structure(param_t *param);
+
+
+
+
+
+/**************
+ *   MODELS   *
+ *************/
+
+/*
+ * Build a model from ctx 
+ * - keep_subst indicates whether the model should include
+ *   the eliminated variables: 
+ *   keep_subst = 0 means don't keep substitutions,
+ *   keep_subst != 0 means keep them
+ * - ctx status must be SAT
+ *
+ * The function returns NULL if the status isn't SAT and sets an error
+ * report.
+ *
+ * When assertions are added to the context, the simplifications may
+ * eliminate variables (cf. simplification options above).  The flag
+ * 'keep_subst' indicates whether the model should keep track of these
+ * eliminated variables and include their value.
+ *
+ * Example: after the following assertions 
+ *
+ *    (= x (bv-add y z))
+ *    (bv-gt y 0b000)
+ *    (bg-gt z 0b000)
+ *
+ * variable 'x' gets eliminated. Then a call to 'check_context' will
+ * return SAT and we can ask for a model 'M'
+ * - if 'keep_subst' is false then the value of 'x' in 'M' is unavailable.
+ * - if 'keep_subst' is true then the value of 'x' in 'M' is computed,
+ *   based on the value of 'y' and 'z' in 'M'.
+ *
+ * It's always better to set 'keep_subst' true. The only exceptions
+ * are some of the large SMT_LIB benchmarks where millions of variables
+ * are eliminated.  In such cases, it saves memory to set 'keep_susbt'
+ * false, and model construction is faster too.
+ */
+__YICES_DLLSPEC__ extern model_t *yices_get_model(context_t *ctx, int32_t keep_subst);
+
+
+/*
+ * Delete model mdl
+ */
+__YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
+
+
+/*
+ * Compute the value of Boolean term t in mdl
+ * - return 0  if the value of t can be computed
+ * - return -1 otherwise and set an error code
+ * - t's value is returned in *val (0 means t is false, 1 means t is true)
+ *
+ * Possible error codes:
+ * if t is not valid:
+ *   code = INVALID_TERM
+ *   term1 = t
+ * if t is not boolean
+ *   code = TYPE_MISMATCH
+ *   term1 = t
+ *   type1 = bool (expected type)
+ *
+ * The following error codes indicate that t's value could not be computed:
+ * if t contains a variable whose value is not known in mdl
+ *     code = EVAL_UNKNOWN_TERM
+ * NOTE: this should not happen if mdl was created with the flag 'keep_subst = true'
+ * 
+ * Other error codes (EVAL_FREEVAR_IN_TERM, EVAL_QUANTIFIER, EVAL_FAILED) should not 
+ * happen with this version of Yices.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_eval_bool_term_in_model(model_t *mdl, term_t t, int32_t *val);
+
+
+/*
+ * Compute the value of bitvector term t in mdl
+ * - the value is returned in array val
+ * - val must be an integer array of sufficient size to store 
+ *   all bits of t
+ * - bit i of t is stored in val[i] (val[i] is either 0 or 1)
+ * - the value is returned using small-endian convention:
+ *    val[0] is the low order bit
+ *    ...
+ *    val[n-1] is the high order bit 
+ *
+ * The function returns -1 if there's an error (i.e., t is not a valid
+ * term, or it's not a bitvector) and set the error report.
+ * Otherwise it returns 0.
+ *
+ * 
+ * Possible error codes:
+ * if t is not valid:
+ *   code = INVALID_TERM
+ *   term1 = t
+ * if t is not a bitvector term
+ *   code = BITVECTOR_REQUIRED
+ *   term1 = t
+ *
+ * All other error codes indicate that t's value could not be computed.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_eval_bv_term_in_model(model_t *mdl, term_t t, int32_t val[]);
+
+
+/*
+ * MORE EVALUATION AND QUERY FUNCTIONS TBD
+ */
+
+
 
 
 #ifdef __cplusplus
-/// } /* close extern "C" { */
+} /* close extern "C" { */
 #endif
 
 

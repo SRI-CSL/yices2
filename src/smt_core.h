@@ -36,7 +36,7 @@
 
 #include "bitvectors.h"
 #include "int_vectors.h"
-
+#include "yices_types.h"
 
 /*
  * PROVISIONAL: set USE_END_WATCH to 1 to support end_watch pointers
@@ -880,7 +880,7 @@ typedef struct dpll_stats_s {
  ********************/
 
 /*
- * Status:
+ * Status: the codes are now defined in yices_types.h
  * - idle is the initial status
  * - addition of clauses may cause status to become unsat
  *   otherwise it remains idle until search starts.
@@ -893,6 +893,7 @@ typedef struct dpll_stats_s {
  * - if status is UNSAT, reset or pop must be called before any 
  *   other operation. This also restores the state to idle.
  */
+#if 0
 typedef enum smt_status {
   STATUS_IDLE,
   STATUS_SEARCHING,
@@ -901,6 +902,7 @@ typedef enum smt_status {
   STATUS_UNSAT,
   STATUS_INTERRUPTED,
 } smt_status_t;
+#endif
 
 
 /*

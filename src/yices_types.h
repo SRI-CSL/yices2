@@ -9,6 +9,11 @@
 
 #include <stdint.h>
 
+
+/*********************
+ *  TERMS AND TYPES  *
+ ********************/
+
 /*
  * Exported types
  * - term = index in a term table
@@ -23,12 +28,44 @@ typedef int32_t type_t;
 #define NULL_TERM (-1)
 #define NULL_TYPE (-1)
 
+
+
+/************************
+ *  CONTEXT AND MODELS  *
+ ***********************/
+
 /*
  * Context and models (opaque types)
  */
 typedef struct context_s context_t;
 typedef struct model_s model_t;
 
+
+/*
+ * Context status code
+ */
+typedef enum smt_status {
+  STATUS_IDLE,
+  STATUS_SEARCHING,
+  STATUS_UNKNOWN,
+  STATUS_SAT,
+  STATUS_UNSAT,
+  STATUS_INTERRUPTED,
+} smt_status_t;
+
+
+
+/*
+ * Search parameters (opaque type)
+ */
+typedef struct param_s param_t;
+
+
+
+
+/*****************
+ *  ERROR CODES  * 
+ ****************/
 
 /*
  * Error report for term and type construction
@@ -39,6 +76,10 @@ typedef struct model_s model_t;
  */
 typedef enum error_code {
   NO_ERROR,
+
+  /*
+   * Errors in type of term construction
+   */
   INVALID_TYPE,
   INVALID_TERM,
   INVALID_CONSTANT_INDEX,
@@ -70,7 +111,9 @@ typedef enum error_code {
   INCOMPATIBLE_BVSIZES,
   EMPTY_BITVECTOR,
 
-  // parser errors
+  /*
+   * Parser errors
+   */
   INVALID_TOKEN,
   SYNTAX_ERROR,
   UNDEFINED_TYPE_NAME,
@@ -90,18 +133,53 @@ typedef enum error_code {
   TYPE_MISMATCH_IN_DEF,
   ARITH_ERROR,
   BVARITH_ERROR,
+
+  /* 
+   * Errors in assertion processing.
+   * These codes mean that the context, as configured,
+   * cannot process the assertions.
+   */
+  CTX_FREE_VAR_IN_FORMULA,
+  CTX_LOGIC_NOT_SUPPORTED,
+  CTX_UF_NOT_SUPPORTED,
+  CTX_ARITH_NOT_SUPPORTED,
+  CTX_BV_NOT_SUPPORTED,
+  CTX_ARRAYS_NOT_SUPPORTED,
+  CTX_QUANTIFIERS_NOT_SUPPORTED,
+  CTX_NONLINEAR_ARITH_NOT_SUPPORTED,
+  CTX_FORMULA_NOT_IDL,
+  CTX_FORMULA_NOT_RDL,
+
+  // More error codes for other operations on the context
+  CTX_INVALID_OPERATION,
+  CTX_OPERATION_NOT_SUPPORTED,
+
+  /*
+   * Errors in eval_in_model
+   */
+  EVAL_UNKNOWN_TERM,
+  EVAL_FREEVAR_IN_TERM,
+  EVAL_QUANTIFIER,
+  EVAL_FAILED,  
+  
+  /*
+   * Catch-all code for anything else.
+   * This is a symptom that a bug has been found.
+   */
+  INTERNAL_EXCEPTION,
 } error_code_t;
 
-#define NUM_YICES_ERRORS (BVARITH_ERROR+1)
+#define NUM_YICES_ERRORS (INTERNAL_EXCEPTION+1)
+
 
 /*
- * error report = a code + line and column + 1 or 2 terms + 1 or 2 types
+ * Error report = a code + line and column + 1 or 2 terms + 1 or 2 types
  * + an (erroneous) integer value.
  *
- * The yices API functions return a negative number and set an error code
- * on error. The fields other than the error code depend on the code.
- * In addition, the parsing functions (yices_parse_type and yices_parse_term) 
- * set the line/column fields on error.
+ * The yices API returns a negative number and set an error code on
+ * error. The fields other than the error code depend on the code.  In
+ * addition, the parsing functions (yices_parse_type and
+ * yices_parse_term) set the line/column fields on error.
  *
  *  error code                 meaningful fields
  *
@@ -139,7 +217,7 @@ typedef enum error_code {
  *  EMPTY_BITVECTOR            none
  *
  * The following error codes are only used by the parsing functions. 
- * No field other than line/column is set:
+ * No field other than line/column is set.
  * 
  *  INVALID_TOKEN
  *  SYNTAX_ERROR
@@ -159,6 +237,31 @@ typedef enum error_code {
  *  NEGATIVE_BVSIZE
  *  ARITH_ERROR
  *  BVARITH_ERROR
+ *
+ * The following error codes are triggered by invalid operations
+ * on a context. For these errors, no fields of error_report (other 
+ * than the code) is meaningful.
+ *
+ *  CTX_FREE_VAR_IN_FORMULA             none
+ *  CTX_LOGIC_NOT_SUPPORTED             none
+ *  CTX_UF_NOT_SUPPORTED                none
+ *  CTX_ARITH_NOT_SUPPORTED             none
+ *  CTX_BV_NOT_SUPPORTED                none
+ *  CTX_ARRAYS_NOT_SUPPORTED            none
+ *  CTX_QUANTIFIERS_NOT_SUPPORTED       none
+ *  CTX_NONLINEAR_ARITH_NOT_SUPPORTED   none
+ *  CTX_FORMULA_NOT_IDL                 none
+ *  CTX_FORMULA_NOT_RDL                 none
+ *
+ *  CTX_OPERATION_NOT_SUPPORTED         none
+ *  CTX_INVALID_OPERATION               none
+ *
+ *  EVAL_UNKNOWN_TERM                   none
+ *  EVAL_FREEVAR_IN_TERM                none
+ *  EVAL_QUANTIFIER                     none
+ *  EVAL_FAILED                         none
+ *
+ *  INTERNAL_EXCEPTION                  none
  */
 typedef struct error_report_s {
   error_code_t code;

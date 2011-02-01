@@ -697,7 +697,7 @@ typedef enum {
 
 
 
-typedef struct param_s {
+struct param_s {
   /*
    * Restart heuristic: similar to PICOSAT or MINISAT
    *
@@ -804,7 +804,7 @@ typedef struct param_s {
   uint32_t max_update_conflicts;
   uint32_t max_extensionality;
 
-} param_t;
+};
 
 
 

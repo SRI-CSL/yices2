@@ -60,7 +60,7 @@ static th_smt_interface_t null_theory_smt = {
 /*
  * Heuristic parameters
  */
-typedef struct param_s {
+typedef struct core_param_s {
   /*
    * Restart heuristic: similar to PICOSAT
    * - inner restarts based on c_threshold 
@@ -89,14 +89,14 @@ typedef struct param_s {
   float    randomness;      // probability of a random pick in select_unassigned_literal
   double   var_decay;       // decay factor for variable activity
   
-} param_t;
+} core_param_t;
 
 
 
 /*
  * Default parameters
  */
-static param_t default_settings = {
+static core_param_t default_settings = {
   100,   // c_threshold
   100,   // d_threshold
   1.1,   // c_factor
@@ -188,7 +188,7 @@ static void show_progress(smt_core_t *core,
  *   If params is NULL, the default settings are used.
  * - verbose: if true, prints some data after each outer restart
  */
-static void sat_solve(smt_core_t *core, param_t *params, bool verbose) {
+static void sat_solve(smt_core_t *core, core_param_t *params, bool verbose) {
   uint32_t c_threshold, d_threshold; // Picosat-style
   uint32_t n_reductions, reduce_threshold;
 

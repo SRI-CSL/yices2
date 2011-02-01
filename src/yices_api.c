@@ -43,6 +43,8 @@
 #include "arith_buffer_terms.h"
 #include "bvarith_buffer_terms.h"
 #include "bvarith64_buffer_terms.h"
+#include "context.h"
+#include "models.h"
 
 #include "yices.h"
 #include "yices_error.h"
@@ -95,13 +97,57 @@ static lexer_t *lexer;
 static tstack_t *tstack;
 
 
-
 /*
  * Initial sizes of the type and term tables.
  */
 #define INIT_TYPE_SIZE  16
 #define INIT_TERM_SIZE  64
 
+
+/*
+ * Global table; initially all 7 pointers are NULL
+ */
+yices_globals_t __yices_globals = {
+  NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+};
+
+
+
+/*
+ * INTERNAL BUFFERS
+ */
+
+/*
+ * Auxiliary buffer for internal conversion of equality and
+ * disequalities to arithmetic atoms.
+ */
+static arith_buffer_t *internal_arith_buffer;
+
+/*
+ * Auxiliary buffers for bitvector polynomials.
+ */
+static bvarith_buffer_t *internal_bvarith_buffer;
+static bvarith64_buffer_t *internal_bvarith64_buffer;
+
+/*
+ * Auxiliary bitvector buffer.
+ */
+static bvlogic_buffer_t *internal_bvlogic_buffer;
+
+
+
+
+/************************************
+ *  DYNAMICALLY ALLOCATED OBJECTS   *
+ ***********************************/
+
+/*
+ * All objects that can be allocated via the API 
+ * are stored in doubly-linked lists. This will help
+ * implement some form of garbage collection at some point.
+ * For now, this  makes it possible to deletea all
+ * global objects when yices_exit is called.
+ */
 
 /*
  * Doubly-linked list of arithmetic buffers
@@ -148,29 +194,36 @@ static dl_list_t bvlogic_buffer_list;
 
 
 /*
- * Auxiliary buffer for internal conversion of equality and
- * disequalities to arithmetic atoms.
+ * Doubly-linked list of contexts
  */
-static arith_buffer_t *internal_arith_buffer;
+typedef struct {
+  dl_list_t header;
+  context_t context;
+} context_elem_t;
 
-/*
- * Auxiliary buffers for bitvector polynomials.
- */
-static bvarith_buffer_t *internal_bvarith_buffer;
-static bvarith64_buffer_t *internal_bvarith64_buffer;
-
-/*
- * Auxiliary bitvector buffer.
- */
-static bvlogic_buffer_t *internal_bvlogic_buffer;
+static dl_list_t context_list;
 
 
 /*
- * Global table; initially all 7 pointers are NULL
+ * Models
  */
-yices_globals_t __yices_globals = {
-  NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-};
+typedef struct {
+  dl_list_t header;
+  model_t model;
+} model_elem_t;
+
+static dl_list_t model_list;
+
+
+/*
+ * Parameter structures
+ */
+typedef struct {
+  dl_list_t header;
+  param_t param;
+} param_structure_elem_t;
+
+static dl_list_t param_structure_list;
 
 
 
@@ -412,6 +465,188 @@ static void free_bvlogic_buffer_list(void) {
 
 
 
+/*************************
+ *  CONTEXT ALLOCATION   *
+ ************************/
+
+/*
+ * Get the header of a context c, assuming c is embedded in a context_elem
+ */
+static inline dl_list_t *header_of_context(context_t *c) {
+  return (dl_list_t *)(((char *) c) - offsetof(context_elem_t, context));
+}
+
+/*
+ * Get the context of header l
+ */
+static inline context_t *context_of_header(dl_list_t *l) {
+  return (context_t *) (((char *) l) + offsetof(context_elem_t, context));
+}
+
+/*
+ * Allocate a fresh context object and insert it in the context_list
+ * - WARNING: the context is not initialized
+ */
+static inline context_t *alloc_context(void) {
+  context_elem_t *new_elem;
+
+  new_elem = (context_elem_t *) safe_malloc(sizeof(context_elem_t));
+  list_insert_next(&context_list, &new_elem->header);
+  return &new_elem->context;
+}
+
+
+/*
+ * Remove c from the list and free c
+ * - WARNING: make sure to call delete_context(c) before this 
+ *   function
+ */
+static inline void free_context(context_t *c) {
+  dl_list_t *elem;
+
+  elem = header_of_context(c);
+  list_remove(elem);
+  safe_free(elem);
+}
+
+
+/*
+ * Cleanup the context list
+ */
+static void free_context_list(void) {
+  dl_list_t *elem, *aux;
+
+  elem = context_list.next;
+  while (elem != &context_list) {
+    aux = elem->next;
+    delete_context(context_of_header(elem));
+    safe_free(elem);
+    elem = aux;
+  }
+
+  clear_list(&context_list);
+}
+
+
+
+/***********************
+ *  MODEL ALLOCATION   *
+ **********************/
+
+/*
+ * Get the header of a context m, assuming m is embedded in a model_elem
+ */
+static inline dl_list_t *header_of_model(model_t *m) {
+  return (dl_list_t *)(((char *) m) - offsetof(model_elem_t, model));
+}
+
+/*
+ * Get the model of header l
+ */
+static inline model_t *model_of_header(dl_list_t *l) {
+  return (model_t *) (((char *) l) + offsetof(model_elem_t, model));
+}
+
+/*
+ * Allocate a fresh model object and insert it in the model_list
+ * - WARNING: the model is not initialized
+ */
+static inline model_t *alloc_model(void) {
+  model_elem_t *new_elem;
+
+  new_elem = (model_elem_t *) safe_malloc(sizeof(model_elem_t));
+  list_insert_next(&model_list, &new_elem->header);
+  return &new_elem->model;
+}
+
+
+/*
+ * Remove c from the list and free m
+ * - WARNING: make sure to call delete_model(c) before this 
+ *   function
+ */
+static inline void free_model(model_t *m) {
+  dl_list_t *elem;
+
+  elem = header_of_model(m);
+  list_remove(elem);
+  safe_free(elem);
+}
+
+
+/*
+ * Cleanup the model list
+ */
+static void free_model_list(void) {
+  dl_list_t *elem, *aux;
+
+  elem = model_list.next;
+  while (elem != &model_list) {
+    aux = elem->next;
+    delete_model(model_of_header(elem));
+    safe_free(elem);
+    elem = aux;
+  }
+
+  clear_list(&model_list);
+}
+
+
+
+
+/***********************************************
+ *  ALLOCATION OF SEARCH PARAMETER STRUCTURES  *
+ **********************************************/
+
+/*
+ * Get the header of param_t p, assuming p is embedded in a param_structure_elem
+ */
+static inline dl_list_t *header_of_param_structure(param_t *p) {
+  return (dl_list_t *) (((char *) p) - offsetof(param_structure_elem_t, param));
+}
+
+
+/*
+ * Allocate a parameter structure and insert it into the list
+ * WARNING: the record is not initialized
+ */
+static inline param_t *alloc_param_structure(void) {
+  param_structure_elem_t *new_elem;
+
+  new_elem = (param_structure_elem_t *) safe_malloc(sizeof(param_structure_elem_t));
+  list_insert_next(&param_structure_list, &new_elem->header);
+  return &new_elem->param;
+}
+
+
+/*
+ * Remove p form the list of parameter structures and free p
+ */
+static inline void free_param_structure(param_t *p) {
+  dl_list_t *elem;
+
+  elem = header_of_param_structure(p);
+  list_remove(elem);
+  safe_free(elem);
+}
+
+
+/*
+ * Empty the list of parameter structures
+ */
+static void free_param_structure_list(void) {
+  dl_list_t *elem, *aux;
+
+  elem = param_structure_list.next;
+  while (elem != &param_structure_list) {
+    aux = elem->next;
+    safe_free(elem);
+    elem = aux;
+  }
+
+  clear_list(&param_structure_list);
+}
+
 
 
 /***********************
@@ -613,6 +848,11 @@ EXPORTED void yices_init(void) {
   clear_list(&bvarith64_buffer_list);
   clear_list(&bvlogic_buffer_list);
 
+  // other dynamic object lists
+  clear_list(&context_list);
+  clear_list(&model_list);
+  clear_list(&param_structure_list);
+
   // internal buffers (allocated on demand)
   internal_arith_buffer = NULL;
   internal_bvarith_buffer = NULL;
@@ -649,6 +889,10 @@ EXPORTED void yices_exit(void) {
   free_bvarith_buffer_list();
   free_bvarith64_buffer_list();
   free_arith_buffer_list();
+
+  free_context_list();
+  free_model_list();
+  free_param_structure_list();
 
   delete_term_table(&terms);
   delete_node_table(&nodes);
