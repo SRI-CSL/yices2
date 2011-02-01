@@ -54,6 +54,10 @@ typedef enum smt_status {
 } smt_status_t;
 
 
+/*
+ * Context configuration (opaque type)
+ */
+typedef struct ctx_config_s ctx_config_t;
 
 /*
  * Search parameters (opaque type)
@@ -160,6 +164,7 @@ typedef enum error_code {
   EVAL_UNKNOWN_TERM,
   EVAL_FREEVAR_IN_TERM,
   EVAL_QUANTIFIER,
+  EVAL_OVERFLOW,
   EVAL_FAILED,  
   
   /*

@@ -1345,9 +1345,19 @@ __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
  */
 
 /*
- * Create a new context
+ * Create a new context:
+ * - config is an optional argument that specifies the context configuration
+ * - the configuration specifies which components the context should
+ *   include (e.g., egraph, bv_solver, simplex_solver, etc),
+ *   and which features should be supported (e.g., whether push/pop are
+ *   needed).
+ * - if config is NULL, the default configuration is used:
+ *   TBD: DESCRIBE IT
+ *
+ * If there's an error (i.e.,the configuration is not supported), the
+ * function returns NULL and set an error code:
  */
-__YICES_DLLSPEC__ extern context_t *yices_new_context(void);
+__YICES_DLLSPEC__ extern context_t *yices_new_context(const ctx_config_t *config);
 
 
 /*
@@ -1508,11 +1518,61 @@ __YICES_DLLSPEC__ extern void yices_context_disable_option(context_t *ctx, const
 
 
 /*
+ * CONTEXT CONFIGURATION OPTIONS
+ */
+
+/*
+ * A configuration structure is an opaque structure that 
+ * specifies the solver components in a context and other 
+ * context features.
+ *
+ * A default configuration object is allocated by calling:
+ * - yices_new_config(void)
+ * Then configurations parameters can be set or changed via
+ * - yices_set_config(config, param, value)
+ * Once filled in, the config object can be passed on to the
+ * context creation function: yices_new_context.
+ *
+ * Then the config object can be deleted by calling yices_free_config.
+ */
+
+/*
+ * Allocate a configuration descriptor
+ * TBD: Explain the defaults.
+ */
+__YICES_DLLSPEC__ extern ctx_config_t *yices_new_config(void);
+
+
+/*
+ * Deletion
+ */
+__YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
+
+
+/*
+ * Set a configuration parameter:
+ * - name = the parameter name
+ * - value = the value
+ * TBD: List the parameter/values.
+ *
+ * The function returns -1 if there's an error, 0 otherwise.
+ *
+ * If the parameter name is not known or supported by this version of
+ * Yices, it is ignored, and the function returns 0.
+ *
+ * If name is known but the value does not match the parameter type, then 
+ * the function returns -1 and set the error report.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const char *name, const char *value);
+
+
+
+/*
  * SEARCH PARAMETERS
  */
 
 /*
- * A parameter structure is an opaque object that stores various
+ * A parameter record is an opaque object that stores various
  * search parameters and options that control the heuristics used by
  * the solver. 
  *
@@ -1533,25 +1593,26 @@ __YICES_DLLSPEC__ extern void yices_context_disable_option(context_t *ctx, const
  */
 
 /*
- * Returned a parameter structure initialized with default settings.
+ * Return a parameter record initialized with default settings.
  */
-__YICES_DLLSPEC__ extern param_t *yices_new_param_structure(void);
+__YICES_DLLSPEC__ extern param_t *yices_new_param_record(void);
 
 
 /*
- * Set a parameter in stucture s
+ * Set a parameter in record p
  * - pname = parameter name
  * - value = setting
  *
+ * TBD: describe the known parameters and the range of values for each.
  * Return -1 if there's an error, 0 otherwise
  */
 __YICES_DLLSPEC__ extern int32_t yices_set_param(param_t *p, const char *pname, const char *value);
 
 
 /*
- * Delete the param structure
+ * Delete the record param
  */
-__YICES_DLLSPEC__ extern void yices_free_param_structure(param_t *param);
+__YICES_DLLSPEC__ extern void yices_free_param_record(param_t *param);
 
 
 
@@ -1604,63 +1665,76 @@ __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
 
 
 /*
- * Compute the value of Boolean term t in mdl
- * - return 0  if the value of t can be computed
- * - return -1 otherwise and set an error code
- * - t's value is returned in *val (0 means t is false, 1 means t is true)
+ * Evaluation functions. Once a model is constructed, it's possible
+ * to query for the value of a term t in that model. The following
+ * functions do that for different term types.
+ * 
+ * The evaluaion functions return -1 if the value of t is unknown
+ * or can't be computed in the model. Otherwise, they return 0.
  *
  * Possible error codes:
- * if t is not valid:
+ * If t is not valid:
  *   code = INVALID_TERM
  *   term1 = t
- * if t is not boolean
+ *
+ * Other error codes indicate that t does not have the right type
+ * or that the evaluation failed for some reason:
+ * if t contains a subterm whose value is not known
+ *   code = EVAL_UNKNOWN_TERM
+ * if t contains a free variable
+ *   code = EVAL_FREEVAR_IN_TERM
+ * if t contains quantifier(s)
+ *   code = EVAL_QUANTIFIER
+ * If the evaluation fails for other reasons:
+ *   code = EVAL_FAILED
+ */
+
+/*
+ * Value of boolean term t: returned as an integer val
+ * - val = 0 means t is false in mdl
+ * - val = 1 measn t is true in mdl
+ *
+ * Error codes:
+ * If t is not boolean
  *   code = TYPE_MISMATCH
  *   term1 = t
  *   type1 = bool (expected type)
- *
- * The following error codes indicate that t's value could not be computed:
- * if t contains a variable whose value is not known in mdl
- *     code = EVAL_UNKNOWN_TERM
- * NOTE: this should not happen if mdl was created with the flag 'keep_subst = true'
- * 
- * Other error codes (EVAL_FREEVAR_IN_TERM, EVAL_QUANTIFIER, EVAL_FAILED) should not 
- * happen with this version of Yices.
+ * + the other evaluation error codes above.
  */
-__YICES_DLLSPEC__ extern int32_t yices_eval_bool_term_in_model(model_t *mdl, term_t t, int32_t *val);
+__YICES_DLLSPEC__ extern int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val);
 
 
 /*
- * Compute the value of bitvector term t in mdl
+ * Value of arithmetic term t: returned as an integer, a rational (pair num/den),
+ * or converted to a dobule, or using the GMP mpz_t and mpq_t representations.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_get_int32_value(model_t *mdl, term_t t, int32_t *val);
+__YICES_DLLSPEC__ extern int32_t yices_get_int64_value(model_t *mdl, term_t t, int64_t *val);
+__YICES_DLLSPEC__ extern int32_t yices_get_double_value(model_t *mdl, term_t t, double *val);
+__YICES_DLLSPEC__ extern int32_t yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint32_t *den);
+__YICES_DLLSPEC__ extern int32_t yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint64_t *den);
+
+#ifdef __GMP_H
+__YICES_DLLSPEC__ extern int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val);
+__YICES_DLLSPEC__ extern int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val);
+#endif
+
+
+/*
+ * Value of bitvector term t in mdl
  * - the value is returned in array val
- * - val must be an integer array of sufficient size to store 
- *   all bits of t
+ * - val must be an integer array of sufficient size to store all bits of t
  * - bit i of t is stored in val[i] (val[i] is either 0 or 1)
  * - the value is returned using small-endian convention:
  *    val[0] is the low order bit
  *    ...
  *    val[n-1] is the high order bit 
  *
- * The function returns -1 if there's an error (i.e., t is not a valid
- * term, or it's not a bitvector) and set the error report.
- * Otherwise it returns 0.
- *
- * 
- * Possible error codes:
- * if t is not valid:
- *   code = INVALID_TERM
- *   term1 = t
- * if t is not a bitvector term
+ * If t is not a bitvector term
  *   code = BITVECTOR_REQUIRED
  *   term1 = t
- *
- * All other error codes indicate that t's value could not be computed.
  */
-__YICES_DLLSPEC__ extern int32_t yices_eval_bv_term_in_model(model_t *mdl, term_t t, int32_t val[]);
-
-
-/*
- * MORE EVALUATION AND QUERY FUNCTIONS TBD
- */
+__YICES_DLLSPEC__ extern int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]);
 
 
 
