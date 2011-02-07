@@ -17,7 +17,7 @@
  *   'name: error message ...'
  * - if name is NULL the error message is 
  *   'Error: message ...'
- * The term-stacks location, etc. are used to help locate the error.
+ * The term-stack location and other fields are used to help locate the error.
  *
  * The function aborts and prints a request for a bug report if the
  * error is internal to Yices.
