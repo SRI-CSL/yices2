@@ -896,7 +896,6 @@ static const char *param2string[NUM_PARAMETERS];
 static const char *branching2string[NUM_BRANCHING_MODES];
 
 
-
 /*
  * Initialize the table [parameter id --> string]
  * and [branching mode --> string]
@@ -1025,8 +1024,6 @@ static bool param_val_to_nonneg32(const char *name, param_val_t *v, int32_t *val
   return false;
 }
 
-
-
 static bool param_val_to_float(const char *name, param_val_t *v, double *value) {
   mpq_t aux;
 
@@ -1046,7 +1043,6 @@ static bool param_val_to_float(const char *name, param_val_t *v, double *value) 
     return false;
   }
 }
-
 
 static bool param_val_to_posfloat(const char *name, param_val_t *v, double *value) {
   if (param_val_to_float(name, v, value)) {

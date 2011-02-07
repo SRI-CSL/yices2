@@ -1,13 +1,13 @@
 /*
- * GLOBAL TERM/TYPE DATABASE
+ * YICES API
  */
 
 /*
- * This module implements the term and type construction API defined in yices.h.
- * It also implements the functions defined in yices_extensions.h for managing 
- * buffers and converting buffers to terms.
+ * This module implements the API defined in yices.h.
+ *
+ * It also implements the functions defined in yices_extensions.h and
+ * yices_iterators.h
  */
-
 
 
 /*
@@ -49,6 +49,7 @@
 #include "yices.h"
 #include "yices_error.h"
 #include "yices_extensions.h"
+#include "yices_iterators.h"
 #include "yices_globals.h"
 #include "yices_parser.h"
 #include "yices_pp.h"
@@ -105,12 +106,11 @@ static tstack_t *tstack;
 
 
 /*
- * Global table; initially all 7 pointers are NULL
+ * Global table. Initially all pointers are NULL
  */
 yices_globals_t __yices_globals = {
-  NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 };
-
 
 
 /*
@@ -216,14 +216,20 @@ static dl_list_t model_list;
 
 
 /*
- * Parameter structures
+ * Context configuration and parameter descriptors
+ * are stored in one list.
  */
+typedef struct {
+  dl_list_t header;
+  ctx_config_t config;
+} ctx_config_elem_t;
+
 typedef struct {
   dl_list_t header;
   param_t param;
 } param_structure_elem_t;
 
-static dl_list_t param_structure_list;
+static dl_list_t generic_list;
 
 
 
@@ -594,34 +600,52 @@ static void free_model_list(void) {
 
 
 
-/***********************************************
- *  ALLOCATION OF SEARCH PARAMETER STRUCTURES  *
- **********************************************/
+/********************************************
+ *  CONFIG AND SEARCH PARAMETER STRUCTURES  *
+ *******************************************/
 
 /*
- * Get the header of param_t p, assuming p is embedded in a param_structure_elem
+ * Get the header
  */
+static inline dl_list_t *header_of_config_structure(ctx_config_t *c) {
+  return (dl_list_t *) (((char *) c) - offsetof(ctx_config_elem_t, config));
+}
+
 static inline dl_list_t *header_of_param_structure(param_t *p) {
   return (dl_list_t *) (((char *) p) - offsetof(param_structure_elem_t, param));
 }
 
-
 /*
- * Allocate a parameter structure and insert it into the list
+ * Allocate a structure and insert it into the generict
  * WARNING: the record is not initialized
  */
+static inline ctx_config_t *alloc_config_structure(void) {
+  ctx_config_elem_t *new_elem;
+
+  new_elem = (ctx_config_elem_t *) safe_malloc(sizeof(ctx_config_elem_t));
+  list_insert_next(&generic_list, &new_elem->header);
+  return &new_elem->config;
+}
+
 static inline param_t *alloc_param_structure(void) {
   param_structure_elem_t *new_elem;
 
   new_elem = (param_structure_elem_t *) safe_malloc(sizeof(param_structure_elem_t));
-  list_insert_next(&param_structure_list, &new_elem->header);
+  list_insert_next(&generic_list, &new_elem->header);
   return &new_elem->param;
 }
 
-
 /*
- * Remove p form the list of parameter structures and free p
+ * Remove a strcuture form the generic list
  */
+static inline void free_config_structure(ctx_config_t *c) {
+  dl_list_t *elem;
+
+  elem = header_of_config_structure(c);
+  list_remove(elem);
+  safe_free(elem);
+}
+
 static inline void free_param_structure(param_t *p) {
   dl_list_t *elem;
 
@@ -632,19 +656,19 @@ static inline void free_param_structure(param_t *p) {
 
 
 /*
- * Empty the list of parameter structures
+ * Empty the generic list
  */
-static void free_param_structure_list(void) {
+static void free_generic_list(void) {
   dl_list_t *elem, *aux;
 
-  elem = param_structure_list.next;
-  while (elem != &param_structure_list) {
+  elem = generic_list.next;
+  while (elem != &generic_list) {
     aux = elem->next;
     safe_free(elem);
     elem = aux;
   }
 
-  clear_list(&param_structure_list);
+  clear_list(&generic_list);
 }
 
 
@@ -743,6 +767,11 @@ static parser_t *get_parser(const char *s) {
     
     parser = (parser_t *) safe_malloc(sizeof(parser_t));
     init_parser(parser, lexer, tstack);
+
+    // copy tstack into the global objects
+    assert(__yices_globals.tstack == NULL);
+    __yices_globals.tstack = tstack;
+
   } else {
     // reset the input string
     assert(lexer != NULL && tstack != NULL);
@@ -753,14 +782,15 @@ static parser_t *get_parser(const char *s) {
 }
 
 
-
 /*
  * Delete the internal parser, lexer, term stack
  * (it they exist)
  */
 static void delete_parsing_objects(void) {
+  assert(__yices_globals.tstack == tstack);
+
   if (parser != NULL) {
-    assert(lexer != NULL && tstack != NULL);
+    assert(lexer != NULL && tstack != NULL); 
     delete_parser(parser);
     safe_free(parser);
     parser = NULL;
@@ -772,7 +802,10 @@ static void delete_parsing_objects(void) {
     delete_tstack(tstack);
     safe_free(tstack);
     tstack = NULL;
+    __yices_globals.tstack = NULL;
   }
+
+  assert(lexer == NULL && tstack == NULL);
 }
 
 
@@ -793,6 +826,7 @@ static void init_globals(yices_globals_t *glob) {
   glob->arith_store = &arith_store;
   glob->bvarith_store = &bvarith_store;
   glob->bvarith64_store = &bvarith64_store;
+  glob->tstack = NULL;
   glob->error = &error;
 }
 
@@ -808,6 +842,7 @@ static void clear_globals(yices_globals_t *glob) {
   glob->arith_store = NULL;
   glob->bvarith_store = NULL;
   glob->bvarith64_store = NULL;
+  glob->tstack = NULL;
   glob->error = NULL;
 }
 
@@ -851,7 +886,7 @@ EXPORTED void yices_init(void) {
   // other dynamic object lists
   clear_list(&context_list);
   clear_list(&model_list);
-  clear_list(&param_structure_list);
+  clear_list(&generic_list);
 
   // internal buffers (allocated on demand)
   internal_arith_buffer = NULL;
@@ -892,7 +927,7 @@ EXPORTED void yices_exit(void) {
 
   free_context_list();
   free_model_list();
-  free_param_structure_list();
+  free_generic_list();
 
   delete_term_table(&terms);
   delete_node_table(&nodes);
@@ -1055,6 +1090,70 @@ void yices_free_bvlogic_buffer(bvlogic_buffer_t *b) {
   free_bvlogic_buffer(b);
 }
 
+
+/***************
+ *  ITERATORS  *
+ **************/
+
+void arith_buffer_iterate(void *aux, void (*f)(void *, arith_buffer_t *)) {
+  dl_list_t *elem;
+
+  for (elem = arith_buffer_list.next;
+       elem != &arith_buffer_list;
+       elem = elem->next) {
+    f(aux, arith_buffer(elem));
+  }
+}
+
+void bvarith_buffer_iterate(void *aux, void (*f)(void *, bvarith_buffer_t *)) {
+  dl_list_t *elem;
+
+  for (elem = bvarith_buffer_list.next;
+       elem != &bvarith_buffer_list;
+       elem = elem->next) {
+    f(aux, bvarith_buffer(elem));
+  }
+}
+
+void bvarith64_buffer_iterate(void *aux, void (*f)(void *, bvarith64_buffer_t *)) {
+  dl_list_t *elem;
+
+  for (elem = bvarith64_buffer_list.next;
+       elem != &bvarith64_buffer_list;
+       elem = elem->next) {
+    f(aux, bvarith64_buffer(elem));
+  }
+}
+
+void bvlogic_buffer_iterate(void *aux, void (*f)(void *, bvlogic_buffer_t *)) {
+  dl_list_t *elem;
+
+  for (elem = bvlogic_buffer_list.next;
+       elem != &bvlogic_buffer_list;
+       elem = elem->next) {
+    f(aux, bvlogic_buffer(elem));
+  }
+}
+
+void context_iterate(void *aux, void (*f)(void *, context_t *)) {
+  dl_list_t *elem;
+
+  for (elem = context_list.next;
+       elem != &context_list;
+       elem = elem->next) {
+    f(aux, context_of_header(elem));
+  }
+}
+
+void model_iterate(void *aux, void (*f)(void *, model_t *)) {
+  dl_list_t *elem;
+
+  for (elem = context_list.next;
+       elem != &context_list;
+       elem = elem->next) {
+    f(aux, model_of_header(elem));
+  }
+}
 
 
 /***********************************************
@@ -7301,3 +7400,72 @@ EXPORTED int32_t yices_clear_term_name(term_t t) {
 
 
 
+/****************************
+ *  CONTEXT CONFIGURATIONS  *
+ ***************************/
+
+/*
+ * Allocate a new configuration descriptor
+ * - initialize it do defaults
+ */
+EXPORTED ctx_config_t *yices_new_config(void) {
+  ctx_config_t *tmp;
+
+  tmp = alloc_config_structure();
+  tmp->uf_config = UF_CONFIG_AUTO;
+  tmp->arith_config = ARITH_CONFIG_AUTO;
+  tmp->arith_option = ARITH_OPTION_MIXED;
+  tmp->bv_config = BV_CONFIG_AUTO;
+  tmp->array_config = ARRAY_CONFIG_AUTO;
+  tmp->mode = CTX_MODE_PUSHPOP;
+
+  return tmp;
+}
+
+/*
+ * Delete
+ */
+EXPORTED void yices_free_config(ctx_config_t *config) {
+  free_config_structure(config);
+}
+
+/*
+ * Set a configuration parameter
+ */
+EXPORTED int32_t yices_set_config(ctx_config_t *config, const char *name, const char *value) {
+  // TBD
+  return 0;
+}
+
+
+
+/*************************************
+ *  SEARCH PARAMETER CONFIGURATIONS  *
+ ************************************/
+
+/*
+ * Allocate a new configuration descriptor
+ * - initialize it do defaults
+ */
+EXPORTED param_t *yices_new_param_record(void) {
+  param_t *tmp;
+
+  tmp = alloc_param_structure();
+  init_params_to_defaults(tmp);
+  return tmp;
+}
+
+/*
+ * Delete
+ */
+EXPORTED void yices_free_param_record(param_t *param) {
+  free_param_structure(param);
+}
+
+/*
+ * Set a search parameter
+ */
+EXPORTED int32_t yices_set_param(param_t *param, const char *name, const char *value) {
+  // TBD
+  return 0;
+}

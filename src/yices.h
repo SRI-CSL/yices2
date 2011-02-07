@@ -1556,12 +1556,6 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  * TBD: List the parameter/values.
  *
  * The function returns -1 if there's an error, 0 otherwise.
- *
- * If the parameter name is not known or supported by this version of
- * Yices, it is ignored, and the function returns 0.
- *
- * If name is known but the value does not match the parameter type, then 
- * the function returns -1 and set the error report.
  */
 __YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const char *name, const char *value);
 
