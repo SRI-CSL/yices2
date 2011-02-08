@@ -255,6 +255,7 @@ void arith_vartable_remove_vars(arith_vartable_t *table, uint32_t nvars) {
 
     case AVAR_CONST:
       k = hash_rational(p);
+      int_htbl_erase_record(&table->htbl, k, i);
       q_clear(p);
       safe_free(p);
       break;

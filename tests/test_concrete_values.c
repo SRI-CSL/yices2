@@ -145,6 +145,7 @@ static void test_constants(void) {
     v1 = vtbl_mk_bv(&vtbl, 5, b);
     assert(v == v1);
     v1 = vtbl_mk_bv_from_bv64(&vtbl, 5, (uint64_t) i);
+    assert(v == v1);
   }
 
   // bitvector contants: 0 to 31, size 35

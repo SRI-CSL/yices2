@@ -351,7 +351,7 @@ bool equal_maps(map_t *map1, map_t *map2) {
   assert(map_is_normal(map1) && map_is_normal(map2));
 
   n = map1->nelems;
-  return n == map1->nelems && map1->def == map2->def && 
+  return n == map2->nelems && map1->def == map2->def && 
     equal_map_arrays(map1->data, map2->data, n);
 }
 

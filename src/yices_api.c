@@ -2478,7 +2478,7 @@ static term_t mk_or(term_table_t *tbl, uint32_t n, term_t *a) {
 
   j = 0;
   if (x != false_term) {
-    a[j] = x;
+    //    a[j] = x; NOT NECESSARY
     j ++;
   }
 

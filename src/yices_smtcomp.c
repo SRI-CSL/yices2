@@ -17,6 +17,8 @@
 
 #include "cputime.h"
 #include "memsize.h"
+#include "timeout.h"
+
 #include "smt_lexer.h"
 #include "smt_parser.h"
 #include "term_stack.h"
@@ -44,8 +46,7 @@
 /*
  * Define this to nonzero to enable command-line options
  */
-#define COMMAND_LINE_OPTIONS 0
-
+#define COMMAND_LINE_OPTIONS 1
 
 
 /*
@@ -66,6 +67,12 @@ static double construction_time, start_search_time, search_time;
  * Flag for signal handler
  */
 static bool context_exists;
+
+
+/*
+ * Timeout value in seconds (0 means no timeout)
+ */
+static uint32_t timeout;
 
 
 /*
@@ -127,10 +134,11 @@ typedef enum optid {
   show_version_opt,           // print version and exit
   print_help_opt,             // print help and exit
   simple_model_opt,           // print the model if SAT  
-  full_model_opt,             // full model 
+  full_model_opt,             // full model
+  timeout_opt,                // give a timeout
 } optid_t;
 
-#define NUM_OPTIONS (full_model_opt+1)
+#define NUM_OPTIONS (timeout_opt+1)
 
 /*
  * Option descriptors for the command-line parser
@@ -140,6 +148,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "help", 'h', FLAG_OPTION, print_help_opt },
   { "model", 'm', FLAG_OPTION, simple_model_opt },
   { "full-model", 'f', FLAG_OPTION, full_model_opt },
+  { "timeout", 't', MANDATORY_INT, timeout_opt },
 };
 
 
@@ -160,10 +169,11 @@ static void print_version(void) {
 static void yices_help(char *progname) {
   printf("Usage: %s [options] filename\n", progname);
   printf("Option summary:\n"
-	 "   --version, -V         Show version and exit\n"
-	 "   --help, -h            Print this message and exit\n"
-	 "   --model, -m           Show a model (some variables may be eliminated)\n"
-	 "   --full-model, -f      Show a model that includes all variables\n"
+	 "   --version, -V              Show version and exit\n"
+	 "   --help, -h                 Print this message and exit\n"
+	 "   --model, -m                Show a model (some variables may be eliminated)\n"
+	 "   --full-model, -f           Show a model that includes all variables\n"
+	 "   --timeout=<int>, -t <int>  Give a timeout in seconds (default: no timeout)\n"
 	 "\n"
 	 "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
@@ -184,10 +194,12 @@ static void parse_command_line(int argc, char *argv[]) {
   cmdline_parser_t parser;
   cmdline_elem_t elem;
   optid_t k;
+  int32_t val;
 
   filename = NULL;
   simple_model = false;
   full_model = false;
+  timeout = 0;
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
 
@@ -224,6 +236,16 @@ static void parse_command_line(int argc, char *argv[]) {
 
       case full_model_opt:
 	full_model = true;
+	break;
+
+      case timeout_opt:
+	val = elem.i_value;
+	if (val <= 0) {
+	  fprintf(stderr, "%s: the timeout must be positive\n", parser.command_name);
+	  yices_usage(parser.command_name);
+	  exit(YICES_EXIT_USAGE);
+	}
+	timeout = val;
 	break;
       }
       break;
@@ -1046,7 +1068,9 @@ static int process_benchmark(void) {
       // if full_model is true, keep substitutions in the model
       // and print everything
       // otherwise, print a simple model (don't worry about eliminated variables)
-      model = context_build_model(&context, full_model);
+      model = (model_t *) safe_malloc(sizeof(model_t));
+      init_model(model, __yices_globals.terms, full_model);
+      context_build_model(model, &context);
       printf("\nMODEL\n");
       if (full_model) {
 	model_print_full(stdout, model);
@@ -1054,7 +1078,8 @@ static int process_benchmark(void) {
 	model_print(stdout, model);
       }
       printf("----\n");
-      free_model(model);
+      delete_model(model);
+      safe_free(model);
     }
 #endif
 

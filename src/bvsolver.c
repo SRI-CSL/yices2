@@ -2933,13 +2933,11 @@ literal_t bv_solver_select_bit(bv_solver_t *solver, thvar_t x, uint32_t i) {
  */
 literal_t bv_solver_create_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv_atomtable_t *atbl;
-  uint32_t n;
   int32_t i;
   literal_t l;
   bvar_t v;
   
   atbl = &solver->atbl;
-  n = atbl->natoms;
   i = get_bveq_atom(atbl, x, y);
   l = atbl->data[i].lit;
 
@@ -2962,13 +2960,11 @@ literal_t bv_solver_create_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
  */
 literal_t bv_solver_create_ge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv_atomtable_t *atbl;
-  uint32_t n;
   int32_t i;
   literal_t l;
   bvar_t v;
   
   atbl = &solver->atbl;
-  n = atbl->natoms;
   i = get_bvuge_atom(atbl, x, y);
   l = atbl->data[i].lit;
 
@@ -2991,13 +2987,11 @@ literal_t bv_solver_create_ge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
  */
 literal_t bv_solver_create_sge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv_atomtable_t *atbl;
-  uint32_t n;
   int32_t i;
   literal_t l;
   bvar_t v;
   
   atbl = &solver->atbl;
-  n = atbl->natoms;
   i = get_bvsge_atom(atbl, x, y);
   l = atbl->data[i].lit;
 

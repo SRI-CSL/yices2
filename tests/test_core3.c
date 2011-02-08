@@ -205,7 +205,7 @@ static void show_progress(smt_core_t *core,
  */
 static void sat_solve(smt_core_t *core, core_param_t *params, bool verbose) {
   uint32_t c_threshold, d_threshold; // Picosat-style
-  uint32_t n_reductions, reduce_threshold;
+  uint32_t reduce_threshold;
 
   assert(smt_status(core) == STATUS_IDLE);
 
@@ -220,7 +220,6 @@ static void sat_solve(smt_core_t *core, core_param_t *params, bool verbose) {
   c_threshold = params->c_threshold;
   d_threshold = params->d_threshold;
 
-  n_reductions = num_reduce_calls(core);
   reduce_threshold = (uint32_t) (num_prob_clauses(core) * params->r_fraction);
   if (reduce_threshold < params->r_threshold) {
     reduce_threshold = params->r_threshold;

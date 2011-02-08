@@ -158,6 +158,7 @@ static void test_gcd(void) {
       code = q_set_from_string(&r0, big_num[i]);
       assert(code == 0);
       code = q_set_from_string(&r1, big_num[j]);
+      assert(code == 0);
       q_gcd(&r0, &r1);
       // print
       printf("gcd(%s, %s) = ", big_num[i], big_num[j]);
@@ -243,6 +244,7 @@ static void test_lcm(void) {
       code = q_set_from_string(&r0, big_num[i]);
       assert(code == 0);
       code = q_set_from_string(&r1, big_num[j]);
+      assert(code == 0);
       q_lcm(&r0, &r1);
       // print
       printf("lcm(%s, %s) = ", big_num[i], big_num[j]);
