@@ -253,19 +253,20 @@ AC_MSG_CHECKING([whether $1 is usable])
 #
 # Test program: check whether the GMP version is recent enough
 #
-AC_RUN_IFELSE([
-
+AC_RUN_IFELSE(
+[AC_LANG_PROGRAM([[
 #include <gmp.h>
-int main() {
-   mpz_t tst;
-   mpz_init(tst);
-   mpz_clear(tst);
-   if ((__GNU_MP_VERSION < 4) || 
-       ((__GNU_MP_VERSION == 4) && (__GNU_MP_VERSION_MINOR < 1))) {
-     return 1;
-   }
-   return 0;
-}
+
+mpz_t tst;
+]],
+[[
+mpz_init(tst);
+mpz_clear(tst);
+if ((__GNU_MP_VERSION < 4) || 
+    ((__GNU_MP_VERSION == 4) && (__GNU_MP_VERSION_MINOR < 1))) {
+    return 1;
+  }
+]])
 
 ],run_ok=yes,run_ok=no,run_ok=no)
 AC_MSG_RESULT([$run_ok])
