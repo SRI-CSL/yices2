@@ -378,6 +378,53 @@ static void explain_eq(egraph_t *egraph, occ_t x, occ_t y) {
 
 
 
+/*
+ * SUPPORT FOR CAUSAL EXPLANATIONS
+ */
+
+/*
+ * Check whether all edges on the path from t1 to t precede k
+ * (i.e., whether t1 == t was true when egde k was added).
+ * - t must be an ancestor of t1
+ */
+static bool path_precedes_edge(egraph_t *egraph, eterm_t t1, eterm_t t, int32_t k) {
+  equeue_elem_t *eq;
+  int32_t *edge;
+  int32_t i;
+
+  edge = egraph->terms.edge;
+  eq = egraph->stack.eq;
+
+  while (t1 != t) {
+    i = edge[t1];
+    assert(i >= 0);
+    if (i >= k) return false;
+    t1 = edge_next(eq + i, t1);
+  }
+
+  return true;
+}
+
+
+/*
+ * Check whether (x == y) or (x == (not y)) was true when edge k was added
+ * - x and y must be in the same class
+ */
+static bool causally_equal(egraph_t *egraph, occ_t x, occ_t y, int32_t k) {
+  eterm_t tx, ty, w;
+
+  assert(egraph_same_class(egraph, x, y));
+
+  tx = term_of_occ(x);
+  ty = term_of_occ(y);
+
+  if (tx == ty) return true;
+
+  w = common_ancestor(egraph, tx, ty);
+  return path_precedes_edge(egraph, tx, w, k) && path_precedes_edge(egraph, ty, w, k);
+}
+
+
 
 /*
  * DISEQUALITY EXPLANATIONS
@@ -443,8 +490,9 @@ static void explain_diseq_via_eq(egraph_t *egraph, occ_t x, occ_t y, composite_t
 /*
  * Explanation for (x != y) from (distinct u_1 ... u_n)
  * - we must have (distinct u_1 ... u_n) == true, x == u_i, y == u_j for i/=j
+ * - the explanation is built using edges that precede k
  */
-static void explain_diseq_via_distinct(egraph_t *egraph, occ_t x, occ_t y, composite_t *d) {
+static void explain_diseq_via_distinct(egraph_t *egraph, occ_t x, occ_t y, composite_t *d, int32_t k) {
   class_t cx, cy;
   occ_t t, tx, ty;
   uint32_t i;
@@ -467,12 +515,12 @@ static void explain_diseq_via_distinct(egraph_t *egraph, occ_t x, occ_t y, compo
     assert(i < composite_arity(d));
     t = d->child[i];
 
-    if (egraph_class(egraph, t) == cx) {
+    if (egraph_class(egraph, t) == cx && causally_equal(egraph, t, x, k)) {
       assert(tx == null_occurrence);
       tx = t;
       if (ty != null_occurrence) break;	
 
-    } else if (egraph_class(egraph, t) == cy) {
+    } else if (egraph_class(egraph, t) == cy && causally_equal(egraph, t, y, k)) {
       assert(ty == null_occurrence);
       ty = t;
       if (tx != null_occurrence) break;
@@ -491,8 +539,9 @@ static void explain_diseq_via_distinct(egraph_t *egraph, occ_t x, occ_t y, compo
  * Explanation for (x != y) via the dmasks
  * - i = index of the distinct term that implied (x != y)
  * - i must be between 1 and 31
+ * - k = index of the edge that uses (x != y) as antecedent
  */
-static void explain_diseq_via_dmasks(egraph_t *egraph, occ_t x, occ_t y, uint32_t i) {
+static void explain_diseq_via_dmasks(egraph_t *egraph, occ_t x, occ_t y, uint32_t i, int32_t k) {
   composite_t *dpred;
 
   assert(1 <= i && i < egraph->dtable.npreds);
@@ -500,7 +549,7 @@ static void explain_diseq_via_dmasks(egraph_t *egraph, occ_t x, occ_t y, uint32_
   dpred = egraph->dtable.distinct[i];
   assert(dpred != NULL && composite_kind(dpred) == COMPOSITE_DISTINCT);
 
-  explain_diseq_via_distinct(egraph, x, y, dpred);
+  explain_diseq_via_distinct(egraph, x, y, dpred, k);
 }
 
 
@@ -796,7 +845,7 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v) {
     case EXPL_DISTINCT29:
     case EXPL_DISTINCT30:
     case EXPL_DISTINCT31:
-      explain_diseq_via_dmasks(egraph, edata[i].t[0], edata[i].t[1], (uint32_t) (etag[i] - EXPL_DISTINCT0));
+      explain_diseq_via_dmasks(egraph, edata[i].t[0], edata[i].t[1], (uint32_t) (etag[i] - EXPL_DISTINCT0), i);
       break;
 
     case EXPL_SIMP_OR:
@@ -913,6 +962,7 @@ static void explain_diseq(egraph_t *egraph, occ_t t1, occ_t t2) {
   class_t c1, c2;
   occ_t aux;
   uint32_t msk;
+  int32_t k;
 
   c1 = egraph_class(egraph, t1);
   c2 = egraph_class(egraph, t2);
@@ -925,7 +975,8 @@ static void explain_diseq(egraph_t *egraph, occ_t t1, occ_t t2) {
     return;
   } else if (msk != 0){
     assert(1 <= ctz(msk) && ctz(msk) < egraph->dtable.npreds);
-    explain_diseq_via_dmasks(egraph, t1, t2, ctz(msk));
+    k = egraph->stack.top;
+    explain_diseq_via_dmasks(egraph, t1, t2, ctz(msk), k);
     return;
   }
 
@@ -990,11 +1041,14 @@ void egraph_explain_disequality(egraph_t *egraph, occ_t t1, occ_t t2, ivector_t 
  *   a conflict.
  */
 void egraph_explain_term_diseq(egraph_t *egraph, eterm_t t1, eterm_t t2, composite_t *hint, ivector_t *v) {
+  int32_t k;
+
   assert(egraph->expl_queue.size == 0);
   if (composite_kind(hint) == COMPOSITE_EQ) {
     explain_diseq_via_eq(egraph, pos_occ(t1), pos_occ(t2), hint);
   } else {
-    explain_diseq_via_distinct(egraph, pos_occ(t1), pos_occ(t2), hint);
+    k = egraph->stack.top;
+    explain_diseq_via_distinct(egraph, pos_occ(t1), pos_occ(t2), hint, k);
   }
   build_explanation_vector(egraph, v);
 }
@@ -1312,7 +1366,7 @@ bool egraph_inconsistent_edge(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i, i
     goto conflict;
   } else if (msk != 0) {
     assert(1 <= ctz(msk) && ctz(msk) < egraph->dtable.npreds);
-    explain_diseq_via_dmasks(egraph, t1, t2, ctz(msk));
+    explain_diseq_via_dmasks(egraph, t1, t2, ctz(msk), egraph->stack.top);
     goto conflict;
   }
 

@@ -24,4 +24,4 @@ extern void bvlogic_buffer_iterate(void *aux, void (*f)(void *, bvlogic_buffer_t
 extern void context_iterate(void *aux, void (*f)(void *, context_t *));
 extern void model_iterate(void *aux, void (*f)(void *, model_t *));
 
-#endif __YICES_ITERATORS_H
+#endif /* __YICES_ITERATORS_H */
