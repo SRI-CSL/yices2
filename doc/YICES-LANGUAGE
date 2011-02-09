@@ -2,7 +2,7 @@ YICES LANGUAGE
 
 1) Lexical analysis
    ----------------
-- comments start by ';' and extend to the end of the line ('\n' or EOF)
+- comments start with ';' and extend to the end of the line ('\n' or EOF)
 
 - tokens are ( ) :: <symbol> <string> <rational> <float> <binary bv> <hexa bv>
 
@@ -48,43 +48,27 @@ YICES LANGUAGE
 
 	bool	int	real	bitvector	scalar	tuple	-> 
 
-	true	false	if	ite	=	/=	or	and
-	not	xor	<=>	=>	mk-tuple	select	update
-	forall	exists	let
+	true	false	if	ite	=	/=	distinct
+	or	and 	not	xor	<=>	=>	mk-tuple
+	select	tuple-update	update 	forall	exists	let
 
 	+	-	*	/	<	<=	>	>=
 
 	mk-bv	bv-add	bv-sub	bv-mul	bv-neg
-	bv-not	bv-and	bv-or	bv-xor	bv-shift-left0 	bv-shift-left1
-	bv-shift-right0	bv-shift-right1	bv-ge 	bv-gt	bv-le	bv-lt
-	bv-sge	bv-sgt	bv-sle	bv-slt  bv-shl  bv-lshr bv-ashr bv-div
-        bv-rem  bv-sdiv bv-srem bv-smod bv-redor        bv-redand
-        bv-comp
+	bv-not	bv-and	bv-or	bv-xor	bv-nand	bv-nor	bv-xnor
+	bv-shift-left0 	bv-shift-left1	bv-shift-right0	bv-shift-right1
+	bv-ashift-right	bv-rotate-left	bv-rotare-right	
+	bv-extract	bv-concat	bv-repeat
+	bv-sign-extend	bv-zero-extend	bv-ge 	bv-gt	bv-le	bv-lt
+	bv-sge	bv-sgt	bv-sle	bv-slt  bv-shl  bv-lshr bv-ashr
+	bv-div 	bv-rem  bv-sdiv bv-srem bv-smod
+	bv-redor        bv-redand 	bv-comp
 
 	define-type	define		assert	check	push	pop
 	reset		dump-context	exit	echo	include
 	show-model	eval		set-param	show-param
 	show-params
 
-
-   function keywords denote the built-in functions:
-
-	if	ite	=	/=	distinct
-
-	or	and 	not     xor	<=>	=>
-
-	mk-tuple	select	
-
-        +	-	*	/	<	<=	>	>=
-
-	mk-bv	bv-add	bv-sub	bv-mul	bv-neg	bv-not	bv-and
-	bv-or	bv-xor	bv-shift-left0 	bv-shift-left1	bv-shift-right0
-	bv-shift-right1	
-
-        bv-ge 	bv-gt	bv-le	bv-lt	bv-sge	bv-sgt	bv-sle	bv-slt
-
-	bv-shl	bv-lshr bv-ashr bv-udiv bv-urem bv-sdiv bv-srem bv-smod
-	bv-redor 	bv-redand	bv-comp
 
 
 
@@ -160,3 +144,185 @@ YICES LANGUAGE
             | <rational>
             | <symbol>
 
+
+
+
+3) Types
+   -----
+
+3.1) The primitive types are: bool, int, real, and (bitvector k) where k is 
+     a positive integer.
+
+
+3.2) A new uninterpreted type T can be declared using
+
+         (define-type T)
+   
+     provided T is a fresh name (i.e., not already mapped to a type).
+
+
+3.3) A new scalar type (i.e., a finite enumeration) can de defined using:
+
+         (define-type <name> (scalar <elem1> ... <elem_n>))
+
+     <name> must be a fresh type name
+
+     <elem1> ... <elem_n> must all be fresh term names and they must be distinct.
+
+     There must be at list one element in the enumeration (i.e., n must be >= 1).
+
+     This declaration introduces <name> as a new type of n elements
+     and also introduces n new constant <elem_1> ... <elem_n>, all of type <name>.
+
+
+3.4) A tuple type is written (tuple tau_1 ... tau_n) where tau_i's are types
+    
+3.5) A function type is written (-> tau_1 ... tau_n sigma) where the tau_i's
+     and sigma are types. This is the typed of functions whose domain is
+     tau_1 x ... x tau_n and whose range is sigma.
+   
+
+
+4) Built-in constants and functions
+   --------------------------------
+
+4.1) ite is the if-then-else construct. if is a synonym for ite
+
+     distinct takes are least 2 arguments.
+
+     =, /= are strictly binary (unlike in SMT-LIB 1, where = can take more than 2 arguments).
+
+
+4.2) true, false, or, and, not, xor, <=>, => are the usual boolean constants and 
+     functions.
+     
+     or, and, xor can take any number of arguments (provided there's at least one).
+
+     <=> and => are binary operators.
+
+
+4.3) tuple constructor: (mk-tuple <term_1> ... <term_n>) with n>=1
+
+     projection: (select <tuple> i) is the i-th component of term
+          <tuple> must have type (tuple tau_1 ... tau_n) 
+      and i must be between 1 and n
+ 
+     tuple update: (tuple-update <tuple> i <term>) is <tuple> with 
+     the i-th component replaced by <term>
+
+
+4.4) function update: (update <function> (<arg_1> ... <arg_n>) <new_value>)
+
+
+4.5) bitvector functions:
+
+     a) bitvector constant from an integer
+
+      (mk-bv <size> <value>):  value must be a non-negative integer and 
+                               size must be a positive integer.
+
+
+     b) bitvector arithmetic
+
+        bv-add, bv-sub, bv-mul take exactly two arguments, and both 
+	must have the same size     
+
+        (bv-neg x) = opposite of x in 2's complement arithmetic
+
+
+     c) bitwise logical operators
+
+        (bv-not x) = bitwise negation of x
+
+        bv-and, bv-or, bv-xor, bv-nand, bv-nor, bv-xnor: bitwise operators,
+        all take two arguments of the same size
+
+        note: (bv-xnor x y) is the same as (bv-not (bv-xor x y)).
+
+
+     d) shift/rotate by a fixed constant
+
+        (bv-shift-left0 x k):  shift x by k bits to the left, padding with 0
+        (bv-shift-left1 x k):  shift x by k bits to the left, padding with 1
+        (bv-shift-right0 x k): shift x by k bits to the right, padding with 0
+        (bv-shift-right1 x k): shift x by k bits to the right, padding with 1
+        (bv-ashift-right x k): arithemtic shift by k bits
+        (bv-rotate-left x k):  rotate x by k bits to the left
+        (bv-rotate-right x k): rotate x by k bits to the right
+
+        In all these shift/rotate operations, k must an integer be between 0 
+	and the size of x.
+
+
+     e) extraction:
+
+        (bv-extract i j x): extract  bits j, j+1, .. i of x
+
+        Requires 0 <= j <= i <= (size of x) - 1.
+
+
+     f) bv-concat takes two arguments
+
+     g) (bv-repeat x n) is n copies of x concatenated together. n must be > 0.
+
+     h) (bv-sign-extend x n): add n times the sign bit to the left of x (n must be >= 0)
+        (bv-zero-extend x n): add n times '0' to the left of x (n must be >= 0)	
+
+   
+     i) unsigned bit-vector comparisons:
+
+        (bv-ge x y): x >= y
+        (bv-gt x y): x > y
+        (bv-le x y): x <= y
+        (bv-lt x y): x < y
+
+        x and y are interpreted as non-negative integers (both must have the same size)
+
+     j) signed bit-vector comparisons 
+
+        (bv-sge x y): x >= y
+        (bv-sgt x y): x > y
+        (bv-sle x y): x <= y
+        (bv-slt x y): x < y
+
+        x and y are interpreted as signed integers (in 2's complement representation)
+        they must have the same size
+
+
+     k) (bv-div x y):  quotient in the unsigned division of x by y
+        (bv-rem x y):  remainder in the unsigned division of x by y       
+
+         x and y must have the same size (n bits)
+
+         if y = 0, Yices uses the following convention:
+
+           (bv-rem x 0) = x
+           (bv-div x 0) = largest integer representable using n bits (i.e. 0b1111...1)
+
+
+        (bv-sdiv x y):  quotient in the signed division of x by y, with rounding to 0
+        (bv-srem x y):  remainder in the signed division of x by y (also rounding to 0).
+
+         x and y must have the same size
+
+         if y = 0, Yices uses the following convention:
+
+           (bv-srem x 0) = x
+
+           (bv-sdiv x 0) = 0b00000...01 if x < 0
+           (bv-sdiv x 0) = 0b11111...11 if x >= 0
+
+
+        (bv-smod x y):  remainder in the signed division of x by y, with rounting to minus 
+                        infinity
+
+         if y = 0, (bv-smod x 0) = x.
+
+
+      l) (bv-redor x):  this is the 1-bit vector [(or b_0 ... b_{n-1})] where b_i is bit i of x
+         (bv-redand x): same thing for and
+
+         (bv-redcomp x y): compute a 1-bit vector u such that u = 0b1 if x and y are equal
+                                                              u = 0b0 otherwise
+
+          x and y must have the same size.
