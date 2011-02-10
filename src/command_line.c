@@ -8,9 +8,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
-#include <errno.h>
 #include <assert.h>
 
+#include "string_utils.h"
 #include "command_line.h"
 
 
@@ -130,47 +130,6 @@ static option_desc_t *find_by_name(option_desc_t *options, uint32_t n, char *s, 
 
 
 /*
- * Parse s as a decimal number in the format 
- *  <optional_signs><digits>
- * and store the corresponding number into val
- *
- * Return code:
- * - valid_integer means correct format, no oveflow
- * - integer_overflow means correct format but overflow
- * - invalid_integer means wrong format
- */
-typedef enum {
-  valid_integer,
-  integer_overflow,
-  invalid_integer,
-} integer_parse_code_t;
-
-static integer_parse_code_t parse_as_integer(char *s, int32_t *val) {
-  long aux;
-  char *b;
-
-  while (isspace((int) *s)) s ++;
-  errno = 0;
-  aux = strtol(s, &b, 10);
-  if (errno == ERANGE) {
-    return integer_overflow;  //overflow or underflow
-  }
-
-  if (aux > (long) INT32_MAX || aux < (long) INT32_MIN) {
-    return integer_overflow;
-  }
-
-  while (isspace((int) *b)) b++;
-
-  if (*b == '\0' && b != s) {
-    *val = (int32_t) aux;
-    return valid_integer;
-  }
-
-  return invalid_integer;
-}
-
-/*
  * Parse e->s_value as an integer argument
  * - convert the value to a 32bit integer and store if in e->i_value
  * - if that fails, set e->status and e->e_code to an error
@@ -240,44 +199,6 @@ static void parse_optional_integer(cmdline_parser_t *p, cmdline_elem_t *e) {
   e->status = cmdline_option;
 }
 
-
-
-
-/*
- * Parse s as a floating point number in the format recognized by
- * strtod, and store the corresponding number into val
- *
- * Return code:
- * - valid_integer means correct format, no oveflow
- * - integer_overflow means correct format but overflow
- * - invalid_integer means wrong format
- */
-typedef enum {
-  valid_double,
-  double_overflow,
-  invalid_double,
-} double_parse_code_t;
-
-static double_parse_code_t parse_as_double(char *s, double *val) {
-  double aux;
-  char *b;
-
-  while (isspace((int) *s)) s ++;
-  errno = 0;
-  aux = strtod(s, &b);
-  if (errno == ERANGE) {
-    return double_overflow;  //overflow or underflow
-  }
-
-  while (isspace((int) *b)) b++;
-
-  if (*b == '\0' && b != s) {
-    *val = aux;
-    return valid_double;
-  }
-
-  return invalid_double;
-}
 
 /*
  * Parse e->s_value as a floating-point argument

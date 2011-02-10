@@ -17,17 +17,16 @@ YICES_TOP_DIR=$(shell pwd)
 #   for darwin: the compatibility version is <major>.<minor>.0
 #               the version is set to <major>.<minor>.<patch-level>
 #
-# Conventions we should follow: increase 'minor' when we make 
-# changes that are not backward compatible.
-#
-# <major> increases when the new version is not binary
-#         compatible with older versions (i.e., a program
-#         linked to the old library can't use the new library).
-# <minor> increases when the library's API changes but 
-#         binary compatibility is preserved (e.g., new
-#         functionalities added)
+# Conventions we should follow: 
+# <major> increases for major new releases.
+# <minor> increases when we make changes that loose
+#         backward compatibility.
 # <patch-level> increases for bug fixes or other improvements
-#         that don't change the interface.
+#         that maintain backward compatibility.
+#
+# Example: if P is linked against libyices.so version 2.0.0
+# - P should still work (without recompliling) with libyices 2.0.1
+# - P should not work anymore with libyices 2.1.0 or 3.0.0
 #
 MAJOR = 2
 MINOR = 0

@@ -23,6 +23,7 @@
 #include "command_line.h"
 #include "rationals.h"
 
+#include "string_utils.h"
 #include "smt_logic_codes.h"
 #include "arith_solver_codes.h"
 #include "yices_exit_codes.h"
@@ -914,37 +915,6 @@ static void init_parameter_name_table(void) {
     name = branching_modes[i];
     j = branching_code[i];
     branching2string[j] = name;
-  }
-}
-
-
-/*
- * Binary search in a sorted array of strings.
- * - n = size of the array (n must be positive)
- * - s = string to search for
- * Return the index i between 0 and n-1 such that a[i] == s,
- * or -1 if s is not present in the array.
- */
-static int32_t binary_search_string(const char *s, const char * const *a, int32_t n) {
-  uint32_t l, h, k;
-  int cmp;
-
-  assert(n > 0);
-
-  l = 0;
-  h = (uint32_t) n;
-  for (;;) {
-    k = (l + h)/2;
-    assert(l <= k && k < h);
-    cmp = strcmp(s, a[k]);
-    if (cmp == 0) return k;
-    if (k == l) return -1;
-    if (cmp < 0) {
-      h = k;
-    } else {
-      assert(cmp > 0);
-      l = k;
-    }
   }
 }
 
