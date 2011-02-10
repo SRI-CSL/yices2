@@ -280,6 +280,27 @@ The result will be in ./build/i686-unknown-linux-gnu-debug/
 
 
 
+3) Compiling for Windows 32bit or 64bit from Cygwin
+
+This can be done using the mingw compilers. See the notes below.
+
+The configuration file for Windows 32bit is make.include.i686-pc-mingw32.
+To build this configuration file use
+
+   ./configure --build=i686-pc-mingw32 ....
+
+To select this configuration at build time, give OPTION=no-cygwin (or OPTION=mingw32)
+to the make commands.
+
+The configuration file for Windows 64bits is make.include.x86_64-pc-mingw32.
+To build this configuration use
+
+  ./configure --build=x86_64-pc-mingw32 ....
+
+To select this configuration at build time, give OPTION=mingw64 to the make commands.
+
+
+
 CLEANUP
 -------
 
@@ -357,8 +378,8 @@ what this library is about. Possible fixes:
 
 
 
-BUILDING A WINDOWS VERSION FROM CYGWIN
---------------------------------------
+BUILDING A WINDOWS (WIN32) VERSION FROM CYGWIN
+----------------------------------------------
 
 To build a version of Yices that can run on a native Windows machine,
 one can either install Mingw and msys and compile from there, or
@@ -485,6 +506,52 @@ Then to select this configuration:
 
    make OPTION=no-cygwin ....
 
+
+BUILDING A WINDOWS 64bit VERSION FROM CYGWIN
+----------------------------------------------
+
+This can be done using the mingw64 cross compiler on Cygwin.
+
+1) To get the cross compiler, start the setup.exe utility in
+   Windows. Then install the packages  mingw64-x86_64-gcc and
+   relatives. These are in section 'devel' of 'setup.exe'
+
+   The mingw64 compiler is installed as /usr/bin/x86_64-w64-mingw32-gcc
+
+2) Build and install a 64bit version of GMP. Read doc/GMP for help.
+
+   There should build 2 versions of GMP/64bits installed for Yices to
+   configure properly. 
+
+   On my Dell laptop: the dynamic GMP/64bits library was installed with 
+     --prefix=/home/bruno/tools/mingw64
+   
+   The static GMP/64bits library was installed with
+     --prefix=/home/bruno/tools/mingw64/static
+
+   So this means that we have the following files:
+ 
+      /home/bruno/tools/mingw64/bin/libgmp-10.dll        (GMP DLL)
+      /home/bruno/tools/mingw64/lib/libgmp.dll.a         (corresponding lib file)
+      /home/bruno/tools/mingw64/include/gmp.h            (corresponding include)
+ 
+      /home/bruno/tools/mingw64/static/lib/libgmp.a      (static GMP)
+      /home/bruno/tools/mingw64/static/include/gmp.h     (corresponding include)
+
+
+3) Assuming this installation, configure Yices as follows
+ 
+    ./configure --build=x86_64-pc-mingw32 \
+        CC=/usr/bin/x86_64-w64-mingw32-gcc \
+        LD=/usr/bin/x86_64-w64-mingw32-ld \
+        STRIP=/usr/bin/x86_64-w64-mingw32-strip \
+        RANLIB=/usr/bin/x86_64-w64-mingw32-ranlib \
+	CPPFLAGS=-I/home/bruno/tools/mingw64/include \
+	LDFLAGS=-L/home/bruno/tools/mingw64/lib \
+        --with-static-gmp=/home/bruno/tools/mingw64/static/lib/libgmp.a \
+        --with-static-gmp-include-dir=/home/bruno/tools/mingw64/static/include 
+
+   To select this configuration give 'OPTION=mingw64' to the make commands.   
 
 
 

@@ -580,7 +580,9 @@ STRIPFLAGS=
 
 #
 # Just copy the required binaries, libraries, include files into
-# distdir
+# distdir.
+# NOTE: on cygwin/mingw, it would make more sense to copy the dll
+# into the bin directory?
 #
 dist: bin lib
 	rm -r -f $(distdir)/*

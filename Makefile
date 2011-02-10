@@ -36,7 +36,7 @@ YICES_VERSION = $(MAJOR).$(MINOR).$(PATCH_LEVEL)
 
 
 #
-# Find platform
+# Find platform (also default configuration)
 #
 ARCH=$(shell ./config.sub `./config.guess`)
 POSIXOS=$(shell ./autoconf/os)
@@ -51,53 +51,89 @@ endif
 
 
 #
-# OPTIONS: use alternative configuration files
+# OPTION: select an alternative configuration file
 #
-# 1) On Mac OS X/intel, we compile in 32 bit mode by default.
-# It's possible to build in 64 bit mode on the same machine.
-# - To select 64bit mode, type 'make MODE=... OPTION=64bits'
-# - This changes ARCH from 
-#     i386-apple-darwin9.x.y to x86_64-apple-darwin9.x.y
-#   and the corresponding make.include should be constructed using 
-#   ./configure --build=x86_64-apple-darwin.x.y CFLAGS=-m64
+# 1) On Mac OS X/intel, the default configuration is 
+#    in file make.include.i386-apple-darwinX.Y.Z.
+#    By convention, and because 32bit was the default on Mac OS X
+#    before Darwin 10.6, this is intended to be a 32bit build.
 #
-# 2) On Linux/x86_64, we compile in 64 bit mode by default.
-# It may be possible to build in 32 bit mode on the same machine.
-# - To select 32bit mode, type 'make MODE=... OPTION=32bits'
-# - This changes ARCH from
-#     x86_64-unknown-linux-gnu to i686-unknown-linux-gnu
-#   and there must be a corresponding make.include file in 
-#   ./configs
-# - To construct this config file use
-#   ./configure --build=i686-unknown-linux-gnu CFLAGS=-m32
+#    It's possible to use an alternative configuration file
+#    make.include.x86_64-apple-darwinX.Y.Z on the same system.
+#    This is intended to build Yices as 64bit code.
+#      
+#    To select the alternative configuration use 'make OPTION=64bits ..'
 #
-# 3) On cygwin, it may be possible to build a mingw version (compilation
-#  with flag -mno-cygwin)
-#  - To select that mode, type 'make MODE=... OPTION=no-cygwin
-#  - This changes ARCH from i686-pc-cygwin to i686-pc-mingw32.
-#  - There must be a corresponding make.include.i686-pc-mingw32 in ./configs
-#  - To construct this config file, use
-#     ./configure --build=i686-pc-mingw32 CFLAGS=-mno-cygwin
+# 2) On Linux/x86_64, we compile in 64 bit mode by default,
+#    using configuration file make.include.x86_64-unknown-linux-gnu
+# 
+#    It may be possible to build in 32 bit mode on the same machine,
+#    provided the compiler understand option -m32 and the necessary
+#    32bit libraries are present. The corresponding Yices configuration
+#    is make.include.i686-unknown-linux-gnu
+#
+#    To select this 32bit configuration, use 'make OPTION=32bits ...'
+#
+# 3) On cygwin, the default configuration is make.include.i686-pc-cygwin.
+#    Two alternatives are supported:
+#         make.include.i686-pc-mingw32    (mingw32/Windows 32bit native)
+#    and  make.include.x86_64-pc-mingw32  (Windows 64bit native)
+#
+#    To select the Windows 32bit configuration, use
+#          'make OPTION=no-cygwin ...'
+#       or 'make OPTION=mingw32 ...'
+#
+#    To select the Windows 64bit configuration, use
+#         'make OPTION=mingw64'
+#
+# 4) On solaris, the default is make.include.sparc-sun-solaris2.x 
+#    (should be 32bits). 
+#
+#    The alternative is make.include.sparc64-sun-solaris2.x 
+#    (should be for 64bits build). To select is give OPTION=64bits.
+# 
+# Check README for details on generating these alternative configurations.
 #
 ifneq ($(OPTION),)
-ifeq ($(OPTION),32bits)
-  newarch=$(subst x86_64,i686,$(ARCH))
-else
-ifeq ($(OPTION),64bits) 
-  newarch=$(subst i386,x86_64,$(ARCH))
-else
-ifeq ($(OPTION),no-cygwin)
-  newarch=$(subst cygwin,mingw32,$(ARCH))
-  POSIXOS=mingw
-else
-  $(error "Invalid option: $(OPTION)")
-endif
-endif
-endif
-ifeq ($(newarch),$(ARCH))
-  $(error "option $(OPTION) not supported on platform $(ARCH)")
-endif
-ARCH := $(newarch)
+  ifeq ($(POSIXOS),linux)
+    ifeq ($(OPTION),32bits)
+      newarch=$(subst x86_64,i686,$(ARCH))
+    endif
+  else
+  ifeq ($(POSIXOS),darwin)
+    ifeq ($(OPTION),64bits) 
+      newarch=$(subst i386,x86_64,$(ARCH))
+    endif
+  else
+  ifeq ($(POSIXOS),cygwin)
+    ifeq ($(OPTION),no-cygwin)
+      newarch=$(subst cygwin,mingw32,$(ARCH))
+      POSIXOS=mingw
+    else
+    ifeq ($(OPTION),mingw32)
+      newarch=$(subst cygwin,mingw32,$(ARCH))
+      POSIXOS=mingw
+    else
+    ifeq ($(OPTION),mingw64)
+      newarch=$(subst cygwin,mingw32,$(subst i686,x86_64,$(ARCH)))
+      POSIXOS=mingw
+    endif
+    endif
+    endif
+  else
+  ifeq ($(POSIXOS),sunos)
+    ifeq ($(OPTION),64bits)
+      newarch=$(subst sparc,sparc64,$(ARCH))
+    endif
+  endif
+  endif
+  endif
+  endif
+
+  ifeq ($(newarch),)
+    $(error "option $(OPTION) not supported on platform $(ARCH)")
+  endif
+  ARCH := $(newarch)
 endif
 
 
