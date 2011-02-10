@@ -281,13 +281,22 @@ There are two options:
 
 2) use a cross compiler. 
 
-   There are two cross compilers for mingw32 and mingw64 in the cygwin
+   There are two cross compilers that target mingw (Windows)  in the cygwin
    repository/mirrors. They can be installed using cygwin's setup.exe
    utility. They are in the 'devel' section and have names like:
    mingw64-x86_64-gcc-...  mingw64-i686-gcc-...
 
+   There should then be two cross compilers in cygwin:
 
-To build a GMP dll for mingw from cygwin, give the following options to
+   /usr/bin/x86_86-w64-mingw32-gcc:  produces 64bit code that can run on 
+                                     64bit Windows
+
+   /usr/bin/i686-w64-mingw32-gcc:    produces 32bit code that can run on
+                                     Windows
+
+
+
+To build a 32bit GMP dll for mingw from cygwin, give the following options to
 GMP's configure script:
 
   ./configure --disable-static --enable-shared  \ 
@@ -311,9 +320,29 @@ and dynamic versions of GMP must be installed in different locations.
 
 
 NOTE: make check failed when using cross compilation with --disable-shared.
+
 The failure was a compilation error on tests/misc/t-locale.c (the complaint
 was about redefinition of a type or constant). So I just disabled that
 specific test by editing the Makefile in tests/misc (search for 
 check_PROGRAMS). All tests passed after that.
 
+
+
+
+
+To build a 64bit GMP dll for mingw from cygwin, first use GMP 5.0.1 (or newer).
+GMP 4.3.2 failed to build. Then, give the following options to GMP's configure
+script:
+
+  ./configure --disable-static --enable-shared \
+    --prefix=.... \
+    --host=x86_64-pc-mingw32 --build=i686-pc-cygwin \
+    CC=/usr/bin/x86_64-w64-mingw32-gcc \
+    NM=/usr/bin/x86_64-w64-mingw32-nm \
+    AR=/usr/bin/x86_64-w64-mingw32-ar \
+    CC_FOR_BUILD=gcc \
+ 
+
+It's important to specify NM as the x86_64 version. Otherwise the 
+'./configure' fails. Not sure specifying AR=... is required.
 
