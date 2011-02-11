@@ -8,7 +8,7 @@
 
 #include "terms.h"
 #include "bvlogic_buffers.h"
-
+#include "context.h"
 
 /*
  * BUFFER ALLOCATION/FREE
@@ -295,6 +295,29 @@ extern bool yices_check_bvrepeat(bvlogic_buffer_t *b, int32_t n);
  * - return false and set error report otherwise.
  */
 extern bool yices_check_bvextend(bvlogic_buffer_t *b, int32_t n);
+
+
+/*
+ * CONTEXT INITILIZATION
+ */
+
+/*
+ * Return a new context for the given arch, mode, iflag, and qflag.
+ * This doesn't use the configuration object, unlike the official 
+ * yices_new_context declared in yices.h.
+ * - arch = architecture to use
+ * - mode = which optional features are supported
+ * - iflag = true to active the integer solver
+ * - qflag = true to support quantifiers
+ *
+ * The following simplification options are enabled:
+ * - variable elimination
+ * - eq_abstraction
+ * - diseq/or flattening
+ * - arithvar and bvarithvar elimination
+ */
+extern context_t *yices_create_context(context_arch_t arch, context_mode_t mode,
+				       bool iflag, bool qflag);
 
 
 #endif /* __YICES_EXTENSIONS_H */

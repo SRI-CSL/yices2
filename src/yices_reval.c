@@ -47,6 +47,7 @@
 #include "model_printer.h"
 #include "yices.h"
 #include "yices_globals.h"
+#include "yices_extensions.h"
 #include "yices_reval.h"
 
 
@@ -851,18 +852,7 @@ static void free_model(model_t *model) {
  */
 static void init_ctx(context_arch_t arch, context_mode_t mode, bool iflag, bool qflag) {
   model = NULL;
-  context = (context_t *) safe_malloc(sizeof(context_t));
-  init_context(context, __yices_globals.terms, mode, arch, qflag);
-
-  enable_variable_elimination(context);
-  enable_eq_abstraction(context);
-  enable_diseq_and_or_flattening(context);
-  enable_arith_elimination(context);
-  enable_bvarith_elimination(context);
-  if (iflag) {
-    enable_splx_periodic_icheck(context);
-  }
-
+  context = yices_create_context(arch, mode, iflag, qflag);
   init_params_to_defaults(&parameters);
   init_handlers();
 }
@@ -878,8 +868,7 @@ static void delete_ctx(void) {
     free_model(model);
     model = NULL;
   }
-  delete_context(context);
-  safe_free(context);
+  yices_free_context(context);
   context = NULL;
 }
 

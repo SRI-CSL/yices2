@@ -373,7 +373,7 @@ static void show_progress(smt_core_t *core,
  *   If params is NULL, the default settings are used.
  * - verbose: if true, prints some data after each outer restart
  */
-static void solve(smt_core_t *core, param_t *params, bool verbose) {
+static void solve(smt_core_t *core, const param_t *params, bool verbose) {
   uint32_t c_threshold, d_threshold; // Picosat-style
   uint32_t reduce_threshold;
 
@@ -460,7 +460,7 @@ static void solve(smt_core_t *core, param_t *params, bool verbose) {
  * Initialize search parameters then call solve
  * - if ctx->status is not IDLE, return the status.
  */ 
-smt_status_t check_context(context_t *ctx, param_t *params, bool verbose) {
+smt_status_t check_context(context_t *ctx, const param_t *params, bool verbose) {
   smt_status_t stat;
   smt_core_t *core;
   egraph_t *egraph;

@@ -948,7 +948,7 @@ extern void init_params_to_defaults(param_t *parameters);
  * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN, 
  * STATUS_INTERRUPTED (these codes are defined in smt_core.h)
  */
-extern smt_status_t check_context(context_t *ctx, param_t *parameters, bool verbose);
+extern smt_status_t check_context(context_t *ctx, const param_t *parameters, bool verbose);
 
 
 /*

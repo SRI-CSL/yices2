@@ -1416,9 +1416,10 @@ __YICES_DLLSPEC__ extern int32_t yices_pop(context_t *ctx);
  *
  * If ctx's status is UNSAT, nothing is done.
  * 
- * If cts's status is IDLE, then the formula is simplified
- * and asserted in the context. The context status is changed
- * to UNSAT if the formula is simplified to 'false'.
+ * If cts's status is IDLE, SAT, or UNKNONW, then the formula is
+ * simplified and asserted in the context. The context status is
+ * changed to UNSAT if the formula is simplified to 'false' or
+ * to IDLE otherwise.
  * 
  * This returns 0 if there's no error or -1 if there's an error.
  * 
@@ -1442,7 +1443,7 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formula(context_t *ctx, term_t t);
 
 /*
  * Same thing for an array of n formulas t[0 ... n-1]
- * - ctx's status must be IDLE or UNSAT
+ * - ctx's status must be IDLE or UNSAT or SAT or UNKNOWN
  * - all t[i]'s must be valid boolean terms.
  * - n must be non-negative
  *
@@ -1450,7 +1451,7 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formula(context_t *ctx, term_t t);
  *
  * The error report is set as in the previous function.
  */
-__YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, int32_t n, term_t t[]);
+__YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, uint32_t n, term_t t[]);
 
 
 /*

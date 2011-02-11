@@ -7469,3 +7469,404 @@ EXPORTED int32_t yices_set_param(param_t *param, const char *name, const char *v
   // TBD
   return 0;
 }
+
+
+
+/*************************
+ *  CONTEXT OPERATIONS   *
+ ************************/
+
+/*
+ * Allocate and initalize a new context.
+ * The configuration is specified by arch/mode/iflag/qflag.
+ * - arch = architecture to use
+ * - mode = which optional features are supported
+ * - iflag = true to active the integer solver
+ * - qflag = true to support quantifiers
+ */
+context_t *yices_create_context(context_arch_t arch, context_mode_t mode, bool iflag, bool qflag) {
+  context_t *ctx;
+
+  ctx = alloc_context();
+  init_context(ctx, &terms, mode, arch, qflag);
+
+  enable_variable_elimination(ctx);
+  enable_eq_abstraction(ctx);
+  enable_diseq_and_or_flattening(ctx);
+  enable_arith_elimination(ctx);
+  enable_bvarith_elimination(ctx);
+  if (iflag) {
+    enable_splx_periodic_icheck(ctx);
+  }  
+
+  return ctx;
+}
+
+
+/*
+ * Allocate and initialize and new context
+ * - the configuration is defined by config.
+ * - if config is NULL, the default is used.
+ * - otherwise, if the configuration is not supported, the function returns NULL.
+ */
+EXPORTED context_t *yices_new_context(const ctx_config_t *config) {
+  // TBD
+  return NULL;
+}
+
+
+/*
+ * Delete ctx
+ */
+EXPORTED void yices_free_context(context_t *ctx) {
+  delete_context(ctx);
+  free_context(ctx);
+}
+
+
+/*
+ * Get status: return the context's status flag
+ * - return one of the codes defined in yices_types.h
+ */
+EXPORTED smt_status_t yices_context_status(context_t *ctx) {
+  return context_status(ctx);
+}
+
+
+/*
+ * Reset: remove all assertions and restore ctx's status to IDLE
+ */
+EXPORTED void yices_reset_context(context_t *ctx) {
+  reset_context(ctx);
+}
+
+
+/*
+ * Push: mark a backtrack point
+ * - return 0 if this operation is supported by the context
+ *         -1 otherwise
+ *
+ * Error report:
+ * - if the context is not configured to support push/pop
+ *   code = CTX_OPERATION_NOT_SUPPORTED
+ * - if the context status is UNSAT or SEARCHING or INTERRUPTED
+ *   code = CTX_INVALID_OPERATION
+ */
+EXPORTED int32_t yices_push(context_t *ctx) {
+  if (! context_supports_pushpop(ctx)) {
+    error.code = CTX_OPERATION_NOT_SUPPORTED;
+    return -1;
+  }
+
+  switch (context_status(ctx)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    context_clear(ctx);
+    assert(context_status(ctx) == STATUS_IDLE);
+    // fall-through intended
+  case STATUS_IDLE:
+    break;
+
+  case STATUS_UNSAT:
+  case STATUS_INTERRUPTED:
+  case STATUS_SEARCHING:
+    error.code = CTX_INVALID_OPERATION;
+    return -1;
+
+  case STATUS_ERROR:
+  default:
+    error.code = INTERNAL_EXCEPTION;
+    return -1;
+  }
+
+  context_push(ctx);
+  return 0;
+}
+
+
+
+/*
+ * Pop: backtrack to the previous backtrack point (i.e., the matching
+ * call to yices_push).
+ * - return 0 if the operation succeeds, -1 otherwise.
+ *
+ * Error report:
+ * - if the context is not configured to support push/pop
+ *   code = CTX_OPERATION_NOT_SUPPORTED
+ * - if there's no matching push (i.e., the context stack is empty)
+ *   or if the context's status is SEARCHING or INTERRUPTED
+ *   code = CTX_INVALID_OPERATION
+ */
+EXPORTED int32_t yices_pop(context_t *ctx) {
+  if (! context_supports_pushpop(ctx)) {
+    error.code = CTX_OPERATION_NOT_SUPPORTED;
+    return -1;
+  }
+
+  if (context_base_level(ctx) == 0) {
+    error.code = CTX_INVALID_OPERATION;
+    return -1;
+  }
+
+  switch (context_status(ctx)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+  case STATUS_INTERRUPTED: // TODO: check this?
+    context_clear(ctx);
+    assert(context_status(ctx) == STATUS_IDLE);
+    // fall-through intended
+  case STATUS_IDLE:
+    break;
+
+  case STATUS_UNSAT:
+    context_clear_unsat(ctx);
+    break;
+
+  case STATUS_SEARCHING:
+    error.code = CTX_INVALID_OPERATION;
+    return -1;
+
+  case STATUS_ERROR:
+  default:
+    error.code = INTERNAL_EXCEPTION;
+    return -1;
+  }
+
+  context_pop(ctx);
+  return 0;
+}
+
+
+
+/*
+ * Convert an error code reported by assert_formula
+ * into the corresponding yces_error value.
+ */
+static const error_code_t intern_code2error[NUM_INTERNALIZATION_ERRORS] = {
+  NO_ERROR,                  // CTX_NO_ERROR
+  INTERNAL_EXCEPTION,        // INTERNAL_ERROR 
+  INTERNAL_EXCEPTION,        // TYPE_ERROR. Should not happen if the assertions are type correct
+  CTX_FREE_VAR_IN_FORMULA,
+  CTX_LOGIC_NOT_SUPPORTED,
+  CTX_UF_NOT_SUPPORTED,
+  CTX_ARITH_NOT_SUPPORTED,
+  CTX_BV_NOT_SUPPORTED,
+  CTX_ARRAYS_NOT_SUPPORTED,
+  CTX_QUANTIFIERS_NOT_SUPPORTED,
+  CTX_FORMULA_NOT_IDL,
+  CTX_FORMULA_NOT_RDL,
+  CTX_NONLINEAR_ARITH_NOT_SUPPORTED,
+  CTX_TOO_MANY_ARITH_VARS,
+  CTX_TOO_MANY_ARITH_ATOMS,
+  CTX_ARITH_SOLVER_EXCEPTION,
+  CTX_BV_SOLVER_EXCEPTION,
+};
+
+static inline void convert_internalization_error(int32_t code) {
+  assert(-NUM_INTERNALIZATION_ERRORS < code && code < 0);
+  error.code = intern_code2error[-code];  
+}
+
+/*
+ * Assert formula t in ctx
+ * - ctx status must be IDLE or UNSAT or SAT or UNKNOWN
+ * - t must be a boolean term
+ *
+ * If ctx's status is UNSAT, nothing is done.
+ * 
+ * If cts's status is IDLE, SAT, or UNKNONW, then the formula is
+ * simplified and asserted in the context. The context status is
+ * changed to UNSAT if the formula is simplified to 'false' or
+ * ot IDLE if it does not simplify to false.
+ * 
+ * This returns 0 if there's no error or -1 if there's an error.
+ * 
+ * Error report:
+ * if t is invalid
+ *   code = INVALID_TERM
+ *   term1 = t
+ * if t is not boolean
+ *   code = TYPE_MISMATCH
+ *   term1 = t
+ *   type1 = bool (expected type)
+ * if ctx's status is not IDLE or UNSAT
+ *   code = CTX_INVALID_OPERATION
+ *
+ * For future extensions, other error codes are defined in
+ * yices_types.h to report that t is outside the logic supported 
+ * by ctx. These should never happen with this version of Yices.
+ */
+EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
+  int32_t code;
+
+  if (! check_good_term(&terms, t) || 
+      ! check_boolean_term(&terms, t)) {
+    return -1;
+  }
+
+  switch (context_status(ctx)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    context_clear(ctx);
+    assert(context_status(ctx) == STATUS_IDLE);
+    // fall-through intended
+  case STATUS_IDLE:
+    code = assert_formula(ctx, t);
+    if (code < 0) {
+      // error during internalization
+      convert_internalization_error(code);
+      return -1;
+    }
+    assert(code == TRIVIALLY_UNSAT || code == CTX_NO_ERROR);
+  case STATUS_UNSAT:
+    // nothing to do
+    break;
+
+    
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+    error.code = CTX_INVALID_OPERATION;
+    return -1;
+
+  case STATUS_ERROR:
+  default:
+    error.code = INTERNAL_EXCEPTION;
+    return -1;
+  }
+
+  return 0;
+}
+
+
+
+/*
+ * Same thing for an array of n formulas t[0 ... n-1]
+ */
+EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, term_t t[]) {
+  int32_t code;
+
+  if (! check_good_terms(&terms, n, t) ||
+      ! check_boolean_args(&terms, n, t)) {
+    return -1;
+  }
+
+
+  switch (context_status(ctx)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    context_clear(ctx);
+    assert(context_status(ctx) == STATUS_IDLE);
+    // fall-through intended
+  case STATUS_IDLE:
+    code = assert_formulas(ctx, n, t);
+    if (code < 0) {
+      // error during internalization
+      convert_internalization_error(code);
+      return -1;
+    }
+    assert(code == TRIVIALLY_UNSAT || code == CTX_NO_ERROR);
+
+  case STATUS_UNSAT:
+    // fall-through intended
+    // nothing to do
+    break;
+
+    
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+    error.code = CTX_INVALID_OPERATION;
+    return -1;
+
+  case STATUS_ERROR:
+  default:
+    error.code = INTERNAL_EXCEPTION;
+    return -1;
+  }
+
+  return 0;
+}
+
+
+
+/*
+ * Check satisfiability: check whether the assertions stored in ctx
+ * are satisfiable.  
+ * - params is an optional structure that stores heurisitic parameters.
+ * - if params is NULL, default parameter settings are used.
+ *
+ * It's better to keep params=NULL unless you encounter performance
+ * problems.  Then you may want to play with the heuristics to see if
+ * performance improves.
+ *
+ * The behavior and returned value depend on ctx's current status:
+ *
+ * 1) If ctx's status is SAT, UNSAT, or UNKNOWN, the function 
+ *    does nothing and just return the status.
+ *
+ * 2) If ctx's status is IDLE, then the solver searches for a
+ *    satisfying assignment. If param != NULL, the search parameters
+ *    defined by params are used.
+ * 
+ *    The function returns one of the following codes:
+ *    - SAT: the context is satisfiable
+ *    - UNSAT: the context is not satisfiable
+ *    - UNKNOWN: satisfiability can't be proved or disproved 
+ *    - INTERRUPTED: the search was interrupted
+ *
+ *    The returned status is also stored as the new ctx's status flag.
+ *
+ * 3) Otherwise, the function does nothing and returns 'STATUS_ERROR', 
+ *    it also sets the yices error report (code = CTX_INVALID_OPERATION).
+ */
+EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params) {
+  smt_status_t stat;
+
+  stat = context_status(ctx);
+  switch (stat) {
+  case STATUS_UNKNOWN:
+  case STATUS_UNSAT:
+  case STATUS_SAT:
+    break;
+
+  case STATUS_IDLE:
+    stat = check_context(ctx, params, false); // TODO? add verbosity option
+    if (stat == STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
+      context_cleanup(ctx);
+    }
+    break;
+
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+    error.code = CTX_INVALID_OPERATION;
+    stat = STATUS_ERROR;
+    break;
+
+  case STATUS_ERROR:
+  default:
+    error.code = INTERNAL_EXCEPTION;
+    stat = STATUS_ERROR;
+    break;
+  }
+
+  return stat;
+}
+
+
+/*
+ * - this can be called from a signal handler to stop the search,
+ *   after a call to yices_check_context to interrupt the solver.
+ *
+ * If ctx's status is SEARCHING, then the current search is
+ * interrupted and ctx's status flag is updated to
+ * INTERRUPTED. Otherwise, the function does nothing.
+ */
+EXPORTED void yices_stop_search(context_t *ctx) {
+  if (context_status(ctx) == STATUS_SEARCHING) {
+    context_stop_search(ctx);
+  }
+}
+
+
+
+
+
