@@ -331,8 +331,17 @@ check_PROGRAMS). All tests passed after that.
 
 
 To build a 64bit GMP dll for mingw from cygwin, first use GMP 5.0.1 (or newer).
-GMP 4.3.2 failed to build. Then, give the following options to GMP's configure
-script:
+GMP 4.3.2 failed to configure. This is related to the fact that Visual Studio,
+and the mingw64 compiler have (sizeof(long) == 4) even for 64bit code.
+
+For GMP 5.0.1, it's also a good idea to get the patch at 
+   
+  http://gmplib.org:8000/gmp-5.0/raw-rev/794410151f5f.
+
+Otherwise, make check will fail for t-perfpow.
+
+
+Then, give the following options to GMP's configure script:
 
   ./configure --disable-static --enable-shared \
     --prefix=.... \
