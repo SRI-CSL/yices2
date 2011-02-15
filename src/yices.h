@@ -37,7 +37,7 @@
 
 
 #ifdef __cplusplus
-extern "C" {
+// extern "C" {
 #endif
 
 
@@ -1297,6 +1297,103 @@ __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
 
 
 
+/****************************
+ *  CONTEXT CONFIGURATION   *
+ ***************************/
+
+/*
+ * When a context is created, it is possible to configure it to use a
+ * specific solver or a specific combination of solvers.  It is also
+ * possible to specify whether or not the context should support
+ * features such as push and pop or others.
+ * 
+ * The following theory solvers are currently available:
+ * - egraph (solver for uninterpreted functions)
+ * - bitvector solver
+ * - array solver
+ * - solver for linear arithmetic based on simplex
+ * - solver for integer difference logic (based on Floyd-Warshall)
+ * - solver for real difference logic (also based on Floyd-Warshall)
+ *
+ * The followng combinations of theory solvers can be used:
+ * - no solvers at all
+ * - egraph alone
+ * - bitvector solver alone
+ * - simplex solver alone
+ * - integer Floyd-Warshall solver alone
+ * - real Floyd-Warshall solver alone
+ * - egraph + bitvector solver
+ * - egraph + simplex solver
+ * - egraph + array solver
+ * - egraph + bitvector + array solver
+ * - egraph + simplex + array solver
+ * - egraph + simplex + bivector + array solver
+ * If no solvers are used, the context can deal only with Boolean
+ * formulas.
+ *
+ * When the simplex solver is used, it's also possible to
+ * specify which arithmetic fragment is intended, namely:
+ * - real difference logic
+ * - integer difference logic
+ * - real linear arithmetic
+ * - integer linear arithmetic
+ * - mixed integer/real linear arithmetic
+ *
+ * In addition to the solver combination, a context can be configured
+ * for different usage:
+ * - one-shot mode: check satisfiability of one set of formulas
+ * - multiple checks: repeated calls to assert/checks are allowed
+ * - push/pop: push and pop are supported (implies multiple checks)
+ * - clean interrupts are supported (implies push/pop)
+ * Currently, the Floyd-Warshall solvers can only be used in one-shot mode.
+ *
+ * By default, a new solver is configured as follows:
+ * - solvers: egraph + simplex + bitvector + array solvers
+ * - usage: push/pop supported
+ *
+ * To specify another configuration, one must pass a configuration
+ * descriptor to function yices_new_context. A configuration descriptor
+ * is an opaque structure that includes the following fields:
+ * - logic: either NONE or an SMT-LIB name
+ * - arith-fragment: either NONE, IDL, RDL, LRA, LIA, LIRA
+ * - egraph: either NO, YES, AUTO
+ * - bv-solver: either NO, YES, AUTO
+ * - array-solver: either NO, YES, AUTO
+ * - arith-solver: either NO, IFW, RFW, SIMPLEX, AUTO
+ * - mode: either ONE-SHOT, MULTI-CHECKS, PUSH-POP, CLEAN-INTERRUPT
+ *
+ * This is done as follows:
+ * 1) allocate a configuration descriptor via yices_new_config
+ * 2) set the configuration parameters by repeated calls to yices_set_config
+ * 3) create one or more context with this configuration by passing the 
+ *    descriptor to yices_new_context
+ * 4) free the configuration descriptor when it's no longer needed
+ */
+
+/*
+ * Allocate a configuration descriptor:
+ * - the descriptor is set to: no solvers, one-shot mode
+ */
+__YICES_DLLSPEC__ extern ctx_config_t *yices_new_config(void);
+
+
+/*
+ * Deletion
+ */
+__YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
+
+
+/*
+ * Set a configuration parameter:
+ * - name = the parameter name
+ * - value = the value
+ *
+ * The function returns -1 if there's an error, 0 otherwise.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const char *name, const char *value);
+
+
+
 /***************
  *  CONTEXTS   *
  **************/
@@ -1338,7 +1435,6 @@ __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
  *    then it can be interrupted via a call to stop_search.
  *    The status INTERRUPTED indicates that.
  *
- *
  * For fine tuning: there are options that determine which internal
  * simplifications are applied when formulas are asserted, and
  * other options to control heuristics used by the solver.
@@ -1346,7 +1442,7 @@ __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
 
 /*
  * Create a new context:
- * - config is an optional argument that specifies the context configuration
+ * - config is an optional argument that defines the context configuration
  * - the configuration specifies which components the context should
  *   include (e.g., egraph, bv_solver, simplex_solver, etc),
  *   and which features should be supported (e.g., whether push/pop are
@@ -1515,50 +1611,6 @@ __YICES_DLLSPEC__ extern void yices_stop_search(context_t *ctx);
  */
 __YICES_DLLSPEC__ extern void yices_context_enable_option(context_t *ctx, const char *option);
 __YICES_DLLSPEC__ extern void yices_context_disable_option(context_t *ctx, const char *option);
-
-
-
-/*
- * CONTEXT CONFIGURATION OPTIONS
- */
-
-/*
- * A configuration structure is an opaque structure that 
- * specifies the solver components in a context and other 
- * context features.
- *
- * A default configuration object is allocated by calling:
- * - yices_new_config(void)
- * Then configurations parameters can be set or changed via
- * - yices_set_config(config, param, value)
- * Once filled in, the config object can be passed on to the
- * context creation function: yices_new_context.
- *
- * Then the config object can be deleted by calling yices_free_config.
- */
-
-/*
- * Allocate a configuration descriptor
- * TBD: Explain the defaults.
- */
-__YICES_DLLSPEC__ extern ctx_config_t *yices_new_config(void);
-
-
-/*
- * Deletion
- */
-__YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
-
-
-/*
- * Set a configuration parameter:
- * - name = the parameter name
- * - value = the value
- * TBD: List the parameter/values.
- *
- * The function returns -1 if there's an error, 0 otherwise.
- */
-__YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const char *name, const char *value);
 
 
 
