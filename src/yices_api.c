@@ -7414,9 +7414,11 @@ EXPORTED ctx_config_t *yices_new_config(void) {
   ctx_config_t *tmp;
 
   tmp = alloc_config_structure();
+  init_config_to_defaults(tmp);
 
   return tmp;
 }
+
 
 /*
  * Delete
@@ -7425,13 +7427,49 @@ EXPORTED void yices_free_config(ctx_config_t *config) {
   free_config_structure(config);
 }
 
+
 /*
  * Set a configuration parameter
  */
 EXPORTED int32_t yices_set_config(ctx_config_t *config, const char *name, const char *value) {
-  // TBD
+  int32_t k;
+
+  k = config_set_field(config, name, value);
+  if (k < 0) {
+    if (k == -1) {
+      // invalid name
+      error.code = CTX_UNKNOWN_PARAMETER;
+    } else {
+      error.code = CTX_INVALID_PARAMETER_VALUE;
+    }
+    return -1;
+  }
+
   return 0;
 }
+
+
+/*
+ * Set config to a default solver combination for the given logic
+ * - return -1 if there's an error
+ * - return 0 otherwise
+ */
+int32_t yices_default_config_for_logic(ctx_config_t *config, const char *logic) {
+  int32_t k;
+
+  k = config_set_logic(config, logic);
+  if (k < 0) {
+    if (k == -1) {
+      error.code = CTX_UNKNOWN_LOGIC;
+    } else {
+      error.code = CTX_LOGIC_NOT_SUPPORTED;
+    }
+    return -1;
+  }
+
+  return 0;
+}
+
 
 
 
@@ -7506,8 +7544,29 @@ context_t *yices_create_context(context_arch_t arch, context_mode_t mode, bool i
  * - otherwise, if the configuration is not supported, the function returns NULL.
  */
 EXPORTED context_t *yices_new_context(const ctx_config_t *config) {
-  // TBD
-  return NULL;
+  context_arch_t arch;
+  context_mode_t mode;
+  bool iflag;
+  bool qflag;
+  int32_t k;
+
+  if (config == NULL) {
+    // Default configuration: all solvers, mode = push/pop
+    arch = CTX_ARCH_EGFUNSPLXBV;
+    mode = CTX_MODE_PUSHPOP;
+    iflag = true;
+    qflag = false;
+  } else {
+    // read the config
+    k = decode_config(config, &arch, &mode, &iflag, &qflag);
+    if (k < 0) {
+      // invalid configuration
+      error.code = CTX_INVALID_CONFIG;
+      return NULL;
+    }
+  }
+
+  return yices_create_context(arch, mode, iflag, qflag);
 }
 
 

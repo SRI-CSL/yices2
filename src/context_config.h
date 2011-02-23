@@ -4,12 +4,16 @@
 
 /*
  * When a context is created, one can specify which solver combination
- * it includes and which features it supports.  A context configuration
- * is a data structure to store this information. It's used as an opaque
- * object in the Yices API.
+ * it includes and which features it supports. The context
+ * initialization function in context.c currently uses bit masks and
+ * integer codes to specify the configuration. We don't want to expose
+ * these codes to the official API since they are very likely to
+ * change when we extend Yices. Instead, we provide opaque
+ * context-configuration objects in the API + functions to allocate
+ * and set the configuration.
  *
- * A configuration includes:
- * - logic: which logic to support. default = NONE
+ * A configuration object includes:
+ * - logic: which logic to support
  * - mode: which set of operations the context supports
  * - uf_solver: whether to use the Egraph or not
  * - bv_solver: whether to use the bitvector solver or not
@@ -22,7 +26,6 @@
 #define __CONTEXT_CONFIG_H
 
 #include <stdint.h>
-#include <stdbool.h>
 
 
 /*
@@ -45,26 +48,30 @@ typedef enum arith_fragment {
   CTX_CONFIG_ARITH_RDL,       // real difference logic
   CTX_CONFIG_ARITH_LRA,       // linear real arithmetic
   CTX_CONFIG_ARITH_LIA,       // linear integer arithmetic
-  CTX_CONFIG_ARITH_LIRA,      // mixed linear arithmetic
+  CTX_CONFIG_ARITH_LIRA,      // mixed linear arithmetic  (default)
   CTX_CONFIG_ARITH_NRA,       // non-linear, real arithmetic
   CTX_CONFIG_ARITH_NIA,       // non-linear, integer arithmetic
   CTX_CONFIG_ARITH_NIRA,      // non-linear, mixed arithmetic
 } arith_fragment_t;
 
+#define NUM_ARITH_FRAGMENTS (CTX_CONFIG_ARITH_NIRA+1)
 
+ 
 /*
  * Codes for each solver
  */
 typedef enum solver_code {
   CTX_CONFIG_NONE,            // no solver of that type
   CTX_CONFIG_DEFAULT,         // the default solver of that type
-  CTX_CONFIG_AUTO,            // decide based on the logic + mode
 
   // the next codes are for the arithmetic solver only
   CTX_CONFIG_ARITH_SIMPLEX,   // simplex solver
   CTX_CONFIG_ARITH_IFW,       // integer Floyd-Warshall solver
   CTX_CONFIG_ARITH_RFW,       // real Floyd-Warshall solver
 } solver_code_t;
+
+#define NUM_SOLVER_CODES (CTX_CONFIG_ARITH_RFW+1)
+
 
 
 /*
@@ -73,11 +80,11 @@ typedef enum solver_code {
 struct ctx_config_s {
   context_mode_t    mode;
   smt_logic_t       logic;
-  arith_fragment_t  arith_fragment;
   solver_code_t     uf_config;
   solver_code_t     array_config;
   solver_code_t     bv_config;
   solver_code_t     arith_config;
+  arith_fragment_t  arith_fragment;
 };
 
 
@@ -87,29 +94,36 @@ struct ctx_config_s {
  * - mode = PUSH/POP
  * - logic = UNKNOWN
  * - arith_fragment = LIRA
- * - uf_config = DEFAULT
- * - array_config = DEFAULT
- * - bv_config = DEFAULT
- * - arith_config = DEFAULT
+ * - uf_config    = NONE
+ * - array_config = NONE
+ * - bv_config    = NONE
+ * - arith_config = NONE
+ *
+ * In this configuration, a context supports propositional logic only.
  */
 extern void init_config_to_defaults(ctx_config_t *config);
 
 
 /*
- * Set a default configuration to support the given logic
+ * Set config to support the given logic
  * - return -1 if the logic name is not recognized
  * - return -2 if we don't support the logic yet
  * - return 0 otherwise
  *
- * This leaves the mode unchanged and overwrites all the other fields.
+ * If the function returns 0, the logic field is updated.
+ * All other fields are left unchanged.
  */
-extern int32_t default_config_for_logic(ctx_config_t *config, const char *logic);
+extern int32_t config_set_logic(ctx_config_t *config, const char *logic);
 
 
 /*
  * Set a field in config:
  * - key = field name
  * - value = value for that field
+ *
+ * This can't be used to set config->logic: key must be one of "mode",
+ * "arith-fragment", "uf-solver", "array-solver", "bv-solver",
+ * "arith-solver".
  * 
  * Return code:
  *   -1 if the key is not recognized
@@ -121,24 +135,29 @@ extern int32_t config_set_field(ctx_config_t *config, const char *key, const cha
 
 
 /*
- * Check whether config is valid (and supported by this version of Yices)
- *
- * If it's valid, then we can build a context with this configuration.
- * This is done by converting config to a tuple (arch, mode, iflag, qflag)
+ * Check whether config is valid, and supported by this version of Yices,
+ * and convert it to a tuple (arch, mode, iflag, qflag)
  * - arch = architecture code as defined in context.h
  * - mode = one of the context's modes
  * - iflag = true if the integer solver (in simplex) is required
  * - qflag = true if support for quantifiers is required
+ *
+ * 1) If config->logic is SMT_UNKNOWN then, the solver codes are
+ *    examined. The config is valid if the solver combination matches
+ *    one of the supported architectures (cf. context.h) and if
+ *    the solvers all support the requested mode.
+ *
+ * 2) if config->logic is specified, then solver codes and 
+ *    arithmetic fragments are ignored.
+ *
+ * Return code:
+ *  -1 if the config is invalid
+ *  -2 if the config is valid but not currently supported
+ *   0 if the config is valid and supported
  */
-extern bool config_is_valid(ctx_config_t *config);
+extern int32_t decode_config(const ctx_config_t *config, context_arch_t *arch, 
+			     context_mode_t *mode, bool *iflag, bool *qflag);
 
-
-/*
- * Convert config to a context's configuration tuple
- * - config must be valid
- * - arch, mode, iflag, qflag are set 
- */
-extern void decode_config(ctx_config_t *config, context_arch_t *arch, context_mode_t *mode, bool *iflag, bool *qflag);
 
 
 #endif /* __CONTEXT_CONFIG_H */

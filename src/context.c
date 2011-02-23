@@ -5843,6 +5843,7 @@ static const uint32_t const arch2theories[NUM_ARCH] = {
   UF_MASK|BV_MASK,             //  CTX_ARCH_EGBV
   UF_MASK|ARITH_MASK|FUN_MASK, //  CTX_ARCH_EGFUNSPLX
   UF_MASK|BV_MASK|FUN_MASK,    //  CTX_ARCH_EGFUNBV
+  UF_MASK|BV_MASK|ARITH_MASK,  //  CTX_ARCH_EGSPLXBV
   ALLTH_MASK,                  //  CTX_ARCH_EGFUNSPLXBV
 
   IDL_MASK,                    //  CTX_ARCH_AUTO_IDL
@@ -5877,6 +5878,7 @@ static const uint8_t const arch_components[NUM_ARCH] = {
   EGRPH|BVSLVR,             //  CTX_ARCH_EGBV
   EGRPH|SPLX|FSLVR,         //  CTX_ARCH_EGFUNSPLX
   EGRPH|BVSLVR|FSLVR,       //  CTX_ARCH_EGFUNBV
+  EGRPH|SPLX|BVSLVR,        //  CTX_ARCH_EGSPLXBV
   EGRPH|SPLX|BVSLVR|FSLVR,  //  CTX_ARCH_EGFUNSPLXBV
 
   0,                        //  CTX_ARCH_AUTO_IDL

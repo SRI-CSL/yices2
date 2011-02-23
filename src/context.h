@@ -129,6 +129,7 @@ typedef enum {
   CTX_ARCH_EGBV,         // egraph+bitvector solver
   CTX_ARCH_EGFUNSPLX,    // egraph+fun+simplex
   CTX_ARCH_EGFUNBV,      // egraph+fun+bitvector
+  CTX_ARCH_EGSPLXBV,     // egraph+simplex+bitvector
   CTX_ARCH_EGFUNSPLXBV,  // all solvers (should be the default)
 
   CTX_ARCH_AUTO_IDL,     // either simplex or integer floyd-warshall
@@ -143,7 +144,7 @@ typedef enum {
  * Supported theories (including arithmetic and function theory variants)
  * - a 32bit theories word indicate what's supported
  * - each bit selects a theory
- * The theory words is derived from the architecture descriptor
+ * The theory word is derived from the architecture descriptor
  */
 #define UF_MASK        0x1
 #define BV_MASK        0x2

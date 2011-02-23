@@ -140,6 +140,7 @@ typedef enum error_code {
   ARITH_ERROR,
   BVARITH_ERROR,
 
+
   /*
    * Errors in assertion processing.
    * These codes mean that the context, as configured,
@@ -163,11 +164,22 @@ typedef enum error_code {
   CTX_BV_SOLVER_EXCEPTION,
   CTX_ARRAY_SOLVER_EXCEPTION,
 
+
   /*
-   * Error codes for other operations on the context
+   * Error codes for other operations
    */
   CTX_INVALID_OPERATION,
   CTX_OPERATION_NOT_SUPPORTED,
+
+
+  /*
+   * Errors in context configurations and search parameter settings
+   */
+  CTX_INVALID_CONFIG,
+  CTX_UNKNOWN_PARAMETER,
+  CTX_INVALID_PARAMETER_VALUE,
+  CTX_UNKNOWN_LOGIC,
+
 
   /*
    * Error codes for model queries

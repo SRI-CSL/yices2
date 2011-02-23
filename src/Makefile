@@ -80,9 +80,9 @@ src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c \
          bv64_constants.c bv_polynomials.c bv64_polynomials.c        \
          bvpoly_buffers.c bvsolver.c bvsolver_printer.c cache.c      \
          command_line.c composites.c concrete_values.c context.c     \
-         context_printer.c context_solver.c dep_tables.c             \
-         diophantine_systems.c diseq_stacks.c dl_vartable.c          \
-         dsolver_printer.c egraph_assertion_queues.c                 \
+	 context_config.c context_printer.c context_solver.c         \
+         dep_tables.c diophantine_systems.c diseq_stacks.c           \
+         dl_vartable.c dsolver_printer.c egraph_assertion_queues.c   \
          egraph_explanations.c egraph_utils.c egraph.c               \
          egraph_printer.c eq_abstraction.c eq_learner.c              \
          extended_rationals.c fun_maps.c fun_solver.c fun_trees.c    \

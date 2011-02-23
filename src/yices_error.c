@@ -306,6 +306,22 @@ void print_error(FILE *f) {
     fprintf(f, "operation not supported by the context\n");
     break;
 
+  case CTX_INVALID_CONFIG:
+    fprintf(f, "invalid context configuration\n");
+    break;
+
+  case CTX_UNKNOWN_PARAMETER:
+    fprintf(f, "invalid parameter\n");
+    break;
+
+  case CTX_INVALID_PARAMETER_VALUE:
+    fprintf(f, "value not valid for parameter\n");
+    break;
+
+  case CTX_UNKNOWN_LOGIC:
+    fprintf(f, "unknown logic\n");
+    break;
+
   case EVAL_UNKNOWN_TERM:
     fprintf(f, "eval error: term value not available in the model\n");
     break;
