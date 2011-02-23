@@ -46,6 +46,8 @@
 #include "context.h"
 #include "models.h"
 
+#include "context_config.h"
+
 #include "yices.h"
 #include "yices_error.h"
 #include "yices_extensions.h"
@@ -7412,12 +7414,6 @@ EXPORTED ctx_config_t *yices_new_config(void) {
   ctx_config_t *tmp;
 
   tmp = alloc_config_structure();
-  tmp->uf_config = UF_CONFIG_AUTO;
-  tmp->arith_config = ARITH_CONFIG_AUTO;
-  tmp->arith_option = ARITH_OPTION_MIXED;
-  tmp->bv_config = BV_CONFIG_AUTO;
-  tmp->array_config = ARRAY_CONFIG_AUTO;
-  tmp->mode = CTX_MODE_PUSHPOP;
 
   return tmp;
 }

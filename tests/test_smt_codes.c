@@ -3,13 +3,14 @@
 
 #include "smt_logic_codes.h"
 
-#define NUM_TESTS 24
+#define NUM_TESTS 26
 
 static const char * const test_names[] = {
   "AUFLIA",
   "AUFLIRA",
   "AUFNIRA",
   "LRA",
+  "QF_ABV",
   "QF_AUFBV",
   "QF_AUFLIA",
   "QF_AX",
@@ -38,6 +39,7 @@ static const char *const code2string[] = {
   "AUFLIRA",
   "AUFNIRA",
   "LRA",
+  "QF_ABV",
   "QF_AUFBV",
   "QF_AUFLIA",
   "QF_AX",

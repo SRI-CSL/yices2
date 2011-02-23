@@ -395,6 +395,7 @@ void smt_lexer_activate_logic(smt_logic_t code) {
     activate_array_tokens();
     break;
 
+  case QF_ABV:
   case QF_AUFBV:
     activate_array_tokens();
     activate_new_bv_tokens();

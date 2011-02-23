@@ -25,6 +25,9 @@ void print_error(FILE *f) {
     fprintf(f, "no error\n");
     break;
 
+    /*
+     * Term/type construction errors
+     */
   case INVALID_TYPE:
     fprintf(f, "invalid type: (index = %"PRId32")\n", error->type1);
     break;
@@ -145,7 +148,9 @@ void print_error(FILE *f) {
     fprintf(f, "bitvector must have positive bitsize\n");
     break;
 
-    // parser errors here
+    /*
+     * Parser errors 
+     */
   case INVALID_TOKEN:
     fprintf(f, "invalid token\n");
     break;
@@ -222,9 +227,112 @@ void print_error(FILE *f) {
     fprintf(f, "error in bitvector operation\n");
     break;
 
-  default:
-    fprintf(f, "invalid error code: %"PRId32"\n", (int32_t) error->code);
+    /*
+     * Errors in assertion processing
+     */
+  case CTX_FREE_VAR_IN_FORMULA:
+    fprintf(f, "assertion contains a free variable\n");
     break;
+
+  case CTX_LOGIC_NOT_SUPPORTED:
+    fprintf(f, "logic not supported\n");
+    break;
+
+  case CTX_UF_NOT_SUPPORTED:
+    fprintf(f, "context does not support uninterpreted functions\n");
+    break;
+
+  case CTX_ARITH_NOT_SUPPORTED:
+    fprintf(f, "context does not support arithmetic\n");
+    break;
+
+  case CTX_BV_NOT_SUPPORTED:
+    fprintf(f, "context does not support bitvectors\n");
+    break;
+
+  case CTX_ARRAYS_NOT_SUPPORTED:
+    fprintf(f, "context does not support arrays or function equalities\n");
+    break;
+
+  case CTX_QUANTIFIERS_NOT_SUPPORTED:
+    fprintf(f, "context does not support quantifiers\n");
+    break;
+
+  case CTX_NONLINEAR_ARITH_NOT_SUPPORTED:
+    fprintf(f, "context does not support non-linear arithmetic\n");
+    break;
+
+  case CTX_FORMULA_NOT_IDL:
+    fprintf(f, "assertion is not in the IDL fragment\n");
+    break;
+
+  case CTX_FORMULA_NOT_RDL:
+    fprintf(f, "assertion is not in the RDL fragment\n");
+    break;
+
+  case CTX_TOO_MANY_ARITH_VARS:
+    fprintf(f, "too many variables for the arithemtic solver\n");
+    break;
+
+  case CTX_TOO_MANY_ARITH_ATOMS:
+    fprintf(f, "too many atoms for the arithmetic solver\n");
+    break;
+
+  case CTX_TOO_MANY_BV_VARS:
+    fprintf(f, "too many variables for the bitvector solver\n");
+    break;
+
+  case CTX_TOO_MANY_BV_ATOMS:
+    fprintf(f, "too many atoms for the bitvector solver\n");
+    break;
+
+  case CTX_ARITH_SOLVER_EXCEPTION:
+    fprintf(f, "arithmetoic solver exception\n");
+    break;
+
+  case CTX_BV_SOLVER_EXCEPTION:
+    fprintf(f, "bitvector solver exception\n");
+    break;
+
+  case CTX_ARRAY_SOLVER_EXCEPTION:
+    fprintf(f, "array solver exception\n");
+    break;
+  
+  case CTX_INVALID_OPERATION:
+    fprintf(f, "the context state does not allow operation\n");
+    break;
+
+  case CTX_OPERATION_NOT_SUPPORTED:
+    fprintf(f, "operation not supported by the context\n");
+    break;
+
+  case EVAL_UNKNOWN_TERM:
+    fprintf(f, "eval error: term value not available in the model\n");
+    break;
+
+  case EVAL_FREEVAR_IN_TERM:
+    fprintf(f, "eval error: free variable in term\n");
+    break;
+
+  case EVAL_QUANTIFIER:
+    fprintf(f, "eval error: term contains quantifiers\n");
+    break;
+
+  case EVAL_OVERFLOW:
+    fprintf(f, "eval error: the term value does not fit the expected type\n");
+    break;
+
+  case EVAL_FAILED:
+    fprintf(f, "exception in term evaluation\n");
+    break;
+
+  case INTERNAL_EXCEPTION:
+    fprintf(f, "internal error\n");
+    break;
+
+    //  default:
+    //    fprintf(f, "invalid error code: %"PRId32"\n", (int32_t) error->code);
+    //    break;
   }
 
   fflush(f);

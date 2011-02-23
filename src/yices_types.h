@@ -42,6 +42,18 @@ typedef struct model_s model_t;
 
 
 /*
+ * Context configuration (opaque type)
+ */
+typedef struct ctx_config_s ctx_config_t;
+
+/*
+ * Search parameters (opaque type)
+ */
+typedef struct param_s param_t;
+
+
+
+/*
  * Context status code
  */
 typedef enum smt_status {
@@ -53,17 +65,6 @@ typedef enum smt_status {
   STATUS_INTERRUPTED,
   STATUS_ERROR,
 } smt_status_t;
-
-
-/*
- * Context configuration (opaque type)
- */
-typedef struct ctx_config_s ctx_config_t;
-
-/*
- * Search parameters (opaque type)
- */
-typedef struct param_s param_t;
 
 
 
@@ -83,7 +84,7 @@ typedef enum error_code {
   NO_ERROR,
 
   /*
-   * Errors in type of term construction
+   * Errors in type or term construction
    */
   INVALID_TYPE,
   INVALID_TERM,
@@ -139,7 +140,7 @@ typedef enum error_code {
   ARITH_ERROR,
   BVARITH_ERROR,
 
-  /* 
+  /*
    * Errors in assertion processing.
    * These codes mean that the context, as configured,
    * cannot process the assertions.
@@ -162,12 +163,14 @@ typedef enum error_code {
   CTX_BV_SOLVER_EXCEPTION,
   CTX_ARRAY_SOLVER_EXCEPTION,
 
-  // More error codes for other operations on the context
+  /*
+   * Error codes for other operations on the context
+   */
   CTX_INVALID_OPERATION,
   CTX_OPERATION_NOT_SUPPORTED,
 
   /*
-   * Errors in eval_in_model
+   * Error codes for model queries
    */
   EVAL_UNKNOWN_TERM,
   EVAL_FREEVAR_IN_TERM,
@@ -229,7 +232,7 @@ typedef enum error_code {
  *  INCOMPATIBLE_BVSIZES       term1, type1, term2, type2
  *  EMPTY_BITVECTOR            none
  *
- * The following error codes are only used by the parsing functions. 
+ * The following error codes are used only by the parsing functions. 
  * No field other than line/column is set.
  * 
  *  INVALID_TOKEN
@@ -255,26 +258,34 @@ typedef enum error_code {
  * on a context. For these errors, no fields of error_report (other 
  * than the code) is meaningful.
  *
- *  CTX_FREE_VAR_IN_FORMULA             none
- *  CTX_LOGIC_NOT_SUPPORTED             none
- *  CTX_UF_NOT_SUPPORTED                none
- *  CTX_ARITH_NOT_SUPPORTED             none
- *  CTX_BV_NOT_SUPPORTED                none
- *  CTX_ARRAYS_NOT_SUPPORTED            none
- *  CTX_QUANTIFIERS_NOT_SUPPORTED       none
- *  CTX_NONLINEAR_ARITH_NOT_SUPPORTED   none
- *  CTX_FORMULA_NOT_IDL                 none
- *  CTX_FORMULA_NOT_RDL                 none
+ *  CTX_FREE_VAR_IN_FORMULA
+ *  CTX_LOGIC_NOT_SUPPORTED
+ *  CTX_UF_NOT_SUPPORTED
+ *  CTX_ARITH_NOT_SUPPORTED
+ *  CTX_BV_NOT_SUPPORTED
+ *  CTX_ARRAYS_NOT_SUPPORTED
+ *  CTX_QUANTIFIERS_NOT_SUPPORTED
+ *  CTX_NONLINEAR_ARITH_NOT_SUPPORTED
+ *  CTX_FORMULA_NOT_IDL
+ *  CTX_FORMULA_NOT_RDL
+ *  CTX_TOO_MANY_ARITH_VARS
+ *  CTX_TOO_MANY_ARITH_ATOMS
+ *  CTX_TOO_MANY_BV_VARS
+ *  CTX_TOO_MANY_BV_ATOMS
+ *  CTX_ARITH_SOLVER_EXCEPTION
+ *  CTX_BV_SOLVER_EXCEPTION
+ *  CTX_ARRAY_SOLVER_EXCEPTION
  *
- *  CTX_OPERATION_NOT_SUPPORTED         none
- *  CTX_INVALID_OPERATION               none
+ *  CTX_INVALID_OPERATION
+ *  CTX_OPERATION_NOT_SUPPORTED
  *
- *  EVAL_UNKNOWN_TERM                   none
- *  EVAL_FREEVAR_IN_TERM                none
- *  EVAL_QUANTIFIER                     none
- *  EVAL_FAILED                         none
+ *  EVAL_UNKNOWN_TERM
+ *  EVAL_FREEVAR_IN_TERM
+ *  EVAL_QUANTIFIER
+ *  EVAL_OVERFLOW
+ *  EVAL_FAILED
  *
- *  INTERNAL_EXCEPTION                  none
+ *  INTERNAL_EXCEPTION
  */
 typedef struct error_report_s {
   error_code_t code;

@@ -14,6 +14,7 @@ typedef enum smt_logic {
   AUFLIRA,
   AUFNIRA,
   LRA,
+  QF_ABV,      // new name for what used to be QF_AUFBV
   QF_AUFBV,
   QF_AUFLIA,
   QF_AX,
@@ -30,6 +31,7 @@ typedef enum smt_logic {
   QF_UFLRA,
   QF_UFNRA,
   UFNIA,
+
   SMT_UNKNOWN, // error code
 } smt_logic_t;
 

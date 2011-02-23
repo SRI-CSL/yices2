@@ -1803,6 +1803,7 @@ static int process_benchmark(char *filename) {
       arch = CTX_ARCH_EGSPLX;
       break;
 
+    case QF_ABV:
     case QF_AUFBV:
       /*
        * EGRAPH + BITVECTOR + ARRAY solver

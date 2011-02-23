@@ -859,6 +859,7 @@ static int process_benchmark(void) {
       break;
 
     case QF_AUFBV:
+    case QF_ABV:
       /*
        * EGRAPH + BITVECTOR + ARRAY solver
        */

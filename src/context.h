@@ -676,64 +676,6 @@ enum {
 
 
 
-/**************************************
- *  CONTEXT CONFIGURATION DESCRIPTOR  *
- *************************************/
-
-/*
- * In the API, we use the following structure to set the context
- * configuration. The configuration specifies the solver 
- * architecture + the optional features to support.
- *
- * The architecture is currently defined by the following fields
- * - uf_solver:    which UF solver to use 
- * - arith_solver: which arithemtic solver to use
- * - arith_option: integer/real/mixed arithmetic
- * - bv_solver:    which bitvector solver to use
- * - array_solver: which array solver to use
- *
- * The optional features are currently encoded in the solver mode
- * (cf. context_mode_t above).
- */
-typedef enum {
-  UF_CONFIG_NONE,
-  UF_CONFIG_AUTO,
-} uf_config_t;
-
-typedef enum {
-  ARITH_CONFIG_NONE,
-  ARITH_CONFIG_FLOYD_WARSHALL,
-  ARITH_CONFIG_SIMPLEX,
-  ARITH_CONFIG_AUTO,
-} arith_config_t;
-
-typedef enum {
-  ARITH_OPTION_INTEGER,
-  ARITH_OPTION_REAL,
-  ARITH_OPTION_MIXED,
-} arith_option_t;
-
-typedef enum {
-  BV_CONFIG_NONE,
-  BV_CONFIG_AUTO,
-} bv_config_t;
-
-typedef enum {
-  ARRAY_CONFIG_NONE,
-  ARRAY_CONFIG_AUTO,
-} array_config_t;
-
-struct ctx_config_s {
-  uf_config_t    uf_config;
-  arith_config_t arith_config;
-  arith_option_t arith_option;
-  bv_config_t    bv_config;
-  array_config_t array_config;
-  context_mode_t mode;
-};
-
-
-
 
 /*********************************
  *  SEARCH PARAMETERS AND FLAGS  *
