@@ -11,7 +11,7 @@
 
 /*
  * In the bitvector solver, variables get ultimately mapped to arrays
- * of (psuedo) literals. If two variables are asserted equal at the
+ * of (pseudo) literals. If two variables are asserted equal at the
  * base level, then we want to avoid allocating two arrays of
  * literals, and instead map both of them to the same literal array.
  *
@@ -20,7 +20,7 @@
  * they are asserted equal at the base level). This is implemented
  * using a merge table, This is a simplified version of a union-find
  * data structure so that push/pop is cheap.
- * 
+ *
  * The merge table maps a variable x to its parent in a merge tree.
  * - each variable x is a non-negative integer
  * - if map[x] is -1 then x is root of its class.

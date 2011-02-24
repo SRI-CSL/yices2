@@ -2521,7 +2521,7 @@ thvar_t bv_solver_create_pprod(bv_solver_t *solver, pprod_t *p, thvar_t *map) {
   nbits = bvvar_bitsize(vtbl, map[0]);
 
   /*
-   * We build a term constant * (x_1 ^ d_1 ... x_k^d_k)
+   * We build a term (* constant (x_1 ^ d_1 ... x_k^d_k))
    * by replacing any constant map[i] by its value
    */
   if (nbits <= 64) {

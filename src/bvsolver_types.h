@@ -12,7 +12,7 @@
  *             be interpreted
  * - def[x] = definition of x 
  * - eterm[x] = attached egraph term (optional)
- * - map[x] = literal or array of literals (bit blasting)
+ * - map[x] = array of literals (bit blasting)
  *
  * Bit vector atoms are of three kinds:
  * - bveq x y

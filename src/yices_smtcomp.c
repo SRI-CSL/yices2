@@ -961,7 +961,7 @@ static int process_benchmark(void) {
     params.adjust_simplex_model = true;
     params.cache_tclauses = true;
     params.tclause_size = 8;
-    if (logic == QF_UFLIA) {
+    if (logic == QF_UFLIA || logic == QF_AUFLIA) {
       params.branching = BRANCHING_NEGATIVE;
       params.max_interface_eqs = 15;
     } else {
