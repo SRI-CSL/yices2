@@ -266,42 +266,11 @@ int32_t config_set_logic(ctx_config_t *config, const char *logic) {
   int32_t r;
 
   code = smt_logic_code(logic);
-  r = -1;
-
-  switch (code) {
-  case AUFLIA:
-  case AUFLIRA:
-  case AUFNIRA:
-  case LRA:
-  case UFNIA:
-  case QF_UFNRA:
-    // logics with quantifiers or non-linear arithmetic
+  r = 0;
+  if (code == SMT_UNKNOWN) {
+    r = -1;
+  } else if (logic2arch[code] < 0) {
     r = -2;
-    break;
-
-
-  case QF_ABV:
-  case QF_AUFBV:
-  case QF_AUFLIA:
-  case QF_AX:
-  case QF_BV:
-  case QF_IDL:
-  case QF_LIA:
-  case QF_LRA:
-  case QF_NIA:
-  case QF_RDL:
-  case QF_UF:
-  case QF_UFBV:
-  case QF_UFIDL:
-  case QF_UFLIA:
-  case QF_UFLRA:
-    // logics we can deal with
-    config->logic = code;
-    r = 0;
-    break;
-
-  case SMT_UNKNOWN:
-    break;
   }
 
   return r;

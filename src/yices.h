@@ -1374,10 +1374,10 @@ __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
  * descriptor to function yices_new_context. A configuration descriptor
  * is an opaque structure that includes the following fields: 
  * - arith-fragment: either IDL, RDL, LRA, LIA, LIRA
- * - uf-solver: either NONE, DEFAULT, AUTO
- * - bv-solver: either NONE, DEFAULT, AUTO
- * - array-solver: either NONE, DEFAULT, AUTO
- * - arith-solver: either NONE, DEFAULT, IFW, RFW, SIMPLEX, AUTO
+ * - uf-solver: either NONE, DEFAULT
+ * - bv-solver: either NONE, DEFAULT
+ * - array-solver: either NONE, DEFAULT
+ * - arith-solver: either NONE, DEFAULT, IFW, RFW, SIMPLEX
  * - mode: either ONE-SHOT, MULTI-CHECKS, PUSH-POP, CLEAN-INTERRUPTS
  *
  * This is done as follows:
@@ -1407,6 +1407,10 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  * - value = the value
  *
  * The function returns -1 if there's an error, 0 otherwise.
+ *
+ * Error codes:
+ *  CTX_UNKNOWN_PARAMETER if name is not a known parameter name
+ *  CTX_INVALID_PARAMETER_VALUE if name is known but values does not match the parameter type
  */
 __YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const char *name, const char *value);
 
@@ -1415,6 +1419,10 @@ __YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const ch
  * Set config to a default solver combination for the given logic
  * - return -1 if there's an error
  * - return 0 otherwise
+ *
+ * Error codes:
+ *  CTX_UNKNOWN_LOGIC if logic is not a valid name
+ *  CTX_LOGIC_NOT_SUPPORTED if logic is known but not supported
  */
 __YICES_DLLSPEC__ extern int32_t yices_default_config_for_logic(ctx_config_t *config, const char *logic);
 
@@ -1474,11 +1482,17 @@ __YICES_DLLSPEC__ extern int32_t yices_default_config_for_logic(ctx_config_t *co
  *   include (e.g., egraph, bv_solver, simplex_solver, etc),
  *   and which features should be supported (e.g., whether push/pop are
  *   needed).
- * - if config is NULL, the default configuration is used:
- *   TBD: DESCRIBE IT
+ *
+ * If config is NULL, the default configuration is used:
+ *   push/pop are enabled
+ *   the solvers are: egraph + array solver + bv solver + simplex
+ *   mixed real/integer arithemtic is supported
+ *
+ * Otherwise the context is configured as specified by config, provided
+ * that configuration is valid.
  *
  * If there's an error (i.e.,the configuration is not supported), the
- * function returns NULL and set an error code.
+ * function returns NULL and set an error code: CTX_INVALID_CONFIG.
  */
 __YICES_DLLSPEC__ extern context_t *yices_new_context(const ctx_config_t *config);
 
