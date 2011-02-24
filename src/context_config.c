@@ -266,11 +266,13 @@ int32_t config_set_logic(ctx_config_t *config, const char *logic) {
   int32_t r;
 
   code = smt_logic_code(logic);
-  r = 0;
   if (code == SMT_UNKNOWN) {
     r = -1;
   } else if (logic2arch[code] < 0) {
     r = -2;
+  } else {
+    config->logic = (smt_logic_t) code;
+    r = 0;
   }
 
   return r;
