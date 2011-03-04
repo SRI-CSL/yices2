@@ -8494,15 +8494,18 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
 
 /*
  * Adjust epsilon to ensure concretization of (a1 + b1 \delta) != concretization of (a2 + b2 \delta)
- * if (b1 > b2) and (a1 < a2).
  * - q1 = a1 + b1 \delta
  * - q2 = a2 + b2 \delta
  */
 static void epsilon_for_diseq(simplex_solver_t *solver, xrational_t *q1, xrational_t *q2) {
   rational_t *aux, *factor;
+  int main_cmp, delta_cmp;
 
-  if (q_lt(&q1->main, &q2->main) && q_gt(&q1->delta, &q2->delta)) {
-    // (a1 < a2) and (b1 > b2)
+  main_cmp = q_cmp(&q1->main, &q2->main);
+  delta_cmp = q_cmp(&q1->delta, &q2->delta);
+
+  if ((main_cmp < 0 && delta_cmp > 0) || (main_cmp > 0 && delta_cmp < 0)) {
+    // (a1 < a2) and (b1 > b2)  or  (a1 > a2) and (b1 < b2)
     factor = &solver->factor;
     q_set(factor, &q1->delta);
     q_sub(factor, &q2->delta); // factor = b1 - b2
