@@ -247,7 +247,16 @@ ifeq ($(POSIXOS),linux)
   BIN_LDFLAGS=
   libyices_dynamic=$(libyices_so)
 else
+ifeq ($(POSIXOS),unix)
+  PIC=-fPIC
+  STATIC=-static
+  CPPFLAGS := $(CPPFLAGS) -DLINUX
+  CFLAGS += -fvisibility=hidden
+  BIN_LDFLAGS=
+  libyices_dynamic=$(libyices_so)
+else
  $(error "Don't know how to compile on $(POSIXOS)")
+endif
 endif
 endif
 endif
