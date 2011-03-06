@@ -172,14 +172,14 @@ libyices_soname := libyices.so.$(MAJOR).$(MINOR)
 
 # 
 # Darwin
-# library name: libyices.2.dylib
+# library name: libyices.2.0.0.dylib
 # version and compatibility numbers for Darwin
 # install name: /usr/local/lib/libyices.2.dylib
 #
-libyices_dylib := libyices.$(MAJOR).dylib
+libyices_dylib := libyices.$(YICES_VERSION).dylib
 libyices_curr_version := $(MAJOR).$(MINOR).$(PATCH_LEVEL)
 libyices_compat_version := $(MAJOR).$(MINOR).0
-libyices_install_name := /usr/local/lib/$(libyices_dylib)
+libyices_install_name := /usr/local/lib/libyices.$(MAJOR).dylib
 
 #
 # Cygwin and mingw:
