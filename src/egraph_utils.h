@@ -492,6 +492,17 @@ static inline uint32_t egraph_get_max_boolackermann(egraph_t *egraph) {
 }
 
 
+/*
+ * Limit generation of ackermann lemmas 
+ */
+static inline void egraph_enable_cheap_ackermann(egraph_t *egraph) {
+  egraph_enable_options(egraph, EGRAPH_CHEAP_DYNAMIC_ACKERMANN);
+}
+
+static inline void egraph_disable_cheap_ackermann(egraph_t *egraph) {
+  egraph_disable_options(egraph, EGRAPH_CHEAP_DYNAMIC_ACKERMANN);
+}
+
 
 /*
  * Set a quota: maximal number of new equalities created

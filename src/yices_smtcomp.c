@@ -588,6 +588,9 @@ static void print_options(FILE *f, context_t *ctx) {
       if (params.use_bool_dyn_ack) {
 	fprintf(f, " --dyn-bool-ack --max-bool-ack=%"PRIu32, params.max_boolackermann);
       }
+      if (params.use_cheap_dyn_ack) {
+	fprintf(f, " --cheap-dyn-ack");
+      }
       fprintf(f, " --aux-eq-quota=%"PRIu32" --aux-eq-ratio=%.3f\n", params.aux_eq_quota, params.aux_eq_ratio); 
     }
     fprintf(f, " --max-interface-eqs=%"PRIu32"\n", params.max_interface_eqs);
@@ -908,11 +911,12 @@ static int process_benchmark(void) {
     // QF_UF options: --var-elim --cache-tclauses --learn-eq --dyn-bool-ack
     enable_variable_elimination(&context);
     enable_eq_abstraction(&context);
-    params.use_bool_dyn_ack = true; // TEST
+    params.use_bool_dyn_ack = true;
+    params.use_dyn_ack = true;
+    params.use_cheap_dyn_ack = true;
+    //    params.max_ackermann = 100;
     params.cache_tclauses = true;
     params.tclause_size = 12;
-    //    params.use_dyn_ack = true;  // TEST
-    //    params.max_ackermann = 100;
     break;
 
   case CTX_ARCH_SPLX: 

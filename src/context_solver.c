@@ -91,11 +91,13 @@ const char * const reduce_compile_option = "remove";
  * - DEFAULT_AUX_EQ_QUOTA = 100
  * - the dynamic ackermann heuristic is disabled for both 
  *   boolean and non-boolean terms
+ * - cheap_dyn_ack is false too (not relevant)
  * - DEFAULT_MAX_INTERFACE_EQS = 200
  */
-#define DEFAULT_USE_DYN_ACK       false
-#define DEFAULT_USE_BOOL_DYN_ACK  false
-#define DEFAULT_AUX_EQ_RATIO      0.3
+#define DEFAULT_USE_DYN_ACK        false
+#define DEFAULT_USE_BOOL_DYN_ACK   false
+#define DEFAULT_USE_CHEAP_DYN_ACK  false
+#define DEFAULT_AUX_EQ_RATIO       0.3
 
 
 /*
@@ -138,9 +140,9 @@ static param_t default_settings = {
   DEFAULT_CACHE_TCLAUSES,
   DEFAULT_TCLAUSE_SIZE,
 
-
   DEFAULT_USE_DYN_ACK,
   DEFAULT_USE_BOOL_DYN_ACK,
+  DEFAULT_USE_CHEAP_DYN_ACK,
   DEFAULT_MAX_ACKERMANN,
   DEFAULT_MAX_BOOLACKERMANN,
   DEFAULT_AUX_EQ_QUOTA,
@@ -505,6 +507,11 @@ smt_status_t check_context(context_t *ctx, const param_t *params, bool verbose) 
 	egraph_enable_dyn_boolackermann(egraph, params->max_boolackermann);
       } else {
 	egraph_disable_dyn_boolackermann(egraph);
+      }
+      if (params->use_cheap_dyn_ack) {
+	egraph_enable_cheap_ackermann(egraph);
+      } else {
+	egraph_disable_cheap_ackermann(egraph);
       }
       quota = egraph_num_terms(egraph) * params->aux_eq_ratio;
       if (quota < params->aux_eq_quota) {

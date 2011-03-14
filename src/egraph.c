@@ -2956,6 +2956,7 @@ static cache_elem_t *cache_get_ackermann_lemma(cache_t *cache, eterm_t t1, eterm
   return cache_get(cache, ACKERMANN_LEMMA, t1, t2);
 }
 
+
 /*
  * Ackermann lemma: add the lemma
  *   (eq t_1 u_1) ... (eq t_n u_n) IMPLIES (eq (f t_1 ... t_n) (f u_1 ... u_n))
@@ -3069,7 +3070,6 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
       // update statistics
       egraph->stats.ack_lemmas ++;
 
-      
     }
   }
 }
@@ -3674,6 +3674,13 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
     printf("---> conflict\n");
     fflush(stdout);
 #endif
+
+    if (egraph->stack.etag[i] == EXPL_BASIC_CONGRUENCE) {
+      // store t1 t2 for local ackermann generation 
+      egraph->ack_left = t1;
+      egraph->ack_right = t2;
+    }
+
     return false;
   }
 
@@ -3989,6 +3996,8 @@ void egraph_reset(egraph_t *egraph) {
   egraph->is_high_order = false;
 
   reset_egraph_stats(&egraph->stats);
+  egraph->ack_left = null_occurrence;
+  egraph->ack_right = null_occurrence;
 
   reset_class_table(&egraph->classes);
   reset_eterm_table(&egraph->terms);
@@ -4247,6 +4256,18 @@ static void egraph_gen_ackermann_lemmas(egraph_t *egraph, uint32_t back_level) {
 
 
 /*
+ * Generate the ackermann lemma for term occurrences t1 and t2
+ */
+ static void egraph_gen_local_ackermann_lemma(egraph_t *egraph, occ_t t1, occ_t t2) {
+   composite_t *c1, *c2;
+
+   c1 = egraph_term_body(egraph, term_of_occ(t1));
+   c2 = egraph_term_body(egraph, term_of_occ(t2));
+   create_ackermann_lemma(egraph, c1, c2, false);
+ }
+
+
+/*
  * Backtrack to back_level
  * (we need to isolate this because it's used in pop);
  */
@@ -4262,9 +4283,20 @@ static void egraph_local_backtrack(egraph_t *egraph, uint32_t back_level) {
   printf("---> EGRAPH:   Backtracking to level %"PRIu32"\n\n", back_level);
 #endif
 
-  // Generate ackermann lemmas if enabled: this must be done first
   if (egraph_option_enabled(egraph, EGRAPH_DYNAMIC_ACKERMANN | EGRAPH_DYNAMIC_BOOLACKERMANN)) {
-    egraph_gen_ackermann_lemmas(egraph, back_level);
+    /*
+     * Generate ackermann lemmas if enabled: this must be done first
+     */
+    if (egraph_option_enabled(egraph, EGRAPH_CHEAP_DYNAMIC_ACKERMANN)) {
+      if (egraph->ack_left != null_occurrence) {
+	assert(egraph->ack_right != null_occurrence);
+	egraph_gen_local_ackermann_lemma(egraph, egraph->ack_left, egraph->ack_right);
+	egraph->ack_left = null_occurrence;
+	egraph->ack_right = null_occurrence;
+      }
+    } else {
+      egraph_gen_ackermann_lemmas(egraph, back_level);
+    }
   }
 
 
@@ -5330,6 +5362,8 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   egraph->max_boolackermann = DEFAULT_MAX_BOOLACKERMANN;
   egraph->aux_eq_quota = DEFAULT_AUX_EQ_QUOTA;
   egraph->max_interface_eqs = DEFAULT_MAX_INTERFACE_EQS;
+  egraph->ack_left = null_occurrence;
+  egraph->ack_right = null_occurrence;
 
   init_class_table(&egraph->classes, DEFAULT_CLASS_TABLE_SIZE);
   init_eterm_table(&egraph->terms, DEFAULT_ETERM_TABLE_SIZE);

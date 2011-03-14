@@ -1210,6 +1210,14 @@ struct egraph_s {
   uint32_t aux_eq_quota;
 
   /*
+   * Two candidates for the next ackermann clause:
+   * when the egraph detects a conflict while processing (t1 == t2)
+   * then it stores t1 in ack_left and t2 in ack_right if 
+   * (t1 == t2) was propagated by BASIC_CONGRUENCE.
+   */
+  occ_t ack_left, ack_right;
+
+  /*
    * Limit on the number of interface equalities created
    * in each call to final_check
    */
@@ -1317,15 +1325,20 @@ struct egraph_s {
  * DYNAMIC_BOOLACKERMANN enables the generation of ackermann lemmas for boolean terms.
  * If that's enabled, max_boolackermann is a bound on the number of lemmas generated.
  *
+ * CHEAP_DYNAMIC_ACKERMANN enables the cheap version of ackermann lemmas generation
+ * If that's enabled, then dynamic ackermann clauses are added only for congruences
+ * that cause the last conflict.
+ *
  * In addition, aux_eq_quota is a bound on the total number of new equalities allowed
  * for ackermann lemmas.
  *
  * MAX_INTERFACE_EQS is a bound on the number of interface equalities created
  * in each call to final_check.
  */
-#define EGRAPH_DYNAMIC_ACKERMANN      0x1
-#define EGRAPH_DYNAMIC_BOOLACKERMANN  0x2
-#define EGRAPH_DISABLE_ALL_OPTIONS    0x0
+#define EGRAPH_DYNAMIC_ACKERMANN       0x1
+#define EGRAPH_DYNAMIC_BOOLACKERMANN   0x2
+#define EGRAPH_CHEAP_DYNAMIC_ACKERMANN 0x4
+#define EGRAPH_DISABLE_ALL_OPTIONS     0x0
 
 #define DEFAULT_MAX_ACKERMANN         1000
 #define DEFAULT_MAX_BOOLACKERMANN     600000 // unlimited
