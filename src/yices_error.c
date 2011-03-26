@@ -124,6 +124,10 @@ void print_error(FILE *f) {
     fprintf(f, "argument is not a bitvector\n");
     break;
 
+  case SCALAR_TERM_REQUIRED:
+    fprintf(f, "argument is not a scalar term\n");
+    break;
+
   case WRONG_NUMBER_OF_ARGUMENTS:
     fprintf(f, "wrong number of arguments\n");
     break;

@@ -110,6 +110,7 @@ typedef enum error_code {
   VARIABLE_REQUIRED,
   ARITHTERM_REQUIRED,
   BITVECTOR_REQUIRED,
+  SCALAR_TERM_REQUIRED,
   WRONG_NUMBER_OF_ARGUMENTS,  
   TYPE_MISMATCH,
   INCOMPATIBLE_TYPES,
@@ -237,6 +238,7 @@ typedef enum error_code {
  *  VARIABLE_REQUIRED          term1
  *  ARITHTERM_REQUIRED         term1
  *  BITVECTOR_REQUIRED         term1
+ *  SCALAR_TERM_REQUIRED       term1
  *  WRONG_NUMBER_OF_ARGUMENTS  type1, badval
  *  TYPE_MISMATCH              term1, type1
  *  INCOMPATIBLE_TYPES         term1, type1, term2, type2

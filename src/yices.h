@@ -1286,6 +1286,8 @@ __YICES_DLLSPEC__ extern type_t yices_type_of_term(term_t t);
  * - term_is_arithmetic check whether t's type is either int or real
  * - term_is_real check whether t's type is real
  * - term_is_int check whether t's type is int 
+ * - term_is_scalar check whether t has a scalar or uninterpeted type
+ &
  * If t is not a valid term, the check functions return false
  * and set the error report as above.
  */
@@ -1296,6 +1298,7 @@ __YICES_DLLSPEC__ extern int32_t yices_term_is_arithmetic(term_t t);
 __YICES_DLLSPEC__ extern int32_t yices_term_is_bitvector(term_t t);
 __YICES_DLLSPEC__ extern int32_t yices_term_is_tuple(term_t t);
 __YICES_DLLSPEC__ extern int32_t yices_term_is_function(term_t t);
+__YICES_DLLSPEC__ extern int32_t yices_term_is_scalar(term_t t);
 
 
 /*
@@ -1791,8 +1794,9 @@ __YICES_DLLSPEC__ extern int32_t yices_get_bool_value(model_t *mdl, term_t t, in
 
 
 /*
- * Value of arithmetic term t: returned as an integer, a rational (pair num/den),
- * or converted to a double, or using the GMP mpz_t and mpq_t representations.
+ * Value of arithmetic term t: it can be returned as an integer, a
+ * rational (pair num/den), converted to a double, or using the GMP
+ * mpz_t and mpq_t representations.
  *
  * Error codes:
  * If t is not an arithmetic term:
@@ -1803,9 +1807,9 @@ __YICES_DLLSPEC__ extern int32_t yices_get_bool_value(model_t *mdl, term_t t, in
  */
 __YICES_DLLSPEC__ extern int32_t yices_get_int32_value(model_t *mdl, term_t t, int32_t *val);
 __YICES_DLLSPEC__ extern int32_t yices_get_int64_value(model_t *mdl, term_t t, int64_t *val);
-__YICES_DLLSPEC__ extern int32_t yices_get_double_value(model_t *mdl, term_t t, double *val);
 __YICES_DLLSPEC__ extern int32_t yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint32_t *den);
 __YICES_DLLSPEC__ extern int32_t yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint64_t *den);
+__YICES_DLLSPEC__ extern int32_t yices_get_double_value(model_t *mdl, term_t t, double *val);
 
 #ifdef __GMP_H
 __YICES_DLLSPEC__ extern int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val);
@@ -1830,6 +1834,23 @@ __YICES_DLLSPEC__ extern int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq
 __YICES_DLLSPEC__ extern int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]);
 
 
+/*
+ * Value of term t of uninterpreted or scalar type
+ * - the value is returned as a constant index in *val 
+ *   (with the same meaning as in function yices_constant):
+ *   - if t has type tau and tau is a scalar type of size n then 
+ *     the function returns an index k between 0 and n-1
+ *   - if tau is an uninterpreted type, then the function returns an
+ *     integer index k
+ *   - in both case, this means that the value of t in the model is 
+ *     equal to yices_constant(tau, k)
+ *
+ * Error codes:
+ * - if t does not have a scalar or uninterpreted type:
+ *   code = SCALAR_TERM_REQUIRED
+ *   term1 = t
+ */
+__YICES_DLLSPEC__ extern int32_t yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val);
 
 
 #ifdef __cplusplus

@@ -90,11 +90,9 @@ static void dump_benchmark(FILE *f, smt_benchmark_t *bench) {
 
   fprintf(f, "\n---- All types ----\n");
   print_type_table(f, __yices_globals.types);  
-  //  pp_type_table(f, __yices_globals.types);  
 
   fprintf(f, "\n\n---- All terms ----\n");
   print_term_table(f, __yices_globals.terms);
-  //  pp_term_table(f, __yices_globals.terms);
   fprintf(f, "\n\n");
   fflush(f);
 }
@@ -131,7 +129,6 @@ int main(int argc, char *argv[]) {
   code = parse_smt_benchmark(&parser, &bench);
   if (code == 0) {
     printf("No syntax error found\n");
-    //    print_benchmark(stdout, &bench);
   }
 
   if (benchmark_reduced_to_false(&bench)) {

@@ -6935,7 +6935,7 @@ EXPORTED term_t yices_bvslt_atom(term_t t1, term_t t2) {
  *   term1 = t
  *   index = -1
  */
-type_t yices_type_of_term(term_t t) {
+EXPORTED type_t yices_type_of_term(term_t t) {
   if (! check_good_term(&terms, t)) {
     return NULL_TYPE;
   }
@@ -6979,6 +6979,9 @@ EXPORTED int32_t yices_term_is_function(term_t t) {
   return check_good_term(&terms, t) && is_function_term(&terms, t);
 }
 
+EXPORTED int32_t yices_term_is_scalar(term_t t) {
+  return check_good_term(&terms, t) && (is_scalar_term(&terms, t) || is_utype_term(&terms, t));
+}
 
 
 /*

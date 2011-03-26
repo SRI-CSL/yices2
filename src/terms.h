@@ -1102,6 +1102,10 @@ static inline bool is_scalar_term(term_table_t *table, term_t t) {
   return term_type_kind(table, t) == SCALAR_TYPE;
 }
 
+static inline bool is_utype_term(term_table_t *table, term_t t) {
+  return term_type_kind(table, t) == UNINTERPRETED_TYPE;
+}
+
 static inline bool is_function_term(term_table_t *table, term_t t) {
   return term_type_kind(table, t) == FUNCTION_TYPE;
 }

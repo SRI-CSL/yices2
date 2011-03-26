@@ -43,6 +43,7 @@ extern void print_term_name(FILE *f, term_table_t *tbl, term_t t);
 extern void print_term_def(FILE *f, term_table_t *tbl, term_t t);
 extern void print_term(FILE *f, term_table_t *tbl, term_t t);
 
+
 /*
  * Print t's descriptor
  */
