@@ -1117,14 +1117,6 @@ typedef enum elemma_tag {
   ACKERMANN_LEMMA = 1,
 } elemma_tag_t;
 
-/*
- * Flags for cache elements
- * - flag 0 is NEW_CACHE_ELEM
- */
-typedef enum elemma_flag {
-  ACTIVE_LEMMA = 1,
-} elemma_flag_t;
-
 
 
 /****************
@@ -1208,6 +1200,7 @@ struct egraph_s {
   uint32_t max_ackermann;
   uint32_t max_boolackermann;
   uint32_t aux_eq_quota;
+  uint16_t ackermann_threshold;
 
   /*
    * Two candidates for the next ackermann clause:
@@ -1343,6 +1336,7 @@ struct egraph_s {
 #define DEFAULT_MAX_ACKERMANN         1000
 #define DEFAULT_MAX_BOOLACKERMANN     600000 // unlimited
 #define DEFAULT_AUX_EQ_QUOTA          100
+#define DEFAULT_ACKERMANN_THRESHOLD   2
 
 #define DEFAULT_MAX_INTERFACE_EQS     200
 

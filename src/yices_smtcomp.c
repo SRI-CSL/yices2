@@ -912,8 +912,8 @@ static int process_benchmark(void) {
     enable_variable_elimination(&context);
     enable_eq_abstraction(&context);
     params.use_bool_dyn_ack = true;
-    params.use_dyn_ack = false;
-    params.use_cheap_dyn_ack = false;
+    params.use_dyn_ack = true;
+    params.use_cheap_dyn_ack = true;
     //    params.max_ackermann = 100;
     params.cache_tclauses = true;
     params.tclause_size = 12;
