@@ -583,13 +583,12 @@ static void print_options(FILE *f, context_t *ctx) {
     fprintf(f, "Egraph: ");
     if (params.use_dyn_ack || params.use_bool_dyn_ack) {
       if (params.use_dyn_ack) {
-	fprintf(f, " --dyn-ack --max-ack=%"PRIu32, params.max_ackermann);
+	fprintf(f, " --dyn-ack --max-ack=%"PRIu32" --dyn-ack-threshold=%"PRIu32, 
+		params.max_ackermann, (uint32_t) params.dyn_ack_threshold);
       }
       if (params.use_bool_dyn_ack) {
-	fprintf(f, " --dyn-bool-ack --max-bool-ack=%"PRIu32, params.max_boolackermann);
-      }
-      if (params.use_cheap_dyn_ack) {
-	fprintf(f, " --cheap-dyn-ack");
+	fprintf(f, " --dyn-bool-ack --max-bool-ack=%"PRIu32" --dyn-bool-ack-threshold=%"PRIu32, 
+		params.max_boolackermann, (uint32_t) params.dyn_bool_ack_threshold);
       }
       fprintf(f, " --aux-eq-quota=%"PRIu32" --aux-eq-ratio=%.3f\n", params.aux_eq_quota, params.aux_eq_ratio); 
     }
@@ -913,7 +912,6 @@ static int process_benchmark(void) {
     enable_eq_abstraction(&context);
     params.use_bool_dyn_ack = true;
     params.use_dyn_ack = true;
-    params.use_cheap_dyn_ack = true;
     //    params.max_ackermann = 100;
     params.cache_tclauses = true;
     params.tclause_size = 12;

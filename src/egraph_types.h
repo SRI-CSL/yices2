@@ -223,11 +223,6 @@
 
 
 
-
-
-
-
-
 /*****************
  *  CLASS TABLE  *
  ****************/
@@ -471,7 +466,6 @@ typedef struct distinct_table_s {
  *   so eq[prop_ptr ... top-1] = all assertions not yet processed.
  * - size = size of arrays eq, expl, saved_class
  * - mark = bitvector for constructing explanations
- * - activity = counter (how often that rule was used in an explanation)
  *
  * Assertions are organized in levels:
  * - level_index[k] = index of the first assertion added at level k
@@ -488,7 +482,6 @@ typedef struct egraph_stack_s {
   unsigned char *etag;
   expl_data_t *edata;
   byte_t *mark;
-  uint8_t *activity;
 
   uint32_t top;
   uint32_t prop_ptr;
@@ -1196,14 +1189,26 @@ struct egraph_s {
 
   /*
    * Limits on ackermann clause generation
+   * - max_ackermann = bound on the number of non-boolean Ackermann lemmas
+   * - max_booleckermann = bound on the number of boolean Ackermann lemmas
+   * - aux_eq_quota = bound on the number of auxiliary equalities created
+   *   by Ackermann lemmas
    */
   uint32_t max_ackermann;
   uint32_t max_boolackermann;
   uint32_t aux_eq_quota;
-  uint16_t ackermann_threshold;
 
   /*
-   * Two candidates for the next ackermann clause:
+   * Thesholds to trigger the generation of Ackermann/Boolean Ackermann
+   * lemmas: when a candidate pair (t1 == t2) is selected, a counter
+   * is increased. When that counter reaches the threshold, a lemma
+   * is generated.
+   */
+  uint16_t ackermann_threshold;
+  uint16_t boolack_threshold;
+
+  /*
+   * Two candidates for the next Ackermann lemma:
    * when the egraph detects a conflict while processing (t1 == t2)
    * then it stores t1 in ack_left and t2 in ack_right if 
    * (t1 == t2) was propagated by BASIC_CONGRUENCE.
@@ -1318,10 +1323,6 @@ struct egraph_s {
  * DYNAMIC_BOOLACKERMANN enables the generation of ackermann lemmas for boolean terms.
  * If that's enabled, max_boolackermann is a bound on the number of lemmas generated.
  *
- * CHEAP_DYNAMIC_ACKERMANN enables the cheap version of ackermann lemmas generation
- * If that's enabled, then dynamic ackermann clauses are added only for congruences
- * that cause the last conflict.
- *
  * In addition, aux_eq_quota is a bound on the total number of new equalities allowed
  * for ackermann lemmas.
  *
@@ -1330,13 +1331,14 @@ struct egraph_s {
  */
 #define EGRAPH_DYNAMIC_ACKERMANN       0x1
 #define EGRAPH_DYNAMIC_BOOLACKERMANN   0x2
-#define EGRAPH_CHEAP_DYNAMIC_ACKERMANN 0x4
 #define EGRAPH_DISABLE_ALL_OPTIONS     0x0
 
 #define DEFAULT_MAX_ACKERMANN         1000
 #define DEFAULT_MAX_BOOLACKERMANN     600000 // unlimited
 #define DEFAULT_AUX_EQ_QUOTA          100
-#define DEFAULT_ACKERMANN_THRESHOLD   2
+
+#define DEFAULT_ACKERMANN_THRESHOLD   8
+#define DEFAULT_BOOLACK_THRESHOLD     8
 
 #define DEFAULT_MAX_INTERFACE_EQS     200
 

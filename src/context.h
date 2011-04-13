@@ -755,9 +755,6 @@ struct param_s {
    *   non-boolean terms
    * - use_bool_dyn_ack: if true, the dynamic ackermann heuristic is enabled
    *   for boolean terms
-   * - use_cheap_dyn_ack: if true, select the cheaper ackermann generation
-   *   heuristic (for both boolean and non-boolean terms). No effect
-   *   if use_dyn_ack and use_bool_dyn_ack are false.
    *
    * Limits to stop the Ackermann trick if too many lemmas are generated
    * - max_ackermann: limit for the non-boolean version
@@ -769,16 +766,20 @@ struct param_s {
    * to max(aux_eq_ratio * n, aux_eq_quota) where n is the total
    * number of terms in the initial egraph.
    *
+   * Thresholds for generation of Ackermann lemma: no effect unless
+   * use_dyn_ack or use_bool_dyn_ack is true.
+   *
    * Control of interface equality generation: set a limit on
    * the number of interface equalities created per round.
    */
   bool     use_dyn_ack;
   bool     use_bool_dyn_ack;
-  bool     use_cheap_dyn_ack;
   uint32_t max_ackermann;
   uint32_t max_boolackermann;
   uint32_t aux_eq_quota;
   double   aux_eq_ratio;
+  uint16_t dyn_ack_threshold;
+  uint16_t dyn_bool_ack_threshold;
   uint32_t max_interface_eqs;
 
 

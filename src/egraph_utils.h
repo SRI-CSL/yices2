@@ -443,6 +443,7 @@ static inline bool egraph_option_disabled(egraph_t *egraph, uint32_t x) {
   return (egraph->options &x) == 0;
 }
 
+
 /*
  * Set the option flag
  */
@@ -458,6 +459,7 @@ static inline void egraph_disable_options(egraph_t *egraph, uint32_t x) {
   egraph->options &= ~x;
 }
 
+
 /*
  * Enable the generation of ackermann lemmas (non-boolean) with a limit n.
  */
@@ -472,6 +474,19 @@ static inline void egraph_disable_dyn_ackermann(egraph_t *egraph) {
 
 static inline uint32_t egraph_get_max_ackermann(egraph_t *egraph) {
   return egraph->max_ackermann;
+}
+
+
+/*
+ * Set/get the threshold for Ackermann lemma generation
+ */
+static inline void egraph_set_ackermann_threshold(egraph_t *egraph, uint16_t x) {
+  assert(x > 0);
+  egraph->ackermann_threshold = x;
+}
+
+static inline uint16_t egraph_get_ackermann_threshold(egraph_t *egraph) {
+  return egraph->ackermann_threshold;
 }
 
 
@@ -493,14 +508,15 @@ static inline uint32_t egraph_get_max_boolackermann(egraph_t *egraph) {
 
 
 /*
- * Limit generation of ackermann lemmas 
+ * Set/get the threshold for boolean Ackermann lemma generation
  */
-static inline void egraph_enable_cheap_ackermann(egraph_t *egraph) {
-  egraph_enable_options(egraph, EGRAPH_CHEAP_DYNAMIC_ACKERMANN);
+static inline void egraph_set_boolack_threshold(egraph_t *egraph, uint16_t x) {
+  assert(x > 0);
+  egraph->boolack_threshold = x;
 }
 
-static inline void egraph_disable_cheap_ackermann(egraph_t *egraph) {
-  egraph_disable_options(egraph, EGRAPH_CHEAP_DYNAMIC_ACKERMANN);
+static inline uint16_t egraph_get_boolack_threshold(egraph_t *egraph) {
+  return egraph->boolack_threshold;
 }
 
 

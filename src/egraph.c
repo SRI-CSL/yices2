@@ -350,7 +350,6 @@ static void init_egraph_stack(egraph_stack_t *stack, uint32_t n, uint32_t m) {
   stack->etag = (unsigned char *) safe_malloc(n * sizeof(unsigned char));
   stack->edata = (expl_data_t *) safe_malloc(n * sizeof(expl_data_t));
   stack->mark = allocate_bitvector(n);
-  stack->activity = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
   stack->top = 0;
   stack->prop_ptr = 0;
   stack->size = n;
@@ -378,7 +377,6 @@ static void extend_egraph_stack(egraph_stack_t *stack) {
   stack->etag = (unsigned char *) safe_realloc(stack->etag, n * sizeof(unsigned char));
   stack->edata = (expl_data_t *) safe_realloc(stack->edata, n * sizeof(expl_data_t));
   stack->mark = extend_bitvector(stack->mark, n);
-  stack->activity = (uint8_t *) safe_realloc(stack->activity, n * sizeof(uint8_t));
   stack->size = n;
 }
 
@@ -415,7 +413,6 @@ static int32_t egraph_stack_push_eq(egraph_stack_t *stack, occ_t t1, occ_t t2) {
     extend_egraph_stack(stack);
   }
   clr_bit(stack->mark, i);
-  stack->activity[i] = 0;
   stack->top = i+1;
   stack->eq[i].lhs = t1;
   stack->eq[i].rhs = t2;
@@ -434,7 +431,6 @@ static void delete_egraph_stack(egraph_stack_t *stack) {
   safe_free(stack->edata);
   safe_free(stack->level_index); 
   delete_bitvector(stack->mark);
-  safe_free(stack->activity);
 
   stack->eq = NULL;
   stack->etag = NULL;
@@ -2962,9 +2958,8 @@ static cache_elem_t *cache_get_ackermann_lemma(cache_t *cache, eterm_t t1, eterm
  *   (eq t_1 u_1) ... (eq t_n u_n) IMPLIES (eq (f t_1 ... t_n) (f u_1 ... u_n))
  * - c1 = (f t_1 ... t_n)
  * - c2 = (f u_1 ... u_n)
- * - if bool_only is true, only generate a lemma if c1 and c2 are boolean terms
  */
-static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_t *c2, bool bool_only) {
+static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_t *c2) {
   uint32_t i, n;
   ivector_t *v;
   cache_elem_t *e;
@@ -2974,27 +2969,31 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
   
   assert(composite_kind(c1) == composite_kind(c2) && composite_arity(c1) == composite_arity(c2));
 
-  e = cache_get_ackermann_lemma(&egraph->cache, c1->id, c2->id);
-  if (e->flag < egraph->ackermann_threshold) {
-    e->flag ++;
+  b1 = c1->id;
+  b2 = c2->id;
 
-    if (e->flag == egraph->ackermann_threshold) {
-      b1 = c1->id;
-      b2 = c2->id;
-      if (egraph_term_type(egraph, b1) == ETYPE_BOOL) {
-	if (egraph_option_enabled(egraph, EGRAPH_DYNAMIC_BOOLACKERMANN) &&
-	    egraph->stats.boolack_lemmas < egraph->max_boolackermann) {
+  if (egraph_term_type(egraph, b1) == ETYPE_BOOL) {
+    assert(egraph_term_type(egraph, b2) == ETYPE_BOOL);
 
-	  /*
-	   * Boolean case: (f t_1 ... t_n) and (f u_1 ... u_n) are boolean
-	   * find boolean variables
-	   *   x1 <==> (f t_1 ... t_n) and x2 <==> (f u_1 ... u_n)
-	   * add two clause:
-	   *  (eq t_1 u_1) AND ... AND (eq t_n u_n) AND x1 ==> x2
-	   *  (eq t_1 u_1) AND ... AND (eq t_n u_n) AND x2 ==> x1
-	   */
-
-	  assert(egraph_term_type(egraph, b2) == ETYPE_BOOL);
+    if (egraph_option_enabled(egraph, EGRAPH_DYNAMIC_BOOLACKERMANN) &&
+	egraph->stats.boolack_lemmas < egraph->max_boolackermann) {
+      
+      /*
+       * (f t_1 ... t_n) and (f u_1 ... u_n) are boolean.
+       * Find boolean variables
+       *   x1 <==> (f t_1 ... t_n) and x2 <==> (f u_1 ... u_n)
+       * Add two clause:
+       *  (eq t_1 u_1) AND ... AND (eq t_n u_n) AND x1 ==> x2
+       *  (eq t_1 u_1) AND ... AND (eq t_n u_n) AND x2 ==> x1
+       *
+       * Before generating the clauses, check the number of hits for
+       * the pair (b1, b2). Add the clauses if this reaches
+       * boolack_threshold.
+       */
+      e = cache_get_ackermann_lemma(&egraph->cache, b1, b2);
+      if (e->flag < egraph->boolack_threshold) {
+	e->flag ++;
+	if (e->flag == egraph->boolack_threshold) {
 	  x1 = egraph_term_base_thvar(egraph, b1);
 	  x2 = egraph_term_base_thvar(egraph, b2);
 	  if (x1 != null_thvar && x2 != null_thvar) {
@@ -3003,11 +3002,11 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
 	    ivector_reset(v);
 	    n = composite_arity(c1);
 	    for (i=0; i<n; i++) {
-	    l = egraph_make_aux_eq(egraph, c1->child[i], c2->child[i]);
-	    if (l == null_literal) return; // quota exceeded: fail
-	    if (l != true_literal) {
-	      ivector_push(v, not(l));
-	    }
+	      l = egraph_make_aux_eq(egraph, c1->child[i], c2->child[i]);
+	      if (l == null_literal) return; // quota exceeded: fail
+	      if (l != true_literal) {
+		ivector_push(v, not(l));
+	      }
 	    }
 	    i = v->size;
 	    // add x1 ==> x2
@@ -3018,59 +3017,70 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
 	    v->data[i] = neg_lit(x2);
 	    v->data[i+1] = pos_lit(x1);
 	    add_clause(egraph->core, v->size, v->data); 
-
+	
 	    egraph->stats.boolack_lemmas ++;
 	  }
 	}
+      }
+    }
 
-      } else if (!bool_only && 
-		 egraph_option_enabled(egraph, EGRAPH_DYNAMIC_ACKERMANN) &&
-		 egraph->stats.ack_lemmas < egraph->max_ackermann) {
-	/*
-	 * Non-boolean case: stop after max_ackermann lemmas have been
-	 * generated
-	 */
+  } else { 
 
-	v = &egraph->aux_buffer;
-	ivector_reset(v);
-	n = composite_arity(c1);
-	for (i=0; i<n; i++) {
-	  l = egraph_make_aux_eq(egraph, c1->child[i], c2->child[i]);
-	  if (l == null_literal) return; // quota exceeded
-	  if (l != true_literal) {
-	    ivector_push(v, not(l));
+    if (egraph_option_enabled(egraph, EGRAPH_DYNAMIC_ACKERMANN) &&
+	egraph->stats.ack_lemmas < egraph->max_ackermann) {
+    
+      /*
+       * Non-boolean case: add the clause 
+       * (t_1 == u_1 and ... and t_n == u_n) ==> 
+       *                (f t_1 .. t_n) == (f u_1 ... u_n)
+       *
+       * Generate the lemma if the number of hits for (b1, b2)
+       * reaches ackermann_threshold.
+       */
+      e = cache_get_ackermann_lemma(&egraph->cache, b1, b2);
+      if (e->flag < egraph->ackermann_threshold) {
+	e->flag ++;
+	if (e->flag == egraph->ackermann_threshold) {
+	  v = &egraph->aux_buffer;
+	  ivector_reset(v);
+	  n = composite_arity(c1);
+	  for (i=0; i<n; i++) {
+	    l = egraph_make_aux_eq(egraph, c1->child[i], c2->child[i]);
+	    if (l == null_literal) return; // aux_eq_quota exceeded
+	    if (l != true_literal) {
+	      ivector_push(v, not(l));
+	    }
 	  }
-	}
-	l = egraph_make_eq(egraph, pos_occ(b1), pos_occ(b2));
-	ivector_push(v, l);
+	  l = egraph_make_eq(egraph, pos_occ(b1), pos_occ(b2));
+	  ivector_push(v, l);
 
 #if 0
-	printf("---> ackermann lemma[%"PRIu32"]:\n", egraph->stats.ack_lemmas + 1);
-	n = v->size;
-	assert(n > 0);
-	if (n > 1) {
-	  printf("(or ");
-	}
-	for (i=0; i<n; i++) {
-	  printf(" ");
-	  print_egraph_atom_of_literal(stdout, egraph, v->data[i]);
-	}
-	if (n > 1) {
-	  printf(")");
-	}
-	printf("\n");
-	printf("      ");
-	print_eterm_def(stdout, egraph,  c1->id);
-	printf("      ");
-	print_eterm_def(stdout, egraph,  c2->id);
-	fflush(stdout);
+	  printf("---> ackermann lemma[%"PRIu32"]:\n", egraph->stats.ack_lemmas + 1);
+	  n = v->size;
+	  assert(n > 0);
+	  if (n > 1) {
+	    printf("(or ");
+	  }
+	  for (i=0; i<n; i++) {
+	    printf(" ");
+	    print_egraph_atom_of_literal(stdout, egraph, v->data[i]);
+	  }
+	  if (n > 1) {
+	    printf(")");
+	  }
+	  printf("\n");
+	  printf("      ");
+	  print_eterm_def(stdout, egraph,  c1->id);
+	  printf("      ");
+	  print_eterm_def(stdout, egraph,  c2->id);
+	  fflush(stdout);
 #endif
 
-	add_clause(egraph->core, v->size, v->data);
+	  add_clause(egraph->core, v->size, v->data);
 
-	// update statistics
-	egraph->stats.ack_lemmas ++;
-
+	  // update statistics
+	  egraph->stats.ack_lemmas ++;
+	}
       }
     }
   }
@@ -4224,54 +4234,15 @@ static void deactivate_congruence_root(egraph_t *egraph, composite_t *p) {
 }
 
 
-#if 0
-
-/// NOT USED ANYMORE
-
-/*
- * Scan all equalities in the propagation queue from back_level + 1 to prop_ptr.
- * Generate ackermann lemmas for these equalities.
- * Candidates for ackermmann lemmas are equalities (t1 == t2) that are implied by
- * basic congruence and have been used in an explanation (they have activity > 0).
- */
-static void egraph_gen_ackermann_lemmas(egraph_t *egraph, uint32_t back_level) {
-  egraph_stack_t *stack;
-  composite_t *c1, *c2;
-  uint32_t i, k;
-
-  assert(egraph_option_enabled(egraph, EGRAPH_DYNAMIC_ACKERMANN | EGRAPH_DYNAMIC_BOOLACKERMANN));
-  assert(egraph->base_level <= back_level && back_level < egraph->decision_level);
-
-  stack = &egraph->stack;
-  k = stack->level_index[back_level + 1];    
-
-  //  for (i=k; i<stack->prop_ptr; i++) {
-  i = stack->prop_ptr;
-  while (i > k) {
-    i --;
-    if (stack->etag[i] == EXPL_BASIC_CONGRUENCE && stack->activity[i] > 0) {
-#if 0
-      printf("---> gen ack for edge %"PRIu32", activity = %"PRIu8"\n", i, stack->activity[i]);
-#endif
-      c1 = egraph_term_body(egraph, term_of_occ(stack->eq[i].lhs));
-      c2 = egraph_term_body(egraph, term_of_occ(stack->eq[i].rhs));
-      create_ackermann_lemma(egraph, c1, c2, false);
-    }
-  }
-}
-
-#endif
-
-
 /*
  * Generate the ackermann lemma for term occurrences t1 and t2
  */
-static void egraph_gen_local_ackermann_lemma(egraph_t *egraph, occ_t t1, occ_t t2) {
+static void egraph_gen_ackermann_lemma(egraph_t *egraph, occ_t t1, occ_t t2) {
   composite_t *c1, *c2;
 
   c1 = egraph_term_body(egraph, term_of_occ(t1));
   c2 = egraph_term_body(egraph, term_of_occ(t2));
-  create_ackermann_lemma(egraph, c1, c2, false);
+  create_ackermann_lemma(egraph, c1, c2);
 }
 
 
@@ -4291,16 +4262,16 @@ static void egraph_local_backtrack(egraph_t *egraph, uint32_t back_level) {
   printf("---> EGRAPH:   Backtracking to level %"PRIu32"\n\n", back_level);
 #endif
 
+
   /*
    * Generate ackermann lemmas if enabled: this must be done first
    */
-  if (egraph_option_enabled(egraph, EGRAPH_CHEAP_DYNAMIC_ACKERMANN)) {
-    if (egraph->ack_left != null_occurrence) {
-      assert(egraph->ack_right != null_occurrence);
-      egraph_gen_local_ackermann_lemma(egraph, egraph->ack_left, egraph->ack_right);
-      egraph->ack_left = null_occurrence;
-      egraph->ack_right = null_occurrence;
-    }
+  if (egraph->ack_left != null_occurrence && 
+      egraph_option_enabled(egraph, EGRAPH_DYNAMIC_ACKERMANN | EGRAPH_DYNAMIC_BOOLACKERMANN)) {
+    assert(egraph->ack_right != null_occurrence);
+    egraph_gen_ackermann_lemma(egraph, egraph->ack_left, egraph->ack_right);
+    egraph->ack_left = null_occurrence;
+    egraph->ack_right = null_occurrence;
   }
 
 
@@ -5366,6 +5337,7 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   egraph->max_boolackermann = DEFAULT_MAX_BOOLACKERMANN;
   egraph->aux_eq_quota = DEFAULT_AUX_EQ_QUOTA;
   egraph->ackermann_threshold = DEFAULT_ACKERMANN_THRESHOLD;
+  egraph->boolack_threshold = DEFAULT_BOOLACK_THRESHOLD;
   egraph->max_interface_eqs = DEFAULT_MAX_INTERFACE_EQS;
   egraph->ack_left = null_occurrence;
   egraph->ack_right = null_occurrence;

@@ -786,7 +786,6 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v) {
   eterm_t t1, t2;
   uint32_t k;
   int32_t i;
-  uint8_t *act;
 
   eq = egraph->stack.eq;
   mark = egraph->stack.mark;
@@ -911,16 +910,11 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v) {
     }
   }
 
-  // clear all the marks and increase activity counters
-  act = egraph->stack.activity;
+  // clear all the marks
   for (k=0; k<queue->size; k++) {
     i = queue->data[k];
     assert(i >= 0 && tst_bit(mark, i));
     clr_bit(mark, i);
-    act[i] ++;
-    if (act[i] == 0) { // overflow
-      act[i] = 255;
-    }
   }
   ivector_reset(queue);
 
