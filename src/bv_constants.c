@@ -910,7 +910,7 @@ void bvconst_shift_right(uint32_t *bv, uint32_t n, uint32_t m, bool b) {
   if (b) {
     if (s > 0) {
       // bvconst_shift_right requires bv to be 32k words
-      // we force the (32-s) high order but of bv[k-1] to 1
+      // we force the (32-s) high order bits of bv[k-1] to 1
       bv[k-1] |= (((uint32_t) 0xffffffff) << s);
     }
     bvconst_shift_right1(bv, k, d, r);
