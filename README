@@ -520,7 +520,7 @@ This can be done using the mingw64 cross compiler on Cygwin.
 
 2) Build and install a 64bit version of GMP. Read doc/GMP for help.
 
-   There should build 2 versions of GMP/64bits installed for Yices to
+   There should be two versions of GMP/64bits installed for Yices to
    configure properly. 
 
    On my Dell laptop: the dynamic GMP/64bits library was installed with 
