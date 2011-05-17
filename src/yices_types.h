@@ -81,7 +81,7 @@ typedef enum smt_status {
  *    + extra information that depends on the error code. 
  */
 typedef enum error_code {
-  NO_ERROR,
+  NO_ERROR = 0,
 
   /*
    * Errors in type or term construction
@@ -121,7 +121,7 @@ typedef enum error_code {
   /*
    * Parser errors
    */
-  INVALID_TOKEN,
+  INVALID_TOKEN = 100,
   SYNTAX_ERROR,
   UNDEFINED_TYPE_NAME,
   UNDEFINED_TERM_NAME,
@@ -147,7 +147,7 @@ typedef enum error_code {
    * These codes mean that the context, as configured,
    * cannot process the assertions.
    */
-  CTX_FREE_VAR_IN_FORMULA,
+  CTX_FREE_VAR_IN_FORMULA = 300,
   CTX_LOGIC_NOT_SUPPORTED,
   CTX_UF_NOT_SUPPORTED,
   CTX_ARITH_NOT_SUPPORTED,
@@ -169,7 +169,7 @@ typedef enum error_code {
   /*
    * Error codes for other operations
    */
-  CTX_INVALID_OPERATION,
+  CTX_INVALID_OPERATION = 400,
   CTX_OPERATION_NOT_SUPPORTED,
 
 
@@ -195,7 +195,7 @@ typedef enum error_code {
    * Catch-all code for anything else.
    * This is a symptom that a bug has been found.
    */
-  INTERNAL_EXCEPTION,
+  INTERNAL_EXCEPTION = 9999,
 } error_code_t;
 
 #define NUM_YICES_ERRORS (INTERNAL_EXCEPTION+1)
