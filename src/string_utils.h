@@ -34,8 +34,7 @@ extern int32_t binary_search_string(const char *s, const char * const *a, int32_
  *
  * Otherwise, return -1.
  */
-extern int32_t parse_as_keyword(const char *s, const char * const *a, 
-				const int32_t *b, int32_t n);			     
+extern int32_t parse_as_keyword(const char *s, const char * const *a, const int32_t *b, int32_t n);
 
 
 /*

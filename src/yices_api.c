@@ -48,6 +48,7 @@
 #include "models.h"
 
 #include "context_config.h"
+#include "search_parameters.h"
 
 #include "yices.h"
 #include "yices_error.h"
@@ -7486,12 +7487,14 @@ EXPORTED int32_t yices_default_config_for_logic(ctx_config_t *config, const char
 typedef enum ctx_option {
   CTX_OPTION_VAR_ELIM,
   CTX_OPTION_ARITH_ELIM,
+  CTX_OPTION_BVARITH_ELIM,
   CTX_OPTION_FLATTEN,
   CTX_OPTION_LEARN_EQ,
   CTX_OPTION_KEEP_ITE,
+  CTX_OPTION_EAGER_ARITH_LEMMAS,
 } ctx_option_t;
 
-#define NUM_CTX_OPTIONS (CTX_OPTION_KEEP_ITE+1)
+#define NUM_CTX_OPTIONS (CTX_OPTION_EAGER_ARITH_LEMMAS+1)
 
 
 /*
@@ -7499,6 +7502,8 @@ typedef enum ctx_option {
  */
 static const char * const ctx_option_names[NUM_CTX_OPTIONS] = {
   "arith-elim",
+  "bvarith-elim",
+  "eager-arith-lemmas",
   "flatten",
   "keep-ite",
   "learn-eq",
@@ -7511,6 +7516,8 @@ static const char * const ctx_option_names[NUM_CTX_OPTIONS] = {
  */
 static const int32_t ctx_option_key[NUM_CTX_OPTIONS] = {
   CTX_OPTION_ARITH_ELIM,
+  CTX_OPTION_BVARITH_ELIM,
+  CTX_OPTION_EAGER_ARITH_LEMMAS,
   CTX_OPTION_FLATTEN,
   CTX_OPTION_KEEP_ITE,
   CTX_OPTION_LEARN_EQ,
@@ -7535,6 +7542,10 @@ EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option)
     enable_arith_elimination(ctx);
     break;
 
+  case CTX_OPTION_BVARITH_ELIM:
+    enable_bvarith_elimination(ctx);
+    break;
+
   case CTX_OPTION_FLATTEN:
     enable_diseq_and_or_flattening(ctx);
     break;
@@ -7545,6 +7556,10 @@ EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option)
 
   case CTX_OPTION_KEEP_ITE:
     enable_keep_ite(ctx);
+    break;
+
+  case CTX_OPTION_EAGER_ARITH_LEMMAS:
+    enable_splx_eager_lemmas(ctx);
     break;
 
   default:
@@ -7576,6 +7591,10 @@ EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option
     disable_arith_elimination(ctx);
     break;
 
+  case CTX_OPTION_BVARITH_ELIM:
+    enable_bvarith_elimination(ctx);
+    break;
+
   case CTX_OPTION_FLATTEN:
     disable_diseq_and_or_flattening(ctx);
     break;
@@ -7586,6 +7605,10 @@ EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option
 
   case CTX_OPTION_KEEP_ITE:
     disable_keep_ite(ctx);
+    break;
+
+  case CTX_OPTION_EAGER_ARITH_LEMMAS:
+    enable_splx_eager_lemmas(ctx);
     break;
 
   default:
@@ -7627,7 +7650,18 @@ EXPORTED void yices_free_param_record(param_t *param) {
  * Set a search parameter
  */
 EXPORTED int32_t yices_set_param(param_t *param, const char *name, const char *value) {
-  // TBD
+  int32_t k;
+
+  k = params_set_field(param, name, value);
+  if (k < 0) {
+    if (k == -1) {
+      error.code = CTX_UNKNOWN_PARAMETER;
+    } else {
+      error.code = CTX_INVALID_PARAMETER_VALUE;
+    }
+    return -1;
+  }
+
   return 0;
 }
 

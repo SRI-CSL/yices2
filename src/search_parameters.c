@@ -2,11 +2,14 @@
  * THE SEARCH PARAMETERS/OPTIONS USED BY THE SOLVER
  */
 
-#include <stdbool.h>
+#include <float.h>
 #include <assert.h>
-#include <stdint.h>
 
-#include "context.h"
+#include "string_utils.h"
+
+#include "simplex.h"
+#include "fun_solver.h"
+#include "search_parameters.h"
 
 
 
@@ -82,10 +85,11 @@
  * - SIMPLEX_DEFAULT_CHECK_PERIOD = infinity
  * - propagation is disabled by default
  * - model adjustment is also disabled
+ * - integer check is disabled too
  */
 #define DEFAULT_SIMPLEX_PROP_FLAG     false
 #define DEFAULT_SIMPLEX_ADJUST_FLAG   false
-
+#define DEFAULT_SIMPLEX_ICHECK_FLAG   false
 
 /*
  * Default parameters for the array solver (defined in fun_solver.h
@@ -127,6 +131,7 @@ static param_t default_settings = {
 
   DEFAULT_SIMPLEX_PROP_FLAG,
   DEFAULT_SIMPLEX_ADJUST_FLAG,
+  DEFAULT_SIMPLEX_ICHECK_FLAG,
   SIMPLEX_DEFAULT_PROP_ROW_SIZE,
   SIMPLEX_DEFAULT_BLAND_THRESHOLD,
   SIMPLEX_DEFAULT_CHECK_PERIOD,
@@ -174,18 +179,22 @@ typedef enum param_key {
   PARAM_MAX_BOOL_ACK,
   PARAM_AUX_EQ_QUOTA,
   PARAM_AUX_EQ_RATIO,
+  PARAM_DYN_ACK_THRESHOLD,
+  PARAM_DYN_BOOL_ACK_THRESHOLD,
   PARAM_MAX_INTERFACE_EQS,
   // simplex parameters
-  PARAM_EAGER_LEMMAS,
   PARAM_SIMPLEX_PROP,
   PARAM_SIMPLEX_ADJUST,
+  PARAM_SIMPLEX_ICHECK,
   PARAM_PROP_THRESHOLD,
   PARAM_BLAND_THRESHOLD,
-  PARAM_ICHECK,
   PARAM_ICHECK_PERIOD,
+  // array solver
+  PARAM_MAX_UPDATE_CONFLICTS,
+  PARAM_MAX_EXTENSIONALITY,
 } param_key_t;
 
-#define NUM_PARAM_KEYS (PARAM_ICHECK_PERIOD+1)
+#define NUM_PARAM_KEYS (PARAM_MAX_EXTENSIONALITY+1)
 
 // parameter names in lexigraphic ordering
 static const char *const param_key_names[NUM_PARAM_KEYS] = {
@@ -200,19 +209,21 @@ static const char *const param_key_names[NUM_PARAM_KEYS] = {
   "d-factor",
   "d-threshold",
   "dyn-ack",
+  "dyn-ack-threshold",
   "dyn-bool-ack",
-  "eager-lemmas",
+  "dyn-bool-ack-threshold",
   "fast-restarts",
   "icheck",
   "icheck-period",
   "max-ack",
   "max-bool-ack",
+  "max-extensionality",
   "max-interface-eqs",
+  "max-update-conflicts",
   "prop-threshold",
   "r-factor",
   "r-fraction",
   "r-threshold",
-  "random-seed",
   "randomness",
   "simplex-adjust",
   "simplex-prop",
@@ -221,7 +232,7 @@ static const char *const param_key_names[NUM_PARAM_KEYS] = {
 };
 
 // corresponding parameter codes in order
-static const yices_param_t param_code[NUM_PARAMETERS] = {
+static const int32_t param_code[NUM_PARAM_KEYS] = {
   PARAM_AUX_EQ_QUOTA,
   PARAM_AUX_EQ_RATIO,
   PARAM_BLAND_THRESHOLD,
@@ -233,19 +244,21 @@ static const yices_param_t param_code[NUM_PARAMETERS] = {
   PARAM_D_FACTOR,
   PARAM_D_THRESHOLD,
   PARAM_DYN_ACK,
+  PARAM_DYN_ACK_THRESHOLD,
   PARAM_DYN_BOOL_ACK,
-  PARAM_EAGER_LEMMAS,
+  PARAM_DYN_BOOL_ACK_THRESHOLD,
   PARAM_FAST_RESTART,
-  PARAM_ICHECK,
+  PARAM_SIMPLEX_ICHECK,
   PARAM_ICHECK_PERIOD,
   PARAM_MAX_ACK,
   PARAM_MAX_BOOL_ACK,
+  PARAM_MAX_EXTENSIONALITY,
   PARAM_MAX_INTERFACE_EQS,
+  PARAM_MAX_UPDATE_CONFLICTS,
   PARAM_PROP_THRESHOLD,
   PARAM_R_FACTOR,
   PARAM_R_FRACTION,
   PARAM_R_THRESHOLD,
-  PARAM_RANDOM_SEED,
   PARAM_RANDOMNESS,
   PARAM_SIMPLEX_ADJUST,
   PARAM_SIMPLEX_PROP,
@@ -258,8 +271,6 @@ static const yices_param_t param_code[NUM_PARAMETERS] = {
 /*
  * Names of each branching mode (in lexicographic order)
  */
-#define NUM_BRANCHING_MODES 6
-
 static const char * const branching_modes[NUM_BRANCHING_MODES] = {
   "default",
   "negative",
@@ -269,7 +280,7 @@ static const char * const branching_modes[NUM_BRANCHING_MODES] = {
   "theory",
 };
 
-static const branch_t branching_code[NUM_BRANCHING_MODES] = {
+static const int32_t branching_code[NUM_BRANCHING_MODES] = {
   BRANCHING_DEFAULT,
   BRANCHING_NEGATIVE,
   BRANCHING_POSITIVE,
@@ -294,22 +305,30 @@ void init_params_to_defaults(param_t *parameters) {
 
 
 /*
+ * Return the default parameters
+ */
+param_t *get_default_params(void) {
+  return &default_settings;
+}
+
+
+/*
  * Parse value as a boolean. Store the result in *v
  * - return 0 if this works
- * - return -1 otherwise
+ * - return -2 otherwise
  */
 static int32_t set_bool_param(const char *value, bool *v) {
   int32_t k;
 
   k = parse_as_boolean(value, v);
-  return (k == valid_boolean) ? 0 : -1;
+  return (k == valid_boolean) ? 0 : -2;
 }
 
 
 /*
  * Parse value as a branching mode. Store the result in *v
  * - return 0 if this works
- * - return -1 otherwise
+ * - return -2 otherwise
  */
 static int32_t set_branching_param(const char *value, branch_t *v) {
   int32_t k;
@@ -321,6 +340,8 @@ static int32_t set_branching_param(const char *value, branch_t *v) {
     assert(BRANCHING_DEFAULT <= k && k <= BRANCHING_TH_POS);
     *v = (branch_t) k;
     k = 0;
+  } else {
+    k = -2;
   }
 
   return k;
@@ -331,7 +352,7 @@ static int32_t set_branching_param(const char *value, branch_t *v) {
  * Parse val as a signed 32bit integer. Check whether 
  * the result is in the interval [low, high].
  * - if so, store the result into *v and return 0
- * - if val is not an integer, return -1
+ * - if val is not an integer, return -2
  * - if the result is not in the interval, return -2
  */
 static int32_t set_int32_param(const char *value, int32_t *v, int32_t low, int32_t high) {
@@ -348,11 +369,11 @@ static int32_t set_int32_param(const char *value, int32_t *v, int32_t low, int32
       aux = -2;   
     }
     break;
+
   case integer_overflow:
-    aux = -2;
-    break;
   case invalid_integer:
-    aux = -1;
+  default: // prevent GCC warning
+    aux = -2;
     break;
   }
 
@@ -384,10 +405,10 @@ static int32_t set_double_param(const char *value, double *v, double low, double
       result = -2;   
     }
     break;
+
   case double_overflow:
-    result = -2;
-    break;
   case invalid_double:
+  default: // prevent GCC warning
     result = -1;
     break;
   }
@@ -414,7 +435,7 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
   int32_t z;
   double x;
 
-  k = parse_as_keyword(key, param_key_names, param_code, NUM_PARAMETERS);
+  k = parse_as_keyword(key, param_key_names, param_code, NUM_PARAM_KEYS);
   switch (k) {
   case PARAM_FAST_RESTART:
     r = set_bool_param(value, &parameters->fast_restart);
@@ -435,17 +456,17 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
     break;
 
   case PARAM_C_FACTOR:
-    r = set_double_param(value, &parameters->c_factor, 1.0, DOUBLE_MAX);
+    r = set_double_param(value, &parameters->c_factor, 1.0, DBL_MAX);
     break;
 
   case PARAM_D_FACTOR:
-    r = set_double_param(value, &parameters->d_factor, 1.0, DOUBLE_MAX);
+    r = set_double_param(value, &parameters->d_factor, 1.0, DBL_MAX);
     break;
 
   case PARAM_R_THRESHOLD:
     r = set_int32_param(value, &z, 1, INT32_MAX);
     if (r == 0) {
-      parameters->r_threshold = r;
+      parameters->r_threshold = z;
     }
     break;
 
@@ -454,7 +475,7 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
     break;
 
   case PARAM_R_FACTOR:
-    r = set_double_param(value, &parameters->r_factor, 1.0, DOUBLE_MAX);
+    r = set_double_param(value, &parameters->r_factor, 1.0, DBL_MAX);
     break;
 
   case PARAM_VAR_DECAY:
@@ -465,6 +486,134 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
     r = set_double_param(value, &x, 0.0, 1.0);
     if (r == 0) {
       parameters->randomness = (float) x;
+    }
+    break;
+
+  case PARAM_BRANCHING:
+    r = set_branching_param(value, &parameters->branching);
+    break;
+
+  case PARAM_CLAUSE_DECAY:
+    r = set_double_param(value, &x, 0.0, 1.0);
+    if (r == 0) {
+      parameters->clause_decay = (float) x;
+    }
+    break;
+
+  case PARAM_CACHE_TCLAUSES:
+    r = set_bool_param(value, &parameters->cache_tclauses);
+    break;
+
+  case PARAM_TCLAUSE_SIZE:
+    r = set_int32_param(value, &z, 2, INT32_MAX);
+    if (r == 0) {
+      parameters->tclause_size = (uint32_t) z;
+    }
+    break;
+
+  case PARAM_DYN_ACK:
+    r = set_bool_param(value, &parameters->use_dyn_ack);
+    break;
+
+  case PARAM_DYN_BOOL_ACK:
+    r = set_bool_param(value, &parameters->use_bool_dyn_ack);
+    break;
+
+  case PARAM_MAX_ACK:
+    r = set_int32_param(value, &z, 1, INT32_MAX);
+    if (r == 0) {
+      parameters->max_ackermann = (uint32_t) z;
+    }
+    break;
+
+  case PARAM_MAX_BOOL_ACK:
+    r = set_int32_param(value, &z, 1, INT32_MAX);
+    if (r == 0) {
+      parameters->max_boolackermann = (uint32_t) z;
+    }
+    break;
+
+  case PARAM_AUX_EQ_QUOTA:
+    r = set_int32_param(value, &z, 1, INT32_MAX);
+    if (r == 0) {
+      parameters->aux_eq_quota = (uint32_t) z;
+    }
+    break;
+
+  case PARAM_AUX_EQ_RATIO:
+    r = set_double_param(value, &x, 0.0, (double) FLT_MAX);
+    if (r == 0) {
+      if (x > 0.0) {
+	parameters->aux_eq_ratio = (float) x;
+      } else {
+	r = -2;
+      }
+    }
+    break;
+
+  case PARAM_DYN_ACK_THRESHOLD:
+    r = set_int32_param(value, &z, 1, (int32_t) UINT16_MAX);
+    if (r == 0) {
+      parameters->dyn_ack_threshold = (uint16_t) z;
+    }
+    break;
+
+
+  case PARAM_DYN_BOOL_ACK_THRESHOLD:
+    r = set_int32_param(value, &z, 1, (int32_t) UINT16_MAX);
+    if (r == 0) {
+      parameters->dyn_bool_ack_threshold = (uint16_t) z;
+    }
+    break;
+
+  case PARAM_MAX_INTERFACE_EQS:
+    r = set_int32_param(value, &z, 1, INT32_MAX);
+    if (r == 0) {
+      parameters->max_interface_eqs = (uint32_t) z;
+    }
+    break;
+
+  case PARAM_SIMPLEX_PROP:
+    r = set_bool_param(value, &parameters->use_simplex_prop);
+    break;
+
+  case PARAM_SIMPLEX_ADJUST:
+    r = set_bool_param(value, &parameters->adjust_simplex_model);
+    break;
+
+  case PARAM_SIMPLEX_ICHECK:
+    r = set_bool_param(value, &parameters->integer_check);
+    break;
+
+  case PARAM_PROP_THRESHOLD:
+    r = set_int32_param(value, &z, 0, INT32_MAX);
+    if (r == 0) {
+      parameters->max_prop_row_size = (uint32_t) z;
+    }
+    break;
+
+  case PARAM_BLAND_THRESHOLD:
+    r = set_int32_param(value, &z, 1, INT32_MAX);
+    if (r == 0) {
+      parameters->bland_threshold = (uint32_t) z;
+    }
+    break;
+
+  case PARAM_ICHECK_PERIOD:
+    r = set_int32_param(value, &parameters->integer_check_period, 1, INT32_MAX);
+    break;    
+
+  case PARAM_MAX_UPDATE_CONFLICTS:
+    r = set_int32_param(value, &z, 1, INT32_MAX);
+    if (r == 0) {
+      parameters->max_update_conflicts = (uint32_t) z;
+    }
+    break;
+
+  case PARAM_MAX_EXTENSIONALITY:
+    r = set_int32_param(value, &z, 1, INT32_MAX);
+    if (r == 0) {
+      parameters->max_extensionality = (uint32_t) z;
     }
     break;
 

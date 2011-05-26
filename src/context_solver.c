@@ -36,143 +36,6 @@ const char * const reduce_compile_option = "remove";
 
 
 
-/*******************************
- *  DEFAULT SEARCH PARAMETERS  *
- ******************************/
-
-/*
- * Default restart parameters for SMT solving
- * Minisat-like behavior
- */
-#define DEFAULT_FAST_RESTART false
-#define DEFAULT_C_THRESHOLD  100
-#define DEFAULT_D_THRESHOLD  100
-#define DEFAULT_C_FACTOR     1.5
-#define DEFAULT_D_FACTOR     1.5
-
-/*
- * Restart parameters if option --fast-restarts is set
- */
-#define FAST_RESTART_C_THRESHOLD 100
-#define FAST_RESTART_D_THRESHOLD 100
-#define FAST_RESTART_C_FACTOR    1.1
-#define FAST_RESTART_D_FACTOR    1.1
-
-/*
- * Default clause deletion parameters
- */
-#define DEFAULT_R_THRESHOLD   1000
-#define DEFAULT_R_FRACTION    0.25
-#define DEFAULT_R_FACTOR      1.05
-
-
-/*
- * The default SMT parameters are copied from smt_core.h
- * - VAR_DECAY_FACTOR  = 0.95
- * - VAR_RANDOM_FACTOR = 0.02
- * - CLAUSE_DECAY_FACTOR = 0.999
- * - clause caching is disabled
- */
-#define DEFAULT_VAR_DECAY      VAR_DECAY_FACTOR
-#define DEFAULT_RANDOMNESS     VAR_RANDOM_FACTOR
-#define DEFAULT_CLAUSE_DECAY   CLAUSE_DECAY_FACTOR
-#define DEFAULT_CACHE_TCLAUSES false
-#define DEFAULT_TCLAUSE_SIZE   0
-
-/*
- * Default branching = the smt_core default
- */
-#define DEFAULT_BRANCHING  BRANCHING_DEFAULT
-
-/*
- * The default EGRAPH parameters are defined in egraph_types.h
- * - DEFAULT_MAX_ACKERMANN = 1000
- * - DEFAULT_MAX_BOOLACKERMANN = 600000
- * - DEFAULT_AUX_EQ_QUOTA = 100
- * - DEFAULT_ACKERMANN_THRESHOLD = 8
- * - DEFAULT_BOOLACK_THRESHOLD = 8
- * - DEFAULT_MAX_INTERFACE_EQS = 200
- *
- * The dynamic ackermann heuristic is disabled for both 
- * boolean and non-boolean terms.
- */
-#define DEFAULT_USE_DYN_ACK        false
-#define DEFAULT_USE_BOOL_DYN_ACK   false
-#define DEFAULT_AUX_EQ_RATIO       0.3
-
-
-/*
- * Default SIMPLEX parameters defined in simplex_types.h
- * - SIMPLEX_DEFAULT_BLAND_THRESHOLD = 1000
- * - SIMPLEX_DEFAULT_PROP_ROW_SIZE = 30
- * - SIMPLEX_DEFAULT_CHECK_PERIOD = infinity
- * - propagation is disabled by default
- * - model adjustment is also disabled
- */
-#define DEFAULT_SIMPLEX_PROP_FLAG     false
-#define DEFAULT_SIMPLEX_ADJUST_FLAG   false
-
-
-/*
- * Default parameters for the array solver (defined in fun_solver.h
- * - MAX_UPDATE_CONFLICTS = 20
- * - MAX_EXTENSIONALITY = 1
- */
-
-
-/*
- * All default parameters
- */
-static param_t default_settings = {
-  DEFAULT_FAST_RESTART,
-  DEFAULT_C_THRESHOLD,
-  DEFAULT_D_THRESHOLD,
-  DEFAULT_C_FACTOR,
-  DEFAULT_D_FACTOR,
-
-  DEFAULT_R_THRESHOLD,
-  DEFAULT_R_FRACTION,
-  DEFAULT_R_FACTOR,
-
-  DEFAULT_VAR_DECAY,
-  DEFAULT_RANDOMNESS,
-  DEFAULT_BRANCHING,
-  DEFAULT_CLAUSE_DECAY,
-  DEFAULT_CACHE_TCLAUSES,
-  DEFAULT_TCLAUSE_SIZE,
-
-  DEFAULT_USE_DYN_ACK,
-  DEFAULT_USE_BOOL_DYN_ACK,
-  DEFAULT_MAX_ACKERMANN,
-  DEFAULT_MAX_BOOLACKERMANN,
-  DEFAULT_AUX_EQ_QUOTA,
-  DEFAULT_AUX_EQ_RATIO,
-  DEFAULT_ACKERMANN_THRESHOLD,
-  DEFAULT_BOOLACK_THRESHOLD,
-  DEFAULT_MAX_INTERFACE_EQS,
-
-  DEFAULT_SIMPLEX_PROP_FLAG,
-  DEFAULT_SIMPLEX_ADJUST_FLAG,
-  SIMPLEX_DEFAULT_PROP_ROW_SIZE,
-  SIMPLEX_DEFAULT_BLAND_THRESHOLD,
-  SIMPLEX_DEFAULT_CHECK_PERIOD,
-
-  DEFAULT_MAX_UPDATE_CONFLICTS,
-  DEFAULT_MAX_EXTENSIONALITY,
-};
-
-
-
-/*
- * Initialize params with a copy of default_settings
- */
-void init_params_to_defaults(param_t *parameters) {
-  *parameters = default_settings;
-}
-
-
-
-
 
 /*
  * MAIN SEARCH FUNCTIONS
@@ -481,7 +344,7 @@ smt_status_t check_context(context_t *ctx, const param_t *params, bool verbose) 
      * Clean state: search can proceed
      */
     if (params == NULL) {
-      params = &default_settings;
+      params = get_default_params();
     }
 
     /*
@@ -533,7 +396,10 @@ smt_status_t check_context(context_t *ctx, const param_t *params, bool verbose) 
 	simplex_enable_adjust_model(simplex);
       }
       simplex_set_bland_threshold(simplex, params->bland_threshold);
-      simplex_set_integer_check_period(simplex, params->integer_check_period);
+      if (params->integer_check) {
+	simplex_enable_periodic_icheck(simplex);
+	simplex_set_integer_check_period(simplex, params->integer_check_period);
+      }
     }
 
 
