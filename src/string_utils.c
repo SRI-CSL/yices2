@@ -70,6 +70,30 @@ int32_t parse_as_keyword(const char *s, const char * const *a, const int32_t *b,
 
 
 /*
+ * Parse s as a boolean: "true" or "TRUE" or "false" or "FALSE"
+ * - store the result in *val
+ * Return code:
+ * - valid_boolean means correct
+ * - invalid_boolean means wrong format
+ */
+boolean_parse_code_t parse_as_boolean(const char *s, bool *val) {
+  boolean_parse_code_t r;
+
+  r = invalid_boolean;
+  if ((strcmp(s, "true") == 0) || (strcmp(s, "TRUE") == 0)) {
+    *val = true;
+    r = valid_boolean;
+  } else if ((strcmp(s, "false") == 0) || (strcmp(s, "FALSE") == 0)) {
+    *val = false;
+    r = valid_boolean;
+  }
+
+  return r;
+}
+
+
+
+/*
  * Parse s as a decimal number in the format 
  *  <optional_signs><digits>
  * and store the corresponding number into val

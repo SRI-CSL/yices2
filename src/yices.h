@@ -1649,11 +1649,22 @@ __YICES_DLLSPEC__ extern void yices_stop_search(context_t *ctx);
  * unless you really know what you're doing.
  *
  * The following functions selectively enable/disable a preprocessing
- * option. (MORE DOC TBD).
- * 
+ * option. Current options include:
+ *   var-elim: whether to eliminate variables by substitution
+ *   arith-elim: more variable elimination for arithmetic (Gaussian)
+ *   flatten: whether to flatten nested (or ...)
+ *     (e.g., turn (or (or a b) (or c d) ) to (or a b c d))
+ *   learn_eq: enable/disable heuristics to learn implied equalities
+ *   keep_ite: whether to eliminate term if-then-else or keep them as terms
+ *
+ * The following functions can be used to enable or disable one of these options.
+ * - return code: -1 if there's an error, 0 otherwise.
+ *
+ * Error codes:
+ *  CTX_UNKNOWN_PARAMETER if the option name is not one of the above.
  */
-__YICES_DLLSPEC__ extern void yices_context_enable_option(context_t *ctx, const char *option);
-__YICES_DLLSPEC__ extern void yices_context_disable_option(context_t *ctx, const char *option);
+__YICES_DLLSPEC__ extern int32_t yices_context_enable_option(context_t *ctx, const char *option);
+__YICES_DLLSPEC__ extern int32_t yices_context_disable_option(context_t *ctx, const char *option);
  
 
 

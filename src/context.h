@@ -814,8 +814,6 @@ struct param_s {
 
 
 
-
-
 /********************************
  *  INITIALIZATION AND CONTROL  *
  *******************************/
@@ -852,6 +850,30 @@ extern void context_pop(context_t *ctx);
 
 
 
+/************************
+ *  PARAMETER RECORDS   *
+ ***********************/
+
+/*
+ * Initialize params with default values
+ */
+extern void init_params_to_defaults(param_t *parameters);
+
+
+/*
+ * Set a field in the parameter record
+ * - key = field name
+ * - value = value for that field
+ *
+ * Return code:
+ *  -1 if the key is not recognized
+ *  -2 if the value is not recognized
+ *  -3 if the value is not valid for the key
+ *   0 otherwise
+ */
+extern int32_t params_set_field(param_t *parameters, const char *key, const char *value);
+
+
 
 /****************************
  *   ASSERTIONS AND CHECK   *
@@ -878,12 +900,6 @@ extern int32_t assert_formula(context_t *ctx, term_t f);
  * same return code as above.
  */
 extern int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f);
-
-
-/*
- * Initialize params with default values
- */
-extern void init_params_to_defaults(param_t *parameters);
 
 
 /*

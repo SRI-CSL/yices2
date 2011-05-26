@@ -6,7 +6,9 @@
 #ifndef __STRING_UTILS_H
 #define __STRING_UTILS_H
 
+#include <stdbool.h>
 #include <stdint.h>
+
 
 /*
  * Binary search in a sorted array of strings.
@@ -34,6 +36,22 @@ extern int32_t binary_search_string(const char *s, const char * const *a, int32_
  */
 extern int32_t parse_as_keyword(const char *s, const char * const *a, 
 				const int32_t *b, int32_t n);			     
+
+
+/*
+ * Parse s as a boolean: "true" or "TRUE" or "false" or "FALSE"
+ * - store the result in *val
+ * Return code:
+ * - valid_boolean means correct
+ * - invalid_boolean means wrong format
+ */
+typedef enum {
+  valid_boolean,
+  invalid_boolean,
+} boolean_parse_code_t;
+
+extern boolean_parse_code_t parse_as_boolean(const char *s, bool *val);
+
 
 /*
  * Parse s as a decimal number in the format recognized by strtol

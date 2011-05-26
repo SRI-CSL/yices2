@@ -26,6 +26,7 @@
 #include <string.h>
 
 #include "refcount_strings.h"
+#include "string_utils.h"
 #include "int_array_sort.h"
 #include "dl_lists.h"
 #include "int_vectors.h"
@@ -7457,7 +7458,7 @@ EXPORTED int32_t yices_set_config(ctx_config_t *config, const char *name, const 
  * - return -1 if there's an error
  * - return 0 otherwise
  */
-int32_t yices_default_config_for_logic(ctx_config_t *config, const char *logic) {
+EXPORTED int32_t yices_default_config_for_logic(ctx_config_t *config, const char *logic) {
   int32_t k;
 
   k = config_set_logic(config, logic);
@@ -7474,6 +7475,129 @@ int32_t yices_default_config_for_logic(ctx_config_t *config, const char *logic) 
 }
 
 
+
+/*******************************************
+ *  SIMPLIFICATION/PREPROCESSING OPTIONS   *
+ ******************************************/
+
+/*
+ * Parameters are identified by an integer in the following range
+ */
+typedef enum ctx_option {
+  CTX_OPTION_VAR_ELIM,
+  CTX_OPTION_ARITH_ELIM,
+  CTX_OPTION_FLATTEN,
+  CTX_OPTION_LEARN_EQ,
+  CTX_OPTION_KEEP_ITE,
+} ctx_option_t;
+
+#define NUM_CTX_OPTIONS (CTX_OPTION_KEEP_ITE+1)
+
+
+/*
+ * Option names in lexicographic order
+ */
+static const char * const ctx_option_names[NUM_CTX_OPTIONS] = {
+  "arith-elim",
+  "flatten",
+  "keep-ite",
+  "learn-eq",
+  "var-elim",
+};
+
+
+/*
+ * Corresponding index (cf. string_utils.h for parse_as_keyword)
+ */
+static const int32_t ctx_option_key[NUM_CTX_OPTIONS] = {
+  CTX_OPTION_ARITH_ELIM,
+  CTX_OPTION_FLATTEN,
+  CTX_OPTION_KEEP_ITE,
+  CTX_OPTION_LEARN_EQ,
+  CTX_OPTION_VAR_ELIM,
+};
+
+
+/*
+ * Enable a specific option
+ */
+EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option) {
+  int32_t k, r;
+
+  r = 0; // default return code: no error
+  k = parse_as_keyword(option, ctx_option_names, ctx_option_key, NUM_CTX_OPTIONS);
+  switch (k) {
+  case CTX_OPTION_VAR_ELIM:
+    enable_variable_elimination(ctx);
+    break;
+
+  case CTX_OPTION_ARITH_ELIM:
+    enable_arith_elimination(ctx);
+    break;
+
+  case CTX_OPTION_FLATTEN:
+    enable_diseq_and_or_flattening(ctx);
+    break;
+
+  case CTX_OPTION_LEARN_EQ:
+    enable_eq_abstraction(ctx);
+    break;
+
+  case CTX_OPTION_KEEP_ITE:
+    enable_keep_ite(ctx);
+    break;
+
+  default:
+    assert(k == -1);
+    // not recognized
+    error.code = CTX_UNKNOWN_PARAMETER;
+    r = -1;
+    break;
+  }
+
+  return r;
+}
+
+
+/*
+ * Disable a specific option
+ */
+EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option) {
+  int32_t k, r;
+
+  r = 0; // default return code: no error
+  k = parse_as_keyword(option, ctx_option_names, ctx_option_key, NUM_CTX_OPTIONS);
+  switch (k) {
+  case CTX_OPTION_VAR_ELIM:
+    disable_variable_elimination(ctx);
+    break;
+
+  case CTX_OPTION_ARITH_ELIM:
+    disable_arith_elimination(ctx);
+    break;
+
+  case CTX_OPTION_FLATTEN:
+    disable_diseq_and_or_flattening(ctx);
+    break;
+
+  case CTX_OPTION_LEARN_EQ:
+    disable_eq_abstraction(ctx);
+    break;
+
+  case CTX_OPTION_KEEP_ITE:
+    disable_keep_ite(ctx);
+    break;
+
+  default:
+    assert(k == -1);
+    // not recognized
+    error.code = CTX_UNKNOWN_PARAMETER;
+    r = -1;
+    break;
+  }
+
+  return r;
+}
 
 
 /*************************************
@@ -7580,6 +7704,8 @@ EXPORTED void yices_free_context(context_t *ctx) {
   delete_context(ctx);
   free_context(ctx);
 }
+
+
 
 
 /*
