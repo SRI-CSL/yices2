@@ -738,7 +738,7 @@ void tstack_push_bvhex(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
     // small constant
     code = bvconst64_set_from_hexa_string(&c, n, s);
     if (code < 0) goto error;
-    tstack_push_bv64(stack, n, c, loc);
+    tstack_push_bv64(stack, 4 * n, c, loc);
   }
   return;
 

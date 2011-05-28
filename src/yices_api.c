@@ -3698,6 +3698,7 @@ static bool check_both_arith_terms(term_table_t *tbl, term_t t1, term_t t2) {
     check_arith_term(tbl, t1) && check_arith_term(tbl, t2);
 }
 
+
 // Check that t1 and t2 are bitvectors of the same size
 static bool check_compatible_bv_terms(term_table_t *tbl, term_t t1, term_t t2) {
   return check_good_term(tbl, t1) && check_good_term(tbl, t2)

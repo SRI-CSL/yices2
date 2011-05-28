@@ -405,6 +405,19 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
 }
 
 
+/*
+ * Error codes defined in yices_types:
+ *   0 to  99 --> reserved for basic errors in term/type construction
+ * 100 to 299 --> reserved for parser errors
+ * 300 to 399 --> reserved for error in context operation
+ * 400 to ... --> other error codes
+ *
+ * The term_stack should only trigger error codes in the range [0..99]
+ * (more exactly in the range [0 .. EMPTY_BITVECTOR].
+ * We assign a severity to these errors, as defined below.
+ */
+
+#define NUM_YICES_ERRORS (EMPTY_BITVECTOR+1)
 
 /*
  * Severity of an error:
@@ -438,37 +451,13 @@ static uint8_t severity[NUM_YICES_ERRORS] = {
   2, // VARIABLE_REQUIRED (bug in term_stack)
   0, // ARITHTERM_REQUIRED
   0, // BITVECTOR_REQUIRED
+  0, // SCALAR_TERM_REQUIRED
   0, // WRONG_NUMBER_OF_ARGUMENTS
   0, // TYPE_MISMATCH
   0, // INCOMPATIBLE_TYPES
   2, // DUPLICATE_VARIABLE (bug in term_stack).
   0, // INCOMPATIBLE_BVSIZES
   2, // EMPTY_BITVECTOR
-
-  /*
-   * The following errors are handled directly by the parser
-   * so they should not occur. Since they are benign, they
-   * can have severity 0 anyway.
-   */
-  0, // INVALID_TOKEN
-  0, // SYNTAX_ERROR
-  0, // UNDEFINED_TYPE_NAME
-  0, // UNDEFINED_TERM_NAME
-  0, // REDEFINED_TYPE_NAME 
-  0, // REDEFINED_TERM_NAME
-  0, // DUPLICATE_NAME_IN_SCALAR
-  0, // DUPLICATE_VAR_NAME
-  0, // INTEGER_OVERFLOW
-  0, // INTEGER_REQUIRED
-  0, // RATIONAL_REQUIRED
-  0, // SYMBOL_REQUIRED
-  0, // TYPE_REQUIRED
-  0, // NON_CONSTANT_DIVISOR
-  0, // NEGATIVE_BVSIZE
-  0, // INVALID_BVCONSTANT
-  0, // TYPE_MISMATCH_IN_DEF
-  0, // ARITH_ERROR
-  0, // BVARITH_ERROR,
 };
 
 

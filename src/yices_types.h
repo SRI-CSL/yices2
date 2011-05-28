@@ -198,7 +198,6 @@ typedef enum error_code {
   INTERNAL_EXCEPTION = 9999,
 } error_code_t;
 
-#define NUM_YICES_ERRORS (INTERNAL_EXCEPTION+1)
 
 
 /*
