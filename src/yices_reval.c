@@ -166,6 +166,8 @@ typedef enum yices_param {
   PARAM_MAX_BOOL_ACK,
   PARAM_AUX_EQ_QUOTA,
   PARAM_AUX_EQ_RATIO,
+  PARAM_DYN_ACK_THRESHOLD,
+  PARAM_DYN_BOOL_ACK_THRESHOLD,
   PARAM_MAX_INTERFACE_EQS,
   // simplex parameters
   PARAM_EAGER_LEMMAS,
@@ -175,6 +177,9 @@ typedef enum yices_param {
   PARAM_BLAND_THRESHOLD,
   PARAM_ICHECK,
   PARAM_ICHECK_PERIOD,
+  // array solver parameters
+  PARAM_MAX_UPDATE_CONFLICTS,
+  PARAM_MAX_EXTENSIONALITY,
   // error
   PARAM_UNKNOWN
 } yices_param_t;
@@ -195,7 +200,9 @@ static const char * const param_names[NUM_PARAMETERS] = {
   "d-factor",
   "d-threshold",
   "dyn-ack",
+  "dyn-ack-threshold",
   "dyn-bool-ack",
+  "dyn-bool-ack-threshold",
   "eager-lemmas",
   "fast-restarts",
   "flatten",
@@ -205,7 +212,9 @@ static const char * const param_names[NUM_PARAMETERS] = {
   "learn-eq",
   "max-ack",
   "max-bool-ack",
+  "max-extensionality",
   "max-interface-eqs",
+  "max-update-conflicts",
   "prop-threshold",
   "r-factor",
   "r-fraction",
@@ -233,7 +242,9 @@ static const yices_param_t param_code[NUM_PARAMETERS] = {
   PARAM_D_FACTOR,
   PARAM_D_THRESHOLD,
   PARAM_DYN_ACK,
+  PARAM_DYN_ACK_THRESHOLD,
   PARAM_DYN_BOOL_ACK,
+  PARAM_DYN_BOOL_ACK_THRESHOLD,
   PARAM_EAGER_LEMMAS,
   PARAM_FAST_RESTARTS,
   PARAM_FLATTEN,
@@ -243,7 +254,9 @@ static const yices_param_t param_code[NUM_PARAMETERS] = {
   PARAM_LEARN_EQ,
   PARAM_MAX_ACK,
   PARAM_MAX_BOOL_ACK,
+  PARAM_MAX_EXTENSIONALITY,
   PARAM_MAX_INTERFACE_EQS,
+  PARAM_MAX_UPDATE_CONFLICTS,
   PARAM_PROP_THRESHOLD,
   PARAM_R_FACTOR,
   PARAM_R_FRACTION,
@@ -978,6 +991,16 @@ static bool param_val_to_pos32(const char *name, param_val_t *v, int32_t *value)
   return false;
 }
 
+static bool param_val_to_pos16(const char *name, param_val_t *v, int32_t *value) {
+  if (param_val_to_int32(name, v, value)) {
+    if (1 <= *value && *value <= UINT16_MAX) {
+      return true;
+    }
+    report_invalid_param_value(name, "must be between 1 and 2^16");
+  }
+  return false;
+}
+
 static bool param_val_to_nonneg32(const char *name, param_val_t *v, int32_t *value) {
   if (param_val_to_int32(name, v, value)) {
     if (*value > 0) return true;
@@ -1115,7 +1138,7 @@ static void show_string_param(const char *name, const char *value, uint32_t n) {
 
 // main function to display a parameter value
 // p = parameter id
-// n = size for alignment (as used in show_param_name
+// n = size for alignment (as used in show_param_name)
 static void show_param(yices_param_t p, uint32_t n) {
   switch (p) {
   case PARAM_VAR_ELIM:
@@ -1223,6 +1246,14 @@ static void show_param(yices_param_t p, uint32_t n) {
     show_float_param(param2string[p], parameters.aux_eq_ratio, n);
     break;
 
+  case PARAM_DYN_ACK_THRESHOLD:
+    show_pos32_param(param2string[p], (uint32_t) parameters.dyn_ack_threshold, n);
+    break;
+
+  case PARAM_DYN_BOOL_ACK_THRESHOLD:
+    show_pos32_param(param2string[p], (uint32_t) parameters.dyn_bool_ack_threshold, n);
+    break;
+
   case PARAM_MAX_INTERFACE_EQS:
     show_pos32_param(param2string[p], parameters.max_interface_eqs, n);
     break;
@@ -1253,6 +1284,14 @@ static void show_param(yices_param_t p, uint32_t n) {
 
   case PARAM_ICHECK_PERIOD:
     show_pos32_param(param2string[p], parameters.integer_check_period, n);
+    break;
+
+  case PARAM_MAX_UPDATE_CONFLICTS:
+    show_pos32_param(param2string[p], parameters.max_update_conflicts, n);
+    break;
+
+  case PARAM_MAX_EXTENSIONALITY:
+    show_pos32_param(param2string[p], parameters.max_extensionality, n);
     break;
 
   case PARAM_UNKNOWN:
@@ -1521,6 +1560,20 @@ static void yices_setparam_cmd(char *param, param_val_t *val) {
     }
     break;
 
+  case PARAM_DYN_ACK_THRESHOLD:
+    if (param_val_to_pos16(param, val, &n)) {
+      parameters.dyn_ack_threshold = (uint16_t) n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_DYN_BOOL_ACK_THRESHOLD:
+    if (param_val_to_pos16(param, val, &n)) {
+      parameters.dyn_bool_ack_threshold = (uint16_t) n;
+      print_ok();
+    }
+    break;
+
   case PARAM_MAX_INTERFACE_EQS:
     if (param_val_to_pos32(param, val, &n)) {
       parameters.max_interface_eqs = n;
@@ -1581,6 +1634,20 @@ static void yices_setparam_cmd(char *param, param_val_t *val) {
   case PARAM_ICHECK_PERIOD:
     if (param_val_to_pos32(param, val, &n)) {
       parameters.integer_check_period = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_MAX_UPDATE_CONFLICTS:
+    if (param_val_to_pos32(param, val, &n)) {
+      parameters.max_update_conflicts = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_MAX_EXTENSIONALITY:
+    if (param_val_to_pos32(param, val, &n)) {
+      parameters.max_extensionality = n;
       print_ok();
     }
     break;
