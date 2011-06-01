@@ -742,6 +742,21 @@ extern int32_t assert_formula(context_t *ctx, term_t f);
  */
 extern int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f);
 
+/*
+ * Add the blocking clause to ctx
+ * - ctx->status must be either SAT or UNKNOWN
+ * - this collects all decision literals in the current truth assignment
+ *   (say l_1, ..., l_k) then clears the current assignment and adds the 
+ *  clause ((not l_1) \/ ... \/ (not l_k)).
+ *
+ * Return code:
+ * - TRIVIALLY_UNSAT: means that the blocking clause is empty (i.e., k = 0)
+ *   (in that case, the context status is set to UNSAT)
+ * - CTX_NO_ERROR: means that the blocking clause is not empty (i.e., k > 0)
+ *   (In this case, the context status is set to IDLE)
+ */
+extern int32_t assert_blocking_clause(context_t *ctx);
+
 
 /*
  * Check whether the context is consistent

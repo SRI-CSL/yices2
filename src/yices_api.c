@@ -794,7 +794,7 @@ static void delete_parsing_objects(void) {
   assert(__yices_globals.tstack == tstack);
 
   if (parser != NULL) {
-    assert(lexer != NULL && tstack != NULL); 
+    assert(lexer != NULL && tstack != NULL);
     delete_parser(parser);
     safe_free(parser);
     parser = NULL;
@@ -912,10 +912,10 @@ EXPORTED void yices_init(void) {
  * Cleanup: delete all tables and internal data structures
  */
 EXPORTED void yices_exit(void) {
-  clear_globals(&__yices_globals);
-
   // parser etc.
   delete_parsing_objects();
+
+  clear_globals(&__yices_globals);
 
   // internal buffers will be freed via free_arith_buffer_list,
   // free_bvarith_buffer_list, and free_bvlogic_buffer_list
@@ -7886,6 +7886,7 @@ static inline void convert_internalization_error(int32_t code) {
   error.code = intern_code2error[-code];  
 }
 
+
 /*
  * Assert formula t in ctx
  * - ctx status must be IDLE or UNSAT or SAT or UNKNOWN
@@ -7896,7 +7897,7 @@ static inline void convert_internalization_error(int32_t code) {
  * If cts's status is IDLE, SAT, or UNKNONW, then the formula is
  * simplified and asserted in the context. The context status is
  * changed to UNSAT if the formula is simplified to 'false' or
- * ot IDLE if it does not simplify to false.
+ * to IDLE if it does not simplify to false.
  * 
  * This returns 0 if there's no error or -1 if there's an error.
  * 
@@ -7908,12 +7909,14 @@ static inline void convert_internalization_error(int32_t code) {
  *   code = TYPE_MISMATCH
  *   term1 = t
  *   type1 = bool (expected type)
- * if ctx's status is not IDLE or UNSAT
+ * if ctx's status is not IDLE or UNSAT or SAT or UNKNOWN
  *   code = CTX_INVALID_OPERATION
+ * if ctx's status is neither IDLE nor UNSAT, and the context is 
+ * not configured for multiple checks
+ *   code = CTX_OPERATION_NOT_SUPPORTED
  *
- * For future extensions, other error codes are defined in
- * yices_types.h to report that t is outside the logic supported 
- * by ctx. These should never happen with this version of Yices.
+ * Other error codes are defined in yices_types.h to report that t is
+ * outside the logic supported by ctx.
  */
 EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
   int32_t code;
@@ -7926,6 +7929,10 @@ EXPORTED int32_t yices_assert_formula(context_t *ctx, term_t t) {
   switch (context_status(ctx)) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
+    if (! context_supports_multichecks(ctx)) {
+      error.code = CTX_OPERATION_NOT_SUPPORTED;
+      return -1;
+    }
     context_clear(ctx);
     assert(context_status(ctx) == STATUS_IDLE);
     // fall-through intended
@@ -7969,10 +7976,13 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, term_t t[]) {
     return -1;
   }
 
-
   switch (context_status(ctx)) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
+    if (! context_supports_multichecks(ctx)) {
+      error.code = CTX_OPERATION_NOT_SUPPORTED;
+      return -1;
+    }
     context_clear(ctx);
     assert(context_status(ctx) == STATUS_IDLE);
     // fall-through intended
@@ -8005,6 +8015,48 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, term_t t[]) {
   return 0;
 }
 
+
+
+/*
+ * Add a blocking clause: this is intended to support all-sat and variants.
+ * - if ctx's status is SAT or UNKNOWN, then a new clause is added to ctx
+ *   to remove the current truth assignment from the search space.
+ *   The status is then updated to IDLE (if the new clause is not empty) or 
+ *   to UNSAT (if the new clause is the empty clause).
+ *
+ * Return code: 0 if there's no error, -1 if there's an error.
+ *
+ * Error report:
+ * if ctx's status is different from SAT or UNKNOWN
+ *    code = CTX_INVALID_OPERATION
+ * if ctx is not configured to support multiple checks
+ *    code = CTX_OPERATION_NOT_SUPPORTED
+ */
+EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
+  switch (context_status(ctx)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    if (context_supports_multichecks(ctx)) {
+      assert_blocking_clause(ctx);
+      return 0;
+    } else {
+      error.code = CTX_OPERATION_NOT_SUPPORTED;
+      return -1;
+    }
+
+  case STATUS_IDLE:
+  case STATUS_UNSAT:
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+    error.code = CTX_INVALID_OPERATION;
+    return -1;
+
+  case STATUS_ERROR:
+  default:
+    error.code = INTERNAL_EXCEPTION;
+    return -1;
+  }
+}
 
 
 /*

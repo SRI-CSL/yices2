@@ -1551,7 +1551,7 @@ __YICES_DLLSPEC__ extern int32_t yices_pop(context_t *ctx);
 
 /*
  * Assert formula t in ctx
- * - ctx status must be IDLE or UNSAT
+ * - ctx status must be IDLE or UNSAT or SAT or UNKNOWN
  * - t must be a boolean term
  *
  * If ctx's status is UNSAT, nothing is done.
@@ -1571,8 +1571,11 @@ __YICES_DLLSPEC__ extern int32_t yices_pop(context_t *ctx);
  *   code = TYPE_MISMATCH
  *   term1 = t
  *   type1 = bool (expected type)
- * if ctx's status is not IDLE or UNSAT
+ * if ctx's status is not IDLE or UNSAT or SAT or UNKNOWN
  *   code = CTX_INVALID_OPERATION
+ * if ctx's status is neither IDLE nor UNSAT, and the context is 
+ * not configured for multiple checks
+ *   code = CTX_OPERATION_NOT_SUPPORTED
  *
  * Other error codes are defined in yices_types.h to report that t is
  * outside the logic supported by ctx.
@@ -1618,7 +1621,12 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, uint32_t 
  *    - UNKNOWN: satisfiability can't be proved or disproved 
  *    - INTERRUPTED: the search was interrupted
  *
- *    The returned status is also stored as the new ctx's status flag.
+ *    The returned status is also stored as the new ctx's status flag,
+ *    with the following exception. If the context was built with 
+ *    mode = CLEAN-INTERRUPTS and the search was interrupted, then the
+ *    function returns INTERRUPTED but the ctx's state is restored to
+ *    what it was before the call to 'yices_check_context' and the
+ *    status flag is reset to IDLE.
  *
  * 3) Otherwise, the function does nothing and returns 'STATUS_ERROR', 
  *    it also sets the yices error report (code = CTX_INVALID_OPERATION).
@@ -1627,13 +1635,34 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context(context_t *ctx, const 
 
 
 /*
+ * Add a blocking clause: this is intended to help enumerate different models
+ * for a set of assertions.
+ * - if ctx's status is SAT or UNKNOWN, then a new clause is added to ctx
+ *   to remove the current truth assignment from the search space. After this
+ *   clause is added, the next call to yices_check_context will either produce 
+ *   a different truth assignment (hence a different model) or return UNSAT.
+ *
+ * - ctx's status flag is updated to IDLE (if the new clause is not empty) or 
+ *   to UNSAT (if the new clause is the empty clause).
+ *
+ * Return code: 0 if there's no error, -1 if there's an error.
+ *
+ * Error report:
+ * if ctx's status is different from SAT or UNKNOWN
+ *    code = CTX_INVALID_OPERATION
+ * if ctx is not configured to support multiple checks
+ *    code = CTX_OPERATION_NOT_SUPPORTED
+ */
+__YICES_DLLSPEC__ extern int32_t yices_assert_blocking_clause(context_t *ctx);
+
+
+/*
  * Interrupt the search:
  * - this can be called from a signal handler to stop the search,
  *   after a call to yices_check_context to interrupt the solver.
  *
  * If ctx's status is SEARCHING, then the current search is
- * interrupted and ctx's status flag is updated to
- * INTERRUPTED. Otherwise, the function does nothing.
+ * interrupted. Otherwise, the function does nothing.
  */
 __YICES_DLLSPEC__ extern void yices_stop_search(context_t *ctx);
 

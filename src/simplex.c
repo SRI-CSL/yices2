@@ -7428,7 +7428,7 @@ static bool simplex_eval_atom(simplex_solver_t *solver, arith_atom_t *atom) {
   thvar_t x;
   bool b;
 
-  b = false;
+  b = false;   // prevents a GCC warning
   x = var_of_atom(atom);
   switch (tag_of_atom(atom)) {
   case GE_ATM:
@@ -8807,7 +8807,7 @@ static bool simplex_eval_atom_in_model(rational_t *value, arith_atom_t *atom) {
   thvar_t x;
   bool b;
 
-  b = false;
+  b = false;   // prevents GCC warning
   x = var_of_atom(atom);  
   switch (tag_of_atom(atom)) {
   case GE_ATM:

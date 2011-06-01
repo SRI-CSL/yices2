@@ -68,6 +68,17 @@ static void init_sat_solver(smt_core_t *core) {
 static void quick_solve(smt_core_t *core) {
   literal_t l;
 
+  /*
+   * Hackish: if the empty clause was added, 
+   * we must return now. Adding the empty clause just
+   * sets core->inconsistent to true, but start_search clears
+   * this flag.
+   */
+  if (core->inconsistent) {
+    core->status = STATUS_UNSAT;
+    return;
+  }
+
   start_search(core);
   smt_process(core);
   while (smt_status(core) == STATUS_SEARCHING) {
