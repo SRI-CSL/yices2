@@ -1570,7 +1570,7 @@ bool q_opposite(rational_t *r1, rational_t *r2) {
     return r1->num + r2->num == 0;
   }
 
-  q_clear(&aux);
+  q_init(&aux);
   q_set(&aux, r1);
   q_add(&aux, r2);
   result = q_is_zero(&aux);
