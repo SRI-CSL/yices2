@@ -1328,7 +1328,7 @@ term_t get_term_by_name(term_table_t *table, const char *name) {
  * - if name is not in the symbol table, nothing is done
  * - if name is mapped to a term t, then the mapping [name -> t]
  *   is removed. If name was mapped to a previous term t' then
- *   that mappeing is restored.
+ *   that mapping is restored.
  *
  * If name is the base name of a term t, then that remains unchanged.
  */
@@ -1340,7 +1340,7 @@ void remove_term_name(term_table_t *table, const char *name) {
 /*
  * Clear name: remove t's base name if any.
  * - If t has name 'xxx' then 'xxx' is first removed from the symbol
- *   table (using remove_type_name) then t's base name is erased.
+ *   table (using remove_term_name) then t's base name is erased.
  * - If t doesn't have a base name, nothing is done.
  */
 void clear_term_name(term_table_t *table, term_t t) {
