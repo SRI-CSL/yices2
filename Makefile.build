@@ -41,6 +41,7 @@ include $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
 #
 srcdir = src
 testdir = tests
+satdir = sat_solver
 
 #
 # Build directory: for this architecture and mode
@@ -175,6 +176,17 @@ static-bin: build_subdirs version
 	@ echo "=== Building static binaries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-bin
 
+
+#
+# Sat solver(s)
+#
+sat: build_subdirs obj
+	@ echo "=== Building sat solver(s) ==="
+	@ $(MAKE) -C $(satdir) BUILD=../$(build_dir) bin
+
+static-sat: build_subdirs static-obj
+	@ echo "=== Building sat solver(s) ==="
+	@ $(MAKE) -C $(satdir) BUILD=../$(build_dir) static-bin
 
 #
 # Force a new 'yices_version.c' to be generated

@@ -16,7 +16,17 @@
 
 SHELL=/bin/sh
 
-include $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
+ifeq (,$(YICES_TOP_DIR)) 
+ $(error "YICES_TOP_DIR is undefined")
+endif
+
+ifeq (,$(YICES_MAKE_INCLUDE))
+ $(error "YICES_MAKE_INCLUDE is undefined")
+endif
+
+conf=$(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
+
+include $(conf)
 
 
 #
@@ -24,6 +34,42 @@ include $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
 #
 objdir := $(BUILD)/obj
 bindir := $(BUILD)/bin
+
+static_objdir := $(BUILD)/static_obj
+static_bindir := $(BUILD)/static_bin
+
+
+# all source files in the current directory
+src_c := $(wildcard *.c)
+
+# dependencies
+dep := $(src_c:%.c=$(objdir)/%.d)
+static_dep := $(src_c:%.c=$(static_objdir)/%.d)
+
+# files to link against (we don't use Yices lib because of name clashes)
+yices_obj := $(objdir)/memalloc.o $(objdir)/int_vectors.o $(objdir)/int_array_sort.o $(objdir)/memsize.o
+static_yices_obj := $(static_objdir)/memalloc.o $(static_objdir)/int_vectors.o \
+                    $(static_objdir)/int_array_sort.o $(static_objdir)/memsize.o
+
+# binaries
+binaries := $(bindir)/sat_solver$(EXEEXT) $(bindir)/sat_solver2$(EXEEXT) \
+            $(bindir)/sat_solver3$(EXEEXT) $(bindir)/sat_solver4$(EXEEXT) \
+            $(bindir)/sat_solver5$(EXEEXT) $(bindir)/sat_solver6$(EXEEXT) \
+            $(bindir)/sat_solver7$(EXEEXT) $(bindir)/sat_solver8$(EXEEXT) \
+            $(bindir)/sat_solver9$(EXEEXT) $(bindir)/sat_solver10$(EXEEXT)
+
+static_binaries := $(static_bindir)/sat_solver$(EXEEXT) $(static_bindir)/sat_solver2$(EXEEXT) \
+            $(static_bindir)/sat_solver3$(EXEEXT) $(static_bindir)/sat_solver4$(EXEEXT) \
+            $(static_bindir)/sat_solver5$(EXEEXT) $(static_bindir)/sat_solver6$(EXEEXT) \
+            $(static_bindir)/sat_solver7$(EXEEXT) $(static_bindir)/sat_solver8$(EXEEXT) \
+            $(static_bindir)/sat_solver9$(EXEEXT) $(static_bindir)/sat_solver10$(EXEEXT)
+
+
+
+#
+# Need include path
+#
+CPPFLAGS := $(CPPFLAGS) -I../src
 
 
 #
@@ -58,8 +104,13 @@ ifeq ($(POSIXOS),linux)
   PIC=-fpic
   STATIC=-static
 else
+ifeq ($(POSIXOS),unix)
+  CPPFLAGS := $(CPPFLAGS) -DLINUX
   PIC=-fPIC
   STATIC=-static
+else
+ $(error  "Don't know how to compile on $(POSIXOS)")
+endif
 endif
 endif
 endif
@@ -86,35 +137,24 @@ endif
 #
 # Compilation flags depending on MODE
 #
-# We need to remove -lgmp from LIBS in static mode, otherwise adding
-# $(STATIC_GMP) does not work on Darwin and cygwin
 #
 ifeq ($(YICES_MODE),release) 
-CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(PIC)
+CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else 
-ifeq ($(YICES_MODE),static) 
-ifneq ($(STATIC_GMP_INCLUDE_DIR),)
-CPPFLAGS := -I$(STATIC_GMP_INCLUDE_DIR) $(CPPFLAGS)
-endif
-CFLAGS := $(CFLAGS) -O3 $(STATIC)
-CPPFLAGS := $(CPPFLAGS) -DNDEBUG
-LIBS := $(STATIC_GMP) $(subst $(LIBS),-lgmp,)
-else
 ifeq ($(YICES_MODE),profile)
 CFLAGS := $(CFLAGS) $(PIC) -O3 -pg
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),gcov)
-CFLAGS := $(CFLAGS) -fprofile-arcs -ftest-coverage $(PIC)
+CFLAGS := $(CFLAGS) -fprofile-arcs -ftest-coverage
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(findstring $(YICES_MODE),valgrind quantify purify),$(YICES_MODE))
-CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer -g $(PIC) 
+CFLAGS := $(CFLAGS) -O3 -g
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 CFLAGS := $(CFLAGS) -g
-endif
 endif
 endif
 endif
@@ -136,92 +176,132 @@ endif
 
 
 #
-# Need include path
-#
-CPPFLAGS := $(CPPFLAGS) -I../src
-
-# all source files in directory
-src_c := $(wildcard *.c)
-src_h := $(wildcard *.h)
-
-# dependencies
-dep := $(src_c:%.c=$(objdir)/%.d)
-
-# files to link against (we don't use Yices lib to avoid name clashes)
-yices_obj := $(objdir)/memalloc.o $(objdir)/int_vectors.o $(objdir)/int_array_sort.o $(objdir)/memsize.o
-
-# binaries
-binaries := $(bindir)/sat_solver$(EXEEXT) $(bindir)/sat_solver2$(EXEEXT) \
-            $(bindir)/sat_solver3$(EXEEXT) $(bindir)/sat_solver4$(EXEEXT) \
-            $(bindir)/sat_solver5$(EXEEXT) $(bindir)/sat_solver6$(EXEEXT) \
-            $(bindir)/sat_solver7$(EXEEXT) $(bindir)/sat_solver8$(EXEEXT) \
-            $(bindir)/sat_solver9$(EXEEXT) $(bindir)/sat_solver10$(EXEEXT)
-
 # Top-level binaries
+#
 bin: $(binaries)
 
 $(bindir)/sat_solver$(EXEEXT): $(yices_obj) $(objdir)/sat_solver.o $(objdir)/test_sat_solver.o
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(objdir)/sat_solver.o $(objdir)/test_sat_solver.o \
-	$(yices_obj) $(LIBS) -lm
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ \
+           $(objdir)/sat_solver.o $(objdir)/test_sat_solver.o $(yices_obj)
 
 $(bindir)/sat_solver2$(EXEEXT): $(yices_obj) $(objdir)/sat_solver2.o $(objdir)/test_sat_solver2.o
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(objdir)/sat_solver2.o $(objdir)/test_sat_solver2.o \
-	$(yices_obj) $(LIBS) -lm
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ \
+           $(objdir)/sat_solver2.o $(objdir)/test_sat_solver2.o $(yices_obj)
 
 $(bindir)/sat_solver3$(EXEEXT): $(yices_obj) $(objdir)/sat_solver3.o $(objdir)/test_sat_solver3.o
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(objdir)/sat_solver3.o $(objdir)/test_sat_solver3.o \
-	$(yices_obj) $(LIBS) -lm
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ \
+           $(objdir)/sat_solver3.o $(objdir)/test_sat_solver3.o $(yices_obj)
 
 $(bindir)/sat_solver4$(EXEEXT): $(yices_obj) $(objdir)/sat_solver4.o $(objdir)/test_sat_solver4.o
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(objdir)/sat_solver4.o $(objdir)/test_sat_solver4.o \
-	$(yices_obj) $(LIBS) -lm
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ \
+           $(objdir)/sat_solver4.o $(objdir)/test_sat_solver4.o $(yices_obj)
 
 $(bindir)/sat_solver5$(EXEEXT): $(yices_obj) $(objdir)/sat_solver5.o $(objdir)/test_sat_solver5.o
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(objdir)/sat_solver5.o $(objdir)/test_sat_solver5.o \
-	$(yices_obj) $(LIBS) -lm
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ \
+           $(objdir)/sat_solver5.o $(objdir)/test_sat_solver5.o $(yices_obj)
 
 $(bindir)/sat_solver6$(EXEEXT): $(yices_obj) $(objdir)/sat_solver6.o $(objdir)/test_sat_solver6.o
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(objdir)/sat_solver6.o $(objdir)/test_sat_solver6.o \
-	$(yices_obj) $(LIBS) -lm
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ \
+	  $(objdir)/sat_solver6.o $(objdir)/test_sat_solver6.o $(yices_obj)
 
 $(bindir)/sat_solver7$(EXEEXT): $(yices_obj) $(objdir)/sat_solver7.o $(objdir)/test_sat_solver7.o
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(objdir)/sat_solver7.o $(objdir)/test_sat_solver7.o \
-	$(yices_obj) $(LIBS) -lm
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ \
+	  $(objdir)/sat_solver7.o $(objdir)/test_sat_solver7.o $(yices_obj)
 
 $(bindir)/sat_solver8$(EXEEXT): $(yices_obj) $(objdir)/sat_solver8.o $(objdir)/test_sat_solver8.o
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(objdir)/sat_solver8.o $(objdir)/test_sat_solver8.o \
-	$(yices_obj) $(LIBS) -lm
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ \
+          $(objdir)/sat_solver8.o $(objdir)/test_sat_solver8.o $(yices_obj)
 
 $(bindir)/sat_solver9$(EXEEXT): $(yices_obj) $(objdir)/sat_solver9.o $(objdir)/test_sat_solver9.o
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(objdir)/sat_solver9.o $(objdir)/test_sat_solver9.o \
-	$(yices_obj) $(LIBS) -lm
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ \
+	  $(objdir)/sat_solver9.o $(objdir)/test_sat_solver9.o $(yices_obj)
 
 $(bindir)/sat_solver10$(EXEEXT): $(yices_obj) $(objdir)/sat_solver10.o $(objdir)/test_sat_solver10.o
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(objdir)/sat_solver10.o $(objdir)/test_sat_solver10.o \
-	$(yices_obj) $(LIBS) -lm
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ \
+	  $(objdir)/sat_solver10.o $(objdir)/test_sat_solver10.o $(yices_obj)
 
 
 
-# All objects
-objects: $(obj)
+#
+# Top-level static binaries
+#
+static-bin: $(static_binaries)
 
-# Clean up
-clean:
-	rm -f $(objdir)/*
-	rm -f $(bindir)/*
+$(static_bindir)/sat_solver$(EXEEXT): $(static_yices_obj) $(static_objdir)/sat_solver.o \
+	$(static_objdir)/test_sat_solver.o
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ \
+	  $(static_objdir)/sat_solver.o $(static_objdir)/test_sat_solver.o $(static_yices_obj) 
+
+$(static_bindir)/sat_solver2$(EXEEXT): $(static_yices_obj) $(static_objdir)/sat_solver2.o \
+	$(static_objdir)/test_sat_solver2.o
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ \
+	  $(static_objdir)/sat_solver2.o $(static_objdir)/test_sat_solver2.o $(static_yices_obj) 
+
+$(static_bindir)/sat_solver3$(EXEEXT): $(static_yices_obj) $(static_objdir)/sat_solver3.o \
+	$(static_objdir)/test_sat_solver3.o
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ \
+	  $(static_objdir)/sat_solver3.o $(static_objdir)/test_sat_solver3.o $(static_yices_obj)
+
+$(static_bindir)/sat_solver4$(EXEEXT): $(static_yices_obj) $(static_objdir)/sat_solver4.o \
+	$(static_objdir)/test_sat_solver4.o
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ \
+	  $(static_objdir)/sat_solver4.o $(static_objdir)/test_sat_solver4.o $(static_yices_obj)
+
+$(static_bindir)/sat_solver5$(EXEEXT): $(static_yices_obj) $(static_objdir)/sat_solver5.o \
+	 $(static_objdir)/test_sat_solver5.o
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ \
+          $(static_objdir)/sat_solver5.o $(static_objdir)/test_sat_solver5.o $(static_yices_obj)
+
+$(static_bindir)/sat_solver6$(EXEEXT): $(static_yices_obj) $(static_objdir)/sat_solver6.o \
+	$(static_objdir)/test_sat_solver6.o
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ \
+          $(static_objdir)/sat_solver6.o $(static_objdir)/test_sat_solver6.o $(static_yices_obj)
+
+$(static_bindir)/sat_solver7$(EXEEXT): $(static_yices_obj) $(static_objdir)/sat_solver7.o \
+	$(static_objdir)/test_sat_solver7.o
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ \
+          $(static_objdir)/sat_solver7.o $(static_objdir)/test_sat_solver7.o $(static_yices_obj)
+
+$(static_bindir)/sat_solver8$(EXEEXT): $(static_yices_obj) $(static_objdir)/sat_solver8.o \
+	$(static_objdir)/test_sat_solver8.o
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ \
+          $(static_objdir)/sat_solver8.o $(static_objdir)/test_sat_solver8.o $(static_yices_obj)
+
+$(static_bindir)/sat_solver9$(EXEEXT): $(static_yices_obj) $(static_objdir)/sat_solver9.o \
+	$(static_objdir)/test_sat_solver9.o
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ \
+          $(static_objdir)/sat_solver9.o $(static_objdir)/test_sat_solver9.o $(static_yices_obj)
+
+$(static_bindir)/sat_solver10$(EXEEXT): $(static_yices_obj) $(static_objdir)/sat_solver10.o \
+	$(static_objdir)/test_sat_solver10.o
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ \
+	  $(static_objdir)/sat_solver10.o $(static_objdir)/test_sat_solver10.o $(static_yices_obj)
 
 
+
+#
 # Dependency files
+#
 $(objdir)/%.d: %.c
 	@ echo Building dependency file $@
 	@ $(CC) -MM $(CPPFLAGS) $< > $@.tmp
 	@ $(SED) 's,\($*\).o[ :]*,$(objdir)/\1.o $@ : , g' < $@.tmp > $@
 	@ rm -f $@.tmp
 
+$(static_objdir)/%.d: %.c
+	@ echo Building dependency file $@
+	@ $(CC) -MM -MG $(CPPFLAGS) $< > $@.tmp
+	@ $(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.tmp > $@
+	@ rm -f $@.tmp
+
 include $(dep)
+include $(static_dep)
 
 # Object files
 $(objdir)/%.o: %.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+$(static_objdir)/%o: %c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 
