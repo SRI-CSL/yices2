@@ -1,5 +1,5 @@
 /*
- * Assertion CONTEXT
+ * ASSERTION CONTEXT
  */
 
 #include "memalloc.h"
@@ -4923,7 +4923,7 @@ static bool try_arithvar_elim(context_t *ctx, polynomial_t *p, bool all_int) {
 
 /*
  * Recursive function: assert (t == tt) for a boolean term t
- * - this is used when a toplevel formula simplified to t
+ * - this is used when a toplevel formula simplifies to t
  *   For example (ite c t u) --> t if c is true.
  * - t is not necessarily a root in the internalization table
  */ 
@@ -6809,6 +6809,28 @@ int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f) {
  */
 int32_t assert_formula(context_t *ctx, term_t f) {
   return assert_formulas(ctx, 1, &f);
+}
+
+
+/*
+ * Convert boolean term t to a literal l in context ctx
+ * - t must be a boolean term
+ * - return a negative code if there's an error
+ * - return a literal (l >= 0) otherwise.
+ */
+int32_t context_internalize(context_t *ctx, term_t t) {
+  int code;
+  literal_t l;
+
+  code = setjmp(ctx->env);
+  if (code == 0) {
+    l = internalize_to_literal(ctx, t);
+  } else {
+    assert(code < 0);
+    l = code;
+  }
+
+  return l;
 }
 
 

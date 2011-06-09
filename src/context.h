@@ -742,6 +742,15 @@ extern int32_t assert_formula(context_t *ctx, term_t f);
  */
 extern int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f);
 
+
+/*
+ * Convert boolean term t to a literal l in context ctx
+ * - return a negative code if there's an error
+ * - return a literal (l >= 0) otherwise.
+ */
+extern int32_t context_internalize(context_t *ctx, term_t t);
+
+
 /*
  * Add the blocking clause to ctx
  * - ctx->status must be either SAT or UNKNOWN
@@ -825,6 +834,7 @@ extern void context_clear(context_t *ctx);
  * is unsat.
  */
 extern void context_clear_unsat(context_t *ctx);
+
 
 
 
