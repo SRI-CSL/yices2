@@ -186,7 +186,7 @@ __YICES_DLLSPEC__ extern type_t yices_new_uninterpreted_type(void);
 
 
 /*
- * Typle type tau[0] x ... x tau[n-1].
+ * Tuple type tau[0] x ... x tau[n-1].
  * Requires n>0 and tau[0] ... tau[n-1] to be well defined types.
  *
  * Error report 
