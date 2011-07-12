@@ -995,6 +995,8 @@ static int process_benchmark(void) {
   case CTX_ARCH_AUTO_RDL:
     // preprocessing option: --flatten is used by both FW and SPLX
     enable_diseq_and_or_flattening(&context);
+    enable_variable_elimination(&context);
+    enable_arith_elim(&context);
     break;
 
   default:
