@@ -994,7 +994,7 @@ static int process_benchmark(void) {
 
   case CTX_ARCH_AUTO_RDL:
     // preprocessing option: --flatten is used by both FW and SPLX
-    //    enable_diseq_and_or_flattening(&context);
+    enable_diseq_and_or_flattening(&context);
     break;
 
   default:
@@ -1048,6 +1048,10 @@ static int process_benchmark(void) {
 	assert(context_has_simplex_solver(&context));
 	// SIMPLEX: --theory-branching  --flatten --split-eqs
 	params.branching = BRANCHING_THEORY;
+	// test for version 1826
+	params.cache_tclauses = true;
+	params.tclause_size = 20;
+	params.use_simplex_prop = true;
       }
       break;
 
