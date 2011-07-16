@@ -59,10 +59,6 @@ static smt_benchmark_t bench;
 static context_t context;
 static param_t params;
 
-#if SHOW_STATISTICS
-static double construction_time, start_search_time, search_time;
-#endif
-
 /*
  * Flag for signal handler
  */
@@ -70,10 +66,19 @@ static bool context_exists;
 
 
 /*
- * Timeout value in seconds (0 means no timeout)
+ * Show statistics or not
  */
-static uint32_t timeout;
+#if SHOW_STATISTICS
+static bool show_statistics;
+#endif
 
+/*
+ * Runtime statistics: used if statistics are enable
+ * or if --verbose is given on the command line
+ */
+#if SHOW_STATISTICS || COMMAND_LINE_OPTIONS
+static double start_search_time, search_time;
+#endif
 
 /*
  * Conversion of status code in the benchmark header
@@ -121,11 +126,21 @@ static bool simple_model;
 static bool full_model;
 
 /*
+ * Verbose or not
+ */
+static bool verbose;
+static double construction_time;
+
+/*
+ * Timeout value in seconds (0 means no timeout)
+ */
+static uint32_t timeout;
+
+/*
  * Input file given on the command line.
  * If this is NULL, we read from stdin.
  */
 static char *filename;
-
 
 /*
  * Internal codes for each option
@@ -135,6 +150,10 @@ typedef enum optid {
   print_help_opt,             // print help and exit
   simple_model_opt,           // print the model if SAT  
   full_model_opt,             // full model
+  verbose_opt,               // output during search
+#if SHOW_STATISTICS
+  show_stats_opt,             // show statistics
+#endif
   timeout_opt,                // give a timeout
 } optid_t;
 
@@ -148,6 +167,10 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "help", 'h', FLAG_OPTION, print_help_opt },
   { "model", 'm', FLAG_OPTION, simple_model_opt },
   { "full-model", 'f', FLAG_OPTION, full_model_opt },
+  { "verbose", 'v', FLAG_OPTION, verbose_opt },
+#if SHOW_STATISTICS
+  { "stats", 's', FLAG_OPTION, show_stats_opt },
+#endif
   { "timeout", 't', MANDATORY_INT, timeout_opt },
 };
 
@@ -173,6 +196,10 @@ static void yices_help(char *progname) {
 	 "   --help, -h                 Print this message and exit\n"
 	 "   --model, -m                Show a model (some variables may be eliminated)\n"
 	 "   --full-model, -f           Show a model that includes all variables\n"
+	 "   --verbose, -v              Print statistics during the search\n"
+#if SHOW_STATISTICS
+	 "   --stats, -s                Show search statistics\n"
+#endif
 	 "   --timeout=<int>, -t <int>  Give a timeout in seconds (default: no timeout)\n"
 	 "\n"
 	 "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
@@ -199,7 +226,12 @@ static void parse_command_line(int argc, char *argv[]) {
   filename = NULL;
   simple_model = false;
   full_model = false;
+  verbose = false;
   timeout = 0;
+
+#if SHOW_STATISTICS
+  show_statistics = false;
+#endif
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
 
@@ -238,6 +270,16 @@ static void parse_command_line(int argc, char *argv[]) {
 	full_model = true;
 	break;
 
+      case verbose_opt:
+	verbose = true;
+	break;
+
+#if SHOW_STATISTICS
+      case show_stats_opt:
+	show_statistics = true;
+	break;
+#endif
+
       case timeout_opt:
 	val = elem.i_value;
 	if (val <= 0) {
@@ -269,13 +311,31 @@ static void parse_command_line(int argc, char *argv[]) {
 
 
 
+/*
+ * Get the arithmetic solver
+ */
+static inline simplex_solver_t *context_get_simplex_solver(context_t *ctx) {
+  assert(context_has_simplex_solver(ctx));
+  return (simplex_solver_t *) ctx->arith_solver;
+}
 
-/**********************************
- *  PRINT STATISTICS AND RESULTS  *
- *********************************/
+static inline idl_solver_t *context_get_idl_solver(context_t *ctx) {
+  assert(context_has_idl_solver(ctx));
+  return (idl_solver_t *) ctx->arith_solver;
+}
+
+static inline rdl_solver_t *context_get_rdl_solver(context_t *ctx) {
+  assert(context_has_rdl_solver(ctx));
+  return (rdl_solver_t *) ctx->arith_solver;
+}
 
 
-#if SHOW_STATISTICS
+
+/***********************************
+ *  EXTRA OUTPUT FOR VERBOSE MODE  *
+ **********************************/
+
+#if COMMAND_LINE_OPTIONS
 
 extern const char * const yices_svn_url;
 extern const char * const yices_svn_rev;
@@ -301,198 +361,6 @@ static void print_benchmark(FILE *f, smt_benchmark_t *bench) {
   fprintf(f, "Status field: %s\n", status2string[bench->status]);
 }
 
-
-/*
- * Statistics in the smt_core
- */
-static void show_stats(dpll_stats_t *stat) {
-  printf("Core\n");
-  printf(" restarts                : %"PRIu32"\n", stat->restarts);
-  printf(" simplify db             : %"PRIu32"\n", stat->simplify_calls);
-  printf(" reduce db               : %"PRIu32"\n", stat->reduce_calls);
-  printf(" decisions               : %"PRIu64"\n", stat->decisions);
-  printf(" random decisions        : %"PRIu64"\n", stat->random_decisions);
-  printf(" propagations            : %"PRIu64"\n", stat->propagations);  
-  printf(" conflicts               : %"PRIu64"\n", stat->conflicts);
-  printf(" theory propagations     : %"PRIu32"\n", stat->th_props);
-  printf(" propagation-lemmas      : %"PRIu32"\n", stat->th_prop_lemmas);
-  printf(" theory conflicts        : %"PRIu32"\n", stat->th_conflicts);
-  printf(" conflict-lemmas         : %"PRIu32"\n", stat->th_conflict_lemmas);
-
-  printf(" lits in pb. clauses     : %"PRIu64"\n", stat->prob_literals);
-  printf(" lits in learned clauses : %"PRIu64"\n", stat->learned_literals);
-  printf(" total lits. in learned  : %"PRIu64"\n", stat->literals_before_simpl);
-  printf(" subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);
-  printf(" deleted pb. clauses     : %"PRIu64"\n", stat->prob_clauses_deleted);
-  printf(" deleted learned clauses : %"PRIu64"\n", stat->learned_clauses_deleted);
-  printf(" deleted binary clauses  : %"PRIu64"\n", stat->bin_clauses_deleted);  
-}
-
-
-/*
- * Egraph statistics
- */
-static void show_egraph_stats(egraph_stats_t *stat) {
-  printf("Egraph\n");
-  printf(" prop. to core           : %"PRIu32"\n", stat->th_props);
-  printf(" conflicts               : %"PRIu32"\n", stat->th_conflicts);
-  printf(" non-distinct lemmas     : %"PRIu32"\n", stat->nd_lemmas);
-  printf(" auxiliary eqs. created  : %"PRIu32"\n", stat->aux_eqs);
-  printf(" dyn boolack. lemmas     : %"PRIu32"\n", stat->boolack_lemmas);
-  printf(" other dyn ack.lemmas    : %"PRIu32"\n", stat->ack_lemmas);
-  printf(" final checks            : %"PRIu32"\n", stat->final_checks);
-  printf(" interface equalities    : %"PRIu32"\n", stat->interface_eqs);
-}
-
-
-/*
- * Array/function solver statistics
- */
-static void show_funsolver_stats(fun_solver_stats_t *stat) {
-  printf("Arrays\n");
-  printf(" init. variables         : %"PRIu32"\n", stat->num_init_vars);
-  printf(" init. edges             : %"PRIu32"\n", stat->num_init_edges);
-  printf(" update axiom1           : %"PRIu32"\n", stat->num_update_axiom1);
-  printf(" update axiom2           : %"PRIu32"\n", stat->num_update_axiom2);
-  printf(" extensionality axioms   : %"PRIu32"\n", stat->num_extensionality_axiom);
-}
-
-
-/*
- * Simplex statistics
- */
-static void show_simplex_stats(simplex_stats_t *stat) {
-  printf("Simplex\n");
-  printf(" init. variables         : %"PRIu32"\n", stat->num_init_vars);
-  printf(" init. rows              : %"PRIu32"\n", stat->num_init_rows);
-  printf(" init. atoms             : %"PRIu32"\n", stat->num_atoms);
-  printf(" end atoms               : %"PRIu32"\n", stat->num_end_atoms);  
-  printf(" elim. candidates        : %"PRIu32"\n", stat->num_elim_candidates);
-  printf(" elim. rows              : %"PRIu32"\n", stat->num_elim_rows);
-  printf(" fixed vars after simpl. : %"PRIu32"\n", stat->num_simpl_fvars);
-  printf(" rows after simpl.       : %"PRIu32"\n", stat->num_simpl_rows);
-  printf(" fixed vars              : %"PRIu32"\n", stat->num_fixed_vars);
-  printf(" rows in init. tableau   : %"PRIu32"\n", stat->num_rows);
-  printf(" rows in final tableau   : %"PRIu32"\n", stat->num_end_rows);
-  printf(" calls to make_feasible  : %"PRIu32"\n", stat->num_make_feasible);
-  printf(" pivots                  : %"PRIu32"\n", stat->num_pivots);
-  printf(" bland-rule activations  : %"PRIu32"\n", stat->num_blands);
-  printf(" simple lemmas           : %"PRIu32"\n", stat->num_binary_lemmas);
-  printf(" prop. to core           : %"PRIu32"\n", stat->num_props);
-  printf(" derived bounds          : %"PRIu32"\n", stat->num_bound_props);
-  printf(" productive propagations : %"PRIu32"\n", stat->num_prop_expl);
-  printf(" conflicts               : %"PRIu32"\n", stat->num_conflicts);
-  if (stat->num_make_intfeasible > 0 || stat->num_dioph_checks > 0) {
-    printf("Integer arithmetic\n");
-    printf(" make integer feasible   : %"PRIu32"\n", stat->num_make_intfeasible);
-    printf(" branch & bound          : %"PRIu32"\n", stat->num_branch_atoms);
-    printf(" gcd conflicts           : %"PRIu32"\n", stat->num_gcd_conflicts);
-    printf(" dioph checks            : %"PRIu32"\n", stat->num_dioph_checks);
-    printf(" dioph conflicts         : %"PRIu32"\n", stat->num_dioph_conflicts);
-    printf(" bound conflicts         : %"PRIu32"\n", stat->num_bound_conflicts);
-    printf(" recheck conflicts       : %"PRIu32"\n", stat->num_recheck_conflicts);
-  }
-}
-
-
-/*
- * Bitvector solver statistics
- */
-static void show_bvsolver_stats(bv_solver_t *solver) {
-  printf("Bit-vectors\n");
-  printf(" variables               : %"PRIu32"\n", bv_solver_num_vars(solver));
-  printf(" atoms                   : %"PRIu32"\n", bv_solver_num_atoms(solver));
-  printf(" eq. atoms               : %"PRIu32"\n", bv_solver_num_eq_atoms(solver));
-  printf(" ge atoms                : %"PRIu32"\n", bv_solver_num_ge_atoms(solver));
-  printf(" sge atoms               : %"PRIu32"\n", bv_solver_num_sge_atoms(solver));
-}
-
-
-/*
- * Get the arithmetic solver
- */
-static inline simplex_solver_t *context_get_simplex_solver(context_t *ctx) {
-  assert(context_has_simplex_solver(ctx));
-  return (simplex_solver_t *) ctx->arith_solver;
-}
-
-static inline idl_solver_t *context_get_idl_solver(context_t *ctx) {
-  assert(context_has_idl_solver(ctx));
-  return (idl_solver_t *) ctx->arith_solver;
-}
-
-static inline rdl_solver_t *context_get_rdl_solver(context_t *ctx) {
-  assert(context_has_rdl_solver(ctx));
-  return (rdl_solver_t *) ctx->arith_solver;
-}
-
-
-/*
- * Statistics + result, after the search
- */
-static void print_results() {
-  smt_core_t *core;
-  egraph_t *egraph;
-  simplex_solver_t *simplex;
-  fun_solver_t *fsolver;
-  uint32_t resu;
-  double mem_used;
-
-  search_time = get_cpu_time() - start_search_time;
-  if (search_time < 0.0) {
-    search_time = 0.0;
-  }
-
-  core = context.core;
-  resu = context.core->status;
-
-  show_stats(&core->stats);
-  printf(" boolean variables       : %"PRIu32"\n", core->nvars);
-  printf(" atoms                   : %"PRIu32"\n", core->atoms.natoms);
-  
-  egraph = context.egraph;
-  if (egraph != NULL) {
-    show_egraph_stats(&egraph->stats);
-    printf(" egraph terms            : %"PRIu32"\n", egraph->terms.nterms);
-    printf(" egraph eq_quota         : %"PRIu32"\n", egraph->aux_eq_quota);
-    if (context_has_fun_solver(&context)) {
-      fsolver = context.fun_solver;
-      show_funsolver_stats(&fsolver->stats);
-    }
-  }
-
-  if (context_has_simplex_solver(&context)) {
-    simplex = context_get_simplex_solver(&context);
-    if (simplex != NULL) {
-      simplex_collect_statistics(simplex);
-      show_simplex_stats(&simplex->stats);
-    }
-  }
-
-  if (context_has_bv_solver(&context)) {
-    show_bvsolver_stats(context.bv_solver);
-  }
-
-  printf("\nSearch time             : %.4f s\n", search_time);
-  mem_used = mem_size() / (1024 * 1024);
-  if (mem_used > 0) {
-    printf("Memory used             : %.2f MB\n", mem_used);
-  }
-  printf("\n\n");
-
-  if (resu == STATUS_SAT) {
-    printf("sat\n");
-  } else if (resu == STATUS_UNSAT) {
-    printf("unsat\n");
-  } else {
-    printf("unknown\n");
-  }
-
-  fflush(stdout);
-}
-
-
-
 /*
  * Statistics on problem size, before the search
  */
@@ -502,7 +370,6 @@ static void print_presearch_stats() {
 
   core = context.core;
   egraph = context.egraph;
-
 
   printf("boolean variables       : %"PRIu32"\n", core->nvars);
   printf("atoms                   : %"PRIu32"\n", core->atoms.natoms);
@@ -635,10 +502,193 @@ static void print_options(FILE *f, context_t *ctx) {
   fprintf(f, "\n");
 }
 
+#endif
+
+
+/**********************************
+ *  PRINT STATISTICS AND RESULTS  *
+ *********************************/
+
+#if SHOW_STATISTICS
+
+/*
+ * Statistics in the smt_core
+ */
+static void show_stats(dpll_stats_t *stat) {
+  printf("Core\n");
+  printf(" restarts                : %"PRIu32"\n", stat->restarts);
+  printf(" simplify db             : %"PRIu32"\n", stat->simplify_calls);
+  printf(" reduce db               : %"PRIu32"\n", stat->reduce_calls);
+  printf(" decisions               : %"PRIu64"\n", stat->decisions);
+  printf(" random decisions        : %"PRIu64"\n", stat->random_decisions);
+  printf(" propagations            : %"PRIu64"\n", stat->propagations);  
+  printf(" conflicts               : %"PRIu64"\n", stat->conflicts);
+  printf(" theory propagations     : %"PRIu32"\n", stat->th_props);
+  printf(" propagation-lemmas      : %"PRIu32"\n", stat->th_prop_lemmas);
+  printf(" theory conflicts        : %"PRIu32"\n", stat->th_conflicts);
+  printf(" conflict-lemmas         : %"PRIu32"\n", stat->th_conflict_lemmas);
+
+  printf(" lits in pb. clauses     : %"PRIu64"\n", stat->prob_literals);
+  printf(" lits in learned clauses : %"PRIu64"\n", stat->learned_literals);
+  printf(" total lits. in learned  : %"PRIu64"\n", stat->literals_before_simpl);
+  printf(" subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);
+  printf(" deleted pb. clauses     : %"PRIu64"\n", stat->prob_clauses_deleted);
+  printf(" deleted learned clauses : %"PRIu64"\n", stat->learned_clauses_deleted);
+  printf(" deleted binary clauses  : %"PRIu64"\n", stat->bin_clauses_deleted);  
+}
+
+
+/*
+ * Egraph statistics
+ */
+static void show_egraph_stats(egraph_stats_t *stat) {
+  printf("Egraph\n");
+  printf(" prop. to core           : %"PRIu32"\n", stat->th_props);
+  printf(" conflicts               : %"PRIu32"\n", stat->th_conflicts);
+  printf(" non-distinct lemmas     : %"PRIu32"\n", stat->nd_lemmas);
+  printf(" auxiliary eqs. created  : %"PRIu32"\n", stat->aux_eqs);
+  printf(" dyn boolack. lemmas     : %"PRIu32"\n", stat->boolack_lemmas);
+  printf(" other dyn ack.lemmas    : %"PRIu32"\n", stat->ack_lemmas);
+  printf(" final checks            : %"PRIu32"\n", stat->final_checks);
+  printf(" interface equalities    : %"PRIu32"\n", stat->interface_eqs);
+}
+
+
+/*
+ * Array/function solver statistics
+ */
+static void show_funsolver_stats(fun_solver_stats_t *stat) {
+  printf("Arrays\n");
+  printf(" init. variables         : %"PRIu32"\n", stat->num_init_vars);
+  printf(" init. edges             : %"PRIu32"\n", stat->num_init_edges);
+  printf(" update axiom1           : %"PRIu32"\n", stat->num_update_axiom1);
+  printf(" update axiom2           : %"PRIu32"\n", stat->num_update_axiom2);
+  printf(" extensionality axioms   : %"PRIu32"\n", stat->num_extensionality_axiom);
+}
+
+
+/*
+ * Simplex statistics
+ */
+static void show_simplex_stats(simplex_stats_t *stat) {
+  printf("Simplex\n");
+  printf(" init. variables         : %"PRIu32"\n", stat->num_init_vars);
+  printf(" init. rows              : %"PRIu32"\n", stat->num_init_rows);
+  printf(" init. atoms             : %"PRIu32"\n", stat->num_atoms);
+  printf(" end atoms               : %"PRIu32"\n", stat->num_end_atoms);  
+  printf(" elim. candidates        : %"PRIu32"\n", stat->num_elim_candidates);
+  printf(" elim. rows              : %"PRIu32"\n", stat->num_elim_rows);
+  printf(" fixed vars after simpl. : %"PRIu32"\n", stat->num_simpl_fvars);
+  printf(" rows after simpl.       : %"PRIu32"\n", stat->num_simpl_rows);
+  printf(" fixed vars              : %"PRIu32"\n", stat->num_fixed_vars);
+  printf(" rows in init. tableau   : %"PRIu32"\n", stat->num_rows);
+  printf(" rows in final tableau   : %"PRIu32"\n", stat->num_end_rows);
+  printf(" calls to make_feasible  : %"PRIu32"\n", stat->num_make_feasible);
+  printf(" pivots                  : %"PRIu32"\n", stat->num_pivots);
+  printf(" bland-rule activations  : %"PRIu32"\n", stat->num_blands);
+  printf(" simple lemmas           : %"PRIu32"\n", stat->num_binary_lemmas);
+  printf(" prop. to core           : %"PRIu32"\n", stat->num_props);
+  printf(" derived bounds          : %"PRIu32"\n", stat->num_bound_props);
+  printf(" productive propagations : %"PRIu32"\n", stat->num_prop_expl);
+  printf(" conflicts               : %"PRIu32"\n", stat->num_conflicts);
+  if (stat->num_make_intfeasible > 0 || stat->num_dioph_checks > 0) {
+    printf("Integer arithmetic\n");
+    printf(" make integer feasible   : %"PRIu32"\n", stat->num_make_intfeasible);
+    printf(" branch & bound          : %"PRIu32"\n", stat->num_branch_atoms);
+    printf(" gcd conflicts           : %"PRIu32"\n", stat->num_gcd_conflicts);
+    printf(" dioph checks            : %"PRIu32"\n", stat->num_dioph_checks);
+    printf(" dioph conflicts         : %"PRIu32"\n", stat->num_dioph_conflicts);
+    printf(" bound conflicts         : %"PRIu32"\n", stat->num_bound_conflicts);
+    printf(" recheck conflicts       : %"PRIu32"\n", stat->num_recheck_conflicts);
+  }
+}
+
+
+/*
+ * Bitvector solver statistics
+ */
+static void show_bvsolver_stats(bv_solver_t *solver) {
+  printf("Bit-vectors\n");
+  printf(" variables               : %"PRIu32"\n", bv_solver_num_vars(solver));
+  printf(" atoms                   : %"PRIu32"\n", bv_solver_num_atoms(solver));
+  printf(" eq. atoms               : %"PRIu32"\n", bv_solver_num_eq_atoms(solver));
+  printf(" ge atoms                : %"PRIu32"\n", bv_solver_num_ge_atoms(solver));
+  printf(" sge atoms               : %"PRIu32"\n", bv_solver_num_sge_atoms(solver));
+}
+
+
+
+/*
+ * Statistics + result, after the search
+ */
+static void print_results() {
+  smt_core_t *core;
+  egraph_t *egraph;
+  simplex_solver_t *simplex;
+  fun_solver_t *fsolver;
+  uint32_t resu;
+  double mem_used;
+
+  if (show_statistics) {
+    search_time = get_cpu_time() - start_search_time;
+    if (search_time < 0.0) {
+      search_time = 0.0;
+    }
+
+    core = context.core;
+
+    show_stats(&core->stats);
+    printf(" boolean variables       : %"PRIu32"\n", core->nvars);
+    printf(" atoms                   : %"PRIu32"\n", core->atoms.natoms);
+  
+    egraph = context.egraph;
+    if (egraph != NULL) {
+      show_egraph_stats(&egraph->stats);
+      printf(" egraph terms            : %"PRIu32"\n", egraph->terms.nterms);
+      printf(" egraph eq_quota         : %"PRIu32"\n", egraph->aux_eq_quota);
+      if (context_has_fun_solver(&context)) {
+	fsolver = context.fun_solver;
+	show_funsolver_stats(&fsolver->stats);
+      }
+    }
+
+    if (context_has_simplex_solver(&context)) {
+      simplex = context_get_simplex_solver(&context);
+      if (simplex != NULL) {
+	simplex_collect_statistics(simplex);
+	show_simplex_stats(&simplex->stats);
+      }
+    }
+
+    if (context_has_bv_solver(&context)) {
+      show_bvsolver_stats(context.bv_solver);
+    }
+
+    printf("\nSearch time             : %.4f s\n", search_time);
+    mem_used = mem_size() / (1024 * 1024);
+    if (mem_used > 0) {
+      printf("Memory used             : %.2f MB\n", mem_used);
+    }
+    printf("\n\n");
+  }
+
+  resu = context.core->status;
+  if (resu == STATUS_SAT) {
+    printf("sat\n");
+  } else if (resu == STATUS_UNSAT) {
+    printf("unsat\n");
+  } else {
+    printf("unknown\n");
+  }
+
+  fflush(stdout);
+}
+
+
 #else
 
 /*
- * NON-VERBOSE: JUST PRINT THE RESULT
+ * STATISTICS DISABLED: JUST PRINT THE RESULT
  */
 static void print_results() {
   uint32_t resu;
@@ -652,6 +702,17 @@ static void print_results() {
   } else {
     printf("unknown\n");
   }
+
+#if COMMAND_LINE_OPTIONS
+  if (verbose) {
+    printf("\nSearch time             : %.4f s\n", search_time);
+    double mem_used = mem_size() / (1024 * 1024);
+    if (mem_used > 0) {
+      printf("Memory used             : %.2f MB\n", mem_used);
+    }
+    printf("\n\n");
+  }
+#endif
 
   fflush(stdout);
 }
@@ -726,15 +787,15 @@ static int process_benchmark(void) {
   context_arch_t arch;
   bool need_icheck;   // true if simplex needs integer check
   smt_logic_t logic;  // logic code read from the file
-#if SHOW_STATISTICS
+#if COMMAND_LINE_OPTIONS
   double mem_used;
 #endif
 
-#if SHOW_STATISTICS
-  print_yices_header(stdout);
-#endif
-
 #if COMMAND_LINE_OPTIONS
+  if (verbose) {
+    print_yices_header(stdout);
+  }
+
   // open input file if given or stdin
   if (filename != NULL) {
     if (init_smt_file_lexer(&lexer, filename) < 0) {
@@ -766,13 +827,15 @@ static int process_benchmark(void) {
     return YICES_EXIT_SYNTAX_ERROR;
   }
 
-#if SHOW_STATISTICS
-  construction_time = get_cpu_time();
-  mem_used = mem_size() / (1024 * 1024);
-  print_benchmark(stdout, &bench);
-  printf("Construction time: %.4f s\n", construction_time);
-  printf("Memory used: %.2f MB\n", mem_used);
-  fflush(stdout);
+#if COMMAND_LINE_OPTIONS
+  if (verbose) {
+    construction_time = get_cpu_time();
+    mem_used = mem_size() / (1024 * 1024);
+    print_benchmark(stdout, &bench);
+    printf("Construction time: %.4f s\n", construction_time);
+    printf("Memory used: %.2f MB\n", mem_used);
+    fflush(stdout);
+  }
 #endif
 
   delete_parser(&parser);
@@ -1061,13 +1124,23 @@ static int process_benchmark(void) {
       break;
     }
 
-#if SHOW_STATISTICS
-    print_options(stdout, &context);
-    print_presearch_stats();
+#if COMMAND_LINE_OPTIONS
+    if (verbose) {
+      print_options(stdout, &context);
+      print_presearch_stats();
+    }
+#endif
+
+#if COMMAND_LINE_OPTIONS || SHOW_STATISTICS
     start_search_time = get_cpu_time();
 #endif
 
-    code = check_context(&context, &params, true);
+#if COMMAND_LINE_OPTIONS
+    code = check_context(&context, &params, verbose);
+#else
+    code = check_context(&context, &params, false);
+#endif
+
     print_results();
 
 #if COMMAND_LINE_OPTIONS
@@ -1107,9 +1180,14 @@ static int process_benchmark(void) {
 
 
 int main(int argc, char *argv[]) {
+#if SHOW_STATISTICS
+  show_statistics = true; // can be overriden by parse_command_line if enabled
+#endif
+
 #if COMMAND_LINE_OPTIONS
   parse_command_line(argc, argv);
 #endif
+
   return process_benchmark();
 }
 
