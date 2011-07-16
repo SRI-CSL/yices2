@@ -30,6 +30,8 @@ Grammar
         | ( set-param <symbol> <immediate-value> )
 	| ( show-param <symbol> )
 	| ( show-params )
+	| ( show-stats )
+        | ( reset-stats )
         | ( dump-context )
 	| EOS
 
@@ -137,6 +139,8 @@ c1	 define-type		c2
          pop                    c4
          reset                  c4
          show-params            c4
+         show-stats             c4
+         reset-stats            c4
          set-param              c11
 	 show-param             c13
 c2	 <symbol>		c10
@@ -347,6 +351,8 @@ c1       exit           next; goto r0
          set-param      next; goto c11
 	 show-params    next; goto r0
 	 show-param     next; goto c13
+         show-stats     next; goto r0
+         reset-stats    next; goto r0
 c2       <symbol>       next; goto c10
 c3       <string>       next; goto r0
 c6       <symbol>       next; goto c7

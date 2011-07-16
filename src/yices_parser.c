@@ -369,6 +369,16 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       state = r0;
       goto loop;
 
+    case showstats_next_goto_r0:
+      tstack_push_op(tstack, SHOW_STATS_CMD, &loc);
+      state = r0;
+      goto loop;
+
+    case resetstats_next_goto_r0:
+      tstack_push_op(tstack, RESET_STATS_CMD, &loc);
+      state = r0;
+      goto loop;
+
     case typename_next_goto_c10:
       // token must be a free typename (TK_SYMBOL)
       tstack_push_free_typename(tstack, tkval(lex), tklen(lex), &loc);

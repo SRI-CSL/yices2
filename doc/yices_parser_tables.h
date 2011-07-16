@@ -39,6 +39,8 @@ enum actions {
   setparam_next_goto_c11,
   showparam_next_goto_c13,
   showparams_next_goto_r0,
+  showstats_next_goto_r0,
+  resetstats_next_goto_r0,
   typename_next_goto_c10, // token must be a free typename (TK_SYMBOL)
   string_next_goto_r0,
   termname_next_goto_c7,  // token must be a free termname (TK_SYMBOL)
@@ -193,6 +195,8 @@ static triple_t triples[] = {
   { c1, TK_SET_PARAM, "setparam_next_goto_c11" },
   { c1, TK_SHOW_PARAM, "showparam_next_goto_c13" },
   { c1, TK_SHOW_PARAMS, "showparams_next_goto_r0" },
+  { c1, TK_SHOW_STATS, "showstats_next_goto_r0" },
+  { c1, TK_RESET_STATS, "resetstats_next_goto_r0" },
 
   { c2, TK_SYMBOL, "typename_next_goto_c10" },
   { c2, DEFAULT_TOKEN, "error_symbol_expected" },

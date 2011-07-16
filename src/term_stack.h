@@ -108,7 +108,9 @@ typedef enum opcode_enum {
   // external operations: 
   EXIT_CMD, CHECK_CMD, ECHO_CMD, INCLUDE_CMD, ASSERT_CMD,
   PUSH_CMD, POP_CMD, RESET_CMD, SHOWMODEL_CMD, EVAL_CMD, 
-  SET_PARAM_CMD, SHOW_PARAM_CMD, SHOW_PARAMS_CMD, DUMP_CMD,
+  SET_PARAM_CMD, SHOW_PARAM_CMD, SHOW_PARAMS_CMD, 
+  SHOW_STATS_CMD, RESET_STATS_CMD,
+  DUMP_CMD,
 } opcode_t;
 
 #define NUM_OPCODES (DUMP_CMD+1)
@@ -207,6 +209,8 @@ typedef struct param_val_s {
  * - void setparam_cmd(char *param, param_val_t *val)
  * - void show_param_cmd(char *param)
  * - void show_params_cmd(void)
+ * - void show_stats(void)
+ * - void reset_stats(void)
  *
  * Two other commands are called within define-type or define-term: 
  * - void type_defined_cmd(char *name, type_t tau):
@@ -234,6 +238,8 @@ typedef void (*eval_cmd_t)(term_t t);
 typedef void (*setparam_cmd_t)(char *param, param_val_t *val);
 typedef void (*showparam_cmd_t)(char *param);
 typedef void (*showparams_cmd_t)(void);
+typedef void (*showstats_cmd_t)(void);
+typedef void (*resetstats_cmd_t)(void);
 typedef void (*type_defined_cmd_t)(char *name, type_t tau);
 typedef void (*term_defined_cmd_t)(char *name, term_t t);
 
@@ -252,6 +258,8 @@ typedef struct external_cmd_s {
   setparam_cmd_t setparam_cmd;
   showparam_cmd_t showparam_cmd;
   showparams_cmd_t showparams_cmd;
+  showstats_cmd_t showstats_cmd;
+  resetstats_cmd_t resetstats_cmd;
   type_defined_cmd_t type_defined_cmd;
   term_defined_cmd_t term_defined_cmd;
 } external_cmd_t;
@@ -598,6 +606,14 @@ static inline void tstack_set_showparam_cmd(tstack_t *stack, showparam_cmd_t cmd
 
 static inline void tstack_set_showparams_cmd(tstack_t *stack, showparams_cmd_t cmd) {
   stack->externals.showparams_cmd = cmd;
+}
+
+static inline void tstack_set_showstats_cmd(tstack_t *stack, showstats_cmd_t cmd) {
+  stack->externals.showstats_cmd = cmd;
+}
+
+static inline void tstack_set_resetstats_cmd(tstack_t *stack, resetstats_cmd_t cmd) {
+  stack->externals.resetstats_cmd = cmd;
 }
 
 static inline void tstack_set_type_defined_cmd(tstack_t *stack, type_defined_cmd_t cmd) {

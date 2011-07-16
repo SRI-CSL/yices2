@@ -19,6 +19,8 @@
 #include "yices_lexer.h"
 #include "yices_parser.h"
 #include "term_stack.h"
+
+#include "cputime.h"
 #include "memsize.h"
 #include "command_line.h"
 #include "rationals.h"
@@ -40,6 +42,11 @@
 #include "egraph_printer.h"
 #include "smt_core_printer.h"
 #include "context_printer.h"
+
+// FOR STATISTICS
+#include "simplex.h"
+#include "fun_solver.h"
+#include "bvsolver.h"
 
 #include "context.h"
 #include "models.h"
@@ -106,6 +113,12 @@ static param_t parameters;
  */
 static uint32_t the_seed;
 
+/*
+ * Counters for run-time statistics
+ * - ready_time = run time after the context is initialized
+ * - check_process_time = total time of the last call to check
+ */
+static double ready_time, check_process_time;
 
 
 /*******************
@@ -1684,10 +1697,159 @@ static void yices_showparams_cmd(void) {
   uint32_t i;
 
   for (i=0; i<NUM_PARAMETERS; i++) {
-    show_param(i, 20);;
+    show_param(i, 20);
+  }
+  fputc('\n', stdout);
+}
+
+
+/*
+ * Show-stats: print statistics
+ */
+static void show_stats(dpll_stats_t *stat) {
+  printf("Core\n");
+  printf(" restarts                : %"PRIu32"\n", stat->restarts);
+  printf(" simplify db             : %"PRIu32"\n", stat->simplify_calls);
+  printf(" reduce db               : %"PRIu32"\n", stat->reduce_calls);
+  printf(" decisions               : %"PRIu64"\n", stat->decisions);
+  printf(" random decisions        : %"PRIu64"\n", stat->random_decisions);
+  printf(" propagations            : %"PRIu64"\n", stat->propagations);  
+  printf(" conflicts               : %"PRIu64"\n", stat->conflicts);
+  printf(" theory propagations     : %"PRIu32"\n", stat->th_props);
+  printf(" propagation-lemmas      : %"PRIu32"\n", stat->th_prop_lemmas);
+  printf(" theory conflicts        : %"PRIu32"\n", stat->th_conflicts);
+  printf(" conflict-lemmas         : %"PRIu32"\n", stat->th_conflict_lemmas);
+
+  printf(" lits in pb. clauses     : %"PRIu64"\n", stat->prob_literals);
+  printf(" lits in learned clauses : %"PRIu64"\n", stat->learned_literals);
+  printf(" total lits. in learned  : %"PRIu64"\n", stat->literals_before_simpl);
+  printf(" subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);
+  printf(" deleted pb. clauses     : %"PRIu64"\n", stat->prob_clauses_deleted);
+  printf(" deleted learned clauses : %"PRIu64"\n", stat->learned_clauses_deleted);
+  printf(" deleted binary clauses  : %"PRIu64"\n", stat->bin_clauses_deleted);  
+}
+
+static void show_egraph_stats(egraph_stats_t *stat) {
+  printf("Egraph\n");
+  printf(" prop. to core           : %"PRIu32"\n", stat->th_props);
+  printf(" conflicts               : %"PRIu32"\n", stat->th_conflicts);
+  printf(" non-distinct lemmas     : %"PRIu32"\n", stat->nd_lemmas);
+  printf(" auxiliary eqs. created  : %"PRIu32"\n", stat->aux_eqs);
+  printf(" dyn boolack. lemmas     : %"PRIu32"\n", stat->boolack_lemmas);
+  printf(" other dyn ack.lemmas    : %"PRIu32"\n", stat->ack_lemmas);
+  printf(" final checks            : %"PRIu32"\n", stat->final_checks);
+  printf(" interface equalities    : %"PRIu32"\n", stat->interface_eqs);
+}
+
+static void show_funsolver_stats(fun_solver_stats_t *stat) {
+  printf("Arrays\n");
+  printf(" init. variables         : %"PRIu32"\n", stat->num_init_vars);
+  printf(" init. edges             : %"PRIu32"\n", stat->num_init_edges);
+  printf(" update axiom1           : %"PRIu32"\n", stat->num_update_axiom1);
+  printf(" update axiom2           : %"PRIu32"\n", stat->num_update_axiom2);
+  printf(" extensionality axioms   : %"PRIu32"\n", stat->num_extensionality_axiom);
+}
+
+static void show_simplex_stats(simplex_stats_t *stat) {
+  printf("Simplex\n");
+  printf(" init. variables         : %"PRIu32"\n", stat->num_init_vars);
+  printf(" init. rows              : %"PRIu32"\n", stat->num_init_rows);
+  printf(" init. atoms             : %"PRIu32"\n", stat->num_atoms);
+  printf(" end atoms               : %"PRIu32"\n", stat->num_end_atoms);  
+  printf(" elim. candidates        : %"PRIu32"\n", stat->num_elim_candidates);
+  printf(" elim. rows              : %"PRIu32"\n", stat->num_elim_rows);
+  printf(" fixed vars after simpl. : %"PRIu32"\n", stat->num_simpl_fvars);
+  printf(" rows after simpl.       : %"PRIu32"\n", stat->num_simpl_rows);
+  printf(" fixed vars              : %"PRIu32"\n", stat->num_fixed_vars);
+  printf(" rows in init. tableau   : %"PRIu32"\n", stat->num_rows);
+  printf(" rows in final tableau   : %"PRIu32"\n", stat->num_end_rows);
+  printf(" calls to make_feasible  : %"PRIu32"\n", stat->num_make_feasible);
+  printf(" pivots                  : %"PRIu32"\n", stat->num_pivots);
+  printf(" bland-rule activations  : %"PRIu32"\n", stat->num_blands);
+  printf(" simple lemmas           : %"PRIu32"\n", stat->num_binary_lemmas);
+  printf(" prop. to core           : %"PRIu32"\n", stat->num_props);
+  printf(" derived bounds          : %"PRIu32"\n", stat->num_bound_props);
+  printf(" productive propagations : %"PRIu32"\n", stat->num_prop_expl);
+  printf(" conflicts               : %"PRIu32"\n", stat->num_conflicts);
+  if (stat->num_make_intfeasible > 0 || stat->num_dioph_checks > 0) {
+    printf("Integer arithmetic\n");
+    printf(" make integer feasible   : %"PRIu32"\n", stat->num_make_intfeasible);
+    printf(" branch & bound          : %"PRIu32"\n", stat->num_branch_atoms);
+    printf(" gcd conflicts           : %"PRIu32"\n", stat->num_gcd_conflicts);
+    printf(" dioph checks            : %"PRIu32"\n", stat->num_dioph_checks);
+    printf(" dioph conflicts         : %"PRIu32"\n", stat->num_dioph_conflicts);
+    printf(" bound conflicts         : %"PRIu32"\n", stat->num_bound_conflicts);
+    printf(" recheck conflicts       : %"PRIu32"\n", stat->num_recheck_conflicts);
   }
 }
 
+static void show_bvsolver_stats(bv_solver_t *solver) {
+  printf("Bit-vectors\n");
+  printf(" variables               : %"PRIu32"\n", bv_solver_num_vars(solver));
+  printf(" atoms                   : %"PRIu32"\n", bv_solver_num_atoms(solver));
+  printf(" eq. atoms               : %"PRIu32"\n", bv_solver_num_eq_atoms(solver));
+  printf(" ge atoms                : %"PRIu32"\n", bv_solver_num_ge_atoms(solver));
+  printf(" sge atoms               : %"PRIu32"\n", bv_solver_num_sge_atoms(solver));
+}
+
+
+static void yices_showstats_cmd(void) {
+  smt_core_t *core;
+  egraph_t *egraph;
+  simplex_solver_t *simplex;
+  fun_solver_t *fsolver;
+  double run_time;
+  double mem_used;
+
+  run_time = get_cpu_time() - ready_time;
+  if (run_time < 0.0) {
+    run_time = 0.0;
+  }
+ 
+  core = context->core;
+
+  show_stats(&core->stats);
+  printf(" boolean variables       : %"PRIu32"\n", core->nvars);
+  printf(" atoms                   : %"PRIu32"\n", core->atoms.natoms);
+
+  egraph = context->egraph;
+  if (egraph != NULL) {
+    show_egraph_stats(&egraph->stats);
+    printf(" egraph terms            : %"PRIu32"\n", egraph->terms.nterms);
+    printf(" egraph eq_quota         : %"PRIu32"\n", egraph->aux_eq_quota);
+    if (context_has_fun_solver(context)) {
+      fsolver = context->fun_solver;
+      show_funsolver_stats(&fsolver->stats);
+    }
+  }
+
+  if (context_has_simplex_solver(context)) {
+    simplex = (simplex_solver_t *) context->arith_solver;
+    simplex_collect_statistics(simplex);
+    show_simplex_stats(&simplex->stats);
+  }
+
+  if (context_has_bv_solver(context)) {
+    show_bvsolver_stats(context->bv_solver);
+  }
+
+  fputc('\n', stdout);
+  printf("Total runtime            : %.4f s\n", run_time);
+  printf("Runtime of last (check)  : %.4f s\n", check_process_time);
+  mem_used = mem_size() / (1024 * 1024);
+  if (mem_used > 0) {
+    printf("Memory used              : %.2f MB\n", mem_used);
+  }
+  fputc('\n', stdout);
+}
+
+
+/*
+ * Reset statistics
+ */
+static void yices_resetstats_cmd(void) {
+  check_process_time = 0.0;
+}
 
 
 /*
@@ -1933,6 +2095,7 @@ static void yices_assert_cmd(term_t f) {
  * Check whether the context is satisfiable
  */
 static void yices_check_cmd(void) {
+  double check_start_time;
   smt_status_t stat;
 
   stat = context_status(context);
@@ -1947,13 +2110,23 @@ static void yices_check_cmd(void) {
 
   case STATUS_IDLE:
     // run check
+    check_start_time = get_cpu_time(); // for statistics
     stat = check_context(context, &parameters, true);
+    check_process_time = get_cpu_time() - check_start_time;
+    if (check_process_time < 0.0) {
+      check_process_time = 0.0;
+    }
     fputc('\n', stdout);
     fputs(status2string[stat], stdout);
     fputc('\n', stdout);
     if (stat == STATUS_INTERRUPTED) {
-      context_cleanup(context);
-      assert(context_status(context) == STATUS_IDLE);
+      if (mode == CTX_MODE_INTERACTIVE) {
+	context_cleanup(context);
+	assert(context_status(context) == STATUS_IDLE);
+      } else {
+	// force quit
+	done = true;
+      }
     }
     break;
 
@@ -2089,6 +2262,8 @@ int yices_main(int argc, char *argv[]) {
   interactive = false;
   include_depth = 0;
   the_seed = PRNG_DEFAULT_SEED;
+  ready_time = 0.0;
+  check_process_time = 0.0;
 
   if (input_filename == NULL) {
     init_yices_stdin_lexer(&lexer);
@@ -2109,6 +2284,8 @@ int yices_main(int argc, char *argv[]) {
   tstack_set_setparam_cmd(&stack, yices_setparam_cmd);
   tstack_set_showparam_cmd(&stack, yices_showparam_cmd);
   tstack_set_showparams_cmd(&stack, yices_showparams_cmd);
+  tstack_set_showstats_cmd(&stack, yices_showstats_cmd);
+  tstack_set_resetstats_cmd(&stack, yices_resetstats_cmd);
   tstack_set_dump_cmd(&stack, yices_dump_cmd);
   tstack_set_reset_cmd(&stack, yices_reset_cmd);
   tstack_set_push_cmd(&stack, yices_push_cmd);
@@ -2127,6 +2304,7 @@ int yices_main(int argc, char *argv[]) {
   }
 
   init_ctx(arch, mode, iflag, qflag);
+  ready_time = get_cpu_time();
 
   /*
    * Read-eval loop
