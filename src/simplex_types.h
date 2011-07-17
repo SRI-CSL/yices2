@@ -651,10 +651,15 @@ typedef struct simplex_solver_s {
   uint32_t options;
 
   /*
+   * Interrupt flag: set to true to stop pivoting
+   */
+  bool interrupted;
+  
+  /*
    * Pivoting parameters
    */
   bool use_blands_rule; // true if Bland's rule is active
-  uint32_t bland_threshold; // number of repeat entering variable
+  uint32_t bland_threshold; // number of repeat entering variable  
 
   /*
    * Parameters for propagation

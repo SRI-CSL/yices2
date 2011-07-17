@@ -6844,6 +6844,9 @@ int32_t context_internalize(context_t *ctx, term_t t) {
  */
 void context_stop_search(context_t *ctx) {
   stop_search(ctx->core);
+  if (context_has_simplex_solver(ctx)) {
+    simplex_stop_search(ctx->arith_solver);
+  }
 }
 
 

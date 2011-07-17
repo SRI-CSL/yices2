@@ -279,6 +279,16 @@ extern void simplex_assert_cond_vareq_axiom(simplex_solver_t *solver, literal_t 
 extern void simplex_start_search(simplex_solver_t *solver);
 
 /*
+ * Stop the search: this just sets flag solver->interrupted to true.
+ * - this flag is set to false by start_search
+ * - currently, the interrupted flag is checked in every iteration
+ *   of the make feasible procedure
+ */
+static inline void simplex_stop_search(simplex_solver_t *solver) {
+  solver->interrupted = true;
+}
+
+/*
  * Assert atom attached to literal l
  * - the atom is identified by its index in the solver's atom table, which is stored
  *   into a (void *) pointer (cf. arith_atomtable.h).

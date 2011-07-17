@@ -32,7 +32,7 @@
 #define TRACE_BB 0
 
 
-#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG)
+#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG) || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -1151,6 +1151,7 @@ void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, gate_manage
   solver->unsat_before_search = false;
 
   solver->options = SIMPLEX_DEFAULT_OPTIONS;
+  solver->interrupted = false;
   solver->use_blands_rule = false;
   solver->bland_threshold = SIMPLEX_DEFAULT_BLAND_THRESHOLD;
   solver->prop_row_size = SIMPLEX_DEFAULT_PROP_ROW_SIZE;
@@ -3673,6 +3674,13 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
   solver->use_blands_rule = false;
 
   for (;;) {
+    // check interrupt at every iteration
+    if (solver->interrupted) {
+      printf("Pivoting interrupted\n");
+      feasible = false;
+      break;
+    }
+
     x = int_heap_get_min(&solver->infeasible_vars);
     if (x < 0) {
       feasible = true;
@@ -6611,6 +6619,9 @@ void simplex_start_search(simplex_solver_t *solver) {
   printf("\n");
 #endif
 
+  // clear the interrupt flag
+  solver->interrupted = false;
+
   /*
    * If start_search is called after pop and without an intervening
    * start_internalization, then matrix_ready and tableau_ready are both false.
@@ -7258,6 +7269,7 @@ void simplex_reset(simplex_solver_t *solver) {
   solver->base_level = 0;
   solver->decision_level = 0;
   solver->unsat_before_search = false;
+  solver->interrupted = false;
 
   reset_simplex_statistics(&solver->stats);
 
