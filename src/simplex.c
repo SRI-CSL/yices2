@@ -32,7 +32,7 @@
 #define TRACE_BB 0
 
 
-#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG) || 1
+#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG)
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -3676,7 +3676,6 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
   for (;;) {
     // check interrupt at every iteration
     if (solver->interrupted) {
-      printf("Pivoting interrupted\n");
       feasible = false;
       break;
     }
@@ -4593,7 +4592,7 @@ static void simplex_reset_tableau(simplex_solver_t *solver) {
 /*
  * Prepare for new assertions:
  * - rebuild the constraint matrix as it was before the previous call to 
- *   start_search (modulo reordering, the rows may be permuted)
+ *   start_search (modulo reordering; the rows may be permuted)
  */
 static void simplex_restore_matrix(simplex_solver_t *solver) {
   pvector_t *v;
