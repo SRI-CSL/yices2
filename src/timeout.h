@@ -17,7 +17,7 @@
  *              handler
  *
  * 3) clear_timeout(void): cancel the timeout and do some cleanup.
- *    If the timeout has fired already, this just do the cleanup
+ *    If the timeout has fired already, this just does the cleanup
  *    
  * 4) delete_timeout(void): final cleanup. Delete the internal
  *    data structures allocated by init_timeout.

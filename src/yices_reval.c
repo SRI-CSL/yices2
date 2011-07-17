@@ -78,6 +78,9 @@
  *   interactive is false (i.e., we exit on the first error unless we're
  *   in the interactive mode).
  *
+ * OTHER
+ * - timeout: timeout value in second (applies to check)
+ *   timeout value = 0 means no timeout
  */
 static char *input_filename;
 static lexer_t lexer;
@@ -88,6 +91,7 @@ static uint32_t include_depth;
 static bool interactive;
 static bool done;
 static bool verbose;
+static uint32_t timeout;
 
 static char *logic_name;
 static char *arith_name;
@@ -759,6 +763,16 @@ static void report_invalid_param_value(const char *name, const char *reason) {
   done = !interactive;
 }
 
+static void report_negative_timeout(int32_t val) {
+  reader_t *rd;
+
+  rd = &parser.lex->reader;
+  if (rd->name != NULL) {
+    fprintf(stderr, "%s: ", rd->name);
+  }
+  fprintf(stderr, "invalid timeout value %d (line %"PRId32", column %"PRId32")\n", val, reader_line(rd), reader_column(rd));
+  done = !interactive;
+}
 
 
 /*
@@ -1853,6 +1867,19 @@ static void yices_resetstats_cmd(void) {
 
 
 /*
+ * Set a timeout
+ */
+static void yices_settimeout_cmd(int32_t val) {
+  if (val < 0) {
+    report_negative_timeout(val);
+  } else {
+    // TBD set the timeout: 0 means no timeout
+    timeout = (uint32_t) val;
+    print_ok();
+  }
+}
+
+/*
  * Dump: print all internal tables
  * + the egraph/core and theory solvers
  */
@@ -2090,12 +2117,29 @@ static void yices_assert_cmd(term_t f) {
 
 
 
+/*
+ * Auxiliary function: call check on the context and return the result
+ * - collect run time for statistics
+ * - set a timeout if timeout > 0
+ */
+static smt_status_t do_check(void) {
+  double check_start_time;
+  smt_status_t stat;
+
+  check_start_time = get_cpu_time();
+  stat = check_context(context, &parameters, true);
+  check_process_time = get_cpu_time() - check_start_time;
+  if (check_process_time < 0.0) {
+    check_process_time = 0.0;
+  }
+
+  return stat;
+}
 
 /*
  * Check whether the context is satisfiable
  */
 static void yices_check_cmd(void) {
-  double check_start_time;
   smt_status_t stat;
 
   stat = context_status(context);
@@ -2109,13 +2153,9 @@ static void yices_check_cmd(void) {
     break;
 
   case STATUS_IDLE:
-    // run check
-    check_start_time = get_cpu_time(); // for statistics
-    stat = check_context(context, &parameters, true);
-    check_process_time = get_cpu_time() - check_start_time;
-    if (check_process_time < 0.0) {
-      check_process_time = 0.0;
-    }
+    // call check than print the result
+    // if the search was interrupted, cleanup
+    stat = do_check();
     fputc('\n', stdout);
     fputs(status2string[stat], stdout);
     fputc('\n', stdout);
@@ -2257,11 +2297,12 @@ int yices_main(int argc, char *argv[]) {
   /*
    * Check the input file
    * - initialize the lexer
-   * - set the interactive flag
+   * - set the interactive flag and timeout
    */
   interactive = false;
+  timeout = 0;
   include_depth = 0;
-  the_seed = PRNG_DEFAULT_SEED;
+  the_seed = PRNG_DEFAULT_SEED;  
   ready_time = 0.0;
   check_process_time = 0.0;
 
@@ -2293,7 +2334,8 @@ int yices_main(int argc, char *argv[]) {
   tstack_set_assert_cmd(&stack, yices_assert_cmd);
   tstack_set_check_cmd(&stack, yices_check_cmd);
   tstack_set_showmodel_cmd(&stack, yices_showmodel_cmd);
-  tstack_set_eval_cmd(&stack, yices_eval_cmd);  
+  tstack_set_eval_cmd(&stack, yices_eval_cmd);
+  tstack_set_settimeout_cmd(&stack, yices_settimeout_cmd);
   tstack_set_type_defined_cmd(&stack, yices_type_defined_cmd);
   tstack_set_term_defined_cmd(&stack, yices_term_defined_cmd);
   init_parameter_name_table();

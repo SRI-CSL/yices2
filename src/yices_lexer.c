@@ -141,6 +141,9 @@ static keyword_t yices_keywords[] = {
   { "set-param", TK_SET_PARAM },
   { "show-param", TK_SHOW_PARAM },
   { "show-params", TK_SHOW_PARAMS },
+  { "show-stats", TK_SHOW_STATS },
+  { "reset-stats", TK_RESET_STATS },
+  { "set-timeout", TK_SET_TIMEOUT },
 
   // end-marker
   { NULL, 0 },

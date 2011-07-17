@@ -770,7 +770,16 @@ static void init_handler() {
 #endif
 }
 
+/*
+ * Timeout handler
+ * - p = pointer to the context
+ */
+static void timeout_handler(void *p) {
+  context_t *ctx;
 
+  ctx = p;
+  stop_search(ctx->core);
+}
 
 
 
@@ -1135,12 +1144,21 @@ static int process_benchmark(void) {
     start_search_time = get_cpu_time();
 #endif
 
+    if (timeout > 0) {
+      init_timeout();
+      start_timeout(timeout, timeout_handler, &context);
+    }
+
 #if COMMAND_LINE_OPTIONS
     code = check_context(&context, &params, verbose);
 #else
     code = check_context(&context, &params, false);
 #endif
 
+    if (timeout > 0) {
+      clear_timeout();
+      delete_timeout();
+    }
     print_results();
 
 #if COMMAND_LINE_OPTIONS

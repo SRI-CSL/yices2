@@ -100,16 +100,18 @@ typedef enum opcode_enum {
   MK_BV_SHL, MK_BV_LSHR, MK_BV_ASHR,
   MK_BV_DIV, MK_BV_REM,                  // unsigned
   MK_BV_SDIV, MK_BV_SREM, MK_BV_SMOD,    // signed
-  MK_BV_REDOR, MK_BV_REDAND, MK_BV_COMP, 
+  MK_BV_REDOR, MK_BV_REDAND, MK_BV_COMP,
   
   // other operations
   BUILD_TERM, BUILD_TYPE, 
 
-  // external operations: 
+  // external operations
   EXIT_CMD, CHECK_CMD, ECHO_CMD, INCLUDE_CMD, ASSERT_CMD,
   PUSH_CMD, POP_CMD, RESET_CMD, SHOWMODEL_CMD, EVAL_CMD, 
   SET_PARAM_CMD, SHOW_PARAM_CMD, SHOW_PARAMS_CMD, 
-  SHOW_STATS_CMD, RESET_STATS_CMD,
+  SHOW_STATS_CMD, RESET_STATS_CMD, SET_TIMEOUT_CMD,
+
+  // DUMP_CMD is used below. Keep it last
   DUMP_CMD,
 } opcode_t;
 
@@ -209,8 +211,9 @@ typedef struct param_val_s {
  * - void setparam_cmd(char *param, param_val_t *val)
  * - void show_param_cmd(char *param)
  * - void show_params_cmd(void)
- * - void show_stats(void)
- * - void reset_stats(void)
+ * - void showstats_cmd(void)
+ * - void resetstats_cmd(void)
+ * - void settimeout_cmd(int32_t val)
  *
  * Two other commands are called within define-type or define-term: 
  * - void type_defined_cmd(char *name, type_t tau):
@@ -240,6 +243,7 @@ typedef void (*showparam_cmd_t)(char *param);
 typedef void (*showparams_cmd_t)(void);
 typedef void (*showstats_cmd_t)(void);
 typedef void (*resetstats_cmd_t)(void);
+typedef void (*settimeout_cmd_t)(int32_t timeout);
 typedef void (*type_defined_cmd_t)(char *name, type_t tau);
 typedef void (*term_defined_cmd_t)(char *name, term_t t);
 
@@ -260,6 +264,7 @@ typedef struct external_cmd_s {
   showparams_cmd_t showparams_cmd;
   showstats_cmd_t showstats_cmd;
   resetstats_cmd_t resetstats_cmd;
+  settimeout_cmd_t settimeout_cmd;
   type_defined_cmd_t type_defined_cmd;
   term_defined_cmd_t term_defined_cmd;
 } external_cmd_t;
@@ -395,12 +400,6 @@ typedef enum tstack_error_s {
 } tstack_error_t;
 
 #define NUM_TSTACK_ERRORS (TSTACK_YICES_ERROR+1)
-
-
-/*
- * Threshold for bitvector operations: TO BE REMOVED
- */
-#define LARGE_BITWISE_OP 100
 
 
 /*
@@ -614,6 +613,10 @@ static inline void tstack_set_showstats_cmd(tstack_t *stack, showstats_cmd_t cmd
 
 static inline void tstack_set_resetstats_cmd(tstack_t *stack, resetstats_cmd_t cmd) {
   stack->externals.resetstats_cmd = cmd;
+}
+
+static inline void tstack_set_settimeout_cmd(tstack_t *stack, settimeout_cmd_t cmd) {
+  stack->externals.settimeout_cmd = cmd;
 }
 
 static inline void tstack_set_type_defined_cmd(tstack_t *stack, type_defined_cmd_t cmd) {

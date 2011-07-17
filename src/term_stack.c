@@ -234,15 +234,21 @@ static void tstack_default_showparams_cmd(void) {
 }
 
 static void tstack_default_showstats_cmd(void) {
-  //#ifndef NDEBUG
+#ifndef NDEBUG
   fprintf(stdout, "(show-stats) called\n");
-  //#endif
+#endif
 }
 
 static void tstack_default_resetstats_cmd(void) {
-  //#ifndef NDEBUG
+#ifndef NDEBUG
   fprintf(stdout, "(reset-stats) called\n");
-  //#endif
+#endif
+}
+
+static void tstack_default_settimeout_cmd(int32_t v) {
+#ifndef NDEBUG
+  fprintf(stdout, "(set-timeout %"PRId32") called\n", v);
+#endif
 }
 
 static void tstack_default_type_defined_cmd(char *name, type_t tau) {
@@ -323,6 +329,7 @@ void init_tstack(tstack_t *stack) {
   stack->externals.showparams_cmd = tstack_default_showparams_cmd;
   stack->externals.showstats_cmd = tstack_default_showstats_cmd;
   stack->externals.resetstats_cmd = tstack_default_resetstats_cmd;
+  stack->externals.settimeout_cmd = tstack_default_settimeout_cmd;
   stack->externals.type_defined_cmd = tstack_default_type_defined_cmd;
   stack->externals.term_defined_cmd = tstack_default_term_defined_cmd;
 }
@@ -5434,6 +5441,31 @@ static void eval_resetstats_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
+ * [set-timeout <rational>]
+ */
+static void check_settimeout_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SET_TIMEOUT_CMD);
+  check_size(stack, n == 1);
+  check_tag(stack, f, TAG_RATIONAL);
+}
+
+
+/*
+ * We don't check anything about the argument, provided it's an integer.
+ * The external command has to interpret timeout = 0 or timeout < 0,
+ * and produce an error if necessary.
+ */
+static void eval_settimeout_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  int32_t timeout;
+
+  timeout = get_integer(stack, f);
+  stack->externals.settimeout_cmd(timeout);
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
  * Not supported or other error
  */
 static void eval_error(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -5549,6 +5581,7 @@ static evaluator_t eval[NUM_OPCODES] = {
   eval_showparams_cmd,
   eval_showstats_cmd,
   eval_resetstats_cmd,
+  eval_settimeout_cmd,
   eval_dump_cmd,
 };
 
@@ -5657,6 +5690,7 @@ static checker_t check[NUM_OPCODES] = {
   check_showparams_cmd,
   check_showstats_cmd,
   check_resetstats_cmd,
+  check_settimeout_cmd,
   check_dump_cmd,
 };
 
