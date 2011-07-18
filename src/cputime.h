@@ -3,7 +3,7 @@
 
 
 /*
- * get_cpu_time() returns CPU time (user time) used
+ * get_cpu_time() returns CPU time (user + system time) used
  * by the process since its start.
  *
  * getrusage should work on all platforms we support,
@@ -21,7 +21,8 @@ static struct rusage ru_buffer;
 
 static inline double get_cpu_time(void) {
   getrusage(RUSAGE_SELF, &ru_buffer);
-  return ru_buffer.ru_utime.tv_sec + ru_buffer.ru_utime.tv_usec * 1e-6;
+  return ru_buffer.ru_utime.tv_sec + ru_buffer.ru_stime.tv_sec 
+    + (ru_buffer.ru_utime.tv_usec + ru_buffer.ru_stime.tv_usec) * 1e-6;
 }
 
 #else

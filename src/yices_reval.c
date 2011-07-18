@@ -23,6 +23,7 @@
 #include "cputime.h"
 #include "memsize.h"
 #include "command_line.h"
+#include "timeout.h"
 #include "rationals.h"
 
 #include "string_utils.h"
@@ -81,6 +82,7 @@
  * OTHER
  * - timeout: timeout value in second (applies to check)
  *   timeout value = 0 means no timeout
+ * - timeout_initialized: true once init_timeout is called
  */
 static char *input_filename;
 static lexer_t lexer;
@@ -91,7 +93,9 @@ static uint32_t include_depth;
 static bool interactive;
 static bool done;
 static bool verbose;
+
 static uint32_t timeout;
+static bool timeout_initialized;
 
 static char *logic_name;
 static char *arith_name;
@@ -1848,8 +1852,8 @@ static void yices_showstats_cmd(void) {
   }
 
   fputc('\n', stdout);
+  printf("Runtime of '(check)'     : %.4f s\n", check_process_time);
   printf("Total runtime            : %.4f s\n", run_time);
-  printf("Runtime of last (check)  : %.4f s\n", check_process_time);
   mem_used = mem_size() / (1024 * 1024);
   if (mem_used > 0) {
     printf("Memory used              : %.2f MB\n", mem_used);
@@ -2116,6 +2120,21 @@ static void yices_assert_cmd(term_t f) {
 }
 
 
+/*
+ * Timeout handler: call stop_search when triggered
+ * - data = pointer to the context
+ */
+static void timeout_handler(void *data) {
+  assert(data == context && context != NULL);
+  if (context_status(data) == STATUS_SEARCHING) {
+    context_stop_search(data);
+    if (verbose) {
+      fputs("\nTimeout\n", stdout);
+      fflush(stdout);
+    }
+  }
+}
+
 
 /*
  * Auxiliary function: call check on the context and return the result
@@ -2126,11 +2145,36 @@ static smt_status_t do_check(void) {
   double check_start_time;
   smt_status_t stat;
 
+  /*
+   * Set a timeout if requested.
+   * We call init_timeout only now because the internal timeout 
+   * consumes resources even if it's never used.
+   */
+  if (timeout > 0) {
+    if (!timeout_initialized) {
+      init_timeout();
+      timeout_initialized = true;
+    }
+    start_timeout(timeout, timeout_handler, context);
+  }
+
+  /*
+   * Collect runtime statistics + call check
+   */
   check_start_time = get_cpu_time();
   stat = check_context(context, &parameters, true);
   check_process_time = get_cpu_time() - check_start_time;
   if (check_process_time < 0.0) {
     check_process_time = 0.0;
+  }
+
+  /*
+   * Clear timeout and reset it to 0
+   */
+  if (timeout > 0) {
+    assert(timeout_initialized);
+    clear_timeout();
+    timeout = 0;
   }
 
   return stat;
@@ -2301,6 +2345,7 @@ int yices_main(int argc, char *argv[]) {
    */
   interactive = false;
   timeout = 0;
+  timeout_initialized = false;
   include_depth = 0;
   the_seed = PRNG_DEFAULT_SEED;  
   ready_time = 0.0;
@@ -2392,6 +2437,10 @@ int yices_main(int argc, char *argv[]) {
   }
   delete_tstack(&stack);
   yices_exit();
+
+  if (timeout_initialized) {
+    delete_timeout();
+  }
 
   return YICES_EXIT_SUCCESS;
 }

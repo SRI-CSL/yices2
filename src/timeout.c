@@ -154,7 +154,7 @@ void delete_timeout(void) {
  *   WINDOWS/MINGW IMPLEMENTATION   *
  ***********************************/
 
-// BD: don't what this is for.
+// BD: don't know what this is for.
 #ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0500
 #endif
