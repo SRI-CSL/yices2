@@ -649,8 +649,16 @@ static void process_command_line(int argc, char *argv[]) {
 
 /*
  * On SIGINT: call stop_search if the context is SEARCHING
+ *
+ * On Windows (mingw) and Solaris, the signal handler is
+ * reset to SIG_DFL before 'sigint_handler' is called.
+ * So we must call signal inside this handler.
  */
 static void sigint_handler(int signum) {
+#if defined(SOLARIS) || defined(MINGW)
+  void (*saved_handler)(int);
+#endif
+
   assert(context != NULL);
   if (verbose) {
     printf("\nInterrupted by signal %d\n", signum);
@@ -659,6 +667,14 @@ static void sigint_handler(int signum) {
   if (context_status(context) == STATUS_SEARCHING) {
     context_stop_search(context);
   }
+
+#if defined(SOLARIS) || defined(MINGW)
+  saved_handler = signal(SIGINT, sigint_handler);
+  if (saved_handler == SIG_ERR) {
+    perror("Yices: failed to install SIG_INT handler: ");
+    exit(YICES_EXIT_INTERNAL_ERROR);
+  }  
+#endif
 }
 
 
