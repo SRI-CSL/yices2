@@ -144,7 +144,7 @@ static char *smt_token_string[NUM_SMT_TOKENS];
 /*
  * Initialize the token-to-string table
  */
-static void init_smttoken2string() {
+static void init_smttoken2string(void) {
   keyword_t *kw;
 
   // keywords
@@ -461,7 +461,7 @@ void init_smt_string_lexer(lexer_t *lex, char *data, char *name) {
 /*
  * Get string for token tk
  */
-char *smt_token_to_string(token_t tk) {
+char *smt_token_to_string(smt_token_t tk) {
   assert(0 <= tk && tk < NUM_SMT_TOKENS);
   return smt_token_string[tk];
 }

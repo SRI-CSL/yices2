@@ -8,6 +8,8 @@
 #ifndef __SMT_LEXER_H
 #define __SMT_LEXER_H
 
+#include <stdint.h>
+
 #include "lexer.h"
 #include "smt_logic_codes.h"
 
@@ -116,7 +118,7 @@ extern void smt_lexer_activate_logic(smt_logic_t logic);
 /*
  * Conversion from an SMT token to a string
  */
-extern char *smt_token_to_string(token_t tk);
+extern char *smt_token_to_string(smt_token_t tk);
 
 
 /*

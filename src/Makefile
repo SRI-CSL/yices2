@@ -108,7 +108,7 @@ src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c \
 	 search_parameters.c simplex.c simplex_printer.c             \
          simplex_prop_table.c small_bvsets.c smt_core.c              \
          smt_core_printer.c smt_lexer.c smt_logic_codes.c            \
-         smt_parser.c string_buffers.c string_utils.c                \
+	 smt2_lexer.c smt_parser.c string_buffers.c string_utils.c   \
          symbol_tables.c terms.c term_printer.c term_stack.c         \
          term_stack_error.c term_utils.c theory_explanations.c       \
          timeout.c types.c type_printer.c uint_rbtrees.c             \
@@ -393,6 +393,10 @@ yices_hash_keywords.h: yices_keywords.txt
 smt_hash_keywords.h: smt_keywords.txt
 	$(GPERF) -C -G -L ANSI-C -W smt_kw --output-file=smt_hash_keywords.h \
 	--lookup-function-name=in_smt_kw smt_keywords.txt
+
+smt2_hash_keywords.h: smt2_keywords.txt
+	$(GPERF) -C -G -L ANSI-C -W smt2_kw --output-file=smt2_hash_keywords.h \
+	--lookup-function-name=in_smt2_kw smt2_keywords.txt
 
 
 #
