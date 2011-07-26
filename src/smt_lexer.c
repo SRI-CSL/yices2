@@ -193,8 +193,8 @@ static void init_smttoken2string() {
  * as ordinary symbols. We control which keywords are active using
  * array smt_token_active.
  *
- * As of 2009 (SMT-LIB 1.2), the following logics/theories/type names 
- * are used:
+ * As of 2011, the following logics/theories/type names are used:
+ *
  *   AUFLIA         Int_ArraysEx                      Int Array
  *   AUFLIRA        Int_Int_Real_Array_ArraysEx       Int Real Array1 Array2
  *   AUFNIRA        Int_Int_Real_Array_ArraysEx       Int Real Array1 Array2
@@ -207,6 +207,7 @@ static void init_smttoken2string() {
  *   QF_LIA         Ints
  *   QF_LRA         Reals
  *   QF_NIA         Ints
+ *   QF_NRA         Reals    (added July 2011)
  *   QF_RDL         Reals
  *   QF_UF          Empty
  *   QF_UFIDL       Ints 
@@ -214,6 +215,7 @@ static void init_smttoken2string() {
  *   QF_UFLIA       Ints
  *   QF_UFLRA       Reals
  *   QF_UFNRA       Reals
+ *   UFLRA          Reals    (added July 2011)
  *   UFNIA          Ints
  */
 static uint8_t smt_token_active[NUM_SMT_TOKENS];
@@ -417,8 +419,10 @@ void smt_lexer_activate_logic(smt_logic_t code) {
   case QF_IDL:
   case QF_LIA:
   case QF_NIA:
+  case QF_NRA:
   case QF_UFIDL:
   case QF_UFLIA:
+  case UFLRA:
   case UFNIA:
     activate_arith_tokens();
     smt_token_active[SMT_TK_REAL] = true;

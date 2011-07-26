@@ -27,6 +27,7 @@ static const char * const smt_logic_names[NUM_SMT_LOGIC_NAMES] = {
   "QF_LIA",
   "QF_LRA",
   "QF_NIA",
+  "QF_NRA",
   "QF_RDL",
   "QF_UF",
   "QF_UFBV",
@@ -34,6 +35,7 @@ static const char * const smt_logic_names[NUM_SMT_LOGIC_NAMES] = {
   "QF_UFLIA",
   "QF_UFLRA",
   "QF_UFNRA",
+  "UFLRA",
   "UFNIA",
 };
 
@@ -57,6 +59,7 @@ static const smt_logic_t smt_code[NUM_SMT_LOGIC_NAMES] = {
   QF_LIA,
   QF_LRA,
   QF_NIA,
+  QF_NRA,
   QF_RDL,
   QF_UF,
   QF_UFBV,
@@ -64,6 +67,7 @@ static const smt_logic_t smt_code[NUM_SMT_LOGIC_NAMES] = {
   QF_UFLIA,
   QF_UFLRA,
   QF_UFNRA,
+  UFLRA,
   UFNIA,
 };
 

@@ -1,6 +1,6 @@
 /*
  * Codes for SMT Logic categories
- * - as of June 09
+ * - as of July 2011
  */
 
 #ifndef __SMT_LOGIC_CODES_H
@@ -14,8 +14,8 @@ typedef enum smt_logic {
   AUFLIRA,
   AUFNIRA,
   LRA,
-  QF_ABV,      // new name for what used to be QF_AUFBV
-  QF_AUFBV,
+  QF_ABV,      // new name for what used to be QF_AUFBV (arrays + BV)
+  QF_AUFBV,    // now means arrays + uninterpreted functions + BV
   QF_AUFLIA,
   QF_AX,
   QF_BV,
@@ -23,6 +23,7 @@ typedef enum smt_logic {
   QF_LIA,
   QF_LRA,
   QF_NIA,
+  QF_NRA,      // added 07/25/2011
   QF_RDL,
   QF_UF,
   QF_UFBV,
@@ -30,6 +31,7 @@ typedef enum smt_logic {
   QF_UFLIA,
   QF_UFLRA,
   QF_UFNRA,
+  UFLRA,       // added 07/25/2011
   UFNIA,
 
   SMT_UNKNOWN, // error code
