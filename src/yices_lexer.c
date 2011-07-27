@@ -239,10 +239,12 @@ static yices_token_t read_string(lexer_t *lex) {
   rd = &lex->reader;
   buffer = lex->buffer;
   assert(reader_current_char(rd) == '"');
-  c = reader_next_char(rd);
 
   for (;;) {
+    c = reader_next_char(rd);
     if (c == '"') { // end of string
+      // consume the closing quote
+      reader_next_char(rd);
       tk = TK_STRING; 
       break;
     }
@@ -276,7 +278,6 @@ static yices_token_t read_string(lexer_t *lex) {
       }
     }
     string_buffer_append_char(buffer, c);
-    c = reader_next_char(rd);
   }
 
   string_buffer_close(buffer);
@@ -481,23 +482,29 @@ yices_token_t next_yices_token(lexer_t *lex) {
   
   switch (c) {
   case '(': 
-    tk = TK_LP; goto next_then_return;
+    tk = TK_LP;
+    goto next_then_return;
   case ')': 
-    tk = TK_RP; goto next_then_return;
+    tk = TK_RP;
+    goto next_then_return;
   case EOF:
-    tk = TK_EOS; goto done;
+    tk = TK_EOS;
+    goto done;
   case ':':
     c = reader_next_char(rd);
     if (c == ':') {
-      tk = TK_COLON_COLON; goto next_then_return;
+      tk = TK_COLON_COLON; 
+      goto next_then_return;
     } else {
       // store ':' in the buffer since that may be used for reporting errors
       string_buffer_append_char(buffer, ':');
       string_buffer_close(buffer);
-      tk = TK_ERROR; goto done;
+      tk = TK_ERROR;
+      goto done;
     }
   case '"':
-    tk = read_string(lex); goto next_then_return;
+    tk = read_string(lex);
+    goto done;
   case '+':    
   case '-':
     string_buffer_append_char(buffer, c);

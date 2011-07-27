@@ -159,7 +159,7 @@ static inline uint32_t current_token_column(lexer_t *lex) {
 
 /*
  * Null-terminated value of the token (provided the lexing 
- * function work properly). 
+ * function works properly). 
  *
  * Warning: lexer operations overwrite the value.
  */

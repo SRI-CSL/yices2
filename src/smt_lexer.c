@@ -475,11 +475,11 @@ char *smt_token_to_string(smt_token_t tk) {
  *
  * Buffer contains the string literal without the doublequotes
  */
-static token_t smt_read_string(lexer_t *lex) {  
+static smt_token_t smt_read_string(lexer_t *lex) {  
   reader_t *rd;
   string_buffer_t *buffer;
   int c;
-  token_t tk;
+  smt_token_t tk;
 
   rd = &lex->reader;
   buffer = lex->buffer;
@@ -515,11 +515,11 @@ static token_t smt_read_string(lexer_t *lex) {
  * On exit: buffer contains what was between '{' and '}'
  * as a null-terminated string.
  */
-static token_t smt_read_user_val(lexer_t *lex) {  
+static smt_token_t smt_read_user_val(lexer_t *lex) {  
   reader_t *rd;
   string_buffer_t *buffer;
   int c;
-  token_t tk;
+  smt_token_t tk;
 
   rd = &lex->reader;
   buffer = lex->buffer;
@@ -602,11 +602,11 @@ static void smt_read_identifier(lexer_t *lex) {
 /*
  * Read an attribute, i.e., a symbol that start with ':', or a single ':'
  */
-static token_t smt_read_attribute(lexer_t *lex) {
+static smt_token_t smt_read_attribute(lexer_t *lex) {
   reader_t *rd;
   string_buffer_t *buffer;
   int c, x;
-  token_t tk;
+  smt_token_t tk;
   const keyword_t *kw;
 
   rd = &lex->reader;
@@ -642,11 +642,11 @@ static token_t smt_read_attribute(lexer_t *lex) {
  *    <digits>/<digits> or <digits>.<digits> or <digits>
  * current char is first digit
  */
-static token_t smt_read_number(lexer_t *lex) {
+static smt_token_t smt_read_number(lexer_t *lex) {
   reader_t *rd;
   string_buffer_t *buffer;
   int c, all_zeros;
-  token_t tk;
+  smt_token_t tk;
 
   rd = &lex->reader;
   buffer = lex->buffer;
@@ -704,7 +704,7 @@ static token_t smt_read_number(lexer_t *lex) {
  */
 
 // return the correct token type for the string in buffer
-static token_t symbol_type(string_buffer_t *buffer) {
+static smt_token_t symbol_type(string_buffer_t *buffer) {
   uint32_t n, i;
   char *s;
 
@@ -743,8 +743,8 @@ static token_t symbol_type(string_buffer_t *buffer) {
   return SMT_TK_SYMBOL;
 }
 
-static token_t smt_read_symbol(lexer_t *lex) {
-  token_t tk;
+static smt_token_t smt_read_symbol(lexer_t *lex) {
+  smt_token_t tk;
   string_buffer_t *buffer;
   const keyword_t *kw;
   
@@ -766,7 +766,7 @@ static token_t smt_read_symbol(lexer_t *lex) {
  * - set token value in lex->buffer (as a null-terminated string).
  */
 smt_token_t next_smt_token(lexer_t *lex) {
-  token_t tk;
+  smt_token_t tk;
   reader_t *rd;
   int c;
 

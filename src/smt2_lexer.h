@@ -151,7 +151,7 @@ enum smt2_token {
   SMT2_TK_BVSGE,
 
   // Errors
-  SMT2_TK_OPEN_STRING,
+  SMT2_TK_INVALID_STRING,
   SMT2_TK_INVALID_NUMERAL,
   SMT2_TK_INVALID_DECIMAL,
   SMT2_TK_INVALID_HEXADECIMAL,
@@ -174,7 +174,7 @@ extern int32_t init_smt2_file_lexer(lexer_t *lex, char *filename);
 
 extern void init_smt2_stream_lexer(lexer_t *lex, FILE *f, char *name);
 
-static inline void init2_smt_stdin_lexer(lexer_t *lex) {
+static inline void init_smt2_stdin_lexer(lexer_t *lex) {
   init_smt2_stream_lexer(lex, stdin, "stdin");
 }
 
@@ -198,7 +198,8 @@ extern char *smt2_token_to_string(smt2_token_t tk);
  * - update lex->token (set it to tk)
  * - update lex->tk_pos, tk_line, tk_pos (to the start of token
  *   in the input stream)
- * - store token_value in lex->buffer.
+ * - for any token other than '(', ')', EOF, or SMT2_TK_ERROR, the 
+ *   token value is stored in lex->buffer (as a character string).
  */
 extern smt2_token_t next_smt2_token(lexer_t *lex);
 
