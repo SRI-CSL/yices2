@@ -1,5 +1,9 @@
 ;; (define-type utype)
 
+(set-param var-elim true)
+(set-param arith-elim true)
+(set-param bland-threshold 200000000)
+
 (define x_0::real)
 (define x_1::real)
 (define x_2::bool)

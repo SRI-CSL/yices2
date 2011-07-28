@@ -132,9 +132,61 @@ static char *smt2_token_string[NUM_SMT2_TOKENS];
 
 
 /*
+ * Reserved-words table: SMT2 makes a distinction
+ * between reserved words and symbols. To enforce
+ * this, we use the following table:
+ *    smt2_reserved[tk] is true if tk is a reserved word
+ *
+ * Currently (July 2011, SMT-LIB 2.0), the reserved words are
+ *  'par' 'NUMERAL' 'DECIMAL' 'STRING' '_' '!' 
+ *  'as' 'let' 'forall' 'exists
+ */
+static uint8_t smt2_reserved[NUM_SMT2_TOKENS];
+
+
+/*
+ * ACTIVE/INACTIVE TOKENS
+ */
+
+/*
+ * Depending on the logic, some keywords are interpreted as built-in
+ * operators. If they are inactive, they are just interpreted as
+ * ordinary symbols. We control which keywords are active using array
+ * active_token.
+ *
+ * As of 2011, the following logics/theories/type names are used:
+ *
+ *   AUFLIA         Int_ArraysEx                      Int Array
+ *   AUFLIRA        Int_Int_Real_Array_ArraysEx       Int Real Array1 Array2
+ *   AUFNIRA        Int_Int_Real_Array_ArraysEx       Int Real Array1 Array2
+ *   LRA            Reals
+ *   QF_AUFBV       BitVector_ArraysEx                Array BitVec
+ *   QF_AUFLIA      Int_ArraysEx                      Int Array
+ *   QF_AX          ArraysEx                          Array Index Element
+ *   QF_BV          Fixed_Size_BitVectors             BitVec
+ *   QF_IDL         Ints
+ *   QF_LIA         Ints
+ *   QF_LRA         Reals
+ *   QF_NIA         Ints
+ *   QF_NRA         Reals    (added July 2011)
+ *   QF_RDL         Reals
+ *   QF_UF          Empty
+ *   QF_UFIDL       Ints 
+ *   QF_UFBV        Fixed_Size_BitVectors             BitVec
+ *   QF_UFLIA       Ints
+ *   QF_UFLRA       Reals
+ *   QF_UFNRA       Reals
+ *   UFLRA          Reals    (added July 2011)
+ *   UFNIA          Ints
+ */
+static uint8_t active_token[NUM_SMT2_TOKENS];
+
+
+
+/*
  * Initialize the token-to-string table.
  */
-static void init_smt2token2string(void) {
+static void init_smt2_token2string(void) {
   keyword_t *kw;
 
   kw = smt2_keywords;
@@ -169,43 +221,28 @@ static void init_smt2token2string(void) {
 }
 
 
-
 /*
- * ACTIVE/INACTIVE TOKENS
+ * Initialize the reserved-word table
  */
+static void init_smt2_reserved(void) {
+  uint32_t i;
 
-/*
- * Depending on the smt-logic, some keywords are interpreted as
- * built-in operators. If they are inactive, they are just interpreted
- * as ordinary symbols. We control which keywords are active using
- * array active_token.
- *
- * As of 2011, the following logics/theories/type names are used:
- *
- *   AUFLIA         Int_ArraysEx                      Int Array
- *   AUFLIRA        Int_Int_Real_Array_ArraysEx       Int Real Array1 Array2
- *   AUFNIRA        Int_Int_Real_Array_ArraysEx       Int Real Array1 Array2
- *   LRA            Reals
- *   QF_AUFBV       BitVector_ArraysEx                Array BitVec
- *   QF_AUFLIA      Int_ArraysEx                      Int Array
- *   QF_AX          ArraysEx                          Array Index Element
- *   QF_BV          Fixed_Size_BitVectors             BitVec
- *   QF_IDL         Ints
- *   QF_LIA         Ints
- *   QF_LRA         Reals
- *   QF_NIA         Ints
- *   QF_NRA         Reals    (added July 2011)
- *   QF_RDL         Reals
- *   QF_UF          Empty
- *   QF_UFIDL       Ints 
- *   QF_UFBV        Fixed_Size_BitVectors             BitVec
- *   QF_UFLIA       Ints
- *   QF_UFLRA       Reals
- *   QF_UFNRA       Reals
- *   UFLRA          Reals    (added July 2011)
- *   UFNIA          Ints
- */
-static uint8_t active_token[NUM_SMT2_TOKENS];
+  for (i=0; i<NUM_SMT2_TOKENS; i++) {
+    smt2_reserved[i] = false;
+  }
+
+  smt2_reserved[SMT2_TK_PAR] = true;
+  smt2_reserved[SMT2_TK_NUM] = true;
+  smt2_reserved[SMT2_TK_DEC] = true;
+  smt2_reserved[SMT2_TK_STR] = true;
+  smt2_reserved[SMT2_TK_UNDERSCORE] = true;
+  smt2_reserved[SMT2_TK_BANG] = true;
+  smt2_reserved[SMT2_TK_AS] = true;
+  smt2_reserved[SMT2_TK_LET] = true;
+  smt2_reserved[SMT2_TK_EXISTS] = true;
+  smt2_reserved[SMT2_TK_FORALL] = true;
+}
+
 
 /*
  * Activate all default symbols:
@@ -429,21 +466,24 @@ void smt2_lexer_activate_logic(smt_logic_t logic) {
 /*
  * Lexer initialization
  */
-int32_t init_smt2_file_lexer(lexer_t *lex, char *filename) {
-  init_smt2token2string();
+static void init_smt2_lexer_tables(void) {
+  init_smt2_token2string();
+  init_smt2_reserved();
   smt2_activate_default();
+}
+
+int32_t init_smt2_file_lexer(lexer_t *lex, char *filename) {
+  init_smt2_lexer_tables();
   return init_file_lexer(lex, filename);
 }
 
 void init_smt2_stream_lexer(lexer_t *lex, FILE *f, char *name) {
-  init_smt2token2string();
-  smt2_activate_default();
+  init_smt2_lexer_tables();
   init_stream_lexer(lex, f, name);
 }
 
 void init_smt2_string_lexer(lexer_t *lex, char *data, char *name) {
-  init_smt2token2string();
-  smt2_activate_default();
+  init_smt2_lexer_tables();
   init_string_lexer(lex, data, name);
 }
 
@@ -730,13 +770,32 @@ static bool is_bv_constant(string_buffer_t *buffer) {
 
 /*
  * Get the token ID for the content of the buffer:
+ * - quoted is true if this is a quoted symbol
+ *
+ * Rules:
  * - if the buffer is in the symbol table and the symbol is active
  *   return the corresponding token ID
+ * - exception: if quoted is true and the symbol is a reserved word,
+ *   return SM2_TK_SYMBOL
  * - if the buffer contains 'bv<digits>' and the BV_CONSTANT is
  *   active, return SMT2_TK_BV_CONSTANT
  * - otherwise, return SMT2_TK_SYMBOL
+ *
+ * Examples:
+ *   as, quoted    --> symbol 'as'        (SMT2_TK_SYMBOL)
+ *   as, unquoted  --> reserved word 'as' (SMT2_TK_AS)
+ *
+ * So '|as|' is a parsed as a symbol, but 'as' is a reserved word.
+ *
+ * For anything that's not a reserved words, the quoted and
+ * unquoted form are equivalent (e.g., '|bvadd|' is the same 
+ * as 'bvadd'). Then, the returned token id depends on
+ * whether bitvector symbols are active or not:
+ *    active  --> function 'bvadd'  (SMT2_TK_BVADD)
+ *  inactive  --> symbol 'bvadd'    (SMT2_TK_SYMBOL)
+ *
  */
-static smt2_token_t smt2_symbol_type(string_buffer_t *buffer) {
+static smt2_token_t smt2_symbol_type(string_buffer_t *buffer, bool quoted) {
   const keyword_t *kw;
   smt2_token_t tk;
 
@@ -747,8 +806,8 @@ static smt2_token_t smt2_symbol_type(string_buffer_t *buffer) {
     if (active_token[SMT2_TK_BV_CONSTANT] && is_bv_constant(buffer)) {
       tk = SMT2_TK_BV_CONSTANT;
     }
-  } else if (active_token[kw->tk]) {
-    // active symbol
+  } else if (active_token[kw->tk] && (!quoted || !smt2_reserved[kw->tk])) {
+    // active symbol, unquoted, or not a reserved word
     tk = kw->tk;
   }
 
@@ -855,7 +914,7 @@ static smt2_token_t smt2_read_symbol(lexer_t *lex) {
   } while (issimple(c));
   string_buffer_close(buffer);
 
-  return smt2_symbol_type(buffer);
+  return smt2_symbol_type(buffer, false);
 }
 
 
@@ -895,7 +954,7 @@ static smt2_token_t smt2_read_quoted_symbol(lexer_t *lex) {
   if (c == '|') {
     // consume the closing '|' then convert to the right type
     reader_next_char(rd);
-    tk = smt2_symbol_type(buffer);
+    tk = smt2_symbol_type(buffer, true);
   }
   
   return tk;
