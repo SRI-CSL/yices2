@@ -82,17 +82,41 @@ void print_clause(FILE *f, clause_t *cl) {
   uint32_t i;
   literal_t l;
 
-  fputc('{', f);
-  print_literal(f, cl->cl[0]);
-  i = 1;
-  l = cl->cl[i];
-  while (l >= 0) {
+
+  /*
+   * Some problem clauses may be hidden (because one of their
+   * literal is true. For such clauses, the first two literals
+   * are negated.
+   */
+  if (cl->cl[0] < 0 || cl->cl[1] < 0) {
+
+    fputc('[', f);
+    print_literal(f, - cl->cl[0]);
     fputc(' ', f);
-    print_literal(f, l);
-    i ++;
+    print_literal(f, - cl->cl[1]);
+    i = 2;
     l = cl->cl[i];
+    while (l >= 0) {
+      fputc(' ', f);
+      print_literal(f, l);
+      i ++;
+      l = cl->cl[i];
+    }
+    fputc(']', f);
+
+  } else {
+    fputc('{', f);
+    print_literal(f, cl->cl[0]);
+    i = 1;
+    l = cl->cl[i];
+    while (l >= 0) {
+      fputc(' ', f);
+      print_literal(f, l);
+      i ++;
+      l = cl->cl[i];
+    }
+    fputc('}', f);
   }
-  fputc('}', f);
 }
 
 
