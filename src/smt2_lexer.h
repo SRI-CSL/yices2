@@ -1,5 +1,9 @@
 /*
- * Lexer for the SMT-LIB2 Language (scripts)
+ * Lexer for the SMT-LIB2 Language
+ * 
+ * This should be enough to parse scripts in the SMT-LIB 2.0
+ * language. We do not support the theory declaration and
+ * the logic declaration parts of the language.
  */
 
 #ifndef __SMT2_LEXER_H
@@ -68,6 +72,32 @@ enum smt2_token {
   SMT2_TK_SET_LOGIC,
   SMT2_TK_SET_INFO,
   SMT2_TK_SET_OPTION,
+
+  // Predefined keywords for (set-option ...)
+  SMT2_TK_PRINT_SUCCESS,
+  SMT2_TK_EXPAND_DEFINITIONS,
+  SMT2_TK_INTERACTIVE_MODE,
+  SMT2_TK_PRODUCE_PROOFS,
+  SMT2_TK_PRODUCE_UNSAT_CORES,
+  SMT2_TK_PRODUCE_MODELS,
+  SMT2_TK_PRODUCE_ASSIGNMENTS,
+  SMT2_TK_REGULAR_OUTPUT,
+  SMT2_TK_DIAGNOSTIC_OUTPUT,
+  SMT2_TK_RANDOM_SEED,
+  SMT2_TK_VERBOSITY,
+
+  // Predefined keywords for (set-info ...)
+  SMT2_TK_ERROR_BEHAVIOR,
+  SMT2_TK_NAME,
+  SMT2_TK_AUTHORS,
+  SMT2_TK_VERSION,
+  SMT2_TK_STATUS,
+  SMT2_TK_REASON_UNKNOWN,
+  SMT2_TK_ALL_STATISTICS,
+
+  // Attribute names for terms
+  SMT2_TK_NAMED,
+  SMT2_TK_PATTERN,   // not quite an official name yet 
 
   // Core theory
   SMT2_TK_BOOL,

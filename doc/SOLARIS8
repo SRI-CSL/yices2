@@ -56,7 +56,7 @@ To install GCC 4.5.2:
    to specify whether ld/as are the GNU versions or the Sun versions).
    On mission.ai.sri.com, I used /usr/local/bin/ld and /usr/local/bin/as,
    which are both from GNU/binutils 2.11.2. Also, I disabled multilib 
-   (i.e., compiled only GCC 3.2.3 to generated only 32bit code):
+   (i.e., compiled GCC 3.2.3 to generate only 32bit code):
 
 
    So the configure for GCC 3.2.3 was:

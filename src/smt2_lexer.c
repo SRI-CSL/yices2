@@ -17,7 +17,7 @@
  * All predefined symbols
  */
 static keyword_t smt2_keywords[] = {
-  // reserved words
+  // Reserved words
   { "par", SMT2_TK_PAR },
   { "NUMERAL", SMT2_TK_NUM },
   { "DECIMAL", SMT2_TK_DEC },
@@ -28,7 +28,8 @@ static keyword_t smt2_keywords[] = {
   { "let", SMT2_TK_LET },
   { "exists", SMT2_TK_EXISTS },
   { "forall", SMT2_TK_FORALL },
-  // commands
+
+  // Commands
   { "assert", SMT2_TK_ASSERT },
   { "check-sat", SMT2_TK_CHECK_SAT },
   { "declare-sort", SMT2_TK_DECLARE_SORT },
@@ -48,6 +49,33 @@ static keyword_t smt2_keywords[] = {
   { "set-logic", SMT2_TK_SET_LOGIC },
   { "set-info", SMT2_TK_SET_INFO },
   { "set-option", SMT2_TK_SET_OPTION },
+
+  // Keywords
+  { ":print-success", SMT2_TK_PRINT_SUCCESS },
+  { ":expand-definitions", SMT2_TK_EXPAND_DEFINITIONS },
+  { ":interactive-mode", SMT2_TK_INTERACTIVE_MODE },
+  { ":produce-proofs", SMT2_TK_PRODUCE_PROOFS },
+  { ":produce-unsat-cores", SMT2_TK_PRODUCE_UNSAT_CORES },
+  { ":produce-models", SMT2_TK_PRODUCE_MODELS },
+  { ":produce-assignments", SMT2_TK_PRODUCE_ASSIGNMENTS },
+  { ":regular-output-channel", SMT2_TK_REGULAR_OUTPUT },
+  { ":diagnostic-output-channel", SMT2_TK_DIAGNOSTIC_OUTPUT },
+  { ":random-seed", SMT2_TK_RANDOM_SEED },
+  { ":verbosity", SMT2_TK_VERBOSITY },
+
+  // Predefined keywords for (set-info ...)
+  { ":error-behavior", SMT2_TK_ERROR_BEHAVIOR },
+  { ":name", SMT2_TK_NAME },
+  { ":authors", SMT2_TK_AUTHORS },
+  { ":version", SMT2_TK_VERSION },
+  { ":status", SMT2_TK_STATUS },
+  { ":reason-unknown", SMT2_TK_REASON_UNKNOWN },
+  { ":all-statistics", SMT2_TK_ALL_STATISTICS },
+
+  // Attribute names for terms
+  { ":named", SMT2_TK_NAMED },
+  { ":pattern", SMT2_TK_PATTERN },
+  
   // Core theory symbols
   { "Bool", SMT2_TK_BOOL },
   { "true", SMT2_TK_TRUE },
@@ -60,10 +88,12 @@ static keyword_t smt2_keywords[] = {
   { "=", SMT2_TK_EQ },
   { "distinct", SMT2_TK_DISTINCT },
   { "ite", SMT2_TK_ITE },
+
   // Arrays
   { "Array", SMT2_TK_ARRAY },
   { "select", SMT2_TK_SELECT },
   { "store", SMT2_TK_STORE },
+
   // Arithmetic
   { "Int", SMT2_TK_INT },
   { "Real", SMT2_TK_REAL },
@@ -82,6 +112,7 @@ static keyword_t smt2_keywords[] = {
   { "to_int", SMT2_TK_TO_INT },
   { "is_int", SMT2_TK_IS_INT },
   { "divisible", SMT2_TK_DIVISIBLE },
+
   // Bitvectors
   { "BitVec", SMT2_TK_BITVEC },
   { "concat", SMT2_TK_CONCAT },
@@ -140,6 +171,7 @@ static char *smt2_token_string[NUM_SMT2_TOKENS];
  * Currently (July 2011, SMT-LIB 2.0), the reserved words are
  *  'par' 'NUMERAL' 'DECIMAL' 'STRING' '_' '!' 
  *  'as' 'let' 'forall' 'exists
+ * plus all the command names.
  */
 static uint8_t smt2_reserved[NUM_SMT2_TOKENS];
 
@@ -222,7 +254,11 @@ static void init_smt2_token2string(void) {
 
 
 /*
- * Initialize the reserved-word table
+ * Initialize the reserved-word table.
+ *
+ * If 'xxx' is marked as reserved them |xxx| is interpreted as 
+ * a symbol (code = SMT_TK2_SYMBOL) but 'xxx' is converted
+ * to the symbol's code.
  */
 static void init_smt2_reserved(void) {
   uint32_t i;
@@ -241,6 +277,48 @@ static void init_smt2_reserved(void) {
   smt2_reserved[SMT2_TK_LET] = true;
   smt2_reserved[SMT2_TK_EXISTS] = true;
   smt2_reserved[SMT2_TK_FORALL] = true;
+
+  smt2_reserved[SMT2_TK_ASSERT] = true;
+  smt2_reserved[SMT2_TK_CHECK_SAT] = true;
+  smt2_reserved[SMT2_TK_DECLARE_SORT] = true;
+  smt2_reserved[SMT2_TK_DECLARE_FUN] = true;
+  smt2_reserved[SMT2_TK_DEFINE_SORT] = true;
+  smt2_reserved[SMT2_TK_DEFINE_FUN] = true;
+  smt2_reserved[SMT2_TK_EXIT] = true;
+  smt2_reserved[SMT2_TK_GET_ASSERTIONS] = true;
+  smt2_reserved[SMT2_TK_GET_ASSIGNMENT] = true;
+  smt2_reserved[SMT2_TK_GET_INFO] = true;
+  smt2_reserved[SMT2_TK_GET_OPTION] = true;
+  smt2_reserved[SMT2_TK_GET_PROOF] = true;
+  smt2_reserved[SMT2_TK_GET_UNSAT_CORE] = true;
+  smt2_reserved[SMT2_TK_GET_VALUE] = true;
+  smt2_reserved[SMT2_TK_POP] = true;
+  smt2_reserved[SMT2_TK_PUSH] = true;
+  smt2_reserved[SMT2_TK_SET_LOGIC] = true;
+  smt2_reserved[SMT2_TK_SET_INFO] = true;
+  smt2_reserved[SMT2_TK_SET_OPTION] = true;
+
+  // all predefined keywors must be reserved too
+  smt2_reserved[SMT2_TK_PRINT_SUCCESS] = true;
+  smt2_reserved[SMT2_TK_EXPAND_DEFINITIONS] = true;
+  smt2_reserved[SMT2_TK_INTERACTIVE_MODE] = true;
+  smt2_reserved[SMT2_TK_PRODUCE_PROOFS] = true;
+  smt2_reserved[SMT2_TK_PRODUCE_UNSAT_CORES] = true;
+  smt2_reserved[SMT2_TK_PRODUCE_MODELS] = true;
+  smt2_reserved[SMT2_TK_PRODUCE_ASSIGNMENTS] = true;
+  smt2_reserved[SMT2_TK_REGULAR_OUTPUT] = true;
+  smt2_reserved[SMT2_TK_DIAGNOSTIC_OUTPUT] = true;
+  smt2_reserved[SMT2_TK_RANDOM_SEED] = true;
+  smt2_reserved[SMT2_TK_VERBOSITY] = true;
+  smt2_reserved[SMT2_TK_ERROR_BEHAVIOR] = true;
+  smt2_reserved[SMT2_TK_NAME] = true;
+  smt2_reserved[SMT2_TK_AUTHORS] = true;
+  smt2_reserved[SMT2_TK_VERSION] = true;
+  smt2_reserved[SMT2_TK_STATUS] = true;
+  smt2_reserved[SMT2_TK_REASON_UNKNOWN] = true;
+  smt2_reserved[SMT2_TK_ALL_STATISTICS] = true;
+  smt2_reserved[SMT2_TK_NAMED] = true;
+  smt2_reserved[SMT2_TK_PATTERN] = true;
 }
 
 
@@ -248,6 +326,7 @@ static void init_smt2_reserved(void) {
  * Activate all default symbols:
  * - all reserved words
  * - all command names
+ * - all keywords
  * - all symbols in the core theory
  */
 static void smt2_activate_default(void) {
@@ -299,6 +378,27 @@ static void smt2_activate_default(void) {
   active_token[SMT2_TK_EQ] = true;
   active_token[SMT2_TK_DISTINCT] = true;
   active_token[SMT2_TK_ITE] = true;
+
+  active_token[SMT2_TK_PRINT_SUCCESS] = true;
+  active_token[SMT2_TK_EXPAND_DEFINITIONS] = true;
+  active_token[SMT2_TK_INTERACTIVE_MODE] = true;
+  active_token[SMT2_TK_PRODUCE_PROOFS] = true;
+  active_token[SMT2_TK_PRODUCE_UNSAT_CORES] = true;
+  active_token[SMT2_TK_PRODUCE_MODELS] = true;
+  active_token[SMT2_TK_PRODUCE_ASSIGNMENTS] = true;
+  active_token[SMT2_TK_REGULAR_OUTPUT] = true;
+  active_token[SMT2_TK_DIAGNOSTIC_OUTPUT] = true;
+  active_token[SMT2_TK_RANDOM_SEED] = true;
+  active_token[SMT2_TK_VERBOSITY] = true;
+  active_token[SMT2_TK_ERROR_BEHAVIOR] = true;
+  active_token[SMT2_TK_NAME] = true;
+  active_token[SMT2_TK_AUTHORS] = true;
+  active_token[SMT2_TK_VERSION] = true;
+  active_token[SMT2_TK_STATUS] = true;
+  active_token[SMT2_TK_REASON_UNKNOWN] = true;
+  active_token[SMT2_TK_ALL_STATISTICS] = true;
+  active_token[SMT2_TK_NAMED] = true;
+  active_token[SMT2_TK_PATTERN] = true;
 }
 
 
@@ -860,12 +960,16 @@ static bool issimple(int c) {
  * - current_char must be ':'
  * - add ':' + the sequence of simple_chars that follows to the buffer
  *
- * If ':' is not followed by a simple char, return SMT2_TK_INVALID_KEYWORD
- * Otherwise return SMT2_TK_KEYWORD
+ * If ':' is not followed by a simple char, 
+ *  return SMT2_TK_INVALID_KEYWORD
+ * Otherwise, check whether this is a predifined keyword,
+ * - if it is return the corresponding token id,
+ * - if it's not return SMT2_TK_KEYWORD.
  */
 static smt2_token_t smt2_read_keyword(lexer_t *lex) {
   reader_t *rd;
   string_buffer_t *buffer;
+  const keyword_t *kw;
   int c;
   smt2_token_t tk;
 
@@ -884,6 +988,15 @@ static smt2_token_t smt2_read_keyword(lexer_t *lex) {
   tk = SMT2_TK_KEYWORD;
   if (string_buffer_length(buffer) <= 1) {
     tk = SMT2_TK_INVALID_KEYWORD;
+  } else {
+    kw = in_smt2_kw(buffer->data, buffer->index);
+    /*
+     * keywords are always active, so we 
+     * don't check active_token[kw->tk]
+     */
+    if (kw != NULL) {
+      tk = kw->tk;
+    }
   }
 
   return tk;    
@@ -916,7 +1029,6 @@ static smt2_token_t smt2_read_symbol(lexer_t *lex) {
 
   return smt2_symbol_type(buffer, false);
 }
-
 
 
 /*

@@ -1,0 +1,405 @@
+PARSER FOR SMT-LIB 2.0
+
+We don't care about the logic and theory part of SMT LIB 2.0.
+We just need to parse SMT-LIB 2.0 scripts.
+
+
+Tokens
+------
+
+They are defined in smt2_lexer.h:
+
+enum smt2_token {
+  // open/close par
+  SMT2_TK_LP,
+  SMT2_TK_RP,
+
+  // end of stream
+  SMT2_TK_EOS,
+
+  // atomic tokens
+  SMT2_TK_NUMERAL,
+  SMT2_TK_DECIMAL,
+  SMT2_TK_HEXADECIMAL,
+  SMT2_TK_BINARY,
+  SMT2_TK_STRING,
+  SMT2_TK_SYMBOL,
+  SMT2_TK_KEYWORD,
+
+  // special tokens used in the BV theory: (_ bv<numeral> <numereal>)
+  SMT2_TK_BV_CONSTANT,
+
+  /*
+   * all predefined symbols, theory symbols, etc.
+   */
+  // Reserved words
+  SMT2_TK_PAR,
+  SMT2_TK_NUM,
+  SMT2_TK_DEC,
+  SMT2_TK_STR,
+  SMT2_TK_UNDERSCORE,
+  SMT2_TK_BANG,
+  SMT2_TK_AS,
+  SMT2_TK_LET,
+  SMT2_TK_EXISTS,
+  SMT2_TK_FORALL,
+
+  // Commands
+  SMT2_TK_ASSERT,
+  SMT2_TK_CHECK_SAT,
+  SMT2_TK_DECLARE_SORT,
+  SMT2_TK_DECLARE_FUN,
+  SMT2_TK_DEFINE_SORT,
+  SMT2_TK_DEFINE_FUN,
+  SMT2_TK_EXIT,
+  SMT2_TK_GET_ASSERTIONS,
+  SMT2_TK_GET_ASSIGNMENT,
+  SMT2_TK_GET_INFO,
+  SMT2_TK_GET_OPTION,
+  SMT2_TK_GET_PROOF,
+  SMT2_TK_GET_UNSAT_CORE,
+  SMT2_TK_GET_VALUE,
+  SMT2_TK_POP,
+  SMT2_TK_PUSH,
+  SMT2_TK_SET_LOGIC,
+  SMT2_TK_SET_INFO,
+  SMT2_TK_SET_OPTION,
+
+  // Predefined keywords for (set-option ...)
+  SMT2_TK_PRINT_SUCCESS,
+  SMT2_TK_EXPAND_DEFINITIONS,
+  SMT2_TK_INTERACTIVE_MODE,
+  SMT2_TK_PRODUCE_PROOFS,
+  SMT2_TK_PRODUCE_UNSAT_CORES,
+  SMT2_TK_PRODUCE_MODELS,
+  SMT2_TK_PRODUCE_ASSIGNMENTS,
+  SMT2_TK_REGULAR_OUTPUT,
+  SMT2_TK_DIAGNOSTIC_OUTPUT,
+  SMT2_TK_RANDOM_SEED,
+  SMT2_TK_VERBOSITY,
+
+  // Predefined keywords for (set-info ...)
+  SMT2_TK_ERROR_BEHAVIOR,
+  SMT2_TK_NAME,
+  SMT2_TK_AUTHORS,
+  SMT2_TK_VERSION,
+  SMT2_TK_STATUS,
+  SMT2_TK_REASON_UNKNOWN,
+  SMT2_TK_ALL_STATISTICS,
+
+  // Attribute names for terms
+  SMT2_TK_NAMED,
+  SMT2_TK_PATTERN,   // not quite an official name yet 
+
+  // Core theory
+  SMT2_TK_BOOL,
+  SMT2_TK_TRUE,
+  SMT2_TK_FALSE,
+  SMT2_TK_NOT,
+  SMT2_TK_IMPLIES,
+  SMT2_TK_AND,
+  SMT2_TK_OR,
+  SMT2_TK_XOR,
+  SMT2_TK_EQ,
+  SMT2_TK_DISTINCT,
+  SMT2_TK_ITE,
+
+  // Array theory
+  SMT2_TK_ARRAY,
+  SMT2_TK_SELECT,
+  SMT2_TK_STORE,
+
+  // Arithmetic symbols
+  SMT2_TK_INT,
+  SMT2_TK_REAL,
+  SMT2_TK_MINUS,
+  SMT2_TK_PLUS,
+  SMT2_TK_TIMES,
+  SMT2_TK_DIVIDES,
+  SMT2_TK_LE,
+  SMT2_TK_LT,
+  SMT2_TK_GE,
+  SMT2_TK_GT,
+  SMT2_TK_DIV,
+  SMT2_TK_MOD,
+  SMT2_TK_ABS,
+  SMT2_TK_TO_REAL,
+  SMT2_TK_TO_INT,
+  SMT2_TK_IS_INT,
+  SMT2_TK_DIVISIBLE,
+
+  // Bit-vector symbols
+  SMT2_TK_BITVEC,
+  SMT2_TK_CONCAT,
+  SMT2_TK_EXTRACT,
+  SMT2_TK_REPEAT,
+  SMT2_TK_BVCOMP,
+  SMT2_TK_BVREDOR,    // In SMT1.2 but not in SMT2.0 (keep it defined but inactive)
+  SMT2_TK_BVREDAND,   // In SMT1.2 but not in SMT2.0 (same thing)
+
+  SMT2_TK_BVNOT,
+  SMT2_TK_BVAND,
+  SMT2_TK_BVOR,
+  SMT2_TK_BVNAND,
+  SMT2_TK_BVNOR,
+  SMT2_TK_BVXOR,
+  SMT2_TK_BVXNOR,
+
+  SMT2_TK_BVNEG,
+  SMT2_TK_BVADD,
+  SMT2_TK_BVSUB,
+  SMT2_TK_BVMUL,
+  SMT2_TK_BVUDIV,
+  SMT2_TK_BVUREM,
+  SMT2_TK_BVSDIV,
+  SMT2_TK_BVSREM,
+  SMT2_TK_BVSMOD,
+
+  SMT2_TK_BVSHL,
+  SMT2_TK_BVLSHR,
+  SMT2_TK_BVASHR,
+  SMT2_TK_ZERO_EXTEND,
+  SMT2_TK_SIGN_EXTEND,
+  SMT2_TK_ROTATE_LEFT,
+  SMT2_TK_ROTATE_RIGHT,
+
+  SMT2_TK_BVULT,
+  SMT2_TK_BVULE,
+  SMT2_TK_BVUGT,
+  SMT2_TK_BVUGE,
+  SMT2_TK_BVSLT,
+  SMT2_TK_BVSLE,
+  SMT2_TK_BVSGT,
+  SMT2_TK_BVSGE,
+
+  // Errors
+  SMT2_TK_INVALID_STRING,
+  SMT2_TK_INVALID_NUMERAL,
+  SMT2_TK_INVALID_DECIMAL,
+  SMT2_TK_INVALID_HEXADECIMAL,
+  SMT2_TK_INVALID_BINARY,
+  SMT2_TK_INVALID_SYMBOL,
+  SMT2_TK_INVALID_KEYWORD,
+  SMT2_TK_INVALID_BV_CONSTANT,
+  SMT2_TK_ERROR,
+}
+
+
+Grammar (SMT-LIB 2.0, December 21m 2010)
+----------------------------------------
+
+   <command> ::= 
+              ( set-logic <symbol> )
+            | ( set-option <option> )
+	    | ( get-option <keyword> )
+            | ( set-info <attribute> )
+	    | ( get-info <info-flag> )	    
+	    | ( push <numeral> )
+	    | ( pop <numeral> )
+	    | ( check-sat )
+	    | ( get-assertions )
+	    | ( get-proof )
+	    | ( get-unsat-core )
+	    | ( get-assignment )
+	    | ( exit )
+	    | ( get-value ( <term>+ ) )
+            | ( declare-sort <symbol> <numeral> )
+	    | ( define-sort <symbol> ( <symbol>* ) <sort> )
+	    | ( declare-fun <symbol> ( <sort>* ) <sort> )
+	    | ( define-fun <symbol> ( <sorted-var>* ) <sort> <term> )
+	    | ( assert <term> )
+	    | EOS
+
+
+   <option> ::=
+              :print-success <bool-value>
+            | :expand-definitions <bool-value>
+	    | :interactive-mode <bool-value>
+	    | :produce-proofs <bool-value>
+	    | :produce-unsat-core <bool-value>
+	    | :produce-models <bool-value>
+	    | :produce-assignments <bool-value>
+	    | :regular-output-channel <string>
+	    | :diagnostic-output-channel <string>
+	    | :random-seed <numeral>
+	    | :verbosity <numeral>
+	    | <attribute>	   o
+
+
+   <bool-value> ::= true | false
+
+
+   <attribute> ::=
+              <keyword> 
+	    | <keyword> <attribute-value>
+
+
+   <attribute-value> ::=
+              <numeral>
+            | <decimal>
+	    | <hexadecimal>
+	    | <binary>
+	    | <string>
+	    | <symbol>
+	    | ( <s-expr>+ )
+
+
+   <s-expr> ::=
+              <numeral>
+	    | <decimal>
+	    | <hexadecimal>
+	    | <binary>
+	    | <string>
+	    | <symbol>
+	    | <keyword>
+	    | ( <s-expr>+ )
+
+
+   <info-flag> :=
+              :error-behavior
+            | :name
+	    | :authors
+	    | :version
+	    | :status
+	    | :reason-unknown
+	    | :all-statistics
+	    | <keyword>
+
+   <sort> ::=
+   	      <identifier>
+            | ( <identifier> <sort>+ )
+
+
+   <identifier> ::=
+              <symbol>
+            | ( _ <symbol> <numeral>+ )
+
+
+   <sorted-var> ::=
+              ( <symbol> <sort>
+
+   <term> ::=
+              <numeral>
+            | <decimal>
+	    | <hexadecimal>
+	    | <binary>
+	    | <string>
+	    | <identifier>
+	    | ( as <identifier> <sort> )
+	    | ( let ( <var-binding>+ ) <term> )
+	    | ( forall ( <sorted-var>+ ) <term> )
+	    | ( exists ( <sorted-var>+ ) <term> )
+	    | ( ! <term> <attribute>+ )
+
+    
+
+The EOS part in <coomand> is non standard but it makes sense to allow it.
+
+
+
+
+Recursive-descent parser
+------------------------
+
+parse-commands:
+- initial state = c0
+- transition table
+
+c0	     (			c1
+	     EOS		DONE
+
+c1	     set-logic          c3
+	     set-option
+	     get-option		c5
+	     set-info
+	     get-info
+	     push		c4
+	     pop		c4
+	     check-sat          c2
+	     get-assertions     c2
+	     get-proof          c2
+	     get-unsat-core     c2
+	     get-assignment     c2
+	     exit               c2
+	     get-value		   c9
+	     declare-sort
+	     define-sort
+	     declare-fun
+	     define-fun
+	     assert		   c8
+
+c2	     )			DONE
+
+c3	     <symbol>           c2
+
+c4           <numeral>		c2
+
+c5	     <keyword>          c2
+
+c6	     true		c2
+	     false		c2
+
+c7 	     <string>		c2
+	     <string>		c2
+
+
+c8	     [parse-term]	c2
+
+c9	     (			c10
+c10	     [parse-term]	c11
+c11	     )			c2
+	     [parse-term]	c11
+
+
+
+Argument to set-option
+
+c8	     :print-success              c6
+	     :expand-definitions         c6
+	     :interactive-mode	         c6
+	     :produce-proofs	         c6
+	     :produce-unsat-core         c6
+	     :produce-models	         c6
+	     :produce-assignments        c6
+
+	     :regular-output-channel     c7
+	     :diagnostic-output-channel  c7
+
+	     :random-seed		 c4
+	     :verbosity			 c4
+
+	     <keyword>			 axx
+
+
+Argument to get-info
+
+c9	     :error-behavior	c2
+	     :name		c2
+	     :authors		c2
+	     :version		c2
+	     :status		c2
+	     :reason-unknown	c2
+	     :all-statistics	c2
+
+	     <keyword>		c2
+
+
+Argument to set-info, attribute
+
+
+
+Attribute value
+
+c9	     <numeral>          c2
+	     <decimal>		c2
+	     <hexadecimal>	c2
+	     <binary>		c2
+	     <string>		c2
+	     <symbol>		c2
+	     (			c10
+
+c10	     [parse-sexpression]  c11
+
+c11	     )			  c2
+	     [parse-sexpression]  c11
+
