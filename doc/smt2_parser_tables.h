@@ -7,7 +7,7 @@ typedef enum state_s {
   a0, a1, v0,
   s0, s1, s2, s3, s4, s5, s6, s7, s8, s10,
   t0, t1, t2, t2a, t2b, t2d, t2e, 
-  t3, t3a, t3b, t3d, t3e, t4a, t4b,
+  t3, t3a, t3b, t3d, t3e, t4a, t4b, t4c,
   t6, t6c, t6d, t6e, t6f, t7, t7a, t7b, t8a,
   i0, i1, i2, i3, i4,
   r0,
@@ -123,6 +123,7 @@ enum actions {
 
   // (! <term> ...
   keyword_next_goto_t4b,
+  push_t4c_goto_a0,
 
   // (( ...
   next_push_t6c_push_s0_goto_i0,
@@ -341,7 +342,11 @@ static triple_t triples[] = {
   { t4a, DEFAULT_TOKEN, "error_keyword_expected" },
 
   { t4b, SMT2_TK_RP, "next_return" },
-  { t4b, DEFAULT_TOKEN, "push_r0_goto_a0" },
+  { t4b, SMT2_TK_KEYWORD, "keyword_next_goto_t4b" },
+  { t4b, DEFAULT_TOKEN, "push_t4c_goto_a0" },
+
+  { t4c, SMT2_TK_RP, "next_return" },
+  { t4c, SMT2_TK_KEYWORD, "keyword_next_goto_t4b" },
 
   { t6, SMT2_TK_AS, "next_push_t6c_push_s0_goto_i0" },
   { t6, SMT2_TK_UNDERSCORE, "next_goto_t6d" },

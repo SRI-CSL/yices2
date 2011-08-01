@@ -934,6 +934,12 @@ smt2_token_t next_smt2_token(lexer_t *lex) {
       goto done;
     } else {
       tk = SMT2_TK_ERROR;
+      /*
+       * copy the bad character in buffer for 
+       * better error reporting
+       */
+      string_buffer_append_char(buffer, c);
+      string_buffer_close(buffer);
       goto next_then_return;
     }
   }

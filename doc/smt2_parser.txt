@@ -405,7 +405,11 @@ t3e	     (			t3b
 t4	     [term]		t4a
 t4a	     <keyword>		t4b
 t4b	     )			DONE
-	     [attribute-value]	t10
+	     <keyword>		t4b	     
+	     [attribute-value]	t4c
+t4c	     ) 			DONE
+	     <keyword>		t4b
+
 
 // after '(as'
 t5	     [identifier]	t5a
@@ -529,6 +533,7 @@ c12b	     )			next; goto r0
 	     ...		push c12b; goto t0
 
 
+// attribute value
 a0	     <numeral>		next; return
 	     <decimal>		next; return
 	     <hexadecimal>	next; return
@@ -624,7 +629,11 @@ t3e	     (			next; goto t3b
 t4a	     <keyword>		next; goto t4b
 
 t4b	     )			next; return
-	     ...		push r0; goto a0
+	     <keyword>		t4b
+	     ...		push t4c; goto a0
+
+t4c	     )			next; return
+	     <keyword>		next; goto t4b
 
 // after '(('
 t6	     as			next; push t6c; push s0; goto i0

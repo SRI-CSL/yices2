@@ -160,7 +160,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
 
   skip_token:
     // jump here for actions that don't consume the token
-   switch (get_action(state, token)) {
+    switch (get_action(state, token)) {
     case next_goto_c1:
       state = c1;
       goto loop;
@@ -247,7 +247,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
       state = c12;
       goto loop;
 	
-    case  numeral_next_goto_r0:
+    case numeral_next_goto_r0:
       state = r0;
       goto loop;
 
@@ -269,7 +269,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
 	goto the_end;
       }
       goto loop;
-
+     
     case push_r0_goto_a0:
       parser_push_state(stack, r0);
       state = a0;
@@ -366,7 +366,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
 	goto the_end;
       }
       goto loop;
-
+     
     case binary_next_return:
       state = parser_pop_state(stack);
       if (state == done) {
@@ -395,7 +395,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
     case push_a1_goto_v0:
       parser_push_state(stack, a1);
       state = v0;
-      goto loop;
+      goto skip_token;
 
     case keyword_next_return:
       state = parser_pop_state(stack);
@@ -411,16 +411,16 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
     case next_goto_s2:
       state = s2;
       goto loop;
-
+     
     case next_goto_s5:
       state = s5;
       goto loop;
-
+     
     case symbol_next_push_s10_goto_s0:
       parser_push_state(stack, s10);
       state = s0;
       goto loop;
-
+     
     case symbol_next_goto_s3:
       state = s3;
       goto loop;
@@ -534,6 +534,11 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
       state = t4b;
       goto loop;
 
+    case push_t4c_goto_a0:
+      parser_push_state(stack, t4c);
+      state = a0;
+      goto skip_token;
+     
     case next_push_t6c_push_s0_goto_i0:
       parser_push_state(stack, t6c);
       parser_push_state(stack, s0);
@@ -618,7 +623,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
       syntax_error(lex, err, -1);
       goto cleanup;
     }
-
+   
   } else {
     // exception from term_stack
     goto cleanup;
