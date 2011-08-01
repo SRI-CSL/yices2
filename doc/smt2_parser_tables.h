@@ -285,7 +285,7 @@ static triple_t triples[] = {
   { s8, SMT2_TK_RP, "next_push_s10_goto_s0" },
   { s8, SMT2_TK_NUMERAL, "numeral_next_goto_s8" },
 
-  { s10, SMT2_TK_LP, "next_return" },
+  { s10, SMT2_TK_RP, "next_return" },
   { s10, DEFAULT_TOKEN, "push_s10_goto_s0" },
 
   { t0, SMT2_TK_NUMERAL, "numeral_next_return" },

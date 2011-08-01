@@ -71,7 +71,7 @@ enum smt2_token {
 }
 
 
-Grammar (SMT-LIB 2.0, December 21m 2010)
+Grammar (SMT-LIB 2.0, December 21 2010)
 ----------------------------------------
 
    <command> ::= 

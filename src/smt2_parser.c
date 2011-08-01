@@ -273,7 +273,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
     case push_r0_goto_a0:
       parser_push_state(stack, r0);
       state = a0;
-      goto loop;
+      goto skip_token;
 
     case symbol_next_goto_c3:
       state = c3;
