@@ -11,6 +11,8 @@
 static lexer_t lexer;
 
 static void print_token(smt2_token_t tk) {
+  smt2_keyword_t kw;
+  smt2_symbol_t sym;
   uint32_t n;
   char *s;
 
@@ -23,6 +25,15 @@ static void print_token(smt2_token_t tk) {
     printf("     value: '%s'\n", s);
     printf("     length: %"PRIu32"\n", n);
   }
+
+  if (tk == SMT2_TK_KEYWORD) {
+    kw = smt2_string_to_keyword(s, n);
+    printf("      keyword %"PRId32": %s\n", kw, smt2_keyword_to_string(kw));
+  } else if (tk == SMT2_TK_SYMBOL) {
+    sym = smt2_string_to_symbol(s, n);
+    printf("      symbol %"PRId32": %s\n", sym, smt2_symbol_to_string(sym));
+  }
+
 }
 
 

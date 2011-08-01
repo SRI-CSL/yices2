@@ -36,7 +36,8 @@
  * The specification file must define 
  * NSTATES, NTOKENS, DEFAULT_TOKEN, DEFAULT_VALUE, and triple
  */
-#include "yices_parser_tables.h"
+//#include "yices_parser_tables.h"
+#include "smt2_parser_tables.h"
 
 /*
  * Descriptor for each state

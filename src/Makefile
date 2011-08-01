@@ -108,13 +108,13 @@ src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c \
 	 search_parameters.c simplex.c simplex_printer.c             \
          simplex_prop_table.c small_bvsets.c smt_core.c              \
          smt_core_printer.c smt_lexer.c smt_logic_codes.c            \
-	 smt2_lexer.c smt_parser.c string_buffers.c string_utils.c   \
-         symbol_tables.c terms.c term_printer.c term_stack.c         \
-         term_stack_error.c term_utils.c theory_explanations.c       \
-         timeout.c types.c type_printer.c uint_rbtrees.c             \
-         union_find.c use_vectors.c vsets.c yices_api.c              \
-         yices_error.c yices_lexer.c yices_pp.c yices_parser.c       \
-         yices_reval.c
+	 smt_parser.c smt2_lexer.c smt2_parser.c string_buffers.c    \
+         string_utils.c symbol_tables.c terms.c term_printer.c       \
+         term_stack.c term_stack_error.c term_utils.c                \
+         theory_explanations.c timeout.c types.c type_printer.c      \
+         uint_rbtrees.c union_find.c use_vectors.c vsets.c           \
+         yices_api.c yices_error.c yices_lexer.c yices_pp.c          \
+         yices_parser.c yices_reval.c
 
 
 #
@@ -394,9 +394,24 @@ smt_hash_keywords.h: smt_keywords.txt
 	$(GPERF) -C -G -L ANSI-C -W smt_kw --output-file=smt_hash_keywords.h \
 	--lookup-function-name=in_smt_kw smt_keywords.txt
 
+#
+# Tables for SMT2:
+# - we want to include three hash functions in the same file (smt2_lexer.c)
+# - for this to work,
+#   we need to give different names to the hash function (option -H ...)
+#   we can't use -G and we must give -E
+#
+smt2_hash_tokens.h: smt2_tokens.txt
+	$(GPERF) -C -L ANSI-C -W smt2_tk -H hash_tk -E --output-file=smt2_hash_tokens.h \
+	--lookup-function-name=in_smt2_tk smt2_tokens.txt
+
 smt2_hash_keywords.h: smt2_keywords.txt
-	$(GPERF) -C -G -L ANSI-C -W smt2_kw --output-file=smt2_hash_keywords.h \
+	$(GPERF) -C -L ANSI-C -W smt2_kw -H hash_kw -E --output-file=smt2_hash_keywords.h \
 	--lookup-function-name=in_smt2_kw smt2_keywords.txt
+
+smt2_hash_symbols.h: smt2_symbols.txt
+	$(GPERF) -C -L ANSI-C -W smt2_sym -H hash_sym -E --output-file=smt2_hash_symbols.h \
+	--lookup-function-name=in_smt2_sym smt2_symbols.txt
 
 
 #
