@@ -221,7 +221,27 @@ typedef enum smt2_symbol smt2_symbol_t;
 #define NUM_SMT2_SYMBOLS (SMT2_SYM_UNKNOWN+1)
 
 
-
+/*
+ * NOTE: The following are indexed symbols
+ * 
+ * BitVec:  (_ BitVec n): bitvectors of n bits, n >= 1
+ *
+ * extract: (_ extract i j): (_ BitVec m) -> (_ BitVec n)
+ *    where 0 <= j <= i < m and n = i-j+1
+ *    extract bits[j .. i] of u
+ *
+ * repeat:  (_ repeat i): (_ BitVec n) -> (_ BitVec n*i)
+ *    where i>=1: concatenate u, i times with itself
+ *
+ * zero_extend: (_ zero_extend i) where i >= 0
+ *   append i '0' on the left-hand side (high-order bits)
+ *
+ * sign_extend: (_ signe_extend i) where i >= 0
+ *
+ * rotate_left: (_ rotate_left i) where i >= 0
+ * rotate_right: (_ rotate_right i) where i >= 0
+ */
+ 
 /*
  * Lexer initialization:
  * - init_smt2_file_lexer returns -1 if the file can't be opened

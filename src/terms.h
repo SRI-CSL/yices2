@@ -156,7 +156,7 @@
  * type_t and term_t are aliases for int32_t, defined in yices_types.h.
  *
  * We use the type term_t to denote term occurrences (i.e., a pair
- * term index + polarity bit packed into a singed 32bit integer as
+ * term index + polarity bit packed into a signed 32bit integer as
  * defined in term_occurrences.h).
  * 
  * NULL_TERM and NULL_TYPE are also defined in yices_types.h (used to
