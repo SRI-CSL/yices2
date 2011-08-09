@@ -277,6 +277,34 @@ void stbl_remove(stbl_t *sym_table, const char *symbol) {
 
 
 /*
+ * Remove the first occurrence of (symbol, value).
+ * No effect if it's not present.
+ */
+void stbl_delete_mapping(stbl_t *sym_table, const char *symbol, int32_t val) {
+  uint32_t h, mask, i;
+  stbl_rec_t *r, *p;
+
+  mask = sym_table->size - 1;
+  h = jenkins_hash_string(symbol);
+  i = h & mask;
+  p = NULL;
+  for (r = sym_table->data[i]; r != NULL; r = r->next) {
+    if (r->hash == h && r->value == val && strcmp(symbol, r->string) == 0) {
+      if (p == NULL) {
+	sym_table->data[i] = r->next;
+      } else {
+	p->next = r->next;
+      }
+      sym_table->finalize(r);
+      stbl_free_record(sym_table, r);
+      return;
+    }
+    p = r;
+  }
+}
+
+
+/*
  * Return value of first occurrence of symbol, or -1 if symbol is not
  * present
  */

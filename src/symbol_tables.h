@@ -114,6 +114,14 @@ extern int32_t stbl_find(stbl_t *sym_table, const char *symbol);
  */
 extern void stbl_add(stbl_t *sym_table, char *symbol, int32_t val);
 
+/*
+ * Remove the mapping symbol --> val from the table.
+ * This removes the mapping even if it's hidden.
+ * If the mapping is not in the table, this has no effect.
+ * If the mapping occurs several times, then only the most recent
+ * occurrence is removed.
+ */
+extern void stbl_delete_mapping(stbl_t *sym_table, const char *symbol, int32_t val);
 
 
 /*

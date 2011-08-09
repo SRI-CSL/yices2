@@ -202,7 +202,7 @@ typedef enum {
   /*
    * Non-constant, atomic terms
    */
-  VARIABLE,            // variable in quantifiers 
+  VARIABLE,            // variable in quantifiers
   UNINTERPRETED_TERM,  // (i.e., global variables, can't be bound).
 
   /*

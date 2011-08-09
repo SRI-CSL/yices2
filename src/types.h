@@ -484,7 +484,7 @@ static inline type_t function_type_domain(type_table_t *tbl, type_t i, int32_t j
  * Three bits encode information about a type t's cardinality:
  *    FINITE_FLAG --> 1 if t is finite, 0 otherwise
  *    UNIT_FLAG   --> 1 if t has cardinality 1, 0 otherwise
- *    EXACT_CART  --> 1 if type_card(tbl, t) is exact, 0 otherwise
+ *    EXACT_CARD  --> 1 if type_card(tbl, t) is exact, 0 otherwise
  *
  * There are four valid combinations for these flags:
  *    0b111 --> t has cardinality 1 
