@@ -79,6 +79,9 @@ static void print_type_recur(FILE *f, type_table_t *tbl, type_t tau, int32_t lev
       case UNINTERPRETED_TYPE:
 	fprintf(f, "unint!%"PRId32, tau);	
 	break;
+      case VARIABLE_TYPE:
+	fprintf(f, "var!%"PRIu32, type_variable_id(tbl, tau));
+	break;
       case TUPLE_TYPE:
 	fputs("(tuple", f);
 	n = tuple_type_arity(tbl, tau);
@@ -133,15 +136,16 @@ void print_type_def(FILE *f, type_table_t *tbl, type_t tau) {
 
 
 /*
- * Print type flags as a combination of 3 letters
+ * Print type flags as a combination of 34letters
  */
 static void print_type_flags(FILE *f, uint8_t flags) {
-  char c[4];
+  char c[5];
 
   c[0] = '-';
   c[1] = '-';
   c[2] = '-';
-  c[3] = '\0';
+  c[3] = '_';
+  c[4] = '\0';
 
   if (flags & TYPE_IS_MAXIMAL_MASK) {
     c[0] = 'M';
@@ -159,6 +163,10 @@ static void print_type_flags(FILE *f, uint8_t flags) {
     }
   } else {
     c[2] = 'I'; // infinite type
+  }
+
+  if (flags & TYPE_IS_GROUND_MASK) {
+    c[3] = 'G';  // ground type
   }
 
   fputs(c, f);
@@ -264,6 +272,9 @@ void print_type_table(FILE *f, type_table_t *tbl) {
       case UNINTERPRETED_TYPE:
 	fputs("(uninterpreted)\n", f);
 	break;
+      case VARIABLE_TYPE:
+	fputs("(variable)\n", f);
+	break;
       case TUPLE_TYPE:
 	fputs("(tuple", f);
 	m = tuple_type_arity(tbl, i);
@@ -346,6 +357,14 @@ static void pp_type_recur(yices_pp_t *printer, type_table_t *tbl, type_t tau, in
 	  pp_string(printer, name);
 	} else {
 	  pp_id(printer, "tau!", tau);
+	}
+	break;
+
+      case VARIABLE_TYPE:
+	if (name != NULL) {
+	  pp_string(printer, name);
+	} else {
+	  pp_id(printer, "var!", type_variable_id(tbl, tau));
 	}
 	break;
 

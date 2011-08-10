@@ -195,6 +195,7 @@ static int_hmap2_t *get_inf_table(type_table_t *table) {
  * - exact  flag = 1 if a[0] ... a[n-1] are all small or unit types
  * - max    flag = 1 if a[0] ... a[n-1] are all maximal types
  * - min    flag = 1 if a[0] ... a[n-1] are all minimal types
+ * - ground flag = 1 if a[0] ... a[n-1] are all ground types
  */
 static uint32_t type_flags_conjunct(type_table_t *table, uint32_t n, type_t *a) {
   uint32_t i, flg;
@@ -404,8 +405,9 @@ static type_t new_tuple_type(type_table_t *table, uint32_t n, type_t *e) {
     break;
 
   default:
-    assert(flag == LARGE_TYPE_FLAGS || 
-	   (flag & CARD_FLAGS_MASK) == INFINITE_TYPE_FLAGS);
+    assert(flag == FREE_TYPE_FLAGS ||
+	   flag == LARGE_TYPE_FLAGS || 
+	   (flag & ~MINMAX_FLAGS_MASK) == INFINITE_TYPE_FLAGS);
     card = UINT32_MAX;
     break;
   }
@@ -425,7 +427,7 @@ static type_t new_function_type(type_table_t *table, uint32_t n, type_t *e, type
   function_type_t *d;
   uint64_t card;
   type_t i;
-  uint32_t j, flag, minmax;
+  uint32_t j, flag, rflag, minmax;
   
   assert(0 < n && n <= YICES_MAX_ARITY);
 
@@ -440,23 +442,30 @@ static type_t new_function_type(type_table_t *table, uint32_t n, type_t *e, type
 
   /*
    * Three of the function type's flags are inherited from the range:
-   * - fun type is unit iff range is unit
+   * - fun type is unit iff range is unit (and the domains are ground)
    * - fun type is maximal iff range is maximal
    * - fun type is minimal iff range is minimal
    */
-  flag = type_flags(table, r);
-  minmax = flag & MINMAX_FLAGS_MASK; // save min and max bits
+  rflag = type_flags(table, r);
+  minmax = rflag & MINMAX_FLAGS_MASK; // save min and max bits
+  flag = rflag & type_flags_conjunct(table, n, e);
+
 
   /*
-   * If the range is finite but not unit, then we check
-   * whether all domains are finite.
+   * The function type has the same flags as the range type if
+   * flag != FREE_TYPE_FLAGS and the range type is unit
    */
-  if ((flag & (TYPE_IS_FINITE_MASK|TYPE_IS_UNIT_MASK)) == TYPE_IS_FINITE_MASK) {
-    assert(flag == SMALL_TYPE_FLAGS || flag == LARGE_TYPE_FLAGS);
-    flag &= type_flags_conjunct(table, n, e);
+  if (flag != FREE_TYPE_FLAGS && rflag == UNIT_TYPE_FLAGS) {
+    flag = rflag;
   }
+   
 
   switch (flag) {
+  case FREE_TYPE_FLAGS:
+    // the range or at least one domain is not ground
+    card = UINT32_MAX;
+    break;
+
   case UNIT_TYPE_FLAGS:
     // singleton range so the function type is also a singleton
     card = 1;
@@ -470,6 +479,8 @@ static type_t new_function_type(type_table_t *table, uint32_t n, type_t *e, type
       card = UINT32_MAX;
       flag = LARGE_TYPE_FLAGS;
     }
+    // minmax bits are inherited from the range
+    flag = minmax | (flag & ~MINMAX_FLAGS_MASK);
     break;
 
   default:
@@ -477,14 +488,31 @@ static type_t new_function_type(type_table_t *table, uint32_t n, type_t *e, type
     // or the range and all domains are finite but at least one 
     // of them is large.
     assert(flag == LARGE_TYPE_FLAGS || 
-	   (flag & CARD_FLAGS_MASK) == INFINITE_TYPE_FLAGS);
+	   (flag & ~MINMAX_FLAGS_MASK) == INFINITE_TYPE_FLAGS);
     card = UINT32_MAX;
+    flag = minmax | (flag & ~MINMAX_FLAGS_MASK);
     break;
   }
 
   assert(0 < card && card <= UINT32_MAX);
   table->card[i] = card;
-  table->flags[i] = minmax | (flag & CARD_FLAGS_MASK);
+  table->flags[i] = flag;
+
+  return i;
+}
+
+
+/*
+ * Add a new type variable of the given id
+ */
+static type_t new_type_variable(type_table_t *table, uint32_t id) {
+  type_t i;
+
+  i = allocate_type_id(table);
+  table->kind[i] = VARIABLE_TYPE;
+  table->desc[i].integer = id;
+  table->card[i] = UINT32_MAX;         // card is not defined
+  table->flags[i] = FREE_TYPE_FLAGS;
 
   return i;
 }
@@ -519,6 +547,12 @@ typedef struct function_type_hobj_s {
   type_t *dom;
 } function_type_hobj_t;
 
+typedef struct type_var_hobj_s {
+  int_hobj_t m;
+  type_table_t *tbl;
+  uint32_t id;
+} type_var_hobj_t;
+
 
 /*
  * Hash functions
@@ -536,6 +570,10 @@ static uint32_t hash_function_type(function_type_hobj_t *p) {
 
   h = jenkins_hash_intarray2(p->dom, p->n, 0x5ad7b72f);
   return jenkins_hash_pair(p->range, 0, h);
+}
+
+static uint32_t hash_type_var(type_var_hobj_t *p) {
+  return jenkins_hash_pair(p->id, 0, 0x823a33ad);
 }
 
 
@@ -557,6 +595,11 @@ static uint32_t hash_funtype(function_type_t *p) {
   h = jenkins_hash_intarray2(p->domain, p->ndom, 0x5ad7b72f);
   return jenkins_hash_pair(p->range, 0, h);
 }
+
+static uint32_t hash_typevar(uint32_t id) {
+  return jenkins_hash_pair(id, 0, 0x823a33ad);
+}
+
 
 
 /*
@@ -605,6 +648,13 @@ static bool eq_function_type(function_type_hobj_t *p, type_t i) {
   return true;
 }
 
+static bool eq_type_var(type_var_hobj_t *p, type_t i) {
+  type_table_t *table;
+
+  table = p->tbl;
+  return table->kind[i] == VARIABLE_TYPE && table->desc[i].integer == p->id;
+}
+
 
 /*
  * Builder functions
@@ -619,6 +669,10 @@ static type_t build_tuple_type(tuple_type_hobj_t *p) {
 
 static type_t build_function_type(function_type_hobj_t *p) {
   return new_function_type(p->tbl, p->n, p->dom, p->range);
+}
+
+static type_t build_type_var(type_var_hobj_t *p) {
+  return new_type_variable(p->tbl, p->id);;
 }
 
 
@@ -647,6 +701,13 @@ static function_type_hobj_t function_hobj = {
   0,
   0,
   NULL,
+};
+
+static type_var_hobj_t var_hobj = {
+  { (hobj_hash_t) hash_type_var, (hobj_eq_t) eq_type_var,
+    (hobj_build_t) build_type_var },
+  NULL,
+  0,
 };
 
 
@@ -752,6 +813,14 @@ type_t function_type(type_table_t *table, type_t range, uint32_t n, type_t dom[]
 }
 
 
+/*
+ * Type variable
+ */
+type_t type_variable(type_table_t *table, uint32_t id) {
+  var_hobj.tbl = table;
+  var_hobj.id = id;
+  return int_htbl_get_obj(&table->htbl, &var_hobj.m);
+}
 
 
 /*
@@ -1258,6 +1327,10 @@ static void erase_hcons_type(type_table_t *table, type_t i) {
   switch (table->kind[i]) {
   case BITVECTOR_TYPE:
     k = hash_bvtype(table->desc[i].integer);
+    break;
+
+  case VARIABLE_TYPE:
+    k = hash_typevar(table->desc[i].integer);
     break;
 
   case TUPLE_TYPE:

@@ -26,6 +26,9 @@
  *   functions such as is_subtype, super_type, and inf_type don't
  *   explode.
  *
+ * August 2011. Added type variables and substitutions to support
+ * SMT-LIB 2.0,
+ *
  * Limits are now imported from yices_limits.h:
  * - YICES_MAX_TYPES = maximal size of a type table
  * - YICES_MAX_ARITY = maximal arity for tuples and function types
@@ -53,17 +56,18 @@
  * - declared types can be either scalar or uninterpreted
  * - constructed types: tuple types and function types
  * 
- * The enumeration order is important. The atomic type kinds must 
+ * The enumeration order is important. The atomic type kinds 
  * be smaller than non-atomic kinds TUPLE and FUNCTION.
  */
 typedef enum {
-  UNUSED_TYPE,    // for deleted types 
+  UNUSED_TYPE,    // for deleted types
   BOOL_TYPE,
   INT_TYPE,
   REAL_TYPE,
   BITVECTOR_TYPE,
   SCALAR_TYPE,
   UNINTERPRETED_TYPE,
+  VARIABLE_TYPE,
   TUPLE_TYPE,
   FUNCTION_TYPE,
 } type_kind_t;
@@ -97,6 +101,7 @@ typedef struct {
 /*
  * Descriptor: either a pointer to a descriptor or an integer The size
  * of a bitvector type or scalar type i is stored in desc[i].integer.
+ * Also each type variable is identified by an index stored in desc[i].integer.
  * It's also used as pointer to the next element in the free list.
  */
 typedef union {
@@ -122,7 +127,11 @@ typedef union {
  *    bit 2 of flag[i] is 1 if card[i] is exact
  *    bit 3 of flag[i] is 1 if i has no strict supertype 
  *    bit 4 of flag[i] is 1 if i has no strict subtype
- * 
+ *
+ *    bit 5 of flag[i] is 1 if i is a ground type (i.e., no variables 
+ *    occur in i). If this bit is '0', then bits 0 to 4 are not used,
+ *    but they must all be set to '0' too.
+ *
  *    bit 7 is used as a mark during garbage collection
  * 
  * Other components:
@@ -173,6 +182,7 @@ typedef struct type_table_s {
 #define CARD_IS_EXACT_MASK   ((uint8_t) 0x04)
 #define TYPE_IS_MAXIMAL_MASK ((uint8_t) 0x08)
 #define TYPE_IS_MINIMAL_MASK ((uint8_t) 0x10)
+#define TYPE_IS_GROUND_MASK  ((uint8_t) 0x20)
 
 #define TYPE_GC_MARK         ((uint8_t) 0x80)
 
@@ -186,19 +196,23 @@ typedef struct type_table_s {
 
 /*
  * Abbreviations for valid flag combinations:
- * - UNIT_TYPE: finite, card = 1, exact cardinality
- * - SMALL_TYPE: finite, non-unit, exact cardinality
- * - LARGE_TYPE: finite, non-unit, inexact card
- * - INFINITE_TYPE: infinite, non-unit, inexact card
+ * - UNIT_TYPE: ground, finite, card = 1, exact cardinality
+ * - SMALL_TYPE: ground, finite, non-unit, exact cardinality
+ * - LARGE_TYPE: ground, finite, non-unit, inexact card
+ * - INFINITE_TYPE: ground, infinite, non-unit, inexact card
  *
  * All finite types are both minimal and maximal so we set bit 3 and 4
  * for them. For infinite types, the minimal and maximal bits must be
- * set independently. 
+ * set independently.
+ *
+ * Flag for types that contain variables
+ * - FREE_TYPE: all bits are 0
  */
-#define UNIT_TYPE_FLAGS     ((uint8_t) 0x1F)
-#define SMALL_TYPE_FLAGS    ((uint8_t) 0x1D)
-#define LARGE_TYPE_FLAGS    ((uint8_t) 0x19)
-#define INFINITE_TYPE_FLAGS ((uint8_t) 0x00)
+#define UNIT_TYPE_FLAGS     ((uint8_t) 0x3F)
+#define SMALL_TYPE_FLAGS    ((uint8_t) 0x3D)
+#define LARGE_TYPE_FLAGS    ((uint8_t) 0x39)
+#define INFINITE_TYPE_FLAGS ((uint8_t) 0x20)
+#define FREE_TYPE_FLAGS     ((uint8_t) 0x00)
 
 
 /*
@@ -267,6 +281,27 @@ extern type_t tuple_type(type_table_t *table, uint32_t n, type_t elem[]);
 extern type_t function_type(type_table_t *table, type_t range, uint32_t n, type_t dom[]);
 
 
+/*
+ * Type variable of the given id
+ */
+extern type_t type_variable(type_table_t *table, uint32_t id);
+
+
+
+
+/*
+ * SUBSTITUTION
+ */
+
+/*
+ * Apply a type substitution:
+ *   v[0 ... n-1] = distinct type variables
+ *   s[0 ... n-1] = types
+ * the function replaces v[i] by s[i] in tau and returns 
+ * the result.
+ */
+extern type_t type_substitution(type_table_t *table, type_t tau, 
+				uint32_t n, type_t v[], type_t s[]);
 
 
 
@@ -376,6 +411,13 @@ static inline bool bad_type(type_table_t *tbl, type_t i) {
 }
 
 
+// ground type: does not contain variables
+static inline bool ground_type(type_table_t *tbl, type_t i) {
+  assert(good_type(tbl, i));
+  return tbl->flags[i] & TYPE_IS_GROUND_MASK;
+}
+
+
 // access card, flags, name of non-deleted type
 static inline uint32_t type_card(type_table_t *tbl, type_t i) {
   assert(good_type(tbl, i));
@@ -395,7 +437,7 @@ static inline char *type_name(type_table_t *tbl, type_t i) {
 
 // check whether i is atomic (i.e., not a tuple or function type)
 static inline bool is_atomic_type(type_table_t *tbl, type_t i) {
-  assert(good_type(tbl, i));
+  assert(ground_type(tbl, i));
   return tbl->kind[i] <= UNINTERPRETED_TYPE;
 }
 
@@ -423,6 +465,18 @@ static inline uint32_t scalar_type_cardinal(type_table_t *tbl, type_t i) {
   assert(is_scalar_type(tbl, i));
   return tbl->desc[i].integer;  
 }
+
+
+// type variables
+static inline bool is_type_variable(type_table_t *tbl, type_t i) {
+  return type_kind(tbl, i) == VARIABLE_TYPE;
+}
+
+static inline uint32_t type_variable_id(type_table_t *tbl, type_t i) {
+  assert(is_type_variable(tbl, i));
+  return tbl->desc[i].integer;
+}
+
 
 // tuple types
 static inline bool is_tuple_type(type_table_t *tbl, type_t i) {
