@@ -144,7 +144,7 @@ static void print_type_flags(FILE *f, uint8_t flags) {
   c[0] = '-';
   c[1] = '-';
   c[2] = '-';
-  c[3] = '_';
+  c[3] = '-';
   c[4] = '\0';
 
   if (flags & TYPE_IS_MAXIMAL_MASK) {
@@ -273,7 +273,7 @@ void print_type_table(FILE *f, type_table_t *tbl) {
 	fputs("(uninterpreted)\n", f);
 	break;
       case VARIABLE_TYPE:
-	fputs("(variable)\n", f);
+	fprintf(f, "(variable, id = %"PRIu32")\n", type_variable_id(tbl, i));
 	break;
       case TUPLE_TYPE:
 	fputs("(tuple", f);

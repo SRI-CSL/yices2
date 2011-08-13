@@ -1223,9 +1223,35 @@ __YICES_DLLSPEC__ extern term_t yices_parse_term(const char *s);
  ***********/
 
 /*
+ * It's possible to assign names to terms and types, and later
+ * retrieve the term or type from these names.
+ *
+ * For each term and type, Yices stores a base-name, which
+ * is used for pretty printing. By default, the base name is NULL.
+ * The base-name is set on the first call to yices_set_term_name or 
+ * yices_set_type_name.
+ *
+ * In addition, Yices stores two symbol tables that maps names to
+ * terms and types, respectively. The name spaces for types and terms
+ * are disjoint. The term or type that a name refers to can be changed,
+ * and Yices provides a scoping mechanism:
+ * - when function  yices_set_term_name(t, name) is called,
+ *   then the previous mapping for 'name' (if any) is hidden and now 
+ *   'name' refers to term 't'.
+ * - if function yices_remove_term_name(name) is called, then the current
+ *   mapping for 'name' is removed and the previous mapping (if any)
+ *   is restored.
+ *   'name --> t2' is removed and the previous mapping is restored,
+ *    (i.e., 'name' refers to 't1' again).
+ */
+
+/*
  * The following functions attach a name to a type or a term
- * The name spaces for types and terms are disjoint.
- * names must be '\0' terminated strings.
+ * - name  must be a '\0'-terminated string
+ * - if tau or t does not have a base-name yet, then name is stored 
+ *   as base-name for tau or t.
+ * - if name refered to another term or another type, then this 
+ *   previous mapping is hidden
  *
  * The functions return -1 and set the error report if the term or
  * type is invalid . Otherwise they return 0.
@@ -1237,8 +1263,11 @@ __YICES_DLLSPEC__ extern int32_t yices_set_term_name(term_t t, const char *name)
 
 
 /*
- * Remove mapping from name to type or term
+ * Remove the current mapping of name
  * - no effect if name is not assigned to a term or type
+ * - if name is assigned to some term t or type tau, then this current
+ *   mapping is removed. If name was previously mapped to another term
+ *   or type, then the previous mapping is restored.
  */
 __YICES_DLLSPEC__ extern void yices_remove_type_name(const char *name);
 __YICES_DLLSPEC__ extern void yices_remove_term_name(const char *name);
@@ -1253,10 +1282,13 @@ __YICES_DLLSPEC__ extern term_t yices_get_term_by_name(const char *name);
 
 
 /*
- * Remove the name of a type tau or of a term t.
+ * Remove the base-name of a type tau or of a term t.
  *
  * The functions return -1 and set the error report if the 
  * type or term is invalid. Otherwise, they return 0.
+ *
+ * If tau or t doesn't have a name, the functions do nothing
+ * and return 0.
  */
 __YICES_DLLSPEC__ extern int32_t yices_clear_type_name(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_clear_term_name(term_t t);

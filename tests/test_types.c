@@ -151,6 +151,7 @@ static void print_symbol_table(FILE *f, stbl_t *table, uint32_t level) {
 int main() {
   type_t bv10, bv32, i, any, enumtype, ft, unit, tt;
   type_t unit2, unit_pair, finite_pair, finite_fun, unit_fun, finite_fun2;
+  type_t var1, var2, fvar1, tvar;
 
   init_yices_pp_tables();
 
@@ -242,7 +243,97 @@ int main() {
   print_type_table(stdout, &table);
   printf("\n");
 
-  printf("*** ALL TYPES ***\n");
+  printf("*** Creating type variable (id = 0) ***\n");
+  var1 = type_variable(&table, 0);
+  set_type_name(&table, var1, clone_string("X0"));
+  print_type_table(stdout, &table);
+  printf("\n");
+  i = type_variable(&table, 0);
+  printf("---> var1 = %"PRId32", i = %"PRId32"\n\n", var1, i);
+  assert(i == var1);
+
+  printf("*** Creating type variable (id = 100) ***\n");
+  var2 = type_variable(&table, 100);
+  print_type_table(stdout, &table);
+  printf("\n");
+  i = type_variable(&table, 100);
+  printf("---> var2 = %"PRId32", i = %"PRId32"\n\n", var2, i);
+  assert(i == var2);
+
+  printf("*** Creating function type: (-> int int var1) ***\n");
+  fvar1 = binary_function_type(&table, int_type(&table), int_type(&table), var1);
+  i =  binary_function_type(&table, int_type(&table), int_type(&table), var1);
+  print_type_table(stdout, &table);
+  printf("\n");
+  printf("----> fvar = %"PRId32", i = %"PRId32"\n\n", fvar1, i);
+  assert(i == fvar1);
+
+  printf("*** Creating function type: (-> var1 var1 unit) ***\n");
+  fvar1 = binary_function_type(&table, var1, var1, unit);
+  i =  binary_function_type(&table, var1, var1, unit);
+  print_type_table(stdout, &table);
+  printf("\n");
+  printf("----> fvar = %"PRId32", i = %"PRId32"\n\n", fvar1, i);
+  assert(i == fvar1);
+
+  printf("*** Creating function type: (-> int var1 unit) ***\n");
+  fvar1 = binary_function_type(&table, int_type(&table), var1, unit);
+  i =  binary_function_type(&table, int_type(&table), var1, unit);
+  print_type_table(stdout, &table);
+  printf("\n");
+  printf("----> fvar = %"PRId32", i = %"PRId32"\n\n", fvar1, i);
+  assert(i == fvar1);
+
+  printf("*** Creating function type: (-> int var1 enum) ***\n");
+  fvar1 = binary_function_type(&table, int_type(&table), var1, enumtype);
+  i =  binary_function_type(&table, int_type(&table), var1, enumtype);
+  print_type_table(stdout, &table);
+  printf("\n");
+  printf("----> fvar = %"PRId32", i = %"PRId32"\n\n", fvar1, i);
+  assert(i == fvar1);
+
+  printf("*** Creating tuple type: (tuple var1 var2) ****\n");
+  tvar = tuple_type_pair(&table, var1, var2);
+  i = tuple_type_pair(&table, var1, var2);
+  print_type_table(stdout, &table);
+  printf("\n");
+  printf("----> tvar = %"PRId32", i = %"PRId32"\n\n", tvar, i);
+  assert(i == tvar);
+
+  printf("*** Creating tuple type: (tuple var2 real) ****\n");
+  tvar = tuple_type_pair(&table, var2, real_type(&table));
+  i = tuple_type_pair(&table, var2, real_type(&table));
+  print_type_table(stdout, &table);
+  printf("\n");
+  printf("----> tvar = %"PRId32", i = %"PRId32"\n\n", tvar, i);
+  assert(i == tvar);
+
+  printf("*** Creating tuple type: (tuple real var2) ****\n");
+  tvar = tuple_type_pair(&table, real_type(&table), var2);
+  i = tuple_type_pair(&table, real_type(&table), var2);
+  print_type_table(stdout, &table);
+  printf("\n");
+  printf("----> tvar = %"PRId32", i = %"PRId32"\n\n", tvar, i);
+  assert(i == tvar);
+
+  printf("*** Creating function type: (-> real real (tuple real var2)) ****\n");
+  fvar1 = binary_function_type(&table, real_type(&table), real_type(&table), tvar);
+  set_type_name(&table, fvar1, clone_string("F0"));
+  i = binary_function_type(&table, real_type(&table), real_type(&table), tvar);
+  print_type_table(stdout, &table);
+  printf("\n");
+  printf("---> fvar = %"PRId32", i = %"PRId32"\n\n", fvar1, i);
+  assert(i == fvar1);
+
+  printf("*** Creating function type: (-> real (tuple real var2) enum) ****\n");
+  fvar1 = binary_function_type(&table, real_type(&table), tvar, enumtype);
+  i = binary_function_type(&table, real_type(&table), tvar, enumtype);
+  print_type_table(stdout, &table);
+  printf("\n");
+  printf("---> fvar = %"PRId32", i = %"PRId32"\n\n", fvar1, i);
+  assert(i == fvar1);
+
+  printf("\n\n*** ALL TYPES ***\n");
   pp_type_table(stdout, &table);
   printf("\n\n");
  

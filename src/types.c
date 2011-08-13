@@ -718,9 +718,8 @@ static type_var_hobj_t var_hobj = {
  * TABLE MANAGEMENT + EXPORTED TYPE CONSTRUCTORS
  *
  * NOTE: The constructors for uninterpreted and scalar types
- * are defined above. Thay don't use hash consing.
+ * are defined above. They don't use hash consing.
  */
-
 
 /*
  * Initialize table: add the predefined types
@@ -823,9 +822,14 @@ type_t type_variable(type_table_t *table, uint32_t id) {
 }
 
 
+
+/*
+ * TYPE NAMES
+ */
+
 /*
  * Assign name to type i.
- * - previous mapping of name to other types (if any) are hidden.
+ * - the previous mapping of name to other types (if any) is hidden.
  * - name must have a reference counter attached to it (cf. clone_string
  *   in memalloc.h).
  */

@@ -314,10 +314,11 @@ extern type_t type_substitution(type_table_t *table, type_t tau,
  * implemented in refcount_strings.h
  *
  * - Parameter "name" in set_type_name must be constructed via the
- *   clone_string function.  That's not necessary for get_type_by_name
- *   or remove_type_name.
+ *   clone_string function.
+ *   For the other functions (e.g., get_type_by_name and 
+ *   remove_type_name) "name" must be a '\0' terminated string.
  * - When name is added to the symbol table, its reference counter 
- *   is increased by 1 or 2 
+ *   is increased by 1 or 2
  * - When remove_type_name is called, the reference counter is decremented
  * - When the table is deleted (via delete_type_table), the
  *   reference counters of all symbols present in table are also
@@ -348,7 +349,7 @@ extern type_t get_type_by_name(type_table_t *table, const char *name);
  *
  * If name is not in the symbol table, the function does nothing.
  * 
- * If name is the default type name for some type tay, then it will
+ * If name is the default type name for some type tau, then it will
  * still be kept as name[tau] for pretty printing.
  */
 extern void remove_type_name(type_table_t *table, const char *name);
