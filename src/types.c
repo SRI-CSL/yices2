@@ -9,6 +9,7 @@
 #include "memalloc.h"
 #include "refcount_strings.h"
 #include "hash_functions.h"
+#include "int_hash_map.h"
 #include "types.h"
 
 
@@ -819,6 +820,170 @@ type_t type_variable(type_table_t *table, uint32_t id) {
   var_hobj.tbl = table;
   var_hobj.id = id;
   return int_htbl_get_obj(&table->htbl, &var_hobj.m);
+}
+
+
+
+/*
+ * SUBSTITUTION
+ */
+
+#ifndef NDEBUG
+/*
+ * Check that the elements of v are distinct variables
+ */
+static bool all_distinct_vars(type_table_t *table, uint32_t n, type_t v[]) {
+  uint32_t i, j;
+
+  for (i=0; i<n; i++) {
+    if (! is_type_variable(table, v[i])) {
+      return false;
+    }
+  }
+
+  for (i=0; i<n; i++) {
+    for (j=i+1; j<n; j++) {
+      if (v[i] == v[j]) {
+	return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+#endif
+
+
+/*
+ * Apply substitution to tau:
+ * - hmap defines the substitution and stores substitution of already visited types
+ */
+static type_t type_subst_recur(type_table_t *table, int_hmap_t *hmap, type_t tau);
+
+/*
+ * Build the tuple type (tuple (subst tau[0]) ... (subst tau[n-1]))
+ */
+static type_t tuple_type_subst(type_table_t *table, int_hmap_t *hmap, type_t *tau, uint32_t n) {
+  type_t buffer[8];
+  type_t *s;
+  type_t result;
+  uint32_t i;
+
+  s = buffer;
+  if (n > 8) {
+    s = (type_t *) safe_malloc(n * sizeof(type_t));
+  }
+
+  for (i=0; i<n; i++) {
+    s[i] = type_subst_recur(table, hmap, tau[i]);
+  }
+  result = tuple_type(table, n, s);
+ 
+  if (n > 8) {
+    safe_free(s);
+  }
+
+  return result;
+}
+
+/*
+ * Build the function type (-> (subst tau[0]) ... (subst tau[n-1]) (subst sigma))
+ */
+static type_t function_type_subst(type_table_t *table, int_hmap_t *hmap, type_t sigma, type_t *tau, uint32_t n) {
+  type_t buffer[8];
+  type_t *s;
+  type_t result;
+  uint32_t i;
+
+  s = buffer;
+  if (n > 8) {
+    s = (type_t *) safe_malloc(n * sizeof(type_t));
+  }
+
+  for (i=0; i<n; i++) {
+    s[i] = type_subst_recur(table, hmap, tau[i]);
+  }
+  sigma = type_subst_recur(table, hmap, sigma);
+  result = function_type(table, sigma, n, s);
+
+  if (n > 8) {
+    safe_free(s);
+  }
+
+  return result;
+}
+
+
+static type_t type_subst_recur(type_table_t *table, int_hmap_t *hmap, type_t tau) {
+  int_hmap_pair_t *p;
+  tuple_type_t *tup;
+  function_type_t *fun;
+  type_t result;
+
+  // if tau is ground, then it's unchanged
+  result = tau;
+  if (! ground_type(table, tau)) {
+    p = int_hmap_find(hmap, tau);
+    if (p != NULL) {
+      result = p->val;
+    } else {
+      switch (type_kind(table, tau)) {
+      case TUPLE_TYPE:
+	tup = tuple_type_desc(table, tau);
+	result = tuple_type_subst(table, hmap, tup->elem, tup->nelem);
+	p = int_hmap_get(hmap, tau);
+	p->val = result;
+	break;
+
+      case FUNCTION_TYPE:
+	fun = function_type_desc(table, tau);
+	result = function_type_subst(table, hmap, fun->range, fun->domain, fun->ndom);
+	p = int_hmap_get(hmap, tau);
+	p->val = result;
+	break;
+
+      default:
+	assert(is_type_variable(table, tau));
+	result = tau;
+	break;
+      }
+
+    }    
+  }
+
+  return result;
+}
+
+
+/*
+ * Apply a type substitution:
+ *   v[0 ... n-1] = distinct type variables
+ *   s[0 ... n-1] = types
+ * the function replaces v[i] by s[i] in tau and returns 
+ * the result.
+ */
+type_t type_substitution(type_table_t *table, type_t tau, uint32_t n, type_t v[], type_t s[]) {
+  int_hmap_t hmap;
+  int_hmap_pair_t *p;
+  uint32_t i;
+  type_t result;
+
+  assert(all_distinct_vars(table, n, v));
+
+  result = tau;
+  if (! ground_type(table, tau)) {
+    init_int_hmap(&hmap, 0);
+    for (i=0; i<n; i++) {
+      p = int_hmap_get(&hmap, v[i]);
+      assert(p->key == v[i] && p->val < 0);
+      p->val = s[i];
+    }
+    result = type_subst_recur(table, &hmap, tau);
+    delete_int_hmap(&hmap);
+  } 
+
+  return result;
 }
 
 
