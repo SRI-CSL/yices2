@@ -10,7 +10,7 @@
 
 
 /*
-o * RECORDS
+ * RECORDS
  */
 
 /*
@@ -290,7 +290,7 @@ tuple_hmap_rec_t *tuple_hmap_find(tuple_hmap_t *hmap, uint32_t n, int32_t key[])
  *   and the new record is returned.
  *   The value field of the new record is not initialized.
  */
-tuple_hmap_rec_t *tuple_hash_map_get(tuple_hmap_t *hmap, uint32_t n, int32_t key[], bool *new) {
+tuple_hmap_rec_t *tuple_hmap_get(tuple_hmap_t *hmap, uint32_t n, int32_t key[], bool *new) {
   tuple_hmap_rec_t *r;
   uint32_t i, j, h, mask;
 
