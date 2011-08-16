@@ -109,7 +109,7 @@ Grammar (SMT-LIB 2.0, December 21 2010)
 	    | :diagnostic-output-channel <string>
 	    | :random-seed <numeral>
 	    | :verbosity <numeral>
-	    | <attribute>	   o
+	    | <attribute>
 
 
    <bool-value> ::= true | false

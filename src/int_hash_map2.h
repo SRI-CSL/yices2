@@ -84,7 +84,7 @@ extern int_hmap2_rec_t *int_hmap2_find(int_hmap2_t *hmap, int32_t k0, int32_t k1
  * Get record with key (k0, k1).
  * - if one is in the table return it and set *new to false.
  * - otherwise, create a fresh record with key (k0, k1), and 
- *   set *new to false.
+ *   set *new to true.
  * If a new record is created, val is not initialized.
  * - k0 and k1 must be non-negative.
  */
@@ -111,7 +111,7 @@ extern void reset_int_hmap2(int_hmap2_t *hmap);
  *   record should be kept or not.
  * - aux is an auxiliary pointer passed as argument to keep_alive
  * The garbage collection function scans all records in the table, 
- * calls keep_alive(aux, r) on every record r, and remove r if 
+ * calls keep_alive(aux, r) on every record r, and removes r if 
  * keep_alive returns false.
  */
 typedef bool (*keep_alive_fun_t)(void *aux, int_hmap2_rec_t *r);

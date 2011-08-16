@@ -933,6 +933,7 @@ static type_t type_subst_recur(type_table_t *table, int_hmap_t *hmap, type_t tau
 	tup = tuple_type_desc(table, tau);
 	result = tuple_type_subst(table, hmap, tup->elem, tup->nelem);
 	p = int_hmap_get(hmap, tau);
+	assert(p->val < 0);
 	p->val = result;
 	break;
 
@@ -940,6 +941,7 @@ static type_t type_subst_recur(type_table_t *table, int_hmap_t *hmap, type_t tau
 	fun = function_type_desc(table, tau);
 	result = function_type_subst(table, hmap, fun->range, fun->domain, fun->ndom);
 	p = int_hmap_get(hmap, tau);
+	assert(p->val < 0);
 	p->val = result;
 	break;
 
