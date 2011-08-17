@@ -80,6 +80,11 @@ static void test_get(tuple_hmap_t *table, uint32_t n, int32_t *a) {
   d = tuple_hmap_find(table, n, a);
 
   r = tuple_hmap_get(table, n, a, &new);
+  if (new) {
+    // assign a value (otherwise valgrind will complain)
+    r->value = 93;
+  }
+
   printf("result: %p = ", r);
   print_tuple_record(r);
   if (new) {
