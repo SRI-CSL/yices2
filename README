@@ -233,7 +233,8 @@ To override the default, build an alternative configuration file
 for platform 'x86_64-apple-darwin9.x.y' with flag -m64 added to 
 CFLAGS to force compilation in 64bits mode. For example
 
-   ./configure --build=x86_64-apple-darwin9.2.2 CFLAGS=-m64
+   ./configure --build=x86_64-apple-darwin9.2.2 CFLAGS=-m64 \
+       --with-pic-gmp=....
 
 (The version number 2.2 changes with each patch/new version of
 Darwin. Adjust this as needed).
@@ -246,7 +247,8 @@ when using make. For example
 
 The result will be in ./build/x86-64-apple-darwin9.2.2-release/
 
-UPDATE: 09/28/2010. 
+
+UPDATE FOR MAC OS X: 09/28/2010. 
 
 On Mac OS X snow leopard (darwin10.x.y), the config.guess script
 that's part of the Yices source returns i386-apple-darwin10.x.y as the
@@ -255,6 +257,16 @@ x86_64. To force compilation in 32bit on these platforms, use
 
   ./configure CFLAGS=-m32 ...
 
+
+UPDATE FOR MAC OS X: 08/16/2011.
+
+To increase portability, it's a good idea to add
+
+  -mmacosx-version-min=10.5 
+
+to CFLAGS. Otherwise, code built on MacOS X 10.6 (Snow Leopard)
+may not run on MacOS X 10.5 (Leopard). I don't know if we can go
+back more than that (i.e., -mmacosx-version-min=10.4)?
 
 
 
