@@ -20,7 +20,7 @@ typedef struct {
 
 /*
  * Make a copy of str with ref count 0.
- * - str must be terminated by '0'
+ * - str must be terminated by '\0'
  */
 extern char *clone_string(const char *str);
 

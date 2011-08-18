@@ -441,3 +441,33 @@ void tuple_hmap_remove(tuple_hmap_t *hmap, uint32_t n, int32_t key[]) {
   }
 }
 
+
+
+/*
+ * Garbage collection
+ * - f is a function that indicates whether a record should be kept or not
+ * - aux is an auxiliary pointer passed as argument to f
+ * The function scans the hash tabe and calls f(aux, r) for every record r
+ * in the table. If f returns false, r is deleted, otherwise, r is kept.
+ */
+void tuple_hmap_gc(tuple_hmap_t *hmap, void *aux, tuple_hmap_keep_fun_t f) {
+  tuple_hmap_rec_t *r;
+  uint32_t i, n;
+
+  n = hmap->size;
+  for (i=0; i< n; i++) {
+    r = hmap->data[i];
+    if (live_tuple_record(r) && !f(aux, r)) {
+      // r must be deleted
+      safe_free(r);
+      hmap->data[i] = TUPLE_HMAP_DELETED;
+      hmap->nelems --;
+      hmap->ndeleted ++;
+    }
+  }
+
+  if (hmap->ndeleted > hmap->cleanup_threshold) {
+    tuple_hmap_cleanup(hmap);
+  }
+}
+

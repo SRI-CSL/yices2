@@ -112,8 +112,8 @@ src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c \
          string_utils.c symbol_tables.c terms.c term_printer.c       \
          term_stack.c term_stack_error.c term_utils.c                \
          theory_explanations.c timeout.c tuple_hash_map.c            \
-	 types.c type_printer.c uint_rbtrees.c union_find.c          \
-         use_vectors.c vsets.c yices_api.c yices_error.c             \
+	 types.c type_macros.c type_printer.c uint_rbtrees.c         \
+         union_find.c use_vectors.c vsets.c yices_api.c yices_error.c \
          yices_lexer.c yices_pp.c yices_parser.c yices_reval.c
 
 

@@ -34,16 +34,19 @@
 #define __TYPE_MACROS_H
 
 #include <stdint.h>
+#include <stdbool.h>
+#include <assert.h>
 
+#include "tagged_pointers.h"
 #include "symbol_tables.h"
-#include "tuple_hmap.h"
+#include "tuple_hash_map.h"
 #include "types.h"
 
 
 /*
  * Macro descriptor
  */
-typedef type_macro_s {
+typedef struct type_macro_s {
   char *name;
   uint32_t arity;
   type_t body;
@@ -64,15 +67,26 @@ typedef type_macro_s {
 /*
  * Table of macros
  * - macros are identified by an index 
- * - the table maps the index to the macro descriptor
+ * - the table maps the index to a macro descriptor
  * - it also includes a symbol table that maps macro name
  *   to its id, and a hash table that stores macro instances.
+ * - deleted descriptors are stored in a free list
+ *
+ * For an index id between 0 and table->nelems, 
+ * table->data[id] is a tagged pointer.
+ * - if the lower bit is 0, then id is a live macro index,
+ *   and table->data[id] is a pointer to the macro descriptor.
+ * - if the lower bit is 1, then id is the index of a deleted 
+ *   macro and table->data[id] stores a 31bit integer. This
+ *   integer is the successor of id in the free list (or -1
+ *   if id is last in the free list).
  */
 typedef struct type_mtbl_s {
   type_table_t *types;  // pointer to the type table
-  type_macro_t **data;  // descriptors
+  void         **data;  // descriptors
   uint32_t size;        // size of the data array
   uint32_t nelems;      // number of descriptor/macros stored
+  int32_t free_idx;     // first index in the free list (or -1)
   stbl_t stbl;          // symbol table
   tuple_hmap_t cache;   // existing macro instances
 } type_mtbl_t;
@@ -83,7 +97,7 @@ typedef struct type_mtbl_s {
  * Default and maximal size
  */
 #define TYPE_MACRO_DEF_SIZE   20
-#define TYPE_MACRO_MAX_SIZE   (UINT32_MAX/sizeof(type_macro_t*))
+#define TYPE_MACRO_MAX_SIZE   (UINT32_MAX/sizeof(void*))
 
 
 
@@ -120,8 +134,8 @@ extern void reset_type_mtbl(type_mtbl_t *table);
  *
  * 1) macro names have the same scoping mechanism as 
  *    term and type names. If a macro of a given name is 
- *    added to the table, and name used to refer to a previous
- *    macro then the previous mapping is hidden. It will be
+ *    added to the table, and name refers to an existing
+ *    macro then the current mapping is hidden. It will be
  *    restored after a call to remove_type_macro_name.
  *
  * 2) the implementation uses character strings with reference
@@ -197,6 +211,60 @@ extern void delete_type_macro(type_mtbl_t *table, int32_t id);
  */
 extern type_t instantiate_type_macro(type_mtbl_t *table, int32_t id,
 				     uint32_t n, type_t *actual);
+
+
+
+/*
+ * Access to macro descriptors
+ */
+// check whether id is a valid macro index
+static inline bool valid_type_macro(type_mtbl_t *table, int32_t id) {
+  return 0 <= id && id <= table->nelems;
+}
+
+// check whether id is a non-deleted macro index
+static inline bool good_type_macro(type_mtbl_t *table, int32_t id) {
+  return valid_type_macro(table, id) && !has_int_tag(table->data[id]);
+}
+
+// get the descriptor for the given macro index
+static inline type_macro_t *type_macro(type_mtbl_t *table, int32_t id) {
+  assert(good_type_macro(table, id));
+  return (type_macro_t *) table->data[id];
+}
+
+// descriptor components
+static inline char *type_macro_name(type_mtbl_t *table, int32_t id) {
+  return type_macro(table, id)->name;
+}
+
+static inline uint32_t type_macro_arity(type_mtbl_t *table, int32_t id) {
+  return type_macro(table, id)->arity;
+}
+
+static inline type_t type_macro_body(type_mtbl_t *table, int32_t id) {
+  return type_macro(table, id)->body;  
+}
+
+static inline type_t *type_macro_vars(type_mtbl_t *table, int32_t id) {
+  return type_macro(table, id)->vars;
+}
+
+// check whether the macro is a generic macro or an uninterpreted constructor
+static inline bool type_macro_is_generic(type_mtbl_t *table, int32_t id) {
+  return type_macro_body(table, id) != NULL_TYPE;
+}
+
+static inline bool type_macro_is_constructor(type_mtbl_t *table, int32_t id) {
+  return type_macro_body(table, id) == NULL_TYPE;
+}
+
+// variable i for a generic macro
+static inline type_t type_macro_var(type_mtbl_t *table, int32_t id, uint32_t i) {
+  assert(type_macro_is_generic(table, id) && i < type_macro_arity(table, id));
+  return type_macro(table, id)->vars[i];
+}
+
 
 
 #endif  /* __TYPE_MACROS_H */
