@@ -7,7 +7,6 @@
 #include "types.h"
 #include "type_printer.h"
 #include "refcount_strings.h"
-#include "yices_pp.h"
 
 
 #ifdef MINGW

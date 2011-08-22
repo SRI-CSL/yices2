@@ -3,7 +3,7 @@
  */
 
 /*
- * This is intended to support SMT LIB2 functions 
+ * This is intended to support SMT LIB2 commands
  *     (declare-sort <name> <arity>)
  * and (define-sort <name> (<list-of-names>) <sort>)
  * when the arity is non-zero or the list-of-names is non-empty.
