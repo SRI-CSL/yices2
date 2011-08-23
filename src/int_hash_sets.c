@@ -73,6 +73,7 @@ static uint32_t hash(uint32_t x) {
   return x;
 }
 
+
 /*
  * Insert integer x into array a.
  * - mask = 2^n - 1 where size of a = 2^n
@@ -90,6 +91,7 @@ static void hset_insert(uint32_t *a, uint32_t mask, uint32_t x) {
   }
   a[i] = x;
 }
+
 
 /*
  * Check whether x is present in a
@@ -109,6 +111,7 @@ static bool hset_search(uint32_t *a, uint32_t mask, uint32_t x) {
     i &= mask;
   }
 }
+
 
 /*
  * Add x to a if it's not already present

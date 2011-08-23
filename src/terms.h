@@ -25,7 +25,7 @@
  *
  * April 20, 2007. Put back a separate representation for bvconstants.
  *
- * June 6, 2007. Added distinct as a builtin term kind.
+ * June 6, 2007. Added distinct as a built-in term kind.
  *
  * June 12, 2007. Added the bv_apply constructor to support bit-vector operations
  * that are overloaded but that we want to treat as uninterpreted terms (mostly).
@@ -352,8 +352,6 @@ typedef union {
 } term_desc_t;
 
 
-
-
 /*
  * Finalizer function: this is called when a special_term
  * is deleted (to cleanup the spec->extra field).
@@ -361,7 +359,7 @@ typedef union {
  */
 typedef void (*special_finalizer_t)(special_term_t *spec, term_kind_t tag);
 
- 
+
 /*
  * Term table: valid terms have indices between 0 and nelems - 1
  *

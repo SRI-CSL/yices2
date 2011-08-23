@@ -26,7 +26,7 @@ typedef struct int_hset_s {
   uint32_t *data;
   uint32_t size;
   uint32_t nelems;
-  uint32_t z_flag;
+  bool z_flag;
   uint32_t resize_threshold;
 } int_hset_t;
 
@@ -56,10 +56,12 @@ typedef struct int_hset_s {
  */
 extern void init_int_hset(int_hset_t *set, uint32_t n);
 
+
 /*
  * Free memory
  */
 extern void delete_int_hset(int_hset_t *set);
+
 
 /*
  * Check whether s is empty
@@ -72,10 +74,12 @@ static inline bool int_hset_is_empty(int_hset_t *set) {
   return !int_hset_is_nonempty(set);
 }
 
+
 /*
  * Check whether x is in set s
  */
 extern bool int_hset_member(int_hset_t *set, uint32_t x);
+
 
 /*
  * Add element x to set
