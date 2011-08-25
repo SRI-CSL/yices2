@@ -313,7 +313,7 @@ power_products,c                - variable x_i is an integer
 pprod_table.h:			Table for hash-consing of power products.
 pprod_table.c
 
-polynomial_common.h:            Types and constants common to all three types f polynomials.
+polynomial_common.h:            Types and constants common to all three types of polynomials.
 
 
 polynomials.h:                  Polynomials with rational coefficients
@@ -528,7 +528,7 @@ smt_parser.c
 
 
 
-Support for SMT-LIB 2.0: (under progress, not complete yet)
+Support for SMT-LIB 2.0: (in progress, not complete yet)
 
 smt2_tokens.txt:         All tokens + reserved symbols used in SMT-LIB 2.0 (including 
 			 command names).
