@@ -962,7 +962,7 @@ static type_t type_subst_recur(type_table_t *table, int_hmap_t *hmap, type_t tau
  * Apply a type substitution:
  *   v[0 ... n-1] = distinct type variables
  *   s[0 ... n-1] = types
- * the function replaces v[i] by s[i] in tau and returns 
+ * the function replaces v[i] by s[i] in tau and returns
  * the result.
  */
 type_t type_substitution(type_table_t *table, type_t tau, uint32_t n, type_t v[], type_t s[]) {
