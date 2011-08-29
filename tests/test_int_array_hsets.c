@@ -23,18 +23,18 @@ static void print_harray(harray_t *set) {
 
   n = set->nelems;
   if (n == 0) {
-    printf("{}");
+    printf("[]");
   } else {
-    printf("{%"PRId32, set->data[0]);
+    printf("[%"PRId32, set->data[0]);
     for (i=1; i<n; i++) {
       printf(" %"PRId32, set->data[i]);
     }
-    printf("}");
+    printf("]");
   }
 }
 
 
-static void print_harray_set(int_array_hset *table) {
+static void print_harray_set(int_array_hset_t *table) {
   uint32_t i;
   harray_t *d;
 
@@ -59,16 +59,16 @@ static void print_harray_set(int_array_hset *table) {
 /*
  * Add a record
  */
-static void test_get(int_array_hset *table, uint32_t n, int32_t *a) {
+static void test_get(int_array_hset_t *table, uint32_t n, int32_t *a) {
   harray_t *d;
 
   printf("Test get ");
   print_array(n, a);
   printf("\n");
 
-  d = vset_htbl_get(table, n, a);
+  d = int_array_hset_get(table, n, a);
   printf("result: %p = ", d);
-  print_vset(d);
+  print_harray(d);
   printf("\n");
 }
 
@@ -76,17 +76,17 @@ static void test_get(int_array_hset *table, uint32_t n, int32_t *a) {
 /*
  * Search for a record
  */
-static void test_find(int_array_hset *table, uint32_t n, int32_t *a) {
+static void test_find(int_array_hset_t *table, uint32_t n, int32_t *a) {
   harray_t *d;
 
   printf("Test find ");
   print_array(n, a);
   printf("\n");
 
-  d = vset_htbl_find(table, n, a);
+  d = int_array_hset_find(table, n, a);
   if (d != NULL) {
     printf("result: %p = ", d);
-    print_vset(d);
+    print_harray(d);
   } else {
     printf("result: NULL");
   }
@@ -97,24 +97,24 @@ static void test_find(int_array_hset *table, uint32_t n, int32_t *a) {
 /*
  * Remove a record
  */
-static void test_remove(int_array_hset *table, uint32_t n, int32_t *a) {
+static void test_remove(int_array_hset_t *table, uint32_t n, int32_t *a) {
   printf("Test remove ");
   print_array(n, a);
   printf("\n");
-  vset_htbl_remove(table, n, a);
+  int_array_hset_remove(table, n, a);
 }
 
 
 #define N 20
-static int_array_hset table;
+static int_array_hset_t table;
 static int32_t aux[20];
 
 int main(void) {
   uint32_t i, j;
 
-  init_vset_htbl(&table, 4);
+  init_int_array_hset(&table, 4);
   printf("\n*** Initial table ***\n");
-  print_vsets(&table);
+  print_harray_set(&table);
 
   for (j=0; j<20; j++) {
     aux[j] = j;
@@ -126,21 +126,21 @@ int main(void) {
   }
 
   printf("\n*** After additions ***\n");
-  print_vsets(&table);
+  print_harray_set(&table);
 
   test_find(&table, 10, aux);
   test_find(&table, 15, aux);
 
-  reset_vset_htbl(&table);
+  reset_int_array_hset(&table);
   printf("\n*** After reset ***\n");
-  print_vsets(&table);
+  print_harray_set(&table);
 
   for (i=0; i<14; i += 2) {
     test_get(&table, i, aux);
   }
 
   printf("\n*** After additions ***\n");
-  print_vsets(&table);
+  print_harray_set(&table);
 
   for (i=0; i<20; i++) {
     test_find(&table, i, aux);
@@ -151,14 +151,14 @@ int main(void) {
   }
 
   printf("\n*** After removals ***\n");
-  print_vsets(&table);
+  print_harray_set(&table);
 
   for (i=0; i<20; i++) {
     test_find(&table, i, aux);
   }
 
 
-  delete_vset_htbl(&table);
+  delete_int_array_hset(&table);
 
   return 0;
 }

@@ -1,6 +1,5 @@
 /*
- * Sets of integers stored as arrays
- * Support for hash consing
+ * Hash consing for arrays of integers
  */
 
 #ifndef __VSETS_H
