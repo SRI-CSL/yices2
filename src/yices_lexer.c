@@ -240,8 +240,9 @@ static yices_token_t read_string(lexer_t *lex) {
   buffer = lex->buffer;
   assert(reader_current_char(rd) == '"');
 
+  c = reader_next_char(rd);
+
   for (;;) {
-    c = reader_next_char(rd);
     if (c == '"') { // end of string
       // consume the closing quote
       reader_next_char(rd);
@@ -271,13 +272,16 @@ static yices_token_t read_string(lexer_t *lex) {
 	      c = reader_next_char(rd);
 	    }
 	  }
-	  string_buffer_append_char(buffer, x);
+	  // x = character built from the octal digits
 	  // c = character after octal digit
+	  string_buffer_append_char(buffer, x);
 	  continue;
-	} // else skip '\' 
+	} // else skip '\': copy c in the buffer
+	break;
       }
     }
     string_buffer_append_char(buffer, c);
+    c = reader_next_char(rd);
   }
 
   string_buffer_close(buffer);
