@@ -247,7 +247,7 @@ static bool subst_ctx_array_is_sorted(int32_t *a, uint32_t n) {
 
   i = 2;
   while (i < n) {
-    if (a[i] >= a[i+2]) return false;
+    if (a[i-2] >= a[i]) return false;
     i += 2;
   }
   return true;
