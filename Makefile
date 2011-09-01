@@ -53,17 +53,26 @@ endif
 #
 # OPTION: select an alternative configuration file
 #
-# 1) On Mac OS X/intel, the default configuration is 
-#    in file make.include.i386-apple-darwinX.Y.Z.
-#    By convention, and because 32bit was the default on Mac OS X
-#    before Darwin 10.6, this is intended to be a 32bit build.
+# 1) On Mac OS X Leopard/intel (darwin9.X.Y), the default configuration is 
+#    in file  make.include.i386-apple-darwin9.X.Y
+#    This builds Yices as a 32bit executable.
 #
 #    It's possible to use an alternative configuration file
-#    make.include.x86_64-apple-darwinX.Y.Z on the same system.
+#       make.include.x86_64-apple-darwin9.Y.Z on the same system.
 #    This is intended to build Yices as 64bit code.
 #      
 #    To select the alternative configuration use 'make OPTION=64bits ..'
 #
+# 1a) Since Mac OS X Snow Leopard (darwin10.X.Y) and newer, the default
+#     is reversed. The default configuration is in file
+#        make.include.x86_64-apple-darwin10.X.Y
+#     This builds Yices for 64bit by default.
+#
+#     To build for 32bit on the same system, use the alternative
+#     configuration file  make.include.i386-apple-darwin10.X.Y
+#
+#     To select the alternative configuration use 'make OPTION=32bits ...'
+# 
 # 2) On Linux/x86_64, we compile in 64 bit mode by default,
 #    using configuration file make.include.x86_64-unknown-linux-gnu
 # 
@@ -103,6 +112,10 @@ ifneq ($(OPTION),)
   ifeq ($(POSIXOS),darwin)
     ifeq ($(OPTION),64bits) 
       newarch=$(subst i386,x86_64,$(ARCH))
+    else
+    ifeq ($(OPTION),32bits)
+      newarch=$(subst x86_64,i386,$(ARCH))
+    endif
     endif
   else
   ifeq ($(POSIXOS),cygwin)
