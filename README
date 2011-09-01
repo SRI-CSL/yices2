@@ -658,8 +658,8 @@ know what this library is about. Possible fixes:
 
 
 
-BUILDING A WINDOWS (WIN32) VERSION FROM CYGWIN
-----------------------------------------------
+BUILDING A WINDOWS 32bit VERSION FROM CYGWIN
+--------------------------------------------
 
 To build a version of Yices that can run on a native Windows machine,
 one can either install Mingw and msys and compile from there, or
@@ -669,7 +669,7 @@ configuration.  For the result to work, one must either give the flag
 easier but may no longer be supported by new versions of GCC.
 
 
-1) Using the -mno-cygwin flag
+OLD METHOD: Using the -mno-cygwin flag
 
 On Cygwin, the default compilation produces code that requires Cygwin
 libraries at run time. This code cannot run on a native Windows machine
@@ -694,27 +694,203 @@ etc. or by giving options LDPATH=... CPPFLAGS=... to ./configure
 
 
 
-2) Using a cross compiler (on Cygwin)
+MEW METHOD: Using a cross compiler 
 
-Noted in November 2009:
+1) Get the cross compiler: start 'setup.exe' in Windows
+   then install the packages 'mingw64-i686-gcc' and relatives.
 
-Some versions of GCC on Cygwin do not support the option -mno-cygwin.
-
-On my Cygwin machine, there are two compilers:
-  /usr/bin/gcc supports the -mno-cygwin flag
-  /usr/bin/gcc-4 does not support the -mno-cygwin flag.
+   The cross compiler is /usr/bin/i686-w64-mingw32-gcc
 
 
-It looks like -mno-cygwin won't be supported much longer by GCC. If
-your compiler does not have it. It's possible to build and install a
-GCC cross compiler (that runs on Cygwin and targets Mingw32), then
-compile Yices with it.
+2) Build an install a 32bit version of GMP using the cross compiler
+   (read doc/GMP). 
+
+   Two versions of GMP must be installed. On my machine, the dynamic 
+   GMP library was built with
+     --prefix=/home/bruno/tools/mingw32
+
+   and the static version was built with
+     --prefix=/home/bruno/tools/mingw32/static
 
 
-UPDATE 2010/11/15: There's now an easier way. There are now precompiled
-cross compilers in the Cygwin distribution. They can be installed using
-the setup.exe utility.
+3) Configure yices as follows:
 
+   ./configure --build=i686-pc-mingw32 \
+        CC=/usr/bin/i686-w64-mingw32-gcc \
+        LD=/usr/bin/i686-w64-mingw32-ld \
+        STRIP=/usr/bin/i686-w64-mingw32-strip \
+        RANLIB=/usr/bin/i686-w64-mingw32-ranlib \
+	CPPFLAGS=-I/home/bruno/tools/mingw32/include \
+	LDFLAGS=-L/home/bruno/tools/mingw32/lib \
+        --with-static-gmp=/home/bruno/tools/mingw32/static/lib/libgmp.a \
+        --with-static-gmp-include-dir=/home/bruno/tools/mingw32/static/include 
+
+
+4) Compile using OPTION=mingw32 (or OPTION=no-cygwin)
+
+     make all OPTION=mingw32
+
+     make dist
+
+     make static-dist
+
+
+5) Build the library files 'liyices.lib' by hand (using the Visual Studio 'lib' tool)
+   See the notes below for help on how to do this.
+ 
+
+6) Build the tar files
+
+    make tarfile
+
+    make static-tarfile
+
+
+
+
+
+
+BUILDING A WINDOWS 64bit VERSION FROM CYGWIN
+----------------------------------------------
+
+This can be done using the mingw64 cross compiler on Cygwin.
+
+1) To get the cross compiler, start the setup.exe utility in
+   Windows. Then install the packages  mingw64-x86_64-gcc and
+   relatives. These are in section 'devel' of 'setup.exe'
+
+   The mingw64 compiler is installed as /usr/bin/x86_64-w64-mingw32-gcc
+
+2) Build and install a 64bit version of GMP. Read doc/GMP for help.
+
+   There should be two versions of GMP/64bits installed for Yices to
+   configure properly. 
+
+   On my Dell laptop: the dynamic GMP/64bits library was installed with 
+     --prefix=/home/bruno/tools/mingw64
+   
+   The static GMP/64bits library was installed with
+     --prefix=/home/bruno/tools/mingw64/static
+
+   So this means that we have the following files:
+ 
+      /home/bruno/tools/mingw64/bin/libgmp-10.dll        (GMP DLL)
+      /home/bruno/tools/mingw64/lib/libgmp.dll.a         (corresponding lib file)
+      /home/bruno/tools/mingw64/include/gmp.h            (corresponding include)
+ 
+      /home/bruno/tools/mingw64/static/lib/libgmp.a      (static GMP)
+      /home/bruno/tools/mingw64/static/include/gmp.h     (corresponding include)
+
+
+3) Assuming this installation, configure Yices as follows
+ 
+    ./configure --build=x86_64-pc-mingw32 \
+        CC=/usr/bin/x86_64-w64-mingw32-gcc \
+        LD=/usr/bin/x86_64-w64-mingw32-ld \
+        STRIP=/usr/bin/x86_64-w64-mingw32-strip \
+        RANLIB=/usr/bin/x86_64-w64-mingw32-ranlib \
+	CPPFLAGS=-I/home/bruno/tools/mingw64/include \
+	LDFLAGS=-L/home/bruno/tools/mingw64/lib \
+        --with-static-gmp=/home/bruno/tools/mingw64/static/lib/libgmp.a \
+        --with-static-gmp-include-dir=/home/bruno/tools/mingw64/static/include 
+
+   To select this configuration give 'OPTION=mingw64' to the make commands.   
+
+
+
+
+FOR WINDOWS/MINGW DISTRIBUTIONS: MANUAL STEPS TO BUILD libyices.lib
+-------------------------------------------------------------------
+
+This must be done when building the mingw32 or mingw64 distributions
+(after make dist or make static-dist, and before make tarfile or make
+static-tarfile).
+
+1) Open a Visual studio C++ command prompt (in Windows)
+
+2) Go to the directory dist/lib or static_dist/lib directory for 
+   Yices/mingw32:
+
+      c:\cygwin\home\...\build\i686-pc-mingw32-release\dist\lib
+   or c:\cygwin\home\...\build\i686-pc-mingw32-release\static_dist\lib
+     
+   These directories should contain:
+ 
+       libyices.a
+       libyices.dll.a
+       libyices.dll
+       libyices.def
+
+3) From the Visual studio prompt, type
+
+       lib /def:libyices.def
+
+   This will create libyices.lib and libyices.exp
+
+4) Cleanup: delete libyices.def and libyices.exp 
+   (they are not needed).
+
+5) Build the tarfile.
+
+
+
+For 64bit Windows (mingw64): the libraries are in
+
+      c:\cygwin\home\...\build\x86_64-pc-mingw32\dist\lib
+  and c:\cygwin\home\...\build\x86_64-pc-mingw32\static_dist\lib
+
+
+The procedure should be the same as above.
+
+
+
+NOTES FOR GCC4.4.x
+------------------
+
+Compiling yices with gcc-4.4 with the default options causes a
+lot of warnings of the form: 
+
+warning: inlining failed in call to 'xxx': call is unlikely and code size would grow
+
+The yices functions that are declared 'inline' are small and do not
+cause much code growth. So these warnings are annoying.
+
+This is caused by heuristics GCC employs to determine whether inlining
+a function call is worth doing. GCC attempts to determine whether a
+basic block is executed frequently enough before inlining the function
+calls in that block. By default, GCC uses crude heuristics to guess
+the execution frequency of each block (and other heuristics to
+estimate code growth).
+
+The part about 'code size would grow' can be misleading. The warning
+will be produced even if inlining does not cause any code growth at
+all, probably because the code-growth estimate is not very accurate.
+
+There are several ways to fix this:
+
+1) remove -Winline from the compilation flags. GCC will inline whatever it
+   wants and there will be no warnings.
+
+2) add  __attribute__ ((always_inline)) to the inline functions that cause 
+   problem. GCC will stop checking whether the size grows and whether the 
+   call is likely.
+
+3) add option -fno-guess-branch-probability to CFLAGS.
+
+4) play with the parameters that control what GCC considers high enough frequency
+   (e.g., add option --param hot-bb-frequency-fraction=2000)
+
+
+
+
+
+BUILDING A GCC CROSS COMPILER ON CYGWIN
+---------------------------------------
+
+It's possible to build and install a GCC cross compiler (that runs on
+Cygwin and targets Mingw32), then compile Yices with it. The best
+method is to install the pre-built mingw32 and mingw64 compilers using
+Cygwin's 'setup.exe' tool.
 
 
 TO DO IT THE HARD WAY, FOLLOW THESE INSTRUCIONS:
@@ -788,126 +964,4 @@ Then to select this configuration:
 
    make OPTION=no-cygwin ....
 
-
-
-
-BUILDING A WINDOWS 64bit VERSION FROM CYGWIN
-----------------------------------------------
-
-This can be done using the mingw64 cross compiler on Cygwin.
-
-1) To get the cross compiler, start the setup.exe utility in
-   Windows. Then install the packages  mingw64-x86_64-gcc and
-   relatives. These are in section 'devel' of 'setup.exe'
-
-   The mingw64 compiler is installed as /usr/bin/x86_64-w64-mingw32-gcc
-
-2) Build and install a 64bit version of GMP. Read doc/GMP for help.
-
-   There should be two versions of GMP/64bits installed for Yices to
-   configure properly. 
-
-   On my Dell laptop: the dynamic GMP/64bits library was installed with 
-     --prefix=/home/bruno/tools/mingw64
-   
-   The static GMP/64bits library was installed with
-     --prefix=/home/bruno/tools/mingw64/static
-
-   So this means that we have the following files:
- 
-      /home/bruno/tools/mingw64/bin/libgmp-10.dll        (GMP DLL)
-      /home/bruno/tools/mingw64/lib/libgmp.dll.a         (corresponding lib file)
-      /home/bruno/tools/mingw64/include/gmp.h            (corresponding include)
- 
-      /home/bruno/tools/mingw64/static/lib/libgmp.a      (static GMP)
-      /home/bruno/tools/mingw64/static/include/gmp.h     (corresponding include)
-
-
-3) Assuming this installation, configure Yices as follows
- 
-    ./configure --build=x86_64-pc-mingw32 \
-        CC=/usr/bin/x86_64-w64-mingw32-gcc \
-        LD=/usr/bin/x86_64-w64-mingw32-ld \
-        STRIP=/usr/bin/x86_64-w64-mingw32-strip \
-        RANLIB=/usr/bin/x86_64-w64-mingw32-ranlib \
-	CPPFLAGS=-I/home/bruno/tools/mingw64/include \
-	LDFLAGS=-L/home/bruno/tools/mingw64/lib \
-        --with-static-gmp=/home/bruno/tools/mingw64/static/lib/libgmp.a \
-        --with-static-gmp-include-dir=/home/bruno/tools/mingw64/static/include 
-
-   To select this configuration give 'OPTION=mingw64' to the make commands.   
-
-
-
-FOR WINDOWS/MINGW DISTRIBUTIONS: MANUAL STEPS TO BUILD libyices.lib
--------------------------------------------------------------------
-
-This must be done when building the mingw32 distribution (after
-make dist or make static-dist, and before make tarfile or make 
-static-tarfile).
-
-1) Open a Visual studio C++ command prompt (in Windows)
-
-2) Go to the directory dist/lib or static_dist/lib directory for 
-   Yices/mingw32:
-
-      c:\cygwin\home\...\build\i686-pc-mingw32-release\dist\lib
-   or c:\cygwin\home\...\build\i686-pc-mingw32-release\static_dist\lib
-     
-   These directories should contain:
- 
-       libyices.a
-       libyices.dll.a
-       libyices.dll
-       libyices.def
-
-3) From the Visual studio prompt, type
-
-       lib /machine:x86 /def:libyices.def
-
-   This will create libyices.lib and libyices.exp
-
-4) Cleanup: delete libyices.def and libyices.exp 
-   (they are not needed).
-
-5) Build the tarfile.
-
-
-
-
-NOTES FOR GCC4.4.x
-------------------
-
-Compiling yices with gcc-4.4 with the default options causes a
-lot of warnings of the form: 
-
-warning: inlining failed in call to 'xxx': call is unlikely and code size would grow
-
-The yices functions that are declared 'inline' are small and do not
-cause much code growth. So these warnings are annoying.
-
-This is caused by heuristics GCC employs to determine whether inlining
-a function call is worth doing. GCC attempts to determine whether a
-basic block is executed frequently enough before inlining the function
-calls in that block. By default, GCC uses crude heuristics to guess
-the execution frequency of each block (and other heuristics to
-estimate code growth).
-
-The part about 'code size would grow' can be misleading. The warning
-will be produced even if inlining does not cause any code growth at
-all, probably because the code-growth estimate is not very accurate.
-
-There are several ways to fix this:
-
-1) remove -Winline from the compilation flags. GCC will inline whatever it
-   wants and there will be no warnings.
-
-2) add  __attribute__ ((always_inline)) to the inline functions that cause 
-   problem. GCC will stop checking whether the size grows and whether the 
-   call is likely.
-
-3) add option -fno-guess-branch-probability to CFLAGS.
-
-4) play with the parameters that control what GCC considers high enough frequency
-   (e.g., add option --param hot-bb-frequency-fraction=2000)
 
