@@ -3,6 +3,11 @@
  * (variable indices) to int32_t indices (term indices). These
  * indices are assumed non-negative,
  *
+ * This provides a scoping mechanism: a lookup operation for x returns
+ * the most recent value mapped to x. Adding a new binding for x masks
+ * the previous binding. Bindings are removed in a FIFO manner and
+ * removing the current binding of x restores the previous one.
+ *
  * The mapping is stored as an array. Each lookup operation
  * requires linear time, so this should not be used to
  * store large mappings.

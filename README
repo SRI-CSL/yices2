@@ -1,4 +1,4 @@
-PREREQUESITES
+PREREQUISITES
 -------------
 
 - autoconf version 2.60 or newer
@@ -53,9 +53,11 @@ To build Yices from the source on a new platform:
 
 
 
-4a) For mingw32/mingw64: A manual step is required to create 'libyices.lib',
-    using the Microsoft's Visual Studio tools. The distributions must be
-    built as follows:
+4a) For mingw32/mingw64
+
+    A manual step is required to create 'libyices.lib', using the
+    Microsoft's Visual Studio tools. The distributions must be built
+    as follows:
 
       make dist
       <manual step to create libyices.lib>
@@ -126,9 +128,9 @@ Example: on an Intel Mac, there may be four subdirectories under build:
 
 Each of these directories contains subdirectories for objects,
 libraries, and binaries. In a build mode, there are two variant
-compilations, namely, with or without GMP statically linked.  So this
-gives 6 different subdirectories for each pair platform/build
-mode. For example:
+compilations, namely, with or without GMP statically linked.  This
+gives 6 different subdirectories for each pair platform/build mode. 
+For example:
 
   ./build/i386-apple-darwin8.9.1-release/obj
   ./build/i386-apple-darwin8.9.1-release/lib
@@ -143,8 +145,8 @@ These six directories are where the binaries/objects/library
 files are stored during compilation.
 
 
-When a binary distribution is built, the relevant files are copied
-into one of the subdirectories:
+When a binary distribution is built, the relevant files are first
+copied into one of the subdirectories:
 
   ./build/i386-apple-darwin8.9.1-release/dist
   ./build/i386-apple-darwin8.9.1-release/static_dist
@@ -236,7 +238,7 @@ Building Yices may require as many as three different GMP libraries:
   - for some platforms, another version of libgmp.a compiled 
     as position independent code may also be required.
 
-In addition, on Cygwin and Mingw, the static and dynamic library
+In addition, on Cygwin and Mingw, the static and dynamic GMP library
 require different header files 'gmp.h'.
 
 
@@ -245,7 +247,7 @@ files in default locations. If that fails, or if the defaults are
 wrong,  the following options can be given to ./configure:
 
    --with-static-gmp=<path to libgmp.a>
-   --with-static-gmp-include-dir=<dirrectory of the corresponding 'gmp.h'>
+   --with-static-gmp-include-dir=<directory of the corresponding 'gmp.h'>
 
    --with-pic-gmp=<path to PIC libgmp,a>
    --with-pic-gmp-include-dir=<directory of the corresponding 'gmp.h'>
@@ -266,7 +268,7 @@ To set the platform to something else than the default, give option
 to ./configure. This will store compilation flags for this platform in
 file './configs/make.include.<platform>'. Then this configuration file
 can be selected by giving an argument of the form 'OPTION=...' to the
-'make' comand.
+'make' command.
 
 
 For example, the default platform for a Linux/64bit machine is
@@ -274,7 +276,7 @@ For example, the default platform for a Linux/64bit machine is
   'x86_64-unknown-linux-gnu'. 
 
 It may be possible to compile for 32bit on the same machine 
-(depending on compler and libraries). To configure for 32bit 
+(depending on compiler and libraries). To configure for 32bit 
 compilation, we build for the alternative platform 
 
   'i686-unknown-linux-gnu'
@@ -358,8 +360,9 @@ The last five modes select compilation flags to enable (or help) runtime
 analysis of the Yices executable using 'gprof', 'gcov', 'valgrind', etc.
 
 NOTE: for analysis with 'valgrind', it's usually sufficient to compile
-with 'MODE=debug'. MODE=valgrind is required in rare cases, when some bug
-manifests itself only when the code is compiled with optimizations.
+      with 'MODE=debug'. MODE=valgrind is required in rare cases, when
+      some bug manifests itself only when the code is compiled with
+      optimizations.
 
 
 
@@ -374,7 +377,7 @@ The main targets are:
    static-distribution     tarfile for a Yices static distribution
                            (statically linked against GMP)
 
-   source-distirbution     build a tarfile containing the Yices sources
+   source-distribution     build a tarfile containing the Yices sources
 
 
 
@@ -387,7 +390,7 @@ Variants for the mingw distributions:
    tarfile                 build a standard distribution tarfile  
                            (after dist + manual construction of lib file)
 
-   static-tarfile          build a static distribution targile
+   static-tarfile          build a static distribution tarfile
                            (after static-dist + manual construction of lib file)
    
 
@@ -409,8 +412,12 @@ Other possible targets:
    sat			   sat solvers (dynamically linked)
    static-sat              sat solvers (statically linked)
 
-   install                 install libraries/excutables/header files on
+   install                 install libraries/executables/header files on
                            the current machine
+
+   check		   show some data about the configuration
+
+   recheck                 show more data about the configuration
 
 
 For cleanup:
@@ -432,7 +439,7 @@ NOTES FOR LINUX BUILDS
 1) Default build
 
 On most Linux distributions, GMP and gperf can be installed using a
-package mangement systemms (e.g., 'apt-get' on Ubuntu). It's also 
+package management systems (e.g., 'apt-get' on Ubuntu). It's also 
 straightforward to build and install them from the sources.
 
 The only issue may be that libgmp.a is not position-independent by
@@ -486,7 +493,7 @@ NOTES:
 
 It may be necessary to give some options to the linker as follows:
 
-  ./configure --build=i686-unknown-linux-gnu CFAGS=-m32 LD='ld -melf_i386'
+  ./configure --build=i686-unknown-linux-gnu CFLAGS=-m32 LD='ld -melf_i386'
 
 It may also be necessary to use the --with-pic-gmp option.
 
@@ -636,9 +643,10 @@ Then the build should work using the default commands:
     make static-distribution
 
 
-NOTE: On both Cygwin and Mingw, the static 'libgmp.a' is position 
-independent code so there's no need to specify a different PIC gmp. 
-Option  --with-pic-gmp  should not be used on Cygwin or Mingw.
+NOTE: On both Cygwin and Mingw, the static 'libgmp.a' is position
+      independent code so there's no need to specify a different PIC
+      gmp.  Option --with-pic-gmp should not be used on Cygwin or
+      Mingw.
 
 
 
@@ -661,6 +669,10 @@ know what this library is about. Possible fixes:
 BUILDING A WINDOWS 32bit VERSION FROM CYGWIN
 --------------------------------------------
 
+On Cygwin, the default compilation produces code that requires Cygwin
+libraries at run time. This code cannot run on a native Windows
+machine that does not have Cygwin installed.
+
 To build a version of Yices that can run on a native Windows machine,
 one can either install Mingw and msys and compile from there, or
 compile from Cygwin using --build=i686-pc-mingw32 to select a Mingw32
@@ -671,11 +683,7 @@ easier but may no longer be supported by new versions of GCC.
 
 OLD METHOD: Using the -mno-cygwin flag
 
-On Cygwin, the default compilation produces code that requires Cygwin
-libraries at run time. This code cannot run on a native Windows machine
-that does not have Cygwin installed. To build code that can run natively
-on Windows, it is possible to compile with options -mno-cygwin on a
-Cygwin installation. To do this, type
+To do this, type
 
    ./configure --build=i686-pc-mingw32 CFLAGS=-mno-cygwin
 
@@ -730,9 +738,9 @@ MEW METHOD: Using a cross compiler
 
      make all OPTION=mingw32
 
-     make dist
+     make dist OPTION=mingw32
 
-     make static-dist
+     make static-dist OPTION=mingw32
 
 
 5) Build the library files 'liyices.lib' by hand (using the Visual Studio 'lib' tool)
@@ -741,9 +749,9 @@ MEW METHOD: Using a cross compiler
 
 6) Build the tar files
 
-    make tarfile
+    make tarfile OPTION=mingw32
 
-    make static-tarfile
+    make static-tarfile OPTION=mingw32
 
 
 
@@ -855,12 +863,12 @@ warning: inlining failed in call to 'xxx': call is unlikely and code size would 
 The yices functions that are declared 'inline' are small and do not
 cause much code growth. So these warnings are annoying.
 
-This is caused by heuristics GCC employs to determine whether inlining
-a function call is worth doing. GCC attempts to determine whether a
-basic block is executed frequently enough before inlining the function
-calls in that block. By default, GCC uses crude heuristics to guess
-the execution frequency of each block (and other heuristics to
-estimate code growth).
+The warnings are caused by heuristics that GCC employs to determine
+whether it is worth inlining a function call. GCC attempts to
+determine whether a basic block is executed frequently enough before
+inlining the function calls in that block. By default, GCC uses crude
+heuristics to guess the execution frequency of each block (and other
+heuristics to estimate code growth).
 
 The part about 'code size would grow' can be misleading. The warning
 will be produced even if inlining does not cause any code growth at
