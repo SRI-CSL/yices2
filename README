@@ -1,28 +1,134 @@
+PREREQUESITES
+-------------
+
+- autoconf version 2.60 or newer
+- GCC version 4.0.x or newer
+- gperf version 3.0 or newer
+- GMP library version 4.1 or newer
+
++ other standard tools: make (gnumake is required), sed, etc.
+
+
+
+
+BUILDING YICES USING THE DEFAULT CONFIGURATION
+----------------------------------------------
+
+To build Yices from the source on a new platform:
+
+1) run autoconf
+
+2) run ./configure
+
+   If all goes well, this will produce a configuration file  
+   make.include.<platform> in the ./configs directory.   
+
+   <platform> is something like 'x86_64-unknown-linux-gnu'
+
+
+3) compile using
+
+      make all
+
+   This produces two versions of the binaries and libraries 
+   (with and without GMP statically linked) in:
+       
+      ./build/<platform>-release/bin 
+      ./build/<platform>-release/static_bin
+      ./build/<platform>-release/lib
+      ./build/<platform>-release/static_lib
+       
+
+4) build the distribution tarfiles (not for the mingw32/mingw64 distribution)
+
+      make binary-distribution
+
+   This builds ./distributions/yices-2.x.y-<platform>.tar.gz
+   This tarfile contains binaries + libraries dynamically linked with GMP.
+
+      make static-distribution
+
+   This builds ./distributions/yices-2.x.y-<platform>-static-gmp.tar.gz
+   This tarfile contains binaries + libraries statically linked with GMP.
+
+
+
+4a) For mingw32/mingw64: A manual step is required to create 'libyices.lib',
+    using the Microsoft's Visual Studio tools. The distributions must be
+    built as follows:
+
+      make dist
+      <manual step to create libyices.lib>
+      make tarfile
+
+    or 
+
+      make static-dist
+      <manual step ...>
+      make static-tarfile
+
+
+
+If any of these steps fail or for setting configuration options,
+read the more detailed instruction below.
+
+
+
+
 CONTENT AND DIRECTORY STRUCTURE
 -------------------------------
 
 The source subdirectories include
 
-  ./src:         source code for Yices proper
-  ./tests:       source code for test programs
-  ./doc:         documentation
-  ./examples:    example input files for testing
-  ./etc:         miscellaneous files that get added to the tar files
+  ./src:           source code for Yices proper
+
+  ./sat_solver:    source code for variant implementations of 
+                   the SAT solver
+
+  ./tests:         source code for test programs
+
+  ./doc:           documentation and various notes
+
+  ./examples:      example input files for testing
+
+  ./etc:           miscellaneous files that get added to the tar files
 
 
-The build subdirectory is organized by platform + compilation mode.
-The possible compilation modes are release, debug, and others for profiling. 
-The default mode is 'release'.
+The following subdirectories are created/used during compilation:
 
-For example, on an intel Mac, there may be two directories below build:
+  ./configs:       configuration files for each platform. Each file store 
+                   compilation options and other settings used by the Makefile(s).       
 
-  ./build/i386-apple-darwin8.9.1-release
-  ./build/i386-apple-darwin8.9.1-debug
+  ./build:         where all object, executable, and library files are built
+
+  ./distribution:  where the tar files are stored
+
+
+
+The 'build' subdirectory is organized by platform + compilation mode:
+
+The main compilation modes are 'release' and 'debug'. The default mode
+is 'release'. Less common compilation modes are available for
+profiling and help to debugging (cf. Makefile).
+
+The default compilation platform is whatever 'config.guess' returns,
+but some systems can have variant platforms (e.g., a 32bit build on a
+64bit linux system).
+
+Example: on an Intel Mac, there may be four subdirectories under build:
+
+  ./build/i386-apple-darwin8.9.1-release     (32bits/release)
+  ./build/i386-apple-darwin8.9.1-debug       (32bits/debug)
+  ./build/x86_64-apple-darwin8.9.1-release   (64bits/release)
+  ./build/x86_64-apple-dawrin8.9.1-debug     (64bits/debug)
+
+
 
 Each of these directories contains subdirectories for objects,
-libraries, binaries, etc. In each build mode, there are two variant
-compilation options, namely, with or without GMP statically linked.
-So this gives 6 different subdirectories:
+libraries, and binaries. In a build mode, there are two variant
+compilations, namely, with or without GMP statically linked.  So this
+gives 6 different subdirectories for each pair platform/build
+mode. For example:
 
   ./build/i386-apple-darwin8.9.1-release/obj
   ./build/i386-apple-darwin8.9.1-release/lib
@@ -33,14 +139,20 @@ So this gives 6 different subdirectories:
   ./build/i386-apple-darwin8.9.1-release/static_bin
 
 
-When a distribution is built, the relevant files are copied
+These six directories are where the binaries/objects/library
+files are stored during compilation.
+
+
+When a binary distribution is built, the relevant files are copied
 into one of the subdirectories:
 
   ./build/i386-apple-darwin8.9.1-release/dist
   ./build/i386-apple-darwin8.9.1-release/static_dist
 
-The distribution tarfiles are built from the content of these 
-dist or static_dist directories and they are stored into
+
+Then, the tarfiles are built from the content of the
+dist or static_dist directories. The tarfiles are then 
+stored into
 
   ./distributions
 
@@ -54,9 +166,13 @@ distribution is built.
 CONFIGURATION
 -------------
 
-Configuration files are generated by ./configure, and are kept
+1) Basics
+
+Configuration files are generated by './configure', and are kept
 separate for each platform. They are stored in the ./configs
-subdirectory, with a name of the form 'make.include.<platform>'.
+subdirectory, with a name of the form 'make.include.<platform>'.  
+Each configuration file is derived from 'make.include.in' by the
+'./configure' script.
 
 The rationale for this organization is to support parallel compilation
 on several machines from the same source directory (i.e., without
@@ -64,11 +180,11 @@ having to run ./configure every time on each machine). Yices 1.0.xx
 does not allow this and that's a pain whenever we release a new
 version.
 
-The Makefile in the top-level directory determines the architecture
-and OS, and checks the compilation mode. The platform is determined
-from the architecture and OS and 'make' reads the configuration file
-for that platform. This sets several variables that are passed to a
-recursive make:
+The main 'Makefile' in the top-level directory determines the
+architecture and OS, and checks the compilation mode. The platform is
+determined from the architecture and OS and 'make' reads the
+configuration file for that platform. This sets several variables that
+are passed to a recursive make:
 
   ARCH=<target-platform>
   POSIXOS=<operating system>
@@ -100,239 +216,368 @@ options to the ./configure script.
 
 
 
+2) Configuration options
 
-Some Yices-specific variables are set at configuration time for dealing
-with GMP:
-
-  STATIC_GMP=<path to a libgmp.a to use for static binaries>
-  STATIC_GMP_INCLUDE_DIR=<path to directory where 'gmp.h' compatible
-                          with STATIC_GMP can be found>
-
-  PIC_GMP=<path to a libgmp.a suitable for inclusion in a dynamic library>
-  PIC_GMP_INCLUDE_DIR=<as above but for PIC_GMP>
+The usual options can be given to './configure' and the usual
+environment variables are taken into account (CC, CFLAGS, LD, 
+LDFLAGS, CPPFLAGS, etc.).  Type './configure --help' for details.
 
 
-The STATC_GMP and STATIC_GMP_INCLUDE_DIR are useful for building
-static yices binaries on Mingw or Cygwin. On these systems, it's not
-possible to have both static and dynamic GMP libraries in standard
-locations. The Yices makefiles use STATIC_GMP and
-STATIC_GMP_INCLUDE_DIR when building static binaries on these systems.
 
-To build a dynamic Yices library that's statically linked with GMP, we
-need a version of libgmp.a compiled as position-independent code. By
-default, libgmp.a is not position-independent on most systems, so we
-must build a special version of libgmp.a. The PIC_GMP variable must
-be set to point to that special libgmp.a.
+3) GMP library location
+
+There are Yices-specific options for dealing with GMP complications.
+Building Yices may require as many as three different GMP libraries:
+
+  - dynamic library (e.g., /usr/local/lib/libgmp.so)
+
+  - static library (e.g., /usr/local/lib/libgmp.a) 
+
+  - for some platforms, another version of libgmp.a compiled 
+    as position independent code may also be required.
+
+In addition, on Cygwin and Mingw, the static and dynamic library
+require different header files 'gmp.h'.
 
 
-The ./configure script tries to set reasonable default values for
-these four variables. If that fails, or if the defaults are wrong, the
-following options to ./configure can be used:
+The ./configure script tries to locate these libraries and header 
+files in default locations. If that fails, or if the defaults are 
+wrong,  the following options can be given to ./configure:
 
    --with-static-gmp=<path to libgmp.a>
-   --with-static-gmp-include-dir=<corresponding include dir>
+   --with-static-gmp-include-dir=<dirrectory of the corresponding 'gmp.h'>
 
    --with-pic-gmp=<path to PIC libgmp,a>
-   --with-pic-gmp-include-dir=<corresponding include dir>
+   --with-pic-gmp-include-dir=<directory of the corresponding 'gmp.h'>
 
 
-(NOTE: the PIC_GMP_INCLUDE_DIR is currently ignored)
-
-
-
-In addition to these GMP-related options, the standard ./configure
-options are supported. Type ./configure --help for more details.
+NOTE: the --with-pic-gmp is useful only if one wants to build a static 
+      Yices distribution and if libgmp.a is not position-independent by 
+      default.
 
 
 
-BUILDING YICES USING THE DEFAULT CONFIGURATION
-----------------------------------------------
+4) Alternative platforms
 
-To build Yices from the source on a new platform:
+To set the platform to something else than the default, give option
 
-1) run autoconf
+   --build=<platform>
 
-2) run ./configure
-
-   If all goes well, this will produce a configuration file  
-   make.include.<platform> in the ./configs directory.   
-
-
-3) compile using the default mode (same as MODE=release)
-
-      make all
-
-   This produces two versions of the binaries and libraries 
-   (with and without GMP statically linked) in:
-       
-      ./build/<platform>-release/bin 
-      ./build/<platfomr>-release/static_bin
-      ./build/<platform>-release/lib
-      ./build/<platform>-release/static_lib
-       
-
-   To compile only part of this, use;
-
-      make bin 
-      make lib
-      make static-bin
-      make static-lib
+to ./configure. This will store compilation flags for this platform in
+file './configs/make.include.<platform>'. Then this configuration file
+can be selected by giving an argument of the form 'OPTION=...' to the
+'make' comand.
 
 
-4) build the distribution tarfiles:
+For example, the default platform for a Linux/64bit machine is
+   
+  'x86_64-unknown-linux-gnu'. 
 
-      make binary-distribution
+It may be possible to compile for 32bit on the same machine 
+(depending on compler and libraries). To configure for 32bit 
+compilation, we build for the alternative platform 
 
-   builds ./distributions/yices-2.x.y-<platform>.tar.gz
-   that contains binaries + libraries dynamically linked with GMP.
+  'i686-unknown-linux-gnu'
 
-      make static-distribution
+This is done by first building a configuration file:
 
-   builds ./distributions/yices-2.x.y-<platform>-static-gmp.tar.gz
-   that contains binaries + libraries statically linked with GMP.
+   ./configure --build=i686-unknown-linux-gnu CFLAGS=-m32 ...
 
+then selecting this configuration by typing
 
-   On Mingw: there's a manual step involved to create a 'libyices.lib'
-   file using Microsoft's Visual Studio tools. The distributions
-   must be built as follows:
-
-      make dist
-      <manual step to create libyices.lib>
-      make tarfile
-
-   or make static-dist
-      <manual step ...>
-      make static-tarfile
-
-
-
-5) to compile all the tests:
-
-      make test
-
-   to compile the test statically
-
-      make static-test
-
-   The test executables are in ./build-<platform>-<mode>/bin or 
-    ./build-<platform>-<mode>/static_bin.
+   make OPTION=32bits
 
 
 
 
-USING ALTERNATIVE CONFIGURATIONS
---------------------------------
 
-1) Compiling in 64bits on Mac OS/X
+MAKEFILES
+---------
 
-On Mac OS X/intel platforms (at least since version 10.5/Leopard), it
-is possible to produce objects/libraries/executables either in
-32bit or in 64bit mode. The default is 32bit. 
+Three makefiles are involved during compilation. 
 
-To override the default, build an alternative configuration file 
-for platform 'x86_64-apple-darwin9.x.y' with flag -m64 added to 
-CFLAGS to force compilation in 64bits mode. For example
+1) The top-level 'Makefile' determines the configuration 
+   and compilation mode. It sets several variables that 
+   are passed to a recursive 'make' command.   
 
-   ./configure --build=x86_64-apple-darwin9.2.2 CFLAGS=-m64 \
-       --with-pic-gmp=....
+2) The recursive 'make' uses 'Makefile.build'. This 
+   second makefile may create build directories and 
+   subdirectories and invoke another recursive 'make' 
+   command.
 
-(The version number 2.2 changes with each patch/new version of
-Darwin. Adjust this as needed).
+3) The last 'make' command will use the 'Makefile' located
+   in one of the './src' or './tests' or './sat_solver'
+   directories.
 
-To use this configuration, add OPTION=64bits to the command line
-when using make. For example
+
+
+
+
+BUILD COMMANDS
+--------------
+
+The build commands are of the form
+
+   make <target> 'OPTION=<...>' 'MODE=<mode>'
+
+The OPTION part is required to select an alternative platform,
+if it's omitted, the default platform will be selected.
+
+
+The possible options are as follows:
+
+a) On systems that support both 32bit and 64bit builds
+
+   OPTION=32bits          select 32bit compilation
+   OPTION=64bits          select 64bit compilation
+
+
+b) on Cygwin, OPTION can be given to build for Windows native
+   using the mingw compilers:
+
+   OPTION=no-cygwin       build for Windows/32bits
+   OPTION=mingw32
+
+   OPTION=mingw64         build for Windows/64bits
+
+
+
+
+The possible modes are as follows:
+
+   MODE=release           (default mode: compile with optimization enabled)
+   MODE=debug             debug mode, no optimization
+
+   MODE=profile
+   MODE=gcov
+   MODE=valgrind
+   MODE=quantify 
+   MODE=purify
+
+The last five modes select compilation flags to enable (or help) runtime 
+analysis of the Yices executable using 'gprof', 'gcov', 'valgrind', etc.
+
+NOTE: for analysis with 'valgrind', it's usually sufficient to compile
+with 'MODE=debug'. MODE=valgrind is required in rare cases, when some bug
+manifests itself only when the code is compiled with optimizations.
+
+
+
+
+The main targets are:
+
+   all			   build libraries + executables for the given platform
+
+   binary-distribution     build tarfile for a Yices binary distribution 
+                           (this distribution is dynamically linked against GMP)
+
+   static-distribution     tarfile for a Yices static distribution
+                           (statically linked against GMP)
+
+   source-distirbution     build a tarfile containing the Yices sources
+
+
+
+Variants for the mingw distributions:
+
+   dist			   prepare for a standard distribution (dynamically linked)
+
+   static-dist             prepare for a static distribution
+
+   tarfile                 build a standard distribution tarfile  
+                           (after dist + manual construction of lib file)
+
+   static-tarfile          build a static distribution targile
+                           (after static-dist + manual construction of lib file)
+   
+
+
+Other possible targets:
+
+   obj                     object files (for dynamic linking)
+   static-obj              object files (for static linking)
+
+   lib                     libraries (dynamically linked against GMP)
+   static-lib              libraries (statically linked against GMP)
+
+   bin                     executables (dynamically linked against GMP)
+   static-bin              executables (statically linked against GMP)
+
+   test			   test programs (dynamically linked)
+   static-test             test programs (statically linked)
+
+   sat			   sat solvers (dynamically linked)
+   static-sat              sat solvers (statically linked)
+
+   install                 install libraries/excutables/header files on
+                           the current machine
+
+
+For cleanup:
+
+   clean		   remove everything in ./build/<platform>-<mode> 
+
+   arch-clean              remove everything in ./build/<platform>-*
+
+   all-clean               remove everything in ./build/
+
+
+
+
+
+
+NOTES FOR LINUX BUILDS
+----------------------
+
+1) Default build
+
+On most Linux distributions, GMP and gperf can be installed using a
+package mangement systemms (e.g., 'apt-get' on Ubuntu). It's also 
+straightforward to build and install them from the sources.
+
+The only issue may be that libgmp.a is not position-independent by
+default. So another version of GMP may have to be built. Check doc/GMP
+for help on building a position-independent 'libgmp.a'.
+
+Assuming GMP and gperf are in their default location, the following
+steps should work:
+
+  ./configure --with-pic-gmp=<full-path-to-pic-ligmp.a>
+
+  make all
+
+  make binary-distribution
+
+  make static-distribution
+
+
+NOTES: 
+
+For increased portability, it's better to build Yices on an older
+distribution (e.g., Ubuntu 8.04). Newer distributions have new
+versions of glibc, which can introduce incompatibilities. Also, the
+versions we build on Linux 2.6 won't run on old Linux 2.4 kernels.
+
+
+
+2) Building for 32bits on a 64bit Linux machine
+
+It's possible to build 32bit code on a 64bit Linux machine,
+This depends on GCC and on whether the support 32bit libraries are
+present on the machine. On Ubuntu, these 32bit libraries can be
+installed using 'apt-get'.
+
+To build Yices for 32bit, the first step is to install GMP for 32bit
+(compiled from the source). Check doc/GMP for help. 
+
+To force compilation in 32bit mode, add the flag -m32 to CFLAGS:
+
+  ./configure --build=i686-unknown-linux-gnu CFLAGS=-m32
+
+   make all OPTION=32bits
+
+   make binary-distribution OPTION=32bits
+
+   make static-distribution OPTION=32bits   
+
+
+
+NOTES: 
+
+It may be necessary to give some options to the linker as follows:
+
+  ./configure --build=i686-unknown-linux-gnu CFAGS=-m32 LD='ld -melf_i386'
+
+It may also be necessary to use the --with-pic-gmp option.
+
+
+ 
+
+
+NOTES FOR MAC OS BUILDS
+-----------------------
+
+The hardest part is usually to install GMP. Check doc/GMP for help.
+Also, it's a good idea to install GMP from the source (and install it
+in the default directory /usr/local/lib) rather than use Darwin port.
+Once GMP is installed, the build should work fine on any Mac OS X
+platform (including older powerpc hardware). 
+
+It may also be required to install a newer version of autoconf than
+the one that comes by default on Mac OS (I haven't checked whether 
+this is still true for newer versions of the OS).
+
+Compiling in 32bits and 64bits should work on Intel MACs that run 
+Mac OS 10.5 or newer. However the default platform depends on the OS
+version:
+
+- on 10.5 (Leopard)
+  the default is 32bit compilation
+  the default platform is of the form i386-apple-darwin9.x.y
+  (the x.y part varies with OS updates)
+
+- on 10.6 (Snow Leopard)
+  the default is 64bit compilation
+  default platform: x86_64-apple-darwin10.x.y
+
+- on 10.7 (Lion): I assume the default is 64bit too?
+
+The instructions below assume compilation on an Mac running
+Snow Leopard (i.e., Mac OS 10.6.8) and with GMP installed in
+/usr/local/lib.
+
+There are incompatibilities between the different OS versions so a
+version built on Mac OS 10.6 may not work on Mac OS 10.5 or older.  
+To increase portability, it's a good idea to give option
+
+    -mmacosx-version-min=10.5 
+
+to GCC.  I don't know if we can go back more than that (i.e.,
+-mmacosx-version-min=10.4)?
+
+
+
+1) Default build
+
+   ./configure --with-pic-gmp=<path-to-pic-libgmp.a> \
+               CFLAGS=-mmacosx-version-min=10.5
+                
+   make all
+
+   make binary-distribution
+
+   make static-distribution
+
+
+
+
+2) Build for 32bit on Mac OS X 10.6
+
+   ./configure --build=i386-apple-darwin10.8.0 \
+               --with-pic-gmp=<path-to-pic-libgmp.a> \
+               CFLAGS='-m32 -mmacosx-version-min=10.5'
+
+   make all OPTION=32bits
+
+   make binary-distribution OPTION=32bits
+
+   make static-distribution OPTION=32bits
+
+
+
+
+3) Build for 64bits on Mac OS X 10.5
+
+   ./configure --build=x86_64-apple-darwin9.2.2 \
+               --with-pic-gmp=.... \
+               CFLAGS='-m64'
 
    make all OPTION=64bits
 
+   make binary-distribution OPTION=64bits
 
-The result will be in ./build/x86-64-apple-darwin9.2.2-release/
-
-
-UPDATE FOR MAC OS X: 09/28/2010. 
-
-On Mac OS X snow leopard (darwin10.x.y), the config.guess script
-that's part of the Yices source returns i386-apple-darwin10.x.y as the
-target, but the default compiler /usr/bin/gcc (4.2.1) builds for
-x86_64. To force compilation in 32bit on these platforms, use
-
-  ./configure CFLAGS=-m32 ...
-
-
-UPDATE FOR MAC OS X: 08/16/2011.
-
-To increase portability, it's a good idea to add
-
-  -mmacosx-version-min=10.5 
-
-to CFLAGS. Otherwise, code built on MacOS X 10.6 (Snow Leopard)
-may not run on MacOS X 10.5 (Leopard). I don't know if we can go
-back more than that (i.e., -mmacosx-version-min=10.4)?
-
-
-
-2) Compiling in 32bits on Linux/x86_64 platforms
-
-On Linux/x86_64 platforms, it may be possible to also compile in 32 bit mode.
-This depends on libraries and GCC versions, but it can work. By default the 
-makefiles will compile in 64bit mode for this platforms. 
-
-To override this, build an alternative configuration file for the platform
-'i686-unknown-linux-gnu'. To force compilation in 32bit modes, add the flag -m32 
-to CFLAGS. It may also be necessary to give some options to ld by setting the LD 
-variable. For example, type:
-
-   ./configure --build=i686-unknown-linux-gnu CFLAGS=-m32 LD='ld -melf_i386'
-
-To use this configuration, add OPTION=32bits when invoking make, e.g.,
-
-   make all MODE=debug OPTION=32bits
-
-
-The result will be in ./build/i686-unknown-linux-gnu-debug/
-
-
-
-3) Compiling for Windows 32bit or 64bit from Cygwin
-
-This can be done using the mingw compilers. See the notes below.
-
-The configuration file for Windows 32bit is make.include.i686-pc-mingw32.
-To build this configuration file use
-
-   ./configure --build=i686-pc-mingw32 ....
-
-To select this configuration at build time, give OPTION=no-cygwin (or OPTION=mingw32)
-to the make commands.
-
-The configuration file for Windows 64bits is make.include.x86_64-pc-mingw32.
-To build this configuration use
-
-  ./configure --build=x86_64-pc-mingw32 ....
-
-To select this configuration at build time, give OPTION=mingw64 to the make commands.
-
-
-
-CLEANUP
--------
-
-To cleanup the ./build/<platform>-<mode> directory:
-
-   make MODE=<mode> clean
-
-this removes libraries, binaries, and object files.
-
-
-To remove all build directories for the current platform: ./build/<platform>-*
-
-   make arch-clean
-
-
-To remove all build directories: ./build/*
-
-   make all-clean
-
-
+   make static-distribution OPTION=64bits
+   
 
 
 
@@ -345,48 +590,71 @@ issue is that GMP can't be installed in the standard place as both a
 static and a dynamic library. That's because each library uses a
 different 'gmp.h' include file (which is by default in /usr/include).
 
-A solution is to compile GMP twice and install the dynamic and static
-libraries in different locations:
 
-  First, build GMP as a dynamic library in the default location 
-  (for example, use --enable-shared --disable-static --prefix=/usr
-   when configuring GMP). The corresponding 'gmp.h' will be in /usr/include.
+A solution is to compile GMP twice from the source and install the
+dynamic and static libraries in different locations:
 
-  Then, build GMP as a static library in a different location (say
-  /tools/static_gmp/). This can be done by giving options
+1) First, build GMP as a dynamic library in the default location.
+   This can be done by giving options
+
+        --enable-shared --disable-static
+
+   when configuring GMP. This will build 
+
+       /usr/lib/libgmp.dll.a
+       /usr/bin/cyggmp-3.dll
+
+   The corresponding 'gmp.h' will be in /usr/include.
+
+2) Build GMP as a static library in a different location (say
+   /tools/static_gmp/). This can be done by giving options
+
       --disable-share --enable-static --prefix=/tools/static_gmp 
-  to GMP's configure script.  This will install 
-       'libgmp.a' in /tools/static_gmp/lib 
-   and 'gmp.h' in /tools/static_gmp/include.
+
+   to GMP's configure script.  This will build
+
+       /tools/static_gmp/lib/libgmp.a
+
+   and the corresponding 'gmp.h' will be in /tools/static_gmp/include.
 
 
 After you've done that, you need to give special flags to the Yices's
 configure script so that it can find 'libgmp.a' in its nonstandard
 location and the corresponding 'gmp.h'. The best way to do this is 
-to type
+to configure Yices using:
 
     ./configure --with-static-gmp=/tools/static_gmp/lib/libgmp.a \
-    --with-static-gmp-include-dir=/tools/static_gmp/include
-
-when you configure Yices on Cygwin or Mingw.
-
-On both Cygwin and Mingw, the static 'libgmp.a' is position independent
-code so there's no need to specify a different PIC gmp. The option 
---with-pic-gmp should not be used on Cygwin or Mingw.
+                --with-static-gmp-include-dir=/tools/static_gmp/include
 
 
+Then the build should work using the default commands:
 
-Another compiler issue on Cygwin (noted 2010/11/16): on the cygwin
-version just installed on a Windows 7 machine, there are two gcc
-version (/usr/bin/gcc-3 and /usr/bin/gcc-4). The gcc-4 does not
-compile Yices in static mode (i.e., make static_bin fails). This seems
-to be due to the lack of libgcc_s.a on that installation.  Don't know
-what this library is about. Possible fixes:
+    make all
 
-1) Force compilation with gcc-3: add CC=/usr/bin/gcc-3 to the
+    make binary-distribution
+
+    make static-distribution
+
+
+NOTE: On both Cygwin and Mingw, the static 'libgmp.a' is position 
+independent code so there's no need to specify a different PIC gmp. 
+Option  --with-pic-gmp  should not be used on Cygwin or Mingw.
+
+
+
+NOTE: Possible compiler issue on Cygwin (noted 2010/11/16). 
+
+On the cygwin version just installed on a Windows 7 machine, there are
+two gcc version (/usr/bin/gcc-3 and /usr/bin/gcc-4). The gcc-4 does
+not compile Yices in static mode (i.e., make static-bin fails). This
+seems to be due to the lack of libgcc_s.a on that installation.  Don't
+know what this library is about. Possible fixes:
+
+1) Force compilation with gcc-3: give CC=/usr/bin/gcc-3 to the
    ./configure script
 
 2) Add option -static-libgcc when building in static mode (cf. src/Makefile)
+
 
 
 
@@ -442,9 +710,11 @@ your compiler does not have it. It's possible to build and install a
 GCC cross compiler (that runs on Cygwin and targets Mingw32), then
 compile Yices with it.
 
+
 UPDATE 2010/11/15: There's now an easier way. There are now precompiled
 cross compilers in the Cygwin distribution. They can be installed using
 the setup.exe utility.
+
 
 
 TO DO IT THE HARD WAY, FOLLOW THESE INSTRUCIONS:
@@ -517,6 +787,8 @@ To configure Yices for cross compilation on a Cygwin system, I used
 Then to select this configuration:
 
    make OPTION=no-cygwin ....
+
+
 
 
 BUILDING A WINDOWS 64bit VERSION FROM CYGWIN

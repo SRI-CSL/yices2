@@ -80,7 +80,7 @@ To install GCC 4.5.2:
    ../gcc-4.5.2/configure \
         --prefix=/home/labrea5/dutertre/tools \
         --with-gnu-ld --with-gnu-as --with-ld=/usr/local/bin/ld \
-        --with-as=/usr/local/bin/
+        --with-as=/usr/local/bin/as
 
    Also need to set LDFLAGS and CPPFLAGS:
  
@@ -99,3 +99,19 @@ To install GCC 4.5.2:
    This seems to fix the problem.
 
    There were warnings that /usr/local/bin/ld was too old.
+
+
+
+MORE NOTES: to fix the warning about ld being too old:
+
+1) install binutils 2.20 from the source in ~/tools (binutils 2.21w is
+   more recent but it did not work on this machine).
+
+2) re-build and install GCC 4.5.2. Follow steps 4 and 5 above,
+   but configure GCC to use the freshly installed ld and as:
+
+   ../gcc-4.5.2/configure \
+        --prefix=/home/labrea5/dutertre/tools \
+        --with-gnu-ld --with-gnu-as \
+        --with-ld=/home/labrea5/dutertre/tools/bin/ld \
+        --with-as=/home/labrea5/dutertre/tools/bin/as  

@@ -202,9 +202,9 @@ the GMP configure script.
    (in general the option is --build=<CPU>-<VENDOR>-<OS>).
 
 
-
 Better fix for problem 5: get the latest version of GMP config.guess
 (at http://gmplib.org:8000/gmp-4.3/).
+
 
 
 Building GMP on cygwin or mingw
