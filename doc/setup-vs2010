@@ -1,0 +1,8 @@
+#!/bin/bash
+
+#
+# Setup environment variables to run the Visual
+# Studio 2010 command-line tools from Cygwin
+#
+vsbase="/cygdrive/c/Program Files (x86)/Microsoft Visual Studio 10.0"
+export PATH=${vsbase}/VC/bin:${vsbase}/Common7/IDE:${PATH}
