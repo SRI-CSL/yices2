@@ -57,8 +57,7 @@
 
 /*
  * Variant of Jenkins's original lookup2 hash function
- * for null-terminated strings. The original implementation
- * is in hash_functions_ori.c.
+ * for null-terminated strings.
  */
 uint32_t jenkins_hash_byte_var(const uint8_t *s, uint32_t seed) {
   uint32_t a, b, c, x;
