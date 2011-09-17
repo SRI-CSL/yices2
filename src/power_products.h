@@ -164,6 +164,13 @@ extern void pp_buffer_mul_varexp(pp_buffer_t *b, int32_t v, uint32_t d);
 extern void pp_buffer_mul_vars(pp_buffer_t *b, uint32_t n, int32_t *v);
 extern void pp_buffer_mul_varexps(pp_buffer_t *b, uint32_t n, int32_t *v, uint32_t *d);
 
+
+/*
+ * Raise b to power d and normalize the result
+ */
+extern void pp_buffer_exponentiate(pp_buffer_t *b, uint32_t d);
+
+
 /*
  * Assign or multiply b by a power-product p
  * - p must follow the pointer tagging conventions

@@ -4,6 +4,7 @@
 
 #include <assert.h>
 
+#include "int_powers.h"
 #include "bvarith64_buffer_terms.h"
 
 
@@ -163,3 +164,48 @@ void bvarith64_buffer_mul_term(bvarith64_buffer_t *b, term_table_t *table, term_
   }
 }
 
+
+/*
+ * Multiply b by t^d
+ * - t must be an arithmetic term
+ * - p->ptbl and table->pprods must be equal
+ */
+void bvarith64_buffer_mul_term_power(bvarith64_buffer_t *b, term_table_t *table, term_t t, uint32_t d) {
+  bvarith64_buffer_t aux;
+  bvpoly64_t *p;
+  pprod_t **v;
+  pprod_t *r;
+  uint64_t c;
+  int32_t i;
+
+  assert(b->ptbl == table->pprods);
+  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) &&
+	 term_bitsize(table, t) == b->bitsize);
+
+  i = index_of(t);
+  switch (table->kind[i]) {
+  case POWER_PRODUCT:
+    r = pprod_exp(b->ptbl, pprod_for_idx(table, i), d); // r = t^d
+    bvarith64_buffer_mul_pp(b, r);
+    break;
+
+  case BV64_CONSTANT:
+    c = upower64(bvconst64_for_idx(table, i)->value, d); // c := t^d
+    bvarith64_buffer_mul_const(b, c);
+    break;
+
+  case BV64_POLY:
+    p = bvpoly64_for_idx(table, i);
+    v = pprods_for_bvpoly64(table, p);
+    init_bvarith64_buffer(&aux, b->ptbl, b->store);
+    bvarith64_buffer_mul_bvpoly_power(b, p, v, d, &aux);
+    delete_bvarith64_buffer(&aux);
+    term_table_reset_pbuffer(table);
+    break;
+
+  default:
+    r = pprod_varexp(b->ptbl, t, d);
+    bvarith64_buffer_mul_pp(b, r);
+    break;
+  }
+}

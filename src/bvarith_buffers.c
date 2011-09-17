@@ -1573,6 +1573,46 @@ void bvarith_buffer_mul_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp
 }
 
 
+/*
+ * Multiply b by  p ^ d
+ * - pp = power products for the variables of p
+ * - use aux as an auxiliary buffer
+ * - store the result in b (normalized)
+ */
+void bvarith_buffer_mul_bvpoly_power(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp, uint32_t d, bvarith_buffer_t *aux) {
+  uint32_t i;
+
+  assert(aux != b && good_pprod_array(poly->mono, pp) && b->bitsize == poly->bitsize);
+
+  if (d <= 4) {
+    // small exponent: aux is not used
+    for (i=0; i<d; i++) {
+      bvarith_buffer_mul_bvpoly(b, poly, pp);
+      bvarith_buffer_normalize(b);
+    }
+  } else {
+    // larger exponent
+    bvarith_buffer_prepare(aux, b->bitsize);
+    bvarith_buffer_add_bvpoly(aux, poly, pp); // aux := p
+    for (;;) {
+      /*
+       * loop invariant: b0 * p^d0 == b * aux^ d 
+       * with b0 = b on entry to the function
+       *      d0 = d on entry to the function
+       */
+      assert(d > 0);
+      if ((d & 1) != 0) {
+	bvarith_buffer_mul_buffer(b, aux); // b := b * aux
+	bvarith_buffer_normalize(b);
+      }
+      d >>= 1;                           // d := d/2
+      if (d == 0) break;
+      bvarith_buffer_square(aux);        // aux := aux^2
+      bvarith_buffer_normalize(aux);
+    }
+  }  
+}
+
 
 
 /*******************************************************************

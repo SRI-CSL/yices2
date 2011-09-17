@@ -3377,7 +3377,6 @@ static term_t mk_lifted_arithgeq(term_t c, term_t t1, term_t t2, term_t t3, term
 }
 
 
-
 /*
  * Equality term (aritheq t1 t2)
  *
@@ -3427,9 +3426,9 @@ static inline term_t mk_arithneq(term_t t1, term_t t2) {
 
 
 
-/*************************
- *  BIT-VECTOR EQUALITY  *
- ************************/
+/**********************
+ *  BIT-VECTOR ATOMS  *
+ *********************/
 
 /*
  * Build (bveq t1 t2)
@@ -3441,9 +3440,106 @@ static inline term_t mk_bveq(term_t t1, term_t t2) {
   return mk_bitvector_eq(&terms, t1, t2);
 }
 
-
 static inline term_t mk_bvneq(term_t t1, term_t t2) {
   return opposite_term(mk_bveq(t1, t2));
+}
+
+
+/*
+ * Unsigned comparison
+ */
+
+// check whether t1 < t2 holds trivially
+static bool must_lt(term_t t1, term_t t2) {
+  upper_bound_unsigned(&terms, t1, &bv1); // t1 <= bv1
+  lower_bound_unsigned(&terms, t2, &bv2); // bv2 <= t2
+  assert(bv1.bitsize == bv2.bitsize);
+
+  return bvconst_lt(bv1.data, bv2.data, bv1.bitsize);
+}
+
+// check whether t1 <= t2 holds trivially
+static bool must_le(term_t t1, term_t t2) {
+  upper_bound_unsigned(&terms, t1, &bv1);
+  lower_bound_unsigned(&terms, t2, &bv2);
+  assert(bv1.bitsize == bv2.bitsize);
+
+  return bvconst_le(bv1.data, bv2.data, bv1.bitsize);
+}
+
+ // t1 >= t2: unsigned
+static term_t mk_bvge(term_t t1, term_t t2) {
+  if (t1 == t2 || must_le(t2, t1)) {
+    return true_term;
+  }
+
+  if (must_lt(t1, t2)) {
+    return false_term;
+  }
+  
+  return bvge_atom(&terms, t1, t2);
+}
+
+// t1 > t2: unsigned
+static term_t mk_bvgt(term_t t1, term_t t2) {
+  if (t1 == t2 || must_le(t1, t2)) {
+    return false_term;
+  }
+
+  if (must_lt(t2, t1)) {
+    return true_term;
+  }
+  
+  return opposite_term(bvge_atom(&terms, t2, t1));
+}
+
+
+/*
+ * Signed comparisons
+ */
+
+// Check whether t1 < t2 holds trivially 
+static bool must_slt(term_t t1, term_t t2) {
+  upper_bound_signed(&terms, t1, &bv1);
+  lower_bound_signed(&terms, t2, &bv2);
+  assert(bv1.bitsize == bv2.bitsize);
+
+  return bvconst_slt(bv1.data, bv2.data, bv1.bitsize);
+}
+
+// Check whether t1 <= t2 holds
+static bool must_sle(term_t t1, term_t t2) {
+  upper_bound_signed(&terms, t1, &bv1);
+  lower_bound_signed(&terms, t2, &bv2);
+  assert(bv1.bitsize == bv2.bitsize);
+
+  return bvconst_sle(bv1.data, bv2.data, bv1.bitsize);
+}
+
+// t1 >= t2: signed
+static term_t mk_bvsge(term_t t1, term_t t2) {
+  if (t1 == t2 || must_sle(t2, t1)) {
+    return true_term;
+  }
+
+  if (must_slt(t1, t2)) {
+    return false_term;
+  }
+  
+  return bvsge_atom(&terms, t1, t2);
+}
+
+// t1 > t2: signed
+static term_t mk_bvsgt(term_t t1, term_t t2) {
+  if (t1 == t2 || must_sle(t1, t2)) {
+    return false_term;
+  }
+
+  if (must_slt(t2, t1)) {
+    return true_term;
+  }
+  
+  return opposite_term(bvsge_atom(&terms, t2, t1));
 }
 
 
@@ -3943,6 +4039,20 @@ static bool check_square_degree(term_table_t *tbl, term_t t) {
   return check_maxdegree(d + d);
 }
 
+// Check that the degree of t^n does not overflow
+static bool check_power_degree(term_table_t *tbl, term_t t, uint32_t n) {
+  uint64_t d;
+
+  d = term_degree(tbl, t) * n;
+  if (d > ((uint64_t) UINT32_MAX)) {
+    error.code = DEGREE_OVERFLOW;
+    error.badval = UINT32_MAX;
+    return false;
+  }
+
+  return check_maxdegree((uint32_t) d);
+}
+
 
 // Check whether i is a valid shift for bitvectors of size n
 static bool check_bitshift(uint32_t i, uint32_t n) {
@@ -4205,7 +4315,6 @@ EXPORTED term_t yices_ite(term_t cond, term_t then_term, term_t else_term) {
   }
 
 #if 1
-  // DISABLE THIS FOR BASELINE TESTING
   // check whether both sides are integer polynomials
   if (is_integer_type(tau) 
       && term_kind(&terms, then_term) == ARITH_POLY 
@@ -4493,7 +4602,6 @@ EXPORTED term_t yices_select(uint32_t index, term_t tuple) {
 /*
  * Simplification: 
  *  (update (update f (a_1 ... a_n) v) (a_1 ... a_n) v') --> (update f (a_1 ... a_n) v')
- * TBD
  */
 EXPORTED term_t yices_update(term_t fun, uint32_t n, term_t arg[], term_t new_v) {
   composite_term_t *update;
@@ -4947,6 +5055,26 @@ EXPORTED term_t yices_square(term_t t1) {
 }
 
 
+/*
+ * Compute t1 ^ d
+ */
+EXPORTED term_t yices_power(term_t t1, uint32_t d) {
+  arith_buffer_t *b;
+
+  if (! check_good_term(&terms, t1) || 
+      ! check_arith_term(&terms, t1) ||
+      ! check_power_degree(&terms, t1, d)) {
+    return NULL_TERM;
+  }
+
+  b = get_internal_arith_buffer();
+  arith_buffer_reset(b);
+  q_set_one(&r0);
+  arith_buffer_add_const(b, &r0); // b := 1
+  arith_buffer_mul_term_power(b, &terms, t1, d);
+
+  return arith_buffer_get_term(b);
+}
 
 
 /*******************
@@ -5625,6 +5753,49 @@ EXPORTED term_t yices_bvsquare(term_t t1) {
     return mk_bvsquare64(t1);
   } else {
     return mk_bvsquare(t1);
+  }
+}
+
+
+
+
+static term_t mk_bvpower64(term_t t1, uint32_t d) {
+  bvarith64_buffer_t *b;
+  uint32_t n;
+
+  b = get_internal_bvarith64_buffer();
+  n = term_bitsize(&terms, t1);
+  bvarith64_buffer_prepare(b, n);
+  bvarith64_buffer_set_one(b);
+  bvarith64_buffer_mul_term_power(b, &terms, t1, d);
+
+  return bvarith64_buffer_get_term(b);
+}
+
+static term_t mk_bvpower(term_t t1, uint32_t d) {
+  bvarith_buffer_t *b;
+  uint32_t n;
+
+  b = get_internal_bvarith_buffer();
+  n = term_bitsize(&terms, t1);
+  bvarith_buffer_prepare(b, n);
+  bvarith_buffer_set_one(b);
+  bvarith_buffer_mul_term_power(b, &terms, t1, d);
+
+  return bvarith_buffer_get_term(b);
+}
+
+EXPORTED term_t yices_bvpower(term_t t1, uint32_t d) {
+  if (! check_good_term(&terms, t1) ||
+      ! check_bitvector_term(&terms, t1) || 
+      ! check_power_degree(&terms, t1, d)) {
+    return NULL_TERM;
+  }
+
+  if (term_bitsize(&terms, t1) <= 64) {
+    return mk_bvpower64(t1, d);
+  } else {
+    return mk_bvpower(t1, d);
   }
 }
 
@@ -6788,39 +6959,13 @@ EXPORTED term_t yices_bvneq_atom(term_t t1, term_t t2) {
  * UNSIGNED COMPARISONS
  */
 
-// check whether t1 < t2 holds trivially
-static bool must_lt(term_t t1, term_t t2) {
-  upper_bound_unsigned(&terms, t1, &bv1); // t1 <= bv1
-  lower_bound_unsigned(&terms, t2, &bv2); // bv2 <= t2
-  assert(bv1.bitsize == bv2.bitsize);
-
-  return bvconst_lt(bv1.data, bv2.data, bv1.bitsize);
-}
-
-// check whether t1 <= t2 holds trivially
-static bool must_le(term_t t1, term_t t2) {
-  upper_bound_unsigned(&terms, t1, &bv1);
-  lower_bound_unsigned(&terms, t2, &bv2);
-  assert(bv1.bitsize == bv2.bitsize);
-
-  return bvconst_le(bv1.data, bv2.data, bv1.bitsize);
-}
-
- // t1 >= t2
+// t1 >= t2
 EXPORTED term_t yices_bvge_atom(term_t t1, term_t t2) {
   if (! check_compatible_bv_terms(&terms, t1, t2)) {
     return NULL_TERM;
   }
-  
-  if (t1 == t2 || must_le(t2, t1)) {
-    return true_term;
-  }
 
-  if (must_lt(t1, t2)) {
-    return false_term;
-  }
-  
-  return bvge_atom(&terms, t1, t2);
+  return mk_bvge(t1, t2);
 }
 
 // t1 > t2
@@ -6829,17 +6974,8 @@ EXPORTED term_t yices_bvgt_atom(term_t t1, term_t t2) {
     return NULL_TERM;
   }
 
-  if (t1 == t2 || must_le(t1, t2)) {
-    return false_term;
-  }
-
-  if (must_lt(t2, t1)) {
-    return true_term;
-  }
-  
-  return opposite_term(bvge_atom(&terms, t2, t1));
+  return mk_bvgt(t1, t2);
 }
-
 
 // t1 <= t2
 EXPORTED term_t yices_bvle_atom(term_t t1, term_t t2) {
@@ -6852,30 +6988,9 @@ EXPORTED term_t yices_bvlt_atom(term_t t1, term_t t2) {
 }
 
 
-
-
-
 /*
  * SIGNED COMPARISONS
  */
-
-// Check whether t1 < t2 holds trivially 
-static bool must_slt(term_t t1, term_t t2) {
-  upper_bound_signed(&terms, t1, &bv1);
-  lower_bound_signed(&terms, t2, &bv2);
-  assert(bv1.bitsize == bv2.bitsize);
-
-  return bvconst_slt(bv1.data, bv2.data, bv1.bitsize);
-}
-
-// Check whether t1 <= t2 holds
-static bool must_sle(term_t t1, term_t t2) {
-  upper_bound_signed(&terms, t1, &bv1);
-  lower_bound_signed(&terms, t2, &bv2);
-  assert(bv1.bitsize == bv2.bitsize);
-
-  return bvconst_sle(bv1.data, bv2.data, bv1.bitsize);
-}
 
 // t1 >= t2
 EXPORTED term_t yices_bvsge_atom(term_t t1, term_t t2) {
@@ -6883,15 +6998,7 @@ EXPORTED term_t yices_bvsge_atom(term_t t1, term_t t2) {
     return NULL_TERM;
   }
 
-  if (t1 == t2 || must_sle(t2, t1)) {
-    return true_term;
-  }
-
-  if (must_slt(t1, t2)) {
-    return false_term;
-  }
-  
-  return bvsge_atom(&terms, t1, t2);
+  return mk_bvsge(t1, t2);
 }
 
 // t1 > t2
@@ -6900,15 +7007,7 @@ EXPORTED term_t yices_bvsgt_atom(term_t t1, term_t t2) {
     return NULL_TERM;
   }
 
-  if (t1 == t2 || must_sle(t1, t2)) {
-    return false_term;
-  }
-
-  if (must_slt(t2, t1)) {
-    return true_term;
-  }
-  
-  return opposite_term(bvsge_atom(&terms, t2, t1));
+  return mk_bvsgt(t1, t2);
 }
 
 // t1 <= t2

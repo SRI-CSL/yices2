@@ -6,8 +6,6 @@
 #define __INT_STACK_H
 
 #include <stdint.h>
-#include <stdbool.h>
-#include <assert.h>
 
 /*
  * Memory blocks:

@@ -238,4 +238,25 @@ extern term_t simplify_bveq(term_table_t *tbl, term_t t1, term_t t2);
 extern term_t get_unit_type_rep(term_table_t *table, type_t tau);
 
 
+
+/*
+ * VARIABLES
+ */
+
+/*
+ * Return a fresh variable of type tau
+ * - the returned term is guaranteed to be new
+ */
+extern term_t make_fresh_variable(term_table_t *table, type_t tau);
+
+
+/*
+ * Clone variable v:
+ * - v must be a variable
+ * - return a fresh variable with the same type as v
+ * - if v has a basename, then the clone also gets that name
+ */
+extern term_t clone_variable(term_table_t *table, term_t v);
+
+
 #endif /* __TERM_UTILS_H */

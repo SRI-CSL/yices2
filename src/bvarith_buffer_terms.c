@@ -165,3 +165,50 @@ void bvarith_buffer_mul_term(bvarith_buffer_t *b, term_table_t *table, term_t t)
 
 
 
+/*
+ * Multiply b by t^d
+ * - t must be an arithmetic term
+ * - p->ptbl and table->pprods must be equal
+ */
+void bvarith_buffer_mul_term_power(bvarith_buffer_t *b, term_table_t *table, term_t t, uint32_t d) {
+  bvarith_buffer_t aux;
+  bvconstant_t c;
+  bvpoly_t *p;
+  pprod_t **v;
+  pprod_t *r;
+  int32_t i;
+
+  assert(b->ptbl == table->pprods);
+  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) &&
+	 term_bitsize(table, t) == b->bitsize);
+
+  i = index_of(t);
+  switch (table->kind[i]) {
+  case POWER_PRODUCT:
+    r = pprod_exp(b->ptbl, pprod_for_idx(table, i), d); // r = t^d
+    bvarith_buffer_mul_pp(b, r);
+    break;
+
+  case BV_CONSTANT:
+    init_bvconstant(&c);
+    bvconstant_copy64(&c, b->bitsize, 1); // c := 1
+    bvconst_mulpower(c.data, b->width, bvconst_for_idx(table, i)->data, d); // c := t^d
+    bvarith_buffer_mul_const(b, c.data);
+    delete_bvconstant(&c);
+    break;
+
+  case BV_POLY:
+    p = bvpoly_for_idx(table, i);
+    v = pprods_for_bvpoly(table, p);
+    init_bvarith_buffer(&aux, b->ptbl, b->store);
+    bvarith_buffer_mul_bvpoly_power(b, p, v, d, &aux);
+    delete_bvarith_buffer(&aux);
+    term_table_reset_pbuffer(table);
+    break;
+
+  default:
+    r = pprod_varexp(b->ptbl, t, d);
+    bvarith_buffer_mul_pp(b, r);
+    break;
+  }
+}

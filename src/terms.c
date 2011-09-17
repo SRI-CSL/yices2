@@ -1255,6 +1255,14 @@ static bool is_unit_type_rep(term_table_t *table, type_t tau, term_t t) {
 
 
 
+/*
+ * SPECIAL OPERATIONS ON VARIABLES
+ */
+
+
+
+
+
 
 
 /*
@@ -1310,6 +1318,26 @@ void set_term_name(term_table_t *table, term_t t, char *name) {
 
   // add mapping name --> t in the symbol table
   stbl_add(&table->stbl, name, t);
+  string_incref(name);
+}
+
+
+/*
+ * Assign name as the base name for term t
+ * - if t already has a base name, then it's replaced by 'name'
+ *   and the previous name's reference counter is decremented
+ */
+void set_term_base_name(term_table_t *table, term_t t, char *name) {
+  ptr_hmap_pair_t *p;
+
+  assert(good_term(table, t) && name != NULL);
+
+  p = ptr_hmap_get(&table->ntbl, t);
+  assert(p != NULL);
+  if (p->val != NULL) {
+    string_decref(p->val);
+  }
+  p->val = name;
   string_incref(name);
 }
 
@@ -1841,6 +1869,25 @@ term_t variable(term_table_t *table, type_t tau, int32_t index) {
   i = int_htbl_get_obj(&table->htbl, &integer_hobj.m);
 
   return pos_term(i);  
+}
+
+
+/*
+ * Check whether variable of type tau and given index exists
+ */
+bool variable_is_present(term_table_t *table, type_t tau, int32_t index) {
+  int32_t i;
+
+  integer_hobj.tbl = table;
+  integer_hobj.tag = VARIABLE;
+  integer_hobj.tau = tau;
+  integer_hobj.id = index;
+
+  i = int_htbl_find_obj(&table->htbl, &integer_hobj.m);
+
+  assert(i == NULL_VALUE || kind_for_idx(table, i) == VARIABLE);
+
+  return (i >= 0);
 }
 
 

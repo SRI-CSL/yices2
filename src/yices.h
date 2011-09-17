@@ -665,8 +665,9 @@ __YICES_DLLSPEC__ extern term_t yices_parse_float(const char *s);
  *   code = ARITH_TERM_REQUIRED
  *   term1 = t1 or t2
  *
- * for yices_mul and yices_square, if the result's degree
- * is too large, then the error report is
+ * for yices_mul, yices_square, and yices_power,
+ * if the result's degree is too large,
+ * then the error report is
  *   code = DEGREE_OVERFLOW
  *   badval = product degree
  */
@@ -675,7 +676,7 @@ __YICES_DLLSPEC__ extern term_t yices_sub(term_t t1, term_t t2);     // t1 - t2
 __YICES_DLLSPEC__ extern term_t yices_neg(term_t t1);                // -t1
 __YICES_DLLSPEC__ extern term_t yices_mul(term_t t1, term_t t2);     // t1 * t2
 __YICES_DLLSPEC__ extern term_t yices_square(term_t t1);             // t1 * t1
-
+__YICES_DLLSPEC__ extern term_t yices_power(term_t t1, uint32_t d);  // t1 ^ d
 
 
 /*
@@ -905,14 +906,15 @@ __YICES_DLLSPEC__ extern term_t yices_parse_bvhex(const char *s);
  *   term2 = t2
  *   type2 = type of t2
  *
- * for bvmul or bvsquare, if the degree is too large
+ * for bvmul, bvsquare, or bvpower, if the degree is too large
  *   code = DEGREE_OVERFLOW
  */
-__YICES_DLLSPEC__ extern term_t yices_bvadd(term_t t1, term_t t2);   // addition (t1 + t2
-__YICES_DLLSPEC__ extern term_t yices_bvsub(term_t t1, term_t t2);   // subtraction (t1 - t2)
-__YICES_DLLSPEC__ extern term_t yices_bvneg(term_t t1);              // negation (- t1)
-__YICES_DLLSPEC__ extern term_t yices_bvmul(term_t t1, term_t t2);   // multiplication (t1 * t2)
-__YICES_DLLSPEC__ extern term_t yices_bvsquare(term_t t1);           // square (t1 * t1)
+__YICES_DLLSPEC__ extern term_t yices_bvadd(term_t t1, term_t t2);     // addition (t1 + t2
+__YICES_DLLSPEC__ extern term_t yices_bvsub(term_t t1, term_t t2);     // subtraction (t1 - t2)
+__YICES_DLLSPEC__ extern term_t yices_bvneg(term_t t1);                // negation (- t1)
+__YICES_DLLSPEC__ extern term_t yices_bvmul(term_t t1, term_t t2);     // multiplication (t1 * t2)
+__YICES_DLLSPEC__ extern term_t yices_bvsquare(term_t t1);             // square (t1 * t1)
+__YICES_DLLSPEC__ extern term_t yices_bvpower(term_t t1, uint32_t d);  // t1 ^ d
 
 __YICES_DLLSPEC__ extern term_t yices_bvdiv(term_t t1, term_t t2);   // unsigned div
 __YICES_DLLSPEC__ extern term_t yices_bvrem(term_t t1, term_t t2);   // unsigned rem

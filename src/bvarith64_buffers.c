@@ -1259,6 +1259,47 @@ void bvarith64_buffer_mul_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *poly, pprod_
 }
 
 
+/*
+ * Multiply b by poly ^ d
+ * - use aux as an auxiliary buffer (aux must be distinct from b)
+ */
+void bvarith64_buffer_mul_bvpoly_power(bvarith64_buffer_t *b, bvpoly64_t *poly, pprod_t **pp, 
+				       uint32_t d, bvarith64_buffer_t *aux) {
+  uint32_t i;
+
+  assert(b != aux && good_pprod_array(poly->mono, pp) && b->bitsize == poly->bitsize);
+
+  if (d <= 4) {
+    // small exponent: aux is not used
+    for (i=0; i<d; i++) {
+      bvarith64_buffer_mul_bvpoly(b, poly, pp);
+      bvarith64_buffer_normalize(b);
+    }
+  } else {
+    // larger exponent
+    bvarith64_buffer_prepare(aux, b->bitsize);
+    bvarith64_buffer_add_bvpoly(aux, poly, pp); // aux := p
+    for (;;) {
+      /*
+       * loop invariant: b0 * p^d0 == b * aux^ d 
+       * with b0 = b on entry to the function
+       *      d0 = d on entry to the function
+       */
+      assert(d > 0);
+      if ((d & 1) != 0) {
+	bvarith64_buffer_mul_buffer(b, aux); // b := b * aux
+	bvarith64_buffer_normalize(b);
+      }
+      d >>= 1;                           // d := d/2
+      if (d == 0) break;
+      bvarith64_buffer_square(aux);        // aux := aux^2
+      bvarith64_buffer_normalize(aux);
+    }
+  }
+}
+
+
+
 
 
 /*******************************************************************

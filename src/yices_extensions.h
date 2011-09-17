@@ -1,6 +1,6 @@
 /*
  * Extensions of yices.h
- * Implemented in term_api.c
+ * Implemented in yices_api.c
  */
 
 #ifndef __YICES_EXTENSIONS_H

@@ -28,4 +28,12 @@ extern void bvarith64_buffer_sub_term(bvarith64_buffer_t *b, term_table_t *table
 extern void bvarith64_buffer_mul_term(bvarith64_buffer_t *b, term_table_t *table, term_t t);
 
 
+/*
+ * Multiply b by (t ^ d)
+ * - t must be defined in table and be a bitvector term of same bitsize as b
+ * - b->ptbl must be the same as table->pprods
+ */
+extern void bvarith64_buffer_mul_term_power(bvarith64_buffer_t *b, term_table_t *table, term_t t, uint32_t d);
+
+
 #endif /*  __BVARITH64_BUFFER_TERMS_H */

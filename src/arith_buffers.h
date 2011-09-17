@@ -452,6 +452,13 @@ extern void arith_buffer_sub_mono_times_monarray(arith_buffer_t *b, monomial_t *
 extern void arith_buffer_mul_monarray(arith_buffer_t *b, monomial_t *poly, pprod_t **pp);
 
 
+/*
+ * Multiply b by  p ^ d
+ * - pp = power products for the variables of p
+ * - use aux as an auxiliary buffer (aux must be distinct from b)
+ * - store the result in b (normalized)
+ */
+extern void arith_buffer_mul_monarray_power(arith_buffer_t *b, monomial_t *poly, pprod_t **pp, uint32_t d, arith_buffer_t *aux);
 
 
 

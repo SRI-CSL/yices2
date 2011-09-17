@@ -160,3 +160,50 @@ void arith_buffer_add_const_times_term(arith_buffer_t *b, term_table_t *table, r
 }
 
 
+
+/*
+ * Multiply b by t^d
+ * - t must be an arithmetic term
+ * - p->ptbl and table->pprods must be equal
+ */
+void arith_buffer_mul_term_power(arith_buffer_t *b, term_table_t *table, term_t t, uint32_t d) {
+  arith_buffer_t aux;
+  rational_t q;
+  pprod_t **v;
+  polynomial_t *p;
+  pprod_t *r;
+  int32_t i;
+
+  assert(b->ptbl == table->pprods);
+  assert(pos_term(t) && good_term(table, t) && is_arithmetic_term(table, t));
+
+  i = index_of(t);
+  switch (table->kind[i]) {
+  case POWER_PRODUCT:
+    r = pprod_exp(b->ptbl, pprod_for_idx(table, i), d); // r = t^d
+    arith_buffer_mul_pp(b, r);
+    break;
+
+  case ARITH_CONSTANT:
+    q_init(&q);
+    q_set_one(&q);
+    q_mulexp(&q, rational_for_idx(table, i), d); // q = t^d
+    arith_buffer_mul_const(b, &q);
+    q_clear(&q);
+    break;
+
+  case ARITH_POLY:
+    p = polynomial_for_idx(table, i);
+    v = pprods_for_poly(table, p);
+    init_arith_buffer(&aux, b->ptbl, b->store);
+    arith_buffer_mul_monarray_power(b, p->mono, v, d, &aux);
+    delete_arith_buffer(&aux);
+    term_table_reset_pbuffer(table);
+    break;
+
+  default:
+    r = pprod_varexp(b->ptbl, t, d);
+    arith_buffer_mul_pp(b, r);
+    break;
+  }
+}

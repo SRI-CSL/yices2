@@ -1502,6 +1502,46 @@ void arith_buffer_mul_monarray(arith_buffer_t *b, monomial_t *poly, pprod_t **pp
 }
 
 
+/*
+ * Multiply b by  p ^ d
+ * - pp = power products for the variables of p
+ * - use aux as an auxiliary buffer
+ * - store the result in b (normalized)
+ */
+void arith_buffer_mul_monarray_power(arith_buffer_t *b, monomial_t *p, pprod_t **pp, uint32_t d, arith_buffer_t *aux) {
+  uint32_t i;
+
+  assert(b != aux);
+
+  if (d <= 4) {
+    // small exponent: aux is not used
+    for (i=0; i<d; i++) {
+      arith_buffer_mul_monarray(b, p, pp);
+      arith_buffer_normalize(b);
+    }
+  } else {
+    // larger exponent
+    arith_buffer_reset(aux);
+    arith_buffer_add_monarray(aux, p, pp); // aux := p
+    for (;;) {
+      /*
+       * loop invariant: b0 * p^d0 == b * aux^ d 
+       * with b0 = b on entry to the function
+       *      d0 = d on entry to the function
+       */
+      assert(d > 0);
+      if ((d & 1) != 0) {
+	arith_buffer_mul_buffer(b, aux); // b := b * aux
+	arith_buffer_normalize(b);
+      }
+      d >>= 1;                           // d := d/2
+      if (d == 0) break;
+      arith_buffer_square(aux);          // aux := aux^2
+      arith_buffer_normalize(aux);
+    }
+  }  
+}
+
 
 
 

@@ -73,10 +73,10 @@ extern void delete_subst_ctx(subst_ctx_t *ctx);
 
 /*
  * Empty: remove all bindings
- * - if empty_hset is true, then ctx->hset is emptied too
+ * - if reset_hset is true, then ctx->hset is emptied too
  *   otherwise, ctx->hset is not changed.
  */
-extern void reset_subst_ctx(subst_ctx_t *ctx, bool empty_hset);
+extern void reset_subst_ctx(subst_ctx_t *ctx, bool reset_hset);
 
 
 /*
@@ -96,6 +96,13 @@ static inline void subst_ctx_pop_bindings(subst_ctx_t *ctx, uint32_t n) {
   ctx->nelems -= n;
 }
 
+
+/*
+ * Check whether the context is empyt
+ */
+static inline bool subst_ctx_is_empty(subst_ctx_t *ctx) {
+  return ctx->nelems == 0;
+}
 
 
 /*

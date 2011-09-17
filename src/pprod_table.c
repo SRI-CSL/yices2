@@ -243,6 +243,33 @@ pprod_t *pprod_mul(pprod_table_t *table, pprod_t *p1, pprod_t *p2) {
 }
 
 
+/*
+ * Exponentiation: (p ^ d)
+ */
+pprod_t *pprod_exp(pprod_table_t *table, pprod_t *p, uint32_t d) {
+  pp_buffer_t *b;
+
+  b = &table->buffer;
+  pp_buffer_set_pprod(b, p);
+  pp_buffer_exponentiate(b, d);
+
+  return pprod_from_array(table, b->prod, b->len);
+}
+
+
+/*
+ * Variable power: (x ^ d)
+ */
+pprod_t *pprod_varexp(pprod_table_t *table, int32_t x, uint32_t d) {
+  pp_buffer_t *b;
+
+  b = &table->buffer;
+  pp_buffer_set_varexp(b, x, d);
+  pp_buffer_normalize(b);
+
+  return pprod_from_array(table, b->prod, b->len);  
+}
+
 
 /*
  * Find the index of p in table

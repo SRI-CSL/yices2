@@ -266,7 +266,8 @@ source-distribution:
 	   src/yices_version_template.txt $(tmpdir)/src
 	cp tests/Makefile tests/*.c $(tmpdir)/tests
 	cp doc/NOTES doc/YICES-LANGUAGE doc/yices_parser.txt doc/yices_parser_tables.h \
-	   doc/table_builder.c $(tmpdir)/doc
+	   doc/smt_parser.txt doc/smt_parser_tables.h doc/smt2_parser.txt \
+	   doc/smt2_parser_tables.h doc/table_builder.c $(tmpdir)/doc
 	cp etc/* $(tmpdir)/etc
 	for file in `ls examples | grep -e '*.ys|*.txt|*.smt|*.c' ` ; do \
 	  cp examples/$$file $(tmpdir)/examples ; \

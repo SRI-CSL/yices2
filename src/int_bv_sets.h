@@ -80,8 +80,8 @@ static inline bool int_bvset_member(int_bvset_t *set, uint32_t x) {
 /*
  * Add x to the set
  * - x must be non-negative
- * - return true if x not already present
- * - return false if x is present
+ * - return true if x was not already present in set
+ * - return false if x was present in set
  */
 extern bool int_bvset_add(int_bvset_t *set, uint32_t x);
 

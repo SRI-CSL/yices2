@@ -456,6 +456,12 @@ extern void bvarith_buffer_sub_mono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *
 extern void bvarith_buffer_mul_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp);
 
 
+/*
+ * Multiply b by poly ^ d
+ * - use aux as an auxiliary buffer (aux must be distinct from b)
+ */
+extern void bvarith_buffer_mul_bvpoly_power(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp, uint32_t d, bvarith_buffer_t *aux);
+
 
 
 /*******************************************************************

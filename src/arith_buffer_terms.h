@@ -20,9 +20,10 @@
 extern void arith_buffer_add_term(arith_buffer_t *b, term_table_t *table, term_t t);
 extern void arith_buffer_sub_term(arith_buffer_t *b, term_table_t *table, term_t t);
 extern void arith_buffer_mul_term(arith_buffer_t *b, term_table_t *table, term_t t);
+
 extern void arith_buffer_add_const_times_term(arith_buffer_t *b, term_table_t *table, 
 					      rational_t *a, term_t t);
 
-
+extern void arith_buffer_mul_term_power(arith_buffer_t *b, term_table_t *table, term_t t, uint32_t d);
 
 #endif /* __ARITH_BUFFER_TERMS_H */

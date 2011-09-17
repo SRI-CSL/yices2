@@ -481,6 +481,12 @@ extern term_t variable(term_table_t *table, type_t tau, int32_t index);
 
 
 /*
+ * Check whether variable of type tau and index i exists
+ */
+extern bool variable_is_present(term_table_t *table, type_t tau, int32_t i);
+
+
+/*
  * Negation: just flip the polarity bit
  * - p must be boolean
  */
@@ -694,8 +700,6 @@ extern void store_unit_type_rep(term_table_t *table, type_t tau, term_t t);
 extern term_t unit_type_rep(term_table_t *table, type_t tau);
 
 
-
-
 /*
  * NAMES
  */
@@ -704,10 +708,11 @@ extern term_t unit_type_rep(term_table_t *table, type_t tau);
  * IMPORTANT: we use reference counting on character strings as
  * implemented in refcount_strings.h.
  *
- * Parameter "name" in set_term_name must be constructed via the
- * clone_string function.  That's not necessary for get_term_by_name
- * or remove_term_name.  When name is added to the term table, its
- * reference counter is increased by 1 or 2.  When remove_term_name is
+ * Parameter "name" in set_term_name and set_term_basename 
+ * must be constructed via the clone_string function.  
+ * That's not necessary for get_term_by_name or remove_term_name.  
+ * When name is added to the term table, its reference counter 
+ * is increased by 1 or 2.  When remove_term_name is
  * called for an existing symbol, the symbol's reference counter is
  * decremented.  When the table is deleted (via delete_term_table),
  * the reference counters of all symbols present in table are also
@@ -729,6 +734,14 @@ extern term_t unit_type_rep(term_table_t *table, type_t tau);
  * created via the clone_string function.
  */
 extern void set_term_name(term_table_t *table, term_t t, char *name);
+
+
+/*
+ * Assign name as the base name for term t
+ * - if t already has a base name, then it's replaced by 'name'
+ *   and the previous name's reference counter is decremented
+ */
+extern void set_term_base_name(term_table_t *table, term_t t, char *name);
 
 
 /*

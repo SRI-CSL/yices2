@@ -66,7 +66,7 @@ extern void delete_pprod_table(pprod_table_t *table);
  * Construct a power product from an array a of n pairs (variable, exponent).
  * - a must be normalized
  * - return null_pp if n is zero
- * - return a tagged variable if a constains a single pair (x, 1)
+ * - return a tagged variable if a contains a single pair (x, 1)
  * - if there's an element p equal to a already in the table, then return p,
  * - otherwise, create a new pprod_t structure equal to a and store it in
  *   the table.
@@ -89,6 +89,21 @@ static inline pprod_t *pprod_from_buffer(pprod_table_t *table, pp_buffer_t *b) {
  * - both p1 and p2 must be normalized and distinct from end_pp
  */
 extern pprod_t *pprod_mul(pprod_table_t *table, pprod_t *p1, pprod_t *p2);
+
+
+/*
+ * Construct the power product p ^ d
+ * - p must be normalized and distinct from end_pp
+ */
+extern pprod_t *pprod_exp(pprod_table_t *table, pprod_t *p, uint32_t d);
+
+
+/*
+ * Construct the power product x ^ d
+ * - x = a variable index (between 0 and MAX_PPROD_VAR)
+ */
+extern pprod_t *pprod_varexp(pprod_table_t *table, int32_t x, uint32_t d);
+
 
 
 /*

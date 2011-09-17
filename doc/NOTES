@@ -13,6 +13,9 @@ arena.c                 (pop frees all objects allocated since the previous push
 int_stack.h:		stack for allocating integer arrays (freed in reverse order 
 int_stack.c             of allocation).
 
+ptr_stack.h:		stack for allocating pointer arrays (same as int_stack
+ptr_stack.c             but for arrays of (void*) objects).
+
 memalloc.h:             wrappers around malloc/realloc/free
 memalloc.c              NOTE: this imports 'yices_exit_codes.h'
 
@@ -76,8 +79,11 @@ dl_lists.h:		doubly-linked lists
 backtrack_arrays.h:     arrays of integers with support for update, push/pop
 backtrack_arrays.c
 
-dep_tables.h:		dependency tables (maps integer indices to arrays of 
-dep_tables.c		integer indices. Similar to use_vectors.
+dep_tables.h:		dependency tables (map integer indices to arrays of 
+dep_tables.c		integer indices. Similar to use_vectors).
+
+int_array_hsets.h:	support for storing and hash-consing arrays of 32bit integers
+int_array_hsets.c
 
 int_vectors.h:		vectors of signed 32bit integers
 int_vectors.c
@@ -134,8 +140,6 @@ int_bags.c              implemented using resizable arrays.
 uint_rbtrees.h:		Red-black trees to store sets of unsigned, 32bit integers
 uint_rbtrees.c
 
-vsets.h:		support for storing and hash-consing of sets of 32bit integers
-vsets.c                 each set is stored as an array
 
 
 1.3.e  Equivalence relations/Partitions
@@ -412,7 +416,30 @@ term_utils.c
 
 
 
-5.3) Pretty printer for Yices terms and types
+5.3) Support for substitutions
+     -------------------------
+
+subst_context.h			Store a mapping from int32 to int32 indices
+subst_context.c                 with a scoping mechanism and hash consing
+
+variable_renaming.h		To rename bound variables by fresh variables
+variable_renaming.c
+
+renaming_context.h		Subst context + variable renaming
+renaming_context.c
+
+subst_cache.h			Store mapping (term, context) --> term
+subst_cache.c
+
+free_var_collector.h		To compute the free variables of a term
+free_var_collector.c
+
+term_substitution.h		Stores a substitution + cache + renaming
+term_substitution.c             context + free variable collector
+
+
+
+5.4) Pretty printer for Yices terms and types
      ----------------------------------------
 
 yices_pp.h:		 Yices pretty printer (extends pretty_printer)
@@ -427,7 +454,7 @@ type_printer.c
 
 
 
-5.4) Term and type management API
+5.5) Term and type management API
      ----------------------------
 
 All  operations available  at  the  API are  declared  in yices.h  and

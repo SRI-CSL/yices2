@@ -21,11 +21,19 @@ extern void bvarith_buffer_set_term(bvarith_buffer_t *b, term_table_t *table, te
  * Operations on buffer b:
  * - t must be defined in table and be a bitvector term
  *   of same bitsize as buffer b
- * - b->ptbl must be the same as table-pprods
+ * - b->ptbl must be the same as table->pprods
  */
 extern void bvarith_buffer_add_term(bvarith_buffer_t *b, term_table_t *table, term_t t);
 extern void bvarith_buffer_sub_term(bvarith_buffer_t *b, term_table_t *table, term_t t);
 extern void bvarith_buffer_mul_term(bvarith_buffer_t *b, term_table_t *table, term_t t);
+
+
+/*
+ * Multiply b by (t ^ d)
+ * - t must be defined in table and be a bitvector term of same bitsize as b
+ * - b->ptbl must be the same as table->pprods
+ */
+extern void bvarith_buffer_mul_term_power(bvarith_buffer_t *b, term_table_t *table, term_t t, uint32_t d);
 
 
 

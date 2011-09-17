@@ -85,12 +85,12 @@ src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c \
          dl_vartable.c dsolver_printer.c egraph_assertion_queues.c   \
          egraph_explanations.c egraph_utils.c egraph.c               \
          egraph_printer.c eq_abstraction.c eq_learner.c              \
-         extended_rationals.c fun_maps.c fun_solver.c fun_trees.c    \
-         gates_hash_table.c gates_manager.c gates_printer.c gcd.c    \
-         generic_heap.c hash_functions.c idl_floyd_warshall.c        \
-         idl_fw_printer.c index_vectors.c int_array_sort.c           \
-         int_array_sort2.c int_array_hsets.c int_bags.c              \
-         int_bv_sets.c int_hash_classes.c int_hash_map.c             \
+         extended_rationals.c free_var_collector.c fun_maps.c        \
+         fun_solver.c fun_trees.c gates_hash_table.c gates_manager.c \
+         gates_printer.c gcd.c generic_heap.c hash_functions.c       \
+         idl_floyd_warshall.c idl_fw_printer.c index_vectors.c       \
+         int_array_sort.c int_array_sort2.c int_array_hsets.c        \
+         int_bags.c int_bv_sets.c int_hash_classes.c int_hash_map.c  \
          int_hash_map2.c int_hash_sets.c int_hash_tables.c           \
          int_heap.c int_heap2.c int_partitions.c int_powers.c        \
          int_queues.c int_stack.c int_vectors.c                      \
@@ -103,19 +103,20 @@ src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c \
          power_products.c pprod_table.c pretty_printer.c             \
          pseudo_subst.c ptr_array_sort.c ptr_array_sort2.c           \
          ptr_hash_map.c ptr_heap.c ptr_partitions.c ptr_queues.c     \
-         ptr_vectors.c rationals.c rational_hash_maps.c rb_bvsets.c  \
-         rdl_floyd_warshall.c rdl_fw_printer.c reader.c              \
-         refcount_strings.c remap_table.c search_parameters.c        \
-         simplex.c simplex_printer.c simplex_prop_table.c            \
-         small_bvsets.c smt_core.c smt_core_printer.c smt_lexer.c    \
-         smt_logic_codes.c smt_parser.c smt2_lexer.c smt2_parser.c   \
-         string_buffers.c string_utils.c subst_cache.c               \
-         subst_context.c symbol_tables.c terms.c term_printer.c      \
-         term_stack.c term_stack_error.c term_utils.c                \
+         ptr_stack.c ptr_vectors.c rationals.c rational_hash_maps.c  \
+         rb_bvsets.c rdl_floyd_warshall.c rdl_fw_printer.c reader.c  \
+         refcount_strings.c remap_table.c renaming_context.c         \
+         search_parameters.c simplex.c simplex_printer.c             \
+         simplex_prop_table.c small_bvsets.c smt_core.c              \
+         smt_core_printer.c smt_lexer.c smt_logic_codes.c            \
+         smt_parser.c smt2_lexer.c smt2_parser.c string_buffers.c    \
+         string_utils.c subst_cache.c subst_context.c                \
+         symbol_tables.c terms.c term_printer.c term_stack.c         \
+         term_stack_error.c term_substitution.c term_utils.c         \
          theory_explanations.c timeout.c tuple_hash_map.c types.c    \
          type_macros.c type_printer.c uint_rbtrees.c union_find.c    \
-         use_vectors.c yices_api.c yices_error.c yices_lexer.c       \
-         yices_pp.c yices_parser.c yices_reval.c
+         use_vectors.c variable_renaming.c yices_api.c yices_error.c \
+         yices_lexer.c yices_pp.c yices_parser.c yices_reval.c
 
 
 #

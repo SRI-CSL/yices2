@@ -324,6 +324,18 @@ void pp_buffer_mul_buffer(pp_buffer_t *b, pp_buffer_t *src) {
 }
 
 
+/*
+ * Exponentiation
+ */
+void pp_buffer_exponentiate(pp_buffer_t *b, uint32_t d) {
+  uint32_t i, n;
+
+  n = b->len;
+  for (i=0; i<n; i++) {
+    b->prod[i].exp *= d;
+  }
+  pp_buffer_normalize(b);
+}
 
 
 /*
