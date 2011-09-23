@@ -133,7 +133,7 @@
  *
  * Initially, thvar[c] is the same as thvar[root[c]]. But thvar[c] is dynamically
  * updated as the classes are merged. If classes c2 is merged into class c1, and
- * c1 has no theory-variable, then it inherits the theory variable of c2 (if any).
+ * c1 has no theory variable, then it inherits the theory variable of c2 (if any).
  * If both classes have theory variables v1 and v2, then a theory solver is notified 
  * that v1 and v2 are now equal.
  * 

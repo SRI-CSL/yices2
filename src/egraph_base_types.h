@@ -159,7 +159,7 @@ typedef enum composite_kind {
   COMPOSITE_EQ,
   COMPOSITE_ITE,
   COMPOSITE_DISTINCT,
-  COMPOSITE_OR
+  COMPOSITE_OR,
 } composite_kind_t;
 
 

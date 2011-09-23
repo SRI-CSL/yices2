@@ -227,8 +227,8 @@ extern bool same_arg_signature(composite_t *c, composite_t *d, elabel_t *label);
 /*
  * Compute a hash code of c's argument tuple
  * - c must be of the form (apply f i_1 ... i_n)
- * - return a hash computed based one n and label[i_1], ..., label[i_n]
- * - so if same_arg_signatrue(c, d, label) is true then 
+ * - return a hash computed based on n and label[i_1], ..., label[i_n]
+ * - so if same_arg_signature(c, d, label) is true then 
  *   hash_arg_signature(c, label) = hash_arg_signature(d, label).
  */
 extern uint32_t hash_arg_signature(composite_t *c, elabel_t *label);
