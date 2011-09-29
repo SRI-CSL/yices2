@@ -263,9 +263,11 @@ source-distribution:
 	cp autoconf/* $(tmpdir)/autoconf
 	cp src/Makefile src/*.h src/*.c \
 	   src/yices_keywords.txt src/smt_keywords.txt \
+	   src/smt2_tokens.txt src/smt2_keywords.txt src/smt2_symbols.txt \
 	   src/yices_version_template.txt $(tmpdir)/src
 	cp tests/Makefile tests/*.c $(tmpdir)/tests
-	cp doc/NOTES doc/YICES-LANGUAGE doc/yices_parser.txt doc/yices_parser_tables.h \
+	cp doc/NOTES doc/YICES-LANGUAGE doc/GMP doc/gmp-hack.h \
+           doc/yices_parser.txt doc/yices_parser_tables.h \
 	   doc/smt_parser.txt doc/smt_parser_tables.h doc/smt2_parser.txt \
 	   doc/smt2_parser_tables.h doc/table_builder.c $(tmpdir)/doc
 	cp etc/* $(tmpdir)/etc

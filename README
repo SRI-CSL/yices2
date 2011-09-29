@@ -508,7 +508,7 @@ The hardest part is usually to install GMP. Check doc/GMP for help.
 Also, it's a good idea to install GMP from the source (and install it
 in the default directory /usr/local/lib) rather than use Darwin port.
 Once GMP is installed, the build should work fine on any Mac OS X
-platform (including older powerpc hardware). 
+platform (including older powerpc hardware).
 
 It may also be required to install a newer version of autoconf than
 the one that comes by default on Mac OS (I haven't checked whether 
@@ -528,6 +528,11 @@ version:
   default platform: x86_64-apple-darwin10.x.y
 
 - on 10.7 (Lion): I assume the default is 64bit too?
+
+There are also issues with having 32 and 64bit versions of GMP
+on the same machine. I normally use fat libraries, and a hack
+that allows me to have two copies in gmp.h (one for 32bits, 
+one for 64bits). Check doc/gmp-hack.h for this.
 
 The instructions below assume compilation on an Mac running
 Snow Leopard (i.e., Mac OS 10.6.8) and with GMP installed in

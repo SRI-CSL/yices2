@@ -37,7 +37,7 @@ some versions of GCC do not compile GMP properly on 64bit machines.
 
 2) 32bit version: similar but add the flag -m32 to CFLAGS
 
-   ./configure --prefix=/homes/bruno/tools/xi386-linux/reloc_gmp \
+   ./configure --prefix=/homes/bruno/tools/i386-linux/reloc_gmp \
       ABI=32 CFLAGS='-fPIC -m32' CPPFLAGS=-DPIC --disable-shared
 
 NOTE: it's important to always build GMP from a clean state, and doing
@@ -164,7 +164,7 @@ the GMP configure script.
    This worked without problems (but it's critical to do this from a clean
    GMP source directory).
 
-   
+
 
 
 4) Building a fat GMP library:
