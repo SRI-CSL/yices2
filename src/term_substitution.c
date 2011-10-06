@@ -18,6 +18,7 @@ void init_term_subst(term_subst_t *subst, term_table_t *ttbl, uint32_t n, term_t
   subst->terms = ttbl;
   init_int_hmap(&subst->map, 0);
   init_subst_cache(&subst->cache);
+  init_istack(&subst->stack);
   subst->rctx = NULL;
   subst->fvar = NULL;
 
@@ -70,6 +71,7 @@ static fvar_collector_t *term_subst_get_fvar(term_subst_t *subst) {
 void delete_term_subst(term_subst_t *subst) {
   delete_int_hmap(&subst->map);
   delete_subst_cache(&subst->cache);
+  delete_istack(&subst->stack);
   if (subst->rctx != NULL) {
     delete_renaming_ctx(subst->rctx);
     safe_free(subst->rctx);

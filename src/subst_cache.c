@@ -206,7 +206,6 @@ static void sctx_hmap_add(sctx_hmap_t *hmap, void *p, int32_t k, int32_t v) {
  * FULL CACHE
  */
 
-
 /*
  * Initialize the cache:
  * - prime is initialized with its default size (cf. int_hash_map.h)

@@ -34,6 +34,7 @@ typedef struct renaming_ctx_s {
  */
 extern void init_renaming_ctx(renaming_ctx_t *ctx, term_table_t *ttbl, uint32_t n);
 
+
 /*
  * Deletion
  */

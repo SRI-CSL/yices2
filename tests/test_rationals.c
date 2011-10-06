@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <inttypes.h>
+#include <gmp.h>
 
 #include "rationals.h"
 #include "mpq_aux.h"
@@ -397,6 +398,7 @@ int main() {
   int32_t i;
 
   init_rationals();
+  printf("GMP %s (bits per limb = %"PRId32")\n", gmp_version, GMP_LIMB_BITS);  
   printf("MAX_NUM = %d\n", MAX_NUMERATOR);
   printf("MIN_NUM = %d\n", MIN_NUMERATOR);
   printf("MAX_DEN = %d\n", MAX_DENOMINATOR);

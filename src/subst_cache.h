@@ -14,7 +14,7 @@
  * The cache is implemeted as a pair of hash tables: 
  * - A main hash table is used for the empty context (ctx = NULL).
  *   This table maps terms to terms.
- * - A secondary table maps pairs (term x context) to terms.
+ * - A secondary table maps pairs (term, context) to terms.
  *   In this table, context is just a void* pointer. This is enough
  *   since 'subst_context' uses hash-consing. 
  *
