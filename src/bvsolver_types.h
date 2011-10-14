@@ -8,8 +8,7 @@
  * 
  * For each variable x, we store
  * - bit_size[x] = number of bits in x
- * - kind[x] = tag that defines how the definition is to 
- *             be interpreted
+ * - kind[x] = tag so that we know how to interpre def[x]
  * - def[x] = definition of x 
  * - eterm[x] = attached egraph term (optional)
  * - map[x] = array of literals (bit blasting)

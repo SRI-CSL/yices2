@@ -1778,6 +1778,147 @@ static inline bool equal_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
 
 
+/************************
+ *  DISEQUALITY CHECKS  *
+ ***********************/
+
+/*
+ * Check whether two bitarrays a and b are distinct
+ * - n = size of both arrays
+ * - for now, this returns true if there's an 
+ *   index i such that a[i] = not b[i]
+ */
+static bool diseq_bitarrays(literal_t *a, literal_t *b, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (opposite(a[i], b[i])) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+/*
+ * Check whether bit array a and small constant c must differ.
+ * - n = number of bits in a (and c)
+ */
+static bool diseq_bitarray_const64(literal_t *a, uint64_t c, uint32_t n) {
+  uint32_t i;
+
+  assert(n <= 64);
+
+  /*
+   * We use the fact that true_literal = 0 and false_literal = 1
+   * So (bit i of c) == a[i] implies a != c
+   */
+  assert(true_literal == 0 && false_literal == 1);
+  
+  for (i=0; i<n; i++) {
+    if (((int32_t) (c & 1)) == a[i]) {
+      return true;
+    }
+    c >>= 1;
+  }
+
+  return false;  
+}
+
+
+/*
+ * Same thing for a constant c with more than 64bits
+ */
+static bool diseq_bitarray_const(literal_t *a, uint32_t *c, uint32_t n) {
+  uint32_t i;
+
+  assert(n >= 64);
+
+  /*
+   * Same trick as above:
+   * - bvconst_tst_bit(c, i) = bit i of c = either 0 or 1
+   */
+  assert(true_literal == 0 && false_literal == 1);
+
+  for (i=0; i<n; i++) {
+    if (bvconst_tst_bit(c, i) == a[i]) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+/*
+ * Top-level disequality check
+ */
+static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  bv_vartable_t *vtbl;
+  bvvar_tag_t tag_x, tag_y;
+  uint32_t n;
+
+  assert(bvvar_bitsize(vtbl, x) == bvvar_bitsize(vtbl, y));
+
+  x = mtbl_get_root(&solver->mtbl, x);
+  y = mtbl_get_root(&solver->mtbl, y);
+
+  if (x == y) return false;
+
+  vtbl = &solver->vtbl;
+  tag_x = bvvar_tag(vtbl, x);
+  tag_y = bvvar_tag(vtbl, y);
+
+  switch (tag_x) {
+  case BVTAG_CONST64:
+    if (tag_y == BVTAG_CONST64) {
+      return true; // constants are distinct
+    }
+    if (tag_y == BVTAG_BIT_ARRAY) {
+      n = bvvar_bitsize(vtbl, x);
+      return diseq_bitarray_const64(bvvar_bvarray_def(vtbl, y), bvvar_val64(vtbl, x), n);
+    }
+    break;
+
+  case BVTAG_CONST:
+    if (tag_y == BVTAG_CONST) {
+      return true;
+    }
+    if (tag_y == BVTAG_BIT_ARRAY) {
+      n = bvvar_bitsize(vtbl, x);
+      return diseq_bitarray_const(bvvar_bvarray_def(vtbl, y), bvvar_val(vtbl, x), n);
+    }
+    break;
+
+  case BVTAG_BIT_ARRAY:
+    switch (tag_y) {
+    case BVTAG_CONST64:
+      n = bvvar_bitsize(vtbl, x);
+      return diseq_bitarray_const64(bvvar_bvarray_def(vtbl, x), bvvar_val64(vtbl, y), n);
+
+    case BVTAG_CONST:
+      n = bvvar_bitsize(vtbl, x);
+      return diseq_bitarray_const(bvvar_bvarray_def(vtbl, x), bvvar_val(vtbl, y), n);
+
+    case BVTAG_BIT_ARRAY:
+      n = bvvar_bitsize(vtbl, x);
+      return diseq_bitarrays(bvvar_bvarray_def(vtbl, x), bvvar_bvarray_def(vtbl, y), n);
+
+    default:
+      break;
+    }
+    break;
+
+  default:
+    break;
+  }
+
+  return false;
+}
+
+
+
 /*****************************************
  *  SIMPLIFICATION + TERM CONSTRUCTION   *
  ****************************************/
@@ -1969,7 +2110,7 @@ static thvar_t map_const64_times_product(bv_solver_t *solver, uint32_t nbits, pp
 
 /*
  * Build the term c * x (as a polynomial)
- * - nbits = number of bits in c and x (nbist > 64)
+ * - nbits = number of bits in c and x (nbits > 64)
  * - c must be normalized
  */
 static thvar_t make_mono(bv_solver_t *solver, uint32_t nbits, uint32_t *c, thvar_t x) {
@@ -2437,7 +2578,7 @@ thvar_t bv_solver_create_const64(bv_solver_t *solver, bvconst64_term_t *c) {
  * Internalize a polynomial p:
  * - map = variable renaming
  *   if p is of the form a_0 t_0 + ... + a_n t_n
- *   then map containts n+1 elements variables, and map[i] is the internalization of t_i
+ *   then map containts n+1 variables, and map[i] is the internalization of t_i
  * - exception: if t_0 is const_idx then map[0] = null_thvar
  */
 thvar_t bv_solver_create_bvpoly(bv_solver_t *solver, bvpoly_t *p, thvar_t *map) {
@@ -3021,13 +3162,14 @@ literal_t bv_solver_create_sge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
 void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool tt) {
   literal_t l;
 
-  // crude version for now
   if (equal_bvvar(solver, x, y)) {
     if (! tt) {
-      // Contradiction
-      add_empty_clause(solver->core);
+      add_empty_clause(solver->core);       // Contradiction
     }
-
+  } else if (diseq_bvvar(solver, x, y)) {
+    if (tt) {
+      add_empty_clause(solver->core);       // Contradiction
+    }
   } else if (tt) {
     // Merge the classes of x and y
     x = mtbl_get_root(&solver->mtbl, x);
@@ -3035,7 +3177,7 @@ void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
     bv_solver_merge_vars(solver, x, y);
 
   } else {
-    // Disequality
+    // Add the constraint (x != y)
     l = bv_solver_create_eq_atom(solver, x, y);
     add_unit_clause(solver->core, not(l));
   }

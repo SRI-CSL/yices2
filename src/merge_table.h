@@ -18,7 +18,7 @@
  * To support this, we maintain an equivalence relation between
  * variables (two variables are in the same equivalence classes if
  * they are asserted equal at the base level). This is implemented
- * using a merge table, This is a simplified version of a union-find
+ * using a merge table. This is a simplified version of a union-find
  * data structure so that push/pop is cheap.
  *
  * The merge table maps a variable x to its parent in a merge tree.
