@@ -116,6 +116,39 @@ static inline uint64_t min_signed64(uint32_t n) {
 }
 
 
+
+/*
+ * Arithmetic and logical shift
+ */
+
+/*
+ * Shift left: (a << b), padding with 0. 
+ * - n = number of bits in a and b
+ * - if b is more than n, this returns 0b00000
+ * - the result is normalized
+ */
+extern uint64_t bvconst64_lshl(uint64_t a, uint64_t b, uint32_t n);
+
+
+/*
+ * Logical shift right: (a >> b), padding with 0
+ * - n = number of bits in a and b
+ * - if b is more than n, return 0b00000
+ * - the result is normalized.
+ */
+extern uint64_t bvconst64_lshr(uint64_t a, uint64_t b, uint32_t n);
+
+
+/*
+ * Arithmetic shift right: (a >> b), padding with a's sign bit
+ * - n = number of bist in a and b
+ * - if b is more than n, return 0b00000 or 0b11111 depending on a's sign bit
+ * - the result is normalized.
+ */
+extern uint64_t bvconst64_ashr(uint64_t a, uint64_t b, uint32_t n);
+
+
+
 /*
  * Operations on constants interpreted as n-bit 2's complement numbers.
  */

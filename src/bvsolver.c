@@ -1778,6 +1778,53 @@ static inline bool equal_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
 
 
+
+/*
+ * Check whether x is equal to 0b0000
+ */
+static bool bvvar_is_zero(bv_vartable_t *vtbl, thvar_t x) {  
+  uint32_t n, k;
+
+  switch (bvvar_tag(vtbl, x)) {
+  case BVTAG_CONST64:
+    return bvvar_val64(vtbl, x) == 0;
+
+  case BVTAG_CONST:
+    n = bvvar_bitsize(vtbl, x);
+    k = (n + 31) >> 5;
+    return bvconst_is_zero(bvvar_val(vtbl, x), k);
+
+  default:
+    return false;
+  }
+}
+
+
+/*
+ * Check whether x is equal to 0b1111
+ */
+static bool bvvar_is_minus_one(bv_vartable_t *vtbl, thvar_t x) {  
+  uint32_t n;
+
+  switch (bvvar_tag(vtbl, x)) {
+  case BVTAG_CONST64:
+    n = bvvar_bitsize(vtbl, x);
+    return bvconst64_is_minus_one(bvvar_val64(vtbl, x), n);
+
+  case BVTAG_CONST:
+    n = bvvar_bitsize(vtbl, x);
+    return bvconst_is_minus_one(bvvar_val(vtbl, x), n);
+
+  default:
+    return false;
+  }
+}
+
+
+
+
+
+
 /************************
  *  DISEQUALITY CHECKS  *
  ***********************/
@@ -1859,7 +1906,7 @@ static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bvvar_tag_t tag_x, tag_y;
   uint32_t n;
 
-  assert(bvvar_bitsize(vtbl, x) == bvvar_bitsize(vtbl, y));
+  assert(bvvar_bitsize(&solver->vtbl, x) == bvvar_bitsize(&solver->vtbl, y));
 
   x = mtbl_get_root(&solver->mtbl, x);
   y = mtbl_get_root(&solver->mtbl, y);
@@ -1870,36 +1917,17 @@ static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
   tag_x = bvvar_tag(vtbl, x);
   tag_y = bvvar_tag(vtbl, y);
 
-  switch (tag_x) {
-  case BVTAG_CONST64:
-    if (tag_y == BVTAG_CONST64) {
-      return true; // constants are distinct
-    }
-    if (tag_y == BVTAG_BIT_ARRAY) {
-      n = bvvar_bitsize(vtbl, x);
-      return diseq_bitarray_const64(bvvar_bvarray_def(vtbl, y), bvvar_val64(vtbl, x), n);
-    }
-    break;
-
-  case BVTAG_CONST:
-    if (tag_y == BVTAG_CONST) {
-      return true;
-    }
-    if (tag_y == BVTAG_BIT_ARRAY) {
-      n = bvvar_bitsize(vtbl, x);
-      return diseq_bitarray_const(bvvar_bvarray_def(vtbl, y), bvvar_val(vtbl, x), n);
-    }
-    break;
-
-  case BVTAG_BIT_ARRAY:
-    switch (tag_y) {
+  if (tag_x == tag_y) {
+    switch (tag_x) {
     case BVTAG_CONST64:
-      n = bvvar_bitsize(vtbl, x);
-      return diseq_bitarray_const64(bvvar_bvarray_def(vtbl, x), bvvar_val64(vtbl, y), n);
-
     case BVTAG_CONST:
-      n = bvvar_bitsize(vtbl, x);
-      return diseq_bitarray_const(bvvar_bvarray_def(vtbl, x), bvvar_val(vtbl, y), n);
+      return true;
+
+    case BVTAG_POLY64:
+      return disequal_bvpoly64(bvvar_poly64_def(vtbl, x), bvvar_poly64_def(vtbl, y));
+
+    case BVTAG_POLY:
+      return disequal_bvpoly(bvvar_poly_def(vtbl, x), bvvar_poly_def(vtbl, y));
 
     case BVTAG_BIT_ARRAY:
       n = bvvar_bitsize(vtbl, x);
@@ -1908,13 +1936,49 @@ static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
     default:
       break;
     }
-    break;
 
-  default:
-    break;
+  } else {
+
+    n = bvvar_bitsize(vtbl, x);
+    if (n <= 64) {
+      if (tag_x == BVTAG_CONST64 && tag_y == BVTAG_BIT_ARRAY) {
+	return diseq_bitarray_const64(bvvar_bvarray_def(vtbl, y), bvvar_val64(vtbl, x), n);
+      }
+
+      if (tag_y == BVTAG_CONST64 && tag_x == BVTAG_BIT_ARRAY) {
+	return diseq_bitarray_const64(bvvar_bvarray_def(vtbl, x), bvvar_val64(vtbl, y), n);
+      }
+      
+      if (tag_x == BVTAG_POLY64 && tag_y != BVTAG_CONST64) {
+	return bvpoly64_is_const_plus_var(bvvar_poly64_def(vtbl, x), y);
+      }
+
+      if (tag_y == BVTAG_POLY64 && tag_x != BVTAG_CONST64) {
+	return bvpoly64_is_const_plus_var(bvvar_poly64_def(vtbl, y), x);
+      }
+
+    } else {
+      if (tag_x == BVTAG_CONST && tag_y == BVTAG_BIT_ARRAY) {
+	return diseq_bitarray_const(bvvar_bvarray_def(vtbl, y), bvvar_val(vtbl, x), n);
+      }
+
+      if (tag_y == BVTAG_CONST && tag_x == BVTAG_BIT_ARRAY) {
+	return diseq_bitarray_const(bvvar_bvarray_def(vtbl, x), bvvar_val(vtbl, y), n);
+      }
+      
+      if (tag_x == BVTAG_POLY && tag_y != BVTAG_CONST) {
+	return bvpoly_is_const_plus_var(bvvar_poly_def(vtbl, x), y);
+      }
+
+      if (tag_y == BVTAG_POLY && tag_x != BVTAG_CONST) {
+	return bvpoly_is_const_plus_var(bvvar_poly_def(vtbl, y), x);
+      }
+      
+    }
   }
-
+  
   return false;
+
 }
 
 
@@ -2998,31 +3062,122 @@ thvar_t bv_solver_create_bvsmod(bv_solver_t *solver, thvar_t x, thvar_t y) {
 }
 
 
+/*
+ * Left shift, padding with zeros
+ */
 thvar_t bv_solver_create_bvshl(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  bv_vartable_t *vtbl;
+  bvvar_tag_t xtag, ytag; 
   uint32_t n;
+  uint64_t c;
 
-  n = bvvar_bitsize(&solver->vtbl, x);
-  assert(bvvar_bitsize(&solver->vtbl, y) == n);
+  vtbl = &solver->vtbl;
 
-  return get_bvshl(&solver->vtbl, n, x, y);
+  x = mtbl_get_root(&solver->mtbl, x);
+  y = mtbl_get_root(&solver->mtbl, y);
+
+  n = bvvar_bitsize(vtbl, x);
+  assert(bvvar_bitsize(vtbl, y) == n);
+
+  xtag = bvvar_tag(vtbl, x);
+  ytag = bvvar_tag(vtbl, y);
+
+  // deal with constants
+  if (xtag == ytag) {
+    if (xtag == BVTAG_CONST64) {
+      // small constants
+      assert(n <= 64);
+      c = bvconst64_shift_left(bvvar_val64(vtbl, x), bvvar_val64(vtbl, y), n);
+      return get_bvconst64(vtbl, n, c);
+    }
+    
+  }
+
+  if (bvvar_is_zero(vtbl, x)) {
+    // 0b000..0 unchanged by logical shift
+    return x;
+  }
+  
+  return get_bvshl(vtbl, n, x, y);
 }
 
+
+/*
+ * Right shift, padding with zeros
+ */
 thvar_t bv_solver_create_bvlshr(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  bv_vartable_t *vtbl;
+  bvvar_tag_t xtag, ytag; 
   uint32_t n;
+  uint64_t c;
 
-  n = bvvar_bitsize(&solver->vtbl, x);
-  assert(bvvar_bitsize(&solver->vtbl, y) == n);
 
-  return get_bvlshr(&solver->vtbl, n, x, y);
+  vtbl = &solver->vtbl;
+
+  x = mtbl_get_root(&solver->mtbl, x);
+  y = mtbl_get_root(&solver->mtbl, y);
+
+  n = bvvar_bitsize(vtbl, x);
+  assert(bvvar_bitsize(vtbl, y) == n);
+
+  xtag = bvvar_tag(vtbl, x);
+  ytag = bvvar_tag(vtbl, y);
+
+  // deal with constants
+  if (xtag == ytag) {
+    if (xtag == BVTAG_CONST64) {
+      // small constants
+      assert(n <= 64);
+      c = bvconst64_lshift_right(bvvar_val64(vtbl, x), bvvar_val64(vtbl, y), n);
+      return get_bvconst64(vtbl, n, c);
+    }    
+  }
+
+  if (bvvar_is_zero(vtbl, x)) {
+    // 0b000..0 unchanged by logical shift
+    return x;
+  }
+  
+  return get_bvlshr(vtbl, n, x, y);
 }
 
+
+/*
+ * Arithmetic right shift
+ */
 thvar_t bv_solver_create_bvashr(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  bv_vartable_t *vtbl;
+  bvvar_tag_t xtag, ytag; 
   uint32_t n;
+  uint64_t c;
 
-  n = bvvar_bitsize(&solver->vtbl, x);
-  assert(bvvar_bitsize(&solver->vtbl, y) == n);
+  vtbl = &solver->vtbl;
 
-  return get_bvashr(&solver->vtbl, n, x, y);
+  x = mtbl_get_root(&solver->mtbl, x);
+  y = mtbl_get_root(&solver->mtbl, y);
+
+  n = bvvar_bitsize(vtbl, x);
+  assert(bvvar_bitsize(vtbl, y) == n);
+
+  xtag = bvvar_tag(vtbl, x);
+  ytag = bvvar_tag(vtbl, y);
+
+  // deal with constants
+  if (xtag == ytag) {
+    if (xtag == BVTAG_CONST64) {
+      // small constants
+      assert(n <= 64);
+      c = bvconst64_ashift_right(bvvar_val64(vtbl, x), bvvar_val64(vtbl, y), n);
+      return get_bvconst64(vtbl, n, c);
+    }
+  }
+
+  if (bvvar_is_zero(vtbl, x) || bvvar_is_minus_one(vtbl, x)) {
+    // 0b000..0 and 0b11...1 are unchanged by any arithmetic shift
+    return x;
+  }
+  
+  return get_bvashr(vtbl, n, x, y);
 }
 
 

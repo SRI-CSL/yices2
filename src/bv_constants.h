@@ -284,10 +284,29 @@ extern void bvconst_xor(uint32_t *bv, uint32_t k, uint32_t *a);
 extern void bvconst_shift_left(uint32_t *bv, uint32_t n, uint32_t m, bool b);
 extern void bvconst_shift_right(uint32_t *bv, uint32_t n, uint32_t m, bool b);
 
+
+/*
+ * More shift operations: 
+ * - a is shifted by the amount defined by b
+ * - the result is stored in *bv
+ * - n = number of bits in a, b, and bv
+ *
+ * Operations:
+ * - lshl: logical shift left
+ * - lshr: logical shift right
+ * - ashr: arithmetic shift right
+ */
+extern void bvconst_lshl(uint32_t *bv, uint32_t *a, uint32_t *b, uint32_t n);
+extern void bvconst_lshr(uint32_t *bv, uint32_t *a, uint32_t *b, uint32_t n);
+extern void bvconst_ashr(uint32_t *bv, uint32_t *a, uint32_t *b, uint32_t n);
+
+
+
 /*
  * Extraction: store bits[l..(h-1)] of a into bv[0..(h-l-1)]
  */
 extern void bvconst_extract(uint32_t *bv, uint32_t *a, uint32_t l, uint32_t h);
+
 
 /*
  * Concatenation: bv[0...n-1] = a[0.. n-1] and bv[n ... n+m-1] = b[0...m-1]

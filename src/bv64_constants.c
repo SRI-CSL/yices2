@@ -51,6 +51,77 @@ bool signed64_gt(uint64_t a, uint64_t b, uint32_t n) {
 
 
 
+
+/*
+ * Shift left: (a << b), padding with 0. 
+ * - n = number of bits in a and b
+ * - if b is more than n, this returns 0b00000
+ * - the result is normalized
+ */
+uint64_t bvconst64_shift_left(uint64_t a, uint64_t b, uint32_t n) {
+  uint64_t c;
+
+  assert(0 < n && n <= 64);
+
+  c = 0;
+  if (b < n) {
+    assert(b < 64);
+    c = norm64(a << b, n);
+  }
+
+  return c;
+}
+
+
+/*
+ * Logical shift right: (a >> b), padding with 0
+ * - n = number of bits in a and b
+ * - if b is more than n, return 0b00000
+ * - the result is normalized.
+ */
+uint64_t bvconst64_lshift_right(uint64_t a, uint64_t b, uint32_t n) {
+  uint64_t c;
+
+  assert(0 < n && n <= 64);
+
+  c = 0;
+  if (b < n) {
+    assert(b < 64);
+    c = norm64(a >> b, n);
+  }
+
+  return c;
+}
+
+
+/*
+ * Arithmetic shift right: (a >> b), padding with a's sign bit
+ * - n = number of bist in a and b
+ * - if b is more than n, return 0b00000 or 0b11111 depending on a's sign bit
+ * - the result is normalized.
+ */
+uint64_t bvconst64_ashift_right(uint64_t a, uint64_t b, uint32_t n) {
+  int64_t c;
+
+  assert(0 < n && n <= 64);
+
+  c = signed_int64(a, n);
+  if (b < n) {
+    assert(0 <= b && b < 64);
+    c = (int64_t) norm64((uint64_t) (c >> (int64_t) b), n);
+  } else if (c < 0) {
+    c = (int64_t) -1;
+  } else {
+    c = 0;
+  }
+
+  return (uint64_t) c;
+}
+
+
+
+
+
 /*
  * Quotient in unsigned division of x by y
  */
