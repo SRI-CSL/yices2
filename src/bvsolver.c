@@ -3067,6 +3067,7 @@ thvar_t bv_solver_create_bvsmod(bv_solver_t *solver, thvar_t x, thvar_t y) {
  */
 thvar_t bv_solver_create_bvshl(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv_vartable_t *vtbl;
+  bvconstant_t *aux;
   bvvar_tag_t xtag, ytag; 
   uint32_t n;
   uint64_t c;
@@ -3087,10 +3088,17 @@ thvar_t bv_solver_create_bvshl(bv_solver_t *solver, thvar_t x, thvar_t y) {
     if (xtag == BVTAG_CONST64) {
       // small constants
       assert(n <= 64);
-      c = bvconst64_shift_left(bvvar_val64(vtbl, x), bvvar_val64(vtbl, y), n);
+      c = bvconst64_lshl(bvvar_val64(vtbl, x), bvvar_val64(vtbl, y), n);
       return get_bvconst64(vtbl, n, c);
     }
     
+    if (xtag == BVTAG_CONST) {
+      assert(n > 64);
+      aux = &solver->aux1;
+      bvconstant_set_bitsize(aux, n);
+      bvconst_lshl(aux->data, bvvar_val(vtbl, x), bvvar_val(vtbl, y), n);
+      return get_bvconst(vtbl, n, aux->data);
+    }
   }
 
   if (bvvar_is_zero(vtbl, x)) {
@@ -3107,6 +3115,7 @@ thvar_t bv_solver_create_bvshl(bv_solver_t *solver, thvar_t x, thvar_t y) {
  */
 thvar_t bv_solver_create_bvlshr(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv_vartable_t *vtbl;
+  bvconstant_t *aux;
   bvvar_tag_t xtag, ytag; 
   uint32_t n;
   uint64_t c;
@@ -3128,9 +3137,17 @@ thvar_t bv_solver_create_bvlshr(bv_solver_t *solver, thvar_t x, thvar_t y) {
     if (xtag == BVTAG_CONST64) {
       // small constants
       assert(n <= 64);
-      c = bvconst64_lshift_right(bvvar_val64(vtbl, x), bvvar_val64(vtbl, y), n);
+      c = bvconst64_lshr(bvvar_val64(vtbl, x), bvvar_val64(vtbl, y), n);
       return get_bvconst64(vtbl, n, c);
-    }    
+    }
+   
+    if (xtag == BVTAG_CONST) {
+      assert(n > 64);
+      aux = &solver->aux1;
+      bvconstant_set_bitsize(aux, n);
+      bvconst_lshr(aux->data, bvvar_val(vtbl, x), bvvar_val(vtbl, y), n);
+      return get_bvconst(vtbl, n, aux->data);
+    }
   }
 
   if (bvvar_is_zero(vtbl, x)) {
@@ -3147,6 +3164,7 @@ thvar_t bv_solver_create_bvlshr(bv_solver_t *solver, thvar_t x, thvar_t y) {
  */
 thvar_t bv_solver_create_bvashr(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv_vartable_t *vtbl;
+  bvconstant_t *aux;
   bvvar_tag_t xtag, ytag; 
   uint32_t n;
   uint64_t c;
@@ -3167,8 +3185,16 @@ thvar_t bv_solver_create_bvashr(bv_solver_t *solver, thvar_t x, thvar_t y) {
     if (xtag == BVTAG_CONST64) {
       // small constants
       assert(n <= 64);
-      c = bvconst64_ashift_right(bvvar_val64(vtbl, x), bvvar_val64(vtbl, y), n);
+      c = bvconst64_ashr(bvvar_val64(vtbl, x), bvvar_val64(vtbl, y), n);
       return get_bvconst64(vtbl, n, c);
+    }
+
+    if (xtag == BVTAG_CONST) {
+      assert(n > 64);
+      aux = &solver->aux1;
+      bvconstant_set_bitsize(aux, n);
+      bvconst_ashr(aux->data, bvvar_val(vtbl, x), bvvar_val(vtbl, y), n);
+      return get_bvconst(vtbl, n, aux->data);
     }
   }
 
@@ -3232,7 +3258,15 @@ literal_t bv_solver_create_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
   int32_t i;
   literal_t l;
   bvar_t v;
-  
+
+  if (equal_bvvar(solver, x, y)) {
+    return true_literal;
+  }
+
+  if (diseq_bvvar(solver, x, y)) {
+    return false_literal;
+  }
+
   atbl = &solver->atbl;
   i = get_bveq_atom(atbl, x, y);
   l = atbl->data[i].lit;

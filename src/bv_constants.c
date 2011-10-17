@@ -925,6 +925,84 @@ void bvconst_shift_right(uint32_t *bv, uint32_t n, uint32_t m, bool b) {
 
 
 /*
+ * Convert constant c into a shift amount between 0 and n
+ * - n = number of bits of c
+ * - if c's value is more than n, return n.
+ *   otherwise return c's value
+ */
+static uint32_t bvshift_amount(uint32_t *c, uint32_t n) {
+  uint32_t k, i, s;
+
+  assert(n > 0);
+  
+  k = (n + 31) >> 5;     // number of words in c
+  s = bvconst_get32(c);  // s = lower order word of c
+  
+  // check that the high order words are zero
+  for (i=1; i<k; i++) {
+    if (c[i] != 0) return n; 
+  }
+
+  return (s < n) ? s : n;
+}
+
+
+/*
+ * Logical shift left: (a << b)
+ * - store the result in *bv and normalize
+ * - n = number of bits in a and b
+ */
+void bvconst_lshl(uint32_t *bv, uint32_t *a, uint32_t *b, uint32_t n) {
+  uint32_t k, s;
+
+  s = bvshift_amount(b, n);
+  assert(0 <= s && s <= n);
+  k = (n + 31) >> 5;
+  bvconst_set(bv, k, a);
+  bvconst_shift_left(bv, n, s, false);
+  bvconst_normalize(bv, n);
+}
+
+
+/*
+ * Logical shift right: (a >> b)
+ * - store the result in *bv and normalize
+ * - n = number of bits in a and b
+ */
+void bvconst_lshr(uint32_t *bv, uint32_t *a, uint32_t *b, uint32_t n) {
+  uint32_t k, s;
+
+  s = bvshift_amount(b, n);
+  assert(0 <= s && s <= n);
+  k = (n + 31) >> 5;
+  bvconst_set(bv, k, a);
+  bvconst_shift_right(bv, n, s, false);
+  bvconst_normalize(bv, n);
+}
+
+
+/*
+ * Arithemtic shift right: (a >> b)
+ * - store the result in *bv and normalize
+ * - n = number of bits in a and b
+ */
+void bvconst_ashr(uint32_t *bv, uint32_t *a, uint32_t *b, uint32_t n) {
+  uint32_t k, s;
+  bool sign;
+
+  s = bvshift_amount(b, n);
+  assert(0 <= s && s <= n);
+  k = (n + 31) >> 5;
+  bvconst_set(bv, k, a);
+  sign = bvconst_tst_bit(a, n-1);
+  bvconst_shift_right(bv, n, s, sign);
+  bvconst_normalize(bv, n);
+}
+
+
+
+
+/*
  * Extract subvector a[l..(h-1)] and store it in bv
  * - bv must have size k = ceil((h - l) / 32)
  */

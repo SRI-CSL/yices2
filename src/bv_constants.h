@@ -24,6 +24,7 @@
 #ifndef __BV_CONSTANTS_H
 #define __BV_CONSTANTS_H
 
+#include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -288,7 +289,7 @@ extern void bvconst_shift_right(uint32_t *bv, uint32_t n, uint32_t m, bool b);
 /*
  * More shift operations: 
  * - a is shifted by the amount defined by b
- * - the result is stored in *bv
+ * - the result is stored in *bv and normalized
  * - n = number of bits in a, b, and bv
  *
  * Operations:

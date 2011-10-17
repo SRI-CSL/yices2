@@ -58,7 +58,7 @@ bool signed64_gt(uint64_t a, uint64_t b, uint32_t n) {
  * - if b is more than n, this returns 0b00000
  * - the result is normalized
  */
-uint64_t bvconst64_shift_left(uint64_t a, uint64_t b, uint32_t n) {
+uint64_t bvconst64_lshl(uint64_t a, uint64_t b, uint32_t n) {
   uint64_t c;
 
   assert(0 < n && n <= 64);
@@ -79,7 +79,7 @@ uint64_t bvconst64_shift_left(uint64_t a, uint64_t b, uint32_t n) {
  * - if b is more than n, return 0b00000
  * - the result is normalized.
  */
-uint64_t bvconst64_lshift_right(uint64_t a, uint64_t b, uint32_t n) {
+uint64_t bvconst64_lshr(uint64_t a, uint64_t b, uint32_t n) {
   uint64_t c;
 
   assert(0 < n && n <= 64);
@@ -100,7 +100,7 @@ uint64_t bvconst64_lshift_right(uint64_t a, uint64_t b, uint32_t n) {
  * - if b is more than n, return 0b00000 or 0b11111 depending on a's sign bit
  * - the result is normalized.
  */
-uint64_t bvconst64_ashift_right(uint64_t a, uint64_t b, uint32_t n) {
+uint64_t bvconst64_ashr(uint64_t a, uint64_t b, uint32_t n) {
   int64_t c;
 
   assert(0 < n && n <= 64);
@@ -111,6 +111,7 @@ uint64_t bvconst64_ashift_right(uint64_t a, uint64_t b, uint32_t n) {
     c = (int64_t) norm64((uint64_t) (c >> (int64_t) b), n);
   } else if (c < 0) {
     c = (int64_t) -1;
+    c = (int64_t) norm64(c, n);
   } else {
     c = 0;
   }
