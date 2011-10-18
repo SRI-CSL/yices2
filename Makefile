@@ -271,7 +271,7 @@ source-distribution:
 	   doc/smt_parser.txt doc/smt_parser_tables.h doc/smt2_parser.txt \
 	   doc/smt2_parser_tables.h doc/table_builder.c $(tmpdir)/doc
 	cp etc/* $(tmpdir)/etc
-	for file in `ls examples | grep -e '*.ys|*.txt|*.smt|*.c' ` ; do \
+	for file in `ls examples | grep -E '*.ys|*.txt|*.smt|*.c' ` ; do \
 	  cp examples/$$file $(tmpdir)/examples ; \
         done || true
 	chmod -R og+rX $(tmpdir)
