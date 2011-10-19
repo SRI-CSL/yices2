@@ -220,7 +220,10 @@ checkgmake:
 
 
 
+.PHONY: checkgmake check
 
+<<<<<<< .mine
+=======
 .PHONY: checkgmake check source-distribution
 
 
@@ -281,3 +284,4 @@ source-distribution:
 	rm -f -r $(tmpdir)
 
 
+>>>>>>> .r1938

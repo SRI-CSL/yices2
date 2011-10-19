@@ -6,7 +6,7 @@
  *
  * On Mac OS X, we use fat libraries to store 64bit/32bit versions in the same file.
  *
- * But we the header files for 32bit and 64bit GMP are different, and we must
+ * But the header files for 32bit and 64bit GMP are different, and we must
  * use the right one depending on whether we compile with option -m32 or -m64.
  *
  * One option is to keep two copies of gmp.h in different locations and play
@@ -19,6 +19,10 @@
  * This is a wrapper that attempts to determine the compilation mode then
  * include either gmp32.h or gmp64.h
  *
+ * NOTE: This file is not expected/intended to work on other systems
+ * than MacOS X. The tests (ULONG_MAX == UINT32_MAX) and (ULONG_MAX ==
+ * UINT64_MAX) are not portable. They should work on MacOS X but they
+ * do not work on Windows for example.
  */
 
 #ifndef __GMP_HACK_H

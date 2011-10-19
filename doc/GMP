@@ -192,7 +192,7 @@ the GMP configure script.
       ./configure ABI=64
 
    fails on a MacBook Pro that has an Intel Core i5 CPU, but it works 
-   fine on a MacBool Pro that has an Intel Core 2 Duo. 
+   fine on a MacBook Pro that has an Intel Core 2 Duo. 
 
    The simplest solution to such problems is to give a specific build
    triple to bypass the ./configure guesses. This can be done using

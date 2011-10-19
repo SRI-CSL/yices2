@@ -57,7 +57,7 @@
  * - constructed types: tuple types and function types
  * 
  * The enumeration order is important. The atomic type kinds 
- * be smaller than non-atomic kinds TUPLE and FUNCTION.
+ * must be smaller than non-atomic kinds TUPLE and FUNCTION.
  */
 typedef enum {
   UNUSED_TYPE,    // for deleted types
@@ -576,7 +576,7 @@ extern uint32_t card_of_type_product(type_table_t *table, uint32_t n, type_t *ta
  * Approximate cardinality of the domain and range of a function type tau
  * - both function return a 32bit unsigned number (which is a lower bound 
  *   on the actual domain or range size).
- * - the resut is exact if its less than UINT32_MAX.
+ * - the resut is exact if it's less than UINT32_MAX.
  */
 extern uint32_t card_of_domain_type(type_table_t *table, type_t tau);
 extern uint32_t card_of_range_type(type_table_t *table, type_t tau);

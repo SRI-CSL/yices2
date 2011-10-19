@@ -131,7 +131,7 @@ static option_desc_t *find_by_name(option_desc_t *options, uint32_t n, char *s, 
 
 /*
  * Parse e->s_value as an integer argument
- * - convert the value to a 32bit integer and store if in e->i_value
+ * - convert the value to a 32bit integer and store it in e->i_value
  * - if that fails, set e->status and e->e_code to an error
  * - if that succeeds, set e->status to cmdline_option (i.e., correct option)
  */
@@ -162,7 +162,7 @@ static void check_integer_value(cmdline_elem_t *e) {
 
 /*
  * Check whether the next component of the command line can
- * be parsed as an integer. If so store is a current value for e.
+ * be parsed as an integer. If so store it as current value for e.
  */
 static void parse_optional_integer(cmdline_parser_t *p, cmdline_elem_t *e) {
   uint32_t i;
@@ -265,7 +265,7 @@ static void parse_optional_double(cmdline_parser_t *p, cmdline_elem_t *e) {
     }
   }
 
-  // no integer given
+  // no number given
   e->d_value = -1.0;
   e->status = cmdline_option;
 }

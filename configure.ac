@@ -440,7 +440,8 @@ CFLAGS=$saved_cflags
 #
 # Store config data in ./configs/make.include.$(ARCH)
 #
-AC_OUTPUT([make.include])
+AC_CONFIG_FILES([make.include])
+AC_OUTPUT
 
 AC_MSG_NOTICE([Moving make.include to configs/make.include.$build])
 mv make.include "configs/make.include.$build"

@@ -413,6 +413,65 @@ install-mingw: install-cygwin
 
 
 #
+# SOURCE DISTRIBUTION
+#
+srcdist_dir = yices-$(YICES_VERSION)
+srcdist_tarfile= yices-$(YICES_VERSION)-src.tar.gz
+
+#
+# Build the source tar file
+#
+# NOTE: tar czf ... may fail if the file system is NFS mounted
+# and there's synchronization issues between NFS client and NFS server
+# - the symptom is an error from tar:
+#   'file xxx changed as we read it'
+# - This can be fixed by adding 'sleep xxx' before tar in the
+#   rule below
+#
+# NOTE: chmod -R .. may fail on some Solaris versions
+# - a workaround is to use a GNU/fileutils version of chmod
+#   instead of SUN's own version
+# - on CSL ungoliant: make sure /csl/bin is in the path before /bin
+#   and /usr/bin
+#
+source-distribution: $(distributions)
+	@ echo "=== Building $(srcdist_tarfile) ==="
+	rm -f -r $(srcdist_dir)
+	$(MKDIR_P) $(srcdist_dir)
+	$(MKDIR_P) $(srcdist_dir)/autoconf
+	$(MKDIR_P) $(srcdist_dir)/configs
+	$(MKDIR_P) $(srcdist_dir)/src
+	$(MKDIR_P) $(srcdist_dir)/tests
+	$(MKDIR_P) $(srcdist_dir)/doc
+	$(MKDIR_P) $(srcdist_dir)/etc
+	$(MKDIR_P) $(srcdist_dir)/examples
+	cp install-sh config.guess configure configure.ac config.sub gmaketest $(srcdist_dir)
+	cp README Makefile Makefile.build make.include.in $(srcdist_dir)
+	cp autoconf/* $(srcdist_dir)/autoconf
+	cp src/Makefile src/*.h src/*.c \
+	   src/yices_keywords.txt src/smt_keywords.txt \
+	   src/smt2_tokens.txt src/smt2_keywords.txt src/smt2_symbols.txt \
+	   src/yices_version_template.txt $(srcdist_dir)/src
+	cp tests/Makefile tests/*.c $(srcdist_dir)/tests
+	cp doc/NOTES doc/YICES-LANGUAGE doc/GMP doc/gmp-hack.h \
+	   doc/yices_parser.txt doc/yices_parser_tables.h \
+	   doc/smt_parser.txt doc/smt_parser_tables.h \
+	   doc/smt2_parser.txt doc/smt2_parser_tables.h \
+	   doc/table_builder.c $(srcdist_dir)/doc
+	cp etc/* $(srcdist_dir)/etc
+	for file in `ls examples | $(EGREP) '*.ys|*.txt|*.smt|*.c' ` ; do \
+	  cp examples/$$file $(srcdist_dir)/examples ; \
+        done || true
+	chmod -R og+rX $(srcdist_dir)
+	tar -czf $(distributions)/$(srcdist_tarfile) $(srcdist_dir)
+	chmod -R og+rX $(distributions)
+	rm -f -r $(srcdist_dir)
+
+.PHONY: source-distribution
+
+
+
+#
 # CLEANUP
 #
 

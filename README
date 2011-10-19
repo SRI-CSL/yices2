@@ -531,7 +531,7 @@ version:
 
 There are also issues with having 32 and 64bit versions of GMP
 on the same machine. I normally use fat libraries, and a hack
-that allows me to have two copies in gmp.h (one for 32bits, 
+that allows me to have two copies of gmp.h (one for 32bits, 
 one for 64bits). Check doc/gmp-hack.h for this.
 
 The instructions below assume compilation on an Mac running
@@ -715,7 +715,7 @@ MEW METHOD: Using a cross compiler
    The cross compiler is /usr/bin/i686-w64-mingw32-gcc
 
 
-2) Build an install a 32bit version of GMP using the cross compiler
+2) Build and install a 32bit version of GMP using the cross compiler
    (read doc/GMP). 
 
    Two versions of GMP must be installed. On my machine, the dynamic 
