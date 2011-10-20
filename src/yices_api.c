@@ -7444,6 +7444,31 @@ EXPORTED int32_t yices_set_term_name(term_t t, const char *name) {
 
 
 /*
+ * Get name of type tau
+ * - return NULL if tau has no name (or if tau is not a valid type)
+ */
+EXPORTED const char *yices_get_type_name(type_t tau) {
+  if (! check_good_type(&types, tau)) {
+    return NULL;
+  }
+  return type_name(&types, tau);
+}
+
+
+/*
+ * Get name of term t
+ * - return NULL is t has no name (or if t is not a valid term)
+ */
+EXPORTED const char *yices_get_term_name(term_t t) {
+  if (! check_good_term(&terms, t)) {
+    return NULL;
+  }
+  return term_name(&terms, t);
+}
+
+
+
+/*
  * Remove name from the type table.
  */
 EXPORTED void yices_remove_type_name(const char *name) {
