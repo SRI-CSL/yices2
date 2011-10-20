@@ -1899,7 +1899,7 @@ static void yices_settimeout_cmd(int32_t val) {
   if (val < 0) {
     report_negative_timeout(val);
   } else {
-    // TBD set the timeout: 0 means no timeout
+    // set the timeout: 0 means no timeout
     timeout = (uint32_t) val;
     print_ok();
   }

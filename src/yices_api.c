@@ -6893,7 +6893,7 @@ EXPORTED term_t yices_bvarray(uint32_t n, term_t arg[]) {
  * if i >= v's bitsize
  *    code = INVALID_BVEXTRACT
  */
-term_t yices_bitextract(term_t t, uint32_t i) {
+EXPORTED term_t yices_bitextract(term_t t, uint32_t i) {
   bvconst64_term_t *d;
   bvconst_term_t *c;
   composite_term_t *bv;
@@ -7361,6 +7361,13 @@ bool yices_check_bvmul_buffer(bvarith_buffer_t *b1, bvarith_buffer_t *b2) {
   return check_maxdegree(d1 + d2);
 }
 
+
+
+/************************
+ *  TERM SUBSTITUTION   *
+ ***********************/
+
+// TO BE DONE
 
 
 
@@ -8248,6 +8255,7 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
 
 
 /*
+ * Interrupt the search:
  * - this can be called from a signal handler to stop the search,
  *   after a call to yices_check_context to interrupt the solver.
  *

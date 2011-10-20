@@ -1228,9 +1228,9 @@ __YICES_DLLSPEC__ extern term_t yices_parse_term(const char *s);
  * It's possible to assign names to terms and types, and later
  * retrieve the term or type from these names.
  *
- * For each term and type, Yices stores a base-name, which
+ * For each term and type, Yices stores a base name, which
  * is used for pretty printing. By default, the base name is NULL.
- * The base-name is set on the first call to yices_set_term_name or 
+ * The base name is set on the first call to yices_set_term_name or 
  * yices_set_type_name.
  *
  * In addition, Yices stores two symbol tables that maps names to
