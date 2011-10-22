@@ -47,19 +47,30 @@ static void print_bv_product(FILE *f, pprod_t *p) {
 
 // c = coeff, x = variable, n = number of bits
 static void print_bv_mono64(FILE *f, uint64_t c, thvar_t x, uint32_t n, bool first) {
-  if (c == 1) {
-    if (! first) {
+  if (c == 1) {    
+    if (first) {
+      if (x == const_idx) {
+	fputs("1", f);
+      } else {
+	print_bvvar(f, x);
+      }
+    } else {
       fputs(" + ", f);
+      print_bvvar(f, x);
     }
-    print_bvvar(f, x);
 
   } else if (bvconst64_is_minus_one(c, n)) {
     if (first) {
-      fputs("- ", f);
+      if (x == const_idx) {
+	fputs("-1", f);
+      } else {
+	fputs("- ", f);
+	print_bvvar(f, x);
+      }
     } else {
       fputs(" - ", f);
+      print_bvvar(f, x);
     }
-    print_bvvar(f, x);
 
   } else {
     if (! first) {
@@ -98,18 +109,29 @@ static void print_bv_mono(FILE *f, uint32_t *c, thvar_t x, uint32_t n, bool firs
 
   w = (n + 31) >> 5; // number of words in c 
   if (bvconst_is_one(c, w)) {
-    if (! first) {
+    if (first) {
+      if (x == const_idx) {
+	fputs("1", f);
+      } else {
+	print_bvvar(f, x);
+      }
+    } else {
       fputs(" + ", f);
+      print_bvvar(f, x);
     }
-    print_bvvar(f, x);
 
   } else if (bvconst_is_minus_one(c, n)) {
     if (first) {
-      fputs("- ", f);
+      if (x == const_idx) {
+	fputs("-1", f);
+      } else {
+	fputs("- ", f);
+	print_bvvar(f, x);
+      }
     } else {
       fputs(" - ", f);
+      print_bvvar(f, x);
     }
-    print_bvvar(f, x);
 
   } else {
     if (! first) {

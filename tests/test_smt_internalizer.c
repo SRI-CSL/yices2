@@ -186,7 +186,7 @@ static void dump_context(FILE *f, context_t *ctx) {
   }
 
 
-#if 0
+#if 1
   fprintf(f, "--- Auxiliary vectors ---\n\n");
   print_context_subst_eqs(f, ctx);
   print_context_top_eqs(f, ctx);
@@ -397,7 +397,7 @@ static void test_internalization(smt_benchmark_t *bench) {
   enable_lax_mode(&context); // FOR TESTING
   enable_variable_elimination(&context);
   enable_eq_abstraction(&context);
-  enable_diseq_and_or_flattening(&context);
+  //  enable_diseq_and_or_flattening(&context); //// BD: TEST FOR QF_BV
   enable_arith_elimination(&context);
   enable_bvarith_elimination(&context);  
   if (iflag) {
@@ -410,6 +410,7 @@ static void test_internalization(smt_benchmark_t *bench) {
   } else {
     print_internalization_code(code);
   }
+
 
   f = fopen("yices2intern.dmp", "w");
   if (f == NULL) {

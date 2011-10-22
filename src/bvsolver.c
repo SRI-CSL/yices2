@@ -1900,6 +1900,7 @@ static bool diseq_bitarray_const(literal_t *a, uint32_t *c, uint32_t n) {
 
 /*
  * Top-level disequality check
+ * - x and y must be roots of their equivalence class in the merge table
  */
 static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv_vartable_t *vtbl;
@@ -1907,9 +1908,7 @@ static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(bvvar_bitsize(&solver->vtbl, x) == bvvar_bitsize(&solver->vtbl, y));
-
-  x = mtbl_get_root(&solver->mtbl, x);
-  y = mtbl_get_root(&solver->mtbl, y);
+  assert(mtbl_is_root(&solver->mtbl, x) && mtbl_is_root(&solver->mtbl, y));
 
   if (x == y) return false;
 
@@ -1978,8 +1977,117 @@ static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
   }
   
   return false;
-
 }
+
+
+
+/*******************
+ *  INEQUALITIES   *
+ ******************/
+
+/*
+ * Three possible codes returned by the 'check_bvuge' and 'check_bvsge' functions
+ * - the order matters: we want BVTEST_FALSE = 0 = false and BVTEST_TRUE = 1= true
+ */
+typedef enum {
+  BVTEST_FALSE = 0,
+  BVTEST_TRUE,
+  BVTEST_UNKNOWN,
+} bvtest_code_t;
+
+
+/*
+ * Check whether (x <= y) unsigned
+ * - x and y must be roots in the merge table
+ * - return BVTEST_FALSE if (x > y) is known to hold
+ * - return BVTEST_TRUE  if (x >= y) is known to hold
+ * - return BVTEST_UNKNOWN otherwise
+ */
+static bvtest_code_t check_bvuge(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  bv_vartable_t *vtbl;
+  bvvar_tag_t tag_x, tag_y;
+  bvtest_code_t code;
+  uint32_t n;
+
+  assert(bvvar_bitsize(&solver->vtbl, x) == bvvar_bitsize(&solver->vtbl, y));
+  assert(mtbl_is_root(&solver->mtbl, x) && mtbl_is_root(&solver->mtbl, y));
+
+  if (x == y) return BVTEST_TRUE;
+
+  vtbl = &solver->vtbl;
+  tag_x = bvvar_tag(vtbl, x);
+  tag_y = bvvar_tag(vtbl, y);
+
+  code = BVTEST_UNKNOWN;
+
+  if (tag_x == tag_y) {
+    switch (tag_x) {
+    case BVTAG_CONST64:
+      code = (bvvar_val64(vtbl, x) >= bvvar_val64(vtbl, y));
+      assert(code == BVTEST_FALSE || code == BVTEST_TRUE);
+      break;
+
+    case BVTAG_CONST:
+      n = bvvar_bitsize(vtbl, x);
+      code = bvconst_ge(bvvar_val(vtbl, x), bvvar_val(vtbl, y), n);
+      assert(code == BVTEST_FALSE || code == BVTEST_TRUE);
+      break;
+
+    default:
+      break;
+    }
+  }
+
+  return BVTEST_UNKNOWN;
+}
+
+
+/*
+ * Check whether (x <= y) signed
+ * - x and y must be roots in the merge table
+ * - return BVTEST_FALSE if (x > y) is known to hold
+ * - return BVTEST_TRUE  if (x >= y) is known to hold
+ * - return BVTEST_UNKNOWN otherwise
+ */
+static bvtest_code_t check_bvsge(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  bv_vartable_t *vtbl;
+  bvvar_tag_t tag_x, tag_y;
+  bvtest_code_t code;
+  uint32_t n;
+
+  assert(bvvar_bitsize(&solver->vtbl, x) == bvvar_bitsize(&solver->vtbl, y));
+  assert(mtbl_is_root(&solver->mtbl, x) && mtbl_is_root(&solver->mtbl, y));
+
+  if (x == y) return BVTEST_TRUE;
+  
+  vtbl = &solver->vtbl;
+  tag_x = bvvar_tag(vtbl, x);
+  tag_y = bvvar_tag(vtbl, y);
+
+  code = BVTEST_UNKNOWN;
+
+  if (tag_x == tag_y) {
+    switch (tag_x) {
+    case BVTAG_CONST64:
+      n = bvvar_bitsize(vtbl, x);
+      code = signed64_ge(bvvar_val64(vtbl, x), bvvar_val64(vtbl, y), n);
+      assert(code == BVTEST_FALSE || code == BVTEST_TRUE);
+      break;
+
+    case BVTAG_CONST:
+      n = bvvar_bitsize(vtbl, x);
+      code = bvconst_sge(bvvar_val(vtbl, x), bvvar_val(vtbl, y), n);
+      assert(code == BVTEST_FALSE || code == BVTEST_TRUE);
+      break;
+
+    default:
+      break;
+    }
+  }
+
+  return code;
+}
+
 
 
 
@@ -3259,7 +3367,10 @@ literal_t bv_solver_create_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
   literal_t l;
   bvar_t v;
 
-  if (equal_bvvar(solver, x, y)) {
+  x = mtbl_get_root(&solver->mtbl, x);
+  y = mtbl_get_root(&solver->mtbl, y);
+
+  if (x == y) {
     return true_literal;
   }
 
@@ -3285,19 +3396,19 @@ literal_t bv_solver_create_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
 }
 
 
+
 /*
- * Atom (bvge x y) (unsigned comparison)
+ * Create (bvge x y): no simplification
  */
-literal_t bv_solver_create_ge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
+static literal_t bv_solver_make_ge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv_atomtable_t *atbl;
   int32_t i;
   literal_t l;
   bvar_t v;
-  
+
   atbl = &solver->atbl;
   i = get_bvuge_atom(atbl, x, y);
   l = atbl->data[i].lit;
-
   if (l == null_literal) {
     /*
      * New atom: assign a fresh boolean variable for it
@@ -3307,24 +3418,50 @@ literal_t bv_solver_create_ge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
     atbl->data[i].lit = l;
     attach_atom_to_bvar(solver->core, v, bvatom_idx2tagged_ptr(i));
   }
+ 
+  return l;
+}
+
+
+/*
+ * Atom (bvge x y) (unsigned comparison)
+ */
+literal_t bv_solver_create_ge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  literal_t l;
+
+  x = mtbl_get_root(&solver->mtbl, x);
+  y = mtbl_get_root(&solver->mtbl, y);
+
+  switch (check_bvuge(solver, x, y)) {
+  case BVTEST_FALSE:
+    l = false_literal;
+    break;
+
+  case BVTEST_TRUE:
+    l = true_literal;
+    break;
+
+  default:
+    l = bv_solver_make_ge_atom(solver, x, y);
+    break;
+  }
 
   return l;
 }
 
 
 /*
- * Atom (bvsge x y) (signed comparison)
+ * Create (bvsge x y): no simplification
  */
-literal_t bv_solver_create_sge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
+static literal_t bv_solver_make_sge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv_atomtable_t *atbl;
   int32_t i;
   literal_t l;
   bvar_t v;
-  
+
   atbl = &solver->atbl;
   i = get_bvsge_atom(atbl, x, y);
   l = atbl->data[i].lit;
-
   if (l == null_literal) {
     /*
      * New atom: assign a fresh boolean variable for it
@@ -3333,6 +3470,33 @@ literal_t bv_solver_create_sge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
     l = pos_lit(v);
     atbl->data[i].lit = l;
     attach_atom_to_bvar(solver->core, v, bvatom_idx2tagged_ptr(i));
+  }
+ 
+  return l;
+}
+
+
+/*
+ * Atom (bvsge x y) (signed comparison)
+ */
+literal_t bv_solver_create_sge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  literal_t l;
+
+  x = mtbl_get_root(&solver->mtbl, x);
+  y = mtbl_get_root(&solver->mtbl, y);
+  
+  switch (check_bvsge(solver, x, y)) {
+  case BVTEST_FALSE:
+    l = false_literal;
+    break;
+
+  case BVTEST_TRUE:
+    l = true_literal;
+    break;
+
+  default:
+    l = bv_solver_make_sge_atom(solver, x, y);
+    break;
   }
 
   return l;
@@ -3351,14 +3515,13 @@ literal_t bv_solver_create_sge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
 void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool tt) {
   literal_t l;
 
-  if (equal_bvvar(solver, x, y)) {
-    if (! tt) {
-      add_empty_clause(solver->core);       // Contradiction
-    }
+  x = mtbl_get_root(&solver->mtbl, x);
+  y = mtbl_get_root(&solver->mtbl, y);
+
+  if (x == y) {
+    if (! tt) add_empty_clause(solver->core);     // Contradiction
   } else if (diseq_bvvar(solver, x, y)) {
-    if (tt) {
-      add_empty_clause(solver->core);       // Contradiction
-    }
+    if (tt) add_empty_clause(solver->core);       // Contradiction
   } else if (tt) {
     // Merge the classes of x and y
     x = mtbl_get_root(&solver->mtbl, x);
@@ -3380,8 +3543,23 @@ void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
 void bv_solver_assert_ge_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool tt) {
   literal_t l;
 
-  l = bv_solver_create_ge_atom(solver, x, y);
-  add_unit_clause(solver->core, signed_literal(l, tt));
+  x = mtbl_get_root(&solver->mtbl, x);
+  y = mtbl_get_root(&solver->mtbl, y);
+
+  switch (check_bvuge(solver, x, y)) {
+  case BVTEST_FALSE:
+    if (tt) add_empty_clause(solver->core); // x < y holds
+    break;
+
+  case BVTEST_TRUE:
+    if (!tt) add_empty_clause(solver->core); // x >= y holds
+    break;
+
+  case BVTEST_UNKNOWN:
+    l = bv_solver_make_ge_atom(solver, x, y);
+    add_unit_clause(solver->core, signed_literal(l, tt));
+    break;
+  }
 }
 
 
@@ -3392,8 +3570,23 @@ void bv_solver_assert_ge_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
 void bv_solver_assert_sge_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool tt) {
   literal_t l;
 
-  l = bv_solver_create_sge_atom(solver, x, y);
-  add_unit_clause(solver->core, signed_literal(l, tt));
+  x = mtbl_get_root(&solver->mtbl, x);
+  y = mtbl_get_root(&solver->mtbl, y);
+
+  switch (check_bvsge(solver, x, y)) {
+  case BVTEST_FALSE:
+    if (tt) add_empty_clause(solver->core); // x < y holds
+    break;
+
+  case BVTEST_TRUE:
+    if (!tt) add_empty_clause(solver->core); // x >= y holds
+    break;
+
+  case BVTEST_UNKNOWN:
+    l = bv_solver_make_sge_atom(solver, x, y);
+    add_unit_clause(solver->core, signed_literal(l, tt));
+    break;
+  }
 }
 
 

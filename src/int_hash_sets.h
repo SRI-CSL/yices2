@@ -50,6 +50,13 @@ typedef struct int_hset_s {
 
 
 /*
+ * Shrink size: when reset is called, the array is 
+ * resized to the default size
+ */
+#define INT_HSET_SHRINK_SIZE 2048
+
+
+/*
  * Initialize the set with n = initial size
  * n must be a power of 2
  * - if n=0, the default size is used.

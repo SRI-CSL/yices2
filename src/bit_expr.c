@@ -99,24 +99,6 @@ static node_t allocate_node_id(node_table_t *table) {
 }
 
 
-#if 0
-
-// NOT USED
-/*
- * Delete node i: add it to the free list
- */
-static void delete_node(node_table_t *table, node_t i) {
-  assert(good_node(table, i)); 
-
-  if (i == constant_node) return; // don't delete the constant
-  
-  table->kind[i] = UNUSED_NODE;
-  table->desc[i].var = table->free_idx;
-  table->free_idx = i;
-}
-
-#endif
-
 
 /*
  * Create the constant node:

@@ -244,6 +244,18 @@ void int_hset_reset(int_hset_t *set) {
 
   n = set->size;
   a = set->data;
+
+  if (n >= INT_HSET_SHRINK_SIZE) {
+    safe_free(set->data);
+
+    n = INT_HSET_DEFAULT_SIZE;
+    a = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+    set->data = a;
+
+    set->size = n;
+    set->resize_threshold = (uint32_t)(n * INT_HSET_RESIZE_RATIO);
+  }
+
   for (i=0; i<n; i++) {
     a[i] = 0;
   }
