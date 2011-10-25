@@ -84,9 +84,8 @@ static object_store_t bvarith64_store;
 // error report
 static error_report_t error;
 
-// auxiliary rationals
+// auxiliary rational
 static rational_t r0;
-static rational_t r1;
 
 // auxiliary bitvector constants
 static bvconstant_t bv0;
@@ -866,7 +865,6 @@ EXPORTED void yices_init(void) {
 
   init_rationals();
   q_init(&r0);
-  q_init(&r1);
 
   init_ivector(&vector0, 10);
 
@@ -945,7 +943,6 @@ EXPORTED void yices_exit(void) {
   delete_ivector(&vector0);
 
   q_clear(&r0); // not necessary
-  q_clear(&r1);
   cleanup_rationals();
 
   delete_bvconstant(&bv2);
@@ -1292,6 +1289,7 @@ static term_t mk_arith_bineq_atom(term_t t1, term_t t2) {
 
   return arith_bineq_atom(&terms, t1, t2);  
 }
+
 
 /*
  * Construct the atom (b == 0) then reset b.
@@ -2264,7 +2262,7 @@ static term_t mk_bitvector_eq(term_table_t *tbl, term_t t1, term_t t2) {
  *   iff (bveq a 0b1) (bveq b 0b1) ---> (bveq a b)
  *
  *   iff (bveq a 0b0) y   ---> (not (bveq a (bvarray y)))
- *   iff (bveq a 0b1) y)  ---> (bveq a (bvarray y))
+ *   iff (bveq a 0b1) y   ---> (bveq a (bvarray y))
  *
  * return NULL_TERM if none of these rules can be applied
  */
@@ -3137,17 +3135,16 @@ static bool check_for_lift_if(term_table_t *tbl, term_t t1, term_t t2, lift_resu
  *   a is terminatated by max_idx
  * - every element of a must be a variable of p
  * - c must be non-zero
+ * - b = buffer for performing the computation
  * - return the term (p - r)/c
  */
-static term_t remove_monomials(term_table_t *tbl, polynomial_t *p, term_t *a, rational_t *c) {
-  arith_buffer_t *b;
+static term_t remove_monomials(term_table_t *tbl, arith_buffer_t *b, polynomial_t *p, term_t *a, rational_t *c) {
   monomial_t *mono;
   uint32_t i;
   term_t x;
 
-  assert(q_is_nonzero(c));
+  assert(q_is_nonzero(c) && (b->ptbl == tbl->pprods));
 
-  b = get_internal_arith_buffer();
   arith_buffer_reset(b);
 
   i = 0;
@@ -3195,14 +3192,15 @@ static term_t remove_monomials(term_table_t *tbl, polynomial_t *p, term_t *a, ra
  * then add c * t to the result.
  * - a must be an array of terms sorted in increasing order and terminated by max_idx
  * - all elements of a must be variables of p
+ * - b = buffer for internal computations
  */
-static term_t add_mono_to_common_part(term_table_t *tbl, polynomial_t *p, term_t *a, rational_t *c, term_t t) {
-  arith_buffer_t *b;
+static term_t add_mono_to_common_part(term_table_t *tbl, arith_buffer_t *b, polynomial_t *p, term_t *a, rational_t *c, term_t t) {
   monomial_t *mono;
   uint32_t i;
   term_t x;
 
-  b = get_internal_arith_buffer();
+  assert(b->ptbl == tbl->pprods);
+
   arith_buffer_reset(b);
 
   i = 0;
@@ -3242,11 +3240,11 @@ static term_t add_mono_to_common_part(term_table_t *tbl, polynomial_t *p, term_t
 
 /*
  * Build  t := p/c where c is a non-zero rational
+ * - b = buffer for computation
  */
-static term_t polynomial_div_const(term_table_t *tbl, polynomial_t *p, rational_t *c) {
-  arith_buffer_t *b;
+static term_t polynomial_div_const(term_table_t *tbl, arith_buffer_t *b, polynomial_t *p, rational_t *c) {
+  assert(b->ptbl == tbl->pprods);
 
-  b = get_internal_arith_buffer();
   arith_buffer_reset(b);
   arith_buffer_add_monarray(b, p->mono, pprods_for_poly(tbl, p));
   term_table_reset_pbuffer(tbl);
@@ -3258,11 +3256,11 @@ static term_t polynomial_div_const(term_table_t *tbl, polynomial_t *p, rational_
 
 /*
  * Build t := u * c
+ * - b = buffer for computation
  */
-static term_t mk_mul_term_const(term_table_t *tbl, term_t t, rational_t *c) {
-  arith_buffer_t *b;
+static term_t mk_mul_term_const(term_table_t *tbl, arith_buffer_t *b, term_t t, rational_t *c) {
+  assert(b->ptbl == tbl->pprods);
 
-  b = get_internal_arith_buffer();
   arith_buffer_reset(b);
   arith_buffer_add_mono(b, c, pprod_for_term(tbl, t));
 
@@ -3275,8 +3273,9 @@ static term_t mk_mul_term_const(term_table_t *tbl, term_t t, rational_t *c) {
  * - t and e must be distinct integer polynomials
  * - if r is null and a is one, it builds (ite c t e)
  * - if r is null and a is more than one, it builds a * (ite t' e')
+ * - b = buffer to be used for computation
  */
-static term_t mk_integer_polynomial_ite(term_table_t *tbl, term_t c, term_t t, term_t e) {
+static term_t mk_integer_polynomial_ite(term_table_t *tbl, arith_buffer_t *b, term_t c, term_t t, term_t e) {
   polynomial_t *p, *q;
   term_t ite;
 
@@ -3299,12 +3298,12 @@ static term_t mk_integer_polynomial_ite(term_table_t *tbl, term_t c, term_t t, t
 
   if (vector0.size > 0) {
     // the common part is non-null
-    t = remove_monomials(tbl, p, vector0.data, &r0);  // t is (p - common)/r0
-    e = remove_monomials(tbl, q, vector0.data, &r0);  // e is (q - common)/r0
+    t = remove_monomials(tbl, b, p, vector0.data, &r0);  // t is (p - common)/r0
+    e = remove_monomials(tbl, b, q, vector0.data, &r0);  // e is (q - common)/r0
   } else if (! q_is_one(&r0)) {
     // no common part, common factor > 1
-    t = polynomial_div_const(tbl, p, &r0);   // t is p/r0
-    e = polynomial_div_const(tbl, q, &r0);   // e is q/r0
+    t = polynomial_div_const(tbl, b, p, &r0);   // t is p/r0
+    e = polynomial_div_const(tbl, b, q, &r0);   // e is q/r0
   }
 
   // build (ite c t e): type int
@@ -3312,10 +3311,10 @@ static term_t mk_integer_polynomial_ite(term_table_t *tbl, term_t c, term_t t, t
 
   if (vector0.size > 0) {
     // build common + r0 * ite
-    ite = add_mono_to_common_part(tbl, p, vector0.data, &r0, ite);
+    ite = add_mono_to_common_part(tbl, b, p, vector0.data, &r0, ite);
   } else if (! q_is_one(&r0)) {
     // common factor > 1: build r0 * ite
-    ite = mk_mul_term_const(tbl, ite, &r0);
+    ite = mk_mul_term_const(tbl, b, ite, &r0);
   }
 
   // cleanup
@@ -4319,7 +4318,7 @@ EXPORTED term_t yices_ite(term_t cond, term_t then_term, term_t else_term) {
   if (is_integer_type(tau) 
       && term_kind(&terms, then_term) == ARITH_POLY 
       && term_kind(&terms, else_term) == ARITH_POLY) {
-    return mk_integer_polynomial_ite(&terms, cond, then_term, else_term);
+    return mk_integer_polynomial_ite(&terms, get_internal_arith_buffer(), cond, then_term, else_term);
   }
 #endif
 
@@ -5414,6 +5413,7 @@ static term_t bvconstant_get_term(bvconstant_t *c) {
 
   return t;
 }
+
 
 /*
  * Initialize bv0 from 32 or 64 bit integer x, or from a GMP integer
