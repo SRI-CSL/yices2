@@ -2038,7 +2038,7 @@ static bvtest_code_t check_bvuge(bv_solver_t *solver, thvar_t x, thvar_t y) {
     }
   }
 
-  return BVTEST_UNKNOWN;
+  return code;
 }
 
 
