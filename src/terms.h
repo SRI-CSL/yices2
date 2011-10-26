@@ -181,8 +181,8 @@
  * TERM KINDS
  */
 /*
- * The enumeartion order is significant so that we can
- * cheaply check whether a term is constant, variable or composite.
+ * The enumeration order is significant. We can cheaply check whether
+ * a term is constant, variable or composite.
  */
 typedef enum {
   /*

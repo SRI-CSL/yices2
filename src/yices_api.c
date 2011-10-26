@@ -3359,6 +3359,7 @@ static term_t mk_lifted_aritheq(term_t c, term_t t1, term_t t2, term_t t3, term_
   return mk_bool_ite(&terms, c, left, right);
 }
 
+
 /*
  * Build the term (ite c (arithge t1 t2) (arithge t3 t4))
  * - c is a boolean term
