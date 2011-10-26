@@ -2318,7 +2318,7 @@ term_t mk_uterm(term_manager_t *manager, type_t tau) {
 
 /*
  * New variable of type tau
- * - this creats a fresh variable (for quantifiers)
+ * - this creates a fresh variable (for quantifiers)
  */
 term_t mk_variable(term_manager_t *manager, type_t tau) {
   return new_variable(&manager->terms, tau);
