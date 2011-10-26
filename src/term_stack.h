@@ -320,9 +320,6 @@ typedef struct tstack_s {
   bvarith_buffer_t *bvabuffer;
   bvlogic_buffer_t *bvlbuffer;  
 
-  // counter for variable construction
-  int32_t fresh_var_index;
-
   union {
     term_t term;
     type_t type;

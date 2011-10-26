@@ -60,24 +60,24 @@ static void init_terms(void) {
 
 
   // x, y, z: real variables
-  x = yices_variable(rtype, 0);
+  x = yices_new_variable(rtype);
   yices_set_term_name(x, "x");
   ivector_push(&all, x);
 
-  y = yices_variable(rtype, 1);
+  y = yices_new_variable(rtype);
   yices_set_term_name(y, "y");
   ivector_push(&all, y);
 
-  z = yices_variable(rtype, 2);
+  z = yices_new_variable(rtype);
   yices_set_term_name(z, "z");
   ivector_push(&all, z);
 
   // a, b: variables of type u
-  a = yices_variable(utype, 0);
+  a = yices_new_variable(utype);
   yices_set_term_name(a, "a");
   ivector_push(&all, a);
 
-  b = yices_variable(utype, 1);
+  b = yices_new_variable(utype);
   yices_set_term_name(b, "b");
   ivector_push(&all, b);
 

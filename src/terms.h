@@ -468,22 +468,16 @@ extern term_t constant_term(term_table_t *table, type_t tau, int32_t index);
 
 /*
  * Declare a new uninterpreted constant of type tau.
- * - this always create a fresh term
+ * - this always creates a fresh term
  */
 extern term_t new_uninterpreted_term(term_table_t *table, type_t tau);
 
 
 /*
- * Variable of type tau. Index i is used to distinguish it from other variables
- * of the same type.
+ * New variable of type tau.
+ * - this always creates a fresh term.
  */
-extern term_t variable(term_table_t *table, type_t tau, int32_t index);
-
-
-/*
- * Check whether variable of type tau and index i exists
- */
-extern bool variable_is_present(term_table_t *table, type_t tau, int32_t i);
+extern term_t new_variable(term_table_t *table, type_t tau);
 
 
 /*

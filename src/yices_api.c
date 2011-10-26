@@ -3604,17 +3604,6 @@ static bool check_maxdegree(uint32_t d) {
   return true;
 }
 
-// Check whether i is a valid variable index (i.e., whether i >= 0)
-static bool check_good_var_index(int32_t i) {
-  if (i < 0) {
-    error.code = INVALID_VAR_INDEX;
-    error.badval = i;
-    return false;
-  }
-
-  return true;
-}
-
 // Check whether tau is a valid type
 static bool check_good_type(type_table_t *tbl, type_t tau) {
   if (bad_type(tbl, tau)) { 
@@ -4177,12 +4166,11 @@ EXPORTED term_t yices_new_uninterpreted_term(type_t tau) {
   return new_uninterpreted_term(&terms, tau);
 }
 
-EXPORTED term_t yices_variable(type_t tau, int32_t index) {
-  if (! check_good_var_index(index) || 
-      ! check_good_type(&types, tau)) {
+EXPORTED term_t yices_new_variable(type_t tau) {
+  if (! check_good_type(&types, tau)) {
     return NULL_TERM;
   }
-  return variable(&terms, tau, index);
+  return new_variable(&terms, tau);
 }
 
 

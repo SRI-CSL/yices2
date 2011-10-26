@@ -321,21 +321,16 @@ static term_t test_uninterpreted_term(type_t tau, char *name) {
 }
 
 
-static term_t test_variable(type_t tau, int32_t index, char *name) {
-  term_t x, y;
+static term_t test_variable(type_t tau, char *name) {
+  term_t x;
 
-  printf("Testing: variable %"PRId32" of type ", index);
+  printf("Testing: variable of type ");
   print_type_name(stdout, &types, tau);
   printf(": ");
 
-  x = variable(&terms, tau, index);
-  if (! check_term_integer(x, VARIABLE, tau, index)) {
+  x = new_variable(&terms, tau);
+  if (! check_term_integer(x, VARIABLE, tau, x)) {
     constructor_failed();
-  }
-
-  y = variable(&terms, tau, index);
-  if (x != y) {
-    hash_consing_failed();
   }
 
   if (name != NULL) {
@@ -1723,8 +1718,8 @@ static void test_unints(void) {
  * VARIABLES
  */
 static void test_variables(void) {
-  (void) test_variable(type[18], 0, NULL);
-  (void) test_variable(type[18], 1, NULL);
+  (void) test_variable(type[18], NULL);
+  (void) test_variable(type[18], NULL);
   printf("\n");
 }
 
@@ -1767,8 +1762,8 @@ static void test_composites(void) {
 
   (void) test_distinct4(constant[4], constant[5], constant[6], constant[7], NULL);
 
-  x = test_variable(type[7], 0, NULL);
-  y = test_variable(type[7], 1, NULL);
+  x = test_variable(type[7], NULL);
+  y = test_variable(type[7], NULL);
   (void) test_forall2(x, y, unint[1], "xxx");
 
   x = test_or2(unint[0], unint[1], NULL);

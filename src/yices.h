@@ -284,17 +284,14 @@ __YICES_DLLSPEC__ extern term_t yices_new_uninterpreted_term(type_t tau);
 
 
 /*
- * Variable of type tau and id = index (to be used in quantified expressions)
+ * Variable of type tau. This creates a new variable.
  *
  * Error report:
- * if index is negative
- *   code = INVALID_VAR_INDEX
- *   badval = index
  * if tau is undefined
  *   code = INVALID_TYPE
  *   type1 = tau
  */
-__YICES_DLLSPEC__ extern term_t yices_variable(type_t tau, int32_t index);
+__YICES_DLLSPEC__ extern term_t yices_new_variable(type_t tau);
 
 
 /*

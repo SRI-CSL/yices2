@@ -1545,24 +1545,6 @@ term_t get_unit_type_rep(term_table_t *table, type_t tau) {
  */
 
 /*
- * Create a fresh variable of type tau
- */
-term_t make_fresh_variable(term_table_t *table, type_t tau) {
-  int32_t i, k;
-
-  // search for an unused variable index i
-  i = (int32_t) (random_uint32() >> 8);
-  k = (int32_t) (random_uint32() >> 16);
-  while (variable_is_present(table, tau, i)) {
-    i += k;
-    if (i < 0) i = 0; // integer overflow is unlikely, but this does not hurt
-  }
-
-  return variable(table, tau, i);
-}
-
-
-/*
  * Clone variable v:
  * - v must be a variable
  * - return a fresh variable with the same type as v
@@ -1576,7 +1558,7 @@ term_t clone_variable(term_table_t *table, term_t v) {
   assert(term_kind(table, v) == VARIABLE);
 
   tau = term_type(table, v);
-  x = make_fresh_variable(table, tau);
+  x = new_variable(table, tau);
   name = term_name(table, v);
   if (name != NULL) {
     set_term_base_name(table, x, name);

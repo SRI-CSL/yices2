@@ -306,7 +306,6 @@ void init_tstack(tstack_t *stack) {
   stack->bva64buffer = NULL;
   stack->bvabuffer = NULL;
   stack->bvlbuffer = NULL;
-  stack->fresh_var_index = 0;
 
   stack->error_op = NO_OP;
   stack->error_loc.line = 0;
@@ -1284,9 +1283,6 @@ void tstack_reset(tstack_t *stack) {
   stack->top = 1;
   stack->frame = 0;
   stack->top_op = NO_OP;
-
-  // TODO: check whether this is a good idea
-  stack->fresh_var_index = 0;
 
   stack->error_op = NO_OP;
   stack->error_loc.line = 0;
@@ -2993,8 +2989,7 @@ static void eval_declare_var(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   name = f[0].val.symbol;
   tau = f[1].val.type;
-  var = yices_variable(tau, stack->fresh_var_index);
-  stack->fresh_var_index ++;
+  var = yices_new_variable(tau);
 
   yices_set_term_name(var, name);
   tstack_pop_frame(stack);

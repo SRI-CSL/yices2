@@ -187,14 +187,14 @@ extern term_t mk_uterm(term_manager_t *manager, type_t tau);
 /*
  * Fresh variable of type tau (for quantifiers)
  */
-extern term_t mk_var(term_manager_t *manager, type_t tau);
+extern term_t mk_variable(term_manager_t *manager, type_t tau);
 
 
 /*
  * Function application:
  * - fun must have arity n
  * - arg = array of n arguments
- * - the argument types much match the domains of f
+ * - the argument types much match the domain of f
  */
 extern term_t mk_application(term_manager_t *manager, term_t fun, uint32_t n, term_t arg[]);
 
@@ -290,9 +290,9 @@ extern term_t mk_arith_term(term_manager_t *manager, arith_buffer_t *b);
 
 /*
  * Create an arithmetic atom from the content of buffer b:
- * - b must be normalized
  * - b->ptbl must be equal to manager->pprods
  * - b may be the same as manager->arith_buffer
+ * - all functions normalize b first
  * - side effect: b is reset
  */
 extern term_t mk_arith_eq0(term_manager_t *manager, arith_buffer_t *b);   // b == 0
@@ -330,10 +330,18 @@ extern term_t mk_bv_constant(term_manager_t *manager, bvconstant_t *b);
 
 /*
  * Convert a polynomial buffer to a bitvector terms:
- * - b must be normalized
  * - b must use the same pprod as manager (i.e., b->ptbl = &manager->pprods)
  * - b may be equal to manager->bvarith_buffer
  * - side effect: b is reset
+ *
+ * This normalizes b first then check for the following:
+ * 1) b reduced to a single variable x: return x
+ * 2) b reduced to a power product pp: return pp
+ * 3) b is constant, return a BV64_CONSTANT or BV_CONSTANT term
+ * 4) b can be converted to a BV_ARRAY term (by converting + and * 
+ *    to bitwise or and shift): return the BV_ARRAY
+ * 
+ * Otherwise, build a bit-vector polynomial.
  */
 extern term_t mk_bvarith_term(term_manager_t *manager, bvarith_buffer_t *b);
 

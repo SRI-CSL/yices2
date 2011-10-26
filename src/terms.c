@@ -1840,7 +1840,7 @@ term_t constant_term(term_table_t *table, type_t tau, int32_t index) {
 
 /*
  * Declare a new uninterpreted constant of type tau.
- * - this always create a fresh term
+ * - this always creates a fresh term
  */
 term_t new_uninterpreted_term(term_table_t *table, type_t tau) {
   int32_t i;
@@ -1855,40 +1855,20 @@ term_t new_uninterpreted_term(term_table_t *table, type_t tau) {
 
 
 /*
- * Variable of type tau. Index i is used to distinguish it from other variables
- * of the same type.
+ * New variable of type tau.
+ * - create a fresh term
  */
-term_t variable(term_table_t *table, type_t tau, int32_t index) {
+term_t new_variable(term_table_t *table, type_t tau) {
   int32_t i;
 
-  integer_hobj.tbl = table;
-  integer_hobj.tag = VARIABLE;
-  integer_hobj.tau = tau;
-  integer_hobj.id = index;
-
-  i = int_htbl_get_obj(&table->htbl, &integer_hobj.m);
+  i = allocate_term_id(table);
+  table->kind[i] = VARIABLE;
+  table->type[i] = tau;
+  table->desc[i].integer = i;
 
   return pos_term(i);  
 }
 
-
-/*
- * Check whether variable of type tau and given index exists
- */
-bool variable_is_present(term_table_t *table, type_t tau, int32_t index) {
-  int32_t i;
-
-  integer_hobj.tbl = table;
-  integer_hobj.tag = VARIABLE;
-  integer_hobj.tau = tau;
-  integer_hobj.id = index;
-
-  i = int_htbl_find_obj(&table->htbl, &integer_hobj.m);
-
-  assert(i == NULL_VALUE || kind_for_idx(table, i) == VARIABLE);
-
-  return (i >= 0);
-}
 
 
 /*

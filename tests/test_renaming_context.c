@@ -57,7 +57,7 @@ static void init_variables(void) {
 
   tau = int_type(&types);
   for (i=0; i<NVARS; i++) {
-    var[i] = variable(&terms, tau, i);
+    var[i] = new_variable(&terms, tau);
   }
 }
 
