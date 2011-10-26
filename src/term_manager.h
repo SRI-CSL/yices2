@@ -40,7 +40,7 @@
  * - bvlogic_buffer = for other bit-vector constructs
  *
  * Auxiliary objects:
- * - r0: ratioanl buffer
+ * - r0: rational buffer
  * - bv0, bv1, bv2: buffers to store bitvector constants
  * - vector0: vector of integers
  */
@@ -49,15 +49,15 @@ typedef struct term_manager_s {
   type_table_t *types;
   pprod_table_t pprods;
 
-  node_table_t *nodes;
-  object_store_t *arith_store;
-  object_store_t *bvarith_store;
-  object_store_t *bvairth64_store;
-
   arith_buffer_t *arith_buffer;
   bvarith_buffer_t *bvarith_buffer;
-  bvarith64_buffer_t *arith64_buffer;
-  bvlogic_buffer_t *bvlogic_buffer;  
+  bvarith64_buffer_t *bvarith64_buffer;
+  bvlogic_buffer_t *bvlogic_buffer;
+
+  object_store_t *arith_store;
+  object_store_t *bvarith_store;
+  object_store_t *bvarith64_store;
+  node_table_t *nodes;
 
   rational_t r0;
   bvconstant_t bv0;
@@ -78,6 +78,7 @@ typedef struct term_manager_s {
  * - types = attached type table
  */
 extern void init_term_manager(term_manager_t *manager, type_table_t *types, uint32_t n);
+
 
 /*
  * Delete all: free memory
