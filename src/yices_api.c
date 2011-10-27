@@ -2156,7 +2156,6 @@ EXPORTED term_t yices_sub(term_t t1, term_t t2) {
 }
 
 
-
 /*
  * Negate t1
  */
@@ -2176,8 +2175,6 @@ EXPORTED term_t yices_neg(term_t t1) {
 
   return mk_arith_term(&manager, b);
 }
-
-
 
 
 /*
