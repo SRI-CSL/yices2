@@ -329,7 +329,7 @@ static term_t test_variable(type_t tau, char *name) {
   printf(": ");
 
   x = new_variable(&terms, tau);
-  if (! check_term_integer(x, VARIABLE, tau, x)) {
+  if (! check_term_integer(x, VARIABLE, tau, index_of(x))) {
     constructor_failed();
   }
 
@@ -372,8 +372,21 @@ static term_t test_not(term_t a, char *name) {
   return x;
 }
 
+
+/*
+ * constructor ite_term(.., a. b, c) may build ITE_TERM or ITE_SPECIAL, depending 
+ * on the tags for b and c:
+ */
+static bool special_for_ite(term_t x) {
+  term_kind_t tag;
+  tag = term_kind(&terms, x);
+  return tag == ITE_SPECIAL || is_const_kind(tag);
+}
+
+
 static term_t test_ite(type_t tau, term_t a, term_t b, term_t c, char *name) {
   term_t x, y;
+  term_kind_t expected_tag;
 
   printf("Testing: (ite ");
   print_term_name(stdout, &terms, a);
@@ -384,7 +397,12 @@ static term_t test_ite(type_t tau, term_t a, term_t b, term_t c, char *name) {
   printf("): ");
 
   x = ite_term(&terms, tau, a, b, c);
-  if (! check_composite3(x, ITE_TERM, tau, a, b, c)) {
+  expected_tag = ITE_TERM;
+  if (special_for_ite(b) && special_for_ite(c)) {
+    expected_tag = ITE_SPECIAL;
+  }
+
+  if (! check_composite3(x, expected_tag, tau, a, b, c)) {
     constructor_failed();
   }
   

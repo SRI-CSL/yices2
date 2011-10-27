@@ -2290,10 +2290,44 @@ term_t mk_eq(term_manager_t *manager, term_t t1, term_t t2) {
 
 
 /*
- * Generic disequality
+ * Generic disequality.
+ *
+ * We don't want to return (not mk_eq(manager, t1, t2)) because 
+ * that could miss some simplifications if t1 and t2 are Boolean.
  */
 term_t mk_neq(term_manager_t *manager, term_t t1, term_t t2) {
-  return opposite_term(mk_eq(manager, t1, t2));
+  term_table_t *tbl;
+  term_t aux;
+
+  tbl = &manager->terms;
+
+  if (is_boolean_term(tbl, t1)) {
+    assert(is_boolean_term(tbl, t2));
+    return mk_binary_xor(manager, t1, t2);
+  }
+
+  if (is_arithmetic_term(tbl, t1)) {
+    assert(is_arithmetic_term(tbl, t2));
+    return mk_arith_neq(manager, t1, t2);
+  }
+
+  if (is_bitvector_term(tbl, t1)) {
+    assert(is_bitvector_term(tbl, t2));
+    return mk_bvneq(manager, t1, t2);
+  }
+
+  // general case
+  if (t1 == t2) return false_term;
+  if (disequal_terms(tbl, t1, t2)) {
+    return true_term;
+  }
+
+  // put smaller index on the left
+  if (t1 > t2) {
+    aux = t1; t1 = t2; t2 = aux;
+  }
+
+  return opposite_term(eq_term(tbl, t1, t2));
 }
 
 
