@@ -1670,7 +1670,8 @@ static int process_benchmark(char *filename) {
   print_benchmark(stdout, &bench);
   printf("Construction time: %.4f s\n", construction_time);
   printf("Memory used: %.2f MB\n", mem_used);
-  printf("Nodes in bit-expr: %"PRIu32"\n", __yices_globals.nodes->nelems);
+  // TODO: FIX THIS
+  // printf("Nodes in bit-expr: %"PRIu32"\n", __yices_globals.nodes->nelems);
   fflush(stdout);
 
   delete_parser(&parser);

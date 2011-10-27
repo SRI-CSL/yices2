@@ -2629,8 +2629,6 @@ term_t mk_tuple_update(term_manager_t *manager, term_t tuple, uint32_t index, te
  * - all variables v[0 ... n-1] must be distinct
  * - body must be a Boolean term
  *
- * Sort variables in increasing order (of term index)
- *
  * Simplification
  *  (forall (x_1::t_1 ... x_n::t_n) true) --> true
  *  (forall (x_1::t_1 ... x_n::t_n) false) --> false (types are nonempty)
@@ -2642,20 +2640,12 @@ term_t mk_forall(term_manager_t *manager, uint32_t n, term_t var[], term_t body)
   if (body == true_term) return body;
   if (body == false_term) return body;
 
-  if (n > 1) { 
-    int_array_sort(var, n);    
-  }
-
   return forall_term(&manager->terms, n, var, body);
 }
 
 term_t mk_exists(term_manager_t *manager, uint32_t n, term_t var[], term_t body) {
   if (body == true_term) return body;
   if (body == false_term) return body;
-
-  if (n > 1) { 
-    int_array_sort(var, n);    
-  }
 
   // (not (forall ... (not body))
   return opposite_term(forall_term(&manager->terms, n, var, opposite_term(body)));
