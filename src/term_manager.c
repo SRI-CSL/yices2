@@ -1929,17 +1929,14 @@ static term_t mk_arith_geq_atom(term_table_t *tbl, term_t t) {
  * - simplify to true or false if b is a constant
  * - otherwise build a term t from b and return the atom (t >= 0)
  */
-term_t mk_arith_geq0(term_manager_t *manager, arith_buffer_t *b) {
-  term_table_t *tbl;
+term_t mk_direct_arith_geq0(term_table_t *tbl, arith_buffer_t *b) {
   mlist_t *m;
   pprod_t *r;
   term_t t;
   uint32_t n;
 
-  assert(b->ptbl == &manager->pprods);
+  assert(b->ptbl == tbl->pprods);
   arith_buffer_normalize(b);
-
-  tbl = &manager->terms;
 
   n = b->nterms;
   if (n == 0) {
@@ -1985,6 +1982,13 @@ term_t mk_arith_geq0(term_manager_t *manager, arith_buffer_t *b) {
   return t;
 }
 
+
+/*
+ * Same thing: using a manager
+ */
+term_t mk_arith_geq0(term_manager_t *manager, arith_buffer_t *b) {
+  return mk_direct_arith_geq0(&manager->terms, b);
+}
 
 
 /*
@@ -2203,6 +2207,26 @@ term_t mk_arith_gt0(term_manager_t *manager, arith_buffer_t *b) {
 // b < 0  -->  not (b >= 0)
 term_t mk_arith_lt0(term_manager_t *manager, arith_buffer_t *b) {
   return opposite_term(mk_arith_geq0(manager, b));
+}
+
+
+/*
+ * Variant: use a term table
+ */
+// b <= 0  -->  (- b) >= 0
+term_t mk_direct_arith_leq0(term_table_t *tbl, arith_buffer_t *b) {
+  arith_buffer_negate(b);
+  return mk_direct_arith_geq0(tbl, b);
+}
+
+// b > 0  -->  not (b <= 0)
+term_t mk_direct_arith_gt0(term_table_t *tbl, arith_buffer_t *b) {
+  return opposite_term(mk_direct_arith_leq0(tbl, b));
+}
+
+// b < 0  -->  not (b >= 0)
+term_t mk_direct_arith_lt0(term_table_t *tbl, arith_buffer_t *b) {
+  return opposite_term(mk_direct_arith_geq0(tbl, b));
 }
 
 

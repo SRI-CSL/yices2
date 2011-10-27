@@ -315,6 +315,15 @@ extern term_t mk_arith_gt(term_manager_t *manager, term_t t1, term_t t2);   // t
 extern term_t mk_arith_lt(term_manager_t *manager, term_t t1, term_t t2);   // t1 < t2
 
 
+/*
+ * Variants: direct construction/simplification from a term table
+ * These functions normalize b then create an atom
+ * - side effect: b is reset
+ */
+extern term_t mk_direct_arith_geq0(term_table_t *tbl, arith_buffer_t *b);  // b >= 0
+extern term_t mk_direct_arith_leq0(term_table_t *tbl, arith_buffer_t *b);  // b <= 0
+extern term_t mk_direct_arith_gt0(term_table_t *tbl, arith_buffer_t *b);   // b > 0
+extern term_t mk_direct_arith_lt0(term_table_t *tbl, arith_buffer_t *b);   // b < 0
 
 
 /*

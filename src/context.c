@@ -4,8 +4,8 @@
 
 #include "memalloc.h"
 #include "term_utils.h"
-#include "yices_extensions.h"
 #include "arith_buffer_terms.h"
+#include "term_manager.h"
 
 #include "context.h"
 #include "eq_learner.h"
@@ -201,14 +201,21 @@ static void context_free_cache(context_t *ctx) {
  */
 
 /*
- * Allocate the arithmetic buffer
+ * Allocate the arithmetic buffer + store if necessary
  */
 static arith_buffer_t *context_get_arith_buffer(context_t *ctx) {
   arith_buffer_t *tmp;
+  object_store_t *store;
 
   tmp = ctx->arith_buffer;
   if (tmp == NULL) {
-    tmp = yices_new_arith_buffer();
+    assert(store == NULL);
+    store = (object_store_t *) safe_malloc(sizeof(object_store_t));
+    init_mlist_store(store);
+    ctx->mlist_store = store;
+
+    tmp = (arith_buffer_t *) safe_malloc(sizeof(arith_buffer_t));
+    init_arith_buffer(tmp, ctx->terms->pprods, store);
     ctx->arith_buffer = tmp;
   }
   
@@ -217,15 +224,23 @@ static arith_buffer_t *context_get_arith_buffer(context_t *ctx) {
 
 
 /*
- * Free the arithmetic buffer
+ * Free the arithmetic buffer + store
  */
 static void context_free_arith_buffer(context_t *ctx) {
   arith_buffer_t *tmp;
+  object_store_t *store;
 
   tmp = ctx->arith_buffer;
   if (tmp != NULL) {
-    yices_free_arith_buffer(tmp);
+    delete_arith_buffer(tmp);
+    safe_free(tmp);
     ctx->arith_buffer = NULL;
+
+    store = ctx->mlist_store;
+    assert(store != NULL);
+    delete_mlist_store(store);
+    safe_free(store);
+    ctx->mlist_store = NULL;
   }
 }
 
@@ -1854,7 +1869,7 @@ static term_t lt0_atom(context_t *ctx, term_t t) {
   assert(b != NULL && arith_buffer_is_zero(b));
 
   arith_buffer_add_term(b, ctx->terms, t);
-  return arith_buffer_get_lt0_atom(b);
+  return mk_direct_arith_lt0(ctx->terms, b);
 }
 
 /*
@@ -1869,7 +1884,7 @@ static term_t gt0_atom(context_t *ctx, term_t t) {
   assert(b != NULL && arith_buffer_is_zero(b));
 
   arith_buffer_add_term(b, ctx->terms, t);
-  return arith_buffer_get_gt0_atom(b);  
+  return mk_direct_arith_gt0(ctx->terms, b);  
 }
 
 
@@ -6455,6 +6470,7 @@ void init_context(context_t *ctx, term_table_t *terms,
   ctx->eq_cache = NULL;
 
   ctx->dl_profile = NULL;
+  ctx->mlist_store = NULL;
   ctx->arith_buffer = NULL;
   ctx->poly_buffer = NULL;
   ctx->aux_poly = NULL;

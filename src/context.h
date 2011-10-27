@@ -612,6 +612,7 @@ struct context_s {
   dl_data_t *dl_profile;
 
   // buffers for arithmetic simplification/internalization
+  object_store_t *mlist_store; // for arith buffer
   arith_buffer_t *arith_buffer;
   poly_buffer_t *poly_buffer;
   polynomial_t *aux_poly;

@@ -30,6 +30,7 @@
 #include "dl_lists.h"
 #include "int_array_sort.h"
 
+#include "bv64_constants.h"
 #include "arith_buffer_terms.h"
 #include "bvarith_buffer_terms.h"
 #include "bvarith64_buffer_terms.h"
@@ -3882,9 +3883,68 @@ EXPORTED uint32_t yices_term_bitsize(term_t t) {
 
 
 
-/*************************************************
- *  YICES-EXTENSIONS: SUPPORT FOR TYPE CHECKING  *
- ************************************************/
+
+/***********************************
+ *  EXTENSIONS: TERM CONSTRUCTORS  *
+ **********************************/
+
+/*
+ * These term constructors are used in term_stack
+ */
+term_t arith_buffer_get_term(arith_buffer_t *b) {
+  return mk_arith_term(&manager, b);
+}
+
+term_t arith_buffer_get_eq0_atom(arith_buffer_t *b) {
+  return mk_arith_eq0(&manager, b);
+}
+
+term_t arith_buffer_get_geq0_atom(arith_buffer_t *b) {
+  return mk_arith_geq0(&manager, b);
+}
+
+term_t arith_buffer_get_leq0_atom(arith_buffer_t *b) {
+  return mk_arith_leq0(&manager, b);
+}
+
+term_t arith_buffer_get_gt0_atom(arith_buffer_t *b) {
+  return mk_arith_eq0(&manager, b);
+}
+
+term_t arith_buffer_get_lt0_atom(arith_buffer_t *b) {
+  return mk_arith_eq0(&manager, b);
+}
+
+term_t bvlogic_buffer_get_term(bvlogic_buffer_t *b) {
+  return mk_bvlogic_term(&manager, b);
+}
+
+term_t bvarith_buffer_get_term(bvarith_buffer_t *b) {
+  return mk_bvarith_term(&manager, b);
+}
+
+term_t bvarith64_buffer_get_term(bvarith64_buffer_t *b) {
+  return mk_bvarith64_term(&manager, b);
+}
+
+term_t yices_bvconst_term(uint32_t n, uint32_t *v) {
+  assert(64 < n && n <= YICES_MAX_BVSIZE);
+  return bvconst_term(get_terms(), n, v);
+}
+
+term_t yices_bvconst64_term(uint32_t n, uint64_t c) {
+  assert(1 <= n && n <= 64 && c == norm64(c, n));
+  return bv64_constant(get_terms(), n, c);
+}
+
+term_t yices_rational_term(rational_t *q) {
+  return arith_constant(get_terms(), q);
+}
+
+
+/*******************************************
+ *  EXTENSIONS: SUPPORT FOR TYPE CHECKING  *
+ ******************************************/
 
 /*
  * Check whether t is a valid arithmetic term
