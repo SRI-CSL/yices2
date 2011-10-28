@@ -2238,9 +2238,7 @@ EXPORTED term_t yices_power(term_t t1, uint32_t d) {
 
   b = get_arith_buffer();
   tbl = get_terms();
-  arith_buffer_reset(b);
-  q_set_one(&r0);
-  arith_buffer_add_const(b, &r0); // b := 1
+  arith_buffer_set_one(b);
   arith_buffer_mul_term_power(b, tbl, t1, d);
 
   return mk_arith_term(&manager, b);
@@ -2457,93 +2455,51 @@ EXPORTED term_t yices_arith_leq_atom(term_t t1, term_t t2) {
  * Comparison with zero
  */
 EXPORTED term_t yices_arith_eq0_atom(term_t t) {
-  arith_buffer_t *b;
-
   if (! check_good_term(&manager, t) || 
       ! check_arith_term(&manager, t)) {
     return NULL_TERM;
   }
-
-  b = get_arith_buffer();
-  arith_buffer_reset(b);
-  arith_buffer_add_term(b, get_terms(), t);
-
-  return mk_arith_eq0(&manager, b);
+  return mk_arith_term_eq0(&manager, t);
 }
 
 EXPORTED term_t yices_arith_neq0_atom(term_t t) {
-  arith_buffer_t *b;
-
   if (! check_good_term(&manager, t) || 
       ! check_arith_term(&manager, t)) {
     return NULL_TERM;
   }
-
-  b = get_arith_buffer();
-  arith_buffer_reset(b);
-  arith_buffer_add_term(b, get_terms(), t);
-
-  return mk_arith_neq0(&manager, b);
+  return mk_arith_term_neq0(&manager, t);
 }
 
 EXPORTED term_t yices_arith_geq0_atom(term_t t) {
-  arith_buffer_t *b;
-
   if (! check_good_term(&manager, t) || 
       ! check_arith_term(&manager, t)) {
     return NULL_TERM;
   }
-
-  b = get_arith_buffer();
-  arith_buffer_reset(b);
-  arith_buffer_add_term(b, get_terms(), t);
-
-  return mk_arith_geq0(&manager, b);
+  return mk_arith_term_geq0(&manager, t);
 }
 
 EXPORTED term_t yices_arith_leq0_atom(term_t t) {
-  arith_buffer_t *b;
-
   if (! check_good_term(&manager, t) || 
       ! check_arith_term(&manager, t)) {
     return NULL_TERM;
   }
-
-  b = get_arith_buffer();
-  arith_buffer_reset(b);
-  arith_buffer_add_term(b, get_terms(), t);
-
-  return mk_arith_leq0(&manager, b);
+  return mk_arith_term_leq0(&manager, t);
 }
 
 EXPORTED term_t yices_arith_gt0_atom(term_t t) {
-  arith_buffer_t *b;
-
   if (! check_good_term(&manager, t) || 
       ! check_arith_term(&manager, t)) {
     return NULL_TERM;
   }
-
-  b = get_arith_buffer();
-  arith_buffer_reset(b);
-  arith_buffer_add_term(b, get_terms(), t);
-
-  return mk_arith_gt0(&manager, b);
+  return mk_arith_term_gt0(&manager, t);
 }
 
 EXPORTED term_t yices_arith_lt0_atom(term_t t) {
-  arith_buffer_t *b;
-
   if (! check_good_term(&manager, t) || 
       ! check_arith_term(&manager, t)) {
     return NULL_TERM;
   }
-
-  b = get_arith_buffer();
-  arith_buffer_reset(b);
-  arith_buffer_add_term(b, get_terms(), t);
-
-  return mk_arith_lt0(&manager, b);
+  return mk_arith_term_lt0(&manager, t);
 }
 
 
@@ -3674,21 +3630,13 @@ EXPORTED term_t yices_bvsmod(term_t t1, term_t t2) {
  *    index = i
  */
 EXPORTED term_t yices_bvarray(uint32_t n, term_t arg[]) {
-  bvlogic_buffer_t *b;
-  term_table_t *tbl;
-
   if (! check_positive(n) ||
       ! check_maxbvsize(n) ||
       ! check_good_terms(&manager, n, arg) ||
       ! check_boolean_args(&manager, n, arg)) {
     return NULL_TERM;
   }
-
-  b = get_bvlogic_buffer();
-  tbl = get_terms();
-  bvlogic_buffer_set_term_array(b, tbl, n, arg);
-
-  return mk_bvlogic_term(&manager, b);
+  return mk_bvarray(&manager, n, arg);
 }
 
 

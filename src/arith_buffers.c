@@ -425,6 +425,24 @@ void arith_buffer_reset(arith_buffer_t *b) {
 
 
 /*
+ * Set b to the constant 1
+ */
+void arith_buffer_set_one(arith_buffer_t *b) {
+  mlist_t *p;
+
+  arith_buffer_reset(b);
+
+  p = alloc_list_elem(b->store);
+  p->next = b->list;
+  p->prod = empty_pp;
+  q_set_one(&p->coeff);
+
+  b->list = p;
+  b->nterms = 1;
+}
+
+
+/*
  * Multiply b by -1
  */
 void arith_buffer_negate(arith_buffer_t *b) {

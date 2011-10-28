@@ -164,6 +164,49 @@ void bvarith_buffer_mul_term(bvarith_buffer_t *b, term_table_t *table, term_t t)
 }
 
 
+/*
+ * Add a * t to b
+ * - t must be defined in table and be a bitvector term of same bitsize as b
+ * - a must be have the same bitsize as b (as many words a b->width)
+ * - b->ptbl must be the same as table->pprods
+ */
+void bvarith_buffer_add_const_times_term(bvarith_buffer_t *b, term_table_t *table, uint32_t *a, term_t t) {
+  bvconstant_t c;
+  pprod_t **v;
+  bvpoly_t *p;
+  int32_t i;
+
+  assert(b->ptbl == table->pprods);
+  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && 
+	 term_bitsize(table, t) == b->bitsize);
+
+  i = index_of(t);
+  switch (table->kind[i]) {
+  case POWER_PRODUCT:
+    bvarith_buffer_add_mono(b, a, pprod_for_idx(table, i));
+    break;
+
+  case BV_CONSTANT:
+    init_bvconstant(&c);
+    bvconstant_copy(&c, b->bitsize, bvconst_for_idx(table, i)->data);
+    bvconst_mul(c.data, b->width, a);
+    bvarith_buffer_add_const(b, c.data);
+    delete_bvconstant(&c);
+    break;
+
+  case BV_POLY:
+    p = bvpoly_for_idx(table, i);
+    v = pprods_for_bvpoly(table, p);
+    bvarith_buffer_add_const_times_bvpoly(b, p, v, a);
+    term_table_reset_pbuffer(table);
+    break;
+
+  default:
+    bvarith_buffer_add_varmono(b, a, t);
+    break;
+  }
+}
+
 
 /*
  * Multiply b by t^d

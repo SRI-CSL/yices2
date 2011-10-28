@@ -166,6 +166,45 @@ void bvarith64_buffer_mul_term(bvarith64_buffer_t *b, term_table_t *table, term_
 
 
 /*
+ * Add a * t to b
+ * - t must be defined in table and be a bitvector term of same bitsize as b
+ * - b->ptbl must be the same as table->pprods
+ */
+void bvarith64_buffer_add_const_times_term(bvarith64_buffer_t *b, term_table_t *table, uint64_t a, term_t t) {
+  pprod_t **v;
+  bvpoly64_t *p;
+  int32_t i;
+
+  assert(b->ptbl == table->pprods);
+  assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && 
+	 term_bitsize(table, t) == b->bitsize);
+
+  i = index_of(t);
+  switch (table->kind[i]) {
+  case POWER_PRODUCT:
+    bvarith64_buffer_add_mono(b, a, pprod_for_idx(table, i));
+    break;
+
+  case BV64_CONSTANT:
+    a *= bvconst64_for_idx(table, i)->value;
+    bvarith64_buffer_add_const(b, a);
+    break;
+
+  case BV64_POLY:
+    p = bvpoly64_for_idx(table, i);
+    v = pprods_for_bvpoly64(table, p);
+    bvarith64_buffer_add_const_times_bvpoly(b, p, v, a);
+    term_table_reset_pbuffer(table);
+    break;
+
+  default:
+    bvarith64_buffer_add_varmono(b, a, t);
+    break;
+  }
+}
+
+
+/*
  * Multiply b by t^d
  * - t must be an arithmetic term
  * - p->ptbl and table->pprods must be equal

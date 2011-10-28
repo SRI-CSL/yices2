@@ -153,7 +153,7 @@ extern term_t mk_bool_ite(term_manager_t *manager, term_t c, term_t x, term_t y)
 
 /*
  * N-ary constructors
- * - n = number of arguments (must be no more than YICES_MAX_ARITY)
+ * - n = number of arguments (must be positive and no more than YICES_MAX_ARITY)
  * - a = array of n Boolean terms
  *
  * side effect; a is modified
@@ -304,6 +304,18 @@ extern term_t mk_arith_lt0(term_manager_t *manager, arith_buffer_t *b);   // b <
 
 
 /*
+ * Variant: create an arithmetci atom from term t
+ */
+extern term_t mk_arith_term_eq0(term_manager_t *manager, term_t t);   // t == 0
+extern term_t mk_arith_term_neq0(term_manager_t *manager, term_t t);  // t != 0
+extern term_t mk_arith_term_geq0(term_manager_t *manager, term_t t);  // t >= 0
+extern term_t mk_arith_term_leq0(term_manager_t *manager, term_t t);  // t <= 0
+extern term_t mk_arith_term_gt0(term_manager_t *manager, term_t t);   // t > 0
+extern term_t mk_arith_term_lt0(term_manager_t *manager, term_t t);   // t < 0
+
+
+
+/*
  * Binary atoms
  * - t1 and t2 must be arithmetic terms in manager->terms
  */
@@ -374,7 +386,15 @@ extern term_t mk_bvlogic_term(term_manager_t *manager, bvlogic_buffer_t *b);
  * - t and e must bitvector terms of the same type
  */
 extern term_t mk_bv_ite(term_manager_t *manager, term_t c, term_t t, term_t e);
- 
+
+
+/*
+ * Bit array
+ * - a must be an array of n boolean terms
+ * - n must be positive and no more than YICES_MAX_BVSIZE
+ */
+extern term_t mk_bvarray(term_manager_t *manager, uint32_t n, term_t *a);
+
 
 /*
  * Shift and division constructors

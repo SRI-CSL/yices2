@@ -29,6 +29,15 @@ extern void bvarith_buffer_mul_term(bvarith_buffer_t *b, term_table_t *table, te
 
 
 /*
+ * Add a * t to b
+ * - t must be defined in table and be a bitvector term of same bitsize as b
+ * - a must be have the same bitsize as b (as many words a b->width)
+ * - b->ptbl must be the same as table->pprods
+ */
+extern void bvarith_buffer_add_const_times_term(bvarith_buffer_t *b, term_table_t *table, uint32_t *a, term_t t);
+
+
+/*
  * Multiply b by (t ^ d)
  * - t must be defined in table and be a bitvector term of same bitsize as b
  * - b->ptbl must be the same as table->pprods

@@ -2211,6 +2211,76 @@ term_t mk_arith_lt0(term_manager_t *manager, arith_buffer_t *b) {
 
 
 /*
+ * Variants: use a term t
+ */
+// t == 0
+term_t mk_arith_term_eq0(term_manager_t *manager, term_t t) {
+  arith_buffer_t *b;
+
+  b = term_manager_get_arith_buffer(manager);
+  arith_buffer_reset(b);
+  arith_buffer_add_term(b, &manager->terms, t);
+
+  return mk_arith_eq0(manager, b);
+}
+
+// t != 0
+term_t mk_arith_term_neq0(term_manager_t *manager, term_t t) {
+  arith_buffer_t *b;
+
+  b = term_manager_get_arith_buffer(manager);
+  arith_buffer_reset(b);
+  arith_buffer_add_term(b, &manager->terms, t);
+
+  return mk_arith_neq0(manager, b);
+}
+
+// t >= 0
+term_t mk_arith_term_geq0(term_manager_t *manager, term_t t) {
+  arith_buffer_t *b;
+
+  b = term_manager_get_arith_buffer(manager);
+  arith_buffer_reset(b);
+  arith_buffer_add_term(b, &manager->terms, t);
+
+  return mk_arith_geq0(manager, b);
+}
+
+// t <= 0
+term_t mk_arith_term_leq0(term_manager_t *manager, term_t t) {
+  arith_buffer_t *b;
+
+  b = term_manager_get_arith_buffer(manager);
+  arith_buffer_reset(b);
+  arith_buffer_add_term(b, &manager->terms, t);
+
+  return mk_arith_leq0(manager, b);
+}
+
+// t > 0
+term_t mk_arith_term_gt0(term_manager_t *manager, term_t t) {
+  arith_buffer_t *b;
+
+  b = term_manager_get_arith_buffer(manager);
+  arith_buffer_reset(b);
+  arith_buffer_add_term(b, &manager->terms, t);
+
+  return mk_arith_gt0(manager, b);
+}
+
+// t < 0
+term_t mk_arith_term_lt0(term_manager_t *manager, term_t t) {
+  arith_buffer_t *b;
+
+  b = term_manager_get_arith_buffer(manager);
+  arith_buffer_reset(b);
+  arith_buffer_add_term(b, &manager->terms, t);
+
+  return mk_arith_lt0(manager, b);
+}
+
+
+/*
  * Variant: use a term table
  */
 // b <= 0  -->  (- b) >= 0
@@ -3210,6 +3280,26 @@ term_t mk_bvarith64_term(term_manager_t *manager, bvarith64_buffer_t *b) {
   return t;  
 }
 
+
+
+/***************
+ *  BIT ARRAY  *
+ **************/
+
+/*
+ * Bit array
+ * - a must be an array of n boolean terms
+ * - n must be positive and no more than YICES_MAX_BVSIZE
+ */
+term_t mk_bvarray(term_manager_t *manager, uint32_t n, term_t *a) {
+  bvlogic_buffer_t *b;
+
+  assert(0 < n && n <= YICES_MAX_BVSIZE);
+
+  b = term_manager_get_bvlogic_buffer(manager);
+  bvlogic_buffer_set_term_array(b, &manager->terms, n, a);
+  return mk_bvlogic_term(manager, b);
+}
 
 
 /**********************

@@ -232,6 +232,12 @@ extern void arith_buffer_reset(arith_buffer_t *b);
 
 
 /*
+ * Set b to the constant 1
+ */
+extern void arith_buffer_set_one(arith_buffer_t *b);
+
+
+/*
  * Multiply b by -1
  */
 extern void arith_buffer_negate(arith_buffer_t *b);
