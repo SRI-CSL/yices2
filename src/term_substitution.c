@@ -244,6 +244,57 @@ static bool subst_term_is_ground(term_subst_t *subst, term_t t) {
  */
 
 /*
+ * Check whether the product a[0]^e_0 ... a[n-1]^e_{n-1} has degree > YICEX_MAX_DEGREE
+ * - e_i = exponent in pprod p
+ */
+static bool pprod_degree_overflows(term_table_t *tbl, pprod_t *p, uint32_t n, term_t *a) {
+  uint64_t d;
+  uint32_t i;
+
+  assert(n == p->len);
+
+  d = 0;
+  for (i=0; i<n; i++) {
+    d += ((uint64_t) term_degree(tbl, a[i])) * p->prod[i].exp;
+    if (d > (uint64_t) YICES_MAX_DEGREE) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+/*
+ * Check whether term t is 0
+ * - t is either an arithmetic or a bitvector term
+ */
+static bool term_is_zero(term_table_t *tbl, term_t t) {
+  bvconst_term_t *c;
+  uint32_t k;
+
+  assert(is_arithmetic_term(tbl, t) || is_bitvector_term(tbl, t));
+
+  switch (term_kind(tbl, t)) {
+  case ARITH_CONSTANT:
+    assert(t == zero_term || q_is_nonzero(rational_term_desc(tbl, t)));;
+    return t == zero_term;
+
+  case BV64_CONSTANT:
+    return bvconst64_term_desc(tbl, t)->value == (uint64_t) 0;
+
+  case BV_CONSTANT:
+    c = bvconst_term_desc(tbl, t);
+    k = (c->bitsize + 31) >> 5;
+    return bvconst_is_zero(c->data, k);
+
+  default:
+    return false;
+  }
+}
+
+
+/*
  * Arithmetic product:
  * - p is a power product descriptor: t_0^e_0 ... t_{n-1}^e_{n-1}
  * - a is an array of n arithmetic terms: a[i] = subst of t_i
@@ -796,23 +847,28 @@ static term_t subst_pprod(term_subst_t *subst, pprod_t *p, type_t tau) {
   term_t *a;
   term_t result;
   uint32_t i, n, nbits;
-  uint64_t d;
 
   n = p->len;
   a = alloc_istack_array(&subst->stack, n);
   
   /*
    * p is t_0^e_0 ... t_{n-1}^e_{n-1}
-   * we store a[i] = subst(t_i)
-   * and we keep d = total degree of a[0]^e_0 ... a[i-1]^ e_{i-1}
+   * compute a[i] = subst(t_i), stop if a[i] is zero
    */
-  d = 0;
   for (i=0; i<n; i++) {
     a[i] = get_subst(subst, p->prod[i].var);
-    d += term_degree(subst->terms, a[i]) * p->prod[i].exp;
-    if (d > (uint64_t) YICES_MAX_DEGREE) {
-      longjmp(subst->env, -1); // raise exception
+    if (term_is_zero(subst->terms, a[i])) {
+      // the result is zero
+      result = a[i];
+      goto done;
     }
+  }
+
+  /*
+   * Check for overflow
+   */
+  if (pprod_degree_overflows(subst->terms, p, n, a)) {
+    longjmp(subst->env, -1); // raise an exception
   }
 
   /*
@@ -829,6 +885,7 @@ static term_t subst_pprod(term_subst_t *subst, pprod_t *p, type_t tau) {
     }
   }
 
+ done:
   free_istack_array(&subst->stack, a);
 
   return result;
