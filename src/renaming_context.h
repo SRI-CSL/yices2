@@ -57,6 +57,15 @@ extern void renaming_ctx_push_vars(renaming_ctx_t *ctx, uint32_t n, term_t *v);
 
 
 /*
+ * Collect the n fresh variables introduced by the previous operation
+ * into array a
+ * - a must be large enough for n variables
+ */
+static inline void renaming_ctx_collect_new_vars(renaming_ctx_t *ctx, uint32_t n, term_t *a) {
+  subst_ctx_collect_bindings(&ctx->subst, n, a);
+}
+
+/*
  * Remove the last n variable renamings
  * - n must be no more than the total number of renamings stored in ctx
  */

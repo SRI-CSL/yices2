@@ -610,7 +610,7 @@ extern bool type_has_finite_range(type_table_t *table, type_t tau);
  * 1) if tau1 and tau2 are compatible, then they have a smallest
  *    common supertype sup(tau1, tau2).
  * 2) tau1 and tau2 are compatible iff they have a common subtype.
- * 3) if tau1 and tau2 are compatibel, then they have a largest
+ * 3) if tau1 and tau2 are compatible, then they have a largest
  *    common subtype inf(tau1, tau2).
  */
 

@@ -145,6 +145,26 @@ void subst_ctx_push_binding(subst_ctx_t *ctx, int32_t x, int32_t t) {
 }
 
 
+/*
+ * Collect the values of the last n bindings in array a
+ * - n must be at least ctx->nelems
+ * - a must be large enough to store n integers
+ * - if the last n bindings were [x_1 --> t1, ... x_n --> t_n],
+ *   in that order, then this function stores t_1 ... t_n in a[0 ... n-1]
+ */
+void subst_ctx_collect_bindings(subst_ctx_t *ctx, uint32_t n, int32_t *a) {
+  uint32_t i, j;
+
+  assert(n <= ctx->nelems);
+
+  j = ctx->nelems - n;
+  for (i=0; i<n; i++) {
+    a[i] = ctx->data[j].term;
+    j ++;
+  }
+}
+
+
 
 /*
  * Get the term bound to x in the context

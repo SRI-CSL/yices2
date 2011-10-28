@@ -96,7 +96,6 @@ static inline uint32_t ptr_heap_nelems(ptr_heap_t *heap) {
 
 
 
-
 /*
  * Get the minimal element and remove it from the heap
  * - return NULL if the heap is empty
@@ -112,5 +111,6 @@ extern void *ptr_heap_get_min(ptr_heap_t *heap);
  * (e.g., to delete them).
  */
 extern void *ptr_heap_get_elem(ptr_heap_t *heap);
+
 
 #endif /* __PTR_HEAP_H */

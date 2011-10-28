@@ -89,12 +89,22 @@ extern void subst_ctx_push_binding(subst_ctx_t *ctx, int32_t x, int32_t t);
 
 /*
  * Remove the last n bindings from the context
- * - n must be at most ctx->nelems
+ * - n must be at least ctx->nelems
  */
 static inline void subst_ctx_pop_bindings(subst_ctx_t *ctx, uint32_t n) {
   assert(n <= ctx->nelems);
   ctx->nelems -= n;
 }
+
+
+/*
+ * Collect the values of the last n bindings in array a
+ * - n must be at least ctx->nelems
+ * - a must be large enough to store n integers
+ * - if the last n bindings were [x_1 --> t1, ... x_n --> t_n]
+ *   in that order, then this function stores t_1 ... t_n in a[0 ... n-1]
+ */
+extern void subst_ctx_collect_bindings(subst_ctx_t *ctx, uint32_t n, int32_t *a);
 
 
 /*
