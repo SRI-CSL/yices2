@@ -252,6 +252,11 @@ static bool is_arith(type_t tau, term_t t) {
   return is_arithmetic_term(__yices_globals.terms, t);
 }
 
+// check whether t is arithmetic and has degree < 10
+static bool low_degree(type_t tau, term_t t) {
+  return is_arithmetic_term(__yices_globals.terms, t) && 
+    term_degree(__yices_globals.terms, t) < 10;
+}
 
 
 /*
@@ -483,6 +488,27 @@ static term_t test_ite(term_t c, term_t left, term_t right) {
 }
 
 
+
+/*
+ * Exponentiation
+ */
+static term_t test_power(term_t t1, uint32_t d) {
+  term_t t;
+
+  printf("test: (power ");
+  print_term(stdout, __yices_globals.terms, t1);
+  printf(" %"PRIu32") --> ", d);
+  fflush(stdout);
+  t = yices_power(t1, d);
+  print_term(stdout, __yices_globals.terms, t);
+  printf("\n");
+
+  fflush(stdout);
+
+  return t;
+}
+
+
 /*
  * Run all binary tests on t1 and t2
  */
@@ -561,6 +587,23 @@ static void random_ite(uint32_t n) {
 }
 
 
+/*
+ * Random power tests: n roundes
+ */
+static void random_power(uint32_t n) {
+  term_t t1;
+  uint32_t d;
+
+  printf("\n---- Test exponentiation ----\n");
+  while (n > 0) {
+    t1 = term_store_sample(&all_terms, boolean, low_degree);
+    d = random() % 10;
+    test_power(t1, d);
+
+    n --;
+  }
+}
+
 
 /*
  * Add more random arithmetic and boolean terms
@@ -568,10 +611,10 @@ static void random_ite(uint32_t n) {
  */
 static void add_random_terms(uint32_t n) {
   term_t t1, t2, c, t;
-  uint32_t i;
+  uint32_t i, d;
 
   while (n > 0) {
-    i = random() % (NUM_BINOPS + NUM_UNOPS + 1);
+    i = random() % (NUM_BINOPS + NUM_UNOPS + 2);
     printf("---> random term: n = %"PRIu32" i = %"PRIu32"\n", n, i);
     fflush(stdout);
     if (i < NUM_BINOPS) {
@@ -581,11 +624,15 @@ static void add_random_terms(uint32_t n) {
     } else if (i < NUM_BINOPS + NUM_UNOPS) {
       t1 = term_store_sample(&all_terms, boolean, is_arith);
       t = test_unary_op(i - NUM_BINOPS, t1);
-    } else {
+    } else if (i < NUM_BINOPS + NUM_UNOPS + 1) {
       c = term_store_sample(&all_terms, boolean, has_type);
       t1 = term_store_sample(&all_terms, boolean, is_arith);
       t2 = term_store_sample(&all_terms, boolean, is_arith);
       t = test_ite(c, t1, t2);
+    } else {
+      d = random() % 10;
+      t1 = term_store_sample(&all_terms, boolean, low_degree);
+      t = test_power(t1, d);
     }
     assert(t >= 0);
     term_store_add_term(&all_terms, t);
@@ -609,6 +656,7 @@ int main(void) {
   printf("\n\n*** RANDOM TESTS ***\n");
   random_binary_tests(2000);
   random_unary_tests(2000);
+  random_power(2000);
   random_ite(2000);
 
   show_types();
