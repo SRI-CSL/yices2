@@ -48,7 +48,7 @@ extern "C" {
  * and it's possibly missing from other compilers too.
  *
  * If necessary, there are open-source 'stdint.h' that can 
- * be dowloaded at
+ * be downloaded at
  *      http://code.google.com/p/msinttypes/   (for MS Visual Studio only)
  *   or http://www.azillionmonkeys.com/qed/pstdint.h
  */
@@ -191,7 +191,7 @@ __YICES_DLLSPEC__ extern type_t yices_new_uninterpreted_type(void);
  *
  * Error report 
  * if n == 0, 
- *   code = POSINT_REQUIRED 
+ *   code = POS_INT_REQUIRED 
  *   badval = n
  * if n > YICES_MAX_ARITY
  *   code = TOO_MANY_ARGUMENTS
@@ -209,7 +209,7 @@ __YICES_DLLSPEC__ extern type_t yices_tuple_type(uint32_t n, type_t tau[]);
  *
  * Error report
  * if n ==0,
- *   code = POSINT_REQUIRED
+ *   code = POS_INT_REQUIRED
  *   badval = n
  * if n > YICES_MAX_ARITY
  *   code = TOO_MANY_ARGUMENTS
@@ -299,7 +299,7 @@ __YICES_DLLSPEC__ extern term_t yices_new_variable(type_t tau);
  * 
  * Error report:
  * if n == 0,
- *   code = POSINT_REQUIRED
+ *   code = POS_INT_REQUIRED
  *   badval = n
  * if fun or arg[i] is not defined
  *   code = INVALID_TERM
@@ -413,7 +413,7 @@ __YICES_DLLSPEC__ extern term_t yices_xor2(term_t left, term_t right);
  *    code = INVALID_TERM
  *    term1 = left/right
  * if left or right is not boolean
- *    code = TYPE_MIMATCH
+ *    code = TYPE_MISMATCH
  *    term1 = left/right
  *    type1 = bool (expected type)
  */
@@ -426,7 +426,7 @@ __YICES_DLLSPEC__ extern term_t yices_implies(term_t left, term_t right);
  *
  * Error report:
  * if n == 0
- *   code = POSINT_REQUIRED
+ *   code = POS_INT_REQUIRED
  *   badval = n
  * if n > YICES_MAX_ARITY
  *   code = TOO_MANY_ARGUMENTS
@@ -461,7 +461,7 @@ __YICES_DLLSPEC__ extern term_t yices_select(uint32_t index, term_t tuple);
  *
  * Error report:
  * if n = 0
- *    code = POSINT_REQUIRED
+ *    code = POS_INT_REQUIRED
  *    badval = n
  * if fun or new_v, or one of arg[i] is invalid
  *    code = INVALID_TERM
@@ -490,7 +490,7 @@ __YICES_DLLSPEC__ extern term_t yices_update(term_t fun, uint32_t n, term_t arg[
  *
  * Error report:
  * if n == 0
- *    code = POSINT_REQUIRED
+ *    code = POS_INT_REQUIRED
  *    badval = n
  * if n > YICES_MAX_ARITY
  *    code = TOO_MANY_ARGUMENTS
@@ -537,7 +537,7 @@ __YICES_DLLSPEC__ extern term_t yices_tuple_update(term_t tuple, uint32_t index,
  * 
  * Error report:
  * if n == 0
- *    code = POSINT_REQUIRED
+ *    code = POS_INT_REQUIRED
  *    badval = n
  * if n > YICES_MAX_VARS
  *    code = TOO_MANY_VARS
@@ -685,7 +685,7 @@ __YICES_DLLSPEC__ extern term_t yices_power(term_t t1, uint32_t d);  // t1 ^ d
  * given n constant coefficients a_0, ..., a_{n-1} and
  *       n arithmetic terms t_0, ..., t_{n-1}.
  *
- * If there's an arror, the functions return NULL_TERM (-1).
+ * If there's an error, the functions return NULL_TERM (-1).
  *
  * Error reports:
  * if t[i] is not valid
@@ -718,7 +718,7 @@ __YICES_DLLSPEC__ extern term_t yices_poly_rational64(uint32_t n, int64_t num[],
 
 
 /*
- * Coefficents are GMP integers or rationals.
+ * Coefficients are GMP integers or rationals.
  * - the rationals q[0 ... n-1] must all be canonicalized
  */
 #ifdef __GMP_H__
@@ -781,7 +781,7 @@ __YICES_DLLSPEC__ extern term_t yices_arith_lt0_atom(term_t t);   // t < 0
 /*
  * BITVECTOR CONSTANTS
  *
- * Constants can be constructed from C integers (32 ot 64 bits),
+ * Constants can be constructed from C integers (32 or 64 bits),
  * from GMP integers, from arrays, or by parsing strings.
  *
  * The constant constructors return NULL_TERM (-1) if there's 
@@ -798,7 +798,7 @@ __YICES_DLLSPEC__ extern term_t yices_arith_lt0_atom(term_t t);   // t < 0
  *
  * Error report:
  * if n = 0
- *    code = POSINT_REQUIRED
+ *    code = POS_INT_REQUIRED
  *    badval = n
  * if n > YICES_MAX_BVSIZE
  *    code = MAX_BVSIZE_EXCEEDED
@@ -819,7 +819,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvconst_mpz(uint32_t n, mpz_t x);
  *
  * Error report:
  * if n = 0
- *    code = POSINT_REQUIRED
+ *    code = POS_INT_REQUIRED
  *    badval = n
  * if n > YICES_MAX_BVSIZE
  *    code = MAX_BVSIZE_EXCEEDED
@@ -837,7 +837,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvconst_minus_one(uint32_t n);
  *
  * Error report:
  * if n = 0
- *    code = POSINT_REQUIRED
+ *    code = POS_INT_REQUIRED
  *    badval = n
  * if n > YICES_MAX_BVSIZE
  *    code = MAX_BVSIZE_EXCEEDED
@@ -1019,7 +1019,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvconcat(term_t t1, term_t t2);
  *   code = BITVECTOR_REQUIRED
  *   term1 = t
  * if n == 0
- *   code = POSINT_REQUIRED
+ *   code = POS_INT_REQUIRED
  *   badval = n
  * if n * size of t > MAX_BVSIZE
  *   code = MAX_BVSIZE_EXCEEDED
@@ -1118,7 +1118,7 @@ __YICES_DLLSPEC__ extern term_t yices_redcomp(term_t t1, term_t t2);
  *
  * Error report:
  * if n == 0
- *    code = POSINT_REQUIRED
+ *    code = POS_INT_REQUIRED
  *    badval = n
  * if n > YICES_MAX_BVSIZE
  *    code = MAX_BVSIZE_EXCEEDED
@@ -1247,9 +1247,9 @@ __YICES_DLLSPEC__ extern term_t yices_parse_term(const char *s);
 /*
  * The following functions attach a name to a type or a term
  * - name  must be a '\0'-terminated string
- * - if tau or t does not have a base-name yet, then name is stored 
- *   as base-name for tau or t.
- * - if name refered to another term or another type, then this 
+ * - if tau or t does not have a base name yet, then name is stored 
+ *   as base name for tau or t.
+ * - if name referred to another term or another type, then this 
  *   previous mapping is hidden
  *
  * The functions return -1 and set the error report if the term or
@@ -1281,7 +1281,7 @@ __YICES_DLLSPEC__ extern term_t yices_get_term_by_name(const char *name);
 
 
 /*
- * Remove the base-name of a type tau or of a term t.
+ * Remove the base name of a type tau or of a term t.
  *
  * The functions return -1 and set the error report if the 
  * type or term is invalid. Otherwise, they return 0.
@@ -1317,7 +1317,7 @@ __YICES_DLLSPEC__ extern type_t yices_type_of_term(term_t t);
  * - term_is_arithmetic check whether t's type is either int or real
  * - term_is_real check whether t's type is real
  * - term_is_int check whether t's type is int 
- * - term_is_scalar check whether t has a scalar or uninterpeted type
+ * - term_is_scalar check whether t has a scalar or uninterpreted type
  &
  * If t is not a valid term, the check functions return false
  * and set the error report as above.
@@ -1368,7 +1368,7 @@ __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
  * - solver for integer difference logic (based on Floyd-Warshall)
  * - solver for real difference logic (also based on Floyd-Warshall)
  *
- * The followng combinations of theory solvers can be used:
+ * The following combinations of theory solvers can be used:
  * - no solvers at all
  * - egraph alone
  * - bitvector solver alone
@@ -1380,7 +1380,7 @@ __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
  * - egraph + array solver
  * - egraph + bitvector + array solver
  * - egraph + simplex + array solver
- * - egraph + simplex + bivector + array solver
+ * - egraph + simplex + bitvector + array solver
  * If no solvers are used, the context can deal only with Boolean
  * formulas.
  *
@@ -1493,7 +1493,7 @@ __YICES_DLLSPEC__ extern int32_t yices_default_config_for_logic(ctx_config_t *co
  *    or the search is interrupted.
  *
  * 3) SAT/UNSAT/UNKNOWN: status returned after a search
- *    - UNSAT means the assertions are not satisifiable.
+ *    - UNSAT means the assertions are not satisfiable.
  *    - SAT means they are satisfiable.
  *    - UNKNOWN means that the solver could not determine whether
  *      the assertions are SAT or UNSAT. This may happen if 
@@ -1520,7 +1520,7 @@ __YICES_DLLSPEC__ extern int32_t yices_default_config_for_logic(ctx_config_t *co
  * If config is NULL, the default configuration is used:
  *   push/pop are enabled
  *   the solvers are: egraph + array solver + bv solver + simplex
- *   mixed real/integer arithemtic is supported
+ *   mixed real/integer arithmetic is supported
  *
  * Otherwise the context is configured as specified by config, provided
  * that configuration is valid.
@@ -1630,7 +1630,7 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, uint32_t 
 /*
  * Check satisfiability: check whether the assertions stored in ctx
  * are satisfiable.  
- * - params is an optional structure that stores heurisitic parameters.
+ * - params is an optional structure that stores heuristic parameters.
  * - if params is NULL, default parameter settings are used.
  *
  * It's better to keep params=NULL unless you encounter performance
@@ -1704,7 +1704,7 @@ __YICES_DLLSPEC__ extern void yices_stop_search(context_t *ctx);
  */
 
 /*
- * Several options determine how much simplication is performed
+ * Several options determine how much simplification is performed
  * when formulas are asserted. It's best to leave them untouched
  * unless you really know what you're doing.
  *
@@ -1750,7 +1750,7 @@ __YICES_DLLSPEC__ extern int32_t yices_context_disable_option(context_t *ctx, co
  * Then the param object can be passed on as argument to yices_check_context.
  *
  * When it's no longer needed, the object must be deleted by 
- * calling yices_free_param_structure(parma).
+ * calling yices_free_param_structure(param).
  */
 
 /*
@@ -1813,7 +1813,7 @@ __YICES_DLLSPEC__ extern void yices_free_param_record(param_t *param);
  *
  * It's always better to set 'keep_subst' true. The only exceptions
  * are some of the large SMT_LIB benchmarks where millions of variables
- * are eliminated.  In such cases, it saves memory to set 'keep_susbt'
+ * are eliminated.  In such cases, it saves memory to set 'keep_subst'
  * false, and model construction is faster too.
  */
 __YICES_DLLSPEC__ extern model_t *yices_get_model(context_t *ctx, int32_t keep_subst);
@@ -1830,7 +1830,7 @@ __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
  * to query for the value of a term t in that model. The following
  * functions do that for different term types.
  * 
- * The evaluaion functions return -1 if the value of t is unknown
+ * The evaluation functions return -1 if the value of t is unknown
  * or can't be computed in the model. Otherwise, they return 0.
  *
  * Possible error codes:
@@ -1852,7 +1852,7 @@ __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
 /*
  * Value of boolean term t: returned as an integer val
  * - val = 0 means t is false in mdl
- * - val = 1 measn t is true in mdl
+ * - val = 1 means t is true in mdl
  *
  * Error codes:
  * If t is not boolean

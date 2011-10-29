@@ -46,11 +46,11 @@ typedef struct model_s model_t;
  */
 typedef struct ctx_config_s ctx_config_t;
 
+
 /*
  * Search parameters (opaque type)
  */
 typedef struct param_s param_t;
-
 
 
 /*
