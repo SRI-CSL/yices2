@@ -1177,6 +1177,52 @@ int main() {
     fflush(stdout);
   }
 
+  // test is_min_signed and is_max_signed
+  printf("\n\n");
+  for (i=1; i<=128; i++) {
+    bvconst_clear(a, 4);           // a = 0
+    bvconst_set_minus_one(b, 4);   // b = -1
+    bvconst_clear(c, 4);
+    bvconst_set_bit(c, i-1);       // c = 0b10000000 (smallest negative integer)
+    bvconst_set_minus_one(d, 4);
+    bvconst_clr_bit(d, i-1);       // d = 0b01111111 (largest positive integer)
+    random_vector(vector, i);
+    bvconst_set_array(e, vector, i); // e = random
+
+    // make all i-bit length constant
+    bvconst_normalize(a, i);
+    bvconst_normalize(b, i);
+    bvconst_normalize(c, i);
+    bvconst_normalize(d, i);
+    bvconst_normalize(e, i);
+
+    printf("---> %"PRIu32" bits\n", i);
+    printf("a = ");
+    bvconst_print(stdout, a, i);
+    printf(": is_min_signed = %s, is_max_signed = %s\n", b2str(bvconst_is_min_signed(a, i)), b2str(bvconst_is_max_signed(a, i)));
+    
+    printf("b = ");
+    bvconst_print(stdout, b, i);
+    printf(": is_min_signed = %s, is_max_signed = %s\n", b2str(bvconst_is_min_signed(b, i)), b2str(bvconst_is_max_signed(b, i)));
+    
+    printf("c = ");
+    bvconst_print(stdout, c, i);
+    printf(": is_min_signed = %s, is_max_signed = %s\n", b2str(bvconst_is_min_signed(c, i)), b2str(bvconst_is_max_signed(c, i)));
+    
+    printf("d = ");
+    bvconst_print(stdout, d, i);
+    printf(": is_min_signed = %s, is_max_signed = %s\n", b2str(bvconst_is_min_signed(d, i)), b2str(bvconst_is_max_signed(d, i)));
+
+    printf("e = ");
+    bvconst_print(stdout, e, i);
+    printf(": is_min_signed = %s, is_max_signed = %s\n", b2str(bvconst_is_min_signed(e, i)), b2str(bvconst_is_max_signed(e, i)));
+
+    printf("\n");
+    fflush(stdout);
+  }
+
+
+
   mpz_clear(z0);
   mpz_clear(z1);
   mpz_clear(z2);

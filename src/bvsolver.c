@@ -1780,7 +1780,7 @@ static inline bool equal_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
 
 /*
- * Check whether x is equal to 0b0000
+ * Check whether x is equal to 0b0000...
  */
 static bool bvvar_is_zero(bv_vartable_t *vtbl, thvar_t x) {  
   uint32_t n, k;
@@ -1801,7 +1801,7 @@ static bool bvvar_is_zero(bv_vartable_t *vtbl, thvar_t x) {
 
 
 /*
- * Check whether x is equal to 0b1111
+ * Check whether x is equal to 0b1111...
  */
 static bool bvvar_is_minus_one(bv_vartable_t *vtbl, thvar_t x) {  
   uint32_t n;
@@ -1814,6 +1814,48 @@ static bool bvvar_is_minus_one(bv_vartable_t *vtbl, thvar_t x) {
   case BVTAG_CONST:
     n = bvvar_bitsize(vtbl, x);
     return bvconst_is_minus_one(bvvar_val(vtbl, x), n);
+
+  default:
+    return false;
+  }
+}
+
+
+/*
+ * Check whether x is equal to 0b1000...
+ */
+static bool bvvar_is_min_signed(bv_vartable_t *vtbl, thvar_t x) {
+  uint32_t n;
+
+  switch (bvvar_tag(vtbl, x)) {
+  case BVTAG_CONST64:
+    n = bvvar_bitsize(vtbl, x);
+    return bvvar_val64(vtbl, x) == min_signed64(n);
+
+  case BVTAG_CONST:
+    n = bvvar_bitsize(vtbl, x);
+    return bvconst_is_min_signed(bvvar_val(vtbl, x), n);
+
+  default:
+    return false;
+  }
+}
+
+
+/*
+ * Check whether x is equal to 0b0111...
+ */
+static bool bvvar_is_max_signed(bv_vartable_t *vtbl, thvar_t x) {
+  uint32_t n;
+
+  switch (bvvar_tag(vtbl, x)) {
+  case BVTAG_CONST64:
+    n = bvvar_bitsize(vtbl, x);
+    return bvvar_val64(vtbl, x) == max_signed64(n);
+
+  case BVTAG_CONST:
+    n = bvvar_bitsize(vtbl, x);
+    return bvconst_is_max_signed(bvvar_val(vtbl, x), n);
 
   default:
     return false;
@@ -2372,7 +2414,7 @@ typedef enum {
 
 
 /*
- * Check whether (x <= y) simplifies (unsigned)
+ * Check whether (x >= y) simplifies (unsigned)
  * - x and y must be roots in the merge table
  * - Return BVTEST_FALSE if (x > y) is known to hold
  * - return BVTEST_TRUE  if (x >= y) is known to hold
@@ -2447,7 +2489,7 @@ static bvtest_code_t check_bvsge(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
   if (x == y) return BVTEST_TRUE;
   
-  n = bvvar_bitsize(&solver->vtbl, x); 
+  n = bvvar_bitsize(&solver->vtbl, x);
 
   if (n <= 64) {
     a = bvvar_lower_bound_signed64(solver, x, n); // (x >= a)

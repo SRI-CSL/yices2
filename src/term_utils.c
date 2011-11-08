@@ -1232,6 +1232,86 @@ uint64_t lower_bound_signed64(term_table_t *tbl, term_t t) {
 }
 
 
+/******************************************************
+ *  MINIMAL/MAXIMAL SIGNED/UNSIGNED BITVECTOR VALUES  *
+ *****************************************************/
+
+bool bvterm_is_zero(term_table_t *tbl, term_t t) {
+  uint32_t n;
+
+  assert(is_bitvector_term(tbl, t));
+
+  switch (term_kind(tbl, t)) {
+  case BV64_CONSTANT:
+    return bvconst64_term_desc(tbl, t)->value == 0;
+
+  case BV_CONSTANT:
+    n = (term_bitsize(tbl, t) + 31) >> 5; // number of words
+    return bvconst_is_zero(bvconst_term_desc(tbl, t)->data, n);
+
+  default:
+    return false;
+  }
+}
+
+bool bvterm_is_minus_one(term_table_t *tbl, term_t t) {
+  uint32_t n;
+
+  assert(is_bitvector_term(tbl, t));
+
+  switch (term_kind(tbl, t)) {
+  case BV64_CONSTANT:
+    n = term_bitsize(tbl, t);
+    return bvconst64_is_minus_one(bvconst64_term_desc(tbl, t)->value, n);
+
+  case BV_CONSTANT:
+    n = term_bitsize(tbl, t);
+    return bvconst_is_minus_one(bvconst_term_desc(tbl, t)->data, n);
+
+  default:
+    return false;
+  }  
+}
+
+bool bvterm_is_min_signed(term_table_t *tbl, term_t t) {
+  uint32_t n;
+
+  assert(is_bitvector_term(tbl, t));
+
+  switch (term_kind(tbl, t)) {
+  case BV64_CONSTANT:
+    n = term_bitsize(tbl, t);
+    return bvconst64_term_desc(tbl, t)->value == min_signed64(n);
+
+  case BV_CONSTANT:
+    n = term_bitsize(tbl, t);
+    return bvconst_is_min_signed(bvconst_term_desc(tbl, t)->data, n);
+
+  default:
+    return false;
+  }  
+}
+
+bool bvterm_is_max_signed(term_table_t *tbl, term_t t) {
+  uint32_t n;
+
+  assert(is_bitvector_term(tbl, t));
+
+  switch (term_kind(tbl, t)) {
+  case BV64_CONSTANT:
+    n = term_bitsize(tbl, t);
+    return bvconst64_term_desc(tbl, t)->value == max_signed64(n);
+
+  case BV_CONSTANT:
+    n = term_bitsize(tbl, t);
+    return bvconst_is_max_signed(bvconst_term_desc(tbl, t)->data, n);
+
+  default:
+    return false;
+  }  
+}
+
+
 
 /*****************************************
  *  SIMPLIFICATION OF BIT-VECTOR TERMS   *

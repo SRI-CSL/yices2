@@ -444,6 +444,22 @@ extern bool bvconst_is_minus_one(uint32_t *bv, uint32_t n);
 
 
 /*
+ * Check whether bv is 0b100..0 (smallest negative signed integer)
+ * - n = number of bits in bv
+ * - bv must be normalized.
+ */
+extern bool bvconst_is_min_signed(uint32_t *bv, uint32_t n);
+
+
+/*
+ * Check whether bv is 0b0111..1 (largest positive signed integer)
+ * - n = number of bits in bv
+ * - bv must be normalized
+ */
+extern bool bvconst_is_max_signed(uint32_t *bv, uint32_t n);
+
+
+/*
  * Check whether bv is a power of 2, k = word size
  * - if so return n>=0 such that bv = 2^n
  * - if not return -1

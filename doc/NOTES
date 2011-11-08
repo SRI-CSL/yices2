@@ -860,6 +860,3 @@ yices_reval.c               - this is separated so that the reval functions can 
 
 yices_main.c:              Top-level Yices module for problems in the Yices language
 		           - just calls yices_reval
-
-
-

@@ -1371,6 +1371,65 @@ bool bvconst_is_minus_one(uint32_t *bv, uint32_t n) {
 }
 
 
+/*
+ * Check whether bv is 0b100..0 (smallest negative signed integer)
+ * - n = number of bits in bv
+ * - bv must be normalized.
+ */
+bool bvconst_is_min_signed(uint32_t *bv, uint32_t n) {
+  uint32_t k, r;
+
+  assert(n > 0);
+  k = (n + 31) >> 5;  // number of 32bit words 
+  r = n & 31;         // n rem 31
+  if (r == 0) {
+    r = 32;
+  }
+
+  // all low-order words must be 0
+  while (k > 1) {
+    if (*bv != 0) {
+      return false;
+    }
+    bv ++;
+    k --;
+  }
+  
+  // the high-order word must be 0b10000000 >> (32 - r)
+  assert(0 <= 32 - r && 32 - r <= 31);
+  return *bv == ((uint32_t) INT32_MIN) >> (32 - r);
+}
+
+
+/*
+ * Check whether bv is 0b0111..1 (largest positive signed integer)
+ * - n = number of bits in bv
+ * - bv must be normalized
+ */
+bool bvconst_is_max_signed(uint32_t *bv, uint32_t n) {
+  uint32_t k, r;
+
+  assert(n > 0);
+  k = (n + 31) >> 5;  // number of 32bit words 
+  r = n & 31;         // n rem 31
+  if (r == 0) {
+    r = 32;
+  }
+
+  // all low-order words must be 0xFFFF
+  while (k > 1) {
+    if (*bv != ~((uint32_t) 0)) {
+      return false;
+    }
+    bv ++;
+    k --;
+  }
+  
+  // the high-order word must be 0b011111111 >> (32 - r)
+  assert(0 <= 32 - r && 32 - r <= 31);
+  return *bv == ((uint32_t) INT32_MAX) >> (32 - r);
+}
+
 
 
 
