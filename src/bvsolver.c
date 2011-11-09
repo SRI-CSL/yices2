@@ -3799,6 +3799,7 @@ literal_t bv_solver_select_bit(bv_solver_t *solver, thvar_t x, uint32_t i) {
  * TODO: check for simplifications
  */
 
+
 /*
  * Atom (eq x y)
  */
@@ -3873,6 +3874,16 @@ literal_t bv_solver_create_ge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
   x = mtbl_get_root(&solver->mtbl, x);
   y = mtbl_get_root(&solver->mtbl, y);
 
+  /*
+   * Rewrite rules:
+   * (bvge 0b000...0 y)  <-->  (bveq 0b000...0 y)
+   * (bvge x 0b111...1)  <-->  (bveq x 0b111...1)
+   */
+  if (bvvar_is_zero(&solver->vtbl, x) || 
+      bvvar_is_minus_one(&solver->vtbl, y)) {
+    return bv_solver_create_eq_atom(solver, x, y);
+  }
+
   switch (check_bvuge(solver, x, y)) {
   case BVTEST_FALSE:
     l = false_literal;
@@ -3926,6 +3937,16 @@ literal_t bv_solver_create_sge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
   x = mtbl_get_root(&solver->mtbl, x);
   y = mtbl_get_root(&solver->mtbl, y);
   
+  /*
+   * Rewrite rules:
+   * (bvsge 0b100...0 y)  <-->  (bveq 0b100...0 y)
+   * (bvsge x 0b011...1)  <-->  (bveq x 0b011...1)
+   */
+  if (bvvar_is_min_signed(&solver->vtbl, x) || 
+      bvvar_is_max_signed(&solver->vtbl, y)) {
+    return bv_solver_create_eq_atom(solver, x, y);
+  }
+
   switch (check_bvsge(solver, x, y)) {
   case BVTEST_FALSE:
     l = false_literal;
@@ -3987,19 +4008,30 @@ void bv_solver_assert_ge_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
   x = mtbl_get_root(&solver->mtbl, x);
   y = mtbl_get_root(&solver->mtbl, y);
 
-  switch (check_bvuge(solver, x, y)) {
-  case BVTEST_FALSE:
-    if (tt) add_empty_clause(solver->core); // x < y holds
-    break;
+  /*
+   * Rewrite rules:
+   * (bvge 0b000...0 y)  <-->  (bveq 0b000...0 y)
+   * (bvge x 0b111...1)  <-->  (bveq x 0b111...1)
+   */
+  if (bvvar_is_zero(&solver->vtbl, x) || 
+      bvvar_is_minus_one(&solver->vtbl, y)) {
+    bv_solver_assert_eq_axiom(solver, x, y, tt);
 
-  case BVTEST_TRUE:
-    if (!tt) add_empty_clause(solver->core); // x >= y holds
-    break;
+  } else {
+    switch (check_bvuge(solver, x, y)) {
+    case BVTEST_FALSE:
+      if (tt) add_empty_clause(solver->core); // x < y holds
+      break;
 
-  case BVTEST_UNKNOWN:
-    l = bv_solver_make_ge_atom(solver, x, y);
-    add_unit_clause(solver->core, signed_literal(l, tt));
-    break;
+    case BVTEST_TRUE:
+      if (!tt) add_empty_clause(solver->core); // x >= y holds
+      break;
+
+    case BVTEST_UNKNOWN:
+      l = bv_solver_make_ge_atom(solver, x, y);
+      add_unit_clause(solver->core, signed_literal(l, tt));
+      break;
+    }
   }
 }
 
@@ -4014,19 +4046,30 @@ void bv_solver_assert_sge_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool 
   x = mtbl_get_root(&solver->mtbl, x);
   y = mtbl_get_root(&solver->mtbl, y);
 
-  switch (check_bvsge(solver, x, y)) {
-  case BVTEST_FALSE:
-    if (tt) add_empty_clause(solver->core); // x < y holds
-    break;
+  /*
+   * Rewrite rules:
+   * (bvsge 0b100...0 y)  <-->  (bveq 0b100...0 y)
+   * (bvsge x 0b011...1)  <-->  (bveq x 0b011...1)
+   */
+  if (bvvar_is_min_signed(&solver->vtbl, x) || 
+      bvvar_is_max_signed(&solver->vtbl, y)) {
+    bv_solver_assert_eq_axiom(solver, x, y, tt);
 
-  case BVTEST_TRUE:
-    if (!tt) add_empty_clause(solver->core); // x >= y holds
-    break;
+  } else {
+    switch (check_bvsge(solver, x, y)) {
+    case BVTEST_FALSE:
+      if (tt) add_empty_clause(solver->core); // x < y holds
+      break;
 
-  case BVTEST_UNKNOWN:
-    l = bv_solver_make_sge_atom(solver, x, y);
-    add_unit_clause(solver->core, signed_literal(l, tt));
-    break;
+    case BVTEST_TRUE:
+      if (!tt) add_empty_clause(solver->core); // x >= y holds
+      break;
+
+    case BVTEST_UNKNOWN:
+      l = bv_solver_make_sge_atom(solver, x, y);
+      add_unit_clause(solver->core, signed_literal(l, tt));
+      break;
+    }
   }
 }
 

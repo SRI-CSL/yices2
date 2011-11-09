@@ -3956,23 +3956,23 @@ term_t mk_bvge(term_manager_t *manager, term_t t1, term_t t2) {
   if (must_lt(manager, t1, t2)) {
     return false_term;
   }
-  
+
+  if (bvterm_is_min_unsigned(&manager->terms, t1)) {
+    // 0b0000..00 >= t2  iff t2 == 0b0000..00
+    return mk_bitvector_eq(&manager->terms, t1, t2);
+  }
+
+  if (bvterm_is_max_unsigned(&manager->terms, t2)) {
+    // t1 >= 0b1111..11  iff t1 == 0b1111..11
+    return mk_bitvector_eq(&manager->terms, t1, t2);
+  }
+
   return bvge_atom(&manager->terms, t1, t2);
 }
 
 // t1 > t2: unsigned
 term_t mk_bvgt(term_manager_t *manager, term_t t1, term_t t2) {
-  assert(valid_bvcomp(&manager->terms, t1, t2));
-
-  if (t1 == t2 || must_le(manager, t1, t2)) {
-    return false_term;
-  }
-
-  if (must_lt(manager, t2, t1)) {
-    return true_term;
-  }
-  
-  return opposite_term(bvge_atom(&manager->terms, t2, t1));
+  return opposite_term(mk_bvge(manager, t2, t1));
 }
 
 // t1 <= t2: unsigned
@@ -3982,7 +3982,7 @@ term_t mk_bvle(term_manager_t *manager, term_t t1, term_t t2) {
 
 // t1 < t2: unsigned
 term_t mk_bvlt(term_manager_t *manager, term_t t1, term_t t2) {
-  return mk_bvgt(manager, t2, t1);
+  return opposite_term(mk_bvge(manager, t1, t2));
 }
 
 
@@ -4029,34 +4029,34 @@ term_t mk_bvsge(term_manager_t *manager, term_t t1, term_t t2) {
   if (must_slt(manager, t1, t2)) {
     return false_term;
   }
+
+  if (bvterm_is_min_signed(&manager->terms, t1)) {
+    // 0b1000..00 >= t2  iff t2 == 0b1000..00
+    return mk_bitvector_eq(&manager->terms, t1, t2);
+  }
+
+  if (bvterm_is_max_signed(&manager->terms, t2)) {
+    // t1 >= 0b0111..11  iff t1 == 0b0111..11
+    return mk_bitvector_eq(&manager->terms, t1, t2);
+  }
   
   return bvsge_atom(&manager->terms, t1, t2);
 }
 
 // t1 > t2: signed
 term_t mk_bvsgt(term_manager_t *manager, term_t t1, term_t t2) {
-  assert(valid_bvcomp(&manager->terms, t1, t2));
-
-  if (t1 == t2 || must_sle(manager, t1, t2)) {
-    return false_term;
-  }
-
-  if (must_slt(manager, t2, t1)) {
-    return true_term;
-  }
-  
-  return opposite_term(bvsge_atom(&manager->terms, t2, t1));
+  return opposite_term(mk_bvsge(manager, t2, t1));
 }
 
 
-// t1 <= t2: unsigned
+// t1 <= t2: signed
 term_t mk_bvsle(term_manager_t *manager, term_t t1, term_t t2) {
   return mk_bvsge(manager, t2, t1);
 }
 
-// t1 < t2: unsigned
+// t1 < t2: signed
 term_t mk_bvslt(term_manager_t *manager, term_t t1, term_t t2) {
-  return mk_bvsgt(manager, t2, t1);
+  return opposite_term(mk_bvsge(manager, t1, t2));
 }
 
 

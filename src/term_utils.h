@@ -205,6 +205,14 @@ extern bool bvterm_is_minus_one(term_table_t *tbl, term_t t);
 extern bool bvterm_is_min_signed(term_table_t *tbl, term_t t);
 extern bool bvterm_is_max_signed(term_table_t *tbl, term_t t);
 
+static inline bool bvterm_is_min_unsigned(term_table_t *tbl, term_t t) {
+  return bvterm_is_zero(tbl, t);
+}
+
+static inline bool bvterm_is_max_unsigned(term_table_t *tbl, term_t t) {
+  return bvterm_is_minus_one(tbl, t);
+}
+
 
 /*
  * SIMPLIFICATION OF BIT-VECTOR TERMS
