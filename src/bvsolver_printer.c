@@ -441,3 +441,46 @@ void print_bv_solver_partition(FILE *f, bv_solver_t *solver) {
 
 
 
+
+/*
+ * BOUNDS IN THE SOLVER QUEUE
+ */
+
+/*
+ * Bound in the given descriptor
+ */
+static void print_bv_solver_bound(FILE *f, bv_solver_t *solver, bv_bound_t *b) {
+  bvatm_t *atm;
+  bvar_t x;
+
+  atm = bvatom_desc(&solver->atbl, b->atom_id);
+  switch (bvatm_tag(atm)) {
+  case BVEQ_ATM:
+    print_atom_aux(f, "bveq", atm->left, atm->right);
+    break;
+  case BVUGE_ATM:
+    print_atom_aux(f, "bvge", atm->left, atm->right);
+    break;
+  case BVSGE_ATM:    
+    print_atom_aux(f, "bvsge", atm->left, atm->right);
+    break;
+  }
+
+  fputs(" --> ", f);
+  x = bvatm_bvar(atm);
+  print_bval(f, bvar_base_value(solver->core, x));
+}
+
+
+void print_bv_solver_bounds(FILE *f, bv_solver_t *solver) {
+  bv_bound_queue_t *queue;
+  uint32_t i, n;
+
+  queue = &solver->bqueue;
+  n = queue->top;
+  for (i=0; i<n; i++) {
+    fprintf(f, " bound[%"PRIu32"]: ", i);
+    print_bv_solver_bound(f, solver, queue->data + i);
+    fputc('\n', f);
+  }
+}

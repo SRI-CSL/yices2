@@ -484,6 +484,16 @@ static literal_t mk_ite_aux(gate_manager_t *m, literal_t c, literal_t l1, litera
     add_ternary_clause(s, not(l), not(c), l1);
     add_ternary_clause(s, l, c, not(l2));
     add_ternary_clause(s, l, not(c), not(l1));
+
+    /*
+     * Redundant clauses that may help propagation:
+     * (l1 and l2 ==> l)
+     * (not l1 and not l2 ==> not l)
+     */
+#if 0
+    add_ternary_clause(s, not(l1), not(l2), l); 
+    add_ternary_clause(s, l1, l2, not(l));
+#endif
   }
   return l;
 }
@@ -604,6 +614,10 @@ void assert_ite(gate_manager_t *m, literal_t c, literal_t l1, literal_t l2, bool
 
       add_binary_clause(s, not(c), l1);
       add_binary_clause(s, c, l2);
+#if 0
+      // redundant clause that may help ?
+      add_binary_clause(s, l1, l2);
+#endif
       break;
     
     case VAL_TRUE:

@@ -399,8 +399,70 @@ typedef struct bv_atomtable_s {
 
 
 
+/*
+ * Get the descriptor of atom i
+ */
+static inline bvatm_t *bvatom_desc(bv_atomtable_t *atbl, int32_t i) {
+  assert(0 <= i && i < atbl->natoms);
+  return atbl->data + i;
+}
 
 
+
+
+/*****************
+ *  BOUND QUEUE  *
+ ****************/
+
+/*
+ * A bound on a variable 'x' an atom (x >= a) where a is a constant,
+ * and the atom is either true or false at the top-level.
+ * - the bounds on x are stored in a queue
+ * - each element in the queue is an atom index 
+ * - the start of the list is stored in queue->bounds[x]
+ * - we also store disequalities (x != 0) in the list
+ */
+
+/*
+ * Bound descriptor: atom index + index of the predecessor
+ * element in the queue pointer
+ */
+typedef struct bv_bound_s {
+  int32_t atom_id;
+  int32_t pre;
+} bv_bound_t;
+
+
+/*
+ * Queue:
+ * - data = array of bound descriptors
+ * - top = index in data = number of elements in the queue
+ * - size = total size of the array
+ * To store the lists:
+ * - bound = array of indices
+ * - bsize = size of this array 
+ * For a variable 0 <= x < vtbl->nvars 
+ * - if x < bsize then bound[x] = index of the last 
+ *   bound asserted on x. 
+ *   If bound[x] = k then data[k].atom_id is the bound
+ *   and data[k].pre = previous bound on x.
+ *   The list is terminated by -1.
+ * - if x >= bsize then there's no bound on x
+ */
+typedef struct bv_bound_queue_s {
+  bv_bound_t *data;
+  int32_t *bound;
+  uint32_t top;
+  uint32_t size;
+  uint32_t bsize;
+} bv_bound_queue_t;
+
+
+#define DEF_BV_BOUND_QUEUE_SIZE 50
+#define MAX_BV_BOUND_QUEUE_SIZE (UINT32_MAX/sizeof(bv_bound_t))
+
+#define DEF_BV_BOUND_NUM_LISTS 100
+#define MAX_BV_BOUND_NUM_LISTS (UINT32_MAX/sizeof(int32_t))
 
 
 /********************
@@ -408,12 +470,13 @@ typedef struct bv_atomtable_s {
  *******************/
 
 /*
- * For every push: keep track of the number of variables and atoms
- * on entry to the new base level
+ * For every push, we keep track of the number of variables amd atoms
+ * on entry to the new base level, and the size of the bound queue.
  */
 typedef struct bv_trail_s {
   uint32_t nvars;
   uint32_t natoms;
+  uint32_t nbounds;
 } bv_trail_t;
 
 typedef struct bv_trail_stack_s {
@@ -532,6 +595,11 @@ typedef struct bv_solver_s {
    * Table to merge equal variables
    */
   mtbl_t mtbl;
+
+  /*
+   * Bound queue
+   */
+  bv_bound_queue_t bqueue;
 
   /*
    * Data structures for bit-blasting

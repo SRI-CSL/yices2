@@ -209,7 +209,7 @@ static arith_buffer_t *context_get_arith_buffer(context_t *ctx) {
 
   tmp = ctx->arith_buffer;
   if (tmp == NULL) {
-    assert(store == NULL);
+    assert(ctx->mlist_store == NULL);
     store = (object_store_t *) safe_malloc(sizeof(object_store_t));
     init_mlist_store(store);
     ctx->mlist_store = store;
@@ -3944,12 +3944,29 @@ static inline literal_t map_arith_bineq_to_literal(context_t *ctx, composite_ter
  * BITVECTOR ATOMS
  */
 static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
+  term_t t, t1, t2;
   thvar_t x, y;
 
   assert(eq->arity == 2);
-  x = internalize_to_bv(ctx, eq->arg[0]);
-  y = internalize_to_bv(ctx, eq->arg[1]);
 
+  /*
+   * Apply substitution then check for simplifications
+   */
+  t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
+  t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
+  if (t1 == t2) {
+    return true_literal;
+  }
+   
+  t = simplify_bveq(ctx->terms, t1, t2);
+  if (t != NULL_TERM) {
+    // (bveq t1 t2) is equivalent to t
+    return internalize_to_literal(ctx, t);
+  } 
+
+  // no simplification
+  x = internalize_to_bv(ctx, t1);
+  y = internalize_to_bv(ctx, t2);
   return ctx->bv.create_eq_atom(ctx->bv_solver, x, y);
 }
 
@@ -5472,65 +5489,64 @@ static void assert_toplevel_ite(context_t *ctx, composite_term_t *ite, bool tt) 
 /*
  * Top-level (or t1 ... t_n)
  * - it tt is true: add a clause
- * - it tt is false: add unit clauses
+ * - it tt is false: assert (not t1) ... (not t_n)
  */
 static void assert_toplevel_or(context_t *ctx, composite_term_t *or, bool tt) {
   ivector_t *v;
   int32_t *a;
   uint32_t i, n;
-  literal_t l;
 
-  // TODO: improve this
-  if (context_flatten_or_enabled(ctx)) {
-    // flatten: the result is in v
-    v = &ctx->aux_vector;
-    assert(v->size == 0);
-    flatten_or_term(ctx, v, or);
+  if (tt) {
+    if (context_flatten_or_enabled(ctx)) {
+      /*
+       * Flatten
+       */
+      v = &ctx->aux_vector;
+      assert(v->size == 0);
+      flatten_or_term(ctx, v, or);
 
-    // make a copy of v
-    n = v->size;
-    a = alloc_istack_array(&ctx->istack, n);
-    for (i=0; i<n; i++) {
-      a[i] = v->data[i];
-    }
-    ivector_reset(v);
-
-    // internalize all elements of a
-    for (i=0; i<n; i++) {
-      a[i] = internalize_to_literal(ctx, a[i]);
-    }
-
-    if (tt) {
-      // assert (or a[0] ... a[n-1]) 
-      add_clause(ctx->core, n, a);
-    } else {
-      // assert (not a[0]) ... (not a[n-1])
+      // make a copy of v
+      n = v->size;
+      a = alloc_istack_array(&ctx->istack, n);
       for (i=0; i<n; i++) {
-	add_unit_clause(ctx->core, not(a[i]));
+	a[i] = v->data[i];
+      }
+      ivector_reset(v);
+      
+      // internalize all elements of a
+      for (i=0; i<n; i++) {
+	a[i] = internalize_to_literal(ctx, a[i]);
+      }
+
+    } else {
+      /*
+       * No flattening
+       */
+      n = or->arity;
+      a = alloc_istack_array(&ctx->istack, n);
+      for (i=0; i<n; i++) {
+	a[i] = internalize_to_literal(ctx, or->arg[i]);
       }
     }
 
-    free_istack_array(&ctx->istack, a);
-
-  } else if (tt) {
-    // no flattening, asserted true
-    n = or->arity;
-    a = alloc_istack_array(&ctx->istack, n);
-    for (i=0; i<n; i++) {
-      a[i] = internalize_to_literal(ctx, or->arg[i]);
-    }
-
+    // assert (or a[0] ... a[n-1]) 
     add_clause(ctx->core, n, a);
+
+    // cleanup
     free_istack_array(&ctx->istack, a);
 
   } else {
-    // no flattening, asserted false
+    /*
+     * Propagate to children:
+     *  (or t_0 ... t_n-1) is false
+     * so all children must be false too
+     */
     n = or->arity;
     for (i=0; i<n; i++) {
-      l = internalize_to_literal(ctx, or->arg[i]);
-      add_unit_clause(ctx->core, not(l));
+      assert_term(ctx, or->arg[i], false);
     }
   }
+
 }
 
 
@@ -5567,14 +5583,31 @@ static void assert_toplevel_bit_select(context_t *ctx, select_term_t *select, bo
 /*
  * Top-level bitvector atoms
  */
-static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) {  
+static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) {
+  term_t t, t1, t2;
   thvar_t x, y;
 
   assert(eq->arity == 2);
 
-  x = internalize_to_bv(ctx, eq->arg[0]);
-  y = internalize_to_bv(ctx, eq->arg[1]);
-  ctx->bv.assert_eq_axiom(ctx->bv_solver, x,  y, tt);
+  t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
+  t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
+  if (t1 == t2) {
+    // (bveq t1 t2) is true
+    if (!tt) {
+      longjmp(ctx->env, TRIVIALLY_UNSAT);
+    }
+  } else {
+    t = simplify_bveq(ctx->terms, t1, t2);
+    if (t != NULL_TERM) {
+      // (bveq t1 t2) is equivalent to t
+      assert_term(ctx, t, tt);
+    } else {
+      // no simplification
+      x = internalize_to_bv(ctx, t1);
+      y = internalize_to_bv(ctx, t2);
+      ctx->bv.assert_eq_axiom(ctx->bv_solver, x,  y, tt);
+    }
+  }
 }
 
 static void assert_toplevel_bvge(context_t *ctx, composite_term_t *ge, bool tt) {
@@ -5734,7 +5767,7 @@ static void assert_term(context_t *ctx, term_t t, bool tt) {
      * The root is already mapped:
      * Either t is already internalized, or it occurs in
      * one of the vectors top_eqs, top_atoms, top_formulas
-     * and it will be internalize/asserted later.
+     * and it will be internalized/asserted later.
      */
     code = intern_tbl_map_of_root(&ctx->intern, t);
     assert_internalization_code(ctx, code, tt);

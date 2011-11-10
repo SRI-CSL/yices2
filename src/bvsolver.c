@@ -1352,10 +1352,6 @@ static inline int32_t get_bvsge_atom(bv_atomtable_t *table, thvar_t x, thvar_t y
 
 
 
-#if 0 
-
-// NOT USED YET
-
 /*
  * Search for an atom
  * - return the atom id if it exists
@@ -1386,7 +1382,143 @@ static inline int32_t find_bvsge_atom(bv_atomtable_t *table, thvar_t x, thvar_t 
   return find_bv_atom(table, BVSGE_ATM, x, y);
 }
 
-#endif
+
+
+
+
+/*****************
+ *  BOUND QUEUE  *
+ ****************/
+
+/*
+ * Initialize the queue: initial size = 0
+ */
+static void init_bv_bound_queue(bv_bound_queue_t *queue) {
+  queue->data = NULL;
+  queue->top = 0;
+  queue->size = 0;  
+  queue->bound = NULL;
+  queue->bsize = 0;
+}
+
+
+/*
+ * Allocate the data array of make it 50% larger
+ */
+static void bv_bound_queue_extend(bv_bound_queue_t *queue) {
+  uint32_t n;
+
+  n = queue->size;
+  if (n == 0) {
+    n = DEF_BV_BOUND_QUEUE_SIZE;
+    assert(n <= MAX_BV_BOUND_QUEUE_SIZE);
+    queue->data = (bv_bound_t *) safe_malloc(n * sizeof(bv_bound_t));
+    queue->size = n;
+
+  } else {
+    n += (n >> 1); // 50% larger
+    assert(n > queue->size);
+    if (n > MAX_BV_BOUND_QUEUE_SIZE) {
+      out_of_memory();
+    }
+    queue->data = (bv_bound_t *) safe_realloc(queue->data, n * sizeof(bv_bound_t));
+    queue->size = n;
+  }
+}
+
+
+/*
+ * Make the bound array large enough to store bound[x]
+ * - x must be a variable index (between 0 and MAX_BV_BOUND_NUM_LISTS)
+ * - this should be called when x >= queue->bsize
+ */
+static void bv_bound_queue_resize(bv_bound_queue_t *queue, thvar_t x) {
+  uint32_t i, n;
+  int32_t *tmp;
+
+  assert(x >= queue->bsize);
+
+  n = queue->bsize;
+  if (n == 0) {
+    n = DEF_BV_BOUND_NUM_LISTS;
+  } else {
+    n += (n >> 1);
+    assert(n > queue->bsize);
+  }
+
+  if (n <= (uint32_t) x) {
+    n = x + 1;
+  }
+
+  if (n > MAX_BV_BOUND_NUM_LISTS) {
+    out_of_memory();
+  }
+
+  tmp = (int32_t *) safe_realloc(queue->bound, n * sizeof(int32_t));
+  for (i=queue->size; i<n; i++) {
+    tmp[i] = -1;
+  }
+
+  queue->bound = tmp;
+  queue->bsize = n;
+}
+
+
+/*
+ * Add a bound for variable x:
+ * - id = the atom index
+ */
+static void bv_bound_queue_push(bv_bound_queue_t *queue, thvar_t x, int32_t id) {
+  int32_t k, i;
+
+  if (x >= queue->bsize) {
+    bv_bound_queue_resize(queue, x);
+    assert(x < queue->bsize);
+  }
+
+  k = queue->bound[x];
+  assert(-1 <= k && k < (int32_t) queue->top);
+
+  i = queue->top;
+  if (i == queue->size) {
+    bv_bound_queue_extend(queue);
+  }
+  assert(i < queue->size);
+
+  queue->data[i].atom_id = id;
+  queue->data[i].pre = k;
+  queue->bound[x] = i;
+
+  queue->top = i+1;
+}
+
+
+
+/*
+ * Delete the queue
+ */
+static void delete_bv_bound_queue(bv_bound_queue_t *queue) {
+  safe_free(queue->data);
+  safe_free(queue->bound);
+  queue->data = NULL;
+  queue->bound = NULL;
+}
+
+
+/*
+ * Empty the queue
+ */
+static void reset_bv_bound_queue(bv_bound_queue_t *queue) {
+  uint32_t i, n;
+
+  n = queue->bsize;
+  for (i=0; i<n; i++) {
+    queue->bound[i] = -1;
+  }
+  queue->top = 0;
+}
+
+
 
 
 /********************
@@ -1408,8 +1540,9 @@ static void init_bv_trail(bv_trail_stack_t *stack) {
  * Save a base level
  * - nv = number of variables
  * - na = number of atoms
+ * - nb = number of bounds
  */
-static void bv_trail_save(bv_trail_stack_t *stack, uint32_t nv, uint32_t na) {
+static void bv_trail_save(bv_trail_stack_t *stack, uint32_t nv, uint32_t na, uint32_t nb) {
   uint32_t i, n;
 
   i = stack->top;
@@ -1431,6 +1564,7 @@ static void bv_trail_save(bv_trail_stack_t *stack, uint32_t nv, uint32_t na) {
 
   stack->data[i].nvars = nv;
   stack->data[i].natoms = na;
+  stack->data[i].nbounds = nb;
 
   stack->top = i+1;
 }
@@ -1657,6 +1791,172 @@ static literal_t *bv_solver_get_pseudo_map(bv_solver_t *solver, thvar_t x) {
   return tmp;
 }
 
+
+
+/******************
+ *  BOUND ATOMS   *
+ *****************/
+
+/*
+ * Check whether x is a constant
+ */
+static inline bool is_constant(bv_vartable_t *table, thvar_t x) {
+  bvvar_tag_t tag;
+
+  tag = bvvar_tag(table, x);
+  return (tag == BVTAG_CONST64) | (tag == BVTAG_CONST);
+}
+
+
+/*
+ * Check wether x or y is a constant
+ */
+static inline bool is_bv_bound_pair(bv_vartable_t *table, thvar_t x, thvar_t y) {
+  bvvar_tag_t tag_x, tag_y;
+
+  tag_x = bvvar_tag(table, x);
+  tag_y = bvvar_tag(table, y);
+
+  return (tag_x == BVTAG_CONST64) | (tag_x == BVTAG_CONST)
+    | (tag_y == BVTAG_CONST64) | (tag_y == BVTAG_CONST);
+}
+
+
+
+/*
+ * Check whether atom i is a 'bound atom' (i.e., inequality between
+ * a constant and a non-constant).
+ * - all atoms are of the form (op x y), we just check whether x
+ *   or y is a bitvector constant.
+ * - this is fine since no atom should involve two constants
+ *   (constraints between constants are always simplified to true or false)
+ */
+static inline bool is_bound_atom(bv_solver_t *solver, int32_t i) {
+  bvatm_t *a;
+  
+  a = bvatom_desc(&solver->atbl, i);
+  return is_constant(&solver->vtbl, a->left) || is_constant(&solver->vtbl, a->right);
+}
+
+
+/*
+ * Get the constant and variable in a bound atom
+ */
+static thvar_t bound_atom_const(bv_solver_t *solver, int32_t i) {
+  bvatm_t *a;
+  thvar_t c;
+  
+  a = bvatom_desc(&solver->atbl, i);
+  c = a->left;
+  if (! is_constant(&solver->vtbl, c)) {
+    c = a->right;
+  }
+
+  assert(is_constant(&solver->vtbl, c));
+
+  return c;
+}
+
+static thvar_t bound_atom_var(bv_solver_t *solver, int32_t i) {
+  bvatm_t *a;
+  thvar_t x;
+  
+  a = bvatom_desc(&solver->atbl, i);
+  x = a->left;
+  if (is_constant(&solver->vtbl, x)) {
+    x = a->right;
+  }
+
+  assert(! is_constant(&solver->vtbl, x));
+
+  return x;
+}
+
+
+
+/*
+ * Add (bvge x y) to the bound queue
+ * - either x or y must be a constant
+ *   and the atom (bvge x y) must exist in the atom table
+ */
+static void push_bvuge_bound(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  int32_t i;
+
+  assert(is_bv_bound_pair(&solver->vtbl, x, y));
+
+  i = find_bvuge_atom(&solver->atbl, x, y);
+  assert(i >= 0 && is_bound_atom(solver, i));
+  if (is_constant(&solver->vtbl, x)) {
+    x = y;
+  }
+
+  assert(! is_constant(&solver->vtbl, x));
+  bv_bound_queue_push(&solver->bqueue, x, i);
+}
+
+
+/*
+ * Same thing for (bvsge x y)
+ */
+static void push_bvsge_bound(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  int32_t i;
+
+  assert(is_bv_bound_pair(&solver->vtbl, x, y));
+
+  i = find_bvsge_atom(&solver->atbl, x, y);
+  assert(i >= 0 && is_bound_atom(solver, i));
+  if (is_constant(&solver->vtbl, x)) {
+    x = y;
+  }
+
+  assert(! is_constant(&solver->vtbl, x));
+  bv_bound_queue_push(&solver->bqueue, x, i);
+}
+
+
+/*
+ * Same thing for (eq x y) (this is used for (x != 0) or (y != 0))
+ */
+static void push_bvdiseq_bound(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  int32_t i;
+
+  assert(is_bv_bound_pair(&solver->vtbl, x, y));
+
+  i = find_bveq_atom(&solver->atbl, x, y);
+  assert(i >= 0 && is_bound_atom(solver, i));
+  if (is_constant(&solver->vtbl, x)) {
+    x = y;
+  }
+
+  assert(! is_constant(&solver->vtbl, x));
+  bv_bound_queue_push(&solver->bqueue, x, i);
+}
+
+
+/*
+ * Remove all bounds of index >= n
+ */
+static void bv_solver_remove_bounds(bv_solver_t *solver, uint32_t n) {
+  bv_bound_queue_t *queue;
+  bv_bound_t *d;
+  uint32_t i;
+  thvar_t x;
+
+  queue = &solver->bqueue;
+  assert(0 <= n && n <= queue->top);
+
+  i = queue->top;
+  d = queue->data + i;
+  while (i > n) {
+    i --;
+    d --;
+    x = bound_atom_var(solver, d->atom_id);
+    assert(0 <= x && x < queue->bsize);
+    queue->bound[x] = d->pre;
+  }
+
+  queue->top = n;
+}
 
 
 
@@ -2987,6 +3287,7 @@ void init_bv_solver(bv_solver_t *solver, smt_core_t *core, egraph_t *egraph) {
   init_bv_vartable(&solver->vtbl);
   init_bv_atomtable(&solver->atbl);
   init_mtbl(&solver->mtbl);
+  init_bv_bound_queue(&solver->bqueue);
 
   solver->blaster = NULL;
   solver->remap = NULL;
@@ -3024,6 +3325,7 @@ void delete_bv_solver(bv_solver_t *solver) {
   delete_bv_vartable(&solver->vtbl);
   delete_bv_atomtable(&solver->atbl);
   delete_mtbl(&solver->mtbl);
+  delete_bv_bound_queue(&solver->bqueue);
 
   if (solver->blaster != NULL) {
     delete_bit_blaster(solver->blaster);
@@ -3061,13 +3363,14 @@ void delete_bv_solver(bv_solver_t *solver) {
  * Start a new base level
  */
 void bv_solver_push(bv_solver_t *solver) {
-  uint32_t na, nv;
+  uint32_t na, nv, nb;
 
   assert(solver->decision_level == solver->base_level);
 
   nv = solver->vtbl.nvars;
   na = solver->atbl.natoms;
-  bv_trail_save(&solver->trail_stack, nv, na);
+  nb = solver->bqueue.top;
+  bv_trail_save(&solver->trail_stack, nv, na, nb);
 
   mtbl_push(&solver->mtbl);
 
@@ -3106,6 +3409,8 @@ void bv_solver_pop(bv_solver_t *solver) {
   bv_solver_backtrack(solver, solver->base_level);
 
   top = bv_trail_top(&solver->trail_stack);
+
+  bv_solver_remove_bounds(solver, top->natoms);
   bv_vartable_remove_vars(&solver->vtbl, top->nvars);
   bv_atomtable_remove_atoms(&solver->atbl, top->natoms);
   bv_solver_remove_dead_eterms(solver);
@@ -3124,6 +3429,7 @@ void bv_solver_reset(bv_solver_t *solver) {
   reset_bv_vartable(&solver->vtbl);
   reset_bv_atomtable(&solver->atbl);
   reset_mtbl(&solver->mtbl);
+  reset_bv_bound_queue(&solver->bqueue);
 
   if (solver->blaster != NULL) {
     delete_bit_blaster(solver->blaster);
@@ -3994,6 +4300,12 @@ void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
     // Add the constraint (x != y)
     l = bv_solver_create_eq_atom(solver, x, y);
     add_unit_clause(solver->core, not(l));
+
+    // push (x != 0) or (y != 0) in the bound queue
+    if (bvvar_is_zero(&solver->vtbl, x) || 
+	bvvar_is_zero(&solver->vtbl, y)) {
+      push_bvdiseq_bound(solver, x, y);
+    }
   }
 }
 
@@ -4030,6 +4342,10 @@ void bv_solver_assert_ge_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
     case BVTEST_UNKNOWN:
       l = bv_solver_make_ge_atom(solver, x, y);
       add_unit_clause(solver->core, signed_literal(l, tt));
+      // push the bound into the queue
+      if (is_bv_bound_pair(&solver->vtbl, x, y)) {
+	push_bvuge_bound(solver, x, y);
+      }
       break;
     }
   }
@@ -4068,6 +4384,10 @@ void bv_solver_assert_sge_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool 
     case BVTEST_UNKNOWN:
       l = bv_solver_make_sge_atom(solver, x, y);
       add_unit_clause(solver->core, signed_literal(l, tt));
+      // push the bound into the queue
+      if (is_bv_bound_pair(&solver->vtbl, x, y)) {
+	push_bvsge_bound(solver, x, y);
+      }
       break;
     }
   }
