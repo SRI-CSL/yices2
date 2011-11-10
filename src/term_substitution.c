@@ -1121,6 +1121,7 @@ static term_t subst_composite(term_subst_t *subst, term_t t) {
 
   case BV64_POLY:
     result = subst_bvpoly64(subst, bvpoly64_term_desc(terms, t));
+    break;
 
   case BV_POLY:
     result = subst_bvpoly(subst, bvpoly_term_desc(terms, t));
@@ -1153,7 +1154,6 @@ static term_t get_subst(term_subst_t *subst, term_t t) {
   terms = subst->terms;
   assert(good_term(terms, t));
 
-  result = NULL_TERM;
   polarity = polarity_of(t);
   t = unsigned_term(t);
 

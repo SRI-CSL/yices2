@@ -2164,6 +2164,26 @@ static bool bvvar_is_max_signed(bv_vartable_t *vtbl, thvar_t x) {
 
 
 
+/*********************
+ *  EQUALITY CHECKS  *
+ ********************/
+
+/*
+ * Check whether two variables x and y are equal
+ * - x and y must be the roots of their equivalence class in the merge table
+ */
+static inline bool equal_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  assert(bvvar_bitsize(&solver->vtbl, x) == bvvar_bitsize(&solver->vtbl, y));
+  assert(mtbl_is_root(&solver->mtbl, x) && mtbl_is_root(&solver->mtbl, y));
+
+  /*
+   * TODO: check for equality between arithmetic expressions
+   * (using associativity, distributivity)
+   */
+
+  return x == y;
+}
+
 
 /************************
  *  DISEQUALITY CHECKS  *

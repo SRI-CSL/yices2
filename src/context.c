@@ -341,7 +341,7 @@ static void context_free_aux_poly(context_t *ctx) {
  * If lift-if is enabled then arithmetic equalities
  *  (eq (ite c t1 t2) u) are rewritten to (ite c (eq t1 u) (eq t2 u))
  * We don't create new terms (eq t1 u) or (eq t2 u). Instead, we store
- * the internalization of equalities (eq t1 u) in a the eq_cache:
+ * the internalization of equalities (eq t1 u) in the eq_cache:
  * This cache maps pairs of terms <t, u> to a literal l (such that
  * l is the internalization of (t == u)).
  */
@@ -3369,6 +3369,14 @@ static thvar_t map_bvashr_to_bv(context_t *ctx, composite_term_t *ashr) {
 }
 
 
+
+/*
+ * TODO: check for simplifications in bitvector arithmetic
+ * before translation to bitvector variables.
+ *
+ * This matters for the wienand-cav2008 benchmarks.
+ */
+
 /*
  * Power product
  */
@@ -5007,23 +5015,51 @@ static void assert_toplevel_select(context_t *ctx, select_term_t *select, bool t
 
 
 /*
+ * Top-level equality between Boolean terms
+ * - if tt is true, assert t1 == t2
+ * - if tt is false, assert t1 != t2
+ */
+static void assert_toplevel_iff(context_t *ctx, term_t t1, term_t t2, bool tt) {
+  term_t t;
+  literal_t l1, l2;
+
+  /*
+   * Apply substitution then try flattening
+   */
+  t1 = intern_tbl_get_root(&ctx->intern, t1);
+  t2 = intern_tbl_get_root(&ctx->intern, t2);
+  if (t1 == t2) {
+    // (eq t1 t2) is true
+    if (!tt) {
+      longjmp(ctx->env, TRIVIALLY_UNSAT);
+    }
+  }
+  // try simplification
+  t = simplify_bool_eq(ctx, t1, t2);
+  if (t != NULL_TERM) {
+    // (eq t1 t2) is equivalent to t
+    assert_term(ctx, t, tt) ;
+  } else {
+    // no simplification
+    l1 = internalize_to_literal(ctx, t1);
+    l2 = internalize_to_literal(ctx, t2);
+    assert_iff(&ctx->gate_manager, l1, l2, tt);
+  }
+}
+
+/*
  * Top-level equality assertion (eq t1 t2):
  * - if tt is true, assert (t1 == t2)
  *   if tt is false, assert (t1 != t2)
  */
 static void assert_toplevel_eq(context_t *ctx, composite_term_t *eq, bool tt) {
   occ_t u1, u2;
-  literal_t l1, l2;
 
   assert(eq->arity == 2);
 
   if (is_boolean_term(ctx->terms, eq->arg[0])) {
     assert(is_boolean_term(ctx->terms, eq->arg[1]));
-
-    l1 = internalize_to_literal(ctx, eq->arg[0]);
-    l2 = internalize_to_literal(ctx, eq->arg[1]);
-    assert_iff(&ctx->gate_manager, l1, l2, tt);
-
+    assert_toplevel_iff(ctx, eq->arg[0], eq->arg[1], tt);
   } else {
     u1 = internalize_to_eterm(ctx, eq->arg[0]);
     u2 = internalize_to_eterm(ctx, eq->arg[1]);
@@ -5184,7 +5220,6 @@ static void assert_toplevel_arith_eq(context_t *ctx, term_t t, bool tt) {
 
 
 
-
 /*
  * Top-level arithmetic assertion: 
  * - if tt is true, assert p >= 0 
@@ -5310,6 +5345,7 @@ static void try_arithvar_bineq_elim(context_t *ctx, term_t t1, term_t t2) {
     }
   }
 }
+
 
 /*
  * Top-level arithmetic equality t1 == t2:
@@ -5498,9 +5534,7 @@ static void assert_toplevel_or(context_t *ctx, composite_term_t *or, bool tt) {
 
   if (tt) {
     if (context_flatten_or_enabled(ctx)) {
-      /*
-       * Flatten
-       */
+      // Flatten into vector v
       v = &ctx->aux_vector;
       assert(v->size == 0);
       flatten_or_term(ctx, v, or);
@@ -5513,7 +5547,6 @@ static void assert_toplevel_or(context_t *ctx, composite_term_t *or, bool tt) {
       }
       ivector_reset(v);
       
-      // internalize all elements of a
       for (i=0; i<n; i++) {
 	a[i] = internalize_to_literal(ctx, a[i]);
       }
@@ -5532,7 +5565,6 @@ static void assert_toplevel_or(context_t *ctx, composite_term_t *or, bool tt) {
     // assert (or a[0] ... a[n-1]) 
     add_clause(ctx->core, n, a);
 
-    // cleanup
     free_istack_array(&ctx->istack, a);
 
   } else {
