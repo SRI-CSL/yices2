@@ -95,6 +95,18 @@ void int_queue_push(int_queue_t *q, int32_t x) {
 
 
 /*
+ * Push a[0 ... n-1] in the queue (in this order)
+ */
+void int_queue_push_array(int_queue_t *q, int32_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    int_queue_push(q, a[i]);
+  }
+}
+
+
+/*
  * Return first element and remove it
  */
 int32_t int_queue_pop(int_queue_t *q) {

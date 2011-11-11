@@ -1540,6 +1540,134 @@ term_t simplify_bveq(term_table_t *tbl, term_t t1, term_t t2) {
 
 
 
+/*
+ * Convert (bveq u v) to a conjunction of boolean terms
+ * - u is a BV64 constant, v is a bitarray
+ * - store the result in vector a
+ */
+static void flatten_eq_bvconst64(bvconst64_term_t *u, composite_term_t *v, ivector_t *a) {
+  uint32_t i, n;
+  term_t aux, b;
+
+  n = u->bitsize;
+  assert(n == v->arity);
+  for (i=0; i<n; i++) {
+    b = bool2term(tst_bit64(u->value, i)); // bit i of u
+    aux = check_biteq_simplifies(b, v->arg[i]);
+    assert(aux != NULL_TERM);
+
+    if (aux != true_term) {
+      ivector_push(a, aux);
+    }
+  }
+}
+
+
+/*
+ * Same thing when u is a BV constant and v is a bitarray
+ */
+static void flatten_eq_bvconst(bvconst_term_t *u, composite_term_t *v, ivector_t *a) {
+  uint32_t i, n;
+  term_t aux, b;
+
+  n = u->bitsize;
+  assert(n == v->arity);
+  for (i=0; i<n; i++) {
+    b = bool2term(bvconst_tst_bit(u->data, i)); // bit i of u
+    aux = check_biteq_simplifies(b, v->arg[i]);
+    assert(aux != NULL_TERM);
+
+    if (aux != true_term) {
+      ivector_push(a, aux);
+    }
+  }
+}
+
+
+/*
+ * Try to convert (bveq u v) to a conjunction of Boolean terms
+ * - u and v are bit arrays of the same size
+ * - return true if that succeeds
+ */
+static bool flatten_eq_bvarray(composite_term_t *u, composite_term_t *v, ivector_t *a) {
+  uint32_t i, n;
+  term_t aux;
+
+  n = u->arity;
+  assert(n == v->arity);
+  for (i=0; i<n; i++) {
+    aux = check_biteq_simplifies(u->arg[i], v->arg[i]);
+    if (aux == NULL_TERM) return false; // failed
+    if (aux != true_term) {
+      ivector_push(a, aux);
+    }
+  }
+
+  return true;
+}
+
+
+
+/*
+ * Try to simplify (bv-eq t1 t2) to a conjunction of terms
+ * - if t1 and t2 can be rewritten as arrays of bits
+ *   [b_0 ... b_n] and [c_0 ... c_n], respectively,
+ *   then the function checks whether each 
+ *   equality (b_i == c_i)  simplifies to a single Boolean term e_i
+ * - if all of them do, then the function
+ *   returns true and adds e_0, ... e_n to vector v
+ *
+ * As above: t1 and t2 must not be equal, and disequal_bitvector_terms(tbl, t1, t2)
+ * must be false.
+ */
+bool bveq_flattens(term_table_t *tbl, term_t t1, term_t t2, ivector_t *v) {
+  term_kind_t k1, k2;
+
+  assert(is_bitvector_term(tbl, t1) && is_bitvector_term(tbl, t2) &&
+	 term_bitsize(tbl, t1) == term_bitsize(tbl, t2));
+
+  k1 = term_kind(tbl, t1);
+  k2 = term_kind(tbl, t2);
+  switch (k1) {
+  case BV64_CONSTANT:
+    if (k2 == BV_ARRAY) {
+      flatten_eq_bvconst64(bvconst64_term_desc(tbl, t1), bvarray_term_desc(tbl, t2), v);
+      return true;
+    }
+    break;
+
+  case BV_CONSTANT:
+    if (k2 == BV_ARRAY) {
+      flatten_eq_bvconst(bvconst_term_desc(tbl, t1), bvarray_term_desc(tbl, t2), v);
+      return true;
+    }
+    break;
+
+  case BV_ARRAY:
+    if (k2 == BV64_CONSTANT) {
+      flatten_eq_bvconst64(bvconst64_term_desc(tbl, t2), bvarray_term_desc(tbl, t1), v);
+      return true;
+    } else if (k2 == BV_CONSTANT) {
+      flatten_eq_bvconst(bvconst_term_desc(tbl, t2), bvarray_term_desc(tbl, t1), v);
+      return true;
+    } else if (k2 == BV_ARRAY) {
+      return flatten_eq_bvarray(bvarray_term_desc(tbl, t1), bvarray_term_desc(tbl, t2), v);
+    }
+    break;
+
+  default:
+    break;
+  }
+
+  return false;
+}
+
+
+
+
+
+
+
 
 /*
  * UNIT-TYPE REPRESENTATIVES

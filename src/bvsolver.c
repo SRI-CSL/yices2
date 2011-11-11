@@ -1842,6 +1842,8 @@ static inline bool is_bound_atom(bv_solver_t *solver, int32_t i) {
 /*
  * Get the constant and variable in a bound atom
  */
+#if 0
+// NOT USED
 static thvar_t bound_atom_const(bv_solver_t *solver, int32_t i) {
   bvatm_t *a;
   thvar_t c;
@@ -1856,6 +1858,7 @@ static thvar_t bound_atom_const(bv_solver_t *solver, int32_t i) {
 
   return c;
 }
+#endif
 
 static thvar_t bound_atom_var(bv_solver_t *solver, int32_t i) {
   bvatm_t *a;
@@ -1970,29 +1973,31 @@ static void bv_solver_remove_bounds(bv_solver_t *solver, uint32_t n) {
  * root of its class, using the following ranking:
  * - constants are simplest:       rank 0
  * - bvarray are next              rank 1
- * - all non-variable are next:    rank 2
- * - variables are last            rank 3
+ * - polynomials                   rank 2
+ * - power products                rank 3
+ * - other non-variable terms:     rank 4
+ * - variables are last            rank 5
  *
  * The following functions checks whether a is striclty simpler than b
  * based on this ranking.
  */
 static const uint8_t bvtag2rank[NUM_BVTAGS] = {
-  3,      // BVTAG_VAR
+  5,      // BVTAG_VAR
   0,      // BVTAG_CONST64
   0,      // BVTAG_CONST
   2,      // BVTAG_POLY64
   2,      // BVTAG_POLY
-  2,      // BVTAG_PPROD
+  3,      // BVTAG_PPROD
   1,      // BVTAG_BIT_ARRAY
-  2,      // BVTAG_ITE
-  2,      // BVTAG_UDIV
-  2,      // BVTAG_UREM
-  2,      // BVTAG_SDIV
-  2,      // BVTAG_SREM
-  2,      // BVTAG_SMOD
-  2,      // BVTAG_SHL
-  2,      // BVTAG_LSHR
-  2,      // BVTAG_ASHR
+  4,      // BVTAG_ITE
+  4,      // BVTAG_UDIV
+  4,      // BVTAG_UREM
+  4,      // BVTAG_SDIV
+  4,      // BVTAG_SREM
+  4,      // BVTAG_SMOD
+  4,      // BVTAG_SHL
+  4,      // BVTAG_LSHR
+  4,      // BVTAG_ASHR
 };
 
 static inline bool simpler_bvtag(bvvar_tag_t a, bvvar_tag_t b) {
@@ -2065,15 +2070,6 @@ static thvar_t bvvar_root_if_const(bv_solver_t *solver, thvar_t x) {
   }
 
   return x;
-}
-
-
-/*
- * Check whether x and y are known to be equal (i.e., they 
- * are in the same equivalence class in the merge table).
- */
-static inline bool equal_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
-  return mtbl_equiv(&solver->mtbl, x, y);
 }
 
 
@@ -4138,7 +4134,7 @@ literal_t bv_solver_create_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
   x = mtbl_get_root(&solver->mtbl, x);
   y = mtbl_get_root(&solver->mtbl, y);
 
-  if (x == y) {
+  if (equal_bvvar(solver, x, y)) {
     return true_literal;
   }
 
@@ -4306,7 +4302,7 @@ void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
   x = mtbl_get_root(&solver->mtbl, x);
   y = mtbl_get_root(&solver->mtbl, y);
 
-  if (x == y) {
+  if (equal_bvvar(solver, x, y)) {
     if (! tt) add_empty_clause(solver->core);     // Contradiction
   } else if (diseq_bvvar(solver, x, y)) {
     if (tt) add_empty_clause(solver->core);       // Contradiction

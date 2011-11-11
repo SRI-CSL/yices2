@@ -246,6 +246,23 @@ extern term_t extract_bit(term_table_t *tbl, term_t t, uint32_t i);
 extern term_t simplify_bveq(term_table_t *tbl, term_t t1, term_t t2);
 
 
+/*
+ * Try to simplify (bv-eq t1 t2) to a conjunction of terms
+ * - if t1 and t2 can be rewritten as arrays of bits
+ *   [b_0 ... b_n] and [c_0 ... c_n], respectively,
+ *   then the function checks whether each 
+ *   equality (b_i == c_i)  simplifies to a single Boolean term e_i
+ * - if all of them do, then the function
+ *   returns true and stores e_0, ... e_n into vector v
+ * 
+ * As above: t1 and t2 must not be equal, and disequal_bitvector_terms(tbl, t1, t2)
+ * must be false.
+ *
+ * NOTE: v may be modified event if the function returns false
+ */
+extern bool bveq_flattens(term_table_t *tbl, term_t t1, term_t t2, ivector_t *v);
+
+
 
 /*
  * UNIT-TYPE REPRESENTATIVES
@@ -263,13 +280,6 @@ extern term_t get_unit_type_rep(term_table_t *table, type_t tau);
 /*
  * VARIABLES
  */
-
-/*
- * Return a fresh variable of type tau
- * - the returned term is guaranteed to be new
- */
-extern term_t make_fresh_variable(term_table_t *table, type_t tau);
-
 
 /*
  * Clone variable v:

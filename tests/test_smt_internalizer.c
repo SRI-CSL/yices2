@@ -140,6 +140,7 @@ static void dump_bv_solver(FILE *f, bv_solver_t *solver) {
   print_bv_solver_vars(f, solver);
   fprintf(f, "\n--- Bitvector Atoms ---\n");
   print_bv_solver_atoms(f, solver);
+  fprintf(f, "\ntotal: %"PRIu32" atoms\n", solver->atbl.natoms);
   fprintf(f, "\n--- Bitvector Bounds ---\n");
   print_bv_solver_bounds(f, solver);
   fprintf(f, "\n");

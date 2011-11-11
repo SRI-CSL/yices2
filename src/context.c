@@ -652,6 +652,26 @@ static term_t simplify_bool_eq(context_t *ctx, term_t t1, term_t t2) {
 
 
 
+/*
+ * Simplification for (bveq t1 t2)
+ * - both t1 and t2 must be root terms in the internalization table
+ */
+static term_t simplify_bitvector_eq(context_t *ctx, term_t t1, term_t t2) {
+  term_table_t *terms;
+  term_t t;
+
+  terms = ctx->terms;
+  if (t1 == t2) {
+    t = true_term;
+  } else if (disequal_bitvector_terms(terms, t1, t2)) {
+    t = false_term;
+  } else {
+    t = simplify_bveq(terms, t1, t2);
+  }
+
+  return t;  
+}
+
 
 
 /**************************
@@ -1520,6 +1540,7 @@ static void flatten_eq(context_t *ctx, term_t r, bool tt) {
 static void flatten_bveq(context_t *ctx, term_t r, bool tt) {
   term_table_t *terms;
   composite_term_t *eq;
+  ivector_t *v;
   term_t t1, t2, t;
 
   terms = ctx->terms;
@@ -1527,18 +1548,42 @@ static void flatten_bveq(context_t *ctx, term_t r, bool tt) {
   t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
   t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
 
-  if (t1 == t2) {
-    if (!tt) {
-      longjmp(ctx->env, TRIVIALLY_UNSAT);
-    }
-    return;
-  }
-
-  t = simplify_bveq(terms, t1, t2);
+  /*
+   * First check whether (eq t1 t2) is equivalent to
+   * a Boolean term t
+   */
+  t = simplify_bitvector_eq(ctx, t1, t2);
   if (t != NULL_TERM) {
-    int_queue_push(&ctx->queue, signed_term(t, tt));
+    t = signed_term(t, tt);
+    if (t == false_term) {
+      longjmp(ctx->env, TRIVIALLY_UNSAT);
+    } else if (t != true_term) {
+      int_queue_push(&ctx->queue, signed_term(t, tt));
+    } 
+
   } else if (tt) {
-    try_substitution(ctx, t1, t2, r);
+    /*
+     * try to flatten into a conjunction of terms
+     */
+    v = &ctx->aux_vector;
+    assert(v->size == 0);
+    if (bveq_flattens(ctx->terms, t1, t2, v)) {
+      // PROVISIONAL
+      printf("---> bveq_flattens succeeds in formula flattening\n");
+      /*
+       * (bveq t1 t2) is equivalent to (and v[0] ... v[k-1])
+       * (bveq t1 t2) is asserted true
+       */
+      int_queue_push_array(&ctx->queue, v->data, v->size);
+    } else {
+      /*
+       * Did not flatten
+       */
+      try_substitution(ctx, t1, t2, r);
+    }
+
+    ivector_reset(v);
+
   } else {
     ivector_push(&ctx->top_atoms, opposite_term(r));
   }
@@ -3962,11 +4007,7 @@ static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
    */
   t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
   t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
-  if (t1 == t2) {
-    return true_literal;
-  }
-   
-  t = simplify_bveq(ctx->terms, t1, t2);
+  t = simplify_bitvector_eq(ctx, t1, t2);
   if (t != NULL_TERM) {
     // (bveq t1 t2) is equivalent to t
     return internalize_to_literal(ctx, t);
@@ -4001,10 +4042,22 @@ static literal_t map_bvsge_to_literal(context_t *ctx, composite_term_t *sge) {
 
 // Select bit
 static literal_t map_bit_select_to_literal(context_t *ctx, select_term_t *select) {
+  term_t t, s;
   thvar_t x;
 
-  x = internalize_to_bv(ctx, select->arg);
-  return ctx->bv.select_bit(ctx->bv_solver, x, select->idx);
+  /*
+   * Apply substitution then try to simplify
+   */
+  t = intern_tbl_get_root(&ctx->intern, select->arg);
+  s = extract_bit(ctx->terms, t, select->idx);
+  if (s != NULL_TERM) {
+    // (select t i) is s
+    return internalize_to_literal(ctx, s); 
+  } else {
+    // no simplification
+    x = internalize_to_bv(ctx, t);
+    return ctx->bv.select_bit(ctx->bv_solver, x, select->idx);
+  }
 }
 
 
@@ -5605,10 +5658,22 @@ static void assert_toplevel_xor(context_t *ctx, composite_term_t *xor, bool tt) 
  * Top-level bit select
  */
 static void assert_toplevel_bit_select(context_t *ctx, select_term_t *select, bool tt) {
+  term_t t, s;
   thvar_t x;
 
-  x = internalize_to_bv(ctx, select->arg);
-  ctx->bv.set_bit(ctx->bv_solver, x, select->idx, tt);
+  /*
+   * Check for simplification
+   */
+  t = intern_tbl_get_root(&ctx->intern, select->arg);
+  s = extract_bit(ctx->terms, t, select->idx);
+  if (s != NULL_TERM) {
+    // (select t i) is s
+    assert_term(ctx, s, tt);
+  } else {
+    // no simplification
+    x = internalize_to_bv(ctx, select->arg);
+    ctx->bv.set_bit(ctx->bv_solver, x, select->idx, tt);
+  }
 }
 
 
@@ -5616,30 +5681,61 @@ static void assert_toplevel_bit_select(context_t *ctx, select_term_t *select, bo
  * Top-level bitvector atoms
  */
 static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) {
+  ivector_t *v;
+  int32_t *a;
   term_t t, t1, t2;
   thvar_t x, y;
+  uint32_t i, n;
 
   assert(eq->arity == 2);
 
   t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
   t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
-  if (t1 == t2) {
-    // (bveq t1 t2) is true
-    if (!tt) {
-      longjmp(ctx->env, TRIVIALLY_UNSAT);
-    }
-  } else {
-    t = simplify_bveq(ctx->terms, t1, t2);
-    if (t != NULL_TERM) {
-      // (bveq t1 t2) is equivalent to t
-      assert_term(ctx, t, tt);
-    } else {
-      // no simplification
-      x = internalize_to_bv(ctx, t1);
-      y = internalize_to_bv(ctx, t2);
-      ctx->bv.assert_eq_axiom(ctx->bv_solver, x,  y, tt);
-    }
+  t = simplify_bitvector_eq(ctx, t1, t2);
+  if (t != NULL_TERM) {
+    // (bveq t1 t2) is equivalent to t
+    assert_term(ctx, t, tt);
+    return;
   }
+
+  if (tt) {
+    // try to flatten to a conjunction of terms
+    v = &ctx->aux_vector;
+    assert(v->size == 0);
+    if (bveq_flattens(ctx->terms, t1, t2, v)) {
+      printf("---> bveq_flattens succeeds in toplevel_bveq\n");
+
+      /*
+       * (bveq t1 t2) is equivalent to (and v[0] ... v[k])
+       * (bveq t1 t2) is true at the toplevel so v[0] ... v[k] must all be true
+       */
+
+      // make a copy of v
+      n = v->size;
+      a = alloc_istack_array(&ctx->istack, n);
+      for (i=0; i<n; i++) {
+	a[i] = v->data[i];
+      }
+      ivector_reset(v);
+
+      // assert
+      for (i=0; i<n; i++) {
+	assert_term(ctx, a[i], true);
+      }
+
+      free_istack_array(&ctx->istack, a);      
+      return;
+    }
+
+    // flattening failed
+    ivector_reset(v);
+  } 
+
+  // no simplification
+  x = internalize_to_bv(ctx, t1);
+  y = internalize_to_bv(ctx, t2);
+  ctx->bv.assert_eq_axiom(ctx->bv_solver, x,  y, tt);
+
 }
 
 static void assert_toplevel_bvge(context_t *ctx, composite_term_t *ge, bool tt) {
