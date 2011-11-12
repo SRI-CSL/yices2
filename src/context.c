@@ -1568,8 +1568,6 @@ static void flatten_bveq(context_t *ctx, term_t r, bool tt) {
     v = &ctx->aux_vector;
     assert(v->size == 0);
     if (bveq_flattens(ctx->terms, t1, t2, v)) {
-      // PROVISIONAL
-      printf("---> bveq_flattens succeeds in formula flattening\n");
       /*
        * (bveq t1 t2) is equivalent to (and v[0] ... v[k-1])
        * (bveq t1 t2) is asserted true
@@ -5703,8 +5701,6 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
     v = &ctx->aux_vector;
     assert(v->size == 0);
     if (bveq_flattens(ctx->terms, t1, t2, v)) {
-      printf("---> bveq_flattens succeeds in toplevel_bveq\n");
-
       /*
        * (bveq t1 t2) is equivalent to (and v[0] ... v[k])
        * (bveq t1 t2) is true at the toplevel so v[0] ... v[k] must all be true

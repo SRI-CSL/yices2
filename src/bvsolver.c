@@ -5,13 +5,13 @@
 #include <assert.h>
 
 #include "memalloc.h"
-#include "hash_functions.h"
 #include "bv64_constants.h"
 #include "small_bvsets.h"
 #include "rb_bvsets.h"
 #include "int_powers.h"
 
 #include "bvsolver.h"
+
 
 
 /*****************
@@ -118,6 +118,24 @@ static void bv_bound_queue_push(bv_bound_queue_t *queue, thvar_t x, int32_t id) 
   queue->bound[x] = i;
 
   queue->top = i+1;
+}
+
+
+
+/*
+ * Get the index of the first bound on x
+ * - return -1 if there's no bound on x
+ */
+static inline int32_t bv_bound_for_var(bv_bound_queue_t *queue, thvar_t x) {
+  int32_t k;
+
+  k = -1;
+  if (x < queue->bsize) {
+    k = queue->bound[x];
+    assert(-1 <= k && k < (int32_t) queue->top);
+  }
+
+  return k;
 }
 
 
@@ -378,6 +396,7 @@ static rb_bvset_t *new_rb_bvset(uint32_t k) {
 #endif
 
 
+
 /********************************
  *  MAPPING TO PSEUDO LITERALS  *
  *******************************/
@@ -468,26 +487,8 @@ static inline bool is_bound_atom(bv_solver_t *solver, int32_t i) {
 
 
 /*
- * Get the constant and variable in a bound atom
+ * Get the variable in a bound atom
  */
-#if 0
-// NOT USED
-static thvar_t bound_atom_const(bv_solver_t *solver, int32_t i) {
-  bvatm_t *a;
-  thvar_t c;
-  
-  a = bvatom_desc(&solver->atbl, i);
-  c = a->left;
-  if (! is_constant(&solver->vtbl, c)) {
-    c = a->right;
-  }
-
-  assert(is_constant(&solver->vtbl, c));
-
-  return c;
-}
-#endif
-
 static thvar_t bound_atom_var(bv_solver_t *solver, int32_t i) {
   bvatm_t *a;
   thvar_t x;
@@ -504,11 +505,12 @@ static thvar_t bound_atom_var(bv_solver_t *solver, int32_t i) {
 }
 
 
-
 /*
  * Add (bvge x y) to the bound queue
  * - either x or y must be a constant
- *   and the atom (bvge x y) must exist in the atom table
+ * - the atom (bvge x y) must exist in the atom table
+ *   and (bvge x y) must not be a trivial atom
+ *   (i.e., not of the form (bvge x 0b00000) or (bvge 0b11111 x))
  */
 static void push_bvuge_bound(bv_solver_t *solver, thvar_t x, thvar_t y) {
   int32_t i;
@@ -528,6 +530,8 @@ static void push_bvuge_bound(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
 /*
  * Same thing for (bvsge x y)
+ * - the atom must not be of the form (bvsge x 0b100000)
+ *   or (bvsge 0b011111 x)
  */
 static void push_bvsge_bound(bv_solver_t *solver, thvar_t x, thvar_t y) {
   int32_t i;
@@ -564,6 +568,7 @@ static void push_bvdiseq_bound(bv_solver_t *solver, thvar_t x, thvar_t y) {
 }
 
 
+
 /*
  * Remove all bounds of index >= n
  */
@@ -587,6 +592,405 @@ static void bv_solver_remove_bounds(bv_solver_t *solver, uint32_t n) {
   }
 
   queue->top = n;
+}
+
+
+
+/*
+ * SEARCH FOR BOUNDS
+ */
+
+/*
+ * Check whether a bound atom on x is a lower or upper bound
+ * - x must be the variable in bound_atom i
+ */
+static inline bool lit_is_true(smt_core_t *core, literal_t l) {
+  return literal_base_value(core, l) == VAL_TRUE;
+}
+
+static inline bool lit_is_false(smt_core_t *core, literal_t l) {
+  return literal_base_value(core, l) == VAL_FALSE;
+}
+
+// upper bound unsigned
+static bool bound_is_ub(bv_solver_t *solver, thvar_t x, int32_t i) {
+  bvatm_t *a;
+
+  assert(is_bound_atom(solver, i) && bound_atom_var(solver, i) == x);
+  a = bvatom_desc(&solver->atbl, i);
+  if (bvatm_is_ge(a)) {
+    // either (bvge x c) or (bvge c x) 
+    return (x == a->left && lit_is_false(solver->core, a->lit)) // (bvge x c) is false so x <= c-1
+      || (x == a->right && lit_is_true(solver->core, a->lit));  // (bvge c x) is true so  x <= c
+  }
+
+  return false;
+}
+
+// lower bound unsigned
+static bool bound_is_lb(bv_solver_t *solver, thvar_t x, int32_t i) {
+  bvatm_t *a;
+
+  assert(is_bound_atom(solver, i) && bound_atom_var(solver, i) == x);
+  a = bvatom_desc(&solver->atbl, i);
+  if (bvatm_is_ge(a)) {
+    // either (bvge x c) or (bvge c x) 
+    return (x == a->left && lit_is_true(solver->core, a->lit))  // (bvge x c) is true so x >= c
+      || (x == a->right && lit_is_false(solver->core, a->lit)); // (bvge c x) is false so x >= c+1
+  }
+
+  return false;
+}
+
+// upper bound signed
+static bool bound_is_signed_ub(bv_solver_t *solver, thvar_t x, int32_t i) {
+  bvatm_t *a;
+
+  assert(is_bound_atom(solver, i) && bound_atom_var(solver, i) == x);
+  a = bvatom_desc(&solver->atbl, i);
+  if (bvatm_is_sge(a)) {
+    // either (bvsge x c) or (bvsge c x) 
+    return (x == a->left && lit_is_false(solver->core, a->lit)) // (bvge x c) is false so x <= c-1
+      || (x == a->right && lit_is_true(solver->core, a->lit));  // (bvge c x) is true so  x <= c
+  }
+
+  return false;
+}
+
+// lower bound signed
+static bool bound_is_signed_lb(bv_solver_t *solver, thvar_t x, int32_t i) {
+  bvatm_t *a;
+
+  assert(is_bound_atom(solver, i) && bound_atom_var(solver, i) == x);
+  a = bvatom_desc(&solver->atbl, i);
+  if (bvatm_is_sge(a)) {
+    // either (bvsge x c) or (bvsge c x) 
+    return (x == a->left && lit_is_true(solver->core, a->lit))  // (bvsge x c) is true so x >= c
+      || (x == a->right && lit_is_false(solver->core, a->lit)); // (bvsge c x) is false so x >= c+1
+  }
+
+  return false;
+}
+
+
+
+/*
+ * Extract the unsigned or signed upper bound on x from atom i
+ * - x must be a bitvector of 64bits or less
+ * - for (bvge x c) false, we know (c > 0b00..0)
+ * - for (bvsge x c) false, we know (c > 0b1000)
+ * In either case, (c-1) can't cause underflow
+ * The result is normalized modulo (2 ^ n) where n = size of x
+ */
+static uint64_t get_upper_bound64(bv_solver_t *solver, thvar_t x, int32_t i) {
+  bvatm_t *a;
+  uint64_t c;
+
+  a = bvatom_desc(&solver->atbl, i);
+  if (x == a->left) {
+    // (bvge x c) false: x <= c-1
+    c = bvvar_val64(&solver->vtbl, a->right) - 1;    
+  } else {
+    // (bvge c x) true: x <= c
+    assert(x == a->right);
+    c = bvvar_val64(&solver->vtbl, a->left);
+  }
+
+  assert(c == norm64(c, bvvar_bitsize(&solver->vtbl, x)));
+
+  return c;
+}
+
+
+/*
+ * Extract the unsigned or signed lower bound
+ * - x must be a bitvector of 64bits or less
+ * - for (bvge c x) false, we know (c < 0b11111)
+ * - for (bvsge c x) false, we know (c < 0b01111)
+ * In either case, (c+1) can't cause overflow
+ * The result is normalized modulo (2 ^ n)
+ */
+static uint64_t get_lower_bound64(bv_solver_t *solver, thvar_t x, int32_t i) {
+  bvatm_t *a;
+  uint64_t c;
+
+  a = bvatom_desc(&solver->atbl, i);
+  if (x == a->left) {
+    //(bvge x c) true: x >= c
+    c = bvvar_val64(&solver->vtbl, a->right); 
+  } else {
+    // (bvge c x) false: x >= c+1
+    assert(x == a->right);
+    c = bvvar_val64(&solver->vtbl, a->left) + 1;
+  }
+
+  assert(c == norm64(c, bvvar_bitsize(&solver->vtbl, x)));
+
+  return c;
+}
+
+
+
+/*
+ * Extract the unsigned or signed upper bound on x from atom i
+ * - x must be a bitvector of more than 64bits
+ * - n = size of x
+ * - for (bvge x c) false, we know (c > 0b00..0)
+ * - for (bvsge x c) false, we know (c > 0b1000)
+ * In either case, (c-1) can't cause underflow
+ * The result is returned in c and it's normalized modulo (2 ^ n)
+ */
+static void get_upper_bound(bv_solver_t *solver, thvar_t x, uint32_t n, int32_t i, bvconstant_t *c) {
+  bvatm_t *a;
+
+  a = bvatom_desc(&solver->atbl, i);
+  if (x == a->left) {
+    // (bvge x c) false: x <= c-1
+    bvconstant_copy(c, n, bvvar_val(&solver->vtbl, a->right));
+    bvconst_sub_one(c->data, c->width);
+    bvconst_normalize(c->data, n);
+  } else {
+    // (bvge c x) true: x <= c
+    assert(x == a->right);
+    bvconstant_copy(c, n, bvvar_val(&solver->vtbl, a->left));
+  }
+}
+
+
+/*
+ * Extract the unsigned or signed lower bound on x from atom i
+ * - x must be a bitvector of more than 64bits
+ * - n = size of x
+ * - for (bvge x c) false, we know (c > 0b00..0)
+ * - for (bvsge x c) false, we know (c > 0b1000)
+ * In either case, (c-1) can't cause underflow
+ * The result is returned in c and it's normalized modulo (2 ^ n)
+ */
+static void get_lower_bound(bv_solver_t *solver, thvar_t x, uint32_t n, int32_t i, bvconstant_t *c) {
+  bvatm_t *a;
+
+  a = bvatom_desc(&solver->atbl, i);
+  if (x == a->left) {
+    // (bvge x c) true: x >= c
+    bvconstant_copy(c, n, bvvar_val(&solver->vtbl, a->right));
+  } else {
+    // (bvge c x) false: x >= c+1
+    assert(x == a->right);
+    bvconstant_copy(c, n, bvvar_val(&solver->vtbl, a->left));
+    bvconst_add_one(c->data, c->width);
+    bvconst_normalize(c->data, n);
+  }
+}
+
+
+
+/*
+ * Check whether there's a bound asserted on variable x
+ * - if so, return true and store the bound in *c
+ * - otherwise, return false
+ */
+
+// upper bound, 64bits, unsigned
+static bool bvvar_has_upper_bound64(bv_solver_t *solver, thvar_t x, uint64_t *c) {
+  bv_bound_queue_t *queue;
+  bv_bound_t *b;
+  int32_t k;
+
+  queue = &solver->bqueue;
+  k = bv_bound_for_var(queue, x);
+  while (k >= 0) {
+    assert(k < queue->top);
+    b = queue->data + k;
+    if (bound_is_ub(solver, x, b->atom_id)) {
+      *c = get_upper_bound64(solver, x, b->atom_id);
+      return true;
+    }
+    k = b->pre;
+  }
+
+  return false;
+}
+
+// lower bound, 64bits, unsigned
+static bool bvvar_has_lower_bound64(bv_solver_t *solver, thvar_t x, uint64_t *c) {
+  bv_bound_queue_t *queue;
+  bv_bound_t *b;
+  int32_t k;
+
+  queue = &solver->bqueue;
+  k = bv_bound_for_var(queue, x);
+  while (k >= 0) {
+    assert(k < queue->top);
+    b = queue->data + k;
+    if (bound_is_lb(solver, x, b->atom_id)) {
+      *c = get_lower_bound64(solver, x, b->atom_id);
+      return true;
+    }
+    k = b->pre;
+  }
+
+  return false;
+}
+
+// upper bound, 64bits, signed
+static bool bvvar_has_signed_upper_bound64(bv_solver_t *solver, thvar_t x, uint64_t *c) {
+  bv_bound_queue_t *queue;
+  bv_bound_t *b;
+  int32_t k;
+
+  queue = &solver->bqueue;
+  k = bv_bound_for_var(queue, x);
+  while (k >= 0) {
+    assert(k < queue->top);
+    b = queue->data + k;
+    if (bound_is_signed_ub(solver, x, b->atom_id)) {
+      *c = get_upper_bound64(solver, x, b->atom_id);
+      return true;
+    }
+    k = b->pre;
+  }
+
+  return false;
+}
+
+
+// lower bound, 64bits, signed
+static bool bvvar_has_signed_lower_bound64(bv_solver_t *solver, thvar_t x, uint64_t *c) {
+  bv_bound_queue_t *queue;
+  bv_bound_t *b;
+  int32_t k;
+
+  queue = &solver->bqueue;
+  k = bv_bound_for_var(queue, x);
+  while (k >= 0) {
+    assert(k < queue->top);
+    b = queue->data + k;
+    if (bound_is_signed_lb(solver, x, b->atom_id)) {
+      *c = get_lower_bound64(solver, x, b->atom_id);
+      return true;
+    }
+    k = b->pre;
+  }
+
+  return false;
+}
+
+
+/*
+ * Same thing for bitvectors with more than 64bits
+ * - n = number of bits in x
+ */
+
+// upper bound, unsigned
+static bool bvvar_has_upper_bound(bv_solver_t *solver, thvar_t x, uint32_t n, bvconstant_t *c) {
+  bv_bound_queue_t *queue;
+  bv_bound_t *b;
+  int32_t k;
+
+  queue = &solver->bqueue;
+  k = bv_bound_for_var(queue, x);
+  while (k >= 0) {
+    assert(k < queue->top);
+    b = queue->data + k;
+    if (bound_is_ub(solver, x, b->atom_id)) {
+      get_upper_bound(solver, x, n, b->atom_id, c);
+      return true;
+    }
+    k = b->pre;
+  }
+
+  return false;
+}
+
+// lower bound, unsigned
+static bool bvvar_has_lower_bound(bv_solver_t *solver, thvar_t x, uint32_t n, bvconstant_t *c) {
+  bv_bound_queue_t *queue;
+  bv_bound_t *b;
+  int32_t k;
+
+  queue = &solver->bqueue;
+  k = bv_bound_for_var(queue, x);
+  while (k >= 0) {
+    assert(k < queue->top);
+    b = queue->data + k;
+    if (bound_is_lb(solver, x, b->atom_id)) {
+      get_lower_bound(solver, x, n, b->atom_id, c);
+      return true;
+    }
+    k = b->pre;
+  }
+
+  return false;
+}
+
+// upper bound, signed
+static bool bvvar_has_signed_upper_bound(bv_solver_t *solver, thvar_t x, uint32_t n, bvconstant_t *c) {
+  bv_bound_queue_t *queue;
+  bv_bound_t *b;
+  int32_t k;
+
+  queue = &solver->bqueue;
+  k = bv_bound_for_var(queue, x);
+  while (k >= 0) {
+    assert(k < queue->top);
+    b = queue->data + k;
+    if (bound_is_signed_ub(solver, x, b->atom_id)) {
+      get_upper_bound(solver, x, n, b->atom_id, c);
+      return true;
+    }
+    k = b->pre;
+  }
+
+  return false;
+}
+
+// lower bound, signed
+static bool bvvar_has_signed_lower_bound(bv_solver_t *solver, thvar_t x, uint32_t n, bvconstant_t *c) {
+  bv_bound_queue_t *queue;
+  bv_bound_t *b;
+  int32_t k;
+
+  queue = &solver->bqueue;
+  k = bv_bound_for_var(queue, x);
+  while (k >= 0) {
+    assert(k < queue->top);
+    b = queue->data + k;
+    if (bound_is_signed_lb(solver, x, b->atom_id)) {
+      get_lower_bound(solver, x, n, b->atom_id, c);
+      return true;
+    }
+    k = b->pre;
+  }
+
+  return false;
+}
+
+
+/*
+ * Check whether there's a constraint not (x == 0) on x
+ * - this just search for a bound atom of the form (eq x c) or (eq c x)
+ *   in the queue
+ */
+static bool bvvar_is_nonzero(bv_solver_t *solver, thvar_t x) {
+  bv_bound_queue_t *queue;
+  bv_bound_t *b;
+  bvatm_t *a;
+  int32_t k;
+
+  queue = &solver->bqueue;
+  k = bv_bound_for_var(queue, x);
+  while (k >= 0) {
+    assert(k < queue->top);
+    b = queue->data + k;
+    a = bvatom_desc(&solver->atbl, b->atom_id);
+    assert(a->left == x || a->right == x);
+    if (bvatm_is_eq(a)) {
+      return true;
+    }
+    k = b->pre;
+  }
+
+  return false;
 }
 
 
@@ -1058,26 +1462,33 @@ static uint64_t bitarray_lower_bound_signed64(literal_t *a, uint32_t n) {
  */
 static uint64_t bvvar_upper_bound_unsigned64(bv_solver_t *solver, thvar_t x, uint32_t n) {
   bv_vartable_t *vtbl;
+  bvvar_tag_t tag_x;
   uint64_t c;
 
   vtbl = &solver->vtbl;
 
   assert(valid_bvvar(vtbl, x) && n == bvvar_bitsize(vtbl, x) && 1 <= n && n <= 64);
 
-  switch (bvvar_tag(vtbl, x)) {
-  case BVTAG_CONST64:
+  tag_x = bvvar_tag(vtbl, x);
+
+  if (tag_x == BVTAG_CONST64) {
     c = bvvar_val64(vtbl, x);
-    break;
-
-  case BVTAG_BIT_ARRAY:
-    c = bitarray_upper_bound_unsigned64(bvvar_bvarray_def(vtbl, x), n);
-    break;
-
-  default:
-    c = mask64(n); // all bits equal to 1
-    break;
+    goto done;
   }
 
+  if (bvvar_has_upper_bound64(solver, x, &c)) {
+    // found a bound in the queue
+    goto done;
+  }
+
+  if (tag_x == BVTAG_BIT_ARRAY) {
+    c = bitarray_upper_bound_unsigned64(bvvar_bvarray_def(vtbl, x), n);
+    goto done;
+  }
+
+  c = mask64(n); // default bound: all bits equal to 1
+
+ done:
   assert(c == norm64(c, n));
 
   return c;
@@ -1086,26 +1497,33 @@ static uint64_t bvvar_upper_bound_unsigned64(bv_solver_t *solver, thvar_t x, uin
 
 static uint64_t bvvar_lower_bound_unsigned64(bv_solver_t *solver, thvar_t x, uint32_t n) {
   bv_vartable_t *vtbl;
+  bvvar_tag_t tag_x;
   uint64_t c;
 
   vtbl = &solver->vtbl;
 
   assert(valid_bvvar(vtbl, x) && n == bvvar_bitsize(vtbl, x) && 1 <= n && n <= 64);
 
-  switch (bvvar_tag(vtbl, x)) {
-  case BVTAG_CONST64:
+  tag_x = bvvar_tag(vtbl, x);
+
+  if (tag_x == BVTAG_CONST64) {
     c = bvvar_val64(vtbl, x);
-    break;
-
-  case BVTAG_BIT_ARRAY:
-    c = bitarray_lower_bound_unsigned64(bvvar_bvarray_def(vtbl, x), n);
-    break;
-
-  default:
-    c = 0;
-    break;
+    goto done;
   }
 
+  if (bvvar_has_lower_bound64(solver, x, &c)) {
+    // found a bound in the queue
+    goto done;
+  }
+
+  if (tag_x == BVTAG_BIT_ARRAY) {
+    c = bitarray_lower_bound_unsigned64(bvvar_bvarray_def(vtbl, x), n);
+    goto done;
+  }
+
+  c = 0;
+
+ done:
   assert(c == norm64(c, n));
 
   return c;
@@ -1114,26 +1532,33 @@ static uint64_t bvvar_lower_bound_unsigned64(bv_solver_t *solver, thvar_t x, uin
 
 static uint64_t bvvar_upper_bound_signed64(bv_solver_t *solver, thvar_t x, uint32_t n) {
   bv_vartable_t *vtbl;
+  bvvar_tag_t tag_x;
   uint64_t c;
 
   vtbl = &solver->vtbl;
 
   assert(valid_bvvar(vtbl, x) && n == bvvar_bitsize(vtbl, x) && 1 <= n && n <= 64);
 
-  switch (bvvar_tag(vtbl, x)) {
-  case BVTAG_CONST64:
+  tag_x = bvvar_tag(vtbl, x);
+
+  if (tag_x == BVTAG_CONST64) {
     c = bvvar_val64(vtbl, x);
-    break;
-
-  case BVTAG_BIT_ARRAY:
-    c = bitarray_upper_bound_signed64(bvvar_bvarray_def(vtbl, x), n);
-    break;
-
-  default:
-    c = max_signed64(n); // 0b011111..1
-    break;
+    goto done;
   }
 
+  if (bvvar_has_signed_upper_bound64(solver, x, &c)) {
+    // bound in the queue
+    goto done;
+  }
+
+  if (tag_x == BVTAG_BIT_ARRAY) {
+    c = bitarray_upper_bound_signed64(bvvar_bvarray_def(vtbl, x), n);
+    goto done;
+  }
+
+  c = max_signed64(n); // 0b011111..1
+
+ done:
   assert(c == norm64(c, n));
 
   return c;
@@ -1142,26 +1567,33 @@ static uint64_t bvvar_upper_bound_signed64(bv_solver_t *solver, thvar_t x, uint3
 
 static uint64_t bvvar_lower_bound_signed64(bv_solver_t *solver, thvar_t x, uint32_t n) {
   bv_vartable_t *vtbl;
+  bvvar_tag_t tag_x;
   uint64_t c;
 
   vtbl = &solver->vtbl;
 
   assert(valid_bvvar(vtbl, x) && n == bvvar_bitsize(vtbl, x) && 1 <= n && n <= 64);
 
-  switch (bvvar_tag(vtbl, x)) {
-  case BVTAG_CONST64:
+  tag_x = bvvar_tag(vtbl, x);
+
+  if (tag_x == BVTAG_CONST64) {
     c = bvvar_val64(vtbl, x);
-    break;
-
-  case BVTAG_BIT_ARRAY:
-    c = bitarray_lower_bound_signed64(bvvar_bvarray_def(vtbl, x), n);
-    break;
-
-  default:
-    c = min_signed64(n); // 0b100000..00
-    break;
+    goto done;
   }
 
+  if (bvvar_has_signed_lower_bound64(solver, x, &c)) {
+    // bound asserted 
+    goto done;
+  }
+
+  if (tag_x == BVTAG_BIT_ARRAY) {
+    c = bitarray_lower_bound_signed64(bvvar_bvarray_def(vtbl, x), n);
+    goto done;
+  }
+
+  c = min_signed64(n); // 0b100000..00
+
+ done:
   assert(c == norm64(c, n));
 
   return c;
@@ -1249,95 +1681,115 @@ static void bitarray_lower_bound_signed(literal_t *a, uint32_t n, bvconstant_t *
  */
 static void bvvar_upper_bound_unsigned(bv_solver_t *solver, thvar_t x, uint32_t n, bvconstant_t *v) {
   bv_vartable_t *vtbl;
+  bvvar_tag_t tag_x;
 
   vtbl = &solver->vtbl;
 
   assert(valid_bvvar(vtbl, x) && n == bvvar_bitsize(vtbl, x) && 64 < n);
 
-  switch (bvvar_tag(vtbl, x)) {
-  case BVTAG_CONST:
+  tag_x = bvvar_tag(vtbl, x);
+
+  if (tag_x == BVTAG_CONST) {
     bvconstant_copy(v, n, bvvar_val(vtbl, x));
-    break;
-
-  case BVTAG_BIT_ARRAY:
-    bitarray_upper_bound_unsigned(bvvar_bvarray_def(vtbl, x), n, v);
-    break;
-
-  default:
-    bvconstant_set_all_one(v, n);
-    break;
+    return;
   }
+
+  if (bvvar_has_upper_bound(solver, x, n, v)) {
+    return;
+  }
+
+  if (tag_x == BVTAG_BIT_ARRAY) {
+    bitarray_upper_bound_unsigned(bvvar_bvarray_def(vtbl, x), n, v);
+    return;
+  }
+
+  bvconstant_set_all_one(v, n);
 }
 
 
 static void bvvar_lower_bound_unsigned(bv_solver_t *solver, thvar_t x, uint32_t n, bvconstant_t *v) {
   bv_vartable_t *vtbl;
+  bvvar_tag_t tag_x;
 
   vtbl = &solver->vtbl;
 
   assert(valid_bvvar(vtbl, x) && n == bvvar_bitsize(vtbl, x) && 64 < n);
 
-  switch (bvvar_tag(vtbl, x)) {
-  case BVTAG_CONST:
+  tag_x = bvvar_tag(vtbl, x);
+
+  if (tag_x == BVTAG_CONST) {
     bvconstant_copy(v, n, bvvar_val(vtbl, x));
-    break;
-
-  case BVTAG_BIT_ARRAY:
-    bitarray_lower_bound_unsigned(bvvar_bvarray_def(vtbl, x), n, v);
-    break;
-
-  default:
-    bvconstant_set_all_zero(v, n);
-    break;
+    return;
   }
+
+  if (bvvar_has_lower_bound(solver, x, n, v)) {
+    return;
+  }
+
+  if (tag_x == BVTAG_BIT_ARRAY) {
+    bitarray_lower_bound_unsigned(bvvar_bvarray_def(vtbl, x), n, v);
+    return;
+  }
+
+  bvconstant_set_all_zero(v, n);
 }
 
 
 static void bvvar_upper_bound_signed(bv_solver_t *solver, thvar_t x, uint32_t n, bvconstant_t *v) {
   bv_vartable_t *vtbl;
+  bvvar_tag_t tag_x;
 
   vtbl = &solver->vtbl;
 
   assert(valid_bvvar(vtbl, x) && n == bvvar_bitsize(vtbl, x) && 64 < n);
 
-  switch (bvvar_tag(vtbl, x)) {
-  case BVTAG_CONST:
+  tag_x = bvvar_tag(vtbl, x);
+
+  if (tag_x == BVTAG_CONST) {
     bvconstant_copy(v, n, bvvar_val(vtbl, x));
-    break;
-
-  case BVTAG_BIT_ARRAY:
-    bitarray_upper_bound_signed(bvvar_bvarray_def(vtbl, x), n, v);
-    break;
-
-  default:
-    bvconstant_set_all_one(v, n);
-    bvconst_clr_bit(v->data, n-1); // clear the sign bit
-    break;
+    return;
   }
+
+  if (bvvar_has_signed_upper_bound(solver, x, n, v)) {
+    return;
+  }
+
+  if (tag_x == BVTAG_BIT_ARRAY) {
+    bitarray_upper_bound_signed(bvvar_bvarray_def(vtbl, x), n, v);
+    return;
+  }
+
+  bvconstant_set_all_one(v, n);
+  bvconst_clr_bit(v->data, n-1); // clear the sign bit
 }
 
 
 static void bvvar_lower_bound_signed(bv_solver_t *solver, thvar_t x, uint32_t n, bvconstant_t *v) {
   bv_vartable_t *vtbl;
+  bvvar_tag_t tag_x;
 
   vtbl = &solver->vtbl;
 
   assert(valid_bvvar(vtbl, x) && n == bvvar_bitsize(vtbl, x) && 64 < n);
 
-  switch (bvvar_tag(vtbl, x)) {
-  case BVTAG_CONST:
+  tag_x = bvvar_tag(vtbl, x);
+
+  if (tag_x == BVTAG_CONST) {
     bvconstant_copy(v, n, bvvar_val(vtbl, x));
-    break;
-
-  case BVTAG_BIT_ARRAY:
-    bitarray_lower_bound_signed(bvvar_bvarray_def(vtbl, x), n, v);
-    break;
-
-  default:
-    bvconstant_set_all_zero(v, n);
-    bvconst_set_bit(v->data, n-1); // set the sign bit
-    break;
+    return;
   }
+
+  if (bvvar_has_signed_lower_bound(solver, x, n, v)) {
+    return;
+  }
+
+  if (tag_x == BVTAG_BIT_ARRAY) {
+    bitarray_lower_bound_signed(bvvar_bvarray_def(vtbl, x), n, v);
+    return;
+  }
+
+  bvconstant_set_all_zero(v, n);
+  bvconst_set_bit(v->data, n-1); // set the sign bit
 }
 
 
@@ -3251,8 +3703,6 @@ th_egraph_interface_t *bv_solver_egraph_interface(bv_solver_t *solver) {
 bv_egraph_interface_t *bv_solver_bv_egraph_interface(bv_solver_t *solver) {
   return &bv_solver_bv_egraph;
 }
-
-
 
 
 

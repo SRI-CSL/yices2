@@ -172,6 +172,10 @@ extern void bv_atomtable_remove_atoms(bv_atomtable_t *table, uint32_t na);
 
 /*
  * Constructors
+ * - get_bv_atom(table, op, x, y): check whether atom (op x y) exists.
+ *   If it does not create a new atom, with literal set to null_literal.
+ *   Return the atom index.
+ * - get_bveq_atom normalizes (eq x y) then calls get_bv_atom.
  */
 extern int32_t get_bv_atom(bv_atomtable_t *table, bvatm_tag_t op, thvar_t x, thvar_t y);
 extern int32_t get_bveq_atom(bv_atomtable_t *table, thvar_t x, thvar_t y);
@@ -200,7 +204,6 @@ static inline int32_t find_bvuge_atom(bv_atomtable_t *table, thvar_t x, thvar_t 
 static inline int32_t find_bvsge_atom(bv_atomtable_t *table, thvar_t x, thvar_t y) {
   return find_bv_atom(table, BVSGE_ATM, x, y);
 }
-
 
 
 
