@@ -291,7 +291,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS + 1] = {
   CTX_ARCH_SPLX,       // QF_NRA
   CTX_ARCH_AUTO_RDL,   // QF_RDL
   CTX_ARCH_EG,         // QF_UF
-  CTX_ARCH_BV,         // QF_UFBV[xx]
+  CTX_ARCH_EGBV,       // QF_UFBV[xx]
   CTX_ARCH_EGSPLX,     // QF_UFIDL
   CTX_ARCH_EGSPLX,     // QF_UFLIA
   CTX_ARCH_EGSPLX,     // QF_UFLRA
@@ -414,13 +414,14 @@ static void test_internalization(smt_benchmark_t *bench) {
     print_internalization_code(code);
   }
 
-
-  f = fopen("yices2intern.dmp", "w");
-  if (f == NULL) {
-    perror("yices2intern.dmp");
-  } else {
-    dump_context(f, &context);
-    fclose(f);
+  if (true) {
+    f = fopen("yices2intern.dmp", "w");
+    if (f == NULL) {
+      perror("yices2intern.dmp");
+    } else {
+      dump_context(f, &context);
+      fclose(f);
+    }
   }
 
   delete_context(&context);
