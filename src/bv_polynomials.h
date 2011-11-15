@@ -43,7 +43,7 @@ typedef struct {
 
 // polynomial
 typedef struct {
-  int32_t nterms;
+  uint32_t nterms;
   uint32_t bitsize;
   uint32_t width;
   bvmono_t mono[0]; // actual size = nterms + 1

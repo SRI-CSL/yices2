@@ -1523,10 +1523,156 @@ static void bitarray_lower_bound_signed(literal_t *a, uint32_t n, bvconstant_t *
  */
 
 /*
+ * Recursive computation of bounds on a variable x
+ * - d = limit on recursion depth (to prevent infinite loops)
+ * - n = number of bits in x
+ * - the functions exist in two versions: one for bitvectors of 64bits at most,
+ *   the other for bitvecots of more than 64bits.
+ * - for 64bits of less: the bound is returned as an unsigned, 64bit integer, normalized modulo 2^n
+ * - for more than 64bits, the bounrd is copied in bvconstant_c *c, also normalized modulo 2^n
+ */
+static uint64_t bvvar_ub_u64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d);
+static uint64_t bvvar_lb_u64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d);
+static uint64_t bvvar_ub_s64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d);
+static uint64_t bvvar_lb_s64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d);
+
+static void bvvar_ub_u(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bvconstant_t *c);
+static void bvvar_lb_u(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bvconstant_t *c);
+static void bvvar_ub_s(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bvconstant_t *c);
+static void bvvar_lb_s(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bvconstant_t *c);
+
+
+/*
+ * Helpers for computing bounds on polynomials
+ */
+
+/*
+ * Product of two 64bit unsigned integers, with overflow detection
+ * - compute c := a * b
+ * - return true if the product overflows (and keep *c unchanged)
+ * - otherwise, return false and store the product in *c
+ */
+static bool mulu64_overflows(uint64_t *c, uint64_t a, uint64_t b) {
+  uint64_t a0, b0, a1, b1, aux;
+
+  // common case: both a and b are small enough
+  if ((a <= (uint64_t) UINT32_MAX) & (b <= (uint64_t) UINT32_MAX)) {
+    *c = a * b;
+    return false;
+  }
+
+
+  a0 = a & ((uint64_t) 0xFFFFFFFF);
+  a1 = a >> 32;
+  b0 = b & ((uint64_t) 0xFFFFFFFF);
+  b1 = b >> 32;
+
+  /*
+   * a * b is (a1 * b1 << 64) + (a0 * b1 << 32) + (a1 * b0 << 32) + (a0 * b0)
+   * - this overflows if a1 * b1 > 0 or a0 * b1 >= 2^32 or a1 * b0 >= 2^32
+   * - otherwise, we compute (a0 + b0) + (a0 * b1 + a1 * b0) << 32 and check
+   *   for overflow after the addition
+   */
+  if (a1 * b1 == 0) {
+    aux = a0 * b0;
+
+    b1 *= a0;
+    if (b1 > (uint64_t) UINT32_MAX) goto overflow;
+    b1 <<= 32;
+    aux += b1;
+    if (aux < b1) goto overflow;
+
+    a1 *= b0;
+    if (a1 > (uint64_t) UINT32_MAX) goto overflow;
+    a1 <<= 32;
+    aux += a1;
+    if (aux < a1) goto overflow;
+
+    *c = aux;
+    return false;
+  }
+
+ overflow:
+  return true;
+}
+
+
+/*
+ * Lower/upper bound for a bitvector polynomial p
+ * - d = recursion depth
+ */
+static uint64_t bvpoly_upper_bound_unsigned64(bv_solver_t *solver, bvpoly64_t *p, uint32_t d) {
+  uint64_t c, b, max;
+  uint32_t i, n, nbits;
+  thvar_t x;
+
+  n = p->nterms;
+  nbits = p->bitsize;
+  i = 0;
+  c = 0;
+  if (p->mono[0].var == const_idx) {
+    c = p->mono[0].coeff; // constant term of p
+    i ++;
+  }
+
+  max = mask64(nbits);
+  while (i < n) {
+    x = p->mono[i].var;
+    x = mtbl_get_root(&solver->mtbl, x); // apply substitution
+    b = bvvar_ub_u64(solver, x, nbits, d);  // upper bound on x
+    if (mulu64_overflows(&b, b, p->mono[i].coeff)) goto overflow;
+    c += b;
+    if (c < b || c >= max) goto overflow;
+    i ++;
+  }
+
+  return norm64(c, nbits);
+
+ overflow:
+  return max;
+}
+
+
+static uint64_t bvpoly_lower_bound_unsigned64(bv_solver_t *solver, bvpoly64_t *p, uint32_t d) {
+  uint64_t c, b;
+  uint32_t i, n, nbits;
+  thvar_t x;
+
+  n = p->nterms;
+  nbits = p->bitsize;
+  i = 0;
+  c = 0;
+  if (p->mono[0].var == const_idx) {
+    c = p->mono[0].coeff; // constant term of p
+    i ++;
+  }
+
+  while (i < n) {
+    x = p->mono[i].var;
+    x = mtbl_get_root(&solver->mtbl, x); // apply substitution
+    b = bvvar_lb_u64(solver, x, nbits, d);  // lower bound on x
+    if (mulu64_overflows(&b, b, p->mono[i].coeff)) goto overflow;
+    c += b;
+    if (c < b) goto overflow;
+    i ++;
+  }
+
+  return norm64(c, nbits);
+
+ overflow:
+  return 0;
+}
+
+
+
+
+
+
+/*
  * Lower/upper bound for a bitvector variable x
  * - n = bitsize of x: must be between 1 and 64
  */
-static uint64_t bvvar_upper_bound_unsigned64(bv_solver_t *solver, thvar_t x, uint32_t n) {
+static uint64_t bvvar_ub_u64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d) {
   bv_vartable_t *vtbl;
   bvvar_tag_t tag_x;
   uint64_t c;
@@ -1552,6 +1698,11 @@ static uint64_t bvvar_upper_bound_unsigned64(bv_solver_t *solver, thvar_t x, uin
     goto done;
   }
 
+  if (tag_x == BVTAG_POLY64 && d>0) {
+    c = bvpoly_upper_bound_unsigned64(solver, bvvar_poly64_def(vtbl, x), d-1);
+    goto done;
+  }
+
   c = mask64(n); // default bound: all bits equal to 1
 
  done:
@@ -1560,7 +1711,7 @@ static uint64_t bvvar_upper_bound_unsigned64(bv_solver_t *solver, thvar_t x, uin
   return c;
 }
 
-static uint64_t bvvar_lower_bound_unsigned64(bv_solver_t *solver, thvar_t x, uint32_t n) {
+static uint64_t bvvar_lb_u64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d) {
   bv_vartable_t *vtbl;
   bvvar_tag_t tag_x;
   uint64_t c;
@@ -1586,6 +1737,11 @@ static uint64_t bvvar_lower_bound_unsigned64(bv_solver_t *solver, thvar_t x, uin
     goto done;
   }
 
+  if (tag_x == BVTAG_POLY64 && d>0) {
+    c = bvpoly_lower_bound_unsigned64(solver, bvvar_poly64_def(vtbl, x), d-1);
+    goto done;
+  }
+
   c = 0;
 
  done:
@@ -1594,7 +1750,7 @@ static uint64_t bvvar_lower_bound_unsigned64(bv_solver_t *solver, thvar_t x, uin
   return c;
 }
 
-static uint64_t bvvar_upper_bound_signed64(bv_solver_t *solver, thvar_t x, uint32_t n) {
+static uint64_t bvvar_ub_s64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d) {
   bv_vartable_t *vtbl;
   bvvar_tag_t tag_x;
   uint64_t c;
@@ -1628,7 +1784,7 @@ static uint64_t bvvar_upper_bound_signed64(bv_solver_t *solver, thvar_t x, uint3
   return c;
 }
 
-static uint64_t bvvar_lower_bound_signed64(bv_solver_t *solver, thvar_t x, uint32_t n) {
+static uint64_t bvvar_lb_s64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d) {
   bv_vartable_t *vtbl;
   bvvar_tag_t tag_x;
   uint64_t c;
@@ -1668,7 +1824,7 @@ static uint64_t bvvar_lower_bound_signed64(bv_solver_t *solver, thvar_t x, uint3
  * - n = bitsize of x: must be between 1 and 64
  * - the result is stored in v
  */
-static void bvvar_upper_bound_unsigned(bv_solver_t *solver, thvar_t x, uint32_t n, bvconstant_t *v) {
+static void bvvar_ub_u(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bvconstant_t *v) {
   bv_vartable_t *vtbl;
   bvvar_tag_t tag_x;
 
@@ -1695,7 +1851,7 @@ static void bvvar_upper_bound_unsigned(bv_solver_t *solver, thvar_t x, uint32_t 
   bvconstant_set_all_one(v, n);
 }
 
-static void bvvar_lower_bound_unsigned(bv_solver_t *solver, thvar_t x, uint32_t n, bvconstant_t *v) {
+static void bvvar_lb_u(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bvconstant_t *v) {
   bv_vartable_t *vtbl;
   bvvar_tag_t tag_x;
 
@@ -1722,7 +1878,7 @@ static void bvvar_lower_bound_unsigned(bv_solver_t *solver, thvar_t x, uint32_t 
   bvconstant_set_all_zero(v, n);
 }
 
-static void bvvar_upper_bound_signed(bv_solver_t *solver, thvar_t x, uint32_t n, bvconstant_t *v) {
+static void bvvar_ub_s(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bvconstant_t *v) {
   bv_vartable_t *vtbl;
   bvvar_tag_t tag_x;
 
@@ -1750,7 +1906,7 @@ static void bvvar_upper_bound_signed(bv_solver_t *solver, thvar_t x, uint32_t n,
   bvconst_clr_bit(v->data, n-1); // clear the sign bit
 }
 
-static void bvvar_lower_bound_signed(bv_solver_t *solver, thvar_t x, uint32_t n, bvconstant_t *v) {
+static void bvvar_lb_s(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bvconstant_t *v) {
   bv_vartable_t *vtbl;
   bvvar_tag_t tag_x;
 
@@ -1777,6 +1933,49 @@ static void bvvar_lower_bound_signed(bv_solver_t *solver, thvar_t x, uint32_t n,
   bvconstant_set_all_zero(v, n);
   bvconst_set_bit(v->data, n-1); // set the sign bit
 }
+
+
+
+/*
+ * TOP-LEVEL BOUND COMPUTATIONS
+ */
+
+#define BOUND_RECURSION_DEPTH 2
+
+static inline uint64_t bvvar_upper_bound_unsigned64(bv_solver_t *solver, thvar_t x, uint32_t n) {
+  return bvvar_ub_u64(solver, x, n, BOUND_RECURSION_DEPTH);
+}
+
+static inline uint64_t bvvar_lower_bound_unsigned64(bv_solver_t *solver, thvar_t x, uint32_t n) {
+  return bvvar_lb_u64(solver, x, n, BOUND_RECURSION_DEPTH);
+}
+
+static uint64_t bvvar_upper_bound_signed64(bv_solver_t *solver, thvar_t x, uint32_t n) {
+  return bvvar_ub_s64(solver, x, n, BOUND_RECURSION_DEPTH);
+}
+
+static uint64_t bvvar_lower_bound_signed64(bv_solver_t *solver, thvar_t x, uint32_t n) {
+  return bvvar_lb_s64(solver, x, n, BOUND_RECURSION_DEPTH);
+}
+
+static void bvvar_upper_bound_unsigned(bv_solver_t *solver, thvar_t x, uint32_t n, bvconstant_t *c) {
+  bvvar_ub_u(solver, x, n, BOUND_RECURSION_DEPTH, c);
+}
+
+static void bvvar_lower_bound_unsigned(bv_solver_t *solver, thvar_t x, uint32_t n, bvconstant_t *c) {
+  bvvar_lb_u(solver, x, n, BOUND_RECURSION_DEPTH, c);
+}
+
+static void bvvar_upper_bound_signed(bv_solver_t *solver, thvar_t x, uint32_t n, bvconstant_t *c) {
+  bvvar_ub_s(solver, x, n, BOUND_RECURSION_DEPTH, c);
+}
+
+static void bvvar_lower_bound_signed(bv_solver_t *solver, thvar_t x, uint32_t n, bvconstant_t *c) {
+  bvvar_lb_s(solver, x, n, BOUND_RECURSION_DEPTH, c);
+}
+
+
+
 
 
 /*
