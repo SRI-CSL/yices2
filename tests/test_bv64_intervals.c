@@ -4,11 +4,19 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <inttypes.h>
 #include <assert.h>
 
+
 #include "bv64_constants.h"
 #include "bv64_intervals.h"
+
+#ifdef MINGW
+static inline long int random(void) {
+  return rand();
+}
+#endif
 
 
 
@@ -364,14 +372,21 @@ static void test6u(uint32_t x, uint32_t y, uint32_t s, uint32_t t) {
   test_sum6(&a, &b);
 }
 
+
+// convert 6bit value x to a 32bit signed integer
+static int32_t sign_extend_bv6(uint32_t x) {
+  assert(0 <= x && x < 64);
+  return (x >= 32) ? (x - 64) : x;
+}
+
 static void test6s(uint32_t x, uint32_t y, uint32_t s, uint32_t t) {
   bv64_interval_t a;
   bv64_interval_t b;
 
   assert(0 <= x && x < 64 && 0 <= y && y < 64);
   assert(0 <= s && s < 64 && 0 <= t && t < 64);
-  assert(x <= y || (x >= 32 && y <= 31));
-  assert(s <= t || (s >= 32 && t <= 31));
+  assert(sign_extend_bv6(x) <= sign_extend_bv6(y));
+  assert(sign_extend_bv6(s) <= sign_extend_bv6(t));
 
   a.low = x;
   a.high = y;
@@ -384,7 +399,49 @@ static void test6s(uint32_t x, uint32_t y, uint32_t s, uint32_t t) {
   test_sum6_signed(&a, &b);
 }
 
-static void tests6(void) {
+// random test
+static void test6u_random(void) {
+  uint32_t x, y, s, t, aux;
+
+  x = (uint32_t) (random() & 63);
+  y = (uint32_t) (random() & 63);
+  if (x > y) {
+    // swap
+    aux = x; x = y; y = aux;
+  }
+
+  s = (uint32_t) (random() & 63);
+  t = (uint32_t) (random() & 63);
+  if (s > t) {
+    // swap
+    aux = s; s = t; t = aux;
+  }
+
+  test6u(x, y, s, t);
+}
+
+static void test6s_random(void) {
+  uint32_t x, y, s, t, aux;
+
+  x = (uint32_t) (random() & 63);
+  y = (uint32_t) (random() & 63);
+  if (sign_extend_bv6(x) > sign_extend_bv6(y)) {
+    aux = x; x = y; y = aux;
+  }
+
+  s = (uint32_t) (random() & 63);
+  t = (uint32_t) (random() & 63);
+  if (sign_extend_bv6(s) > sign_extend_bv6(t)) {
+    aux = s; s = t; t = aux;
+  }
+
+  test6s(x, y, s, t);
+}
+
+
+static void tests6(void) { 
+  uint32_t n;
+
   test6u(0, 0, 0, 0);
   test6s(0, 0, 0, 0);
   test6u(1, 1, 0, 0);
@@ -408,6 +465,30 @@ static void tests6(void) {
   test6u(0, 63, 0, 5);
   test6s(63, 0, 0, 5);  
   
+  test6u(40, 50, 0, 20);
+  test6u(0, 20, 40, 50);
+
+  test6s(40, 10, 0, 25);  
+  test6s(0, 25, 40, 10);
+
+  test6s(40, 10, 0, 21);
+  test6s(0, 21, 40, 10);
+
+  test6s(34, 57, 0, 21);
+  test6s(0, 21, 34, 57);
+
+  test6s(34, 57, 30, 31);
+  test6s(30, 31, 34, 57);
+
+  test6s(34, 57, 36, 10);
+  test6s(36, 10, 34, 57);
+
+  n = 20000;
+  while (n > 0) {
+    test6u_random();
+    test6s_random();
+    n --;
+  }
 }
 
 
