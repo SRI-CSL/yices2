@@ -264,6 +264,8 @@ typedef struct bv_solver_s {
   ivector_t aux_vector;
   bvconstant_t aux1;
   bvconstant_t aux2;
+  bvconstant_t aux3;
+  bvconstant_t aux4;
   // buffers for bit-blasting
   ivector_t a_vector;
   ivector_t b_vector;

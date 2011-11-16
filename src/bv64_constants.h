@@ -171,6 +171,18 @@ extern bool signed64_ge(uint64_t a, uint64_t b, uint32_t n);
 extern bool signed64_gt(uint64_t a, uint64_t b, uint32_t n);
 
 
+/*
+ * Variants: a <= b and a < b
+ */
+static inline bool signed64_le(uint64_t a, uint64_t b, uint32_t n) {
+  return signed64_ge(b, a, n);
+}
+
+static inline bool signed64_lt(uint64_t a, uint64_t b, uint32_t n) {
+  return signed64_gt(b, a, n);
+}
+
+
 
 /*
  * DIVISIONS
