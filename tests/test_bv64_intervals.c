@@ -483,7 +483,7 @@ static void tests6(void) {
   test6s(34, 57, 36, 10);
   test6s(36, 10, 34, 57);
 
-  n = 20000;
+  n = 2000;
   while (n > 0) {
     test6u_random();
     test6s_random();
@@ -492,8 +492,122 @@ static void tests6(void) {
 }
 
 
+/*
+ * Random 64bit unsigned integer
+ */
+static uint64_t random_uint64(void) {
+  return (((uint64_t) random()) << 34)  | ((uint64_t) (random() & 0xFFFFFFFF));
+}
+
+/*
+ * Random interval: n = bitsize
+ */
+static void random_unsigned_intv(bv64_interval_t *a, uint32_t n) {
+  uint64_t x, y, aux;
+
+  assert(1 <= n && n <= 64);
+  x = norm64(random_uint64(), n);
+  y = norm64(random_uint64(), n);
+  if (x > y) {
+    aux = x; x = y; y = aux;
+  }
+
+  a->low = x;
+  a->high = y;
+  a->nbits = n;  
+}
+
+static void random_signed_intv(bv64_interval_t *a, uint32_t n) {
+  uint64_t x, y, aux;
+
+  assert(1 <= n && n <= 64);
+  x = norm64(random_uint64(), n);
+  y = norm64(random_uint64(), n);
+  if (signed64_gt(x, y, n)) {
+    aux = x; x = y; y = aux;
+  }
+
+  a->low = x;
+  a->high = y;
+  a->nbits = n;  
+}
+
+
+/*
+ * Tests of sum
+ */
+static void test_sum(bv64_interval_t *a, bv64_interval_t *b) {
+  printf("\n--- Test sum unsigned ---\n");
+  printf("a: ");
+  show_interval_unsigned(stdout, a);
+  printf("\nb: ");
+  show_interval_unsigned(stdout, b);
+  printf("\n");
+  bv64_interval_add_u(a, b);
+  printf("sum: ");
+  show_interval_unsigned(stdout, a);
+  printf("\n\n");
+}
+
+
+static void test_sum_signed(bv64_interval_t *a, bv64_interval_t *b) {
+  printf("\n--- Test sum signed ---\n");
+  printf("a: ");
+  show_interval_signed(stdout, a);
+  printf("\nb: ");
+  show_interval_signed(stdout, b);
+  printf("\n");
+  bv64_interval_add_s(a, b);
+  printf("sum: ");
+  show_interval_signed(stdout, a);
+  printf("\n\n");
+}
+
+
+/*
+ * Random tests for bitvectors of size n
+ * - nt = number of tests
+ */
+static void random_tests_unsigned(uint32_t n, uint32_t nt) {
+  bv64_interval_t a;
+  bv64_interval_t b;
+
+  while (nt > 0) {
+    nt --;
+    random_unsigned_intv(&a, n);
+    random_unsigned_intv(&b, n);    
+    test_sum(&a, &b);
+  }
+}
+
+static void random_tests_signed(uint32_t n, uint32_t nt) {
+  bv64_interval_t a;
+  bv64_interval_t b;
+
+  while (nt > 0) {
+    nt --;
+    random_signed_intv(&a, n);
+    random_signed_intv(&b, n);    
+    test_sum_signed(&a, &b);
+  }
+}
+
+
+
 int main(void) {
   tests6();
+
+  random_tests_unsigned(32, 100);
+  random_tests_signed(32, 100);
+
+  random_tests_unsigned(33, 100);
+  random_tests_signed(33, 100);
+
+  random_tests_unsigned(63, 100);
+  random_tests_signed(63, 100);
+
+  random_tests_unsigned(64, 100);
+  random_tests_signed(64, 100);
 
   return 0;
 }
