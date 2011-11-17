@@ -125,6 +125,12 @@ static inline bool bv64_interval_is_triv_s(bv64_interval_t *intv) {
 extern void bv64_interval_add_u(bv64_interval_t *a, bv64_interval_t *b);
 extern void bv64_interval_add_s(bv64_interval_t *a, bv64_interval_t *b);
 
+/*
+ * Same thing to [a.low - b.high, a.high - b.low]
+ */
+extern void bv64_interval_sub_u(bv64_interval_t *a, bv64_interval_t *b);
+extern void bv64_interval_sub_s(bv64_interval_t *a, bv64_interval_t *b);
+
 
 /*
  * Best overapproximation of [a.low + c * b.low, a.high + c * b.high] modulo 2^n
