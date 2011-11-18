@@ -126,7 +126,11 @@ extern void bv64_interval_add_u(bv64_interval_t *a, bv64_interval_t *b);
 extern void bv64_interval_add_s(bv64_interval_t *a, bv64_interval_t *b);
 
 /*
- * Same thing to [a.low - b.high, a.high - b.low]
+ * Same thing for [a.low - b.high, a.high - b.low] modulo 2^n
+ * - a and b must have the same bit size and be normalized
+ * - the result is stored in a
+ * - the functions detect overflow/underflow and set a to the 
+ *   trivial interval if necessary
  */
 extern void bv64_interval_sub_u(bv64_interval_t *a, bv64_interval_t *b);
 extern void bv64_interval_sub_s(bv64_interval_t *a, bv64_interval_t *b);

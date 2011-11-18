@@ -1249,7 +1249,7 @@ void bvconst_submul(uint32_t *bv, uint32_t k, uint32_t *a1, uint32_t *a2) {
    *   bv_2 = (a1 * a2 - bv - 1) mod (2^32k)
    *   bv_3 = (bv - a1 * a1) mod (2^32k) = what we want
    */
-  bvconst_complement(bv, k); 
+  bvconst_complement(bv, k);
   bvconst_addmul(bv, k, a1, a2);
   bvconst_complement(bv, k); 
 }
