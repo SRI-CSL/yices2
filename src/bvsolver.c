@@ -1287,6 +1287,15 @@ static bool diseq_bitarray_const(literal_t *a, uint32_t *c, uint32_t n) {
 }
 
 
+
+/*
+ * TODO: more disequality checks (cf. bvsolver.c.old) 
+ * using rules:
+ *   c != c0 + t  iff  t != (c - c0)
+ *   c != c0 - t  iff  t != (c0 - c)
+ * etc.
+ */
+
 /*
  * Top-level disequality check
  * - x and y must be roots of their equivalence class in the merge table
@@ -1593,13 +1602,15 @@ static void bvvar_bounds_u64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_
   }
 
 
-  // check for better bounds in the bound queue
-  if (bvvar_has_lower_bound64(solver, x, &c)) {
-    assert(c > intv->low);
+  /*
+   * check for better bounds in the bound queue
+   * Note: if asserted lower bound on c > intv->high then the constraints are unsat
+   * (but this will be detected later on)
+   */
+  if (bvvar_has_lower_bound64(solver, x, &c) && c > intv->low && c <= intv->high) {
     intv->low = c;
   }
-  if (bvvar_has_upper_bound64(solver, x, &c)) {
-    assert(c < intv->high);
+  if (bvvar_has_upper_bound64(solver, x, &c) && c < intv->high && c >= intv->low) {
     intv->high = c;
   }
 
@@ -1633,13 +1644,15 @@ static void bvvar_bounds_s64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_
     bv64_interval_set_s(intv, min_signed64(n), max_signed64(n), n);
   }
   
-  // check for better bounds in the queue
-  if (bvvar_has_signed_lower_bound64(solver, x, &c)) {
-    assert(signed64_gt(c, intv->low, n));
+  /*
+   * Check for better bounds in the queue
+   */
+  if (bvvar_has_signed_lower_bound64(solver, x, &c) && signed64_gt(c, intv->low, n) && 
+      signed64_le(c, intv->high, n)) {
     intv->low = c;
   }
-  if (bvvar_has_signed_upper_bound64(solver, x, &c)) {
-    assert(signed64_lt(c, intv->high, n));
+  if (bvvar_has_signed_upper_bound64(solver, x, &c) && signed64_lt(c, intv->high, n) &&
+      signed64_ge(c, intv->low, n)) {
     intv->high = c;
   }
 

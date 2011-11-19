@@ -1,0 +1,301 @@
+(define n::(bitvector 9) (mk-bv 9 259))
+
+(define square::(bitvector 8) (mk-bv 8 5))
+
+(define one::(bitvector 8) (mk-bv 8 1))
+
+
+(define a::(bitvector 8))
+
+(define p0::(bitvector 9) (mk-bv 9 0))
+
+(define p1::(bitvector 9)
+ (bv-xor p0 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 0 0 square) 7) a))))
+
+(define p2::(bitvector 9) 
+  (bv-shift-right0 (if (= (bv-extract 0 0 p1) 0b1) (bv-xor p1 n) (bv-xor p1 0b000000000)) 1))
+
+
+(define p3::(bitvector 9)
+  (bv-xor p2 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 1 1 square) 7) a))))
+
+(define p4::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 p3) 0b1) (bv-xor p3 n) (bv-xor p3 0b000000000)) 1))
+
+
+(define p5::(bitvector 9)
+  (bv-xor p4 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 2 2 square) 7) a))))
+
+(define p6::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 p5) 0b1) (bv-xor p5 n) (bv-xor p5 0b000000000)) 1))
+
+
+(define p7::(bitvector 9)
+  (bv-xor p6 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 3 3 square) 7) a))))
+
+(define p8::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 p7) 0b1) (bv-xor p7 n) (bv-xor p7 0b000000000)) 1))
+
+
+(define p9::(bitvector 9)
+  (bv-xor p8 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 4 4 square) 7) a))))
+ 
+(define p10::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 p9) 0b1) (bv-xor p9 n) (bv-xor p9 0b000000000)) 1))
+
+
+(define p11::(bitvector 9)
+  (bv-xor p10 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 5 5 square) 7) a))))
+
+(define p12::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 p11) 0b1) (bv-xor p11 n) (bv-xor p11 0b000000000)) 1))
+
+(define p13::(bitvector 9)
+  (bv-xor p12 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 6 6 square) 7) a))))
+
+(define p14::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 p13) 0b1) (bv-xor p13 n) (bv-xor p13 0b000000000)) 1))
+
+(define p15::(bitvector 9)
+  (bv-xor p14 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 7 7 square) 7) a))))
+
+(define p16::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 p15) 0b1) (bv-xor p15 n) (bv-xor p15 0b000000000)) 1))
+
+(define r1::(bitvector 8)
+  (bv-extract 7 0 p16))
+
+
+
+(define b::(bitvector 8))
+
+(define q0::(bitvector 9) (mk-bv 9 0))
+
+(define q1::(bitvector 9)
+  (bv-xor q0 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 0 0 square) 7) b))))
+
+(define q2::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 q1) 0b1) (bv-xor q1 n) (bv-xor q1 0b000000000)) 1))
+
+(define q3::(bitvector 9)
+  (bv-xor q2 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 1 1 square) 7) b))))
+
+(define q4::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 q3) 0b1) (bv-xor q3 n) (bv-xor q3 0b000000000)) 1))
+
+(define q5::(bitvector 9)
+  (bv-xor q4 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 2 2 square) 7) b))))
+
+(define q6::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 q5) 0b1) (bv-xor q5 n) (bv-xor q5 0b000000000)) 1))
+
+(define q7::(bitvector 9)
+  (bv-xor q6 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 3 3 square) 7) b))))
+
+(define q8::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 q7) 0b1) (bv-xor q7 n) (bv-xor q7 0b000000000)) 1))
+
+(define q9::(bitvector 9)
+  (bv-xor q8 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 4 4 square) 7) b))))
+
+(define q10::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 q9) 0b1) (bv-xor q9 n) (bv-xor q9 0b000000000)) 1))
+
+(define q11::(bitvector 9)
+  (bv-xor q10 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 5 5 square) 7) b))))
+
+(define q12::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 q11) 0b1) (bv-xor q11 n) (bv-xor q11 0b000000000)) 1))
+
+(define q13::(bitvector 9)
+  (bv-xor q12 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 6 6 square) 7) b))))
+
+(define q14::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 q13) 0b1) (bv-xor q13 n) (bv-xor q13 0b000000000)) 1))
+
+(define q15::(bitvector 9)
+  (bv-xor q14 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 7 7 square) 7) b))))
+
+(define q16::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 q15) 0b1) (bv-xor q15 n) (bv-xor q15 0b000000000)) 1))
+
+(define r2::(bitvector 8) 
+  (bv-extract 7 0 q16))
+
+
+
+(define o0::(bitvector 9) (mk-bv 9 0))
+
+(define o1::(bitvector 9)
+  (bv-xor o0 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 0 0 r2) 7) r1))))
+
+(define o2::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 o1) 0b1) (bv-xor o1 n) (bv-xor o1 0b000000000)) 1))
+
+(define o3::(bitvector 9)
+  (bv-xor o2 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 1 1 r2) 7) r1))))
+
+(define o4::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 o3) 0b1) (bv-xor o3 n) (bv-xor o3 0b000000000)) 1))
+
+(define o5::(bitvector 9)
+  (bv-xor o4 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 2 2 r2) 7) r1))))
+
+(define o6::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 o5) 0b1) (bv-xor o5 n) (bv-xor o5 0b000000000)) 1))
+
+(define o7::(bitvector 9)
+  (bv-xor o6 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 3 3 r2) 7) r1))))
+
+(define o8::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 o7) 0b1) (bv-xor o7 n) (bv-xor o7 0b000000000)) 1))
+
+(define o9::(bitvector 9)
+  (bv-xor o8 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 4 4 r2) 7) r1))))
+
+(define o10::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 o9) 0b1) (bv-xor o9 n) (bv-xor o9 0b000000000)) 1))
+
+(define o11::(bitvector 9)
+  (bv-xor o10 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 5 5 r2) 7) r1))))
+
+(define o12::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 o11) 0b1) (bv-xor o11 n) (bv-xor o11 0b000000000)) 1))
+
+(define o13::(bitvector 9)
+  (bv-xor o12 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 6 6 r2) 7) r1))))
+
+(define o14::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 o13) 0b1) (bv-xor o13 n) (bv-xor o13 0b000000000)) 1))
+
+(define o15::(bitvector 9)
+  (bv-xor o14 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 7 7 r2) 7) r1))))
+
+(define o16::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 o15) 0b1) (bv-xor o15 n) (bv-xor o15 0b000000000)) 1))
+
+
+(define r3::(bitvector 8) (bv-extract 7 0 o16))
+
+
+
+
+(define t0::(bitvector 9) (mk-bv 9 0))
+
+(define t1::(bitvector 9)
+  (bv-xor t0 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 0 0 one) 7) r3))))
+
+(define t2::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 t1) 0b1) (bv-xor t1 n) (bv-xor t1 0b000000000)) 1))
+
+(define t3::(bitvector 9)
+  (bv-xor t2 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 1 1 one) 7) r3))))
+
+(define t4::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 t3) 0b1) (bv-xor t3 n) (bv-xor t3 0b000000000)) 1))
+
+(define t5::(bitvector 9)
+  (bv-xor t4 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 2 2 one) 7) r3))))
+
+(define t6::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 t5) 0b1) (bv-xor t5 n) (bv-xor t5 0b000000000)) 1))
+
+(define t7::(bitvector 9)
+  (bv-xor t6 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 3 3 one) 7) r3))))
+
+(define t8::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 t7) 0b1) (bv-xor t7 n) (bv-xor t7 0b000000000)) 1))
+
+(define t9::(bitvector 9)
+  (bv-xor t8 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 4 4 one) 7) r3))))
+
+(define t10::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 t9) 0b1) (bv-xor t9 n) (bv-xor t9 0b000000000)) 1))
+
+(define t11::(bitvector 9)
+  (bv-xor t10 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 5 5 one) 7) r3))))
+
+(define t12::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 t11) 0b1) (bv-xor t11 n) (bv-xor t11 0b000000000)) 1))
+
+(define t13::(bitvector 9)
+  (bv-xor t12 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 6 6 one) 7) r3))))
+
+(define t14::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 t13) 0b1) (bv-xor t13 n) (bv-xor t13 0b000000000)) 1))
+
+(define t15::(bitvector 9)
+  (bv-xor t14 (bv-concat 0b0 (bv-and (bv-sign-extend (bv-extract 7 7 one) 7) r3))))
+
+(define t16::(bitvector 9)
+  (bv-shift-right0 (if (= (bv-extract 0 0 t15) 0b1) (bv-xor t15 n) (bv-xor t15 0b000000000)) 1))
+
+
+(define final::(bitvector 8) (bv-extract 7 0 t16))
+
+
+(define f0::(bitvector 15) 
+  (mk-bv 15 0))
+
+(define f1::(bitvector 15)
+  (bv-xor f0 (bv-shift-left0 (bv-concat 0b0000000 (bv-and (bv-sign-extend (bv-extract 0 0 b) 7) a)) 0)))
+
+(define f2::(bitvector 15)
+  (bv-xor f1 (bv-shift-left0 (bv-concat 0b0000000 (bv-and (bv-sign-extend (bv-extract 1 1 b) 7) a)) 1)))
+
+(define f3::(bitvector 15)
+  (bv-xor f2 (bv-shift-left0 (bv-concat 0b0000000 (bv-and (bv-sign-extend (bv-extract 2 2 b) 7) a)) 2)))
+
+(define f4::(bitvector 15)
+  (bv-xor f3 (bv-shift-left0 (bv-concat 0b0000000 (bv-and (bv-sign-extend (bv-extract 3 3 b) 7) a)) 3)))
+
+(define f5::(bitvector 15)
+  (bv-xor f4 (bv-shift-left0 (bv-concat 0b0000000 (bv-and (bv-sign-extend (bv-extract 4 4 b) 7) a)) 4)))
+
+(define f6::(bitvector 15)
+  (bv-xor f5 (bv-shift-left0 (bv-concat 0b0000000 (bv-and (bv-sign-extend (bv-extract 5 5 b) 7) a)) 5)))
+
+(define f7::(bitvector 15)
+  (bv-xor f6 (bv-shift-left0 (bv-concat 0b0000000 (bv-and (bv-sign-extend (bv-extract 6 6 b) 7) a)) 6)))
+
+(define f8::(bitvector 15)
+  (bv-xor f7 (bv-shift-left0 (bv-concat 0b0000000 (bv-and (bv-sign-extend (bv-extract 7 7 b) 7) a)) 7)))
+
+
+
+(define e0::(bitvector 8) (bv-extract 7 0 n))
+
+(define e1::(bitvector 8) (if (= (bv-extract 7 7 e0) 0b1) (bv-xor (bv-shift-left0 e0 1) e0) (bv-shift-left0 e0 1)) )
+
+(define e2::(bitvector 8) (if (= (bv-extract 7 7 e1) 0b1) (bv-xor (bv-shift-left0 e1 1) e0) (bv-shift-left0 e1 1)) )
+
+(define e3::(bitvector 8) (if (= (bv-extract 7 7 e2) 0b1) (bv-xor (bv-shift-left0 e2 1) e0) (bv-shift-left0 e2 1)) )
+
+(define e4::(bitvector 8) (if (= (bv-extract 7 7 e3) 0b1) (bv-xor (bv-shift-left0 e3 1) e0) (bv-shift-left0 e3 1)) )
+
+(define e5::(bitvector 8) (if (= (bv-extract 7 7 e4) 0b1) (bv-xor (bv-shift-left0 e4 1) e0) (bv-shift-left0 e4 1)) )
+
+(define e6::(bitvector 8) (if (= (bv-extract 7 7 e5) 0b1) (bv-xor (bv-shift-left0 e5 1) e0) (bv-shift-left0 e5 1)) )
+
+
+(define d0::(bitvector 8) (bv-extract 7 0 f8))
+
+(define d1::(bitvector 8) (if (= (bv-extract 8 8 f8) 0b1) (bv-xor d0 e0) d0) )
+
+(define d2::(bitvector 8) (if (= (bv-extract 9 9 f8) 0b1) (bv-xor d1 e1) d1) )
+
+(define d3::(bitvector 8) (if (= (bv-extract 10 10 f8) 0b1) (bv-xor d2 e2) d2) )
+
+(define d4::(bitvector 8) (if (= (bv-extract 11 11 f8) 0b1) (bv-xor d3 e3) d3) )
+
+(define d5::(bitvector 8) (if (= (bv-extract 12 12 f8) 0b1) (bv-xor d4 e4) d4) )
+
+(define d6::(bitvector 8) (if (= (bv-extract 13 13 f8) 0b1) (bv-xor d5 e5) d5) )
+
+(define d7::(bitvector 8) (if (= (bv-extract 14 14 f8) 0b1) (bv-xor d6 e6) d6) )
+
+(define r::(bitvector 8) d7)
+
+(assert (/= r final))
+
+(check)

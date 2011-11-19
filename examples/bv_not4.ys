@@ -1,0 +1,5 @@
+(define x::(bitvector 4))
+(define y::(bitvector 4))
+(assert (= x y))
+(assert (/= (bv-not x)(bv-not y)))
+(check)

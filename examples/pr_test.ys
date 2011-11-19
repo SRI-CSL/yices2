@@ -1,0 +1,13 @@
+(define a::(bitvector 4))
+(define b::(bitvector 4))
+(define c::(bitvector 4))
+(define d::(bitvector 4))
+
+(assert (= b a))
+(assert (bv-lt c 0b0010))
+(assert (= d b))
+(assert (= c b))
+(assert (= d 0b0100))
+
+(check)
+
