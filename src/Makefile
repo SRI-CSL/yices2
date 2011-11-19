@@ -248,7 +248,7 @@ ifeq ($(POSIXOS),linux)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DLINUX
-  CFLAGS += -fvisibility=hidden
+  CFLAGS += -fvisibility=hidden 
   BIN_LDFLAGS=
   libyices_dynamic=$(libyices_so)
 else
@@ -292,7 +292,7 @@ endif
 # (don't use it if MODE=profile)
 #
 ifeq ($(YICES_MODE),release) 
-CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer
+CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer -fno-stack-protector
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else 
 ifeq ($(YICES_MODE),profile)

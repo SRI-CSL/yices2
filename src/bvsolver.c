@@ -6,6 +6,7 @@
 
 #include "memalloc.h"
 #include "bv64_constants.h"
+#include "bv64_intervals.h"
 #include "small_bvsets.h"
 #include "rb_bvsets.h"
 #include "int_powers.h"
@@ -1380,11 +1381,10 @@ static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
 /*
  * Compute a lower and upper bound on a bitarray a
  * - n = number of bits in a. n must be no more than 64
- * - the lower bound is returned in *lb
- * - the upper bound is returned in *ub
+ * - the bounds are returned in intv
  * - both are normalized modulo 2^n
  */
-static void bitarray_bounds_unsigned64(literal_t *a, uint32_t n, uint64_t *lb, uint64_t *ub) {
+static void bitarray_bounds_unsigned64(literal_t *a, uint32_t n, bv64_interval_t *intv) {
   uint64_t low, high;
   uint32_t i;
 
@@ -1401,11 +1401,12 @@ static void bitarray_bounds_unsigned64(literal_t *a, uint32_t n, uint64_t *lb, u
 
   assert(low <= high && low == norm64(low, n) && high == norm64(high, n));
 
-  *lb = low;
-  *ub = high;
+  intv->low = low;
+  intv->high = high;
+  intv->nbits = n;
 }
 
-static void bitarray_bounds_signed64(literal_t *a, uint32_t n, uint64_t *lb, uint64_t *ub) {
+static void bitarray_bounds_signed64(literal_t *a, uint32_t n, bv64_interval_t *intv) {
   uint64_t low, high;
   uint32_t i;
 
@@ -1431,8 +1432,9 @@ static void bitarray_bounds_signed64(literal_t *a, uint32_t n, uint64_t *lb, uin
 
   assert(signed64_ge(high, low, n) && low == norm64(low, n) && high == norm64(high, n));
 
-  *lb = low;
-  *ub = high;
+  intv->low = low;
+  intv->high = high;
+  intv->nbits = n;
 }
 
 
@@ -1489,7 +1491,7 @@ static void bitarray_bounds_signed(literal_t *a, uint32_t n, bvconstant_t *lb, b
 
 /*
  * Recursive computation of bounds on a variable x
- * - d = limit on recursion depth (to prevent infinite loops)
+ * - d = limit on recursion depth
  * - n = number of bits in x
  * - the functions exist in two versions: one for bitvectors of 64bits at most,
  *   the other for bitvecots of more than 64bits.
@@ -1497,13 +1499,69 @@ static void bitarray_bounds_signed(literal_t *a, uint32_t n, bvconstant_t *lb, b
  * - the upper bound is returned in *ub
  */
 
-static void bvvar_bounds_u64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, uint64_t *lb, uint64_t *ub);
-static void bvvar_bounds_s64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, uint64_t *lb, uint64_t *ub);
+static void bvvar_bounds_u64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bv64_interval_t *intv);
+static void bvvar_bounds_s64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bv64_interval_t *intv);
 
 static void bvvar_bounds_u(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bvconstant_t *lb, bvconstant_t *ub);
 static void bvvar_bounds_s(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bvconstant_t *lb, bvconstant_t *ub);
 
 
+
+/*
+ * Bounds on polynomials
+ * - d = recursion limit
+ */
+static void bvpoly64_bounds_u(bv_solver_t *solver, bvpoly64_t *p, uint32_t d, bv64_interval_t *intv) {
+  bv64_interval_t aux;
+  uint32_t i, n, nbits;
+  thvar_t x;
+
+  n = p->nterms;
+  nbits = p->bitsize;
+  i = 0;
+
+  // constant term:
+  if (p->mono[i].var == const_idx) {
+    bv64_point_interval(intv, p->mono[i].coeff, nbits);
+    i ++;
+  } else {
+    bv64_zero_interval(intv, nbits);
+  }
+
+  while (i < n) {
+    x = mtbl_get_root(&solver->mtbl, p->mono[i].var);
+    bvvar_bounds_u64(solver, x, nbits, d, &aux);
+    bv64_interval_addmul_u(intv, &aux, p->mono[i].coeff);
+    if (bv64_interval_is_triv_u(intv)) break;      
+    i ++;
+  }
+}
+
+static void bvpoly64_bounds_s(bv_solver_t *solver, bvpoly64_t *p, uint32_t d, bv64_interval_t *intv) {
+  bv64_interval_t aux;
+  uint32_t i, n, nbits;
+  thvar_t x;
+
+  n = p->nterms;
+  nbits = p->bitsize;
+  i = 0;
+
+  // constant term:
+  if (p->mono[i].var == const_idx) {
+    bv64_point_interval(intv, p->mono[i].coeff, nbits);
+    i ++;
+  } else {
+    bv64_zero_interval(intv, nbits);
+  }
+
+  while (i < n) {
+    x = mtbl_get_root(&solver->mtbl, p->mono[i].var);
+    bvvar_bounds_s64(solver, x, nbits, d, &aux);
+    bv64_interval_addmul_s(intv, &aux, p->mono[i].coeff);
+    if (bv64_interval_is_triv_s(intv)) break;      
+    i ++;
+  }
+}
 
 
 
@@ -1511,7 +1569,7 @@ static void bvvar_bounds_s(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t 
  * Lower/upper bound for a bitvector variable x
  * - n = bitsize of x: must be between 1 and 64
  */
-static void bvvar_bounds_u64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, uint64_t *lb, uint64_t *ub) {
+static void bvvar_bounds_u64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bv64_interval_t *intv) {
   bv_vartable_t *vtbl;
   bvvar_tag_t tag_x;
   uint64_t c;
@@ -1523,37 +1581,36 @@ static void bvvar_bounds_u64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_
   tag_x = bvvar_tag(vtbl, x);
 
   if (tag_x == BVTAG_CONST64) {
-    *lb = bvvar_val64(vtbl, x);
-    *ub = bvvar_val64(vtbl, x);
+    bv64_point_interval(intv, bvvar_val64(vtbl, x), n);
     return;
+  } else if (tag_x == BVTAG_BIT_ARRAY) {
+    bitarray_bounds_unsigned64(bvvar_bvarray_def(vtbl, x), n, intv);
+  } else if (tag_x == BVTAG_POLY64 && d>0) {
+    bvpoly64_bounds_u(solver, bvvar_poly64_def(vtbl, x), d-1, intv);
+  } else {
+    // default bounds
+    bv64_interval_set_u(intv, 0, mask64(n), n);
   }
 
-  // default bounds
-  *lb = 0;
-  *ub = mask64(n);
-
-  if (tag_x == BVTAG_BIT_ARRAY) {
-    bitarray_bounds_unsigned64(bvvar_bvarray_def(vtbl, x), n, lb, ub);
-  }
 
   // check for better bounds in the bound queue
   if (bvvar_has_lower_bound64(solver, x, &c)) {
-    assert(c > *lb);
-    *lb = c;
+    assert(c > intv->low);
+    intv->low = c;
   }
   if (bvvar_has_upper_bound64(solver, x, &c)) {
-    assert(c < *ub);
-    *ub = c;
+    assert(c < intv->high);
+    intv->high = c;
   }
 
-  assert(*lb == norm64(*lb, n) && *ub == norm64(*ub, n) && *lb <= *ub);
+  assert(bv64_interval_is_normalized(intv) && intv->low <= intv->high);
 }
 
 
 /*
  * Same thing: for bitvectors interpreted as signed integers
  */
-static void bvvar_bounds_s64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, uint64_t *lb, uint64_t *ub) {
+static void bvvar_bounds_s64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bv64_interval_t *intv) {
   bv_vartable_t *vtbl;
   bvvar_tag_t tag_x;
   uint64_t c;
@@ -1565,30 +1622,28 @@ static void bvvar_bounds_s64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_
   tag_x = bvvar_tag(vtbl, x);  
 
   if (tag_x == BVTAG_CONST64) {
-    *lb = bvvar_val64(vtbl, x);
-    *ub = bvvar_val64(vtbl, x);
+    bv64_point_interval(intv, bvvar_val64(vtbl, x), n);
     return;
-  }
-
-  // default bounds
-  *lb = min_signed64(n);
-  *ub = max_signed64(n);
-  
-  if (tag_x == BVTAG_BIT_ARRAY) {
-    bitarray_bounds_signed64(bvvar_bvarray_def(vtbl, x), n, lb, ub);
+  } else if (tag_x == BVTAG_BIT_ARRAY) {
+    bitarray_bounds_signed64(bvvar_bvarray_def(vtbl, x), n, intv);
+  } else if (tag_x == BVTAG_POLY64 && d>0) {
+    bvpoly64_bounds_s(solver, bvvar_poly64_def(vtbl, x), d-1, intv);
+  } else {
+    // default bounds
+    bv64_interval_set_s(intv, min_signed64(n), max_signed64(n), n);
   }
   
   // check for better bounds in the queue
   if (bvvar_has_signed_lower_bound64(solver, x, &c)) {
-    assert(signed64_gt(c, *lb, n));
-    *lb = c;
+    assert(signed64_gt(c, intv->low, n));
+    intv->low = c;
   }
   if (bvvar_has_signed_upper_bound64(solver, x, &c)) {
-    assert(signed64_lt(c, *ub, n));
-    *ub = c;
+    assert(signed64_lt(c, intv->high, n));
+    intv->high = c;
   }
 
-  assert(*lb == norm64(*lb, n) && *ub == norm64(*ub, n) && signed64_le(*lb, *ub, n));
+  assert(bv64_interval_is_normalized(intv) && signed64_le(intv->low, intv->high, n));
 }
 
 
@@ -1685,8 +1740,8 @@ typedef enum {
  * - return BVTEST_UNKNOWN otherwise
  */
 static bvtest_code_t check_bvuge(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  bv64_interval_t intv_x, intv_y;
   bvconstant_t *low_x, *high_x, *low_y, *high_y;
-  uint64_t lx, ux, ly, uy;
   uint32_t n;
 
   assert(bvvar_bitsize(&solver->vtbl, x) == bvvar_bitsize(&solver->vtbl, y));
@@ -1698,14 +1753,14 @@ static bvtest_code_t check_bvuge(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
   if (n <= 64) {
 
-    bvvar_bounds_u64(solver, x, n, 1, &lx, &ux);  // lx <= x <= ux
-    bvvar_bounds_u64(solver, y, n, 1, &ly, &uy);  // ly <= y <= uy
+    bvvar_bounds_u64(solver, x, n, 1, &intv_x);  // intv_x.low <= x <= intv_x.high
+    bvvar_bounds_u64(solver, y, n, 1, &intv_y);  // intv_y.low <= y <= intv_y.high
 
-    if (lx >= uy) {
+    if (intv_x.low >= intv_y.high) {
       return BVTEST_TRUE;
     }
 
-    if (ux < ly) {
+    if (intv_x.high < intv_y.low) {
       return BVTEST_FALSE;
     }
 
@@ -1741,8 +1796,8 @@ static bvtest_code_t check_bvuge(bv_solver_t *solver, thvar_t x, thvar_t y) {
  * - return BVTEST_UNKNOWN otherwise
  */
 static bvtest_code_t check_bvsge(bv_solver_t *solver, thvar_t x, thvar_t y) {
-  bvconstant_t *low_x, *high_x, *low_y, *high_y;
-  uint64_t lx, ux, ly, uy;
+  bv64_interval_t intv_x, intv_y;
+  bvconstant_t *low_x, *high_x, *low_y, *high_y;  
   uint32_t n;
 
   assert(bvvar_bitsize(&solver->vtbl, x) == bvvar_bitsize(&solver->vtbl, y));
@@ -1754,14 +1809,14 @@ static bvtest_code_t check_bvsge(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
   if (n <= 64) {
 
-    bvvar_bounds_s64(solver, x, n, 1, &lx, &ux);  // lx <= x <= ux
-    bvvar_bounds_s64(solver, y, n, 1, &ly, &uy);  // ly <= y <= uy
+    bvvar_bounds_s64(solver, x, n, 1, &intv_x);  // intv_x.low <= x <= intv_x.high
+    bvvar_bounds_s64(solver, y, n, 1, &intv_y);  // intv_y.low <= y <= intv_y.high
 
-    if (signed64_ge(lx, uy, n)) { // lx >= uy
+    if (signed64_ge(intv_x.low, intv_y.high, n)) { // lx >= uy
       return BVTEST_TRUE;
     }
 
-    if (signed64_lt(ux, ly, n)) { // ux < ly
+    if (signed64_lt(intv_x.high, intv_y.low, n)) { // ux < ly
       return BVTEST_FALSE;
     }
 
