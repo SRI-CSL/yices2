@@ -1209,6 +1209,8 @@ static bool bvpoly64_is_simple(bv_solver_t *solver, bvpoly64_t *p, uint64_t *c0,
   thvar_t x, u;
 
   vtbl = &solver->vtbl;
+
+  *a0 = 0; // otherwise GCC gives a bogous warning
   
   n = p->nterms;
   nbits = p->bitsize;
@@ -1432,11 +1434,11 @@ static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
   n = bvvar_bitsize(vtbl, x);
   if (n <= 64) {
     if (tag_x == BVTAG_CONST64) {
-      return diseq_bvvar_const64(solver, y, bvvar_val64(vtbl, x), n, 2); // recursion limit = 2
+      return diseq_bvvar_const64(solver, y, bvvar_val64(vtbl, x), n, 4); // recursion limit = 2
     }
 
     if (tag_y == BVTAG_CONST64) {
-      return diseq_bvvar_const64(solver, x, bvvar_val64(vtbl, y), n, 2); // recursion limit = 2      
+      return diseq_bvvar_const64(solver, x, bvvar_val64(vtbl, y), n, 4); // recursion limit = 2      
     }
 
     if (tag_x == BVTAG_POLY64 && tag_y == BVTAG_POLY64) {
@@ -1882,8 +1884,8 @@ static bvtest_code_t check_bvuge(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
   if (n <= 64) {
 
-    bvvar_bounds_u64(solver, x, n, 1, &intv_x);  // intv_x.low <= x <= intv_x.high
-    bvvar_bounds_u64(solver, y, n, 1, &intv_y);  // intv_y.low <= y <= intv_y.high
+    bvvar_bounds_u64(solver, x, n, 4, &intv_x);  // intv_x.low <= x <= intv_x.high
+    bvvar_bounds_u64(solver, y, n, 4, &intv_y);  // intv_y.low <= y <= intv_y.high
 
     if (intv_x.low >= intv_y.high) {
       return BVTEST_TRUE;
@@ -1900,8 +1902,8 @@ static bvtest_code_t check_bvuge(bv_solver_t *solver, thvar_t x, thvar_t y) {
     low_y = &solver->aux3;
     high_y = &solver->aux4;
 
-    bvvar_bounds_u(solver, x, n, 1, low_x, high_x);  // low_x <= x <= high_x
-    bvvar_bounds_u(solver, y, n, 1, low_y, high_y);  // low_y <= y <= high_y
+    bvvar_bounds_u(solver, x, n, 4, low_x, high_x);  // low_x <= x <= high_x
+    bvvar_bounds_u(solver, y, n, 4, low_y, high_y);  // low_y <= y <= high_y
 
     if (bvconst_ge(low_x->data, high_y->data, n)) {
       return BVTEST_TRUE;
