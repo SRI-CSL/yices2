@@ -1421,7 +1421,7 @@ static bool simple_poly(polynomial_t *p) {
 
 
 /*
- * Check whether to substitute x by its definition in polynomials or atoms
+ * Check whether we should substitute x by its definition in polynomials or atoms
  * - x must be different form const_idx
  * - the substitution x := p is applied if it's cheap enough
  */

@@ -1193,9 +1193,65 @@ static bool bvvar_is_max_signed(bv_vartable_t *vtbl, thvar_t x) {
 
 
 
+/********************************
+ *  SUPPORT FOR SIMPLIFICATION  *
+ *******************************/
+
+/*
+ * Check whether p can be written as c0 + a0 t or c0
+ * - return true if p has one of these special forms
+ * - if p is a constant polynomial, then t is set to null_term
+ */
+static bool bvpoly64_is_simple(bv_solver_t *solver, bvpoly64_t *p, uint64_t *c0, uint64_t *a0, thvar_t *t) {
+  bv_vartable_t *vtbl;
+  uint32_t i, n, nbits;
+  uint64_t cnst;
+  thvar_t x, u;
+
+  vtbl = &solver->vtbl;
+  
+  n = p->nterms;
+  nbits = p->bitsize;
+  u = null_thvar;
+
+  cnst = 0;
+  i = 0;
+
+  // deal with the constant term of p if any
+  if (p->mono[0].var == const_idx) {
+    cnst = p->mono[0].coeff;
+    i ++;
+  }
+
+  // rest of p
+  while (i < n) {
+    assert(p->mono[i].var != const_idx);
+
+    x = mtbl_get_root(&solver->mtbl, p->mono[i].var);
+    if (bvvar_is_const64(vtbl, x)) {
+      cnst += bvvar_val64(vtbl, x);
+    } else if (u == null_thvar) {
+      u = x;
+      *a0 = p->mono[i].coeff;
+    } else {
+      // p has more than one non-constant term
+      return false;
+    }
+    i ++;    
+  }
+
+  // store the result
+  *c0 = norm64(cnst, nbits);
+  *t = u;
+
+  return true;
+}
+
+
 /*********************
  *  EQUALITY CHECKS  *
  ********************/
+
 
 /*
  * Check whether two variables x and y are equal
@@ -1289,12 +1345,71 @@ static bool diseq_bitarray_const(literal_t *a, uint32_t *c, uint32_t n) {
 
 
 /*
- * TODO: more disequality checks (cf. bvsolver.c.old) 
- * using rules:
- *   c != c0 + t  iff  t != (c - c0)
- *   c != c0 - t  iff  t != (c0 - c)
- * etc.
+ * Check whether x and constant c can't be equal
+ * - n = number of bits
+ * - d = recursion limit
  */
+static bool diseq_bvvar_const64(bv_solver_t *solver, thvar_t x, uint64_t c, uint32_t n, uint32_t d) {
+  bv_vartable_t *vtbl;
+  uint64_t c0, a0;
+  thvar_t t;
+
+  assert(bvvar_bitsize(&solver->vtbl, x) == n && 1 <= n && n <= 64);
+  assert(c == norm64(c, n));
+
+  vtbl = &solver->vtbl;
+
+  while (d > 0) {
+    /*
+     * In this loop, we rewrite (x != c) to 
+     * true or false, or to an equivalent disequality (x' != c')
+     */
+
+    // x should be a root in mtbl
+    assert(x == mtbl_get_root(&solver->mtbl, x));
+
+    switch (bvvar_tag(vtbl, x)) {
+    case BVTAG_CONST64:
+      return bvvar_val64(vtbl, x) != c;
+
+    case BVTAG_BIT_ARRAY:
+      return diseq_bitarray_const64(bvvar_bvarray_def(vtbl, x), c, n);
+
+    case BVTAG_POLY64:
+      if (bvpoly64_is_simple(solver, bvvar_poly64_def(vtbl, x), &c0, &a0, &t)) {
+	if (t == null_thvar) {
+	  // x is equal to c0
+	  return (c0 != c);
+	} else if (a0 == 1) {
+	  // x is equal to c0 + t 
+	  // so (x != c) is equivalent to (t != c - c0);
+	  x = t;
+	  c = norm64(c - c0, n);
+	  continue;
+	} else if (a0 == mask64(n)) { // a0 = -1
+	  // x is equal to c0 - t
+	  // so (x != c) is equivalent to t != c0 - c
+	  x = t;
+	  c = norm64(c0 - c, n);
+	  continue;
+	}
+      }
+
+      /*
+       * Fall through intended: if x is a poly of the wrong form
+       */
+    default:
+      return false;
+    }
+
+    d --;
+  }
+
+  // default answer if d == 0: don't know
+  return false;
+}
+
+
 
 /*
  * Top-level disequality check
@@ -1314,64 +1429,65 @@ static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
   tag_x = bvvar_tag(vtbl, x);
   tag_y = bvvar_tag(vtbl, y);
 
-  if (tag_x == tag_y) {
-    switch (tag_x) {
-    case BVTAG_CONST64:
-    case BVTAG_CONST:
-      return true;
-
-    case BVTAG_POLY64:
-      return disequal_bvpoly64(bvvar_poly64_def(vtbl, x), bvvar_poly64_def(vtbl, y));
-
-    case BVTAG_POLY:
-      return disequal_bvpoly(bvvar_poly_def(vtbl, x), bvvar_poly_def(vtbl, y));
-
-    case BVTAG_BIT_ARRAY:
-      n = bvvar_bitsize(vtbl, x);
-      return diseq_bitarrays(bvvar_bvarray_def(vtbl, x), bvvar_bvarray_def(vtbl, y), n);
-
-    default:
-      break;
+  n = bvvar_bitsize(vtbl, x);
+  if (n <= 64) {
+    if (tag_x == BVTAG_CONST64) {
+      return diseq_bvvar_const64(solver, y, bvvar_val64(vtbl, x), n, 2); // recursion limit = 2
     }
 
+    if (tag_y == BVTAG_CONST64) {
+      return diseq_bvvar_const64(solver, x, bvvar_val64(vtbl, y), n, 2); // recursion limit = 2      
+    }
+
+    if (tag_x == BVTAG_POLY64 && tag_y == BVTAG_POLY64) {
+      return disequal_bvpoly64(bvvar_poly64_def(vtbl, x), bvvar_poly64_def(vtbl, y));      
+    }
+    
+    if (tag_x == BVTAG_BIT_ARRAY && tag_y == BVTAG_BIT_ARRAY) {
+      return diseq_bitarrays(bvvar_bvarray_def(vtbl, x), bvvar_bvarray_def(vtbl, y), n);
+    }
+
+    if (tag_x == BVTAG_POLY64 && tag_y != BVTAG_CONST64) {
+      return bvpoly64_is_const_plus_var(bvvar_poly64_def(vtbl, x), y);
+    }
+
+    if (tag_y == BVTAG_POLY64 && tag_x != BVTAG_CONST64) {
+      return bvpoly64_is_const_plus_var(bvvar_poly64_def(vtbl, y), x);
+    }
+    
   } else {
 
-    n = bvvar_bitsize(vtbl, x);
-    if (n <= 64) {
-      if (tag_x == BVTAG_CONST64 && tag_y == BVTAG_BIT_ARRAY) {
-	return diseq_bitarray_const64(bvvar_bvarray_def(vtbl, y), bvvar_val64(vtbl, x), n);
-      }
-
-      if (tag_y == BVTAG_CONST64 && tag_x == BVTAG_BIT_ARRAY) {
-	return diseq_bitarray_const64(bvvar_bvarray_def(vtbl, x), bvvar_val64(vtbl, y), n);
-      }
-      
-      if (tag_x == BVTAG_POLY64 && tag_y != BVTAG_CONST64) {
-	return bvpoly64_is_const_plus_var(bvvar_poly64_def(vtbl, x), y);
-      }
-
-      if (tag_y == BVTAG_POLY64 && tag_x != BVTAG_CONST64) {
-	return bvpoly64_is_const_plus_var(bvvar_poly64_def(vtbl, y), x);
-      }
-
-    } else {
-      if (tag_x == BVTAG_CONST && tag_y == BVTAG_BIT_ARRAY) {
-	return diseq_bitarray_const(bvvar_bvarray_def(vtbl, y), bvvar_val(vtbl, x), n);
-      }
-
-      if (tag_y == BVTAG_CONST && tag_x == BVTAG_BIT_ARRAY) {
-	return diseq_bitarray_const(bvvar_bvarray_def(vtbl, x), bvvar_val(vtbl, y), n);
-      }
-      
-      if (tag_x == BVTAG_POLY && tag_y != BVTAG_CONST) {
-	return bvpoly_is_const_plus_var(bvvar_poly_def(vtbl, x), y);
-      }
-
-      if (tag_y == BVTAG_POLY && tag_x != BVTAG_CONST) {
-	return bvpoly_is_const_plus_var(bvvar_poly_def(vtbl, y), x);
-      }
-      
+    // More than 64bits
+    if (tag_x == BVTAG_CONST && tag_y == BVTAG_CONST) {
+      // by hash consing, x and y represent different constants
+      assert(x != y); 
+      return true;
     }
+
+    if (tag_x == BVTAG_POLY && tag_y == BVTAG_POLY) {
+      return disequal_bvpoly(bvvar_poly_def(vtbl, x), bvvar_poly_def(vtbl, y));
+    }
+
+    if (tag_x == BVTAG_BIT_ARRAY && tag_y == BVTAG_BIT_ARRAY) {
+      return diseq_bitarrays(bvvar_bvarray_def(vtbl, x), bvvar_bvarray_def(vtbl, y), n);
+    }
+
+    if (tag_x == BVTAG_CONST && tag_y == BVTAG_BIT_ARRAY) {
+      return diseq_bitarray_const(bvvar_bvarray_def(vtbl, y), bvvar_val(vtbl, x), n);
+    }
+
+    if (tag_y == BVTAG_CONST && tag_x == BVTAG_BIT_ARRAY) {
+      return diseq_bitarray_const(bvvar_bvarray_def(vtbl, x), bvvar_val(vtbl, y), n);
+    }
+      
+    if (tag_x == BVTAG_POLY && tag_y != BVTAG_CONST) {
+      return bvpoly_is_const_plus_var(bvvar_poly_def(vtbl, x), y);
+    }
+
+    if (tag_y == BVTAG_POLY && tag_x != BVTAG_CONST) {
+      return bvpoly_is_const_plus_var(bvvar_poly_def(vtbl, y), x);
+    }
+      
   }
   
   return false;
@@ -1734,7 +1850,7 @@ static void bvvar_bounds_s(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t 
  */
 
 /*
- * Three possible codes returned by the 'check_bvuge' and 'check_bvsge' functions
+ * Three possible codes returned by the  'check_bvuge' and 'check_bvsge' functions
  * - the order matters: we want BVTEST_FALSE = 0 = false and BVTEST_TRUE = 1= true
  */
 typedef enum {
@@ -3132,30 +3248,17 @@ literal_t bv_solver_select_bit(bv_solver_t *solver, thvar_t x, uint32_t i) {
 
 /*
  * ATOM CONSTRUCTORS
- *
- * TODO: check for simplifications
  */
 
 
 /*
- * Atom (eq x y)
+ * Atom (eq x y): no simplification 
  */
-literal_t bv_solver_create_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
+static literal_t bv_solver_make_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv_atomtable_t *atbl;
   int32_t i;
   literal_t l;
   bvar_t v;
-
-  x = mtbl_get_root(&solver->mtbl, x);
-  y = mtbl_get_root(&solver->mtbl, y);
-
-  if (equal_bvvar(solver, x, y)) {
-    return true_literal;
-  }
-
-  if (diseq_bvvar(solver, x, y)) {
-    return false_literal;
-  }
 
   atbl = &solver->atbl;
   i = get_bveq_atom(atbl, x, y);
@@ -3171,7 +3274,25 @@ literal_t bv_solver_create_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
     attach_atom_to_bvar(solver->core, v, bvatom_idx2tagged_ptr(i));
   }
 
-  return l;
+  return l;  
+}
+
+/*
+ * Atom (eq x y): try to simplify
+ */
+literal_t bv_solver_create_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  x = mtbl_get_root(&solver->mtbl, x);
+  y = mtbl_get_root(&solver->mtbl, y);
+
+  if (equal_bvvar(solver, x, y)) {
+    return true_literal;
+  }
+
+  if (diseq_bvvar(solver, x, y)) {
+    return false_literal;
+  }
+
+  return bv_solver_make_eq_atom(solver, x, y);
 }
 
 
@@ -3329,7 +3450,7 @@ void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
 
   } else {
     // Add the constraint (x != y)
-    l = bv_solver_create_eq_atom(solver, x, y);
+    l = bv_solver_make_eq_atom(solver, x, y);
     add_unit_clause(solver->core, not(l));
 
     // push (x != 0) or (y != 0) in the bound queue
