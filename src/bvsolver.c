@@ -551,7 +551,7 @@ static void push_bvsge_bound(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
 
 /*
- * Same thing for (eq x y) (this is used for (x != 0) or (y != 0))
+ * Same thing for (eq x y) 
  */
 static void push_bvdiseq_bound(bv_solver_t *solver, thvar_t x, thvar_t y) {
   int32_t i;
@@ -3431,6 +3431,42 @@ literal_t bv_solver_create_sge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
  */
 
 /*
+ * Assert (x != y) where y is the constant 0b0000..0
+ * - this special case is handled separately since we want to add the
+ *   constraint (x != y) to the bound queue (unless it's already there).
+ */
+static void bv_solver_assert_neq0(bv_solver_t *solver, thvar_t x, thvar_t y) {  
+  bv_atomtable_t *atbl;
+  int32_t i;
+  literal_t l;
+  bvar_t v;
+
+  assert(bvvar_is_zero(&solver->vtbl, y));
+  atbl = &solver->atbl;
+  i = get_bveq_atom(atbl, x, y);
+  l = atbl->data[i].lit;
+  if (l == null_literal) {
+    /*
+     * New atom: (x != 0) can't be in the bound queue
+     */
+    v = create_boolean_variable(solver->core);
+    l = pos_lit(v);
+    atbl->data[i].lit = l;
+    attach_atom_to_bvar(solver->core, v, bvatom_idx2tagged_ptr(i));
+    push_bvdiseq_bound(solver, x, y);
+
+  } else if (! bvvar_is_nonzero(solver, x)) {
+    /*
+     * The bound (x != 0) is not in the queue yet: add it
+     */
+    push_bvdiseq_bound(solver, x, y);
+  }
+
+  add_unit_clause(solver->core, not(l));
+}
+
+
+/*
  * Assert (x == y) if tt is true
  * assert (x != y) if tt is false
  */
@@ -3445,19 +3481,18 @@ void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
   } else if (diseq_bvvar(solver, x, y)) {
     if (tt) add_empty_clause(solver->core);       // Contradiction
   } else if (tt) {
-    // Merge the classes of x and y
+    // x == y: merge the classes of x and y
     bv_solver_merge_vars(solver, x, y);
-
+  } else if (bvvar_is_zero(&solver->vtbl, x)) {
+    // y != 0
+    bv_solver_assert_neq0(solver, y, x); 
+  } else if (bvvar_is_zero(&solver->vtbl, y)) {
+    // x != 0
+    bv_solver_assert_neq0(solver, x, y);
   } else {
     // Add the constraint (x != y)
     l = bv_solver_make_eq_atom(solver, x, y);
     add_unit_clause(solver->core, not(l));
-
-    // push (x != 0) or (y != 0) in the bound queue
-    if (bvvar_is_zero(&solver->vtbl, x) || 
-	bvvar_is_zero(&solver->vtbl, y)) {
-      push_bvdiseq_bound(solver, x, y);
-    }
   }
 }
 
