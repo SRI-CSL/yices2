@@ -1018,10 +1018,10 @@ static const uint8_t bvtag2rank[NUM_BVTAGS] = {
   5,      // BVTAG_VAR
   0,      // BVTAG_CONST64
   0,      // BVTAG_CONST
-  2,      // BVTAG_POLY64
-  2,      // BVTAG_POLY
+  1,      // BVTAG_POLY64
+  1,      // BVTAG_POLY
   3,      // BVTAG_PPROD
-  1,      // BVTAG_BIT_ARRAY
+  2,      // BVTAG_BIT_ARRAY
   4,      // BVTAG_ITE
   4,      // BVTAG_UDIV
   4,      // BVTAG_UREM
@@ -1996,7 +1996,7 @@ static void bvbuffer_add_mono64(bv_solver_t *solver, bvpoly_buffer_t *b, thvar_t
   if (bvvar_is_const64(vtbl, y)) {
     bvpoly_buffer_add_const64(b, a * bvvar_val64(vtbl, y));
   } else {
-    bvpoly_buffer_add_mono64(b, x, a);
+    bvpoly_buffer_add_mono64(b, y, a);
   }
 }
 
@@ -2011,7 +2011,7 @@ static void bvbuffer_add_mono(bv_solver_t *solver, bvpoly_buffer_t *b, thvar_t x
     // add const_idx * a * value of y
     bvpoly_buffer_addmul_monomial(b, const_idx, a, bvvar_val(vtbl, y));
   } else {
-    bvpoly_buffer_add_monomial(b, x, a);
+    bvpoly_buffer_add_monomial(b, y, a);
   }
 }
 
@@ -3446,8 +3446,6 @@ void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
     if (tt) add_empty_clause(solver->core);       // Contradiction
   } else if (tt) {
     // Merge the classes of x and y
-    x = mtbl_get_root(&solver->mtbl, x);
-    y = mtbl_get_root(&solver->mtbl, y);
     bv_solver_merge_vars(solver, x, y);
 
   } else {
