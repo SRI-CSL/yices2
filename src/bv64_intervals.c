@@ -2,6 +2,7 @@
  * INTERVALS FOR BIT-VECTOR VALUES
  */
 
+#include "bv_constants.h"
 #include "bv64_intervals.h"
 
 
@@ -40,6 +41,93 @@ static inline bool sub_overflow64(uint64_t a, uint64_t b, uint64_t c, uint32_t n
   assert(a == ((b - c) & mask64(n)));
   return is_pos64(b, n) && is_neg64(c, n) && is_neg64(a, n);
 }
+
+
+
+
+/*
+ * Compute a + b*c as a 128 bit integer
+ * - the result is stored in r as an array of four 32-bit words
+ * - r[0] = low-order word, r[3] = high-order word
+ *   (cf. bv_constants.h)
+ */
+static void add_mul64(uint32_t r[4], uint64_t a, uint64_t b, uint64_t c) {
+  uint32_t bb[4];
+  uint32_t cc[4];
+
+  // convert a, b, c to 128 bit (zero extend)
+  bvconst_set64(r, 4, a);
+  bvconst_set64(bb, 4, b);
+  bvconst_set64(cc, 4, c); 
+  bvconst_addmul(r, 4, bb, cc);
+}
+
+
+/*
+ * Same thing for a - b * c
+ */
+static void sub_mul64(uint32_t r[4], uint64_t a, uint64_t b, uint64_t c) {
+  uint32_t bb[4];
+  uint32_t cc[4];
+
+  // convert a, b, c to 128 bit (zero extend)
+  bvconst_set64(r, 4, a);
+  bvconst_set64(bb, 4, b);
+  bvconst_set64(cc, 4, c); 
+  bvconst_submul(r, 4, bb, cc);
+}
+
+
+/*
+ * Compute (a + b*c) >> n (logical shift)
+ * - a, b, and c must all be normalized modulo 2^n
+ * - the result is returned normalized too
+ */
+static uint64_t add_mul_shift64(uint64_t a, uint64_t b, uint64_t c, uint32_t n) {
+  uint32_t aux[4];
+  uint64_t r;
+
+  assert(a == norm64(a, n) && b == norm64(b, n) && c == norm64(c, n));
+
+  if (n <= 32) {
+    r = (a + b * c) >> n;    
+  } else {
+    assert(n <= 64);
+    add_mul64(aux, a, b, c);
+    bvconst_shift_right(aux, 2 * n, n, 0);
+    r = bvconst_get64(aux);
+  }
+
+  assert(r == norm64(r, n));
+
+  return r;
+}
+
+
+/*
+ * Same thing for (a - b*c) >> n
+ */
+static uint64_t sub_mul_shift64(uint64_t a, uint64_t b, uint64_t c, uint32_t n) {
+  uint32_t aux[4];
+  uint64_t r;
+
+  assert(a == norm64(a, n) && b == norm64(b, n) && c == norm64(c, n));
+
+  if (n <= 32) {
+    r = (a - b * c) >> n;    
+  } else {
+    assert(n <= 64);
+    sub_mul64(aux, a, b, c);
+    bvconst_shift_right(aux, 2 * n, n, 0);
+  }
+
+  //  r = norm64(r, n);
+
+  return r;
+}
+
+
+
 
 
 
@@ -200,6 +288,7 @@ void bv64_interval_sub_s(bv64_interval_t *a, bv64_interval_t *b) {
 
 
 
+
 /*
  * Best overapproximation of [a.low + c * b.low, a.high + c * b.high] modulo 2^n
  * - a and b must have the same bitsize and be normalized
@@ -208,7 +297,7 @@ void bv64_interval_sub_s(bv64_interval_t *a, bv64_interval_t *b) {
  * Unsigned version
  */
 void bv64_interval_addmul_u(bv64_interval_t *a, bv64_interval_t *b, uint64_t c) {
-  uint64_t l, u;
+  uint64_t l, u, q1, q2;
   uint32_t n;
 
   l = b->low;
@@ -222,10 +311,53 @@ void bv64_interval_addmul_u(bv64_interval_t *a, bv64_interval_t *b, uint64_t c) 
     bv64_interval_add_u_core(a, l, u, n);
   } else if (c == mask64(n)) {
     bv64_interval_sub_u_core(a, l, u, n);
-  } else {    
-    // TBD: return the trivial interval for now
-    a->low = 0;
-    a->high = mask64(n);    
+  } else {
+    /*
+     * We can approximate using either 
+     *    [a.low + l * c, a.high + u * c]
+     * or [a.low - u * cx, a.high - l * cx] where (cx = 2^n - c)
+     *
+     * The most precise of these two options is to use c if c<2^(n-1) (i.e., sign bit is 0)
+     * and to use cx if c >= 2^(n-1) (i.e., sign bit is 1).
+     */
+    if (is_pos64(c, n)) {
+      q1 = add_mul_shift64(a->low, l, c, n);   // q1 = quotient(a.low + c * b.low, 2^n)
+      q2 = add_mul_shift64(a->high, u, c, n);  // q2 = quotient(a.high + c * b.high, 2^n)
+
+      assert(q1 <= q2);
+      
+      /*
+       * We know q1 * 2^n <= a.low + c * b.low < (q1 + 1) * 2^n 
+       *     and q2 * 2^n <= a.high + c * b.high < (q2 + 1) * 2^n
+       * If q1 = q2, the interval 
+       *     [(a.low + c * b) mod 2^n, (a.high + c * b.high) mod 2^n] 
+       * workd. Otherwise we return the trivial interval.
+       */
+      if (q1 == q2) {
+	a->low = norm64(a->low + c * l,  n);
+	a->high = norm64(a->high + c * u, n);
+      } else {
+	a->low = 0;
+	a->high = mask64(n);
+      }
+
+    } else {
+      c = norm64(-c, n); // this is cx
+      q1 = sub_mul_shift64(a->low, u, c, n); 
+      q2 = sub_mul_shift64(a->high, l, c, n); 
+
+      //      assert(q1 <= q2);
+
+      if (q1 == q2) {
+	a->low = norm64(a->low - c * u, n);
+	a->high = norm64(a->high - c * l, n);
+      } else {
+	a->low = 0;
+	a->high = mask64(n);
+      }
+    }
+
+    assert(bv64_interval_is_normalized(a) && a->low <= a->high);
   }
 }
 
@@ -239,7 +371,7 @@ void bv64_interval_addmul_u(bv64_interval_t *a, bv64_interval_t *b, uint64_t c) 
  * Signed version
  */
 void bv64_interval_addmul_s(bv64_interval_t *a, bv64_interval_t *b, uint64_t c) {
-  uint64_t l, u;
+  uint64_t l, u, q1, q2;
   uint32_t n;
 
   l = b->low;
@@ -254,9 +386,14 @@ void bv64_interval_addmul_s(bv64_interval_t *a, bv64_interval_t *b, uint64_t c) 
   } else if (c == mask64(n)) {
     bv64_interval_sub_s_core(a, l, u, n);
   } else {
+    q1 = add_mul_shift64(a->low, l, c, n);   // q1 = unsigned quotient modulo 2^n
+    q2 = add_mul_shift64(a->high, u, c, n);  // q2 = unsigned quotient modulo 2^n
+    l = norm64(a->low + c * l, n);           // l = unsigned remainder
+    u = norm64(a->high + c * u, n);          // u = unsigned remainded 
+
     // TBD: return the trivial interval for now
-    a->low = min_signed64(n);
-    a->high = max_signed64(n);    
+    a->low = 0;
+    a->high = mask64(n);    
   }
 }
 

@@ -1,5 +1,5 @@
 /*
- * INTERVALS FOR BIT-VECTOR VALUES
+ * INTERVALS OF BIT-VECTOR VALUES
  */
 
 /*
@@ -124,6 +124,7 @@ static inline bool bv64_interval_is_triv_s(bv64_interval_t *intv) {
  */
 extern void bv64_interval_add_u(bv64_interval_t *a, bv64_interval_t *b);
 extern void bv64_interval_add_s(bv64_interval_t *a, bv64_interval_t *b);
+
 
 /*
  * Same thing for [a.low - b.high, a.high - b.low] modulo 2^n
