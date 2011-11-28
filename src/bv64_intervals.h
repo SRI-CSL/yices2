@@ -138,10 +138,12 @@ extern void bv64_interval_sub_s(bv64_interval_t *a, bv64_interval_t *b);
 
 
 /*
- * Best overapproximation of [a.low + c * b.low, a.high + c * b.high] modulo 2^n
+ * Approximation of [a.low + c * b.low, a.high + c * b.high] modulo 2^n
  * - a and b must have the same bitsize and be normalized
  * - c must be normalized modulo 2^n too
  * - the result is stored in a
+ * This gives a precise result only if the constant c is small (in absolute value)
+ * and the intervals a and b are small too.
  */
 extern void bv64_interval_addmul_u(bv64_interval_t *a, bv64_interval_t *b, uint64_t c);
 extern void bv64_interval_addmul_s(bv64_interval_t *a, bv64_interval_t *b, uint64_t c);

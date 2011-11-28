@@ -385,6 +385,19 @@ void bvconst_set32(uint32_t *bv, uint32_t k, uint32_t a) {
   }
 }
 
+// set low-order word to a, then sign extend
+void bvconst_set32_signed(uint32_t *bv, uint32_t k, int32_t a) {
+  uint32_t p;
+
+  assert(k > 0);
+  * bv ++ = a;
+  p = (a >= 0) ? 0 : 0xffffffff;
+  while (k > 1) {
+    *bv ++ = p;
+    k --;
+  }
+}
+
 // set two low-order words to a, rest to 0
 void bvconst_set64(uint32_t *bv, uint32_t k, uint64_t a) {
   assert(k > 0);
@@ -400,6 +413,26 @@ void bvconst_set64(uint32_t *bv, uint32_t k, uint64_t a) {
     }
   }
 }
+
+// set the two low-order words to a, then sign extend
+void bvconst_set64_signed(uint32_t *bv, uint32_t k, int64_t a) {
+  uint32_t p;
+
+  assert(k > 0);
+
+  if (k == 1) {
+    * bv = (uint32_t) (a & 0xffffffff);
+  } else {
+    * bv ++ = (uint32_t) (a & 0xffffffff);
+    * bv ++ = (uint32_t) (a >> 32);
+    p = (a >= 0) ? 0 : 0xffffffff;
+    while (k > 2) {
+      * bv ++ = p;
+      k --;
+    }
+  }
+}
+
 
 // assign 32k low-order bits of z
 void bvconst_set_mpz(uint32_t *bv, uint32_t k, mpz_t z) {

@@ -164,6 +164,8 @@ extern void bvconst_assign_bit(uint32_t *bv, uint32_t i, bool bit);
  * - set_minus_one: bv := 0b111...111
  * - set32:     bv := a padded with zeros (a is 32bits)
  * - set64:     same thing (a is 64 bits)
+ * - set32_signed:  bv := sign_extend of a
+ * - set64_signed:  same thing for a 64bit integer a
  * - set_mpz:   assign 32k low-order bits of z (padded with 0)
  *              z must be non-negative
  * - set_q:     same thing
@@ -177,6 +179,8 @@ extern void bvconst_set_one(uint32_t *bv, uint32_t k);
 extern void bvconst_set_minus_one(uint32_t *bv, uint32_t k);
 extern void bvconst_set32(uint32_t *bv, uint32_t k, uint32_t a);
 extern void bvconst_set64(uint32_t *bv, uint32_t k, uint64_t a);
+extern void bvconst_set32_signed(uint32_t *bv, uint32_t k, int32_t a);
+extern void bvconst_set64_signed(uint32_t *bv, uint32_t k, int64_t a);
 extern void bvconst_set_mpz(uint32_t *bv, uint32_t k, mpz_t z);
 extern void bvconst_set_q(uint32_t *bv, uint32_t k, rational_t *r);
 extern void bvconst_set(uint32_t *bv, uint32_t k, uint32_t *a);
