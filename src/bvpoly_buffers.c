@@ -831,18 +831,6 @@ static void bvpoly_buffer_reduce_coefficients(bvpoly_buffer_t *buffer) {
  */
 #ifndef NDEBUG
 
-// aux function: check whethter word array c is normalized
-// n = number of bits
-static bool bvconst_is_normalized(uint32_t *c, uint32_t n) {
-  uint32_t k, r;
-
-  r = (n & 0x1f); // r = n mod 32
-  k = n>>5;       // floor(n/32)
-
-  // c is normalized if r == 0 or the 32-r high-order bits
-  // of c[k] are zero.
-  return r == 0 || (c[k] & ~((uint32_t) ((1 << r) - 1))) == 0;
-}
 
 static bool bvpoly_buffer_is_normalized(bvpoly_buffer_t *buffer) {  
   uint32_t i, n, b, w;

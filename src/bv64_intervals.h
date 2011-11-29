@@ -1,5 +1,5 @@
 /*
- * INTERVALS OF BIT-VECTOR VALUES
+ * INTERVALS OF BIT-VECTOR VALUES (1 to 64 bits)
  */
 
 /*
@@ -13,6 +13,7 @@
 #define __BV64_INTERVALS_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <assert.h>
 
 #include "bv64_constants.h"
@@ -79,6 +80,30 @@ static inline void bv64_interval_set_s(bv64_interval_t *intv, uint64_t x, uint64
   assert(1 <= n && n <= 64 && x == norm64(x, n) && y == norm64(y, n) && signed64_le(x, y, n));
   intv->low = x;
   intv->high = y;
+  intv->nbits = n;
+}
+
+
+/*
+ * Initialize to the trivial unsigned interval:
+ * - low = 0, high = 2^n-1
+ */
+static inline void bv64_triv_interval_u(bv64_interval_t *intv, uint32_t n) {
+  assert(1 <= n && n <= 64);
+  intv->low = 0;
+  intv->high = mask64(n);
+  intv->nbits = n;
+}
+
+
+/*
+ * Initialize to the trivial signed interval:
+ * - low = -2^(n-1), high = 2^(n-1) - 1
+ */
+static inline void bv64_triv_interval_s(bv64_interval_t *intv, uint32_t n) {
+  assert(1 <= n && n <= 64);
+  intv->low = min_signed64(n);
+  intv->high = max_signed64(n);
   intv->nbits = n;
 }
 

@@ -135,6 +135,14 @@ extern void bvconst_normalize(uint32_t *bv, uint32_t n);
 
 
 /*
+ * Check whether bv is normalized modulo 2^n (i.e., whether the high
+ * order bits are 0).
+ */
+extern bool bvconst_is_normalized(uint32_t *bv, uint32_t n);
+
+
+
+/*
  * Hash code of bitconstant a, n = bitsize
  * - a must be normalized modulo 2^n first.
  */
@@ -161,7 +169,7 @@ extern void bvconst_assign_bit(uint32_t *bv, uint32_t i, bool bit);
  * Assignment to array bv of k words.
  * - clear:     bv := 0b000...000
  * - set_one:   bv := 0b000...001
- * - set_minus_one: bv := 0b111...111
+ * - set_minus_one:   bv := 0b111...111
  * - set32:     bv := a padded with zeros (a is 32bits)
  * - set64:     same thing (a is 64 bits)
  * - set32_signed:  bv := sign_extend of a
@@ -185,6 +193,17 @@ extern void bvconst_set_mpz(uint32_t *bv, uint32_t k, mpz_t z);
 extern void bvconst_set_q(uint32_t *bv, uint32_t k, rational_t *r);
 extern void bvconst_set(uint32_t *bv, uint32_t k, uint32_t *a);
 extern void bvconst_set_array(uint32_t *bv, int32_t *a, uint32_t n);
+
+
+/*
+ * Other constant assignments: n = number of bits
+ * - set_min_signed:  bv := 0b100...000
+ * - set_max_signed:  bv := 0b011...111
+ * - bv must be large enough (at least ceil(n/32) words)
+ * - bv is normalized
+ */
+extern void bvconst_set_min_signed(uint32_t *bv, uint32_t n);
+extern void bvconst_set_max_signed(uint32_t *bv, uint32_t n);
 
 
 /*

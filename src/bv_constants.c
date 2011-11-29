@@ -285,12 +285,25 @@ void bvconstant_copy64(bvconstant_t *b, uint32_t n, uint64_t a) {
 void bvconst_normalize(uint32_t *bv, uint32_t n) {
   uint32_t k, r;
 
-  r = (n & 0x1f);      // r = n mod 32
+  r = n & 0x1f;      // r = n mod 32
   if (r > 0) {
     k = n >> 5;        // k = floor(n/32)
     bv[k] &= (uint32_t) ((1 << r) - 1);
   }
 }
+
+/*
+ * Check whether bv is normalized modulo 2^n (i.e., whether the high
+ * order bits are 0).
+ */
+bool bvconst_is_normalized(uint32_t *bv, uint32_t n) {
+  uint32_t k, r;
+
+  r = n & 0x1f;  // r = n mod 32
+  k = n >> 5;    // k = floor (n/32)
+  return r == 0 || (bv[k] & (uint32_t) ((1 << r) - 1)) == 0;
+}
+
 
 /*
  * Operations on single bits
@@ -487,6 +500,28 @@ void bvconst_set(uint32_t *bv, uint32_t k, uint32_t *a) {
     *bv ++  = *a++;
     k --;
   } while (k > 0);
+}
+
+
+
+/*
+ * Other constant assignments: n = number of bits
+ * - set_min_signed:  bv := 0b100...000
+ * - set_max_signed:  bv := 0b011...111
+ * - bv must be large enough (at least ceil(n/32) words)
+ * - n must be positive
+ * - bv is normalized
+ */
+void bvconst_set_min_signed(uint32_t *bv, uint32_t n) {
+  assert(n > 0);
+  bvconst_clear(bv, (n + 31) >> 5);
+  bvconst_set_bit(bv, n-1);
+}
+
+void bvconst_set_max_signed(uint32_t *bv, uint32_t n) {
+  assert(n > 0);
+  bvconst_set_minus_one(bv, (n + 31) >> 5);
+  bvconst_clr_bit(bv, n-1);
 }
 
 

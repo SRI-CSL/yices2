@@ -1716,7 +1716,7 @@ static void bvvar_bounds_u64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_
     bvpoly64_bounds_u(solver, bvvar_poly64_def(vtbl, x), d-1, intv);
   } else {
     // default bounds
-    bv64_interval_set_u(intv, 0, mask64(n), n);
+    bv64_triv_interval_u(intv, n);
   }
 
 
@@ -1759,7 +1759,7 @@ static void bvvar_bounds_s64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_
     bvpoly64_bounds_s(solver, bvvar_poly64_def(vtbl, x), d-1, intv);
   } else {
     // default bounds
-    bv64_interval_set_s(intv, min_signed64(n), max_signed64(n), n);
+    bv64_triv_interval_s(intv, n);
   }
   
   /*
