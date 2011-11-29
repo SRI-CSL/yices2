@@ -178,9 +178,12 @@ static void bv_interval_add_u_core(bv_interval_t *a, uint32_t *l, uint32_t *u, u
   bvconst_normalize(a->low, n);
   bvconst_normalize(a->high, n);
 
-  if (bvconst_lt(a->high, u, n) && bvconst_le(a->low, l, n)) {
-    // overvlow in a->high, no overflow in a->low so the 
-    // enclosing interval is [0b000..., 0b111...]
+  if (bvconst_lt(a->high, u, n) && bvconst_ge(a->low, l, n)) {
+    /*
+     * Overflow in a->high, no overflow in a->low so we have
+     * (a->low + l) < 2^n <= (a->high + u).
+     * The enclosing interval is [0b000..., 0b111...]
+     */
     bvconst_clear(a->low, w);
     bvconst_set_minus_one(a->high, w);
     bvconst_normalize(a->high, n);
@@ -260,9 +263,10 @@ static void bv_interval_sub_u_core(bv_interval_t *a, uint32_t *l, uint32_t *u, u
   w = a->width;
   assert(w == (n + 31) >> 5);
 
-  if (bvconst_lt(a->low, u, n) && bvconst_le(a->high, l, n)) {
+  if (bvconst_lt(a->low, u, n) && bvconst_ge(a->high, l, n)) {
     /*
-     * underflow in (a->low - u), no underflow in (a->high - l) 
+     * (a->low - u) will underflow
+     * (a->high - l) will not underflow
      * so the enclosing interval is [0b000..., 0b111...]
      */
     bvconst_clear(a->low, w);
