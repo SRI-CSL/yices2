@@ -6,6 +6,124 @@
 #include "bv_intervals.h"
 
 
+
+/*
+ * AUXILIARY BUFFERS
+ */
+
+/*
+ * Initialization: nothing is allocated.
+ * - all buffers are initialized to NULL
+ * - aux->size is 0
+ */
+void init_bv_aux_buffers(bv_aux_buffers_t *aux) {
+  aux->buffer_a = NULL;
+  aux->buffer_b = NULL;
+  aux->buffer_c = NULL;
+  aux->size = 0;
+}
+
+
+/*
+ * Deletion: free memory
+ */
+void delete_bv_aux_buffers(bv_aux_buffers_t *aux) {
+  safe_free(aux->buffer_a);
+  safe_free(aux->buffer_b);
+  safe_free(aux->buffer_c);
+  aux->buffer_a = NULL;
+  aux->buffer_b = NULL;
+  aux->buffer_c = NULL;
+  aux->size = 0;
+}
+
+
+/*
+ * Resize: make sure all buffers are large enough
+ * for at least n words
+ */
+static void bv_aux_buffers_set_size(bv_aux_buffers_t *aux, uint32_t n) {
+  if (aux->size < n) {
+    if (n < BV_INTERVAL_DEF_SIZE) {
+      n = BV_INTERVAL_DEF_SIZE;
+    }
+    assert(n <= BV_INTERVAL_MAX_SIZE);
+    aux->buffer_a = (uint32_t *) safe_realloc(aux->buffer_a, n * sizeof(uint32_t));
+    aux->buffer_b = (uint32_t *) safe_realloc(aux->buffer_b, n * sizeof(uint32_t));
+    aux->buffer_c = (uint32_t *) safe_realloc(aux->buffer_c, n * sizeof(uint32_t));
+    aux->size = n;
+  }
+}
+
+
+
+/*
+ * Compute a + b * c using aux
+ * - a, b, and c must all be normalized modulo 2^n
+ * - a, b, and c are interpreted as unsigned integers
+ * - the result is stored in aux->buffer_a as a bitvector of size 2*n
+ */
+static void bv_aux_addmul_u(bv_aux_buffers_t *aux, uint32_t *a, uint32_t *b, uint32_t *c, uint32_t n) {
+  uint32_t n2, w;
+
+  n2 = n + n;
+  w = (n2 + 31) >> 5;
+  bv_aux_buffers_set_size(aux, w);
+
+  bvconst_set_extend(aux->buffer_a, n2, a, n, 0); // buffer_a := zero_extend a to size 2n
+  bvconst_set_extend(aux->buffer_b, n2, b, n, 0); // buffer_b := zero_extend b
+  bvconst_set_extend(aux->buffer_c, n2, c, n, 0); // buffer_c := zero_extend c
+
+  bvconst_addmul(aux->buffer_a, w, aux->buffer_b, aux->buffer_c); // buffer_a := buffer_a + buffer_b * buffer_c
+  bvconst_normalize(aux->buffer_a, n2);
+}
+
+
+
+/*
+ * Same thing for a - b * c 
+ */
+static void bv_aux_submul_u(bv_aux_buffers_t *aux, uint32_t *a, uint32_t *b, uint32_t *c, uint32_t n) {
+  uint32_t n2, w;
+
+  n2 = n + n;
+  w = (n2 + 31) >> 5;
+  bv_aux_buffers_set_size(aux, w);
+
+  bvconst_set_extend(aux->buffer_a, n2, a, n, 0); // buffer_a := zero_extend a to size 2n
+  bvconst_set_extend(aux->buffer_b, n2, b, n, 0); // buffer_b := zero_extend b
+  bvconst_set_extend(aux->buffer_c, n2, c, n, 0); // buffer_c := zero_extend c
+
+  bvconst_submul(aux->buffer_a, w, aux->buffer_b, aux->buffer_c); // buffer_a := buffer_a + buffer_b * buffer_c
+  bvconst_normalize(aux->buffer_a, n2);
+}
+
+
+/*
+ * Same thing for a + b * c, this time interpreted as signed integers
+ */
+static void bv_aux_addmul_s(bv_aux_buffers_t *aux, uint32_t *a, uint32_t *b, uint32_t *c, uint32_t n) {
+  uint32_t n2, w;
+
+  n2 = n + n;
+  w = (n2 + 31) >> 5;
+  bv_aux_buffers_set_size(aux, w);
+
+  bvconst_set_extend(aux->buffer_a, n2, a, n, -1); // buffer_a := sign_extend a to size 2n
+  bvconst_set_extend(aux->buffer_b, n2, b, n, -1); // buffer_b := sign_extend b
+  bvconst_set_extend(aux->buffer_c, n2, c, n, -1); // buffer_c := sign_extend c
+
+  bvconst_addmul(aux->buffer_a, w, aux->buffer_b, aux->buffer_c); // buffer_a := buffer_a + buffer_b * buffer_c
+  bvconst_normalize(aux->buffer_a, n2);
+}
+
+
+
+
+/*
+ * INTERVALS
+ */
+
 /*
  * Initialization: don't allocate anything yet.
  * - nbits, width, and size are set to 0
@@ -367,8 +485,11 @@ void bv_interval_sub_s(bv_interval_t *a, bv_interval_t *b) {
  * - c must be normalized modulo 2^n too
  * - the result is stored in a
  * Unsigned version
+ *
+ * The extra argument aux must be an initialized aux_buffer structure. It's used for internal
+ * computations if needed.
  */
-void bv_interval_addmul_u(bv_interval_t *a, bv_interval_t *b, uint32_t *c) {
+void bv_interval_addmul_u(bv_interval_t *a, bv_interval_t *b, uint32_t *c, bv_aux_buffers_t *aux) {
   uint32_t *b_low, *b_high;
   uint32_t n, w;
 
@@ -384,6 +505,24 @@ void bv_interval_addmul_u(bv_interval_t *a, bv_interval_t *b, uint32_t *c) {
   } else if (bvconst_is_minus_one(c, n)) {
     bv_interval_sub_u_core(a, b_low, b_high, n);
   } else {
+    if (!bvconst_tst_bit(c, n-1)) {
+      // c is less than 2^(n-1)
+      bv_aux_addmul_u(aux, a->low, b_low, c, n);
+
+      // More TBD
+
+    } else {
+      // c is more than 2^(n-1)
+      bvconst_negate(c, w);
+      bvconst_normalize(c, n);
+
+      bv_aux_submul_u(aux, a->low, b_high, c, n);      
+
+      // restore c's value
+      bvconst_negate(c, w);
+      bvconst_normalize(c, n);
+    }
+
     // TBD
     bvconst_clear(a->low, w);
     bvconst_set_minus_one(a->high, w);
@@ -398,9 +537,12 @@ void bv_interval_addmul_u(bv_interval_t *a, bv_interval_t *b, uint32_t *c) {
  * - a and b must have the same bitsize and be normalized
  * - c must be normalized modulo 2^n too
  * - the result is stored in a
- * Signed version
+ * Signed version.
+ *
+ * The extra argument aux must be an initialized aux_buffer structure. It's used for internal
+ * computations if needed.
  */
-void bv_interval_addmul_s(bv_interval_t *a, bv_interval_t *b, uint32_t *c) {
+void bv_interval_addmul_s(bv_interval_t *a, bv_interval_t *b, uint32_t *c, bv_aux_buffers_t *aux) {
   uint32_t *b_low, *b_high;
   uint32_t n, w;
 
@@ -416,6 +558,13 @@ void bv_interval_addmul_s(bv_interval_t *a, bv_interval_t *b, uint32_t *c) {
   } else if (bvconst_is_minus_one(c, n)) {
     bv_interval_sub_s_core(a, b_low, b_high, n);
   } else {
+    if (!bvconst_tst_bit(c, n-1)) {
+      // c is non-negative
+      bv_aux_addmul_s(aux, a->low, b_low, c, n);
+    } else {
+      // c is negative
+      bv_aux_addmul_s(aux, a->low, b_high, c, n);
+    }
     // TBD
     bvconst_set_min_signed(a->low, n);
     bvconst_set_max_signed(a->high, n);

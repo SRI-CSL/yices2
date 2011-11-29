@@ -16,6 +16,8 @@
 
 #include "bv_constants.h"
 
+
+
 /*
  * Interval structure:
  * - low and high are two bitvector constaints of n bits (n >= 1)
@@ -40,6 +42,47 @@ typedef struct bv_interval_s {
 #define BV_INTERVAL_MAX_SIZE (UINT32_MAX/32)
 
 
+
+/*
+ * Auxiliary buffers for addmul
+ * - addmul uses auxiliary buffers for internal computation
+ * - these buffers are twice as large as the low/high constants
+ * - the following structure contains the necessary buffers.
+ * - it must be initialized before calling addmul.
+ * - addmul will internally reallocate the buffers if they are too small
+ */
+typedef struct bv_aux_buffers_s {
+  uint32_t *buffer_a;
+  uint32_t *buffer_b;
+  uint32_t *buffer_c;
+  uint32_t size; // a, b, and c all have this size
+} bv_aux_buffers_t;
+
+
+
+/*
+ * AUXILIARY BUFFERS
+ */
+
+/*
+ * Initialization: nothing is allocated.
+ * - all buffers are initialized to NULL
+ * - aux->size is 0
+ */
+extern void init_bv_aux_buffers(bv_aux_buffers_t *aux);
+
+
+/*
+ * Deletion: free memory then reset everything
+ */
+extern void delete_bv_aux_buffers(bv_aux_buffers_t *aux);
+
+
+
+
+/*
+ * INTERVAL OPERATIONS
+ */
 
 /*
  * Initialization: don't allocate anything yet.
@@ -171,15 +214,20 @@ extern void bv_interval_sub_s(bv_interval_t *a, bv_interval_t *b);
  * - a and b must have the same bitsize and be normalized
  * - c must be normalized modulo 2^n (where n = size of a and b)
  * - the result is stored in a
+ *
  * The result is precise only if the constant c and the intervals a and b
  * are small.
  * - in the unsigned version: a, b are unsigned, c is interpreted as
  *   an unsigned integer (between 0 and 2^n-1)
  * - in the signed version: a, b are signed intervals, and c is interpreted
  *   as a 2's complement, signed integer.
+ *
+ * The extra argument aux must be an initialized aux_buffer structure. It's used for internal
+ * computations if needed.
  */
-extern void bv_interval_addmul_u(bv_interval_t *a, bv_interval_t *b, uint32_t *c);
-extern void bv_interval_addmul_s(bv_interval_t *a, bv_interval_t *b, uint32_t *c);
+extern void bv_interval_addmul_u(bv_interval_t *a, bv_interval_t *b, uint32_t *c, bv_aux_buffers_t *aux);
+extern void bv_interval_addmul_s(bv_interval_t *a, bv_interval_t *b, uint32_t *c, bv_aux_buffers_t *aux);
+
 
 
 #endif /* __BV_INTERVALS_H */
