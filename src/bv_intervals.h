@@ -55,7 +55,8 @@ typedef struct bv_aux_buffers_s {
   uint32_t *buffer_a;
   uint32_t *buffer_b;
   uint32_t *buffer_c;
-  uint32_t size; // a, b, and c all have this size
+  uint32_t *buffer_d;
+  uint32_t size; // a, b, c, and d all have this size
 } bv_aux_buffers_t;
 
 

@@ -20,6 +20,7 @@ void init_bv_aux_buffers(bv_aux_buffers_t *aux) {
   aux->buffer_a = NULL;
   aux->buffer_b = NULL;
   aux->buffer_c = NULL;
+  aux->buffer_d = NULL;
   aux->size = 0;
 }
 
@@ -51,6 +52,7 @@ static void bv_aux_buffers_set_size(bv_aux_buffers_t *aux, uint32_t n) {
     aux->buffer_a = (uint32_t *) safe_realloc(aux->buffer_a, n * sizeof(uint32_t));
     aux->buffer_b = (uint32_t *) safe_realloc(aux->buffer_b, n * sizeof(uint32_t));
     aux->buffer_c = (uint32_t *) safe_realloc(aux->buffer_c, n * sizeof(uint32_t));
+    aux->buffer_d = (uint32_t *) safe_realloc(aux->buffer_d, n * sizeof(uint32_t));
     aux->size = n;
   }
 }
@@ -61,20 +63,22 @@ static void bv_aux_buffers_set_size(bv_aux_buffers_t *aux, uint32_t n) {
  * Compute a + b * c using aux
  * - a, b, and c must all be normalized modulo 2^n
  * - a, b, and c are interpreted as unsigned integers
+ * - aux->size must be large enough to sotore bitvectors of size 2*n
  * - the result is stored in aux->buffer_a as a bitvector of size 2*n
+ * - side effect: use buffer_c and buffer_d
  */
 static void bv_aux_addmul_u(bv_aux_buffers_t *aux, uint32_t *a, uint32_t *b, uint32_t *c, uint32_t n) {
   uint32_t n2, w;
 
   n2 = n + n;
   w = (n2 + 31) >> 5;
-  bv_aux_buffers_set_size(aux, w);
+  assert(aux->size >= w);
 
   bvconst_set_extend(aux->buffer_a, n2, a, n, 0); // buffer_a := zero_extend a to size 2n
-  bvconst_set_extend(aux->buffer_b, n2, b, n, 0); // buffer_b := zero_extend b
-  bvconst_set_extend(aux->buffer_c, n2, c, n, 0); // buffer_c := zero_extend c
+  bvconst_set_extend(aux->buffer_c, n2, b, n, 0); // buffer_c := zero_extend b
+  bvconst_set_extend(aux->buffer_d, n2, c, n, 0); // buffer_d := zero_extend c
 
-  bvconst_addmul(aux->buffer_a, w, aux->buffer_b, aux->buffer_c); // buffer_a := buffer_a + buffer_b * buffer_c
+  bvconst_addmul(aux->buffer_a, w, aux->buffer_c, aux->buffer_d); // buffer_a := buffer_a + buffer_c * buffer_d
   bvconst_normalize(aux->buffer_a, n2);
 }
 
@@ -88,13 +92,13 @@ static void bv_aux_submul_u(bv_aux_buffers_t *aux, uint32_t *a, uint32_t *b, uin
 
   n2 = n + n;
   w = (n2 + 31) >> 5;
-  bv_aux_buffers_set_size(aux, w);
+  assert(aux->size >= w);
 
   bvconst_set_extend(aux->buffer_a, n2, a, n, 0); // buffer_a := zero_extend a to size 2n
-  bvconst_set_extend(aux->buffer_b, n2, b, n, 0); // buffer_b := zero_extend b
-  bvconst_set_extend(aux->buffer_c, n2, c, n, 0); // buffer_c := zero_extend c
+  bvconst_set_extend(aux->buffer_c, n2, b, n, 0); // buffer_c := zero_extend b
+  bvconst_set_extend(aux->buffer_d, n2, c, n, 0); // buffer_d := zero_extend c
 
-  bvconst_submul(aux->buffer_a, w, aux->buffer_b, aux->buffer_c); // buffer_a := buffer_a + buffer_b * buffer_c
+  bvconst_submul(aux->buffer_a, w, aux->buffer_c, aux->buffer_d); // buffer_a := buffer_a + buffer_c * buffer_d
   bvconst_normalize(aux->buffer_a, n2);
 }
 
@@ -107,17 +111,64 @@ static void bv_aux_addmul_s(bv_aux_buffers_t *aux, uint32_t *a, uint32_t *b, uin
 
   n2 = n + n;
   w = (n2 + 31) >> 5;
-  bv_aux_buffers_set_size(aux, w);
+  assert(aux->size >= w);
 
   bvconst_set_extend(aux->buffer_a, n2, a, n, -1); // buffer_a := sign_extend a to size 2n
-  bvconst_set_extend(aux->buffer_b, n2, b, n, -1); // buffer_b := sign_extend b
-  bvconst_set_extend(aux->buffer_c, n2, c, n, -1); // buffer_c := sign_extend c
+  bvconst_set_extend(aux->buffer_c, n2, b, n, -1); // buffer_c := sign_extend b
+  bvconst_set_extend(aux->buffer_d, n2, c, n, -1); // buffer_d := sign_extend c
 
-  bvconst_addmul(aux->buffer_a, w, aux->buffer_b, aux->buffer_c); // buffer_a := buffer_a + buffer_b * buffer_c
+  bvconst_addmul(aux->buffer_a, w, aux->buffer_c, aux->buffer_d); // buffer_a := buffer_a + buffer_c * buffer_d
   bvconst_normalize(aux->buffer_a, n2);
 }
 
 
+/*
+ * Swap buffer_a and buffer_b
+ */
+static inline void bv_aux_swap_ab(bv_aux_buffers_t *aux) {
+  uint32_t *tmp;
+
+  tmp = aux->buffer_a;
+  aux->buffer_a = aux->buffer_b;
+  aux->buffer_b = tmp;
+}
+
+
+/*
+ * Shift buffer_a right by n bits and store the result in buffer_c
+ * then normalize buffer_a modulo 2^n.
+ * This stores the quotient of buffer_a by 2^n in buffer_c
+ * and the remainder of buffer_a divided by 2^n in buffer_a.
+ */
+static inline void bv_aux_shift_a_to_c(bv_aux_buffers_t *aux, uint32_t n) {
+  uint32_t n2;
+  uint32_t w;
+
+  n2 = n + n;
+  w = (n2 + 31) >> 5;
+  assert(aux->size >= w);
+  bvconst_set(aux->buffer_c, w, aux->buffer_a);  // buffer_c := buffer_a
+  bvconst_shift_right(aux->buffer_c, n2, n, 0);  // buffer_c := quotient
+  bvconst_normalize(aux->buffer_a, n);           // buffer_a := remainder
+}
+
+/*
+ * Shift buffer_b right by n bits and store the result in buffer_d
+ * then normalize buffer_b modulo 2^n.
+ * This stores the quotient of buffer_b by 2^n in buffer_d
+ * and the remainder of buffer_b divided by 2^n in buffer_b.
+ */
+static inline void bv_aux_shift_b_to_d(bv_aux_buffers_t *aux, uint32_t n) {
+  uint32_t n2;
+  uint32_t w;
+
+  n2 = n + n;
+  w = (n2 + 31) >> 5;
+  assert(aux->size >= w);
+  bvconst_set(aux->buffer_d, w, aux->buffer_b);  // buffer_d := buffer_b
+  bvconst_shift_right(aux->buffer_d, n2, n, 0);  // buffer_d := quotient
+  bvconst_normalize(aux->buffer_b, n);           // buffer_b := remainder
+}
 
 
 /*
@@ -505,28 +556,71 @@ void bv_interval_addmul_u(bv_interval_t *a, bv_interval_t *b, uint32_t *c, bv_au
   } else if (bvconst_is_minus_one(c, n)) {
     bv_interval_sub_u_core(a, b_low, b_high, n);
   } else {
+    bv_aux_buffers_set_size(aux, 2 * w); // make the buffers large enough    
+
     if (!bvconst_tst_bit(c, n-1)) {
       // c is less than 2^(n-1)
-      bv_aux_addmul_u(aux, a->low, b_low, c, n);
+      bv_aux_addmul_u(aux, a->low, b_low, c, n); 
+      bv_aux_swap_ab(aux);
+      bv_aux_addmul_u(aux, a->high, b_high, c, n);
+      bv_aux_shift_a_to_c(aux, n);
+      bv_aux_shift_b_to_d(aux, n);
 
-      // More TBD
+      /*
+       * Let L = a->low + c * b->low and H = a->high + c * b->high.
+       * At this point we have:
+       * - remainder of L/2^n in aux->buffer_a
+       * - remainder of H/2^n in aux->buffer_b
+       * - quotient of L/2^n  in aux->buffer_c
+       * - quotient of H/2^n  in aux->buffer_d
+       *
+       * If the two quotients are equal, then we can use the
+       * two remainders as bounds. Otherwise, we return the
+       * trivial interval.
+       */
+      if (bvconst_eq(aux->buffer_c, aux->buffer_d, w)) {
+	bvconst_set(a->low, w, aux->buffer_a);
+	bvconst_set(a->high, w, aux->buffer_b);
+      } else {
+	bvconst_clear(a->low, w);
+	bvconst_set_minus_one(a->high, w);
+	bvconst_normalize(a->high, n);
+      }
 
     } else {
-      // c is more than 2^(n-1)
+      // c is more than 2^(n-1), we use c' = -c modulo 2^n
       bvconst_negate(c, w);
       bvconst_normalize(c, n);
 
-      bv_aux_submul_u(aux, a->low, b_high, c, n);      
+      bv_aux_submul_u(aux, a->low, b_high, c, n);
+      bv_aux_swap_ab(aux);
+      bv_aux_submul_u(aux, a->high, b_low, c, n);
+      bv_aux_shift_a_to_c(aux, n);
+      bv_aux_shift_b_to_d(aux, n);
+
+      /*
+       * Let L = a->low - c' * b->high and H = a->high - c' * b->low.
+       * At this point we have:
+       * - remainder of L/2^n in aux->buffer_a
+       * - remainder of H/2^n in aux->buffer_b
+       * - quotient of L/2^n  in aux->buffer_c
+       * - quotient of H/2^n  in aux->buffer_d
+       */
+      if (bvconst_eq(aux->buffer_c, aux->buffer_d, w)) {
+	bvconst_set(a->low, w, aux->buffer_a);
+	bvconst_set(a->high, w, aux->buffer_b);
+      } else {
+	bvconst_clear(a->low, w);
+	bvconst_set_minus_one(a->high, w);
+	bvconst_normalize(a->high, n);
+      }
 
       // restore c's value
       bvconst_negate(c, w);
       bvconst_normalize(c, n);
     }
 
-    // TBD
-    bvconst_clear(a->low, w);
-    bvconst_set_minus_one(a->high, w);
-    bvconst_normalize(a->high, n);
+    assert(bv_interval_is_normalized(a) && bvconst_le(a->low, a->high, n));
   }
 }
 
@@ -558,16 +652,59 @@ void bv_interval_addmul_s(bv_interval_t *a, bv_interval_t *b, uint32_t *c, bv_au
   } else if (bvconst_is_minus_one(c, n)) {
     bv_interval_sub_s_core(a, b_low, b_high, n);
   } else {
+    bv_aux_buffers_set_size(aux, 2 * w); // make the buffers large enough    
+
     if (!bvconst_tst_bit(c, n-1)) {
       // c is non-negative
       bv_aux_addmul_s(aux, a->low, b_low, c, n);
+      bv_aux_swap_ab(aux);
+      bv_aux_addmul_s(aux, a->high, b_high, c, n);
+      bv_aux_shift_a_to_c(aux, n);
+      bv_aux_shift_b_to_d(aux, n);
+
+      /*
+       * Here we have: 
+       * remainder of (a->low + c * b->low) divided by 2^n in buffer_a
+       * remainder of (a->high + c * b->high) divided by 2^n in buffer_b
+       * quotient of (a->low + c * b->low) divided by 2^n in buffer_c
+       * quotient of (a->high + c * b->high) divided by 2^n in buffer_d
+       */
     } else {
       // c is negative
       bv_aux_addmul_s(aux, a->low, b_high, c, n);
+      bv_aux_swap_ab(aux);
+      bv_aux_addmul_s(aux, a->high, b_low, c, n);
+      bv_aux_shift_a_to_c(aux, n);
+      bv_aux_shift_b_to_d(aux, n);
+
+      /*
+       * Here we have:
+       * remainder of (a->low + c * b->low) divided by 2^n in buffer_a
+       * remainder of (a->high + c * b->high) divided by 2^n in buffer_b
+       * quotient of (a->low + c * b->low) divided by 2^n in buffer_c
+       * quotient of (a->high + c * b->high) divided by 2^n in buffer_d
+       */
     }
-    // TBD
-    bvconst_set_min_signed(a->low, n);
-    bvconst_set_max_signed(a->high, n);
+
+    if (bvconst_eq(aux->buffer_c, aux->buffer_d, w) && bvconst_sle(aux->buffer_a, aux->buffer_b, n)) {
+      // equal quotients and buffer_a <= buffer_b
+      bvconst_set(a->low, w, aux->buffer_a);
+      bvconst_set(a->high, w, aux->buffer_b);
+    } else {
+      bvconst_add_one(aux->buffer_c, w);
+      if (bvconst_eq(aux->buffer_c, aux->buffer_d, w) && 
+	  bvconst_tst_bit(aux->buffer_a, n-1)  && !bvconst_tst_bit(aux->buffer_b, n-1)) {
+	// quotient for low = quotient for high -1
+	// remainder for low is negative
+	// remainder for high is positive
+	bvconst_set(a->low, w, aux->buffer_a);
+	bvconst_set(a->high, w, aux->buffer_b);
+      } else {
+	// the full interval is larger than 2^n
+	bvconst_set_min_signed(a->low, n);
+	bvconst_set_max_signed(a->high, n);
+      }
+    }
   }
 }
 
