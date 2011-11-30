@@ -176,7 +176,7 @@ static inline bool bv_interval_is_normalized(bv_interval_t *intv) {
  */
 static inline bool bv_interval_is_triv_u(bv_interval_t *intv) {
   assert(bv_interval_is_normalized(intv));
-  return bvconst_is_zero(intv->low, intv->nbits) && 
+  return bvconst_is_zero(intv->low, intv->width) && 
     bvconst_is_minus_one(intv->high, intv->nbits);
 }
 

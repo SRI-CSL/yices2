@@ -206,6 +206,71 @@ static void test_sum_signed(bv_interval_t *intv, uint32_t *a, uint32_t *b, uint3
 
 
 /*
+ * TESTS OF DIFFERENCE
+ */
+
+/*
+ * Build the sum of [a, b] and [c, d]
+ * - store the result in intv
+ */
+static void test_diff_unsigned(bv_interval_t *intv, uint32_t *a, uint32_t *b, uint32_t *c, uint32_t *d, uint32_t n) {
+  bv_interval_t aux;
+
+  assert(bvconst_is_normalized(a, n) && bvconst_is_normalized(b, n) && bvconst_le(a, b, n));
+  assert(bvconst_is_normalized(c, n) && bvconst_is_normalized(d, n) && bvconst_le(c, d, n));
+
+  init_bv_interval(&aux);
+  bv_interval_set_u(&aux, c, d, n);  // aux := [c, d]
+  bv_interval_set_u(intv, a, b, n);  // intv := [a, b]
+
+  printf("--- Test diff unsigned ---\n");
+  printf("a =   ");
+  show_interval_unsigned(stdout, intv);
+  printf("\nb =   ");
+  show_interval_unsigned(stdout, &aux);
+  printf("\n");
+  fflush(stdout);
+
+  bv_interval_sub_u(intv, &aux);
+  printf("Diff: ");
+  show_interval_unsigned(stdout, intv);
+  printf("\n\n");
+
+  delete_bv_interval(&aux);
+}
+
+static void test_diff_signed(bv_interval_t *intv, uint32_t *a, uint32_t *b, uint32_t *c, uint32_t *d, uint32_t n) {
+  bv_interval_t aux;
+
+  assert(bvconst_is_normalized(a, n) && bvconst_is_normalized(b, n) && bvconst_sle(a, b, n));
+  assert(bvconst_is_normalized(c, n) && bvconst_is_normalized(d, n) && bvconst_sle(c, d, n));
+
+  init_bv_interval(&aux);
+  bv_interval_set_s(&aux, c, d, n);  // aux := [c, d]
+  bv_interval_set_s(intv, a, b, n);  // intv := [a, b]
+
+  printf("--- Test diff signed ---\n");
+  printf("a =   ");
+  show_interval_signed(stdout, intv);
+  printf("\nb =   ");
+  show_interval_signed(stdout, &aux);
+  printf("\n");
+  fflush(stdout);
+
+  bv_interval_sub_s(intv, &aux);
+  printf("Diff: ");
+  show_interval_signed(stdout, intv);
+  printf("\n\n");
+
+  delete_bv_interval(&aux);
+}
+
+
+/*
+ * CHECK RESULTS
+ */
+
+/*
  * Check whether x belongs to interval [a, b]
  */
 static bool in_interval_u(uint32_t *x, uint32_t *a, uint32_t *b, uint32_t n) {
@@ -331,6 +396,113 @@ static void check_sum_signed(bv_interval_t *intv, uint32_t *a, uint32_t *b, uint
 }
 
 
+/*
+ * Check the result of diff:
+ * - go through all pairs of constants u and v in array data
+ * - if u belongs to [a, b] and v belongs to [c, d], then check whether u - v belongs to a
+ * - n = number of bits in all vectors
+ * - m = size of the data array 
+ */
+static void check_diff_unsigned(bv_interval_t *intv, uint32_t *a, uint32_t *b, uint32_t *c, uint32_t *d, uint32_t n,
+			       uint32_t **data, uint32_t m) {
+  bvconstant_t buffer;
+  uint32_t *u, *v;  
+  uint32_t i, j, w;
+
+  
+  init_bvconstant(&buffer);
+  bvconstant_set_bitsize(&buffer, n);
+  w = buffer.width;
+
+  assert(w == (n + 31) >> 5);
+
+  for (i=0; i<m; i++) {
+    u = data[i];
+    if (in_interval_u(u, a, b, n)) {
+      for (j=0; j<m; j++) {
+	v = data[j];
+	if (in_interval_u(v, c, d, n)) {
+	  // u is in [a, b] and v is in [c, d]
+	  bvconst_set(buffer.data, w, u);
+	  bvconst_sub(buffer.data, w, v); 
+	  bvconst_normalize(buffer.data, n); // buffer := u - v modulo 2^n
+	  if (! member_u(buffer.data, intv)) {
+	    fprintf(stderr, "FAILED\n");
+	    fprintf(stderr, "u = ");
+	    bvconst_print(stderr, u, n);
+	    fprintf(stderr, "\n");
+	    fprintf(stderr, "v = ");
+	    bvconst_print(stderr, v, n);
+	    fprintf(stderr, "\n");
+	    fprintf(stderr, "u - v = ");
+	    bvconst_print(stderr, buffer.data, n);
+	    fprintf(stderr, "\n");
+	    fprintf(stderr, "u + v should be in the diff interval\n");
+	    fflush(stderr);
+	    exit(1);
+	  }
+	}
+      }
+    }
+  }
+
+  delete_bvconstant(&buffer);
+}
+
+
+
+static void check_diff_signed(bv_interval_t *intv, uint32_t *a, uint32_t *b, uint32_t *c, uint32_t *d, uint32_t n,
+			     uint32_t **data, uint32_t m) {
+  bvconstant_t buffer;
+  uint32_t *u, *v;  
+  uint32_t i, j, w;
+
+  
+  init_bvconstant(&buffer);
+  bvconstant_set_bitsize(&buffer, n);
+  w = buffer.width;
+
+  assert(w == (n + 31) >> 5);
+
+  for (i=0; i<m; i++) {
+    u = data[i];
+    if (in_interval_s(u, a, b, n)) {
+      for (j=0; j<m; j++) {
+	v = data[j];
+	if (in_interval_s(v, c, d, n)) {
+	  // u is in [a, b] and v is in [c, d]
+	  bvconst_set(buffer.data, w, u);
+	  bvconst_sub(buffer.data, w, v); 
+	  bvconst_normalize(buffer.data, n); // buffer := u - v modulo 2^n
+	  if (! member_s(buffer.data, intv)) {
+	    fprintf(stderr, "FAILED\n");
+	    fprintf(stderr, "u = ");
+	    bvconst_print(stderr, u, n);
+	    fprintf(stderr, "\n");
+	    fprintf(stderr, "v = ");
+	    bvconst_print(stderr, v, n);
+	    fprintf(stderr, "\n");
+	    fprintf(stderr, "u - v = ");
+	    bvconst_print(stderr, buffer.data, n);
+	    fprintf(stderr, "\n");
+	    fprintf(stderr, "u + v should be in the diff interval\n");
+	    fflush(stderr);
+	    exit(1);
+	  }
+	}
+      }
+    }
+  }
+
+  delete_bvconstant(&buffer);
+}
+
+
+
+
+/*
+ * TESTS
+ */
 
 /*
  * Test sum between [a, b] and all pairs of vectors in array data
@@ -373,6 +545,54 @@ static void test_sum_signed_all_pairs(uint32_t *a, uint32_t *b, uint32_t n, uint
       }
       test_sum_signed(&test, a, b, u, v, n);
       check_sum_signed(&test, a, b, u, v, n, data, m);
+    }
+  }
+  delete_bv_interval(&test);
+
+}
+
+
+/*
+ * Test difference between [a, b] and all pairs of vectors in array data
+ */
+static void test_diff_unsigned_all_pairs(uint32_t *a, uint32_t *b, uint32_t n, uint32_t **data, uint32_t m) {
+  bv_interval_t test;
+  uint32_t *u, *v, *w;
+  uint32_t i, j;
+
+  init_bv_interval(&test);
+  for (i=0; i<m; i++) {
+    for (j=i; j<m; j++) {
+      u = data[i];
+      v = data[j];
+      if (bvconst_gt(u, v, n)) {
+	// swap
+	w = u; u = v; v = w;
+      }
+      test_diff_unsigned(&test, a, b, u, v, n);
+      check_diff_unsigned(&test, a, b, u, v, n, data, m);
+    }
+  }
+  delete_bv_interval(&test);
+}
+
+
+static void test_diff_signed_all_pairs(uint32_t *a, uint32_t *b, uint32_t n, uint32_t **data, uint32_t m) {
+  bv_interval_t test;
+  uint32_t *u, *v, *w;
+  uint32_t i, j;
+
+  init_bv_interval(&test);
+  for (i=0; i<m; i++) {
+    for (j=i; j<m; j++) {
+      u = data[i];
+      v = data[j];
+      if (bvconst_sgt(u, v, n)) {
+	// swap
+	w = u; u = v; v = w;
+      }
+      test_diff_signed(&test, a, b, u, v, n);
+      check_diff_signed(&test, a, b, u, v, n, data, m);
     }
   }
   delete_bv_interval(&test);
@@ -424,27 +644,87 @@ static void full_test_sum_signed(uint32_t **data, uint32_t m, uint32_t n) {
 
 
 
+/*
+ * Full diff test
+ */
+static void full_test_diff_unsigned(uint32_t **data, uint32_t m, uint32_t n) {
+  uint32_t *u, *v, *w;
+  uint32_t i, j;
+
+  printf("\n*** FULL TEST DIFF UNSIGNED (bitsize = %"PRIu32") ***\n\n", n);
+
+  for (i=0; i<m; i++) {
+    for (j=i; j<m; j++) {
+      u = data[i];
+      v = data[j];
+      if (bvconst_gt(u, v, n)) {
+	// swap
+	w = u; u = v; v = w;
+      }
+      test_diff_unsigned_all_pairs(u, v, n, data, m);
+    }
+  }
+}
+
+
+static void full_test_diff_signed(uint32_t **data, uint32_t m, uint32_t n) {
+  uint32_t *u, *v, *w;
+  uint32_t i, j;
+
+  printf("\n*** FULL TEST DIFF SIGNED (bitsize = %"PRIu32") ***\n\n", n);
+
+  for (i=0; i<m; i++) {
+    for (j=i; j<m; j++) {
+      u = data[i];
+      v = data[j];
+      if (bvconst_sgt(u, v, n)) {
+	// swap
+	w = u; u = v; v = w;
+      }
+      test_diff_signed_all_pairs(u, v, n, data, m);
+    }
+  }
+}
+
+
+
 
 
 /*
  * Basic tests
  */
 int main(void) {
-  uint32_t *b[20];
+  uint32_t *b[50];
 
   init_bvconstants();
 
-  init_bvconst_array(b, 20, 10);
-  full_test_sum_unsigned(b, 20, 10);
-  full_test_sum_signed(b, 20, 10);
-  delete_bvconst_array(b, 20, 10);
-  
+  init_bvconst_array(b, 50, 10);
+  full_test_sum_unsigned(b, 50, 10);
+  full_test_sum_signed(b, 50, 10);
+  full_test_diff_unsigned(b, 50, 10);
+  full_test_diff_signed(b, 50, 10);
+  delete_bvconst_array(b, 50, 10);
 
-  init_bvconst_array(b, 20, 93);
-  full_test_sum_unsigned(b, 20, 93);
-  full_test_sum_signed(b, 20, 93);
-  delete_bvconst_array(b, 20, 93);
-  
+  init_bvconst_array(b, 50, 95);
+  full_test_sum_unsigned(b, 50, 95);
+  full_test_sum_signed(b, 50, 95);
+  full_test_diff_unsigned(b, 50, 95);
+  full_test_diff_signed(b, 50, 95);
+  delete_bvconst_array(b, 50, 95);
+
+  init_bvconst_array(b, 50, 96);
+  full_test_sum_unsigned(b, 50, 96);
+  full_test_sum_signed(b, 50, 96);
+  full_test_diff_unsigned(b, 50, 96);
+  full_test_diff_signed(b, 50, 96);
+  delete_bvconst_array(b, 50, 96);
+
+  init_bvconst_array(b, 50, 97);
+  full_test_sum_unsigned(b, 50, 97);
+  full_test_sum_signed(b, 50, 97);
+  full_test_diff_unsigned(b, 50, 97);
+  full_test_diff_signed(b, 50, 97);
+  delete_bvconst_array(b, 50, 97);
 
   cleanup_bvconstants();
 
