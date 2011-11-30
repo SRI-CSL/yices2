@@ -301,7 +301,7 @@ bool bvconst_is_normalized(uint32_t *bv, uint32_t n) {
 
   r = n & 0x1f;  // r = n mod 32
   k = n >> 5;    // k = floor (n/32)
-  return r == 0 || (bv[k] & (uint32_t) ((1 << r) - 1)) == 0;
+  return r == 0 || (bv[k] & ~((uint32_t) ((1 << r) - 1))) == 0;
 }
 
 
@@ -521,7 +521,8 @@ void bvconst_set_min_signed(uint32_t *bv, uint32_t n) {
 void bvconst_set_max_signed(uint32_t *bv, uint32_t n) {
   assert(n > 0);
   bvconst_set_minus_one(bv, (n + 31) >> 5);
-  bvconst_clr_bit(bv, n-1);
+  bvconst_clr_bit(bv, n-1);  
+  bvconst_normalize(bv, n); 
 }
 
 
