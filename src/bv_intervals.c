@@ -32,9 +32,11 @@ void delete_bv_aux_buffers(bv_aux_buffers_t *aux) {
   safe_free(aux->buffer_a);
   safe_free(aux->buffer_b);
   safe_free(aux->buffer_c);
+  safe_free(aux->buffer_d);
   aux->buffer_a = NULL;
   aux->buffer_b = NULL;
   aux->buffer_c = NULL;
+  aux->buffer_d = NULL;
   aux->size = 0;
 }
 
