@@ -885,8 +885,8 @@ NOTE: It's also possible to call the Visual Studio 'lib' utility
 
 
 
-NOTES FOR GCC4.4.x
-------------------
+NOTES FOR GCC 4.4.y
+-------------------
 
 Compiling yices with gcc-4.4 with the default options causes a
 lot of warnings of the form: 
@@ -895,6 +895,9 @@ warning: inlining failed in call to 'xxx': call is unlikely and code size would 
 
 The yices functions that are declared 'inline' are small and do not
 cause much code growth. So these warnings are annoying.
+
+Similar warnings are produced by other versions of GCC too (e.g.,
+GCC-4.5.3 for mingw32 and mingw64).
 
 The warnings are caused by heuristics that GCC employs to determine
 whether it is worth inlining a function call. GCC attempts to
