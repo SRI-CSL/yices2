@@ -1733,7 +1733,7 @@ static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
     if (tag_y == BVTAG_CONST) {
       c = &solver->aux1;
-      bvconstant_copy(c, n, bvvar_val(vtbl, x)); 
+      bvconstant_copy(c, n, bvvar_val(vtbl, y)); 
       return diseq_bvvar_const(solver, x, c, n, 4);  // recursion limit = 4
     }
 
