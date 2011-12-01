@@ -542,13 +542,13 @@ parser.h:		 Data structure shared by the Yices and SMT-LIB parsers.
 parser.c		 It provides support for implementing recursive-descent parsers
 
 yices_parse_tables.h:	 Tables used for parsing the Yices language 
-                         (see doc/yices_parse.txt and doc/table_builder.c)
+                         (see utils/yices_parser.txt and utils/table_builder.c)
 
 yices_parser.h:		 Parser for the Yices language
 yices_parser.c
 
 
-smt_parse_tables.h:	 Tables for SMT-LIB parsing (see doc/smt_parse.txt)
+smt_parse_tables.h:	 Tables for SMT-LIB parsing (see utils/smt_parser.txt)
 
 smt_parser.h:		 SMT-LIB parser
 smt_parser.c
@@ -574,7 +574,7 @@ smt2_lexer.h:		 Lexical analysis
 smt2_lexer.c
 
 smt2_parse_tables.h:	 Tables for parsing the SMT-LIB 2.0 language
-			 (see doc/smt2_parser.txt and doc/table_builder.c)
+			 (see utils/smt2_parser.txt and utils/table_builder.c)
 
 smt2_parser.h:		 Parser for SMT-LIB 2.0 (not linked to any term/type construction
 smt2_parser.c		 yet)

@@ -443,8 +443,9 @@ source-distribution: $(distributions)
 	$(MKDIR_P) $(srcdist_dir)/src
 	$(MKDIR_P) $(srcdist_dir)/tests
 	$(MKDIR_P) $(srcdist_dir)/doc
+	$(MKDIR_P) $(srcdist_dir)/utils
 	$(MKDIR_P) $(srcdist_dir)/etc
-	$(MKDIR_P) $(srcdist_dir)/examples
+	$(MKDIR_P) $(srcdist_dir)/examples	
 	cp install-sh config.guess configure configure.ac config.sub gmaketest $(srcdist_dir)
 	cp README Makefile Makefile.build make.include.in $(srcdist_dir)
 	cp autoconf/* $(srcdist_dir)/autoconf
@@ -453,11 +454,12 @@ source-distribution: $(distributions)
 	   src/smt2_tokens.txt src/smt2_keywords.txt src/smt2_symbols.txt \
 	   src/yices_version_template.txt $(srcdist_dir)/src
 	cp tests/Makefile tests/*.c $(srcdist_dir)/tests
-	cp doc/NOTES doc/YICES-LANGUAGE doc/GMP doc/gmp-hack.h \
-	   doc/yices_parser.txt doc/yices_parser_tables.h \
-	   doc/smt_parser.txt doc/smt_parser_tables.h \
-	   doc/smt2_parser.txt doc/smt2_parser_tables.h \
-	   doc/table_builder.c $(srcdist_dir)/doc
+	cp doc/NOTES doc/YICES-LANGUAGE doc/GMP 
+	cp utils/gmp-hack.h utils/mingw-build utils/setup-vs2010 \
+	   utils/yices_parser.txt utils/yices_parser_tables.h \
+	   utils/smt_parser.txt utils/smt_parser_tables.h \
+	   utils/smt2_parser.txt utils/smt2_parser_tables.h \
+	   utils/table_builder.c $(srcdist_dir)/utils
 	cp etc/* $(srcdist_dir)/etc
 	for file in `ls examples | $(EGREP) '*.ys|*.txt|*.smt|*.c' ` ; do \
 	  cp examples/$$file $(srcdist_dir)/examples ; \

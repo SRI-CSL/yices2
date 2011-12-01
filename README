@@ -89,7 +89,9 @@ The source subdirectories include
 
   ./tests:         source code for test programs
 
-  ./doc:           documentation, notes, and a few utilities
+  ./doc:           documentation, notes
+
+  ./utils:         shell scripts and other utilities
 
   ./examples:      example input files for testing
 
@@ -532,7 +534,7 @@ version:
 There are also issues with having 32 and 64bit versions of GMP
 on the same machine. I normally use fat libraries, and a hack
 that allows me to have two copies of gmp.h (one for 32bits, 
-one for 64bits). Check doc/gmp-hack.h for this.
+one for 64bits). Check utils/gmp-hack.h for this.
 
 The instructions below assume compilation on an Mac running
 Snow Leopard (i.e., Mac OS 10.6.8) and with GMP installed in
@@ -873,15 +875,18 @@ NOTE: It's also possible to call the Visual Studio 'lib' utility
       it requires are in the PATH. The Yices source contains
       a shell script 
 
-        './doc/setup-vs2010' 
+        './utils/setup-vs2010' 
 
       that does it for my Windows machine. This script must probably
       be adjusted depending on the Visual Studio Version and location.
       It must be run from a Cygwin shell (bash) using  
 
-         source ./doc/setup-vs1010
+         source ./utils/setup-vs1010
 
 
+NOTE: (Updated 2011/12/01). There's a shell script in ./utils that
+      makes it easier to build the Windows 32/64 bits distributions
+      from cygwin.
 
 
 
