@@ -161,6 +161,7 @@ extern void bv_triv_interval_u(bv_interval_t *intv, uint32_t n);
 extern void bv_triv_interval_s(bv_interval_t *intv, uint32_t n);
 
 
+
 /*
  * Check whether the two bounds are normalized
  */

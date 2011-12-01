@@ -49,7 +49,7 @@ static const char * const code2string[NUM_TSTACK_ERRORS] = {
   "error in arithmetic operation",
   "division by zero",
   "divisor is not a constant",
-  "bitsize must be positive",
+  "size must be positive",
   "bitvectors have incompatible sizes",
   "number cannot be converted to a bitvector",
   "error in bitvector arithmetic operation",
@@ -359,6 +359,7 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
     break;
 
   case TSTACK_INVALID_FRAME:
+  case TSTACK_NONPOSITIVE_BVSIZE:
     fprintf(f, "in %s (line %"PRId32", column %"PRId32")\n",
 	    opcode2string[tstack->error_op], tstack->error_loc.line, tstack->error_loc.column);
     break;
@@ -387,7 +388,6 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
   case TSTACK_ARITH_ERROR:
   case TSTACK_DIVIDE_BY_ZERO:
   case TSTACK_NON_CONSTANT_DIVISOR:
-  case TSTACK_NEGATIVE_BVSIZE:
   case TSTACK_INVALID_BVCONSTANT:
   case TSTACK_INCOMPATIBLE_BVSIZES:
   case TSTACK_BVARITH_ERROR:

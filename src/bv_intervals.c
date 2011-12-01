@@ -560,9 +560,9 @@ void bv_interval_addmul_u(bv_interval_t *a, bv_interval_t *b, uint32_t *c, bv_au
 
     if (!bvconst_tst_bit(c, n-1)) {
       // c is less than 2^(n-1)
-      bv_aux_addmul_u(aux, a->low, b_low, c, n); 
-      bv_aux_swap_ab(aux);
       bv_aux_addmul_u(aux, a->high, b_high, c, n);
+      bv_aux_swap_ab(aux);
+      bv_aux_addmul_u(aux, a->low, b_low, c, n); 
       bv_aux_shift_a_to_c(aux, n);
       bv_aux_shift_b_to_d(aux, n);
 
@@ -592,9 +592,9 @@ void bv_interval_addmul_u(bv_interval_t *a, bv_interval_t *b, uint32_t *c, bv_au
       bvconst_negate(c, w);
       bvconst_normalize(c, n);
 
-      bv_aux_submul_u(aux, a->low, b_high, c, n);
-      bv_aux_swap_ab(aux);
       bv_aux_submul_u(aux, a->high, b_low, c, n);
+      bv_aux_swap_ab(aux);
+      bv_aux_submul_u(aux, a->low, b_high, c, n);
       bv_aux_shift_a_to_c(aux, n);
       bv_aux_shift_b_to_d(aux, n);
 
@@ -656,9 +656,9 @@ void bv_interval_addmul_s(bv_interval_t *a, bv_interval_t *b, uint32_t *c, bv_au
 
     if (!bvconst_tst_bit(c, n-1)) {
       // c is non-negative
-      bv_aux_addmul_s(aux, a->low, b_low, c, n);
-      bv_aux_swap_ab(aux);
       bv_aux_addmul_s(aux, a->high, b_high, c, n);
+      bv_aux_swap_ab(aux);
+      bv_aux_addmul_s(aux, a->low, b_low, c, n);
       bv_aux_shift_a_to_c(aux, n);
       bv_aux_shift_b_to_d(aux, n);
 
@@ -671,9 +671,9 @@ void bv_interval_addmul_s(bv_interval_t *a, bv_interval_t *b, uint32_t *c, bv_au
        */
     } else {
       // c is negative
-      bv_aux_addmul_s(aux, a->low, b_high, c, n);
-      bv_aux_swap_ab(aux);
       bv_aux_addmul_s(aux, a->high, b_low, c, n);
+      bv_aux_swap_ab(aux);
+      bv_aux_addmul_s(aux, a->low, b_high, c, n);
       bv_aux_shift_a_to_c(aux, n);
       bv_aux_shift_b_to_d(aux, n);
 

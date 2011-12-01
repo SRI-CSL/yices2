@@ -37,6 +37,7 @@
 
 #include "bv_vartable.h"
 #include "bv_atomtable.h"
+#include "bv_intervals.h"
 
 #include "smt_core.h"
 #include "egraph.h"
@@ -99,6 +100,38 @@ typedef struct bv_bound_queue_s {
 
 #define DEF_BV_BOUND_NUM_LISTS 100
 #define MAX_BV_BOUND_NUM_LISTS (UINT32_MAX/sizeof(int32_t))
+
+
+
+
+/***********************************
+ *  INTERVAL COMPUTATION BUFFERS   *
+ **********************************/
+
+/*
+ * For computing enclosing intervals on a bitvector expression,
+ * we may need a stack of bv_intervals and a bv_aux_buffer structure.
+ * These are stored in the following structure.
+ *
+ * Initially, this is set to: 
+ * - data = NULL
+ * - buffers = NULL
+ * - size = 0
+ *
+ * When the first interval is requested the stack and aux_buffers
+ * are allocated.
+ */
+typedef struct bv_interval_stack_s {
+  bv_interval_t *data;
+  bv_aux_buffers_t *buffers;
+  uint32_t size;
+  uint32_t top;
+} bv_interval_stack_t;
+
+
+#define DEF_BV_INTV_STACK_SIZE 6
+#define MAX_BV_INTV_STACK_SIZE (UINT32_MAX/sizeof(bv_interval_t))
+
 
 
 
@@ -257,7 +290,7 @@ typedef struct bv_solver_s {
 
 
   /*
-   * Auxiliary buffers for internalization
+   * Auxiliary buffers for internalization and simplification
    */
   bvpoly_buffer_t buffer;
   pp_buffer_t prod_buffer;
@@ -265,7 +298,10 @@ typedef struct bv_solver_s {
   bvconstant_t aux1;
   bvconstant_t aux2;
   bvconstant_t aux3;
-  bvconstant_t aux4;
+
+  // buffers for computing intervals
+  bv_interval_stack_t intv_stack;
+
   // buffers for bit-blasting
   ivector_t a_vector;
   ivector_t b_vector;

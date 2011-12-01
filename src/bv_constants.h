@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <assert.h>
 
 #include <gmp.h>
 
@@ -570,6 +571,62 @@ static inline bool bvconst_slt(uint32_t *a, uint32_t *b, uint32_t n) {
 static inline bool bvconst_sgt(uint32_t *a, uint32_t *b, uint32_t n) {
   return ! bvconst_sle(a, b, n);
 }
+
+
+
+/*
+ * VARIANTS: using bvconstant stuctures
+ */
+static inline void bvconstant_normalize(bvconstant_t *a) {
+  bvconst_normalize(a->data, a->bitsize);
+}
+
+static inline bool bvconstant_is_normalized(bvconstant_t *a) {
+  return bvconst_is_normalized(a->data, a->bitsize);
+}
+
+static inline bool bvconstant_is_zero(bvconstant_t *a) {
+  assert(bvconstant_is_normalized(a));
+  return bvconst_is_zero(a->data, a->width);
+}
+
+static inline bool bvconstant_is_nonzero(bvconstant_t *a) {
+  return !bvconstant_is_zero(a);
+}
+
+static inline bool bvconstant_is_one(bvconstant_t *a) {
+  assert(bvconstant_is_normalized(a));
+  return bvconst_is_one(a->data, a->width);
+}
+
+static inline bool bvconstant_is_minus_one(bvconstant_t *a) {
+  assert(bvconstant_is_normalized(a));
+  return bvconst_is_minus_one(a->data, a->bitsize);
+}
+
+static inline bool bvconstant_is_min_signed(bvconstant_t *a) {
+  assert(bvconstant_is_normalized(a));
+  return bvconst_is_min_signed(a->data, a->bitsize);
+}
+
+static inline bool bvconstant_is_max_signed(bvconstant_t *a) {
+  assert(bvconstant_is_normalized(a));
+  return bvconst_is_max_signed(a->data, a->bitsize);
+}
+
+static inline int32_t bvconstant_is_power_of_two(bvconstant_t *a) {
+  return bvconst_is_power_of_two(a->data, a->width);
+}
+
+static inline void bvconstant_sub_one(bvconstant_t *a) {
+  bvconst_sub_one(a->data, a->width);
+}
+
+static inline void bvconstant_add_one(bvconstant_t *a) {
+  bvconst_add_one(a->data, a->width);
+}
+
+
 
 
 #endif /* __BV_CONSTANTS_H */

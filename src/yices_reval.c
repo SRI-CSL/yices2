@@ -40,6 +40,7 @@
 #include "idl_fw_printer.h"
 #include "rdl_fw_printer.h"
 #include "simplex_printer.h"
+#include "bvsolver_printer.h"
 #include "egraph_printer.h"
 #include "smt_core_printer.h"
 #include "context_printer.h"
@@ -1949,6 +1950,18 @@ static void dump_simplex_solver(FILE *f, simplex_solver_t *simplex) {
   fprintf(f, "\n");
 }
 
+static void dump_bv_solver(FILE *f, bv_solver_t *solver) {
+  fprintf(f, "\n--- Bitvector Partition ---\n");
+  print_bv_solver_partition(f, solver);
+  fprintf(f, "\n--- Bitvector Variables ---\n");
+  print_bv_solver_vars(f, solver);
+  fprintf(f, "\n--- Bitvector Atoms ---\n");
+  print_bv_solver_atoms(f, solver);
+  fprintf(f, "\n--- Bitvector Bounds ---\n");
+  print_bv_solver_bounds(f, solver);
+  fprintf(f, "\n");
+}
+
 
 static void yices_dump_cmd(void) {
   assert(context != NULL);
@@ -1972,6 +1985,10 @@ static void yices_dump_cmd(void) {
       assert(context_has_simplex_solver(context));
       dump_simplex_solver(stdout, context->arith_solver);
     }
+  }
+
+  if (context_has_bv_solver(context)) {
+    dump_bv_solver(stdout, context->bv_solver);
   }
 
   /*

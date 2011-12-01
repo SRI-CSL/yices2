@@ -166,6 +166,131 @@ static void reset_bv_bound_queue(bv_bound_queue_t *queue) {
 }
 
 
+/**********************************
+ *  INTERVAL-COMPUTATION BUFFERS  *
+ *********************************/
+
+/*
+ * Initialize the stack
+ */
+static void init_bv_interval_stack(bv_interval_stack_t *stack) {
+  stack->data = NULL;
+  stack->buffers = NULL;
+  stack->size = 0;
+  stack->top = 0;
+}
+
+
+/*
+ * Delete: free all memory
+ */
+static void delete_bv_interval_stack(bv_interval_stack_t *stack) {
+  uint32_t i, n;
+
+  n = stack->size;
+  if (n != 0) {
+    assert(stack->data != NULL && stack->buffers != NULL);
+    delete_bv_aux_buffers(stack->buffers);
+    for (i=0; i<n; i++) {
+      delete_bv_interval(stack->data + i);
+    }
+    safe_free(stack->buffers);
+    safe_free(stack->data);
+
+    stack->buffers = NULL;
+    stack->data = NULL;
+    stack->top = 0;
+    stack->size = 0;
+  }
+}
+
+
+
+/*
+ * Reset: same as delete
+ */
+static inline void reset_bv_interval_stack(bv_interval_stack_t *stack) {
+  delete_bv_interval_stack(stack);
+}
+
+
+/*
+ * Allocate the stack (if not allocated already)
+ * - use the default size
+ */
+static void alloc_bv_interval_stack(bv_interval_stack_t *stack) {
+  uint32_t i, n;
+  bv_interval_t *d;
+  bv_aux_buffers_t *b;
+
+  n = stack->size;
+  if (n == 0) {
+    n = DEF_BV_INTV_STACK_SIZE;
+    assert(n <= MAX_BV_INTV_STACK_SIZE);
+    d = (bv_interval_t *) safe_malloc(n * sizeof(bv_interval_t));
+    for (i=0; i<n; i++) {
+      init_bv_interval(d + i);
+    }
+
+    b = (bv_aux_buffers_t *) safe_malloc(sizeof(bv_aux_buffers_t));
+    init_bv_aux_buffers(b);
+
+    stack->data = d;
+    stack->buffers = b;
+    stack->size = n;
+  }
+}
+
+
+
+/*
+ * Get an interval object
+ * - this uses a FIFO allocation model
+ * - return NULL if the stack is full (fails)
+ */
+static bv_interval_t *get_bv_interval(bv_interval_stack_t *stack) {
+  bv_interval_t *d;
+  uint32_t i;
+
+  d = NULL;
+  i = stack->top;
+  if (i < stack->size) {
+    d = stack->data + i;
+    stack->top = i+1;
+  }
+  return d;
+}
+
+
+/*
+ * Free the last allocated interval object (i.e., decrement top)
+ */
+static inline void release_bv_interval(bv_interval_stack_t *stack) {
+  assert(stack->top > 0);
+  stack->top --;
+}
+
+
+/*
+ * Free all the allocated intervals
+ */
+static inline void release_all_bv_intervals(bv_interval_stack_t *stack) {
+  stack->top = 0;
+}
+
+/*
+ * Get the auxiliary buffer structure
+ * - alloc_bv_interval_stack must be called before this function
+ */
+static inline bv_aux_buffers_t *get_bv_aux_buffers(bv_interval_stack_t *stack) {
+  assert(stack->size != 0 && stack->buffers != NULL);
+  return stack->buffers;
+}
+
+
+
+
+
 
 
 /********************
@@ -748,8 +873,8 @@ static void get_upper_bound(bv_solver_t *solver, thvar_t x, uint32_t n, int32_t 
   if (x == a->left) {
     // (bvge x c) false: x <= c-1
     bvconstant_copy(c, n, bvvar_val(&solver->vtbl, a->right));
-    bvconst_sub_one(c->data, c->width);
-    bvconst_normalize(c->data, n);
+    bvconstant_sub_one(c);
+    bvconstant_normalize(c);
   } else {
     // (bvge c x) true: x <= c
     assert(x == a->right);
@@ -778,8 +903,8 @@ static void get_lower_bound(bv_solver_t *solver, thvar_t x, uint32_t n, int32_t 
     // (bvge c x) false: x >= c+1
     assert(x == a->right);
     bvconstant_copy(c, n, bvvar_val(&solver->vtbl, a->left));
-    bvconst_add_one(c->data, c->width);
-    bvconst_normalize(c->data, n);
+    bvconstant_add_one(c);
+    bvconstant_normalize(c);
   }
 }
 
@@ -1210,7 +1335,7 @@ static bool bvpoly64_is_simple(bv_solver_t *solver, bvpoly64_t *p, uint64_t *c0,
 
   vtbl = &solver->vtbl;
 
-  *a0 = 0; // otherwise GCC gives a bogous warning
+  *a0 = 0; // otherwise GCC gives a bogus warning
   
   n = p->nterms;
   nbits = p->bitsize;
@@ -1231,10 +1356,13 @@ static bool bvpoly64_is_simple(bv_solver_t *solver, bvpoly64_t *p, uint64_t *c0,
 
     x = mtbl_get_root(&solver->mtbl, p->mono[i].var);
     if (bvvar_is_const64(vtbl, x)) {
-      cnst += bvvar_val64(vtbl, x);
+      cnst += p->mono[i].coeff * bvvar_val64(vtbl, x);
     } else if (u == null_thvar) {
       u = x;
       *a0 = p->mono[i].coeff;
+    } else if (u == x) {
+      // two terms of p have the same root u
+      *a0 = norm64(*a0 + p->mono[i].coeff, nbits);
     } else {
       // p has more than one non-constant term
       return false;
@@ -1248,6 +1376,63 @@ static bool bvpoly64_is_simple(bv_solver_t *solver, bvpoly64_t *p, uint64_t *c0,
 
   return true;
 }
+
+
+
+/*
+ * Same thing for p with large coefficients
+ */
+static bool bvpoly_is_simple(bv_solver_t *solver, bvpoly_t *p, bvconstant_t *c0, bvconstant_t *a0, thvar_t *t) {
+  bv_vartable_t *vtbl;
+  uint32_t i, n, nbits, w;
+  thvar_t x, u;
+
+  vtbl = &solver->vtbl;
+
+  n = p->nterms;
+  nbits = p->bitsize;
+  w = p->width;
+  u = null_thvar;
+
+  i = 0;
+
+  // c0 := 0 (also make sure c0 has the right size
+  bvconstant_set_all_zero(c0, nbits);
+
+  // deal with the constant of p if any
+  if (p->mono[0].var == const_idx) {
+    bvconst_set(c0->data, w, p->mono[0].coeff);
+    i ++;
+  }
+
+  // check the rest of p
+  while (i < 0) {
+    assert(p->mono[i].var != const_idx);
+
+    x = mtbl_get_root(&solver->mtbl, p->mono[i].var);
+    if (bvvar_is_const(vtbl, x)) {
+      bvconst_addmul(c0->data, w, p->mono[i].coeff, bvvar_val(vtbl, x));
+    } else if (u == null_thvar) {
+      u = x;
+      bvconstant_copy(a0, nbits, p->mono[i].coeff);
+    } else if (u == x) {
+      assert(a0->bitsize == nbits);
+      bvconst_add(a0->data, a0->width, p->mono[i].coeff);
+      bvconstant_normalize(a0);
+    } else {
+      // p has more than one non-constant term
+      return false;
+    }
+
+    i++;
+  }
+
+  bvconstant_normalize(c0);
+  *t = u;
+
+  return true;
+}
+
 
 
 /*********************
@@ -1270,6 +1455,7 @@ static inline bool equal_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
   return x == y;
 }
+
 
 
 /************************
@@ -1379,7 +1565,7 @@ static bool diseq_bvvar_const64(bv_solver_t *solver, thvar_t x, uint64_t c, uint
 
     case BVTAG_POLY64:
       if (bvpoly64_is_simple(solver, bvvar_poly64_def(vtbl, x), &c0, &a0, &t)) {
-	if (t == null_thvar) {
+	if (t == null_thvar || a0 == 0) {
 	  // x is equal to c0
 	  return (c0 != c);
 	} else if (a0 == 1) {
@@ -1414,11 +1600,90 @@ static bool diseq_bvvar_const64(bv_solver_t *solver, thvar_t x, uint64_t c, uint
 
 
 /*
+ * Same thing for size > 64
+ * - the function uses aux2 and aux3 as buffers so c must not be one of them
+ */
+static bool diseq_bvvar_const(bv_solver_t *solver, thvar_t x, bvconstant_t *c, uint32_t n, uint32_t d) {
+  bv_vartable_t *vtbl;
+  bvconstant_t *c0, *a0;
+  thvar_t t;
+
+  assert(bvvar_bitsize(&solver->vtbl, x) == n && n > 64);
+  assert(c->bitsize == n &&  bvconstant_is_normalized(c));
+  assert(c != &solver->aux2 && c != &solver->aux3);
+
+  vtbl = &solver->vtbl;
+
+  while (d > 0) {
+    /*
+     * In this loop, we rewrite (x != c) to 
+     * true or false, or to an equivalent disequality (x' != c')
+     */
+
+    // x should be a root in mtbl
+    assert(x == mtbl_get_root(&solver->mtbl, x));
+
+    switch (bvvar_tag(vtbl, x)) {
+    case BVTAG_CONST:
+      return bvconst_neq(bvvar_val(vtbl, x), c->data, c->width);
+
+    case BVTAG_BIT_ARRAY:
+      return diseq_bitarray_const(bvvar_bvarray_def(vtbl, x), c->data, n);
+
+    case BVTAG_POLY:
+      c0 = &solver->aux2;
+      a0 = &solver->aux3;
+      if (bvpoly_is_simple(solver, bvvar_poly_def(vtbl, x), c0, a0, &t)) {
+	assert(c0->bitsize == n && bvconstant_is_normalized(c0));
+	assert(t == null_thvar || (a0->bitsize == n && bvconstant_is_normalized(a0)));
+
+	if (t == null_thvar || bvconstant_is_zero(a0)) {
+	  // x is equal to c0
+	  return bvconst_neq(c0->data, c->data, c->width);
+	} else if (bvconstant_is_one(a0)) {
+	  // x is equal to c0 + t 
+	  // so (x != c) is equivalent to (t != c - c0);
+	  x = t;
+	  // compute c := c - c0
+	  bvconst_sub(c->data, c->width, c0->data);
+	  bvconstant_normalize(c);  
+	  continue;
+	} else if (bvconstant_is_minus_one(a0)) {
+	  // x is equal to c0 - t
+	  // so (x != c) is equivalent to t != c0 - c
+	  x = t;
+	  // compute c:= c0 - c, normalized
+	  bvconst_sub(c->data, c->width, c0->data);
+	  bvconst_negate(c->data, c->width);
+	  bvconstant_normalize(c);
+	  continue;
+	}	  
+      }
+
+      /*
+       * Fall through intended: if x is a poly of the wrong form
+       */
+    default:
+      return false;
+    }
+
+    d --;
+  }
+
+  // default answer if d == 0: don't know
+  return false;
+}
+
+
+
+
+/*
  * Top-level disequality check
  * - x and y must be roots of their equivalence class in the merge table
  */
 static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv_vartable_t *vtbl;
+  bvconstant_t *c;
   bvvar_tag_t tag_x, tag_y;
   uint32_t n;
 
@@ -1434,11 +1699,11 @@ static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
   n = bvvar_bitsize(vtbl, x);
   if (n <= 64) {
     if (tag_x == BVTAG_CONST64) {
-      return diseq_bvvar_const64(solver, y, bvvar_val64(vtbl, x), n, 4); // recursion limit = 2
+      return diseq_bvvar_const64(solver, y, bvvar_val64(vtbl, x), n, 4); // recursion limit = 4
     }
 
     if (tag_y == BVTAG_CONST64) {
-      return diseq_bvvar_const64(solver, x, bvvar_val64(vtbl, y), n, 4); // recursion limit = 2      
+      return diseq_bvvar_const64(solver, x, bvvar_val64(vtbl, y), n, 4); // recursion limit = 4
     }
 
     if (tag_x == BVTAG_POLY64 && tag_y == BVTAG_POLY64) {
@@ -1460,10 +1725,16 @@ static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
   } else {
 
     // More than 64bits
-    if (tag_x == BVTAG_CONST && tag_y == BVTAG_CONST) {
-      // by hash consing, x and y represent different constants
-      assert(x != y); 
-      return true;
+    if (tag_x == BVTAG_CONST) {
+      c = &solver->aux1;
+      bvconstant_copy(c, n, bvvar_val(vtbl, x)); 
+      return diseq_bvvar_const(solver, y, c, n, 4);  // recursion limit = 4
+    }
+
+    if (tag_y == BVTAG_CONST) {
+      c = &solver->aux1;
+      bvconstant_copy(c, n, bvvar_val(vtbl, x)); 
+      return diseq_bvvar_const(solver, x, c, n, 4);  // recursion limit = 4
     }
 
     if (tag_x == BVTAG_POLY && tag_y == BVTAG_POLY) {
@@ -1474,14 +1745,6 @@ static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
       return diseq_bitarrays(bvvar_bvarray_def(vtbl, x), bvvar_bvarray_def(vtbl, y), n);
     }
 
-    if (tag_x == BVTAG_CONST && tag_y == BVTAG_BIT_ARRAY) {
-      return diseq_bitarray_const(bvvar_bvarray_def(vtbl, y), bvvar_val(vtbl, x), n);
-    }
-
-    if (tag_y == BVTAG_CONST && tag_x == BVTAG_BIT_ARRAY) {
-      return diseq_bitarray_const(bvvar_bvarray_def(vtbl, x), bvvar_val(vtbl, y), n);
-    }
-      
     if (tag_x == BVTAG_POLY && tag_y != BVTAG_CONST) {
       return bvpoly_is_const_plus_var(bvvar_poly_def(vtbl, x), y);
     }
@@ -1567,47 +1830,43 @@ static void bitarray_bounds_signed64(literal_t *a, uint32_t n, bv64_interval_t *
 
 /*
  * Lower/upper bounds for a bit array of more than 64bits
- * - the lower bound is stored in *lb
- * - the upper bound is stored in *ub
- * - both are normalized modulo 2^n
+ * - both are normalized modulo 2^n and stored in intv
  */
-static void bitarray_bounds_unsigned(literal_t *a, uint32_t n, bvconstant_t *lb, bvconstant_t *ub) {
+static void bitarray_bounds_unsigned(literal_t *a, uint32_t n, bv_interval_t *intv) {
   uint32_t i;
 
   assert(n > 64);
 
-  bvconstant_set_all_zero(lb, n); //  lb := 0b00....00
-  bvconstant_set_all_one(ub, n);  //  ub := 0b11....11
+  bv_triv_interval_u(intv, n); // intv->low = 0b00..0, intv->high = 0b111..1
   for (i=0; i<n; i++) {
-    if (a[i] == false_literal) {
-      bvconst_clr_bit(ub->data, i);
-    } else if (a[i] == true_literal) {
-      bvconst_set_bit(lb->data, i);
+    if (a[i] == true_literal) {
+      bvconst_set_bit(intv->low, i);
+    } else if (a[i] == false_literal) {
+      bvconst_clr_bit(intv->high, i);
     }
   }
 }
 
-static void bitarray_bounds_signed(literal_t *a, uint32_t n, bvconstant_t *lb, bvconstant_t *ub) {
+static void bitarray_bounds_signed(literal_t *a, uint32_t n, bv_interval_t *intv) {
   uint32_t i;
 
-  assert(n > 0);
+  assert(n > 64);
 
-  bvconstant_set_all_zero(lb, n); // lb := 0b0000000
-  bvconstant_set_all_one(ub, n);  // ub := 0b11....11
+  bv_triv_interval_s(intv, n); // intv->low = 0b100000, intv->high = 0b011111
+
   for (i=0; i<n-1; i++) {
-    if (a[i] == false_literal) {
-      bvconst_clr_bit(ub->data, i);
-    } else if (a[i] == true_literal) {
-      bvconst_set_bit(lb->data, i);
+    if (a[i] == true_literal) {
+      bvconst_set_bit(intv->low, i);
+    } else if (a[i] == false_literal) {
+      bvconst_clr_bit(intv->high, i);
     }
   }
 
   // sign bit
-  if (a[i] != true_literal) {     // sign bit may be zero
-    bvconst_clr_bit(ub->data, i);
-  }
-  if (a[i] != false_literal) {    // sign bit may be one
-    bvconst_set_bit(lb->data, i);
+  if (a[i] == false_literal) {   // the sign bit is 0
+    bvconst_clr_bit(intv->low, i);
+  } else if (a[i] == true_literal) {  // the sign bit is 1
+    bvconst_set_bit(intv->high, i);
   }
 }
 
@@ -1621,7 +1880,7 @@ static void bitarray_bounds_signed(literal_t *a, uint32_t n, bvconstant_t *lb, b
  * - d = limit on recursion depth
  * - n = number of bits in x
  * - the functions exist in two versions: one for bitvectors of 64bits at most,
- *   the other for bitvecots of more than 64bits.
+ *   the other for bitvectors of more than 64bits.
  * - the lower bound is returned in *lb
  * - the upper bound is returned in *ub
  */
@@ -1629,8 +1888,8 @@ static void bitarray_bounds_signed(literal_t *a, uint32_t n, bvconstant_t *lb, b
 static void bvvar_bounds_u64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bv64_interval_t *intv);
 static void bvvar_bounds_s64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bv64_interval_t *intv);
 
-static void bvvar_bounds_u(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bvconstant_t *lb, bvconstant_t *ub);
-static void bvvar_bounds_s(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bvconstant_t *lb, bvconstant_t *ub);
+static void bvvar_bounds_u(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bv_interval_t *intv);
+static void bvvar_bounds_s(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bv_interval_t *intv);
 
 
 
@@ -1689,6 +1948,93 @@ static void bvpoly64_bounds_s(bv_solver_t *solver, bvpoly64_t *p, uint32_t d, bv
     i ++;
   }
 }
+
+
+
+/*
+ * Bounds on polynomials (more than 64bits)
+ * - d = recursion limit
+ * - intv = where the bounds are stored
+ * - solver->intv_stack must be allocated before this is called
+ */
+static void bvpoly_bounds_u(bv_solver_t *solver, bvpoly_t *p, uint32_t d, bv_interval_t *intv) {
+  bv_interval_t *aux;
+  bv_aux_buffers_t *buffers;
+  uint32_t i, n, nbits;
+  thvar_t x;
+
+  n = p->nterms;
+  nbits = p->bitsize;
+
+  aux = get_bv_interval(&solver->intv_stack);
+  if (aux == NULL) {
+    // no buffer available: return [0b000.., 0b11...]
+    bv_triv_interval_u(intv, n);    
+  } else {
+
+    buffers = get_bv_aux_buffers(&solver->intv_stack);
+
+    i = 0;
+    if (p->mono[i].var == const_idx) {
+      bv_point_interval(intv, p->mono[i].coeff, nbits);
+      i ++;
+    } else {
+      bv_zero_interval(intv, nbits);
+    }
+
+    while (i < n) {
+      x = mtbl_get_root(&solver->mtbl, p->mono[i].var);
+      bvvar_bounds_u(solver, x, nbits, d, aux);
+      bv_interval_addmul_u(intv, aux, p->mono[i].coeff, buffers);
+      if (bv_interval_is_triv_u(intv)) break;
+      i ++;
+    }
+
+    // cleanup
+    release_bv_interval(&solver->intv_stack);
+  }
+}
+
+
+static void bvpoly_bounds_s(bv_solver_t *solver, bvpoly_t *p, uint32_t d, bv_interval_t *intv) {
+  bv_interval_t *aux;
+  bv_aux_buffers_t *buffers;
+  uint32_t i, n, nbits;
+  thvar_t x;
+
+  n = p->nterms;
+  nbits = p->bitsize;
+
+  aux = get_bv_interval(&solver->intv_stack);
+  if (aux == NULL) {
+    // no buffer available: return [0b100.., 0b011...]
+    bv_triv_interval_s(intv, n);    
+  } else {
+
+    buffers = get_bv_aux_buffers(&solver->intv_stack);
+
+    i = 0;
+    if (p->mono[i].var == const_idx) {
+      bv_point_interval(intv, p->mono[i].coeff, nbits);
+      i ++;
+    } else {
+      bv_zero_interval(intv, nbits);
+    }
+
+    while (i < n) {
+      x = mtbl_get_root(&solver->mtbl, p->mono[i].var);
+      bvvar_bounds_s(solver, x, nbits, d, aux);
+      bv_interval_addmul_s(intv, aux, p->mono[i].coeff, buffers);
+      if (bv_interval_is_triv_s(intv)) break;
+      i ++;
+    }
+
+    // cleanup
+    release_bv_interval(&solver->intv_stack);
+  }
+}
+
+
 
 
 
@@ -1781,10 +2127,11 @@ static void bvvar_bounds_s64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_
 /*
  * Lower/upper bound for a bitvector variable x
  * - n = bitsize of x: must be more than 64
- * - the result is stored in v
+ * - the result is stored in intv
  */
-static void bvvar_bounds_u(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bvconstant_t *lb, bvconstant_t *ub) {
+static void bvvar_bounds_u(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bv_interval_t *intv) {
   bv_vartable_t *vtbl;
+  bvconstant_t *c;
   bvvar_tag_t tag_x;
 
   vtbl = &solver->vtbl;
@@ -1794,27 +2141,46 @@ static void bvvar_bounds_u(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t 
   tag_x = bvvar_tag(vtbl, x);
 
   if (tag_x == BVTAG_CONST) {
-    bvconstant_copy(lb, n, bvvar_val(vtbl, x));
-    bvconstant_copy(ub, n, bvvar_val(vtbl, x));
-    return;
-  }
-
-  // default bounds
-  if (tag_x == BVTAG_BIT_ARRAY) {
-    bitarray_bounds_unsigned(bvvar_bvarray_def(vtbl, x), n, lb, ub);
+    bv_point_interval(intv, bvvar_val(vtbl, x), n);
+  } else if (tag_x == BVTAG_BIT_ARRAY) {
+    bitarray_bounds_unsigned(bvvar_bvarray_def(vtbl, x), n, intv);
+  } else if (tag_x == BVTAG_POLY && d > 0) {
+    bvpoly_bounds_u(solver, bvvar_poly_def(vtbl, x), d-1, intv);
   } else {
-    bvconstant_set_all_zero(lb, n);
-    bvconstant_set_all_one(ub, n);
+    // default bounds
+    bv_triv_interval_u(intv, n);
   }
 
-  // search for better bounds
-  (void) bvvar_has_lower_bound(solver, x, n, lb);
-  (void) bvvar_has_upper_bound(solver, x, n, ub);
+  /*
+   * Check for better bounds in the queue
+   */
+  c = &solver->aux1;
+
+  if (bvvar_has_lower_bound(solver, x, n, c) && 
+      bvconst_gt(c->data, intv->low, n) &&
+      bvconst_le(c->data, intv->high, n)) {
+    // c: lower bound on x with c <= intv->high and c > intv->low
+    // replace intv->low by c
+    assert(bvconstant_is_normalized(c));
+    bvconst_set(intv->low, c->width, c->data);
+  }
+
+  if (bvvar_has_upper_bound(solver, x, n, c) &&
+      bvconst_lt(c->data, intv->high, n) &&
+      bvconst_ge(c->data, intv->low, n)) {
+    // c: upper bound on x with c >= intv->low and c < intv->high
+    // replace intv->high by c
+    assert(bvconstant_is_normalized(c));
+    bvconst_set(intv->high, c->width, c->data);
+  }
+
+  assert(bv_interval_is_normalized(intv) && bvconst_le(intv->low, intv->high, n));
 }
 
 
-static void bvvar_bounds_s(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bvconstant_t *lb, bvconstant_t *ub) {
+static void bvvar_bounds_s(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t d, bv_interval_t *intv) {
   bv_vartable_t *vtbl;
+  bvconstant_t *c;
   bvvar_tag_t tag_x;
 
   vtbl = &solver->vtbl;
@@ -1824,24 +2190,40 @@ static void bvvar_bounds_s(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t 
   tag_x = bvvar_tag(vtbl, x);
 
   if (tag_x == BVTAG_CONST) {
-    bvconstant_copy(lb, n, bvvar_val(vtbl, x));
-    bvconstant_copy(ub, n, bvvar_val(vtbl, x));
-    return;
-  }
-
-  // default bounds
-  if (tag_x == BVTAG_BIT_ARRAY) {
-    bitarray_bounds_signed(bvvar_bvarray_def(vtbl, x), n, lb, ub);
+    bv_point_interval(intv, bvvar_val(vtbl, x), n);
+  } else if (tag_x == BVTAG_BIT_ARRAY) {
+    bitarray_bounds_signed(bvvar_bvarray_def(vtbl, x), n, intv);
+  } else if (tag_x == BVTAG_POLY && d > 0) {
+    bvpoly_bounds_s(solver, bvvar_poly_def(vtbl, x), d-1, intv);
   } else {
-    bvconstant_set_all_zero(lb, n);
-    bvconst_set_bit(lb->data, n-1); // set sign bit
-    bvconstant_set_all_one(ub, n);
-    bvconst_clr_bit(ub->data, n-1); // clear sign bit
+    // default bounds
+    bv_triv_interval_s(intv, n);
   }
 
-  // search for better bounds
-  (void) bvvar_has_signed_lower_bound(solver, x, n, lb);
-  (void) bvvar_has_signed_upper_bound(solver, x, n, ub);
+  /*
+   * Check for better bounds in the queue
+   */
+  c = &solver->aux1;
+
+  if (bvvar_has_signed_lower_bound(solver, x, n, c) && 
+      bvconst_sgt(c->data, intv->low, n) &&
+      bvconst_sle(c->data, intv->high, n)) {
+    // c: lower bound on x with c <= intv->high and c > intv->low
+    // replace intv->low by c
+    assert(bvconstant_is_normalized(c));
+    bvconst_set(intv->low, c->width, c->data);
+  }
+
+  if (bvvar_has_signed_upper_bound(solver, x, n, c) &&
+      bvconst_slt(c->data, intv->high, n) &&
+      bvconst_sge(c->data, intv->low, n)) {
+    // c: upper bound on x with c >= intv->low and c < intv->high
+    // replace intv->high by c
+    assert(bvconstant_is_normalized(c));
+    bvconst_set(intv->high, c->width, c->data);
+  }
+
+  assert(bv_interval_is_normalized(intv) && bvconst_sle(intv->low, intv->high, n));
 }
 
 
@@ -1872,7 +2254,7 @@ typedef enum {
  */
 static bvtest_code_t check_bvuge(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv64_interval_t intv_x, intv_y;
-  bvconstant_t *low_x, *high_x, *low_y, *high_y;
+  bv_interval_t *bounds_x, *bounds_y;
   uint32_t n;
 
   assert(bvvar_bitsize(&solver->vtbl, x) == bvvar_bitsize(&solver->vtbl, y));
@@ -1897,19 +2279,29 @@ static bvtest_code_t check_bvuge(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
   } else {
 
-    low_x = &solver->aux1;
-    high_x = &solver->aux2;
-    low_y = &solver->aux3;
-    high_y = &solver->aux4;
+    // prepare interval stack
+    alloc_bv_interval_stack(&solver->intv_stack);
+    bounds_x = get_bv_interval(&solver->intv_stack);
+    bounds_y = get_bv_interval(&solver->intv_stack);
 
-    bvvar_bounds_u(solver, x, n, 4, low_x, high_x);  // low_x <= x <= high_x
-    bvvar_bounds_u(solver, y, n, 4, low_y, high_y);  // low_y <= y <= high_y
+    assert(bounds_x != NULL && bounds_y != NULL);
 
-    if (bvconst_ge(low_x->data, high_y->data, n)) {
+    bvvar_bounds_u(solver, x, n, 4, bounds_x);  // bounds_x.low <= x <= bounds_x.high
+    bvvar_bounds_u(solver, y, n, 4, bounds_y);  // bounds_y.low <= y <= bounds_y.high
+
+
+    /*
+     * hack: empty the interval stack here
+     * bounds_x and bounds_y are still good pointers in stack->data
+     */
+    assert(solver->intv_stack.top == 2);
+    release_all_bv_intervals(&solver->intv_stack);
+
+    if (bvconst_ge(bounds_x->low, bounds_y->high, n)) {
       return BVTEST_TRUE;
     }
 
-    if (bvconst_lt(high_x->data, low_y->data, n)) {
+    if (bvconst_lt(bounds_x->high, bounds_y->low, n)) {
       return BVTEST_FALSE;
     }
 
@@ -1928,7 +2320,7 @@ static bvtest_code_t check_bvuge(bv_solver_t *solver, thvar_t x, thvar_t y) {
  */
 static bvtest_code_t check_bvsge(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bv64_interval_t intv_x, intv_y;
-  bvconstant_t *low_x, *high_x, *low_y, *high_y;  
+  bv_interval_t *bounds_x, *bounds_y;
   uint32_t n;
 
   assert(bvvar_bitsize(&solver->vtbl, x) == bvvar_bitsize(&solver->vtbl, y));
@@ -1953,19 +2345,29 @@ static bvtest_code_t check_bvsge(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
   } else {
 
-    low_x = &solver->aux1;
-    high_x = &solver->aux2;
-    low_y = &solver->aux3;
-    high_y = &solver->aux4;
+    // prepare interval stack
+    alloc_bv_interval_stack(&solver->intv_stack);
+    bounds_x = get_bv_interval(&solver->intv_stack);
+    bounds_y = get_bv_interval(&solver->intv_stack);
 
-    bvvar_bounds_s(solver, x, n, 1, low_x, high_x);  // low_x <= x <= high_x
-    bvvar_bounds_s(solver, y, n, 1, low_y, high_y);  // low_y <= y <= high_y
+    assert(bounds_x != NULL && bounds_y != NULL);
 
-    if (bvconst_sge(low_x->data, high_y->data, n)) {
+    bvvar_bounds_s(solver, x, n, 4, bounds_x);  // bounds_x.low <= x <= bounds_x.high
+    bvvar_bounds_s(solver, y, n, 4, bounds_y);  // bounds_y.low <= y <= bounds_y.high
+
+
+    /*
+     * hack: empty the interval stack here
+     * bounds_x and bounds_y are still good pointers in stack->data
+     */
+    assert(solver->intv_stack.top == 2);
+    release_all_bv_intervals(&solver->intv_stack);
+
+    if (bvconst_sge(bounds_x->low, bounds_y->high, n)) {
       return BVTEST_TRUE;
     }
 
-    if (bvconst_slt(high_x->data, low_y->data, n)) {
+    if (bvconst_slt(bounds_x->high, bounds_y->low, n)) {
       return BVTEST_FALSE;
     }
 
@@ -2447,7 +2849,7 @@ void init_bv_solver(bv_solver_t *solver, smt_core_t *core, egraph_t *egraph) {
   init_bvconstant(&solver->aux1);
   init_bvconstant(&solver->aux2);
   init_bvconstant(&solver->aux3);
-  init_bvconstant(&solver->aux4);
+  init_bv_interval_stack(&solver->intv_stack);
   init_ivector(&solver->a_vector, 0);
   init_ivector(&solver->b_vector, 0);
 
@@ -2496,7 +2898,7 @@ void delete_bv_solver(bv_solver_t *solver) {
   delete_bvconstant(&solver->aux1);
   delete_bvconstant(&solver->aux2);
   delete_bvconstant(&solver->aux3);
-  delete_bvconstant(&solver->aux4);
+  delete_bv_interval_stack(&solver->intv_stack);
   delete_ivector(&solver->a_vector);
   delete_ivector(&solver->b_vector);
 
@@ -2599,6 +3001,7 @@ void bv_solver_reset(bv_solver_t *solver) {
   reset_bvpoly_buffer(&solver->buffer, 32);
   pp_buffer_reset(&solver->prod_buffer);
   ivector_reset(&solver->aux_vector);
+  reset_bv_interval_stack(&solver->intv_stack);
   ivector_reset(&solver->a_vector);
   ivector_reset(&solver->b_vector);
 
@@ -2872,7 +3275,7 @@ thvar_t bv_solver_create_bvdiv(bv_solver_t *solver, thvar_t x, thvar_t y) {
       aux = &solver->aux1;
       bvconstant_set_bitsize(aux, n);
       bvconst_udiv2z(aux->data, n, bvvar_val(vtbl, x), bvvar_val(vtbl, y));
-      bvconst_normalize(aux->data, n);
+      bvconstant_normalize(aux);
       return get_bvconst(vtbl, n, aux->data);
     }
   }
@@ -2918,7 +3321,7 @@ thvar_t bv_solver_create_bvrem(bv_solver_t *solver, thvar_t x, thvar_t y) {
       aux = &solver->aux1;
       bvconstant_set_bitsize(aux, n);
       bvconst_urem2z(aux->data, n, bvvar_val(vtbl, x), bvvar_val(vtbl, y));
-      bvconst_normalize(aux->data, n);
+      bvconstant_normalize(aux);
       return get_bvconst(vtbl, n, aux->data);
     }
   }
@@ -2964,7 +3367,7 @@ thvar_t bv_solver_create_bvsdiv(bv_solver_t *solver, thvar_t x, thvar_t y) {
       aux = &solver->aux1;
       bvconstant_set_bitsize(aux, n);
       bvconst_sdiv2z(aux->data, n, bvvar_val(vtbl, x), bvvar_val(vtbl, y));
-      bvconst_normalize(aux->data, n);
+      bvconstant_normalize(aux);
       return get_bvconst(vtbl, n, aux->data);
     }
   }
@@ -3010,7 +3413,7 @@ thvar_t bv_solver_create_bvsrem(bv_solver_t *solver, thvar_t x, thvar_t y) {
       aux = &solver->aux1;
       bvconstant_set_bitsize(aux, n);
       bvconst_srem2z(aux->data, n, bvvar_val(vtbl, x), bvvar_val(vtbl, y));
-      bvconst_normalize(aux->data, n);
+      bvconstant_normalize(aux);
       return get_bvconst(vtbl, n, aux->data);
     }
   }
@@ -3056,7 +3459,7 @@ thvar_t bv_solver_create_bvsmod(bv_solver_t *solver, thvar_t x, thvar_t y) {
       aux = &solver->aux1;
       bvconstant_set_bitsize(aux, n);
       bvconst_smod2z(aux->data, n, bvvar_val(vtbl, x), bvvar_val(vtbl, y));
-      bvconst_normalize(aux->data, n);
+      bvconstant_normalize(aux);
       return get_bvconst(vtbl, n, aux->data);
     }
   }
