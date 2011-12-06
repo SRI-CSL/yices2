@@ -380,7 +380,7 @@ static arith_atom_hobj_t arith_atom_hobj = {
  * Search for an atom (x op k) where op is one of GE_ATM, LE_ATM, EQ_ATM
  * - return -1 if there's no such atom, otherwise, return the atom index
  */
-int32_t find_arith_atom(arith_atomtable_t *table, thvar_t x, atm_tag_t op, rational_t *k) {
+int32_t find_arith_atom(arith_atomtable_t *table, thvar_t x, arithatm_tag_t op, rational_t *k) {
   arith_atom_hobj.table = table;
   arith_atom_hobj.header = arithatom_mk_header(x, op);
   arith_atom_hobj.bound = k;
@@ -392,7 +392,7 @@ int32_t find_arith_atom(arith_atomtable_t *table, thvar_t x, atm_tag_t op, ratio
 /*
  * Search for the atom (x op k) create it if it's not already in the table
  */
-int32_t get_arith_atom(arith_atomtable_t *table, thvar_t x, atm_tag_t op, rational_t *k, bool *new_atom) {
+int32_t get_arith_atom(arith_atomtable_t *table, thvar_t x, arithatm_tag_t op, rational_t *k, bool *new_atom) {
   uint32_t n;
   int32_t i;
 

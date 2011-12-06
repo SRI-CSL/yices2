@@ -21,7 +21,9 @@ static const char * const status2string[] = {
  * Boolean value
  */
 void print_bval(FILE *f, bval_t b) {
-  if (b < 0 || b > VAL_TRUE) {
+  // cast to (int) prevents compilation warnings with clang
+  // because it uses (unsigned) for the bval_t enum.
+  if ((int) b < 0 || b > VAL_TRUE) {
     b = VAL_TRUE + 1;
   }
   fputs(bval2string[b], f);

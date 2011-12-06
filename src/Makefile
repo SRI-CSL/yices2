@@ -368,13 +368,13 @@ STATIC_LIBS := $(STATIC_GMP) $(subst $(LIBS),-lgmp,)
 #
 $(objdir)/%.d: %.c
 	@ echo Building dependency file $@
-	@ $(CC) -MM -MG $(CPPFLAGS) $< > $@.tmp
+	@ $(CC) -MM $(CPPFLAGS) $< > $@.tmp
 	@ $(SED) 's,\($*\).o[ :]*,$(objdir)/\1.o $@ : , g' < $@.tmp > $@
 	@ rm -f $@.tmp
 
 $(static_objdir)/%.d: %.c
 	@ echo Building dependency file $@
-	@ $(CC) -MM -MG $(STATIC_CPPFLAGS) $< > $@.tmp
+	@ $(CC) -MM $(STATIC_CPPFLAGS) $< > $@.tmp
 	@ $(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.tmp > $@
 	@ rm -f $@.tmp
 

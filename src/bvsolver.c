@@ -1406,7 +1406,7 @@ static bool bvpoly_is_simple(bv_solver_t *solver, bvpoly_t *p, bvconstant_t *c0,
   }
 
   // check the rest of p
-  while (i < 0) {
+  while (i < n) {
     assert(p->mono[i].var != const_idx);
 
     x = mtbl_get_root(&solver->mtbl, p->mono[i].var);

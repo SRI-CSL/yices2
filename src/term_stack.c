@@ -69,13 +69,14 @@ static void __attribute__((noreturn)) raise_exception(tstack_t *stack, stack_ele
  * - loc = corresponding loc
  * - code = error code
  */
+#ifndef NDEBUG
 static void __attribute__((noreturn)) bad_op_exception(tstack_t *stack, loc_t *loc, uint32_t op) {
   stack->error_loc = *loc;
   stack->error_op = op;
   stack->error_string = NULL;
   longjmp(stack->env, TSTACK_INVALID_OP);
 }
-
+#endif
 
 /*
  * Bad format or other error on a push_rational, push_float, push_bvbin, push_hexbin operation, etc.

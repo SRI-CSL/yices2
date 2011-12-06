@@ -319,7 +319,7 @@ static inline void unmark_arith_atom(arith_atomtable_t *table, int32_t i) {
  * Search for an atom (x op k) where op is one of GE_ATM, LE_ATM, EQ_ATM
  * - return -1 if there's no such atom, otherwise, return the atom index
  */
-extern int32_t find_arith_atom(arith_atomtable_t *table, thvar_t x, atm_tag_t op, rational_t *k);
+extern int32_t find_arith_atom(arith_atomtable_t *table, thvar_t x, arithatm_tag_t op, rational_t *k);
 
 /*
  * Search for atom (x op k)
@@ -330,7 +330,7 @@ extern int32_t find_arith_atom(arith_atomtable_t *table, thvar_t x, atm_tag_t op
  * If a new atom is created, it's attached to the core and it's assigned to 
  * a fresh boolean variable.
  */
-extern int32_t get_arith_atom(arith_atomtable_t *table, thvar_t x, atm_tag_t op, rational_t *k, bool *new_atom);
+extern int32_t get_arith_atom(arith_atomtable_t *table, thvar_t x, arithatm_tag_t op, rational_t *k, bool *new_atom);
 
 /*
  * Variants: return a literal, create a new atom if needed

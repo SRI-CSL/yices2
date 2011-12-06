@@ -49,7 +49,9 @@ static const char * const cmpkind2string[] = {
  * Basic egraph objects
  */
 void print_etype(FILE *f, etype_t tau) {
-  if (tau < 0 || tau > NUM_ETYPES) {
+  // the cast to (int) prevents annoying warnings
+  // when compiling with Clang
+  if ((int) tau < 0 || tau > NUM_ETYPES) {
     tau = NUM_ETYPES;
   }
   fputs(etype2string[tau], f);
@@ -60,7 +62,9 @@ void print_etype(FILE *f, etype_t tau) {
  * Theory name for type tau
  */
 void print_theory_id(FILE *f, etype_t tau) {
-  if (tau < 0 || tau > NUM_ETYPES) {
+  // the cast to (int) prevents annoying warnings
+  // when compiling with Clang
+  if ((int) tau < 0 || tau > NUM_ETYPES) {
     tau = NUM_ETYPES;
   }
   fputs(etype2theory[tau], f);  
@@ -185,7 +189,8 @@ void print_dmask(FILE *f, uint32_t d) {
  * EGRAPH: INTERNAL STATE
  */
 static void print_kind(FILE *f, composite_kind_t k) {
-  if (k < 0 || k > COMPOSITE_OR) {
+  // cast to (int) to prevent compilation warnings with clang
+  if ((int) k < 0 || k > COMPOSITE_OR) {
     k = COMPOSITE_OR + 1;
   }
   fputs(cmpkind2string[k], f);

@@ -290,7 +290,7 @@ $(objdir)/%.d: %.c
 
 $(static_objdir)/%.d: %.c
 	@ echo Building dependency file $@
-	@ $(CC) -MM -MG $(CPPFLAGS) $< > $@.tmp
+	@ $(CC) -MM $(CPPFLAGS) $< > $@.tmp
 	@ $(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.tmp > $@
 	@ rm -f $@.tmp
 
