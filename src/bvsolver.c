@@ -1906,7 +1906,7 @@ static void bvpoly64_bounds_u(bv_solver_t *solver, bvpoly64_t *p, uint32_t d, bv
   nbits = p->bitsize;
   i = 0;
 
-  // constant term:
+  // constant term if any
   if (p->mono[i].var == const_idx) {
     bv64_point_interval(intv, p->mono[i].coeff, nbits);
     i ++;
@@ -1932,7 +1932,7 @@ static void bvpoly64_bounds_s(bv_solver_t *solver, bvpoly64_t *p, uint32_t d, bv
   nbits = p->bitsize;
   i = 0;
 
-  // constant term:
+  // constant term
   if (p->mono[i].var == const_idx) {
     bv64_point_interval(intv, p->mono[i].coeff, nbits);
     i ++;
@@ -2067,9 +2067,10 @@ static void bvvar_bounds_u64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_
 
 
   /*
-   * check for better bounds in the bound queue
-   * Note: if asserted lower bound on c > intv->high then the constraints are unsat
-   * (but this will be detected later on)
+   * Check for better bounds in the bound queue 
+   *
+   * Note: if an asserted lower bound on c is greater than intv->high
+   * then the constraints are unsat (but this will be detected later).
    */
   if (bvvar_has_lower_bound64(solver, x, &c) && c > intv->low && c <= intv->high) {
     intv->low = c;
