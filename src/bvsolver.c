@@ -1502,7 +1502,7 @@ static void simplify_bvpoly64_eq(bv_solver_t *solver, bvpoly64_t *p, bvpoly64_t 
     ki = n;
     kj = m;
 
-    while (i<n && j<m) {
+    for (;;) {
       x = p->mono[i].var;
       y = q->mono[j].var;
       if (x < y) {
@@ -1516,12 +1516,15 @@ static void simplify_bvpoly64_eq(bv_solver_t *solver, bvpoly64_t *p, bvpoly64_t 
 	kj = j;
 	j ++;
       } else {
+	if (x == max_idx) break;
 	// same variable in p and q
 	if (p->mono[i].coeff != q->mono[j].coeff) return;
 	i++;
 	j++;
       }
     }
+    
+    assert(i == n && j == m);
 
     /*
      * ki = index of a variable of p not in q (or ki = n)
@@ -1576,7 +1579,7 @@ static void simplify_bvpoly_eq(bv_solver_t *solver, bvpoly_t *p, bvpoly_t *q, th
     ki = n;
     kj = m;
 
-    while (i<n && j<m) {
+    for (;;) {
       x = p->mono[i].var;
       y = q->mono[j].var;
       if (x < y) {
@@ -1590,12 +1593,15 @@ static void simplify_bvpoly_eq(bv_solver_t *solver, bvpoly_t *p, bvpoly_t *q, th
 	kj = j;
 	j ++;
       } else {
+	if (x == max_idx) break;
 	// same variable in p and q
 	if (bvconst_neq(p->mono[i].coeff, q->mono[j].coeff, w)) return;
 	i++;
 	j++;
       }
     }
+
+    assert(i == n && j == m);
 
     /*
      * ki = index of a variable of p not in q (or ki = n)
@@ -1662,12 +1668,21 @@ static void simplify_eq(bv_solver_t *solver, thvar_t *vx, thvar_t *vy) {
 
   if (x != *vx || y != *vy) {
 #if 1
-    printf("---> bv simplify (bveq u_%"PRId32" u_%"PRId32")\n", x, y);
+    printf("---> bv simplify (bveq u!%"PRId32" u!%"PRId32")\n", x, y);
     printf("     ");
     print_bv_solver_vardef(stdout, solver, x);
     printf("     ");
     print_bv_solver_vardef(stdout, solver, y);
-    printf("     simplified to (bveq u_%"PRId32" u_%"PRId32")\n\n", *vx, *vy);
+    printf("     simplified to (bveq u!%"PRId32" u!%"PRId32")\n", *vx, *vy);
+    if (bvvar_is_zero(&solver->vtbl, *vx)) {
+      printf("     ");
+      print_bv_solver_vardef(stdout, solver, *vx);
+    }
+    if (bvvar_is_zero(&solver->vtbl, *vy)) {
+      printf("     ");
+      print_bv_solver_vardef(stdout, solver, *vy);
+    }
+    printf("\n");
 #endif
     *vx = mtbl_get_root(&solver->mtbl, *vx);
     *vy = mtbl_get_root(&solver->mtbl, *vy);
