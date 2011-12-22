@@ -1936,6 +1936,63 @@ double random_tries_fraction(smt_core_t *s) {
  * are assigned. Use activity-based heuristic + randomization.
  */
 literal_t select_unassigned_literal(smt_core_t *s) {
+  uint32_t rnd;
+  bvar_t x;
+  uint8_t *v;
+
+#if DEBUG
+  check_heap(s);
+#endif
+
+  v = s->value;
+
+  rnd = random_uint32() & VAR_RANDOM_MASK;
+  if (rnd < s->scaled_random) {
+    nrnd ++;
+    x = random_uint(s->nvars);
+    assert(0 <= x && x < s->nvars);
+    if (v[pos_lit(x)] == VAL_UNDEF) {
+#if TRACE
+      printf("---> DPLL:   Random selection: variable ");
+      print_bvar(stdout, x);
+      printf("\n");
+      fflush(stdout);
+#endif
+      s->stats.random_decisions ++;
+      goto var_found;
+    }
+  }
+
+  /* 
+   * select unassigned variable x with highest activity
+   * HACK: this works (and terminates) even if the heap is empty,
+   * because pos_lit(-1) = -2 and v[-2] = VAL_UNDEF.
+   */
+  do {
+    x = heap_get_top(&s->heap);
+  } while (v[pos_lit(x)] != VAL_UNDEF);
+
+  if (x < 0) return null_literal;
+
+  // if polarity[x] == 1 use pos_lit(x) otherwise use neg_lit(x)
+ var_found:
+  if (tst_bit(s->polarity, x)) {
+    return pos_lit(x);
+  } else {
+    return neg_lit(x);
+  }
+}
+
+
+#if 0
+
+// OLD VERSION
+
+/*
+ * Select an unassigned literal: returns null_literal if all literals 
+ * are assigned. Use activity-based heuristic + randomization.
+ */
+literal_t select_unassigned_literal(smt_core_t *s) {
   literal_t l;
   uint32_t rnd;
   bvar_t x;
@@ -1982,6 +2039,8 @@ literal_t select_unassigned_literal(smt_core_t *s) {
     return neg_lit(x);
   }
 }
+
+#endif
 
 
 /*

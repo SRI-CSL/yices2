@@ -1439,7 +1439,6 @@ static bool bvpoly_is_simple(bv_solver_t *solver, bvpoly_t *p, bvconstant_t *c0,
  *  EQUALITY CHECKS  *
  ********************/
 
-
 /*
  * Check whether two variables x and y are equal
  * - x and y must be the roots of their equivalence class in the merge table
@@ -2035,6 +2034,127 @@ static void bvpoly_bounds_s(bv_solver_t *solver, bvpoly_t *p, uint32_t d, bv_int
 }
 
 
+/*
+ * Lower/upper bounds on (bvurem x y)
+ * - x is in op[0]
+ * - y is in op[1]
+ * - n = number of bits in x and y
+ */
+static void bvurem64_bounds_u(bv_solver_t *solver, thvar_t op[2], uint32_t n, bv64_interval_t *intv) {
+  bv_vartable_t *vtbl;
+  uint64_t b;
+  thvar_t y;
+
+  assert(1 <= n && n <= 64);
+
+  // store default bounds: improve the upper bound if y is a constant
+  bv64_triv_interval_u(intv, n);
+
+  vtbl = &solver->vtbl;
+  y = op[1];
+  if (bvvar_is_const64(vtbl, y)) {
+    b = bvvar_val64(vtbl, y);
+    if (b != 0) {
+      // 0 <= (bvurem x y) <= b-1
+      intv->high = norm64(b-1, n);
+    }
+  }  
+}
+
+static void bvurem_bounds_u(bv_solver_t *solver, thvar_t op[2], uint32_t n, bv_interval_t *intv) {
+  bv_vartable_t *vtbl;
+  uint32_t *b;
+  uint32_t k;
+  thvar_t y;
+
+  assert(n > 64);
+
+  bv_triv_interval_u(intv, n);
+  vtbl = &solver->vtbl;
+  y = op[1];
+  if (bvvar_is_const(vtbl, y)) {
+    k = (n + 31) >> 5;
+    b = bvvar_val(vtbl, y);
+    if (bvconst_is_nonzero(b, k)) {
+      // 0 <= (bvurem x y) <= b-1
+      bvconst_set(intv->high, k, b);
+      bvconst_sub_one(intv->high, k);
+      assert(bvconst_is_normalized(intv->high, n));
+    }
+  }
+}
+
+
+/*
+ * Lower/upper bounds on (bvsrem x y) or (bvsmod x y)
+ * - x is in op[0]
+ * - y is in op[1]
+ * - n = number of bits in x and y
+ */
+static void bvsrem64_bounds_s(bv_solver_t *solver, thvar_t op[2], uint32_t n, bv64_interval_t *intv) {
+  bv_vartable_t *vtbl;
+  uint64_t b;
+  thvar_t y;
+
+  assert(1 <= n && n <= 64);
+
+  // store default bounds: improve the upper bound if y is a constant
+  bv64_triv_interval_s(intv, n);
+
+  vtbl = &solver->vtbl;
+  y = op[1];
+  if (bvvar_is_const64(vtbl, y)) {
+    b = bvvar_val64(vtbl, y);
+    if (b > 0) {
+      // -b+1 <= (bvsrem x y) <= b-1
+      intv->low = norm64(-b+1, n);
+      intv->high = norm64(b-1, n);
+    } else if (b < 0) {
+      // b + 1 <= (bvsrem x y) <= - b - 1
+      intv->low = norm64(b + 1, n);
+      intv->high = norm64(-b -1, n);
+    }
+    assert(bv64_interval_is_normalized(intv) && signed64_le(intv->low, intv->high, n));
+  }
+}
+
+static void bvsrem_bounds_s(bv_solver_t *solver, thvar_t op[2], uint32_t n, bv_interval_t *intv) {
+  bv_vartable_t *vtbl;
+  uint32_t *b;
+  uint32_t k;
+  thvar_t y;
+
+  assert(n > 64);
+
+  bv_triv_interval_s(intv, n);
+  vtbl = &solver->vtbl;
+  y = op[1];
+  if (bvvar_is_const(vtbl, y)) {
+    k = (n + 31) >> 5;
+    b = bvvar_val(vtbl, y);
+    if (bvconst_is_nonzero(b, k)) {
+      if (bvconst_tst_bit(b, n-1)) {
+	// negative divider
+	// b + 1 <= (bvserm x y) <= -(b+1)
+	bvconst_set(intv->low, k, b);
+	bvconst_add_one(intv->low, k);
+	bvconst_set(intv->high, k, intv->low);
+	bvconst_negate(intv->high, k);
+	bvconst_normalize(intv->high, n);
+      } else {
+	// positive divider
+	// -(b-1) <= (bvsrem x y) <= b-1
+	bvconst_set(intv->high, k, b);
+	bvconst_sub_one(intv->high, k);
+	bvconst_set(intv->low, k, intv->high);
+	bvconst_negate(intv->low, k);
+	bvconst_normalize(intv->low, n);
+      }
+    }
+    assert(bv_interval_is_normalized(intv) && bvconst_le(intv->low, intv->high, n));
+  }
+}
+
 
 
 
@@ -2056,10 +2176,14 @@ static void bvvar_bounds_u64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_
   if (tag_x == BVTAG_CONST64) {
     bv64_point_interval(intv, bvvar_val64(vtbl, x), n);
     return;
-  } else if (tag_x == BVTAG_BIT_ARRAY) {
+  }
+
+  if (tag_x == BVTAG_BIT_ARRAY) {
     bitarray_bounds_unsigned64(bvvar_bvarray_def(vtbl, x), n, intv);
   } else if (tag_x == BVTAG_POLY64 && d>0) {
     bvpoly64_bounds_u(solver, bvvar_poly64_def(vtbl, x), d-1, intv);
+  } else if (tag_x == BVTAG_UREM) {
+    bvurem64_bounds_u(solver, bvvar_binop(vtbl, x), n, intv);
   } else {
     // default bounds
     bv64_triv_interval_u(intv, n);
@@ -2100,10 +2224,14 @@ static void bvvar_bounds_s64(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_
   if (tag_x == BVTAG_CONST64) {
     bv64_point_interval(intv, bvvar_val64(vtbl, x), n);
     return;
-  } else if (tag_x == BVTAG_BIT_ARRAY) {
+  } 
+
+  if (tag_x == BVTAG_BIT_ARRAY) {
     bitarray_bounds_signed64(bvvar_bvarray_def(vtbl, x), n, intv);
   } else if (tag_x == BVTAG_POLY64 && d>0) {
     bvpoly64_bounds_s(solver, bvvar_poly64_def(vtbl, x), d-1, intv);
+  } else if (tag_x == BVTAG_SREM || tag_x == BVTAG_SMOD) {
+    bvsrem64_bounds_s(solver, bvvar_binop(vtbl, x), n, intv);
   } else {
     // default bounds
     bv64_triv_interval_s(intv, n);
@@ -2143,10 +2271,15 @@ static void bvvar_bounds_u(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t 
 
   if (tag_x == BVTAG_CONST) {
     bv_point_interval(intv, bvvar_val(vtbl, x), n);
-  } else if (tag_x == BVTAG_BIT_ARRAY) {
+    return;
+  }
+
+  if (tag_x == BVTAG_BIT_ARRAY) {
     bitarray_bounds_unsigned(bvvar_bvarray_def(vtbl, x), n, intv);
   } else if (tag_x == BVTAG_POLY && d > 0) {
     bvpoly_bounds_u(solver, bvvar_poly_def(vtbl, x), d-1, intv);
+  } else if (tag_x == BVTAG_UREM) {
+    bvurem_bounds_u(solver, bvvar_binop(vtbl, x), n, intv);
   } else {
     // default bounds
     bv_triv_interval_u(intv, n);
@@ -2192,10 +2325,15 @@ static void bvvar_bounds_s(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t 
 
   if (tag_x == BVTAG_CONST) {
     bv_point_interval(intv, bvvar_val(vtbl, x), n);
-  } else if (tag_x == BVTAG_BIT_ARRAY) {
+    return;
+  }
+
+  if (tag_x == BVTAG_BIT_ARRAY) {
     bitarray_bounds_signed(bvvar_bvarray_def(vtbl, x), n, intv);
   } else if (tag_x == BVTAG_POLY && d > 0) {
     bvpoly_bounds_s(solver, bvvar_poly_def(vtbl, x), d-1, intv);
+  } else if (tag_x == BVTAG_SREM || tag_x == BVTAG_SMOD) {
+    bvsrem_bounds_s(solver, bvvar_binop(vtbl, x), n, intv);
   } else {
     // default bounds
     bv_triv_interval_s(intv, n);
@@ -2245,6 +2383,66 @@ typedef enum {
 } bvtest_code_t;
 
 
+/*
+ * Check whether (x >= y) simplifies (unsigned)
+ * - n = number of bits in x and y
+ * - both x and y must be 64bits or less
+ */
+static bvtest_code_t check_bvuge64_core(bv_solver_t *solver, thvar_t x, thvar_t y, uint32_t n) {
+  bv64_interval_t intv_x, intv_y;
+
+  bvvar_bounds_u64(solver, x, n, 4, &intv_x);  // intv_x.low <= x <= intv_x.high
+  bvvar_bounds_u64(solver, y, n, 4, &intv_y);  // intv_y.low <= y <= intv_y.high
+
+  if (intv_x.low >= intv_y.high) {
+    return BVTEST_TRUE;
+  }
+
+  if (intv_x.high < intv_y.low) {
+    return BVTEST_FALSE;
+  }
+
+  return BVTEST_UNKNOWN;
+}
+
+
+/*
+ * Check whether (x >= y) simplifies (unsigned)
+ * - n = number of bits in x and y
+ * - both x and y must be more than 64bits
+ */
+static bvtest_code_t check_bvuge_core(bv_solver_t *solver, thvar_t x, thvar_t y, uint32_t n) {
+  bv_interval_t *bounds_x, *bounds_y;
+
+  // prepare interval stack
+  alloc_bv_interval_stack(&solver->intv_stack);
+  bounds_x = get_bv_interval(&solver->intv_stack);
+  bounds_y = get_bv_interval(&solver->intv_stack);
+
+  assert(bounds_x != NULL && bounds_y != NULL);
+
+  bvvar_bounds_u(solver, x, n, 4, bounds_x);  // bounds_x.low <= x <= bounds_x.high
+  bvvar_bounds_u(solver, y, n, 4, bounds_y);  // bounds_y.low <= y <= bounds_y.high
+
+
+  /*
+   * hack: empty the interval stack here
+   * bounds_x and bounds_y are still good pointers in stack->data
+   */
+  assert(solver->intv_stack.top == 2);
+  release_all_bv_intervals(&solver->intv_stack);
+
+  if (bvconst_ge(bounds_x->low, bounds_y->high, n)) {
+    return BVTEST_TRUE;
+  }
+
+  if (bvconst_lt(bounds_x->high, bounds_y->low, n)) {
+    return BVTEST_FALSE;
+  }
+
+  return BVTEST_UNKNOWN;
+}
+
 
 /*
  * Check whether (x >= y) simplifies (unsigned)
@@ -2254,9 +2452,8 @@ typedef enum {
  * - return BVTEST_UNKNOWN otherwise
  */
 static bvtest_code_t check_bvuge(bv_solver_t *solver, thvar_t x, thvar_t y) {
-  bv64_interval_t intv_x, intv_y;
-  bv_interval_t *bounds_x, *bounds_y;
   uint32_t n;
+  bvtest_code_t code;
 
   assert(bvvar_bitsize(&solver->vtbl, x) == bvvar_bitsize(&solver->vtbl, y));
   assert(mtbl_is_root(&solver->mtbl, x) && mtbl_is_root(&solver->mtbl, y));
@@ -2266,46 +2463,69 @@ static bvtest_code_t check_bvuge(bv_solver_t *solver, thvar_t x, thvar_t y) {
   n = bvvar_bitsize(&solver->vtbl, x);
 
   if (n <= 64) {
-
-    bvvar_bounds_u64(solver, x, n, 4, &intv_x);  // intv_x.low <= x <= intv_x.high
-    bvvar_bounds_u64(solver, y, n, 4, &intv_y);  // intv_y.low <= y <= intv_y.high
-
-    if (intv_x.low >= intv_y.high) {
-      return BVTEST_TRUE;
-    }
-
-    if (intv_x.high < intv_y.low) {
-      return BVTEST_FALSE;
-    }
-
+    code = check_bvuge64_core(solver, x, y, n);
+    
   } else {
+    code = check_bvuge_core(solver, x, y, n);
+  }
 
-    // prepare interval stack
-    alloc_bv_interval_stack(&solver->intv_stack);
-    bounds_x = get_bv_interval(&solver->intv_stack);
-    bounds_y = get_bv_interval(&solver->intv_stack);
-
-    assert(bounds_x != NULL && bounds_y != NULL);
-
-    bvvar_bounds_u(solver, x, n, 4, bounds_x);  // bounds_x.low <= x <= bounds_x.high
-    bvvar_bounds_u(solver, y, n, 4, bounds_y);  // bounds_y.low <= y <= bounds_y.high
+  return code;
+}
 
 
-    /*
-     * hack: empty the interval stack here
-     * bounds_x and bounds_y are still good pointers in stack->data
-     */
-    assert(solver->intv_stack.top == 2);
-    release_all_bv_intervals(&solver->intv_stack);
+/*
+ * Check whether (x >= y) simplifies (signed comparison)
+ * - n = number of bits in x and y
+ * - both x and y must be 64 bits or less
+ */
+static bvtest_code_t check_bvsge64_core(bv_solver_t *solver, thvar_t x, thvar_t y, uint32_t n) {
+  bv64_interval_t intv_x, intv_y;
 
-    if (bvconst_ge(bounds_x->low, bounds_y->high, n)) {
-      return BVTEST_TRUE;
-    }
+  bvvar_bounds_s64(solver, x, n, 1, &intv_x);  // intv_x.low <= x <= intv_x.high
+  bvvar_bounds_s64(solver, y, n, 1, &intv_y);  // intv_y.low <= y <= intv_y.high
 
-    if (bvconst_lt(bounds_x->high, bounds_y->low, n)) {
-      return BVTEST_FALSE;
-    }
+  if (signed64_ge(intv_x.low, intv_y.high, n)) { // lx >= uy
+    return BVTEST_TRUE;
+  }
 
+  if (signed64_lt(intv_x.high, intv_y.low, n)) { // ux < ly
+    return BVTEST_FALSE;
+  }
+
+  return BVTEST_UNKNOWN;
+}
+
+/*
+ * Check whether (x >= y) simplifies (signed comparison)
+ * - n = number of bits in x and y
+ * - both x and y must be more than 64 bits
+ */
+static bvtest_code_t check_bvsge_core(bv_solver_t *solver, thvar_t x, thvar_t y, uint32_t n) {
+  bv_interval_t *bounds_x, *bounds_y;
+
+  // prepare interval stack
+  alloc_bv_interval_stack(&solver->intv_stack);
+  bounds_x = get_bv_interval(&solver->intv_stack);
+  bounds_y = get_bv_interval(&solver->intv_stack);
+
+  assert(bounds_x != NULL && bounds_y != NULL);
+
+  bvvar_bounds_s(solver, x, n, 4, bounds_x);  // bounds_x.low <= x <= bounds_x.high
+  bvvar_bounds_s(solver, y, n, 4, bounds_y);  // bounds_y.low <= y <= bounds_y.high
+
+  /*
+   * hack: empty the interval stack here
+   * bounds_x and bounds_y are still good pointers in stack->data
+   */
+  assert(solver->intv_stack.top == 2);
+  release_all_bv_intervals(&solver->intv_stack);
+
+  if (bvconst_sge(bounds_x->low, bounds_y->high, n)) {
+    return BVTEST_TRUE;
+  }
+
+  if (bvconst_slt(bounds_x->high, bounds_y->low, n)) {
+    return BVTEST_FALSE;
   }
 
   return BVTEST_UNKNOWN;
@@ -2320,9 +2540,8 @@ static bvtest_code_t check_bvuge(bv_solver_t *solver, thvar_t x, thvar_t y) {
  * - return BVTEST_UNKNOWN otherwise
  */
 static bvtest_code_t check_bvsge(bv_solver_t *solver, thvar_t x, thvar_t y) {
-  bv64_interval_t intv_x, intv_y;
-  bv_interval_t *bounds_x, *bounds_y;
   uint32_t n;
+  bvtest_code_t code;
 
   assert(bvvar_bitsize(&solver->vtbl, x) == bvvar_bitsize(&solver->vtbl, y));
   assert(mtbl_is_root(&solver->mtbl, x) && mtbl_is_root(&solver->mtbl, y));
@@ -2332,49 +2551,12 @@ static bvtest_code_t check_bvsge(bv_solver_t *solver, thvar_t x, thvar_t y) {
   n = bvvar_bitsize(&solver->vtbl, x);
 
   if (n <= 64) {
-
-    bvvar_bounds_s64(solver, x, n, 1, &intv_x);  // intv_x.low <= x <= intv_x.high
-    bvvar_bounds_s64(solver, y, n, 1, &intv_y);  // intv_y.low <= y <= intv_y.high
-
-    if (signed64_ge(intv_x.low, intv_y.high, n)) { // lx >= uy
-      return BVTEST_TRUE;
-    }
-
-    if (signed64_lt(intv_x.high, intv_y.low, n)) { // ux < ly
-      return BVTEST_FALSE;
-    }
-
+    code = check_bvsge64_core(solver, x, y, n);
   } else {
-
-    // prepare interval stack
-    alloc_bv_interval_stack(&solver->intv_stack);
-    bounds_x = get_bv_interval(&solver->intv_stack);
-    bounds_y = get_bv_interval(&solver->intv_stack);
-
-    assert(bounds_x != NULL && bounds_y != NULL);
-
-    bvvar_bounds_s(solver, x, n, 4, bounds_x);  // bounds_x.low <= x <= bounds_x.high
-    bvvar_bounds_s(solver, y, n, 4, bounds_y);  // bounds_y.low <= y <= bounds_y.high
-
-
-    /*
-     * hack: empty the interval stack here
-     * bounds_x and bounds_y are still good pointers in stack->data
-     */
-    assert(solver->intv_stack.top == 2);
-    release_all_bv_intervals(&solver->intv_stack);
-
-    if (bvconst_sge(bounds_x->low, bounds_y->high, n)) {
-      return BVTEST_TRUE;
-    }
-
-    if (bvconst_slt(bounds_x->high, bounds_y->low, n)) {
-      return BVTEST_FALSE;
-    }
-
+    code = check_bvsge_core(solver, x, y, n);
   }
 
-  return BVTEST_UNKNOWN;
+  return code;
 }
 
 
@@ -2738,6 +2920,73 @@ static literal_t bvvar_get_bit(bv_solver_t *solver, thvar_t x, uint32_t i) {
 }
 
 
+/*
+ * Build the zero constant of n bits
+ */
+static thvar_t get_zero(bv_solver_t *solver, uint32_t nbits) {
+  thvar_t z;
+
+  if (nbits > 64) {
+    bvconstant_set_all_zero(&solver->aux1, nbits);
+    z = get_bvconst(&solver->vtbl, nbits, solver->aux1.data);
+  } else {
+    z = get_bvconst64(&solver->vtbl, nbits, 0);
+  }
+
+  return z;
+}
+
+
+/*
+ * Bounds on (urem z y): if y != 0 then 0 <= (urem z y) < y
+ * - x must be equal to (urem z y) for some z
+ */
+static void assert_urem_bounds(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  literal_t l0, l1;
+  thvar_t zero;
+  uint32_t n;
+
+  assert(bvvar_tag(&solver->vtbl, x) == BVTAG_UREM && solver->vtbl.def[x].op[1] == y);
+
+  n = bvvar_bitsize(&solver->vtbl, y);
+  zero = get_zero(solver, n);
+  l0 = bv_solver_create_eq_atom(solver, y, zero); // (y == 0)
+  l1 = bv_solver_create_ge_atom(solver, x, y);    // (bvurem z y) >= y
+  add_binary_clause(solver->core, l0, not(l1));
+}
+
+
+/*
+ * Bounds on (srem z y) or  (smod z y):
+ * - if y > 0 then - y < (srem z y) < y
+ * - if y < 0 then   y < (srem z y) < - y
+ * Same thing for (smod z y)
+ *
+ * We don't want to create the term -y so we add only half
+ * of these constraints:
+ *  y>0 ==> (srem z y) < y
+ *  y<0 ==> y < (srem z y)
+ */
+static void assert_srem_bounds(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  literal_t l0, l1;
+  thvar_t zero;
+  uint32_t n;
+
+  assert(bvvar_tag(&solver->vtbl, x) == BVTAG_SREM || bvvar_tag(&solver->vtbl, x) == BVTAG_SMOD);
+  assert(solver->vtbl.def[x].op[1] == y);
+
+  n = bvvar_bitsize(&solver->vtbl, y);
+  zero = get_zero(solver, n);
+
+  l0 = bv_solver_create_sge_atom(solver, zero, y); // (y <= 0)
+  l1 = bv_solver_create_sge_atom(solver, x, y);    // (bvsrem z y) >= y
+  add_binary_clause(solver->core, l0, not(l1));    // (y > 0) ==> (bvsrem z y) < y
+
+  l0 = bv_solver_create_sge_atom(solver, y, zero); // (y >= 0)
+  l1 = bv_solver_create_sge_atom(solver, y, x);    // y >= (bvsrem z y)
+  add_binary_clause(solver->core, l0, not(l1));    // (y < 0) ==> y < (bvsrem z y)
+}
+
 
 /**********************
  *  SOLVER INTERFACE  *
@@ -3019,7 +3268,6 @@ void bv_solver_reset(bv_solver_t *solver) {
  *  INTERNALIZATION FUNCTIONS   *
  *******************************/
 
-
 /*
  * TERM CONSTRUCTORS
  */
@@ -3295,6 +3543,7 @@ thvar_t bv_solver_create_bvrem(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bvvar_tag_t xtag, ytag;
   uint64_t c;
   uint32_t n;
+  thvar_t r;
 
   vtbl = &solver->vtbl;
 
@@ -3328,7 +3577,10 @@ thvar_t bv_solver_create_bvrem(bv_solver_t *solver, thvar_t x, thvar_t y) {
   }
 
   // no simplification
-  return get_bvrem(&solver->vtbl, n, x, y);
+  r = get_bvrem(&solver->vtbl, n, x, y);
+  assert_urem_bounds(solver, r, y);  // EXPERIMENTAL
+
+  return r;
 }
 
 
@@ -3387,6 +3639,7 @@ thvar_t bv_solver_create_bvsrem(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bvvar_tag_t xtag, ytag;
   uint64_t c;
   uint32_t n;
+  thvar_t r;
 
   vtbl = &solver->vtbl;
 
@@ -3420,7 +3673,10 @@ thvar_t bv_solver_create_bvsrem(bv_solver_t *solver, thvar_t x, thvar_t y) {
   }
 
   // no simplification
-  return get_bvsrem(&solver->vtbl, n, x, y);
+  r = get_bvsrem(&solver->vtbl, n, x, y);
+  assert_srem_bounds(solver, r, y);
+
+  return r;
 }
 
 
@@ -3433,6 +3689,7 @@ thvar_t bv_solver_create_bvsmod(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bvvar_tag_t xtag, ytag;
   uint64_t c;
   uint32_t n;
+  thvar_t r;
 
   vtbl = &solver->vtbl;
 
@@ -3466,7 +3723,10 @@ thvar_t bv_solver_create_bvsmod(bv_solver_t *solver, thvar_t x, thvar_t y) {
   }
 
   // no simplification
-  return get_bvsmod(&solver->vtbl, n, x, y);
+  r = get_bvsmod(&solver->vtbl, n, x, y);
+  assert_srem_bounds(solver, r, y);
+
+  return r; 
 }
 
 
