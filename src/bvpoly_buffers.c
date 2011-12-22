@@ -12,6 +12,7 @@
 #include "hash_functions.h"
 #include "bvpoly_buffers.h"
 
+
 /***********************
  *  CREATION/DELETION  *
  **********************/
@@ -266,6 +267,23 @@ static inline int32_t bvpoly_buffer_get_index(bvpoly_buffer_t *buffer, int32_t x
     bvpoly_buffer_resize_index(buffer, x);
   }
   return buffer->index[x];
+}
+
+
+/*
+ * Return buffer->index[x] (no allocation if x is not in the index array)
+ * - return -1 if x is not in the index array
+ */
+static inline int32_t bvpoly_buffer_find_index(bvpoly_buffer_t *buffer, int32_t x) {
+  int32_t i;
+
+  assert(0 <= x && x < max_idx);
+
+  i = -1;
+  if (x < buffer->i_size) {
+    i = buffer->index[x];
+  }
+  return i;
 }
 
 
@@ -630,6 +648,91 @@ void bvpoly_buffer_submul_poly(bvpoly_buffer_t *buffer, bvpoly_t *p, uint32_t *a
     bvpoly_buffer_submul_monomial(buffer, p->mono[i].var, p->mono[i].coeff, a);
   }
 }
+
+
+
+/*******************
+ *  SUBSTITUTIONS  *
+ ******************/
+
+/*
+ * For debugging: check whether x occurs in polynomial p
+ */
+#ifndef NDEBUG
+
+static bool var_occurs_in_bvpoly64(bvpoly64_t *p, int32_t x) {
+  uint32_t i, n;
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    if (p->mono[i].var == x) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool var_occurs_in_bvpoly(bvpoly_t *p, int32_t x) {
+  uint32_t i, n;
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    if (p->mono[i].var == x) {
+      return true;
+    }
+  }
+  return false;
+}
+
+
+
+#endif
+
+/*
+ * Replace variable x by polynomial p in buffer.
+ * There are two versions: one for 64bit or less, one for more than 64bits
+ * - x must be a variable (i.e., x != const_idx)
+ * - x must not occur in p
+ */
+void bvpoly_buffer_subst_poly64(bvpoly_buffer_t *buffer, int32_t x, bvpoly64_t *p) {
+  uint64_t a;
+  int32_t i;
+
+  assert(p->bitsize == buffer->bitsize && x != const_idx && !var_occurs_in_bvpoly64(p, x));
+
+  i = bvpoly_buffer_find_index(buffer, x);
+  if (i >= 0) {
+    assert(buffer->var[i] == x);
+    a = buffer->c[i];
+    bvpoly_buffer_addmul_poly64(buffer, p, a);
+    buffer->c[i] = 0; // clear the coefficient of x in buffer
+  }
+}
+
+
+void bvpoly_buffer_subst_poly(bvpoly_buffer_t *buffer, int32_t x, bvpoly_t *p) {
+  uint32_t *a;
+  uint32_t w;
+  int32_t i;
+
+  assert(p->bitsize == buffer->bitsize && x != const_idx && !var_occurs_in_bvpoly(p, x));
+
+  i = bvpoly_buffer_find_index(buffer, x);
+  if (i >= 0) {
+    assert(buffer->var[i] == x);
+    a = buffer->p[i];
+    /*
+     * Since x does not occur in p, a will not be overwritten
+     * during addmul. So we don't need a local copy of a.
+     */
+    bvpoly_buffer_addmul_poly(buffer, p, a);
+
+    // clear the coefficient of x in buffer
+    w = buffer->width;
+    bvconst_clear(a, w);
+  }
+}
+
 
 
 

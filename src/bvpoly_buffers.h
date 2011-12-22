@@ -171,7 +171,7 @@ static inline void bvpoly_buffer_sub_one(bvpoly_buffer_t *buffer) {
  * Operations:
  * - add_poly:           add      p
  * - sub_poly:           subtract p
- * - addmu_poly:         add      a * p
+ * - addmul_poly:        add      a * p
  * - submul_poly:        subtract a * p
  *
  * Each operation exists in two versions (for bvpoly64 and bvpoly).
@@ -186,6 +186,21 @@ extern void bvpoly_buffer_add_poly(bvpoly_buffer_t *buffer, bvpoly_t *p);
 extern void bvpoly_buffer_sub_poly(bvpoly_buffer_t *buffer, bvpoly_t *p);
 extern void bvpoly_buffer_addmul_poly(bvpoly_buffer_t *buffer, bvpoly_t *p, uint32_t *a);
 extern void bvpoly_buffer_submul_poly(bvpoly_buffer_t *buffer, bvpoly_t *p, uint32_t *a);
+
+
+
+/*******************
+ *  SUBSTITUTIONS  *
+ ******************/
+
+/*
+ * Replace variable x by polynomial p in buffer.
+ * There are two versions: one for 64bit or less, one for more than 64bits.
+ * - x must be a variable (i.e., x != const_idx)
+ * - x must not occur in p
+ */
+extern void bvpoly_buffer_subst_poly64(bvpoly_buffer_t *buffer, int32_t x, bvpoly64_t *p);
+extern void bvpoly_buffer_subst_poly(bvpoly_buffer_t *buffer, int32_t x, bvpoly_t *p);
 
 
 
@@ -241,8 +256,6 @@ static inline uint32_t *bvpoly_buffer_coeff(bvpoly_buffer_t *b, uint32_t i) {
   assert(i < b->nterms && b->bitsize > 64);
   return b->p[i];
 }
-
-
 
 
 /*******************************
