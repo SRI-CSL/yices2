@@ -1347,6 +1347,28 @@ static thvar_t get_zero(bv_solver_t *solver, uint32_t nbits) {
 
 
 /*
+ * Build the oppposite of constant a
+ */
+static inline thvar_t get_opp_bvconst64(bv_solver_t *solver, uint64_t a, uint32_t nbits) {
+  assert(1 <= nbits && nbits <= 64);
+  a = norm64(-a, nbits);
+  return get_bvconst64(&solver->vtbl, nbits, a);
+}
+
+// same thing for a large constant. Use solver->aux1 as buffer.
+static thvar_t get_opp_bvconst(bv_solver_t *solver, uint32_t *a, uint32_t nbits) {
+  bvconstant_t *aux;
+
+  assert(nbits > 64);
+  aux = &solver->aux1;
+  bvconstant_copy(aux, nbits, a);
+  bvconstant_negate(aux);
+  bvconstant_normalize(aux);
+  return get_bvconst(&solver->vtbl, nbits, aux->data);
+}
+
+
+/*
  * Check whether p can be written as c0 + a0 t or c0
  * - return true if p has one of these special forms
  * - if p is a constant polynomial, then t is set to null_term
@@ -1464,174 +1486,207 @@ static bool bvpoly_is_simple(bv_solver_t *solver, bvpoly_t *p, bvconstant_t *c0,
  ********************/
 
 /*
- * Check whether coefficient a is one or minus one, n = number of bits
- * - a must be normalized
+ * Attempt to simplify (b == 0) to (t == u):
+ * - if b is of the form t - u = 0, store t in *vx and u in *vy
+ * - if b is of the form t = 0, store t in *vx and zero in *vy
+ * - otherwise, leave *vx and *vy unchanged
+ * - b is not normalized when this is called
  */
-static bool bvconst_is_pm_one(uint32_t *a, uint32_t n) {
-  uint32_t w;
+static void simplify_buffer64_eq(bv_solver_t *solver, bvpoly_buffer_t *b, thvar_t *vx, thvar_t *vy) {
+  uint64_t a0, a1;
+  uint32_t n, nbits;
+  thvar_t x, y;
 
-  w = (n + 31) >> 5;
-  return bvconst_is_one(a, w) || bvconst_is_minus_one(a, n);
+  normalize_bvpoly_buffer(b);
+  n = bvpoly_buffer_num_terms(b);
+  nbits = bvpoly_buffer_bitsize(b);
+
+  assert(1 <= nbits && nbits <= 64);
+
+  if (n == 2) {
+    a0 = bvpoly_buffer_coeff64(b, 0);
+    a1 = bvpoly_buffer_coeff64(b, 1);
+    x = bvpoly_buffer_var(b, 0);
+    y = bvpoly_buffer_var(b, 1);
+    if (x == const_idx) {
+      if (a1 == 1) {
+	// b is a0 + y so (b == 0) iff (y = -a0)
+	*vx = y;
+	*vy = get_opp_bvconst64(solver, a0, nbits);
+      } else if (a1 == mask64(nbits)) {
+	// b is a0 - y
+	*vx = y;
+	*vy = get_bvconst64(&solver->vtbl, nbits, a0);
+      }
+    } else if ((a0 == 1 && a1 == mask64(nbits)) || (a1 == 1 && a0 == mask64(nbits))) {
+      assert(x != const_idx && y != const_idx);
+      *vx = x;
+      *vy = y;
+    }
+  } else if (n == 1) {
+    a0 = bvpoly_buffer_coeff64(b, 0);
+    x = bvpoly_buffer_var(b, 0);
+    // we check whether x != const_idx to be safe
+    if (x != const_idx && (a0 == 1 || a0 == mask64(nbits))) {
+      *vx = bvpoly_buffer_var(b, 0);
+      *vy = get_zero(solver, nbits);
+    }
+  }
+}
+
+
+static void simplify_buffer_eq(bv_solver_t *solver, bvpoly_buffer_t *b, thvar_t *vx, thvar_t *vy) {
+  uint32_t *a0, *a1;
+  uint32_t n, nbits, w;
+  thvar_t x, y;
+
+  normalize_bvpoly_buffer(b);
+  n = bvpoly_buffer_num_terms(b);
+  nbits = bvpoly_buffer_bitsize(b);
+  w = bvpoly_buffer_width(b);
+
+  assert(nbits > 64);
+
+  if (n == 2) {
+    a0 = bvpoly_buffer_coeff(b, 0);
+    a1 = bvpoly_buffer_coeff(b, 1);
+    x = bvpoly_buffer_var(b, 0);
+    y = bvpoly_buffer_var(b, 1);
+    if (x == const_idx) {
+      if (bvconst_is_one(a1, w)) { 
+	// p is a0 + y
+	*vx = y;
+	*vy = get_opp_bvconst(solver, a0, nbits);
+      } else if (bvconst_is_minus_one(a1, nbits)) {
+	// p is a0 - y
+	*vx = y;
+	*vy = get_bvconst(&solver->vtbl, nbits, a0);
+      }
+    } else if ((bvconst_is_one(a0, w) && bvconst_is_minus_one(a1, nbits)) ||
+	       (bvconst_is_one(a1, w) && bvconst_is_minus_one(a0, nbits))) {
+      assert(x != const_idx && y != const_idx);
+      *vx = x;
+      *vy = y;
+    }
+  } else if (n == 1) {
+    a0 = bvpoly_buffer_coeff(b, 0);
+    x = bvpoly_buffer_var(b, 0);
+    if (x != const_idx &&
+	(bvconst_is_one(a0, w) || bvconst_is_minus_one(a0, nbits))) {
+      *vx = bvpoly_buffer_var(b, 0);
+      *vy = get_zero(solver, nbits);
+    }
+  }
 }
 
 
 /*
  * Attempt to simplify an equality between two polynomials.
- * This uses the following rules:
- *  p + t == p + t' iff  t == t'
- *  p - t == p - t' iff  t == t'
- *  p + t == p      iff  t == 0
- *  p - t == p      iff  t == 0
- *
- * If one of these rules is applicable, the function stores t and t' in *vx and *vy. 
- * Otherwise, it leaves *vx and *vy unchanged.
+ * Rewrite (p = q) to (p - q) = 0. If p -q is of the
+ * form t - u then t is stored into *vx and u is stored in *vy.
+ * Otherwise, *vx and *vy are left unchanged.
  */
 static void simplify_bvpoly64_eq(bv_solver_t *solver, bvpoly64_t *p, bvpoly64_t *q, thvar_t *vx, thvar_t *vy) {
-  uint32_t i, n, ki;
-  uint32_t j, m, kj;
-  thvar_t x, y;
+  bvpoly_buffer_t *b;
+  uint32_t n, m;
 
   assert(p->bitsize == q->bitsize);
 
   n = p->nterms;
   m = q->nterms;
 
-  if (n <= m+1 && m <= n+1) {
-    i = 0;
-    j = 0;
-    ki = n;
-    kj = m;
-
-    for (;;) {
-      x = p->mono[i].var;
-      y = q->mono[j].var;
-      if (x < y) {
-	// x does not occur in q
-	if (ki < n) return;
-	ki = i;
-	i ++;
-      } else if (y < x) {
-	// y does not occur in p
-	if (kj < m) return;
-	kj = j;
-	j ++;
-      } else {
-	if (x == max_idx) break;
-	// same variable in p and q
-	if (p->mono[i].coeff != q->mono[j].coeff) return;
-	i++;
-	j++;
-      }
-    }
-    
-    assert(i == n && j == m);
-
-    /*
-     * ki = index of a variable of p not in q (or ki = n)
-     * kj = index of a variable of q not in p (or kj = m)
-     * all other monomials are the same in p and q
-     */
-    if (ki < n && kj < m) {
-      assert(n == m);
-      if (p->mono[ki].coeff != q->mono[kj].coeff) return;
-      if (p->mono[ki].coeff != 1 && p->mono[ki].coeff != 1) return;
-      // either p = r + x and q = r + y, or p = r - x and q = r - y
-      // so p == q iff x == y
-      x = p->mono[ki].var;
-      y = q->mono[kj].var;
-    } else if (kj < m) {
-      assert(m == n+1 && ki == n);
-      if (q->mono[kj].coeff != 1 && q->mono[kj].coeff != -1) return;	
-      // q is p + x or p - x: (p == q) iff x == 0
-      x = q->mono[kj].var;
-      y = get_zero(solver, q->bitsize);
-    } else if (ki < n) {
-      assert(n == m+1 && kj == m);
-      if (p->mono[ki].coeff != 1 && p->mono[ki].coeff != -1) return;
-      // p is q + x or q - x: (p == q) iff x == 0
-      x = p->mono[ki].var;
-      y = get_zero(solver, p->bitsize); 
-    }
-
-    *vx = x;
-    *vy = y;
+  if (n <= m+2 && m <= n+2) {
+    b = &solver->buffer;
+    reset_bvpoly_buffer(b, p->bitsize);
+    bvpoly_buffer_add_poly64(b, p);
+    bvpoly_buffer_sub_poly64(b, q);
+    simplify_buffer64_eq(solver, b, vx, vy);
   }
 }
 
 // same thing: large coefficients
 static void simplify_bvpoly_eq(bv_solver_t *solver, bvpoly_t *p, bvpoly_t *q, thvar_t *vx, thvar_t *vy) {
-  uint32_t i, n, ki;
-  uint32_t j, m, kj;
-  uint32_t w, nbits;
-  thvar_t x, y;
+  bvpoly_buffer_t *b;
+  uint32_t n, m;
 
   assert(p->bitsize == q->bitsize);
 
   n = p->nterms;
-  nbits = p->bitsize;
-  w = p->width;
-
   m = q->nterms;
 
-  if (n <= m+1 && m <= n+1) {
-    i = 0;
-    j = 0;
-    ki = n;
-    kj = m;
+  if (n <= m+2 && m <= n+2) {
+    b = &solver->buffer;
+    reset_bvpoly_buffer(b, p->bitsize);
+    bvpoly_buffer_add_poly(b, p);
+    bvpoly_buffer_sub_poly(b, q);
+    simplify_buffer_eq(solver, b, vx, vy);
+  }
+}
 
-    for (;;) {
-      x = p->mono[i].var;
-      y = q->mono[j].var;
-      if (x < y) {
-	// x does not occur in q
-	if (ki < n) return;
-	ki = i;
-	i ++;
-      } else if (y < x) {
-	// y does not occur in p
-	if (kj < m) return;
-	kj = j;
-	j ++;
-      } else {
-	if (x == max_idx) break;
-	// same variable in p and q
-	if (bvconst_neq(p->mono[i].coeff, q->mono[j].coeff, w)) return;
-	i++;
-	j++;
-      }
-    }
 
-    assert(i == n && j == m);
+/*
+ * Attempt to simplify an equality between a polynomial p and a constant c
+ * - if (p - c) == 0 is of the form (t - u) == 0, then store t in *vx and u in *vy
+ * - otherwise leave *vx and *vy unchanged.
+ */
+static void simplify_bvpoly64_eq_const(bv_solver_t *solver, bvpoly64_t *p, thvar_t c, thvar_t *vx, thvar_t *vy) {
+  bvpoly_buffer_t *b;
 
-    /*
-     * ki = index of a variable of p not in q (or ki = n)
-     * kj = index of a variable of q not in p (or kj = m)
-     * all other monomials are the same in p and q
-     */
-    if (ki < n && kj < m) {
-      assert(n == m);
-      if (bvconst_neq(p->mono[ki].coeff, q->mono[kj].coeff, w)) return;
-      if (!bvconst_is_pm_one(p->mono[ki].coeff, nbits)) return;
-      // either p = r + x and q = r + y, or p = r - x and q = r - y
-      // so p == q iff x == y
-      x = p->mono[ki].var;
-      y = q->mono[kj].var;
-    } else if (kj < m) {
-      assert(m == n+1 && ki == n);
-      if (!bvconst_is_pm_one(q->mono[kj].coeff, nbits)) return;
-      // q is p + x or p - x: (p == q) iff x == 0
-      x = q->mono[kj].var;
-      y = get_zero(solver, nbits);
-    } else if (ki < n) {
-      assert(n == m+1 && kj == m);
-      if (!bvconst_is_pm_one(p->mono[ki].coeff, nbits)) return;
-      // p is q + x or q - x: (p == q) iff x == 0
-      x = p->mono[ki].var;
-      y = get_zero(solver, nbits); 
-    }
+  assert(bvvar_is_const64(&solver->vtbl, c) && p->bitsize == bvvar_bitsize(&solver->vtbl, c));
 
-    *vx = mtbl_get_root(&solver->mtbl, x);
-    *vy = mtbl_get_root(&solver->mtbl, y);
+  if (p->nterms <= 3) {
+    b = &solver->buffer;
+    reset_bvpoly_buffer(b, p->bitsize);
+    bvpoly_buffer_add_poly64(b, p);
+    bvpoly_buffer_sub_const64(b, bvvar_val64(&solver->vtbl, c));
+    simplify_buffer64_eq(solver, b, vx, vy);
+  }
+}
+
+static void simplify_bvpoly_eq_const(bv_solver_t *solver, bvpoly_t *p, thvar_t c, thvar_t *vx, thvar_t *vy) {
+  bvpoly_buffer_t *b;
+
+  assert(bvvar_is_const(&solver->vtbl, c) && p->bitsize == bvvar_bitsize(&solver->vtbl, c));
+
+  if (p->nterms <= 3) {
+    b = &solver->buffer;
+    reset_bvpoly_buffer(b, p->bitsize);
+    bvpoly_buffer_add_poly(b, p);
+    bvpoly_buffer_sub_constant(b, bvvar_val(&solver->vtbl, c));
+    simplify_buffer_eq(solver, b, vx, vy);
+  }
+}
+
+/*
+ * Attempt to simplify an equality between p and a term t
+ * - t is not a constant
+ * - as before, store the result in *vx and *vy
+ */
+static void simplify_bvpoly64_eq_term(bv_solver_t *solver, bvpoly64_t *p, thvar_t t, thvar_t *vx, thvar_t *vy) {
+  bvpoly_buffer_t *b;
+
+  assert(p->bitsize == bvvar_bitsize(&solver->vtbl, t));
+
+  if (p->nterms <= 3) {
+    b = &solver->buffer;
+    reset_bvpoly_buffer(b, p->bitsize);
+    bvpoly_buffer_add_poly64(b, p);
+    bvpoly_buffer_sub_var(b, t);
+    simplify_buffer64_eq(solver, b, vx, vy);
+  }
+}
+
+static void simplify_bvpoly_eq_term(bv_solver_t *solver, bvpoly_t *p, thvar_t t, thvar_t *vx, thvar_t *vy) {
+  bvpoly_buffer_t *b;
+
+  assert(p->bitsize == bvvar_bitsize(&solver->vtbl, t));
+
+  if (p->nterms <= 3) {
+    b = &solver->buffer;
+    reset_bvpoly_buffer(b, p->bitsize);
+    bvpoly_buffer_add_poly(b, p);
+    bvpoly_buffer_sub_var(b, t);
+    simplify_buffer_eq(solver, b, vx, vy);
   }
 }
 
@@ -1664,7 +1719,32 @@ static void simplify_eq(bv_solver_t *solver, thvar_t *vx, thvar_t *vy) {
     } else if (tag_x == BVTAG_POLY) {
       simplify_bvpoly_eq(solver, bvvar_poly_def(vtbl, x), bvvar_poly_def(vtbl, y), vx, vy);
     }
+  } else if (tag_x == BVTAG_POLY64) {
+    if (tag_y == BVTAG_CONST64) {
+      simplify_bvpoly64_eq_const(solver, bvvar_poly64_def(vtbl, x), y, vx, vy);
+    } else {
+      simplify_bvpoly64_eq_term(solver, bvvar_poly64_def(vtbl, x), y, vx, vy);
+    }
+  } else if (tag_y == BVTAG_POLY64) {
+    if (tag_x == BVTAG_CONST64) {
+      simplify_bvpoly64_eq_const(solver, bvvar_poly64_def(vtbl, y), x, vx, vy);
+    } else {
+      simplify_bvpoly64_eq_term(solver, bvvar_poly64_def(vtbl, y), x, vx, vy);
+    }
+  } else if (tag_x == BVTAG_POLY) {
+    if (tag_y == BVTAG_CONST) {
+      simplify_bvpoly_eq_const(solver, bvvar_poly_def(vtbl, x), y, vx, vy);
+    } else {
+      simplify_bvpoly_eq_term(solver, bvvar_poly_def(vtbl, x), y, vx, vy);
+    }
+  } else if (tag_y == BVTAG_POLY) {
+    if (tag_x == BVTAG_CONST64) {
+      simplify_bvpoly_eq_const(solver, bvvar_poly_def(vtbl, y), x, vx, vy);
+    } else {
+      simplify_bvpoly_eq_term(solver, bvvar_poly_def(vtbl, y), x, vx, vy);
+    }
   }
+
 
   if (x != *vx || y != *vy) {
 #if 1
@@ -1674,11 +1754,11 @@ static void simplify_eq(bv_solver_t *solver, thvar_t *vx, thvar_t *vy) {
     printf("     ");
     print_bv_solver_vardef(stdout, solver, y);
     printf("     simplified to (bveq u!%"PRId32" u!%"PRId32")\n", *vx, *vy);
-    if (bvvar_is_zero(&solver->vtbl, *vx)) {
+    if (is_constant(&solver->vtbl, *vx)) {
       printf("     ");
       print_bv_solver_vardef(stdout, solver, *vx);
     }
-    if (bvvar_is_zero(&solver->vtbl, *vy)) {
+    if (is_constant(&solver->vtbl, *vy)) {
       printf("     ");
       print_bv_solver_vardef(stdout, solver, *vy);
     }
@@ -4193,15 +4273,13 @@ literal_t bv_solver_create_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
   x = mtbl_get_root(&solver->mtbl, x);
   y = mtbl_get_root(&solver->mtbl, y);
 
-  if (equal_bvvar(solver, x, y)) {
-    return true_literal;
-  }
-
-  if (diseq_bvvar(solver, x, y)) {
-    return false_literal;
-  }
+  if (equal_bvvar(solver, x, y)) return true_literal;
+  if (diseq_bvvar(solver, x, y)) return false_literal;
 
   simplify_eq(solver, &x, &y);
+  if (x == y) return true_literal;
+  if (diseq_bvvar(solver, x, y)) return false_literal;
+
   return bv_solver_make_eq_atom(solver, x, y);
 }
 
@@ -4390,7 +4468,12 @@ void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
     if (tt) add_empty_clause(solver->core);       // Contradiction
   } else {
     simplify_eq(solver, &x, &y);  // try to simplify
-    if (tt) {
+    // simplify may result in x == y
+    if (x == y) {
+      if (! tt) add_empty_clause(solver->core);
+    } else if (diseq_bvvar(solver, x, y)) {
+      if (tt) add_empty_clause(solver->core);
+    } else if (tt) {
       // x == y: merge the classes of x and y
       bv_solver_merge_vars(solver, x, y);
     } else if (bvvar_is_zero(&solver->vtbl, x)) {

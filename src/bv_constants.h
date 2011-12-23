@@ -626,7 +626,9 @@ static inline void bvconstant_add_one(bvconstant_t *a) {
   bvconst_add_one(a->data, a->width);
 }
 
-
+static inline void bvconstant_negate(bvconstant_t *a) {
+  bvconst_negate(a->data, a->width);
+}
 
 
 #endif /* __BV_CONSTANTS_H */

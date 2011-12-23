@@ -414,7 +414,7 @@ static void test_internalization(smt_benchmark_t *bench) {
     print_internalization_code(code);
   }
 
-  if (true) {
+  if (false) {
     f = fopen("yices2intern.dmp", "w");
     if (f == NULL) {
       perror("yices2intern.dmp");
