@@ -1747,7 +1747,7 @@ static void simplify_eq(bv_solver_t *solver, thvar_t *vx, thvar_t *vy) {
 
 
   if (x != *vx || y != *vy) {
-#if 1
+#if 0
     printf("---> bv simplify (bveq u!%"PRId32" u!%"PRId32")\n", x, y);
     printf("     ");
     print_bv_solver_vardef(stdout, solver, x);
