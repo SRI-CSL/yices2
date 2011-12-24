@@ -3,7 +3,6 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-
 #include "cputime.h"
 #include "memsize.h"
 
@@ -23,6 +22,7 @@
 #include "smt_core_printer.h"
 #include "context_printer.h"
 
+#include "command_line.h"
 #include "yices.h"
 #include "yices_globals.h"
 #include "yices_exit_codes.h"
@@ -33,6 +33,130 @@ static parser_t parser;
 static tstack_t stack;
 static smt_benchmark_t bench;
 static context_t context;
+
+
+/*
+ * Parameters:
+ * - filename = name of the input file (in SMT format)
+ *   if filenemae is NULL, we read stdin
+ * - dump = whether to produce a dump file or not
+ * - dump_file = name of the dump file 
+ *   if dump is true and dump_file is NULL, we
+ *   use 'yices2intern.dmp' as default.
+ */
+static char *filename;
+static bool dump;
+static char *dump_file;
+
+
+/*
+ * Command-line options
+ */
+enum {
+  dump_option,
+  out_option,
+  help_flag,
+};
+
+#define NUM_OPTIONS 3
+
+static option_desc_t options[NUM_OPTIONS] = {
+  { "dump", 'd', FLAG_OPTION, dump_option },
+  { "out",  'o', MANDATORY_STRING, out_option },
+  { "help", 'h', FLAG_OPTION, help_flag },
+};
+
+static void print_help(char *progname) {
+  printf("Usage: %s [options] filename\n\n", progname);
+  printf("Options:\n"
+	 "  --help, -h                   Display this information\n"
+	 "  --dump, -d                   Dump the result\n"
+	 "  --out=<file> or -o <file>    Set the dump file (default = 'yices2intern.dmp')\n"
+	 "\n");
+  fflush(stdout);
+}
+
+static void print_usage(char *progname) {
+  fprintf(stderr, "Try %s --help for more information\n", progname);
+}
+
+
+/*
+ * Parse the command line:
+ * - set filename, dump, and dump_file
+ */
+static void process_command_line(int argc, char *argv[]) {
+  cmdline_parser_t parser;
+  cmdline_elem_t elem;
+
+  // default options
+  filename = NULL;
+  dump = false;
+  dump_file = NULL;
+
+  init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
+  for (;;) {
+    cmdline_parse_element(&parser, &elem);
+    switch (elem.status) {
+    case cmdline_done:
+      goto done;
+
+    case cmdline_argument:
+      if (filename == NULL) {
+	filename = elem.arg;
+      } else {
+	fprintf(stderr, "%s: can't have several input files\n", parser.command_name);
+	goto bad_usage;
+      }
+      break;
+
+    case cmdline_option:
+      switch (elem.key) {
+      case dump_option:
+	dump = true;
+	break;
+
+      case out_option:
+	if (dump_file == NULL) {
+	  dump_file = elem.s_value;
+	} else {
+	  fprintf(stderr, "%s: can't have several dump files\n", parser.command_name);
+	  goto bad_usage;
+	}
+	break;
+
+      case help_flag:
+	print_help(parser.command_name);
+	goto quick_exit;
+
+      default:
+	assert(false);
+	break;
+      }
+      break;
+
+    case cmdline_error:
+      cmdline_print_error(&parser, &elem);
+      goto bad_usage;
+    }
+  }
+
+ done:
+  // check that dump_file and filename are different
+  if (filename != NULL && dump_file != NULL && strcmp(filename, dump_file) == 0) {
+    fprintf(stderr, "%s: can't use '%s' for both input and dump file\n", parser.command_name, dump_file);
+    goto bad_usage;
+  }
+  
+  return;
+
+ quick_exit:
+  exit(YICES_EXIT_SUCCESS);
+
+ bad_usage:
+  print_usage(parser.command_name);
+  exit(YICES_EXIT_USAGE);
+}
 
 
 /*
@@ -414,10 +538,13 @@ static void test_internalization(smt_benchmark_t *bench) {
     print_internalization_code(code);
   }
 
-  if (false) {
-    f = fopen("yices2intern.dmp", "w");
+  if (dump) {
+    if (dump_file == NULL) {
+      dump_file = "yices2intern.dmp";
+    }
+    f = fopen(dump_file, "w");
     if (f == NULL) {
-      perror("yices2intern.dmp");
+      perror(dump_file);
     } else {
       dump_context(f, &context);
       fclose(f);
@@ -432,22 +559,17 @@ static void test_internalization(smt_benchmark_t *bench) {
  * Test: parse and internalize an SMT benchmark
  */
 int main(int argc, char *argv[]) {
-  char *filename;
   int32_t code;
   double time, mem_used;
 
-  if (argc > 2) {
-    fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
-    exit(YICES_EXIT_USAGE);
-  }
+  process_command_line(argc, argv);
 
-  if (argc == 2) {
+  if (filename != NULL) {
     // read from file
-    filename = argv[1];
     if (init_smt_file_lexer(&lexer, filename) < 0) {
       perror(filename);
       exit(YICES_EXIT_FILE_NOT_FOUND);
-    }
+    } 
   } else {
     // read from stdin
     init_smt_stdin_lexer(&lexer);
