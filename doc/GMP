@@ -182,6 +182,8 @@ the GMP configure script.
    This works for dynamic libraries too (to build libgmp.dylib
    from libgmp-x86.dylib and libgmp-amd64.dylib).
 
+   NOTE: to use these fat libraries, we also need to select the
+   right 'gmp.h' at compile time. See utils/gmp-hack.h.
 
 
 5) What if configure rejects option ABI=64? 

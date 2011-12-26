@@ -201,12 +201,17 @@ version:
 #
 # Tests: all use libyices.a in lib
 # Static tests: use libyices.a in static-lib
+# Don't regenerate the version file
 #
-test: build_subdirs lib
+test: build_subdirs
+	@ echo "=== Building libraries ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) lib
 	@ echo "=== Building tests ==="
 	@ $(MAKE) -C $(testdir) BUILD=../$(build_dir) all
 
-static-test: build_subdirs static-lib
+static-test: build_subdirs
+	@ echo "=== Building libraries with GMP ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-lib
 	@ echo "=== Building tests ==="
 	@ $(MAKE) -C $(testdir) BUILD=../$(build_dir) all-static
 
