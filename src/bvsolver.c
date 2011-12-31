@@ -2131,14 +2131,14 @@ static void bvsrem64_bounds_s(bv_solver_t *solver, thvar_t op[2], uint32_t n, bv
   y = op[1];
   if (bvvar_is_const64(vtbl, y)) {
     b = bvvar_val64(vtbl, y);
-    if (b > 0) {
-      // -b+1 <= (bvsrem x y) <= b-1
-      intv->low = norm64(-b+1, n);
-      intv->high = norm64(b-1, n);
-    } else if (b < 0) {
-      // b + 1 <= (bvsrem x y) <= - b - 1
+    if (is_neg64(b, n)) {
+      // b < 0 so b + 1 <= (bvsrem x y) <= - b - 1
       intv->low = norm64(b + 1, n);
       intv->high = norm64(-b -1, n);
+    } else if (b != 0) {
+      // b > 0 so -b+1 <= (bvsrem x y) <= b-1
+      intv->low = norm64(-b+1, n);
+      intv->high = norm64(b-1, n);
     }
     assert(bv64_interval_is_normalized(intv) && signed64_le(intv->low, intv->high, n));
   }

@@ -26,6 +26,7 @@
 #define __BVARITH_BUFFERS_H
 
 #include <stdint.h>
+#include <assert.h>
 
 #include "bv_constants.h"
 #include "object_stores.h"
@@ -90,6 +91,7 @@ extern void init_bvmlist_store(object_store_t *s);
  * Must not be called unless all buffers with store s are deleted.
  */
 extern void delete_bvmlist_store(object_store_t *s);
+
 
 /*
  * Initialize buffer b to the zero polynomial
@@ -229,10 +231,6 @@ extern bool bvarith_buffer_equal(bvarith_buffer_t *b1, bvarith_buffer_t *b2);
  *
  * For operations that have a bitvector constant a as an argument,
  * the constant a must have the same bitsize as b.
- * 
- * Some operations use one or two other buffers b1 and b2.  In such
- * cases, b, b1, and b2 must all have the same power-product table
- * and must all have the same bitszie.
  */
 
 /*
@@ -311,77 +309,249 @@ extern void bvarith_buffer_sub_mono(bvarith_buffer_t *b, uint32_t *a, pprod_t *r
 
 
 /*
+ * Compute the square of b
+ */
+extern void bvarith_buffer_square(bvarith_buffer_t *b);
+
+
+
+
+/************************************
+ *  OPERATIONS WITH MONOMIAL LISTS  *
+ ***********************************/
+
+/*
+ * In all operations, p1 and p2 must be lists of monomials built using the 
+ * same pprod_table as b. The coefficients in p1 and p2 must have the 
+ * same bitsize as in b. The monomual lists must be sorted and terminated
+ * by the end marker.
+ */
+
+/*
+ * Add p1 to b
+ */
+extern void bvarith_buffer_add_mlist(bvarith_buffer_t *b, bvmlist_t *p1);
+
+
+/*
+ * Add (-p1) to b
+ */
+extern void bvarith_buffer_sub_mlist(bvarith_buffer_t *b, bvmlist_t *p1);
+
+
+/*
+ * Add a * p1 to b
+ */
+extern void bvarith_buffer_add_const_times_mlist(bvarith_buffer_t *b, bvmlist_t *p1, uint32_t *a);
+
+
+/*
+ * Add (-a) * p1 to b
+ */
+extern void bvarith_buffer_sub_const_times_mlist(bvarith_buffer_t *b, bvmlist_t *p1, uint32_t *a);
+
+
+/*
+ * Add r * p1 to b
+ */
+extern void bvarith_buffer_add_pp_times_mlist(bvarith_buffer_t *b, bvmlist_t *p1, pprod_t *r);
+
+
+/*
+ * Add - r * p1 to b
+ */
+extern void bvarith_buffer_sub_pp_times_mlist(bvarith_buffer_t *b, bvmlist_t *p1, pprod_t *r);
+
+
+/*
+ * Add a * r * p1 to b
+ */
+extern void bvarith_buffer_add_mono_times_mlist(bvarith_buffer_t *b, bvmlist_t *p1, uint32_t *a, pprod_t *r);
+
+
+/*
+ * Add -a * r * p1 to b
+ */
+extern void bvarith_buffer_sub_mono_times_mlist(bvarith_buffer_t *b, bvmlist_t *p1, uint32_t *a, pprod_t *r);
+
+
+/*
+ * Multiply b by p1
+ * - p1 must be disjoint from b
+ */
+extern void bvarith_buffer_mul_mlist(bvarith_buffer_t *b, bvmlist_t *p1);
+
+
+/*
+ * Multiply b by p1 ^ d
+ * - use aux as an auxiliary buffer.
+ * - aux must be distinct from b, but use the same power_product table
+ */
+extern void bvarith_buffer_mul_mlist_power(bvarith_buffer_t *b, bvmlist_t *p1, uint32_t d, bvarith_buffer_t *aux);
+
+
+/*
+ * Add p1 * p2 to b
+ * - p1 and p2 must be disjoint from b (but p1 may be equal to p2)
+ */
+extern void bvarith_buffer_add_mlist_times_mlist(bvarith_buffer_t *b, bvmlist_t *p1, bvmlist_t *p2);
+
+
+/*
+ * Add - p1 * p2 to b
+ * - p1 and p2 must be disjoint from b (but p1 may be equal to p2)
+ */
+extern void bvarith_buffer_sub_mlist_times_mlist(bvarith_buffer_t *b, bvmlist_t *p1, bvmlist_t *p2);
+
+
+/*
+ * Extract b's content as a list of monomials, then reset b to the zero polynomial
+ * - b must be normalized
+ */
+extern bvmlist_t *bvarith_buffer_get_mlist(bvarith_buffer_t *b);
+
+
+/*
+ * Hash code for a list of monomials p:
+ * - p must be sorted and terminated by the end marker
+ * - all coefficients in p must be non-zero and normalized modulo 2^n
+ */
+extern uint32_t hash_bvmlist(bvmlist_t *p, uint32_t n);
+
+
+/*
+ * Test whether p1 and p2 are equal
+ * - both lists must be sorted, and terminated by the end marker,
+ *   and use the same pprod table.
+ * - n = bitsize of p1 and p2
+ */
+extern bool equal_bvmlists(bvmlist_t *p1, bvmlist_t *p2, uint32_t n);
+
+
+
+/************************************
+ *  OPERATIONS WITH OTHER BUFFERS   *
+ ***********************************/
+
+/*
+ * In all operations, b1 and b2 must be bvarith_buffers with the same ptbl and
+ * the same bitsize as b.
+ */
+
+/*
  * Add b1 to b
  */
-extern void bvarith_buffer_add_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1);
+static inline void bvarith_buffer_add_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1) {
+  assert(b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
+  bvarith_buffer_add_mlist(b, b1->list);
+}
 
 
 /*
  * Add (-b1) to b
  */
-extern void bvarith_buffer_sub_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1);
+static inline void bvarith_buffer_sub_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1) {
+  assert(b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
+  bvarith_buffer_sub_mlist(b, b1->list);
+}
+
+
+/*
+ * Add a * b1 to b
+ */
+static inline void bvarith_buffer_add_const_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, uint32_t *a) {
+  assert(b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
+  bvarith_buffer_add_const_times_mlist(b, b1->list, a);
+}
+
+
+/*
+ * Add (-a) * b1 to b
+ */
+static inline void bvarith_buffer_sub_const_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, uint32_t *a) {
+  assert(b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
+  bvarith_buffer_sub_const_times_mlist(b, b1->list, a);
+}
+
+
+/*
+ * Add r * b1 to b
+ */
+static inline void bvarith_buffer_add_pp_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, pprod_t *r) {
+  assert(b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
+  bvarith_buffer_add_pp_times_mlist(b, b1->list, r);
+}
+
+
+/*
+ * Add - r * b1 to b
+ */
+static inline void bvarith_buffer_sub_pp_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, pprod_t *r) {
+  assert(b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
+  bvarith_buffer_sub_pp_times_mlist(b, b1->list, r);
+}
+
+
+/*
+ * Add a * r * b1 to b
+ */
+static inline void bvarith_buffer_add_mono_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, uint32_t *a, pprod_t *r) {
+  assert(b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
+  bvarith_buffer_add_mono_times_mlist(b, b1->list, a, r);
+}
+
+
+/*
+ * Add -a * r * b1 to b
+ */
+static inline void bvarith_buffer_sub_mono_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, uint32_t *a, pprod_t *r) {
+  assert(b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
+  bvarith_buffer_sub_mono_times_mlist(b, b1->list, a, r);
+}
 
 
 /*
  * Multiply b by b1
  * - b1 must be different from b
  */
-extern void bvarith_buffer_mul_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1);
+static inline void bvarith_buffer_mul_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1) {
+  assert(b != b1 && b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
+  bvarith_buffer_mul_mlist(b, b1->list);
+}
 
 
 /*
- * Compute the square of b
+ * Multiply b by b1 ^ d
+ * - use aux as an auxiliary buffer.
+ * - aux must be distinct from b and b1, but use the same power_product table
  */
-extern void bvarith_buffer_square(bvarith_buffer_t *b);
-
-
-/*
- * Add a * b1 to b
- */
-extern void bvarith_buffer_add_const_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, uint32_t *a);
-
-
-/*
- * Add (-a) * b1 to b
- */
-extern void bvarith_buffer_sub_const_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, uint32_t *a);
-
-
-/*
- * Add r * b1 to b
- */
-extern void bvarith_buffer_add_pp_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, pprod_t *r);
-
-
-/*
- * Add - r * b1 to b
- */
-extern void bvarith_buffer_sub_pp_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, pprod_t *r);
-
-
-/*
- * Add a * r * b1 to b
- */
-extern void bvarith_buffer_add_mono_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, uint32_t *a, pprod_t *r);
-
-/*
- * Add -a * r * b1 to b
- */
-extern void bvarith_buffer_sub_mono_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, uint32_t *a, pprod_t *r);
+static inline void bvarith_buffer_mul_buffer_power(bvarith_buffer_t *b, bvarith_buffer_t *b1, uint32_t d, bvarith_buffer_t *aux) {
+  bvarith_buffer_mul_mlist_power(b, b1->list, d, aux);
+}
 
 
 /*
  * Add b1 * b2 to b
- * - b1 and b2 must be distinct from b (but b1 may be equal to b2)
+ * - b1 and b2 must be disjoint from b (but b1 may be equal to b2)
  */
-extern void bvarith_buffer_add_buffer_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, bvarith_buffer_t *b2);
+static inline void bvarith_buffer_add_buffer_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, bvarith_buffer_t *b2) {
+  assert(b != b1 && b != b2 && b1->ptbl == b->ptbl && b2->ptbl == b->ptbl && 
+	 b->bitsize == b1->bitsize && b->bitsize == b2->bitsize);
+  bvarith_buffer_add_mlist_times_mlist(b, b1->list, b2->list);
+}
 
 
 /*
  * Add - b1 * b2 to b
- * - b1 and b2 must be distinct from b (but b1 may be equal to b2)
+ * - b1 and b2 must be disjoint from b (but b1 may be equal to b2)
  */
-extern void bvarith_buffer_sub_buffer_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, bvarith_buffer_t *b2);
+static inline void bvarith_buffer_sub_buffer_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, bvarith_buffer_t *b2) {
+  assert(b != b1 && b != b2 && b1->ptbl == b->ptbl && b2->ptbl == b->ptbl &&
+	 b->bitsize == b1->bitsize && b->bitsize == b2->bitsize);
+  bvarith_buffer_sub_mlist_times_mlist(b, b1->list, b2->list);
+}
+
+
 
 
 
@@ -461,6 +631,7 @@ extern void bvarith_buffer_mul_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, pprod
  * - use aux as an auxiliary buffer (aux must be distinct from b)
  */
 extern void bvarith_buffer_mul_bvpoly_power(bvarith_buffer_t *b, bvpoly_t *poly, pprod_t **pp, uint32_t d, bvarith_buffer_t *aux);
+
 
 
 

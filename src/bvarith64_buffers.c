@@ -19,9 +19,6 @@
  *   sorted in lexicographic order.
  */
 
-#include <stdint.h>
-#include <assert.h>
-
 #include "bv64_constants.h"
 #include "hash_functions.h"
 #include "bvarith64_buffers.h"
@@ -574,19 +571,18 @@ void bvarith64_buffer_sub_pp(bvarith64_buffer_t *b, pprod_t *r) {
 
 
 /*
- * Add b1 to b
+ * Add p1 to b
  */
-void bvarith64_buffer_add_buffer(bvarith64_buffer_t *b, bvarith64_buffer_t *b1) {
-  bvmlist64_t *p, *aux, *p1;
+void bvarith64_buffer_add_mlist(bvarith64_buffer_t *b, bvmlist64_t *p1) {
+  bvmlist64_t *p, *aux;
   bvmlist64_t **q;
   pprod_t *r1;
 
-  assert(b->bitsize > 0 && b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
+  assert(b->bitsize > 0);
 
   q = &b->list;
   p = *q;
 
-  p1 = b1->list;
   while (p1->next != NULL) {
     r1 = p1->prod;
     while (pprod_precedes(p->prod, r1)) {
@@ -616,19 +612,18 @@ void bvarith64_buffer_add_buffer(bvarith64_buffer_t *b, bvarith64_buffer_t *b1) 
 
 
 /*
- * Add (-b1) to b
+ * Add (-p1) to b
  */
-void bvarith64_buffer_sub_buffer(bvarith64_buffer_t *b, bvarith64_buffer_t *b1) {
-  bvmlist64_t *p, *aux, *p1;
+void bvarith64_buffer_sub_mlist(bvarith64_buffer_t *b, bvmlist64_t *p1) {
+  bvmlist64_t *p, *aux;
   bvmlist64_t **q;
   pprod_t *r1;
 
-  assert(b->bitsize > 0 && b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
+  assert(b->bitsize > 0);
 
   q = &b->list;
   p = *q;
 
-  p1 = b1->list;
   while (p1->next != NULL) {
     r1 = p1->prod;
     while (pprod_precedes(p->prod, r1)) {
@@ -659,19 +654,18 @@ void bvarith64_buffer_sub_buffer(bvarith64_buffer_t *b, bvarith64_buffer_t *b1) 
 
 
 /*
- * Add a * b1 to b
+ * Add a * p1 to b
  */
-void bvarith64_buffer_add_const_times_buffer(bvarith64_buffer_t *b, bvarith64_buffer_t *b1, uint64_t a) {
-  bvmlist64_t *p, *aux, *p1;
+void bvarith64_buffer_add_const_times_mlist(bvarith64_buffer_t *b, bvmlist64_t *p1, uint64_t a) {
+  bvmlist64_t *p, *aux;
   bvmlist64_t **q;
   pprod_t *r1;
 
-  assert(b->bitsize > 0 && b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
+  assert(b->bitsize > 0);
 
   q = &b->list;
   p = *q;
 
-  p1 = b1->list;
   while (p1->next != NULL) {
     r1 = p1->prod;
     while (pprod_precedes(p->prod, r1)) {
@@ -701,27 +695,26 @@ void bvarith64_buffer_add_const_times_buffer(bvarith64_buffer_t *b, bvarith64_bu
 
 
 /*
- * Add (-a) * b1 to b
+ * Add (-a) * p1 to b
  */
-void bvarith64_buffer_sub_const_times_buffer(bvarith64_buffer_t *b, bvarith64_buffer_t *b1, uint64_t a) {
-  bvarith64_buffer_add_const_times_buffer(b, b1, -a);
+void bvarith64_buffer_sub_const_times_mlist(bvarith64_buffer_t *b, bvmlist64_t *p1, uint64_t a) {
+  bvarith64_buffer_add_const_times_mlist(b, p1, -a);
 }
 
 
 /*
- * Add r * b1 to b
+ * Add r * p1 to b
  */
-void bvarith64_buffer_add_pp_times_buffer(bvarith64_buffer_t *b, bvarith64_buffer_t *b1, pprod_t *r) {
-  bvmlist64_t *p, *aux, *p1;
+void bvarith64_buffer_add_pp_times_mlist(bvarith64_buffer_t *b, bvmlist64_t *p1, pprod_t *r) {
+  bvmlist64_t *p, *aux;
   bvmlist64_t **q;
   pprod_t *r1;
 
-  assert(b->bitsize > 0 && b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
+  assert(b->bitsize > 0);
 
   q = &b->list;
   p = *q;
 
-  p1 = b1->list;
   while (p1->next != NULL) {
     r1 = pprod_mul(b->ptbl, p1->prod, r);
     while (pprod_precedes(p->prod, r1)) {
@@ -752,19 +745,18 @@ void bvarith64_buffer_add_pp_times_buffer(bvarith64_buffer_t *b, bvarith64_buffe
 
 
 /*
- * Add - r * b1 to b
+ * Add - r * p1 to b
  */
-void bvarith64_buffer_sub_pp_times_buffer(bvarith64_buffer_t *b, bvarith64_buffer_t *b1, pprod_t *r) {
-  bvmlist64_t *p, *aux, *p1;
+void bvarith64_buffer_sub_pp_times_mlist(bvarith64_buffer_t *b, bvmlist64_t *p1, pprod_t *r) {
+  bvmlist64_t *p, *aux;
   bvmlist64_t **q;
   pprod_t *r1;
 
-  assert(b->bitsize > 0 && b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
+  assert(b->bitsize > 0);
 
   q = &b->list;
   p = *q;
 
-  p1 = b1->list;
   while (p1->next != NULL) {
     r1 = pprod_mul(b->ptbl, p1->prod, r);
     while (pprod_precedes(p->prod, r1)) {
@@ -794,19 +786,18 @@ void bvarith64_buffer_sub_pp_times_buffer(bvarith64_buffer_t *b, bvarith64_buffe
 
 
 /*
- * Add a * r * b1 to b
+ * Add a * r * p1 to b
  */
-void bvarith64_buffer_add_mono_times_buffer(bvarith64_buffer_t *b, bvarith64_buffer_t *b1, uint64_t a, pprod_t *r) {
-  bvmlist64_t *p, *aux, *p1;
+void bvarith64_buffer_add_mono_times_mlist(bvarith64_buffer_t *b, bvmlist64_t *p1, uint64_t a, pprod_t *r) {
+  bvmlist64_t *p, *aux;
   bvmlist64_t **q;
   pprod_t *r1;
 
-  assert(b->bitsize > 0 && b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
+  assert(b->bitsize > 0);
 
   q = &b->list;
   p = *q;
 
-  p1 = b1->list;
   while (p1->next != NULL) {
     r1 = pprod_mul(b->ptbl, p1->prod, r);
     while (pprod_precedes(p->prod, r1)) {
@@ -838,19 +829,17 @@ void bvarith64_buffer_add_mono_times_buffer(bvarith64_buffer_t *b, bvarith64_buf
 /*
  * Add -a * r * b1 to b
  */
-void bvarith64_buffer_sub_mono_times_buffer(bvarith64_buffer_t *b, bvarith64_buffer_t *b1, uint64_t a, pprod_t *r) {
-  bvarith64_buffer_add_mono_times_buffer(b, b1, -a, r);
+void bvarith64_buffer_sub_mono_times_mlist(bvarith64_buffer_t *b, bvmlist64_t *p1, uint64_t a, pprod_t *r) {
+  bvarith64_buffer_add_mono_times_mlist(b, p1, -a, r);
 }
 
 
 /*
- * Multiply b by b1
+ * Multiply b by p1
  * - b1 must be different from b
  */
-void bvarith64_buffer_mul_buffer(bvarith64_buffer_t *b, bvarith64_buffer_t *b1) {
+void bvarith64_buffer_mul_mlist(bvarith64_buffer_t *b, bvmlist64_t *p1) {
   bvmlist64_t *p, *q;
-
-  assert(b != b1 && b->ptbl == b1->ptbl && b->bitsize == b1->bitsize);
 
   // keep b's current list of monomials in p
   p = b->list;
@@ -868,14 +857,14 @@ void bvarith64_buffer_mul_buffer(bvarith64_buffer_t *b, bvarith64_buffer_t *b1) 
 
   // the constant term of p is first (if any)
   if (p->prod == empty_pp) {
-    bvarith64_buffer_add_const_times_buffer(b, b1, p->coeff);
+    bvarith64_buffer_add_const_times_mlist(b, p1, p->coeff);
     p = p->next;
   }
 
   // other monomials of p
   while (p->next != NULL) {
     assert(p->prod != end_pp);
-    bvarith64_buffer_add_mono_times_buffer(b, b1, p->coeff, p->prod);
+    bvarith64_buffer_add_mono_times_mlist(b, p1, p->coeff, p->prod);
     p = p->next;
   }
 
@@ -893,62 +882,146 @@ void bvarith64_buffer_mul_buffer(bvarith64_buffer_t *b, bvarith64_buffer_t *b1) 
  * Compute the square of b
  */
 void bvarith64_buffer_square(bvarith64_buffer_t *b) {
-  bvarith64_buffer_t aux;
-
-  // hack: we make shallow copy of b into aux
-  // then we call mul_buffer.
-  aux = *b;
-  bvarith64_buffer_mul_buffer(b, &aux);
+  bvarith64_buffer_mul_mlist(b, b->list);
 }
 
 
 
 /*
- * Add b1 * b2 to b
- * - b1 and b2 must be distinct from b (but b1 may be equal to b2)
+ * Add p1 * p2 to b
  */
-void bvarith64_buffer_add_buffer_times_buffer(bvarith64_buffer_t *b, bvarith64_buffer_t *b1, bvarith64_buffer_t *b2) {
-  bvmlist64_t *p1;
-
-  assert(b != b1 && b != b2);
-  p1 = b1->list;
-
+void bvarith64_buffer_add_mlist_times_mlist(bvarith64_buffer_t *b, bvmlist64_t *p1, bvmlist64_t *p2) {
   // the constant term of p1 is first
   if (p1->prod == empty_pp) {
-    bvarith64_buffer_add_const_times_buffer(b, b2, p1->coeff);
+    bvarith64_buffer_add_const_times_mlist(b, p2, p1->coeff);
     p1 = p1->next;
   }
 
   while (p1->next != NULL) {
     assert(p1->prod != end_pp);
-    bvarith64_buffer_add_mono_times_buffer(b, b2, p1->coeff, p1->prod);
+    bvarith64_buffer_add_mono_times_mlist(b, p2, p1->coeff, p1->prod);
     p1 = p1->next;
   }
 }
 
 
 /*
- * Add - b1 * b2 to b
- * - b1 and b2 must be distinct from b (but b1 may be equal to b2)
+ * Add - p1 * p2 to b
  */
-void bvarith64_buffer_sub_buffer_times_buffer(bvarith64_buffer_t *b, bvarith64_buffer_t *b1, bvarith64_buffer_t *b2) {
-  bvmlist64_t *p1;
-
-  assert(b != b1 && b != b2);
-  p1 = b1->list;
-
+void bvarith64_buffer_sub_mlist_times_mlist(bvarith64_buffer_t *b, bvmlist64_t *p1, bvmlist64_t *p2) {
   // the constant term of p1 is first
   if (p1->prod == empty_pp) {
-    bvarith64_buffer_sub_const_times_buffer(b, b2, p1->coeff);
+    bvarith64_buffer_sub_const_times_mlist(b, p2, p1->coeff);
     p1 = p1->next;
   }
 
   while (p1->next != NULL) {
     assert(p1->prod != end_pp);
-    bvarith64_buffer_sub_mono_times_buffer(b, b2, p1->coeff, p1->prod);
+    bvarith64_buffer_sub_mono_times_mlist(b, p2, p1->coeff, p1->prod);
     p1 = p1->next;
   }  
 }
+
+
+/*
+ * Multiply b by p1 ^ d
+ * - use aux as an auxiliary buffer.
+ * - aux must be distinct from b, but use the same power_product table
+ */
+void bvarith64_buffer_mul_mlist_power(bvarith64_buffer_t *b, bvmlist64_t *p1, uint32_t d, bvarith64_buffer_t *aux) {
+  uint32_t i;
+
+  assert(b != aux && aux->ptbl == b->ptbl);
+
+  if (d <= 4) {
+    // small exponent: don't use aux
+    for (i=0; i<d; i++) {
+      bvarith64_buffer_mul_mlist(b, p1);
+      bvarith64_buffer_normalize(b);
+    }
+  } else {
+    // larger exponent
+    bvarith64_buffer_prepare(aux, b->bitsize);
+    bvarith64_buffer_add_mlist(aux, p1); // aux := p1
+    for (;;) {
+      /*
+       * loop invariant: b0 * p1^d0 == b * aux^d 
+       * with b0 = b on entry to the function
+       *      d0 = d on entry to the function
+       */
+      assert(d > 0);
+      if ((d & 1) != 0) {
+	bvarith64_buffer_mul_mlist(b, aux->list); // b := b * aux
+	bvarith64_buffer_normalize(b);
+      }
+      d >>= 1;                               // d := d/2
+      if (d == 0) break;
+      bvarith64_buffer_square(aux);          // aux := aux^2
+      bvarith64_buffer_normalize(aux);
+    }
+  }
+}
+
+
+/*
+ * Extract the content of b as a list of monomials, then reset b to the zero polynomial
+ * - b must be normalized
+ */
+bvmlist64_t *bvarith64_buffer_get_mlist(bvarith64_buffer_t *b) {
+  bvmlist64_t *r, *q;
+
+  r = b->list;
+  
+  // reset b to the end-marker only
+  q = (bvmlist64_t *) objstore_alloc(b->store);
+  q->next = NULL;
+  q->coeff = 0;
+  q->prod = end_pp;
+
+  b->list = q;
+  b->nterms = 0;
+
+  return r;
+}
+
+
+/*
+ * Hash code for a list of monomials p:
+ * - p must be sorted and terminated by the end marker
+ * - all coefficients in p must be non-zero and normalized modulo 2^n
+ */
+uint32_t hash_bvmlist64(bvmlist64_t *p, uint32_t n) {
+  uint32_t h, l;
+
+  h = HASH_BVPOLY64_SEED + n;
+  while (p->next != NULL) {
+    h = jenkins_hash_mix3((uint32_t) (p->coeff >> 32), (uint32_t) p->coeff, h);
+    l = jenkins_hash_ptr(p->prod);   // power product
+    h = jenkins_hash_mix3(l, n, h);
+
+    p = p->next;
+  }
+
+  return h;
+}
+
+
+/*
+ * Test whether p1 and p2 are equal
+ * - both lists must be sorted, and terminated by the end marker,
+ *   and use the same pprod table.
+ */
+bool equal_bvmlists64(bvmlist64_t *p1, bvmlist64_t *p2) {
+  while (p1->prod == p2->prod) {
+    if (p1->prod == end_pp) return true;
+    if (p1->coeff != p2->coeff) return false;
+    p1 = p1->next;
+    p2 = p2->next;
+  }
+  
+  return false;
+}
+
 
 
 
