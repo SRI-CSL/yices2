@@ -1,0 +1,27 @@
+#!/bin/sh
+
+#
+# Install script for Darwin:
+# After libyices.$(VERSION).dylib is copied in $(DEF_INSTALL)/lib,
+# we need to create symbolic links
+#   libyices.dylib
+#   libyices.$(MAJOR).dylib
+#
+
+MAJOR=2
+MINOR=0
+PATCH=0
+
+VERSION=$MAJOR.$MINOR.$PATCH
+
+DEF_INSTALL=/usr/local
+
+if test -d $DEF_INSTALL ; then
+  ln -sf libyices.$VERSION.dylib $DEF_INSTALL/lib/libyices.dylib
+  ln -sf libyices.$VERSION.dylib $DEF_INSTALL/lib/libyices.$MAJOR.dylib
+  exit 0
+else
+  echo "ERROR in install script: could not find directory $DEF_INSTALL"
+  exit 1
+fi
+

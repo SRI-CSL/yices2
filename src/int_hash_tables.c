@@ -205,6 +205,37 @@ void int_htbl_erase_record(int_htbl_t *table, uint32_t k, int32_t v) {
 
 
 /*
+ * Add record <k, v> to the table
+ * - the record must not be present in the table
+ */
+void int_htbl_add_record(int_htbl_t *table, uint32_t k, int32_t v) {
+  uint32_t mask, j;
+  int_hrec_t *r;
+
+  assert(table->size > table->nelems + table->ndeleted);
+
+  mask = table->size - 1;
+  j = k & mask;
+  for (;;) {
+    r = table->records + j;
+    if (r->value == NULL_VALUE) break;
+    assert(r->value != v);
+    j ++;
+    j &= mask;
+  }
+
+  // add <k, v> into record r
+  table->nelems ++;
+  r->key = k;
+  r->value = v;
+
+  if (table->nelems + table->ndeleted > table->resize_threshold) {
+    int_htbl_extend(table);
+  }
+}
+
+
+/*
  * Find index of object equal to o or return -1 if no such index is in the hash table.
  */
 int32_t int_htbl_find_obj(int_htbl_t *table, int_hobj_t *o) {

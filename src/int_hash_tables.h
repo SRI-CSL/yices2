@@ -4,6 +4,8 @@
  * These are intended for hash consing: terms are identified by an
  * index in a global term table. A hash-table stores records <k, v>
  * where v is the index of a term and k is the hash of that term.
+ * There should never be duplicates (i.e., distinct records <k1, v1> and 
+ * <k2, v2> with v1 = v2).
  */
 
 
@@ -113,6 +115,11 @@ extern void reset_int_htbl(int_htbl_t *table);
  * Delete record <k, v>. No effect if <k, v> is not present in table.
  */
 extern void int_htbl_erase_record(int_htbl_t *table, uint32_t k, int32_t v);
+
+/*
+ * Add record <k, v> to table. The record must not be present in table.
+ */
+extern void int_htbl_add_record(int_htbl_t *table, uint32_t k, int32_t v);
 
 /*
  * Get index of object equal to o if present in the hash table,
