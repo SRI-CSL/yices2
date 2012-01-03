@@ -173,14 +173,14 @@ static inline eterm_t bvvar_get_eterm(bv_vartable_t *table, thvar_t x) {
 /*
  * Remove all eterms of id >= nterms
  */
-void bv_vartable_remove_eterms(bv_vartable_t *table, uint32_t nterms);
+extern void bv_vartable_remove_eterms(bv_vartable_t *table, uint32_t nterms);
 
 
 
 /*
  * Remove all variables of index >= nv
  */
-void bv_vartable_remove_vars(bv_vartable_t *table, uint32_t nv);
+extern void bv_vartable_remove_vars(bv_vartable_t *table, uint32_t nv);
 
 
 
@@ -398,8 +398,6 @@ static inline void bvvar_clr_mark(bv_vartable_t *table, thvar_t x) {
   assert(valid_bvvar(table, x));
   table->kind[x] &= ((uint8_t) 0x7F);
 }
-
-
 
 
 

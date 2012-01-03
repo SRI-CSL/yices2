@@ -47,7 +47,6 @@ void delete_bvmlist64_store(object_store_t *s) {
 }
 
 
-
 /*
  * Initialize buffer b to the zero polynomial
  * - ptbl = attached power product table
@@ -1020,6 +1019,21 @@ bool equal_bvmlists64(bvmlist64_t *p1, bvmlist64_t *p2) {
   }
   
   return false;
+}
+
+
+/*
+ * Delete all monomials in *p
+ * - store = relevant store (all monomials of p must have been allocated in store).
+ */
+void free_bvmlist64(bvmlist64_t *p, object_store_t *store) {
+  bvmlist64_t *q;
+
+  while (p != NULL) {
+    q = p->next;
+    objstore_free(store, p);
+    p = q;
+  }
 }
 
 

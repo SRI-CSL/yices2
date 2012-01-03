@@ -52,6 +52,16 @@ static void extend_pprod_table(pprod_table_t *table) {
 }
 
 
+/*
+ * Empty the table
+ */
+void reset_pprod_table(pprod_table_t *table) {
+  table->nelems = 0;
+  table->free_idx = -1;
+  reset_int_htbl(&table->htbl);
+  pp_buffer_reset(&table->buffer);
+}
+
 
 /*
  * Delete the table and its content

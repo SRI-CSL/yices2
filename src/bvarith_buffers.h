@@ -428,6 +428,14 @@ extern uint32_t hash_bvmlist(bvmlist_t *p, uint32_t n);
 extern bool equal_bvmlists(bvmlist_t *p1, bvmlist_t *p2, uint32_t n);
 
 
+/*
+ * Delete all monomials in *p
+ * - store = the relevant monomial store (all monomials of p
+ *   must have been allocated in store).
+ * - n = number of bits in p
+ */
+extern void free_bvmlist(bvmlist_t *p, object_store_t *store, uint32_t n);
+
 
 /************************************
  *  OPERATIONS WITH OTHER BUFFERS   *

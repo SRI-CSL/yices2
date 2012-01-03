@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# Fix access permissions for /Library/Application Support/Yices
+
+chmod -R og+rX /Library/Application\ Support/Yices

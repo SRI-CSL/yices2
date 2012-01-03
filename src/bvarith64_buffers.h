@@ -403,6 +403,13 @@ extern uint32_t hash_bvmlist64(bvmlist64_t *p, uint32_t n);
 extern bool equal_bvmlists64(bvmlist64_t *p1, bvmlist64_t *p2);
 
 
+/*
+ * Delete all monomials in *p
+ * - store = relevant store (all monomials of p must have been allocated in store).
+ */
+extern void free_bvmlist64(bvmlist64_t *p, object_store_t *store);
+
+
 
 
 /***********************************

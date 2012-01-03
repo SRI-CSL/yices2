@@ -1232,6 +1232,29 @@ bool equal_bvmlists(bvmlist_t *p1, bvmlist_t *p2, uint32_t n) {
 }
 
 
+/*
+ * Delete all monomials in *p
+ * - store = the relevant monomial store (all monomials of p
+ *   must have been allocated in store).
+ * - n = number of bits in *p
+ */
+void free_bvmlist(bvmlist_t *p, object_store_t *store, uint32_t n) {
+  bvmlist_t *q;
+  uint32_t k;
+
+  k = (n + 31) >> 5;
+  q = p->next;
+  while (q != NULL) {
+    assert(p->prod != end_pp);
+    bvconst_free(p->coeff, k);
+    objstore_free(store, p);
+    p = q;
+    q = p->next;
+  }
+
+  assert(p->prod == end_pp && p->coeff == NULL);
+  objstore_free(store, p);
+}
 
 
 

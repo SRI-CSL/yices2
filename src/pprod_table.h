@@ -63,6 +63,12 @@ extern void delete_pprod_table(pprod_table_t *table);
 
 
 /*
+ * Empty the table
+ */
+extern void reset_pprod_table(pprod_table_t *table);
+
+
+/*
  * Construct a power product from an array a of n pairs (variable, exponent).
  * - a must be normalized
  * - return null_pp if n is zero
