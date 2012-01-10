@@ -3,7 +3,7 @@
  */
 
 #include "memalloc.h"
-#include "bvexp_tables.h"
+#include "bvexp_table.h"
 #include "int_powers.h"
 
 

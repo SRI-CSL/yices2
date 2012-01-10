@@ -37,6 +37,7 @@
 
 #include "bv_vartable.h"
 #include "bv_atomtable.h"
+#include "bvexp_table.h"
 #include "bv_intervals.h"
 
 #include "smt_core.h"
@@ -262,6 +263,11 @@ typedef struct bv_solver_s {
   bv_atomtable_t atbl;
 
   /*
+   * Expanded forms
+   */
+  bvexp_table_t etbl;
+
+  /*
    * Table to merge equal variables
    */
   mtbl_t mtbl;
@@ -298,6 +304,10 @@ typedef struct bv_solver_s {
   bvconstant_t aux1;
   bvconstant_t aux2;
   bvconstant_t aux3;
+
+  // buffers for computing expanded forms
+  bvarith_buffer_t exp_buffer;
+  bvarith64_buffer_t exp64_buffer;
 
   // buffers for computing intervals
   bv_interval_stack_t intv_stack;

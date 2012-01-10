@@ -3392,6 +3392,7 @@ void init_bv_solver(bv_solver_t *solver, smt_core_t *core, egraph_t *egraph) {
 
   init_bv_vartable(&solver->vtbl);
   init_bv_atomtable(&solver->atbl);
+  init_bvexp_table(&solver->etbl, &solver->vtbl);
   init_mtbl(&solver->mtbl);
   init_bv_bound_queue(&solver->bqueue);
 
@@ -3408,6 +3409,8 @@ void init_bv_solver(bv_solver_t *solver, smt_core_t *core, egraph_t *egraph) {
   init_bvconstant(&solver->aux1);
   init_bvconstant(&solver->aux2);
   init_bvconstant(&solver->aux3);
+  bvexp_init_buffer(&solver->etbl, &solver->exp_buffer);
+  bvexp_init_buffer64(&solver->etbl, &solver->exp64_buffer);
   init_bv_interval_stack(&solver->intv_stack);
   init_ivector(&solver->a_vector, 0);
   init_ivector(&solver->b_vector, 0);
@@ -3430,8 +3433,13 @@ void bv_solver_init_jmpbuf(bv_solver_t *solver, jmp_buf *buffer) {
  * Delete solver
  */
 void delete_bv_solver(bv_solver_t *solver) {
+  // exp buffers must be deleted before etbl
+  delete_bvarith_buffer(&solver->exp_buffer);
+  delete_bvarith64_buffer(&solver->exp64_buffer);
+
   delete_bv_vartable(&solver->vtbl);
   delete_bv_atomtable(&solver->atbl);
+  delete_bvexp_table(&solver->etbl);
   delete_mtbl(&solver->mtbl);
   delete_bv_bound_queue(&solver->bqueue);
 
@@ -3523,6 +3531,7 @@ void bv_solver_pop(bv_solver_t *solver) {
   bv_solver_remove_bounds(solver, top->natoms);
   bv_vartable_remove_vars(&solver->vtbl, top->nvars);
   bv_atomtable_remove_atoms(&solver->atbl, top->natoms);
+  bvexp_table_remove_vars(&solver->etbl, top->nvars);
   bv_solver_remove_dead_eterms(solver);
 
   mtbl_pop(&solver->mtbl);
@@ -3536,8 +3545,13 @@ void bv_solver_pop(bv_solver_t *solver) {
  * and reset base_level to 0.
  */
 void bv_solver_reset(bv_solver_t *solver) {
+  // exp buffers must be reset before etbl
+  bvarith_buffer_prepare(&solver->exp_buffer, 100);
+  bvarith64_buffer_prepare(&solver->exp64_buffer, 10);
+
   reset_bv_vartable(&solver->vtbl);
   reset_bv_atomtable(&solver->atbl);
+  reset_bvexp_table(&solver->etbl);
   reset_mtbl(&solver->mtbl);
   reset_bv_bound_queue(&solver->bqueue);
 

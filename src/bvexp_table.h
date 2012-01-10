@@ -4,8 +4,8 @@
  * modulo bitvector arithmetic.
  */
 
-#ifndef __BVEXP_TABLES_H
-#define __BVEXP_TABLES_H
+#ifndef __BVEXP_TABLE_H
+#define __BVEXP_TABLE_H
 
 #include <stdint.h>
 #include <assert.h>
@@ -180,6 +180,4 @@ extern void expand_bvpprod64(bvexp_table_t *table, bvarith64_buffer_t *buffer, p
 extern void expand_bvpprod(bvexp_table_t *table, bvarith_buffer_t *buffer, pp_buffer_t *p, uint32_t n);
 
 
-
-
-#endif /* __BVEXP_TABLES_H */
+#endif /* __BVEXP_TABLE_H */

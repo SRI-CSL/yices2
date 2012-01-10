@@ -3,7 +3,7 @@
 
 #include "bvsolver_printer.h"
 #include "bv_vartable.h"
-#include "bvexp_tables.h"
+#include "bvexp_table.h"
 
 
 /*
