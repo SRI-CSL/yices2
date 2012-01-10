@@ -26,11 +26,18 @@
  *   (1 to 64bits).
  * - nvars = number of variables present (nvars <= size)
  * - size = total size of array def
+ *
  * Other components:
  * - vtbl = pointer to the associated vartable
  * - store, store4 = object stores used for allocating monomials
  * - pprods = table for building power products
  * - htbl = hash table
+ *
+ * Auxiliary buffers used in internal computations
+ * - aux = bvarith_buffer
+ * - aux64 = bvarith64_buffer
+ * - pp = pp_buffer
+ * - bvconst: bvconstant buffer
  */
 typedef struct bvexp_table_s {
   uint32_t nvars;
@@ -41,10 +48,16 @@ typedef struct bvexp_table_s {
   object_store_t store64;
   pprod_table_t pprods;
   int_htbl_t htbl;
+
+  bvarith_buffer_t aux;
+  bvarith64_buffer_t aux64;
+  pp_buffer_t pp;
+  bvconstant_t bvconst;
 } bvexp_table_t;
 
 #define DEF_BVEXPTABLE_SIZE 100
 #define MAX_BVEXPTABLE_SIZE (UINT32_MAX/sizeof(void *))
+
 
 
 /*
@@ -133,6 +146,39 @@ static inline bvmlist64_t *bvexp_def64(bvexp_table_t *table, thvar_t x) {
   assert(bvvar_bitsize(table->vtbl, x) <= 64);
   return (bvmlist64_t *) bvexp_get_def(table, x);
 }
+
+
+
+/*
+ * EXPANDED FORMS
+ */
+
+/*
+ * Expanded form of a bitvector polynomial p
+ * - p is stored in a bvpoly_buffer object
+ * - the expansion is returned in a bvarith_buffer or bvarith64_buffer object
+ * - the result is normalized
+ */
+extern void expand_bvpoly64(bvexp_table_t *table, bvarith64_buffer_t *buffer, bvpoly_buffer_t *p);
+extern void expand_bvpoly(bvexp_table_t *table, bvarith_buffer_t *buffer, bvpoly_buffer_t *p);
+
+
+/*
+ * Check whether one variable of power product p has a non-null expanded form in table
+ */
+extern bool pprod_can_expand(bvexp_table_t *table, pp_buffer_t *p);
+
+
+/*
+ * Expanded form for a power product p
+ * - p is stored in a pp_buffer object
+ * - n = bitsize of p 
+ * - the expansion is returned in a bvarith_buffer or bvarith64_buffer object
+ * - the result is normalized
+ */
+extern void expand_bvpprod64(bvexp_table_t *table, bvarith64_buffer_t *buffer, pp_buffer_t *p, uint32_t n);
+extern void expand_bvpprod(bvexp_table_t *table, bvarith_buffer_t *buffer, pp_buffer_t *p, uint32_t n);
+
 
 
 

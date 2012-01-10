@@ -242,7 +242,7 @@ static inline uint32_t bvpoly_buffer_width(bvpoly_buffer_t *b) {
 /*
  * Components of monomial i
  */
-static inline uint32_t bvpoly_buffer_var(bvpoly_buffer_t *b, uint32_t i) {
+static inline int32_t bvpoly_buffer_var(bvpoly_buffer_t *b, uint32_t i) {
   assert(i < b->nterms);
   return b->var[i];
 }

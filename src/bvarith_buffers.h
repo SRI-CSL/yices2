@@ -285,6 +285,18 @@ extern void bvarith_buffer_sub_const(bvarith_buffer_t *b, uint32_t *a);
 
 
 /*
+ * Add a * c to b
+ */
+extern void bvarith_buffer_add_const_times_const(bvarith_buffer_t *b, uint32_t *a, uint32_t *c);
+
+
+/*
+ * Subtract a * c to b
+ */
+extern void bvarith_buffer_sub_const_times_const(bvarith_buffer_t *b, uint32_t *a, uint32_t *c);
+
+
+/*
  * Add r to b
  */
 extern void bvarith_buffer_add_pp(bvarith_buffer_t *b, pprod_t *r);
@@ -306,6 +318,19 @@ extern void bvarith_buffer_add_mono(bvarith_buffer_t *b, uint32_t *a, pprod_t *r
  * Add -a * r to b
  */
 extern void bvarith_buffer_sub_mono(bvarith_buffer_t *b, uint32_t *a, pprod_t *r);
+
+
+/*
+ * Add a * c * r to b
+ */
+extern void bvarith_buffer_add_const_times_mono(bvarith_buffer_t *b, uint32_t *a, uint32_t *c, pprod_t *r);
+
+
+/*
+ * Add -a * c * r to b
+ */
+extern void bvarith_buffer_sub_const_times_mono(bvarith_buffer_t *b, uint32_t *a, uint32_t *c, pprod_t *r);
+
 
 
 /*

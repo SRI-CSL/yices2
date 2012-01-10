@@ -598,6 +598,107 @@ void bvarith_buffer_sub_const(bvarith_buffer_t *b, uint32_t *a) {
 }
 
 
+
+/*
+ * Add a * c * r to b
+ */
+void bvarith_buffer_add_const_times_mono(bvarith_buffer_t *b, uint32_t *a, uint32_t *c, pprod_t *r) {
+  bvmlist_t *p, *aux;
+  bvmlist_t **q;
+  uint32_t k;
+
+  assert(b->bitsize > 0);
+
+  k = b->width;
+  if (bvconst_is_zero(a, k) || bvconst_is_zero(c, k)) return;
+
+  q = &b->list;
+  p = *q;
+  assert(p == b->list);
+  while (pprod_precedes(p->prod, r)) {
+    q = &p->next;
+    p = *q;
+  }
+
+  // p points to a monomial with p->prod >= r
+  // q is the predecessor of p
+  if (p->prod == r) {
+    bvconst_addmul(p->coeff, k, a, c);
+  } else {
+    assert(pprod_precedes(r, p->prod));
+
+    aux = (bvmlist_t *) objstore_alloc(b->store);
+    aux->next = p;
+    aux->coeff = bvconst_alloc(k);
+    bvconst_mul2(aux->coeff, k, a, c);
+    aux->prod = r;
+
+    *q = aux;
+    b->nterms ++;
+  }  
+  
+}
+
+
+/*
+ * Add -a * c * r to b
+ */
+void bvarith_buffer_sub_const_times_mono(bvarith_buffer_t *b, uint32_t *a, uint32_t *c, pprod_t *r) {
+  bvmlist_t *p, *aux;
+  bvmlist_t **q;
+  uint32_t k;
+
+  assert(b->bitsize > 0);
+
+  k = b->width;
+  if (bvconst_is_zero(a, k) || bvconst_is_zero(c, k)) return;
+
+  q = &b->list;
+  p = *q;
+  assert(p == b->list);
+  while (pprod_precedes(p->prod, r)) {
+    q = &p->next;
+    p = *q;
+  }
+
+  // p points to a monomial with p->prod >= r
+  // q is the predecessor of p
+  if (p->prod == r) {
+    bvconst_submul(p->coeff, k, a, c);
+  } else {
+    assert(pprod_precedes(r, p->prod));
+
+    aux = (bvmlist_t *) objstore_alloc(b->store);
+    aux->next = p;
+    aux->coeff = bvconst_alloc(k);
+    bvconst_clear(aux->coeff, k);
+    bvconst_submul(aux->coeff, k, a, c);
+    aux->prod = r;
+
+    *q = aux;
+    b->nterms ++;
+  }  
+}
+
+
+/*
+ * Add a * c to b
+ */
+void bvarith_buffer_add_const_times_const(bvarith_buffer_t *b, uint32_t *a, uint32_t *c) {
+  bvarith_buffer_add_const_times_mono(b, a, c, empty_pp);
+}
+
+
+/*
+ * Subtract a * c to b
+ */
+void bvarith_buffer_sub_const_times_const(bvarith_buffer_t *b, uint32_t *a, uint32_t *c) {
+  bvarith_buffer_sub_const_times_mono(b, a, c, empty_pp);
+}
+
+
+
+
 /*
  * Add r to b
  */
@@ -1044,6 +1145,7 @@ void bvarith_buffer_mul_mlist(bvarith_buffer_t *b, bvmlist_t *p1) {
   // reset b to the zero polynomial
   q = (bvmlist_t *) objstore_alloc(b->store);
   q->next = NULL;
+  q->coeff = NULL;
   q->prod = end_pp;
 
   b->nterms = 0;

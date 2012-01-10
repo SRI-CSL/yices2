@@ -18,6 +18,13 @@ extern void print_bv_atomtable(FILE *f, bv_atomtable_t *atbl);
 
 
 /*
+ * Fully expanded forms: n = number of bits
+ */
+extern void print_bvexp64(FILE *f, bvmlist64_t *p, uint32_t n);
+extern void print_bvexp(FILE *f, bvmlist_t *p, uint32_t n);
+
+
+/*
  * All variables and atoms in solver
  */
 extern void print_bv_solver_vars(FILE *f, bv_solver_t *solver);

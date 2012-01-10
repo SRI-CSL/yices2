@@ -103,6 +103,7 @@ static void print_bv_poly64(FILE *f, bvpoly64_t *p) {
 }
 
 
+
 // monomial c * x: n = number of bits
 static void print_bv_mono(FILE *f, uint32_t *c, thvar_t x, uint32_t n, bool first) {
   uint32_t w;
@@ -412,8 +413,110 @@ void print_bv_solver_atom_of_literal(FILE *f, bv_solver_t *solver, literal_t l) 
   }
   print_bv_solver_atom(f, solver, id);
   if (is_neg(l)) {
-    putc(')', f);
+    fputc(')', f);
   }
+}
+
+
+
+/*
+ * EXPANDED FORMS
+ */
+
+/*
+ * Power product p
+ */
+static void print_bv_pprod(FILE *f, pprod_t *p) {
+  assert(! pp_is_empty(p) && p != end_pp);
+  if (pp_is_var(p)) {
+    print_bvvar(f, var_of_pp(p));
+  } else {
+    print_bv_product(f, p);
+  }
+}
+
+
+/*
+ * Monomial coeff * r: 
+ */
+static void print_bvmlist64_mono(FILE *f, uint64_t coeff, pprod_t *r, uint32_t n, bool first) {
+  if (pp_is_empty(r)) {
+    if (!first) fprintf(f, " + ");
+    bvconst64_print(f, coeff, n);
+  } else if (coeff == 1) {
+    if (!first) fprintf(f, " + ");
+    print_bv_pprod(f, r);
+  } else if (bvconst64_is_minus_one(coeff, n)) {
+    if (!first) fprintf(f, " ");
+    fprintf(f, "- ");
+    print_bv_pprod(f, r);
+  } else {
+    if (!first) fprintf(f, " + ");
+    bvconst64_print(f, coeff, n);
+    fprintf(f, " ");
+    print_bv_pprod(f, r);
+  }
+}
+
+static void print_bvmlist_mono(FILE *f, uint32_t *coeff, pprod_t *r, uint32_t n, bool first) {
+  uint32_t w;
+
+  w = (n + 31) >> 5;
+
+  if (pp_is_empty(r)) {
+    if (!first) fprintf(f, " + ");
+    bvconst_print(f, coeff, n);
+  } else if (bvconst_is_one(coeff, w)) {
+    if (!first) fprintf(f, " + ");
+    print_bv_pprod(f, r);
+  } else if (bvconst_is_minus_one(coeff, n)) {
+    if (!first) fprintf(f, " ");
+    fprintf(f, "- ");
+    print_bv_pprod(f, r);
+  } else {
+    if (!first) fprintf(f, " + ");
+    bvconst_print(f, coeff, n);
+    fprintf(f, " ");
+    print_bv_pprod(f, r);
+  }
+}
+
+
+/*
+ * List of monomials
+ */
+void print_bvexp64(FILE *f, bvmlist64_t *p, uint32_t n) {
+  bool first;
+
+  assert(p != NULL);
+
+  if (p->next == NULL) {
+    fprintf(f, "0");
+  } else {
+    first = true;
+    while (p->next != NULL) {
+      print_bvmlist64_mono(f, p->coeff, p->prod, n, first);
+      first = false;
+      p = p->next;
+    }
+  }
+}
+
+void print_bvexp(FILE *f, bvmlist_t *p, uint32_t n) {
+  bool first;
+
+  assert(p != NULL);
+
+  if (p->next == NULL) {
+    fprintf(f, "0");
+  } else {
+    first = true;
+    while (p->next != NULL) {
+      print_bvmlist_mono(f, p->coeff, p->prod, n, first);
+      first = false;
+      p = p->next;
+    }
+  }    
 }
 
 
