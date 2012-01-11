@@ -495,7 +495,7 @@ void bvpoly_buffer_add_var(bvpoly_buffer_t *buffer, int32_t x) {
   i = bvpoly_buffer_get_index(buffer, x);
   if (i >= 0) {
     assert(i < buffer->nterms && buffer->var[i] == x);
-    if (w < 2) {
+    if (w <= 2) {
       buffer->c[i] ++;
     } else {
       bvconst_add_one(buffer->p[i], w);
@@ -504,7 +504,7 @@ void bvpoly_buffer_add_var(bvpoly_buffer_t *buffer, int32_t x) {
     i = bvpoly_buffer_alloc_mono(buffer);
     buffer->index[x] = i;
     buffer->var[i] = x;
-    if (w < 2) {
+    if (w <= 2) {
       buffer->c[i] = 1;
     } else {
       bvconst_set_one(buffer->p[i], w);
@@ -525,7 +525,7 @@ void bvpoly_buffer_sub_var(bvpoly_buffer_t *buffer, int32_t x) {
   i = bvpoly_buffer_get_index(buffer, x);
   if (i >= 0) {
     assert(i < buffer->nterms && buffer->var[i] == x);
-    if (w < 2) {
+    if (w <= 2) {
       buffer->c[i] --;
     } else {
       bvconst_sub_one(buffer->p[i], w);
@@ -534,7 +534,7 @@ void bvpoly_buffer_sub_var(bvpoly_buffer_t *buffer, int32_t x) {
     i = bvpoly_buffer_alloc_mono(buffer);
     buffer->index[x] = i;
     buffer->var[i] = x;
-    if (w < 2) {
+    if (w <= 2) {
       buffer->c[i] = ((uint64_t) -1);
     } else {
       bvconst_set_minus_one(buffer->p[i], w);
