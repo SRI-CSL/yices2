@@ -255,7 +255,7 @@ static bool eq_hash_bvexp_hobj(bvexp_hobj_t *o, thvar_t i) {
   result = false;
 
   if (bvvar_bitsize(table->vtbl, i) == n) {
-    if (n < 64) {
+    if (n <= 64) {
       result = equal_bvmlists64(o->def, table->def[i]);
     } else {
       result = equal_bvmlists(o->def, table->def[i], n);
