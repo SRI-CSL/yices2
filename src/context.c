@@ -6674,6 +6674,12 @@ void delete_context(context_t *ctx) {
     ctx->fun_solver = NULL;
   }
 
+  if (ctx->bv_solver != NULL) {
+    delete_bv_solver(ctx->bv_solver);
+    safe_free(ctx->bv_solver);
+    ctx->bv_solver = NULL;
+  }
+
   delete_gate_manager(&ctx->gate_manager);
 
   delete_intern_tbl(&ctx->intern);

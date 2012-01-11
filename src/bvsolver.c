@@ -2932,19 +2932,96 @@ static void bvbuffer_add_mono(bv_solver_t *solver, bvpoly_buffer_t *b, thvar_t x
 
 
 /*
- * Build the variable for a polynomial stored in buffer:
- * - check whether buffer is reduced to a constant or a variable
+ * Check whether a polynomial (after expansion) is equal to a constant or 
+ * an existing variable.
+ * - the expanded poly is stored in *b (as a list of monomials)
+ * - b must be normalized
+ * - return null_thvar (i.e., -1) if there's no simplification
+ */
+static thvar_t simplify_expanded_poly(bv_solver_t *solver, bvarith_buffer_t *b) {
+  bv_vartable_t *vtbl;
+  uint32_t n, nbits;
+  bvmlist_t *m;
+  pprod_t *r;
+  thvar_t x;
+
+  vtbl = &solver->vtbl;
+  n = bvarith_buffer_size(b);
+  nbits = bvarith_buffer_bitsize(b);
+
+  x = null_thvar;
+  if (n == 0) {
+    bvconstant_set_all_zero(&solver->aux1, nbits);
+    x = get_bvconst(vtbl, nbits, solver->aux1.data);
+
+  } else if (n == 1) {
+    m = b->list; // unique monomial of b
+    r = m->prod; // power product in this mononial
+    if (r == empty_pp) {
+      // b is a constant
+      x = get_bvconst(vtbl, nbits, m->coeff);
+    } else if (pp_is_var(r) && bvconst_is_one(m->coeff, (nbits + 31) >> 5)) {
+      // b is 1 * x for some x
+      x = var_of_pp(r);
+    }
+  }
+
+  return x;
+}
+
+
+/*
+ * Same thing for a 64bit polynomial
+ */
+static thvar_t simplify_expanded_poly64(bv_solver_t *solver, bvarith64_buffer_t *b) {
+  bv_vartable_t *vtbl;
+  uint32_t n, nbits;
+  bvmlist64_t *m;
+  pprod_t *r;
+  thvar_t x;
+
+  vtbl = &solver->vtbl;
+  n = bvarith64_buffer_size(b);
+  nbits = bvarith64_buffer_bitsize(b);
+
+  x = null_thvar;
+  if (n == 0) {
+    x = get_bvconst64(vtbl, nbits, 0);
+
+  } else if (n == 1) {
+    m = b->list; // unique monomial of b
+    r = m->prod; // power product in this mononial
+    if (r == empty_pp) {
+      // b is a constant
+      x = get_bvconst64(vtbl, nbits, m->coeff);
+    } else if (pp_is_var(r) && m->coeff == 1) {
+      // b is 1 * x for some x
+      x = var_of_pp(r);
+    }
+  }
+
+  return x;
+}
+
+
+/*
+ * Build the variable for a polynomial stored in buffer
  */
 static thvar_t map_bvpoly(bv_solver_t *solver, bvpoly_buffer_t *b) {
   bv_vartable_t *vtbl;
+  bvexp_table_t *etbl;
+  bvarith_buffer_t *eb;
   thvar_t x;
-  uint32_t n, nbits;
+  uint32_t n, nbits, h;
 
   vtbl = &solver->vtbl;
 
   n = bvpoly_buffer_num_terms(b);
   nbits = bvpoly_buffer_bitsize(b);
 
+  /*
+   * Check whether p is a constant or of the form 1. x 
+   */
   if (n == 0) {
     // return the constant 0b000...0 
     bvconstant_set_all_zero(&solver->aux1, nbits);
@@ -2965,9 +3042,27 @@ static thvar_t map_bvpoly(bv_solver_t *solver, bvpoly_buffer_t *b) {
       return x;
     }
   }
-   
-  // no simplification
-  x = get_bvpoly(vtbl, b);
+
+  /*
+   * Expand p then check whether the expanded form is equal to a constant
+   * or an existing variable
+   */
+  etbl = &solver->etbl;
+  eb = &solver->exp_buffer;
+  expand_bvpoly(etbl, eb, b);
+  x = simplify_expanded_poly(solver, eb);
+
+  if (x < 0) {
+    // no simplification: check for an existing variable with
+    // the same exapnded form
+    h = hash_bvmlist(eb->list, nbits);
+    x = bvexp_table_find(etbl, eb, h);
+    if (x < 0) {
+      // not in the etbl
+      x = get_bvpoly(vtbl, b);
+      bvexp_table_add(etbl, x, eb, h);  // store x and its expansion in etbl
+    }
+  }
 
   return x;
 }
@@ -2978,8 +3073,10 @@ static thvar_t map_bvpoly(bv_solver_t *solver, bvpoly_buffer_t *b) {
  */
 static thvar_t map_bvpoly64(bv_solver_t *solver, bvpoly_buffer_t *b) {
   bv_vartable_t *vtbl;
+  bvexp_table_t *etbl;
+  bvarith64_buffer_t *eb;
   thvar_t x;
-  uint32_t n, nbits;
+  uint32_t n, nbits, h;
 
   vtbl = &solver->vtbl;
 
@@ -3005,8 +3102,24 @@ static thvar_t map_bvpoly64(bv_solver_t *solver, bvpoly_buffer_t *b) {
     }
   }
 
-  // no simplification
-  x = get_bvpoly64(vtbl, b);
+  // expand p
+  etbl = &solver->etbl;
+  eb = &solver->exp64_buffer;
+  expand_bvpoly64(etbl, eb, b);
+
+  // check whether the expanded form simplifies to a constant 
+  // or a single variable
+  x = simplify_expanded_poly64(solver, eb);
+
+  if (x < 0) {
+    h = hash_bvmlist64(eb->list, nbits);
+    x = bvexp_table_find64(etbl, eb, h);
+    if (x < 0) {
+      // nothing equal to p in etbl
+      x = get_bvpoly64(vtbl, b);
+      bvexp_table_add64(etbl, x, eb, h);
+    }
+  }
 
   return x;
 }
@@ -3434,12 +3547,13 @@ void bv_solver_init_jmpbuf(bv_solver_t *solver, jmp_buf *buffer) {
  */
 void delete_bv_solver(bv_solver_t *solver) {
   // exp buffers must be deleted before etbl
+  // and etbl must be deleted before vtbl
   delete_bvarith_buffer(&solver->exp_buffer);
   delete_bvarith64_buffer(&solver->exp64_buffer);
 
+  delete_bvexp_table(&solver->etbl);
   delete_bv_vartable(&solver->vtbl);
   delete_bv_atomtable(&solver->atbl);
-  delete_bvexp_table(&solver->etbl);
   delete_mtbl(&solver->mtbl);
   delete_bv_bound_queue(&solver->bqueue);
 
@@ -3548,10 +3662,10 @@ void bv_solver_reset(bv_solver_t *solver) {
   // exp buffers must be reset before etbl
   bvarith_buffer_prepare(&solver->exp_buffer, 100);
   bvarith64_buffer_prepare(&solver->exp64_buffer, 10);
+  reset_bvexp_table(&solver->etbl);
 
   reset_bv_vartable(&solver->vtbl);
   reset_bv_atomtable(&solver->atbl);
-  reset_bvexp_table(&solver->etbl);
   reset_mtbl(&solver->mtbl);
   reset_bv_bound_queue(&solver->bqueue);
 

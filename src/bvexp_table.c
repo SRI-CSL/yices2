@@ -51,7 +51,7 @@ static void resize_bvexp_table(bvexp_table_t *table, uint32_t n) {
       out_of_memory();
     }
 
-    table->def = (void **) safe_malloc(size * sizeof(void *));
+    table->def = (void **) safe_realloc(table->def, size * sizeof(void *));
     table->size = size;
   }
 }
