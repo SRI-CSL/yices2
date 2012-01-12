@@ -164,20 +164,15 @@ extern void expand_bvpoly(bvexp_table_t *table, bvarith_buffer_t *buffer, bvpoly
 
 
 /*
- * Check whether one variable of power product p has a non-null expanded form in table
- */
-extern bool pprod_can_expand(bvexp_table_t *table, pp_buffer_t *p);
-
-
-/*
- * Expanded form for a power product p
- * - p is stored in a pp_buffer object
+ * Expanded form for a product c * p
+ * - c is a normalized bitvector constant
+ * - p is a power product stored in a pp_buffer object
  * - n = bitsize of p 
  * - the expansion is returned in a bvarith_buffer or bvarith64_buffer object
  * - the result is normalized
  */
-extern void expand_bvpprod64(bvexp_table_t *table, bvarith64_buffer_t *buffer, pp_buffer_t *p, uint32_t n);
-extern void expand_bvpprod(bvexp_table_t *table, bvarith_buffer_t *buffer, pp_buffer_t *p, uint32_t n);
+extern void expand_bvpprod64(bvexp_table_t *table, bvarith64_buffer_t *buffer, pp_buffer_t *p, uint32_t n, uint64_t c);
+extern void expand_bvpprod(bvexp_table_t *table, bvarith_buffer_t *buffer, pp_buffer_t *p, uint32_t n, uint32_t *c);
 
 
 #endif /* __BVEXP_TABLE_H */

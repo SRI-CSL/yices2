@@ -3170,21 +3170,47 @@ static thvar_t make_mono64(bv_solver_t *solver, uint32_t nbits, uint64_t c, thva
  */
 static thvar_t map_const64_times_product(bv_solver_t *solver, uint32_t nbits, pp_buffer_t *p, uint64_t c) {
   bv_vartable_t *vtbl;
+  bvexp_table_t *etbl;
+  bvarith64_buffer_t *eb;
   thvar_t x;
+  uint32_t h;
 
   assert(c == norm64(c, nbits));
 
   vtbl = &solver->vtbl;
 
-  if (c == 0) {
-    x = get_bvconst64(vtbl, nbits, 0);
-  } else {
-    x = map_product(vtbl, nbits, p);
-    if (x == null_thvar) { 
-      // empty product: p = 1
-      x = get_bvconst64(vtbl, nbits, c);
-    } else if (c != 1) {
-      x = make_mono64(solver, nbits, c, x);
+  if (c == 0 || p->len == 0) {
+    // constant
+    x = get_bvconst64(vtbl, nbits, c);
+    return x;
+  }
+
+  if (p->len == 1 && p->prod[0].exp == 1 && c == 1) {
+    // monomial 1 * x
+    x = p->prod[0].var;
+    return x;
+  }
+
+
+  /*
+   * Try expanded form
+   */
+  etbl = &solver->etbl;
+  eb = &solver->exp64_buffer;
+  expand_bvpprod64(etbl, eb, p, nbits, c);
+  x = simplify_expanded_poly64(solver, eb);
+
+  if (x < 0) {
+    h = hash_bvmlist64(eb->list, nbits);
+    x = bvexp_table_find64(etbl, eb, h);
+
+    if (x < 0) {
+      // not found in etbl: build c * p
+      x = get_bvpprod(vtbl, nbits, p);
+      if (c != 1) {
+	x = make_mono64(solver, nbits, c, x);
+      }
+      bvexp_table_add64(etbl, x, eb, h);
     }
   }
 
@@ -3216,21 +3242,43 @@ static thvar_t make_mono(bv_solver_t *solver, uint32_t nbits, uint32_t *c, thvar
  */
 static thvar_t map_const_times_product(bv_solver_t *solver, uint32_t nbits, pp_buffer_t *p, uint32_t *c) {
   bv_vartable_t *vtbl;
-  uint32_t w;
+  bvexp_table_t *etbl;
+  bvarith_buffer_t *eb;
+  uint32_t w, h;
   thvar_t x;
 
   vtbl = &solver->vtbl;
   w = (nbits + 31) >> 5;
 
-  if (bvconst_is_zero(c, w)) {
-    x = get_bvconst(vtbl, nbits, c); // constant 0b0000...0
-  } else {
-    x = map_product(vtbl, nbits, p);
-    if (x == null_thvar) { 
-      // empty product: p = 1
-      x = get_bvconst(vtbl, nbits, c);
-    } else if (! bvconst_is_one(c, w)) {
-      x = make_mono(solver, nbits, c, x);
+  if (bvconst_is_zero(c, w) || p->len == 0) {
+    x = get_bvconst(vtbl, nbits, c);
+    return x;
+  }
+
+  if (p->len == 1 && bvconst_is_one(c, w)) {
+    x = p->prod[0].var;
+    return x;
+  }
+
+  /*
+   * Try expanded form
+   */
+  etbl = &solver->etbl;
+  eb = &solver->exp_buffer;
+  expand_bvpprod(etbl, eb, p, nbits, c);
+  x = simplify_expanded_poly(solver, eb);
+
+  if (x < 0) {
+    // search for a matching x in etbl
+    h = hash_bvmlist(eb->list, nbits);
+    x = bvexp_table_find(etbl, eb, h);
+    if (x < 0) {
+      // not found
+      x = get_bvpprod(vtbl, nbits, p);
+      if (!bvconst_is_one(c, w)) {
+	x = make_mono(solver, nbits, c, x);
+      }
+      bvexp_table_add(etbl, x, eb, h);
     }
   }
 

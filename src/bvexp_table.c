@@ -3,8 +3,9 @@
  */
 
 #include "memalloc.h"
-#include "bvexp_table.h"
 #include "int_powers.h"
+#include "bv64_constants.h"
+#include "bvexp_table.h"
 
 
 /*
@@ -417,74 +418,214 @@ void expand_bvpoly(bvexp_table_t *table, bvarith_buffer_t *buffer, bvpoly_buffer
 
 
 /*
- * Check whether one variable of power product p has a non-null expanded form in table
+ * HEURISTICS FOR POWER-PRODUCT EXPANSION
  */
-bool pprod_can_expand(bvexp_table_t *table, pp_buffer_t *p) {
-  uint32_t i, n;
-  thvar_t x;
 
-  n = p->len;
-  for (i=0; i<n; i++) {
-    x = p->prod[i].var;
-    if (bvexp_get_def(table, x) != NULL) return true;
+/* 
+ * Given a product x_1 ^ d_1 * ... * x_n ^ d_n, we don't want to blow
+ * up when replacing x_i by a polynomial q_i. Before replacing x_i by
+ * q_i, we check whether q_i is short and has low total degree, and
+ * whether d_i is small. We also make sure the total degree of 
+ * (q_1 ^ d_1) * ... * (q_n ^ d_n) is small before expanding any x_i.
+ *
+ * We use the following constants:
+ * - BVEXP_LENGTH_LIMIT = bound on the number of terms in q_i
+ * - BVEXP_DEGREE_LIMIT = bound on the degree of q_i^d_i
+ * - BVEXP_TOTAL_LIMIT = bound on the total degree
+ *
+ * q_i is considered for replacing x_i if degree(q1^d_i) <= DEGREE_LIMIT.
+ *
+ * The total degree is considered small enough if it's no more than
+ * TOTAL_LIMIT.
+ */
+
+#define BVEXP_LENGTH_LIMIT 3
+#define BVEXP_DEGREE_LIMIT 2
+#define BVEXP_TOTAL_LIMIT 10
+
+
+
+/*
+ * Check whether q is small. If so and d is not NULL, store its degree in d
+ */
+static bool mlist64_is_short(bvmlist64_t *q, uint32_t *d) {
+  bvmlist64_t *r;
+  uint32_t n;
+
+  n = BVEXP_LENGTH_LIMIT;
+  while (n>0) {
+    r = q->next;
+    if (r->next == NULL) {
+      // last monomial of q = the one with highest degree
+      *d = pprod_degree(q->prod);
+      return true;
+    }
+    q = r;
+    n --;
   }
 
   return false;
 }
 
+static bool mlist_is_short(bvmlist_t *q, uint32_t *d) {
+  bvmlist_t *r;
+  uint32_t n;
+
+  n = BVEXP_LENGTH_LIMIT;
+  while (n>0) {
+    r = q->next;
+    if (r->next == NULL) {
+      *d = pprod_degree(q->prod);
+      return true;
+    }
+    q = r;
+    n --;
+  }
+
+  return false;  
+}
 
 
 
 /*
- * Expanded form for a power product p
- * - p is stored in a pp_buffer object
+ * Total degree check on p: check whether the full degree after
+ * expansion is not more than TOTAL_LIMIT
+ */
+static bool total_degree_test64(bvexp_table_t *table, bv_vartable_t *vtbl, pp_buffer_t *p) {  
+  bvmlist64_t *q;
+  uint32_t i, n, e, d, total;
+  thvar_t x;
+
+  assert(vtbl == table->vtbl);
+
+  total = 0;
+  n = p->len;
+  for (i=0; i<n; i++) {
+    x = p->prod[i].var;
+    d = p->prod[i].exp;
+    if (! bvvar_is_const64(vtbl, x)) {
+      q = bvexp_def64(table, x);
+      if (q != NULL && mlist64_is_short(q, &e) && d * e <= BVEXP_DEGREE_LIMIT) {
+	// x will be expanded to q^e of so x^d has degree d * e
+	d *= e;
+      }
+      total += d;
+      if (total > BVEXP_TOTAL_LIMIT) {
+	return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+
+static bool total_degree_test(bvexp_table_t *table, bv_vartable_t *vtbl, pp_buffer_t *p) {  
+  bvmlist_t *q;
+  uint32_t i, n, e, d, total;
+  thvar_t x;
+
+  assert(vtbl == table->vtbl);
+
+  total = 0;
+  n = p->len;  
+  for (i=0; i<n; i++) {
+    x = p->prod[i].var;
+    d = p->prod[i].exp;
+    if (! bvvar_is_const(vtbl, x)) {
+      q = bvexp_def(table, x);
+      if (q != NULL && mlist_is_short(q, &e) && d * e <= BVEXP_DEGREE_LIMIT) {
+	d *= e;
+      }
+      total += d;
+      if (total > BVEXP_TOTAL_LIMIT) {
+	return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+
+
+
+
+/*
+ * Expanded form for a product c * p
+ * - c is a normalized bitvector constant
+ * - p is a power product stored in a pp_buffer object
  * - n = bitsize of p 
  * - the expansion is returned in a bvarith_buffer or bvarith64_buffer object
  * - the result is normalized
  */
-void expand_bvpprod64(bvexp_table_t *table, bvarith64_buffer_t *buffer, pp_buffer_t *p, uint32_t n) {
+void expand_bvpprod64(bvexp_table_t *table, bvarith64_buffer_t *buffer, pp_buffer_t *p, uint32_t n, uint64_t c) {
   bv_vartable_t *vtbl;
   bvmlist64_t *q;
-  pprod_t *exp;
-  uint64_t c;
-  uint32_t i, m, d;
+  pp_buffer_t *aux;
+  pprod_t *r;
+  uint64_t a;
+  uint32_t i, m, e, d;
   thvar_t x;
 
   assert(buffer->store == &table->store64 && buffer->ptbl == &table->pprods);
 
   bvarith64_buffer_prepare(buffer, n);
   bvarith64_buffer_set_one(buffer);
+  aux = p;
 
-  // TODO: make this more efficient?
   vtbl = table->vtbl;
-  m = p->len;
-  for (i=0; i<m; i++) {
-    x = p->prod[i].var;
-    d = p->prod[i].exp;
-    if (bvvar_is_const64(vtbl, x)) {
-      c = bvvar_val64(vtbl, x);
-      c = upower64(c, d);
-      bvarith64_buffer_mul_const(buffer, c);
-    } else {
-      q = bvexp_def64(table, x);
-      if (q != NULL) {
-	bvarith64_buffer_mul_mlist_power(buffer, q, d, &table->aux64);
+
+  if (total_degree_test64(table, vtbl, p)) {
+    /*
+     * Expansion of c * x_1^d_1 ... x_n^ d_n:
+     * - for a constant x_i, update c to c * a^d_i (where a = value of c)
+     * - if x_i is expanded to q_i, update buffer to buffer * q_i ^ d_i
+     * - otherwise, x_i^d_i is copied into the aux buffer
+     */
+    aux = &table->pp;
+    pp_buffer_reset(aux);
+
+    m = p->len;
+    for (i=0; i<m; i++) {
+      x = p->prod[i].var;
+      d = p->prod[i].exp;
+      if (bvvar_is_const64(vtbl, x)) {
+	a = bvvar_val64(vtbl, x);
+	c *= upower64(a, d);
       } else {
-	exp = pprod_varexp(&table->pprods, x, d);
-	bvarith64_buffer_mul_pp(buffer, exp);
+	q = bvexp_def64(table, x);
+	if (q != NULL && mlist64_is_short(q, &e) && d * e <= BVEXP_DEGREE_LIMIT) {
+	  // replace x^d by q^d in buffer
+	  bvarith64_buffer_mul_mlist_power(buffer, q, d, &table->aux64);
+	} else {
+	  // copy x^d into aux
+	  pp_buffer_mul_varexp(aux, x, d);
+	}
       }
     }
-  }
 
+    c = norm64(c, n);
+    pp_buffer_normalize(aux);
+  } 
+
+  /*
+   * The result is c * aux * buffer
+   */
+  r = pprod_from_buffer(&table->pprods, aux);
+  bvarith64_buffer_mul_mono(buffer, c, r);
   bvarith64_buffer_normalize(buffer);
 }
 
-void expand_bvpprod(bvexp_table_t *table, bvarith_buffer_t *buffer, pp_buffer_t *p, uint32_t n) {
+
+
+void expand_bvpprod(bvexp_table_t *table, bvarith_buffer_t *buffer, pp_buffer_t *p, uint32_t n, uint32_t *c) {
   bv_vartable_t *vtbl;
   bvmlist_t *q;
-  pprod_t *exp;
-  uint32_t *c;
-  uint32_t i, m, d, k;
+  pp_buffer_t *aux;
+  pprod_t *r;
+  uint32_t *a;
+  uint32_t i, m, d, e, k;
   thvar_t x;
 
 
@@ -492,37 +633,49 @@ void expand_bvpprod(bvexp_table_t *table, bvarith_buffer_t *buffer, pp_buffer_t 
 
   bvarith_buffer_prepare(buffer, n);
   bvarith_buffer_set_one(buffer);
-
-  k = (n + 31) >> 5;
+  aux = p;
 
   vtbl = table->vtbl;
-  m = p->len;
-  for (i=0; i<m; i++) {
-    x = p->prod[i].var;
-    d = p->prod[i].exp;
-    if (bvvar_is_const(vtbl, x)) {
-      c = bvvar_val(vtbl, x);
-      if (d == 1) {
-	bvarith_buffer_mul_const(buffer, c);
+
+  if (total_degree_test(table, vtbl, p)) {
+    aux = &table->pp;
+    pp_buffer_reset(aux);
+    
+    // make a copy of c in the internal bvconst buffer
+    bvconstant_copy(&table->bvconst, n, c);
+    c = table->bvconst.data;
+
+    k = (n + 31) >> 5;
+    m = p->len;
+    for (i=0; i<m; i++) {
+      x = p->prod[i].var;
+      d = p->prod[i].exp;
+      if (bvvar_is_const(vtbl, x)) {
+	a = bvvar_val(vtbl, x);
+	bvconst_mulpower(c, k, a, d);
       } else {
-	// compute c^d in the table's bvconst buffer
-	bvconstant_copy64(&table->bvconst, n, 1);
-	bvconst_mulpower(table->bvconst.data, k, c, d);
-	bvarith_buffer_mul_const(buffer, table->bvconst.data);
-      }
-    } else {
-      q = bvexp_def(table, x);
-      if (q != NULL) {
-	bvarith_buffer_mul_mlist_power(buffer, q, d, &table->aux);
-      } else {
-	exp = pprod_varexp(&table->pprods, x, d);
-	bvarith_buffer_mul_pp(buffer, exp);
+	q = bvexp_def(table, x);
+	if (q != NULL && mlist_is_short(q, &e) && d * e <= BVEXP_DEGREE_LIMIT) {
+	  bvarith_buffer_mul_mlist_power(buffer, q, d, &table->aux);
+	} else {
+	  pp_buffer_mul_varexp(aux, x, d);
+	}
       }
     }
+
+    // normalize
+    bvconst_normalize(c, n);
+    pp_buffer_normalize(aux);
   }
 
+  /*
+   * The result is c * aux * buffer
+   */
+  r = pprod_from_buffer(&table->pprods, aux);
+  bvarith_buffer_mul_mono(buffer, c, r);
   bvarith_buffer_normalize(buffer);
 }
+
 
 
 
