@@ -15,7 +15,7 @@
 
 // PROVISIONAL
 
-#define TRACE 0
+#define TRACE 1
 
 #if TRACE
 
@@ -534,6 +534,7 @@ static rb_bvset_t *new_rb_bvset(uint32_t k) {
 
 
 
+
 /********************************
  *  MAPPING TO PSEUDO LITERALS  *
  *******************************/
@@ -554,12 +555,48 @@ static remap_table_t *bv_solver_get_remap(bv_solver_t *solver) {
   return tmp;
 }
 
+#if 0
+
+/*
+ * Convert constant c to an array of pseudo literals
+ * - n = number of bits in c
+ */
+static literal_t *bvconst64_get_pseudo_map(uint64_t c, uint32_t n) {
+  literal_t *a;
+  uint32_t i;
+
+  assert(0 < n && n <= 64);
+  a = (literal_t *) safe_malloc(n * sizeof(literal_t));
+
+  for (i=0; i<n; i++) {
+    a[i] = bool2literal(c & 1);
+    c >>= 1;
+  }
+
+  return a;
+}
+
+static literal_t *bvconst_get_pseudo_map(uint32_t *c, uint32_t n) {  
+  literal_t *a;
+  uint32_t i;
+
+  assert(64 < n);
+  a = (literal_t *) safe_malloc(n * sizeof(literal_t));
+
+  for (i=0; i<n; i++) {
+    a[i] = bool2literal(bvconst_tst_bit(c, i));
+  }
+
+  return a;
+}
+
+#endif
 
 /*
  * Return the pseudo literal array mapped to x
  * - allocate a new array of n literals if x is not mapped yet
  */
-static literal_t *bv_solver_get_pseudo_map(bv_solver_t *solver, thvar_t x) {
+static literal_t *bvvar_get_pseudo_map(bv_solver_t *solver, thvar_t x) {
   remap_table_t *rmap;
   literal_t *tmp;
   uint32_t n;
@@ -574,6 +611,126 @@ static literal_t *bv_solver_get_pseudo_map(bv_solver_t *solver, thvar_t x) {
 
   return tmp;
 }
+
+
+/*
+ * Extract bit i of a 64bit constant x
+ * - convert to true_literal or false_literal
+ */
+static literal_t bvconst64_get_bit(bv_vartable_t *vtbl, thvar_t x, uint32_t i) {
+  literal_t l;
+  
+  l = false_literal;
+  if (tst_bit64(bvvar_val64(vtbl, x), i)) {
+    l= true_literal;
+  } 
+
+  return l;
+}
+
+
+/*
+ * Extract bit i of a general constant x
+ */
+static literal_t bvconst_get_bit(bv_vartable_t *vtbl, thvar_t x, uint32_t i) {
+  literal_t l;
+
+  l = false_literal;
+  if (bvconst_tst_bit(bvvar_val(vtbl, x), i)) {
+    l = true_literal;
+  }
+
+  return l;
+}
+
+
+/*
+ * Extract bit i of a bvarray variable x
+ */
+static literal_t bvarray_get_bit(bv_vartable_t *vtbl, thvar_t x, uint32_t i) {
+  literal_t *a;
+
+  assert(i < bvvar_bitsize(vtbl, x));
+
+  a = bvvar_bvarray_def(vtbl, x);
+  return a[i];
+}
+
+
+/*
+ * Extract bit i of variable x: 
+ * - get it from the pseudo literal array mapped to x
+ */
+static literal_t bvvar_get_bit(bv_solver_t *solver, thvar_t x, uint32_t i) {
+  remap_table_t *rmap;
+  literal_t *map;
+  literal_t r, l;
+
+  map = bvvar_get_pseudo_map(solver, x);
+
+  rmap = solver->remap;
+  r = remap_table_find_root(rmap, map[i]); // r := root of map[i] 
+  l = remap_table_find(rmap, r);           // l := real literal for r
+  if (l == null_literal) {
+    // nothing attached to r: create a new literal and attach it to r
+    l = pos_lit(create_boolean_variable(solver->core));
+    remap_table_assign(rmap, r, l);
+  }
+
+  return l;
+}
+
+
+
+
+/******************
+ *  BIT BLASTING  *
+ *****************/
+
+/*
+ * Allocate and initialize the bit-blaster object if needed
+ * - also allocate the remap table if needed
+ */
+static void bv_solver_prepare_blasting(bv_solver_t *solver) {
+  bit_blaster_t *blaster;
+  remap_table_t *remap;
+
+  if (solver->blaster == NULL) {
+    remap = bv_solver_get_remap(solver);
+    blaster = (bit_blaster_t *) safe_malloc(sizeof(bit_blaster_t));
+    init_bit_blaster(blaster, true, solver->core, remap);
+    solver->blaster = blaster;
+  }
+}
+
+#if 0
+
+/*
+ * Recursive bit-blasting:
+ * - if x is marked: do nothing
+ * - if x is not marked:
+ * - attach an array of pseudo literals to variable x 
+ *   bit-blast the definition of x
+ *   mark x
+ */
+static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
+  bv_vartable_t *vtbl;
+  remap_table_t *remap;
+  literal_t *u;
+
+  assert(solver->remap != NULL && solver->blaster != NULL);
+
+  vtbl = &solver->vtbl;
+  remap = solver->remap;
+
+  if (! bvvar_is_marked(vtbl, x)) {
+    // x has not been translated yet
+    
+  }
+}
+
+#endif
+
 
 
 
@@ -1141,13 +1298,13 @@ static bool bvvar_is_nonzero(bv_solver_t *solver, thvar_t x) {
  * We attempt to keep the simplest element of the class as
  * root of its class, using the following ranking:
  * - constants are simplest:       rank 0
- * - bvarray are next              rank 1
- * - polynomials                   rank 2
+ * - polynomials                   rank 1
+ * - bvarray                       rank 2
  * - power products                rank 3
  * - other non-variable terms:     rank 4
  * - variables are last            rank 5
  *
- * The following functions checks whether a is striclty simpler than b
+ * The following functions checks whether a is strictly simpler than b
  * based on this ranking.
  */
 static const uint8_t bvtag2rank[NUM_BVTAGS] = {
@@ -1749,7 +1906,7 @@ static void simplify_eq(bv_solver_t *solver, thvar_t *vx, thvar_t *vy) {
 
 
   if (x != *vx || y != *vy) {
-#if TRACE
+#if 0
     printf("---> bv simplify (bveq u!%"PRId32" u!%"PRId32")\n", x, y);
     printf("     ");
     print_bv_solver_vardef(stdout, solver, x);
@@ -2395,7 +2552,7 @@ static void bvvar_bounds_s(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t 
 
 /*
  * Three possible codes returned by the  'check_bvuge' and 'check_bvsge' functions
- * - the order matters: we want BVTEST_FALSE = 0 = false and BVTEST_TRUE = 1= true
+ * - the order matters: we want BVTEST_FALSE = 0 = false and BVTEST_TRUE = 1 = true
  */
 typedef enum {
   BVTEST_FALSE = 0,
@@ -3125,27 +3282,6 @@ static thvar_t map_bvpoly64(bv_solver_t *solver, bvpoly_buffer_t *b) {
 }
 
 
-/*
- * Map a power product p to a variable
- * - nbits = number of bits in all variables of p
- * - return null_thvar if p is the empty product
- */
-static thvar_t map_product(bv_vartable_t *table, uint32_t nbits, pp_buffer_t *p) {
-  uint32_t n;
-  thvar_t x;
-
-  n = p->len;
-  if (n == 0) {
-    x = null_thvar;
-  } else if (n == 1 && p->prod[0].exp == 1) {
-    x = p->prod[0].var;
-  } else {
-    x = get_bvpprod(table, nbits, p);
-  }
-
-  return x;
-}
-
 
 /*
  * Build the term c * x (as a polynomial)
@@ -3339,73 +3475,6 @@ static void bvarray_to_bvconstant(literal_t *a, uint32_t n, bvconstant_t *c) {
 }
 
 
-/*
- * Extract bit i of a 64bit constant x
- * - convert to true_literal or false_literal
- */
-static literal_t bvconst64_get_bit(bv_vartable_t *vtbl, thvar_t x, uint32_t i) {
-  literal_t l;
-  
-  l = false_literal;
-  if (tst_bit64(bvvar_val64(vtbl, x), i)) {
-    l= true_literal;
-  } 
-
-  return l;
-}
-
-
-/*
- * Extract bit i of a general constant x
- */
-static literal_t bvconst_get_bit(bv_vartable_t *vtbl, thvar_t x, uint32_t i) {
-  literal_t l;
-
-  l = false_literal;
-  if (bvconst_tst_bit(bvvar_val(vtbl, x), i)) {
-    l = true_literal;
-  }
-
-  return l;
-}
-
-
-/*
- * Extract bit i of a bvarray variable x
- */
-static literal_t bvarray_get_bit(bv_vartable_t *vtbl, thvar_t x, uint32_t i) {
-  literal_t *a;
-
-  assert(i < bvvar_bitsize(vtbl, x));
-
-  a = bvvar_bvarray_def(vtbl, x);
-  return a[i];
-}
-
-
-/*
- * Extract bit i of variable x: 
- * - get it from the pseudo literal array mapped to x
- */
-static literal_t bvvar_get_bit(bv_solver_t *solver, thvar_t x, uint32_t i) {
-  remap_table_t *rmap;
-  literal_t *map;
-  literal_t r, l;
-
-  map = bv_solver_get_pseudo_map(solver, x);
-
-  rmap = solver->remap;
-  r = remap_table_find_root(rmap, map[i]); // r := root of map[i] 
-  l = remap_table_find(rmap, r); // l := real literal for r
-  if (l == null_literal) {
-    // nothing attached to r: create a new literal and attach it to r
-    l = pos_lit(create_boolean_variable(solver->core));
-    remap_table_assign(rmap, r, l);
-  }
-
-  return l;
-}
-
 
 /*
  * Bounds on (urem z y): if y != 0 then 0 <= (urem z y) < y
@@ -3458,15 +3527,31 @@ static void assert_srem_bounds(bv_solver_t *solver, thvar_t x, thvar_t y) {
 }
 
 
+
+
+
+
 /**********************
  *  SOLVER INTERFACE  *
  *********************/
 
+/*
+ * New round of assertions (before start_search): nothing to do.
+ */
 void bv_solver_start_internalization(bv_solver_t *solver) {
 }
 
+
+/*
+ * Prepare for search after internalization
+ * - perform bit blasting
+ * - if a conflict is detected by bit blasting, add the empty clause
+ *   to the smt_core
+ */
 void bv_solver_start_search(bv_solver_t *solver) {
 }
+
+
 
 bool bv_solver_propagate(bv_solver_t *solver) {
   return true;
@@ -3654,6 +3739,14 @@ void bv_solver_push(bv_solver_t *solver) {
 
   mtbl_push(&solver->mtbl);
 
+  if (solver->blaster != NULL) {
+    bit_blaster_push(solver->blaster);
+  }
+
+  if (solver->remap != NULL) {
+    remap_table_push(solver->remap);
+  }  
+
   solver->base_level ++;
   bv_solver_increase_decision_level(solver);
 }
@@ -3687,6 +3780,14 @@ void bv_solver_pop(bv_solver_t *solver) {
 
   solver->base_level --;
   bv_solver_backtrack(solver, solver->base_level);
+
+  if (solver->blaster != NULL) {
+    bit_blaster_pop(solver->blaster);
+  }
+
+  if (solver->remap != NULL) {
+    remap_table_pop(solver->remap);
+  }
 
   top = bv_trail_top(&solver->trail_stack);
 
@@ -4421,6 +4522,15 @@ static literal_t bv_solver_make_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t 
  * Atom (eq x y): try to simplify
  */
 literal_t bv_solver_create_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
+#if TRACE
+  if (bvvar_bitsize(&solver->vtbl, x) == 1) {
+    printf("---> create (bveq u!%"PRId32" u!%"PRId32")\n", x, y);
+    printf("     ");
+    print_bv_solver_vardef(stdout, solver, x);
+    printf("     ");
+    print_bv_solver_vardef(stdout, solver, y);
+  }
+#endif
   x = mtbl_get_root(&solver->mtbl, x);
   y = mtbl_get_root(&solver->mtbl, y);
 
@@ -4466,6 +4576,16 @@ static literal_t bv_solver_make_ge_atom(bv_solver_t *solver, thvar_t x, thvar_t 
  */
 literal_t bv_solver_create_ge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
   literal_t l;
+
+#if TRACE
+  if (bvvar_bitsize(&solver->vtbl, x) == 1) {
+    printf("---> create (bvge u!%"PRId32" u!%"PRId32")\n", x, y);
+    printf("     ");
+    print_bv_solver_vardef(stdout, solver, x);
+    printf("     ");
+    print_bv_solver_vardef(stdout, solver, y);
+  }
+#endif
 
   x = mtbl_get_root(&solver->mtbl, x);
   y = mtbl_get_root(&solver->mtbl, y);
@@ -4529,6 +4649,16 @@ static literal_t bv_solver_make_sge_atom(bv_solver_t *solver, thvar_t x, thvar_t
  */
 literal_t bv_solver_create_sge_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
   literal_t l;
+
+#if TRACE
+  if (bvvar_bitsize(&solver->vtbl, x) == 1) {
+    printf("---> create (bvsge u!%"PRId32" u!%"PRId32")\n", x, y);
+    printf("     ");
+    print_bv_solver_vardef(stdout, solver, x);
+    printf("     ");
+    print_bv_solver_vardef(stdout, solver, y);
+  }
+#endif
 
   x = mtbl_get_root(&solver->mtbl, x);
   y = mtbl_get_root(&solver->mtbl, y);
@@ -4609,6 +4739,16 @@ static void bv_solver_assert_neq0(bv_solver_t *solver, thvar_t x, thvar_t y) {
 void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool tt) {
   literal_t l;
 
+#if TRACE
+  if (bvvar_bitsize(&solver->vtbl, x) == 1) {
+    printf("---> assert (bveq u!%"PRId32" u!%"PRId32")\n", x, y);
+    printf("     ");
+    print_bv_solver_vardef(stdout, solver, x);
+    printf("     ");
+    print_bv_solver_vardef(stdout, solver, y);
+  }
+#endif
+
   x = mtbl_get_root(&solver->mtbl, x);
   y = mtbl_get_root(&solver->mtbl, y);
 
@@ -4647,6 +4787,16 @@ void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
  */
 void bv_solver_assert_ge_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool tt) {
   literal_t l;
+
+#if TRACE
+  if (bvvar_bitsize(&solver->vtbl, x) == 1) {
+    printf("---> assert (bvge u!%"PRId32" u!%"PRId32")\n", x, y);
+    printf("     ");
+    print_bv_solver_vardef(stdout, solver, x);
+    printf("     ");
+    print_bv_solver_vardef(stdout, solver, y);
+  }
+#endif
 
   x = mtbl_get_root(&solver->mtbl, x);
   y = mtbl_get_root(&solver->mtbl, y);
@@ -4689,6 +4839,16 @@ void bv_solver_assert_ge_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
  */
 void bv_solver_assert_sge_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool tt) {
   literal_t l;
+
+#if TRACE
+  if (bvvar_bitsize(&solver->vtbl, x) == 1) {
+    printf("---> assert (bvsge u!%"PRId32" u!%"PRId32")\n", x, y);
+    printf("     ");
+    print_bv_solver_vardef(stdout, solver, x);
+    printf("     ");
+    print_bv_solver_vardef(stdout, solver, y);
+  }
+#endif
 
   x = mtbl_get_root(&solver->mtbl, x);
   y = mtbl_get_root(&solver->mtbl, y);

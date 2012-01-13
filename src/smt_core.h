@@ -116,6 +116,16 @@ static inline literal_t signed_literal(literal_t l, bool tt) {
 }
 
 
+/*
+ * Conversion from boolean to literals
+ * - bool2literal(true) = true_literal
+ * - bool2literal(false) = false_literal
+ */
+static inline literal_t bool2literal(bool tt) {
+  return ((int32_t) tt) ^ 1;
+}
+
+
 static inline bvar_t var_of(literal_t l) {
   return l>>1;
 }

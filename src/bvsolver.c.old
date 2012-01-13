@@ -2331,7 +2331,7 @@ static thvar_t bv_solver_create_var_exp(bv_solver_t *solver, thvar_t x, int32_t 
 /*
  * Multiply c by x^d when x is a large constant
  * - c must be a buffer large enough for (nbits/32) words
- * WARNING: this does nor normalize c modulo 2^nbits. 
+ * WARNING: this does not normalize c modulo 2^nbits. 
  * Normalization must be done later.
  */
 static void bv_solver_eval_big_exp(bv_solver_t *solver, uint32_t nbits, uint32_t *c, thvar_t x, uint32_t d) {
