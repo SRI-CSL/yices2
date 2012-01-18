@@ -367,6 +367,7 @@ static inline bool bvvar_is_mapped(bv_vartable_t *table, thvar_t x) {
   return table->map[x] != NULL;
 }
 
+
 /*
  * Return the literal array mapped to x (NULL if nothing is mapped)
  */

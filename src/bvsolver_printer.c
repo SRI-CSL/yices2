@@ -266,6 +266,42 @@ static void print_bv_vardef(FILE *f, bv_vartable_t *vtbl, thvar_t x) {
 
 
 /*
+ * Pseudo literal s: print the literal mapped to s
+ */
+static void print_pseudo_literal(FILE *f, remap_table_t *table, literal_t s) {
+  if (s != null_literal) {
+    s = remap_table_find(table, s);
+  }
+  if (s == null_literal) {
+    fputs("?", f);
+  } else if (s == true_literal) {
+    fputs("t", f);
+  } else if (s == false_literal) {
+    fputs("f", f);
+  } else {
+    if (is_neg(s)) fputc('~', f);
+    fprintf(f, "p!%"PRId32, var_of(s));
+  }
+}
+
+
+/*
+ * Literal array a (of size n)
+ */
+static void print_pseudo_litarray(FILE *f, remap_table_t *remap, literal_t *a, uint32_t n) {
+  uint32_t i;
+
+  fputc('[', f);
+  for (i=0; i<n; i++) {
+    if (i > 0) fputc(' ', f);
+    print_pseudo_literal(f, remap, a[i]);
+  }
+  fputc(']', f);
+}
+
+
+
+/*
  * All variables in vtbl
  */
 void print_bv_vartable(FILE *f, bv_vartable_t *vtbl) {
@@ -303,7 +339,23 @@ void print_bv_solver_vardef(FILE *f, bv_solver_t *solver, thvar_t x) {
  * All variables in solver
  */
 void print_bv_solver_vars(FILE *f, bv_solver_t *solver) {
-  print_bv_vartable(f, &solver->vtbl);
+  bv_vartable_t *vtbl;
+  literal_t *map;
+  uint32_t i, n;
+
+  vtbl = &solver->vtbl;
+  n = vtbl->nvars;
+  for (i=1; i<n; i++) {
+    print_bv_vardef(f, vtbl, i);
+    fputc('\n', f);
+    map = bvvar_get_map(vtbl, i);
+    if (map != NULL) {
+      assert(solver->remap != NULL);
+      fputs("             = ", f);
+      print_pseudo_litarray(f, solver->remap, map, bvvar_bitsize(vtbl, i));
+      fputc('\n', f);
+    }
+  }
 }
 
 
