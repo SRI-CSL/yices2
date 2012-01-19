@@ -8,15 +8,18 @@ PREREQUISITES
 
 + other standard tools: make (gnumake is required), sed, etc.
 
-NOTE: January 2012. Other compilers than GCC can be used provided they
-accept some non-standard GCC extensions and understand options -MM -MG, 
-which are used to build dependencies in src/Makefile.  
+NOTE: January 2012. 
 
-Recent versions of clang seem to work just fine. This is important for
-compilation on MacOS X Lion (Darwin 11.x.y), because Apple's XCode 4.1
-(for MacOS X Lion) does not include GCC o, but only llvm-gcc and
-clang. The llvm-gcc distributed with Xcode is buggy so one must use
-clang.
+Other compilers than GCC can be used provided they accept some
+non-standard GCC extensions and understand options -MM -MG, which are
+used to build dependencies in src/Makefile.
+
+Recent versions of clang (e.g., clang+llvm 3.0) seem to work just
+fine. This is important for compilation on MacOS X Lion (Darwin
+11.x.y), because Apple's XCode 4.1 (for MacOS X Lion) does not include
+GCC but only llvm-gcc and clang. 
+
+
 
 
 BUILDING YICES USING THE DEFAULT CONFIGURATION
@@ -609,15 +612,18 @@ NOTES: on MacOS X Lion, things may be a bit different:
 1) Xcode 4.x for Lion no longer includes gcc as compiler. Instead, it
    includes some versions of llvm-gcc and clang. I tried using Xcode
    4.1: the llvm-gcc that comes with it is buggy (it seg-faults while
-   compiling Yices). The clang distributed with Xcode 4.1 seems to work
-   (but I still need to double-check whether it takes option -MG).
+   compiling Yices). The clang 2.1 distributed with Xcode 4.1 seems to
+   work for compiling but it does not understand option -MG.
 
-   If that doesn't work, one can install llvm-3.0 or newer (from the
-   llvm web site), which includes clang-3.0, and that one works.
+   Possible workaround: install llvm+clang 3.0 and use that.
+
 
 2) Binaries and libraries are expected to be all position independent
    on MacOS X Lion. This causes some issues with GMP (at least with
    GMP 5.0.2).
+
+
+
 
 
 
