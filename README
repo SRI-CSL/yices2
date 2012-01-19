@@ -8,7 +8,15 @@ PREREQUISITES
 
 + other standard tools: make (gnumake is required), sed, etc.
 
+NOTE: January 2012. Other compilers than GCC can be used provided they
+accept some non-standard GCC extensions and understand options -MM -MG, 
+which are used to build dependencies in src/Makefile.  
 
+Recent versions of clang seem to work just fine. This is important for
+compilation on MacOS X Lion (Darwin 11.x.y), because Apple's XCode 4.1
+(for MacOS X Lion) does not include GCC o, but only llvm-gcc and
+clang. The llvm-gcc distributed with Xcode is buggy so one must use
+clang.
 
 
 BUILDING YICES USING THE DEFAULT CONFIGURATION
@@ -529,7 +537,7 @@ version:
   the default is 64bit compilation
   default platform: x86_64-apple-darwin10.x.y
 
-- on 10.7 (Lion): I assume the default is 64bit too?
+- on 10.7 (Lion) the default is 64bit too
 
 There are also issues with having 32 and 64bit versions of GMP
 on the same machine. I normally use fat libraries, and a hack
@@ -592,6 +600,25 @@ to GCC.  I don't know if we can go back more than that (i.e.,
 
    make static-distribution OPTION=64bits
    
+
+
+
+
+NOTES: on MacOS X Lion, things may be a bit different:
+
+1) Xcode 4.x for Lion no longer includes gcc as compiler. Instead, it
+   includes some versions of llvm-gcc and clang. I tried using Xcode
+   4.1: the llvm-gcc that comes with it is buggy (it seg-faults while
+   compiling Yices). The clang distributed with Xcode 4.1 seems to work
+   (but I still need to double-check whether it takes option -MG).
+
+   If that doesn't work, one can install llvm-3.0 or newer (from the
+   llvm web site), which includes clang-3.0, and that one works.
+
+2) Binaries and libraries are expected to be all position independent
+   on MacOS X Lion. This causes some issues with GMP (at least with
+   GMP 5.0.2).
+
 
 
 
