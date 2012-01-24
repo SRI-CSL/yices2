@@ -3856,11 +3856,11 @@ term_t arith_buffer_get_leq0_atom(arith_buffer_t *b) {
 }
 
 term_t arith_buffer_get_gt0_atom(arith_buffer_t *b) {
-  return mk_arith_eq0(&manager, b);
+  return mk_arith_gt0(&manager, b);
 }
 
 term_t arith_buffer_get_lt0_atom(arith_buffer_t *b) {
-  return mk_arith_eq0(&manager, b);
+  return mk_arith_lt0(&manager, b);
 }
 
 term_t bvlogic_buffer_get_term(bvlogic_buffer_t *b) {

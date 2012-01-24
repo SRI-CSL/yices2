@@ -718,6 +718,14 @@ static void process_candidate_subst(context_t *ctx, term_t t1, term_t t2, term_t
   intern = &ctx->intern;
   if (is_constant_term(ctx->terms, t2)) {
     if (intern_tbl_valid_const_subst(intern, t1, t2)) {
+#if TRACE_SUBST
+      printf("Eager substitution: ");
+      print_term_desc(stdout, ctx->terms, t1);
+      printf(" := ");;
+      print_term_desc(stdout, ctx->terms, 2);
+      printf("\n");
+      fflush(stdout);
+#endif
       intern_tbl_add_subst(intern, t1, t2);
     } else {
       // unsat by type incompatibility
