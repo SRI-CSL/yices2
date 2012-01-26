@@ -915,6 +915,15 @@ void print_term_exp(FILE *f, term_table_t *tbl, term_t t) {
 
 
 /*
+ * Print full term expression t: expand all names
+ */
+void print_term_full(FILE *f, term_table_t *tbl, term_t t) {
+  assert(good_term(tbl, t));
+  print_term_recur(f, tbl, t, INT32_MAX);
+}
+
+
+/*
  * Default print: print t's name if it has one, or the expression otherwise
  */
 void print_term(FILE *f, term_table_t *tbl, term_t t) {
@@ -1601,6 +1610,22 @@ static void pp_composite_term(yices_pp_t *printer, term_table_t *tbl, term_kind_
   pp_close_block(printer, true);
 }  
 
+// forall 
+static void pp_forall_term(yices_pp_t *printer, term_table_t *tbl, composite_term_t *d, uint32_t level) {
+  uint32_t i, n;
+
+  n = d->arity;
+  assert(n >= 2);
+  pp_open_block(printer, PP_OPEN_FORALL);
+  pp_open_block(printer, PP_OPEN_PAR);
+  for (i=0; i<n-1; i++) {
+    pp_term_recur(printer, tbl, d->arg[i], level);
+  }
+  pp_close_block(printer, true);
+  pp_term_recur(printer, tbl, d->arg[n-1], level);
+  pp_close_block(printer, true);
+}
+
 // select
 static void pp_select_term(yices_pp_t *printer, term_table_t *tbl, term_kind_t tag, select_term_t *d, int32_t level) {
   pp_open_type_t op;
@@ -1838,6 +1863,14 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
     }
     break;
 
+  case FORALL_TERM:
+    if (name != NULL && level <= 0) {
+      pp_string(printer, name);
+    } else {
+      pp_forall_term(printer, tbl, tbl->desc[i].ptr, level - 1);
+    }
+    break;
+
   case APP_TERM:
   case ITE_TERM:
   case ITE_SPECIAL:
@@ -1845,7 +1878,6 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
   case TUPLE_TERM:
   case EQ_TERM:
   case DISTINCT_TERM:
-  case FORALL_TERM:
   case OR_TERM:
   case XOR_TERM:
   case ARITH_BINEQ_ATOM:
@@ -1924,6 +1956,8 @@ static void pp_term_recur(yices_pp_t *printer, term_table_t *tbl, term_t t, int3
 
   assert(good_term(tbl, t));
 
+  if (yices_pp_is_saturated(printer)) return; // do nothing
+
   if (t <= false_term) {
     pp_string(printer, (char *) term2string[t]);
   } else {
@@ -1954,6 +1988,13 @@ void pp_term(yices_pp_t *printer, term_table_t *tbl, term_t t) {
   pp_term_recur(printer, tbl, t, 0);
 }
 
+
+/*
+ * Expand everything 
+ */
+void pp_term_full(yices_pp_t *printer, term_table_t *tbl, term_t t) {
+  pp_term_recur(printer, tbl, t, INT32_MAX);
+}
 
 
 /*
@@ -2043,3 +2084,40 @@ void pp_term_table(FILE *f, term_table_t *tbl) {
 
   delete_yices_pp(&printer);
 }
+
+
+/*
+ * More pretty printing
+ */
+static pp_area_t default_area = {
+  120,        // width
+  UINT32_MAX, // height
+  0,          // offset
+  false,      // stretch
+  false       // truncate
+};
+
+void pretty_print_term_exp(FILE *f, pp_area_t *area, term_table_t *tbl, term_t t) {
+  yices_pp_t printer;
+
+  if (area == NULL) {
+    area = &default_area;
+  }
+  init_yices_pp(&printer, f, area, PP_VMODE, 0);
+  pp_term_exp(&printer, tbl, t);
+  flush_yices_pp(&printer);
+  delete_yices_pp(&printer);
+}
+
+void pretty_print_term_full(FILE *f, pp_area_t *area, term_table_t *tbl, term_t t) {
+  yices_pp_t printer;
+
+  if (area == NULL) {
+    area = &default_area;
+  }
+  init_yices_pp(&printer, f, area, PP_VMODE, 0);
+  pp_term_full(&printer, tbl, t);
+  flush_yices_pp(&printer);
+  delete_yices_pp(&printer);
+}
+

@@ -749,6 +749,7 @@ static bool block_fits_horizontally(printer_t *p, pp_open_token_t *tk) {
   return p->col + (tk->bsize - h) <= p->margin;
 }
 
+
 /*
  * Check whether all subblocks of the block that starts with tk
  * fit horizontally and whether the next component fits on what's
@@ -1475,7 +1476,7 @@ static void flush_wide_blocks(formatter_t *f) {
  * - then add token at the end of the token queue
  * - then forward tokens to the printer if possible
  */
-static void process_token(formatter_t *f, void *tk) {  
+static void process_token(formatter_t *f, void *tk) {
   switch (ptr_tag(tk)) {
   case PP_TOKEN_OPEN_TAG:
     process_open_token(f, untag_open(tk));
@@ -1594,6 +1595,16 @@ void flush_pp(pp_t *pp) {
   fflush(p->file);
 }
 
+
+/*
+ * Check whether the printer is full
+ */
+bool pp_is_saturated(pp_t *pp) {
+  printer_t *p;
+
+  p = &pp->printer;
+  return p->full_line && p->line + 1 >= p->area.height;
+}
 
 
 /*

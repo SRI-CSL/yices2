@@ -215,6 +215,7 @@ static inline void init_default_yices_pp(yices_pp_t *printer,
  */
 extern void flush_yices_pp(yices_pp_t *printer);
 
+
 /*
  * Flush then delete a pretty printer
  * - print everything pending + a newline
@@ -222,6 +223,13 @@ extern void flush_yices_pp(yices_pp_t *printer);
  */ 
 extern void delete_yices_pp(yices_pp_t *printer);
 
+
+/*
+ * Check for saturation (i.e., nothing more can be printed in the pp_area)
+ */
+static inline bool yices_pp_is_saturated(yices_pp_t *printer) {
+  return pp_is_saturated(&printer->pp);
+}
 
 
 /*

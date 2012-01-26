@@ -717,6 +717,13 @@ extern void delete_pp(pp_t *pp);
 
 
 /*
+ * Check whether the pretty printer area is full
+ * - i.e., if this is true, new tokens can't be printed
+ */
+extern bool pp_is_saturated(pp_t *pp); 
+
+
+/*
  * Initialize an open token tk and return the tagged pointer tag_open(tk).
  * - formats = allowed formats for that token (PP_??_LAYOUT)
  * - lsize = label size

@@ -16,7 +16,7 @@
  * - label = string label
  * - lsize = length of the label
  * - formats = preferred layouts
- * - falgs = whether the block starts with '('
+ * - flags = whether the block starts with '('
  *         + whether a space or line break is required after the label
  * - indent = indentation level (for M and V layouts)
  * - short_indent = identation in T layout.
@@ -81,7 +81,7 @@ typedef struct pp_nonstandard_block_s {
 /*
  * Table of standard blocks
  */
-#define NUM_STANDARD_BLOCKS 28
+#define NUM_STANDARD_BLOCKS 27
 
 static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_FUN_TYPE, "->" },
@@ -92,7 +92,6 @@ static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_SELECT, "select" },
   { PP_OPEN_EQ, "=" },
   { PP_OPEN_DISTINCT, "distinct" },
-  { PP_OPEN_FORALL, "forall" },
   { PP_OPEN_NOT, "not" },
   { PP_OPEN_OR, "or" },
   { PP_OPEN_XOR, "xor" },
@@ -118,7 +117,7 @@ static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
 /*
  * Table of non-standard blocks
  */
-#define NUM_NONSTANDARD_BLOCKS 6
+#define NUM_NONSTANDARD_BLOCKS 7
 
 static const pp_nonstandard_block_t nonstandard_block[NUM_NONSTANDARD_BLOCKS] = {
   { PP_OPEN, "", PP_HMT_LAYOUT, 0, 1, 1 },
@@ -127,6 +126,7 @@ static const pp_nonstandard_block_t nonstandard_block[NUM_NONSTANDARD_BLOCKS] = 
   { PP_OPEN_CONST_DEF, "constant", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
   { PP_OPEN_UNINT_DEF, "unint", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
   { PP_OPEN_VAR_DEF,   "var", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
+  { PP_OPEN_FORALL, "forall ", PP_HMT_LAYOUT,  PP_TOKEN_PAR_MASK, 1, 1},
 };
 
 
