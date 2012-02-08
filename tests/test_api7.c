@@ -248,6 +248,8 @@ static void test_set_configs(ctx_config_t *config) {
   test_set_config(config, "arith-solver", "rfw", 0, 0);
   test_set_config(config, "arith-solver", "xxxx", -1, CTX_INVALID_PARAMETER_VALUE);
 
+  // yices_set_config is not intended to be used for setting the logic
+  // so "logic" should not be recognized as a value parameter here.
   test_set_config(config, "logic", "QF_UFLIA", -1, CTX_UNKNOWN_PARAMETER);
 }
 

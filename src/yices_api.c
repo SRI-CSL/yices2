@@ -37,6 +37,7 @@
 
 #include "types.h"
 #include "term_manager.h"
+#include "term_substitution.h"
 #include "context.h"
 #include "models.h"
 #include "context_config.h"
@@ -1478,28 +1479,37 @@ static bool check_good_distinct_term(term_manager_t *mngr, uint32_t n, term_t *a
   return true;
 }
 
+// Check whether all elements of v are variables
+// (this assumes that they are all good terms)
+static bool check_good_variables(term_manager_t *mngr, uint32_t n, term_t *v) {
+  term_table_t *tbl;
+  uint32_t i;
+
+  tbl = term_manager_get_terms(mngr);
+
+  for (i=0; i<n; i++) {
+    if (is_neg_term(v[i]) || term_kind(tbl, v[i]) != VARIABLE) {      
+      error.code = VARIABLE_REQUIRED;
+      error.term1 = v[i];
+      return false;
+    }
+  }
+
+  return true;
+}
+
 // Check quantified formula (FORALL/EXISTS (v_1 ... v_n) body)
 // v must be sorted.
 static bool check_good_quantified_term(term_manager_t *mngr, uint32_t n, term_t *v, term_t body) {
-  term_table_t *tbl;
-  int32_t i;
+  uint32_t i;
 
   if (! check_positive(n) ||
       ! check_maxvars(n) ||
       ! check_good_term(mngr, body) ||
       ! check_good_terms(mngr, n, v) ||
+      ! check_good_variables(mngr, n, v) ||
       ! check_boolean_term(mngr, body)) {
     return false;
-  }
-
-  tbl = term_manager_get_terms(mngr);
-
-  for (i=0; i<n; i++) {
-    if (term_kind(tbl, v[i]) != VARIABLE) {      
-      error.code = VARIABLE_REQUIRED;
-      error.term1 = v[i];
-      return false;
-    }
   }
 
   for (i=1; i<n; i++) {
@@ -1616,6 +1626,34 @@ static bool check_bitextract(uint32_t i, uint32_t j, uint32_t n) {
   return true;
 }
 
+
+// Check whether arrays v and a define a valid substitution
+// both must be arrays of n elements
+static bool check_good_substitution(term_manager_t *mngr, uint32_t n, term_t *v, term_t *a) {
+  term_table_t *tbl;
+  type_t tau;
+  uint32_t i;
+
+  if (! check_good_terms(mngr, n, v) ||
+      ! check_good_terms(mngr, n, a) ||
+      ! check_good_variables(mngr, n, v)) {
+    return false;
+  }
+
+  tbl = term_manager_get_terms(mngr);
+
+  for (i=0; i<n; i++) {
+    tau = term_type(tbl, v[i]);
+    if (! is_subtype(tbl->types, term_type(tbl, a[i]), tau)) {
+      error.code = TYPE_MISMATCH;
+      error.term1 = a[i];
+      error.type1 = tau;
+      return false;
+    }
+  }
+
+  return true;
+}
 
 
 /***********************
@@ -4170,7 +4208,50 @@ bool yices_check_bvmul_buffer(bvarith_buffer_t *b1, bvarith_buffer_t *b2) {
  *  TERM SUBSTITUTION   *
  ***********************/
 
-// TO BE DONE
+/*
+ * Apply the substitution defined by arrays var and map to a term t -
+ * var must be an array of n variables (variables are created using
+ * yices_new_variables).
+ * - map must be an array of n terms 
+ * - the type of map[i] must be a subtype of var[i]'s type 
+ * - every occurrence of var[i] in t is replaced by map[i]
+ * 
+ *
+ * Return the resuting term or NULL_TERM if there's an error.
+ *
+ * Error codes:
+ * - INVALID_TERM if var[i] or map[i] is not valid
+ * - VARIABLE_REQUIRED if var[i] is not a variable
+ * - TYPE_MISMATCH if map[i]'s type is not a subtype of var[i]'s type
+ * - DEGREE_OVERFLOW if the substitution causes an overflow
+ */
+EXPORTED term_t yices_subst_term(uint32_t n, term_t var[], term_t map[], term_t t) {
+  term_subst_t subst;
+  term_t u;
+
+  if (! check_good_term(&manager, t) ||
+      ! check_good_substitution(&manager, n, var, map)) {
+    return NULL_TERM;
+  }
+
+  init_term_subst(&subst, &manager, n, var, map);
+  u = apply_term_subst(&subst, t);
+  delete_term_subst(&subst);
+
+  if (u < 0) {
+    if (u == -1) {
+      // degree overflow
+      error.code = DEGREE_OVERFLOW;
+      error.badval = YICES_MAX_DEGREE + 1;
+    } else {
+      // BUG
+      error.code = INTERNAL_EXCEPTION;
+    }
+    u = NULL_TERM;
+  }
+
+  return u;
+}
 
 
 
@@ -4200,6 +4281,8 @@ EXPORTED term_t yices_parse_term(const char *s) {
   p = get_parser(s);
   return parse_yices_term(p, NULL);
 }
+
+
 
 
 

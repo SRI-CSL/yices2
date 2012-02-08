@@ -37,7 +37,7 @@
 
 
 #ifdef __cplusplus
-extern "C" {
+//extern "C" {
 #endif
 
 
@@ -1217,6 +1217,34 @@ __YICES_DLLSPEC__ extern term_t yices_parse_term(const char *s);
 
 
 
+/*******************
+ *  SUBSTITUTIONS  *
+ ******************/
+
+/*
+ * Apply the substitution defined by arrays var and map to a term t
+ * - var must be an array of n variables (variables are created using
+ *   yices_new_variables).
+ * - map must be an array of n terms
+ * - the type of map[i] must be a subtype of var[i]'s type
+ * - every occurrence of var[i] in t is replaced by map[i]
+ * - if a variable occurs several times in v, the last occurrence 
+ *   counts. (e.g., if v[i] = x and v[j] = x with i < j, and 
+ *   there are no other occurrences of x in v, then x is 
+ *   replaced by map[j]).
+ * 
+ * Return the resuting term or NULL_TERM if there's an error.
+ *
+ * Error codes:
+ * - INVALID_TERM if var[i] or map[i] is not valid
+ * - VARIABLE_REQUIRED if var[i] is not a variable
+ * - TYPE_MISMATCH if map[i]'s type is not a subtype of var[i]'s type
+ * - DEGREE_OVERFLOW if the substitution causes an overflow
+ */
+__YICES_DLLSPEC__ extern term_t yices_subst_term(uint32_t n, term_t var[], term_t map[], term_t t);
+
+
+
 /************
  *  NAMES   *
  ***********/
@@ -1358,7 +1386,7 @@ __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
  * When a context is created, it is possible to configure it to use a
  * specific solver or a specific combination of solvers.  It is also
  * possible to specify whether or not the context should support
- * features such as push and pop or others.
+ * features such as push and pop, or others.
  * 
  * The following theory solvers are currently available:
  * - egraph (solver for uninterpreted functions)
@@ -1444,7 +1472,7 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  *
  * Error codes:
  *  CTX_UNKNOWN_PARAMETER if name is not a known parameter name
- *  CTX_INVALID_PARAMETER_VALUE if name is known but values does not match the parameter type
+ *  CTX_INVALID_PARAMETER_VALUE if name is known but value does not match the parameter type
  */
 __YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const char *name, const char *value);
 
