@@ -4254,6 +4254,42 @@ EXPORTED term_t yices_subst_term(uint32_t n, term_t var[], term_t map[], term_t 
 }
 
 
+/*
+ * Variant: apply the substitution to m terms t[0 .. m-1]
+ */
+EXPORTED term_t yices_subst_term_array(uint32_t n, term_t var[], term_t map[], uint32_t m, term_t t[]) {
+  term_subst_t subst;
+  term_t u;
+  uint32_t i;
+
+  if (! check_good_terms(&manager, m, t) ||
+      ! check_good_substitution(&manager, n, var, map)) {
+    return -1;
+  }
+
+  init_term_subst(&subst, &manager, n, var, map);
+  for (i=0; i<m; i++) {
+    u = apply_term_subst(&subst, t[i]);
+    if (u < 0)  goto subst_error; 
+  }
+  delete_term_subst(&subst);
+
+  return 0;
+
+ subst_error:
+  if (u == -1) {
+      // degree overflow
+      error.code = DEGREE_OVERFLOW;
+      error.badval = YICES_MAX_DEGREE + 1;
+    } else {
+      // BUG
+      error.code = INTERNAL_EXCEPTION;
+  }
+
+  return -1;
+}
+
+
 
 /**************
  *  PARSING   *

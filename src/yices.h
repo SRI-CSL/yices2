@@ -1244,6 +1244,28 @@ __YICES_DLLSPEC__ extern term_t yices_parse_term(const char *s);
 __YICES_DLLSPEC__ extern term_t yices_subst_term(uint32_t n, term_t var[], term_t map[], term_t t);
 
 
+/*
+ * Apply a substitution to m terms in parallel
+ * - the substitution is defined by arrays var and map:
+ *   var must be an array of n variables
+ *   map must be an array of n terms
+ *   map[i]'s type must be a subtype of var[i]'s type
+ * - the substitution is applied to terms t[0] ... t[m-1]
+ * - on entry to the function: t[i] must be a valid term 
+ *   the function applies the substitution to t[i]
+ *   then store the result in place (i.e., t[i] := subst(n, var, map, t[i]).
+ *
+ * Note: it's more efficient to call this function than to call
+ * yices_subst_term m times.
+ *
+ * Return code: 
+ *  0 if all goes well
+ * -1 if there's an error
+ *
+ * Error codes: as above
+ */
+__YICES_DLLSPEC__ extern int32_t yices_subst_term_array(uint32_t n, term_t var[], term_t map[], uint32_t m, term_t t[]);
+
 
 /************
  *  NAMES   *
