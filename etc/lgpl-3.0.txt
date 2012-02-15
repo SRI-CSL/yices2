@@ -1,6 +1,3 @@
-This Software uses the GMP library (http:://gmplib.org/) made 
-available under the LGPL license. A copy of the LGPL is included below.
-----
                    GNU LESSER GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 

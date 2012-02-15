@@ -45,6 +45,13 @@ NOTE: it's important to always build GMP from a clean state, and doing
 The safest method is to delete the source directory and extract the 
 sources from a tarfile every time.
 
+NOTE2: it's a good idea to add option -fno-stack-protector to CFLAGS,
+when building GMP. Otherwise, the -fno-stack-protector in src/Makefile
+does not help.
+
+NOTE3: another approach is to first use ./configure without any special
+flags (other then ABI=32 or ABI=64), then take whatever GMP's configure
+sets to CFLAGS and add -fPIC (as explained below for Solaris).
 
 
 Building PIC libgmp.a on Sparc Solaris 2.8 (gmp-4.3.2)
