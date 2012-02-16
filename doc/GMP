@@ -364,3 +364,20 @@ Then, give the following options to GMP's configure script:
 It's important to specify NM as the x86_64 version. Otherwise the 
 './configure' fails. Not sure specifying AR=... is required.
 
+
+
+UPDATE (2012/02/15)
+
+When installing GMP 5.0.4, cross compilation for producing DLL with 
+mingw64, 'make check' failed with this complaint:
+
+   ./.libs/libtests.a: could not read symbols: 
+   Archive has no index; run ranlib to add one
+
+To fix this, I just did: 
+   /usr/bin/x86_64-w64-mingw32-ranlib ./tests/.libs/libtests.a
+
+(Playing with with RANLIB= ... or other options to configure
+ did not help).
+
+Then 'make check' proceeded without problems after that.
