@@ -473,10 +473,27 @@ steps should work:
 
 NOTES: 
 
-For increased portability, it's better to build Yices on an older
-distribution (e.g., Ubuntu 8.04). Newer distributions have new
-versions of glibc, which can introduce incompatibilities. Also, the
-versions we build on Linux 2.6 won't run on old Linux 2.4 kernels.
+1) For increased portability, it's better to build Yices on an older
+   distribution (e.g., Ubuntu 8.04). Newer distributions have new
+   versions of glibc, which can introduce incompatibilities. Also, the
+   versions we build on Linux 2.6 won't run on old Linux 2.4 kernels.
+
+
+2) If there are several versions of libgmp.so and libgmp.a on the
+   build machine, it's a good idea to set LDFLAGS and LD_LIBRARY_PATH
+   correctly so that the right one is picked. If GMP is built with
+   default options, it will install in /usr/local/lib, but there may be
+   another version in /usr/lib (which is put there by apt-get install).
+
+   In most cases, we want to use the GMP libraries in /usr/local/lib.
+   To find as usable libgmp.a, the configure script first searches the
+   directories that occur in LDFLAGS if any, then in LD_LIBRARY_PATH.
+   So we must either have '/usr/local/lib' before '/usr/lib' in
+   LD_LIBRARY_PATH, or set LDFLAGS correctly.  Also when we link using
+   -lgmp, we want to force the linker to find /usr/local/lib/libgmp.so
+   first (rather than /usr/lib/libgmp.so). To achieve this, the
+   simplest trick is to give LDFLAGS=-L/usr/local/lib as an option to
+   the ./configure script.
 
 
 
@@ -510,7 +527,8 @@ It may be necessary to give some options to the linker as follows:
 
 It may also be necessary to use the --with-pic-gmp option.
 
-
+As before, LDFLAGS can be used to pick the right libgmp.so if there are
+several of them on the build machine.
  
 
 

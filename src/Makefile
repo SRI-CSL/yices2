@@ -292,6 +292,13 @@ endif
 # Option -fomit-frame-pointer confuses the Mac OS profiling tools
 # (don't use it if MODE=profile)
 #
+# Option -fno-stack-protector is useful on Ubuntu (and probably other
+# Linux distributions). On these distributions, gcc has
+# -fstack-protector enabled by default. This can cause link-time
+# errors on the user's systems: 
+#    undefined reference to '__stack_chk_fail'.
+# However this option is not supported by older versions of GCC (before gcc-4.1?)
+#
 ifeq ($(YICES_MODE),release) 
 CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer -fno-stack-protector
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG

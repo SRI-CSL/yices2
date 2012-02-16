@@ -91,7 +91,7 @@ dnl
 dnl We need as many as three different versions of GMP:
 dnl
 dnl To build static executables and libraries, we link with the
-dnl default libgmp.a (usually /usr/local/libgmp.a).
+dnl default libgmp.a (usually /usr/local/lib/libgmp.a).
 dnl 
 dnl To construct the yices library (libyices.so) with GMP included,
 dnl we need a version of libgmp.a that's position independent code.
