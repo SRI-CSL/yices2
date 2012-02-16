@@ -299,8 +299,12 @@ endif
 #    undefined reference to '__stack_chk_fail'.
 # However this option is not supported by older versions of GCC (before gcc-4.1?)
 #
+# Update: 02/16/2012: we check whether -fno-stack-protector is supported
+# in the configure script. The script set variable $(NO_STACK_PROTECTOR) 
+# properly.
+#
 ifeq ($(YICES_MODE),release) 
-CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer -fno-stack-protector
+CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else 
 ifeq ($(YICES_MODE),profile)
@@ -375,13 +379,13 @@ STATIC_LIBS := $(STATIC_GMP) $(subst $(LIBS),-lgmp,)
 #
 $(objdir)/%.d: %.c
 	@ echo Building dependency file $@
-	@ $(CC) -MM -MG $(CPPFLAGS) $< > $@.tmp
+	@ $(CC) -MM -MG $(CFLAGS) $(CPPFLAGS) $< > $@.tmp
 	@ $(SED) 's,\($*\).o[ :]*,$(objdir)/\1.o $@ : , g' < $@.tmp > $@
 	@ rm -f $@.tmp
 
 $(static_objdir)/%.d: %.c
 	@ echo Building dependency file $@
-	@ $(CC) -MM -MG $(STATIC_CPPFLAGS) $< > $@.tmp
+	@ $(CC) -MM -MG $(CFLAGS) $(STATIC_CPPFLAGS) $< > $@.tmp
 	@ $(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.tmp > $@
 	@ rm -f $@.tmp
 

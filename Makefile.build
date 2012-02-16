@@ -540,6 +540,8 @@ recheck:
 	@ echo "  RANLIB   = $(RANLIB)"
 	@ echo "  GPERF    = $(GPERF)"
 	@ echo "  STRIP    = $(STRIP)"
+	@ echo
+	@ echo "  NO_STACK_PROTECTOR = $(NO_STACK_PROTECTOR)"
 	@ echo 
 	@ echo "  STATIC_GMP = $(STATIC_GMP)"
 	@ echo "  STATIC_GMP_INCLUDE_DIR = $(STATIC_GMP_INCLUDE_DIR)"

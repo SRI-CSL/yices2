@@ -66,7 +66,7 @@ void init_mpq_aux() {
 
 
 /*
- * Clenaup
+ * Cleanup
  */
 void cleanup_mpq_aux() {
   mpz_clear(z0);

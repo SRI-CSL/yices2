@@ -29,12 +29,12 @@ if test "$POSIXOS" = unknown ; then
 fi
 
 
-
 dnl
 dnl define SET_MAKE if needed
 dnl -------------------------
 dnl
 AC_PROG_MAKE_SET
+
 
 dnl
 dnl Tools for building Yices
@@ -81,6 +81,37 @@ else
 fi
 
 
+
+
+
+
+dnl
+dnl Check whether the C compliler accepts the flag -fno-stack-protector
+dnl -------------------------------------------------------------------
+dnl
+dnl Several Linux distributions (also Darwin) come with GCC that has
+dnl -fstack-protector enabled by default. This may cause problems at 
+dnl link time on the user machine (if the user doesn't have the right
+dnl runtime libraries). The symptom is:
+dnl    undefined reference to '__stack_chk_fail'
+dnl To avoid this, we try to give flag -fno-stack-protector when
+dnl compiling Yices in release mode. However, this flag is not supported
+dnl by older versions of GCC (e.g., gcc-4.0.x don't seem to have it)
+dnl
+dnl The following test attempts to determine whether the C compiler
+dnl supports -fno-stack-protector. If it does we set variable
+dnl NO_STACK_PROTECTOR to -fno-stack-protector.  Otherwise, we leave
+dnl NO_STACK_PROTECTOR empty
+dnl
+NO_STACK_PROTECTOR=""
+AC_MSG_CHECKING([whether $CC accepts option -fno-stack-protector])
+if $CC -fno-stack-protector -c -xc - -o /dev/null < /dev/null > /dev/null 2>&1 ; then
+   NO_STACK_PROTECTOR="-fno-stack-protector"
+   AC_MSG_RESULT(yes)
+else
+   AC_MSG_RESULT(no)
+fi;
+AC_SUBST(NO_STACK_PROTECTOR)
 
 
 
@@ -403,7 +434,7 @@ AC_SUBST(STATIC_GMP_INCLUDE_DIR)
 CSL_CHECK_STATIC_GMP($static_libgmp,$static_includegmp)
 
 #
-# Relocatable static version of GMP
+# Position-independent static version of GMP
 #
 PIC_GMP="$STATIC_GMP"
 PIC_GMP_INCLUDE_DIR="$STATIC_GMP_INCLUDE_DIR"
@@ -430,6 +461,8 @@ fi
 #
 AC_CHECK_LIB(gmp, __gmpz_cmp, [],
     [AC_MSG_ERROR([*** GMP library not found. Try to set LDFLAGS ***])])
+
+
 
 
 #

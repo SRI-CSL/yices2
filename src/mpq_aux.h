@@ -57,7 +57,7 @@ extern void cleanup_mpq_aux();
  *
  * Not to be used if q is already initialized.
  */
-void mpq_init2(mpq_t q, unsigned long n);
+extern void mpq_init2(mpq_t q, unsigned long n);
 
 
 /*
@@ -168,6 +168,7 @@ static inline bool mpq_is_integer(mpq_t q) {
 #else
 #error "Could not determine size of long"
 #endif
+
 
 
 /*
