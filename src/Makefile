@@ -300,7 +300,7 @@ endif
 # However this option is not supported by older versions of GCC (before gcc-4.1?)
 #
 # Update: 02/16/2012: we check whether -fno-stack-protector is supported
-# in the configure script. The script set variable $(NO_STACK_PROTECTOR) 
+# in the configure script. The script sets variable $(NO_STACK_PROTECTOR) 
 # properly.
 #
 ifeq ($(YICES_MODE),release) 
@@ -716,8 +716,11 @@ static-smt-dist: static-bin
 	@ echo "  AR       = $(AR)"
 	@ echo "  RANLIB   = $(RANLIB)"
 	@ echo "  STRIP    = $(STRIP)"
+	@ echo "  NO_STACK_PROTECTOR = $(NO_STACK_PROTECTOR)"
 	@ echo "  STATIC_GMP = $(STATIC_GMP)"
 	@ echo "  STATIC_GMP_INCLUDE_DIR = $(STATIC_GMP_INCLUDE_DIR)"
+	@ echo "  PIC_GMP = $(PIC_GMP)"
+	@ echo "  PIC_GMP_INCLUDE_DIR = $(PIC_GMP_INCLUDE_DIR)"
 	@ echo
 
 

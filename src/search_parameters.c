@@ -435,6 +435,8 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
   int32_t z;
   double x;
 
+  z = 0; // to prevent GCC warning
+
   k = parse_as_keyword(key, param_key_names, param_code, NUM_PARAM_KEYS);
   switch (k) {
   case PARAM_FAST_RESTART:
