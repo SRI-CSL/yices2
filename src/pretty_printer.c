@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 #include "memalloc.h"
 #include "pretty_printer.h"
@@ -175,6 +176,10 @@ static void init_printer(printer_t *p, FILE *file, pp_token_converter_t *convert
   p->col = 0;
   p->margin = area->width;
 
+  // error codes
+  p->print_failed = false;
+  p->pp_errno = 0;
+
   // pending tokens: empty
   p->pending_col = 0;
   init_pvector(&p->pending_tokens, 0);
@@ -254,10 +259,51 @@ static void delete_printer(printer_t *p) {
  */
 
 /*
+ * Wrappers for fputc, fputs, and fflush to deal with errors
+ */
+static void pp_fputc(printer_t *p, int c) {
+  int x;
+
+  if (! p->print_failed) {
+    x = fputc(c, p->file);
+    if (x == EOF) {
+      p->print_failed = true;
+      p->pp_errno = errno;
+    }
+  }
+}
+
+static void pp_fputs(printer_t *p, char *s) {
+  int x;
+
+  if (!p->print_failed) {
+    x = fputs(s, p->file);
+    if (x == EOF) {
+      p->print_failed = true;
+      p->pp_errno = errno;
+    }
+  }
+}
+
+static void pp_fflush(printer_t *p) {
+  int x;
+
+  if (!p->print_failed) {
+    x = fflush(p->file);
+    if (x == EOF) {
+      p->print_failed = true;
+      p->pp_errno = errno;
+    }
+  }
+}
+
+
+/*
  * Print a single char (must not be a line break)
  */
 static void pp_char(printer_t *p, int c) {
-  fputc(c, p->file);
+  //  fputc(c, p->file);
+  pp_fputc(p, c);
   p->col ++;
 }
 
@@ -279,7 +325,8 @@ static inline void pp_space(printer_t *p) {
  */
 static void pp_string(printer_t *p, char *s, uint32_t n) {
   assert(n == strlen(s));
-  fputs(s, p->file);
+  //  fputs(s, p->file);
+  pp_fputs(p, s);
   p->col += n;
 }
 
@@ -295,7 +342,8 @@ static void pp_prefix(printer_t *p, char *s, uint32_t n) {
 
   i = 0;
   while (*s != '\0' && i < n) {
-    fputc(*s, p->file);
+    //fputc(*s, p->file);
+    pp_fputc(p, *s);
     i ++;
     s ++;
   }
@@ -309,10 +357,12 @@ static void pp_prefix(printer_t *p, char *s, uint32_t n) {
 static void pp_newline(printer_t *p) {
   uint32_t n;
 
-  fputc('\n', p->file);
+  //  fputc('\n', p->file);
+  pp_fputc(p, '\n');
   n = p->indent;
   while (n > 0) {
-    fputc(' ', p->file);
+    //    fputc(' ', p->file);
+    pp_fputc(p, ' ');
     n --;
   }
   p->line ++;
@@ -995,7 +1045,7 @@ static void print_token(printer_t *p, void *tk) {
   }
 
   // for debugging
-  fflush(p->file);
+  //  fflush(p->file);
 }
 
 
@@ -1584,7 +1634,8 @@ void flush_pp(pp_t *pp) {
   }
 
   // start a new line
-  fputc('\n', p->file);
+  // fputc('\n', p->file);
+  pp_fputc(p, '\n');
   p->no_space = true;
   p->no_break = true;
   p->full_line = false;
@@ -1592,18 +1643,20 @@ void flush_pp(pp_t *pp) {
   p->line = 0;
   p->col = 0;
   p->margin = p->next_margin;
-  fflush(p->file);
+  //  fflush(p->file);
+  pp_fflush(p);
 }
 
 
 /*
- * Check whether the printer is full
+ * Check whether the printer is full (more precisely,
+ * check whether we can't print anything more)
  */
 bool pp_is_saturated(pp_t *pp) {
   printer_t *p;
 
   p = &pp->printer;
-  return p->full_line && p->line + 1 >= p->area.height;
+  return p->print_failed || (p->full_line && p->line + 1 >= p->area.height);
 }
 
 

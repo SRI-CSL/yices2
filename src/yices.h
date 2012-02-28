@@ -37,7 +37,7 @@
 
 
 #ifdef __cplusplus
-//extern "C" {
+extern "C" {
 #endif
 
 
@@ -131,8 +131,14 @@ __YICES_DLLSPEC__ extern void yices_clear_error(void);
 /*
  * Print an error message on stream f.  This converts the current error
  * code + error report structure into an error message.
+ * - f must be a non-NULL open stream (writable)
+ *
+ * Return -1 if there's an error while writing to f (as reported by fprintf).
+ * Return 0 otherwise.
+ *
+ * If there's an error, errno, perror, and friends can be used for diagnostic.
  */
-__YICES_DLLSPEC__ extern void yices_print_error(FILE *f);
+__YICES_DLLSPEC__ extern int32_t yices_print_error(FILE *f);
 
 
 
@@ -379,6 +385,8 @@ __YICES_DLLSPEC__ extern term_t yices_not(term_t arg);
  * (and arg[0] ... arg[n-1])
  * (xor arg[0] ... arg[n-1])
  *
+ * Note: arg may be modified.
+ *
  * Error report:
  * if n > YICES_MAX_ARITY
  *   code = TOO_MANY_ARGUMENTS
@@ -397,11 +405,15 @@ __YICES_DLLSPEC__ extern term_t yices_xor(uint32_t n, term_t arg[]);
 
 
 /*
- * Binary versions of or/and/xor
+ * Variants of or/and/xor with 2 or 3 arguments
  */
-__YICES_DLLSPEC__ extern term_t yices_or2(term_t left, term_t right);
-__YICES_DLLSPEC__ extern term_t yices_and2(term_t left, term_t right);
-__YICES_DLLSPEC__ extern term_t yices_xor2(term_t left, term_t right);
+__YICES_DLLSPEC__ extern term_t yices_or2(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_and2(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_xor2(term_t t1, term_t t2);
+
+__YICES_DLLSPEC__ extern term_t yices_or3(term_t t1, term_t t2, term_t t3);
+__YICES_DLLSPEC__ extern term_t yices_and3(term_t t1, term_t t2, term_t t3);
+__YICES_DLLSPEC__ extern term_t yices_xor3(term_t t1, term_t t2, term_t t3);
 
 
 /*
@@ -457,6 +469,28 @@ __YICES_DLLSPEC__ extern term_t yices_select(uint32_t index, term_t tuple);
 
 
 /*
+ * Tuple update: replace component i of tuple by new_v
+ *
+ * Error report
+ * if tuple or new_v is invalid
+ *    code = INVALID_TERM
+ *    term1 = tuple/new_v
+ * if tuple doesn't have a tuple type
+ *    code = TUPLE_REQUIRED
+ *    term1 = tuple
+ * if i >= number of components in tuple
+ *    code = INVALID_TUPLE_INDEX
+ *    type1 = tuple's type
+ *    badval = i
+ * if new_v has a wrong type
+ *    code = TYPE_MISMATCH
+ *    term1 = new_v
+ *    type1 = expected type (i-th component type in tuple)
+ */
+__YICES_DLLSPEC__ extern term_t yices_tuple_update(term_t tuple, uint32_t index, term_t new_v);
+
+
+/*
  * Function update
  *
  * Error report:
@@ -488,6 +522,8 @@ __YICES_DLLSPEC__ extern term_t yices_update(term_t fun, uint32_t n, term_t arg[
 /*
  * Distinct
  *
+ * Note: arg many be modified
+ *
  * Error report:
  * if n == 0
  *    code = POS_INT_REQUIRED
@@ -508,33 +544,14 @@ __YICES_DLLSPEC__ extern term_t yices_update(term_t fun, uint32_t n, term_t arg[
 __YICES_DLLSPEC__ extern term_t yices_distinct(uint32_t n, term_t arg[]);
 
 
-/*
- * Tuple update: replace component i of tuple by new_v
- *
- * Error report
- * if tuple or new_v is invalid
- *    code = INVALID_TERM
- *    term1 = tuple/new_v
- * if tuple doesn't have a tuple type
- *    code = TUPLE_REQUIRED
- *    term1 = tuple
- * if i >= number of components in tuple
- *    code = INVALID_TUPLE_INDEX
- *    type1 = tuple's type
- *    badval = i
- * if new_v has a wrong type
- *    code = TYPE_MISMATCH
- *    term1 = new_v
- *    type1 = expected type (i-th component type in tuple)
- */
-__YICES_DLLSPEC__ extern term_t yices_tuple_update(term_t tuple, uint32_t index, term_t new_v);
-
 
 /*
  * Quantified terms
  *  (forall (var[0] ... var[n-1]) body)
  *  (exists (var[0] ... var[n-1]) body)
  * 
+ * Note: var may be modified
+ *
  * Error report:
  * if n == 0
  *    code = POS_INT_REQUIRED
@@ -905,13 +922,14 @@ __YICES_DLLSPEC__ extern term_t yices_parse_bvhex(const char *s);
  *
  * for bvmul, bvsquare, or bvpower, if the degree is too large
  *   code = DEGREE_OVERFLOW
+ *
  */
-__YICES_DLLSPEC__ extern term_t yices_bvadd(term_t t1, term_t t2);     // addition (t1 + t2
+__YICES_DLLSPEC__ extern term_t yices_bvadd(term_t t1, term_t t2);     // addition (t1 + t2)
 __YICES_DLLSPEC__ extern term_t yices_bvsub(term_t t1, term_t t2);     // subtraction (t1 - t2)
 __YICES_DLLSPEC__ extern term_t yices_bvneg(term_t t1);                // negation (- t1)
 __YICES_DLLSPEC__ extern term_t yices_bvmul(term_t t1, term_t t2);     // multiplication (t1 * t2)
 __YICES_DLLSPEC__ extern term_t yices_bvsquare(term_t t1);             // square (t1 * t1)
-__YICES_DLLSPEC__ extern term_t yices_bvpower(term_t t1, uint32_t d);  // t1 ^ d
+__YICES_DLLSPEC__ extern term_t yices_bvpower(term_t t1, uint32_t d);  // exponentiation (t1 ^ d)
 
 __YICES_DLLSPEC__ extern term_t yices_bvdiv(term_t t1, term_t t2);   // unsigned div
 __YICES_DLLSPEC__ extern term_t yices_bvrem(term_t t1, term_t t2);   // unsigned rem
@@ -1267,6 +1285,7 @@ __YICES_DLLSPEC__ extern term_t yices_subst_term(uint32_t n, term_t var[], term_
 __YICES_DLLSPEC__ extern int32_t yices_subst_term_array(uint32_t n, term_t var[], term_t map[], uint32_t m, term_t t[]);
 
 
+
 /************
  *  NAMES   *
  ***********/
@@ -1290,8 +1309,6 @@ __YICES_DLLSPEC__ extern int32_t yices_subst_term_array(uint32_t n, term_t var[]
  * - if function yices_remove_term_name(name) is called, then the current
  *   mapping for 'name' is removed and the previous mapping (if any)
  *   is restored.
- *   'name --> t2' is removed and the previous mapping is restored,
- *    (i.e., 'name' refers to 't1' again).
  */
 
 /*
@@ -1368,7 +1385,7 @@ __YICES_DLLSPEC__ extern type_t yices_type_of_term(term_t t);
  * - term_is_real check whether t's type is real
  * - term_is_int check whether t's type is int 
  * - term_is_scalar check whether t has a scalar or uninterpreted type
- &
+ *
  * If t is not a valid term, the check functions return false
  * and set the error report as above.
  */
@@ -1408,7 +1425,7 @@ __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
  * When a context is created, it is possible to configure it to use a
  * specific solver or a specific combination of solvers.  It is also
  * possible to specify whether or not the context should support
- * features such as push and pop, or others.
+ * features such as push and pop, and others.
  * 
  * The following theory solvers are currently available:
  * - egraph (solver for uninterpreted functions)
@@ -1445,7 +1462,7 @@ __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
  * In addition to the solver combination, a context can be configured
  * for different usage:
  * - one-shot mode: check satisfiability of one set of formulas
- * - multiple checks: repeated calls to assert/checks are allowed
+ * - multiple checks: repeated calls to assert/check are allowed
  * - push/pop: push and pop are supported (implies multiple checks)
  * - clean interrupts are supported (implies push/pop)
  * Currently, the Floyd-Warshall solvers can only be used in one-shot mode.
@@ -1631,6 +1648,31 @@ __YICES_DLLSPEC__ extern int32_t yices_pop(context_t *ctx);
 
 
 /*
+ * Several options determine how much simplification is performed
+ * when formulas are asserted. It's best to leave them untouched
+ * unless you really know what you're doing.
+ *
+ * The following functions selectively enable/disable a preprocessing
+ * option. Current options include:
+ *   var-elim: whether to eliminate variables by substitution
+ *   arith-elim: more variable elimination for arithmetic (Gaussian elimination)
+ *   flatten: whether to flatten nested (or ...)
+ *     (e.g., turn (or (or a b) (or c d) ) to (or a b c d))
+ *   learn_eq: enable/disable heuristics to learn implied equalities
+ *   keep_ite: whether to eliminate term if-then-else or keep them as terms
+ *
+ * The following functions can be used to enable or disable one of these options.
+ * - return code: -1 if there's an error, 0 otherwise.
+ *
+ * Error codes:
+ *  CTX_UNKNOWN_PARAMETER if the option name is not one of the above.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_context_enable_option(context_t *ctx, const char *option);
+__YICES_DLLSPEC__ extern int32_t yices_context_disable_option(context_t *ctx, const char *option);
+ 
+
+
+/*
  * Assert formula t in ctx
  * - ctx status must be IDLE or UNSAT or SAT or UNKNOWN
  * - t must be a boolean term
@@ -1748,34 +1790,6 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_blocking_clause(context_t *ctx);
 __YICES_DLLSPEC__ extern void yices_stop_search(context_t *ctx);
 
 
-
-/*
- * SIMPLIFICATION OPTIONS
- */
-
-/*
- * Several options determine how much simplification is performed
- * when formulas are asserted. It's best to leave them untouched
- * unless you really know what you're doing.
- *
- * The following functions selectively enable/disable a preprocessing
- * option. Current options include:
- *   var-elim: whether to eliminate variables by substitution
- *   arith-elim: more variable elimination for arithmetic (Gaussian)
- *   flatten: whether to flatten nested (or ...)
- *     (e.g., turn (or (or a b) (or c d) ) to (or a b c d))
- *   learn_eq: enable/disable heuristics to learn implied equalities
- *   keep_ite: whether to eliminate term if-then-else or keep them as terms
- *
- * The following functions can be used to enable or disable one of these options.
- * - return code: -1 if there's an error, 0 otherwise.
- *
- * Error codes:
- *  CTX_UNKNOWN_PARAMETER if the option name is not one of the above.
- */
-__YICES_DLLSPEC__ extern int32_t yices_context_enable_option(context_t *ctx, const char *option);
-__YICES_DLLSPEC__ extern int32_t yices_context_disable_option(context_t *ctx, const char *option);
- 
 
 
 /*

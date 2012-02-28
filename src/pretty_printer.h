@@ -6,7 +6,7 @@
  * The input to the pretty printer is a sequence of
  * tokens, that contains atomic tokens + block delimiters.
  * - Atomic tokens are strings to be printed. They should not 
- *   contain line breaks or start or end with spaces.
+ *   contain line breaks, or start or end with spaces.
  * - A block is a sequence of tokens of the form 
  *
  *      open_block token .... token close_block 
@@ -72,7 +72,7 @@
 
 /*
  * Bit masks to represent a set of layouts
- * (in the low-order bits on an unsigned int).
+ * (in the low-order bits of an unsigned int).
  * - 0001: horizontal
  * - 0010: mixed horizontal/vertical
  * - 0100: vertical
@@ -167,11 +167,11 @@ typedef struct pp_area_s {
 
 /*
  * Token descriptors encode formatting information.  The string label
- * of an open token or the content of an atomic are not kept in the
- * descriptor. They are obtained via calls to user-provided functions.
- * To help in this conversion, the descriptors include a 32bit user-tag
- * (which can be anything the conversion functions need to identify
- * the token).
+ * of an open token or the content of an atomic token are not kept in
+ * the descriptor. They are obtained via calls to user-provided
+ * functions.  To help in this conversion, the descriptors include a
+ * 32bit user-tag (which can be anything the conversion functions need
+ * to identify the token).
  */
 
 /*
@@ -468,7 +468,7 @@ typedef struct pp_stack_s {
  *
  * When we get close to the end of the line, the printer
  * may have to store pending tokens (that fit on the line
- * but can't print for sure yet because '...' may be needed). 
+ * but can't be printed for sure yet because '...' may be needed). 
  * These tokens are stored in a 'pending_token' vector and 
  * the printer keeps track of the column where they will be
  * printed if possible in 'pending_col'.
@@ -482,8 +482,7 @@ typedef struct pp_stack_s {
  * - no_break = true to prevent line break 
  * - no_space = true to prevent space
  * - full_line = true if the current line is full
- * - overfull_count = number of open blocks seen 
- *    since the line is full.
+ * - overfull_count = number of open blocks seen since the line has been full.
  */
 typedef struct printer_s {
   // output file + display area + converter
@@ -505,6 +504,11 @@ typedef struct printer_s {
   uint32_t line;
   uint32_t col;
   uint32_t margin;
+
+  // if fputc, fputs of fflush fails, we set print_failed to true
+  // and we keep a copy of errno in p->pp_errno
+  bool print_failed;
+  int pp_errno;
 
   // pending tokens
   pvector_t pending_tokens;

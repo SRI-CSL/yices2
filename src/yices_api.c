@@ -816,8 +816,8 @@ EXPORTED void yices_clear_error(void) {
 /*
  * Print an error message on f
  */
-EXPORTED void yices_print_error(FILE *f) {
-  print_error(f);
+EXPORTED int32_t yices_print_error(FILE *f) {
+  return print_error(f);
 }
 
 
@@ -1882,6 +1882,40 @@ EXPORTED term_t yices_xor(uint32_t n, term_t arg[]) {
 }
 
 
+
+// Variant: 3 arguments
+EXPORTED term_t yices_or3(term_t t1, term_t t2, term_t t3) {
+  term_t aux[3];
+
+  aux[0] = t1;
+  aux[1] = t2;
+  aux[2] = t3;
+
+  return yices_or(3, aux);
+}
+
+EXPORTED term_t yices_and3(term_t t1, term_t t2, term_t t3) {
+  term_t aux[3];
+
+  aux[0] = t1;
+  aux[1] = t2;
+  aux[2] = t3;
+
+  return yices_and(3, aux);
+}
+
+EXPORTED term_t yices_xor3(term_t t1, term_t t2, term_t t3) {
+  term_t aux[3];
+
+  aux[0] = t1;
+  aux[1] = t2;
+  aux[2] = t3;
+
+  return yices_xor(3, aux);
+}
+
+
+
 /*
  * BINARY VERSIONS OF OR/AND/XOR
  */
@@ -1917,6 +1951,7 @@ EXPORTED term_t yices_xor2(term_t left, term_t right) {
 
   return mk_binary_xor(&manager, left, right);
 }
+
 
 EXPORTED term_t yices_iff(term_t left, term_t right) {
   if (! check_good_term(&manager, left) ||
