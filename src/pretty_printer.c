@@ -1372,66 +1372,6 @@ static void set_bsizes_and_close(formatter_t *f) {
 
 
 
-/*
- * Process atomic token tk
- */
-static void process_atomic_token(formatter_t *f, pp_atomic_token_t *tk) {
-  set_bsizes_and_close(f);
-
-  if (!f->no_space) f->length ++;
-
-  f->atom_col = f->length;
-  f->last_atom = tk;
-  f->length += tk->size;
-  f->no_space = false;
-}
-
-
-/*
- * Process open-block token tk
- */
-static void process_open_token(formatter_t *f, pp_open_token_t *tk) {
-  set_bsizes_and_close(f);
-
-  if (!f->no_space) f->length ++;
-
-  // add tk at the end of the  block queue
-  tk->csize = 0;
-  tk->fsize = 0;
-  block_queue_push(&f->block_queue, tk, f->length);
-  f->queue_size ++;
-
-  // add optional '(' and token label to the line
-  f->length += tk->label_size + tk_has_par(tk);
-
-  // if tk forbids separator: no space
-  f->no_space = !tk_sep_allowed(tk);
-
-  // no last atom anymore
-  f->last_atom = NULL;
-}
-
-
-/*
- * Process close token tk
- */
-static void process_close_token(formatter_t *f, pp_close_token_t *tk) {
-  if (tk_has_close_par(tk)) {
-    // add ')' to the line
-    f->length ++;
-  }
-
-  // this may close an open block in the queue
-  // or close the head block
-  if (f->nclosed < f->queue_size) {
-    f->nclosed ++;
-  } else {
-    assert(f->nclosed == f->queue_size);
-    f->head_closed = true;
-  }
-}
-
-
 
 /*
  * TOKEN QUEUE
@@ -1472,13 +1412,27 @@ static void flush_token_queue(formatter_t *f) {
 
 
 /*
+ * Flush the token queue when the head block is closed
+ * - at this point, we know the head block csize and fsize
+ *   and bsize so it's ready to print
+ */
+static void flush_head_block(formatter_t *f) {
+  if (f->head_closed) {
+    assert(f->head_token != NULL && block_queue_is_empty(&f->block_queue));
+    flush_token_queue(f);
+    f->head_closed = false;
+  }
+}
+
+/*
  * For any block B_i in the queue, we know that the bsize for 
  * that block is at least (f->length - B_i->col). 
  *
- * If (f->length - B_0->col > f->max_width) then we can set 
- * B_0's bsize to infinity (PP_MAX_BSIZE), update the csize of the
- * head token, and remove B_0 from the queue. The head token if any 
- * is ready to be printed at this point.
+ * If (f->length - B_0->col > f->max_width) then we can set B_0's
+ * bsize to infinity (PP_MAX_BSIZE), update the csize of the head
+ * token, and remove B_0 from the queue. The head token is ready to be
+ * printed at this point (since its csize, bsize and fsize fields are
+ * known).
  */
 static void flush_wide_blocks(formatter_t *f) {
   pp_block_t *b;
@@ -1501,15 +1455,14 @@ static void flush_wide_blocks(formatter_t *f) {
       if (head->fsize == 0) {
 	head->fsize = PP_MAX_BSIZE;
       }
-      // print head, ..., until tk
-      flush_tokens(f, tag_open(tk));
     }
+    // print all queued tokens, until tk
+    flush_tokens(f, tag_open(tk));
 
     // tk becomes the head token
     assert(ptr_queue_first(&f->token_queue) == tag_open(tk));
     f->head_token = tk;
     if (f->nclosed == f->queue_size) {
-      f->head_closed = true;
       f->nclosed --;
     }
 
@@ -1518,6 +1471,68 @@ static void flush_wide_blocks(formatter_t *f) {
   }
 }
 
+
+
+/*
+ * Process atomic token tk
+ */
+static void process_atomic_token(formatter_t *f, pp_atomic_token_t *tk) {
+  set_bsizes_and_close(f);
+  flush_head_block(f);
+
+  if (!f->no_space) f->length ++;
+
+  f->atom_col = f->length;
+  f->last_atom = tk;
+  f->length += tk->size;
+  f->no_space = false;
+}
+
+
+/*
+ * Process open-block token tk
+ */
+static void process_open_token(formatter_t *f, pp_open_token_t *tk) {
+  set_bsizes_and_close(f);
+  flush_head_block(f);
+
+  if (!f->no_space) f->length ++;
+
+  // add tk at the end of the  block queue
+  tk->csize = 0;
+  tk->fsize = 0;
+  block_queue_push(&f->block_queue, tk, f->length);
+  f->queue_size ++;
+
+  // add optional '(' and token label to the line
+  f->length += tk->label_size + tk_has_par(tk);
+
+  // if tk forbids separator: no space
+  f->no_space = !tk_sep_allowed(tk);
+
+  // no last atom anymore
+  f->last_atom = NULL;
+}
+
+
+/*
+ * Process close token tk
+ */
+static void process_close_token(formatter_t *f, pp_close_token_t *tk) {
+  if (tk_has_close_par(tk)) {
+    // add ')' to the line
+    f->length ++;
+  }
+
+  // this may close an open block in the queue
+  // or close the head block
+  if (f->nclosed < f->queue_size) {
+    f->nclosed ++;
+  } else if (f->head_token != NULL) {
+    assert(f->nclosed == f->queue_size);
+    f->head_closed = true;
+  }
+}
 
 
 /*

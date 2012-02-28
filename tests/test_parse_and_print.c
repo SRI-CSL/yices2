@@ -120,7 +120,7 @@ int main(int argc, char *argv[]) {
   // TEST PRETTY PRINTER HERE
   n = bench.nformulas;
   area.width = 160;
-  area.height = 4000;
+  area.height = 10000;
   area.offset = left_margin(n);
   area.stretch = false;
   area.truncate = true;
