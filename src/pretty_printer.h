@@ -721,10 +721,12 @@ extern void delete_pp(pp_t *pp);
 
 
 /*
- * Check whether the pretty printer area is full
- * - i.e., if this is true, new tokens can't be printed
+ * Check whether the current print line is full
+ * - if this is true, it's useless to push new open blocks
+ * - this also return true if pp->printed_failed is true
+ *   (i.e., one of fputs, fputc, or fflush returned an error).
  */
-extern bool pp_is_saturated(pp_t *pp); 
+extern bool pp_line_is_full(pp_t *pp); 
 
 
 /*

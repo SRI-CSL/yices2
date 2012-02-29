@@ -225,10 +225,11 @@ extern void delete_yices_pp(yices_pp_t *printer);
 
 
 /*
- * Check for saturation (i.e., nothing more can be printed in the pp_area)
+ * Check for saturation: when this is true, we should stop sending
+ * open blocks
  */
-static inline bool yices_pp_is_saturated(yices_pp_t *printer) {
-  return pp_is_saturated(&printer->pp);
+static inline bool yices_pp_line_is_full(yices_pp_t *printer) {
+  return pp_line_is_full(&printer->pp);
 }
 
 

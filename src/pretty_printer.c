@@ -1667,11 +1667,11 @@ void flush_pp(pp_t *pp) {
  * Check whether the printer is full (more precisely,
  * check whether we can't print anything more)
  */
-bool pp_is_saturated(pp_t *pp) {
+bool pp_line_is_full(pp_t *pp) {
   printer_t *p;
 
   p = &pp->printer;
-  return p->print_failed || (p->full_line && p->line + 1 >= p->area.height);
+  return p->print_failed || p->full_line;
 }
 
 

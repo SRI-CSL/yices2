@@ -1956,7 +1956,7 @@ static void pp_term_recur(yices_pp_t *printer, term_table_t *tbl, term_t t, int3
 
   assert(good_term(tbl, t));
 
-  if (yices_pp_is_saturated(printer)) return; // do nothing
+  if (yices_pp_line_is_full(printer)) return; // do nothing
 
   if (t <= false_term) {
     pp_string(printer, (char *) term2string[t]);
