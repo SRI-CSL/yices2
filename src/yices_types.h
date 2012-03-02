@@ -141,7 +141,6 @@ typedef enum error_code {
   ARITH_ERROR,
   BVARITH_ERROR,
 
-
   /*
    * Errors in assertion processing.
    * These codes mean that the context, as configured,
@@ -191,6 +190,11 @@ typedef enum error_code {
   EVAL_OVERFLOW,
   EVAL_FAILED,  
   
+  /*
+   * Input/output and system errors
+   */
+  OUTPUT_ERROR = 500,
+
   /*
    * Catch-all code for anything else.
    * This is a symptom that a bug has been found.

@@ -1740,6 +1740,9 @@ static void pp_or_term(yices_pp_t *printer, term_table_t *tbl, composite_term_t 
   op = polarity ? PP_OPEN_OR : PP_OPEN_AND;
   pp_open_block(printer, op);
   for (i=0; i<n; i++) {
+    if (n == 24682 && (i % 1000 == 0 || i == 24681)) {
+      fprintf(stderr, "---> i = %"PRIu32"\n", i);
+    }
     pp_term_recur(printer, tbl, d->arg[i], level, polarity);
   }
   pp_close_block(printer, true);
@@ -1971,7 +1974,7 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
       pp_string(printer, name);
     } else if (neg_name != NULL) {
       pp_open_block(printer, PP_OPEN_NOT);
-      pp_string(printer, name);
+      pp_string(printer, neg_name);
       pp_close_block(printer, true);      
     } else if (polarity) {
       pp_id(printer, "t!", i);

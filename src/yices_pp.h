@@ -241,6 +241,23 @@ static inline bool yices_pp_line_is_full(yices_pp_t *printer) {
 
 
 /*
+ * Check for print error and error code
+ */
+static inline bool yices_pp_print_failed(yices_pp_t *printer) {
+  return printer->pp.printer.print_failed;
+}
+
+static inline int yices_pp_errno(yices_pp_t *printer) {
+  return printer->pp.printer.pp_errno;
+}
+
+static inline void yices_pp_clear_error(yices_pp_t *printer) {
+  printer->pp.printer.print_failed = false;
+  printer->pp.printer.pp_errno = 0;
+}
+
+
+/*
  * PRINT ATOMS
  */
 

@@ -302,7 +302,6 @@ static void pp_fflush(printer_t *p) {
  * Print a single char (must not be a line break)
  */
 static void pp_char(printer_t *p, int c) {
-  //  fputc(c, p->file);
   pp_fputc(p, c);
   p->col ++;
 }
@@ -325,7 +324,6 @@ static inline void pp_space(printer_t *p) {
  */
 static void pp_string(printer_t *p, char *s, uint32_t n) {
   assert(n == strlen(s));
-  //  fputs(s, p->file);
   pp_fputs(p, s);
   p->col += n;
 }
@@ -342,7 +340,6 @@ static void pp_prefix(printer_t *p, char *s, uint32_t n) {
 
   i = 0;
   while (*s != '\0' && i < n) {
-    //fputc(*s, p->file);
     pp_fputc(p, *s);
     i ++;
     s ++;
@@ -357,11 +354,9 @@ static void pp_prefix(printer_t *p, char *s, uint32_t n) {
 static void pp_newline(printer_t *p) {
   uint32_t n;
 
-  //  fputc('\n', p->file);
   pp_fputc(p, '\n');
   n = p->indent;
   while (n > 0) {
-    //    fputc(' ', p->file);
     pp_fputc(p, ' ');
     n --;
   }
@@ -1650,7 +1645,6 @@ void flush_pp(pp_t *pp) {
   }
 
   // start a new line
-  // fputc('\n', p->file);
   pp_fputc(p, '\n');
   p->no_space = true;
   p->no_break = true;
@@ -1659,7 +1653,6 @@ void flush_pp(pp_t *pp) {
   p->line = 0;
   p->col = 0;
   p->margin = p->next_margin;
-  //  fflush(p->file);
   pp_fflush(p);
 }
 

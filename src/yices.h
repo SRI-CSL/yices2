@@ -37,7 +37,7 @@
 
 
 #ifdef __cplusplus
-extern "C" {
+// extern "C" {
 #endif
 
 
@@ -139,7 +139,6 @@ __YICES_DLLSPEC__ extern void yices_clear_error(void);
  * If there's an error, errno, perror, and friends can be used for diagnostic.
  */
 __YICES_DLLSPEC__ extern int32_t yices_print_error(FILE *f);
-
 
 
 
@@ -1360,6 +1359,50 @@ __YICES_DLLSPEC__ extern int32_t yices_clear_type_name(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_clear_term_name(term_t t);
   
 
+
+
+/**********************
+ *  PRETTY PRINTING   *
+ *********************/
+
+/*
+ * Pretty printing uses a rectangular display area, characterized
+ * by its width, height, and offset as follows.
+ * 
+ *                  <----------- width ------------->
+ *                   _______________________________ 
+ * <---- offset --->|                               |   ^
+ *                  |                               |   |
+ *                  |                               | Height
+ *                  |                               |   |
+ *                  |                               |   v
+ *                   ------------------------------- 
+ *
+ */
+
+/*
+ * Pretty print type tau or term t on file f
+ * - width, height, offset define the print area
+ * - f = output file to use. 
+ *   f must be open and writable.
+ *
+ * - return -1 on error
+ * - return 0 otherwise.
+ *
+ * - possible error report for yices_pp_type
+ *    code = INVALID_TYPE
+ *    type1 = tau
+ *
+ * - possible error report for yices_pp_term
+ *    code = INVALID_TERM
+ *    term1 = t
+ *
+ * - other erros (for both)
+ *    code = OUTPUT_ERROR if writing to file f failed.
+ *    in this case, errno, perror, etc. can be used for diagnostic.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t height, uint32_t offset);
+__YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, type_t t, uint32_t width, uint32_t height, uint32_t offset);
 
 
 

@@ -24,6 +24,7 @@
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
+#include <errno.h>
 
 #include "refcount_strings.h"
 #include "string_utils.h"
@@ -42,6 +43,9 @@
 #include "models.h"
 #include "context_config.h"
 #include "search_parameters.h"
+
+#include "type_printer.h"
+#include "term_printer.h"
 
 #include "yices.h"
 #include "yices_error.h"
@@ -3824,6 +3828,86 @@ EXPORTED term_t yices_bvslt_atom(term_t t1, term_t t2) {
 
 
 
+/*********************
+ *  PRETTY PRINTING  *
+ ********************/
+
+/*
+ * Pretty print type tau
+ * - f = output file to use
+ * - width, height, offset = print area
+ */
+EXPORTED int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t height, uint32_t offset) {
+  yices_pp_t printer;
+  pp_area_t area;
+  int32_t code;
+
+  if (! check_good_type(&types, tau)) {
+    return -1;
+  }
+
+  if (width < 4) width = 4;
+  if (height == 0) height = 1;
+
+  area.width = width;
+  area.height = height;
+  area.offset = offset;
+  area.stretch = false;
+  area.truncate = true;
+
+  init_default_yices_pp(&printer, f, &area);
+  pp_type_exp(&printer, &types, tau);
+  flush_yices_pp(&printer);
+
+  // check for error
+  code = 0;
+  if (yices_pp_print_failed(&printer)) {
+    code = -1;
+    errno = yices_pp_errno(&printer); 
+  }
+  delete_yices_pp(&printer);
+
+  return code;  
+}
+
+
+/*
+ * Pretty print term t
+ * - f = output file to use
+ * - width, height, offset = print area
+ */
+EXPORTED int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t height, uint32_t offset) {
+  yices_pp_t printer;
+  pp_area_t area;
+  int32_t code;
+
+  if (! check_good_term(&manager, t)) {
+    return -1;
+  }
+
+  if (width < 4) width = 4;
+  if (height == 0) height = 1;
+
+  area.width = width;
+  area.height = height;
+  area.offset = offset;
+  area.stretch = false;
+  area.truncate = true;
+
+  init_default_yices_pp(&printer, f, &area);
+  pp_term_full(&printer, get_terms(), t);
+  flush_yices_pp(&printer);
+
+  // check for error
+  code = 0;
+  if (yices_pp_print_failed(&printer)) {
+    code = -1;
+    errno = yices_pp_errno(&printer); 
+  }
+  delete_yices_pp(&printer);
+
+  return code;  
+}
 
 
 
