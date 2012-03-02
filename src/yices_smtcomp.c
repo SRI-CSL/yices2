@@ -744,7 +744,7 @@ static void print_internalization_code(int32_t code) {
 
 
 /*
- * SIGNAL PROCESSING
+ * TIMEOUT AND INTERRUPTS
  */
 
 /*
@@ -758,17 +758,31 @@ static void handler(int signum) {
   exit(YICES_EXIT_INTERRUPTED);
 }
 
+
 /*
  * Set the signal handler: to print statistics on
  * SIGINT, SIGABRT, SIGXCPU
  */
-static void init_handler() {
+static void init_handler(void) {
   signal(SIGINT, handler);
   signal(SIGABRT, handler);
 #ifndef MINGW
   signal(SIGXCPU, handler);
 #endif
 }
+
+
+/*
+ * Mask the signals
+ */
+static void clear_handler(void) {
+  signal(SIGINT, SIG_IGN);
+  signal(SIGABRT, SIG_IGN);
+#ifndef MINGW
+  signal(SIGXCPU, SIG_IGN);
+#endif  
+}
+
 
 /*
  * Timeout handler
@@ -1154,6 +1168,7 @@ static int process_benchmark(void) {
 #else
     code = check_context(&context, &params, false);
 #endif
+    clear_handler();
 
     if (timeout > 0) {
       clear_timeout();

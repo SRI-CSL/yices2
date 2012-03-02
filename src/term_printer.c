@@ -1590,11 +1590,16 @@ static const pp_open_type_t const term_kind2block[NUM_TERM_KINDS] = {
 
 
 /*
- * Print term t: expand the term names if level > 0
+ * Print term t (or not t)
+ * - expand the term names if level > 0
+ * - if polarity is true, print t, otherwise print its negation
  */
-static void pp_term_recur(yices_pp_t *printer, term_table_t *tbl, term_t t, int32_t level);
+static void pp_term_recur(yices_pp_t *printer, term_table_t *tbl, term_t t, int32_t level, bool polariyt);
 
-// composite (including function applications)
+
+/*
+ * Default print function for composites (including function applications)
+ */
 static void pp_composite_term(yices_pp_t *printer, term_table_t *tbl, term_kind_t tag, composite_term_t *d, int32_t level) {
   uint32_t i, n;
   pp_open_type_t op;
@@ -1605,26 +1610,141 @@ static void pp_composite_term(yices_pp_t *printer, term_table_t *tbl, term_kind_
   pp_open_block(printer, op);
   n = d->arity;
   for (i=0; i<n; i++) {
-    pp_term_recur(printer, tbl, d->arg[i], level);
+    pp_term_recur(printer, tbl, d->arg[i], level, true);
   }
   pp_close_block(printer, true);
 }  
 
-// forall 
-static void pp_forall_term(yices_pp_t *printer, term_table_t *tbl, composite_term_t *d, uint32_t level) {
+
+/* 
+ * forall:
+ * - if polarity is true then we print (forall .... p)
+ * - if polairty is false then we print (exists ... (not p))
+ */
+static void pp_forall_term(yices_pp_t *printer, term_table_t *tbl, composite_term_t *d, uint32_t level, bool polarity) {
   uint32_t i, n;
+  pp_open_type_t op;
+
+  op = polarity ? PP_OPEN_FORALL : PP_OPEN_EXISTS;
 
   n = d->arity;
   assert(n >= 2);
-  pp_open_block(printer, PP_OPEN_FORALL);
+  pp_open_block(printer, op);
   pp_open_block(printer, PP_OPEN_PAR);
   for (i=0; i<n-1; i++) {
-    pp_term_recur(printer, tbl, d->arg[i], level);
+    pp_term_recur(printer, tbl, d->arg[i], level, true);
   }
   pp_close_block(printer, true);
-  pp_term_recur(printer, tbl, d->arg[n-1], level);
+  pp_term_recur(printer, tbl, d->arg[n-1], level, polarity);
   pp_close_block(printer, true);
 }
+
+
+
+/*
+ * Binary atom: depending on the polarity, we use different 'op'
+ * - example: (eq t1 t2) is printed as (= t1 t2) in positive context
+ *                                  or (/= t1 t2) in a negative context
+ */
+static void pp_binary_atom(yices_pp_t *printer, term_table_t *tbl, pp_open_type_t op, composite_term_t *d, uint32_t level) {
+  assert(d->arity == 2);
+
+  pp_open_block(printer, op);
+  pp_term_recur(printer, tbl, d->arg[0], level, true);
+  pp_term_recur(printer, tbl, d->arg[1], level, true);
+  pp_close_block(printer, true);
+}
+
+
+/*
+ * Heuristic to estimate (crudely) whether it's nicer to print t in a
+ * positive context or a negative context. 
+ * - high positive score means --> better to print t than (not t) 
+ * - high negative score means --> better to print (not t) than t 
+ */
+static double p_score(term_table_t *tbl, term_t t) {
+  composite_term_t *d;
+  double score;
+  uint32_t i, n;
+
+  switch (term_kind(tbl, t)) {
+  case OR_TERM:
+    score = 0.0;
+    d = or_term_desc(tbl, t);
+    n = d->arity;
+    for (i=0; i<n; i++) {
+      if (is_pos_term(d->arg[i])) {
+	score += 1.0;
+      } else {
+	score -= 1.0;
+      }
+    }
+    break;
+
+  default:
+    score = 1.0;
+    break;
+  }
+
+  if (is_neg_term(t)) {
+    score = - score;
+  }
+
+  return score;
+}
+
+
+/*
+ * or:
+ * - if polarity is true and arity n > 2, we print (OR p1 ... p_n )
+ * - if polarity is false, we print (AND (not p1) ... (not p_n))
+ * - if polarity is true and arity n = 2
+ *   we try to print as (IMPLY p1 p2) if one of the child has positive polarity and the other one has negative polarity
+ */ 
+static void pp_or_term(yices_pp_t *printer, term_table_t *tbl, composite_term_t *d, uint32_t level, bool polarity) {
+  uint32_t i, n;
+  pp_open_type_t op;
+  term_t p, q;
+  double sp, sq;
+
+  n = d->arity;
+  assert(n >= 2);
+
+  if (polarity && n == 2) {
+    // check if we can write this as an implication
+    p = d->arg[0];
+    q = d->arg[1];
+
+    sp = p_score(tbl, p);
+    sq = p_score(tbl, q);
+
+    if (sp < 0.0 && sp < sq) {
+      // (or p q) written as (implies (not p) q)
+      pp_open_block(printer, PP_OPEN_IMPLIES);
+      pp_term_recur(printer, tbl, p, level, false);
+      pp_term_recur(printer, tbl, q, level, true);
+      pp_close_block(printer, true);
+      return;
+    }
+
+    if (sq < 0.0 && sq < sp) {
+      // (or p q) written as (implies (not q) p)
+      pp_open_block(printer, PP_OPEN_IMPLIES);
+      pp_term_recur(printer, tbl, q, level, false);
+      pp_term_recur(printer, tbl, p, level, true);
+      pp_close_block(printer, true);
+      return;
+    }
+  }
+
+  op = polarity ? PP_OPEN_OR : PP_OPEN_AND;
+  pp_open_block(printer, op);
+  for (i=0; i<n; i++) {
+    pp_term_recur(printer, tbl, d->arg[i], level, polarity);
+  }
+  pp_close_block(printer, true);
+}
+
 
 // select
 static void pp_select_term(yices_pp_t *printer, term_table_t *tbl, term_kind_t tag, select_term_t *d, int32_t level) {
@@ -1635,7 +1755,7 @@ static void pp_select_term(yices_pp_t *printer, term_table_t *tbl, term_kind_t t
   assert(op != 0);
   pp_open_block(printer, op);
   pp_uint32(printer, d->idx);
-  pp_term_recur(printer, tbl, d->arg, level);
+  pp_term_recur(printer, tbl, d->arg, level, true);
   pp_close_block(printer, true);
 }
 
@@ -1643,10 +1763,10 @@ static void pp_select_term(yices_pp_t *printer, term_table_t *tbl, term_kind_t t
 static void pp_exponent(yices_pp_t *printer, term_table_t *tbl, term_t x, uint32_t d, int32_t level) {
   assert(d > 0);
   if (d == 1) {
-    pp_term_recur(printer, tbl, x, level);
+    pp_term_recur(printer, tbl, x, level, true);
   } else {
     pp_open_block(printer, PP_OPEN_POWER);
-    pp_term_recur(printer, tbl, x, level);
+    pp_term_recur(printer, tbl, x, level, true);
     pp_uint32(printer, d);
     pp_close_block(printer, true);
   }
@@ -1679,7 +1799,7 @@ static void pp_mono(yices_pp_t *printer, term_table_t *tbl, rational_t *coeff, i
   if (x == const_idx) {
     pp_rational(printer, coeff);
   } else if (q_is_one(coeff)) {
-    pp_term_recur(printer, tbl, x, level);     
+    pp_term_recur(printer, tbl, x, level, true);
   } else {
     pp_open_block(printer, PP_OPEN_PROD);
     pp_rational(printer, coeff);
@@ -1690,7 +1810,7 @@ static void pp_mono(yices_pp_t *printer, term_table_t *tbl, rational_t *coeff, i
 	pp_exponent(printer, tbl, p->prod[i].var, p->prod[i].exp, level);
       }
     } else {
-      pp_term_recur(printer, tbl, x, level);
+      pp_term_recur(printer, tbl, x, level, true);
     }
     pp_close_block(printer, true);
   }
@@ -1722,7 +1842,7 @@ static void pp_bvmono64(yices_pp_t *printer, term_table_t *tbl, uint64_t c, uint
   if (x == const_idx) {
     pp_bv64(printer, c, nbits);
   } else if (c == 1) {
-    pp_term_recur(printer, tbl, x, level);
+    pp_term_recur(printer, tbl, x, level, true);
   } else {
     pp_open_block(printer, PP_OPEN_PROD);
     pp_bv64(printer, c, nbits);
@@ -1733,7 +1853,7 @@ static void pp_bvmono64(yices_pp_t *printer, term_table_t *tbl, uint64_t c, uint
 	pp_exponent(printer, tbl, p->prod[i].var, p->prod[i].exp, level);
       }
     } else {
-      pp_term_recur(printer, tbl, x, level);
+      pp_term_recur(printer, tbl, x, level, true);
     }
     pp_close_block(printer, true);
   }
@@ -1769,7 +1889,7 @@ static void pp_bvmono(yices_pp_t *printer, term_table_t *tbl, uint32_t *c, uint3
   if (x == const_idx) {
     pp_bv(printer, c, nbits);
   } else if (bvconst_is_one(c, k)) {
-    pp_term_recur(printer, tbl, x, level);
+    pp_term_recur(printer, tbl, x, level, true);
   } else {
     pp_open_block(printer, PP_OPEN_PROD);
     pp_bv(printer, c, nbits);
@@ -1780,7 +1900,7 @@ static void pp_bvmono(yices_pp_t *printer, term_table_t *tbl, uint32_t *c, uint3
 	pp_exponent(printer, tbl, p->prod[i].var, p->prod[i].exp, level);
       }
     } else {
-      pp_term_recur(printer, tbl, x, level);
+      pp_term_recur(printer, tbl, x, level, true);
     }
     pp_close_block(printer, true);
   }
@@ -1813,62 +1933,109 @@ static void pp_bvconst64_term(yices_pp_t *printer, bvconst64_term_t *d) {
   pp_bv64(printer, d->value, d->bitsize);
 }
 
-// term idx i
-static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32_t level) {
-  char *name;
 
-  name = term_name(tbl, pos_term(i));
+/*
+ * term idx i or (not i)
+ */
+static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32_t level, bool polarity) {
+  char *name;
+  char *neg_name;
+  pp_open_type_t op;
+
+  assert(is_boolean_type(tbl->type[i]) || polarity);
+
+  name = term_name(tbl, mk_term(i, polarity));
+  neg_name = NULL;
+  if (is_boolean_type(tbl->type[i])) {
+    neg_name = term_name(tbl, mk_term(i, !polarity));
+  }
+
+  if (name != NULL && level <= 0) {
+    pp_string(printer, name);
+    return;
+  }
+
+  if (neg_name != NULL && level <= 1) {
+    pp_open_block(printer, PP_OPEN_NOT);
+    pp_string(printer, neg_name);
+    pp_close_block(printer, true);
+    return;
+  }
+
+
   switch (tbl->kind[i]) {
   case CONSTANT_TERM:
   case UNINTERPRETED_TERM:
   case VARIABLE:
     if (name != NULL) {
       pp_string(printer, name);
-    } else {
+    } else if (neg_name != NULL) {
+      pp_open_block(printer, PP_OPEN_NOT);
+      pp_string(printer, name);
+      pp_close_block(printer, true);      
+    } else if (polarity) {
       pp_id(printer, "t!", i);
+    } else {
+      pp_open_block(printer, PP_OPEN_NOT);
+      pp_id(printer, "t!", i);
+      pp_close_block(printer, true);
     }
     break;
 
   case ARITH_CONSTANT:
+    assert(polarity);
     pp_rational(printer, &tbl->desc[i].rational);
     break;
 
   case BV64_CONSTANT:
+    assert(polarity);
     pp_bvconst64_term(printer, tbl->desc[i].ptr);
     break;
 
   case BV_CONSTANT:
+    assert(polarity);
     pp_bvconst_term(printer, tbl->desc[i].ptr);
     break;
 
   case ARITH_EQ_ATOM:
-    if (name != NULL && level <= 0) {
-      pp_string(printer, name);
-    } else {
-      pp_open_block(printer, PP_OPEN_EQ);
-      pp_term_recur(printer, tbl, tbl->desc[i].integer, level - 1);
-      pp_int32(printer, 0);
-      pp_close_block(printer, true);
-    }
+    op = polarity ? PP_OPEN_EQ : PP_OPEN_NEQ;
+    pp_open_block(printer, op);
+    pp_term_recur(printer, tbl, tbl->desc[i].integer, level - 1, true);
+    pp_int32(printer, 0);
+    pp_close_block(printer, true);
     break;
 
   case ARITH_GE_ATOM:
-    if (name != NULL && level <= 0) {
-      pp_string(printer, name);
-    } else {
-      pp_open_block(printer, PP_OPEN_GE);
-      pp_term_recur(printer, tbl, tbl->desc[i].integer, level - 1);
-      pp_int32(printer, 0);
-      pp_close_block(printer, true);
-    }
+    op = polarity ? PP_OPEN_GE : PP_OPEN_LT;
+    pp_open_block(printer, op);
+    pp_term_recur(printer, tbl, tbl->desc[i].integer, level - 1, true);
+    pp_int32(printer, 0);
+    pp_close_block(printer, true);
     break;
 
   case FORALL_TERM:
-    if (name != NULL && level <= 0) {
-      pp_string(printer, name);
-    } else {
-      pp_forall_term(printer, tbl, tbl->desc[i].ptr, level - 1);
-    }
+    pp_forall_term(printer, tbl, tbl->desc[i].ptr, level - 1, polarity);
+    break;
+
+  case OR_TERM:
+    pp_or_term(printer, tbl, tbl->desc[i].ptr, level - 1, polarity);
+    break;
+
+  case EQ_TERM:
+  case ARITH_BINEQ_ATOM:
+  case BV_EQ_ATOM:
+    op = polarity ? PP_OPEN_EQ : PP_OPEN_NEQ;
+    pp_binary_atom(printer, tbl, op, tbl->desc[i].ptr, level - 1);
+    break;
+		  
+  case BV_GE_ATOM:
+    op = polarity ? PP_OPEN_BV_GE : PP_OPEN_BV_LT;
+    pp_binary_atom(printer, tbl, op, tbl->desc[i].ptr, level - 1);
+    break;
+
+  case BV_SGE_ATOM:
+    op = polarity ? PP_OPEN_BV_SGE : PP_OPEN_BV_SLT;
+    pp_binary_atom(printer, tbl, op, tbl->desc[i].ptr, level - 1);
     break;
 
   case APP_TERM:
@@ -1876,11 +2043,8 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
   case ITE_SPECIAL:
   case UPDATE_TERM:
   case TUPLE_TERM:
-  case EQ_TERM:
   case DISTINCT_TERM:
-  case OR_TERM:
   case XOR_TERM:
-  case ARITH_BINEQ_ATOM:
   case BV_ARRAY:
   case BV_DIV:
   case BV_REM:
@@ -1890,56 +2054,37 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
   case BV_SHL:
   case BV_LSHR:
   case BV_ASHR:
-  case BV_EQ_ATOM:
-  case BV_GE_ATOM:
-  case BV_SGE_ATOM:
     // i's descriptor is a composite term 
-    if (name != NULL && level <= 0) {
-      pp_string(printer, name);
-    } else {
-      pp_composite_term(printer, tbl, tbl->kind[i], tbl->desc[i].ptr, level - 1);
-    }
+    if (! polarity) pp_open_block(printer, PP_OPEN_NOT);
+    pp_composite_term(printer, tbl, tbl->kind[i], tbl->desc[i].ptr, level - 1);
+    if (! polarity) pp_close_block(printer, true);
     break;
 
   case SELECT_TERM:
   case BIT_TERM:
-    if (name != NULL && level <= 0) {
-      pp_string(printer, name);
-    } else {
-      pp_select_term(printer, tbl, tbl->kind[i], &tbl->desc[i].select, level - 1);
-    }
+    if (!polarity) pp_open_block(printer, PP_OPEN_NOT);
+    pp_select_term(printer, tbl, tbl->kind[i], &tbl->desc[i].select, level - 1);
+    if (!polarity) pp_close_block(printer, true);
     break;
 
   case POWER_PRODUCT:
-    if (name != NULL && level <= 0) {
-      pp_string(printer, name);
-    } else {
-      pp_pprod(printer, tbl, tbl->desc[i].ptr, level - 1);
-    }
+    assert(polarity);
+    pp_pprod(printer, tbl, tbl->desc[i].ptr, level - 1);
     break;
 
   case ARITH_POLY:
-    if (name != NULL && level <= 0) {
-      pp_string(printer, name);
-    } else {
-      pp_poly(printer, tbl, tbl->desc[i].ptr, level - 1);
-    }
+    assert(polarity);
+    pp_poly(printer, tbl, tbl->desc[i].ptr, level - 1);
     break;
 
   case BV64_POLY:
-    if (name != NULL && level <= 0) {
-      pp_string(printer, name);
-    } else {
-      pp_bvpoly64(printer, tbl, tbl->desc[i].ptr, level - 1);
-    }
+    assert(polarity);
+    pp_bvpoly64(printer, tbl, tbl->desc[i].ptr, level - 1);
     break;
 	
   case BV_POLY:
-    if (name != NULL && level <= 0) {
-      pp_string(printer, name);
-    } else {
-      pp_bvpoly(printer, tbl, tbl->desc[i].ptr, level - 1);
-    }
+    assert(polarity);
+    pp_bvpoly(printer, tbl, tbl->desc[i].ptr, level - 1);
     break;
 
   case UNUSED_TERM:
@@ -1950,25 +2095,22 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
   }
 }
 
-// term t
-static void pp_term_recur(yices_pp_t *printer, term_table_t *tbl, term_t t, int32_t level) {
+// term t or (not t)
+static void pp_term_recur(yices_pp_t *printer, term_table_t *tbl, term_t t, int32_t level, bool polarity) {
   int32_t i;
 
   assert(good_term(tbl, t));
 
   if (yices_pp_line_is_full(printer)) return; // do nothing
 
+  // convert to (not t) if polarity is false
+  t = signed_term(t, polarity);
+  
   if (t <= false_term) {
     pp_string(printer, (char *) term2string[t]);
   } else {
     i = index_of(t);
-    if (is_neg_term(t)) {
-      pp_open_block(printer, PP_OPEN_NOT);
-      pp_term_idx(printer, tbl, i, level - 1);
-      pp_close_block(printer, true);
-    } else {
-      pp_term_idx(printer, tbl, i, level);
-    }    
+    pp_term_idx(printer, tbl, i, level, is_pos_term(t));
   }
 }
 
@@ -1977,7 +2119,7 @@ static void pp_term_recur(yices_pp_t *printer, term_table_t *tbl, term_t t, int3
  * Expand top-level names 
  */
 void pp_term_exp(yices_pp_t *printer, term_table_t *tbl, term_t t) {
-  pp_term_recur(printer, tbl, t, 1);
+  pp_term_recur(printer, tbl, t, 1, true);
 }
 
 
@@ -1985,7 +2127,7 @@ void pp_term_exp(yices_pp_t *printer, term_table_t *tbl, term_t t) {
  * Don't expand top-level names
  */
 void pp_term(yices_pp_t *printer, term_table_t *tbl, term_t t) {
-  pp_term_recur(printer, tbl, t, 0);
+  pp_term_recur(printer, tbl, t, 0, true);
 }
 
 
@@ -1993,7 +2135,7 @@ void pp_term(yices_pp_t *printer, term_table_t *tbl, term_t t) {
  * Expand everything 
  */
 void pp_term_full(yices_pp_t *printer, term_table_t *tbl, term_t t) {
-  pp_term_recur(printer, tbl, t, INT32_MAX);
+  pp_term_recur(printer, tbl, t, INT32_MAX, true);
 }
 
 

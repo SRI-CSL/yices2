@@ -17,6 +17,8 @@
 
 #include "cputime.h"
 #include "memsize.h"
+#include "timeout.h"
+
 #include "smt_lexer.h"
 #include "smt_parser.h"
 #include "term_stack.h"
@@ -146,6 +148,10 @@ typedef enum {
 static arith_solver_t arith_solver;
 
 
+/*
+ * Timeout value in seconds (0 means no timeout)
+ */
+static uint32_t timeout;
 
 
 /*
@@ -237,9 +243,12 @@ typedef enum optid {
   // Array solver
   max_update_conflicts,       // max instances of the update axiom per round
   max_extensionality,         // max instances of the extensionality axiom per round
+
+  // Timeout
+  timeout_opt,                // give a timeout
 } optid_t;
 
-#define NUM_OPTIONS (max_extensionality+1)
+#define NUM_OPTIONS (timeout_opt+1)
 
 
 /*
@@ -304,6 +313,8 @@ static option_desc_t options[NUM_OPTIONS] = {
 
   { "max-update-conflicts", '\0', MANDATORY_INT, max_update_conflicts },
   { "max-extensionality", '\0', MANDATORY_INT, max_extensionality },
+
+  { "timeout", 't', MANDATORY_INT, timeout_opt },
 };
 
 
@@ -346,6 +357,7 @@ static void yices_help(char *progname) {
          "  General:\n"
 	 "    --version, -V\n"
 	 "    --help, -h\n"
+	 "    --timeout, -t\n"
 	 "  Internalization:\n"
 	 "    --var-elim\n"
 	 "    --flatten\n"
@@ -479,6 +491,17 @@ static void check_parameters(char *progname) {
   dump_context = opt_set[dump_context_opt];
   dump_internalization = opt_set[dump_internalization_opt];
   show_model = opt_set[show_model_opt];
+
+  // timeout (must be positive)
+  if (opt_set[timeout_opt]) {
+    v = opt_val[timeout_opt].i_value;
+    if (v <= 0) {
+      fprintf(stderr, "%s: the timeout must be positive\n", progname);
+      goto error;
+    }
+    timeout = v;
+  }
+
 
   // specified arithmetic solver: use automatic by default
   arith_solver = ARITH_SOLVER_AUTOMATIC;
@@ -893,6 +916,7 @@ static void parse_command_line(int argc, char *argv[]) {
   var_elim = false;
   dump_context = false;
   dump_internalization = false;
+  timeout = 0;
 
   for(i=0; i<NUM_OPTIONS; i++) {
     opt_set[i] = false;
@@ -970,6 +994,7 @@ static void parse_command_line(int argc, char *argv[]) {
       case simplex_check_period:
       case max_update_conflicts:
       case max_extensionality:
+      case timeout_opt:
 	opt_val[k].i_value = elem.i_value;
 	break;
 
@@ -994,12 +1019,6 @@ static void parse_command_line(int argc, char *argv[]) {
   }
 
  done:
-  if (filename == NULL) {
-    fprintf(stderr, "%s: no filename given\n", parser.command_name);
-    yices_usage(parser.command_name);
-    exit(YICES_EXIT_USAGE);
-  }
-
   check_parameters(parser.command_name);
 }
 
@@ -1572,7 +1591,7 @@ static void dump_the_context(context_t *context, smt_benchmark_t *bench, char *f
 
 
 /*
- * SIGNAL PROCESSING
+ * TIMEOUT/INTERRUPTS
  */
 
 /*
@@ -1589,6 +1608,7 @@ static void handler(int signum) {
   exit(YICES_EXIT_INTERRUPTED);
 }
 
+
 /*
  * Set the signal handler: to print statistics on
  * SIGINT, SIGABRT, SIGXCPU
@@ -1599,6 +1619,29 @@ static void init_handler() {
 #ifndef MINGW
   signal(SIGXCPU, handler);
 #endif
+}
+
+
+/*
+ * Mask the signals
+ */
+static void clear_handler(void) {
+  signal(SIGINT, SIG_IGN);
+  signal(SIGABRT, SIG_IGN);
+#ifndef MINGW
+  signal(SIGXCPU, SIG_IGN);
+#endif  
+}
+
+
+/*
+ * Timeout handler: p = pointer to the context
+ */
+static void timeout_handler(void *p) {
+  context_t *ctx;
+
+  ctx = p;
+  stop_search(ctx->core);
 }
 
 
@@ -1644,11 +1687,17 @@ static int process_benchmark(char *filename) {
 
   print_yices_header(stdout);
 
-  if (init_smt_file_lexer(&lexer, filename) < 0) {
-    perror(filename);
-    return YICES_EXIT_FILE_NOT_FOUND;
+  if (filename != NULL) {
+    // Read from the given file
+    if (init_smt_file_lexer(&lexer, filename) < 0) {
+      perror(filename);
+      return YICES_EXIT_FILE_NOT_FOUND;
+    }
+  } else {
+    // read from stdin
+    init_smt_stdin_lexer(&lexer);
   }
-
+  
   context_exists = false;
   init_handler();
 
@@ -1670,8 +1719,6 @@ static int process_benchmark(char *filename) {
   print_benchmark(stdout, &bench);
   printf("Construction time: %.4f s\n", construction_time);
   printf("Memory used: %.2f MB\n", mem_used);
-  // TODO: FIX THIS
-  // printf("Nodes in bit-expr: %"PRIu32"\n", __yices_globals.nodes->nelems);
   fflush(stdout);
 
   delete_parser(&parser);
@@ -1903,7 +1950,19 @@ static int process_benchmark(char *filename) {
     print_options(stdout, &context);
     print_presearch_stats();
     start_search_time = get_cpu_time();
+
+    if (timeout > 0) {
+      init_timeout();
+      start_timeout(timeout, timeout_handler, &context);
+    }
     code = check_context(&context, search_options, true);
+    clear_handler();
+
+    if (timeout > 0) {
+      clear_timeout();
+      delete_timeout();
+    }
+
     print_results();
 
     if (show_model && (code == STATUS_SAT || code == STATUS_UNKNOWN)) {

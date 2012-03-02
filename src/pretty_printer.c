@@ -1408,6 +1408,7 @@ static void flush_token_queue(formatter_t *f) {
 
   f->last_atom = NULL;
   f->head_token = NULL;
+  f->head_closed = false;
 }
 
 
@@ -1420,9 +1421,9 @@ static void flush_head_block(formatter_t *f) {
   if (f->head_closed) {
     assert(f->head_token != NULL && block_queue_is_empty(&f->block_queue));
     flush_token_queue(f);
-    f->head_closed = false;
   }
 }
+
 
 /*
  * For any block B_i in the queue, we know that the bsize for 

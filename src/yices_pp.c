@@ -81,7 +81,7 @@ typedef struct pp_nonstandard_block_s {
 /*
  * Table of standard blocks
  */
-#define NUM_STANDARD_BLOCKS 27
+#define NUM_STANDARD_BLOCKS 33
 
 static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_FUN_TYPE, "->" },
@@ -91,15 +91,19 @@ static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_TUPLE, "mk-tuple" },
   { PP_OPEN_SELECT, "select" },
   { PP_OPEN_EQ, "=" },
+  { PP_OPEN_NEQ, "/=" },
   { PP_OPEN_DISTINCT, "distinct" },
   { PP_OPEN_NOT, "not" },
   { PP_OPEN_OR, "or" },
+  { PP_OPEN_AND, "and" },
   { PP_OPEN_XOR, "xor" },
+  { PP_OPEN_IMPLIES, "=>" },
   { PP_OPEN_BIT, "bit" },
   { PP_OPEN_PROD, "*" },
   { PP_OPEN_POWER, "^" },
   { PP_OPEN_SUM, "+" },
   { PP_OPEN_GE, ">=" },
+  { PP_OPEN_LT, "<" },
   { PP_OPEN_BV_ARRAY, "bit-array" },
   { PP_OPEN_BV_DIV, "bv-div" },
   { PP_OPEN_BV_REM, "bv-rem" },
@@ -110,14 +114,16 @@ static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_BV_LSHR, "bv-lshr" },
   { PP_OPEN_BV_ASHR, "bv-ashr" },
   { PP_OPEN_BV_GE, "bv-ge" },
+  { PP_OPEN_BV_LT, "bv-lt" },
   { PP_OPEN_BV_SGE, "bv-sge" },
+  { PP_OPEN_BV_SLT, "bv-slt" },
 };
 
 
 /*
  * Table of non-standard blocks
  */
-#define NUM_NONSTANDARD_BLOCKS 7
+#define NUM_NONSTANDARD_BLOCKS 8
 
 static const pp_nonstandard_block_t nonstandard_block[NUM_NONSTANDARD_BLOCKS] = {
   { PP_OPEN, "", PP_HMT_LAYOUT, 0, 1, 1 },
@@ -127,6 +133,7 @@ static const pp_nonstandard_block_t nonstandard_block[NUM_NONSTANDARD_BLOCKS] = 
   { PP_OPEN_UNINT_DEF, "unint", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
   { PP_OPEN_VAR_DEF,   "var", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
   { PP_OPEN_FORALL, "forall ", PP_HMT_LAYOUT,  PP_TOKEN_PAR_MASK, 1, 1},
+  { PP_OPEN_EXISTS, "exits ", PP_HMT_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1},
 };
 
 
