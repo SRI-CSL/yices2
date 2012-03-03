@@ -1040,7 +1040,7 @@ static void print_token(printer_t *p, void *tk) {
   }
 
   // for debugging
-  //  fflush(p->file);
+  fflush(p->file);
 }
 
 

@@ -3864,6 +3864,7 @@ EXPORTED int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t hei
   if (yices_pp_print_failed(&printer)) {
     code = -1;
     errno = yices_pp_errno(&printer); 
+    error.code = OUTPUT_ERROR;
   }
   delete_yices_pp(&printer);
 
@@ -3903,6 +3904,7 @@ EXPORTED int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t heigh
   if (yices_pp_print_failed(&printer)) {
     code = -1;
     errno = yices_pp_errno(&printer); 
+    error.code = OUTPUT_ERROR;
   }
   delete_yices_pp(&printer);
 

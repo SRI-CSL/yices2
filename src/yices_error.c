@@ -348,6 +348,10 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "exception in term evaluation\n");
     break;
 
+  case OUTPUT_ERROR:
+    code = fprintf(f, "output error\n");
+    break;
+
   case INTERNAL_EXCEPTION:
   default:
     code = fprintf(f, "internal error\n");
