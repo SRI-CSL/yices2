@@ -1740,9 +1740,6 @@ static void pp_or_term(yices_pp_t *printer, term_table_t *tbl, composite_term_t 
   op = polarity ? PP_OPEN_OR : PP_OPEN_AND;
   pp_open_block(printer, op);
   for (i=0; i<n; i++) {
-    if (i >= 3130) {
-      fprintf(stderr, "---> i = %"PRIu32"\n", i);
-    }
     pp_term_recur(printer, tbl, d->arg[i], level, polarity);
   }
   pp_close_block(printer, true);
@@ -2098,22 +2095,37 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
   }
 }
 
+
+/*
+ * Print name of t if any. Otherwise, print ellipsis
+ */
+static void pp_name_if_any(yices_pp_t *printer, term_table_t *tbl, term_t t) {
+  char *name;
+
+  name = term_name(tbl, t);
+  if (name != NULL) {
+    pp_string(printer, name);
+  } else {
+    pp_string(printer, "...");
+  }
+}
+
 // term t or (not t)
 static void pp_term_recur(yices_pp_t *printer, term_table_t *tbl, term_t t, int32_t level, bool polarity) {
   int32_t i;
 
   assert(good_term(tbl, t));
 
-  if (yices_pp_line_is_full(printer)) {
-    fprintf(stderr, "---> skipped t%"PRId32"\n", t);
-    return; // do nothing
-  }
+  if (yices_pp_is_full(printer)) return;
 
   // convert to (not t) if polarity is false
   t = signed_term(t, polarity);
-  
+
   if (t <= false_term) {
     pp_string(printer, (char *) term2string[t]);
+  } else if (yices_pp_depth(printer) >= printer->pp.printer.area.width) {
+    // heuristic to cut recursion for deep terms
+    pp_name_if_any(printer, tbl, t);
   } else {
     i = index_of(t);
     pp_term_idx(printer, tbl, i, level, is_pos_term(t));

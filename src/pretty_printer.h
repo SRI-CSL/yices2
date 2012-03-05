@@ -482,7 +482,7 @@ typedef struct pp_stack_s {
  * - no_break = true to prevent line break 
  * - no_space = true to prevent space
  * - full_line = true if the current line is full
- * - overfull_count = number of open blocks seen since the line has been full.
+ * - overfull_count = number of open blocks seen since the line has been full
  */
 typedef struct printer_s {
   // output file + display area + converter
@@ -648,6 +648,9 @@ typedef struct pp_block_queue_s {
  * - max_width = maximal block width (any block whose bsize 
  *   is known to be more than max_width gets assigned 
  *   bsize = MAX_BSIZE).
+ *
+ * Depth counter:
+ * - depth = number of open token seen - number of close token seen
  */
 typedef struct formatter_s {
   printer_t *printer;
@@ -669,6 +672,8 @@ typedef struct formatter_s {
   uint32_t length;
   uint32_t max_width;
 
+  // depth
+  uint32_t depth;
 } formatter_t;
 
 
@@ -721,12 +726,20 @@ extern void delete_pp(pp_t *pp);
 
 
 /*
- * Check whether the current print line is full
- * - if this is true, it's useless to push new open blocks
+ * Check whether the print area is full
+ * - if this is true, it's useless to push new tokens
  * - this also return true if pp->printed_failed is true
  *   (i.e., one of fputs, fputc, or fflush returned an error).
  */
-extern bool pp_line_is_full(pp_t *pp); 
+extern bool pp_is_full(pp_t *pp); 
+
+
+/*
+ * Get the printer depth = number of open blocks
+ */
+static inline uint32_t pp_depth(pp_t *pp) {
+  return pp->formatter.depth;
+}
 
 
 /*

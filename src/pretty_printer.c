@@ -1251,6 +1251,8 @@ static void init_formatter(formatter_t *f, printer_t *printer) {
   f->no_space = true;
   f->length = 0;
   f->max_width= printer->area.width;
+
+  f->depth = 0;
 }
 
 
@@ -1541,6 +1543,7 @@ static void process_token(formatter_t *f, void *tk) {
   switch (ptr_tag(tk)) {
   case PP_TOKEN_OPEN_TAG:
     process_open_token(f, untag_open(tk));
+    f->depth ++;
     break;
 
   case PP_TOKEN_ATOMIC_TAG:
@@ -1548,6 +1551,8 @@ static void process_token(formatter_t *f, void *tk) {
     break;
 
   case PP_TOKEN_CLOSE_TAG:
+    assert(f->depth > 0);
+    f->depth --;
     process_close_token(f, untag_close(tk));
     break;
 
@@ -1644,6 +1649,8 @@ void flush_pp(pp_t *pp) {
     print_pending(p);
   }
 
+  pp->formatter.depth = 0;
+
   // start a new line
   pp_fputc(p, '\n');
   p->no_space = true;
@@ -1661,11 +1668,11 @@ void flush_pp(pp_t *pp) {
  * Check whether the printer is full (more precisely,
  * check whether we can't print anything more)
  */
-bool pp_line_is_full(pp_t *pp) {
+bool pp_is_full(pp_t *pp) {
   printer_t *p;
 
   p = &pp->printer;
-  return p->print_failed || p->full_line;
+  return p->print_failed || (p->full_line && p->line + 1 == p->area.height);
 }
 
 

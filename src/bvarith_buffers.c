@@ -1640,7 +1640,7 @@ void bvarith_buffer_add_mono_times_bvpoly(bvarith_buffer_t *b, bvpoly_t *poly, p
     // r1 = r * power product for x_i
     r1 = pprod_mul(b->ptbl, *pp, r);
     while (pprod_precedes(p->prod, r1)) {
-      q = &b->list;
+      q = &p->next;
       p = *q;
     }
     

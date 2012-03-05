@@ -232,11 +232,18 @@ extern void delete_yices_pp(yices_pp_t *printer);
 
 
 /*
- * Check for saturation: when this is true, we should stop sending
- * open blocks
+ * Check for saturation: when this is true, we should stop sending tokens
  */
-static inline bool yices_pp_line_is_full(yices_pp_t *printer) {
-  return pp_line_is_full(&printer->pp);
+static inline bool yices_pp_is_full(yices_pp_t *printer) {
+  return pp_is_full(&printer->pp);
+}
+
+
+/*
+ * Get the print depth = number of open blocks sent to the printer
+ */
+static inline uint32_t yices_pp_depth(yices_pp_t *printer) {
+  return pp_depth(&printer->pp);
 }
 
 
