@@ -6,8 +6,6 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 #include <errno.h>
 
 #include "yices.h"
@@ -165,11 +163,8 @@ static void init_terms(void) {
  * Tests of print type
  */
 static void test_pp_types(void) {
-  char template[20];
-  char *filename;
   FILE *f;
   uint32_t i;
-  int fd;
 
   printf("File = stdout\n");
   for (i=0; i<NUM_TYPES; i++) {
@@ -178,57 +173,48 @@ static void test_pp_types(void) {
   test_pp_type(stdout, 1389841, -1, INVALID_TYPE);
   printf("\n\n");
   
-  strcpy(template, "/tmp/yices.XXXXXX");
-  filename = mktemp(template);
-  if (filename == NULL) {
-    printf("could not create temporary file\n");
-    perror(template);
+  // use /tmp/yices.a, open for writing
+  printf("File = /tmp/yices.a\n");
+  f = fopen("/tmp/yices.a", "w");
+  if (f == NULL) {
+    perror("/tmp/yices.a");
   } else {
-    printf("File = %s\n", filename);
-    f = fopen(filename, "w");
-    if (f == NULL) {
-      perror(filename);
-    } else {
-      for (i=0; i<NUM_TYPES; i++) {
-	test_pp_type(f, type[i], 0, 0);
-      }
-      test_pp_type(f, -123, -1, INVALID_TYPE);
-      fclose(f);
+    for (i=0; i<NUM_TYPES; i++) {
+      test_pp_type(f, type[i], 0, 0);
     }
+    test_pp_type(f, -123, -1, INVALID_TYPE);
+    fclose(f);
     printf("\n\n");
   }
 
-  // create another temporary file
-  strcpy(template, "/tmp/yices.XXXXXX");
-  fd = mkstemp(template);
-  if (fd < 0) {
-    printf("could not create temporary file\n");
-    perror(template);
+  // create an empty file
+  printf("File = /tmp/yices.b (read only)\n");
+  f = fopen("/tmp/yices.b", "w");
+  if (f == NULL) {
+    perror("/tmp/yices.b");
+    return;
   } else {
-    // close the temporary file then open it read only
-    // This should produce error: EBADF (Bad file descriptor)
-    close(fd);    
-    printf("File = %s\n", filename);
-    f = fopen(filename, "r");
-    if (f == NULL) {
-      perror(filename);
-    } else {
-      test_pp_type(f, type[0], -1, OUTPUT_ERROR);
-      test_pp_type(f, -123, -1, INVALID_TYPE);
-      fclose(f);
-    }
-    printf("\n\n");
+    fclose(f);
   }
+
+  // open /tmp/yices.b read only
+  // This should produce error: EBADF (Bad file descriptor)
+  f = fopen("/tmp/yices.b", "r");
+  if (f == NULL) {
+    perror("/tmp/yices.b");
+  } else {
+    test_pp_type(f, type[0], -1, OUTPUT_ERROR);
+    test_pp_type(f, -123, -1, INVALID_TYPE);
+    fclose(f);
+  }
+  printf("\n\n");
 }
 
 
 
 static void test_pp_terms(void) {
-  char template[20];
-  char *filename;
   FILE *f;
   uint32_t i;
-  int fd;
 
   printf("File = stdout\n");
   for (i=0; i<NUM_TERMS; i++) {
@@ -237,47 +223,41 @@ static void test_pp_terms(void) {
   test_pp_term(stdout, 1389841, -1, INVALID_TERM);
   printf("\n\n");
   
-  strcpy(template, "/tmp/yices.XXXXXX");
-  filename = mktemp(template);
-  if (filename == NULL) {
-    printf("could not create temporary file\n");
-    perror(template);
+  // use /tmp/yices.c, open for writing
+  printf("File = /tmp/yices.c\n");
+  f = fopen("/tmp/yices.c", "w");
+  if (f == NULL) {
+    perror("/tmp/yices.c");
   } else {
-    printf("File = %s\n", filename);
-    f = fopen(filename, "w");
-    if (f == NULL) {
-      perror(filename);
-    } else {
-      for (i=0; i<NUM_TERMS; i++) {
-	test_pp_term(f, term[i], 0, 0);
-      }
-      test_pp_term(f, -123, -1, INVALID_TERM);
-      fclose(f);
+    for (i=0; i<NUM_TERMS; i++) {
+      test_pp_term(f, term[i], 0, 0);
     }
+    test_pp_term(f, -123, -1, INVALID_TERM);
+    fclose(f);
     printf("\n\n");
   }
 
-  // create another temporary file
-  strcpy(template, "/tmp/yices.XXXXXX");
-  fd = mkstemp(template);
-  if (fd < 0) {
-    printf("could not create temporary file\n");
-    perror(template);
+  // create another empty file
+  printf("File = /tmp/yices.d (read only)\n");
+  f = fopen("/tmp/yices.d", "w");
+  if (f == NULL) {
+    perror("/tmp/yices.d");
+    return;
   } else {
-    // close the temporary file then open it read only
-    // This should produce error: EBADF (Bad file descriptor)
-    close(fd);    
-    printf("File = %s\n", filename);
-    f = fopen(filename, "r");
-    if (f == NULL) {
-      perror(filename);
-    } else {
-      test_pp_term(f, term[0], -1, OUTPUT_ERROR);
-      test_pp_term(f, -123, -1, INVALID_TERM);
-      fclose(f);
-    }
-    printf("\n\n");
+    fclose(f);
   }
+
+  // use it read-only 
+  f = fopen("/tmp/yices.d", "r");
+  if (f == NULL) {
+    perror("/tmp/yices.d");
+  } else {
+    test_pp_term(f, term[0], -1, OUTPUT_ERROR);
+    test_pp_term(f, -123, -1, INVALID_TERM);
+    fclose(f);
+  }
+  printf("\n\n");
+
 }
 
 int main(void) {
