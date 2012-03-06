@@ -42,6 +42,7 @@ static const char * const code2string[NUM_TSTACK_ERRORS] = {
   "invalid operation",
   "wrong number of arguments",
   "constant too large",
+  "exponent must be non-negative",
   "constant is not an integer",
   "symbol required",
   "numerical constant required",
@@ -102,6 +103,7 @@ static const char * const opcode2smt_string[NUM_OPCODES] = {
   "negation",
   "multiplication",
   "division",
+  "exponentiation", // not in SMT
   "inequality",
   "inequality",
   "inequality",
@@ -112,6 +114,7 @@ static const char * const opcode2smt_string[NUM_OPCODES] = {
   "bvsub",
   "bvmul",
   "bvneg",
+  "bvpow",   // not in SMT
   "bvnot",
   "bvand",
   "bvor",
@@ -212,6 +215,7 @@ static const char * const opcode2yices_string[NUM_OPCODES] = {
   "negation",
   "multiplication",
   "division",
+  "exponentiation",
   "inequality",
   "inequality",
   "inequality",
@@ -222,6 +226,7 @@ static const char * const opcode2yices_string[NUM_OPCODES] = {
   "bv-sub",
   "bv-mul",
   "bv-neg",
+  "bv-pow",
   "bv-not",
   "bv-and",
   "bv-or",
@@ -384,6 +389,7 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
 
   case TSTACK_NOT_A_RATIONAL:
   case TSTACK_INTEGER_OVERFLOW:
+  case TSTACK_NEGATIVE_EXPONENT:
   case TSTACK_NOT_AN_INTEGER:
   case TSTACK_ARITH_ERROR:
   case TSTACK_DIVIDE_BY_ZERO:
@@ -409,7 +415,7 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
  * Error codes defined in yices_types:
  *   0 to  99 --> reserved for basic errors in term/type construction
  * 100 to 299 --> reserved for parser errors
- * 300 to 399 --> reserved for error in context operation
+ * 300 to 399 --> reserved for errors in context operations
  * 400 to ... --> other error codes
  *
  * The term_stack should only trigger error codes in the range [0..99]

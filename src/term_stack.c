@@ -468,6 +468,7 @@ static const unsigned char assoc[NUM_OPCODES] = {
   0, // MK_NEG
   1, // MK_MUL
   0, // MK_DIV
+  0, // MK_POW
   0, // MK_GE
   0, // MK_GT
   0, // MK_LE
@@ -477,6 +478,7 @@ static const unsigned char assoc[NUM_OPCODES] = {
   0, // MK_BV_SUB
   1, // MK_BV_MUL
   0, // MK_BV_NEG
+  0, // MK_BV_POW
   0, // MK_BV_NOT
   1, // MK_BV_AND
   1, // MK_BV_OR
@@ -3707,6 +3709,37 @@ static void eval_mk_div(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
+ * [mk-pow <arith> <integer>]
+ */
+static void check_mk_pow(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_POW);
+  check_size(stack, n == 2);
+  check_tag(stack, f+1, TAG_RATIONAL);
+}
+
+static void eval_mk_pow(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  int32_t exponent;
+  term_t t;
+
+  exponent = get_integer(stack, f+1);
+  if (exponent < 0) {
+    raise_exception(stack, f+1, TSTACK_NEGATIVE_EXPONENT);
+  }
+
+  /*
+   * Note: we could avoid creating the intermediate term t
+   * by calling directly the exponentiation functions for
+   * arith_buffers, rationals, etc.?
+   */
+  t = get_term(stack, f);
+  t = yices_power(t, exponent);
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
+}
+
+/*
  * [mk-ge <arith> <arith>]
  */
 static void check_mk_ge(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -3997,6 +4030,37 @@ static void eval_mk_bv_neg(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   copy_result_and_pop_frame(stack, f);
 }
 
+
+/*
+ * [mk-bv-pow <bv> <integer]
+ */
+static void check_mk_bv_pow(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_BV_POW);
+  check_size(stack, n == 2);
+  check_tag(stack, f+1, TAG_RATIONAL);
+}
+
+static void eval_mk_bv_pow(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  int32_t exponent;
+  term_t t;
+
+  exponent = get_integer(stack, f+1);
+  if (exponent < 0) {
+    raise_exception(stack, f+1, TSTACK_NEGATIVE_EXPONENT);
+  }
+
+  /*
+   * Note: we could avoid creating the intermediate term t
+   * by calling directly the exponentiation functions for
+   * arith_buffers, rationals, etc.?
+   */
+  t = get_term(stack, f);
+  t = yices_bvpower(t, exponent);
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
+}
 
 
 /*
@@ -5510,6 +5574,7 @@ static evaluator_t eval[NUM_OPCODES] = {
   eval_mk_neg,
   eval_mk_mul,
   eval_mk_div,
+  eval_mk_pow,
   eval_mk_ge,
   eval_mk_gt,
   eval_mk_le,
@@ -5520,6 +5585,7 @@ static evaluator_t eval[NUM_OPCODES] = {
   eval_mk_bv_sub,
   eval_mk_bv_mul,
   eval_mk_bv_neg,
+  eval_mk_bv_pow,
   eval_mk_bv_not,
   eval_mk_bv_and,
   eval_mk_bv_or,
@@ -5619,6 +5685,7 @@ static checker_t check[NUM_OPCODES] = {
   check_mk_neg,
   check_mk_mul,
   check_mk_div,
+  check_mk_pow,
   check_mk_ge,
   check_mk_gt,
   check_mk_le,
@@ -5629,6 +5696,7 @@ static checker_t check[NUM_OPCODES] = {
   check_mk_bv_sub,
   check_mk_bv_mul,
   check_mk_bv_neg,
+  check_mk_bv_pow,
   check_mk_bv_not,
   check_mk_bv_and,
   check_mk_bv_or,

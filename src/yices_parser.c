@@ -114,6 +114,7 @@ static error_code_t const tstack_error2yices_error[NUM_TSTACK_ERRORS] = {
   NO_ERROR,                     //  TSTACK_INVALID_OP
   WRONG_NUMBER_OF_ARGUMENTS,    //  TSTACK_INVALID_FRAME
   INTEGER_OVERFLOW,             //  TSTACK_INTEGER_OVERFLOW
+  NONNEG_INT_REQUIRED,          //  TSTACK_NEGATIVE_EXPONENT
   INTEGER_REQUIRED,             //  TSTACK_NOT_AN_INTEGER
   SYMBOL_REQUIRED,              //  TSTACK_NOT_A_SYMBOL
   RATIONAL_REQUIRED,            //  TSTACK_NOT_A_RATIONAL
@@ -129,6 +130,7 @@ static error_code_t const tstack_error2yices_error[NUM_TSTACK_ERRORS] = {
   TYPE_MISMATCH_IN_DEF,         //  TSTACK_TYPE_ERROR_IN_DEFTERM
   NO_ERROR,                     //  TSTACK_YICES_ERROR
 };
+
 
 /*
  * Store code and location data for an exception raised by tstack
@@ -710,6 +712,12 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       state = e0;
       goto loop;
 
+    case pow_next_push_e3_goto_e0:
+      tstack_push_op(tstack, MK_POW, &loc);
+      parser_push_state(stack, e3);
+      state = e0;
+      goto loop;
+
     case lt_next_push_e3_goto_e0:
       tstack_push_op(tstack, MK_LT, &loc);
       parser_push_state(stack, e3);
@@ -760,6 +768,12 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
 
     case bv_neg_next_push_e3_goto_e0:
       tstack_push_op(tstack, MK_BV_NEG, &loc);
+      parser_push_state(stack, e3);
+      state = e0;
+      goto loop;
+
+    case bv_pow_next_push_e3_goto_e0:
+      tstack_push_op(tstack, MK_BV_POW, &loc);
       parser_push_state(stack, e3);
       state = e0;
       goto loop;

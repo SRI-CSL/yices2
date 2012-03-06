@@ -52,12 +52,13 @@ YICES LANGUAGE
 	or	and 	not	xor	<=>	=>	mk-tuple
 	select	tuple-update	update 	forall	exists	let
 
-	+	-	*	/	<	<=	>	>=
+	+	-	*	/	^ 
+	<	<=	>	>=
 
-	mk-bv	bv-add	bv-sub	bv-mul	bv-neg
+	mk-bv	bv-add	bv-sub	bv-mul	bv-neg  bv-pow
 	bv-not	bv-and	bv-or	bv-xor	bv-nand	bv-nor	bv-xnor
 	bv-shift-left0 	bv-shift-left1	bv-shift-right0	bv-shift-right1
-	bv-ashift-right	bv-rotate-left	bv-rotare-right	
+	bv-ashift-right	bv-rotate-left	bv-rotate-right	
 	bv-extract	bv-concat	bv-repeat
 	bv-sign-extend	bv-zero-extend	bv-ge 	bv-gt	bv-le	bv-lt
 	bv-sge	bv-sgt	bv-sle	bv-slt  bv-shl  bv-lshr bv-ashr
@@ -93,10 +94,10 @@ YICES LANGUAGE
             | ( set-param <symbol> <immediate-value> )
 	    | ( show-param <symbol> )
 	    | ( show-params )
-            | ( dump-context )
 	    | ( show-stats )
             | ( reset-stats )
 	    | ( set-timeout <number> )
+            | ( dump-context )
             | EOS
   
 
@@ -233,6 +234,8 @@ YICES LANGUAGE
 	must have the same size     
 
         (bv-neg x) = opposite of x in 2's complement arithmetic
+
+        (bv-pow x k) = exponentiation (k must be a non-negative integer constant)
 
 
      c) bitwise logical operators

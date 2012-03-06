@@ -1600,7 +1600,7 @@ static bool check_power_degree(term_manager_t *mngr, term_t t, uint32_t n) {
   tbl = term_manager_get_terms(mngr);
 
   d = term_degree(tbl, t) * n;
-  if (d > ((uint64_t) UINT32_MAX)) {
+  if (d > ((uint64_t) YICES_MAX_DEGREE)) {
     error.code = DEGREE_OVERFLOW;
     error.badval = UINT32_MAX;
     return false;
@@ -4110,7 +4110,6 @@ bool yices_check_mul_buffer(arith_buffer_t *b1, arith_buffer_t *b2) {
 
   return check_maxdegree(d1 + d2);  
 }
-
 
 
 /*

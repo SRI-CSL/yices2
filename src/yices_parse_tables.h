@@ -99,6 +99,7 @@ typedef enum actions {
   sub_next_push_e3_goto_e0,
   mul_next_push_e3_goto_e0,
   div_next_push_e3_goto_e0,
+  pow_next_push_e3_goto_e0,
   lt_next_push_e3_goto_e0,
   le_next_push_e3_goto_e0,
   gt_next_push_e3_goto_e0,
@@ -108,6 +109,7 @@ typedef enum actions {
   bv_sub_next_push_e3_goto_e0,
   bv_mul_next_push_e3_goto_e0,
   bv_neg_next_push_e3_goto_e0,
+  bv_pow_next_push_e3_goto_e0,
   bv_not_next_push_e3_goto_e0,
   bv_and_next_push_e3_goto_e0,
   bv_or_next_push_e3_goto_e0,
@@ -185,7 +187,7 @@ typedef enum actions {
 
 // Table sizes
 #define NSTATES 35
-#define BSIZE 175
+#define BSIZE 177
 
 // Default values for each state
 static const uint8_t default_value[NSTATES] = {
@@ -251,9 +253,9 @@ static const uint8_t check[BSIZE] = {
     22,  22,  22,  22,  22,  22,  22,  22,  22,  22,
     22,  22,  22,  22,  22,  22,  22,  22,  22,  22,
     22,  22,  22,  22,  22,  22,  22,  22,  22,  22,
-    22,  22,  22,  22,  22,  22,  22,  22,  35,  35,
+    22,  22,  22,  22,  22,  22,  22,  22,  22,  22,
     35,  35,  35,  35,  35,  35,  35,  35,  35,  35,
-    35,  35,  35,  35,  35,
+    35,  35,  35,  35,  35,  35,  35,
 };
 
 // Value table
@@ -369,6 +371,7 @@ static const uint8_t value[BSIZE] = {
   sub_next_push_e3_goto_e0,
   mul_next_push_e3_goto_e0,
   div_next_push_e3_goto_e0,
+  pow_next_push_e3_goto_e0,
   lt_next_push_e3_goto_e0,
   le_next_push_e3_goto_e0,
   gt_next_push_e3_goto_e0,
@@ -378,6 +381,7 @@ static const uint8_t value[BSIZE] = {
   bv_sub_next_push_e3_goto_e0,
   bv_mul_next_push_e3_goto_e0,
   bv_neg_next_push_e3_goto_e0,
+  bv_pow_next_push_e3_goto_e0,
   bv_not_next_push_e3_goto_e0,
   bv_and_next_push_e3_goto_e0,
   bv_or_next_push_e3_goto_e0,
@@ -434,7 +438,6 @@ static const uint8_t value[BSIZE] = {
   error,
   error,
 };
-
 
 
 #endif /* __YICES_PARSE_TABLES_H */
