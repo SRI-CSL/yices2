@@ -1,4 +1,4 @@
-/*
+dele/*
  * YICES API
  */
 
@@ -37,7 +37,7 @@
 
 
 #ifdef __cplusplus
-// extern "C" {
+extern "C" {
 #endif
 
 
@@ -1930,6 +1930,13 @@ __YICES_DLLSPEC__ extern model_t *yices_get_model(context_t *ctx, int32_t keep_s
  * Delete model mdl
  */
 __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
+
+
+/*
+ * Print model mdl on FILE f
+ * - f must be open/writable
+ */
+__YICES_DLLSPEC__ extern void yices_print_model(FILE *f, model_t *mdl);
 
 
 /*

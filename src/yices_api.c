@@ -5312,3 +5312,11 @@ EXPORTED void yices_stop_search(context_t *ctx) {
 }
 
 
+
+/************
+ *  MODELS  *
+ ***********/
+
+/*
+ * Nothing implemented yet. Check yices.h for the planned API.
+ */
