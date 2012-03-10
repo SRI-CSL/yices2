@@ -3200,6 +3200,7 @@ static thvar_t map_bvpoly(bv_solver_t *solver, bvpoly_buffer_t *b) {
     }
   }
 
+
   /*
    * Expand p then check whether the expanded form is equal to a constant
    * or an existing variable

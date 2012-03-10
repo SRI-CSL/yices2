@@ -168,7 +168,7 @@ typedef struct bv_trail_stack_s {
  **********************/
 
 /*
- * Experiment: simpler approach to deal with equality and
+ * Experimental: simpler approach to deal with equality and
  * disequalities from the egraph.
  *
  * We can force the egraph and bv_solver to agree by

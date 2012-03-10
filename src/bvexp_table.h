@@ -21,8 +21,8 @@
  * - for a variable index i:
  *   def[i] = NULL if i has no expanded form
  *   otherwise def[i] is a list of bitvector monomials.
- * - depending on the variable's bitsie, def[i] is either 
- *   an bvmlist_t pointer (more than 64bits) or a bvmlist64_t pointer
+ * - depending on the variable's bitsize, def[i] is either 
+ *   a bvmlist_t pointer (more than 64bits) or a bvmlist64_t pointer
  *   (1 to 64bits).
  * - nvars = number of variables present (nvars <= size)
  * - size = total size of array def

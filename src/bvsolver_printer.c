@@ -79,7 +79,7 @@ static void print_bv_mono64(FILE *f, uint64_t c, thvar_t x, uint32_t n, bool fir
 
     bvconst64_print(f, c, n);
     if (x != const_idx) {
-      fputc('*', f);
+      fputs(" * ", f);
       print_bvvar(f, x);
     }
   }
@@ -141,7 +141,7 @@ static void print_bv_mono(FILE *f, uint32_t *c, thvar_t x, uint32_t n, bool firs
 
     bvconst_print(f, c, n);
     if (x != const_idx) {
-      fputc('*', f);
+      fputs(" * ", f);
       print_bvvar(f, x);
     }
   }
