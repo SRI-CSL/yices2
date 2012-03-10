@@ -1,4 +1,4 @@
-dele/*
+/*
  * YICES API
  */
 
