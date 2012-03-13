@@ -185,6 +185,13 @@ static void print_bv_binop(FILE *f, const char *op, thvar_t arg[2]) {
 }
 
 
+static void print_bvneg(FILE *f, thvar_t arg[2]) {
+  fprintf(f, "(neg ");
+  print_bvvar(f, arg[0]);
+  fputc(')', f);
+}
+
+
 /*
  * Print the definition of x in vtbl
  */
@@ -258,8 +265,24 @@ static void print_bv_vardef(FILE *f, bv_vartable_t *vtbl, thvar_t x) {
     break;
     
   case BVTAG_ASHR:
-    print_bv_binop(f, "lshr", bvvar_binop(vtbl, x));
-    break;       
+    print_bv_binop(f, "ashr", bvvar_binop(vtbl, x));
+    break;
+
+  case BVTAG_ADD:
+    print_bv_binop(f, "add", bvvar_binop(vtbl, x));
+    break;
+
+  case BVTAG_SUB:
+    print_bv_binop(f, "sub", bvvar_binop(vtbl, x));
+    break;
+
+  case BVTAG_MUL:
+    print_bv_binop(f, "mul", bvvar_binop(vtbl, x));
+    break;
+
+  case BVTAG_NEG:
+    print_bvneg(f, bvvar_binop(vtbl, x));
+    break;
   }
 }
 

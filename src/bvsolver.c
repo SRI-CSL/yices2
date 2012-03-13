@@ -177,6 +177,7 @@ static void reset_bv_bound_queue(bv_bound_queue_t *queue) {
 }
 
 
+
 /**********************************
  *  INTERVAL-COMPUTATION BUFFERS  *
  *********************************/
@@ -297,9 +298,6 @@ static inline bv_aux_buffers_t *get_bv_aux_buffers(bv_interval_stack_t *stack) {
   assert(stack->size != 0 && stack->buffers != NULL);
   return stack->buffers;
 }
-
-
-
 
 
 
@@ -1937,12 +1935,6 @@ static void simplify_eq(bv_solver_t *solver, thvar_t *vx, thvar_t *vy) {
 static inline bool equal_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
   assert(bvvar_bitsize(&solver->vtbl, x) == bvvar_bitsize(&solver->vtbl, y));
   assert(mtbl_is_root(&solver->mtbl, x) && mtbl_is_root(&solver->mtbl, y));
-
-  /*
-   * TODO: check for equality between arithmetic expressions
-   * (using associativity, distributivity)
-   */
-
   return x == y;
 }
 

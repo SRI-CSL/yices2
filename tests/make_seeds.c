@@ -13,6 +13,14 @@ static inline long int random(void) {
 
 #define N 10000
 
+static uint32_t random_u32(void) {
+  uint32_t a, b;
+
+  a = random();
+  b = random();
+  return ((a << 4) & (uint32_t) 0xFFFF0000) | (b & (uint32_t) 0xFFFF);
+}
+
 int main() {
   FILE *f;
   int i;
@@ -24,7 +32,7 @@ int main() {
   }
 
   for (i=0; i<N; i++) {
-    fprintf(f, "%d\n", (int) random());
+    fprintf(f, "%08x\n", random_u32());
   }
   fclose(f);
   return 0;

@@ -34,6 +34,12 @@
  * - bit expressions
  * - array of bit expressions
  * - binary and unary operators (arithmetic + shift)
+ *
+ * For polynomials, we use two representations:
+ * - when created, polynomials have a bvpoly or bvpoly64 descriptor
+ * - in the first step of bit-blasting, we compile the polynomial
+ *   expressions into the simpler operations that the bitblaster supports
+ *   (i.e., binary ADD, SUB, MUL + NEG)
  */
 typedef enum bvvar_tag {
   BVTAG_VAR,           // uninterpreted bitvector
@@ -52,9 +58,15 @@ typedef enum bvvar_tag {
   BVTAG_SHL,           // shift left
   BVTAG_LSHR,          // logical shift right
   BVTAG_ASHR,          // arithmetic shift right
+
+  // auxiliary arithmetic operators for compilation of polynomials
+  BVTAG_ADD,           // binary ADD
+  BVTAG_SUB,           // binary SUB
+  BVTAG_MUL,           // binary MUL
+  BVTAG_NEG,           // opposite (one argument)
 } bvvar_tag_t;
 
-#define NUM_BVTAGS (BVTAG_ASHR + 1)
+#define NUM_BVTAGS (BVTAG_NEG + 1)
 
 
 /*
@@ -239,6 +251,23 @@ extern thvar_t find_div(bv_vartable_t *table, thvar_t x, thvar_t y);
 extern thvar_t find_rem(bv_vartable_t *table, thvar_t x, thvar_t y);
 extern thvar_t find_sdiv(bv_vartable_t *table, thvar_t x, thvar_t y);
 extern thvar_t find_srem(bv_vartable_t *table, thvar_t x, thvar_t y);
+
+
+
+/*
+ * Auxiliary arithmetic nodes: 
+ * - n = number of bits
+ * - x (and y is present) = operands
+ */
+extern thvar_t get_bvadd(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y);
+extern thvar_t get_bvsub(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y);
+extern thvar_t get_bvmul(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y);
+extern thvar_t get_bvneg(bv_vartable_t *table, uint32_t n, thvar_t x);
+
+extern thvar_t find_bvadd(bv_vartable_t *table, thvar_t x, thvar_t y);
+extern thvar_t find_bvsub(bv_vartable_t *table, thvar_t x, thvar_t y);
+extern thvar_t find_bvmul(bv_vartable_t *table, thvar_t x, thvar_t y);
+extern thvar_t find_bvneg(bv_vartable_t *table, thvar_t x);
 
 
 

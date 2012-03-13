@@ -266,6 +266,22 @@ static inline uint32_t hash_bvashr(thvar_t x, thvar_t y) {
   return jenkins_hash_pair(x, y, 0xc3e4fed1);
 }
 
+static inline uint32_t hash_bvadd(thvar_t x, thvar_t y) {
+  return jenkins_hash_pair(x, y, 0x198cea23);
+}
+
+static inline uint32_t hash_bvsub(thvar_t x, thvar_t y) {
+  return jenkins_hash_pair(x, y, 0xb8b423c6);
+}
+
+static inline uint32_t hash_bvmul(thvar_t x, thvar_t y) {
+  return jenkins_hash_pair(x, y, 0x43c94873);
+}
+
+static inline uint32_t hash_bvneg(thvar_t x) {
+  return jenkins_hash_pair(x, x, 0x4b0d5cff);
+}
+
 
 
 /*
@@ -350,6 +366,22 @@ void bv_vartable_remove_vars(bv_vartable_t *table, uint32_t nv) {
 
     case BVTAG_ASHR:
       h = hash_bvashr(table->def[i].op[0], table->def[i].op[1]);
+      break;
+
+    case BVTAG_ADD:
+      h = hash_bvadd(table->def[i].op[0], table->def[i].op[1]);
+      break;
+
+    case BVTAG_SUB:
+      h = hash_bvsub(table->def[i].op[0], table->def[i].op[1]);
+      break;
+
+    case BVTAG_MUL:
+      h = hash_bvmul(table->def[i].op[0], table->def[i].op[1]);
+      break;
+
+    case BVTAG_NEG:
+      h = hash_bvneg(table->def[i].op[0]);
       break;
     }
 
@@ -635,6 +667,23 @@ static uint32_t hash_bvashr_hobj(bvop_hobj_t *p) {
   return hash_bvashr(p->left, p->right);
 }
 
+static uint32_t hash_bvadd_hobj(bvop_hobj_t *p) {
+  return hash_bvadd(p->left, p->right);
+}
+
+static uint32_t hash_bvsub_hobj(bvop_hobj_t *p) {
+  return hash_bvsub(p->left, p->right);
+}
+
+static uint32_t hash_bvmul_hobj(bvop_hobj_t *p) {
+  return hash_bvmul(p->left, p->right);
+}
+
+static uint32_t hash_bvneg_hobj(bvop_hobj_t *p) {
+  return hash_bvneg(p->left);
+}
+
+
 
 /*
  * Equality tests
@@ -790,6 +839,41 @@ static bool eq_bvashr_hobj(bvop_hobj_t *p, thvar_t i) {
 }
 
 
+static bool eq_bvadd_hobj(bvop_hobj_t *p, thvar_t i) {
+  bv_vartable_t *table;
+
+  table = p->tbl;
+  return bvvar_tag(table, i) == BVTAG_ADD && table->def[i].op[0] == p->left &&
+    table->def[i].op[1] == p->right;
+}
+
+static bool eq_bvsub_hobj(bvop_hobj_t *p, thvar_t i) {
+  bv_vartable_t *table;
+
+  table = p->tbl;
+  return bvvar_tag(table, i) == BVTAG_SUB && table->def[i].op[0] == p->left &&
+    table->def[i].op[1] == p->right;
+}
+
+static bool eq_bvmul_hobj(bvop_hobj_t *p, thvar_t i) {
+  bv_vartable_t *table;
+
+  table = p->tbl;
+  return bvvar_tag(table, i) == BVTAG_MUL && table->def[i].op[0] == p->left &&
+    table->def[i].op[1] == p->right;
+}
+
+static bool eq_bvneg_hobj(bvop_hobj_t *p, thvar_t i) {
+  bv_vartable_t *table;
+
+  table = p->tbl;
+  return bvvar_tag(table, i) == BVTAG_NEG && table->def[i].op[0] == p->left;
+}
+
+
+
+
+
 /*
  * Build
  */
@@ -851,6 +935,22 @@ static thvar_t build_bvlshr_hobj(bvop_hobj_t *p) {
 
 static thvar_t build_bvashr_hobj(bvop_hobj_t *p) {
   return make_bvbinop(p->tbl, BVTAG_ASHR, p->nbits, p->left, p->right);
+}
+
+static thvar_t build_bvadd_hobj(bvop_hobj_t *p) {
+  return make_bvbinop(p->tbl, BVTAG_ADD, p->nbits, p->left, p->right);
+}
+
+static thvar_t build_bvsub_hobj(bvop_hobj_t *p) {
+  return make_bvbinop(p->tbl, BVTAG_SUB, p->nbits, p->left, p->right);
+}
+
+static thvar_t build_bvmul_hobj(bvop_hobj_t *p) {
+  return make_bvbinop(p->tbl, BVTAG_MUL, p->nbits, p->left, p->right);
+}
+
+static thvar_t build_bvneg_hobj(bvop_hobj_t *p) {
+  return make_bvbinop(p->tbl, BVTAG_NEG, p->nbits, p->left, null_thvar);
 }
 
 
@@ -946,6 +1046,35 @@ static bvop_hobj_t bvashr_hobj = {
   NULL,
   0, 0, 0,
 };
+
+
+static bvop_hobj_t bvadd_hobj = {
+  { (hobj_hash_t) hash_bvadd_hobj, (hobj_eq_t) eq_bvadd_hobj, (hobj_build_t) build_bvadd_hobj },
+  NULL,
+  0, 0, 0,
+};
+
+
+static bvop_hobj_t bvsub_hobj = {
+  { (hobj_hash_t) hash_bvsub_hobj, (hobj_eq_t) eq_bvsub_hobj, (hobj_build_t) build_bvsub_hobj },
+  NULL,
+  0, 0, 0,
+};
+
+
+static bvop_hobj_t bvmul_hobj = {
+  { (hobj_hash_t) hash_bvmul_hobj, (hobj_eq_t) eq_bvmul_hobj, (hobj_build_t) build_bvmul_hobj },
+  NULL,
+  0, 0, 0,
+};
+
+
+static bvop_hobj_t bvneg_hobj = {
+  { (hobj_hash_t) hash_bvneg_hobj, (hobj_eq_t) eq_bvneg_hobj, (hobj_build_t) build_bvneg_hobj },
+  NULL,
+  0, 0, 0,
+};
+
 
 
 /*
@@ -1065,6 +1194,38 @@ thvar_t get_bvashr(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
 }
 
 
+thvar_t get_bvadd(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
+  bvadd_hobj.tbl = table;
+  bvadd_hobj.left = x;
+  bvadd_hobj.right = y;
+  bvadd_hobj.nbits = n;
+  return int_htbl_get_obj(&table->htbl, &bvadd_hobj.m);
+}
+
+thvar_t get_bvsub(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
+  bvsub_hobj.tbl = table;
+  bvsub_hobj.left = x;
+  bvsub_hobj.right = y;
+  bvsub_hobj.nbits = n;
+  return int_htbl_get_obj(&table->htbl, &bvsub_hobj.m);
+}
+
+thvar_t get_bvmul(bv_vartable_t *table, uint32_t n, thvar_t x, thvar_t y) {
+  bvmul_hobj.tbl = table;
+  bvmul_hobj.left = x;
+  bvmul_hobj.right = y;
+  bvmul_hobj.nbits = n;
+  return int_htbl_get_obj(&table->htbl, &bvmul_hobj.m);
+}
+
+thvar_t get_bvneg(bv_vartable_t *table, uint32_t n, thvar_t x) {
+  bvneg_hobj.tbl = table;
+  bvneg_hobj.left = x;
+  bvneg_hobj.right = null_thvar;
+  bvneg_hobj.nbits = n;
+  return int_htbl_get_obj(&table->htbl, &bvneg_hobj.m);
+}
+
 
 
 
@@ -1131,5 +1292,62 @@ thvar_t find_srem(bv_vartable_t *table, thvar_t x, thvar_t y) {
 
   return int_htbl_find_obj(&table->htbl, &bvsrem_hobj.m);
 }
+
+
+thvar_t find_bvadd(bv_vartable_t *table, thvar_t x, thvar_t y) {
+  uint32_t n;
+
+  assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
+	 table->bit_size[x] == table->bit_size[y]);
+
+  n = table->bit_size[x];
+  bvadd_hobj.tbl = table;
+  bvadd_hobj.left = x;
+  bvadd_hobj.right = y;
+  bvadd_hobj.nbits = n;
+  return int_htbl_find_obj(&table->htbl, &bvadd_hobj.m);
+}
+
+thvar_t find_bvsub(bv_vartable_t *table, thvar_t x, thvar_t y) {
+  uint32_t n;
+
+  assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
+	 table->bit_size[x] == table->bit_size[y]);
+
+  n = table->bit_size[x];
+  bvsub_hobj.tbl = table;
+  bvsub_hobj.left = x;
+  bvsub_hobj.right = y;
+  bvsub_hobj.nbits = n;
+  return int_htbl_find_obj(&table->htbl, &bvsub_hobj.m);
+}
+
+thvar_t find_bvmul(bv_vartable_t *table, thvar_t x, thvar_t y) {
+  uint32_t n;
+
+  assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
+	 table->bit_size[x] == table->bit_size[y]);
+
+  n = table->bit_size[x];
+  bvmul_hobj.tbl = table;
+  bvmul_hobj.left = x;
+  bvmul_hobj.right = y;
+  bvmul_hobj.nbits = n;
+  return int_htbl_find_obj(&table->htbl, &bvmul_hobj.m);
+}
+
+thvar_t find_bvneg(bv_vartable_t *table, thvar_t x) {
+  uint32_t n;
+
+  assert(valid_bvvar(table, x));
+
+  n = table->bit_size[x];
+  bvneg_hobj.tbl = table;
+  bvneg_hobj.left = x;
+  bvneg_hobj.right = null_thvar;
+  bvneg_hobj.nbits = n;
+  return int_htbl_find_obj(&table->htbl, &bvneg_hobj.m);
+}
+
 
 
