@@ -29,7 +29,7 @@
  *
  * Other components:
  * - vtbl = pointer to the associated vartable
- * - store, store4 = object stores used for allocating monomials
+ * - store, store64 = object stores used for allocating monomials
  * - pprods = table for building power products
  * - htbl = hash table
  *

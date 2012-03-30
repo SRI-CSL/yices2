@@ -3204,7 +3204,7 @@ static thvar_t map_bvpoly(bv_solver_t *solver, bvpoly_buffer_t *b) {
 
   if (x < 0) {
     // no simplification: check for an existing variable with
-    // the same exapnded form
+    // the same expanded form
     h = hash_bvmlist(eb->list, nbits);
     x = bvexp_table_find(etbl, eb, h);
     if (x < 0) {
