@@ -105,7 +105,7 @@ static inline void bvexp_init_buffer64(bvexp_table_t *table, bvarith64_buffer_t 
 
 /*
  * Check whether the polynomial p stored in buffer is present in table
- * - if so, return the variable index i sucb that def[i] = p
+ * - if so, return the variable index i such that def[i] = p
  *   otherwise, return -1
  * - buffer must be normalized and h must be the hash code of p
  * - buffer->store must be the same as table->store (or table->store64).
