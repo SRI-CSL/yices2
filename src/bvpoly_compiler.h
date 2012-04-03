@@ -1,0 +1,144 @@
+/*
+ * SUPPORT FOR CONVERTING BIT-VECTOR POLYNOMIALS
+ * TO ELEMENTATY EXPRESSSIONS.
+ */
+
+/*
+ * In the bv_vartable, some bitvector variables represent
+ * polynomial expressions. These variables are constructed
+ * with tags BVTAG_POLY64, BVTAG_POLY, or BVTAG_PPROD.
+ *
+ * Before bit-blasting, we must convert these expressions
+ * to equivalent terms that can be processed by the bit-blaster,
+ * that is, terms built using the following operators:
+ *   binary add:  (bvadd x y)
+ *   binary sub:  (bvsub x y)
+ *   binary mul:  (bvmul x y)
+ *   negation:    (bvneg x)
+ *
+ * This module implements this translation process and keeps
+ * track of the conversion.
+ *
+ * Compilation process
+ * -------------------
+ * 1) a polynomial a0 + b1 x_1 + ... + b_n x_n
+ *    is converted to (bvadd a0 y) 
+ *    where y = compilation of b1 x_1 + ... + b_n x_n
+ *
+ * 2) non-ambiguous polynomials are converted immediately:
+ *    x + y  --> (bvadd x y)
+ *    x * y  --> (bvmul x y)
+ *      x^2  --> (bvmul x x)
+ *      - x  --> (bvneg x)
+ *
+ * 3) a monomial b_i x_i is converted to 
+ *        (bvmul b_i x_i) 
+ *     or (bvneg (bvmul (-b_i) x_i))
+ *    depending on the number of '1' bits in b_i and -b_i
+ * 
+ */
+
+#ifndef __BVPOLY_COMPILER_H
+#define __BVPOLY_COMPILER_H
+
+
+#include <stdint.h>
+
+#include "int_hash_map.h"
+#include "bv_vartable.h"
+
+
+/*
+ * Stack/array of elementary expressions:
+ * - each element in this stack is a variable index i 
+ *   for a variable i that's (BVADD x y) or (BVSUB x y) 
+ *   or (BVMUL x y) or (BVNEG x).
+ * - the variables are sorted in topologicographic ordeer
+ *   (i.e., if i is (BVADD j k) and j is (BVAD ...) then
+ *   j occurs before i in the queue).
+ *
+ * This is stored as in data[0 ... top-1]
+ * - size = full size of array data
+ */
+typedef struct bvc_stack_s {
+  thvar_t *data;
+  uint32_t top;
+  uint32_t size;
+} bvc_stack_t;
+
+#define DEF_BVC_STACK_SIZE 100
+#define MAX_BVC_STACK_SIZE (UINT32_MAX/sizeof(thvar_t))
+
+
+/*
+ * Compiler structure:
+ * - pointer to the relevant variable table
+ * - a stack of elementary expressions
+ * - a compilation map: maps polynomial ids to elementary expressions
+ */
+typedef struct bvc_s {
+  bv_vartable_t *vtbl;
+  bvc_stack_t elemexp;
+  int_hmap_t cmap;
+} bvc_t;
+
+
+
+/*
+ * OPERATIONS
+ */
+
+/*
+ * Initialization:
+ * - vtbl = the attached variable table
+ * - elemexp is initially empty
+ * - cmap has default initial size (cf. int_hash_map)
+ */
+extern void init_bv_compiler(bvc_t *c, bv_vartable_t *vtbl);
+
+/*
+ * Free all memory
+ */
+extern void delete_bv_compiler(bvc_t *c);
+
+/*
+ * Empty the content
+ */
+extern void reset_bv_compiler(bvc_t *c);
+
+
+/*
+ * Remove all occurrences of variables with index >= nv
+ */
+extern void bv_compiler_remove_vars(bvc_t *c, uint32_t nv);
+
+
+/*
+ * Get the variable mapped to x in cmap
+ * - return null_thvar (-1) if nothing is mapped to x
+ * - x must be a valid variable in c->vtbl
+ */
+extern thvar_t bvvar_compiles_to(bvc_t *c, thvar_t x);
+
+
+/*
+ * Add variable x to the compilation queue
+ * - x must be a valid variable in c->vtbl
+ * - x's definition must be a polynomial (i.e., x must have 
+ *   tag BVTAG_POLY, BVTAG_POLY64, or BVTAG_PPROD).
+ */
+extern void bv_compiler_push_var(bvc_t *c, thvar_t x);
+
+
+/*
+ * Process the compilation queue. All variables pushed into the queue
+ * are compiled to elementary rexpression, then the queue is emptied.
+ * - after this call, use 'bvvar_compiles_to' to find out what a
+ *   variable is compiled to.
+ */
+extern void bv_compiler_process_queue(bvc_t *c);
+
+
+
+
+#endif /* __BVPOLY_COMPILER_H */
