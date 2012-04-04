@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+
 /*
  * Components:
  * - data = integer array to store the elements
@@ -87,7 +88,7 @@ extern int32_t int_queue_first(int_queue_t *q);
 
 /*
  * Get the last element of q (don't remove it)
- * - q mut be non-empty
+ * - q must be non-empty
  */
 extern int32_t int_queue_last(int_queue_t *q);
 

@@ -43,15 +43,6 @@ extern void init_int_bvset(int_bvset_t *set, uint32_t n);
 extern void delete_int_bvset(int_bvset_t *set);
 
 
-#if 0
-/*
- * Increase size and nbits, make data large enough for adding element x
- * - requires x >= set->nbits
- */
-extern void resize_int_bvset(int_bvset_t *set, uint32_t x);
-#endif
-
-
 /*
  * Empty the set
  */

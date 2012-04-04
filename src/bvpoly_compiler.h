@@ -45,41 +45,54 @@
 #include <stdint.h>
 
 #include "int_hash_map.h"
+#include "int_bv_sets.h"
+#include "merge_table.h"
+#include "bv_constants.h"
 #include "bv_vartable.h"
 
 
 /*
- * Stack/array of elementary expressions:
- * - each element in this stack is a variable index i 
- *   for a variable i that's (BVADD x y) or (BVSUB x y) 
- *   or (BVMUL x y) or (BVNEG x).
- * - the variables are sorted in topologicographic ordeer
+ * Queue of variable
+ * - each element in this queue is a variable index i 
+ * - the variables are sorted in topologicographic order
  *   (i.e., if i is (BVADD j k) and j is (BVAD ...) then
  *   j occurs before i in the queue).
  *
  * This is stored as in data[0 ... top-1]
  * - size = full size of array data
  */
-typedef struct bvc_stack_s {
+typedef struct bvc_queue_s {
   thvar_t *data;
   uint32_t top;
   uint32_t size;
-} bvc_stack_t;
+} bvc_queue_t;
 
-#define DEF_BVC_STACK_SIZE 100
-#define MAX_BVC_STACK_SIZE (UINT32_MAX/sizeof(thvar_t))
+#define DEF_BVC_QUEUE_SIZE 100
+#define MAX_BVC_QUEUE_SIZE (UINT32_MAX/sizeof(thvar_t))
 
 
 /*
  * Compiler structure:
- * - pointer to the relevant variable table
- * - a stack of elementary expressions
+ * - pointer to the relevant variable and merge tables
  * - a compilation map: maps polynomial ids to elementary expressions
+ * - elemexp = all elementary expressions constructed
+ *
+ * For compilation
+ * - queue = queue of polynomials to compile
+ * - in_queue = set of all elements in the queue
  */
 typedef struct bvc_s {
   bv_vartable_t *vtbl;
-  bvc_stack_t elemexp;
+  mtbl_t *mtbl;
   int_hmap_t cmap;
+  bvc_queue_t elemexp;
+
+  // data structures used during compilation
+  bvc_queue_t queue;
+  int_bvset_t in_queue;
+
+  // auxiliary buffers
+  bvconstant_t aux;
 } bvc_t;
 
 
@@ -91,10 +104,11 @@ typedef struct bvc_s {
 /*
  * Initialization:
  * - vtbl = the attached variable table
+ * - mtbl = the attached merge table
  * - elemexp is initially empty
  * - cmap has default initial size (cf. int_hash_map)
  */
-extern void init_bv_compiler(bvc_t *c, bv_vartable_t *vtbl);
+extern void init_bv_compiler(bvc_t *c, bv_vartable_t *vtbl, mtbl_t *mthl);
 
 /*
  * Free all memory
