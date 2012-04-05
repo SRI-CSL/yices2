@@ -18,24 +18,6 @@
  *
  * This module implements this translation process and keeps
  * track of the conversion.
- *
- * Compilation process
- * -------------------
- * 1) a polynomial a0 + b1 x_1 + ... + b_n x_n
- *    is converted to (bvadd a0 y) 
- *    where y = compilation of b1 x_1 + ... + b_n x_n
- *
- * 2) non-ambiguous polynomials are converted immediately:
- *    x + y  --> (bvadd x y)
- *    x * y  --> (bvmul x y)
- *      x^2  --> (bvmul x x)
- *      - x  --> (bvneg x)
- *
- * 3) a monomial b_i x_i is converted to 
- *        (bvmul b_i x_i) 
- *     or (bvneg (bvmul (-b_i) x_i))
- *    depending on the number of '1' bits in b_i and -b_i
- * 
  */
 
 #ifndef __BVPOLY_COMPILER_H
@@ -49,6 +31,7 @@
 #include "merge_table.h"
 #include "bv_constants.h"
 #include "bv_vartable.h"
+
 
 
 /*
