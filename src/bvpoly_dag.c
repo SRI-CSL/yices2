@@ -8,6 +8,7 @@
 #include "bit_tricks.h"
 #include "bv64_constants.h"
 #include "index_vectors.h"
+#include "hash_functions.h"
 
 #include "bvpoly_dag.h"
 
@@ -65,17 +66,17 @@ static inline void list_remove(bvc_item_t *list, int32_t i) {
  */
 static inline void bvc_dag_add_to_leaves(bvc_dag_t *dag, int32_t n) {
   assert(0 < n && n <= dag->nelems);
-  list_add(dag->list, 0, n);
+  list_add(dag->list, BVC_DAG_LEAF_LIST, n);
 }
 
 static inline void bvc_dag_add_to_elementary_list(bvc_dag_t *dag, int32_t n) {
   assert(0 < n && n <= dag->nelems);
-  list_add(dag->list, -1, n);
+  list_add(dag->list, BVC_DAG_ELEM_LIST, n);
 }
 
 static inline void bvc_dag_add_to_default_list(bvc_dag_t *dag, int32_t n) {
   assert(0 < n && n <= dag->nelems);
-  list_add(dag->list, -2, n);
+  list_add(dag->list, BVC_DAG_DEFAULT_LIST, n);
 }
 
 
@@ -85,13 +86,13 @@ static inline void bvc_dag_add_to_default_list(bvc_dag_t *dag, int32_t n) {
 static inline void bvc_dag_move_to_leaves(bvc_dag_t *dag, int32_t n) {
   assert(0 < n && n <= dag->nelems);
   list_remove(dag->list, n);
-  list_add(dag->list, 0, n);
+  list_add(dag->list, BVC_DAG_LEAF_LIST, n);
 }
 
 static inline void bvc_dag_move_to_elementary_list(bvc_dag_t *dag, int32_t n) {
   assert(0 < n && n <= dag->nelems);
   list_remove(dag->list, n);
-  list_add(dag->list, -1, n);
+  list_add(dag->list, BVC_DAG_ELEM_LIST, n);
 }
 
 
@@ -143,6 +144,7 @@ void init_bvc_dag(bvc_dag_t *dag, uint32_t n) {
   init_objstore(&dag->sum_store2, sizeof(bvc_sum_t) + SUM_STORE2_LEN * sizeof(int32_t), 500);
 
   init_bvconstant(&dag->aux);
+  init_pp_buffer(&dag->pp_aux, 10);
   init_ivector(&dag->buffer, 10);
 }
 
@@ -198,7 +200,7 @@ static int32_t bvc_dag_add_node(bvc_dag_t *dag, bvc_header_t *d) {
 
 /*
  * Free memory used by descriptor d
- * - free d iteslf if it's not form a store (i.e., d->len is too large)
+ * - free d iteslf if it's not form a store (i.e., d->size is too large)
  * - free d->constant.w if d->bitsize > 64
  */
 static void delete_descriptor(bvc_header_t *d) {
@@ -219,13 +221,13 @@ static void delete_descriptor(bvc_header_t *d) {
     break;
 
   case BVC_PROD:
-    if (prod_node(d)->len > PROD_STORE_LEN) {
+    if (prod_node(d)->size > PROD_STORE_LEN) {
       safe_free(d);
     }
     break;
 
   case BVC_SUM:
-    if (sum_node(d)->len > SUM_STORE2_LEN) {
+    if (sum_node(d)->size > SUM_STORE2_LEN) {
       safe_free(d);
     }
     break;
@@ -265,6 +267,7 @@ void delete_bvc_dag(bvc_dag_t *dag) {
   delete_objstore(&dag->sum_store2);
 
   delete_bvconstant(&dag->aux);
+  delete_pp_buffer(&dag->pp_aux);
   delete_ivector(&dag->buffer);
 }
 
@@ -299,30 +302,10 @@ void reset_bvc_dag(bvc_dag_t *dag) {
   reset_objstore(&dag->sum_store1);
   reset_objstore(&dag->sum_store2);  
 
+  pp_buffer_reset(&dag->pp_aux);
   ivector_reset(&dag->buffer);
 }
 
-
-
-/*
- * Check whether x is in vset (i.e., there's a node attached to x)
- */
-static inline bool bvc_dag_var_is_present(bvc_dag_t *dag, int32_t x) {
-  assert(x > 0);
-  return int_bvset_member(&dag->vset, x);
-}
-
-/*
- * Get the node mapped to x: 
- */
-static inline int32_t bvc_dag_node_of_var(bvc_dag_t *dag, int32_t x) {
-  int_hmap_pair_t *p;
-
-  assert(bvc_dag_var_is_present(dag, x));
-  p = int_hmap_find(&dag->vmap, x);
-  assert(p != NULL && 0 < p->val && p->val <= dag->nelems);
-  return p->val;
-}
 
 
 /*
@@ -444,7 +427,38 @@ static void free_sum(bvc_dag_t *dag, bvc_sum_t *d) {
 
 
 
+/*
+ * Check whether a product or sum node is elementary
+ */
+static bool prod_node_is_elementary(bvc_dag_t *dag, bvc_prod_t *d) {
+  assert(d->len >= 1);
 
+  if (d->len == 1) {
+    return d->prod[0].exp == 2 && bvc_dag_node_is_leaf(dag, d->prod[0].var);
+  } else if (d->len == 2) {
+    return d->prod[0].exp + d->prod[1].exp == 2 &&
+      bvc_dag_node_is_leaf(dag, d->prod[0].var) &&
+      bvc_dag_node_is_leaf(dag, d->prod[1].var);
+  } else {
+    return false;
+  }    
+}
+
+static bool sum_node_is_elementary(bvc_dag_t *dag, bvc_sum_t * d) {
+  int32_t n, q;
+
+  assert(d->len >= 2);
+
+  if (d->len == 2) {
+    n = d->sum[0];
+    if (n < 0) n = -n;
+    q = d->sum[1];
+    if (q < 0) q = -q;
+    return bvc_dag_node_is_leaf(dag, n) && bvc_dag_node_is_leaf(dag, q);
+  } else {
+    return false;
+  }
+}
 
 
 /*
@@ -458,7 +472,7 @@ static void free_sum(bvc_dag_t *dag, bvc_sum_t *d) {
  * - returns node index n and stores the mapping [x --> n]
  *   in dag->vmap.
  */
-int32_t bvc_dag_add_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
+int32_t bvc_dag_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
   bvc_leaf_t *d;
   int32_t n;
 
@@ -473,6 +487,20 @@ int32_t bvc_dag_add_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
   bvc_dag_map_var_to_node(dag, x, n);
 
   return n;
+}
+
+
+
+/*
+ * Get a node mapped to x
+ * - if there's none, create a leaf node
+ */
+int32_t bvc_dag_get_node_of_var(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
+  if (bvc_dag_var_is_present(dag, x)) {
+    return bvc_dag_node_of_var(dag, x);
+  } else {
+    return bvc_dag_leaf(dag, x, bitsize);
+  }
 }
 
 
@@ -601,47 +629,403 @@ static int32_t bvc_dag_add_mono(bvc_dag_t *dag, uint32_t *a, int32_t n, int32_t 
 
 
 
-
-
-
-
-
-
 /*
- * Get a node mapped to x
- * - if there's none, create a leaf node
+ * Product node defined by a[0 ... n-1]:
+ * - each a[i] is a pair (node, exponent)
  */
-static int32_t bvc_dag_get_node_of_var(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
-  if (bvc_dag_var_is_present(dag, x)) {
-    return bvc_dag_node_of_var(dag, x);
-  } else {
-    return bvc_dag_add_leaf(dag, x, bitsize);
+static int32_t bvc_dag_add_prod(bvc_dag_t *dag, varexp_t *a, uint32_t n, int32_t x, uint32_t bitsize) {
+  bvc_prod_t *d;
+  uint32_t i;
+  int32_t q, k;
+
+  d = alloc_prod(dag, n);
+  d->header.tag = BVC_PROD;
+  d->header.var = x;
+  d->header.bitsize = bitsize;
+  d->hash = 0;
+  d->size = n;
+  d->len = n;
+  for (i=0; i<n; i++) {
+    d->prod[i] = a[i];
+    d->hash |= (a[i].var & 31);
   }
-}
 
+  q = bvc_dag_add_node(dag, &d->header);
+  
+  k = BVC_DAG_DEFAULT_LIST;
+  if (prod_node_is_elementary(dag, d)) {
+    k = BVC_DAG_ELEM_LIST;
+  }
+  list_add(dag->list, k, q);
+
+  if (x > 0) {
+    bvc_dag_map_var_to_node(dag, x, q);
+  }
+
+  return q;
+}
 
 
 
 /*
- * Convert a polynomial expression of a variable x to a node n
- * - x must be positive
- * - there mustn't be a node mapped to x yet
- * - store the mapping [x --> n] in dag->vmap
- * - return the node index
- *
- * All variables of p that are not mapped already are converted to
- * leaf nodes.
+ * Sum mode a[0] + ... + a[n-1]
+ * - each a[i] is either a node index or the opposite of a node index
  */
-int32_t bvc_dag_add_pprod(bvc_dag_t *dag, int32_t x, pprod_t *p, uint32_t bitsize) {
-  return -1;
+static int32_t bvc_dag_add_sum(bvc_dag_t *dag, int32_t *a, uint32_t n, int32_t x, uint32_t bitsize) {
+  bvc_sum_t *d;
+  uint32_t i;
+  int32_t q, k;
+
+  d = alloc_sum(dag, n);
+  d->header.tag = BVC_SUM;
+  d->header.var = x;
+  d->header.bitsize = bitsize;
+  d->hash = 0;
+  d->size = n;
+  d->len = n;
+  for (i=0; i<n; i++) {
+    q = a[i];
+    d->sum[i] = a[i];
+    if (q < 0) q = -q;
+    d->hash |= (q & 31);
+  }
+
+  q = bvc_dag_add_node(dag, &d->header);
+  
+  k = BVC_DAG_DEFAULT_LIST;
+  if (sum_node_is_elementary(dag, d)) {
+    k = BVC_DAG_ELEM_LIST;
+  }
+  list_add(dag->list, k, q);
+
+  if (x > 0) {
+    bvc_dag_map_var_to_node(dag, x, q);
+  }
+
+  return q;
 }
 
-int32_t bvc_dag_add_poly64(bvc_dag_t *dag, int32_t x, bvpoly64_t *p) {
-  return -1;
+
+
+/*
+ * HASH CONSING FOR NON-LEAF NODES
+ */
+
+// same struct for both offset/mono with 64bit constant
+typedef struct bvc64_hobj_s {
+  int_hobj_t m;
+  bvc_dag_t *dag;
+  uint64_t c;
+  uint32_t bitsize;
+  int32_t node;
+  int32_t var;
+} bvc64_hobj_t;
+
+// struct for offset/mono with larger constant
+typedef struct bvc_hobj_s {
+  int_hobj_t m;
+  bvc_dag_t *dag;
+  uint32_t *c;
+  uint32_t bitsize;
+  int32_t node;
+  int32_t var;
+} bvc_hobj_t;
+
+typedef struct bvc_prod_hobj_s {
+  int_hobj_t m;
+  bvc_dag_t *dag;
+  varexp_t *pp;  
+  uint32_t bitsize;
+  uint32_t len;
+  int32_t var;
+} bvc_prod_hobj_t;
+
+typedef struct bvc_sum_hobj_s {
+  int_hobj_t m;
+  bvc_dag_t *dag;
+  int32_t *nodes;
+  uint32_t bitsize;
+  uint32_t len;
+  int32_t var;
+} bvc_sum_hobj_t;
+
+
+/*
+ * Hash functions
+ */
+static uint32_t hash_bvc_offset64_hobj(bvc64_hobj_t *p) {
+  uint32_t a, b;
+
+  a = jenkins_hash_uint64(p->c);
+  b = jenkins_hash_int32(p->node);
+  return jenkins_hash_pair(a, b, 0x23da32aa);
 }
 
-int32_t bvc_dag_add_poly(bvc_dag_t *dag, int32_t x, bvpoly_t *p) {
-  return -1;
+static uint32_t hash_bvc_offset_hobj(bvc_hobj_t *p) {
+  uint32_t a, b;
+
+  a = bvconst_hash(p->c, p->bitsize);
+  b = jenkins_hash_int32(p->node);
+  return jenkins_hash_pair(a, b, 0x32288cc9);
+}
+
+static uint32_t hash_bvc_mono64_hobj(bvc64_hobj_t *p) {
+  uint32_t a, b;
+
+  a = jenkins_hash_uint64(p->c);
+  b = jenkins_hash_int32(p->node);
+  return jenkins_hash_pair(a, b, 0xaef43e27);
+}
+
+static uint32_t hash_bvc_mono_hobj(bvc_hobj_t *p) {
+  uint32_t a, b;
+
+  a = bvconst_hash(p->c, p->bitsize);
+  b = jenkins_hash_int32(p->node);
+  return jenkins_hash_pair(a, b, 0xfe43a091);
+}
+
+// p->pp = array of len pairs of int32_t
+static uint32_t hash_bvc_prod_hobj(bvc_prod_hobj_t *p) {
+  assert(p->len <= UINT32_MAX/2);
+  return jenkins_hash_intarray2((int32_t *) p->pp, 2 * p->len, 0x7432cde2);
+}
+
+static uint32_t hash_bvc_sum_hobj(bvc_sum_hobj_t *p) {
+  return jenkins_hash_intarray2(p->nodes, p->len, 0xaeb32a06);
+}
+
+
+/*
+ * Equality tests
+ */
+static bool eq_bvc_offset64_hobj(bvc64_hobj_t *p, int32_t i) {
+  bvc_header_t *d;
+  bvc_offset_t *o;
+
+  d = p->dag->desc[i];
+  if (d->tag != BVC_OFFSET || d->bitsize != p->bitsize) {
+    return false;
+  }
+  o = offset_node(d);
+  return o->node == p->node && o->constant.c == p->c;
+}
+
+static bool eq_bvc_offset_hobj(bvc_hobj_t *p, int32_t i) {
+  bvc_header_t *d;
+  bvc_offset_t *o;
+  uint32_t k;
+
+  d = p->dag->desc[i];
+  if (d->tag != BVC_OFFSET && d->bitsize != p->bitsize) {
+    return false;
+  }
+  o = offset_node(d);
+  k = (d->bitsize + 31) >> 5;
+  return o->node == p->node && bvconst_eq(o->constant.w, p->c, k);
+}
+
+static bool eq_bvc_mono64_hobj(bvc64_hobj_t *p, int32_t i) {
+  bvc_header_t *d;
+  bvc_mono_t *o;
+
+  d = p->dag->desc[i];
+  if (d->tag != BVC_MONO && d->bitsize != p->bitsize) {
+    return false;
+  } 
+  o = mono_node(d);
+  return o->node == p->node && o->coeff.c == p->c;
+}
+
+static bool eq_bvc_mono_hobj(bvc_hobj_t *p, int32_t i) {
+  bvc_header_t *d;
+  bvc_mono_t *o;
+  uint32_t k;
+
+  d = p->dag->desc[i];
+  if (d->tag != BVC_MONO || d->bitsize == p->bitsize) {
+    return false;
+  }
+  o = mono_node(d);
+  k = (d->bitsize + 31) >> 5;
+  return o->node == p->node && bvconst_eq(o->coeff.w, p->c, k);
+}
+
+static bool eq_bvc_prod_hobj(bvc_prod_hobj_t *p, int32_t i) {
+  bvc_header_t *d;
+  bvc_prod_t *o;
+  uint32_t j, n;
+
+  d = p->dag->desc[i];
+  if (d->tag != BVC_PROD || d->bitsize != p->bitsize) {
+    return false;
+  }
+  o = prod_node(d);
+  n = o->len;
+  if (n != p-> len) {
+    return false;
+  }
+
+  for (j=0; j<n; j++) {
+    if (p->pp[j].var != o->prod[j].var ||
+	p->pp[j].exp != o->prod[j].exp) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+static bool eq_bvc_sum_hobj(bvc_sum_hobj_t *p, int32_t i) {
+  bvc_header_t *d;
+  bvc_sum_t *o;
+  uint32_t j, n;
+
+  d = p->dag->desc[i];
+  if (d->tag != BVC_SUM || d->bitsize != p->bitsize) {
+    return false;
+  }
+  o = sum_node(d);
+  n = o->len;
+  if (n != p-> len) {
+    return false;
+  }
+
+  for (j=0; j<n; j++) {
+    if (p->nodes[j] != o->sum[j]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+/*
+ * Constructors
+ */
+static int32_t build_bvc_offset64_hobj(bvc64_hobj_t *p) {
+  return bvc_dag_add_offset64(p->dag, p->c, p->node, p->var, p->bitsize);
+}
+
+static int32_t build_bvc_offset_hobj(bvc_hobj_t *p) {
+  return bvc_dag_add_offset(p->dag, p->c, p->node, p->var, p->bitsize);
+}
+
+static int32_t build_bvc_mono64_hobj(bvc64_hobj_t *p) {
+  return bvc_dag_add_mono64(p->dag, p->c, p->node, p->var, p->bitsize);
+}
+
+static int32_t build_bvc_mono_hobj(bvc_hobj_t *p) {
+  return bvc_dag_add_mono(p->dag, p->c, p->node, p->var, p->bitsize);
+}
+
+static int32_t build_bvc_prod_hobj(bvc_prod_hobj_t *p) {
+  return bvc_dag_add_prod(p->dag, p->pp, p->len, p->var, p->bitsize);
+}
+
+static int32_t build_bvc_sum_hobj(bvc_sum_hobj_t *p) {
+  return bvc_dag_add_sum(p->dag, p->nodes, p->len, p->var, p->bitsize);
+}
+
+
+/*
+ * Hash-consing objects
+ */
+static bvc64_hobj_t bvc_offset64_hobj = {
+  { (hobj_hash_t) hash_bvc_offset64_hobj, (hobj_eq_t) eq_bvc_offset64_hobj, 
+    (hobj_build_t) build_bvc_offset64_hobj },
+  NULL, 0, 0, 0, 0  
+};
+
+static bvc_hobj_t bvc_offset_hobj = {
+  { (hobj_hash_t) hash_bvc_offset_hobj, (hobj_eq_t) eq_bvc_offset_hobj, 
+    (hobj_build_t) build_bvc_offset_hobj },
+  NULL, NULL, 0, 0, 0  
+};
+
+static bvc64_hobj_t bvc_mono64_hobj = {
+  { (hobj_hash_t) hash_bvc_mono64_hobj, (hobj_eq_t) eq_bvc_mono64_hobj, 
+    (hobj_build_t) build_bvc_mono64_hobj },
+  NULL, 0, 0, 0, 0  
+};
+
+static bvc_hobj_t bvc_mono_hobj = {
+  { (hobj_hash_t) hash_bvc_mono_hobj, (hobj_eq_t) eq_bvc_mono_hobj, 
+    (hobj_build_t) build_bvc_mono_hobj },
+  NULL, NULL, 0, 0, 0  
+};
+
+static bvc_prod_hobj_t bvc_prod_hobj = {
+  { (hobj_hash_t) hash_bvc_prod_hobj, (hobj_eq_t) eq_bvc_prod_hobj, 
+    (hobj_build_t) build_bvc_prod_hobj },
+  NULL, NULL, 0, 0, 0,
+};
+
+static bvc_sum_hobj_t bvc_sum_hobj = {
+  { (hobj_hash_t) hash_bvc_sum_hobj, (hobj_eq_t) eq_bvc_sum_hobj, 
+    (hobj_build_t) build_bvc_sum_hobj },
+  NULL, NULL, 0, 0, 0,
+};
+
+
+/*
+ * Hash-consing constructors
+ */
+int32_t bvc_dag_get_offset64(bvc_dag_t *dag, uint64_t a, int32_t n, int32_t x, uint32_t bitsize) {
+  bvc_offset64_hobj.dag = dag;
+  bvc_offset64_hobj.c = a;
+  bvc_offset64_hobj.bitsize = bitsize;
+  bvc_offset64_hobj.node = n;
+  bvc_offset64_hobj.var = x;
+  return int_htbl_get_obj(&dag->htbl, &bvc_offset64_hobj.m);
+}
+
+int32_t bvc_dag_get_offset(bvc_dag_t *dag, uint32_t *a, int32_t n, int32_t x, uint32_t bitsize) {
+  bvc_offset_hobj.dag = dag;
+  bvc_offset_hobj.c = a;
+  bvc_offset_hobj.bitsize = bitsize;
+  bvc_offset_hobj.node = n;
+  bvc_offset_hobj.var = x;
+  return int_htbl_get_obj(&dag->htbl, &bvc_offset_hobj.m);
+}
+
+int32_t bvc_dag_get_mono64(bvc_dag_t *dag, uint64_t a, int32_t n, int32_t x, uint32_t bitsize) {
+  bvc_mono64_hobj.dag = dag;
+  bvc_mono64_hobj.c = a;
+  bvc_mono64_hobj.bitsize = bitsize;
+  bvc_mono64_hobj.node = n;
+  bvc_mono64_hobj.var = x;
+  return int_htbl_get_obj(&dag->htbl, &bvc_mono64_hobj.m);
+}
+
+int32_t bvc_dag_get_mono(bvc_dag_t *dag, uint32_t *a, int32_t n, int32_t x, uint32_t bitsize) {
+  bvc_mono_hobj.dag = dag;
+  bvc_mono_hobj.c = a;
+  bvc_mono_hobj.bitsize = bitsize;
+  bvc_mono_hobj.node = n;
+  bvc_mono_hobj.var = x;
+  return int_htbl_get_obj(&dag->htbl, &bvc_mono_hobj.m);
+}
+
+// note: a must be sorted
+int32_t bvc_dag_get_prod(bvc_dag_t *dag, varexp_t *a, uint32_t len, int32_t x, uint32_t bitsize) {
+  bvc_prod_hobj.dag = dag;
+  bvc_prod_hobj.pp = a;
+  bvc_prod_hobj.bitsize = bitsize;
+  bvc_prod_hobj.len = len;
+  bvc_prod_hobj.var = x;
+  return int_htbl_get_obj(&dag->htbl, &bvc_prod_hobj.m);
+}
+
+// a must be sorted
+int32_t bvc_dag_get_sum(bvc_dag_t *dag, int32_t *a, uint32_t len, int32_t x, uint32_t bitsize) {
+  bvc_sum_hobj.dag = dag;
+  bvc_sum_hobj.nodes = a;
+  bvc_sum_hobj.bitsize = bitsize;
+  bvc_sum_hobj.len = len;
+  bvc_sum_hobj.var = x;
+  return int_htbl_get_obj(&dag->htbl, &bvc_sum_hobj.m);
 }
 
 

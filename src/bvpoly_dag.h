@@ -113,14 +113,17 @@ typedef struct bvc_mono_s {
 
 /*
  * Product
- * varexp_t is a pair var/exponent definied in power_products.h
- * hash = bitmask based on the nodes occurring in the products
- * len = number of pairs in the power product 
- * prod = array of len elements
+ * - varexp_t is a pair var/exponent definied in power_products.h
+ * - hash = bitmask based on the nodes occurring in the products 
+ * - len = number of pairs in the power product 
+ * - prod = array of size elements
+ * The actual operands are stored in prod[0..len-1] but
+ * size may be more than len.
  */
 typedef struct bvc_prod_s {
   bvc_header_t header;
   uint32_t hash;
+  uint32_t size;
   uint32_t len;
   varexp_t prod[0];
 } bvc_prod_t;
@@ -133,10 +136,13 @@ typedef struct bvc_prod_s {
  * - each integer in the sum array is either +n or -n for some node index n
  * - len = number of elements in the sum
  * - hash = bitmasak
+ * - sum = array of size elements (size >= len)
+ * The operands are in sum[0 .. len-1].
  */
 typedef struct bvc_sum_s {
   bvc_header_t header;
   uint32_t hash;
+  uint32_t size;
   uint32_t len;
   int32_t sum[0]; // real size = len (when allocated)
 } bvc_sum_t;
@@ -238,6 +244,7 @@ typedef struct bvc_dag_s {
 
   // auxiliary buffers
   bvconstant_t aux;
+  pp_buffer_t pp_aux;
   ivector_t buffer;
 } bvc_dag_t;
 
@@ -252,6 +259,10 @@ typedef struct bvc_dag_s {
 #define SUM_STORE1_LEN 4
 #define SUM_STORE2_LEN 8
 
+// list-header indices
+#define BVC_DAG_LEAF_LIST    0
+#define BVC_DAG_ELEM_LIST    (-1)
+#define BVC_DAG_DEFAULT_LIST (-2)
 
 
 /*
@@ -278,6 +289,92 @@ extern void reset_bvc_dag(bvc_dag_t *dag);
 
 
 
+
+/*
+ * MAPPING VARIABLES --> NODES
+ */
+
+/*
+ * Check whether x is in vset (i.e., there's a node attached to x)
+ */
+static inline bool bvc_dag_var_is_present(bvc_dag_t *dag, int32_t x) {
+  assert(x > 0);
+  return int_bvset_member(&dag->vset, x);
+}
+
+/*
+ * Get the node mapped to x.
+ */
+static inline int32_t bvc_dag_node_of_var(bvc_dag_t *dag, int32_t x) {
+  assert(bvc_dag_var_is_present(dag, x));
+  return int_hmap_find(&dag->vmap, x)->val;
+}
+
+
+/*
+ * Checks on a node n
+ */
+static inline bvc_tag_t bvc_dag_node_type(bvc_dag_t *dag, int32_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return dag->desc[n]->tag;
+}
+
+static inline int32_t bvc_dag_node_var(bvc_dag_t *dag, int32_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return dag->desc[n]->var;
+}
+
+static inline bool bvc_dag_node_is_leaf(bvc_dag_t *dag, int32_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return node_is_leaf(dag->desc[n]);
+}
+
+static inline bool bvc_dag_node_is_offset(bvc_dag_t *dag, int32_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return node_is_offset(dag->desc[n]);
+}
+
+static inline bool bvc_dag_node_is_mono(bvc_dag_t *dag, int32_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return node_is_mono(dag->desc[n]);
+}
+
+static inline bool bvc_dag_node_is_prod(bvc_dag_t *dag, int32_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return node_is_prod(dag->desc[n]);
+}
+
+static inline bool bvc_dag_node_is_sum(bvc_dag_t *dag, int32_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return node_is_sum(dag->desc[n]);
+}
+
+static inline bvc_leaf_t *bvc_dag_node_leaf(bvc_dag_t *dag, int32_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return leaf_node(dag->desc[n]);
+}
+
+static inline bvc_offset_t *bvc_dag_node_offset(bvc_dag_t *dag, int32_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return offset_node(dag->desc[n]);
+}
+
+static inline bvc_mono_t *bvc_dag_node_mono(bvc_dag_t *dag, int32_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return mono_node(dag->desc[n]);
+}
+
+static inline bvc_prod_t *bvc_dag_node_prod(bvc_dag_t *dag, int32_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return prod_node(dag->desc[n]);
+}
+
+static inline bvc_sum_t *bvc_dag_node_sum(bvc_dag_t *dag, int32_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return sum_node(dag->desc[n]);
+}
+
+
 /*
  * NODE CONSTRUCTION
  */
@@ -289,21 +386,43 @@ extern void reset_bvc_dag(bvc_dag_t *dag);
  * - returns node index n and stores the mapping [x --> n]
  *   in dag->vmap.
  */
-extern int32_t bvc_dag_add_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize);
+extern int32_t bvc_dag_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize);
 
 /*
- * Convert a polynomial expression of a variable x to a node n
+ * Get a node mapped to x
+ * - if there isn't one, create a leaf node
+ */
+extern int32_t bvc_dag_get_node_of_var(bvc_dag_t *dag, int32_t x, uint32_t bitsize);
+
+/*
+ * Construct a power product node q and attach it to variable x
+ * - q is defined by the exponents in power product p and the
+ *   nodes in array a: if p is x_1^d_1 ... x_k^d_k
+ *   then a must have k elements a[0] ... a[k-1]
+ *   and q is [prod a[0]^d_1 ... a[k-1]^d_k]
+ *
  * - x must be positive
  * - there mustn't be a node mapped to x yet
- * - store the mapping [x --> n] in dag->vmap
- * - return the node index
- *
- * All variables of p that are not mapped already are converted to
- * leaf nodes.
+ * - store the mapping [x --> q] in dag->vmap
+ * - return the node index q
  */
-extern int32_t bvc_dag_add_pprod(bvc_dag_t *dag, int32_t x, pprod_t *p, uint32_t bitsize);
-extern int32_t bvc_dag_add_poly64(bvc_dag_t *dag, int32_t x, bvpoly64_t *p);
-extern int32_t bvc_dag_add_poly(bvc_dag_t *dag, int32_t x, bvpoly_t *p);
+extern int32_t bvc_dag_pprod(bvc_dag_t *dag, int32_t x, pprod_t *p, int32_t *a, uint32_t bitsize);
+
+/*
+ * Convert a polynomial p to a DAG node q and return q
+ * - q is defined by the coefficients in p and the node indices
+ *   in array a: if p is b_0 x_0 + b_1 x_1 + ... + b_k x_k 
+ *   then a must have k+1 elements a[0] ... a[k]
+ *   and q is built for (b_0 * a[0] + b_1 a[1] + ... + b_k a[k])
+ * - if x_0 is const_idx, then a[0] is ignored and 
+ *       q is built for (b_0 + b_1 a[1] + ... + b_k a[k]).
+ *
+ * - x must be positive and not mapped to any node yet
+ * - the mapping [x --> q] is added in dag->vmap
+ *   and q is returned
+ */
+extern int32_t bvc_dag_poly64(bvc_dag_t *dag, int32_t x, bvpoly64_t *p, int32_t *a);
+extern int32_t bvc_dag_poly(bvc_dag_t *dag, int32_t x, bvpoly_t *p, int32_t *a);
 
 
 

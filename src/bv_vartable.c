@@ -203,8 +203,8 @@ void bv_vartable_remove_eterms(bv_vartable_t *table, uint32_t nterms) {
 // n = number of bits
 static inline uint32_t hash_bvconst64(uint64_t c, uint32_t n) {
   uint32_t a, b;
-  a = jenkins_hash_int64((int64_t) c);
-  b = jenkins_hash_int32((int32_t) n);
+  a = jenkins_hash_uint64(c);
+  b = jenkins_hash_uint32(n);
   return jenkins_hash_mix2(a, b);
 }
 
