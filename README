@@ -486,7 +486,7 @@ NOTES:
    another version in /usr/lib (which is put there by apt-get install).
 
    In most cases, we want to use the GMP libraries in /usr/local/lib.
-   To find as usable libgmp.a, the configure script first searches the
+   To find a usable libgmp.a, the configure script first searches the
    directories that occur in LDFLAGS if any, then in LD_LIBRARY_PATH.
    So we must either have '/usr/local/lib' before '/usr/lib' in
    LD_LIBRARY_PATH, or set LDFLAGS correctly.  Also when we link using

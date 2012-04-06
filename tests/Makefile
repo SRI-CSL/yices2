@@ -187,13 +187,17 @@ else
   STATIC_CPPFLAGS := $(CPPFLAGS)
 endif
 
-ifeq ($(POSIXOS),cygwin)
-  STATIC_CPPFLAGS += -DNOYICES_DLL
-else
-ifeq ($(POSIXOS),mingw)
-  STATIC_CPPFLAGS += -DNOYICES_DLL
-endif
-endif
+#
+# These are not needed for the tests -DNOYICES_DLL is already 
+# in CPPFLAGS
+#
+# ifeq ($(POSIXOS),cygwin)
+#   STATIC_CPPFLAGS += -DNOYICES_DLL
+# else
+# ifeq ($(POSIXOS),mingw)
+#   STATIC_CPPFLAGS += -DNOYICES_DLL
+# endif
+# endif
 
 
 #
