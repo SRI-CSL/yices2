@@ -25,6 +25,7 @@ static void print_nocc(FILE *f, node_occ_t n) {
   }
 }
 
+#if 0
 // variable occurrence x
 static void print_vocc(FILE *f, int32_t x) {
   if (sign_of_occ(x) == 0) {
@@ -33,6 +34,7 @@ static void print_vocc(FILE *f, int32_t x) {
     fprintf(f, "-u!%"PRId32, (x>>1));
   }
 }
+#endif
 
 
 /*
@@ -52,19 +54,8 @@ static void print_bvconst64(FILE *f, uint64_t c, uint32_t n) {
 /*
  * Print a node in the dag
  */
-static void print_map(FILE *f, int32_t x) {
-  if (x < 0) {
-    fprintf(f, "not mapped");
-  } else {
-    fprintf(f, "mapped to ");
-    print_vocc(f, x);
-  }
-}
-
 static void print_leaf_node(FILE *f, bvc_leaf_t *d) {
-  fprintf(f, "[LEAF ");
-  print_map(f, d->header.map);
-  fprintf(f, " (%"PRIu32" bits)]", d->header.bitsize);
+  fprintf(f, "[LEAF u!%"PRId32" (%"PRIu32" bits)]", d->map, d->header.bitsize);
 }
 
 static void print_offset_node(FILE *f, bvc_offset_t *d) {
@@ -79,8 +70,6 @@ static void print_offset_node(FILE *f, bvc_offset_t *d) {
   }
   fputc(' ', f);
   print_nocc(f, d->nocc);
-  fputc(' ', f);
-  print_map(f, d->header.map);
   fprintf(f, " (%"PRIu32" bits)]", n);
 }
 
@@ -96,8 +85,6 @@ static void print_mono_node(FILE *f, bvc_mono_t *d) {
   }
   fputc(' ', f);
   print_nocc(f, d->nocc);
-  fputc(' ', f);
-  print_map(f, d->header.map);
   fprintf(f, " (%"PRIu32" bits)]", n);
 }
 
@@ -113,8 +100,6 @@ static void print_prod_node(FILE *f, bvc_prod_t *d) {
       fprintf(f, "^%"PRId32, d->prod[i].exp);
     }
   }
-  fputc(' ', f);
-  print_map(f, d->header.map);
   fprintf(f, " (%"PRIu32" bits)]", d->header.bitsize);  
 }
 
@@ -127,8 +112,6 @@ static void print_sum_node(FILE *f, bvc_sum_t *d) {
     fputc(' ', f);
     print_nocc(f, d->sum[i]);
   }
-  fputc(' ', f);
-  print_map(f, d->header.map);
   fprintf(f, " (%"PRIu32" bits)]", d->header.bitsize);    
 }
 
@@ -205,9 +188,13 @@ static void print_list(FILE *f, bvc_dag_t *dag, int32_t k) {
   int32_t i;
 
   i = dag->list[k].next;
-  while (i != k) {
-    fprintf(f, " n%"PRId32, i);
-    i = dag->list[i].next;
+  if (i == k) {
+    fprintf(f, " empty");
+  } else {
+    do {
+      fprintf(f, " n%"PRId32, i);
+      i = dag->list[i].next;
+    } while (i != k);
   }
 }
 
@@ -224,15 +211,15 @@ static void print_dag(FILE *f, bvc_dag_t *dag) {
     print_node(f, dag, i);
   }
 
-  fprintf(f, "Leaf nodes:");
+  fprintf(f, "\nLeaf nodes:");
   print_list(f, dag, BVC_DAG_LEAF_LIST);
   fprintf(f, "\n");
   
-  fprintf(f, "Elementary nodes:");
+  fprintf(f, "\nElementary nodes:");
   print_list(f, dag, BVC_DAG_ELEM_LIST);
   fprintf(f, "\n");
   
-  fprintf(f, "Other nodes:");
+  fprintf(f, "\nOther nodes:");
   print_list(f, dag, BVC_DAG_DEFAULT_LIST);
   fprintf(f, "\n");
   
@@ -248,17 +235,23 @@ static void print_dag(FILE *f, bvc_dag_t *dag) {
  */
 static node_occ_t test_leaf(bvc_dag_t *dag, int32_t v, uint32_t b) {
   bvc_leaf_t *d;
-  node_occ_t r;
+  node_occ_t r, chk;
   node_t q;
 
   r = bvc_dag_leaf(dag, v, b);
+  chk = bvc_dag_leaf(dag, v, b);
   q = r >> 1;
-
-  printf("---> created leaf node n!%"PRId32" for var %"PRId32" (%"PRIu32" bits)\n", q, v, b);
-  if (sign_of_occ(r) == 0 && bvc_dag_var_is_present(dag, v) &&
-      bvc_dag_nocc_of_var(dag, v) == r && bvc_dag_node_is_leaf(dag, q)) {
+  
+  if (r != chk) {
+    printf("---> ERROR: hash-consing failed\n");
+    fflush(stdout);
+    exit(1);
+  }
+  
+  printf("---> created leaf node n!%"PRId32" for var u!%"PRId32" (%"PRIu32" bits)\n", q, v, b);
+  if (sign_of_occ(r) == 0 && bvc_dag_node_is_leaf(dag, q)) {
     d = bvc_dag_node_leaf(dag, q);
-    if (d->header.map != (v << 1) || d->header.bitsize != b) {
+    if (d->map != v || d->header.bitsize != b) {
       goto error;
     }      
   } else {
@@ -287,8 +280,8 @@ static node_occ_t test_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t r, uint32_t
 
   assert(1 <= b && b <= 64);
   a = norm64(a, b);
-  tst = bvc_dag_mono64(dag, -1, a, r, b);
-  chk = bvc_dag_mono64(dag, -1, a, r, b);
+  tst = bvc_dag_mono64(dag, a, r, b);
+  chk = bvc_dag_mono64(dag, a, r, b);
 
   sign = sign_of_occ(tst);
   q = tst >> 1;
@@ -341,6 +334,49 @@ static node_occ_t test_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t r, uint32_t
 
 
 /*
+ * Test offset constructor (64bit version) for (a + r)
+ */
+static node_occ_t test_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t r, uint32_t b) {
+  bvc_offset_t *d;
+  node_occ_t tst, chk;
+  node_t q;
+
+  assert(1 <= b && b <= 64);
+  a = norm64(a, b);
+  tst = bvc_dag_offset64(dag, a, r, b);
+  chk = bvc_dag_offset64(dag, a, r, b);
+  q = tst >> 1;
+
+  printf("---> created offset node n!%"PRId32" for ", q);
+  print_bvconst64(stdout, a, b);
+  printf(" ");
+  print_nocc(stdout, r);
+  printf(" (%"PRIu32" bits)\n", b);
+
+  if (tst != chk) {
+    printf("---> ERROR: Hash-consing failed\n");
+    fflush(stdout);
+    exit(1);
+  }
+  
+  if (sign_of_occ(tst) != 0) goto error;
+  if (!bvc_dag_node_is_offset(dag, q)) goto error;
+
+  d = bvc_dag_node_offset(dag, q);
+  if (d->header.bitsize != b || d->constant.c != a || d->nocc != r ) goto error;
+
+  return tst;
+
+ error:
+  printf("---> ERROR\n");
+  fflush(stdout);
+  exit(1);
+}
+
+
+
+
+/*
  * TEST: create n leaves for variables u!t to u!(t+n)
  * - b = bitsize
  * - store the resulting node occurrences in array a
@@ -362,6 +398,45 @@ static void test_make_leaves(bvc_dag_t *dag, int32_t t, uint32_t n, uint32_t b, 
 
 }
 
+
+/*
+ * TEST: try all non-zero 4bit coefficients
+ */
+static void test_all_mono64(bvc_dag_t *dag) {
+  node_occ_t r;
+  uint64_t a;
+
+  printf("\n=== TEST ALL FOUR-BIT COEFFICIENS ====\n");
+  r = test_leaf(dag, 99, 4);
+  for (a=1; a<16; a++) {
+    (void) test_mono64(dag, a, r, 4);
+  }
+  printf("\n");
+  for (a=1; a<16; a++) {
+    (void) test_mono64(dag, a, r^1, 4);
+  }
+  printf("\n");
+}
+
+
+/*
+ * TEST: try all non-zero 4bit coefficients
+ */
+static void test_all_offset64(bvc_dag_t *dag) {
+  node_occ_t r;
+  uint64_t a;
+
+  printf("\n=== TEST ALL FOUR-BIT OFFSETS ====\n");
+  r = test_leaf(dag, 99, 4);
+  for (a=1; a<16; a++) {
+    (void) test_offset64(dag, a, r, 4);
+  }
+  printf("\n");
+  for (a=1; a<16; a++) {
+    (void) test_offset64(dag, a, r^1, 4);
+  }
+  printf("\n");
+}
 
 
 /*
@@ -415,12 +490,15 @@ int main(void) {
   test_make_leaves(&dag, 1, 10, 5, leaves);
   test_make_leaves(&dag, 200, 20, 63, leaves + 10);
 
+  test_all_mono64(&dag);
   printf("\n=== TEST ADD MONO64 ===\n");
 
   test_make_mono64(&dag, leaves[0], 5, mono);
   test_make_mono64(&dag, leaves[2], 5, mono);
   test_make_mono64(&dag, leaves[10], 63, mono);
   test_make_mono64(&dag, leaves[11], 63, mono);
+
+  test_all_offset64(&dag);
   
   printf("=== AFTER MONO64 ===\n");
   print_dag(stdout, &dag);

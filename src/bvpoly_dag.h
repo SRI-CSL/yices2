@@ -29,14 +29,15 @@
 
 /*
  * There are five types of nodes:
- * - [leave]
+ * - [leave x] where x is a bitvector variable
  * - [offset a0 n1] denotes (a0 + n1)
  * - [mono   a0 n1] deontes (a0 * n1)
  * - [prod  n1^d1 ... n_k^d_k] denotes a power product
  * - [sum  n1 + ... + n_k]
  * Where a0 is a constant, and n_t is a node occurrence.
  *
- * The leave nodes correspond to expressions that don't need compilation.
+ * The leave nodes correspond to expressions that don't need
+ * compilation (i.e., [leave x] is compiled to variable x).
  * The other nodes are expressions to be compiled.
  *
  * A node occurrence encodes bvneg:
@@ -51,17 +52,14 @@
  * - in [prod n1^d1 ... n_k^d-k]: all n_i's must be positive occurrences
  * - in [sum n1 ... n_k]: the n_i's must not be offset nodes
  *
- * The DAG maintains a correspondence between nodes and variables:
- * - a node n many be mapped to either bvp(x) or bvn(x) where x 
- *   is an external variable
- * - the converse mapping is stored in dag->vmap:
- *   if n is mapped to bvp(x), then x is mapped to bvp(n)
- *   if n is mapped to bvn(x), then x is mapped to bvn(n)
+ * The DAG maintains a mapping from bit-vector variables to node occurrences.
+ * - if x is a bitvector polynomial then dag->vmap stores the bvp(n) or
+ *   bvn(n) where n is a node index.
+ * - we also use a set (dag->vset) to store the set of variables x
+ *   that are mapped to some node occurrence.
  *
  * The node descriptors have a common header that includes:
  * - tag: the node type
- * - map: variable occurrencce mapped to this node 
-  *       or -1 if n is not mapped to anything.
  * - bitsize: number of bits
  *
  * For offset and monomial nodes: the constant is either a 64bit integer or a
@@ -144,12 +142,12 @@ typedef enum bvc_tag {
 
 typedef struct bvc_header_s {
   bvc_tag_t tag;
-  int32_t  map;
   uint32_t bitsize;
 } bvc_header_t;
 
 typedef struct bvc_leaf_s {
   bvc_header_t header;
+  int32_t  map; //  variable the leaf is compiled to
 } bvc_leaf_t;
 
 typedef struct bvc_offset_s {
@@ -351,37 +349,11 @@ extern void reset_bvc_dag(bvc_dag_t *dag);
 
 
 /*
- * MAPPING VARIABLES --> NODES
- */
-
-/*
- * Check whether x is in vset (i.e., there's a node attached to x)
- */
-static inline bool bvc_dag_var_is_present(bvc_dag_t *dag, int32_t x) {
-  assert(x > 0);
-  return int_bvset_member(&dag->vset, x);
-}
-
-/*
- * Get the node occurrence mapped to x
- */
-static inline node_occ_t bvc_dag_nocc_of_var(bvc_dag_t *dag, int32_t x) {
-  assert(bvc_dag_var_is_present(dag, x));
-  return int_hmap_find(&dag->vmap, x)->val;
-}
-
-
-/*
  * Checks on a node n
  */
 static inline bvc_tag_t bvc_dag_node_type(bvc_dag_t *dag, node_t n) {
   assert(0 < n && n <= dag->nelems);
   return dag->desc[n]->tag;
-}
-
-static inline int32_t bvc_dag_node_map(bvc_dag_t *dag, node_t n) {
-  assert(0 < n && n <= dag->nelems);
-  return dag->desc[n]->map;
 }
 
 static inline bool bvc_dag_node_is_leaf(bvc_dag_t *dag, node_t n) {
@@ -458,6 +430,36 @@ static inline bool bvc_dag_occ_is_sum(bvc_dag_t *dag, node_occ_t n) {
 
 
 
+
+/*
+ * MAPPING VARIABLES --> NODES
+ */
+
+/*
+ * Check whether x is in vset (i.e., there's a node attached to x)
+ */
+static inline bool bvc_dag_var_is_present(bvc_dag_t *dag, int32_t x) {
+  assert(x > 0);
+  return int_bvset_member(&dag->vset, x);
+}
+
+/*
+ * Get the node occurrence mapped to x
+ */
+static inline node_occ_t bvc_dag_nocc_of_var(bvc_dag_t *dag, int32_t x) {
+  assert(bvc_dag_var_is_present(dag, x));
+  return int_hmap_find(&dag->vmap, x)->val;
+}
+
+
+/*
+ * Store mapping [x --> n]
+ * - x must be positive
+ * - x must not be mapped already (not in vset)
+ */
+extern void bvc_dag_map_var(bvc_dag_t *dag, int32_t x, node_occ_t n);
+
+
 /*
  * NODE CONSTRUCTION
  */
@@ -466,7 +468,7 @@ static inline bool bvc_dag_occ_is_sum(bvc_dag_t *dag, node_occ_t n) {
  * Create a leaf node mapped to x
  * - x must be positive
  * - x must not be mapped (i.e., not in dag->vset)
- * - creates q := [leaf bvp(x)] and stores the mapping  [x --> bvp(q)]
+ * - creates q := [leaf bvp(x)]
  * - returns bvp(q)
  */
 extern node_occ_t bvc_dag_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize);
@@ -474,13 +476,13 @@ extern node_occ_t bvc_dag_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize);
 
 /*
  * Get a node mapped to x
- * - if there isn't one, create a leaf node
+ * - if there isn't one, create a leaf node [leaf x]
  */
 extern node_occ_t bvc_dag_get_node_of_var(bvc_dag_t *dag, int32_t x, uint32_t bitsize);
 
 
 /*
- * Construct a monomial node q and attach it to variable x if x != -1
+ * Construct a monomial node q
  * - a must be normalized modulo 2^bitsize
  * - depending on the coefficient a and the sign of n:
  *        q := [mono a n] and returns bvp(q)
@@ -488,73 +490,58 @@ extern node_occ_t bvc_dag_get_node_of_var(bvc_dag_t *dag, int32_t x, uint32_t bi
  *     or q := [mono a (-n)] and returns bvn(q)
  *     or q := [mono (-a) (-n)] and returns bvp(q)
  *
- * - if x is not -1, then it must be a variable not mapped to anything 
- *   yet. Then the mapping [x --> bvp(q)] or [x --> bvn(q)] is stored in vmap.
- *
  * There are two versions: one for bitsize <= 64, one for bitsize > 64.
  */
-extern node_occ_t bvc_dag_mono64(bvc_dag_t *dag, int32_t x, uint64_t a, node_occ_t n, uint32_t bitsize);
-extern node_occ_t bvc_dag_mono(bvc_dag_t *dag, int32_t x, uint32_t *a, node_occ_t n, uint32_t bitsize);
+extern node_occ_t bvc_dag_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize);
+extern node_occ_t bvc_dag_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bitsize);
 
  
 /*
- * Construct an offset node q and attach it to variable x if x is != -1.
+ * Construct an offset node q
  * - a must be normalized modulo 2^bitsize
  * - this creates q := [offet a n] and returns q
- *
- * - if x is not -1, then it must be a variable not mapped to anything 
- *   yet. Then the mapping [x --> bvp(q)] is stored in vmap.
- *
  * There are two versions: one for bitsize <= 64, one for bitsize > 64.
  */
-extern node_occ_t bvc_dag_offset64(bvc_dag_t *dag, int32_t x, uint64_t a, node_occ_t n, uint32_t bitsize);
-extern node_occ_t bvc_dag_offset(bvc_dag_t *dag, int32_t x, uint32_t *a, node_occ_t n, uint32_t bitsize);
+extern node_occ_t bvc_dag_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize);
+extern node_occ_t bvc_dag_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bitsize);
  
 
 
 /*
- * Construct a sum node q and attach it to variable x if x is != -1.
+ * Construct a sum node q
  * - a = array of n node occurrences
  * - n must be positive
- * - if x isn't -1, then it must be a valid variable, not mapped to anything yet
- * - the array a is modified (sorted).
  *
  * If n == 1, this returns a[0].
  * Otherwise, a is sored and a node q := [sum a[0] ... a[n-1]] is created
  */
-extern node_occ_t bvc_dag_sum(bvc_dag_t *dag, int32_t x, node_occ_t *a, uint32_t n, uint32_t bitsize);
+extern node_occ_t bvc_dag_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32_t bitsize);
 
 
 /*
- * Construct a power product node q and attach it to variable x
+ * Construct a power product node q
  * - q is defined by the exponents in power product p and the
  *   nodes in array a: if p is x_1^d_1 ... x_k^d_k
  *   then a must have k elements a[0] ... a[k-1]
  *   and q is [prod a[0]^d_1 ... a[k-1]^d_k]
- *
- * - x must be positive
- * - there mustn't be a node mapped to x yet
- * - store the mapping [x --> q] in dag->vmap
- * - return the node index q
  */
-extern node_occ_t bvc_dag_pprod(bvc_dag_t *dag, int32_t x, pprod_t *p, node_occ_t *a, uint32_t bitsize);
+extern node_occ_t bvc_dag_pprod(bvc_dag_t *dag, pprod_t *p, node_occ_t *a, uint32_t bitsize);
 
 
 /*
  * Convert a polynomial p to a DAG node q and return q
- * - q is defined by the coefficients in p and the node indices
- *   in array a: if p is b_0 x_0 + b_1 x_1 + ... + b_k x_k 
- *   then a must have k+1 elements a[0] ... a[k]
- *   and q is built for (b_0 * a[0] + b_1 a[1] + ... + b_k a[k])
- * - if x_0 is const_idx, then a[0] is ignored and 
- *       q is built for (b_0 + b_1 a[1] + ... + b_k a[k]).
+ * - q is defined by the coefficients in p and 
+ *   the node occurrences in array a
+ * - p must be non-zero and non-constant: it's of the 
+ *   form  b_0 x_0 + b_1 x_1 + ... + b_k x_k  where k >= 1.
+ * - array a must have k+1 elements a[0] ... a[k]
  *
- * - x must be positive and not mapped to any node yet
- * - the mapping [x --> q] is added in dag->vmap
- *   and q is returned
- */
-extern node_occ_t bvc_dag_poly64(bvc_dag_t *dag, int32_t x, bvpoly64_t *p, node_occ_t *a);
-extern node_occ_t bvc_dag_poly(bvc_dag_t *dag, int32_t x, bvpoly_t *p, node_occ_t *a);
+ * If x_0 is const_idx then a[0] is ignored and q is the root node for
+ * (b_0 + b_1 a[1] + ... + b_k a[k]).  Otherwise, q is the root node
+ * for (b_0 a[0] + b_1 a[1] + ... + b_k a[k]).
+  */
+extern node_occ_t bvc_dag_poly64(bvc_dag_t *dag, bvpoly64_t *p, node_occ_t *a);
+extern node_occ_t bvc_dag_poly(bvc_dag_t *dag, bvpoly_t *p, node_occ_t *a);
 
 
 
