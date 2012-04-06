@@ -422,7 +422,7 @@ static bool prod_node_is_elementary(bvc_dag_t *dag, bvc_prod_t *d) {
 
 static bool sum_node_is_elementary(bvc_dag_t *dag, bvc_sum_t * d) {
   assert(d->len >= 2);
-  return d->len == 2 && bvc_dag_occ_is_leaf(dag, d->sum[0]) && bvc_dag_node_is_leaf(dag, d->sum[1]);
+  return d->len == 2 && bvc_dag_occ_is_leaf(dag, d->sum[0]) && bvc_dag_occ_is_leaf(dag, d->sum[1]);
 }
 
 
@@ -810,7 +810,7 @@ static bool eq_bvc_mono_hobj(bvc_hobj_t *p, node_t i) {
   uint32_t k;
 
   d = p->dag->desc[i];
-  if (d->tag != BVC_MONO || d->bitsize == p->bitsize) {
+  if (d->tag != BVC_MONO || d->bitsize != p->bitsize) {
     return false;
   }
   o = mono_node(d);
@@ -1120,18 +1120,19 @@ node_occ_t bvc_dag_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bit
    * normalization: 
    * - is popcount(a)  < popcount(-a) then build [mono a n]
    * - if popcount(-a) < popcount(a)  then build [mono (-a) n]
-   * - if there's a tie, we build [mono a n] if a is positive
-   *                           or [mono (-a) n] is a is negative
+   * - if there's a tie, we build [mono (-a) n] if -a is positive
+   *                           or [mono a n] otherwise
    *
    * Note: if a is 0b10000...00 then both a and -a are negative and equal
-   * so the tie-breaking rule works too.
+   * so the tie-breaking rule works too (we want to build [mono a n]
+   * in this case).
    */
   minus_a = norm64(-a, bitsize);
   ka = popcount64(a);
   kma = popcount64(minus_a);
   assert(1 <= ka && ka <= bitsize && 1 <= kma && kma <= bitsize);
 
-  if (kma < ka || (kma == ka && is_neg64(a, bitsize))) {
+  if (kma < ka || (kma == ka && is_pos64(minus_a, bitsize))) {
     a = minus_a;
     sign ^= 1; // flip the sign
   }
@@ -1168,7 +1169,7 @@ node_occ_t bvc_dag_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bits
   kma = bvconst_popcount(minus_a, w);
   assert(1 <= ka && ka <= bitsize && 1 <= kma && kma <= bitsize);
 
-  if (kma < ka || (kma == ka && bvconst_tst_bit(a, bitsize - 1))) {
+  if (kma < ka || (kma == ka && !bvconst_tst_bit(minus_a, bitsize - 1))) {
     a = minus_a;
     sign ^= 1; // flip the sign
   }
