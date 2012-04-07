@@ -64,17 +64,17 @@ static inline void list_remove(bvc_item_t *list, int32_t i) {
  * - list[-1] --> elementary nodes
  * - list[-2] --> default list
  */
-static inline void bvc_dag_add_to_leaves(bvc_dag_t *dag, node_t n) {
+static inline void bvc_dag_add_to_leaves(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   list_add(dag->list, BVC_DAG_LEAF_LIST, n);
 }
 
-static inline void bvc_dag_add_to_elementary_list(bvc_dag_t *dag, node_t n) {
+static inline void bvc_dag_add_to_elementary_list(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   list_add(dag->list, BVC_DAG_ELEM_LIST, n);
 }
 
-static inline void bvc_dag_add_to_default_list(bvc_dag_t *dag, node_t n) {
+static inline void bvc_dag_add_to_default_list(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   list_add(dag->list, BVC_DAG_DEFAULT_LIST, n);
 }
@@ -83,13 +83,13 @@ static inline void bvc_dag_add_to_default_list(bvc_dag_t *dag, node_t n) {
 /*
  * Move n to a different list
  */
-static inline void bvc_dag_move_to_leaves(bvc_dag_t *dag, node_t n) {
+static inline void bvc_dag_move_to_leaves(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   list_remove(dag->list, n);
   list_add(dag->list, BVC_DAG_LEAF_LIST, n);
 }
 
-static inline void bvc_dag_move_to_elementary_list(bvc_dag_t *dag, node_t n) {
+static inline void bvc_dag_move_to_elementary_list(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   list_remove(dag->list, n);
   list_add(dag->list, BVC_DAG_ELEM_LIST, n);
@@ -180,7 +180,7 @@ static void extend_bvc_dag(bvc_dag_t *dag) {
  * - set use[n] to NULL
  * - list[n] is not initialized
  */
-static node_t bvc_dag_add_node(bvc_dag_t *dag, bvc_header_t *d) {
+static bvnode_t bvc_dag_add_node(bvc_dag_t *dag, bvc_header_t *d) {
   uint32_t i;
 
   i = dag->nelems + 1;
@@ -434,7 +434,7 @@ static bool sum_node_is_elementary(bvc_dag_t *dag, bvc_sum_t * d) {
 /*
  * Add i to the use list of n
  */
-static inline void bvc_dag_add_dependency(bvc_dag_t *dag, node_t n, node_t i) {
+static inline void bvc_dag_add_dependency(bvc_dag_t *dag, bvnode_t n, bvnode_t i) {
   assert(0 < n && n <= dag->nelems && 0 < i && i <= dag->nelems && i != n);
   add_index_to_vector(dag->use + n, i);
 }
@@ -451,7 +451,7 @@ static inline void bvc_dag_add_dependency(bvc_dag_t *dag, node_t n, node_t i) {
  * nodes: if bit_hash(A) & bit_hash(B) != bit_hash(A) then
  * A can't be a subset of B.
  */
-static inline uint32_t bit_hash(node_t n) {
+static inline uint32_t bit_hash(bvnode_t n) {
   assert(n > 0);
   return ((uint32_t) 1) << (n & 31);
 }
@@ -464,9 +464,9 @@ static inline uint32_t bit_hash_occ(node_occ_t n) {
 /*
  * Create a leaf node
  */
-static node_t bvc_dag_mk_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
+static bvnode_t bvc_dag_mk_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
   bvc_leaf_t *d;
-  node_t q;
+  bvnode_t q;
 
   d = alloc_leaf(dag);
   d->header.tag = BVC_LEAF;
@@ -483,9 +483,9 @@ static node_t bvc_dag_mk_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
 /*
  * Create an offset node q := [offset a n]
  */
-static node_t bvc_dag_mk_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
+static bvnode_t bvc_dag_mk_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
   bvc_offset_t *d;
-  node_t q;
+  bvnode_t q;
 
   assert(1 <= bitsize && bitsize <= 64 && a == norm64(a, bitsize));
 
@@ -503,11 +503,11 @@ static node_t bvc_dag_mk_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint
 }
 
 
-static node_t bvc_dag_mk_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bitsize) {
+static bvnode_t bvc_dag_mk_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bitsize) {
   bvc_offset_t *d;
   uint32_t *c;
   uint32_t k;
-  node_t q;
+  bvnode_t q;
 
   assert(bitsize > 64);
 
@@ -535,9 +535,9 @@ static node_t bvc_dag_mk_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint3
 /*
  * Create an monomial node q := [mono a, n]
  */
-static node_t bvc_dag_mk_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
+static bvnode_t bvc_dag_mk_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
   bvc_mono_t *d;
-  node_t q;
+  bvnode_t q;
 
   assert(1 <= bitsize && bitsize <= 64 && a == norm64(a, bitsize));
 
@@ -556,11 +556,11 @@ static node_t bvc_dag_mk_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32
 }
 
 
-static node_t bvc_dag_mk_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bitsize) {
+static bvnode_t bvc_dag_mk_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bitsize) {
   bvc_mono_t *d;
   uint32_t *c;
   uint32_t k;
-  node_t q;
+  bvnode_t q;
 
   assert(bitsize > 64 && bvconst_is_normalized(a, bitsize));
 
@@ -592,7 +592,7 @@ static node_t bvc_dag_mk_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_
  * Product node defined by a[0 ... n-1]:
  * - each a[i] is a pair (node, exponent)
  */
-static node_t bvc_dag_mk_prod(bvc_dag_t *dag, varexp_t *a, uint32_t n, uint32_t bitsize) {
+static bvnode_t bvc_dag_mk_prod(bvc_dag_t *dag, varexp_t *a, uint32_t n, uint32_t bitsize) {
   bvc_prod_t *d;
   uint32_t i;
   int32_t q, k;
@@ -628,10 +628,10 @@ static node_t bvc_dag_mk_prod(bvc_dag_t *dag, varexp_t *a, uint32_t n, uint32_t 
  * Sum mode a[0] + ... + a[n-1]
  * - each a[i] is a node occurrence
  */
-static node_t bvc_dag_mk_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32_t bitsize) {
+static bvnode_t bvc_dag_mk_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32_t bitsize) {
   bvc_sum_t *d;
   uint32_t i;
-  node_t q;
+  bvnode_t q;
   int32_t k;
 
   d = alloc_sum(dag, n);
@@ -759,14 +759,14 @@ static uint32_t hash_bvc_sum_hobj(bvc_sum_hobj_t *p) {
 /*
  * Equality tests
  */
-static bool eq_bvc_leaf_hobj(bvc_leaf_hobj_t *p, node_t i) {
+static bool eq_bvc_leaf_hobj(bvc_leaf_hobj_t *p, bvnode_t i) {
   bvc_header_t *d;
 
   d = p->dag->desc[i];
   return d->tag == BVC_LEAF && leaf_node(d)->map == p->map;
 }
 
-static bool eq_bvc_offset64_hobj(bvc64_hobj_t *p, node_t i) {
+static bool eq_bvc_offset64_hobj(bvc64_hobj_t *p, bvnode_t i) {
   bvc_header_t *d;
   bvc_offset_t *o;
 
@@ -778,7 +778,7 @@ static bool eq_bvc_offset64_hobj(bvc64_hobj_t *p, node_t i) {
   return o->nocc == p->nocc && o->constant.c == p->c;
 }
 
-static bool eq_bvc_offset_hobj(bvc_hobj_t *p, node_t i) {
+static bool eq_bvc_offset_hobj(bvc_hobj_t *p, bvnode_t i) {
   bvc_header_t *d;
   bvc_offset_t *o;
   uint32_t k;
@@ -792,7 +792,7 @@ static bool eq_bvc_offset_hobj(bvc_hobj_t *p, node_t i) {
   return o->nocc == p->nocc && bvconst_eq(o->constant.w, p->c, k);
 }
 
-static bool eq_bvc_mono64_hobj(bvc64_hobj_t *p, node_t i) {
+static bool eq_bvc_mono64_hobj(bvc64_hobj_t *p, bvnode_t i) {
   bvc_header_t *d;
   bvc_mono_t *o;
 
@@ -804,7 +804,7 @@ static bool eq_bvc_mono64_hobj(bvc64_hobj_t *p, node_t i) {
   return o->nocc == p->nocc && o->coeff.c == p->c;
 }
 
-static bool eq_bvc_mono_hobj(bvc_hobj_t *p, node_t i) {
+static bool eq_bvc_mono_hobj(bvc_hobj_t *p, bvnode_t i) {
   bvc_header_t *d;
   bvc_mono_t *o;
   uint32_t k;
@@ -818,7 +818,7 @@ static bool eq_bvc_mono_hobj(bvc_hobj_t *p, node_t i) {
   return o->nocc == p->nocc && bvconst_eq(o->coeff.w, p->c, k);
 }
 
-static bool eq_bvc_prod_hobj(bvc_prod_hobj_t *p, node_t i) {
+static bool eq_bvc_prod_hobj(bvc_prod_hobj_t *p, bvnode_t i) {
   bvc_header_t *d;
   bvc_prod_t *o;
   uint32_t j, n;
@@ -843,7 +843,7 @@ static bool eq_bvc_prod_hobj(bvc_prod_hobj_t *p, node_t i) {
   return true;
 }
 
-static bool eq_bvc_sum_hobj(bvc_sum_hobj_t *p, node_t i) {
+static bool eq_bvc_sum_hobj(bvc_sum_hobj_t *p, bvnode_t i) {
   bvc_header_t *d;
   bvc_sum_t *o;
   uint32_t j, n;
@@ -871,31 +871,31 @@ static bool eq_bvc_sum_hobj(bvc_sum_hobj_t *p, node_t i) {
 /*
  * Constructors
  */
-static node_t build_bvc_leaf_hobj(bvc_leaf_hobj_t *p) {
+static bvnode_t build_bvc_leaf_hobj(bvc_leaf_hobj_t *p) {
   return bvc_dag_mk_leaf(p->dag, p->map, p->bitsize);
 }
 
-static node_t build_bvc_offset64_hobj(bvc64_hobj_t *p) {
+static bvnode_t build_bvc_offset64_hobj(bvc64_hobj_t *p) {
   return bvc_dag_mk_offset64(p->dag, p->c, p->nocc, p->bitsize);
 }
 
-static node_t build_bvc_offset_hobj(bvc_hobj_t *p) {
+static bvnode_t build_bvc_offset_hobj(bvc_hobj_t *p) {
   return bvc_dag_mk_offset(p->dag, p->c, p->nocc, p->bitsize);
 }
 
-static node_t build_bvc_mono64_hobj(bvc64_hobj_t *p) {
+static bvnode_t build_bvc_mono64_hobj(bvc64_hobj_t *p) {
   return bvc_dag_mk_mono64(p->dag, p->c, p->nocc, p->bitsize);
 }
 
-static node_t build_bvc_mono_hobj(bvc_hobj_t *p) {
+static bvnode_t build_bvc_mono_hobj(bvc_hobj_t *p) {
   return bvc_dag_mk_mono(p->dag, p->c, p->nocc, p->bitsize);
 }
 
-static node_t build_bvc_prod_hobj(bvc_prod_hobj_t *p) {
+static bvnode_t build_bvc_prod_hobj(bvc_prod_hobj_t *p) {
   return bvc_dag_mk_prod(p->dag, p->pp, p->len, p->bitsize);
 }
 
-static node_t build_bvc_sum_hobj(bvc_sum_hobj_t *p) {
+static bvnode_t build_bvc_sum_hobj(bvc_sum_hobj_t *p) {
   return bvc_dag_mk_sum(p->dag, p->noccs, p->len, p->bitsize);
 }
 
@@ -949,14 +949,14 @@ static bvc_sum_hobj_t bvc_sum_hobj = {
 /*
  * Hash-consing constructors
  */
-static node_t bvc_dag_get_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
+static bvnode_t bvc_dag_get_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
   bvc_leaf_hobj.dag = dag;
   bvc_leaf_hobj.bitsize = bitsize;
   bvc_leaf_hobj.map = x;
   return int_htbl_get_obj(&dag->htbl, &bvc_leaf_hobj.m);
 }
 
-static node_t bvc_dag_get_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
+static bvnode_t bvc_dag_get_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
   bvc_offset64_hobj.dag = dag;
   bvc_offset64_hobj.c = a;
   bvc_offset64_hobj.bitsize = bitsize;
@@ -964,7 +964,7 @@ static node_t bvc_dag_get_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uin
   return int_htbl_get_obj(&dag->htbl, &bvc_offset64_hobj.m);
 }
 
-static node_t bvc_dag_get_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bitsize) {
+static bvnode_t bvc_dag_get_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bitsize) {
   bvc_offset_hobj.dag = dag;
   bvc_offset_hobj.c = a;
   bvc_offset_hobj.bitsize = bitsize;
@@ -972,7 +972,7 @@ static node_t bvc_dag_get_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint
   return int_htbl_get_obj(&dag->htbl, &bvc_offset_hobj.m);
 }
 
-static node_t bvc_dag_get_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
+static bvnode_t bvc_dag_get_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
   bvc_mono64_hobj.dag = dag;
   bvc_mono64_hobj.c = a;
   bvc_mono64_hobj.bitsize = bitsize;
@@ -980,7 +980,7 @@ static node_t bvc_dag_get_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint3
   return int_htbl_get_obj(&dag->htbl, &bvc_mono64_hobj.m);
 }
 
-static node_t bvc_dag_get_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bitsize) {
+static bvnode_t bvc_dag_get_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bitsize) {
   bvc_mono_hobj.dag = dag;
   bvc_mono_hobj.c = a;
   bvc_mono_hobj.bitsize = bitsize;
@@ -989,7 +989,7 @@ static node_t bvc_dag_get_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32
 }
 
 // note: a must be sorted
-static node_t bvc_dag_get_prod(bvc_dag_t *dag, varexp_t *a, uint32_t len, uint32_t bitsize) {
+static bvnode_t bvc_dag_get_prod(bvc_dag_t *dag, varexp_t *a, uint32_t len, uint32_t bitsize) {
   bvc_prod_hobj.dag = dag;
   bvc_prod_hobj.pp = a;
   bvc_prod_hobj.bitsize = bitsize;
@@ -998,7 +998,7 @@ static node_t bvc_dag_get_prod(bvc_dag_t *dag, varexp_t *a, uint32_t len, uint32
 }
 
 // a must be sorted
-static node_t bvc_dag_get_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t len, uint32_t bitsize) {
+static bvnode_t bvc_dag_get_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t len, uint32_t bitsize) {
   bvc_sum_hobj.dag = dag;
   bvc_sum_hobj.noccs = a;
   bvc_sum_hobj.bitsize = bitsize;
@@ -1043,15 +1043,20 @@ node_occ_t bvc_dag_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
 
 /*
  * Get a node mapped to x
- * - if there's none, create the node [leaf x]
+ * - if there's none, create the node [leaf x] and store [x --> [leaf x]]
+ *   in the vmap
  */
 node_occ_t bvc_dag_get_nocc_of_var(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
+  node_occ_t n;
+
   assert(x > 0);
 
   if (bvc_dag_var_is_present(dag, x)) {
     return bvc_dag_nocc_of_var(dag, x);
   } else {
-    return bvc_dag_leaf(dag, x, bitsize);
+    n = bvc_dag_leaf(dag, x, bitsize);
+    bvc_dag_map_var(dag, x, n);
+    return n;
   }
 }
 
@@ -1106,12 +1111,12 @@ node_occ_t bvc_dag_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bi
 node_occ_t bvc_dag_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
   uint64_t minus_a;
   uint32_t sign, ka, kma;
-  node_t q;
+  bvnode_t q;
 
   assert(1 <= bitsize && bitsize <= 64 && a == norm64(a, bitsize) && a != 0);
 
   if (a == 1) return n;
-  if (a == mask64(bitsize)) return neg_occ(n);
+  if (a == mask64(bitsize)) return negate_occ(n);
     
   sign = sign_of_occ(n);
   n = unsigned_occ(n);
@@ -1145,14 +1150,14 @@ node_occ_t bvc_dag_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bit
 node_occ_t bvc_dag_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32_t bitsize) {
   uint32_t *minus_a;
   uint32_t w, sign, ka, kma;
-  node_t q;
+  bvnode_t q;
 
   w = (bitsize + 31) >> 5; // number of words in a
 
   assert(64 < bitsize && bvconst_is_normalized(a, bitsize) && !bvconst_is_zero(a, w));
 
   if (bvconst_is_one(a, w)) return n;
-  if (bvconst_is_minus_one(a, bitsize)) return neg_occ(n);
+  if (bvconst_is_minus_one(a, bitsize)) return negate_occ(n);
 
   sign = sign_of_occ(n);
   n = unsigned_occ(n);
@@ -1258,10 +1263,10 @@ node_occ_t bvc_dag_poly64(bvc_dag_t *dag, bvpoly64_t *p, node_occ_t *a) {
     ivector_push(v, r);
     i ++;
   }
-  ivector_reset(v);
 
   // build the sum
   r = bvc_dag_sum(dag, v->data, v->size, bitsize);
+  ivector_reset(v);
 
   // add the constant if any
   if (p->mono[0].var == const_idx) {
@@ -1293,10 +1298,10 @@ node_occ_t bvc_dag_poly(bvc_dag_t *dag, bvpoly_t *p, node_occ_t *a) {
     ivector_push(v, r);
     i ++;
   }
-  ivector_reset(v);
 
   // build the sum
   r = bvc_dag_sum(dag, v->data, v->size, bitsize);
+  ivector_reset(v);
 
   // add the constant if any
   if (p->mono[0].var == const_idx) {

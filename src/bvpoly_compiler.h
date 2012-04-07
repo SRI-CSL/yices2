@@ -26,12 +26,13 @@
 
 #include <stdint.h>
 
+#include "int_vectors.h"
 #include "int_hash_map.h"
 #include "int_bv_sets.h"
 #include "merge_table.h"
-#include "bv_constants.h"
 #include "bv_vartable.h"
 
+#include "bvpoly_dag.h"
 
 
 /*
@@ -61,6 +62,7 @@ typedef struct bvc_queue_s {
  * - elemexp = all elementary expressions constructed
  *
  * For compilation
+ * - dag for compilation/sharing of subexpressions
  * - queue = queue of polynomials to compile
  * - in_queue = set of all elements in the queue
  */
@@ -71,11 +73,12 @@ typedef struct bvc_s {
   bvc_queue_t elemexp;
 
   // data structures used during compilation
+  bvc_dag_t dag;
   bvc_queue_t queue;
   int_bvset_t in_queue;
 
   // auxiliary buffers
-  bvconstant_t aux;
+  ivector_t buffer;
 } bvc_t;
 
 

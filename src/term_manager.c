@@ -487,13 +487,34 @@ static term_t term_is_bveq1(term_table_t *tbl, term_t x, bool *polarity) {
 
 
 /*
+ * Rewrite (bveq [p] [q]) to (eq p q)
+ * - t1 and t2 are both bv-arrays of one bit
+ * - this is called after checking for simplification (so
+ *   we known that (p == q) does not simplify to a single term).
+ */
+static term_t mk_bveq_arrays1(term_manager_t *manager, term_t t1, term_t t2) {
+  composite_term_t *a;
+  composite_term_t *b;
+
+  a = bvarray_term_desc(&manager->terms, t1);
+  b = bvarray_term_desc(&manager->terms, t2);
+
+  assert(a->arity == 1 && b->arity == 1);
+  return mk_iff(manager, a->arg[0], b->arg[0]);
+}
+
+
+/*
  * Auxiliary function: build (bveq t1 t2)
  * - try to simplify to true or false
  * - attempt to simplify the equality if it's between bit-arrays or bit-arrays and constant
  * - build an atom if no simplification works
  */
-static term_t mk_bitvector_eq(term_table_t *tbl, term_t t1, term_t t2) {
+static term_t mk_bitvector_eq(term_manager_t *manager, term_t t1, term_t t2) {
+  term_table_t *tbl;
   term_t aux;
+
+  tbl = &manager->terms;
 
   if (t1 == t2) return true_term;
   if (disequal_bitvector_terms(tbl, t1, t2)) {
@@ -511,6 +532,16 @@ static term_t mk_bitvector_eq(term_table_t *tbl, term_t t1, term_t t2) {
   }
 
   /*
+   * Special case: for bit-vector of size 1
+   * - convert to boolean equality 
+   */
+  if (term_bitsize(tbl, t1) == 1 && 
+      term_kind(tbl, t1) == BV_ARRAY && term_kind(tbl, t2) == BV_ARRAY) {
+    assert(term_bitsize(tbl, t2) == 1);
+    return mk_bveq_arrays1(manager, t1, t2);
+  }
+
+  /*
    * Default: normalize then build a bveq_atom
    */
   if (t1 > t2) {
@@ -524,7 +555,7 @@ static term_t mk_bitvector_eq(term_table_t *tbl, term_t t1, term_t t2) {
 
 /*
  * Special constructor for (iff x y) when x or y (or both)
- * is of the form (bveq a 0b0) or (bveq a 0b1).
+ * are of the form (bveq a 0b0) or (bveq a 0b1).
  *
  * Try the following rewrite rules:
  *   iff (bveq a 0b0) (bveq b 0b0) ---> (bveq a b)
@@ -555,7 +586,7 @@ static term_t try_iff_bveq_simplification(term_manager_t *manager, term_t x, ter
        * x is (bveq a <constant>)
        * y is (bveq b <constant>)
        */
-      t = mk_bitvector_eq(tbl, a, b);
+      t = mk_bitvector_eq(manager, a, b);
       t = signed_term(t, (pa == pb));
       return t;
     }
@@ -571,7 +602,7 @@ static term_t try_iff_bveq_simplification(term_manager_t *manager, term_t x, ter
        * TODO? We could rewrite to (bveq a (bvarray ~y))??
        */
       t = bvarray_get_term(manager, &y, 1);
-      t = mk_bitvector_eq(tbl, a, t);
+      t = mk_bitvector_eq(manager, a, t);
       t = signed_term(t, pa);
       return t;
     }
@@ -581,7 +612,7 @@ static term_t try_iff_bveq_simplification(term_manager_t *manager, term_t x, ter
        * y is (bveq b <constant>)
        */
       t = bvarray_get_term(manager, &x, 1);
-      t = mk_bitvector_eq(tbl, b, t);
+      t = mk_bitvector_eq(manager, b, t);
       t = signed_term(t, pb);
       return t;
     }
@@ -2312,11 +2343,11 @@ term_t mk_direct_arith_lt0(term_table_t *tbl, arith_buffer_t *b) {
  * Bitvector equality and disequality
  */
 term_t mk_bveq(term_manager_t *manager, term_t t1, term_t t2) {
-  return mk_bitvector_eq(&manager->terms, t1, t2);
+  return mk_bitvector_eq(manager, t1, t2);
 }
 
 term_t mk_bvneq(term_manager_t *manager, term_t t1, term_t t2) {
-  return opposite_term(mk_bitvector_eq(&manager->terms, t1, t2));
+  return opposite_term(mk_bitvector_eq(manager, t1, t2));
 }
 
 
@@ -3959,12 +3990,12 @@ term_t mk_bvge(term_manager_t *manager, term_t t1, term_t t2) {
 
   if (bvterm_is_min_unsigned(&manager->terms, t1)) {
     // 0b0000..00 >= t2  iff t2 == 0b0000..00
-    return mk_bitvector_eq(&manager->terms, t1, t2);
+    return mk_bitvector_eq(manager, t1, t2);
   }
 
   if (bvterm_is_max_unsigned(&manager->terms, t2)) {
     // t1 >= 0b1111..11  iff t1 == 0b1111..11
-    return mk_bitvector_eq(&manager->terms, t1, t2);
+    return mk_bitvector_eq(manager, t1, t2);
   }
 
   return bvge_atom(&manager->terms, t1, t2);
@@ -4032,12 +4063,12 @@ term_t mk_bvsge(term_manager_t *manager, term_t t1, term_t t2) {
 
   if (bvterm_is_min_signed(&manager->terms, t1)) {
     // 0b1000..00 >= t2  iff t2 == 0b1000..00
-    return mk_bitvector_eq(&manager->terms, t1, t2);
+    return mk_bitvector_eq(manager, t1, t2);
   }
 
   if (bvterm_is_max_signed(&manager->terms, t2)) {
     // t1 >= 0b0111..11  iff t1 == 0b0111..11
-    return mk_bitvector_eq(&manager->terms, t1, t2);
+    return mk_bitvector_eq(manager, t1, t2);
   }
   
   return bvsge_atom(&manager->terms, t1, t2);

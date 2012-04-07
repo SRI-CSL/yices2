@@ -701,6 +701,22 @@ static void bv_solver_prepare_blasting(bv_solver_t *solver) {
   }
 }
 
+
+/*
+ * Allocate and initialize the compiler object (if needed)
+ */
+static void bv_solver_alloc_compiler(bv_solver_t *solver) {
+  bvc_t *c;
+
+  c = solver->compiler;
+  if (c == NULL) {
+    c = (bvc_t *) safe_malloc(sizeof(bvc_t));
+    init_bv_compiler(c, &solver->vtbl, &solver->mtbl);
+    solver->compiler = c;
+  }
+}
+
+
 #if 0
 
 /*
@@ -729,6 +745,41 @@ static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
 
 #endif
 
+
+/*
+ * Top-level bit-blasting: exported for testing
+ */
+void bv_solver_bitblast(bv_solver_t *solver) {
+  bv_vartable_t *vtbl;
+  bvc_t *compiler;
+  uint32_t i, n;
+
+  bv_solver_prepare_blasting(solver);
+  bv_solver_alloc_compiler(solver);
+
+  /*
+   * test: send all the polynomials and power products to
+   * the compiler then turn the terms to DAGs
+   */
+  compiler = solver->compiler;
+  vtbl = &solver->vtbl;
+  n = vtbl->nvars;
+  for (i=1; i<n; i++) {
+    switch (bvvar_tag(vtbl, i)) {
+    case BVTAG_POLY64:
+    case BVTAG_POLY:
+    case BVTAG_PPROD:
+      bv_compiler_push_var(compiler, i);
+      break;
+
+    default:
+      break;
+    }
+  }
+
+  // process the polynomials
+  bv_compiler_process_queue(compiler);
+}
 
 
 
@@ -3635,6 +3686,7 @@ void init_bv_solver(bv_solver_t *solver, smt_core_t *core, egraph_t *egraph) {
   init_mtbl(&solver->mtbl);
   init_bv_bound_queue(&solver->bqueue);
 
+  solver->compiler = NULL;
   solver->blaster = NULL;
   solver->remap = NULL;
 
@@ -3682,6 +3734,12 @@ void delete_bv_solver(bv_solver_t *solver) {
   delete_bv_atomtable(&solver->atbl);
   delete_mtbl(&solver->mtbl);
   delete_bv_bound_queue(&solver->bqueue);
+
+  if (solver->compiler != NULL) {
+    delete_bv_compiler(solver->compiler);
+    safe_free(solver->compiler);
+    solver->compiler = NULL;
+  }
 
   if (solver->blaster != NULL) {
     delete_bit_blaster(solver->blaster);
@@ -3810,6 +3868,12 @@ void bv_solver_reset(bv_solver_t *solver) {
   reset_bv_atomtable(&solver->atbl);
   reset_mtbl(&solver->mtbl);
   reset_bv_bound_queue(&solver->bqueue);
+
+  if (solver->compiler != NULL) {
+    delete_bv_compiler(solver->compiler);
+    safe_free(solver->compiler);
+    solver->compiler = NULL;
+  }
 
   if (solver->blaster != NULL) {
     delete_bit_blaster(solver->blaster);

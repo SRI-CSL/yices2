@@ -101,10 +101,11 @@ void init_bv_compiler(bvc_t *c, bv_vartable_t *vtbl, mtbl_t *mtbl) {
   init_int_hmap(&c->cmap, 0);
   init_bvc_queue(&c->elemexp);
 
+  init_bvc_dag(&c->dag, 0);
   init_bvc_queue(&c->queue);
   init_int_bvset(&c->in_queue, 0);
 
-  init_bvconstant(&c->aux);
+  init_ivector(&c->buffer, 10);
 }
 
 
@@ -115,11 +116,13 @@ void delete_bv_compiler(bvc_t *c) {
   delete_int_hmap(&c->cmap);
   delete_bvc_queue(&c->elemexp);
 
+  delete_bvc_dag(&c->dag);
   delete_bvc_queue(&c->queue);
   delete_int_bvset(&c->in_queue);
 
-  delete_bvconstant(&c->aux);
+  delete_ivector(&c->buffer);
 }
+
 
 /*
  * Empty
@@ -128,8 +131,11 @@ void reset_bv_compiler(bvc_t *c) {
   int_hmap_reset(&c->cmap);
   reset_bvc_queue(&c->elemexp);
 
+  reset_bvc_dag(&c->dag);
   reset_bvc_queue(&c->queue);
   reset_int_bvset(&c->in_queue);
+
+  ivector_reset(&c->buffer);
 }
 
 
@@ -355,222 +361,146 @@ void bv_compiler_push_var(bvc_t *c, thvar_t x) {
 
 
 /*
- * COMPILATION PHASE 2
+ * COMPILATION PHASE 2: CONVERT TO THE DAG REPRESENTATION
  */
 
 /*
- * In this phase; scan c->queue:
- * - any x in the queue that has a non-ambiguous definition
- *   is compiled immediately
- * - the other are TBD
+ * Convert p to a DAG node
+ * - return the node occurrence
+ * - all variables of p that are not in dag->vsets are mapped to leaf nodes
  */
+static node_occ_t bv_compiler_poly64_to_dag(bvc_t *c, bvpoly64_t *p) {
+  bvc_dag_t *dag;
+  ivector_t *v;
+  uint32_t i, n, nbits;
+  thvar_t x;
+  node_occ_t q;
+
+  dag = &c->dag;
+
+  v = &c->buffer;
+  ivector_reset(v);
+
+  n = p->nterms;
+  nbits = p->bitsize;
+
+  i = 0;
+  if (p->mono[i].var == const_idx) {
+    ivector_push(v, const_idx); // need a place-holder in v->data[0]
+    i = 1;
+  }
+  while (i < n) {
+    x = mtbl_get_root(c->mtbl, p->mono[i].var);
+    q = bvc_dag_get_nocc_of_var(dag, x, nbits);
+    ivector_push(v, q);
+    i++;
+  }
+
+  return bvc_dag_poly64(dag, p, v->data);
+}
+
+
+static node_occ_t bv_compiler_poly_to_dag(bvc_t *c, bvpoly_t *p) {
+  bvc_dag_t *dag;
+  ivector_t *v;
+  uint32_t i, n, nbits;
+  thvar_t x;
+  node_occ_t q;
+
+  dag = &c->dag;
+
+  v = &c->buffer;
+  ivector_reset(v);
+
+  n = p->nterms;
+  nbits = p->bitsize;
+
+  i = 0;
+  if (p->mono[i].var == const_idx) {
+    ivector_push(v, const_idx); // need a place-holder in v->data[0]
+    i = 1;
+  }
+  while (i < n) {
+    x = mtbl_get_root(c->mtbl, p->mono[i].var);
+    q = bvc_dag_get_nocc_of_var(dag, x, nbits);
+    ivector_push(v, q);
+    i++;
+  }
+
+  return bvc_dag_poly(dag, p, v->data);
+}
+
+
+static node_occ_t bv_compiler_pprod_to_dag(bvc_t *c, pprod_t *p, uint32_t bitsize) {
+  bvc_dag_t *dag;
+  ivector_t *v;
+  uint32_t i, n;
+  thvar_t x;
+  node_occ_t q;
+
+  dag = &c->dag;
+
+  v = &c->buffer;
+  ivector_reset(v);
+
+  n = p->len;
+  for (i=0; i<n; i++) {
+    x = mtbl_get_root(c->mtbl, p->prod[i].var);
+    q = bvc_dag_get_nocc_of_var(dag, x, bitsize);
+    ivector_push(v, q);
+  }
+
+  return bvc_dag_pprod(dag, p, v->data, bitsize);
+}
+
+
 
 /*
- * Check whether x is a leaf in the compilation DAG
- * - x is a leaf if it's not a polynomial or if it's already compiled
+ * Build a DAG node for x and store the mapping [x --> node]
+ * - x must be a polynomial or a power product
  */
-static bool bvvar_is_leaf(bvc_t *c, thvar_t x) {
-  switch (bvvar_tag(c->vtbl, x)) {
+static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
+  bv_vartable_t *vtbl;
+  node_occ_t q;
+
+  assert(0 < x && x < c->vtbl->nvars);
+
+  q = -1; // Stop GCC warning
+
+  vtbl = c->vtbl;
+
+  x = mtbl_get_root(c->mtbl, x);
+
+  switch (bvvar_tag(vtbl, x)) {
   case BVTAG_POLY64:
+    q = bv_compiler_poly64_to_dag(c, bvvar_poly64_def(vtbl, x));
+    break;
+
   case BVTAG_POLY:
+    q = bv_compiler_poly_to_dag(c, bvvar_poly_def(vtbl, x));
+    break;
+
   case BVTAG_PPROD:
-    return bvvar_is_compiled(c, x);;
-
-  default:
-    return true;
-  }
-}
-
-
-/*
- * Constructors for monomials (a * x)
- * - n = number of bits
- * - a = coefficient
- * - x = variable
- * - a must be normalized modulo 2^n
- *
- * Depending on a, this gets turned into one of the following expressions:
- * - if a is +1  -->  x
- * - if a is -1  --> (BVNEG x)
- * - otherwise   --> (BVMUL a x) or (BVNEG (BVMUL -a x))
- *   depending on the number of '1' bits in a and -a
- *
- * Heuristics:
- * - the number of adders required for (a * x) is equal to the number of '1'
- *   bits in a (i.e., to popcount(a)).
- * - (BVMUL a x) has cost equal to popcount(a)
- *   (BVNEG (BVMUL -a x)) has cost equal to  popcount(-a) + 1 (we count
- *    BVNEG as one more adder)
- *
- *
- * NOTE: there are better techniques
- * - could use a signed digit representation for the constant a
- * - if there are several monomials (a_0 x) ... (a_t x), then
- *   there are optimizations used in digital filter circuits:
- * 
- * Reference: 
- *  Dempster & McLeod, Constant integer multiplication using minimum adders, 
- *  IEE Proceedings, Cicuits, Devices & Systems, vol. 141, Issue 5, pp. 407-413,
- *  October 1994
- */
-static thvar_t bv_compiler_mk_mono64(bvc_t *c, uint32_t n, uint64_t a, thvar_t x) {
-  uint64_t b;
-  thvar_t y;
-  
-  assert(1 <= n && n <= 64 && a == norm64(a, n));
-
-  if (a == 1) {
-    // (a * x) --> x
-    y = x;
-  } else if (a == mask64(n)) { 
-    // (-1 * x) --> (bvneg x)
-    y = bv_compiler_mk_bvneg(c, n, x);
-  } else {
-    b = norm64(-a, n);
-
-    assert(1 <= popcount64(a) && popcount64(a) < n &&
-	   1 <= popcount64(b) && popcount64(b) < n);
-
-    if (popcount64(b) + 1 < popcount64(a)) {
-      // (a * x) --> (bvneg (bvmul b x))
-      y = get_bvconst64(c->vtbl, n, b);
-      y = bv_compiler_mk_bvmul(c, n, y, x);
-      y = bv_compiler_mk_bvneg(c, n, y);
-    } else {
-      // (a * x) --> (bvmul a x)
-      y = get_bvconst64(c->vtbl, n, a);
-      y = bv_compiler_mk_bvmul(c, n, y, x);
-    }
-  }
-
-  return y;
-}
-
-static thvar_t bv_compiler_mk_mono(bvc_t *c, uint32_t n, uint32_t *a, thvar_t x) {
-  bvconstant_t *aux;
-  thvar_t y;
-  uint32_t w;
-
-  assert(n > 64 && bvconst_is_normalized(a, n));
-
-  w = (n + 31) >> 5; // number of words in a
-  if (bvconst_is_one(a, w)) {
-    y = x;
-  } else if (bvconst_is_minus_one(a, n)) {
-    y = bv_compiler_mk_bvneg(c, n, x);
-  } else {
-    // store -a in c->aux
-    aux = &c->aux;
-    bvconstant_copy(aux, n, a);
-    bvconstant_negate(aux);
-    bvconstant_normalize(aux);
-
-    if (bvconst_popcount(aux->data, w) + 1 < bvconst_popcount(a, w)) {
-      y = get_bvconst(c->vtbl, n, aux->data);
-      y = bv_compiler_mk_bvmul(c, n, y, x);
-      y = bv_compiler_mk_bvneg(c, n, y);
-    } else {
-      y = get_bvconst(c->vtbl, n, a);
-      y = bv_compiler_mk_bvmul(c, n, y, x);
-    }
-  }
-
-  return y;
-}
-
-
-
-/*
- * Constructors for a + x and a - x
- * - n = number of bits
- * - a = constant (must be non-zero)
- * - x = variable
- * - a must be normalized modulo 2^n
- */
-static thvar_t bv_compiler_mk_const64_plus_var(bvc_t *c, uint32_t n, uint64_t a, thvar_t x) {
-  thvar_t k;
-
-  assert(1 <= n && n <= 64 && a == norm64(a, n));
-
-  k = get_bvconst64(c->vtbl, n, a);
-  return bv_compiler_mk_bvadd(c, n, k, x);
-}
-
-static thvar_t bv_compiler_mk_const64_minus_var(bvc_t *c, uint32_t n, uint64_t a, thvar_t x) {
-  thvar_t k;
-
-  assert(1 <= n && n <= 64 && a == norm64(a, n));
-
-  k = get_bvconst64(c->vtbl, n, a);
-  return bv_compiler_mk_bvsub(c, n, k, x);
-}
-
-
-static thvar_t bv_compiler_mk_const_plus_var(bvc_t *c, uint32_t n, uint32_t *a, thvar_t x) {
-  thvar_t k;
-
-  assert(n > 64 && bvconst_is_normalized(a, n));
-
-  k = get_bvconst(c->vtbl, n, a);
-  return bv_compiler_mk_bvadd(c, n, k, x);
-}
-
-static thvar_t bv_compiler_mk_const_minus_var(bvc_t *c, uint32_t n, uint32_t *a, thvar_t x) {
-  thvar_t k;
-
-  assert(n > 64 && bvconst_is_normalized(a, n));
-
-  k = get_bvconst(c->vtbl, n, a);
-  return bv_compiler_mk_bvsub(c, n, k, x);
-}
-
-
-
-#if 0
-
-
-/*
- * Compile polynomial p if it's unambiguous
- * - return y such that y = compilation of p if so
- * - return null_thvar (i.e., -1) otherwise (i.e., p's compilation is delayed to phase 3)
- */
-static thvar_t simple_bvpoly64(bvc_t *c, bvpoly64_t *p) {
-  thvar_t y, x;
-  uint32_t n;
-
-  assert(p->nterms > 0);
-
-  y = null_thvar;
-  switch (p->nterms) {
-  case 1:
-    n = p->bitsize;
-    x = p->mono[0].var;
-    assert(x != const_idx && p->mono[0].coeff != 1);
-    if (bvvar_is_leaf(c, x)) {
-      y = bv_compiler_mk_mono64(c, n, p->mono[0].coeff, x);
-    }
-    break;
-
-  case 2:
-    n = p->bitsize;
-    
+    q = bv_compiler_pprod_to_dag(c, bvvar_pprod_def(vtbl, x), bvvar_bitsize(vtbl, x));
     break;
 
   default:
+    assert(false);
     break;
   }
 
-  return y;
+  bvc_dag_map_var(&c->dag, x, q);  
 }
 
 
 /*
- * Process polynomial p
- * - x = variable whose definition is p
+ * FOR TESTING ONLY
  */
-static void bv_compiler_phase2_process_poly64(bvc_t *c, thvar_t x, bvpoly64_t *p) {
-  
+void bv_compiler_process_queue(bvc_t *c) {
+  uint32_t i, n;
+
+  n = c->queue.top;
+  for (i=0; i<n; i++) {
+    bv_compiler_map_var_to_dag(c, c->queue.data[i]);
+  }
 }
-
-
-#endif

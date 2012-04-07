@@ -93,22 +93,22 @@
  * NODE INDICES AND OCCURRENCES
  */
 
-typedef int32_t node_t;
+typedef int32_t bvnode_t;
 typedef int32_t node_occ_t;
 
 #define MAX_NODE (INT32_MAX/2)
 
-static inline node_occ_t bvp(node_t i) {
+static inline node_occ_t bvp(bvnode_t i) {
   assert(0 <= i && i <= MAX_NODE);
   return i << 1;
 }
 
-static inline node_occ_t bvn(node_t i) {
+static inline node_occ_t bvn(bvnode_t i) {
   assert(0 <= i && i <= MAX_NODE);
   return (i << 1) | 1;
 }
 
-static inline node_t node_of_occ(node_occ_t n) {
+static inline bvnode_t node_of_occ(node_occ_t n) {
   assert(0 <= n);
   return (n >> 1);
 }
@@ -118,7 +118,7 @@ static inline uint32_t sign_of_occ(node_occ_t n) {
 }
 
 // flip the sign
-static inline node_occ_t neg_occ(node_occ_t n) {
+static inline node_occ_t negate_occ(node_occ_t n) {
   return n ^ 1;
 }
 
@@ -351,57 +351,57 @@ extern void reset_bvc_dag(bvc_dag_t *dag);
 /*
  * Checks on a node n
  */
-static inline bvc_tag_t bvc_dag_node_type(bvc_dag_t *dag, node_t n) {
+static inline bvc_tag_t bvc_dag_node_type(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   return dag->desc[n]->tag;
 }
 
-static inline bool bvc_dag_node_is_leaf(bvc_dag_t *dag, node_t n) {
+static inline bool bvc_dag_node_is_leaf(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   return node_is_leaf(dag->desc[n]);
 }
 
-static inline bool bvc_dag_node_is_offset(bvc_dag_t *dag, node_t n) {
+static inline bool bvc_dag_node_is_offset(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   return node_is_offset(dag->desc[n]);
 }
 
-static inline bool bvc_dag_node_is_mono(bvc_dag_t *dag, node_t n) {
+static inline bool bvc_dag_node_is_mono(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   return node_is_mono(dag->desc[n]);
 }
 
-static inline bool bvc_dag_node_is_prod(bvc_dag_t *dag, node_t n) {
+static inline bool bvc_dag_node_is_prod(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   return node_is_prod(dag->desc[n]);
 }
 
-static inline bool bvc_dag_node_is_sum(bvc_dag_t *dag, node_t n) {
+static inline bool bvc_dag_node_is_sum(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   return node_is_sum(dag->desc[n]);
 }
 
-static inline bvc_leaf_t *bvc_dag_node_leaf(bvc_dag_t *dag, node_t n) {
+static inline bvc_leaf_t *bvc_dag_node_leaf(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   return leaf_node(dag->desc[n]);
 }
 
-static inline bvc_offset_t *bvc_dag_node_offset(bvc_dag_t *dag, node_t n) {
+static inline bvc_offset_t *bvc_dag_node_offset(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   return offset_node(dag->desc[n]);
 }
 
-static inline bvc_mono_t *bvc_dag_node_mono(bvc_dag_t *dag, node_t n) {
+static inline bvc_mono_t *bvc_dag_node_mono(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   return mono_node(dag->desc[n]);
 }
 
-static inline bvc_prod_t *bvc_dag_node_prod(bvc_dag_t *dag, node_t n) {
+static inline bvc_prod_t *bvc_dag_node_prod(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   return prod_node(dag->desc[n]);
 }
 
-static inline bvc_sum_t *bvc_dag_node_sum(bvc_dag_t *dag, node_t n) {
+static inline bvc_sum_t *bvc_dag_node_sum(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   return sum_node(dag->desc[n]);
 }
@@ -478,7 +478,7 @@ extern node_occ_t bvc_dag_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize);
  * Get a node mapped to x
  * - if there isn't one, create a leaf node [leaf x]
  */
-extern node_occ_t bvc_dag_get_node_of_var(bvc_dag_t *dag, int32_t x, uint32_t bitsize);
+extern node_occ_t bvc_dag_get_nocc_of_var(bvc_dag_t *dag, int32_t x, uint32_t bitsize);
 
 
 /*

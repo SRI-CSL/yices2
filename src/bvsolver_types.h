@@ -39,6 +39,7 @@
 #include "bv_atomtable.h"
 #include "bvexp_table.h"
 #include "bv_intervals.h"
+#include "bvpoly_compiler.h"
 
 #include "smt_core.h"
 #include "egraph.h"
@@ -278,9 +279,9 @@ typedef struct bv_solver_s {
   bv_bound_queue_t bqueue;
 
   /*
-   * Data structures for bit-blasting
-   * - blaster + remap table are allocated on demand
+   * Data structures for bit-blasting: all are allocated as needed
    */
+  bvc_t *compiler;
   bit_blaster_t *blaster;
   remap_table_t *remap;
 

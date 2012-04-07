@@ -183,7 +183,7 @@ static void print_use_list(FILE *f, int32_t *a) {
 /*
  * Print details of node q
  */
-static void print_node(FILE *f, bvc_dag_t *dag, node_t q) {
+static void print_node(FILE *f, bvc_dag_t *dag, bvnode_t q) {
   assert(0 < q && q <= dag->nelems);
 
   fprintf(f, "Node n%"PRId32"\n", q);
@@ -255,7 +255,7 @@ static void print_dag(FILE *f, bvc_dag_t *dag) {
 static node_occ_t test_leaf(bvc_dag_t *dag, int32_t v, uint32_t b) {
   bvc_leaf_t *d;
   node_occ_t r, chk;
-  node_t q;
+  bvnode_t q;
 
   r = bvc_dag_leaf(dag, v, b);
   chk = bvc_dag_leaf(dag, v, b);
@@ -294,7 +294,7 @@ static node_occ_t test_leaf(bvc_dag_t *dag, int32_t v, uint32_t b) {
 static node_occ_t test_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t r, uint32_t b) {
   bvc_mono_t *d;
   node_occ_t tst, chk;
-  node_t q;
+  bvnode_t q;
   uint32_t sign;
 
   assert(1 <= b && b <= 64);
@@ -364,7 +364,7 @@ static node_occ_t test_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t r, uint32_t 
   uint32_t aux[8];
   bvc_mono_t *d;
   node_occ_t tst, chk;
-  node_t q;
+  bvnode_t q;
   uint32_t w, sign;
 
   assert(64 < b && b <= 256);
@@ -439,7 +439,7 @@ static node_occ_t test_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t r, uint32_t 
 static node_occ_t test_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t r, uint32_t b) {
   bvc_offset_t *d;
   node_occ_t tst, chk;
-  node_t q;
+  bvnode_t q;
 
   assert(1 <= b && b <= 64);
   a = norm64(a, b);
@@ -484,7 +484,7 @@ static node_occ_t test_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t r, uint32
 static node_occ_t test_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t r, uint32_t b) {
   bvc_offset_t *d;
   node_occ_t tst, chk;
-  node_t q;
+  bvnode_t q;
   uint32_t w;
 
   assert(64 < b);
@@ -561,7 +561,7 @@ static node_occ_t test_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32_t b
   node_occ_t aux2[20];
   bvc_sum_t *d;
   node_occ_t tst, chk;
-  node_t q;
+  bvnode_t q;
   uint32_t i;
 
   assert(n >= 1 && n <= 20);
@@ -636,7 +636,7 @@ static node_occ_t test_pprod(bvc_dag_t *dag, node_occ_t *a, uint32_t *e, uint32_
   pprod_t *pp;
   bvc_prod_t *d;
   node_occ_t tst, chk;
-  node_t q;
+  bvnode_t q;
   uint32_t i;  
 
   assert(n >= 2 && n <= 20);

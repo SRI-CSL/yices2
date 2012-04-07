@@ -22,6 +22,9 @@
 #include "smt_core_printer.h"
 #include "context_printer.h"
 
+// TEMPORARY: for bv_solver_bitblast
+#include "bvsolver.h"
+
 #include "command_line.h"
 #include "yices.h"
 #include "yices_globals.h"
@@ -536,6 +539,11 @@ static void test_internalization(smt_benchmark_t *bench) {
     printf("Reduced to the empty context\n\nsat\n");
   } else {
     print_internalization_code(code);
+
+    // test bit-blasting 
+    if (code == CTX_NO_ERROR && context_has_bv_solver(&context)) {
+      bv_solver_bitblast(context.bv_solver);
+    }
   }
 
   if (dump) {
