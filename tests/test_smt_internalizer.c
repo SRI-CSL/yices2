@@ -270,6 +270,8 @@ static void dump_bv_solver(FILE *f, bv_solver_t *solver) {
   fprintf(f, "\ntotal: %"PRIu32" atoms\n", solver->atbl.natoms);
   fprintf(f, "\n--- Bitvector Bounds ---\n");
   print_bv_solver_bounds(f, solver);
+  fprintf(f, "\n--- DAG ---\n");
+  print_bv_solver_dag(f, solver);
   fprintf(f, "\n");
 }
 
@@ -543,6 +545,7 @@ static void test_internalization(smt_benchmark_t *bench) {
     // test bit-blasting 
     if (code == CTX_NO_ERROR && context_has_bv_solver(&context)) {
       bv_solver_bitblast(context.bv_solver);
+      printf("bvsolver DAG: %"PRIu32" nodes\n", bv_solver_dag_size(context.bv_solver));
     }
   }
 

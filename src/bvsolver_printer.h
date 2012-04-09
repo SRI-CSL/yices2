@@ -44,6 +44,12 @@ extern void print_bv_solver_bounds(FILE *f, bv_solver_t *solver);
 
 
 /*
+ * DAG/Compiler
+ */
+extern void print_bv_solver_dag(FILE *f, bv_solver_t *solver);
+
+
+/*
  * Individual variable or atom
  */
 extern void print_bv_solver_var(FILE *f, bv_solver_t *solver, thvar_t x);

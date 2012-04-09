@@ -1311,3 +1311,51 @@ node_occ_t bvc_dag_poly(bvc_dag_t *dag, bvpoly_t *p, node_occ_t *a) {
   return r;  
 }
 
+
+/*
+ * Same thing but p is stored in buffer b
+ */
+node_occ_t bvc_dag_poly_buffer(bvc_dag_t *dag, bvpoly_buffer_t *b, node_occ_t *a) {
+  ivector_t *v;
+  uint32_t nbits, i, n;
+  node_occ_t r;
+
+  n = bvpoly_buffer_num_terms(b);
+  nbits = bvpoly_buffer_bitsize(b);
+  i = 0;
+  if (bvpoly_buffer_var(b, 0) == const_idx) {
+    // skip the constant
+    i = 1;
+  }
+
+  v = &dag->buffer;
+  assert(v->size == 0);
+
+  if (nbits <= 64) {
+    while (i < n) {
+      r = bvc_dag_mono64(dag, bvpoly_buffer_coeff64(b, i), a[i], nbits);
+      ivector_push(v, r);
+      i ++;
+    } 
+    r = bvc_dag_sum(dag, v->data, v->size, nbits);
+    if (bvpoly_buffer_var(b, 0) == const_idx) {
+      r = bvc_dag_offset64(dag, bvpoly_buffer_coeff64(b, 0), r, nbits);
+    }
+
+  } else {
+    // same thing: bitsize > 64
+    while (i < n) {
+      r = bvc_dag_mono(dag, bvpoly_buffer_coeff(b, i), a[i], nbits);
+      ivector_push(v, r);
+      i ++;
+    } 
+    r = bvc_dag_sum(dag, v->data, v->size, nbits);
+    if (bvpoly_buffer_var(b, 0) == const_idx) {
+      r = bvc_dag_offset(dag, bvpoly_buffer_coeff(b, 0), r, nbits);
+    }
+  }
+
+  ivector_reset(v);
+
+  return r;
+}

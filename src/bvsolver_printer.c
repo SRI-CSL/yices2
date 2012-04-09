@@ -6,6 +6,7 @@
 
 #include "bv64_constants.h"
 #include "bv_constants.h"
+#include "index_vectors.h"
 
 #include "smt_core_printer.h"
 #include "egraph_printer.h"
@@ -660,5 +661,204 @@ void print_bv_solver_bounds(FILE *f, bv_solver_t *solver) {
     fprintf(f, " bound[%"PRIu32"]: ", i);
     print_bv_solver_bound(f, solver, queue->data + i);
     fputc('\n', f);
+  }
+}
+
+
+
+/*
+ * DAG
+ */
+
+/*
+ * Print a node occurrence n
+ */
+static void print_nocc(FILE *f, node_occ_t n) {
+  if (sign_of_occ(n) == 0) {
+    fprintf(f, "+n%"PRId32, (n>>1));
+  } else {
+    fprintf(f, "-n%"PRId32, (n>>1));
+  }
+}
+
+/*
+ * Print a node in the dag
+ */
+static void print_leaf_node(FILE *f, bvc_leaf_t *d) {
+  fputs("[LEAF ", f);
+  print_bvvar(f, d->map);
+  fputc(']', f);
+}
+
+static void print_offset_node(FILE *f, bvc_offset_t *d) {
+  uint32_t n;
+
+  n = d->header.bitsize;
+  fprintf(f, "[OFFSET ");
+  if (n <= 64) {
+    bvconst64_print(f, d->constant.c, n);
+  } else { 
+    bvconst_print(f, d->constant.w, n);
+  }
+  fputc(' ', f);
+  print_nocc(f, d->nocc);
+  fputc(']', f);
+}
+
+static void print_mono_node(FILE *f, bvc_mono_t *d) {
+  uint32_t n;
+
+  n = d->header.bitsize;
+  fprintf(f, "[MONO ");
+  if (n <= 64) {
+    bvconst64_print(f, d->coeff.c, n);
+  } else { 
+    bvconst_print(f, d->coeff.w, n);
+  }
+  fputc(' ', f);
+  print_nocc(f, d->nocc);
+  fputc(']', f);
+}
+
+static void print_prod_node(FILE *f, bvc_prod_t *d) {
+  uint32_t i, n;
+
+  fprintf(f, "[PROD" );
+  n = d->len;
+  for (i=0; i<n; i++) {
+    fputc(' ', f);
+    print_nocc(f, d->prod[i].var);
+    if (d->prod[i].exp > 1) {
+      fprintf(f, "^%"PRId32, d->prod[i].exp);
+    }
+  }
+  fputc(']', f);
+}
+
+static void print_sum_node(FILE *f, bvc_sum_t *d) {
+  uint32_t i, n;
+
+  fprintf(f, "[SUM" );
+  n = d->len;
+  for (i=0; i<n; i++) {
+    fputc(' ', f);
+    print_nocc(f, d->sum[i]);
+  }
+  fputc(']', f);
+}
+
+static void print_node_descriptor(FILE *f, bvc_header_t *d) {
+  switch (d->tag) {
+  case BVC_LEAF:
+    print_leaf_node(f, leaf_node(d));
+    break;
+
+  case BVC_OFFSET:
+    print_offset_node(f, offset_node(d));
+    break;
+
+  case BVC_MONO:
+    print_mono_node(f, mono_node(d));
+    break;
+
+  case BVC_PROD:
+    print_prod_node(f, prod_node(d));
+    break;
+
+  case BVC_SUM:    
+    print_sum_node(f, sum_node(d));
+    break;
+
+  default:
+    assert(false);
+    break;
+  }
+}
+
+
+/*
+ * Use list a
+ */
+static void print_use_list(FILE *f, int32_t *a) {
+  uint32_t i, n;
+
+  if (a == NULL) {
+    fprintf(f, "nil");
+  } else {
+    n = iv_size(a);
+    fprintf(f, "(");
+    for (i=0; i<n; i++) {
+      if (i > 0) fputc(' ', f);
+      fprintf(f, "n%"PRId32, a[i]);
+    }
+    fprintf(f, ")");
+  }
+}
+
+
+/*
+ * Print details of node q
+ */
+static void print_node(FILE *f, bvc_dag_t *dag, bvnode_t q) {
+  assert(0 < q && q <= dag->nelems);
+
+  fprintf(f, "n%"PRId32": ", q);
+  print_node_descriptor(f, dag->desc[q]);
+  fprintf(f, "\n");
+  fprintf(f, "       use list: ");
+  print_use_list(f, dag->use[q]);  
+  fprintf(f, "\n");
+}
+
+
+
+/*
+ * Print a list of nodes: k = list header
+ */
+static void print_list(FILE *f, bvc_dag_t *dag, int32_t k) {
+  int32_t i;
+
+  i = dag->list[k].next;
+  if (i == k) {
+    fprintf(f, " empty");
+  } else {
+    do {
+      fprintf(f, " n%"PRId32, i);
+      i = dag->list[i].next;
+    } while (i != k);
+  }
+}
+
+
+/*
+ * Print dag
+ */
+static void print_dag(FILE *f, bvc_dag_t *dag) {
+  uint32_t i, n;
+
+  n = dag->nelems;
+  for (i=1; i <= n; i++) {
+    print_node(f, dag, i);
+  }
+
+  fprintf(f, "\nLeaf nodes:");
+  print_list(f, dag, BVC_DAG_LEAF_LIST);
+  fprintf(f, "\n");
+  
+  fprintf(f, "\nElementary nodes:");
+  print_list(f, dag, BVC_DAG_ELEM_LIST);
+  fprintf(f, "\n");
+  
+  fprintf(f, "\nOther nodes:");
+  print_list(f, dag, BVC_DAG_DEFAULT_LIST);
+  fprintf(f, "\n");
+  
+  fflush(f);
+}
+
+
+void print_bv_solver_dag(FILE *f, bv_solver_t *solver) {
+  if (solver->compiler != NULL) {
+    print_dag(f, &solver->compiler->dag);
   }
 }

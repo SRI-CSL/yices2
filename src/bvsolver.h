@@ -190,6 +190,13 @@ static inline uint32_t bv_solver_num_atoms(bv_solver_t *solver) {
 
 
 /*
+ * Number of nodes in the DAG
+ */
+static inline uint32_t bv_solver_dag_size(bv_solver_t *solver) {
+  return (solver->compiler != NULL) ? solver->compiler->dag.nelems : 0;
+}
+
+/*
  * Atoms per type
  */
 extern uint32_t bv_solver_num_eq_atoms(bv_solver_t *solver);

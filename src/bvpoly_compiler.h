@@ -30,6 +30,7 @@
 #include "int_hash_map.h"
 #include "int_bv_sets.h"
 #include "merge_table.h"
+#include "bvpoly_buffers.h"
 #include "bv_vartable.h"
 
 #include "bvpoly_dag.h"
@@ -79,6 +80,7 @@ typedef struct bvc_s {
 
   // auxiliary buffers
   ivector_t buffer;
+  bvpoly_buffer_t pbuffer;
 } bvc_t;
 
 

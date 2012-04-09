@@ -106,6 +106,7 @@ void init_bv_compiler(bvc_t *c, bv_vartable_t *vtbl, mtbl_t *mtbl) {
   init_int_bvset(&c->in_queue, 0);
 
   init_ivector(&c->buffer, 10);
+  init_bvpoly_buffer(&c->pbuffer);
 }
 
 
@@ -121,6 +122,7 @@ void delete_bv_compiler(bvc_t *c) {
   delete_int_bvset(&c->in_queue);
 
   delete_ivector(&c->buffer);
+  delete_bvpoly_buffer(&c->pbuffer);
 }
 
 
@@ -136,6 +138,7 @@ void reset_bv_compiler(bvc_t *c) {
   reset_int_bvset(&c->in_queue);
 
   ivector_reset(&c->buffer);
+  reset_bvpoly_buffer(&c->pbuffer, 32); // any bitsize would do
 }
 
 
@@ -246,6 +249,60 @@ static thvar_t bv_compiler_mk_bvneg(bvc_t *c, uint32_t n, thvar_t x) {
 }
 
 
+
+/*
+ * SIMPLIFICATION
+ */
+
+/*
+ * Apply the substitution stored in the merge table to p
+ * - store the result in the poly_buffer b
+ */
+static void bv_compiler_simplify_poly64(bvc_t *c, bvpoly64_t *p,  bvpoly_buffer_t *b) {
+  uint32_t i, n;
+  thvar_t x;
+  
+  reset_bvpoly_buffer(b, p->bitsize);
+
+  n = p->nterms;
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    bvpoly_buffer_add_const64(b, p->mono[0].coeff);
+    i ++;
+  }
+  
+  while (i < n) {
+    assert(p->mono[i].var != const_idx);
+    x = mtbl_get_root(c->mtbl, p->mono[i].var);
+    bvpoly_buffer_add_mono64(b, x, p->mono[i].coeff);
+    i ++;
+  }
+  
+  normalize_bvpoly_buffer(b);
+}
+
+static void bv_compiler_simplify_poly(bvc_t *c, bvpoly_t *p, bvpoly_buffer_t *b) {
+  uint32_t i, n;
+  thvar_t x;
+  
+  reset_bvpoly_buffer(b, p->bitsize);
+
+  n = p->nterms;
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    bvpoly_buffer_add_constant(b, p->mono[0].coeff);
+    i ++;
+  }
+  
+  while (i < n) {
+    assert(p->mono[i].var != const_idx);
+    x = mtbl_get_root(c->mtbl, p->mono[i].var);
+    bvpoly_buffer_add_monomial(b, x, p->mono[i].coeff);
+    i ++;
+  }
+  
+  normalize_bvpoly_buffer(b);
+}
 
 
 /*
@@ -364,6 +421,7 @@ void bv_compiler_push_var(bvc_t *c, thvar_t x) {
  * COMPILATION PHASE 2: CONVERT TO THE DAG REPRESENTATION
  */
 
+#if 0
 /*
  * Convert p to a DAG node
  * - return the node occurrence
@@ -416,7 +474,7 @@ static node_occ_t bv_compiler_poly_to_dag(bvc_t *c, bvpoly_t *p) {
   nbits = p->bitsize;
 
   i = 0;
-  if (p->mono[i].var == const_idx) {
+  if (p->mono[0].var == const_idx) {
     ivector_push(v, const_idx); // need a place-holder in v->data[0]
     i = 1;
   }
@@ -430,6 +488,7 @@ static node_occ_t bv_compiler_poly_to_dag(bvc_t *c, bvpoly_t *p) {
   return bvc_dag_poly(dag, p, v->data);
 }
 
+#endif
 
 static node_occ_t bv_compiler_pprod_to_dag(bvc_t *c, pprod_t *p, uint32_t bitsize) {
   bvc_dag_t *dag;
@@ -454,6 +513,44 @@ static node_occ_t bv_compiler_pprod_to_dag(bvc_t *c, pprod_t *p, uint32_t bitsiz
 }
 
 
+/*
+ * Convert polynomial buffer b to DAG:
+ * - b must not be constant
+ */
+static node_occ_t bv_compiler_pbuffer_to_dag(bvc_t *c, bvpoly_buffer_t *b) {
+  bvc_dag_t *dag;
+  ivector_t *v;
+  uint32_t i, n, nbits;
+  thvar_t x;
+  node_occ_t q;
+
+  assert(! bvpoly_buffer_is_constant(b));
+
+  dag = &c->dag;
+
+  v = &c->buffer;
+  ivector_reset(v);
+
+  n = bvpoly_buffer_num_terms(b);
+  nbits = bvpoly_buffer_bitsize(b);
+  
+  i = 0;
+  if (bvpoly_buffer_var(b, 0) == const_idx) {
+    ivector_push(v, const_idx); // need a place-holder in v->data[0]
+    i = 1;
+  }
+  while (i < n) {
+    x = bvpoly_buffer_var(b, i);
+    assert(x != const_idx && mtbl_is_root(c->mtbl, x));
+    q = bvc_dag_get_nocc_of_var(dag, x, nbits);
+    ivector_push(v, q);
+    i++;
+  }
+
+  return bvc_dag_poly_buffer(dag, b, v->data);
+}
+
+
 
 /*
  * Build a DAG node for x and store the mapping [x --> node]
@@ -461,6 +558,7 @@ static node_occ_t bv_compiler_pprod_to_dag(bvc_t *c, pprod_t *p, uint32_t bitsiz
  */
 static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
   bv_vartable_t *vtbl;
+  bvpoly_buffer_t *b;
   node_occ_t q;
 
   assert(0 < x && x < c->vtbl->nvars);
@@ -473,11 +571,23 @@ static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
 
   switch (bvvar_tag(vtbl, x)) {
   case BVTAG_POLY64:
-    q = bv_compiler_poly64_to_dag(c, bvvar_poly64_def(vtbl, x));
+    b = &c->pbuffer;
+    bv_compiler_simplify_poly64(c, bvvar_poly64_def(vtbl, x), b);
+    if (bvpoly_buffer_is_constant(b)) {
+      // TBD:
+      return;
+    } 
+    q = bv_compiler_pbuffer_to_dag(c, b);
     break;
 
   case BVTAG_POLY:
-    q = bv_compiler_poly_to_dag(c, bvvar_poly_def(vtbl, x));
+    b = &c->pbuffer;
+    bv_compiler_simplify_poly(c, bvvar_poly_def(vtbl, x), b);
+    if (bvpoly_buffer_is_constant(b)) {
+      // TBD:
+      return;
+    } 
+    q = bv_compiler_pbuffer_to_dag(c, b);
     break;
 
   case BVTAG_PPROD:

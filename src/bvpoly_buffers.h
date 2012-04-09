@@ -258,6 +258,19 @@ static inline uint32_t *bvpoly_buffer_coeff(bvpoly_buffer_t *b, uint32_t i) {
 }
 
 
+/*
+ * Check whether b is a constant polynomial
+ * - b must be normalized
+ */
+static inline bool bvpoly_buffer_is_zero(bvpoly_buffer_t *b) {
+  return b->nterms == 0;
+}
+
+static inline bool bvpoly_buffer_is_constant(bvpoly_buffer_t *b) {
+  return b->nterms == 0 || (b->nterms == 1 && b->var[0] == const_idx);
+}
+
+
 /*******************************
  *  CONVERSION TO POLYNOMIALS  *
  ******************************/

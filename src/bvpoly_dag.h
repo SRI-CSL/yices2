@@ -25,11 +25,12 @@
 #include "power_products.h"
 #include "bv64_polynomials.h"
 #include "bv_polynomials.h"
+#include "bvpoly_buffers.h"
 
 
 /*
  * There are five types of nodes:
- * - [leave x] where x is a bitvector variable
+ * - [leaf x] where x is a bitvector variable
  * - [offset a0 n1] denotes (a0 + n1)
  * - [mono   a0 n1] deontes (a0 * n1)
  * - [prod  n1^d1 ... n_k^d_k] denotes a power product
@@ -37,7 +38,7 @@
  * Where a0 is a constant, and n_t is a node occurrence.
  *
  * The leave nodes correspond to expressions that don't need
- * compilation (i.e., [leave x] is compiled to variable x).
+ * compilation (i.e., [leaf x] is compiled to variable x).
  * The other nodes are expressions to be compiled.
  *
  * A node occurrence encodes bvneg:
@@ -544,7 +545,11 @@ extern node_occ_t bvc_dag_poly64(bvc_dag_t *dag, bvpoly64_t *p, node_occ_t *a);
 extern node_occ_t bvc_dag_poly(bvc_dag_t *dag, bvpoly_t *p, node_occ_t *a);
 
 
-
+/*
+ * Same thing for a polynomial p stored in buffer b
+ * - b must be normalized and non-constant
+ */
+extern node_occ_t bvc_dag_poly_buffer(bvc_dag_t *dag, bvpoly_buffer_t *b, node_occ_t *a);
 
 
 #endif /* __BVPOLY_DAG_H */
