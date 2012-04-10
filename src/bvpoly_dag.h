@@ -75,7 +75,7 @@
  *   [offset a  n]      where n is a leaf
  *   [mono   a * n]     where n is a leaf
  *   [prod n1 * n2]     where n1 and n2 are leaves
- *   [sum  n1 + n2]  where n1 and n2 are leaves
+ *   [sum  n1 + n2]     where n1 and n2 are leaves
  *
  * Each node is identified by a positive integer n
  * - for node n, we store 
@@ -87,6 +87,10 @@
  *     list[i].next: successor
  *   the three elements list[-2], list[-1], list[0] are headers
  *   for the lists of non-elementary, elementary, leaf nodes, respectively.
+ *
+ * During compilation, a node i may be replaced by a node occurrence n.  
+ * We represent this by mapping i to the special descriptor [alias n].
+ * The alias nodes are not stored in any of the lists.
  */
 
 
@@ -139,6 +143,7 @@ typedef enum bvc_tag {
   BVC_MONO,
   BVC_PROD,
   BVC_SUM,
+  BVC_ALIAS,
 } bvc_tag_t;
 
 typedef struct bvc_header_s {
@@ -209,6 +214,11 @@ typedef struct bvc_sum_s {
 #define MAX_BVC_SUM_LEN (UINT32_MAX/sizeof(int32_t))
 
 
+typedef struct bvc_alias_s {
+  bvc_header_t header;
+  node_occ_t alias;
+} bvc_alias_t;
+
 
 /*
  * Access to descriptors from a pointer to the header
@@ -231,6 +241,10 @@ static inline bool node_is_prod(bvc_header_t *d) {
 
 static inline bool node_is_sum(bvc_header_t *d) {
   return d->tag == BVC_SUM;
+}
+
+static inline bool node_is_alias(bvc_header_t *d) {
+  return d->tag == BVC_ALIAS;
 }
 
 static inline bvc_leaf_t *leaf_node(bvc_header_t *d) {
@@ -256,6 +270,11 @@ static inline bvc_prod_t *prod_node(bvc_header_t *d) {
 static inline bvc_sum_t *sum_node(bvc_header_t *d) {
   assert(node_is_sum(d));
   return (bvc_sum_t *) d;
+}
+
+static inline bvc_alias_t *alias_node(bvc_header_t *d) {
+  assert(node_is_alias(d));
+  return (bvc_alias_t *) d;
 }
 
 
@@ -299,7 +318,8 @@ typedef struct bvc_dag_s {
   object_store_t mono_store;
   object_store_t prod_store;  // for binary products
   object_store_t sum_store1;  // for sums of len <= 4
-  object_store_t sum_store2;  // for sums of len between 4 and 8
+  object_store_t sum_store2;  // for sums of len between 4 and 8  
+  object_store_t alias_store;
 
   // auxiliary buffers
   bvconstant_t aux;
@@ -382,6 +402,11 @@ static inline bool bvc_dag_node_is_sum(bvc_dag_t *dag, bvnode_t n) {
   return node_is_sum(dag->desc[n]);
 }
 
+static inline bool bvc_dag_node_is_alias(bvc_dag_t *dag, bvnode_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return node_is_alias(dag->desc[n]);
+}
+
 static inline bvc_leaf_t *bvc_dag_node_leaf(bvc_dag_t *dag, bvnode_t n) {
   assert(0 < n && n <= dag->nelems);
   return leaf_node(dag->desc[n]);
@@ -407,6 +432,11 @@ static inline bvc_sum_t *bvc_dag_node_sum(bvc_dag_t *dag, bvnode_t n) {
   return sum_node(dag->desc[n]);
 }
 
+static inline bvc_alias_t *bvc_dag_node_alias(bvc_dag_t *dag, bvnode_t n) {
+  assert(0 < n && n <= dag->nelems);
+  return alias_node(dag->desc[n]);
+}
+
 
 // more checks with n a node_occurrence
 static inline bool bvc_dag_occ_is_leaf(bvc_dag_t *dag, node_occ_t n) {
@@ -427,6 +457,10 @@ static inline bool bvc_dag_occ_is_prod(bvc_dag_t *dag, node_occ_t n) {
 
 static inline bool bvc_dag_occ_is_sum(bvc_dag_t *dag, node_occ_t n) {
   return bvc_dag_node_is_sum(dag, node_of_occ(n));
+}
+
+static inline bool bvc_dag_occ_is_alias(bvc_dag_t *dag, node_occ_t n) {
+  return bvc_dag_node_is_alias(dag, node_of_occ(n));
 }
 
 
@@ -469,7 +503,7 @@ extern void bvc_dag_map_var(bvc_dag_t *dag, int32_t x, node_occ_t n);
  * Create a leaf node mapped to x
  * - x must be positive
  * - x must not be mapped (i.e., not in dag->vset)
- * - creates q := [leaf bvp(x)]
+ * - creates q := [leaf x]
  * - returns bvp(q)
  */
 extern node_occ_t bvc_dag_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize);
@@ -480,6 +514,14 @@ extern node_occ_t bvc_dag_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize);
  * - if there isn't one, create a leaf node [leaf x]
  */
 extern node_occ_t bvc_dag_get_nocc_of_var(bvc_dag_t *dag, int32_t x, uint32_t bitsize);
+
+
+/*
+ * Variable of a leaf node-occurrence n
+ */
+static inline int32_t bvc_dag_get_var_of_leaf(bvc_dag_t *dag, node_occ_t n) {
+  return bvc_dag_node_leaf(dag, node_of_occ(n))->map;
+}
 
 
 /*
@@ -514,9 +556,15 @@ extern node_occ_t bvc_dag_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint
  * - n must be positive
  *
  * If n == 1, this returns a[0].
- * Otherwise, a is sored and a node q := [sum a[0] ... a[n-1]] is created
+ * Otherwise, a is sorted and a node q := [sum a[0] ... a[n-1]] is created
  */
 extern node_occ_t bvc_dag_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32_t bitsize);
+
+
+/*
+ * Sum n1, n2: node_of_occ(n1) and node_of_occ(n2) must be different
+ */
+extern node_occ_t bvc_dag_sum2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uint32_t bitsize);
 
 
 /*
@@ -527,6 +575,12 @@ extern node_occ_t bvc_dag_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32_
  *   and q is [prod a[0]^d_1 ... a[k-1]^d_k]
  */
 extern node_occ_t bvc_dag_pprod(bvc_dag_t *dag, pprod_t *p, node_occ_t *a, uint32_t bitsize);
+
+
+/*
+ * Product n1 * n2
+ */
+extern node_occ_t bvc_dag_pprod2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uint32_t bitsize);
 
 
 /*
@@ -550,6 +604,77 @@ extern node_occ_t bvc_dag_poly(bvc_dag_t *dag, bvpoly_t *p, node_occ_t *a);
  * - b must be normalized and non-constant
  */
 extern node_occ_t bvc_dag_poly_buffer(bvc_dag_t *dag, bvpoly_buffer_t *b, node_occ_t *a);
+
+
+
+
+/*
+ * ITERATION THROUGH THE LISTS
+ */
+
+/*
+ * First node in one of the three node lists (a negative index means that the list is empty)
+ */
+static inline bvnode_t bvc_first_leaf(bvc_dag_t *dag) {
+  return dag->list[BVC_DAG_LEAF_LIST].next;
+}
+
+static inline bvnode_t bvc_first_elem_node(bvc_dag_t *dag) {
+  return dag->list[BVC_DAG_ELEM_LIST].next;
+}
+
+static inline bvnode_t bvc_first_complex_node(bvc_dag_t *dag) {
+  return dag->list[BVC_DAG_DEFAULT_LIST].next;
+}
+
+/*
+ * Successor of node i in each of these lists
+ */
+static inline bvnode_t bvc_next_node(bvc_dag_t *dag, bvnode_t i) {
+  assert(0 < i && i <= dag->nelems);
+  return dag->list[i].next;
+}
+
+
+
+
+/*
+ * REDUCTION
+ */
+
+/*
+ * Convert node i to a leaf node (for variable x)
+ * - i must not be a leaf or alias node
+ */
+extern void bvc_dag_convert_to_leaf(bvc_dag_t *dag, bvnode_t i, int32_t x); 
+
+
+/*
+ * Replace all occurrences of {n1, n2} in sums by n
+ * - a node p = [sum ... n1 ... n2 ...] is rewritten to [sum ... n ... ...]
+ *   a node p = [sum ... neg(n1) .. neg(n2) ...] is rewritten to [sum ... neg(n) .. ...]
+ */
+extern void bvc_dag_reduce_sum(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node_occ_t n2);
+
+
+/*
+ * Check whether there is a sum node that can be reduced by n1 + n2 or -n1 -n2
+ * - n1 and n2 must be distinct 
+ */
+extern bool bvc_dag_check_reduce_sum(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2);
+
+
+/*
+ * Replace all occurrences of {n1, n2} in products by n
+ * - n, n1, and n2 must be positive occurrences
+ */
+extern void bvc_dag_reduce_prod(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node_occ_t n2);
+
+
+/*
+ * Check whether there's a product node that can be reduced by n1 * n2
+ */
+extern bool bvc_dag_check_reduce_prod(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2);
 
 
 #endif /* __BVPOLY_DAG_H */

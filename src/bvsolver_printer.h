@@ -46,6 +46,7 @@ extern void print_bv_solver_bounds(FILE *f, bv_solver_t *solver);
 /*
  * DAG/Compiler
  */
+extern void print_bvc_dag(FILE *f, bvc_dag_t *dag);
 extern void print_bv_solver_dag(FILE *f, bv_solver_t *solver);
 
 

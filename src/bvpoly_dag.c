@@ -142,6 +142,7 @@ void init_bvc_dag(bvc_dag_t *dag, uint32_t n) {
   init_objstore(&dag->prod_store, sizeof(bvc_prod_t) + PROD_STORE_LEN * sizeof(varexp_t), 100);
   init_objstore(&dag->sum_store1, sizeof(bvc_sum_t) + SUM_STORE1_LEN * sizeof(int32_t), 500);
   init_objstore(&dag->sum_store2, sizeof(bvc_sum_t) + SUM_STORE2_LEN * sizeof(int32_t), 500);
+  init_objstore(&dag->alias_store, sizeof(bvc_alias_t), 100);
 
   init_bvconstant(&dag->aux);
   init_pp_buffer(&dag->pp_aux, 10);
@@ -231,6 +232,9 @@ static void delete_descriptor(bvc_header_t *d) {
       safe_free(d);
     }
     break;
+
+  case BVC_ALIAS:
+    break;
   }
 }
 
@@ -265,6 +269,7 @@ void delete_bvc_dag(bvc_dag_t *dag) {
   delete_objstore(&dag->prod_store);
   delete_objstore(&dag->sum_store1);
   delete_objstore(&dag->sum_store2);
+  delete_objstore(&dag->alias_store);
 
   delete_bvconstant(&dag->aux);
   delete_pp_buffer(&dag->pp_aux);
@@ -300,7 +305,8 @@ void reset_bvc_dag(bvc_dag_t *dag) {
   reset_objstore(&dag->mono_store);
   reset_objstore(&dag->prod_store);
   reset_objstore(&dag->sum_store1);
-  reset_objstore(&dag->sum_store2);  
+  reset_objstore(&dag->sum_store2);
+  reset_objstore(&dag->alias_store);
 
   pp_buffer_reset(&dag->pp_aux);
   ivector_reset(&dag->buffer);
@@ -362,6 +368,11 @@ static bvc_sum_t *alloc_sum(bvc_dag_t *dag, uint32_t n) {
 }
 
 
+static inline bvc_alias_t *alloc_alias(bvc_dag_t *dag) {
+  return (bvc_alias_t *) objstore_alloc(&dag->alias_store);
+}
+
+
 /*
  * De-allocation
  */
@@ -384,7 +395,7 @@ static void free_mono(bvc_dag_t *dag, bvc_mono_t *d) {
 }
 
 static void free_prod(bvc_dag_t *dag, bvc_prod_t *d) {
-  if (d->len <= PROD_STORE_LEN) {
+  if (d->size <= PROD_STORE_LEN) {
     objstore_free(&dag->prod_store, d);
   } else {
     safe_free(d);
@@ -392,20 +403,60 @@ static void free_prod(bvc_dag_t *dag, bvc_prod_t *d) {
 }
 
 static void free_sum(bvc_dag_t *dag, bvc_sum_t *d) {
-  if (d->len <= SUM_STORE1_LEN) {
+  if (d->size <= SUM_STORE1_LEN) {
     objstore_free(&dag->sum_store1, d);
-  } else if (d->len <= SUM_STORE2_LEN) {
+  } else if (d->size <= SUM_STORE2_LEN) {
     objstore_free(&dag->sum_store2, d);
   } else {
     safe_free(d);
   }
 }
 
+static inline void free_alias(bvc_dag_t *dag, bvc_alias_t *d) {
+  objstore_free(&dag->alias_store, d);
+}
+
+static void free_descriptor(bvc_dag_t *dag, bvc_header_t *d) {
+  switch (d->tag) {
+  case BVC_LEAF:
+    free_leaf(dag, leaf_node(d));
+    break;
+
+  case BVC_OFFSET:
+    free_offset(dag, offset_node(d));
+    break;
+
+  case BVC_MONO:
+    free_mono(dag, mono_node(d));
+    break;
+
+  case BVC_PROD:
+    free_prod(dag, prod_node(d));
+    break;
+
+  case BVC_SUM:
+    free_sum(dag, sum_node(d));
+    break;
+
+  case BVC_ALIAS:
+    free_alias(dag, alias_node(d));
+    break;
+  }
+}
+
 
 
 /*
- * Check whether a product or sum node is elementary
+ * Check whether a node is elementary
  */
+static inline bool offset_node_is_elementary(bvc_dag_t *dag, bvc_offset_t *d) {
+  return bvc_dag_occ_is_leaf(dag, d->nocc);
+}
+
+static inline bool mono_node_is_elementary(bvc_dag_t *dag, bvc_mono_t *d) {
+  return bvc_dag_occ_is_leaf(dag, d->nocc);
+}
+
 static bool prod_node_is_elementary(bvc_dag_t *dag, bvc_prod_t *d) {
   assert(d->len >= 1);
 
@@ -423,6 +474,34 @@ static bool prod_node_is_elementary(bvc_dag_t *dag, bvc_prod_t *d) {
 static bool sum_node_is_elementary(bvc_dag_t *dag, bvc_sum_t * d) {
   assert(d->len >= 2);
   return d->len == 2 && bvc_dag_occ_is_leaf(dag, d->sum[0]) && bvc_dag_occ_is_leaf(dag, d->sum[1]);
+}
+
+
+static bool node_is_elementary(bvc_dag_t *dag, bvnode_t i) {
+  bvc_header_t *d;
+
+  assert(0 < i && i <= dag->nelems);
+
+  d = dag->desc[i];
+  switch (d->tag) {
+  case BVC_LEAF:
+  case BVC_ALIAS:
+    break;
+
+  case BVC_OFFSET:
+    return offset_node_is_elementary(dag, offset_node(d));
+
+  case BVC_MONO:
+    return mono_node_is_elementary(dag, mono_node(d));
+
+  case BVC_PROD:
+    return prod_node_is_elementary(dag, prod_node(d));
+
+  case BVC_SUM:
+    return sum_node_is_elementary(dag, sum_node(d));
+  }
+
+  return false;
 }
 
 
@@ -486,6 +565,7 @@ static bvnode_t bvc_dag_mk_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
 static bvnode_t bvc_dag_mk_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
   bvc_offset_t *d;
   bvnode_t q;
+  int32_t k;
 
   assert(1 <= bitsize && bitsize <= 64 && a == norm64(a, bitsize));
 
@@ -496,8 +576,13 @@ static bvnode_t bvc_dag_mk_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t n, ui
   d->constant.c = a;
 
   q = bvc_dag_add_node(dag, &d->header);
-  bvc_dag_add_to_elementary_list(dag, q);
   bvc_dag_add_dependency(dag, node_of_occ(n), q); // q depends on n
+
+  k = BVC_DAG_DEFAULT_LIST;
+  if (bvc_dag_occ_is_leaf(dag, n)) {
+    k = BVC_DAG_ELEM_LIST;
+  }
+  list_add(dag->list, k, q);
 
   return q;
 }
@@ -508,6 +593,7 @@ static bvnode_t bvc_dag_mk_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uin
   uint32_t *c;
   uint32_t k;
   bvnode_t q;
+  int32_t l;
 
   assert(bitsize > 64);
 
@@ -524,8 +610,14 @@ static bvnode_t bvc_dag_mk_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uin
   d->constant.w = c;
 
   q = bvc_dag_add_node(dag, &d->header);
-  bvc_dag_add_to_elementary_list(dag, q);
   bvc_dag_add_dependency(dag, node_of_occ(n), q); // q depends on n
+
+  l = BVC_DAG_DEFAULT_LIST;
+  if (bvc_dag_occ_is_leaf(dag, n)) {
+    l = BVC_DAG_ELEM_LIST;
+  }
+  list_add(dag->list, l, q);
+
 
   return q;
 }
@@ -538,6 +630,7 @@ static bvnode_t bvc_dag_mk_offset(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uin
 static bvnode_t bvc_dag_mk_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize) {
   bvc_mono_t *d;
   bvnode_t q;
+  int32_t k;
 
   assert(1 <= bitsize && bitsize <= 64 && a == norm64(a, bitsize));
 
@@ -548,9 +641,14 @@ static bvnode_t bvc_dag_mk_mono64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint
   d->coeff.c = a;
 
   q = bvc_dag_add_node(dag, &d->header);
-
-  bvc_dag_add_to_elementary_list(dag, q);
   bvc_dag_add_dependency(dag, node_of_occ(n), q); // q depends on n
+
+  k = BVC_DAG_DEFAULT_LIST;
+  if (bvc_dag_occ_is_leaf(dag, n)) {
+    k = BVC_DAG_ELEM_LIST;
+  }
+  list_add(dag->list, k, q);
+
 
   return q;
 }
@@ -561,6 +659,7 @@ static bvnode_t bvc_dag_mk_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint3
   uint32_t *c;
   uint32_t k;
   bvnode_t q;
+  int32_t l;
 
   assert(bitsize > 64 && bvconst_is_normalized(a, bitsize));
 
@@ -578,9 +677,13 @@ static bvnode_t bvc_dag_mk_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint3
   d->coeff.w = c;
 
   q = bvc_dag_add_node(dag, &d->header);
-
-  bvc_dag_add_to_elementary_list(dag, q);
   bvc_dag_add_dependency(dag, node_of_occ(n), q); // q depends on n
+
+  l = BVC_DAG_DEFAULT_LIST;
+  if (bvc_dag_occ_is_leaf(dag, n)) {
+    l = BVC_DAG_ELEM_LIST;
+  }
+  list_add(dag->list, l, q);
 
   return q;
 }
@@ -1205,6 +1308,25 @@ node_occ_t bvc_dag_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t n, uint32_t bitsi
 
 
 /*
+ * Binary sum: n1 n2
+ */
+node_occ_t bvc_dag_sum2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uint32_t bitsize) {
+  node_occ_t a[2];
+
+  if (n1 < n2) {
+    a[0] = n1;
+    a[1] = n2;
+  } else {
+    a[0] = n2;
+    a[1] = n1;
+  }
+
+  return bvp(bvc_dag_get_sum(dag, a, 2, bitsize));
+}
+
+
+
+/*
  * Construct a product node q
  * - q is defined by the exponents in power product p and the
  *   nodes in array a: if p is x_1^d_1 ... x_k^d_k
@@ -1223,6 +1345,22 @@ node_occ_t bvc_dag_pprod(bvc_dag_t *dag, pprod_t *p, node_occ_t *a, uint32_t bit
     pp_buffer_mul_varexp(buffer, a[i], p->prod[i].exp);
   }
   
+  return bvp(bvc_dag_get_prod(dag, buffer->prod, buffer->len, bitsize));
+}
+
+
+
+/*
+ * Binary product: n1 n2
+ */
+node_occ_t bvc_dag_pprod2(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2, uint32_t bitsize) {
+  pp_buffer_t *buffer;
+
+  buffer = &dag->pp_aux;
+  pp_buffer_reset(buffer);
+  pp_buffer_set_var(buffer, n1);
+  pp_buffer_mul_var(buffer, n2);
+
   return bvp(bvc_dag_get_prod(dag, buffer->prod, buffer->len, bitsize));
 }
 
@@ -1359,3 +1497,776 @@ node_occ_t bvc_dag_poly_buffer(bvc_dag_t *dag, bvpoly_buffer_t *b, node_occ_t *a
 
   return r;
 }
+
+
+
+/*
+ * REDUCTION
+ */
+
+/*
+ * Check whether n1 and n2 are occurrences of the same node
+ * - i.e., all bits are the same except possible bit 0
+ */
+static inline bool same_node(node_occ_t n1, node_occ_t n2) {
+  return ((n1 ^ n2) >> 1) == 0;
+}
+
+
+/*
+ * Remove i from the use list of n
+ */
+static void bvc_dag_remove_dependent(bvc_dag_t *dag, bvnode_t n, bvnode_t i) {
+  int32_t *l;
+  uint32_t j, k, m;
+
+  assert(0 < n && n <= dag->nelems && 0 < i && i <= dag->nelems);
+
+  l = dag->use[n];
+  assert(l != NULL);
+
+  m = iv_size(l);
+  k = 0;
+  for (j=0; j<m; j++) {
+    if (l[j] != i) {
+      l[k] = l[j];
+      k ++;
+    }
+  }
+
+  assert(k == m-1);
+  index_vector_shrink(l, k);
+}
+
+
+/*
+ * Scan the dependents of a leaf node i (after i is converted to a leaf)
+ * - all dependents that have become elementary are moved to the elem_list
+ */
+static void reclassify_dependents(bvc_dag_t *dag, bvnode_t i) {
+  int32_t *l;
+  uint32_t j, m;
+  bvnode_t r;
+
+  l = dag->use[i];
+  if (l != NULL) {
+    m = iv_size(l);
+    for (j=0; j<m; j++) {
+      r = l[j];
+      if (node_is_elementary(dag, r)) {
+	bvc_dag_move_to_elementary_list(dag, r);
+      }
+    }
+  }
+}
+
+
+/*
+ * Convert i to a leaf node (for variable x)
+ * - i must not be a leaf node already
+ */
+void bvc_dag_convert_to_leaf(bvc_dag_t *dag, bvnode_t i, int32_t x) {
+  bvc_header_t *d;
+  bvc_leaf_t *o;
+  uint32_t bitsize;
+  
+
+  assert(0 < i && i <= dag->nelems);
+  d = dag->desc[i];
+  assert(d->tag != BVC_LEAF);
+  bitsize = d->bitsize;
+  free_descriptor(dag, d);
+
+  o = alloc_leaf(dag);
+  o->header.tag = BVC_LEAF;
+  o->header.bitsize = bitsize;
+  o->map = x;
+
+  dag->desc[i] = &o->header;
+
+  bvc_dag_move_to_leaves(dag, i);
+
+  reclassify_dependents(dag, i);
+}
+
+
+
+/*
+ * Replace i by n in descriptor d
+ * - i is known to occur in d
+ */
+static inline void replace_node_in_offset(bvc_offset_t *d, bvnode_t i, node_occ_t n) {
+  // if d->nocc == bvp(i) then d->nocc := n
+  // if d->nocc == bvn(i) then d->noce := negate_off(n);
+  assert(node_of_occ(d->nocc) == i);
+  d->nocc = n ^ sign_of_occ(d->nocc); 
+}
+
+static inline void replace_node_in_mono(bvc_mono_t *d, bvnode_t i, node_occ_t n) {
+  assert(node_of_occ(d->nocc) == i);
+  d->nocc = n ^ sign_of_occ(d->nocc);
+}
+
+static void replace_node_in_sum(bvc_sum_t *d, bvnode_t i, node_occ_t n) {
+  uint32_t j, m;
+
+  m = d->len;
+  for (j=0; j<m; j++) {
+    if (node_of_occ(d->sum[j]) == i) break;
+  }
+  assert(j < m);
+  d->sum[j] = n ^ sign_of_occ(d->sum[j]);
+}
+
+static void replace_node_in_prod(bvc_prod_t *d, bvnode_t i, node_occ_t n) {
+  uint32_t j, m;
+
+  m = d->len;
+  for (j=0; j<m; j++) {
+    if (node_of_occ(d->prod[j].var) == i) break;
+  }
+  assert(j < m);
+  d->prod[j].var = n ^ sign_of_occ(d->prod[j].var);
+}
+
+static void replace_node_in_desc(bvc_header_t *d, bvnode_t i, node_occ_t n) {
+  switch (d->tag) {
+  case BVC_LEAF:
+  case BVC_ALIAS:
+    // should not happen
+    assert(false);
+    break;
+
+  case BVC_OFFSET:
+    replace_node_in_offset(offset_node(d), i, n);
+    break;
+
+  case BVC_MONO:
+    replace_node_in_mono(mono_node(d), i, n);
+    break;
+
+  case BVC_SUM:
+    replace_node_in_sum(sum_node(d), i, n);
+    break;
+
+  case BVC_PROD:
+    replace_node_in_prod(prod_node(d), i, n);
+    break;
+  }
+}
+
+
+/*
+ * Convert i to an alias node for n
+ */
+static void convert_to_alias(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
+  bvc_header_t *d;
+  bvc_alias_t *o;
+  uint32_t bitsize;
+
+  assert(0 < i && i <= dag->nelems);
+  d = dag->desc[i];
+  bitsize = d->bitsize;
+  free_descriptor(dag, d);
+
+  o = alloc_alias(dag);
+  o->header.tag = BVC_ALIAS;
+  o->header.bitsize = bitsize;
+  o->alias = n;
+
+  dag->desc[i] = &o->header;
+
+  list_remove(dag->list, i); // remove i from leaf/elem/default lists
+}
+
+
+
+/*
+ * Replace all occurrences of node i by n
+ * - n must be a leaf node
+ */
+static void replace_node(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
+  int32_t *l;
+  uint32_t j, m;
+  bvnode_t x;
+
+  assert(0 < i && i <= dag->nelems);
+  assert(bvc_dag_occ_is_leaf(dag, n));
+
+  l = dag->use[i];
+  if (l != NULL) {
+    m = iv_size(l);
+    for (j=0; j<m; j++) {
+      x = l[j];
+      replace_node_in_desc(dag->desc[x], i, n);
+      bvc_dag_add_dependency(dag, node_of_occ(n), x);  // now x depends on n
+    }
+    delete_index_vector(l);
+    dag->use[i] = NULL;
+  }
+
+  convert_to_alias(dag, i, n);
+}
+
+
+
+/*
+ * SUM REDUCTION
+ */
+
+/*
+ * Replace the pair n1, n2 by n in p->sum:
+ * - p must be the descriptor of node i
+ * - n1 and n2 must occur in p
+ * - n must be a leaf
+ * - remove i from n1 and n2's use lists and add i to n's use list
+ * - move i to the elementary list if p becomes elementary
+ */
+static void shrink_sum(bvc_dag_t *dag, bvc_sum_t *p, bvnode_t i, node_occ_t n, node_occ_t n1, node_occ_t n2) {
+  uint32_t j, k, m;
+  node_occ_t x;
+
+  m = p->len;
+
+  assert(m >= 2);
+
+  if (m == 2) {
+    // i is equal to n
+    assert((p->sum[0] == n1 && p->sum[1] == n2) || (p->sum[0] == n2 && p->sum[1] == n1));
+    replace_node(dag, i, n);
+    return;;
+  }
+
+  p->hash = 0;
+  k = 0;
+  for (j=0; j<m; j++) {
+    x = p->sum[j];
+    if (x != n1 && x != n2) {
+      p->sum[k] = x;
+      p->hash |= bit_hash_occ(x);
+      k ++;
+    }
+  }
+
+  // add n last (don't keep p->sum sorted)
+  assert(k == m-2);
+  p->sum[k] = n;
+  p->len = k+1;
+
+  if (sum_node_is_elementary(dag, p)) {
+    bvc_dag_move_to_elementary_list(dag, i);
+  }
+
+  bvc_dag_remove_dependent(dag, node_of_occ(n1), i);
+  bvc_dag_remove_dependent(dag, node_of_occ(n2), i);
+  bvc_dag_add_dependency(dag, node_of_occ(n), i);
+}
+
+
+/*
+ * Check whether node i is a sum that contains +n1 and +n2 or -n1 and -n2
+ * If so replace the pair n1, n2 by n in node i
+ * - h = bit hash of {n1, n2}
+ */
+static void try_reduce_sum(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n, node_occ_t n1, node_occ_t n2) {
+  bvc_header_t *d;
+  bvc_sum_t *p;
+  uint32_t j, m;
+  int32_t k1, k2;
+
+  assert(0 < i && i <= dag->nelems && !same_node(n1, n2));
+
+  d = dag->desc[i];
+  if (node_is_sum(d)) {
+    p = sum_node(d);
+    if ((h & p->hash) == h) {
+      // variables v1 (for n1) and v2 (for n2) may occur in p
+      m = p->len;
+      k1 = -1;
+      k2 = -1;
+      for (j=0; j<m; j++) {
+	if (same_node(n1, p->sum[j])) {
+	  assert(k1 < 0);
+	  k1 = j;
+	} else if (same_node(n2, p->sum[j])) {
+	  assert(k2 < 0);
+	  k2 = j;
+	}
+      }
+
+      if (k1 >= 0 && k2 >= 0) {
+	// p->sum[k1] contains +/- n1
+	// p->sum[k2] contains +/- n2
+	if (p->sum[k1] == n1 && p->sum[k2] == n2) {
+	  shrink_sum(dag, p, i, n, n1, n2);
+	} else if (p->sum[k1] == negate_occ(n1) && p->sum[k2] == negate_occ(n2)) {
+	  shrink_sum(dag, p, i, negate_occ(n), negate_occ(n1), negate_occ(n2));
+	}
+      }
+    }
+  }
+}
+
+
+
+
+/*
+ * Replace all occurrences of {n1, n2} in sums by n
+ * - n must be a leaf node
+ */
+void bvc_dag_reduce_sum(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node_occ_t n2) {
+  int32_t *l1, *l2;
+  uint32_t m, i;
+  bvnode_t r1, r2;
+  uint32_t h;
+
+  r1 = node_of_occ(n1);
+  r2 = node_of_occ(n2);
+  h = bit_hash(r1) | bit_hash(r2);
+
+  assert(0 < r1 && r1 <= dag->nelems && 0 < r2 && r2 <= dag->nelems && r1 != r2);
+
+  l1 = dag->use[r1];
+  l2 = dag->use[r2];
+
+  if (l1 != NULL && l2 != NULL) {
+    m = iv_size(l1);
+    i = iv_size(l2);
+    if (i < m) {
+      m = i;
+      l1 = l2;
+    }
+
+    /*
+     * l1 = smallest of use[r1], use[r2]
+     * m = length of l1
+     */
+    for (i=0; i<m; i++) {
+      try_reduce_sum(dag, l1[i], h, n, n1, n2);
+    }
+  }
+  
+}
+
+
+
+/*
+ * Check whether node i is a sum that contains n1 and n2 or -n1 and -n2
+ * - h = bit hash of {n1, n2}
+ */
+static bool check_reduce_sum(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n1, node_occ_t n2) {
+  bvc_header_t *d;
+  bvc_sum_t *p;
+  uint32_t j, m;
+  int32_t k1, k2;
+
+  assert(0 < i && i <= dag->nelems && !same_node(n1, n2));
+
+  d = dag->desc[i];
+  if (node_is_sum(d)) {
+    p = sum_node(d);
+    if ((h & p->hash) == h) {
+      m = p->len;
+      k1 = -1;
+      k2 = -1;
+      for (j=0; j<m; j++) {
+	if (same_node(n1, p->sum[j])) {
+	  assert(k1 < 0);
+	  k1 = j;
+	  if (k2 >= 0) break;
+	} else if (same_node(n2, p->sum[j])) {
+	  assert(k2 < 0);
+	  k2 = j;
+	  if (k1 >= 0) break;
+	}
+      }
+
+      if (k1 >= 0 && k2 >= 0) {
+	// could use more xor tricks here?
+	return (p->sum[k1] == n1 && p->sum[k2] == n2) || 
+	  (p->sum[k1] == negate_occ(n1) && p->sum[k2] == negate_occ(n2));
+      }
+    }
+  }
+  
+  return false;
+}
+
+
+/*
+ * Check whether there is a sum node that can be reduced by n1 + n2 or -n1 -n2
+ * - n1 and n2 must be distinct 
+ */
+bool bvc_dag_check_reduce_sum(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2) {
+  int32_t *l1, *l2;
+  uint32_t m, i;
+  bvnode_t r1, r2;
+  uint32_t h;
+
+  r1 = node_of_occ(n1);
+  r2 = node_of_occ(n2);
+  h = bit_hash(r1) | bit_hash(r2);
+
+  assert(0 < r1 && r1 <= dag->nelems && 0 < r2 && r2 <= dag->nelems && r1 != r2);
+
+  l1 = dag->use[r1];
+  l2 = dag->use[r2];
+
+  if (l1 != NULL && l2 != NULL) {
+    m = iv_size(l1);
+    i = iv_size(l2);
+    if (i < m) {
+      m = i;
+      l1 = l2;
+    }
+
+    for (i=0; i<m; i++) {
+      if (check_reduce_sum(dag, l1[i], h, n1, n2)) {
+	return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+
+
+
+/*
+ * PRODUCT REDUCTION
+ */
+
+
+/*
+ * Find position where n occurs in p
+ * - return -1 if n does not occur in p
+ */
+static int32_t pprod_get_index(bvc_prod_t *p, node_occ_t n) {
+  uint32_t i, m;
+
+  m = p->len;
+  for (i=0; i<m; i++) {
+    if (p->prod[i].var == n) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+
+
+/*
+ * Construct the product p * r then delete p
+ */
+static bvc_prod_t *mk_prod_times_occ(bvc_dag_t *dag, bvc_prod_t *p, node_occ_t r) {
+  bvc_prod_t *tmp;
+  uint32_t i, n;
+
+  n = p->len;
+  tmp = alloc_prod(dag, n+1);
+  tmp->header.tag = BVC_PROD;
+  tmp->header.bitsize = p->header.bitsize;
+  tmp->hash = p->hash;
+  tmp->size = n+1;
+  tmp->len = n+1;
+
+  for (i=0; i<n; i++) {
+    assert(p->prod[i].var != r && p->prod[i].exp > 0);
+    tmp->prod[i] = p->prod[i];
+  }
+  tmp->prod[n].var = r;
+  tmp->prod[n].exp = 1;
+  tmp->hash |= bit_hash_occ(r);
+
+  free_prod(dag, p);
+
+  return tmp;
+}
+
+
+/*
+ * Remove all zero exponents from p and recompute the bit hash
+ */
+static void cleanup_prod(bvc_prod_t *p) {
+  uint32_t i, j, n;
+
+  j = 0;
+  n = p->len;
+  p->hash = 0;
+  for (i=0; i<n; i++) {
+    if (p->prod[i].exp > 0) {
+      p->prod[j] = p->prod[i];
+      p->hash |= bit_hash_occ(p->prod[i].var);
+      j ++;
+    }
+  }
+  p->len = j;
+}
+
+
+/*
+ * Check whether node i is a product that contains n1 * n2
+ * If so, replace the pair n1 * n2 by n in node i
+ * - h must be the bit hash of {n1, n2}
+ * - n1 and n2 must be distinct positive occurrences
+ */
+static void try_reduce_prod(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n, node_occ_t n1, node_occ_t n2) {
+  bvc_header_t *d;
+  bvc_prod_t *p;
+  int32_t k1, k2, k;
+  uint32_t e1, e2;
+
+  assert(0 < i && i <= dag->nelems && n1 != n2);
+
+  d = dag->desc[i];
+  if (node_is_prod(d)) {
+    p = prod_node(d);
+    if ((h & p->hash) == h) {
+      k1 = pprod_get_index(p, n1);
+      k2 = pprod_get_index(p, n2);
+
+      if (k1 >= 0 && k2 >= 0) {
+	/*
+	 * p contains n1 * n2
+	 */
+	p->prod[k1].exp --;
+	e1 = p->prod[k1].exp;
+	if (e1 == 0) {
+	  bvc_dag_remove_dependent(dag, node_of_occ(n1), i);
+	}
+	p->prod[k2].exp --;
+	e2 = p->prod[k2].exp;
+	if (e2 == 0) {
+	  bvc_dag_remove_dependent(dag, node_of_occ(n2), i);
+	}
+
+	k = pprod_get_index(p, n);
+	if (k >= 0) {
+	  p->prod[k].exp ++;
+	  cleanup_prod(p);
+	} else {
+	  bvc_dag_add_dependency(dag, node_of_occ(n), i);
+	  if (e1 == 0) {
+	    // store n^1 at index k1
+	    p->prod[k1].var = n;
+	    p->prod[k1].exp = 1;
+	    cleanup_prod(p);	    
+	  } else if (e2 == 0) {
+	    // store n^1 at index k2
+	    p->prod[k2].var = n;
+	    p->prod[k2].exp = 1;
+	    cleanup_prod(p);
+	  } else {
+	    // we can't do the reduction in place: create a new p
+	    p = mk_prod_times_occ(dag, p, n);
+	    dag->desc[i] = &p->header;
+	  }
+	}
+
+	if (prod_node_is_elementary(dag, p)) {
+	  bvc_dag_move_to_elementary_list(dag, i);
+	}
+      }
+    }
+
+  }
+}
+
+
+
+/*
+ * Check whether node i is a product that contains n1^2
+ * If so replace n1^2 by n in node i
+ * - h must be the hash of n1
+ */
+static void try_reduce_square(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n, node_occ_t n1) {
+  bvc_header_t *d;
+  bvc_prod_t *p;
+  int32_t k1, k;
+
+  assert(0 < i && i <= dag->nelems);
+
+  d = dag->desc[i];
+  if (node_is_prod(d)) {
+    p = prod_node(d);
+    if ((h & p->hash) == h) {
+      k1 = pprod_get_index(p, n1);
+      if (k1 >= 0 && p->prod[k1].exp >= 2) {
+	/*
+	 * p contains n^2
+	 */
+	p->prod[k1].exp -= 2;
+	if (p->prod[k1].exp == 0) {
+	  bvc_dag_remove_dependent(dag, node_of_occ(n1), i);
+	}
+
+	k = pprod_get_index(p, n);
+	if (k >= 0) {
+	  p->prod[k].exp += 2;
+	  cleanup_prod(p);
+	} else {
+	  bvc_dag_add_dependency(dag, node_of_occ(n), i);
+	  if (p->prod[k1].exp == 0) {
+	    // store n^1 at index k1
+	    p->prod[k1].var = n;
+	    p->prod[k1].exp = 1;
+	    cleanup_prod(p);
+	  } else {
+	    p = mk_prod_times_occ(dag, p, n);
+	    dag->desc[i] = &p->header;
+	  }
+	}
+
+	if (prod_node_is_elementary(dag, p)) {
+	  bvc_dag_move_to_elementary_list(dag, i);
+	}
+      }
+
+    }
+  }
+}
+
+
+
+/*
+ * Replace all occurrences of {n1, n2} in products by n
+ */
+void bvc_dag_reduce_prod(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node_occ_t n2) {
+  int32_t *l1, *l2;
+  uint32_t m, i;
+  bvnode_t r1, r2;
+  uint32_t h;
+
+  r1 = node_of_occ(n1);
+  r2 = node_of_occ(n2);
+  h = bit_hash(r1) | bit_hash(r2);
+
+  assert(0 < r1 && r1 <= dag->nelems && 0 < r2 && r2 <= dag->nelems);
+
+  l1 = dag->use[r1];
+  l2 = dag->use[r2];
+
+  if (l1 != NULL && l2 != NULL) {
+    m = iv_size(l1);
+    i = iv_size(l2);
+    if (i < m) {
+      m = i;
+      l1 = l2;
+    }
+
+    /*
+     * l1 = smallest of use[r1], use[r2]
+     * m = length of l1
+     */
+    if (n1 == n2) {
+      for (i=0; i<m; i++) {
+	try_reduce_square(dag, l1[i], h, n, n1);
+      }
+    } else {
+      for (i=0; i<m; i++) {
+	try_reduce_prod(dag, l1[i], h, n, n1, n2);
+      }
+    }
+  } 
+  
+}
+
+
+
+/*
+ * Check whether i is a polynomial that contains n1 * n2 as a subproduct
+ * - h = bit_hash of {n1,  n2}
+ */
+static bool check_reduce_prod(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n1, node_occ_t n2) {
+  bvc_header_t *d;
+  bvc_prod_t *p;
+
+  assert(0 < i && i <= dag->nelems && n1 != n2);
+
+  d = dag->desc[i];
+  if (node_is_prod(d)) {
+    p = prod_node(d);
+    if ((h & p->hash) == h) {
+      return pprod_get_index(p, n1) >= 0 && pprod_get_index(p, n2) >= 0;
+    }
+  }
+
+  return false;
+}
+
+
+/*
+ * Check whether i is a polynomial that contains n1^2 as a subproduct
+ * - h = bit_hash of {n1}
+ */
+static bool check_reduce_square(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n1) {
+  bvc_header_t *d;
+  bvc_prod_t *p;
+  int32_t k;
+
+  assert(0 < i && i <= dag->nelems);
+
+  d = dag->desc[i];
+  if (node_is_prod(d)) {
+    p = prod_node(d);
+    if ((h & p->hash) == h) {
+      k = pprod_get_index(p, n1);
+      return k >= 0 && p->prod[k].exp >= 2;
+    }
+  }
+
+  return false;
+}
+
+
+/*
+ * Check whether there's a product node that can be reduced by n1 * n2
+ */
+bool bvc_dag_check_reduce_prod(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2) {
+  int32_t *l1, *l2;
+  uint32_t m, i;
+  bvnode_t r1, r2;
+  uint32_t h;
+
+  r1 = node_of_occ(n1);
+  r2 = node_of_occ(n2);
+  h = bit_hash(r1) | bit_hash(r2);
+
+  assert(0 < r1 && r1 <= dag->nelems && 0 < r2 && r2 <= dag->nelems);
+
+  l1 = dag->use[r1];
+  l2 = dag->use[r2];
+
+  if (l1 != NULL && l2 != NULL) {
+    m = iv_size(l1);
+    i = iv_size(l2);
+    if (i < m) {
+      m = i;
+      l1 = l2;
+    }
+
+    /*
+     * l1 = smallest of use[r1], use[r2]
+     * m = length of l1
+     */
+    if (n1 == n2) {
+      for (i=0; i<m; i++) {
+	if (check_reduce_square(dag, l1[i], h, n1)) {
+	  return true;
+	}
+      }
+    } else {
+      for (i=0; i<m; i++) {
+	if (check_reduce_prod(dag, l1[i], h, n1, n2)) {
+	  return true;
+	}
+      }
+    }
+  } 
+  
+
+  return false;
+}
+

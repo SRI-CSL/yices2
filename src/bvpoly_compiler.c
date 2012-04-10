@@ -10,6 +10,18 @@
 #include "bvpoly_compiler.h"
 
 
+#define TRACE 0
+
+#if TRACE
+
+#include <stdio.h>
+#include <inttypes.h>
+
+#include "bvsolver_printer.h"
+
+#endif
+
+
 /*
  * QUEUES
  */
@@ -184,6 +196,49 @@ static void bv_compiler_store_map(bvc_t *c, thvar_t x, thvar_t y) {
  */
 
 /*
+ * Map x to a constant a
+ * - n = number of bits in a
+ */
+static void bv_compiler_map_to_const64(bvc_t *c, thvar_t x, uint64_t a, uint32_t n) {
+  thvar_t v;
+
+  assert(1 <= n && n <= 64 && a == norm64(a, n));
+  v = get_bvconst64(c->vtbl, n, a);
+  bv_compiler_store_map(c, x, v);
+}
+
+
+static void bv_compiler_map_to_const(bvc_t *c, thvar_t x, uint32_t *a, uint32_t n) {
+  thvar_t v;
+
+  assert(n > 64 && bvconst_is_normalized(a, n));
+  v = get_bvconst(c->vtbl, n, a);
+  bv_compiler_store_map(c, x, v);
+}
+
+
+// variant: constant = 0
+static void bv_compiler_map_to_zero(bvc_t *c, thvar_t x, uint32_t n) {  
+  uint32_t aux[8];
+  uint32_t *a;
+  uint32_t w;
+
+  assert(n > 64);
+  w = (n+31) >> 5;
+  if (w <= 8) {
+    bvconst_clear(aux, w);
+    bv_compiler_map_to_const(c, x, aux, n);
+  } else {
+    a = bvconst_alloc(w);
+    bvconst_clear(a, w);
+    bv_compiler_map_to_const(c, x, a, n);
+    bvconst_free(a, w);
+  }
+}
+
+
+
+/*
  * In all constructors:
  * - n = number of bits
  * - x (and y) = operands
@@ -198,7 +253,7 @@ static thvar_t bv_compiler_mk_bvadd(bvc_t *c, uint32_t n, thvar_t x, thvar_t y) 
     v = x; x = y; y = v;
   }
 
-  assert(find_bvadd(c->vtbl, x, y) == -1); // not already present
+  //  assert(find_bvadd(c->vtbl, x, y) == -1); // not already present
 
   v = get_bvadd(c->vtbl, n, x, y);
   bvc_queue_push(&c->elemexp, v);
@@ -210,7 +265,7 @@ static thvar_t bv_compiler_mk_bvsub(bvc_t *c, uint32_t n, thvar_t x, thvar_t y) 
   thvar_t v;
 
   assert(0 < x && x < c->vtbl->nvars && 0 < y && y < c->vtbl->nvars);
-  assert(find_bvsub(c->vtbl, x, y) == -1); // not already present
+  //  assert(find_bvsub(c->vtbl, x, y) == -1); // not already present
 
   v = get_bvsub(c->vtbl, n, x, y);
   bvc_queue_push(&c->elemexp, v);
@@ -228,7 +283,7 @@ static thvar_t bv_compiler_mk_bvmul(bvc_t *c, uint32_t n, thvar_t x, thvar_t y) 
     v = x; x = y; y = v;
   }
 
-  assert(find_bvmul(c->vtbl, x, y) == -1); // not already present
+  //  assert(find_bvmul(c->vtbl, x, y) == -1); // not already present
 
   v = get_bvmul(c->vtbl, n, x, y);
   bvc_queue_push(&c->elemexp, v);
@@ -240,7 +295,7 @@ static thvar_t bv_compiler_mk_bvneg(bvc_t *c, uint32_t n, thvar_t x) {
   thvar_t v;
 
   assert(0 < x && x < c->vtbl->nvars);
-  assert(find_bvneg(c->vtbl, x) == -1);
+  //  assert(find_bvneg(c->vtbl, x) == -1);
 
   v = get_bvneg(c->vtbl, n, x);
   bvc_queue_push(&c->elemexp, v);
@@ -560,6 +615,7 @@ static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
   bv_vartable_t *vtbl;
   bvpoly_buffer_t *b;
   node_occ_t q;
+  uint64_t a;
 
   assert(0 < x && x < c->vtbl->nvars);
 
@@ -574,7 +630,11 @@ static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
     b = &c->pbuffer;
     bv_compiler_simplify_poly64(c, bvvar_poly64_def(vtbl, x), b);
     if (bvpoly_buffer_is_constant(b)) {
-      // TBD:
+      a = 0;
+      if (!bvpoly_buffer_is_zero(b)) {
+	a = bvpoly_buffer_coeff64(b, 0);
+      }
+      bv_compiler_map_to_const64(c, x, a, b->bitsize);
       return;
     } 
     q = bv_compiler_pbuffer_to_dag(c, b);
@@ -584,7 +644,11 @@ static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
     b = &c->pbuffer;
     bv_compiler_simplify_poly(c, bvvar_poly_def(vtbl, x), b);
     if (bvpoly_buffer_is_constant(b)) {
-      // TBD:
+      if (bvpoly_buffer_is_zero(b)) {
+	bv_compiler_map_to_zero(c, x, b->bitsize);
+      } else {
+	bv_compiler_map_to_const(c, x, bvpoly_buffer_coeff(b, 0), b->bitsize);
+      }
       return;
     } 
     q = bv_compiler_pbuffer_to_dag(c, b);
@@ -603,14 +667,296 @@ static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
 }
 
 
+
+/*
+ * Simplify the DAG nodes using elementary expression x
+ */
+
+// case 1: x is (bvadd y z) where y != z and both y and z occur in the dag
+static void bv_compiler_simplify_dag_bvadd(bvc_t *c, thvar_t x, thvar_t y, thvar_t z) {
+  bvc_dag_t *dag;
+  node_occ_t ny, nz, nx;
+  uint32_t nbits;
+
+  dag = &c->dag;
+  ny = bvc_dag_nocc_of_var(dag, y);
+  nz = bvc_dag_nocc_of_var(dag, z);
+  if (bvc_dag_check_reduce_sum(dag, ny, nz)) {
+    nbits = bvvar_bitsize(c->vtbl, x);
+    assert(bvvar_bitsize(c->vtbl, y) == nbits && 
+	   bvvar_bitsize(c->vtbl, z) == nbits);
+
+    nx = bvc_dag_leaf(dag, x, nbits);
+    bvc_dag_reduce_sum(dag, nx, ny, nz);
+  }
+}
+
+// case 2: x is (bvsub y z) where y != z and both y and z occur in the dag
+static void bv_compiler_simplify_dag_bvsub(bvc_t *c, thvar_t x, thvar_t y, thvar_t z) {
+  bvc_dag_t *dag;
+  node_occ_t ny, nz, nx;
+  uint32_t nbits;
+
+  dag = &c->dag;
+  ny = bvc_dag_nocc_of_var(dag, y);
+  nz = negate_occ(bvc_dag_nocc_of_var(dag, z));
+  if (bvc_dag_check_reduce_sum(dag, ny, nz)) {
+    nbits = bvvar_bitsize(c->vtbl, x);
+    assert(bvvar_bitsize(c->vtbl, y) == nbits && 
+	   bvvar_bitsize(c->vtbl, z) == nbits);
+
+    nx = bvc_dag_leaf(dag, x, nbits);
+    bvc_dag_reduce_sum(dag, nx, ny, nz);
+  }
+}
+
+// case 3: x is (bvmul y z) where y and z occur in the dag
+static void bv_compiler_simplify_dag_bvmul(bvc_t *c, thvar_t x, thvar_t y, thvar_t z) {
+  bvc_dag_t *dag;
+  node_occ_t ny, nz, nx;
+  uint32_t nbits;
+
+  dag = &c->dag;
+  ny = bvc_dag_nocc_of_var(dag, y);
+  nz = bvc_dag_nocc_of_var(dag, z);
+  if (bvc_dag_check_reduce_prod(dag, ny, nz)) {
+    nbits = bvvar_bitsize(c->vtbl, x);
+    assert(bvvar_bitsize(c->vtbl, y) == nbits && 
+	   bvvar_bitsize(c->vtbl, z) == nbits);
+
+    nx = bvc_dag_leaf(dag, x, nbits);
+    bvc_dag_reduce_prod(dag, nx, ny, nz);
+  }
+}
+
+
+
+static void bv_compiler_simplify_dag(bvc_t *c, thvar_t x) {
+  bv_vartable_t *vtbl;
+  bvc_dag_t *dag;
+  thvar_t *aux;
+  thvar_t y, z;
+
+  dag = &c->dag;
+  vtbl = c->vtbl; 
+  switch (bvvar_tag(vtbl, x)) {
+  case BVTAG_ADD:
+    aux = bvvar_binop(vtbl, x);
+    y = mtbl_get_root(c->mtbl, aux[0]);
+    z = mtbl_get_root(c->mtbl, aux[1]);
+    if (y != z && bvc_dag_var_is_present(dag, y) && bvc_dag_var_is_present(dag, z)) {
+      bv_compiler_simplify_dag_bvadd(c, x, y, z);
+    }
+    break;
+
+  case BVTAG_SUB:
+    aux = bvvar_binop(vtbl, x);
+    y = mtbl_get_root(c->mtbl, aux[0]);
+    z = mtbl_get_root(c->mtbl, aux[1]);
+    if (y != z && bvc_dag_var_is_present(dag, y) && bvc_dag_var_is_present(dag, z)) {
+      bv_compiler_simplify_dag_bvsub(c, x, y, z);
+    }
+    break;
+
+  case BVTAG_MUL:
+    aux = bvvar_binop(vtbl, x);
+    y = mtbl_get_root(c->mtbl, aux[0]);
+    z = mtbl_get_root(c->mtbl, aux[1]);
+    if (bvc_dag_var_is_present(dag, y) && bvc_dag_var_is_present(dag, z)) {
+      bv_compiler_simplify_dag_bvmul(c, x, y, z);
+    }
+    break;
+
+  default:
+    break;
+  }
+}
+
+
+
+/*
+ * Compilation of an elementary node i
+ */
+// case 1: i is [offset a0 n] 
+static void bvc_process_offset(bvc_t *c, bvnode_t i, bvc_offset_t *d) {
+  bv_vartable_t *vtbl;
+  uint32_t nbits;
+  thvar_t x, y, z;
+
+  vtbl = c->vtbl;
+  nbits = d->header.bitsize;
+  if (nbits <= 64) {
+    y = get_bvconst64(vtbl, nbits, d->constant.c);
+  } else {
+    y = get_bvconst(vtbl, nbits, d->constant.w);
+  }
+  z = bvc_dag_get_var_of_leaf(&c->dag, d->nocc);
+
+  if (sign_of_occ(d->nocc) == 0) {
+    // i is compiled to [bvadd y z]
+    x = bv_compiler_mk_bvadd(c, nbits, y, z);
+  } else {
+    // i is compiled to [bvsub y z];
+    x = bv_compiler_mk_bvsub(c, nbits, y, z);
+  }
+  bvc_dag_convert_to_leaf(&c->dag, i, x);
+}
+
+// case 2: i is [mono a0 n] 
+static void bvc_process_monomial(bvc_t *c, bvnode_t i, bvc_mono_t *d) {
+  bv_vartable_t *vtbl;
+  uint32_t nbits;
+  thvar_t x, y, z;
+
+  vtbl = c->vtbl;
+  nbits = d->header.bitsize;
+  if (nbits <= 64) {
+    y = get_bvconst64(vtbl, nbits, d->coeff.c);
+  } else {
+    y = get_bvconst(vtbl, nbits, d->coeff.w);
+  }
+  z = bvc_dag_get_var_of_leaf(&c->dag, d->nocc);
+
+  // i is compiled to [bvmul y z]
+  x = bv_compiler_mk_bvmul(c, nbits, y, z);
+  bvc_dag_convert_to_leaf(&c->dag, i, x);
+}
+
+// case 3: i is [prod n1 n2] or [prod n1^2]
+static void bvc_process_elem_prod(bvc_t *c, bvnode_t i, bvc_prod_t *d) {
+  uint32_t nbits;
+  node_occ_t nx, ny, nz;
+  thvar_t x, y, z;
+
+  assert((d->len == 1 && d->prod[0].exp == 2) || 
+	 (d->len == 2 && d->prod[0].exp == 1 && d->prod[1].exp == 1));
+  
+  nbits = d->header.bitsize;
+
+  ny = d->prod[0].var;
+  y = bvc_dag_get_var_of_leaf(&c->dag, ny);
+  nz = ny;
+  z = y;
+  if (d->len == 2) {
+    nz = d->prod[1].var;
+    z = bvc_dag_get_var_of_leaf(&c->dag, nz);
+  }
+
+  // i is compiled to [bvmul y z]
+  x = bv_compiler_mk_bvmul(c, nbits, y, z);
+  bvc_dag_convert_to_leaf(&c->dag, i, x);
+  
+  // now replace (ny * nz) by nx everywhere
+  nx = bvp(i);
+  bvc_dag_reduce_prod(&c->dag, nx, ny, nz);
+}
+
+// case 4: i is [sum n1 n2] 
+static void bvc_process_elem_sum(bvc_t *c, bvnode_t i, bvc_sum_t *d) {
+  uint32_t nbits;
+  node_occ_t nx, ny, nz;
+  thvar_t x, y, z;
+
+  assert(d->len == 2);
+
+  nbits = d->header.bitsize;
+  ny = d->sum[0];
+  nz = d->sum[1];
+  y = bvc_dag_get_var_of_leaf(&c->dag, ny);
+  z = bvc_dag_get_var_of_leaf(&c->dag, nz);
+
+  if (sign_of_occ(ny) == 0) {
+    if (sign_of_occ(nz) == 0) {
+      // i is compiled to [bvadd y z]
+      x = bv_compiler_mk_bvadd(c, nbits, y, z);
+    } else {
+      // i is compiled to [bvsub y z]
+      x = bv_compiler_mk_bvsub(c, nbits, y, z);
+    }
+  } else {
+    if (sign_of_occ(nz) == 0) {
+      // i is compiled to [bvsub z y]
+      x = bv_compiler_mk_bvsub(c, nbits, z, y);
+    } else {
+      // i is compiled to [bnveg [bvadd y z]]?
+      x = bv_compiler_mk_bvadd(c, nbits, y, z);
+      x = bv_compiler_mk_bvneg(c, nbits, x);
+    }
+  }
+
+  // replace ny nz by nx everywhere
+  bvc_dag_convert_to_leaf(&c->dag, i, x);
+  nx = bvp(i);
+  bvc_dag_reduce_sum(&c->dag, nx, ny, nz);  
+}
+
+
+
+static void bvc_process_elem_node(bvc_t *c, bvnode_t i) {
+  bvc_dag_t *dag;
+
+  dag = &c->dag;
+  switch (bvc_dag_node_type(dag, i)) {
+  case BVC_OFFSET:
+    bvc_process_offset(c, i, bvc_dag_node_offset(dag, i));
+    break;
+
+  case BVC_MONO:
+    bvc_process_monomial(c, i, bvc_dag_node_mono(dag, i));
+    break;
+
+  case BVC_PROD:
+    bvc_process_elem_prod(c, i, bvc_dag_node_prod(dag, i));
+    break;
+
+  case BVC_SUM:
+    bvc_process_elem_sum(c, i, bvc_dag_node_sum(dag, i));
+    break;
+
+  case BVC_LEAF:
+  case BVC_ALIAS:
+    assert(false);
+    break;
+  }
+}
+
+
+
 /*
  * FOR TESTING ONLY
  */
 void bv_compiler_process_queue(bvc_t *c) {
   uint32_t i, n;
+  int32_t j;
 
   n = c->queue.top;
   for (i=0; i<n; i++) {
-    bv_compiler_map_var_to_dag(c, c->queue.data[i]);
+    bv_compiler_map_var_to_dag(c, c->queue.data[i]);    
+  }
+
+#if TRACE
+  printf("==== INIITIAL DAG =====\n");
+  print_bvc_dag(stdout, &c->dag);
+#endif
+
+  // try to simplify the DAG nodes with existing elementary expressions
+  n = c->elemexp.top;
+  for (i=0; i<n; i++) {
+    bv_compiler_simplify_dag(c, c->elemexp.data[i]);;
+  }
+
+  // compile all the elementary nodes
+  for (;;) {
+    j = bvc_first_elem_node(&c->dag);
+    if (j < 0) break;
+    // bvc_process_elem_node removes j from the elementary node list
+    bvc_process_elem_node(c, j);
+
+#if TRACE
+    printf("\n=== After compiling node n%"PRId32" =====\n", j);
+    print_bvc_dag(stdout, &c->dag);
+    fflush(stdout);
+#endif
+
   }
 }

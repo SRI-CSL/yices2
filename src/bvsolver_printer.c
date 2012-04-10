@@ -747,6 +747,12 @@ static void print_sum_node(FILE *f, bvc_sum_t *d) {
   fputc(']', f);
 }
 
+static void print_alias_node(FILE *f, bvc_alias_t *d) {
+  fprintf(f, "[ALIAS ");
+  print_nocc(f, d->alias);
+  fputc(']', f); 
+}
+
 static void print_node_descriptor(FILE *f, bvc_header_t *d) {
   switch (d->tag) {
   case BVC_LEAF:
@@ -767,6 +773,10 @@ static void print_node_descriptor(FILE *f, bvc_header_t *d) {
 
   case BVC_SUM:    
     print_sum_node(f, sum_node(d));
+    break;
+
+  case BVC_ALIAS:
+    print_alias_node(f, alias_node(d));
     break;
 
   default:
@@ -805,9 +815,9 @@ static void print_node(FILE *f, bvc_dag_t *dag, bvnode_t q) {
   fprintf(f, "n%"PRId32": ", q);
   print_node_descriptor(f, dag->desc[q]);
   fprintf(f, "\n");
-  fprintf(f, "       use list: ");
-  print_use_list(f, dag->use[q]);  
-  fprintf(f, "\n");
+  //  fprintf(f, "       use list: ");
+  //  print_use_list(f, dag->use[q]);  
+  //  fprintf(f, "\n");
 }
 
 
@@ -833,7 +843,7 @@ static void print_list(FILE *f, bvc_dag_t *dag, int32_t k) {
 /*
  * Print dag
  */
-static void print_dag(FILE *f, bvc_dag_t *dag) {
+void print_bvc_dag(FILE *f, bvc_dag_t *dag) {
   uint32_t i, n;
 
   n = dag->nelems;
@@ -859,6 +869,6 @@ static void print_dag(FILE *f, bvc_dag_t *dag) {
 
 void print_bv_solver_dag(FILE *f, bv_solver_t *solver) {
   if (solver->compiler != NULL) {
-    print_dag(f, &solver->compiler->dag);
+    print_bvc_dag(f, &solver->compiler->dag);
   }
 }
