@@ -253,7 +253,7 @@ static thvar_t bv_compiler_mk_bvadd(bvc_t *c, uint32_t n, thvar_t x, thvar_t y) 
     v = x; x = y; y = v;
   }
 
-  //  assert(find_bvadd(c->vtbl, x, y) == -1); // not already present
+  assert(find_bvadd(c->vtbl, x, y) == -1); // not already present
 
   v = get_bvadd(c->vtbl, n, x, y);
   bvc_queue_push(&c->elemexp, v);
@@ -265,7 +265,7 @@ static thvar_t bv_compiler_mk_bvsub(bvc_t *c, uint32_t n, thvar_t x, thvar_t y) 
   thvar_t v;
 
   assert(0 < x && x < c->vtbl->nvars && 0 < y && y < c->vtbl->nvars);
-  //  assert(find_bvsub(c->vtbl, x, y) == -1); // not already present
+  assert(find_bvsub(c->vtbl, x, y) == -1); // not already present
 
   v = get_bvsub(c->vtbl, n, x, y);
   bvc_queue_push(&c->elemexp, v);
@@ -283,7 +283,7 @@ static thvar_t bv_compiler_mk_bvmul(bvc_t *c, uint32_t n, thvar_t x, thvar_t y) 
     v = x; x = y; y = v;
   }
 
-  //  assert(find_bvmul(c->vtbl, x, y) == -1); // not already present
+  assert(find_bvmul(c->vtbl, x, y) == -1); // not already present
 
   v = get_bvmul(c->vtbl, n, x, y);
   bvc_queue_push(&c->elemexp, v);
@@ -295,7 +295,7 @@ static thvar_t bv_compiler_mk_bvneg(bvc_t *c, uint32_t n, thvar_t x) {
   thvar_t v;
 
   assert(0 < x && x < c->vtbl->nvars);
-  //  assert(find_bvneg(c->vtbl, x) == -1);
+  assert(find_bvneg(c->vtbl, x) == -1);
 
   v = get_bvneg(c->vtbl, n, x);
   bvc_queue_push(&c->elemexp, v);

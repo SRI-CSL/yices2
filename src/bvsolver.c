@@ -3343,6 +3343,23 @@ static thvar_t make_mono64(bv_solver_t *solver, uint32_t nbits, uint64_t c, thva
 
 
 /*
+ * Convert power-product p to a variable
+ * - nbits = number of bits
+ */
+static thvar_t make_bvpprod(bv_vartable_t *vtbl, uint32_t nbits, pp_buffer_t *p) {
+  thvar_t x;
+
+  if (p->len == 1 && p->prod[0].exp == 1) {
+    x = p->prod[0].var;
+  } else {
+    x = get_bvpprod(vtbl, nbits, p);
+  }
+
+  return x;
+}
+
+
+/*
  * Build the term (c * p)
  * - c is a 64bit constants
  * - p is a power product
@@ -3386,7 +3403,7 @@ static thvar_t map_const64_times_product(bv_solver_t *solver, uint32_t nbits, pp
 
     if (x < 0) {
       // not found in etbl: build c * p
-      x = get_bvpprod(vtbl, nbits, p);
+      x = make_bvpprod(vtbl, nbits, p);
       if (c != 1) {
 	x = make_mono64(solver, nbits, c, x);
       }
@@ -3454,7 +3471,7 @@ static thvar_t map_const_times_product(bv_solver_t *solver, uint32_t nbits, pp_b
     x = bvexp_table_find(etbl, eb, h);
     if (x < 0) {
       // not found
-      x = get_bvpprod(vtbl, nbits, p);
+      x = make_bvpprod(vtbl, nbits, p);
       if (!bvconst_is_one(c, w)) {
 	x = make_mono(solver, nbits, c, x);
       }

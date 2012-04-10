@@ -1540,6 +1540,57 @@ static void bvc_dag_remove_dependent(bvc_dag_t *dag, bvnode_t n, bvnode_t i) {
 
 
 /*
+ * Remove i from all the use lists
+ * - d = descriptor of node i
+ */
+static void remove_prod_from_uses(bvc_dag_t *dag, bvnode_t i, bvc_prod_t *d) {
+  uint32_t j, m;
+
+  m = d->len;
+  for (j=0; j<m; j++) {
+    bvc_dag_remove_dependent(dag, node_of_occ(d->prod[j].var), i);
+  }
+}
+
+static void remove_sum_from_uses(bvc_dag_t *dag, bvnode_t i, bvc_sum_t *d) {
+  uint32_t j, m;
+
+  m = d->len;
+  for (j=0; j<m; j++) {
+    bvc_dag_remove_dependent(dag, node_of_occ(d->sum[j]), i);
+  }
+}
+
+static void remove_from_uses(bvc_dag_t *dag, bvnode_t i, bvc_header_t *d) {
+  assert(0 < i && i <= dag->nelems && dag->desc[i] == d);
+
+  switch (d->tag) {
+  case BVC_LEAF:
+    break;
+
+  case BVC_OFFSET:
+    bvc_dag_remove_dependent(dag, node_of_occ(offset_node(d)->nocc), i);
+    break;
+
+  case BVC_MONO:
+    bvc_dag_remove_dependent(dag, node_of_occ(mono_node(d)->nocc), i);
+    break;
+
+  case BVC_PROD:
+    remove_prod_from_uses(dag, i, prod_node(d));
+    break;
+
+  case BVC_SUM:
+    remove_sum_from_uses(dag, i, sum_node(d));
+    break;
+
+  case BVC_ALIAS:
+    break;
+  }
+}
+
+
+/*
  * Scan the dependents of a leaf node i (after i is converted to a leaf)
  * - all dependents that have become elementary are moved to the elem_list
  */
@@ -1575,6 +1626,7 @@ void bvc_dag_convert_to_leaf(bvc_dag_t *dag, bvnode_t i, int32_t x) {
   d = dag->desc[i];
   assert(d->tag != BVC_LEAF);
   bitsize = d->bitsize;
+  remove_from_uses(dag, i, d);
   free_descriptor(dag, d);
 
   o = alloc_leaf(dag);
@@ -1700,6 +1752,9 @@ static void replace_node(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
       x = l[j];
       replace_node_in_desc(dag->desc[x], i, n);
       bvc_dag_add_dependency(dag, node_of_occ(n), x);  // now x depends on n
+      if (node_is_elementary(dag, x)) {
+	bvc_dag_move_to_elementary_list(dag, x);
+      }
     }
     delete_index_vector(l);
     dag->use[i] = NULL;
@@ -1752,6 +1807,7 @@ static void shrink_sum(bvc_dag_t *dag, bvc_sum_t *p, bvnode_t i, node_occ_t n, n
   assert(k == m-2);
   p->sum[k] = n;
   p->len = k+1;
+  p->hash |= bit_hash_occ(n);
 
   if (sum_node_is_elementary(dag, p)) {
     bvc_dag_move_to_elementary_list(dag, i);
@@ -1815,6 +1871,7 @@ static void try_reduce_sum(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n,
  * - n must be a leaf node
  */
 void bvc_dag_reduce_sum(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node_occ_t n2) {
+  ivector_t *v;
   int32_t *l1, *l2;
   uint32_t m, i;
   bvnode_t r1, r2;
@@ -1841,9 +1898,13 @@ void bvc_dag_reduce_sum(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node_occ_t 
      * l1 = smallest of use[r1], use[r2]
      * m = length of l1
      */
+    // copy l1 into dag->buffer since try_reduce_sum may modify l1
+    v = &dag->buffer;
+    ivector_copy(v, l1, m);
     for (i=0; i<m; i++) {
-      try_reduce_sum(dag, l1[i], h, n, n1, n2);
+      try_reduce_sum(dag, v->data[i], h, n, n1, n2);
     }
+    ivector_reset(v);
   }
   
 }
@@ -2134,6 +2195,7 @@ static void try_reduce_square(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t
  * Replace all occurrences of {n1, n2} in products by n
  */
 void bvc_dag_reduce_prod(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node_occ_t n2) {
+  ivector_t *v;
   int32_t *l1, *l2;
   uint32_t m, i;
   bvnode_t r1, r2;
@@ -2160,16 +2222,22 @@ void bvc_dag_reduce_prod(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node_occ_t
      * l1 = smallest of use[r1], use[r2]
      * m = length of l1
      */
+    // copy l1 into dag->buffer since try_reduce_sum may modify l1
+    v = &dag->buffer;
+    ivector_copy(v, l1, m);
+
     if (n1 == n2) {
       for (i=0; i<m; i++) {
-	try_reduce_square(dag, l1[i], h, n, n1);
+	try_reduce_square(dag, v->data[i], h, n, n1);
       }
     } else {
       for (i=0; i<m; i++) {
-	try_reduce_prod(dag, l1[i], h, n, n1, n2);
+	try_reduce_prod(dag, v->data[i], h, n, n1, n2);
       }
     }
-  } 
+
+    ivector_reset(v);
+  }
   
 }
 
