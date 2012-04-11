@@ -344,7 +344,8 @@ static thvar_t bv_compiler_mk_power_product(bvc_t *c, uint32_t n, pp_buffer_t *b
     x = null_thvar;
     /*
      * In each iteration:
-     *  x = product of all variables x_i's that have odd degree
+     *  x = product of all variables x_i's that have odd degree 
+     *  (or null_thvar if all variables have even degree)
      *  d_i := d_i/2
      */
     for (i=0; i<m; i++) {
@@ -356,7 +357,6 @@ static thvar_t bv_compiler_mk_power_product(bvc_t *c, uint32_t n, pp_buffer_t *b
       a[i].exp = d;
       zero_deg = zero_deg & (d == 0);
     }
-    assert(x != null_thvar);
 
     ivector_push(v, x);
 
@@ -370,10 +370,12 @@ static thvar_t bv_compiler_mk_power_product(bvc_t *c, uint32_t n, pp_buffer_t *b
   assert(v->size > 0);
   i = v->size - 1;
   x = v->data[i];
+  assert(x != null_thvar);
   while (i > 0) {
     i --;
     x = bv_compiler_mk_bvmul(c, n, x, x);
-    x = bv_compiler_mk_bvmul(c, n, x, v->data[i]);
+    //    x = bv_compiler_mk_bvmul(c, n, x, v->data[i]);
+    x = mk_bvmul_aux(c, n, v->data[i], x);
   }
 
   return x;
@@ -1007,38 +1009,45 @@ static void bvc_process_elem_node(bvc_t *c, bvnode_t i) {
 
 /*
  * Check whether product or sum p is simple:
- * - the nodes occurring in p are all leaves and are not shared
+ * - return true if all the nodes occurring in p are leaves
+ *   and p contains at most one shared leaf
  */
 static bool bvc_prod_is_simple(bvc_dag_t *dag, bvc_prod_t *p) {
-  uint32_t i, n;
+  uint32_t i, n, n_shared;
   node_occ_t nx;
 
+  n_shared = 0;
   n = p->len;
   for (i=0; i<n; i++) {
     nx = p->prod[i].var;
-    if (!bvc_dag_occ_is_leaf(dag, nx) || 
-	bvc_dag_occ_is_shared(dag, nx)) {
+    if (!bvc_dag_occ_is_leaf(dag, nx)) {
       return false;
+    }
+    if (bvc_dag_occ_is_shared(dag, nx)) {
+      n_shared ++;
     }
   }
 
-  return true;
+  return n_shared <= 1;
 }
 
 static bool bvc_sum_is_simple(bvc_dag_t *dag, bvc_sum_t *p) {
-  uint32_t i, n;
+  uint32_t i, n, n_shared;
   node_occ_t nx;
 
+  n_shared = 0;
   n = p->len;
   for (i=0; i<n; i++) {
     nx = p->sum[i];
-    if (!bvc_dag_occ_is_leaf(dag, nx) || 
-	bvc_dag_occ_is_shared(dag, nx)) {
+    if (!bvc_dag_occ_is_leaf(dag, nx)) {
       return false;
+    }
+    if (bvc_dag_occ_is_shared(dag, nx)) {
+      n_shared ++;
     }
   }
 
-  return true;
+  return n_shared <= 1;
 }
 
 
@@ -1052,7 +1061,7 @@ static void bvc_process_simple_prod(bvc_t *c, bvnode_t i, bvc_prod_t *p) {
   uint32_t j, m, nbits;
   thvar_t x;
 
-  assert(p->len >= 3);
+  assert(p->len >= 1);
   
   pp = &c->pp_buffer;
   pp_buffer_reset(pp);
@@ -1065,8 +1074,8 @@ static void bvc_process_simple_prod(bvc_t *c, bvnode_t i, bvc_prod_t *p) {
   nbits = p->header.bitsize;
   m = p->len;
   for (j=0; j<m; j++) {
-    x = bvc_dag_get_var_of_leaf(&c->dag, p->prod[i].var);
-    pp_buffer_push_varexp(pp, x, p->prod[i].exp);
+    x = bvc_dag_get_var_of_leaf(&c->dag, p->prod[j].var);
+    pp_buffer_push_varexp(pp, x, p->prod[j].exp);
   }
 
   x = bv_compiler_mk_power_product(c, nbits, pp);
@@ -1125,6 +1134,11 @@ static void bvc_process_simple_sum(bvc_t *c, bvnode_t i, bvc_sum_t *p) {
 }
 
 
+/*
+ * Process node i:
+ * - if it's simple, node i is compiled and moved to the list of leaves
+ * - othwesie, node i is moved to the auxiliary list (in c->dag)
+ */
 static void bvc_process_node_if_simple(bvc_t *c, bvnode_t i) {
   bvc_dag_t *dag;
   bvc_prod_t *p;
@@ -1140,6 +1154,7 @@ static void bvc_process_node_if_simple(bvc_t *c, bvnode_t i) {
     p = bvc_dag_node_prod(dag, i);
     if (bvc_prod_is_simple(dag, p)) {
       bvc_process_simple_prod(c, i, p);
+      return;
     }
     break;
 
@@ -1147,6 +1162,7 @@ static void bvc_process_node_if_simple(bvc_t *c, bvnode_t i) {
     s = bvc_dag_node_sum(dag, i);
     if (bvc_sum_is_simple(dag, s)) {
       bvc_process_simple_sum(c, i, s);
+      return;
     }
     break;
 
@@ -1155,6 +1171,11 @@ static void bvc_process_node_if_simple(bvc_t *c, bvnode_t i) {
     assert(false);
     break;
   }
+
+  /*
+   * i not touched: remove it from the complex-node list
+   */
+  bvc_move_node_to_aux_list(dag, i);
 }
 
 
@@ -1164,7 +1185,7 @@ static void bvc_process_node_if_simple(bvc_t *c, bvnode_t i) {
  */
 void bv_compiler_process_queue(bvc_t *c) {
   uint32_t i, n;
-  int32_t j, k;
+  int32_t j;
 
   n = c->queue.top;
   for (i=0; i<n; i++) {
@@ -1201,15 +1222,12 @@ void bv_compiler_process_queue(bvc_t *c) {
 
   /*
    * Compile all the simple nodes
-   * bvc_process_node_if_simple may remove j from the list
-   * but all nodes other than j are kept (so k is still
-   * in the list).
    */
-  j = bvc_first_complex_node(&c->dag);
-  while (j >= 0) {
-    k = bvc_next_node(&c->dag, j);
+  for (;;) {
+    j = bvc_first_complex_node(&c->dag);
+    if (j < 0) break;
     bvc_process_node_if_simple(c, j);
-    j = k;
   }
-
+  // move back all aux nodes to the complex list
+  bvc_move_aux_to_complex_list(&c->dag);
 }

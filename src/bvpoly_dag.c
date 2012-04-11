@@ -114,6 +114,47 @@ static inline void bvc_dag_move_to_elementary_list(bvc_dag_t *dag, bvnode_t n) {
 }
 
 
+/*
+ *  Auxiliary list
+ */
+void bvc_move_node_to_aux_list(bvc_dag_t *dag, bvnode_t n) {
+  assert(0 < n && n <= dag->nelems);
+  list_remove(dag->list, n);
+  list_add(dag->list, BVC_DAG_AUX_LIST, n);
+}
+
+/*
+ * Move list with header k into the list with header j
+ * list[j] must be empty (contain only j).
+ */
+static void bvc_move_list(bvc_item_t *list, int32_t k, int32_t j) {
+  int32_t next_k, pre_k;
+
+  assert(j != k && j<=0 && k<=0 && list[j].pre == j && list[j].next == j);
+  pre_k = list[k].pre;
+  next_k = list[k].next;
+  if (pre_k != k) {
+    assert(next_k != k);
+    list[j].pre = pre_k;
+    list[pre_k].next = j;
+    list[j].next = next_k;
+    list[next_k].pre = j;
+
+    list[k].pre = k;
+    list[k].next = k;
+  }
+}
+
+/*
+ * Restore the elementary or dafault list from the aux list
+ */
+void bvc_move_aux_to_elem_list(bvc_dag_t *dag) {
+  bvc_move_list(dag->list, BVC_DAG_AUX_LIST, BVC_DAG_ELEM_LIST);
+}
+
+void bvc_move_aux_to_complex_list(bvc_dag_t *dag) {
+  bvc_move_list(dag->list, BVC_DAG_AUX_LIST, BVC_DAG_DEFAULT_LIST);
+}
 
 
 /*
@@ -137,11 +178,12 @@ void init_bvc_dag(bvc_dag_t *dag, uint32_t n) {
 
   dag->desc = (bvc_header_t **) safe_malloc(n * sizeof(bvc_header_t *));
   dag->use = (int32_t **) safe_malloc(n * sizeof(int32_t *));
-  tmp = (bvc_item_t *) safe_malloc((n + 2) * sizeof(bvc_item_t));
-  dag->list = tmp + 2;
+  tmp = (bvc_item_t *) safe_malloc((n + 3) * sizeof(bvc_item_t));
+  dag->list = tmp + 3;
 
   dag->desc[0] = NULL;
   dag->use[0] = NULL;
+  init_list(dag->list, -3);
   init_list(dag->list, -2);
   init_list(dag->list, -1);
   init_list(dag->list, 0);  
@@ -185,9 +227,9 @@ static void extend_bvc_dag(bvc_dag_t *dag) {
 
   dag->desc = (bvc_header_t **) safe_realloc(dag->desc, n * sizeof(bvc_header_t *));
   dag->use = (int32_t **) safe_realloc(dag->use, n * sizeof(int32_t *));
-  tmp = dag->list - 2;
-  tmp = (bvc_item_t *) safe_realloc(tmp, (n + 2) * sizeof(bvc_item_t));
-  dag->list = tmp + 2;
+  tmp = dag->list - 3;
+  tmp = (bvc_item_t *) safe_realloc(tmp, (n + 3) * sizeof(bvc_item_t));
+  dag->list = tmp + 3;
 
   dag->size = n;
 }
@@ -270,7 +312,7 @@ void delete_bvc_dag(bvc_dag_t *dag) {
 
   safe_free(dag->desc);
   safe_free(dag->use);
-  safe_free(dag->list - 2);
+  safe_free(dag->list - 3);
 
   dag->desc = NULL;
   dag->use = NULL;
@@ -308,7 +350,8 @@ void reset_bvc_dag(bvc_dag_t *dag) {
 
   dag->nelems = 0;
 
-  // reset the three lists
+  // reset the lists
+  init_list(dag->list, -3);
   init_list(dag->list, -2);
   init_list(dag->list, -1);
   init_list(dag->list, 0);  
@@ -2084,9 +2127,9 @@ static int32_t pprod_get_index(bvc_prod_t *p, node_occ_t n) {
 
 
 /*
- * Construct the product p * r then delete p
+ * Construct the product p * (r ^ e) then delete p
  */
-static bvc_prod_t *mk_prod_times_occ(bvc_dag_t *dag, bvc_prod_t *p, node_occ_t r) {
+static bvc_prod_t *mk_prod_times_occ_power(bvc_dag_t *dag, bvc_prod_t *p, node_occ_t r, uint32_t e) {
   bvc_prod_t *tmp;
   uint32_t i, n;
 
@@ -2103,7 +2146,7 @@ static bvc_prod_t *mk_prod_times_occ(bvc_dag_t *dag, bvc_prod_t *p, node_occ_t r
     tmp->prod[i] = p->prod[i];
   }
   tmp->prod[n].var = r;
-  tmp->prod[n].exp = 1;
+  tmp->prod[n].exp = e;
   tmp->hash |= bit_hash_occ(r);
 
   free_prod(dag, p);
@@ -2152,45 +2195,42 @@ static void try_reduce_prod(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n
     if ((h & p->hash) == h) {
       k1 = pprod_get_index(p, n1);
       k2 = pprod_get_index(p, n2);
-
       if (k1 >= 0 && k2 >= 0) {
 	/*
-	 * p contains n1 * n2
+	 * p contains n1^e1 * n2^e2 where e1>0 and e2>0
+	 * If e1 <= e2: n1^e1 * n2^e2 --> n^e1 * n2^(e2 - e1)
+	 * If e2 < e1:  n1^e1 * n2^e2 --> n^e2 * n1^(e1 - e2)
 	 */
-	p->prod[k1].exp --;
 	e1 = p->prod[k1].exp;
-	if (e1 == 0) {
-	  bvc_dag_remove_dependent(dag, node_of_occ(n1), i);
-	}
-	p->prod[k2].exp --;
 	e2 = p->prod[k2].exp;
-	if (e2 == 0) {
-	  bvc_dag_remove_dependent(dag, node_of_occ(n2), i);
+	if (e1 <= e2) {
+	  bvc_dag_remove_dependent(dag, node_of_occ(n1), i);
+	  p->prod[k1].exp = 0;
+	  p->prod[k2].exp -= e1;
+	  if (e1 == e2) {
+	    bvc_dag_remove_dependent(dag, node_of_occ(n2), i);
+	  }
+	} else {
+	  bvc_dag_remove_dependent(dag, node_of_occ(n2), i); 
+	  p->prod[k1].exp -= e2;
+	  p->prod[k2].exp = 0;
+	  k1 = k2;
+	  e1 = e2;
 	}
 
+	// increase exponent of n by e1
+	assert(p->prod[k1].exp == 0);
 	k = pprod_get_index(p, n);
 	if (k >= 0) {
-	  p->prod[k].exp ++;
-	  cleanup_prod(p);
+	  p->prod[k].exp += e1;
 	} else {
 	  bvc_dag_add_dependency(dag, node_of_occ(n), i);
-	  if (e1 == 0) {
-	    // store n^1 at index k1
-	    p->prod[k1].var = n;
-	    p->prod[k1].exp = 1;
-	    cleanup_prod(p);	    
-	  } else if (e2 == 0) {
-	    // store n^1 at index k2
-	    p->prod[k2].var = n;
-	    p->prod[k2].exp = 1;
-	    cleanup_prod(p);
-	  } else {
-	    // we can't do the reduction in place: create a new p
-	    p = mk_prod_times_occ(dag, p, n);
-	    dag->desc[i] = &p->header;
-	  }
+	  // store n^e1 at index k1
+	  p->prod[k1].var = n;
+	  p->prod[k1].exp = e1;
 	}
 
+	cleanup_prod(p);	    
 	if (prod_node_is_elementary(dag, p)) {
 	  bvc_dag_move_to_elementary_list(dag, i);
 	}
@@ -2211,6 +2251,7 @@ static void try_reduce_square(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t
   bvc_header_t *d;
   bvc_prod_t *p;
   int32_t k1, k;
+  uint32_t e;
 
   assert(0 < i && i <= dag->nelems);
 
@@ -2219,28 +2260,34 @@ static void try_reduce_square(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t
     p = prod_node(d);
     if ((h & p->hash) == h) {
       k1 = pprod_get_index(p, n1);
-      if (k1 >= 0 && p->prod[k1].exp >= 2) {
+      e = p->prod[k1].exp;
+      if (k1 >= 0 && e >= 2) {
 	/*
-	 * p contains n^2
+	 * p contains n1^e with e >= 2
+	 * If e is 2t+1: n1^e ---> n1 * n^t
+	 * If e is 2t:   n1^e ---> n^t
 	 */
-	p->prod[k1].exp -= 2;
-	if (p->prod[k1].exp == 0) {
-	  bvc_dag_remove_dependent(dag, node_of_occ(n1), i);
+	if ((e & 1) == 0) {
+	  p->prod[k1].exp = 0;
+	  bvc_dag_remove_dependent(dag, node_of_occ(n1), i);	  
+	} else {
+	  p->prod[k1].exp = 1;
 	}
 
+	e >>= 1;
 	k = pprod_get_index(p, n);
 	if (k >= 0) {
-	  p->prod[k].exp += 2;
+	  p->prod[k].exp += e;
 	  cleanup_prod(p);
 	} else {
 	  bvc_dag_add_dependency(dag, node_of_occ(n), i);
 	  if (p->prod[k1].exp == 0) {
-	    // store n^1 at index k1
+	    // store n^e at index k1
 	    p->prod[k1].var = n;
-	    p->prod[k1].exp = 1;
+	    p->prod[k1].exp = e;
 	    cleanup_prod(p);
 	  } else {
-	    p = mk_prod_times_occ(dag, p, n);
+	    p = mk_prod_times_occ_power(dag, p, n, e);
 	    dag->desc[i] = &p->header;
 	  }
 	}

@@ -196,9 +196,19 @@ static inline uint32_t bv_solver_dag_size(bv_solver_t *solver) {
   return (solver->compiler != NULL) ? solver->compiler->dag.nelems : 0;
 }
 
-static inline uint32_t bv_solver_complex_list_length(bv_solver_t *solver) {
+static inline uint32_t bv_solver_num_leaf_nodes(bv_solver_t *solver) {
   return (solver->compiler != NULL) ? bvc_num_complex_nodes(&solver->compiler->dag) : 0;
 }
+
+static inline uint32_t bv_solver_num_elem_nodes(bv_solver_t *solver) {
+  return (solver->compiler != NULL) ? bvc_num_elem_nodes(&solver->compiler->dag) : 0;
+}
+
+static inline uint32_t bv_solver_num_complex_nodes(bv_solver_t *solver) {
+  return (solver->compiler != NULL) ? bvc_num_complex_nodes(&solver->compiler->dag) : 0;
+}
+
+
 
 /*
  * Atoms per type

@@ -338,10 +338,11 @@ typedef struct bvc_dag_s {
 #define SUM_STORE1_LEN 4
 #define SUM_STORE2_LEN 8
 
-// list-header indices
+// list-header indices: three main lists
 #define BVC_DAG_LEAF_LIST    0
 #define BVC_DAG_ELEM_LIST    (-1)
 #define BVC_DAG_DEFAULT_LIST (-2)
+#define BVC_DAG_AUX_LIST     (-3)
 
 
 /*
@@ -644,12 +645,16 @@ static inline bvnode_t bvc_first_complex_node(bvc_dag_t *dag) {
 
 
 /*
- * Successor of node i in each of these lists
+ * Move node i to the auxiliary list (remove i from the leaf/elem/complex
+ * list first).
  */
-static inline bvnode_t bvc_next_node(bvc_dag_t *dag, bvnode_t i) {
-  assert(0 < i && i <= dag->nelems);
-  return dag->list[i].next;
-}
+extern void bvc_move_node_to_aux_list(bvc_dag_t *dag, bvnode_t i);
+
+/*
+ * Move the auxliary list to the elem/complex list
+ */
+extern void bvc_move_aux_to_elem_list(bvc_dag_t *dag);
+extern void bvc_move_aux_to_complex_list(bvc_dag_t *dag);
 
 
 
