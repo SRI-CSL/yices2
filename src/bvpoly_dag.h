@@ -465,6 +465,20 @@ static inline bool bvc_dag_occ_is_alias(bvc_dag_t *dag, node_occ_t n) {
 
 
 
+/*
+ * Occurrence count for node i
+ */
+extern uint32_t bvnode_num_occs(bvc_dag_t *dag, bvnode_t i);
+
+
+/*
+ * Check whether n is a shared node occurrence
+ * (i.e., +n or -n occur more than once)
+ */
+extern bool bvc_dag_occ_is_shared(bvc_dag_t *dag, node_occ_t n);
+
+
+
 
 /*
  * MAPPING VARIABLES --> NODES
@@ -477,6 +491,7 @@ static inline bool bvc_dag_var_is_present(bvc_dag_t *dag, int32_t x) {
   assert(x > 0);
   return int_bvset_member(&dag->vset, x);
 }
+
 
 /*
  * Get the node occurrence mapped to x
@@ -627,6 +642,7 @@ static inline bvnode_t bvc_first_complex_node(bvc_dag_t *dag) {
   return dag->list[BVC_DAG_DEFAULT_LIST].next;
 }
 
+
 /*
  * Successor of node i in each of these lists
  */
@@ -635,6 +651,14 @@ static inline bvnode_t bvc_next_node(bvc_dag_t *dag, bvnode_t i) {
   return dag->list[i].next;
 }
 
+
+
+/*
+ * Length of each list
+ */
+extern uint32_t bvc_num_leaves(bvc_dag_t *dag);
+extern uint32_t bvc_num_elem_nodes(bvc_dag_t *dag);
+extern uint32_t bvc_num_complex_nodes(bvc_dag_t *dag);
 
 
 
@@ -658,13 +682,6 @@ extern void bvc_dag_reduce_sum(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node
 
 
 /*
- * Check whether there is a sum node that can be reduced by n1 + n2 or -n1 -n2
- * - n1 and n2 must be distinct 
- */
-extern bool bvc_dag_check_reduce_sum(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2);
-
-
-/*
  * Replace all occurrences of {n1, n2} in products by n
  * - n, n1, and n2 must be positive occurrences
  */
@@ -672,9 +689,19 @@ extern void bvc_dag_reduce_prod(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, nod
 
 
 /*
+ * Check whether there is a sum node that can be reduced by +n1 +n2 or -n1 -n2
+ * - n1 and n2 must be distinct 
+ */
+extern bool bvc_dag_check_reduce_sum(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2);
+
+
+/*
  * Check whether there's a product node that can be reduced by n1 * n2
  */
 extern bool bvc_dag_check_reduce_prod(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2);
+
+
+
 
 
 #endif /* __BVPOLY_DAG_H */

@@ -81,6 +81,7 @@ typedef struct bvc_s {
   // auxiliary buffers
   ivector_t buffer;
   bvpoly_buffer_t pbuffer;
+  pp_buffer_t pp_buffer;
 } bvc_t;
 
 

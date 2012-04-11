@@ -45,6 +45,24 @@ static inline void list_add(bvc_item_t *list, int32_t k, int32_t i) {
 
 
 /*
+ * Length of list k
+ */
+static uint32_t list_length(bvc_item_t *list, int32_t k) {
+  uint32_t n;
+  int32_t j;
+
+  n = 0;
+  j = list[k].next;
+  while (j != k) {
+    n ++;
+    j = list[j].next;
+  }
+
+  return n;
+}
+
+
+/*
  * Remove i from its current list
  */
 static inline void list_remove(bvc_item_t *list, int32_t i) {
@@ -94,7 +112,6 @@ static inline void bvc_dag_move_to_elementary_list(bvc_dag_t *dag, bvnode_t n) {
   list_remove(dag->list, n);
   list_add(dag->list, BVC_DAG_ELEM_LIST, n);
 }
-
 
 
 
@@ -503,6 +520,36 @@ static bool node_is_elementary(bvc_dag_t *dag, bvnode_t i) {
 
   return false;
 }
+
+
+
+
+/*
+ * MORE CHECKS
+ */
+
+uint32_t bvnode_num_occs(bvc_dag_t *dag, bvnode_t i) {
+  int32_t *l;
+
+  assert(0 < i && i <= dag->nelems);
+  l = dag->use[i];
+  return l != NULL ? iv_size(l) : 0;
+}
+
+
+/*
+ * Check whether n is shared (i.e., it occurs more than once)
+ */
+bool bvc_dag_occ_is_shared(bvc_dag_t *dag, node_occ_t n) {
+  int32_t *l;
+
+  assert(0 < node_of_occ(n) && node_of_occ(n) <= dag->nelems);
+
+  l = dag->use[node_of_occ(n)];
+  return l != NULL && iv_size(l) > 1;
+}
+
+
 
 
 
@@ -1112,10 +1159,11 @@ static bvnode_t bvc_dag_get_sum(bvc_dag_t *dag, node_occ_t *a, uint32_t len, uin
 
 
 
+
+
 /*
  * NORMALIZATION + NODE CONSTRUCTION
  */
-
 
 /*
  * Store mapping [x --> n] in dag->vmap
@@ -1496,6 +1544,23 @@ node_occ_t bvc_dag_poly_buffer(bvc_dag_t *dag, bvpoly_buffer_t *b, node_occ_t *a
   ivector_reset(v);
 
   return r;
+}
+
+
+
+/*
+ * LIST LENGTHS
+ */
+uint32_t bvc_num_leaves(bvc_dag_t *dag) {
+  return list_length(dag->list, BVC_DAG_LEAF_LIST);
+}
+
+uint32_t bvc_num_elem_nodes(bvc_dag_t *dag) {
+  return list_length(dag->list, BVC_DAG_ELEM_LIST);
+}
+
+uint32_t bvc_num_complex_nodes(bvc_dag_t *dag) {
+  return list_length(dag->list, BVC_DAG_DEFAULT_LIST);
 }
 
 

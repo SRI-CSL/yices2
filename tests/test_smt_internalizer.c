@@ -546,6 +546,7 @@ static void test_internalization(smt_benchmark_t *bench) {
     if (code == CTX_NO_ERROR && context_has_bv_solver(&context)) {
       bv_solver_bitblast(context.bv_solver);
       printf("bvsolver DAG: %"PRIu32" nodes\n", bv_solver_dag_size(context.bv_solver));
+      printf("nodes to process: %"PRIu32"\n", bv_solver_complex_list_length(context.bv_solver));
     }
   }
 

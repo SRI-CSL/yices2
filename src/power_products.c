@@ -324,6 +324,15 @@ void pp_buffer_mul_buffer(pp_buffer_t *b, pp_buffer_t *src) {
 }
 
 
+void pp_buffer_push_var(pp_buffer_t *b, int32_t v) {
+  pp_buffer_pushback(b, v, 1);
+}
+
+void pp_buffer_push_varexp(pp_buffer_t *b, int32_t v, uint32_t d) {
+  pp_buffer_pushback(b, v, d);
+}
+
+
 /*
  * Exponentiation
  */

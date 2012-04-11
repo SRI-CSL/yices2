@@ -166,6 +166,14 @@ extern void pp_buffer_mul_varexps(pp_buffer_t *b, uint32_t n, int32_t *v, uint32
 
 
 /*
+ * Lower-level operation: add v or v^d as a factor of b
+ * - this does not normalize b
+ */
+extern void pp_buffer_push_var(pp_buffer_t *b, int32_t v);
+extern void pp_buffer_push_varexp(pp_buffer_t *n, int32_t v, uint32_t d);
+
+
+/*
  * Raise b to power d and normalize the result
  */
 extern void pp_buffer_exponentiate(pp_buffer_t *b, uint32_t d);

@@ -119,6 +119,7 @@ void init_bv_compiler(bvc_t *c, bv_vartable_t *vtbl, mtbl_t *mtbl) {
 
   init_ivector(&c->buffer, 10);
   init_bvpoly_buffer(&c->pbuffer);
+  init_pp_buffer(&c->pp_buffer, 10);
 }
 
 
@@ -135,6 +136,7 @@ void delete_bv_compiler(bvc_t *c) {
 
   delete_ivector(&c->buffer);
   delete_bvpoly_buffer(&c->pbuffer);
+  delete_pp_buffer(&c->pp_buffer);
 }
 
 
@@ -151,6 +153,7 @@ void reset_bv_compiler(bvc_t *c) {
 
   ivector_reset(&c->buffer);
   reset_bvpoly_buffer(&c->pbuffer, 32); // any bitsize would do
+  pp_buffer_reset(&c->pp_buffer);
 }
 
 
@@ -306,6 +309,79 @@ static thvar_t bv_compiler_mk_bvneg(bvc_t *c, uint32_t n, thvar_t x) {
 
 
 /*
+ * POWER-PRODUCT CONSTRUCTION
+ */
+
+/*
+ * Build (bvmul x y) but treat x = null_thvar as 1
+ */
+static thvar_t mk_bvmul_aux(bvc_t *c, uint32_t n, thvar_t x, thvar_t y) {
+  return x == null_thvar ? y : bv_compiler_mk_bvmul(c, n, x, y);
+}
+
+/*
+ * Build the variable x := (x_1^d_1 ... x_k^d_k)
+ * - where x_1^d_1 ... x_k^d_k is stored in b
+ * - n = number of bits in x_1 ... x_k
+ * - the total degree d_1 + ... + d_k must be positive
+ */
+static thvar_t bv_compiler_mk_power_product(bvc_t *c, uint32_t n, pp_buffer_t *b) {
+  varexp_t *a;
+  ivector_t *v;
+  uint32_t i,  m, d;
+  bool zero_deg;
+  thvar_t x;
+
+
+  v = &c->buffer;
+  ivector_reset(v);
+
+  m = b->len;
+  a = b->prod;
+
+  do {
+    zero_deg = true;
+    x = null_thvar;
+    /*
+     * In each iteration:
+     *  x = product of all variables x_i's that have odd degree
+     *  d_i := d_i/2
+     */
+    for (i=0; i<m; i++) {
+      d = a[i].exp;
+      if ((d & 1) != 0) {
+	x = mk_bvmul_aux(c, n, x, a[i].var);
+      }
+      d >>= 1;
+      a[i].exp = d;
+      zero_deg = zero_deg & (d == 0);
+    }
+    assert(x != null_thvar);
+
+    ivector_push(v, x);
+
+  } while (! zero_deg);
+
+
+  /*
+   * v contains [x_0, ... x_t],
+   * the result is x_0 * x_1^2 * x_2^4 ... * x_t^(2^t)
+   */
+  assert(v->size > 0);
+  i = v->size - 1;
+  x = v->data[i];
+  while (i > 0) {
+    i --;
+    x = bv_compiler_mk_bvmul(c, n, x, x);
+    x = bv_compiler_mk_bvmul(c, n, x, v->data[i]);
+  }
+
+  return x;
+}
+
+
+
+/*
  * SIMPLIFICATION
  */
 
@@ -393,10 +469,11 @@ static void push_to_process(bvc_t *c, thvar_t x) {
 /*
  * Add variable x to the internal queue
  * - also recursively add all the children of x
- * - the children precede x in c->queue
+ *   so that the children precede x in c->queue
  */
 static void bv_compiler_push_poly64(bvc_t *c, bvpoly64_t *p) {
   uint32_t i, n;
+  thvar_t x;
 
   n = p->nterms;
   i = 0;
@@ -404,13 +481,15 @@ static void bv_compiler_push_poly64(bvc_t *c, bvpoly64_t *p) {
     i = 1;
   }
   while (i < n) {
-    bv_compiler_push_var(c, p->mono[i].var);
+    x = mtbl_get_root(c->mtbl, p->mono[i].var);
+    bv_compiler_push_var(c, x);
     i ++;
   }
 }
 
 static void bv_compiler_push_poly(bvc_t *c, bvpoly_t *p) {
   uint32_t i, n;
+  thvar_t x;
 
   n = p->nterms;
   i = 0;
@@ -418,17 +497,20 @@ static void bv_compiler_push_poly(bvc_t *c, bvpoly_t *p) {
     i = 1;
   }
   while (i < n) {
-    bv_compiler_push_var(c, p->mono[i].var);
+    x = mtbl_get_root(c->mtbl, p->mono[i].var);
+    bv_compiler_push_var(c, x);
     i ++;
   }
 }
 
 static void bv_compiler_push_pprod(bvc_t *c, pprod_t *p) {
   uint32_t i, n;
+  thvar_t x;
 
   n = p->len;
   for (i=0; i<n; i++) {
-    bv_compiler_push_var(c, p->prod[i].var);
+    x = mtbl_get_root(c->mtbl, p->prod[i].var);
+    bv_compiler_push_var(c, x);
   }
 }
 
@@ -438,9 +520,6 @@ void bv_compiler_push_var(bvc_t *c, thvar_t x) {
   assert(0 < x && x < c->vtbl->nvars);
 
   vtbl = c->vtbl;
-
-  // apply root substitution
-  x = mtbl_get_root(c->mtbl, x);
 
   switch (bvvar_tag(vtbl, x)) {
   case BVTAG_POLY64:
@@ -623,8 +702,6 @@ static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
 
   vtbl = c->vtbl;
 
-  x = mtbl_get_root(c->mtbl, x);
-
   switch (bvvar_tag(vtbl, x)) {
   case BVTAG_POLY64:
     b = &c->pbuffer;
@@ -775,6 +852,10 @@ static void bv_compiler_simplify_dag(bvc_t *c, thvar_t x) {
 
 
 /*
+ * PHASE 3: CONVERT NODES TO ELEMENTARY EXPRESSIONS
+ */
+
+/*
  * Compilation of an elementary node i
  */
 // case 1: i is [offset a0 n] 
@@ -890,8 +971,6 @@ static void bvc_process_elem_sum(bvc_t *c, bvnode_t i, bvc_sum_t *d) {
   bvc_dag_reduce_sum(&c->dag, nx, ny, nz);  
 }
 
-
-
 static void bvc_process_elem_node(bvc_t *c, bvnode_t i) {
   bvc_dag_t *dag;
 
@@ -923,11 +1002,169 @@ static void bvc_process_elem_node(bvc_t *c, bvnode_t i) {
 
 
 /*
+ * SIMPLE NODES
+ */
+
+/*
+ * Check whether product or sum p is simple:
+ * - the nodes occurring in p are all leaves and are not shared
+ */
+static bool bvc_prod_is_simple(bvc_dag_t *dag, bvc_prod_t *p) {
+  uint32_t i, n;
+  node_occ_t nx;
+
+  n = p->len;
+  for (i=0; i<n; i++) {
+    nx = p->prod[i].var;
+    if (!bvc_dag_occ_is_leaf(dag, nx) || 
+	bvc_dag_occ_is_shared(dag, nx)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+static bool bvc_sum_is_simple(bvc_dag_t *dag, bvc_sum_t *p) {
+  uint32_t i, n;
+  node_occ_t nx;
+
+  n = p->len;
+  for (i=0; i<n; i++) {
+    nx = p->sum[i];
+    if (!bvc_dag_occ_is_leaf(dag, nx) || 
+	bvc_dag_occ_is_shared(dag, nx)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+/*
+ * Compilation of a non-elementary node i 
+ * - if all nodes occurrences in i are leaves and are not shared
+ *   then we can immediately compile i
+ */
+static void bvc_process_simple_prod(bvc_t *c, bvnode_t i, bvc_prod_t *p) {
+  pp_buffer_t *pp;
+  uint32_t j, m, nbits;
+  thvar_t x;
+
+  assert(p->len >= 3);
+  
+  pp = &c->pp_buffer;
+  pp_buffer_reset(pp);
+
+  /*
+   * p is [n1^d1 ... n_m^d_m]
+   * find x_i := variable of leaf node n_i
+   * then build x = [x1^d1 ... x_m^d_m]
+   */
+  nbits = p->header.bitsize;
+  m = p->len;
+  for (j=0; j<m; j++) {
+    x = bvc_dag_get_var_of_leaf(&c->dag, p->prod[i].var);
+    pp_buffer_push_varexp(pp, x, p->prod[i].exp);
+  }
+
+  x = bv_compiler_mk_power_product(c, nbits, pp);
+
+  // replace i by [leaf x] in DAG
+  bvc_dag_convert_to_leaf(&c->dag, i, x); 
+}
+
+static void bvc_process_simple_sum(bvc_t *c, bvnode_t i, bvc_sum_t *p) {
+  uint32_t j, m, nbits;
+  node_occ_t n;
+  thvar_t x, y;
+  bool all_neg;
+
+  assert(p->len >= 3); 
+
+  nbits = p->header.bitsize;
+  m = p->len;
+  n = p->sum[0];
+  x = bvc_dag_get_var_of_leaf(&c->dag, n);
+  all_neg = (sign_of_occ(n) != 0);
+
+  /*
+   * Invariant: 
+   * - all_neg means that all node occurrences
+   *   in 0 ... j-1 have negative sign.
+   * - if all_neg is true, then x is the opposite 
+   *   if (sum n0 ... n_{j-1})
+   *   otherwise, x is (sum n0 ... n_{j-1}
+   */
+  for (j=1; j<m; j++) {
+    n = p->sum[j];
+    y = bvc_dag_get_var_of_leaf(&c->dag, n);
+    if (all_neg) {
+      if (sign_of_occ(n) == 0) {
+	x = bv_compiler_mk_bvsub(c, nbits, y, x);
+	all_neg = false;
+      } else {
+	x = bv_compiler_mk_bvadd(c, nbits, x, y);
+      }
+    } else {
+      if (sign_of_occ(n) == 0) {
+	x = bv_compiler_mk_bvadd(c, nbits, x, y);
+      } else {
+	x = bv_compiler_mk_bvsub(c, nbits, x, y);
+      }
+    }
+  }
+
+  if (all_neg) {
+    x = bv_compiler_mk_bvneg(c, nbits, x);
+  }
+
+  // replace i by [leaf x] in DAG
+  bvc_dag_convert_to_leaf(&c->dag, i, x);
+}
+
+
+static void bvc_process_node_if_simple(bvc_t *c, bvnode_t i) {
+  bvc_dag_t *dag;
+  bvc_prod_t *p;
+  bvc_sum_t *s;
+
+  dag = &c->dag;
+  switch (bvc_dag_node_type(dag, i)) {
+  case BVC_OFFSET:
+  case BVC_MONO:
+    break; // skip it
+
+  case BVC_PROD:
+    p = bvc_dag_node_prod(dag, i);
+    if (bvc_prod_is_simple(dag, p)) {
+      bvc_process_simple_prod(c, i, p);
+    }
+    break;
+
+  case BVC_SUM:
+    s = bvc_dag_node_sum(dag, i);
+    if (bvc_sum_is_simple(dag, s)) {
+      bvc_process_simple_sum(c, i, s);
+    }
+    break;
+
+  case BVC_LEAF:
+  case BVC_ALIAS:
+    assert(false);
+    break;
+  }
+}
+
+
+
+/*
  * FOR TESTING ONLY
  */
 void bv_compiler_process_queue(bvc_t *c) {
   uint32_t i, n;
-  int32_t j;
+  int32_t j, k;
 
   n = c->queue.top;
   for (i=0; i<n; i++) {
@@ -939,17 +1176,20 @@ void bv_compiler_process_queue(bvc_t *c) {
   print_bvc_dag(stdout, &c->dag);
 #endif
 
-  // try to simplify the DAG nodes with existing elementary expressions
+  // try to simplify the DAG nodes using existing elementary expressions
   n = c->elemexp.top;
   for (i=0; i<n; i++) {
     bv_compiler_simplify_dag(c, c->elemexp.data[i]);;
   }
 
-  // compile all the elementary nodes
+  /*
+   * compile all the elementary nodes
+   * Note: bvc_process_elem_node removes j from the elementary node list
+   * so we always get the first element of the leaf list until it's empty
+   */
   for (;;) {
     j = bvc_first_elem_node(&c->dag);
     if (j < 0) break;
-    // bvc_process_elem_node removes j from the elementary node list
     bvc_process_elem_node(c, j);
 
 #if TRACE
@@ -957,6 +1197,19 @@ void bv_compiler_process_queue(bvc_t *c) {
     print_bvc_dag(stdout, &c->dag);
     fflush(stdout);
 #endif
-
   }
+
+  /*
+   * Compile all the simple nodes
+   * bvc_process_node_if_simple may remove j from the list
+   * but all nodes other than j are kept (so k is still
+   * in the list).
+   */
+  j = bvc_first_complex_node(&c->dag);
+  while (j >= 0) {
+    k = bvc_next_node(&c->dag, j);
+    bvc_process_node_if_simple(c, j);
+    j = k;
+  }
+
 }
