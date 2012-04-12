@@ -1227,7 +1227,16 @@ void bv_compiler_process_queue(bvc_t *c) {
     j = bvc_first_complex_node(&c->dag);
     if (j < 0) break;
     bvc_process_node_if_simple(c, j);
+
+#if TRACE
+    printf("\n=== After compiling node n%"PRId32" =====\n", j);
+    print_bvc_dag(stdout, &c->dag);
+    fflush(stdout);
+#endif
+
   }
   // move back all aux nodes to the complex list
   bvc_move_aux_to_complex_list(&c->dag);
+
+
 }

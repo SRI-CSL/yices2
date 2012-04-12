@@ -2445,8 +2445,193 @@ bool bvc_dag_check_reduce_prod(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2) {
       }
     }
   } 
-  
 
   return false;
 }
+
+
+
+/*
+ * GENERATION OF NEW ELEMENTARY NODES
+ *
+ *
+ * Heuristic:
+ * - we try to find two leaf nodes r and s that occur often together in sums or products.
+ * - then we introduce a new elementary node t := (SUM +/-r +/-s) or k := (prod r s)
+ */
+
+/*
+ * Affinity metric for a pair of node (r, s) in sums
+ * - we compute two scores:
+ *   score[0] = number of sums where r and s occur with the same sign
+ *   score[1] = number of sums where r and s occur with opposite signs
+ */
+static void affinity_scores_in_sum(bvc_sum_t *p, bvnode_t r, bvnode_t s, uint32_t score[2]) {
+  uint32_t i, n;
+  node_occ_t x;
+  int32_t k1, k2;
+
+  assert(s != r);
+
+  n = p->len;
+  k1 = -1;
+  k2 = -1;
+  for (i=0; i<n; i++) {
+    x = p->sum[i];
+    if (node_of_occ(x) == r) {
+      assert(k1 < 0);
+      k1 = i;
+    } else if (node_of_occ(x) == s) {
+      assert(k2 < 0);
+      k2 = i;
+    }
+  }
+
+  if (k1 >= 0 && k2 >= 0) {
+    // p->sum[k1] contains +/- r
+    // p->sum[k2] contains +/- s
+    i = sign_of_occ(p->sum[k1]) ^ sign_of_occ(p->sum[k2]);
+    score[i] ++;
+  }
+}
+
+
+// full scores for (r, s): both must have non-empty use lists
+static void affinity_scores_sum(bvc_dag_t *dag, bvnode_t r, bvnode_t s, uint32_t score[2]) {
+  bvc_header_t *d;
+  bvc_sum_t *p;
+  int32_t *l1, *l2;
+  uint32_t h, i, n;
+  bvnode_t x;
+
+  assert(0 < r && r <= dag->nelems && 0 < s && s <= dag->nelems && s != r);
+
+  h = bit_hash(r) | bit_hash(s);
+
+  score[0] = 0;
+  score[1] = 0;
+
+  l1 = dag->use[r];
+  l2 = dag->use[s];
+  assert(l1 != NULL && l2 != NULL);
+
+  n = iv_size(l1);
+  i = iv_size(l2);
+  if (i < n) {
+    l1 = l2;
+    n = i;
+  }
+
+  /*
+   * l1 = smallest of use[r] and use[s] and n = length of l1
+   */
+  for (i=0; i<n; i++) {
+    x = l1[i];
+    assert(0 < x && x <= dag->nelems);
+    d = dag->desc[x];
+    if (d->tag == BVC_SUM) {
+      p = sum_node(d);
+      if ((p->hash & h) == h) {
+	// p may contain r and s
+	affinity_scores_in_sum(p, r, s, score);
+      }
+    }
+  }
+}
+
+
+
+/*
+ * Affinity score for products = number of products that contain (r * s)
+ * - r and s may be equal
+ */
+static bool node_pair_occurs_in_prod(bvc_prod_t *p, bvnode_t r, bvnode_t s) {
+  assert(r != s);
+  return pprod_get_index(p, bvp(r)) >= 0 && pprod_get_index(p, bvp(s)) >= 0;
+}
+
+static bool node_square_occurs_in_prod(bvc_prod_t *p, bvnode_t r) {
+  int32_t k;
+
+  k = pprod_get_index(p, bvp(r));
+  return k >= 0 && p->prod[k].exp >= 2;
+}
+
+
+// affinity for (r * s): both must have non-empty use list and be distinc
+static uint32_t affinity_score_prod(bvc_dag_t *dag, bvnode_t r, bvnode_t s) {
+  bvc_header_t *d;
+  bvc_prod_t *p;
+  int32_t *l1, *l2;
+  uint32_t h, i, n, score;
+  bvnode_t x;
+
+  assert(0 < r && r <= dag->nelems && 0 < s && s <= dag->nelems && r != s);
+
+  score = 0;
+
+  h = bit_hash(r) | bit_hash(s);
+
+  l1 = dag->use[r];
+  l2 = dag->use[s];
+  assert(l1 != NULL && l2 != NULL);
+
+  n = iv_size(l1);
+  i = iv_size(l2);
+  if (i < n) {
+    l1 = l2;
+    n = i;
+  }
+
+  /*
+   * l1 = smallest of use[r] and use[s] and n = length of l1
+   */
+  for (i=0; i<n; i++) {
+    x = l1[i];
+    assert(0 < x && x <= dag->nelems);
+    d = dag->desc[x];
+    if (d->tag == BVC_PROD) {
+      p = prod_node(d);
+      if ((p->hash & h) == h && node_pair_occurs_in_prod(p, r, s)) {
+	score ++;
+      }
+    }
+  }
+
+  return score;
+}
+
+
+// score for (r * r)
+static uint32_t affinity_score_square(bvc_dag_t *dag, bvnode_t r) {
+  bvc_header_t *d;
+  bvc_prod_t *p;
+  int32_t *l;
+  uint32_t h, i, n, score;
+  bvnode_t x;
+
+  assert( 0 < r && r <= dag->nelems);
+
+  score = 0;
+  h = bit_hash(r);
+
+  l = dag->use[r];
+  assert(l != NULL);
+  
+  n = iv_size(l);
+  for (i=0; i<n; i++) {
+    x = l[i];
+    assert(0 < x && x <= dag->nelems);
+    d = dag->desc[x];
+    if (d->tag == BVC_PROD) {
+      p = prod_node(d);
+      if ((p->hash & h) == h && node_square_occurs_in_prod(p, r)) {
+	score ++;
+      }
+    }
+  }
+
+  return score;
+}
+
 
