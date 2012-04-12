@@ -15,7 +15,7 @@
 
 // PROVISIONAL
 
-#define TRACE 1
+#define TRACE 0
 
 #if TRACE
 
@@ -4989,6 +4989,29 @@ void bv_solver_attach_eterm(bv_solver_t *solver, thvar_t x, eterm_t t) {
  */
 eterm_t bv_solver_eterm_of_var(bv_solver_t *solver, thvar_t x) {
   return bvvar_get_eterm(&solver->vtbl, x);
+}
+
+
+
+/*
+ * COMPILATION RESULTS
+ */
+
+/*
+ * Get the compilation of variable x
+ * - return null_thvar if x is not compiled to anything
+ */
+thvar_t bv_solver_var_compiles_to(bv_solver_t *solver, thvar_t x) {
+  bvc_t *c;
+  thvar_t y;
+
+  y = null_thvar;
+  c = solver->compiler;
+  if (c != NULL) {
+    y = bvvar_compiles_to(c, x);
+  }
+
+  return y;
 }
 
 

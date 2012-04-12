@@ -541,6 +541,19 @@ static inline int32_t bvc_dag_get_var_of_leaf(bvc_dag_t *dag, node_occ_t n) {
 
 
 /*
+ * Compilation result for node_occurrence n:
+ * - modulo signs, this is the variable of n if n is a leaf node
+ *   or the variable of n' if n is aliased to n'
+ * - to encode the signs, we return either bvp(x) or bvn(x)
+ *   where x is a variable
+ *     bvp(x) means that n is compiled to x
+ *     bvn(x) means that n is compoled to (bvneg x)
+ * - in all other cases, the function returns -1
+ */
+extern int32_t bvc_dag_get_nocc_compilation(bvc_dag_t *dag, node_occ_t n);
+
+
+/*
  * Construct a monomial node q
  * - a must be normalized modulo 2^bitsize
  * - depending on the coefficient a and the sign of n:
@@ -705,6 +718,13 @@ extern bool bvc_dag_check_reduce_sum(bvc_dag_t *dag, node_occ_t n1, node_occ_t n
  */
 extern bool bvc_dag_check_reduce_prod(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2);
 
+
+
+/*
+ * Add an elementary node to enable reduction of at least one non-elementary node
+ * - the list of non-elementary node must not be empty
+ */
+extern void bvc_dag_force_elem_node(bvc_dag_t *dag);
 
 
 

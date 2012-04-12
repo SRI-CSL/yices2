@@ -10,8 +10,8 @@
 
 #include "smt_core_printer.h"
 #include "egraph_printer.h"
+#include "bvsolver.h"
 #include "bvsolver_printer.h"
-
 
 /*
  * VARIABLE TABLE
@@ -366,6 +366,7 @@ void print_bv_solver_vars(FILE *f, bv_solver_t *solver) {
   bv_vartable_t *vtbl;
   literal_t *map;
   uint32_t i, n;
+  thvar_t y;
 
   vtbl = &solver->vtbl;
   n = vtbl->nvars;
@@ -375,8 +376,14 @@ void print_bv_solver_vars(FILE *f, bv_solver_t *solver) {
     map = bvvar_get_map(vtbl, i);
     if (map != NULL) {
       assert(solver->remap != NULL);
-      fputs("             = ", f);
+      fputs("              lit array: ", f);
       print_pseudo_litarray(f, solver->remap, map, bvvar_bitsize(vtbl, i));
+      fputc('\n', f);
+    }
+    y = bv_solver_var_compiles_to(solver, i);
+    if (y >= 0) {
+      fputs("              compiled to: ", f);
+      print_bvvar(f, y);
       fputc('\n', f);
     }
   }

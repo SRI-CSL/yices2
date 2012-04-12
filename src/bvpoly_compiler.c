@@ -240,7 +240,6 @@ static void bv_compiler_map_to_zero(bvc_t *c, thvar_t x, uint32_t n) {
 }
 
 
-
 /*
  * In all constructors:
  * - n = number of bits
@@ -1181,30 +1180,16 @@ static void bvc_process_node_if_simple(bvc_t *c, bvnode_t i) {
 
 
 /*
- * FOR TESTING ONLY
+ * COMPILATION
  */
-void bv_compiler_process_queue(bvc_t *c) {
-  uint32_t i, n;
-  int32_t j;
 
-  n = c->queue.top;
-  for (i=0; i<n; i++) {
-    bv_compiler_map_var_to_dag(c, c->queue.data[i]);    
-  }
-
-#if TRACE
-  printf("==== INIITIAL DAG =====\n");
-  print_bvc_dag(stdout, &c->dag);
-#endif
-
-  // try to simplify the DAG nodes using existing elementary expressions
-  n = c->elemexp.top;
-  for (i=0; i<n; i++) {
-    bv_compiler_simplify_dag(c, c->elemexp.data[i]);;
-  }
+/*
+ * Convert all elementary nodes
+ */
+static void bv_compiler_convert_elem_nodes(bvc_t *c) {
+  bvnode_t j;
 
   /*
-   * compile all the elementary nodes
    * Note: bvc_process_elem_node removes j from the elementary node list
    * so we always get the first element of the leaf list until it's empty
    */
@@ -1219,10 +1204,15 @@ void bv_compiler_process_queue(bvc_t *c) {
     fflush(stdout);
 #endif
   }
+}
 
-  /*
-   * Compile all the simple nodes
-   */
+
+/*
+ * Convert all simple nodes
+ */
+static void bv_compiler_convert_simple_nodes(bvc_t *c) {
+  bvnode_t j;
+
   for (;;) {
     j = bvc_first_complex_node(&c->dag);
     if (j < 0) break;
@@ -1237,6 +1227,94 @@ void bv_compiler_process_queue(bvc_t *c) {
   }
   // move back all aux nodes to the complex list
   bvc_move_aux_to_complex_list(&c->dag);
+}
 
 
+/*
+ * Get the variable y that x is compiled to 
+ * - store the mapping [x --> y] in the vmap
+ */
+static void bv_compiler_store_mapping(bvc_t *c, thvar_t x) {
+  node_occ_t r;
+  thvar_t y;
+  uint32_t sign, nbits;
+
+  if (! bvc_dag_var_is_present(&c->dag, x)) {
+    // x was compiled directly to a constant
+    assert(int_hmap_find(&c->cmap, x) != NULL);
+    return;
+  }
+
+  r  = bvc_dag_nocc_of_var(&c->dag, x); // node occurrence mapped to x
+  y = bvc_dag_get_nocc_compilation(&c->dag, r); // r is compiled to y
+  assert(y >= 0);
+
+  /*
+   * y is a pair (variable + sign)
+   * if the sign is negative, x is mapped to (bvneg variable)
+   * if the sign is positive, x is mapped to variable
+   */
+  sign = (y & 1);
+  y >>= 1;
+  assert(bvvar_bitsize(c->vtbl, x) == bvvar_bitsize(c->vtbl, y));
+  if (sign != 0) {
+    nbits = bvvar_bitsize(c->vtbl, x);
+    y = bv_compiler_mk_bvneg(c, nbits, y);
+  }
+  bv_compiler_store_map(c, x, y);
+}
+
+
+void bv_compiler_process_queue(bvc_t *c) {
+  uint32_t i, n;
+
+  n = c->queue.top;
+  for (i=0; i<n; i++) {
+    bv_compiler_map_var_to_dag(c, c->queue.data[i]);    
+  }
+
+#if TRACE
+  printf("\n==== INIITIAL DAG ====\n");
+  print_bvc_dag(stdout, &c->dag);
+#endif
+
+  // try to simplify the DAG nodes using existing elementary expressions
+  n = c->elemexp.top;
+  for (i=0; i<n; i++) {
+    bv_compiler_simplify_dag(c, c->elemexp.data[i]);;
+  }
+
+
+  // compile the rest until the complex-node list is empty
+  for (;;) {
+    bv_compiler_convert_elem_nodes(c);
+    bv_compiler_convert_simple_nodes(c);
+    bv_compiler_convert_elem_nodes(c);
+
+    assert(bvc_first_elem_node(&c->dag) < 0);
+    if (bvc_first_complex_node(&c->dag) < 0) break;
+
+#if TRACE
+    printf("\n==== FORCING ELEM NODES ====\n");
+    print_bvc_dag(stdout, &c->dag);
+    fflush(stdout);
+#endif
+
+    bvc_dag_force_elem_node(&c->dag);
+
+#if TRACE
+    printf("\n==== AFTER FORCING ====\n");
+    print_bvc_dag(stdout, &c->dag);
+    fflush(stdout);
+#endif
+  }
+
+
+  /*
+   * Collect the compilation results
+   */
+  n = c->queue.top;
+  for (i=0; i<n; i++) {
+    bv_compiler_store_mapping(c, c->queue.data[i]);
+  }  
 }

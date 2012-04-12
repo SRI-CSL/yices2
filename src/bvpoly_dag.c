@@ -10,6 +10,7 @@
 #include "index_vectors.h"
 #include "hash_functions.h"
 #include "int_array_sort.h"
+#include "int_array_sort2.h"
 
 #include "bvpoly_dag.h"
 
@@ -1253,6 +1254,7 @@ node_occ_t bvc_dag_get_nocc_of_var(bvc_dag_t *dag, int32_t x, uint32_t bitsize) 
     return n;
   }
 }
+
 
 
 /*
@@ -2558,7 +2560,7 @@ static bool node_square_occurs_in_prod(bvc_prod_t *p, bvnode_t r) {
 }
 
 
-// affinity for (r * s): both must have non-empty use list and be distinc
+// affinity for (r * s): both must have non-empty use list and be distinct
 static uint32_t affinity_score_prod(bvc_dag_t *dag, bvnode_t r, bvnode_t s) {
   bvc_header_t *d;
   bvc_prod_t *p;
@@ -2632,6 +2634,314 @@ static uint32_t affinity_score_square(bvc_dag_t *dag, bvnode_t r) {
   }
 
   return score;
+}
+
+
+
+
+/*
+ * Heuristic: sort nodes of v by decreasing occurrence count
+ */
+// ordering function: x < y if x has more dependents than y
+static bool bvc_node_lt(bvc_dag_t *dag, bvnode_t x, bvnode_t y) {
+  return bvnode_num_occs(dag, x) > bvnode_num_occs(dag, y);
+}
+
+static inline void bvc_sort_nodes(bvc_dag_t *dag, ivector_t *v) {
+  int_array_sort2(v->data, v->size, dag, (int_cmp_fun_t) bvc_node_lt);
+}
+
+
+/*
+ * Collect all leaf-nodes that occur in p
+ * - store them in v
+ */
+static void sum_get_leaves(bvc_dag_t *dag, bvc_sum_t *p, ivector_t *v) {
+  uint32_t i, n;
+  bvnode_t x;
+
+  n = p->len;
+  for (i=0; i<n; i++) {
+    x = node_of_occ(p->sum[i]);
+    if (bvc_dag_node_is_leaf(dag, x)) {
+      ivector_push(v, x);
+    }
+  }
+}
+
+
+/*
+ * Same thing for a product p. If x has exponent >= 2 then it's stored twice.
+ */
+static void prod_get_leaves(bvc_dag_t *dag, bvc_prod_t *p, ivector_t *v) {
+  uint32_t i, n;
+  bvnode_t x;
+
+  n = p->len;
+  for (i=0; i<n; i++) {
+    x = node_of_occ(p->prod[i].var);
+    assert(p->prod[i].exp >= 1);
+    if (bvc_dag_node_is_leaf(dag, x)) {
+      ivector_push(v, x);
+      if (p->prod[i].exp > 1) {
+	ivector_push(v, x);
+      }
+    }
+  }
+}
+
+
+/*
+ * Structure to store the best pair of nodes found so far and its score
+ */
+typedef struct bvc_pair_s {
+  uint32_t score;
+  bvnode_t n1;
+  bvnode_t n2;  
+} bvc_pair_t;
+
+
+
+/*
+ * Form all pairs (r, a[i]) and store the one with maximal affinity into b
+ * if the affinity score is better than b->score
+ * - n = number of nodes in a
+ * - all nodes of a must be different from r
+ */
+static void search_sum_pairs(bvc_dag_t *dag, bvc_pair_t *b, bvnode_t *a, uint32_t n, bvnode_t r) {
+  uint32_t score[2];
+  uint32_t i;
+  bvnode_t s;
+  
+  for (i=0; i<n; i++) {
+    s = a[i];
+    assert(s != r);
+    if (bvnode_num_occs(dag, s) > b->score) {
+      affinity_scores_sum(dag, r, s, score);
+      if (score[0] > b->score) {
+	b->score = score[0];
+	b->n1 = bvp(r);
+	b->n2 = bvp(s);
+      }
+
+      if (score[1] > b->score) {
+	b->score = score[1];
+	b->n1 = bvp(r);
+	b->n2 = bvn(s);
+      }
+    }
+  }
+}
+
+static void search_prod_pairs(bvc_dag_t *dag, bvc_pair_t *b, bvnode_t *a, uint32_t n, bvnode_t r) {
+  uint32_t i, score;
+  bvnode_t s;
+
+  for (i=0; i<n; i++) {
+    s = a[i];
+    if (bvnode_num_occs(dag, s) > b->score) {
+      if (r == s) {
+	score = affinity_score_square(dag, r);
+      } else {
+	score = affinity_score_prod(dag, r, s);
+      }
+      if (score > b->score) {
+	b->score = score;
+	b->n1 = bvp(r);
+	b->n2 = bvp(s);
+      }
+    }
+  }
+}
+
+
+/*
+ * Find the pair of elements of a with maximal affinity and store it in b if 
+ * its score is better than b->score
+ * - a = array of n distinct nodes
+ */
+static void full_search_sum_pairs(bvc_dag_t *dag, bvc_pair_t *b, bvnode_t *a, uint32_t n) {
+  uint32_t i, m;
+  bvnode_t r;
+
+  assert(n >= 2);
+
+  /*
+   * If n is large, we limit the search to the first 3 elements of a
+   */
+  m = n-1;
+  if (n >= 5) {
+    m = 3;
+  }
+
+  for (i=0; i<m; i++) {
+    r = a[i];
+    if (bvnode_num_occs(dag, r) > b->score) {
+      search_sum_pairs(dag, b, a+(i+1), n-(i+1), r);
+    }
+  }
+}
+
+
+static void full_search_prod_pairs(bvc_dag_t *dag, bvc_pair_t *b, bvnode_t *a, uint32_t n) {
+  uint32_t i, m;
+  bvnode_t r;
+
+  assert(n >= 2);
+
+  /*
+   * If n is large, we limit the search to the first 3 elements of a
+   */
+  m = n-1;
+  if (n >= 5) {
+    m = 3;
+  }
+
+  for (i=0; i<m; i++) {
+    r = a[i];
+    if (bvnode_num_occs(dag, r) > b->score) {
+      search_prod_pairs(dag, b, a+(i+1), n-(i+1), r);
+    }
+  }
+}
+
+
+
+/*
+ * Select a pair of leaf nodes r, s that occur in p and store it in b if its score
+ * is better than b->score
+ */
+static void search_pair_in_sum(bvc_dag_t *dag, bvc_pair_t *b, bvc_sum_t *p) {
+  ivector_t *v;
+  uint32_t n;
+
+  v = &dag->buffer;
+  assert(v->size == 0);
+
+  sum_get_leaves(dag, p, v);
+  n = v->size;
+  if (n >= 2) {
+    bvc_sort_nodes(dag, v);
+    full_search_sum_pairs(dag, b, v->data, n);
+  }
+
+  ivector_reset(v);
+}
+
+
+static void search_pair_in_prod(bvc_dag_t *dag, bvc_pair_t *b, bvc_prod_t *p) {
+  ivector_t *v;
+  uint32_t n;
+
+  v = &dag->buffer;
+  assert(v->size == 0);
+
+  prod_get_leaves(dag, p, v);
+  n = v->size;
+  if (n >= 2) {
+    bvc_sort_nodes(dag, v);
+    full_search_prod_pairs(dag, b, v->data, n);
+  }
+
+  ivector_reset(v);
+}
+
+
+
+/*
+ * Generate an elementary node that will enable reduction of a least one
+ * non-elementary node of dag.
+ * - the list of non-elementary node must not be empty
+ */
+void bvc_dag_force_elem_node(bvc_dag_t *dag) {
+  bvc_pair_t aux;
+  bvc_header_t *d;
+  bvc_prod_t *p;
+  bvc_sum_t *q;
+  bvnode_t i;
+
+  aux.score = 0;
+  aux.n1 = -1;
+  aux.n2 = -1;
+
+  i = bvc_first_complex_node(dag);
+  while (i > 0) {
+    assert(i <= dag->nelems);
+
+    d = dag->desc[i];
+    switch (d->tag) {
+    case BVC_PROD:
+      p = prod_node(d);
+      assert(!prod_node_is_elementary(dag, p));
+      search_pair_in_prod(dag, &aux, p);
+      if (aux.score > 0) {
+	// found a new pair
+	assert(aux.n1 > 0 && aux.n2 > 0);
+	(void) bvc_dag_pprod2(dag, aux.n1, aux.n2, d->bitsize);
+	return;
+      }
+      break;
+
+    case BVC_SUM:
+      q = sum_node(d);
+      assert(!sum_node_is_elementary(dag, q));
+      if (q->len >= 2) {
+	search_pair_in_sum(dag, &aux, q);
+	if (aux.score > 0) {
+	  // found a new pair
+	  assert(aux.n1 > 0 && aux.n2 > 0);
+	  (void) bvc_dag_sum2(dag, aux.n1, aux.n2, d->bitsize);
+	  return;
+	}
+      }
+      break;
+
+    default:
+      break;
+    }
+    i = dag->list[i].next;
+  }
+
+  // should not reach this point
+  assert(false);
+}
+
+
+
+/*
+ * Compilation result for node_occurrence n
+ * - modulo signs, this is the variable of n if n is a leaf node
+ *   or the variable of n' if n is aliased to n'
+ * - to encode the signs, we return either bvp(x) or bvn(x)
+ *   where x is a variable
+ *     bvp(x) means that n is compiled to x
+ *     bvn(x) means that n is compoled to (bvneg x)
+ * - in all other cases, the function returns -1
+ */
+int32_t bvc_dag_get_nocc_compilation(bvc_dag_t *dag, node_occ_t n) {
+  bvc_header_t *d;
+  bvnode_t i;
+  int32_t x;
+
+  i = node_of_occ(n);
+  assert(0 < i && i <= dag->nelems);
+  d = dag->desc[i];
+
+  switch (d->tag) {
+  case BVC_ALIAS:
+    n = sign_of_occ(n) ^ alias_node(d)->alias;
+    i = node_of_occ(n);
+    assert(0 < i && i <= dag->nelems);
+    d = dag->desc[i];
+    assert(d->tag == BVC_LEAF); // fall-through intended
+
+  case BVC_LEAF:
+    x = leaf_node(d)->map;
+    return (x << 1) | sign_of_occ(n);
+
+  default:
+    return -1;
+  }
 }
 
 

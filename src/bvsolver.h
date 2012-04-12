@@ -54,6 +54,7 @@ extern void bv_solver_bitblast(bv_solver_t *solver);
 
 
 
+
 /*******************************
  *  INTERNALIZATION FUNCTIONS  *
  ******************************/
@@ -170,6 +171,13 @@ extern void bv_solver_attach_eterm(bv_solver_t *solver, thvar_t x, eterm_t t);
  */
 extern eterm_t bv_solver_eterm_of_var(bv_solver_t *solver, thvar_t x);
 
+
+
+/*
+ * Get the variables that x is compiled to
+ * - return null_thvar if x is not compiled to anything
+ */
+extern thvar_t bv_solver_var_compiles_to(bv_solver_t *solver, thvar_t x);
 
 
 
