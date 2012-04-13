@@ -456,6 +456,8 @@ static void bv_compiler_simplify_poly(bvc_t *c, bvpoly_t *p, bvpoly_buffer_t *b)
   
   reset_bvpoly_buffer(b, p->bitsize);
 
+  vtbl = c->vtbl;
+
   n = p->nterms;
   i = 0;
   if (p->mono[0].var == const_idx) {
