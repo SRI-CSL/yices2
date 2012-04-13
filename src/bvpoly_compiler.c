@@ -403,7 +403,6 @@ static thvar_t bv_compiler_mk_power_product(bvc_t *c, uint32_t n, pp_buffer_t *b
   while (i > 0) {
     i --;
     x = bv_compiler_mk_bvmul(c, n, x, x);
-    //    x = bv_compiler_mk_bvmul(c, n, x, v->data[i]);
     x = mk_bvmul_aux(c, n, v->data[i], x);
   }
 
