@@ -159,6 +159,36 @@ void reset_bv_compiler(bvc_t *c) {
 
 
 /*
+ * For push/pop: remove all variables with index >= nv
+ */
+static bool record_to_remove(uint32_t *nv, int_hmap_pair_t *p) {
+  return p->key >= *nv || p->val >= *nv;
+}
+
+static void bvc_queue_remove_vars(bvc_queue_t *q, uint32_t nv) {
+  uint32_t i, n, j;
+  thvar_t x;
+
+  j = 0;
+  n = q->top;
+  for (i=0; i<n; i++) {
+    x = q->data[i];
+    if (x < nv) {
+      q->data[j] = x;
+      j ++;
+    }
+  }
+  q->top = j;
+}
+
+void bv_compiler_remove_vars(bvc_t *c, uint32_t nv) {
+  int_hmap_remove_records(&c->cmap, &nv, (int_hmap_filter_t) record_to_remove);
+  bvc_queue_remove_vars(&c->elemexp, nv);
+}
+
+
+
+/*
  * Get the variable mapped to x in cmap
  * - return -1 if nothing is mapped to x
  */
@@ -391,10 +421,13 @@ static thvar_t bv_compiler_mk_power_product(bvc_t *c, uint32_t n, pp_buffer_t *b
  * - store the result in the poly_buffer b
  */
 static void bv_compiler_simplify_poly64(bvc_t *c, bvpoly64_t *p,  bvpoly_buffer_t *b) {
+  bv_vartable_t *vtbl;
   uint32_t i, n;
   thvar_t x;
   
   reset_bvpoly_buffer(b, p->bitsize);
+
+  vtbl = c->vtbl;
 
   n = p->nterms;
   i = 0;
@@ -406,7 +439,11 @@ static void bv_compiler_simplify_poly64(bvc_t *c, bvpoly64_t *p,  bvpoly_buffer_
   while (i < n) {
     assert(p->mono[i].var != const_idx);
     x = mtbl_get_root(c->mtbl, p->mono[i].var);
-    bvpoly_buffer_add_mono64(b, x, p->mono[i].coeff);
+    if (bvvar_is_const64(vtbl, x)) {
+      bvpoly_buffer_add_const64(b, p->mono[i].coeff * bvvar_val64(vtbl, x));
+    } else {
+      bvpoly_buffer_add_mono64(b, x, p->mono[i].coeff);
+    }
     i ++;
   }
   
@@ -414,6 +451,7 @@ static void bv_compiler_simplify_poly64(bvc_t *c, bvpoly64_t *p,  bvpoly_buffer_
 }
 
 static void bv_compiler_simplify_poly(bvc_t *c, bvpoly_t *p, bvpoly_buffer_t *b) {
+  bv_vartable_t *vtbl;
   uint32_t i, n;
   thvar_t x;
   
@@ -429,7 +467,11 @@ static void bv_compiler_simplify_poly(bvc_t *c, bvpoly_t *p, bvpoly_buffer_t *b)
   while (i < n) {
     assert(p->mono[i].var != const_idx);
     x = mtbl_get_root(c->mtbl, p->mono[i].var);
-    bvpoly_buffer_add_monomial(b, x, p->mono[i].coeff);
+    if (bvvar_is_const(vtbl, x)) {
+      bvpoly_buffer_addmul_constant(b, p->mono[i].coeff, bvvar_val(vtbl, x));
+    } else {
+      bvpoly_buffer_add_monomial(b, x, p->mono[i].coeff);
+    }
     i ++;
   }
   
@@ -1231,13 +1273,33 @@ static void bv_compiler_convert_simple_nodes(bvc_t *c) {
 
 
 /*
+ * Auxiliary function: create (bvneg x) if it doesn't exist
+ * already.
+ * TODO: check for (bvneg (bvneg z)) and other simplifications?
+ */
+static thvar_t bv_compiler_get_bvneg(bvc_t *c, thvar_t x) {
+  thvar_t y;
+  uint32_t nbits;
+
+  assert(0 < x && x < c->vtbl->nvars);
+  y = find_bvneg(c->vtbl, x);
+  if (y < 0) {
+    nbits = bvvar_bitsize(c->vtbl, x);
+    y = bv_compiler_mk_bvneg(c, nbits, x);
+  }
+
+  return y;
+}
+
+
+/*
  * Get the variable y that x is compiled to 
  * - store the mapping [x --> y] in the vmap
  */
 static void bv_compiler_store_mapping(bvc_t *c, thvar_t x) {
   node_occ_t r;
   thvar_t y;
-  uint32_t sign, nbits;
+  uint32_t sign;
 
   if (! bvc_dag_var_is_present(&c->dag, x)) {
     // x was compiled directly to a constant
@@ -1258,8 +1320,7 @@ static void bv_compiler_store_mapping(bvc_t *c, thvar_t x) {
   y >>= 1;
   assert(bvvar_bitsize(c->vtbl, x) == bvvar_bitsize(c->vtbl, y));
   if (sign != 0) {
-    nbits = bvvar_bitsize(c->vtbl, x);
-    y = bv_compiler_mk_bvneg(c, nbits, y);
+    y = bv_compiler_get_bvneg(c, y);
   }
   bv_compiler_store_map(c, x, y);
 }
@@ -1316,5 +1377,13 @@ void bv_compiler_process_queue(bvc_t *c) {
   n = c->queue.top;
   for (i=0; i<n; i++) {
     bv_compiler_store_mapping(c, c->queue.data[i]);
-  }  
+  }
+
+
+  /*
+   * Cleanup
+   */
+  reset_bvc_queue(&c->queue);
+  reset_bvc_dag(&c->dag);
+  reset_int_bvset(&c->in_queue);
 }

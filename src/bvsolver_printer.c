@@ -796,6 +796,8 @@ static void print_node_descriptor(FILE *f, bvc_header_t *d) {
 /*
  * Use list a
  */
+#if 0
+
 static void print_use_list(FILE *f, int32_t *a) {
   uint32_t i, n;
 
@@ -812,6 +814,8 @@ static void print_use_list(FILE *f, int32_t *a) {
   }
 }
 
+#endif
+
 
 /*
  * Print details of node q
@@ -822,9 +826,11 @@ static void print_node(FILE *f, bvc_dag_t *dag, bvnode_t q) {
   fprintf(f, "n%"PRId32": ", q);
   print_node_descriptor(f, dag->desc[q]);
   fprintf(f, "\n");
-  //  fprintf(f, "       use list: ");
-  //  print_use_list(f, dag->use[q]);  
-  //  fprintf(f, "\n");
+#if 0
+  fprintf(f, "       use list: ");
+  print_use_list(f, dag->use[q]);  
+  fprintf(f, "\n");
+#endif
 }
 
 

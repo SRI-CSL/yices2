@@ -161,6 +161,16 @@ static inline void bvpoly_buffer_sub_one(bvpoly_buffer_t *buffer) {
   bvpoly_buffer_sub_var(buffer, const_idx);
 }
 
+// add/subtract a * b
+static inline void bvpoly_buffer_addmul_constant(bvpoly_buffer_t *buffer, uint32_t *a, uint32_t *b) {
+  bvpoly_buffer_addmul_monomial(buffer, const_idx, a, b);
+}
+
+static inline void bvpoly_buffer_submul_constant(bvpoly_buffer_t *buffer, uint32_t *a, uint32_t *b) {
+  bvpoly_buffer_submul_monomial(buffer, const_idx, a, b);
+}
+
+
 
 
 /*****************************

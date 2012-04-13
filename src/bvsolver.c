@@ -13,7 +13,6 @@
 
 #include "bvsolver.h"
 
-// PROVISIONAL
 
 #define TRACE 0
 
@@ -3858,6 +3857,10 @@ void bv_solver_pop(bv_solver_t *solver) {
   }
 
   top = bv_trail_top(&solver->trail_stack);
+
+  if (solver->compiler != NULL) {
+    bv_compiler_remove_vars(solver->compiler, top->nvars);
+  }
 
   bv_solver_remove_bounds(solver, top->natoms);
   bv_vartable_remove_vars(&solver->vtbl, top->nvars);

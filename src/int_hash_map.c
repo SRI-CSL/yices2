@@ -320,3 +320,34 @@ int_hmap_pair_t *int_hmap_next_record(int_hmap_t *hmap, int_hmap_pair_t *p) {
 }
 
 
+
+
+/*
+ * Remove the records that satisfy filter f
+ * - calls f(aux, p) on every record p stored in hmap
+ * - if f(aux, p) returns true then record p is removed
+ */
+void int_hmap_remove_records(int_hmap_t *hmap, void *aux, int_hmap_filter_t f) {
+  int_hmap_pair_t *d;
+  uint32_t i, n, k;
+
+  n = hmap->size;
+  d = hmap->data;
+  k = 0;
+  for (i=0; i<n; i++) {
+    if (d->key >= 0 && f(aux, d)) {
+      // mark d as deleted
+      d->key = DELETED_KEY;
+      k ++;
+    }
+    d ++;
+  }
+
+  // k = number of deleted records
+  assert(k <= hmap->nelems);
+  hmap->nelems -= k;
+  hmap->ndeleted += k;
+  if (hmap->ndeleted >= hmap->cleanup_threshold) {
+    int_hmap_cleanup(hmap);
+  }
+}

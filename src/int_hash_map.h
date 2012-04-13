@@ -7,6 +7,8 @@
 #define __INT_HASH_MAP_H
 
 #include <stdint.h>
+#include <stdbool.h>
+
 
 /*
  * Records stored in the hash table are pairs of integers
@@ -48,6 +50,7 @@ typedef struct int_hmap_s {
 #define INT_HMAP_RESIZE_RATIO 0.6
 #define INT_HMAP_CLEANUP_RATIO 0.2
 
+
 /*
  * Initialization:
  * - n = initial size, must be 0 or a power of 2
@@ -55,15 +58,18 @@ typedef struct int_hmap_s {
  */
 extern void init_int_hmap(int_hmap_t *hmap, uint32_t n);
 
+
 /*
  * Delete: free memory
  */
 extern void delete_int_hmap(int_hmap_t *hmap);
 
+
 /*
  * Find record with key k. Return NULL if there's none
  */
 extern int_hmap_pair_t *int_hmap_find(int_hmap_t *hmap, int32_t k);
+
 
 /*
  * Get record with key k. If one is in the table return it.
@@ -71,15 +77,29 @@ extern int_hmap_pair_t *int_hmap_find(int_hmap_t *hmap, int32_t k);
  */
 extern int_hmap_pair_t *int_hmap_get(int_hmap_t *hmap, int32_t k);
 
+
 /*
  * Erase record r
  */
 extern void int_hmap_erase(int_hmap_t *hmap, int_hmap_pair_t *r);
 
+
 /*
  * Remove all records
  */
 extern void int_hmap_reset(int_hmap_t *hmap);
+
+
+
+/*
+ * Remove all records that satisfy f
+ * - calls f(aux, p) on every record p stored in hmap
+ * - if f(aux, p) returns true then record p is removed
+ */
+typedef bool (*int_hmap_filter_t)(void *aux, int_hmap_pair_t *p);
+
+extern void int_hmap_remove_records(int_hmap_t *hmap, void *aux, int_hmap_filter_t f);
+
 
 
 /*
