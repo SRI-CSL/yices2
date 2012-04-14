@@ -599,75 +599,11 @@ void bv_compiler_push_var(bvc_t *c, thvar_t x) {
  * COMPILATION PHASE 2: CONVERT TO THE DAG REPRESENTATION
  */
 
-#if 0
 /*
  * Convert p to a DAG node
  * - return the node occurrence
  * - all variables of p that are not in dag->vsets are mapped to leaf nodes
  */
-static node_occ_t bv_compiler_poly64_to_dag(bvc_t *c, bvpoly64_t *p) {
-  bvc_dag_t *dag;
-  ivector_t *v;
-  uint32_t i, n, nbits;
-  thvar_t x;
-  node_occ_t q;
-
-  dag = &c->dag;
-
-  v = &c->buffer;
-  ivector_reset(v);
-
-  n = p->nterms;
-  nbits = p->bitsize;
-
-  i = 0;
-  if (p->mono[i].var == const_idx) {
-    ivector_push(v, const_idx); // need a place-holder in v->data[0]
-    i = 1;
-  }
-  while (i < n) {
-    x = mtbl_get_root(c->mtbl, p->mono[i].var);
-    q = bvc_dag_get_nocc_of_var(dag, x, nbits);
-    ivector_push(v, q);
-    i++;
-  }
-
-  return bvc_dag_poly64(dag, p, v->data);
-}
-
-
-static node_occ_t bv_compiler_poly_to_dag(bvc_t *c, bvpoly_t *p) {
-  bvc_dag_t *dag;
-  ivector_t *v;
-  uint32_t i, n, nbits;
-  thvar_t x;
-  node_occ_t q;
-
-  dag = &c->dag;
-
-  v = &c->buffer;
-  ivector_reset(v);
-
-  n = p->nterms;
-  nbits = p->bitsize;
-
-  i = 0;
-  if (p->mono[0].var == const_idx) {
-    ivector_push(v, const_idx); // need a place-holder in v->data[0]
-    i = 1;
-  }
-  while (i < n) {
-    x = mtbl_get_root(c->mtbl, p->mono[i].var);
-    q = bvc_dag_get_nocc_of_var(dag, x, nbits);
-    ivector_push(v, q);
-    i++;
-  }
-
-  return bvc_dag_poly(dag, p, v->data);
-}
-
-#endif
-
 static node_occ_t bv_compiler_pprod_to_dag(bvc_t *c, pprod_t *p, uint32_t bitsize) {
   bvc_dag_t *dag;
   ivector_t *v;
@@ -1067,10 +1003,13 @@ static bool bvc_prod_is_simple(bvc_dag_t *dag, bvc_prod_t *p) {
     }
     if (bvc_dag_occ_is_shared(dag, nx)) {
       n_shared ++;
+      if (n_shared > 1) return false;
     }
   }
 
-  return n_shared <= 1;
+  assert(n_shared <= 1);
+
+  return true;
 }
 
 static bool bvc_sum_is_simple(bvc_dag_t *dag, bvc_sum_t *p) {
@@ -1086,17 +1025,18 @@ static bool bvc_sum_is_simple(bvc_dag_t *dag, bvc_sum_t *p) {
     }
     if (bvc_dag_occ_is_shared(dag, nx)) {
       n_shared ++;
+      if (n_shared > 1) return false;
     }
   }
 
-  return n_shared <= 1;
+  assert(n_shared <= 1);
+
+  return true;
 }
 
 
 /*
- * Compilation of a non-elementary node i 
- * - if all nodes occurrences in i are leaves and are not shared
- *   then we can immediately compile i
+ * Compilation of a simple/non-elementary node i 
  */
 static void bvc_process_simple_prod(bvc_t *c, bvnode_t i, bvc_prod_t *p) {
   pp_buffer_t *pp;
@@ -1179,7 +1119,7 @@ static void bvc_process_simple_sum(bvc_t *c, bvnode_t i, bvc_sum_t *p) {
 /*
  * Process node i:
  * - if it's simple, node i is compiled and moved to the list of leaves
- * - othwesie, node i is moved to the auxiliary list (in c->dag)
+ * - otherwise, node i is moved to the auxiliary list (in c->dag)
  */
 static void bvc_process_node_if_simple(bvc_t *c, bvnode_t i) {
   bvc_dag_t *dag;
@@ -1298,13 +1238,17 @@ static thvar_t bv_compiler_get_bvneg(bvc_t *c, thvar_t x) {
  * - store the mapping [x --> y] in the vmap
  */
 static void bv_compiler_store_mapping(bvc_t *c, thvar_t x) {
+  int_hmap_pair_t *p;
   node_occ_t r;
   thvar_t y;
   uint32_t sign;
 
-  if (! bvc_dag_var_is_present(&c->dag, x)) {
-    // x was compiled directly to a constant
-    assert(int_hmap_find(&c->cmap, x) != NULL);
+  assert(0 < x && x < c->vtbl->nvars);
+
+  p = int_hmap_get(&c->cmap, x);
+  if (p->val >= 0) {
+    // x is already compiled (to a constant)
+    assert(p->val != x);
     return;
   }
 
@@ -1323,7 +1267,8 @@ static void bv_compiler_store_mapping(bvc_t *c, thvar_t x) {
   if (sign != 0) {
     y = bv_compiler_get_bvneg(c, y);
   }
-  bv_compiler_store_map(c, x, y);
+  assert(0 < y && y < c->vtbl->nvars && x != y);
+  p->val = y;
 }
 
 
