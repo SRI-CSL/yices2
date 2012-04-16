@@ -9,6 +9,18 @@
  * - def[x] = definition of x 
  * - eterm[x] = attached egraph term (optional)
  * - map[x] = array of literals (bit blasting)
+ *
+ * Several variables may share the same map. To delete the maps
+ * correctly in push/pop, we use reference counting.  The literal
+ * arrays assigned to map[x] must be allocated with the
+ * refcount_int_array functions.
+ *
+ * We use two bits in kind[x] to mark variables as relevant and bit-blasted:
+ * - a variable is marked if it occurs in an atom or if it's merged with
+ *   another variable y in the merge table (i.e., x == y has been 
+ *   asserted at the base level). This means that x must be bitblasted.
+ * - x remains marked until its definition is converted to CNF (i.e., after
+ *   bitblasting). Then the bitblasted bit is set in kind[x].
  */
 
 #ifndef __BV_VARTABLE_H
@@ -18,6 +30,7 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#include "refcount_int_arrays.h"
 #include "int_hash_tables.h"
 #include "bvpoly_buffers.h"
 #include "power_products.h"
@@ -121,6 +134,17 @@ typedef struct bv_vartable_s {
 #define MAX_BVVARTABLE_SIZE (UINT32_MAX/sizeof(bvvar_desc_t))
 
 
+
+/*
+ * Bit masks for the kind:
+ * - bit 7: mark
+ * - bit 6: bit-blasted bit
+ * - bit 5 to 0: the tag
+ */
+
+#define BVVAR_MARK_MASK ((uint8_t) 0x80)
+#define BVVAR_BLST_MASK ((uint8_t) 0x40)
+#define BVVAR_TAG_MASK  ((uint8_t) 0x3F)
 
 
 
@@ -273,13 +297,21 @@ extern thvar_t find_bvneg(bv_vartable_t *table, thvar_t x);
 
 /*
  * Extract the tag out of kind[x]
+ * - kind[x] stores 
+ *   bit 7: mark bit
+ *   bit 6: bitblasted bit
+ *   bit 5--0: tag
  */
 static inline bvvar_tag_t tag_of_kind(uint8_t k) {
-  return (bvvar_tag_t) (k & ((uint8_t) 0x7F));
+  return (bvvar_tag_t) (k & BVVAR_TAG_MASK);
 }
 
-static inline bool kind_is_marked(uint8_t k) {
-  return (k & ((uint8_t) 0x80)) != 0;
+static inline bool mark_of_kind(uint8_t k) {
+  return (k & BVVAR_MARK_MASK) != 0;
+}
+
+static inline bool blasted_of_kind(uint8_t k) {
+  return (k & BVVAR_BLST_MASK) != 0;
 }
 
 
@@ -298,7 +330,12 @@ static inline bvvar_tag_t bvvar_tag(bv_vartable_t *table, thvar_t x) {
 
 static inline bool bvvar_is_marked(bv_vartable_t *table, thvar_t x) {
   assert(valid_bvvar(table, x));
-  return kind_is_marked(table->kind[x]);
+  return mark_of_kind(table->kind[x]);
+}
+
+static inline bool bvvar_is_bitblasted(bv_vartable_t *table, thvar_t x) {
+  assert(valid_bvvar(table, x));
+  return blasted_of_kind(table->kind[x]);
 }
 
 static inline uint32_t bvvar_bitsize(bv_vartable_t *table, thvar_t x) {
@@ -408,11 +445,12 @@ static inline literal_t *bvvar_get_map(bv_vartable_t *table, thvar_t x) {
 
 /*
  * Map literal array a to variable x
- * - a must be non-null
+ * - a must be non-null and allocated using int_array_alloc
  */
 static inline void bvvar_set_map(bv_vartable_t *table, thvar_t x, literal_t *a) {
   assert(! bvvar_is_mapped(table, x) && a != NULL);
-  table->map[x] = a;  
+  int_array_incref(a);
+  table->map[x] = a;
 }
 
 
@@ -421,12 +459,26 @@ static inline void bvvar_set_map(bv_vartable_t *table, thvar_t x, literal_t *a) 
  */
 static inline void bvvar_set_mark(bv_vartable_t *table, thvar_t x) {
   assert(valid_bvvar(table, x));
-  table->kind[x] |= ((uint8_t) 0x80);
+  table->kind[x] |= BVVAR_MARK_MASK;
 }
 
 static inline void bvvar_clr_mark(bv_vartable_t *table, thvar_t x) {
   assert(valid_bvvar(table, x));
-  table->kind[x] &= ((uint8_t) 0x7F);
+  table->kind[x] &= (uint8_t)(~BVVAR_MARK_MASK);
+}
+
+
+/*
+ * Set/clear the bit-blasted bit on x
+ */
+static inline void bvvar_set_bitblasted(bv_vartable_t *table, thvar_t x) {
+  assert(valid_bvvar(table, x));
+  table->kind[x] |= BVVAR_BLST_MASK;
+}
+
+static inline void bvvar_clr_bitblasted(bv_vartable_t *table, thvar_t x) {
+  assert(valid_bvvar(table, x));
+  table->kind[x] &= (uint8_t) (~BVVAR_BLST_MASK);
 }
 
 

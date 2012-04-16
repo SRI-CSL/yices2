@@ -10,7 +10,7 @@
 #include <assert.h>
 
 #include "bitvectors.h"
-#include "memalloc.h"
+#include "refcount_int_arrays.h"
 #include "smt_core.h"
 
 
@@ -191,14 +191,17 @@ extern literal_t remap_table_fresh_lit(remap_table_t *table);
 /*
  * Allocate and initialize an array of n fresh pseudo literals.
  * - all literals in the array are initialized as in fresh_lit above.
+ * - the array is allocated using refcount_int_array
  */
 extern literal_t *remap_table_fresh_array(remap_table_t *table, uint32_t n);
 
+
 /*
- * Delete array a created by the previous function
+ * Decrement the reference counter (a must be allocated with the previous
+ * function).
  */
 static inline void remap_table_free_array(literal_t *a) {
-  safe_free(a);
+  int_array_decref(a);
 }
 
 

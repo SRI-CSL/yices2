@@ -74,7 +74,7 @@ void delete_bv_vartable(bv_vartable_t *table) {
 
   n = table->nvars;
   for (i=1; i<n; i++) {
-    safe_free(table->map[i]);
+    int_array_decref(table->map[i]);
     switch (bvvar_tag(table, i)) {
     case BVTAG_CONST:
     case BVTAG_POLY64:
@@ -117,7 +117,7 @@ void reset_bv_vartable(bv_vartable_t *table) {
 
   n = table->nvars;
   for (i=1; i<n; i++) {
-    safe_free(table->map[i]);
+    int_array_decref(table->map[i]);
     switch (bvvar_tag(table, i)) {
     case BVTAG_CONST:
     case BVTAG_POLY64:
@@ -299,7 +299,7 @@ void bv_vartable_remove_vars(bv_vartable_t *table, uint32_t nv) {
     switch (bvvar_tag(table, i)) {
     case BVTAG_VAR:
       // no hash consing, no descriptor
-      safe_free(table->map[i]);
+      int_array_decref(table->map[i]);
       continue;
 
     case BVTAG_CONST64:
@@ -327,7 +327,7 @@ void bv_vartable_remove_vars(bv_vartable_t *table, uint32_t nv) {
       break;
 
     case BVTAG_BIT_ARRAY:
-      h = hash_bvarray(table->map[i], table->bit_size[i]);
+      h = hash_bvarray(table->def[i].ptr, table->bit_size[i]);
       safe_free(table->def[i].ptr);
       break;
 
@@ -386,7 +386,7 @@ void bv_vartable_remove_vars(bv_vartable_t *table, uint32_t nv) {
     }
 
     int_htbl_erase_record(&table->htbl, h, i);
-    safe_free(table->map[i]);
+    int_array_decref(table->map[i]);
   }
 
   table->nvars = nv;

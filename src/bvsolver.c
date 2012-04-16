@@ -716,6 +716,10 @@ static void bv_solver_alloc_compiler(bv_solver_t *solver) {
 }
 
 
+
+
+
+
 #if 0
 
 /*
@@ -3923,6 +3927,7 @@ void bv_solver_reset(bv_solver_t *solver) {
   solver->base_level = 0;
   solver->decision_level = 0;
 }
+
 
 
 /********************************

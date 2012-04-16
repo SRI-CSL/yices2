@@ -135,7 +135,7 @@ extern void bv_compiler_push_var(bvc_t *c, thvar_t x);
 
 /*
  * Process the compilation queue. All variables pushed into the queue
- * are compiled to elementary rexpression, then the queue is emptied.
+ * are compiled to elementary expression, then the queue is emptied.
  * - after this call, use 'bvvar_compiles_to' to find out what a
  *   variable is compiled to.
  */

@@ -322,6 +322,8 @@ int main(void) {
   printf("----\n");
 
   v = remap_table_fresh_array(&map, 100);
+  int_array_incref(v);
+
   printf("--- After allocating 100 pseudo literals ---\n");
   show_full_remap(&map);
   printf("----\n");
@@ -354,6 +356,8 @@ int main(void) {
 
   printf("--- Level 2: allocating 40 more literals ---\n");
   w  = remap_table_fresh_array(&map, 40);
+  int_array_incref(w);
+
   random_merges(&map, w, 40, 10);
   random_merges(&map, v, 100, 10);
   printf("--- After 20 random merges ---\n");
@@ -390,6 +394,7 @@ int main(void) {
   }
 
   remap_table_free_array(w);
+
   remap_table_pop(&map);
   printf("--- Back to level 1 ---\n");
   show_remap(&map);
@@ -413,6 +418,7 @@ int main(void) {
   delete_content(save + 2);
 
   remap_table_free_array(v);
+
   delete_remap_table(&map);
 
   return 0;

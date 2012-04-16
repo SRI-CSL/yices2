@@ -337,7 +337,8 @@ literal_t *remap_table_fresh_array(remap_table_t *table, uint32_t n) {
   uint32_t i;
 
   assert(n < (UINT32_MAX/sizeof(literal_t)));
-  tmp = (literal_t *) safe_malloc(n * sizeof(literal_t));
+  //  tmp = (literal_t *) safe_malloc(n * sizeof(literal_t));
+  tmp = alloc_int_array(n);
   for (i=0; i<n; i++) {
     tmp[i] = remap_table_fresh_lit(table);
   }
