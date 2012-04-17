@@ -5928,7 +5928,7 @@ static bool merge_map_bitarray(remap_table_t *rmap, bv_vartable_t *vtbl,
 /*
  * Assign pseudo literals to all variables
  * - return false if a conflict is detected (i.e., the map of x 
- *   and root[x] cannote be merged, for a non-root variable x).
+ *   and root[x] cannot be merged, for a non-root variable x).
  * - return true otherwise
  */
 static bool bv_solver_build_pseudo_maps(bv_solver_t *solver) {

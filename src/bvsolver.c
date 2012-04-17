@@ -717,6 +717,179 @@ static void bv_solver_alloc_compiler(bv_solver_t *solver) {
 
 
 
+/*
+ * Scan the set of atoms created at the current base-level
+ * - mark all the variables that occur in these atoms
+ */
+static void bv_solver_mark_vars_in_atoms(bv_solver_t *solver) {
+  bv_vartable_t *vtbl;
+  bv_atomtable_t *atbl;
+  bvatm_t *atm;
+  uint32_t i, n;
+
+  vtbl = &solver->vtbl;
+
+  // scan the atoms created at the current base level
+  // and mark their variables
+  atbl = &solver->atbl;
+  n = atbl->natoms;
+  i = 0;
+  if (solver->base_level > 0) {
+    i = bv_trail_top(&solver->trail_stack)->natoms;
+  }
+
+  assert(i <= n);
+  while (i < n) {
+    atm = bvatom_desc(atbl, i);
+    bvvar_set_mark(vtbl, mtbl_get_root(&solver->mtbl, atm->left));
+    bvvar_set_mark(vtbl, mtbl_get_root(&solver->mtbl, atm->right));
+    i ++;
+  }
+
+}
+
+
+/*
+ * Check whether a variable is useful (i.e., requires bitblasting)
+ * - x is useful if it occurs in an atom (i.e., x is marked)
+ *   or if it mapped to another variable y in the merge table
+ *   or if it has an egraph term attached.
+ */
+static bool bvvar_is_useful(bv_solver_t *solver, thvar_t x) {
+  thvar_t y;
+
+  y = mtbl_get_root(&solver->mtbl, x);
+  return x != y || bvvar_is_marked(&solver->vtbl, x) || bvvar_has_eterm(&solver->vtbl, x);
+}
+
+
+
+/*
+ * Compile all the useful polynomial variables
+ */
+static void bv_solver_compile_polynomials(bv_solver_t *solver) {
+  bv_vartable_t *vtbl;
+  bvc_t *compiler;
+  uint32_t i, n;
+
+  bv_solver_alloc_compiler(solver);
+
+  compiler = solver->compiler;
+  vtbl = &solver->vtbl;
+  n = vtbl->nvars;
+  for (i=1; i<n; i++) {
+    switch (bvvar_tag(vtbl, i)) {
+    case BVTAG_POLY64:
+    case BVTAG_POLY:
+    case BVTAG_PPROD:
+      if (bvvar_is_useful(solver, i)) {
+	bv_compiler_push_var(compiler, i);
+      }
+      break;
+
+    default:
+      break;
+    }
+  }
+
+  // process the polynomials
+  bv_compiler_process_queue(compiler);
+}
+
+
+
+
+/*
+ * Assert (u == (op a b)) for one of the binary operators op
+ * - a, b must be fully-defined arrays of n literals
+ * - u must be an array of n pseudo literals
+ */
+static void bit_blaster_make_bvop(bit_blaster_t *blaster, bvvar_tag_t op, literal_t *a, literal_t *b, 
+				  literal_t *u, uint32_t n) {
+  switch (op) {
+  case BVTAG_ADD:
+    bit_blaster_make_bvadd(blaster, a, b, u, n);
+    break;
+  case BVTAG_SUB:
+    bit_blaster_make_bvsub(blaster, a, b, u, n);
+    break;
+  case BVTAG_MUL:
+    bit_blaster_make_bvmul(blaster, a, b, u, n);
+    break;
+  case BVTAG_SMOD:
+    bit_blaster_make_smod(blaster, a, b, u, n);
+    break;
+  case BVTAG_SHL:
+    bit_blaster_make_shift_left(blaster, a, b, u, n);
+    break;
+  case BVTAG_LSHR:
+    bit_blaster_make_lshift_right(blaster, a, b, u, n);
+    break;
+  case BVTAG_ASHR:
+    bit_blaster_make_ashift_right(blaster, a, b, u, n);
+    break;
+ 
+  default:
+    assert(false);
+  }
+}
+
+
+/*
+ * Assert (u == (op a b)) for a division/remainder term (op x y)
+ * - a and b must be arrays of n literals
+ * - u must be an array of n pseudo-literals
+ * Check whether the associate term z = (op' x y) exists and if so
+ * apply the bit-blasting operation to z too.
+ */
+static void bit_blaster_make_bvdivop(bv_solver_t *solver, bvvar_tag_t op, thvar_t x, thvar_t y,
+				     literal_t *a, literal_t *b, literal_t *u, uint32_t n) {
+  bv_vartable_t *vtbl;
+  literal_t *v;
+  thvar_t z;  
+
+  vtbl = &solver->vtbl;
+  v = NULL;
+
+  switch (op) {
+  case BVTAG_UDIV:
+    z = find_rem(vtbl, x, y);
+    if (z != null_thvar) {
+      v = bvvar_get_map(&solver->vtbl, z);
+    }
+    bit_blaster_make_udivision(solver->blaster, a, b, u, v, n);
+    break;
+
+  case BVTAG_UREM:
+    z = find_div(vtbl, x, y);
+    if (z != null_thvar) {
+      v = bvvar_get_map(&solver->vtbl, z);
+    }
+    bit_blaster_make_udivision(solver->blaster, a, b, v, u, n);    
+    break;
+
+  case BVTAG_SDIV:
+    z = find_srem(vtbl, x, y);
+    if (z != null_thvar) {
+      v = bvvar_get_map(&solver->vtbl, z);
+    }
+    bit_blaster_make_sdivision(solver->blaster, a, b, u, v, n);
+    break;
+
+  case BVTAG_SREM:
+    z = find_sdiv(vtbl, x, y);
+    if (z != null_thvar) {
+      v = bvvar_get_map(&solver->vtbl, z);
+    }
+    bit_blaster_make_sdivision(solver->blaster, a, b, v, u, n);
+    break;
+
+  default:
+    assert(false);
+    abort();
+  }
+}
+
 
 
 

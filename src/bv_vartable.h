@@ -16,11 +16,8 @@
  * refcount_int_array functions.
  *
  * We use two bits in kind[x] to mark variables as relevant and bit-blasted:
- * - a variable is marked if it occurs in an atom or if it's merged with
- *   another variable y in the merge table (i.e., x == y has been 
- *   asserted at the base level). This means that x must be bitblasted.
- * - x remains marked until its definition is converted to CNF (i.e., after
- *   bitblasting). Then the bitblasted bit is set in kind[x].
+ * - a variable is marked if it occurs in an atom
+ * - a variable is marked as bitblasted after its definition is converted to CNF
  */
 
 #ifndef __BV_VARTABLE_H
