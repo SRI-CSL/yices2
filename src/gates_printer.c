@@ -19,7 +19,7 @@ static void print_gate_op(FILE *f, uint32_t tag) {
   fputs(boolop2string[op], f);
 }
 
-void print_boolgate(FILE *f, boolgate_t *g) {
+void print_boolgate_old(FILE *f, boolgate_t *g) {
   uint32_t i, d, n, tag;
 
   tag = g->tag;
@@ -37,6 +37,73 @@ void print_boolgate(FILE *f, boolgate_t *g) {
     print_literal(f, g->lit[i]);
   }
   fputc(')', f);
+}
+
+
+void print_boolgate(FILE *f, boolgate_t *g) {
+  uint32_t i, d, tag;
+  gate_op_t op;
+
+  tag = g->tag;
+  d = tag_indegree(tag);
+  op = tag_combinator(tag);
+
+  switch (op) {
+  case XOR_GATE:    
+  case OR_GATE:
+  case ITE_GATE:
+  case CMP_GATE:
+    assert(tag_outdegree(tag) == 1);
+    print_literal(f, g->lit[d]);
+    fputs(" := ", f);
+    print_gate_op(f, tag);
+    fputc('(', f);
+    for (i=0; i<d; i++) {
+      if (i > 0) fputc(' ', f);
+      print_literal(f, g->lit[i]);
+    }
+    fputs(")\n",f);
+    break;
+
+  case HALFADD_GATE:
+    assert(tag_outdegree(tag) == 2);
+    print_literal(f, g->lit[d]);
+    fputs(" := XOR(", f);
+    for (i=0; i<d; i++) {
+      if (i > 0) fputc(' ', f);
+      print_literal(f, g->lit[i]);
+    }
+    fputs(")\n",f);
+    fputs("    ", f);
+    print_literal(f, g->lit[d+1]);
+    fputs(" := AND(", f);
+    for (i=0; i<d; i++) {
+      if (i > 0) fputc(' ', f);
+      print_literal(f, g->lit[i]);
+    }
+    fputs(")\n",f);    
+    break;
+
+  case FULLADD_GATE:
+    assert(tag_outdegree(tag) == 2);
+    print_literal(f, g->lit[d]);
+    fputs(" := SUM(", f);
+    for (i=0; i<d; i++) {
+      if (i > 0) fputc(' ', f);
+      print_literal(f, g->lit[i]);
+    }
+    fputs(")\n",f);
+    fputs("    ", f);
+    print_literal(f, g->lit[d+1]);
+    fputs(" := MAJ(", f);
+    for (i=0; i<d; i++) {
+      if (i > 0) fputc(' ', f);
+      print_literal(f, g->lit[i]);
+    }
+    fputs(")\n",f);    
+    break;
+  }
+  
 }
 
 
