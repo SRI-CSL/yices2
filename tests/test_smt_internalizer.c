@@ -537,20 +537,20 @@ static void test_internalization(smt_benchmark_t *bench) {
   }
 
   code = assert_formulas(&context, bench->nformulas, bench->formulas);
-  if (code == CTX_NO_ERROR && context_is_empty(&context)) {
+  if (code != CTX_NO_ERROR) {
+    print_internalization_code(code);    
+  } else if (context_is_empty(&context)) {
     printf("Reduced to the empty context\n\nsat\n");
+  } else if (context_has_bv_solver(&context)) {
+    // test bit-blasting 
+    if (bv_solver_bitblast(context.bv_solver)) {
+      printf("Bitblasting OK\n");
+      print_internalization_code(code);    
+    } else {
+      printf("Bitbasting detected inconsistency\n\nunsat\n");
+    }
   } else {
     print_internalization_code(code);
-
-    // test bit-blasting 
-    if (code == CTX_NO_ERROR && context_has_bv_solver(&context)) {
-      printf("bvsolver: %"PRIu32" vars (before compilation)\n", bv_solver_num_vars(context.bv_solver));
-      bv_solver_bitblast(context.bv_solver);
-      printf("bvsolver DAG: %"PRIu32" nodes\n", bv_solver_dag_size(context.bv_solver));
-      printf("bvsolver: %"PRIu32" vars (afer compilation)\n\n", bv_solver_num_vars(context.bv_solver));
-      //      printf("nodes to process: %"PRIu32" + %"PRIu32"\n", bv_solver_num_complex_nodes(context.bv_solver),
-      //	     bv_solver_num_elem_nodes(context.bv_solver));
-    }
   }
 
   if (dump) {

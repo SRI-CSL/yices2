@@ -49,8 +49,9 @@ extern bv_egraph_interface_t *bv_solver_bv_egraph_interface(bv_solver_t *solver)
 
 /*
  * FOR TESTING: convert the constraints to CNF
+ * - return false if there's a conflict
  */
-extern void bv_solver_bitblast(bv_solver_t *solver);
+extern bool bv_solver_bitblast(bv_solver_t *solver);
 
 
 

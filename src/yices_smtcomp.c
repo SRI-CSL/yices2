@@ -965,9 +965,7 @@ static int process_benchmark(void) {
       /*
        * Pure bit-vector problem
        */
-      //      arch = CTX_ARCH_BV;
-      arch = CTX_ARCH_NOSOLVERS; 
-      // Hack: replace BV by empty solver (to exercise the internalization functions).
+      arch = CTX_ARCH_BV;
       break;
 
     default:
@@ -1023,8 +1021,8 @@ static int process_benchmark(void) {
     break;
 
   case CTX_ARCH_BV:
-    // QF_BV options: --flatten --var-elim --fast-restarts --randomness=0 --bvarith-elim
-    enable_diseq_and_or_flattening(&context);
+    // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
+    //    enable_diseq_and_or_flattening(&context);
     enable_variable_elimination(&context);
     enable_bvarith_elimination(&context);
     params.fast_restart = true;
@@ -1063,8 +1061,8 @@ static int process_benchmark(void) {
 
   case CTX_ARCH_EGBV:         // egraph+bitvector solver
   case CTX_ARCH_EGFUNBV:      // egraph+fun+bitvector
-    // QF_BV options: --flatten --var-elim --fast-restarts --randomness=0 --bvarith-elim
-    enable_diseq_and_or_flattening(&context);
+    // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
+    //    enable_diseq_and_or_flattening(&context);
     enable_variable_elimination(&context);
     enable_bvarith_elimination(&context);
     params.fast_restart = true;

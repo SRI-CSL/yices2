@@ -198,7 +198,7 @@ extern literal_t *remap_table_fresh_array(remap_table_t *table, uint32_t n);
 
 /*
  * Decrement the reference counter (a must be allocated with the previous
- * function).
+ * function or with refcount_int_array).
  */
 static inline void remap_table_free_array(literal_t *a) {
   int_array_decref(a);

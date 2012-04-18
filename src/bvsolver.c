@@ -10,20 +10,32 @@
 #include "small_bvsets.h"
 #include "rb_bvsets.h"
 #include "int_powers.h"
+#include "refcount_int_arrays.h"
 
 #include "bvsolver.h"
 
 
 #define TRACE 0
 
-#if TRACE
+#define DUMP 1
+
+#if TRACE || DUMP
 
 #include <stdio.h>
 #include <inttypes.h>
+
+#include "smt_core_printer.h"
 #include "bvsolver_printer.h"
+#include "gates_printer.h"
 
 #endif
 
+
+#if DUMP 
+
+static void bv_solver_dump_state(bv_solver_t *solver, const char *filename);
+
+#endif
 
 /*****************
  *  BOUND QUEUE  *
@@ -532,9 +544,9 @@ static rb_bvset_t *new_rb_bvset(uint32_t k) {
 
 
 
-/********************************
- *  MAPPING TO PSEUDO LITERALS  *
- *******************************/
+/*****************
+ *  BIT EXTRACT  *
+ ****************/
 
 /*
  * Return the remap table (allocate and initialize it if necessary)
@@ -552,42 +564,6 @@ static remap_table_t *bv_solver_get_remap(bv_solver_t *solver) {
   return tmp;
 }
 
-#if 0
-
-/*
- * Convert constant c to an array of pseudo literals
- * - n = number of bits in c
- */
-static literal_t *bvconst64_get_pseudo_map(uint64_t c, uint32_t n) {
-  literal_t *a;
-  uint32_t i;
-
-  assert(0 < n && n <= 64);
-  a = (literal_t *) safe_malloc(n * sizeof(literal_t));
-
-  for (i=0; i<n; i++) {
-    a[i] = bool2literal(c & 1);
-    c >>= 1;
-  }
-
-  return a;
-}
-
-static literal_t *bvconst_get_pseudo_map(uint32_t *c, uint32_t n) {  
-  literal_t *a;
-  uint32_t i;
-
-  assert(64 < n);
-  a = (literal_t *) safe_malloc(n * sizeof(literal_t));
-
-  for (i=0; i<n; i++) {
-    a[i] = bool2literal(bvconst_tst_bit(c, i));
-  }
-
-  return a;
-}
-
-#endif
 
 /*
  * Return the pseudo literal array mapped to x
@@ -608,6 +584,7 @@ static literal_t *bvvar_get_pseudo_map(bv_solver_t *solver, thvar_t x) {
 
   return tmp;
 }
+
 
 
 /*
@@ -716,7 +693,6 @@ static void bv_solver_alloc_compiler(bv_solver_t *solver) {
 }
 
 
-
 /*
  * Scan the set of atoms created at the current base-level
  * - mark all the variables that occur in these atoms
@@ -752,7 +728,7 @@ static void bv_solver_mark_vars_in_atoms(bv_solver_t *solver) {
 /*
  * Check whether a variable is useful (i.e., requires bitblasting)
  * - x is useful if it occurs in an atom (i.e., x is marked)
- *   or if it mapped to another variable y in the merge table
+ *   or if it's mapped to another variable y in the merge table
  *   or if it has an egraph term attached.
  */
 static bool bvvar_is_useful(bv_solver_t *solver, thvar_t x) {
@@ -761,7 +737,6 @@ static bool bvvar_is_useful(bv_solver_t *solver, thvar_t x) {
   y = mtbl_get_root(&solver->mtbl, x);
   return x != y || bvvar_is_marked(&solver->vtbl, x) || bvvar_has_eterm(&solver->vtbl, x);
 }
-
 
 
 /*
@@ -782,7 +757,7 @@ static void bv_solver_compile_polynomials(bv_solver_t *solver) {
     case BVTAG_POLY64:
     case BVTAG_POLY:
     case BVTAG_PPROD:
-      if (bvvar_is_useful(solver, i)) {
+      if (true || bvvar_is_useful(solver, i)) { // FOR TESTING
 	bv_compiler_push_var(compiler, i);
       }
       break;
@@ -797,6 +772,260 @@ static void bv_solver_compile_polynomials(bv_solver_t *solver) {
 }
 
 
+
+/*
+ * PSEUDO-LITERAL MAPS
+ */
+
+/*
+ * Convert constant c to an array of pseudo literals
+ * - n = number of bits in c
+ */
+static literal_t *bvconst64_get_pseudo_map(uint64_t c, uint32_t n) {
+  literal_t *a;
+  uint32_t i;
+
+  assert(0 < n && n <= 64);
+  a = (literal_t *) alloc_int_array(n);
+  for (i=0; i<n; i++) {
+    a[i] = bool2literal(c & 1);
+    c >>= 1;
+  }
+
+  return a;
+}
+
+static literal_t *bvconst_get_pseudo_map(uint32_t *c, uint32_t n) {  
+  literal_t *a;
+  uint32_t i;
+
+  assert(64 < n);
+  a = (literal_t *) alloc_int_array(n);
+  for (i=0; i<n; i++) {
+    a[i] = bool2literal(bvconst_tst_bit(c, i));
+  }
+
+  return a;
+}
+
+
+/*
+ * Pseudo-literal array mapped to an array of literals a 
+ * - n = number of literals in a
+ */
+static literal_t *bvarray_get_pseudo_map(remap_table_t *rmap, literal_t *a, uint32_t n) {
+  literal_t *tmp;
+  uint32_t i;
+
+  tmp = remap_table_fresh_array(rmap, n);
+  for (i=0; i<n; i++) {
+    remap_table_assign(rmap, tmp[i], a[i]);
+  }
+
+  return tmp;
+}
+
+
+/*
+ * Get/create a pseudo map for x
+ * - assign a map to x if x is constant or bit array
+ * - return map[x]
+ */
+static literal_t *bvvar_simple_pseudo_map(bv_solver_t *solver, thvar_t x) {
+  bv_vartable_t *vtbl;
+  literal_t *tmp;
+
+  assert(solver->remap != NULL);
+
+  vtbl = &solver->vtbl;
+  tmp = bvvar_get_map(vtbl, x);
+  if (tmp == NULL) {
+    switch (bvvar_tag(vtbl, x)) {
+    case BVTAG_CONST64:
+      tmp = bvconst64_get_pseudo_map(bvvar_val64(vtbl, x), bvvar_bitsize(vtbl, x));
+      bvvar_set_map(vtbl, x, tmp);
+      break;
+
+    case BVTAG_CONST:
+      tmp = bvconst_get_pseudo_map(bvvar_val(vtbl, x), bvvar_bitsize(vtbl, x));
+      bvvar_set_map(vtbl, x, tmp);
+      break;
+
+    case BVTAG_BIT_ARRAY:
+      tmp = bvarray_get_pseudo_map(solver->remap, bvvar_bvarray_def(vtbl, x), bvvar_bitsize(vtbl, x));
+      bvvar_set_map(vtbl, x, tmp);
+      break;
+
+    default:
+      break;
+    }
+  }
+
+  return tmp;
+}
+
+
+
+/*
+ * Assert that pseudo literals s1 and s2 are equal
+ * - attempt to merge their equivalence classes in the remap table first
+ * - if that's not possible, assert (l1 == l2) in the core 
+ *   where l1 = literal mapped to s1
+ *     and l2 = literal mapped to s2
+ * - return false if s1 == not s2
+ */
+static bool merge_pseudo_literals(bv_solver_t *solver, literal_t s1, literal_t s2) {
+  remap_table_t *rmap;
+  literal_t l1, l2;
+
+  assert(solver->remap != NULL && solver->blaster != NULL);
+
+  rmap = solver->remap;
+  s1 = remap_table_find_root(rmap, s1);
+  s2 = remap_table_find_root(rmap, s2);
+  if (remap_table_mergeable(rmap, s1, s2)) {
+    remap_table_merge(rmap, s1, s2);
+  } else if (s1 == not(s2)) {
+    // contradiction detected
+    return false;
+  } else if (s1 != s2) {
+    l1 = remap_table_find(rmap, s1);
+    l2 = remap_table_find(rmap, s2);
+    bit_blaster_eq(solver->blaster, l1, l2);
+  }
+
+  return true;
+}
+
+
+/*
+ * Assert that two arrays a and b of n pseudo literals are equal
+ * - return false if a[i] == not b[i] for some i
+ */
+static bool merge_pseudo_maps(bv_solver_t *solver, literal_t *a, literal_t *b, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (! merge_pseudo_literals(solver, a[i], b[i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+
+/*
+ * Merge the pseudo maps of variables x and y
+ * - if x and y have no map, then create a common pseudo-literal array for both
+ * - return false if a contradiction is detected
+ */
+static bool bvvar_merge_pseudo_maps(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  literal_t *mx, *my;
+  uint32_t n;
+
+  assert(bvvar_bitsize(&solver->vtbl, x) == bvvar_bitsize(&solver->vtbl, y) 
+	 && x != y && solver->remap != NULL && solver->blaster != NULL);
+
+  mx = bvvar_simple_pseudo_map(solver, x);
+  my = bvvar_simple_pseudo_map(solver, y);
+  n = bvvar_bitsize(&solver->vtbl, x);
+
+  if (mx == my) {
+    if (mx == NULL) {
+      // allocate a fresh map
+      mx = remap_table_fresh_array(solver->remap, n);
+      bvvar_set_map(&solver->vtbl, x, mx);
+      bvvar_set_map(&solver->vtbl, y, mx);
+    }
+  } else {
+    if (mx == NULL) {
+      bvvar_set_map(&solver->vtbl, x, my);
+    } else if (my == NULL) {
+      bvvar_set_map(&solver->vtbl, y, mx);
+    } else {
+      return merge_pseudo_maps(solver, mx, my, n);
+    }
+  }
+
+  return true;
+} 
+
+
+/*
+ * Go through all variables and build the shared pseudo maps
+ */
+static bool bv_solver_make_shared_pseudo_maps(bv_solver_t *solver) {
+  bv_vartable_t *vtbl;
+  bvc_t *compiler;
+  uint32_t i, n;
+  thvar_t x, y;
+
+  assert(solver->compiler != NULL);
+
+  compiler = solver->compiler;
+
+  vtbl = &solver->vtbl;
+  n = vtbl->nvars;
+  for (i=1; i<n; i++) {
+    x = mtbl_get_root(&solver->mtbl, i);
+    y = bvvar_compiles_to(compiler, i);
+    if (y == null_thvar) y = i;
+    if (x != y && ! bvvar_merge_pseudo_maps(solver, x, y)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+/*
+ * Return the pseudo-map of x 
+ * - replace x by its root in the merge table
+ * - allocated a fresh pseudo map if x doesn't have one already
+ */
+static literal_t *bvvar_pseudo_map(bv_solver_t *solver, thvar_t x) {
+  bv_vartable_t *vtbl;
+  literal_t *tmp;
+
+  assert(solver->remap != NULL);
+  
+  vtbl = &solver->vtbl;
+
+  x = mtbl_get_root(&solver->mtbl, x);
+
+  tmp = bvvar_get_map(vtbl, x);
+  if (tmp == NULL) {
+    switch (bvvar_tag(vtbl, x)) {
+    case BVTAG_CONST64:
+      tmp = bvconst64_get_pseudo_map(bvvar_val64(vtbl, x), bvvar_bitsize(vtbl, x));
+      break;
+
+    case BVTAG_CONST:
+      tmp = bvconst_get_pseudo_map(bvvar_val(vtbl, x), bvvar_bitsize(vtbl, x));
+      break;
+
+    case BVTAG_BIT_ARRAY:
+      tmp = bvarray_get_pseudo_map(solver->remap, bvvar_bvarray_def(vtbl, x), bvvar_bitsize(vtbl, x));
+      break;
+
+    case BVTAG_POLY64:
+    case BVTAG_POLY:
+    case BVTAG_PPROD:
+      x = bvvar_compiles_to(solver->compiler, x); 
+      assert(x != null_thvar); // fall-through intended
+    default:
+      tmp = remap_table_fresh_array(solver->remap, bvvar_bitsize(vtbl, x));
+      break;
+    }
+
+    bvvar_set_map(vtbl, x, tmp);
+  }
+
+  return tmp;
+}
 
 
 /*
@@ -855,7 +1084,7 @@ static void bit_blaster_make_bvdivop(bv_solver_t *solver, bvvar_tag_t op, thvar_
   case BVTAG_UDIV:
     z = find_rem(vtbl, x, y);
     if (z != null_thvar) {
-      v = bvvar_get_map(&solver->vtbl, z);
+      v = bvvar_pseudo_map(solver, z);
     }
     bit_blaster_make_udivision(solver->blaster, a, b, u, v, n);
     break;
@@ -863,7 +1092,7 @@ static void bit_blaster_make_bvdivop(bv_solver_t *solver, bvvar_tag_t op, thvar_
   case BVTAG_UREM:
     z = find_div(vtbl, x, y);
     if (z != null_thvar) {
-      v = bvvar_get_map(&solver->vtbl, z);
+      v = bvvar_pseudo_map(solver, z);
     }
     bit_blaster_make_udivision(solver->blaster, a, b, v, u, n);    
     break;
@@ -871,7 +1100,7 @@ static void bit_blaster_make_bvdivop(bv_solver_t *solver, bvvar_tag_t op, thvar_
   case BVTAG_SDIV:
     z = find_srem(vtbl, x, y);
     if (z != null_thvar) {
-      v = bvvar_get_map(&solver->vtbl, z);
+      v = bvvar_pseudo_map(solver, z);
     }
     bit_blaster_make_sdivision(solver->blaster, a, b, u, v, n);
     break;
@@ -879,7 +1108,7 @@ static void bit_blaster_make_bvdivop(bv_solver_t *solver, bvvar_tag_t op, thvar_
   case BVTAG_SREM:
     z = find_sdiv(vtbl, x, y);
     if (z != null_thvar) {
-      v = bvvar_get_map(&solver->vtbl, z);
+      v = bvvar_pseudo_map(solver, z);
     }
     bit_blaster_make_sdivision(solver->blaster, a, b, v, u, n);
     break;
@@ -893,7 +1122,36 @@ static void bit_blaster_make_bvdivop(bv_solver_t *solver, bvvar_tag_t op, thvar_
 
 
 
-#if 0
+
+/*
+ * Collect the literals mapped to x in vector v
+ * - x must be mapped to an array of pseudo literals
+ */
+static void collect_bvvar_literals(bv_solver_t *solver, thvar_t x, ivector_t *v) {
+  remap_table_t *rmap;
+  literal_t *a;
+  uint32_t i,  n;
+  literal_t s;
+
+  assert(solver->remap != NULL);
+
+  rmap = solver->remap;
+
+  a = bvvar_get_map(&solver->vtbl, x);
+  n = bvvar_bitsize(&solver->vtbl, x);
+
+  assert(a != NULL);
+
+  ivector_reset(v);
+
+  for (i=0; i<n; i++) {
+    s = a[i];
+    assert(s != null_literal);
+    ivector_push(v, remap_table_find(rmap, s));
+  }
+}
+
+
 
 /*
  * Recursive bit-blasting:
@@ -905,56 +1163,216 @@ static void bit_blaster_make_bvdivop(bv_solver_t *solver, bvvar_tag_t op, thvar_
  */
 static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
   bv_vartable_t *vtbl;
-  remap_table_t *remap;
+  remap_table_t *rmap;
+  bv_ite_t *ite;
+  ivector_t *a, *b;
   literal_t *u;
+  uint32_t i, n;
+  literal_t l;
+  bvvar_tag_t op;
+  thvar_t y, z;
 
   assert(solver->remap != NULL && solver->blaster != NULL);
 
   vtbl = &solver->vtbl;
-  remap = solver->remap;
+  rmap = solver->remap;
 
-  if (! bvvar_is_marked(vtbl, x)) {
-    // x has not been translated yet
-    
+  if (! bvvar_is_bitblasted(vtbl, x)) {
+    /*
+     * x has not been translated yet
+     */
+    u = bvvar_pseudo_map(solver, x);
+    n = bvvar_bitsize(vtbl, x);
+    op = bvvar_tag(vtbl, x);
+
+    switch (op) {
+    case BVTAG_VAR:
+      // complete u's
+      for (i=0; i<n; i++) {
+	l = remap_table_find(rmap, u[i]);
+	if (l == null_literal) {
+	  l = bit_blaster_fresh_literal(solver->blaster);
+	  remap_table_assign(rmap, u[i], l);
+	}
+      }
+      break;
+
+    case BVTAG_CONST64:
+    case BVTAG_CONST:
+    case BVTAG_BIT_ARRAY:
+      // nothing to do: u is complete
+      break;
+
+    case BVTAG_POLY64:
+    case BVTAG_POLY:
+    case BVTAG_PPROD:
+      // replace x 
+      y = bvvar_compiles_to(solver->compiler, x);
+      assert(y != null_thvar);
+      bv_solver_bitblast_variable(solver, y);
+      break;
+
+    case BVTAG_ITE:
+      ite = bvvar_ite_def(vtbl, x);
+      l = ite->cond;
+      y = ite->left;
+      z = ite->right;
+      // TODO? check if l is true/false?
+      bv_solver_bitblast_variable(solver, y);
+      bv_solver_bitblast_variable(solver, z);
+      a = &solver->a_vector;
+      b = &solver->b_vector;
+      collect_bvvar_literals(solver, y, a);
+      collect_bvvar_literals(solver, z, b);
+      assert(a->size == n && b->size == n);
+      bit_blaster_make_bvmux(solver->blaster, l, a->data, b->data, u, n);
+      break;
+
+    case BVTAG_UDIV:
+    case BVTAG_UREM:
+    case BVTAG_SDIV:
+    case BVTAG_SREM:
+      y = vtbl->def[x].op[0];
+      z = vtbl->def[x].op[1];
+      bv_solver_bitblast_variable(solver, y);
+      bv_solver_bitblast_variable(solver, z);
+      a = &solver->a_vector;
+      b = &solver->b_vector;
+      collect_bvvar_literals(solver, y, a);
+      collect_bvvar_literals(solver, z, b);
+      assert(a->size == n && b->size == n);
+      bit_blaster_make_bvdivop(solver, op, y, z, a->data, b->data, u, n);
+      break;
+
+    case BVTAG_SMOD:
+    case BVTAG_SHL:
+    case BVTAG_LSHR:
+    case BVTAG_ASHR:
+    case BVTAG_ADD:
+    case BVTAG_SUB:
+    case BVTAG_MUL:
+      y = vtbl->def[x].op[0];
+      z = vtbl->def[x].op[1];
+      bv_solver_bitblast_variable(solver, y);
+      bv_solver_bitblast_variable(solver, z);
+      a = &solver->a_vector;
+      b = &solver->b_vector;
+      collect_bvvar_literals(solver, y, a);
+      collect_bvvar_literals(solver, z, b);
+      assert(a->size == n && b->size == n);
+      bit_blaster_make_bvop(solver->blaster, op, a->data, b->data, u, n);
+      break;
+
+    case BVTAG_NEG:
+      y = vtbl->def[x].op[0];
+      bv_solver_bitblast_variable(solver, y);
+      a = &solver->a_vector;
+      collect_bvvar_literals(solver, y, a);
+      assert(a->size == n);
+      bit_blaster_make_bvneg(solver->blaster, a->data, u, n);
+      break;
+    }
+
+    // mark x as biblasted
+    bvvar_set_bitblasted(vtbl, x);
   }
 }
 
-#endif
+
+/*
+ * Bitblast all the atoms
+ */
+static void bv_solver_bitblast_atoms(bv_solver_t *solver) {
+  bv_atomtable_t *atbl;
+  bv_vartable_t *vtbl;
+  ivector_t *a, *b;
+  uint32_t i, n;
+  literal_t l;
+  thvar_t x, y;
+
+  vtbl = &solver->vtbl;
+  atbl = &solver->atbl;
+  n = atbl->natoms;
+
+  a = &solver->a_vector;
+  b = &solver->b_vector;
+
+  for (i=0; i<n; i++) {
+    l = atbl->data[i].lit;
+    x = atbl->data[i].left;
+    y = atbl->data[i].right;
+
+    /*
+     * Process operands x and y
+     */
+    bv_solver_bitblast_variable(solver, x);
+    bv_solver_bitblast_variable(solver, y);
+    collect_bvvar_literals(solver, x, a);
+    collect_bvvar_literals(solver, y, b);
+    assert(a->size == b->size && a->size > 0);
+
+    switch (bvatm_tag(atbl->data + i)) {
+    case BVEQ_ATM:
+      bit_blaster_make_bveq2(solver->blaster, a->data, b->data, l, a->size);
+      break;
+
+    case BVUGE_ATM:
+      bit_blaster_make_bvuge2(solver->blaster, a->data, b->data, l, a->size);
+      break;
+
+    case BVSGE_ATM:
+      bit_blaster_make_bvsge2(solver->blaster, a->data, b->data, l, a->size);
+      break;
+    }
+  }
+}
+
+
+/*
+ * Complete bit-blasting:
+ * - whenever (x == y) in the merge table, add the corresponding equality in the core
+ */
+static void bv_solver_bitblast_variables(bv_solver_t *solver) {
+  bv_vartable_t *vtbl;
+  uint32_t i, n;
+
+  vtbl = &solver->vtbl;
+  n = vtbl->nvars;
+  for (i=1; i<n; i++) {
+    if (bvvar_is_useful(solver, i)) {
+      bv_solver_bitblast_variable(solver, i);
+    }
+  }
+}
 
 
 /*
  * Top-level bit-blasting: exported for testing
  */
-void bv_solver_bitblast(bv_solver_t *solver) {
-  bv_vartable_t *vtbl;
-  bvc_t *compiler;
-  uint32_t i, n;
-
+bool bv_solver_bitblast(bv_solver_t *solver) {
+#if DUMP
+  bv_solver_dump_state(solver, "before-biblasting.dmp");
+#endif
   bv_solver_prepare_blasting(solver);
-  bv_solver_alloc_compiler(solver);
+  bv_solver_mark_vars_in_atoms(solver);
+  bv_solver_compile_polynomials(solver);
 
-  /*
-   * test: send all the polynomials and power products to
-   * the compiler then turn the terms to DAGs
-   */
-  compiler = solver->compiler;
-  vtbl = &solver->vtbl;
-  n = vtbl->nvars;
-  for (i=1; i<n; i++) {
-    switch (bvvar_tag(vtbl, i)) {
-    case BVTAG_POLY64:
-    case BVTAG_POLY:
-    case BVTAG_PPROD:
-      bv_compiler_push_var(compiler, i);
-      break;
-
-    default:
-      break;
-    }
+  if (!bv_solver_make_shared_pseudo_maps(solver)) {
+    return false;
   }
 
-  // process the polynomials
-  bv_compiler_process_queue(compiler);
+#if DUMP
+  bv_solver_dump_state(solver, "after-shared-pmaps.dmp");
+#endif
+
+  bv_solver_bitblast_atoms(solver);
+  bv_solver_bitblast_variables(solver);
+
+#if DUMP
+  bv_solver_dump_state(solver, "before-lemmas.dmp");
+#endif
+
+  return true;
 }
 
 
@@ -3786,6 +4204,12 @@ void bv_solver_start_internalization(bv_solver_t *solver) {
  *   to the smt_core
  */
 void bv_solver_start_search(bv_solver_t *solver) {
+  bool feasible;
+
+  feasible = bv_solver_bitblast(solver);
+  if (! feasible) {
+    add_empty_clause(solver->core);
+  }
 }
 
 
@@ -3800,6 +4224,12 @@ fcheck_code_t bv_solver_final_check(bv_solver_t *solver) {
 
 void bv_solver_increase_decision_level(bv_solver_t *solver) {
   solver->decision_level ++;
+
+#if DUMP
+  if (solver->core->stats.decisions == 1) {
+    bv_solver_dump_state(solver, "after-bitblasting.dmp");
+  }
+#endif
 }
 
 void bv_solver_backtrack(bv_solver_t *solver, uint32_t backlevel) {
@@ -5376,3 +5806,38 @@ bv_egraph_interface_t *bv_solver_bv_egraph_interface(bv_solver_t *solver) {
 
 
 
+#if DUMP
+
+/*******************
+ *  FOR DEBUGGING  *
+ ******************/
+
+static void bv_solver_dump_state(bv_solver_t *solver, const char *filename) {
+  FILE *f;
+
+  f = fopen(filename, "w");
+  if (f != NULL) {
+    fprintf(f, "\n--- Bitvector Partition ---\n");
+    print_bv_solver_partition(f, solver);
+    fprintf(f, "\n--- Bitvector Variables ---\n");
+    print_bv_solver_vars(f, solver);
+    fprintf(f, "\n--- Bitvector Atoms ---\n");
+    print_bv_solver_atoms(f, solver);
+    fprintf(f, "\ntotal: %"PRIu32" atoms\n", solver->atbl.natoms);
+    fprintf(f, "\n--- Bitvector Bounds ---\n");
+    print_bv_solver_bounds(f, solver);
+    fprintf(f, "\n--- DAG ---\n");
+    print_bv_solver_dag(f, solver);
+    if (solver->blaster != NULL) {
+      fprintf(f, "\n--- Gates ---\n");
+      print_gate_table(f, &solver->blaster->htbl);
+    }
+    fprintf(f, "\n--- Clauses ---\n");
+    print_clauses(f, solver->core);
+    fprintf(f, "\n");
+    fclose(f);
+  }
+}
+
+
+#endif

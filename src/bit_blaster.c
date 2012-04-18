@@ -1972,6 +1972,7 @@ static literal_t make_cmp(bit_blaster_t *s, literal_t a, literal_t b, literal_t 
       // create a fresh l and assert l = (cmp a b c)
       l = bit_blaster_fresh_literal(s);
       bit_blaster_cmp(s, a, b, c, l);
+      g->lit[3] = l;
     }
   }
   assert(l != null_literal);
