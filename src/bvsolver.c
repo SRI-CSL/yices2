@@ -1339,7 +1339,7 @@ static void bv_solver_bitblast_variables(bv_solver_t *solver) {
   vtbl = &solver->vtbl;
   n = vtbl->nvars;
   for (i=1; i<n; i++) {
-    if (bvvar_is_useful(solver, i)) {
+    if (true || bvvar_is_useful(solver, i)) {
       bv_solver_bitblast_variable(solver, i);
     }
   }
