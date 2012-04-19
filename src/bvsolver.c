@@ -15,9 +15,9 @@
 #include "bvsolver.h"
 
 
-#define TRACE 0
+#define TRACE 1
 
-#define DUMP 1
+#define DUMP 0
 
 #if TRACE || DUMP
 
@@ -543,6 +543,68 @@ static rb_bvset_t *new_rb_bvset(uint32_t k) {
 
 
 
+/**************
+ *  MARKING   *
+ *************/
+
+/*
+ * A variable x is marked if it occurs in an atom or if a literal of 
+ * x is exported to the context (i.e., if (select x i) was called).
+ *
+ * When converting the polynomials to elementary constructs, we skip
+ * the unmarked variables. For this to work, we recurvely mark
+ * all variables on which a marked variable depends until we reach
+ * polynomial expressions.
+ */
+static void bv_solver_mark_variable(bv_solver_t *solver, thvar_t x) {
+  bv_vartable_t *vtbl;
+  bv_ite_t *ite;
+
+  vtbl = &solver->vtbl;
+
+  if (! bvvar_is_marked(vtbl, x)) {
+    bvvar_set_mark(vtbl, x);
+    switch (bvvar_tag(vtbl, x)) {
+    case BVTAG_VAR:
+    case BVTAG_CONST64:
+    case BVTAG_CONST:
+    case BVTAG_POLY64:
+    case BVTAG_POLY:
+    case BVTAG_PPROD:
+    case BVTAG_BIT_ARRAY:
+      // nothing more to do
+      break;
+
+    case BVTAG_ITE:
+      ite = bvvar_ite_def(vtbl, x);
+      // could check whether ite->cond is true or false?
+      bv_solver_mark_variable(solver, mtbl_get_root(&solver->mtbl, ite->left));
+      bv_solver_mark_variable(solver, mtbl_get_root(&solver->mtbl, ite->right));
+      break;
+
+    case BVTAG_UDIV:
+    case BVTAG_UREM:
+    case BVTAG_SREM:
+    case BVTAG_SDIV:
+    case BVTAG_SMOD:
+    case BVTAG_SHL:
+    case BVTAG_LSHR:
+    case BVTAG_ASHR:
+    case BVTAG_ADD:
+    case BVTAG_SUB:
+    case BVTAG_MUL:
+      bv_solver_mark_variable(solver, mtbl_get_root(&solver->mtbl, vtbl->def[x].op[0]));
+      bv_solver_mark_variable(solver, mtbl_get_root(&solver->mtbl, vtbl->def[x].op[1]));
+      break;
+
+    case BVTAG_NEG:
+      bv_solver_mark_variable(solver, mtbl_get_root(&solver->mtbl, vtbl->def[x].op[0]));
+      break;
+    }
+  }
+}
+
+
 
 /*****************
  *  BIT EXTRACT  *
@@ -568,6 +630,7 @@ static remap_table_t *bv_solver_get_remap(bv_solver_t *solver) {
 /*
  * Return the pseudo literal array mapped to x
  * - allocate a new array of n literals if x is not mapped yet
+ * - mark x as useful
  */
 static literal_t *bvvar_get_pseudo_map(bv_solver_t *solver, thvar_t x) {
   remap_table_t *rmap;
@@ -580,6 +643,7 @@ static literal_t *bvvar_get_pseudo_map(bv_solver_t *solver, thvar_t x) {
     rmap = bv_solver_get_remap(solver);
     tmp = remap_table_fresh_array(rmap, n);
     bvvar_set_map(&solver->vtbl, x, tmp);
+    bv_solver_mark_variable(solver, x);
   }
 
   return tmp;
@@ -634,6 +698,7 @@ static literal_t bvarray_get_bit(bv_vartable_t *vtbl, thvar_t x, uint32_t i) {
 /*
  * Extract bit i of variable x: 
  * - get it from the pseudo literal array mapped to x
+ * - also set the mark on x (i.e., x is considered a useful variable)
  */
 static literal_t bvvar_get_bit(bv_solver_t *solver, thvar_t x, uint32_t i) {
   remap_table_t *rmap;
@@ -717,8 +782,8 @@ static void bv_solver_mark_vars_in_atoms(bv_solver_t *solver) {
   assert(i <= n);
   while (i < n) {
     atm = bvatom_desc(atbl, i);
-    bvvar_set_mark(vtbl, mtbl_get_root(&solver->mtbl, atm->left));
-    bvvar_set_mark(vtbl, mtbl_get_root(&solver->mtbl, atm->right));
+    bv_solver_mark_variable(solver, mtbl_get_root(&solver->mtbl, atm->left));
+    bv_solver_mark_variable(solver, mtbl_get_root(&solver->mtbl, atm->right));
     i ++;
   }
 
@@ -1217,6 +1282,19 @@ static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
       l = ite->cond;
       y = ite->left;
       z = ite->right;
+#if TRACE
+      if (l == true_literal || l == false_literal) {
+	if (l == true_literal) {
+	  printf("---> condition in ite is true\n");
+	} else {
+	  printf("---> condition in ite is false\n");
+	}
+	print_bv_solver_vardef(stdout, solver, x);
+	print_bv_solver_vardef(stdout, solver, ite->left);
+	print_bv_solver_vardef(stdout, solver, ite->right);
+	fflush(stdout);
+      }      
+#endif
       // TODO? check if l is true/false?
       bv_solver_bitblast_variable(solver, y);
       bv_solver_bitblast_variable(solver, z);

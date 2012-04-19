@@ -1307,7 +1307,8 @@ term_t mk_bool_ite(term_manager_t *manager, term_t c, term_t x, term_t y) {
     aux = x; x = y; y = aux;
   }
 
-  if (term_kind(&manager->terms, x) == BV_EQ_ATOM && 
+  if (is_pos_term(x) && is_pos_term(y) && 
+      term_kind(&manager->terms, x) == BV_EQ_ATOM && 
       term_kind(&manager->terms, y) == BV_EQ_ATOM) {
     return mk_lifted_ite_bveq(manager, c, x, y);
   }

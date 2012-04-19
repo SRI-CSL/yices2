@@ -1833,5 +1833,4 @@ static inline bool all_variables_assigned(smt_core_t *s) {
 extern bool all_clauses_true(smt_core_t *s);
 
 
-
 #endif /* __SMT_CORE_H */
