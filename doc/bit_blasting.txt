@@ -74,7 +74,7 @@ CLAUSAL ENCODING
 6) Constraint x = (UCMP a1 a2 c).
 
    This means  "x = (a1 > a2) or ((a1 >= a2) and c)"
-   or equivalently, "x = (a1 > a2) or ((a1 = x2) and c)"
+   or equivalently, "x = (a1 > a2) or ((a1 = a2) and c)"
 
 
    Truth table                        

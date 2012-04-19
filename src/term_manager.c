@@ -447,10 +447,12 @@ static term_t bvarray_get_term(term_manager_t *manager, term_t *a, uint32_t n) {
  */
 
 /*
- * Check whether x is (bveq a 0b0) or (bveq a 0b1) where a is a term 
+ * Check whether x is equivalent to (bveq a 0b0) or (bveq a 0b1) where a is a term 
  * of type (bitvector 1).
  * - if x is (bveq a 0b0): return a and set polarity to false
  * - if x is (bveq a 0b1): return a and set polarity to true
+ * - if x is (not (bveq a 0b0)): return a and set polarity to true
+ * - if x is (not (bveq a 0b1)): return a and set polarity to false
  * - otherwise, return NULL_TERM (leave polarity unchanged)
  */
 static term_t term_is_bveq1(term_table_t *tbl, term_t x, bool *polarity) {
@@ -468,7 +470,7 @@ static term_t term_is_bveq1(term_table_t *tbl, term_t x, bool *polarity) {
 	// a is either 0b0 or 0b1
 	c = bvconst64_term_desc(tbl, a);
 	assert(c->value == 0 || c->value == 1);
-	*polarity = (bool) c->value;
+	*polarity = ((bool) c->value) ^ is_neg_term(x);
 	return b;
       }
 
@@ -476,7 +478,7 @@ static term_t term_is_bveq1(term_table_t *tbl, term_t x, bool *polarity) {
 	// b is either 0b0 or 0b1
 	c = bvconst64_term_desc(tbl, b);
 	assert(c->value == 0 || c->value == 1);
-	*polarity = (bool) c->value;
+	*polarity = ((bool) c->value) ^ is_neg_term(x);
 	return a;
       }
     }
@@ -555,7 +557,7 @@ static term_t mk_bitvector_eq(term_manager_t *manager, term_t t1, term_t t2) {
 
 /*
  * Special constructor for (iff x y) when x or y (or both)
- * are of the form (bveq a 0b0) or (bveq a 0b1).
+ * are equivalent to (bveq a 0b0) or (bveq a 0b1).
  *
  * Try the following rewrite rules:
  *   iff (bveq a 0b0) (bveq b 0b0) ---> (bveq a b)
@@ -2568,11 +2570,13 @@ term_t mk_tuple(term_manager_t *manager, uint32_t n, term_t arg[]) {
   tbl = &manager->terms;
 
   a = arg[0];
-  if (term_kind(tbl, a) == SELECT_TERM && select_term_index(tbl, a) == 0) {
+  if (is_pos_term(a) && term_kind(tbl, a) == SELECT_TERM && 
+      select_term_index(tbl, a) == 0) {
     x = select_term_arg(tbl, a);
     for (i = 1; i<n; i++) {
       a = arg[i];
-      if (term_kind(tbl, a) != SELECT_TERM ||
+      if (is_neg_term(a) || 
+	  term_kind(tbl, a) != SELECT_TERM ||
 	  select_term_index(tbl, a) != i ||
 	  select_term_arg(tbl, a) != x) {
 	return tuple_term(tbl, n, arg);
@@ -2725,9 +2729,8 @@ static term_t mk_tuple_aux(term_manager_t *manager, term_t tuple, uint32_t n, ui
 
   tbl = &manager->terms;
 
-  if (term_kind(tbl, v) == SELECT_TERM && 
-      select_term_arg(tbl, v) == tuple &&
-      select_term_index(tbl, v) == i) {
+  if (is_pos_term(v) && term_kind(tbl, v) == SELECT_TERM && 
+      select_term_arg(tbl, v) == tuple && select_term_index(tbl, v) == i) {
     return tuple;
   }
 
