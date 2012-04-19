@@ -1700,11 +1700,13 @@ static bool bound_is_signed_lb(bv_solver_t *solver, thvar_t x, int32_t i) {
 static uint64_t get_upper_bound64(bv_solver_t *solver, thvar_t x, int32_t i) {
   bvatm_t *a;
   uint64_t c;
+  uint32_t n;
 
   a = bvatom_desc(&solver->atbl, i);
   if (x == a->left) {
     // (bvge x c) false: x <= c-1
-    c = bvvar_val64(&solver->vtbl, a->right) - 1;    
+    n = bvvar_bitsize(&solver->vtbl, x);
+    c = norm64(bvvar_val64(&solver->vtbl, a->right) - 1, n);
   } else {
     // (bvge c x) true: x <= c
     assert(x == a->right);
@@ -1728,6 +1730,7 @@ static uint64_t get_upper_bound64(bv_solver_t *solver, thvar_t x, int32_t i) {
 static uint64_t get_lower_bound64(bv_solver_t *solver, thvar_t x, int32_t i) {
   bvatm_t *a;
   uint64_t c;
+  uint32_t n;
 
   a = bvatom_desc(&solver->atbl, i);
   if (x == a->left) {
@@ -1736,7 +1739,8 @@ static uint64_t get_lower_bound64(bv_solver_t *solver, thvar_t x, int32_t i) {
   } else {
     // (bvge c x) false: x >= c+1
     assert(x == a->right);
-    c = bvvar_val64(&solver->vtbl, a->left) + 1;
+    n = bvvar_bitsize(&solver->vtbl, x);
+    c = norm64(bvvar_val64(&solver->vtbl, a->left) + 1, n);
   }
 
   assert(c == norm64(c, bvvar_bitsize(&solver->vtbl, x)));
