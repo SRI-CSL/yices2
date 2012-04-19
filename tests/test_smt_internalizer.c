@@ -21,6 +21,7 @@
 #include "egraph_printer.h"
 #include "smt_core_printer.h"
 #include "context_printer.h"
+#include "gates_printer.h"
 
 // TEMPORARY: for bv_solver_bitblast
 #include "bvsolver.h"
@@ -272,6 +273,10 @@ static void dump_bv_solver(FILE *f, bv_solver_t *solver) {
   print_bv_solver_bounds(f, solver);
   fprintf(f, "\n--- DAG ---\n");
   print_bv_solver_dag(f, solver);
+  if (solver->blaster != NULL) {
+    fprintf(f, "\n--- Gates ---\n");
+    print_gate_table(f, &solver->blaster->htbl);
+  }
   fprintf(f, "\n");
 }
 

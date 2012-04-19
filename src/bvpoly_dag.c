@@ -1238,8 +1238,7 @@ node_occ_t bvc_dag_leaf(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
 
 /*
  * Get a node mapped to x
- * - if there's none, create the node [leaf x] and store [x --> [leaf x]]
- *   in the vmap
+ * - if there's none, create the node [leaf x] and return it
  */
 node_occ_t bvc_dag_get_nocc_of_var(bvc_dag_t *dag, int32_t x, uint32_t bitsize) {
   node_occ_t n;
@@ -1250,7 +1249,7 @@ node_occ_t bvc_dag_get_nocc_of_var(bvc_dag_t *dag, int32_t x, uint32_t bitsize) 
     return bvc_dag_nocc_of_var(dag, x);
   } else {
     n = bvc_dag_leaf(dag, x, bitsize);
-    bvc_dag_map_var(dag, x, n);
+    //    bvc_dag_map_var(dag, x, n); // BUGGY
     return n;
   }
 }

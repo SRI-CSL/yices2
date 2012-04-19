@@ -568,22 +568,22 @@ void bv_compiler_push_var(bvc_t *c, thvar_t x) {
   switch (bvvar_tag(vtbl, x)) {
   case BVTAG_POLY64:
     if (bvvar_to_process(c, x)) {
-      bv_compiler_push_poly64(c, bvvar_poly64_def(vtbl, x));
       push_to_process(c, x);
+      bv_compiler_push_poly64(c, bvvar_poly64_def(vtbl, x));
     }
     break;
 
   case BVTAG_POLY: 
     if (bvvar_to_process(c, x)) {
-      bv_compiler_push_poly(c, bvvar_poly_def(vtbl, x));
       push_to_process(c, x);
+      bv_compiler_push_poly(c, bvvar_poly_def(vtbl, x));
     }
     break;
 
   case BVTAG_PPROD:
     if (bvvar_to_process(c, x)) {
-      bv_compiler_push_pprod(c, bvvar_pprod_def(vtbl, x));
       push_to_process(c, x);
+      bv_compiler_push_pprod(c, bvvar_pprod_def(vtbl, x));
     }
     break;
 
