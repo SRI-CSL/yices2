@@ -416,6 +416,23 @@ static thvar_t bv_compiler_mk_power_product(bvc_t *c, uint32_t n, pp_buffer_t *b
  */
 
 /*
+ * Substitution could introduce circular dependencies. To prevent cycles
+ * we store the variables to process in c->queue and we store the set
+ * of variables that remain to be compiled in c->in_queue.
+ * - a substitution y := x is safe if x is not in c->in_queue
+ */
+static thvar_t bv_compiler_subst_var(bvc_t *c, thvar_t x) {
+  thvar_t y;
+
+  y = mtbl_get_root(c->mtbl, x);
+  if (int_bvset_member(&c->in_queue, y)) {
+    y = x;
+  }
+
+  return y;
+}
+
+/*
  * Apply the substitution stored in the merge table to p
  * - store the result in the poly_buffer b
  */
@@ -438,6 +455,7 @@ static void bv_compiler_simplify_poly64(bvc_t *c, bvpoly64_t *p,  bvpoly_buffer_
   while (i < n) {
     assert(p->mono[i].var != const_idx);
     x = mtbl_get_root(c->mtbl, p->mono[i].var);
+    //    x = bv_compiler_subst_var(c, p->mono[i].var);
     if (bvvar_is_const64(vtbl, x)) {
       bvpoly_buffer_add_const64(b, p->mono[i].coeff * bvvar_val64(vtbl, x));
     } else {
@@ -468,6 +486,7 @@ static void bv_compiler_simplify_poly(bvc_t *c, bvpoly_t *p, bvpoly_buffer_t *b)
   while (i < n) {
     assert(p->mono[i].var != const_idx);
     x = mtbl_get_root(c->mtbl, p->mono[i].var);
+    //    x = bv_compiler_subst_var(c, p->mono[i].var);
     if (bvvar_is_const(vtbl, x)) {
       bvpoly_buffer_addmul_constant(b, p->mono[i].coeff, bvvar_val(vtbl, x));
     } else {
@@ -558,6 +577,13 @@ static void bv_compiler_push_pprod(bvc_t *c, pprod_t *p) {
   }
 }
 
+
+/*
+ * Add x queue and all the variables x depends on to the queue:a
+ * - mark x first (to prevent looping if there are  circular dependencies)
+ * - recursively push the children
+ * - then add x to the queue
+ */
 void bv_compiler_push_var(bvc_t *c, thvar_t x) {
   bv_vartable_t *vtbl;
   
@@ -568,22 +594,25 @@ void bv_compiler_push_var(bvc_t *c, thvar_t x) {
   switch (bvvar_tag(vtbl, x)) {
   case BVTAG_POLY64:
     if (bvvar_to_process(c, x)) {
-      push_to_process(c, x);
+      int_bvset_add(&c->in_queue, x);
       bv_compiler_push_poly64(c, bvvar_poly64_def(vtbl, x));
+      bvc_queue_push(&c->queue, x);
     }
     break;
 
   case BVTAG_POLY: 
     if (bvvar_to_process(c, x)) {
-      push_to_process(c, x);
+      int_bvset_add(&c->in_queue, x);
       bv_compiler_push_poly(c, bvvar_poly_def(vtbl, x));
+      bvc_queue_push(&c->queue, x);
     }
     break;
 
   case BVTAG_PPROD:
     if (bvvar_to_process(c, x)) {
-      push_to_process(c, x);
+      int_bvset_add(&c->in_queue, x);
       bv_compiler_push_pprod(c, bvvar_pprod_def(vtbl, x));
+      bvc_queue_push(&c->queue, x);
     }
     break;
 
@@ -619,6 +648,7 @@ static node_occ_t bv_compiler_pprod_to_dag(bvc_t *c, pprod_t *p, uint32_t bitsiz
   n = p->len;
   for (i=0; i<n; i++) {
     x = mtbl_get_root(c->mtbl, p->prod[i].var);
+    //    x = bv_compiler_subst_var(c, p->prod[i].var);
     q = bvc_dag_get_nocc_of_var(dag, x, bitsize);
     ivector_push(v, q);
   }
@@ -676,8 +706,8 @@ static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
   node_occ_t q;
   uint64_t a;
 
-  assert(0 < x && x < c->vtbl->nvars);
-
+  assert(0 < x && x < c->vtbl->nvars && int_bvset_member(&c->in_queue, x));
+	   
   q = -1; // Stop GCC warning
 
   vtbl = c->vtbl;
@@ -720,7 +750,8 @@ static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
     break;
   }
 
-  bvc_dag_map_var(&c->dag, x, q);  
+  bvc_dag_map_var(&c->dag, x, q);
+  int_bvset_remove(&c->in_queue, x);
 }
 
 

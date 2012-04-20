@@ -61,7 +61,6 @@ static inline bool int_bvset_is_empty(int_bvset_t *set) {
 
 /*
  * Check whether x belongs to set
- * - x must be non-negative
  */
 static inline bool int_bvset_member(int_bvset_t *set, uint32_t x) {
   return x < set->nbits && tst_bit(set->data, x);
@@ -69,12 +68,22 @@ static inline bool int_bvset_member(int_bvset_t *set, uint32_t x) {
 
 
 /*
- * Add x to the set
- * - x must be non-negative
- * - return true if x was not already present in set
- * - return false if x was present in set
+ * Check whether x belongs to set and if not add x to the set
+ * - return true if x was absent
+ * - return false if x was present in set (then set does not change)
  */
-extern bool int_bvset_add(int_bvset_t *set, uint32_t x);
+extern bool int_bvset_add_check(int_bvset_t *set, uint32_t x);
+
+
+/*
+ * Add x to the set
+ */
+extern void int_bvset_add(int_bvset_t *set, uint32_t x);
+
+/*
+ * Remove x from the set
+ */
+extern void int_bvset_remove(int_bvset_t *sat, uint32_t x);
 
 
 #endif /* __INT_BV_SETS_H */

@@ -37,6 +37,8 @@ static void bv_solver_dump_state(bv_solver_t *solver, const char *filename);
 
 #endif
 
+
+
 /*****************
  *  BOUND QUEUE  *
  ****************/
@@ -313,6 +315,83 @@ static inline bv_aux_buffers_t *get_bv_aux_buffers(bv_interval_stack_t *stack) {
 
 
 
+/**********************
+ *  VARIABLE QUEUES   *
+ *********************/
+
+/*
+ * Initialize to the empty queue
+ */
+static inline void init_bv_queue(bv_queue_t *queue) {
+  queue->data = NULL;
+  queue->top = 0;
+  queue->size = 0;
+}
+
+/*
+ * Make the queue larger
+ */
+static void bv_queue_extend(bv_queue_t *queue) {
+  uint32_t n;
+
+  n = queue->size;
+  if (n == 0) {
+    // first allocation
+    n = DEF_BV_QUEUE_SIZE;
+    assert(n > 0 && n <= MAX_BV_QUEUE_SIZE && queue->data == NULL);
+  } else {
+    n += (n >> 1); // 50% large   
+    assert(n > queue->size);
+    if (n > MAX_BV_QUEUE_SIZE) {
+      out_of_memory();
+    }
+  }
+
+  queue->data = (thvar_t *) safe_realloc(queue->data, n * sizeof(thvar_t));
+  queue->size = n;
+}
+
+
+/*
+ * Push x on the queue
+ */
+static void bv_queue_push(bv_queue_t *queue, thvar_t x) {
+  uint32_t i;
+
+  i = queue->top;
+  if (i == queue->size) {
+    bv_queue_extend(queue);
+  }
+  assert(i < queue->size);
+  queue->data[i] = x;
+  queue->top = i + 1;
+}
+
+
+/*
+ * Empty the queue
+ */
+static inline void reset_bv_queue(bv_queue_t *queue) {
+  queue->top = 0;
+}
+
+
+/*
+ * Delete
+ */
+static void delete_bv_queue(bv_queue_t *queue) {
+  if (queue->data != NULL) {
+    safe_free(queue->data);
+    queue->data = NULL;
+  }
+}
+
+
+
+
+
+
+
 /********************
  *  PUSH/POP STACK  *
  *******************/
@@ -333,8 +412,10 @@ static void init_bv_trail(bv_trail_stack_t *stack) {
  * - nv = number of variables
  * - na = number of atoms
  * - nb = number of bounds
+ * - ns = number of select variables
+ * - nd = number of delayed variables
  */
-static void bv_trail_save(bv_trail_stack_t *stack, uint32_t nv, uint32_t na, uint32_t nb) {
+static void bv_trail_save(bv_trail_stack_t *stack, uint32_t nv, uint32_t na, uint32_t nb, uint32_t ns, uint32_t nd) {
   uint32_t i, n;
 
   i = stack->top;
@@ -357,6 +438,8 @@ static void bv_trail_save(bv_trail_stack_t *stack, uint32_t nv, uint32_t na, uin
   stack->data[i].nvars = nv;
   stack->data[i].natoms = na;
   stack->data[i].nbounds = nb;
+  stack->data[i].nselects = ns;
+  stack->data[i].ndelayed = nd;
 
   stack->top = i+1;
 }
@@ -548,14 +631,58 @@ static rb_bvset_t *new_rb_bvset(uint32_t k) {
  *************/
 
 /*
- * A variable x is marked if it occurs in an atom or if a literal of 
- * x is exported to the context (i.e., if (select x i) was called).
- *
- * When converting the polynomials to elementary constructs, we skip
- * the unmarked variables. For this to work, we recurvely mark
- * all variables on which a marked variable depends until we reach
- * polynomial expressions.
+ * The top-level useful variables are marked and we recursively
+ * mark all the variables on which they depend.
+ * - the top-level marked variables include:
+ *   all variables that occur in atoms
+ *   all variables (x, y) such that x := y in the merge table
+ *   all variables x that occur in (bit-select x i) 
  */
+static void bv_solver_mark_variable(bv_solver_t *solver, thvar_t x);
+
+static void bv_solver_mark_poly64_vars(bv_solver_t *solver, bvpoly64_t *p) {
+  uint32_t i, n;
+  thvar_t x;
+
+  n = p->nterms;
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    i ++;
+  }
+  while (i < n ) {
+    x = mtbl_get_root(&solver->mtbl, p->mono[i].var);
+    bv_solver_mark_variable(solver, x);
+    i ++;
+  }
+}
+
+static void bv_solver_mark_poly_vars(bv_solver_t *solver, bvpoly_t *p) {
+  uint32_t i, n;
+  thvar_t x;
+
+  n = p->nterms;
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    i ++;
+  }
+  while (i < n ) {
+    x = mtbl_get_root(&solver->mtbl, p->mono[i].var);
+    bv_solver_mark_variable(solver, x);
+    i ++;
+  }
+}
+
+static void bv_solver_mark_pprod_vars(bv_solver_t *solver, pprod_t *p) {
+  uint32_t i, n;
+  thvar_t x;
+
+  n = p->len;
+  for (i=0; i<n; i++) {
+    x = mtbl_get_root(&solver->mtbl, p->prod[i].var);
+    bv_solver_mark_variable(solver, x);
+  }
+}
+
 static void bv_solver_mark_variable(bv_solver_t *solver, thvar_t x) {
   bv_vartable_t *vtbl;
   bv_ite_t *ite;
@@ -568,11 +695,19 @@ static void bv_solver_mark_variable(bv_solver_t *solver, thvar_t x) {
     case BVTAG_VAR:
     case BVTAG_CONST64:
     case BVTAG_CONST:
-    case BVTAG_POLY64:
-    case BVTAG_POLY:
-    case BVTAG_PPROD:
     case BVTAG_BIT_ARRAY:
       // nothing more to do
+      break;
+
+    case BVTAG_POLY64:
+      bv_solver_mark_poly64_vars(solver, bvvar_poly64_def(vtbl, x));
+      break;
+
+    case BVTAG_POLY:
+      bv_solver_mark_poly_vars(solver, bvvar_poly_def(vtbl, x));
+
+    case BVTAG_PPROD:
+      bv_solver_mark_pprod_vars(solver, bvvar_pprod_def(vtbl, x));
       break;
 
     case BVTAG_ITE:
@@ -627,12 +762,33 @@ static remap_table_t *bv_solver_get_remap(bv_solver_t *solver) {
 }
 
 
+#ifndef NDEBUG
+
+/*
+ * For debugging: check whether x occurs in the select_queue
+ */
+static bool bvvar_in_select_queue(bv_solver_t *solver, thvar_t x) {
+  bv_queue_t *squeue;
+  uint32_t i, n;
+
+  squeue = &solver->select_queue;
+  n = squeue->top;
+  for (i=0; i<n; i++) {
+    if (squeue->data[i] == x) return true;
+  }
+
+  return false;
+}
+
+#endif
+
+
 /*
  * Return the pseudo literal array mapped to x
  * - allocate a new array of n literals if x is not mapped yet
- * - mark x as useful
+ *   and store x in the select queue
  */
-static literal_t *bvvar_get_pseudo_map(bv_solver_t *solver, thvar_t x) {
+static literal_t *select_bvvar_get_pseudo_map(bv_solver_t *solver, thvar_t x) {
   remap_table_t *rmap;
   literal_t *tmp;
   uint32_t n;
@@ -643,8 +799,10 @@ static literal_t *bvvar_get_pseudo_map(bv_solver_t *solver, thvar_t x) {
     rmap = bv_solver_get_remap(solver);
     tmp = remap_table_fresh_array(rmap, n);
     bvvar_set_map(&solver->vtbl, x, tmp);
-    bv_solver_mark_variable(solver, x);
+    bv_queue_push(&solver->select_queue, x);
   }
+
+  assert(bvvar_in_select_queue(solver, x));
 
   return tmp;
 }
@@ -698,14 +856,14 @@ static literal_t bvarray_get_bit(bv_vartable_t *vtbl, thvar_t x, uint32_t i) {
 /*
  * Extract bit i of variable x: 
  * - get it from the pseudo literal array mapped to x
- * - also set the mark on x (i.e., x is considered a useful variable)
+ * - also add x to solver->select_queue
  */
 static literal_t bvvar_get_bit(bv_solver_t *solver, thvar_t x, uint32_t i) {
   remap_table_t *rmap;
   literal_t *map;
   literal_t r, l;
 
-  map = bvvar_get_pseudo_map(solver, x);
+  map = select_bvvar_get_pseudo_map(solver, x);
 
   rmap = solver->remap;
   r = remap_table_find_root(rmap, map[i]); // r := root of map[i] 
@@ -791,6 +949,43 @@ static void bv_solver_mark_vars_in_atoms(bv_solver_t *solver) {
 
 
 /*
+ * Scan the variables
+ * - if x == y in the merge table then mark both x and y
+ */
+static void bv_solver_mark_merged_vars(bv_solver_t *solver) {
+  bv_vartable_t *vtbl;
+  uint32_t i, n;
+  thvar_t x;
+
+  vtbl = &solver->vtbl;
+  n = vtbl->nvars;
+  for (i=1; i<n; i++) {
+    x = mtbl_get_root(&solver->mtbl, i);
+    if (i != x) {
+      bv_solver_mark_variable(solver, i);
+      bv_solver_mark_variable(solver, x);
+    }
+  }
+}
+
+
+/*
+ * Mark the variables that are in the select_queue
+ */
+static void bv_solver_mark_select_vars(bv_solver_t *solver) {
+  bv_queue_t *squeue;
+  uint32_t i, n;
+
+  squeue = &solver->select_queue;
+  n = squeue->top;
+  for (i=0; i<n; i++) {
+    bv_solver_mark_variable(solver, mtbl_get_root(&solver->mtbl, squeue->data[i]));
+  }
+}
+
+
+
+/*
  * Check whether a variable is useful (i.e., requires bitblasting)
  * - x is useful if it occurs in an atom (i.e., x is marked)
  *   or if it's mapped to another variable y in the merge table
@@ -822,7 +1017,7 @@ static void bv_solver_compile_polynomials(bv_solver_t *solver) {
     case BVTAG_POLY64:
     case BVTAG_POLY:
     case BVTAG_PPROD:
-      if (true || bvvar_is_useful(solver, i)) { // FOR TESTING
+      if (bvvar_is_useful(solver, i)) { // FOR TESTING
 	bv_compiler_push_var(compiler, i);
       }
       break;
@@ -830,6 +1025,7 @@ static void bv_solver_compile_polynomials(bv_solver_t *solver) {
     default:
       break;
     }
+    bvvar_clr_mark(vtbl, i);
   }
 
   // process the polynomials
@@ -970,6 +1166,10 @@ static bool merge_pseudo_literals(bv_solver_t *solver, literal_t s1, literal_t s
 static bool merge_pseudo_maps(bv_solver_t *solver, literal_t *a, literal_t *b, uint32_t n) {
   uint32_t i;
 
+  if (a == b) {
+    return true;
+  }
+
   for (i=0; i<n; i++) {
     if (! merge_pseudo_literals(solver, a[i], b[i])) {
       return false;
@@ -986,7 +1186,7 @@ static bool merge_pseudo_maps(bv_solver_t *solver, literal_t *a, literal_t *b, u
  * - if x and y have no map, then create a common pseudo-literal array for both
  * - return false if a contradiction is detected
  */
-static bool bvvar_merge_pseudo_maps(bv_solver_t *solver, thvar_t x, thvar_t y) {
+static bool merge_pseudo_maps2(bv_solver_t *solver, thvar_t x, thvar_t y) {
   literal_t *mx, *my;
   uint32_t n;
 
@@ -1018,6 +1218,100 @@ static bool bvvar_merge_pseudo_maps(bv_solver_t *solver, thvar_t x, thvar_t y) {
 } 
 
 
+// merge the maps of x, y, and z
+static bool merge_pseudo_map3(bv_solver_t *solver, thvar_t x, thvar_t y, thvar_t z) {
+  literal_t *mx, *my, *mz;
+  uint32_t n, k;
+
+  assert(x != y && x != z && y != z && solver->remap != NULL && solver->blaster != NULL);
+
+  mx = bvvar_simple_pseudo_map(solver, x);
+  my = bvvar_simple_pseudo_map(solver, y);
+  mz = bvvar_simple_pseudo_map(solver, z);
+
+  n = bvvar_bitsize(&solver->vtbl, x);
+
+  assert(bvvar_bitsize(&solver->vtbl, y) == n && bvvar_bitsize(&solver->vtbl, z) == n);
+
+  k = 0;
+  if (mx != NULL) k |= 4;
+  if (my != NULL) k |= 2;
+  if (mz != NULL) k |= 1;
+
+  assert(0 <= k && k < 7);
+  switch (k) {
+  case 0:
+    assert(mx == NULL && my == NULL && mz == NULL);
+    mx = remap_table_fresh_array(solver->remap, n);
+    bvvar_set_map(&solver->vtbl, x, mx);
+    bvvar_set_map(&solver->vtbl, y, mx);
+    bvvar_set_map(&solver->vtbl, z, mx);
+    break;
+
+  case 1:
+    assert(mx == NULL && my == NULL && mz != NULL);
+    bvvar_set_map(&solver->vtbl, x, mz);
+    bvvar_set_map(&solver->vtbl, y, mz);
+    break;
+
+  case 2:
+    assert(mx == NULL && my != NULL && mz == NULL);
+    bvvar_set_map(&solver->vtbl, x, my);
+    bvvar_set_map(&solver->vtbl, z, my);
+    break;
+
+  case 3:
+    assert(mx == NULL && my != NULL && mz != NULL);
+    bvvar_set_map(&solver->vtbl, x, my);
+    return merge_pseudo_maps(solver, my, mz, n);
+
+  case 4:
+    assert(mx != NULL && my == NULL && mz == NULL);
+    bvvar_set_map(&solver->vtbl, y, mx);
+    bvvar_set_map(&solver->vtbl, z, mx);
+    break;
+
+  case 5:
+    assert(mx != NULL && my == NULL && mz != NULL);
+    bvvar_set_map(&solver->vtbl, y, mx);
+    return merge_pseudo_maps(solver, mx, mz, n);
+
+  case 6:
+    assert(mx != NULL && my != NULL && mz == NULL);
+    bvvar_set_map(&solver->vtbl, z, mx);
+    return merge_pseudo_maps(solver, mx, my, n);
+
+  case 7:
+    assert(mx != NULL && my != NULL && mz != NULL);
+    return merge_pseudo_maps(solver, mx, my, n) && merge_pseudo_maps(solver, mx, mz, n);
+  }
+
+  return true;
+}
+
+
+/*
+ * Check whether to merge the maps of x y and z
+ * - y = root of x's class
+ * - z = what x is compiled to (may be -1)
+ */
+static bool bv_solver_check_shared_pmaps(bv_solver_t *solver, thvar_t x, thvar_t y, thvar_t z) {
+  if (z == null_thvar) {
+    z = x;
+  }
+
+  if (x == y && z == x) {
+    return true;
+  } else if (x == y && z != x) {
+    return merge_pseudo_maps2(solver, x, z);
+  } else if (z == x || z == y) {
+    return merge_pseudo_maps2(solver, x, y);
+  } else {
+    return merge_pseudo_map3(solver, x, y, z);
+  }
+}
+
+
 /*
  * Go through all variables and build the shared pseudo maps
  */
@@ -1036,8 +1330,7 @@ static bool bv_solver_make_shared_pseudo_maps(bv_solver_t *solver) {
   for (i=1; i<n; i++) {
     x = mtbl_get_root(&solver->mtbl, i);
     y = bvvar_compiles_to(compiler, i);
-    if (y == null_thvar) y = i;
-    if (x != y && ! bvvar_merge_pseudo_maps(solver, x, y)) {
+    if (! bv_solver_check_shared_pmaps(solver, i, x, y)) {
       return false;
     }
   }
@@ -1220,11 +1513,7 @@ static void collect_bvvar_literals(bv_solver_t *solver, thvar_t x, ivector_t *v)
 
 /*
  * Recursive bit-blasting:
- * - if x is marked: do nothing
- * - if x is not marked:
- * - attach an array of pseudo literals to variable x 
- *   bit-blast the definition of x
- *   mark x
+ * - if x is biblasted already: do nothing
  */
 static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
   bv_vartable_t *vtbl;
@@ -1244,15 +1533,17 @@ static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
 
   if (! bvvar_is_bitblasted(vtbl, x)) {
     /*
-     * x has not been translated yet
+     * x has not been biblasted yet
      */
     u = bvvar_pseudo_map(solver, x);
     n = bvvar_bitsize(vtbl, x);
     op = bvvar_tag(vtbl, x);
 
-    switch (op) {
-    case BVTAG_VAR:
-      // complete u's
+    if (bvvar_is_marked(vtbl, x)) {
+      /*
+       * Cycle in the dependencies: break it by treating x
+       * as a variable
+       */
       for (i=0; i<n; i++) {
 	l = remap_table_find(rmap, u[i]);
 	if (l == null_literal) {
@@ -1260,99 +1551,117 @@ static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
 	  remap_table_assign(rmap, u[i], l);
 	}
       }
-      break;
+    } else {
+      /*
+       * x has not been visited yet
+       */
+      bvvar_set_mark(vtbl, x);
 
-    case BVTAG_CONST64:
-    case BVTAG_CONST:
-    case BVTAG_BIT_ARRAY:
-      // nothing to do: u is complete
-      break;
-
-    case BVTAG_POLY64:
-    case BVTAG_POLY:
-    case BVTAG_PPROD:
-      // replace x 
-      y = bvvar_compiles_to(solver->compiler, x);
-      assert(y != null_thvar);
-      bv_solver_bitblast_variable(solver, y);
-      break;
-
-    case BVTAG_ITE:
-      ite = bvvar_ite_def(vtbl, x);
-      l = ite->cond;
-      y = ite->left;
-      z = ite->right;
-#if TRACE
-      if (l == true_literal || l == false_literal) {
-	if (l == true_literal) {
-	  printf("---> condition in ite is true\n");
-	} else {
-	  printf("---> condition in ite is false\n");
+      switch (op) {
+      case BVTAG_VAR:
+	// complete u's
+	for (i=0; i<n; i++) {
+	  l = remap_table_find(rmap, u[i]);
+	  if (l == null_literal) {
+	    l = bit_blaster_fresh_literal(solver->blaster);
+	    remap_table_assign(rmap, u[i], l);
+	  }
 	}
-	print_bv_solver_vardef(stdout, solver, x);
-	print_bv_solver_vardef(stdout, solver, ite->left);
-	print_bv_solver_vardef(stdout, solver, ite->right);
-	fflush(stdout);
-      }      
+	break;
+
+      case BVTAG_CONST64:
+      case BVTAG_CONST:
+      case BVTAG_BIT_ARRAY:
+	// nothing to do: u is complete
+	break;
+	
+      case BVTAG_POLY64:
+      case BVTAG_POLY:
+      case BVTAG_PPROD:
+	// replace x 
+	y = bvvar_compiles_to(solver->compiler, x);
+	assert(y != null_thvar);
+	bv_solver_bitblast_variable(solver, y);
+	break;
+
+      case BVTAG_ITE:
+	ite = bvvar_ite_def(vtbl, x);
+	l = ite->cond;
+	y = ite->left;
+	z = ite->right;
+#if TRACE
+	if (l == true_literal || l == false_literal) {
+	  if (l == true_literal) {
+	    printf("---> condition in ite is true\n");
+	  } else {
+	    printf("---> condition in ite is false\n");
+	  }
+	  print_bv_solver_vardef(stdout, solver, x);
+	  print_bv_solver_vardef(stdout, solver, ite->left);
+	  print_bv_solver_vardef(stdout, solver, ite->right);
+	  fflush(stdout);
+	}
 #endif
-      // TODO? check if l is true/false?
-      bv_solver_bitblast_variable(solver, y);
-      bv_solver_bitblast_variable(solver, z);
-      a = &solver->a_vector;
-      b = &solver->b_vector;
-      collect_bvvar_literals(solver, y, a);
-      collect_bvvar_literals(solver, z, b);
-      assert(a->size == n && b->size == n);
-      bit_blaster_make_bvmux(solver->blaster, l, a->data, b->data, u, n);
-      break;
+	// TODO? check if l is true/false?
+	bv_solver_bitblast_variable(solver, y);
+	bv_solver_bitblast_variable(solver, z);
+	a = &solver->a_vector;
+	b = &solver->b_vector;
+	collect_bvvar_literals(solver, y, a);
+	collect_bvvar_literals(solver, z, b);
+	assert(a->size == n && b->size == n);
+	bit_blaster_make_bvmux(solver->blaster, l, a->data, b->data, u, n);
+	break;
 
-    case BVTAG_UDIV:
-    case BVTAG_UREM:
-    case BVTAG_SDIV:
-    case BVTAG_SREM:
-      y = vtbl->def[x].op[0];
-      z = vtbl->def[x].op[1];
-      bv_solver_bitblast_variable(solver, y);
-      bv_solver_bitblast_variable(solver, z);
-      a = &solver->a_vector;
-      b = &solver->b_vector;
-      collect_bvvar_literals(solver, y, a);
-      collect_bvvar_literals(solver, z, b);
-      assert(a->size == n && b->size == n);
-      bit_blaster_make_bvdivop(solver, op, y, z, a->data, b->data, u, n);
-      break;
+      case BVTAG_UDIV:
+      case BVTAG_UREM:
+      case BVTAG_SDIV:
+      case BVTAG_SREM:
+	y = vtbl->def[x].op[0];
+	z = vtbl->def[x].op[1];
+	bv_solver_bitblast_variable(solver, y);
+	bv_solver_bitblast_variable(solver, z);
+	a = &solver->a_vector;
+	b = &solver->b_vector;
+	collect_bvvar_literals(solver, y, a);
+	collect_bvvar_literals(solver, z, b);
+	assert(a->size == n && b->size == n);
+	bit_blaster_make_bvdivop(solver, op, y, z, a->data, b->data, u, n);
+	break;
 
-    case BVTAG_SMOD:
-    case BVTAG_SHL:
-    case BVTAG_LSHR:
-    case BVTAG_ASHR:
-    case BVTAG_ADD:
-    case BVTAG_SUB:
-    case BVTAG_MUL:
-      y = vtbl->def[x].op[0];
-      z = vtbl->def[x].op[1];
-      bv_solver_bitblast_variable(solver, y);
-      bv_solver_bitblast_variable(solver, z);
-      a = &solver->a_vector;
-      b = &solver->b_vector;
-      collect_bvvar_literals(solver, y, a);
-      collect_bvvar_literals(solver, z, b);
-      assert(a->size == n && b->size == n);
-      bit_blaster_make_bvop(solver->blaster, op, a->data, b->data, u, n);
-      break;
+      case BVTAG_SMOD:
+      case BVTAG_SHL:
+      case BVTAG_LSHR:
+      case BVTAG_ASHR:
+      case BVTAG_ADD:
+      case BVTAG_SUB:
+      case BVTAG_MUL:
+	y = vtbl->def[x].op[0];
+	z = vtbl->def[x].op[1];
+	bv_solver_bitblast_variable(solver, y);
+	bv_solver_bitblast_variable(solver, z);
+	a = &solver->a_vector;
+	b = &solver->b_vector;
+	collect_bvvar_literals(solver, y, a);
+	collect_bvvar_literals(solver, z, b);
+	assert(a->size == n && b->size == n);
+	bit_blaster_make_bvop(solver->blaster, op, a->data, b->data, u, n);
+	break;
 
-    case BVTAG_NEG:
-      y = vtbl->def[x].op[0];
-      bv_solver_bitblast_variable(solver, y);
-      a = &solver->a_vector;
-      collect_bvvar_literals(solver, y, a);
-      assert(a->size == n);
-      bit_blaster_make_bvneg(solver->blaster, a->data, u, n);
-      break;
+      case BVTAG_NEG:
+	y = vtbl->def[x].op[0];
+	bv_solver_bitblast_variable(solver, y);
+	a = &solver->a_vector;
+	collect_bvvar_literals(solver, y, a);
+	assert(a->size == n);
+	bit_blaster_make_bvneg(solver->blaster, a->data, u, n);
+	break;
+      }
     }
 
     // mark x as biblasted
     bvvar_set_bitblasted(vtbl, x);
+    bvvar_clr_mark(vtbl, x);
   }
 }
 
@@ -1406,22 +1715,52 @@ static void bv_solver_bitblast_atoms(bv_solver_t *solver) {
 }
 
 
+#ifndef NDEBUG
+
 /*
- * Complete bit-blasting:
- * - whenever (x == y) in the merge table, add the corresponding equality in the core
+ * For debugging: all variables must be unmarked when we start bitblasting
  */
-static void bv_solver_bitblast_variables(bv_solver_t *solver) {
+static bool all_bvvars_unmarked(bv_solver_t *solver) {
   bv_vartable_t *vtbl;
   uint32_t i, n;
 
   vtbl = &solver->vtbl;
   n = vtbl->nvars;
   for (i=1; i<n; i++) {
-    if (true || bvvar_is_useful(solver, i)) {
+    if (bvvar_is_marked(vtbl, i)) return false;
+  }
+
+  return true;
+}
+
+#endif
+
+
+/*
+ * Complete bit-blasting:
+ * - whenever (x == y) in the merge table, add the corresponding equality in the core
+ * - also bit-blast all the variables from the select queue
+ */
+static void bv_solver_bitblast_variables(bv_solver_t *solver) {
+  bv_vartable_t *vtbl;
+  bv_queue_t *squeue;
+  uint32_t i, n;
+
+  vtbl = &solver->vtbl;
+  n = vtbl->nvars;
+  for (i=1; i<n; i++) {
+    if (bvvar_is_useful(solver, i)) {
       bv_solver_bitblast_variable(solver, i);
     }
+  }  
+
+  squeue = &solver->select_queue;
+  n = squeue->top;
+  for (i=0; i<n; i++) {
+    bv_solver_bitblast_variable(solver, squeue->data[i]);
   }
 }
+
 
 
 /*
@@ -1433,7 +1772,11 @@ bool bv_solver_bitblast(bv_solver_t *solver) {
 #endif
   bv_solver_prepare_blasting(solver);
   bv_solver_mark_vars_in_atoms(solver);
+  bv_solver_mark_merged_vars(solver);
+  bv_solver_mark_select_vars(solver);
   bv_solver_compile_polynomials(solver);
+
+  assert(all_bvvars_unmarked(solver));
 
   if (!bv_solver_make_shared_pseudo_maps(solver)) {
     return false;
@@ -1448,6 +1791,32 @@ bool bv_solver_bitblast(bv_solver_t *solver) {
 
 #if DUMP
   bv_solver_dump_state(solver, "before-lemmas.dmp");
+#endif
+
+  return true;
+}
+
+
+/*
+ * Variant for testing: stop before the actual bitblasting
+ */
+bool bv_solver_compile(bv_solver_t *solver) {
+#if DUMP
+  bv_solver_dump_state(solver, "before-biblasting.dmp");
+#endif
+  bv_solver_prepare_blasting(solver);
+  bv_solver_mark_vars_in_atoms(solver);
+  bv_solver_mark_merged_vars(solver);
+  bv_solver_compile_polynomials(solver);
+
+  assert(all_bvvars_unmarked(solver));
+
+  if (!bv_solver_make_shared_pseudo_maps(solver)) {
+    return false;
+  }
+
+#if DUMP
+  bv_solver_dump_state(solver, "after-shared-pmaps.dmp");
 #endif
 
   return true;
@@ -4397,6 +4766,8 @@ void init_bv_solver(bv_solver_t *solver, smt_core_t *core, egraph_t *egraph) {
 
   init_eassertion_queue(&solver->egraph_queue);
 
+  init_bv_queue(&solver->select_queue);
+  init_bv_queue(&solver->delayed_queue);
   init_bv_trail(&solver->trail_stack);
 
   init_bvpoly_buffer(&solver->buffer);
@@ -4460,6 +4831,8 @@ void delete_bv_solver(bv_solver_t *solver) {
 
   delete_eassertion_queue(&solver->egraph_queue);
 
+  delete_bv_queue(&solver->select_queue);
+  delete_bv_queue(&solver->delayed_queue);
   delete_bv_trail(&solver->trail_stack);
 
   delete_bvpoly_buffer(&solver->buffer);
@@ -4484,14 +4857,17 @@ void delete_bv_solver(bv_solver_t *solver) {
  * Start a new base level
  */
 void bv_solver_push(bv_solver_t *solver) {
-  uint32_t na, nv, nb;
+  uint32_t na, nv, nb, ns, nd;
 
   assert(solver->decision_level == solver->base_level);
 
   nv = solver->vtbl.nvars;
   na = solver->atbl.natoms;
   nb = solver->bqueue.top;
-  bv_trail_save(&solver->trail_stack, nv, na, nb);
+  ns = solver->select_queue.top;
+  nd = solver->delayed_queue.top;
+
+  bv_trail_save(&solver->trail_stack, nv, na, nb, ns, nd);
 
   mtbl_push(&solver->mtbl);
 
@@ -4598,6 +4974,8 @@ void bv_solver_reset(bv_solver_t *solver) {
 
   reset_eassertion_queue(&solver->egraph_queue);
 
+  reset_bv_queue(&solver->select_queue);
+  reset_bv_queue(&solver->delayed_queue);
   reset_bv_trail(&solver->trail_stack);
 
   reset_bvpoly_buffer(&solver->buffer, 32);

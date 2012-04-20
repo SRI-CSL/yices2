@@ -61,7 +61,7 @@ int main() {
 
   x = 7;
   printf("\nAdding %"PRIu32": ", x);
-  if (int_bvset_add(&s, x)) {
+  if (int_bvset_add_check(&s, x)) {
     printf("new element\n");
   } else {
     printf("no change\n");
@@ -71,7 +71,7 @@ int main() {
 
   x = 8;
   printf("\nAdding %"PRIu32": ", x);
-  if (int_bvset_add(&s, x)) {
+  if (int_bvset_add_check(&s, x)) {
     printf("new element\n");
   } else {
     printf("no change\n");
@@ -82,7 +82,7 @@ int main() {
   for (i=0; i<n; i++) {
     x = random() % 200;
     printf("\nAdding %"PRIu32": ", x);
-    if (int_bvset_add(&s, x)) {
+    if (int_bvset_add_check(&s, x)) {
       printf("new element\n");
     } else {
       printf("no change\n");
@@ -113,7 +113,7 @@ int main() {
   for (i=0; i<n; i++) {
     x = random() % 1000;
     printf("\nAdding %"PRIu32": ", x);
-    if (int_bvset_add(&s, x)) {
+    if (int_bvset_add_check(&s, x)) {
       printf("new element\n");
     } else {
       printf("no change\n");

@@ -76,9 +76,9 @@ static void resize_int_bvset(int_bvset_t *set, uint32_t x) {
 
 
 /*
- * Add x to the set
+ * Add x to the set and check whether x was present
  */
-bool int_bvset_add(int_bvset_t *set, uint32_t x) {
+bool int_bvset_add_check(int_bvset_t *set, uint32_t x) {
   uint32_t j;
   byte_t mask, u;
 
@@ -90,11 +90,45 @@ bool int_bvset_add(int_bvset_t *set, uint32_t x) {
   mask = 1 << (x & 0x7);
   u = set->data[j];
   if (u & mask) {
-    //    printf("--> bvset add: x = %"PRIu32", x/256 = %"PRIu32" present\n", x, x/64);  
     return false;
   } else {
-    //    printf("--> bvset add: x = %"PRIu32", x/256 = %"PRIu32"\n", x, x/64);  
     set->data[j] |= mask;
     return true;
   }
+}
+
+
+/*
+ * Add x to the set
+ */
+void int_bvset_add(int_bvset_t *set, uint32_t x) {
+  uint32_t j;
+  byte_t mask;
+
+  if (x >= set->nbits) {
+    resize_int_bvset(set, x);
+  }
+
+  j = x >> 3;
+  mask = 1 << (x & 0x7);
+  set->data[j] |= mask;
+
+  assert(int_bvset_member(set, x));
+}
+
+
+/*
+ * Remove x from the set
+ */
+void int_bvset_remove(int_bvset_t *set, uint32_t x) {
+  uint32_t j;
+  byte_t mask;
+
+  if (x < set->nbits) {
+    j = x >> 3;
+    mask = 1 << (x & 0x7);
+    set->data[j] &= ~mask;
+  }
+
+  assert(!int_bvset_member(set, x));
 }

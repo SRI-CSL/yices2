@@ -1566,7 +1566,7 @@ static void flatten_bveq(context_t *ctx, term_t r, bool tt) {
     if (t == false_term) {
       longjmp(ctx->env, TRIVIALLY_UNSAT);
     } else if (t != true_term) {
-      int_queue_push(&ctx->queue, signed_term(t, tt));
+      int_queue_push(&ctx->queue, t);
     } 
 
   } else if (tt) {
@@ -2155,7 +2155,7 @@ static void count_dl_var(context_t *ctx, dl_data_t *stats, term_t t) {
   assert(is_pos_term(t) && intern_tbl_is_root(&ctx->intern, t));
 
   idx = index_of(t);
-  if (int_bvset_add(ctx->cache, idx)) {
+  if (int_bvset_add_check(ctx->cache, idx)) {
     stats->num_vars ++;
   }
 }
@@ -2451,7 +2451,7 @@ static void analyze_dl(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
 
   idx = index_of(t); // remove negation
 
-  if (int_bvset_add(ctx->cache, idx)) {
+  if (int_bvset_add_check(ctx->cache, idx)) {
     /*
      * idx not visited yet
      */

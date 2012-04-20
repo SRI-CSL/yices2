@@ -32,7 +32,7 @@ static void show_context(FILE *f, subst_ctx_t *ctx) {
     while (i > 0) {
       i --;
       x = ctx->data[i].var;
-      if (int_bvset_add(&vset, x)) {
+      if (int_bvset_add_check(&vset, x)) {
 	show_binding(f, ctx->data + i);
 	fputc('\n', f);
       }

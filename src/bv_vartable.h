@@ -15,10 +15,8 @@
  * arrays assigned to map[x] must be allocated with the
  * refcount_int_array functions.
  *
- * We use two bits in kind[x] to mark variables as relevant and bit-blasted:
- * - a variable is marked to indicate that x is useful (this is used to
- *   figure out which polynomial variables must be compiled).
- * - a variable is marked as bitblasted after its definition is converted to CNF
+ * We use two bits in kind[x] to mark variables and to record which variables
+ * have been bit-blasted:
  */
 
 #ifndef __BV_VARTABLE_H

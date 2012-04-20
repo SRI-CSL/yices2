@@ -137,18 +137,52 @@ typedef struct bv_interval_stack_s {
 
 
 
+/*********************
+ *  VARIABLE QUEUES  *
+ ********************/
+
+/*
+ * To handle push/pop and delayed bitblasting, we keep track
+ * of variables that require special processing on pop.
+ *
+ * One queue stores the variables x for which the context
+ * called bv_solver_select_bit or bv_solver_set_bit.
+ * This means that a literal l = (select x i) was
+ * returned to the context, so 'x' must be considered
+ * a top-level variable when bit-blasting.
+ *
+ * Another queue stores the variables 'x' that were created at some level
+ * k but were bit-blasted at a later stage (at level k' > k).
+ * When we backtrack from level k', we must cleanup the array of literals 
+ * attached to k in the variable table.
+ */
+typedef struct bv_queue_s {
+  thvar_t *data;
+  uint32_t size;
+  uint32_t top;
+} bv_queue_t;
+
+
+#define DEF_BV_QUEUE_SIZE 100
+#define MAX_BV_QUEUE_SIZE (UINT32_MAX/sizeof(thvar_t))
+
+
+
 /********************
  *  PUSH/POP STACK  *
  *******************/
 
 /*
- * For every push, we keep track of the number of variables amd atoms
- * on entry to the new base level, and the size of the bound queue.
+ * For every push, we keep track of the number of variables and atoms
+ * on entry to the new base level, the size of the bound queue, and 
+ * the size of the queue of select vars and delayed bitblasting.
  */
 typedef struct bv_trail_s {
   uint32_t nvars;
   uint32_t natoms;
   uint32_t nbounds;
+  uint32_t nselects;
+  uint32_t ndelayed;
 } bv_trail_t;
 
 typedef struct bv_trail_stack_s {
@@ -289,6 +323,12 @@ typedef struct bv_solver_s {
    * Queue of egraph assertions
    */
   eassertion_queue_t egraph_queue;
+
+  /*
+   * Queues of select and delayed variables
+   */
+  bv_queue_t select_queue;
+  bv_queue_t delayed_queue;
 
   /*
    * Push/pop stack

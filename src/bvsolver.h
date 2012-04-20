@@ -52,7 +52,7 @@ extern bv_egraph_interface_t *bv_solver_bv_egraph_interface(bv_solver_t *solver)
  * - return false if there's a conflict
  */
 extern bool bv_solver_bitblast(bv_solver_t *solver);
-
+extern bool bv_solver_compile(bv_solver_t *solver);
 
 
 

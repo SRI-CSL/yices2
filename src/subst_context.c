@@ -307,7 +307,7 @@ harray_t *subst_ctx_hash(subst_ctx_t *ctx) {
   while (i > 0) {
     i --;
     x = ctx->data[i].var;
-    if (int_bvset_add(vset, x)) {
+    if (int_bvset_add_check(vset, x)) {
       // rightmost occurrence of x in ctx->data
       // copy x + its binding in buffer
       ivector_push(buffer, x);
