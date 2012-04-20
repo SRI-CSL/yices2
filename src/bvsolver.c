@@ -4677,7 +4677,6 @@ void bv_solver_start_search(bv_solver_t *solver) {
 }
 
 
-
 bool bv_solver_propagate(bv_solver_t *solver) {
   return true;
 }
@@ -4787,6 +4786,7 @@ void init_bv_solver(bv_solver_t *solver, smt_core_t *core, egraph_t *egraph) {
   init_ivector(&solver->a_vector, 0);
   init_ivector(&solver->b_vector, 0);
 
+  solver->val_map = NULL;
   init_used_vals(&solver->used_vals);
 
   solver->env = NULL;
@@ -4850,8 +4850,15 @@ void delete_bv_solver(bv_solver_t *solver) {
   delete_ivector(&solver->a_vector);
   delete_ivector(&solver->b_vector);
 
+  if (solver->val_map != NULL) {
+    delete_bvconst_hmap(solver->val_map);
+    safe_free(solver->val_map);
+    solver->val_map = NULL;
+  }
+
   delete_used_vals(&solver->used_vals);
 }
+
 
 
 /********************
@@ -5021,6 +5028,12 @@ void bv_solver_reset(bv_solver_t *solver) {
   reset_bv_interval_stack(&solver->intv_stack);
   ivector_reset(&solver->a_vector);
   ivector_reset(&solver->b_vector);
+
+  if (solver->val_map != NULL) {
+    delete_bvconst_hmap(solver->val_map);
+    safe_free(solver->val_map);
+    solver->val_map = NULL;
+  }
 
   reset_used_vals(&solver->used_vals);
 
@@ -6129,6 +6142,8 @@ thvar_t bv_solver_var_compiles_to(bv_solver_t *solver, thvar_t x) {
  *  MODEL CONSTRUCTION  *
  ***********************/
 
+#if 0
+
 /*
  * When model construction is invoked, the context has determined that
  * the constraints are SAT (so a model does exist). The value of a
@@ -6143,7 +6158,6 @@ thvar_t bv_solver_var_compiles_to(bv_solver_t *solver, thvar_t x) {
  */
 static void bv_solver_value_for_variable(bv_solver_t *solver, thvar_t x);
 
-#if 0
 
 #ifndef NDEBUG
 
@@ -6446,8 +6460,6 @@ static void bv_solver_binop_value(bv_solver_t *solver, bvvar_tag_t op, thvar_t x
   }
 }
 
-#endif
-
 
 /*
  * Assign a value to all the literals of x
@@ -6556,6 +6568,8 @@ static void bv_solver_value_for_variable(bv_solver_t *solver, thvar_t x) {
 }
 
 
+#endif
+
 
 
 
@@ -6567,6 +6581,281 @@ void bv_solver_build_model(bv_solver_t *solver) {
 }
 
 
+/*
+ * Get the internal val_map
+ * - allocate and initialize it if needed
+ */
+static bvconst_hmap_t *bv_solver_get_val_map(bv_solver_t *solver) {
+  bvconst_hmap_t *tmp;
+
+  tmp = solver->val_map;
+  if (tmp == NULL) {
+    tmp = (bvconst_hmap_t *) safe_malloc(sizeof(bvconst_hmap_t));
+    init_bvconst_hmap(tmp, 0); // default size?
+    solver->val_map = tmp;
+  }
+
+  return tmp;
+}
+
+
+/*
+ * Copy the value of x in c:
+ * - x must be marked as bitblasted
+ * - the value is read from the SAT solver assignment
+ * - return true if the value is available/false otherwise
+ */
+static bool get_bitblasted_var_value(bv_solver_t *solver, thvar_t x, uint32_t *c) {
+  bv_vartable_t *vtbl;
+  remap_table_t *rmap;
+  literal_t *mx;
+  uint32_t i, n;
+  literal_t s, l;
+
+  vtbl = &solver->vtbl;
+  rmap = solver->remap;
+
+  n = bvvar_bitsize(vtbl, x);
+
+  assert(bvvar_is_bitblasted(vtbl, x));
+
+  mx = bvvar_get_map(vtbl, x);
+  assert(mx != NULL && rmap != NULL);
+
+  for (i=0; i<n; i++) {
+    s = mx[i];
+    l = remap_table_find(rmap, s);
+    if (l == null_literal) return false;
+
+    switch (literal_value(solver->core, l)) {
+    case VAL_FALSE:
+      bvconst_clr_bit(c, i);
+      break;
+
+    case VAL_TRUE:
+      bvconst_set_bit(c, i);
+      break;
+
+    case VAL_UNDEF:
+      return false;
+    }
+  }
+
+  bvconst_normalize(c, n);
+
+  return true;
+}
+
+
+/*
+ * Copy the value of bit-array a[0 ... n-1] into c
+ * - return true if all literals have a value in the sat solver
+ * - return false otherwise
+ */
+static bool get_bvarray_value(bv_solver_t *solver, literal_t *a, uint32_t n, uint32_t *c) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    switch (literal_value(solver->core, a[i])) {
+    case VAL_FALSE:
+      bvconst_clr_bit(c, i);
+      break;
+
+    case VAL_TRUE:
+      bvconst_set_bit(c, i);
+      break;
+
+    case VAL_UNDEF:
+      return false;
+    }
+  }
+
+  bvconst_normalize(c, n);
+
+  return true;
+}
+
+
+
+/*
+ * Copy a 64bit constant into word array c 
+ * - c is large enough for n bits
+ */
+static void copy_constant64(uint32_t *c, uint64_t a, uint32_t n) {
+  assert(1 <= n && n <= 64 && a == norm64(a, n));
+
+  c[0] = (uint32_t) (a & 0xFFFFFFFF);
+  if (n > 32) {
+    c[1] = (uint32_t) (a >> 32);
+  }
+}
+
+
+/*
+ * Same thing for a constant of more than 32 bits
+ */
+static void copy_constant(uint32_t *c, uint32_t *a, uint32_t n) {
+  uint32_t k;
+
+  assert(n > 64 && bvconst_is_normalized(a, n));
+
+  k = (n + 31) >> 5;
+  bvconst_set(c, k, a);
+  assert(bvconst_is_normalized(c, n));
+}
+
+
+/*
+ * Convert word array c to a 64bit constant
+ * - n = number of bits in c
+ */
+static uint64_t convert_to64(uint32_t *c, uint32_t n) {
+  uint64_t a;
+
+  assert(1 <= n && n <= 64);
+
+  a = c[0];
+  if (n > 32) {
+    a |= ((uint64_t) c[1]) << 32;
+  }
+
+  assert(a == norm64(a, n));
+
+  return a;
+}
+
+
+
+/*
+ * Get the value of x in the current Boolean assignment
+ * - if x is bitblasted, get it from the pseudo-map of x
+ * - otherwise, compute it from x's definition
+ *   then store the value in the internal val_map
+ * - make a copy in vector c:
+ *   c must be an array of k 32bit words where k = ceil(nbits of x/32)
+ *
+ * - return true if the value can be computed, false otherwise
+ */
+static bool bv_solver_get_variable_value(bv_solver_t *solver, thvar_t x, uint32_t *c);
+
+
+/*
+ * Compute the value of x based on its definition
+ * - check the val_map first: if x's value is in the map return it
+ * - otherwise, compue if then add it to the val_map
+ *
+ * - return true if the value can be computed/false otherwise
+ */
+static bool bv_solver_compute_var_value(bv_solver_t *solver, thvar_t x, uint32_t *c) {
+  bv_vartable_t *vtbl;
+  bvconst_hmap_t *val_map;
+  bvconst_hmap_rec_t *r;
+  uint32_t n;
+  bvvar_tag_t op;
+  bool found;
+
+  vtbl = &solver->vtbl;
+  val_map = bv_solver_get_val_map(solver);
+
+  n = bvvar_bitsize(vtbl, x);
+  r = bvconst_hmap_find(val_map, x);
+
+  if (r != NULL) {
+    // found value in val_map
+    assert(r->key == x && r->nbits == n && n>0);
+    if (n <= 64) {
+      copy_constant64(c, r->val.c, n);
+    } else {
+      copy_constant(c, r->val.p, n);
+    }
+    return true;
+  }
+
+
+  /*
+   * Compute the value
+   */
+  found = false; // stop GCC warning
+
+  op = bvvar_tag(vtbl, x);
+  switch (op) {
+  case BVTAG_VAR:
+    // assign 0b000... as default value
+    bvconst_clear(c, (n + 31) >> 5);
+    found = true;
+    break;
+
+  case BVTAG_CONST64:
+    copy_constant64(c, bvvar_val64(vtbl, x), n);
+    found = true;
+    break;
+
+  case BVTAG_CONST:
+    copy_constant(c, bvvar_val(vtbl, x), n);
+    found = true;
+    break;
+
+  case BVTAG_BIT_ARRAY:
+    found = get_bvarray_value(solver, bvvar_bvarray_def(vtbl, x), n, c);
+    break;
+    
+  case BVTAG_POLY64:
+    found = false;
+    break;
+
+  case BVTAG_POLY:
+    found = false;
+    break;
+
+  case BVTAG_PPROD:
+    found = false;
+    break;
+
+  case BVTAG_ITE:
+    found = false;
+    break;
+
+  case BVTAG_UDIV:
+  case BVTAG_UREM:
+  case BVTAG_SDIV:
+  case BVTAG_SREM:
+  case BVTAG_SMOD:
+  case BVTAG_SHL:
+  case BVTAG_LSHR:
+  case BVTAG_ASHR:
+  case BVTAG_ADD:
+  case BVTAG_SUB:
+  case BVTAG_MUL:
+    found = false;
+    break;
+
+  case BVTAG_NEG:
+    found = false;
+    break;
+  }
+
+  if (found) {
+    // store the value in val_map
+    if (n <= 64) {
+      bvconst_hmap_set_val64(val_map, x, convert_to64(c, n), n);
+    } else {
+      bvconst_hmap_set_val(val_map, x, c, n);
+    }
+  }
+
+  return found;
+}
+
+
+static bool bv_solver_get_variable_value(bv_solver_t *solver, thvar_t x, uint32_t *c) {
+  if (bvvar_is_bitblasted(&solver->vtbl, x)) {
+    return get_bitblasted_var_value(solver, x, c);
+  } else {
+    return bv_solver_compute_var_value(solver, x, c);
+  }
+}
+
+
 
 /*
  * Copy the value assigned to x in the model into buffer c
@@ -6574,63 +6863,38 @@ void bv_solver_build_model(bv_solver_t *solver) {
  * - return false if the solver has no model
  */
 bool bv_solver_value_in_model(bv_solver_t *solver, thvar_t x, bvconstant_t *c) {
-  bv_vartable_t *vtbl;
-  remap_table_t *rmap;
-  uint32_t i, n;
-  literal_t l0, l;
-  literal_t *a;
+  uint32_t n;
+  bool found;
 
-  vtbl = &solver->vtbl;
-  n = bvvar_bitsize(vtbl, x);
+  n = bvvar_bitsize(&solver->vtbl, x);
   assert(n > 0);
-  rmap = solver->remap;
+
   bvconstant_set_bitsize(c, n);
-
-  if (! bvvar_is_marked(vtbl, x)) {
-    bv_solver_value_for_variable(solver, x);
-  }
-    
-  a = bvvar_get_map(vtbl, x); // vtbl->map[x].array;
-  for (i=0; i<n; i++) {
-    l0 = a[i];
-    assert(l0 != null_literal);
-    l = remap_table_find(rmap, l0);
-    if (l == null_literal) {
-      // NOTE: this should not happen if bv_solver_value_for_variable
-      // works properly
-      goto not_defined;
-    } else {
-      switch (literal_value(solver->core, l)) {
-      case VAL_FALSE:
-	bvconst_clr_bit(c->data, i);
-	break;
-      case VAL_TRUE:
-	bvconst_set_bit(c->data, i);
-	break;
-      case VAL_UNDEF:
-      default:
-	goto not_defined;
-      }
-    }
-  }
+  found = bv_solver_get_variable_value(solver, x, c->data);
+  assert(!found || bvconst_is_normalized(c->data, n));
   
-  bvconst_normalize(c->data, n);
-  
-  return true;
-
- not_defined:
-  return false;
+  return found;
 }
+
 
 
 /*
  * Delete whatever is used to store the model
  */
 void bv_solver_free_model(bv_solver_t *solver) {
-  // do nothing
+  if (solver->val_map != NULL) {
+    delete_bvconst_hmap(solver->val_map);
+    safe_free(solver->val_map);
+    solver->val_map = NULL;
+  }
 }
 
 
+
+
+/*
+ * FRESH VALUES
+ */
 
 /*
  * Allocate a small set and add all the used values of size set->bitsize
@@ -6746,6 +7010,7 @@ bool bv_solver_fresh_value(bv_solver_t *solver, bvconstant_t *v, uint32_t n) {
 }
 
 
+
 /******************************
  *  NUMBER OF ATOMS PER TYPE  *
  *****************************/
@@ -6834,9 +7099,9 @@ static bv_interface_t bv_solver_context = {
   (attach_eterm_fun_t) bv_solver_attach_eterm,
   (eterm_of_var_fun_t) bv_solver_eterm_of_var,
 
-  NULL, // void build_model(void *solver)
-  NULL, // void free_model(void *solver)
-  NULL, // bool value_in_model(void *solver, thvar_t x, bvconstant_t *v)
+  (build_model_fun_t) bv_solver_build_model,
+  (free_model_fun_t) bv_solver_free_model,
+  (bv_val_in_model_fun_t) bv_solver_value_in_model,
 };
 
 

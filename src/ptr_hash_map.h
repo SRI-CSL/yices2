@@ -49,6 +49,7 @@ typedef struct ptr_hmap_s {
 #define PTR_HMAP_RESIZE_RATIO 0.6
 #define PTR_HMAP_CLEANUP_RATIO 0.2
 
+
 /*
  * Initialization:
  * - n = initial size, must be a power of 2
@@ -56,15 +57,18 @@ typedef struct ptr_hmap_s {
  */
 extern void init_ptr_hmap(ptr_hmap_t *hmap, uint32_t n);
 
+
 /*
  * Delete: free memory
  */
 extern void delete_ptr_hmap(ptr_hmap_t *hmap);
 
+
 /*
  * Find record with key k. Return NULL if there's none
  */
 extern ptr_hmap_pair_t *ptr_hmap_find(ptr_hmap_t *hmap, int32_t k);
+
 
 /*
  * Get record with key k. If one is in the table return it.
@@ -72,10 +76,12 @@ extern ptr_hmap_pair_t *ptr_hmap_find(ptr_hmap_t *hmap, int32_t k);
  */
 extern ptr_hmap_pair_t *ptr_hmap_get(ptr_hmap_t *hmap, int32_t k);
 
+
 /*
  * Erase record r
  */
 extern void ptr_hmap_erase(ptr_hmap_t *hmap, ptr_hmap_pair_t *r);
+
 
 /*
  * Remove all records

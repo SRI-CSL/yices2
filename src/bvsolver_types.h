@@ -37,8 +37,9 @@
 
 #include "bv_vartable.h"
 #include "bv_atomtable.h"
-#include "bvexp_table.h"
 #include "bv_intervals.h"
+#include "bvconst_hmap.h"
+#include "bvexp_table.h"
 #include "bvpoly_compiler.h"
 
 #include "smt_core.h"
@@ -357,6 +358,12 @@ typedef struct bv_solver_s {
   ivector_t a_vector;
   ivector_t b_vector;
 
+
+  /*
+   * For model construction: mapping of variables to constants
+   * - allocated on demand
+   */
+  bvconst_hmap_t *val_map;
 
   /*
    * Sets for generating fresh values
