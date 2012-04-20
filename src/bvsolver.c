@@ -1738,19 +1738,22 @@ static bool all_bvvars_unmarked(bv_solver_t *solver) {
 
 /*
  * Complete bit-blasting:
- * - whenever (x == y) in the merge table, add the corresponding equality in the core
+ * - whenever (x == y) in the merge table, bitblast x and y
  * - also bit-blast all the variables from the select queue
  */
 static void bv_solver_bitblast_variables(bv_solver_t *solver) {
   bv_vartable_t *vtbl;
   bv_queue_t *squeue;
   uint32_t i, n;
-
+  thvar_t x;
+      
   vtbl = &solver->vtbl;
   n = vtbl->nvars;
   for (i=1; i<n; i++) {
-    if (bvvar_is_useful(solver, i)) {
-      bv_solver_bitblast_variable(solver, i);
+    x = mtbl_get_root(&solver->mtbl, i);
+    if (x != i) {
+      bv_solver_bitblast_variable(solver, x);
+      bv_solver_bitblast_variable(solver, i);      
     }
   }  
 
