@@ -1248,8 +1248,12 @@ node_occ_t bvc_dag_get_nocc_of_var(bvc_dag_t *dag, int32_t x, uint32_t bitsize) 
   if (bvc_dag_var_is_present(dag, x)) {
     return bvc_dag_nocc_of_var(dag, x);
   } else {
+    /*
+     * NOTE: we don't want to add the map [x --> n] in vmap
+     * - because of possible circularities, x may be mapped
+     *   later to another node.
+     */
     n = bvc_dag_leaf(dag, x, bitsize);
-    //    bvc_dag_map_var(dag, x, n); // BUGGY
     return n;
   }
 }

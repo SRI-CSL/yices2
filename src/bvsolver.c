@@ -530,10 +530,6 @@ static void delete_used_vals(used_bvval_t *used_vals) {
 
 
 
-#if 0
-
-// NOT USED YET
-
 /*
  * Allocate a set descriptor
  * - return its id
@@ -622,7 +618,6 @@ static rb_bvset_t *new_rb_bvset(uint32_t k) {
   return tmp;
 }
 
-#endif
 
 
 
@@ -928,23 +923,20 @@ static void bv_solver_mark_vars_in_atoms(bv_solver_t *solver) {
 
   vtbl = &solver->vtbl;
 
-  // scan the atoms created at the current base level
-  // and mark their variables
+  /*
+   * scan all the atoms and mark their variables
+   *
+   * TODO: make this more efficient by keeping track
+   * of the atoms that have been processed (keep track
+   * of this in the trail_stack?)
+   */
   atbl = &solver->atbl;
   n = atbl->natoms;
-  i = 0;
-  if (solver->base_level > 0) {
-    i = bv_trail_top(&solver->trail_stack)->natoms;
-  }
-
-  assert(i <= n);
-  while (i < n) {
+  for (i=0; i<n; i++) {
     atm = bvatom_desc(atbl, i);
     bv_solver_mark_variable(solver, mtbl_get_root(&solver->mtbl, atm->left));
     bv_solver_mark_variable(solver, mtbl_get_root(&solver->mtbl, atm->right));
-    i ++;
   }
-
 }
 
 
@@ -1510,6 +1502,22 @@ static void collect_bvvar_literals(bv_solver_t *solver, thvar_t x, ivector_t *v)
 }
 
 
+/*
+ * Check whether x was created before the current base level
+ * - if so, add x to the delayed_queue
+ */
+static void bv_solver_save_delayed_var(bv_solver_t *solver, thvar_t x) {
+  bv_trail_stack_t *trail;
+
+  assert(bvvar_is_bitblasted(&solver->vtbl, x));
+
+  trail = &solver->trail_stack;
+  if (trail->top > 0 && x < bv_trail_top(trail)->nvars) {
+    bv_queue_push(&solver->delayed_queue, x);
+  }
+}
+
+
 
 /*
  * Recursive bit-blasting:
@@ -1662,6 +1670,8 @@ static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
     // mark x as biblasted
     bvvar_set_bitblasted(vtbl, x);
     bvvar_clr_mark(vtbl, x);
+
+    bv_solver_save_delayed_var(solver, x);
   }
 }
 
@@ -4724,7 +4734,6 @@ bool bv_solver_check_disequality(bv_solver_t *solver, thvar_t x, thvar_t y) {
   return false;
 }
 
-
 uint32_t bv_solver_reconcile_model(bv_solver_t *solver, uint32_t max_eq) {
   return 0;
 }
@@ -4733,13 +4742,6 @@ literal_t bv_solver_select_eq_polarity(bv_solver_t *solver, thvar_t x, thvar_t y
   return l;
 }
 
-bool bv_solver_value_in_model(bv_solver_t *solver, thvar_t x, bvconstant_t *v) {
-  return false;
-}
-
-bool bv_solver_fresh_value(bv_solver_t *solver, bvconstant_t *v, uint32_t n) {
-  return false;
-}
 
 
 /**********************
@@ -4905,6 +4907,31 @@ static void bv_solver_remove_dead_eterms(bv_solver_t *solver) {
 
 
 /*
+ * Remove the map and bit-blasting mark of variables in
+ * the delayed_queue:
+ * - n = number of variables in the queue at the corresponding push
+ */
+static void bv_solver_clean_delayed_bitblasting(bv_solver_t *solver, uint32_t n) {
+  bv_vartable_t *vtbl;
+  bv_queue_t *dqueue;
+  uint32_t i, top;
+  thvar_t x;
+
+  vtbl = &solver->vtbl;
+
+  dqueue = &solver->delayed_queue;
+  top = dqueue->top;
+  assert(n <= top);
+
+  for (i=0; i<n; i++) {
+    x = dqueue->data[i];
+    assert(bvvar_is_bitblasted(vtbl, x));
+    bvvar_reset_map(vtbl, x);
+    bvvar_clr_bitblasted(vtbl, x);
+  }
+}
+
+/*
  * Return to the previous base level
  */
 void bv_solver_pop(bv_solver_t *solver) {
@@ -4929,6 +4956,13 @@ void bv_solver_pop(bv_solver_t *solver) {
   if (solver->compiler != NULL) {
     bv_compiler_remove_vars(solver->compiler, top->nvars);
   }
+
+  // remove select terms
+  solver->select_queue.top = top->nselects;
+
+  // remove the dead maps
+  bv_solver_clean_delayed_bitblasting(solver, top->ndelayed);
+  solver->delayed_queue.top = top->ndelayed;
 
   bv_solver_remove_bounds(solver, top->natoms);
   bv_vartable_remove_vars(&solver->vtbl, top->nvars);
@@ -6090,6 +6124,628 @@ thvar_t bv_solver_var_compiles_to(bv_solver_t *solver, thvar_t x) {
 
 
 
+
+/************************
+ *  MODEL CONSTRUCTION  *
+ ***********************/
+
+/*
+ * When model construction is invoked, the context has determined that
+ * the constraints are SAT (so a model does exist). The value of a
+ * bitvector variables x is defined by the boolean values of the
+ * literal array mapped to x during bit-blasting. In some cases, 
+ * this array is incomplete and does not define x's value fully.
+ * For example, variables that are not reachable from the top-level atoms
+ * are not marked or bitblasted.
+ *
+ * To complete the model, we can assign a value to the missing bits,
+ * based on the variable definitions. This is done by the following functions.
+ */
+static void bv_solver_value_for_variable(bv_solver_t *solver, thvar_t x);
+
+#if 0
+
+#ifndef NDEBUG
+
+/*
+ * For debugging: check whether x is fully undefined  (all literals for x are nil)
+ */
+static bool bv_solver_variable_all_undef(bv_solver_t *solver, thvar_t x) {
+  bv_vartable_t *vtbl;
+  remap_table_t *rmap;
+  literal_t *mx;
+  literal_t l, l0;
+  uint32_t i, n;
+  
+  vtbl = &solver->vtbl;
+  rmap = solver->remap;
+
+  assert(valid_bvvar(vtbl, x) && rmap != NULL);
+
+  n = bvvar_bitsize(vtbl, x);
+  mx = bvvar_get_map(vtbl, x);
+
+  assert(mx != NULL);
+  for (i=0; i<n; i++) {
+    l0 = mx[i];
+    assert(l0 != null_literal);
+    l = remap_table_find(rmap, l0);
+    if (l != null_literal) {
+      return false;
+    }
+  }
+  
+  return true;    
+}
+
+#endif
+
+
+/*
+ * Copy the value of y as value of x
+ * - x and y must be variables of the same size
+ * - x must be all undefined, y must be fully defined
+ */
+static void bv_solver_copy_value(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  bv_vartable_t *vtbl;
+  remap_table_t *rmap;
+  literal_t *mx, *my;
+  uint32_t i, n;
+  literal_t l0, l1, l;
+
+  vtbl = &solver->vtbl;
+  rmap = solver->remap;
+
+  assert(valid_bvvar(vtbl, x) && valid_bvvar(vtbl, y) && bvvar_bitsize(vtbl, x) == bvvar_bitsize(vtbl, y));
+
+  n = bvvar_bitsize(vtbl, x);
+  mx = bvvar_get_map(vtbl, x);
+  my = bvvar_get_map(vtbl, y);
+
+  for (i=0; i<n; i++) {
+    l0 = mx[i]; // vtbl->map[x].array[i];
+    l1 = my[i]; // vtbl->map[y].array[i];
+    assert(l0 != null_literal && l1 != null_literal && 
+	   remap_table_find(rmap, l0) == null_literal);
+    l = remap_table_find(rmap, l1);
+    assert(l != null_literal);
+    remap_table_assign(rmap, l0, l);
+  }
+}
+
+
+/*
+ * Copy the value of x into word array b
+ * - b must be large enough
+ * - x must be fully defined
+ */
+static void bv_solver_extract_value(bv_solver_t *solver, thvar_t x, uint32_t *b) {
+  bv_vartable_t *vtbl;
+  remap_table_t *rmap;
+  literal_t *a;
+  uint32_t i, n;
+  literal_t l0, l;
+
+  vtbl = &solver->vtbl;
+  rmap = solver->remap;
+
+  n = bvvar_bitsize(vtbl, x);
+  a = bvvar_get_map(vtbl, x);
+  assert(a != NULL);
+
+  for (i=0; i<n; i++) {
+    l0 = a[i];
+    l = remap_table_find(rmap, l0);
+    assert(l != null_literal);
+    if (literal_value(solver->core, l) == VAL_FALSE) {
+      bvconst_clr_bit(b, i); 
+    } else {
+      assert(literal_value(solver->core, l) == VAL_TRUE);
+      bvconst_set_bit(b, i);
+    }
+  }
+
+  bvconst_normalize(b, n);
+}
+
+
+/*
+ * Assign word array b to x
+ * - x must be fully undefined
+ */
+static void bv_solver_set_value(bv_solver_t *solver, thvar_t x, uint32_t *b) {
+  bv_vartable_t *vtbl;
+  remap_table_t *rmap;
+  literal_t *a;
+  uint32_t i, n;
+  literal_t l0;
+
+  vtbl = &solver->vtbl;
+  rmap = solver->remap;
+  a = bvvar_get_map(vtbl, x);
+  assert(a != NULL);
+
+  for (i=0; i<n; i++) {
+    l0 = a[i];
+    assert(remap_table_find(rmap, l0) == null_literal);
+    if (bvconst_tst_bit(b, i)) {
+      remap_table_assign(rmap, l0, true_literal);
+    } else {
+      remap_table_assign(rmap, l0, false_literal);
+    }
+  }
+  
+}
+
+
+
+/*
+ * Assign the opposite of value of y to x
+ * - x and y must have the same size
+ * - x must be fully undefined
+ * - y must be fully defined
+ */
+static void bv_solver_negate_value(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  bv_vartable_t *vtbl;
+  uint32_t n, w;
+  uint32_t a[4];
+  uint32_t *b;
+
+  vtbl = &solver->vtbl;
+  assert(valid_bvvar(vtbl, x) && valid_bvvar(vtbl, y) && bvvar_bitsize(vtbl, x) == bvvar_bitsize(vtbl, y));
+
+  n = bvvar_bitsize(vtbl, x);
+  assert(n > 0);
+  w = (n + 31) >> 5;
+  b = a;
+  if (w > 4) {
+    b = (uint32_t *) safe_malloc(w * sizeof(uint32_t));
+  }
+
+  bv_solver_extract_value(solver, y, b); // b := value of y
+  bvconst_negate(b, w);  // b := - b
+  bv_solver_set_value(solver, x, b); // value of x := b
+
+  if (w > 4) {
+    safe_free(b);
+  }
+}
+
+
+/*
+ * Convert bv's value (as a non-negative integer) into a shift amount. 
+ * If bv's value is larger than n, then returns n
+ */
+static uint32_t get_shift_amount(uint32_t n, uint32_t *bv) {
+  uint32_t k, i, s;
+
+  k = (n + 31) >> 5; // number of words in bv
+  s = bvconst_get32(bv); // low-order word = shift amount
+
+  // if any of the higher order words in nonzero, return n
+  for (i=1; i<k; i++) {
+    if (bv[i] != 0) return n;
+  }
+
+  // truncate s if required
+  return (n <= s) ? n : s;
+}
+
+
+/*
+ * Apply op to val[y], val[z] and store the result as val[x]
+ * - x, y, z must all have the same size
+ * - x must be fully undefined
+ * - y and z must be fully defined
+ */
+static void bv_solver_binop_value(bv_solver_t *solver, bvvar_tag_t op, thvar_t x, thvar_t y, thvar_t z) {
+  bv_vartable_t *vtbl;
+  uint32_t n, w, k;
+  uint32_t a1[4], a2[4], a3[4];
+  uint32_t *b1, *b2, *b3;
+
+  vtbl = &solver->vtbl;
+  n = bvvar_bitsize(vtbl, x);
+  assert(n > 0);
+  w = (n + 31) >> 5;
+  b1 = a1;
+  b2 = a2;
+  b3 = a3;
+  if (w > 4) {
+    b1 = (uint32_t *) safe_malloc(w * sizeof(uint32_t));
+    b2 = (uint32_t *) safe_malloc(w * sizeof(uint32_t));
+    b3 = NULL; // need this so that safe_free(b3) works
+  }
+
+  bv_solver_extract_value(solver, y, b1); // b1 := value of y
+  bv_solver_extract_value(solver, z, b2); // b2 := value of z
+
+  switch (op) {
+  case BVTAG_ADD:
+    bvconst_add(b1, w, b2); // b1 := b1 + b2
+    bv_solver_set_value(solver, x, b1);
+    break;
+
+  case BVTAG_SUB:
+    bvconst_sub(b1, w, b2); // b1 := b1 - b2
+    bv_solver_set_value(solver, x, b1);
+    break;
+
+  case BVTAG_MUL:
+    bvconst_mul(b1, w, b2); // b1 := b1 * b2
+    bv_solver_set_value(solver, x, b1);
+    break;
+
+  case BVTAG_UDIV:
+    if (w > 4) {
+      b3 = (uint32_t *) safe_malloc(w * sizeof(uint32_t));
+    }
+    bvconst_udiv2z(b3, n, b1, b2);
+    bv_solver_set_value(solver, x, b3);
+    break;
+
+  case BVTAG_UREM:
+    if (w > 4) {
+      b3 = (uint32_t *) safe_malloc(w * sizeof(uint32_t));
+    }
+    bvconst_urem2z(b3, n, b1, b2);
+    bv_solver_set_value(solver, x, b3);
+    break;
+
+  case BVTAG_SDIV:
+    if (w > 4) {
+      b3 = (uint32_t *) safe_malloc(w * sizeof(uint32_t));
+    }
+    bvconst_sdiv2z(b3, n, b1, b2);
+    bv_solver_set_value(solver, x, b3);
+    break;
+
+  case BVTAG_SREM:
+    if (w > 4) {
+      b3 = (uint32_t *) safe_malloc(w * sizeof(uint32_t));
+    }
+    bvconst_srem2z(b3, n, b1, b2);
+    bv_solver_set_value(solver, x, b3);
+    break;
+
+  case BVTAG_SMOD:
+    if (w > 4) {
+      b3 = (uint32_t *) safe_malloc(w * sizeof(uint32_t));
+    }
+    bvconst_smod2z(b3, n, b1, b2);
+    bv_solver_set_value(solver, x, b3);
+    break;
+
+  case BVTAG_SHL:
+    k = get_shift_amount(n, b2);
+    bvconst_shift_left(b1, n, k, 0);  // b1 := (b1 << k) padded with 0
+    bv_solver_set_value(solver, x, b1);
+    break;
+      
+  case BVTAG_LSHR:
+    k = get_shift_amount(n, b2);
+    bvconst_shift_right(b1, n, k, 0); // b1 := (b1 >> k) padded with 0
+    bv_solver_set_value(solver, x, b1);
+    break;
+
+  case BVTAG_ASHR:
+    k = get_shift_amount(n, b2);
+    bvconst_shift_right(b1, n, k, bvconst_tst_bit(b1, n-1)); // padding with sign bit
+    bv_solver_set_value(solver, x, b1);
+    break;
+      
+  default:
+    assert(false);
+    break;
+  }
+
+  if (w > 4) {
+    safe_free(b1);
+    safe_free(b2);
+    safe_free(b3);
+  }
+}
+
+#endif
+
+
+/*
+ * Assign a value to all the literals of x
+ */
+static void bv_solver_value_for_variable(bv_solver_t *solver, thvar_t x) {
+  bv_vartable_t *vtbl;
+#if 0
+  remap_table_t *rmap;
+  literal_t *a;
+  bvvar_tag_t op;
+  uint32_t i, n;
+  literal_t l0, l;
+  thvar_t y;
+#endif
+
+  vtbl = &solver->vtbl;
+
+  assert(valid_bvvar(vtbl, x) && bvvar_bitsize(vtbl, x) > 0);
+
+#if 0
+  /*
+   * All marked variables have been bit-blasted so they are fully
+   * defined by the SAT solver.
+   */
+  if (! bvvar_is_bitblasted(vtbl, x)) {
+
+    // a --> array of pseudo literals mapped to x
+    // n = number of bits in x = size of array a
+    n = bvvar_bitsize(vtbl, x);
+    a = bvvar_get_map(vtbl, x); // vtbl->map[x].array;
+    assert(a != NULL);
+
+    rmap = solver->remap;
+    op = bvvar_tag(vtbl, x);
+
+    switch (op) {
+    case BVTAG_CONST64:
+    case BVTAG_CONST:
+      // nothing to do. The pseudo-literals are mapped to true or false
+      // already.
+      break;
+
+    case BVTAG_VAR:      
+      // we can assign an arbitrary value to the undefined bits of x
+      for (i=0; i<n; i++) {
+	l0 = a[i];
+	assert(l0 != null_literal);
+	l = remap_table_find(rmap, l0);
+	if (l == null_literal) {
+	  remap_table_assign(rmap, l0, false_literal);
+	}
+      }
+      break;
+
+    case BVTAG_BIT_ARRAY:
+      // TBD
+      break;
+
+    case BVTAG_NEG:
+      // x must be fully undefined otherwise something went
+      // wrong in the translation.
+      assert(bv_solver_variable_all_undef(solver, x));
+      y = vtbl->def[x].op[0];
+      bv_solver_value_for_variable(solver, y);
+      bv_solver_negate_value(solver, x, y);
+      break;
+
+    case BVTAG_ADD:
+    case BVTAG_SUB:
+    case BVTAG_MUL:
+    case BVTAG_SHL:
+    case BVTAG_UDIV:
+    case BVTAG_UREM:
+    case BVTAG_SDIV:
+    case BVTAG_SREM:
+    case BVTAG_SMOD:
+    case BVTAG_LSHR:
+    case BVTAG_ASHR:
+      assert(bv_solver_variable_all_undef(solver, x));
+      bv_solver_value_for_variable(solver, vtbl->def[x].op[0]);
+      bv_solver_value_for_variable(solver, vtbl->def[x].op[1]);
+      bv_solver_binop_value(solver, op, x, vtbl->def[x].op[0], vtbl->def[x].op[1]);
+      break;
+
+    case BVTAG_ITE:
+      assert(bv_solver_variable_all_undef(solver, x));
+      l = vtbl->def[x].ite->cond;
+      if (literal_value(solver->core, l) == VAL_TRUE) {
+	y = vtbl->def[x].ite->left;
+      } else {
+	assert(literal_value(solver->core, l) == VAL_FALSE);
+	y = vtbl->def[x].ite->right;
+      }
+      // assign a value to y then assign the same value to x
+      bv_solver_value_for_variable(solver, y);
+      bv_solver_copy_value(solver, x, y);
+      break;
+
+    default:
+      assert(false);
+      abort();
+      break;
+    }
+  }
+#endif
+}
+
+
+
+
+
+/*
+ * Interface function: nothing to do
+ */
+void bv_solver_build_model(bv_solver_t *solver) {
+  // do nothing
+}
+
+
+
+/*
+ * Copy the value assigned to x in the model into buffer c
+ * - return true if the value is available
+ * - return false if the solver has no model
+ */
+bool bv_solver_value_in_model(bv_solver_t *solver, thvar_t x, bvconstant_t *c) {
+  bv_vartable_t *vtbl;
+  remap_table_t *rmap;
+  uint32_t i, n;
+  literal_t l0, l;
+  literal_t *a;
+
+  vtbl = &solver->vtbl;
+  n = bvvar_bitsize(vtbl, x);
+  assert(n > 0);
+  rmap = solver->remap;
+  bvconstant_set_bitsize(c, n);
+
+  if (! bvvar_is_marked(vtbl, x)) {
+    bv_solver_value_for_variable(solver, x);
+  }
+    
+  a = bvvar_get_map(vtbl, x); // vtbl->map[x].array;
+  for (i=0; i<n; i++) {
+    l0 = a[i];
+    assert(l0 != null_literal);
+    l = remap_table_find(rmap, l0);
+    if (l == null_literal) {
+      // NOTE: this should not happen if bv_solver_value_for_variable
+      // works properly
+      goto not_defined;
+    } else {
+      switch (literal_value(solver->core, l)) {
+      case VAL_FALSE:
+	bvconst_clr_bit(c->data, i);
+	break;
+      case VAL_TRUE:
+	bvconst_set_bit(c->data, i);
+	break;
+      case VAL_UNDEF:
+      default:
+	goto not_defined;
+      }
+    }
+  }
+  
+  bvconst_normalize(c->data, n);
+  
+  return true;
+
+ not_defined:
+  return false;
+}
+
+
+/*
+ * Delete whatever is used to store the model
+ */
+void bv_solver_free_model(bv_solver_t *solver) {
+  // do nothing
+}
+
+
+
+/*
+ * Allocate a small set and add all the used values of size set->bitsize
+ * to that set. Store the result into set->ptr.
+ */
+static void collect_used_values_small(bv_solver_t *solver, bvset_t *set) {    
+  small_bvset_t *s;
+  bv_vartable_t *vtbl;
+  bvconstant_t aux;
+  uint32_t i, n;
+  uint32_t bitsize;  
+
+  bitsize = set->bitsize;
+  s = new_small_bvset(bitsize);
+  set->ptr = s;
+
+  init_bvconstant(&aux);
+
+  vtbl = &solver->vtbl;
+  n = vtbl->nvars;
+  for (i=0; i<n; i++) {
+    if (bvvar_bitsize(vtbl, i) == bitsize && 
+	bv_solver_value_in_model(solver, i, &aux)) {
+      // aux = value of i in the model
+      // it's stored in aux.data[0]
+      small_bvset_add(s, aux.data[0]);
+    }
+  }
+
+  delete_bvconstant(&aux);
+}
+
+
+
+/*
+ * Allocate a red-black tree and add all the used values of size set->bitsize 
+ * to that tree. Store the tree into set->ptr;
+ */
+static void collect_used_values_rb(bv_solver_t *solver, bvset_t *set) {
+  rb_bvset_t *s;
+  bv_vartable_t *vtbl;
+  bvconstant_t aux;
+  uint32_t i, n;
+  uint32_t bitsize;  
+
+  bitsize = set->bitsize;
+  s = new_rb_bvset(bitsize);
+  set->ptr = s;
+
+  init_bvconstant(&aux);
+
+  vtbl = &solver->vtbl;
+  n = vtbl->nvars;
+  for (i=0; i<n; i++) {
+    if (bvvar_bitsize(vtbl, i) == bitsize && 
+	bv_solver_value_in_model(solver, i, &aux)) {
+      // aux = value of i in the model
+      // copy the low-order word aux.data[0] into s
+      rb_bvset_add(s, aux.data[0]);
+    }
+  }
+
+  delete_bvconstant(&aux);
+}
+
+
+/*
+ * Create a fresh value: distinct from all the other bitvector constants
+ * of the same size present in the model.
+ * - n = bit size of the new value
+ * - v = buffer where the result must be copied
+ * - return false if that fails, true otherwise
+ */
+bool bv_solver_fresh_value(bv_solver_t *solver, bvconstant_t *v, uint32_t n) {
+  uint32_t x;
+  bvset_t *set;
+
+  set = used_vals_get_set(&solver->used_vals, n);
+  if (n <= SMALL_BVSET_LIMIT) {
+    if (set->ptr == NULL) {
+      collect_used_values_small(solver, set);
+    }
+
+    if (small_bvset_full(set->ptr)) {
+      // can't create a new value.
+      // this should not happen if the solvers are sound.
+      // the egraph should not request a fresh value in this case.
+      assert(false);
+      return false;
+    }
+
+    x = small_bvset_get_fresh(set->ptr);
+  } else {
+    if (set->ptr == NULL) {
+      collect_used_values_rb(solver, set);
+    }
+
+    if (rb_bvset_full(set->ptr)) {
+      assert(false);
+      return false;
+    }
+
+    x = rb_bvset_get_fresh(set->ptr);
+  }
+
+  // copy x into *v
+  // padd the rest with 0s
+  assert(n >= 32 || (x < (1<<n)));
+  bvconstant_set_all_zero(v, n); // v is 0b0.....0
+  v->data[0] = x;                // copy x in low-order bits
+
+  return true;
+}
+
+
 /******************************
  *  NUMBER OF ATOMS PER TYPE  *
  *****************************/
@@ -6178,9 +6834,9 @@ static bv_interface_t bv_solver_context = {
   (attach_eterm_fun_t) bv_solver_attach_eterm,
   (eterm_of_var_fun_t) bv_solver_eterm_of_var,
 
-  NULL,
-  NULL,
-  NULL,  
+  NULL, // void build_model(void *solver)
+  NULL, // void free_model(void *solver)
+  NULL, // bool value_in_model(void *solver, thvar_t x, bvconstant_t *v)
 };
 
 

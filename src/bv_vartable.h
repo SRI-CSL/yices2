@@ -451,6 +451,17 @@ static inline void bvvar_set_map(bv_vartable_t *table, thvar_t x, literal_t *a) 
 
 
 /*
+ * Reset the map of x to NULL
+ * - x must have a non-null map
+ */
+static inline void bvvar_reset_map(bv_vartable_t *table, thvar_t x) {
+  assert(bvvar_is_mapped(table, x));
+  int_array_decref(table->map[x]);
+  table->map[x] = NULL;
+}
+
+
+/*
  * Set/clear the mark on x
  */
 static inline void bvvar_set_mark(bv_vartable_t *table, thvar_t x) {

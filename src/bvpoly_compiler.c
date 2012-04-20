@@ -416,23 +416,6 @@ static thvar_t bv_compiler_mk_power_product(bvc_t *c, uint32_t n, pp_buffer_t *b
  */
 
 /*
- * Substitution could introduce circular dependencies. To prevent cycles
- * we store the variables to process in c->queue and we store the set
- * of variables that remain to be compiled in c->in_queue.
- * - a substitution y := x is safe if x is not in c->in_queue
- */
-static thvar_t bv_compiler_subst_var(bvc_t *c, thvar_t x) {
-  thvar_t y;
-
-  y = mtbl_get_root(c->mtbl, x);
-  if (int_bvset_member(&c->in_queue, y)) {
-    y = x;
-  }
-
-  return y;
-}
-
-/*
  * Apply the substitution stored in the merge table to p
  * - store the result in the poly_buffer b
  */
@@ -517,15 +500,6 @@ static inline bool bvvar_is_compiled(bvc_t *c, thvar_t x) {
  */
 static bool bvvar_to_process(bvc_t *c, thvar_t x) {
   return !int_bvset_member(&c->in_queue, x) && !bvvar_is_compiled(c, x);
-}
-
-
-/*
- * Add x to the queue and to in_queue
- */
-static void push_to_process(bvc_t *c, thvar_t x) {
-  bvc_queue_push(&c->queue, x);
-  int_bvset_add(&c->in_queue, x);
 }
 
 
