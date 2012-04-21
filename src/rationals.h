@@ -487,10 +487,17 @@ extern bool q_fits_int64(rational_t *r); // r is a/b where a is int64, b is uint
  */
 extern bool q_get_mpz(rational_t *r, mpz_t z);
 
+
 /*
  * Store r into q
  */
 extern void q_get_mpq(rational_t *r, mpq_t q);
+
+
+/*
+ * Convert to a floating point number
+ */
+extern double q_get_double(rational_t *r);
 
 
 

@@ -1712,6 +1712,15 @@ void q_get_mpq(rational_t *r, mpq_t q) {
 
 
 
+/*
+ * Convert to a double
+ */
+double q_get_double(rational_t *r) {
+  q_get_mpq(r, q0);
+  return mpq_get_d(q0);
+}
+
+
 
 
 /**************

@@ -786,7 +786,7 @@ extern smt_status_t check_context(context_t *ctx, const param_t *parameters, boo
  * - model must be initialized (and empty)
  * - the model maps a value to every uninterpreted terms present in ctx's 
  *   internalization tables
- * - model->has_alias is true, the term substitution defined by ctx->intern_tbl
+ * - if model->has_alias is true, the term substitution defined by ctx->intern_tbl
  *   is copied into the model
  */
 extern void context_build_model(model_t *model, context_t *ctx);

@@ -41,11 +41,13 @@
 #include "term_substitution.h"
 #include "context.h"
 #include "models.h"
+#include "model_eval.h"
 #include "context_config.h"
 #include "search_parameters.h"
 
 #include "type_printer.h"
 #include "term_printer.h"
+#include "model_printer.h"
 
 #include "yices.h"
 #include "yices_error.h"
@@ -1272,6 +1274,20 @@ static bool check_bitvector_term(term_manager_t *mngr, term_t t) {
 
   if (! is_bitvector_term(tbl, t)) {
     error.code = BITVECTOR_REQUIRED;
+    error.term1 = t;
+    return false;
+  }
+  return true;
+}
+
+// Check whether t has a scalar or uninterpreted type, t must be valid
+static bool check_scalar_term(term_manager_t *mngr, term_t t) {
+  term_table_t *tbl;
+
+  tbl = term_manager_get_terms(mngr);
+
+  if (!is_scalar_term(tbl, t) && !is_utype_term(tbl, t)) {
+    error.code = SCALAR_TERM_REQUIRED;
     error.term1 = t;
     return false;
   }
@@ -5318,5 +5334,391 @@ EXPORTED void yices_stop_search(context_t *ctx) {
  ***********/
 
 /*
- * Nothing implemented yet. Check yices.h for the planned API.
+ * Build a model from ctx 
+ * - keep_subst indicates whether the model should include
+ *   the eliminated variables: 
+ *   keep_subst = 0 means don't keep substitutions,
+ *   keep_subst != 0 means keep them
+ * - ctx status must be SAT or UNKNOWN
+ *
+ * The function returns NULL if the status isn't SAT or UNKNOWN and
+ * sets an error report.
+ *
  */
+EXPORTED model_t *yices_get_model(context_t *ctx, int32_t keep_subst) {
+  model_t *mdl;
+
+  assert(ctx != NULL);
+
+  switch (context_status(ctx)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    mdl = alloc_model();
+    init_model(mdl, get_terms(), (keep_subst != 0));
+    context_build_model(mdl, ctx);
+    break;
+
+  default:
+    error.code = CTX_INVALID_OPERATION;
+    mdl = NULL;
+    break;
+  }
+
+  return mdl;
+}
+
+
+/*
+ * Delete mdl
+ */
+EXPORTED void yices_free_model(model_t *mdl) {
+  delete_model(mdl);
+  free_model(mdl);
+}
+
+
+
+/*
+ * Print model mdl on FILE f
+ * - f must be open/writable
+ */
+EXPORTED void yices_print_model(FILE *f, model_t *mdl) {
+  model_print_full(f, mdl);
+}
+
+
+/*
+ * Convert a negative evaluation code v to 
+ * the corresponding yices error code.
+ * - v is a code returned by eval_in_model
+ */
+static const error_code_t eval_error2code[6] = {
+  NO_ERROR,              // v = 0
+  EVAL_FAILED,           // v = null_value (-1)
+  EVAL_UNKNOWN_TERM,     // v = MDL_EVAL_UNKNOWN_TERM (-2)
+  EVAL_FREEVAR_IN_TERM,  // v = MDL_EVAL_FREEVAR_IN_TERM (-3)
+  EVAL_QUANTIFIER,       // v = MDL_EVAL_QUANTIFIER (-4)
+  EVAL_FAILED,           // v = MDL_EVAL_FAILED (-5)
+};
+
+static inline error_code_t yices_eval_error(value_t v) {
+  assert(0 <= -v && -v <= 5);
+  return eval_error2code[-v];
+}
+
+
+/*
+ * Value of boolean term t: returned as an integer val
+ * - val = 0 means t is false in mdl
+ * - val = 1 means t is true in mdl
+ *
+ * Error codes:
+ * If t is not boolean
+ *   code = TYPE_MISMATCH
+ *   term1 = t
+ *   type1 = bool (expected type)
+ * + the other evaluation error codes above.
+ */
+EXPORTED int32_t yices_get_bool_value(model_t *mdl, term_t t, int32_t *val) {
+  evaluator_t evaluator;
+  value_table_t *vtbl;
+  value_t v;
+
+  if (! check_good_term(&manager, t) ||
+      ! check_boolean_term(&manager, t)) {
+    return -1;
+  }
+
+  v = model_find_term_value(mdl, t);
+  if (v == null_value) {
+    init_evaluator(&evaluator, mdl);
+    v = eval_in_model(&evaluator, t);
+    delete_evaluator(&evaluator);    
+  }
+
+  if (v < 0) {
+    error.code = yices_eval_error(v);
+    return -1;
+  } 
+
+  vtbl = model_get_vtbl(mdl);
+  if (! object_is_boolean(vtbl, v)) {
+    error.code = INTERNAL_EXCEPTION;
+    return -1;
+  }  
+
+  *val = boolobj_value(vtbl, v);
+
+  return 0;
+}
+
+
+
+
+/*
+ * Value of arithmetic term t: it can be returned as an integer, a
+ * rational (pair num/den), converted to a double, or using the GMP
+ * mpz_t and mpq_t representations.
+ *
+ * Error codes:
+ * If t is not an arithmetic term:
+ *   code = ARITH_TERM_REQUIRED
+ *   term1 = t
+ * If t's value does not fit in the *val object
+ *   code = EVAL_OVERFLOW
+ */
+
+
+/*
+ * Auxiliary function: return the rational value of t
+ * - return NULL and set the error code if the value can't be computed
+ */
+static rational_t *yices_get_arith_value(model_t *mdl, term_t t) {
+  evaluator_t evaluator;
+  value_table_t *vtbl;
+  value_t v;
+
+  if (! check_good_term(&manager, t) ||
+      ! check_arith_term(&manager, t)) {
+    return NULL;
+  }
+
+  v = model_find_term_value(mdl, t);
+  if (v == null_value) {
+    init_evaluator(&evaluator, mdl);
+    v = eval_in_model(&evaluator, t);
+    delete_evaluator(&evaluator);    
+  }
+
+  if (v < 0) {
+    error.code = yices_eval_error(v);
+    return NULL;
+  } 
+
+  vtbl = model_get_vtbl(mdl);
+  if (! object_is_rational(vtbl, v)) {
+    error.code = INTERNAL_EXCEPTION;
+    return NULL;
+  }  
+
+  return vtbl_rational(vtbl, v);
+}
+
+
+// return the value as a 32bit integer
+EXPORTED int32_t yices_get_int32_value(model_t *mdl, term_t t, int32_t *val) {
+  rational_t *q;
+
+  q = yices_get_arith_value(mdl, t);
+  if (q == NULL) {
+    return -1;
+  }
+
+  if (! q_get32(q, val)) {
+    error.code = EVAL_OVERFLOW;
+    return -1;
+  }
+
+  return 0;
+}
+
+// return the value as a 64bit integer
+EXPORTED int32_t yices_get_int64_value(model_t *mdl, term_t t, int64_t *val) {
+  rational_t *q;
+
+  q = yices_get_arith_value(mdl, t);
+  if (q == NULL) {
+    return -1;
+  }
+
+  if (! q_get64(q, val)) {
+    error.code = EVAL_OVERFLOW;
+    return -1;
+  }
+
+  return 0;
+}
+
+// return the value as a pair num/den (both 32bit integers)
+EXPORTED int32_t yices_get_rational32_value(model_t *mdl, term_t t, int32_t *num, uint32_t *den) {
+  rational_t *q;
+
+  q = yices_get_arith_value(mdl, t);
+  if (q == NULL) {
+    return -1;
+  }
+
+  if (! q_get_int32(q, num, den)) {
+    error.code = EVAL_OVERFLOW;
+    return -1;
+  }
+
+  return 0;
+}
+
+// pair num/den (64bit integers)
+EXPORTED int32_t yices_get_rational64_value(model_t *mdl, term_t t, int64_t *num, uint64_t *den) {
+  rational_t *q;
+
+  q = yices_get_arith_value(mdl, t);
+  if (q == NULL) {
+    return -1;
+  }
+
+  if (! q_get_int64(q, num, den)) {
+    error.code = EVAL_OVERFLOW;
+    return -1;
+  }
+
+  return 0;
+}
+
+// convert to a floating point number
+EXPORTED int32_t yices_get_double_value(model_t *mdl, term_t t, double *val) {
+  rational_t *q;
+
+  q = yices_get_arith_value(mdl, t);
+  if (q == NULL) {
+    return -1;
+  }
+
+  *val = q_get_double(q);
+  return 0;
+}
+
+
+// convert to a GMP integer
+EXPORTED int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val) {
+  rational_t *q;
+
+  q = yices_get_arith_value(mdl, t);
+  if (q == NULL) {
+    return -1;
+  }
+
+  if (!q_get_mpz(q, val)) {
+    // the value is not an integer (maybe we should use a better error code
+    // in this case?)
+    error.code = EVAL_OVERFLOW;
+    return -1;
+  }
+
+  return 0;
+}
+
+// convert to a GMP rational
+EXPORTED int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val) {
+  rational_t *q;
+
+  q = yices_get_arith_value(mdl, t);
+  if (q == NULL) {
+    return -1;
+  }
+  q_get_mpq(q, val);
+
+  return 0;
+}
+
+
+
+/*
+ * Value of bitvector term t in mdl
+ * - the value is returned in array val
+ * - val must be an integer array of sufficient size to store all bits of t
+ * - bit i of t is stored in val[i] (val[i] is either 0 or 1)
+ * - the value is returned using small-endian convention:
+ *    val[0] is the low order bit
+ *    ...
+ *    val[n-1] is the high order bit 
+ *
+ * If t is not a bitvector term
+ *   code = BITVECTOR_REQUIRED
+ *   term1 = t
+ */
+EXPORTED int32_t yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]) {
+  evaluator_t evaluator;
+  value_table_t *vtbl;
+  value_bv_t *bv;
+  value_t v;
+
+  if (! check_good_term(&manager, t) ||
+      ! check_bitvector_term(&manager, t)) {
+    return -1;
+  }
+
+  v = model_find_term_value(mdl, t);
+  if (v == null_value) {
+    init_evaluator(&evaluator, mdl);
+    v = eval_in_model(&evaluator, t);
+    delete_evaluator(&evaluator);    
+  }
+
+  if (v < 0) {
+    error.code = yices_eval_error(v);
+    return -1;
+  }
+
+  vtbl = model_get_vtbl(mdl);
+  if (! object_is_bitvector(vtbl, v)) {
+    error.code = INTERNAL_EXCEPTION;
+    return -1;
+  }
+
+  bv = vtbl_bitvector(vtbl, v);
+  bvconst_get_array(bv->data, val, bv->nbits);
+
+  return 0;  
+}
+
+
+
+/*
+ * Value of term t of uninterpreted or scalar type
+ * - the value is returned as a constant index in *val 
+ *   (with the same meaning as in function yices_constant):
+ * - if t has type tau and tau is a scalar type of size n then 
+ *   the function returns an index k between 0 and n-1
+ * - if tau is an uninterpreted type, then the function returns an
+ *   integer index k
+ *
+ * Error codes:
+ * - if t does not have a scalar or uninterpreted type:
+ *   code = SCALAR_TERM_REQUIRED
+ *   term1 = t
+ */
+EXPORTED int32_t yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val) {
+  evaluator_t evaluator;
+  value_table_t *vtbl;
+  value_unint_t *uv;
+  value_t v;
+
+  if (! check_good_term(&manager, t) ||
+      ! check_scalar_term(&manager, t)) {
+    return -1;
+  }
+
+   v = model_find_term_value(mdl, t);
+  if (v == null_value) {
+    init_evaluator(&evaluator, mdl);
+    v = eval_in_model(&evaluator, t);
+    delete_evaluator(&evaluator);    
+  }
+
+  if (v < 0) {
+    error.code = yices_eval_error(v);
+    return -1;
+  }
+
+  vtbl = model_get_vtbl(mdl);
+  if (! object_is_unint(vtbl, v)) {
+    error.code = INTERNAL_EXCEPTION;
+    return -1;
+  }
+
+  uv = vtbl_unint(vtbl, v);
+  *val = uv->index;
+
+  return 0;
+}
+
+

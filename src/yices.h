@@ -1896,10 +1896,10 @@ __YICES_DLLSPEC__ extern void yices_free_param_record(param_t *param);
  *   the eliminated variables: 
  *   keep_subst = 0 means don't keep substitutions,
  *   keep_subst != 0 means keep them
- * - ctx status must be SAT
+ * - ctx status must be SAT or UNKNOWN
  *
- * The function returns NULL if the status isn't SAT and sets an error
- * report.
+ * The function returns NULL if the status isn't SAT or UNKNOWN 
+ * and sets an error report (code = CTX_INVALID_OPERATION).
  *
  * When assertions are added to the context, the simplifications may
  * eliminate variables (cf. simplification options above).  The flag

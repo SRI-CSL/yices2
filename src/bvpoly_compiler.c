@@ -994,6 +994,8 @@ static void bvc_process_elem_node(bvc_t *c, bvnode_t i) {
  * Check whether product or sum p is simple:
  * - return true if all the nodes occurring in p are leaves
  *   and p contains at most one shared leaf
+ * - we take the degree into account: if p contains product x^k
+ *   with k>1 and x is shared then that's more than one shared occurrence
  */
 static bool bvc_prod_is_simple(bvc_dag_t *dag, bvc_prod_t *p) {
   uint32_t i, n, n_shared;
@@ -1007,7 +1009,8 @@ static bool bvc_prod_is_simple(bvc_dag_t *dag, bvc_prod_t *p) {
       return false;
     }
     if (bvc_dag_occ_is_shared(dag, nx)) {
-      n_shared ++;
+      //      n_shared ++;
+      n_shared += p->prod[i].exp;
       if (n_shared > 1) return false;
     }
   }
