@@ -2023,12 +2023,13 @@ __YICES_DLLSPEC__ extern int32_t yices_get_bv_value(model_t *mdl, term_t t, int3
  * Value of term t of uninterpreted or scalar type
  * - the value is returned as a constant index in *val 
  *   (with the same meaning as in function yices_constant):
- *   - if t has type tau and tau is a scalar type of size n then 
- *     the function returns an index k between 0 and n-1
- *   - if tau is an uninterpreted type, then the function returns an
- *     integer index k
- *   - in both case, this means that the value of t in the model is 
- *     equal to yices_constant(tau, k)
+ * - if t has type tau and tau is a scalar type of size n then 
+ *   the function returns an index k between 0 and n-1
+ * - if tau is an uninterpreted type, then the function returns an
+ *   integer index k
+ * 
+ * The index k is a unique identifier: if two terms t1 and t2 are not
+ * equal in the model mdl, then their values will be distinct indices k.
  *
  * Error codes:
  * - if t does not have a scalar or uninterpreted type:
