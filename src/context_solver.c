@@ -468,7 +468,6 @@ static value_t arith_value(context_t *ctx, value_table_t *vtbl, thvar_t x) {
 }
 
 
-#if 0
 
 /*
  * Value of bitvector variable x in ctx->bv_solver
@@ -480,7 +479,7 @@ static value_t bv_value(context_t *ctx, value_table_t *vtbl, thvar_t x) {
   assert(context_has_bv_solver(ctx));
 
   b = &ctx->bv_buffer;
-  if (ctx->bv->value_in_model(ctx->bv_solver, x, b)) {
+  if (ctx->bv.value_in_model(ctx->bv_solver, x, b)) {
     v = vtbl_mk_bv_from_constant(vtbl, b);
   } else {
     v = vtbl_mk_unknown(vtbl);
@@ -489,7 +488,6 @@ static value_t bv_value(context_t *ctx, value_table_t *vtbl, thvar_t x) {
   return v;
 }
 
-#endif
 
 /*
  * Get a value for term t in the solvers or egraph
@@ -549,8 +547,7 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
 	break;
 
       case BITVECTOR_TYPE:
-	// not supported yet
-	v = vtbl_mk_unknown(vtbl);
+	v = bv_value(ctx, vtbl, code2thvar(x));
 	break;
 
       default:
@@ -612,11 +609,10 @@ void context_build_model(model_t *model, context_t *ctx) {
   if (context_has_arith_solver(ctx)) {
     ctx->arith.build_model(ctx->arith_solver);
   }
-#if 0
   if (context_has_bv_solver(ctx)) {
     ctx->bv.build_model(ctx->bv_solver);
   }
-#endif
+
 
   // allocate the model
   terms = ctx->terms;
@@ -643,13 +639,9 @@ void context_build_model(model_t *model, context_t *ctx) {
   if (context_has_arith_solver(ctx)) {
     ctx->arith.free_model(ctx->arith_solver);
   }
-
-#if 0
   if (context_has_bv_solver(ctx)) {
     ctx->bv.free_model(ctx->bv_solver);
   }
-#endif
-
   if (context_has_egraph(ctx)) {
     egraph_free_model(ctx->egraph);
   }

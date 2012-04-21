@@ -150,7 +150,7 @@ typedef enum optid {
   print_help_opt,             // print help and exit
   simple_model_opt,           // print the model if SAT  
   full_model_opt,             // full model
-  verbose_opt,               // output during search
+  verbose_opt,                // output during search
 #if SHOW_STATISTICS
   show_stats_opt,             // show statistics
 #endif

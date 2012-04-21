@@ -2201,7 +2201,7 @@ static smt_status_t do_check(void) {
    * Collect runtime statistics + call check
    */
   check_start_time = get_cpu_time();
-  stat = check_context(context, &parameters, true);
+  stat = check_context(context, &parameters, verbose);
   check_process_time = get_cpu_time() - check_start_time;
   if (check_process_time < 0.0) {
     check_process_time = 0.0;
@@ -2275,7 +2275,8 @@ static void yices_showmodel_cmd(void) {
       model = new_model();
       context_build_model(model, context);
     }    
-    model_print(stdout, model);
+    //    model_print(stdout, model);
+    model_print_full(stdout, model);
     break;
 
   case STATUS_UNSAT:

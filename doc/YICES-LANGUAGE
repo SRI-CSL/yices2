@@ -222,7 +222,7 @@ YICES LANGUAGE
 
      a) bitvector constant from an integer
 
-        (mk-bv <size> <value>
+        (mk-bv <size> <value>)
 
         Note: value must be a non-negative integer and 
         size must be a positive integer.
@@ -359,7 +359,7 @@ YICES LANGUAGE
    (define-type name):  create a new uninterpreted type called 'name'
 
    (define-type name <type-definition>) : create a new type called 'name' equal
-    to the <type-definition>
+                                          to the <type-definition>
 
    (assert <formula>):  add an assertion to the context
 
@@ -381,13 +381,13 @@ YICES LANGUAGE
    (echo <string>):  prints <string> on stdout
 
    (include <string>):  <string> must be the name of a file that contains Yices commands
-   	    		this reads and execude all commands in that file
+   	    		this reads and execude all the commands in that file
 
    (set-param <parameter-name> <parameter-value>):
                  assign a value to one parameter (parameters control simplification 
                  and search heuristics)
 
-   (show-param <parameter-name): show the current value of a parameter
+   (show-param <parameter-name>): show the current value of a parameter
 
    (show-params): show all parameters and their values
 

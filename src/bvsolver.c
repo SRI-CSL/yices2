@@ -6740,6 +6740,260 @@ static bool bv_solver_get_variable_value(bv_solver_t *solver, thvar_t x, uint32_
 
 
 /*
+ * Get the value of x, store the opposite  in c
+ * - n = number of bits
+ * - return true if found, false otherwise
+ */
+static bool bv_solver_neg_value(bv_solver_t *solver, thvar_t x, uint32_t n, uint32_t *c) {
+  uint32_t aux[4];
+  uint32_t *a;
+  uint32_t k;
+  bool found;
+
+  k = (n + 31) >> 5;
+  a = aux;
+  if (k > 4) {
+    a = (uint32_t *) safe_malloc(k * sizeof(uint32_t));
+  }
+
+  found = bv_solver_get_variable_value(solver, x, c);
+  if (found) {
+    bvconst_negate2(c, k, a);
+    bvconst_normalize(c, n);
+  }
+  
+  if (k > 4) {
+    safe_free(a);
+  }
+
+  return found;
+}
+
+
+/*
+ * Get the values of x[0] and x[1] the apply op to this pair of values
+ * - store the result in c
+ * - n = number of bits in x[0] and x[1]
+ */
+static bool bv_solver_binop_value(bv_solver_t *solver, bvvar_tag_t op, thvar_t x[2], uint32_t n, uint32_t *c) {
+  uint32_t aux1[4];
+  uint32_t aux2[4];
+  uint32_t *a1, *a2;
+  uint32_t k;
+  bool found;
+
+
+  k = (n + 31) >> 5;
+  a1 = aux1;
+  a2 = aux2;
+  if (k >4) {
+    a1 = (uint32_t *) safe_malloc(k * sizeof(uint32_t));
+    a2 = (uint32_t *) safe_malloc(k * sizeof(uint32_t));
+  }
+
+  found = bv_solver_get_variable_value(solver, x[0], a1) 
+    && bv_solver_get_variable_value(solver, x[1], a2);
+
+  if (found) {
+    switch (op) {
+    case BVTAG_UDIV:
+      bvconst_udiv2z(c, n, a1, a2);
+      break;
+
+    case BVTAG_UREM:
+      bvconst_urem2z(c, n, a1, a2);
+      break;
+
+    case BVTAG_SDIV:
+      bvconst_sdiv2z(c, n, a1, a2);
+      break;
+
+    case BVTAG_SREM:
+      bvconst_srem2z(c, n, a1, a2);
+      break;
+
+    case BVTAG_SMOD:
+      bvconst_smod2z(c, n, a1, a2);
+      break;
+
+    case BVTAG_SHL:
+      bvconst_lshl(c, a1, a2, n);
+      break;
+
+    case BVTAG_LSHR:
+      bvconst_lshr(c, a1, a2, n);
+      break;
+
+    case BVTAG_ASHR:
+      bvconst_ashr(c, a1, a2, n);
+      break;
+
+    case BVTAG_ADD:
+      bvconst_add2(c, k, a1, a2);
+      break;
+
+    case BVTAG_SUB:
+      bvconst_sub2(c, k, a1, a2);
+      break;
+
+    case BVTAG_MUL:
+      bvconst_mul2(c, k, a1, a2);
+      break;
+
+    default:
+      assert(false);
+      break;
+    }
+
+    bvconst_normalize(c, n);
+  }
+
+
+  if (k > 4) {
+    safe_free(a1);
+    safe_free(a2);
+  }
+
+  return found;
+}
+
+
+
+/*
+ * Evaluate polynomial p
+ * - store the result in c 
+ * - n = number of bits
+ */
+static bool bv_solver_poly64_value(bv_solver_t *solver, bvpoly64_t *p, uint32_t n, uint32_t *c) {
+  uint32_t aux[2];
+  uint64_t a, b;
+  uint32_t i, nterms;
+  bool found;
+
+  assert(1 <= n && n <= 64 && n == p->bitsize && p->nterms > 0);
+
+  nterms = p->nterms;
+
+  i = 0;
+  a = 0;
+  if (p->mono[0].var == 0) {
+    a = p->mono[0].coeff;
+    i = 1;
+  }
+
+  aux[0] = 0;
+  aux[1] = 0;
+
+  found = true;
+
+  while (i < nterms) {
+    found = bv_solver_get_variable_value(solver, p->mono[i].var, aux);
+    if (!found) goto done;
+    assert(bvconst_is_normalized(aux, n));	   
+    b = convert_to64(aux, n);     
+    a += p->mono[i].coeff * b;
+    i ++;
+  }
+
+  assert(found);
+
+  a = norm64(a, n);
+  copy_constant64(c, a, n);
+
+  assert(bvconst_is_normalized(c, n));
+
+ done:
+  return found;
+}
+
+
+static bool bv_solver_poly_value(bv_solver_t *solver, bvpoly_t *p, uint32_t n, uint32_t *c) {
+  uint32_t aux[4];
+  uint32_t *a;  
+  uint32_t k, i, nterms;
+  bool found;
+
+  assert(64 < n && n == p->bitsize && p->nterms > 0);
+
+  nterms = p->nterms;
+
+  k = (n + 31) >> 5;
+  a = aux;
+  if (k > 4) {
+    a = (uint32_t *) safe_malloc(k * sizeof(uint32_t));
+  }
+
+  i = 0;
+  bvconst_clear(c, k);
+  if (p->mono[0].var == const_idx) {
+    bvconst_set(c, k, p->mono[0].coeff);
+    i = 1;
+  }
+
+  found = true;
+
+  while (i < nterms) {
+    found = bv_solver_get_variable_value(solver, p->mono[i].var, a);
+    if (!found) goto done;
+    assert(bvconst_is_normalized(a, n));
+    bvconst_addmul(c, k, a, p->mono[i].coeff);
+    i ++;
+  }
+
+  assert(found);
+  bvconst_normalize(c, n);
+  
+ done:
+  if (k > 4) {
+    safe_free(a);
+  }
+ 
+  return found;
+}
+
+
+
+/*
+ * Evaluate power-product p
+ */
+static bool bv_solver_pprod_value(bv_solver_t *solver, pprod_t *p, uint32_t n, uint32_t *c) {
+  uint32_t aux[4];
+  uint32_t *a;  
+  uint32_t k, i, nterms;
+  bool found;
+  
+  nterms = p->len;
+
+  k = (n + 31) >> 5;
+  a = aux;
+  if (k > 4) {
+    a = (uint32_t *) safe_malloc(k * sizeof(uint32_t));
+  }
+
+  found = true;
+  bvconst_set_one(c, k);
+  for (i=0; i<n; i++) {
+    found = bv_solver_get_variable_value(solver, p->prod[i].var, a);
+    if (!found) goto done;
+    assert(bvconst_is_normalized(a, n));
+    bvconst_mulpower(c, k, a, p->prod[i].exp);
+  }
+
+  assert(found);
+  bvconst_normalize(c, n);
+
+ done:
+  if (k > 4) {
+    safe_free(a);
+  }
+
+  return found;
+}
+
+
+
+
+/*
  * Compute the value of x based on its definition
  * - check the val_map first: if x's value is in the map return it
  * - otherwise, compue if then add it to the val_map
@@ -6798,17 +7052,17 @@ static bool bv_solver_compute_var_value(bv_solver_t *solver, thvar_t x, uint32_t
   case BVTAG_BIT_ARRAY:
     found = get_bvarray_value(solver, bvvar_bvarray_def(vtbl, x), n, c);
     break;
-    
+
   case BVTAG_POLY64:
-    found = false;
+    found = bv_solver_poly64_value(solver, bvvar_poly64_def(vtbl, x), n, c);
     break;
 
   case BVTAG_POLY:
-    found = false;
+    found = bv_solver_poly_value(solver, bvvar_poly_def(vtbl, x), n, c);
     break;
 
   case BVTAG_PPROD:
-    found = false;
+    found = bv_solver_pprod_value(solver, bvvar_pprod_def(vtbl, x), n, c);
     break;
 
   case BVTAG_ITE:
@@ -6826,11 +7080,11 @@ static bool bv_solver_compute_var_value(bv_solver_t *solver, thvar_t x, uint32_t
   case BVTAG_ADD:
   case BVTAG_SUB:
   case BVTAG_MUL:
-    found = false;
+    found = bv_solver_binop_value(solver, op, bvvar_binop(vtbl, x), n, c);
     break;
 
   case BVTAG_NEG:
-    found = false;
+    found = bv_solver_neg_value(solver, bvvar_binop(vtbl, x)[0], n, c);
     break;
   }
 
