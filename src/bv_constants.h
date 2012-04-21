@@ -192,6 +192,7 @@ extern void bvconst_set32_signed(uint32_t *bv, uint32_t k, int32_t a);
 extern void bvconst_set64_signed(uint32_t *bv, uint32_t k, int64_t a);
 extern void bvconst_set_mpz(uint32_t *bv, uint32_t k, mpz_t z);
 extern void bvconst_set_q(uint32_t *bv, uint32_t k, rational_t *r);
+
 extern void bvconst_set(uint32_t *bv, uint32_t k, uint32_t *a);
 extern void bvconst_set_array(uint32_t *bv, int32_t *a, uint32_t n);
 
@@ -344,7 +345,7 @@ extern void bvconst_concat(uint32_t *bv, uint32_t *a, uint32_t n, uint32_t *b, u
  *  k = size of operands in number of words (= size of bv, a a1, a2)
  *  all operations are done modulo 2^(32k).
  *  the result is in bv
- * a, a1, and a2 must not overlap bv
+ *  a, a1, and a2 must not overlap with bv
  * - negate:  bv := - bv 
  * - add_one: bv := bv + 1
  * - sub_one: bv := bv - 1
@@ -353,6 +354,7 @@ extern void bvconst_concat(uint32_t *bv, uint32_t *a, uint32_t n, uint32_t *b, u
  * - mul:     bv *= a
  * - addmul:  bv += a1 * a2
  * - submul:  bv -= a1 * a2
+ *
  * - negate2: bv := - a
  * - add2:    bv := a1 + a2
  * - sub2:    bv := a1 - a2
