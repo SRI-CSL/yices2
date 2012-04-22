@@ -15,23 +15,11 @@
 #include <inttypes.h>
 #include <gmp.h>
 
-#include "cputime.h"
-#include "memsize.h"
-#include "timeout.h"
-
 #include "smt_lexer.h"
 #include "smt_parser.h"
 #include "term_stack.h"
 #include "context.h"
 #include "smt_logic_codes.h"
-
-#include "simplex.h"
-#include "idl_floyd_warshall.h"
-#include "rdl_floyd_warshall.h"
-#include "fun_solver.h"
-#include "bvsolver.h"
-#include "model_printer.h"
-#include "command_line.h"
 
 #include "yices.h"
 #include "yices_globals.h"
@@ -47,6 +35,33 @@
  * Define this to nonzero to enable command-line options
  */
 #define COMMAND_LINE_OPTIONS 1
+
+/*
+ * Define this to nonzero to check the model
+ * - this has no effect unless COMMAND_LINE_OPTIONS is nonzero
+ */
+#define CHECK_MODEL 1
+
+#if COMMAND_LINE_OPTIONS
+#include "timeout.h"
+#include "model_printer.h"
+#include "command_line.h"
+#if CHECK_MODEL
+#include "model_eval.h"
+#include "term_printer.h"
+#endif
+#endif
+
+#if SHOW_STATISTICS || COMMAND_LINE_OPTIONS
+#include "cputime.h"
+#include "memsize.h"
+#include "simplex.h"
+#endif
+
+#if SHOW_STATISTICS
+#include "fun_solver.h"
+#include "bvsolver.h"
+#endif
 
 
 /*
@@ -109,6 +124,100 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
   "too many atoms for the arithmetic solver",
   "arithmetic solver exception",
   "bitvector solver exception",
+};
+
+
+/*
+ * CONTEXT SETTINGS FOR A GIVEN LOGIC CODE
+ */
+
+/*
+ * Conversion of SMT logic code to architecture code
+ * -1 means not supported
+ */
+static const int32_t logic2arch[NUM_SMT_LOGICS] = {
+  -1,                  // AUFLIA
+  -1,                  // AUFLIRA
+  -1,                  // AUFNIRA
+  -1,                  // LRA
+  CTX_ARCH_EGFUNBV,    // QF_ABV
+  CTX_ARCH_EGFUNBV,    // QF_AUFBV
+  CTX_ARCH_EGFUNSPLX,  // QF_AUFLIA
+  CTX_ARCH_EGFUN,      // QF_AX
+  CTX_ARCH_BV,         // QF_BV
+  CTX_ARCH_AUTO_IDL,   // QF_IDL
+  CTX_ARCH_SPLX,       // QF_LIA
+  CTX_ARCH_SPLX,       // QF_LRA
+  -1,                  // QF_NIA
+  -1,                  // QF_NRA
+  CTX_ARCH_AUTO_RDL,   // QF_RDL
+  CTX_ARCH_EG,         // QF_UF
+  CTX_ARCH_EGBV,       // QF_UFBV[xx]
+  CTX_ARCH_EGSPLX,     // QF_UFIDL
+  CTX_ARCH_EGSPLX,     // QF_UFLIA
+  CTX_ARCH_EGSPLX,     // QF_UFLRA
+  -1,                  // QF_UFNRA
+  -1,                  // UFLRA
+  -1,                  // UFNIA
+};
+
+/*
+ * Specify whether the integer solver should be activated
+ */
+static const bool logic2iflag[NUM_SMT_LOGICS] = {
+  true,   // AUFLIA
+  true,   // AUFLIRA
+  true,   // AUFNIRA
+  false,  // LRA
+  false,  // QF_ABV
+  false,  // QF_AUFBV
+  true,   // QF_AUFLIA
+  false,  // QF_AX
+  false,  // QF_BV
+  false,  // QF_IDL
+  true,   // QF_LIA
+  false,  // QF_LRA
+  true,   // QF_NIA
+  false,  // QF_NRA
+  false,  // QF_RDL
+  false,  // QF_UF
+  false,  // QF_UFBV[x]
+  false,  // QF_UFIDL
+  true,   // QF_UFLIA
+  false,  // QF_UFLRA
+  false,  // QF_UFNRA
+  false,  // UFLRA
+  true,   // UFNIA
+};
+
+
+/*
+ * Specify whether quantifier support is needed
+ */
+static const bool logic2qflag[NUM_SMT_LOGICS] = {
+  true,   // AUFLIA
+  true,   // AUFLIRA
+  true,   // AUFNIRA
+  true,   // LRA
+  false,  // QF_ABV
+  false,  // QF_AUFBV
+  false,  // QF_AUFLIA
+  false,  // QF_AX
+  false,  // QF_BV
+  false,  // QF_IDL
+  false,  // QF_LIA
+  false,  // QF_LRA
+  false,  // QF_NIA
+  false,  // QF_NRA
+  false,  // QF_RDL
+  false,  // QF_UF
+  false,  // QF_UFBV[x]
+  false,  // QF_UFIDL
+  false,  // QF_UFLIA
+  false,  // QF_UFLRA
+  false,  // QF_UFNRA
+  true,   // UFLRA
+  true,   // UFNIA
 };
 
 
@@ -310,7 +419,11 @@ static void parse_command_line(int argc, char *argv[]) {
 
 
 
+/***********************************
+ *  EXTRA OUTPUT FOR VERBOSE MODE  *
+ **********************************/
 
+#if COMMAND_LINE_OPTIONS || SHOW_STATISTICS
 /*
  * Get the arithmetic solver
  */
@@ -319,21 +432,7 @@ static inline simplex_solver_t *context_get_simplex_solver(context_t *ctx) {
   return (simplex_solver_t *) ctx->arith_solver;
 }
 
-static inline idl_solver_t *context_get_idl_solver(context_t *ctx) {
-  assert(context_has_idl_solver(ctx));
-  return (idl_solver_t *) ctx->arith_solver;
-}
-
-static inline rdl_solver_t *context_get_rdl_solver(context_t *ctx) {
-  assert(context_has_rdl_solver(ctx));
-  return (rdl_solver_t *) ctx->arith_solver;
-}
-
-
-
-/***********************************
- *  EXTRA OUTPUT FOR VERBOSE MODE  *
- **********************************/
+#endif
 
 #if COMMAND_LINE_OPTIONS
 
@@ -360,6 +459,7 @@ static void print_benchmark(FILE *f, smt_benchmark_t *bench) {
   fprintf(f, "Logic: %s\n", bench->logic_name);
   fprintf(f, "Status field: %s\n", status2string[bench->status]);
 }
+
 
 /*
  * Statistics on problem size, before the search
@@ -391,9 +491,13 @@ static void print_presearch_stats() {
 
 
 /*
- * Print parameters and settings
+ * Print parameters and settings:
+ * - disabled this for now: these options can't be set so there's
+ *   no reason to print them. Alos the meaning of many of them
+ *   is mysterious.
  */
 static void print_options(FILE *f, context_t *ctx) {
+#if 0
   simplex_solver_t *simplex;
 
   if (context_has_preprocess_options(ctx)) {
@@ -500,6 +604,7 @@ static void print_options(FILE *f, context_t *ctx) {
     fprintf(f, "\n");
   }
   fprintf(f, "\n");
+#endif
 }
 
 #endif
@@ -743,9 +848,55 @@ static void print_internalization_code(int32_t code) {
 
 
 
-/*
- * TIMEOUT AND INTERRUPTS
- */
+/***************************
+ *  OPTIONAL: CHECK MODEL  *
+ **************************/
+
+#if COMMAND_LINE_OPTIONS && CHECK_MODEL
+
+static void check_model(FILE *f, smt_benchmark_t *bench, model_t *model) {
+  evaluator_t eval;
+  term_table_t *terms;
+  uint32_t i, n;
+  term_t t;
+  value_t v;
+
+  init_evaluator(&eval, model);
+  terms = __yices_globals.terms;
+
+  n = bench->nformulas;
+  for (i=0; i<n; i++) {
+    t = bench->formulas[i];
+    assert(good_term(terms, t));
+    v = eval_in_model(&eval, t);
+    if (v < 0 || is_false(model_get_vtbl(model), v)) {
+      fprintf(f, "\n==== Assertion[%"PRIu32"] ====\n", i);
+      print_term_id(f, t);
+      fprintf(f, " = ");
+      print_term(f, __yices_globals.terms, t);
+      fprintf(f, "\n");
+      fflush(f);
+      fprintf(f, "evaluates to: ");
+      if (v >= 0) {
+	vtbl_print_object(f, model_get_vtbl(model), v);
+	fprintf(f, "\n\n");
+      } else {
+	fprintf(f, "unknown (code = %"PRId32")\n\n", v);
+      }
+      fflush(f);
+    }
+    reset_evaluator(&eval);
+  }
+
+  delete_evaluator(&eval);
+}
+
+#endif
+
+
+/****************************
+ *  TIMEOUT AND INTERRUPTS  *
+ ***************************/
 
 /*
  * Signal handler: call print_results then exit
@@ -784,18 +935,18 @@ static void clear_handler(void) {
 }
 
 
+#if COMMAND_LINE_OPTIONS
 /*
  * Timeout handler
  * - p = pointer to the context
  */
 static void timeout_handler(void *p) {
   context_t *ctx;
-
   ctx = p;
   stop_search(ctx->core);
 }
 
-
+#endif
 
 
 
@@ -809,6 +960,7 @@ static int process_benchmark(void) {
   int32_t code;
   context_arch_t arch;
   bool need_icheck;   // true if simplex needs integer check
+  bool qflag;         // true if quantifier support is needed
   smt_logic_t logic;  // logic code read from the file
 #if COMMAND_LINE_OPTIONS
   double mem_used;
@@ -872,110 +1024,14 @@ static int process_benchmark(void) {
   
   if (bench.logic_name != NULL) {
     logic = smt_logic_code(bench.logic_name);
-    switch (logic) {
-    case QF_AUFLIA:
-      /*
-       * Arrays + uf + simplex
-       */
-      arch = CTX_ARCH_EGFUNSPLX;
-      break;
-
-    case QF_AX:
-      /*
-       * Egraph + array solver
-       */
-      arch = CTX_ARCH_EGFUN;
-      break;
-
-    case QF_IDL:
-      /*
-       * Default for QF_IDL: automatic 
-       */
-      arch = CTX_ARCH_AUTO_IDL;
-      break;
-
-    case QF_RDL:
-      /*
-       * Default for QF_RDL: automatic 
-       */
-      arch = CTX_ARCH_AUTO_RDL;
-      break;
-
-    case QF_UF:
-      /*
-       * Egraph only
-       */
-      arch = CTX_ARCH_EG;
-      break;
-
-
-    case QF_LRA:
-      /*
-       * SIMPLEX only
-       */
-      arch = CTX_ARCH_SPLX;
-      break;
-
-    case QF_LIA:
-      /*
-       * SIMPLEX only, activate periodic integer checks
-       */
-      need_icheck = true;
-      arch = CTX_ARCH_SPLX;
-      break;
-
-    case QF_UFIDL:
-      /*
-       * The default is EGRAPH + SIMPLEX.
-       */
-      arch = CTX_ARCH_EGSPLX;
-      break;
-
-    case QF_UFLRA:
-      /*
-       * EGRAPH + SIMPLEX
-       */
-      arch = CTX_ARCH_EGSPLX;
-      break;
-
-    case QF_UFLIA:
-      /*
-       * EGRAPH + SIMPLEX, activate periodic integer checks
-       */
-      need_icheck = true;
-      arch = CTX_ARCH_EGSPLX;
-      break;
-
-    case QF_AUFBV:
-    case QF_ABV:
-      /*
-       * EGRAPH + BITVECTOR + ARRAY solver
-       */
-      arch = CTX_ARCH_EGFUNBV;
-      break;
-
-    case QF_UFBV:
-      /*
-       * EGRAPH + BITVECTOR solver
-       */
-      arch = CTX_ARCH_EGBV;
-      break;
-
-    case QF_BV:
-      /*
-       * Pure bit-vector problem
-       */
-      arch = CTX_ARCH_BV;
-      break;
-
-    default:
-      /*
-       * Not supported yet
-       */
+    code = logic2arch[logic];
+    if (code < 0) {
       print_internalization_code(LOGIC_NOT_SUPPORTED);
       return YICES_EXIT_ERROR;
     }
-
+    arch = (context_arch_t) code;
+    need_icheck = logic2iflag[logic];
+    qflag = logic2qflag[logic];
   } else {
     printf("unknown\n");
     printf("No logic specified\n");
@@ -987,7 +1043,7 @@ static int process_benchmark(void) {
    * and global search options
    */
   init_params_to_defaults(&params);
-  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, arch, false);
+  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, arch, qflag);
   context_exists = true;
   switch (arch) {
   case CTX_ARCH_EG:
@@ -1146,41 +1202,36 @@ static int process_benchmark(void) {
     }
 
 #if COMMAND_LINE_OPTIONS
+    /*
+     * Deal with verbosity, timeout, model, and statistics
+     */
     if (verbose) {
       print_options(stdout, &context);
       print_presearch_stats();
     }
-#endif
 
-#if COMMAND_LINE_OPTIONS || SHOW_STATISTICS
     start_search_time = get_cpu_time();
-#endif
 
     if (timeout > 0) {
       init_timeout();
       start_timeout(timeout, timeout_handler, &context);
     }
-
-#if COMMAND_LINE_OPTIONS
     code = check_context(&context, &params, verbose);
-#else
-    code = check_context(&context, &params, false);
-#endif
     clear_handler();
-
     if (timeout > 0) {
       clear_timeout();
       delete_timeout();
     }
     print_results();
 
-#if COMMAND_LINE_OPTIONS
     if ((simple_model || full_model) && (code == STATUS_SAT || code == STATUS_UNKNOWN)) {
       model_t *model;
 
-      // if full_model is true, keep substitutions in the model
-      // and print everything
-      // otherwise, print a simple model (don't worry about eliminated variables)
+      /*
+       * if full_model is true, keep substitutions in the model
+       * and print everything
+       * otherwise, print a simple model (don't worry about eliminated variables)
+       */
       model = (model_t *) safe_malloc(sizeof(model_t));
       init_model(model, __yices_globals.terms, full_model);
       context_build_model(model, &context);
@@ -1191,11 +1242,24 @@ static int process_benchmark(void) {
 	model_print(stdout, model);
       }
       printf("----\n");
+#if CHECK_MODEL
+      check_model(stdout, &bench, model);      
+#endif
       delete_model(model);
       safe_free(model);
     }
-#endif
 
+#else
+    /*
+     * no command-line options: 
+     */
+#if SHOW_STATISTICS
+    start_search_time = get_cpu_time();    
+#endif
+    code = check_context(&context, &params, false);
+    clear_handler();
+    print_results();
+#endif
   }
 
   /*

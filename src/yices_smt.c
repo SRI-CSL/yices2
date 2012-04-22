@@ -1433,6 +1433,7 @@ static void free_model(model_t *model) {
 #include "model_eval.h"
 
 #if TEST_EVALUATOR
+
 static void test_evaluator(FILE *f, model_t *model) {
   evaluator_t eval;
   term_table_t *terms;
