@@ -796,6 +796,15 @@ EXPORTED void yices_exit(void) {
 
 
 /*
+ * Full reset: delete everythinng
+ */
+EXPORTED void yices_reset(void) {
+  yices_exit();
+  yices_init();
+}
+
+
+/*
  * Get the last error report
  */
 EXPORTED error_report_t *yices_error_report(void) {

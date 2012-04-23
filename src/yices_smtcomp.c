@@ -439,14 +439,15 @@ static inline simplex_solver_t *context_get_simplex_solver(context_t *ctx) {
 extern const char * const yices_svn_url;
 extern const char * const yices_svn_rev;
 
+
 /*
  * Version header
  */
 static void print_yices_header(FILE *f) {
-  fprintf(f, "Yices %s\n", yices_version);
-  fprintf(f, "%s\n", yices_svn_url);
-  fprintf(f, "Revision: %s\n", yices_svn_rev);
+  fprintf(f, "Yices %s, Copyright SRI International.\n", yices_version);
+  fprintf(f, "GMP %s, Copyright Free Software Foundation, Inc\n", gmp_version);
   fprintf(f, "Build date: %s\n", yices_build_date);
+  fprintf(f, "Platform: %s (%s)\n", yices_build_arch, yices_build_mode);
   fprintf(f, "----\n");
 }
 

@@ -99,9 +99,19 @@ __YICES_DLLSPEC__ extern void yices_init(void);
 
 
 /*
- * Free all internal data structures.
+ * Delete all internal data structures and objects
+ * - this must be called to avoid memory leaks
  */
 __YICES_DLLSPEC__ extern void yices_exit(void);
+
+
+/*
+ * Full reset
+ * - delete all terms and types and reset the symbol tables
+ * - delete all contexts, models, configuration descriptor and 
+ *   parameter records.
+ */
+__YICES_DLLSPEC__ extern void yices_reset(void);
 
 
 

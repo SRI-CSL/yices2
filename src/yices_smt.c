@@ -58,9 +58,11 @@
 extern const char * const smt_compile_option;
 extern const char * const reduce_compile_option;
 extern const char * const simplex_prop_level;
+
+#ifndef NDEBUG
 extern const char * const yices_svn_url;
 extern const char * const yices_svn_rev;
-
+#endif
 
 /*
  * GLOBAL OBJECTS
@@ -1032,11 +1034,14 @@ static void parse_command_line(int argc, char *argv[]) {
  * Version header
  */
 static void print_yices_header(FILE *f) {
-  fprintf(f, "Yices %s\n", yices_version);
+  fprintf(f, "Yices %s, Copyright SRI International.\n", yices_version);
+  fprintf(f, "GMP %s, Copyright Free Software Foundation, Inc\n", gmp_version);
+  fprintf(f, "Build date: %s\n", yices_build_date);
+  fprintf(f, "Platform: %s (%s)\n", yices_build_arch, yices_build_mode);
+#ifndef NDEBUG
   fprintf(f, "%s\n", yices_svn_url);
   fprintf(f, "Revision: %s\n", yices_svn_rev);
-  fprintf(f, "Build date: %s (%s, %s, %s)\n", yices_build_date,
-	  smt_compile_option, simplex_prop_level, reduce_compile_option);
+#endif
   fprintf(f, "----\n");
 }
 

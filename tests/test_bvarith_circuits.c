@@ -9,9 +9,9 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "bit_solver.h"
+#include "smt_core.h"
 #include "bit_blaster.h"
-#include "solver_printer.h"
+#include "smt_core_printer.h"
 
 
 #ifdef MINGW
@@ -28,11 +28,46 @@ static inline long int random(void) {
 
 
 
+/*
+ * Descriptors for the null theory
+ */
+static void do_nothing(void *t) {
+}
+
+static void null_backtrack(void *t, uint32_t back_level) {
+}
+
+static fcheck_code_t null_final_check(void *t) {
+  return FCHECK_SAT;
+}
+
+static th_ctrl_interface_t null_theory_ctrl = {
+  do_nothing,       // start_internalization
+  do_nothing,       // start_search
+  NULL,             // propagate
+  null_final_check, // final_check
+  do_nothing,       // increase_dlevel
+  null_backtrack,   // backtrack
+  do_nothing,       // push
+  do_nothing,       // pop
+  do_nothing,       // reset
+};
+
+static th_smt_interface_t null_theory_smt = {
+  NULL,            // assert_atom
+  NULL,            // expand explanation
+  NULL,            // select polarity
+  NULL,            // delete_atom
+  NULL,            // end_deletion 
+};
+
+
+
 
 /*
  * Global variables
  */
-static bit_solver_t solver;
+static smt_core_t solver;
 static remap_table_t remap;
 static bit_blaster_t blaster;
 
@@ -41,10 +76,11 @@ static bit_blaster_t blaster;
  * Initialize all
  */
 static void init(void) {
-  init_bit_solver(&solver, 0);
+  init_smt_core(&solver, 0, NULL, &null_theory_ctrl, &null_theory_smt, SMT_MODE_BASIC);
   init_remap_table(&remap);
-  init_bit_blaster(&blaster, false, &solver, &remap);
+  init_bit_blaster(&blaster, &solver, &remap);
 }
+
 
 /*
  * Delete all
@@ -52,7 +88,7 @@ static void init(void) {
 static void cleanup(void) {
   delete_bit_blaster(&blaster);
   delete_remap_table(&remap);
-  delete_bit_solver(&solver);
+  delete_smt_core(&solver);
 }
 
 
@@ -60,7 +96,7 @@ static void cleanup(void) {
  * Create a new literal
  */
 static inline literal_t fresh_lit(void) {
-  return pos_lit(bit_solver_new_var(&solver));
+  return pos_lit(bit_blaster_new_var(&blaster));
 }
 
 

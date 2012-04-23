@@ -11,7 +11,6 @@
 #include "int_vectors.h"
 #include "gates_hash_table.h"
 #include "remap_table.h"
-#include "bit_solver.h"
 #include "smt_core.h"
 
 
@@ -69,18 +68,15 @@ typedef struct cbuffer_s {
  * bit-vector constraints into clauses.
  *
  * Components:
- * - solver: either a bit_solver or an smt_core object
+ * - solver: attached smt_core
  *   where the clauses and literals are created
- * - use_core flag: true means solver is of type (smt_core_t *)
- *                  false means solver of of type (bit_solver_t *)
  * - remap_table to interface with the bvsolver
  * - gate table for hash consing
  * - buffers
  */
 typedef struct bit_blaster_s {
-  void *solver;
+  smt_core_t *solver;
   remap_table_t *remap;
-  bool use_core;
   gate_table_t htbl;
   cbuffer_t buffer;
   ivector_t aux_vector;
@@ -113,10 +109,8 @@ typedef struct bit_blaster_s {
  * Initialization:
  * - htbl is initialized to its default size
  * - solver and remap must be initialized outside this function
- * - if use_core is true then solver must be of type (smt_core_t *)
- *   if use_core is false then solver must be of type (bit_solver_t *)
  */
-extern void init_bit_blaster(bit_blaster_t *blaster, bool use_core, void *solver, remap_table_t *remap);
+extern void init_bit_blaster(bit_blaster_t *blaster, smt_core_t *solver, remap_table_t *remap);
 
 
 /*

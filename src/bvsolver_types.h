@@ -34,6 +34,7 @@
 #include "bit_blaster.h"
 #include "merge_table.h"
 #include "egraph_assertion_queues.h"
+#include "cache.h"
 
 #include "bv_vartable.h"
 #include "bv_atomtable.h"
@@ -293,6 +294,12 @@ typedef struct bv_solver_s {
   uint32_t decision_level;
 
   /*
+   * Bitblast flag: false when new variables/assertions are added
+   * true after the constraints have been bitblasted (converted to CNF).
+   */
+  bool bitblasted;
+
+  /*
    * Variable + atom tables
    */
   bv_vartable_t vtbl;
@@ -324,6 +331,11 @@ typedef struct bv_solver_s {
    * Queue of egraph assertions
    */
   eassertion_queue_t egraph_queue;
+
+  /*
+   * Cache for lemmas: allocated on demand
+   */
+  cache_t *cache;
 
   /*
    * Queues of select and delayed variables

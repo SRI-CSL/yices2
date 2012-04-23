@@ -424,13 +424,10 @@ static uint32_t cbuffer_nvars(cbuffer_t *buffer) {
  * Initialization:
  * - htbl is initialized to its default size
  * - solver and remap must be initialized outside this function
- * - solver can be either a pointer to an smt_core_t object or to a bit_solver_t object
- * - use_core true means 'smt_core', false means 'bit_solver'
  */
-void init_bit_blaster(bit_blaster_t *s, bool use_core , void *solver, remap_table_t *remap) {
+void init_bit_blaster(bit_blaster_t *s, smt_core_t *solver, remap_table_t *remap) {
   s->solver = solver;
   s->remap = remap;
-  s->use_core = use_core;
   init_gate_table(&s->htbl);
   init_cbuffer(&s->buffer);
   init_ivector(&s->aux_vector, 0);
@@ -476,47 +473,28 @@ void reset_bit_blaster(bit_blaster_t *s) {
 
 /*
  * Set of functions for communicating with the solver
- * by invoking the corresponding functions of bit_solver
- * or smt_core.
+ * by invoking the corresponding functions in the smt_core.
  */
-static bval_t base_value(bit_blaster_t *s, literal_t l) {
-  if (s->use_core) {
-    return literal_base_value(s->solver, l);
-  } else {
-    return bit_solver_lit_base_value(s->solver, l);
-  }
+static inline bval_t base_value(bit_blaster_t *s, literal_t l) {
+  return literal_base_value(s->solver, l);
 }
 
-static void bit_blaster_add_empty_clause(bit_blaster_t *s) {
-  if (s->use_core) {
-    add_empty_clause(s->solver);
-  } else {
-    bit_solver_add_empty_clause(s->solver);
-  }
+static inline void bit_blaster_add_empty_clause(bit_blaster_t *s) {
+  add_empty_clause(s->solver);
 }
 
 static void bit_blaster_add_unit_clause(bit_blaster_t *s, literal_t l) {
 #if TRACE
   trace_unit_clause(s, l);
 #endif
-
-  if (s->use_core) {
-    add_unit_clause(s->solver, l);
-  } else {
-    bit_solver_add_unit_clause(s->solver, l);
-  }
+  add_unit_clause(s->solver, l);
 }
 
 static void bit_blaster_add_binary_clause(bit_blaster_t *s, literal_t l1, literal_t l2) {
 #if TRACE
   trace_binary_clause(l1, l2);
 #endif
-
-  if (s->use_core) {
-    add_binary_clause(s->solver, l1, l2);
-  } else {
-    bit_solver_add_binary_clause(s->solver, l1, l2);
-  }
+  add_binary_clause(s->solver, l1, l2);
 }
 
 
@@ -524,12 +502,7 @@ static void bit_blaster_add_ternary_clause(bit_blaster_t *s, literal_t l1, liter
 #if TRACE
   trace_ternary_clause(l1, l2, l3);
 #endif
-
-  if (s->use_core) {
-    add_ternary_clause(s->solver, l1, l2, l3);
-  } else {
-    bit_solver_add_ternary_clause(s->solver, l1, l2, l3);
-  }
+  add_ternary_clause(s->solver, l1, l2, l3);
 }
 
 static void bit_blaster_add_quad_clause(bit_blaster_t *s, literal_t l1, literal_t l2, literal_t l3, literal_t l4) {
@@ -544,11 +517,7 @@ static void bit_blaster_add_quad_clause(bit_blaster_t *s, literal_t l1, literal_
   aux[2] = l3;
   aux[3] = l4;
 
-  if (s->use_core) {
-    add_clause(s->solver, 4, aux);
-  } else {
-    bit_solver_add_clause(s->solver, 4, aux);
-  }
+  add_clause(s->solver, 4, aux);
 }
 
 
@@ -556,21 +525,12 @@ static void bit_blaster_add_clause(bit_blaster_t *s, uint32_t n, literal_t *a) {
 #if TRACE
   trace_clause(n, a);
 #endif
-
-  if (s->use_core) {
-    add_clause(s->solver, n, a);
-  } else {
-    bit_solver_add_clause(s->solver, n, a);
-  }
+  add_clause(s->solver, n, a);
 }
 
 
 bvar_t bit_blaster_new_var(bit_blaster_t *s) {
-  if (s->use_core) {
-    return create_boolean_variable((smt_core_t *) s->solver);
-  } else {
-    return bit_solver_new_var((bit_solver_t *) s->solver);
-  }
+  return create_boolean_variable(s->solver);
 }
 
 

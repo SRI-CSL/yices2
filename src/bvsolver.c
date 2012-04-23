@@ -11,6 +11,8 @@
 #include "rb_bvsets.h"
 #include "int_powers.h"
 #include "refcount_int_arrays.h"
+#include "int_partitions.h"
+
 
 #include "bvsolver.h"
 
@@ -26,6 +28,7 @@
 
 #include "smt_core_printer.h"
 #include "bvsolver_printer.h"
+#include "egraph_printer.h"
 #include "gates_printer.h"
 
 #endif
@@ -890,7 +893,7 @@ static void bv_solver_prepare_blasting(bv_solver_t *solver) {
   if (solver->blaster == NULL) {
     remap = bv_solver_get_remap(solver);
     blaster = (bit_blaster_t *) safe_malloc(sizeof(bit_blaster_t));
-    init_bit_blaster(blaster, true, solver->core, remap);
+    init_bit_blaster(blaster, solver->core, remap);
     solver->blaster = blaster;
   }
 }
@@ -1805,6 +1808,8 @@ bool bv_solver_bitblast(bv_solver_t *solver) {
 #if DUMP
   bv_solver_dump_state(solver, "before-lemmas.dmp");
 #endif
+
+  solver->bitblasted = true;
 
   return true;
 }
@@ -4650,399 +4655,6 @@ static void assert_srem_bounds(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
 
 
-/**********************
- *  SOLVER INTERFACE  *
- *********************/
-
-/*
- * New round of assertions (before start_search): nothing to do.
- */
-void bv_solver_start_internalization(bv_solver_t *solver) {
-}
-
-
-/*
- * Prepare for search after internalization
- * - perform bit blasting
- * - if a conflict is detected by bit blasting, add the empty clause
- *   to the smt_core
- */
-void bv_solver_start_search(bv_solver_t *solver) {
-  bool feasible;
-
-  feasible = bv_solver_bitblast(solver);
-  if (! feasible) {
-    add_empty_clause(solver->core);
-  }
-}
-
-
-bool bv_solver_propagate(bv_solver_t *solver) {
-  return true;
-}
-
-fcheck_code_t bv_solver_final_check(bv_solver_t *solver) {
-  return FCHECK_SAT;
-}
-
-void bv_solver_increase_decision_level(bv_solver_t *solver) {
-  solver->decision_level ++;
-
-#if DUMP
-  if (solver->core->stats.decisions == 1) {
-    bv_solver_dump_state(solver, "after-bitblasting.dmp");
-  }
-#endif
-}
-
-void bv_solver_backtrack(bv_solver_t *solver, uint32_t backlevel) {
-  assert(solver->base_level <= backlevel && backlevel < solver->decision_level);
-  reset_eassertion_queue(&solver->egraph_queue);
-  solver->decision_level = backlevel;
-}
-
-bool bv_solver_assert_atom(bv_solver_t *solver, void *a, literal_t l) {
-  return true;
-}
-
-void bv_solver_expand_explanation(bv_solver_t *solver, literal_t l, void *expl, ivector_t *v) {
-  assert(false);
-}
-
-literal_t bv_solver_select_polarity(bv_solver_t *solver, void *a, literal_t l) {
-  return l;
-}
-
-
-
-/**********************
- *  EGRAPH INTERFACE  *
- *********************/
-
-void bv_solver_assert_var_eq(bv_solver_t *solver, thvar_t x, thvar_t y) {
-}
-
-void bv_solver_assert_var_diseq(bv_solver_t *solver, thvar_t x, thvar_t y, composite_t *hint) {
-}
-
-void bv_solver_assert_var_distinct(bv_solver_t *solver, uint32_t n, thvar_t *a, composite_t *hint) {
-}
-
-
-bool bv_solver_check_disequality(bv_solver_t *solver, thvar_t x, thvar_t y) {
-  return false;
-}
-
-uint32_t bv_solver_reconcile_model(bv_solver_t *solver, uint32_t max_eq) {
-  return 0;
-}
-
-literal_t bv_solver_select_eq_polarity(bv_solver_t *solver, thvar_t x, thvar_t y, literal_t l) {
-  return l;
-}
-
-
-
-/**********************
- *  MAIN OPERATIONS   *
- *********************/
-
-/*
- * Initialize a bit-vector solver
- * - core = the attached smt core
- * - egraph = the attached egraph (or NULL)
- */
-void init_bv_solver(bv_solver_t *solver, smt_core_t *core, egraph_t *egraph) {
-  solver->core = core;
-  solver->egraph = egraph;
-  solver->base_level = 0;
-  solver->decision_level = 0;
-
-  init_bv_vartable(&solver->vtbl);
-  init_bv_atomtable(&solver->atbl);
-  init_bvexp_table(&solver->etbl, &solver->vtbl);
-  init_mtbl(&solver->mtbl);
-  init_bv_bound_queue(&solver->bqueue);
-
-  solver->compiler = NULL;
-  solver->blaster = NULL;
-  solver->remap = NULL;
-
-  init_eassertion_queue(&solver->egraph_queue);
-
-  init_bv_queue(&solver->select_queue);
-  init_bv_queue(&solver->delayed_queue);
-  init_bv_trail(&solver->trail_stack);
-
-  init_bvpoly_buffer(&solver->buffer);
-  init_pp_buffer(&solver->prod_buffer, 10);
-  init_ivector(&solver->aux_vector, 0);
-  init_bvconstant(&solver->aux1);
-  init_bvconstant(&solver->aux2);
-  init_bvconstant(&solver->aux3);
-  bvexp_init_buffer(&solver->etbl, &solver->exp_buffer);
-  bvexp_init_buffer64(&solver->etbl, &solver->exp64_buffer);
-  init_bv_interval_stack(&solver->intv_stack);
-  init_ivector(&solver->a_vector, 0);
-  init_ivector(&solver->b_vector, 0);
-
-  solver->val_map = NULL;
-  init_used_vals(&solver->used_vals);
-
-  solver->env = NULL;
-}
-
-
-/*
- * Attach a jump buffer for exception handling
- */
-void bv_solver_init_jmpbuf(bv_solver_t *solver, jmp_buf *buffer) {
-  solver->env = buffer;
-}
-
-
-/*
- * Delete solver
- */
-void delete_bv_solver(bv_solver_t *solver) {
-  // exp buffers must be deleted before etbl
-  // and etbl must be deleted before vtbl
-  delete_bvarith_buffer(&solver->exp_buffer);
-  delete_bvarith64_buffer(&solver->exp64_buffer);
-
-  delete_bvexp_table(&solver->etbl);
-  delete_bv_vartable(&solver->vtbl);
-  delete_bv_atomtable(&solver->atbl);
-  delete_mtbl(&solver->mtbl);
-  delete_bv_bound_queue(&solver->bqueue);
-
-  if (solver->compiler != NULL) {
-    delete_bv_compiler(solver->compiler);
-    safe_free(solver->compiler);
-    solver->compiler = NULL;
-  }
-
-  if (solver->blaster != NULL) {
-    delete_bit_blaster(solver->blaster);
-    safe_free(solver->blaster);
-    solver->blaster = NULL;
-  }
-
-  if (solver->remap != NULL) {
-    delete_remap_table(solver->remap);
-    safe_free(solver->remap);
-    solver->remap = NULL;
-  }
-
-  delete_eassertion_queue(&solver->egraph_queue);
-
-  delete_bv_queue(&solver->select_queue);
-  delete_bv_queue(&solver->delayed_queue);
-  delete_bv_trail(&solver->trail_stack);
-
-  delete_bvpoly_buffer(&solver->buffer);
-  delete_pp_buffer(&solver->prod_buffer);
-  delete_ivector(&solver->aux_vector);
-  delete_bvconstant(&solver->aux1);
-  delete_bvconstant(&solver->aux2);
-  delete_bvconstant(&solver->aux3);
-  delete_bv_interval_stack(&solver->intv_stack);
-  delete_ivector(&solver->a_vector);
-  delete_ivector(&solver->b_vector);
-
-  if (solver->val_map != NULL) {
-    delete_bvconst_hmap(solver->val_map);
-    safe_free(solver->val_map);
-    solver->val_map = NULL;
-  }
-
-  delete_used_vals(&solver->used_vals);
-}
-
-
-
-/********************
- *  PUSH/POP/RESET  *
- *******************/
-
-/*
- * Start a new base level
- */
-void bv_solver_push(bv_solver_t *solver) {
-  uint32_t na, nv, nb, ns, nd;
-
-  assert(solver->decision_level == solver->base_level);
-
-  nv = solver->vtbl.nvars;
-  na = solver->atbl.natoms;
-  nb = solver->bqueue.top;
-  ns = solver->select_queue.top;
-  nd = solver->delayed_queue.top;
-
-  bv_trail_save(&solver->trail_stack, nv, na, nb, ns, nd);
-
-  mtbl_push(&solver->mtbl);
-
-  if (solver->blaster != NULL) {
-    bit_blaster_push(solver->blaster);
-  }
-
-  if (solver->remap != NULL) {
-    remap_table_push(solver->remap);
-  }  
-
-  solver->base_level ++;
-  bv_solver_increase_decision_level(solver);
-}
-
-
-
-/*
- * Remove all eterms whose id >= number of terms in the egraph
- * - if a bitvector variable x is kept after pop but the
- *   eterm[x] is removed from the egraph then we must clear
- *   solver->vtbl.eterm[x]
- */
-static void bv_solver_remove_dead_eterms(bv_solver_t *solver) {
-  uint32_t nterms;
-
-  if (solver->egraph != NULL) {
-    nterms = egraph_num_terms(solver->egraph);
-    bv_vartable_remove_eterms(&solver->vtbl, nterms);
-  }
-}
-
-
-/*
- * Remove the map and bit-blasting mark of variables in
- * the delayed_queue:
- * - n = number of variables in the queue at the corresponding push
- */
-static void bv_solver_clean_delayed_bitblasting(bv_solver_t *solver, uint32_t n) {
-  bv_vartable_t *vtbl;
-  bv_queue_t *dqueue;
-  uint32_t i, top;
-  thvar_t x;
-
-  vtbl = &solver->vtbl;
-
-  dqueue = &solver->delayed_queue;
-  top = dqueue->top;
-  assert(n <= top);
-
-  for (i=0; i<n; i++) {
-    x = dqueue->data[i];
-    assert(bvvar_is_bitblasted(vtbl, x));
-    bvvar_reset_map(vtbl, x);
-    bvvar_clr_bitblasted(vtbl, x);
-  }
-}
-
-/*
- * Return to the previous base level
- */
-void bv_solver_pop(bv_solver_t *solver) {
-  bv_trail_t *top;
-
-  assert(solver->base_level > 0 &&
-	 solver->base_level == solver->decision_level);
-
-  solver->base_level --;
-  bv_solver_backtrack(solver, solver->base_level);
-
-  if (solver->blaster != NULL) {
-    bit_blaster_pop(solver->blaster);
-  }
-
-  if (solver->remap != NULL) {
-    remap_table_pop(solver->remap);
-  }
-
-  top = bv_trail_top(&solver->trail_stack);
-
-  if (solver->compiler != NULL) {
-    bv_compiler_remove_vars(solver->compiler, top->nvars);
-  }
-
-  // remove select terms
-  solver->select_queue.top = top->nselects;
-
-  // remove the dead maps
-  bv_solver_clean_delayed_bitblasting(solver, top->ndelayed);
-  solver->delayed_queue.top = top->ndelayed;
-
-  bv_solver_remove_bounds(solver, top->natoms);
-  bv_vartable_remove_vars(&solver->vtbl, top->nvars);
-  bv_atomtable_remove_atoms(&solver->atbl, top->natoms);
-  bvexp_table_remove_vars(&solver->etbl, top->nvars);
-  bv_solver_remove_dead_eterms(solver);
-
-  mtbl_pop(&solver->mtbl);
-
-  bv_trail_pop(&solver->trail_stack);
-}
-
-
-/*
- * Reset: remove all variables and atoms
- * and reset base_level to 0.
- */
-void bv_solver_reset(bv_solver_t *solver) {
-  // exp buffers must be reset before etbl
-  bvarith_buffer_prepare(&solver->exp_buffer, 100);
-  bvarith64_buffer_prepare(&solver->exp64_buffer, 10);
-  reset_bvexp_table(&solver->etbl);
-
-  reset_bv_vartable(&solver->vtbl);
-  reset_bv_atomtable(&solver->atbl);
-  reset_mtbl(&solver->mtbl);
-  reset_bv_bound_queue(&solver->bqueue);
-
-  if (solver->compiler != NULL) {
-    delete_bv_compiler(solver->compiler);
-    safe_free(solver->compiler);
-    solver->compiler = NULL;
-  }
-
-  if (solver->blaster != NULL) {
-    delete_bit_blaster(solver->blaster);
-    safe_free(solver->blaster);
-    solver->blaster = NULL;
-  }
-
-  if (solver->remap != NULL) {
-    delete_remap_table(solver->remap);
-    safe_free(solver->remap);
-    solver->remap = NULL;
-  }
-
-  reset_eassertion_queue(&solver->egraph_queue);
-
-  reset_bv_queue(&solver->select_queue);
-  reset_bv_queue(&solver->delayed_queue);
-  reset_bv_trail(&solver->trail_stack);
-
-  reset_bvpoly_buffer(&solver->buffer, 32);
-  pp_buffer_reset(&solver->prod_buffer);
-  ivector_reset(&solver->aux_vector);
-  reset_bv_interval_stack(&solver->intv_stack);
-  ivector_reset(&solver->a_vector);
-  ivector_reset(&solver->b_vector);
-
-  if (solver->val_map != NULL) {
-    delete_bvconst_hmap(solver->val_map);
-    safe_free(solver->val_map);
-    solver->val_map = NULL;
-  }
-
-  reset_used_vals(&solver->used_vals);
-
-  solver->base_level = 0;
-  solver->decision_level = 0;
-}
-
-
-
 /********************************
  *  INTERNALIZATION FUNCTIONS   *
  *******************************/
@@ -6138,440 +5750,1095 @@ thvar_t bv_solver_var_compiles_to(bv_solver_t *solver, thvar_t x) {
 
 
 
-/************************
- *  MODEL CONSTRUCTION  *
- ***********************/
 
-#if 0
+/*******************************************************
+ *  EQUALITIES/DISEQUALITIES RECEIVED FROM THE EGRAPH  *
+ ******************************************************/
 
 /*
- * When model construction is invoked, the context has determined that
- * the constraints are SAT (so a model does exist). The value of a
- * bitvector variables x is defined by the boolean values of the
- * literal array mapped to x during bit-blasting. In some cases, 
- * this array is incomplete and does not define x's value fully.
- * For example, variables that are not reachable from the top-level atoms
- * are not marked or bitblasted.
+ * Equality atom created after bitblasting
+ */
+static literal_t on_the_fly_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  bv_atomtable_t *atbl;
+  ivector_t *a, *b;
+  int32_t i;
+  literal_t l, l0;
+  bvar_t v;
+
+#if TRACE
+  printf("---> on the fly (bveq u!%"PRId32" u!%"PRId32")\n", x, y);
+  printf("     ");
+  print_bv_solver_vardef(stdout, solver, x);
+  printf("     ");
+  print_bv_solver_vardef(stdout, solver, y);
+#endif
+
+  x = mtbl_get_root(&solver->mtbl, x);
+  y = mtbl_get_root(&solver->mtbl, y);
+
+  if (equal_bvvar(solver, x, y)) return true_literal;
+  if (diseq_bvvar(solver, x, y)) return false_literal;
+
+  simplify_eq(solver, &x, &y);
+  if (x == y) return true_literal;
+  if (diseq_bvvar(solver, x, y)) return false_literal;
+
+
+  // check whether (bveq x y) exists already
+  atbl = &solver->atbl;
+  i = get_bveq_atom(atbl, x, y);
+  l = atbl->data[i].lit;
+  if (l == null_literal) {
+    if (solver->bitblasted) {
+      /*
+       * After bitblasting
+       */
+      bv_solver_bitblast_variable(solver, x);
+      bv_solver_bitblast_variable(solver, y);
+      a = &solver->a_vector;
+      b = &solver->b_vector;
+      collect_bvvar_literals(solver, x, a);
+      collect_bvvar_literals(solver, y, b);
+      assert(a->size == b->size && a->size > 0);
+
+      l = bit_blaster_make_bveq(solver->blaster, a->data, b->data, a->size);
+      atbl->data[i].lit = l;
+      v = var_of(l);
+      if (bvar_has_atom(solver->core, v)) {
+	// neeed a fresh variable
+	v = create_boolean_variable(solver->core);
+	l0 = pos_lit(v);
+	atbl->data[i].lit = l0;
+	// assert (l == l0) in the core
+	bit_blaster_eq(solver->blaster, l, l0);
+	l = l0;
+      }
+
+    } else {
+      /*
+       * Before bitblasting: assign a fresh variable to the atom
+       */
+      v = create_boolean_variable(solver->core);
+      l = pos_lit(v);
+      atbl->data[i].lit = l;
+    }
+
+    attach_atom_to_bvar(solver->core, v, bvatom_idx2tagged_ptr(i));
+      
+  }
+
+  return l;
+}
+
+
+/*
+ * Return the lemma cache
+ * - allocate and initialize it if needed
+ */
+static cache_t *bv_solver_get_cache(bv_solver_t *solver) {
+  cache_t *c;
+
+  c = solver->cache;
+  if (c == NULL) {
+    c = (cache_t *) safe_malloc(sizeof(cache_t));
+    // initialize then synchronize the cache with 
+    // the current push/pop level
+    init_cache(c);
+    cache_set_level(c, solver->base_level);
+    solver->cache = c;
+  }
+
+  return c;
+}
+
+
+/*
+ * Create the lemma (eq t1 t2) <=> (bveq x1 x2)
+ * where t1 = egraph term for x1 and t2 = egraph term for x2
+ */
+static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2) {
+  bv_vartable_t *vtbl;
+  cache_t *cache;
+  cache_elem_t *e;
+  thvar_t aux;
+  eterm_t t1, t2;
+  literal_t l, eq;
+
+  vtbl = &solver->vtbl;
+
+  assert(solver->egraph != NULL && x1 != x2 && 
+	 bvvar_is_bitblasted(vtbl, x1) && bvvar_is_bitblasted(vtbl, x2));
+  
+  // normalize: we want x1 < x2
+  if (x2 < x1) {
+    aux = x1, x1 = x2; x2 = aux;
+  }
+  
+#if TRACE
+  t1 = bvvar_get_eterm(&solver->vtbl, x1);
+  t2 = bvvar_get_eterm(&solver->vtbl, x2);
+  printf("---> bvequiv lemma:\n");
+  printf("     x1 = ");
+  print_bv_solver_var(stdout, solver, x1);
+  printf(", t1 = ");
+  print_eterm_id(stdout, t1);
+  printf("\n");
+  printf("     x2 = ");
+  print_bv_solver_var(stdout, solver, x2);
+  printf(", t2 = ");
+  print_eterm_id(stdout, t2);
+  printf("\n");
+#endif
+  
+  cache = bv_solver_get_cache(solver);
+  e = cache_get(cache, BVEQUIV_LEMMA, x1, x2);
+  if (e->flag == NEW_CACHE_ELEM) {
+    // create the lemma
+    e->flag = ACTIVE_BV_LEMMA;
+
+    t1 = bvvar_get_eterm(&solver->vtbl, x1);
+    t2 = bvvar_get_eterm(&solver->vtbl, x2);
+    assert(t1 != null_eterm && t2 != null_eterm && t1 != t2);
+    eq = egraph_make_simple_eq(solver->egraph, pos_occ(t1), pos_occ(t2));
+    l = on_the_fly_eq_atom(solver, x1, x2);
+
+    // add two clauses: (l => eq) and (eq => l)
+    add_binary_clause(solver->core, not(l), eq);
+    add_binary_clause(solver->core, l, not(eq));
+
+#if TRACE
+    printf("---> bvequiv lemma:\n");
+    printf("     x1 = ");
+    print_bv_solver_var(stdout, solver, x1);
+    printf(", t1 = ");
+    print_eterm_id(stdout, t1);
+    printf("\n");
+    printf("     x2 = ");
+    print_bv_solver_var(stdout, solver, x2);
+    printf(", t2 = ");
+    print_eterm_id(stdout, t2);
+    printf("\n");
+    printf("     (bveq x1 x2) = ");
+    print_literal(stdout, l);
+    printf("\n");
+    printf("     (eq t1 t2) = ");
+    print_literal(stdout, eq);
+    printf("\n");
+    printf("     ");
+    print_bv_solver_vardef(stdout, solver, x1);
+    printf("     ");
+    print_bv_solver_vardef(stdout, solver, x2);
+    printf("     ");
+    print_eterm_def(stdout, solver->egraph, t1);
+    printf("     ");
+    print_eterm_def(stdout, solver->egraph, t2);
+    printf("     ");
+    print_literal(stdout, eq);
+    printf(" := ");
+    print_egraph_atom_of_literal(stdout, solver->egraph, eq);
+    printf("\n\n");
+#endif
+  }
+}
+
+
+
+/*
+ * Process all assertions in the egraph queue
+ * - we do nothing for disequalities or distinct 
+ * - disequalities are handled lazily in reconcile_model
+ * - for all equalities (x == y) in the queue, we create the 
+ *   lemma (bveq x1 x2) <=> (t1 == t2)
+ */
+static void bv_solver_process_egraph_assertions(bv_solver_t *solver) {
+  eassertion_t *a, *end;
+
+  a = eassertion_queue_start(&solver->egraph_queue);
+  end = eassertion_queue_end(&solver->egraph_queue);
+
+  while (a < end) {
+    switch (eassertion_get_kind(a)) {
+    case EGRAPH_VAR_EQ:
+      bv_solver_bvequiv_lemma(solver, a->var[0], a->var[1]);
+      break;
+
+    case EGRAPH_VAR_DISEQ:
+    case EGRAPH_VAR_DISTINCT:
+      break;
+
+    default:
+      assert(false);
+      break;
+    }
+    a = eassertion_next(a);
+  }
+
+  reset_eassertion_queue(&solver->egraph_queue);
+}
+
+
+/*
+ * Create a variable after bit-blasting (e.g., a skolem constant created
+ * by the egraph + array solver).
+ */
+thvar_t bv_solver_create_on_the_fly_var(bv_solver_t *solver, uint32_t n) {
+  bv_vartable_t *vtbl;
+  thvar_t x;
+
+#if TRACE
+  printf("---> bv: create_var (%"PRIu32" bits)\n", n);
+#endif
+
+  assert(n > 0);
+  vtbl = &solver->vtbl;
+  x = make_bvvar(vtbl, n);
+  if (solver->bitblasted) {
+    bv_solver_bitblast_variable(solver, x);
+  }
+
+  return x;
+}
+
+
+
+
+/**********************
+ *  SOLVER INTERFACE  *
+ *********************/
+
+/*
+ * New round of assertions (before start_search)
+ */
+void bv_solver_start_internalization(bv_solver_t *solver) {
+  solver->bitblasted = false;
+}
+
+
+/*
+ * Prepare for search after internalization
+ * - perform bit blasting
+ * - if a conflict is detected by bit blasting, add the empty clause
+ *   to the smt_core
+ */
+void bv_solver_start_search(bv_solver_t *solver) {
+  bool feasible;
+
+  feasible = bv_solver_bitblast(solver);
+  if (! feasible) {
+    add_empty_clause(solver->core);
+  }
+}
+
+
+/*
+ * Perform one round of propagation
+ * - return false if a conflict was found
+ * - return true otherwise
+ */
+bool bv_solver_propagate(bv_solver_t *solver) {
+  if (eassertion_queue_is_nonempty(&solver->egraph_queue)) {
+    assert(solver->bitblasted);
+    // this may create lemmas but no immediate conflicts
+    bv_solver_process_egraph_assertions(solver);
+  }
+  return true;
+}
+
+/*
+ * Final check: nothing to do
+ */
+fcheck_code_t bv_solver_final_check(bv_solver_t *solver) {
+  return FCHECK_SAT;
+}
+
+void bv_solver_increase_decision_level(bv_solver_t *solver) {
+  solver->decision_level ++;
+
+#if DUMP
+  if (solver->core->stats.decisions == 1) {
+    bv_solver_dump_state(solver, "after-bitblasting.dmp");
+  }
+#endif
+}
+
+void bv_solver_backtrack(bv_solver_t *solver, uint32_t backlevel) {
+  assert(solver->base_level <= backlevel && backlevel < solver->decision_level);
+  reset_eassertion_queue(&solver->egraph_queue);
+  solver->decision_level = backlevel;
+}
+
+
+/*
+ * Assert atom attached to literal l
+ * This function is called when l is assigned to true by the core
+ * - atom is the atom attached to a boolean variable v = var_of(l)
+ * - if l is positive (i.e., pos_lit(v)), assert the atom
+ * - if l is negative (i.e., neg_lit(v)), assert its negation
+ * Return false if that causes a conflict, true otherwise.
  *
- * To complete the model, we can assign a value to the missing bits,
- * based on the variable definitions. This is done by the following functions.
+ * Do nothing (although we could try more simplification if 
+ * this is called before start_search).
  */
-static void bv_solver_value_for_variable(bv_solver_t *solver, thvar_t x);
+bool bv_solver_assert_atom(bv_solver_t *solver, void *a, literal_t l) {
+  return true;
+}
 
-
-#ifndef NDEBUG
 
 /*
- * For debugging: check whether x is fully undefined  (all literals for x are nil)
+ * This function should never be called.
  */
-static bool bv_solver_variable_all_undef(bv_solver_t *solver, thvar_t x) {
+void bv_solver_expand_explanation(bv_solver_t *solver, literal_t l, void *expl, ivector_t *v) {
+  assert(false);
+}
+
+
+/*
+ * Support for theory-branching heuristic
+ * - we don't do anything
+ */
+literal_t bv_solver_select_polarity(bv_solver_t *solver, void *a, literal_t l) {
+  return l;
+}
+
+
+
+/**********************
+ *  MAIN OPERATIONS   *
+ *********************/
+
+/*
+ * Initialize a bit-vector solver
+ * - core = the attached smt core
+ * - egraph = the attached egraph (or NULL)
+ */
+void init_bv_solver(bv_solver_t *solver, smt_core_t *core, egraph_t *egraph) {
+  solver->core = core;
+  solver->egraph = egraph;
+  solver->base_level = 0;
+  solver->decision_level = 0;
+  solver->bitblasted = false;
+
+  init_bv_vartable(&solver->vtbl);
+  init_bv_atomtable(&solver->atbl);
+  init_bvexp_table(&solver->etbl, &solver->vtbl);
+  init_mtbl(&solver->mtbl);
+  init_bv_bound_queue(&solver->bqueue);
+
+  solver->compiler = NULL;
+  solver->blaster = NULL;
+  solver->remap = NULL;
+
+  init_eassertion_queue(&solver->egraph_queue);
+  solver->cache = NULL;
+
+  init_bv_queue(&solver->select_queue);
+  init_bv_queue(&solver->delayed_queue);
+  init_bv_trail(&solver->trail_stack);
+
+  init_bvpoly_buffer(&solver->buffer);
+  init_pp_buffer(&solver->prod_buffer, 10);
+  init_ivector(&solver->aux_vector, 0);
+  init_bvconstant(&solver->aux1);
+  init_bvconstant(&solver->aux2);
+  init_bvconstant(&solver->aux3);
+  bvexp_init_buffer(&solver->etbl, &solver->exp_buffer);
+  bvexp_init_buffer64(&solver->etbl, &solver->exp64_buffer);
+  init_bv_interval_stack(&solver->intv_stack);
+  init_ivector(&solver->a_vector, 0);
+  init_ivector(&solver->b_vector, 0);
+
+  solver->val_map = NULL;
+  init_used_vals(&solver->used_vals);
+
+  solver->env = NULL;
+}
+
+
+/*
+ * Attach a jump buffer for exception handling
+ */
+void bv_solver_init_jmpbuf(bv_solver_t *solver, jmp_buf *buffer) {
+  solver->env = buffer;
+}
+
+
+/*
+ * Delete solver
+ */
+void delete_bv_solver(bv_solver_t *solver) {
+  // exp buffers must be deleted before etbl
+  // and etbl must be deleted before vtbl
+  delete_bvarith_buffer(&solver->exp_buffer);
+  delete_bvarith64_buffer(&solver->exp64_buffer);
+
+  delete_bvexp_table(&solver->etbl);
+  delete_bv_vartable(&solver->vtbl);
+  delete_bv_atomtable(&solver->atbl);
+  delete_mtbl(&solver->mtbl);
+  delete_bv_bound_queue(&solver->bqueue);
+
+  if (solver->compiler != NULL) {
+    delete_bv_compiler(solver->compiler);
+    safe_free(solver->compiler);
+    solver->compiler = NULL;
+  }
+
+  if (solver->blaster != NULL) {
+    delete_bit_blaster(solver->blaster);
+    safe_free(solver->blaster);
+    solver->blaster = NULL;
+  }
+
+  if (solver->remap != NULL) {
+    delete_remap_table(solver->remap);
+    safe_free(solver->remap);
+    solver->remap = NULL;
+  }
+
+  delete_eassertion_queue(&solver->egraph_queue);
+
+  if (solver->cache != NULL) {
+    delete_cache(solver->cache);
+    safe_free(solver->cache);
+    solver->cache = NULL;
+  }
+
+  delete_bv_queue(&solver->select_queue);
+  delete_bv_queue(&solver->delayed_queue);
+  delete_bv_trail(&solver->trail_stack);
+
+  delete_bvpoly_buffer(&solver->buffer);
+  delete_pp_buffer(&solver->prod_buffer);
+  delete_ivector(&solver->aux_vector);
+  delete_bvconstant(&solver->aux1);
+  delete_bvconstant(&solver->aux2);
+  delete_bvconstant(&solver->aux3);
+  delete_bv_interval_stack(&solver->intv_stack);
+  delete_ivector(&solver->a_vector);
+  delete_ivector(&solver->b_vector);
+
+  if (solver->val_map != NULL) {
+    delete_bvconst_hmap(solver->val_map);
+    safe_free(solver->val_map);
+    solver->val_map = NULL;
+  }
+
+  delete_used_vals(&solver->used_vals);
+}
+
+
+
+/********************
+ *  PUSH/POP/RESET  *
+ *******************/
+
+/*
+ * Start a new base level
+ */
+void bv_solver_push(bv_solver_t *solver) {
+  uint32_t na, nv, nb, ns, nd;
+
+  assert(solver->decision_level == solver->base_level);
+
+  nv = solver->vtbl.nvars;
+  na = solver->atbl.natoms;
+  nb = solver->bqueue.top;
+  ns = solver->select_queue.top;
+  nd = solver->delayed_queue.top;
+
+  bv_trail_save(&solver->trail_stack, nv, na, nb, ns, nd);
+
+  mtbl_push(&solver->mtbl);
+
+  if (solver->blaster != NULL) {
+    bit_blaster_push(solver->blaster);
+  }
+
+  if (solver->remap != NULL) {
+    remap_table_push(solver->remap);
+  }  
+
+  if (solver->cache != NULL) {
+    cache_push(solver->cache);    
+  }
+
+  solver->base_level ++;
+  bv_solver_increase_decision_level(solver);
+}
+
+
+
+/*
+ * Remove all eterms whose id >= number of terms in the egraph
+ * - if a bitvector variable x is kept after pop but the
+ *   eterm[x] is removed from the egraph then we must clear
+ *   solver->vtbl.eterm[x]
+ */
+static void bv_solver_remove_dead_eterms(bv_solver_t *solver) {
+  uint32_t nterms;
+
+  if (solver->egraph != NULL) {
+    nterms = egraph_num_terms(solver->egraph);
+    bv_vartable_remove_eterms(&solver->vtbl, nterms);
+  }
+}
+
+
+/*
+ * Remove the map and bit-blasting mark of variables in
+ * the delayed_queue:
+ * - n = number of variables in the queue at the corresponding push
+ */
+static void bv_solver_clean_delayed_bitblasting(bv_solver_t *solver, uint32_t n) {
+  bv_vartable_t *vtbl;
+  bv_queue_t *dqueue;
+  uint32_t i, top;
+  thvar_t x;
+
+  vtbl = &solver->vtbl;
+
+  dqueue = &solver->delayed_queue;
+  top = dqueue->top;
+  assert(n <= top);
+
+  for (i=0; i<n; i++) {
+    x = dqueue->data[i];
+    assert(bvvar_is_bitblasted(vtbl, x));
+    bvvar_reset_map(vtbl, x);
+    bvvar_clr_bitblasted(vtbl, x);
+  }
+}
+
+/*
+ * Return to the previous base level
+ */
+void bv_solver_pop(bv_solver_t *solver) {
+  bv_trail_t *top;
+
+  assert(solver->base_level > 0 &&
+	 solver->base_level == solver->decision_level);
+
+  solver->base_level --;
+  bv_solver_backtrack(solver, solver->base_level);
+
+  if (solver->blaster != NULL) {
+    bit_blaster_pop(solver->blaster);
+  }
+
+  if (solver->remap != NULL) {
+    remap_table_pop(solver->remap);
+  }
+
+  top = bv_trail_top(&solver->trail_stack);
+
+  if (solver->compiler != NULL) {
+    bv_compiler_remove_vars(solver->compiler, top->nvars);
+  }
+
+
+  if (solver->cache != NULL) {
+    cache_push(solver->cache);
+  }
+
+  // remove select terms
+  solver->select_queue.top = top->nselects;
+
+  // remove the dead maps
+  bv_solver_clean_delayed_bitblasting(solver, top->ndelayed);
+  solver->delayed_queue.top = top->ndelayed;
+
+  bv_solver_remove_bounds(solver, top->natoms);
+  bv_vartable_remove_vars(&solver->vtbl, top->nvars);
+  bv_atomtable_remove_atoms(&solver->atbl, top->natoms);
+  bvexp_table_remove_vars(&solver->etbl, top->nvars);
+  bv_solver_remove_dead_eterms(solver);
+
+  mtbl_pop(&solver->mtbl);
+
+  bv_trail_pop(&solver->trail_stack);
+}
+
+
+/*
+ * Reset: remove all variables and atoms
+ * and reset base_level to 0.
+ */
+void bv_solver_reset(bv_solver_t *solver) {
+  // exp buffers must be reset before etbl
+  bvarith_buffer_prepare(&solver->exp_buffer, 100);
+  bvarith64_buffer_prepare(&solver->exp64_buffer, 10);
+  reset_bvexp_table(&solver->etbl);
+
+  reset_bv_vartable(&solver->vtbl);
+  reset_bv_atomtable(&solver->atbl);
+  reset_mtbl(&solver->mtbl);
+  reset_bv_bound_queue(&solver->bqueue);
+
+  if (solver->compiler != NULL) {
+    delete_bv_compiler(solver->compiler);
+    safe_free(solver->compiler);
+    solver->compiler = NULL;
+  }
+
+  if (solver->blaster != NULL) {
+    delete_bit_blaster(solver->blaster);
+    safe_free(solver->blaster);
+    solver->blaster = NULL;
+  }
+
+  if (solver->remap != NULL) {
+    delete_remap_table(solver->remap);
+    safe_free(solver->remap);
+    solver->remap = NULL;
+  }
+
+  reset_eassertion_queue(&solver->egraph_queue);
+
+  if (solver->cache != NULL) {
+    delete_cache(solver->cache);
+    safe_free(solver->cache);
+    solver->cache = NULL;
+  }
+
+  reset_bv_queue(&solver->select_queue);
+  reset_bv_queue(&solver->delayed_queue);
+  reset_bv_trail(&solver->trail_stack);
+
+  reset_bvpoly_buffer(&solver->buffer, 32);
+  pp_buffer_reset(&solver->prod_buffer);
+  ivector_reset(&solver->aux_vector);
+  reset_bv_interval_stack(&solver->intv_stack);
+  ivector_reset(&solver->a_vector);
+  ivector_reset(&solver->b_vector);
+
+  if (solver->val_map != NULL) {
+    delete_bvconst_hmap(solver->val_map);
+    safe_free(solver->val_map);
+    solver->val_map = NULL;
+  }
+
+  reset_used_vals(&solver->used_vals);
+
+  solver->base_level = 0;
+  solver->decision_level = 0;
+  solver->bitblasted = false;
+}
+
+
+
+/**********************
+ *  EGRAPH INTERFACE  *
+ *********************/
+
+/*
+ * Assertion (eq x y) from the Egraph
+ * - process it immediately if we're at the base level
+ * - otherwise add it to the egraph assertion queue
+ */
+void bv_solver_assert_var_eq(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  assert(bvvar_has_eterm(&solver->vtbl, x) && bvvar_has_eterm(&solver->vtbl, y));
+
+#if TRACE
+  printf("---> bvsolver: received egraph equality: ");
+  print_bv_solver_var(stdout, solver, x);
+  printf(" = ");
+  print_bv_solver_var(stdout, solver, y);
+  printf("\n");
+#endif
+
+  if (! solver->bitblasted) {
+    assert(solver->decision_level == solver->base_level);
+    bv_solver_assert_eq_axiom(solver, x, y, true);
+  } else {
+    eassertion_push_eq(&solver->egraph_queue, x, y);
+  }
+}
+
+/*
+ * Assertion (x != y) from the Egraph
+ */
+void bv_solver_assert_var_diseq(bv_solver_t *solver, thvar_t x, thvar_t y, composite_t *hint) {
+  assert(bvvar_has_eterm(&solver->vtbl, x) && bvvar_has_eterm(&solver->vtbl, y));
+
+#if TRACE
+  printf("---> bvsolver: received egraph disequality: ");
+  print_bv_solver_var(stdout, solver, x);
+  printf(" != ");
+  print_bv_solver_var(stdout, solver, y);
+  printf("\n");
+#endif
+
+  if (! solver->bitblasted) {
+    assert(solver->decision_level == solver->base_level);
+    bv_solver_assert_eq_axiom(solver, x, y, false);
+  }
+}
+
+
+/*
+ * Assert that a[i] != a[j] for all pairs i, j
+ */
+void bv_solver_assert_var_distinct(bv_solver_t *solver, uint32_t n, thvar_t *a, composite_t *hint) {
+  uint32_t i, j;
+  thvar_t x, y;
+
+  if (! solver->bitblasted) {
+    assert(solver->decision_level == solver->base_level);
+
+    for (i=0; i<n; i++) {
+      x = a[i];
+      assert(bvvar_has_eterm(&solver->vtbl, x));
+      for (j=i+1; j<n; j++) {
+	y = a[j];
+	bv_solver_assert_eq_axiom(solver, x, y, false);
+      }
+    }
+  }
+}
+
+
+/*
+ * Check whether x and y are distinct at the base level
+ */
+bool bv_solver_check_disequality(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  bv_vartable_t *vtbl;
+  ivector_t *a, *b;
+  literal_t l;
+
+  vtbl = &solver->vtbl;
+
+  if (solver->bitblasted && bvvar_is_bitblasted(vtbl, x) && bvvar_is_bitblasted(vtbl, y)) {
+    // both x and y are already bitblasted
+    a = &solver->a_vector;
+    b = &solver->b_vector;
+    collect_bvvar_literals(solver, x, a);
+    collect_bvvar_literals(solver, y, b);
+    assert(a->size == b->size && a->size > 0);
+
+    l = bit_blaster_eval_bveq(solver->blaster, a->size, a->data, b->data);
+
+    return (l == false_literal);
+  } else {
+    x = mtbl_get_root(&solver->mtbl, x);
+    y = mtbl_get_root(&solver->mtbl, y);
+    if (diseq_bvvar(solver, x, y)) return true;
+
+    simplify_eq(solver, &x, &y);
+    return diseq_bvvar(solver, x, y);
+  }
+}
+
+literal_t bv_solver_select_eq_polarity(bv_solver_t *solver, thvar_t x, thvar_t y, literal_t l) {
+  return l;
+}
+
+
+
+/*********************
+ *  RECONCILE MODEL  *
+ ********************/
+
+/*
+ * Check whether x1 and x2 are equal in the model 
+ * - return false if x1 and x2 have different bitsize
+ * - otherwise, check the literal values in the core
+ */
+static bool bv_solver_var_equal_in_model(bv_solver_t *solver, thvar_t x1, thvar_t x2) {
   bv_vartable_t *vtbl;
   remap_table_t *rmap;
-  literal_t *mx;
-  literal_t l, l0;
+  smt_core_t *core;
+  literal_t *m1, *m2;
+  literal_t s1, s2;
+  literal_t l1, l2;  
+  bval_t v1, v2;
   uint32_t i, n;
-  
+
+  assert(solver->bitblasted);
+
   vtbl = &solver->vtbl;
+
+  n = bvvar_bitsize(vtbl, x1);
+  if (n != bvvar_bitsize(vtbl, x2)) {
+    return false;
+  }
+
+  m1 = bvvar_get_map(vtbl, x1);
+  m2 = bvvar_get_map(vtbl, x2);
+
+  assert(m1 != NULL && m2 != NULL);
+
   rmap = solver->remap;
+  core = solver->core;
 
-  assert(valid_bvvar(vtbl, x) && rmap != NULL);
-
-  n = bvvar_bitsize(vtbl, x);
-  mx = bvvar_get_map(vtbl, x);
-
-  assert(mx != NULL);
   for (i=0; i<n; i++) {
-    l0 = mx[i];
-    assert(l0 != null_literal);
-    l = remap_table_find(rmap, l0);
-    if (l != null_literal) {
+    s1 = m1[i];
+    s2 = m2[i];
+    l1 = remap_table_find(rmap, s1);
+    l2 = remap_table_find(rmap, s2);
+    assert(l1 != null_literal && l2 != null_literal);
+    v1 = literal_value(core, l1);
+    v2 = literal_value(core, l2);
+    assert(v1 != VAL_UNDEF && v2 != VAL_UNDEF);
+    if (v1 != v2) {
       return false;
     }
   }
-  
-  return true;    
-}
 
-#endif
+  return true;
+}
 
 
 /*
- * Copy the value of y as value of x
- * - x and y must be variables of the same size
- * - x must be all undefined, y must be fully defined
+ * 32bit word of x's value formed of bits[k ... k+31]
+ * - k must be smaller than x's bit size
+ * - if k+31 >= bitsize, then the value is padded with 0s
  */
-static void bv_solver_copy_value(bv_solver_t *solver, thvar_t x, thvar_t y) {
+static uint32_t bvsolver_word_value_in_model(bv_solver_t *solver, thvar_t x, uint32_t k) {
   bv_vartable_t *vtbl;
   remap_table_t *rmap;
-  literal_t *mx, *my;
-  uint32_t i, n;
-  literal_t l0, l1, l;
+  smt_core_t *core;
+  literal_t *mx;
+  literal_t s, l;
+  uint32_t i, n, c;
+
+  assert(solver->bitblasted);
 
   vtbl = &solver->vtbl;
   rmap = solver->remap;
-
-  assert(valid_bvvar(vtbl, x) && valid_bvvar(vtbl, y) && bvvar_bitsize(vtbl, x) == bvvar_bitsize(vtbl, y));
+  core = solver->core;
 
   n = bvvar_bitsize(vtbl, x);
   mx = bvvar_get_map(vtbl, x);
-  my = bvvar_get_map(vtbl, y);
+  assert(k < n);
 
-  for (i=0; i<n; i++) {
-    l0 = mx[i]; // vtbl->map[x].array[i];
-    l1 = my[i]; // vtbl->map[y].array[i];
-    assert(l0 != null_literal && l1 != null_literal && 
-	   remap_table_find(rmap, l0) == null_literal);
-    l = remap_table_find(rmap, l1);
-    assert(l != null_literal);
-    remap_table_assign(rmap, l0, l);
+  c = 0;
+
+  if (k + 32 <= n) {
+    n = k+32;
   }
+
+  for (i=k; i<n; i++) {
+    s = mx[i];
+    l = remap_table_find(rmap, s);
+    assert(l != null_literal && literal_value(core, l) != VAL_UNDEF);
+    if (literal_value(core, l) == VAL_TRUE) {
+      c |= 1; // set low-order bit
+    }
+    c <<= 1;
+  }
+
+  return c;
 }
 
 
+
 /*
- * Copy the value of x into word array b
- * - b must be large enough
- * - x must be fully defined
+ * Hash function: if x and y have the same value then hash(x) == hash(y)
+ * - this is based on Jensen's lookup3 code (public domain)
  */
-static void bv_solver_extract_value(bv_solver_t *solver, thvar_t x, uint32_t *b) {
-  bv_vartable_t *vtbl;
-  remap_table_t *rmap;
-  literal_t *a;
-  uint32_t i, n;
-  literal_t l0, l;
+#define rot(x,k) (((x)<<(k)) | ((x)>>(32-(k))))
 
-  vtbl = &solver->vtbl;
-  rmap = solver->remap;
-
-  n = bvvar_bitsize(vtbl, x);
-  a = bvvar_get_map(vtbl, x);
-  assert(a != NULL);
-
-  for (i=0; i<n; i++) {
-    l0 = a[i];
-    l = remap_table_find(rmap, l0);
-    assert(l != null_literal);
-    if (literal_value(solver->core, l) == VAL_FALSE) {
-      bvconst_clr_bit(b, i); 
-    } else {
-      assert(literal_value(solver->core, l) == VAL_TRUE);
-      bvconst_set_bit(b, i);
-    }
-  }
-
-  bvconst_normalize(b, n);
+#define mix(a,b,c) \
+{ \
+  a -= c;  a ^= rot(c, 4);  c += b; \
+  b -= a;  b ^= rot(a, 6);  a += c; \
+  c -= b;  c ^= rot(b, 8);  b += a; \
+  a -= c;  a ^= rot(c,16);  c += b; \
+  b -= a;  b ^= rot(a,19);  a += c; \
+  c -= b;  c ^= rot(b, 4);  b += a; \
 }
 
+#define final(a,b,c) \
+{ \
+  c ^= b; c -= rot(b,14); \
+  a ^= c; a -= rot(c,11); \
+  b ^= a; b -= rot(a,25); \
+  c ^= b; c -= rot(b,16); \
+  a ^= c; a -= rot(c,4);  \
+  b ^= a; b -= rot(a,14); \
+  c ^= b; c -= rot(b,24); \
+}
 
-/*
- * Assign word array b to x
- * - x must be fully undefined
- */
-static void bv_solver_set_value(bv_solver_t *solver, thvar_t x, uint32_t *b) {
-  bv_vartable_t *vtbl;
-  remap_table_t *rmap;
-  literal_t *a;
-  uint32_t i, n;
-  literal_t l0;
-
-  vtbl = &solver->vtbl;
-  rmap = solver->remap;
-  a = bvvar_get_map(vtbl, x);
-  assert(a != NULL);
-
-  for (i=0; i<n; i++) {
-    l0 = a[i];
-    assert(remap_table_find(rmap, l0) == null_literal);
-    if (bvconst_tst_bit(b, i)) {
-      remap_table_assign(rmap, l0, true_literal);
-    } else {
-      remap_table_assign(rmap, l0, false_literal);
-    }
-  }
+static uint32_t bvsolver_model_hash(bv_solver_t *solver, thvar_t x) {
+  uint32_t k, n;
+  uint32_t a, b, c;
   
-}
+  n = bvvar_bitsize(&solver->vtbl, x);
+  k = 0;
 
+  a = b = c = 0xdeadbeef + (n << 2);
 
-
-/*
- * Assign the opposite of value of y to x
- * - x and y must have the same size
- * - x must be fully undefined
- * - y must be fully defined
- */
-static void bv_solver_negate_value(bv_solver_t *solver, thvar_t x, thvar_t y) {
-  bv_vartable_t *vtbl;
-  uint32_t n, w;
-  uint32_t a[4];
-  uint32_t *b;
-
-  vtbl = &solver->vtbl;
-  assert(valid_bvvar(vtbl, x) && valid_bvvar(vtbl, y) && bvvar_bitsize(vtbl, x) == bvvar_bitsize(vtbl, y));
-
-  n = bvvar_bitsize(vtbl, x);
-  assert(n > 0);
-  w = (n + 31) >> 5;
-  b = a;
-  if (w > 4) {
-    b = (uint32_t *) safe_malloc(w * sizeof(uint32_t));
+  while (n > 96) { // more than 3 words
+    a += bvsolver_word_value_in_model(solver, x, k);
+    b += bvsolver_word_value_in_model(solver, x, k+32);
+    c += bvsolver_word_value_in_model(solver, x, k+64);
+    mix(a, b, c);
+    n -= 96;
+    k += 96;
   }
 
-  bv_solver_extract_value(solver, y, b); // b := value of y
-  bvconst_negate(b, w);  // b := - b
-  bv_solver_set_value(solver, x, b); // value of x := b
-
-  if (w > 4) {
-    safe_free(b);
-  }
-}
-
-
-/*
- * Convert bv's value (as a non-negative integer) into a shift amount. 
- * If bv's value is larger than n, then returns n
- */
-static uint32_t get_shift_amount(uint32_t n, uint32_t *bv) {
-  uint32_t k, i, s;
-
-  k = (n + 31) >> 5; // number of words in bv
-  s = bvconst_get32(bv); // low-order word = shift amount
-
-  // if any of the higher order words in nonzero, return n
-  for (i=1; i<k; i++) {
-    if (bv[i] != 0) return n;
-  }
-
-  // truncate s if required
-  return (n <= s) ? n : s;
-}
-
-
-/*
- * Apply op to val[y], val[z] and store the result as val[x]
- * - x, y, z must all have the same size
- * - x must be fully undefined
- * - y and z must be fully defined
- */
-static void bv_solver_binop_value(bv_solver_t *solver, bvvar_tag_t op, thvar_t x, thvar_t y, thvar_t z) {
-  bv_vartable_t *vtbl;
-  uint32_t n, w, k;
-  uint32_t a1[4], a2[4], a3[4];
-  uint32_t *b1, *b2, *b3;
-
-  vtbl = &solver->vtbl;
-  n = bvvar_bitsize(vtbl, x);
-  assert(n > 0);
-  w = (n + 31) >> 5;
-  b1 = a1;
-  b2 = a2;
-  b3 = a3;
-  if (w > 4) {
-    b1 = (uint32_t *) safe_malloc(w * sizeof(uint32_t));
-    b2 = (uint32_t *) safe_malloc(w * sizeof(uint32_t));
-    b3 = NULL; // need this so that safe_free(b3) works
-  }
-
-  bv_solver_extract_value(solver, y, b1); // b1 := value of y
-  bv_solver_extract_value(solver, z, b2); // b2 := value of z
-
-  switch (op) {
-  case BVTAG_ADD:
-    bvconst_add(b1, w, b2); // b1 := b1 + b2
-    bv_solver_set_value(solver, x, b1);
+  // last three words
+  assert(1 <= n && n <= 96);
+  switch ((n+31) >> 5) {
+  case 3: c += bvsolver_word_value_in_model(solver, x, k+64);
+  case 2: b += bvsolver_word_value_in_model(solver, x, k+32);
+  case 1: a += bvsolver_word_value_in_model(solver, x, k);
+    final(a, b, c);
     break;
-
-  case BVTAG_SUB:
-    bvconst_sub(b1, w, b2); // b1 := b1 - b2
-    bv_solver_set_value(solver, x, b1);
-    break;
-
-  case BVTAG_MUL:
-    bvconst_mul(b1, w, b2); // b1 := b1 * b2
-    bv_solver_set_value(solver, x, b1);
-    break;
-
-  case BVTAG_UDIV:
-    if (w > 4) {
-      b3 = (uint32_t *) safe_malloc(w * sizeof(uint32_t));
-    }
-    bvconst_udiv2z(b3, n, b1, b2);
-    bv_solver_set_value(solver, x, b3);
-    break;
-
-  case BVTAG_UREM:
-    if (w > 4) {
-      b3 = (uint32_t *) safe_malloc(w * sizeof(uint32_t));
-    }
-    bvconst_urem2z(b3, n, b1, b2);
-    bv_solver_set_value(solver, x, b3);
-    break;
-
-  case BVTAG_SDIV:
-    if (w > 4) {
-      b3 = (uint32_t *) safe_malloc(w * sizeof(uint32_t));
-    }
-    bvconst_sdiv2z(b3, n, b1, b2);
-    bv_solver_set_value(solver, x, b3);
-    break;
-
-  case BVTAG_SREM:
-    if (w > 4) {
-      b3 = (uint32_t *) safe_malloc(w * sizeof(uint32_t));
-    }
-    bvconst_srem2z(b3, n, b1, b2);
-    bv_solver_set_value(solver, x, b3);
-    break;
-
-  case BVTAG_SMOD:
-    if (w > 4) {
-      b3 = (uint32_t *) safe_malloc(w * sizeof(uint32_t));
-    }
-    bvconst_smod2z(b3, n, b1, b2);
-    bv_solver_set_value(solver, x, b3);
-    break;
-
-  case BVTAG_SHL:
-    k = get_shift_amount(n, b2);
-    bvconst_shift_left(b1, n, k, 0);  // b1 := (b1 << k) padded with 0
-    bv_solver_set_value(solver, x, b1);
-    break;
-      
-  case BVTAG_LSHR:
-    k = get_shift_amount(n, b2);
-    bvconst_shift_right(b1, n, k, 0); // b1 := (b1 >> k) padded with 0
-    bv_solver_set_value(solver, x, b1);
-    break;
-
-  case BVTAG_ASHR:
-    k = get_shift_amount(n, b2);
-    bvconst_shift_right(b1, n, k, bvconst_tst_bit(b1, n-1)); // padding with sign bit
-    bv_solver_set_value(solver, x, b1);
-    break;
-      
   default:
     assert(false);
     break;
   }
 
-  if (w > 4) {
-    safe_free(b1);
-    safe_free(b2);
-    safe_free(b3);
-  }
+  return c;
+}
+
+
+
+/*
+ * Check whether x is a root variable:
+ * - x is root if it has an egraph term t and x is the theory
+ *   variable in the class of t.
+ */
+static inline bool is_root_var(bv_solver_t *solver, thvar_t x) {
+  egraph_t *egraph;
+  eterm_t t;
+
+  t = bvvar_get_eterm(&solver->vtbl, x);
+  egraph = solver->egraph;
+  return (t != null_eterm) && 
+    (egraph_class_thvar(egraph, egraph_term_class(egraph, t)) == x);
 }
 
 
 /*
- * Assign a value to all the literals of x
+ * Find root variable for variable x
+ * - we pick the theory variable in the egraph class of term of x
  */
-static void bv_solver_value_for_variable(bv_solver_t *solver, thvar_t x) {
-  bv_vartable_t *vtbl;
-#if 0
-  remap_table_t *rmap;
-  literal_t *a;
-  bvvar_tag_t op;
-  uint32_t i, n;
-  literal_t l0, l;
-  thvar_t y;
-#endif
+static inline thvar_t root_var(bv_solver_t *solver, thvar_t x) {
+  egraph_t *egraph;
+  eterm_t t;
 
-  vtbl = &solver->vtbl;
-
-  assert(valid_bvvar(vtbl, x) && bvvar_bitsize(vtbl, x) > 0);
-
-#if 0
-  /*
-   * All marked variables have been bit-blasted so they are fully
-   * defined by the SAT solver.
-   */
-  if (! bvvar_is_bitblasted(vtbl, x)) {
-
-    // a --> array of pseudo literals mapped to x
-    // n = number of bits in x = size of array a
-    n = bvvar_bitsize(vtbl, x);
-    a = bvvar_get_map(vtbl, x); // vtbl->map[x].array;
-    assert(a != NULL);
-
-    rmap = solver->remap;
-    op = bvvar_tag(vtbl, x);
-
-    switch (op) {
-    case BVTAG_CONST64:
-    case BVTAG_CONST:
-      // nothing to do. The pseudo-literals are mapped to true or false
-      // already.
-      break;
-
-    case BVTAG_VAR:      
-      // we can assign an arbitrary value to the undefined bits of x
-      for (i=0; i<n; i++) {
-	l0 = a[i];
-	assert(l0 != null_literal);
-	l = remap_table_find(rmap, l0);
-	if (l == null_literal) {
-	  remap_table_assign(rmap, l0, false_literal);
-	}
-      }
-      break;
-
-    case BVTAG_BIT_ARRAY:
-      // TBD
-      break;
-
-    case BVTAG_NEG:
-      // x must be fully undefined otherwise something went
-      // wrong in the translation.
-      assert(bv_solver_variable_all_undef(solver, x));
-      y = vtbl->def[x].op[0];
-      bv_solver_value_for_variable(solver, y);
-      bv_solver_negate_value(solver, x, y);
-      break;
-
-    case BVTAG_ADD:
-    case BVTAG_SUB:
-    case BVTAG_MUL:
-    case BVTAG_SHL:
-    case BVTAG_UDIV:
-    case BVTAG_UREM:
-    case BVTAG_SDIV:
-    case BVTAG_SREM:
-    case BVTAG_SMOD:
-    case BVTAG_LSHR:
-    case BVTAG_ASHR:
-      assert(bv_solver_variable_all_undef(solver, x));
-      bv_solver_value_for_variable(solver, vtbl->def[x].op[0]);
-      bv_solver_value_for_variable(solver, vtbl->def[x].op[1]);
-      bv_solver_binop_value(solver, op, x, vtbl->def[x].op[0], vtbl->def[x].op[1]);
-      break;
-
-    case BVTAG_ITE:
-      assert(bv_solver_variable_all_undef(solver, x));
-      l = vtbl->def[x].ite->cond;
-      if (literal_value(solver->core, l) == VAL_TRUE) {
-	y = vtbl->def[x].ite->left;
-      } else {
-	assert(literal_value(solver->core, l) == VAL_FALSE);
-	y = vtbl->def[x].ite->right;
-      }
-      // assign a value to y then assign the same value to x
-      bv_solver_value_for_variable(solver, y);
-      bv_solver_copy_value(solver, x, y);
-      break;
-
-    default:
-      assert(false);
-      abort();
-      break;
-    }
-  }
-#endif
+  assert(0 <= x && x < solver->vtbl.nvars);
+  egraph = solver->egraph;
+  t = solver->vtbl.eterm[x];
+  return egraph_class_thvar(egraph, egraph_term_class(egraph, t));
 }
 
 
+#if TRACE
+
+/*
+ * For testing: print the parent vectors of all variables in vector v
+ */
+static void show_parents_of_class(bv_solver_t *solver, int32_t *v) {
+  uint32_t i, n;
+  int32_t x;
+  eterm_t t;
+
+  n = ipv_size(v);
+  assert(n >= 2);
+  for (i=0; i<n; i++) {
+    x = v[i];
+    t = bvvar_get_eterm(&solver->vtbl, x);
+    printf("--- root bvvar = ");
+    print_bv_solver_var(stdout, solver, x);
+    printf("---\n");
+    print_class_of_term(stdout, solver->egraph, t);
+    print_parents_of_term(stdout, solver->egraph, t);
+  }
+}
+
 #endif
 
 
+/*
+ * Heuristic: search for the best interface equality in a class
+ * - v = vector
+ */
+static bool interface_eq_in_class(bv_solver_t *solver, int32_t *v) {
+  assert(ipv_size(v) >= 2);
+  bv_solver_bvequiv_lemma(solver, v[0], v[1]);
+  return true;
+}
 
+
+/*
+ * Search for inconsistencies between the egraph and the bitvector model
+ * - An inconsistency is a pair of bit-vector variables x and y
+ *   such that x and y have the same value in the solver but 
+ *   term_of(x) and term_of(y) are in different classes in the egraph.
+ * - To resolve inconsistencies we add the lemma 
+ *     (bveq x y) <=> (eq term_of(x) term_of(y))
+ * - max_eq = bound on the number of lemma instances
+ * - Return the number of instances created
+ */
+uint32_t bv_solver_reconcile_model(bv_solver_t *solver, uint32_t max_eq) {
+  ipart_t partition;
+  uint32_t i, n;
+  uint32_t neq;
+
+  assert(max_eq > 0);
+
+#if TRACE
+  printf("\n---> bv: reconcile model\n");
+  fflush(stdout);
+#endif
+
+
+  /*
+   * Build partitions:
+   * - two variables x and y are in the same class if both are root 
+   *   variables and they have the same value in the bit assignment.
+   * - i.e., the egraph model says that x != y but the 
+   *   bitvector model says that x = y
+   */
+  init_int_partition(&partition, 0, solver, (ipart_hash_fun_t) bvsolver_model_hash,
+		     (ipart_match_fun_t) bv_solver_var_equal_in_model);
+
+  n = solver->vtbl.nvars;
+  for (i=0; i<n; i++) {
+    if (is_root_var(solver, i)) {
+      int_partition_add(&partition, i);
+    }
+  }
+
+  n = int_partition_nclasses(&partition);
+
+#if TRACE
+  for (i=0; i<n; i++) {
+    printf("Class %"PRIu32"\n", i);
+    show_parents_of_class(solver, partition.classes[i]);
+    printf("\n");
+  }
+#endif
+
+  /*
+   * Process the classes: generate the 'best' conflict pairs 
+   * in each class?
+   */
+  neq = 0;
+  for (i=0; i<n; i++) {
+    if (interface_eq_in_class(solver, partition.classes[i])) {
+      neq ++;
+      if (neq == max_eq) break;
+    }
+  }
+
+
+  delete_int_partition(&partition);
+
+  return neq;
+}
+
+
+
+
+
+
+/************************
+ *  MODEL CONSTRUCTION  *
+ ***********************/
 
 /*
  * Interface function: nothing to do
@@ -7424,7 +7691,7 @@ static th_egraph_interface_t bv_solver_egraph = {
 
 
 static bv_egraph_interface_t bv_solver_bv_egraph = {
-  (make_bv_var_fun_t) bv_solver_create_var,
+  (make_bv_var_fun_t) bv_solver_create_on_the_fly_var,
   (bv_val_fun_t) bv_solver_value_in_model,
   (bv_fresh_val_fun_t) bv_solver_fresh_value,
 };
