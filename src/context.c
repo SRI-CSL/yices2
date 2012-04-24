@@ -24,6 +24,8 @@
 #if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DL || TRACE || 1
 
 #include <stdio.h>
+#include <inttypes.h>
+
 #include "term_printer.h"
 
 #endif

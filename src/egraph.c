@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
+#include "smt_core_printer.h"
 #include "egraph_printer.h"
 
 #endif
@@ -2507,13 +2508,14 @@ static occ_t egraph_reduce_apply(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a
  * Conversion from a type tau in the type table to an egraph type
  */
 static const uint8_t type_kind2etype[FUNCTION_TYPE+1] = {
-  ETYPE_NONE,     // UNUSED_TYPE should not occur
+  ETYPE_NONE,     // UNUSED_TYPE (should not occur)
   ETYPE_BOOL,     // BOOL_TYPE
   ETYPE_INT,      // INT_TYPE
   ETYPE_REAL,     // REAL_TYPE
   ETYPE_BV,       // BITVECTOR_TYPE
   ETYPE_NONE,     // SCALAR_TYPE
   ETYPE_NONE,     // UNINTERPRETED_TYPE
+  ETYPE_NONE,     // VARIABLE_TYPE (should not occur)
   ETYPE_TUPLE,    // TUPLE_TYPE
   ETYPE_FUNCTION, // FUNCTION_TYPE
 };

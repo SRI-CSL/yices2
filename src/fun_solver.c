@@ -1969,10 +1969,10 @@ fcheck_code_t fun_solver_final_check(fun_solver_t *solver) {
   fcheck_code_t result;
 
 #if TRACE
-  printf("\n**** FINAL CHECK ***\n\n");
+  printf("\n**** FUNSOLVER: FINAL CHECK ***\n\n");
 #endif 
 
-#if 0
+#if TRACE
   print_egraph_terms(stdout, solver->egraph);
   printf("\n\n");
   print_egraph_root_classes_details(stdout, solver->egraph);

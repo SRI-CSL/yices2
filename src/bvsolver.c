@@ -17,7 +17,7 @@
 #include "bvsolver.h"
 
 
-#define TRACE 1
+#define TRACE 0
 
 #define DUMP 0
 
@@ -1752,6 +1752,7 @@ static bool all_bvvars_unmarked(bv_solver_t *solver) {
 /*
  * Complete bit-blasting:
  * - whenever (x == y) in the merge table, bitblast x and y
+ * - if x has an egraph term, then bitblast x
  * - also bit-blast all the variables from the select queue
  */
 static void bv_solver_bitblast_variables(bv_solver_t *solver) {
@@ -1767,6 +1768,8 @@ static void bv_solver_bitblast_variables(bv_solver_t *solver) {
     if (x != i) {
       bv_solver_bitblast_variable(solver, x);
       bv_solver_bitblast_variable(solver, i);      
+    } else if (bvvar_has_eterm(vtbl, i)) {
+      bv_solver_bitblast_variable(solver, i);
     }
   }  
 
@@ -6521,11 +6524,15 @@ bool bv_solver_check_disequality(bv_solver_t *solver, thvar_t x, thvar_t y) {
   } else {
     x = mtbl_get_root(&solver->mtbl, x);
     y = mtbl_get_root(&solver->mtbl, y);
+    if (equal_bvvar(solver, x, y)) return false;
     if (diseq_bvvar(solver, x, y)) return true;
 
     simplify_eq(solver, &x, &y);
-    return diseq_bvvar(solver, x, y);
+    if (x == y) return false;
+    if (diseq_bvvar(solver, x, y)) return true;
   }
+
+  return false;
 }
 
 literal_t bv_solver_select_eq_polarity(bv_solver_t *solver, thvar_t x, thvar_t y, literal_t l) {
@@ -6609,7 +6616,7 @@ static uint32_t bvsolver_word_value_in_model(bv_solver_t *solver, thvar_t x, uin
 
   n = bvvar_bitsize(vtbl, x);
   mx = bvvar_get_map(vtbl, x);
-  assert(k < n);
+  assert(mx != NULL && k<n);
 
   c = 0;
 
@@ -6719,7 +6726,7 @@ static inline thvar_t root_var(bv_solver_t *solver, thvar_t x) {
   egraph_t *egraph;
   eterm_t t;
 
-  assert(0 <= x && x < solver->vtbl.nvars);
+  assert(1 <= x && x < solver->vtbl.nvars);
   egraph = solver->egraph;
   t = solver->vtbl.eterm[x];
   return egraph_class_thvar(egraph, egraph_term_class(egraph, t));
@@ -6797,7 +6804,7 @@ uint32_t bv_solver_reconcile_model(bv_solver_t *solver, uint32_t max_eq) {
 		     (ipart_match_fun_t) bv_solver_var_equal_in_model);
 
   n = solver->vtbl.nvars;
-  for (i=0; i<n; i++) {
+  for (i=1; i<n; i++) {
     if (is_root_var(solver, i)) {
       int_partition_add(&partition, i);
     }

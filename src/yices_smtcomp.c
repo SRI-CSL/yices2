@@ -40,7 +40,7 @@
  * Define this to nonzero to check the model
  * - this has no effect unless COMMAND_LINE_OPTIONS is nonzero
  */
-#define CHECK_MODEL 0
+#define CHECK_MODEL 1
 
 #if COMMAND_LINE_OPTIONS
 #include "timeout.h"
