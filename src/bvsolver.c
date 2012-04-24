@@ -7246,7 +7246,7 @@ static bool bv_solver_pprod_value(bv_solver_t *solver, pprod_t *p, uint32_t n, u
 
   found = true;
   bvconst_set_one(c, k);
-  for (i=0; i<n; i++) {
+  for (i=0; i<nterms; i++) {
     found = bv_solver_get_variable_value(solver, p->prod[i].var, a);
     if (!found) goto done;
     assert(bvconst_is_normalized(a, n));

@@ -2420,6 +2420,8 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
       p = egraph_num_classes_of_type(solver->egraph, sigma); // number of classes of type sigma in the egraph
       h = type_card(solver->types, sigma);
 
+      assert(p <= h);
+
 #if TRACE
       printf("---> assign base value: sigma = %"PRId32", card = %"PRIu32", num classes = %"PRIu32"\n",
 	     sigma, h, p);
@@ -2452,14 +2454,15 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
 	}
 
 	// get base labels from the egraph
-	p = egraph_get_labels_for_type(solver->egraph, sigma, b, i - m);
+	//	p = egraph_get_labels_for_type(solver->egraph, sigma, b, i - m);
+	p = egraph_get_labels_for_type(solver->egraph, sigma, b, i - j);
 
 	/*
 	 * Assign the labels in b[0 ... p-1] to components of type tau.
 	 */
 	assert(p > 0);
 	h = 0;
-	for (j=m; j<i; j++) {
+	while (j < i) {
 	  x = v->data[j];
 	  k = vtbl->base[x];
 	  assert(solver->base_value[k] == UNKNOWN_BASE_VALUE && h < p);
@@ -2468,6 +2471,7 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
 	  printf("---> base_value[%"PRId32"] = %"PRId32"\n", k, solver->base_value[k]);
 #endif
 	  h ++;
+	  j ++;
 	  if (h == p) {
 	    h = 0;
 	  }
