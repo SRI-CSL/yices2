@@ -40,6 +40,7 @@
 #include "idl_fw_printer.h"
 #include "rdl_fw_printer.h"
 #include "simplex_printer.h"
+#include "gates_printer.h"
 #include "bvsolver_printer.h"
 #include "egraph_printer.h"
 #include "smt_core_printer.h"
@@ -1937,11 +1938,15 @@ static void dump_rdl_solver(FILE *f, rdl_solver_t *rdl) {
 
 static void dump_simplex_solver(FILE *f, simplex_solver_t *simplex) {
   fprintf(f, "\n--- Simplex ---\n");
+#ifndef NDEBUG
   fprintf(f, "status:         %s\n", status2string[simplex->core->status]);
   print_simplex_flags(f, simplex);
   fprintf(f, "\n");
+#endif
   print_simplex_vars(f, simplex);
+#ifndef NDEBUG
   print_simplex_saved_rows(f, simplex);
+#endif
   print_simplex_atoms(f, simplex);
   fprintf(f, "\n--- Tableau ---\n");
   print_simplex_matrix(f, simplex);
@@ -1951,14 +1956,24 @@ static void dump_simplex_solver(FILE *f, simplex_solver_t *simplex) {
 }
 
 static void dump_bv_solver(FILE *f, bv_solver_t *solver) {
+#ifndef NDEBUG
   fprintf(f, "\n--- Bitvector Partition ---\n");
   print_bv_solver_partition(f, solver);
+#endif
   fprintf(f, "\n--- Bitvector Variables ---\n");
   print_bv_solver_vars(f, solver);
   fprintf(f, "\n--- Bitvector Atoms ---\n");
   print_bv_solver_atoms(f, solver);
+#ifndef NDEBUG
   fprintf(f, "\n--- Bitvector Bounds ---\n");
   print_bv_solver_bounds(f, solver);
+  fprintf(f, "\n--- DAG ---\n");
+  print_bv_solver_dag(f, solver);
+  if (solver->blaster != NULL) {
+    fprintf(f, "\n--- Gates ---\n");
+    print_gate_table(f, &solver->blaster->htbl);
+  }
+#endif
   fprintf(f, "\n");
 }
 
@@ -1966,11 +1981,13 @@ static void dump_bv_solver(FILE *f, bv_solver_t *solver) {
 static void yices_dump_cmd(void) {
   assert(context != NULL);
 
+#ifndef NDEBUG
   printf("--- Substitutions ---\n");
   print_context_intern_subst(stdout, context);
 
   printf("\n--- Internalization ---\n");
   print_context_intern_mapping(stdout, context);
+#endif
 
   if (context_has_egraph(context)) {
     dump_egraph(stdout, context->egraph);
