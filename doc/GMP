@@ -5,7 +5,7 @@ As many as three different versions of GMP can be used to build Yices.
 
 1) In release mode, we build an executable and a dynamic yices library
    that are linked with a dynamic GMP library. A compatible GMP library
-   must be present on the client's machine to use this release version.
+   must be present on the user's machine.
 
 2) In static mode, we build an executable and a dynamic yices library
    that are statically linked with libgmp.a. For the executable, a
@@ -14,7 +14,7 @@ As many as three different versions of GMP can be used to build Yices.
    compiled with -fPIC). PIC is the default on Windows and relatives
    (cygwin/mingw) so we need only one libgmp.a on these platgorms.
 
-   On linux and MacOS X, the default 'libgmp.a' is typically not PIC
+   On Linux and MacOS X, the default 'libgmp.a' is typically not PIC
    so we need to build another version.
 
 
@@ -59,7 +59,7 @@ Building PIC libgmp.a on Sparc Solaris 2.8 (gmp-4.3.2)
 
 1) install normal GMP, and keep track of the configuration
 
-On mission.ai.sri.com, I got:
+On my Solaris machine I got:
 
    ABI=32
    CC="gcc -std=gnu99"
@@ -75,6 +75,7 @@ On mission.ai.sri.com, I got:
        --prefix=/home/labrea5/dutertre/reloc_gmp 
        CFLAGS='-fPIC -O2 -pedantic -Wa,-xarch=v8plus -mcpu=ultrasparc'
        CPPFLAGS=-DPIC 
+       MPN_PATH=" sparc32/v9 sparc32/v8 sparc32 generic"
        --disable-shared
 
    Then, the usual

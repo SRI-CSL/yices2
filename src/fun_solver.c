@@ -2,7 +2,6 @@
  * SOLVER FOR FUNCTION/ARRAY THEORY
  */
 
-
 /*
  * Added some randomization to the generation of clauses
  * (by varying the order in which nodes are examined).
@@ -44,6 +43,7 @@
 
 #include "smt_core_printer.h"
 #include "egraph_printer.h"
+#include "fun_solver_printer.h"
 
 #endif
 
@@ -2416,6 +2416,17 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
        * Finite range
        */
 
+      /*
+       * BUG: there may be variables of type sigma in a theory solver
+       * (i.e., the bitvector solver) that are not attached to any
+       * egraph terms. So we don't get an accurate count of the
+       * number of used values by just calling egraph_num_classes_of_type.
+       * (i.e., we have p <= actual numer of used values <= h).
+       *
+       * Since p is not exact, we can't be sure that 'fresh values' are
+       * available.
+       */
+      
       // First, attempt to use fresh values
       p = egraph_num_classes_of_type(solver->egraph, sigma); // number of classes of type sigma in the egraph
       h = type_card(solver->types, sigma);
@@ -2429,7 +2440,7 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
 #endif
 
       j = m;
-      while (p < h) {
+      while (false && p < h) { // BD: disabled this (April 24 2012)
 	x = v->data[j];
 	k = vtbl->base[x];
 	assert(solver->base_value[k] == UNKNOWN_BASE_VALUE);
@@ -2751,6 +2762,12 @@ static void fun_solver_release_model(fun_solver_t *solver) {
  * - return the number of extensionality instances created
  * - set the reconciled_flag to true if no extensionality instances were 
  *   created (and to false otherwise).
+ *
+ * NOTE: this is not called if the egraph has no higher-order terms (i.e., function
+ * terms do not occur as children of other terms, except as first term of
+ * (update f x1 ,,, x_n u). In this case, the model construction does not
+ * have to ensure that function variables that are in distinct classes have
+ * distinct values.
  */
 uint32_t fun_solver_reconcile_model(fun_solver_t *solver, uint32_t max_eq) {
   fun_vartable_t *vtbl;
@@ -3022,7 +3039,7 @@ static void fix_base_maps(fun_solver_t *solver, pstore_t *store, function_type_t
 
   // make all elements of w differ
   if (! force_maps_to_differ(store, f, w.size, (map_t **) w.data)) {
-    // BUG    
+    // BUG
     abort();
   }
 
@@ -3201,7 +3218,7 @@ void fun_solver_build_model(fun_solver_t *solver, pstore_t *store) {
 
   assert(!solver->bases_ready && !solver->apps_ready);
 
-#if 0
+#if TRACE
   printf("\n**** BUILD MODEL ***\n\n");
   print_egraph_terms(stdout, solver->egraph);
   printf("\n\n");

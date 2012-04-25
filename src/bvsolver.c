@@ -703,6 +703,7 @@ static void bv_solver_mark_variable(bv_solver_t *solver, thvar_t x) {
 
     case BVTAG_POLY:
       bv_solver_mark_poly_vars(solver, bvvar_poly_def(vtbl, x));
+      break;
 
     case BVTAG_PPROD:
       bv_solver_mark_pprod_vars(solver, bvvar_pprod_def(vtbl, x));

@@ -6,15 +6,6 @@
  * The solver maintains a graph: vertices denote arrays and edges
  * represent array updates. An edge x ---> y labeled with terms (i_1, ..., i_n)
  * means that x and y must be equal, except possibly at point (i_1,...,i_n).
- *
- *
- * TO DO: DEAL WITH THE SPECIAL CASE OF UNIT TYPES
- * -----------------------------------------------
- * If R is a singleton types, then all arrays of type [T1, ..., Tn -> R] are equal.
- * Options:
- * 1) deal with unit types in the egraph. Make sure there's at most one egraph eterm
- *    per unit type.
- * 2) make sure there are no unit types (i.e., force scalar types to have at least two elements)
  */
 
 #ifndef __FUN_SOLVER_H

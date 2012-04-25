@@ -874,7 +874,8 @@ static void check_model(FILE *f, smt_benchmark_t *bench, model_t *model) {
       fprintf(f, "\n==== Assertion[%"PRIu32"] ====\n", i);
       print_term_id(f, t);
       fprintf(f, " = ");
-      print_term(f, __yices_globals.terms, t);
+      //      print_term(f, __yices_globals.terms, t);
+      pretty_print_term_exp(f, NULL, __yices_globals.terms, t);
       fprintf(f, "\n");
       fflush(f);
       fprintf(f, "evaluates to: ");
@@ -1079,7 +1080,7 @@ static int process_benchmark(void) {
 
   case CTX_ARCH_BV:
     // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
-    //    enable_diseq_and_or_flattening(&context);
+    enable_diseq_and_or_flattening(&context);
     enable_variable_elimination(&context);
     enable_bvarith_elimination(&context);
     params.fast_restart = true;
@@ -1119,7 +1120,7 @@ static int process_benchmark(void) {
   case CTX_ARCH_EGBV:         // egraph+bitvector solver
   case CTX_ARCH_EGFUNBV:      // egraph+fun+bitvector
     // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
-    //    enable_diseq_and_or_flattening(&context);
+    enable_diseq_and_or_flattening(&context);
     enable_variable_elimination(&context);
     enable_bvarith_elimination(&context);
     params.fast_restart = true;

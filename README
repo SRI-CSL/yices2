@@ -16,7 +16,7 @@ used to build dependencies in src/Makefile.
 
 Recent versions of clang (e.g., clang+llvm 3.0) seem to work just
 fine. This is important for compilation on MacOS X Lion (Darwin
-11.x.y), because Apple's XCode 4.1 (for MacOS X Lion) does not include
+11.x.y), because Apple's Xcode 4.1 (for MacOS X Lion) does not include
 GCC but only llvm-gcc and clang. 
 
 
@@ -335,7 +335,7 @@ The build commands are of the form
 
    make <target> 'OPTION=<...>' 'MODE=<mode>'
 
-The OPTION part is required to select an alternative platform,
+The OPTION part can be used to select an alternative platform,
 if it's omitted, the default platform will be selected.
 
 
@@ -565,10 +565,6 @@ on the same machine. I normally use fat libraries, and a hack
 that allows me to have two copies of gmp.h (one for 32bits, 
 one for 64bits). Check utils/gmp-hack.h for this.
 
-The instructions below assume compilation on an Mac running
-Snow Leopard (i.e., Mac OS 10.6.8) and with GMP installed in
-/usr/local/lib.
-
 There are incompatibilities between the different OS versions so a
 version built on Mac OS 10.6 may not work on Mac OS 10.5 or older.  
 To increase portability, it's a good idea to give option
@@ -585,12 +581,16 @@ For compatibility with Mac OS 10.5, we may also need
 but it doesn't seem to be required for Yices 2 (so far). 
 
 Update: option -isysroot /Developer/SDKs/MacOSX10.5.sdk 
-doees  not work out-of-the box, because the GMP header file 
+doees  not work outof the box, because the GMP header file 
 <gmp.h> is not found in /Developer/SDKs/MacOSX10.5.sdk. 
 A work around is to add a symbolic link to /usr/local/include
 in /Developer/SDKs/MacOSX10.5.sdk/usr/local.
 
 
+
+The instructions below assume compilation on an Mac running
+Snow Leopard (i.e., Mac OS 10.6.8) and with GMP installed in
+/usr/local/lib.
 
 1) Default build
 

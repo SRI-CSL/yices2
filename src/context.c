@@ -3287,20 +3287,26 @@ static thvar_t map_ite_to_bv(context_t *ctx, composite_term_t *ite) {
   return ctx->bv.create_bvite(ctx->bv_solver, c, x, y);
 }
 
+
 /*
  * Array of bits b
+ * - hackish: we locally disable flattening here
  */
 static thvar_t map_bvarray_to_bv(context_t *ctx, composite_term_t *b) {
   uint32_t i, n;
+  uint32_t save_options;
   literal_t *a;
   thvar_t x;
 
   n = b->arity;
   a = alloc_istack_array(&ctx->istack, n);
 
+  save_options = ctx->options;
+  disable_diseq_and_or_flattening(ctx);
   for (i=0; i<n; i++) {
     a[i] = internalize_to_literal(ctx, b->arg[i]);
   }
+  ctx->options = save_options;
 
   x = ctx->bv.create_bvarray(ctx->bv_solver, a, n);
 
