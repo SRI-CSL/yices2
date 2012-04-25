@@ -137,6 +137,15 @@ static inline void bit_blaster_pop(bit_blaster_t *blaster) {
 }
 
 
+/*
+ * Set level: same effect as calling push n times
+ * - this is used to ensure that the bit-blaster trail stack
+ *   has the same depth as the bv_solver when the bit_blaster is allocated
+ */
+static inline void bit_blaster_set_level(bit_blaster_t *blaster, uint32_t n) {
+  gate_table_set_level(&blaster->htbl, n);
+}
+
 
 
 /**********************

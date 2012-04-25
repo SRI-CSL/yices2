@@ -754,6 +754,7 @@ static remap_table_t *bv_solver_get_remap(bv_solver_t *solver) {
   if (tmp == NULL) {
     tmp = (remap_table_t *) safe_malloc(sizeof(remap_table_t));
     init_remap_table(tmp);
+    remap_table_set_level(tmp, solver->base_level);
     solver->remap = tmp;
   }
 
@@ -895,6 +896,7 @@ static void bv_solver_prepare_blasting(bv_solver_t *solver) {
     remap = bv_solver_get_remap(solver);
     blaster = (bit_blaster_t *) safe_malloc(sizeof(bit_blaster_t));
     init_bit_blaster(blaster, solver->core, remap);
+    bit_blaster_set_level(blaster, solver->base_level);
     solver->blaster = blaster;
   }
 }
@@ -6305,7 +6307,7 @@ static void bv_solver_clean_delayed_bitblasting(bv_solver_t *solver, uint32_t n)
   top = dqueue->top;
   assert(n <= top);
 
-  for (i=0; i<n; i++) {
+  for (i=n; i<top; i++) {
     x = dqueue->data[i];
     assert(bvvar_is_bitblasted(vtbl, x));
     bvvar_reset_map(vtbl, x);
@@ -6341,7 +6343,7 @@ void bv_solver_pop(bv_solver_t *solver) {
 
 
   if (solver->cache != NULL) {
-    cache_push(solver->cache);
+    cache_pop(solver->cache);
   }
 
   // remove select terms
@@ -6351,10 +6353,13 @@ void bv_solver_pop(bv_solver_t *solver) {
   bv_solver_clean_delayed_bitblasting(solver, top->ndelayed);
   solver->delayed_queue.top = top->ndelayed;
 
-  bv_solver_remove_bounds(solver, top->natoms);
+  // remove the expanded forms
+  // must be done before remove the variables form vtbl
+  bvexp_table_remove_vars(&solver->etbl, top->nvars);
+
+  bv_solver_remove_bounds(solver, top->nbounds);
   bv_vartable_remove_vars(&solver->vtbl, top->nvars);
   bv_atomtable_remove_atoms(&solver->atbl, top->natoms);
-  bvexp_table_remove_vars(&solver->etbl, top->nvars);
   bv_solver_remove_dead_eterms(solver);
 
   mtbl_pop(&solver->mtbl);

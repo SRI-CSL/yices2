@@ -144,10 +144,12 @@ static void bvexp_table_remove_var(bvexp_table_t *table, thvar_t x) {
 void bvexp_table_remove_vars(bvexp_table_t *table, uint32_t nv) {
   uint32_t i;
 
-  for (i=nv; i<table->nvars; i++) {
-    bvexp_table_remove_var(table, i);
+  if (table->nvars > nv) {
+    for (i=nv; i<table->nvars; i++) {
+      bvexp_table_remove_var(table, i);
+    }
+    table->nvars = nv;
   }
-  table->nvars = nv;
 }
 
 

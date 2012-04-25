@@ -267,6 +267,17 @@ void remap_table_push(remap_table_t *table) {
 
 
 /*
+ * Set the level to n: call push n times
+ */
+void remap_table_set_level(remap_table_t *table, uint32_t n) {
+  while (n > 0) {
+    remap_table_push(table);
+    n --;
+  }
+}
+
+
+/*
  * Return to the previous level
  */
 void remap_table_pop(remap_table_t *table) {

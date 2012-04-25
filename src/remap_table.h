@@ -175,6 +175,13 @@ extern void remap_table_push(remap_table_t *table);
 extern void remap_table_pop(remap_table_t *table);
 
 
+/*
+ * Set level n: equivalent to calling push n times
+ * - this can be used to set the initial level after
+ *   the table is created.
+ */
+extern void remap_table_set_level(remap_table_t *table, uint32_t n);
+
 
 
 /*

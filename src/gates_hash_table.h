@@ -14,6 +14,7 @@
 #define __GATES_HASH_TABLE_H
 
 #include <stdint.h>
+#include <assert.h>
 
 #include "smt_core.h"
 
@@ -257,6 +258,15 @@ static inline void gate_table_push(gate_table_t *table) {
  * then decrement current_level. Should not be called at level 0.
  */
 extern void gate_table_pop(gate_table_t *table);
+
+
+/*
+ * Set level: same effect as calling push n times
+ */
+static inline void gate_table_set_level(gate_table_t *table, uint32_t n) {
+  assert(table->stack.current_level == 0);
+  table->stack.current_level = n;
+}
 
 
 
