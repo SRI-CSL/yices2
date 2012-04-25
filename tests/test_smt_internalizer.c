@@ -534,7 +534,7 @@ static void test_internalization(smt_benchmark_t *bench) {
   enable_lax_mode(&context); // FOR TESTING
   enable_variable_elimination(&context);
   enable_eq_abstraction(&context);
-  enable_diseq_and_or_flattening(&context); //// BD: TEST FOR QF_BV
+  //  enable_diseq_and_or_flattening(&context); flatten does not help
   enable_arith_elimination(&context);
   enable_bvarith_elimination(&context);  
   if (iflag) {

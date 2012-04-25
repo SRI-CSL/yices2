@@ -1080,7 +1080,7 @@ static int process_benchmark(void) {
 
   case CTX_ARCH_BV:
     // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
-    enable_diseq_and_or_flattening(&context);
+    //    enable_diseq_and_or_flattening(&context);  flatten makes things worse
     enable_variable_elimination(&context);
     enable_bvarith_elimination(&context);
     params.fast_restart = true;

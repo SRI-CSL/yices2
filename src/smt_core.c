@@ -4901,10 +4901,11 @@ static void reset_watch_lists(smt_core_t *s) {
 
 /*
  * Restore all non-binary/non-unit clauses (to previous base-level)
+ * Also restore stats.prob_literals
  * - n = number of problem clauses at the start of the current base level
  */
 static void restore_clauses(smt_core_t *s, uint32_t n) {
-  uint32_t i, m;
+  uint32_t i, m, nlits;
   clause_t **v;
   clause_t *cl;
   literal_t l;
@@ -4931,14 +4932,18 @@ static void restore_clauses(smt_core_t *s, uint32_t n) {
   }
   set_cv_size(v, n);
 
-  // put all problem clauses back into the watch lists
-  // and restore the marked problem clauses in v[0 ... n-1] 
+  /*
+   * put all problem clauses back into the watch lists
+   * and restore the marked problem clauses in v[0 ... n-1] 
+   */
+  nlits = 0;   // to count the total number of literals
   for (i=0; i<n; i++) {
     cl = v[i];
     if (is_clause_to_be_removed(cl)) {
       restore_removed_clause(cl);
       assert(cl->cl[0] >= 0 && cl->cl[1] >= 0);
     }
+    nlits += clause_length(cl);
 
 #if USE_END_WATCH
     // add cl at the end of the watch lists
@@ -4965,6 +4970,8 @@ static void restore_clauses(smt_core_t *s, uint32_t n) {
 
   s->nb_clauses = n;
   s->nb_prob_clauses = n;
+  s->stats.prob_literals = nlits;
+  s->stats.learned_literals = 0;
 }
 
 

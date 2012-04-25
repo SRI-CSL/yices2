@@ -4822,6 +4822,7 @@ EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option
 }
 
 
+
 /*************************************
  *  SEARCH PARAMETER CONFIGURATIONS  *
  ************************************/
@@ -4870,6 +4871,43 @@ EXPORTED int32_t yices_set_param(param_t *param, const char *name, const char *v
  *  CONTEXT OPERATIONS   *
  ************************/
 
+
+/*
+ * Set the default preprocessing options for a context
+ * - arch = architeture
+ * - iflag = true if integer solver is active
+ * - qflag = true if quantifier support is required
+ *
+ * Note: these settings are based on benchmarking using the SMT-LIB 1.2
+ * benchmarks (cf. yices_smtcomp.c)
+ */
+static void context_set_default_options(context_t *ctx, context_arch_t arch, bool iflag, bool qflag) {
+  enable_variable_elimination(ctx);
+  enable_eq_abstraction(ctx);
+  enable_arith_elimination(ctx);
+  enable_bvarith_elimination(ctx);
+  if (iflag) {
+    enable_splx_periodic_icheck(ctx);
+    if (arch == CTX_ARCH_SPLX) {
+      // assume QF_LIA setting here (could be QF_IDL?)
+      enable_splx_eager_lemmas(ctx);
+    }
+  }
+
+  // flattening makes things worse for QF_BV
+  switch (arch) {
+  case CTX_ARCH_EG:
+  case CTX_ARCH_BV:
+    disable_diseq_and_or_flattening(ctx);  
+    break;
+
+  default:
+    enable_diseq_and_or_flattening(ctx);
+    break;
+  }
+}
+
+
 /*
  * Allocate and initalize a new context.
  * The configuration is specified by arch/mode/iflag/qflag.
@@ -4883,15 +4921,7 @@ context_t *yices_create_context(context_arch_t arch, context_mode_t mode, bool i
 
   ctx = alloc_context();
   init_context(ctx, get_terms(), mode, arch, qflag);
-
-  enable_variable_elimination(ctx);
-  enable_eq_abstraction(ctx);
-  enable_diseq_and_or_flattening(ctx);
-  enable_arith_elimination(ctx);
-  enable_bvarith_elimination(ctx);
-  if (iflag) {
-    enable_splx_periodic_icheck(ctx);
-  }  
+  context_set_default_options(ctx, arch, iflag, qflag);
 
   return ctx;
 }
@@ -5257,6 +5287,93 @@ EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
 }
 
 
+
+/*
+ * Set default search parameters for ctx (based on architecture and theories) 
+ * - this is based on benchmarking on the SMT-LIB 1.2 benchmarks (cf. yices_smtcomp.c)
+ */
+void yices_set_default_params(context_t *ctx, param_t *params) {
+  init_params_to_defaults(params);
+  switch (ctx->arch) {
+  case CTX_ARCH_EG:
+    // QF_UF options: --var-elim --cache-tclauses --learn-eq --dyn-bool-ack
+    params->use_bool_dyn_ack = true;
+    params->use_dyn_ack = true;
+    //    params->max_ackermann = 100;
+    params->cache_tclauses = true;
+    params->tclause_size = 12;
+    break;
+
+  case CTX_ARCH_SPLX: 
+    // options: --flatten --theory-branching --cache-tclauses --arith-elim --var-elim
+    params->branching = BRANCHING_THEORY;
+    params->cache_tclauses = true;
+    params->tclause_size = 8;
+    if (splx_periodic_icheck_enabled(ctx)) {
+      // assume QF_LIA (could use QF_IDL??)
+      params->use_simplex_prop = true;
+      params->tclause_size = 20;
+    }
+    break;
+
+  case CTX_ARCH_BV:
+    // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
+    params->fast_restart = true;
+    params->c_factor = 1.1;  
+    params->d_factor = 1.1; 
+    params->randomness = 0.0;
+    break;
+
+  case CTX_ARCH_EGSPLX:       // egraph+simplex
+  case CTX_ARCH_EGFUNSPLX:    // egraph+fun+simplex
+    params->use_dyn_ack = true;
+    params->use_bool_dyn_ack = true;
+    params->use_simplex_prop = true;
+    params->adjust_simplex_model = true;
+    params->cache_tclauses = true;
+    params->tclause_size = 8;
+    if (splx_periodic_icheck_enabled(ctx)) {
+      // QF_UFLIA or QF_AUFLIA
+      params->branching = BRANCHING_NEGATIVE;
+      params->max_interface_eqs = 15;
+    } else {
+      params->branching = BRANCHING_THEORY;
+      params->max_interface_eqs = 30;
+    }
+    break;
+
+  case CTX_ARCH_EGBV:         // egraph+bitvector solver
+  case CTX_ARCH_EGFUNBV:      // egraph+fun+bitvector
+    // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
+    params->fast_restart = true;
+    params->c_factor = 1.1;  
+    params->d_factor = 1.1; 
+    params->randomness = 0.0;
+    params->max_interface_eqs = 15;
+    break;
+
+  case CTX_ARCH_IFW:
+  case CTX_ARCH_RFW:
+    params->cache_tclauses = true;
+    params->tclause_size = 20;
+    params->fast_restart = true;
+    params->c_factor = 1.1;  
+    params->d_factor = 1.1; 
+    break;
+
+  case CTX_ARCH_EGFUN:
+  case CTX_ARCH_AUTO_IDL:
+  case CTX_ARCH_AUTO_RDL:
+  default:
+    break;
+  }
+}
+
+
+// Use a global variable for now. To be fixed.
+static param_t default_params;
+
+
 /*
  * Check satisfiability: check whether the assertions stored in ctx
  * are satisfiable.  
@@ -5298,6 +5415,10 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
     break;
 
   case STATUS_IDLE:
+    if (params == NULL) {
+      yices_set_default_params(ctx, &default_params);
+      params = &default_params;
+    }
     stat = check_context(ctx, params, false); // TODO? add verbosity option
     if (stat == STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
       context_cleanup(ctx);

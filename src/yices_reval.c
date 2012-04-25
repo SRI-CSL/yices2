@@ -924,7 +924,8 @@ static void free_model(model_t *model) {
 static void init_ctx(context_arch_t arch, context_mode_t mode, bool iflag, bool qflag) {
   model = NULL;
   context = yices_create_context(arch, mode, iflag, qflag);
-  init_params_to_defaults(&parameters);
+  //  init_params_to_defaults(&parameters);
+  yices_set_default_params(context, &parameters);
   init_handlers();
 }
 

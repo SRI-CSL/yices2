@@ -179,12 +179,38 @@
 (check)
 ;; DONE: BOTTOM LEVEL
 
+(reset)
+(push)
+(push)
+(push)
+(push)
+(push)
+(push)
+(push)
+(push)
+(push)
+(pop)
+(push)
+
 (assert ( not (=> (not (bv-le (main_?_0_?_array_?_4 0b00000000000000000000000000000000) (main_?_0_?_array_?_4 0b00000000000000000000000000000001)))(and (bv-ge 0b00000000000000000000000000000001 0b00000000000000000000000000000000)(bv-lt 0b00000000000000000000000000000001 0b00000000000000000000000000000011)))))  ;; 43
 (check)
+;; unsat
+(pop)
+(check)
+(show-model)
+(dump-context)
+
 (assert ( not (=> (not (bv-le (main_?_0_?_array_?_4 0b00000000000000000000000000000000) (main_?_0_?_array_?_4 0b00000000000000000000000000000001)))(and (bv-ge 0b00000000000000000000000000000010 0b00000000000000000000000000000000)(bv-lt 0b00000000000000000000000000000010 0b00000000000000000000000000000011)))))  ;; 44
 (check)
+;; unsat
+(pop)
+(check)
+(show-model)
+(dump-context)
+
 (assert (not (and (bv-le (main_?_0_?_array_?_4 0b00000000000000000000000000000000) (main_?_0_?_array_?_4 0b00000000000000000000000000000001))(bv-le (main_?_0_?_array_?_4 0b00000000000000000000000000000001) (main_?_0_?_array_?_4 0b00000000000000000000000000000010)))))  ;; 45
 (check)
+(show-model)
 (pop)
 (pop)
 (pop)
@@ -193,55 +219,67 @@
 (push)
 (assert (not (bv-lt main_?_0_?_j_?_2 (bv-sub 0b00000000000000000000000000000011 0b00000000000000000000000000000001))))
 (check)
+(show-model)
 (pop)
 (pop)
 (pop)
 (push)
 (assert (not (bv-lt (main_?_0_?_array_?_0 main_?_0_?_i_?_2) (main_?_0_?_array_?_0 main_?_0_?_min_?_2))))
 (check)
+(show-model)
+(push)
+(pop)
+(check)
+(show-model)
 (pop)
 (push)
 (assert (not (bv-lt (main_?_0_?_array_?_0 main_?_0_?_i_?_2) (main_?_0_?_array_?_0 main_?_0_?_min_?_2))))
 (define main_?_0_?_temp_?_i_?_2:: (bitvector 32))
 (assert (= main_?_0_?_temp_?_i_?_2 main_?_0_?_i_?_2))  ;; 46
-(define main_?_0_?_i_?_3:: (bitvector 32))
 (assert (= main_?_0_?_i_?_3 (bv-add main_?_0_?_i_?_2 0b00000000000000000000000000000001)))  ;; 47
 (assert (not (not (bv-lt main_?_0_?_i_?_3 0b00000000000000000000000000000011))))  ;; 48
 (check)
+(show-model)
 (push)
 (assert true )
-(define main_?_0_?_temp_?_0:: (bitvector 32))
+(check)
+(show-model)
 (assert (not (and (bv-ge main_?_0_?_j_?_1 0b00000000000000000000000000000000)(bv-lt main_?_0_?_j_?_1 0b00000000000000000000000000000011))))  ;; 49
 (check)
-(define main_?_0_?_temp_?_1:: (bitvector 32))
+(show-model)
 (assert (= main_?_0_?_temp_?_1 (main_?_0_?_array_?_0 main_?_0_?_j_?_1)))  ;; 50
 (assert (not (and (bv-ge main_?_0_?_j_?_1 0b00000000000000000000000000000000)(bv-lt main_?_0_?_j_?_1 0b00000000000000000000000000000011))))  ;; 51
 (check)
+(show-model)
+(check)
+(show-model)
 (assert (not (and (bv-ge main_?_0_?_min_?_2 0b00000000000000000000000000000000)(bv-lt main_?_0_?_min_?_2 0b00000000000000000000000000000011))))  ;; 52
 (check)
-(define main_?_0_?_array_?_1:: (-> (bitvector 32) (bitvector 32)))
+(show-model)
 (assert (=  main_?_0_?_array_?_1 (update main_?_0_?_array_?_0 (main_?_0_?_j_?_1)(main_?_0_?_array_?_0 main_?_0_?_min_?_2))))  ;; 53
 (assert (not (and (bv-ge main_?_0_?_min_?_2 0b00000000000000000000000000000000)(bv-lt main_?_0_?_min_?_2 0b00000000000000000000000000000011))))  ;; 54
 (check)
-(define main_?_0_?_array_?_2:: (-> (bitvector 32) (bitvector 32)))
+(show-model)
+
 (assert (=  main_?_0_?_array_?_2 (update main_?_0_?_array_?_1 (main_?_0_?_min_?_2)main_?_0_?_temp_?_1)))  ;; 55
-(define main_?_0_?_temp_?_j_?_0 :: (bitvector 32))
-(define main_?_0_?_temp_?_j_?_1:: (bitvector 32))
 (assert (= main_?_0_?_temp_?_j_?_1 main_?_0_?_j_?_1))  ;; 56
-(define main_?_0_?_j_?_2:: (bitvector 32))
 (assert (= main_?_0_?_j_?_2 (bv-add main_?_0_?_j_?_1 0b00000000000000000000000000000001)))  ;; 57
 (push)
 (assert (bv-lt main_?_0_?_j_?_2 (bv-sub 0b00000000000000000000000000000011 0b00000000000000000000000000000001)))
-(define main_?_0_?_min_?_3:: (bitvector 32))
 (assert (= main_?_0_?_min_?_3 main_?_0_?_j_?_2))  ;; 58
-(define main_?_0_?_i_?_4:: (bitvector 32))
 (assert (= main_?_0_?_i_?_4 (bv-add main_?_0_?_j_?_2 0b00000000000000000000000000000001)))  ;; 59
 (push)
 (assert (bv-lt main_?_0_?_i_?_4 0b00000000000000000000000000000011))
 (assert (not (and (bv-ge main_?_0_?_i_?_4 0b00000000000000000000000000000000)(bv-lt main_?_0_?_i_?_4 0b00000000000000000000000000000011))))  ;; 60
+;; unsat
 (check)
+(pop)
 (assert (not (and (bv-ge main_?_0_?_min_?_3 0b00000000000000000000000000000000)(bv-lt main_?_0_?_min_?_3 0b00000000000000000000000000000011))))  ;; 61
+;; unsat
 (check)
+(pop)
+(check)
+(show-model)
 (push)
 (assert (bv-lt (main_?_0_?_array_?_2 main_?_0_?_i_?_4) (main_?_0_?_array_?_2 main_?_0_?_min_?_3)))
 (define main_?_0_?_min_?_4:: (bitvector 32))
@@ -254,72 +292,120 @@
 (assert (not (bv-lt main_?_0_?_i_?_5 0b00000000000000000000000000000011)))
 (assert (not (and (bv-ge main_?_0_?_j_?_2 0b00000000000000000000000000000000)(bv-lt main_?_0_?_j_?_2 0b00000000000000000000000000000011))))  ;; 65
 (check)
+(show-model)
 (define main_?_0_?_temp_?_2:: (bitvector 32))
 (assert (= main_?_0_?_temp_?_2 (main_?_0_?_array_?_2 main_?_0_?_j_?_2)))  ;; 66
 (assert (not (and (bv-ge main_?_0_?_j_?_2 0b00000000000000000000000000000000)(bv-lt main_?_0_?_j_?_2 0b00000000000000000000000000000011))))  ;; 67
 (check)
+(show-model)
 (assert (not (and (bv-ge main_?_0_?_min_?_4 0b00000000000000000000000000000000)(bv-lt main_?_0_?_min_?_4 0b00000000000000000000000000000011))))  ;; 68
 (check)
 (define main_?_0_?_array_?_3:: (-> (bitvector 32) (bitvector 32)))
 (assert (=  main_?_0_?_array_?_3 (update main_?_0_?_array_?_2 (main_?_0_?_j_?_2)(main_?_0_?_array_?_2 main_?_0_?_min_?_4))))  ;; 69
 (assert (not (and (bv-ge main_?_0_?_min_?_4 0b00000000000000000000000000000000)(bv-lt main_?_0_?_min_?_4 0b00000000000000000000000000000011))))  ;; 70
 (check)
-(define main_?_0_?_array_?_4:: (-> (bitvector 32) (bitvector 32)))
+(show-model)
 (assert (=  main_?_0_?_array_?_4 (update main_?_0_?_array_?_3 (main_?_0_?_min_?_4)main_?_0_?_temp_?_2)))  ;; 71
-(define main_?_0_?_temp_?_j_?_2:: (bitvector 32))
 (assert (= main_?_0_?_temp_?_j_?_2 main_?_0_?_j_?_2))  ;; 72
-(define main_?_0_?_j_?_3:: (bitvector 32))
 (assert (= main_?_0_?_j_?_3 (bv-add main_?_0_?_j_?_2 0b00000000000000000000000000000001)))  ;; 73
 (push)
 (assert (not (bv-lt main_?_0_?_j_?_3 (bv-sub 0b00000000000000000000000000000011 0b00000000000000000000000000000001))))
 (assert (not (and (bv-ge 0b00000000000000000000000000000000 0b00000000000000000000000000000000)(bv-lt 0b00000000000000000000000000000000 0b00000000000000000000000000000011))))  ;; 74
+;; unsat
 (check)
+(pop)
+(check)
+(show-model)
+
 (assert (not (and (bv-ge 0b00000000000000000000000000000001 0b00000000000000000000000000000000)(bv-lt 0b00000000000000000000000000000001 0b00000000000000000000000000000011))))  ;; 75
+;; unsat
 (check)
+(pop)
+(check)
+(show-model)
+
 (assert ( not (=> (not (bv-le (main_?_0_?_array_?_4 0b00000000000000000000000000000000) (main_?_0_?_array_?_4 0b00000000000000000000000000000001)))(and (bv-ge 0b00000000000000000000000000000001 0b00000000000000000000000000000000)(bv-lt 0b00000000000000000000000000000001 0b00000000000000000000000000000011)))))  ;; 76
+;; unsat
 (check)
+(pop)
+(check)
+(show-model)
+
 (assert ( not (=> (not (bv-le (main_?_0_?_array_?_4 0b00000000000000000000000000000000) (main_?_0_?_array_?_4 0b00000000000000000000000000000001)))(and (bv-ge 0b00000000000000000000000000000010 0b00000000000000000000000000000000)(bv-lt 0b00000000000000000000000000000010 0b00000000000000000000000000000011)))))  ;; 77
+;; unsat
 (check)
 (assert (not (and (bv-le (main_?_0_?_array_?_4 0b00000000000000000000000000000000) (main_?_0_?_array_?_4 0b00000000000000000000000000000001))(bv-le (main_?_0_?_array_?_4 0b00000000000000000000000000000001) (main_?_0_?_array_?_4 0b00000000000000000000000000000010)))))  ;; 78
 (check)
+(show-model)
+
 (pop)
-(pop)
-(pop)
+(pop) ;; fail --> bottom level
 (push)
 (assert (not (bv-lt (main_?_0_?_array_?_2 main_?_0_?_i_?_4) (main_?_0_?_array_?_2 main_?_0_?_min_?_3))))
-(define main_?_0_?_temp_?_i_?_3:: (bitvector 32))
 (assert (= main_?_0_?_temp_?_i_?_3 main_?_0_?_i_?_4))  ;; 79
-(define main_?_0_?_i_?_5:: (bitvector 32))
 (assert (= main_?_0_?_i_?_5 (bv-add main_?_0_?_i_?_4 0b00000000000000000000000000000001)))  ;; 80
 (push)
 (assert (not (bv-lt main_?_0_?_i_?_5 0b00000000000000000000000000000011)))
 (assert (not (and (bv-ge main_?_0_?_j_?_2 0b00000000000000000000000000000000)(bv-lt main_?_0_?_j_?_2 0b00000000000000000000000000000011))))  ;; 81
 (check)
-(define main_?_0_?_temp_?_2:: (bitvector 32))
+(show-model)
+
 (assert (= main_?_0_?_temp_?_2 (main_?_0_?_array_?_2 main_?_0_?_j_?_2)))  ;; 82
 (assert (not (and (bv-ge main_?_0_?_j_?_2 0b00000000000000000000000000000000)(bv-lt main_?_0_?_j_?_2 0b00000000000000000000000000000011))))  ;; 83
 (check)
+(show-model)
+
 (assert (not (and (bv-ge main_?_0_?_min_?_3 0b00000000000000000000000000000000)(bv-lt main_?_0_?_min_?_3 0b00000000000000000000000000000011))))  ;; 84
 (check)
-(define main_?_0_?_array_?_3:: (-> (bitvector 32) (bitvector 32)))
+(show-model)
+
 (assert (=  main_?_0_?_array_?_3 (update main_?_0_?_array_?_2 (main_?_0_?_j_?_2)(main_?_0_?_array_?_2 main_?_0_?_min_?_3))))  ;; 85
 (assert (not (and (bv-ge main_?_0_?_min_?_3 0b00000000000000000000000000000000)(bv-lt main_?_0_?_min_?_3 0b00000000000000000000000000000011))))  ;; 86
 (check)
-(define main_?_0_?_array_?_4:: (-> (bitvector 32) (bitvector 32)))
+(show-model)
+
 (assert (=  main_?_0_?_array_?_4 (update main_?_0_?_array_?_3 (main_?_0_?_min_?_3)main_?_0_?_temp_?_2)))  ;; 87
-(define main_?_0_?_temp_?_j_?_2:: (bitvector 32))
 (assert (= main_?_0_?_temp_?_j_?_2 main_?_0_?_j_?_2))  ;; 88
-(define main_?_0_?_j_?_3:: (bitvector 32))
 (assert (= main_?_0_?_j_?_3 (bv-add main_?_0_?_j_?_2 0b00000000000000000000000000000001)))  ;; 89
 (push)
 (assert (not (bv-lt main_?_0_?_j_?_3 (bv-sub 0b00000000000000000000000000000011 0b00000000000000000000000000000001))))
 (assert (not (and (bv-ge 0b00000000000000000000000000000000 0b00000000000000000000000000000000)(bv-lt 0b00000000000000000000000000000000 0b00000000000000000000000000000011))))  ;; 90
+;; unsat
 (check)
+
+(pop)
+(check)
+(show-model)
+
 (assert (not (and (bv-ge 0b00000000000000000000000000000001 0b00000000000000000000000000000000)(bv-lt 0b00000000000000000000000000000001 0b00000000000000000000000000000011))))  ;; 91
+;; unsat
 (check)
+
+(pop)
+(check)
+(show-model)
+
 (assert ( not (=> (not (bv-le (main_?_0_?_array_?_4 0b00000000000000000000000000000000) (main_?_0_?_array_?_4 0b00000000000000000000000000000001)))(and (bv-ge 0b00000000000000000000000000000001 0b00000000000000000000000000000000)(bv-lt 0b00000000000000000000000000000001 0b00000000000000000000000000000011)))))  ;; 92
+;; unsat
 (check)
+
+(pop)
+(check)
+(show-model)
+
 (assert ( not (=> (not (bv-le (main_?_0_?_array_?_4 0b00000000000000000000000000000000) (main_?_0_?_array_?_4 0b00000000000000000000000000000001)))(and (bv-ge 0b00000000000000000000000000000010 0b00000000000000000000000000000000)(bv-lt 0b00000000000000000000000000000010 0b00000000000000000000000000000011)))))  ;; 93
+;; unsat
 (check)
+;; BOTTOM LEVEL
+
+
+(reset)
+(reset)
 (assert (not (and (bv-le (main_?_0_?_array_?_4 0b00000000000000000000000000000000) (main_?_0_?_array_?_4 0b00000000000000000000000000000001))(bv-le (main_?_0_?_array_?_4 0b00000000000000000000000000000001) (main_?_0_?_array_?_4 0b00000000000000000000000000000010)))))  ;; 94
 (check)
+(show-model)
+
+(push)
+(push)
+(check)
+(show-model)

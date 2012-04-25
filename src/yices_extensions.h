@@ -320,4 +320,11 @@ extern context_t *yices_create_context(context_arch_t arch, context_mode_t mode,
 				       bool iflag, bool qflag);
 
 
+/*
+ * Set default search parameters for ctx (based on architecture and theories) 
+ * - this is based on benchmarking on the SMT-LIB 1.2 benchmarks (cf. yices_smtcomp.c)
+ */
+extern void yices_set_default_params(context_t *ctx, param_t *params);
+
+
 #endif /* __YICES_EXTENSIONS_H */
