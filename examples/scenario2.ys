@@ -13,6 +13,7 @@
 
 (echo "FIRST CHECK: sat expected\n")
 (check)
+(show-model)
 
 (echo "AFTER (check)\n")
 (dump-context)
@@ -27,6 +28,7 @@
 
 (echo "SECOND CHECK: sat expected\n")
 (check)
+(show-model)
 
 (echo "AFTER (check)\n")
 (dump-context)
@@ -39,6 +41,7 @@
 
 (echo "THIRD CHECK: sat expected\n")
 (check)
+(show-model)
 
 (echo "AFTER (check)\n")
 (dump-context)
