@@ -949,6 +949,7 @@ static void bv_solver_mark_vars_in_atoms(bv_solver_t *solver) {
 /*
  * Scan the variables
  * - if x == y in the merge table then mark both x and y
+ * - also if x has an eterm mark x
  */
 static void bv_solver_mark_merged_vars(bv_solver_t *solver) {
   bv_vartable_t *vtbl;
@@ -962,6 +963,8 @@ static void bv_solver_mark_merged_vars(bv_solver_t *solver) {
     if (i != x) {
       bv_solver_mark_variable(solver, i);
       bv_solver_mark_variable(solver, x);
+    } else if (bvvar_has_eterm(vtbl, i)) {
+      bv_solver_mark_variable(solver, i);
     }
   }
 }
