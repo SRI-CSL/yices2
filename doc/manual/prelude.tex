@@ -1,0 +1,209 @@
+%
+% define variants of the \LaTeX macro that avoid using \sc
+% for use in headings
+%
+\def\BigLaTeX{{\rm L\kern-.36em\raise.3ex\hbox{\smaller\smaller A}\kern-.15em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\def\BoldLaTeX{{\bf L\kern-.36em\raise.3ex\hbox{\smaller\smaller\bf A}\kern-.15em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+%\def\labelitemi{$\bullet$}
+\def\labelitemii{$\circ$}
+\def\labelitemiii{$\star$}
+\def\labelitemiv{$\diamond$}
+\newcommand{\boxref}[1]{{\setlength{\fboxsep}{0.5mm}\small\fbox{\ref{#1}}}}
+\newcommand{\tcc}{{\sc tcc}}
+\newcommand{\tccs}{{\sc tcc}s}
+\newcommand{\emacs}{{\sc Emacs}}
+\newcommand{\Emacs}{{\sc Emacs}}
+\newcommand{\ehdm}{{\sc Ehdm}}
+\newcommand{\Ehdm}{{\sc Ehdm}}
+\newcommand{\bigEhdm}{E{\smaller HDM}}
+\newcommand{\bfehdm}{{\bf E{\smaller\bf HDM}}}
+\newcommand{\itehdm}{{\it E{\smaller\it HDM}}}
+\newcommand{\slehdm}{{\sl E{\smaller\sl HDM}}}
+\newcommand{\murphi}{Mur$\phi$}
+\newcommand{\Murphi}{Mur$\phi$}
+\newcommand{\tm}{$^{\mbox{\tiny TM}}$}
+\newcommand{\hozline}{{\noindent\rule{\textwidth}{0.4mm}}}
+\newcommand{\allclear}{\mbox{\boldmath$\stackrel{\raisebox{-.2ex}[0pt][0pt]{$\textstyle\oslash$}}{\displaystyle\bot}$}}
+\newenvironment{private}{}{}
+\newenvironment{smalltt}{\begin{alltt}\small\tt}{\end{alltt}}
+\newenvironment{mysmalltt}{\vspace{-1ex}\begin{alltt}\small\tt}{\end{alltt}\vspace{-1ex}}
+\newenvironment{tinyalltt}{\begin{alltt}\tiny\tt}{\end{alltt}}
+\newlength{\hsbw}
+\newenvironment{slidesession}{\begin{flushleft}
+ \setlength{\hsbw}{\linewidth}
+ \addtolength{\hsbw}{-\arrayrulewidth}
+ \addtolength{\hsbw}{-\tabcolsep}
+ \begin{tabular}{@{}|c@{}|@{}}\hline 
+ \begin{minipage}[b]{\hsbw}
+ \begingroup\mbox{ }\\[-1.6\baselineskip]\begin{alltt}}{\end{alltt}\endgroup\end{minipage}\\ \hline 
+ \end{tabular}
+ \end{flushleft}}
+\newenvironment{dslidesession}{\begin{flushleft}
+ \setlength{\hsbw}{\linewidth}
+ \addtolength{\hsbw}{-\arrayrulewidth}
+ \addtolength{\hsbw}{-\tabcolsep}
+ \begin{tabular}{@{}|c@{}|@{}}\hline 
+ \begin{minipage}[b]{\hsbw}
+ \begingroup\mbox{ }\\[-1.2\baselineskip]\begin{alltt}}{\end{alltt}\endgroup\end{minipage}\\ \hline 
+ \end{tabular}
+ \end{flushleft}}
+\newenvironment{session}{\begin{flushleft}
+  \def\baselinestretch{1}
+ \setlength{\hsbw}{\linewidth}
+ \addtolength{\hsbw}{-\arrayrulewidth}
+ \addtolength{\hsbw}{-\tabcolsep}
+ \begin{tabular}{@{}|c@{}|@{}}\hline 
+ \begin{minipage}[b]{\hsbw}
+% \begingroup\small\mbox{ }\\[-1.8\baselineskip]\begin{alltt}}{\end{alltt}\endgroup\end{minipage}\\ \hline
+ \begingroup\sessionsize\vspace*{1.2ex}\begin{alltt}}{\end{alltt}\endgroup\end{minipage}\\ \hline
+ \end{tabular}
+ \end{flushleft}}
+\def\extrawidth{0.5in}
+\newenvironment{widesession}{\begin{flushleft}
+  \def\baselinestretch{1}
+ \setlength{\hsbw}{\linewidth}
+ \addtolength{\hsbw}{\extrawidth}
+ \addtolength{\hsbw}{-\arrayrulewidth}
+ \addtolength{\hsbw}{-\tabcolsep}
+ \begin{tabular}{@{}|c@{}|@{}}\hline 
+ \begin{minipage}[b]{\hsbw}
+% \begingroup\small\mbox{ }\\[-1.8\baselineskip]\begin{alltt}}{\end{alltt}\endgroup\end{minipage}\\ \hline
+ \begingroup\sessionsize\vspace*{1.2ex}\begin{alltt}}{\end{alltt}\endgroup\end{minipage}\\ \hline
+ \end{tabular}
+ \end{flushleft}}
+\def\invisiblespec{\comment}
+\def\endinvisiblespec{\endcomment}
+\newenvironment{sessionlab}[1]{\begin{flushleft}
+ \setlength{\hsbw}{\linewidth}
+ \addtolength{\hsbw}{-\arrayrulewidth}
+ \addtolength{\hsbw}{-\tabcolsep}
+ \begin{tabular}{@{}|c@{}|@{}}\hline 
+ \begin{minipage}[b]{\hsbw}
+ \vspace*{-.5pt}
+ \begin{flushright}
+ \rule{0.01in}{.15in}\rule{0.9in}{0.01in}\hspace{-0.95in}
+ \raisebox{0.04in}{\makebox[0.9in][c]{\footnotesize #1}}
+ \end{flushright}
+ \vspace*{-.57in}
+ \begingroup\small\vspace*{1.0ex}\begin{alltt}}{\end{alltt}\endgroup\end{minipage}\\ \hline 
+ \end{tabular}
+ \end{flushleft}}
+\newcounter{sessioncount}
+\setcounter{sessioncount}{0}
+% ---------------------------------------------------------------------
+% Macros for little PVS sessions displayed in boxes.
+%
+% Usage: (1) \setcounter{sessioncount}{1} resets the session counter
+%
+%	 (2) \begin{session*}\label{thissession}
+%	      .
+%	       < lines from PVS session >
+%	      .
+%	     \end{session*}
+%
+%            typesets the session in a numbered box in ALLTT mode.
+%
+%  session instead of session* produces unnumbered boxes
+%
+% ---------------------------------------------------------------------
+\newenvironment{session*}{\begin{flushleft}
+ \refstepcounter{sessioncount}
+ \setlength{\hsbw}{\linewidth}
+ \addtolength{\hsbw}{-\arrayrulewidth}
+ \addtolength{\hsbw}{-\tabcolsep}
+ \begin{tabular}{@{}|c@{}|@{}}\hline 
+ \begin{minipage}[b]{\hsbw}
+ \vspace*{-.5pt}
+ \begin{flushright}
+ \rule{0.01in}{.15in}\rule{0.3in}{0.01in}\hspace{-0.35in}
+ \raisebox{0.04in}{\makebox[0.3in][c]{\footnotesize \thesessioncount}}
+ \end{flushright}
+ \vspace*{-.57in}
+ \begingroup\small\vspace*{1.0ex}\begin{alltt}}{\end{alltt}\endgroup\end{minipage}\\ \hline 
+ \end{tabular}
+ \end{flushleft}}
+\def\sessionsize{\small}
+\def\smallsessionsize{\small}
+\newenvironment{smallsession}{\begin{flushleft}
+ \setlength{\hsbw}{\linewidth}
+ \addtolength{\hsbw}{-\arrayrulewidth}
+ \addtolength{\hsbw}{-\tabcolsep}
+ \begin{tabular}{@{}|c@{}|@{}}\hline 
+ \begin{minipage}[b]{\hsbw}
+ \begingroup\smallsessionsize\mbox{ }\\[-1.8\baselineskip]\begin{alltt}}{\end{alltt}\endgroup\end{minipage}\\ \hline 
+ \end{tabular}
+ \end{flushleft}}
+\newenvironment{spec}{\begin{flushleft}
+ \setlength{\hsbw}{\textwidth}
+ \addtolength{\hsbw}{-\arrayrulewidth}
+ \addtolength{\hsbw}{-\tabcolsep}
+ \begin{tabular}{@{}|c@{}|@{}}\hline 
+ \begin{minipage}[b]{\hsbw}
+ \begingroup\small\mbox{
+}\\[-0.2\baselineskip]}{\endgroup\end{minipage}\\ \hline 
+ \end{tabular}
+ \end{flushleft}}
+\newcommand{\memo}[1]{\mbox{}\par\vspace{0.25in}%
+\setlength{\hsbw}{\linewidth}%
+\addtolength{\hsbw}{-2\fboxsep}%
+\addtolength{\hsbw}{-2\fboxrule}%
+\noindent\fbox{\parbox{\hsbw}{{\bf Memo: }#1}}\vspace{0.25in}}
+\newcommand{\nb}[1]{\mbox{}\par\vspace{0.25in}\setlength{\hsbw}{\linewidth}\addtolength{\hsbw}{-1.5ex}\noindent\fbox{\parbox{\hsbw}{{\bf Note: }#1}}\vspace{0.25in}}
+%\newcommand{\comment}[1]{}
+%\def\comment#1{}   % Shankar doesn't like this, but the other defn
+%		   % gives me errors
+\newcommand{\exfootnote}[1]{}
+%\newcommand{\ifelse}[2]{#1}
+\sloppy
+\clubpenalty=100000
+\widowpenalty=100000
+%\displaywidowpenalty=100000
+\setcounter{secnumdepth}{3} 
+\setcounter{tocdepth}{3}
+\setcounter{topnumber}{9}
+\setcounter{bottomnumber}{9}
+\setcounter{totalnumber}{9}
+\renewcommand{\topfraction}{.99}
+\renewcommand{\bottomfraction}{.99}
+\renewcommand{\floatpagefraction}{.01}
+\renewcommand{\textfraction}{.2}
+\font\largett=cmtt10 scaled\magstep1
+\font\Largett=cmtt10 scaled\magstep2
+\font\hugett=cmtt10 scaled\magstep3
+\newcommand{\take}[1]{\\\hozline\paragraph*{From file {\tt #1}}\input{#1}\hozline}
+\newlength{\sblen}
+\newlength{\overhang}
+%\setlength{\overhang}{0pt}
+\newenvironment{sidebar}%
+{\begin{figure}[htb]%
+ \begin{Sbox}%
+ \setlength{\sblen}{\textwidth}%
+ \addtolength{\sblen}{-2\fboxsep}%
+ \addtolength{\sblen}{-2\fboxrule}%
+ \addtolength{\sblen}{-\overhang}%
+ \begin{minipage}{\sblen}}%
+{\end{minipage}\end{Sbox}\shadowbox{\TheSbox}\end{figure}}
+\newenvironment{sidepage}%
+{\begin{figure}[p]%
+ \begin{Sbox}%
+ \setlength{\sblen}{\textwidth}%
+ \addtolength{\sblen}{-2\fboxsep}%
+ \addtolength{\sblen}{-2\fboxrule}%
+ \addtolength{\sblen}{-\overhang}%
+ \begin{minipage}{\sblen}\parindent=1.5em}%
+{\end{minipage}\end{Sbox}\shadowbox{\TheSbox}\end{figure}}
+\def\SetFigFont#1#2#3{\rm}
+\newcommand{\ul}[1]{\underline{\rule[-0.50ex]{0pt}{1ex}#1}}
+\newcommand{\ttilde}{\raisebox{-.5ex}{\tt \~{}}}
+\newcommand{\excite}[1]{}
+%\newcommand{\hand}{$\Rightarrow$}
+\newcommand{\hand}{\ ($\Rightarrow$)}
+\newcommand{\nls}{\\\hspace*{1em}}
+\def\srilogo{\includegraphics[height=18mm]{srilogo}}
+\newtheorem{definition}{Definition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{theorem}{Theorem}

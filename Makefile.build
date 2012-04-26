@@ -273,6 +273,7 @@ tarfile: $(distributions)
         done || true
 	$(MKDIR_P) $(bindist_dir)/doc
 	cp doc/YICES-LANGUAGE $(bindist_dir)/doc
+	cp doc/manual.pdf $(bindist_dir)/doc
 	chmod -R og+rX $(bindist_dir)
 	tar -czf $(distributions)/$(bindist_tarfile) $(bindist_dir)
 	chmod -R og+rX $(distributions)
@@ -293,6 +294,7 @@ static-tarfile: $(distributions)
         done || true
 	$(MKDIR_P) $(bindist_dir)/doc
 	cp doc/YICES-LANGUAGE $(bindist_dir)/doc
+	cp doc/manual.pdf $(bindist_dir)/doc
 	chmod -R og+rX $(bindist_dir)
 	tar -czf $(distributions)/$(static_bindist_tarfile) $(bindist_dir)
 	chmod -R og+rX $(distributions)

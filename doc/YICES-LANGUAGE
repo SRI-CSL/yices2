@@ -335,7 +335,7 @@ YICES LANGUAGE
            (bv-sdiv x 0) = 0b11111...11 if x >= 0
 
 
-        (bv-smod x y):  remainder in the signed division of x by y, with rounting to minus 
+        (bv-smod x y):  remainder in the signed division of x by y, with rounding to minus 
                         infinity
 
          if y = 0, (bv-smod x 0) = x.
