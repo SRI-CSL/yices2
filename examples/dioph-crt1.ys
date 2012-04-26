@@ -8,7 +8,5 @@
 (assert (= x1 (+ 281 (* 791 i2))))
 (assert (= x1 (+ 12 (* 128 i3))))
 
-(dump-context)
 (check)
-
-(dump-context)
+(show-model)

@@ -395,7 +395,6 @@ install-solaris: install-default
 install-linux: install-default
 	/sbin/ldconfig -n $(libdir)
 	ln -sf libyices.so.$(YICES_VERSION) $(libdir)/libyices.so
-	ln -sf libyices.so.$(YICES_VERSION) $(libdir)/libyices.$(MAJOR).$(MINOR).so
 
 #
 # cygwin and mingw install: copy the DLLs in $(bindir)

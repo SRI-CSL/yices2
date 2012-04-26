@@ -4189,11 +4189,17 @@ static void undo_merge(egraph_t *egraph, occ_t t2, elabel_t l2) {
    * if thvar[c1] == thvar[c2] != null, then we restore thvar[c1] to null
    * if thvar[c1] != thvar[c2] and thvar[c2] != null, undo_thvar_equality
    * does any extra processing needed.
+   *
+   * Exception: if c1 == bool_constant_class, it may happen that
+   * thvar[c1] == thvar[2] == const_bvar: but we don't want to 
+   * set thvar[c1] to null_thvar.
    */ 
   if (egraph->classes.thvar[c2] != null_thvar) {
     assert(egraph->classes.thvar[c1] != null_thvar);
     if (egraph->classes.thvar[c1] == egraph->classes.thvar[c2])  {
-      egraph->classes.thvar[c1] = null_thvar;
+      if (c1 != bool_constant_class) {
+	egraph->classes.thvar[c1] = null_thvar;
+      }
     } else {
       undo_thvar_equality(egraph, c1, egraph->classes.thvar[c1], c2, egraph->classes.thvar[c2]);
     }

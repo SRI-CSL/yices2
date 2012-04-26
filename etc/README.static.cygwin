@@ -1,1 +1,55 @@
-TBD
+Yices SMT Solver, Copyright SRI International, 2012
+===================================================
+
+This file is part of the Yices 2.0 binary distribution for Cygwin.
+Yices is distributed free-of-charge for personal use under the terms
+of the Yices license (see LICENSE).
+
+
+Content
+-------
+
+This distribution includes two solvers
+
+  bin/yices.exe       (for the Yices 2 language)
+  bin/yices-smt.exe   (for SMT-LIB 1.2)
+
+and the Yices libraries and header files
+
+  lib/cygyices.dll
+  lib/libyices.dll.a
+  include/yices.h
+  include/yices_types.h
+  include/yices_limits.h
+  include/yices_exit_codes.h
+
+
+Examples and documentation are in the examples and doc directories.
+
+
+The binaries and library were linked statically against GMP version 5.0.4,
+copyright Free Software Foundation (see NOTICES).
+
+
+
+
+Recommended Installation
+------------------------
+
+1) Copy cygyices.dll and the executables in /usr/bin:
+
+   cp bin/* /usr/bin
+   cp lib/cygyices.dll /usr/bin
+
+
+2) Copy libyices.dll.a in /usr/lib:
+
+   cp lib/libyices.ddl.a /usr/lib
+
+
+3) Copy the header files in /usr/include
+
+
+
+For more information, please visit http://yices.csl.sri.com.
+

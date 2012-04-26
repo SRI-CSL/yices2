@@ -638,9 +638,11 @@ dist: bin lib
 	mkdir $(distdir)/bin
 	cp $(bindir)/yices_main$(EXEEXT) $(distdir)/bin/yices$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices$(EXEEXT)
+	cp $(bindir)/yices_smtcomp$(EXEEXT) $(distdir)/bin/yices-smt$(EXEEXT)
+	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt$(EXEEXT)
 	mkdir $(distdir)/lib
 	cp $(libdir)/* $(distdir)/lib
-	$(STRIP) -x $(distdir)/lib/libyices.a
+	rm -f $(distdir)/lib/libyices.a
 
 static-dist: static-bin static-lib
 	rm -r -f $(static_distdir)/*
@@ -649,9 +651,11 @@ static-dist: static-bin static-lib
 	mkdir $(static_distdir)/bin
 	cp $(static_bindir)/yices_main$(EXEEXT) $(static_distdir)/bin/yices$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices$(EXEEXT)
+	cp $(static_bindir)/yices_smtcomp$(EXEEXT) $(static_distdir)/bin/yices-smt$(EXEEXT)
+	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt$(EXEEXT)
 	mkdir $(static_distdir)/lib
 	cp $(static_libdir)/* $(static_distdir)/lib
-	$(STRIP) -x $(static_distdir)/lib/libyices.a
+	rm -f $(static_distdir)/lib/libyices.a
 
 
 smt-dist: bin
