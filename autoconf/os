@@ -11,6 +11,8 @@ if eval 'uname > /dev/null 2> /dev/null'; then
       echo "darwin";;
     MINGW*|mingw*|MinGW*)
       echo "mingw";;
+    FreeBSD*)
+      echo "freebsd";;
     *)
       echo "unix";;
   esac
