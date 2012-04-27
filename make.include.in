@@ -21,9 +21,10 @@ includedir = @includedir@
 
 #
 # Variables set by configure
-# 
+# NOTE: don't include POSIXOS here
+# (the OS is determined by the top-level Makefile)
+#
 @SET_MAKE@
-POSIXOS=@POSIXOS@
 EXEEXT=@EXEEXT@
 
 # tools
