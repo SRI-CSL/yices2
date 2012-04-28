@@ -99,7 +99,7 @@ endif
 #    (should be 32bits). 
 #
 #    The alternative is make.include.sparc64-sun-solaris2.x 
-#    (should be for 64bits build). To select is give OPTION=64bits.
+#    (should be for 64bits build). To select it, give OPTION=64bits.
 # 
 # Check README for details on generating these alternative configurations.
 #
@@ -137,6 +137,11 @@ ifneq ($(OPTION),)
   ifeq ($(POSIXOS),sunos)
     ifeq ($(OPTION),64bits)
       newarch=$(subst sparc,sparc64,$(ARCH))
+    endif
+  endif
+  ifeq ($(POSIXOS),freebsd)
+    ifeq ($(OPTION),32bits)
+      newarch=$(subst x86_64,i386,$(ARCH))
     endif
   endif
   endif
