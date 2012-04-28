@@ -178,9 +178,9 @@ static_binaries := $(bin_src_c:%.c=$(static_bindir)/%$(EXEEXT))
 # For Free BSD: the convention seems to call the file libyices.so.2.0
 #
 ifeq ($(POSIXOS),freebsd)
-libyices_so := libyices.so.$(YICES_VERSION)
-else
 libyices_so := libyices.so.$(MAJOR).$(MINOR)
+else
+libyices_so := libyices.so.$(YICES_VERSION)
 endif
 
 libyices_soname := libyices.so.$(MAJOR).$(MINOR)
