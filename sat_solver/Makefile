@@ -104,12 +104,18 @@ ifeq ($(POSIXOS),linux)
   PIC=-fpic
   STATIC=-static
 else
+ifeq ($(POSIXOS),freebsd)
+  CPPFLAGS := $(CPPFLAGS) -DFREEBSD
+  PIC=-fpic
+  STATIC=-static
+else
 ifeq ($(POSIXOS),unix)
   CPPFLAGS := $(CPPFLAGS) -DLINUX
   PIC=-fPIC
   STATIC=-static
 else
  $(error  "Don't know how to compile on $(POSIXOS)")
+endif
 endif
 endif
 endif

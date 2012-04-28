@@ -103,13 +103,16 @@ double mem_size(void) {
 }
 
 
-#elif ! defined (MINGW) 
+#elif defined(LINUX) || defined(CYGWIN)
 
 /*
  * DEFAULT LINUX IMPLEMENTATION
  *
- * read /proc/<pid>/statm
- * also seem to work on cygwin
+ * Read /proc/<pid>/statm
+ *
+ * This kind of works on cygwin too (cygwin has a /proc/
+ * file system, but it may not be reliable?). I haven't
+ * checked.
  */
 #include <sys/types.h>
 #include <unistd.h>
@@ -149,9 +152,57 @@ double mem_size(void) {
   return (double)(getpagesize() * get_pages());
 }
 
+#elif defined(FREEBSD)
+
+
+/*
+ * Free BSD: use sysctl
+ */
+
+/*
+ * NOTE: on Free BSD 5.5, I got compilation errors
+ * because <sys/user.h> depends on constant defined
+ * in <sys/param.h>. That's why I've added 
+ *   #include <sys/param.h>
+ * here.
+ */
+#include <sys/types.h>
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#include <sys/user.h>
+#include <unistd.h>
+#include <assert.h>
+
+double mem_size(void) {
+  struct kinfo_proc kp;
+  double vsize;
+  size_t len;
+  pid_t pid;
+  int mib[4];
+
+  pid = getpid();
+
+  mib[0] = CTL_KERN;
+  mib[1] = KERN_PROC;
+  mib[2] = KERN_PROC_PID;
+  mib[3] = pid;
+
+  vsize = 0.0;
+  len = sizeof(kp);
+  if (sysctl(mib, 4, &kp, &len, NULL, 0) == 0) {
+    assert(len == sizeof(kp));
+    vsize = kp.ki_size;
+  }
+  
+  return vsize;
+}
+
+
 #else 
 
-// MINGW: don't know how to implement anything reasonable
+/*
+ * MINGW: don't know how to implement anything reasonable
+ */
 
 double mem_size(void) {
   return 0.0;

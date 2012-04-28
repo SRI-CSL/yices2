@@ -104,8 +104,14 @@ ifeq ($(POSIXOS),linux)
   PIC=-fPIC
   STATIC=-static
 else
+ifeq ($(POSIXOS),freebsd)
+  CPPFLAGS := $(CPPFLAGS) -DFREEBSD
   PIC=-fPIC
   STATIC=-static
+else
+  PIC=-fPIC
+  STATIC=-static
+endif
 endif
 endif
 endif

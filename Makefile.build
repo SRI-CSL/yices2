@@ -398,6 +398,7 @@ install-linux install-freebsd install-unix: install-default
 	/sbin/ldconfig -n $(libdir)
 	ln -sf libyices.so.$(YICES_VERSION) $(libdir)/libyices.so
 
+
 #
 # cygwin and mingw install: copy the DLLs in $(bindir)
 #
@@ -414,7 +415,8 @@ install-mingw: install-cygwin
 
 
 .PHONY: install install-default install-darwin install-solaris \
-	install-linux install-cygwin install-mingw
+	install-linux install-freebsd install-unix \
+        install-cygwin install-mingw
 
 
 

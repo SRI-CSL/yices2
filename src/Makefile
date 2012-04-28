@@ -258,7 +258,7 @@ else
 ifeq ($(POSIXOS),freebsd)
   PIC=-fPIC
   STATIC=-static
-  CPPFLAGS := $(CPPFLAGS) -DLINUX
+  CPPFLAGS := $(CPPFLAGS) -DFREEBSD
   CFLAGS += -fvisibility=hidden 
   BIN_LDFLAGS=
   libyices_dynamic=$(libyices_so)
