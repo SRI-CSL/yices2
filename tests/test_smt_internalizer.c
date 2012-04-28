@@ -548,7 +548,8 @@ static void test_internalization(smt_benchmark_t *bench) {
     printf("Reduced to the empty context\n\nsat\n");
   } else if (context_has_bv_solver(&context)) {
     // test bit-blasting 
-    if (bv_solver_compile(context.bv_solver)) {
+    //    if (bv_solver_compile(context.bv_solver)) {
+    if (bv_solver_bitblast(context.bv_solver)) {
       printf("Bitblasting OK\n");
       print_internalization_code(code);    
     } else {

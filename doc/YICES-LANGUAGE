@@ -1,7 +1,11 @@
 YICES LANGUAGE
 
+This is a summary of the commands and input language of the Yices 2 solver.
+
+
 1) Lexical analysis
    ----------------
+
 - comments start with ';' and extend to the end of the line ('\n' or EOF)
 
 - tokens are ( ) :: <symbol> <string> <rational> <float> <binary bv> <hexa bv>
@@ -182,15 +186,18 @@ YICES LANGUAGE
 3.4) A tuple type is written (tuple tau_1 ... tau_n) where tau_i's are types
     
 3.5) A function type is written (-> tau_1 ... tau_n sigma) where the tau_i's
-     and sigma are types. This is the typed of functions whose domain is
-     tau_1 x ... x tau_n and whose range is sigma.
-   
+     and sigma are types. This is the typed of functions of domain 
+     tau_1 x ... x tau_n and range sigma.
+
+     There's no distinct array type constructor. Arrays are functions.
+    
 
 
 4) Built-in constants and functions
    --------------------------------
 
-4.1) ite is the if-then-else construct. if is a synonym for ite
+4.1) ite is the if-then-else construct. 
+     if is a synonym for ite
 
      distinct takes are least 2 arguments.
 
@@ -354,7 +361,6 @@ YICES LANGUAGE
 
 4) Commands
    --------
-
   
    (define-type name):  create a new uninterpreted type called 'name'
 
@@ -368,6 +374,7 @@ YICES LANGUAGE
    (push):  start a new assertion scope
 
    (pop):  remove all assertions added after the matching (push)
+   	   Note: this does not remove declarations.
 
    (reset):  clears the context (all assertions are removed, all 'push's are undone)
              the current model is also deleted (if any))
@@ -395,7 +402,7 @@ YICES LANGUAGE
 
    (reset-stats): reset all statistics to zero
 
-   (set-timeout <value>): give a timeout in seconds. This timeoyt value
+   (set-timeout <value>): give a timeout in seconds. This timeout value
           will limit the search time on all subsequent calls to (check)
           If <value> is 0 then the timeout is cleared (i.e., no timeout).
 
