@@ -394,9 +394,14 @@ install-solaris: install-default
 	/sbin/ldconfig -n $(libdir)
 	ln -sf libyices.so.$(YICES_VERSION) $(libdir)/libyices.so
 
-install-linux install-freebsd install-unix: install-default
+install-linux install-unix:
 	/sbin/ldconfig -n $(libdir)
 	ln -sf libyices.so.$(YICES_VERSION) $(libdir)/libyices.so
+
+# on FreeBSD: the library file is libyices.so.X.Y and lconfig does not take -n
+install-freebsd: install-default
+	/sbin/ldconfig $(libdir)
+	ln -sf libyices.so.$(MAJOR).$(MINOR) $(libdir)/libyices.so
 
 
 #

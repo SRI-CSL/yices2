@@ -161,7 +161,7 @@ double mem_size(void) {
 
 /*
  * NOTE: on Free BSD 5.5, I got compilation errors
- * because <sys/user.h> depends on constant defined
+ * because <sys/user.h> depends on constants defined
  * in <sys/param.h>. That's why I've added 
  *   #include <sys/param.h>
  * here.

@@ -171,12 +171,20 @@ static_binaries := $(bin_src_c:%.c=$(static_bindir)/%$(EXEEXT))
 #
 
 #
-# Linux:
+# Linux/Solaris/FreeBSD
 # the library has full versioned name libyices.so.2.0.0
 # soname: libyices.so.2.0
 #
+# For Free BSD: the convention seems to call the file libyices.so.2.0
+#
+ifeq ($(POSIXOS),freebsd)
 libyices_so := libyices.so.$(YICES_VERSION)
+else
+libyices_so := libyices.so.$(MAJOR).$(MINOR)
+endif
+
 libyices_soname := libyices.so.$(MAJOR).$(MINOR)
+
 
 # 
 # Darwin
