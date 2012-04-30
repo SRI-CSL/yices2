@@ -400,7 +400,7 @@ install-linux install-unix:
 
 # on FreeBSD: the library file is libyices.so.X.Y and lconfig does not take -n
 install-freebsd: install-default
-	/sbin/ldconfig $(libdir)
+	/sbin/ldconfig -m $(libdir)
 	ln -sf libyices.so.$(MAJOR).$(MINOR) $(libdir)/libyices.so
 
 
