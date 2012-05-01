@@ -1430,7 +1430,7 @@ static bool check_good_select(term_manager_t *mngr, uint32_t i, term_t t) {
     return false;
   }
 
-  if (i >= tuple_type_arity(tbl->types, tau)) {
+  if (i == 0 || i > tuple_type_arity(tbl->types, tau)) {
     error.code = INVALID_TUPLE_INDEX;
     error.type1 = tau;
     error.badval = i;
@@ -1573,7 +1573,7 @@ static bool check_good_tuple_update(term_manager_t *mngr, uint32_t i, term_t t, 
   }
 
   desc = tuple_type_desc(tbl->types, tau);
-  if (i >= desc->nelem) {
+  if (i == 0 || i > desc->nelem) {
     error.code = INVALID_TUPLE_INDEX;
     error.type1 = tau;
     error.badval = i;
@@ -2020,7 +2020,8 @@ EXPORTED term_t yices_select(uint32_t index, term_t tuple) {
     return NULL_TERM;
   }
 
-  return mk_select(&manager, index, tuple);
+  // Warning: internally, tuple components are indexed from 0 to n-1
+  return mk_select(&manager, index-1, tuple);
 }
 
 EXPORTED term_t yices_update(term_t fun, uint32_t n, term_t arg[], term_t new_v) {
@@ -2046,7 +2047,8 @@ EXPORTED term_t yices_tuple_update(term_t tuple, uint32_t index, term_t new_v) {
     return NULL_TERM;
   }
 
-  return mk_tuple_update(&manager, tuple, index, new_v);
+  // Warning: internally components are indexed from 0 to n-1
+  return mk_tuple_update(&manager, tuple, index-1, new_v);
 }
 
 EXPORTED term_t yices_forall(uint32_t n, term_t var[], term_t body) {

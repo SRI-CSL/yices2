@@ -11,6 +11,7 @@
 #include "model_printer.h"
 
 
+
 /*
  * Print the assignment for t in model
  * - the format is (= <t's name> <value>)
@@ -31,7 +32,7 @@ void model_print_term_value(FILE *f, model_t *model, term_t t) {
   r = int_hmap_find(&model->map, t);
   if (r == NULL) {
     /*
-     * ??) is a stupid C trigraph so "???)" can be misinterpreted by compilers
+     * ??) is a stupid C trigraph so "???)" can't be written as is.
      */
     fputs("???"")", f); 
   } else {
@@ -41,17 +42,12 @@ void model_print_term_value(FILE *f, model_t *model, term_t t) {
 }
 
 
-
-
-
-
 /*
  * Check whether term t should be printed in the assignments
  */
 static inline bool term_to_print(term_table_t *tbl, term_t t) {
   return term_kind(tbl, t) == UNINTERPRETED_TERM && term_name(tbl, t) != NULL;
 }
-
 
 
 /*

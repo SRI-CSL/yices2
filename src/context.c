@@ -2755,7 +2755,7 @@ static eterm_t make_egraph_variable(context_t *ctx, type_t type) {
 
 /*
  * Add the tuple skolemization axiom for term occurrence 
- * u of type tau, if tau is not a maximal type.
+ * u of type tau.
  */
 static void skolemize_tuple(context_t *ctx, occ_t u, type_t tau) {
   type_table_t *types;
@@ -2766,24 +2766,22 @@ static void skolemize_tuple(context_t *ctx, occ_t u, type_t tau) {
 
   types = ctx->types;
   assert(type_kind(types, tau) == TUPLE_TYPE);
-  if (!is_maxtype(types, tau)) {
-    // instantiate the axiom
-    d = tuple_type_desc(types, tau);
-    n = d->nelem;
-    arg = alloc_istack_array(&ctx->istack, n);
-    for (i=0; i<n; i++) {
-      arg[i] = pos_occ(make_egraph_variable(ctx, d->elem[i]));
-      // recursively skolemize
-      if (type_kind(types, d->elem[i]) == TUPLE_TYPE) {
-	skolemize_tuple(ctx, arg[i], d->elem[i]);
-      }
+  // instantiate the axiom
+  d = tuple_type_desc(types, tau);
+  n = d->nelem;
+  arg = alloc_istack_array(&ctx->istack, n);
+  for (i=0; i<n; i++) {
+    arg[i] = pos_occ(make_egraph_variable(ctx, d->elem[i]));
+    // recursively skolemize
+    if (type_kind(types, d->elem[i]) == TUPLE_TYPE) {
+      skolemize_tuple(ctx, arg[i], d->elem[i]);
     }
-
-    tup = egraph_make_tuple(ctx->egraph, n, arg, tau);
-    free_istack_array(&ctx->istack, arg);
-
-    egraph_assert_eq_axiom(ctx->egraph, u, pos_occ(tup));
   }
+
+  tup = egraph_make_tuple(ctx->egraph, n, arg, tau);
+  free_istack_array(&ctx->istack, arg);
+
+  egraph_assert_eq_axiom(ctx->egraph, u, pos_occ(tup));
 }
 
 

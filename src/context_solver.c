@@ -211,26 +211,26 @@ static literal_t bv_branch(smt_core_t *core, literal_t l) {
  */
 
 /*
- * Print some statistic data + header if requested (on stdout)
+ * Print some statistic data + header if requested (on stderr)
  */
 static void show_progress(smt_core_t *core, 
 			  uint32_t restart_threshold, uint32_t reduce_threshold, bool show_header) {
 
   if (show_header) {
-    printf("---------------------------------------------------------------------------------------------------\n");
-    printf("|     Thresholds    |  Binary   |      Original     |          Learned          |     Decisions   |\n");
-    printf("|   Conf.      Del. |  Clauses  |   Clauses   Lits. |   Clauses  Lits. Lits/Cl. |   Total  Random |\n");
-    printf("---------------------------------------------------------------------------------------------------\n");
+    fprintf(stderr, "---------------------------------------------------------------------------------------------------\n");
+    fprintf(stderr, "|     Thresholds    |  Binary   |      Original     |          Learned          |     Decisions   |\n");
+    fprintf(stderr, "|   Conf.      Del. |  Clauses  |   Clauses   Lits. |   Clauses  Lits. Lits/Cl. |   Total  Random |\n");
+    fprintf(stderr, "---------------------------------------------------------------------------------------------------\n");
   }
 
-  printf("| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f | %8"PRIu64" %6"PRIu64" |\n", 
-	 restart_threshold, reduce_threshold, 
-	 num_binary_clauses(core), 
-	 num_prob_clauses(core), num_prob_literals(core),
-	 num_learned_clauses(core), num_learned_literals(core), 
-	 ((double) num_learned_literals(core)/num_learned_clauses(core)),
-	 core->stats.decisions, core->stats.random_decisions);
-  fflush(stdout);
+  fprintf(stderr, "| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f | %8"PRIu64" %6"PRIu64" |\n", 
+	  restart_threshold, reduce_threshold, 
+	  num_binary_clauses(core), 
+	  num_prob_clauses(core), num_prob_literals(core),
+	  num_learned_clauses(core), num_learned_literals(core), 
+	  ((double) num_learned_literals(core)/num_learned_clauses(core)),
+	  core->stats.decisions, core->stats.random_decisions);
+  fflush(stderr);
 }
 			  
 
@@ -314,8 +314,8 @@ static void solve(smt_core_t *core, const param_t *params, bool verbose) {
   }
 
   if (verbose) {
-    printf("---------------------------------------------------------------------------------------------------\n\n");
-    fflush(stdout);
+    fprintf(stderr, "---------------------------------------------------------------------------------------------------\n\n");
+    fflush(stderr);
   }
 }
 

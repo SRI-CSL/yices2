@@ -8,8 +8,8 @@
 #include "memalloc.h"
 #include "hash_functions.h"
 #include "int_array_sort.h"
+#include "type_printer.h"
 #include "concrete_values.h"
-
 
 
 
@@ -2019,6 +2019,27 @@ static void vtbl_print_default(FILE *f, value_table_t *table, value_t c, value_f
 
 #endif
 
+
+/*
+ * Format to display a function:
+ * (function <name>
+ *   (type (-> tau_1 ... tau_n sigma))
+ *   (= (<name> x_1 ... x_n) y_1)
+ *    ...
+ *   (default z))
+ */
+static void vtbl_print_function_header(FILE *f, value_table_t *table, value_t c, type_t tau, const char *name) {
+  if (name == NULL) {
+    fprintf(f, "(function fun!%"PRId32"\n", c);
+  } else {
+    fprintf(f, "(function %s\n", name);
+  }
+  fprintf(f, " (type ");
+  print_type(f, table->type_table, tau);
+  fprintf(f, ")");
+}
+ 
+
 /*
  * Print the function c
  * - if show_default is true, also print the default falue
@@ -2031,15 +2052,13 @@ void vtbl_print_function(FILE *f, value_table_t *table, value_t c, bool show_def
 
   assert(0 <= c && c < table->nobjects && table->kind[c] == FUNCTION_VALUE);
   fun = table->desc[c].ptr;
-  // header: may be removed later
-  fputs("--- ", f);
-  vtbl_print_fun_name(f, c, fun);
-  fputs(" ---\n", f);
+
+  vtbl_print_function_header(f, table, c, fun->type, fun->name);
 
   m = fun->arity;
   n = fun->map_size;
   for (i=0; i<n; i++) {
-    fputs("(= (", f);
+    fputs("\n (= (", f);
     vtbl_print_fun_name(f, c, fun);
 
     mp = vtbl_map(table, fun->map[i]);
@@ -2049,19 +2068,16 @@ void vtbl_print_function(FILE *f, value_table_t *table, value_t c, bool show_def
       vtbl_print_object(f, table, mp->arg[j]);
     }
     fputs(") ", f);
-    vtbl_print_object(f, table, mp->val);    
-    fputs(")\n", f);
+    vtbl_print_object(f, table, mp->val);
+    fputc(')', f);    
   }
 
-  if (show_default) {
-    if (is_unknown(table, fun->def)) {
-      fputs("no default\n", f);
-    } else {
-      fputs("default: ", f);
-      vtbl_print_object(f, table, fun->def);
-      fputc('\n', f);
-    }
+  if (show_default && !is_unknown(table, fun->def)) {
+    fputs("\n (default ", f);
+    vtbl_print_object(f, table, fun->def);
+    fputs(")", f);
   }
+  fputs(")\n", f);
 }
 
 
@@ -2088,13 +2104,16 @@ void vtbl_normalize_and_print_update(FILE *f, value_table_t *table, char *name, 
    * hset->data contains an array of mapping objects
    * hset->nelems = number of elements in hset->data
    */
-  // print function header
-  fprintf(f, "--- %s ---\n", name);
+  // function header: we know that name != NULL
+  fprintf(f, "(function %s\n", name);
+  fprintf(f, " (type ");
+  print_type(f, table->type_table, tau);
+  fprintf(f, ")");
 
   m = vtbl_update(table, c)->arity;
   n = hset->nelems;
   for (i=0; i<n; i++) {
-    fprintf(f, "(= (%s", name);
+    fprintf(f, "\n (= (%s", name);
 
     mp = vtbl_map(table, hset->data[i]);
     assert(mp->arity == m);
@@ -2104,18 +2123,15 @@ void vtbl_normalize_and_print_update(FILE *f, value_table_t *table, char *name, 
     }
     fputs(") ", f);
     vtbl_print_object(f, table, mp->val);
-    fputs(")\n", f);
+    fputs(")", f);
   }
 
-  if (show_default) {
-    if (is_unknown(table, def)) {
-      fputs("no default\n", f);
-    } else {
-      fputs("default: ", f);
-      vtbl_print_object(f, table, def);
-      fputc('\n', f);
-    }
+  if (show_default && !is_unknown(table, def)) {
+    fputs("\n (default ", f);
+    vtbl_print_object(f, table, def);
+    fputc(')', f);
   }
+  fputs(")\n", f);
 }
 
 

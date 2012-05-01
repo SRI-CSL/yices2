@@ -450,17 +450,18 @@ static option_desc_t options[NUM_OPTIONS] = {
 /*
  * Version and help
  */
-static void print_version(void) {
-  printf("Yices %s. Copyright SRI International.\n"
-	 "GMP %s. Copyright Free Software Foundation, Inc.\n"
-	 "Build date: %s\n"
-	 "Platform: %s (%s)\n",
-	 yices_version,
-	 gmp_version,
-	 yices_build_date,
-	 yices_build_arch,
-	 yices_build_mode);
-  fflush(stdout);
+static void print_version(FILE *f) {
+  fprintf(f, 
+          "Yices %s. Copyright SRI International.\n"
+	  "GMP %s. Copyright Free Software Foundation, Inc.\n"
+	  "Build date: %s\n"
+	  "Platform: %s (%s)\n",
+	  yices_version,
+	  gmp_version,
+	  yices_build_date,
+	  yices_build_arch,
+	  yices_build_mode);
+  fflush(f);
 }
 
 static void print_help(char *progname) {
@@ -590,13 +591,13 @@ static void process_command_line(int argc, char *argv[]) {
 	    goto bad_usage;
 	  }
 	} else if (strcmp(mode_name, elem.s_value) != 0) {
-	  fprintf(stderr, "%s: one one mode can be specifeid\n", parser.command_name);
+	  fprintf(stderr, "%s: only one mode can be specified\n", parser.command_name);
 	  goto bad_usage;
 	}
 	break;
 
       case version_flag:
-	print_version();
+	print_version(stdout);
 	goto quick_exit;
 
       case help_flag:
@@ -726,8 +727,8 @@ static void sigint_handler(int signum) {
 
   assert(context != NULL);
   if (verbose) {
-    printf("\nInterrupted by signal %d\n", signum);
-    fflush(stdout);
+    fprintf(stderr, "\nInterrupted by signal %d\n", signum);
+    fflush(stderr);
   }
   if (context_status(context) == STATUS_SEARCHING) {
     context_stop_search(context);
@@ -748,8 +749,8 @@ static void sigint_handler(int signum) {
  */
 static void default_handler(int signum) {
   if (verbose) {
-    printf("\nInterrupted by signal %d\n", signum);
-    fflush(stdout);
+    fprintf(stderr, "\nInterrupted by signal %d\n", signum);
+    fflush(stderr);
   }
   exit(YICES_EXIT_INTERRUPTED);
 }
@@ -907,31 +908,30 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
 
 
 /*
- * Print the translation code returned by assert
+ * Report that the previous command was executed (if verbose)
  */
-static void print_internalization_code(int32_t code) {
-  assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
-  if (code == TRIVIALLY_UNSAT) {
-    printf("unsat\n");
-    fflush(stdout);
-  } else if (verbose && code == CTX_NO_ERROR) {
-    printf("ok\n");
-    fflush(stdout);
-  } else if (code < 0) {
-    code = - code;
-    report_error(code2error[code]);
+static void print_ok(void) {
+  if (verbose && interactive && include_depth == 0) {
+    fprintf(stderr, "ok\n");
+    fflush(stderr);
   }
 }
 
 
 
 /*
- * Report that previous command was executed (if verbose)
+ * Print the translation code returned by assert
  */
-static void print_ok(void) {
-  if (verbose) {
-    printf("ok\n");
-    fflush(stdout);
+static void print_internalization_code(int32_t code) {
+  assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
+  if (code == TRIVIALLY_UNSAT) {
+    fprintf(stderr, "unsat\n");
+    fflush(stderr);
+  } else if (verbose && code == CTX_NO_ERROR) {
+    print_ok();
+  } else if (code < 0) {
+    code = - code;
+    report_error(code2error[code]);
   }
 }
 
@@ -1431,8 +1431,8 @@ static void yices_exit_cmd(void) {
     include_depth --;
   } else {
     if (verbose) {
-      fputs("exiting\n", stdout);
-      fflush(stdout);
+      fputs("exiting\n", stderr);
+      fflush(stderr);
     }
     done = true;
   }
@@ -2133,8 +2133,8 @@ static void yices_push_cmd(void) {
 
     case STATUS_UNSAT:
       // cannot take (push)
-      fputs("The context is unsat; (push) is not allowed\n", stdout);
-      fflush(stdout);
+      fputs("The context is unsat; (push) is not allowed\n", stderr);
+      fflush(stderr);
       break;
 
     case STATUS_SEARCHING:
@@ -2224,8 +2224,8 @@ static void yices_assert_cmd(term_t f) {
 
     case STATUS_UNSAT:
       // cannot take more assertions
-      fputs("The context is unsat. Try (pop) or (reset)\n", stdout);
-      fflush(stdout);    
+      fputs("The context is unsat. Try (pop) or (reset)\n", stderr);
+      fflush(stderr);
       break;
 
     case STATUS_SEARCHING:
@@ -2248,8 +2248,8 @@ static void timeout_handler(void *data) {
   if (context_status(data) == STATUS_SEARCHING) {
     context_stop_search(data);
     if (verbose) {
-      fputs("\nTimeout\n", stdout);
-      fflush(stdout);
+      fputs("\nTimeout\n", stderr);
+      fflush(stderr);
     }
   }
 }
@@ -2319,7 +2319,6 @@ static void yices_check_cmd(void) {
     // call check than print the result
     // if the search was interrupted, cleanup
     stat = do_check();
-    fputc('\n', stdout);
     fputs(status2string[stat], stdout);
     fputc('\n', stdout);
     if (stat == STATUS_INTERRUPTED) {
@@ -2360,13 +2359,13 @@ static void yices_showmodel_cmd(void) {
     break;
 
   case STATUS_UNSAT:
-    fputs("The context is unsat. No model.\n", stdout);
-    fflush(stdout);
+    fputs("The context is unsat. No model.\n", stderr);
+    fflush(stderr);
     break;
 
   case STATUS_IDLE:
-    fputs("Can't build a model. Call (check) first.\n", stdout);
-    fflush(stdout);
+    fputs("Can't build a model. Call (check) first.\n", stderr);
+    fflush(stderr);
     break;
 
   case STATUS_SEARCHING:
@@ -2411,13 +2410,13 @@ static void yices_eval_cmd(term_t t) {
     break;
 
   case STATUS_UNSAT:
-    fputs("The context is unsat. No model.\n", stdout);
-    fflush(stdout);
+    fputs("The context is unsat. No model.\n", stderr);
+    fflush(stderr);
     break;
 
   case STATUS_IDLE:
-    fputs("No model.\n", stdout);
-    fflush(stdout);
+    fputs("No model.\n", stderr);
+    fflush(stderr);
     break;
 
   case STATUS_SEARCHING:
@@ -2507,7 +2506,7 @@ int yices_main(int argc, char *argv[]) {
 
   init_parser(&parser, &lexer, &stack);
   if (verbose) {
-    print_version();
+    print_version(stderr);
   }
 
   init_ctx(arch, mode, iflag, qflag);
@@ -2522,8 +2521,8 @@ int yices_main(int argc, char *argv[]) {
   while (current_token(&lexer) != TK_EOS && !done) {
     if (interactive && include_depth == 0) {
       // prompt
-      fputs("yices> ", stdout);
-      fflush(stdout);
+      fputs("yices> ", stderr);
+      fflush(stderr);
     }
     code = parse_yices_command(&parser, stderr);
     if (code < 0) {

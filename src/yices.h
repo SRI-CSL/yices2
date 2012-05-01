@@ -462,6 +462,8 @@ __YICES_DLLSPEC__ extern term_t yices_tuple(uint32_t n, term_t arg[]);
 /*
  * Tuple projection
  *
+ * The index must be between 1 and n (where n = number of components in tuple)
+ *
  * Error report:
  * if tuple is invalid
  *    code = INVALID_TERM
@@ -469,7 +471,7 @@ __YICES_DLLSPEC__ extern term_t yices_tuple(uint32_t n, term_t arg[]);
  * if tuple does not have a tuple type
  *    code = TUPLE_REQUIRED
  *    term1 = tuple
- * if index >= number of components in tuple
+ * if index = 0 or index > number of components in tuple
  *    code = INVALID_TUPLE_INDEX
  *    type1 = type of tuple
  *    badval = index
@@ -479,6 +481,8 @@ __YICES_DLLSPEC__ extern term_t yices_select(uint32_t index, term_t tuple);
 
 /*
  * Tuple update: replace component i of tuple by new_v
+ *
+ * The index must be between 1 and n (where n = number of components in tuple)
  *
  * Error report
  * if tuple or new_v is invalid

@@ -3457,16 +3457,11 @@ static void check_mk_select(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_tag(stack, f+1, TAG_RATIONAL);
 }
 
-/*
- * Warning: in term_api, tuple indices are from 0 to tuple_size-1. 
- * To maintain compatibility with Yices 1.0.xx and SMT-LIB, they are
- * numbered from 1 to tuple_size here
- */
 static void eval_mk_select(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   int32_t idx;
   term_t t;
 
-  idx = get_integer(stack, f+1) - 1;
+  idx = get_integer(stack, f+1);
   t = yices_select(idx, get_term(stack, f));
   check_term(stack, t);
 
