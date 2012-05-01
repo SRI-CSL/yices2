@@ -613,10 +613,6 @@ void context_build_model(model_t *model, context_t *ctx) {
     ctx->bv.build_model(ctx->bv_solver);
   }
 
-
-  // allocate the model
-  terms = ctx->terms;
-
   /*
    * Construct the egraph model
    */
@@ -625,6 +621,7 @@ void context_build_model(model_t *model, context_t *ctx) {
   }
 
   // scan the internalization table
+  terms = ctx->terms;
   n = intern_tbl_num_terms(&ctx->intern);
   for (i=1; i<n; i++) { // first real term has index 1 (i.e. true_term)
     t = pos_occ(i);

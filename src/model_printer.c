@@ -519,10 +519,45 @@ static void eval_print_function_assignments(FILE *f, evaluator_t *eval, term_t *
 
 
 /*
- * Collect all terms to print
+ * Go through all the terms and evaluate them
+ */
+static void model_eval_all_terms(model_t *model, evaluator_t *eval) {
+  int_hmap_t *hmap;
+  int_hmap_pair_t *r;
+  term_table_t *terms;
+  term_t t;
+
+  terms = model->terms;
+  hmap = &model->map;
+  r = int_hmap_first_record(hmap);
+  while (r != NULL) {
+    t = r->key;  // key is the term id
+    if (term_to_print(terms, t)) {
+      (void) eval_in_model(eval, t);
+    }
+    r = int_hmap_next_record(hmap, r);
+  }
+
+  hmap = model->alias_map;
+  if (hmap != NULL) {
+    r = int_hmap_first_record(hmap);
+    while (r != NULL) {
+      t = r->key;
+      if (term_to_print(terms, t)) {
+	(void) eval_in_model(eval, t);
+      }
+      r = int_hmap_next_record(hmap, r);
+    }
+  }
+}
+
+
+/*
+ * Collect all the terms to print and that are mapped to a value in model
+ * or in eval->cache
  * - store them in vector v
  */
-static void model_collect_all_terms(model_t *model, ivector_t *v) {
+static void model_collect_all_terms(model_t *model, evaluator_t *eval, ivector_t *v) {
   int_hmap_t *hmap;
   int_hmap_pair_t *r;
   term_table_t *terms;
@@ -539,16 +574,14 @@ static void model_collect_all_terms(model_t *model, ivector_t *v) {
     r = int_hmap_next_record(hmap, r);
   }
 
-  hmap = model->alias_map;
-  if (hmap != NULL) {
-    r = int_hmap_first_record(hmap);
-    while (r != NULL) {
-      t = r->key;
-      if (term_to_print(terms, t)) {
-	ivector_push(v, t);
-      }
-      r = int_hmap_next_record(hmap, r);
+  hmap = &eval->cache;
+  r = int_hmap_first_record(hmap);
+  while (r != NULL) {
+    t = r->key;
+    if (term_to_print(terms, t)) {
+      ivector_push(v, t);
     }
+    r = int_hmap_next_record(hmap, r);
   }
 }
 
@@ -567,11 +600,13 @@ void model_print_full(FILE *f, model_t *model) {
   uint32_t n;
 
   if (model->has_alias && model->alias_map != NULL) {
+    init_evaluator(&eval, model);
+    model_eval_all_terms(model, &eval);
+    // collect all terms that have a value
     init_ivector(&v, 0);
-    model_collect_all_terms(model, &v);
+    model_collect_all_terms(model, &eval, &v);
     n = v.size;
     a = v.data;
-    init_evaluator(&eval, model);
     eval_print_bool_assignments(f, &eval, a, n);
     eval_print_arithmetic_assignments(f, &eval, a, n);
     eval_print_bitvector_assignments(f, &eval, a, n);

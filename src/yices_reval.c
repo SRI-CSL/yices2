@@ -474,8 +474,7 @@ static void print_help(char *progname) {
 	 "  --arith-solver=<solver>   Select the arithmetic solver\n"
 	 "                             <solver> may be either 'simplex' or 'floyd-warshall' or 'auto'\n"
 	 "  --mode=<mode>             Select the usage mode\n"
-	 "                             <mode> may be either 'one-shot' or 'multi-checks' or \n"
-         "                                                   'interactive' or 'push-pop'\n"
+	 "                             <mode> may be either 'one-shot' or 'multi-checks' or 'interactive' or 'push-pop'\n"
 	 "\n"
 	 "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
@@ -594,6 +593,7 @@ static void process_command_line(int argc, char *argv[]) {
 	  fprintf(stderr, "%s: one one mode can be specifeid\n", parser.command_name);
 	  goto bad_usage;
 	}
+	break;
 
       case version_flag:
 	print_version();
@@ -2194,42 +2194,47 @@ static void yices_pop_cmd(void) {
  * Assert formula f
  */
 static void yices_assert_cmd(term_t f) {
+  smt_status_t status;
   int32_t code;
 
-  switch (context_status(context)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
-    // cleanup then return to the idle state
-    if (model != NULL) {
-      free_model(model);
-      model = NULL;
+  status = context_status(context);
+  if (status != STATUS_IDLE && !context_supports_multichecks(context)) {
+    report_error("more assertions are not allowed (mode=one-shot)");
+  } else {
+    switch (status) {
+    case STATUS_UNKNOWN:
+    case STATUS_SAT:
+      // cleanup then return to the idle state
+      if (model != NULL) {
+	free_model(model);
+	model = NULL;
+      }
+      context_clear(context); 
+      assert(context_status(context) == STATUS_IDLE);
+      // fall-through intended
+
+    case STATUS_IDLE:
+      if (yices_term_is_bool(f)) {
+	code = assert_formula(context, f);
+	print_internalization_code(code);
+      } else {
+	report_error("type error in assert: boolean term required");
+      }
+      break;
+
+    case STATUS_UNSAT:
+      // cannot take more assertions
+      fputs("The context is unsat. Try (pop) or (reset)\n", stdout);
+      fflush(stdout);    
+      break;
+
+    case STATUS_SEARCHING:
+    case STATUS_INTERRUPTED:
+    default:
+      // should not happen
+      report_bug("unexpected context status in assert");
+      break;
     }
-    context_clear(context); 
-    assert(context_status(context) == STATUS_IDLE);
-    // fall-through intended
-
-  case STATUS_IDLE:
-    if (yices_term_is_bool(f)) {
-      code = assert_formula(context, f);
-      print_internalization_code(code);
-    } else {
-      report_error("type error in assert: boolean term required");
-    }
-    break;
-
-
-  case STATUS_UNSAT:
-    // cannot take more assertions
-    fputs("The context is unsat. Try (pop) or (reset)\n", stdout);
-    fflush(stdout);    
-    break;
-
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
-  default:
-    // should not happen
-    report_bug("unexpected context status in assert");
-    break;    
   }
 }
 
