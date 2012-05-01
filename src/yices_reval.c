@@ -101,6 +101,7 @@ static bool timeout_initialized;
 
 static char *logic_name;
 static char *arith_name;
+static char *mode_name;
 
 static smt_logic_t logic_code;
 static arith_code_t arith_code;
@@ -427,6 +428,7 @@ static const bool logic2qflag[NUM_SMT_LOGICS] = {
 enum {
   logic_option,
   arith_option,
+  mode_option,
   version_flag,
   help_flag,
   verbose_flag,
@@ -437,6 +439,7 @@ enum {
 static option_desc_t options[NUM_OPTIONS] = {
   { "logic", '\0', MANDATORY_STRING, logic_option },
   { "arith-solver", '\0', MANDATORY_STRING, arith_option },
+  { "mode", '\0', MANDATORY_STRING, mode_option },
   { "version", 'V', FLAG_OPTION, version_flag },
   { "help", 'h', FLAG_OPTION, help_flag },
   { "verbose", 'v', FLAG_OPTION, verbose_flag },
@@ -463,13 +466,16 @@ static void print_version(void) {
 static void print_help(char *progname) {
   printf("Usage: %s [options] filename\n\n", progname);
   printf("Options:\n"
-	 "  --version, -V           Display version and exit\n"
-	 "  --help, -h              Display this information\n"
-	 "  --verbose, -v           Run in verbose mode\n"
-	 "  --logic=name            Configure for the given logic\n"
-	 "                          name must be an SMT-LIB logic code (e.g., QF_UFLIA)\n"
-	 "  --arith-solver=solver   Select the arithmetic solver\n"
-	 "                          solver must be either 'simplex' or 'floyd-warshall' or 'auto'\n"
+	 "  --version, -V             Display version and exit\n"
+	 "  --help, -h                Display this information\n"
+	 "  --verbose, -v             Run in verbose mode\n"
+	 "  --logic=<name>            Configure for the given logic\n"
+	 "                             <name> must be an SMT-LIB logic code (e.g., QF_UFLIA)\n"
+	 "  --arith-solver=<solver>   Select the arithmetic solver\n"
+	 "                             <solver> may be either 'simplex' or 'floyd-warshall' or 'auto'\n"
+	 "  --mode=<mode>             Select the usage mode\n"
+	 "                             <mode> may be either 'one-shot' or 'multi-checks' or \n"
+         "                                                   'interactive' or 'push-pop'\n"
 	 "\n"
 	 "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
@@ -485,6 +491,28 @@ static void print_usage(char *progname) {
 
 
 /*
+ * Parse a mode:
+ * - return -1 if the mode is not recognized
+ */
+static int32_t context_mode_code(const char *name) {
+  int32_t x;
+
+  x = -1;
+  if (strcmp(name, "one-shot") == 0) {
+    x = CTX_MODE_ONECHECK;
+  } else if (strcmp(name, "interactive") == 0) {
+    x = CTX_MODE_INTERACTIVE;
+  } else if (strcmp(name, "push-pop") == 0) {
+    x = CTX_MODE_PUSHPOP;
+  } else if (strcmp(name, "multi-checks") == 0) {
+    x = CTX_MODE_MULTICHECKS;
+  }
+
+  return x;
+}
+
+
+/*
  * Processing of the command-line flags
  * - set input_filename, logic_name, and arith_name
  *   input_filename = NULL means no filename on the command line
@@ -495,14 +523,17 @@ static void process_command_line(int argc, char *argv[]) {
   cmdline_parser_t parser;
   cmdline_elem_t elem;
   int32_t arch_code;
+  int32_t mode_code;
 
   // set all options to their default value
   input_filename = NULL;
   logic_name = NULL;
   arith_name = NULL;
+  mode_name = NULL;
   verbose = false;
   logic_code = SMT_UNKNOWN;
   arith_code = ARITH_SIMPLEX;
+  mode_code = -1; // means not set 
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
 
@@ -514,7 +545,7 @@ static void process_command_line(int argc, char *argv[]) {
 
     case cmdline_argument:
       if (input_filename == NULL) {
-	input_filename = elem.arg;	
+	input_filename = elem.arg;
       } else {
 	fprintf(stderr, "%s: can't have several input files\n", parser.command_name);
 	goto bad_usage;
@@ -550,6 +581,19 @@ static void process_command_line(int argc, char *argv[]) {
 	  goto bad_usage;
 	}
 	break;
+
+      case mode_option:
+	if (mode_name == NULL) {
+	  mode_name = elem.s_value;
+	  mode_code = context_mode_code(mode_name);
+	  if (mode_code < 0) {
+	    fprintf(stderr, "%s: invalid mode %s\n", parser.command_name, mode_name);
+	    goto bad_usage;
+	  }
+	} else if (strcmp(mode_name, elem.s_value) != 0) {
+	  fprintf(stderr, "%s: one one mode can be specifeid\n", parser.command_name);
+	  goto bad_usage;
+	}
 
       case version_flag:
 	print_version();
@@ -588,7 +632,6 @@ static void process_command_line(int argc, char *argv[]) {
     }
     // use default settings
     arch = CTX_ARCH_EGFUNSPLX;
-    mode = CTX_MODE_INTERACTIVE;
     iflag = true;
     qflag = false;
     break;
@@ -596,28 +639,22 @@ static void process_command_line(int argc, char *argv[]) {
   case QF_IDL:    
     if (arith_code == ARITH_SIMPLEX) {
       arch = CTX_ARCH_SPLX;
-      mode = CTX_MODE_INTERACTIVE;
     } else if (arith_code == ARITH_FLOYD_WARSHALL) {
       arch = CTX_ARCH_IFW;
-      mode = CTX_MODE_ONECHECK;
     } else {
       arch = CTX_ARCH_AUTO_IDL;
-      mode = CTX_MODE_ONECHECK;
     }
-    iflag = false;
+    iflag = false; // not relevant in IDL
     qflag = false;
     break;
 
   case QF_RDL:
     if (arith_code == ARITH_SIMPLEX) {
       arch = CTX_ARCH_SPLX;
-      mode = CTX_MODE_INTERACTIVE;
     } else if (arith_code == ARITH_FLOYD_WARSHALL) {
       arch = CTX_ARCH_RFW;
-      mode = CTX_MODE_ONECHECK;
     } else {
       arch = CTX_ARCH_AUTO_RDL;
-      mode = CTX_MODE_ONECHECK;
     }
     iflag = false;
     qflag = false;
@@ -632,10 +669,30 @@ static void process_command_line(int argc, char *argv[]) {
       exit(YICES_EXIT_ERROR);
     }
     arch = (context_arch_t) arch_code;
-    mode = CTX_MODE_INTERACTIVE;
     iflag = logic2iflag[logic_code];
     qflag = logic2qflag[logic_code];
     break;
+  }
+
+  /*
+   * Set the mode
+   */
+  if (mode_code < 0) {
+    if ((logic_code == QF_IDL || logic_code == QF_RDL) && arch != CTX_ARCH_SPLX) {
+      // Floyd-Warshall or 'Auto' --> mode must be one-shot
+      mode = CTX_MODE_ONECHECK;
+    } else if (input_filename != NULL) {
+      mode = CTX_MODE_PUSHPOP; // non-interactive
+    } else {
+      mode = CTX_MODE_INTERACTIVE; // no input given: interactive mode
+    }
+  } else {
+    assert(CTX_MODE_ONECHECK <= mode_code && mode_code <= CTX_MODE_INTERACTIVE);
+    mode = (context_mode_t) mode_code;
+    if ((logic_code == QF_IDL || logic_code == QF_RDL) && arch != CTX_ARCH_SPLX) {
+      fprintf(stderr, "%s: the Floyd-Warshal solvers support only mode='one-shot'\n", parser.command_name);
+      goto bad_usage;
+    }
   }
 
   return;

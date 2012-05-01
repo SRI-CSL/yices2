@@ -1478,7 +1478,7 @@ __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
  * When a context is created, it is possible to configure it to use a
  * specific solver or a specific combination of solvers.  It is also
  * possible to specify whether or not the context should support
- * features such as push and pop, and others.
+ * features such as push and pop.
  * 
  * The following theory solvers are currently available:
  * - egraph (solver for uninterpreted functions)
@@ -1501,16 +1501,17 @@ __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
  * - egraph + bitvector + array solver
  * - egraph + simplex + array solver
  * - egraph + simplex + bitvector + array solver
+ *
  * If no solvers are used, the context can deal only with Boolean
  * formulas.
  *
  * When the simplex solver is used, it's also possible to
  * specify which arithmetic fragment is intended, namely:
- * - real difference logic
- * - integer difference logic
- * - real linear arithmetic
- * - integer linear arithmetic
- * - mixed integer/real linear arithmetic
+ * - integer difference logic              (IDL)
+ * - real difference logic                 (RDL)
+ * - real linear arithmetic                (LRA)
+ * - integer linear arithmetic             (LIA)
+ * - mixed integer/real linear arithmetic  (LIRA)
  *
  * In addition to the solver combination, a context can be configured
  * for different usage:
@@ -1521,22 +1522,23 @@ __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
  * Currently, the Floyd-Warshall solvers can only be used in one-shot mode.
  *
  * By default, a new solver is configured as follows:
- * - solvers: egraph + simplex + bitvector + array solvers
+ * - solvers: egraph + simplex + bitvector + array solver
  * - usage: push/pop supported
  *
  * To specify another configuration, one must pass a configuration
  * descriptor to function yices_new_context. A configuration descriptor
  * is an opaque structure that includes the following fields: 
- * - arith-fragment: either IDL, RDL, LRA, LIA, LIRA
+ * - arith-fragment: either IDL, RDL, LRA, LIA, or LIRA
  * - uf-solver: either NONE, DEFAULT
  * - bv-solver: either NONE, DEFAULT
  * - array-solver: either NONE, DEFAULT
  * - arith-solver: either NONE, DEFAULT, IFW, RFW, SIMPLEX
- * - mode: either ONE-SHOT, MULTI-CHECKS, PUSH-POP, CLEAN-INTERRUPTS
+ * - mode: either ONE-SHOT, MULTI-CHECKS, PUSH-POP, INTERACTIVE
  *
  * This is done as follows:
  * 1) allocate a configuration descriptor via yices_new_config
  * 2) set the configuration parameters by repeated calls to yices_set_config
+ *    or using yices_default_config_for_logic
  * 3) create one or more context with this configuration by passing the 
  *    descriptor to yices_new_context
  * 4) free the configuration descriptor when it's no longer needed
@@ -1560,6 +1562,49 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  * - name = the parameter name
  * - value = the value
  *
+ * The following table specifies the parameters and allowed values for each parameter name:
+ *
+ *            name    |    value            |      meaning
+ *   ----------------------------------------------------------------------------------------
+ *            "mode"  | "one-shot"          |  only one call to check is supported
+ *                    |                     |
+ *                    | "multi-checks"      |  several calls to assert and check are 
+ *                    |                     |  possible
+ *                    |                     | 
+ *                    | "push-pop"          |  like multi-check and with support for
+ *                    |                     |  retracting assertions (via push/pop)
+ *                    |                     |
+ *                    | "interactive"       |  like push-pop, but with automatic context clean
+ *                    |                     |  up when search is interrupted.
+ *   ----------------------------------------------------------------------------------------
+ *    "uf-solver"     | "default"           |  the uf-solver is included
+ *                    | "none"              |  no uf-solver
+ *   ----------------------------------------------------------------------------------------
+ *    "bv-solver"     | "default"           |  the bitvector solver is included
+ *                    | "none"              |  no bitvector solver
+ *   ----------------------------------------------------------------------------------------
+ *    "array-solver"  | "default"           |  the array solver is included
+ *                    | "none"              |  no array solver
+ *   ----------------------------------------------------------------------------------------
+ *    "arith-solver"  | "ifw"               |  solver for IDL, based on the Floyd-Warshall 
+ *                    |                     |  algorithm
+ *                    |                     |
+ *                    | "rfw"               |  solver for RDL, based on Floyd-Warshall
+ *                    |                     |
+ *                    | "simplex"           |  solver for linear arithmetic, based on Simplex
+ *                    |                     |
+ *                    | "default"           |  same as "simplex"
+ *                    |                     |
+ *                    | "none"              |  no arithmetic solver
+ *   ----------------------------------------------------------------------------------------
+ *   "arith-fragment" | IDL                 |  integer difference logic
+ *                    | RDL                 |  real difference logic
+ *                    | LIA                 |  linear integer arithemtic
+ *                    | LRA                 |  linear real arithmetic
+ *                    | LIRA                |  mixed linear arithmetic (real + integer variables)
+ *
+ * 
+ *
  * The function returns -1 if there's an error, 0 otherwise.
  *
  * Error codes:
@@ -1574,11 +1619,46 @@ __YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const ch
  * - return -1 if there's an error
  * - return 0 otherwise
  *
+ * The logic must be given as a string, using the SMT-LIB conventions.
+ * Currently, Yices recognizes and supports the following logics:
+ *
+ *   QF_ABV:    arrays and bitvectors
+ *   QF_AUFBV:  arrays, bitvectors, uninterpreted functions
+ *   QF_AUFLIA: arrays, uninterpreted functions, and linear integer arithmetic
+ *   QF_AX:     arrays with extensionality
+ *   QF_BV:     bitvectors
+ *   QF_IDL:    integer difference logic
+ *   QF_LIA:    linear integer arithmetic
+ *   QF_LRA:    linear real arithmetic
+ *   QF_RDL:    real difference logic
+ *   QF_UF:     uninterpreted functions
+ *   QF_UFBV:   uninterpreted functions + bitvectors
+ *   QF_UFIDL:  uninterpreted functions + integer difference logic
+ *   QF_UFLIA:  uninterpreted functions + linear integer arithmetic
+ *   QF_UFLRA:  uninterpreted functions + lineral real arithemtic
+ *
+ * In all these logics, QF means quantifier-free.
+ *
+ * For future extensions, Yices also recognizes the following names
+ * for logics that Yices does not support yet. (They require solvers
+ * that can deal with quantifiers or non-linear arithmetic).
+ *
+ *   AUFLIA
+ *   AUFLIRA
+ *   AUFNIRA
+ *   LRA
+ *   QF_NIA
+ *   QF_NRA
+ *   UFLRA
+ *   UFNIA
+ *
+ * 
  * Error codes:
  *  CTX_UNKNOWN_LOGIC if logic is not a valid name
  *  CTX_LOGIC_NOT_SUPPORTED if logic is known but not supported
  */
 __YICES_DLLSPEC__ extern int32_t yices_default_config_for_logic(ctx_config_t *config, const char *logic);
+
 
 
 
@@ -1799,7 +1879,7 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, uint32_t 
  *
  *    The returned status is also stored as the new ctx's status flag,
  *    with the following exception. If the context was built with 
- *    mode = CLEAN-INTERRUPTS and the search was interrupted, then the
+ *    mode = INTERACTIVE and the search was interrupted, then the
  *    function returns INTERRUPTED but the ctx's state is restored to
  *    what it was before the call to 'yices_check_context' and the
  *    status flag is reset to IDLE.

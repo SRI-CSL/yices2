@@ -17,7 +17,7 @@ static const char* const mode2string[NUM_MODES] = {
   "one-shot",          // CTX_MODE_ONECHECK
   "multi-checks",      // CTX_MODE_MULTICHECKS
   "push-pop",          // CTX_MODE_PUSHPOP
-  "clean-interrupts",  // CTX_MODE_INTERACTIVE
+  "interactive",       // CTX_MODE_INTERACTIVE
 };
 
 static const char* const logic2string[NUM_SMT_LOGICS+1] = {
@@ -225,7 +225,7 @@ static void test_set_configs(ctx_config_t *config) {
   test_set_config(config, "mode", "one-shot", 0, 0);
   test_set_config(config, "mode", "multi-checks", 0, 0);
   test_set_config(config, "mode", "push-pop", 0, 0);
-  test_set_config(config, "mode", "clean-interrupts", 0, 0);
+  test_set_config(config, "mode", "interactive", 0, 0);
   test_set_config(config, "mode", "xxxx", -1, CTX_INVALID_PARAMETER_VALUE);
 
   test_set_config(config, "uf-solver", "default", 0, 0);

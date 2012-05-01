@@ -14,7 +14,7 @@
  * Mapping from strings to context modes (cf. string_utils.h)
  */
 static const char * const mode_names[NUM_MODES] = {
-  "clean-interrupts",
+  "interactive",
   "multi-checks",
   "one-shot",
   "push-pop",
