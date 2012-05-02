@@ -12,8 +12,10 @@
 #include "sat_solver.h"
 #include "cputime.h"
 #include "memsize.h"
+#include "command_line.h"
 
-
+#include "yices.h"
+#include "yices_exit_codes.h"
 
 
 
@@ -90,7 +92,7 @@ static void alloc_buffer(uint32_t size) {
   }
 }
 
-static void expand_buffer() {
+static void expand_buffer(void) {
   buffer_size = 2 * buffer_size;
   clause = realloc(clause, buffer_size * sizeof(literal_t));
   if (clause == NULL) {
@@ -99,7 +101,7 @@ static void expand_buffer() {
   }
 }
 
-static void delete_buffer() {
+static void delete_buffer(void) {
   safe_free(clause);
   buffer_size = 0;
   clause = NULL;
@@ -251,46 +253,188 @@ static int build_instance(char *filename) {
 
 
 
+
+/**************************
+ *  Command-line options  *
+ *************************/
+
+/*
+ * Parameter:
+ * - input_filename = name of the input file
+ * - verbose = true for verbose output
+ * - model = true for produce model (if SAT)
+ */
+static char *input_filename = NULL;
+static bool verbose;
+static bool model;
+
+enum {
+  version_flag,
+  help_flag,
+  verbose_flag,
+  model_flag,
+};
+
+#define NUM_OPTIONS (model_flag+1)
+
+static option_desc_t options[NUM_OPTIONS] = {
+  { "version", 'V', FLAG_OPTION, version_flag },
+  { "help", 'h', FLAG_OPTION, help_flag },
+  { "verbose", 'v', FLAG_OPTION, verbose_flag },
+  { "model", 'm', FLAG_OPTION, model_flag },
+};
+
+
+/*
+ * Version and help
+ */
+static void print_version(FILE *f) {
+  fprintf(f, 
+          "Yices %s. Copyright SRI International.\n"
+	  "Build date: %s\n"
+	  "Platform: %s (%s)\n",
+	  yices_version,
+	  yices_build_date,
+	  yices_build_arch,
+	  yices_build_mode);
+  fflush(f);
+}
+
+static void print_help(char *progname) {
+  printf("Usage: %s [options] filename\n\n", progname);
+  printf("Option summary:\n"
+	 "   --version, -V              Show version and exit\n"
+	 "   --help, -h                 Print this message and exit\n"
+	 "   --model, -m                Show a model (some variables may be eliminated)\n"
+	 "   --verbose, -v              Print statistics during the search\n"
+	 "\n"
+	 "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
+  fflush(stdout);
+}
+
+
+/*
+ * Error in options
+ */
+static void yices_usage(char *progname) {
+  fprintf(stderr, "Usage: %s [options] filename\n", progname);
+  fprintf(stderr, "Try '%s --help' for more information\n", progname);  
+}
+
+
+/*
+ * Parse the command line and fill-in the parameters
+ */
+static void parse_command_line(int argc, char *argv[]) {
+  cmdline_parser_t parser;
+  cmdline_elem_t elem;
+  int32_t k;
+
+  input_filename = NULL;
+  model = false;
+  verbose = false;
+
+  init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
+
+  for (;;) {
+    cmdline_parse_element(&parser, &elem);
+    switch (elem.status) {
+    case cmdline_done:
+      goto done;
+
+    case cmdline_argument:
+      if (input_filename == NULL) {
+	input_filename = elem.arg;
+      } else {
+	fprintf(stderr, "%s: too many arguments\n", parser.command_name);
+	goto bad_usage;
+      }
+      break;
+
+    case cmdline_option:
+      k = elem.key;
+      switch (k) {
+      case version_flag:
+	print_version(stdout);
+	exit(YICES_EXIT_SUCCESS);
+
+      case help_flag:
+	print_help(parser.command_name);
+	exit(YICES_EXIT_SUCCESS);
+
+      case model_flag:
+	model = true;
+	break;
+
+      case verbose_flag:
+	verbose = true;
+	break;
+      }
+      break;
+
+    case cmdline_error:
+      cmdline_print_error(&parser, &elem);
+      goto bad_usage;
+    }
+  }
+
+ done:
+  if (input_filename == NULL) {
+    fprintf(stderr, "%s: no input file given\n", parser.command_name);
+    goto bad_usage;
+  }
+
+  return;
+
+ bad_usage:
+  yices_usage(parser.command_name);
+  exit(YICES_EXIT_USAGE);
+}
+
+
+
 /**********************************
  *  Print statistics and results  *
  *********************************/
 
 static void show_stats(solver_stats_t *stat) {
-  printf("starts                  : %"PRIu32"\n", stat->starts);
-  printf("simplify db             : %"PRIu32"\n", stat->simplify_calls);
-  printf("reduce db               : %"PRIu32"\n", stat->reduce_calls);
-  printf("remove irrelevant       : %"PRIu32"\n", stat->remove_calls);
-  printf("decisions               : %"PRIu64"\n", stat->decisions);
-  printf("random decisions        : %"PRIu64"\n", stat->random_decisions);
-  printf("propagations            : %"PRIu64"\n", stat->propagations);
-  printf("conflicts               : %"PRIu64"\n", stat->conflicts);
-  printf("lits in pb. clauses     : %"PRIu64"\n", stat->prob_literals);
-  printf("lits in learned clauses : %"PRIu64"\n", stat->learned_literals);
-  printf("total lits. in learned  : %"PRIu64"\n", stat->literals_before_simpl);
-  printf("subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);
-  printf("deleted pb. clauses     : %"PRIu64"\n", stat->prob_clauses_deleted);
-  printf("deleted learned clauses : %"PRIu64"\n", stat->learned_clauses_deleted);
-  printf("deleted binary clauses  : %"PRIu64"\n", stat->bin_clauses_deleted);
+  fprintf(stderr, "starts                  : %"PRIu32"\n", stat->starts);
+  fprintf(stderr, "simplify db             : %"PRIu32"\n", stat->simplify_calls);
+  fprintf(stderr, "reduce db               : %"PRIu32"\n", stat->reduce_calls);
+  fprintf(stderr, "remove irrelevant       : %"PRIu32"\n", stat->remove_calls);
+  fprintf(stderr, "decisions               : %"PRIu64"\n", stat->decisions);
+  fprintf(stderr, "random decisions        : %"PRIu64"\n", stat->random_decisions);
+  fprintf(stderr, "propagations            : %"PRIu64"\n", stat->propagations);
+  fprintf(stderr, "conflicts               : %"PRIu64"\n", stat->conflicts);
+  fprintf(stderr, "lits in pb. clauses     : %"PRIu64"\n", stat->prob_literals);
+  fprintf(stderr, "lits in learned clauses : %"PRIu64"\n", stat->learned_literals);
+  fprintf(stderr, "total lits. in learned  : %"PRIu64"\n", stat->literals_before_simpl);
+  fprintf(stderr, "subsumed lits.          : %"PRIu64"\n", stat->subsumed_literals);
+  fprintf(stderr, "deleted pb. clauses     : %"PRIu64"\n", stat->prob_clauses_deleted);
+  fprintf(stderr, "deleted learned clauses : %"PRIu64"\n", stat->learned_clauses_deleted);
+  fprintf(stderr, "deleted binary clauses  : %"PRIu64"\n", stat->bin_clauses_deleted);
 }
 
 
-static void print_results() {
+static void print_results(void) {
   solver_stats_t *stat;
   int resu;
-  double mem_used, simplified_percent;
+  double mem_used;
 
   search_time = get_cpu_time() - construction_time;
   
   stat = &solver.stats;
   resu = solver.status;
 
-  show_stats(stat);
-  printf("Search time             : %.4f s\n", search_time);
-  mem_used = mem_size() / (1024 * 1024);
-  if (mem_used > 0) {
-    printf("Memory used             : %.2f MB\n", mem_used);
+  if (verbose) {
+    show_stats(stat);
+    fprintf(stderr, "Search time             : %.4f s\n", search_time);
+    mem_used = mem_size() / (1024 * 1024);
+    if (mem_used > 0) {
+      fprintf(stderr, "Memory used             : %.2f MB\n", mem_used);
+    }
+    fprintf(stderr, "\n\n");
   }
-  printf("\n\n");
 
   // Print result and statistics again, in format used by Leonardo's scripts
   if (resu == status_sat) {
@@ -300,23 +444,6 @@ static void print_results() {
   } else {
     printf("unknown\n");
   }
-
-  simplified_percent = 0.0;
-  if (stat->literals_before_simpl > 0) {
-    simplified_percent = (100.0 * stat->subsumed_literals) / stat->literals_before_simpl;
-  }
-  printf("STAT %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu32" %"PRIu64" %"PRIu64" %.2f %.2f %.2f\n",
-	 stat->decisions,
-	 stat->conflicts,
-	 stat->propagations,
-	 stat->starts - 1,
-	 stat->literals_before_simpl,
-	 stat->learned_literals,
-	 mem_used,
-	 (search_time + construction_time),
-	 simplified_percent);
-
-  fflush(stdout);
 }
 
 
@@ -336,9 +463,9 @@ void print_solver_size(FILE *f, sat_solver_t *sol) {
 
 }
 
-#if 0
+
 /*
- * Save solution if the problem is satisfiable.
+ * Print the solution if the problem is satisfiable.
  * DIMACS? format (same as minisat):
  * Print the list of true literals terminated by 0
  * 
@@ -347,47 +474,31 @@ void print_solver_size(FILE *f, sat_solver_t *sol) {
  *   if val[v] == -1 then print -(v + 1) (negative literal)
  *   if val[v] == 0 skip v
  *
- * Return code: -1 means error opening the file.
  */
-static int save_solution(char *filename) {
-  FILE *f;
-  int resu, v, val;
+static void print_model(void) {
+  int v, val;
 
-  f = fopen(filename, "w");
-  if (f == NULL) {
-    perror(filename);
-    return OPEN_ERROR;
-  }
-
-  resu = get_status(solver);
-  if (resu == SAT) {
-    fprintf(f, "SAT\n");    
+  if (solver_status(&solver) == status_sat) {
     for (v = 0; v<nvars; v++) {
-      val = get_variable_value(solver, v);
+      val = get_variable_assignment(&solver, v);
       if (val != 0) {
-	fprintf(f, "%d ", (val < 0) ? - (v + 1): (v + 1)); 
+	printf("%d ", (val < 0) ? - (v + 1): (v + 1)); 
       }
     }
-    fprintf(f, "0\n");
-  } else if (resu == UNSAT) {
-    fprintf(f, "UNSAT\n");
+    printf("0\n");
   }
-
-  fclose(f);
-
-  return 0;
 }
 
-#endif
+
 
 
 /*
  * Signal handler: call print_results
  */
 static void handler(int signum) {
-  printf("Interrupted by signal %d\n\n", signum);
+  fprintf(stderr, "Interrupted by signal %d\n\n", signum);
   print_results();
-  exit(1);
+  exit(YICES_EXIT_INTERRUPTED);
 }
 
 
@@ -395,7 +506,7 @@ static void handler(int signum) {
  * Set the signal handler: to print statistics on
  * SIGINT, SIGABRT, SIGXCPU
  */
-static void init_handler() {
+static void init_handler(void) {
   signal(SIGINT, handler);
   signal(SIGABRT, handler);
 #ifndef MINGW
@@ -409,32 +520,34 @@ static void init_handler() {
  ***************/
 
 int main(int argc, char* argv[]) {
-  char* input_file;
   int resu;
 
-  if (argc < 2 || argc > 3) {
-    fprintf(stderr, "Usage: %s <input file>\n", argv[0]);
-    fprintf(stderr, "    or %s <input file> <output file>\n", argv[0]);
-    exit(1);
-  }
+  parse_command_line(argc, argv);
 
   alloc_buffer(200);
-  input_file = argv[1];
-  resu = build_instance(input_file);
+  resu = build_instance(input_filename);
   delete_buffer();
-
-  if (resu < 0) {
-    exit(2);
+  
+  if (resu == OPEN_ERROR) {
+    return YICES_EXIT_FILE_NOT_FOUND;
+  } else if (resu == FORMAT_ERROR) {
+    return YICES_EXIT_SYNTAX_ERROR;
   } else {
-    printf("Problem: %s\n\n", basename(input_file));
-    construction_time = get_cpu_time();
-    printf("Construction time    : %.4f s\n", construction_time);
-    print_solver_size(stdout, &solver);
+    if (verbose) {
+      construction_time = get_cpu_time();
+      fprintf(stderr, "Construction time    : %.4f s\n", construction_time);
+      print_solver_size(stderr, &solver);
+    }
+
     init_handler();
-    (void) solve(&solver);
+    (void) solve(&solver, verbose);
     print_results();
+    if (model) {
+      print_model();
+    }
 
     delete_sat_solver(&solver);
-    exit(0);
-  }  
+
+    return YICES_EXIT_SUCCESS;
+  }
 }

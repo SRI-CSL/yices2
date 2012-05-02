@@ -47,9 +47,14 @@ dep := $(src_c:%.c=$(objdir)/%.d)
 static_dep := $(src_c:%.c=$(static_objdir)/%.d)
 
 # files to link against (we don't use Yices lib because of name clashes)
-yices_obj := $(objdir)/memalloc.o $(objdir)/int_vectors.o $(objdir)/int_array_sort.o $(objdir)/memsize.o
+yices_obj := $(objdir)/memalloc.o $(objdir)/int_vectors.o $(objdir)/int_array_sort.o \
+             $(objdir)/memsize.o $(objdir)/command_line.o $(objdir)/string_utils.o \
+             $(objdir)/yices_version.o 
+
 static_yices_obj := $(static_objdir)/memalloc.o $(static_objdir)/int_vectors.o \
-                    $(static_objdir)/int_array_sort.o $(static_objdir)/memsize.o
+                    $(static_objdir)/int_array_sort.o $(static_objdir)/memsize.o \
+                    $(static_objdir)/command_line.o $(static_objdir)/string_utils.o \
+                    $(static_objdir)/yices_version.o
 
 # binaries
 binaries := $(bindir)/sat_solver$(EXEEXT) $(bindir)/sat_solver2$(EXEEXT) \

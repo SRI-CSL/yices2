@@ -534,8 +534,9 @@ extern solver_status_t search(sat_solver_t *solver, uint32_t conflict_bound);
  * - initial conflict_bound = 100.
  * - initial del_threshold = number of clauses / 3.
  * - at every iteration, conflict_bound is increased by 50% and del_threshold by 10%
+ * - if verbose is true, print statistics on stderr during the search
  */
-extern solver_status_t solve(sat_solver_t *solver);
+extern solver_status_t solve(sat_solver_t *solver, bool verbose);
 
 
 /*

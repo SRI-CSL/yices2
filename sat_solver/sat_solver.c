@@ -2546,7 +2546,7 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
 /*
  * Solve procedure
  */
-solver_status_t solve(sat_solver_t *sol) {
+solver_status_t solve(sat_solver_t *sol, bool verbose) {
   int32_t code;
   bvar_t x;
   uint32_t c_threshold, d_threshold;
@@ -2600,18 +2600,19 @@ solver_status_t solve(sat_solver_t *sol) {
   }
 
 
-  printf("---------------------------------------------------------------------------------\n");
-  printf("|     Thresholds    |  Binary   |      Original     |          Learned          |\n");
-  printf("|   Conf.      Del. |  Clauses  |   Clauses   Lits. |   Clauses  Lits. Lits/Cl. |\n");
-  printf("---------------------------------------------------------------------------------\n");
-
-  printf("| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f |\n", 
-	 d_threshold, sol->reduce_threshold, sol->nb_bin_clauses,
-	 get_cv_size(sol->problem_clauses), sol->stats.prob_literals,
-	 get_cv_size(sol->learned_clauses), sol->stats.learned_literals,
-	 ((double) sol->stats.learned_literals)/get_cv_size(sol->learned_clauses));
-  fflush(stdout);
-
+  if (verbose) {
+    fprintf(stderr, "---------------------------------------------------------------------------------\n");
+    fprintf(stderr, "|     Thresholds    |  Binary   |      Original     |          Learned          |\n");
+    fprintf(stderr, "|   Conf.      Del. |  Clauses  |   Clauses   Lits. |   Clauses  Lits. Lits/Cl. |\n");
+    fprintf(stderr, "---------------------------------------------------------------------------------\n");
+    
+    fprintf(stderr, "| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f |\n", 
+	    d_threshold, sol->reduce_threshold, sol->nb_bin_clauses,
+	    get_cv_size(sol->problem_clauses), sol->stats.prob_literals,
+	    get_cv_size(sol->learned_clauses), sol->stats.learned_literals,
+	    ((double) sol->stats.learned_literals)/get_cv_size(sol->learned_clauses));
+    fflush(stderr);
+  }
 
   do {
 #if DEBUG
@@ -2627,13 +2628,14 @@ solver_status_t solve(sat_solver_t *sol) {
     if (c_threshold >= d_threshold) {
       c_threshold = INITIAL_RESTART_THRESHOLD;
       d_threshold = (uint32_t)(d_threshold * RESTART_FACTOR);
-      printf("| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f |\n", 
-	     d_threshold, sol->reduce_threshold, sol->nb_bin_clauses,
-	     get_cv_size(sol->problem_clauses), sol->stats.prob_literals,
-	     get_cv_size(sol->learned_clauses), sol->stats.learned_literals,
-	     ((double) sol->stats.learned_literals)/get_cv_size(sol->learned_clauses));
-      fflush(stdout);
-
+      if (verbose) {
+	fprintf(stderr, "| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f |\n", 
+		d_threshold, sol->reduce_threshold, sol->nb_bin_clauses,
+		get_cv_size(sol->problem_clauses), sol->stats.prob_literals,
+		get_cv_size(sol->learned_clauses), sol->stats.learned_literals,
+		((double) sol->stats.learned_literals)/get_cv_size(sol->learned_clauses));
+	fflush(stderr);
+      }
       if (d_threshold > MAX_DTHRESHOLD) {
 	d_threshold = MAX_DTHRESHOLD;
       }
@@ -2641,8 +2643,10 @@ solver_status_t solve(sat_solver_t *sol) {
  
   } while (code == status_unsolved);
 
-  printf("---------------------------------------------------------------------------------\n");
-  fflush(stdout);
+  if (verbose) {
+    fprintf(stderr, "---------------------------------------------------------------------------------\n");
+    fflush(stderr);
+  }
 
   return code;
 }
