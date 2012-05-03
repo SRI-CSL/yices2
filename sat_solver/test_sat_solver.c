@@ -19,35 +19,6 @@
 
 
 
-/**********************************************************
- *  Auxiliary function: get the basename of a file name   *
- *  (same as GNU version of basename)                     *
- *********************************************************/
-
-static char *basename(char *path) {
-  char * ptr;
-
-  // Check for empty path (should not happen)
-  ptr = path;
-  if (*ptr == '\0') return ptr;
-
-  // Normal case: go to the end of path
-  // then go back until separator '/' is found or ptr == path
-  do {
-    ptr ++;
-  } while (*ptr != '\0');
-
-  do {
-    ptr --;
-  } while (*ptr != '/' && ptr > path);
-
-  if (*ptr == '/') ptr ++;
-
-  return ptr;
-}
-
-
-
 
 /*******************
  * Solver variable *
@@ -470,19 +441,27 @@ void print_solver_size(FILE *f, sat_solver_t *sol) {
  * Print the list of true literals terminated by 0
  * 
  * For variable v = 0 to nvars - 1
- *   if val[v] == 1 then print +(v + 1) (positive literal)
- *   if val[v] == -1 then print -(v + 1) (negative literal)
- *   if val[v] == 0 skip v
+ *   if val[v] == true then print +(v + 1) (positive literal)
+ *   if val[v] == false then print -(v + 1) (negative literal)
+ *   if val[v] == undef skip v
  *
  */
 static void print_model(void) {
-  int v, val;
+  int v;
+  bval_t val;
 
   if (solver_status(&solver) == status_sat) {
     for (v = 0; v<nvars; v++) {
       val = get_variable_assignment(&solver, v);
-      if (val != 0) {
-	printf("%d ", (val < 0) ? - (v + 1): (v + 1)); 
+      switch (val) {
+      case val_false:
+	printf("%d ", - (v + 1)); 
+	break;
+      case val_true:
+	printf("%d ", (v + 1));
+	break;
+      case val_undef:
+	break;
       }
     }
     printf("0\n");

@@ -12,7 +12,7 @@
  * Three parsing functions.
  *
  * Each function takes an optional output file err as argument.
- * - if err is NON-NULL then it must be open/writeable and 
+ * - if err is non-NULL then it must be open/writable and 
  *   errors report are written to that file.
  * - if err is NULL then nothing is printed to report errors.
  *   Reports are converted to yices errors, stored in the global

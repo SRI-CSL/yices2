@@ -2453,6 +2453,7 @@ static void yices_term_defined_cmd(char *name, term_t t) {
  */
 int yices_main(int argc, char *argv[]) {
   int32_t code;
+  int exit_code;
 
   // Deal with command-line options
   process_command_line(argc, argv);
@@ -2516,8 +2517,10 @@ int yices_main(int argc, char *argv[]) {
    * Read-eval loop
    * - done is set to true when (exit) is called
    *   or on the first error if we're not in interactive mode
+   * - exit_code is set to SUCCESS by default and to SYNTAX_ERROR
    */
   done = false;
+  exit_code =  YICES_EXIT_SUCCESS;
   while (current_token(&lexer) != TK_EOS && !done) {
     if (interactive && include_depth == 0) {
       // prompt
@@ -2539,7 +2542,8 @@ int yices_main(int argc, char *argv[]) {
 	flush_lexer(&lexer);
       } else {
 	done = true;
-      }      
+	exit_code = YICES_EXIT_SYNTAX_ERROR;
+      }
     }    
   }
 
@@ -2561,6 +2565,6 @@ int yices_main(int argc, char *argv[]) {
     delete_timeout();
   }
 
-  return YICES_EXIT_SUCCESS;
+  return exit_code;
 }
 
