@@ -47,23 +47,25 @@ dep := $(src_c:%.c=$(objdir)/%.d)
 static_dep := $(src_c:%.c=$(static_objdir)/%.d)
 
 # files to link against (we don't use Yices lib because of name clashes)
-yices_obj := $(objdir)/memalloc.o $(objdir)/int_vectors.o $(objdir)/int_array_sort.o \
-             $(objdir)/memsize.o $(objdir)/command_line.o $(objdir)/string_utils.o \
-             $(objdir)/yices_version.o 
+yices_obj := $(objdir)/memalloc.o $(objdir)/int_vectors.o	\
+             $(objdir)/int_array_sort.o $(objdir)/memsize.o	\
+             $(objdir)/command_line.o $(objdir)/string_utils.o
 
-static_yices_obj := $(static_objdir)/memalloc.o $(static_objdir)/int_vectors.o \
-                    $(static_objdir)/int_array_sort.o $(static_objdir)/memsize.o \
-                    $(static_objdir)/command_line.o $(static_objdir)/string_utils.o \
-                    $(static_objdir)/yices_version.o
+static_yices_obj := $(static_objdir)/memalloc.o		\
+                    $(static_objdir)/int_vectors.o	\
+                    $(static_objdir)/int_array_sort.o	\
+                    $(static_objdir)/memsize.o		\
+                    $(static_objdir)/command_line.o	\
+                    $(static_objdir)/string_utils.o \
 
 # binaries
-binaries := $(bindir)/sat_solver$(EXEEXT) $(bindir)/sat_solver2$(EXEEXT) \
+binaries := $(bindir)/sat_solver1$(EXEEXT) $(bindir)/sat_solver2$(EXEEXT) \
             $(bindir)/sat_solver3$(EXEEXT) $(bindir)/sat_solver4$(EXEEXT) \
             $(bindir)/sat_solver5$(EXEEXT) $(bindir)/sat_solver6$(EXEEXT) \
             $(bindir)/sat_solver7$(EXEEXT) $(bindir)/sat_solver8$(EXEEXT) \
             $(bindir)/sat_solver9$(EXEEXT) $(bindir)/sat_solver10$(EXEEXT)
 
-static_binaries := $(static_bindir)/sat_solver$(EXEEXT) $(static_bindir)/sat_solver2$(EXEEXT) \
+static_binaries := $(static_bindir)/sat_solver1$(EXEEXT) $(static_bindir)/sat_solver2$(EXEEXT) \
             $(static_bindir)/sat_solver3$(EXEEXT) $(static_bindir)/sat_solver4$(EXEEXT) \
             $(static_bindir)/sat_solver5$(EXEEXT) $(static_bindir)/sat_solver6$(EXEEXT) \
             $(static_bindir)/sat_solver7$(EXEEXT) $(static_bindir)/sat_solver8$(EXEEXT) \
@@ -191,9 +193,9 @@ endif
 #
 bin: $(binaries)
 
-$(bindir)/sat_solver$(EXEEXT): $(yices_obj) $(objdir)/sat_solver.o $(objdir)/test_sat_solver.o
+$(bindir)/sat_solver1$(EXEEXT): $(yices_obj) $(objdir)/sat_solver1.o $(objdir)/test_sat_solver1.o
 	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ \
-           $(objdir)/sat_solver.o $(objdir)/test_sat_solver.o $(yices_obj)
+           $(objdir)/sat_solver1.o $(objdir)/test_sat_solver1.o $(yices_obj)
 
 $(bindir)/sat_solver2$(EXEEXT): $(yices_obj) $(objdir)/sat_solver2.o $(objdir)/test_sat_solver2.o
 	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ \
@@ -238,10 +240,10 @@ $(bindir)/sat_solver10$(EXEEXT): $(yices_obj) $(objdir)/sat_solver10.o $(objdir)
 #
 static-bin: $(static_binaries)
 
-$(static_bindir)/sat_solver$(EXEEXT): $(static_yices_obj) $(static_objdir)/sat_solver.o \
-	$(static_objdir)/test_sat_solver.o
+$(static_bindir)/sat_solver1$(EXEEXT): $(static_yices_obj) $(static_objdir)/sat_solver1.o \
+	$(static_objdir)/test_sat_solver1.o
 	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ \
-	  $(static_objdir)/sat_solver.o $(static_objdir)/test_sat_solver.o $(static_yices_obj) 
+	  $(static_objdir)/sat_solver1.o $(static_objdir)/test_sat_solver1.o $(static_yices_obj) 
 
 $(static_bindir)/sat_solver2$(EXEEXT): $(static_yices_obj) $(static_objdir)/sat_solver2.o \
 	$(static_objdir)/test_sat_solver2.o

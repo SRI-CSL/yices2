@@ -1,9 +1,5 @@
 /*
  * STAND-ALONE SAT SOLVER
- *
- * - This is the basis for the Yices full solver.
- * - Moved from main source directory on 2007/08/20 to avoid name
- *   clashes and other issues.
  */
 
 #ifndef __SAT_SOLVER_H
@@ -502,19 +498,20 @@ extern bvar_t sat_solver_new_var(sat_solver_t *solver);
  * - each clause is an array of literals (integers between 0 and 2nvars - 1)
  *   that does not contain twice the same literals or complementary literals
  */
-extern void add_empty_clause(sat_solver_t *solver);
-extern void add_unit_clause(sat_solver_t *solver, literal_t l);
-extern void add_binary_clause(sat_solver_t *solver, literal_t l0, literal_t l1);
-extern void add_ternary_clause(sat_solver_t *solver, literal_t l0, literal_t l1, literal_t l2);
+extern void sat_solver_add_empty_clause(sat_solver_t *solver);
+extern void sat_solver_add_unit_clause(sat_solver_t *solver, literal_t l);
+extern void sat_solver_add_binary_clause(sat_solver_t *solver, literal_t l0, literal_t l1);
+extern void sat_solver_add_ternary_clause(sat_solver_t *solver, literal_t l0, literal_t l1, 
+					  literal_t l2);
 
 // clause l[0] ... l[n-1]
-extern void add_clause(sat_solver_t *solver, uint32_t n, literal_t *l);
+extern void sat_solver_add_clause(sat_solver_t *solver, uint32_t n, literal_t *l);
 
 /*
  * Simplify then add a clause: remove duplicate literals, and already
  * assigned literals, and simplify
  */
-extern void simplify_and_add_clause(sat_solver_t *solver, uint32_t n, literal_t *l);
+extern void sat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, literal_t *l);
 
 
 

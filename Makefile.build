@@ -180,11 +180,11 @@ static-bin: build_subdirs version
 #
 # Sat solver(s)
 #
-sat: build_subdirs obj
+sat: build_subdirs obj static-obj
 	@ echo "=== Building sat solver(s) ==="
 	@ $(MAKE) -C $(satdir) BUILD=../$(build_dir) bin
 
-static-sat: build_subdirs static-obj
+static-sat: build_subdirs obj static-obj
 	@ echo "=== Building sat solver(s) ==="
 	@ $(MAKE) -C $(satdir) BUILD=../$(build_dir) static-bin
 

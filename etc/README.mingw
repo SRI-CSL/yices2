@@ -6,10 +6,11 @@ Yices is distributed free-of-charge for personal use under the terms
 of the Yices license (see LICENSE).
 
 
-This distribution includes two solvers
+This distribution includes three solvers
 
   bin/yices.exe       (for the Yices 2 language)
   bin/yices-smt.exe   (for SMT-LIB 1.2)
+  bin/yices-sat.exe   (sat solver, DIMACS format)
 
 and the Yices libraries and header files
 

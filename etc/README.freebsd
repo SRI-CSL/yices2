@@ -11,10 +11,11 @@ This release was built on FreeBSD 9.0
 Content
 -------
 
-This distribution includes two solvers
+This distribution includes three solvers
 
   bin/yices       (for the Yices 2 language)
   bin/yices-smt   (for SMT-LIB 1.2)
+  bin/yices-sat   (sat solver, DIMACS format)
 
 and the Yices libraries and header files
 
@@ -41,15 +42,15 @@ Recommended Library Installation
 The library can be installed in a standard location such as 
 /usr/local/lib as follows:
 
-1) copy libyices.so.2.0 into /usr/local/lib (may require administrative
-   privileges)
+1) copy libyices.so.2.0 into /usr/local/lib (may require 
+   administrative privileges)
 
    sudo cp libyices.so.2.0 /usr/local/lib
    sudo chmod 755 /usr/local/lib/libyices.so.2.0
 
 2) run ldconfig then add a symbolic link
 
-   sudo /sbin/ldconfig -n /usr/local/lib
+   sudo /sbin/ldconfig -m /usr/local/lib
    sudo ln -sf libyices.so.2.0 /usr/local/lib/libyices.so
 
 

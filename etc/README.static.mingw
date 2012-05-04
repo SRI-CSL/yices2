@@ -9,10 +9,11 @@ of the Yices license (see LICENSE).
 Content
 -------
 
-This distribution includes two solvers
+This distribution includes three solvers
 
   bin/yices.exe       (for the Yices 2 language)
   bin/yices-smt.exe   (for SMT-LIB 1.2)
+  bin/yices-sat.exe   (sat solver, DIMACS format)
 
 and the Yices libraries and header files
 
@@ -30,9 +31,6 @@ Examples and documentation are in the examples and doc directories.
 
 The binaries and library were linked statically against GMP version 5.0.4,
 copyright Free Software Foundation (see NOTICES).
-
-
-
 
 
 For more information, please visit http://yices.csl.sri.com.

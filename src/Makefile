@@ -110,16 +110,17 @@ src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c \
          rationals.c rational_hash_maps.c rb_bvsets.c                \
          rdl_floyd_warshall.c rdl_fw_printer.c reader.c              \
          refcount_int_arrays.c refcount_strings.c remap_table.c      \
-         renaming_context.c search_parameters.c simplex.c            \
-         simplex_printer.c simplex_prop_table.c small_bvsets.c       \
-         smt_core.c smt_core_exporter.c smt_core_printer.c           \
-         smt_lexer.c smt_logic_codes.c smt_parser.c smt2_lexer.c     \
-         smt2_parser.c string_buffers.c string_utils.c subst_cache.c \
-         subst_context.c symbol_tables.c terms.c term_manager.c      \
-         term_printer.c term_stack.c term_stack_error.c              \
-         term_substitution.c term_utils.c theory_explanations.c      \
-         timeout.c tuple_hash_map.c types.c type_macros.c            \
-         type_printer.c uint_rbtrees.c union_find.c use_vectors.c    \
+         renaming_context.c sat_solver.c search_parameters.c         \
+         simplex.c simplex_printer.c simplex_prop_table.c            \
+         small_bvsets.c smt_core.c smt_core_exporter.c               \
+         smt_core_printer.c smt_lexer.c smt_logic_codes.c            \
+         smt_parser.c smt2_lexer.c smt2_parser.c string_buffers.c    \
+         string_utils.c subst_cache.c subst_context.c                \
+         symbol_tables.c terms.c term_manager.c term_printer.c       \
+         term_stack.c term_stack_error.c term_substitution.c         \
+         term_utils.c theory_explanations.c timeout.c                \
+         tuple_hash_map.c types.c type_macros.c type_printer.c       \
+         uint_rbtrees.c union_find.c use_vectors.c                   \
          variable_renaming.c yices_api.c yices_error.c               \
          yices_lexer.c yices_pp.c yices_parser.c yices_reval.c
 
@@ -127,7 +128,7 @@ src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c \
 #
 # additional source files for the binaries
 #
-bin_src_c := yices_main.c yices_smtcomp.c yices_smt.c
+bin_src_c := yices_main.c yices_smtcomp.c yices_smt.c yices_sat.c
 
 #
 # Auto-generated version file
@@ -657,6 +658,8 @@ dist: bin lib
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices$(EXEEXT)
 	cp $(bindir)/yices_smtcomp$(EXEEXT) $(distdir)/bin/yices-smt$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt$(EXEEXT)
+	cp $(bindir)/yices_sat$(EXEEXT) $(distdir)/bin/yices-sat$(EXEEXT)
+	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-sat$(EXEEXT)
 	mkdir $(distdir)/lib
 	cp $(libdir)/* $(distdir)/lib
 	rm -f $(distdir)/lib/libyices.a
@@ -670,6 +673,8 @@ static-dist: static-bin static-lib
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices$(EXEEXT)
 	cp $(static_bindir)/yices_smtcomp$(EXEEXT) $(static_distdir)/bin/yices-smt$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt$(EXEEXT)
+	cp $(bindir)/yices_sat$(EXEEXT) $(distdir)/bin/yices-sat$(EXEEXT)
+	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-sat$(EXEEXT)
 	mkdir $(static_distdir)/lib
 	cp $(static_libdir)/* $(static_distdir)/lib
 	rm -f $(static_distdir)/lib/libyices.a

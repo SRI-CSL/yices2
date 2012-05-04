@@ -9,10 +9,11 @@ the terms of the Yices license (see LICENSE).
 Content
 -------
 
-This distribution includes two solvers
+This distribution includes three solvers
 
   bin/yices       (for the Yices 2 language)
   bin/yices-smt   (for SMT-LIB 1.2)
+  bin/yices-sat   (sat solver, DIMACS format)
 
 and the Yices library and header files
 

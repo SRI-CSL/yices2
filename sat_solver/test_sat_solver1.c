@@ -9,12 +9,11 @@
 #include <signal.h>
 #include <inttypes.h>
 
-#include "sat_solver.h"
+#include "./sat_solver1.h"
 #include "cputime.h"
 #include "memsize.h"
 #include "command_line.h"
 
-#include "yices.h"
 #include "yices_exit_codes.h"
 
 
@@ -260,14 +259,7 @@ static option_desc_t options[NUM_OPTIONS] = {
  * Version and help
  */
 static void print_version(FILE *f) {
-  fprintf(f, 
-          "Yices %s. Copyright SRI International.\n"
-	  "Build date: %s\n"
-	  "Platform: %s (%s)\n",
-	  yices_version,
-	  yices_build_date,
-	  yices_build_arch,
-	  yices_build_mode);
+  fprintf(f, "Yices sat solver (version 2.0). Copyright SRI International.\n");
   fflush(f);
 }
 

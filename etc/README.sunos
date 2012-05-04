@@ -1,15 +1,16 @@
 Yices SMT Solver, Copyright SRI International, 2012
 ===================================================
 
-This file is part of the Yices 2.0 binary distribution for 64bit/Linux
-platforms. Yices is distributed  free-of-charge for personal use under
-the terms of the Yices license (see LICENSE).
+This file is part of the Yices 2.0 binary distribution for Sparc
+Solaris 2.10. Yices is distributed free-of-charge for personal use
+under the terms of the Yices license (see LICENSE).
 
 
-This distribution includes two solvers
+This distribution includes three solvers
 
   bin/yices       (for the Yices 2 language)
   bin/yices-smt   (for SMT-LIB 1.2)
+  bin/yices-sat   (sat solver, DIMACS format)
 
 and the Yices libraries and header files
 

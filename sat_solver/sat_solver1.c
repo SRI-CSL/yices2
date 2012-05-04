@@ -24,7 +24,7 @@
 #include "int_array_sort.h"
 #include "prng.h"
 
-#include "./sat_solver.h"
+#include "./sat_solver1.h"
 #include "./parameters.h"
 
 #define DEBUG 0
