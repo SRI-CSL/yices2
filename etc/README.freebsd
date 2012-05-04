@@ -41,16 +41,16 @@ Recommended Library Installation
 The library can be installed in a standard location such as 
 /usr/local/lib as follows:
 
-1) copy libyices.so.2.0.0 into /usr/local/lib (may require administrative
+1) copy libyices.so.2.0 into /usr/local/lib (may require administrative
    privileges)
 
-   sudo cp libyices.so.2.0.0 /usr/local/lib
-   sudo chmod 755 /usr/local/lib/libyices.so.2.0.0
+   sudo cp libyices.so.2.0 /usr/local/lib
+   sudo chmod 755 /usr/local/lib/libyices.so.2.0
 
 2) run ldconfig then add a symbolic link
 
    sudo /sbin/ldconfig -n /usr/local/lib
-   sudo ln -sf libyices.so.2.0.0 /usr/local/lib/libyices.so
+   sudo ln -sf libyices.so.2.0 /usr/local/lib/libyices.so
 
 
 
