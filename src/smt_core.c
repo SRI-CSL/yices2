@@ -1826,7 +1826,8 @@ void decide_literal(smt_core_t *s, literal_t l) {
   uint32_t k;
   bvar_t v;
 
-  assert(s->status == STATUS_SEARCHING && s->value[l] == VAL_UNDEF);
+  assert((s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED) 
+	 && s->value[l] == VAL_UNDEF);
 
   s->stats.decisions ++;
 
@@ -3968,8 +3969,6 @@ static inline bool on_the_fly(smt_core_t *s) {
   assert((s->status == STATUS_IDLE && s->decision_level == s->base_level) || 
 	 (s->status == STATUS_SEARCHING && s->decision_level >= s->base_level) || 
 	 (s->status == STATUS_INTERRUPTED && s->decision_level >= s->base_level));
-  //  return s->decision_level > s->base_level;
-  //  return s->status == STATUS_SEARCHING;
   return s->status != STATUS_IDLE;
 }
 
@@ -5163,7 +5162,8 @@ void smt_clear_unsat(smt_core_t *s) {
  * be deleted when the solver backtracks to a lower decision level
  */
 void smt_checkpoint(smt_core_t *s) {
-  assert(s->status == STATUS_SEARCHING);
+  assert(s->status == STATUS_SEARCHING || 
+	 s->status == STATUS_INTERRUPTED);
   push_checkpoint(&s->checkpoints, s->decision_level, s->nvars);
   s->cp_flag = false;
 }
@@ -5661,24 +5661,27 @@ void smt_process(smt_core_t *s) {
  * - if the result is true then the whole thing is SAT/UNKNOWN
  */
 void smt_final_check(smt_core_t *s) {
-  assert(s->status == STATUS_SEARCHING);
-  switch (s->th_ctrl.final_check(s->th_solver)) {
-  case FCHECK_CONTINUE: 
-    /*
-     * deal with conflicts or lemmas if any.
-     * leave status as it is so that the search can proceeed
-     */
-    smt_process(s);
-    break;
-    /*
-     * Otherwise: update status to stop the search
-     */
-  case FCHECK_SAT:
-    s->status = STATUS_SAT;
-    break;
-  case FCHECK_UNKNOWN:
-    s->status = STATUS_UNKNOWN;
-    break;
+  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
+
+  if (s->status == STATUS_SEARCHING) {
+    switch (s->th_ctrl.final_check(s->th_solver)) {
+    case FCHECK_CONTINUE:
+      /*
+       * deal with conflicts or lemmas if any.
+       * leave status as it is so that the search can proceeed
+       */
+      smt_process(s);
+      break;
+      /*
+       * Otherwise: update status to stop the search
+       */
+    case FCHECK_SAT:
+      s->status = STATUS_SAT;
+      break;
+    case FCHECK_UNKNOWN:
+      s->status = STATUS_UNKNOWN;
+      break;
+    }
   }
 }
 

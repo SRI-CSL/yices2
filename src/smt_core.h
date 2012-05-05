@@ -1741,12 +1741,12 @@ extern void record_ternary_theory_conflict(smt_core_t *s, literal_t l1, literal_
  * Close the search: mark s as either SAT or UNKNOWN
  */
 static inline void end_search_sat(smt_core_t *s) {
-  assert(s->status == STATUS_SEARCHING);
+  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
   s->status = STATUS_SAT;
 }
 
 static inline void end_search_unknown(smt_core_t *s) {
-  assert(s->status == STATUS_SEARCHING);
+  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
   s->status = STATUS_UNKNOWN;
 }
 

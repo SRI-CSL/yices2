@@ -136,7 +136,8 @@ static void sat_search(smt_core_t *core, uint32_t conflict_bound, uint32_t reduc
   uint64_t max_conflicts;
   literal_t l;
 
-  assert(smt_status(core) == STATUS_SEARCHING);
+  assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == STATUS_INTERRUPTED);
+
   max_conflicts = num_conflicts(core) + conflict_bound;
 
   smt_process(core);
