@@ -101,6 +101,12 @@ CLAUSAL ENCODING
     (~a2 ~a2 ~c  x)
 
 
+   NOTE: we don't really need CMP. We can use the identity
+
+     (CMP a1 a2 c) = (majoriy a1 ~b1 c)
+
+   and use the truth-table and clauses for majority given below.
+
 
 7) Constraint x = (SCMP a1 a2 c)
 
