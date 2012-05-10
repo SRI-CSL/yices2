@@ -1194,28 +1194,6 @@ void bit_blaster_mux(bit_blaster_t *s, literal_t c, literal_t a, literal_t b, li
 
 
 
-/*
- * Constraint: x = (cmp a b c)
- */
-void bit_blaster_cmp(bit_blaster_t *s, literal_t a, literal_t b, literal_t c, literal_t x) {
-  cbuffer_t *buffer;
-
-  buffer = &s->buffer;
-  assert(buffer->nclauses == 0);
-
-  push_ternary_clause(s, buffer, a, not(b), not(x));
-  push_ternary_clause(s, buffer, not(a), b, x);
-  push_quad_clause(s, buffer, a, b, c, not(x));
-  push_quad_clause(s, buffer, a, b, not(c), x);
-  push_quad_clause(s, buffer, not(a), not(b), c, not(x));
-  push_quad_clause(s, buffer, not(a), not(b), not(c), x);
-
-  if (cbuffer_nvars(buffer) != 4) {
-    cbuffer_simplify(buffer);
-  }
-  commit_buffer(s, buffer);
-}
-
 
 /*
  * Constraint: x = (majority a b c)
@@ -1239,6 +1217,32 @@ void bit_blaster_maj3(bit_blaster_t *s, literal_t a, literal_t b, literal_t c, l
   commit_buffer(s, buffer);
 }
 
+
+/*
+ * Constraint: x = (cmp a b c)
+ */
+void bit_blaster_cmp(bit_blaster_t *s, literal_t a, literal_t b, literal_t c, literal_t x) {
+#if 0
+  cbuffer_t *buffer;
+
+  buffer = &s->buffer;
+  assert(buffer->nclauses == 0);
+
+  push_ternary_clause(s, buffer, a, not(b), not(x));
+  push_ternary_clause(s, buffer, not(a), b, x);
+  push_quad_clause(s, buffer, a, b, c, not(x));
+  push_quad_clause(s, buffer, a, b, not(c), x);
+  push_quad_clause(s, buffer, not(a), not(b), c, not(x));
+  push_quad_clause(s, buffer, not(a), not(b), not(c), x);
+
+  if (cbuffer_nvars(buffer) != 4) {
+    cbuffer_simplify(buffer);
+  }
+  commit_buffer(s, buffer);
+#endif
+  // use equivalence (cmp a b c) = (majority a (not b) c)
+  bit_blaster_maj3(s, a, not(b), c, x);
+}
 
 
 
@@ -1550,29 +1554,6 @@ literal_t bit_blaster_eval_gt(bit_blaster_t *s, literal_t a, literal_t b) {
 
 
 /*
- * (cmp a b c) i.e., ((a > b) or (a = b and c))
- */
-literal_t bit_blaster_eval_cmp(bit_blaster_t *s, literal_t a, literal_t b, literal_t c) {
-  a = eval_literal(s, a);
-  b = eval_literal(s, b);
-  c = eval_literal(s, c);
-
-  if (a == b)      return c;
-  if (a == not(b)) return a;
-
-  if (a == c)      return a;
-  if (a == not(c)) return not(b);
-  if (b == c)      return a;
-  if (b == not(c)) return c;
-
-  // at least two of the literals are non-constant
-  // no other simplification
-
-  return null_literal;
-}
-
-
-/*
  * (majority a b c)
  */
 literal_t bit_blaster_eval_maj3(bit_blaster_t *s, literal_t a, literal_t b, literal_t c) {
@@ -1589,6 +1570,34 @@ literal_t bit_blaster_eval_maj3(bit_blaster_t *s, literal_t a, literal_t b, lite
 
   return null_literal;
 }
+
+
+/*
+ * (cmp a b c) i.e., ((a > b) or (a = b and c))
+ */
+literal_t bit_blaster_eval_cmp(bit_blaster_t *s, literal_t a, literal_t b, literal_t c) {
+#if 0
+  a = eval_literal(s, a);
+  b = eval_literal(s, b);
+  c = eval_literal(s, c);
+
+  if (a == b)      return c;
+  if (a == not(b)) return a;
+
+  if (a == c)      return a;
+  if (a == not(c)) return not(b);
+  if (b == c)      return a;
+  if (b == not(c)) return c;
+
+  // at least two of the literals are non-constant
+  // no other simplification
+
+  return null_literal;
+#endif
+  // (cmp a b c) = (majority a (not b) c)
+  return bit_blaster_eval_maj3(s, a, not(b), c);
+}
+
 
 
 /*
