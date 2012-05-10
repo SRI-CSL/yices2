@@ -329,6 +329,7 @@ static inline literal_t make_cmp(bool_vartable_t *table, literal_t l1, literal_t
  * Large arity OR/AND/XOR gates
  * - n = arity
  * - a[0 ... n-1] = arguments
+ * Warning: a may be modified
  */
 extern literal_t make_or(bool_vartable_t *table, uint32_t n, literal_t *a);
 extern literal_t make_and(bool_vartable_t *table, uint32_t n, literal_t *a);

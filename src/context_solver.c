@@ -17,25 +17,6 @@
 #include "prng.h"
 
 
-/*
- * COMPILE-TIME FLAG for deleting learned clauses
- * if USE_REDUCE is non-zero, then reduce_clause_database is used
- * if USE_REDUCE is zero, remove_irrelevant_learned_clauses is used
- */
-#define USE_REDUCE  1
-
-/*
- * Externalize USE_REDUCE flag 
- */
-#if USE_REDUCE
-const char * const reduce_compile_option = "reduce";
-#else
-const char * const reduce_compile_option = "remove";
-#endif
-
-
-
-
 
 /*
  * MAIN SEARCH FUNCTIONS
@@ -61,16 +42,10 @@ static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_t
   smt_process(core);
   while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
     // reduce heuristic
-#if USE_REDUCE
     if (num_learned_clauses(core) >= r_threshold) {
       reduce_clause_database(core);
       r_threshold = (uint32_t) (r_threshold * r_factor);
     }
-#else
-    if (num_conflicts(core) > 0 && num_conflicts(core) % 5000 == 0) {
-      remove_irrelevant_learned_clauses(core);
-    }
-#endif
 
     // decision
     l = select_unassigned_literal(core);
@@ -114,17 +89,11 @@ static void special_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *
 
   smt_process(core);
   while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
-#if USE_REDUCE
     // reduce heuristic
     if (num_learned_clauses(core) >= r_threshold) {
       reduce_clause_database(core);
       r_threshold = (uint32_t) (r_threshold * r_factor);
     }
-#else
-    if (num_conflicts(core) % 5000 == 4999) {
-      remove_irrelevant_learned_clauses(core);
-    }
-#endif
 
     // decision
     l = select_unassigned_literal(core);

@@ -40,17 +40,6 @@ static void check_watched_literals(smt_core_t *s, uint32_t n, literal_t *a);
 
 
 
-/***********************************
- * Externalize USE_END_WATCH flag  *
- **********************************/
-
-#if USE_END_WATCH
-const char * const smt_compile_option = "end_watch";
-#else
-const char * const smt_compile_option = "no end_watch";
-#endif
-
-
 
 /********************************
  * CLAUSES AND LEARNED CLAUSES  *
@@ -1375,9 +1364,6 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   s->value[-1] = VAL_UNDEF; // end_clause marker
   s->bin = (literal_t **) safe_malloc(lsize * sizeof(literal_t *));
   s->watch = (link_t *) safe_malloc(lsize * sizeof(link_t));
-#if USE_END_WATCH
-  s->end_watch = (link_t **) safe_malloc(lsize * sizeof(link_t *));
-#endif
 
   /*
    * Initialize data structures for true_literal and false_literal
@@ -1391,10 +1377,6 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   s->bin[false_literal] = NULL;
   s->watch[true_literal] = NULL_LINK;
   s->watch[false_literal] = NULL_LINK;
-#if USE_END_WATCH
-  s->end_watch[true_literal] = &s->watch[true_literal];
-  s->end_watch[false_literal] = &s->watch[false_literal];
-#endif
 
   init_stack(&s->stack, n);
   init_heap(&s->heap, n);  
@@ -1449,9 +1431,6 @@ void delete_smt_core(smt_core_t *s) {
   }
   safe_free(s->bin);
   safe_free(s->watch);
-#if USE_END_WATCH
-  safe_free(s->end_watch);
-#endif
 
   delete_stack(&s->stack);
   delete_heap(&s->heap);
@@ -1534,23 +1513,6 @@ void reset_smt_core(smt_core_t *s) {
 }
 
 
-#if USE_END_WATCH
-
-/*
- * Reset the end_watch pointers of the empty lists after reallocation
- */
-static void reset_end_watch(smt_core_t *s) {
-  uint32_t i, n;
-
-  n = s->nlits;
-  for (i=0; i<n; i++) {
-    if (s->watch[i] == NULL_LINK) {
-      s->end_watch[i] = &s->watch[i];
-    }
-  }
-}
-
-#endif
 
 /*
  * Extend solver: make room for more variables
@@ -1577,10 +1539,6 @@ static void extend_smt_core(smt_core_t *s, uint32_t n) {
   s->value = (uint8_t *) safe_realloc(s->value - 2, (lsize + 2) * sizeof(uint8_t)) + 2;
   s->bin = (literal_t **) safe_realloc(s->bin, lsize * sizeof(literal_t *));
   s->watch = (link_t *) safe_realloc(s->watch, lsize * sizeof(link_t));
-#if USE_END_WATCH
-  s->end_watch = (link_t **) safe_realloc(s->end_watch, lsize * sizeof(link_t *));
-  reset_end_watch(s);
-#endif
 
   extend_heap(&s->heap, n);
   extend_stack(&s->stack, n);
@@ -1657,12 +1615,7 @@ static void init_variable(smt_core_t *s, bvar_t x) {
   s->bin[l0] = NULL;
   s->bin[l1] = NULL;
   s->watch[l0] = NULL_LINK;
-  s->watch[l1] = NULL_LINK;
-#if USE_END_WATCH
-  s->end_watch[l0] = &s->watch[l0];
-  s->end_watch[l1] = &s->watch[l1];
-#endif
-  
+  s->watch[l1] = NULL_LINK;  
 }
 
 /*
@@ -2096,27 +2049,6 @@ bvar_t select_random_bvar(smt_core_t *s) {
 
 
 
-#if 0
-
-// Not needed?
-/*
- * Reset heap and reinsert all variables that are not assigned
- */
-static void init_variable_order(smt_core_t *s) {
-  uint32_t x;
-
-  reset_heap(&s->heap);
-  for (x=0; x<s->nvars; x++) {
-    if (s->value[pos_lit(x)] == VAL_UNDEF) {
-      heap_insert(&s->heap, x);
-    }
-  }
-}
-
-#endif
-
-
-
 /*
  * Increase activity of variable x
  */
@@ -2427,7 +2359,6 @@ static inline bool propagation_via_bin_vector(smt_core_t *s, uint8_t *val, liter
 }
 
 
-#if 1
 
 /*
  * Propagation via the watched lists of a literal l0.
@@ -2489,14 +2420,7 @@ static inline bool propagation_via_watched_list(smt_core_t *s, uint8_t *val, lit
 
 	// insert cl in watch[l] list and move to the next clause
 	link = cl->link[i];
-#if USE_END_WATCH
-	cl->link[i] = NULL_LINK;
-	*s->end_watch[l] = mk_link(cl, i);
-	s->end_watch[l] = &cl->link[i];
-#else
 	s->watch[l] = cons(i, cl, s->watch[l]);
-#endif
-
       } else {
 	/*
 	 * All literals of cl, except possibly l1, are false
@@ -2521,117 +2445,11 @@ static inline bool propagation_via_watched_list(smt_core_t *s, uint8_t *val, lit
   }
 
   *list = NULL_LINK;
-#if USE_END_WATCH
-  s->end_watch[l0] = list;
-#endif
 
   return true;
 }
 
-#else
 
-/*
- * VARIANT IMPLEMENTATION: DON'T LOOK AT OTHER WATCH LITERAL IMMEDIATELY
- *
- * Propagation via the watched lists of a literal l0.
- * - val = literal value array (must be s->value)
- *
- * Return true if there's no conflict, false otherwise
- */
-static inline bool propagation_via_watched_list(smt_core_t *s, uint8_t *val, literal_t l0) {
-  clause_t *cl;
-  link_t *list;
-  link_t link;
-  bval_t v1;
-  uint32_t k, i;
-  literal_t l1, l, *b;
-
-  assert(s->value == val);
-
-  list = &s->watch[l0];
-  link = *list;
-  while (link != NULL_LINK) {
-    cl = clause_of(link);
-    i = idx_of(link);
-
-    assert(next_of(link) == cl->link[i]);
-    assert(cdr_ptr(link) == cl->link + i);
-
-    /*
-     * Search for a new watched literal in cl.
-     * The loop terminates since cl->cl terminates with an end marked 
-     * and val[end_marker] == VAL_UNDEF.
-     */
-    k = 1;
-    b = cl->cl;
-    do {
-      k ++;
-      l = b[k];
-    } while (val[l] == VAL_FALSE);
-      
-    if (l >= 0) {
-      /*
-       * l occurs in b[k] = cl->cl[k] and is either TRUE or UNDEF
-       * make l a new watched literal
-       * - swap b[i] and b[k]
-       * - insert cl into l's watched list (link[i])
-       */
-      b[k] = b[i];
-      b[i] = l;
-
-      // insert cl in watch[l] list and move to the next clause
-      link = cl->link[i];
-#if USE_END_WATCH
-      cl->link[i] = NULL_LINK;
-      *s->end_watch[l] = mk_link(cl, i);
-      s->end_watch[l] = &cl->link[i];
-#else
-      s->watch[l] = cons(i, cl, s->watch[l]);
-#endif
-
-    } else {
-
-      l1 = get_other_watch(cl, i);
-      v1 = val[l1];
-
-      /*
-       * All literals of cl, except possibly l1, are false
-       */
-      switch (v1) {
-      case VAL_UNDEF:
-	// l1 is implied
-	implied_literal(s, l1, mk_clause_antecedent(cl, i^1));
-	// fall-through intended
-
-      case VAL_TRUE:
-	// move to the next clause
-	*list = link;
-	list = cl->link + i;
-	link = cl->link[i];
-	break;
-
-      case VAL_FALSE:
-	// v1 == VAL_FALSE: conflict found
-	record_clause_conflict(s, cl);
-	*list = link;
-	return false;
-      }
-    }
-  }
-
-  *list = NULL_LINK;
-#if USE_END_WATCH
-  s->end_watch[l0] = list;
-#endif
-
-  return true;
-}
-
-#endif
-
-
-
-#if 1
 
 /*
  * Full boolean propagation: until either the propagation queue is empty,
@@ -2670,51 +2488,6 @@ static bool boolean_propagation(smt_core_t *s) {
   return true;
 }
 
-#else
-
-/*
- * Variant: do propagation via only the binary vectors before a 
- * full propagation via the watched lists.
- */
-static bool boolean_propagation(smt_core_t *s) {
-  uint8_t *val;
-  literal_t *queue;
-  literal_t l, *bin;
-  uint32_t i, j;
-
-  val = s->value;
-  queue = s->stack.lit;
-
-  i = s->stack.prop_ptr;
-  j = i;
-  for (;;) {
-    if (i < s->stack.top) {
-      l = not(queue[i]);
-      i ++;
-      bin = s->bin[l];
-      if (bin != NULL && ! propagation_via_bin_vector(s, val, l, bin)) {
-	return false;
-      }
-    } else if (j < s->stack.top) {
-      l = not(queue[j]);
-      j ++;
-      if (! propagation_via_watched_list(s, val, l)) {
-	return false;
-      }
-    } else {
-      break;
-    }
-  }
-  s->stack.prop_ptr = i;
-
-#if DEBUG
-  check_propagation(s);
-#endif
-
-  return true;
-}
-
-#endif
 
 
 /**************************************
@@ -2951,21 +2724,9 @@ static void add_learned_clause(smt_core_t *s, uint32_t n, literal_t *a) {
     add_clause_to_vector(&s->learned_clauses, cl);
     increase_clause_activity(s, cl);
 
-#if USE_END_WATCH
-    // add cl at the end of the watch lists of l0 and l1
-    cl->link[0] = NULL_LINK;
-    cl->link[1] = NULL_LINK;
-
-    *s->end_watch[l0] = mk_link(cl, 0);
-    s->end_watch[l0] = &cl->link[0];
-
-    *s->end_watch[l1] = mk_link(cl, 1);
-    s->end_watch[l1] = &cl->link[1];
-#else
     // add cl at the start of watch[l0] and watch[l1]
     s->watch[l0] = cons(0, cl, s->watch[l0]);
     s->watch[l1] = cons(1, cl, s->watch[l1]);
-#endif
 
     s->nb_clauses ++;
     s->stats.learned_literals += n;
@@ -3054,21 +2815,9 @@ static bool try_cache_theory_clause(smt_core_t *s, uint32_t n, literal_t *a) {
     add_clause_to_vector(&s->learned_clauses, cl);
     increase_clause_activity(s, cl);
 
-#if USE_END_WATCH
-    // add cl at the end of the watch lists of l0 and l1
-    cl->link[0] = NULL_LINK;
-    cl->link[1] = NULL_LINK;
-
-    *s->end_watch[l0] = mk_link(cl, 0);
-    s->end_watch[l0] = &cl->link[0];
-
-    *s->end_watch[l1] = mk_link(cl, 1);
-    s->end_watch[l1] = &cl->link[1];
-#else
     // insert cl at the head of watch[l0] and watch[l1]
     s->watch[l0] = cons(0, cl, s->watch[l0]);
     s->watch[l1] = cons(1, cl, s->watch[l1]);
-#endif
 
     s->nb_clauses ++;
     s->stats.learned_literals += n;
@@ -3690,27 +3439,12 @@ static clause_t *new_problem_clause(smt_core_t *s, uint32_t n, literal_t *a) {
   cl = new_clause(n, a);
   add_clause_to_vector(&s->problem_clauses, cl);
 
-#if USE_END_WATCH
-  // add cl at the end of watch lists
-  cl->link[0] = NULL_LINK;
-  cl->link[1] = NULL_LINK;
-
-  l = a[0];
-  *s->end_watch[l] = mk_link(cl, 0);
-  s->end_watch[l] = &cl->link[0];
-
-  l = a[1];
-  *s->end_watch[l] = mk_link(cl, 1);
-  s->end_watch[l] = &cl->link[1];
-
-#else
   // add cl at the start of watch lists
   l = a[0];
   s->watch[l] = cons(0, cl, s->watch[l]);
 
   l = a[1];
   s->watch[l] = cons(1, cl, s->watch[l]);
-#endif
 
   s->nb_prob_clauses ++;
   s->nb_clauses ++;
@@ -4304,9 +4038,6 @@ static inline void cleanup_watch_list(smt_core_t *s, literal_t l0) {
   }
 
   *list = NULL_LINK; // end of list
-#if USE_END_WATCH
-  s->end_watch[l0] = list;
-#endif
 }
 
 
@@ -4891,9 +4622,6 @@ static void reset_watch_lists(smt_core_t *s) {
   n = s->nlits;
   for (i=0; i<n; i++) {
     s->watch[i] = NULL_LINK;
-#if USE_END_WATCH
-    s->end_watch[i] = &s->watch[i];
-#endif
   }
 }
 
@@ -4944,26 +4672,12 @@ static void restore_clauses(smt_core_t *s, uint32_t n) {
     }
     nlits += clause_length(cl);
 
-#if USE_END_WATCH
-    // add cl at the end of the watch lists
-    cl->link[0] = NULL_LINK;
-    cl->link[1] = NULL_LINK;
-
-    l = cl->cl[0];
-    *s->end_watch[l] = mk_link(cl, 0);
-    s->end_watch[l] = &cl->link[0];
-
-    l = cl->cl[1];
-    *s->end_watch[l] = mk_link(cl, 1);
-    s->end_watch[l] = &cl->link[1];
-#else
     // add cl at the start of its watch lists
     l = cl->cl[0];
     s->watch[l] = cons(0, cl, s->watch[l]);
 
     l = cl->cl[1];
     s->watch[l] = cons(1, cl, s->watch[l]);
-#endif
   }
 
 
@@ -5831,28 +5545,6 @@ void collect_decision_literals(smt_core_t *s, ivector_t *v) {
 
 #if DEBUG
 
-#if 0
-// NOT USED
-/*
- * Check whether all variables in the heap have activity <= x
- */
-static void check_top_var(smt_core_t *s, bvar_t x) {
-  uint32_t i, n;
-  bvar_t y;
-  var_heap_t *heap;
-  
-  heap = &s->heap;
-  n = heap->heap_last;
-  for (i=1; i<n; i++) {
-    y = heap->heap[i];
-    if (s->value[y] == VAL_UNDEF && heap->activity[y] > heap->activity[x]) {
-      printf("ERROR: incorrect heap\n");
-      fflush(stdout);
-    }
-  }
-}
-#endif
-
 /*
  * Check that all unassigned variables are in the heap
  */
@@ -5905,35 +5597,6 @@ static void check_heap(smt_core_t *s) {
   }
 }
 
-
-#if 0
-// NOT USED
-/*
- * Check literal vector
- */
-static void check_literal_vector(literal_t *v) {
-  uint32_t i, n;
-
-  if (v != NULL) {
-    n = get_lv_size(v);
-    i = get_lv_capacity(v);
-    if (n > i - 1) {
-      printf("ERROR: overflow in literal vector %p: size = %"PRIu32", capacity = %"PRIu32"\n",
-	     v, n, i);
-    } else {
-      for (i=0; i<n; i++) {
-	if (v[i] < 0) {
-	  printf("ERROR: negative literal %"PRId32" in vector %p at index %"PRIu32" (size = %"PRIu32")\n", 
-		 v[i], v, i, n);
-	}	
-      }
-      if (v[i] != null_literal) {
-	printf("ERROR: missing terminator in vector %p (size = %"PRIu32")\n", v, n);
-      }
-    }
-  }
-}
-#endif
 
 
 /*

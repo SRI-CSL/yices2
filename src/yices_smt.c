@@ -49,16 +49,8 @@
 
 
 /*
- * Compile-time options:
- * - smt_compile_option: defined in smt_core.c
- * - reduce_compile_option: defined in context_solver.c
- * - simplex_prop_level: defined in simplex_propagator1.h
- * - yices_svn_url, yices_svn_rev: set up at compile time in yices_version.c
+ * yices_svn_url, yices_svn_rev are set up at compile time in yices_version.c
  */
-extern const char * const smt_compile_option;
-extern const char * const reduce_compile_option;
-extern const char * const simplex_prop_level;
-
 #ifndef NDEBUG
 extern const char * const yices_svn_url;
 extern const char * const yices_svn_rev;
@@ -344,12 +336,9 @@ static void print_version(void) {
   printf("Yices %s. Copyright SRI International.\n"
 	 "GMP %s. Copyright Free Software Foundation, Inc.\n"
 	 "Build date: %s\n"
-	 "Platform: %s (%s)\n"
-	 "Core options: %s, %s\n"
-	 "Simplex options: %s\n", 
+	 "Platform: %s (%s)\n",
 	 yices_version, gmp_version, yices_build_date,
-	 yices_build_arch, yices_build_mode,
-	 smt_compile_option, reduce_compile_option, simplex_prop_level);
+	 yices_build_arch, yices_build_mode);
   fflush(stdout);
 }
 

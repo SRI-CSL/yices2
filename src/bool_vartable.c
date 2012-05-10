@@ -6,6 +6,7 @@
 
 #include "memalloc.h"
 #include "hash_functions.h"
+#include "int_array_sort.h"
 #include "bool_vartable.h"
 
 
@@ -409,6 +410,7 @@ static orgate_hobj_t orgate_hobj = {
 };
 
 
+
 /*
  * Hash-consing constructors
  */
@@ -423,4 +425,214 @@ bvar_t get_bor(bool_vartable_t *table, uint32_t n, literal_t *a) {
   orgate_hobj.n = n;
   orgate_hobj.a = a;
   return int_htbl_get_obj(&table->htbl, &orgate_hobj.m);
+}
+
+
+
+/*
+ * Direct constructor for or gates
+ * - no attempt to simplify
+ */
+static bvar_t direct_or2_gate(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  bgate_t g;
+  uint8_t m1, m2;
+
+  assert(false_literal < l1 && l1 < l2 && l1 != not(l2));
+
+  m1 = 0x0F;
+  if (is_neg(l1)) m1 = 0xF0;
+  m2 = 0x33;
+  if (is_neg(l2)) m2 = 0xCC;
+  
+  g.ttbl = (m1 | m2);
+  g.var[0] = var_of(l1);
+  g.var[1] = var_of(l2);
+  g.var[2] = null_bvar;
+
+  return get_bgate(table, &g);
+}
+
+static bvar_t direct_or3_gate(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
+  bgate_t g;
+  uint8_t m1, m2, m3;
+
+  assert(false_literal < l1 && l1 < l2 && l2 < l3 && l1 != not(l2) && l2 != not(l3));
+
+  m1 = 0x0F;
+  if (is_neg(l1)) m1 = 0xF0;
+  m2 = 0x33;
+  if (is_neg(l2)) m2 = 0xCC;
+  m3 = 0x55;
+  if (is_neg(l3)) m3 = 0xAA;
+
+  g.ttbl = (m1 | m2 | m3);
+  g.var[0] = var_of(l1);
+  g.var[1] = var_of(l2);
+  g.var[2] = var_of(l3);
+
+  return get_bgate(table, &g);
+}
+
+
+
+/*
+ * Same thing for binary xor
+ */
+static bvar_t direct_xor2_gate(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  bgate_t g;
+
+  assert(is_pos(l1) && is_pos(l2) && l1 < l2 && false_literal < l1);
+  
+  g.ttbl = 0x3C;
+  g.var[0] = var_of(l1);
+  g.var[1] = var_of(l2);
+  g.var[2] = null_bvar;
+
+  return get_bgate(table, &g);  
+}
+
+
+
+/*
+ * Simplify and normalize (or a[0] ... a[n-1]) then build the gate
+ * - assume that none of a[0] ... a[n-1] is true or false
+ */
+static bvar_t make_or_aux(bool_vartable_t *table, uint32_t n, literal_t *a) {
+  literal_t aux, l;
+  uint32_t i, p;
+
+  if (n == 0) return false_literal;
+
+  /*
+   * Sort, remove duplicates, check for complementary literals
+   */
+  int_array_sort(a, n);
+  l = a[0];
+  p = 1;
+  for (i=1; i<n; i++) {
+    aux = a[i];
+    if (aux != l) {
+      if (aux == not(l)) return true_literal;
+      a[p] = aux;
+      l = aux;
+      p ++;
+    }
+  }
+
+  // result: a[0 ... p-1]
+  switch (p) {
+  case 1:  return a[0];
+  case 2:  return direct_or2_gate(table, a[0], a[1]);
+  case 3:  return direct_or3_gate(table, a[0], a[1], a[2]);
+  default: return get_bor(table, p, a);
+  }
+}
+
+
+/*
+ * Exported constructors for OR and AND
+ */
+literal_t make_or(bool_vartable_t *table, uint32_t n, literal_t *a) {
+  literal_t l;
+  uint32_t i, p;
+
+  p = 0;
+  for (i=0; i<n; i++) {
+    l = a[i];
+    if (l == true_literal) return true_literal;
+    if (l != false_literal) {
+      a[p] = l;
+      p ++;
+    }
+  }
+
+  return pos_lit(make_or_aux(table, p, a));
+}
+
+literal_t make_and(bool_vartable_t *table, uint32_t n, literal_t *a) {
+  literal_t l;
+  uint32_t i, p;
+
+  p = 0;
+  for (i=0; i<n; i++) {
+    l = a[i];
+    if (l == false_literal) return false_literal;
+    if (l != true_literal) {
+      a[p] = not(l);
+      p ++;
+    }
+  }
+
+  return neg_lit(make_or_aux(table, p, a));
+}
+
+
+
+
+/*
+ * N-ary XOR contructor
+ */
+literal_t make_xor(bool_vartable_t *table, uint32_t n, literal_t *a) {
+  literal_t l;
+  uint32_t i, p, sign;
+
+  /*
+   * First pass: remove the true and false literals from a.
+   * Convert all literals to positive polarity
+   * Flip sign every time we flip a literal polarity
+   */
+  sign = 0;
+  p = 0;
+  for (i=0; i<n; i++) {
+    l = a[i];
+    if (l == true_literal) {
+      sign ^= 1; // flip sign
+    } else if (l != false_literal) {
+      sign ^= sign_of_lit(l);      // flip sign if l is negative
+      a[p] = unsigned_literal(l);  // convert l to not(l) if l is negative
+      p ++;
+    }
+  }
+  n = p;
+
+
+  /*
+   * Second pass: sort then apply the rule (xor x x) = 0
+   */
+  if (n >= 2) {
+    int_array_sort(a, n);
+    p = 0;
+    i = 0;
+    while (i<n-1) {
+      l = a[i];
+      if (l == a[i+1]) {
+	i += 2;
+      } else {
+	a[p] = l;
+	p ++;
+	i ++;
+      }
+    }
+    assert(i == n-1 || i == n);
+    if (i < n) {
+      a[p] = a[i];
+      p ++;
+    }
+    n = p;
+  }
+
+
+  /*
+   * Result:  (xor a[0] ... a[n-1]) if sign is 0
+   *      or (not (xor a[0] ... a[n-1])) if sign is 1
+   */
+  l = false_literal;
+  if (n > 0) {
+    l = a[0];
+    for (i=1; i<n; i++) {
+      l = direct_xor2_gate(table, l, a[i]);
+    }
+  }
+
+  return l ^ sign;
 }

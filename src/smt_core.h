@@ -38,14 +38,6 @@
 #include "int_vectors.h"
 #include "yices_types.h"
 
-/*
- * PROVISIONAL: set USE_END_WATCH to 1 to support end_watch pointers
- * - the effect is to add clauses (learned clauses etc.) at the
- *   end of the watch literal's watch list
- * - if USE_END_WATCH is 0, the clauses are added at the start of the 
- *   watch lists
- */
-#define USE_END_WATCH 0
 
 
 
@@ -107,12 +99,55 @@ static inline literal_t mk_lit(bvar_t x, uint32_t sign) {
 
 
 /*
+ * Extract variable and sign
+ */
+static inline bvar_t var_of(literal_t l) {
+  return l>>1;
+}
+
+static inline uint32_t sign_of_lit(literal_t l) {
+  return ((uint32_t) l) & 1;
+}
+
+
+// true if l has positive polarity (i.e., l = pos_lit(x))
+static inline bool is_pos(literal_t l) {
+  return !(l & 1);
+}
+
+static inline bool is_neg(literal_t l) {
+  return (l & 1);
+}
+
+
+// negation of literal l
+static inline literal_t not(literal_t l) {
+  return l ^ 1;
+}
+
+// check whether l1 and l2 are opposite
+static inline bool opposite(literal_t l1, literal_t l2) {
+  return (l1 ^ l2) == 1;
+}
+
+
+/*
  * add polarity tt to l:
  * - if tt is true return l
  * - if tt is false, return (not l)
  */
 static inline literal_t signed_literal(literal_t l, bool tt) {
   return l ^ (((int32_t) tt) ^ 1);
+}
+
+
+/*
+ * Remove the sign of l (i.e., force the sign bit to 0)
+ * - if l is pos_lit(x) return l
+ * - if l is neg_lit(x) return not(l)
+ */
+static inline literal_t unsigned_literal(literal_t l) {
+  return l & ~1;
 }
 
 
@@ -125,33 +160,6 @@ static inline literal_t bool2literal(bool tt) {
   return ((int32_t) tt) ^ 1;
 }
 
-
-static inline bvar_t var_of(literal_t l) {
-  return l>>1;
-}
-
-static inline uint32_t sign_of_lit(literal_t l) {
-  return ((uint32_t) l) & 1;
-}
-
-// negation of literal l
-static inline literal_t not(literal_t l) {
-  return l ^ 1;
-}
-
-// check whether l1 and l2 are opposite
-static inline bool opposite(literal_t l1, literal_t l2) {
-  return (l1 ^ l2) == 1;
-}
-
-// true if l has positive polarity (i.e., l = pos_lit(x))
-static inline bool is_pos(literal_t l) {
-  return !(l & 1);
-}
-
-static inline bool is_neg(literal_t l) {
-  return (l & 1);
-}
 
 
 /*
