@@ -254,6 +254,7 @@ static void test_mux(uint32_t n, literal_t c, literal_t *a, literal_t *b) {
   printf("\n");
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
 
   bit_blaster_make_bvmux(&blaster, c, a, b, u, n);
   printf("(ite c a b) = ");

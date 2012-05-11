@@ -874,7 +874,7 @@ static term_t test_update2(term_t fun, term_t arg1, term_t arg2, term_t new_v) {
 
 static term_t test_tuple_update(term_t arg, term_t new_v, uint32_t i) {
   term_t t;
-
+  
   printf("test: (tuple-update ");
   print_term(stdout, __yices_globals.terms, arg);
   printf(" %"PRIu32" ", i);
@@ -1194,8 +1194,8 @@ static void random_test(void) {
     // select
     tau = type_store_sample(&all_types, is_tup_type);
     t1 = type_store_sample_terms(&all_types, tau);
-    i = ((uint32_t) random()) % tuple_type_arity(__yices_globals.types, tau);
-    t = test_select(t1, i);
+    i = ((uint32_t) random()) % tuple_type_arity(__yices_globals.types, tau);    
+    t = test_select(t1, i + 1);
     break;
 
   case 42:
@@ -1234,7 +1234,9 @@ static void random_test(void) {
     i = ((uint32_t) random()) % tuple_type_arity(__yices_globals.types, sigma);
     tau = tuple_type_component(__yices_globals.types, sigma, i);
     v = term_store_sample(&all_terms, tau, has_subtype);
-    t = test_tuple_update(t1, v, i);
+    // components are indexed from 1 to n 
+    // but i is between 0 and n-1
+    t = test_tuple_update(t1, v, 1 + i);
     break;
   }
 
@@ -1427,10 +1429,10 @@ static void test_error_codes(void) {
 
   // projection
   t1 = false_term;
-  t = yices_select(0, t1);
+  t = yices_select(1, t1);
   assert(check_tuple_required(t, t1));
   
-  t = yices_select(0, -34);
+  t = yices_select(1, -34);
   assert(check_invalid_term(t, -34));
 
   tau1 = type_store_sample(&all_types, is_tup_type);
@@ -1438,21 +1440,27 @@ static void test_error_codes(void) {
   t = yices_select(6, t1);
   assert(check_invalid_tuple_index(t, tau1, 6));
 
+  t = yices_select(0, t1);
+  assert(check_invalid_tuple_index(t, tau1, 0));
+
   // tuple update
   tau2 = tuple_type_component(__yices_globals.types, tau1, 0);
   v = type_store_sample_terms(&all_types, tau2);
 
-  t = yices_tuple_update(-3, 0, v);
+  t = yices_tuple_update(-3, 1, v);
   assert(check_invalid_term(t, -3));
   
-  t = yices_tuple_update(true_term, 0, v);
+  t = yices_tuple_update(true_term, 1, v);
   assert(check_tuple_required(t, true_term));
 
   t = yices_tuple_update(t1, 6, v);
   assert(check_invalid_tuple_index(t, tau1, 6));
 
-  v = term_store_sample(&all_terms, tau2, has_incompatible_type);
   t = yices_tuple_update(t1, 0, v);
+  assert(check_invalid_tuple_index(t, tau1, 0));
+
+  v = term_store_sample(&all_terms, tau2, has_incompatible_type);
+  t = yices_tuple_update(t1, 1, v);
   assert(check_type_mismatch(t, v, tau2));
 }
 

@@ -1580,6 +1580,8 @@ static bool check_good_tuple_update(term_manager_t *mngr, uint32_t i, term_t t, 
     return false;
   }
 
+  // types are indexed from 0 to desc->elem-1 in desc
+  i --;
   if (! is_subtype(tbl->types, term_type(tbl, v), desc->elem[i])) {
     error.code = TYPE_MISMATCH;
     error.term1 = v;

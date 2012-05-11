@@ -13,7 +13,6 @@
 #include "bit_blaster.h"
 #include "smt_core_printer.h"
 
-
 #ifdef MINGW
 
 /*
@@ -334,6 +333,7 @@ static void test_bvneg(uint32_t n, literal_t *a) {
   printf("\n");
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
 
   bit_blaster_make_bvneg(&blaster, a, u, n);
   printf("(bvneg a) = ");
@@ -348,6 +348,7 @@ static void test_bvneg_const(uint32_t n, literal_t *a) {
   literal_t *u;
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
 
   bit_blaster_make_bvneg(&blaster, a, u, n);
   printf("(bvneg ");
@@ -375,6 +376,7 @@ static void test_bvadd(uint32_t n, literal_t *a, literal_t *b) {
   printf("\n");
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
 
   bit_blaster_make_bvadd(&blaster, a, b, u, n);
   printf("(bvadd a b) = ");
@@ -389,6 +391,7 @@ static void test_bvadd_const(uint32_t n, literal_t *a, literal_t *b) {
   literal_t *u;
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
 
   bit_blaster_make_bvadd(&blaster, a, b, u, n);
   printf("(bvadd ");
@@ -416,6 +419,7 @@ static void test_bvsub(uint32_t n, literal_t *a, literal_t *b) {
   printf("\n");
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
 
   bit_blaster_make_bvsub(&blaster, a, b, u, n);
   printf("(bvsub a b) = ");
@@ -430,6 +434,7 @@ static void test_bvsub_const(uint32_t n, literal_t *a, literal_t *b) {
   literal_t *u;
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
 
   bit_blaster_make_bvsub(&blaster, a, b, u, n);
   printf("(bvsub ");
@@ -459,6 +464,7 @@ static void test_bvmul(uint32_t n, literal_t *a, literal_t *b) {
   printf("\n");
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
 
   bit_blaster_make_bvmul(&blaster, a, b, u, n);
   printf("(bvmul a b) = ");
@@ -473,6 +479,7 @@ static void test_bvmul_const(uint32_t n, literal_t *a, literal_t *b) {
   literal_t *u;
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
 
   bit_blaster_make_bvmul(&blaster, a, b, u, n);
   printf("(bvmul ");
@@ -503,6 +510,7 @@ static void test_bvmul2(uint32_t n, literal_t *a, literal_t *b) {
   printf("\n");
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
 
   bit_blaster_make_bvmul2(&blaster, a, b, u, n);
   printf("(bvmul a b) = ");
@@ -517,6 +525,7 @@ static void test_bvmul2_const(uint32_t n, literal_t *a, literal_t *b) {
   literal_t *u;
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
 
   bit_blaster_make_bvmul2(&blaster, a, b, u, n);
   printf("(bvmul ");

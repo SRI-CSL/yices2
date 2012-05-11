@@ -356,6 +356,8 @@ static void test_udiv(uint32_t n, literal_t *a, literal_t *b) {
 
   q = remap_table_fresh_array(&remap, n);
   r = remap_table_fresh_array(&remap, n);
+  int_array_incref(q);
+  int_array_incref(r);
 
   bit_blaster_make_udivision(&blaster, a, b, q, r, n);
   printf("(bvudiv a b) = ");
@@ -375,6 +377,8 @@ static void test_udiv_const(uint32_t n, literal_t *a, literal_t *b) {
 
   q = remap_table_fresh_array(&remap, n);
   r = remap_table_fresh_array(&remap, n);
+  int_array_incref(q);
+  int_array_incref(r);
 
   bit_blaster_make_udivision(&blaster, a, b, q, r, n);
 
@@ -417,6 +421,8 @@ static void test_sdiv(uint32_t n, literal_t *a, literal_t *b) {
 
   q = remap_table_fresh_array(&remap, n);
   r = remap_table_fresh_array(&remap, n);
+  int_array_incref(q);
+  int_array_incref(r);
 
   bit_blaster_make_sdivision(&blaster, a, b, q, r, n);
   printf("(bvsdiv a b) = ");
@@ -436,6 +442,8 @@ static void test_sdiv_const(uint32_t n, literal_t *a, literal_t *b) {
 
   q = remap_table_fresh_array(&remap, n);
   r = remap_table_fresh_array(&remap, n);
+  int_array_incref(q);
+  int_array_incref(r);
 
   bit_blaster_make_sdivision(&blaster, a, b, q, r, n);
 
@@ -474,6 +482,8 @@ static void test_smod(uint32_t n, literal_t *a, literal_t *b) {
   printf("\n");
 
   r = remap_table_fresh_array(&remap, n);
+  int_array_incref(r);
+
   bit_blaster_make_smod(&blaster, a, b, r, n);
   printf("(bsmod a b) = ");
   print_pseudo_vector(n, r);
@@ -487,6 +497,8 @@ static void test_smod_const(uint32_t n, literal_t *a, literal_t *b) {
   literal_t *r;
 
   r = remap_table_fresh_array(&remap, n);
+  int_array_incref(r);
+
   bit_blaster_make_smod(&blaster, a, b, r, n);
 
   printf("(bvsmod ");

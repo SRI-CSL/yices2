@@ -342,6 +342,8 @@ static void test_bvshl(uint32_t n, literal_t *a, literal_t *b) {
   printf("\n");
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
+
   bit_blaster_make_shift_left(&blaster, a, b, u, n);
 
   printf("(bvshl a b) = ");
@@ -363,6 +365,8 @@ static void test_bvshl_const_shift(uint32_t n, literal_t *a, literal_t *b) {
   printf("\n");
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
+
   bit_blaster_make_shift_left(&blaster, a, b, u, n);
 
   printf("(bvshl a ");
@@ -382,6 +386,8 @@ static void test_bvshl_const(uint32_t n, literal_t *a, literal_t *b) {
   literal_t *u;
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
+
   bit_blaster_make_shift_left(&blaster, a, b, u, n);
 
   printf("(bvshl ");
@@ -412,6 +418,8 @@ static void test_bvlshr(uint32_t n, literal_t *a, literal_t *b) {
   printf("\n");
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
+
   bit_blaster_make_lshift_right(&blaster, a, b, u, n);
 
   printf("(bvlshr a b) = ");
@@ -433,6 +441,8 @@ static void test_bvlshr_const_shift(uint32_t n, literal_t *a, literal_t *b) {
   printf("\n");
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
+
   bit_blaster_make_lshift_right(&blaster, a, b, u, n);
 
   printf("(bvlshr a ");
@@ -452,6 +462,8 @@ static void test_bvlshr_const(uint32_t n, literal_t *a, literal_t *b) {
   literal_t *u;
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
+
   bit_blaster_make_lshift_right(&blaster, a, b, u, n);
 
   printf("(bvlshr ");
@@ -482,6 +494,8 @@ static void test_bvashr(uint32_t n, literal_t *a, literal_t *b) {
   printf("\n");
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
+
   bit_blaster_make_ashift_right(&blaster, a, b, u, n);
 
   printf("(bvashr a b) = ");
@@ -503,6 +517,8 @@ static void test_bvashr_const_shift(uint32_t n, literal_t *a, literal_t *b) {
   printf("\n");
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
+
   bit_blaster_make_ashift_right(&blaster, a, b, u, n);
 
   printf("(bvashr a ");
@@ -522,6 +538,8 @@ static void test_bvashr_const(uint32_t n, literal_t *a, literal_t *b) {
   literal_t *u;
 
   u = remap_table_fresh_array(&remap, n);
+  int_array_incref(u);
+
   bit_blaster_make_ashift_right(&blaster, a, b, u, n);
 
   printf("(bvashr ");
