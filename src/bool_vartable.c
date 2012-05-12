@@ -5,6 +5,7 @@
 #include <assert.h>
 
 #include "memalloc.h"
+#include "bit_tricks.h"
 #include "hash_functions.h"
 #include "int_array_sort.h"
 #include "bool_vartable.h"
@@ -276,6 +277,8 @@ static bvar_t bool_vartable_new_var(bool_vartable_t *table, uint8_t tag, uint32_
 }
 
 
+
+
 /*
  * VARIABLE CONSTRUCTORS
  */
@@ -529,6 +532,8 @@ static bvar_t make_or_aux(bool_vartable_t *table, uint32_t n, literal_t *a) {
 }
 
 
+
+
 /*
  * Exported constructors for OR and AND
  */
@@ -636,3 +641,438 @@ literal_t make_xor(bool_vartable_t *table, uint32_t n, literal_t *a) {
 
   return l ^ sign;
 }
+
+
+
+
+/*
+ * ELEMENTATY OPERATIONS ON TRUTH TABLES
+ */
+
+/*
+ * We use the following operations to convert a truth table to normal form:
+ * - negate a column: if column i is labeled by (not x), then replace the 
+ *                    label by x and fix the bit mask (permutation)
+ * - swap two adjacent columns
+ * - remove column 0 if it's labeled with variable 0 (i.e., column 0 is the true constant)
+ * - merge column 0 and column 1 if they're labeled by the same variable
+ * - check whether column 0 is relevant and remove it if not.
+ *
+ * There operations perform a permutation or other update of the bit mask,
+ */
+
+
+/*
+ * negate column 0: input b7 b6 b5 b4 b3 b2 b1 b0
+ *                 output b3 b2 b1 b0 b7 b6 b4 b3
+ */
+static inline uint8_t negate0(uint8_t b) {
+  return (b & 0xf0) >> 4 | (b & 0x0f) << 4;
+}
+
+/*
+ * negate column 1: input b7 b6 b5 b4 b3 b2 b1 b0
+ *                 output b5 b4 b7 b6 b2 b0 b3 b2
+ */
+static inline uint8_t negate1(uint8_t b) {
+  return (b & 0xcc) >> 2 | (b & 0x33) << 2;
+}
+
+/*
+ * negate column 2: input b7 b6 b5 b4 b3 b2 b1 b0
+ *                 output b6 b7 b4 b5 b2 b3 b0 b1
+ */
+static inline uint8_t negate2(uint8_t b) {
+  return (b & 0xaa) >> 1 | (b & 0x55) << 1;
+}
+
+/*
+ * swap columns 0 and 1: input b7 b6 b5 b4 b3 b2 b1 b0
+ *                      output b7 b6 b3 b2 b5 b4 b1 b0
+ */
+static inline uint8_t swap01(uint8_t b) {
+  return (b & 0xc3) | (b & 0x0c) << 2 | (b & 0x30) >> 2;
+}
+
+/*
+ * swap columns 1 and 2: input b7 b6 b5 b4 b3 b2 b1 b0
+ *                      output b7 b5 b6 b4 b3 b1 b2 b0
+ */
+static inline uint8_t swap12(uint8_t b) {
+  return (b & 0x99) | (b & 0x22) << 1 | (b & 0x44) >> 1;
+}
+
+/*
+ * remove column 0 (when true):
+ *   input b7 b6 b5 b4 b3 b2 b1 b0
+ *  output b7 b7 b6 b6 b5 b5 b4 b4
+ */
+static inline uint8_t force_true0(uint8_t b) {
+  return (b & 0x80) | (b & 0xc0) >> 1 | (b & 0x60) >> 2 | (b & 0x30) >> 3 | (b & 0x10) >> 4;
+
+}
+
+/*
+ * merge column 0 and 1 (equal columns)
+ *   input b7 b6 b5 b4 b3 b2 b1 b0
+ *  output b7 b7 b6 b6 b1 b1 b0 b0
+ */
+static inline uint8_t merge01(uint8_t b) {
+  return (b & 0x81) | (b & 0xc0) >> 1 | (b & 0x40) >> 2 | (b & 0x02) << 2 | (b & 0x03) << 1;
+}
+
+/*
+ * merge column 1 and 2 (equal columns)
+ *   input: b7 b6 b5 b4 b3 b2 b1 b0 
+ *  output: b7 b7 b4 b4 b3 b3 b0 b0
+ */
+static inline uint8_t merge12(uint8_t b) {
+  return (b & 0x99) | (b & 0x88) >> 1 | (b & 0x11) << 1;
+}
+
+/*
+ * Check whether column 0 is irrrelevant
+ * - i.e. whether (b7 b6 b5 b4) == (b3 b2 b1 b0)
+ */
+static inline bool irrelevant0(uint8_t b) {
+  return (b & 0x0f) == (b >> 4);
+}
+
+/*
+ * Check whether column 1 is irrelevant (i.e., (b5 b4 b1 b0) == (b7 b6 b3 b2)
+ */
+static inline bool irrelevant1(uint8_t b) {
+  return (b & 0x33) == (b & 0xcc) >> 2;
+}
+
+/*
+ * Check whether column 2 is irrelevant (i.e., (b7 b5 b3 b1) == (b6 b4 b2 b0)
+ */
+static inline bool irrelevant2(uint8_t b) {
+  return (b & 0x55) == (b & 0xaa) >> 1;
+}
+
+
+/*
+ * Remove irrelevant columns
+ */
+// input: b3 b2 b1 b0 b3 b2 b1 b0 --> b3 b3 b2 b2 b1 b1 b0 b0
+static inline uint8_t remove0(uint8_t b) {
+  assert(irrelevant0(b));
+  return (b & 0x81) | (b & 0xc0) >> 1 | (b & 0x60) >> 2 | (b & 0x03) << 1;
+}
+
+// input b3 b2 b3 b2 b1 b0 b1 b0 --> b3 b3 b2 b2 b1 b1 b0 b0
+static inline uint8_t remove1(uint8_t b) {
+  assert(irrelevant1(b));
+  return (b & 0x99) | (b & 0x22) << 1 | (b & 0x44) >> 1;
+}
+
+// input: b3 b3 b2 b2 b1 b1 b0 b0 --> no change
+static inline uint8_t remove2(uint8_t b) {
+  assert(irrelevant2(b));
+  return b;
+}
+
+
+/*
+ * Normalize truth table tt with three columns
+ * - the three labels are literals
+ */
+// PROVISIONAL: exported for testing
+void normalize_truth_table3(ttbl_t *tt) {
+  literal_t l;
+  bvar_t aux;
+
+  assert(tt->nvars == 3);
+
+  // convert literals to variables and negate if required
+  l = tt->label[0];
+  tt->label[0] = var_of(l);
+  if (is_neg(l)) {
+    tt->mask = negate0(tt->mask);
+  }
+
+  l = tt->label[1];
+  tt->label[1] = var_of(l);
+  if (is_neg(l)) {
+    tt->mask = negate1(tt->mask);
+  }
+
+  l = tt->label[2];
+  tt->label[2] = var_of(l);
+  if (is_neg(l)) {
+    tt->mask = negate2(tt->mask);
+  }
+
+  // sort columns in non-decreasing order
+  if (tt->label[0] > tt->label[1]) {
+    aux = tt->label[0];
+    tt->label[0] = tt->label[1];
+    tt->label[1] = aux;
+    tt->mask = swap01(tt->mask);
+  }
+
+  if (tt->label[1] > tt->label[2]) {
+    aux = tt->label[1];
+    tt->label[1] = tt->label[2];
+    tt->label[2] = aux;
+    tt->mask = swap12(tt->mask);
+  }
+
+  if (tt->label[0] > tt->label[1]) {
+    aux = tt->label[0];
+    tt->label[0] = tt->label[1];
+    tt->label[1] = aux;
+    tt->mask = swap01(tt->mask);
+  }
+
+  assert(0 <= tt->label[0] && tt->label[0] <= tt->label[1] && tt->label[1] <= tt->label[2]);
+
+  // remove irrelevant columns
+  if (irrelevant2(tt->mask)) {
+    tt->nvars --;
+    tt->label[2] = null_bvar;
+    tt->mask = remove2(tt->mask);
+  }
+  
+  if (irrelevant1(tt->mask)) {
+    tt->nvars --;
+    tt->label[1] = tt->label[2];
+    tt->label[2] = null_bvar;
+    tt->mask = remove1(tt->mask);
+  }
+
+  if (irrelevant0(tt->mask)) {
+    tt->nvars --;
+    tt->label[0] = tt->label[1];
+    tt->label[1] = tt->label[2];
+    tt->label[2] = null_bvar;
+    tt->mask = remove0(tt->mask);
+  }
+
+
+  // merge equal columns
+  if (tt->nvars == 3 && tt->label[1] == tt->label[2]) {
+    tt->nvars --;
+    tt->label[2] = null_bvar;
+    tt->mask = merge12(tt->mask);
+  }
+
+  if (tt->nvars >= 2 && tt->label[0] == tt->label[1]) {
+    tt->nvars --;
+    tt->label[1] = tt->label[2];
+    tt->label[2] = null_bvar;
+    tt->mask = merge01(tt->mask);
+  }
+
+  // remove column 0 if it's true 
+  if (tt->nvars > 0 && tt->label[0] == const_bvar) {
+    tt->nvars --;
+    tt->label[0] = tt->label[1];
+    tt->label[1] = tt->label[2];
+    tt->label[2] = null_bvar;
+    tt->mask = force_true0(tt->mask);
+  }
+}
+
+
+/*
+ * Normalize a truth table with two columns
+ * - label[0] and label[1] are literals
+ */
+void normalize_truth_table2(ttbl_t *tt) {
+  literal_t l;
+  bvar_t aux;
+
+  assert(tt->nvars == 2 && tt->label[2] == null_bvar && irrelevant2(tt->mask));
+
+  // convert literals to variables and negate if required
+  l = tt->label[0];
+  tt->label[0] = var_of(l);
+  if (is_neg(l)) {
+    tt->mask = negate0(tt->mask);
+  }
+
+  l = tt->label[1];
+  tt->label[1] = var_of(l);
+  if (is_neg(l)) {
+    tt->mask = negate1(tt->mask);
+  }
+
+  // sort
+  if (tt->label[0] > tt->label[1]) {
+    aux = tt->label[0];
+    tt->label[0] = tt->label[1];
+    tt->label[1] = aux;
+    tt->mask = swap01(tt->mask);
+  }
+
+  assert(0 <= tt->label[0] && tt->label[0] <= tt->label[1]);
+
+  // remove irrelevant columns
+  if (irrelevant1(tt->mask)) {
+    tt->nvars --;
+    tt->label[1] = null_bvar;
+    tt->mask = remove1(tt->mask); // no change
+  }
+
+  if (irrelevant0(tt->mask)) {
+    tt->nvars --;
+    tt->label[0] = tt->label[1];
+    tt->label[1] = null_bvar;
+    tt->mask = remove0(tt->mask);
+  }
+
+  // merge if equal
+  if (tt->nvars == 2 && tt->label[0] == tt->label[1]) {
+    tt->nvars --;
+    tt->label[1] = null_bvar;
+    tt->mask = merge01(tt->mask);
+  }
+
+  // remove column 0 if it's true
+  if (tt->nvars > 0 && tt->label[0] == const_bvar) {
+    tt->nvars --;
+    tt->label[0] = tt->label[1];
+    tt->label[1] = null_bvar;
+    tt->mask = force_true0(tt->mask);
+  }
+}
+
+
+
+/*
+ * When defining literal for a truth-table b, we have the choice between
+ * - building variable v for gate b and return pos_lit(v)
+ * - or building variable v for gate (~b) and return neg_lit(v)
+ * To decide:
+ * - we pick gate(b) if b has more '1' bits than ~b
+ * - we pick gate(~b) if b has fewer '1' bits than ~b
+ * - if b and ~b both have 4 bits equal to '1', we pick the
+ *   one that has the lower order bit equal to '0'
+ *
+ * NOTE: these rules must be consistent with direct_or3, direct_or2
+ * and direct_xor2.
+ *
+ * The following function returns true if ~b should be picked
+ */
+static inline bool negate_mask(uint8_t b) {
+  uint32_t n1;
+
+  n1 = popcount32(b);
+  assert(0 <= n1 && n1 <= 8);
+  return n1 < 4 || (n1 == 4 && ((b & 1) == 1));
+}
+
+
+
+/*
+ * Return l == the function defined by tt
+ * - tt must be normalized
+ */
+static literal_t gate_for_truth_table(bool_vartable_t *table, ttbl_t *tt) {
+  bgate_t g;
+  literal_t l;
+
+  if (tt->nvars == 0) {
+    assert(tt->mask == 0x00 || tt->mask == 0xff);
+    l = true_literal;
+    if (tt->mask == 0x00) {
+      l = false_literal;
+    }
+  } else if (tt->nvars == 1) {
+    assert(tt->mask == 0x0f || tt->mask == 0xf0);
+    l = pos_lit(tt->label[0]);
+    if (tt->mask == 0x0f) {
+      l = not(l);
+    }
+  } else {
+    assert(tt->nvars == 2 || tt->nvars == 3);
+    g.var[0] = tt->label[0];
+    g.var[1] = tt->label[1];
+    g.var[2] = tt->label[2];
+    if (negate_mask(tt->mask)) {
+      g.ttbl = ~tt->mask;
+      l = neg_lit(get_bgate(table, &g));
+    } else {
+      g.ttbl = tt->mask;
+      l = pos_lit(get_bgate(table, &g));
+    }
+  }
+
+  return l;
+}
+
+
+/*
+ * Simplify then build l = (op l1 l2 l3)
+ *  - op is defined by the bit mask b
+ */
+static literal_t make_gate3(bool_vartable_t *table, uint8_t b, literal_t l1, literal_t l2, literal_t l3) {
+  ttbl_t aux;
+
+  assert(valid_literal(table, l1) && valid_literal(table, l2) && valid_literal(table, l3));
+
+  aux.nvars = 3;
+  aux.label[0] = l1;
+  aux.label[1] = l2;
+  aux.label[2] = l3;
+  aux.mask = b;
+  normalize_truth_table3(&aux);
+
+  return gate_for_truth_table(table, &aux);
+}
+
+
+/*
+ * Same thing for a binary operation
+ */
+static literal_t make_gate2(bool_vartable_t *table, uint8_t b, literal_t l1, literal_t l2) {
+  ttbl_t aux;
+
+  assert(valid_literal(table, l1) && valid_literal(table, l2));
+
+  aux.nvars = 2;
+  aux.label[0] = l1;
+  aux.label[1] = l2;
+  aux.label[2] = null_bvar;
+  aux.mask = b;
+  normalize_truth_table2(&aux);
+
+  return gate_for_truth_table(table, &aux);
+}
+
+
+/*
+ * Primitive gates:
+ * - each function takes two or three literals as input
+ *   and return a literal
+ * - each literal must be of the form pos_lit(x) or neg_lit(x)
+ *   where x is a variable in the table.
+ */
+literal_t make_or2(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  return make_gate2(table, 0xfc, l1, l2);
+}
+
+literal_t make_xor2(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  return make_gate2(table, 0x3c, l1, l2);
+}
+
+literal_t make_or3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
+  return make_gate3(table, 0xfe, l1, l2, l3);
+}
+
+literal_t make_xor3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
+  return make_gate3(table, 0x96, l1, l2, l3);
+}
+
+literal_t make_maj3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
+  return make_gate3(table, 0xe8, l1, l2, l3);
+}
+
+literal_t make_ite(bool_vartable_t *table, literal_t c, literal_t l1, literal_t l2) {
+  return make_gate3(table, 0xca, c, l1, l2);
+}
+
+

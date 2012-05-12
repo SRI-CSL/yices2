@@ -221,6 +221,7 @@ static void add_random_types(test_store_t *s, uint32_t n) {
       break;
     }
 
+    assert(tau >= 0);
     ivector_push(&buffer, tau); 
   }
 
@@ -610,7 +611,7 @@ static term_t random_select(test_store_t *s) {
   n = tuple_type_arity(__yices_globals.types, tau);
   i = ((uint32_t) random()) % n;
 
-  return yices_select(i, t);
+  return yices_select(i+1, t);
 }
 
 static term_t random_update(test_store_t *s) {
@@ -1196,6 +1197,7 @@ static void add_random_terms(test_store_t *s, uint32_t n) {
 
   for (i=0; i<n; i++) {
     t = make_random_term(s);
+    assert(t >= 0);
     ivector_push(&buffer, t);
   }
   

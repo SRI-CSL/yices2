@@ -115,11 +115,30 @@ enum {
  *       1      0      1    b4
  *       1      1      0    b6
  *       1      1      1    b6
+ *
+ * and var[2] is set to -1.
  */
 typedef struct bgate_s {
   uint8_t ttbl; // truth table
   bvar_t  var[3]; // variables in increasing order
 } bgate_t;
+
+
+
+/*
+ * Intermediate structure to store a truth table:
+ * - this is used during gate construction to simplify and normalize truth tables/
+ * - a table consists of nvars columns where nvars is between 0 and 3
+ * - each column is labeled by a signed integer, which can be either a literal
+ *   or a Boolean variable, or -1
+ * - the truth values are stored in a bit mask (8 bit, unsigned word).
+ *   all 8bits are used even if the table has fewer than 3 columms.
+ */
+typedef struct ttbl_s {
+  uint32_t nvars;     // number of columns (between 0 and 3)
+  int32_t  label[3] ; // column labels
+  uint8_t  mask;      // 8-bit truth table
+} ttbl_t;
 
 
 
@@ -213,6 +232,10 @@ extern void reset_bool_vartable(bool_vartable_t *table);
  */
 static inline bool valid_boolvar(bool_vartable_t *table, bvar_t x) {
   return 0 <= x  && x < table->nvars;
+}
+
+static inline bool valid_literal(bool_vartable_t *table, literal_t l) {
+  return valid_boolvar(table, var_of(l));
 }
 
 static inline uint8_t boolvar_tag(bool_vartable_t *table, bvar_t x) {

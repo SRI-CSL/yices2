@@ -14,14 +14,22 @@ static action_t get_action(state_t s, token_t tk) {
   }
 }
 
-static char* state2string[] = {
-  "r0",  "c0",  "c1",  "c2",  "c3",  "c6",  "c7",  "c9", "c10", "c11", "c12",
-  "td0", "td1", "td2", "td3",  "t0",  "t1",  "t4",  "t6", 
-  "e0",  "e1",  "e3",  "e5",  "e7", "e10", "e11", "e12",
+
+/*
+ * States
+ */
+static const char* state2string[] = {
+  "r0", "c0", "c1", "c2", "c3", "c6", "c7", "c9", "c10", "c11", "c12", "c13", "c14",
+  "td0", "td1", "td2", "td3", "t0", "t1", "t4", "t6",
+  "e0", "e1", "e3", "e5", "e7", "e10", "e11", "e12", 
   "e14", "e15", "e16", "e17", "e19", "e20",
 };
 
-static char* action2string[] = {
+
+/*
+ * Action codes
+ */
+static const char* action2string[] = {
   "next_goto_c1",
   "empty_command",
   "exit_next_goto_r0",
@@ -38,7 +46,11 @@ static char* action2string[] = {
   "showmodel_next_goto_r0",
   "eval_next_push_r0_goto_e0",
   "setparam_next_goto_c11",
+  "showparam_next_goto_c13",
   "showparams_next_goto_r0",
+  "showstats_next_goto_r0",
+  "resetstats_next_goto_r0",
+  "settimeout_next_goto_c14",
   "typename_next_goto_c10",
   "string_next_goto_r0",
   "termname_next_goto_c7",
@@ -47,6 +59,7 @@ static char* action2string[] = {
   "true_next_goto_r0",
   "false_next_goto_r0",
   "float_next_goto_r0",
+  "symbol_next_goto_r0",
   "ret",
   "push_r0_goto_e0",
   "push_r0_goto_td0",
@@ -88,6 +101,7 @@ static char* action2string[] = {
   "sub_next_push_e3_goto_e0",
   "mul_next_push_e3_goto_e0",
   "div_next_push_e3_goto_e0",
+  "pow_next_push_e3_goto_e0",
   "lt_next_push_e3_goto_e0",
   "le_next_push_e3_goto_e0",
   "gt_next_push_e3_goto_e0",
@@ -97,6 +111,7 @@ static char* action2string[] = {
   "bv_sub_next_push_e3_goto_e0",
   "bv_mul_next_push_e3_goto_e0",
   "bv_neg_next_push_e3_goto_e0",
+  "bv_pow_next_push_e3_goto_e0",
   "bv_not_next_push_e3_goto_e0",
   "bv_and_next_push_e3_goto_e0",
   "bv_or_next_push_e3_goto_e0",
@@ -161,13 +176,14 @@ static char* action2string[] = {
   "error_rpar_expected",
   "error",
 };
-
+ 
 
 int main() {
   state_t s;
   token_t tk;
   lexer_t lex;
-  char *c0, *c1;
+  char *c0;
+  const char *c1;
 
   init_yices_stdin_lexer(&lex);
 
