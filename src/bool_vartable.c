@@ -911,10 +911,10 @@ static bvar_t direct_or2_gate(bool_vartable_t *table, literal_t l1, literal_t l2
 
   assert(false_literal < l1 && l1 < l2 && l1 != not(l2));
 
-  m1 = 0x0F;
-  if (is_neg(l1)) m1 = 0xF0;
-  m2 = 0x33;
-  if (is_neg(l2)) m2 = 0xCC;
+  m1 = 0xf0;
+  if (is_neg(l1)) m1 = 0x0f;
+  m2 = 0xcc;
+  if (is_neg(l2)) m2 = 0x33;
   
   g.ttbl = (m1 | m2);
   g.var[0] = var_of(l1);
@@ -930,12 +930,12 @@ static bvar_t direct_or3_gate(bool_vartable_t *table, literal_t l1, literal_t l2
 
   assert(false_literal < l1 && l1 < l2 && l2 < l3 && l1 != not(l2) && l2 != not(l3));
 
-  m1 = 0x0F;
-  if (is_neg(l1)) m1 = 0xF0;
-  m2 = 0x33;
-  if (is_neg(l2)) m2 = 0xCC;
-  m3 = 0x55;
-  if (is_neg(l3)) m3 = 0xAA;
+  m1 = 0xf0;
+  if (is_neg(l1)) m1 = 0x0f;
+  m2 = 0xcc;
+  if (is_neg(l2)) m2 = 0x33;
+  m3 = 0xaa;
+  if (is_neg(l3)) m3 = 0x55;
 
   g.ttbl = (m1 | m2 | m3);
   g.var[0] = var_of(l1);
@@ -955,7 +955,7 @@ static bvar_t direct_xor2_gate(bool_vartable_t *table, literal_t l1, literal_t l
 
   assert(is_pos(l1) && is_pos(l2) && l1 < l2 && false_literal < l1);
   
-  g.ttbl = 0x3C;
+  g.ttbl = 0x3c;
   g.var[0] = var_of(l1);
   g.var[1] = var_of(l2);
   g.var[2] = null_bvar;
@@ -969,7 +969,7 @@ static bvar_t direct_xor2_gate(bool_vartable_t *table, literal_t l1, literal_t l
  * Simplify and normalize (or a[0] ... a[n-1]) then build the gate
  * - assume that none of a[0] ... a[n-1] is true or false
  */
-static bvar_t make_or_aux(bool_vartable_t *table, uint32_t n, literal_t *a) {
+static literal_t make_or_aux(bool_vartable_t *table, uint32_t n, literal_t *a) {
   literal_t aux, l;
   uint32_t i, p;
 
@@ -994,9 +994,9 @@ static bvar_t make_or_aux(bool_vartable_t *table, uint32_t n, literal_t *a) {
   // result: a[0 ... p-1]
   switch (p) {
   case 1:  return a[0];
-  case 2:  return direct_or2_gate(table, a[0], a[1]);
-  case 3:  return direct_or3_gate(table, a[0], a[1], a[2]);
-  default: return get_bor(table, p, a);
+  case 2:  return pos_lit(direct_or2_gate(table, a[0], a[1]));
+  case 3:  return pos_lit(direct_or3_gate(table, a[0], a[1], a[2]));
+  default: return pos_lit(get_bor(table, p, a));
   }
 }
 
@@ -1020,7 +1020,7 @@ literal_t make_or(bool_vartable_t *table, uint32_t n, literal_t *a) {
     }
   }
 
-  return pos_lit(make_or_aux(table, p, a));
+  return make_or_aux(table, p, a);
 }
 
 literal_t make_and(bool_vartable_t *table, uint32_t n, literal_t *a) {
@@ -1037,7 +1037,7 @@ literal_t make_and(bool_vartable_t *table, uint32_t n, literal_t *a) {
     }
   }
 
-  return neg_lit(make_or_aux(table, p, a));
+  return not(make_or_aux(table, p, a));
 }
 
 
@@ -1102,7 +1102,7 @@ literal_t make_xor(bool_vartable_t *table, uint32_t n, literal_t *a) {
   if (n > 0) {
     l = a[0];
     for (i=1; i<n; i++) {
-      l = direct_xor2_gate(table, l, a[i]);
+      l = pos_lit(direct_xor2_gate(table, l, a[i]));
     }
   }
 

@@ -124,7 +124,7 @@ static int32_t eval_orgate(bool_vartable_t *table, int8_t *v, uint32_t n, int32_
   literal_t l;
   int32_t val, aux;
 
-  p = a[i];
+  p = a[0];
   val = 0;
   for (i=1; i<=p; i++) {
     l = a[i];
@@ -272,6 +272,35 @@ static int32_t eval_ite(bool_vartable_t *table, int8_t *v, uint32_t n, literal_t
 }
 
 
+static int32_t eval_and2(bool_vartable_t *table, int8_t *v, uint32_t n, literal_t l1, literal_t l2) {
+  int32_t val1, val2;
+
+  val1 = eval_lit(table, v, n, l1);
+  val2 = eval_lit(table, v, n, l2);
+
+  if (val1 < 0 || val2 < 0) {
+    return -1; // to be consistent with eval_gate
+  }
+
+  return val1 & val2;
+}
+
+static int32_t eval_and3(bool_vartable_t *table, int8_t *v, uint32_t n, literal_t l1, 
+			literal_t l2, literal_t l3) {
+  int32_t val1, val2, val3;
+
+  val1 = eval_lit(table, v, n, l1);
+  val2 = eval_lit(table, v, n, l2);
+  val3 = eval_lit(table, v, n, l3);
+
+  if (val1 < 0 || val2 < 0 || val3 < 0) {
+    return -1;
+  }
+
+  return val1 & val2 & val3;
+}
+
+
 /*
  * Global array to store variable assignment
  */
@@ -375,6 +404,28 @@ static void check_xor2(bool_vartable_t *table, literal_t l1, literal_t l2, liter
   }
 }
 
+// check  l = (and l1 l2)
+static void check_and2(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l) {
+  bvar_t x1, x2;
+  int32_t v, check;
+  uint32_t i;
+
+  x1 = var_of(l1);
+  x2 = var_of(l2);
+  if (x1 < MAX_VARS && x2 < MAX_VARS) {
+    for (i=0; i<4; i++) {
+      binary_assignment(l1, l2, i);
+      v = eval_literal(table, val, MAX_VARS, l);
+      check = eval_and2(table, val, MAX_VARS, l1, l2);
+      if (check < 0 || check != v) {
+	printf("BUG: check_and2 failed\n");
+	exit(1);
+      }
+    }
+  }
+}
+
+
 // l = (or l1 l2 l3)
 static void check_or3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3, literal_t l) {
   bvar_t x1, x2, x3;
@@ -414,6 +465,29 @@ static void check_xor3(bool_vartable_t *table, literal_t l1, literal_t l2, liter
       check = eval_xor3(table, val, MAX_VARS, l1, l2, l3);
       if (check < 0 || check != v) {
 	printf("BUG: check_xor3 failed\n");
+	exit(1);
+      }
+    }
+  }
+}
+
+// l = (or l1 l2 l3)
+static void check_and3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3, literal_t l) {
+  bvar_t x1, x2, x3;
+  int32_t v, check;
+  uint32_t i;
+
+  x1 = var_of(l1);
+  x2 = var_of(l2);
+  x3 = var_of(l3);
+  if (x1 < MAX_VARS && x2 < MAX_VARS && x3 < MAX_VARS) {
+    for (i=0; i<8; i++) {
+      ternary_assignment(l1, l2, l3, i);
+      v = eval_literal(table, val, MAX_VARS, l);
+      check = eval_and3(table, val, MAX_VARS, l1, l2, l3);
+      if (check < 0 || check != v) {
+	assert(false);
+	printf("BUG: check_and3 failed\n");
 	exit(1);
       }
     }
@@ -471,6 +545,7 @@ static void check_ite(bool_vartable_t *table, literal_t l1, literal_t l2, litera
  */
 static void test_or2(bool_vartable_t *table, literal_t l1, literal_t l2) {
   literal_t l, check, swap;
+  literal_t aux[2];
 
   printf("test: (or ");
   print_literal(stdout, l1);
@@ -496,12 +571,22 @@ static void test_or2(bool_vartable_t *table, literal_t l1, literal_t l2) {
     exit(1);
   }
 
+  aux[0] = l1;
+  aux[1] = l2;
+  check = make_or(table, 2, aux);
+  if (l != check) {
+    printf("BUG: mismatch between make_or and make_or2\n");
+    assert(false);
+    exit(1);
+  }
+
   check_or2(table, l1, l2, l);
 }
 
 static void test_or3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
   literal_t l, check;
   literal_t s1, s2, s3, s4, s5;
+  literal_t aux[3];
 
   printf("test: (or ");
   print_literal(stdout, l1);
@@ -533,6 +618,15 @@ static void test_or3(bool_vartable_t *table, literal_t l1, literal_t l2, literal
     exit(1);
   }
 
+  aux[0] = l1;
+  aux[1] = l2;
+  aux[2] = l3;
+  check = make_or(table, 3, aux);
+  if (l != check) {
+    printf("BUG: mismatch between make_or and make_or3\n");
+    exit(1);
+  }
+
   check_or3(table, l1, l2, l3, l);
 }
 
@@ -542,6 +636,7 @@ static void test_or3(bool_vartable_t *table, literal_t l1, literal_t l2, literal
 static void test_xor2(bool_vartable_t *table, literal_t l1, literal_t l2) {
   literal_t l, check;
   literal_t s1, s2, s3, s4;
+  literal_t aux[2];
 
   printf("test: (xor ");
   print_literal(stdout, l1);
@@ -567,6 +662,14 @@ static void test_xor2(bool_vartable_t *table, literal_t l1, literal_t l2) {
   s4 = make_xor2(table, not(l1), not(l2));
   if (l != s1 || l != not(s2) || l != not(s3) || l != s4) {
     printf("BUG: in XOR2\n");
+    exit(1);
+  }
+
+  aux[0] = l1;
+  aux[1] = l2;
+  check = make_xor(table, 2, aux);
+  if (l != check) {
+    printf("BUG: mismatch between make_xor and make_xor2\n");
     exit(1);
   }
 
@@ -692,6 +795,94 @@ static void test_ite(bool_vartable_t *table, literal_t l1, literal_t l2, literal
 }
 
 
+static void test_and2(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  literal_t l, check, swap;
+  literal_t aux[2];
+
+  printf("test: (and ");
+  print_literal(stdout, l1);
+  printf(" ");
+  print_literal(stdout, l2);
+  printf(") --> ");
+  fflush(stdout);
+
+  l = make_and2(table, l1, l2);
+  print_literal(stdout, l);
+  printf("\n");
+  fflush(stdout);
+
+  check = make_and2(table, l1, l2);
+  if (l != check) {
+    printf("BUG: Hash consing error\n");
+    exit(1);
+  }
+
+  swap = make_and2(table, l2, l1);
+  if (l != swap) {
+    printf("BUG: Symmetry failure\n");
+    exit(1);
+  }
+
+  aux[0] = l1;
+  aux[1] = l2;
+  check = make_and(table, 2, aux);
+  if (l != check) {
+    printf("BUG: mismatch between make_and and make_and2\n");
+    assert(false);
+    exit(1);
+  }
+
+  check_and2(table, l1, l2, l);
+}
+
+static void test_and3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
+  literal_t l, check;
+  literal_t s1, s2, s3, s4, s5;
+  literal_t aux[3];
+
+  printf("test: (or ");
+  print_literal(stdout, l1);
+  printf(" ");
+  print_literal(stdout, l2);
+  printf(" ");
+  print_literal(stdout, l3);
+  printf(") --> ");
+  fflush(stdout);
+
+  l = make_and3(table, l1, l2, l3);
+  print_literal(stdout, l);
+  printf("\n");
+  fflush(stdout);
+
+  check = make_and3(table, l1, l2, l3);
+  if (l != check) {
+    printf("BUG: Hash consing error\n");
+    exit(1);
+  }
+
+  s1 = make_and3(table, l1, l3, l2);
+  s2 = make_and3(table, l3, l1, l2);
+  s3 = make_and3(table, l2, l1, l3);
+  s4 = make_and3(table, l2, l3, l1);
+  s5 = make_and3(table, l3, l2, l1);
+  if (l != s1 || l != s2 || l != s3 || l != s4 || l != s5) {
+    printf("BUG: Symmetry failure\n");
+    exit(1);
+  }
+
+  aux[0] = l1;
+  aux[1] = l2;
+  aux[2] = l3;
+  check = make_and(table, 3, aux);
+  if (l != check) {
+    printf("BUG: mismatch between make_and and make_and3\n");
+    exit(1);
+  }
+
+  check_and3(table, l1, l2, l3, l);
+}
+
+
 /*
  * Tests using variables in a[0 ..n-1]
  */
@@ -712,6 +903,12 @@ static void tests(bool_vartable_t *table, uint32_t n, bvar_t *a) {
       test_xor2(table, pos_lit(x), neg_lit(y));
       test_xor2(table, neg_lit(x), pos_lit(y));
       test_xor2(table, neg_lit(x), neg_lit(y));
+
+      test_and2(table, pos_lit(x), pos_lit(y));
+      test_and2(table, pos_lit(x), neg_lit(y));
+      test_and2(table, neg_lit(x), pos_lit(y));
+      test_and2(table, neg_lit(x), neg_lit(y));
+
       printf("---\n");
     }
   }
@@ -758,6 +955,15 @@ static void tests(bool_vartable_t *table, uint32_t n, bvar_t *a) {
 	test_ite(table, neg_lit(x), pos_lit(y), neg_lit(z));
 	test_ite(table, neg_lit(x), neg_lit(y), pos_lit(z));
 	test_ite(table, neg_lit(x), neg_lit(y), neg_lit(z));	
+
+	test_and3(table, pos_lit(x), pos_lit(y), pos_lit(z));
+	test_and3(table, pos_lit(x), pos_lit(y), neg_lit(z));
+	test_and3(table, pos_lit(x), neg_lit(y), pos_lit(z));
+	test_and3(table, pos_lit(x), neg_lit(y), neg_lit(z));
+	test_and3(table, neg_lit(x), pos_lit(y), pos_lit(z));
+	test_and3(table, neg_lit(x), pos_lit(y), neg_lit(z));
+	test_and3(table, neg_lit(x), neg_lit(y), pos_lit(z));
+	test_and3(table, neg_lit(x), neg_lit(y), neg_lit(z));	
 
 	printf("---\n");
       }
