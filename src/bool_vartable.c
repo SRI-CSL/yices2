@@ -196,11 +196,16 @@ void init_bool_vartable(bool_vartable_t *table) {
 
   table->tag = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
   table->desc = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+  table->map = (literal_t *) safe_malloc(n * sizeof(literal_t));
+  table->root = allocate_bitvector(n);
 
   assert(0 == const_bvar);
 
+  // 0 is root, mapped to true_literal
   table->tag[0] = BCONST;
   table->desc[0] = 0;
+  table->map[0] = true_literal;
+  set_bit(table->root, 0);
 
   table->nvars = 1;
   table->size = n;
@@ -226,6 +231,9 @@ static void extend_bool_vartable(bool_vartable_t *table) {
 
   table->tag = (uint8_t *) safe_realloc(table->tag, n * sizeof(uint8_t));
   table->desc = (uint32_t *) safe_realloc(table->desc, n * sizeof(uint32_t));
+  table->map = (literal_t *) safe_realloc(table->map, n * sizeof(literal_t));
+  table->root = extend_bitvector(table->root, n);
+
   table->size = n;
 }
 
@@ -236,8 +244,12 @@ static void extend_bool_vartable(bool_vartable_t *table) {
 void delete_bool_vartable(bool_vartable_t *table) {
   safe_free(table->tag);
   safe_free(table->desc);
+  safe_free(table->map);
+  delete_bitvector(table->root);
   table->tag = NULL;
   table->desc = NULL;
+  table->map = NULL;
+  table->root = NULL;
   delete_bgate_array(&table->gates);
   delete_ordata_array(&table->ordata);
   delete_int_htbl(&table->htbl);
@@ -259,6 +271,7 @@ void reset_bool_vartable(bool_vartable_t *table) {
 /*
  * Allocate a new variable index x
  * - set tag[x] to tag and desc[x] to index
+ * - set root[x] to 1, and map[x] to null_literal
  */
 static bvar_t bool_vartable_new_var(bool_vartable_t *table, uint8_t tag, uint32_t index) {
   uint32_t i;
@@ -271,9 +284,77 @@ static bvar_t bool_vartable_new_var(bool_vartable_t *table, uint8_t tag, uint32_
 
   table->tag[i] = tag;
   table->desc[i] = index;
-  table->nvars = i+1;
+  table->map[i] = null_literal;
+  set_bit(table->root, i);
+
+  table->nvars = i+1;  
 
   return i;
+}
+
+
+
+
+/*
+ * EQUIVALENCE CLASSES
+ */
+
+/*
+ * Get the root literal in l's class
+ */
+literal_t literal_get_root(bool_vartable_t *table, literal_t l) {
+  assert(valid_boolvar(table, var_of(l)));
+
+  while (!tst_bit(table->root, var_of(l))) {
+    // if l is pos(x), replace l by map[x]
+    // if l is neg(x), replace l by not(map[x])
+    assert(table->map[var_of(l)] != null_literal);
+    l = table->map[var_of(l)] & sign_of_lit(l);
+  }
+  return l;
+}
+
+
+/*
+ * Check whether the classes of l1 and l2 can be merged
+ * - return true if l1 and l2 are in distinct/non-complementary classes,
+ *   and if at least one of the two classes is not mapped to an external literal
+ */
+bool root_literals_can_be_merged(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  bvar_t x1, x2;
+
+  assert(literal_is_root(table, l1) && literal_is_root(table, l2));
+
+  x1 = var_of(l1);
+  x2 = var_of(l2);
+  return x1 != x2 &&
+    (root_boolvar_map(table, x1) == null_literal || root_boolvar_map(table, x2) == null_literal);
+}
+
+
+/*
+ * Merge the classes of l1 and l2
+ * - they must be in distinct and non-complementary classes
+ */
+void merge_root_literals(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  literal_t aux;
+  bvar_t x1;
+
+  assert(root_literals_can_be_merged(table, l1, l2));
+
+  if (table->map[var_of(l1)] != null_literal) {
+    // swap l1 and l2
+    aux = l1; l1 = l2; l2 = aux;
+  }
+  
+  /*
+   * If l1 is positive: store l2 in map[var_of(l1)]
+   * If l1 is negative: store not(l2) in map[var_of(l1)]
+   */
+  x1 = var_of(l1);  
+  assert(table->map[x1] == null_literal);
+  table->map[x1] = l2 ^ sign_of_lit(l1);
+  clr_bit(table->root, x1);  // x1 is not a root anymore
 }
 
 

@@ -30,6 +30,7 @@
  * That's what this module is intendend for:
  * - it stores a set of Boolean variables. Each variable has 
  *   a descriptor (i.e., the variable definition).
+ * - it also keps track of equivalences between literals.
  * - the definitions may be:
  *   1) a pure variable (i.e., no definition)
  *   2) a Boolean function of other variables
@@ -55,6 +56,18 @@
  * compactly using its truth table, which is stored as four integers:
  * - a bitmask for the truth table (8bits are used)
  * - the three variables x, y, z in increasing order
+ *
+ * To store the equivalences, we use a union-find structure (in a
+ * simple form: there's no path compression to facilitate backtracking).
+ * - each variable x: 
+ *     root[x] = 0 or 1
+ *     map[x] = what x is mapped to
+ * - x may be mapped to a literal l or to null_literal
+ * - if root[x] is 1, then x is the root of its equivalence class
+ *   then map[x] is either null_literal or a literal in the SAT solver
+ * - if root[x] is 0, then x is not a root, map[x] is the parent
+ *   of x in a merge tree (and the root of the tree is the class
+ *   representative).
  */
 
 #ifndef __BOOL_VARTABLE_H
@@ -63,6 +76,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "bitvectors.h"
 #include "int_hash_tables.h"
 #include "smt_core.h" 
 
@@ -181,6 +195,9 @@ typedef struct ordata_array_s {
  * - for each variable: 
  *   tag[x] = 8bit
  *   desc[x] = 32bit index
+ *   map[x] = literal
+ *   root[x] = 1 bit
+ *
  * - if tag[x] = BCONST or tag[x] = BVAR then desc[x] is not used (it's set to 0)
  * - if tag[x] = BGATE then desc[x] = index k in the gate array
  * - if tag[x] = BOR then desc[x] = index k in array data
@@ -190,6 +207,9 @@ typedef struct bool_vartable_s {
   uint32_t size;    // size of arrays tag and desc
   uint8_t *tag;
   uint32_t *desc;
+  literal_t *map;
+  byte_t *root;
+
   bgate_array_t gates;
   ordata_array_t ordata;
 
@@ -277,6 +297,100 @@ static inline int32_t *boolvar_or_desc(bool_vartable_t *table, bvar_t x) {
   assert(boolvar_is_or(table, x));
   return table->ordata.data + table->desc[x];
 }
+
+
+/*
+ * EQUIVALENCE CLASSES
+ */
+
+/*
+ * Check whether a variable or literal is root of its class
+ */
+static inline bool boolvar_is_root(bool_vartable_t *table, bvar_t x) {
+  assert(valid_boolvar(table, x));
+  return tst_bit(table->root, x);
+}
+
+static inline bool literal_is_root(bool_vartable_t *table, literal_t l) {
+  return boolvar_is_root(table, var_of(l));
+}
+
+
+/*
+ * Get the root literal in a class
+ */
+extern literal_t literal_get_root(bool_vartable_t *table, literal_t l);
+
+static inline literal_t boolvar_get_root(bool_vartable_t *table, bvar_t x) {
+  return literal_get_root(table, pos_lit(x));
+}
+
+
+/*
+ * Check whether l1 and l2 are in the same class
+ */
+static inline bool literals_are_equal(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  return literal_get_root(table, l1) == literal_get_root(table, l2);
+}
+
+/*
+ * Check whether 11 and l2 are in complementary classes
+ */
+static inline bool literals_are_opposite(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  return opposite(literal_get_root(table, l1), literal_get_root(table, l2));
+}
+
+
+/*
+ * Get what's mapped to a root variable or literal
+ */
+static inline literal_t root_boolvar_map(bool_vartable_t *table, bvar_t x) {
+  assert(boolvar_is_root(table, x));
+  return table->map[x];
+}
+
+static inline bool root_boolvar_is_mapped(bool_vartable_t *table, bvar_t x) {
+  return root_boolvar_map(table, x) != null_literal;
+}
+
+static inline literal_t root_literal_map(bool_vartable_t *table, literal_t l) {
+  return root_boolvar_map(table, var_of(l)) ^ sign_of_lit(l);
+}
+
+static inline literal_t root_literal_is_mapped(bool_vartable_t *table, literal_t l) {
+  return root_literal_map(table, l) != null_literal;
+}
+
+
+
+/*
+ * Get what's mapped to x or l (don't have to be roots)
+ */
+static inline literal_t literal_get_map(bool_vartable_t *table, literal_t l) {
+  l = literal_get_root(table, l);
+  return root_literal_map(table, l);
+}
+
+static inline literal_t boolvar_get_map(bool_vartable_t *table, bvar_t x) {
+  return literal_get_map(table, pos_lit(x));
+}
+
+
+
+/*
+ * Check whether the classes of l1 and l2 can be merged
+ * - l1 and l2 must be root literals
+ * - return true if l1 and l2 are in distinct/non-complementary classes,
+ *   and if at least one of the two classes is not mapped to an external literal
+ */
+extern bool root_literals_can_be_merged(bool_vartable_t *table, literal_t l1, literal_t l2);
+
+
+/*
+ * Merge the classes of l1 and l2:
+ * - ll and l2 must be root literals amd the two classes must be mergeable
+ */
+extern void merge_root_literals(bool_vartable_t *table, literal_t l1, literal_t l2);
 
 
 
