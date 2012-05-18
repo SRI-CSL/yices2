@@ -272,6 +272,9 @@ __YICES_DLLSPEC__ extern term_t yices_false(void);
  * - index must be non-negative, and, if tau is scalar,
  *   index must be less than tau's cardinality.
  *
+ * Each constant is identified by its index. Two constants
+ * of type tau that have difference indices are distinct.
+ *
  * Error report:
  * if tau is undefined
  *   code = INVALID_TYPE
@@ -290,6 +293,14 @@ __YICES_DLLSPEC__ extern term_t yices_constant(type_t tau, int32_t index);
 /*
  * Uninterpreted term of type tau
  *
+ * An uninterpreted term is like a global variable of type tau. But, we
+ * don't call it a variable, because variables have a different meaning
+ * in Yices (see next function). 
+ *
+ * If tau is a function type, then this creates an uninterpreted
+ * function (see yices_application).
+ *
+ *
  * Error report:
  * if tau is undefined
  *   code = INVALID_TYPE
@@ -301,6 +312,9 @@ __YICES_DLLSPEC__ extern term_t yices_new_uninterpreted_term(type_t tau);
 /*
  * Variable of type tau. This creates a new variable.
  *
+ * Variables are different form uninterpreted terms. They are used
+ * in quantifiers and to support substitutions.
+ *
  * Error report:
  * if tau is undefined
  *   code = INVALID_TYPE
@@ -310,7 +324,7 @@ __YICES_DLLSPEC__ extern term_t yices_new_variable(type_t tau);
 
 
 /*
- * Application of an uninterpreted function
+ * Application of an uninterpreted function to n arguments.
  * 
  * Error report:
  * if n == 0,
@@ -394,7 +408,7 @@ __YICES_DLLSPEC__ extern term_t yices_not(term_t arg);
  * (and arg[0] ... arg[n-1])
  * (xor arg[0] ... arg[n-1])
  *
- * Note: arg may be modified.
+ * Note: array arg may be modified.
  *
  * Error report:
  * if n > YICES_MAX_ARITY
@@ -563,7 +577,7 @@ __YICES_DLLSPEC__ extern term_t yices_distinct(uint32_t n, term_t arg[]);
  *  (forall (var[0] ... var[n-1]) body)
  *  (exists (var[0] ... var[n-1]) body)
  * 
- * Note: var may be modified
+ * Note: array var may be modified
  *
  * Error report:
  * if n == 0
@@ -933,9 +947,24 @@ __YICES_DLLSPEC__ extern term_t yices_parse_bvhex(const char *s);
  *   term2 = t2
  *   type2 = type of t2
  *
- * for bvmul, bvsquare, or bvpower, if the degree is too large
+ * For bvmul, bvsquare, or bvpower, if the degree is too large
  *   code = DEGREE_OVERFLOW
  *
+ *
+ * In case of division by 0, Yices uses the following conventions:
+ *   
+ *   (bvdiv  x 0b00...0) is the  largest unsigned integer that cna be represented using n bits
+ *                       (i.e., 0b111....1)
+ *
+ *   (bvrem  x 0b00...0) is x
+ *
+ *   (bvsdiv x 0b00...0) is   0b00..01 (i.e., +1) if x's sign bit is 1
+ *                       and  0b111111 (i.e., -1) if x's sign bit is 0
+ *
+ *   (bvsrem x 0b00...0) is x
+ *
+ *   (bvsmod x 0b00...0) is x
+ * 
  */
 __YICES_DLLSPEC__ extern term_t yices_bvadd(term_t t1, term_t t2);     // addition (t1 + t2)
 __YICES_DLLSPEC__ extern term_t yices_bvsub(term_t t1, term_t t2);     // subtraction (t1 - t2)
@@ -1122,7 +1151,7 @@ __YICES_DLLSPEC__ extern term_t yices_redor(term_t t);
 
 /*
  * Bitwise equality comparison: if t1 and t2 are bitvectors of size n,
- * construct (bvand (bvxnor t1 t2))
+ * construct (bvredand (bvxnor t1 t2))
  *
  * Return NULL_TERM if there's an error
  *
@@ -1284,7 +1313,7 @@ __YICES_DLLSPEC__ extern term_t yices_subst_term(uint32_t n, term_t var[], term_
  * - the substitution is applied to terms t[0] ... t[m-1]
  * - on entry to the function: t[i] must be a valid term 
  *   the function applies the substitution to t[i]
- *   then store the result in place (i.e., t[i] := subst(n, var, map, t[i]).
+ *   then store the result in place (i.e., t[i] := subst(n, var, map, t[i])).
  *
  * Note: it's more efficient to call this function than to call
  * yices_subst_term m times.
@@ -1729,7 +1758,7 @@ __YICES_DLLSPEC__ extern int32_t yices_default_config_for_logic(ctx_config_t *co
  * Otherwise the context is configured as specified by config, provided
  * that configuration is valid.
  *
- * If there's an error (i.e.,the configuration is not supported), the
+ * If there's an error (i.e., the configuration is not supported), the
  * function returns NULL and set an error code: CTX_INVALID_CONFIG.
  */
 __YICES_DLLSPEC__ extern context_t *yices_new_context(const ctx_config_t *config);
@@ -1743,7 +1772,16 @@ __YICES_DLLSPEC__ extern void yices_free_context(context_t *ctx);
 
 /*
  * Get status: return the context's status flag
- * - return one of the codes defined in yices_types.h
+ * - return one of the codes defined in yices_types.h, 
+ *   namely one of the constants
+ *
+ *    STATUS_IDLE 
+ *    STATUS_SEARCHING
+ *    STATUS_UNKNOWN
+ *    STATUS_SAT
+ *    STATUS_UNSAT
+ *    STATUS_INTERRUPTED
+ *
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_context_status(context_t *ctx);
 
@@ -1844,7 +1882,7 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formula(context_t *ctx, term_t t);
 
 
 /*
- * Same thing for an array of n formulas t[0 ... n-1]
+ * Assert an array of n formulas t[0 ... n-1]
  * - ctx's status must be IDLE or UNSAT or SAT or UNKNOWN
  * - all t[i]'s must be valid boolean terms.
  * - n must be non-negative
@@ -1965,7 +2003,8 @@ __YICES_DLLSPEC__ extern param_t *yices_new_param_record(void);
  * - pname = parameter name
  * - value = setting
  *
- * TBD: describe the known parameters and the range of values for each.
+ * TBD: describe the parameters and the range of values for each.
+ *
  * Return -1 if there's an error, 0 otherwise
  */
 __YICES_DLLSPEC__ extern int32_t yices_set_param(param_t *p, const char *pname, const char *value);
@@ -2102,9 +2141,9 @@ __YICES_DLLSPEC__ extern int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq
  * - val must be an integer array of sufficient size to store all bits of t
  * - bit i of t is stored in val[i] (val[i] is either 0 or 1)
  * - the value is returned using small-endian convention:
- *    val[0] is the low order bit
+ *    val[0] is the low-order bit
  *    ...
- *    val[n-1] is the high order bit 
+ *    val[n-1] is the high-order bit 
  *
  * If t is not a bitvector term
  *   code = BITVECTOR_REQUIRED

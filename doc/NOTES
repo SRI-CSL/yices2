@@ -100,6 +100,9 @@ ptr_vectors.c
 pointer_vectors.h:	vectors of (void *) pointers: similar to ptr_vectors
 pointer_vectors.c       but use the hidden header trick.
 
+refcount_int_arrays.h:  arrays of integers, with reference counters
+refcount_int_arrays.c
+
 use_vectors.h:		vectors of tagged pointers (for implementing "use lists")
 use_vectors.c
 
@@ -185,13 +188,13 @@ int_hash_sets.h:	sets of unsigned integers (hash sets)
 int_hash_sets.c
 
 int_hash_tables.h:      hash map (maps integers to integers). Intended to support hash-consing.
-int_hash_tables.c       more general than int_hash_maps.h
+int_hash_tables.c       more general than int_hash_map.h
 
 pair_hash_map.h:	maps pairs of int32 to (void *) pointers (hash table)
 pair_hash_map.c
 
-pair_hash_map2.h:       maps pairs of int32 to int32 
-pair_hash_map2.c
+pair_hash_map2.h:       maps pairs of int32 to int32  (more operations are supported than in 
+pair_hash_map2.c        int_hash_map2)
 
 pair_hash_sets.h:	sets of pairs of integers (implemented as a hash table)
 pair_hash_sets.c
@@ -391,7 +394,7 @@ type_macros.h:		 Table of type macro. This is intended to support the SMT-LIB2
 type_macros.c            constructs (declare-sort ... <arity>) 
                                 and (define-sort <name> (<variables>) <body)
 
-terms.h:                 Table of terms and term constructors
+terms.h:                 Table of terms and basic term constructors
 terms.c
 
 
@@ -479,9 +482,10 @@ yices_exit_codes.h:      Constants passed to the 'exit' system call on unrecover
 
 Modules used in term construction:
 
-yices_api.c:             Implements all API functions including term and type
-                         constructors and simplifiers. Also includes some 
-                         parsing functions.
+term_manager.h:          Main term-construction module. This is where most term
+term_manager.c           simplification/normalization functions are implemented.
+
+yices_api.c:             Implements all API functions and more
 
 yices_extensions.h:      Functions defined in yices_api.c that are not part
                          of the API. These are variants of functions declared
@@ -715,8 +719,44 @@ fun_solver.c            - deals with extensionality and array updates
 7.5) Bit vector solver
      -----------------
 
-TBD
+remap_table.h:          Support for building equivalence classes of psuedo literals 
+remap_table.c           and for mapping these to real literals in the SAT solver
 
+bit_blaster.h:		Conversion of bit-vector operations to CNF
+bit_blaster.c
+
+
+bv_vartable.h:          Table of bit-vector variables
+bv_vartable.c
+
+bv_atomtable.h:         Table of bit-vector atoms
+bv_atomtable.c
+
+bvbound_cache.h:        Hash table that stores lower and upper bounds on a variable x
+bvbound_cache.c         (if known).
+
+bvconst_hmap.h:         Mapping from variables to bit-vector constants (used by bvsolver during
+bvconst_hmap.c          model construction).
+
+bvexp_table.h:		Table that stores bitvector polynomials in fully expanded form.
+bvexp_table.c           (Used for simplification).
+
+bv64_intervals.h:	Data structure to store intervals defined by two bit-vector constants
+bv64_intervals.c        of no more than 64 bits. (Used by bvsolver for simplification)
+
+bv_intervals.h: 	More general version: intervals defnied by two bit-vector constants
+bv_intervals.c          with more than 64bits. (Used by bvsolver for simplification)
+
+bvpoly_compiler.h:      Support for converting bit-vector polynomials to more elementary 
+bvpoly_compiler.c       terms built using binary add, binary product, etc.
+
+bvpoly_dag.h:		DAG of elementary bit-vector arithmetic operation (used 
+bvpoly_dag.c            by bvpoly_compiler)
+
+bvsolver_types.h:       Data types used by the bitvector solver
+
+bvsolver.h:             Bit-vectro solver
+bvsolver.c
 
 
 7.6) Model construction

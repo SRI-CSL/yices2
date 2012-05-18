@@ -417,13 +417,13 @@ static orgate_hobj_t orgate_hobj = {
 /*
  * Hash-consing constructors
  */
-bvar_t get_bgate(bool_vartable_t *table, bgate_t *g) {
+static bvar_t get_bgate(bool_vartable_t *table, bgate_t *g) {
   gate_hobj.table = table;
   gate_hobj.gate = *g;
   return int_htbl_get_obj(&table->htbl, &gate_hobj.m);
 }
 
-bvar_t get_bor(bool_vartable_t *table, uint32_t n, literal_t *a) {
+static bvar_t get_bor(bool_vartable_t *table, uint32_t n, literal_t *a) {
   orgate_hobj.table = table;
   orgate_hobj.n = n;
   orgate_hobj.a = a;
@@ -596,8 +596,7 @@ static bool normal_truth_table(ttbl_t *tt) {
  * Normalize truth table tt with three columns
  * - the three labels are literals
  */
-// PROVISIONAL: exported for testing
-void normalize_truth_table3(ttbl_t *tt) {
+static void normalize_truth_table3(ttbl_t *tt) {
   literal_t l;
   bvar_t aux;
 
@@ -698,7 +697,7 @@ void normalize_truth_table3(ttbl_t *tt) {
  * Normalize a truth table with two columns
  * - label[0] and label[1] are literals
  */
-void normalize_truth_table2(ttbl_t *tt) {
+static void normalize_truth_table2(ttbl_t *tt) {
   literal_t l;
   bvar_t aux;
 
@@ -829,7 +828,7 @@ static literal_t gate_for_truth_table(bool_vartable_t *table, ttbl_t *tt) {
  * Simplify then build l = (op l1 l2 l3)
  *  - op is defined by the bit mask b
  */
-static literal_t make_gate3(bool_vartable_t *table, uint8_t b, literal_t l1, literal_t l2, literal_t l3) {
+literal_t make_gate3(bool_vartable_t *table, uint8_t b, literal_t l1, literal_t l2, literal_t l3) {
   ttbl_t aux;
 
   assert(valid_literal(table, l1) && valid_literal(table, l2) && valid_literal(table, l3));
@@ -848,7 +847,7 @@ static literal_t make_gate3(bool_vartable_t *table, uint8_t b, literal_t l1, lit
 /*
  * Same thing for a binary operation
  */
-static literal_t make_gate2(bool_vartable_t *table, uint8_t b, literal_t l1, literal_t l2) {
+literal_t make_gate2(bool_vartable_t *table, uint8_t b, literal_t l1, literal_t l2) {
   ttbl_t aux;
 
   assert(valid_literal(table, l1) && valid_literal(table, l2));
@@ -861,38 +860,6 @@ static literal_t make_gate2(bool_vartable_t *table, uint8_t b, literal_t l1, lit
   normalize_truth_table2(&aux);
 
   return gate_for_truth_table(table, &aux);
-}
-
-
-/*
- * Primitive gates:
- * - each function takes two or three literals as input
- *   and return a literal
- * - each literal must be of the form pos_lit(x) or neg_lit(x)
- *   where x is a variable in the table.
- */
-literal_t make_or2(bool_vartable_t *table, literal_t l1, literal_t l2) {
-  return make_gate2(table, 0xfc, l1, l2);
-}
-
-literal_t make_xor2(bool_vartable_t *table, literal_t l1, literal_t l2) {
-  return make_gate2(table, 0x3c, l1, l2);
-}
-
-literal_t make_or3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
-  return make_gate3(table, 0xfe, l1, l2, l3);
-}
-
-literal_t make_xor3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
-  return make_gate3(table, 0x96, l1, l2, l3);
-}
-
-literal_t make_maj3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
-  return make_gate3(table, 0xe8, l1, l2, l3);
-}
-
-literal_t make_ite(bool_vartable_t *table, literal_t c, literal_t l1, literal_t l2) {
-  return make_gate3(table, 0xca, c, l1, l2);
 }
 
 

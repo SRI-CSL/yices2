@@ -307,20 +307,45 @@ extern bvar_t bool_vartable_add_atom(bool_vartable_t *table, uint8_t tag, uint32
 
 
 /*
- * Primitive gates:
- * - each function takes two or three literals as input
+ * Gate constructors: the functions take two or three literals as input
  *   and return a literal
  * - each literal must be of the form pos_lit(x) or neg_lit(x)
  *   where x is a variable in the table.
+ * - the actual gate is defined by the 8bit truth-table b
+ * - for make_gate2, b must be of the form [b3 b3 b2 b2 b1 b1 b0 b0]
  */
-extern literal_t make_or2(bool_vartable_t *table, literal_t l1, literal_t l2);
-extern literal_t make_xor2(bool_vartable_t *table, literal_t l1, literal_t l2);
+extern literal_t make_gate3(bool_vartable_t *table, uint8_t b, literal_t l1, literal_t l2, literal_t l3);
+extern literal_t make_gate2(bool_vartable_t *table, uint8_t b, literal_t l1, literal_t l2);
 
-extern literal_t make_or3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3);
-extern literal_t make_xor3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3);
-extern literal_t make_maj3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3);
 
-extern literal_t make_ite(bool_vartable_t *table, literal_t c, literal_t l1, literal_t l2);
+
+/*
+ * Primitive gates
+ */
+static inline literal_t make_or2(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  return make_gate2(table, 0xfc, l1, l2);
+}
+
+static inline literal_t make_xor2(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  return make_gate2(table, 0x3c, l1, l2);
+}
+
+static inline literal_t make_or3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
+  return make_gate3(table, 0xfe, l1, l2, l3);
+}
+
+static inline literal_t make_xor3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
+  return make_gate3(table, 0x96, l1, l2, l3);
+}
+
+static inline literal_t make_maj3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
+  return make_gate3(table, 0xe8, l1, l2, l3);
+}
+
+static inline literal_t make_ite(bool_vartable_t *table, literal_t c, literal_t l1, literal_t l2) {
+  return make_gate3(table, 0xca, c, l1, l2);
+}
+
 
 
 /*

@@ -581,7 +581,7 @@ For compatibility with Mac OS 10.5, we may also need
 but it doesn't seem to be required for Yices 2 (so far). 
 
 Update: option -isysroot /Developer/SDKs/MacOSX10.5.sdk 
-doees  not work outof the box, because the GMP header file 
+doees  not work out of the box, because the GMP header file 
 <gmp.h> is not found in /Developer/SDKs/MacOSX10.5.sdk. 
 A work around is to add a symbolic link to /usr/local/include
 in /Developer/SDKs/MacOSX10.5.sdk/usr/local.
