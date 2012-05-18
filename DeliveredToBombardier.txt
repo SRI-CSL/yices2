@@ -1,0 +1,10 @@
+Yices builds sent to Bombardier
+-------------------------------
+
+Yices 2.0.0, release r2466, sent on 05/18/2012:
+- linux distributions/statically linked with GMP
+
+yices-2.0.0-x86_64-unknown-linux-gnu-static-gmp.tar.gz
+yices-2.0.0-i686-unknown-linux-gnu-static-gmp.tar.gz
+
+
