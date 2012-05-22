@@ -458,7 +458,6 @@ void assert_xor3(gate_manager_t *m, literal_t l1, literal_t l2, literal_t l3, bo
 
 
 
-
 /************************
  * BOOLEAN IF-THEN-ELSE *
  ***********************/
