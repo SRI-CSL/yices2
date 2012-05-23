@@ -6,6 +6,8 @@
 #include <assert.h>
 #include <stdio.h>
 
+#include "bit_tricks.h"
+
 
 /*
  * Truth table: defined by an 8bit array b[7 ... 0]
@@ -56,10 +58,10 @@ static void show_table(int32_t b[8]) {
 
 
 /*
- * CNF encoding: each clause defined by 
+ * CNF encoding: each clause is defined by 
  * - an index i between 0 and 7
  * - the value b[i] for x
- * - a bit-mask m[i] of fout bits
+ * - a bit-mask m[i] of four bits
  *
  * i is formed of three bits i2 i1 i0, which define three literals 
  * (i.e., a row in the table as above)
@@ -114,6 +116,37 @@ static void show_clauses(int32_t b[8], uint32_t m[8]) {
 }
 
 
+/*
+ * Simplification using subsumption/resolution
+ * - there are two variants:
+ *   1) resolution of (a or B) and (not(a) or B) gives B,
+ *      which subsumes both clauses
+ *   2) resolution of (a or B) and (not(a) or B or C) gives 
+ *       B or C, which subsumes the second clause
+ */
+
+/*
+ * Apply rule 2 when the first clause is i
+ */
+static void strengthen(uint32_t m[8], int32_t b[8], uint32_t i) {
+  uint32_t j, delta;
+
+  for (j=0; j<8; j++) {
+    if (b[i] == b[j] && (m[i]&m[j]) == m[i]) {
+      delta = (i ^ j) & m[i];
+      if (popcount32(delta) == 1) {
+	assert(delta == 1 || delta == 2 || delta == 4);
+	/*
+	 * clause i is of the form a \/ B
+	 * clause j is of the form ~a \/ B \/ C
+	 * we strengthen clause j: rewrite it to B \/ C
+	 */
+	m[j] ^= delta;
+      }
+    }
+  }
+}
+
 static void make_cnf(int32_t b[8]) {
   uint32_t m[8];
   uint32_t i, j, step;
@@ -136,14 +169,14 @@ static void make_cnf(int32_t b[8]) {
 	if (i < j && m[i] == m[j]) {
 	  /*
 	   * i and j are two rows that differ at position k where step
-	   * = 2^k. If b[i] == b[j], then we can build a new clause
-	   * that subsumes both clause i and clause j.  We replace
-	   * clause i by the new clause and we remove clause j.
+	   * = 2^k. If b[i] == b[j], then we can apply the first rule:
+	   * We replace clause i by the new clause and we remove clause j.
 	   */
 	  assert((m[i] & step) != 0);
 	  if (b[i] == b[j]) {
 	    m[i] ^= step; // remove k from the bitmask
-	    m[j] ^= step;
+	    m[j] = 0;
+	    strengthen(m, b, i);
 	  }
 	}
       }

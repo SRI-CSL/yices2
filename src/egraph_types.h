@@ -829,7 +829,7 @@ typedef struct egraph_trail_stack_s {
  *
  * For new terms of arithmetic, bitvector, or function types, the egraph may create a theory variable
  * and attach it to the new term. For this purpose, the theory solver must provide functions for
- * creating theory varibles. These functions are the same as used in the context:
+ * creating theory variables. These functions are the same as the ones used in the context:
  * 
  * For arithmetic variables:
  * - thvar_t create_arith_var(void *arith_solver, bool is_int): create a new arithmetic variable.
@@ -842,22 +842,6 @@ typedef struct egraph_trail_stack_s {
  * For function variables
  * - thvar_t create_fun_var(void *fun_solver, type_t tau): create a new function/array variable
  *   tau = its type (in the global type table)
- *
- *
- * Notification of creation of equality atoms (OBSOLETE)
- * -----------------------------------------------------
- * 
- * When the egraph creates an atom (eq u v) where u and v are either both arithmetic terms
- * or both bitvector terms, then it notifies the corresponding theory solver that a new
- * atom, relevant to the theory has been created. For this purpose, the theory solver 
- * must provide the following function that's invoked when the atom is created:
- * 
- * void record_eq_atom(void *solver, literal l, thvar_t x, thvar_t y): 
- *  - solver must be either the arithmetic or bitvector solver
- *  - this notifies the solver of the equivalence (l <=> (x == y))
- *  - l is attached to an egraph atom (eq u v)
- *
- * NOTE: REMOVED THIS FUNCTION.
  *
  *
  * Support for model construction (global model)

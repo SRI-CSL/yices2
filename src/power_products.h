@@ -45,7 +45,6 @@ typedef struct {
 /*
  * Buffer for intermediate computations.
  */
-
 typedef struct {
   uint32_t size;    // size of the array prod
   uint32_t len;     // elements of prod currently used
@@ -75,7 +74,7 @@ typedef struct {
  */
 
 /*
- * Power product are part of the polynomail representation. But in many
+ * Power product are part of the polynomial representation. But in many
  * cases, the polynomials are linear expressions (i.e., each power product
  * is either the empty product or a single variable with exponent 1). To
  * compactly encode the common case, we use tagged pointers and the 

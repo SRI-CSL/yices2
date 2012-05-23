@@ -114,9 +114,6 @@ typedef enum {
  * An architecture is specified by one of the following codes
  * - each architecture defines a set of solvers (and the supported theories)
  * - the special "auto" codes can be used if mode is CTX_MODE_ONECHECK
- *
- * Note: these are anticipated/planned architectures. Most don't exist yet.
- * Some may be removed and other added.
  */
 typedef enum {
   CTX_ARCH_NOSOLVERS,    // core only
@@ -290,13 +287,14 @@ enum {
  *    - must return the eterm t attached to v (if any) or null_eterm if v has no term attached
  *    - this function may be omitted for standalone solvers (no egraph)
  *
- * NOTE: these functions are also used by the egraph.
+ * NOTE: these functions are also used by the egraph. They are required only if
+ * the context includes both the egraph and the arithmetic solver.
  *
  *
  * Model construction
  * ------------------
  *
- * The following functions are used when the context_solver reaches SAT (or UNKNOWN).
+ * The following functions are used when the solver reaches SAT (or UNKNOWN).
  * First, build_model is called. The solver must construct an assignment M from variables to 
  * rationals at that point. Then, the context can query for the value of a variable x in M.
  * If the solver cannot assign a rational value to x, it can signal this when value_in_model
@@ -772,7 +770,7 @@ extern int32_t assert_blocking_clause(context_t *ctx);
  * Check whether the context is consistent
  * - parameters = search and heuristic parameters to use
  * - if parameters is NULL, the default values are used
- * - if verbose is true, some statistics are displayed on stdout
+ * - if verbose is true, some statistics are displayed on stderr
  *   at every restart.
  *
  * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN, 

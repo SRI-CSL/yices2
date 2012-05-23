@@ -17,7 +17,7 @@
  * - boolean and theory propagation
  * - assertion of implied literals and conflicts
  * - conflict resolution and construction of learned clauses
- * - optional deletion of newly atoms on backtracking (to support
+ * - optional deletion of newly created atoms on backtracking (to support
  *   solver that create many atoms on the fly).
  * - restart
  * - reduction of learned clause database
@@ -376,7 +376,7 @@ static inline uint32_t get_lv_capacity(literal_t *v) {
  *   - prop_ptr: beginning of the boolean propagation queue
  *   - theory_ptr: beginnig of the theory propagation queue
  * - literals in stack->lit[prop_ptr ... top-1] form the boolean propagation queue
- * - literals in stack->lit[theory_ptr ... top-1] from the theory  propagation queue
+ * - literals in stack->lit[theory_ptr ... top-1] form the theory  propagation queue
  * - for each decision level, an index into the stack points
  *   to the literal decided or assigned at that level (for backtracking)
  * - for level 0, level_index[0] = 0 = index of the first literal assigned
@@ -640,8 +640,8 @@ typedef struct atom_table_s {
  * 7) void increase_decision_level(void *solver)
  *    - this is called whenever a new decision level is entered, i.e., within
  *      any call to decide_literal(core, l)
- *    - the theory solver must keep a mark of this to backtrack to the right point
- *      later on
+ *    - the theory solver must keep track of this so that it can backtrack to the 
+ *      right point later on
  *
  * 8) void backtrack(void *solver, uint32_t back_level)
  *    - this is called whenever the core backtracks to back_level. The theory
@@ -1090,9 +1090,6 @@ typedef struct smt_core_s {
   uint8_t *value;
   literal_t **bin;   // array of literal vectors
   link_t *watch;     // array of watch lists
-#if USE_END_WATCH
-  link_t **end_watch;  // pointer to the last element in watch list
-#endif
 
   /* Stack/propagation queue */
   prop_stack_t stack;

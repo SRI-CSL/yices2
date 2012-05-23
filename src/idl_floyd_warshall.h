@@ -521,7 +521,7 @@ extern thvar_t idl_create_var(idl_solver_t *solver, bool is_int);
 
 /*
  * Create a variable that represents the constant q
- * - if the internal solver is for IDL, fails if q is not an integer
+ * - raise an exception if q is not an integer
  */
 extern thvar_t idl_create_const(idl_solver_t *solver, rational_t *q);
 
