@@ -5,6 +5,8 @@
 #include <inttypes.h>
 #include <assert.h>
 #include <stdio.h>
+#include <stdbool.h>
+#include <stdlib.h>
 
 #include "bit_tricks.h"
 
@@ -117,39 +119,134 @@ static void show_clauses(int32_t b[8], uint32_t m[8]) {
 
 
 /*
- * Simplification using subsumption/resolution
- * - there are two variants:
- *   1) resolution of (a or B) and (not(a) or B) gives B,
- *      which subsumes both clauses
- *   2) resolution of (a or B) and (not(a) or B or C) gives 
- *       B or C, which subsumes the second clause
+ * Simplify the set of clauses using clause i
+ * - the clauses are given by m and b
+ * - return true if a clause is reduced
  */
-
-/*
- * Apply rule 2 when the first clause is i
- */
-static void strengthen(uint32_t m[8], int32_t b[8], uint32_t i) {
+static bool reduce_by_clause(uint32_t m[8], int32_t b[8], uint32_t i) {
   uint32_t j, delta;
+  bool changed;
+
+  changed = false;
 
   for (j=0; j<8; j++) {
-    if (b[i] == b[j] && (m[i]&m[j]) == m[i]) {
+    if (i != j && b[i] == b[j] && m[j] != 0 && (m[i] & m[j]) == m[i]) {
       delta = (i ^ j) & m[i];
-      if (popcount32(delta) == 1) {
-	assert(delta == 1 || delta == 2 || delta == 4);
+      switch (delta) {
+      case 0:
+	changed = true; 
+	m[j] = 0; // i subsumes j
+	break;
+
+      case 1:
+      case 2:
+      case 4:
 	/*
-	 * clause i is of the form a \/ B
-	 * clause j is of the form ~a \/ B \/ C
-	 * we strengthen clause j: rewrite it to B \/ C
+	 * i is of the form a \/ B
+	 * j is of the form (not a) \/ B or C 
+	 * with C possibly empty.
+	 * resolving gives: B \/ C which subsumes j
 	 */
-	m[j] ^= delta;
+	changed = true;
+	m[j] ^= delta; // replace j by i
+	break;
+
+      default:
+	// keep j as is
+	break;
       }
     }
   }
+
+  return changed;
 }
 
-static void make_cnf(int32_t b[8]) {
-  uint32_t m[8];
-  uint32_t i, j, step;
+
+/*
+ * The triple (k, msk, v) defines a clause
+ * - k = index between 0 and 7 (variables are y, z, t)
+ * - msk = bit mask 
+ * - v = value of x
+ * This function checks whether one clause in the set 
+ * is subsumed by (k, msk, v) and if so it removes it.
+ * - return true if some clause is removed
+ */
+static bool check_subsumption(uint32_t m[8], int32_t b[8], uint32_t k, uint32_t msk, int32_t v) {
+  uint32_t i;
+  bool changed;
+
+  changed = false;
+
+  for (i=0; i<8; i++) {
+    if (m[i] != 0 && b[i] == v && (msk & m[i]) == msk) {
+      if (((i ^ k) & msk) == 0) {
+	// clause i is subsumed 
+	m[i] = 0;
+	changed = true;
+      }
+    }
+  }
+
+  return changed;
+}
+
+
+/*
+ * Go through all pairs of clauses i, j:
+ * - if i and j can be resolved, build the resulting clause (k, msk, v)
+ *   then check whether (k, msk, v) subsumes anything
+ * - return true if anything changes
+ */
+static bool remove_redundant_clauses(uint32_t m[8], int32_t b[8]) {
+  uint32_t i, j, delta;
+  uint32_t k, msk;
+  bool changed;
+
+  changed = false;
+
+  for (i=0; i<7; i++) {
+    if (m[i] != 0) {
+      for (j=i+1; j<8; j++) {
+	if (m[j] != 0 && b[i] == b[j]) {
+	  delta = (i ^ j) & m[i] & m[j];
+	  if (popcount32(delta) == 1) {
+	    // i and j can be resolved
+	    msk = (m[i] | m[j]) ^ delta;
+	    k = ((i & m[i]) | (j & m[j])) ^ delta;
+	    changed |= check_subsumption(m, b, k, msk, b[i]);
+	  }
+	}
+      }
+    }
+  }
+
+  return changed;
+}
+
+
+
+/*
+ * Check consistency
+ */
+static bool check_cnf(int32_t b[8], uint32_t m[8]) {
+  uint32_t i, j;
+
+  for (i=0; i<8; i++) {
+    // i == truth assignment for y, z, t
+    for (j=0; j<8; j++) {
+      if (m[j] != 0 && ((i^j) & m[j]) == 0) {
+	if (b[j] != b[i]) return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+
+
+static void make_cnf(int32_t b[8], uint32_t m[8]) {
+  uint32_t i, changed;
 
   for (i=0; i<8; i++) {
     m[i] = 0x0f;
@@ -162,37 +259,44 @@ static void make_cnf(int32_t b[8]) {
   /*
    * simplification using subsumption/resolution
    */
-  for (step=1; step<8; step <<= 1) {
+  do {
+    changed = false;
     for (i=0; i<8; i++) {
       if (m[i] != 0) {
-	j = i ^ step;
-	if (i < j && m[i] == m[j]) {
-	  /*
-	   * i and j are two rows that differ at position k where step
-	   * = 2^k. If b[i] == b[j], then we can apply the first rule:
-	   * We replace clause i by the new clause and we remove clause j.
-	   */
-	  assert((m[i] & step) != 0);
-	  if (b[i] == b[j]) {
-	    m[i] ^= step; // remove k from the bitmask
-	    m[j] = 0;
-	    strengthen(m, b, i);
-	  }
-	}
+	changed |= reduce_by_clause(m, b, i);
       }
     }
-    printf("After step %"PRIu32"\n", step);
-    show_clauses(b, m);
-    printf("\n");
-  }
+  } while (changed);
 
   printf("Simplified clauses:\n");
   show_clauses(b, m);
   printf("\n");
+
+  if (! check_cnf(b, m)) {
+    printf("BUG: invalid CNF conversion\n");
+    fflush(stdout);
+    exit(1);
+  }
+
+  /*
+   * Full reduction
+   */
+  while (remove_redundant_clauses(m, b));
+  
+  printf("Reduced clause set:\n");
+  show_clauses(b, m);
+  printf("\n");
+
+  if (! check_cnf(b, m)) {
+    printf("BUG: invalid CNF conversion\n");
+    fflush(stdout);
+    exit(1);
+  }
 }
 
 int main(void) {
   int32_t b[8];
+  uint32_t m[8];
   uint32_t i, j;
 
   for (i=0; i<256; i++) {
@@ -201,7 +305,7 @@ int main(void) {
       b[j] = (i >> j) & 1;
     }
     show_table(b);
-    make_cnf(b);
+    make_cnf(b, m);
     printf("\n");
   }
 
