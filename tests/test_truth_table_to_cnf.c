@@ -80,6 +80,12 @@ static void show_table(int32_t b[8]) {
  *   if m2 is 1, l2 is kept (otherwise, it's removed)
  *   if m1 is 1, l1 is kept (otherwise, it's removed)
  *   if m0 is 1, l0 is kept (otherwise, it's removed)
+ *
+ * We use the following bit-tricks:
+ * - the common variables of two clauses i and j is defined 
+ *   by the '1' bits in m[i] & m[j]
+ * - the variables that have opposite polarities in i and j 
+ *   are defined  by (i ^ j) & m[i] & m[j]
  */
 
 static void show_literal(const char *var, uint32_t sign) {
