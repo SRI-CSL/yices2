@@ -27,13 +27,14 @@
  * variables, and delay the conversion to CNF until all the gates have
  * been created, and all equalities have been processed.
  *
- * That's what this module is intendend for:
- * - it stores a set of Boolean variables. Each variable has 
- *   a descriptor (i.e., the variable definition).
- * - it also keps track of equivalences between literals.
- * - the definitions may be:
- *   1) a pure variable (i.e., no definition)
- *   2) a Boolean function of other variables
+ * That's what this module is intendend for: it stores a set of
+ * Boolean variables, a set of clauses. and set of equalities between
+ * literals. 
+ *
+ * Each variable has a descriptor (i.e., the variable definition).  
+ * The definitions may be:
+ *   1) a pure variable (i.e., no definition) 
+ *   2) a Boolean function of other variables 
  *   3) a theory atom
  *
  * We support the following Boolean functions:
@@ -191,6 +192,62 @@ typedef struct ordata_array_s {
 
 
 /*
+ * Set of clauses
+ * - has_empty_clause: true if the empty clause was added
+ * - the other clauses are stored in set[0 ... 5]
+ * - small clauses (1 to 5 literals) are stored in set[1 .. 5]:
+ *   set[i] = vector for clauses of size i
+ * - clauses with more than 5 literasl are stored in set[0]
+ *   In set[0], a clause of n literals requires (n+1) integers.
+ *   If it's stored at index k in set[0].data then we have
+ *      set[0].data[k] = n (header)
+ *      set[0].data[k+1 ... k+n] = clause literals.
+ */
+#define NUM_CLAUSE_SETS 6
+
+typedef struct lvector_s {
+  uint32_t *data;
+  uint32_t nelems;
+  uint32_t size;
+} lvector_t;
+
+typedef struct clause_set_s {
+  lvector_t set[NUM_CLAUSE_SETS];
+  bool has_empty_clause;
+} clause_set_t;
+
+
+#define MAX_LVECTOR_SIZE  (UINT32_MAX/sizeof(int32_t))
+#define DEF_LVECTOR_SIZE   1000
+#define DEF_CLAUSESET_SIZE 100
+
+
+/*
+ * Equality queue:
+ * - each element in the queue is a pair of literals
+ * - we keep to pointers: top = top of the stack
+ * - prop_ptr = start of the queue
+ *   equalities in data[prop_ptr ... top - 1] are to be processed
+ */
+typedef struct equiv_s {
+  literal_t left;
+  literal_t right;
+} equiv_t;
+
+typedef struct equiv_queue_s {
+  equiv_t *data;
+  uint32_t top;
+  uint32_t prop_ptr;
+  uint32_t size;
+} equiv_queue_t;
+
+
+#define MAX_EQUIV_QUEUE_SIZE (UINT32_MAX/sizeof(equiv_t))
+#define DEF_EQUIV_QUEUE_SIZE 100
+
+
+
+/*
  * Variable table
  * - for each variable: 
  *   tag[x] = 8bit
@@ -204,14 +261,18 @@ typedef struct ordata_array_s {
  */
 typedef struct bool_vartable_s {
   uint32_t nvars;   // number of variables 
-  uint32_t size;    // size of arrays tag and desc
+  uint32_t size;    // size of arrays tag, desc, map, root
+
   uint8_t *tag;
   uint32_t *desc;
   literal_t *map;
   byte_t *root;
-
+  
   bgate_array_t gates;
   ordata_array_t ordata;
+
+  clause_set_t clauses;
+  equiv_queue_t queue;
 
   int_htbl_t htbl;  // for hash consing
 } bool_vartable_t;

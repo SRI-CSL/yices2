@@ -1186,6 +1186,12 @@ void bit_blaster_mux(bit_blaster_t *s, literal_t c, literal_t a, literal_t b, li
   push_ternary_clause(s, buffer, not(c), a, not(x));
   push_ternary_clause(s, buffer, not(c), not(a), x);
 
+#if 1
+  // optional: two more clauses (improve BCP in SAT solver)
+  push_ternary_clause(s, buffer, a, b, not(x));
+  push_ternary_clause(s, buffer, not(a), not(b), x);
+#endif
+
   if (cbuffer_nvars(buffer) != 4) {
     cbuffer_simplify(buffer);
   }

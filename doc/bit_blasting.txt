@@ -103,7 +103,7 @@ CLAUSAL ENCODING
 
    NOTE: we don't really need CMP. We can use the identity
 
-     (CMP a1 a2 c) = (majoriy a1 ~b1 c)
+     (CMP a1 a2 c) = (majoriy a1 ~a2 c)
 
    and use the truth-table and clauses for majority given below.
 

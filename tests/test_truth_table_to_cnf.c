@@ -124,6 +124,23 @@ static void show_clauses(int32_t b[8], uint32_t m[8]) {
 }
 
 
+// convert m to a 32bit unsigned integer then print that
+static void show_compact_mask(uint32_t m[8]) {
+  uint32_t i, compact;
+
+  compact = 0;
+  i = 8;
+  while (i > 0) {
+    i --;
+    assert(0 == m[i] || (8 <= m[i] && m[i] < 16));
+    compact = (compact << 4) | m[i];
+  }
+
+  printf("CNF compilation code: %"PRIu32" 0x%08x\n", compact, compact);
+}
+
+
+
 /*
  * Simplify the set of clauses using clause i
  * - the clauses are given by m and b
@@ -276,6 +293,7 @@ static void make_cnf(int32_t b[8], uint32_t m[8]) {
 
   printf("Simplified clauses:\n");
   show_clauses(b, m);
+  show_compact_mask(m);
   printf("\n");
 
   if (! check_cnf(b, m)) {
@@ -291,6 +309,7 @@ static void make_cnf(int32_t b[8], uint32_t m[8]) {
   
   printf("Reduced clause set:\n");
   show_clauses(b, m);
+  show_compact_mask(m);
   printf("\n");
 
   if (! check_cnf(b, m)) {

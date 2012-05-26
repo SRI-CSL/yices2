@@ -4969,9 +4969,14 @@ thvar_t bv_solver_create_bvrem(bv_solver_t *solver, thvar_t x, thvar_t y) {
     }
   }
 
-  // no simplification
-  r = get_bvrem(&solver->vtbl, n, x, y);
-  assert_urem_bounds(solver, r, y);  // EXPERIMENTAL
+  if (equal_bvvar(solver, x, y)) {
+    // (bvrem x x) == 0 (this holds even if x = 0)
+    r = get_zero(solver, n); 
+  } else {
+    // no simplification
+    r = get_bvrem(&solver->vtbl, n, x, y);
+    assert_urem_bounds(solver, r, y);  // EXPERIMENTAL
+  }
 
   return r;
 }
@@ -5065,9 +5070,14 @@ thvar_t bv_solver_create_bvsrem(bv_solver_t *solver, thvar_t x, thvar_t y) {
     }
   }
 
-  // no simplification
-  r = get_bvsrem(&solver->vtbl, n, x, y);
-  assert_srem_bounds(solver, r, y);
+  if (equal_bvvar(solver, x, y)) {
+    // (bvsrem x x) == 0 (this holds even if x = 0)
+    r = get_zero(solver, n); 
+  } else {
+    // no simplification
+    r = get_bvsrem(&solver->vtbl, n, x, y);
+    assert_srem_bounds(solver, r, y);
+  }
 
   return r;
 }
@@ -5115,9 +5125,14 @@ thvar_t bv_solver_create_bvsmod(bv_solver_t *solver, thvar_t x, thvar_t y) {
     }
   }
 
-  // no simplification
-  r = get_bvsmod(&solver->vtbl, n, x, y);
-  assert_srem_bounds(solver, r, y);
+  if (equal_bvvar(solver, x, y)) {
+    // (bvsmod x x) == 0 (this holds even if x = 0)
+    r = get_zero(solver, n); 
+  } else {
+    // no simplification
+    r = get_bvsmod(&solver->vtbl, n, x, y);
+    assert_srem_bounds(solver, r, y);
+  }
 
   return r; 
 }

@@ -169,6 +169,249 @@ static uint32_t store_ordata(ordata_array_t *a, literal_t *b, uint32_t n) {
 
 
 /*
+ * LITERAL VECTORS
+ */
+static inline void init_lvector(lvector_t *v) {
+  v->data = NULL;
+  v->nelems = 0;
+  v->size = 0;
+}
+
+static void delete_lvector(lvector_t *v) {
+  safe_free(v->data);
+  v->data = NULL;
+}
+
+static inline void reset_lvector(lvector_t *v) {
+  v->nelems = 0;
+}
+
+
+/*
+ * Increase the size of v (when v contains fixed size clauses)
+ * - k = size of the clauses in v
+ */
+static void extend_fixed_lvector(lvector_t *v, uint32_t k) {
+  uint32_t n;
+
+  n = v->size;
+  if (n == 0) {
+    n = k * DEF_CLAUSESET_SIZE;
+  } else {
+    n += n; // double the size
+  }
+  assert(n > v->size);
+
+  if (n > MAX_LVECTOR_SIZE) {
+    out_of_memory();
+  }
+
+  assert((n % k) == 0);
+  v->data = (uint32_t *) safe_realloc(v->data, n * sizeof(uint32_t));
+  v->size = n;
+}
+
+
+/*
+ * Increase v's size: make sure there's room for k more elements in
+ * v->data.
+ */
+static void extend_lvector(lvector_t *v, uint32_t k) {
+  uint32_t n;
+
+  n = v->size;
+  if (n == 0) {
+    n = DEF_LVECTOR_SIZE;
+  } else {
+    n += (n+1) >> 1;
+  }
+  if (n < v->size + k) {
+    n = v->size + k;
+  }
+
+  if (n > MAX_LVECTOR_SIZE) {
+    out_of_memory();
+  }
+  v->data = (uint32_t *) safe_realloc(v->data, n * sizeof(uint32_t));
+  v->size = n;
+}
+
+
+/*
+ * Store a clause of size k in vector v
+ * - v contains fixed-size clauses (all of size k)
+ * - a = array of k literals
+ */
+static void fixed_lvector_add_clause(lvector_t *v, uint32_t k, literal_t *a) {
+  uint32_t i, j;
+  uint32_t *d;
+
+  i = v->nelems;
+  if (i == v->size) {
+    extend_fixed_lvector(v, k);
+  }
+  assert(i + k <= v->size);
+
+  d = v->data + i;
+  for (j=0; j<k; j++) {
+    d[j] = a[j];
+  }
+  v->nelems = i + k;
+}
+
+
+/*
+ * Same thing when v contains variable-size clauses
+ */
+static void lvector_add_clause(lvector_t *v, uint32_t k, literal_t *a) {
+  uint32_t i, j;
+  uint32_t *d;
+
+  i = v->nelems;
+  if (i + k + 1 > v->size) {
+    extend_lvector(v, k+1);
+  }
+  assert(i + k + 1 <= v->size);
+
+  d = v->data + i;
+  d[0] = k;  // size is stored first 
+  d ++; 
+  for (j=0; j<k; j++) {
+    d[j] = a[j];
+  }
+
+  v->nelems = i + k + 1;  
+}
+
+
+
+/*
+ * CLAUSE SET
+ */
+static void init_clause_set(clause_set_t *cs) {
+  uint32_t i;
+
+  for (i=0; i<NUM_CLAUSE_SETS; i++) {
+    init_lvector(cs->set + i);
+  }
+  cs->has_empty_clause = false;
+}
+
+static void delete_clause_set(clause_set_t *cs) {
+  uint32_t i;
+
+  for (i=0; i<NUM_CLAUSE_SETS; i++) {
+    delete_lvector(cs->set + i);
+  }
+}
+
+static void reset_clause_set(clause_set_t *cs) {
+  uint32_t i;
+
+  for (i=0; i<NUM_CLAUSE_SETS; i++) {
+    reset_lvector(cs->set + i);
+  }
+  cs->has_empty_clause = false;
+}
+
+
+
+/*
+ * Add clause a of n literals
+ */
+static void clause_set_add(clause_set_t *cs, uint32_t k, literal_t *a) {
+  if (k == 0) {
+    cs->has_empty_clause = true;
+  } else if (k < NUM_CLAUSE_SETS) {
+    fixed_lvector_add_clause(cs->set + k, k, a); // add in cs->set[k]
+  } else {
+    lvector_add_clause(cs->set, k, a); // add in cs->set[0]
+  }
+}
+
+
+/*
+ * Short cuts for n=0, 1, and 2
+ */
+static inline void clause_set_add_empty_clause(clause_set_t *cs) {
+  cs->has_empty_clause = true;
+}
+
+static inline void clause_set_add_unit_clause(clause_set_t *cs, literal_t l1) {
+  fixed_lvector_add_clause(cs->set + 1, 1, &l1);
+}
+
+static inline void clause_set_add_binary_clause(clause_set_t *cs, literal_t l1, literal_t l2) {
+  literal_t aux[2];
+
+  aux[0] = l1;
+  aux[2] = l2;
+  fixed_lvector_add_clause(cs->set + 2, 2, aux);
+}
+
+
+
+/*
+ * EQUALITY QUEUE
+ */
+static inline void init_equiv_queue(equiv_queue_t *queue) {
+  queue->data = NULL;
+  queue->top = 0;
+  queue->prop_ptr = 0;
+  queue->size = 0;
+}
+
+static void delete_equiv_queue(equiv_queue_t *queue) {
+  safe_free(queue->data);
+  queue->data = NULL;
+}
+
+static inline void reset_equiv_queue(equiv_queue_t *queue) {
+  queue->top = 0;
+  queue->prop_ptr = 0;
+}
+
+static void extend_equiv_queue(equiv_queue_t *queue) {
+  uint32_t n;
+  
+  n = queue->size;
+  if (n == 0) {
+    n = DEF_EQUIV_QUEUE_SIZE;
+    assert(n <= MAX_EQUIV_QUEUE_SIZE);
+    queue->data = safe_malloc(n * sizeof(equiv_t));
+    queue->size = n;
+  } else {
+    n += (n+1)>>1;
+    if (n > MAX_EQUIV_QUEUE_SIZE) {
+      out_of_memory();
+    }
+    queue->data = safe_realloc(queue->data, n * sizeof(equiv_t));
+    queue->size = n;
+  }  
+}
+
+
+/*
+ * Add equality l1 == l2 to the quueue
+ */
+static void push_equiv(equiv_queue_t *queue, literal_t l1, literal_t l2) {
+  uint32_t i;
+
+  i = queue->top;
+  if (i == queue->size) {
+    extend_equiv_queue(queue);
+  }
+  assert(i < queue->size);
+  queue->data[i].left = l1;
+  queue->data[i].right = l2;
+  queue->top = i+1;
+}
+
+
+
+
+
+/*
  * HASH FUNCTIONS
  */
 static uint32_t hash_bgate(bgate_t *g) {
@@ -212,6 +455,8 @@ void init_bool_vartable(bool_vartable_t *table) {
 
   init_bgate_array(&table->gates);
   init_ordata_array(&table->ordata);
+  init_clause_set(&table->clauses);
+  init_equiv_queue(&table->queue);
 
   init_int_htbl(&table->htbl, 0);
 }
@@ -252,6 +497,8 @@ void delete_bool_vartable(bool_vartable_t *table) {
   table->root = NULL;
   delete_bgate_array(&table->gates);
   delete_ordata_array(&table->ordata);
+  delete_clause_set(&table->clauses);
+  delete_equiv_queue(&table->queue);
   delete_int_htbl(&table->htbl);
 }
 
@@ -264,6 +511,8 @@ void reset_bool_vartable(bool_vartable_t *table) {
   table->nvars = 1;
   reset_bgate_array(&table->gates);
   reset_ordata_array(&table->ordata);
+  reset_clause_set(&table->clauses);
+  reset_equiv_queue(&table->queue);
   reset_int_htbl(&table->htbl);
 }
 
@@ -290,6 +539,27 @@ static bvar_t bool_vartable_new_var(bool_vartable_t *table, uint8_t tag, uint32_
   table->nvars = i+1;  
 
   return i;
+}
+
+
+/*
+ * Add a clause a to the table
+ * - n = number of literals
+ */
+void bool_vartable_add_clause(bool_vartable_t *table, uint32_t n, literal_t *a) {
+  clause_set_add(&table->clauses, n, a);
+}
+
+void bool_vartable_add_empty_clause(bool_vartable_t *table) {
+  clause_set_add_empty_clause(&table->clauses);
+}
+
+void bool_vartable_add_unit_clause(bool_vartable_t *table, literal_t l1) {
+  clause_set_add_unit_clause(&table->clauses, l1);
+}
+
+void bool_vartable_add_binary_clause(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  clause_set_add_binary_clause(&table->clauses, l1, l2);
 }
 
 
@@ -358,6 +628,13 @@ void merge_root_literals(bool_vartable_t *table, literal_t l1, literal_t l2) {
 }
 
 
+
+/*
+ * Add equality l1 == l2 to the queue
+ */
+void  bool_vartable_push_eq(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  push_equiv(&table->queue, l1, l2);
+}
 
 
 /*
