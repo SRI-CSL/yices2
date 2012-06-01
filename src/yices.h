@@ -918,7 +918,7 @@ __YICES_DLLSPEC__ extern term_t yices_parse_bvbin(const char *s);
  *   code = INVALID_BVHEX_FORMAT
  * if the result would have more than YICES_MAX_BVSIZE digits
  *   code = MAX_BVSIZE_EXCEEDED
- *   badval = n
+ *   badval = 4n
  */
 __YICES_DLLSPEC__ extern term_t yices_parse_bvhex(const char *s);
 
@@ -998,7 +998,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvashr(term_t t1, term_t t2);  // arithmet
  * - shift_left1 sets the low-order bits to one
  * - shift_rigth0 sets the high-order bits to zero
  * - shift_right1 sets the high-order bits to one
- * - ashift_right is arithmetic shift, it copies the sign bit &
+ * - ashift_right is arithmetic shift, it copies the sign bit
  * - rotate_left: circular rotation
  * - rotate_right: circular rotation 
  *
@@ -1440,12 +1440,13 @@ __YICES_DLLSPEC__ extern int32_t yices_clear_term_name(term_t t);
  *    code = INVALID_TERM
  *    term1 = t
  *
- * - other erros (for both)
+ * - other errors (for both)
  *    code = OUTPUT_ERROR if writing to file f failed.
  *    in this case, errno, perror, etc. can be used for diagnostic.
  */
 __YICES_DLLSPEC__ extern int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t height, uint32_t offset);
-__YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, type_t t, uint32_t width, uint32_t height, uint32_t offset);
+__YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t height, uint32_t offset);
+
 
 
 
@@ -1885,7 +1886,6 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formula(context_t *ctx, term_t t);
  * Assert an array of n formulas t[0 ... n-1]
  * - ctx's status must be IDLE or UNSAT or SAT or UNKNOWN
  * - all t[i]'s must be valid boolean terms.
- * - n must be non-negative
  *
  * The function returns -1 on error, 0 otherwise.
  *
@@ -1907,7 +1907,7 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, uint32_t 
  * The behavior and returned value depend on ctx's current status:
  *
  * 1) If ctx's status is SAT, UNSAT, or UNKNOWN, the function 
- *    does nothing and just return the status.
+ *    does nothing and just returns the status.
  *
  * 2) If ctx's status is IDLE, then the solver searches for a
  *    satisfying assignment. If param != NULL, the search parameters
