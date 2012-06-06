@@ -463,7 +463,10 @@ static void explain_diseq_via_constants(egraph_t *egraph, occ_t x, occ_t y) {
  */
 static void explain_diseq_via_eq(egraph_t *egraph, occ_t x, occ_t y, composite_t *eq) {
   occ_t t;
-  class_t cx, cy;
+  class_t cx;
+#ifndef NDEBUG
+  class_t cy;
+#endif
 
   assert(composite_kind(eq) == COMPOSITE_EQ);
 
@@ -473,7 +476,9 @@ static void explain_diseq_via_eq(egraph_t *egraph, occ_t x, occ_t y, composite_t
   explain_eq(egraph, t, false_occ);
 
   cx = egraph_class(egraph, x);
+#ifndef NDEBUG
   cy = egraph_class(egraph, y);
+#endif
 
   assert(cx != cy);
 

@@ -1485,7 +1485,7 @@ static void check_model(FILE *f, smt_benchmark_t *bench, model_t *model) {
       fprintf(f, "\n==== Assertion[%"PRIu32"] ====\n", i);
       print_term_id(f, t);
       fprintf(f, " = ");
-      print_term(f, __yices_globals.terms, t);
+      print_term(f, terms, t);
       fprintf(f, "\n");
       fflush(f);
       fprintf(f, "evaluates to: ");
@@ -1647,16 +1647,13 @@ static void timeout_handler(void *p) {
  * logic label.
  */
 static bool benchmark_reduced_to_false(smt_benchmark_t *bench) {
-  term_table_t *terms;
   uint32_t i, n;
   term_t f;
-
-  terms = __yices_globals.terms;
 
   n = bench->nformulas;
   for (i=0; i<n; i++) {
     f = bench->formulas[i];
-    assert(is_boolean_term(terms, f));
+    assert(is_boolean_term(__yices_globals.terms, f));
     if (f == false_term) {
       return true;
     }

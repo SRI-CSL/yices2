@@ -2177,12 +2177,8 @@ static void count_dl_var(context_t *ctx, dl_data_t *stats, term_t t) {
  * will be detected in later phases of internalization anyway.
  */
 static bool check_dl_atom(context_t *ctx, dl_data_t *stats, term_t x, term_t y, rational_t *a, bool idl) {
-  term_table_t *terms;
-
-  terms = ctx->terms;
-
-  assert(is_arithmetic_term(terms, x) && is_pos_term(x) && intern_tbl_is_root(&ctx->intern, x));
-  assert(is_arithmetic_term(terms, y) && is_pos_term(y) && intern_tbl_is_root(&ctx->intern, y));
+  assert(is_arithmetic_term(ctx->terms, x) && is_pos_term(x) && intern_tbl_is_root(&ctx->intern, x));
+  assert(is_arithmetic_term(ctx->terms, y) && is_pos_term(y) && intern_tbl_is_root(&ctx->intern, y));
 
   // check the types first
   if (x != zero_term && is_integer_root(ctx, x) != idl) {

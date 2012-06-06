@@ -2752,12 +2752,17 @@ static void tableau_process_simple_row(matrix_t *matrix, row_t *row0, uint32_t r
  */
 static void tableau_process_row(matrix_t *matrix, row_t *row0, uint32_t r0) {
   uint32_t i, n, c;
-  int32_t x, best_x;
+  int32_t x;
   uint32_t best_i, best_c;
+#ifndef NDEBUG
+  int32_t best_x;
+#endif
 
   assert(matrix->row[r0] == row0);
-  
+
+#ifndef NDEBUG  
   best_x = -1;
+#endif
   best_i = 0;
   best_c = UINT32_MAX;
 
@@ -2769,8 +2774,10 @@ static void tableau_process_row(matrix_t *matrix, row_t *row0, uint32_t r0) {
       c = matrix->column[x]->nelems;
       if (c < best_c) {
 	best_c = c;
-	best_x = x;
 	best_i = i;
+#ifndef NDEBUG
+	best_x = x;
+#endif
       }
     }
   }

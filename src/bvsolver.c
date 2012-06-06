@@ -922,12 +922,9 @@ static void bv_solver_alloc_compiler(bv_solver_t *solver) {
  * - mark all the variables that occur in these atoms
  */
 static void bv_solver_mark_vars_in_atoms(bv_solver_t *solver) {
-  bv_vartable_t *vtbl;
   bv_atomtable_t *atbl;
   bvatm_t *atm;
   uint32_t i, n;
-
-  vtbl = &solver->vtbl;
 
   /*
    * scan all the atoms and mark their variables
@@ -1690,13 +1687,11 @@ static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
  */
 static void bv_solver_bitblast_atoms(bv_solver_t *solver) {
   bv_atomtable_t *atbl;
-  bv_vartable_t *vtbl;
   ivector_t *a, *b;
   uint32_t i, n;
   literal_t l;
   thvar_t x, y;
 
-  vtbl = &solver->vtbl;
   atbl = &solver->atbl;
   n = atbl->natoms;
 
@@ -5899,8 +5894,8 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
   }
   
 #if TRACE
-  t1 = bvvar_get_eterm(&solver->vtbl, x1);
-  t2 = bvvar_get_eterm(&solver->vtbl, x2);
+  t1 = bvvar_get_eterm(vtbl, x1);
+  t2 = bvvar_get_eterm(vtbl, x2);
   printf("---> bvequiv lemma:\n");
   printf("     x1 = ");
   print_bv_solver_var(stdout, solver, x1);
@@ -5920,8 +5915,8 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
     // create the lemma
     e->flag = ACTIVE_BV_LEMMA;
 
-    t1 = bvvar_get_eterm(&solver->vtbl, x1);
-    t2 = bvvar_get_eterm(&solver->vtbl, x2);
+    t1 = bvvar_get_eterm(vtbl, x1);
+    t2 = bvvar_get_eterm(vtbl, x2);
     assert(t1 != null_eterm && t2 != null_eterm && t1 != t2);
     eq = egraph_make_simple_eq(solver->egraph, pos_occ(t1), pos_occ(t2));
     l = on_the_fly_eq_atom(solver, x1, x2);

@@ -2183,9 +2183,9 @@ literal_t fun_solver_select_eq_polarity(fun_solver_t *solver, thvar_t x1, thvar_
  */
 static void propagate_application(fun_solver_t *solver, composite_t *c, thvar_t x) {
   fun_queue_t *queue;
-  egraph_t *egraph;
   fun_vartable_t *vtbl;
 #ifndef NDEBUG
+  egraph_t *egraph;
   composite_t *d;
 #endif
   int32_t *edges;
@@ -2193,7 +2193,6 @@ static void propagate_application(fun_solver_t *solver, composite_t *c, thvar_t 
   uint32_t n, i;
   int32_t k;
 
-  egraph = solver->egraph;
   vtbl = &solver->vtbl;
   queue = &solver->queue;
   assert(queue->top == 0 && queue->ptr == 0);
@@ -2208,6 +2207,7 @@ static void propagate_application(fun_solver_t *solver, composite_t *c, thvar_t 
 
 #ifndef NDEBUG    
     // there should be no update conflict when this function is called
+    egraph = solver->egraph;
     d = egraph_find_modified_application(egraph, vtbl->eterm[z], c);
     assert(d == NULL_COMPOSITE || egraph_equal_apps(egraph, c, d));
 #endif

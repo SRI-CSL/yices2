@@ -4215,14 +4215,14 @@ static void undo_merge(egraph_t *egraph, occ_t t2, elabel_t l2) {
 static void deactivate_congruence_root(egraph_t *egraph, composite_t *p) {
 #ifndef NDEBUG
   class_t c;
-#endif
   eterm_t t;
+#endif
   elabel_t *label;
 
   label = egraph->terms.label;
-  t = p->id;
 
 #ifndef NDEBUG
+  t = p->id;
   c = egraph_term_class(egraph, t);
   
   // check that p->hash is valid
@@ -4618,7 +4618,9 @@ literal_t egraph_make_simple_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
  * - made this function public so that theory solvers can invoke it directly
  */
 void egraph_make_interface_eq(egraph_t *egraph, eterm_t t1, eterm_t t2) {
+#if TRACE || !defined(NDEBUG)
   literal_t l;
+#endif
 
 #if TRACE
   printf("---> Create interface equality ");
@@ -4632,9 +4634,14 @@ void egraph_make_interface_eq(egraph_t *egraph, eterm_t t1, eterm_t t2) {
    * We want to bypass the simplication checks here
    * so we can't directly call egraph_make_eq.
    */
+#if TRACE || !defined(NDEBUG)
   //  l = egraph_make_eq(egraph, pos_occ(t1), pos_occ(t2));
   l = egraph_make_simple_eq(egraph, pos_occ(t1), pos_occ(t2));
   assert(literal_value(egraph->core, l) == VAL_UNDEF);
+#else 
+  (void) egraph_make_simple_eq(egraph, pos_occ(t1), pos_occ(t2));
+#endif
+
   egraph->stats.interface_eqs ++;
 
   // Experimental: give preference to branching on (eq t1 t2) true
