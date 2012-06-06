@@ -505,10 +505,10 @@ __YICES_DLLSPEC__ extern term_t yices_select(uint32_t index, term_t tuple);
  * if tuple doesn't have a tuple type
  *    code = TUPLE_REQUIRED
  *    term1 = tuple
- * if i >= number of components in tuple
+ * if index = 0 or index > number of components in tuple
  *    code = INVALID_TUPLE_INDEX
  *    type1 = tuple's type
- *    badval = i
+ *    badval = index
  * if new_v has a wrong type
  *    code = TYPE_MISMATCH
  *    term1 = new_v
@@ -953,7 +953,7 @@ __YICES_DLLSPEC__ extern term_t yices_parse_bvhex(const char *s);
  *
  * In case of division by 0, Yices uses the following conventions:
  *   
- *   (bvdiv  x 0b00...0) is the  largest unsigned integer that cna be represented using n bits
+ *   (bvdiv  x 0b00...0) is the  largest unsigned integer that can be represented using n bits
  *                       (i.e., 0b111....1)
  *
  *   (bvrem  x 0b00...0) is x
@@ -996,7 +996,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvashr(term_t t1, term_t t2);  // arithmet
  * Shift or rotation by an integer constant n
  * - shift_left0 sets the low-order bits to zero
  * - shift_left1 sets the low-order bits to one
- * - shift_rigth0 sets the high-order bits to zero
+ * - shift_right0 sets the high-order bits to zero
  * - shift_right1 sets the high-order bits to one
  * - ashift_right is arithmetic shift, it copies the sign bit
  * - rotate_left: circular rotation
@@ -1083,7 +1083,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvconcat(term_t t1, term_t t2);
  *   badval = n
  * if n * size of t > MAX_BVSIZE
  *   code = MAX_BVSIZE_EXCEEDED
- *   badval = n * sizeof t
+ *   badval = n * size of t
  */
 __YICES_DLLSPEC__ extern term_t yices_bvrepeat(term_t t, uint32_t n);
 
@@ -1103,7 +1103,7 @@ __YICES_DLLSPEC__ extern term_t yices_bvrepeat(term_t t, uint32_t n);
  *   term1 = t
  * if n + size of t > MAX_BVSIZE
  *   code = MAX_BVSIZE_EXCEEDED
- *   badval = n * sizeof t
+ *   badval = n * size of t
  */
 __YICES_DLLSPEC__ extern term_t yices_sign_extend(term_t t, uint32_t n);
 
@@ -1123,7 +1123,7 @@ __YICES_DLLSPEC__ extern term_t yices_sign_extend(term_t t, uint32_t n);
  *   term1 = t
  * if n + size of t > MAX_BVSIZE
  *   code = MAX_BVSIZE_EXCEEDED
- *   badval = n * sizeof t
+ *   badval = n * size of t
  */
 __YICES_DLLSPEC__ extern term_t yices_zero_extend(term_t t, uint32_t n);
 
@@ -1293,7 +1293,7 @@ __YICES_DLLSPEC__ extern term_t yices_parse_term(const char *s);
  *   there are no other occurrences of x in v, then x is 
  *   replaced by map[j]).
  * 
- * Return the resuting term or NULL_TERM if there's an error.
+ * Return the resulting term or NULL_TERM if there's an error.
  *
  * Error codes:
  * - INVALID_TERM if var[i] or map[i] is not valid
@@ -1633,7 +1633,7 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  *   ----------------------------------------------------------------------------------------
  *   "arith-fragment" | IDL                 |  integer difference logic
  *                    | RDL                 |  real difference logic
- *                    | LIA                 |  linear integer arithemtic
+ *                    | LIA                 |  linear integer arithmetic
  *                    | LRA                 |  linear real arithmetic
  *                    | LIRA                |  mixed linear arithmetic (real + integer variables)
  *
@@ -1669,7 +1669,7 @@ __YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const ch
  *   QF_UFBV:   uninterpreted functions + bitvectors
  *   QF_UFIDL:  uninterpreted functions + integer difference logic
  *   QF_UFLIA:  uninterpreted functions + linear integer arithmetic
- *   QF_UFLRA:  uninterpreted functions + lineral real arithemtic
+ *   QF_UFLRA:  uninterpreted functions + linear real arithmetic
  *
  * In all these logics, QF means quantifier-free.
  *
@@ -1855,7 +1855,7 @@ __YICES_DLLSPEC__ extern int32_t yices_context_disable_option(context_t *ctx, co
  *
  * If ctx's status is UNSAT, nothing is done.
  * 
- * If cts's status is IDLE, SAT, or UNKNOWN, then the formula is
+ * If ctx's status is IDLE, SAT, or UNKNOWN, then the formula is
  * simplified and asserted in the context. The context status is
  * changed to UNSAT if the formula is simplified to 'false' or
  * to IDLE otherwise.
