@@ -3481,15 +3481,11 @@ static void check_mk_tuple_update(tstack_t *stack, stack_elem_t *f, uint32_t n) 
 }
 
 
-/*
- * As above: tuple indices are number from 1 to tuple_size here
- * The API uses indices from 0 to tuple_size-1.
- */
 static void eval_mk_tuple_update(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   int32_t idx;
   term_t t, new_v;
 
-  idx = get_integer(stack, f+1) - 1;
+  idx = get_integer(stack, f+1);
   new_v = get_term(stack, f+2);
   t = yices_tuple_update(get_term(stack, f), idx, new_v);
   check_term(stack, t);

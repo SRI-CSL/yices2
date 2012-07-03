@@ -2553,6 +2553,45 @@ term_t mk_application(term_manager_t *manager, term_t fun, uint32_t n, term_t ar
 }
 
 
+
+/*
+ * Attempt to simplify (mk-tuplle arg[0] .... arg[n-1]):
+ * return x if arg[i] = (select i x) for i=0 ... n-1 and x is a tuple term of arity n
+ * return NULL_TERM otherwise
+ */
+static term_t simplify_mk_tuple(term_table_t *tbl, uint32_t n, term_t arg[]) {
+  uint32_t i;
+  term_t x, a;
+
+  a = arg[0];
+  if (is_neg_term(a) || 
+      term_kind(tbl, a) != SELECT_TERM ||
+      select_term_index(tbl, a) != 0) {
+    return NULL_TERM;
+  }
+
+  // arg[0] is (select 0 x)    
+  x = select_term_arg(tbl, a);
+  if (tuple_type_arity(tbl->types, term_type(tbl, x)) != n) {
+    // x does not have arity n
+    return NULL_TERM;
+  }
+
+  for (i = 1; i<n; i++) {
+    a = arg[i];
+    if (is_neg_term(a) || 
+	term_kind(tbl, a) != SELECT_TERM ||
+	select_term_index(tbl, a) != i ||
+	select_term_arg(tbl, a) != x) {
+      // arg[i] is not (select i x)
+      return NULL_TERM;
+    }
+  }
+
+  return x;
+}
+
+
 /*
  * Tuple constructor:
  * - arg = array of n terms
@@ -2560,36 +2599,24 @@ term_t mk_application(term_manager_t *manager, term_t fun, uint32_t n, term_t ar
  *
  * Simplification:
  *   (mk_tuple (select 0 x) ... (select n-1 x)) --> x
+ * provided x is a tuple of arity n
  */
 term_t mk_tuple(term_manager_t *manager, uint32_t n, term_t arg[]) {
   term_table_t *tbl;
-  uint32_t i;
-  term_t x, a;
+  term_t x;
   type_t tau;
 
   tbl = &manager->terms;
-
-  a = arg[0];
-  if (is_pos_term(a) && term_kind(tbl, a) == SELECT_TERM && 
-      select_term_index(tbl, a) == 0) {
-    x = select_term_arg(tbl, a);
-    for (i = 1; i<n; i++) {
-      a = arg[i];
-      if (is_neg_term(a) || 
-	  term_kind(tbl, a) != SELECT_TERM ||
-	  select_term_index(tbl, a) != i ||
-	  select_term_arg(tbl, a) != x) {
-	return tuple_term(tbl, n, arg);
-      }
+  x = simplify_mk_tuple(tbl, n, arg);
+  if (x == NULL_TERM) {
+    // not simplifeid
+    x = tuple_term(tbl, n, arg);
+    
+    // check whether x is unique element of its type
+    tau = term_type(tbl, x);
+    if (is_unit_type(manager->types, tau)) {
+      store_unit_type_rep(tbl, tau, x);
     }
-    return x;
-  }
-
-  // check whether x is unique element of its type
-  x = tuple_term(tbl, n, arg);
-  tau = term_type(tbl, x);
-  if (is_unit_type(manager->types, tau)) {
-    store_unit_type_rep(tbl, tau, x);
   }
 
   return x;
