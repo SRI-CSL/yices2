@@ -6257,7 +6257,8 @@ void delete_bv_solver(bv_solver_t *solver) {
 void bv_solver_push(bv_solver_t *solver) {
   uint32_t na, nv, nb, ns, nd;
 
-  assert(solver->decision_level == solver->base_level);
+  assert(solver->decision_level == solver->base_level && 
+	 all_bvvars_unmarked(solver));
 
   nv = solver->vtbl.nvars;
   na = solver->atbl.natoms;
@@ -6286,7 +6287,6 @@ void bv_solver_push(bv_solver_t *solver) {
 }
 
 
-
 /*
  * Remove all eterms whose id >= number of terms in the egraph
  * - if a bitvector variable x is kept after pop but the
@@ -6299,6 +6299,50 @@ static void bv_solver_remove_dead_eterms(bv_solver_t *solver) {
   if (solver->egraph != NULL) {
     nterms = egraph_num_terms(solver->egraph);
     bv_vartable_remove_eterms(&solver->vtbl, nterms);
+  }
+}
+
+
+/*
+ * Mark all variables that in the select queue
+ */
+static void mark_bvvars_of_select_queue(bv_solver_t *solver) {
+  bv_vartable_t *vtbl;
+  bv_queue_t *squeue;
+  uint32_t i, top;
+  thvar_t x;
+
+  vtbl = &solver->vtbl;
+
+  squeue = &solver->select_queue;
+  top = squeue->top;
+
+  for (i=0; i<top; i++) {
+    x = squeue->data[i];
+    assert(bvvar_is_bitblasted(vtbl, x) && bvvar_is_mapped(vtbl, x));
+    bvvar_set_mark(vtbl, x);
+  }
+}
+
+
+/*
+ * Remove the marks of all variables in the select queue
+ */
+static void unmark_bvvars_of_select_queue(bv_solver_t *solver) {
+  bv_vartable_t *vtbl;
+  bv_queue_t *squeue;
+  uint32_t i, top;
+  thvar_t x;
+
+  vtbl = &solver->vtbl;
+
+  squeue = &solver->select_queue;
+  top = squeue->top;
+
+  for (i=0; i<top; i++) {
+    x = squeue->data[i];
+    assert(!bvvar_is_bitblasted(vtbl, x) && bvvar_is_mapped(vtbl, x) && bvvar_is_marked(vtbl, x));
+    bvvar_clr_mark(vtbl, x);
   }
 }
 
@@ -6322,11 +6366,15 @@ static void bv_solver_clean_delayed_bitblasting(bv_solver_t *solver, uint32_t n)
 
   for (i=n; i<top; i++) {
     x = dqueue->data[i];
-    assert(bvvar_is_bitblasted(vtbl, x));
-    bvvar_reset_map(vtbl, x);
+    assert(bvvar_is_bitblasted(vtbl, x) && bvvar_is_mapped(vtbl, x));
     bvvar_clr_bitblasted(vtbl, x);
+    if (! bvvar_is_marked(vtbl, x)) {
+      // delete the pseudo map
+      bvvar_reset_map(vtbl, x);
+    }
   }
 }
+
 
 /*
  * Return to the previous base level
@@ -6359,12 +6407,26 @@ void bv_solver_pop(bv_solver_t *solver) {
     cache_pop(solver->cache);
   }
 
-  // remove select terms
+
+  // remove vars in the select queue
   solver->select_queue.top = top->nselects;
 
-  // remove the dead maps
+  /*
+   * remove the dead maps: 
+   * 1) first mark all variables in the select queue
+   *    they must be marked as non-bitblasted but their pseudo map must be kept
+   * 2) clear the 'bitblasted' flag of all variables in the delayed queue
+   *    also delete the pseudo map of all non-marked variables (not in select queue)
+   * 3) cleanup all marks
+   */
+  assert(all_bvvars_unmarked(solver));
+
+  mark_bvvars_of_select_queue(solver);
   bv_solver_clean_delayed_bitblasting(solver, top->ndelayed);
   solver->delayed_queue.top = top->ndelayed;
+  unmark_bvvars_of_select_queue(solver);
+
+  assert(all_bvvars_unmarked(solver));
 
   // remove the expanded forms
   // must be done before remove the variables form vtbl

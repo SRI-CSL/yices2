@@ -148,15 +148,19 @@ typedef struct bv_interval_stack_s {
  * of variables that require special processing on pop.
  *
  * One queue stores the variables x for which the context
- * called bv_solver_select_bit or bv_solver_set_bit.
- * This means that a literal l = (select x i) was
+ * called bv_solver_select_bit or bv_solver_set_bit, and 
+ * that are not bit-vector constants or bit-arrays.
+ * For such an x,  a literal l = (select x i) was
  * returned to the context, so 'x' must be considered
- * a top-level variable when bit-blasting.
+ * a top-level variable when bit-blasting. Also, this 
+ * means that x has an pseudo map attached, and this pseudo
+ * map must be preserved by bv_solver_pop.
  *
  * Another queue stores the variables 'x' that were created at some level
  * k but were bit-blasted at a later stage (at level k' > k).
  * When we backtrack from level k', we must cleanup the array of literals 
- * attached to k in the variable table.
+ * attached to x in the variable table, unless 'x' is also in the
+ * select queue for this level.
  */
 typedef struct bv_queue_s {
   thvar_t *data;

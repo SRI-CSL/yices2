@@ -40,7 +40,6 @@ static void check_watched_literals(smt_core_t *s, uint32_t n, literal_t *a);
 
 
 
-
 /********************************
  * CLAUSES AND LEARNED CLAUSES  *
  *******************************/
