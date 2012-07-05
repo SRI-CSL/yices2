@@ -2632,12 +2632,29 @@ term_t mk_tuple(term_manager_t *manager, uint32_t n, term_t arg[]) {
  * Simplification: (select i (mk_tuple x_1 ... x_n))  --> x_i
  */
 term_t mk_select(term_manager_t *manager, uint32_t index, term_t tuple) {
+  term_table_t *tbl;
+  type_table_t *types;
+  type_t tau;
+  term_t x;
+
   // simplify
   if (term_kind(&manager->terms, tuple) == TUPLE_TERM) {
-    return composite_term_arg(&manager->terms, tuple, index);
+    x = composite_term_arg(&manager->terms, tuple, index);
   } else {
-    return select_term(&manager->terms, index, tuple);
+    // check for singleton type
+    tbl = &manager->terms;
+    types = manager->types;
+    tau = term_type(tbl, tuple);
+    tau = tuple_type_component(types, tau, index);
+
+    if (is_unit_type(types, tau)) {
+      x = get_unit_type_rep(tbl, tau);
+    } else {
+      x = select_term(tbl, index, tuple);
+    }
   }
+
+  return x;
 }
 
 
