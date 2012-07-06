@@ -20,7 +20,8 @@ static bool interactive;
 
 int main(int argc, char *argv[]) {
   char *filename;
-  int32_t code;
+  uint32_t good, bad;
+  int32_t code;  
 
   if (argc > 2) {
     fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
@@ -47,6 +48,8 @@ int main(int argc, char *argv[]) {
   init_parser(&parser, &lexer, &stack);
 
   done = false;
+  good = 0;
+  bad = 0;
   while (current_token(&lexer) != SMT2_TK_EOS && !done) {
     if (interactive) {
       fputs("smt2> ", stdout);
@@ -54,16 +57,21 @@ int main(int argc, char *argv[]) {
     }
     code = parse_smt2_command(&parser, stderr);
     if (code < 0) {
+      bad ++;
       if (interactive) {
 	flush_lexer(&lexer); 
       } else {
 	done = true;
       }
     } else {
-      printf("ok\n");
+      good ++;
     }
     fflush(stdout);
   }
+
+  // summarize
+  printf("read %"PRIu32" commands (%"PRIu32" errors)\n", good + bad, bad);
+  fflush(stdout);
 
   delete_parser(&parser);
   close_lexer(&lexer);

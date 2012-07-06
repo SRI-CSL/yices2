@@ -17,45 +17,45 @@
  * Tables for conversion from token to string
  */
 static const char * const smt2_token_string[NUM_SMT2_TOKENS] = {
-  "(",                // SMT2_TK_LP
-  ")",                // SMT2_TK_RP
-  "<end-of-stream>",  // SMT2_TK_EOS
-  "<numeral>",        // SMT2_TK_NUMERAL
-  "<decimal>",        // SMT2_TK_DECIMAL
-  "<hexdecimal>",     // SMT2_TK_HEXADECIMAL
-  "<binary>",         // SMT2_TK_BINARY
-  "<string>",         // SMT2_TK_STRING
-  "<symbol>",         // SMT2_TK_SYMBOL
-  "<keyword>",        // SMT2_TK_KEYWORD
-  "par",              // SMT2_TK_PAR
-  "NUMERAL",          // SMT2_TK_NUM
-  "DECIMAL",          // SMT2_TK_DEC
-  "STRING",           // SMT2_TK_STR
-  "_",                // SMT2_TK_UNDERSCORE
-  "!",                // SMT2_TK_BANG
-  "as",               // SMT2_TK_AS
-  "let",              // SMT2_TK_LET
-  "exists",           // SMT2_TK_EXISTS
-  "forall",           // SMT2_TK_FORALL
-  "assert",           // SMT2_TK_ASSERT
-  "check-sat",        // SMT2_TK_CHECK_SAT
-  "declare-sort",     // SMT2_TK_DECLARE_SORT
-  "declare-fun",      // SMT2_TK_DECLARE_FUN
-  "define-sort",      // SMT2_TK_DEFINE_SORT
-  "define-fun",       // SMT2_TK_DEFINE_FUN
-  "exit",             // SMT2_TK_EXIT
-  "get-assertions",   // SMT2_TK_GET_ASSERTIONS
-  "get-assignment",   // SMT2_TK_GET_ASSIGNMENT
-  "get-info",         // SMT2_TK_GET_INFO
-  "get-option",       // SMT2_TK_GET_OPTION
-  "get-proof",        // SMT2_TK_GET_PROOF
-  "get-unsat-core",   // SMT2_TK_GET_UNSAT_CORE
-  "get-value",        // SMT2_TK_GET_VALUE
-  "pop",              // SMT2_TK_POP
-  "push",             // SMT2_TK_PUSH
-  "set-logic",        // SMT2_TK_SET_LOGIC
-  "set-info",         // SMT2_TK_SET_INFO
-  "set-option",       // SMT2_TK_SET_OPTION
+  "(",                     // SMT2_TK_LP
+  ")",                     // SMT2_TK_RP
+  "<end-of-stream>",       // SMT2_TK_EOS
+  "<numeral>",             // SMT2_TK_NUMERAL
+  "<decimal>",             // SMT2_TK_DECIMAL
+  "<hexdecimal>",          // SMT2_TK_HEXADECIMAL
+  "<binary>",              // SMT2_TK_BINARY
+  "<string>",              // SMT2_TK_STRING
+  "<symbol>",              // SMT2_TK_SYMBOL
+  "<keyword>",             // SMT2_TK_KEYWORD
+  "par",                   // SMT2_TK_PAR
+  "NUMERAL",               // SMT2_TK_NUM
+  "DECIMAL",               // SMT2_TK_DEC
+  "STRING",                // SMT2_TK_STR
+  "_",                     // SMT2_TK_UNDERSCORE
+  "!",                     // SMT2_TK_BANG
+  "as",                    // SMT2_TK_AS
+  "let",                   // SMT2_TK_LET
+  "exists",                // SMT2_TK_EXISTS
+  "forall",                // SMT2_TK_FORALL
+  "assert",                // SMT2_TK_ASSERT
+  "check-sat",             // SMT2_TK_CHECK_SAT
+  "declare-sort",          // SMT2_TK_DECLARE_SORT
+  "declare-fun",           // SMT2_TK_DECLARE_FUN
+  "define-sort",           // SMT2_TK_DEFINE_SORT
+  "define-fun",            // SMT2_TK_DEFINE_FUN
+  "exit",                  // SMT2_TK_EXIT
+  "get-assertions",        // SMT2_TK_GET_ASSERTIONS
+  "get-assignment",        // SMT2_TK_GET_ASSIGNMENT
+  "get-info",              // SMT2_TK_GET_INFO
+  "get-option",            // SMT2_TK_GET_OPTION
+  "get-proof",             // SMT2_TK_GET_PROOF
+  "get-unsat-core",        // SMT2_TK_GET_UNSAT_CORE
+  "get-value",             // SMT2_TK_GET_VALUE
+  "pop",                   // SMT2_TK_POP
+  "push",                  // SMT2_TK_PUSH
+  "set-logic",             // SMT2_TK_SET_LOGIC
+  "set-info",              // SMT2_TK_SET_INFO
+  "set-option",            // SMT2_TK_SET_OPTION
 
   "<bad-string>",          // SMT2_TK_INVALID_STRING
   "<invalid-numeral>",     // SMT2_TK_INVALID_NUMERAL
@@ -450,6 +450,13 @@ const char *smt2_keyword_to_string(smt2_keyword_t kw) {
  * NOTE: this is not strictly compliant with the SMT-LIB 2.0
  * standard as we may include non-ascii printable characters
  * in the string.
+ *
+ * NOTE2: the SMT-LIB2 standard says 'a string is any sequence of
+ * printable ASCII characters delimited by double quotes ...' But it
+ * does not define 'printable ASCII character'. Several benchmarks in
+ * SMT-LIB include line breaks inside a string (which are not
+ * printable characters), so I've changed the loop below to allow both
+ * printable characters and spaces.
  */
 static smt2_token_t smt2_read_string(lexer_t *lex) {
   reader_t *rd;
@@ -470,7 +477,7 @@ static smt2_token_t smt2_read_string(lexer_t *lex) {
       break;
     }
 
-    if (! isprint(c)) {
+    if (!isprint(c) && !isspace(c)) {
       // error
       tk = SMT2_TK_INVALID_STRING;
       break;
