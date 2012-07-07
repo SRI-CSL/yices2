@@ -46,6 +46,22 @@ static void string_buffer_extend(string_buffer_t *s, uint32_t n) {
 
 
 /*
+ * Faster version: make room for one character
+ */
+static inline void string_buffer_extend1(string_buffer_t *s) {
+  uint32_t p;
+
+  if (s->index == s->size) {
+    p = s->size + 1;
+    p += p>>1;
+
+    s->data = (char *) safe_realloc(s->data, p);
+    s->size = p;
+  }
+}
+
+
+/*
  * Delete: free data array
  */
 void delete_string_buffer(string_buffer_t *s) {
@@ -60,15 +76,18 @@ void delete_string_buffer(string_buffer_t *s) {
  * Close: append '\0', do not increment the index
  */
 void string_buffer_close(string_buffer_t *s) {
-  string_buffer_extend(s, 1);
+  //  string_buffer_extend(s, 1);
+  string_buffer_extend1(s);
   s->data[s->index] = '\0';
 }
+
 
 /*
  * Append operations
  */
 void string_buffer_append_char(string_buffer_t *s, char c) {
-  string_buffer_extend(s, 1);
+  //  string_buffer_extend(s, 1);
+  string_buffer_extend1(s);
   s->data[s->index] = c;
   s->index ++;
 }
