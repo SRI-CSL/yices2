@@ -6304,22 +6304,23 @@ static void bv_solver_remove_dead_eterms(bv_solver_t *solver) {
 
 
 /*
- * Mark all variables that in the select queue
+ * Mark all variables that will remain in the select queue
+ * - n = number of variables to keep
  */
-static void mark_bvvars_of_select_queue(bv_solver_t *solver) {
+static void mark_bvvars_of_select_queue(bv_solver_t *solver, uint32_t n) {
   bv_vartable_t *vtbl;
   bv_queue_t *squeue;
-  uint32_t i, top;
+  uint32_t i;
   thvar_t x;
 
   vtbl = &solver->vtbl;
 
   squeue = &solver->select_queue;
-  top = squeue->top;
+  assert(n <= squeue->top);
 
-  for (i=0; i<top; i++) {
+  for (i=0; i<n; i++) {
     x = squeue->data[i];
-    assert(bvvar_is_bitblasted(vtbl, x) && bvvar_is_mapped(vtbl, x));
+    assert(bvvar_is_mapped(vtbl, x));
     bvvar_set_mark(vtbl, x);
   }
 }
@@ -6327,21 +6328,22 @@ static void mark_bvvars_of_select_queue(bv_solver_t *solver) {
 
 /*
  * Remove the marks of all variables in the select queue
+ * - n = number of variables to keep
  */
-static void unmark_bvvars_of_select_queue(bv_solver_t *solver) {
+static void unmark_bvvars_of_select_queue(bv_solver_t *solver, uint32_t n) {
   bv_vartable_t *vtbl;
   bv_queue_t *squeue;
-  uint32_t i, top;
+  uint32_t i;
   thvar_t x;
 
   vtbl = &solver->vtbl;
 
   squeue = &solver->select_queue;
-  top = squeue->top;
+  assert(n <=squeue->top);
 
-  for (i=0; i<top; i++) {
+  for (i=0; i<n; i++) {
     x = squeue->data[i];
-    assert(!bvvar_is_bitblasted(vtbl, x) && bvvar_is_mapped(vtbl, x) && bvvar_is_marked(vtbl, x));
+    assert(bvvar_is_mapped(vtbl, x) && bvvar_is_marked(vtbl, x));
     bvvar_clr_mark(vtbl, x);
   }
 }
@@ -6377,6 +6379,34 @@ static void bv_solver_clean_delayed_bitblasting(bv_solver_t *solver, uint32_t n)
 
 
 /*
+ * Remove the map of variables that will be removed from the select queue
+ * - n = number of variables that will remain in the select_queue
+ *
+ * This is called after bv_solver_clean_delayed_bitblasting
+ */
+static void bv_solver_clean_select_queue(bv_solver_t *solver, uint32_t n) {
+  bv_vartable_t *vtbl;
+  bv_queue_t *squeue;
+  uint32_t i, top;
+  thvar_t x;
+
+  vtbl = &solver->vtbl;
+  squeue = &solver->select_queue;
+  top = squeue->top;
+
+  assert(n <= top);
+  for (i=n; i<top; i++) {
+    x = squeue->data[i];
+    // map[x] may have been reset by clean_delayed_bitblasting
+    if (bvvar_is_mapped(vtbl, x)) {
+      bvvar_reset_map(vtbl, x);
+    }
+  }
+}
+
+
+
+/*
  * Return to the previous base level
  */
 void bv_solver_pop(bv_solver_t *solver) {
@@ -6408,9 +6438,6 @@ void bv_solver_pop(bv_solver_t *solver) {
   }
 
 
-  // remove vars in the select queue
-  solver->select_queue.top = top->nselects;
-
   /*
    * remove the dead maps: 
    * 1) first mark all variables in the select queue
@@ -6421,12 +6448,18 @@ void bv_solver_pop(bv_solver_t *solver) {
    */
   assert(all_bvvars_unmarked(solver));
 
-  mark_bvvars_of_select_queue(solver);
+  mark_bvvars_of_select_queue(solver, top->nselects);
   bv_solver_clean_delayed_bitblasting(solver, top->ndelayed);
   solver->delayed_queue.top = top->ndelayed;
-  unmark_bvvars_of_select_queue(solver);
+  unmark_bvvars_of_select_queue(solver, top->nselects);
 
   assert(all_bvvars_unmarked(solver));
+
+  /*
+   * remove vars in the select queue
+   */
+  bv_solver_clean_select_queue(solver, top->nselects);
+  solver->select_queue.top = top->nselects;
 
   // remove the expanded forms
   // must be done before remove the variables form vtbl
