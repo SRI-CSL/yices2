@@ -13,16 +13,24 @@ dnl Save CFLAGS (AC_PROC_CC modifies it)
 dnl
 saved_cflags=$CFLAGS
 
+
 dnl
 dnl Build platform
 dnl --------------
+dnl 
+dnl Changed this (07/12/2012) to allow cross-compilation (patch from
+dnl Dave Vitek, from Grammatch).
+dnl  build = platform on which we run the build
+dnl  host = platform for which we build
 dnl
+dnl Also changed AC_CHECK_PROG(LD, ..) to AC_CHECK_TOOL(LD, ...) etc.
+dnl 
 AC_CANONICAL_BUILD
 
 AC_SUBST(ARCH)
 AC_SUBST(POSIXOS)
-POSIXOS=$build_os
-ARCH=$build
+POSIXOS=$host_os
+ARCH=$host
 
 if test "$POSIXOS" = unknown ; then
    AC_MSG_ERROR([Unknown operating system])
@@ -48,10 +56,10 @@ AC_PROG_INSTALL
 AC_PROG_CC
 AC_PROG_RANLIB
 AC_PROG_EGREP
-AC_CHECK_PROG(LD,ld,ld)
-AC_CHECK_PROG(AR,ar,ar)
-AC_CHECK_PROG(STRIP,strip,strip)
-AC_CHECK_PROG(GPERF,gperf,gperf,nogperf)
+AC_CHECK_TOOL(LD,ld,ld)
+AC_CHECK_TOOL(AR,ar,ar)
+AC_CHECK_TOOL(STRIP,strip,strip)
+AC_CHECK_TOOL(GPERF,gperf,gperf,nogperf)
 
 
 
