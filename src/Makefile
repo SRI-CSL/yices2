@@ -217,6 +217,8 @@ libyices_def=libyices.def
 
 #
 # OS-dependent compilation flags + which dynamic libraries to build
+#    libyices_dynamic = dynamic library for make lib
+#    static_libyices_dynamic = dynamic library for make static-lib
 #
 # -fPIC: PIC is the default on Darwin/Cygwin/Mingw (and causes 
 #  compilation warning on the latter two if present)
@@ -231,14 +233,16 @@ ifeq ($(POSIXOS),cygwin)
   PIC=
   STATIC=-static -static-libgcc
   BIN_LDFLAGS= -Wl,--stack,8388608
-  libyices_dynamic=$(libyices_dll)
+  libyices_dynamic=$(bindir)/$(libyices_dll)
+  static_libyices_dynamic=$(static_bindir)/($(libyices_dll)
 else
 ifeq ($(POSIXOS),mingw)
   CPPFLAGS := $(CPPFLAGS) -DMINGW
   PIC=
   STATIC=-static
   BIN_LDFLAGS= -Wl,--stack,8388608
-  libyices_dynamic=$(libyices_mingw_dll)
+  libyices_dynamic=$(bindir)/$(libyices_mingw_dll)
+  static_libyices_dynamic=$(static_bindir)/($(libyices_mingw_dll)
 else
 ifeq ($(POSIXOS),darwin)
   CPPFLAGS := $(CPPFLAGS) -DMACOSX
@@ -246,7 +250,8 @@ ifeq ($(POSIXOS),darwin)
   PIC=-fPIC
   STATIC=
   BIN_LDFLAGS=
-  libyices_dynamic=$(libyices_dylib)
+  libyices_dynamic=$(libdir)/$(libyices_dylib)
+  static_libyices_dynamic=$(static_libdir)/$(libyices_dylib)
 else
 ifeq ($(POSIXOS),sunos)
   PIC=-fPIC
@@ -254,7 +259,8 @@ ifeq ($(POSIXOS),sunos)
   CPPFLAGS := $(CPPFLAGS) -DSOLARIS
   CFLAGS += -fvisibility=hidden
   BIN_LDFLAGS=
-  libyices_dynamic=$(libyices_so)
+  libyices_dynamic=$(libdir)/$(libyices_so)
+  static_libyices_dynamic=$(static_libdir)/$(libyices_so)
 else
 ifeq ($(POSIXOS),linux)
   PIC=-fPIC
@@ -262,7 +268,8 @@ ifeq ($(POSIXOS),linux)
   CPPFLAGS := $(CPPFLAGS) -DLINUX
   CFLAGS += -fvisibility=hidden 
   BIN_LDFLAGS=
-  libyices_dynamic=$(libyices_so)
+  libyices_dynamic=$(libdir)/$(libyices_so)
+  static_libyices_dynamic=$(static_libdir)/$(libyices_so)
 else
 ifeq ($(POSIXOS),freebsd)
   PIC=-fPIC
@@ -270,7 +277,9 @@ ifeq ($(POSIXOS),freebsd)
   CPPFLAGS := $(CPPFLAGS) -DFREEBSD
   CFLAGS += -fvisibility=hidden 
   BIN_LDFLAGS=
-  libyices_dynamic=$(libyices_so)
+  libyices_dynamic=$(libdir)/$(libyices_so)
+  static_libyices_dynamic=$(static_libdir)/$(libyices_so)
+
 else
 ifeq ($(POSIXOS),unix)
   PIC=-fPIC
@@ -278,7 +287,8 @@ ifeq ($(POSIXOS),unix)
   CPPFLAGS := $(CPPFLAGS) -DLINUX
   CFLAGS += -fvisibility=hidden
   BIN_LDFLAGS=
-  libyices_dynamic=$(libyices_so)
+  libyices_dynamic=$(libdir)/$(libyices_so)
+  static_libyices_dynamic=$(static_libdir)/$(libyices_so)
 else
  $(error "Don't know how to compile on $(POSIXOS)")
 endif
@@ -543,13 +553,17 @@ $(static_libdir)/$(libyices_so): $(obj) $(version_obj)
 # copy cygyices.dll in /bin (or /usr/bin)
 # link the code using the flags -lyices -lgmp
 #
-$(libdir)/$(libyices_dll): $(obj) $(version_obj)
+# Change: 2012/07/12 (following e-mail from Dave Vitek, Grammatech):
+# build the DLLs in bindir or static_bindir, instead of libdir and
+# static_libdir.
+#
+$(bindir)/$(libyices_dll): $(obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(libdir)/$(libyices_implib) \
 	$(obj) $(version_obj) $(LIBS)
 	$(STRIP) $@
 
-$(static_libdir)/$(libyices_dll): $(static_obj) $(static_version_obj)
+$(static_bindir)/$(libyices_dll): $(static_obj) $(static_version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
 	$(static_obj) $(static_version_obj) $(PIC_GMP)
@@ -565,14 +579,16 @@ $(static_libdir)/$(libyices_dll): $(static_obj) $(static_version_obj)
 # construct libyices.lib from libyices.def using the Microsoft lib tool
 #    lib /machine:i386 /def:libyices.def
 #
-$(libdir)/$(libyices_mingw_dll): $(obj) $(version_obj)
+# Change: 2012/07/12 as above: build DLLs in bin directories.
+#
+$(bindir)/$(libyices_mingw_dll): $(obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(libdir)/$(libyices_implib) \
 	-Wl,--output-def,$(libdir)/$(libyices_def) \
 	$(obj) $(version_obj) $(LIBS)
 	$(STRIP) $@
 
-$(static_libdir)/$(libyices_mingw_dll): $(static_obj) $(static_version_obj)
+$(static_bindir)/$(libyices_mingw_dll): $(static_obj) $(static_version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
 	-Wl,--output-def,$(static_libdir)/$(libyices_def) \
@@ -623,9 +639,9 @@ bin: $(binaries)
 static-bin: $(static_binaries)
 
 # Libraries
-lib: $(libyices) $(libdir)/$(libyices_dynamic)
+lib: $(libyices) $(libyices_dynamic)
 
-static-lib: $(static_libyices) $(static_libdir)/$(libyices_dynamic)
+static-lib: $(static_libyices) $(static_libyices_dynamic)
 
 
 .PHONY: obj static-obj bin static-bin lib static-lib
@@ -660,6 +676,7 @@ dist: bin lib
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt$(EXEEXT)
 	cp $(bindir)/yices_sat$(EXEEXT) $(distdir)/bin/yices-sat$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-sat$(EXEEXT)
+	cp $(bindir)/*.dll $(distdir)/bin || true
 	mkdir $(distdir)/lib
 	cp $(libdir)/* $(distdir)/lib
 	rm -f $(distdir)/lib/libyices.a
@@ -675,6 +692,7 @@ static-dist: static-bin static-lib
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt$(EXEEXT)
 	cp $(static_bindir)/yices_sat$(EXEEXT) $(static_distdir)/bin/yices-sat$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-sat$(EXEEXT)
+	cp $(static_bindir)/*.dll $(static_distdir)/bin || true
 	mkdir $(static_distdir)/lib
 	cp $(static_libdir)/* $(static_distdir)/lib
 	rm -f $(static_distdir)/lib/libyices.a
