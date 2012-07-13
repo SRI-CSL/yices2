@@ -17,7 +17,8 @@ This distribution includes three solvers
 
 and the Yices libraries and header files
 
-  lib/cygyices.dll
+  bin/cygyices.dll
+
   lib/libyices.dll.a
   include/yices.h
   include/yices_types.h
@@ -40,7 +41,6 @@ Recommended Installation
 1) Copy cygyices.dll and the executables in /usr/bin:
 
    cp bin/* /usr/bin
-   cp lib/cygyices.dll /usr/bin
 
 
 2) Copy libyices.dll.a in /usr/lib:

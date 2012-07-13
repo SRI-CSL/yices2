@@ -17,7 +17,8 @@ This distribution includes three solvers
 
 and the Yices libraries and header files
 
-  lib/libyices.dll
+  bin/libyices.dll
+
   lib/libyices.lib
   lib/libyices.dll.a        (for mingw only)
   include/yices.h
