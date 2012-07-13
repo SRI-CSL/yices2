@@ -59,7 +59,12 @@ AC_PROG_EGREP
 AC_CHECK_TOOL(LD,ld,ld)
 AC_CHECK_TOOL(AR,ar,ar)
 AC_CHECK_TOOL(STRIP,strip,strip)
-AC_CHECK_TOOL(GPERF,gperf,gperf,nogperf)
+
+#
+# gperf generates source files. Better
+# to keep AC_CHECK_PROG rather than AC_CHECK_TOOL
+#
+AC_CHECK_PROG(GPERF,gperf,gperf,nogperf)
 
 
 
@@ -484,5 +489,10 @@ CFLAGS=$saved_cflags
 AC_CONFIG_FILES([make.include])
 AC_OUTPUT
 
-AC_MSG_NOTICE([Moving make.include to configs/make.include.$build])
-mv make.include "configs/make.include.$build"
+if test "x$host" == x ; then
+  AC_MSG_NOTICE([Moving make.include to configs/make.include.$build])
+  mv make.include "configs/make.include.$build"
+else
+  AC_MSG_NOTICE([Moving make.include to configs/make.include.$host])
+  mv make.include "configs/make.include.$host"
+fi

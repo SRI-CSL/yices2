@@ -234,7 +234,7 @@ ifeq ($(POSIXOS),cygwin)
   STATIC=-static -static-libgcc
   BIN_LDFLAGS= -Wl,--stack,8388608
   libyices_dynamic=$(bindir)/$(libyices_dll)
-  static_libyices_dynamic=$(static_bindir)/($(libyices_dll)
+  static_libyices_dynamic=$(static_bindir)/$(libyices_dll)
 else
 ifeq ($(POSIXOS),mingw)
   CPPFLAGS := $(CPPFLAGS) -DMINGW
@@ -242,7 +242,7 @@ ifeq ($(POSIXOS),mingw)
   STATIC=-static
   BIN_LDFLAGS= -Wl,--stack,8388608
   libyices_dynamic=$(bindir)/$(libyices_mingw_dll)
-  static_libyices_dynamic=$(static_bindir)/($(libyices_mingw_dll)
+  static_libyices_dynamic=$(static_bindir)/$(libyices_mingw_dll)
 else
 ifeq ($(POSIXOS),darwin)
   CPPFLAGS := $(CPPFLAGS) -DMACOSX
