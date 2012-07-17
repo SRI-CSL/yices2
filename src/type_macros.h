@@ -198,14 +198,14 @@ extern void delete_type_macro(type_mtbl_t *table, int32_t id);
  * - each parameter must be a valid type 
  * - n must be equal to the macro arity.
  *
- * This first check, if this instance already exists in table->hmap.
+ * This first check whether this instance already exists in table->hmap.
  * If so, the instance is returned.
  *
  * Otherwise;
  * - if the macro is a type constructor (i.e., body = NULL_TYPE) 
  *   then a new uninterpreted type is returned.
  * - if the macro is a normal macro (body != NULL_TYPE), then
- *   the instance is constructed by subsituting the actuals
+ *   the instance is constructed by substituting the actuals
  *   for the macro variable.
  * In both case, the instance is stored in table->hmap
  */
