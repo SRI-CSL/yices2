@@ -26,8 +26,11 @@
  *   functions such as is_subtype, super_type, and inf_type don't
  *   explode.
  *
- * August 2011. Added type variables and substitutions to support
- * SMT-LIB 2.0,
+ * August 2011: Added type variables and substitutions to support
+ * SMT-LIB 2.0.
+ *
+ * July 2012: Added type instances (do deal with abstract type
+ * constructors)
  *
  * Limits are now imported from yices_limits.h:
  * - YICES_MAX_TYPES = maximal size of a type table
@@ -70,6 +73,7 @@ typedef enum {
   VARIABLE_TYPE,
   TUPLE_TYPE,
   FUNCTION_TYPE,
+  INSTANCE_TYPE,
 } type_kind_t;
 
 
@@ -96,6 +100,23 @@ typedef struct {
   uint32_t ndom;    // number of domain types
   type_t domain[0]; // domain[0] .. domain[ndom - 1]: domain types
 } function_type_t;
+
+
+/*
+ * Descriptor of a type instance:
+ * - cid = id of a type constructor
+ * - arity = number of type parameters
+ * - param[0 ... arity-1] = parameters
+ *
+ * NOTE: this is use for something like (Set T) when we instantiate
+ * T with a real type. The cid is defined outside this module.
+ * For now, an instance type is treated like an uninterpreted type.
+ */
+typedef struct {
+  int32_t cid;
+  uint32_t arity;
+  type_t param[0];
+} instance_type_t;
 
 
 /*
@@ -280,6 +301,12 @@ extern type_t tuple_type(type_table_t *table, uint32_t n, type_t elem[]);
  */
 extern type_t function_type(type_table_t *table, type_t range, uint32_t n, type_t dom[]);
 
+/*
+ * Construct instance type: (cid tau[0] ... tau[n-1])
+ * - cid = constructor id
+ * - n = constructor arity (must be positive and no more than YICES_MAX_ARITY)
+ */
+extern type_t instance_type(type_table_t *table, int32_t cid, uint32_t n, type_t tau[]);
 
 /*
  * Type variable of the given id
@@ -499,10 +526,12 @@ static inline type_t tuple_type_component(type_table_t *tbl, type_t i, int32_t j
   return ((tuple_type_t *) tbl->desc[i].ptr)->elem[j];
 }
 
+
 // function types
 static inline bool is_function_type(type_table_t *tbl, type_t i) {
   return type_kind(tbl, i) == FUNCTION_TYPE;
 }
+
 static inline function_type_t *function_type_desc(type_table_t *tbl, type_t i) {
   assert(is_function_type(tbl, i));
   return (function_type_t *) tbl->desc[i].ptr;
@@ -523,6 +552,29 @@ static inline type_t function_type_domain(type_table_t *tbl, type_t i, int32_t j
   return ((function_type_t *) tbl->desc[i].ptr)->domain[j];
 }
 
+
+// instance
+static inline bool is_instance_type(type_table_t *tbl, type_t i) {
+  return type_kind(tbl, i) == INSTANCE_TYPE;
+}
+
+static inline instance_type_t *instance_type_desc(type_table_t *tbl, type_t i) {
+  assert(is_instance_type(tbl, i));
+  return (instance_type_t *) tbl->desc[i].ptr;
+}
+
+static inline int32_t instance_type_cid(type_table_t *tbl, type_t i) {
+  return instance_type_desc(tbl, i)->cid;
+}
+
+static inline uint32_t instance_type_arity(type_table_t *tbl, type_t i) {
+  return instance_type_desc(tbl, i)->arity;
+}
+
+static inline type_t instance_type_param(type_table_t *tbl, type_t i, int32_t j) {
+  assert(0 <= j && j < instance_type_arity(tbl, i));
+  return instance_type_desc(tbl, i)->param[j];
+}
 
 
 

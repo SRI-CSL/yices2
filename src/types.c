@@ -124,6 +124,7 @@ static void erase_type(type_table_t *table, type_t i) {
 
   case TUPLE_TYPE:
   case FUNCTION_TYPE:
+  case INSTANCE_TYPE:
     safe_free(table->desc[i].ptr);
     break;
   }
@@ -519,6 +520,46 @@ static type_t new_type_variable(type_table_t *table, uint32_t id) {
 }
 
 
+/*
+ * Add a new instance of the given constructor cid
+ * - n = arity
+ * - param[0 ... n-1] = parameters
+ *
+ * If param[0] ... param[n-1] are all ground types, then the instance
+ * is treated like a new uninterpreted type. Othewrise, we mark it
+ * as a type with variables (flag = FREE_TYPE_FLAGS, card = UINT32_MAX).
+ */
+static type_t new_instance_type(type_table_t *table, int32_t cid, uint32_t n, type_t *param) {
+  instance_type_t *d;
+  type_t i;
+  uint32_t j, flag;
+
+  assert(0 < n && n <= YICES_MAX_ARITY);
+
+  d = (instance_type_t *) safe_malloc(sizeof(instance_type_t) + n * sizeof(type_t));
+  d->cid = cid;
+  d->arity = n;
+  for (j=0; j<n; j++) {
+    d->param[j] = param[j];
+  }
+
+  i = allocate_type_id(table);
+  table->kind[i] = INSTANCE_TYPE;
+  table->desc[i].ptr = d;
+  table->card[i] = UINT32_MAX;
+
+  flag = type_flags_conjunct(table, n, param);
+  assert((flag & TYPE_IS_GROUND_MASK) || flag == FREE_TYPE_FLAGS);
+  if (flag & TYPE_IS_GROUND_MASK) {
+    // set flags as for uninterpreted types
+    flag = (INFINITE_TYPE_FLAGS | TYPE_IS_MAXIMAL_MASK | TYPE_IS_MINIMAL_MASK);
+  }
+  table->flags[i] = flag;
+
+  return i;
+}
+
+
 
 /*
  * HASH CONSING
@@ -554,6 +595,14 @@ typedef struct type_var_hobj_s {
   uint32_t id;
 } type_var_hobj_t;
 
+typedef struct instance_type_hobj_s {
+  int_hobj_t m;
+  type_table_t *tbl;
+  int32_t cid;
+  uint32_t arity;
+  type_t *param;
+} instance_type_hobj_t;
+
 
 /*
  * Hash functions
@@ -575,6 +624,13 @@ static uint32_t hash_function_type(function_type_hobj_t *p) {
 
 static uint32_t hash_type_var(type_var_hobj_t *p) {
   return jenkins_hash_pair(p->id, 0, 0x823a33ad);
+}
+
+static uint32_t hash_instance_type(instance_type_hobj_t *p) {
+  uint32_t h;
+
+  h = jenkins_hash_intarray2(p->param, p->arity, 0xabe3d76F);
+  return jenkins_hash_pair(p->cid, 0, h);
 }
 
 
@@ -601,6 +657,12 @@ static uint32_t hash_typevar(uint32_t id) {
   return jenkins_hash_pair(id, 0, 0x823a33ad);
 }
 
+static uint32_t hash_instancetype(instance_type_t *p) {
+  uint32_t h;
+
+  h = jenkins_hash_intarray2(p->param, p->arity, 0xabe3d76F);
+  return jenkins_hash_pair(p->cid, 0, h);
+}
 
 
 /*
@@ -656,6 +718,24 @@ static bool eq_type_var(type_var_hobj_t *p, type_t i) {
   return table->kind[i] == VARIABLE_TYPE && table->desc[i].integer == p->id;
 }
 
+static bool eq_instance_type(instance_type_hobj_t *p, type_t i) {
+  type_table_t *table;
+  instance_type_t *d;
+  uint32_t j;
+
+  table = p->tbl;
+  if (table->kind[i] != INSTANCE_TYPE) return false;
+
+  d = (instance_type_t *) table->desc[i].ptr;
+  if (d->cid != p->cid || d->arity != p->arity) return false;
+
+  for (j=0; j<p->arity; j++) {
+    if (d->param[j] != p->param[j]) return false;
+  }
+
+  return true;
+}
+
 
 /*
  * Builder functions
@@ -674,6 +754,10 @@ static type_t build_function_type(function_type_hobj_t *p) {
 
 static type_t build_type_var(type_var_hobj_t *p) {
   return new_type_variable(p->tbl, p->id);;
+}
+
+static type_t build_instance_type(instance_type_hobj_t *p) {
+  return new_instance_type(p->tbl, p->cid, p->arity, p->param);
 }
 
 
@@ -711,7 +795,14 @@ static type_var_hobj_t var_hobj = {
   0,
 };
 
-
+static instance_type_hobj_t instance_hobj = {
+  { (hobj_hash_t) hash_instance_type, (hobj_eq_t) eq_instance_type,
+    (hobj_build_t) build_instance_type },
+  NULL,
+  0,
+  0,
+  NULL,
+};
 
 
 
@@ -823,6 +914,18 @@ type_t type_variable(type_table_t *table, uint32_t id) {
 }
 
 
+/*
+ * Type instance
+ */
+type_t instance_type(type_table_t *table, int32_t cid, uint32_t n, type_t tau[]) {
+  assert(0 < n && n <= YICES_MAX_ARITY);
+  instance_hobj.tbl = table;
+  instance_hobj.cid = cid;
+  instance_hobj.arity = n;
+  instance_hobj.param = tau;
+  return int_htbl_get_obj(&table->htbl, &instance_hobj.m);
+}
+
 
 /*
  * SUBSTITUTION
@@ -915,10 +1018,39 @@ static type_t function_type_subst(type_table_t *table, int_hmap_t *hmap, type_t 
 }
 
 
+/*
+ * Build the instance (cid (subst tau[0]) ... (sust tau[n-1]))
+ */
+static type_t instance_type_subst(type_table_t *table, int_hmap_t *hmap, int32_t cid, type_t *tau, uint32_t n) {
+  type_t buffer[8];
+  type_t *s;
+  type_t result;
+  uint32_t i;
+
+  s = buffer;
+  if (n > 8) {
+    s = (type_t *) safe_malloc(n * sizeof(type_t));    
+  }
+
+  for (i=0; i<n; i++) {
+    s[i] = type_subst_recur(table, hmap, tau[i]);
+  }
+
+  result = instance_type(table, cid, n, s);
+
+  if (n > 8) {
+    safe_free(s);
+  }
+
+  return result;
+}
+
+
 static type_t type_subst_recur(type_table_t *table, int_hmap_t *hmap, type_t tau) {
   int_hmap_pair_t *p;
   tuple_type_t *tup;
   function_type_t *fun;
+  instance_type_t *inst;
   type_t result;
 
   // if tau is ground, then it's unchanged
@@ -940,6 +1072,14 @@ static type_t type_subst_recur(type_table_t *table, int_hmap_t *hmap, type_t tau
       case FUNCTION_TYPE:
 	fun = function_type_desc(table, tau);
 	result = function_type_subst(table, hmap, fun->range, fun->domain, fun->ndom);
+	p = int_hmap_get(hmap, tau);
+	assert(p->val < 0);
+	p->val = result;
+	break;
+
+      case INSTANCE_TYPE:
+	inst = instance_type_desc(table, tau);
+	result = instance_type_subst(table, hmap, inst->cid, inst->param, inst->arity);
 	p = int_hmap_get(hmap, tau);
 	assert(p->val < 0);
 	p->val = result;
@@ -1512,6 +1652,10 @@ static void erase_hcons_type(type_table_t *table, type_t i) {
     k = hash_funtype(table->desc[i].ptr);
     break;
 
+  case INSTANCE_TYPE:
+    k = hash_instancetype(table->desc[i].ptr);
+    break;
+
   default: 
     return;
   }
@@ -1544,6 +1688,7 @@ static void mark_and_explore(type_table_t *table, type_t ptr, type_t i) {
 static void mark_reachable_types(type_table_t *table, type_t ptr, type_t i) {
   tuple_type_t *tup;
   function_type_t *fun;
+  instance_type_t *inst;
   uint32_t n, j;
 
   assert(type_is_marked(table, i) &&  table->kind[i] != UNUSED_TYPE);
@@ -1563,6 +1708,14 @@ static void mark_reachable_types(type_table_t *table, type_t ptr, type_t i) {
     n = fun->ndom;
     for (j=0; j<n; j++) {
       mark_and_explore(table, ptr, fun->domain[j]);
+    }
+    break;
+
+  case INSTANCE_TYPE:
+    inst = table->desc[i].ptr;
+    n = inst->arity;
+    for (j=0; j<n; j++) {
+      mark_and_explore(table, ptr, inst->param[j]);
     }
     break;
 

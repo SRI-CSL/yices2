@@ -101,6 +101,15 @@ static void print_type_recur(FILE *f, type_table_t *tbl, type_t tau, int32_t lev
 	print_type_recur(f, tbl, function_type_range(tbl, tau), level - 1);
 	fputc(')', f);
 	break;
+      case INSTANCE_TYPE:
+	fprintf(f, "(cons!%"PRId32, instance_type_cid(tbl, tau));
+	n = instance_type_arity(tbl, tau);
+	for (i=0; i<n; i++) {
+	  fputc(' ', f);
+	  print_type_recur(f, tbl, intance_type_param(tbl, tau, i), level - 1);	  
+	}
+	fputc(')', f);
+	break;
       default:
 	assert(false);
 	break;
@@ -293,6 +302,15 @@ void print_type_table(FILE *f, type_table_t *tbl) {
 	}
 	print_type_name(f, tbl, function_type_range(tbl, i));
 	fputs(")\n", f);
+	break;
+      case INSTANCE_TYPE:
+	fprintf(f, "(cons!%"PRId32, instance_type_cid(tbl, tau));
+	n = instance_type_arity(tbl, tau);
+	for (i=0; i<n; i++) {
+	  fputc(' ', f);
+	  print_type_name(f, tbl, intance_type_param(tbl, tau, i));
+	}
+	fputc(')', f);
 	break;
       default:
 	fputs("invalid type code\n", f);	
