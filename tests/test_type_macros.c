@@ -7,7 +7,7 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "type_macros.h"
+#include "types.h"
 #include "type_printer.h"
 #include "refcount_strings.h"
 
@@ -42,20 +42,21 @@ static void show_macro(FILE *f, type_table_t *table, type_macro_t *d) {
 /*
  * Print a cached instance
  */
-static void print_macro_instance(FILE *f, type_mtbl_t *table, tuple_hmap_rec_t *d) {
+static void print_macro_instance(FILE *f, type_table_t *types, tuple_hmap_rec_t *d) {
   char *name;
-  type_table_t *types;
+  type_mtbl_t *mtbl;
   uint32_t i, n;
 
-  assert(d->arity > 0);
-  name = type_macro_name(table, d->key[0]);
+  mtbl = types->macro_tbl;
+  assert(d->arity > 0 && mtbl != NULL);
+
+  name = type_macro_name(mtbl, d->key[0]);
   if (name != NULL) {
     fprintf(f, "%s[", name);
   } else {
     fprintf(f, "M_%"PRId32"[", d->key[0]);
   }
 
-  types = table->types;
   n = d->arity;
   for (i=1; i<n; i++) {
     if (i > 1) fputs(", ", f);
@@ -69,26 +70,30 @@ static void print_macro_instance(FILE *f, type_mtbl_t *table, tuple_hmap_rec_t *
 /*
  * Display all instances of macro id
  */
-static void show_macro_instances(FILE *f, type_mtbl_t *table, int32_t id) {  
+static void show_macro_instances(FILE *f, type_table_t *types, int32_t id) {  
+  type_mtbl_t *mtbl;
   char *name;
   tuple_hmap_t *cache;
   tuple_hmap_rec_t *d;
   uint32_t i, n;
 
-  name = type_macro_name(table, id);
+  mtbl = types->macro_tbl;
+  assert(mtbl != NULL);
+
+  name = type_macro_name(mtbl, id);
   if (name != NULL) {
     fprintf(f, "Instances of macro %s (id = %"PRId32")\n", name, id);
   } else {
     fprintf(f, "Instances of macro M_%"PRId32"\n", id);
   }
 
-  cache = &table->cache;
+  cache = &mtbl->cache;
   n = cache->size;
   for (i=0; i<n; i++) {
     d = cache->data[i];
     if (d != NULL && d != TUPLE_HMAP_DELETED && d->key[0] == id) {
       fputs("  ", f);
-      print_macro_instance(f, table, d);
+      print_macro_instance(f, types, d);
     }
   }
   fputs("----\n", f);
@@ -103,7 +108,6 @@ static void show_macro_instances(FILE *f, type_mtbl_t *table, int32_t id) {
 #define NTYPES 12
 
 static type_table_t types;
-static type_mtbl_t mtbl;
 static type_t var[NVARS];
 static type_t base[NTYPES];
 
@@ -202,12 +206,12 @@ static void test_instance(int32_t id, uint32_t n) {
     print_type(stdout, &types, actual[i]);
     printf("\n");
   }
-  result = instantiate_type_macro(&mtbl, id, n, actual);
+  result = instantiate_type_macro(&types, id, n, actual);
   printf("result = ");
   print_type(stdout, &types, result);
   printf("\n");
 
-  check = instantiate_type_macro(&mtbl, id, n, actual);
+  check = instantiate_type_macro(&types, id, n, actual);
   if (check != result) {
     printf("BUG: hash-consing failure\n");
     fflush(stdout);
@@ -232,17 +236,17 @@ static void test_macro(const char *name, uint32_t n, type_t *vars, type_t body) 
   print_type(stdout, &types, body);
   printf("\n");
 
-  add_type_macro(&mtbl, clone_string(name), n, vars, body);
-  id = get_type_macro_by_name(&mtbl, name);
+  add_type_macro(&types, clone_string(name), n, vars, body);
+  id = get_type_macro_by_name(&types, name);
   printf("Result: ");
-  show_macro(stdout, &types, type_macro(&mtbl, id));
+  show_macro(stdout, &types, type_macro(&types, id));
   printf("\n");
 
   for (i=0; i<10; i++) {
     test_instance(id, n);
   }
   printf("----\n");
-  show_macro_instances(stdout, &mtbl, id);
+  show_macro_instances(stdout, &types, id);
   printf("\n");
 }
 
@@ -255,63 +259,23 @@ static void test_constructor(const char *name, uint32_t n) {
   uint32_t i;
 
   printf("Test: create constructor %s, arity %"PRIu32"\n", name, n);
-  add_type_constructor(&mtbl, clone_string(name), n);
-  id = get_type_macro_by_name(&mtbl, name);
+  add_type_constructor(&types, clone_string(name), n);
+  id = get_type_macro_by_name(&types, name);
   printf("Result: ");
-  show_macro(stdout, &types, type_macro(&mtbl, id));
+  show_macro(stdout, &types, type_macro(&types, id));
   printf("\n");
 
   for (i=0; i<10; i++) {
     test_instance(id, n);
   }
-
-  printf("----\n");
-  show_macro_instances(stdout, &mtbl, id);
-  printf("\n");
 }
 
-
-/*
- * Remove macro
- */
-static void test_remove(int32_t id) {
-  tuple_hmap_t *cache;
-  tuple_hmap_rec_t *d;
-  uint32_t i, n;
-
-  printf("Test: remove macro %"PRId32"\n\n", id);
-  show_macro_instances(stdout, &mtbl, id);
-  printf("\n");
-
-  delete_type_macro(&mtbl, id);
-  if (good_type_macro(&mtbl, id)) {
-    printf("BUG: removal failed\n");
-    fflush(stdout);
-    exit(1);
-  }
-
-  // check that all instances have been deleted
-  cache = &mtbl.cache;
-  n = cache->size;
-  for (i=0; i<n; i++) {
-    d = cache->data[i];
-    if (d != NULL && d != TUPLE_HMAP_DELETED && d->key[0] == id) {
-      printf("BUG: instance %p remains\n", d);
-      fflush(stdout);
-      exit(1);
-    }
-  }
-
-  printf("removed\n\n");
-}
 
 
 int main(void) {
   type_t tau;
-  int32_t id;
 
   init_type_table(&types, 0);
-  init_type_mtbl(&mtbl, 0, &types);
   init_variables();
   init_types();
 
@@ -335,22 +299,11 @@ int main(void) {
   test_constructor("mk_type2", 2);
   test_constructor("mk_type3", 3);
 
-  // remove macro test and mk_type3
-  id = get_type_macro_by_name(&mtbl, "test");
-  test_remove(id);
-  id = get_type_macro_by_name(&mtbl, "test");
-  if (id >= 0) {
-    printf("BUG: macro 'test' not fully removed\n");
-    exit(1);
-  }
-
-  id = get_type_macro_by_name(&mtbl, "mk_type3");
-  test_remove(id);
-  id = get_type_macro_by_name(&mtbl, "mk_type3");
-  if (id >= 0) {
-    printf("BUG: macro 'mk_type3' not fully removed\n");
-    exit(1);
-  }
+  printf("\n====== TYPES ========\n");
+  print_type_table(stdout, &types);
+  printf("\n===== MACROS ========\n");
+  print_type_macros(stdout, &types);
+  printf("===\n\n");
 
   // creation after remove
   // vector[G] = (-> int G)
@@ -363,19 +316,12 @@ int main(void) {
   tau = binary_ftype(tau, tau, var[7]);
   test_macro("matrix", 1, var+7, tau);
   
-  // test of reset
-  reset_type_mtbl(&mtbl);
+  printf("\n====== TYPES ========\n");
+  print_type_table(stdout, &types);
+  printf("\n===== MACROS ========\n");
+  print_type_macros(stdout, &types);
+  printf("===\n\n");
 
-  // creation after reset
-  // pair(A) = (tuple A A)
-  tau = pair_type(var[0], var[0]);
-  test_macro("pair", 1, var, tau);
-
-  // triple(B) = (tuple B B B)
-  tau = triple_type(var[1], var[1], var[1]);
-  test_macro("triple", 1, var+1, tau);
-
-  delete_type_mtbl(&mtbl);
   delete_type_table(&types);
 
   return 0;

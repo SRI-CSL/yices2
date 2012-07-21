@@ -46,6 +46,7 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#include "tagged_pointers.h"
 #include "int_hash_tables.h"
 #include "int_hash_map2.h"
 #include "tuple_hash_map.h"
@@ -918,6 +919,32 @@ extern void delete_type_macro(type_table_t *table, int32_t id);
 extern type_t instantiate_type_macro(type_table_t *table, int32_t id, uint32_t n, type_t *actual);
 
 
+
+/*
+ * Check that id is good
+ */
+static inline bool good_type_macro(type_mtbl_t *table, int32_t id) {
+  return 0 <= id && id < table->nelems && !has_int_tag(table->data[id]);
+}
+
+
+/*
+ * Arity and name of macro
+ */
+static inline char *type_macro_name(type_mtbl_t *table, int32_t id) {
+  assert(good_type_macro(table, id));
+  return ((type_macro_t *) table->data[id])->name;
+}
+
+static inline uint32_t type_macro_arity(type_mtbl_t *table, int32_t id) {
+  assert(good_type_macro(table, id));
+  return ((type_macro_t *) table->data[id])->arity;
+}
+
+static inline type_macro_t *type_macro_def(type_mtbl_t *table, int32_t id) {
+  assert(good_type_macro(table, id));
+  return table->data[id];
+}
 
 /*
  * GARBAGE COLLECTION

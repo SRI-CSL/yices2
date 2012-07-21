@@ -15,6 +15,20 @@
  */
 extern void print_type_id(FILE *f, type_t tau);
 
+
+/*
+ * Print macro name/macro definition
+ * - print id = macro id
+ */
+extern void print_macro_name(FILE *f, type_table_t *tbl, int32_t id);
+extern void print_macro_def(FILE *f, type_table_t *tbl, int32_t id);
+
+/*
+ * Print all the macros
+ */
+extern void print_type_macros(FILE *f, type_table_t *tbl);
+
+
 /*
  * Print functions:
  * - print type expression

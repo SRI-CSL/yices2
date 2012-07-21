@@ -270,7 +270,7 @@ static inline void yices_pp_clear_error(yices_pp_t *printer) {
 
 /*
  * - pp_id(printer, prefix, id): prints <prefix><id>
- * (example, pp_id(printer, "tau_", 23) prints "tau_23")
+ *   (example, pp_id(printer, "tau_", 23) prints "tau_23")
  * - for pp_bv64 and pp_bv, n is the number of bits (n must be positive)
  *
  * Function pp_string does not make a copy of the string s so s must

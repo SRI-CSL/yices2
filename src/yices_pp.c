@@ -370,9 +370,6 @@ static void free_close_token(yices_pp_t *printer, pp_close_token_t *tk) {
 
 
 
-
-
-
 /*
  * Initialization
  * - file = output file (must be open for write)

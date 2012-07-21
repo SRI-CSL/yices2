@@ -33,6 +33,18 @@ void print_type_id(FILE *f, type_t tau) {
 
 
 /*
+ * Name of macro id
+ */
+void print_macro_name(FILE *f, type_table_t *tbl, int32_t id) {
+  type_mtbl_t *mtbl;
+
+  mtbl = tbl->macro_tbl;
+  assert(mtbl != NULL);
+  fputs(type_macro_name(mtbl, id), f);
+}
+
+
+/*
  * Print name of type tau
  */
 void print_type_name(FILE *f, type_table_t *tbl, type_t tau) {
@@ -102,7 +114,8 @@ static void print_type_recur(FILE *f, type_table_t *tbl, type_t tau, int32_t lev
 	fputc(')', f);
 	break;
       case INSTANCE_TYPE:
-	fprintf(f, "(cons!%"PRId32, instance_type_cid(tbl, tau));
+	fputc('(', f);
+	print_macro_name(f, tbl, instance_type_cid(tbl, tau));
 	n = instance_type_arity(tbl, tau);
 	for (i=0; i<n; i++) {
 	  fputc(' ', f);
@@ -142,6 +155,33 @@ void print_type_def(FILE *f, type_table_t *tbl, type_t tau) {
   fputs(" := ", f);
   print_type_recur(f, tbl, tau, 1);
 }
+
+
+/*
+ * Macro definition
+ */
+void print_macro_def(FILE *f, type_table_t *tbl, int32_t id) {
+  type_macro_t *d;
+  uint32_t i, n;
+
+  d = type_macro(tbl, id);
+  if (d->body == NULL_TYPE) {
+    fprintf(f, "(declare-sort %s %"PRIu32")\n", d->name, d->arity);
+  } else {
+    fprintf(f, "(define-sort %s (", d->name);
+    n = d->arity;
+    assert(n >= 1);
+    print_type_name(f, tbl, d->vars[0]);
+    for (i=1; i<n; i++) {
+      fputc(' ', f);
+      print_type_name(f, tbl, d->vars[i]);
+    }
+    fputs(") ", f);
+    print_type(f, tbl, d->body);
+    fputs(")\n", f);
+  }
+}
+
 
 
 /*
@@ -304,17 +344,37 @@ void print_type_table(FILE *f, type_table_t *tbl) {
 	fputs(")\n", f);
 	break;
       case INSTANCE_TYPE:
-	fprintf(f, "(cons!%"PRId32, instance_type_cid(tbl, i));
-	n = instance_type_arity(tbl, i);
-	for (j=0; j<n; j++) {
+	fputc('(', f);
+	print_macro_name(f, tbl, instance_type_cid(tbl, i));
+	m = instance_type_arity(tbl, i);
+	for (j=0; j<m; j++) {
 	  fputc(' ', f);
 	  print_type_name(f, tbl, instance_type_param(tbl, i, j));
 	}
-	fputc(')', f);
+	fputs(")\n", f);
 	break;
       default:
 	fputs("invalid type code\n", f);	
 	break;
+      }
+    }
+  }
+}
+
+
+/*
+ * All macros
+ */
+void print_type_macros(FILE *f, type_table_t *tbl) {
+  type_mtbl_t *mtbl;
+  uint32_t i, n;
+
+  mtbl = tbl->macro_tbl;
+  if (mtbl != NULL) {
+    n = mtbl->nelems;
+    for (i=0; i<n; i++) {
+      if (good_type_macro(mtbl, i)) {
+	print_macro_def(f, tbl, i);
       }
     }
   }
@@ -405,6 +465,17 @@ static void pp_type_recur(yices_pp_t *printer, type_table_t *tbl, type_t tau, in
 	pp_close_block(printer, true);
 	break;
 
+      case INSTANCE_TYPE:
+	pp_open_block(printer, PP_OPEN_PAR);
+	assert(tbl->macro_tbl != NULL);
+	pp_string(printer, type_macro_name(tbl->macro_tbl, instance_type_cid(tbl, tau)));
+	n = instance_type_arity(tbl, tau);
+	for (i=0; i<n; i++) {
+	  pp_type_recur(printer, tbl, instance_type_param(tbl, tau, i), level - 1);
+	}
+	pp_close_block(printer, true);
+	break;
+
       default:
 	assert(false);
 	break;
@@ -459,3 +530,5 @@ void pp_type_table(FILE *f, type_table_t *tbl) {
 
   delete_yices_pp(&printer);
 }
+
+

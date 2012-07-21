@@ -7,7 +7,6 @@
 
 #include "yices_limits.h"
 #include "memalloc.h"
-#include "tagged_pointers.h"
 #include "refcount_strings.h"
 #include "hash_functions.h"
 #include "int_hash_map.h"
@@ -203,14 +202,6 @@ static int32_t allocate_macro_id(type_mtbl_t *table) {
   }
 
   return i;
-}
-
-
-/*
- * For debugging: check that id is good
- */
-static inline bool good_type_macro(type_mtbl_t *table, int32_t id) {
-  return 0 <= id && id < table->nelems && !has_int_tag(table->data[id]);
 }
 
 
@@ -772,7 +763,8 @@ static type_t new_instance_type(type_table_t *table, int32_t cid, uint32_t n, ty
   uint32_t j, flag;
 
   assert(0 < n && n <= YICES_MAX_ARITY);
-
+  assert(table->macro_tbl != NULL && type_macro_arity(table->macro_tbl, cid) == n);
+  
   d = (instance_type_t *) safe_malloc(sizeof(instance_type_t) + n * sizeof(type_t));
   d->cid = cid;
   d->arity = n;
@@ -1962,7 +1954,7 @@ type_macro_t *type_macro(type_table_t *table, int32_t id) {
   type_mtbl_t *mtbl;
 
   mtbl = table->macro_tbl;
-  assert(mtbl != NULL && good_type_macro(mtbl, id));
+  assert(mtbl != NULL && good_type_macro(mtbl, id) && mtbl->data[id] != NULL);
 
   return (type_macro_t*) mtbl->data[id];
 }
@@ -2028,16 +2020,14 @@ void delete_type_macro(type_table_t *table, int32_t id) {
  * - each parameter must be a valid type 
  * - n must be equal to the macro arity.
  *
- * This first check whether this instance already exists in table->hmap.
- * If so, the instance is returned.
+ * If the macro is a type constructor (i.e., body = NULL_TYPE) then
+ * a new instance is constructed.
  *
- * Otherwise:
- * - if the macro is a type constructor (i.e., body = NULL_TYPE) 
- *   then a new type instance is contructed.
- * - if the macro is a normal macro (body != NULL_TYPE), then
- *   the instance is constructed by substituting the actuals
- *   for the macro variable.
- * In both case, the instance is stored in table->hmap
+ * If the macro is a not a type constructor:
+ * - Check whether this instance already exists in mtbl->hmap.
+ * - If so, the instance is returned, otherwise, the 
+ *   instance is constructed by substituting variables in body with
+ *   the actuals. The result is stored in mtbl->hmap.
  */
 type_t instantiate_type_macro(type_table_t *table, int32_t id, uint32_t n, type_t *actual) {
   type_mtbl_t *mtbl;
@@ -2069,19 +2059,19 @@ type_t instantiate_type_macro(type_table_t *table, int32_t id, uint32_t n, type_
   
   mtbl = table->macro_tbl;
   assert(mtbl != NULL);
-
-  r = tuple_hmap_get(&mtbl->cache, n+1, key, &new);
-  result = r->value;
-  if (new) {
-    // new instance
-    d = mtbl->data[id];
-    assert(d->arity == n);
-    if (d->body == NULL_TYPE) {
-      result = instance_type(table, id, n, actual);
-    } else {
+  d = mtbl->data[id];
+  assert(d->arity == n);
+  if (d->body == NULL_TYPE) {
+    // type constructor: new instance
+    result = instance_type(table, id, n, actual);
+  } else {
+    // check the cache
+    r = tuple_hmap_get(&mtbl->cache, n+1, key, &new);
+    result = r->value;
+    if (new) {
       result = type_substitution(table, d->body, n, d->vars, actual);
+      r->value = result;
     }
-    r->value = result;
   }
 
   if (n > 9) {
@@ -2239,9 +2229,26 @@ static bool keep_in_cache(void *aux, int_hmap2_rec_t *r) {
 
 /*
  * Keep-alive function for the macro instance cache
- * - TBD
+ * - aux is a pointer to the type table
+ * - record r->key is an array of n integers
+ *   r->key[0] = macro id
+ *   r->key[1 ... n] = types
+ *   r->val = type
+ * - the record is kept if all types are good
  */
+static bool keep_in_tuple_cache(void *aux, tuple_hmap_rec_t *r) {
+  uint32_t i, n;
 
+  if (! good_type(aux, r->value)) return false;
+  
+  n = r->arity;
+  assert(n > 1);
+  for (i=1; i<n; i++) {
+    if (! good_type(aux, r->key[i])) return false;
+  }
+
+  return true;
+}
 
 
 /*
@@ -2281,5 +2288,10 @@ void type_table_gc(type_table_t *table)  {
 
   if (table->inf_tbl != NULL) {
     int_hmap2_gc(table->inf_tbl, table, keep_in_cache);
+  }
+
+  // cleanup the macro table cache too
+  if (table->macro_tbl != NULL) {
+    tuple_hmap_gc(&table->macro_tbl->cache, table, keep_in_tuple_cache);
   }
 }
