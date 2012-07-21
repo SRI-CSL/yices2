@@ -29,8 +29,9 @@
  * August 2011: Added type variables and substitutions to support
  * SMT-LIB 2.0.
  *
- * July 2012: Added type instances (do deal with abstract type
- * constructors)
+ * July 2012:
+ * - Added type instances (do deal with abstract type constructors)
+ * - Merged type_macros.c into this module.
  *
  * Limits are now imported from yices_limits.h:
  * - YICES_MAX_TYPES = maximal size of a type table
@@ -47,6 +48,7 @@
 
 #include "int_hash_tables.h"
 #include "int_hash_map2.h"
+#include "tuple_hash_map.h"
 #include "symbol_tables.h"
 
 #include "yices_types.h"
@@ -108,9 +110,10 @@ typedef struct {
  * - arity = number of type parameters
  * - param[0 ... arity-1] = parameters
  *
- * NOTE: this is use for something like (Set T) when we instantiate
- * T with a real type. The cid is defined outside this module.
- * For now, an instance type is treated like an uninterpreted type.
+ * NOTE: this is use for something like (Set T) when we instantiate T
+ * with a real type. The cid is the index of a type constructor in
+ * the macro table. For now, an instance type is treated like an
+ * uninterpreted type.
  */
 typedef struct {
   int32_t cid;
@@ -130,6 +133,95 @@ typedef union {
   uint32_t integer;
   void *ptr;
 } type_desc_t;
+
+
+
+/*
+ * TYPE MACROS
+ */
+
+/*
+ * Macros are intended to support SMT LIB2 commands such as
+ *     (declare-sort <name> <arity>)
+ * and (define-sort <name> (<list-of-names>) <sort>)
+ *
+ * With these constructs, we create a macro descriptor
+ * that consists of a name, an arity, a body, and a finite 
+ * array of type variables.
+ * - for (declare-sort <name> <arity> )
+ *   the macro descriptor is as follows:
+ *       name = <name>
+ *       arity = <arity>
+ *       body = NULL_TYPE
+ *       vars = none
+ * - for (define-sort <name> (<X1> ... <Xn>) <sort> ),
+ *   the macro descriptor is
+ *       name = <name>
+ *       arity = n
+ *       body = <sort>
+ *       vars = [<X1> ... <Xn>]
+ *
+ * We also need to keep track of existing macro applications
+ * in a hash table. The hash table contains:
+ *     [macro-id, type1, ..., type_n --> type]
+ *  where macro-id refers to a macro or arity n.
+ */
+
+/*
+ * Macro descriptor
+ */
+typedef struct type_macro_s {
+  char *name;
+  uint32_t arity;
+  type_t body;
+  type_t vars[0]; // real size = arity unless body = NULL_TYPE
+} type_macro_t;
+
+
+
+/*
+ * Maximal arity: it must satisfy two constraints
+ * - max_arity <= TUPLE_HMAP_MAX_ARITY
+ * - sizeof(type_macro_t) + sizeof(type_t) * max_arity <= UINT32_MAX
+ * - a limit of 128 should be more than enough
+ */
+#define TYPE_MACRO_MAX_ARITY 128
+
+
+/*
+ * Table of macros
+ * - macros are identified by an index 
+ * - the table maps the index to a macro descriptor
+ * - it also includes a symbol table that maps macro name
+ *   to its id, and a hash table that stores macro instances.
+ * - deleted descriptors are stored in a free list
+ *
+ * For an index id between 0 and table->nelems, 
+ * table->data[id] is a tagged pointer.
+ * - if the lower bit is 0, then id is a live macro index,
+ *   and table->data[id] is a pointer to the macro descriptor.
+ * - if the lower bit is 1, then id is the index of a deleted 
+ *   macro and table->data[id] stores a 31bit integer. This
+ *   integer is the successor of id in the free list (or -1
+ *   if id is last in the free list).
+ */
+typedef struct type_mtbl_s {
+  void **data;          // descriptors
+  uint32_t size;        // size of the data array
+  uint32_t nelems;      // number of descriptor/macros stored
+  int32_t free_idx;     // first index in the free list (or -1)
+  stbl_t stbl;          // symbol table
+  tuple_hmap_t cache;   // existing macro instances
+} type_mtbl_t;
+
+
+
+/*
+ * Default and maximal size
+ */
+#define TYPE_MACRO_DEF_SIZE   20
+#define TYPE_MACRO_MAX_SIZE   (UINT32_MAX/sizeof(void*))
+
 
 
 
@@ -175,6 +267,8 @@ typedef union {
  * - inf_tbl = maps pairs (tau_1, tau_2) to the largest common 
  *   subtype of tau_1 and tau_2 (or to NULL_TYPE if
  *   tau_1 and tau_2 are not compatible).
+ *
+ * Macro table: also allocated on demand
  */
 typedef struct type_table_s {
   uint8_t *kind;
@@ -191,6 +285,8 @@ typedef struct type_table_s {
   stbl_t stbl;
   int_hmap2_t *sup_tbl;
   int_hmap2_t *inf_tbl;
+
+  type_mtbl_t *macro_tbl;
 } type_table_t;
 
 
@@ -234,6 +330,8 @@ typedef struct type_table_s {
 #define LARGE_TYPE_FLAGS    ((uint8_t) 0x39)
 #define INFINITE_TYPE_FLAGS ((uint8_t) 0x20)
 #define FREE_TYPE_FLAGS     ((uint8_t) 0x00)
+
+
 
 
 /*
@@ -327,8 +425,7 @@ extern type_t type_variable(type_table_t *table, uint32_t id);
  * the function replaces v[i] by s[i] in tau and returns 
  * the result.
  */
-extern type_t type_substitution(type_table_t *table, type_t tau, 
-				uint32_t n, type_t v[], type_t s[]);
+extern type_t type_substitution(type_table_t *table, type_t tau, uint32_t n, type_t v[], type_t s[]);
 
 
 
@@ -364,10 +461,12 @@ extern type_t type_substitution(type_table_t *table, type_t tau,
  */
 extern void set_type_name(type_table_t *table, type_t i, char *name);
 
+
 /*
  * Get type with the given name or NULL_TYPE if no such type exists.
  */
 extern type_t get_type_by_name(type_table_t *table, const char *name);
+
 
 /*
  * Remove a type name: removes the current mapping for name and
@@ -390,6 +489,7 @@ extern void remove_type_name(type_table_t *table, const char *name);
  * - If t doesn't have a name, nothing is done.
  */
 extern void clear_type_name(type_table_t *table, type_t t);
+
 
 
 
@@ -578,6 +678,9 @@ static inline type_t instance_type_param(type_table_t *tbl, type_t i, int32_t j)
 
 
 
+
+
+
 /*
  * FINITENESS AND CARDINALITY
  */
@@ -721,6 +824,98 @@ extern bool is_subtype(type_table_t *table, type_t tau1, type_t tau2);
 extern bool compatible_types(type_table_t *table, type_t tau1, type_t tau2);
 
 
+
+
+
+/*
+ * MACRO CONSTRUCTORS
+ */
+
+/*
+ * NOTES
+ *
+ * 1) macro names have the same scoping mechanism as 
+ *    term and type names. If a macro of a given name is 
+ *    added to the table, and name refers to an existing
+ *    macro then the current mapping is hidden. It will be
+ *    restored after a call to remove_type_macro_name.
+ *
+ * 2) the implementation uses character strings with reference
+ *    counting (cf. refcount_strings.h). The parameter 'name'
+ *    in add_type_macro and add_type_constructor must be 
+ *    the result of 'clone_string'.
+ */
+
+/*
+ * Add a macro descriptor:
+ * - name = macro name
+ * - n = arity. It must be no more than TYPE_MACRO_MAX_ARITY
+ * - vars = array of n type variables (must be all distinct)
+ * - body = type
+ */
+extern void add_type_macro(type_table_t *table, char *name, uint32_t n, type_t *vars, type_t body);
+
+
+/*
+ * Add an uninterpreted type constructor:
+ * - name = macro name
+ * - n = arity. It must be no more than TYPE_MACRO_MAX_ARITY
+ */
+extern void add_type_constructor(type_table_t *table, char *name, uint32_t n);
+
+
+/*
+ * Get a macro id of the given name
+ * - return -1 if there's no macro with this name
+ */
+extern int32_t get_type_macro_by_name(type_table_t *table, const char *name);
+
+
+/*
+ * Get the descriptor for the given id
+ * - id must be a valid macro id (of a non-deleted macro)
+ */
+extern type_macro_t *type_macro(type_table_t *table, int32_t id);
+
+
+/*
+ * Remove the current mapping of 'name' to a macro id
+ * - no change if 'name' does not refer to any macro
+ * - otherwise, the current reference for 'name' is removed
+ *   and the previous mapping is restored (if any).
+ */
+extern void remove_type_macro_name(type_table_t *table, const char *name);
+
+
+/*
+ * Remove macro of the given id
+ * - id must be a valid macro index
+ * - the macro name is deleted (from the symbol table)
+ * - all instances of this macro are also deleted.
+ */
+extern void delete_type_macro(type_table_t *table, int32_t id);
+
+
+/*
+ * Macro instance: apply a macro to the given actual parameters
+ * - id = macro id
+ * - n = number of actuals
+ * - actual = array of n types (actual parameters)
+ * - each parameter must be a valid type 
+ * - n must be equal to the macro arity.
+ *
+ * This first check whether this instance already exists in table->hmap.
+ * If so, the instance is returned.
+ *
+ * Otherwise:
+ * - if the macro is a type constructor (i.e., body = NULL_TYPE) 
+ *   then a new type instance is contructed.
+ * - if the macro is a normal macro (body != NULL_TYPE), then
+ *   the instance is constructed by substituting the actuals
+ *   for the macro variable.
+ * In both case, the instance is stored in table->hmap
+ */
+extern type_t instantiate_type_macro(type_table_t *table, int32_t id, uint32_t n, type_t *actual);
 
 
 
