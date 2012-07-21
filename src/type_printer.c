@@ -106,7 +106,7 @@ static void print_type_recur(FILE *f, type_table_t *tbl, type_t tau, int32_t lev
 	n = instance_type_arity(tbl, tau);
 	for (i=0; i<n; i++) {
 	  fputc(' ', f);
-	  print_type_recur(f, tbl, intance_type_param(tbl, tau, i), level - 1);	  
+	  print_type_recur(f, tbl, instance_type_param(tbl, tau, i), level - 1);	  
 	}
 	fputc(')', f);
 	break;
@@ -304,11 +304,11 @@ void print_type_table(FILE *f, type_table_t *tbl) {
 	fputs(")\n", f);
 	break;
       case INSTANCE_TYPE:
-	fprintf(f, "(cons!%"PRId32, instance_type_cid(tbl, tau));
-	n = instance_type_arity(tbl, tau);
-	for (i=0; i<n; i++) {
+	fprintf(f, "(cons!%"PRId32, instance_type_cid(tbl, i));
+	n = instance_type_arity(tbl, i);
+	for (j=0; j<n; j++) {
 	  fputc(' ', f);
-	  print_type_name(f, tbl, intance_type_param(tbl, tau, i));
+	  print_type_name(f, tbl, instance_type_param(tbl, i, j));
 	}
 	fputc(')', f);
 	break;

@@ -688,8 +688,17 @@ void q_get_den(rational_t *r1, rational_t *r2) {
  */
 static void resize_string_buffer(uint32_t new_size) {
   uint32_t n;
+
   if (string_buffer_length < new_size) {
-    // try making buffer 50% larger
+    /*
+     * try to make buffer 50% larger
+     * in principle the n += n >> 1 could overflow but
+     * then (n < new_size) will be true
+     * so n will be fixed to new_size.
+     *
+     * all this is very unlikely to happen in practice
+     * (this would require extremely large strings).
+     */
     n = string_buffer_length + 1;
     n += n >> 1;
     if (n < new_size) n = new_size;
@@ -782,11 +791,16 @@ int q_set_from_string_base(rational_t *r, const char *s, int32_t base) {
  * - returns 0 otherwise
  */
 int q_set_from_float_string(rational_t *r, const char *s) {
-  int len, frac_len, sign;
+  size_t len;
+  int frac_len, sign;
   long int exponent;
   char *b, c;
 
   len = strlen(s);
+  if (len >= (size_t) UINT32_MAX) {
+    // just to be safe if s is really long
+    out_of_memory();
+  }
   resize_string_buffer(len + 1);
   c = *s ++;
 
