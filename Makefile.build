@@ -156,7 +156,6 @@ build_subdirs: $(build_dir) $(dyn_objdir) $(dyn_libdir) $(dyn_bindir) \
 #
 all: obj static-obj lib static-lib bin static-bin
 
-
 obj: build_subdirs
 	@ echo "=== Building objects ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) obj
