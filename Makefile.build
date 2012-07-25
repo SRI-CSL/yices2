@@ -99,8 +99,13 @@ static_smt_dist_dir := $(build_dir)/static_smt_dist
 distributions = ./distributions
 bindist_dir = yices-$(YICES_VERSION)
 
-bindist_tarfile = $(bindist_dir)-$(ARCH).tar.gz
-static_bindist_tarfile = $(bindist_dir)-$(ARCH)-static-gmp.tar.gz
+ifeq ($(YICES_MODE),debug)
+  bindist_tarfile = $(bindist_dir)-$(ARCH)-dbg.tar.gz
+  static_bindist_tarfile = $(bindist_dir)-$(ARCH)-static-gmp-dbg.tar.gz
+else 
+  bindist_tarfile = $(bindist_dir)-$(ARCH).tar.gz
+  static_bindist_tarfile = $(bindist_dir)-$(ARCH)-static-gmp.tar.gz
+endif
 
 smtdist_dir = yices2smt09
 smtdist_tarfile = $(smtdist_dir)-$(ARCH).tar.gz
