@@ -22,7 +22,7 @@
 enum {
   MDL_EVAL_INTERNAL_ERROR = -2,
   MDL_EVAL_UNKNOWN_TERM = -3,
-  MDL_EVAL_FREEVAR_IN_TERM = -4, 
+  MDL_EVAL_FREEVAR_IN_TERM = -4,
   MDL_EVAL_QUANTIFIER = -5,
   MDL_EVAL_FAILED = -6, // function equality involved
 };

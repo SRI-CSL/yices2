@@ -5526,17 +5526,20 @@ EXPORTED void yices_print_model(FILE *f, model_t *mdl) {
  * the corresponding yices error code.
  * - v is a code returned by eval_in_model
  */
-static const error_code_t eval_error2code[6] = {
+#define NUM_EVAL_ERROR_CODES ((-MDL_EVAL_FAILED) + 1) 
+
+static const error_code_t eval_error2code[NUM_EVAL_ERROR_CODES] = {
   NO_ERROR,              // v = 0
   EVAL_FAILED,           // v = null_value (-1)
-  EVAL_UNKNOWN_TERM,     // v = MDL_EVAL_UNKNOWN_TERM (-2)
-  EVAL_FREEVAR_IN_TERM,  // v = MDL_EVAL_FREEVAR_IN_TERM (-3)
-  EVAL_QUANTIFIER,       // v = MDL_EVAL_QUANTIFIER (-4)
-  EVAL_FAILED,           // v = MDL_EVAL_FAILED (-5)
+  INTERNAL_EXCEPTION,    // v = MDL_EVAL_INTERNAL_ERROR (-2)
+  EVAL_UNKNOWN_TERM,     // v = MDL_EVAL_UNKNOWN_TERM (-3)
+  EVAL_FREEVAR_IN_TERM,  // v = MDL_EVAL_FREEVAR_IN_TERM (4)
+  EVAL_QUANTIFIER,       // v = MDL_EVAL_QUANTIFIER (-5)
+  EVAL_FAILED,           // v = MDL_EVAL_FAILED (-6)
 };
 
 static inline error_code_t yices_eval_error(value_t v) {
-  assert(0 <= -v && -v <= 5);
+  assert(0 <= -v && -v <= NUM_EVAL_ERROR_CODES);
   return eval_error2code[-v];
 }
 
