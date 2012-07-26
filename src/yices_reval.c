@@ -1784,6 +1784,7 @@ static void yices_showparam_cmd(char *param) {
   if (i != PARAM_UNKNOWN) {
     assert(0 <= i && i < NUM_PARAMETERS);
     show_param(i, 20);
+    fflush(stdout);
   } else {
     report_invalid_param(param);
   }
@@ -1800,6 +1801,7 @@ static void yices_showparams_cmd(void) {
     show_param(i, 20);
   }
   fputc('\n', stdout);
+  fflush(stdout);
 }
 
 
@@ -1941,6 +1943,7 @@ static void yices_showstats_cmd(void) {
     printf("Memory used              : %.2f MB\n", mem_used);
   }
   fputc('\n', stdout);
+  fflush(stdout);
 }
 
 
@@ -2313,6 +2316,8 @@ static void yices_check_cmd(void) {
     // already solved: print the status
     fputs(status2string[stat], stdout);
     fputc('\n', stdout);
+    fflush(stdout);
+    timeout = 0;  // clear timeout to be consistent
     break;
 
   case STATUS_IDLE:
@@ -2356,6 +2361,7 @@ static void yices_showmodel_cmd(void) {
     }    
     //    model_print(stdout, model);
     model_print_full(stdout, model);
+    fflush(stdout);
     break;
 
   case STATUS_UNSAT:
@@ -2406,6 +2412,7 @@ static void yices_eval_cmd(term_t t) {
     } else {
       fputs("unknown\n", stdout);
     }
+    fflush(stdout);
     delete_evaluator(&evaluator);
     break;
 

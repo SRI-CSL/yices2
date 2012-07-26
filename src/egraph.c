@@ -1902,7 +1902,7 @@ static inline bool egraph_term_is_fresh(egraph_t *egraph, eterm_t t) {
 
 /*
  * Add composite d to the congruence table and use vectors
- * - if d is created at decision_level > base_level, push d
+ * - if d is created at decision_level > 0 push d
  *   on the undo stack to be reanalyzed after backtracking. 
  * - check whether t is equal to another term u and if so
  *   push the equality (t == u)
@@ -1910,7 +1910,8 @@ static inline bool egraph_term_is_fresh(egraph_t *egraph, eterm_t t) {
 static void egraph_activate_composite(egraph_t *egraph, composite_t *d) {
   undo_tag_t tag;
 
-  assert(composite_body(d));
+  assert(composite_body(d) && egraph->decision_level >= egraph->base_level);
+
   tag = REANALYZE_COMPOSITE;
 
   if (! composite_simplifies(egraph, d)) {
@@ -1924,7 +1925,16 @@ static void egraph_activate_composite(egraph_t *egraph, composite_t *d) {
 
   }
 
-  if (egraph->decision_level > egraph->base_level) {
+  /*
+   * If decision_level > base_level, we'll have to reanalyze d 
+   * after backtracking.
+   *
+   * If decision_level == base_level and base_level > 0, we'll also
+   * have to reanalyze d on the next call to egraph_pop.  This will
+   * force d to be removed from the parent vector and congruence table.
+   */
+  //  if (egraph->decision_level > egraph->base_level) {
+  if (egraph->decision_level > 0) {
     undo_stack_push_ptr(&egraph->undo, d, tag);
   }
 }
@@ -3658,7 +3668,7 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
   thvar_t v1, v2;
 
 #if TRACE
-  printf("---> EGRAPH: processing equality ");
+  printf("\n---> EGRAPH: processing equality ");
   print_occurrence(stdout, t1);
   printf(" == ");
   print_occurrence(stdout, t2);
@@ -3988,6 +3998,13 @@ void egraph_push(egraph_t *egraph) {
   i = egraph->base_level + 1;
   egraph->base_level = i;
   egraph_open_decision_level(egraph);  
+
+#if 0
+  printf("\n*** EGRAPH PUSH EXIT ****\n");
+  print_egraph_root_classes_details(stdout, egraph);
+  print_egraph_congruence_roots(stdout, egraph);
+#endif
+
 }
 
 
@@ -4204,6 +4221,7 @@ static void undo_merge(egraph_t *egraph, occ_t t2, elabel_t l2) {
       undo_thvar_equality(egraph, c1, egraph->classes.thvar[c1], c2, egraph->classes.thvar[c2]);
     }
   }
+
 } 
 
 
@@ -4448,9 +4466,17 @@ void egraph_pop(egraph_t *egraph) {
   egraph_trail_t *trail;
   uint32_t i;
 
+#if 0
+  printf("*** EGRAPH POP ENTRY ****\n");
+  print_egraph_root_classes_details(stdout, egraph);
+  print_egraph_congruence_roots(stdout, egraph);
+#endif
+
   assert(egraph->base_level > 0 && egraph->base_level == egraph->decision_level);
 
   // decrease base_level then backtrack
+  egraph->ack_left = null_occurrence;
+  egraph->ack_right = null_occurrence;
   egraph->base_level --;
   egraph_local_backtrack(egraph, egraph->base_level);
 
@@ -4481,6 +4507,13 @@ void egraph_pop(egraph_t *egraph) {
       egraph->ctrl[i]->pop(egraph->th[i]);
     }
   }  
+
+#if 0
+  printf("\n*** EGRAPH POP: EXIT ****\n");
+  print_egraph_root_classes_details(stdout, egraph);
+  print_egraph_congruence_roots(stdout, egraph);
+#endif
+
 }
 
 

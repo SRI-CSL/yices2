@@ -1397,8 +1397,6 @@ void clear_term_name(term_table_t *table, term_t t) {
 
 
 
-
-
 /*
  * TERM DELETION
  */
@@ -2794,6 +2792,35 @@ bool is_constant_tuple(term_table_t *table, term_t t) {
 bool is_constant_term(term_table_t *table, term_t t) {
   return is_const_term(table, t) || 
     (term_kind(table, t) == TUPLE_TERM && is_constant_tuple(table, t));
+}
+
+
+
+
+/*
+ * Check whether the table contains a constant term of type tau and the given index
+ * - tau must be uninterpreted or scalar
+ * - if tau is scalar, then index must be between 0 and cardinality of tau - 1
+ * - return NULL_TERM if there's no such term in table
+ */
+term_t find_constant_term(term_table_t *table, type_t tau, int32_t index) {
+  int32_t i;
+
+  integer_hobj.tbl = table;
+  integer_hobj.tag = CONSTANT_TERM;
+  integer_hobj.tau = tau;
+  integer_hobj.id = index;
+
+  i = int_htbl_find_obj(&table->htbl, &integer_hobj.m);
+  if (i >= 0) {
+    i = pos_term(i);
+  }
+
+  assert(i == NULL_TERM || 
+	 (term_kind(table, i) == CONSTANT_TERM && term_type(table, i) == tau 
+	  && constant_term_index(table, i) == index));
+
+  return i;
 }
 
 

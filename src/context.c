@@ -2750,38 +2750,6 @@ static eterm_t make_egraph_variable(context_t *ctx, type_t type) {
 
 
 /*
- * Add the tuple skolemization axiom for term occurrence 
- * u of type tau.
- */
-static void skolemize_tuple(context_t *ctx, occ_t u, type_t tau) {
-  type_table_t *types;
-  tuple_type_t *d;
-  uint32_t i, n;
-  occ_t *arg;
-  eterm_t tup;
-
-  types = ctx->types;
-  assert(type_kind(types, tau) == TUPLE_TYPE);
-  // instantiate the axiom
-  d = tuple_type_desc(types, tau);
-  n = d->nelem;
-  arg = alloc_istack_array(&ctx->istack, n);
-  for (i=0; i<n; i++) {
-    arg[i] = pos_occ(make_egraph_variable(ctx, d->elem[i]));
-    // recursively skolemize
-    if (type_kind(types, d->elem[i]) == TUPLE_TYPE) {
-      skolemize_tuple(ctx, arg[i], d->elem[i]);
-    }
-  }
-
-  tup = egraph_make_tuple(ctx->egraph, n, arg, tau);
-  free_istack_array(&ctx->istack, arg);
-
-  egraph_assert_eq_axiom(ctx->egraph, u, pos_occ(tup));
-}
-
-
-/*
  * Add the axiom (t == const(0) or t == const(1) or ... )
  * for a term t of scalar type tau.
  */
@@ -2804,6 +2772,7 @@ static void build_scalar_axiom(context_t *ctx, occ_t t, type_t tau) {
 }
 
 
+
 /*
  * Add the type constraints for term t of type tau:
  * - if tau is a scalar type of size n, then add the clause
@@ -2811,6 +2780,8 @@ static void build_scalar_axiom(context_t *ctx, occ_t t, type_t tau) {
  * - if tau is a tuple type then we add the skolemization axiom
  *   for t (i.e., t = (tuple x1 ... x_n) for fresh variable x_1 ... x_n
  */
+static void skolemize_tuple(context_t *ctx, occ_t u, type_t tau); // recursively calls add_type_constraints
+
 static void add_type_constraints(context_t *ctx, occ_t t, type_t tau) {
   type_table_t *types;
   
@@ -2831,10 +2802,43 @@ static void add_type_constraints(context_t *ctx, occ_t t, type_t tau) {
 
 
 /*
- * Build a tuple of same type as t then assert that it's equal to t
+ * Add the tuple skolemization axiom for term occurrence 
+ * u of type tau.
+ */
+static void skolemize_tuple(context_t *ctx, occ_t u, type_t tau) {
+  type_table_t *types;
+  tuple_type_t *d;
+  uint32_t i, n;
+  occ_t *arg;
+  eterm_t tup;
+
+  types = ctx->types;
+  assert(type_kind(types, tau) == TUPLE_TYPE);
+  // instantiate the axiom
+  d = tuple_type_desc(types, tau);
+  n = d->nelem;
+  arg = alloc_istack_array(&ctx->istack, n);
+  for (i=0; i<n; i++) {
+    arg[i] = pos_occ(make_egraph_variable(ctx, d->elem[i]));
+    // recursively add type constraints for arg[i]
+    add_type_constraints(ctx, arg[i], d->elem[i]);
+  }
+
+  tup = egraph_make_tuple(ctx->egraph, n, arg, tau);
+  free_istack_array(&ctx->istack, arg);
+
+  egraph_assert_eq_axiom(ctx->egraph, u, pos_occ(tup));
+}
+
+
+
+/*
+ * Build a tuple of same type as t then assert that it's equal to u1
  * - t must be a root in the internalization table
  * - u1 must be equal to t's internalization (as stored in intern_table)
- * This is the skolemization of (exist (x1...x_n) t == (tuple x1 ... x_n))
+ * This is the skolemization of (exist (x1...x_n) u1 == (tuple x1 ... x_n))
+ *
+ * - return the eterm u := (tuple x1 ... x_n)
  */
 static eterm_t skolem_tuple(context_t *ctx, term_t t, occ_t u1) {
   type_t tau;
@@ -2852,10 +2856,8 @@ static eterm_t skolem_tuple(context_t *ctx, term_t t, occ_t u1) {
   arg = alloc_istack_array(&ctx->istack, n);
   for (i=0; i<n; i++) {
     arg[i] = pos_occ(make_egraph_variable(ctx, d->elem[i]));
-    // recursively skolemize
-    if (type_kind(ctx->types, d->elem[i]) == TUPLE_TYPE) {
-      skolemize_tuple(ctx, arg[i], d->elem[i]);
-    }
+    // recursively add type constraints for arg[i]
+    add_type_constraints(ctx, arg[i], d->elem[i]);
   }
 
   u = egraph_make_tuple(ctx->egraph, n, arg, tau);

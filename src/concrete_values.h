@@ -225,6 +225,19 @@ typedef struct map_hset_s {
 
 
 
+/*
+ * Optional function to name uninterpreted constants
+ * - the table contains a pointer to a function 'unint_namer'
+ *   + an opaque pointer aux_namer.
+ * - when an uninterpreted value is printed, the value's name 
+ *   (stored in the value_unint_t descriptor d) is used.
+ * - if d->name is NULL and name_of_unint is non NULL, then
+ *      unint_namer(aux, d) is called
+ *   if this this function returns a non-NULL string, that's used
+ *   as the name.
+ * - otherwise, the modules uses a name 'const!k' for some k
+ */
+typedef const char *(*unint_namer_fun_t)(void *aux, value_unint_t *d);
 
 
 /*
@@ -249,6 +262,8 @@ typedef struct map_hset_s {
  *   if first_tmp = -1 then all objects are permanent.
  *   if first_tmp >= 0, then objects in [0 .. first_tmp -1] are permanent
  *   and objects in [first_tmp .. nobjects - 1] are temporary.
+ *
+ * - pointer for getting names of uninterpreted constants
  */
 typedef struct value_table_s {
   uint32_t size;
@@ -270,6 +285,8 @@ typedef struct value_table_s {
   int32_t false_value;
   int32_t first_tmp;
 
+  void *aux_namer;
+  unint_namer_fun_t unint_namer;
 } value_table_t;
 
 
@@ -301,6 +318,14 @@ extern void delete_value_table(value_table_t *table);
 extern void reset_value_table(value_table_t *table);
 
 
+/*
+ * Assign aux and namer for dealing with uninterpreted values whose name is missing
+ */
+static inline void value_table_set_namer(value_table_t *table, void *aux, unint_namer_fun_t f) {
+  assert(f != NULL);
+  table->aux_namer = aux;
+  table->unint_namer = f;
+}
 
 
 /*

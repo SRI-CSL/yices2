@@ -480,6 +480,9 @@ void init_value_table(value_table_t *table, uint32_t n, type_table_t *ttbl) {
   table->true_value = null_value;
   table->false_value = null_value;
   table->first_tmp = -1; // no temporary objects
+
+  table->aux_namer = NULL;
+  table->unint_namer = NULL;
 }
 
 
@@ -1883,17 +1886,32 @@ static inline void vtbl_print_bitvector(FILE *f, value_bv_t *b) {
 
 
 /*
- * For uninterpreted constant and function.
+ * For uninterpreted constants:
+ * -
  * We print a default name if there's no name given.
  */
-static void vtbl_print_unint_name(FILE *f, value_t c, value_unint_t *v) {
-  if (v->name == NULL) {
+static void vtbl_print_unint_name(FILE *f, value_table_t *table, value_t c, value_unint_t *v) {    
+  const char *s;
+
+  s = v->name;
+  if (s == NULL) {
+    // try to get a name from the external 'unint_namer' function
+    if (table->unint_namer != NULL) {
+      s = table->unint_namer(table->aux_namer, v);
+    }
+  }
+
+  if (s == NULL) {
     fprintf(f, "const!%"PRId32, c);
   } else {
-    fputs(v->name, f);
+    fputs(s, f);
   }
 }
 
+
+/*
+ * Function: use a default name if nothing is given
+ */
 static void vtbl_print_fun_name(FILE *f, value_t c, value_fun_t *fun) {
   if (fun->name == NULL) {
     fprintf(f, "fun!%"PRId32, c);
@@ -1982,7 +2000,7 @@ void vtbl_print_object(FILE *f, value_table_t *table, value_t c) {
     vtbl_print_tuple(f, table, table->desc[c].ptr);
     break;
   case UNINTERPRETED_VALUE:
-    vtbl_print_unint_name(f, c, table->desc[c].ptr);
+    vtbl_print_unint_name(f, table, c, table->desc[c].ptr);
     break;
   case FUNCTION_VALUE:
     vtbl_print_fun_name(f, c, table->desc[c].ptr);

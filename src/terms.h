@@ -776,7 +776,6 @@ extern void clear_term_name(term_table_t *table, term_t t);
 
 
 
-
 /*
  * TERM INDICES/POLARITY
  */
@@ -1157,6 +1156,10 @@ static inline bool is_const_term(term_table_t *table, term_t t) {
 
 
 /*
+ * CONSTANT TERMS
+ */
+
+/*
  * Check whether t is a constant tuple
  * - t must be a tuple term
  */
@@ -1168,6 +1171,16 @@ extern bool is_constant_tuple(term_table_t *table, term_t t);
  * or a constant tuple.
  */
 extern bool is_constant_term(term_table_t *table, term_t t);
+
+
+/*
+ * Check whether the table contains a constant term of type tau and the given index
+ * - tau must be uninterpreted or scalar
+ * - if tau is scalar, then index must be between 0 and cardinality of tau - 1
+ * - return NULL_TERM if there's no such term in table
+ */
+extern term_t find_constant_term(term_table_t *table, type_t tau, int32_t index);
+
 
 
 
