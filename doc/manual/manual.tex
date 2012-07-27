@@ -86,7 +86,7 @@ constructs have been removed.
 Yices~2 has a few built-in types for primitive objects:
 \begin{itemize}
 \item The arithmetic types \texttt{int} and \texttt{real}
-\item The boolean type \texttt{bool}
+\item The Boolean type \texttt{bool}
 \item The type \texttt{(bitvector k)} of bitvectors of size $k$,
  where $k$ is a positive integer.
 \end{itemize}
@@ -153,7 +153,7 @@ common supertype of $\tau$ and $\tau'$ but it is not minimal.
 
 \section{Terms and Formulas}
 
-In Yices~2, the atomic terms include the boolean constants
+In Yices~2, the atomic terms include the Boolean constants
 (\texttt{true} and \texttt{false}) as well as arithmetic and bitvector
 constants. 
 
@@ -388,7 +388,7 @@ extract bits $i$ down to $j$ \\
 The semantics of all the bitvector operators is defined in the SMT-LIB~1.2
 standard.  Yices~2 follows the standard except for the case of
 division by zero.  In SMT-LIB, the result of a division by zero is
-undefined but one must ensure that the division operators are
+an unspecified value, but one must ensure that the division operators are
 functional. In other words, SMT-LIB does not specify the result of
 $(\mathtt{bvudiv}\ a\ b)$ if $b$ is the zero vector, but
 $(\mathtt{bvudiv}\ a\ b)$ and $(\mathtt{bvudiv}\ c\ b)$ must be equal
@@ -403,9 +403,9 @@ format~\cite{Brummayer-etal:2008}):
 \end{eqnarray*}
 In general, the quotient $(\mathtt{bvudiv}\ a\ b)$ is the largest
 unsigned integer that can be represented on $n$ bits, and is smaller than $a/b$, 
-and the following identity for all bitvectors $a$ and $b$
+and the following identity holds for all bitvectors $a$ and $b$
 \begin{eqnarray*}
-a & = & (\mathtt{bvadd}\ (\mathtt{bvmul}\ (\mathtt{bvudiv}\ a\ b)\ b)\ (\mathtt{bvurem}\ a\ b))
+a & = & (\mathtt{bvadd}\ (\mathtt{bvmul}\ (\mathtt{bvudiv}\ a\ b)\ b)\ (\mathtt{bvurem}\ a\ b)).
 \end{eqnarray*}
 
 \item {\bf Signed Division:} If $b$ is the zero bitvector of $n$ bits then 
