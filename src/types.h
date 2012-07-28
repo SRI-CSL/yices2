@@ -48,6 +48,7 @@
 
 #include "tagged_pointers.h"
 #include "int_hash_tables.h"
+#include "int_hash_map.h"
 #include "int_hash_map2.h"
 #include "tuple_hash_map.h"
 #include "symbol_tables.h"
@@ -427,6 +428,27 @@ extern type_t type_variable(type_table_t *table, uint32_t id);
  * the result.
  */
 extern type_t type_substitution(type_table_t *table, type_t tau, uint32_t n, type_t v[], type_t s[]);
+
+
+/*
+ * Check whether tau matches sigma
+ * - if so build a substitution S, such that S(tau) = sigma
+ * - S is stored in the hash_map subst
+ *
+ * - both tau and sigma must be defined in table.
+ * - subst must be initialized.
+ *
+ * If subst is not empty, then the matching test is relative to the
+ * current S (i.e., the search is for a substitution S' that extends S)
+ */
+extern bool types_match(type_table_t *table, type_t tau, type_t sigma, int_hmap_t *subst);
+
+
+/*
+ * Apply substitution stored in subst to tau
+ * - subst is what's returned by types_match
+ */
+extern type_t apply_type_matching(type_table_t *table, type_t tau, int_hmap_t *subst);
 
 
 

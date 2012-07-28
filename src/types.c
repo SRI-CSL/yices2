@@ -9,7 +9,6 @@
 #include "memalloc.h"
 #include "refcount_strings.h"
 #include "hash_functions.h"
-#include "int_hash_map.h"
 #include "types.h"
 
 
@@ -90,7 +89,7 @@ static void init_type_mtbl(type_mtbl_t *table, uint32_t n) {
     if (n > TYPE_MACRO_MAX_SIZE) {
       out_of_memory();
     }
-    tmp = (void **) safe_malloc(n * sizeof(void));
+    tmp = (void **) safe_malloc(n * sizeof(void*));
   }
 
   table->data = tmp;
@@ -1065,8 +1064,15 @@ void delete_type_table(type_table_t *table) {
 
   // delete all allocated descriptors
   for (i=0; i<table->nelems; i++) {
-    if (table->kind[i] == TUPLE_TYPE || table->kind[i] == FUNCTION_TYPE) {
+    switch (table->kind[i]) {
+    case TUPLE_TYPE:
+    case FUNCTION_TYPE:
+    case INSTANCE_TYPE:
       safe_free(table->desc[i].ptr);
+      break;
+
+    default:
+      break;
     }
   }
 
@@ -1362,6 +1368,139 @@ type_t type_substitution(type_table_t *table, type_t tau, uint32_t n, type_t v[]
 
   return result;
 }
+
+
+
+/*
+ * MATCHING
+ */
+
+
+/*
+ * Check whether two tuples/functions/instance type descriptor match 
+ */
+static bool match_type_arrays(type_table_t *table, type_t *a, type_t *b, uint32_t n, int_hmap_t *subst) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (!types_match(table, a[i], b[i], subst)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+static bool match_tuple_types(type_table_t *table, tuple_type_t *tau, tuple_type_t *sigma, int_hmap_t *subst) {
+  uint32_t n;
+
+  n = tau->nelem;
+  return n == sigma->nelem && match_type_arrays(table, tau->elem, sigma->elem, n, subst);
+}
+
+static bool match_function_types(type_table_t *table, function_type_t *tau, function_type_t *sigma, int_hmap_t *subst) {
+  uint32_t n;
+
+  n = tau->ndom;
+  return n == sigma->ndom && match_type_arrays(table, tau->domain, sigma->domain, n, subst) 
+    && types_match(table, tau->range, sigma->range, subst);
+}
+
+static bool match_instance_types(type_table_t *table, instance_type_t *tau, instance_type_t *sigma, int_hmap_t *subst) {
+  assert(tau->cid != sigma->cid || tau->arity == sigma->arity);
+  return tau->cid == sigma->cid && match_type_arrays(table, tau->param, sigma->param, tau->arity, subst);
+}
+
+
+/*
+ * Check whether tau matches sigma
+ * - if so build a substitution S, such that S(tau) = sigma
+ * - S is stored in the hash_map subst
+ *
+ * - both tau and sigma must be defined in table.
+ * - subst must be initialized.
+ *
+ * If subst is not empty, then the matching test is relative to the
+ * current S (i.e., the search is for a substitution S' that extends S)
+ */
+bool types_match(type_table_t *table, type_t tau, type_t sigma, int_hmap_t *subst) {
+  int_hmap_pair_t *p;
+  type_kind_t sigma_kind;
+  type_kind_t tau_kind;
+
+  assert(good_type(table, tau) && good_type(table, sigma));
+
+  if (ground_type(table, tau)) {
+    return tau == sigma;
+  }
+  
+  p = int_hmap_get(subst, tau);
+  assert(p->key == tau);
+  if (p->val >= 0) {
+    assert(good_type(table, p->val));
+    // tau is already mapped to p->val by subst
+    return p->val == sigma;
+  }
+
+  tau_kind = type_kind(table, tau);
+  if (tau_kind == VARIABLE_TYPE) {
+    // success: add [tau := sigma] to hmap
+    p->val = sigma;
+    return true;
+  }
+
+  sigma_kind = type_kind(table, sigma);
+  if (sigma_kind != tau_kind) {
+    return false;
+  }
+
+  // recursively check whether the children match
+  switch (type_kind(table, tau)) {
+  case TUPLE_TYPE:
+    if (! match_tuple_types(table, tuple_type_desc(table, tau), tuple_type_desc(table, sigma), subst)) {
+      return false;	
+    }
+    break;
+      
+  case FUNCTION_TYPE:
+    if (! match_function_types(table, function_type_desc(table, tau), function_type_desc(table, sigma), subst)) {
+      return false;
+    }
+    break;
+
+  case INSTANCE_TYPE:
+    if (! match_instance_types(table, instance_type_desc(table, tau), instance_type_desc(table, sigma), subst)) {
+      return false;
+    }
+    break;
+      
+  default:
+    assert(false);
+    break;
+  }
+  
+
+  /*
+   * tau matches sigma: store [tau --> sigma] in subst
+   * we can't reuse p here since the recursive calls may have modified the hash_map
+   */
+  p = int_hmap_get(subst, tau);
+  assert(p->key == tau && p->val < 0);
+  p->val = sigma;
+
+  return true;
+}
+
+
+
+/*
+ * Apply substitution stored in subst to tau
+ * - subst is what's returned by types_match
+ */
+type_t apply_type_matching(type_table_t *table, type_t tau, int_hmap_t *subst) {
+  return type_subst_recur(table, subst, tau);
+}
+
 
 
 
