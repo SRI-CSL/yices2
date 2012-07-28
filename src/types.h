@@ -823,7 +823,7 @@ extern type_t super_type(type_table_t *table, type_t tau1, type_t tau2);
 /*
  * Compute the inf of tau1 and tau2
  * - return the largest type tau such that tau <= tau1 and tau <= tau2
- *    if there is one
+ *   if there is one
  * - return NULL_TYPE otherwise (i.e., if tau1 and tau2 are not compatible)
  */
 extern type_t inf_type(type_table_t *table, type_t tau1, type_t tau2);
