@@ -1338,7 +1338,7 @@ void bit_blaster_half_adder(bit_blaster_t *s, literal_t a, literal_t b, literal_
  * Full adder: x = (a + b + c) mod 2, y = carry
  */
 void bit_blaster_full_adder(bit_blaster_t *s, literal_t a, literal_t b, literal_t c, literal_t x, literal_t y) {
-#if 0
+#if 1
   literal_t d, e, f, g, t;
 
   d = bit_blaster_make_and2(s, a, b);

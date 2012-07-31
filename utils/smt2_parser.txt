@@ -180,10 +180,15 @@ Grammar (SMT-LIB 2.0, December 21 2010)
 	    | ( let ( <var-binding>+ ) <term> )
 	    | ( forall ( <sorted-var>+ ) <term> )
 	    | ( exists ( <sorted-var>+ ) <term> )
-	    | ( ! <term> <attribute>+ )
+	    | ( ! <term> <term-attribute>+ )
+
+   <term-attribute> ::= 
+             :named <symbol>
+           | :pattern ( <term>+ )
+           | <attribute>            
 
     
-The EOS part in <coomand> is non standard but it makes sense to allow it.
+The EOS part in <command> is non standard but it makes sense to allow it.
 
 We rewrite the rules for <term> and <sort> to remove the ambiguity caused
 by <identifiers>. For example, when we parse a <sort>, we can't tell
@@ -403,12 +408,32 @@ t3e	     (			t3b
 
 // after '(!'
 t4	     [term]		t4a
-t4a	     <keyword>		t4b
+
+t4a	     <keyword>          t4d      if keyword is :named
+             <keyword>          t4e      if keyword is :pattern
+             <keyword>		t4b      for all other keywords
+
 t4b	     )			DONE
+
+t4b	     <keyword>          t4d      if keyword is :named
+             <keyword>          t4e      if keyword is :pattern
 	     <keyword>		t4b	     
 	     [attribute-value]	t4c
+
 t4c	     ) 			DONE
+             <keyword>          t4d      if keyword is :named
+             <keyword>          t4e      if keyword is :pattern
 	     <keyword>		t4b
+
+// after :named
+t4d          <symbol>           t4c
+
+// after :pattern
+t4e          (                  t4f
+t4f          [term]             t4g
+t4g          )                  t4c
+             [term]             t4g
+
 
 
 // after '(as'
@@ -626,14 +651,35 @@ t3e	     (			next; goto t3b
 	     )			next; push r0; goto t0
 
 // after '(! <term>'
-t4a	     <keyword>		next; goto t4b
+t4a          <keyword>		check_keyword_then_branch 
 
 t4b	     )			next; return
-	     <keyword>		t4b
+	     <keyword>		check_keyword_then_branch
 	     ...		push t4c; goto a0
 
 t4c	     )			next; return
-	     <keyword>		next; goto t4b
+	     <keyword>		check_keyword_then_branch
+
+t4d          <symbol>           next; goto t4c
+
+t4e          (                  next; push t4g; goto t0
+t4g          )                  next; goto t4c
+             ...                push t4g; goto t0
+
+
+We need a special action 'check_keyword_then_branch' to 
+parse the  :named  and  :pattern  attributes.
+
+if (keyword == ':named') then  
+  next; goto t4d
+elsif (keyword == ':pattern') then
+  next; goto t4e
+else
+  next; goto t4b
+endif
+
+
+
 
 // after '(('
 t6	     as			next; push t6c; push s0; goto i0

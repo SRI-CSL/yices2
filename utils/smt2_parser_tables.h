@@ -7,7 +7,7 @@ typedef enum state_s {
   a0, a1, v0,
   s0, s1, s2, s3, s4, s5, s6, s7, s8, s10,
   t0, t1, t2, t2a, t2b, t2d, t2e, 
-  t3, t3a, t3b, t3d, t3e, t4a, t4b, t4c,
+  t3, t3a, t3b, t3d, t3e, t4a, t4b, t4c, t4d, t4e, t4g,
   t6, t6c, t6d, t6e, t6f, t7, t7a, t7b, t8a,
   i0, i1, i2, i3, i4,
   r0,
@@ -122,8 +122,12 @@ enum actions {
   next_goto_t3e,
 
   // (! <term> ...
-  keyword_next_goto_t4b,
+  check_keyword_then_branch,
   push_t4c_goto_a0,
+  symbol_next_goto_t4c,
+  next_push_t4g_goto_t0,
+  next_goto_t4c,
+  push_t4g_goto_t0,
 
   // (( ...
   next_push_t6c_push_s0_goto_i0,
@@ -338,15 +342,24 @@ static triple_t triples[] = {
   { t3e, SMT2_TK_LP, "next_goto_t3b" },
   { t3e, SMT2_TK_RP, "next_push_r0_goto_t0" },
 
-  { t4a, SMT2_TK_KEYWORD, "keyword_next_goto_t4b" },
+  { t4a, SMT2_TK_KEYWORD, "check_keyword_then_branch" },
   { t4a, DEFAULT_TOKEN, "error_keyword_expected" },
 
   { t4b, SMT2_TK_RP, "next_return" },
-  { t4b, SMT2_TK_KEYWORD, "keyword_next_goto_t4b" },
+  { t4b, SMT2_TK_KEYWORD, "check_keyword_then_branch" },
   { t4b, DEFAULT_TOKEN, "push_t4c_goto_a0" },
 
   { t4c, SMT2_TK_RP, "next_return" },
-  { t4c, SMT2_TK_KEYWORD, "keyword_next_goto_t4b" },
+  { t4c, SMT2_TK_KEYWORD, "check_keyword_then_branch" },
+
+  { t4d, SMT2_TK_SYMBOL, "symbol_next_goto_t4c" },
+  { t4d, DEFAULT_TOKEN, "error_symbol_expected" },
+
+  { t4e, SMT2_TK_LP, "next_push_t4g_goto_t0" },
+  { t4e, DEFAULT_TOKEN, "error_lp_expected" },
+
+  { t4g, SMT2_TK_RP, "next_goto_t4c" },
+  { t4g, DEFAULT_TOKEN, "push_t4g_goto_t0" },
 
   { t6, SMT2_TK_AS, "next_push_t6c_push_s0_goto_i0" },
   { t6, SMT2_TK_UNDERSCORE, "next_goto_t6d" },

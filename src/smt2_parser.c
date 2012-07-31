@@ -132,6 +132,7 @@ static smt2_action_t get_action(state_t s, smt2_token_t tk) {
  */
 static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
   smt2_token_t token;
+  smt2_keyword_t kw;
   parser_state_t state;
   parser_stack_t *stack;
   lexer_t *lex;
@@ -530,15 +531,40 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
       state = t3e;
       goto loop;
 
-    case keyword_next_goto_t4b:
-      state = t4b;
+    case check_keyword_then_branch:
+      kw = smt2_string_to_keyword(tkval(lex), tklen(lex));
+      if (kw == SMT2_KW_NAMED) {
+	state = t4d;
+      } else if (kw == SMT2_KW_PATTERN) {
+	state = t4e;
+      } else {
+	state = t4b;
+      }
       goto loop;
-
+      
     case push_t4c_goto_a0:
       parser_push_state(stack, t4c);
       state = a0;
       goto skip_token;
      
+    case symbol_next_goto_t4c:
+      state = t4c;
+      goto loop;
+
+    case next_push_t4g_goto_t0:
+      parser_push_state(stack, t4g);
+      state = t0;
+      goto loop;
+
+    case next_goto_t4c:
+      state = t4c;
+      goto loop;
+
+    case push_t4g_goto_t0:
+      parser_push_state(stack, t4g);
+      state = t0;
+      goto skip_token;
+
     case next_push_t6c_push_s0_goto_i0:
       parser_push_state(stack, t6c);
       parser_push_state(stack, s0);
