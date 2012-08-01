@@ -262,6 +262,7 @@ extern term_t mk_exists(term_manager_t *manager, uint32_t n, term_t v[], term_t 
 
 
 
+
 /*
  * ARITHMETIC TERM AND ATOM CONSTRUCTORS
  */

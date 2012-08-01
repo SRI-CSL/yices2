@@ -19,6 +19,7 @@
  *    - variables are identified by their type and an integer index.
  *    - quantified formulas are of the form (forall v_1 ... v_n term)
  *      where each v_i is a variable
+ *    - lambda terms: same thing
  * 4) boolean operators
  *    - or t1 ... t_n
  *    - xor t1 ... t_n
@@ -354,6 +355,26 @@ static composite_term_t *new_forall_term(uint32_t n, term_t *v, term_t p) {
 
 
 /*
+ * Lambda term: (lambda v[0] ... v[n-1] t)
+ */
+static composite_term_t *new_lambda_term(uint32_t n, term_t *v, term_t t) {
+  composite_term_t *d;
+  uint32_t j;
+
+  assert(n <= MAX_COMPOSITE_TERM_ARITY - 1);
+
+  d = (composite_term_t *) safe_malloc(sizeof(composite_term_t) + (n+1) * sizeof(term_t));
+  d->arity = n+1;
+  for (j=0; j<n; j++) {
+    d->arg[j] = v[j];
+  }
+  d->arg[j] = t;
+
+  return d;
+}
+
+
+/*
  * Bit-vector constant:
  * - v = array of k words where k = ceil(bitsize/32).
  */
@@ -478,6 +499,17 @@ static uint32_t hash_forall_term(uint32_t n, term_t *v, term_t p) {
 
   h = jenkins_hash_intarray(v, n);
   return jenkins_hash_pair(p, h, 0xfe3a2788);
+}
+
+
+/*
+ * Lambda term: (lambda v[0] ... v[n-1] t)
+ */
+static uint32_t hash_lambda_term(uint32_t n, term_t *v, term_t t) {
+  uint32_t h;
+
+  h = jenkins_hash_intarray(v, n);
+  return jenkins_hash_pair(t, h, 0xabdaabda);
 }
 
 
@@ -625,7 +657,7 @@ typedef struct {
  * Quantified formula: (forall v[0] ... v[n-1] p)
  * - p = body
  * - n = number of variables
- * - arg = array of n variables
+ * - v = array of n variables
  */
 typedef struct {
   int_hobj_t m;
@@ -634,6 +666,23 @@ typedef struct {
   uint32_t n;  
   term_t *v;
 } forall_term_hobj_t;
+
+
+/*
+ * Lambda term: (lambda v[0] ... v[n-1] t)
+ * - tau = type
+ * - t = body
+ * - n = number of variables
+ * - v = array of n variables
+ */
+typedef struct {
+  int_hobj_t m;
+  term_table_t *tbl;
+  type_t tau;
+  term_t t;
+  uint32_t n;
+  term_t *v;
+} lambda_term_hobj_t;
 
 
 /*
@@ -759,6 +808,10 @@ static uint32_t hash_update_hobj(update_term_hobj_t *o) {
 
 static uint32_t hash_forall_hobj(forall_term_hobj_t *o) {
   return hash_forall_term(o->n, o->v, o->p);
+}
+
+static uint32_t hash_lambda_hobj(lambda_term_hobj_t *o) {
+  return hash_lambda_term(o->n, o->v, o->t);
 }
 
 static uint32_t hash_select_hobj(select_term_hobj_t *o) {
@@ -887,6 +940,21 @@ static bool eq_forall_hobj(forall_term_hobj_t *o, int32_t i) {
     eq_term_arrays(o->v, d->arg, n);
 }
 
+static bool eq_lambda_hobj(lambda_term_hobj_t *o, int32_t i) {
+  term_table_t *table;
+  composite_term_t *d;
+  uint32_t n;
+
+  table = o->tbl;
+  assert(good_term_idx(table, i));
+
+  if (table->kind[i] != LAMBDA_TERM) return false;
+
+  d = table->desc[i].ptr;
+  n = o->n;
+  return d->arity == n+1 && d->arg[n] == o->t && eq_term_arrays(o->v, d->arg, n);
+}
+
 static bool eq_select_hobj(select_term_hobj_t *o, int32_t i) {
   term_table_t *table;
   select_term_t *d;
@@ -1013,6 +1081,13 @@ static int32_t build_forall_hobj(forall_term_hobj_t *o) {
   return new_ptr_term(o->tbl, FORALL_TERM, bool_id, d);
 }
 
+static int32_t build_lambda_hobj(lambda_term_hobj_t *o) {
+  composite_term_t *d;
+
+  d = new_lambda_term(o->n, o->v, o->t);
+  return new_ptr_term(o->tbl, LAMBDA_TERM, o->tau, d);
+}
+
 static int32_t build_select_hobj(select_term_hobj_t *o) {
   return new_select_term(o->tbl, o->tag, o->tau, o->k, o->arg);
 }
@@ -1108,6 +1183,13 @@ static forall_term_hobj_t forall_hobj = {
     (hobj_build_t) build_forall_hobj },
   NULL,
   0, 0, NULL,
+};
+
+static lambda_term_hobj_t lambda_hobj = {
+  { (hobj_hash_t) hash_lambda_hobj, (hobj_eq_t) eq_lambda_hobj, 
+    (hobj_build_t) build_lambda_hobj },
+  NULL,
+  0, 0, 0, NULL,
 };
 
 static select_term_hobj_t select_hobj = {
@@ -1252,12 +1334,6 @@ static bool is_unit_type_rep(term_table_t *table, type_t tau, term_t t) {
   return rep == NULL_TERM || rep == t;
 }
 #endif
-
-
-
-/*
- * SPECIAL OPERATIONS ON VARIABLES
- */
 
 
 
@@ -1515,6 +1591,14 @@ static void delete_term(term_table_t *table, int32_t i) {
     safe_free(d);
     break;
 
+  case LAMBDA_TERM:
+    d = table->desc[i].ptr;
+    n = d->arity;
+    assert(n >= 2);
+    h = hash_lambda_term(n-1, d->arg, d->arg[n-1]);
+    safe_free(d);
+    break;
+
   case SELECT_TERM:
   case BIT_TERM:
     // Select terms: nothing to delete.
@@ -1675,6 +1759,7 @@ static void delete_term_descriptors(term_table_t *table) {
     case EQ_TERM:
     case DISTINCT_TERM:
     case FORALL_TERM:
+    case LAMBDA_TERM:
     case OR_TERM:
     case XOR_TERM:
     case ARITH_BINEQ_ATOM:
@@ -1775,6 +1860,29 @@ static type_t type_of_tuple(term_table_t *table, uint32_t n, term_t arg[]) {
     v[j] = term_type(table, arg[j]);
   }
   tau = tuple_type(table->types, n, v);
+
+  ivector_reset(&table->ibuffer);
+
+  return tau;
+}
+
+/*
+ * Type of (lambda v[0] ... v[n-1] t)
+ */
+static type_t type_of_lambda(term_table_t *table, uint32_t n, term_t *v, term_t t) {
+  int32_t *dom;
+  type_t tau;
+  uint32_t j;
+  
+  // use ibuffer;
+  assert(table->ibuffer.size == 0);
+  resize_ivector(&table->ibuffer, n);
+  dom = table->ibuffer.data;
+  for (j=0; j<n; j++) {
+    dom[j] = term_type(table, v[j]);
+  }
+  tau = term_type(table, t); // range type
+  tau = function_type(table->types, tau, n, dom);
 
   ivector_reset(&table->ibuffer);
 
@@ -2073,6 +2181,24 @@ term_t forall_term(term_table_t *table, uint32_t n, term_t var[], term_t body) {
   forall_hobj.v = var;
 
   i = int_htbl_get_obj(&table->htbl, &forall_hobj.m);
+
+  return pos_term(i);
+}
+
+
+/*
+ * (lambda var[0] ... var[n-1] body)
+ */
+term_t lambda_term(term_table_t *table, uint32_t n, term_t var[], term_t body) {
+  int32_t i;
+
+  lambda_hobj.tbl = table;
+  lambda_hobj.tau = type_of_lambda(table, n, var, body);
+  lambda_hobj.t = body;
+  lambda_hobj.n = n;
+  lambda_hobj.v = var;
+
+  i = int_htbl_get_obj(&table->htbl, &lambda_hobj.m);
 
   return pos_term(i);
 }
@@ -2954,6 +3080,7 @@ static void mark_reachable_terms(term_table_t *table, int32_t ptr, int32_t i) {
   case EQ_TERM:
   case DISTINCT_TERM:
   case FORALL_TERM:
+  case LAMBDA_TERM:
   case OR_TERM:
   case XOR_TERM:
   case BV_ARRAY:

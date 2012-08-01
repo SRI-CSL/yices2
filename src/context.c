@@ -1753,6 +1753,7 @@ static void flatten_assertion(context_t *ctx, term_t f) {
       case BV_CONSTANT:
       case UPDATE_TERM:
       case TUPLE_TERM:
+      case LAMBDA_TERM:
       case BV_ARRAY:
       case BV_DIV:
       case BV_REM:

@@ -64,13 +64,16 @@
  *
  * 7) General cleanup to make things more consistent: use a generic
  *    structure to represent most composite terms.
+ *
+ * July 2012: Added lambda terms.
  */
 
 /*
  * The internal terms include:
  * 1) constants:
  *    - constants of uninterpreted/scalar
- *    - global uninterpreted constants 
+ *    - global uninterpreted constants
+ *    - constant functions
  * 2) generic terms
  *    - ite c t1 t2
  *    - eq t1 t2
@@ -83,6 +86,8 @@
  *    - variables are identified by their type and an integer index.
  *    - quantified formulas are of the form (forall v_1 ... v_n term)
  *      where each v_i is a variable
+ *    - lambda terms are of the form (lambda v_1 ... v_n term) where
+ *      each v_i is a variable
  * 4) boolean operators
  *    - or t1 ... t_n
  *    - xor t1 ... t_n
@@ -219,6 +224,7 @@ typedef enum {
   EQ_TERM,          // equality
   DISTINCT_TERM,    // distinct t_1 ... t_n
   FORALL_TERM,      // quantifier
+  LAMBDA_TERM,      // lambda
   OR_TERM,          // n-ary OR
   XOR_TERM,         // n-ary XOR
   ARITH_BINEQ_ATOM, // equality: (t1 == t2)  (between two arithmetic terms)
@@ -507,6 +513,7 @@ extern term_t select_term(term_table_t *table, uint32_t index, term_t tuple);
 extern term_t eq_term(term_table_t *table, term_t left, term_t right);
 extern term_t distinct_term(term_table_t *table, uint32_t n, term_t arg[]);
 extern term_t forall_term(term_table_t *table, uint32_t n, term_t var[], term_t body);
+extern term_t lambda_term(term_table_t *table, uint32_t n, term_t var[], term_t body);
 extern term_t or_term(term_table_t *table, uint32_t n, term_t arg[]);
 extern term_t xor_term(term_table_t *table, uint32_t n, term_t arg[]);
 extern term_t bit_term(term_table_t *table, uint32_t index, term_t bv);
@@ -1168,7 +1175,7 @@ extern bool is_constant_tuple(term_table_t *table, term_t t);
 
 /*
  * Generic version: return true if t is an atomic constant
- * or a constant tuple.
+ * or a constant tuple, of a constant function.
  */
 extern bool is_constant_term(term_table_t *table, term_t t);
 
@@ -1340,6 +1347,11 @@ static inline composite_term_t *distinct_term_desc(term_table_t *table, term_t t
 
 static inline composite_term_t *forall_term_desc(term_table_t *table, term_t t) {
   assert(term_kind(table, t) == FORALL_TERM);
+  return composite_for_idx(table, index_of(t));
+}
+
+static inline composite_term_t *lambda_term_desc(term_table_t *table, term_t t) {
+  assert(term_kind(table, t) == LAMBDA_TERM);
   return composite_for_idx(table, index_of(t));
 }
 

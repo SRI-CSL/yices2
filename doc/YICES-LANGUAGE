@@ -403,8 +403,8 @@ This is a summary of the commands and input language of the Yices 2 solver.
    (reset-stats): reset all statistics to zero
 
    (set-timeout <value>): give a timeout in seconds. This timeout value
-          will limit the search time on all subsequent calls to (check)
+          will limit the search time on the subsequent call to (check)
           If <value> is 0 then the timeout is cleared (i.e., no timeout).
-
+	  The timeout is reset (to 0) after every call to (check).
 
 

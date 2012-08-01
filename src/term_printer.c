@@ -502,6 +502,7 @@ static const char * const tag2string[] = {
   "eq",
   "distinct",
   "forall",
+  "lambda",
   "or",
   "xor",
   "arith-bineq",
@@ -815,6 +816,7 @@ static void print_term_idx_recur(FILE *f, term_table_t *tbl, int32_t i, int32_t 
   case EQ_TERM:
   case DISTINCT_TERM:
   case FORALL_TERM:
+  case LAMBDA_TERM:
   case OR_TERM:
   case XOR_TERM:
   case ARITH_BINEQ_ATOM:
@@ -1335,6 +1337,7 @@ void print_term_table(FILE *f, term_table_t *tbl) {
       case EQ_TERM:
       case DISTINCT_TERM:
       case FORALL_TERM:
+      case LAMBDA_TERM:
       case OR_TERM:
       case XOR_TERM:
       case ARITH_BINEQ_ATOM:
@@ -1442,6 +1445,7 @@ static void print_term_idx_desc(FILE *f, term_table_t *tbl, int32_t i) {
   case EQ_TERM:
   case DISTINCT_TERM:
   case FORALL_TERM:
+  case LAMBDA_TERM:
   case OR_TERM:
   case XOR_TERM:
   case ARITH_BINEQ_ATOM:
@@ -1563,6 +1567,7 @@ static const pp_open_type_t const term_kind2block[NUM_TERM_KINDS] = {
   PP_OPEN_EQ,        //  EQ_TERM
   PP_OPEN_DISTINCT,  //  DISTINCT_TERM
   PP_OPEN_FORALL,    //  FORALL_TERM
+  PP_OPEN_LAMBDA,    //  LAMBDA_TERM
   PP_OPEN_OR,        //  OR_TERM
   PP_OPEN_XOR,       //  XOR_TERM
   PP_OPEN_EQ,        //  ARITH_BINEQ_ATOM
@@ -1639,6 +1644,24 @@ static void pp_forall_term(yices_pp_t *printer, term_table_t *tbl, composite_ter
   pp_close_block(printer, true);
 }
 
+
+/*
+ * Lambda term
+ */
+static void pp_lambda_term(yices_pp_t *printer, term_table_t *tbl, composite_term_t *d, uint32_t level) {
+  uint32_t i, n;
+
+  n = d->arity;
+  assert(n >= 2);
+  pp_open_block(printer, PP_OPEN_LAMBDA);
+  pp_open_block(printer, PP_OPEN_PAR);
+  for (i=0; i<n-1; i++) {
+    pp_term_recur(printer, tbl, d->arg[i], level, true);
+  }
+  pp_close_block(printer, true);
+  pp_term_recur(printer, tbl, d->arg[n-1], level, true);
+  pp_close_block(printer, true);
+}
 
 
 /*
@@ -2015,6 +2038,12 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
 
   case FORALL_TERM:
     pp_forall_term(printer, tbl, tbl->desc[i].ptr, level - 1, polarity);
+    break;
+
+  case LAMBDA_TERM:
+    if (! polarity) pp_open_block(printer, PP_OPEN_NOT);
+    pp_lambda_term(printer, tbl, tbl->desc[i].ptr, level - 1);
+    if (!polarity) pp_close_block(printer, true);
     break;
 
   case OR_TERM:
