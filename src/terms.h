@@ -218,7 +218,7 @@ typedef enum {
 
   ITE_TERM,         // if-then-else
   ITE_SPECIAL,      // special if-then-else term (NEW: EXPERIMENTAL)
-  APP_TERM,         // application of an uninterpreted function 
+  APP_TERM,         // application of an uninterpreted function
   UPDATE_TERM,      // function update
   TUPLE_TERM,       // tuple constructor
   EQ_TERM,          // equality

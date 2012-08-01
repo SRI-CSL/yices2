@@ -260,6 +260,12 @@ extern term_t mk_forall(term_manager_t *manager, uint32_t n, term_t v[], term_t 
 extern term_t mk_exists(term_manager_t *manager, uint32_t n, term_t v[], term_t body);
 
 
+/*
+ * Lambda terms:
+ * - n = number of variables (must be positive and no more than YICES_MAX_VAR)
+ * - all variables v[0 ... n-1] must be distinct
+ */
+extern term_t mk_lambda(term_manager_t *manager, uint32_t n, term_t v[], term_t body);
 
 
 

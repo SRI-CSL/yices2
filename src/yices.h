@@ -37,7 +37,7 @@
 
 
 #ifdef __cplusplus
-extern "C" {
+// extern "C" {
 #endif
 
 
@@ -605,6 +605,28 @@ __YICES_DLLSPEC__ extern term_t yices_exists(uint32_t n, term_t var[], term_t bo
 
 
 
+/*
+ * Lambda terms
+ *
+ * Error report:
+ * if n == 0
+ *    code = POS_INT_REQUIRED
+ *    badval = n
+ * if n > YICES_MAX_VARS
+ *    code = TOO_MANY_VARS
+ *    badval = n
+ * if body or one of var[i] is invalid
+ *    code = INVALID_TERM
+ *    term1 = body or var[i]
+ * if one of var[i] is not a variable
+ *    code = VARIABLE_REQUIRED
+ *    term1 = var[i]
+ * if one variable occurs twice in var
+ *    code = DUPLICATE_VARIABLE
+ *    term1 = var[i]
+ *
+ */
+__YICES_DLLSPEC__ extern term_t yices_lambda(uint32_t n, term_t var[], term_t body);
 
 
 
@@ -2090,6 +2112,8 @@ __YICES_DLLSPEC__ extern void yices_print_model(FILE *f, model_t *mdl);
  *   code = EVAL_FREEVAR_IN_TERM
  * If t contains quantifier(s)
  *   code = EVAL_QUANTIFIER
+ * If t contains lamnda terms
+ *   code = EVAL_LAMBDA
  * If the evaluation fails for other reasons:
  *   code = EVAL_FAILED
  *

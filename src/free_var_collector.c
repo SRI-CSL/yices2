@@ -363,9 +363,9 @@ static harray_t *free_vars_of_bvpoly(fvar_collector_t *collect, bvpoly_t *p) {
 
 
 /*
- * Free variables in (FORALL x1, ..., xn: P)
+ * Free variables in (FORALL x1, ..., xn: P) and (LAMBDA x1 ... x_n : t)
  */
-static harray_t *free_vars_of_forall(fvar_collector_t *collect, composite_term_t *p) {
+static harray_t *free_vars_of_binding(fvar_collector_t *collect, composite_term_t *p) {
   harray_t *a;
   uint32_t n;
 
@@ -445,9 +445,10 @@ harray_t *get_free_vars_of_term(fvar_collector_t *collect, term_t t) {
     break;
 
   case FORALL_TERM:
+  case LAMBDA_TERM:
     result = lookup_free_vars(collect, i);
     if (result == NULL) {
-      result = free_vars_of_forall(collect, composite_for_idx(terms, i));
+      result = free_vars_of_binding(collect, composite_for_idx(terms, i));
       cache_free_vars(collect, i, result);
     }
     break;

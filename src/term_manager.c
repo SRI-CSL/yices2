@@ -15,7 +15,6 @@
 #include "bit_term_conversion.h"
 #include "term_utils.h"
 
-
 #include "term_manager.h"
 
 
@@ -2509,6 +2508,9 @@ static bool equal_term_arrays(uint32_t n, term_t *a, term_t *b) {
  *   ((update f (a_1 ... a_n) v) a_1 ... a_n)   -->  v
  *   ((update f (a_1 ... a_n) v) x_1 ... x_n)   -->  (f x_1 ... x_n)
  *         if x_i must disequal a_i
+ *
+ * Also: apply beta-reduction eagerly:
+ *  ((lambda (x_1 ... x_n) t) a_1 ... a_n) --> t[x_1/a_1 ... x_n/a_n]
  */
 term_t mk_application(term_manager_t *manager, term_t fun, uint32_t n, term_t arg[]) {
   term_table_t *tbl;
@@ -2535,11 +2537,10 @@ term_t mk_application(term_manager_t *manager, term_t fun, uint32_t n, term_t ar
      * update->arg[1] to update->arg[n] = a_1 to a_n
      * update->arg[n+1] is v
      */
-
     if (equal_term_arrays(n, update->arg + 1, arg)) {
       return update->arg[n+1];
-    }
-    
+    }    
+
     if (disequal_term_arrays(tbl, n, update->arg + 1, arg)) {
       // ((update f (a_1 ... a_n) v) x_1 ... x_n) ---> (f x_1 ... x_n)
       // repeat simplification if f is an update term again
@@ -2859,7 +2860,12 @@ term_t mk_exists(term_manager_t *manager, uint32_t n, term_t var[], term_t body)
 }
 
 
-
+/*
+ * Lambda term: no simplification
+ */
+term_t mk_lambda(term_manager_t *manager, uint32_t n, term_t var[], term_t body) {
+  return lambda_term(&manager->terms, n, var, body);
+}
 
 
 /*************************

@@ -559,6 +559,7 @@ static bool bfs_occurs_check(intern_tbl_t *tbl, term_t t, term_t v) {
     case EQ_TERM:
     case DISTINCT_TERM:
     case FORALL_TERM:
+    case LAMBDA_TERM:
     case OR_TERM:
     case XOR_TERM:
     case ARITH_BINEQ_ATOM:

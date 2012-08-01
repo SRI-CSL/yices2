@@ -24,7 +24,8 @@ enum {
   MDL_EVAL_UNKNOWN_TERM = -3,
   MDL_EVAL_FREEVAR_IN_TERM = -4,
   MDL_EVAL_QUANTIFIER = -5,
-  MDL_EVAL_FAILED = -6, // function equality involved
+  MDL_EVAL_LAMBDA = -6,
+  MDL_EVAL_FAILED = -7, // function equality involved
 };
 
 

@@ -754,6 +754,41 @@ static term_t test_forall2(term_t a, term_t b, term_t c, char *name) {
   return x;
 }
 
+static term_t test_lambda2(type_t tau, term_t a, term_t b, term_t c, char *name) {
+  term_t aux[2];
+  term_t x, y;
+
+  aux[0] = a;
+  aux[1] = b;
+
+  printf("Testing: (lambda (");
+  print_term_name(stdout, &terms, a);
+  printf(" ");
+  print_term_name(stdout, &terms, b);
+  printf(") ");
+  print_term_name(stdout, &terms, c);
+  printf("): ");
+
+  x = lambda_term(&terms, 2, aux, c);
+  if (! check_composite3(x, LAMBDA_TERM, tau, a, b, c)) {
+    constructor_failed();
+  }
+
+  y = lambda_term(&terms, 2, aux, c);
+  if (x != y) {
+    hash_consing_failed();
+  }
+
+  if (name != NULL) {
+    set_term_name(&terms, x, clone_string(name));
+  }
+
+  print_term(stdout, &terms, x);
+  printf("\n");
+
+  return x;
+}
+
 static term_t test_or2(term_t a, term_t b, char *name) {
   term_t aux[2];
   term_t x, y;
@@ -1784,6 +1819,10 @@ static void test_composites(void) {
   x = test_variable(type[7], NULL);
   y = test_variable(type[7], NULL);
   (void) test_forall2(x, y, unint[1], "xxx");
+
+  x = test_variable(type[1], NULL);
+  y = test_variable(type[1], NULL);
+  (void) test_lambda2(type[15], x, y, unint[3], "lll");
 
   x = test_or2(unint[0], unint[1], NULL);
   y = test_xor3(x, unint[1], false_term, NULL);

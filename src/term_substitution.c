@@ -529,6 +529,42 @@ static term_t subst_forall(term_subst_t *subst, composite_term_t *d) {
 }
 
 
+/*
+ * Apply substitution to 'LAMBDA x1 ... x_n : b'
+ * - d has arity n+1 >= 2
+ * - d->arg[0] ... d->arg[n-1] = variables
+ * - d->arg[n] = body
+ */
+static term_t subst_lambda(term_subst_t *subst, composite_term_t *d) {
+  term_t result;
+  int32_t *a;
+  uint32_t n;
+
+  assert(d->arity >= 2);
+
+  n = d->arity - 1;
+  
+  // add renaming for variables x1 ... x_n to x'1 ... x'n
+  subst_push_renaming(subst, n, d->arg); 
+  assert(subst->rctx != NULL);
+
+  // store the new variables x'1 ... x'k in array a
+  a = alloc_istack_array(&subst->stack, n); 
+  renaming_ctx_collect_new_vars(subst->rctx, n, a);
+
+  // build (LAMBDA x'1 ... x'k: subst(body))
+  result = get_subst(subst, d->arg[n]);
+  result = mk_lambda(subst->mngr, n, a, result); 
+
+  // cleanup
+  free_istack_array(&subst->stack, a);
+  subst_pop_renaming(subst, n); 
+
+  return result;
+}
+
+
+
 
 /*
  * Auxiliary function: apply subst recursively to all children of d
@@ -1041,6 +1077,10 @@ static term_t subst_composite(term_subst_t *subst, term_t t) {
 
   case FORALL_TERM:
     result = subst_forall(subst, forall_term_desc(terms, t)); 
+    break;
+
+  case LAMBDA_TERM:
+    result = subst_lambda(subst, lambda_term_desc(terms, t)); 
     break;
 
   case OR_TERM:

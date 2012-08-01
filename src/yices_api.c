@@ -1552,6 +1552,52 @@ static bool check_good_quantified_term(term_manager_t *mngr, uint32_t n, term_t 
   return true;
 }
 
+// Check for duplicates in array v: don't modify v
+static bool check_no_duplicates(uint32_t n, term_t *v) {
+  term_t buffer[10];
+  term_t *a;
+  uint32_t i;
+  bool result;
+
+  result = true;
+  if (n > 1) {
+    a = buffer;
+    if (n > 10) {
+      a = (term_t *) safe_malloc(n * sizeof(term_t));
+    }
+
+    for (i=0; i<n; i++) {
+      a[i] = v[i];
+    }
+    int_array_sort(a, n);
+    for (i=1; i<n; i++) {
+      if (a[i-1] == a[i]) {
+	error.code = DUPLICATE_VARIABLE;
+	error.term1 = a[i];
+	result = false;
+	break;
+      }
+    }
+
+    if (n > 10) {
+      safe_free(a);
+    }
+  }
+
+  return result;
+}
+
+// Check lambda term: (LAMBDA (v_1 ... v_n) body)
+static bool check_good_lambda_term(term_manager_t *mngr, uint32_t n, term_t *v, term_t body) {
+  return 
+    check_positive(n) &&
+    check_maxvars(n) &&
+    check_good_term(mngr, body) &&
+    check_good_terms(mngr, n, v) &&
+    check_good_variables(mngr, n, v) &&
+    check_no_duplicates(n, v);
+}
+
 // Check whether (tuple-select i t v) is well-typed
 static bool check_good_tuple_update(term_manager_t *mngr, uint32_t i, term_t t, term_t v) {
   term_table_t *tbl;
@@ -2075,6 +2121,14 @@ EXPORTED term_t yices_exists(uint32_t n, term_t var[], term_t body) {
   }
 
   return mk_exists(&manager, n, var, body);
+}
+
+EXPORTED term_t yices_lambda(uint32_t n, term_t var[], term_t body) {
+  if (! check_good_lambda_term(&manager, n, var, body)) {
+    return NULL_TERM;
+  }
+
+  return mk_lambda(&manager, n, var, body);
 }
 
 
@@ -5535,7 +5589,8 @@ static const error_code_t eval_error2code[NUM_EVAL_ERROR_CODES] = {
   EVAL_UNKNOWN_TERM,     // v = MDL_EVAL_UNKNOWN_TERM (-3)
   EVAL_FREEVAR_IN_TERM,  // v = MDL_EVAL_FREEVAR_IN_TERM (4)
   EVAL_QUANTIFIER,       // v = MDL_EVAL_QUANTIFIER (-5)
-  EVAL_FAILED,           // v = MDL_EVAL_FAILED (-6)
+  EVAL_LAMBDA,           // v = MDL_EVAL_LAMBDA (-6)
+  EVAL_FAILED,           // v = MDL_EVAL_FAILED (-7)
 };
 
 static inline error_code_t yices_eval_error(value_t v) {

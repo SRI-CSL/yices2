@@ -1088,6 +1088,11 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
 	longjmp(eval->env, MDL_EVAL_QUANTIFIER);
 	break;
 
+      case LAMBDA_TERM:
+	// don't evaluate
+	longjmp(eval->env, MDL_EVAL_LAMBDA);
+	break;
+
       case OR_TERM:
 	v = eval_or(eval, or_term_desc(terms, t));
 	break;
