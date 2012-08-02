@@ -381,6 +381,11 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       state = r0;
       goto loop;
 
+    case showtimeout_next_goto_r0:
+      tstack_push_op(tstack, SHOW_TIMEOUT_CMD, &loc);
+      state = r0;
+      goto loop;
+
     case settimeout_next_goto_c14:
       tstack_push_op(tstack, SET_TIMEOUT_CMD, &loc);
       state = c14;
@@ -1020,6 +1025,11 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       
     case exists_next_goto_e10:
       tstack_push_op(tstack, MK_EXISTS, &loc);
+      state = e10;
+      goto loop;
+
+    case lambda_next_goto_e10:
+      tstack_push_op(tstack, MK_LAMBDA, &loc);
       state = e10;
       goto loop;
 

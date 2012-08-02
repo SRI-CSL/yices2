@@ -477,6 +477,91 @@ static term_t build_bvarith_poly(term_manager_t *mngr, bvpoly_t *p, uint32_t n, 
 }
 
 
+
+/*
+ * BETA-REDUCTION/RECURSIVE SUBSTUTION
+ */
+
+#define TRACE 1
+
+#if TRACE
+
+#include "term_printer.h"
+
+static void trace_beta_reduction(term_table_t *tbl, term_t t, term_t u) {
+  pp_area_t area;
+
+  area.width = 80;
+  area.height = 20;
+  area.offset = 8;
+  area.stretch = false;
+  area.truncate = true;
+
+  printf("--- Beta reduction ---\n");
+  printf("input:  ");
+  pretty_print_term_exp(stdout, &area, tbl, t);
+  printf("output: ");
+  pretty_print_term_full(stdout, &area, tbl, u);
+  printf("--\n");
+}
+
+#endif
+
+/*
+ * Apply a (lambda (x_0 ... x_n-1) t) to arguments arg[0 ... n-1]
+ * - lambda is the term_descriptor of (lambda (x_0 ... x_n) t)
+ * - arg = array of n terms
+ */
+static term_t apply_beta_rule(term_manager_t *mngr, composite_term_t *lambda, term_t *arg) {
+  term_subst_t subst;
+  uint32_t n;
+  term_t u;
+
+  assert(lambda->arity >= 2);
+  n = lambda->arity - 1; // number of variables
+  init_term_subst(&subst, mngr, n, lambda->arg, arg);
+  u = apply_term_subst(&subst, lambda->arg[n]);
+  delete_term_subst(&subst);
+
+  return u;
+}
+
+
+/*
+ * Apply beta-reduction to t
+ * - if t is not of the from (apply (lambda (x_1 ... x_n) u) t_1 ... t_n) then 
+ *   it's returned unchanged
+ * - otherwise, apply the substitution [x_1 := t_1, ... x_n := t_n] to u and return
+ *   the result
+ *
+ * Possible error codes are the same as in apply_term_subst:
+ * - return -1 (NULL_TERM) if the substitution causes a degree overflow
+ * - return -2 if an exception is raised (bug somewhere)
+ */
+term_t beta_reduce(term_manager_t *mngr, term_t t) {
+  term_table_t *tbl;
+  composite_term_t *app;
+  term_t f, u;
+
+  u = t;
+  tbl = term_manager_get_terms(mngr);
+  if (term_kind(tbl, t) == APP_TERM) {
+    app = app_term_desc(tbl, t);
+    f = app->arg[0];
+    if (term_kind(tbl, f) == LAMBDA_TERM) {
+      u = apply_beta_rule(mngr, lambda_term_desc(tbl, f), app->arg + 1);
+
+#if TRACE
+      trace_beta_reduction(tbl, t, u);
+#endif
+    }
+  }
+
+  return u;
+}
+
+
+
 /*
  * APPLY SUBSTITUTION
  */
@@ -644,7 +729,8 @@ static term_t subst_app(term_subst_t *subst, composite_term_t *d) {
   result = mk_application(subst->mngr, a[0], d->arity-1, a+1);
   free_istack_array(&subst->stack, a);
 
-  return result;
+  // a[0] may be a lambda term so we check for beta-reduction here
+  return beta_reduce(subst->mngr, result);
 }
 
 // function update
@@ -661,7 +747,7 @@ static term_t subst_update(term_subst_t *subst, composite_term_t *d) {
   result = mk_update(subst->mngr, a[0], n-2, a+1, a[n-1]);
   free_istack_array(&subst->stack, a);
 
-  return result;  
+  return result;
 }
 
 // tuple
@@ -1265,3 +1351,6 @@ term_t apply_term_subst(term_subst_t *subst, term_t t) {
 
   return result;
 }
+
+
+

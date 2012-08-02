@@ -33,6 +33,7 @@ Grammar
 	| ( show-stats )
         | ( reset-stats )
 	| ( set-timeout <number> )
+	| ( show-timeout )
         | ( dump-context )
 	| EOS
 
@@ -68,6 +69,7 @@ expression ::=
        | ( update <expression> ( <expression-list> ) <expression> )
        | ( forall ( <var-decl-list> ) <expression> )
        | ( exists ( <var-decl-list> ) <expression> )
+       | ( lambda ( <var-decl-list> ) <expression> )
        | ( let ( <binding-list> ) <expression> )
        | ( <function> <expression-list> )
 
@@ -144,6 +146,7 @@ c1	 define-type		c2
          show-params            c4
          show-stats             c4
          reset-stats            c4
+	 show-timeout           c4
          set-param              c11
 	 show-param             c13
 	 set-timeout		c14
@@ -222,6 +225,7 @@ e1      <function-keyword>     e2
         update                 e4
         forall                 e10
         exists                 e10
+        lambda                 e10
         let                    e15
         [parse-expression]     e2
 e2      [parse-expression]     e3
@@ -358,6 +362,7 @@ c1       exit           next; goto r0
 	 show-param     next; goto c13
          show-stats     next; goto r0
          reset-stats    next; goto r0
+         show-timeout   next; goto r0
 	 set-timeout    next; goto c14
 c2       <symbol>       next; goto c10
 c3       <string>       next; goto r0
@@ -414,6 +419,7 @@ e1       <function-kw>  next; push e3; goto e0
          update         next; push e5; goto e0
          forall         next; goto e10
          exists         next; goto e10
+         lambda         next; goto e10
          let            next; goto e15
          _              push e3; push e0; goto e0
 e3       )              return

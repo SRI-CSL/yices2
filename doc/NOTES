@@ -437,10 +437,6 @@ subst_cache.c
 free_var_collector.h		To compute the free variables of a term
 free_var_collector.c
 
-term_substitution.h		Stores a substitution + cache + renaming
-term_substitution.c             context + free variable collector
-
-
 
 5.4) Pretty printer for Yices terms and types
      ----------------------------------------
@@ -484,6 +480,12 @@ Modules used in term construction:
 
 term_manager.h:          Main term-construction module. This is where most term
 term_manager.c           simplification/normalization functions are implemented.
+
+term_substitution.h	 Stores a substitution + cache + renaming
+term_substitution.c      context + free variable collector
+
+beta_reduction.h	 Implements beta reduction
+beta_reduction.c
 
 yices_api.c:             Implements all API functions and more
 
@@ -755,7 +757,7 @@ bvpoly_dag.c            by bvpoly_compiler)
 
 bvsolver_types.h:       Data types used by the bitvector solver
 
-bvsolver.h:             Bit-vectro solver
+bvsolver.h:             Bit-vector solver
 bvsolver.c
 
 

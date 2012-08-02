@@ -41,6 +41,7 @@ enum actions {
   showparams_next_goto_r0,
   showstats_next_goto_r0,
   resetstats_next_goto_r0,
+  showtimeout_next_goto_r0,
   settimeout_next_goto_c14,
   typename_next_goto_c10, // token must be a free typename (TK_SYMBOL)
   string_next_goto_r0,
@@ -150,6 +151,7 @@ enum actions {
   update_next_push_e5_goto_e0,
   forall_next_goto_e10,
   exists_next_goto_e10,
+  lambda_next_goto_e10,
   let_next_goto_e15,
   push_e3_push_e0_goto_e0,
 
@@ -199,6 +201,7 @@ static triple_t triples[] = {
   { c1, TK_SHOW_PARAM, "showparam_next_goto_c13" },
   { c1, TK_SHOW_PARAMS, "showparams_next_goto_r0" },
   { c1, TK_SHOW_STATS, "showstats_next_goto_r0" },
+  { c1, TK_SHOW_TIMEOUT, "showtimeout_next_goto_r0" },
   { c1, TK_RESET_STATS, "resetstats_next_goto_r0" },
   { c1, TK_SET_TIMEOUT, "settimeout_next_goto_c14" },
 
@@ -346,6 +349,7 @@ static triple_t triples[] = {
   { e1, TK_UPDATE, "update_next_push_e5_goto_e0" },
   { e1, TK_FORALL, "forall_next_goto_e10" },
   { e1, TK_EXISTS, "exists_next_goto_e10" },
+  { e1, TK_LAMBDA, "lambda_next_goto_e10" },
   { e1, TK_LET, "let_next_goto_e15" },
   { e1, DEFAULT_TOKEN, "push_e3_push_e0_goto_e0" },
 

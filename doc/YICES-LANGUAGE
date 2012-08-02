@@ -54,7 +54,8 @@ This is a summary of the commands and input language of the Yices 2 solver.
 
 	true	false	if	ite	=	/=	distinct
 	or	and 	not	xor	<=>	=>	mk-tuple
-	select	tuple-update	update 	forall	exists	let
+	select	tuple-update	update 	forall	exists	lambda
+	let
 
 	+	-	*	/	^ 
 	<	<=	>	>=
@@ -130,6 +131,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
             | <hexa bv>
             | ( forall ( <var_decl> ... <var_decl> ) <expression> )
             | ( exists ( <var_decl> ... <var_decl> ) <expression> )
+	    | ( lambda ( <var_decl> ... <var_decl> ) <expression> )
             | ( let ( <binding> ... <binding> ) <expression> )
             | ( update <expression> ( <expression> ... <expression> ) <expression> )
             | ( <function> <expression> ... <expression> )
@@ -407,4 +409,5 @@ This is a summary of the commands and input language of the Yices 2 solver.
           If <value> is 0 then the timeout is cleared (i.e., no timeout).
 	  The timeout is reset (to 0) after every call to (check).
 
-
+   (show-timeout): print the current timeout. The value displayed
+          will be used as timeout in the next call to (check).

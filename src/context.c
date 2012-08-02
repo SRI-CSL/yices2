@@ -1172,6 +1172,7 @@ static bool visit(context_t *ctx, term_t t) {
     case EQ_TERM:
     case DISTINCT_TERM:
     case FORALL_TERM:
+    case LAMBDA_TERM:
     case OR_TERM:
     case XOR_TERM:
     case ARITH_BINEQ_ATOM:
@@ -4173,6 +4174,11 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
       case UPDATE_TERM:
 	u = map_update_to_eterm(ctx, update_term_desc(terms, r), tau);
 	break;
+
+      case LAMBDA_TERM:
+	// not ready for lambda terms yet:
+	exception = LAMBDAS_NOT_SUPPORTED;
+	goto abort;
 
       case BV_ARRAY:
 	x = map_bvarray_to_bv(ctx, bvarray_term_desc(terms, r));

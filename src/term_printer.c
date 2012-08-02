@@ -1621,6 +1621,30 @@ static void pp_composite_term(yices_pp_t *printer, term_table_t *tbl, term_kind_
 }  
 
 
+/*
+ * Variable in forall/exists/lambda
+ */
+static void pp_var_decl(yices_pp_t *printer, term_table_t *tbl, term_t v) {
+  char *name;
+  type_t tau;
+  int32_t i;
+
+  tau = term_type(tbl, v);
+  i = variable_term_index(tbl, v);
+  name = term_name(tbl, v);
+
+  pp_open_block(printer, PP_OPEN);
+  if (name != NULL) {
+    pp_string(printer, name);
+  } else {
+    pp_id(printer, "v!", i);
+  }
+  pp_string(printer, "::");
+  pp_type(printer, tbl->types, tau);
+  pp_close_block(printer, false);
+}
+
+
 /* 
  * forall:
  * - if polarity is true then we print (forall .... p)
@@ -1637,7 +1661,8 @@ static void pp_forall_term(yices_pp_t *printer, term_table_t *tbl, composite_ter
   pp_open_block(printer, op);
   pp_open_block(printer, PP_OPEN_PAR);
   for (i=0; i<n-1; i++) {
-    pp_term_recur(printer, tbl, d->arg[i], level, true);
+    //    pp_term_recur(printer, tbl, d->arg[i], level, true);
+    pp_var_decl(printer, tbl, d->arg[i]);
   }
   pp_close_block(printer, true);
   pp_term_recur(printer, tbl, d->arg[n-1], level, polarity);
@@ -1656,7 +1681,8 @@ static void pp_lambda_term(yices_pp_t *printer, term_table_t *tbl, composite_ter
   pp_open_block(printer, PP_OPEN_LAMBDA);
   pp_open_block(printer, PP_OPEN_PAR);
   for (i=0; i<n-1; i++) {
-    pp_term_recur(printer, tbl, d->arg[i], level, true);
+    //    pp_term_recur(printer, tbl, d->arg[i], level, true);
+    pp_var_decl(printer, tbl, d->arg[i]);
   }
   pp_close_block(printer, true);
   pp_term_recur(printer, tbl, d->arg[n-1], level, true);

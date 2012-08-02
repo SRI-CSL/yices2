@@ -32,6 +32,7 @@ tuple-update,           TK_UPDATE_TUPLE
 update,			TK_UPDATE
 forall,			TK_FORALL
 exists,			TK_EXISTS
+lambda,			TK_LAMBDA
 +,			TK_ADD
 -,			TK_SUB
 *,			TK_MUL
@@ -105,3 +106,4 @@ show-params,		TK_SHOW_PARAMS
 show-stats,             TK_SHOW_STATS
 reset-stats,            TK_RESET_STATS
 set-timeout,		TK_SET_TIMEOUT
+show-timeout,		TK_SHOW_TIMEOUT

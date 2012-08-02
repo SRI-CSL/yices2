@@ -78,7 +78,7 @@ typedef enum opcode_enum {
   MK_APPLY, MK_ITE, MK_EQ, MK_DISEQ, MK_DISTINCT,
   MK_NOT, MK_OR, MK_AND, MK_XOR, MK_IFF, 
   MK_IMPLIES, MK_TUPLE, MK_SELECT, MK_TUPLE_UPDATE, MK_UPDATE,
-  MK_FORALL, MK_EXISTS,
+  MK_FORALL, MK_EXISTS, MK_LAMBDA,
 
   // arithmetic
   MK_ADD, MK_SUB, MK_NEG, MK_MUL, MK_DIV, MK_POW, MK_GE, MK_GT, MK_LE, MK_LT,
@@ -109,7 +109,8 @@ typedef enum opcode_enum {
   EXIT_CMD, CHECK_CMD, ECHO_CMD, INCLUDE_CMD, ASSERT_CMD,
   PUSH_CMD, POP_CMD, RESET_CMD, SHOWMODEL_CMD, EVAL_CMD, 
   SET_PARAM_CMD, SHOW_PARAM_CMD, SHOW_PARAMS_CMD, 
-  SHOW_STATS_CMD, RESET_STATS_CMD, SET_TIMEOUT_CMD,
+  SHOW_STATS_CMD, RESET_STATS_CMD, SET_TIMEOUT_CMD, 
+  SHOW_TIMEOUT_CMD,
 
   // DUMP_CMD is used below. Keep it last
   DUMP_CMD,
@@ -214,6 +215,7 @@ typedef struct param_val_s {
  * - void showstats_cmd(void)
  * - void resetstats_cmd(void)
  * - void settimeout_cmd(int32_t val)
+ * - void showtimeout_cmd(void)
  *
  * Two other commands are called within define-type or define-term: 
  * - void type_defined_cmd(char *name, type_t tau):
@@ -244,6 +246,7 @@ typedef void (*showparams_cmd_t)(void);
 typedef void (*showstats_cmd_t)(void);
 typedef void (*resetstats_cmd_t)(void);
 typedef void (*settimeout_cmd_t)(int32_t timeout);
+typedef void (*showtimeout_cmd_t)(void);
 typedef void (*type_defined_cmd_t)(char *name, type_t tau);
 typedef void (*term_defined_cmd_t)(char *name, term_t t);
 
@@ -265,6 +268,7 @@ typedef struct external_cmd_s {
   showstats_cmd_t showstats_cmd;
   resetstats_cmd_t resetstats_cmd;
   settimeout_cmd_t settimeout_cmd;
+  showtimeout_cmd_t showtimeout_cmd;
   type_defined_cmd_t type_defined_cmd;
   term_defined_cmd_t term_defined_cmd;
 } external_cmd_t;
@@ -615,6 +619,10 @@ static inline void tstack_set_resetstats_cmd(tstack_t *stack, resetstats_cmd_t c
 
 static inline void tstack_set_settimeout_cmd(tstack_t *stack, settimeout_cmd_t cmd) {
   stack->externals.settimeout_cmd = cmd;
+}
+
+static inline void tstack_set_showtimeout_cmd(tstack_t *stack, showtimeout_cmd_t cmd) {
+  stack->externals.showtimeout_cmd = cmd;
 }
 
 static inline void tstack_set_type_defined_cmd(tstack_t *stack, type_defined_cmd_t cmd) {

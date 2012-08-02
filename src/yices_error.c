@@ -264,6 +264,10 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "context does not support quantifiers\n");
     break;
 
+  case CTX_LAMBDAS_NOT_SUPPORTED:
+    code = fprintf(f, "context does not support lambda terms\n");
+    break;
+
   case CTX_NONLINEAR_ARITH_NOT_SUPPORTED:
     code = fprintf(f, "context does not support non-linear arithmetic\n");
     break;
@@ -338,6 +342,10 @@ int32_t print_error(FILE *f) {
 
   case EVAL_QUANTIFIER:
     code = fprintf(f, "eval error: term contains quantifiers\n");
+    break;
+
+  case EVAL_LAMBDA:
+    code = fprintf(f, "eval error: term contains lambdas\n");
     break;
 
   case EVAL_OVERFLOW:

@@ -30,6 +30,7 @@ typedef enum pp_atom_type {
   PP_CHAR_ATOM,    // content = a single char
   PP_STRING_ATOM,  // content = string terminated by '\0'
   PP_ID_ATOM,      // identifier = concatenation of a string and an index
+  PP_VARID_ATOM,   // variant id = concatenation of a string, '!', and an index
   PP_TRUE_ATOM,    // true
   PP_FALSE_ATOM,   // false
   PP_INT32_ATOM,   // signed integer
@@ -272,6 +273,7 @@ static inline void yices_pp_clear_error(yices_pp_t *printer) {
 /*
  * - pp_id(printer, prefix, id): prints <prefix><id>
  *   (example, pp_id(printer, "tau_", 23) prints "tau_23")
+ * - pp_varid(printer, prefix, id): prints <prefix>!<id>
  * - for pp_bv64 and pp_bv, n is the number of bits (n must be positive)
  *
  * Function pp_string does not make a copy of the string s so s must
@@ -282,6 +284,7 @@ static inline void yices_pp_clear_error(yices_pp_t *printer) {
 extern void pp_char(yices_pp_t *printer, char c);
 extern void pp_string(yices_pp_t *printer, char *s);
 extern void pp_id(yices_pp_t *printer, char *prefix, int32_t id);
+extern void pp_varid(yices_pp_t *printer, char *prefix, int32_t id);
 extern void pp_bool(yices_pp_t *printer, bool tt);
 extern void pp_int32(yices_pp_t *printer, int32_t x);
 extern void pp_uint32(yices_pp_t *printer, uint32_t x);

@@ -252,6 +252,12 @@ static void tstack_default_settimeout_cmd(int32_t v) {
 #endif
 }
 
+static void tstack_default_showtimeout_cmd(void) {
+#ifndef NDEBUG
+  fprintf(stdout, "(show-timeout) called\n");
+#endif
+}
+
 static void tstack_default_type_defined_cmd(char *name, type_t tau) {
 #if 0
   fprintf(stdout, "type definition: %s = ", name);
@@ -330,6 +336,7 @@ void init_tstack(tstack_t *stack) {
   stack->externals.showstats_cmd = tstack_default_showstats_cmd;
   stack->externals.resetstats_cmd = tstack_default_resetstats_cmd;
   stack->externals.settimeout_cmd = tstack_default_settimeout_cmd;
+  stack->externals.showtimeout_cmd = tstack_default_showtimeout_cmd;
   stack->externals.type_defined_cmd = tstack_default_type_defined_cmd;
   stack->externals.term_defined_cmd = tstack_default_term_defined_cmd;
 }
@@ -463,6 +470,7 @@ static const unsigned char assoc[NUM_OPCODES] = {
   0, // MK_UPDATE
   0, // MK_FORALL
   0, // MK_EXISTS
+  0, // MK_LAMBDA
   1, // MK_ADD
   0, // MK_SUB
   0, // MK_NEG
@@ -537,6 +545,8 @@ static const unsigned char assoc[NUM_OPCODES] = {
   0, // SHOW_PARAMS_CMD
   0, // SHOW_STATS_CMD
   0, // RESET_STATS_CMD
+  0, // SET_TIMEOUT_CMD
+  0, // SHOW_TIMEOUT_CMD
   0, // DUMP_CMD
 };
 
@@ -549,7 +559,7 @@ static const unsigned char assoc[NUM_OPCODES] = {
  * multiplicity index.
  *
  * If op is BIND, then top-op must be LET.
- * If op is DECLARE_VAR, then top-op must be MK_EXISTS or MK_FORALL.
+ * If op is DECLARE_VAR, then top-op must be MK_EXISTS or MK_FORALL or MK_LAMBDA
  *
  * For all operators except BIND and DECLARE_VAR, we also open a new
  * scope in the arena. For BIND the arena scope remains the one open
@@ -563,7 +573,8 @@ void tstack_push_op(tstack_t *stack, opcode_t op, loc_t *loc) {
 #ifndef NDEBUG
   if (op >= NUM_OPCODES ||
       (op == BIND && stack->top_op != LET) ||
-      (op == DECLARE_VAR && stack->top_op != MK_FORALL && stack->top_op != MK_EXISTS)) {
+      (op == DECLARE_VAR && stack->top_op != MK_FORALL && 
+       stack->top_op != MK_EXISTS && stack->top_op != MK_LAMBDA)) {
     bad_op_exception(stack, loc, op);
   }
 #endif
@@ -3546,7 +3557,7 @@ static void eval_mk_forall(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
- * [mk-exists <string1> <var1> ... <stringn> <varn> <term>]
+ * [mk-exists <binding> ... <binding> <term>]
  */
 static void check_mk_exists(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, MK_EXISTS);
@@ -3565,6 +3576,33 @@ static void eval_mk_exists(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   // body = last argument 
   arg[i] = get_term(stack, f + (n-1));
   t = yices_exists(n-1, arg, arg[n-1]);
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
+}
+
+
+/*
+ * [mk-lambda <binding> ... <binding> <term>]
+ */
+static void check_mk_lambda(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_LAMBDA);
+  check_size(stack, n >= 2);
+  check_all_tags(stack, f, f + (n-1), TAG_BINDING);
+  check_distinct_binding_names(stack, f, n-1);
+}
+
+static void eval_mk_lambda(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t t, arg[n];
+  uint32_t i;
+
+  for (i=0; i<n-1; i++) {
+    arg[i] = f[i].val.binding.term;
+  }
+  // body = last argument 
+  arg[i] = get_term(stack, f + (n-1));
+  t = yices_lambda(n-1, arg, arg[n-1]);
   check_term(stack, t);
 
   tstack_pop_frame(stack);
@@ -5491,6 +5529,22 @@ static void eval_resetstats_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 
+
+/*
+ * [show-timeout]
+ */
+static void check_showtimeout_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SHOW_TIMEOUT_CMD);
+  check_size(stack, n == 0);
+}
+
+static void eval_showtimeout_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  stack->externals.showtimeout_cmd();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
 /*
  * [set-timeout <rational>]
  */
@@ -5560,6 +5614,7 @@ static evaluator_t eval[NUM_OPCODES] = {
   eval_mk_update,
   eval_mk_forall,
   eval_mk_exists,
+  eval_mk_lambda,
   eval_mk_add,
   eval_mk_sub,
   eval_mk_neg,
@@ -5635,6 +5690,7 @@ static evaluator_t eval[NUM_OPCODES] = {
   eval_showstats_cmd,
   eval_resetstats_cmd,
   eval_settimeout_cmd,
+  eval_showtimeout_cmd,
   eval_dump_cmd,
 };
 
@@ -5671,6 +5727,7 @@ static checker_t check[NUM_OPCODES] = {
   check_mk_update,
   check_mk_forall,
   check_mk_exists,
+  check_mk_lambda,
   check_mk_add,
   check_mk_sub,
   check_mk_neg,
@@ -5746,6 +5803,7 @@ static checker_t check[NUM_OPCODES] = {
   check_showstats_cmd,
   check_resetstats_cmd,
   check_settimeout_cmd,
+  check_showtimeout_cmd,
   check_dump_cmd,
 };
 
@@ -5770,6 +5828,7 @@ void tstack_set_smt_mode() {
   eval[MK_BV_SIGN_EXTEND] = smt_eval_mk_bv_sign_extend;
   eval[MK_BV_ZERO_EXTEND] = smt_eval_mk_bv_zero_extend;
 }
+
 
 /*
  * Eval the top-level operation

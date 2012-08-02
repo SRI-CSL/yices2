@@ -65,6 +65,7 @@ static keyword_t yices_keywords[] = {
   { "update", TK_UPDATE },
   { "forall", TK_FORALL },
   { "exists", TK_EXISTS },
+  { "lambda", TK_LAMBDA },
 
   // arithmetic keywords
   { "+", TK_ADD },

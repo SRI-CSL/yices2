@@ -97,6 +97,7 @@ static const char * const opcode2smt_string[NUM_OPCODES] = {
   "store",
   "forall",
   "exists",
+  "lambda",  // not in SMT
 
   "addition",
   "subtraction",
@@ -158,6 +159,7 @@ static const char * const opcode2smt_string[NUM_OPCODES] = {
   "build term",
   "build type",
 
+  // commands are not in SMT-LIB either
   "exit",
   "check",
   "echo",
@@ -169,7 +171,12 @@ static const char * const opcode2smt_string[NUM_OPCODES] = {
   "show-model",
   "eval",
   "set-param",
+  "show-param",
   "show-params",
+  "show-stats",
+  "reset-stats",
+  "set-timeout",
+  "show-timeout",
   "dump-context",
 };
 
@@ -209,6 +216,7 @@ static const char * const opcode2yices_string[NUM_OPCODES] = {
   "update",
   "forall",
   "exists",
+  "lambda",
 
   "addition",
   "subtraction",
@@ -281,7 +289,12 @@ static const char * const opcode2yices_string[NUM_OPCODES] = {
   "show-model",
   "eval",
   "set-param",
+  "show-param",
   "show-params",
+  "show-stats",
+  "reset-stats",
+  "set-timeout",
+  "show-timeout",
   "dump-context",
 };
 

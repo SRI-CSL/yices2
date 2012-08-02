@@ -43,6 +43,7 @@ typedef enum actions {
   showparams_next_goto_r0,
   showstats_next_goto_r0,
   resetstats_next_goto_r0,
+  showtimeout_next_goto_r0,
   settimeout_next_goto_c14,
   typename_next_goto_c10, // token must be a free typename (TK_SYMBOL)
   string_next_goto_r0,
@@ -152,6 +153,7 @@ typedef enum actions {
   update_next_push_e5_goto_e0,
   forall_next_goto_e10,
   exists_next_goto_e10,
+  lambda_next_goto_e10,
   let_next_goto_e15,
   push_e3_push_e0_goto_e0,
 
@@ -187,7 +189,7 @@ typedef enum actions {
 
 // Table sizes
 #define NSTATES 35
-#define BSIZE 177
+#define BSIZE 180
 
 // Default values for each state
 static const uint8_t default_value[NSTATES] = {
@@ -232,30 +234,30 @@ static const uint8_t default_value[NSTATES] = {
 static const uint8_t base[NSTATES] = {
      0,   0,   0,   0,   0,   1,   0,   4,   5,   2,
      7,   5,   2,   8,  13,   6,  21,  23,  23,  16,
-    30,  37,  51,  39,  41,  50,  52,  44,  54,  56,
-    58,  59,  51,  60,  62,
+    30,  37,  52,  39,  41,  51,  53,  47,  55,  57,
+    59,  60,  52,  61,  63,
 };
 
 // Check table
 static const uint8_t check[BSIZE] = {
      2,   2,   2,   2,   2,   2,   2,   2,   2,   2,
-     2,   2,   2,   2,   2,   2,   2,   2,   2,  35,
-    35,  35,  35,   1,   0,   6,   1,   4,   7,   8,
-    12,  13,   3,   5,   9,  10,  10,  11,  15,  10,
-    13,  13,  13,  13,  19,  16,  17,  10,  10,  14,
-    14,  14,  14,  16,  20,  17,  17,  17,  17,  18,
-    21,  18,  18,  23,  24,  21,  21,  21,  21,  21,
-    22,  22,  22,  22,  25,  26,  27,  21,  21,  28,
-    29,  30,  31,  32,  33,  34,  34,  35,  29,  35,
-    35,  35,  35,  22,  22,  22,  22,  22,  22,  22,
+     2,   2,   2,   2,   2,   2,   2,   2,   2,   2,
+    35,  35,  35,  35,  35,   1,   0,   6,   1,   4,
+     7,   8,  12,  13,   3,   5,   9,  10,  10,  11,
+    15,  10,  13,  13,  13,  13,  19,  16,  17,  10,
+    10,  14,  14,  14,  14,  16,  20,  17,  17,  17,
+    17,  18,  21,  18,  18,  23,  24,  21,  21,  21,
+    21,  21,  22,  22,  22,  22,  22,  25,  26,  21,
+    21,  27,  28,  29,  30,  31,  32,  33,  34,  34,
+    35,  29,  35,  35,  35,  35,  22,  22,  22,  22,
     22,  22,  22,  22,  22,  22,  22,  22,  22,  22,
     22,  22,  22,  22,  22,  22,  22,  22,  22,  22,
     22,  22,  22,  22,  22,  22,  22,  22,  22,  22,
     22,  22,  22,  22,  22,  22,  22,  22,  22,  22,
     22,  22,  22,  22,  22,  22,  22,  22,  22,  22,
     22,  22,  22,  22,  22,  22,  22,  22,  22,  22,
+    22,  22,  22,  35,  35,  35,  35,  35,  35,  35,
     35,  35,  35,  35,  35,  35,  35,  35,  35,  35,
-    35,  35,  35,  35,  35,  35,  35,
 };
 
 // Value table
@@ -279,6 +281,8 @@ static const uint8_t value[BSIZE] = {
   showstats_next_goto_r0,
   resetstats_next_goto_r0,
   settimeout_next_goto_c14,
+  showtimeout_next_goto_r0,
+  error,
   error,
   error,
   error,
@@ -333,12 +337,13 @@ static const uint8_t value[BSIZE] = {
   update_next_push_e5_goto_e0,
   forall_next_goto_e10,
   exists_next_goto_e10,
+  lambda_next_goto_e10,
   let_next_goto_e15,
   next_push_r0_goto_e0,
   next_goto_e11,
-  e11_varname_next_goto_e12,
   true_return,
   false_return,
+  e11_varname_next_goto_e12,
   next_push_e14_goto_t0,
   e14_next_push_r0_goto_e0,
   next_goto_e16,

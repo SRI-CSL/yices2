@@ -111,5 +111,19 @@ extern term_t apply_term_subst(term_subst_t *subst, term_t t);
 extern void delete_term_subst(term_subst_t *subst);
 
 
+/*
+ * Apply beta-reduction to t (only at the top-level).
+ * - if t is not of the from (apply (lambda (x_1 ... x_n) u) t_1 ... t_n) then 
+ *   it's returned unchanged
+ * - otherwise, apply the substitution [x_1 := t_1, ... x_n := t_n] to u and return
+ *   the result
+ *
+ * Possible error codes are the same as in apply_term_subst:
+ * - return -1 (NULL_TERM) if the substitution causes a degree overflow
+ * - return -2 if an exception is raised (bug somewhere)
+ */
+extern term_t beta_reduce(term_manager_t *mngr, term_t t);
+
+
 
 #endif /* __TERM_SUBSTITUTION_H */

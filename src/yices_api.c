@@ -1831,12 +1831,36 @@ EXPORTED term_t yices_new_variable(type_t tau) {
   return mk_variable(&manager, tau);
 }
 
+
+/*
+ * Apply fun to arg[0 ...n-1]
+ * - we apply beta-reduction eagerly here
+ */
 EXPORTED term_t yices_application(term_t fun, uint32_t n, term_t arg[]) {
+  term_t t;
+
   if (! check_good_application(&manager, fun, n, arg)) {
     return NULL_TERM;
   }
 
-  return mk_application(&manager, fun, n, arg);
+  t = mk_application(&manager, fun, n, arg);
+  t = beta_reduce(&manager, t);
+
+  if (t < 0) {
+    // error during beta reduction
+    if (t == -1) {
+      // degree overflow
+      error.code = DEGREE_OVERFLOW;
+      error.badval = YICES_MAX_DEGREE + 1;
+    } else {
+      // BUG
+      error.code = INTERNAL_EXCEPTION;
+    }
+
+    t = NULL_TERM;
+  }
+
+  return t;
 }
 
 EXPORTED term_t yices_ite(term_t cond, term_t then_term, term_t else_term) {
@@ -5158,6 +5182,7 @@ static const error_code_t intern_code2error[NUM_INTERNALIZATION_ERRORS] = {
   CTX_BV_NOT_SUPPORTED,
   CTX_ARRAYS_NOT_SUPPORTED,
   CTX_QUANTIFIERS_NOT_SUPPORTED,
+  CTX_LAMBDAS_NOT_SUPPORTED,
   CTX_FORMULA_NOT_IDL,
   CTX_FORMULA_NOT_RDL,
   CTX_NONLINEAR_ARITH_NOT_SUPPORTED,

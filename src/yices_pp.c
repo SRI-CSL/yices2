@@ -208,6 +208,13 @@ static void build_id(string_buffer_t *b, char *prefix, int32_t index) {
   string_buffer_close(b);
 }
 
+static void build_varid(string_buffer_t *b, char *prefix, int32_t index) {
+  string_buffer_append_string(b, prefix);
+  string_buffer_append_char(b, '!');
+  string_buffer_append_int32(b, index);
+  string_buffer_close(b);
+}
+
 static void build_int32(string_buffer_t *b, int32_t x) {
   string_buffer_append_int32(b, x);
   string_buffer_close(b);
@@ -288,6 +295,10 @@ static char *get_string(yices_pp_t *printer, pp_atomic_token_t *tk) {
     break;
   case PP_ID_ATOM:
     build_id(buffer, atm->data.id.prefix, atm->data.id.index);
+    s = buffer->data;
+    break;
+  case PP_VARID_ATOM:
+    build_varid(buffer, atm->data.id.prefix, atm->data.id.index);
     s = buffer->data;
     break;
   case PP_TRUE_ATOM:
@@ -504,6 +515,27 @@ void pp_id(yices_pp_t *printer, char *prefix, int32_t index) {
   pp_push_token(&printer->pp, tk);
 }
 
+
+void pp_varid(yices_pp_t *printer, char *prefix, int32_t index) {
+  pp_atom_t *atom;
+  void *tk;
+  string_buffer_t *buffer;
+  uint32_t n;
+
+  // we use the buffer to get the token size
+  buffer = &printer->buffer;
+  assert(string_buffer_length(buffer) == 0);
+  build_varid(buffer, prefix, index);
+  n = string_buffer_length(buffer);
+  string_buffer_reset(buffer);
+
+  atom = new_atom(printer);
+  tk = init_atomic_token(&atom->tk, n, PP_VARID_ATOM);
+  atom->data.id.prefix = prefix;
+  atom->data.id.index = index;
+
+  pp_push_token(&printer->pp, tk);
+}
 
 void pp_bool(yices_pp_t *printer, bool tt) {
   pp_atom_t *atom;

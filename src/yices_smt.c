@@ -96,6 +96,7 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
   "context does not support bitvectors",
   "context does not support function equalities",
   "context does not support quantifiers",
+  "context does not support lambdas",
   "not an IDL formula",
   "not an RDL formula",
   "non-linear arithmetic not supported",

@@ -896,6 +896,7 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
   "context does not support bitvectors",
   "context does not support function equalities",
   "context does not support quantifiers",
+  "context does not support lambdas",
   "not an IDL formula",
   "not an RDL formula",
   "non-linear arithmetic not supported",
@@ -1968,6 +1969,20 @@ static void yices_settimeout_cmd(int32_t val) {
   }
 }
 
+
+/*
+ * Show the timeout value
+ */
+static void yices_showtimeout_cmd(void) {
+  if (timeout == 0) {
+    printf("no timeout set\n");
+  } else {
+    printf("timeout = %"PRIu32" s\n", timeout);
+  }
+  fflush(stdout);
+}
+
+
 /*
  * Dump: print all internal tables
  * + the egraph/core and theory solvers
@@ -2508,6 +2523,7 @@ int yices_main(int argc, char *argv[]) {
   tstack_set_showmodel_cmd(&stack, yices_showmodel_cmd);
   tstack_set_eval_cmd(&stack, yices_eval_cmd);
   tstack_set_settimeout_cmd(&stack, yices_settimeout_cmd);
+  tstack_set_showtimeout_cmd(&stack, yices_showtimeout_cmd);
   tstack_set_type_defined_cmd(&stack, yices_type_defined_cmd);
   tstack_set_term_defined_cmd(&stack, yices_term_defined_cmd);
   init_parameter_name_table();

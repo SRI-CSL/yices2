@@ -56,10 +56,14 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
   "context does not support bitvectors",
   "context does not support function equalities",
   "context does not support quantifiers",
+  "context does not support lambdas",
   "not an IDL formula",
   "not an RDL formula",
-  "Arithmetic solver exception",
-  "Bitvector solver exception",
+  "formula is not in linear arithmetic",
+  "too many arithmetic variables",
+  "too many arithmetic atoms",
+  "arithmetic solver exception",
+  "bitvector solver exception",
 };
 
 
