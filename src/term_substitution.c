@@ -482,7 +482,7 @@ static term_t build_bvarith_poly(term_manager_t *mngr, bvpoly_t *p, uint32_t n, 
  * BETA-REDUCTION/RECURSIVE SUBSTUTION
  */
 
-#define TRACE 1
+#define TRACE 0
 
 #if TRACE
 
