@@ -26,7 +26,7 @@ static void words_from_file(char *filename) {
   f = fopen(filename, "r");
   if (f == NULL) {
     perror(filename);
-    return;
+    exit(1);
   }
 
   i = 0;
@@ -112,6 +112,8 @@ int main() {
     x = stbl_find(&sym_table, words[i]);
     if (x != val[i]) {
       printf("*** Error: %s, val = %"PRId32", should be %"PRId32" ***\n", words[i], x, val[i]);
+      fflush(stdout);
+      exit(1);
     }
   }
 
@@ -130,6 +132,8 @@ int main() {
     x = stbl_find(&sym_table, words[i]);
     if (x >= 0) {
       printf("*** Error: %s, val = %"PRId32", should be -1 ***\n", words[i], x);
+      fflush(stdout);
+      exit(1);
     }
   }
 
@@ -148,16 +152,22 @@ int main() {
   x = stbl_find(&sym_table, "");
   if (x >= 0) {
     printf("*** Error: <empty string>, val = %"PRId32", should be -1\n", x);
+    fflush(stdout);
+    exit(1);
   }
 
   x = stbl_find(&sym_table, "####61723####");
   if (x >= 0) {
     printf("*** Error: ####61723####, val = %"PRId32", should be -1\n", x);
+    fflush(stdout);
+    exit(1);
   }
 
   x = stbl_find(&sym_table, "bbbbbbbbb");
   if (x >= 0) {
     printf("*** Error: bbbbbbbbb, val = %"PRId32", should be -1\n", x);
+    fflush(stdout);
+    exit(1);
   }
 
   printf("\n*** After rebuild ***\n");
