@@ -34,6 +34,7 @@
 #include "bv_constants.h"
 #include "int_hash_tables.h"
 
+#include "yices_pp.h"
 
 /*
  * Each concrete value is identified by an integer index.
@@ -542,11 +543,25 @@ extern void vtbl_print_anonymous_functions(FILE *f, value_table_t *table, bool s
 
 
 
+/*
+ * PRETTY PRINTING
+ */
+
+/*
+ * Same print functions as above, but using a pretty_printer object
+ */
+extern void vtbl_pp_object(yices_pp_t *printer, value_table_t *table, value_t c);
+extern void vtbl_pp_function(yices_pp_t *printer, value_table_t *table, value_t c, bool show_default);
+extern void vtbl_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, char *name, 
+					 value_t c, bool show_default);
+extern void vtbl_pp_anonymous_functions(yices_pp_t *printer, value_table_t *table, bool show_default);
+
+
+
 
 /*
  * EVALUATION
  */
-
 
 /*
  * Check whether a and b are equal

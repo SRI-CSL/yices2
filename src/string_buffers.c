@@ -93,7 +93,7 @@ void string_buffer_append_char(string_buffer_t *s, char c) {
 }
 
 // s1 must be null-terminated, the '\0' is not copied in s
-void string_buffer_append_string(string_buffer_t *s, char *s1) {
+void string_buffer_append_string(string_buffer_t *s, const char *s1) {
   uint32_t n;
 
   n = strlen(s1);

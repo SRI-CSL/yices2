@@ -2017,26 +2017,6 @@ void vtbl_print_object(FILE *f, value_table_t *table, value_t c) {
 }
 
 
-#if 0
-/*
- * Print a line that describes the default value of a function c
- */
-static void vtbl_print_default(FILE *f, value_table_t *table, value_t c, value_fun_t *fun) {
-  uint32_t i, n;
-
-  fputs("(= (", f);
-  vtbl_print_fun_name(f, c, fun);
-  n = fun->arity;
-  for (i=0; i<n; i++) {
-    fprintf(f, " x!%"PRId32, i);
-  }
-  fputs(") ", f);
-  vtbl_print_object(f, table, fun->def);
-  fputs(")", f);
-}
-
-#endif
-
 
 /*
  * Format to display a function:
@@ -2173,3 +2153,295 @@ void vtbl_print_anonymous_functions(FILE *f, value_table_t *table, bool show_def
     }	
   }
 }
+
+
+
+/*********************
+ *  PRETTY PRINTING  *
+ ********************/
+
+/*
+ * Printing for each object type
+ */
+static inline void vtbl_pp_bitvector(yices_pp_t *printer, value_bv_t *b) {
+  pp_bv(printer, b->data, b->nbits);
+}
+
+
+/*
+ * For uninterpreted constants:
+ * -
+ * We print a default name if there's no name given.
+ */
+static void vtbl_pp_unint_name(yices_pp_t *printer, value_table_t *table, value_t c, value_unint_t *v) {    
+  const char *s;
+
+  s = v->name;
+  if (s == NULL) {
+    // try to get a name from the external 'unint_namer' function
+    if (table->unint_namer != NULL) {
+      s = table->unint_namer(table->aux_namer, v);
+    }
+  }
+
+  if (s == NULL) {
+    pp_id(printer, "const!", c);
+  } else {
+    pp_string(printer, s);
+  }
+}
+
+
+/*
+ * Function: use a default name if nothing is given
+ */
+static void vtbl_pp_fun_name(yices_pp_t *printer, value_t c, value_fun_t *fun) {
+  if (fun->name == NULL) {
+    pp_id(printer, "fun!", c);
+  } else {
+    pp_string(printer, fun->name);
+  }
+}
+
+
+
+/*
+ * For tuples, maps, and updates: recursively print elements
+ */
+static void vtbl_pp_tuple(yices_pp_t *printer, value_table_t *table, value_tuple_t *t) {
+  uint32_t i, n;
+
+  n = t->nelems;
+  pp_open_block(printer, PP_OPEN_TUPLE);
+  for (i=0; i<n; i++) {
+    vtbl_pp_object(printer, table, t->elem[i]);
+  }
+  pp_close_block(printer, true);
+}
+
+
+static void vtbl_pp_map(yices_pp_t *printer, value_table_t *table, value_map_t *m) {
+  uint32_t i, n;
+
+  pp_open_block(printer, PP_OPEN_PAR);
+  n = m->arity;
+  pp_open_block(printer, PP_OPEN_PAR);
+  for (i=0; i<n; i++) {
+    vtbl_pp_object(printer, table, m->arg[i]);
+  }
+  pp_close_block(printer, true);
+  pp_string(printer, "|->");
+  vtbl_pp_object(printer, table, m->val);
+  pp_close_block(printer, true);
+}
+
+
+static void vtbl_pp_update(yices_pp_t *printer, value_table_t *table, value_update_t *u) {
+  value_map_t *m;
+  uint32_t i, n;
+
+  n = u->arity;
+  assert(n > 0);
+
+  m = vtbl_map(table, u->map);
+  assert(m->arity == n);
+
+  pp_open_block(printer, PP_OPEN_UPDATE);
+  vtbl_pp_object(printer, table, u->fun);
+  pp_open_block(printer, PP_OPEN_PAR);
+  for (i=0; i<n; i++) {
+    vtbl_pp_object(printer, table, m->arg[i]);
+  }
+  pp_close_block(printer, true);
+  vtbl_pp_object(printer, table, m->val);
+  pp_close_block(printer, true);
+}
+
+
+
+/*
+ * Print object c on stream f
+ */
+void vtbl_pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {  
+  assert(0 <= c && c < table->nobjects);
+
+  switch (table->kind[c]) {
+  case UNKNOWN_VALUE:
+    pp_string(printer, "???");
+    break;
+  case BOOLEAN_VALUE:
+    pp_bool(printer, table->desc[c].integer);
+    break;
+  case RATIONAL_VALUE:
+    pp_rational(printer, &table->desc[c].rational);
+    break;
+  case BITVECTOR_VALUE:
+    vtbl_pp_bitvector(printer, table->desc[c].ptr); 
+    break;
+  case TUPLE_VALUE:
+    vtbl_pp_tuple(printer, table, table->desc[c].ptr);
+    break;
+  case UNINTERPRETED_VALUE:
+    vtbl_pp_unint_name(printer, table, c, table->desc[c].ptr);
+    break;
+  case FUNCTION_VALUE:
+    vtbl_pp_fun_name(printer, c, table->desc[c].ptr);
+    break;
+  case MAP_VALUE:
+    vtbl_pp_map(printer, table, table->desc[c].ptr);
+    break;
+  case UPDATE_VALUE:
+    vtbl_pp_update(printer, table, table->desc[c].ptr);
+    break;
+  default:
+    assert(false);
+  }
+}
+
+
+/*
+ * Format to display a function:
+ * (function <name>
+ *   (type (-> tau_1 ... tau_n sigma))
+ *   (= (<name> x_1 ... x_n) y_1)
+ *    ...
+ *   (default z))
+ */
+static void vtbl_pp_function_header(yices_pp_t *printer, value_table_t *table, value_t c, type_t tau, const char *name) {
+  pp_open_block(printer, PP_OPEN_FUNCTION);
+  if (name == NULL) {
+    pp_id(printer, "fun!", c);
+  } else {
+    pp_string(printer, name);
+  }
+  pp_open_block(printer, PP_OPEN_TYPE);
+  pp_type(printer, table->type_table, tau);
+  pp_close_block(printer, true);
+}
+ 
+
+/*
+ * Print the function c
+ * - if show_default is true, also print the default falue
+ */
+void vtbl_pp_function(yices_pp_t *printer, value_table_t *table, value_t c, bool show_default) {
+  value_fun_t *fun;
+  value_map_t *mp;
+  uint32_t i, n;
+  uint32_t j, m;
+
+  assert(0 <= c && c < table->nobjects && table->kind[c] == FUNCTION_VALUE);
+  fun = table->desc[c].ptr;
+
+  vtbl_pp_function_header(printer, table, c, fun->type, fun->name);
+
+  m = fun->arity;
+  n = fun->map_size;
+  for (i=0; i<n; i++) {
+    pp_open_block(printer, PP_OPEN_EQ);  // (=
+    pp_open_block(printer, PP_OPEN_PAR); // (fun
+    vtbl_pp_fun_name(printer, c, fun);
+
+    mp = vtbl_map(table, fun->map[i]);
+    assert(mp->arity == m);
+    for (j=0; j<m; j++) {
+      vtbl_pp_object(printer, table, mp->arg[j]);
+    }
+    pp_close_block(printer, true); // close of (fun ...
+    vtbl_pp_object(printer, table, mp->val);
+    pp_close_block(printer, true); // close (= ..
+  }
+
+  if (show_default && !is_unknown(table, fun->def)) {
+    pp_open_block(printer, PP_OPEN_DEFAULT); // (default
+    vtbl_pp_object(printer, table, fun->def);
+    pp_close_block(printer, true); // close (default ..
+  }
+  pp_close_block(printer, true); // clore (function ...
+}
+
+
+/*
+ * Expand update c and print it as a function
+ * - name = function name to use
+ * - if show_default is true, also print the default value
+ */
+void vtbl_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, char *name, value_t c, bool show_default) {
+  map_hset_t *hset;
+  value_map_t *mp;
+  value_t def;
+  type_t tau;
+  uint32_t i, j, n, m;
+
+  assert(0 <= c && c < table->nobjects && table->kind[c] == UPDATE_VALUE);
+  
+  // build the mapping for c in hset1
+  hset = get_hset1(table);
+  reset_map_hset(hset);
+  normalize_update(table, c, hset, &def, &tau);
+
+  /*
+   * hset->data contains an array of mapping objects
+   * hset->nelems = number of elements in hset->data
+   */
+  // function header: we know that name != NULL
+  pp_open_block(printer, PP_OPEN_FUNCTION);
+  pp_string(printer, name);
+  pp_open_block(printer, PP_OPEN_TYPE);
+  pp_type(printer, table->type_table, tau);
+  pp_close_block(printer, true); // close (type ..)
+
+  //  fprintf(printer, "(function %s\n", name);
+  //  fprintf(printer, " (type ");
+  //  print_type(printer, table->type_table, tau);
+  //  fprintf(printer, ")");
+
+  m = vtbl_update(table, c)->arity;
+  n = hset->nelems;
+  for (i=0; i<n; i++) {
+    pp_open_block(printer, PP_OPEN_EQ);
+    pp_open_block(printer, PP_OPEN_PAR);
+    pp_string(printer, name);
+
+    mp = vtbl_map(table, hset->data[i]);
+    assert(mp->arity == m);
+    for (j=0; j<m; j++) {
+      vtbl_pp_object(printer, table, mp->arg[j]);
+    }
+    pp_close_block(printer, true); // close (name arg[0] ... arg[m-1])
+    vtbl_pp_object(printer, table, mp->val);
+    pp_close_block(printer, true); // close (= 
+  }
+
+  if (show_default && !is_unknown(table, def)) {
+    pp_open_block(printer, PP_OPEN_DEFAULT);
+    vtbl_pp_object(printer, table, def);
+    pp_close_block(printer, true);
+  }
+  pp_close_block(printer, true);
+}
+
+
+
+/*
+ * Print the maps defining the anonymous functions
+ * - i.e., all functions whose name is NULL
+ * - if show_default is true, print the default value for each map
+ */
+void vtbl_pp_anonymous_functions(yices_pp_t *printer, value_table_t *table, bool show_default) {
+  value_fun_t *fun;
+  uint32_t i, n;
+
+  n = table->nobjects;
+  for (i=0; i<n; i++) {
+    if (object_is_function(table, i)) {
+      fun = table->desc[i].ptr;
+      if (fun->name == NULL) {
+	vtbl_pp_function(printer, table, i, show_default);
+      }
+    }	
+  }
+}
+
+
+

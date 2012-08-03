@@ -18,6 +18,7 @@
 
 #include "terms.h"
 #include "models.h"
+#include "yices_pp.h"
 
 
 /*
@@ -50,6 +51,13 @@ extern void model_print(FILE *f, model_t *model);
  */
 extern void model_print_full(FILE *f, model_t *model);
 
+
+/*
+ * Variants: use the pretty printer
+ */
+extern void model_pp_term_value(yices_pp_t *printer, model_t *model, term_t t);
+extern void model_pp(yices_pp_t *printer, model_t *model);
+extern void model_pp_full(yices_pp_t *printer, model_t *model);
 
 
 #endif /* __MODEL_PRINTER_H */

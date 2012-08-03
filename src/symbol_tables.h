@@ -47,9 +47,9 @@ typedef void (*stbl_finalizer_t)(stbl_rec_t *r);
  * Symbol table
  */
 typedef struct stbl_s {
-  uint32_t size;     // power of 2
-  uint32_t nelems;   // number of records
-  uint32_t ndeleted; // number of deleted records (in the free_rec list)
+  uint32_t size;         // power of 2
+  uint32_t nelems;       // number of records
+  uint32_t ndeleted;     // number of deleted records (in the free_rec list)
   uint32_t free_idx;     // free slot in bnk
   stbl_bank_t *bnk;
   stbl_rec_t *free_rec;  // list of free records

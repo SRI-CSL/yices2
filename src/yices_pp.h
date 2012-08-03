@@ -47,7 +47,7 @@ typedef enum pp_atom_type {
  * Descriptors of ID, BV, BV64 atoms
  */
 typedef struct pp_id_s {
-  char *prefix;
+  const char *prefix;
   int32_t index;
 } pp_id_t;
 
@@ -70,7 +70,7 @@ typedef struct pp_atom_s {
   pp_atomic_token_t tk; // prefix defined in pretty_printer.h
   union {
     char c;
-    char *string;
+    const char *string;
     pp_id_t id;
     int32_t i32;
     uint32_t u32;
@@ -143,9 +143,15 @@ typedef enum {
   PP_OPEN_BV_SGE,
   PP_OPEN_BV_SLT,
 
+  // blocks used in pp_model
+  PP_OPEN_FUNCTION,   // (function ...) 
+  PP_OPEN_TYPE,       // (type ..) 
+  PP_OPEN_DEFAULT,    // (default x)
+  
   PP_OPEN_CONST_DEF,  // (constant i of <type>)
   PP_OPEN_UNINT_DEF,  // (unint i of <type>)
   PP_OPEN_VAR_DEF,    // (var i of <type>)
+
 } pp_open_type_t;
 
 #define NUM_PP_OPENS ((uint32_t) (PP_OPEN_VAR_DEF + 1))
@@ -282,9 +288,9 @@ static inline void yices_pp_clear_error(yices_pp_t *printer) {
  * of the word array *bv either.
  */
 extern void pp_char(yices_pp_t *printer, char c);
-extern void pp_string(yices_pp_t *printer, char *s);
-extern void pp_id(yices_pp_t *printer, char *prefix, int32_t id);
-extern void pp_varid(yices_pp_t *printer, char *prefix, int32_t id);
+extern void pp_string(yices_pp_t *printer, const char *s);
+extern void pp_id(yices_pp_t *printer, const char *prefix, int32_t id);
+extern void pp_varid(yices_pp_t *printer, const char *prefix, int32_t id);
 extern void pp_bool(yices_pp_t *printer, bool tt);
 extern void pp_int32(yices_pp_t *printer, int32_t x);
 extern void pp_uint32(yices_pp_t *printer, uint32_t x);

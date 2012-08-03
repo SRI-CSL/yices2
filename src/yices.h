@@ -37,7 +37,7 @@
 
 
 #ifdef __cplusplus
-// extern "C" {
+extern "C" {
 #endif
 
 
@@ -2093,6 +2093,20 @@ __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
  */
 __YICES_DLLSPEC__ extern void yices_print_model(FILE *f, model_t *mdl);
 
+
+/*
+ * Pretty printing:
+ * - f = output file to use
+ * - witdh, height, offset define the print area
+ * 
+ * return -1 on error, 0 otherwise
+ *
+ * On error:
+ *   code = OUTPUT_ERROR (means that writing to f failed)
+ *   in this case, errno, perror, etc. can be used for diagnostic.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
+ 
 
 /*
  * Evaluation functions. Once a model is constructed, it's possible

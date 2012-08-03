@@ -12,6 +12,16 @@
 
 
 /*
+ * For debugging: check whether n is a power of two
+ */
+#ifndef NDEBUG
+static bool is_power_of_two(uint32_t n) {
+  return (n & (n - 1)) == 0;
+}
+#endif
+
+
+/*
  * Default finalizer: do nothing
  */
 static void default_stbl_finalizer(stbl_rec_t *r) {
@@ -31,8 +41,6 @@ static stbl_bank_t *stbl_alloc_bank() {
   }
   return b;
 }
-
-
 
 
 /*
@@ -88,46 +96,34 @@ static void stbl_init_record(stbl_rec_t *r, uint32_t h, int32_t val, char *s) {
   r->string = s;
 }
 
-/*
- * Re-insert all non-deleted records into sym_table->data
- */
-static void stbl_restore(stbl_t *sym_table) {
-  uint32_t i, k, mask;
-  stbl_rec_t *r;
-  stbl_bank_t *b;
-
-  mask = sym_table->size - 1;
-  k = sym_table->free_idx;
-  for (b = sym_table->bnk; b != NULL; b = b->next) {
-    for (r = b->block + k; r < b->block + STBL_BANK_SIZE; r ++) {
-      if (r->string != NULL) {
-	i = r->hash & mask;
-	r->next = sym_table->data[i];
-	sym_table->data[i] = r;
-      }
-    }
-    k = 0;
-  }
-}
-
 
 /*
- * Resize the table: n = new size
+ * Insert all the records from list into array tmp
+ * - mask = size of tmp - 1 (tmp's size is a power of 2)
+ * - the records are inserted in reverse order
  */
-static void stbl_resize(stbl_t *sym_table, uint32_t n) {
+static void stbl_restore_list(stbl_rec_t **tmp, uint32_t mask, stbl_rec_t *list) {
+  stbl_rec_t *r, *p;
   uint32_t i;
-  stbl_rec_t **tmp;
 
-  tmp = (stbl_rec_t **) safe_malloc(n * sizeof(stbl_rec_t *));
-  for (i=0; i<n; i++) {
-    tmp[i] = NULL;
+  // reverse the list
+  p = NULL;;
+  while (list != NULL) {
+    r = list->next;
+    list->next = p;
+    p = list;
+    list = r;
   }
 
-  safe_free(sym_table->data);
-  sym_table->data = tmp;
-  sym_table->size = n;
-
-  stbl_restore(sym_table);
+  // now p = list in reverse order
+  while (p != NULL) {
+    r = p->next;
+    assert(p->string != NULL);
+    i = p->hash & mask;
+    p->next = tmp[i];
+    tmp[i] = p;
+    p = r;
+  }
 }
 
 
@@ -135,25 +131,39 @@ static void stbl_resize(stbl_t *sym_table, uint32_t n) {
  * Extend the table: make it twice as large.
  */
 static void stbl_extend(stbl_t *sym_table) {
-  uint32_t n;
+  stbl_rec_t **tmp;
+  stbl_rec_t *list;
+  uint32_t i, n, old_size, mask;
 
-  n = sym_table->size << 1;
+  old_size = sym_table->size;
+  n = old_size << 1;
   if (n == 0 || n >= MAX_STBL_SIZE) {
     // overflow: cannot expand 
     out_of_memory();
   }
-  stbl_resize(sym_table, n);
-}
 
+  assert(is_power_of_two(n));
 
-/*
- * For debugging: check whether n is a power of two
- */
-#ifndef NDEBUG
-static bool is_power_of_two(uint32_t n) {
-  return (n & (n - 1)) == 0;
+  // new data array
+  tmp = (stbl_rec_t **) safe_malloc(n * sizeof(stbl_rec_t *));
+  for (i=0; i<n; i++) {
+    tmp[i] = NULL;
+  }
+
+  // more the data lists to tmp
+  mask = n-1;
+  for (i=0; i<old_size; i++) {
+    list = sym_table->data[i];
+    if (list != NULL) {
+      stbl_restore_list(tmp, mask, list);
+    }
+  }
+
+  // clean up
+  safe_free(sym_table->data);
+  sym_table->data = tmp;
+  sym_table->size = n;
 }
-#endif
 
 
 /*

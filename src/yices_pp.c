@@ -81,7 +81,7 @@ typedef struct pp_nonstandard_block_s {
 /*
  * Table of standard blocks
  */
-#define NUM_STANDARD_BLOCKS 33
+#define NUM_STANDARD_BLOCKS 35
 
 static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_FUN_TYPE, "->" },
@@ -117,13 +117,15 @@ static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_BV_LT, "bv-lt" },
   { PP_OPEN_BV_SGE, "bv-sge" },
   { PP_OPEN_BV_SLT, "bv-slt" },
+  { PP_OPEN_TYPE, "type" },
+  { PP_OPEN_DEFAULT, "default" },
 };
 
 
 /*
  * Table of non-standard blocks
  */
-#define NUM_NONSTANDARD_BLOCKS 9
+#define NUM_NONSTANDARD_BLOCKS 10
 
 static const pp_nonstandard_block_t nonstandard_block[NUM_NONSTANDARD_BLOCKS] = {
   { PP_OPEN, "", PP_HMT_LAYOUT, 0, 1, 1 },
@@ -132,9 +134,10 @@ static const pp_nonstandard_block_t nonstandard_block[NUM_NONSTANDARD_BLOCKS] = 
   { PP_OPEN_CONST_DEF, "constant", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
   { PP_OPEN_UNINT_DEF, "unint", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
   { PP_OPEN_VAR_DEF,   "var", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
-  { PP_OPEN_FORALL, "forall ", PP_HMT_LAYOUT,  PP_TOKEN_PAR_MASK, 1, 1},
-  { PP_OPEN_EXISTS, "exits ", PP_HMT_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1},
-  { PP_OPEN_LAMBDA, "lambda ", PP_HMT_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1},
+  { PP_OPEN_FORALL, "forall ", PP_HMT_LAYOUT,  PP_TOKEN_PAR_MASK, 1, 1 },
+  { PP_OPEN_EXISTS, "exits ", PP_HMT_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1 },
+  { PP_OPEN_LAMBDA, "lambda ", PP_HMT_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1 },
+  { PP_OPEN_FUNCTION, "function ", PP_V_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1 },
 };
 
 
@@ -202,13 +205,13 @@ static void build_char(string_buffer_t *b, char c) {
   string_buffer_close(b);
 }
 
-static void build_id(string_buffer_t *b, char *prefix, int32_t index) {
+static void build_id(string_buffer_t *b, const char *prefix, int32_t index) {
   string_buffer_append_string(b, prefix);
   string_buffer_append_int32(b, index);
   string_buffer_close(b);
 }
 
-static void build_varid(string_buffer_t *b, char *prefix, int32_t index) {
+static void build_varid(string_buffer_t *b, const char *prefix, int32_t index) {
   string_buffer_append_string(b, prefix);
   string_buffer_append_char(b, '!');
   string_buffer_append_int32(b, index);
@@ -276,10 +279,10 @@ static char *get_label(yices_pp_t *printer, pp_open_token_t *tk) {
 /*
  * Content of an atomic token
  */
-static char *get_string(yices_pp_t *printer, pp_atomic_token_t *tk) {
+static const char *get_string(yices_pp_t *printer, pp_atomic_token_t *tk) {
   string_buffer_t *buffer;
   pp_atom_t *atm;
-  char *s;
+  const char *s;
 
   buffer = &printer->buffer;
   assert(string_buffer_length(buffer) == 0);
@@ -340,7 +343,7 @@ static char *get_string(yices_pp_t *printer, pp_atomic_token_t *tk) {
 /*
  * Truncated content: just use the same thing as get_string
  */
-static char *get_truncated(yices_pp_t *printer, pp_atomic_token_t *tk, uint32_t n) {
+static const char *get_truncated(yices_pp_t *printer, pp_atomic_token_t *tk, uint32_t n) {
   return get_string(printer, tk);
 }
 
@@ -477,7 +480,7 @@ void pp_char(yices_pp_t *printer, char c) {
 /*
  * String s: no copy is made
  */
-void pp_string(yices_pp_t *printer, char *s) {
+void pp_string(yices_pp_t *printer, const char *s) {
   pp_atom_t *atom;
   void *tk;
   uint32_t n;
@@ -494,7 +497,7 @@ void pp_string(yices_pp_t *printer, char *s) {
 /*
  * Identifier: as above, we don't copy the prefix
  */
-void pp_id(yices_pp_t *printer, char *prefix, int32_t index) {
+void pp_id(yices_pp_t *printer, const char *prefix, int32_t index) {
   pp_atom_t *atom;
   void *tk;
   string_buffer_t *buffer;
@@ -516,7 +519,7 @@ void pp_id(yices_pp_t *printer, char *prefix, int32_t index) {
 }
 
 
-void pp_varid(yices_pp_t *printer, char *prefix, int32_t index) {
+void pp_varid(yices_pp_t *printer, const char *prefix, int32_t index) {
   pp_atom_t *atom;
   void *tk;
   string_buffer_t *buffer;

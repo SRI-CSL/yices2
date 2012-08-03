@@ -215,7 +215,6 @@ int main() {
   }
 
 
-
   // speed test
   runtime = get_cpu_time();
   for (n=0; n<100000; n++) {

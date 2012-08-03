@@ -2375,7 +2375,10 @@ static void yices_showmodel_cmd(void) {
       context_build_model(model, context);
     }    
     //    model_print(stdout, model);
-    model_print_full(stdout, model);
+    //    model_print_full(stdout, model);
+    if (yices_pp_model(stdout, model, 140, UINT32_MAX, 0) < 0) {
+      report_system_error("stdout");
+    }
     fflush(stdout);
     break;
 

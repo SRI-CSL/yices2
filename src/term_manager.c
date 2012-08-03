@@ -2860,12 +2860,72 @@ term_t mk_exists(term_manager_t *manager, uint32_t n, term_t var[], term_t body)
 }
 
 
+
 /*
- * Lambda term: no simplification
+ * Lambda term:
+ * - n = number of variables
+ * - var[0 .. n-1] = variables (must all be distinct)
+ *
+ * Simplification:
+ *   (lambda (x_1::t_1 ... x_n::t_n) (f x_1 ... x_n)) --> f
+ *
+ * provided f has type [t_1 ... t_n --> sigma]
  */
+
+// check whether var[0 ... n-1] and arg[0 ... n-1] are equal
+static bool equal_arrays(term_t var[], term_t arg[], uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (var[i] != arg[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// check whether the domain of f matches the variable types 
+static bool same_domain(term_table_t *table, term_t f, term_t var[], uint32_t n) {
+  function_type_t *desc;
+  type_t tau;
+  uint32_t i;
+  
+  tau = term_type(table, f);
+  desc = function_type_desc(table->types, tau);
+  assert(desc->ndom == n);
+
+  for (i=0; i<n; i++) {
+    if (desc->domain[i] != term_type(table, var[i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 term_t mk_lambda(term_manager_t *manager, uint32_t n, term_t var[], term_t body) {
+  term_table_t *tbl;
+  composite_term_t *d;
+  term_t f;
+  
+  assert(0 < n && n <= YICES_MAX_ARITY);
+
+  tbl = &manager->terms;
+  if (term_kind(tbl, body) == APP_TERM) {
+    d = app_term_desc(tbl, body);
+    if (d->arity == n+1 && equal_arrays(var, d->arg + 1, n)) {
+      f = d->arg[0];
+      if (same_domain(tbl, f, var, n)) {
+	return f;
+      }
+    }
+  }
+
   return lambda_term(&manager->terms, n, var, body);
 }
+
+
 
 
 /*************************

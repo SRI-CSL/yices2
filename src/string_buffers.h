@@ -58,7 +58,7 @@ extern void string_buffer_close(string_buffer_t *s);
  * Append operations
  */
 extern void string_buffer_append_char(string_buffer_t *s, char c);
-extern void string_buffer_append_string(string_buffer_t *s, char *s1);
+extern void string_buffer_append_string(string_buffer_t *s, const char *s1);
 extern void string_buffer_append_buffer(string_buffer_t *s, string_buffer_t *s1);
 extern void string_buffer_append_int32(string_buffer_t *s, int32_t x);
 extern void string_buffer_append_uint32(string_buffer_t *s, uint32_t x);
