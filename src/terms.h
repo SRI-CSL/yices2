@@ -73,7 +73,6 @@
  * 1) constants:
  *    - constants of uninterpreted/scalar
  *    - global uninterpreted constants
- *    - constant functions
  * 2) generic terms
  *    - ite c t1 t2
  *    - eq t1 t2
@@ -1175,7 +1174,7 @@ extern bool is_constant_tuple(term_table_t *table, term_t t);
 
 /*
  * Generic version: return true if t is an atomic constant
- * or a constant tuple, of a constant function.
+ * or a constant tuple.
  */
 extern bool is_constant_term(term_table_t *table, term_t t);
 

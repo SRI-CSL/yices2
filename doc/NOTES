@@ -482,10 +482,8 @@ term_manager.h:          Main term-construction module. This is where most term
 term_manager.c           simplification/normalization functions are implemented.
 
 term_substitution.h	 Stores a substitution + cache + renaming
-term_substitution.c      context + free variable collector
-
-beta_reduction.h	 Implements beta reduction
-beta_reduction.c
+term_substitution.c      context + free variable collector (also implement
+			 beta-reduction).
 
 yices_api.c:             Implements all API functions and more
 
