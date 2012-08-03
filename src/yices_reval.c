@@ -2350,6 +2350,7 @@ static void yices_check_cmd(void) {
 	done = true;
       }
     }
+    fflush(stdout);
     break;
 
   case STATUS_SEARCHING:
