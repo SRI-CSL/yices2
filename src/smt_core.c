@@ -16,7 +16,7 @@
 #define TRACE 0
 #define DEBUG 0
 
-#if DEBUG || TRACE
+#if DEBUG || TRACE || 1
 #include <stdio.h>
 #include <inttypes.h>
 
@@ -24,6 +24,7 @@ extern void print_literal(FILE *f, literal_t l);
 extern void print_bval(FILE *f, bval_t b);
 
 #endif
+
 
 #if DEBUG
 
@@ -35,6 +36,7 @@ static void check_marks(smt_core_t *s);
 static void check_theory_conflict(smt_core_t *s, literal_t *a);
 static void check_theory_explanation(smt_core_t *s, literal_t l);
 static void check_watched_literals(smt_core_t *s, uint32_t n, literal_t *a);
+static void check_lemma(smt_core_t *s, uint32_t n, literal_t *a);
 
 #endif
 
@@ -1073,9 +1075,10 @@ static void reset_lemma_queue(lemma_queue_t *queue) {
     for (i=0; i<LEMMA_BLOCKS_TO_KEEP; i++) {
       queue->block[i]->ptr = 0;
     }
-    for (i=4; i<queue->nblocks; i++) {
+    while (i < queue->nblocks) {
       safe_free(queue->block[i]);
       queue->block[i] = NULL;
+      i ++;
     }
     queue->nblocks = LEMMA_BLOCKS_TO_KEEP;
 
@@ -3739,6 +3742,9 @@ void add_empty_clause(smt_core_t *s) {
  */
 void add_unit_clause(smt_core_t *s, literal_t l) {
   if (on_the_fly(s) && s->decision_level > s->base_level) {
+#if DEBUG
+    check_lemma(s, 1, &l);
+#endif
     push_lemma(&s->lemmas, 1, &l);
     return;
   }
@@ -3775,6 +3781,9 @@ void add_unit_clause(smt_core_t *s, literal_t l) {
  */
 void add_clause_unsafe(smt_core_t *s, uint32_t n, literal_t *a) {
   if (on_the_fly(s)) {
+#if DEBUG
+    check_lemma(s, n, a);
+#endif
     push_lemma(&s->lemmas, n, a);
     return;
   }
@@ -3807,6 +3816,9 @@ void add_clause(smt_core_t *s, uint32_t n, literal_t *a) {
   ivector_t *v;
 
   if (on_the_fly(s)) {
+#if DEBUG
+    check_lemma(s, n, a);
+#endif
     push_lemma(&s->lemmas, n, a);
     return;
   }
@@ -3933,7 +3945,7 @@ static void add_all_lemmas(smt_core_t *s) {
        * it's possible for new lemmas to be added within this loop
        * - because clause addition may cause backtracking and
        * the theory solver is allowed to create lemmas within backtrack.
-       */
+       */      
       n = lemma_length(lemma);
       add_lemma(s, n, lemma);
       n ++; // skip the end marker
@@ -5329,6 +5341,8 @@ void smt_process(smt_core_t *s) {
       resolve_conflict(s);
       if (s->inconsistent) {
 	// conflict could not be resolved: unsat problem
+	// the lemma queue may be non-empty so we must clear it here
+	reset_lemma_queue(&s->lemmas);
 	s->status = STATUS_UNSAT;
       }
       // decay activities after every conflict
@@ -5341,6 +5355,16 @@ void smt_process(smt_core_t *s) {
 
     } else if (! empty_lemma_queue(&s->lemmas)) {
       add_all_lemmas(s);
+
+#if 1
+      // PROVISIONAL
+      printf("After add lemmas\n");
+      printf("num. bool vars:                 %"PRIu32"\n", num_vars(s));
+      printf("num. unit clauses:              %"PRIu32"\n", num_unit_clauses(s));
+      printf("num. binary clauses:            %"PRIu32"\n", num_binary_clauses(s));
+      printf("num. main clauses:              %"PRIu32"\n", num_prob_clauses(s));
+      printf("num. clause literals:           %"PRIu64"\n\n", num_prob_literals(s));
+#endif
 
     } else {
       /*
@@ -5928,4 +5952,18 @@ static void check_watched_literals(smt_core_t *s, uint32_t n, literal_t *a) {
   print_lit_val_level(l, v, k);
 }
 
+static void check_lemma(smt_core_t *s, uint32_t n, literal_t *a) {
+  uint32_t i;
+  literal_t l;
+
+  for (i=0; i<n; i++) {
+    l = a[i];
+    if (l < 0 || l >= s->nlits) {
+      printf("Error: invalid literal in lemma (l = %"PRId32")\n", l);
+      fflush(stdout);
+    }
+  }
+}
+
 #endif
+

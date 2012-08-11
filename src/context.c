@@ -3810,7 +3810,7 @@ static literal_t map_arith_eq_to_literal(context_t *ctx, term_t t) {
     l = map_poly_eq_to_literal(ctx, poly_term_desc(terms, t));
   } else {
     x = internalize_to_arith(ctx, t);
-    l =ctx->arith.create_eq_atom(ctx->arith_solver, x);
+    l = ctx->arith.create_eq_atom(ctx->arith_solver, x);
   }
   return l;
 }
@@ -5745,7 +5745,7 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
     // flattening failed
     ivector_reset(v);
   } 
-
+  
   // no simplification
   x = internalize_to_bv(ctx, t1);
   y = internalize_to_bv(ctx, t2);

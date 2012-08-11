@@ -2305,6 +2305,8 @@ static smt_status_t do_check(void) {
     check_process_time = 0.0;
   }
 
+  printf("--> check time = %.3f s\n", check_process_time);
+
   /*
    * Clear timeout and reset it to 0
    */

@@ -21,7 +21,7 @@
 
 #define DUMP 0
 
-#if TRACE || DUMP
+#if TRACE || DUMP || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -930,7 +930,8 @@ static void bv_solver_mark_vars_in_atoms(bv_solver_t *solver) {
    * scan all the atoms and mark their variables
    *
    * TODO: make this more efficient by keeping track
-   * of the atoms that have been processed (keep track
+   * of the atoms that have been process
+ed (keep track
    * of this in the trail_stack?)
    */
   atbl = &solver->atbl;
@@ -1814,6 +1815,15 @@ bool bv_solver_bitblast(bv_solver_t *solver) {
 #endif
 
   solver->bitblasted = true;
+
+#if 1
+  printf("Statistics\n");
+  printf("num. bool vars:                 %"PRIu32"\n", num_vars(solver->core));
+  printf("num. unit clauses:              %"PRIu32"\n", num_unit_clauses(solver->core));
+  printf("num. binary clauses:            %"PRIu32"\n", num_binary_clauses(solver->core));
+  printf("num. main clauses:              %"PRIu32"\n", num_prob_clauses(solver->core));
+  printf("num. clause literals:           %"PRIu64"\n\n", num_prob_literals(solver->core));
+#endif
 
   return true;
 }
@@ -6901,7 +6911,7 @@ uint32_t bv_solver_reconcile_model(bv_solver_t *solver, uint32_t max_eq) {
 
   assert(max_eq > 0);
 
-#if TRACE
+#if TRACE || 1
   printf("\n---> bv: reconcile model\n");
   fflush(stdout);
 #endif
