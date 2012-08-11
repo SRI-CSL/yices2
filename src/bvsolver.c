@@ -930,8 +930,7 @@ static void bv_solver_mark_vars_in_atoms(bv_solver_t *solver) {
    * scan all the atoms and mark their variables
    *
    * TODO: make this more efficient by keeping track
-   * of the atoms that have been process
-ed (keep track
+   * of the atoms that have been processed (keep track
    * of this in the trail_stack?)
    */
   atbl = &solver->atbl;
