@@ -21,7 +21,7 @@
 
 #define TRACE 0
 
-#if TRACE || 1
+#if TRACE
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -4792,7 +4792,7 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
   fcheck_code_t c;
   uint32_t i, max_eq;
 
-#if TRACE || 1
+#if TRACE
   uint32_t k;
 
   k = 0;
@@ -4846,7 +4846,7 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
     assert(egraph->eg[ETYPE_REAL] != NULL);
     i = egraph->eg[ETYPE_REAL]->reconcile_model(egraph->th[ETYPE_REAL], max_eq);      
 
-#if TRACE || 1
+#if TRACE
     printf("---> %"PRIu32" interface equalities from arith-solver\n", i);
     fflush(stdout);
     k = i;
@@ -4858,7 +4858,7 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
     assert(egraph->eg[ETYPE_BV] != NULL);
     i += egraph->eg[ETYPE_BV]->reconcile_model(egraph->th[ETYPE_BV], max_eq - i);
 
-#if TRACE || 1
+#if TRACE
     printf("---> %"PRIu32" interface equalities from bv-solver\n", i - k);
     fflush(stdout);
 #endif  
@@ -4874,7 +4874,7 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
     assert(egraph->eg[ETYPE_FUNCTION] != NULL);
     i = egraph->eg[ETYPE_FUNCTION]->reconcile_model(egraph->th[ETYPE_FUNCTION], 1);
 
-#if TRACE || 1
+#if TRACE
     printf("---> %"PRIu32" interface equalities from fun-solver\n", i);
     fflush(stdout);
 #endif  

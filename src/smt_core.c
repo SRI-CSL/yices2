@@ -16,7 +16,8 @@
 #define TRACE 0
 #define DEBUG 0
 
-#if DEBUG || TRACE || 1
+#if DEBUG || TRACE
+
 #include <stdio.h>
 #include <inttypes.h>
 
@@ -5356,7 +5357,7 @@ void smt_process(smt_core_t *s) {
     } else if (! empty_lemma_queue(&s->lemmas)) {
       add_all_lemmas(s);
 
-#if 1
+#if 0
       // PROVISIONAL
       printf("After add lemmas\n");
       printf("num. bool vars:                 %"PRIu32"\n", num_vars(s));

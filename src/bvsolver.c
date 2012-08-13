@@ -21,7 +21,7 @@
 
 #define DUMP 0
 
-#if TRACE || DUMP || 1
+#if TRACE || DUMP
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -1815,7 +1815,7 @@ bool bv_solver_bitblast(bv_solver_t *solver) {
 
   solver->bitblasted = true;
 
-#if 1
+#if 0
   printf("Statistics\n");
   printf("num. bool vars:                 %"PRIu32"\n", num_vars(solver->core));
   printf("num. unit clauses:              %"PRIu32"\n", num_unit_clauses(solver->core));
@@ -6910,7 +6910,7 @@ uint32_t bv_solver_reconcile_model(bv_solver_t *solver, uint32_t max_eq) {
 
   assert(max_eq > 0);
 
-#if TRACE || 1
+#if TRACE
   printf("\n---> bv: reconcile model\n");
   fflush(stdout);
 #endif
