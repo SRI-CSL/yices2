@@ -4832,6 +4832,7 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
     }
   }
 
+
   /*
    * Check for interface equalities
    */

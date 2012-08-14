@@ -21,7 +21,7 @@
 #define TRACE_DL     0
 #define TRACE        0
 
-#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DL || TRACE || 1
+#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DL || TRACE
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -5745,12 +5745,11 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
     // flattening failed
     ivector_reset(v);
   } 
-  
+
   // no simplification
   x = internalize_to_bv(ctx, t1);
   y = internalize_to_bv(ctx, t2);
   ctx->bv.assert_eq_axiom(ctx->bv_solver, x,  y, tt);
-
 }
 
 static void assert_toplevel_bvge(context_t *ctx, composite_term_t *ge, bool tt) {

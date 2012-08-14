@@ -5359,12 +5359,14 @@ void smt_process(smt_core_t *s) {
 
 #if 0
       // PROVISIONAL
-      printf("After add lemmas\n");
-      printf("num. bool vars:                 %"PRIu32"\n", num_vars(s));
-      printf("num. unit clauses:              %"PRIu32"\n", num_unit_clauses(s));
-      printf("num. binary clauses:            %"PRIu32"\n", num_binary_clauses(s));
-      printf("num. main clauses:              %"PRIu32"\n", num_prob_clauses(s));
-      printf("num. clause literals:           %"PRIu64"\n\n", num_prob_literals(s));
+      if (s->base_level == s->decision_level) {
+	printf("After add lemmas\n");
+	printf("num. bool vars:                 %"PRIu32"\n", num_vars(s));
+	printf("num. unit clauses:              %"PRIu32"\n", num_unit_clauses(s));
+	printf("num. binary clauses:            %"PRIu32"\n", num_binary_clauses(s));
+	printf("num. main clauses:              %"PRIu32"\n", num_prob_clauses(s));
+	printf("num. clause literals:           %"PRIu64"\n\n", num_prob_literals(s));
+      }
 #endif
 
     } else {

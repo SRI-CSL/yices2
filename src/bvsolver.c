@@ -1681,6 +1681,8 @@ static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
   }
 }
 
+// EXPERIMENTAL
+static bool bounds_imply_diseq(bv_solver_t *solver, thvar_t x, thvar_t y);
 
 /*
  * Bitblast all the atoms
@@ -1702,6 +1704,16 @@ static void bv_solver_bitblast_atoms(bv_solver_t *solver) {
     l = atbl->data[i].lit;
     x = atbl->data[i].left;
     y = atbl->data[i].right;
+
+    // EXPERIMENT: check
+    if (bvatm_tag(atbl->data + i) == BVEQ_ATM && 
+	bounds_imply_diseq(solver, mtbl_get_root(&solver->mtbl, x), mtbl_get_root(&solver->mtbl, y))) {
+#if 0
+      printf("---> bitblast: skipping atom (bveq u!%"PRId32" u!%"PRId32")\n", x, y);
+#endif
+      add_unit_clause(solver->core, not(l));
+      continue;
+    }
 
     /*
      * Process operands x and y
@@ -2980,8 +2992,9 @@ static void simplify_bvpoly_eq_term(bv_solver_t *solver, bvpoly_t *p, thvar_t t,
  * - on entry, x and y must be stored in *vx and *vy
  * - x and y must be root in solver->mtbl
  * - on exit, the simplified form is stored in *vx and *vy
+ * - return true if the equality was simplfied (i.e. if *vx != x or *vy != y)
  */
-static void simplify_eq(bv_solver_t *solver, thvar_t *vx, thvar_t *vy) {
+static bool simplify_eq(bv_solver_t *solver, thvar_t *vx, thvar_t *vy) {
   bv_vartable_t *vtbl;
   thvar_t x, y;
   bvvar_tag_t tag_x, tag_y;
@@ -3050,8 +3063,11 @@ static void simplify_eq(bv_solver_t *solver, thvar_t *vx, thvar_t *vy) {
 #endif
     *vx = mtbl_get_root(&solver->mtbl, *vx);
     *vy = mtbl_get_root(&solver->mtbl, *vy);
+
+    return true;
   }
-  
+
+  return false;
 }
 
 
@@ -4077,7 +4093,6 @@ static bool diseq_bvvar_const(bv_solver_t *solver, thvar_t x, bvconstant_t *c, u
 }
 
 
-
 /*
  * Recursion limit for diseq checks
  */
@@ -4165,6 +4180,84 @@ static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
 }
 
 
+
+/*
+ * PROVISIONAL: MORE DISEQUALITY CHECKS
+ */
+
+/*
+ * Check diequalities using asserted bounds
+ * - x and y are variables
+ * - n = number of bits
+ * - return true if x and y 
+ */
+static bool diseq_bvvar_by_bounds64(bv_solver_t *solver, thvar_t x, thvar_t y, uint32_t n) {
+  bv64_interval_t intv_x, intv_y;
+  
+  assert(1 <= n && n <= 64);
+
+  bvvar_bounds_u64(solver, x, n, MAX_RECUR_DEPTH, &intv_x);  // intv_x.low <= x <= intv_x.high
+  bvvar_bounds_u64(solver, y, n, MAX_RECUR_DEPTH, &intv_y);  // intv_y.low <= y <= intv_y.high
+  if (intv_x.high < intv_y.low || intv_y.high < intv_x.low) {
+    // the internals [intv_x.low, intv_x.high] and [intv_y.low, intv_y.high] are disjoint
+    return true;
+  }
+
+  // Try signed intervals
+  bvvar_bounds_s64(solver, x, n, MAX_RECUR_DEPTH, &intv_x);  // intv_x.low <= x <= intv_x.high
+  bvvar_bounds_s64(solver, y, n, MAX_RECUR_DEPTH, &intv_y);  // intv_y.low <= y <= intv_y.high
+
+  if (signed64_lt(intv_x.high, intv_y.low, n) || signed64_lt(intv_y.high, intv_x.low, n)) {
+    return true;
+  }
+
+  return false;
+}
+
+
+static bool diseq_bvvar_by_bounds(bv_solver_t *solver, thvar_t x, thvar_t y, uint32_t n) {
+  bv_interval_t *bounds_x, *bounds_y;
+  bool result;
+
+  // prepare interval stack
+  alloc_bv_interval_stack(&solver->intv_stack);
+  bounds_x = get_bv_interval(&solver->intv_stack);
+  bounds_y = get_bv_interval(&solver->intv_stack);
+
+  assert(bounds_x != NULL && bounds_y != NULL);
+
+  bvvar_bounds_u(solver, x, n, MAX_RECUR_DEPTH, bounds_x);  // bounds_x.low <= x <= bounds_x.high
+  bvvar_bounds_u(solver, y, n, MAX_RECUR_DEPTH, bounds_y);  // bounds_y.low <= y <= bounds_y.high
+
+  if (bvconst_lt(bounds_x->high, bounds_y->low, n) || bvconst_lt(bounds_y->high, bounds_x->low, n)) {
+    result = true;
+  } else {
+    // Try signed intervals
+    bounds_x = get_bv_interval(&solver->intv_stack);
+    bounds_y = get_bv_interval(&solver->intv_stack);
+
+    result = bvconst_slt(bounds_x->high, bounds_y->low, n) || bvconst_slt(bounds_y->high, bounds_x->low, n);
+  }
+
+  release_all_bv_intervals(&solver->intv_stack);
+
+  return result;  
+}
+
+
+static bool bounds_imply_diseq(bv_solver_t *solver, thvar_t x, thvar_t y) {
+  uint32_t n;
+
+  assert(bvvar_bitsize(&solver->vtbl, x) == bvvar_bitsize(&solver->vtbl, y));
+  assert(mtbl_is_root(&solver->mtbl, x) && mtbl_is_root(&solver->mtbl, y));
+
+  n = bvvar_bitsize(&solver->vtbl, x);
+  if (n <= 64) {
+    return diseq_bvvar_by_bounds64(solver, x, y, n);
+  } else {
+    return diseq_bvvar_by_bounds(solver, x, y, n);
+  } 
+}
 
 
 
@@ -5371,10 +5464,13 @@ literal_t bv_solver_create_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
   if (equal_bvvar(solver, x, y)) return true_literal;
   if (diseq_bvvar(solver, x, y)) return false_literal;
+  //  if (bounds_imply_diseq(solver, x, y)) return false_literal;
 
-  simplify_eq(solver, &x, &y);
-  if (x == y) return true_literal;
-  if (diseq_bvvar(solver, x, y)) return false_literal;
+  if (simplify_eq(solver, &x, &y)) {
+    if (x == y) return true_literal;
+    if (diseq_bvvar(solver, x, y)) return false_literal;
+    //    if (bounds_imply_diseq(solver, x, y)) return false_literal;
+  }
 
   return bv_solver_make_eq_atom(solver, x, y);
 }
@@ -5573,7 +5669,7 @@ static void bv_solver_assert_neq0(bv_solver_t *solver, thvar_t x, thvar_t y) {
  */
 void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool tt) {
   literal_t l;
-
+  
 #if TRACE
   if (bvvar_bitsize(&solver->vtbl, x) == 1) {
     printf("---> assert (bveq u!%"PRId32" u!%"PRId32")\n", x, y);
@@ -5589,29 +5685,47 @@ void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
 
   if (equal_bvvar(solver, x, y)) {
     if (! tt) add_empty_clause(solver->core);     // Contradiction
-  } else if (diseq_bvvar(solver, x, y)) {
+    return;
+  }
+
+  //  if (diseq_bvvar(solver, x, y) || bounds_imply_diseq(solver, x, y)) {
+  if (diseq_bvvar(solver, x, y)) {
     if (tt) add_empty_clause(solver->core);       // Contradiction
-  } else {
-    simplify_eq(solver, &x, &y);  // try to simplify
+    return;
+  }
+
+  // try to simplify
+  if (simplify_eq(solver, &x, &y)) {
     // simplify may result in x == y
     if (x == y) {
       if (! tt) add_empty_clause(solver->core);
-    } else if (diseq_bvvar(solver, x, y)) {
-      if (tt) add_empty_clause(solver->core);
-    } else if (tt) {
-      // x == y: merge the classes of x and y
-      bv_solver_merge_vars(solver, x, y);
-    } else if (bvvar_is_zero(&solver->vtbl, x)) {
-      // y != 0
-      bv_solver_assert_neq0(solver, y, x); 
-    } else if (bvvar_is_zero(&solver->vtbl, y)) {
-      // x != 0
-      bv_solver_assert_neq0(solver, x, y);
-    } else {
-      // Add the constraint (x != y)
-      l = bv_solver_make_eq_atom(solver, x, y);
-      add_unit_clause(solver->core, not(l));
+      return;
     }
+
+    //    if (diseq_bvvar(solver, x, y) || bounds_imply_diseq(solver, x, y)) {
+    if (diseq_bvvar(solver, x, y)) {
+      if (tt) add_empty_clause(solver->core);
+      return;
+    }
+  }
+
+
+  /* 
+   * No contradiction detected
+   */
+  if (tt) {
+    // x == y: merge the classes of x and y
+    bv_solver_merge_vars(solver, x, y);
+  } else if (bvvar_is_zero(&solver->vtbl, x)) {
+    // y != 0
+    bv_solver_assert_neq0(solver, y, x); 
+  } else if (bvvar_is_zero(&solver->vtbl, y)) {
+    // x != 0
+    bv_solver_assert_neq0(solver, x, y);
+  } else {
+    // Add the constraint (x != y)
+    l = bv_solver_make_eq_atom(solver, x, y);
+    add_unit_clause(solver->core, not(l));
   }
 }
 
@@ -5806,11 +5920,13 @@ static literal_t on_the_fly_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
 
   if (equal_bvvar(solver, x, y)) return true_literal;
   if (diseq_bvvar(solver, x, y)) return false_literal;
+  //  if (bounds_imply_diseq(solver, x, y)) return false_literal;
 
-  simplify_eq(solver, &x, &y);
-  if (x == y) return true_literal;
-  if (diseq_bvvar(solver, x, y)) return false_literal;
-
+  if (simplify_eq(solver, &x, &y)) {
+    if (x == y) return true_literal;
+    if (diseq_bvvar(solver, x, y)) return false_literal;
+    //    if (bounds_imply_diseq(solver, x, y)) return false_literal;
+  }
 
   // check whether (bveq x y) exists already
   atbl = &solver->atbl;
@@ -5905,7 +6021,7 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
 #if TRACE
   t1 = bvvar_get_eterm(vtbl, x1);
   t2 = bvvar_get_eterm(vtbl, x2);
-  printf("---> bvequiv lemma:\n");
+  printf("---> checking bvequiv lemma:\n");
   printf("     x1 = ");
   print_bv_solver_var(stdout, solver, x1);
   printf(", t1 = ");
@@ -6649,10 +6765,13 @@ bool bv_solver_check_disequality(bv_solver_t *solver, thvar_t x, thvar_t y) {
     y = mtbl_get_root(&solver->mtbl, y);
     if (equal_bvvar(solver, x, y)) return false;
     if (diseq_bvvar(solver, x, y)) return true;
+    if (bounds_imply_diseq(solver, x, y)) return true;
 
-    simplify_eq(solver, &x, &y);
-    if (x == y) return false;
-    if (diseq_bvvar(solver, x, y)) return true;
+    if (simplify_eq(solver, &x, &y)) {
+      if (x == y) return false;
+      if (diseq_bvvar(solver, x, y)) return true;
+      if (bounds_imply_diseq(solver, x, y)) return true;
+    }
   }
 
   return false;
