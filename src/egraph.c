@@ -4888,14 +4888,13 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
   if (i > 0) {
     printf("     %"PRIu32" interface equalities created\n", i);
   }
-  //  printf("---> stack top = %"PRIu32"\n\n", egraph->stack.top);
   fflush(stdout);
 #endif
 
   c = FCHECK_SAT; // default value
   if (i > 0) {
     c = FCHECK_CONTINUE;
-  }      
+  }
 
   return c;
 }
@@ -5163,6 +5162,7 @@ void egraph_assert_pred_axiom(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a) {
   k = egraph_stack_push_eq(&egraph->stack, true_occ, pos_occ(t));
   egraph->stack.etag[k] = EXPL_AXIOM;
 }
+
 
 /*
  * Assert not (f t_1 ... t_n) as an axiom:

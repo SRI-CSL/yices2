@@ -150,7 +150,7 @@ static void stbl_extend(stbl_t *sym_table) {
     tmp[i] = NULL;
   }
 
-  // more the data lists to tmp
+  // move the data lists to tmp
   mask = n-1;
   for (i=0; i<old_size; i++) {
     list = sym_table->data[i];

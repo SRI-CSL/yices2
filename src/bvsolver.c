@@ -4233,8 +4233,8 @@ static bool diseq_bvvar_by_bounds(bv_solver_t *solver, thvar_t x, thvar_t y, uin
     result = true;
   } else {
     // Try signed intervals
-    bounds_x = get_bv_interval(&solver->intv_stack);
-    bounds_y = get_bv_interval(&solver->intv_stack);
+    bvvar_bounds_s(solver, x, n, MAX_RECUR_DEPTH, bounds_x);  // bounds_x.low <= x <= bounds_x.high
+    bvvar_bounds_s(solver, y, n, MAX_RECUR_DEPTH, bounds_y);  // bounds_y.low <= y <= bounds_y.high
 
     result = bvconst_slt(bounds_x->high, bounds_y->low, n) || bvconst_slt(bounds_y->high, bounds_x->low, n);
   }
