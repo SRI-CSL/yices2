@@ -20,6 +20,7 @@
  */
 extern void egraph_alloc_imap(egraph_t *egraph);
 
+
 /*
  * Return a pointer to egraph->imap (allocate and initialize it if needed)
  */

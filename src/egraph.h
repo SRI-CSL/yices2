@@ -157,27 +157,14 @@ extern literal_t egraph_make_or(egraph_t *egraph, uint32_t n, occ_t *a);
 
 
 /*
- * Simpler version of make_eq to be used by theory solvers
+ * Simpler version of make_eq to be used by theory solvers.
  * This function does not check for possible simplifications.
  * In  particular, the function does not call the theory solver's
- * check_diseq (to avoid circularities!).
+ * check_diseq (to avoid circularities).
  *
  * - t1 and t2 must be distinct.
  */
 extern literal_t egraph_make_simple_eq(egraph_t *egraph, occ_t t1, occ_t t2);
-
-
-/*
- * Creation of interface equality (eq t1 t2):
- * - create the atom (eq pos_occ(t1) pos_occ(t2))
- * - t1 and t2 must be two egraph terms attached to theory variables
- *   and the equality term (t1 == t2) must not exist already.
- * This is to be used only by theory solvers when models cannot be
- * reconciled (i.e., when theory variables x1 and x2  are equal in the
- * solver's model but the corresponding terms t1 and t2 are in distinct
- * egraph classes).
- */
-extern void egraph_make_interface_eq(egraph_t *egraph, eterm_t t1, eterm_t t2);
 
 
 
@@ -436,9 +423,9 @@ extern void egraph_propagate_equality(egraph_t *egraph, occ_t t1, occ_t t2, expl
 
 
 
-/*******************************
- *  SUPPORT FOR ARRAY SOLVER   *
- ******************************/
+/***********************************
+ *  SUPPORT FOR THE ARRAY SOLVER   *
+ **********************************/
 
 /*
  * Collect all composite terms of the form (apply g ....)
@@ -503,6 +490,7 @@ extern void egraph_build_arg_partition(egraph_t *egraph);
 static inline ppart_t *egraph_app_partition(egraph_t *egraph) {
   return egraph->app_partition;
 }
+
 
 /*
  * Reset the partition structure

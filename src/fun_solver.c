@@ -1348,12 +1348,16 @@ static void fun_solver_normalize_apps(fun_solver_t *solver) {
  * If x is a root variable and c = (apply f i_1 ... i_n) is a composite with class[f] == x
  * then we propagate that (apply z i_1 ... i_n) must be equal to (apply f i_1 ... i_n) for
  * all nodes z connected to x via a path that does not mask i_1 ... i_n.
- * - A path masks i_1 ... i_n, if it contains an edge labelled by [j_1 ... j_n] and
- *   j_1 == i_1, ..., j_n == i_n holds in the egraph.
- * - There's a conflict if there's a composite d congruent to (apply z i_1 ... i_n) that's 
- *   in a different equivalence class than c in the egraph.
- * - If a conflict is found, we add instances of axiom2 to the core. Otherwise, we add c to
- *   app[root[z]] for all z found along the way.
+ *
+ * A path masks i_1 ... i_n, if it contains an edge labelled by [j_1 ... j_n] and
+ * j_1 == i_1, ..., j_n == i_n holds in the egraph.
+ *
+ * There's a conflict if there's a composite d congruent to (apply z
+ * i_1 ... i_n) that's in a different equivalence class than c in
+ * the egraph.
+ *
+ * If a conflict is found, we add instances of axiom2 to the core. 
+ * Otherwise, we add c to app[root[z]] for all z found along the way.
  */
 
 
@@ -1584,6 +1588,7 @@ static bool update_conflict_for_application(fun_solver_t *solver, thvar_t x, com
   while (! empty_fun_queue(queue)) {
     z = fun_queue_pop(queue);
     assert(vtbl->root[z] == z);
+
     /*
      * Check for conflicts
      */

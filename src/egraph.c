@@ -4405,6 +4405,7 @@ static void delete_composite(egraph_t *egraph, composite_t *p) {
   safe_free(p);
 }
 
+
 /*
  * Cleanup the term table
  * - remove terms of id n to nterms - 1
@@ -4645,49 +4646,6 @@ literal_t egraph_make_simple_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
   return egraph_term2literal(egraph, t);  
 }
 
-
-/*
- * Create the interface equality for t1 and t2
- * - made this function public so that theory solvers can invoke it directly
- */
-void egraph_make_interface_eq(egraph_t *egraph, eterm_t t1, eterm_t t2) {
-#if TRACE || !defined(NDEBUG)
-  literal_t l;
-#endif
-
-#if TRACE
-  printf("---> Create interface equality ");
-  print_eterm_id(stdout, t1);
-  printf(" == ");
-  print_eterm_id(stdout, t2);
-  printf("\n");
-#endif
-
-  /*
-   * We want to bypass the simplication checks here
-   * so we can't directly call egraph_make_eq.
-   */
-#if TRACE || !defined(NDEBUG)
-  //  l = egraph_make_eq(egraph, pos_occ(t1), pos_occ(t2));
-  l = egraph_make_simple_eq(egraph, pos_occ(t1), pos_occ(t2));
-  assert(literal_value(egraph->core, l) == VAL_UNDEF);
-#else 
-  (void) egraph_make_simple_eq(egraph, pos_occ(t1), pos_occ(t2));
-#endif
-
-  egraph->stats.interface_eqs ++;
-
-  // Experimental: give preference to branching on (eq t1 t2) true
-  //  set_bvar_polarity(egraph->core, var_of(l), is_pos(l));
-  //  set_bvar_activity(egraph->core, var_of(l), egraph->core->heap.act_increment);
-
-#if TRACE
-  printf("     attached to literal ");
-  print_literal(stdout, l);
-  printf("\n");
-  fflush(stdout);
-#endif
-}
 
 
 /**********************

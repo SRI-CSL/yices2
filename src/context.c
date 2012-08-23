@@ -2806,6 +2806,19 @@ static void add_type_constraints(context_t *ctx, occ_t t, type_t tau) {
 /*
  * Add the tuple skolemization axiom for term occurrence 
  * u of type tau.
+ *
+ * TODO: optimize to remove too many auxiliary variables?
+ * - If tau is (tuple (tuple a b) (tuple c d)), this function
+ *   will do:
+ *    (= u  (tuple u1 v1))
+ *    (= u1 (tuple u2 u3))
+ *    (= v1 (tuple v2 v3))
+ * So there will be three equality axioms in the egraph and
+ * eight new terms (each u_i and v_i is an egraph variable).
+ *
+ * A more compact skolemization would be to assert:
+ *   (= u  (tuple (tuple u2 u3) (tuple v2 v3)))
+ * To eliminatre the variables u1 and u2.
  */
 static void skolemize_tuple(context_t *ctx, occ_t u, type_t tau) {
   type_table_t *types;
