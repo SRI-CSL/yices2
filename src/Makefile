@@ -563,7 +563,7 @@ $(static_bindir)/%$(EXEEXT): $(static_objdir)/%.o $(static_libyices)
 #
 
 #
-# linux + solaris
+# linux + solaris + FreeBSD
 #
 $(libdir)/$(libyices_so): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
@@ -595,12 +595,14 @@ $(static_libdir)/$(libyices_so): $(base_obj) $(version_obj)
 $(bindir)/$(libyices_dll): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(libdir)/$(libyices_implib) \
+	-Wl,--no-undefined \
 	$(base_obj) $(version_obj) $(LIBS)
 	$(STRIP) $@
 
 $(static_bindir)/$(libyices_dll): $(static_base_obj) $(static_version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
+	-Wl,--no-undefined \
 	$(static_base_obj) $(static_version_obj) $(PIC_GMP)
 	$(STRIP) -x $@
 
@@ -620,6 +622,7 @@ $(bindir)/$(libyices_mingw_dll): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(libdir)/$(libyices_implib) \
 	-Wl,--output-def,$(libdir)/$(libyices_def) \
+	-Wl,--no-undefined \
 	$(base_obj) $(version_obj) $(LIBS)
 	$(STRIP) $@
 
@@ -627,6 +630,7 @@ $(static_bindir)/$(libyices_mingw_dll): $(static_base_obj) $(static_version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
 	-Wl,--output-def,$(static_libdir)/$(libyices_def) \
+	-Wl,--no-undefined \
 	$(static_base_obj) $(static_version_obj) $(PIC_GMP)
 	$(STRIP) $@
 
