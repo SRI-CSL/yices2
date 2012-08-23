@@ -68,61 +68,74 @@ smt_distdir := $(BUILD)/smt_dist
 static_smt_distdir := $(BUILD)/static_smt_dist
 
 
+
 #
-# source files for libyices
+# SOURCE FILES
 #
-src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c \
-         arith_buffer_terms.c arith_solver_codes.c arith_vartable.c  \
-         backtrack_arrays.c bit_blaster.c bit_expr.c                 \
-         bit_term_conversion.c bvarith_buffers.c                     \
-         bvarith_buffer_terms.c bvarith64_buffers.c                  \
-         bvarith64_buffer_terms.c bvlogic_buffers.c bv_atomtable.c   \
-	 bv_constants.c bv64_constants.c bvconst_hmap.c              \
-         bv_intervals.c bv64_intervals.c bv_polynomials.c            \
-         bv64_polynomials.c bvpoly_buffers.c bvpoly_compiler.c       \
-         bvpoly_dag.c bvsolver.c bvsolver_printer.c bv_vartable.c    \
-         bvexp_table.c cache.c command_line.c composites.c           \
-         concrete_values.c context.c context_config.c                \
-         context_printer.c context_solver.c dep_tables.c             \
-         diophantine_systems.c diseq_stacks.c dl_vartable.c          \
-         dsolver_printer.c egraph_assertion_queues.c                 \
-         egraph_explanations.c egraph_utils.c egraph.c               \
-         egraph_printer.c eq_abstraction.c eq_learner.c              \
-         extended_rationals.c free_var_collector.c fun_maps.c        \
-         fun_solver.c fun_solver_printer.c fun_trees.c               \
-         gates_hash_table.c gates_manager.c gates_printer.c gcd.c    \
-         generic_heap.c hash_functions.c idl_floyd_warshall.c        \
-         idl_fw_printer.c index_vectors.c int_array_hsets.c          \
-         int_array_sort.c int_array_sort2.c int_bags.c int_bv_sets.c \
-         int_hash_classes.c int_hash_map.c int_hash_map2.c           \
-         int_hash_sets.c int_hash_tables.c int_heap.c int_heap2.c    \
-         int_partitions.c int_powers.c int_queues.c int_stack.c      \
-         int_vectors.c internalization_table.c                       \
-         internalization_printer.c large_bvsets.c lexer.c            \
-         mark_vectors.c matrices.c memalloc.c memsize.c              \
-         merge_table.c models.c model_eval.c model_printer.c         \
-         mpq_aux.c object_stores.c pair_hash_map.c pair_hash_map2.c  \
-         pair_hash_sets.c parser.c pointer_vectors.c polynomials.c   \
-         poly_buffer.c power_products.c pprod_table.c                \
-         pretty_printer.c pseudo_subst.c ptr_array_sort.c            \
-         ptr_array_sort2.c ptr_hash_map.c ptr_heap.c                 \
-         ptr_partitions.c ptr_queues.c ptr_stack.c ptr_vectors.c     \
-         rationals.c rational_hash_maps.c rb_bvsets.c                \
-         rdl_floyd_warshall.c rdl_fw_printer.c reader.c              \
-         refcount_int_arrays.c refcount_strings.c remap_table.c      \
-         renaming_context.c sat_solver.c search_parameters.c         \
-         simplex.c simplex_printer.c simplex_prop_table.c            \
-         small_bvsets.c smt_core.c smt_core_exporter.c               \
-         smt_core_printer.c smt_lexer.c smt_logic_codes.c            \
-         smt_parser.c smt2_lexer.c smt2_parser.c string_buffers.c    \
-         string_utils.c subst_cache.c subst_context.c                \
-         symbol_tables.c terms.c term_manager.c term_printer.c       \
-         term_stack.c term_stack_error.c term_substitution.c         \
-         term_utils.c theory_explanations.c timeout.c                \
-         tuple_hash_map.c types.c type_printer.c uint_rbtrees.c      \
-         union_find.c use_vectors.c variable_renaming.c yices_api.c  \
-         yices_error.c yices_lexer.c yices_pp.c yices_parser.c       \
-         yices_reval.c
+
+#
+# Source files for the dynamic library (libyices.so)
+#
+base_src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c  \
+              arith_buffer_terms.c arith_vartable.c backtrack_arrays.c     \
+	      bit_blaster.c bit_expr.c bit_term_conversion.c               \
+              bvarith_buffers.c bvarith_buffer_terms.c bvarith64_buffers.c \
+              bvarith64_buffer_terms.c bvlogic_buffers.c bv_atomtable.c    \
+              bv_constants.c bv64_constants.c bvconst_hmap.c               \
+              bv_intervals.c bv64_intervals.c bv_polynomials.c             \
+              bv64_polynomials.c bvpoly_buffers.c bvpoly_compiler.c        \
+              bvpoly_dag.c bvsolver.c bv_vartable.c bvexp_table.c cache.c  \
+              composites.c concrete_values.c context.c context_config.c    \
+              context_solver.c dep_tables.c diophantine_systems.c          \
+              diseq_stacks.c dl_vartable.c egraph_assertion_queues.c       \
+              egraph_explanations.c egraph_utils.c egraph.c                \
+              eq_abstraction.c eq_learner.c extended_rationals.c           \
+              free_var_collector.c fun_maps.c fun_solver.c fun_trees.c     \
+              gates_hash_table.c gates_manager.c gcd.c generic_heap.c      \
+              hash_functions.c idl_floyd_warshall.c index_vectors.c        \
+              int_array_hsets.c int_array_sort.c int_array_sort2.c         \
+              int_bags.c int_bv_sets.c int_hash_classes.c int_hash_map.c   \
+              int_hash_map2.c int_hash_sets.c int_hash_tables.c            \
+              int_heap.c int_heap2.c int_partitions.c int_powers.c         \
+              int_queues.c int_stack.c int_vectors.c                       \
+              internalization_table.c lexer.c mark_vectors.c matrices.c    \
+              memalloc.c merge_table.c models.c model_eval.c               \
+              model_printer.c mpq_aux.c object_stores.c pair_hash_map2.c   \
+              parser.c pointer_vectors.c polynomials.c poly_buffer.c       \
+              power_products.c pprod_table.c pretty_printer.c              \
+              pseudo_subst.c ptr_array_sort.c ptr_array_sort2.c            \
+              ptr_hash_map.c ptr_heap.c ptr_partitions.c ptr_queues.c      \
+              ptr_stack.c ptr_vectors.c rationals.c rational_hash_maps.c   \
+              rb_bvsets.c rdl_floyd_warshall.c reader.c                    \
+              refcount_int_arrays.c refcount_strings.c remap_table.c       \
+              renaming_context.c search_parameters.c simplex.c             \
+              small_bvsets.c smt_core.c smt_logic_codes.c string_buffers.c \
+	      string_utils.c subst_cache.c subst_context.c symbol_tables.c \
+              terms.c term_manager.c term_printer.c term_stack.c           \
+              term_stack_error.c  term_substitution.c term_utils.c         \
+              theory_explanations.c tuple_hash_map.c types.c               \
+              type_printer.c uint_rbtrees.c use_vectors.c                  \
+              variable_renaming.c yices_api.c yices_error.c yices_lexer.c  \
+              yices_pp.c yices_parser.c
+
+
+#
+# Other source files for libyices.a 
+# - code that's used by the main binaries
+# + old stuff not needed anymore (except for tests)
+#
+extra_src_c := arith_solver_codes.c bvsolver_printer.c command_line.c \
+               context_printer.c dsolver_printer.c egraph_printer.c   \
+               fun_solver_printer.c gates_printer.c idl_fw_printer.c  \
+               internalization_printer.c large_bvsets.c memsize.c     \
+               pair_hash_map.c pair_hash_sets.c rdl_fw_printer.c      \
+               sat_solver.c simplex_printer.c simplex_prop_table.c    \
+               smt_core_exporter.c smt_core_printer.c smt_lexer.c     \
+               smt_parser.c smt2_lexer.c smt2_parser.c timeout.c      \
+               union_find.c yices_reval.c
+
+
+src_c := $(base_src_c) $(extra_src_c)
 
 
 #
@@ -130,10 +143,12 @@ src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c \
 #
 bin_src_c := yices_main.c yices_smtcomp.c yices_smt.c yices_sat.c
 
+
 #
 # Auto-generated version file
 #
 version_c := yices_version.c
+
 
 #
 # Dependencies and object files
@@ -160,11 +175,13 @@ static_version_dep := $(static_objdir)/yices_version.d
 libyices := $(libdir)/libyices.a
 static_libyices := $(static_libdir)/libyices.a
 
+
 #
 # Binaries
 #
 binaries := $(bin_src_c:%.c=$(bindir)/%$(EXEEXT))
 static_binaries := $(bin_src_c:%.c=$(static_bindir)/%$(EXEEXT))
+
 
 
 #
@@ -173,10 +190,10 @@ static_binaries := $(bin_src_c:%.c=$(static_bindir)/%$(EXEEXT))
 
 #
 # Linux/Solaris/FreeBSD
-# the library has full versioned name libyices.so.2.0.0
-# soname: libyices.so.2.0
+# the library has full versioned name libyices.so.2.X.Y
+# soname: libyices.so.2.X
 #
-# For Free BSD: the convention seems to call the file libyices.so.2.0
+# For Free BSD: the convention seems to call the file libyices.so.2.X
 #
 ifeq ($(POSIXOS),freebsd)
 libyices_so := libyices.so.$(MAJOR).$(MINOR)
@@ -214,6 +231,12 @@ libyices_mingw_dll := libyices.dll
 libyices_implib=libyices.dll.a
 libyices_def=libyices.def
 
+
+
+
+###########################
+#   COMPILATION FLAGS     #
+###########################
 
 #
 # OS-dependent compilation flags + which dynamic libraries to build
@@ -316,6 +339,7 @@ endif
 
 
 
+
 #
 # Compilation flags dependent on MODE
 #
@@ -353,6 +377,18 @@ CFLAGS := $(CFLAGS) -g
 endif
 endif
 endif
+endif
+
+
+#
+# Object files to include in the dynamic library
+#
+ifeq ($(YICES_MODE),release)
+base_obj := $(base_src_c:%.c=$(objdir)/%.o)
+static_base_obj := $(base_src_c:%.c=$(static_objdir)/%.o)
+else
+base_obj := $(obj)
+static_base_obj := $(static_obj)
 endif
 
 
@@ -494,13 +530,10 @@ $(static_version_obj): yices_version.c
 $(static_objdir)/%o: %c
 	$(CC) $(STATIC_CPPFLAGS) $(CFLAGS) -c $< -o $@
 
+
 #
 # Static libraries
 #
-# Right now, the dynamic and static libyices.a are the same.
-# I'd like to include libgmp.a in the static libyices.a but 
-# I haven't found a good way to do it.
-# 
 $(libyices): $(obj) $(version_obj)
 	@ rm -f $(libyices)
 	$(AR) cr $(libyices) $(obj) $(version_obj)
@@ -532,14 +565,16 @@ $(static_bindir)/%$(EXEEXT): $(static_objdir)/%.o $(static_libyices)
 #
 # linux + solaris
 #
-$(libdir)/$(libyices_so): $(obj) $(version_obj)
+$(libdir)/$(libyices_so): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
-	-Wl,-soname,$(libyices_soname) $(obj) $(version_obj) $(LIBS)
+	-Wl,-soname,$(libyices_soname) -Wl,--no-undefined \
+        $(base_obj) $(version_obj) $(LIBS)
 	$(STRIP) -x $@
 
-$(static_libdir)/$(libyices_so): $(obj) $(version_obj)
+$(static_libdir)/$(libyices_so): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
-	-Wl,-soname,$(libyices_soname) $(obj) $(version_obj) $(PIC_GMP)
+	-Wl,-soname,$(libyices_soname) -Wl,--no-undefined \
+        $(base_obj) $(version_obj) $(PIC_GMP)
 	$(STRIP) -x $@
 
 
@@ -557,16 +592,16 @@ $(static_libdir)/$(libyices_so): $(obj) $(version_obj)
 # build the DLLs in bindir or static_bindir, instead of libdir and
 # static_libdir.
 #
-$(bindir)/$(libyices_dll): $(obj) $(version_obj)
+$(bindir)/$(libyices_dll): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(libdir)/$(libyices_implib) \
-	$(obj) $(version_obj) $(LIBS)
+	$(base_obj) $(version_obj) $(LIBS)
 	$(STRIP) $@
 
-$(static_bindir)/$(libyices_dll): $(static_obj) $(static_version_obj)
+$(static_bindir)/$(libyices_dll): $(static_base_obj) $(static_version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
-	$(static_obj) $(static_version_obj) $(PIC_GMP)
+	$(static_base_obj) $(static_version_obj) $(PIC_GMP)
 	$(STRIP) -x $@
 
 
@@ -581,18 +616,18 @@ $(static_bindir)/$(libyices_dll): $(static_obj) $(static_version_obj)
 #
 # Change: 2012/07/12 as above: build DLLs in bin directories.
 #
-$(bindir)/$(libyices_mingw_dll): $(obj) $(version_obj)
+$(bindir)/$(libyices_mingw_dll): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(libdir)/$(libyices_implib) \
 	-Wl,--output-def,$(libdir)/$(libyices_def) \
-	$(obj) $(version_obj) $(LIBS)
+	$(base_obj) $(version_obj) $(LIBS)
 	$(STRIP) $@
 
-$(static_bindir)/$(libyices_mingw_dll): $(static_obj) $(static_version_obj)
+$(static_bindir)/$(libyices_mingw_dll): $(static_base_obj) $(static_version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
 	-Wl,--output-def,$(static_libdir)/$(libyices_def) \
-	$(static_obj) $(static_version_obj) $(PIC_GMP)
+	$(static_base_obj) $(static_version_obj) $(PIC_GMP)
 	$(STRIP) $@
 
 
@@ -604,7 +639,7 @@ $(static_bindir)/$(libyices_mingw_dll): $(static_obj) $(static_version_obj)
 # - option -headerpad_max_install_names allows users to
 #   safely change the install name using install_name_tool.
 #
-$(libdir)/$(libyices_dylib): $(obj) $(version_obj)
+$(libdir)/$(libyices_dylib): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib -o $@ \
 	-current_version $(libyices_curr_version) \
 	-compatibility_version $(libyices_compat_version) \
@@ -612,10 +647,10 @@ $(libdir)/$(libyices_dylib): $(obj) $(version_obj)
 	-Wl,-headerpad_max_install_names \
 	-Wl,-dead_strip \
 	-Wl,-single_module \
-	$(obj) $(version_obj) $(LIBS) 
+	$(base_obj) $(version_obj) $(LIBS) 
 	$(STRIP) -x $@
 
-$(static_libdir)/$(libyices_dylib): $(obj) $(version_obj)
+$(static_libdir)/$(libyices_dylib): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib -o $@ \
 	-current_version $(libyices_curr_version) \
 	-compatibility_version $(libyices_compat_version) \
@@ -623,7 +658,7 @@ $(static_libdir)/$(libyices_dylib): $(obj) $(version_obj)
 	-Wl,-headerpad_max_install_names \
 	-Wl,-dead_strip \
 	-Wl,-single_module \
-	$(obj) $(version_obj) $(PIC_GMP)
+	$(base_obj) $(version_obj) $(PIC_GMP)
 	$(STRIP) -x $@
 
 
