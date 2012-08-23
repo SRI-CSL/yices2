@@ -565,16 +565,21 @@ $(static_bindir)/%$(EXEEXT): $(static_objdir)/%.o $(static_libyices)
 #
 # linux + solaris + FreeBSD
 #
+# NOTE: by passing flag --no-undefined to ld, we should
+# get an error if something is missing in the base_obj
+# list.  This flag causes problems on our Solaris 2.10
+# machine, unless we also give -lc. 
+#
 $(libdir)/$(libyices_so): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,-soname,$(libyices_soname) -Wl,--no-undefined \
-        $(base_obj) $(version_obj) $(LIBS)
+        $(base_obj) $(version_obj) $(LIBS) -lc
 	$(STRIP) -x $@
 
 $(static_libdir)/$(libyices_so): $(base_obj) $(version_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,-soname,$(libyices_soname) -Wl,--no-undefined \
-        $(base_obj) $(version_obj) $(PIC_GMP)
+        $(base_obj) $(version_obj) $(PIC_GMP) -lc
 	$(STRIP) -x $@
 
 
