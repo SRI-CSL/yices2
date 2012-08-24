@@ -21,7 +21,6 @@ int32_t print_error(FILE *f) {
   int code;
 
   error = yices_error_report();
-  code = 0;
   switch (error->code) {
   case NO_ERROR:
     code = fprintf(f, "no error\n");

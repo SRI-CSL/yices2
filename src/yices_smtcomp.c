@@ -1023,8 +1023,6 @@ static int process_benchmark(void) {
   /*
    * Select architecture based on the benchmark logic
    */
-  need_icheck = false;
-  
   if (bench.logic_name != NULL) {
     logic = smt_logic_code(bench.logic_name);
     code = logic2arch[logic];
