@@ -1,7 +1,7 @@
 Yices SMT Solver, Copyright SRI International, 2012
 ===================================================
 
-This file is part of the Yices 2.0 binary distribution for MacOS X.
+This file is part of the Yices 2.1 binary distribution for MacOS X.
 Yices is distributed free-of-charge for personal use under the terms
 of the Yices license (see LICENSE).
 
@@ -17,7 +17,7 @@ This distribution includes three solvers
 
 and the Yices libraries and header files
 
-  lib/libyices.2.0.0.dylib
+  lib/libyices.2.1.0.dylib
   include/yices.h
   include/yices_types.h
   include/yices_limits.h
@@ -42,17 +42,17 @@ Recommended Library Installation on MacOS X
 The library's install name is '/usr/local/lib/libyices.2.dylib' so
 the following procedure should be used to install it.
 
-1) copy libyices.2.0.0.dylib in /usr/local/lib (this requires
+1) copy libyices.2.1.0.dylib in /usr/local/lib (this requires
    administrative privileges):
 
-    sudo  cp libyices.2.0.0.dylib /usr/local/lib
-    sudo  chmod 755 /usr/local/lib/libyices.2.0.0.dylib
+    sudo  cp libyices.2.1.0.dylib /usr/local/lib
+    sudo  chmod 755 /usr/local/lib/libyices.2.1.0.dylib
 
 
 2) add two symbolic links:
 
-    sudo  ln -sf libyices.2.0.0.dylib /usr/local/lib/libyices.dylib
-    sudo  ln -sf libyices.2.0.0.dylib /usr/local/lib/libyices.2.dylib
+    sudo  ln -sf libyices.2.1.0.dylib /usr/local/lib/libyices.dylib
+    sudo  ln -sf libyices.2.1.0.dylib /usr/local/lib/libyices.2.dylib
 
 
 

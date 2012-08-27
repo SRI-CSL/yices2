@@ -1,7 +1,7 @@
 Yices SMT Solver, Copyright SRI International, 2012
 ===================================================
 
-This file is part of the Yices 2.0 binary distribution for FreeBSD. 
+This file is part of the Yices 2.1 binary distribution for FreeBSD. 
 Yices is distributed free-of-charge for personal use under the terms
 of the Yices license (see LICENSE).
 
@@ -19,7 +19,7 @@ This distribution includes three solvers
 
 and the Yices library and header files
 
-  lib/libyices.so.2.0
+  lib/libyices.so.2.1
   include/yices.h
   include/yices_types.h
   include/yices_limits.h
@@ -40,18 +40,18 @@ Recommended Library Installation on FreeBSD
 The library can be installed in a standard location such as 
 /usr/local/lib as follows:
 
-1) copy libyices.so.2.0 into /usr/local/lib (may require administrative
+1) copy libyices.so.2.1 into /usr/local/lib (may require administrative
    privileges)
 
-   sudo cp libyices.so.2.0 /usr/local/lib
-   sudo chmod 755 /usr/local/lib/libyices.so.2.0
+   sudo cp libyices.so.2.1 /usr/local/lib
+   sudo chmod 755 /usr/local/lib/libyices.so.2.1
 
    (or use install).
 
 2) run ldconfig then add a symbolic link
 
    sudo /sbin/ldconfig -m /usr/local/lib
-   sudo ln -sf libyices.so.2.0 /usr/local/lib/libyices.so
+   sudo ln -sf libyices.so.2.1 /usr/local/lib/libyices.so
 
 
 

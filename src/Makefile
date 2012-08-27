@@ -118,7 +118,6 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c  \
               variable_renaming.c yices_api.c yices_error.c yices_lexer.c  \
               yices_pp.c yices_parser.c
 
-
 #
 # Other source files for libyices.a 
 # - code that's used by the main binaries
