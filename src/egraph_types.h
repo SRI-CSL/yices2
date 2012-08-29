@@ -792,7 +792,31 @@ typedef struct egraph_trail_stack_s {
  *       (0 means that the egraph and solver model are consistent).
  *
  *
- * In addition, all satellite solvers must implement
+ * Experimental API to support more flexible interface generation algorithms (08/28/2012)
+ * 
+ * 6a) void prepare_model(void *solver)
+ *
+ *    This function is called in final_check before the egraph generates interface lemmas.
+ *    The solver must build a local model at this point (enough to be able to check
+ *    whether two variables x1 and x2 have the same or different values in the local model).
+ *
+ * 6b) bool equal_in_model(void *solver, thvar_t x1, thvar_t x2)
+ *
+ *    Must return true if x1 and x2 have the same value in the model and false if
+ *    they have different values. (So the model must assign a value to all theory variables).
+ *
+ * 6c) void gen_interface_lemma(void *solver, literal_t l, thvar_t x1, thvar_t x2)
+ *
+ *    Ask the theory solver to create a lemmas of the form (l => x1 /= x2).
+ *
+ * 6d) void release_model(void *solver)
+ *
+ *    Called at the end of final_check. This means that the local model built by prepare_model
+ *    is no longer needed. The solver can free whatever internal data structures it used for
+ *    the local model, or do other cleanup.
+ *  
+ * 
+ * in addition, all satellite solvers must implement
  *
  * 7) void attach_eterm(void *solver, thvar_t x, eterm_t u): attach u as term for variable x
  *    in solver. This must be the same function as used by the context.
@@ -971,6 +995,10 @@ typedef bool (*assert_distinct_fun_t)(void *satellite, uint32_t n, thvar_t *a, c
 typedef bool (*check_diseq_fun_t)(void *satellite, thvar_t x1, thvar_t x2);
 typedef void (*expand_eq_exp_fun_t)(void *satellite, thvar_t x1, thvar_t x2, void *expl, th_explanation_t *result);
 typedef uint32_t (*reconcile_model_fun_t)(void *satellite, uint32_t max_eq);
+typedef void (*prepare_model_fun_t)(void *satellite);
+typedef bool (*equal_in_model_fun_t)(void *satellite, thvar_t x1, thvar_t x2);
+typedef void (*gen_inter_lemma_fun_t)(void *satellite, literal_t l, thvar_t x1, thvar_t x2);
+typedef void (*release_model_fun_t)(void *satellite);
 typedef void (*attach_to_var_fun_t)(void *satellite, thvar_t x, eterm_t t);
 typedef eterm_t (*get_eterm_fun_t)(void *satellite, thvar_t x);
 typedef literal_t (*select_eq_polarity_fun_t)(void *satellite, thvar_t x, thvar_t y, literal_t l);
@@ -982,6 +1010,10 @@ typedef struct th_egraph_interface_s {
   check_diseq_fun_t        check_diseq;
   expand_eq_exp_fun_t      expand_th_explanation;
   reconcile_model_fun_t    reconcile_model;
+  prepare_model_fun_t      prepare_model;
+  equal_in_model_fun_t     equal_in_model;
+  gen_inter_lemma_fun_t    gen_interface_lemma;
+  release_model_fun_t      release_model;
   attach_to_var_fun_t      attach_eterm;
   get_eterm_fun_t          eterm_of_var;
   select_eq_polarity_fun_t select_eq_polarity;

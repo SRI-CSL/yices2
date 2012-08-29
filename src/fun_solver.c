@@ -2855,6 +2855,83 @@ uint32_t fun_solver_reconcile_model(fun_solver_t *solver, uint32_t max_eq) {
 
 
 
+/*
+ * NEW MODEL RECONCILIAITON API
+ */
+static void fun_solver_prepare_model(fun_solver_t *solver) {
+  solver->reconciled = true;
+
+  fun_solver_build_classes(solver);
+  fun_solver_build_components(solver);
+  fun_solver_build_apps(solver);
+  fun_solver_normalize_apps(solver);
+  fun_solver_init_base_value(solver);
+  fun_solver_assign_base_values(solver);
+}
+
+
+// release model is defined above
+
+//  equal_in_model is defined above too
+
+/*
+ * Generate the lemma l => x1 != x2
+ * - we instantiate the extensionality axiom here:
+ *   (i.e., we generate the clause (not l) or (x1 t) /= (x2 t) for a 
+ *    fresh Skolem constant t).
+ */
+static void fun_solver_gen_interface_lemma(fun_solver_t *solver, literal_t l, thvar_t x1, thvar_t x2) {
+  fun_vartable_t *vtbl;
+  egraph_t *egraph;
+  ivector_t *v;
+  eterm_t t, u;
+  literal_t eq;
+
+  solver->reconciled = false;
+
+  assert(0 <= x1 && x1 < solver->vtbl.nvars && 0 <= x2 && x2 < solver->vtbl.nvars && x1 != x2);
+
+  egraph = solver->egraph;
+  vtbl = &solver->vtbl;
+  v = &solver->aux_vector;
+  assert(v->size == 0);
+
+  fun_solver_skolem_domain(solver, vtbl->type[x1], v);
+  t = egraph_make_apply(egraph, pos_occ(vtbl->eterm[x1]), v->size, v->data, fun_var_range_type(solver, x1));
+  u = egraph_make_apply(egraph, pos_occ(vtbl->eterm[x2]), v->size, v->data, fun_var_range_type(solver, x2));
+  eq = egraph_make_eq(egraph, pos_occ(t), pos_occ(u));
+
+#if TRACE
+  printf("\n---> Array solver: reconciliation lemma for f!%"PRId32" /= f!%"PRId32" ----\n", x1, x2);
+  print_eterm_def(stdout, solver->egraph, vtbl->eterm[x1]);
+  print_eterm_def(stdout, solver->egraph, vtbl->eterm[x2]);
+  printf("New terms:\n");
+  print_eterm_def(stdout, egraph, t);
+  print_eterm_def(stdout, egraph, u);
+  printf("Antecedent:\n");
+  print_literal(stdout, l);
+  printf(" := ");
+  print_egraph_atom_of_literal(stdout, egraph, l);
+  printf("\n");
+  printf("Disequality:\n");
+  print_literal(stdout, eq);
+  printf(" := ");
+  print_egraph_atom_of_literal(stdout, egraph, eq);
+  printf("\n");
+  printf("Clause:\n");
+  printf("  (OR ");
+  print_literal(stdout, not(l));
+  printf(" ");
+  print_literal(stdout, not(eq));
+  printf(")\n\n");  
+#endif
+
+  add_binary_clause(solver->core, not(l), not(eq));
+
+  ivector_reset(v);
+
+  solver->stats.num_extensionality_axiom ++;  
+}
 
 
 
@@ -3307,8 +3384,6 @@ void fun_solver_free_model(fun_solver_t *solver) {
 
 
 
-
-
 /***************************
  *  INTERFACE DESCRIPTORS  *
  **************************/
@@ -3335,6 +3410,10 @@ static th_egraph_interface_t fsolver_egraph = {
   (check_diseq_fun_t) fun_solver_check_disequality,
   NULL, // no need for expand_th_explanation
   (reconcile_model_fun_t) fun_solver_reconcile_model, 
+  (prepare_model_fun_t) fun_solver_prepare_model,
+  (equal_in_model_fun_t) fun_solver_var_equal_in_model,
+  (gen_inter_lemma_fun_t) fun_solver_gen_interface_lemma, // gen_interface_lemma
+  (release_model_fun_t) fun_solver_release_model,
   (attach_to_var_fun_t) fun_solver_attach_eterm,
   (get_eterm_fun_t) fun_solver_get_eterm_of_var,
   (select_eq_polarity_fun_t) fun_solver_select_eq_polarity,

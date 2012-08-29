@@ -6296,7 +6296,7 @@ static uint32_t simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, t
     return 0;
   }
 
-  e->flag = ACTIVE_ARITH_LEMMA; 
+  e->flag = ACTIVE_ARITH_LEMMA;
 
   /*
    * create the egraph equality l := (eq t1 t2)
@@ -8481,6 +8481,137 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
 
 
 
+/*
+ * EXPERIMENTAL: MODEL RECONCILIATION INTERFACE
+ */
+
+static void simplex_prep_model(simplex_solver_t *solver) {
+  simplex_prepare_model(solver);
+  if (simplex_option_enabled(solver, SIMPLEX_ADJUST_MODEL)) {
+    simplex_adjust_model(solver);
+  }
+}
+
+static void simplex_release_model(simplex_solver_t *solver) {
+  // nothing to do
+}
+
+// var equal in model is already defined
+
+/*
+ * Add the lemma l => x1 != x2
+ */
+static void simplex_gen_interface_lemma(simplex_solver_t *solver, literal_t l, thvar_t x1, thvar_t x2) {
+  rational_t *c;
+  thvar_t y;
+  literal_t l0, l1, l2;
+
+  assert(x1 != x2);
+
+  /*
+   * build p such that p=0 is equivalent to (x1 = x2)
+   * p is stored in solver->buffer
+   * l0 = simplification code
+   */
+  l0 = simplify_dynamic_vareq(solver, x1, x2);
+  if (l0 == false_literal) {
+    /*
+     * x1 = x2 is false: add (not l) as an axiom for the egraph
+     */
+    add_unit_clause(solver->core, not(l));
+
+#if TRACE
+    printf("---> Simplex: reconciliation lemma for ");
+    print_simplex_var(stdout, solver, x1);
+    printf(" /= ");
+    print_simplex_var(stdout, solver, x2);
+    printf(" ----\n");
+    if (!arith_var_is_free(&solver->vtbl, x1)) {
+      printf("     ");
+      print_simplex_vardef(stdout, solver, x1);
+    }
+    if (!arith_var_is_free(&solver->vtbl, x2)) {
+      printf("     ");
+      print_simplex_vardef(stdout, solver, x2);
+    }
+    printf("     Antecedent:\n");
+    printf("      ");
+    print_literal(stdout, l);
+    printf(" := ");
+    print_egraph_atom_of_literal(stdout, solver->egraph, l);
+    printf("\n");
+    printf("     equality is false\n");
+    printf("     add unit clause: ");
+    print_egraph_atom_of_literal(stdout, solver->egraph, not(l));
+    printf("\n");
+#endif
+
+  } else {
+    assert(l0 != true_literal); // because x1 != x2
+
+    /*
+     * get y and c such that (y = c) is equivalent to (x1 = x2)
+     */
+    y = decompose_and_get_dynamic_var(solver);
+    c = &solver->constant;
+
+    l1 = create_pos_atom(solver, y, c); // l1 is (y > c)
+    l2 = create_neg_atom(solver, y, c); // l2 is (y < c)
+
+    add_ternary_clause(solver->core, not(l), l1, l2); // clause: (not l) or (y > c) or (y < c))    
+
+#if TRACE
+    printf("---> Simplex: reconciliation lemma for ");
+    print_simplex_var(stdout, solver, x1);
+    printf(" /= ");
+    print_simplex_var(stdout, solver, x2);
+    printf(" ----\n");
+    if (!arith_var_is_free(&solver->vtbl, x1)) {
+      printf("     ");
+      print_simplex_vardef(stdout, solver, x1);
+    }
+    if (!arith_var_is_free(&solver->vtbl, x2)) {
+      printf("     ");
+      print_simplex_vardef(stdout, solver, x2);
+    }
+    printf("     Antecedent:\n");
+    printf("      ");
+    print_literal(stdout, l);
+    printf(" := ");
+    print_egraph_atom_of_literal(stdout, solver->egraph, l);
+    printf("\n");
+    printf("     Equality is reduced to\n");
+    printf("       ");
+    print_simplex_var(stdout, solver, y);
+    printf(" != ");
+    q_print(stdout, c);
+    printf("\n");
+    if (! arith_var_is_free(&solver->vtbl, y)) {
+      printf("     ");
+      print_simplex_vardef(stdout, solver, y);	
+    }
+    printf("     simplex atom:\n      ");
+    print_literal(stdout, l1);
+    printf(" := ");
+    print_simplex_atom_of_literal(stdout, solver, l1);
+    printf("\n      ");
+    print_literal(stdout, l2);
+    printf(" := ");
+    print_simplex_atom_of_literal(stdout, solver, l2);
+    printf("\n");
+    printf("     add clause: (OR ");
+    print_egraph_atom_of_literal(stdout, solver->egraph, not(l));
+    printf(" ");
+    print_simplex_atom_of_literal(stdout, solver, l1);
+    printf(" ");
+    print_simplex_atom_of_literal(stdout, solver, l2);
+    printf(")\n\n");
+#endif
+
+  }
+
+}
+
 
 /************************
  *  MODEL CONSTRUCTION  *
@@ -9327,6 +9458,10 @@ static th_egraph_interface_t simplex_egraph = {
   (check_diseq_fun_t) simplex_check_disequality,
   NULL, // no need for expand_th_explanation
   (reconcile_model_fun_t) simplex_reconcile_model,
+  (prepare_model_fun_t) simplex_prep_model,
+  (equal_in_model_fun_t) simplex_var_equal_in_model,
+  (gen_inter_lemma_fun_t) simplex_gen_interface_lemma,
+  (release_model_fun_t) simplex_release_model,
   (attach_to_var_fun_t) simplex_attach_eterm,
   (get_eterm_fun_t) simplex_eterm_of_var,
   (select_eq_polarity_fun_t) simplex_select_eq_polarity,

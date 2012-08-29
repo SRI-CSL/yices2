@@ -7083,6 +7083,53 @@ uint32_t bv_solver_reconcile_model(bv_solver_t *solver, uint32_t max_eq) {
 
 
 
+/*
+ * REVISED INTERFACE/RECONCILIATION INTERFACE
+ */
+
+/*
+ * Prepare model and relase model: nothing to do
+ * - equal_in_model is the same as bv_solver_var_equal_in_model (defined above)
+ */
+static void bv_solver_prepare_model(bv_solver_t *solver) {
+}
+
+static void bv_solver_release_model(bv_solver_t *solver) {
+}
+
+/*
+ * Add the lemma l => x1 != x2
+ * - i.e., the clause (not l) or (not (bveq x1 x2))
+ */
+static void bv_solver_gen_interface_lemma(bv_solver_t *solver, literal_t l, thvar_t x1, thvar_t x2) {
+  literal_t eq;
+
+  assert(solver->egraph != NULL && x1 != x2 &&
+	 bvvar_is_bitblasted(&solver->vtbl, x1) &&
+	 bvvar_is_bitblasted(&solver->vtbl, x2));
+
+  eq = on_the_fly_eq_atom(solver, x1, x2);
+  add_binary_clause(solver->core, not(l), not(eq));
+
+#if TRACE
+  printf("---> Bv solver: reconciliation lemma for u!%"PRId32" /= u!%"PRId32" ----\n", x1, x2);
+  printf("     Antecedent:\n");
+  printf("     ");
+  print_literal(stdout, l);
+  printf(" := ");
+  print_egraph_atom_of_literal(stdout, solver->egraph, l);
+  printf("\n");
+  printf("     (bveq u!%"PRId32" u!%"PRId32") = ", x1, x2);
+  print_literal(stdout, eq);
+  printf("\n");
+  printf("     Clause: (OR ");
+  print_literal(stdout, not(l));
+  printf(" ");
+  print_literal(stdout, not(eq));
+  printf(")\n\n");
+#endif
+}
+
 
 
 /************************
@@ -7933,6 +7980,10 @@ static th_egraph_interface_t bv_solver_egraph = {
   (check_diseq_fun_t) bv_solver_check_disequality,
   NULL, // no need for expand_th_explanation
   (reconcile_model_fun_t) bv_solver_reconcile_model,
+  (prepare_model_fun_t) bv_solver_prepare_model,
+  (equal_in_model_fun_t) bv_solver_var_equal_in_model,
+  (gen_inter_lemma_fun_t) bv_solver_gen_interface_lemma,
+  (release_model_fun_t) bv_solver_release_model,
   (attach_to_var_fun_t) bv_solver_attach_eterm,
   (get_eterm_fun_t) bv_solver_eterm_of_var,
   (select_eq_polarity_fun_t) bv_solver_select_eq_polarity,

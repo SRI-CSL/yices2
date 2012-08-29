@@ -21,7 +21,7 @@
 
 #define TRACE 0
 
-#if TRACE
+#if TRACE || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -4737,6 +4737,263 @@ static bool egraph_is_high_order(egraph_t *egraph) {
 
 
 
+/*****************************************************
+ *  EXPERIMENTAL: EGRAPH GENERATES INTERFACE LEMMAS  *
+ ****************************************************/
+
+/*
+ * Prepare the satellite models
+ */
+static void egraph_prepare_models(egraph_t *egraph) {
+  if (egraph->ctrl[ETYPE_REAL] != NULL) {
+    assert(egraph->eg[ETYPE_REAL] != NULL);
+    egraph->eg[ETYPE_REAL]->prepare_model(egraph->th[ETYPE_REAL]);
+  }
+  if (egraph->ctrl[ETYPE_BV] != NULL) {
+    assert(egraph->eg[ETYPE_BV] != NULL);
+    egraph->eg[ETYPE_BV]->prepare_model(egraph->th[ETYPE_BV]);
+  }
+  if (egraph->ctrl[ETYPE_FUNCTION] != NULL) {
+    assert(egraph->eg[ETYPE_FUNCTION] != NULL);
+    egraph->eg[ETYPE_FUNCTION]->prepare_model(egraph->th[ETYPE_FUNCTION]);
+  }
+    
+}
+
+
+/*
+ * Release the satellite models
+ */
+static void egraph_release_models(egraph_t *egraph) {
+  if (egraph->ctrl[ETYPE_REAL] != NULL) {
+    assert(egraph->eg[ETYPE_REAL] != NULL);
+    egraph->eg[ETYPE_REAL]->release_model(egraph->th[ETYPE_REAL]);
+  }
+  if (egraph->ctrl[ETYPE_BV] != NULL) {
+    assert(egraph->eg[ETYPE_BV] != NULL);
+    egraph->eg[ETYPE_BV]->release_model(egraph->th[ETYPE_BV]);
+  }
+  if (egraph->ctrl[ETYPE_FUNCTION] != NULL) {
+    assert(egraph->eg[ETYPE_FUNCTION] != NULL);
+    egraph->eg[ETYPE_FUNCTION]->release_model(egraph->th[ETYPE_FUNCTION]);
+  }  
+}
+
+
+
+/*
+ * Literal that implies (cmp == true/false) 
+ * - cmp must have boolean type and must be true or false
+ * - if cmp is asserted as an axiom. then we return true_literal
+ * - otherwise, there's a Boolean variable v such that v <=> (cmp == true)
+ * - if cmp is false, we return, (not v)
+ *   if cmp is true, we return v
+ */
+static literal_t literal_for_composite(egraph_t *egraph, composite_t *cmp) {
+  eterm_t t;
+  thvar_t v;
+  literal_t l;
+
+  t = cmp->id;
+  v = egraph_term_base_thvar(egraph, t);
+
+  assert(egraph_term_type(egraph, t) == ETYPE_BOOL && 
+	 egraph_term_class(egraph, t) == bool_constant_class);
+
+  /*
+   * If v == null_thvar, we want l = true_literal
+   * since t or (not t) was asserted as an axiom.
+   * Otherwise, the literal attached to t is pos_lit(v)
+   */
+  l = true_literal;
+  if (v != null_thvar) {
+    if (egraph_term_is_true(egraph, t)) {
+      l = pos_lit(v);
+    } else {
+      assert(egraph_term_is_false(egraph, t));
+      l = neg_lit(v);
+    }
+  }
+
+  return l;
+}
+
+
+/*
+ * Check whether we need an interface lemma for cmp = (eq t1 t2)
+ * - cmp is known to be false when this is called.
+ * - return 1 if an interface lemma is generated, 0 otherwise
+ */
+static uint32_t check_diseq_interface_lemma(egraph_t *egraph, composite_t *cmp) {
+  void *satellite;
+  th_egraph_interface_t *interface;
+  occ_t t1, t2;
+  thvar_t x1, x2;
+  literal_t l;
+
+  assert(composite_kind(cmp) == COMPOSITE_EQ && egraph_term_is_false(egraph, cmp->id));
+
+  t1 = cmp->child[0];
+  t2 = cmp->child[1];
+  x1 = egraph_base_thvar(egraph, t1);
+  x2 = egraph_base_thvar(egraph, t2);
+
+  if (x1 == null_thvar || x2 == null_thvar) {
+    return 0;
+  }
+
+  switch (egraph_type(egraph, t1)) {
+  case ETYPE_INT:
+  case ETYPE_REAL:
+    satellite = egraph->th[ETYPE_REAL];
+    interface = egraph->eg[ETYPE_REAL];
+    break;
+
+  case ETYPE_BV:
+    satellite = egraph->th[ETYPE_BV];
+    interface = egraph->eg[ETYPE_BV];
+    break;
+
+  case ETYPE_FUNCTION:
+    satellite = egraph->th[ETYPE_FUNCTION];
+    interface = egraph->eg[ETYPE_FUNCTION];
+    break;
+
+  default:
+    return 0;
+  }
+
+  if (interface->equal_in_model(satellite, x1, x2)) {
+    // conflict between egraph and salellite model: create a lemma
+    l = literal_for_composite(egraph, cmp);
+    assert(literal_value(egraph->core, l) == VAL_TRUE);
+    interface->gen_interface_lemma(satellite, l, x1, x2);
+    return 1;
+  } 
+  
+  return 0;
+}
+
+
+
+/*
+ * Check whether we need interface lemma(s) for cmp = (distinct t1 t2 ... t_n)
+ * - cmp is known to be true when this is called.
+ * - return the number of an interface lemma is generated
+ */
+static uint32_t check_distinct_interface_lemma(egraph_t *egraph, composite_t *cmp, uint32_t max_eq) {
+  void *satellite;
+  th_egraph_interface_t *interface;
+  uint32_t i, j, n, neqs;
+  occ_t t1, t2;
+  thvar_t x1, x2;
+  literal_t l;
+
+  assert(composite_kind(cmp) == COMPOSITE_DISTINCT && egraph_term_is_true(egraph, cmp->id));
+
+  neqs = 0;
+
+  switch (egraph_type(egraph, cmp->child[0])) {
+  case ETYPE_INT:
+  case ETYPE_REAL:
+    satellite = egraph->th[ETYPE_REAL];
+    interface = egraph->eg[ETYPE_REAL];
+    break;
+
+  case ETYPE_BV:
+    satellite = egraph->th[ETYPE_BV];
+    interface = egraph->eg[ETYPE_BV];
+    break;
+
+  case ETYPE_FUNCTION:
+    satellite = egraph->th[ETYPE_FUNCTION];
+    interface = egraph->eg[ETYPE_FUNCTION];
+    break;
+
+  default:
+    goto done;
+  }
+
+
+  l = literal_for_composite(egraph, cmp);
+  assert(literal_value(egraph->core, l) == VAL_TRUE);	
+
+  n = composite_arity(cmp);
+  for (i=0; i<n; i++) {
+    t1 = cmp->child[i];
+    x1 = egraph_base_thvar(egraph, t1);
+
+    for (j=i+1; j<n; j++) {
+      t2 = cmp->child[j];
+      x2 = egraph_base_thvar(egraph, t2);
+
+      if (interface->equal_in_model(satellite, x1, x2)) {
+	// conflict between egraph and salellite model: create a lemma
+	interface->gen_interface_lemma(satellite, l, x1, x2);
+	neqs ++;
+	if (neqs >= max_eq) goto done;
+      }
+    }
+  }
+
+ done:
+  return neqs;
+}
+
+
+
+/*
+ * Generate direct conflict lemmas:
+ * - search for terms t1 and t2 such that t1 and t2 must be different   
+ *   in the Egraph but they have equal values in the theory model
+ * - t1 and t2 must be distinct in the Egraph either because
+ *    (eq t1 t2) is false, or because (distinct .. t1 ... t2 ...) is true
+ * - for each such pair: call the solver's interface lemma generation
+ *   function.
+ * - stop after max_interface_eq is reached.
+ * - return the total number of lemmas generated
+ */
+static uint32_t egraph_direct_interface_lemmas(egraph_t *egraph) {
+  eterm_table_t *terms;
+  composite_t *cmp;
+  uint32_t i, n, neqs, max_eqs;
+
+  neqs = 0;
+
+  terms = &egraph->terms;
+  n = terms->nterms;
+
+  for (i=1; i<n; i++) {
+    cmp = terms->body[i];
+    if (composite_body(cmp)) {
+      switch (composite_kind(cmp)) {
+      case COMPOSITE_EQ:
+	if (terms->label[i] == false_label) {
+	  neqs += check_diseq_interface_lemma(egraph, cmp);
+	  if (neqs >= egraph->max_interface_eqs) goto done;
+	}
+	break;
+
+      case COMPOSITE_DISTINCT:
+	if (terms->label[i] == true_label) {
+	  max_eqs = egraph->max_interface_eqs - neqs;
+	  neqs += check_distinct_interface_lemma(egraph, cmp, max_eqs);
+	  if (neqs >= egraph->max_interface_eqs)  goto done;
+	}
+	break;
+
+      default:
+	break;
+      }
+    }
+  }
+
+ done:
+  return neqs;
+}
+
+
+
 /*****************
  *  FINAL CHECK  *
  ****************/
@@ -4791,57 +5048,69 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
   }
 
 
-  /*
-   * Check for interface equalities
-   */
-  // i = number of interface equalities generated
-  // max_eq = bound on number of interface equalities
-  max_eq = egraph->max_interface_eqs;
-  i = 0;
-  assert(i < max_eq);
-
-  if (egraph->ctrl[ETYPE_REAL] != NULL) {
-    // reconcile for arithmetic solver
-    assert(egraph->eg[ETYPE_REAL] != NULL);
-    i = egraph->eg[ETYPE_REAL]->reconcile_model(egraph->th[ETYPE_REAL], max_eq);      
-
-#if TRACE
-    printf("---> %"PRIu32" interface equalities from arith-solver\n", i);
-    fflush(stdout);
-    k = i;
-#endif  
-  }
-
-  if (i < max_eq && egraph->ctrl[ETYPE_BV] != NULL) {
-    // reconcile in bitvector solver
-    assert(egraph->eg[ETYPE_BV] != NULL);
-    i += egraph->eg[ETYPE_BV]->reconcile_model(egraph->th[ETYPE_BV], max_eq - i);
-
-#if TRACE
-    printf("---> %"PRIu32" interface equalities from bv-solver\n", i - k);
-    fflush(stdout);
-#endif  
-  }
-
-  if (i == 0 && egraph->ctrl[ETYPE_FUNCTION] != NULL && 
-      egraph_is_high_order(egraph)) {
+  if (true) {
     /*
-     * reconcile for array solver: do it only if bv and arith models
-     * are consistent with the egraph. Also there's nothing to do
-     * if there are no high-order terms.
+     * EXPERIMENTAL: USE THE EGRAPH TO GENERATE INTERFACE LEMMAS
      */
-    assert(egraph->eg[ETYPE_FUNCTION] != NULL);
-    i = egraph->eg[ETYPE_FUNCTION]->reconcile_model(egraph->th[ETYPE_FUNCTION], 1);
+    egraph_prepare_models(egraph);
+    i = egraph_direct_interface_lemmas(egraph);
+    egraph_release_models(egraph);
+
+  } else {
+
+    /*
+     * OLDER VERSION: USE RECONCILE MODEL FUNCTIONS IN THE SATELLITE SOLVERS
+     */
+
+    // i = number of interface equalities generated
+    // max_eq = bound on number of interface equalities
+    max_eq = egraph->max_interface_eqs;
+    i = 0;
+    assert(i < max_eq);
+
+    if (egraph->ctrl[ETYPE_REAL] != NULL) {
+      // reconcile for arithmetic solver
+      assert(egraph->eg[ETYPE_REAL] != NULL);
+      i = egraph->eg[ETYPE_REAL]->reconcile_model(egraph->th[ETYPE_REAL], max_eq);      
 
 #if TRACE
-    printf("---> %"PRIu32" interface equalities from fun-solver\n", i);
-    fflush(stdout);
+      printf("---> %"PRIu32" interface equalities from arith-solver\n", i);
+      fflush(stdout);
+      k = i;
+#endif  
+    }
+
+    if (i < max_eq && egraph->ctrl[ETYPE_BV] != NULL) {
+      // reconcile in bitvector solver
+      assert(egraph->eg[ETYPE_BV] != NULL);
+      i += egraph->eg[ETYPE_BV]->reconcile_model(egraph->th[ETYPE_BV], max_eq - i);
+
+#if TRACE
+      printf("---> %"PRIu32" interface equalities from bv-solver\n", i - k);
+      fflush(stdout);
 #endif  
   }
-  
+    
+    if (i == 0 && egraph->ctrl[ETYPE_FUNCTION] != NULL && egraph_is_high_order(egraph)) {
+      /*
+       * reconcile for array solver: do it only if bv and arith models
+       * are consistent with the egraph. Also there's nothing to do
+       * if there are no high-order terms.
+       */
+      assert(egraph->eg[ETYPE_FUNCTION] != NULL);
+      i = egraph->eg[ETYPE_FUNCTION]->reconcile_model(egraph->th[ETYPE_FUNCTION], 1);
+
+#if TRACE
+      printf("---> %"PRIu32" interface equalities from fun-solver\n", i);
+      fflush(stdout);
+#endif
+    }
+  } 
+
+
   egraph->stats.interface_eqs += i;
   
-#if TRACE
+#if TRACE || 1
   printf("---> END EGRAPH FINAL CHECK\n");
   if (i > 0) {
     printf("     %"PRIu32" interface equalities created\n", i);
