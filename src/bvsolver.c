@@ -21,7 +21,7 @@
 
 #define DUMP 0
 
-#if TRACE || DUMP
+#if TRACE || DUMP || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -6050,6 +6050,14 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
     add_binary_clause(solver->core, not(l), eq);
     add_binary_clause(solver->core, l, not(eq));
 
+#if 0
+    printf("---> BVSOLVER: bvequiv lemma for ");
+    print_bv_solver_var(stdout, solver, x1);
+    printf(" ");
+    print_bv_solver_var(stdout, solver, x2);
+    printf("\n");
+#endif
+
 #if TRACE
     printf("---> bvequiv lemma:\n");
     printf("     x1 = ");
@@ -7109,7 +7117,15 @@ static void bv_solver_gen_interface_lemma(bv_solver_t *solver, literal_t l, thva
 	 bvvar_is_bitblasted(&solver->vtbl, x2));
 
   eq = on_the_fly_eq_atom(solver, x1, x2);
-  add_binary_clause(solver->core, not(l), not(eq));
+  add_binary_clause(solver->core, not(l), not(eq));  // l => not eq
+  
+#if 0
+  printf("---> BVSOLVER: interface lemma for ");
+  print_bv_solver_var(stdout, solver, x1);
+  printf(" ");
+  print_bv_solver_var(stdout, solver, x2);
+  printf("\n");
+#endif
 
 #if TRACE
   printf("---> Bv solver: reconciliation lemma for u!%"PRId32" /= u!%"PRId32" ----\n", x1, x2);

@@ -36,7 +36,7 @@
 
 #define TRACE 0
 
-#if TRACE
+#if TRACE || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -1012,6 +1012,10 @@ static void fun_solver_extensionality_axiom(fun_solver_t *solver, thvar_t x, thv
   l1 = egraph_make_eq(egraph, pos_occ(t), pos_occ(u));
   l2 = egraph_make_eq(egraph, pos_occ(vtbl->eterm[x]), pos_occ(vtbl->eterm[y]));
 
+#if 0
+  printf("---> ARRAY SOLVER: extensionality axiom for f!%"PRId32" /= f!%"PRId32" ----\n", x, y);
+#endif
+
 #if TRACE
   printf("\n---- Extensionality axiom for f!%"PRId32" /= f!%"PRId32" ----\n", x, y);
   print_eterm_def(stdout, solver->egraph, vtbl->eterm[x]);
@@ -1497,7 +1501,7 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
       printf(")");
     }
     printf("\n");
-#endif    
+#endif
 
     negate_vector(lemma);
   }
@@ -2900,6 +2904,10 @@ static void fun_solver_gen_interface_lemma(fun_solver_t *solver, literal_t l, th
   t = egraph_make_apply(egraph, pos_occ(vtbl->eterm[x1]), v->size, v->data, fun_var_range_type(solver, x1));
   u = egraph_make_apply(egraph, pos_occ(vtbl->eterm[x2]), v->size, v->data, fun_var_range_type(solver, x2));
   eq = egraph_make_eq(egraph, pos_occ(t), pos_occ(u));
+
+#if 0
+  printf("---> ARRAY SOLVER: interface lemma for f!%"PRId32" /= f!%"PRId32" ----\n", x1, x2);
+#endif
 
 #if TRACE
   printf("\n---> Array solver: reconciliation lemma for f!%"PRId32" /= f!%"PRId32" ----\n", x1, x2);

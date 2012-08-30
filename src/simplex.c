@@ -6333,6 +6333,15 @@ static uint32_t simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, t
     add_unit_clause(solver->core, not(l));
     reset_poly_buffer(&solver->buffer);
 
+#if 0
+    printf("---> SIMPLEX: trichotomy lemma for ");
+    print_simplex_var(stdout, solver, x1);
+    printf(" ");
+    print_simplex_var(stdout, solver, x2);
+    printf(" (axiom)\n");
+#endif    
+
+
   } else {
     assert(l0 != true_literal); // since x1 != x2
 
@@ -6395,6 +6404,14 @@ static uint32_t simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, t
      */
     add_binary_clause(solver->core, not(l), not(l1));
     add_binary_clause(solver->core, not(l), not(l2));
+
+#if 0
+    printf("---> SIMPLEX: trichotomy lemma for ");
+    print_simplex_var(stdout, solver, x1);
+    printf(" ");
+    print_simplex_var(stdout, solver, x2);
+    printf(" (trichotomy)\n");
+#endif
 
   }
 
@@ -8520,6 +8537,14 @@ static void simplex_gen_interface_lemma(simplex_solver_t *solver, literal_t l, t
      */
     add_unit_clause(solver->core, not(l));
 
+#if 0
+    printf("---> SIMPLEX: interface lemma for ");
+    print_simplex_var(stdout, solver, x1);
+    printf(" ");
+    print_simplex_var(stdout, solver, x2);
+    printf(" (axiom)\n");
+#endif    
+
 #if TRACE
     printf("---> Simplex: reconciliation lemma for ");
     print_simplex_var(stdout, solver, x1);
@@ -8559,6 +8584,15 @@ static void simplex_gen_interface_lemma(simplex_solver_t *solver, literal_t l, t
     l2 = create_neg_atom(solver, y, c); // l2 is (y < c)
 
     add_ternary_clause(solver->core, not(l), l1, l2); // clause: (not l) or (y > c) or (y < c))    
+
+#if 0
+    printf("---> SIMPLEX: interface lemma for ");
+    print_simplex_var(stdout, solver, x1);
+    printf(" ");
+    print_simplex_var(stdout, solver, x2);
+    printf(" (trichotomy)\n");
+#endif    
+
 
 #if TRACE
     printf("---> Simplex: reconciliation lemma for ");
