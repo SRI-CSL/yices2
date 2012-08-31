@@ -5368,7 +5368,7 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
   }
 
 
-  if (true) {
+  if (false) {
     /*
      * EXPERIMENTAL: USE THE EGRAPH TO GENERATE INTERFACE LEMMAS
      */

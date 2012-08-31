@@ -1583,6 +1583,97 @@ static term_t mk_integer_polynomial_ite(term_manager_t *manager, term_t c, term_
 
 
 
+/*
+ * PUSH IF INSIDE ARRAY/FUNCTION UPDATES
+ *
+ * Rewrite rules:
+ *  (ite c (update A (i1 ... ik) v) A) --> (update A (i1 ... ik) (ite c v (A i1 ... ik)))
+ *  (ite c A (update A (i1 ... ik) v)) --> (update A (i1 ... ik) (ite c (A i1 ... ik) v))
+ *  (ite c (update A (i1 ... ik) v) (update A (i1 ... ik) w)) --> 
+ *      (update A (i1 ... ik) (ite c v w))
+ */
+
+
+/*
+ * Auxiliary function: check whether terms a[0...n-1] and b[0 .. n-1] are equal
+ */
+static bool equal_term_arrays(uint32_t n, term_t *a, term_t *b) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
+}
+
+
+/*
+ * Check whether one of the rewrite rules above is applicable to (ite c t e tau)
+ * - t and e have a function type
+ * - it it is apply it and return the result
+ * - otherwise, return NULL_TERM
+ */
+static term_t simplify_ite_update(term_manager_t *manager, term_t c, term_t t, term_t e, type_t tau) {
+  term_table_t *terms;
+  composite_term_t *update1, *update2;
+  bool t_is_update, e_is_update;
+  uint32_t n;
+  term_t aux;
+  type_t sigma;
+
+  terms = &manager->terms;
+
+  assert(is_function_term(terms, t) && is_function_term(terms, e));
+
+  t_is_update = (term_kind(terms, t) == UPDATE_TERM);
+  e_is_update = (term_kind(terms, e) == UPDATE_TERM);
+  sigma = function_type_range(manager->types, tau);
+
+  if (t_is_update && e_is_update) {
+    update1 = update_term_desc(terms, t);
+    update2 = update_term_desc(terms, e);
+
+    n = update1->arity;
+    assert(n >= 3 && n == update2->arity);
+
+    if (equal_term_arrays(n-1, update1->arg, update2->arg)) {
+      // t is (update f a[1] ... a[n-2] v)
+      // e is (update f a[1] ... a[n-2] w)
+      aux = mk_ite(manager, c, update1->arg[n-1], update2->arg[n-1], sigma); // (ite c v w)
+      return mk_update(manager, update1->arg[0], n-2, update1->arg + 1, aux);
+    }
+
+  } else if (t_is_update) {
+    update1 = update_term_desc(terms, t);
+    if (update1->arg[0] == e) {
+      // t is (update e a[1] ... a[n-2] v)
+      // (ite c t e) --> (update e a[1] ... a[n-2] (ite c v (e a[1] ... a[n-2])))
+      n = update1->arity;
+      assert(n >= 3);
+
+      aux = mk_application(manager, e, n-2, update1->arg + 1);   // (e a[1] ... a[n-2])
+      aux = mk_ite(manager, c, update1->arg[n-1], aux, sigma);   // (ite c v (e a[1] ... a[n-2]))
+      return mk_update(manager, e, n-2, update1->arg + 1, aux);
+    }
+
+  } else if (e_is_update) {
+    update2 = update_term_desc(terms, e);
+    if (update2->arg[0] == t) {
+      // e is (update t a[1] ... a[n-2] w)
+      // (ite c t e) --> (update t a[1] ... a[n-2] (ite c (t (a[1] ... a[n-2]) w)))
+      n = update2->arity;
+      assert(n >= 3);
+
+      aux = mk_application(manager, t, n-2, update2->arg + 1);   // (t a[1] ... a[n-2])
+      aux = mk_ite(manager, c, aux, update2->arg[n-1], sigma);   // (ite c (t a[1] ... a[n-2]) w)
+      return mk_update(manager, t, n-2, update2->arg + 1, aux);
+    }
+  }
+
+  return NULL_TERM;
+}
+
+
 
 
 /*
@@ -1671,14 +1762,18 @@ term_t mk_ite(term_manager_t *manager, term_t c, term_t t, term_t e, type_t tau)
     aux = t; t = e; e = aux;
   }
 
-#if 1
   // check whether both sides are integer polynomials
   if (is_integer_type(tau) 
       && term_kind(&manager->terms, t) == ARITH_POLY 
       && term_kind(&manager->terms, e) == ARITH_POLY) {
     return mk_integer_polynomial_ite(manager, c, t, e);
   }
-#endif
+
+  // check for array updates
+  if (is_function_type(manager->types, tau)) {
+    aux = simplify_ite_update(manager, c, t, e, tau);
+    if (aux != NULL_TERM) return aux;
+  }
 
   return ite_term(&manager->terms, tau, c, t, e);
 }
@@ -2486,17 +2581,6 @@ term_t mk_variable(term_manager_t *manager, type_t tau) {
 }
 
 
-/*
- * Auxiliary function: check whether terms a[0...n-1] and b[0 .. n-1] are equal
- */
-static bool equal_term_arrays(uint32_t n, term_t *a, term_t *b) {
-  uint32_t i;
-
-  for (i=0; i<n; i++) {
-    if (a[i] != b[i]) return false;
-  }
-  return true;
-}
 
 /*
  * Function application:
@@ -2509,8 +2593,6 @@ static bool equal_term_arrays(uint32_t n, term_t *a, term_t *b) {
  *   ((update f (a_1 ... a_n) v) x_1 ... x_n)   -->  (f x_1 ... x_n)
  *         if x_i must disequal a_i
  *
- * Also: apply beta-reduction eagerly:
- *  ((lambda (x_1 ... x_n) t) a_1 ... a_n) --> t[x_1/a_1 ... x_n/a_n]
  */
 term_t mk_application(term_manager_t *manager, term_t fun, uint32_t n, term_t arg[]) {
   term_table_t *tbl;
