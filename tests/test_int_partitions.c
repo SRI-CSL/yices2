@@ -2,6 +2,7 @@
 #include <inttypes.h>
 
 #include "hash_functions.h"
+#include "index_vectors.h"
 #include "int_partitions.h"
 
 
@@ -36,7 +37,7 @@ static void print_ipart_record(ipart_rec_t *r) {
 static void print_ipart_vector(int32_t *v) {
   uint32_t i, n;
 
-  n = ipv_size(v);
+  n = iv_size(v);
   for (i=0; i<n; i++) {
     printf(" %"PRId32, v[i]);
   }
@@ -62,7 +63,7 @@ static void print_ipart(ipart_t *ip) {
     d = ip->records;
     n = ip->size;
     for (i=0; i<n; i++) {
-      if (d->data != null_index) {
+      if (d->data != not_an_index) {
 	printf("   rec[%"PRIu32"]: ", i);
 	print_ipart_record(d);
 	printf("\n");

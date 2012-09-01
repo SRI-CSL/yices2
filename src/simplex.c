@@ -8647,6 +8647,40 @@ static void simplex_gen_interface_lemma(simplex_solver_t *solver, literal_t l, t
 }
 
 
+/*
+ * Build the variable partition for the current model
+ */
+static ipart_t *simplex_build_model_partition(simplex_solver_t *solver) {
+  ipart_t *partition;
+  uint32_t i, n;
+
+  partition = (ipart_t *) safe_malloc(sizeof(ipart_t));
+  init_int_partition(partition, 0, solver, (ipart_hash_fun_t) simplex_model_hash, 
+		     (ipart_match_fun_t) simplex_var_equal_in_model);
+
+  n = solver->vtbl.nvars;
+  for (i=1; i<n; i++) {
+    if (is_root_var(solver, i)) {
+      int_partition_add(partition, i);
+    }
+  }
+  
+  return partition;
+}
+
+
+/*
+ * Free the partition
+ */
+static void simplex_release_model_partition(simplex_solver_t *solver, ipart_t *p) {
+  delete_int_partition(p);
+  safe_free(p);
+}
+
+
+
+
+
 /************************
  *  MODEL CONSTRUCTION  *
  ***********************/
@@ -9496,6 +9530,8 @@ static th_egraph_interface_t simplex_egraph = {
   (equal_in_model_fun_t) simplex_var_equal_in_model,
   (gen_inter_lemma_fun_t) simplex_gen_interface_lemma,
   (release_model_fun_t) simplex_release_model,
+  (build_partition_fun_t) simplex_build_model_partition,
+  (free_partition_fun_t) simplex_release_model_partition,
   (attach_to_var_fun_t) simplex_attach_eterm,
   (get_eterm_fun_t) simplex_eterm_of_var,
   (select_eq_polarity_fun_t) simplex_select_eq_polarity,

@@ -5303,6 +5303,24 @@ static uint32_t egraph_indirect_interface_lemmas(egraph_t *egraph, uint32_t max_
 
 
 
+/*
+ * FOR TESTING ONLY
+ */
+static void egraph_test_partitions(egraph_t *egraph) {
+  ipart_t *tmp;
+
+  if (egraph->ctrl[ETYPE_REAL] != NULL) {
+    assert(egraph->eg[ETYPE_REAL] != NULL);
+    tmp = egraph->eg[ETYPE_REAL]->build_model_partition(egraph->th[ETYPE_REAL]);
+    egraph->eg[ETYPE_REAL]->release_model_partition(egraph->th[ETYPE_REAL], tmp);
+  }
+
+  if (egraph->ctrl[ETYPE_BV] != NULL) {
+    assert(egraph->eg[ETYPE_BV] != NULL);
+    tmp = egraph->eg[ETYPE_BV]->build_model_partition(egraph->th[ETYPE_BV]);
+    egraph->eg[ETYPE_BV]->release_model_partition(egraph->th[ETYPE_BV], tmp);
+  }
+}
 
 
 /*****************
@@ -5368,7 +5386,7 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
   }
 
 
-  if (false) {
+  if (true) {
     /*
      * EXPERIMENTAL: USE THE EGRAPH TO GENERATE INTERFACE LEMMAS
      */
@@ -5391,6 +5409,10 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
 #endif
       i += egraph_indirect_interface_lemmas(egraph, max_eq - i);
     }
+    
+    // CRUDE TESTING
+    egraph_test_partitions(egraph);
+
     egraph_release_models(egraph);
 
   } else {

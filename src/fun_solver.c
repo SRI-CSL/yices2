@@ -36,7 +36,7 @@
 
 #define TRACE 0
 
-#if TRACE || 1
+#if TRACE
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -3422,6 +3422,8 @@ static th_egraph_interface_t fsolver_egraph = {
   (equal_in_model_fun_t) fun_solver_var_equal_in_model,
   (gen_inter_lemma_fun_t) fun_solver_gen_interface_lemma, // gen_interface_lemma
   (release_model_fun_t) fun_solver_release_model,
+  NULL, // build_model_partition,
+  NULL, // release_model_partition,
   (attach_to_var_fun_t) fun_solver_attach_eterm,
   (get_eterm_fun_t) fun_solver_get_eterm_of_var,
   (select_eq_polarity_fun_t) fun_solver_select_eq_polarity,

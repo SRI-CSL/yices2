@@ -212,6 +212,7 @@
 #include "int_hash_map.h"
 #include "cache.h"
 #include "ptr_partitions.h"
+#include "int_partitions.h"
 
 #include "egraph_base_types.h"
 #include "concrete_values.h"
@@ -815,8 +816,22 @@ typedef struct egraph_trail_stack_s {
  *    is no longer needed. The solver can free whatever internal data structures it used for
  *    the local model, or do other cleanup.
  *  
+ *
+ * 6e) ipart_t *get_model_partition(void *solver)
+ *
+ *    Called after prepare_model and before release model. The solver must construct
+ *    a partition of its variables: two variables are in the same class if they have
+ *    the same value in the model. Note: this can be restricted so that the partition
+ *    uses one theory variable per Egraph class.
+ *
+ *    The solver should use 'int_partition.h' to build this.
+ *
+ * 6f) void release_model_partition(void *solver, ipart_t *partition)
+ *
+ *    Called by the egraph when the partition is no longer needed.
+ *
  * 
- * in addition, all satellite solvers must implement
+ * In addition, all satellite solvers must implement
  *
  * 7) void attach_eterm(void *solver, thvar_t x, eterm_t u): attach u as term for variable x
  *    in solver. This must be the same function as used by the context.
@@ -999,6 +1014,8 @@ typedef void (*prepare_model_fun_t)(void *satellite);
 typedef bool (*equal_in_model_fun_t)(void *satellite, thvar_t x1, thvar_t x2);
 typedef void (*gen_inter_lemma_fun_t)(void *satellite, literal_t l, thvar_t x1, thvar_t x2);
 typedef void (*release_model_fun_t)(void *satellite);
+typedef ipart_t *(*build_partition_fun_t)(void *satellite);
+typedef void (*free_partition_fun_t)(void *satellite, ipart_t *partition);
 typedef void (*attach_to_var_fun_t)(void *satellite, thvar_t x, eterm_t t);
 typedef eterm_t (*get_eterm_fun_t)(void *satellite, thvar_t x);
 typedef literal_t (*select_eq_polarity_fun_t)(void *satellite, thvar_t x, thvar_t y, literal_t l);
@@ -1014,6 +1031,8 @@ typedef struct th_egraph_interface_s {
   equal_in_model_fun_t     equal_in_model;
   gen_inter_lemma_fun_t    gen_interface_lemma;
   release_model_fun_t      release_model;
+  build_partition_fun_t    build_model_partition;
+  free_partition_fun_t     release_model_partition;
   attach_to_var_fun_t      attach_eterm;
   get_eterm_fun_t          eterm_of_var;
   select_eq_polarity_fun_t select_eq_polarity;

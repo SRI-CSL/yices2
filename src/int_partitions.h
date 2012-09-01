@@ -29,17 +29,6 @@ typedef struct ipart_rec_s {
 
 
 /*
- * Vectors to store the classes (use a hidden header)
- */
-typedef struct ipart_vector_s {
-  uint32_t capacity;
-  uint32_t size;   // number of elements stored
-  int32_t data[0];   // real size = capacity
-} ipart_vector_t;
-
-
-
-/*
  * The behavior is customized via two functions that must be provided
  * when the ipart structure is initialized.
  * - hash = hash function
@@ -54,7 +43,26 @@ typedef bool (*ipart_match_fun_t)(void *aux, int32_t i1, int32_t i2);
 
 
 /*
+ * Each class is a vector stored in pp->classes that
+ * contains at least two objects.
+ *
+ * To scan the classes, using something like:
+ *
+ *   n = int_partition_nclasses(pp);
+ *   for (i=0; i<n; i++) {
+ *     v = pp->classes[i];
+ *     // then the functions from index_vectors.h can be used
+ *     // iv_size(v): number of elements in the class
+ *     ...
+ *   }
+ */
+
+
+/*
  * Hash table + array of classes.
+ *
+ * Each class is stored as an integer array, with a hidden header
+ * (cf. index_vector.h).
  */
 typedef struct ipart_s {
   ipart_rec_t *records;  // hash-table
@@ -73,10 +81,10 @@ typedef struct ipart_s {
 
 
 /*
- * Marker: null_index (to mark empty records in the hash table).
+ * Marker: not_an_index (to mark empty records in the hash table).
  */
 enum {
-  null_index = -1,
+  not_an_index = -1,
 };
 
 
@@ -86,10 +94,6 @@ enum {
 // for the hash table
 #define DEF_IPART_SIZE  64
 #define MAX_IPART_SIZE  (UINT32_MAX/sizeof(ipart_rec_t))
-
-// for ipart_vector
-#define DEF_IPART_VSIZE 10
-#define MAX_IPART_VSIZE (((uint32_t)(UINT32_MAX-sizeof(ipart_vector_t)))/sizeof(int32_t))
 
 // for the classes array
 #define DEF_IPART_CSIZE 10
@@ -135,48 +139,11 @@ extern void int_partition_add(ipart_t *pp, int32_t i);
 
 
 
-
-
-/***************************
- *  ACCESS TO THE CLASSES  *
- **************************/
-
-/*
- * Each class is a vector stored in pp->classes that
- * contains at least two objects. 
- *
- * The functions below can be used to scan the classes,
- * using something like:
- *
- *   n = int_partition_nclasses(pp);
- *   for (i=0; i<n; i++) {
- *     v = pp->classes[i];
- *     // ipv_size(v) gives the number of elements in v
- *     ...
- *   }
- */
-
-
 /*
  * Number of classes
  */
 static inline uint32_t int_partition_nclasses(ipart_t *pp) {
   return pp->nclasses;
-}
-
-/*
- * Size of a class vector v
- */
-static inline ipart_vector_t *ipv_header(int32_t *v) {
-  return (ipart_vector_t *) (((char *) v) - offsetof(ipart_vector_t, data));
-}
-
-static inline uint32_t ipv_size(int32_t *v) {
-  return ipv_header(v)->size;
-}
-
-static inline uint32_t ipv_capacity(int32_t *v) {
-  return ipv_header(v)->capacity;
 }
 
 

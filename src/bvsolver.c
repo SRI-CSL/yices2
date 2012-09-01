@@ -11,6 +11,7 @@
 #include "rb_bvsets.h"
 #include "int_powers.h"
 #include "refcount_int_arrays.h"
+#include "index_vectors.h"
 #include "int_partitions.h"
 
 
@@ -21,7 +22,7 @@
 
 #define DUMP 0
 
-#if TRACE || DUMP || 1
+#if TRACE || DUMP
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -7014,7 +7015,7 @@ static void show_parents_of_class(bv_solver_t *solver, int32_t *v) {
  * - v = vector
  */
 static bool interface_eq_in_class(bv_solver_t *solver, int32_t *v) {
-  assert(ipv_size(v) >= 2);
+  assert(iv_size(v) >= 2);
   bv_solver_bvequiv_lemma(solver, v[0], v[1]);
   return true;
 }
@@ -7105,6 +7106,7 @@ static void bv_solver_prepare_model(bv_solver_t *solver) {
 static void bv_solver_release_model(bv_solver_t *solver) {
 }
 
+
 /*
  * Add the lemma l => x1 != x2
  * - i.e., the clause (not l) or (not (bveq x1 x2))
@@ -7144,6 +7146,37 @@ static void bv_solver_gen_interface_lemma(bv_solver_t *solver, literal_t l, thva
   print_literal(stdout, not(eq));
   printf(")\n\n");
 #endif
+}
+
+
+/*
+ * Build the model partition and return it
+ */
+static ipart_t *bv_solver_build_model_partition(bv_solver_t *solver) {
+  ipart_t *partition;
+  uint32_t i, n;
+
+  partition = (ipart_t *) safe_malloc(sizeof(ipart_t));
+  init_int_partition(partition, 0, solver, (ipart_hash_fun_t) bvsolver_model_hash, 
+		     (ipart_match_fun_t) bv_solver_var_equal_in_model);
+
+  n = solver->vtbl.nvars;
+  for (i=1; i<n; i++) {
+    if (is_root_var(solver, i)) {
+      int_partition_add(partition, i);
+    }
+  }
+  
+  return partition;
+}
+
+
+/*
+ * Delete the partition
+ */
+static void bv_solver_release_model_partition(bv_solver_t *solver, ipart_t *p) {
+  delete_int_partition(p);
+  safe_free(p);
 }
 
 
@@ -8000,6 +8033,8 @@ static th_egraph_interface_t bv_solver_egraph = {
   (equal_in_model_fun_t) bv_solver_var_equal_in_model,
   (gen_inter_lemma_fun_t) bv_solver_gen_interface_lemma,
   (release_model_fun_t) bv_solver_release_model,
+  (build_partition_fun_t) bv_solver_build_model_partition,
+  (free_partition_fun_t) bv_solver_release_model_partition,
   (attach_to_var_fun_t) bv_solver_attach_eterm,
   (get_eterm_fun_t) bv_solver_eterm_of_var,
   (select_eq_polarity_fun_t) bv_solver_select_eq_polarity,

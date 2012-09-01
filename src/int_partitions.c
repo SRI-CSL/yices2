@@ -7,64 +7,8 @@
 #include <assert.h>
 
 #include "memalloc.h"
+#include "index_vectors.h"
 #include "int_partitions.h"
-
-
-/*
- * Add index x to vector *v
- * - if *v is NULL, allocate a new vector of default size
- * - if *v is full, resize it
- */
-static void ipart_push(int32_t **v, int32_t x) {
-  ipart_vector_t *u;
-  int32_t *a;
-  uint32_t i, n;
-
-  a = *v;
-  if (a == NULL) {
-    // allocate a new vector
-    i = 0;
-    n = DEF_IPART_VSIZE;
-    assert(n <= MAX_IPART_VSIZE);
-    u = (ipart_vector_t *) safe_malloc(sizeof(ipart_vector_t) + n * sizeof(int32_t));
-    u->capacity = n;
-    a = u->data;
-    *v = a;
-  } else {
-    u = ipv_header(a);
-    i = u->size;
-    n = u->capacity;
-    if (i == n) {
-      // make the vector 50% larger
-      n ++;
-      n += n>>1;
-      if (n > MAX_IPART_VSIZE) {
-	out_of_memory();
-      }
-      u = (ipart_vector_t *) safe_realloc(u, sizeof(ipart_vector_t) + n * sizeof(int32_t));
-      u->capacity = n;
-      a = u->data;
-      *v = a;
-    }
-  }
-
-  assert(i < u->capacity && a == u->data);
-  a[i] = x;
-  u->size = i+1;
-}
-
-
-/*
- * Delete vector v (must be non-NULL)
- */
-static void ipart_delete_vector(int32_t *v) {
-  ipart_vector_t *u;
-
-  assert(v != NULL);
-  u = ipv_header(v);
-  safe_free(u);
-}
-
 
 
 /*
@@ -101,7 +45,7 @@ void init_int_partition(ipart_t *pp, uint32_t n, void *aux, ipart_hash_fun_t has
   // Initialize: empty hash table of size n
   tmp = (ipart_rec_t *) safe_malloc(n * sizeof(ipart_rec_t));
   for (i=0; i<n; i++) {
-    tmp[i].data = null_index;
+    tmp[i].data = not_an_index;
   }
 
   pp->records = tmp;
@@ -125,7 +69,7 @@ void delete_int_partition(ipart_t *pp) {
 
   n = pp->nclasses;
   for (i=0; i<n; i++) {
-    ipart_delete_vector(pp->classes[i]);
+    delete_index_vector(pp->classes[i]);
   }
   safe_free(pp->classes);
   pp->classes = NULL;
@@ -133,7 +77,6 @@ void delete_int_partition(ipart_t *pp) {
   safe_free(pp->records);
   pp->records = NULL;
 }
-
 
 
 
@@ -147,13 +90,13 @@ void reset_int_partition(ipart_t *pp) {
 
   n = pp->nclasses;
   for (i=0; i<n; i++) {
-    ipart_delete_vector(pp->classes[i]);
+    delete_index_vector(pp->classes[i]);
   }
   pp->nclasses = 0;
 
   n = pp->size;
   for (i=0; i<n; i++) {
-    pp->records[i].data = null_index;
+    pp->records[i].data = not_an_index;
   }
   pp->nelems = 0;  
 }
@@ -169,9 +112,9 @@ void reset_int_partition(ipart_t *pp) {
 static void ipart_copy_record(ipart_rec_t *a, ipart_rec_t *r, uint32_t mask) {
   uint32_t i;
 
-  assert(r->data != null_index);
+  assert(r->data != not_an_index);
   i = r->hash & mask;
-  while (a[i].data != null_index) {
+  while (a[i].data != not_an_index) {
     i ++;
     i &= mask;
   }
@@ -195,14 +138,14 @@ static void resize_int_partition(ipart_t *pp) {
 
   tmp = (ipart_rec_t *) safe_malloc(n2 * sizeof(ipart_rec_t));
   for (i=0; i<n2; i++) {
-    tmp[i].data = null_index;
+    tmp[i].data = not_an_index;
   }
 
   // copy current content into tmp
   mask = n2 - 1;
   r = pp->records;
   for (i=0; i<n; i++) {
-    if (r->data != null_index) {
+    if (r->data != not_an_index) {
       ipart_copy_record(tmp, r, mask);
     }
     r ++;
@@ -218,7 +161,7 @@ static void resize_int_partition(ipart_t *pp) {
 
 
 /*
- * Allocate a new class: return it's id
+ * Allocate a new class: return its id
  * - the new class vector is pp->classes[i]. It's initialized to NULL 
  */
 static uint32_t allocate_class(ipart_t *pp) {
@@ -271,7 +214,7 @@ void int_partition_add(ipart_t *pp, int32_t x) {
   for (;;) {
     r = pp->records + j;
 
-    if (r->data == null_index) {
+    if (r->data == not_an_index) {
       // empty record found: ptr starts a new class
       r->hash = h;
       r->cid = -1; // no class attached yet
@@ -289,9 +232,9 @@ void int_partition_add(ipart_t *pp, int32_t x) {
       if (i < 0) {
 	i = allocate_class(pp);
 	r->cid = i;
-	ipart_push(pp->classes + i, r->data);
+	add_index_to_vector(pp->classes + i, r->data);
       }
-      ipart_push(pp->classes + i, x);
+      add_index_to_vector(pp->classes + i, x);
       return;
     }
 
