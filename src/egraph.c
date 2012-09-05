@@ -12,6 +12,7 @@
 #include "prng.h"
 #include "ptr_partitions.h"
 #include "hash_functions.h"
+#include "index_vectors.h"
 
 #include "composites.h"
 #include "egraph_utils.h"
@@ -3648,6 +3649,7 @@ static void check_false_eq(egraph_t *egraph, pvector_t *v) {
   }  
 }
 
+
 /*
  * Process equality (t1 == t2): i = corresponding edge id
  * - egraph->stack.eq[i] is (t1 == t2)
@@ -3700,7 +3702,7 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
 #endif
 
     if (egraph->stack.etag[i] == EXPL_BASIC_CONGRUENCE) {
-      // store t1 t2 for local ackermann generation 
+      // store t1 t2 for local Ackermann generation 
       egraph->ack_left = t1;
       egraph->ack_right = t2;
     }
@@ -4742,7 +4744,7 @@ static bool egraph_is_high_order(egraph_t *egraph) {
  ****************************************************/
 
 /*
- * Prepare the satellite models
+ * Prepare the satellite models for the arithmetic and bitvector theories
  */
 static void egraph_prepare_models(egraph_t *egraph) {
   if (egraph->ctrl[ETYPE_REAL] != NULL) {
@@ -4752,12 +4754,7 @@ static void egraph_prepare_models(egraph_t *egraph) {
   if (egraph->ctrl[ETYPE_BV] != NULL) {
     assert(egraph->eg[ETYPE_BV] != NULL);
     egraph->eg[ETYPE_BV]->prepare_model(egraph->th[ETYPE_BV]);
-  }
-  if (egraph->ctrl[ETYPE_FUNCTION] != NULL) {
-    assert(egraph->eg[ETYPE_FUNCTION] != NULL);
-    egraph->eg[ETYPE_FUNCTION]->prepare_model(egraph->th[ETYPE_FUNCTION]);
-  }
-    
+  }    
 }
 
 
@@ -4773,10 +4770,6 @@ static void egraph_release_models(egraph_t *egraph) {
     assert(egraph->eg[ETYPE_BV] != NULL);
     egraph->eg[ETYPE_BV]->release_model(egraph->th[ETYPE_BV]);
   }
-  if (egraph->ctrl[ETYPE_FUNCTION] != NULL) {
-    assert(egraph->eg[ETYPE_FUNCTION] != NULL);
-    egraph->eg[ETYPE_FUNCTION]->release_model(egraph->th[ETYPE_FUNCTION]);
-  }  
 }
 
 
@@ -4854,11 +4847,6 @@ static uint32_t check_diseq_interface_lemma(egraph_t *egraph, composite_t *cmp) 
     interface = egraph->eg[ETYPE_BV];
     break;
 
-  case ETYPE_FUNCTION:
-    satellite = egraph->th[ETYPE_FUNCTION];
-    interface = egraph->eg[ETYPE_FUNCTION];
-    break;
-
   default:
     return 0;
   }
@@ -4917,11 +4905,6 @@ static uint32_t check_distinct_interface_lemma(egraph_t *egraph, composite_t *cm
   case ETYPE_BV:
     satellite = egraph->th[ETYPE_BV];
     interface = egraph->eg[ETYPE_BV];
-    break;
-
-  case ETYPE_FUNCTION:
-    satellite = egraph->th[ETYPE_FUNCTION];
-    interface = egraph->eg[ETYPE_FUNCTION];
     break;
 
   default:
@@ -5072,11 +5055,6 @@ static bool non_mergeable_in_models(egraph_t *egraph, eterm_t u1, eterm_t u2) {
     interface = egraph->eg[ETYPE_BV];
     break;
 
-  case ETYPE_FUNCTION:
-    satellite = egraph->th[ETYPE_FUNCTION];
-    interface = egraph->eg[ETYPE_FUNCTION];
-    break;
-
   default:
     return true;
   }
@@ -5126,11 +5104,6 @@ static uint32_t check_interface_lemma_for_applies(egraph_t *egraph, composite_t 
 	case ETYPE_BV:
 	  satellite = egraph->th[ETYPE_BV];
 	  interface = egraph->eg[ETYPE_BV];
-	  break;
-
-	case ETYPE_FUNCTION:
-	  satellite = egraph->th[ETYPE_FUNCTION];
-	  interface = egraph->eg[ETYPE_FUNCTION];
 	  break;
 
 	default:
@@ -5224,7 +5197,6 @@ static bool type_has_theory_domain(type_table_t *types, type_t tau) {
     case REAL_TYPE:
     case INT_TYPE:
     case BITVECTOR_TYPE:
-    case FUNCTION_TYPE:
       return true;
 
     default:
@@ -5303,24 +5275,487 @@ static uint32_t egraph_indirect_interface_lemmas(egraph_t *egraph, uint32_t max_
 
 
 
+/****************************************************************************
+ *  EXPERIMENTAL: MODIFY EGRAPH TO MINIMIZE THE NUMBER OF INTERFACE LEMMAS  *
+ ***************************************************************************/
+
 /*
- * FOR TESTING ONLY
+ * Generate interface lemmas for pairs of term occurrences stored in v
+ * - stop as soon as max_eqs interface lemmas are produced
  */
-static void egraph_test_partitions(egraph_t *egraph) {
-  ipart_t *tmp;
+static void egraph_gen_interface_lemmas(egraph_t *egraph, uint32_t max_eqs, ivector_t *v) {
+  void *satellite;
+  th_egraph_interface_t *interface;
+  uint32_t i, n;
+  occ_t t1, t2;
+  thvar_t x1, x2;
+  literal_t eq;
+
+  n = v->size;
+  assert(n > 0);
+  if (n > 2 * max_eqs) {
+    n = 2 * max_eqs;
+  }
+
+  for (i=0; i<n; i += 2) {
+    t1 = v->data[i];
+    t2 = v->data[i+1];
+    assert(egraph_class(egraph, t1) != egraph_class(egraph, t2));
+    x1 = egraph_base_thvar(egraph, t1);
+    x2 = egraph_base_thvar(egraph, t2);
+    assert(x1 != null_thvar && x2 != null_thvar);
+
+    switch (egraph_type(egraph, t1)) {
+    case ETYPE_INT:
+    case ETYPE_REAL:
+      satellite = egraph->th[ETYPE_REAL];
+      interface = egraph->eg[ETYPE_REAL];
+      break;
+
+    case ETYPE_BV:
+      satellite = egraph->th[ETYPE_BV];
+      interface = egraph->eg[ETYPE_BV];
+      break;
+      
+    default:
+      assert(false);
+      abort();
+      break;
+    }
+
+    assert(interface->equal_in_model(satellite, x1, x2));
+    eq = egraph_make_simple_eq(egraph, t1, t2);
+    interface->gen_interface_lemma(satellite, not(eq), x1, x2);
+  }
+}
+
+
+/*
+ * Check whether x1 and x2 have different values in the relevant theory solver
+ * - i = type of x1
+ * - we ignore the function solver here
+ */
+static bool diseq_in_model(egraph_t *egraph, etype_t i, thvar_t x1, thvar_t x2) {
+  switch (i) {
+  case ETYPE_INT:
+  case ETYPE_REAL:
+  case ETYPE_BV:
+    return !egraph->eg[i]->equal_in_model(egraph->th[i], x1, x2);
+
+  default:
+    return false;
+  }
+}
+
+/*
+ * Check whether the classes of t1 and t2 can be merged
+ * - c1 must be the class of t1 and c2 must be the class of t2
+ * - if c1 and c2 have theory variables, then they can be merged if the 
+ *   variables have equal values in the theory model
+ */
+static bool mergeable_classes(egraph_t *egraph, occ_t t1, occ_t t2, class_t c1, class_t c2) {
+  uint32_t msk;
+  composite_t *cmp;
+  thvar_t x1, x2;
+
+  if (egraph_opposite_occ(egraph, t1, t2)) {
+    return false;
+  }
+
+  assert(c1 != c2);
+
+  msk = egraph->classes.dmask[c1] & egraph->classes.dmask[c2];
+  if (msk != 0) {
+    return false;
+  }
+
+  cmp = congruence_table_find_eq(&egraph->ctable, t1, t2, egraph->terms.label);
+  if (cmp != NULL && egraph_occ_is_false(egraph, pos_occ(cmp->id))) {
+    return false;
+  }
+
+  x1 = egraph_class_thvar(egraph, c1);
+  x2 = egraph_class_thvar(egraph, c2);
+ 
+  if (x1 != null_thvar && x2 != null_thvar && 
+      diseq_in_model(egraph, egraph_class_type(egraph, c1), x1, x2)) {
+    return false;
+  }
+
+  return true;
+}
+
+
+/*
+ * Propagate equality v1 == v2 during reconciliation
+ */
+static void reconcile_thvar(egraph_t *egraph, class_t c1, thvar_t v1, class_t c2, thvar_t v2) {
+  etype_t i;
+
+  assert(v1 != null_thvar && v2 != null_thvar &&
+	 v1 == egraph_class_thvar(egraph, c1) &&
+	 v2 == egraph_class_thvar(egraph, c2));
+
+  i = egraph->classes.etype[c1];
+
+  switch (i) {
+  case ETYPE_INT:
+  case ETYPE_REAL:
+  case ETYPE_BV:
+    assert(egraph->eg[i]->equal_in_model(egraph->th[i], v1, v2));
+    break;
+
+  case ETYPE_FUNCTION:
+    egraph->eg[i]->assert_equality(egraph->th[i], v1, v2);
+    break;
+
+  case ETYPE_BOOL:
+    // all Boolean variables are already assigned in the core.
+    break;
+
+  case ETYPE_TUPLE:
+    propagate_tuple_equality(egraph, v1, v2);
+    break;
+
+  default:
+    assert(false);
+  }
+}
+
+
+/*
+ * Attempt to merge the classes of t1 and t2 without affecting the theory models
+ * - t1 and t2 must not be Boolean
+ * - i = correspondign edge id
+ * - return true if t1 and t2 can be merged
+ * - return false otherwise
+ */
+static bool test_merge(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
+  use_vector_t *v;
+  composite_t *p;
+  class_t c1, c2;
+  int32_t aux;
+  uint32_t j, n;
+  elabel_t l;
+  occ_t t;
+  thvar_t v1, v2;
+
+  if (egraph_equal_occ(egraph, t1, t2)) {
+    return true;
+  }
+
+  c1 = egraph_class(egraph, t1);
+  c2 = egraph_class(egraph, t2);
+
+  if (! mergeable_classes(egraph, t1, t2, c1, c2)) {
+    return false;
+  }
+
+  assert(c1 != c2 && (egraph->classes.dmask[c1] & egraph->classes.dmask[c2]) == 0);
+
+  // make sure c2 is the class with smallesrt parent vector
+  if (egraph_class_nparents(egraph, c2) > egraph_class_nparents(egraph, c1)) {
+    aux = t1; t1 = t2; t2 = aux;
+    aux = c1; c1 = c2; c2 = aux;
+  }
+
+  // save t2 and its label for backtracking
+  undo_stack_push_merge(&egraph->undo, t2, egraph_label(egraph, t2));
+  
+  // update the explanation tree
+  invert_branch(egraph, t2);
+  assert(egraph->terms.edge[term_of_occ(t2)] == null_edge);
+  egraph->terms.edge[term_of_occ(t2)] = i; 
+
+  // remove c2's parents from the congruence table
+  v = egraph->classes.parents + c2;
+  n = v->last;
+  for (j=0; j<n; j++) {
+    p  = v->data[j];
+    if (valid_entry(p)) {
+      // p is in the congruence table
+      congruence_table_remove(&egraph->ctable, p);
+      // remove p from the parent vectors (except v)
+      separate_composite(p, egraph->terms.label, egraph->classes.parents, c2);
+      assert(v->data[j] == p);
+    }
+  }
+
+  // assign a new label to all terms in t2's class
+  l = egraph_label(egraph, t1);
+  t = t2;
+  do {
+    egraph_set_label(egraph, t, l);
+    t = egraph_next(egraph, t);
+    assert(term_of_occ(t) != term_of_occ(t2) || t == t2);
+  } while (t != t2);
+
+  // update dmask of c1
+  egraph->classes.dmask[c1] |= egraph->classes.dmask[c2];
+
+  //  merge lists of terms: swap next[t1] and next[t2]
+  t = egraph_next(egraph, t2);
+  egraph_set_next(egraph, t2, egraph_next(egraph, t1));
+  egraph_set_next(egraph, t1, t);
+
+  // reprocess all the composites in v 
+  for (j=0; j<n; j++) {
+    p = v->data[j];
+    if (valid_entry(p)) {
+      if (composite_simplifies(egraph, p)) {
+	// p no longer a congruence root: put a mark for backtracking
+	mark_use_vector_entry(v, j);
+      } else {
+	// put p back into the use vectors: this add p to c's parent
+	attach_composite(p, egraph->terms.label, egraph->classes.parents);
+      }
+    }
+  }
+
+  /*
+   * deal with the theory variables of c1 and c2: 
+   */
+  v2 = egraph->classes.thvar[c2];
+  v1 = egraph->classes.thvar[c1];
+  if (v1 != null_thvar) {
+    assert(v2 != null_thvar);
+    reconcile_thvar(egraph, c1, v1, c2, v2);
+  }
+
+  return true;
+}
+
+
+
+/*
+ * Backtrack if a reconciliation attempt fails:
+ * - k = top of the undo queue when the EXPL_RECONCILE edge was added
+ *   (so this revert all merges in undo[k ... top-1]
+ */
+static void egraph_undo_reconcile_attempt(egraph_t *egraph, uint32_t k) {
+  uint32_t i;
+  unsigned char *utag;
+  undo_t *udata;
+
+  assert(k <= egraph->undo.top);
+
+  i = egraph->undo.top;
+  utag = egraph->undo.tag;
+  udata = egraph->undo.data;
+
+  while (i > k) {
+    i --;
+    switch (utag[i]) {
+    case UNDO_MERGE:
+      undo_merge(egraph, udata[i].merge.saved_occ, udata[i].merge.saved_label);
+      break;
+
+    case UNDO_SIMPLIFY:
+      restore_composite(egraph, udata[i].ptr);
+      break;
+
+    case UNDO_DISTINCT:
+      assert(false); // should not happen
+      undo_distinct(egraph);
+      break;
+      
+    // store terms to reanalyze into reanalyze_vector
+    case REANALYZE_CONGRUENCE_ROOT:
+      deactivate_congruence_root(egraph, udata[i].ptr);
+      pvector_push(&egraph->reanalyze_vector, udata[i].ptr);
+      break;
+
+    case REANALYZE_COMPOSITE:
+      pvector_push(&egraph->reanalyze_vector, udata[i].ptr);
+      break;
+
+    default:
+      assert(false);
+      break;
+    }
+  }
+
+  assert(i == k);
+  egraph->undo.top = k;
+}
+
+
+
+/*
+ * Collect an interface equality (t1 == t2) when reconciliation fails
+ * - i = conflict egde
+ */
+static void collect_interface_pair(egraph_t *egraph, int32_t i) {
+  equeue_elem_t *e;
+  ivector_t *v;
+  int32_t k;
+
+  k = egraph_get_reconcile_edge(egraph, i);
+  e = egraph->stack.eq + k;
+
+  v = &egraph->interface_eqs;
+  ivector_push(v, e->lhs);
+  ivector_push(v, e->rhs);
+}
+
+
+/*
+ * Propagate equalities during reconciliation
+ */
+static bool egraph_prop_reconcile(egraph_t *egraph) {
+  equeue_elem_t *e;
+  uint32_t i;
+
+  i = egraph->stack.prop_ptr;
+  while (i < egraph->stack.top) {
+    e = egraph->stack.eq + i;
+    if (!test_merge(egraph, e->lhs, e->rhs, i)) {
+      collect_interface_pair(egraph, i);
+      return false;
+    }
+    i ++;
+  }
+  egraph->stack.prop_ptr = i;
+
+  return true;
+}
+
+
+/*
+ * Attempt to make t1 and t2 equal in the egraph then propagate
+ * - return false if that leads to a conflict
+ * - return true otherwise
+ */
+static bool egraph_reconcile_pair(egraph_t *egraph, occ_t t1, occ_t t2) {
+  int32_t k;
+  uint32_t top;
+
+  assert(egraph->stack.prop_ptr == egraph->stack.top);
+
+  if (egraph_equal_occ(egraph, t1, t2)) {
+    return true;  // already equal: nothing to do
+  }
+
+  top = egraph->undo.top;
+  k = egraph_stack_push_eq(&egraph->stack, t1, t2);
+  assert(k == egraph->stack.prop_ptr);
+
+  egraph->stack.etag[k] = EXPL_RECONCILE;
+  if (egraph_prop_reconcile(egraph)) {
+    return true;
+  }
+
+  // clean up
+  egraph_undo_reconcile_attempt(egraph, top);
+  egraph->stack.top = k;
+  egraph->stack.prop_ptr = k;
+  return false;
+}
+
+
+/*
+ * Process a class of terms
+ * - every element of v is a variable in a theory solver
+ * - solver = the theory solver for v
+ * - eg= the egraph interface for that solver
+ */
+static bool egraph_reconcile_class(egraph_t *egraph, int32_t *v, void *solver, th_egraph_interface_t *eg) {
+  uint32_t i, n;
+  eterm_t t1, t2;
+
+  n = iv_size(v);
+  assert(n >= 2);
+
+  t1 = eg->eterm_of_var(solver, v[0]);
+  for (i=1; i<n; i++) {
+    t2 = eg->eterm_of_var(solver, v[i]);
+    if (!egraph_reconcile_pair(egraph, pos_occ(t1), pos_occ(t2))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+
+/*
+ * Process a term partition
+ * - return true if all terms of every class in part can be reconciled
+ * - return false otherwise
+ */
+static bool egraph_reconcile_partition(egraph_t *egraph, ipart_t *partition, void *solver, th_egraph_interface_t *eg) {
+  int32_t *v;
+  uint32_t i, n;
+  bool reconciled;
+
+  reconciled = true;
+  n = int_partition_nclasses(partition);
+  for (i=0; i<n; i++) {
+    v = partition->classes[i];
+    reconciled &= egraph_reconcile_class(egraph, v, solver, eg);
+  }
+
+  return reconciled;
+}
+
+
+
+/*
+ * Try model reconciliation: return true if that worked, false otherwise
+ * - if the result is false then candidates for interface lemmas are
+ *   stored in egraph->interface_eqs.
+ */
+static bool egraph_reconcile(egraph_t *egraph) {
+  ipart_t *partition;
+  bool reconciled;
+
+  reconciled = true;
 
   if (egraph->ctrl[ETYPE_REAL] != NULL) {
-    assert(egraph->eg[ETYPE_REAL] != NULL);
-    tmp = egraph->eg[ETYPE_REAL]->build_model_partition(egraph->th[ETYPE_REAL]);
-    egraph->eg[ETYPE_REAL]->release_model_partition(egraph->th[ETYPE_REAL], tmp);
+    partition = egraph->eg[ETYPE_REAL]->build_model_partition(egraph->th[ETYPE_REAL]);
+    reconciled = egraph_reconcile_partition(egraph, partition, egraph->th[ETYPE_REAL], egraph->eg[ETYPE_REAL]);
+    egraph->eg[ETYPE_REAL]->release_model_partition(egraph->th[ETYPE_REAL], partition);
   }
 
   if (egraph->ctrl[ETYPE_BV] != NULL) {
-    assert(egraph->eg[ETYPE_BV] != NULL);
-    tmp = egraph->eg[ETYPE_BV]->build_model_partition(egraph->th[ETYPE_BV]);
-    egraph->eg[ETYPE_BV]->release_model_partition(egraph->th[ETYPE_BV], tmp);
+    partition = egraph->eg[ETYPE_BV]->build_model_partition(egraph->th[ETYPE_BV]);
+    reconciled &= egraph_reconcile_partition(egraph, partition, egraph->th[ETYPE_BV], egraph->eg[ETYPE_BV]);
+    egraph->eg[ETYPE_BV]->release_model_partition(egraph->th[ETYPE_BV], partition);
   }
+
+  return reconciled;
 }
+
+
+
+// HACK: use global variables for testing
+static uint32_t reco_undo_top;
+static uint32_t reco_num_eqs;
+
+/*
+ * Prepare for reconciliation:
+ * - store the current number of equalities + the top of the undo stack
+ */
+static void egraph_start_reconciliation(egraph_t *egraph) {
+  assert(egraph->stack.prop_ptr == egraph->stack.top);
+
+  reco_undo_top = egraph->undo.top;
+  reco_num_eqs = egraph->stack.top;
+}
+
+
+/*
+ * Restore the egraph state to what it was before reconciliation:
+ */
+static void egraph_reconciliation_restore(egraph_t *egraph) {
+  egraph_undo_reconcile_attempt(egraph, reco_undo_top);
+  egraph->stack.top = reco_num_eqs;
+  egraph->stack.prop_ptr = reco_num_eqs;
+}
+
+
+
 
 
 /*****************
@@ -5328,37 +5763,18 @@ static void egraph_test_partitions(egraph_t *egraph) {
  ****************/
 
 /*
- * Call final check for all the satellite solvers
- * If all return SAT, try to build consistent models
- * If models are not consistent, generate interface equalities
+ * BASELINE VERSION OF FINAL CHECK
+ * - call final_check on all satellites then use the reconcile_model
+ *   funciton in each solver
  */
-fcheck_code_t egraph_final_check(egraph_t *egraph) {
+static fcheck_code_t baseline_final_check(egraph_t *egraph) {
   fcheck_code_t c;
   uint32_t i, max_eq;
 
-#if TRACE
-  uint32_t k;
-
-  k = 0;
-
-  printf("\n---> EGRAPH FINAL CHECK [dlevel = %"PRIu32", decisions = %"PRIu64"]\n",
-	 egraph->decision_level, egraph->core->stats.decisions);
-  //  printf("---> stack top = %"PRIu32"\n", egraph->stack.top);  
-  fflush(stdout);
-#endif  
-
-  egraph->stats.final_checks ++;
-
-  /*
-   * Call final check on the arithmetic and bitvector solvers
-   */
   if (egraph->ctrl[ETYPE_REAL] != NULL) {
     // arithmetic solver
     c = egraph->ctrl[ETYPE_REAL]->final_check(egraph->th[ETYPE_REAL]);
     if (c != FCHECK_SAT) {
-#if 0
-      printf("---> END FINAL CHECK: simplex\n\n");
-#endif
       return c;
     }
   }
@@ -5367,9 +5783,6 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
     // bitvector solver
     c = egraph->ctrl[ETYPE_BV]->final_check(egraph->th[ETYPE_BV]);
     if (c != FCHECK_SAT) {
-#if 0
-      printf("---> END FINAL CHECK: bitvector\n\n");
-#endif
       return c;
     }
   }
@@ -5378,114 +5791,130 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
     // array solver
     c = egraph->ctrl[ETYPE_FUNCTION]->final_check(egraph->th[ETYPE_FUNCTION]);
     if (c != FCHECK_SAT) {
-#if 0
-      printf("---> END FINAL CHECK: array solver\n\n");
-#endif
       return c;
     }
   }
 
 
-  if (true) {
-    /*
-     * EXPERIMENTAL: USE THE EGRAPH TO GENERATE INTERFACE LEMMAS
-     */
-    c = FCHECK_SAT; // default value for exit code
+  // i = number of interface equalities generated
+  // max_eq = bound on number of interface equalities
+  max_eq = egraph->max_interface_eqs;
+  i = 0;
+  assert(i < max_eq);
 
-    egraph_prepare_models(egraph);
+  if (egraph->ctrl[ETYPE_REAL] != NULL) {
+    // reconcile for arithmetic solver
+    assert(egraph->eg[ETYPE_REAL] != NULL);
+    i = egraph->eg[ETYPE_REAL]->reconcile_model(egraph->th[ETYPE_REAL], max_eq);      
+  }
 
-    max_eq = egraph->max_interface_eqs;
-
-#if 0
-    printf("---> EGRAPH: direct interface lemmas\n");
-    fflush(stdout);
-#endif
-    i = egraph_direct_interface_lemmas(egraph, max_eq);
-
-    if (i < max_eq) {
-#if 0
-      printf("---> EGRAPH: indirect interface lemmas\n");
-      fflush(stdout);
-#endif
-      i += egraph_indirect_interface_lemmas(egraph, max_eq - i);
-    }
-    
-    // CRUDE TESTING
-    egraph_test_partitions(egraph);
-
-    egraph_release_models(egraph);
-
-  } else {
-
-#if 0
-    printf("---> EGRAPH: reconcile models\n");
-    fflush(stdout);
-#endif
-
-    /*
-     * OLDER VERSION: USE RECONCILE MODEL FUNCTIONS IN THE SATELLITE SOLVERS
-     */
-
-    // i = number of interface equalities generated
-    // max_eq = bound on number of interface equalities
-    max_eq = egraph->max_interface_eqs;
-    i = 0;
-    assert(i < max_eq);
-
-    if (egraph->ctrl[ETYPE_REAL] != NULL) {
-      // reconcile for arithmetic solver
-      assert(egraph->eg[ETYPE_REAL] != NULL);
-      i = egraph->eg[ETYPE_REAL]->reconcile_model(egraph->th[ETYPE_REAL], max_eq);      
-
-#if TRACE
-      printf("---> %"PRIu32" interface equalities from arith-solver\n", i);
-      fflush(stdout);
-      k = i;
-#endif  
-    }
-
-    if (i < max_eq && egraph->ctrl[ETYPE_BV] != NULL) {
-      // reconcile in bitvector solver
-      assert(egraph->eg[ETYPE_BV] != NULL);
-      i += egraph->eg[ETYPE_BV]->reconcile_model(egraph->th[ETYPE_BV], max_eq - i);
-
-#if TRACE
-      printf("---> %"PRIu32" interface equalities from bv-solver\n", i - k);
-      fflush(stdout);
-#endif  
+  if (i < max_eq && egraph->ctrl[ETYPE_BV] != NULL) {
+    // reconcile in bitvector solver
+    assert(egraph->eg[ETYPE_BV] != NULL);
+    i += egraph->eg[ETYPE_BV]->reconcile_model(egraph->th[ETYPE_BV], max_eq - i);
   }
     
-    if (i == 0 && egraph->ctrl[ETYPE_FUNCTION] != NULL && egraph_is_high_order(egraph)) {
-      /*
-       * reconcile for array solver: do it only if bv and arith models
-       * are consistent with the egraph. Also there's nothing to do
-       * if there are no high-order terms.
-       */
-      assert(egraph->eg[ETYPE_FUNCTION] != NULL);
-      i = egraph->eg[ETYPE_FUNCTION]->reconcile_model(egraph->th[ETYPE_FUNCTION], 1);
-
-#if TRACE
-      printf("---> %"PRIu32" interface equalities from fun-solver\n", i);
-      fflush(stdout);
-#endif
-    }
-  } 
-
+  if (i == 0 && egraph->ctrl[ETYPE_FUNCTION] != NULL && egraph_is_high_order(egraph)) {
+    /*
+     * reconcile for array solver: do it only if bv and arith models
+     * are consistent with the egraph. Also there's nothing to do
+     * if there are no high-order terms.
+     */
+    assert(egraph->eg[ETYPE_FUNCTION] != NULL);
+    i = egraph->eg[ETYPE_FUNCTION]->reconcile_model(egraph->th[ETYPE_FUNCTION], 1);
+  }
 
   egraph->stats.interface_eqs += i;
   
-#if 0
-  printf("---> END EGRAPH FINAL CHECK: %"PRIu32" interface equalities created\n\n", i);
-  fflush(stdout);
-#endif
-
   c = FCHECK_SAT; // default value
   if (i > 0) {
     c = FCHECK_CONTINUE;
   }
 
+  return c;   
+}
+
+
+/*
+ * New: experimental version
+ */
+static fcheck_code_t experimental_final_check(egraph_t *egraph) {
+  fcheck_code_t c;
+  uint32_t i, max_eqs;
+
+  if (egraph->ctrl[ETYPE_REAL] != NULL) {
+    c = egraph->ctrl[ETYPE_REAL]->final_check(egraph->th[ETYPE_REAL]);
+    if (c != FCHECK_SAT) {
+      return c;
+    }
+  }
+
+  if (egraph->ctrl[ETYPE_BV] != NULL) {
+    // bitvector solver
+    c = egraph->ctrl[ETYPE_BV]->final_check(egraph->th[ETYPE_BV]);
+    if (c != FCHECK_SAT) {
+      return c;
+    }
+  }
+
+
+  /*
+   * Try egraph reconciliation
+   */
+  c = FCHECK_SAT;
+  egraph_prepare_models(egraph);
+  egraph_start_reconciliation(egraph);
+
+  if (! egraph_reconcile(egraph)) {
+    egraph_reconciliation_restore(egraph);
+    
+    // Generate interface equalities
+    max_eqs = egraph->max_interface_eqs;
+    egraph_gen_interface_lemmas(egraph, max_eqs, &egraph->interface_eqs);
+    ivector_reset(&egraph->interface_eqs);
+    c = FCHECK_CONTINUE;
+
+  } else if (egraph->ctrl[ETYPE_FUNCTION] != NULL) {
+    /*
+     * bv/arith models are consistent with the egraph:
+     * deal with the array solver
+     */
+    c = egraph->ctrl[ETYPE_FUNCTION]->final_check(egraph->th[ETYPE_FUNCTION]);
+    if (c == FCHECK_SAT) {
+      if (egraph_is_high_order(egraph)) {
+	i = egraph->eg[ETYPE_FUNCTION]->reconcile_model(egraph->th[ETYPE_FUNCTION], 1);
+	if (i > 0) {
+	  c = FCHECK_CONTINUE;
+	}
+      }
+    }
+
+    if (c != FCHECK_SAT) {
+      egraph_reconciliation_restore(egraph);
+    }
+  }
+  
+  egraph_release_models(egraph);
+
   return c;
 }
+
+
+/*
+ * Call final check for all the satellite solvers
+ * If all return SAT, try to build consistent models
+ * If models are not consistent, generate interface equalities
+ */
+fcheck_code_t egraph_final_check(egraph_t *egraph) {
+  egraph->stats.final_checks ++;
+
+  if (false) {
+    return baseline_final_check(egraph);
+  } else {
+    return experimental_final_check(egraph);
+  }
+}
+
 
 
 
@@ -6001,7 +6430,8 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   init_ivector(&egraph->expl_queue, DEFAULT_EXPL_VECTOR_SIZE);
   init_ivector(&egraph->expl_vector, DEFAULT_EXPL_VECTOR_SIZE);
   init_pvector(&egraph->cmp_vector, DEFAULT_CMP_VECTOR_SIZE);
-  init_ivector(&egraph->aux_buffer, 0);  
+  init_ivector(&egraph->aux_buffer, 0);
+  init_ivector(&egraph->interface_eqs, 40);
   init_pvector(&egraph->reanalyze_vector, 0);
   init_th_explanation(&egraph->th_expl);
   egraph->app_partition = NULL;
@@ -6119,6 +6549,7 @@ void delete_egraph(egraph_t *egraph) {
   }
   delete_th_explanation(&egraph->th_expl);
   delete_pvector(&egraph->reanalyze_vector);
+  delete_ivector(&egraph->interface_eqs);
   delete_ivector(&egraph->aux_buffer);
   delete_pvector(&egraph->cmp_vector);
   delete_ivector(&egraph->expl_vector);

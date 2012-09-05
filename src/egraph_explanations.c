@@ -912,6 +912,10 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v) {
       t2 = term_of_occ(eq[i].rhs);
       explain_theory_equality(egraph, etag[i], t1, t2, edata[i].ptr, v);
       break;
+
+    case EXPL_RECONCILE:
+      assert(false);
+      break;
     }
   }
 
@@ -1541,6 +1545,178 @@ bool egraph_inconsistent_not_distinct(egraph_t *egraph, composite_t *d, ivector_
   build_explanation_vector(egraph, v);
 
   return true;
+}
+
+
+
+/*
+ * SUPPORT FOR EGRAPH/THEORY SOLVER RECONCILIATION
+ */
+
+
+/*
+ * Scan the explanation queue until we get an edge marked with EXPL_RECONCILE
+ * - return the index of that edge
+ */
+static int32_t egraph_search_for_reconcile_edge(egraph_t *egraph) {
+  equeue_elem_t *eq;
+  byte_t *mark;
+  ivector_t *queue;
+  unsigned char *etag;
+  expl_data_t *edata;
+  composite_t **body;
+  eterm_t t1, t2;
+  uint32_t k;
+  int32_t i, found;
+
+  eq = egraph->stack.eq;
+  mark = egraph->stack.mark;
+  etag = egraph->stack.etag;
+  edata = egraph->stack.edata;
+  body = egraph->terms.body;
+  queue = &egraph->expl_queue;
+
+  found = -1;
+
+  for (k = 0; k < queue->size; k++) {
+    i = queue->data[k];
+    assert(i >= 0 && tst_bit(mark, i));
+    switch (etag[i]) {
+    case EXPL_AXIOM:
+    case EXPL_ASSERT:
+      break;
+      
+    case EXPL_EQ:
+      explain_eq(egraph, edata[i].t[0], edata[i].t[1]);
+      break;
+
+    case EXPL_DISTINCT0:
+      explain_diseq_via_constants(egraph, edata[i].t[0], edata[i].t[1]);
+      break;
+
+    case EXPL_DISTINCT1:
+    case EXPL_DISTINCT2:
+    case EXPL_DISTINCT3:
+    case EXPL_DISTINCT4:
+    case EXPL_DISTINCT5:
+    case EXPL_DISTINCT6:
+    case EXPL_DISTINCT7:
+    case EXPL_DISTINCT8:
+    case EXPL_DISTINCT9:
+    case EXPL_DISTINCT10:
+    case EXPL_DISTINCT11:
+    case EXPL_DISTINCT12:
+    case EXPL_DISTINCT13:
+    case EXPL_DISTINCT14:
+    case EXPL_DISTINCT15:
+    case EXPL_DISTINCT16:
+    case EXPL_DISTINCT17:
+    case EXPL_DISTINCT18:
+    case EXPL_DISTINCT19:
+    case EXPL_DISTINCT20:
+    case EXPL_DISTINCT21:
+    case EXPL_DISTINCT22:
+    case EXPL_DISTINCT23:
+    case EXPL_DISTINCT24:
+    case EXPL_DISTINCT25:
+    case EXPL_DISTINCT26:
+    case EXPL_DISTINCT27:
+    case EXPL_DISTINCT28:
+    case EXPL_DISTINCT29:
+    case EXPL_DISTINCT30:
+    case EXPL_DISTINCT31:
+      explain_diseq_via_dmasks(egraph, edata[i].t[0], edata[i].t[1], (uint32_t) (etag[i] - EXPL_DISTINCT0), i);
+      break;
+
+    case EXPL_SIMP_OR:
+      // eq[i].lhs = (or ...), rhs == false or term occurrence
+      t1 = term_of_occ(eq[i].lhs);
+      assert(composite_body(body[t1]));
+      if (eq[i].rhs == false_occ) {
+	explain_simp_or_false(egraph, body[t1]);
+      } else {
+	explain_simp_or(egraph, body[t1], eq[i].rhs);
+      }
+      break;
+
+    case EXPL_BASIC_CONGRUENCE:
+      t1 = term_of_occ(eq[i].lhs);
+      t2 = term_of_occ(eq[i].rhs);
+      explain_congruence(egraph, body[t1], body[t2]);
+      break;
+
+    case EXPL_EQ_CONGRUENCE1:
+      t1 = term_of_occ(eq[i].lhs);
+      t2 = term_of_occ(eq[i].rhs);
+      explain_eq_congruence1(egraph, body[t1], body[t2]);
+      break;
+
+    case EXPL_EQ_CONGRUENCE2:
+      t1 = term_of_occ(eq[i].lhs);
+      t2 = term_of_occ(eq[i].rhs);
+      explain_eq_congruence2(egraph, body[t1], body[t2]);
+      break;
+
+    case EXPL_ITE_CONGRUENCE1:
+      t1 = term_of_occ(eq[i].lhs);
+      t2 = term_of_occ(eq[i].rhs);
+      explain_ite_congruence1(egraph, body[t1], body[t2]);
+      break;
+
+    case EXPL_ITE_CONGRUENCE2:
+      t1 = term_of_occ(eq[i].lhs);
+      t2 = term_of_occ(eq[i].rhs);
+      explain_ite_congruence2(egraph, body[t1], body[t2]);
+      break;
+
+    case EXPL_OR_CONGRUENCE:
+      t1 = term_of_occ(eq[i].lhs);
+      t2 = term_of_occ(eq[i].rhs);
+      explain_or_congruence(egraph, body[t1], body[t2], edata[i].ptr);
+      break;
+
+    case EXPL_DISTINCT_CONGRUENCE:
+      t1 = term_of_occ(eq[i].lhs);
+      t2 = term_of_occ(eq[i].rhs);
+      explain_distinct_congruence(egraph, body[t1], body[t2], edata[i].ptr);
+      break;
+
+    case EXPL_ARITH_PROPAGATION:
+    case EXPL_BV_PROPAGATION:
+    case EXPL_FUN_PROPAGATION:
+      // Don't explore this
+      break;
+
+    case EXPL_RECONCILE:
+      found = i;
+      goto done;
+    }
+  }
+
+ done:
+  // clear all the marks
+  for (k=0; k<queue->size; k++) {
+    i = queue->data[k];
+    assert(i >= 0 && tst_bit(mark, i));
+    clr_bit(mark, i);
+  }
+  ivector_reset(queue);
+
+  assert(found >= 0);
+
+  return found;
+}
+
+
+/*
+ * Return an edge that has label EXPL_RECONCILE and is an antecedent of edge i
+ */
+int32_t egraph_get_reconcile_edge(egraph_t *egraph, int32_t i) {
+  assert(0 <= i && i < egraph->stack.top);
+  assert(egraph->expl_queue.size == 0 && ! tst_bit(egraph->stack.mark, i));
+  enqueue_edge(&egraph->expl_queue, egraph->stack.mark, i);
+
+  return egraph_search_for_reconcile_edge(egraph);
 }
 
 

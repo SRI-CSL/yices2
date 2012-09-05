@@ -222,4 +222,15 @@ extern void egraph_explain_not_distinct_conflict(egraph_t *egraph, composite_t *
 
 
 
+/*
+ * SUPPORT FOR EGRAPH/THEORY SOLVER RECONCILIATION
+ */
+
+/*
+ * Return an edge that's a candidate for interface lemma and is an antecedent of edge i
+ */
+extern int32_t egraph_get_reconcile_edge(egraph_t *egraph, int32_t i);
+
+
+
 #endif /* __EGRAPH_EXPLANATIONS_H */

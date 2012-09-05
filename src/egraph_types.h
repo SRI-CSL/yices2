@@ -411,6 +411,8 @@ typedef enum expl_tag {
   EXPL_BV_PROPAGATION,
   EXPL_FUN_PROPAGATION,
 
+  // attempt to reconcile models
+  EXPL_RECONCILE,
 } expl_tag_t;
 
 
@@ -1286,6 +1288,8 @@ struct egraph_s {
   ivector_t expl_vector;     // vector of literals for conflict/explanations
   pvector_t cmp_vector;      // generic vector to store composites
   ivector_t aux_buffer;      // generic buffer used in term construction
+
+  ivector_t interface_eqs;   // EXPERIMENTAL: pairs of term occurrences (for interface lemmas)
 
 
   /*
