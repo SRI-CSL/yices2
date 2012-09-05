@@ -4869,7 +4869,7 @@ static uint32_t check_diseq_interface_lemma(egraph_t *egraph, composite_t *cmp) 
 #endif
     l = literal_for_composite(egraph, cmp);
     assert(literal_value(egraph->core, l) == VAL_TRUE);
-    interface->gen_interface_lemma(satellite, l, x1, x2);
+    interface->gen_interface_lemma(satellite, l, x1, x2, true);
     return 1;
   } 
   
@@ -4935,7 +4935,7 @@ static uint32_t check_distinct_interface_lemma(egraph_t *egraph, composite_t *cm
 	printf("     ");
 	print_eterm_def(stdout, egraph, cmp->id);
 #endif
-	interface->gen_interface_lemma(satellite, l, x1, x2);
+	interface->gen_interface_lemma(satellite, l, x1, x2, false);
 	neqs ++;
 	if (neqs >= max_eq) goto done;
       }
@@ -5116,7 +5116,7 @@ static uint32_t check_interface_lemma_for_applies(egraph_t *egraph, composite_t 
 	 * Generate the interface lemma: (not (eq t1 t2)) => distinct x1 x2 in the theory
 	 */
 	eq = egraph_make_simple_eq(egraph, t1, t2);
-	interface->gen_interface_lemma(satellite, not(eq), x1, x2);
+	interface->gen_interface_lemma(satellite, not(eq), x1, x2, true);
 	return 1;
       }
     }
@@ -5282,8 +5282,9 @@ static uint32_t egraph_indirect_interface_lemmas(egraph_t *egraph, uint32_t max_
 /*
  * Generate interface lemmas for pairs of term occurrences stored in v
  * - stop as soon as max_eqs interface lemmas are produced
+ * - return the number of lemmas generated
  */
-static void egraph_gen_interface_lemmas(egraph_t *egraph, uint32_t max_eqs, ivector_t *v) {
+static uint32_t egraph_gen_interface_lemmas(egraph_t *egraph, uint32_t max_eqs, ivector_t *v) {
   void *satellite;
   th_egraph_interface_t *interface;
   uint32_t i, n;
@@ -5325,8 +5326,12 @@ static void egraph_gen_interface_lemmas(egraph_t *egraph, uint32_t max_eqs, ivec
 
     assert(interface->equal_in_model(satellite, x1, x2));
     eq = egraph_make_simple_eq(egraph, t1, t2);
-    interface->gen_interface_lemma(satellite, not(eq), x1, x2);
+    interface->gen_interface_lemma(satellite, not(eq), x1, x2, true);
   }
+
+  assert(n/2 <= max_eqs);
+
+  return n/2;
 }
 
 
@@ -5870,7 +5875,8 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
     
     // Generate interface equalities
     max_eqs = egraph->max_interface_eqs;
-    egraph_gen_interface_lemmas(egraph, max_eqs, &egraph->interface_eqs);
+    i = egraph_gen_interface_lemmas(egraph, max_eqs, &egraph->interface_eqs);
+    egraph->stats.interface_eqs += i;
     ivector_reset(&egraph->interface_eqs);
     c = FCHECK_CONTINUE;
 

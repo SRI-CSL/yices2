@@ -2884,7 +2884,7 @@ static void fun_solver_prepare_model(fun_solver_t *solver) {
  *   (i.e., we generate the clause (not l) or (x1 t) /= (x2 t) for a 
  *    fresh Skolem constant t).
  */
-static void fun_solver_gen_interface_lemma(fun_solver_t *solver, literal_t l, thvar_t x1, thvar_t x2) {
+static void fun_solver_gen_interface_lemma(fun_solver_t *solver, literal_t l, thvar_t x1, thvar_t x2, bool equiv) {
   fun_vartable_t *vtbl;
   egraph_t *egraph;
   ivector_t *v;

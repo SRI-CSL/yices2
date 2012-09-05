@@ -4023,6 +4023,7 @@ static inline literal_t map_arith_bineq_to_literal(context_t *ctx, composite_ter
  */
 static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
   term_t t, t1, t2;
+  occ_t u, v;
   thvar_t x, y;
 
   assert(eq->arity == 2);
@@ -4039,9 +4040,15 @@ static literal_t map_bveq_to_literal(context_t *ctx, composite_term_t *eq) {
   } 
 
   // no simplification
-  x = internalize_to_bv(ctx, t1);
-  y = internalize_to_bv(ctx, t2);
-  return ctx->bv.create_eq_atom(ctx->bv_solver, x, y);
+  if (false && context_has_egraph(ctx)) {  // EXPERIMENT
+    u = internalize_to_eterm(ctx, t1);
+    v = internalize_to_eterm(ctx, t2);
+    return egraph_make_eq(ctx->egraph, u, v);
+  } else {
+    x = internalize_to_bv(ctx, t1);
+    y = internalize_to_bv(ctx, t2);
+    return ctx->bv.create_eq_atom(ctx->bv_solver, x, y);
+  }
 }
 
 static literal_t map_bvge_to_literal(context_t *ctx, composite_term_t *ge) {
@@ -5714,6 +5721,7 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
   ivector_t *v;
   int32_t *a;
   term_t t, t1, t2;
+  occ_t u1, u2;
   thvar_t x, y;
   uint32_t i, n;
 
@@ -5760,9 +5768,19 @@ static void assert_toplevel_bveq(context_t *ctx, composite_term_t *eq, bool tt) 
   } 
 
   // no simplification
-  x = internalize_to_bv(ctx, t1);
-  y = internalize_to_bv(ctx, t2);
-  ctx->bv.assert_eq_axiom(ctx->bv_solver, x,  y, tt);
+  if (false && context_has_egraph(ctx)) {  // EXPERIMENT
+    u1 = internalize_to_eterm(ctx, t1);
+    u2 = internalize_to_eterm(ctx, t2);
+    if (tt) {
+      egraph_assert_eq_axiom(ctx->egraph, u1, u2);
+    } else {
+      egraph_assert_diseq_axiom(ctx->egraph, u1, u2);
+    }
+  } else {
+    x = internalize_to_bv(ctx, t1);
+    y = internalize_to_bv(ctx, t2);
+    ctx->bv.assert_eq_axiom(ctx->bv_solver, x,  y, tt);
+  }
 }
 
 static void assert_toplevel_bvge(context_t *ctx, composite_term_t *ge, bool tt) {

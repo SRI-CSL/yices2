@@ -8517,8 +8517,9 @@ static void simplex_release_model(simplex_solver_t *solver) {
 
 /*
  * Add the lemma l => x1 != x2
+ * - if equiv is true: it's also allowed to generate the reverse implication
  */
-static void simplex_gen_interface_lemma(simplex_solver_t *solver, literal_t l, thvar_t x1, thvar_t x2) {
+static void simplex_gen_interface_lemma(simplex_solver_t *solver, literal_t l, thvar_t x1, thvar_t x2, bool equiv) {
   rational_t *c;
   thvar_t y;
   literal_t l0, l1, l2;

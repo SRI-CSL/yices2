@@ -808,9 +808,10 @@ typedef struct egraph_trail_stack_s {
  *    Must return true if x1 and x2 have the same value in the model and false if
  *    they have different values. (So the model must assign a value to all theory variables).
  *
- * 6c) void gen_interface_lemma(void *solver, literal_t l, thvar_t x1, thvar_t x2)
+ * 6c) void gen_interface_lemma(void *solver, literal_t l, thvar_t x1, thvar_t x2, bool equiv)
  *
  *    Ask the theory solver to create a lemmas of the form (l => x1 /= x2).
+ *    If equiv is true, then the solver can also create the reverse implication:  (x1 /= x2 => l).
  *
  * 6d) void release_model(void *solver)
  *
@@ -1014,7 +1015,7 @@ typedef void (*expand_eq_exp_fun_t)(void *satellite, thvar_t x1, thvar_t x2, voi
 typedef uint32_t (*reconcile_model_fun_t)(void *satellite, uint32_t max_eq);
 typedef void (*prepare_model_fun_t)(void *satellite);
 typedef bool (*equal_in_model_fun_t)(void *satellite, thvar_t x1, thvar_t x2);
-typedef void (*gen_inter_lemma_fun_t)(void *satellite, literal_t l, thvar_t x1, thvar_t x2);
+typedef void (*gen_inter_lemma_fun_t)(void *satellite, literal_t l, thvar_t x1, thvar_t x2, bool equiv);
 typedef void (*release_model_fun_t)(void *satellite);
 typedef ipart_t *(*build_partition_fun_t)(void *satellite);
 typedef void (*free_partition_fun_t)(void *satellite, ipart_t *partition);

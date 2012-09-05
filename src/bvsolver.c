@@ -22,7 +22,7 @@
 
 #define DUMP 0
 
-#if TRACE || DUMP
+#if TRACE || DUMP || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -1706,15 +1706,17 @@ static void bv_solver_bitblast_atoms(bv_solver_t *solver) {
     x = atbl->data[i].left;
     y = atbl->data[i].right;
 
+#if 0
     // EXPERIMENT: check
     if (bvatm_tag(atbl->data + i) == BVEQ_ATM && 
 	bounds_imply_diseq(solver, mtbl_get_root(&solver->mtbl, x), mtbl_get_root(&solver->mtbl, y))) {
-#if 0
+#if 1
       printf("---> bitblast: skipping atom (bveq u!%"PRId32" u!%"PRId32")\n", x, y);
 #endif
       add_unit_clause(solver->core, not(l));
       continue;
     }
+#endif
 
     /*
      * Process operands x and y
@@ -7110,17 +7112,15 @@ static void bv_solver_release_model(bv_solver_t *solver) {
 /*
  * Add the lemma l => x1 != x2
  * - i.e., the clause (not l) or (not (bveq x1 x2))
+ * - if equiv is true: can add the reverse implication too?
  */
-static void bv_solver_gen_interface_lemma(bv_solver_t *solver, literal_t l, thvar_t x1, thvar_t x2) {
+static void bv_solver_gen_interface_lemma(bv_solver_t *solver, literal_t l, thvar_t x1, thvar_t x2, bool equiv) {
   literal_t eq;
 
   assert(solver->egraph != NULL && x1 != x2 &&
 	 bvvar_is_bitblasted(&solver->vtbl, x1) &&
 	 bvvar_is_bitblasted(&solver->vtbl, x2));
 
-  eq = on_the_fly_eq_atom(solver, x1, x2);
-  add_binary_clause(solver->core, not(l), not(eq));  // l => not eq
-  
 #if 0
   printf("---> BVSOLVER: interface lemma for ");
   print_bv_solver_var(stdout, solver, x1);
@@ -7128,6 +7128,12 @@ static void bv_solver_gen_interface_lemma(bv_solver_t *solver, literal_t l, thva
   print_bv_solver_var(stdout, solver, x2);
   printf("\n");
 #endif
+
+  eq = on_the_fly_eq_atom(solver, x1, x2);
+  add_binary_clause(solver->core, not(l), not(eq));  // l => not eq
+  if (equiv) {
+    add_binary_clause(solver->core, l, eq);   // not l => eq
+  }
 
 #if TRACE
   printf("---> Bv solver: reconciliation lemma for u!%"PRId32" /= u!%"PRId32" ----\n", x1, x2);
