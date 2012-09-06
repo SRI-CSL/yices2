@@ -22,7 +22,7 @@
 
 #define DUMP 0
 
-#if TRACE || DUMP || 1
+#if TRACE || DUMP 
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -418,8 +418,10 @@ static void init_bv_trail(bv_trail_stack_t *stack) {
  * - nb = number of bounds
  * - ns = number of select variables
  * - nd = number of delayed variables
+ * - bb = bitblast pointer
  */
-static void bv_trail_save(bv_trail_stack_t *stack, uint32_t nv, uint32_t na, uint32_t nb, uint32_t ns, uint32_t nd) {
+static void bv_trail_save(bv_trail_stack_t *stack, uint32_t nv, uint32_t na, uint32_t nb, 
+			  uint32_t ns, uint32_t nd, uint32_t bb) {
   uint32_t i, n;
 
   i = stack->top;
@@ -444,6 +446,7 @@ static void bv_trail_save(bv_trail_stack_t *stack, uint32_t nv, uint32_t na, uin
   stack->data[i].nbounds = nb;
   stack->data[i].nselects = ns;
   stack->data[i].ndelayed = nd;
+  stack->data[i].nbblasted = bb;
 
   stack->top = i+1;
 }
@@ -1698,9 +1701,6 @@ static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
   }
 }
 
-// EXPERIMENTAL
-static bool bounds_imply_diseq(bv_solver_t *solver, thvar_t x, thvar_t y);
-
 /*
  * Bitblast all the atoms
  */
@@ -1717,30 +1717,25 @@ static void bv_solver_bitblast_atoms(bv_solver_t *solver) {
   a = &solver->a_vector;
   b = &solver->b_vector;
 
-  for (i=0; i<n; i++) {
+  for (i=solver->bbptr; i<n; i++) {
     l = atbl->data[i].lit;
     x = atbl->data[i].left;
     y = atbl->data[i].right;
 
-#if 0
-    // EXPERIMENT: check
-    if (bvatm_tag(atbl->data + i) == BVEQ_ATM && 
-	bounds_imply_diseq(solver, mtbl_get_root(&solver->mtbl, x), mtbl_get_root(&solver->mtbl, y))) {
-#if 1
-      printf("---> bitblast: skipping atom (bveq u!%"PRId32" u!%"PRId32")\n", x, y);
-#endif
-      add_unit_clause(solver->core, not(l));
-      continue;
-    }
-#endif
+    /*
+     * NOTE: checking for redundant disequalities here 
+     * (using bounds_imply_diseq) does not help
+     */
 
-    if (i < 20) {
-      printf("BVSOLVER: bitblasting atom[%"PRIu32"]: ", i);
+#if TRACE
+    if (i < solver->bbptr + 20) {
+      printf("BVSOLVER: bitblasting atom[%"PRIu32"]: ", i + solver->bbptr);
       print_bv_solver_atom(stdout, solver, i);
       printf("\n");
-    } else if (i == 20) {
+    } else if (i == solver->bbptr + 20) {
       printf("...\n\n");
     }
+#endif
 
     /*
      * Process operands x and y
@@ -1765,6 +1760,9 @@ static void bv_solver_bitblast_atoms(bv_solver_t *solver) {
       break;
     }
   }
+
+  // save new ptr
+  solver->bbptr = n;
 }
 
 
@@ -6310,6 +6308,7 @@ void init_bv_solver(bv_solver_t *solver, smt_core_t *core, egraph_t *egraph) {
   solver->base_level = 0;
   solver->decision_level = 0;
   solver->bitblasted = false;
+  solver->bbptr = 0;
 
   init_bv_vartable(&solver->vtbl);
   init_bv_atomtable(&solver->atbl);
@@ -6431,7 +6430,7 @@ void delete_bv_solver(bv_solver_t *solver) {
  * Start a new base level
  */
 void bv_solver_push(bv_solver_t *solver) {
-  uint32_t na, nv, nb, ns, nd;
+  uint32_t na, nv, nb, ns, nd, bb;
 
   assert(solver->decision_level == solver->base_level && 
 	 all_bvvars_unmarked(solver));
@@ -6441,8 +6440,12 @@ void bv_solver_push(bv_solver_t *solver) {
   nb = solver->bqueue.top;
   ns = solver->select_queue.top;
   nd = solver->delayed_queue.top;
+  bb = solver->bbptr;
 
-  bv_trail_save(&solver->trail_stack, nv, na, nb, ns, nd);
+  //  printf("---> BVSOLVER: push at level %"PRIu32" (%"PRIu32" vars, %"PRIu32" atoms,  ptr = %"PRIu32")\n", 
+  //	 solver->base_level, nv, na, bb);
+
+  bv_trail_save(&solver->trail_stack, nv, na, nb, ns, nd, bb);
 
   mtbl_push(&solver->mtbl);
 
@@ -6460,8 +6463,6 @@ void bv_solver_push(bv_solver_t *solver) {
 
   solver->base_level ++;
   bv_solver_increase_decision_level(solver);
-
-  printf("---> BVSOLVER: push: %"PRIu32" vars, %"PRIu32" atoms\n", nv, na);
 }
 
 
@@ -6648,13 +6649,16 @@ void bv_solver_pop(bv_solver_t *solver) {
   bv_atomtable_remove_atoms(&solver->atbl, top->natoms);
   bv_solver_remove_dead_eterms(solver);
 
+  // restore the bitblast pointer
+  solver->bbptr = top->nbblasted;
+
   mtbl_pop(&solver->mtbl);
 
   bv_trail_pop(&solver->trail_stack);
 
-  printf("---> BVSOLVER: after pop: %"PRIu32" vars, %"PRIu32" atoms\n", 
-	 solver->vtbl.nvars, solver->atbl.natoms);
-  fflush(stdout);
+  //  printf("---> BVSOLVER: pop to level %"PRIu32" (%"PRIu32" vars, %"PRIu32" atoms, ptr = %"PRIu32")\n\n", 
+  //	 solver->base_level, solver->vtbl.nvars, solver->atbl.natoms, solver->bbptr);
+  //  fflush(stdout);
 }
 
 

@@ -181,7 +181,8 @@ typedef struct bv_queue_s {
 /*
  * For every push, we keep track of the number of variables and atoms
  * on entry to the new base level, the size of the bound queue, and 
- * the size of the queue of select vars and delayed bitblasting.
+ * the size of the queue of select vars and delayed bitblasting + the
+ * number of bitblasted atoms.
  */
 typedef struct bv_trail_s {
   uint32_t nvars;
@@ -189,6 +190,7 @@ typedef struct bv_trail_s {
   uint32_t nbounds;
   uint32_t nselects;
   uint32_t ndelayed;
+  uint32_t nbblasted;
 } bv_trail_t;
 
 typedef struct bv_trail_stack_s {
@@ -313,8 +315,10 @@ typedef struct bv_solver_s {
   /*
    * Bitblast flag: false when new variables/assertions are added
    * true after the constraints have been bitblasted (converted to CNF).
+   * - bbptr = number of atoms that have already been bitblasted
    */
   bool bitblasted;
+  uint32_t bbptr;
 
   /*
    * Variable + atom tables
