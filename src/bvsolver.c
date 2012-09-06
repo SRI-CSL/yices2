@@ -624,6 +624,24 @@ static rb_bvset_t *new_rb_bvset(uint32_t k) {
 
 
 
+/***********************
+ *  STATISTICS RECORD  *
+ **********************/
+
+static void init_bv_stats(bv_stats_t *s) {
+  s->eq_atoms = 0;
+  s->on_the_fly_atoms = 0;
+  s->ge_atoms = 0;
+  s->sge_atoms = 0;
+  s->equiv_lemmas = 0;
+  s->interface_lemmas = 0;
+}
+
+static inline void reset_bv_stats(bv_stats_t *s) {
+  init_bv_stats(s);
+}
+
+
 
 /**************
  *  MARKING   *
@@ -1478,8 +1496,6 @@ static void bit_blaster_make_bvdivop(bv_solver_t *solver, bvvar_tag_t op, thvar_
 
 
 
-
-
 /*
  * Collect the literals mapped to x in vector v
  * - x must be mapped to an array of pseudo literals
@@ -1717,6 +1733,14 @@ static void bv_solver_bitblast_atoms(bv_solver_t *solver) {
       continue;
     }
 #endif
+
+    if (i < 20) {
+      printf("BVSOLVER: bitblasting atom[%"PRIu32"]: ", i);
+      print_bv_solver_atom(stdout, solver, i);
+      printf("\n");
+    } else if (i == 20) {
+      printf("...\n\n");
+    }
 
     /*
      * Process operands x and y
@@ -5443,6 +5467,7 @@ static literal_t bv_solver_make_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t 
     l = pos_lit(v);
     atbl->data[i].lit = l;
     attach_atom_to_bvar(solver->core, v, bvatom_idx2tagged_ptr(i));
+    solver->stats.eq_atoms ++;
   }
 
   return l;  
@@ -5499,6 +5524,7 @@ static literal_t bv_solver_make_ge_atom(bv_solver_t *solver, thvar_t x, thvar_t 
     l = pos_lit(v);
     atbl->data[i].lit = l;
     attach_atom_to_bvar(solver->core, v, bvatom_idx2tagged_ptr(i));
+    solver->stats.ge_atoms ++;
   }
  
   return l;
@@ -5572,6 +5598,7 @@ static literal_t bv_solver_make_sge_atom(bv_solver_t *solver, thvar_t x, thvar_t
     l = pos_lit(v);
     atbl->data[i].lit = l;
     attach_atom_to_bvar(solver->core, v, bvatom_idx2tagged_ptr(i));
+    solver->stats.sge_atoms ++;
   }
  
   return l;
@@ -5940,6 +5967,8 @@ static literal_t on_the_fly_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
       /*
        * After bitblasting
        */
+      solver->stats.on_the_fly_atoms ++;
+
       bv_solver_bitblast_variable(solver, x);
       bv_solver_bitblast_variable(solver, y);
       a = &solver->a_vector;
@@ -5965,6 +5994,8 @@ static literal_t on_the_fly_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
       /*
        * Before bitblasting: assign a fresh variable to the atom
        */
+      solver->stats.eq_atoms ++;
+
       v = create_boolean_variable(solver->core);
       l = pos_lit(v);
       atbl->data[i].lit = l;
@@ -6052,6 +6083,9 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
     // add two clauses: (l => eq) and (eq => l)
     add_binary_clause(solver->core, not(l), eq);
     add_binary_clause(solver->core, l, not(eq));
+
+    // update statistics
+    solver->stats.equiv_lemmas ++;
 
 #if 0
     printf("---> BVSOLVER: bvequiv lemma for ");
@@ -6178,6 +6212,10 @@ void bv_solver_start_internalization(bv_solver_t *solver) {
 void bv_solver_start_search(bv_solver_t *solver) {
   bool feasible;
 
+
+  solver->stats.equiv_lemmas = 0;
+  solver->stats.interface_lemmas = 0;
+
   feasible = bv_solver_bitblast(solver);
   if (! feasible) {
     add_empty_clause(solver->core);
@@ -6285,6 +6323,8 @@ void init_bv_solver(bv_solver_t *solver, smt_core_t *core, egraph_t *egraph) {
 
   init_eassertion_queue(&solver->egraph_queue);
   solver->cache = NULL;
+
+  init_bv_stats(&solver->stats);
 
   init_bv_queue(&solver->select_queue);
   init_bv_queue(&solver->delayed_queue);
@@ -6420,6 +6460,8 @@ void bv_solver_push(bv_solver_t *solver) {
 
   solver->base_level ++;
   bv_solver_increase_decision_level(solver);
+
+  printf("---> BVSOLVER: push: %"PRIu32" vars, %"PRIu32" atoms\n", nv, na);
 }
 
 
@@ -6609,6 +6651,10 @@ void bv_solver_pop(bv_solver_t *solver) {
   mtbl_pop(&solver->mtbl);
 
   bv_trail_pop(&solver->trail_stack);
+
+  printf("---> BVSOLVER: after pop: %"PRIu32" vars, %"PRIu32" atoms\n", 
+	 solver->vtbl.nvars, solver->atbl.natoms);
+  fflush(stdout);
 }
 
 
@@ -6653,6 +6699,7 @@ void bv_solver_reset(bv_solver_t *solver) {
     solver->cache = NULL;
   }
 
+  reset_bv_stats(&solver->stats);
   reset_bv_queue(&solver->select_queue);
   reset_bv_queue(&solver->delayed_queue);
   reset_bv_trail(&solver->trail_stack);
@@ -7134,6 +7181,8 @@ static void bv_solver_gen_interface_lemma(bv_solver_t *solver, literal_t l, thva
   if (equiv) {
     add_binary_clause(solver->core, l, eq);   // not l => eq
   }
+
+  solver->stats.interface_lemmas ++;
 
 #if TRACE
   printf("---> Bv solver: reconciliation lemma for u!%"PRId32" /= u!%"PRId32" ----\n", x1, x2);
@@ -7888,51 +7937,15 @@ bool bv_solver_fresh_value(bv_solver_t *solver, bvconstant_t *v, uint32_t n) {
  *****************************/
 
 uint32_t bv_solver_num_eq_atoms(bv_solver_t *solver) {
-  bv_atomtable_t *atbl;
-  uint32_t i, n, c;
-
-  c = 0;
-  atbl = &solver->atbl;
-  n = atbl->natoms;
-  for (i=0; i<n; i++) {
-    if (bvatm_is_eq(atbl->data + i)) {
-      c ++;
-    }
-  }
-
-  return c;
+  return solver->stats.eq_atoms;
 }
 
 uint32_t bv_solver_num_ge_atoms(bv_solver_t *solver) {
-  bv_atomtable_t *atbl;
-  uint32_t i, n, c;
-
-  c = 0;
-  atbl = &solver->atbl;
-  n = atbl->natoms;
-  for (i=0; i<n; i++) {
-    if (bvatm_is_ge(atbl->data + i)) {
-      c ++;
-    }
-  }
-
-  return c;
+  return solver->stats.ge_atoms;
 }
 
 uint32_t bv_solver_num_sge_atoms(bv_solver_t *solver) {
-  bv_atomtable_t *atbl;
-  uint32_t i, n, c;
-
-  c = 0;
-  atbl = &solver->atbl;
-  n = atbl->natoms;
-  for (i=0; i<n; i++) {
-    if (bvatm_is_sge(atbl->data + i)) {
-      c ++;
-    }
-  }
-
-  return c;
+  return solver->stats.sge_atoms;
 }
 
 

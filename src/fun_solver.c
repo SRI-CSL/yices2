@@ -1707,7 +1707,7 @@ static bool update_conflicts(fun_solver_t *solver) {
  done:
 #if TRACE
   if (num_updates > 0) {
-    printf("---> update axiom in %"PRIu32" classes out of %"PRIu32"\n", num_updates, n);
+    printf("---> ARRAY SOLVER: update axioms in %"PRIu32" classes out of %"PRIu32"\n", num_updates, n);
   }
 #endif
 

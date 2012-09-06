@@ -22,7 +22,7 @@
 
 #define TRACE 0
 
-#if TRACE
+#if TRACE || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -5280,6 +5280,30 @@ static uint32_t egraph_indirect_interface_lemmas(egraph_t *egraph, uint32_t max_
  ***************************************************************************/
 
 /*
+ * Test: check whether there are duplicates in vector v
+ */
+static void check_interface_duplicates(ivector_t *v) {
+  uint32_t i, j, n;
+  occ_t t1, t2;
+
+  n = v->size;
+  for (i=0; i<n; i += 2) {
+    t1 = v->data[i];
+    t2 = v->data[i+1];
+    for (j=i+2; j<n; j += 2) {
+      if ((v->data[j] == t1 && v->data[j+1] == t2) 
+	  || (v->data[j] == t2 && v->data[j+1] == t1)) {
+	printf("---> EGRAPH: interface lemma duplicate: "
+	       "v[%"PRIu32", %"PRIu32"] = (%"PRId32", %"PRId32"); "
+	       "v[%"PRIu32", %"PRIu32"] = (%"PRId32", %"PRId32")\n", i, i+1, t1, t2, j, j+1, v->data[j], v->data[j+1]);
+	fflush(stdout);
+      }
+    }
+  }
+}
+
+
+/*
  * Generate interface lemmas for pairs of term occurrences stored in v
  * - stop as soon as max_eqs interface lemmas are produced
  * - return the number of lemmas generated
@@ -5291,6 +5315,8 @@ static uint32_t egraph_gen_interface_lemmas(egraph_t *egraph, uint32_t max_eqs, 
   occ_t t1, t2;
   thvar_t x1, x2;
   literal_t eq;
+
+  check_interface_duplicates(v);
 
   n = v->size;
   assert(n > 0);
@@ -5776,10 +5802,13 @@ static fcheck_code_t baseline_final_check(egraph_t *egraph) {
   fcheck_code_t c;
   uint32_t i, max_eq;
 
+  //  printf("---> EGRAPH: final check (baseline)\n");
+
   if (egraph->ctrl[ETYPE_REAL] != NULL) {
     // arithmetic solver
     c = egraph->ctrl[ETYPE_REAL]->final_check(egraph->th[ETYPE_REAL]);
     if (c != FCHECK_SAT) {
+      //      printf("---> exit at arith final check\n");
       return c;
     }
   }
@@ -5788,6 +5817,7 @@ static fcheck_code_t baseline_final_check(egraph_t *egraph) {
     // bitvector solver
     c = egraph->ctrl[ETYPE_BV]->final_check(egraph->th[ETYPE_BV]);
     if (c != FCHECK_SAT) {
+      //      printf("---> exit at bv final check\n");
       return c;
     }
   }
@@ -5796,6 +5826,7 @@ static fcheck_code_t baseline_final_check(egraph_t *egraph) {
     // array solver
     c = egraph->ctrl[ETYPE_FUNCTION]->final_check(egraph->th[ETYPE_FUNCTION]);
     if (c != FCHECK_SAT) {
+      //      printf("---> exit at array final check\n");
       return c;
     }
   }
@@ -5818,6 +5849,10 @@ static fcheck_code_t baseline_final_check(egraph_t *egraph) {
     assert(egraph->eg[ETYPE_BV] != NULL);
     i += egraph->eg[ETYPE_BV]->reconcile_model(egraph->th[ETYPE_BV], max_eq - i);
   }
+
+  if (i > 0) {
+    //    printf("---> %"PRIu32" interface lemmas from bv/arith solvers\n", i);
+  }
     
   if (i == 0 && egraph->ctrl[ETYPE_FUNCTION] != NULL && egraph_is_high_order(egraph)) {
     /*
@@ -5827,6 +5862,9 @@ static fcheck_code_t baseline_final_check(egraph_t *egraph) {
      */
     assert(egraph->eg[ETYPE_FUNCTION] != NULL);
     i = egraph->eg[ETYPE_FUNCTION]->reconcile_model(egraph->th[ETYPE_FUNCTION], 1);
+    if (i > 0) {
+      //      printf("---> %"PRIu32" interface lemmas from array solver\n", i);
+    }
   }
 
   egraph->stats.interface_eqs += i;
@@ -5847,9 +5885,12 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
   fcheck_code_t c;
   uint32_t i, max_eqs;
 
+  //  printf("---> EGRAPH: final check (experimental)\n");
+
   if (egraph->ctrl[ETYPE_REAL] != NULL) {
     c = egraph->ctrl[ETYPE_REAL]->final_check(egraph->th[ETYPE_REAL]);
     if (c != FCHECK_SAT) {
+      //      printf("---> exit at arith final check\n");
       return c;
     }
   }
@@ -5858,6 +5899,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
     // bitvector solver
     c = egraph->ctrl[ETYPE_BV]->final_check(egraph->th[ETYPE_BV]);
     if (c != FCHECK_SAT) {
+      //      printf("---> exit at bv final check\n");
       return c;
     }
   }
@@ -5880,19 +5922,24 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
     ivector_reset(&egraph->interface_eqs);
     c = FCHECK_CONTINUE;
 
+    //    printf("---> egraph reconcile failed: %"PRIu32" interface lemmas\n", i);
+
   } else if (egraph->ctrl[ETYPE_FUNCTION] != NULL) {
     /*
      * bv/arith models are consistent with the egraph:
      * deal with the array solver
      */
-    c = egraph->ctrl[ETYPE_FUNCTION]->final_check(egraph->th[ETYPE_FUNCTION]);
+    c = egraph->ctrl[ETYPE_FUNCTION]->final_check(egraph->th[ETYPE_FUNCTION]);    
     if (c == FCHECK_SAT) {
       if (egraph_is_high_order(egraph)) {
 	i = egraph->eg[ETYPE_FUNCTION]->reconcile_model(egraph->th[ETYPE_FUNCTION], 1);
 	if (i > 0) {
+	  //	  printf("---> exit after array reconcile: %"PRIu32" lemmas\n", i);
 	  c = FCHECK_CONTINUE;
 	}
       }
+    } else {
+      //      printf("---> exit at array final check\n");
     }
 
     if (c != FCHECK_SAT) {
@@ -5914,7 +5961,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
 fcheck_code_t egraph_final_check(egraph_t *egraph) {
   egraph->stats.final_checks ++;
 
-  if (false) {
+  if (true) {
     return baseline_final_check(egraph);
   } else {
     return experimental_final_check(egraph);

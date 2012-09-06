@@ -1891,8 +1891,11 @@ static void show_bvsolver_stats(bv_solver_t *solver) {
   printf(" variables               : %"PRIu32"\n", bv_solver_num_vars(solver));
   printf(" atoms                   : %"PRIu32"\n", bv_solver_num_atoms(solver));
   printf(" eq. atoms               : %"PRIu32"\n", bv_solver_num_eq_atoms(solver));
+  printf(" dyn eq. atoms           : %"PRIu32"\n", solver->stats.on_the_fly_atoms);
   printf(" ge atoms                : %"PRIu32"\n", bv_solver_num_ge_atoms(solver));
   printf(" sge atoms               : %"PRIu32"\n", bv_solver_num_sge_atoms(solver));
+  printf(" equiv lemmas            : %"PRIu32"\n", solver->stats.equiv_lemmas);
+  printf(" interface lemmas        : %"PRIu32"\n", solver->stats.interface_lemmas);
 }
 
 

@@ -276,6 +276,19 @@ typedef struct used_bvval_s {
 
 
 
+/*****************
+ *  STATISTICS   *
+ ****************/
+
+typedef struct bv_stats_s {
+  uint32_t eq_atoms;
+  uint32_t on_the_fly_atoms;
+  uint32_t ge_atoms;
+  uint32_t sge_atoms;
+  uint32_t equiv_lemmas;
+  uint32_t interface_lemmas;
+} bv_stats_t;
+
 
 /************
  *  SOLVER  * 
@@ -340,6 +353,11 @@ typedef struct bv_solver_s {
    * Cache for lemmas: allocated on demand
    */
   cache_t *cache;
+
+  /*
+   * Statistics
+   */
+  bv_stats_t stats;
 
   /*
    * Queues of select and delayed variables
