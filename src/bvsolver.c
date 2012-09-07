@@ -22,7 +22,7 @@
 
 #define DUMP 0
 
-#if TRACE || DUMP 
+#if TRACE || DUMP || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -6028,6 +6028,87 @@ static cache_t *bv_solver_get_cache(bv_solver_t *solver) {
 }
 
 
+
+/*
+ * PROVISIONAL:
+ * - try to check whether a bvequiv_lemma is needed
+ */
+static void diagnose_bvequiv(bv_solver_t *solver, thvar_t x1, thvar_t y1) {
+  bv_atomtable_t *atbl;
+  ivector_t *a, *b;
+  thvar_t x, y;
+  int32_t i;
+  literal_t l, l1, l2;
+  uint32_t j, n;
+
+  x = mtbl_get_root(&solver->mtbl, x1);
+  y = mtbl_get_root(&solver->mtbl, y1);
+
+  if (equal_bvvar(solver, x, y)) {
+    printf("---> BVSOLVER: bvequiv: (bveq u!%"PRId32" u!%"PRId32") is true (by mtbl_get_root)\n", x1, y1);
+    return;
+  }
+
+  if (diseq_bvvar(solver, x, y)) {
+    printf("---> BVSOLVER: bvequiv: (bveq u!%"PRId32" u!%"PRId32") is false (by diseq_bvvar)\n", x1, y1);
+    return;
+  }
+
+  if (simplify_eq(solver, &x, &y)) {
+    if (x == y) {
+      printf("---> BVSOLVER: bvequiv: (bveq u!%"PRId32" u!%"PRId32") is true (by simplify_eq)\n", x1, y1);
+      return;
+    }
+    if (diseq_bvvar(solver, x, y)) {
+      printf("---> BVSOLVER: bvequiv: (bveq u!%"PRId32" u!%"PRId32") is false (by diseq_bvvar)\n", x1, y1);
+      return;
+    }
+  }
+
+  atbl = &solver->atbl;
+  i = find_bveq_atom(atbl, x, y);
+  if (i >= 0) {
+    // the atom exists
+    l = atbl->data[i].lit;
+    switch (literal_value(solver->core, l)) {
+    case VAL_FALSE:
+      printf("---> BVSOLVER: bvequiv: (bveq u!%"PRId32" u!%"PRId32") is false (atom set to false)\n", x1, y1);
+      return;      
+
+    case VAL_TRUE:
+      printf("---> BVSOLVER: bvequiv: (bveq u!%"PRId32" u!%"PRId32") is true (atom set to false)\n", x1, y1);
+      return;      
+
+    case VAL_UNDEF:
+      break;
+    }
+  }
+
+  if (solver->bitblasted && 
+      bvvar_is_bitblasted(&solver->vtbl, x) && 
+      bvvar_is_bitblasted(&solver->vtbl, y)) {
+
+    a = &solver->a_vector;
+    b = &solver->b_vector;
+    collect_bvvar_literals(solver, x, a);
+    collect_bvvar_literals(solver, y, b);
+    n = a->size;
+    assert(b->size == n);
+
+    for (j=0; j<n; j++) {
+      l1 = a->data[j];
+      l2 = b->data[j];
+      if ((literal_value(solver->core, l1) == VAL_FALSE && literal_value(solver->core, l2) == VAL_TRUE)
+	  || (literal_value(solver->core, l1) == VAL_TRUE && literal_value(solver->core, l2) == VAL_FALSE)) {
+	printf("---> BVSOLVER: bvequiv: (bveq u!%"PRId32" u!%"PRId32") is false (bits %"PRIu32" differ)\n", x1, y1, j);
+	return;
+      }
+    }
+  }
+}
+
+
+
 /*
  * Create the lemma (eq t1 t2) <=> (bveq x1 x2)
  * where t1 = egraph term for x1 and t2 = egraph term for x2
@@ -6044,7 +6125,9 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
 
   assert(solver->egraph != NULL && x1 != x2 && 
 	 bvvar_is_bitblasted(vtbl, x1) && bvvar_is_bitblasted(vtbl, x2));
-  
+
+  diagnose_bvequiv(solver, x1, x2);
+
   // normalize: we want x1 < x2
   if (x2 < x1) {
     aux = x1, x1 = x2; x2 = aux;

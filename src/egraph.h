@@ -175,7 +175,7 @@ extern literal_t egraph_make_simple_eq(egraph_t *egraph, occ_t t1, occ_t t2);
  */
 
 /*
- * - a type tau of the term to create is given as a parameter to the constructor
+ * - the type tau of the term to create is given as a parameter to the constructor
  * - a new theory variable is created if required (i.e., if the type is arithmetic, bitvector
  *   or function and the corresponding satellite solver exists).
  * - the term is activated
@@ -186,7 +186,11 @@ extern eterm_t egraph_make_apply(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a
 extern eterm_t egraph_make_ite(egraph_t *egraph, occ_t c, occ_t t1, occ_t t2, type_t tau);
 extern eterm_t egraph_make_update(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a, occ_t v, type_t tau);
 
-
+/*
+ * Constructor for constant (lambda ... t):
+ * - tau = result type of (lambda ... t): must be a function type
+ */
+extern eterm_t egraph_make_lambda(egraph_t *egraph, occ_t t, type_t tau);
 
 
 
@@ -205,6 +209,8 @@ extern bool egraph_tuple_exists(egraph_t *egraph, uint32_t n, occ_t *a);
 extern bool egraph_eq_exists(egraph_t *egraph, occ_t t1, occ_t t2);
 extern bool egraph_distinct_exists(egraph_t *egraph, uint32_t n, occ_t *a);
 extern bool egraph_or_exists(egraph_t *egraph, uint32_t n, occ_t *a);
+
+extern bool egraph_lambda_exists(egraph_t *egraph, occ_t t, type_t tau);
 
 
 

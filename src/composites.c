@@ -28,6 +28,15 @@ static inline composite_t *arena_alloc_composite(arena_t *m, uint32_t n) {
   return (composite_t *) arena_alloc(m, sizeof(composite_t) + n * sizeof(int32_t));
 }
 
+static inline composite_t *alloc_lambda_composite(void) {
+  return (composite_t *) safe_malloc(sizeof(composite_t) + 3 * sizeof(int32_t));
+}
+
+static inline composite_t *arena_alloc_lambda_composite(arena_t *m) {
+  return (composite_t *) arena_alloc(m, sizeof(composite_t) + 3 * sizeof(int32_t));
+}
+
+
 /*
  * Initialization
  */
@@ -125,6 +134,13 @@ static void init_or(composite_t *c, uint32_t n, occ_t *a) {
   init_hooks(c);
 }
 
+static void init_lambda(composite_t *c, occ_t t, int32_t tag) {
+  init_header(c, mk_lambda_tag());
+  c->child[0] = t;
+  c->child[1] = no_ptr; // hook
+  c->child[2] = tag;
+}
+
 
 /*
  * Long-term composites
@@ -185,6 +201,13 @@ composite_t *new_or_composite(uint32_t n, occ_t *a) {
   return tmp;
 }
 
+composite_t *new_lambda_composite(occ_t t, int32_t tag) {
+  composite_t *tmp;
+
+  tmp = alloc_lambda_composite();
+  init_lambda(tmp, t, tag);
+  return tmp;
+}
 
 
 /*
@@ -246,6 +269,13 @@ composite_t *arena_or_composite(arena_t *m, uint32_t n, occ_t *a) {
   return tmp;
 }
 
+composite_t *arena_lambda_composite(arena_t *m, occ_t t, int32_t tag) {
+  composite_t *tmp;
+
+  tmp = arena_alloc_lambda_composite(m);
+  init_lambda(tmp, t, tag);
+  return tmp;
+}
 
 
 /*
@@ -334,6 +364,9 @@ bool equal_or(composite_t *c, uint32_t n, occ_t *a) {
   return c->tag == mk_or_tag(n) && equal_children(c->child, n, a);
 }
 
+bool equal_lambda(composite_t *c, occ_t t, int32_t tag) {
+  return c->tag == mk_lambda_tag() && c->child[0] == t && c->child[2] == tag;
+}
 
 
 /*
@@ -444,6 +477,17 @@ uint32_t hash_or(uint32_t n, occ_t *a) {
   return hash_aux(n, a, mk_or_tag(n), 0x9279a675, 0x9279a675);
 }
 
+uint32_t hash_lambda(occ_t t, int32_t tag) {
+  uint32_t x, y, z;
+
+  x = t;
+  y = tag;
+  z = 0xabdaabda;
+  final(x, y, z);
+
+  return z;
+}
+
 
 uint32_t hash_composite(composite_t *c) {
   uint32_t tag, n;
@@ -466,6 +510,8 @@ uint32_t hash_composite(composite_t *c) {
     return hash_distinct(n, c->child);
   case COMPOSITE_OR:
     return hash_or(n, c->child);
+  case COMPOSITE_LAMBDA:
+    return hash_lambda(c->child[0], c->child[2]);
   }
   // prevent GCC warning
   assert(false);
@@ -845,6 +891,19 @@ void signature_or(composite_t *c, elabel_t *label, signature_t *s) {
 
 
 /*
+ * For a lambda: 
+ * - the signature depends on label[c->child[0]] and on c->child[2] (lambda tag)
+ */
+void signature_lambda(composite_t *c, elabel_t *label, signature_t *s) {
+  assert(composite_kind(c) == COMPOSITE_LAMBDA && composite_arity(c) == 1);
+
+  s->tag = mk_lambda_tag();
+  s->sigma[0] = get_label(label, c->child[0]);
+  s->sigma[1] = c->child[2]; 
+}
+
+
+/*
  * Generic form
  */
 void signature_composite(composite_t *c, elabel_t *label, signature_t *s) {
@@ -869,6 +928,10 @@ void signature_composite(composite_t *c, elabel_t *label, signature_t *s) {
 
   case COMPOSITE_OR:
     signature_or(c, label, s);
+    break;
+
+  case COMPOSITE_LAMBDA:
+    signature_lambda(c, label, s);
     break;
   }
 }
@@ -949,6 +1012,9 @@ bool signature_matches(composite_t *c, signature_t *s, signature_t *aux, elabel_
   case COMPOSITE_OR:
     signature_or(c, label, aux);
     return equal_signatures(s, aux);
+
+  case COMPOSITE_LAMBDA:
+    return s->sigma[0] == get_label(label, c->child[0]) && s->sigma[1] == c->child[2]; 
   }  
 
   // prevents a GCC warning

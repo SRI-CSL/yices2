@@ -336,6 +336,202 @@ static inline void reset_distinct_table(distinct_table_t *tbl) {
 
 
 
+/**********************
+ *  LAMBDA TAG TABLE  *
+ *********************/
+
+/*
+ * Allocate and initialize a descriptor:
+ * - n = arity
+ * - dom[0 ... n-1] = types
+ */
+static ltag_desc_t *new_ltag_desc(uint32_t n, type_t *dom) {
+  ltag_desc_t *tmp;
+  uint32_t i;
+
+  if (n > MAX_LTAG_DESC_ARITY) {
+    /*
+     * This should never happen since n <= YICES_MAX_ARITY < MAX_LTAG_DESC_ARITY.
+     * But we mwy change this one day.
+     */
+    out_of_memory();
+  }
+  
+  tmp = (ltag_desc_t *) safe_malloc(sizeof(ltag_desc_t) + n * sizeof(type_t));
+  tmp->arity = n;
+  for (i=0; i<n; i++) {
+    tmp->dom[i] = dom[i];
+  }
+
+  return tmp;
+}
+
+
+/*
+ * Check whether d matches n and dom
+ */
+static bool ltag_desc_matches(ltag_desc_t *d, uint32_t n, type_t *dom) {
+  uint32_t i;
+
+  if (d->arity != n) {
+    return false;
+  }
+
+  for (i=0; i<n; i++) {
+    if (dom[i] != d->dom[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+/*
+ * Initialize/delete/reset
+ */
+static void init_ltag_table(ltag_table_t *tbl) {
+  tbl->size = 0;
+  tbl->ntags = 0;
+  tbl->data = NULL;
+}
+
+static void delete_ltag_table(ltag_table_t *tbl) {
+  uint32_t i, n;
+
+  n = tbl->ntags;
+  for (i=0; i<n; i++) {
+    safe_free(tbl->data[i]);
+  }
+  safe_free(tbl->data);
+  tbl->data = NULL;
+}
+
+static void reset_ltag_table(ltag_table_t *tbl) {
+  uint32_t i, n;
+
+  n = tbl->ntags;
+  for (i=0; i<n; i++) {
+    safe_free(tbl->data[i]);
+  }
+  tbl->ntags = 0;
+}
+
+
+/*
+ * Make room in tbl
+ */
+static void extend_ltag_table(ltag_table_t *tbl) {
+  uint32_t n;
+
+  n = tbl->size;
+  if (n == 0) {
+    // start with the default size
+    n = DEF_LTAG_TABLE_SIZE;
+    assert(n <= MAX_LTAG_TABLE_SIZE);
+
+    tbl->data = (ltag_desc_t **) safe_malloc(n * sizeof(ltag_desc_t *));
+    tbl->size = n;
+    
+  } else {
+    // increase size by 50%
+    n ++;
+    n += n >> 1;
+
+    if (n > MAX_LTAG_TABLE_SIZE) {
+      out_of_memory();
+    }
+
+    tbl->data = (ltag_desc_t **) safe_realloc(tbl->data, n * sizeof(ltag_desc_t *));
+    tbl->size = n;
+  }
+}
+
+
+/*
+ * Allocate a new tag and build the corresponding descriptor
+ * - n = arity
+ * - dom[0 ... n-1] = types
+ */
+static int32_t ltag_table_add_descriptor(ltag_table_t *tbl, uint32_t n, type_t *dom) {
+  uint32_t i;
+
+  i = tbl->ntags;
+  if (i == tbl->size) {
+    extend_ltag_table(tbl);
+  }
+  assert(i < tbl->size);
+
+  tbl->data[i] = new_ltag_desc(n, dom);
+  tbl->ntags ++;
+
+  return i;
+}
+
+
+
+/*
+ * Get a tag for dom[0 ... n-1]
+ */
+static int32_t ltag_table_get_tag(ltag_table_t *tbl, uint32_t n, type_t *dom) {
+  uint32_t i, ntags;
+
+  ntags = tbl->ntags;
+  for (i=0; i<ntags; i++) {
+    if (ltag_desc_matches(tbl->data[i], n, dom)) {
+      return i;
+    }
+  }
+
+  return ltag_table_add_descriptor(tbl, n, dom);
+}
+
+
+
+/*
+ * Search for a tag:
+ * - return -1 if nothing matches dom[0 ... n-1] in the table
+ */
+static int32_t ltag_table_find_tag(ltag_table_t *tbl, uint32_t n, type_t *dom) {
+  uint32_t i, ntags;
+
+  ntags = tbl->ntags;
+  for (i=0; i<ntags; i++) {
+    if (ltag_desc_matches(tbl->data[i], n, dom)) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+
+/*
+ * Get tag for the function type tau:
+ * - types = the corresponding type table
+ */
+static int32_t lambda_tag_for_type(ltag_table_t *tbl, type_table_t *types, type_t tau) {
+  function_type_t *d;
+
+  d = function_type_desc(types, tau);
+  return ltag_table_get_tag(tbl, d->ndom, d->domain);
+}
+
+
+/*
+ * Check whether there's an existing tag for function type tau
+ * - return the tag if it's found or -1 otherwise
+ */
+static int32_t find_lambda_tag_for_type(ltag_table_t *tbl, type_table_t *types, type_t tau) {
+  function_type_t *d;
+
+  d = function_type_desc(types, tau);
+  return ltag_table_find_tag(tbl, d->ndom, d->domain);
+}
+
+
+
+
 /***********************
  *  PROPAGATION QUEUE  *
  **********************/
@@ -946,7 +1142,9 @@ static eterm_t new_distinct(egraph_t *egraph, uint32_t n, occ_t *a) {
   return new_composite_eterm(egraph, new_distinct_composite(n, a));
 }
 
-
+static eterm_t new_lambda(egraph_t *egraph, occ_t t, int32_t tag) {
+  return new_composite_eterm(egraph, new_lambda_composite(t, tag));
+}
 
 
 /*
@@ -993,6 +1191,13 @@ typedef struct {
   occ_t t1, t2, t3;
 } ite_hobj_t;
 
+typedef struct {
+  int_hobj_t m;
+  egraph_t *egraph;
+  occ_t t;
+  int32_t tag;
+} lambda_hobj_t;
+
 
 /*
  * Hash functions
@@ -1023,6 +1228,10 @@ static uint32_t hash_distinct_obj(composite_hobj_t *p) {
 
 static uint32_t hash_or_obj(composite_hobj_t *p) {
   return hash_or(p->n, p->a);
+}
+
+static uint32_t hash_lambda_obj(lambda_hobj_t *p) {
+  return hash_lambda(p->t, p->tag);
 }
 
 
@@ -1092,6 +1301,15 @@ static bool equal_or_obj(composite_hobj_t *p, eterm_t i) {
   return equal_or(c, p->n, p->a);
 }
 
+static bool equal_lambda_obj(lambda_hobj_t *p, eterm_t i) {
+  composite_t *c;
+
+  c = p->egraph->terms.body[i];
+  assert(composite_body(c));
+
+  return equal_lambda(c, p->t, p->tag);
+}
+
 
 /*
  * Build functions
@@ -1122,6 +1340,10 @@ static eterm_t build_distinct_obj(composite_hobj_t *p) {
 
 static eterm_t build_or_obj(composite_hobj_t *p) {
   return new_or(p->egraph, p->n, p->a);
+}
+
+static eterm_t build_lambda_obj(lambda_hobj_t *p) {
+  return new_lambda(p->egraph, p->t, p->tag);
 }
 
 
@@ -1170,6 +1392,12 @@ static composite_hobj_t or_hobj = {
   { (hobj_hash_t) hash_or_obj, (hobj_eq_t) equal_or_obj, (hobj_build_t) build_or_obj },
   NULL,
   0, NULL,
+};
+
+static lambda_hobj_t lambda_hobj = {
+  { (hobj_hash_t) hash_lambda_obj, (hobj_eq_t) equal_lambda_obj, (hobj_build_t) build_lambda_obj },
+  NULL,
+  0, 0,
 };
 
 
@@ -1239,6 +1467,13 @@ static eterm_t egraph_or_term(egraph_t *egraph, uint32_t n, occ_t *a) {
   return int_htbl_get_obj(&egraph->htbl, (int_hobj_t *) &or_hobj);  
 }
 
+static eterm_t egraph_lambda_term(egraph_t *egraph, occ_t t, int32_t tag) {
+  lambda_hobj.egraph = egraph;
+  lambda_hobj.t = t;
+  lambda_hobj.tag = tag;
+
+  return int_htbl_get_obj(&egraph->htbl, (int_hobj_t *) &lambda_hobj);
+}
 
 
 
@@ -1309,6 +1544,13 @@ static eterm_t egraph_find_or_term(egraph_t *egraph, uint32_t n, occ_t *a) {
   return int_htbl_find_obj(&egraph->htbl, (int_hobj_t *) &or_hobj);  
 }
 
+static eterm_t egraph_find_lambda_term(egraph_t *egraph, occ_t t, int32_t tag) {
+  lambda_hobj.egraph = egraph;
+  lambda_hobj.t = t;
+  lambda_hobj.tag = tag;
+
+  return int_htbl_find_obj(&egraph->htbl, (int_hobj_t *) &lambda_hobj);
+}
 
 
 
@@ -1860,8 +2102,43 @@ static bool analyze_or(egraph_t *egraph, composite_t *p) {
 
 
 
+/*
+ * p is (lambda c tag)
+ */
+static bool analyze_lambda(egraph_t *egraph, composite_t *p) {
+  composite_t *q;
+  signature_t *sgn;
+  elabel_t *label;
+  int32_t k;
+
+  label = egraph->terms.label;
+  sgn = &egraph->sgn;
+
+  signature_lambda(p, label, sgn);
+  q = congruence_table_get(&egraph->ctable, p, sgn, label);
+  if (q != p) {
+    // basic congruence
+    k = egraph_stack_push_eq(&egraph->stack, pos_occ(p->id), pos_occ(q->id));
+    egraph->stack.etag[k] = EXPL_BASIC_CONGRUENCE;
+#if TRACE
+    printf("---> EGRAPH: equality ");
+    print_occurrence(stdout, pos_occ(p->id));
+    printf(" == ");
+    print_occurrence(stdout, pos_occ(q->id));
+    printf(" implied by lambda congruence\n");
+    printf("---> i.e., ");
+    print_composite(stdout, p);
+    printf(" == ");
+    print_composite(stdout, q);
+    printf("\n");
+#endif
+    return true;
+  } 
+
+  return false;
+}
+
 static bool composite_simplifies(egraph_t *egraph, composite_t *p) {
-  // use a jump table rather than switch??
   switch (composite_kind(p)) {
   case COMPOSITE_APPLY:
   case COMPOSITE_UPDATE:
@@ -1879,6 +2156,9 @@ static bool composite_simplifies(egraph_t *egraph, composite_t *p) {
 
   case COMPOSITE_OR:
     return analyze_or(egraph, p);
+
+  case COMPOSITE_LAMBDA:
+    return analyze_lambda(egraph, p);
   }
 
   assert(false);
@@ -2426,6 +2706,13 @@ bool egraph_or_exists(egraph_t *egraph, uint32_t n, occ_t *a) {
 }
 
 
+bool egraph_lambda_exists(egraph_t *egraph, occ_t t, type_t tau) {
+  int32_t tag;
+
+  tag = find_lambda_tag_for_type(&egraph->tag_table, egraph->types, tau);
+  return tag >= 0 && egraph_find_lambda_term(egraph, t, tag);
+}
+
 
 
 /**********************************
@@ -2718,6 +3005,24 @@ eterm_t egraph_make_tuple(egraph_t *egraph, uint32_t n, occ_t *a, type_t tau) {
 }
 
 
+
+/*
+ * Constant lambda term (lambda ... c)
+ * - tau must be a function type
+ * - attach a theory variable in the array solver (if present)
+ */
+eterm_t egraph_make_lambda(egraph_t *egraph, occ_t c, type_t tau) {  
+  eterm_t t;
+  int32_t tag;
+
+  tag = lambda_tag_for_type(&egraph->tag_table, egraph->types, tau);
+  t = egraph_lambda_term(egraph, c, tag);
+  if (egraph_term_is_fresh(egraph, t)) {
+    auto_activate(egraph, t, tau);
+  }
+
+  return t;
+}
 
 
 
@@ -4038,6 +4343,7 @@ void egraph_reset(egraph_t *egraph) {
   reset_undo_stack(&egraph->undo);
   reset_distinct_table(&egraph->dtable);
   reset_congruence_table(&egraph->ctable);
+  reset_ltag_table(&egraph->tag_table);
   reset_egraph_trail(&egraph->trail_stack);
 
   egraph_free_const_htbl(egraph);
@@ -6467,6 +6773,7 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   init_undo_stack(&egraph->undo, DEFAULT_EGRAPH_STACK_SIZE, DEFAULT_EGRAPH_NLEVELS);
   init_distinct_table(&egraph->dtable);
   init_congruence_table(&egraph->ctable, 0);
+  init_ltag_table(&egraph->tag_table);
 
   init_egraph_trail(&egraph->trail_stack);
 
@@ -6619,6 +6926,7 @@ void delete_egraph(egraph_t *egraph) {
   delete_int_htbl(&egraph->htbl);
   egraph_free_const_htbl(egraph);
   delete_egraph_trail(&egraph->trail_stack);
+  delete_ltag_table(&egraph->tag_table);
   delete_congruence_table(&egraph->ctable);  
   delete_undo_stack(&egraph->undo);
   delete_egraph_stack(&egraph->stack);

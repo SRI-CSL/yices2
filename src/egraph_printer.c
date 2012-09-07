@@ -40,7 +40,7 @@ static const char * const etype2theory[] = {
 };
 
 static const char * const cmpkind2string[] = {
-  "apply", "update", "tuple", "eq", "ite", "distinct", "or", "<invalid composite kind>",
+  "apply", "update", "tuple", "eq", "ite", "distinct", "or", "lambda", "<invalid composite kind>",
 };
 
 
@@ -190,8 +190,8 @@ void print_dmask(FILE *f, uint32_t d) {
  */
 static void print_kind(FILE *f, composite_kind_t k) {
   // cast to (int) to prevent compilation warnings with clang
-  if ((int) k < 0 || k > COMPOSITE_OR) {
-    k = COMPOSITE_OR + 1;
+  if ((int) k < 0 || k > COMPOSITE_LAMBDA) {
+    k = COMPOSITE_LAMBDA + 1;
   }
   fputs(cmpkind2string[k], f);
 }
@@ -204,19 +204,30 @@ void print_composite(FILE *f, composite_t *c) {
   n = composite_arity(c);
 
   fputc('(', f);
-  if (k != COMPOSITE_APPLY) { 
-    print_kind(f, composite_kind(c));
-    for (i=0; i<n; i++) {
-      fputc(' ', f);
-      print_occurrence(f, c->child[i]);
-    }
-  } else {
+  switch (k) {
+  case COMPOSITE_APPLY:
     print_occurrence(f, c->child[0]);
     for (i=1; i<n; i++) {
       fputc(' ', f);
       print_occurrence(f, c->child[i]);
     }
+    break;
+
+  case COMPOSITE_LAMBDA:
+    print_kind(f, COMPOSITE_LAMBDA);
+    fprintf(f, "[%"PRId32"] ", c->child[2]); // print the lambda tag
+    print_occurrence(f, c->child[0]);    
+    break;
+
+  default:
+    print_kind(f, composite_kind(c));
+    for (i=0; i<n; i++) {
+      fputc(' ', f);
+      print_occurrence(f, c->child[i]);
+    }
+    break;
   }
+
   fputc(')', f);
 }
 
@@ -226,6 +237,9 @@ void print_signature(FILE *f, signature_t *s) {
   n = tag_arity(s->tag);
   fputc('[', f);
   print_kind(f, tag_kind(s->tag));
+  if (tag_kind(s->tag) == COMPOSITE_LAMBDA) {
+    fprintf(f, "[%"PRId32"]", s->sigma[1]); // print the lambda tag
+  }
   for (i=0; i<n; i++) {
     fputc(' ', f);
     print_label(f, s->sigma[i]);

@@ -26,6 +26,10 @@
  * (distinct a[0] ... a[n-1])
  * (ite t1 t2 t3)
  * (or a[0] ... a[n-1])
+ * (lambda t tag)
+ * 
+ * For lambda terms: tag is an integer that's used to distinguish lambda terms
+ * with different domains.
  *
  * hash is set to 0
  * id is set to null_eterm
@@ -43,6 +47,7 @@ extern composite_t *new_eq_composite(occ_t t1, occ_t t2);
 extern composite_t *new_distinct_composite(uint32_t n, occ_t *a);
 extern composite_t *new_ite_composite(occ_t t1, occ_t t2, occ_t t3);
 extern composite_t *new_or_composite(uint32_t n, occ_t *a);
+extern composite_t *new_lambda_composite(occ_t t, int32_t tag);
 
 /*
  * Temporary composites: allocated in arena m
@@ -55,6 +60,7 @@ extern composite_t *arena_eq_composite(arena_t *m, occ_t t1, occ_t t2);
 extern composite_t *arena_distinct_composite(arena_t *m, uint32_t n, occ_t *a);
 extern composite_t *arena_ite_composite(arena_t *m, occ_t t1, occ_t t2, occ_t t3);
 extern composite_t *arena_or_composite(arena_t *m, uint32_t n, occ_t *a);
+extern composite_t *arena_lambda_composite(arena_t *m, occ_t t, int32_t tag);
 
 /*
  * Variants for or and distinct: do not allocate the hook parts
@@ -80,7 +86,7 @@ extern bool equal_eq(composite_t *c, occ_t t1, occ_t t2);
 extern bool equal_distinct(composite_t *c, uint32_t n, occ_t *a);
 extern bool equal_ite(composite_t *c, occ_t t1, occ_t t2, occ_t t3);
 extern bool equal_or(composite_t *c, uint32_t n, occ_t *a);
-
+extern bool equal_lambda(composite_t *c, occ_t t, int32_t tag);
 
 /*
  * Hash (not the same as the internal c->hash, used for congruence)
@@ -92,6 +98,7 @@ extern uint32_t hash_eq(occ_t t1, occ_t t2);
 extern uint32_t hash_distinct(uint32_t n, occ_t *a);
 extern uint32_t hash_ite(occ_t t1, occ_t t2, occ_t t3);
 extern uint32_t hash_or(uint32_t n, occ_t *a);
+extern uint32_t hash_lambda(occ_t t, int32_t tag);
 
 extern uint32_t hash_composite(composite_t *c);
 
@@ -164,6 +171,7 @@ extern void signature_eq(composite_t *c, elabel_t *label, signature_t *s);
 extern void signature_ite(composite_t *c, elabel_t *label, signature_t *s);
 extern void signature_distinct(composite_t *c, elabel_t *label, signature_t *s);
 extern void signature_or(composite_t *c, elabel_t *label, signature_t *s);
+extern void signature_lambda(composite_t *c, elabel_t *label, signature_t *s);
 
 static inline void signature_apply(composite_t *c, elabel_t *label, signature_t *s) {
   assert(composite_kind(c) == COMPOSITE_APPLY);

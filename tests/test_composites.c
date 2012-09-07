@@ -99,6 +99,10 @@ static composite_t *pair(occ_t x, occ_t y) {
   return new_tuple_composite(2, aux);
 }
 
+static composite_t *lambda(occ_t x, int32_t tag) {
+  return new_lambda_composite(x, tag);
+}
+
 static void build_composites() {
   composite[0] = pair(pos_occ(a), neg_occ(a));
   composite[0]->id = 100;
@@ -122,6 +126,11 @@ static void build_composites() {
   composite[8]->id = 108;
   composite[9] = update2(f, pos_occ(c), neg_occ(d), pos_occ(h));
   composite[9]->id = 109;
+
+  composite[10] = lambda(pos_occ(a), 0);
+  composite[10]->id = 110;
+  composite[11] = lambda(pos_occ(a), 1);
+  composite[11]->id = 110;
 }
 
 static void delete_composites(uint32_t n) {
@@ -312,21 +321,21 @@ int main() {
 
   build_composites();
   print_labels();
-  print_composites(10);
+  print_composites(12);
   printf("\n");
 
-  test_signatures(10);
+  test_signatures(12);
   printf("\n");
 
-  test_equalities(10);
+  test_equalities(12);
   printf("\n");
 
-  test_disjunctions(10);
+  test_disjunctions(12);
   printf("\n");
 
-  test_congruences(10);
+  test_congruences(12);
 
-  delete_composites(10);
+  delete_composites(12);
   delete_congruence_table(&tbl);
   delete_sign_buffer(&sgn);
 

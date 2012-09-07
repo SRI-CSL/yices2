@@ -160,6 +160,7 @@ typedef enum composite_kind {
   COMPOSITE_ITE,
   COMPOSITE_DISTINCT,
   COMPOSITE_OR,
+  COMPOSITE_LAMBDA,
 } composite_kind_t;
 
 
@@ -181,6 +182,13 @@ typedef enum composite_kind {
  * - if cmp has several children in class c the hook is set on
  *   the first child of class c. The other hooks are negative.
  * - this makes it easy and cheap to remove cmp from its parents
+ *
+ * A lambda composite cmp is of the form (lambda t) where t is a term
+ * occurrence 
+ * - cmp has arity one but the array child has three elements:
+ *   cmp->child[0] = t
+ *   cmp->child[1] = hook as above
+ *   cmp->child[2] = an integer tag (intended to encode the domain of the lambda term)
  */
 typedef struct composite_s {
   uint32_t tag;
@@ -239,6 +247,10 @@ static inline uint32_t mk_eq_tag(void) {
   return mk_composite_tag(COMPOSITE_EQ, 2);
 }
 
+static inline uint32_t mk_lambda_tag(void) {
+  return mk_composite_tag(COMPOSITE_LAMBDA, 1);
+}
+
 static inline uint32_t mk_distinct_tag(uint32_t n) {
   return mk_composite_tag(COMPOSITE_DISTINCT, n);
 }
@@ -282,6 +294,11 @@ static inline occ_t composite_child(composite_t *c, uint32_t i) {
 
 static inline int32_t *composite_hooks(composite_t *c) {
   return c->child + composite_arity(c);
+}
+
+static inline int32_t lambda_composite_tag(composite_t *c) {
+  assert(composite_kind(c) == COMPOSITE_LAMBDA);
+  return c->child[2];
 }
 
 

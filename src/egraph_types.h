@@ -45,8 +45,25 @@
  *   (distinct t1 ... t_n)
  *   (ite t1 t2 t3)
  *   (or t1 .... t_n)
+ *   (lambda t1 tag)
  * where f, t_i, v are occurrences of terms. These are stored as
  * composite_t objects.
+ *
+ * Lambda terms are of the form (lambda t1 tag) where tag is an integer index
+ * that identifies the term domain. There's an associate lambda descriptor
+ * table and lambda_desc[tag] stores:
+ *    n = arity of the term 
+ *    dom[0] ... dom[n-1] = types
+ * For example, we may have
+ *    u = (lambda (x::int) (y::int) t)
+ &    v = (lambda (x::real) t)
+ * Then the egraph will contain
+ *    u = (lambda t i)
+ *    v = (lambda t j)
+ * and the descriptor table will store
+ *    i --> arity = 2, dom[0] = int, dom[1] = int
+ *    j --> aruty = 1, dom[0] = real.
+ *
  *
  * To deal with boolean terms, we distinguish between positive and
  * negative occurrences of t. If t is boolean, a positive occurrence
@@ -447,6 +464,33 @@ typedef struct distinct_table_s {
 } distinct_table_t;
 
 
+
+
+/*********************************
+ *  LAMBDA TAGS AND DESCRIPTORS  *
+ ********************************/
+
+/*
+ * There are ntags descriptors.
+ *
+ * For each lambda tag we store:
+ * - arity + domain
+ */
+typedef struct ltag_desc_s {
+  uint32_t arity;
+  type_t dom[0]; // real size = arity
+} ltag_desc_t;
+
+#define MAX_LTAG_DESC_ARITY ((UINT32_MAX-sizeof(ltag_desc_t))/sizeof(type_t))
+
+typedef struct ltag_table_s {  
+  uint32_t size;
+  uint32_t ntags;
+  ltag_desc_t **data;
+} ltag_table_t;
+
+#define DEF_LTAG_TABLE_SIZE   8
+#define MAX_LTAG_TABLE_SIZE   (UINT32_MAX/sizeof(ltag_desc_t *))
 
 
 
@@ -1267,12 +1311,12 @@ struct egraph_s {
   undo_stack_t undo;
   distinct_table_t dtable;
   congruence_table_t ctable;
+  ltag_table_t tag_table;
   
   /*
    * Push/pop stack
    */
   egraph_trail_stack_t trail_stack;
-
 
   /*
    * Auxiliary buffers and structures
