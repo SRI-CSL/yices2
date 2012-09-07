@@ -6076,7 +6076,7 @@ static void diagnose_bvequiv(bv_solver_t *solver, thvar_t x1, thvar_t y1) {
       return;      
 
     case VAL_TRUE:
-      printf("---> BVSOLVER: bvequiv: (bveq u!%"PRId32" u!%"PRId32") is true (atom set to false)\n", x1, y1);
+      printf("---> BVSOLVER: bvequiv: (bveq u!%"PRId32" u!%"PRId32") is true (atom set to true)\n", x1, y1);
       return;      
 
     case VAL_UNDEF:
@@ -6126,8 +6126,6 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
   assert(solver->egraph != NULL && x1 != x2 && 
 	 bvvar_is_bitblasted(vtbl, x1) && bvvar_is_bitblasted(vtbl, x2));
 
-  diagnose_bvequiv(solver, x1, x2);
-
   // normalize: we want x1 < x2
   if (x2 < x1) {
     aux = x1, x1 = x2; x2 = aux;
@@ -6154,6 +6152,8 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
   if (e->flag == NEW_CACHE_ELEM) {
     // create the lemma
     e->flag = ACTIVE_BV_LEMMA;
+
+    diagnose_bvequiv(solver, x1, x2);
 
     t1 = bvvar_get_eterm(vtbl, x1);
     t2 = bvvar_get_eterm(vtbl, x2);
