@@ -228,8 +228,10 @@ extern void egraph_explain_not_distinct_conflict(egraph_t *egraph, composite_t *
 
 /*
  * Return an edge that's a candidate for interface lemma and is an antecedent of edge i
+ * - source must be the index of the EXPL_RECONCILE edge that triggered a conflict
+ * - i must be the index of the conflict edge
  */
-extern int32_t egraph_get_reconcile_edge(egraph_t *egraph, int32_t i);
+extern int32_t egraph_get_reconcile_edge(egraph_t *egraph, int32_t source, int32_t i);
 
 
 

@@ -783,7 +783,6 @@ typedef struct egraph_trail_stack_s {
  *    three resizable vectors, for atoms, equalities, and diseq constraints.
  *
  *
- *
  * NOTE (BUG FIX)
  * --------------
  * egraph_explain_term_diseq cannot be used reliably to lazily build an 

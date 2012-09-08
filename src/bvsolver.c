@@ -6046,21 +6046,25 @@ static void diagnose_bvequiv(bv_solver_t *solver, thvar_t x1, thvar_t y1) {
 
   if (equal_bvvar(solver, x, y)) {
     printf("---> BVSOLVER: bvequiv: (bveq u!%"PRId32" u!%"PRId32") is true (by mtbl_get_root)\n", x1, y1);
+    fflush(stdout);
     return;
   }
 
   if (diseq_bvvar(solver, x, y)) {
     printf("---> BVSOLVER: bvequiv: (bveq u!%"PRId32" u!%"PRId32") is false (by diseq_bvvar)\n", x1, y1);
+    fflush(stdout);
     return;
   }
 
   if (simplify_eq(solver, &x, &y)) {
     if (x == y) {
       printf("---> BVSOLVER: bvequiv: (bveq u!%"PRId32" u!%"PRId32") is true (by simplify_eq)\n", x1, y1);
+      fflush(stdout);
       return;
     }
     if (diseq_bvvar(solver, x, y)) {
       printf("---> BVSOLVER: bvequiv: (bveq u!%"PRId32" u!%"PRId32") is false (by diseq_bvvar)\n", x1, y1);
+      fflush(stdout);
       return;
     }
   }
@@ -6073,11 +6077,13 @@ static void diagnose_bvequiv(bv_solver_t *solver, thvar_t x1, thvar_t y1) {
     switch (literal_value(solver->core, l)) {
     case VAL_FALSE:
       printf("---> BVSOLVER: bvequiv: (bveq u!%"PRId32" u!%"PRId32") is false (atom set to false)\n", x1, y1);
+      fflush(stdout);
       return;      
 
     case VAL_TRUE:
       printf("---> BVSOLVER: bvequiv: (bveq u!%"PRId32" u!%"PRId32") is true (atom set to true)\n", x1, y1);
-      return;      
+      fflush(stdout);
+      return;
 
     case VAL_UNDEF:
       break;
@@ -6101,6 +6107,7 @@ static void diagnose_bvequiv(bv_solver_t *solver, thvar_t x1, thvar_t y1) {
       if ((literal_value(solver->core, l1) == VAL_FALSE && literal_value(solver->core, l2) == VAL_TRUE)
 	  || (literal_value(solver->core, l1) == VAL_TRUE && literal_value(solver->core, l2) == VAL_FALSE)) {
 	printf("---> BVSOLVER: bvequiv: (bveq u!%"PRId32" u!%"PRId32") is false (bits %"PRIu32" differ)\n", x1, y1, j);
+	fflush(stdout);
 	return;
       }
     }
@@ -7255,7 +7262,7 @@ static void bv_solver_gen_interface_lemma(bv_solver_t *solver, literal_t l, thva
 	 bvvar_is_bitblasted(&solver->vtbl, x1) &&
 	 bvvar_is_bitblasted(&solver->vtbl, x2));
 
-#if 0
+#if 1
   printf("---> BVSOLVER: interface lemma for ");
   print_bv_solver_var(stdout, solver, x1);
   printf(" ");

@@ -1555,10 +1555,45 @@ bool egraph_inconsistent_not_distinct(egraph_t *egraph, composite_t *d, ivector_
 
 
 /*
- * Scan the explanation queue until we get an edge marked with EXPL_RECONCILE
+ * Check whether the equation t1 == t2 is candidate for interface lemma
+ */
+static bool interface_lemma_candidate(egraph_t *egraph, occ_t t1, occ_t t2) {
+  void *satellite;
+  th_egraph_interface_t *interface;
+  thvar_t x1, x2;
+
+  x1 = egraph_base_thvar(egraph, t1);
+  x2 = egraph_base_thvar(egraph, t2);
+
+  if (x1 != null_thvar && x2 != null_thvar) {
+    switch (egraph_type(egraph, t1)) {
+    case ETYPE_INT:
+    case ETYPE_REAL:
+      satellite = egraph->th[ETYPE_REAL];
+      interface = egraph->eg[ETYPE_REAL];
+      return interface->equal_in_model(satellite, x1, x2);
+
+    case ETYPE_BV:
+      satellite = egraph->th[ETYPE_BV];
+      interface = egraph->eg[ETYPE_BV];
+      return interface->equal_in_model(satellite, x1, x2);
+
+    default:
+      break;
+    }
+  }
+
+  return false;
+}
+
+
+/*
+ * Scan the explanation queue until we get an edge that can be used for interface lemma
+ * - the returned edge must be larger than source and be an equality between
+ *   terms that have arithmetic or bit-vector variebles
  * - return the index of that edge
  */
-static int32_t egraph_search_for_reconcile_edge(egraph_t *egraph) {
+static int32_t egraph_search_for_reconcile_edge(egraph_t *egraph, int32_t source) {
   equeue_elem_t *eq;
   byte_t *mark;
   ivector_t *queue;
@@ -1581,6 +1616,12 @@ static int32_t egraph_search_for_reconcile_edge(egraph_t *egraph) {
   for (k = 0; k < queue->size; k++) {
     i = queue->data[k];
     assert(i >= 0 && tst_bit(mark, i));
+
+    if (i >= source && interface_lemma_candidate(egraph, eq[i].lhs, eq[i].rhs)) {
+      found = i;
+      goto done;
+    }
+
     switch (etag[i]) {
     case EXPL_AXIOM:
     case EXPL_ASSERT:
@@ -1590,7 +1631,7 @@ static int32_t egraph_search_for_reconcile_edge(egraph_t *egraph) {
       explain_eq(egraph, edata[i].t[0], edata[i].t[1]);
       break;
 
-    case EXPL_DISTINCT0:
+   case EXPL_DISTINCT0:
       explain_diseq_via_constants(egraph, edata[i].t[0], edata[i].t[1]);
       break;
 
@@ -1709,14 +1750,16 @@ static int32_t egraph_search_for_reconcile_edge(egraph_t *egraph) {
 
 
 /*
- * Return an edge that has label EXPL_RECONCILE and is an antecedent of edge i
+ * Return an edge that's an antecedent of edge i and is an interface lemma candidate
+ * - source must be the index of the EXPL_RECONCILE edge that triggered a conflict
+ * - i must be the index of the conflict edge
  */
-int32_t egraph_get_reconcile_edge(egraph_t *egraph, int32_t i) {
-  assert(0 <= i && i < egraph->stack.top);
+int32_t egraph_get_reconcile_edge(egraph_t *egraph, int32_t source, int32_t i) {
+  assert(0 <= i && i < egraph->stack.top && source <= i);
   assert(egraph->expl_queue.size == 0 && ! tst_bit(egraph->stack.mark, i));
   enqueue_edge(&egraph->expl_queue, egraph->stack.mark, i);
 
-  return egraph_search_for_reconcile_edge(egraph);
+  return egraph_search_for_reconcile_edge(egraph, source);
 }
 
 
