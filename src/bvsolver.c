@@ -22,7 +22,7 @@
 
 #define DUMP 0
 
-#if TRACE || DUMP || 1
+#if TRACE || DUMP
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -6028,7 +6028,7 @@ static cache_t *bv_solver_get_cache(bv_solver_t *solver) {
 }
 
 
-
+#if 0
 /*
  * PROVISIONAL:
  * - try to check whether a bvequiv_lemma is needed
@@ -6114,7 +6114,7 @@ static void diagnose_bvequiv(bv_solver_t *solver, thvar_t x1, thvar_t y1) {
   }
 }
 
-
+#endif
 
 /*
  * Create the lemma (eq t1 t2) <=> (bveq x1 x2)
@@ -6160,7 +6160,7 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
     // create the lemma
     e->flag = ACTIVE_BV_LEMMA;
 
-    diagnose_bvequiv(solver, x1, x2);
+    //    diagnose_bvequiv(solver, x1, x2);
 
     t1 = bvvar_get_eterm(vtbl, x1);
     t2 = bvvar_get_eterm(vtbl, x2);
@@ -7262,12 +7262,8 @@ static void bv_solver_gen_interface_lemma(bv_solver_t *solver, literal_t l, thva
 	 bvvar_is_bitblasted(&solver->vtbl, x1) &&
 	 bvvar_is_bitblasted(&solver->vtbl, x2));
 
-#if 1
-  printf("---> BVSOLVER: interface lemma for ");
-  print_bv_solver_var(stdout, solver, x1);
-  printf(" ");
-  print_bv_solver_var(stdout, solver, x2);
-  printf("\n");
+#if 0
+  printf("---> BVSOLVER: interface lemma for u!%"PRId32" and u!%"PRId32"\n", x1, x2);
 #endif
 
   eq = on_the_fly_eq_atom(solver, x1, x2);
