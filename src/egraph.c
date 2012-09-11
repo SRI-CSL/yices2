@@ -6005,11 +6005,11 @@ static bool egraph_reconcile_pair(egraph_t *egraph, occ_t t1, occ_t t2) {
  * Process a class of terms
  * - every element of v is a variable in a theory solver
  * - solver = the theory solver for v
- * - eg= the egraph interface for that solver
+ * - eg = the egraph interface for that solver
  */
 static bool egraph_reconcile_class(egraph_t *egraph, int32_t *v, void *solver, th_egraph_interface_t *eg) {
   uint32_t i, n;
-  eterm_t t1, t2;
+  eterm_t t1, t2;  
 
   n = iv_size(v);
   assert(n >= 2);
@@ -6324,7 +6324,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
 fcheck_code_t egraph_final_check(egraph_t *egraph) {
   egraph->stats.final_checks ++;
 
-  if (true) {
+  if (false) {
     return baseline_final_check(egraph);
   } else {
     return experimental_final_check(egraph);
