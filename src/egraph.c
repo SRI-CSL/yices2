@@ -6324,7 +6324,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
 fcheck_code_t egraph_final_check(egraph_t *egraph) {
   egraph->stats.final_checks ++;
 
-  if (false) {
+  if (true) {
     return baseline_final_check(egraph);
   } else {
     return experimental_final_check(egraph);

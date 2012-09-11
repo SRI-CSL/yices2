@@ -6116,8 +6116,39 @@ static void diagnose_bvequiv(bv_solver_t *solver, thvar_t x1, thvar_t y1) {
 
 #endif
 
+
 /*
- * Create the lemma (eq t1 t2) <=> (bveq x1 x2)
+ * Check whether the lemma (eq t1 t2) <=> (bveq x1 x2) is redundant.
+ */
+static bool bv_solver_bvequiv_redundant(bv_solver_t *solver, thvar_t x1, thvar_t x2) {
+  bv_atomtable_t *atbl;
+  thvar_t y1, y2;
+  int32_t i;
+  literal_t l;
+
+  y1 = mtbl_get_root(&solver->mtbl, x1);
+  y2 = mtbl_get_root(&solver->mtbl, x2);
+  if (equal_bvvar(solver, y1, y2)) {
+    return true; // ? could still generate the lemma?
+  }
+
+  if (simplify_eq(solver, &y1, &y2) && y1 == y2) {
+    return true;
+  }
+
+  atbl = &solver->atbl;
+  i = find_bveq_atom(atbl, y1, y2);
+  if (i >= 0) {
+    l = atbl->data[i].lit;
+    return literal_value(solver->core, l) == VAL_TRUE;
+  }
+
+  return false;
+}
+
+
+/*
+ * Create the lemma (eq t1 t2) <=> (bveq x1 x2) if it's not redundant
  * where t1 = egraph term for x1 and t2 = egraph term for x2
  */
 static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2) {
@@ -6132,6 +6163,10 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
 
   assert(solver->egraph != NULL && x1 != x2 && 
 	 bvvar_is_bitblasted(vtbl, x1) && bvvar_is_bitblasted(vtbl, x2));
+
+  if (bv_solver_bvequiv_redundant(solver, x1, x2)) {
+    return;
+  }
 
   // normalize: we want x1 < x2
   if (x2 < x1) {
@@ -6219,6 +6254,125 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
 }
 
 
+/*
+ * Build the explanation for (x1 == x2) from the Egraph
+ * - store the explanation in vector v
+ */
+static void bv_solver_explain_egraph_eq(bv_solver_t *solver, thvar_t x1, thvar_t x2, ivector_t *v) {
+  eterm_t t1, t2;
+
+  t1 = bvvar_get_eterm(&solver->vtbl, x1);
+  t2 = bvvar_get_eterm(&solver->vtbl, x2);
+  ivector_reset(v);
+  egraph_explain_term_eq(solver->egraph, t1, t2, v);
+}
+
+
+/*
+ * Convert an explanation (l1 and ... and ln ==> false) 
+ * into the clause ((not l1) or  .... (not ln))
+ * then add the clause as a theory conflict in the core.
+ * - v contains the literals l1 ... ln
+ */
+static void bv_solver_add_conflict(bv_solver_t *solver, ivector_t *v) {
+  uint32_t i, n;
+  literal_t *a;
+
+  n = v->size;
+  a = v->data;
+  for (i=0; i<n; i++) {
+    a[i] = not(a[i]);
+  }
+
+  ivector_push(v, null_literal); // end marker
+  record_theory_conflict(solver->core, v->data);
+}
+
+
+/*
+ * Check whether x1 and x2 are distinct in the current asignmment
+ * - x1 and x2 are two variables attached to egraph terms t1 and t2
+ * - the egraph has propagated the equality x1 == x2
+ * - if (x1 != x2), generate a theory conflict and retrun true
+ * - return false if there's no conflict
+ */
+static bool bv_solver_bvequiv_conflict(bv_solver_t *solver, thvar_t x1, thvar_t x2) {
+  ivector_t *v;
+  bv_atomtable_t *atbl;
+  ivector_t *a, *b;
+  thvar_t y1, y2;
+  int32_t i;
+  literal_t l, l1, l2;
+  uint32_t j, n;
+
+  v = &solver->aux_vector;
+  y1 = mtbl_get_root(&solver->mtbl, x1);
+  y2 = mtbl_get_root(&solver->mtbl, x2);
+
+  if (diseq_bvvar(solver, y1, y2)) {
+    bv_solver_explain_egraph_eq(solver, x1, x2, v);
+    goto conflict;
+  }
+
+  if (simplify_eq(solver, &y1, &y2) && diseq_bvvar(solver, y1, y2)) {
+    bv_solver_explain_egraph_eq(solver, x1, x2, v);
+    goto conflict;    
+  }
+
+  atbl = &solver->atbl;
+  i = find_bveq_atom(atbl, y1, y2);
+  if (i >= 0) {
+    /*
+     * the atom l := (bveq y1 y2) exists, if l is false
+     * the conflict is (t1 == t2) and (not l)
+     */
+    l = atbl->data[i].lit;
+    if (literal_value(solver->core, l) == VAL_FALSE) {
+      bv_solver_explain_egraph_eq(solver, x1, x2, v);
+      ivector_push(v, not(l));
+      goto conflict;
+    }
+  }
+
+  if (solver->bitblasted &&
+      bvvar_is_bitblasted(&solver->vtbl, y1) &&
+      bvvar_is_bitblasted(&solver->vtbl, y2)) {
+   
+    a = &solver->a_vector;
+    b = &solver->b_vector;
+    collect_bvvar_literals(solver, y1, a);
+    collect_bvvar_literals(solver, y2, b);
+    n = a->size;
+    assert(b->size == n);
+
+    for (j=0; j<n; j++) {
+      l1 = a->data[j];
+      l2 = b->data[j];
+      if (literal_value(solver->core, l1) == VAL_FALSE && literal_value(solver->core, l2) == VAL_TRUE) {
+	bv_solver_explain_egraph_eq(solver, x1, x2, v);
+	ivector_push(v, not(l1));
+	ivector_push(v, l2);
+	goto conflict;
+      }
+
+      if (literal_value(solver->core, l1) == VAL_TRUE && literal_value(solver->core, l2) == VAL_FALSE) {
+	bv_solver_explain_egraph_eq(solver, x1, x2, v);
+	ivector_push(v, l1);
+	ivector_push(v, not(l2));
+	goto conflict;
+      }      
+    }
+  }
+  
+
+  return false; // no conflict found
+
+ conflict:
+  bv_solver_add_conflict(solver, v);
+  return true;    
+}
+
+
 
 /*
  * Process all assertions in the egraph queue
@@ -6226,31 +6380,40 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
  * - disequalities are handled lazily in reconcile_model
  * - for all equalities (x == y) in the queue, we create the 
  *   lemma (bveq x1 x2) <=> (t1 == t2)
+ * - return false if a conflict is detected (and record a theoy conflict in the core)
  */
-static void bv_solver_process_egraph_assertions(bv_solver_t *solver) {
+static bool bv_solver_process_egraph_assertions(bv_solver_t *solver) {
   eassertion_t *a, *end;
+  bool consistent;
+
+  consistent = true;
 
   a = eassertion_queue_start(&solver->egraph_queue);
   end = eassertion_queue_end(&solver->egraph_queue);
 
+  // first pass: check for conflict
   while (a < end) {
-    switch (eassertion_get_kind(a)) {
-    case EGRAPH_VAR_EQ:
-      bv_solver_bvequiv_lemma(solver, a->var[0], a->var[1]);
-      break;
-
-    case EGRAPH_VAR_DISEQ:
-    case EGRAPH_VAR_DISTINCT:
-      break;
-
-    default:
-      assert(false);
-      break;
+    if (eassertion_get_kind(a) == EGRAPH_VAR_EQ) {
+      if (bv_solver_bvequiv_conflict(solver, a->var[0], a->var[1])) {
+	consistent = false;
+	goto done;
+      }
     }
     a = eassertion_next(a);
   }
 
+  // second pass: force equalities
+  a = eassertion_queue_start(&solver->egraph_queue);
+  while (a < end) {
+    if (eassertion_get_kind(a) == EGRAPH_VAR_EQ) {
+      bv_solver_bvequiv_lemma(solver, a->var[0], a->var[1]);
+    }
+    a = eassertion_next(a);
+  }
+
+ done:
   reset_eassertion_queue(&solver->egraph_queue);
+  return consistent;
 }
 
 
@@ -6319,8 +6482,7 @@ void bv_solver_start_search(bv_solver_t *solver) {
 bool bv_solver_propagate(bv_solver_t *solver) {
   if (eassertion_queue_is_nonempty(&solver->egraph_queue)) {
     assert(solver->bitblasted);
-    // this may create lemmas but no immediate conflicts
-    bv_solver_process_egraph_assertions(solver);
+    return bv_solver_process_egraph_assertions(solver);
   }
   return true;
 }
@@ -7158,8 +7320,28 @@ static void show_parents_of_class(bv_solver_t *solver, int32_t *v) {
  * - v = vector
  */
 static bool interface_eq_in_class(bv_solver_t *solver, int32_t *v) {
+  thvar_t x1, x2;
+  eterm_t t1, t2;
+  literal_t l, eq;
+
   assert(iv_size(v) >= 2);
-  bv_solver_bvequiv_lemma(solver, v[0], v[1]);
+  //   bv_solver_bvequiv_lemma(solver, v[0], v[1]); // Can't use this here anymore
+
+  x1 = v[0];
+  x2 = v[1];
+  t1 = bvvar_get_eterm(&solver->vtbl, x1);
+  t2 = bvvar_get_eterm(&solver->vtbl, x2);
+  assert(t1 != null_eterm && t2 != null_eterm && t1 != t2);
+  eq = egraph_make_simple_eq(solver->egraph, pos_occ(t1), pos_occ(t2));
+  l = on_the_fly_eq_atom(solver, x1, x2);
+
+  // add two clauses: (l => eq) and (eq => l)
+  add_binary_clause(solver->core, not(l), eq);
+  add_binary_clause(solver->core, l, not(eq));
+
+  // update statistics
+  solver->stats.interface_lemmas ++;
+
   return true;
 }
 
