@@ -1333,8 +1333,12 @@ struct egraph_s {
   pvector_t cmp_vector;      // generic vector to store composites
   ivector_t aux_buffer;      // generic buffer used in term construction
 
-  ivector_t interface_eqs;   // EXPERIMENTAL: pairs of term occurrences (for interface lemmas)
-
+  /*
+   * Support for model reconciliation
+   */
+  ivector_t interface_eqs;   // pairs of term occurrences (for interface lemmas)
+  uint32_t reconcile_top;    // top of the undo stack when reconcile started
+  uint32_t reconcile_neqs;   // number of equalities when reconcile started
 
   /*
    * Support for on-the-fly creation of composite terms.

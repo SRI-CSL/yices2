@@ -2498,7 +2498,6 @@ static literal_t egraph_term2literal(egraph_t *egraph, eterm_t t) {
 
 
 
-
 literal_t egraph_make_pred(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a) {
   eterm_t t;
   t = egraph_apply_term(egraph, f, n, a);
@@ -2914,7 +2913,6 @@ eterm_t egraph_make_constant(egraph_t *egraph, type_t tau, int32_t id) {
     egraph_set_term_real_type(egraph, t, tau);
     egraph_activate_term(egraph, t, ETYPE_NONE, null_thvar);
   }
-
 
   return t;
 }
@@ -5079,9 +5077,10 @@ static bool egraph_is_high_order(egraph_t *egraph) {
 
 
 
-/*****************************************************
- *  EXPERIMENTAL: EGRAPH GENERATES INTERFACE LEMMAS  *
- ****************************************************/
+
+/******************************************************************
+ *  MODIFY THE EGRAPH TO MINIMIZE THE NUMBER OF INTERFACE LEMMAS  *
+ *****************************************************************/
 
 /*
  * Prepare the satellite models for the arithmetic and bitvector theories
@@ -5114,515 +5113,6 @@ static void egraph_release_models(egraph_t *egraph) {
 
 
 
-/*
- * Literal that implies (cmp == true/false) 
- * - cmp must have boolean type and must be true or false
- * - if cmp is asserted as an axiom. then we return true_literal
- * - otherwise, there's a Boolean variable v such that v <=> (cmp == true)
- * - if cmp is false, we return, (not v)
- *   if cmp is true, we return v
- */
-static literal_t literal_for_composite(egraph_t *egraph, composite_t *cmp) {
-  eterm_t t;
-  thvar_t v;
-  literal_t l;
-
-  t = cmp->id;
-  v = egraph_term_base_thvar(egraph, t);
-
-  assert(egraph_term_type(egraph, t) == ETYPE_BOOL && 
-	 egraph_term_class(egraph, t) == bool_constant_class);
-
-  /*
-   * If v == null_thvar, we want l = true_literal
-   * since t or (not t) was asserted as an axiom.
-   * Otherwise, the literal attached to t is pos_lit(v)
-   */
-  l = true_literal;
-  if (v != null_thvar) {
-    if (egraph_term_is_true(egraph, t)) {
-      l = pos_lit(v);
-    } else {
-      assert(egraph_term_is_false(egraph, t));
-      l = neg_lit(v);
-    }
-  }
-
-  return l;
-}
-
-
-/*
- * Check whether we need an interface lemma for cmp = (eq t1 t2)
- * - cmp is known to be false when this is called.
- * - return 1 if an interface lemma is generated, 0 otherwise
- */
-static uint32_t check_diseq_interface_lemma(egraph_t *egraph, composite_t *cmp) {
-  void *satellite;
-  th_egraph_interface_t *interface;
-  occ_t t1, t2;
-  thvar_t x1, x2;
-  literal_t l;
-
-  assert(composite_kind(cmp) == COMPOSITE_EQ && egraph_term_is_false(egraph, cmp->id));
-
-  t1 = cmp->child[0];
-  t2 = cmp->child[1];
-  x1 = egraph_base_thvar(egraph, t1);
-  x2 = egraph_base_thvar(egraph, t2);
-
-  if (x1 == null_thvar || x2 == null_thvar) {
-    return 0;
-  }
-
-  switch (egraph_type(egraph, t1)) {
-  case ETYPE_INT:
-  case ETYPE_REAL:
-    satellite = egraph->th[ETYPE_REAL];
-    interface = egraph->eg[ETYPE_REAL];
-    break;
-
-  case ETYPE_BV:
-    satellite = egraph->th[ETYPE_BV];
-    interface = egraph->eg[ETYPE_BV];
-    break;
-
-  default:
-    return 0;
-  }
-
-  if (interface->equal_in_model(satellite, x1, x2)) {
-    // conflict between egraph and salellite model: create a lemma
-#if TRACE
-    printf("---> EGRAPH: interface lemma for ");
-    print_eterm_def(stdout, egraph, cmp->id);
-    printf("     label[");
-    print_occurrence(stdout, t1);
-    printf("] = ");
-    print_label(stdout, egraph_label(egraph, t1));
-    printf("\n");
-    printf("     label[");
-    print_occurrence(stdout, t2);
-    printf("] = ");
-    print_label(stdout, egraph_label(egraph, t2));
-    printf("\n");
-#endif
-    l = literal_for_composite(egraph, cmp);
-    assert(literal_value(egraph->core, l) == VAL_TRUE);
-    interface->gen_interface_lemma(satellite, l, x1, x2, true);
-    return 1;
-  } 
-  
-  return 0;
-}
-
-
-
-/*
- * Check whether we need interface lemma(s) for cmp = (distinct t1 t2 ... t_n)
- * - cmp is known to be true when this is called.
- * - return the number of an interface lemma is generated
- */
-static uint32_t check_distinct_interface_lemma(egraph_t *egraph, composite_t *cmp, uint32_t max_eq) {
-  void *satellite;
-  th_egraph_interface_t *interface;
-  uint32_t i, j, n, neqs;
-  occ_t t1, t2;
-  thvar_t x1, x2;
-  literal_t l;
-
-  assert(composite_kind(cmp) == COMPOSITE_DISTINCT && egraph_term_is_true(egraph, cmp->id));
-
-  neqs = 0;
-
-  switch (egraph_type(egraph, cmp->child[0])) {
-  case ETYPE_INT:
-  case ETYPE_REAL:
-    satellite = egraph->th[ETYPE_REAL];
-    interface = egraph->eg[ETYPE_REAL];
-    break;
-
-  case ETYPE_BV:
-    satellite = egraph->th[ETYPE_BV];
-    interface = egraph->eg[ETYPE_BV];
-    break;
-
-  default:
-    goto done;
-  }
-
-
-  l = literal_for_composite(egraph, cmp);
-  assert(literal_value(egraph->core, l) == VAL_TRUE);	
-
-  n = composite_arity(cmp);
-  for (i=0; i<n; i++) {
-    t1 = cmp->child[i];
-    x1 = egraph_base_thvar(egraph, t1);
-
-    for (j=i+1; j<n; j++) {
-      t2 = cmp->child[j];
-      x2 = egraph_base_thvar(egraph, t2);
-
-      if (interface->equal_in_model(satellite, x1, x2)) {
-	// conflict between egraph and salellite model: create a lemma
-#if TRACE
-	printf("---> EGRAPH: interface lemma for ");
-	print_eterm_id(stdout, t1);
-	printf(" ");
-	print_eterm_id(stdout, t2);
-	printf("\n");
-	printf("     ");
-	print_eterm_def(stdout, egraph, cmp->id);
-#endif
-	interface->gen_interface_lemma(satellite, l, x1, x2, false);
-	neqs ++;
-	if (neqs >= max_eq) goto done;
-      }
-    }
-  }
-
- done:
-  return neqs;
-}
-
-
-
-/*
- * Generate direct conflict lemmas:
- * - search for terms t1 and t2 such that t1 and t2 must be different   
- *   in the Egraph but have equal values in the theory model
- * - t1 and t2 must be distinct in the Egraph either because
- *    (eq t1 t2) is false, or because (distinct .. t1 ... t2 ...) is true
- * - for each such pair: call the solver's interface lemma generation
- *   function.
- * - stop once max_eqs is reached.
- * - return the total number of lemmas generated
- */
-static uint32_t egraph_direct_interface_lemmas(egraph_t *egraph, uint32_t max_eqs) {
-  eterm_table_t *terms;
-  composite_t *cmp;
-  uint32_t i, n, neqs;
-
-  neqs = 0;
-
-  terms = &egraph->terms;
-  n = terms->nterms;
-
-  for (i=1; i<n; i++) {
-    cmp = terms->body[i];
-    if (composite_body(cmp)) {
-      switch (composite_kind(cmp)) {
-      case COMPOSITE_EQ:
-	if (terms->label[i] == false_label &&
-	    congruence_table_is_root(&egraph->ctable, cmp, terms->label)) {
-	  neqs += check_diseq_interface_lemma(egraph, cmp);
-	  if (neqs >= max_eqs) goto done;
-	}
-	break;
-
-      case COMPOSITE_DISTINCT:
-	if (terms->label[i] == true_label) {
-	  neqs += check_distinct_interface_lemma(egraph, cmp, max_eqs - neqs);
-	  if (neqs >= max_eqs)  goto done;
-	}
-	break;
-
-      default:
-	break;
-      }
-    }
-  }
-
- done:
-  return neqs;
-}
-
-
-
-/*
- * INDIRECT LEMMAS
- */
-
-/*
- * Given two terms t1 and t2 such that:
- * - t1 and t2 are distinct in the Egraph
- * - t1 has theory variable x1 
- * - t2 has theory variable x2
- * - x1 and x2 have the same value in a theory solver
- * - merging t1 and t2 could cause a conflict by congruence closure
- * Then we generate an interface lemma for t1 and t2:
- *   (not (eq t1 t2)) => (x1 != x2 in the theory)
- *
- * To check for possible conflicts, we use the following rule:
- * - t1 and t2 may conflict if there are two terms 
- *      u1 := (f ... t1 ...) 
- *  and u2 := (f ... t2 ...) that can't be merged in the 
- *  current models: either becuase u1 and u2 don't have theory 
- *  variables and are in distinct Egraph classes, or they have theory 
- *  variables that have different values in the relevant theory solvers.
- */
-
-
-/*
- * Check whether terms u1 and u2 can't be merged
- */
-static bool non_mergeable_in_models(egraph_t *egraph, eterm_t u1, eterm_t u2) {
-  void *satellite;
-  th_egraph_interface_t *interface;
-  thvar_t x1, x2;
-
-  if (egraph_equal_terms(egraph, u1, u2)) {
-    return false; // already merged
-  }
-
-  x1 = egraph_term_base_thvar(egraph, u1);
-  x2 = egraph_term_base_thvar(egraph, u2);
-
-  if (x1 == null_thvar || x2 == null_thvar) {
-    return true;
-  }
-
-  switch (egraph_term_type(egraph, u1)) {
-  case ETYPE_INT:
-  case ETYPE_REAL:
-    satellite = egraph->th[ETYPE_REAL];
-    interface = egraph->eg[ETYPE_REAL];
-    break;
-
-  case ETYPE_BV:
-    satellite = egraph->th[ETYPE_BV];
-    interface = egraph->eg[ETYPE_BV];
-    break;
-
-  default:
-    return true;
-  }
-
-  return !interface->equal_in_model(satellite, x1, x2);
-}
-
-
-/*
- * Check for an interface equality involving cmp1 and cmp2
- * - both composites must be of the form (apply f ...)
- * - return 0 if no interface lemma is generated, 1 otherwise
- */
-static uint32_t check_interface_lemma_for_applies(egraph_t *egraph, composite_t *cmp1, composite_t *cmp2) {
-  void *satellite;
-  th_egraph_interface_t *interface;
-  uint32_t i, n;
-  occ_t t1, t2;
-  thvar_t x1, x2;
-  literal_t eq;
-
-  assert(composite_kind(cmp1) == COMPOSITE_APPLY && 
-	 composite_kind(cmp2) == COMPOSITE_APPLY &&
-	 composite_arity(cmp1) == composite_arity(cmp2) &&
-	 non_mergeable_in_models(egraph, cmp1->id, cmp2->id));
-
-  interface = NULL;  // prevent GCC warning
-  satellite = NULL;  // prevent GCC warning
-
-  n = composite_arity(cmp1);
-  for (i=1; i<n; i++) {
-    t1 = composite_child(cmp1, i);
-    t2 = composite_child(cmp2, i);
-
-    if (egraph_class(egraph, t1) != egraph_class(egraph, t2)) {
-      x1 = egraph_base_thvar(egraph, t1);
-      x2 = egraph_base_thvar(egraph, t2);
-
-      if (x1 != null_thvar && x2 != null_thvar) {
-	switch (egraph_type(egraph, t1)) {
-	case ETYPE_INT:
-	case ETYPE_REAL:
-	  satellite = egraph->th[ETYPE_REAL];
-	  interface = egraph->eg[ETYPE_REAL];
-	  break;
-
-	case ETYPE_BV:
-	  satellite = egraph->th[ETYPE_BV];
-	  interface = egraph->eg[ETYPE_BV];
-	  break;
-
-	default:
-	  continue;
-	}
-      }
-
-      if (interface->equal_in_model(satellite, x1, x2)) {
-	/*
-	 * Generate the interface lemma: (not (eq t1 t2)) => distinct x1 x2 in the theory
-	 */
-	eq = egraph_make_simple_eq(egraph, t1, t2);
-	interface->gen_interface_lemma(satellite, not(eq), x1, x2, true);
-	return 1;
-      }
-    }
-  }
-
-  return 0;
-}
-
-
-
-/*
- * Collect composite terms of the form (apply f ....) that are congruence
- * roots and where f is in class c
- * - all these are added to vector v
- */
-static void egraph_collect_applications_in_class(egraph_t *egraph, class_t c, pvector_t *v) {
-  use_vector_t *u;
-  composite_t *p;
-  occ_t f;
-  uint32_t i, n;
-
-  u = egraph_class_parents(egraph, c);
-  n = u->last;
-  for (i=0; i<n; i++) {
-    p = u->data[i];
-    if (valid_entry(p) && composite_kind(p) == COMPOSITE_APPLY) {
-      f = composite_child(p, 0); // function term in p
-      if (egraph_class(egraph, f) == c) {
-	pvector_push(v, p);
-      }
-    }
-  }
-}
-
-
-
-/*
- * Scan vector v of composites
- * - generate indirect interface lemmas based on its elements
- * - stop as soon as max_eqs is reached
- * - return the number of interface lemmas generated
- */
-static uint32_t egraph_interface_lemmas_for_class(egraph_t *egraph, pvector_t *v, uint32_t max_eqs) {
-  composite_t *cmp1, *cmp2;
-  uint32_t i, j, n, neqs;
-
-  neqs = 0;
-
-  n = v->size;
-  for (i=0; i<n; i++) {
-    cmp1 = v->data[i];
-    for (j=i+1; j<n; j++) {
-      cmp2 = v->data[j];
-      if (non_mergeable_in_models(egraph, cmp1->id, cmp2->id)) {
-	neqs += check_interface_lemma_for_applies(egraph, cmp1, cmp2);
-	if (neqs >= max_eqs) break;
-      }
-    }
-  }
-
-  return neqs;
-}
-
-
-/*
- * Check whether type tau is relevant for interface lemmas
- * - tau must have a function type [tau_1 ... tau_n -> sigma]
- * - one of tau_i must be an interprted type (int, real, bitvector, or another function type).
- */
-static bool type_has_theory_domain(type_table_t *types, type_t tau) {
-  function_type_t *d;
-  uint32_t i, n;
-
-  d = function_type_desc(types, tau);
-  n = d->ndom;
-  for (i=0; i<n; i++) {
-    switch (type_kind(types, d->domain[i])) {
-    case REAL_TYPE:
-    case INT_TYPE:
-    case BITVECTOR_TYPE:
-      return true;
-
-    default:
-      break;
-    }
-  }
-
-  return false;
-}
-
-
-#if 0
-
-/*
- * Collect all function classes that may be relevant for indirect
- * interface lemmas.
- */
-static void egraph_collect_relevant_classes(egraph_t *egraph, ivector_t *v) {
-  uint32_t i, n;
-  occ_t root;
-  type_t tau;
-
-  n = egraph_num_classes(egraph);
-  for (i=0; i<n; i++) {
-    if (egraph_class_type(egraph, i) == ETYPE_FUNCTION) {
-      root = egraph_class_root(egraph, i);
-      if (egraph_class(egraph, root) == i) {
-	tau = egraph_term_real_type(egraph, term_of_occ(root));
-	if (type_has_theory_domain(egraph->types, tau)) {
-	  // i is root class and has a relevant type: add it to v
-	  ivector_push(v, i);
-	}
-      }
-    }
-  }
-}
-
-#endif
-
-/*
- * Generate indirect conflict lemmas
- * - stop as soon as max_eqs is reachecd
- * - return the number of lemmas generated
- */
-static uint32_t egraph_indirect_interface_lemmas(egraph_t *egraph, uint32_t max_eqs) {
-  pvector_t *v;
-  uint32_t i, n;
-  occ_t root;
-  type_t tau;
-  uint32_t neqs;
-  
-
-  neqs = 0;
-  v = &egraph->cmp_vector;
-
-  n = egraph_num_classes(egraph);
-  for (i=0; i<n; i++) {
-    if (egraph_class_type(egraph, i) == ETYPE_FUNCTION) {
-      root = egraph_class_root(egraph, i);
-      if (egraph_class(egraph, root) == i) {
-	tau = egraph_term_real_type(egraph, term_of_occ(root));
-	if (type_has_theory_domain(egraph->types, tau)) {
-	  // i is root class and has a relevant type
-	  pvector_reset(v);
-	  egraph_collect_applications_in_class(egraph, i, v);
-	  neqs += egraph_interface_lemmas_for_class(egraph, v, max_eqs - neqs);
-	  if (neqs >= max_eqs) goto done;
-	}
-      }
-    }
-  }
-
- done:
-  return neqs;
-}
-
-
-
-/****************************************************************************
- *  EXPERIMENTAL: MODIFY EGRAPH TO MINIMIZE THE NUMBER OF INTERFACE LEMMAS  *
- ***************************************************************************/
-
-// HACK: use global variables for testing
-static uint32_t reco_undo_top;
-static uint32_t reco_num_eqs;
-
 #if TRACE_FCHECK
 /*
  * Test: check whether there are duplicates in vector v
@@ -5648,6 +5138,7 @@ static void check_interface_duplicates(ivector_t *v) {
 }
 
 #endif
+
 
 /*
  * Generate interface lemmas for pairs of term occurrences stored in v
@@ -5725,6 +5216,7 @@ static bool diseq_in_model(egraph_t *egraph, etype_t i, thvar_t x1, thvar_t x2) 
     return false;
   }
 }
+
 
 /*
  * Check whether the classes of t1 and t2 can be merged
@@ -6059,7 +5551,6 @@ static bool egraph_reconcile_class(egraph_t *egraph, int32_t *v, void *solver, t
 }
 
 
-
 /*
  * Process a term partition
  * - return true if all terms of every class in part can be reconciled
@@ -6116,9 +5607,8 @@ static bool egraph_reconcile(egraph_t *egraph) {
  */
 static void egraph_start_reconciliation(egraph_t *egraph) {
   assert(egraph->stack.prop_ptr == egraph->stack.top);
-
-  reco_undo_top = egraph->undo.top;
-  reco_num_eqs = egraph->stack.top;
+  egraph->reconcile_top = egraph->undo.top;
+  egraph->reconcile_neqs = egraph->stack.top;
 }
 
 
@@ -6126,9 +5616,9 @@ static void egraph_start_reconciliation(egraph_t *egraph) {
  * Restore the egraph state to what it was before reconciliation:
  */
 static void egraph_reconciliation_restore(egraph_t *egraph) {
-  egraph_undo_reconcile_attempt(egraph, reco_undo_top);
-  egraph->stack.top = reco_num_eqs;
-  egraph->stack.prop_ptr = reco_num_eqs;
+  egraph_undo_reconcile_attempt(egraph, egraph->reconcile_top);
+  egraph->stack.top = egraph->reconcile_top;
+  egraph->stack.prop_ptr = egraph->reconcile_neqs;
 }
 
 
@@ -6277,20 +5767,6 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
     }
   }
 
-
-#if 0
-  // VARIANT: try array final check before reconciliation?
-  if (egraph->ctrl[ETYPE_FUNCTION] != NULL) {
-    c = egraph->ctrl[ETYPE_FUNCTION]->final_check(egraph->th[ETYPE_FUNCTION]);    
-    if (c != FCHECK_SAT) {
-#if TRACE_FCHECK
-      printf("---> exit on first array final check\n");
-      fflush(stdout);
-#endif
-      return c;
-    }
-  }
-#endif
 
   /*
    * Try egraph reconciliation
@@ -6881,7 +6357,11 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   init_ivector(&egraph->expl_vector, DEFAULT_EXPL_VECTOR_SIZE);
   init_pvector(&egraph->cmp_vector, DEFAULT_CMP_VECTOR_SIZE);
   init_ivector(&egraph->aux_buffer, 0);
+
   init_ivector(&egraph->interface_eqs, 40);
+  egraph->reconcile_top = 0;
+  egraph->reconcile_neqs = 0;
+
   init_pvector(&egraph->reanalyze_vector, 0);
   init_th_explanation(&egraph->th_expl);
   egraph->app_partition = NULL;

@@ -637,6 +637,7 @@ static void init_bv_stats(bv_stats_t *s) {
   s->ge_atoms = 0;
   s->sge_atoms = 0;
   s->equiv_lemmas = 0;
+  s->equiv_conflicts = 0;
   s->half_equiv_lemmas = 0;
   s->interface_lemmas = 0;
 }
@@ -6142,6 +6143,9 @@ static bool bv_solver_bvequiv_redundant(bv_solver_t *solver, thvar_t x1, thvar_t
 }
 
 
+#if 0
+
+// DISABLED THIS. DOES NOT SEEM TO HELP
 
 /*
  * Variant of the bvequiv lemma: to avoid creating the egraph atom (eq t1 t2),
@@ -6168,6 +6172,7 @@ static void bv_solver_half_equiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t 
   solver->stats.half_equiv_lemmas ++;
 }
 
+#endif
 
 /*
  * Create the lemma (eq t1 t2) <=> (bveq x1 x2) if it's not redundant
@@ -6189,22 +6194,6 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
   if (bv_solver_bvequiv_redundant(solver, x1, x2)) {
     return;
   }
-
-  /*
-   * EXPERIMENTAL: check whether (eq t1 t2) exists, if not
-   * generate the cheaper version.
-   */
-  t1 = bvvar_get_eterm(vtbl, x1);
-  t2 = bvvar_get_eterm(vtbl, x2);
-  assert(t1 != null_eterm && t2 != null_eterm && t1 != t2);
-
-  eq = egraph_find_eq(solver->egraph, pos_occ(t1), pos_occ(t2));
-  if (eq == null_literal) {
-    // add the lemma (p1 /\ ... /\ p_n => (bveq x1 x2))
-    bv_solver_half_equiv_lemma(solver, x1, x2, t1, t2);    
-    return;
-  } 
-
 
   // normalize: we want x1 < x2
   if (x2 < x1) {
@@ -6234,6 +6223,10 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
     // create the lemma
     e->flag = ACTIVE_BV_LEMMA;
 
+    t1 = bvvar_get_eterm(vtbl, x1);
+    t2 = bvvar_get_eterm(vtbl, x2);
+    assert(t1 != null_eterm && t2 != null_eterm && t1 != t2);
+    eq = egraph_make_simple_eq(solver->egraph, pos_occ(t1), pos_occ(t2));
     l = on_the_fly_eq_atom(solver, x1, x2);
 
     // add two clauses: (l => eq) and (eq => l)
@@ -6401,7 +6394,9 @@ static bool bv_solver_bvequiv_conflict(bv_solver_t *solver, thvar_t x1, thvar_t 
   return false; // no conflict found
 
  conflict:
+  solver->stats.equiv_conflicts ++;
   bv_solver_add_conflict(solver, v);
+
   return true;    
 }
 
@@ -6424,13 +6419,12 @@ static bool bv_solver_process_egraph_assertions(bv_solver_t *solver) {
   a = eassertion_queue_start(&solver->egraph_queue);
   end = eassertion_queue_end(&solver->egraph_queue);
 
-  // first pass: check for conflict
+  // first pass: check for conflicts
   while (a < end) {
-    if (eassertion_get_kind(a) == EGRAPH_VAR_EQ) {
-      if (bv_solver_bvequiv_conflict(solver, a->var[0], a->var[1])) {
-	consistent = false;
-	goto done;
-      }
+    assert(eassertion_get_kind(a) == EGRAPH_VAR_EQ);
+    if (bv_solver_bvequiv_conflict(solver, a->var[0], a->var[1])) {
+      consistent = false;
+      goto done;
     }
     a = eassertion_next(a);
   }
@@ -6438,9 +6432,7 @@ static bool bv_solver_process_egraph_assertions(bv_solver_t *solver) {
   // second pass: force equalities
   a = eassertion_queue_start(&solver->egraph_queue);
   while (a < end) {
-    if (eassertion_get_kind(a) == EGRAPH_VAR_EQ) {
-      bv_solver_bvequiv_lemma(solver, a->var[0], a->var[1]);
-    }
+    bv_solver_bvequiv_lemma(solver, a->var[0], a->var[1]);
     a = eassertion_next(a);
   }
 
@@ -6498,6 +6490,7 @@ void bv_solver_start_search(bv_solver_t *solver) {
 
 
   solver->stats.equiv_lemmas = 0;
+  solver->stats.equiv_conflicts = 0;
   solver->stats.half_equiv_lemmas = 0;
   solver->stats.interface_lemmas = 0;
 
@@ -7359,7 +7352,6 @@ static bool interface_eq_in_class(bv_solver_t *solver, int32_t *v) {
   literal_t l, eq;
 
   assert(iv_size(v) >= 2);
-  //   bv_solver_bvequiv_lemma(solver, v[0], v[1]); // Can't use this here anymore
 
   x1 = v[0];
   x2 = v[1];
