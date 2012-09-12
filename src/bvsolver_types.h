@@ -288,6 +288,7 @@ typedef struct bv_stats_s {
   uint32_t ge_atoms;
   uint32_t sge_atoms;
   uint32_t equiv_lemmas;
+  uint32_t half_equiv_lemmas;
   uint32_t interface_lemmas;
 } bv_stats_t;
 

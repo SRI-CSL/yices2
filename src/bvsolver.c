@@ -637,6 +637,7 @@ static void init_bv_stats(bv_stats_t *s) {
   s->ge_atoms = 0;
   s->sge_atoms = 0;
   s->equiv_lemmas = 0;
+  s->half_equiv_lemmas = 0;
   s->interface_lemmas = 0;
 }
 
@@ -6119,6 +6120,7 @@ static void diagnose_bvequiv(bv_solver_t *solver, thvar_t x1, thvar_t y1) {
 
 /*
  * Check whether the lemma (eq t1 t2) <=> (bveq x1 x2) is redundant.
+ * - return true if the atom (bveq x1 x2) exists and is already true
  */
 static bool bv_solver_bvequiv_redundant(bv_solver_t *solver, thvar_t x1, thvar_t x2) {
   bv_atomtable_t *atbl;
@@ -6128,13 +6130,6 @@ static bool bv_solver_bvequiv_redundant(bv_solver_t *solver, thvar_t x1, thvar_t
 
   y1 = mtbl_get_root(&solver->mtbl, x1);
   y2 = mtbl_get_root(&solver->mtbl, x2);
-  if (false && equal_bvvar(solver, y1, y2)) {
-    return true; // ? could still generate the lemma?
-  }
-
-  if (false && simplify_eq(solver, &y1, &y2) && y1 == y2) {
-    return true;
-  }
 
   atbl = &solver->atbl;
   i = find_bveq_atom(atbl, y1, y2);
@@ -6144,6 +6139,33 @@ static bool bv_solver_bvequiv_redundant(bv_solver_t *solver, thvar_t x1, thvar_t
   }
 
   return false;
+}
+
+
+
+/*
+ * Variant of the bvequiv lemma: to avoid creating the egraph atom (eq t1 t2),
+ * we can generate the clause (p1 /\ ... /\ p_n => (bveq x1 x2))
+ * - where p1 /\ ... /\ p_n is the explanation for (t1 == t2)
+ */
+static void bv_solver_half_equiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2, eterm_t t1, eterm_t t2) {
+  ivector_t *v;
+  literal_t l;
+  uint32_t i, n;
+
+  l = on_the_fly_eq_atom(solver, x1, x2);
+  v = &solver->aux_vector;
+  ivector_reset(v);
+  egraph_explain_term_eq(solver->egraph, t1, t2, v); // v contains p1 /\ ... /\ p_n
+  
+  n = v->size;
+  for (i=0; i<n; i++) {
+    v->data[i] = not(v->data[i]);
+  }
+  ivector_push(v, l);
+  add_clause(solver->core, v->size, v->data);
+
+  solver->stats.half_equiv_lemmas ++;
 }
 
 
@@ -6168,10 +6190,27 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
     return;
   }
 
+  /*
+   * EXPERIMENTAL: check whether (eq t1 t2) exists, if not
+   * generate the cheaper version.
+   */
+  t1 = bvvar_get_eterm(vtbl, x1);
+  t2 = bvvar_get_eterm(vtbl, x2);
+  assert(t1 != null_eterm && t2 != null_eterm && t1 != t2);
+
+  eq = egraph_find_eq(solver->egraph, pos_occ(t1), pos_occ(t2));
+  if (eq == null_literal) {
+    // add the lemma (p1 /\ ... /\ p_n => (bveq x1 x2))
+    bv_solver_half_equiv_lemma(solver, x1, x2, t1, t2);    
+    return;
+  } 
+
+
   // normalize: we want x1 < x2
   if (x2 < x1) {
     aux = x1, x1 = x2; x2 = aux;
   }
+  
   
 #if TRACE
   t1 = bvvar_get_eterm(vtbl, x1);
@@ -6195,12 +6234,6 @@ static void bv_solver_bvequiv_lemma(bv_solver_t *solver, thvar_t x1, thvar_t x2)
     // create the lemma
     e->flag = ACTIVE_BV_LEMMA;
 
-    //    diagnose_bvequiv(solver, x1, x2);
-
-    t1 = bvvar_get_eterm(vtbl, x1);
-    t2 = bvvar_get_eterm(vtbl, x2);
-    assert(t1 != null_eterm && t2 != null_eterm && t1 != t2);
-    eq = egraph_make_simple_eq(solver->egraph, pos_occ(t1), pos_occ(t2));
     l = on_the_fly_eq_atom(solver, x1, x2);
 
     // add two clauses: (l => eq) and (eq => l)
@@ -6465,6 +6498,7 @@ void bv_solver_start_search(bv_solver_t *solver) {
 
 
   solver->stats.equiv_lemmas = 0;
+  solver->stats.half_equiv_lemmas = 0;
   solver->stats.interface_lemmas = 0;
 
   feasible = bv_solver_bitblast(solver);
@@ -7289,7 +7323,7 @@ static inline thvar_t root_var(bv_solver_t *solver, thvar_t x) {
 }
 
 
-#if TRACE
+#if 0
 
 /*
  * For testing: print the parent vectors of all variables in vector v
@@ -7388,7 +7422,7 @@ uint32_t bv_solver_reconcile_model(bv_solver_t *solver, uint32_t max_eq) {
 
   n = int_partition_nclasses(&partition);
 
-#if TRACE
+#if 0
   for (i=0; i<n; i++) {
     printf("Class %"PRIu32"\n", i);
     show_parents_of_class(solver, partition.classes[i]);

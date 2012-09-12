@@ -4957,6 +4957,39 @@ literal_t egraph_make_simple_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
 
 
 
+/*
+ * Check whether (eq t1 t2) exists and if it does return the
+ * corresponding literal.  
+ * - return null_literal if (eq t1 t2) does not exist (or if it's not
+ *   attached to a Boolean variable).
+ */
+literal_t egraph_find_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
+  occ_t aux;
+  eterm_t eq;
+  bvar_t v;
+  literal_t l;
+
+  if (t1 > t2) {
+    aux = t1; t1 = t2; t2 = aux;
+  }
+
+  l = null_literal;
+  eq = egraph_find_eq_term(egraph, t1, t2);
+  if (eq >= 0) {
+    assert(egraph_term_type(egraph, eq) == ETYPE_BOOL);
+    v = egraph->terms.thvar[eq];
+    // null_thvar is possible if (eq t1 t2) is false at the top level
+    if (v != null_thvar) { 
+      l = pos_lit(v);
+    }
+  }
+
+  return l;
+}
+
+
+
+
 /**********************
  *  HIGH-ORDER TERMS  *
  *********************/
@@ -6324,7 +6357,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
 fcheck_code_t egraph_final_check(egraph_t *egraph) {
   egraph->stats.final_checks ++;
 
-  if (false) {
+  if (true) {
     return baseline_final_check(egraph);
   } else {
     return experimental_final_check(egraph);

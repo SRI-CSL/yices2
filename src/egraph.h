@@ -167,6 +167,11 @@ extern literal_t egraph_make_or(egraph_t *egraph, uint32_t n, occ_t *a);
 extern literal_t egraph_make_simple_eq(egraph_t *egraph, occ_t t1, occ_t t2);
 
 
+/*
+ * Check whether (eq t1 t2) exists and if it does return the corresponding literal.
+ * - return null_literal if (eq t1 t2) does not exist
+ */
+extern literal_t egraph_find_eq(egraph_t *egraph, occ_t t1, occ_t t2);
 
 
 

@@ -723,6 +723,7 @@ static void show_bvsolver_stats(bv_solver_t *solver) {
   fprintf(stderr, " ge atoms                : %"PRIu32"\n", bv_solver_num_ge_atoms(solver));
   fprintf(stderr, " sge atoms               : %"PRIu32"\n", bv_solver_num_sge_atoms(solver));
   fprintf(stderr, " equiv lemmas            : %"PRIu32"\n", solver->stats.equiv_lemmas);
+  fprintf(stderr, " semi-equiv lemmas       : %"PRIu32"\n", solver->stats.half_equiv_lemmas);
   fprintf(stderr, " interface lemmas        : %"PRIu32"\n", solver->stats.interface_lemmas);
 }
 
