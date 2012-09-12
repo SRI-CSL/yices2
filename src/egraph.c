@@ -5617,7 +5617,7 @@ static void egraph_start_reconciliation(egraph_t *egraph) {
  */
 static void egraph_reconciliation_restore(egraph_t *egraph) {
   egraph_undo_reconcile_attempt(egraph, egraph->reconcile_top);
-  egraph->stack.top = egraph->reconcile_top;
+  egraph->stack.top = egraph->reconcile_neqs;
   egraph->stack.prop_ptr = egraph->reconcile_neqs;
 }
 
