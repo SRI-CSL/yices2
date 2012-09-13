@@ -477,6 +477,7 @@ static void print_presearch_stats(FILE *f) {
   fprintf(f, "atoms                   : %"PRIu32"\n", core->atoms.natoms);
   if (egraph != NULL) {
     fprintf(f, "egraph terms            : %"PRIu32"\n", egraph->terms.nterms);
+    fprintf(f, "app/update reductions   : %"PRIu32"\n", egraph->stats.app_reductions);
   }
 
   if (context_has_simplex_solver(&context)) {
@@ -1016,7 +1017,7 @@ static int process_benchmark(void) {
     mem_used = mem_size() / (1024 * 1024);
     print_benchmark(stderr, &bench);
     fprintf(stderr, "Construction time: %.4f s\n", construction_time);
-    fprintf(stderr, "Memory used: %.2f MB\n", mem_used);
+    fprintf(stderr, "Memory used: %.2f MB\n\n", mem_used);
     fflush(stderr);
   }
 #endif

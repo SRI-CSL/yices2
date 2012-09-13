@@ -3944,7 +3944,7 @@ static void add_all_lemmas(smt_core_t *s) {
     while (j < tmp->ptr) {
       /* 
        * it's possible for new lemmas to be added within this loop
-       * - because clause addition may cause backtracking and
+       * because clause addition may cause backtracking and
        * the theory solver is allowed to create lemmas within backtrack.
        */      
       n = lemma_length(lemma);
