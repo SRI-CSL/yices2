@@ -6132,6 +6132,14 @@ static bool bv_solver_bvequiv_redundant(bv_solver_t *solver, thvar_t x1, thvar_t
   y1 = mtbl_get_root(&solver->mtbl, x1);
   y2 = mtbl_get_root(&solver->mtbl, x2);
 
+  if (equal_bvvar(solver, y1, y2)) {
+    return true;
+  }
+
+  if (simplify_eq(solver, &y1, &y2)  && y1 == y2) {
+    return true;
+  }
+
   atbl = &solver->atbl;
   i = find_bveq_atom(atbl, y1, y2);
   if (i >= 0) {
