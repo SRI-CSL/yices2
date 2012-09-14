@@ -7673,6 +7673,14 @@ bool simplex_check_disequality(simplex_solver_t *solver, thvar_t x1, thvar_t x2)
 }
 
 
+/*
+ * Check whether x is a constant
+ */
+bool simplex_var_is_constant(simplex_solver_t *solver, thvar_t x) {
+  // TO BE DONE. Return false for now.
+  return false;
+}
+
 
 /*
  * MODEL PREPARATION FOR RECONCILE MODEL
@@ -9525,6 +9533,7 @@ static th_egraph_interface_t simplex_egraph = {
   (assert_diseq_fun_t) simplex_assert_var_diseq,
   (assert_distinct_fun_t) simplex_assert_var_distinct,
   (check_diseq_fun_t) simplex_check_disequality,
+  (is_constant_fun_t) simplex_var_is_constant,
   NULL, // no need for expand_th_explanation
   (reconcile_model_fun_t) simplex_reconcile_model,
   (prepare_model_fun_t) simplex_prep_model,

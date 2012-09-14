@@ -2746,12 +2746,13 @@ term_t mk_select(term_manager_t *manager, uint32_t index, term_t tuple) {
  * - f must have function type and arity n
  * - new_v's type must be a subtype of f's range
  *
- * Simplification: 
+ * Simplifications: 
  *  (update (update f (a_1 ... a_n) v) (a_1 ... a_n) v') --> (update f (a_1 ... a_n) v')
+ *  (update f (a_1 ... a_n) (f a_1 ... a_n)) --> f
  */
 term_t mk_update(term_manager_t *manager, term_t fun, uint32_t n, term_t arg[], term_t new_v) {
   term_table_t *tbl;
-  composite_term_t *update;
+  composite_term_t *update, *app;
   type_t tau;
 
   tbl = &manager->terms;
@@ -2775,6 +2776,16 @@ term_t mk_update(term_manager_t *manager, term_t fun, uint32_t n, term_t arg[], 
       fun = update->arg[0];
     } else {
       break;
+    }
+  }
+
+  // build (update fun a_1 .. a_n new_v): try second simplification
+  if (term_kind(tbl, new_v) == APP_TERM) {
+    app = app_term_desc(tbl, new_v);
+    if (app->arity == n+1 && app->arg[0] == fun && 
+	equal_term_arrays(n, app->arg + 1, arg)) {
+      // new_v is (apply fun a_1 ... a_n)
+      return fun;
     }
   }
 

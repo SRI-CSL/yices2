@@ -2221,8 +2221,34 @@ static void egraph_activate_composite(egraph_t *egraph, composite_t *d) {
   }
 }
 
+
+#if 0
+
 /*
- * Attach variable v and type tau then activate term t:
+ * Check whether theory variable x is a constant
+ * - tau = egraph type for x
+ */
+static bool constant_theory_var(egraph_t *egraph, etype_t tau, thvar_t x) {
+  if (x != null_thvar) {
+    switch (tau) {
+    case ETYPE_INT:
+    case ETYPE_REAL:
+    case ETYPE_BV:
+      return egraph->eg[tau]->is_constant(egraph->th[tau], x);
+
+    default:
+      break;
+    }
+  }
+
+  return false;
+}
+
+#endif
+
+
+/*
+ * Attach variable x and type tau then activate term t:
  * - add t to a fresh singleton class c
  *
  * HACK: don't do a full activation for (distinct ...) terms
@@ -2243,7 +2269,10 @@ static void egraph_activate_term(egraph_t *egraph, eterm_t t, etype_t tau, thvar
   egraph->terms.thvar[t] = x;
 
   dmask = 0x0;
-  if (constant_body(d)) dmask = 0x1;
+  //  if (constant_body(d) || constant_theory_var(egraph, tau, x)) {
+  if (constant_body(d)) {
+    dmask = 0x1;
+  }
   init_class(&egraph->classes, c, t, dmask, tau, x);
 
   if (composite_body(d) && composite_kind(d) != COMPOSITE_DISTINCT) {

@@ -7131,6 +7131,13 @@ literal_t bv_solver_select_eq_polarity(bv_solver_t *solver, thvar_t x, thvar_t y
 }
 
 
+/*
+ * Check whether x is a constant
+ */
+bool bv_solver_var_is_constant(bv_solver_t *solver, thvar_t x) {
+  return is_constant(&solver->vtbl, x);
+}
+
 
 /*********************
  *  RECONCILE MODEL  *
@@ -8352,6 +8359,7 @@ static th_egraph_interface_t bv_solver_egraph = {
   (assert_diseq_fun_t) bv_solver_assert_var_diseq,
   (assert_distinct_fun_t) bv_solver_assert_var_distinct,
   (check_diseq_fun_t) bv_solver_check_disequality,
+  (is_constant_fun_t) bv_solver_var_is_constant,
   NULL, // no need for expand_th_explanation
   (reconcile_model_fun_t) bv_solver_reconcile_model,
   (prepare_model_fun_t) bv_solver_prepare_model,

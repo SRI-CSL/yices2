@@ -1133,6 +1133,8 @@ static int process_benchmark(void) {
     params.d_factor = 1.1; 
     params.randomness = 0.0;
     params.max_interface_eqs = 15;
+    // TESTING: 2012/09/13
+    params.max_update_conflicts = 50;
     break;
 
   case CTX_ARCH_AUTO_IDL:

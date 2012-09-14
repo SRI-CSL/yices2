@@ -757,6 +757,10 @@ typedef struct egraph_trail_stack_s {
  *    return true if (x1 != x2) holds in the solver at the base level.
  *    (don't need to be complete: may return false)
  *
+ * 4a) bool is_constant(void *solver, thvar_t x)
+ *     return true if x is a constant in the theory solver (optional)
+ *     return false otherwise
+ *
  * For all three functions above, the satellite solver must store the assertions internally
  * and process them when propagate is called. To construct theory conflicts,
  * the satellite solver can query the egraph for explanations using functions 
@@ -1054,6 +1058,7 @@ typedef void (*assert_eq_fun_t)(void *satellite, thvar_t x1, thvar_t x2);
 typedef void (*assert_diseq_fun_t)(void *satellite, thvar_t x1, thvar_t x2, composite_t *hint);
 typedef bool (*assert_distinct_fun_t)(void *satellite, uint32_t n, thvar_t *a, composite_t *hint);
 typedef bool (*check_diseq_fun_t)(void *satellite, thvar_t x1, thvar_t x2);
+typedef bool (*is_constant_fun_t)(void *satellite, thvar_t x);
 typedef void (*expand_eq_exp_fun_t)(void *satellite, thvar_t x1, thvar_t x2, void *expl, th_explanation_t *result);
 typedef uint32_t (*reconcile_model_fun_t)(void *satellite, uint32_t max_eq);
 typedef void (*prepare_model_fun_t)(void *satellite);
@@ -1071,6 +1076,7 @@ typedef struct th_egraph_interface_s {
   assert_diseq_fun_t       assert_disequality;
   assert_distinct_fun_t    assert_distinct;
   check_diseq_fun_t        check_diseq;
+  is_constant_fun_t        is_constant;
   expand_eq_exp_fun_t      expand_th_explanation;
   reconcile_model_fun_t    reconcile_model;
   prepare_model_fun_t      prepare_model;

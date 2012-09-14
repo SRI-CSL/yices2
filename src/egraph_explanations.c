@@ -430,6 +430,40 @@ static bool causally_equal(egraph_t *egraph, occ_t x, occ_t y, int32_t k) {
  * DISEQUALITY EXPLANATIONS
  */
 
+#if 0
+
+/*
+ * Check whether term t is constant
+ */
+static bool eterm_is_constant(egraph_t *egraph, eterm_t t) {
+  thvar_t x;
+  etype_t tau;
+
+  if (constant_body(egraph_term_body(egraph, t))) {
+    return true;
+  }
+
+  x = egraph_term_base_thvar(egraph, t);
+  if (x != null_thvar) {
+    tau = egraph_term_type(egraph, t);
+    switch (tau) {
+    case ETYPE_INT:
+    case ETYPE_REAL:
+    case ETYPE_BV:
+      return egraph->eg[tau]->is_constant(egraph->th[tau], x);
+
+    default:
+      break;
+    }
+  }
+
+  return false;
+}
+
+#endif
+
+
+
 /*
  * Find a constant t in the class of x then return t+
  * Warning: make sure there's a constant in the class before calling this.
@@ -438,6 +472,7 @@ static occ_t constant_in_class(egraph_t *egraph, occ_t x) {
   eterm_t t;
 
   t = term_of_occ(x);
+  //  while (! eterm_is_constant(egraph, t)) {
   while (! constant_body(egraph_term_body(egraph, t))) {
     t = term_of_occ(egraph->terms.next[t]);
     assert(t != term_of_occ(x));

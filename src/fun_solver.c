@@ -2173,6 +2173,14 @@ bool fun_solver_check_disequality(fun_solver_t *solver, thvar_t x1, thvar_t x2) 
 
 
 /*
+ * Check whether x is a constant 
+ */
+bool fun_solver_var_is_constant(fun_solver_t *solver, thvar_t x) {
+  return false;
+}
+
+
+/*
  * Select whether to branch on (x1 == x2) or (x1 != x2)
  * - always return (not l): branch on (x1 != x2)
  */
@@ -3416,6 +3424,7 @@ static th_egraph_interface_t fsolver_egraph = {
   (assert_diseq_fun_t) fun_solver_assert_var_diseq,
   (assert_distinct_fun_t) fun_solver_assert_var_distinct,
   (check_diseq_fun_t) fun_solver_check_disequality,
+  (is_constant_fun_t) fun_solver_var_is_constant,
   NULL, // no need for expand_th_explanation
   (reconcile_model_fun_t) fun_solver_reconcile_model, 
   (prepare_model_fun_t) fun_solver_prepare_model,
