@@ -2827,6 +2827,8 @@ static occ_t egraph_reduce_apply(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a
 
 
 
+
+
 /******************************************
  *   CONSTRUCTORS FOR NON-BOOLEAN TERMS   *
  *****************************************/
@@ -3004,12 +3006,37 @@ eterm_t egraph_make_ite(egraph_t *egraph, occ_t c, occ_t t1, occ_t t2, type_t ta
 }
 
 
+
 /*
  * Update of type tau
  */
 eterm_t egraph_make_update(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a, occ_t v, type_t tau) {
+  composite_t *cmp;
   eterm_t t;
 
+  assert(is_pos_occ(f));
+  
+  /*
+   * simplification: remove double updates at the same indices:
+   * rewrite (update (update f x a) x b) to (update f x b) 
+   */
+  cmp = egraph_term_body(egraph, term_of_occ(f));
+  if (composite_body(cmp) && composite_kind(cmp) == COMPOSITE_UPDATE &&
+      egraph_check_eq_arrays(egraph, n, cmp->child + 1, a)) {
+    f = cmp->child[0];
+    assert(is_pos_occ(f));
+  }
+
+  /*
+   * Simplification 2: (update f x (f x)) is f
+   */
+  cmp = egraph_term_body(egraph, term_of_occ(v));
+  if (is_pos_occ(v) && composite_body(cmp) && 
+      composite_kind(cmp) == COMPOSITE_APPLY && 
+      cmp->child[0] == f &&  egraph_check_eq_arrays(egraph, n, cmp->child + 1, a)) {
+    return term_of_occ(f);
+  }
+      
   t = egraph_update_term(egraph, f, n, a, v);
   if (egraph_term_is_fresh(egraph, t)) {
     auto_activate(egraph, t, tau);
