@@ -2222,7 +2222,7 @@ static void egraph_activate_composite(egraph_t *egraph, composite_t *d) {
 }
 
 
-#if 0
+#if 1
 
 /*
  * Check whether theory variable x is a constant
@@ -2269,8 +2269,8 @@ static void egraph_activate_term(egraph_t *egraph, eterm_t t, etype_t tau, thvar
   egraph->terms.thvar[t] = x;
 
   dmask = 0x0;
-  //  if (constant_body(d) || constant_theory_var(egraph, tau, x)) {
-  if (constant_body(d)) {
+  if (constant_body(d) || constant_theory_var(egraph, tau, x)) {
+  //  if (constant_body(d)) {
     dmask = 0x1;
   }
   init_class(&egraph->classes, c, t, dmask, tau, x);
@@ -6396,6 +6396,8 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   init_distinct_table(&egraph->dtable);
   init_congruence_table(&egraph->ctable, 0);
   init_ltag_table(&egraph->tag_table);
+
+  egraph->update_graph = NULL;
 
   init_egraph_trail(&egraph->trail_stack);
 

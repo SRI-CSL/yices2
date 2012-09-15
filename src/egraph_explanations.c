@@ -430,7 +430,7 @@ static bool causally_equal(egraph_t *egraph, occ_t x, occ_t y, int32_t k) {
  * DISEQUALITY EXPLANATIONS
  */
 
-#if 0
+#if 1
 
 /*
  * Check whether term t is constant
@@ -472,8 +472,8 @@ static occ_t constant_in_class(egraph_t *egraph, occ_t x) {
   eterm_t t;
 
   t = term_of_occ(x);
-  //  while (! eterm_is_constant(egraph, t)) {
-  while (! constant_body(egraph_term_body(egraph, t))) {
+  while (! eterm_is_constant(egraph, t)) {
+  //  while (! constant_body(egraph_term_body(egraph, t))) {
     t = term_of_occ(egraph->terms.next[t]);
     assert(t != term_of_occ(x));
   }

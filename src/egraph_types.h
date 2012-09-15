@@ -494,6 +494,19 @@ typedef struct ltag_table_s {
 
 
 
+/******************
+ *  UPDATE GRAPH  *
+ *****************/
+
+/*
+ * To replace the fun_solver satellite.
+ * The egraph has an optional 'update graph' component to
+ * deal with lambda terms, updates, and extensionality.
+ *
+ * The data structure is defined in update_graph.h.
+ */
+typedef struct update_graph_s update_graph_t;
+
 
 /*****************************
  *  PROPAGATION QUEUE/STACK  *
@@ -1317,6 +1330,8 @@ struct egraph_s {
   distinct_table_t dtable;
   congruence_table_t ctable;
   ltag_table_t tag_table;
+
+  update_graph_t *update_graph; // optional
   
   /*
    * Push/pop stack
