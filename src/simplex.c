@@ -8593,6 +8593,10 @@ static void simplex_gen_interface_lemma(simplex_solver_t *solver, literal_t l, t
     l2 = create_neg_atom(solver, y, c); // l2 is (y < c)
 
     add_ternary_clause(solver->core, not(l), l1, l2); // clause: (not l) or (y > c) or (y < c))    
+    if (equiv) {
+      add_binary_clause(solver->core, l, not(l1)); // y > c => t1 /= t2
+      add_bainry_clause(solver->core, l, not(l2)); // y < c => t1 /= t2
+    }
 
 #if 0
     printf("---> SIMPLEX: interface lemma for ");
