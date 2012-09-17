@@ -564,6 +564,10 @@ static void init_simplex_statistics(simplex_stats_t *stat) {
   stat->num_props = 0;
   stat->num_bound_props = 0;
   stat->num_prop_expl = 0;
+  stat->num_interface_lemmas = 0;
+  stat->num_reduced_inter_lemmas = 0;
+  stat->num_tricho_lemmas = 0;
+  stat->num_reduced_tricho = 0;
   stat->num_make_feasible = 0;
   stat->num_pivots = 0;
   stat->num_blands = 0;
@@ -6340,7 +6344,7 @@ static uint32_t simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, t
     print_simplex_var(stdout, solver, x2);
     printf(" (axiom)\n");
 #endif    
-
+    solver->stats.num_reduced_tricho ++;
 
   } else {
     assert(l0 != true_literal); // since x1 != x2
@@ -6405,6 +6409,7 @@ static uint32_t simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, t
     add_binary_clause(solver->core, not(l), not(l1));
     add_binary_clause(solver->core, not(l), not(l2));
 
+    solver->stats.num_tricho_lemmas ++;
 #if 0
     printf("---> SIMPLEX: trichotomy lemma for ");
     print_simplex_var(stdout, solver, x1);
@@ -7677,8 +7682,13 @@ bool simplex_check_disequality(simplex_solver_t *solver, thvar_t x1, thvar_t x2)
  * Check whether x is a constant
  */
 bool simplex_var_is_constant(simplex_solver_t *solver, thvar_t x) {
-  // TO BE DONE. Return false for now.
-  return false;
+  polynomial_t *q;
+
+  if (x == const_idx) {
+    return true;
+  }
+  q = arith_var_def(&solver->vtbl, x);
+  return q != NULL && polynomial_is_constant(q);
 }
 
 
@@ -8545,6 +8555,7 @@ static void simplex_gen_interface_lemma(simplex_solver_t *solver, literal_t l, t
      * x1 = x2 is false: add (not l) as an axiom for the egraph
      */
     add_unit_clause(solver->core, not(l));
+    solver->stats.num_reduced_inter_lemmas ++;
 
 #if 0
     printf("---> SIMPLEX: interface lemma for ");
@@ -8597,6 +8608,8 @@ static void simplex_gen_interface_lemma(simplex_solver_t *solver, literal_t l, t
       add_binary_clause(solver->core, l, not(l1)); // y > c => t1 /= t2
       add_binary_clause(solver->core, l, not(l2)); // y < c => t1 /= t2
     }
+
+    solver->stats.num_interface_lemmas ++;
 
 #if 0
     printf("---> SIMPLEX: interface lemma for ");

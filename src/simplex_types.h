@@ -599,6 +599,12 @@ typedef struct simplex_stats_s {
   uint32_t num_bound_props;    // bound propagations
   uint32_t num_prop_expl;      // propagations involved in a conflict
 
+  // interface + trichotomy lemmas
+  uint32_t num_interface_lemmas;
+  uint32_t num_reduced_inter_lemmas;
+  uint32_t num_tricho_lemmas;
+  uint32_t num_reduced_tricho;
+
   // search statistics
   uint32_t num_make_feasible;  // calls to make_feasible
   uint32_t num_pivots;         // pivoting steps

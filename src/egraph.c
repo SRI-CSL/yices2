@@ -5889,8 +5889,8 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
 fcheck_code_t egraph_final_check(egraph_t *egraph) {
   egraph->stats.final_checks ++;
 
-  if (false) {
-    return baseline_final_check(egraph);
+  if ((egraph->stats.final_checks & 0x1) == 1) {
+     return baseline_final_check(egraph);
   } else {
     return experimental_final_check(egraph);
   }

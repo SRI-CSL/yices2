@@ -1126,6 +1126,10 @@ static void show_simplex_stats(simplex_stats_t *stat) {
   printf(" derived bounds          : %"PRIu32"\n", stat->num_bound_props);
   printf(" productive propagations : %"PRIu32"\n", stat->num_prop_expl);
   printf(" conflicts               : %"PRIu32"\n", stat->num_conflicts);
+  printf(" interface lemmas        : %"PRIu32"\n", stat->num_interface_lemmas);
+  printf(" reduced inter. lemmas   : %"PRIu32"\n", stat->num_reduced_inter_lemmas);
+  printf(" trichotomy lemmas       : %"PRIu32"\n", stat->num_tricho_lemmas);
+  printf(" reduced tricho. lemmas  : %"PRIu32"\n", stat->num_reduced_tricho);
   if (stat->num_make_intfeasible > 0 || stat->num_dioph_checks > 0) {
     printf("Integer arithmetic\n");
     printf(" make integer feasible   : %"PRIu32"\n", stat->num_make_intfeasible);
