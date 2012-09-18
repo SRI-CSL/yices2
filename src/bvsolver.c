@@ -7380,6 +7380,14 @@ static bool interface_eq_in_class(bv_solver_t *solver, int32_t *v) {
   add_binary_clause(solver->core, not(l), eq);
   add_binary_clause(solver->core, l, not(eq));
 
+#if 0
+  printf("---> BVSOLVER: interface_eq lemma for ");
+  print_bv_solver_var(stdout, solver, x1);
+  printf(" ");
+  print_bv_solver_var(stdout, solver, x2);
+  printf("\n");
+#endif
+
   // update statistics
   solver->stats.interface_lemmas ++;
 

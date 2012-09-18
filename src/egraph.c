@@ -5196,6 +5196,8 @@ static void check_interface_duplicates(ivector_t *v) {
 #endif
 
 
+#if 0
+
 /*
  * Generate interface lemmas for pairs of term occurrences stored in v
  * - stop as soon as max_eqs interface lemmas are produced
@@ -5255,6 +5257,7 @@ static uint32_t egraph_gen_interface_lemmas(egraph_t *egraph, uint32_t max_eqs, 
   return n/2;
 }
 
+#endif
 
 /*
  * Check whether x1 and x2 have different values in the relevant theory solver
@@ -5590,7 +5593,7 @@ static bool egraph_reconcile_pair(egraph_t *egraph, occ_t t1, occ_t t2) {
  */
 static bool egraph_reconcile_class(egraph_t *egraph, int32_t *v, void *solver, th_egraph_interface_t *eg) {
   uint32_t i, n;
-  eterm_t t1, t2;  
+  eterm_t t1, t2;
 
   n = iv_size(v);
   assert(n >= 2);
@@ -5834,9 +5837,28 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
   if (! egraph_reconcile(egraph)) {
     egraph_reconciliation_restore(egraph);
 
-    // Generate interface equalities
     max_eqs = egraph->max_interface_eqs;
+
+#if 0
+    // Generate interface equalities
     i = egraph_gen_interface_lemmas(egraph, max_eqs, &egraph->interface_eqs);
+#else 
+    // VARIANT: call the theory reconcile model functions here
+    i = 0;
+    assert(i < max_eqs);
+    if (egraph->ctrl[ETYPE_REAL] != NULL) {
+      // reconcile for arithmetic solver
+      assert(egraph->eg[ETYPE_REAL] != NULL);
+      i = egraph->eg[ETYPE_REAL]->reconcile_model(egraph->th[ETYPE_REAL], max_eqs);
+    }
+      
+    if (i < max_eqs && egraph->ctrl[ETYPE_BV] != NULL) {
+      // reconcile in bitvector solver
+      assert(egraph->eg[ETYPE_BV] != NULL);
+      i += egraph->eg[ETYPE_BV]->reconcile_model(egraph->th[ETYPE_BV], max_eqs - i);
+    }
+#endif
+
     egraph->stats.interface_eqs += i;
     ivector_reset(&egraph->interface_eqs);
     c = FCHECK_CONTINUE;
@@ -5845,6 +5867,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
     printf("---> egraph reconcile failed: %"PRIu32" interface lemmas\n", i);
     fflush(stdout);
 #endif
+
 
   } else if (egraph->ctrl[ETYPE_FUNCTION] != NULL) {
     /*
@@ -5891,7 +5914,7 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
 
   //  if ((egraph->stats.final_checks & 0x1) == 0) {
   if (false) {
-    return baseline_final_check(egraph);
+     return baseline_final_check(egraph);
   } else {
     return experimental_final_check(egraph);
   }
