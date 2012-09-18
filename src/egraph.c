@@ -5889,8 +5889,9 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
 fcheck_code_t egraph_final_check(egraph_t *egraph) {
   egraph->stats.final_checks ++;
 
-  if ((egraph->stats.final_checks & 0x1) == 1) {
-     return baseline_final_check(egraph);
+  //  if ((egraph->stats.final_checks & 0x1) == 0) {
+  if (false) {
+    return baseline_final_check(egraph);
   } else {
     return experimental_final_check(egraph);
   }
@@ -6568,6 +6569,15 @@ void delete_egraph(egraph_t *egraph) {
 /*************************************
  *  SUPPORT FOR ARRAY-THEORY SOLVER  *
  ************************************/
+
+/*
+ * Get the lambda tag to function type tau
+ * - tau must be a function type
+ */
+int32_t egraph_get_lambda_tag(egraph_t *egraph, type_t tau) {
+  return lambda_tag_for_type(&egraph->tag_table, egraph->types, tau);
+}
+
 
 /*
  * Collect all composite terms of the form (apply g ....)
@@ -7633,7 +7643,4 @@ void egraph_free_model(egraph_t *egraph) {
   }
   reset_egraph_model(&egraph->mdl);
 }
-
-
-
 

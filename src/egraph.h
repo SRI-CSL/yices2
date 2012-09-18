@@ -439,6 +439,11 @@ extern void egraph_propagate_equality(egraph_t *egraph, occ_t t1, occ_t t2, expl
  **********************************/
 
 /*
+ * Get the lambda tag to function type tau
+ */
+extern int32_t egraph_get_lambda_tag(egraph_t *egraph, type_t tau);
+
+/*
  * Collect all composite terms of the form (apply g ....)
  * where g is in the same class as f
  * - only the congruence roots are collected

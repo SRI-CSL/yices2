@@ -1133,7 +1133,7 @@ static int process_benchmark(void) {
     enable_variable_elimination(&context);
     enable_bvarith_elimination(&context);
     params.fast_restart = true;
-    params.c_factor = 1.1;  
+    params.c_factor = 1.1;
     params.d_factor = 1.1; 
     params.randomness = 0.0;
     params.max_interface_eqs = 15;

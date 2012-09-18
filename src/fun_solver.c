@@ -1597,36 +1597,38 @@ static bool update_conflict_for_application(fun_solver_t *solver, thvar_t x, com
      * Check for conflicts
      */
     d = egraph_find_modified_application(egraph, vtbl->eterm[z], c);
-    if (d != NULL_COMPOSITE && ! egraph_equal_apps(egraph, c, d)) {
-      // conflict: add an instance of the update axiom
-      fun_solver_add_axiom2(solver, x, z, c, d);
-      result = true;
-      goto done;
-    }
-
-    /*
-     * No conflict:
-     * - add c to app[z]
-     * - explore the neighbors of all nodes in the class of z
-     */    
-    add_ptr_to_vector(vtbl->app + z, c); // We could do this only after checking for conflicts
-    do {
-      // edges incident to node z
-      edges = vtbl->edges[z];
-      if (edges != NULL) {
-	n = iv_size(edges);
-	for (i=0; i<n; i++) {
-	  k = edges[i];
-	  y = adjacent_root(solver, z, k);
-	  if (vtbl->pre[y] < 0 && !masking_edge(solver, k, c)) {
-	    // y not visited yet: add it to the queue
-	    fun_queue_push(queue, y);
-	    vtbl->pre[y] = k;
+    if (z != x && d != NULL_COMPOSITE) {
+      if (! egraph_equal_apps(egraph, c, d)) {
+	// conflict: add an instance of the update axiom
+	fun_solver_add_axiom2(solver, x, z, c, d);
+	result = true;
+	goto done;
+      }
+    } else {
+      /*
+       * No conflict and no matching composite in z's class
+       * - add c to app[z]
+       * - explore the neighbors of all nodes in the class of z
+       */
+      add_ptr_to_vector(vtbl->app + z, c); // We could do this only after checking for conflicts
+      do {
+	// edges incident to node z
+	edges = vtbl->edges[z];
+	if (edges != NULL) {
+	  n = iv_size(edges);
+	  for (i=0; i<n; i++) {
+	    k = edges[i];
+	    y = adjacent_root(solver, z, k);
+	    if (vtbl->pre[y] < 0 && !masking_edge(solver, k, c)) {
+	      // y not visited yet: add it to the queue
+	      fun_queue_push(queue, y);
+	      vtbl->pre[y] = k;
+	    }
 	  }
 	}
-      }
-      z = vtbl->next[z];
-    } while (z != null_thvar);
+	z = vtbl->next[z];
+      } while (z != null_thvar);
+    }
   }
 
   result = false;

@@ -131,7 +131,7 @@ extra_src_c := arith_solver_codes.c bvsolver_printer.c command_line.c \
                sat_solver.c simplex_printer.c simplex_prop_table.c    \
                smt_core_exporter.c smt_core_printer.c smt_lexer.c     \
                smt_parser.c smt2_lexer.c smt2_parser.c timeout.c      \
-               union_find.c yices_reval.c
+               union_find.c update_graph.c yices_reval.c
 
 
 src_c := $(base_src_c) $(extra_src_c)
