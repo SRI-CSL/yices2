@@ -6593,6 +6593,8 @@ void delete_egraph(egraph_t *egraph) {
  *  SUPPORT FOR ARRAY-THEORY SOLVER  *
  ************************************/
 
+// TODO: MIGRATE ALL THIS TO THE UPDATE-GRAPH MODULE
+
 /*
  * Get the lambda tag to function type tau
  * - tau must be a function type

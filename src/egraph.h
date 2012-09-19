@@ -447,7 +447,7 @@ extern int32_t egraph_get_lambda_tag(egraph_t *egraph, type_t tau);
  * Collect all composite terms of the form (apply g ....)
  * where g is in the same class as f
  * - only the congruence roots are collected
- * - they are added to the pointer vector v (cf. pointer vectors)
+ * - they are added to the pointer vector v (cf. ptr_vectors)
  */
 extern void egraph_collect_applications(egraph_t *egraph, eterm_t f, pvector_t *v);
 
@@ -459,7 +459,6 @@ extern void egraph_collect_applications(egraph_t *egraph, eterm_t f, pvector_t *
  * - return NULL_COMPOSITE otherwise
  */
 extern composite_t *egraph_find_modified_application(egraph_t *egraph, eterm_t g, composite_t *c);
-
 
 
 /*

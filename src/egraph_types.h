@@ -18,6 +18,8 @@
  * 2008-12-30: modified term creation interface
  *
  * 2009-01-22: cleaned up interface with subsolvers
+ *
+ * 2012-09-06: added lambda terms
  */
 
 
@@ -74,6 +76,9 @@
  *
  * A term may have a theory variable attached: it's stored in thvar[t].
  *
+ * 2009-01-23: For model construction, we also store the type of every
+ * term (as an index in the generic type table = egraph->types). 
+ *
  *
  * Equivalence classes
  * -------------------
@@ -85,10 +90,7 @@
  *   - next[t] = successor of t in the circular list
  * Polarities are always positive for non-boolean terms.
  * For a boolean class, there's an (implicit) complementary class that
- * contain the same terms with opposite polarities.
- *
- * 2009-01-23: For model construction, we also store the type of every
- * term (as an index in the generic type table = egraph->types). 
+ * contains the same terms with opposite polarities.
  *
  * Example: if  t, (not u), and (not v) are in the same class, then we would have
  *    next[t] = u-  label[t] = C+

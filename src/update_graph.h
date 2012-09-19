@@ -31,14 +31,59 @@
 
 
 /*
+ * Tree/queue for visiting the graph from a source node
+ * - for each visited node, we store three things
+ *   - the node id
+ *   - the index of the previous triple on the path from source to the node
+ *   - the incoming edge from the previous node
+ * - data[0 ... top-1] = the triples for each visited node
+ * - ptr = next node to process
+ * - top = next record
+ * - size = size of the data array
+ *
+ * We explore the graph breadth first:
+ * - triples in data[0 ... ptr - 1] correspond to nodes
+ *   whose successors have been visited
+ * - triples in data[ptr ... top - 1] is a queue of nodes
+ *   that are reachable but whose successors have not been
+ *   explored yet.
+ *
+ * - let x be data[ptr].node
+ * - if edge u of x leads to node y, then we add 
+ *   a new record at the end of the queue
+ *     data[top].node = y
+ *     data[top].pre  = ptr
+ *     data[top].edge = u
+ */
+typedef struct ugraph_visit_s {
+  int32_t node;
+  int32_t pre;
+  composite_t *edge;
+} ugraph_visit_t;
+
+typedef struct ugraph_queue_s {
+  uint32_t size;
+  uint32_t top;
+  uint32_t ptr;
+  ugraph_visit_t *data;
+} ugraph_queue_t;
+
+#define DEF_UGRAPH_QUEUE_SIZE 20
+#define MAX_UGRAPH_QUEUE_SIZE (UINT32_MAX/sizeof(ugraph_visit_t))
+
+
+
+/*
  * Graph:
- * - for each node, we keep:
- *   the corresponding egraph class
- *   the set of outgoing edges from that node
- *   the lambda tag (as defined in the egraph ltag_table)
+ * - for each node x, we keep:
+ *   class[x] = the corresponding egraph
+ *   egdes[x] = vector of outgoing edges from that node
+ *     tag[x] = the lambda tag (as defined in the egraph ltag_table)
  * - the set of edges is stored in a pointer vector (cf. pointer_vectors.h)
- * - we also store the reverse map: egraph class to nodes
- * - and we keep track of the lambda terms
+ *
+ * For every class c, we store
+ *   class2node[c] = -1 if c has no matching node in the graph
+ *                 =  x is c is matched to node x (i.e., class[x] = c)
  */
 struct update_graph_s {
   uint32_t size;  // size of arrays class, edges, and tag
@@ -50,8 +95,9 @@ struct update_graph_s {
   uint32_t nclasses;    // size of array class2node
   int32_t *class2node;  // class2node[c] = node for class c (-1 if none)  
 
-  // MORE TBD
+  ugraph_queue_t queue; // for exploration
 };
+
 
 #define MAX_UGRAPH_SIZE (UINT32_MAX/sizeof(void **))
 #define DEF_UGRAPH_SIZE 100
