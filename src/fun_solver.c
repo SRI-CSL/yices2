@@ -36,7 +36,7 @@
 
 #define TRACE 0
 
-#if TRACE
+#if TRACE || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -1413,6 +1413,28 @@ static void negate_vector(ivector_t *v) {
 }
 
 
+/*
+ * For debugging/trace: return the length of the path from x to z
+ */
+static uint32_t path_length(fun_solver_t *solver, thvar_t x, thvar_t z) {
+  fun_vartable_t *vtbl;
+  int32_t i;
+  thvar_t y;
+  uint32_t n;
+
+  vtbl = &solver->vtbl;
+
+  n = 0;
+  y = z;
+  do {
+    n ++; 
+    i = vtbl->pre[y];
+    y = previous_root(solver, y, i);
+  } while (y != x);
+
+  return n;
+}
+
 
 /*
  * Add instance of the update2 axiom corresponding to the non-masking 
@@ -1435,7 +1457,7 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
 
   vtbl = &solver->vtbl;
 
-#if TRACE
+#if TRACE || 1
   printf("\n--- Update conflict ---\n");
 #if 0
   printf("Classes:\n");
@@ -1455,7 +1477,8 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
   print_eterm_def(stdout, solver->egraph, c->id);
   printf("Target app: ");
   print_eterm_def(stdout, solver->egraph, d->id);
-
+  printf("Path length: %"PRIu32"\n", path_length(solver, x, z));
+	 
 #if 0
   printf("Path:\n");
   y = z;
@@ -1468,6 +1491,8 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
   } while (y != x);
 #endif
 
+  fflush(stdout);
+
 #endif
 
   /*
@@ -1477,10 +1502,6 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
   assert(lemma->size == 0);
   // collect the path atoms + equal args atom
   collect_path_atoms(solver, x, z, c, d, lemma);
-#if TRACE
-  printf("Path length = %"PRIu32"\n", lemma->size);
-  fflush(stdout);
-#endif
   collect_equal_arg_atoms(solver, c, d, lemma);
 
 #if TRACE
@@ -1488,7 +1509,7 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
 #endif
 
   if (lemma->size > 0) {
-#if TRACE
+#if TRACE || 1
     printf("path constraints:\n");
     if (lemma->size == 1) {
       print_egraph_atom_of_literal(stdout, solver->egraph, lemma->data[0]);
@@ -1511,7 +1532,8 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
   do {
     i = vtbl->pre[y];
     assert(i >= 0 && i != null_fun_pred);
-    l = apply_edge_equal_args(solver, c, get_edge(&solver->etbl, i));
+    //    l = apply_edge_equal_args(solver, c, get_edge(&solver->etbl, i)); HACK
+    l = apply_edge_equal_args(solver, d, get_edge(&solver->etbl, i));
     if (l != false_literal) {
       ivector_push(lemma, l);
     }
@@ -1523,12 +1545,21 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
   l = equal_applies(solver, c, d);
   ivector_push(lemma, l);
 
-#if TRACE
+#if TRACE || 1
+  if (lemma->size > 1) {
+    printf("antecedents:\n");
+    for (i=0; i<lemma->size - 1; i++) {
+      print_literal(stdout, lemma->data[i]);
+      printf(" := ");
+      print_egraph_atom_of_literal(stdout, solver->egraph, lemma->data[i]);
+      printf("\n");
+    }
+  }
   printf("consequent:\n");
   print_literal(stdout, l);
   printf(" := ");
   print_egraph_atom_of_literal(stdout, solver->egraph, l);
-  printf("\n");
+  printf("\n\n");
 #endif
   
   add_clause(solver->core, lemma->size, lemma->data);
@@ -1979,7 +2010,7 @@ bool fun_solver_propagate(fun_solver_t *solver) {
 fcheck_code_t fun_solver_final_check(fun_solver_t *solver) {
   fcheck_code_t result;
 
-#if TRACE
+#if TRACE || 1
   printf("\n**** FUNSOLVER: FINAL CHECK ***\n\n");
 #endif 
 

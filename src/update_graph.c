@@ -139,6 +139,21 @@ static inline void ugraph_queue_pop(ugraph_queue_t *queue) {
 
 
 
+/***********************
+ *  STATISTICS RECORD  *
+ **********************/
+
+static void init_ugraph_stats(ugraph_stats_t *stats) {
+  stats->num_update_props = 0;
+  stats->num_lambda_props = 0;
+  stats->num_update_conflicts = 0;
+  stats->num_lambda_conflicts = 0;
+}
+
+static inline void reset_ugraph_stats(ugraph_stats_t *stats) {
+  init_ugraph_stats(stats);
+}
+
 
 /******************
  *  UPDATE GRAPH  *
@@ -157,6 +172,10 @@ void init_ugraph(update_graph_t *ugraph) {
   ugraph->class2node = NULL;
 
   init_ugraph_queue(&ugraph->queue);
+  init_ugraph_stats(&ugraph->stats);
+
+  init_ivector(&ugraph->aux_vector, 10);
+  init_ivector(&ugraph->lemma_vector, 10);
 }
 
 
@@ -258,6 +277,9 @@ void reset_ugraph(update_graph_t *ugraph) {
   }
 
   reset_ugraph_queue(&ugraph->queue);
+  reset_ugraph_stats(&ugraph->stats);
+  ivector_reset(&ugraph->aux_vector);
+  ivector_reset(&ugraph->lemma_vector);
 }
 
 
@@ -283,6 +305,8 @@ void delete_ugraph(update_graph_t *ugraph) {
   ugraph->class2node = NULL;
 
   delete_ugraph_queue(&ugraph->queue);
+  delete_ivector(&ugraph->aux_vector);
+  delete_ivector(&ugraph->lemma_vector);
 }
 
 
@@ -385,7 +409,7 @@ void build_ugraph(update_graph_t *ugraph, egraph_t *egraph) {
    * each edge is an update term that's a congruence root
    *
    * TODO: check whether we can get better explanations by keeping all
-   * update terms even the ones that are not congruence root?
+   * update terms even the ones that are not congruence roots?
    */
   for (i=0; i<n; i++) {
     cmp = egraph_term_body(egraph, i);
@@ -468,5 +492,24 @@ static bool transparent_edge(egraph_t *egraph, composite_t *u, composite_t *a) {
 
   return false;
 }
+
+
+/*
+ * Return a term congruent to (apply g i_1 ... i_n) or NULL_COMPOSITE if there isn't one
+ * - c = composite of the form (apply f i_1 ... i_n)
+ * NOTE: copied from egraph.c 
+ */
+static composite_t *find_modified_application(egraph_t *egraph, eterm_t g, composite_t *c) {
+  signature_t *sgn;
+  elabel_t *label;
+
+  assert(composite_kind(c) == COMPOSITE_APPLY);
+
+  label = egraph->terms.label;
+  sgn = &egraph->sgn;
+  signature_modified_apply(c, g, label, sgn);
+  return congruence_table_find(&egraph->ctable, sgn, label);
+}
+
 
 

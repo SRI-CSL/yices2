@@ -5196,7 +5196,7 @@ static void check_interface_duplicates(ivector_t *v) {
 #endif
 
 
-#if 0
+#if 1
 
 /*
  * Generate interface lemmas for pairs of term occurrences stored in v
@@ -5839,7 +5839,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
 
     max_eqs = egraph->max_interface_eqs;
 
-#if 0
+#if 1
     // Generate interface equalities
     i = egraph_gen_interface_lemmas(egraph, max_eqs, &egraph->interface_eqs);
 #else 
@@ -6596,7 +6596,7 @@ void delete_egraph(egraph_t *egraph) {
 // TODO: MIGRATE ALL THIS TO THE UPDATE-GRAPH MODULE
 
 /*
- * Get the lambda tag to function type tau
+ * Get the lambda tag for function type tau
  * - tau must be a function type
  */
 int32_t egraph_get_lambda_tag(egraph_t *egraph, type_t tau) {

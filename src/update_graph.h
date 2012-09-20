@@ -72,6 +72,17 @@ typedef struct ugraph_queue_s {
 #define MAX_UGRAPH_QUEUE_SIZE (UINT32_MAX/sizeof(ugraph_visit_t))
 
 
+/*
+ * Statistics
+ */
+typedef struct ugraph_stats_s {
+  uint32_t num_update_props;
+  uint32_t num_lambda_props;
+  uint32_t num_update_conflicts;
+  uint32_t num_lambda_conflicts;
+} ugraph_stats_t;
+
+
 
 /*
  * Graph:
@@ -96,6 +107,11 @@ struct update_graph_s {
   int32_t *class2node;  // class2node[c] = node for class c (-1 if none)  
 
   ugraph_queue_t queue; // for exploration
+
+  ugraph_stats_t stats;
+
+  ivector_t aux_vector; 
+  ivector_t lemma_vector;
 };
 
 
