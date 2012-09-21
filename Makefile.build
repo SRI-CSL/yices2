@@ -278,7 +278,7 @@ tarfile: $(distributions)
 	$(MKDIR_P) $(bindist_dir)/examples
 	for file in `ls examples | $(EGREP) '*\.ys$$|*\.smt$$|*\.c$$' ` ; do \
 	  cp examples/$$file $(bindist_dir)/examples ; \
-        done || true
+	done || true
 	$(MKDIR_P) $(bindist_dir)/doc
 	cp doc/YICES-LANGUAGE $(bindist_dir)/doc
 	cp doc/manual.pdf $(bindist_dir)/doc
@@ -303,7 +303,7 @@ static-tarfile: $(distributions)
 	$(MKDIR_P) $(bindist_dir)/examples
 	for file in `ls examples | $(EGREP) '*\.ys$$|*\.smt$$|*\.c$$' ` ; do \
 	  cp examples/$$file $(bindist_dir)/examples ; \
-        done || true
+	done || true
 	$(MKDIR_P) $(bindist_dir)/doc
 	cp doc/YICES-LANGUAGE $(bindist_dir)/doc
 	cp doc/manual.pdf $(bindist_dir)/doc
@@ -487,7 +487,7 @@ source-distribution: $(distributions)
 	cp etc/* $(srcdist_dir)/etc
 	for file in `ls examples | $(EGREP) '*.ys|*.txt|*.smt|*.c' ` ; do \
 	  cp examples/$$file $(srcdist_dir)/examples ; \
-        done || true
+	done || true
 	chmod -R og+rX $(srcdist_dir)
 	tar -czf $(distributions)/$(srcdist_tarfile) $(srcdist_dir)
 	chmod -R og+rX $(distributions)
