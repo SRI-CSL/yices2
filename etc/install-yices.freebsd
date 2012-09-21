@@ -197,7 +197,7 @@ esac
 #
 # Add symbolic link
 #
-"$libdir/libyices.so" ; ||
+"$libdir/libyices.so" ||
   { echo "$failure"
     echo "Could not create symbolic link libyices.so"
     echo ""
