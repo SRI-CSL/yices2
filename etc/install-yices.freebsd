@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #
-# Script to install Yices on linux
+# Script to install Yices on Freed BSD
 #
 # Usage
 # -----
@@ -85,10 +85,10 @@ done
 local_dir=`pwd`
 if test -d "$local_dir/bin" -a -d "$local_dir/lib" -a "$local_dir/include" ; then
 
-   sofile=`ls lib/*.so.2.*.* | sed -e 's+lib/++' 2>/dev/null`
+   sofile=`ls lib/*.so.2.* | sed -e 's+lib/++' 2>/dev/null`
 
    case "$sofile" in
-     libyices.so.2.*.*)
+     libyices.so.2.*)
        break;;
 
      *) echo "$failure"

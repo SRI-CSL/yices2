@@ -21,13 +21,7 @@
 # are created in ./lib
 #
 # OPTIONS:
-#  -h: print a short help message
-#  -g GROUP: set the group of copied files
-#  -o OWNER: set the owner of copied files (requires root privilege)
-#
-# The options -g and -o are passed to /usr/bin/install.  See man
-# install for details.
-#
+#  -h --help: print a short help message
 #
 
 usage="Usage: $0 [OPTIONS] <directory>
@@ -42,9 +36,7 @@ If the second form is used, nothing is copied but symbolic links
 are created in ./lib.
 
 OPTIONS:
-  -h: print this message
-  -g GROUP: set the group of copied files
-  -o OWNER: set the owner of copied files (requires root privilege)
+  -h --help:  print this message
 "
 
 failure="
@@ -55,60 +47,22 @@ Installation failed
 #
 # Tools we need: change this if they are not found
 #
-mkdir="/bin/mkdir"
-link="/bin/ln"
 install="/usr/bin/install"
+link="/bin/ln"
 install_name_tool="/usr/bin/install_name_tool"
-
-#
-# Default options
-#
-opt_group=
-opt_owner=
 
 
 #
 # Process the command line
 #
 location_given=no
-group_given=no
-owner_given=no
 location=
 
 while test -n "$1"; do
   case $1 in
-    -h) echo "$usage"
+    -h | --help) 
+        echo "$usage"
         exit 0;;
-
-    -g) if test -n "$2" ; then 
-          if test "$group_given" = "yes" ; then
-             echo "Ignoring option -g $2; group already set to $opt_group"
-          else
-            group_given="yes"
-            opt_group=$2
-          fi
-          shift
-          shift
-        else
-          echo "Option $1 requires an argument. Try $0 -h for help"
-          exit 1
-        fi
-        continue;;
-
-    -o) if test -n "$2" ; then
-          if test "$owner_given" = "yes" ; then
-             echo "Ignoring option -o $2; owner already set to $opt_owner"
-          else
-            owner_given="yes"
-            opt_owner=$2
-          fi
-          shift
-          shift
-        else
-          echo "Option $1 requires an argument. Try $0 -h for help"
-          exit 1
-        fi
-        continue;;
 
     -*) echo "Unknown option $1. Try $0 -h for help"
         exit 1;;
@@ -123,6 +77,38 @@ while test -n "$1"; do
        continue;;
   esac
 done
+
+
+
+#
+# Check that the current directory contains bin lib include
+# subdirectories and check the lib contains libyices.2.dylbib.
+#
+local_dir=`pwd`
+if test -d "$local_dir/bin" -a -d "$local_dir/lib" -a "$local_dir/include" ; then
+
+   dylib_file=`ls lib/libyices.2.dylib | sed -e 's+lib/++' 2>/dev/null`
+
+   case "$dylib_file" in
+     libyices.2.dylib)
+       break;;
+
+     *) echo "$failure"
+        echo "Can't find the Yices library libyices.2.dylib in ./lib"
+        echo "Make sure $0 is run from the toplevel Yices directory"
+	echo ""
+        exit 1;;
+
+    esac
+
+else
+   echo "$failure"
+   echo "Can't find the ./bin ./lib or ./include directory"
+   echo "Make sure $0 is run from the toplevel Yices directory"
+   echo ""
+   exit 1
+fi
+
 
 #
 # Set install dir and local_install flag
@@ -153,70 +139,22 @@ if test -n "$location" ; then
 fi
 
 
-
-#
-# Check that the current directory contains bin lib include
-# subdirectory and get the dynamic libraries name.
-#
-local_dir=`pwd`
-if test -d "$local_dir/bin" -a -d "$local_dir/lib" -a "$local_dir/include" ; then
-
-   dylib_file=`ls lib/libyices.2.dylib | sed -e 's+lib/++' 2>/dev/null`
-
-   case "$dylib_file" in
-     libyices.2.dylib)
-       break;;
-
-     *) echo "$failure"
-        echo "Can't find the Yices library libyices.2.dylib in ./lib"
-        echo "Make sure $0 is run from the toplevel Yices directory"
-	echo ""
-        exit 1;;
-
-    esac
-
-else
-   echo "$failure"
-   echo "Can't find the ./bin ./lib or ./include directory"
-   echo "Make sure $0 is run from the toplevel Yices directory"
-   echo ""
-   exit 1
-fi
-
 #
 # Check that the tools exist and are executable
 #
 if test "$local_install" = "no" ; then
-   if test ! \( -f "$mkdir" -a -x "$mkdir" \) ; then
-     echo "$failure"   
-     echo "Can't find the $mkdir command"
-     echo ""
-     exit 1
-   fi
-
-   if test ! \( -f "$install" -a -x "$install" \) ; then
-     echo "$failure"
-     echo "Can't find the $install command"
-     echo ""
-     exit 1
-   fi
+  { test -f "$install" -a -x "$install" ; } ||
+  { echo "$failure" l echo "Can't find $install" ; echo "" ; exit 1 ; }
 fi
 
 if test "$install_dir" != "/usr/local" ; then
-  if test ! \( -f "$install_name_tool" -a -x "$install_name_tool" \) ; then
-     echo "$failure"
-     echo "Can't find the $install_name_tool command"
-     echo ""
-     exit 1
-  fi
+  { test -f "$install_name_tool" -a -x "$install_name_tool" ; } || 
+  { echo "$failure" ; echo "Can't find $install_name_tool" ; echo "" ; exit 1 ; }
 fi
 
-if test ! \( -f "$link" -a -x "$link" \) ; then
-  echo "$failure"
-  echo "Can't find the $link command"
-  echo ""
-  exit 1
-fi
+{ test -f "$link" -a -x "$link"; } || 
+  { echo "$failure" ; echo "Can't find $link" ; echo "" ; exit 1 ; }
+
 
 #
 # Install directories
@@ -225,36 +163,25 @@ bindir="$install_dir/bin"
 libdir="$install_dir/lib"
 includedir="$install_dir/include"
 
-#
-# Options to /usr/bin/install
-#
-if test -n "$opt_group" ; then
-  install="$install -g $opt_group"
-fi
-
-if test -n "$opt_owner" ; then
-  install="$install -o $opt_owner"
-fi
 
 #
 # For non-local install: 
 # create the install directories then copy the files
 #
 if test "$local_install" = "no" ; then
-  if     $install -d "$install_dir" "$bindir" "$libdir" "$includedir" \
-      && $install -m 664 ./include/*.h "$includedir" \
-      && $install ./bin/* "$bindir" \
-      && $install ./lib/* "$libdir" ; then
-    echo "Copied files in $install_dir"
-  else 
-    echo "$failure"
+  echo "Installing Yices in $install_dir"
+  { $install -d "$install_dir" "$bindir" "$libdir" "$includedir" \
+    && $install -m 664 ./include/*.h "$includedir" \
+    && $install ./bin/* "$bindir" \
+    && $install ./lib/*.2.dylib "$libdir" ; } 2> /dev/null || 
+  { echo "$failure"
     echo "Could not create install directories or copy files"
     echo "Check that you have the right permissions"
     echo "or try sudo $0"
     echo ""
-    exit 1
-  fi
+    exit 1 ; }
 fi
+
 
 #
 # If the install_dir is not /usr/local, fix the
@@ -262,27 +189,20 @@ fi
 #
 if test "$install_dir" != "/usr/local" ; then
    full_path_dylib="$libdir/$dylib_file"
-   if "$install_name_tool" -id "$full_path_dylib" "$full_path_dylib" ; then
-     echo "Changed library's install name to $full_path_dylib"
-   else 
-     echo "$failure" 
-     echo "Could not fix the install name"
-     echo ""
-     exit 1
-   fi
-fi
-
+  { "$install_name_tool" -id "$full_path_dylib" "$full_path_dylib" ; }  ||
+   { echo "$failure"
+     echo "Could not fix the install name" 
+     echo "" 
+     exit 1 ; }
 
 #
-# Create symbolic link to lib/liyices.2.dylib
+# Create the symbolic link to lib/liyices.2.dylib
 #
-if  "$link" -sf "$dylib_file" "$libdir/libyices.dylib" ; then
-   echo "Created libyices.dylib"
-else
-   echo "$failure"
-   echo "Could not create symbolic link libyices.dylib"
-   echo ""
-   exit 1
-fi
+{ "$link" -sf "$dylib_file" "$libdir/libyices.dylib" ; } || 
+  { echo "$failure"
+    echo "Could not create symbolic link libyices.dylib"
+    echo ""
+    exit 1 ; }
 
-echo "Installation complete"
+
+echo "Done"
