@@ -17,7 +17,7 @@ This distribution includes three solvers
 
 and the Yices libraries and header files
 
-  lib/libyices.2.1.0.dylib
+  lib/libyices.2.dylib
   include/yices.h
   include/yices_types.h
   include/yices_limits.h
@@ -32,24 +32,21 @@ copyright Free Software Foundation (see NOTICES).
 
 
 
-Recommended Library Installation on MacOS X
--------------------------------------------
+Installation
+------------
 
-The library's install name is '/usr/local/lib/libyices.2.dylib' so
-the following procedure should be used to install it.
+The library's install name is '/usr/local/lib/libyices.2.dylib', so
+libvyices.2.dylib must be copied into /usr/local/lib.  
+This distribution includes a shell script for this purpose. 
+Just type
 
-1) copy libyices.2.1.0.dylib in /usr/local/lib (this requires
-   administrative privileges):
+   sudo ./install-yices
 
-    sudo  cp libyices.2.1.0.dylib /usr/local/lib
-    sudo  chmod 755 /usr/local/lib/libyices.2.1.0.dylib
+from a terminal. This will copy the binaries /usr/local/bin, the
+header files in /usr/local/include, and the libraries in /usr/local/lib.
 
-
-2) add two symbolic links:
-
-    sudo  ln -sf libyices.2.1.0.dylib /usr/local/lib/libyices.dylib
-    sudo  ln -sf libyices.2.1.0.dylib /usr/local/lib/libyices.2.dylib
-
+Other installation choices are possible. Try ./install-yices --help
+for more explanations.
 
 
 

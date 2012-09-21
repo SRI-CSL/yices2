@@ -269,6 +269,10 @@ tarfile: $(distributions)
 	cp -r $(dist_dir)/* $(bindist_dir)
 	cp etc/LICENSE etc/NOTICES $(bindist_dir)
 	cp etc/README.$(POSIXOS) $(bindist_dir)/README
+	if test -f etc/install-yices.$(POSIXOS) ; then \
+	  cp etc/install-yices.$(POSIXOS) $(bindist_dir)/install-yices ; \
+	  chmod ug+x $(bindist_dir)/install-yices ; \
+	fi
 	$(MKDIR_P) $(bindist_dir)/etc
 	cp etc/pstdint.h $(bindist_dir)/etc
 	$(MKDIR_P) $(bindist_dir)/examples
@@ -290,6 +294,10 @@ static-tarfile: $(distributions)
 	cp -r $(static_dist_dir)/* $(bindist_dir)
 	cp etc/LICENSE etc/NOTICES $(bindist_dir)
 	cp etc/README.static.$(POSIXOS) $(bindist_dir)/README
+	if test -f etc/install-yices.$(POSIXOS) ; then \
+	  cp etc/install-yices.$(POSIXOS) $(bindist_dir)/install-yices ; \
+	  chmod ug+x $(bindist_dir)/install-yices ; \
+	fi
 	$(MKDIR_P) $(bindist_dir)/etc
 	cp etc/pstdint.h $(bindist_dir)/etc
 	$(MKDIR_P) $(bindist_dir)/examples

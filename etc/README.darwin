@@ -49,8 +49,8 @@ Just type
 from a terminal. This will copy the binaries /usr/local/bin, the
 header files in /usr/local/include, and the libraries in /usr/local/lib.
 
-Other installations are possible. Try ./install-yices --help for
-more explanations.
+Other installation choices are possible. Try ./install-yices --help
+for more explanations.
 
 
 For more information, please visit http://yices.csl.sri.com.

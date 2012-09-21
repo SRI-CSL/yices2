@@ -36,23 +36,36 @@ library for Yices to work.  GMP is copyright Free Software Foundation
 
 
 
-Recommended Library Installation
---------------------------------
+Installation
+------------
 
-The library can be installed in a standard location such as 
-/usr/local/lib as follows:
+The binaries can be used as is. To use the library, you'll need to
+create symbolic links as follows:
 
-1) copy libyices.so.2.1 into /usr/local/lib (may require 
-   administrative privileges)
+  /sbin/ldconfig -m lib
+  ln -sf libyices.so.2.1 lib/libyices.so
 
-   sudo cp libyices.so.2.1 /usr/local/lib
-   sudo chmod 755 /usr/local/lib/libyices.so.2.1
+You can do the same thing with the shell script 'install-yices'
+included in this distribution. Just type
 
-2) run ldconfig then add a symbolic link
-
-   sudo /sbin/ldconfig -m /usr/local/lib
-   sudo ln -sf libyices.so.2.1 /usr/local/lib/libyices.so
+  ./install-yices here
 
 
 
-For more information, please visit http://yices.csl.sri.com.
+Alternatively, you can install Yices in /usr/local as follows:
+
+  sudo ./install-yices.
+
+This will copy the binaries  /usr/local/bin, the header files in
+/usr/local/include, and the libraries in /usr/local/lib.
+
+To install Yices in another location, give the installation directory 
+as argument to the shell script:
+
+  ./install-yices <dir>
+
+
+
+
+
+For more information about Yices, please visit http://yices.csl.sri.com.
