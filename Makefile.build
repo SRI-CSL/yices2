@@ -391,8 +391,7 @@ install-default: $(build_dir) $(dist_dir)
 	$(INSTALL) $(dist_dir)/lib/* $(libdir)
 
 install-darwin: install-default
-	ln -sf libyices.$(YICES_VERSION).dylib $(libdir)/libyices.dylib
-	ln -sf libyices.$(YICES_VERSION).dylib $(libdir)/libyices.$(MAJOR).dylib
+	ln -sf libyices.$(MAJOR).dylib $(libdir)/libyices.dylib
 
 install-solaris: install-default
 	/sbin/ldconfig -n $(libdir)

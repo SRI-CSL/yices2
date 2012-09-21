@@ -186,7 +186,7 @@ fi
 #
 # Run ldconfig and create libyices.so (symbolic link to libyices.so.2.x.y)
 #
-{ "$ldconfig" -n "$libdir" && "$link" -sf "$sofile" "$libdir/libyices.so" ; } ||
+{ "$ldconfig" -m "$libdir" && "$link" -sf "$sofile" "$libdir/libyices.so" ; } ||
   { echo "$failure"
     echo "Could not run ldconfig or create symbolic link libyices.so"
     echo ""
