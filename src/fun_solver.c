@@ -1532,7 +1532,7 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
   do {
     i = vtbl->pre[y];
     assert(i >= 0 && i != null_fun_pred);
-    l = apply_edge_equal_args(solver, c, get_edge(&solver->etbl, i)); HACK
+    l = apply_edge_equal_args(solver, c, get_edge(&solver->etbl, i));
     //    l = apply_edge_equal_args(solver, d, get_edge(&solver->etbl, i));
     if (l != false_literal) {
       ivector_push(lemma, l);
