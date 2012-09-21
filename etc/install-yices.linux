@@ -1,0 +1,287 @@
+#!/bin/sh
+
+#
+# Script to install Yices on linux
+#
+# Usage
+# -----
+#     ./install-yices [OPTIONS] <directory>
+# 
+# This script must be called from the toplevel Yices directory.
+#
+# It will install Yices as follows:
+#     binaries      in <directory>/bin
+#     libraries     in <directory>/lib
+#     include files in <directory>/include
+#
+# If no <directory> is given, Yices will be insalled in /usr/local.
+#
+# If <directory> is the string here or if it's equal to the current
+# directory, then no files are copied but symbolic links are created
+# in ./lib
+#
+# OPTIONS:
+#  -h: print a short help message
+#  -g GROUP: set the group of copied files
+#  -o OWNER: set the owner of copied files (requires root privilege)
+#
+# The three options -g -o and -m are passed to /usr/bin/install.
+# See man install for details.
+#
+
+usage="Usage: $0 [OPTIONS] <directory>
+    or $0 [OPTIONS] here
+
+Installs Yices in the location specified by <directory> as follows:
+   binaries      in <directory>/bin
+   libraries     in <directory>/lib
+   include files in <directory>/include
+
+If the second form is used, nothing is copied but symbolic links
+are created in ./lib.
+
+OPTIONS:
+  -h: print this message and does nothing
+  -g GROUP: set the group of copied files
+  -o OWNER: set the owner of copied files (requires root privilege)
+"
+
+failure="Installation failed"
+
+
+#
+# Tools we need: change this if they are not found
+#
+mkdir="/bin/mkdir"
+link="/bin/ln"
+ldconfig="/sbin/ldconfig"
+install="/usr/bin/install"
+
+#
+# Default options
+#
+opt_group=
+opt_owner=
+
+
+#
+# Process command line
+#
+location_given=no
+group_given=no
+owner_given=no
+location=
+
+while test -n "$1"; do
+  case $1 in
+    -h) echo "$usage"
+        exit 0;;
+
+    -g) if test -n "$2" ; then 
+          if test "$group_given" = "yes" ; then
+             echo "Ignoring option -g $2; group already set to $opt_group"
+          else
+            group_given="yes"
+            opt_group=$2
+          fi
+          shift
+          shift
+        else
+          echo "Option $1 requires an argument. Try $0 -h for help"
+          exit 1
+        fi
+        continue;;
+
+    -o) if test -n "$2" ; then
+          if test "$owner_given" = "yes" ; then
+             echo "Ignoring option -o $2; owner already set to $opt_owner"
+          else
+            owner_given="yes"
+            opt_owner=$2
+          fi
+          shift
+          shift
+        else
+          echo "Option $1 requires an argument. Try $0 -h for help"
+          exit 1
+        fi
+        continue;;
+
+    -*) echo "Unknown option $1. Try $0 -h for help"
+        exit 1;;
+
+    *) if test "$location_given" = "yes" ; then
+         echo "Please specify a single location. Try $0 -h for help"
+         exit 1
+       fi
+       location_given="yes"
+       location=$1
+       shift
+       continue;;
+  esac
+done
+
+
+#
+# Check that the current directory contains bin lib include
+# subdirectory and get the dynamic libraries name.
+#
+local_dir=`pwd`
+if test -d $local_dir/bin -a -d $local_dir/lib -a $local_dir/include ; then
+
+   sofile=`ls lib/*.so.2.*.* | sed -e 's+lib/++' 2>/dev/null`
+
+   case "$sofile" in
+     libyices.so.2.*.*)
+       break;;
+
+     *) echo "$failure"
+        echo "Can't find expected Yices library libyices.so.2.x.y in ./lib"
+        echo "Make sure $0 is run from the toplevel Yices directory"
+        exit 1;;
+
+    esac
+
+else
+   echo "$failure"
+   echo "Can't find ./bin ./lib ./include directory"
+   echo "Make sure $0 is run from the toplevel Yices directory"
+   exit 1
+fi
+
+
+
+#
+# Set install dir and local_install flag
+#
+local_install="no"
+install_dir="/usr/local"
+
+if test -n "$location" ; then
+  case $location in
+
+    here) local_install="yes"
+          install_dir="$local_dir"
+          break;;
+
+    *) install_dir=$location
+       if test $location -ef $local_dir ; then 
+          local_install="yes"
+       fi
+       break;;
+
+  esac
+fi
+
+
+
+
+#
+# Check that the tools exist and are executable
+#
+
+#
+# For local install, we need only ln -s and ldconfig
+#
+if test "$local_install" = "no" ; then
+   if test ! \( -f $mkdir -a -x $mkdir \) ; then
+     echo "$failure"   
+     echo "Can't find the $mkdir command"
+     echo ""
+     exit 1
+   fi
+
+   if test ! \( -f "$install" -a -x "$install" \) ; then
+     echo "$failure"
+     echo "Can't find the $install command"
+     echo ""
+     exit 1
+   fi
+fi
+
+if test ! \( -f $link -a -x $link \) ; then
+  echo "$failure"
+  echo "Can't find a usable $link"
+  echo ""
+  exit 1
+fi
+
+if test ! \( -f $ldconfig -a -x $ldconfig \) ; then
+  echo "$failure"
+  echo "Can't find $ldconfig"
+  echo ""
+  exit 1
+fi
+
+
+#
+# Install directories
+#
+bindir=$install_dir/bin
+libdir=$install_dir/lib
+includedir=$install_dir/include
+
+
+#
+# Options to /usr/bin/install
+#
+if test -n "$opt_group" ; then
+  install="$install -g $opt_group"
+fi
+
+if test -n "$opt_owner" ; then
+  install="$install -o $opt_owner"
+fi
+
+
+
+echo "Installation parameters\n"
+echo "  local_dir = $local_dir"
+echo "  location = $location"
+echo "  install_dir = $install_dir"
+echo "  local_install = $local_install"
+echo "  group_given = $group_given"
+echo "  group = $opt_group"
+echo "  owner_given = $owner_given"
+echo "  owner = $opt_owner"
+echo ""
+echo "  full install command: $install"
+echo ""
+
+
+#
+# For non-local install: 
+# create the install directories then copy the files
+#
+if test "$local_install" = "no" ; then
+  if     $install -d $install_dir $bindir $libdir $includedir \
+      && $install -m 664 ./include/*.h $includedir \
+      && $install ./bin/* $bindir \
+      && $install ./lib/* $libdir ; then
+    echo "Copied files in $install_dir"
+  else 
+    echo "$failure"
+    echo "Could not create install directories or copy files"
+    echo "Check that you have the right permissions"
+    echo "or try sudo $0 ..."
+    echo ""
+    exit 1
+  fi
+fi
+
+
+#
+# Run ldconfig
+#
+if  $ldconfig -n $libdir && $link -sf $sofile $libdir/libyices.so ; then
+   echo ""
+   echo "Installation complete"
+   echo ""
+else 
+   echo "$failure"
+   echo "sofile is $sofile"
+   echo "Could not run ldconfig or create symbolic link libyices.so"
+   echo ""
+   exit 1
+fi
+

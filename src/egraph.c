@@ -6814,19 +6814,19 @@ static ppart_t *egraph_get_app_partition(egraph_t *egraph) {
  *  (cf. ptr_partitions.h and ptr_partitions.c)
  */
 void egraph_build_arg_partition(egraph_t *egraph) {
-  //  uint32_t i, n;
-  uint32_t n;
+  uint32_t i, n;
+  //  uint32_t n;
   composite_t *cmp;
   ppart_t *pp;
 
   pp = egraph_get_app_partition(egraph);
   n = egraph_num_terms(egraph);
-  // test: do this in reverse order
-  //  for (i=0; i<n; i++) {
-  //    cmp = egraph_term_body(egraph, i);
-  while (n > 0) {
-    n --;
-    cmp = egraph_term_body(egraph, n);
+  for (i=0; i<n; i++) {
+    cmp = egraph_term_body(egraph, i);
+    // test: do this in reverse order
+    //  while (n > 0) {
+    //    n --;
+    //    cmp = egraph_term_body(egraph, n);
     if (composite_body(cmp) && 
 	composite_kind(cmp) == COMPOSITE_APPLY && 
 	congruence_table_is_root(&egraph->ctable, cmp, egraph->terms.label)) {
