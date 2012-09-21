@@ -174,7 +174,7 @@ if test "$local_install" = "no" ; then
   {  $install -d "$install_dir" "$bindir" "$libdir" "$includedir" \
      && $install -m 664 ./include/*.h "$includedir"  \
      && $install ./bin/* "$bindir"  \
-     && $install ./lib/*.so.2.*.* "$libdir" ; } 2> /dev/null || 
+     && $install ./lib/*.so.2.* "$libdir" ; } 2> /dev/null || 
   { echo "$failure"
     echo "Could not create the directories or copy files."
     echo "Check that you have the right permissions (try sudo)."
