@@ -36,7 +36,7 @@
 
 #define TRACE 0
 
-#if TRACE || 1
+#if TRACE
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -1457,7 +1457,7 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
 
   vtbl = &solver->vtbl;
 
-#if TRACE || 1
+#if TRACE
   printf("\n--- Update conflict ---\n");
 #if 0
   printf("Classes:\n");
@@ -1509,7 +1509,7 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
 #endif
 
   if (lemma->size > 0) {
-#if TRACE || 1
+#if TRACE
     printf("path constraints:\n");
     if (lemma->size == 1) {
       print_egraph_atom_of_literal(stdout, solver->egraph, lemma->data[0]);
@@ -1545,7 +1545,7 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
   l = equal_applies(solver, c, d);
   ivector_push(lemma, l);
 
-#if TRACE || 1
+#if TRACE
   if (lemma->size > 1) {
     printf("antecedents:\n");
     for (i=0; i<lemma->size - 1; i++) {
@@ -2010,7 +2010,7 @@ bool fun_solver_propagate(fun_solver_t *solver) {
 fcheck_code_t fun_solver_final_check(fun_solver_t *solver) {
   fcheck_code_t result;
 
-#if TRACE || 1
+#if TRACE
   printf("\n**** FUNSOLVER: FINAL CHECK ***\n\n");
 #endif 
 
