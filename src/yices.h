@@ -273,7 +273,7 @@ __YICES_DLLSPEC__ extern term_t yices_false(void);
  *   index must be less than tau's cardinality.
  *
  * Each constant is identified by its index. Two constants
- * of type tau that have difference indices are distinct.
+ * of type tau that have different indices are distinct.
  *
  * Error report:
  * if tau is undefined
