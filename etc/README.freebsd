@@ -42,7 +42,6 @@ Installation
 The binaries can be used as is. To use the library, you'll need to
 create symbolic links as follows:
 
-  /sbin/ldconfig -m lib
   ln -sf libyices.so.2.1 lib/libyices.so
 
 You can do the same thing with the shell script 'install-yices'
