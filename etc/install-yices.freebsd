@@ -184,11 +184,22 @@ fi
 
 
 #
-# Run ldconfig and create libyices.so (symbolic link to libyices.so.2.x.y)
+# Run ldconfig if the install directory is /usr/lib or /usr/local/lib
 #
-{ "$ldconfig" -mi "$libdir" && "$link" -sf "$sofile" "$libdir/libyices.so" ; } ||
+case "$libdir" in
+  "/usr/lib" | "/usr/local/lib" ) 
+     "$ldconfig" -m "$libdir" || 
+       { echo "$failure"; echo "Could not run ldconfig" ; echo "" ; exit 1 ; }
+     ;;
+esac
+
+
+#
+# Add symbolic link
+#
+"$libdir/libyices.so" ; ||
   { echo "$failure"
-    echo "Could not run ldconfig or create symbolic link libyices.so"
+    echo "Could not create symbolic link libyices.so"
     echo ""
     exit 1 ; }
 
