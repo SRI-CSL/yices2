@@ -872,7 +872,7 @@ static void ugraph_push_transparent_successors(update_graph_t *ugraph, ugraph_qu
       assert(0 <= y && y < ugraph->nodes);
 
       if (ugraph_node_is_unmarked(ugraph, y) && transparent_edge(ugraph->egraph, u, c)) {
-	ugraph_queue_push_next(queue, y, u);
+	ugraph_queue_push_next(queue, y, u); // u is not used here
       }
     }
   }
@@ -918,7 +918,7 @@ static uint32_t ugraph_base_propagate_application(update_graph_t *ugraph, int32_
 
       /*
        * If d and c are equal, there's no point propagating c to y's neighbors
-       * (the propagation we miss now were or will be done when we propagate d)  
+       * (the propagations we miss now were or will be done when we propagate d) .
        */
       
     } else {
@@ -966,7 +966,7 @@ uint32_t ugraph_base_propagate(update_graph_t *ugraph) {
       if (relevant_apply(ugraph, x, c)) {
 	neqs += ugraph_base_propagate_application(ugraph, x, c);
       }
-    }     
+    }
   }
 
   return neqs;
