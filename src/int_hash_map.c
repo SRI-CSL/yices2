@@ -253,6 +253,34 @@ int_hmap_pair_t *int_hmap_get(int_hmap_t *hmap, int32_t k) {
 
 
 /*
+ * Add record [k -> v ] to hmao
+ * - there must not be a record with the same key
+ */
+void int_hmap_add(int_hmap_t *hmap, int32_t k, int32_t v) {
+  uint32_t i, mask;
+
+  assert(k >= 0 && hmap->nelems < hmap->size);
+
+  mask = hmap->size - 1;
+  i = hash_key(k) & mask;
+  while (hmap->data[i].key >= 0) {
+    assert(hmap->data[i].key != k);
+    i ++;
+    i &= mask;
+  }
+  
+  // store the new record in data[i]
+  hmap->data[i].key = k;
+  hmap->data[i].val = v;
+  hmap->nelems ++;
+
+  if (hmap->nelems + hmap->ndeleted >= hmap->resize_threshold) {
+    int_hmap_extend(hmap);
+  }
+}
+
+
+/*
  * Erase record r
  */
 void int_hmap_erase(int_hmap_t *hmap, int_hmap_pair_t *r) {

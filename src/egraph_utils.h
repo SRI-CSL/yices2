@@ -217,6 +217,13 @@ static inline bool egraph_term_is_composite_tuple(egraph_t *egraph, eterm_t t) {
   return composite_body(cmp) && composite_kind(cmp) == COMPOSITE_TUPLE;
 }
 
+static inline bool egraph_term_is_lambda(egraph_t *egraph, eterm_t t) {
+  composite_t *cmp;
+  cmp = egraph_term_body(egraph, t);
+  return composite_body(cmp) && composite_kind(cmp) == COMPOSITE_LAMBDA;
+}
+
+
 
 /*
  * Assign type tau to term t

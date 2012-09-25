@@ -269,6 +269,7 @@ typedef struct type_mtbl_s {
  * - inf_tbl = maps pairs (tau_1, tau_2) to the largest common 
  *   subtype of tau_1 and tau_2 (or to NULL_TYPE if
  *   tau_1 and tau_2 are not compatible).
+ * - max_tbl = map tau to its maximal super type 
  *
  * Macro table: also allocated on demand
  */
@@ -287,6 +288,7 @@ typedef struct type_table_s {
   stbl_t stbl;
   int_hmap2_t *sup_tbl;
   int_hmap2_t *inf_tbl;
+  int_hmap_t *max_tbl;
 
   type_mtbl_t *macro_tbl;
 } type_table_t;
@@ -830,9 +832,15 @@ extern type_t inf_type(type_table_t *table, type_t tau1, type_t tau2);
 
 
 /*
+ * Build the largest type that's a supertype of tau
+ */
+extern type_t max_super_type(type_table_t *table, type_t tau);
+
+
+/*
  * Check whether tau1 is a subtype if tau2.
  *
- * Side effects: this is implemented using super_type so this may create
+ * Side effect: this is implemented using super_type so this may create
  * new types in the table.
  */
 extern bool is_subtype(type_table_t *table, type_t tau1, type_t tau2);
@@ -841,7 +849,7 @@ extern bool is_subtype(type_table_t *table, type_t tau1, type_t tau2);
 /*
  * Check whether tau1 and tau2 are compatible.
  *
- * Side effects: use the super_type function. So this may create new 
+ * Side effect: use the super_type function. So this may create new 
  * types in the table.
  */
 extern bool compatible_types(type_table_t *table, type_t tau1, type_t tau2);

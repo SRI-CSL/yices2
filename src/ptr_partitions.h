@@ -126,6 +126,19 @@ extern void reset_ptr_partition(ppart_t *pp);
 extern void ptr_partition_add(ppart_t *pp, void *ptr);
 
 
+/*
+ * Return the index of the partition vector that containts ptr
+ * - return -1 if there's no such vector
+ */
+extern int32_t ptr_partition_get_index(ppart_t *pp, void *ptr);
+
+
+/*
+ * Check whether pp is empty
+ */
+static inline bool ptr_partition_is_empty(ppart_t *pp) {
+  return pp->nelems == 0;
+}
 
 
 

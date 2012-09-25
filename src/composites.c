@@ -1045,6 +1045,22 @@ void signature_modified_apply(composite_t *c, eterm_t g, elabel_t *label, signat
 }
 
 
+/*
+ * Variant: signature if (apply glable i1 ... in)
+ */
+void signature_modified_apply2(composite_t *c, elabel_t glabel, elabel_t *label, signature_t *s) {
+  uint32_t i, n, tag;
+
+  tag = c->tag;
+  n = tag_arity(tag);
+  resize_sign_buffer(s, n);
+  s->tag = tag;
+  s->sigma[0] = glabel;    // function label
+  for (i=1; i<n; i++) {    // children
+    s->sigma[i] = get_label(label, composite_child(c, i));
+  }
+}
+
 
 /*
  * Check whether two apply composites have the same argument tuple (modulo the egraph)

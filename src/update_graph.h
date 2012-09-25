@@ -25,8 +25,12 @@
 #ifndef __UPDATE_GRAPH_H
 #define __UPDATE_GRAPH_H
 
+#include <assert.h>
 #include <stdint.h>
+#include <stdbool.h>
 
+#include "bitvectors.h"
+#include "ptr_partitions.h"
 #include "egraph_types.h"
 
 
@@ -73,6 +77,32 @@ typedef struct ugraph_queue_s {
 
 
 /*
+ * Set of pairs [tag, type] for which there exists a lambda term.
+ * If a  lambda term has type [tau_1 x ... x tau_n -> sigma]
+ * then we add the pair (tag, sigma) where tag is the lambda-tag for
+ * tau_1 x ... x tau_n.
+ * 
+ * For now, we just store the pairs in an array (since there shouldn't
+ * be many pairs). We keep a pointer to the type table.
+ */
+typedef struct lambda_pair_s {
+  int32_t tag;
+  type_t range;
+} lambda_pair_t;
+
+typedef struct lpair_set_s {
+  uint32_t size;
+  uint32_t nelems;
+  lambda_pair_t *data;
+  type_table_t *types;
+} lpair_set_t;
+
+#define DEF_LPAIR_SET_SIZE 10
+#define MAX_LPAIR_SET_SIZE (UINT32_MAX/sizeof(lambda_pair_t))
+
+
+
+/*
  * Statistics
  */
 typedef struct ugraph_stats_s {
@@ -84,29 +114,41 @@ typedef struct ugraph_stats_s {
 
 
 
+
 /*
  * Graph:
  * - for each node x, we keep:
  *   class[x] = the corresponding egraph
  *   egdes[x] = vector of outgoing edges from that node
  *     tag[x] = the lambda tag (as defined in the egraph ltag_table)
+ *    mark[x] = one bit: 1 means x has been visited 
  * - the set of edges is stored in a pointer vector (cf. pointer_vectors.h)
  *
  * For every class c, we store
  *   class2node[c] = -1 if c has no matching node in the graph
  *                 =  x is c is matched to node x (i.e., class[x] = c)
+ *
+ * For propagation:
+ * - queue = visited nodes
+ * - partition = to group composite terms that have equal arguments
+ * - lpair_set = types for the lambda terms
  */
 struct update_graph_s {
+  egraph_t *egraph;   // pointer to the egraph
+
   uint32_t size;  // size of arrays class, edges, and tag
   uint32_t nodes; // number of nodes
   class_t *class; // class[i] = class of node i
   void ***edges;  // edges[i] = array of (void*) pointers
   int32_t *tag;   // tag[i] = lambda tag
+  byte_t *mark;   // mark[i] = one bit
 
   uint32_t nclasses;    // size of array class2node
   int32_t *class2node;  // class2node[c] = node for class c (-1 if none)  
 
-  ugraph_queue_t queue; // for exploration
+  ugraph_queue_t queue;   // for exploration
+  ppart_t partition;      // partition of apply terms
+  lpair_set_t lpair_set;  // types of lambda terms
 
   ugraph_stats_t stats;
 
@@ -126,12 +168,14 @@ struct update_graph_s {
 /*
  * Initialize ugraph (to the empty graph)
  */
-extern void init_ugraph(update_graph_t *ugraph);
+extern void init_ugraph(update_graph_t *ugraph, egraph_t *egraph);
+
 
 /*
  * Reset to the empty graph
  */
 extern void reset_ugraph(update_graph_t *ugraph);
+
 
 /*
  * Delete ugraph:
@@ -149,7 +193,44 @@ extern void delete_ugraph(update_graph_t *ugraph);
  *   a direct edge from node[class[a]] to node[class[b]]
  *   a reverse edge from node[class[b]] to node[class[a]]
  */
-extern void build_ugraph(update_graph_t *ugraph, egraph_t *egraph);
+extern void build_ugraph(update_graph_t *ugraph);
+
+
+/*
+ * Propagate at the base level
+ * - make sure build_ugraph was called first
+ * - this searches for equalities implied by the update graph
+ *   and adds them to the egraph (as axioms)
+ * - return the number of equalities found
+ */
+extern uint32_t ugraph_base_propagate(update_graph_t *ugraph);
+
+
+
+
+
+/*
+ * Marks
+ */
+static inline bool ugraph_node_is_marked(update_graph_t *ugraph, int32_t i) {
+  assert(0 <= i && i < ugraph->nodes);
+  return tst_bit(ugraph->mark, i);
+}
+
+static inline bool ugraph_node_is_unmarked(update_graph_t *ugraph, int32_t i) {
+  assert(0 <= i && i < ugraph->nodes);
+  return ! tst_bit(ugraph->mark, i);
+}
+
+static inline void ugraph_mark_node(update_graph_t *ugraph, int32_t i) {
+  assert(0 <= i && i < ugraph->nodes);
+  set_bit(ugraph->mark, i);  
+}
+
+static inline void clear_ugraph_node_mark(update_graph_t *ugraph, int32_t i) {
+  assert(0 <= i && i < ugraph->nodes);
+  clr_bit(ugraph->mark, i);  
+}
 
 
 #endif

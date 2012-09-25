@@ -153,6 +153,7 @@ static void reset_type_mtbl(type_mtbl_t *table) {
 
 #endif
 
+
 /*
  * Make the table larger
  * - if this is the first allocation: allocate a data array of default size
@@ -258,9 +259,10 @@ static void type_table_init(type_table_t *table, uint32_t n) {
   // install finalizer in the symbol table
   stbl_set_finalizer(&table->stbl, typename_finalizer);
 
-  // don't allocate sup/inf table
+  // don't allocate sup/inf/max tables
   table->sup_tbl = NULL;
   table->inf_tbl = NULL;
+  table->max_tbl = NULL;
 
   // macro table: not allocated yet
   table->macro_tbl = NULL;
@@ -389,6 +391,24 @@ static int_hmap2_t *get_inf_table(type_table_t *table) {
 
   return hmap;
 }
+
+
+/*
+ * Get the max_table
+ */
+static int_hmap_t *get_max_table(type_table_t *table) {
+  int_hmap_t *hmap;
+
+  hmap = table->max_tbl;
+  if (hmap == NULL) {
+    hmap = (int_hmap_t *) safe_malloc(sizeof(int_hmap_t));
+    init_int_hmap(hmap, 0);
+    table->max_tbl = hmap;
+  }
+
+  return hmap;
+}
+
 
 
 /*
@@ -1101,6 +1121,12 @@ void delete_type_table(type_table_t *table) {
     delete_int_hmap2(table->inf_tbl);
     safe_free(table->inf_tbl);
     table->inf_tbl = NULL;
+  }
+
+  if (table->max_tbl != NULL) {
+    delete_int_hmap(table->max_tbl);
+    safe_free(table->max_tbl);
+    table->max_tbl = NULL;
   }
 
   if (table->macro_tbl != NULL) {
@@ -1973,6 +1999,103 @@ type_t inf_type(type_table_t *table, type_t tau1, type_t tau2) {
 
 
 /*
+ * MAXIMAL SUPERTYPE
+ */
+
+/*
+ * Try to cheaply compute the maximal super type of tau
+ * - return NULL_TYPE if that fails
+ */
+static type_t cheap_max_super_type(type_table_t *table, type_t tau) {
+  type_t sigma;
+
+  sigma = NULL_TYPE;
+  if (is_maxtype(table, tau)) {
+    sigma = tau;
+  } else if (tau == int_id) {
+    sigma = real_id;
+  }
+  
+  return sigma;
+}
+
+
+/*
+ * Maximal supertype of a tuple type 
+ */
+static type_t max_tuple_super_type(type_table_t *table, tuple_type_t *tup) {
+  type_t buffer[8];
+  type_t *s;
+  uint32_t i, n;
+  type_t tau;
+
+  n = tup->nelem;
+  s = buffer;
+  if (n > 8) {
+    s = safe_malloc(n * sizeof(type_t));
+  }
+
+  for (i=0; i<n; i++) {
+    s[i] = max_super_type(table, tup->elem[i]);
+  }
+
+  tau = tuple_type(table, n, s);
+    
+  if (n > 8) {
+    safe_free(s);
+  }
+
+  return tau;
+}
+
+
+/*
+ * Maximal supertype of a function type
+ */
+static type_t max_function_super_type(type_table_t *table, function_type_t *fun) {
+  type_t tau;
+
+  tau = max_super_type(table, fun->range);
+  return function_type(table, tau, fun->ndom, fun->domain);
+}
+
+
+/*
+ * Build the largest type that's a supertype of tau
+ */
+type_t max_super_type(type_table_t *table, type_t tau) {
+  int_hmap_t *max_tbl;
+  int_hmap_pair_t *r;
+  type_t aux;
+
+  assert(good_type(table, tau));
+
+  aux = cheap_max_super_type(table, tau);
+  if (aux == NULL_TYPE) {
+    max_tbl = get_max_table(table);
+    r = int_hmap_find(max_tbl, tau);
+    if (r != NULL) {
+      aux = r->val;
+    } else {
+      // max is not in the cache
+      if (table->kind[tau] == TUPLE_TYPE) {
+	aux = max_tuple_super_type(table, tuple_type_desc(table, tau));
+      } else {
+	aux = max_function_super_type(table, function_type_desc(table,tau));
+      }
+      int_hmap_add(max_tbl, tau, aux);
+    }
+  }
+
+  assert(good_type(table, aux));
+
+  return aux;
+}
+
+
+
+
+/*
  * SUBTYPE AND COMPATIBILITY
  */
 
@@ -2367,6 +2490,15 @@ static bool keep_in_cache(void *aux, int_hmap2_rec_t *r) {
 
 
 /*
+ * Keep-alive function for the max cache
+ * - record (k --> x) is kept if k and x haven't been deleted
+ */
+static bool keep_in_max_table(void *aux, int_hmap_pair_t *r) {
+  return good_type(aux, r->key) && good_type(aux, r->val);
+}
+
+
+/*
  * Keep-alive function for the macro instance cache
  * - aux is a pointer to the type table
  * - record r->key is an array of n integers
@@ -2427,6 +2559,11 @@ void type_table_gc(type_table_t *table)  {
 
   if (table->inf_tbl != NULL) {
     int_hmap2_gc(table->inf_tbl, table, keep_in_cache);
+  }
+
+  // cleanup the max cache
+  if (table->max_tbl != NULL) {
+    int_hmap_remove_records(table->max_tbl, table, keep_in_max_table);
   }
 
   // cleanup the macro table cache too

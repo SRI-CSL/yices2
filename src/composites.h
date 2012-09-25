@@ -224,6 +224,13 @@ extern void signature_modified_apply(composite_t *c, eterm_t g, elabel_t *label,
 
 
 /*
+ * Variant: compute the signature of c with f replaced by the glabel
+ */
+extern void signature_modified_apply2(composite_t *c, elabel_t glabel, elabel_t *label, signature_t *s);
+
+
+
+/*
  * Check whether two apply composites have the same argument tuple (modulo the egraph)
  * - c must be of the form (apply f i_1 ... i_n) 
  *   d must be of fhe form (apply g j_i ... j_m)

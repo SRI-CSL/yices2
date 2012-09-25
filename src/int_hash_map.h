@@ -79,6 +79,13 @@ extern int_hmap_pair_t *int_hmap_get(int_hmap_t *hmap, int32_t k);
 
 
 /*
+ * Add record [k -> v] 
+ * - there must not be a record with the same key
+ */
+extern void int_hmap_add(int_hmap_t *hmap, int32_t k, int32_t v);
+
+
+/*
  * Erase record r
  */
 extern void int_hmap_erase(int_hmap_t *hmap, int_hmap_pair_t *r);

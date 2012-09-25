@@ -299,3 +299,28 @@ void ptr_partition_add(ppart_t *pp, void *ptr) {
   }
   
 }
+
+
+
+/*
+ * Find the class index of ptr
+ * - return the index of the vector that contains ptr
+ * - return -1 if there's no such vector
+ */
+int32_t ptr_partition_get_index(ppart_t *pp, void *ptr) {
+  uint32_t mask, h, j;
+  ppart_rec_t *r;
+
+  assert(pp->nelems < pp->size);
+
+  mask = pp->size - 1;
+  h = pp->hash(pp->aux, ptr);
+  j = h & mask;
+  for (;;) {
+    r = pp->records + j;
+    if (r->data == NULL) return -1;
+    if (r->hash == h && pp->match(pp->aux, ptr, r->data)) return r->cid;
+    j ++;
+    j &= mask;
+  }
+}
