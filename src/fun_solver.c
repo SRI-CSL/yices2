@@ -1413,6 +1413,7 @@ static void negate_vector(ivector_t *v) {
 }
 
 
+#if 0
 /*
  * For debugging/trace: return the length of the path from x to z
  */
@@ -1434,6 +1435,8 @@ static uint32_t path_length(fun_solver_t *solver, thvar_t x, thvar_t z) {
 
   return n;
 }
+
+#endif
 
 
 /*
@@ -1689,6 +1692,7 @@ static thvar_t root_app_var(egraph_t *egraph, composite_t *c) {
   return egraph_class_thvar(egraph, egraph_term_class(egraph, f));
 }
 
+
 /*
  * Collect all applications and check for update conflicts
  * - the equivalence classes and roots must be set first
@@ -1716,6 +1720,7 @@ static bool update_conflicts(fun_solver_t *solver) {
 
   // get the partition and process all composites that
   // are in a non-singleton class
+#if 0
   pp = egraph_app_partition(egraph);
   n = ptr_partition_nclasses(pp);
   for (i=0; i<n; i++) {
@@ -1735,6 +1740,27 @@ static bool update_conflicts(fun_solver_t *solver) {
       }
     }
   }
+#endif
+
+  // EXPERIMENT
+  pp = egraph_app_partition(egraph);
+  n = egraph->terms.nterms;  
+  for (i=0; i<n; i++) {
+    c = egraph_term_body(egraph, i);
+    if (composite_body(c) &&
+	composite_kind(c) == COMPOSITE_APPLY &&
+	congruence_table_is_root(&egraph->ctable, c, egraph->terms.label) &&
+	ptr_partition_get_index(pp, c) >= 0) {
+      x = root_app_var(egraph, c);
+      if (update_conflict_for_application(solver, x, c)) {
+	result = true;
+	num_updates ++;
+	// exit if max_update_conflicts is reached
+	if (num_updates >= solver->max_update_conflicts) goto done;
+      }
+    }
+  }
+
 
 
  done:

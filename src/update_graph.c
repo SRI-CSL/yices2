@@ -843,6 +843,11 @@ static void ugraph_unmark_queued_nodes(update_graph_t *ugraph, ugraph_queue_t *q
 }
 
 
+
+/*
+ * BASE-LEVEL PROPAGATION
+ */
+
 /*
  * Push all unmarked successors of x that can be reached by an edge transparent to c
  * into queue
@@ -942,7 +947,7 @@ static uint32_t ugraph_base_propagate_application(update_graph_t *ugraph, int32_
 
 
 /*
- * Full propagation through
+ * Full propagation at the base level
  * - go through all relevant composite and propagate
  * - return the total number of propagated equalities
  */
@@ -970,4 +975,125 @@ uint32_t ugraph_base_propagate(update_graph_t *ugraph) {
   }
 
   return neqs;
+}
+
+
+
+/*
+ * SEARCH FOR INSTANCES OF UPDATE/LAMBDA AXIOMS
+ */
+
+/*
+ * Push all unmarled successors of x that can be reached by a non-opaque edge for c
+ */
+static void ugraph_push_successors(update_graph_t *ugraph, ugraph_queue_t *queue, int32_t x, composite_t *c) {
+  void **edges;
+  composite_t *u, *v;
+  uint32_t i, n;
+  int32_t y;
+
+  assert(0 <= x && x < ugraph->nodes);
+
+  edges = ugraph->edges[x];
+  if (edges != NULL) {
+    n = pv_size(edges);
+    for (i=0; i<n; i++) {
+      u = edges[i];
+      v = untag_ptr(u);
+      if (ptr_tag(u) == 0) {
+	// direct edge of the form g := (update f ...) for f in class[x]
+	y = node_of_term(ugraph, u->id);
+      } else {
+	// reverse egde: f := (update g ...) for f in class[x]
+	y = node_of_term(ugraph, term_of_occ(u->child[0]));
+      }
+      
+      assert(0 <= y && y < ugraph->nodes);
+
+      if (ugraph_node_is_unmarked(ugraph, y) && !opaque_edge(ugraph->egraph, v, c)) {
+	ugraph_queue_push_next(queue, y, u);
+      }
+    }
+  }
+}
+
+
+/*
+ * Propagate c through non-opaque edges and search for instances 
+ * the update/lambda axioms.
+ * - c must be of the form (apply f t_1 ... t_n)
+ * - x should be the node for class of f
+ */
+static uint32_t ugraph_propagate_application(update_graph_t *ugraph, int32_t x, composite_t *c) {
+  ugraph_queue_t *queue;
+  composite_t *d;
+  uint32_t nlemmas;
+  int32_t y;
+
+  queue = &ugraph->queue;
+  assert(empty_ugraph_queue(queue) && no_node_is_marked(ugraph));
+
+  nlemmas = 0;
+
+  ugraph_queue_push_root(queue, x);
+  ugraph_mark_node(ugraph, x);
+  ugraph_push_successors(ugraph, queue, x, c);
+  ugraph_queue_pop(queue);
+  
+  while (! empty_ugraph_queue(queue)) {
+    y = ugraph_queue_current_node(queue);
+
+    d = find_modified_application(ugraph, y, c);
+    if (d != NULL) {
+      if (! egraph_equal_occ(ugraph->egraph, pos_occ(c->id), pos_occ(d->id))) {
+	// found instance of the udpdate axiom
+	// TBD
+	nlemmas ++;
+      }
+    } else {
+      d = find_lambda_term(ugraph, y);;
+      if (d != NULL && !egraph_equal_occ(ugraph->egraph, pos_occ(c->id), d->child[0])) {
+	// found instance of the lambda/update axiom
+	// TBD
+	nlemmas ++;
+      }
+
+      ugraph_push_successors(ugraph, queue, y, c);
+      ugraph_queue_pop(queue);;
+    }
+  }
+
+  ugraph_unmark_queued_nodes(ugraph, queue);
+
+  return nlemmas;
+}
+
+
+/*
+ * Full propagation
+ */
+uint32_t ugraph_propagate(update_graph_t *ugraph) {
+  egraph_t *egraph;
+  composite_t *c;
+  uint32_t i, n, nlemmas;
+  int32_t x;
+
+  nlemmas = 0;
+  egraph = ugraph->egraph;
+
+  n = egraph->terms.nterms;
+  for (i=0; i<n; i++) {
+    c = egraph_term_body(egraph, i);
+    if (composite_body(c) && 
+	composite_kind(c) == COMPOSITE_APPLY && 
+	congruence_table_is_root(&egraph->ctable, c, egraph->terms.label)) {
+      // c is of the form (apply f ... ) and is a congruence root
+      x = node_of_term(ugraph, term_of_occ(c->child[0])); // x := node of f
+      if (relevant_apply(ugraph, x, c)) {
+	nlemmas += ugraph_propagate_application(ugraph, x, c);
+      }
+    }
+  }
+
+  return nlemmas;
 }
