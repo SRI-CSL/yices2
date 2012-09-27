@@ -32,7 +32,7 @@
 #define TRACE_BB 0
 
 
-#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG)
+#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG) || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -6337,7 +6337,7 @@ static uint32_t simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, t
     add_unit_clause(solver->core, not(l));
     reset_poly_buffer(&solver->buffer);
 
-#if 0
+#if 1
     printf("---> SIMPLEX: trichotomy lemma for ");
     print_simplex_var(stdout, solver, x1);
     printf(" ");
@@ -6410,7 +6410,7 @@ static uint32_t simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, t
     add_binary_clause(solver->core, not(l), not(l2));
 
     solver->stats.num_tricho_lemmas ++;
-#if 0
+#if 1
     printf("---> SIMPLEX: trichotomy lemma for ");
     print_simplex_var(stdout, solver, x1);
     printf(" ");
@@ -6753,6 +6753,105 @@ void simplex_start_search(simplex_solver_t *solver) {
  *  PROPAGATE  *
  **************/
 
+
+/*
+ * HACK FOR TESTING xs_25_45.smt
+ */
+#if 0
+
+// trichotomy lemmas built by the baseline final check
+static const thvar_t pre_trichotomy[][2] = {
+  { 1, 3 }, { 11, 12 }, { 14, 15 }, { 17, 18 }, { 6, 25 }, { 2, 154 }, { 139, 160 }, { 6, 166 },
+  { 2, 6 }, { 2, 20 }, { 17, 25 }, { 14, 71 }, { 17, 77 }, { 2, 125 }, { 93, 136 }, { 93, 154 }, { 3, 160 },
+  { 2, 17 }, { 6, 20 }, { 14, 25 }, { 14, 51 }, { 6, 83 }, { 2, 93 }, { 6, 111 }, { 3, 123 }, { 3, 125 }, { 3, 154 },
+  { 2, 14 }, { 3, 20 }, { 11, 25 }, { 2, 32 }, { 11, 39 }, { 17, 51 }, { 3, 75 }, { 17, 107 }, { 141, 160 },
+  { 2, 11 }, { 3, 17 }, { 25, 39 }, { 2, 47 }, { 20, 75 }, { 20, 125 }, { 25, 128 },
+  { -1, -1},
+  { 3, 14 }, { 20, 51 }, { 11, 77 }, { 3, 89 }, { 25, 122 }, { 2, 128 }, { 146, 160 },
+  { 3, 11 }, { 14, 32 }, { 17, 37 }, { 14, 95 }, { 25, 116 }, { 2, 122 }, { 77, 128 },
+  { 2, 39 }, { 3, 77 }, { 11, 83 }, { 25, 110 }, { 2, 116 }, { 47, 122 },
+  { 3, 39 }, { 25, 104 }, { 2, 110 },
+  { 25, 92 }, { 2, 98 }, { 3, 110 }, { 39, 116 }, { 59, 128 },
+  { 25, 86 }, { 2, 92 }, { 3, 104 },
+  { 25, 80 }, { 2, 86 }, { 3, 98 },
+  { 25, 74 }, { 2, 80 }, { 3, 92 },                                                    
+  { 25, 68 }, { 2, 74 }, { 3, 86 },
+  { 25, 62 }, { 2, 68 }, { 3, 80 },
+  { 25, 56 }, { 2, 62 }, { 3, 74 },
+  { 25, 50 }, { 2, 56 }, { 3, 68 },
+  { 25, 44 }, { 2, 50 }, { 3, 62 },
+  { 25, 36 }, { 2, 44 }, { 3, 56 },
+  { 25, 31 }, { 2, 36 }, { 26, 43 }, { 3, 50 }, { 11, 95 }, { 39, 110 }, { 14, 113 }, { 59, 116 }, { 71, 122 }, { 17, 125 }, { 20, 136 }, { 146, 154 }, { 93, 157 },
+  { 25, 27 }, { 2, 31 }, { 3, 44 },
+  { 11, 59 }, { 14, 77 }, { 17, 95 }, { 25, 98 }, { 2, 104 }, { 20, 107 }, { 3, 116 }, { 93, 125 }, { 39, 128 }, { 155, 160 },
+  { 11, 107 }, { 14, 125 }, { 3, 128 }, { 17, 136 }, { 20, 146 },   { 154, 157 },
+  { 3, 122 }, { 111, 160 },
+  { -1, -1}
+};
+
+#else
+
+// lemmas for the experimental final check (xs_25_45)
+static const thvar_t pre_trichotomy[][2] = {
+  //  original: { 1, 3 }, { 11, 12 }, { 14, 15 }, { 17, 18 }, { 6, 25 }, { 2, 154 },
+  { 1, 3 }, { 11, 12 }, { 14, 15 }, { 17, 18 }, { 6, 25 }, { 2, 154 }, { 139, 160 }, { 6, 166 },
+
+  { 2, 6 }, { 17, 25 }, { 3, 160 }, 
+  //  { 2, 6 }, { 2, 20 }, { 17, 25 }, { 14, 71 }, { 17, 77 }, { 2, 125 }, { 93, 136 }, { 93, 154 }, { 3, 160 },
+
+  { 2, 17 }, { 6, 20 }, { 14, 25 }, { 3, 154 }, 
+  //  { 2, 17 }, { 6, 20 }, { 14, 25 }, { 14, 51 }, { 6, 83 }, { 2, 93 }, { 6, 111 }, { 3, 123 }, { 3, 125 }, { 3, 154 },
+
+  //  { 2, 14 }, { 3, 20 }, { 11, 25 }, 
+  { 2, 14 }, { 3, 20 }, { 11, 25 }, { 2, 32 }, { 11, 39 }, { 17, 51 }, { 3, 75 }, { 17, 107 }, { 141, 160 },
+
+  //  { 2, 11 }, { 3, 17 }, { 25, 128 }, 
+  { 2, 11 }, { 3, 17 }, { 25, 39 }, { 2, 47 }, { 20, 75 }, { 20, 125 }, { 25, 128 },
+
+  // 
+  { 3, 14 }, { 25, 122 }, { 2, 128 }, 
+  { 3, 11 }, { 25, 116 }, { 2, 122 }, 
+  { 25, 110 }, { 2, 116 }, { 3, 128 }, 
+  { 25, 104 }, { 2, 110 }, { 3, 122 }, 
+  { 25, 98 }, { 2, 104 }, { 3, 116 }, 
+  { 25, 92 }, { 2, 98 }, { 3, 110 }, 
+  { 25, 86 }, { 2, 92 }, { 3, 104 }, 
+  { 25, 80 }, { 2, 86 }, { 3, 98 }, 
+  { 25, 74 }, { 2, 80 }, { 3, 92 }, 
+  { 25, 68 }, { 2, 74 }, { 3, 86 }, 
+  { 25, 62 }, { 2, 68 }, { 3, 80 }, 
+  { 25, 56 }, { 2, 62 }, { 3, 74 }, 
+  { 25, 50 }, { 2, 56 }, { 3, 68 }, 
+  { 25, 44 }, { 2, 50 }, { 3, 62 }, 
+  { 25, 36 }, { 2, 44 }, { 3, 56 },
+  { 25, 31 }, { 2, 36 }, { 3, 50 }, 
+  { 25, 27 }, { 2, 31 }, { 3, 44 },
+  { -1, -1 },
+};
+
+#endif
+
+static bool tricho_done = false;
+
+static void gen_all_trichos(simplex_solver_t *solver) {
+  thvar_t x, y;
+  uint32_t i, n;
+
+  i = 0;
+  n = 0;
+  for (;;) {
+    x = pre_trichotomy[i][0];
+    y = pre_trichotomy[i][1];
+    if (x < 0 || y < 0) break;
+    n += simplex_trichotomy_lemma(solver, x, y);
+    i ++;
+  }
+
+  printf("---> SIMPLEX: PREGENERATED %"PRIu32" lemmas (out of %"PRIu32")\n\n", n, i);
+  fflush(stdout);
+}
+
+
 /*
  * Process all assertions
  * - this function may be called before start_search
@@ -6836,6 +6935,12 @@ bool simplex_propagate(simplex_solver_t *solver) {
 
   }
 
+  // HACK HERE
+  if (! tricho_done) {
+    gen_all_trichos(solver);
+    tricho_done = true;
+  }
+
   /*
    * EXPERIMENTAL: periodically test for integer feasibility
    */
@@ -6901,7 +7006,7 @@ fcheck_code_t simplex_final_check(simplex_solver_t *solver) {
   check_bound_marks(solver);
 #endif
 
-#if TRACE
+#if TRACE || 1
   printf("---> SIMPLEX FINAL CHECK [dlevel = %"PRIu32", decisions = %"PRIu64"]\n",
 	 solver->decision_level, solver->core->stats.decisions);
   fflush(stdout);
@@ -6933,8 +7038,6 @@ fcheck_code_t simplex_final_check(simplex_solver_t *solver) {
 }
 
 
-
-
 /*****************************
  *  INCREASE DECISION LEVEL  *
  ***************************/
@@ -6953,7 +7056,6 @@ void simplex_increase_decision_level(simplex_solver_t *solver) {
 #if TRACE
   printf("\n---> Simplex: increase decision level to %"PRIu32"\n", solver->decision_level);
 #endif
-
 }
 
 
@@ -8557,7 +8659,7 @@ static void simplex_gen_interface_lemma(simplex_solver_t *solver, literal_t l, t
     add_unit_clause(solver->core, not(l));
     solver->stats.num_reduced_inter_lemmas ++;
 
-#if 0
+#if 1
     printf("---> SIMPLEX: interface lemma for ");
     print_simplex_var(stdout, solver, x1);
     printf(" ");
@@ -8611,7 +8713,7 @@ static void simplex_gen_interface_lemma(simplex_solver_t *solver, literal_t l, t
 
     solver->stats.num_interface_lemmas ++;
 
-#if 0
+#if 1
     printf("---> SIMPLEX: interface lemma for ");
     print_simplex_var(stdout, solver, x1);
     printf(" ");

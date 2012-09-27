@@ -1720,7 +1720,6 @@ static bool update_conflicts(fun_solver_t *solver) {
 
   // get the partition and process all composites that
   // are in a non-singleton class
-#if 0
   pp = egraph_app_partition(egraph);
   n = ptr_partition_nclasses(pp);
   for (i=0; i<n; i++) {
@@ -1740,8 +1739,9 @@ static bool update_conflicts(fun_solver_t *solver) {
       }
     }
   }
-#endif
 
+
+#if 0
   // EXPERIMENT
   pp = egraph_app_partition(egraph);
   n = egraph->terms.nterms;  
@@ -1760,7 +1760,7 @@ static bool update_conflicts(fun_solver_t *solver) {
       }
     }
   }
-
+#endif
 
 
  done:

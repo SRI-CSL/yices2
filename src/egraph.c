@@ -21,7 +21,7 @@
 
 
 #define TRACE 0
-#define TRACE_FCHECK 0
+#define TRACE_FCHECK 1
 
 #if TRACE || TRACE_FCHECK
 
@@ -5912,7 +5912,6 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
 fcheck_code_t egraph_final_check(egraph_t *egraph) {
   egraph->stats.final_checks ++;
 
-  //  if ((egraph->stats.final_checks & 0x1) == 0) {
   if (false) {
      return baseline_final_check(egraph);
   } else {
