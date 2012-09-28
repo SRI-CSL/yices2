@@ -3193,6 +3193,9 @@ static void simplex_build_explanation(simplex_solver_t *solver, ivector_t *v) {
   bstack = &solver->bstack;
   tag = bstack->tag;
 
+  printf("---> SIMPLEX build explanation\n");
+  fflush(stdout);
+
   assert(queue != v && aux->size == 0);
 
   for (k=0; k<queue->size; k++) {
@@ -3219,6 +3222,9 @@ static void simplex_build_explanation(simplex_solver_t *solver, ivector_t *v) {
 
     case ARITH_EGRAPHEQ_LB:
     case ARITH_EGRAPHEQ_UB:
+      // PROVISIONAL TRACE
+      printf("---> SIMPLEX: egraph explanation for i!%"PRId32" == i!%"PRId32"\n", bstack->expl[i].v[0], bstack->expl[i].v[1]);
+      fflush(stdout);
       // add explanation from the egraph into aux
       collect_egraph_eq_expl(solver, bstack->expl[i].v[0], bstack->expl[i].v[1], aux);
       break;
@@ -3228,6 +3234,7 @@ static void simplex_build_explanation(simplex_solver_t *solver, ivector_t *v) {
       break;
     }
   }
+
 
   // add literals of aux into v
   ivector_add(v, aux->data, aux->size);
@@ -6064,6 +6071,9 @@ static void record_egraph_eq_conflict(simplex_solver_t *solver, int32_t k, thvar
   ivector_t *v;
   eterm_t t1, t2;
 
+  printf("---> SIMPLEX: egraph eq-conflict for i!%"PRId32" == i!%"PRId32"\n", x1, x2);
+  fflush(stdout);
+
   v = &solver->expl_vector;
   ivector_reset(v);
   simplex_explain_bound(solver, k, v); // conjuntion of literals that imply k
@@ -6110,8 +6120,8 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
     printf("     ");
     print_simplex_vardef(stdout, solver, x2);
   }
+  fflush(stdout);
 #endif
-
   
   /*
    * build p such that p = 0 is equivalent to x1 = x2
@@ -6793,6 +6803,7 @@ static const thvar_t pre_trichotomy[][2] = {
 
 // lemmas for the experimental final check (xs_25_45)
 static const thvar_t pre_trichotomy[][2] = {
+  { -1,-1 }, // DISABLED
   { 1, 3 }, { 11, 12 }, { 14, 15 }, { 17, 18 }, { 6, 25 }, { 2, 154 },
   { 2, 6 }, { 17, 25 }, { 3, 160 },
   { 2, 17 }, { 6, 20 }, { 14, 25 }, { 3, 154 }, 
