@@ -1176,6 +1176,14 @@ void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, gate_manage
 
   solver->propagator = NULL; // allocated if needed in start search
 
+  // PROVISIONAL
+  solver->eg_stats = NULL;
+  if (egraph != NULL) {
+    solver->eg_stats = (egeq_t *) safe_malloc(sizeof(egeq_t));
+    init_egeq(solver->eg_stats);
+  }
+
+
   init_matrix(&solver->matrix, 0, 0);
   solver->tableau_ready = false;
   solver->matrix_ready = true;
@@ -3095,6 +3103,58 @@ static void update_to_upper_bound(simplex_solver_t *solver, thvar_t x) {
 
 
 
+/*************************************************
+ *  PROVISIONAL: STATISTICS ON EGRAPH EQ/DISEQ   *
+ ************************************************/
+
+static void received_egraph_eq(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
+  thvar_t aux;
+
+  if (x1 > x2) {
+    aux = x1; x1 = x2; x2 = aux;
+  }
+  egeq_incr(solver->eg_stats, x1, x2, 0);
+}
+
+static void received_egraph_diseq(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
+  thvar_t aux;
+
+  if (x1 > x2) {
+    aux = x1; x1 = x2; x2 = aux;
+  }
+  egeq_incr(solver->eg_stats, x1, x2, 1);
+}
+
+static void used_egraph_eq(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
+  thvar_t aux;
+
+  if (x1 > x2) {
+    aux = x1; x1 = x2; x2 = aux;
+  }
+  egeq_incr(solver->eg_stats, x1, x2, 2);
+}
+
+
+static void found_eq_conflict(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
+  thvar_t aux;
+
+  if (x1 > x2) {
+    aux = x1; x1 = x2; x2 = aux;
+  }
+  egeq_incr(solver->eg_stats, x1, x2, 2);
+}
+
+static void made_trichotomy(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
+  thvar_t aux;
+
+  if (x1 > x2) {
+    aux = x1; x1 = x2; x2 = aux;
+  }
+  egeq_incr(solver->eg_stats, x1, x2, 4);
+}
+
+
+
 
 
 /******************
@@ -3193,9 +3253,6 @@ static void simplex_build_explanation(simplex_solver_t *solver, ivector_t *v) {
   bstack = &solver->bstack;
   tag = bstack->tag;
 
-  printf("---> SIMPLEX build explanation\n");
-  fflush(stdout);
-
   assert(queue != v && aux->size == 0);
 
   for (k=0; k<queue->size; k++) {
@@ -3222,9 +3279,8 @@ static void simplex_build_explanation(simplex_solver_t *solver, ivector_t *v) {
 
     case ARITH_EGRAPHEQ_LB:
     case ARITH_EGRAPHEQ_UB:
-      // PROVISIONAL TRACE
-      printf("---> SIMPLEX: egraph explanation for i!%"PRId32" == i!%"PRId32"\n", bstack->expl[i].v[0], bstack->expl[i].v[1]);
-      fflush(stdout);
+      used_egraph_eq(solver, bstack->expl[i].v[0], bstack->expl[i].v[1]);
+
       // add explanation from the egraph into aux
       collect_egraph_eq_expl(solver, bstack->expl[i].v[0], bstack->expl[i].v[1], aux);
       break;
@@ -6106,6 +6162,8 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
 
   assert(arith_var_has_eterm(&solver->vtbl, x1) && arith_var_has_eterm(&solver->vtbl, x2) && x1 != x2);
 
+  received_egraph_eq(solver, x1, x2);
+
 #if TRACE
   printf("---> Simplex: process egraph equality: ");
   print_simplex_var(stdout, solver, x1);
@@ -6428,6 +6486,7 @@ static uint32_t simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, t
     printf(" (trichotomy)\n");
 #endif
 
+    made_trichotomy(solver, x1, x2);
   }
 
   return 1;
@@ -6442,6 +6501,8 @@ static uint32_t simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, t
  */
 static void simplex_process_var_diseq(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
   assert(arith_var_has_eterm(&solver->vtbl, x1) && arith_var_has_eterm(&solver->vtbl, x2) && x1 != x2);
+
+  received_egraph_diseq(solver, x1, x2);
 
 #if TRACE
   printf("---> Simplex: egraph disequality: ");
@@ -6470,7 +6531,7 @@ static void simplex_process_var_diseq(simplex_solver_t *solver, thvar_t x1, thva
  * - this does nothing: just print trace if TRACE is enabled
  */
 static void simplex_process_var_distinct(simplex_solver_t *solver, uint32_t n, thvar_t *a, composite_t *hint) {
-#if TRACE
+#if TRACE || 1
   uint32_t i, j;
 
   for (i=0; i<n-1; i++) {
@@ -7321,6 +7382,10 @@ void simplex_push(simplex_solver_t *solver) {
     cache_push(solver->cache);
   }
 
+  if (solver->eg_stats != NULL) {
+    egeq_push(solver->eg_stats);
+  }
+
   solver->base_level ++;
   simplex_increase_decision_level(solver);
 }
@@ -7441,6 +7506,11 @@ void simplex_pop(simplex_solver_t *solver) {
     cache_pop(solver->cache);
   }
 
+  if (solver->eg_stats != NULL) {
+    egeq_pop(solver->eg_stats);
+  }
+
+
   // restore the propagation pointers
   solver->bstack.prop_ptr = top->bound_ptr;
   solver->bstack.fix_ptr = top->bound_ptr;
@@ -7509,6 +7579,10 @@ void simplex_reset(simplex_solver_t *solver) {
 
   if (solver->propagator != NULL) {
     simplex_reset_propagator(solver);
+  }
+
+  if (solver->eg_stats != NULL) {
+    reset_egeq(solver->eg_stats);
   }
 
   reset_int_heap(&solver->infeasible_vars);
@@ -7736,6 +7810,12 @@ void delete_simplex_solver(simplex_solver_t *solver) {
 
   if (solver->propagator != NULL) {
     simplex_delete_propagator(solver);
+  }
+
+  if (solver->eg_stats != NULL) {
+    delete_egeq(solver->eg_stats);
+    safe_free(solver->eg_stats);
+    solver->eg_stats = NULL;
   }
 
   if (solver->dsolver != NULL) {

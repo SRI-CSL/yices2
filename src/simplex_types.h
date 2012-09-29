@@ -139,7 +139,8 @@
 #include "egraph.h"
 #include "context.h"
 
-
+// PROVISIONAL
+#include "egraph_eq_stats.h"
 
 
 
@@ -707,6 +708,10 @@ typedef struct simplex_solver_s {
    * Propagation data structure: defined elsewhere
    */
   void *propagator;
+
+  // PROVISIONAL: TO COLLECT STATISTICS
+  egeq_t *eg_stats;
+
 
   /*
    * Matrix/tableau

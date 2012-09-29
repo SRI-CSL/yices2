@@ -1,42 +1,36 @@
 /*
- * SIMPLE CACHE
+ * HASH TABLE TO COLLECT DATA ON INTERACTIONS BETWEEN THE EGRAPH AND A
+ * SATELLITE SOLVER
  */
 
-/*
- * Each element in the cache is a triple <tag, x, y>
- * where x and y are 32bit signed integers and tag is 16 bit.
- * - this is enough for the egraph lemma generation 
- *   (ackermann trick + expansion of non-distinct)
- * - the cache implements push and pop operations
- */
 
 #include <stdbool.h>
-#include <assert.h>
+#include <inttypes.h>
 
 #include "memalloc.h"
-#include "cache.h"
+#include "egraph_eq_stats.h"
 
 
 
-/**********************************
- *  ALLOCATION OF CACHE ELEMENTS  *
- *********************************/
+/***********************
+ *  RECORD ALLOCATION  *
+ **********************/
 
 /*
  * Initialize bank: don't allocate anything
  */
-static void init_cache_bank(cache_bank_t *bank) {
+static void init_egeq_bank(egeq_bank_t *bank) {
   bank->capacity = 0;
   bank->nblocks = 0;
   bank->free_block = 0;
-  bank->alloc_ptr = CACHE_BLOCK_SIZE;
+  bank->alloc_ptr = EGEQ_BLOCK_SIZE;
   bank->block = NULL;
 }
 
 /*
  * Delete bank
  */
-static void delete_cache_bank(cache_bank_t *bank) {
+static void delete_egeq_bank(egeq_bank_t *bank) {
   uint32_t i;
 
   for (i=0; i<bank->nblocks; i++) {
@@ -50,26 +44,26 @@ static void delete_cache_bank(cache_bank_t *bank) {
 /*
  * Reset
  */
-static inline void reset_cache_bank(cache_bank_t *bank) {
+static inline void reset_egeq_bank(egeq_bank_t *bank) {
   bank->free_block = 0;
-  bank->alloc_ptr = CACHE_BLOCK_SIZE;
+  bank->alloc_ptr = EGEQ_BLOCK_SIZE;
 }
 
 
 /*
  * Increase the capacity by 50%
  */
-static void extend_cache_bank(cache_bank_t *bank) {
+static void extend_egeq_bank(egeq_bank_t *bank) {
   uint32_t n;
 
   n = bank->capacity;
   n += n>>1;
-  if (n < DEF_CACHE_BANK_SIZE) {
-    n = DEF_CACHE_BANK_SIZE;
+  if (n < DEF_EGEQ_BANK_SIZE) {
+    n = DEF_EGEQ_BANK_SIZE;
   }
-  if (n >= MAX_CACHE_BANK_SIZE) out_of_memory();
+  if (n >= MAX_EGEQ_BANK_SIZE) out_of_memory();
 
-  bank->block = (cache_elem_t **) safe_realloc(bank->block, n * sizeof(cache_elem_t *));
+  bank->block = (egeq_elem_t **) safe_realloc(bank->block, n * sizeof(egeq_elem_t *));
   bank->capacity = n;
 }
 
@@ -77,17 +71,17 @@ static void extend_cache_bank(cache_bank_t *bank) {
 /*
  * Allocate an new block
  */
-static void allocate_cache_block(cache_bank_t *bank) {
+static void allocate_egeq_block(egeq_bank_t *bank) {
   uint32_t i, n;
   
   i = bank->nblocks;
   n = bank->capacity;
   assert(i <= n);
   if (i == n) {
-    extend_cache_bank(bank);
+    extend_egeq_bank(bank);
     assert(i < bank->capacity);
   }
-  bank->block[i] = (cache_elem_t *) safe_malloc(CACHE_BLOCK_SIZE * sizeof(cache_elem_t));
+  bank->block[i] = (egeq_elem_t *) safe_malloc(EGEQ_BLOCK_SIZE * sizeof(egeq_elem_t));
   bank->nblocks = i+1;
 }
 
@@ -95,17 +89,17 @@ static void allocate_cache_block(cache_bank_t *bank) {
 /*
  * Allocate a new element
  */
-static cache_elem_t *alloc_cache_elem(cache_bank_t *bank) {
+static egeq_elem_t *alloc_egeq_elem(egeq_bank_t *bank) {
   uint32_t i, p;
-  cache_elem_t *tmp;
+  egeq_elem_t *tmp;
 
   i = bank->free_block;
   p = bank->alloc_ptr;
-  assert(p <= CACHE_BLOCK_SIZE);
-  if (p == CACHE_BLOCK_SIZE) {
+  assert(p <= EGEQ_BLOCK_SIZE);
+  if (p == EGEQ_BLOCK_SIZE) {
     // the current block is full or does not exist
     if (i >= bank->nblocks) {
-      allocate_cache_block(bank);
+      allocate_egeq_block(bank);
       assert(i < bank->nblocks);
     }
     i ++;
@@ -130,7 +124,7 @@ static cache_elem_t *alloc_cache_elem(cache_bank_t *bank) {
 /*
  * Initialize the stack: no memory allocated yet
  */
-static void init_cache_stack(cache_levstack_t *stack) {
+static void init_egeq_stack(egeq_levstack_t *stack) {
   stack->current_level = 0;
   stack->top_level = 0;
   stack->nmarks = 0;
@@ -142,7 +136,7 @@ static void init_cache_stack(cache_levstack_t *stack) {
 /*
  * Delete the stack
  */
-static void delete_cache_stack(cache_levstack_t *stack) {
+static void delete_egeq_stack(egeq_levstack_t *stack) {
   safe_free(stack->data);
   stack->data = NULL;
 }
@@ -151,7 +145,7 @@ static void delete_cache_stack(cache_levstack_t *stack) {
 /*
  * Empty stack
  */
-static void reset_cache_stack(cache_levstack_t *stack) {
+static void reset_egeq_stack(egeq_levstack_t *stack) {
   stack->current_level = 0;
   stack->top_level = 0;
   stack->nmarks = 0;
@@ -162,7 +156,7 @@ static void reset_cache_stack(cache_levstack_t *stack) {
  * Push mark <b, p> on top of the stack
  * - current_level must be larger than top_level
  */
-static void push_cache_mark(cache_levstack_t *stack, uint32_t b, uint32_t p) {
+static void push_egeq_mark(egeq_levstack_t *stack, uint32_t b, uint32_t p) {
   uint32_t i, k, n;
 
   assert(stack->current_level > stack->top_level);
@@ -173,13 +167,13 @@ static void push_cache_mark(cache_levstack_t *stack, uint32_t b, uint32_t p) {
 
   if (i == n) {
     // increase the size
-    if (n < DEF_CACHE_STACK_SIZE) {
-      n = DEF_CACHE_STACK_SIZE;
+    if (n < DEF_EGEQ_STACK_SIZE) {
+      n = DEF_EGEQ_STACK_SIZE;
     } else {
       n += n>>1;
-      if (n > MAX_CACHE_STACK_SIZE) out_of_memory();
+      if (n > MAX_EGEQ_STACK_SIZE) out_of_memory();
     }
-    stack->data = (cache_mark_t *) safe_realloc(stack->data, n * sizeof(cache_mark_t));
+    stack->data = (egeq_mark_t *) safe_realloc(stack->data, n * sizeof(egeq_mark_t));
     stack->size = n;
   }
 
@@ -197,7 +191,7 @@ static void push_cache_mark(cache_levstack_t *stack, uint32_t b, uint32_t p) {
 /*
  * Remove the top mark
  */
-static void pop_top_mark(cache_levstack_t *stack) {
+static void pop_top_mark(egeq_levstack_t *stack) {
   uint32_t i;
 
   assert(stack->nmarks > 0);
@@ -221,14 +215,14 @@ static void pop_top_mark(cache_levstack_t *stack) {
 /*
  * Initialize to the default size
  */
-static void init_cache_htbl(cache_htbl_t *table) {
+static void init_egeq_htbl(egeq_htbl_t *table) {
   uint32_t i, n;
-  cache_elem_t **tmp;
+  egeq_elem_t **tmp;
 
-  n = DEF_CACHE_HTBL_SIZE;  
-  assert(n < MAX_CACHE_HTBL_SIZE);
+  n = DEF_EGEQ_HTBL_SIZE;  
+  assert(n < MAX_EGEQ_HTBL_SIZE);
 
-  tmp = (cache_elem_t **) safe_malloc(n * sizeof(cache_elem_t *));
+  tmp = (egeq_elem_t **) safe_malloc(n * sizeof(egeq_elem_t *));
   for (i=0; i<n; i++) {
     tmp[i] = NULL;
   }
@@ -238,15 +232,15 @@ static void init_cache_htbl(cache_htbl_t *table) {
   table->nelems = 0;
   table->ndeleted = 0;
 
-  table->resize_threshold = (uint32_t) (n * CACHE_HTBL_RESIZE_RATIO);
-  table->cleanup_threshold = (uint32_t) (n * CACHE_HTBL_CLEANUP_RATIO);
+  table->resize_threshold = (uint32_t) (n * EGEQ_HTBL_RESIZE_RATIO);
+  table->cleanup_threshold = (uint32_t) (n * EGEQ_HTBL_CLEANUP_RATIO);
 }
 
 
 /*
  * Delete table
  */
-static void delete_cache_htbl(cache_htbl_t *table) {
+static void delete_egeq_htbl(egeq_htbl_t *table) {
   safe_free(table->data);
   table->data = NULL;
 }
@@ -255,7 +249,7 @@ static void delete_cache_htbl(cache_htbl_t *table) {
 /*
  * Reset: empty the table
  */
-static void reset_cache_htbl(cache_htbl_t *table) {
+static void reset_egeq_htbl(egeq_htbl_t *table) {
   uint32_t i, n;
 
   n = table->size;
@@ -273,7 +267,7 @@ static void reset_cache_htbl(cache_htbl_t *table) {
  * - e->hash must be set to the correct hash code
  * - data must not be full and must not contain deleted marks
  */
-static void cache_htbl_clean_copy(cache_elem_t **data, cache_elem_t *e, uint32_t mask) {
+static void egeq_htbl_clean_copy(egeq_elem_t **data, egeq_elem_t *e, uint32_t mask) {
   uint32_t j;
 
   j = e->hash & mask;
@@ -286,11 +280,11 @@ static void cache_htbl_clean_copy(cache_elem_t **data, cache_elem_t *e, uint32_t
 
 
 /*
- * Check whether pointer e is not NULL or DELETED_ELEM
+ * Check whether pointer e is not NULL or DELETED_EG_ELEM
  * - HACK: we rely on ((size_t) NULL) == 0 and 
- *  ((size_t) DELETED_ELEM) == 1 
+ *  ((size_t) DELETED_EG_ELEM) == 1 
  */
-static inline bool live_element(cache_elem_t *e) {
+static inline bool live_element(egeq_elem_t *e) {
   return (((size_t) e) >> 1) != 0;
 }
 
@@ -298,12 +292,12 @@ static inline bool live_element(cache_elem_t *e) {
 /*
  * Remove all deleted element from table
  */
-static void cache_htbl_cleanup(cache_htbl_t *table) {
-  cache_elem_t **tmp, *e;
+static void egeq_htbl_cleanup(egeq_htbl_t *table) {
+  egeq_elem_t **tmp, *e;
   uint32_t i, n, mask;
 
   n = table->size;
-  tmp = (cache_elem_t **) safe_malloc(n * sizeof(cache_elem_t *));
+  tmp = (egeq_elem_t **) safe_malloc(n * sizeof(egeq_elem_t *));
   for (i=0; i<n; i++) {
     tmp[i] = NULL;
   }
@@ -312,7 +306,7 @@ static void cache_htbl_cleanup(cache_htbl_t *table) {
   for (i=0; i<n; i++) {
     e = table->data[i];
     if (live_element(e)) {
-      cache_htbl_clean_copy(tmp, e, mask);
+      egeq_htbl_clean_copy(tmp, e, mask);
     }
   }
 
@@ -325,9 +319,9 @@ static void cache_htbl_cleanup(cache_htbl_t *table) {
 /*
  * Remove dead elements if the deletion threshold is reached
  */
-static inline void cache_htbl_cleanup_if_needed(cache_htbl_t *table) {
+static inline void egeq_htbl_cleanup_if_needed(egeq_htbl_t *table) {
   if (table->ndeleted > table->cleanup_threshold) {
-    cache_htbl_cleanup(table);
+    egeq_htbl_cleanup(table);
   }
 }
 
@@ -335,14 +329,14 @@ static inline void cache_htbl_cleanup_if_needed(cache_htbl_t *table) {
 /*
  * Double the table size and remove dead elements
  */
-static void cache_htbl_extend(cache_htbl_t *table) {
-  cache_elem_t **tmp, *e;
+static void egeq_htbl_extend(egeq_htbl_t *table) {
+  egeq_elem_t **tmp, *e;
   uint32_t i, n, new_size, mask;
 
   n = table->size;
   new_size = 2 * n;
-  if (new_size >= MAX_CACHE_HTBL_SIZE) out_of_memory();
-  tmp = (cache_elem_t **) safe_malloc(new_size * sizeof(cache_elem_t *));
+  if (new_size >= MAX_EGEQ_HTBL_SIZE) out_of_memory();
+  tmp = (egeq_elem_t **) safe_malloc(new_size * sizeof(egeq_elem_t *));
   for (i=0; i<new_size; i++) {
     tmp[i] = NULL;
   }
@@ -351,7 +345,7 @@ static void cache_htbl_extend(cache_htbl_t *table) {
   for (i=0; i<n; i++) {
     e = table->data[i];
     if (live_element(e)) {
-      cache_htbl_clean_copy(tmp, e, mask);
+      egeq_htbl_clean_copy(tmp, e, mask);
     }
   }
 
@@ -359,8 +353,8 @@ static void cache_htbl_extend(cache_htbl_t *table) {
   table->data = tmp;
   table->ndeleted = 0;
   table->size = new_size;
-  table->resize_threshold = (uint32_t)(new_size * CACHE_HTBL_RESIZE_RATIO);
-  table->cleanup_threshold = (uint32_t)(new_size * CACHE_HTBL_CLEANUP_RATIO);
+  table->resize_threshold = (uint32_t)(new_size * EGEQ_HTBL_RESIZE_RATIO);
+  table->cleanup_threshold = (uint32_t)(new_size * EGEQ_HTBL_CLEANUP_RATIO);
 }
 
 
@@ -368,7 +362,7 @@ static void cache_htbl_extend(cache_htbl_t *table) {
  * Remove e from the table
  * - e must be present and e->hash must be valid
  */
-static void cache_htbl_remove(cache_htbl_t *table, cache_elem_t *e) {
+static void egeq_htbl_remove(egeq_htbl_t *table, egeq_elem_t *e) {
   uint32_t mask, j;
 
   mask = table->size - 1;
@@ -377,7 +371,7 @@ static void cache_htbl_remove(cache_htbl_t *table, cache_elem_t *e) {
     j ++;
     j &= mask;
   }
-  table->data[j] = DELETED_ELEM;
+  table->data[j] = DELETED_EG_ELEM;
   table->nelems --;
   table->ndeleted ++;
 }
@@ -386,36 +380,36 @@ static void cache_htbl_remove(cache_htbl_t *table, cache_elem_t *e) {
 
 
 /**********************
- *  CACHE OPERATIONS  *
+ *  EGEQ OPERATIONS  *
  *********************/
 
 /*
  * Initialize
  */
-void init_cache(cache_t *cache) {
-  init_cache_htbl(&cache->htbl);
-  init_cache_stack(&cache->stack);
-  init_cache_bank(&cache->bank);
+void init_egeq(egeq_t *egeq) {
+  init_egeq_htbl(&egeq->htbl);
+  init_egeq_stack(&egeq->stack);
+  init_egeq_bank(&egeq->bank);
 }
 
 
 /*
  * Delete everything
  */
-void delete_cache(cache_t *cache) {
-  delete_cache_bank(&cache->bank);
-  delete_cache_stack(&cache->stack);
-  delete_cache_htbl(&cache->htbl);
+void delete_egeq(egeq_t *egeq) {
+  delete_egeq_bank(&egeq->bank);
+  delete_egeq_stack(&egeq->stack);
+  delete_egeq_htbl(&egeq->htbl);
 }
 
 
 /*
- * Empty the cache
+ * Empty the egeq
  */
-void reset_cache(cache_t *cache) {
-  reset_cache_htbl(&cache->htbl);
-  reset_cache_stack(&cache->stack);
-  reset_cache_bank(&cache->bank);
+void reset_egeq(egeq_t *egeq) {
+  reset_egeq_htbl(&egeq->htbl);
+  reset_egeq_stack(&egeq->stack);
+  reset_egeq_bank(&egeq->bank);
 }
 
 
@@ -423,12 +417,12 @@ void reset_cache(cache_t *cache) {
 /*
  * Remove from htbl all objects in the bank 
  * allocated after the mark <b, i>
- * - b = free_block at the time push_cache_mark was called
- * - i = alloc_ptr at the time push_cache_mark was called
+ * - b = free_block at the time push_egeq_mark was called
+ * - i = alloc_ptr at the time push_egeq_mark was called
  */
-static void remove_level(cache_bank_t *bank, cache_htbl_t *htbl, uint32_t b, uint32_t i) {
+static void remove_level(egeq_bank_t *bank, egeq_htbl_t *htbl, uint32_t b, uint32_t i) {
   uint32_t n, p;
-  cache_elem_t *blk;
+  egeq_elem_t *blk;
 
   /*
    * n = current free_block
@@ -446,11 +440,11 @@ static void remove_level(cache_bank_t *bank, cache_htbl_t *htbl, uint32_t b, uin
 
   /*
    * We want to remove
-   * elements from i to CACHE_BLOCK_SIZE - 1 in block[b-1]
-   * elements from 0 to CACHE_CLOCK_SIZE - 1 in block[b] to block[n-2]
+   * elements from i to EGEQ_BLOCK_SIZE - 1 in block[b-1]
+   * elements from 0 to EGEQ_CLOCK_SIZE - 1 in block[b] to block[n-2]
    * elements from 0 to p - 1 in block[n-1]
    */
-  if (i == CACHE_BLOCK_SIZE) {
+  if (i == EGEQ_BLOCK_SIZE) {
     // either b=0 or there's nothing to delete in block[b-1]
     i = 0;
     b ++;
@@ -459,8 +453,8 @@ static void remove_level(cache_bank_t *bank, cache_htbl_t *htbl, uint32_t b, uin
   assert(b>0);
   while (b<n) {
     blk = bank->block[b - 1];
-    while (i<CACHE_BLOCK_SIZE) {
-      cache_htbl_remove(htbl, blk+i);
+    while (i<EGEQ_BLOCK_SIZE) {
+      egeq_htbl_remove(htbl, blk+i);
       i ++;
     }
     i = 0;
@@ -471,7 +465,7 @@ static void remove_level(cache_bank_t *bank, cache_htbl_t *htbl, uint32_t b, uin
   assert(b == n);
   blk = bank->block[b - 1];
   while (i<p) {
-    cache_htbl_remove(htbl, blk+i);
+    egeq_htbl_remove(htbl, blk+i);
     i ++;
   }   
 }
@@ -480,19 +474,19 @@ static void remove_level(cache_bank_t *bank, cache_htbl_t *htbl, uint32_t b, uin
 /*
  * Pop: delete all element created at the current level
  */
-void cache_pop(cache_t *cache) {
-  cache_levstack_t *stack;
+void egeq_pop(egeq_t *egeq) {
+  egeq_levstack_t *stack;
   uint32_t i;
   
-  stack = &cache->stack;
+  stack = &egeq->stack;
   assert(stack->current_level > 0);
 
   if (stack->current_level == stack->top_level) {
     assert(stack->nmarks > 0);
     i = stack->nmarks - 1;
     assert(stack->data[i].level == stack->current_level);
-    remove_level(&cache->bank, &cache->htbl, stack->data[i].blk_id, stack->data[i].index);
-    cache_htbl_cleanup_if_needed(&cache->htbl);
+    remove_level(&egeq->bank, &egeq->htbl, stack->data[i].blk_id, stack->data[i].index);
+    egeq_htbl_cleanup_if_needed(&egeq->htbl);
     pop_top_mark(stack);
   }
 
@@ -501,7 +495,7 @@ void cache_pop(cache_t *cache) {
 
 
 /*
- * Hash code for key <tag, x, y> (based on Jenkins's lookup3 code)
+ * Hash code for key <x, y> (based on Jenkins's lookup3 code)
  */
 #define rot(x,k) (((x)<<(k)) | ((x)>>(32-(k))))
 
@@ -516,11 +510,11 @@ void cache_pop(cache_t *cache) {
   c ^= b; c -= rot(b,24); \
 }
 
-static uint32_t hash_key(uint16_t tag, int32_t x, int32_t y) {
+static uint32_t hash_key(int32_t x, int32_t y) {
   uint32_t a, b, c;
 
-  a = ((((uint32_t) x) & 0xFFFFFF) << 8) | (((uint32_t) tag) & 0xFF);
-  b = ((((uint32_t) y) & 0xFFFFFF) << 8) | (((uint32_t) tag) >> 8);
+  a = ((uint32_t) x);
+  b = ((uint32_t) y);
   c = 0xdeadbeef;
   final(a, b, c);
 
@@ -529,30 +523,30 @@ static uint32_t hash_key(uint16_t tag, int32_t x, int32_t y) {
 
 
 /*
- * Check whether e has key <tag, x, y>
+ * Check whether e has key <x, y>
  */
-static inline bool elem_matches(cache_elem_t *e, uint16_t tag, int32_t x, int32_t y) {
-  return e->tag == tag && e->data[0] == x && e->data[1] == y;
+static inline bool elem_matches(egeq_elem_t *e, int32_t x, int32_t y) {
+  return e->x[0] == x && e->x[1] == y;
 }
 
 /*
- * Search for a cached element of key <tag, x, y>
+ * Search for a egeqd element of key <x, y>
  * - return NULL if it's not in the table
  */
-cache_elem_t *cache_find(cache_t *cache, uint16_t tag, int32_t x, int32_t y) {
-  cache_htbl_t *htbl;
+egeq_elem_t *egeq_find(egeq_t *egeq, int32_t x, int32_t y) {
+  egeq_htbl_t *htbl;
   uint32_t j, h, mask;
-  cache_elem_t *e;
+  egeq_elem_t *e;
 
-  htbl = &cache->htbl;
+  htbl = &egeq->htbl;
   assert(htbl->nelems + htbl->ndeleted < htbl->size); 
 
   mask = htbl->size - 1;
-  h = hash_key(tag, x, y);
+  h = hash_key(x, y);
   j = h & mask;
   for (;;) {
     e = htbl->data[j];
-    if (e == NULL || (e != DELETED_ELEM && e->hash == h && elem_matches(e, tag, x, y))) {
+    if (e == NULL || (e != DELETED_EG_ELEM && e->hash == h && elem_matches(e, x, y))) {
       return e;
     }
     j ++;
@@ -565,32 +559,33 @@ cache_elem_t *cache_find(cache_t *cache, uint16_t tag, int32_t x, int32_t y) {
 /*
  * Add a mark to the stack if current_level>top_level
  */
-static void push_mark_if_needed(cache_levstack_t *stack, cache_bank_t *bank) {
+static void push_mark_if_needed(egeq_levstack_t *stack, egeq_bank_t *bank) {
   if (stack->current_level > stack->top_level) {
-    push_cache_mark(stack, bank->free_block, bank->alloc_ptr);
+    push_egeq_mark(stack, bank->free_block, bank->alloc_ptr);
   }
 }
 
-/*
- * Find or add a cache element <tag, x, y>
- * - if the element is new, then its flag is initialized to NEW_CACHE_ELEM (i.e., 0)
- */
-cache_elem_t *cache_get(cache_t *cache, uint16_t tag, int32_t x, int32_t y) {
-  cache_htbl_t *htbl;
-  uint32_t k, j, h, mask;
-  cache_elem_t *e;
 
-  htbl = &cache->htbl;
+/*
+ * Find or add a egeq element <x, y>
+ * - if the element is new, then its counters are initialized to 0
+ */
+egeq_elem_t *egeq_get(egeq_t *egeq, int32_t x, int32_t y) {
+  egeq_htbl_t *htbl;
+  uint32_t k, j, h, mask;
+  egeq_elem_t *e;
+
+  htbl = &egeq->htbl;
   assert(htbl->nelems + htbl->ndeleted < htbl->size);
 
   mask = htbl->size - 1;
-  h = hash_key(tag, x, y);
+  h = hash_key(x, y);
   j = h & mask;
   for (;;) {
     e = htbl->data[j];
     if (e == NULL) goto add;
-    if (e == DELETED_ELEM) break;
-    if (e->hash == h && elem_matches(e, tag, x, y)) goto found;
+    if (e == DELETED_EG_ELEM) break;
+    if (e->hash == h && elem_matches(e, x, y)) goto found;
     j ++;
     j &= mask;
   }
@@ -605,25 +600,54 @@ cache_elem_t *cache_get(cache_t *cache, uint16_t tag, int32_t x, int32_t y) {
       htbl->ndeleted --;
       goto add;
     }
-    if (e != DELETED_ELEM && e->hash == h && elem_matches(e, tag, x, y)) goto found;
+    if (e != DELETED_EG_ELEM && e->hash == h && elem_matches(e, x, y)) goto found;
   }
 
  add:
-  push_mark_if_needed(&cache->stack, &cache->bank);
+  push_mark_if_needed(&egeq->stack, &egeq->bank);
 
-  e = alloc_cache_elem(&cache->bank);
+  e = alloc_egeq_elem(&egeq->bank);
   e->hash = h;
-  e->flag = NEW_CACHE_ELEM;
-  e->tag = tag;
-  e->data[0] = x;
-  e->data[1] = y;
+  e->x[0] = x;
+  e->x[1] = y;
+  e->ctr[0] = 0;
+  e->ctr[1] = 0;
+  e->ctr[2] = 0;
+  e->ctr[3] = 0;
+  e->ctr[4] = 0;
 
   htbl->data[j] = e;
   htbl->nelems ++;
   if (htbl->nelems + htbl->ndeleted > htbl->resize_threshold) {
-    cache_htbl_extend(htbl);
+    egeq_htbl_extend(htbl);
   }
 
  found:
   return e;
+}
+
+
+
+/*
+ * Print the table
+ */
+static void print_egeq_record(FILE *f, egeq_elem_t *e) {
+  fprintf(f, "[i!%"PRId32", i!%"PRId32"]: %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32"\n", 
+	  e->x[0], e->x[1], e->ctr[0], e->ctr[1], e->ctr[2], e->ctr[3], e->ctr[4]);
+}
+
+void print_egeq(FILE *f, egeq_t *egeq) {
+  egeq_htbl_t *htbl;
+  egeq_elem_t *r;
+  uint32_t i, n;
+
+  htbl = &egeq->htbl;
+  n = htbl->size;
+  for (i=0; i<n; i++) {
+    r = htbl->data[i];
+    if (live_element(r)) {
+       print_egeq_record(f, r);
+    }
+  }
+  fflush(stdout);
 }
