@@ -3141,7 +3141,7 @@ static void found_eq_conflict(simplex_solver_t *solver, thvar_t x1, thvar_t x2) 
   if (x1 > x2) {
     aux = x1; x1 = x2; x2 = aux;
   }
-  egeq_incr(solver->eg_stats, x1, x2, 2);
+  egeq_incr(solver->eg_stats, x1, x2, 3);
 }
 
 static void made_trichotomy(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
@@ -6127,6 +6127,8 @@ static void record_egraph_eq_conflict(simplex_solver_t *solver, int32_t k, thvar
   ivector_t *v;
   eterm_t t1, t2;
 
+  found_eq_conflict(solver, x1, x2);
+
   printf("---> SIMPLEX: egraph eq-conflict for i!%"PRId32" == i!%"PRId32"\n", x1, x2);
   fflush(stdout);
 
@@ -6828,7 +6830,7 @@ void simplex_start_search(simplex_solver_t *solver) {
 /*
  * HACK FOR TESTING xs_25_45.smt
  */
-#if 0
+#if 1
 
 // trichotomy lemmas built by the baseline final check
 static const thvar_t pre_trichotomy[][2] = {

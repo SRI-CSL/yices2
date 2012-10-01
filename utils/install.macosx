@@ -1,15 +1,20 @@
 #!/bin/sh
 
 #
-# Install script for Darwin:
+# Install script for the MacOS X package installer
 # After libyices.$(VERSION).dylib is copied in $(DEF_INSTALL)/lib,
 # we need to create symbolic links
 #   libyices.dylib
 #   libyices.$(MAJOR).dylib
 #
+# In case /usr/local was just created, we may also need to fix permissions
+#  owner = root
+#  group = wheel
+#  permissions on /usr/local: rwxr_xr_x
+#
 
 MAJOR=2
-MINOR=0
+MINOR=1
 PATCH=0
 
 VERSION=$MAJOR.$MINOR.$PATCH
