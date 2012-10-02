@@ -6830,7 +6830,7 @@ void simplex_start_search(simplex_solver_t *solver) {
 /*
  * HACK FOR TESTING xs_25_45.smt
  */
-#if 1
+#if 0
 
 // trichotomy lemmas built by the baseline final check
 static const thvar_t pre_trichotomy[][2] = {
