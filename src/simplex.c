@@ -6289,6 +6289,10 @@ static literal_t create_pos_atom(simplex_solver_t *solver, thvar_t y, rational_t
   // get the atom (y <= c)
   l = get_literal_for_le_atom(&solver->atbl, y, arith_var_is_int(&solver->vtbl, y), c, &new_idx);
   if (new_idx >= 0) {
+    printf("---> SIMPLEX: new atom:\n");
+    printf("     ");
+    print_simplex_atomdef(stdout, solver, var_of(l));
+
     build_binary_lemmas_for_atom(solver, y, new_idx);
     attach_atom_to_arith_var(&solver->vtbl, y, new_idx);
   }
@@ -6307,6 +6311,10 @@ static literal_t create_neg_atom(simplex_solver_t *solver, thvar_t y, rational_t
   // get atom (y >= c)
   l = get_literal_for_ge_atom(&solver->atbl, y, arith_var_is_int(&solver->vtbl, y), c, &new_idx);
   if (new_idx >= 0) {
+    printf("---> SIMPLEX: new atom:\n");
+    printf("     ");
+    print_simplex_atomdef(stdout, solver, var_of(l));
+
     build_binary_lemmas_for_atom(solver, y, new_idx);
     attach_atom_to_arith_var(&solver->vtbl, y, new_idx);
   }
@@ -6866,7 +6874,6 @@ static const thvar_t pre_trichotomy[][2] = {
 
 // lemmas for the experimental final check (xs_25_45)
 static const thvar_t pre_trichotomy[][2] = {
-  { -1,-1 }, // DISABLED
   { 1, 3 }, { 11, 12 }, { 14, 15 }, { 17, 18 }, { 6, 25 }, { 2, 154 },
   { 2, 6 }, { 17, 25 }, { 3, 160 },
   { 2, 17 }, { 6, 20 }, { 14, 25 }, { 3, 154 }, 
@@ -6882,7 +6889,7 @@ static const thvar_t pre_trichotomy[][2] = {
   { 25, 86 }, { 2, 92 }, { 3, 104 }, 
   { 25, 80 }, { 2, 86 }, { 3, 98 }, 
   { 25, 74 }, { 2, 80 }, { 3, 92 }, 
-  { 25, 68 }, { 2, 74 }, { 3, 86 }, 
+  { 25, 68 }, { 2, 74 }, { 3, 86 },
   { 25, 62 }, { 2, 68 }, { 3, 80 }, 
   { 25, 56 }, { 2, 62 }, { 3, 74 }, 
   { 25, 50 }, { 2, 56 }, { 3, 68 }, 
@@ -6890,84 +6897,84 @@ static const thvar_t pre_trichotomy[][2] = {
   { 25, 36 }, { 2, 44 }, { 3, 56 },
   { 25, 31 }, { 2, 36 }, { 3, 50 }, 
   { 25, 27 }, { 2, 31 }, { 3, 44 },  
-  //  { -1, -1 },
+  { -1, -1}, 
 
-  { 139, 160 }, 
-  { 6, 166 },
+  // missing: instances from baseline not produced by reconcile egraph
+  //  { 139, 160 }, 
+  //  { 6, 166 },
 
-  { 2, 20 }, 
-  { 14, 71 }, 
+  //  { 2, 20 }, 
+  //  { 14, 71 }, 
   { 17, 77 },
   //  { 2, 125 },
-  //  { 93, 136 },
-  //  { 93, 154 },
+  { 93, 136 },
+  { 93, 154 },
 
   //  { 14, 51 },
   //  { 6, 83 },
-  //  { 2, 93 },
-  //  { 6, 111 }, ??
-  //  { 3, 123 }, ??
-  //  { 3, 125 }, ?? 
+  { 2, 93 },
+  //  { 6, 111 },
+  //  { 3, 123 },
+  //  { 3, 125 },
 
-  //  { 2, 32 }, ??
-  //  { 11, 39 }, ??
-  //  { 17, 51 }, ??
-  //  { 3, 75 }, ??
-  //  { 17, 107 }, ??
+  //  { 2, 32 },
+  //  { 11, 39 },
+  { 17, 51 },
+  //  { 3, 75 },
+  { 17, 107 },
   //  { 141, 160 },
 
   //  { 25, 39 },
   //  { 2, 47 },
   //  { 20, 75 },
   //  { 20, 125 },
-  { -1, -1 },
 
-  { 20, 51 },
-  { 11, 77 },
-  { 3, 89 }, 
-  { 146, 160 },
+  //  { 20, 51 },
+  //  { 11, 77 },
+  //  { 3, 89 }, 
+  //  { 146, 160 },
 
-  { 14, 32 },
+  //  { 14, 32 },
   { 17, 37 },
-  { 14, 95 },
-  { 77, 128 },
+  //  { 14, 95 },
+  //  { 77, 128 },
 
-  { 2, 39 },
-  { 3, 77 },
-  { 11, 83 },
-  { 47, 122 },
+  //  { 2, 39 },
+  //  { 3, 77 },
+  //  { 11, 83 },
+  //  { 47, 122 },
 
-  { 3, 39 },
+  //  { 3, 39 },
 
-  { 39, 116 },
-  { 59, 128 },
+  //  { 39, 116 },
+  //  { 59, 128 },
 
-  { 26, 43 },
-  { 11, 95 },
-  { 39, 110 },
-  { 14, 113 },
-  { 59, 116 },
-  { 71, 122 },
+  //  { 26, 43 },
+  //  { 11, 95 },
+  //  { 39, 110 },
+  //  { 14, 113 },
+  //  { 59, 116 },
+  //  { 71, 122 },
   { 17, 125 },
-  { 20, 136 },
-  { 146, 154 },
+  //  { 20, 136 },
+  //  { 146, 154 },
   { 93, 157 },
 
-  { 11, 59 },
-  { 14, 77 },
+  //  { 11, 59 },
+  //  { 14, 77 },
   { 17, 95 },
-  { 20, 107 },
+  //  { 20, 107 },
   { 93, 125 },
-  { 39, 128 },
-  { 155, 160 },
+  //  { 39, 128 },
+  //  { 155, 160 },
 
-  { 11, 107 },
-  { 14, 125 },
+  //  { 11, 107 },
+  //  { 14, 125 },
   { 17, 136 },
-  { 20, 146 },
-  { 154, 157 },
+  //  { 20, 146 },
+  //  { 154, 157 },
 
-  { 111, 160 },
+  //  { 111, 160 },
   { -1, -1 },
 };
 
@@ -8421,6 +8428,7 @@ static void simplex_shift_var_dependents(arith_vartable_t *tbl, dep_table_t *dep
     }
   }
 }
+
 
 /*
  * Shift the value of x by delta and propagate to all dependent variables

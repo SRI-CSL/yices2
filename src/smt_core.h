@@ -626,7 +626,7 @@ typedef struct atom_table_s {
  * 6) void expand_explanation(void *solver, literal_t l, void *expl, ivector_t *v)
  *    - this is called during conflict resolution to deal with literals propagated
  *      by the theory solver.
- *    - solver can propagate literals by calling theory_implication(core, l, expl)
+ *    - solver can propagate literals by calling propagate_literal(core, l, expl)
  *      where l is a literal, expl is an abstract explanation object (void *)
  *    - if l is involved in conflict resolution later on, then expl must be expanded
  *      into a conjunction of literals l_1 ... l_n such that 
