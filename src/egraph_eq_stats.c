@@ -646,7 +646,7 @@ void print_egeq(FILE *f, egeq_t *egeq) {
   for (i=0; i<n; i++) {
     r = htbl->data[i];
     if (live_element(r)) {
-       print_egeq_record(f, r);
+      print_egeq_record(f, r);
     }
   }
   fflush(stdout);

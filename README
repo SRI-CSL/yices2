@@ -362,12 +362,14 @@ The possible modes are as follows:
 
    MODE=release           (default mode: compile with optimization enabled)
    MODE=debug             debug mode, no optimization
+   MODE=devel             same optimization as release
 
    MODE=profile
    MODE=gcov
    MODE=valgrind
    MODE=quantify 
    MODE=purify
+
 
 The last five modes select compilation flags to enable (or help) runtime 
 analysis of the Yices executable using 'gprof', 'gcov', 'valgrind', etc.
@@ -378,6 +380,10 @@ NOTE: for analysis with 'valgrind', it's usually sufficient to compile
       optimizations.
 
 
+MODE=devel was added in September 2012. It is for development. In this
+mode, the same compilation flags are used as MODE=release. But
+MODE=devel enables use of modules for tracing/printing/debugging that
+are not part of the normal distribution.
 
 
 The main targets are:

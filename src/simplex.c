@@ -6874,6 +6874,7 @@ static const thvar_t pre_trichotomy[][2] = {
 
 // lemmas for the experimental final check (xs_25_45)
 static const thvar_t pre_trichotomy[][2] = {
+  { -1, -1}, // DISABLED
   { 1, 3 }, { 11, 12 }, { 14, 15 }, { 17, 18 }, { 6, 25 }, { 2, 154 },
   { 2, 6 }, { 17, 25 }, { 3, 160 },
   { 2, 17 }, { 6, 20 }, { 14, 25 }, { 3, 154 }, 
@@ -8796,6 +8797,12 @@ static void simplex_prep_model(simplex_solver_t *solver) {
   if (simplex_option_enabled(solver, SIMPLEX_ADJUST_MODEL)) {
     simplex_adjust_model(solver);
   }
+  // print variables + assignemnts + bounds
+  printf("\n==== SIMPLEX: prep_model ====\n");
+  print_simplex_vars(stdout, solver);
+  print_simplex_bounds(stdout, solver);
+  print_simplex_assignment(stdout, solver);
+  printf("\n=====\n");
 }
 
 static void simplex_release_model(simplex_solver_t *solver) {

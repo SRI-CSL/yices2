@@ -361,7 +361,11 @@ endif
 ifeq ($(YICES_MODE),release) 
 CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
-else 
+else
+ifeq ($(YICES_MODE),devel) 
+CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
+CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+else
 ifeq ($(YICES_MODE),profile)
 CFLAGS := $(CFLAGS) -O3 -pg
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
@@ -379,10 +383,11 @@ endif
 endif
 endif
 endif
+endif
 
 
 #
-# Object files to include in the dynamic library
+# Object files to include in the dynamic libraries
 #
 ifeq ($(YICES_MODE),release)
 base_obj := $(base_src_c:%.c=$(objdir)/%.o)
