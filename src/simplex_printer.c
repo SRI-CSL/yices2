@@ -471,10 +471,16 @@ void print_simplex_vars_summary(FILE *f, simplex_solver_t *solver) {
   for (i=0; i<n; i++) {
     lb = arith_var_lower_index(&solver->vtbl, i);
     ub = arith_var_upper_index(&solver->vtbl, i);
-    fputs("  ", f);
+
+    if (matrix_is_basic_var(&solver->matrix, i)) {
+      fputs(" b ", f);
+    } else {
+      fputs("   ", f);
+    }
     print_avar(f, table, i);
     fputs(" = ", f);
     xq_print(f, arith_var_value(&solver->vtbl, i));
+
 
     if (lb >= 0 || ub >= 0) {
       fputs("\t", f);

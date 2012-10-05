@@ -8797,11 +8797,11 @@ static void simplex_prep_model(simplex_solver_t *solver) {
   if (simplex_option_enabled(solver, SIMPLEX_ADJUST_MODEL)) {
     simplex_adjust_model(solver);
   }
-  // print variables + assignemnts + bounds
+  // print variables + assignments + bounds
   printf("\n==== SIMPLEX: prep_model ====\n");
-  print_simplex_vars(stdout, solver);
-  print_simplex_bounds(stdout, solver);
-  print_simplex_assignment(stdout, solver);
+  print_simplex_vars_summary(stdout, solver);
+  printf("\n");
+  print_simplex_matrix(stdout, solver);
   printf("\n=====\n");
 }
 
