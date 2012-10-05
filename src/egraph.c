@@ -21,7 +21,7 @@
 
 
 #define TRACE 0
-#define TRACE_FCHECK 1
+#define TRACE_FCHECK 0
 
 #if TRACE || TRACE_FCHECK
 

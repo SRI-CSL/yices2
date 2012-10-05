@@ -32,7 +32,7 @@
 #define TRACE_BB 0
 
 
-#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG) || 1
+#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG)
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -1175,14 +1175,6 @@ void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, gate_manage
   init_arith_vartable(&solver->vtbl);
 
   solver->propagator = NULL; // allocated if needed in start search
-
-  // PROVISIONAL
-  solver->eg_stats = NULL;
-  if (egraph != NULL) {
-    solver->eg_stats = (egeq_t *) safe_malloc(sizeof(egeq_t));
-    init_egeq(solver->eg_stats);
-  }
-
 
   init_matrix(&solver->matrix, 0, 0);
   solver->tableau_ready = false;
@@ -3102,61 +3094,6 @@ static void update_to_upper_bound(simplex_solver_t *solver, thvar_t x) {
 }
 
 
-
-/*************************************************
- *  PROVISIONAL: STATISTICS ON EGRAPH EQ/DISEQ   *
- ************************************************/
-
-static void received_egraph_eq(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
-  thvar_t aux;
-
-  if (x1 > x2) {
-    aux = x1; x1 = x2; x2 = aux;
-  }
-  egeq_incr(solver->eg_stats, x1, x2, 0);
-}
-
-static void received_egraph_diseq(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
-  thvar_t aux;
-
-  if (x1 > x2) {
-    aux = x1; x1 = x2; x2 = aux;
-  }
-  egeq_incr(solver->eg_stats, x1, x2, 1);
-}
-
-static void used_egraph_eq(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
-  thvar_t aux;
-
-  if (x1 > x2) {
-    aux = x1; x1 = x2; x2 = aux;
-  }
-  egeq_incr(solver->eg_stats, x1, x2, 2);
-}
-
-
-static void found_eq_conflict(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
-  thvar_t aux;
-
-  if (x1 > x2) {
-    aux = x1; x1 = x2; x2 = aux;
-  }
-  egeq_incr(solver->eg_stats, x1, x2, 3);
-}
-
-static void made_trichotomy(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
-  thvar_t aux;
-
-  if (x1 > x2) {
-    aux = x1; x1 = x2; x2 = aux;
-  }
-  egeq_incr(solver->eg_stats, x1, x2, 4);
-}
-
-
-
-
-
 /******************
  *  EXPLANATIONS  *
  *****************/
@@ -3279,8 +3216,6 @@ static void simplex_build_explanation(simplex_solver_t *solver, ivector_t *v) {
 
     case ARITH_EGRAPHEQ_LB:
     case ARITH_EGRAPHEQ_UB:
-      used_egraph_eq(solver, bstack->expl[i].v[0], bstack->expl[i].v[1]);
-
       // add explanation from the egraph into aux
       collect_egraph_eq_expl(solver, bstack->expl[i].v[0], bstack->expl[i].v[1], aux);
       break;
@@ -6127,11 +6062,6 @@ static void record_egraph_eq_conflict(simplex_solver_t *solver, int32_t k, thvar
   ivector_t *v;
   eterm_t t1, t2;
 
-  found_eq_conflict(solver, x1, x2);
-
-  printf("---> SIMPLEX: egraph eq-conflict for i!%"PRId32" == i!%"PRId32"\n", x1, x2);
-  fflush(stdout);
-
   v = &solver->expl_vector;
   ivector_reset(v);
   simplex_explain_bound(solver, k, v); // conjuntion of literals that imply k
@@ -6163,8 +6093,6 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
   int32_t k, cmp_lb, cmp_ub;
 
   assert(arith_var_has_eterm(&solver->vtbl, x1) && arith_var_has_eterm(&solver->vtbl, x2) && x1 != x2);
-
-  received_egraph_eq(solver, x1, x2);
 
 #if TRACE
   printf("---> Simplex: process egraph equality: ");
@@ -6289,10 +6217,6 @@ static literal_t create_pos_atom(simplex_solver_t *solver, thvar_t y, rational_t
   // get the atom (y <= c)
   l = get_literal_for_le_atom(&solver->atbl, y, arith_var_is_int(&solver->vtbl, y), c, &new_idx);
   if (new_idx >= 0) {
-    printf("---> SIMPLEX: new atom:\n");
-    printf("     ");
-    print_simplex_atomdef(stdout, solver, var_of(l));
-
     build_binary_lemmas_for_atom(solver, y, new_idx);
     attach_atom_to_arith_var(&solver->vtbl, y, new_idx);
   }
@@ -6311,10 +6235,6 @@ static literal_t create_neg_atom(simplex_solver_t *solver, thvar_t y, rational_t
   // get atom (y >= c)
   l = get_literal_for_ge_atom(&solver->atbl, y, arith_var_is_int(&solver->vtbl, y), c, &new_idx);
   if (new_idx >= 0) {
-    printf("---> SIMPLEX: new atom:\n");
-    printf("     ");
-    print_simplex_atomdef(stdout, solver, var_of(l));
-
     build_binary_lemmas_for_atom(solver, y, new_idx);
     attach_atom_to_arith_var(&solver->vtbl, y, new_idx);
   }
@@ -6415,7 +6335,7 @@ static uint32_t simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, t
     add_unit_clause(solver->core, not(l));
     reset_poly_buffer(&solver->buffer);
 
-#if 1
+#if 0
     printf("---> SIMPLEX: trichotomy lemma for ");
     print_simplex_var(stdout, solver, x1);
     printf(" ");
@@ -6488,15 +6408,13 @@ static uint32_t simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, t
     add_binary_clause(solver->core, not(l), not(l2));
 
     solver->stats.num_tricho_lemmas ++;
-#if 1
+#if 0
     printf("---> SIMPLEX: trichotomy lemma for ");
     print_simplex_var(stdout, solver, x1);
     printf(" ");
     print_simplex_var(stdout, solver, x2);
     printf(" (trichotomy)\n");
 #endif
-
-    made_trichotomy(solver, x1, x2);
   }
 
   return 1;
@@ -6511,8 +6429,6 @@ static uint32_t simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, t
  */
 static void simplex_process_var_diseq(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
   assert(arith_var_has_eterm(&solver->vtbl, x1) && arith_var_has_eterm(&solver->vtbl, x2) && x1 != x2);
-
-  received_egraph_diseq(solver, x1, x2);
 
 #if TRACE
   printf("---> Simplex: egraph disequality: ");
@@ -6834,174 +6750,6 @@ void simplex_start_search(simplex_solver_t *solver) {
  *  PROPAGATE  *
  **************/
 
-
-/*
- * HACK FOR TESTING xs_25_45.smt
- */
-#if 0
-
-// trichotomy lemmas built by the baseline final check
-static const thvar_t pre_trichotomy[][2] = {
-  { 1, 3 }, { 11, 12 }, { 14, 15 }, { 17, 18 }, { 6, 25 }, { 2, 154 }, { 139, 160 }, { 6, 166 },
-  { 2, 6 }, { 2, 20 }, { 17, 25 }, { 14, 71 }, { 17, 77 }, { 2, 125 }, { 93, 136 }, { 93, 154 }, { 3, 160 },
-  { 2, 17 }, { 6, 20 }, { 14, 25 }, { 14, 51 }, { 6, 83 }, { 2, 93 }, { 6, 111 }, { 3, 123 }, { 3, 125 }, { 3, 154 },
-  { 2, 14 }, { 3, 20 }, { 11, 25 }, { 2, 32 }, { 11, 39 }, { 17, 51 }, { 3, 75 }, { 17, 107 }, { 141, 160 },
-  { 2, 11 }, { 3, 17 }, { 25, 39 }, { 2, 47 }, { 20, 75 }, { 20, 125 }, { 25, 128 },
-
-  { 3, 14 }, { 20, 51 }, { 11, 77 }, { 3, 89 }, { 25, 122 }, { 2, 128 }, { 146, 160 },
-  { 3, 11 }, { 14, 32 }, { 17, 37 }, { 14, 95 }, { 25, 116 }, { 2, 122 }, { 77, 128 },
-  { 2, 39 }, { 3, 77 }, { 11, 83 }, { 25, 110 }, { 2, 116 }, { 47, 122 },
-  { 3, 39 }, { 25, 104 }, { 2, 110 },
-  { 25, 92 }, { 2, 98 }, { 3, 110 }, { 39, 116 }, { 59, 128 },
-  { 25, 86 }, { 2, 92 }, { 3, 104 },
-  { 25, 80 }, { 2, 86 }, { 3, 98 },
-  { 25, 74 }, { 2, 80 }, { 3, 92 },                                                    
-  { 25, 68 }, { 2, 74 }, { 3, 86 },
-  { 25, 62 }, { 2, 68 }, { 3, 80 },
-  { 25, 56 }, { 2, 62 }, { 3, 74 },
-  { 25, 50 }, { 2, 56 }, { 3, 68 },
-  { 25, 44 }, { 2, 50 }, { 3, 62 },
-  { 25, 36 }, { 2, 44 }, { 3, 56 },
-  { 25, 31 }, { 2, 36 }, { 26, 43 }, { 3, 50 }, { 11, 95 }, { 39, 110 }, { 14, 113 }, { 59, 116 }, { 71, 122 }, { 17, 125 }, { 20, 136 }, { 146, 154 }, { 93, 157 },
-  { 25, 27 }, { 2, 31 }, { 3, 44 },
-  { 11, 59 }, { 14, 77 }, { 17, 95 }, { 25, 98 }, { 2, 104 }, { 20, 107 }, { 3, 116 }, { 93, 125 }, { 39, 128 }, { 155, 160 },
-  { 11, 107 }, { 14, 125 }, { 3, 128 }, { 17, 136 }, { 20, 146 }, { 154, 157 },
-  { 3, 122 }, { 111, 160 },
-  { -1, -1}
-};
-
-#else
-
-// lemmas for the experimental final check (xs_25_45)
-static const thvar_t pre_trichotomy[][2] = {
-  { -1, -1}, // DISABLED
-  { 1, 3 }, { 11, 12 }, { 14, 15 }, { 17, 18 }, { 6, 25 }, { 2, 154 },
-  { 2, 6 }, { 17, 25 }, { 3, 160 },
-  { 2, 17 }, { 6, 20 }, { 14, 25 }, { 3, 154 }, 
-  { 2, 14 }, { 3, 20 }, { 11, 25 }, 
-  { 2, 11 }, { 3, 17 }, { 25, 128 }, 
-  // 
-  { 3, 14 }, { 25, 122 }, { 2, 128 }, 
-  { 3, 11 }, { 25, 116 }, { 2, 122 }, 
-  { 25, 110 }, { 2, 116 }, { 3, 128 }, 
-  { 25, 104 }, { 2, 110 }, { 3, 122 }, 
-  { 25, 98 }, { 2, 104 }, { 3, 116 }, 
-  { 25, 92 }, { 2, 98 }, { 3, 110 }, 
-  { 25, 86 }, { 2, 92 }, { 3, 104 }, 
-  { 25, 80 }, { 2, 86 }, { 3, 98 }, 
-  { 25, 74 }, { 2, 80 }, { 3, 92 }, 
-  { 25, 68 }, { 2, 74 }, { 3, 86 },
-  { 25, 62 }, { 2, 68 }, { 3, 80 }, 
-  { 25, 56 }, { 2, 62 }, { 3, 74 }, 
-  { 25, 50 }, { 2, 56 }, { 3, 68 }, 
-  { 25, 44 }, { 2, 50 }, { 3, 62 }, 
-  { 25, 36 }, { 2, 44 }, { 3, 56 },
-  { 25, 31 }, { 2, 36 }, { 3, 50 }, 
-  { 25, 27 }, { 2, 31 }, { 3, 44 },  
-  { -1, -1}, 
-
-  // missing: instances from baseline not produced by reconcile egraph
-  //  { 139, 160 }, 
-  //  { 6, 166 },
-
-  //  { 2, 20 }, 
-  //  { 14, 71 }, 
-  { 17, 77 },
-  //  { 2, 125 },
-  { 93, 136 },
-  { 93, 154 },
-
-  //  { 14, 51 },
-  //  { 6, 83 },
-  { 2, 93 },
-  //  { 6, 111 },
-  //  { 3, 123 },
-  //  { 3, 125 },
-
-  //  { 2, 32 },
-  //  { 11, 39 },
-  { 17, 51 },
-  //  { 3, 75 },
-  { 17, 107 },
-  //  { 141, 160 },
-
-  //  { 25, 39 },
-  //  { 2, 47 },
-  //  { 20, 75 },
-  //  { 20, 125 },
-
-  //  { 20, 51 },
-  //  { 11, 77 },
-  //  { 3, 89 }, 
-  //  { 146, 160 },
-
-  //  { 14, 32 },
-  { 17, 37 },
-  //  { 14, 95 },
-  //  { 77, 128 },
-
-  //  { 2, 39 },
-  //  { 3, 77 },
-  //  { 11, 83 },
-  //  { 47, 122 },
-
-  //  { 3, 39 },
-
-  //  { 39, 116 },
-  //  { 59, 128 },
-
-  //  { 26, 43 },
-  //  { 11, 95 },
-  //  { 39, 110 },
-  //  { 14, 113 },
-  //  { 59, 116 },
-  //  { 71, 122 },
-  { 17, 125 },
-  //  { 20, 136 },
-  //  { 146, 154 },
-  { 93, 157 },
-
-  //  { 11, 59 },
-  //  { 14, 77 },
-  { 17, 95 },
-  //  { 20, 107 },
-  { 93, 125 },
-  //  { 39, 128 },
-  //  { 155, 160 },
-
-  //  { 11, 107 },
-  //  { 14, 125 },
-  { 17, 136 },
-  //  { 20, 146 },
-  //  { 154, 157 },
-
-  //  { 111, 160 },
-  { -1, -1 },
-};
-
-#endif
-
-static bool tricho_done = false;
-
-static void gen_all_trichos(simplex_solver_t *solver) {
-  thvar_t x, y;
-  uint32_t i, n;
-
-  i = 0;
-  n = 0;
-  for (;;) {
-    x = pre_trichotomy[i][0];
-    y = pre_trichotomy[i][1];
-    if (x < 0 || y < 0) break;
-    n += simplex_trichotomy_lemma(solver, x, y);
-    i ++;
-  }
-
-  printf("---> SIMPLEX: PREGENERATED %"PRIu32" lemmas (out of %"PRIu32")\n\n", n, i);
-  fflush(stdout);
-}
-
-
 /*
  * Process all assertions
  * - this function may be called before start_search
@@ -7085,12 +6833,6 @@ bool simplex_propagate(simplex_solver_t *solver) {
 
   }
 
-  // HACK HERE
-  if (! tricho_done) {
-    gen_all_trichos(solver);
-    tricho_done = true;
-  }
-
   /*
    * EXPERIMENTAL: periodically test for integer feasibility
    */
@@ -7156,7 +6898,7 @@ fcheck_code_t simplex_final_check(simplex_solver_t *solver) {
   check_bound_marks(solver);
 #endif
 
-#if TRACE || 1
+#if TRACE
   printf("---> SIMPLEX FINAL CHECK [dlevel = %"PRIu32", decisions = %"PRIu64"]\n",
 	 solver->decision_level, solver->core->stats.decisions);
   fflush(stdout);
@@ -7392,10 +7134,6 @@ void simplex_push(simplex_solver_t *solver) {
     cache_push(solver->cache);
   }
 
-  if (solver->eg_stats != NULL) {
-    egeq_push(solver->eg_stats);
-  }
-
   solver->base_level ++;
   simplex_increase_decision_level(solver);
 }
@@ -7516,11 +7254,6 @@ void simplex_pop(simplex_solver_t *solver) {
     cache_pop(solver->cache);
   }
 
-  if (solver->eg_stats != NULL) {
-    egeq_pop(solver->eg_stats);
-  }
-
-
   // restore the propagation pointers
   solver->bstack.prop_ptr = top->bound_ptr;
   solver->bstack.fix_ptr = top->bound_ptr;
@@ -7589,10 +7322,6 @@ void simplex_reset(simplex_solver_t *solver) {
 
   if (solver->propagator != NULL) {
     simplex_reset_propagator(solver);
-  }
-
-  if (solver->eg_stats != NULL) {
-    reset_egeq(solver->eg_stats);
   }
 
   reset_int_heap(&solver->infeasible_vars);
@@ -7820,12 +7549,6 @@ void delete_simplex_solver(simplex_solver_t *solver) {
 
   if (solver->propagator != NULL) {
     simplex_delete_propagator(solver);
-  }
-
-  if (solver->eg_stats != NULL) {
-    delete_egeq(solver->eg_stats);
-    safe_free(solver->eg_stats);
-    solver->eg_stats = NULL;
   }
 
   if (solver->dsolver != NULL) {
@@ -8797,12 +8520,6 @@ static void simplex_prep_model(simplex_solver_t *solver) {
   if (simplex_option_enabled(solver, SIMPLEX_ADJUST_MODEL)) {
     simplex_adjust_model(solver);
   }
-  // print variables + assignments + bounds
-  printf("\n==== SIMPLEX: prep_model ====\n");
-  print_simplex_vars_summary(stdout, solver);
-  printf("\n");
-  print_simplex_matrix(stdout, solver);
-  printf("\n=====\n");
 }
 
 static void simplex_release_model(simplex_solver_t *solver) {
@@ -8835,7 +8552,7 @@ static void simplex_gen_interface_lemma(simplex_solver_t *solver, literal_t l, t
     add_unit_clause(solver->core, not(l));
     solver->stats.num_reduced_inter_lemmas ++;
 
-#if 1
+#if 0
     printf("---> SIMPLEX: interface lemma for ");
     print_simplex_var(stdout, solver, x1);
     printf(" ");
@@ -8889,7 +8606,7 @@ static void simplex_gen_interface_lemma(simplex_solver_t *solver, literal_t l, t
 
     solver->stats.num_interface_lemmas ++;
 
-#if 1
+#if 0
     printf("---> SIMPLEX: interface lemma for ");
     print_simplex_var(stdout, solver, x1);
     printf(" ");

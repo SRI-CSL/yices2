@@ -61,7 +61,6 @@
 #if SHOW_STATISTICS
 #include "fun_solver.h"
 #include "bvsolver.h"
-#include "egraph_eq_stats.h"
 #endif
 
 
@@ -775,12 +774,6 @@ static void print_results() {
       if (simplex != NULL) {
 	simplex_collect_statistics(simplex);
 	show_simplex_stats(&simplex->stats);
-	if (simplex->eg_stats != NULL) {
-	  printf("\n\nEgraph/Simplex interface\n");
-	  print_egeq(stdout, simplex->eg_stats);
-	  fflush(stdout);
-	  printf("\n\n");
-	}
       }
     }
 

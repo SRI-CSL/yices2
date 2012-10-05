@@ -1,0 +1,39 @@
+#!/bin/sh
+
+#
+# pre-install script for the MacOS X package installer
+#
+# As per Apple's Softwre Delivery Guide:
+#
+# This script is invoked with four arguments
+#   $1 = full path to the package being processed
+#   $2 = full path to the installation destination (should be /usr/local)
+#   $3 = installation volume (mountpoint)
+#   $4 = root directory for the file system
+#
+# The following environment variables are set
+#   $SCRIPT_NAME = filename for this script
+#   $PACKAGE_PATH = same as $1
+#   $INSTALLER_TEMP = a directory for temporary files
+#   $RECEIPT_PATH = subdectory of $INSTALLER_TEMP
+#
+# This script checks whether the install dir is /usr/local
+# If the location does not exist, it is created with 
+# owner = root, group = wheel, and permissions = rwxr-xr-x
+#
+
+INSTALL_DIR=$2
+
+if test "$INSTALL_DIR" = "/usr/local" ; then
+  { test -d "$INSTALL_DIR" ; } || 
+  { echo "$SCRIPT_NAME: creating $INSTALL_DIR" &&
+    mkdir "$INSTALL_DIR" &&
+    chown root:wheel "$INSTALL_DIR" &&
+    chmod og+rx "$INSTALL_DIR" &&
+    exit 0 ; } ||
+  { echo "$SCRIPT_NAME: failed to create $INSTALL_DIR" ; 
+    exit 1 ; }
+fi
+
+exit 0
+

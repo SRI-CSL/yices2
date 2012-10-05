@@ -144,7 +144,7 @@ fi
 #
 if test "$local_install" = "no" ; then
   { test -f "$install" -a -x "$install" ; } ||
-  { echo "$failure" l echo "Can't find $install" ; echo "" ; exit 1 ; }
+  { echo "$failure" ; echo "Can't find $install" ; echo "" ; exit 1 ; }
 fi
 
 if test "$install_dir" != "/usr/local" ; then
