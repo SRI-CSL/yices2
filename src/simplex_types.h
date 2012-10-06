@@ -416,7 +416,7 @@ typedef struct arith_trail_stack_s {
  *
  * 2) egraph disequalities:
  *    If x1 and x2 are attached to terms t1 and  t2 in the egraph, then
- *    the egraph will assert (x1 != x2) in simplex when it (t1 != t2) holds in
+ *    the egraph will assert (x1 != x2) in simplex when (t1 != t2) holds in
  *    the egraph. To deal with (x1 != x2), the simplex will create
  *    a simplex variable  y = x1 - x2 and two atoms (y >= 0) and (y <= 0).
  *    Then it will add a trichotomy clause to the core:
@@ -425,7 +425,9 @@ typedef struct arith_trail_stack_s {
  *    The propagation object stores x1 and x2 in that case + a hint.
  *
  * The propagation objects starts with a tag that identifies the 
- * propagation rule;
+ * propagation rule.
+ *
+ * NOTE: APROP_EGRAPH_DISEQ is not used anymore.
  */
 typedef enum aprop_tag {
   APROP_BOUND,        // ordinary simplex propagation

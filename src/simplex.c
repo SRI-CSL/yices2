@@ -1071,8 +1071,6 @@ static bool variable_above_upper_bound(simplex_solver_t *solver, thvar_t x) {
 
 
 
-
-
 /*********************************
  *  THEORY PROPAGATION OBJECTS   *
  ********************************/
@@ -3966,14 +3964,11 @@ static bool add_lower_bound(simplex_solver_t *solver, thvar_t x, rational_t *c, 
     printf("---> added ");
     print_simplex_bound(stdout, solver, solver->bstack.top - 1);
     printf("\n");
+  } else {
+    printf("---> redundant\n");
 #endif
 
   }
-#if TRACE
-  else {
-    printf("---> redundant\n");
-  }
-#endif
 
   return true;  
 }
@@ -4043,15 +4038,11 @@ static bool add_upper_bound(simplex_solver_t *solver, thvar_t x, rational_t *c, 
     printf("---> added ");
     print_simplex_bound(stdout, solver, solver->bstack.top - 1);
     printf("\n");
-#endif
-
-  }
-
-#if TRACE
-  else {
+  } else {
     printf("---> redundant\n");
-  }
 #endif
+
+  }
 
   return true;  
 }
@@ -5014,6 +5005,7 @@ static void collect_non_integer_basic_vars(simplex_solver_t *solver, ivector_t *
   }
 }
 
+
 /*
  * Create branch & bound atom for a variable x.
  * - we use (x >= ceil(value[x])), which must be a new atom
@@ -5589,292 +5581,6 @@ static bool simplex_dsolver_check(simplex_solver_t *solver) {
 
 
 
-
-/*
- * For testing: run the dsolver on the initial system
- * - store a trace in init.dmp file
- */
-static bool simplex_dsolver_check_at_start(simplex_solver_t *solver) {
-  //  FILE *trace;
-  dsolver_t *dioph;
-  matrix_t *matrix;
-  row_t *row;
-  ivector_t *v;
-  uint32_t i, n;
-  //  int32_t r;
-  bool pure_integer;
-  bool feasible;
-
-#if 0
-  trace = fopen("init.dmp", "w");
-  if (trace != NULL) {
-    fprintf(trace, "Initial check using diophantine solver\n");
-  }
-#endif
-
-  dioph = simplex_get_dsolver(solver);
-  reset_dsolver(dioph);
-
-  pure_integer = ! simplex_is_mixed_system(solver);
-
-  matrix = &solver->matrix;
-  n = matrix->nrows;
-  for (i=0; i<n; i++) {
-    row = matrix->row[i];
-    if (pure_integer || matrix_row_is_integral(solver, row)) {
-      if (! simplex_dsolver_add_row(solver, dioph, i, row)) {
-#if 0
-	// row i is not integer feasible (GCD test failed)
-	if (trace != NULL) {
-	  fprintf(trace, "\nUnsat row detected\n");
-	  dsolver_print_rows(trace, dioph);
-	  dsolver_print_status(trace, dioph);
-	  fclose(trace);
-	}
-#endif
-	build_gcd_conflict(solver, row);
-	return false;
-      }
-    }
-  }
-  
-  // run the diophantine solver
-  dsolver_simplify(dioph);
-  feasible = dsolver_is_feasible(dioph);
-
-#if 0
-  if (trace != NULL) {
-    fprintf(trace, "\n*** Diophantine system ***\n");
-    dsolver_print_elim_rows(trace, dioph);
-    fprintf(trace, "\n");
-    dsolver_print_main_rows(trace, dioph);
-    fprintf(trace, "\n");
-    dsolver_print_sol_rows(trace, dioph);
-    fprintf(trace, "\n");
-    dsolver_print_status(trace, dioph);
-    fprintf(trace, "\n");
-  }
-#endif
-
-  if (feasible) {
-    dsolver_build_general_solution(dioph);
-
-#if 0
-    if (trace != NULL) {
-      dsolver_print_gen_solution(trace, dioph);
-      fprintf(trace, "\n");
-      dsolver_build_solution(dioph);
-      dsolver_print_solution(trace, dioph);
-      fprintf(trace, "\n\n*** Bounds ***\n");
-      print_simplex_bounds2(trace, solver);
-      fprintf(trace, "\n");
-    }
-#endif
-
-    feasible = strengthen_integer_bounds(solver, dioph);
-
-#if 0
-    if (trace != NULL) {
-      fprintf(trace, "\n\n*** Strengthened bounds ***\n");
-      print_simplex_bounds2(trace, solver);
-      fprintf(trace, "\n");
-
-      if (feasible) {
-	fprintf(trace, "\nFeasible after bound strengthening\n");
-	if (solver->recheck) {
-	  fprintf(trace, "Recheck required\n");
-	}
-      } else {
-	fprintf(trace, "\nInfeasible after bound strengthening\n");	
-      }
-
-      fclose(trace);
-    }
-#endif 
-
-  } else {
-    // UNSAT: print the explanation
-    v = &solver->aux_vector;
-    assert(v->size == 0);
-    dsolver_unsat_rows(dioph, v);
-
-#if 0
-    if (trace != NULL) {
-      fprintf(trace, "\n*** Conflict rows ***\n");
-      n = v->size;
-      for (i=0; i<n; i++) {
-	r = v->data[i];
-	row = matrix->row[r];
-	fprintf(trace, "  row[%"PRId32"]: ", r);
-	print_simplex_row(trace, solver, row);
-	fprintf(trace, "\n");
-	fclose(trace);
-      }
-    }
-#endif
-
-    build_dsolver_conflict(solver, v);
-    ivector_reset(v);
-  }
-
-  return feasible;
-}
-
-
-
-#if 0
-/*
- * Create and open a trace file:
- * - name = final<x>.dmp
- */
-static FILE *open_final_trace(simplex_solver_t *solver) {
-  char name[30];
-
-  if (solver->stats.num_make_intfeasible < 0) {
-    sprintf(name, "final%"PRIu32".dmp", solver->stats.num_make_intfeasible);
-    return fopen(name, "w");
-  } else {
-    return NULL;
-  }
-}
-
-#endif
-
-/*
- * For testing: run dsolver_check and keep a trace in a file
- */
-static bool simplex_dsolver_final_check(simplex_solver_t *solver) {
-  //  FILE *trace;
-  dsolver_t *dioph;
-  matrix_t *matrix;
-  row_t *row;
-  ivector_t *v;
-  uint32_t i, n;
-  // int32_t r;
-  bool pure_integer;
-  bool feasible;
-
-#if DEBUG
-  check_assignment(solver);
-#endif
-
-#if 0
-  trace = open_final_trace(solver);
-  if (trace != NULL) {
-    fprintf(trace, "Final check using diophantine solver\n");   
-  }
-#endif
-
-  dioph = simplex_get_dsolver(solver);
-  reset_dsolver(dioph);
-
-  pure_integer = ! simplex_is_mixed_system(solver);
-
-  matrix = &solver->matrix;
-  n = matrix->nrows;
-  for (i=0; i<n; i++) {
-    row = matrix->row[i];
-    if (pure_integer || matrix_row_is_integral(solver, row)) {
-      if (! simplex_dsolver_add_row(solver, dioph, i, row)) {
-	// row i is not integer feasible (GCD test failed)
-#if 0
-	if (trace != NULL) {
-	  fprintf(trace, "\nUnsat row detected\n");
-	  dsolver_print_rows(trace, dioph);
-	  dsolver_print_status(trace, dioph);
-	  fclose(trace);
-	}
-#endif
-	build_gcd_conflict(solver, row);
-	return false;
-      }
-    }
-  }
-
-  solver->stats.num_dioph_checks ++;
-  
-  // run the diophantine solver
-  dsolver_simplify(dioph);
-  feasible = dsolver_is_feasible(dioph);
-
-#if 0
-  if (trace != NULL) {
-    fprintf(trace, "\n*** Solved system ***\n");
-    dsolver_print_elim_rows(trace, dioph);
-    fprintf(trace, "\n");
-    dsolver_print_main_rows(trace, dioph);
-    fprintf(trace, "\n");
-    dsolver_print_sol_rows(trace, dioph);
-    fprintf(trace, "\n");
-    dsolver_print_status(trace, dioph);
-    fprintf(trace, "\n");
-  }
-#endif
-
-  if (feasible) { 
-    dsolver_build_general_solution(dioph);
-
-#if 0
-    if (trace != NULL) {
-      dsolver_print_gen_solution(trace, dioph);
-      fprintf(trace, "\n*** Bounds ***\n");
-      print_simplex_bounds2(trace, solver);
-      fprintf(trace, "\n");
-    }
-#endif
-
-    feasible = strengthen_integer_bounds(solver, dioph);
-
-#if 0
-    if (trace != NULL) {
-      fprintf(trace, "\n\n*** Strengthened bounds ***\n");
-      print_simplex_bounds2(trace, solver);
-      fprintf(trace, "\n");
-
-      if (feasible) {
-	fprintf(trace, "\nFeasible after bound strengthening\n");
-	if (solver->recheck) {
-	  fprintf(trace, "Recheck required\n");
-	}
-      } else {
-	fprintf(trace, "\nInfeasible after bound strengthening\n");	
-      }
-
-      fclose(trace);
-    }
-#endif 
-
-
-  } else {
-    // UNSAT: print the explanation
-    v = &solver->aux_vector;
-    assert(v->size == 0);
-    dsolver_unsat_rows(dioph, v);
-
-#if 0
-    if (trace != NULL) {
-      fprintf(trace, "\n*** Conflict rows ***\n");
-      n = v->size;
-      for (i=0; i<n; i++) {
-	r = v->data[i];
-	row = matrix->row[r];
-	fprintf(trace, "  row[%"PRId32"]: ", r);
-	print_simplex_reduced_row(trace, solver, row);
-	fprintf(trace, "\n");
-      }
-      fclose(trace);
-    }
-#endif
-
-    build_dsolver_conflict(solver, v);
-    ivector_reset(v);
-  }
-  
-  return feasible;
-}
-
-
-
 /*
  * FINAL CHECK
  */
@@ -5923,7 +5629,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
 
   // check for unsatisfiability using dsolver
   solver->recheck = false;
-  if (! simplex_dsolver_final_check(solver)) {
+  if (! simplex_dsolver_check(solver)) {
     // unsat detected by diophantine solver
 
 #if TRACE_BB
@@ -5963,17 +5669,6 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
 
 
 
-#if 0
-  // EXPERIMENT:
-  // add a checkpoint so that branch atoms can be deleted
-  if (! solver->integer_solving) {
-    solver->integer_solving = true;
-    assert(solver->stats.num_atoms == solver->atbl.natoms);
-    smt_checkpoint(solver->core);
-  }
-#endif
-
-
   /*
    * At this point: no unsat detected. But bounds may have been strengthened
    * All integer basic variables have an integer value.
@@ -5999,45 +5694,6 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   create_branch_atom(solver, x);
 
   return false;
-}
-
-
-
-
-/*
- * DELETE BRANCH ATOMS VIA CHECKPOINTS MECHANISM
- */
-
-/*
- * Delete branch atoms when backtracking beyond the checkpoint 
- */
-static void simplex_delete_branch_atom(simplex_solver_t *solver, void *atom) {
-  int32_t id;
-  thvar_t x;
-
-  assert(solver->integer_solving);
-  id = arithatom_tagged_ptr2idx(atom);
-#if TRACE_BB
-  printf("---> delete branch atom: ");
-  print_simplex_atom(stdout, solver, id);
-  printf("\n");
-#endif
-  x = var_of_atom(arith_atom(&solver->atbl, id));
-  detach_atom_from_arith_var(&solver->vtbl, x, id);
-}
-
-
-/*
- * End of atom deletion
- */
-static void simplex_end_atom_deletion(simplex_solver_t *solver) {
-  assert(solver->integer_solving);
-#if TRACE_BB
-  printf("---> end delete branch atom: keeping %"PRIu32" atoms out of %"PRIu32"\n", 
-	 solver->stats.num_atoms, solver->atbl.natoms);
-#endif
-  arith_atomtable_remove_atoms(&solver->atbl, solver->stats.num_atoms);
-  solver->integer_solving = false;
 }
 
 
@@ -6843,12 +6499,8 @@ bool simplex_propagate(simplex_solver_t *solver) {
       feasible = simplex_assignment_integer_valid(solver);
       if (feasible) goto done;
 
-      solver->recheck = false;
-      if (solver->core->stats.decisions == 0) {
-	feasible = simplex_dsolver_check_at_start(solver);
-      } else {
-	feasible = simplex_dsolver_check(solver);
-      }
+      solver->recheck = false;    
+      feasible = simplex_dsolver_check(solver);
       if (! feasible) goto done;
 
       if (solver->recheck) {
@@ -6949,6 +6601,7 @@ void simplex_increase_decision_level(simplex_solver_t *solver) {
   printf("\n---> Simplex: increase decision level to %"PRIu32"\n", solver->decision_level);
 #endif
 }
+
 
 
 /******************
@@ -7684,6 +7337,8 @@ bool simplex_var_is_constant(simplex_solver_t *solver, thvar_t x) {
   q = arith_var_def(&solver->vtbl, x);
   return q != NULL && polynomial_is_constant(q);
 }
+
+
 
 
 /*
@@ -9516,8 +9171,8 @@ static th_smt_interface_t simplex_smt = {
   (assert_fun_t) simplex_assert_atom,
   (expand_expl_fun_t) simplex_expand_explanation,
   (select_pol_fun_t) simplex_select_polarity,
-  (del_atom_fun_t) simplex_delete_branch_atom,
-  (end_del_fun_t) simplex_end_atom_deletion,
+  NULL,
+  NULL,
 };
 
 
@@ -9582,88 +9237,6 @@ arith_egraph_interface_t *simplex_arith_egraph_interface(simplex_solver_t *solve
 
 
 
-
-/*****************
- *  FOR TESTING  *
- ****************/
-
-#if 0
-
-static uint32_t number_of_mpqs(row_t *row) {
-  uint32_t i, n, k;
-
-  k = 0;
-  n = row->size;
-  for (i=0; i<n; i++) {
-    if (row->data[i].coeff.den == 0) k++;
-  }
-  return k;
-}
-
-void simplex_print_matrix_size(simplex_solver_t *solver) {
-  matrix_t *matrix;
-  column_t *column;
-  row_t *row;
-  uint32_t i, n;
-  uint32_t ncells, nelems, nqs;
-
-  matrix = &solver->matrix;
-  printf("\n---> Matrix size\n");
-  printf("   %"PRIu32" rows\n", matrix->nrows);
-  printf("   %"PRIu32" columns\n", matrix->ncolumns);
-
-  ncells = 0;
-  nelems = 0;
-  n = matrix->ncolumns;
-  for (i=0; i<n; i++) {
-    column = matrix->column[i];
-    if (column != NULL) {
-      ncells += column->capacity;
-      nelems += column->nelems;
-    }
-  }
-  printf("  column cells: cap = %"PRIu32", used = %"PRIu32"\n", ncells, nelems);
-
-  ncells = 0;
-  nelems = 0;
-  nqs = 0;
-  n = matrix->nrows;
-  for (i=0; i<n; i++) {
-    row = matrix->row[i];
-    if (row != NULL) {
-      ncells += row->capacity;
-      nelems += row->nelems;
-      nqs += number_of_mpqs(row);
-    }
-  }
-
-  printf("  row cells: cap = %"PRIu32", used = %"PRIu32"\n", ncells, nelems);
-  printf("  gmp numbers in the matrix: %"PRIu32"\n", nqs);  
-
-
-  n = matrix->ncolumns;
-  for (i=0; i<n; i++) {
-    column = matrix->column[i];
-    if (column != NULL) {
-      printf("   column[%"PRIu32"]: cap = %"PRIu32", used = %"PRIu32"\n", i, column->capacity, column->nelems);
-    }
-  }
-  printf("\n");
-
-  n = matrix->nrows;
-  for (i=0; i<n; i++) {
-    row = matrix->row[i];
-    if (row != NULL) {
-      printf("   row[%"PRIu32"]: cap = %"PRIu32", used = %"PRIu32"\n", i, row->capacity, row->nelems);
-    }
-  }
-  printf("\n");
-
-}
-
-#endif
-
-
 /***************************
  *   DEBUGGING FUNCTIONS   *
  **************************/
@@ -9705,43 +9278,6 @@ static void dump_state(simplex_solver_t *solver) {
   print_core(dump, solver->core);
   fclose(dump);
 }
-
-#if 0
-// NOT USED
-
-static void print_egraph(FILE *f, egraph_t *egraph) {
-  fprintf(f, "\n==== Egraph terms ====\n");
-  print_egraph_terms(f, egraph);
-  fprintf(f, "\n==== Classes ====\n");
-  print_egraph_root_classes_details(f, egraph);
-  fprintf(f, "\n==== Egraph atoms ====\n");
-  print_egraph_atoms(f, egraph);  
-}
-
-
-static void dump_final_state(simplex_solver_t *solver) {
-  FILE *dump;
-
-  dump = fopen("final.dmp", "w");
-  if (dump == NULL) return;
-
-  if (solver->egraph != NULL) {
-    fprintf(dump, "==== Egraph terms ====\n");
-    print_egraph_terms(dump, solver->egraph);
-    fprintf(dump, "\n");
-  }
-  fprintf(dump, "==== Simplex variables ====\n");
-  print_simplex_vars(dump, solver);
-  fprintf(dump, "\n==== Assignment ====\n");
-  print_simplex_assignment(dump, solver);
-  fprintf(dump, "\n==== Bounds  ====\n");
-  print_simplex_bounds(dump, solver);
-  fprintf(dump, "\n==== Atoms ====\n");
-  print_simplex_atoms(dump, solver);
-
-  fclose(dump);
-}
-#endif
 
 #endif
 
