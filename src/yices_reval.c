@@ -691,8 +691,10 @@ static void process_command_line(int argc, char *argv[]) {
     assert(CTX_MODE_ONECHECK <= mode_code && mode_code <= CTX_MODE_INTERACTIVE);
     mode = (context_mode_t) mode_code;
     if ((logic_code == QF_IDL || logic_code == QF_RDL) && arch != CTX_ARCH_SPLX) {
-      fprintf(stderr, "%s: the Floyd-Warshal solvers support only mode='one-shot'\n", parser.command_name);
-      goto bad_usage;
+      if (mode != CTX_MODE_ONECHECK) {
+	fprintf(stderr, "%s: the Floyd-Warshal solvers support only mode='one-shot'\n", parser.command_name);
+	goto bad_usage;
+      }
     }
   }
 
@@ -2315,8 +2317,6 @@ static smt_status_t do_check(void) {
   if (check_process_time < 0.0) {
     check_process_time = 0.0;
   }
-
-  printf("--> check time = %.3f s\n", check_process_time);
 
   /*
    * Clear timeout and reset it to 0
