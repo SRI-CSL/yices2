@@ -66,7 +66,7 @@ extern "C" {
 
 #define __YICES_VERSION            2
 #define __YICES_VERSION_MAJOR      1
-#define __YICES_VERSION_PATCHLEVEL 0
+#define __YICES_VERSION_PATCHLEVEL 1
 
 
 /*
@@ -740,6 +740,43 @@ __YICES_DLLSPEC__ extern term_t yices_neg(term_t t1);                // -t1
 __YICES_DLLSPEC__ extern term_t yices_mul(term_t t1, term_t t2);     // t1 * t2
 __YICES_DLLSPEC__ extern term_t yices_square(term_t t1);             // t1 * t1
 __YICES_DLLSPEC__ extern term_t yices_power(term_t t1, uint32_t d);  // t1 ^ d
+
+
+/*
+ * Sum of n arithmetic terms t[0] ... t[n-1]
+ *
+ * Return NULL term if there's an error
+ *
+ * Error reports:
+ * if t[i] is not valid
+ *   code = INVALID_TERM
+ *   term1 = t[i]
+ * if t[i] is not an arithmetic term
+ *   code = ARITH_TERM_REQUIRED
+ *   term1 = t[i]
+ */
+__YICES_DLLSPEC__ extern term_t yices_sum(uint32_t n, term_t t[]);
+
+
+/*
+ * Product of n arithmetic terms t[0] ... t[n-1]
+ *
+ * Return NULL term if there's an error
+ *
+ * Error reports:
+ * if t[i] is not valid
+ *   code = INVALID_TERM
+ *   term1 = t[i]
+ * if t[i] is not an arithmetic term
+ *   code = ARITH_TERM_REQUIRED
+ *   term1 = t[i]
+ * if the result has degree > YICES_MAX_DEGREE
+ *   code = DEGREE OVERFLOW
+ *   badval = degree
+ */
+__YICES_DLLSPEC__ extern term_t yices_product(uint32_t n, term_t t[]);
+
+
 
 
 /*
@@ -2107,6 +2144,7 @@ __YICES_DLLSPEC__ extern void yices_print_model(FILE *f, model_t *mdl);
  */
 __YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
  
+
 
 /*
  * Evaluation functions. Once a model is constructed, it's possible

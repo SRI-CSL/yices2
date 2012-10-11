@@ -1683,6 +1683,27 @@ static bool check_power_degree(term_manager_t *mngr, term_t t, uint32_t n) {
 }
 
 
+// Check that the degree of t[0] x .... x t[n-1] does not overflow
+static bool check_multi_prod_degree(term_manager_t *mngr, uint32_t n, term_t t[]) {
+  term_table_t *tbl;
+  uint32_t i, d;
+
+  tbl = term_manager_get_terms(mngr);
+
+  d = 0;
+  for (i=0; i<n; i++) {
+    d += term_degree(tbl, t[i]);
+    if (d > YICES_MAX_DEGREE) {
+      error.code = DEGREE_OVERFLOW;
+      error.badval = d;
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
 // Check whether i is a valid shift for bitvectors of size n
 static bool check_bitshift(uint32_t i, uint32_t n) {
   if (i > n) {
@@ -2427,6 +2448,69 @@ EXPORTED term_t yices_power(term_t t1, uint32_t d) {
 
   return mk_arith_term(&manager, b);
 }
+
+
+/*
+ * Sum of n terms t[0] ... t[n-1]
+ */
+EXPORTED term_t yices_sum(uint32_t n, term_t t[]) {
+  arith_buffer_t *b;
+  term_table_t *tbl;
+  uint32_t i;
+
+  if (! check_good_terms(&manager, n, t) ||
+      ! check_arithmetic_args(&manager, n, t)) {
+    return NULL_TERM;
+  }
+
+  b = get_arith_buffer();
+  tbl = get_terms();
+  arith_buffer_reset(b);
+  for (i=0; i<n; i++) {
+    arith_buffer_add_term(b, tbl, t[i]);
+  }
+
+  return mk_arith_term(&manager, b);    
+}
+
+
+/*
+ * Product of n terms t[0] ... t[n-1]
+ */
+EXPORTED term_t yices_product(uint32_t n, term_t t[]) {
+  arith_buffer_t *b;
+  term_table_t *tbl;
+  uint32_t i;
+
+  if (! check_good_terms(&manager, n, t) ||
+      ! check_arithmetic_args(&manager, n, t)) {
+    return NULL_TERM;
+  }
+
+  /*
+   * Check whether one of t[i] is zero.  We must do this first
+   * otherwise the degree computation won't be correct.
+   */
+  for (i=0; i<n; i++) {
+    if (t[i] == zero_term) {
+      return zero_term;
+    }
+  }
+
+  if (! check_multi_prod_degree(&manager, n, t)) {
+    return NULL_TERM;
+  }
+
+  b = get_arith_buffer();
+  tbl = get_terms();
+  arith_buffer_set_one(b);
+  for (i=0; i<n; i++) {
+    arith_buffer_mul_term(b, tbl, t[i]);
+  }
+
+  return mk_arith_term(&manager, b);    
+}
+
 
 
 /*******************
