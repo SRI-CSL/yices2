@@ -798,7 +798,7 @@ typedef struct egraph_trail_stack_s {
  *     - diseq(u, v): a disequality (u!=v) that was propagated by egraph to the solver,
  *                via a call to assert_disequality or assert_distinct. This must be given
  *                as a pre_expl object. 
- *    The set of constraints is stored in a th_explanation data structure: maintains 
+ *    The set of constraints is stored in a th_explanation data structure that maintains 
  *    three resizable vectors, for atoms, equalities, and diseq constraints.
  *
  *
