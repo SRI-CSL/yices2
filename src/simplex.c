@@ -3277,7 +3277,7 @@ static void convert_expl_to_clause(ivector_t *v) {
  * Build a conflict clause from the content of the explanation queue
  * and store it in v.
  * - queue must contain a set of bound indices (that is inconsistent)
- * - this expanded first into a conjuncion of literals (inconsistent)
+ * - this is expanded first into a conjuncion of literals (inconsistent)
  * - then this is turned into a clause
  */
 static void simplex_build_conflict_clause(simplex_solver_t *solver, ivector_t *v) {

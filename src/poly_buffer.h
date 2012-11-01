@@ -220,6 +220,7 @@ extern void poly_buffer_negate(poly_buffer_t *buffer);
 extern void poly_buffer_rescale(poly_buffer_t *buffer, rational_t *a);
 
 
+
 /*
  * POST-NORMALIZATION OPERATIONS: THE FOLLOWING OPERATIONS ASSUME THAT
  * BUFFER IS NORMALIZED
