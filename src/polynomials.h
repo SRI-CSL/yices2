@@ -398,4 +398,5 @@ extern bool polynomial_is_const_plus_var(polynomial_t *p, int32_t x);
 extern bool polynomial_is_var(polynomial_t *p, int32_t x);
 
 
+
 #endif /* __POLYNOMIALS_H */

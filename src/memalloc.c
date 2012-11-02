@@ -54,6 +54,7 @@ void *safe_realloc(void *ptr, size_t size) {
   void *tmp;
 
   assert(size > 0);
+
   if (ptr == NULL) {
     tmp = malloc(size);
   } else {

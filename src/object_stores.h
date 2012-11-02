@@ -13,7 +13,7 @@
  * - blocks are linked in a list
  * - for correct pointer alignment, we (try to) force the offset
  *   (bank->block - bank) to be a multiple of 8)
- * - we also force object sizes to be multiple of 8 byts
+ * - we also force object sizes to be multiple of 8 bytes
  *
  * All this is based on the assumption that addresses that are
  * multiple of 8 have the right alignment for all hardware we
@@ -45,7 +45,7 @@ typedef struct object_store_s {
 
 
 /*
- * Bounds of objsize and nobj per block: to avoid numerical overflows,
+ * Bounds on objsize and nobj per block: to avoid numerical overflows,
  * we need objsize * nobj <= UINT32_MAX.  Stores are intended for
  * small objects so the following bounds should be more than enough.
  */
