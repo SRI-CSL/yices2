@@ -416,7 +416,7 @@ extern void record_offset_poly(offset_manager_t *m, eterm_t t, thvar_t x, polyno
  * - id = unique id for this equality
  * - if y is -1, the assertion is interpreted as x == k
  * - otherwise both x and y must be arithmetic variables.
- * - the equality is ignored if x or y is not mapped to an offset variable in m
+ * - the equality is ignored if x or y are not mapped to an offset variable in m
  */
 extern void assert_offset_equality(offset_manager_t *m, thvar_t x, thvar_t y, rational_t *k, int32_t id);
 

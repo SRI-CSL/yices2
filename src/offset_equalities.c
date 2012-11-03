@@ -1579,6 +1579,29 @@ void record_offset_poly(offset_manager_t *m, eterm_t t, thvar_t x, polynomial_t 
 
 
 /*
+ * Push equality (x == y + k) into the queue
+ * - id = unique id for this equality
+ * - if y is -1, the assertion is interpreted as x == k
+ * - otherwise both x and y must be arithmetic variables.
+ * - the equality is ignored if x or y are not mapped to an offset variable in m
+ */
+void assert_offset_equality(offset_manager_t *m, thvar_t x, thvar_t y, rational_t *k, int32_t id) {
+  int32_t xx, yy;
+
+  // replace x and y by the matching offset equalities
+  xx = (x < 0) ? 0 : remap_get(&m->vtable.var2offset_var, x);
+  yy = (y < 0) ? 0 : remap_get(&m->vtable.var2offset_var, y);
+  if (xx >= 0 && yy >= 0) {
+    assert(xx < m->vtable.nvars && yy < m->vtable.nvars);
+    push_offset_equality(&m->queue, xx, yy, k, id);
+  }
+}
+
+
+
+
+
+/*
  * Increase the decision level
  * - the propagation queue should be empty
  */
