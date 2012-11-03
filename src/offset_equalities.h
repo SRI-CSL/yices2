@@ -76,25 +76,66 @@ typedef struct {
  * a variable, then 'i' occurs at some position 'k' in index vector 
  * dep[x].
  *
- * In var[i], we store the root variable 'x' and the index 'k'
+ * In vars[i], we store the root variable 'x' and the index 'k'
  * - i.e., we maintain the invariant:
  *    dep[x][k] = i and 'x' is a root ==> vars[i] contains a dependency record <x. k>
  *
- * To support this, vars[i] is an array of pairs <x. k> + header information
+ * To support this, vars[i] is an array of pairs <x. k> + header information.
+ *
+ * For dep[x], we use a resizable array.
+ * - the indices of polynomials that depend on x are stored in dep[x]->data[k]
+ * - when the dependency is removed, then data[k] is set to a negative value
+ * - the negative elements in array data encode a free list.
  */
-typedef struct dep_rec_s {
+
+// record for vars[i]
+typedef struct var_rec_s {
   int32_t var;   // x
   uint32_t idx;  // k
-} dep_rec_t;
+} var_rec_t;
 
-typedef struct dep_array_s {
+typedef struct var_array_s {
   uint32_t size;      // size of the array
   uint32_t ndeps;     // number of records in use
-  dep_rec_t data[0];  // actual size is defined at allocation time
-} dep_array_t;
+  var_rec_t data[0];  // actual size is defined at allocation time
+} var_array_t;
+
+#define MAX_VAR_ARRAY_SIZE ((UINT32_MAX - sizeof(var_array_t))/sizeof(var_rec_t))
 
 
-#define MAX_DEP_ARRAY_SIZE ((UINT32_MAX- sizeof(dep_array_t))/sizeof(dep_rec_t))
+/*
+ * Data structure for dep[x]
+ * - size = size of array data
+ * - elements are stored in data[0 ... nelems - 1]
+ * - free_list = start of the free list
+ *
+ * A free_list index k is encoded using negative numbers:
+ * - if data[i] is free then the index i is encoded as (i + INT32_MIN)
+ * - the end marker for the free list is MAX_DEP_ARRAY_SIZE
+ */
+typedef struct dep_s {
+  uint32_t size;
+  uint32_t nelems;
+  int32_t free_list;
+  int32_t data[0];
+} dep_t;
+
+#define DEF_DEP_ARRAY_SIZE 20
+#define MAX_DEP_ARRAY_SIZE ((UINT32_MAX - sizeof(dep_t))/sizeof(int32_t))
+
+
+/*
+ * Encoding/decoding of index i into negative numbers
+ */
+static inline int32_t encode_idx(int32_t i) {
+  assert(0 <= i && i < MAX_DEP_ARRAY_SIZE);
+  return i + INT32_MIN;
+}
+
+static inline int32_t decode_idx(int32_t i) {
+  assert(i < 0);
+  return i - INT32_MIN;
+}
 
 
 
@@ -141,14 +182,14 @@ typedef struct offset_poly_table_s {
   eterm_t *eterm;
   polynomial_t **def;
   uint32_t *hash;
-  dep_array_t **vars;
+  var_array_t **vars;
   byte_t *mark;
   remap_array_t var2poly;   // mapping from variable to poly id
   object_store_t pstore;    // store for polynomial construction  
 } offset_poly_table_t;
 
-#define MAX_OFFSET_POLY_TABLE_SIZE ((UINT32_MAX)/sizeof(polynomial_t *))
 #define DEF_OFFSET_POLY_TABLE_SIZE 40
+#define MAX_OFFSET_POLY_TABLE_SIZE ((UINT32_MAX)/sizeof(polynomial_t *))
 
 
 /*
@@ -198,7 +239,7 @@ typedef struct offset_table_s {
   uint32_t size; 
   offset_desc_t *desc;
   int32_t *elim;
-  int32_t **dep;
+  dep_t **dep;
   remap_array_t var2offset_var;
 } offset_table_t;
 
@@ -251,7 +292,7 @@ typedef struct offset_equeue_s {
 #define DEF_OFFSET_EQUEUE_SIZE 100
 #define MAX_OFFSET_EQUEUE_SIZE (UINT32_MAX/sizeof(offset_eq_t))
 
-#define DEF_OFFSET_EQUEUE_NLEVELS 100
+#define DEF_OFFSET_EQUEUE_LEVELS 100
 #define MAX_OFFSET_EQUEUE_LEVELS (UINT32_MAX/sizeof(uint32_t))
 
 
@@ -263,20 +304,27 @@ typedef struct offset_equeue_s {
  * - index = -1 means that data[i] is not used
  * - index = -2 measn that data[i] is deleted
  */
-typedef struct hash_offset_elem_s {
-  uint32_t hash;
+typedef struct offset_hash_elem_s {
   int32_t index;
-} hash_offset_elem_t;
+  uint32_t hash;
+} offset_hash_elem_t;
 
-typedef struct hash_offset_table_s {
-  hash_offset_elem_t *data;
+typedef struct offset_hash_table_s {
+  offset_hash_elem_t *data;
   uint32_t size;              // must be a power of 2
   uint32_t nelems;
   uint32_t ndeleted;
   uint32_t resize_threshold;
   uint32_t cleanup_threshold;
   poly_buffer_t buffer;
-} hash_offset_table_t;
+} offset_hash_table_t;
+
+
+#define DEF_OFFSET_HASH_TABLE_SIZE 64
+#define MAX_OFFSET_HASH_TABLE_SIZE (UINT32_MAX/sizeof(offset_hash_elem_t))
+
+#define OFFSET_HASH_TABLE_RESIZE_RATIO 0.6
+#define OFFSET_HASH_TABLE_CLEANUP_RATIO 0.2
 
 
 
@@ -314,11 +362,12 @@ typedef struct offset_manager_s {
 
   offset_poly_table_t ptable;
   offset_table_t vtable;
-  hash_offset_table_t htbl;
+  offset_hash_table_t htbl;
   offset_equeue_t queue;
   offset_trail_stack_t tstack;
 
   poly_buffer_t buffer;
+  rational_t aux;
 
 } offset_manager_t;
 

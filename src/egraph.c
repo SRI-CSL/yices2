@@ -4357,8 +4357,7 @@ void egraph_push(egraph_t *egraph) {
   }
 
   // increase base level and decision level
-  i = egraph->base_level + 1;
-  egraph->base_level = i;
+  egraph->base_level ++;
   egraph_open_decision_level(egraph);  
 
 #if 0
