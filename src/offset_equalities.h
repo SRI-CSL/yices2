@@ -128,7 +128,7 @@ typedef struct dep_s {
  * Encoding/decoding of index i into negative numbers
  */
 static inline int32_t encode_idx(int32_t i) {
-  assert(0 <= i && i < MAX_DEP_ARRAY_SIZE);
+  assert(0 <= i && i <= MAX_DEP_ARRAY_SIZE);
   return i + INT32_MIN;
 }
 
@@ -153,7 +153,7 @@ static inline int32_t decode_idx(int32_t i) {
  *       p is the same as q
  *
  * The variables of p are variables defined in the arithmetic solver.
- * Each of them is internally renmaed to an offset variable. The mapping
+ * Each of them is internally renamed to an offset variable. The mapping
  * from arithmetic to offset variables is stored in the offset table.
  *
  * The normal form of p is obtained by replacing the variables of p by
@@ -162,13 +162,23 @@ static inline int32_t decode_idx(int32_t i) {
  * modulo a set of offset equalities if their normal forms are the
  * same.
  *
+ * We keep track of whether i is present in the hash table or not:
+ * - if bit active is 1, then i is present in the hash table and in the 
+ *   dependency vectors (i.e., i occurs in dep[x] for all x that occur
+ *   in i's normal form).
+ * - bit active is 0, then i is not present in the hash table
+ *   this means that either i has just been created and its normal form
+ *   has not been computed yet, or that i is equal to another polynomial j
+ *   present in the hash table.
+ *
  * For each index i in 0 to npolys - 1, we store:
  * - eterm[i] = egraph term that i represents (i.e., t)
  * - def[i] = polynomial p
  * - hash[i] = hash code of p's normal form
- * - mark[i] = a one bit mark. mark[i] = 1 means that i's normal 
- *             form has changed
  * - vars[i] = offset variables that occur in p's normal form
+ * - active[i] = active bit
+ * - mark[i] = a one bit mark. mark[i] = 1 means that i is stored in 
+ *             the to_process vector
  *
  * When the triple (t, x, p) is registered, we also store that i
  * corresponds to variable 'x' in the var2poly map.
@@ -183,6 +193,7 @@ typedef struct offset_poly_table_s {
   polynomial_t **def;
   uint32_t *hash;
   var_array_t **vars;
+  byte_t *active;
   byte_t *mark;
   remap_array_t var2poly;   // mapping from variable to poly id
   object_store_t pstore;    // store for polynomial construction  
@@ -262,8 +273,6 @@ typedef struct offset_table_s {
  * pushed into a queue.
  * - eq[i] is an asserted equality (for 0 <= i < top)
  *   id[i] = corresponding id
- * - prop_ptr = propagation pointer: 
- *   eq[prop_ptr ... top - 1] = the propagation queue = all equalities to process
  * - size = size of arrays eq and id
  *
  * For managing the decision levels:
@@ -281,7 +290,6 @@ typedef struct offset_equeue_s {
   offset_eq_t *eq;
   int32_t *id;
   uint32_t top;
-  uint32_t prop_ptr;
   uint32_t size;
 
   uint32_t *level_index;
@@ -316,7 +324,6 @@ typedef struct offset_hash_table_s {
   uint32_t ndeleted;
   uint32_t resize_threshold;
   uint32_t cleanup_threshold;
-  poly_buffer_t buffer;
 } offset_hash_table_t;
 
 
@@ -336,7 +343,6 @@ typedef struct offset_hash_table_s {
 typedef struct offset_trail_s {
   uint32_t npolys;
   uint32_t nvars;
-  uint32_t prop_ptr;
 } offset_trail_t;
 
 typedef struct offset_trail_stack_s {
@@ -352,7 +358,26 @@ typedef struct offset_trail_stack_s {
 
 
 /*
+ * Record to store conflict:
+ * - id = id of the equality that causes the conflict
+ * - lhs, rhs, offset: as in the equality queue
+ *   (i.e., the conflcit equality is lhs := rhs + offset)
+ * If there's no conflict:
+ * - id = -1, lhs = -1, rhs = -1, offset = 0
+ */
+typedef struct offset_eq_conflict_s {
+  int32_t id;
+  int32_t lhs;
+  int32_t rhs;
+  rational_t offset;
+} offset_eq_conflict_t;
+
+
+/*
  * Full offset-equality solver
+ * - egraph = attached egraph
+ * - when a polynomial is created or its normal form needs to 
+ *   be recompited, we store in in vector 'to_process' and we mark it
  */
 typedef struct offset_manager_s {
   egraph_t *egraph;
@@ -365,8 +390,12 @@ typedef struct offset_manager_s {
   offset_hash_table_t htbl;
   offset_equeue_t queue;
   offset_trail_stack_t tstack;
+  offset_eq_conflict_t conflict;
 
-  poly_buffer_t buffer;
+  ivector_t to_process;
+ 
+  poly_buffer_t buffer1;
+  poly_buffer_t buffer2;
   rational_t aux;
 
 } offset_manager_t;
@@ -418,22 +447,20 @@ extern void record_offset_poly(offset_manager_t *m, eterm_t t, thvar_t x, polyno
  * - otherwise both x and y must be arithmetic variables.
  * - the equality is ignored if x or y are not mapped to an offset variable in m
  */
-extern void assert_offset_equality(offset_manager_t *m, thvar_t x, thvar_t y, rational_t *k, int32_t id);
+extern bool assert_offset_equality(offset_manager_t *m, thvar_t x, thvar_t y, rational_t *k, int32_t id);
 
 
 /*
- * Process all pending equalities (in the propagation queue)
- * - return false if a conflict is found, true otherwise
- * - if there's no conflict, all detected eterm equalities 
- *   are propagated to the egraph
+ * Reprocess all polynomials whose normal form has changed
+ * - propagate equalities to the egraph
  */
-extern bool offset_manager_propagate(offset_manager_t *m);
+extern void offset_manager_propagate(offset_manager_t *m);
 
 
 /*
  * Collect the ids of equalities that caused a conflict
- * - if offset_manager_propagate returns false, then this function
- *   can be used to get a conflict explanation.
+ * - if assert_offset_equality returns false, then this can be used
+ *   to get an explanation
  * - the ids are added to vector v (v is not reset)
  */
 extern void offset_manager_explain_conflict(offset_manager_t *m, ivector_t *v);
