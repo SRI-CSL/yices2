@@ -386,15 +386,25 @@ static offset_manager_t mngr;
 static void test_equality(int32_t x, int32_t y, int32_t offset, int32_t id) {
   rational_t q;
 
-  printf("\n\n");
-  if (offset > 0) {
-    printf("*** Asserting: x%"PRId32" = x%"PRId32" + %"PRId32" ***\n", x, y, offset);
-  } else if (offset < 0) {
-    printf("*** Asserting: x%"PRId32" = x%"PRId32" - %"PRId32" ***\n", x, y, -offset);
+  printf("\n\n*** Asserting: ");
+  if (x < 0) {
+    printf("0 = ");
   } else {
-    printf("*** Asserting: x%"PRId32" = x%"PRId32" ***\n", x, y);
+    printf("x%"PRId32" = ", x);
   }
-
+  if (y < 0) {
+    printf("%"PRId32" ****\n", offset);
+  } else {
+    printf("x%"PRId32, y);
+    if (offset > 0) {
+      printf(" + %"PRId32" ****\n", offset);
+    } else if (offset< 0) {
+      printf(" - %"PRId32" ****\n", -offset);
+    } else {
+      printf(" ****\n");
+    }
+  }
+    
   q_init(&q);
   q_set32(&q, offset);
   if (assert_offset_equality(&mngr, x, y, &q, id)) {
@@ -416,11 +426,14 @@ int main(void) {
 
   init_offset_manager(&mngr, NULL);
 
+  /*
+   * FIRST TESTS
+   */
   for (i=0; i<NPOLYS; i++) {
     record_offset_poly(&mngr, term[i], var[i], poly[i]);
   }
 
-  printf("*** Initial state ****\n");
+  printf("\n*** Initial state ****\n");
   print_var2poly(&mngr);
   print_var2offset_var(&mngr);
   print_ptable(&mngr);
@@ -428,10 +441,11 @@ int main(void) {
 
   
   offset_manager_propagate(&mngr);
-  printf("*** After propagate ****\n");
+  printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
   print_vtable(&mngr);
 
+  offset_manager_increase_decision_level(&mngr);
   test_equality(var[3], var[4], 0, 123);
   offset_manager_propagate(&mngr);
 
@@ -439,6 +453,136 @@ int main(void) {
   print_ptable(&mngr);
   print_vtable(&mngr);
 
+  offset_manager_backtrack(&mngr, 0);
+  printf("\n*** After backtracking to level 0 ***\n");
+  print_ptable(&mngr);
+  print_vtable(&mngr);
+
+  offset_manager_increase_decision_level(&mngr);
+  test_equality(var[3], -1, 1, 234);
+  test_equality(var[3], var[4], 0, 123);
+  offset_manager_propagate(&mngr);
+  printf("\n*** After propagate ****\n");
+  print_ptable(&mngr);
+  print_vtable(&mngr);  
+
+  offset_manager_backtrack(&mngr, 0);
+  offset_manager_propagate(&mngr);
+  printf("\n*** After backtracking to level 0 ***\n");
+  print_ptable(&mngr);
+  print_vtable(&mngr);
+
+  /*
+   * SECOND TEST
+   */
+  reset_offset_manager(&mngr);
+  printf("\n*** After reset ****\n");
+  print_var2poly(&mngr);
+  print_var2offset_var(&mngr);
+  print_ptable(&mngr);
+  print_vtable(&mngr);
+
+
+  for (i=0; i<NPOLYS/2; i++) {
+    record_offset_poly(&mngr, term[i], var[i], poly[i]);
+  }
+  offset_manager_push(&mngr);
+
+  printf("\n*** After push ****\n");
+  print_var2poly(&mngr);
+  print_var2offset_var(&mngr);
+  print_ptable(&mngr);
+  print_vtable(&mngr);
+
+  while (i < NPOLYS) {
+    record_offset_poly(&mngr, term[i], var[i], poly[i]);
+    i ++;
+  }
+
+  printf("\n*** After adding all polys ****\n");
+  print_ptable(&mngr);
+  print_vtable(&mngr);
+
+
+  test_equality(var[5], var[3], 10, 111);
+  offset_manager_propagate(&mngr);
+
+  printf("\n*** After propagate ****\n");
+  print_ptable(&mngr);
+  print_vtable(&mngr);
+  
+  offset_manager_pop(&mngr);
+  printf("\n*** After pop ****\n");
+  print_var2poly(&mngr);
+  print_var2offset_var(&mngr);
+  print_ptable(&mngr);
+  print_vtable(&mngr);
+  
+  test_equality(var[4], var[3], 10, 111);
+  offset_manager_propagate(&mngr);
+  printf("\n*** After propagate ****\n");
+  print_ptable(&mngr);
+  print_vtable(&mngr);
+  
+  
+  /*
+   * THIRD TEST
+   */
+  reset_offset_manager(&mngr);
+  printf("\n*** After reset ****\n");
+  print_var2poly(&mngr);
+  print_var2offset_var(&mngr);
+  print_ptable(&mngr);
+  print_vtable(&mngr);
+
+  for (i=0; i<6; i++) {
+    record_offset_poly(&mngr, term[i], var[i], poly[i]);
+  }
+  test_equality(var[5], var[3], 10, 111);
+  offset_manager_propagate(&mngr);
+
+  printf("\n*** After propagate ****\n");
+  print_ptable(&mngr);
+  print_vtable(&mngr);
+  
+  offset_manager_push(&mngr);
+
+  printf("\n*** After push ****\n");
+  print_var2poly(&mngr);
+  print_var2offset_var(&mngr);
+  print_ptable(&mngr);
+  print_vtable(&mngr);
+
+  while (i < NPOLYS) {
+    record_offset_poly(&mngr, term[i], var[i], poly[i]);
+    i ++;
+  }
+
+  printf("\n*** After adding all polys ****\n");
+  print_ptable(&mngr);
+  print_vtable(&mngr);
+
+  test_equality(var[4], var[3], 10, 111);
+  test_equality(-1, var[3], 56, 122);
+  offset_manager_propagate(&mngr);
+
+  printf("\n*** After propagate ****\n");
+  print_ptable(&mngr);
+  print_vtable(&mngr);
+  
+  offset_manager_pop(&mngr);
+
+  printf("\n*** After pop ****\n");
+  print_var2poly(&mngr);
+  print_var2offset_var(&mngr);
+  print_ptable(&mngr);
+  print_vtable(&mngr);
+  
+  offset_manager_propagate(&mngr);
+  printf("\n*** After propagate ****\n");
+  print_ptable(&mngr);
+  print_vtable(&mngr);
+  
 
   delete_offset_manager(&mngr);
   delete_polys();

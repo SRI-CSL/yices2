@@ -204,6 +204,32 @@ typedef struct offset_poly_table_s {
 
 
 /*
+ * Queue to store polynomials added during the search
+ * - if a polynomial is created at decision_level = l0 >  base_level
+ *   then it must be reanalyzed when we backtrack below l0
+ * - we keep track of these polynomials in the following queue
+ * - each element in this queue stores a polynomial id (index in the ptable)
+ *   and the level at which the polynomial was added.
+ */
+typedef struct recheck_elem_s {
+  int32_t id;
+  uint32_t level;
+} recheck_elem_t;
+
+typedef struct recheck_queue_s {
+  recheck_elem_t *data;
+  uint32_t top;  // top of the queue
+  uint32_t size; // size of the data array
+} recheck_queue_t;
+
+
+#define DEF_RECHECK_QUEUE_SIZE 20
+#define MAX_RECHECK_QUEUE_SIZE (UINT32_MAX/sizeof(recheck_elem_t))
+
+
+
+
+/*
  * Offset variable table
  * ---------------------
  * - offset variables are indexed from 0 to nvars - 1
@@ -390,10 +416,11 @@ typedef struct offset_manager_s {
   offset_hash_table_t htbl;
   offset_equeue_t queue;
   offset_trail_stack_t tstack;
-  offset_eq_conflict_t conflict;
 
+  offset_eq_conflict_t conflict;
+  recheck_queue_t recheck;
   ivector_t to_process;
- 
+  
   poly_buffer_t buffer1;
   poly_buffer_t buffer2;
   rational_t aux;
@@ -414,6 +441,7 @@ extern void delete_offset_manager(offset_manager_t *m);
 
 
 extern void reset_offset_manager(offset_manager_t *m);
+
 
 
 /*
