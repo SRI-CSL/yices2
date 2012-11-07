@@ -2010,6 +2010,48 @@ static void offset_manager_restore(offset_manager_t *m) {
 
 
 /*
+ * Deal with the recheck queue when backtracking to level k
+ * - if k is equal to base_level, empty the queue and move its
+ *   content to vector 'to_process'
+ * - if k is more than base_level, collect all polynomials introduced
+ *   at a level > k and move them to 'to_process'. Also change thei
+ *   level tp k in the recheck queue.
+ */
+static void process_recheck_queue(offset_manager_t *m, int32_t k) {
+  recheck_queue_t *queue;
+  uint32_t i;
+  int32_t q;
+
+  assert(k >= m->base_level);
+
+  queue = &m->recheck;
+  i = queue->top;
+
+  if (k == m->base_level) {
+    while (i> 0) {
+      i --;
+      q = queue->data[i].id;
+      assert(! offset_poly_is_marked(&m->ptable, q));
+      mark_offset_poly(&m->ptable, q);
+      ivector_push(&m->to_process, q);
+    }
+    queue->top = 0;
+
+  } else {
+    while (i > 0 && queue->data[i-1].level > k) {
+      i --;
+      queue->data[i].level = k;
+      q = queue->data[i].id;
+      assert(! offset_poly_is_marked(&m->ptable, q));
+      mark_offset_poly(&m->ptable, q);
+      ivector_push(&m->to_process, q);
+    }
+    queue->top = i;    
+  }
+}
+
+
+/*
  * Backtrack to level k
  */
 void offset_manager_backtrack(offset_manager_t *m, uint32_t k) {
@@ -2026,6 +2068,8 @@ void offset_manager_backtrack(offset_manager_t *m, uint32_t k) {
     undo_offset_equality(m, queue->eq + i);
   }
   queue->top = back;
+
+  process_recheck_queue(m, k);
   m->decision_level = k;
 
   offset_manager_restore(m);
