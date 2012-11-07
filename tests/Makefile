@@ -144,6 +144,10 @@ ifeq ($(YICES_MODE),release)
   CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer
   CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else 
+ifeq ($(YICES_MODE),devel) 
+CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
+CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+else
 ifeq ($(YICES_MODE),profile)
   CFLAGS := $(CFLAGS) -O3 -pg
   CPPFLAGS := $(CPPFLAGS) -DNDEBUG
@@ -161,8 +165,7 @@ endif
 endif
 endif
 endif
-
-
+endif
 
 #
 # Link command for purify/quantify

@@ -381,6 +381,15 @@ static void print_var2offset_var(offset_manager_t *mngr) {
   printf("\n");
 }
 
+
+/*
+ * Callback to report equality
+ */
+static void notify_equality(void *aux, eterm_t t1, eterm_t t2) {
+  printf("---> t!%"PRId32" == t!%"PRId32"\n", t1, t2);
+  fflush(stdout);
+}
+
 static offset_manager_t mngr;
 
 static void test_equality(int32_t x, int32_t y, int32_t offset, int32_t id) {
@@ -424,7 +433,7 @@ int main(void) {
   build_polys();
   show_polys();
 
-  init_offset_manager(&mngr, NULL);
+  init_offset_manager(&mngr, NULL, notify_equality);
 
   /*
    * FIRST TESTS

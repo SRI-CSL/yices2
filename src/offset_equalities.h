@@ -46,7 +46,7 @@
 #include "rationals.h"
 #include "polynomials.h"
 #include "poly_buffer.h"
-#include "egraph_types.h"
+#include "egraph_base_types.h"
 
 
 
@@ -400,13 +400,21 @@ typedef struct offset_eq_conflict_s {
 
 
 /*
+ * When an equality is discovered between two polynomials, a
+ * callback function is called:
+ * - first argument = a generic void * pointer
+ * - second and third argument = the two eterms that have become equal
+ */
+typedef void (*eq_notifier_t)(void *aux, eterm_t t1, eterm_t t2);
+
+/*
  * Full offset-equality solver
- * - egraph = attached egraph
  * - when a polynomial is created or its normal form needs to 
  *   be recompited, we store in in vector 'to_process' and we mark it
  */
 typedef struct offset_manager_s {
-  egraph_t *egraph;
+  void *external;
+  eq_notifier_t notify_eq;
 
   uint32_t base_level;
   uint32_t decision_level;
@@ -432,9 +440,10 @@ typedef struct offset_manager_s {
 
 /*
  * Initialize
- * - egraph = the relevant egraph
+ * - ext: external object passed as argument to notifier
+ * - f: the callback
  */
-extern void init_offset_manager(offset_manager_t *m, egraph_t *egraph);
+extern void init_offset_manager(offset_manager_t *m, void *ext, eq_notifier_t f);
 
 
 extern void delete_offset_manager(offset_manager_t *m);

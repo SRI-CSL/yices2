@@ -5,13 +5,8 @@
 
 #include <assert.h>
 
-// FOR TESTING ONLY
-#include <stdio.h>
-#include <inttypes.h>
-
 #include "memalloc.h"
 #include "index_vectors.h"
-#include "egraph.h"
 #include "offset_equalities.h"
 
 
@@ -1437,10 +1432,13 @@ static inline void delete_eq_conflict(offset_eq_conflict_t *c) {
  */
 
 /*
- * Initialize
+ * Initialize:
+ * - ext = pointer to an external object 
+ * - f: callback called when an equality is detected
  */
-void init_offset_manager(offset_manager_t *m, egraph_t *egraph) {
-  m->egraph = egraph;
+void init_offset_manager(offset_manager_t *m, void *ext, eq_notifier_t f) {
+  m->external = ext;
+  m->notify_eq = f;
   m->base_level = 0;
   m->decision_level = 0;
 
@@ -1674,19 +1672,17 @@ static void detach_offset_poly(offset_manager_t *m, int32_t i) {
 
 
 /*
- * Send equality (i1 == i2) to the Egraph
+ * Send equality (i1 == i2) to the external solver
  * - i1 and i2 are polynomial indices
  */
-static void send_eq_to_egraph(offset_manager_t *m, int32_t i1, int32_t i2) {
+static void report_equality(offset_manager_t *m, int32_t i1, int32_t i2) {
   eterm_t t1, t2;
 
   assert(0 <= i1 && i1 < m->ptable.npolys && 0 <= i2 && i2 < m->ptable.npolys && i1 != i2);
 
   t1 = m->ptable.eterm[i1];
   t2 = m->ptable.eterm[i2];
-  // FOR TESTING
-  printf("---> t!%"PRId32" == t!%"PRId32"\n", t1, t2);
-  //  egraph_propagate_equality(m->egraph, pos_occ(t1), pos_occ(t2), EXPL_ARITH_PROPAGATION, NULL);
+  m->notify_eq(m->external, t1, t2);
 }
 
 
@@ -1722,9 +1718,9 @@ static void process_poly(offset_manager_t *m, int32_t i) {
     mark_offset_poly_active(&m->ptable, i);
     attach_offset_poly(m, i, b);
   } else {
-    // send the equality eterm[r] == eterm[i] to the Egraph
+    // propagate the equality eterm[r] == eterm[i]
     mark_offset_poly_inactive(&m->ptable, i);
-    send_eq_to_egraph(m, i, r);
+    report_equality(m, i, r);
   }
 }
 
