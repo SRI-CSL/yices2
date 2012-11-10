@@ -3,9 +3,14 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "bitvectors.h"
 #include "memalloc.h"
+#include "hash_functions.h"
+#include "int_partitions.h"
+#include "index_vectors.h"
+
 #include "offset_equalities.h"
+
+
 
 #ifdef MINGW
 static inline long int random(void) {
@@ -382,11 +387,13 @@ static void subst_var(substitution_t *s, offset_pair_t *d) {
   x = d->var;
   k = d->delta;
 
+  assert(x < s->size);
   while (x >= 0 && s->elim[x]) {
     k += s->delta[x];
     x = s->var[x];
     n --;
     if (n == 0) goto bug;      
+    assert(x < s->size);
   }
 
   d->var = x;
@@ -554,6 +561,13 @@ static void set_normal_form(normal_form_t *f, poly_buffer_t *b) {
   f->hash = hash_monarray(f->mono, n);
 }
 
+
+/*
+ * Check whether f and g are equal
+ */
+static bool equal_normal_forms(normal_form_t *f, normal_form_t *g) {
+  return f->hash == g->hash && f->nterms == g->nterms && equal_monarrays(f->mono, g->mono);
+}
 
 
 
@@ -740,6 +754,36 @@ static void notify_equality(void *aux, int32_t x, int32_t y) {
   x = root_of_var(queue, x);
   y = root_of_var(queue, y);
   push_equality(queue, x, y);  
+}
+
+
+/*
+ * Equivalence classes defined by queue->parent
+ */
+// test equivalence (callbacks for ipart: aux is an equality queue)
+static bool prop_same_class(void *aux, int32_t x, int32_t y) {
+  equality_queue_t *queue;
+
+  queue = aux;
+  return root_of_var(queue, x) == root_of_var(queue, y);
+}
+
+// hash code
+static uint32_t prop_hash_var(void * aux, int32_t x) {
+  equality_queue_t *queue;
+
+  queue = aux;
+  return jenkins_hash_int32(root_of_var(queue, x));
+}
+
+
+static void collect_propagated_classes(equality_queue_t *queue, ipart_t *partition) {
+  uint32_t i, n;
+
+  n = queue->nvars;
+  for (i=0; i<n; i++) {
+    int_partition_add(partition, i);
+  }
 }
 
 
@@ -954,7 +998,7 @@ static void push_record_poly(op_stack_t *stack, int32_t id) {
   stack->top = i+1;
 }
 
-static void push_assert_eq(op_stack_t *stack, int32_t x, int32_t y, int32_t offset) {
+static uint32_t push_assert_eq(op_stack_t *stack, int32_t x, int32_t y, int32_t offset) {
   uint32_t i;
 
   i = stack->top;
@@ -968,6 +1012,8 @@ static void push_assert_eq(op_stack_t *stack, int32_t x, int32_t y, int32_t offs
   stack->data[i].arg.eq.rhs = y;
   stack->data[i].arg.eq.offset = offset;
   stack->top = i+1;
+
+  return i;
 }
 
 static void push_op(op_stack_t *stack, operation_t op) {
@@ -1017,7 +1063,7 @@ static void init_test_bench(test_bench_t *bench, poly_table_t *ptable) {
   nv = ptable->nvars;
 
   bench->ptable = ptable;
-  init_substitution(&bench->subst, nv);
+  init_substitution(&bench->subst, np);
   init_subst_queue(&bench->squeue, nv);
   init_active_polys(&bench->act, np);
   init_op_stack(&bench->stack);
@@ -1065,6 +1111,42 @@ static void normalize_all(test_bench_t *bench) {
 
 
 /*
+ * Expected classes (based on normal forms)
+ * - this collects all equal polynomials (must be called after normalize_all)
+ */
+
+// hash code (callback for int_partition: aux is a bench, i is the index of an active poly)
+static uint32_t exp_hash_var(void *aux, int32_t i) {
+  test_bench_t *bench;
+
+  bench = aux;
+  assert(0 <= i && i < bench->act.npolys);
+  return bench->act.norm[i]->hash;
+}
+
+// equivalence tst
+static bool exp_equal_var(void *aux, int32_t i, int32_t j) {
+  test_bench_t *bench;
+
+  bench = aux;
+  assert(0 <= i && i < bench->act.npolys);
+  assert(0 <= j && j < bench->act.npolys);
+  return equal_normal_forms(bench->act.norm[i], bench->act.norm[j]);
+}
+
+
+static void collect_expected_classes(test_bench_t *bench, ipart_t *partition) {
+  uint32_t i, n;
+
+  n = bench->act.npolys;
+  for (i=0; i<n; i++) {
+    int_partition_add(partition, i);
+  }
+}
+
+
+
+/*
  * TEST OPERATIONS
  */
 static void test_activate(test_bench_t *bench, int32_t id) {
@@ -1080,35 +1162,33 @@ static void test_activate(test_bench_t *bench, int32_t id) {
 static void test_assert_eq(test_bench_t *bench, int32_t x, int32_t y, int32_t offset) {
   offset_equality_t e;
   rational_t q;
+  int32_t id;
 
-  push_assert_eq(&bench->stack, x, y, offset);
+  id = push_assert_eq(&bench->stack, x, y, offset);
 
   e.lhs = x;
   e.rhs = y;
   e.offset = offset;
   subst_eq(&bench->subst, &e);
 
-  if (e.lhs == e.rhs) {
-    if (e.offset != 0) {
-      // expected result = conflict
-    }
-  } else { 
+  // if e.lhs == e.rhs, we can't add to the substitution table
+  if (e.lhs != e.rhs) {
     if (e.lhs < 0) {
       // convert 0 = y + offset into y := -offset
       e.lhs = e.rhs;
       e.rhs = -1;
       e.offset = -e.offset;
     }
-
     // add substitution e.lhs := e.rhs + e.offset
     add_subst(&bench->subst, e.lhs, e.rhs, e.offset);
     subst_queue_push_var(&bench->squeue, e.lhs);
-
-    q_init(&q);
-    q_set32(&q, offset);
-    assert_offset_equality(&bench->manager, x, y, &q, e.lhs);
-    q_clear(&q);
   }
+  
+  // forward to the offset manager
+  q_init(&q);
+  q_set32(&q, offset);
+  assert_offset_equality(&bench->manager, x, y, &q, id);
+  q_clear(&q);
 }
 
 static void test_propagate(test_bench_t *bench) {
@@ -1235,12 +1315,127 @@ static void print_active_polys(test_bench_t *bench) {
     if (p != NULL) {
       printf(" = ");
       print_poly(p);
-    } 
+    }
     printf("\n");
-    printf("         ---> ");
+  }
+  printf("\n");
+}
+
+
+static void print_normal_forms(test_bench_t *bench) {
+  uint32_t i, n;
+  int32_t idx;
+
+  n = bench->act.npolys;
+  for (i=0; i<n; i++) {
+    idx = bench->act.id[i];
+    printf("  norm(x%"PRId32") = ", idx);
     print_normal_form(bench->act.norm[i]);
     printf("\n");
   }
+  printf("\n");
+}
+
+static void print_offset_eq(offset_equality_t *eq) {
+  if (eq->lhs < 0) { 
+    printf("0");
+  } else {
+    printf("x%"PRId32, eq->lhs);
+  }
+  printf(" == ");
+  if (eq->rhs < 0) {
+    printf("%"PRId32, eq->offset);
+  } else {
+    printf("x%"PRId32, eq->rhs);
+    if (eq->offset > 0) {
+      printf(" + %"PRId32, eq->offset);
+    } else if (eq->offset < 0) {
+      printf(" - %"PRId32, -eq->offset);
+    }
+  }  
+}
+
+static void print_all_equalities(test_bench_t *bench) {
+  uint32_t i, n;
+
+  n = bench->stack.top;
+  for (i=0; i<n; i++) {
+    if (bench->stack.data[i].tag == ASSERT_EQ) {
+      printf("  eq[%"PRIu32"]: ", i);
+      print_offset_eq(&bench->stack.data[i].arg.eq);
+      printf("\n");
+    }
+  }
+  printf("\n");
+}
+
+static void print_class(int32_t *v) {
+  uint32_t i, n;
+
+  n = iv_size(v);
+  assert(n >= 2);
+  printf("{ x%"PRId32, v[0]);
+  for (i=1; i<n; i++) {
+    printf(", x%"PRId32, v[i]);
+  }
+  printf(" }");
+}
+
+static void print_infered_classes(test_bench_t *bench) {
+  ipart_t partition;
+  int32_t *v;
+  uint32_t i, n;
+
+  init_int_partition(&partition, 0, &bench->equeue, prop_hash_var, prop_same_class);
+  collect_propagated_classes(&bench->equeue, &partition);
+
+  n = int_partition_nclasses(&partition);
+  for (i=0; i<n; i++) {
+    v = partition.classes[i];
+    printf("  class[%"PRIu32"]: ", i);
+    print_class(v);
+    printf("\n");
+  }
+  printf("\n");
+
+  delete_int_partition(&partition);
+}
+
+static void print_active_class(active_poly_table_t *table, int32_t *v) {
+  uint32_t i, n, k;
+
+  n = iv_size(v);
+  assert(n >= 2);  
+
+  k = v[0];
+  assert(0 <= k && k < table->npolys);
+  printf("{ x%"PRId32, table->id[k]);
+  for (i=1; i<n; i++) {
+    k = v[i];
+    assert(0 <= k && k < table->npolys);
+    printf(", x%"PRId32, table->id[k]);
+  }
+  printf(" }");
+}
+
+static void print_expected_classes(test_bench_t *bench) {
+  ipart_t partition;
+  int32_t *v;
+  uint32_t i, n;
+
+  init_int_partition(&partition, 0, bench, exp_hash_var, exp_equal_var);
+  collect_expected_classes(bench, &partition);
+
+  n = int_partition_nclasses(&partition);
+  for (i=0; i<n; i++) {
+    v = partition.classes[i];
+    printf("  check[%"PRIu32"]: ", i);
+    print_active_class(&bench->act, v);;
+    printf("\n");
+  }
+  printf("\n");
+
+  delete_int_partition(&partition);
 }
 
 
@@ -1274,6 +1469,10 @@ int main(void) {
 
   normalize_all(&bench);
   print_active_polys(&bench);
+  print_all_equalities(&bench);
+  print_normal_forms(&bench);
+  print_infered_classes(&bench);
+  print_expected_classes(&bench);
 
   delete_test_bench(&bench);
   delete_poly_table(&poly_table);

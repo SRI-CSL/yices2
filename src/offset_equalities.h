@@ -484,27 +484,28 @@ extern void record_offset_poly(offset_manager_t *m, eterm_t t, thvar_t x, polyno
  * - otherwise both x and y must be arithmetic variables.
  * - the equality is ignored if x or y are not mapped to an offset variable in m
  */
-extern bool assert_offset_equality(offset_manager_t *m, thvar_t x, thvar_t y, rational_t *k, int32_t id);
+extern void assert_offset_equality(offset_manager_t *m, thvar_t x, thvar_t y, rational_t *k, int32_t id);
 
 
 /*
- * Reprocess all polynomials whose normal form has changed
- * - propagate equalities to the egraph
+ * Process all equalities in the queue
+ * - if two monitored polynomials become equal, the notify_eq function is called
+ * - return false if a conflict is detected
+ * - return true otherwise
  */
 extern void offset_manager_propagate(offset_manager_t *m);
 
 
 /*
  * Collect the ids of equalities that caused a conflict
- * - if assert_offset_equality returns false, then this can be used
- *   to get an explanation
+ * - this can be used to get an explanation when propagate returns false
  * - the ids are added to vector v (v is not reset)
  */
 extern void offset_manager_explain_conflict(offset_manager_t *m, ivector_t *v);
 
 
 /*
- * Builld an explanation for (x == y)
+ * Build an explanation for (x == y)
  * - x and y must be present in the internal poly table 
  *   and they must have equal normal form
  * - this function collect the ids of equalities that imply x == y into vector v

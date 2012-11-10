@@ -416,12 +416,7 @@ static void test_equality(int32_t x, int32_t y, int32_t offset, int32_t id) {
     
   q_init(&q);
   q_set32(&q, offset);
-  if (assert_offset_equality(&mngr, x, y, &q, id)) {
-    printf("no conflict\n");
-    //    print_vtable(&mngr.vtable);
-  } else {
-    printf("conflict\n");
-  }
+  assert_offset_equality(&mngr, x, y, &q, id);
   q_clear(&q);
 }
 

@@ -1318,9 +1318,8 @@ static void extend_offset_equeue(offset_equeue_t *queue) {
 
 /*
  * Push equality (x == y + c) into the queue, with the given id
- * - return the equality index in the queue
  */
-static uint32_t push_offset_equality(offset_equeue_t *queue, int32_t x, int32_t y, rational_t *c, int32_t id) {
+static void push_offset_equality(offset_equeue_t *queue, int32_t x, int32_t y, rational_t *c, int32_t id) {
   uint32_t i;
 
   i = queue->top;
@@ -1335,8 +1334,6 @@ static uint32_t push_offset_equality(offset_equeue_t *queue, int32_t x, int32_t 
   queue->id[i] = id;
 
   queue->top = i + 1;
-
-  return i;
 }
 
 
@@ -1778,21 +1775,93 @@ static void collect_polys_to_process(offset_manager_t *m, dep_t *v) {
 
 
 /*
- * Push equality (x == y + k) into the queue
- * - id = unique id for this equality
- * - if y is -1, the assertion is interpreted as x == k
- * - otherwise both x and y must be arithmetic variables.
- * - the equality is ignored if x or y are not mapped to an offset variable in m
- *
- * Return false if (x == y + k) causes a conflict, true otherwise.
+ * Process an equality: need to be fixed
  */
-bool assert_offset_equality(offset_manager_t *m, thvar_t x, thvar_t y, rational_t *k, int32_t id) {
+bool process_offset_equality(offset_manager_t *m, int32_t x, int32_t y, rational_t *k, uint32_t i ) {
   offset_table_t *vtbl;
   offset_desc_t *dx, *dy;
   rational_t *delta;
-  int32_t xx, yy;
   int32_t rx, ry;
-  uint32_t i;
+  int32_t z;
+
+  vtbl = &m->vtable;
+
+  assert( 0 <= x && x < vtbl->nvars && 0 <= y && y < vtbl->nvars);
+  
+  /*
+   * x is [root1 + delta1]
+   * y is [root2 + delta2]
+   * so (x == y + k) is equivalent to root1 == root2 + delta2 - delta1 + k
+   */
+  dx = vtbl->desc + x;
+  dy = vtbl->desc + y;
+  
+  rx = dx->root;   // root1
+  ry = dy->root;   // root2
+  delta = &m->aux;
+  q_set(delta, &dy->offset);
+  q_sub(delta, &dx->offset);
+  q_add(delta, k);  // delta2 - delta1 + k
+
+  if (rx == ry) {
+    if (q_is_nonzero(delta)) {
+      // conflict
+      set_eq_conflict(&m->conflict, i, x, y, k);
+      return false;
+    }
+  } else {
+    /*
+     * Swap rx and ry: we want to force lhs /= 0
+     * Otherwise, we take as lhs the variable with smallest dep vector
+     */
+    if (rx == 0 || 
+	(ry != 0 && offset_var_dep_size(vtbl, rx) > offset_var_dep_size(vtbl, ry))) {
+      z = rx; rx = ry; ry = z;
+      q_neg(delta);
+    }
+
+    assert(rx != 0);
+
+    /*
+     * Update the descriptors in rx's class
+     */
+    z = rx;
+    do {
+      dx = vtbl->desc  + z;
+      assert(dx->root == rx);
+      dx->root = ry;
+      q_add(&dx->offset, delta);
+      z = dx->next;
+    } while (z != rx);
+
+    /*
+     * Merge the circular lists: swap the desc[rx].next and desc[ry].next
+     */
+    z = vtbl->desc[rx].next;
+    vtbl->desc[rx].next = vtbl->desc[ry].next;
+    vtbl->desc[ry].next = z;
+      
+    /*
+     * All polynomials that depend on rx need reprocessing
+     */
+    collect_polys_to_process(m, vtbl->dep[rx]);
+  }
+
+  return true;
+}
+
+
+/*
+ * Push equality (x == y + k) into the queue
+ * - id = unique id for this equality
+ * - if y is -1, the assertion is interpreted as x == k
+ * - if x is -1. the assertion is interpreted as y + k == 0
+ * - otherwise both x and y must be arithmetic variables.
+ * - the equality is ignored if x or y are not mapped to an offset variable in m
+ */
+void assert_offset_equality(offset_manager_t *m, thvar_t x, thvar_t y, rational_t *k, int32_t id) {
+  offset_table_t *vtbl;
+  int32_t xx, yy;
 
   vtbl = &m->vtable;
 
@@ -1801,74 +1870,8 @@ bool assert_offset_equality(offset_manager_t *m, thvar_t x, thvar_t y, rational_
   yy = (y < 0) ? 0 : remap_get(&vtbl->var2offset_var, y);
   if (xx >= 0 && yy >= 0) {
     assert(xx < vtbl->nvars && yy < vtbl->nvars);
-
-    /*
-     * xx is [root1 + delta1]
-     * yy is [root2 + delta2]
-     * so (xx == yy + k) is equivalent to root1 == root2 + delta2 - delta1 + k
-     */
-    dx = vtbl->desc + xx;
-    dy = vtbl->desc + yy;
-
-    rx = dx->root;   // root1
-    ry = dy->root;   // root2
-    delta = &m->aux;
-    q_set(delta, &dy->offset);
-    q_sub(delta, &dx->offset);
-    q_add(delta, k);  // delta2 - delta1 + k
-
-    if (rx == ry) {
-      if (q_is_nonzero(delta)) {
-	// conflict
-	set_eq_conflict(&m->conflict, id, xx, yy, k);
-	return false;
-      }
-    } else {
-      /*
-       * Swap rx and ry: we want to force lhs /= 0
-       * Otherwise, we take as lhs the variable with smallest dep vector
-       */
-      if (rx == 0 || 
-	  (ry != 0 && offset_var_dep_size(vtbl, rx) > offset_var_dep_size(vtbl, ry))) {
-	xx = rx; rx = ry; ry = xx;
-	q_neg(delta);
-      }
-
-      assert(rx != 0);
-
-      /*
-       * Update the descriptors in rx's class
-       */
-      xx = rx;
-      do {
-	dx = vtbl->desc  + xx;
-	assert(dx->root == rx);
-	dx->root = ry;
-	q_add(&dx->offset, delta);
-	xx = dx->next;
-      } while (xx != rx);
-
-      /*
-       * Merge the circular lists: swap the desc[rx].next and desc[ry].next
-       */
-      xx = vtbl->desc[rx].next;
-      vtbl->desc[rx].next = vtbl->desc[ry].next;
-      vtbl->desc[ry].next = xx;
-      
-      /*
-       * All polynomials that depend on rx need reprocessing
-       */
-      collect_polys_to_process(m, vtbl->dep[rx]);
-      
-      /*
-       * Store the equality
-       */
-      i = push_offset_equality(&m->queue, rx, ry, delta, id);
-      vtbl->elim[rx] = i;
-    }
+    push_offset_equality(&m->queue, xx, yy, k, id);
   }
-
-  return true;
 }
 
 
