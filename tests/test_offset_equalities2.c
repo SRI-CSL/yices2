@@ -1402,12 +1402,12 @@ static void print_explanation(test_bench_t *bench, ivector_t *v) {
 /*
  * Get the conflict explanation from bench->manager
  */
-static void check_conflict_explanation(test_bench_t *bench) {
+static void check_conflict(test_bench_t *bench) {
   ivector_t expl;
 
   init_ivector(&expl, 10);
   offset_manager_explain_conflict(&bench->manager, &expl);
-  printf("---> Conflict: explanation:\n");
+  printf("---> Conflict:\n");
   print_explanation(bench, &expl);  
   delete_ivector(&expl);
 }
@@ -1416,6 +1416,7 @@ static void check_conflict_explanation(test_bench_t *bench) {
 static void check_propagation(test_bench_t *bench) {
   // TBD
 }
+
 
 /*
  * TEST OPERATIONS
@@ -1467,7 +1468,7 @@ static void test_propagate(test_bench_t *bench) {
   if (offset_manager_propagate(&bench->manager)) {
     check_propagation(bench);
   } else {
-    check_conflict_explanation(bench);
+    check_conflict(bench);
   }
 }
 
