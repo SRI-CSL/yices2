@@ -770,10 +770,10 @@ static inline void undo_stack_push_composite(undo_stack_t *stack, composite_t *c
 }
 
 /*
- * REANALYZE_CONGRUENCE_ROOT and REANALYZE_COMPOSITE means that cmp was created on the fly,
+ * REANALYZE_CONGRUENCE_ROOT and REANALYZE_COMPOSITE mean that cmp was created on the fly,
  * and that its signature and class must be recomputed when we backtrack.
  * - REANALYZE_CONGRUENCE_ROOT means that cmp was activated as a congruence root
- * - REANALYZE_COMPOSITE measn that cmp was equal to another term when activated
+ * - REANALYZE_COMPOSITE means that cmp was equal to another term when activated
  */
 static inline void undo_stack_push_congruence_root(undo_stack_t *stack, composite_t *cmp) {
   undo_stack_push_ptr(stack, cmp, REANALYZE_CONGRUENCE_ROOT);

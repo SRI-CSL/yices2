@@ -4,7 +4,7 @@
  */
 
 /*
- * When we connect the Simplex solver and the Egraph, the equality
+ * When we connect the Simplex solver and the Egraph, equality
  * constraints propagated from the Egraph get turned into rows of the
  * form z = x - y in the tableau, with the constraint 0 <= z <= 0
  * asserted on z.  We also get equalities of the same form but with
@@ -149,7 +149,7 @@ static inline int32_t decode_idx(int32_t i) {
  *   - p is the definition of x
  *       there are two cases:
  *       if x is a free variable in the arithmetic solver, then p is 1.x
- *       otherwise, x denotes a polynomila q in the arithmetic solver then 
+ *       otherwise, x denotes a polynomial q in the arithmetic solver then 
  *       p is the same as q
  *
  * The variables of p are variables defined in the arithmetic solver.
@@ -244,22 +244,26 @@ typedef struct recheck_queue_s {
  *   the offset of x relative to this root. All variables in the
  *   same class are linked together in a circular list.
  *
+ * - to generate explanations, we keep a merge tree per class.
+ *   Edges in the merge tree are indices in the offset equality queue.
+ *   Equality x := y + k forms an edge from x to y, labeled by k.
+ *   We store in edge[x] the edge that goes from x to its parent in
+ *   the merge tree. If x is the root of the merge tree then we set
+ *   edge[x] = -1.
+ *
  * - for each variable we store
  *     desc[x] = descriptor of x 
- *     elim[x] = index of the equality that eliminated 'x'
+ *     edge[x] = index of the equality from x to its parent in the merge tree
  *     dep[x] = vector of polynomial indices (see index_vectors.h)
  *
  * - if x is a root we have
  *     desc[x].root = x
  *     desc[x].offset = 0
- *     elim[x] = -1 (not eliminated)
  *     dep[x] = all polynomials that depend on x
  *
  * - if x is not a root 
  *     desc[x].root = r
  *     desc[x].offset = k 
- *     elim[x] = index of an equality of the form [x := y + c]
- *               in the equality queue
  *     dep[x] = polyomials that depended on x before the previous
  *              equality was asserted (i.e., the last time x was a root).
  * 
@@ -275,7 +279,7 @@ typedef struct offset_table_s {
   uint32_t nvars;
   uint32_t size; 
   offset_desc_t *desc;
-  int32_t *elim;
+  int32_t *edge;
   dep_t **dep;
   remap_array_t var2offset_var;
 } offset_table_t;
@@ -295,15 +299,16 @@ typedef struct offset_table_s {
  * an integer 'id' that's used to build explanations. When an equality
  * is asserted, it must be given a unique id. 
  *
- * Equalities are organized in levels (usual decision levels) and 
- * pushed into a queue.
  * - eq[i] is an asserted equality (for 0 <= i < top)
  *   id[i] = corresponding id
+ * - top = top of the stack
+ * - prop_ptr = start of the propagation queue
  * - size = size of arrays eq and id
  *
- * For managing the decision levels:
+ * The equalities are organized by decision levels:
  * - level_index[0] = 0
- * - level_index[k] = index of the first equality asserted at level k
+ * - level_index[k] = index of first equality asserted at deicision level k
+ *      = value of top on entry to level k
  * - nlevels = size of the level_index array
  */
 typedef struct offset_eq_s {
@@ -315,6 +320,7 @@ typedef struct offset_eq_s {
 typedef struct offset_equeue_s {
   offset_eq_t *eq;
   int32_t *id;
+  uint32_t prop_ptr;
   uint32_t top;
   uint32_t size;
 
@@ -362,13 +368,53 @@ typedef struct offset_hash_table_s {
 
 
 /*
+ * Undo stack
+ * - when we process equality (x := y + k), we find rx := x's root
+ *   then change the descriptors of all elements in rx's class
+ * + we add an edge from x to y in the merge trees.
+ * - when we backtrack, we need to revert this. It's enouugh to keep
+ *   track of x and rx.
+ * We store both in the undo stack.
+ *
+ * For managing the decision levels:
+ * - level_index[0] = 0
+ * - level_index[k] = index of first undo record for decision level k
+ *      = value of top on entry to level k
+ * - nlevels = size of the level_index array
+ */
+typedef struct offset_undo_s {
+  int32_t saved_var;   // x
+  int32_t saved_root;  // rx
+} offset_undo_t;
+
+typedef struct offset_undo_stack_s {
+  offset_undo_t *data;
+  uint32_t top;
+  uint32_t size;
+
+  uint32_t *level_index;
+  uint32_t nlevels;
+} offset_undo_stack_t;
+
+
+#define DEF_OFFSET_UNDO_SIZE 100
+#define MAX_OFFSET_UNDO_SIZE (UINT32_MAX/sizeof(offset_undo_t))
+
+#define DEF_OFFSET_UNDO_LEVELS 100
+#define MAX_OFFSET_UNDO_LEVELS (UINT32_MAX/sizeof(uint32_t))
+
+
+/*
  * Trail stack for push/pop
- * - for each base-level we record the number of polys
- *   in ptable + the number of variables in vtable 
+ * - for each base-level we record 
+ *   the number of polys in ptable
+ *   the number of variables in vtable
+ *   the current propagation pointer
  */
 typedef struct offset_trail_s {
   uint32_t npolys;
   uint32_t nvars;
+  uint32_t prop_ptr;
 } offset_trail_t;
 
 typedef struct offset_trail_stack_s {
@@ -384,22 +430,6 @@ typedef struct offset_trail_stack_s {
 
 
 /*
- * Record to store conflict:
- * - id = id of the equality that causes the conflict
- * - lhs, rhs, offset: as in the equality queue
- *   (i.e., the conflcit equality is lhs := rhs + offset)
- * If there's no conflict:
- * - id = -1, lhs = -1, rhs = -1, offset = 0
- */
-typedef struct offset_eq_conflict_s {
-  int32_t id;
-  int32_t lhs;
-  int32_t rhs;
-  rational_t offset;
-} offset_eq_conflict_t;
-
-
-/*
  * When an equality is discovered between two polynomials, a
  * callback function is called:
  * - first argument = a generic void * pointer
@@ -407,10 +437,13 @@ typedef struct offset_eq_conflict_s {
  */
 typedef void (*eq_notifier_t)(void *aux, eterm_t t1, eterm_t t2);
 
+
 /*
  * Full offset-equality solver
  * - when a polynomial is created or its normal form needs to 
- *   be recompited, we store in in vector 'to_process' and we mark it
+ *   be recomputed, we store in in vector 'to_process' and we mark it
+ * - conflict_eq = index of the first equality in queue that caused a conflict
+ *               (or -1 if there's no conflict).
  */
 typedef struct offset_manager_s {
   void *external;
@@ -418,14 +451,15 @@ typedef struct offset_manager_s {
 
   uint32_t base_level;
   uint32_t decision_level;
+  int32_t conflict_eq;
 
   offset_poly_table_t ptable;
   offset_table_t vtable;
   offset_hash_table_t htbl;
   offset_equeue_t queue;
+  offset_undo_stack_t undo;
   offset_trail_stack_t tstack;
 
-  offset_eq_conflict_t conflict;
   recheck_queue_t recheck;
   ivector_t to_process;
   
@@ -493,7 +527,7 @@ extern void assert_offset_equality(offset_manager_t *m, thvar_t x, thvar_t y, ra
  * - return false if a conflict is detected
  * - return true otherwise
  */
-extern void offset_manager_propagate(offset_manager_t *m);
+extern bool offset_manager_propagate(offset_manager_t *m);
 
 
 /*
@@ -511,7 +545,7 @@ extern void offset_manager_explain_conflict(offset_manager_t *m, ivector_t *v);
  * - this function collect the ids of equalities that imply x == y into vector v
  *   (v is not reset)
  */
-extern void offset_manager_explain_equality(offset_manager_t *m, thvar_t x, thvar_t y);
+extern void offset_manager_explain_equality(offset_manager_t *m, thvar_t x, thvar_t y, ivector_t *v);
 
 
 /*

@@ -7,6 +7,7 @@
 #include "hash_functions.h"
 #include "int_partitions.h"
 #include "index_vectors.h"
+#include "int_vectors.h"
 
 #include "offset_equalities.h"
 
@@ -1146,63 +1147,6 @@ static void collect_expected_classes(test_bench_t *bench, ipart_t *partition) {
 
 
 
-/*
- * TEST OPERATIONS
- */
-static void test_activate(test_bench_t *bench, int32_t id) {
-  polynomial_t *p;
-
-  add_active_poly(&bench->act, bench->ptable, id);
-  push_record_poly(&bench->stack, id);
-
-  p = bench->ptable->poly[id];
-  record_offset_poly(&bench->manager, id, id, p);
-}
- 
-static void test_assert_eq(test_bench_t *bench, int32_t x, int32_t y, int32_t offset) {
-  offset_equality_t e;
-  rational_t q;
-  int32_t id;
-
-  id = push_assert_eq(&bench->stack, x, y, offset);
-
-  e.lhs = x;
-  e.rhs = y;
-  e.offset = offset;
-  subst_eq(&bench->subst, &e);
-
-  // if e.lhs == e.rhs, we can't add to the substitution table
-  if (e.lhs != e.rhs) {
-    if (e.lhs < 0) {
-      // convert 0 = y + offset into y := -offset
-      e.lhs = e.rhs;
-      e.rhs = -1;
-      e.offset = -e.offset;
-    }
-    // add substitution e.lhs := e.rhs + e.offset
-    add_subst(&bench->subst, e.lhs, e.rhs, e.offset);
-    subst_queue_push_var(&bench->squeue, e.lhs);
-  }
-  
-  // forward to the offset manager
-  q_init(&q);
-  q_set32(&q, offset);
-  assert_offset_equality(&bench->manager, x, y, &q, id);
-  q_clear(&q);
-}
-
-static void test_propagate(test_bench_t *bench) {
-  push_propagate(&bench->stack);
-  offset_manager_propagate(&bench->manager);
-}
-
-static void test_push(test_bench_t *bench) {
-  push_push(&bench->stack);
-  push_mark(&bench->equeue);
-  offset_manager_push(&bench->manager);
-}
-
-
 
 /*
  * PRINT FUNCTIONS
@@ -1438,6 +1382,102 @@ static void print_expected_classes(test_bench_t *bench) {
   delete_int_partition(&partition);
 }
 
+static void print_explanation(test_bench_t *bench, ivector_t *v) {
+  uint32_t i, n;
+  int32_t id;
+
+  n = v->size;
+  for (i=0; i<n; i++) {
+    id = v->data[i];
+    assert(bench->stack.data[id].tag == ASSERT_EQ);
+    printf("    eq[%"PRId32"]: ", id);
+    print_offset_eq(&bench->stack.data[id].arg.eq);
+    printf("\n");
+  }
+  printf("\n");
+}
+
+
+
+/*
+ * Get the conflict explanation from bench->manager
+ */
+static void check_conflict_explanation(test_bench_t *bench) {
+  ivector_t expl;
+
+  init_ivector(&expl, 10);
+  offset_manager_explain_conflict(&bench->manager, &expl);
+  printf("---> Conflict: explanation:\n");
+  print_explanation(bench, &expl);  
+  delete_ivector(&expl);
+}
+
+
+static void check_propagation(test_bench_t *bench) {
+  // TBD
+}
+
+/*
+ * TEST OPERATIONS
+ */
+static void test_activate(test_bench_t *bench, int32_t id) {
+  polynomial_t *p;
+
+  add_active_poly(&bench->act, bench->ptable, id);
+  push_record_poly(&bench->stack, id);
+
+  p = bench->ptable->poly[id];
+  record_offset_poly(&bench->manager, id, id, p);
+}
+ 
+static void test_assert_eq(test_bench_t *bench, int32_t x, int32_t y, int32_t offset) {
+  offset_equality_t e;
+  rational_t q;
+  int32_t id;
+
+  id = push_assert_eq(&bench->stack, x, y, offset);
+
+  e.lhs = x;
+  e.rhs = y;
+  e.offset = offset;
+  subst_eq(&bench->subst, &e);
+
+  // if e.lhs == e.rhs, we can't add to the substitution table
+  if (e.lhs != e.rhs) {
+    if (e.lhs < 0) {
+      // convert 0 = y + offset into y := -offset
+      e.lhs = e.rhs;
+      e.rhs = -1;
+      e.offset = -e.offset;
+    }
+    // add substitution e.lhs := e.rhs + e.offset
+    add_subst(&bench->subst, e.lhs, e.rhs, e.offset);
+    subst_queue_push_var(&bench->squeue, e.lhs);
+  }
+  
+  // forward to the offset manager
+  q_init(&q);
+  q_set32(&q, offset);
+  assert_offset_equality(&bench->manager, x, y, &q, id);
+  q_clear(&q);
+}
+
+static void test_propagate(test_bench_t *bench) {
+  push_propagate(&bench->stack);
+  if (offset_manager_propagate(&bench->manager)) {
+    check_propagation(bench);
+  } else {
+    check_conflict_explanation(bench);
+  }
+}
+
+static void test_push(test_bench_t *bench) {
+  push_push(&bench->stack);
+  push_mark(&bench->equeue);
+  offset_manager_push(&bench->manager);
+}
+
+
 
 /*
  * GLOBAL OBJECTS
@@ -1473,6 +1513,9 @@ int main(void) {
   print_normal_forms(&bench);
   print_infered_classes(&bench);
   print_expected_classes(&bench);
+
+  test_assert_eq(&bench, 10, 2, 20); // cause a conflict
+  test_propagate(&bench);
 
   delete_test_bench(&bench);
   delete_poly_table(&poly_table);

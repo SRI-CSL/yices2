@@ -1,7 +1,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-#include "bitvectors.h"
+#include "int_vectors.h"
 #include "offset_equalities.h"
 
 
@@ -124,6 +124,21 @@ static void delete_polys(void) {
   }
 }
 
+
+// variable that corresponds to term t
+static int32_t var_of_term(int32_t t) {
+  uint32_t i;
+
+  for (i=0; i<NPOLYS; i++) {
+    if (term[i] == t) {
+      return var[i];
+    }
+  }
+
+  assert(false);
+
+  return -1;
+}
 
 /*
  * Print stuff
@@ -382,20 +397,50 @@ static void print_var2offset_var(offset_manager_t *mngr) {
 }
 
 
+
+/*
+ * Global manager
+ */
+static offset_manager_t mngr;
+
+
+/*
+ * Get explanation for t1 == t2
+ */
+static void test_eq_explanation(eterm_t t1, eterm_t t2) {
+  ivector_t v;
+  uint32_t i, n;
+  int32_t x1, x2;
+
+  init_ivector(&v, 10);
+
+  x1 = var_of_term(t1);
+  x2 = var_of_term(t2);
+  offset_manager_explain_equality(&mngr, x1, x2, &v);
+
+  printf("---> Explanation:");
+  n = v.size;
+  for (i=0; i<n; i++) {
+    printf(" eq[%"PRId32"]", v.data[i]);
+  }
+  printf("\n\n");
+
+  delete_ivector(&v);
+}
+
 /*
  * Callback to report equality
  */
 static void notify_equality(void *aux, eterm_t t1, eterm_t t2) {
   printf("---> t!%"PRId32" == t!%"PRId32"\n", t1, t2);
   fflush(stdout);
+  test_eq_explanation(t1, t2);
 }
-
-static offset_manager_t mngr;
 
 static void test_equality(int32_t x, int32_t y, int32_t offset, int32_t id) {
   rational_t q;
 
-  printf("\n\n*** Asserting: ");
+  printf("\n\n*** Asserting: eq[%"PRId32"]: ", id);
   if (x < 0) {
     printf("0 = ");
   } else {
@@ -423,6 +468,7 @@ static void test_equality(int32_t x, int32_t y, int32_t offset, int32_t id) {
 
 int main(void) {
   uint32_t i;
+  bool ok;
 
   init_rationals();
   build_polys();
@@ -444,18 +490,20 @@ int main(void) {
   print_vtable(&mngr);
 
   
-  offset_manager_propagate(&mngr);
+  ok = offset_manager_propagate(&mngr);
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
   print_vtable(&mngr);
+  assert(ok);
 
   offset_manager_increase_decision_level(&mngr);
   test_equality(var[3], var[4], 0, 123);
-  offset_manager_propagate(&mngr);
+  ok = offset_manager_propagate(&mngr);
 
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
   print_vtable(&mngr);
+  assert(ok);
 
   offset_manager_backtrack(&mngr, 0);
   printf("\n*** After backtracking to level 0 ***\n");
@@ -465,16 +513,18 @@ int main(void) {
   offset_manager_increase_decision_level(&mngr);
   test_equality(var[3], -1, 1, 234);
   test_equality(var[3], var[4], 0, 123);
-  offset_manager_propagate(&mngr);
+  ok = offset_manager_propagate(&mngr);
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
   print_vtable(&mngr);  
+  assert(ok);
 
   offset_manager_backtrack(&mngr, 0);
-  offset_manager_propagate(&mngr);
+  ok = offset_manager_propagate(&mngr);
   printf("\n*** After backtracking to level 0 ***\n");
   print_ptable(&mngr);
   print_vtable(&mngr);
+  assert(ok);
 
   /*
    * SECOND TEST
@@ -509,11 +559,11 @@ int main(void) {
 
 
   test_equality(var[5], var[3], 10, 111);
-  offset_manager_propagate(&mngr);
-
+  ok = offset_manager_propagate(&mngr);
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
   print_vtable(&mngr);
+  assert(ok);
   
   offset_manager_pop(&mngr);
   printf("\n*** After pop ****\n");
@@ -523,11 +573,11 @@ int main(void) {
   print_vtable(&mngr);
   
   test_equality(var[4], var[3], 10, 111);
-  offset_manager_propagate(&mngr);
+  ok = offset_manager_propagate(&mngr);
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
   print_vtable(&mngr);
-  
+  assert(ok);
   
   /*
    * THIRD TEST
@@ -543,12 +593,12 @@ int main(void) {
     record_offset_poly(&mngr, term[i], var[i], poly[i]);
   }
   test_equality(var[5], var[3], 10, 111);
-  offset_manager_propagate(&mngr);
-
+  ok = offset_manager_propagate(&mngr);
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
   print_vtable(&mngr);
-  
+  assert(ok);
+
   offset_manager_push(&mngr);
 
   printf("\n*** After push ****\n");
@@ -568,12 +618,12 @@ int main(void) {
 
   test_equality(var[4], var[3], 10, 111);
   test_equality(-1, var[3], 56, 122);
-  offset_manager_propagate(&mngr);
-
+  ok = offset_manager_propagate(&mngr);
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
   print_vtable(&mngr);
-  
+  assert(ok);
+
   offset_manager_pop(&mngr);
 
   printf("\n*** After pop ****\n");
@@ -582,11 +632,11 @@ int main(void) {
   print_ptable(&mngr);
   print_vtable(&mngr);
   
-  offset_manager_propagate(&mngr);
+  ok = offset_manager_propagate(&mngr);
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
   print_vtable(&mngr);
-  
+  assert(ok);
 
   delete_offset_manager(&mngr);
   delete_polys();
