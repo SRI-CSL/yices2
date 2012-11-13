@@ -162,7 +162,7 @@ static void delete_poly_table(poly_table_t *table) {
  */
 
 #define NCOEFF 20
-#define NTERMS 10
+#define NTERMS 12
 #define NCONST 40
 
 static const int32_t coeff[NCOEFF] = {
@@ -174,8 +174,8 @@ static const int32_t coeff[NCOEFF] = {
 };
 
 static const uint32_t nterms[NTERMS] = {
-  1, 1, 2, 2, 2,
-  3, 3, 3, 10, 20,
+  0, 1, 1, 2, 2, 2,
+  3, 3, 3, 5, 10, 20,
 };
 
 static const int32_t constant[NCONST] = {
@@ -358,7 +358,7 @@ static void delete_substitution(substitution_t *s) {
  * - x must not be mapped already
  */
 static void add_subst(substitution_t *s, int32_t x, int32_t y, int32_t k) {
-  assert(0 < x && x < s->size && 0 < y && y < s->size && !s->elim[x]);
+  assert(0 < x && x < s->size && -1 <= y && y < (int32_t) s->size && !s->elim[x]);
   s->elim[x] = true;
   s->var[x] = y;
   s->delta[x] = k;
@@ -388,13 +388,13 @@ static void subst_var(substitution_t *s, offset_pair_t *d) {
   x = d->var;
   k = d->delta;
 
-  assert(x < s->size);
+  assert(x < (int32_t) s->size);
   while (x >= 0 && s->elim[x]) {
     k += s->delta[x];
     x = s->var[x];
     n --;
     if (n == 0) goto bug;      
-    assert(x < s->size);
+    assert(x < (int32_t) s->size);
   }
 
   d->var = x;
@@ -929,10 +929,12 @@ static int32_t subst_queue_pop_var(subst_queue_t *queue) {
  *   record_poly
  *   assert_eq
  *   propagate
+ *   increase_dlevel
+ *   backtrack
  *   push
  *   pop
  * - for testing we keep track of the sequence of operations
- *   performed (except push)
+ *   performed (except push and backtrack)
  * - desciptors for each operation:
  *   record_poly(i): activate polynomial of index i
  *  
@@ -941,6 +943,7 @@ typedef enum operations {
   RECORD_POLY,
   ASSERT_EQ,
   PROPAGATE,
+  INCREASE_DLEVEL,
   PUSH,
 } operation_t;
 
@@ -1020,7 +1023,7 @@ static uint32_t push_assert_eq(op_stack_t *stack, int32_t x, int32_t y, int32_t 
 static void push_op(op_stack_t *stack, operation_t op) {
   uint32_t i;
 
-  assert(op == PROPAGATE || op == PUSH);
+  assert(op == PROPAGATE || op == PUSH || op == INCREASE_DLEVEL);
 
   i = stack->top;
   if (i == stack->size) {
@@ -1036,6 +1039,10 @@ static inline void push_propagate(op_stack_t *stack) {
   push_op(stack, PROPAGATE);
 }
 
+static inline void push_increase_dlevel(op_stack_t *stack) {
+  push_op(stack, INCREASE_DLEVEL);
+}
+
 static inline void push_push(op_stack_t *stack) {
   push_op(stack, PUSH);
 }
@@ -1043,9 +1050,13 @@ static inline void push_push(op_stack_t *stack) {
 
 
 /*
- * Test bench:
+ * Test bench
  */
 typedef struct test_bench_s {
+  uint32_t base_level;
+  uint32_t decision_level;
+  bool conflict;        // true if a contradiction is found
+
   poly_table_t *ptable;
   substitution_t subst;
   subst_queue_t squeue;
@@ -1062,6 +1073,10 @@ static void init_test_bench(test_bench_t *bench, poly_table_t *ptable) {
 
   np = ptable->npolys;
   nv = ptable->nvars;
+
+  bench->base_level = 0;
+  bench->decision_level = 0;
+  bench->conflict = false;
 
   bench->ptable = ptable;
   init_substitution(&bench->subst, np);
@@ -1398,23 +1413,37 @@ static void print_explanation(test_bench_t *bench, ivector_t *v) {
 }
 
 
-
 /*
  * Get the conflict explanation from bench->manager
  */
-static void check_conflict(test_bench_t *bench) {
-  ivector_t expl;
-
-  init_ivector(&expl, 10);
-  offset_manager_explain_conflict(&bench->manager, &expl);
-  printf("---> Conflict:\n");
-  print_explanation(bench, &expl);  
-  delete_ivector(&expl);
+static void check_conflict(test_bench_t *bench, ivector_t *expl) {
+  // TBD
 }
 
 
 static void check_propagation(test_bench_t *bench) {
-  // TBD
+  equality_queue_t *queue;
+  ivector_t expl;
+  uint32_t i, n;
+  int32_t x, y;
+
+  init_ivector(&expl, 10);
+
+  queue = &bench->equeue;
+  n = queue->top;
+  for (i=0; i<n; i++) {
+    x = queue->data[i].lhs;
+    y = queue->data[i].rhs;
+    if (x >= 0) {
+      assert(y >= 0);
+      offset_manager_explain_equality(&bench->manager, x, y, &expl);
+      printf("Explanation for x%"PRId32" == x%"PRId32":\n", x, y);
+      print_explanation(bench, &expl);
+      ivector_reset(&expl);
+    }
+  }
+  
+  delete_ivector(&expl);
 }
 
 
@@ -1423,6 +1452,8 @@ static void check_propagation(test_bench_t *bench) {
  */
 static void test_activate(test_bench_t *bench, int32_t id) {
   polynomial_t *p;
+
+  printf("TEST_ACTIVATE: x%"PRId32"\n", id);
 
   add_active_poly(&bench->act, bench->ptable, id);
   push_record_poly(&bench->stack, id);
@@ -1441,6 +1472,11 @@ static void test_assert_eq(test_bench_t *bench, int32_t x, int32_t y, int32_t of
   e.lhs = x;
   e.rhs = y;
   e.offset = offset;
+
+  printf("TEST_ASSERT_EQ: eq[%"PRId32"]: ", id);
+  print_offset_eq(&e);
+  printf("\n");
+
   subst_eq(&bench->subst, &e);
 
   // if e.lhs == e.rhs, we can't add to the substitution table
@@ -1454,6 +1490,8 @@ static void test_assert_eq(test_bench_t *bench, int32_t x, int32_t y, int32_t of
     // add substitution e.lhs := e.rhs + e.offset
     add_subst(&bench->subst, e.lhs, e.rhs, e.offset);
     subst_queue_push_var(&bench->squeue, e.lhs);
+  } else if (e.offset != 0) {
+    bench->conflict = true;
   }
   
   // forward to the offset manager
@@ -1464,20 +1502,56 @@ static void test_assert_eq(test_bench_t *bench, int32_t x, int32_t y, int32_t of
 }
 
 static void test_propagate(test_bench_t *bench) {
+  ivector_t expl;
+
+  printf("\nTEST_PROPAGATE\n");
   push_propagate(&bench->stack);
+  normalize_all(bench);
+
+  printf("Active polys\n");
+  print_active_polys(bench);
+  printf("Assertions\n");
+  print_all_equalities(bench);
+  printf("Normal forms\n");
+  print_normal_forms(bench);
+
+  if (bench->conflict) {
+    printf("Expected result: conflict\n\n");
+  } else {
+    printf("Expected classes\n");
+    print_expected_classes(bench);
+  }
+
   if (offset_manager_propagate(&bench->manager)) {
+    printf("Propagated classes\n");
+    print_infered_classes(bench);
     check_propagation(bench);
   } else {
-    check_conflict(bench);
+    printf("Conflict\n");    
+    init_ivector(&expl, 10);
+    offset_manager_explain_conflict(&bench->manager, &expl);
+    print_explanation(bench, &expl);  
+    check_conflict(bench, &expl);
+    delete_ivector(&expl);
   }
 }
 
 static void test_push(test_bench_t *bench) {
+  printf("TEST_PUSH\n");
   push_push(&bench->stack);
   push_mark(&bench->equeue);
+  bench->base_level ++;
+  bench->decision_level ++;
   offset_manager_push(&bench->manager);
 }
 
+static void test_increase_dlevel(test_bench_t *bench) {
+  printf("INCREASE DECISION LEVEL\n");
+  push_increase_dlevel(&bench->stack);
+  push_mark(&bench->equeue);
+  bench->decision_level ++;
+  offset_manager_increase_decision_level(&bench->manager);
+}
 
 
 /*
@@ -1501,21 +1575,17 @@ int main(void) {
   test_activate(&bench, 4);
   test_propagate(&bench);
   test_push(&bench);
-  test_activate(&bench, 43);
-  test_activate(&bench, 44);
+  test_activate(&bench, 24);
+  test_activate(&bench, 23);
+  test_activate(&bench, 41);
+  test_activate(&bench, 49);
+  test_activate(&bench, 55);
   test_propagate(&bench);
   test_assert_eq(&bench, 4, 2, -12);
   test_assert_eq(&bench, 4, 10, 0);
+  test_assert_eq(&bench, 5, -1, 1223);
   test_propagate(&bench);
-
-  normalize_all(&bench);
-  print_active_polys(&bench);
-  print_all_equalities(&bench);
-  print_normal_forms(&bench);
-  print_infered_classes(&bench);
-  print_expected_classes(&bench);
-
-  test_assert_eq(&bench, 10, 2, 20); // cause a conflict
+  test_assert_eq(&bench, 2, 10, 20); // cause a conflict
   test_propagate(&bench);
 
   delete_test_bench(&bench);
