@@ -710,6 +710,8 @@ static void push_mark(equality_queue_t *queue) {
   assert(i < queue->qsize);
   queue->data[i].lhs = -1;
   queue->data[i].rhs = -1;
+
+  queue->top = i+1;
 }
 
 
@@ -749,7 +751,7 @@ static void notify_equality(void *aux, int32_t x, int32_t y) {
 
   queue = aux;
   assert(1 <= x && x <= queue->nvars && 0 <= y && y <= queue->nvars);
-  printf("---> received equality: x%"PRId32" == x%"PRId32"\n", x, y);
+  printf("Received equality: x%"PRId32" == x%"PRId32"\n", x, y);
   fflush(stdout);
 
   x = root_of_var(queue, x);
@@ -885,6 +887,7 @@ static void remove_active_poly(active_poly_table_t *table) {
  * Substitution queue
  * - to undo/update the substitution, we keep track of variable
  * - when we add x:= y + k to subst, we store x at the end of the variable queue
+ * - to mark backtrack point, we store -1 at the top of the queue
  */
 typedef struct subst_queue_s {
   uint32_t size;
@@ -894,7 +897,7 @@ typedef struct subst_queue_s {
 
 #define MAX_SQUEUE_SIZE (UINT32_MAX/sizeof(int32_t))
 
-// n = fixed size
+// n = initial size
 static void init_subst_queue(subst_queue_t *queue, uint32_t n) {
   assert(n <= MAX_SQUEUE_SIZE);
   queue->size = n;
@@ -907,20 +910,38 @@ static void delete_subst_queue(subst_queue_t *queue) {
   queue->data = NULL;
 }
 
-static void subst_queue_push_var(subst_queue_t *queue, int32_t x) {
+static void extend_subst_queue(subst_queue_t *queue) {
+  uint32_t n;
+
+  n = 2 * queue->size;
+  if (n > MAX_SQUEUE_SIZE) {
+    out_of_memory();
+  }
+  queue->data = (int32_t *) safe_realloc(queue->data, n * sizeof(int32_t));
+  queue->size = n;
+}
+
+static void subst_queue_push_item(subst_queue_t *queue, int32_t x) {
   uint32_t i;
 
   i = queue->top;
+  if (i == queue->size) {
+    extend_subst_queue(queue);
+  }
   assert(i < queue->size);
   queue->data[i] = x;
   queue->top = i+1;
 }
 
-static int32_t subst_queue_pop_var(subst_queue_t *queue) {
-  assert(queue->top > 0);
-  queue->top --;
-  return queue->data[queue->top];
+static inline void subst_queue_push_var(subst_queue_t *queue, int32_t x) {
+  assert(x >= 0);
+  subst_queue_push_item(queue, x);
 }
+
+static inline void subst_queue_push_mark(subst_queue_t *queue) {
+  subst_queue_push_item(queue, -1);
+}
+
 
 
 /*
@@ -1048,6 +1069,56 @@ static inline void push_push(op_stack_t *stack) {
 }
 
 
+/*
+ * Undo assert_var/keep record poly
+ * - stop on the top-most 'INCREASE_DLEVEL'
+ */
+static void op_stack_backtrack(op_stack_t *stack) {
+  ivector_t saved_polys;
+  uint32_t i;
+  int32_t id;
+
+  init_ivector(&saved_polys, 10);
+
+  i = stack->top;
+  for (;;) {
+    assert(i> 0);
+    i --;
+    switch (stack->data[i].tag) {
+    case RECORD_POLY:
+      id = stack->data[i].arg.rec_id;
+      ivector_push(&saved_polys, id);
+      break;
+
+    case ASSERT_EQ: // undo
+    case PROPAGATE: // undo
+      break;
+
+    case INCREASE_DLEVEL:
+      goto done;
+
+    case PUSH:
+    default:
+      assert(false);
+      break;
+    }
+  }
+
+ done:
+  stack->top = i;
+
+  // redo the record poly operations
+  i = saved_polys.size;
+  while (i > 0) {
+    i --;
+    id = saved_polys.data[i];
+    push_record_poly(stack, id);
+  }
+
+  delete_ivector(&saved_polys);
+}
+
+
 
 /*
  * Test bench
@@ -1055,7 +1126,8 @@ static inline void push_push(op_stack_t *stack) {
 typedef struct test_bench_s {
   uint32_t base_level;
   uint32_t decision_level;
-  bool conflict;        // true if a contradiction is found
+  bool conflict;        // true if a contradiction is found (in test_assert_eq)
+  bool mngr_conflict;   // true if offset_manager_propagates returns a conflict
 
   poly_table_t *ptable;
   substitution_t subst;
@@ -1077,13 +1149,14 @@ static void init_test_bench(test_bench_t *bench, poly_table_t *ptable) {
   bench->base_level = 0;
   bench->decision_level = 0;
   bench->conflict = false;
+  bench->mngr_conflict = false;
 
   bench->ptable = ptable;
   init_substitution(&bench->subst, np);
   init_subst_queue(&bench->squeue, nv);
   init_active_polys(&bench->act, np);
   init_op_stack(&bench->stack);
-  init_equality_queue(&bench->equeue, nv);
+  init_equality_queue(&bench->equeue, np);
 
   init_offset_manager(&bench->manager, &bench->equeue, notify_equality);
 
@@ -1098,6 +1171,63 @@ static void delete_test_bench(test_bench_t *bench) {
   delete_op_stack(&bench->stack);
   delete_offset_manager(&bench->manager);
   delete_poly_buffer(&bench->buffer);
+}
+
+
+/*
+ * Undo substitution:
+ * - remove all substitutions until the mark in squeue
+ * - if there's no mark, then remove all substitutions
+ */
+static void test_bench_undo_subst(test_bench_t *bench) {
+  subst_queue_t *queue;
+  uint32_t i;
+  int32_t x;
+
+  queue = &bench->squeue;
+  i = queue->top;
+  while (i > 0) {
+    i --;
+    x = queue->data[i];
+    if (x < 0) break;
+    remove_subst(&bench->subst, x);
+  }
+  queue->top = i;
+}
+
+
+/*
+ * Undo acivations
+ * - remove all active polynomials and pop the op stack 
+ *   until the top-most PUSH operation
+ */
+static void test_bench_undo_activations(test_bench_t *bench) {
+  op_stack_t *stack;
+  uint32_t i;
+
+  stack = &bench->stack;
+
+  i = stack->top;
+  for (;;) {
+    assert(i > 0);
+    i --;
+    switch (stack->data[i].tag) {
+    case RECORD_POLY:
+      remove_active_poly(&bench->act);
+      break;
+    
+    case ASSERT_EQ:
+    case PROPAGATE:
+    case INCREASE_DLEVEL:
+      break;
+
+    case PUSH:
+      goto done;
+    }
+  }
+
+ done:
+  stack->top = i;
 }
 
 
@@ -1160,6 +1290,60 @@ static void collect_expected_classes(test_bench_t *bench, ipart_t *partition) {
   }
 }
 
+
+
+/*
+ * Build a substitution from the equalities stored in v
+ * - every element of v must be the id of a asserted equality
+ * - if an equality can't be added to the substitution, it's left in v
+ */
+static substitution_t *subst_from_explanation(test_bench_t *bench, ivector_t *v) {
+  substitution_t *s;
+  op_stack_t *stack;
+  offset_equality_t e;
+  uint32_t i, j, n;
+  int32_t id;
+
+  s = (substitution_t *) safe_malloc(sizeof(substitution_t));
+  init_substitution(s, bench->ptable->npolys);
+
+  stack = &bench->stack;
+
+  j = 0;
+  n = v->size;
+  for (i=0; i<n; i++) {
+    id = v->data[i];
+    assert(0 <= id && id < stack->top);
+    assert(stack->data[id].tag == ASSERT_EQ);
+
+    e = stack->data[id].arg.eq; // make a copy of eq[id]
+    subst_eq(s, &e);           // normalize eq modulo previous equalities
+    if (e.lhs == e.rhs) {
+      // keep in v
+      v->data[j] = id;
+      j ++;
+    } else {
+      // add to subst
+      if (e.lhs < 0) {  // convert 0 := rhs + offset into rhs = - offset
+	e.lhs = e.rhs;
+	e.rhs = -1;
+	e.offset = - e.offset;
+      }
+      add_subst(s, e.lhs, e.rhs, e.offset);
+    }
+  }
+
+  v->size = j;
+
+  return s;
+}
+
+
+// delete substitution built by the previous function
+static void free_substitution(substitution_t *s) {
+  delete_substitution(s);
+  safe_free(s);
+}
 
 
 
@@ -1229,6 +1413,7 @@ static void print_buffer(poly_buffer_t *b) {
     }
   }  
 }
+
 
 static void print_normal_form(normal_form_t *f) {
   uint32_t i, n;
@@ -1417,9 +1602,84 @@ static void print_explanation(test_bench_t *bench, ivector_t *v) {
  * Get the conflict explanation from bench->manager
  */
 static void check_conflict(test_bench_t *bench, ivector_t *expl) {
-  // TBD
+  substitution_t *subst;
+  op_stack_t *stack;
+  offset_equality_t e;
+  int32_t id;
+  
+  stack = &bench->stack;
+  subst = subst_from_explanation(bench, expl);
+  if (expl->size == 1) {
+    id = expl->data[0];
+    assert(0 <= id && id < stack->top);
+    assert(stack->data[id].tag == ASSERT_EQ);
+
+    e = stack->data[id].arg.eq;
+    subst_eq(subst, &e);
+    if (e.lhs == e.rhs && e.offset != 0) {
+      printf("Conflict explanation looks correct\n");
+    } else {
+      printf("BUG: invalid conflict explanation\n");
+      fflush(stdout);
+      exit(1);
+    }
+  } else {
+    printf("BUG: too many equaliteis in conflict eplanation\n");
+    fflush(stdout);
+    exit(1);
+  }
+
+  free_substitution(subst);
 }
 
+
+static bool equal_poly_buffers(poly_buffer_t *bx, poly_buffer_t *by) { 
+  return poly_buffer_nterms(bx) == poly_buffer_nterms(by) && 
+    equal_monarrays(poly_buffer_mono(bx), poly_buffer_mono(by));
+}
+
+static void check_equality(test_bench_t *bench, int32_t x, int32_t y, ivector_t *expl) {
+  substitution_t *subst;
+  poly_buffer_t bx;
+  poly_buffer_t by;
+
+  assert(0 <= x && x < bench->ptable->npolys &&
+	 0 <= y && y < bench->ptable->npolys &&
+	 x != y);
+
+  subst = subst_from_explanation(bench, expl);
+  if (expl->size > 0) {
+    printf("BUG: invalid explanation\n");
+    fflush(stdout);
+    exit(1);
+  }
+
+  // apply subst to x: result in bx
+  init_poly_buffer(&bx);
+  subst_poly_idx(subst, bench->ptable, &bx, x);
+
+  // subst to y: result in by
+  init_poly_buffer(&by);
+  subst_poly_idx(subst, bench->ptable, &by, y);
+
+  // check that the normal forms are the same
+  if (! equal_poly_buffers(&bx, &by)) {
+    printf("BUG: explantion does not imply x%"PRId32" == x%"PRId32"\n", x, y);
+    printf("  subst for x%"PRId32" --> ", x);
+    print_buffer(&bx);
+    printf("\n");
+    printf("  subst for x%"PRId32" --> ", y);
+    print_buffer(&by);
+    printf("\n");
+    
+    fflush(stdout);
+    exit(1);
+  }
+
+  delete_poly_buffer(&bx);
+  delete_poly_buffer(&by);
+  free_substitution(subst);
+}
 
 static void check_propagation(test_bench_t *bench) {
   equality_queue_t *queue;
@@ -1436,9 +1696,12 @@ static void check_propagation(test_bench_t *bench) {
     y = queue->data[i].rhs;
     if (x >= 0) {
       assert(y >= 0);
+      
       offset_manager_explain_equality(&bench->manager, x, y, &expl);
       printf("Explanation for x%"PRId32" == x%"PRId32":\n", x, y);
       print_explanation(bench, &expl);
+      check_equality(bench, x, y, &expl);
+
       ivector_reset(&expl);
     }
   }
@@ -1504,7 +1767,7 @@ static void test_assert_eq(test_bench_t *bench, int32_t x, int32_t y, int32_t of
 static void test_propagate(test_bench_t *bench) {
   ivector_t expl;
 
-  printf("\nTEST_PROPAGATE\n");
+  printf("\nTEST_PROPAGATE: decision level = %"PRIu32", base level = %"PRIu32"\n", bench->decision_level, bench->base_level);
   push_propagate(&bench->stack);
   normalize_all(bench);
 
@@ -1523,10 +1786,16 @@ static void test_propagate(test_bench_t *bench) {
   }
 
   if (offset_manager_propagate(&bench->manager)) {
+    assert(! bench->conflict);
+
+    bench->mngr_conflict = false;
     printf("Propagated classes\n");
     print_infered_classes(bench);
     check_propagation(bench);
   } else {
+    assert(bench->conflict);
+
+    bench->mngr_conflict = true;
     printf("Conflict\n");    
     init_ivector(&expl, 10);
     offset_manager_explain_conflict(&bench->manager, &expl);
@@ -1537,9 +1806,12 @@ static void test_propagate(test_bench_t *bench) {
 }
 
 static void test_push(test_bench_t *bench) {
+  assert(bench->decision_level == bench->base_level);
+
   printf("TEST_PUSH\n");
   push_push(&bench->stack);
   push_mark(&bench->equeue);
+  subst_queue_push_mark(&bench->squeue);
   bench->base_level ++;
   bench->decision_level ++;
   offset_manager_push(&bench->manager);
@@ -1549,9 +1821,266 @@ static void test_increase_dlevel(test_bench_t *bench) {
   printf("INCREASE DECISION LEVEL\n");
   push_increase_dlevel(&bench->stack);
   push_mark(&bench->equeue);
+  subst_queue_push_mark(&bench->squeue);
   bench->decision_level ++;
   offset_manager_increase_decision_level(&bench->manager);
 }
+
+
+// bactkrack one level
+static void test_backtrack(test_bench_t *bench) {
+  assert(bench->decision_level > bench->base_level);
+
+  printf("TEST BACKTRACK\n");
+  equality_queue_backtrack(&bench->equeue);
+  test_bench_undo_subst(bench);
+  op_stack_backtrack(&bench->stack);
+  bench->decision_level --;
+  bench->conflict = false;
+  bench->mngr_conflict = false;
+
+  // print state after backtracking
+  printf("AFTER BACKTRACK: decision level = %"PRIu32", base level = %"PRIu32"\n", bench->decision_level, bench->base_level);
+  normalize_all(bench);
+  printf("Active polys\n");
+  print_active_polys(bench);
+  printf("Assertions\n");
+  print_all_equalities(bench);
+  printf("Normal forms\n");
+  print_normal_forms(bench);
+
+
+  offset_manager_backtrack(&bench->manager, bench->decision_level);
+}
+
+
+static void test_pop(test_bench_t *bench) {
+  assert(bench->base_level > 0);
+
+  printf("TEST POP\n");
+
+  if (bench->decision_level > bench->base_level) {
+    // backtrack in the test_bench
+    do {
+      equality_queue_backtrack(&bench->equeue);
+      test_bench_undo_subst(bench);
+      op_stack_backtrack(&bench->stack);
+      bench->decision_level --;
+    } while (bench->decision_level > bench->base_level);
+
+    // backtrack in offset_manager
+    offset_manager_backtrack(&bench->manager, bench->decision_level);
+  }
+
+  // bactrack once more
+  equality_queue_backtrack(&bench->equeue);
+  test_bench_undo_subst(bench);
+  test_bench_undo_activations(bench);
+  bench->decision_level --;
+  bench->base_level --;
+  bench->conflict = false;
+  bench->mngr_conflict = false;
+
+  // print state after pop
+  printf("AFTER POP: decision level = %"PRIu32", base level = %"PRIu32"\n", bench->decision_level, bench->base_level);
+  normalize_all(bench);
+  printf("Active polys\n");
+  print_active_polys(bench);
+  printf("Assertions\n");
+  print_all_equalities(bench);
+  printf("Normal forms\n");
+  print_normal_forms(bench);
+
+  offset_manager_pop(&bench->manager);
+}
+
+
+
+/*
+ * Random tests
+ */
+
+// randomly pick an inactive polynomial in the act table
+// return -1 if all polys are active
+static int32_t random_inactive_poly(test_bench_t *bench) {
+  active_poly_table_t *atbl;
+  uint32_t n, k, max_iter;
+
+  atbl = &bench->act;
+
+  max_iter = 10;
+  n = bench->ptable->npolys;
+  k = random_index(n);
+
+  while (atbl->active[k] && max_iter > 0) {
+    max_iter --;
+    k ++;
+    if (k >= n) {
+      k = 0;
+    }    
+  }
+
+  if (max_iter == 0) {
+    return -1;
+  } else {
+    assert(!atbl->active[k]);
+    return k;
+  }
+}
+
+
+// attempt to activate n polynomials
+static void random_activate(test_bench_t *bench, uint32_t n) {
+  int32_t id;
+
+  while (n > 0) {
+    n --;
+    id = random_inactive_poly(bench);
+    if (id > 0) {
+      test_activate(bench, id);
+    }
+  }
+}
+
+
+
+// pick a random active poly, then a random variable in this poly
+// return -1 if p is constant
+static int32_t var_of_poly(polynomial_t *p) {
+  uint32_t i, n;
+  int32_t x;
+
+  n = p->nterms;
+  if (n == 0 || (n == 1 && p->mono[0].var == const_idx)) {
+    // p is constant
+    x = -1;
+  } else  {
+    if (p->mono[0].var == const_idx) {
+      assert(n >= 2);
+      i = 1 + random_index(n - 1);
+    } else {
+      i = random_index(n);
+    }
+    x = p->mono[i].var;
+    assert(x != const_idx);
+  }
+
+  return x;
+}
+
+static int32_t random_var_of_poly(test_bench_t *bench) {
+  active_poly_table_t *atbl;
+  polynomial_t *p;
+  uint32_t i, n;
+  int32_t id;
+
+  atbl = &bench->act;
+  n = atbl->npolys;
+  id = -1; // in case n is 0
+  if (n > 0) {
+    i = random_index(n);
+    id = atbl->id[i];
+    assert(0 < id && id < bench->ptable->npolys);
+    p = bench->ptable->poly[id];
+    // if p is NULL, then it represents the variable id
+    // so we just return id. Otherwise, we pick a variable of p
+    if (p != NULL) {
+      id = var_of_poly(p);
+    }
+  }
+
+  return id;
+}
+
+static void random_assert_eq(test_bench_t *bench) {
+  int32_t x, y, k;
+
+  x = random_var_of_poly(bench);
+  y = random_var_of_poly(bench);
+  k = random_constant();
+
+  test_assert_eq(bench, x, y, k);
+}
+
+
+
+/*
+ * Random test: give more weight to assert_eq and propagate
+ * - if there's a conflict, try to resolve it first
+ */
+static void random_op(test_bench_t *bench) {
+  uint32_t r;
+
+
+  if (bench->mngr_conflict) {
+    if (bench->decision_level > bench->base_level) {
+      test_backtrack(bench);
+    } else if (bench->base_level > 0) {
+      test_pop(bench);
+    }
+  } else {
+    r = random_index(15);
+    switch (r) {
+    case 0:
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+      random_assert_eq(bench);
+      break;
+
+    case 5:
+      random_assert_eq(bench);
+    case 6:
+      random_assert_eq(bench);
+    case 7:
+      random_assert_eq(bench);
+    case 8:
+      test_propagate(bench);
+      break;
+
+    case 9:
+      random_activate(bench, 1);
+      break;
+      
+    case 10:
+    case 11:
+      // increase decision level: force propagate first
+      test_propagate(bench);
+      if (! bench->mngr_conflict) {
+	test_increase_dlevel(bench);
+      }
+      break;
+      
+    case 12:
+      // push
+      if (bench->decision_level == bench->base_level) {
+	test_push(bench);
+      }
+      break;
+
+    case 13:
+      // backtrack
+      if (bench->decision_level > bench->base_level) {
+	test_backtrack(bench);
+      }
+      break;
+
+    case 14:
+      // pop
+      if (bench->base_level > 0) {
+	test_pop(bench);
+      }
+      break;
+
+    default:
+      assert(false);
+      break;
+    }
+  }
+}
+
+
 
 
 /*
@@ -1560,16 +2089,16 @@ static void test_increase_dlevel(test_bench_t *bench) {
 static poly_table_t poly_table;
 static test_bench_t bench;
 
-int main(void) {
-  init_rationals();
-  init_poly_table(&poly_table, 100, 20);
-  build_poly_table(&poly_table, 10, 100);
+
+/*
+ * Some simple tests
+ */
+static void base_test(void) {
+  printf("*****************\n");
+  printf("    BASE TESTS\n");
+  printf("*****************\n\n");
+
   init_test_bench(&bench, &poly_table);
-
-  printf("==== ALL POLYS ====\n");
-  print_poly_table(&poly_table);
-  printf("====\n");
-
   test_activate(&bench, 10);
   test_activate(&bench, 2);
   test_activate(&bench, 4);
@@ -1583,12 +2112,59 @@ int main(void) {
   test_propagate(&bench);
   test_assert_eq(&bench, 4, 2, -12);
   test_assert_eq(&bench, 4, 10, 0);
+  test_propagate(&bench);
+  test_increase_dlevel(&bench);
   test_assert_eq(&bench, 5, -1, 1223);
   test_propagate(&bench);
   test_assert_eq(&bench, 2, 10, 20); // cause a conflict
   test_propagate(&bench);
-
+  test_backtrack(&bench);
+  test_propagate(&bench);
+  test_pop(&bench);
+  test_propagate(&bench);  
   delete_test_bench(&bench);
+}
+
+
+/*
+ * Random test:
+ * - p = number of polynomials to activate first
+ * - n = number of random operations
+ */
+static void random_test(uint32_t n, uint32_t p) {
+  printf("*******************\n");
+  printf("    RANDOM TESTS\n");
+  printf("*******************\n\n");
+
+  init_test_bench(&bench, &poly_table);
+
+  random_activate(&bench, p);
+  while (n > 0) {
+    n --;
+    random_op(&bench);
+  }
+
+  // final step: propagate
+  if (! bench.mngr_conflict) {
+    test_propagate(&bench);
+  }
+  
+  delete_test_bench(&bench);
+}
+
+
+int main(void) {
+  init_rationals();
+  init_poly_table(&poly_table, 100, 20);
+  build_poly_table(&poly_table, 100, 1000);
+
+  printf("==== ALL POLYS ====\n");
+  print_poly_table(&poly_table);
+  printf("====\n");
+
+  base_test();
+  random_test(4000, 500);
+
   delete_poly_table(&poly_table);
   cleanup_rationals();
   

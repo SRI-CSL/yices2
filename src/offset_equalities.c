@@ -1690,6 +1690,10 @@ static void detach_offset_poly(offset_manager_t *m, int32_t i) {
   assert(0 <= i && i < m->ptable.npolys);
 
   vars = m->ptable.vars[i];
+  if (vars == NULL) {
+    return;
+  }
+
   n = vars->ndeps;
   for (j=0; j<n; j++) {
     x = vars->data[j].var;
@@ -1756,6 +1760,28 @@ static void process_poly(offset_manager_t *m, int32_t i) {
     // propagate the equality eterm[r] == eterm[i]
     mark_offset_poly_inactive(&m->ptable, i);
     report_equality(m, i, r);
+  }
+}
+
+
+/*
+ * Deactivate polynomial i
+ * - remove i from the hash table and dependency structurs
+ * - this cleans up the dependency vars[i] if i is in the vector 'to_process'
+ *   but a conflict is detected
+ * - in such a case, i's dependency and normal form are no longer good
+ *   but it's a waste of time to fully process i (because we're going to backtrack to resolve the conflict)/
+ */
+static void deactivate_poly(offset_manager_t *m, int32_t i) {
+  uint32_t h;
+
+  assert(0 <= i && i < m->ptable.npolys);
+
+  if (offset_poly_is_active(&m->ptable, i)) {
+    h = m->ptable.hash[i];
+    offset_hash_table_remove(&m->htbl, i, h);
+    detach_offset_poly(m, i);
+    mark_offset_poly_inactive(&m->ptable, i);
   }
 }
 
@@ -2183,28 +2209,12 @@ void assert_offset_equality(offset_manager_t *m, thvar_t x, thvar_t y, rational_
 
 
 /*
- * Propagate: 
- * - process all equalities in the queue
- * - compute normal form of all polynomials in the to_process queue
+ * After propagate: if no conflict is found, process all polys in m->to_process
  */
-bool offset_manager_propagate(offset_manager_t *m) {
-  offset_eq_t *eq;
+static void reprocess_polys(offset_manager_t *m) {
   ivector_t *v;
   uint32_t i, n;
   int32_t k;
-
-  i = m->queue.prop_ptr;
-  n = m->queue.top;
-  while (i < n) {
-    eq = m->queue.eq + i;
-    if (! process_offset_equality(m, eq->lhs, eq->rhs, &eq->offset, i)) {
-      // conflict
-      m->queue.prop_ptr = i;
-      return false;
-    }
-    i ++;
-  }
-  m->queue.prop_ptr = i;
 
   v = &m->to_process;
   n = v->size;
@@ -2216,6 +2226,54 @@ bool offset_manager_propagate(offset_manager_t *m) {
   }
 
   ivector_reset(v);
+}
+
+
+/*
+ * After propagate: if a conflict is found, cleanup m->to_process to fix
+ * the dependencies.
+ */
+static void deactivate_polys(offset_manager_t *m) {
+  ivector_t *v;
+  uint32_t i, n;
+  int32_t k;
+
+  v = &m->to_process;
+  n = v->size;
+  for (i=0; i<n; i++) {
+    k = v->data[i];
+    assert(offset_poly_is_marked(&m->ptable, k));
+    deactivate_poly(m, k);
+    offset_poly_clear_mark(&m->ptable, k);
+  }
+
+  ivector_reset(v);
+}
+
+/*
+ * Propagate: 
+ * - process all equalities in the queue
+ * - compute normal form of all polynomials in the to_process queue
+ */
+bool offset_manager_propagate(offset_manager_t *m) {
+  offset_eq_t *eq;
+  uint32_t i, n;
+
+  i = m->queue.prop_ptr;
+  n = m->queue.top;
+  while (i < n) {
+    eq = m->queue.eq + i;
+    if (! process_offset_equality(m, eq->lhs, eq->rhs, &eq->offset, i)) {
+      // conflict
+      m->queue.prop_ptr = i;
+      deactivate_polys(m);
+      return false;
+    }
+    i ++;
+  }
+
+  m->queue.prop_ptr = i;
+  reprocess_polys(m);
 
   return true;
 }
@@ -2286,7 +2344,7 @@ static void undo_offset_equality(offset_manager_t *m, offset_undo_t *d) {
   do {
     dz = vtbl->desc + z;
     assert(dz->root == ry);
-    dz->root = x;
+    dz->root = rx;
     q_sub(&dz->offset, &m->aux);
     z = dz->next;
   } while (z != rx);
@@ -2294,6 +2352,7 @@ static void undo_offset_equality(offset_manager_t *m, offset_undo_t *d) {
   // clear edge[x] then restore the branch from rx to x
   vtbl->edge[x] = -1;
   offset_invert_branch(m, rx);
+  assert(offset_explanation_root(m, x) == rx);
 
   // all polynomials in dep[rx] must be reprocessed
   collect_polys_to_process(m, vtbl->dep[rx]);
@@ -2387,11 +2446,11 @@ static void process_recheck_queue(offset_manager_t *m, int32_t k) {
       i --;
       queue->data[i].level = k;
       q = queue->data[i].id;
-      assert(! offset_poly_is_marked(&m->ptable, q));
-      mark_offset_poly(&m->ptable, q);
-      ivector_push(&m->to_process, q);
+      if (! offset_poly_is_marked(&m->ptable, q)) {
+	mark_offset_poly(&m->ptable, q);
+	ivector_push(&m->to_process, q);
+      }
     }
-    queue->top = i;    
   }
 }
 
