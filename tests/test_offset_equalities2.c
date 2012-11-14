@@ -2164,6 +2164,8 @@ int main(void) {
 
   base_test();
   random_test(4000, 500);
+  random_test(4000, 500);
+  random_test(4000, 500);
 
   delete_poly_table(&poly_table);
   cleanup_rationals();
