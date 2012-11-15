@@ -71,14 +71,13 @@ typedef struct {
  * Given a polynomial index i, we keep track of the offset variables that 
  * occur with a non-zero coefficient in poly[i]'s normal form.
  *
- * Conversely, given a root variable x, we keep in dep[x] the index
- * of all polynomials whose norrmal form contain x. If x is such
- * a variable, then 'i' occurs at some position 'k' in index vector 
- * dep[x].
+ * Conversely, given an offset variable x, we keep in dep[x] the index
+ * of all polynomials that contain x. If x is such a variable, then
+ * 'i' occurs at some position 'k' in index vector dep[x].
  *
  * In vars[i], we store the root variable 'x' and the index 'k'
  * - i.e., we maintain the invariant:
- *    dep[x][k] = i and 'x' is a root ==> vars[i] contains a dependency record <x. k>
+ *    dep[x][k] = i <==> vars[i] contains a dependency record <x. k>
  *
  * To support this, vars[i] is an array of pairs <x. k> + header information.
  *
@@ -163,28 +162,28 @@ static inline int32_t decode_idx(int32_t i) {
  * same.
  *
  * We keep track of whether i is present in the hash table or not:
- * - if bit active is 1, then i is present in the hash table and in the 
- *   dependency vectors (i.e., i occurs in dep[x] for all x that occur
- *   in i's normal form).
- * - bit active is 0, then i is not present in the hash table
+ * - if bit active is 1, then i is present in the hash table
+ * - if bit active is 0, then i is not present in the hash table
  *   this means that either i has just been created and its normal form
  *   has not been computed yet, or that i is equal to another polynomial j
  *   present in the hash table.
  *
+ * If i must be processed, then it's stored in the 'to_process' vector.
+ * - mark[i] keeps track of this (mark[i] == 1 iff i is in the to_process vector)
+ * 
  * For each index i in 0 to npolys - 1, we store:
  * - eterm[i] = egraph term that i represents (i.e., t)
  * - def[i] = polynomial p
  * - hash[i] = hash code of p's normal form
- * - vars[i] = offset variables that occur in p's normal form
+ * - vars[i] = offset variables that occur in p
  * - active[i] = active bit
- * - mark[i] = a one bit mark. mark[i] = 1 means that i is stored in 
- *             the to_process vector
+ * - mark[i] = mark bit
  *
  * When the triple (t, x, p) is registered, we also store that i
  * corresponds to variable 'x' in the var2poly map.
  *
  * We use an object store to allocate polynomials (when we need to
- * cosntruct p := 1.x for some variable x).
+ * construct p := 1.x for some variable x).
  */
 typedef struct offset_poly_table_s {
   uint32_t npolys;
@@ -203,31 +202,6 @@ typedef struct offset_poly_table_s {
 #define MAX_OFFSET_POLY_TABLE_SIZE ((UINT32_MAX)/sizeof(polynomial_t *))
 
 
-/*
- * Queue to store polynomials added during the search
- * - if a polynomial is created at decision_level = l0 >  base_level
- *   then it must be reanalyzed when we backtrack below l0
- * - we keep track of these polynomials in the following queue
- * - each element in this queue stores a polynomial id (index in the ptable)
- *   and the level at which the polynomial was added.
- */
-typedef struct recheck_elem_s {
-  int32_t id;
-  uint32_t level;
-} recheck_elem_t;
-
-typedef struct recheck_queue_s {
-  recheck_elem_t *data;
-  uint32_t top;  // top of the queue
-  uint32_t size; // size of the data array
-} recheck_queue_t;
-
-
-#define DEF_RECHECK_QUEUE_SIZE 20
-#define MAX_RECHECK_QUEUE_SIZE (UINT32_MAX/sizeof(recheck_elem_t))
-
-
-
 
 /*
  * Offset variable table
@@ -235,7 +209,7 @@ typedef struct recheck_queue_s {
  * - offset variables are indexed from 0 to nvars - 1
  * - index 0 has a special interpretation. It denotes 'zero'. 
  *   This is used to process equalities of the form x == constant
- *   (we turn this into the offset equaltiei x = zero + constant).
+ *   (we turn this into the offset equality x = zero + constant).
  *
  * - variables are grouped into equivalence classes: x and y 
  *   are in the same class if (x - y) is a constant. To represent
@@ -245,11 +219,12 @@ typedef struct recheck_queue_s {
  *   same class are linked together in a circular list.
  *
  * - to generate explanations, we keep a merge tree per class.
- *   Edges in the merge tree are indices in the offset equality queue.
- *   Equality x := y + k forms an edge from x to y, labeled by k.
- *   We store in edge[x] the edge that goes from x to its parent in
- *   the merge tree. If x is the root of the merge tree then we set
- *   edge[x] = -1.
+ *   - edges in the merge tree are indices in the offset equality queue.
+ *   - equality x := y + k forms an edge from x to y, labeled by k.
+ *   - we store in edge[x] the edge that goes from x to its parent in
+ *     the merge tree. 
+ *   - the root 'r' of x's class is also the root of x's merge tree,
+ *     and it has edge[r] = -1.
  *
  * - for each variable we store
  *     desc[x] = descriptor of x 
@@ -259,14 +234,13 @@ typedef struct recheck_queue_s {
  * - if x is a root we have
  *     desc[x].root = x
  *     desc[x].offset = 0
- *     dep[x] = all polynomials that depend on x
+ *     edge[x] = -1
  *
  * - if x is not a root 
  *     desc[x].root = r
- *     desc[x].offset = k 
- *     dep[x] = polyomials that depended on x before the previous
- *              equality was asserted (i.e., the last time x was a root).
- * 
+ *     desc[x].offset = k
+ *     edge[x] = index of an equality in the equality queue
+ *
  * We also keep the renaming of arithmetic variables in var2offset_var.
  */
 typedef struct offset_desc_s {
@@ -287,53 +261,6 @@ typedef struct offset_table_s {
 
 #define DEF_OFFSET_TABLE_SIZE 100
 #define MAX_OFFSET_TABLE_SIZE (UINT32_MAX/sizeof(offset_desc_t))
-
-
-
-/*
- * Queue of offset equalities
- * --------------------------
- *
- * An offset equality is of the form x := y + c where x and y are both
- * in the offset_table and c is a constant. Each equality also has
- * an integer 'id' that's used to build explanations. When an equality
- * is asserted, it must be given a unique id. 
- *
- * - eq[i] is an asserted equality (for 0 <= i < top)
- *   id[i] = corresponding id
- * - top = top of the stack
- * - prop_ptr = start of the propagation queue
- * - size = size of arrays eq and id
- *
- * The equalities are organized by decision levels:
- * - level_index[0] = 0
- * - level_index[k] = index of first equality asserted at deicision level k
- *      = value of top on entry to level k
- * - nlevels = size of the level_index array
- */
-typedef struct offset_eq_s {
-  int32_t lhs;       // the variable x that gets eliminated
-  int32_t rhs;       // the variable y
-  rational_t offset; // the constant c
-} offset_eq_t;
-
-typedef struct offset_equeue_s {
-  offset_eq_t *eq;
-  int32_t *id;
-  uint32_t prop_ptr;
-  uint32_t top;
-  uint32_t size;
-
-  uint32_t *level_index;
-  uint32_t nlevels;
-} offset_equeue_t;
-
-
-#define DEF_OFFSET_EQUEUE_SIZE 100
-#define MAX_OFFSET_EQUEUE_SIZE (UINT32_MAX/sizeof(offset_eq_t))
-
-#define DEF_OFFSET_EQUEUE_LEVELS 100
-#define MAX_OFFSET_EQUEUE_LEVELS (UINT32_MAX/sizeof(uint32_t))
 
 
 /*
@@ -368,19 +295,54 @@ typedef struct offset_hash_table_s {
 
 
 /*
+ * Queue of offset equalities
+ * --------------------------
+ *
+ * An offset equality is of the form x := y + c where x and y are both
+ * in the offset_table and c is a constant. Each equality also has
+ * an integer 'id' that's used to build explanations. When an equality
+ * is asserted, it must be given a unique id. 
+ *
+ * - eq[i] is an asserted equality (for 0 <= i < top)
+ *   id[i] = corresponding id
+ * - top = top of the stack
+ * - prop_ptr = start of the propagation queue
+ * - size = size of arrays eq and id
+ *
+ * The equalities are organized by decision levels.
+ */
+typedef struct offset_eq_s {
+  int32_t lhs;       // the variable x that gets eliminated
+  int32_t rhs;       // the variable y
+  rational_t offset; // the constant c
+} offset_eq_t;
+
+typedef struct offset_equeue_s {
+  offset_eq_t *eq;
+  int32_t *id;
+  uint32_t prop_ptr;
+  uint32_t top;
+  uint32_t size;
+
+  uint32_t *level_index;
+  uint32_t nlevels;
+} offset_equeue_t;
+
+
+#define DEF_OFFSET_EQUEUE_SIZE 100
+#define MAX_OFFSET_EQUEUE_SIZE (UINT32_MAX/sizeof(offset_eq_t))
+
+
+/*
  * Undo stack
+ * ----------
+ *
  * - when we process equality (x := y + k), we find rx := x's root
- *   then change the descriptors of all elements in rx's class
- * + we add an edge from x to y in the merge trees.
+ *   then we change the descriptors of all elements in rx's class
+ *   and we add an edge from x to y in the merge trees.
  * - when we backtrack, we need to revert this. It's enouugh to keep
  *   track of x and rx.
  * We store both in the undo stack.
- *
- * For managing the decision levels:
- * - level_index[0] = 0
- * - level_index[k] = index of first undo record for decision level k
- *      = value of top on entry to level k
- * - nlevels = size of the level_index array
  */
 typedef struct offset_undo_s {
   int32_t saved_var;   // x
@@ -391,17 +353,64 @@ typedef struct offset_undo_stack_s {
   offset_undo_t *data;
   uint32_t top;
   uint32_t size;
-
-  uint32_t *level_index;
-  uint32_t nlevels;
 } offset_undo_stack_t;
 
 
 #define DEF_OFFSET_UNDO_SIZE 100
 #define MAX_OFFSET_UNDO_SIZE (UINT32_MAX/sizeof(offset_undo_t))
 
-#define DEF_OFFSET_UNDO_LEVELS 100
-#define MAX_OFFSET_UNDO_LEVELS (UINT32_MAX/sizeof(uint32_t))
+
+/*
+ * Stack for backtracking:
+ * -----------------------
+ *
+ * For every decision level, we keep
+ * - the current top of the two queues above:
+ *   data[k].eq_ptr = pointer to the first equality asserted at level k (in offset_equeue)
+ *   data[k].undo_ptr = pointer to the first undo record pushed at level k (in undo_stack)
+ */
+typedef struct level_record_s {
+  uint32_t eq_ptr;
+  uint32_t undo_ptr;
+} level_record_t;
+
+typedef struct offset_level_stack_s {
+  level_record_t *data;
+  uint32_t size;
+} offset_level_stack_t;
+
+#define DEF_OFFSET_LEVEL_STACK_SIZE 40
+#define MAX_OFFSET_LEVEL_STACK_SIZE (UINT32_MAX/sizeof(level_record_t))
+
+
+
+/*
+ * Out-of-order polynomials
+ * - if a polynomial i is added during the search (at decision level k > base_level)
+ *   then we may discover that (i == j) for some other polynomial j
+ * - this equality will be reported first at level k (first call to propagate after i is added)
+ *   but it may be true at levels < k.
+ * - to deal with this, we store all polynomials added during the search to
+ *   the following recheck structure. When we backtrack to decision level <= k, we move
+ *   all polynomials added at levels > k to the process queue.
+ *
+ * Each element in the recheck queue stores a polynomial id + the decision level at 
+ * which this polynomial was added.
+ */
+typedef struct recheck_elem_s {
+  int32_t id;
+  uint32_t level;
+} recheck_elem_t;
+ 
+typedef struct recheck_queue_s {
+  recheck_elem_t *data;
+  uint32_t top;  // top of the queue
+  uint32_t size; // size of the data array
+} recheck_queue_t;
+
+
+#define DEF_RECHECK_QUEUE_SIZE 20
+#define MAX_RECHECK_QUEUE_SIZE (UINT32_MAX/sizeof(recheck_elem_t))
 
 
 /*
@@ -458,6 +467,7 @@ typedef struct offset_manager_s {
   offset_hash_table_t htbl;
   offset_equeue_t queue;
   offset_undo_stack_t undo;
+  offset_level_stack_t stack;
   offset_trail_stack_t tstack;
 
   recheck_queue_t recheck;
@@ -560,8 +570,6 @@ extern void offset_manager_increase_decision_level(offset_manager_t *m);
  * - remove all equalities asserted at levels > k
  */
 extern void offset_manager_backtrack(offset_manager_t *m, uint32_t k);
-
-
 
 
 

@@ -1128,6 +1128,7 @@ typedef struct test_bench_s {
   uint32_t decision_level;
   bool conflict;        // true if a contradiction is found (in test_assert_eq)
   bool mngr_conflict;   // true if offset_manager_propagates returns a conflict
+  bool show_details;    // true for showing more stuff during testing
 
   poly_table_t *ptable;
   substitution_t subst;
@@ -1150,6 +1151,7 @@ static void init_test_bench(test_bench_t *bench, poly_table_t *ptable) {
   bench->decision_level = 0;
   bench->conflict = false;
   bench->mngr_conflict = false;
+  bench->show_details = false;
 
   bench->ptable = ptable;
   init_substitution(&bench->subst, np);
@@ -1709,6 +1711,75 @@ static void check_propagation(test_bench_t *bench) {
   delete_ivector(&expl);
 }
 
+// all elements of v should be in the same class: check wether that's true
+// in the equality queue 
+static void check_good_class(test_bench_t *bench, int32_t *v) {
+  active_poly_table_t *table;
+  equality_queue_t *queue;
+  polynomial_t *p;
+  uint32_t i, n;
+  int32_t k, x, y;
+
+  queue = &bench->equeue;
+  table = &bench->act;
+
+  n = iv_size(v);
+  assert(n >= 2);
+  k = v[0];
+  assert(0 <= k && k < table->npolys);
+  x = table->id[k];
+
+  for (i=1; i<n; i++) {
+    k = v[i];
+    assert(0 <= k && k < table->npolys);
+    y = table->id[k];
+
+    if (root_of_var(queue, x) != root_of_var(queue, y)) {
+      printf("BUG: MISSED Propagation: x%"PRId32" and x%"PRId32" should be equal\n\n", x, y);
+      printf("  act[%"PRId32"]: x%"PRId32, v[0], x);
+      p = bench->ptable->poly[x];
+      if (p != NULL) {
+	printf(" = ");
+	print_poly(p);
+      }
+      printf("\n");
+      printf("  act[%"PRId32"]: x%"PRId32, k, y);
+      p = bench->ptable->poly[y];
+      if (p != NULL) {
+	printf(" = ");
+	print_poly(p);
+      }
+      printf("\n\n");
+      printf("  norm(x%"PRId32") = ", x);
+      print_normal_form(bench->act.norm[v[0]]);
+      printf("\n");
+      printf("  norm(x%"PRId32") = ", y);
+      print_normal_form(bench->act.norm[k]);
+      printf("\n\n");
+      fflush(stdout);
+      exit(1);
+    }
+  }
+}
+
+static void check_all_propagated(test_bench_t *bench) {
+  ipart_t partition;
+  int32_t *v;
+  uint32_t i, n;
+
+  init_int_partition(&partition, 0, bench, exp_hash_var, exp_equal_var);
+  collect_expected_classes(bench, &partition);
+
+  n = int_partition_nclasses(&partition);
+  for (i=0; i<n; i++) {
+    v = partition.classes[i];
+    check_good_class(bench, v);
+  }
+
+  delete_int_partition(&partition);
+}
+
+
 
 /*
  * TEST OPERATIONS
@@ -1717,6 +1788,10 @@ static void test_activate(test_bench_t *bench, int32_t id) {
   polynomial_t *p;
 
   printf("TEST_ACTIVATE: x%"PRId32"\n", id);
+
+  if (id == 946) {
+    fflush(stdout);
+  }
 
   add_active_poly(&bench->act, bench->ptable, id);
   push_record_poly(&bench->stack, id);
@@ -1739,6 +1814,10 @@ static void test_assert_eq(test_bench_t *bench, int32_t x, int32_t y, int32_t of
   printf("TEST_ASSERT_EQ: eq[%"PRId32"]: ", id);
   print_offset_eq(&e);
   printf("\n");
+
+  if (id == 174) {
+    fflush(stdout);
+  }
 
   subst_eq(&bench->subst, &e);
 
@@ -1771,12 +1850,14 @@ static void test_propagate(test_bench_t *bench) {
   push_propagate(&bench->stack);
   normalize_all(bench);
 
-  printf("Active polys\n");
-  print_active_polys(bench);
-  printf("Assertions\n");
-  print_all_equalities(bench);
-  printf("Normal forms\n");
-  print_normal_forms(bench);
+  if (bench->show_details) {
+    printf("Active polys\n");
+    print_active_polys(bench);
+    printf("Assertions\n");
+    print_all_equalities(bench);
+    printf("Normal forms\n");
+    print_normal_forms(bench);
+  }
 
   if (bench->conflict) {
     printf("Expected result: conflict\n\n");
@@ -1792,6 +1873,7 @@ static void test_propagate(test_bench_t *bench) {
     printf("Propagated classes\n");
     print_infered_classes(bench);
     check_propagation(bench);
+    check_all_propagated(bench);
   } else {
     assert(bench->conflict);
 
@@ -1839,15 +1921,17 @@ static void test_backtrack(test_bench_t *bench) {
   bench->conflict = false;
   bench->mngr_conflict = false;
 
-  // print state after backtracking
-  printf("AFTER BACKTRACK: decision level = %"PRIu32", base level = %"PRIu32"\n", bench->decision_level, bench->base_level);
-  normalize_all(bench);
-  printf("Active polys\n");
-  print_active_polys(bench);
-  printf("Assertions\n");
-  print_all_equalities(bench);
-  printf("Normal forms\n");
-  print_normal_forms(bench);
+  if (bench->show_details) {
+    // print state after backtracking
+    printf("AFTER BACKTRACK: decision level = %"PRIu32", base level = %"PRIu32"\n", bench->decision_level, bench->base_level);
+    normalize_all(bench);
+    printf("Active polys\n");
+    print_active_polys(bench);
+    printf("Assertions\n");
+    print_all_equalities(bench);
+    printf("Normal forms\n");
+    print_normal_forms(bench);
+  }
 
 
   offset_manager_backtrack(&bench->manager, bench->decision_level);
@@ -1881,15 +1965,17 @@ static void test_pop(test_bench_t *bench) {
   bench->conflict = false;
   bench->mngr_conflict = false;
 
-  // print state after pop
-  printf("AFTER POP: decision level = %"PRIu32", base level = %"PRIu32"\n", bench->decision_level, bench->base_level);
-  normalize_all(bench);
-  printf("Active polys\n");
-  print_active_polys(bench);
-  printf("Assertions\n");
-  print_all_equalities(bench);
-  printf("Normal forms\n");
-  print_normal_forms(bench);
+  if (bench->show_details) {
+    // print state after pop
+    printf("AFTER POP: decision level = %"PRIu32", base level = %"PRIu32"\n", bench->decision_level, bench->base_level);
+    normalize_all(bench);
+    printf("Active polys\n");
+    print_active_polys(bench);
+    printf("Assertions\n");
+    print_all_equalities(bench);
+    printf("Normal forms\n");
+    print_normal_forms(bench);
+  }
 
   offset_manager_pop(&bench->manager);
 }
@@ -2099,6 +2185,8 @@ static void base_test(void) {
   printf("*****************\n\n");
 
   init_test_bench(&bench, &poly_table);
+  bench.show_details = true;
+
   test_activate(&bench, 10);
   test_activate(&bench, 2);
   test_activate(&bench, 4);
@@ -2163,9 +2251,7 @@ int main(void) {
   printf("====\n");
 
   base_test();
-  random_test(4000, 500);
-  random_test(4000, 500);
-  random_test(4000, 500);
+  random_test(1000, 40);
 
   delete_poly_table(&poly_table);
   cleanup_rationals();

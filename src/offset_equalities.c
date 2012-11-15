@@ -322,16 +322,6 @@ static int32_t dep_vector_add(dep_t **v, int32_t i) {
 }
 
 
-/*
- * Empty dependency vector v
- */
-static void clear_dep_vector(dep_t *v) {
-  if (v != NULL) {
-    v->nelems = 0;
-    v->free_list = encode_idx(MAX_DEP_ARRAY_SIZE);
-  }
-}
-
 
 /*
  * POLYNOMIAL TABLE
@@ -491,6 +481,7 @@ static uint32_t poly_num_vars(polynomial_t *p) {
  * - x = arithmetic variable
  * - p = polynomial
  * - p must be non NULL, x must be valid variable
+ * - the dependency vector vars[i] is empty
  * return the index for this new polynomial
  */
 static int32_t store_offset_poly(offset_poly_table_t *table, eterm_t t, thvar_t x, polynomial_t *p) {
@@ -559,64 +550,6 @@ static inline bool offset_poly_is_active(offset_poly_table_t *table, int32_t k) 
 
 static inline bool offset_poly_is_inactive(offset_poly_table_t *table, int32_t k) {
   return !offset_poly_is_active(table, k);
-}
-
-
-
-/*
- * RECHECK QUEUE
- */
-static void init_recheck_queue(recheck_queue_t *queue) {
-  queue->data = NULL;
-  queue->top = 0;
-  queue->size = 0;
-}
-
-static void delete_recheck_queue(recheck_queue_t *queue) {
-  safe_free(queue->data);
-  queue->data = NULL;
-}
-
-static inline void reset_recheck_queue(recheck_queue_t *queue) {
-  queue->top = 0;
-}
-
-static void extend_recheck_queue(recheck_queue_t *queue) {
-  uint32_t n;
-
-  n = queue->size;
-  if (n == 0) {
-    n = DEF_RECHECK_QUEUE_SIZE;
-    assert(0 < n && n <= MAX_RECHECK_QUEUE_SIZE);
-    queue->data = (recheck_elem_t *) safe_malloc(n * sizeof(recheck_elem_t));
-    queue->size = n;
-  } else {
-    n ++;
-    n += (n >> 1);
-    if (n > MAX_RECHECK_QUEUE_SIZE) {
-      out_of_memory();
-    }
-    queue->data = (recheck_elem_t *) safe_realloc(queue->data, n * sizeof(recheck_elem_t));
-    queue->size = n;
-  }
-}
-
-
-/*
- * Add pair (level, id) to the queue
- */
-static void push_to_recheck(recheck_queue_t *queue, uint32_t level, int32_t id) {
-  uint32_t i;
-
-  i = queue->top;
-  if (i == queue->size) {
-    extend_recheck_queue(queue);
-  }
-  assert(i < queue->size);
-
-  queue->data[i].level = level;
-  queue->data[i].id = id;
-  queue->top = i+1;
 }
 
 
@@ -759,28 +692,6 @@ static int32_t alloc_offset_var(offset_table_t *table) {
 }
 
 
-#if 0
-
-// NOT USED
-/*
- * Get the offset variable for arithmetic variable x
- * - create a new offset variable if nothing is mapped to x
- */
-static int32_t get_offset_var(offset_table_t *table, thvar_t x) {
-  int32_t i;
-
-  i = remap_get(&table->var2offset_var, x);
-  if (i< 0) {
-    i = alloc_offset_var(table);
-    remap_set(&table->var2offset_var, x, i);
-  }
-
-  return i;
-}
-
-#endif
-
-
 /*
  * Make sure all arithmetic variables of p have a matching offset var
  * - create new offset vars if necessary
@@ -844,14 +755,6 @@ static void offset_var_remove_dep(offset_table_t *table, int32_t x, int32_t k) {
   dep_vector_free_slot(table->dep[x], k);
 }
 
-
-/*
- * Empty vector dep[x]
- */
-static void offset_var_clear_dep(offset_table_t *table, int32_t x) {
-  assert(0 < x && x < table->nvars);
-  clear_dep_vector(table->dep[x]);
-}
 
 
 /*
@@ -1137,6 +1040,9 @@ static void offset_hash_table_remove(offset_hash_table_t *table, int32_t i, uint
 }
 
 
+#if 0
+
+// NOT USED
 /*
  * Add [i, h] to the table when it's known that i is not in there
  * - there must not be a record with index i in the table
@@ -1161,6 +1067,7 @@ static void offset_hash_table_add(offset_hash_table_t *table, int32_t i, uint32_
     offset_hash_table_extend(table);
   }
 }
+#endif
 
 
 
@@ -1176,13 +1083,6 @@ static void init_offset_undo_stack(offset_undo_stack_t *stack) {
   stack->data = (offset_undo_t *) safe_malloc(n * sizeof(offset_undo_t));
   stack->top = 0;
   stack->size = n;
-
-  n = DEF_OFFSET_UNDO_LEVELS;
-  assert(0 < n && n <= MAX_OFFSET_UNDO_LEVELS);
-
-  stack->level_index = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
-  stack->level_index[0] = 0;
-  stack->nlevels = n;
 }
 
 
@@ -1198,22 +1098,6 @@ static void extend_offset_undo_stack(offset_undo_stack_t *stack) {
   stack->size = n;  
 }
 
-
-/*
- * Make the level_index array 50% larger
- */
-static void increase_offset_undo_levels(offset_undo_stack_t *stack) {
-  uint32_t n;
-
-  n = stack->nlevels + 1;
-  n += (n >> 1);
-  if (n > MAX_OFFSET_UNDO_LEVELS) {
-    out_of_memory();
-  }
-
-  stack->level_index = (uint32_t *) safe_realloc(stack->level_index, n * sizeof(uint32_t));;
-  stack->nlevels = n;
-}
 
 
 /*
@@ -1237,9 +1121,7 @@ static void offset_undo_push(offset_undo_stack_t *stack, int32_t x, int32_t rx) 
 
 static void delete_offset_undo_stack(offset_undo_stack_t *stack) {
   safe_free(stack->data);
-  safe_free(stack->level_index);
   stack->data = NULL;
-  stack->level_index = NULL;
 }
 
 
@@ -1247,6 +1129,102 @@ static inline void reset_offset_undo_stack(offset_undo_stack_t *stack) {
   stack->top = 0;
   
 }
+
+
+/*
+ * LEVEL STACK
+ */
+static void init_offset_level_stack(offset_level_stack_t *stack) {
+  uint32_t n;
+
+  n = DEF_OFFSET_LEVEL_STACK_SIZE;
+  assert(0 < n && n <= MAX_OFFSET_LEVEL_STACK_SIZE);
+
+  stack->data = (level_record_t *) safe_malloc(n * sizeof(level_record_t));
+  stack->data[0].eq_ptr = 0;
+  stack->data[0].undo_ptr = 0;
+
+  stack->size = n;
+}
+
+
+static void extend_offset_level_stack(offset_level_stack_t *stack) {
+  uint32_t n;
+
+  n = stack->size + 1;
+  n += n>>1;
+  if (n > MAX_OFFSET_LEVEL_STACK_SIZE) {
+    out_of_memory();
+  }
+
+  stack->data = (level_record_t *) safe_realloc(stack->data, n * sizeof(level_record_t));
+  stack->size = n;
+}
+
+
+static void delete_offset_level_stack(offset_level_stack_t *stack) {
+  safe_free(stack->data);
+  stack->data = NULL;
+}
+
+
+/*
+ * RECHECK QUEUE
+ */
+static void init_recheck_queue(recheck_queue_t *queue) {
+  queue->data = NULL;
+  queue->top = 0;
+  queue->size = 0;
+}
+
+static void delete_recheck_queue(recheck_queue_t *queue) {
+  safe_free(queue->data);
+  queue->data = NULL;
+}
+
+static inline void reset_recheck_queue(recheck_queue_t *queue) {
+  queue->top = 0;
+}
+
+static void extend_recheck_queue(recheck_queue_t *queue) {
+  uint32_t n;
+
+  n = queue->size;
+  if (n == 0) {
+    n = DEF_RECHECK_QUEUE_SIZE;
+    assert(0 < n && n <= MAX_RECHECK_QUEUE_SIZE);
+    queue->data = (recheck_elem_t *) safe_malloc(n * sizeof(recheck_elem_t));
+    queue->size = n;
+  } else {
+    n ++;
+    n += (n >> 1);
+    if (n > MAX_RECHECK_QUEUE_SIZE) {
+      out_of_memory();
+    }
+    queue->data = (recheck_elem_t *) safe_realloc(queue->data, n * sizeof(recheck_elem_t));
+    queue->size = n;
+  }
+}
+
+
+/*
+ * Add pair (level, id) to the queue
+ */
+static void push_to_recheck(recheck_queue_t *queue, uint32_t level, int32_t id) {
+  uint32_t i;
+
+  i = queue->top;
+  if (i == queue->size) {
+    extend_recheck_queue(queue);
+  }
+  assert(i < queue->size);
+
+  queue->data[i].level = level;
+  queue->data[i].id = id;
+  queue->top = i+1;
+}
+
+
 
 
 /*
@@ -1346,14 +1324,6 @@ static void init_offset_equeue(offset_equeue_t *queue) {
   queue->prop_ptr = 0;
   queue->top = 0;
   queue->size = n;
-
-
-  n = DEF_OFFSET_EQUEUE_LEVELS;
-  assert(0 < n && n <= MAX_OFFSET_EQUEUE_LEVELS);
-
-  queue->level_index = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
-  queue->level_index[0] = 0;
-  queue->nlevels = n;
 }
 
 
@@ -1379,23 +1349,6 @@ static void extend_offset_equeue(offset_equeue_t *queue) {
   queue->eq = tmp;
   queue->id = (int32_t *) safe_realloc(queue->id, n * sizeof(int32_t));
   queue->size = n;
-}
-
-
-/*
- * Make the level_index array 50% larger
- */
-static void increase_offset_equeue_levels(offset_equeue_t *queue) {
-  uint32_t n;
-
-  n = queue->nlevels + 1;
-  n += (n >> 1);
-  if (n > MAX_OFFSET_EQUEUE_LEVELS) {
-    out_of_memory();
-  }
-
-  queue->level_index = (uint32_t *) safe_realloc(queue->level_index, n * sizeof(uint32_t));;
-  queue->nlevels = n;
 }
 
 
@@ -1433,11 +1386,9 @@ static void delete_offset_equeue(offset_equeue_t *queue) {
 
   safe_free(queue->eq);
   safe_free(queue->id);
-  safe_free(queue->level_index);
 
   queue->eq = NULL;
   queue->id = NULL;
-  queue->level_index = NULL;
 }
 
 
@@ -1478,6 +1429,7 @@ void init_offset_manager(offset_manager_t *m, void *ext, eq_notifier_t f) {
   init_offset_hash_table(&m->htbl);
   init_offset_equeue(&m->queue);
   init_offset_undo_stack(&m->undo);
+  init_offset_level_stack(&m->stack);
   init_offset_trail_stack(&m->tstack);
 
   init_recheck_queue(&m->recheck);
@@ -1498,6 +1450,7 @@ void delete_offset_manager(offset_manager_t *m) {
   delete_offset_hash_table(&m->htbl);
   delete_offset_equeue(&m->queue);
   delete_offset_undo_stack(&m->undo);
+  delete_offset_level_stack(&m->stack);
   delete_offset_trail_stack(&m->tstack);
 
   delete_recheck_queue(&m->recheck);
@@ -1523,6 +1476,10 @@ void reset_offset_manager(offset_manager_t *m) {
   reset_offset_equeue(&m->queue);
   reset_offset_undo_stack(&m->undo);
   reset_offset_trail_stack(&m->tstack);
+
+  assert(m->stack.size > 0 && 
+	 m->stack.data[0].eq_ptr == 0 && 
+	 m->stack.data[0].undo_ptr == 0);
 
   reset_recheck_queue(&m->recheck);
   ivector_reset(&m->to_process);
@@ -1608,38 +1565,12 @@ static int32_t get_equal_poly(offset_manager_t *m, int32_t i, uint32_t h, poly_b
 }
 
 
-#ifndef NDEBUG
-/*
- * Check that there's no polynomial mathcing b in the table
- * - h = hash code for b
- */
-static bool no_matching_poly(offset_manager_t *m, uint32_t h, poly_buffer_t *b) {
-  offset_hash_table_t *htbl;
-  uint32_t j, mask;
-  int32_t q;
-
-  htbl = &m->htbl;
-  mask = htbl->size - 1;
-  j = h & mask;
-  for (;;) {
-    q = htbl->data[j].index;
-    if (q == -1) break;
-    if (q > 0 && htbl->data[j].hash == h && matching_poly(m, b, q)) return false;
-    j ++;
-    j &= mask;
-  }
-
-  return true;
-}
-
-#endif
-
 
 /*
  * Set dependency data for polynomial i
- * - b must be the normal form of i
  */
-static void attach_offset_poly(offset_manager_t *m, int32_t i, poly_buffer_t *b) {
+static void attach_offset_poly(offset_manager_t *m, int32_t i) {
+  polynomial_t *p;
   monomial_t *mono;
   var_array_t *vars;
   uint32_t j, n;
@@ -1648,66 +1579,34 @@ static void attach_offset_poly(offset_manager_t *m, int32_t i, poly_buffer_t *b)
   assert(0 <= i && i < m->ptable.npolys);
 
   vars = m->ptable.vars[i];  
-  n = poly_buffer_nterms(b);
-  mono = poly_buffer_mono(b);
 
-  if (vars == NULL) {
-    assert(n == 0 || (n == 1 && mono[0].var == const_idx));
-    return;
-  }
+  if (vars != NULL) {
+    p = m->ptable.def[i];
+    n = p->nterms;
+    mono = p->mono;
 
-  if (n > 0) {
     if (mono[0].var == const_idx) {
-      // skip the constant
       mono ++;
       n --;
     }
 
-    assert(n <= vars->size);
+    assert(n > 0 && n == vars->size);
 
     for (j=0; j<n; j++) {
       x = mono[j].var;
+      assert(x != const_idx);
+
+      x = remap_find(&m->vtable.var2offset_var, x);
       k = offset_var_add_dep(&m->vtable, x, i);
+
       vars->data[j].var = x;
       vars->data[j].idx = k;
     }
-  }
 
-  vars->ndeps = n;  
+    vars->ndeps = n;
+  }
 }
 
-
-
-/*
- * Remove i from the dependency vectors of root variables
- * - then clear vars[i]
- */
-static void detach_offset_poly(offset_manager_t *m, int32_t i) {
-  var_array_t *vars;
-  uint32_t j, n;
-  int32_t k, x;
-
-  assert(0 <= i && i < m->ptable.npolys);
-
-  vars = m->ptable.vars[i];
-  if (vars == NULL) {
-    return;
-  }
-
-  n = vars->ndeps;
-  for (j=0; j<n; j++) {
-    x = vars->data[j].var;
-    k = vars->data[j].idx;
-
-    assert(0 <= k && k < m->vtable.dep[x]->nelems && m->vtable.dep[x]->data[k] == i);
-
-    if (offset_var_is_root(&m->vtable, x)) {
-      offset_var_remove_dep(&m->vtable, x, k);
-    }
-  }
-
-  vars->ndeps = 0;  
-}
 
 
 /*
@@ -1727,7 +1626,8 @@ static void report_equality(offset_manager_t *m, int32_t i1, int32_t i2) {
 
 /*
  * Compute or recompute the normal form of polynomial i
- * - add i to the hash table and dependency structures if it's root of its equivalence class
+ * - add i to the hash table if it's root of its equivalence class and mark i active
+ * - if i is equal to another poly r already in the table, mark i inactive
  */
 static void process_poly(offset_manager_t *m, int32_t i) {
   poly_buffer_t *b;
@@ -1738,10 +1638,9 @@ static void process_poly(offset_manager_t *m, int32_t i) {
   assert(0 <= i && i < m->ptable.npolys);
 
   if (offset_poly_is_active(&m->ptable, i)) {
-    // remove i from the hash table and dependency vectors
+    // remove i from the hash table
     h  = m->ptable.hash[i];
     offset_hash_table_remove(&m->htbl, i, h);
-    detach_offset_poly(m, i);
   }
 
   // compute p's normal form in b
@@ -1754,34 +1653,12 @@ static void process_poly(offset_manager_t *m, int32_t i) {
   // search for a polynomial with the same normal form
   r = get_equal_poly(m, i, h, b);
   if (r == i) {
+    // i is active
     mark_offset_poly_active(&m->ptable, i);
-    attach_offset_poly(m, i, b);
   } else {
-    // propagate the equality eterm[r] == eterm[i]
+    // i is inacative: propagate the equality eterm[r] == eterm[i]
     mark_offset_poly_inactive(&m->ptable, i);
     report_equality(m, i, r);
-  }
-}
-
-
-/*
- * Deactivate polynomial i
- * - remove i from the hash table and dependency structurs
- * - this cleans up the dependency vars[i] if i is in the vector 'to_process'
- *   but a conflict is detected
- * - in such a case, i's dependency and normal form are no longer good
- *   but it's a waste of time to fully process i (because we're going to backtrack to resolve the conflict)/
- */
-static void deactivate_poly(offset_manager_t *m, int32_t i) {
-  uint32_t h;
-
-  assert(0 <= i && i < m->ptable.npolys);
-
-  if (offset_poly_is_active(&m->ptable, i)) {
-    h = m->ptable.hash[i];
-    offset_hash_table_remove(&m->htbl, i, h);
-    detach_offset_poly(m, i);
-    mark_offset_poly_inactive(&m->ptable, i);
   }
 }
 
@@ -1803,12 +1680,14 @@ void record_offset_poly(offset_manager_t *m, eterm_t t, thvar_t x, polynomial_t 
   }
   make_offset_vars_for_poly(&m->vtable, p);
   i = store_offset_poly(&m->ptable, t, x, p);
+  attach_offset_poly(m, i);
 
-  assert(offset_poly_is_inactive(&m->ptable, i));
+  assert(offset_poly_is_inactive(&m->ptable, i) && 
+	 !offset_poly_is_marked(&m->ptable, i));
 
-  // add i to the to_process vector
-  mark_offset_poly(&m->ptable, i);
+  // add i to the to_process vector and to the recheck queue if needed
   ivector_push(&m->to_process, i);
+  mark_offset_poly(&m->ptable, i);
 
   if (m->base_level < m->decision_level) {
     push_to_recheck(&m->recheck, m->decision_level, i);
@@ -1818,8 +1697,18 @@ void record_offset_poly(offset_manager_t *m, eterm_t t, thvar_t x, polynomial_t 
 
 
 /*
- * Add all polynomials in v to vector 'to_process'
- * - mark all polynomials that get added
+ * Add polynomial i to the 'to_process' queue if it's not there already
+ */
+static void push_to_process(offset_manager_t *m, int32_t i) {
+  if (!offset_poly_is_marked(&m->ptable, i)) {
+    ivector_push(&m->to_process, i);
+    mark_offset_poly(&m->ptable, i);
+  }
+}
+
+
+/*
+ * Add all polynomials of v to vector 'to_process'
  */
 static void collect_polys_to_process(offset_manager_t *m, dep_t *v) {
   uint32_t i, n;
@@ -1829,9 +1718,8 @@ static void collect_polys_to_process(offset_manager_t *m, dep_t *v) {
     n = v->nelems;
     for (i=0; i<n; i++) {
       k = v->data[i];
-      if (k >= 0 && !  offset_poly_is_marked(&m->ptable, k)) {
-	mark_offset_poly(&m->ptable, k);
-	ivector_push(&m->to_process, k);
+      if (k >= 0) {
+	push_to_process(m, k);
       }
     }
   }
@@ -2127,8 +2015,6 @@ static bool process_offset_equality(offset_manager_t *m, int32_t x, int32_t y, r
 
   if (rx == ry) {
     if (q_is_nonzero(delta)) {
-      // conflict detected
-      m->conflict_eq = i;
       return false;
     }
   } else {
@@ -2155,7 +2041,8 @@ static bool process_offset_equality(offset_manager_t *m, int32_t x, int32_t y, r
     vtbl->edge[x] = i;
 
     /*
-     * Update the descriptors in rx's class
+     * Update the descriptors in rx's class + collect all polynomials
+     * that depend on variables in rx's class
      */
     z = rx;
     do {
@@ -2163,6 +2050,8 @@ static bool process_offset_equality(offset_manager_t *m, int32_t x, int32_t y, r
       assert(dx->root == rx);
       dx->root = ry;
       q_add(&dx->offset, delta);
+      collect_polys_to_process(m, vtbl->dep[z]);
+
       z = dx->next;
     } while (z != rx);
 
@@ -2172,12 +2061,6 @@ static bool process_offset_equality(offset_manager_t *m, int32_t x, int32_t y, r
     z = vtbl->desc[rx].next;
     vtbl->desc[rx].next = vtbl->desc[ry].next;
     vtbl->desc[ry].next = z;
-
-
-    /*
-     * All polynomials that depend on rx need reprocessing
-     */
-    collect_polys_to_process(m, vtbl->dep[rx]);
   }
 
   return true;
@@ -2210,6 +2093,7 @@ void assert_offset_equality(offset_manager_t *m, thvar_t x, thvar_t y, rational_
 
 /*
  * After propagate: if no conflict is found, process all polys in m->to_process
+ * then empty the queue.
  */
 static void reprocess_polys(offset_manager_t *m) {
   ivector_t *v;
@@ -2229,26 +2113,6 @@ static void reprocess_polys(offset_manager_t *m) {
 }
 
 
-/*
- * After propagate: if a conflict is found, cleanup m->to_process to fix
- * the dependencies.
- */
-static void deactivate_polys(offset_manager_t *m) {
-  ivector_t *v;
-  uint32_t i, n;
-  int32_t k;
-
-  v = &m->to_process;
-  n = v->size;
-  for (i=0; i<n; i++) {
-    k = v->data[i];
-    assert(offset_poly_is_marked(&m->ptable, k));
-    deactivate_poly(m, k);
-    offset_poly_clear_mark(&m->ptable, k);
-  }
-
-  ivector_reset(v);
-}
 
 /*
  * Propagate: 
@@ -2265,22 +2129,25 @@ bool offset_manager_propagate(offset_manager_t *m) {
     eq = m->queue.eq + i;
     if (! process_offset_equality(m, eq->lhs, eq->rhs, &eq->offset, i)) {
       // conflict
+      m->conflict_eq = i;
       m->queue.prop_ptr = i;
-      deactivate_polys(m);
       return false;
     }
     i ++;
   }
 
   m->queue.prop_ptr = i;
+
   reprocess_polys(m);
+  assert(m->to_process.size == 0);
 
   return true;
 }
 
 
 /*
- * Increase the decision level
+ * Increase the decision level:
+ * - save the current top of queue, undo, and inactive queue
  */
 void offset_manager_increase_decision_level(offset_manager_t *m) {
   uint32_t k;
@@ -2288,17 +2155,12 @@ void offset_manager_increase_decision_level(offset_manager_t *m) {
   k = m->decision_level + 1;
   m->decision_level = k;
 
-  if (m->undo.nlevels == k) {
-    increase_offset_undo_levels(&m->undo);
+  if (m->stack.size == k) {
+    extend_offset_level_stack(&m->stack);
   }
-  assert(k < m->undo.nlevels);
-  m->undo.level_index[k] = m->undo.top;  
-
-  if (m->queue.nlevels == k) {
-    increase_offset_equeue_levels(&m->queue);
-  }
-  assert(k < m->queue.nlevels);
-  m->queue.level_index[k] = m->queue.top;
+  assert(k < m->stack.size);
+  m->stack.data[k].eq_ptr = m->queue.top;  
+  m->stack.data[k].undo_ptr = m->undo.top;
 }
 
 
@@ -2339,13 +2201,15 @@ static void undo_offset_equality(offset_manager_t *m, offset_undo_t *d) {
   vtbl->desc[rx].next = vtbl->desc[ry].next;
   vtbl->desc[ry].next = z;
 
-  // restore the offset descriptors in x's class
+  // restore the offset descriptors in rx's class
+  // and collect all polynomials that depend on variables in rx's class
   z = rx;
   do {
     dz = vtbl->desc + z;
     assert(dz->root == ry);
     dz->root = rx;
     q_sub(&dz->offset, &m->aux);
+    collect_polys_to_process(m, vtbl->dep[z]);
     z = dz->next;
   } while (z != rx);
 
@@ -2353,75 +2217,15 @@ static void undo_offset_equality(offset_manager_t *m, offset_undo_t *d) {
   vtbl->edge[x] = -1;
   offset_invert_branch(m, rx);
   assert(offset_explanation_root(m, x) == rx);
-
-  // all polynomials in dep[rx] must be reprocessed
-  collect_polys_to_process(m, vtbl->dep[rx]);
-
-  // clean up dep[rx]
-  offset_var_clear_dep(vtbl, rx);
-}
-
-
-
-/*
- * Restore normal forms and dependencies after backtracking
- */
-static void restore_poly(offset_manager_t *m, int32_t i) {
-  poly_buffer_t *b;
-  polynomial_t *p;
-  uint32_t h;
-
-  assert(0 <= i && i < m->ptable.npolys);
-
-  if (offset_poly_is_active(&m->ptable, i)) {
-    // remove i from the hash table and dependency vectors
-    h  = m->ptable.hash[i];
-    offset_hash_table_remove(&m->htbl, i, h);
-    detach_offset_poly(m, i);
-  }
-
-  // compute p's normal form in b
-  p = m->ptable.def[i];
-  b = &m->buffer1;
-  poly_offset_normal_form(&m->vtable, b, p);
-  h = hash_normal_form(b);
-  m->ptable.hash[i] = h;
-
-  // put i back in the hash table
-  assert(no_matching_poly(m, h, b));
-  offset_hash_table_add(&m->htbl, i, h);
-  mark_offset_poly_active(&m->ptable, i);
-  attach_offset_poly(m, i, b);
-}
-
-
-static void offset_manager_restore(offset_manager_t *m) {
-  ivector_t *v;
-  uint32_t i, n;
-  int32_t k;
-
-  v = &m->to_process;
-  n = v->size;
-  for (i=0; i<n; i++) {
-    k = v->data[i];
-    assert(offset_poly_is_marked(&m->ptable, k));
-    restore_poly(m, k);
-    offset_poly_clear_mark(&m->ptable, k);
-  }
-
-  ivector_reset(v);
 }
 
 
 /*
- * Deal with the recheck queue when backtracking to level k
- * - if k is equal to base_level, empty the queue and move its
- *   content to vector 'to_process'
- * - if k is more than base_level, collect all polynomials introduced
- *   at a level > k and move them to 'to_process'. Also change thei
- *   level tp k in the recheck queue.
+ * Scan the recheck queue after backtracking to level k
+ * - any polynomial that was added at level >= k is moved to the 'to_process' vector
+ * - if k is base_level, remove all records from the queue
  */
-static void process_recheck_queue(offset_manager_t *m, int32_t k) {
+static void process_recheck_queue(offset_manager_t *m, uint32_t k) {
   recheck_queue_t *queue;
   uint32_t i;
   int32_t q;
@@ -2430,27 +2234,15 @@ static void process_recheck_queue(offset_manager_t *m, int32_t k) {
 
   queue = &m->recheck;
   i = queue->top;
+  while (i > 0 && queue->data[i-1].level >= k) {
+    i --;
+    q = queue->data[i].id;
+    push_to_process(m, q);
+  }
 
-  if (k == m->base_level) {
-    while (i> 0) {
-      i --;
-      q = queue->data[i].id;
-      assert(! offset_poly_is_marked(&m->ptable, q));
-      mark_offset_poly(&m->ptable, q);
-      ivector_push(&m->to_process, q);
-    }
-    queue->top = 0;
-
-  } else {
-    while (i > 0 && queue->data[i-1].level > k) {
-      i --;
-      queue->data[i].level = k;
-      q = queue->data[i].id;
-      if (! offset_poly_is_marked(&m->ptable, q)) {
-	mark_offset_poly(&m->ptable, q);
-	ivector_push(&m->to_process, q);
-      }
-    }
+  if (m->base_level == k) {
+    // remove records of level >= k
+    queue->top = i;
   }
 }
 
@@ -2459,14 +2251,25 @@ static void process_recheck_queue(offset_manager_t *m, int32_t k) {
  * Backtrack to level k
  */
 void offset_manager_backtrack(offset_manager_t *m, uint32_t k) {
+  level_record_t *lev;
   offset_undo_stack_t *undo;
   uint32_t back, i;
 
-  assert(k < m->decision_level);
+  assert(k < m->decision_level && k + 1 < m->stack.size);
+
+  lev = m->stack.data + (k + 1);
+
+  // clear conflict if any
+  m->conflict_eq = -1;
+
+  // clean up the equality queue
+  m->queue.top = lev->eq_ptr;
+  m->queue.prop_ptr = lev->eq_ptr;
 
   // undo all merges
   undo = &m->undo;
-  back = undo->level_index[k + 1];
+  back = lev->undo_ptr;
+
   i = undo->top;
   while (i > back) {
     i --;
@@ -2474,18 +2277,9 @@ void offset_manager_backtrack(offset_manager_t *m, uint32_t k) {
   }
   undo->top = back;
 
-  // clean up the equality queue
-  i = m->queue.level_index[k + 1];
-  m->queue.top = i;
-  m->queue.prop_ptr = i;
-
-  // clear conflict if any
-  m->conflict_eq = -1;
-
   process_recheck_queue(m, k);
-  m->decision_level = k;
 
-  offset_manager_restore(m);
+  m->decision_level = k;
 }
 
 
@@ -2505,6 +2299,7 @@ void offset_manager_push(offset_manager_t *m) {
   offset_trail_push(&m->tstack, np, nv, ptr);
 
   offset_manager_increase_decision_level(m);
+
   m->base_level ++;
 }
 
@@ -2513,6 +2308,52 @@ void offset_manager_push(offset_manager_t *m) {
 /*
  * Remove all polys of index >= np
  */
+static void cleanup_process_vector(offset_manager_t *m, uint32_t np) {
+  ivector_t *v;
+  uint32_t i, j, n;
+  int32_t id;
+
+  v = &m->to_process;
+  n = v->size;
+  j = 0;
+  for (i=0; i<n; i++) {
+    id = v->data[i];
+    if (id < np) {
+      assert(offset_poly_is_marked(&m->ptable, id));
+      v->data[j] = id;
+      j ++;
+    }
+  }
+
+  v->size = j;
+}
+
+
+/*
+ * Remove i from the dependency vectors
+ */
+static void detach_offset_poly(offset_manager_t *m, int32_t i) {
+  var_array_t *vars;
+  uint32_t j, n;
+  int32_t k, x;
+
+  assert(0 <= i && i < m->ptable.npolys);
+
+  vars = m->ptable.vars[i];
+  if (vars == NULL) {
+    return;
+  }
+
+  n = vars->ndeps;
+  for (j=0; j<n; j++) {
+    x = vars->data[j].var;
+    k = vars->data[j].idx;
+    assert(0 <= k && k < m->vtable.dep[x]->nelems && m->vtable.dep[x]->data[k] == i);
+    offset_var_remove_dep(&m->vtable, x, k);
+  }
+}
+
+
 static void remove_offset_polys(offset_manager_t *m, uint32_t np) {
   offset_poly_table_t *table;
   polynomial_t *p;
@@ -2527,8 +2368,8 @@ static void remove_offset_polys(offset_manager_t *m, uint32_t np) {
     if (offset_poly_is_active(table, i)) {
       h = m->ptable.hash[i];
       offset_hash_table_remove(&m->htbl, i, h);
-      detach_offset_poly(m, i);
     }
+    detach_offset_poly(m, i);
     safe_free(table->vars[i]);
     p = table->def[i];
     if (offset_poly_is_simple(table, p, i)) {
@@ -2555,10 +2396,11 @@ void offset_manager_pop(offset_manager_t *m) {
   trail = offset_trail_top(&m->tstack);
 
   remove_offset_polys(m, trail->npolys);  
+  cleanup_process_vector(m, trail->npolys);
   remove_offset_vars(&m->vtable, trail->nvars);
   m->queue.prop_ptr = trail->prop_ptr;
 
-  offset_trail_pop(&m->tstack);
+  offset_trail_pop(&m->tstack);  
 
   assert(m->conflict_eq == -1);
 }
