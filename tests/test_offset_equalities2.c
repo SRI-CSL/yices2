@@ -580,12 +580,15 @@ static bool equal_normal_forms(normal_form_t *f, normal_form_t *g) {
  * The offset manager propagates equalities between two variables x and y
  * - both x and y are variables in a poly_table
  * - we store the equalities we get in a stack
+ *   we also store the rx = root of x and ry = root of y
  * - to mark backtracking point, we use a fake equality -1 == -1
  * - we also use a merge table to compute equivalence classes
  */
 typedef struct equality_s {
   int32_t lhs;  // x
   int32_t rhs;  // y
+  int32_t root_lhs; // rx
+  int32_t root_rhs; // ry
 } equality_t;
 
 typedef struct equality_queue_s {
@@ -674,26 +677,30 @@ static bool var_is_root(equality_queue_t *queue, int32_t x) {
 
 /*
  * Add equality x == y to the queue:
- * - both x and y should be roots
  */
 static void push_equality(equality_queue_t *queue, int32_t x, int32_t y) {
   uint32_t i;
+  int32_t rx, ry;
 
-  assert(var_is_root(queue, x) && var_is_root(queue, y));
+  rx = root_of_var(queue, x);
+  ry = root_of_var(queue, y);
 
   i = queue->top;
   if (i == queue->qsize) {
     extend_equality_queue(queue);
   }
   assert(i < queue->qsize);
+
   queue->data[i].lhs = x;
   queue->data[i].rhs = y;
+  queue->data[i].root_lhs = rx;
+  queue->data[i].root_rhs = ry;
 
   queue->top = i+1;  
 
-  // update the parents: we always do lhs := rhs (so y stays root)
-  // this is a no-op if x = y (as we want).
-  queue->parent[x] = y;
+  // update the parents: we always do lhs := rhs (so ry stays root)
+  // this is a no-op if rx = ry (as we want).
+  queue->parent[rx] = ry;
 }
 
 
@@ -710,6 +717,8 @@ static void push_mark(equality_queue_t *queue) {
   assert(i < queue->qsize);
   queue->data[i].lhs = -1;
   queue->data[i].rhs = -1;
+  queue->data[i].root_lhs = -1;
+  queue->data[i].root_rhs = -1;
 
   queue->top = i+1;
 }
@@ -721,20 +730,17 @@ static void push_mark(equality_queue_t *queue) {
  */
 static void equality_queue_backtrack(equality_queue_t *queue) {
   uint32_t i;
-  int32_t x;
+  int32_t rx;
 
   i = queue->top;
   while (i > 0) {
     i --;
-    x = queue->data[i].lhs;
-    if (x < 0) {
-      assert(queue->data[i].rhs < 0);
-      break;
-    }
-
-    // restore parent of lhs
-    assert(0 <= x && x < queue->nvars && queue->parent[x] == queue->data[i].rhs);
-    queue->parent[x] = x;
+    if (queue->data[i].lhs < 0) break; // marker
+    // restore parent
+    rx = queue->data[i].root_lhs;
+    assert(0 <= rx && rx < queue->nvars && 
+	   queue->parent[rx] == queue->data[i].root_rhs);
+    queue->parent[rx] = rx;
   }
 
   queue->top = i;
@@ -754,8 +760,11 @@ static void notify_equality(void *aux, int32_t x, int32_t y) {
   printf("Received equality: x%"PRId32" == x%"PRId32"\n", x, y);
   fflush(stdout);
 
-  x = root_of_var(queue, x);
-  y = root_of_var(queue, y);
+  if (x == 57 && y == 469) {
+    printf("*** HERE ***\n");
+    fflush(stdout);
+  }
+
   push_equality(queue, x, y);  
 }
 
@@ -1748,8 +1757,9 @@ static void check_good_class(test_bench_t *bench, int32_t *v) {
       if (p != NULL) {
 	printf(" = ");
 	print_poly(p);
-      }
+      }      
       printf("\n\n");
+      print_all_equalities(bench);
       printf("  norm(x%"PRId32") = ", x);
       print_normal_form(bench->act.norm[v[0]]);
       printf("\n");
@@ -1810,10 +1820,6 @@ static void test_assert_eq(test_bench_t *bench, int32_t x, int32_t y, int32_t of
   printf("TEST_ASSERT_EQ: eq[%"PRId32"]: ", id);
   print_offset_eq(&e);
   printf("\n");
-
-  if (id == 174) {
-    fflush(stdout);
-  }
 
   subst_eq(&bench->subst, &e);
 
@@ -2225,6 +2231,9 @@ static void random_test(uint32_t n, uint32_t p) {
   random_activate(&bench, p);
   while (n > 0) {
     n --;
+    if (3420 < n && n < 3430) {
+      fflush(stdout);
+    }
     random_op(&bench);
   }
 
@@ -2248,6 +2257,10 @@ int main(void) {
 
   base_test();
   random_test(1000, 40);
+  random_test(4000, 100);
+  random_test(4000, 100);
+  random_test(4000, 100);
+  random_test(4000, 100);
 
   delete_poly_table(&poly_table);
   cleanup_rationals();

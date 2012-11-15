@@ -5,6 +5,10 @@
 
 #include <assert.h>
 
+// PROVISIONAL
+#include <stdio.h>
+#include <inttypes.h>
+
 #include "memalloc.h"
 #include "index_vectors.h"
 #include "offset_equalities.h"
@@ -1222,6 +1226,11 @@ static void push_to_recheck(recheck_queue_t *queue, uint32_t level, int32_t id) 
   queue->data[i].level = level;
   queue->data[i].id = id;
   queue->top = i+1;
+
+  if (id == 105 || id == 109) {
+    printf("---> push_to_recheck poly[%"PRId32"]\n", id);
+    fflush(stdout);
+  }
 }
 
 
@@ -1654,9 +1663,17 @@ static void process_poly(offset_manager_t *m, int32_t i) {
   r = get_equal_poly(m, i, h, b);
   if (r == i) {
     // i is active
+    if (i == 105 || i == 109) {
+      printf("---> process poly[%"PRId32"]: active\n", i);
+      fflush(stdout);
+    }
     mark_offset_poly_active(&m->ptable, i);
   } else {
-    // i is inacative: propagate the equality eterm[r] == eterm[i]
+    // i is inactive: propagate the equality eterm[r] == eterm[i]
+    if (i == 105 || i == 109) {
+      printf("---> process poly[%"PRId32"]: inactive: equal to poly[%"PRId32"]\n", i, r);
+      fflush(stdout);
+    }
     mark_offset_poly_inactive(&m->ptable, i);
     report_equality(m, i, r);
   }
@@ -1685,6 +1702,11 @@ void record_offset_poly(offset_manager_t *m, eterm_t t, thvar_t x, polynomial_t 
   assert(offset_poly_is_inactive(&m->ptable, i) && 
 	 !offset_poly_is_marked(&m->ptable, i));
 
+  if (i == 105 || i == 109) {
+    printf("---> record poly[%"PRId32"] for x%"PRId32"\n", i, x);
+    fflush(stdout);
+  }
+
   // add i to the to_process vector and to the recheck queue if needed
   ivector_push(&m->to_process, i);
   mark_offset_poly(&m->ptable, i);
@@ -1703,6 +1725,11 @@ static void push_to_process(offset_manager_t *m, int32_t i) {
   if (!offset_poly_is_marked(&m->ptable, i)) {
     ivector_push(&m->to_process, i);
     mark_offset_poly(&m->ptable, i);
+
+    if (i == 105 || i == 109) {
+      printf("---> push_to_process poly[%"PRId32"]\n", i);
+      fflush(stdout);
+    }
   }
 }
 
@@ -2237,6 +2264,10 @@ static void process_recheck_queue(offset_manager_t *m, uint32_t k) {
   while (i > 0 && queue->data[i-1].level >= k) {
     i --;
     q = queue->data[i].id;
+    if (q == 105 || q == 109) {
+      printf("---> process_recheck_queue poly[%"PRId32"]\n", q);
+      fflush(stdout);
+    }
     push_to_process(m, q);
   }
 
