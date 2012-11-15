@@ -743,7 +743,7 @@ static void equality_queue_backtrack(equality_queue_t *queue) {
 
 /*
  * Call back: report that x and y are equal
- * - aux is a pointer to am equality queue
+ * - aux is a pointer to an equality queue
  * - x and y must be two variable indices in this table
  */
 static void notify_equality(void *aux, int32_t x, int32_t y) {
@@ -1788,10 +1788,6 @@ static void test_activate(test_bench_t *bench, int32_t id) {
   polynomial_t *p;
 
   printf("TEST_ACTIVATE: x%"PRId32"\n", id);
-
-  if (id == 946) {
-    fflush(stdout);
-  }
 
   add_active_poly(&bench->act, bench->ptable, id);
   push_record_poly(&bench->stack, id);
