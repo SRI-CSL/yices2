@@ -25,7 +25,6 @@ static inline long int random(void) {
  */
 static uint32_t ctr = 0;
 
-
 /*
  * TABLE OF POLYNOMIALS
  */
@@ -767,7 +766,7 @@ static void notify_equality(void *aux, int32_t x, int32_t y) {
   printf("[%"PRIu32"]: Received equality: x%"PRId32" == x%"PRId32"\n", ctr, x, y);
   fflush(stdout);
 
-  push_equality(queue, x, y);  
+  push_equality(queue, x, y);
 }
 
 
@@ -888,7 +887,7 @@ static void remove_active_poly(active_poly_table_t *table) {
   id = table->id[k];
 
   assert(table->active[id]);
-  table->active[k] = false;
+  table->active[id] = false;
 
   table->npolys = k;
 }
@@ -1001,7 +1000,7 @@ static void init_op_stack(op_stack_t *stack) {
   n = 100;
   stack->size = n;
   stack->top = 0;
-  stack->data = (op_desc_t *) safe_malloc(n * sizeof(op_stack_t));
+  stack->data = (op_desc_t *) safe_malloc(n * sizeof(op_desc_t));
 }
 
 static void extend_op_stack(op_stack_t *stack) {
@@ -1012,7 +1011,7 @@ static void extend_op_stack(op_stack_t *stack) {
     out_of_memory();
   }
   stack->size = n;
-  stack->data = (op_desc_t *) safe_realloc(stack->data, n * sizeof(op_stack_t));
+  stack->data = (op_desc_t *) safe_realloc(stack->data, n * sizeof(op_desc_t));
 }
 
 static void delete_op_stack(op_stack_t *stack) {
@@ -1857,6 +1856,8 @@ static void test_assert_eq(test_bench_t *bench, int32_t x, int32_t y, int32_t of
     subst_queue_push_var(&bench->squeue, e.lhs);
   } else if (e.offset != 0) {
     bench->conflict = true;
+    printf("---> Conflict\n");
+    fflush(stdout);
     if (bench->conflict_eq < 0) {
       bench->conflict_eq = id;
     }
@@ -1900,7 +1901,6 @@ static void test_propagate(test_bench_t *bench) {
     print_infered_classes(bench);
     check_propagation(bench);
     check_all_propagated(bench);
-
     if (bench->conflict) {
       printf("BUG: conflict expected\n");
       fflush(stdout);
@@ -1965,7 +1965,7 @@ static void test_backtrack(test_bench_t *bench) {
   if (bench->conflict) {
     // check whether the conflict equality has been removed
     assert(bench->conflict_eq >= 0);
-    if (bench->stack.top < bench->conflict_eq) {
+    if (bench->stack.top <= bench->conflict_eq) {
       bench->conflict_eq = -1;
       bench->conflict = false;
       bench->mngr_conflict = false;
@@ -2188,9 +2188,7 @@ static void random_op(test_bench_t *bench) {
       break;
 
     case 9:
-      if (false) {  // disabled for now
-	random_activate(bench, 1);
-      }
+      random_activate(bench, 1);
       break;
       
     case 10:
@@ -2319,7 +2317,7 @@ int main(void) {
   base_test();
   random_test(1000, 40);
   
-  n = 2000;
+  n = 100;
   while (n > 0) {
     random_test(4000, 200);
     n --;

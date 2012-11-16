@@ -2470,4 +2470,3 @@ void offset_manager_pop(offset_manager_t *m) {
   assert(m->conflict_eq == -1);
 }
 
-
