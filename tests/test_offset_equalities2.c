@@ -20,6 +20,11 @@ static inline long int random(void) {
 #endif
 
 
+/*
+ * GLOBAL COUNTER: INCREMENTED AFTER EVERY TEST
+ */
+static uint32_t ctr = 0;
+
 
 /*
  * TABLE OF POLYNOMIALS
@@ -666,6 +671,7 @@ static int32_t root_of_var(equality_queue_t *queue, int32_t x) {
 }
 
 
+#if 0
 /*
  * Check whether x is a root in the equivalence classes
  */
@@ -673,6 +679,7 @@ static bool var_is_root(equality_queue_t *queue, int32_t x) {
   assert(0 <= x && x < queue->nvars);
   return queue->parent[x] == x;
 }
+#endif
 
 
 /*
@@ -757,13 +764,8 @@ static void notify_equality(void *aux, int32_t x, int32_t y) {
 
   queue = aux;
   assert(1 <= x && x <= queue->nvars && 0 <= y && y <= queue->nvars);
-  printf("Received equality: x%"PRId32" == x%"PRId32"\n", x, y);
+  printf("[%"PRIu32"]: Received equality: x%"PRId32" == x%"PRId32"\n", ctr, x, y);
   fflush(stdout);
-
-  if (x == 57 && y == 469) {
-    printf("*** HERE ***\n");
-    fflush(stdout);
-  }
 
   push_equality(queue, x, y);  
 }
@@ -1136,6 +1138,7 @@ typedef struct test_bench_s {
   uint32_t base_level;
   uint32_t decision_level;
   bool conflict;        // true if a contradiction is found (in test_assert_eq)
+  int32_t conflict_eq;  // id of the first conflict equality
   bool mngr_conflict;   // true if offset_manager_propagates returns a conflict
   bool show_details;    // true for showing more stuff during testing
 
@@ -1159,6 +1162,7 @@ static void init_test_bench(test_bench_t *bench, poly_table_t *ptable) {
   bench->base_level = 0;
   bench->decision_level = 0;
   bench->conflict = false;
+  bench->conflict_eq = -1;
   bench->mngr_conflict = false;
   bench->show_details = false;
 
@@ -1457,6 +1461,19 @@ static void print_poly_table(poly_table_t *table) {
   }
 }
 
+static void print_poly_def(poly_table_t *table, int32_t id) {
+  polynomial_t *p;
+
+  assert(0 <= id && id < table->npolys);
+
+  p = table->poly[id];
+  if (p != NULL) {
+    printf("    x%"PRId32" := ", id);
+    print_poly(p);
+    printf("\n");
+  }
+}
+
 static void print_active_polys(test_bench_t *bench) {
   polynomial_t *p;
   uint32_t i, n;
@@ -1710,6 +1727,8 @@ static void check_propagation(test_bench_t *bench) {
       
       offset_manager_explain_equality(&bench->manager, x, y, &expl);
       printf("Explanation for x%"PRId32" == x%"PRId32":\n", x, y);
+      print_poly_def(bench->ptable, x);
+      print_poly_def(bench->ptable, y);
       print_explanation(bench, &expl);
       check_equality(bench, x, y, &expl);
 
@@ -1797,13 +1816,15 @@ static void check_all_propagated(test_bench_t *bench) {
 static void test_activate(test_bench_t *bench, int32_t id) {
   polynomial_t *p;
 
-  printf("TEST_ACTIVATE: x%"PRId32"\n", id);
+  printf("[%"PRIu32"]: TEST_ACTIVATE: x%"PRId32"\n", ctr, id);
 
   add_active_poly(&bench->act, bench->ptable, id);
   push_record_poly(&bench->stack, id);
 
   p = bench->ptable->poly[id];
   record_offset_poly(&bench->manager, id, id, p);
+
+  ctr ++;
 }
  
 static void test_assert_eq(test_bench_t *bench, int32_t x, int32_t y, int32_t offset) {
@@ -1817,7 +1838,7 @@ static void test_assert_eq(test_bench_t *bench, int32_t x, int32_t y, int32_t of
   e.rhs = y;
   e.offset = offset;
 
-  printf("TEST_ASSERT_EQ: eq[%"PRId32"]: ", id);
+  printf("[%"PRIu32"]: TEST_ASSERT_EQ: eq[%"PRId32"]: ", ctr, id);
   print_offset_eq(&e);
   printf("\n");
 
@@ -1836,6 +1857,9 @@ static void test_assert_eq(test_bench_t *bench, int32_t x, int32_t y, int32_t of
     subst_queue_push_var(&bench->squeue, e.lhs);
   } else if (e.offset != 0) {
     bench->conflict = true;
+    if (bench->conflict_eq < 0) {
+      bench->conflict_eq = id;
+    }
   }
   
   // forward to the offset manager
@@ -1843,12 +1867,14 @@ static void test_assert_eq(test_bench_t *bench, int32_t x, int32_t y, int32_t of
   q_set32(&q, offset);
   assert_offset_equality(&bench->manager, x, y, &q, id);
   q_clear(&q);
+
+  ctr ++;
 }
 
 static void test_propagate(test_bench_t *bench) {
   ivector_t expl;
 
-  printf("\nTEST_PROPAGATE: decision level = %"PRIu32", base level = %"PRIu32"\n", bench->decision_level, bench->base_level);
+  printf("[%"PRIu32"]: TEST_PROPAGATE: decision level = %"PRIu32", base level = %"PRIu32"\n", ctr, bench->decision_level, bench->base_level);
   push_propagate(&bench->stack);
   normalize_all(bench);
 
@@ -1869,16 +1895,19 @@ static void test_propagate(test_bench_t *bench) {
   }
 
   if (offset_manager_propagate(&bench->manager)) {
-    assert(! bench->conflict);
-
     bench->mngr_conflict = false;
     printf("Propagated classes\n");
     print_infered_classes(bench);
     check_propagation(bench);
     check_all_propagated(bench);
-  } else {
-    assert(bench->conflict);
 
+    if (bench->conflict) {
+      printf("BUG: conflict expected\n");
+      fflush(stdout);
+      exit(1);
+    }
+
+  } else {
     bench->mngr_conflict = true;
     printf("Conflict\n");    
     init_ivector(&expl, 10);
@@ -1886,28 +1915,40 @@ static void test_propagate(test_bench_t *bench) {
     print_explanation(bench, &expl);  
     check_conflict(bench, &expl);
     delete_ivector(&expl);
+
+    if (! bench->conflict) {
+      printf("BUG: conflict unexpected\n");
+      fflush(stdout);
+      exit(1);
+    }
   }
+
+  ctr ++;
 }
 
 static void test_push(test_bench_t *bench) {
   assert(bench->decision_level == bench->base_level);
 
-  printf("TEST_PUSH\n");
+  printf("[%"PRIu32"]: TEST_PUSH\n", ctr);
   push_push(&bench->stack);
   push_mark(&bench->equeue);
   subst_queue_push_mark(&bench->squeue);
   bench->base_level ++;
   bench->decision_level ++;
   offset_manager_push(&bench->manager);
+
+  ctr ++;
 }
 
 static void test_increase_dlevel(test_bench_t *bench) {
-  printf("INCREASE DECISION LEVEL\n");
+  printf("[%"PRIu32"]: INCREASE DECISION LEVEL\n", ctr);
   push_increase_dlevel(&bench->stack);
   push_mark(&bench->equeue);
   subst_queue_push_mark(&bench->squeue);
   bench->decision_level ++;
   offset_manager_increase_decision_level(&bench->manager);
+
+  ctr ++;
 }
 
 
@@ -1915,13 +1956,21 @@ static void test_increase_dlevel(test_bench_t *bench) {
 static void test_backtrack(test_bench_t *bench) {
   assert(bench->decision_level > bench->base_level);
 
-  printf("TEST BACKTRACK\n");
+  printf("[%"PRIu32"]: TEST BACKTRACK\n", ctr);
   equality_queue_backtrack(&bench->equeue);
   test_bench_undo_subst(bench);
   op_stack_backtrack(&bench->stack);
   bench->decision_level --;
-  bench->conflict = false;
-  bench->mngr_conflict = false;
+
+  if (bench->conflict) {
+    // check whether the conflict equality has been removed
+    assert(bench->conflict_eq >= 0);
+    if (bench->stack.top < bench->conflict_eq) {
+      bench->conflict_eq = -1;
+      bench->conflict = false;
+      bench->mngr_conflict = false;
+    }
+  }
 
   if (bench->show_details) {
     // print state after backtracking
@@ -1935,15 +1984,16 @@ static void test_backtrack(test_bench_t *bench) {
     print_normal_forms(bench);
   }
 
-
   offset_manager_backtrack(&bench->manager, bench->decision_level);
+
+  ctr ++;
 }
 
 
 static void test_pop(test_bench_t *bench) {
   assert(bench->base_level > 0);
 
-  printf("TEST POP\n");
+  printf("[%"PRIu32"]: TEST POP\n", ctr);
 
   if (bench->decision_level > bench->base_level) {
     // backtrack in the test_bench
@@ -1964,8 +2014,16 @@ static void test_pop(test_bench_t *bench) {
   test_bench_undo_activations(bench);
   bench->decision_level --;
   bench->base_level --;
-  bench->conflict = false;
-  bench->mngr_conflict = false;
+
+  if (bench->conflict) {
+    // check whether the conflict equality has been removed
+    assert(bench->conflict_eq >= 0);
+    if (bench->stack.top < bench->conflict_eq) {
+      bench->conflict_eq = -1;
+      bench->conflict = false;
+      bench->mngr_conflict = false;
+    }
+  }
 
   if (bench->show_details) {
     // print state after pop
@@ -1980,6 +2038,8 @@ static void test_pop(test_bench_t *bench) {
   }
 
   offset_manager_pop(&bench->manager);
+
+  ctr ++;
 }
 
 
@@ -2092,6 +2152,7 @@ static void random_assert_eq(test_bench_t *bench) {
 
 
 
+
 /*
  * Random test: give more weight to assert_eq and propagate
  * - if there's a conflict, try to resolve it first
@@ -2099,13 +2160,12 @@ static void random_assert_eq(test_bench_t *bench) {
 static void random_op(test_bench_t *bench) {
   uint32_t r;
 
-
   if (bench->mngr_conflict) {
     if (bench->decision_level > bench->base_level) {
       test_backtrack(bench);
     } else if (bench->base_level > 0) {
       test_pop(bench);
-    }
+    } 
   } else {
     r = random_index(15);
     switch (r) {
@@ -2128,7 +2188,9 @@ static void random_op(test_bench_t *bench) {
       break;
 
     case 9:
-      random_activate(bench, 1);
+      if (false) {  // disabled for now
+	random_activate(bench, 1);
+      }
       break;
       
     case 10:
@@ -2230,11 +2292,8 @@ static void random_test(uint32_t n, uint32_t p) {
 
   random_activate(&bench, p);
   while (n > 0) {
-    n --;
-    if (3420 < n && n < 3430) {
-      fflush(stdout);
-    }
     random_op(&bench);
+    n --;
   }
 
   // final step: propagate
@@ -2247,6 +2306,8 @@ static void random_test(uint32_t n, uint32_t p) {
 
 
 int main(void) {
+  uint32_t n;
+
   init_rationals();
   init_poly_table(&poly_table, 100, 20);
   build_poly_table(&poly_table, 100, 1000);
@@ -2257,10 +2318,12 @@ int main(void) {
 
   base_test();
   random_test(1000, 40);
-  random_test(4000, 100);
-  random_test(4000, 100);
-  random_test(4000, 100);
-  random_test(4000, 100);
+  
+  n = 2000;
+  while (n > 0) {
+    random_test(4000, 200);
+    n --;
+  }
 
   delete_poly_table(&poly_table);
   cleanup_rationals();

@@ -5,10 +5,6 @@
 
 #include <assert.h>
 
-// PROVISIONAL
-#include <stdio.h>
-#include <inttypes.h>
-
 #include "memalloc.h"
 #include "index_vectors.h"
 #include "offset_equalities.h"
@@ -1136,6 +1132,54 @@ static inline void reset_offset_undo_stack(offset_undo_stack_t *stack) {
 
 
 /*
+ * INACTIVE POLY QUEUE
+ */
+static void init_inactive_poly_queue(inactive_poly_queue_t *queue) {
+  uint32_t n;
+
+  n = DEF_INACTIVE_QUEUE_SIZE;
+  assert(n <= MAX_INACTIVE_QUEUE_SIZE);
+
+  queue->data = (int32_t *) safe_malloc(n * sizeof(int32_t));
+  queue->top = 0;
+  queue->size = n;
+}
+
+static void extend_inactive_poly_queue(inactive_poly_queue_t *queue) {
+  uint32_t n;
+
+  n = queue->size + 1;
+  n += (n >> 1);
+  if (n > MAX_INACTIVE_QUEUE_SIZE) {
+    out_of_memory();
+  }
+  queue->data = (int32_t *) safe_realloc(queue->data, n * sizeof(int32_t));
+  queue->size = n;
+}
+
+static void inactive_poly_queue_push(inactive_poly_queue_t *queue, int32_t id) {
+  uint32_t i;
+
+  i = queue->top;
+  if (i == queue->size) {
+    extend_inactive_poly_queue(queue);
+  }
+  assert(i < queue->size);
+  queue->data[i] = id;
+  queue->top = i+1;
+}
+
+static void delete_inactive_poly_queue(inactive_poly_queue_t *queue) {
+  safe_free(queue->data);
+  queue->data = NULL;
+}
+
+static inline void reset_inactive_poly_queue(inactive_poly_queue_t *queue) {
+  queue->top = 0;
+}
+
+
+/*
  * LEVEL STACK
  */
 static void init_offset_level_stack(offset_level_stack_t *stack) {
@@ -1147,6 +1191,7 @@ static void init_offset_level_stack(offset_level_stack_t *stack) {
   stack->data = (level_record_t *) safe_malloc(n * sizeof(level_record_t));
   stack->data[0].eq_ptr = 0;
   stack->data[0].undo_ptr = 0;
+  stack->data[0].inactive_ptr = 0;
 
   stack->size = n;
 }
@@ -1226,11 +1271,6 @@ static void push_to_recheck(recheck_queue_t *queue, uint32_t level, int32_t id) 
   queue->data[i].level = level;
   queue->data[i].id = id;
   queue->top = i+1;
-
-  if (id == 105 || id == 109) {
-    printf("---> push_to_recheck poly[%"PRId32"]\n", id);
-    fflush(stdout);
-  }
 }
 
 
@@ -1438,6 +1478,7 @@ void init_offset_manager(offset_manager_t *m, void *ext, eq_notifier_t f) {
   init_offset_hash_table(&m->htbl);
   init_offset_equeue(&m->queue);
   init_offset_undo_stack(&m->undo);
+  init_inactive_poly_queue(&m->inactives);
   init_offset_level_stack(&m->stack);
   init_offset_trail_stack(&m->tstack);
 
@@ -1459,6 +1500,7 @@ void delete_offset_manager(offset_manager_t *m) {
   delete_offset_hash_table(&m->htbl);
   delete_offset_equeue(&m->queue);
   delete_offset_undo_stack(&m->undo);
+  delete_inactive_poly_queue(&m->inactives);
   delete_offset_level_stack(&m->stack);
   delete_offset_trail_stack(&m->tstack);
 
@@ -1484,11 +1526,13 @@ void reset_offset_manager(offset_manager_t *m) {
   reset_offset_hash_table(&m->htbl);
   reset_offset_equeue(&m->queue);
   reset_offset_undo_stack(&m->undo);
+  reset_inactive_poly_queue(&m->inactives);
   reset_offset_trail_stack(&m->tstack);
 
   assert(m->stack.size > 0 && 
 	 m->stack.data[0].eq_ptr == 0 && 
-	 m->stack.data[0].undo_ptr == 0);
+	 m->stack.data[0].undo_ptr == 0 &&
+	 m->stack.data[0].inactive_ptr == 0);
 
   reset_recheck_queue(&m->recheck);
   ivector_reset(&m->to_process);
@@ -1663,18 +1707,11 @@ static void process_poly(offset_manager_t *m, int32_t i) {
   r = get_equal_poly(m, i, h, b);
   if (r == i) {
     // i is active
-    if (i == 105 || i == 109) {
-      printf("---> process poly[%"PRId32"]: active\n", i);
-      fflush(stdout);
-    }
     mark_offset_poly_active(&m->ptable, i);
   } else {
     // i is inactive: propagate the equality eterm[r] == eterm[i]
-    if (i == 105 || i == 109) {
-      printf("---> process poly[%"PRId32"]: inactive: equal to poly[%"PRId32"]\n", i, r);
-      fflush(stdout);
-    }
     mark_offset_poly_inactive(&m->ptable, i);
+    inactive_poly_queue_push(&m->inactives, i);
     report_equality(m, i, r);
   }
 }
@@ -1702,11 +1739,6 @@ void record_offset_poly(offset_manager_t *m, eterm_t t, thvar_t x, polynomial_t 
   assert(offset_poly_is_inactive(&m->ptable, i) && 
 	 !offset_poly_is_marked(&m->ptable, i));
 
-  if (i == 105 || i == 109) {
-    printf("---> record poly[%"PRId32"] for x%"PRId32"\n", i, x);
-    fflush(stdout);
-  }
-
   // add i to the to_process vector and to the recheck queue if needed
   ivector_push(&m->to_process, i);
   mark_offset_poly(&m->ptable, i);
@@ -1725,11 +1757,6 @@ static void push_to_process(offset_manager_t *m, int32_t i) {
   if (!offset_poly_is_marked(&m->ptable, i)) {
     ivector_push(&m->to_process, i);
     mark_offset_poly(&m->ptable, i);
-
-    if (i == 105 || i == 109) {
-      printf("---> push_to_process poly[%"PRId32"]\n", i);
-      fflush(stdout);
-    }
   }
 }
 
@@ -2188,6 +2215,7 @@ void offset_manager_increase_decision_level(offset_manager_t *m) {
   assert(k < m->stack.size);
   m->stack.data[k].eq_ptr = m->queue.top;  
   m->stack.data[k].undo_ptr = m->undo.top;
+  m->stack.data[k].inactive_ptr = m->inactives.top;
 }
 
 
@@ -2264,10 +2292,6 @@ static void process_recheck_queue(offset_manager_t *m, uint32_t k) {
   while (i > 0 && queue->data[i-1].level >= k) {
     i --;
     q = queue->data[i].id;
-    if (q == 105 || q == 109) {
-      printf("---> process_recheck_queue poly[%"PRId32"]\n", q);
-      fflush(stdout);
-    }
     push_to_process(m, q);
   }
 
@@ -2284,6 +2308,7 @@ static void process_recheck_queue(offset_manager_t *m, uint32_t k) {
 void offset_manager_backtrack(offset_manager_t *m, uint32_t k) {
   level_record_t *lev;
   offset_undo_stack_t *undo;
+  inactive_poly_queue_t *inactives;
   uint32_t back, i;
 
   assert(k < m->decision_level && k + 1 < m->stack.size);
@@ -2300,13 +2325,22 @@ void offset_manager_backtrack(offset_manager_t *m, uint32_t k) {
   // undo all merges
   undo = &m->undo;
   back = lev->undo_ptr;
-
   i = undo->top;
   while (i > back) {
     i --;
     undo_offset_equality(m, undo->data + i);
   }
   undo->top = back;
+
+  // process the inactive polys
+  inactives = &m->inactives;
+  back = lev->inactive_ptr;
+  i = inactives->top;
+  while (i > back) {
+    i --;
+    push_to_process(m, inactives->data[i]);
+  }
+  inactives->top = back;
 
   process_recheck_queue(m, k);
 

@@ -360,18 +360,36 @@ typedef struct offset_undo_stack_s {
 #define MAX_OFFSET_UNDO_SIZE (UINT32_MAX/sizeof(offset_undo_t))
 
 
+
+/*
+ * Inactive polynomials
+ */
+typedef struct inactive_poly_queue_s {
+  int32_t *data;
+  uint32_t top;
+  uint32_t size;
+} inactive_poly_queue_t;
+
+#define DEF_INACTIVE_QUEUE_SIZE 100
+#define MAX_INACTIVE_QUEUE_SIZE (UINT32_MAX/sizeof(int32_t))
+
+
+
+
 /*
  * Stack for backtracking:
  * -----------------------
  *
  * For every decision level, we keep
- * - the current top of the two queues above:
+ * - the current top of the queues above:
  *   data[k].eq_ptr = pointer to the first equality asserted at level k (in offset_equeue)
  *   data[k].undo_ptr = pointer to the first undo record pushed at level k (in undo_stack)
+ *   data[k].inactive_ptr = pointer to the first inactive poly at level k
  */
 typedef struct level_record_s {
   uint32_t eq_ptr;
   uint32_t undo_ptr;
+  uint32_t inactive_ptr;
 } level_record_t;
 
 typedef struct offset_level_stack_s {
@@ -467,6 +485,7 @@ typedef struct offset_manager_s {
   offset_hash_table_t htbl;
   offset_equeue_t queue;
   offset_undo_stack_t undo;
+  inactive_poly_queue_t inactives;
   offset_level_stack_t stack;
   offset_trail_stack_t tstack;
 
