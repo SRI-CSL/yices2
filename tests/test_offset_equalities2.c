@@ -1691,6 +1691,10 @@ static void check_equality(test_bench_t *bench, int32_t x, int32_t y, ivector_t 
 
   // check that the normal forms are the same
   if (! equal_poly_buffers(&bx, &by)) {
+    printf("Explanation for x%"PRId32" == x%"PRId32":\n", x, y);
+    print_poly_def(bench->ptable, x);
+    print_poly_def(bench->ptable, y);
+    print_explanation(bench, expl);
     printf("BUG: explantion does not imply x%"PRId32" == x%"PRId32"\n", x, y);
     printf("  subst for x%"PRId32" --> ", x);
     print_buffer(&bx);
@@ -1725,11 +1729,13 @@ static void check_propagation(test_bench_t *bench) {
       assert(y >= 0);
       
       offset_manager_explain_equality(&bench->manager, x, y, &expl);
-      printf("Explanation for x%"PRId32" == x%"PRId32":\n", x, y);
-      print_poly_def(bench->ptable, x);
-      print_poly_def(bench->ptable, y);
-      print_explanation(bench, &expl);
       check_equality(bench, x, y, &expl);
+      if (bench->show_details) {
+	printf("Explanation for x%"PRId32" == x%"PRId32":\n", x, y);
+	print_poly_def(bench->ptable, x);
+	print_poly_def(bench->ptable, y);
+	print_explanation(bench, &expl);
+      }
 
       ivector_reset(&expl);
     }

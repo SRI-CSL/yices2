@@ -734,6 +734,7 @@ static void remove_offset_vars(offset_table_t *table, uint32_t nv) {
     delete_dep_vector(table->dep[i]);
   }
   table->nvars = nv;
+  remap_cleanup(&table->var2offset_var, nv);
 }
 
 
