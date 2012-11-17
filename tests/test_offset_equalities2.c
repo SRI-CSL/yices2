@@ -764,6 +764,9 @@ static void notify_equality(void *aux, int32_t x, int32_t y) {
   queue = aux;
   assert(1 <= x && x <= queue->nvars && 0 <= y && y <= queue->nvars);
   printf("[%"PRIu32"]: Received equality: x%"PRId32" == x%"PRId32"\n", ctr, x, y);
+  if (root_of_var(queue, x) == root_of_var(queue, y)) {
+    printf("---> redundant\n");
+  }
   fflush(stdout);
 
   push_equality(queue, x, y);
@@ -1935,7 +1938,7 @@ static void test_propagate(test_bench_t *bench) {
 static void test_push(test_bench_t *bench) {
   assert(bench->decision_level == bench->base_level);
 
-  printf("[%"PRIu32"]: TEST_PUSH\n", ctr);
+  printf("[%"PRIu32"]: TEST_PUSH to base level %"PRIu32"\n", ctr, bench->base_level + 1);
   push_push(&bench->stack);
   push_mark(&bench->equeue);
   subst_queue_push_mark(&bench->squeue);
@@ -1947,7 +1950,7 @@ static void test_push(test_bench_t *bench) {
 }
 
 static void test_increase_dlevel(test_bench_t *bench) {
-  printf("[%"PRIu32"]: INCREASE DECISION LEVEL\n", ctr);
+  printf("[%"PRIu32"]: INCREASE DECISION LEVEL to decision level %"PRIu32"\n", ctr, bench->decision_level + 1);
   push_increase_dlevel(&bench->stack);
   push_mark(&bench->equeue);
   subst_queue_push_mark(&bench->squeue);
@@ -1962,7 +1965,7 @@ static void test_increase_dlevel(test_bench_t *bench) {
 static void test_backtrack(test_bench_t *bench) {
   assert(bench->decision_level > bench->base_level);
 
-  printf("[%"PRIu32"]: TEST BACKTRACK\n", ctr);
+  printf("[%"PRIu32"]: TEST BACKTRACK to decision level %"PRIu32"\n", ctr, bench->decision_level - 1);
   equality_queue_backtrack(&bench->equeue);
   test_bench_undo_subst(bench);
   op_stack_backtrack(&bench->stack);
@@ -1999,7 +2002,7 @@ static void test_backtrack(test_bench_t *bench) {
 static void test_pop(test_bench_t *bench) {
   assert(bench->base_level > 0);
 
-  printf("[%"PRIu32"]: TEST POP\n", ctr);
+  printf("[%"PRIu32"]: TEST POP to base level %"PRIu32"\n", ctr, bench->base_level - 1);
 
   if (bench->decision_level > bench->base_level) {
     // backtrack in the test_bench
