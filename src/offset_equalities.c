@@ -5,6 +5,10 @@
 
 #include <assert.h>
 
+// PROVISIONAL
+#include <stdio.h>
+#include <inttypes.h>
+
 #include "memalloc.h"
 #include "index_vectors.h"
 #include "offset_equalities.h"
@@ -756,6 +760,21 @@ static void offset_var_remove_dep(offset_table_t *table, int32_t x, int32_t k) {
   dep_vector_free_slot(table->dep[x], k);
 }
 
+
+#ifndef NDEBUG
+/*
+ * For debugging: check that dep[x] contains i at index k
+ */
+static bool offset_var_has_dep(offset_table_t *table, int32_t x, int32_t k, int32_t i) {
+  dep_t *v;
+
+  assert(0 < x && x < table->nvars && i >= 0);
+
+  v = table->dep[x];
+  assert(0 <= k && k < v->nelems);
+  return v->data[k] == i;
+}
+#endif
 
 
 /*
@@ -1621,14 +1640,15 @@ static int32_t get_equal_poly(offset_manager_t *m, int32_t i, uint32_t h, poly_b
 
 
 /*
- * Set dependency data for polynomial i
+ * Initialize the dependency data for polynomial i
+ * - compute the offset variables that i depend on and store them in vars[i]
  */
-static void attach_offset_poly(offset_manager_t *m, int32_t i) {
+static void offset_poly_init_vars(offset_manager_t *m, int32_t i) {
   polynomial_t *p;
   monomial_t *mono;
   var_array_t *vars;
   uint32_t j, n;
-  int32_t k, x;
+  int32_t x;
 
   assert(0 <= i && i < m->ptable.npolys);
 
@@ -1651,15 +1671,67 @@ static void attach_offset_poly(offset_manager_t *m, int32_t i) {
       assert(x != const_idx);
 
       x = remap_find(&m->vtable.var2offset_var, x);
-      k = offset_var_add_dep(&m->vtable, x, i);
-
       vars->data[j].var = x;
-      vars->data[j].idx = k;
+      vars->data[j].idx = -1;
     }
 
     vars->ndeps = n;
   }
 }
+
+
+/*
+ * Attach i to the dependency vectors
+ * - for every record [x, -1] in vars[i] add i to dep[x] at some index k
+ *   then update the record to [x, k]
+ */
+static void attach_offset_poly(offset_manager_t *m, int32_t i) {
+  var_array_t *vars;
+  uint32_t j, n;
+  int32_t k, x;
+
+  assert(0 <= i && i < m->ptable.npolys);
+
+  vars = m->ptable.vars[i];  
+  if (vars != NULL) {
+    n = vars->size;
+    for (j=0; j<n; j++) {
+      assert(vars->data[j].idx == -1);
+      x = vars->data[j].var;
+      k = offset_var_add_dep(&m->vtable, x, i);
+      vars->data[j].idx = k;
+    }
+  }
+}
+
+
+/*
+ * Remove poly i from the depency vectors
+ * - vars[i] contains pairs [x, k] where x an offset variable 
+ *   and k is an index in dep[x] such that dep[x]->data[k] = i
+ * - to remove i from the dependency vectors:
+ *   we set dep[x]->data[k] = -1 and we replace k by -1 in vars[i]
+ */
+static void detach_offset_poly(offset_manager_t *m, int32_t i) {
+  var_array_t *vars;
+  uint32_t j, n;
+  int32_t k, x;
+
+  assert(0 <= i && i < m->ptable.npolys);
+
+  vars = m->ptable.vars[i];
+  if (vars != NULL) {
+    n = vars->size;
+    for (j=0; j<n; j++) {
+      x = vars->data[j].var;
+      k = vars->data[j].idx;
+      assert(offset_var_has_dep(&m->vtable, x, k, i));;
+      offset_var_remove_dep(&m->vtable, x, k);
+      vars->data[j].idx = -1;
+    }
+  }
+}
+
 
 
 
@@ -1695,6 +1767,7 @@ static void process_poly(offset_manager_t *m, int32_t i) {
     // remove i from the hash table
     h  = m->ptable.hash[i];
     offset_hash_table_remove(&m->htbl, i, h);
+    detach_offset_poly(m, i);
   }
 
   // compute p's normal form in b
@@ -1709,6 +1782,7 @@ static void process_poly(offset_manager_t *m, int32_t i) {
   if (r == i) {
     // i is active
     mark_offset_poly_active(&m->ptable, i);
+    attach_offset_poly(m, i);
   } else {
     // i is inactive: propagate the equality eterm[r] == eterm[i]
     mark_offset_poly_inactive(&m->ptable, i);
@@ -1735,7 +1809,8 @@ void record_offset_poly(offset_manager_t *m, eterm_t t, thvar_t x, polynomial_t 
   }
   make_offset_vars_for_poly(&m->vtable, p);
   i = store_offset_poly(&m->ptable, t, x, p);
-  attach_offset_poly(m, i);
+  //  attach_offset_poly(m, i);
+  offset_poly_init_vars(m, i);
 
   assert(offset_poly_is_inactive(&m->ptable, i) && 
 	 !offset_poly_is_marked(&m->ptable, i));
@@ -2278,7 +2353,7 @@ static void undo_offset_equality(offset_manager_t *m, offset_undo_t *d) {
 
 /*
  * Scan the recheck queue after backtracking to level k
- * - any polynomial that was added at level >= k is moved to the 'to_process' vector
+ * - any polynomial that was added at level > k is moved to the 'to_process' vector
  * - if k is base_level, remove all records from the queue
  */
 static void process_recheck_queue(offset_manager_t *m, uint32_t k) {
@@ -2290,14 +2365,24 @@ static void process_recheck_queue(offset_manager_t *m, uint32_t k) {
 
   queue = &m->recheck;
   i = queue->top;
-  while (i > 0 && queue->data[i-1].level >= k) {
-    i --;
-    q = queue->data[i].id;
-    push_to_process(m, q);
-  }
 
-  if (m->base_level == k) {
+  if (k > m->base_level) {
+    while (i > 0 && queue->data[i-1].level > k) {
+      i --;
+      q = queue->data[i].id;
+      // test:
+      if (!offset_poly_is_marked(&m->ptable, q)) {      
+	printf("---> process_recheck_queue: found unmarked poly x%"PRId32"\n", m->ptable.eterm[q]);
+	fflush(stdout);
+      }
+      push_to_process(m, q);
+    }
+  } else {
     // remove records of level >= k
+
+    while (i > 0 && queue->data[i-1].level >= k) {
+      i --;
+    }
     queue->top = i;
   }
 }
@@ -2395,31 +2480,6 @@ static void cleanup_process_vector(offset_manager_t *m, uint32_t np) {
 }
 
 
-/*
- * Remove i from the dependency vectors
- */
-static void detach_offset_poly(offset_manager_t *m, int32_t i) {
-  var_array_t *vars;
-  uint32_t j, n;
-  int32_t k, x;
-
-  assert(0 <= i && i < m->ptable.npolys);
-
-  vars = m->ptable.vars[i];
-  if (vars == NULL) {
-    return;
-  }
-
-  n = vars->ndeps;
-  for (j=0; j<n; j++) {
-    x = vars->data[j].var;
-    k = vars->data[j].idx;
-    assert(0 <= k && k < m->vtable.dep[x]->nelems && m->vtable.dep[x]->data[k] == i);
-    offset_var_remove_dep(&m->vtable, x, k);
-  }
-}
-
-
 static void remove_offset_polys(offset_manager_t *m, uint32_t np) {
   offset_poly_table_t *table;
   polynomial_t *p;
@@ -2434,8 +2494,8 @@ static void remove_offset_polys(offset_manager_t *m, uint32_t np) {
     if (offset_poly_is_active(table, i)) {
       h = m->ptable.hash[i];
       offset_hash_table_remove(&m->htbl, i, h);
+      detach_offset_poly(m, i);
     }
-    detach_offset_poly(m, i);
     safe_free(table->vars[i]);
     p = table->def[i];
     if (offset_poly_is_simple(table, p, i)) {
