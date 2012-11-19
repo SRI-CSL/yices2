@@ -5,10 +5,6 @@
 
 #include <assert.h>
 
-// PROVISIONAL
-#include <stdio.h>
-#include <inttypes.h>
-
 #include "memalloc.h"
 #include "index_vectors.h"
 #include "offset_equalities.h"
@@ -2354,7 +2350,7 @@ static void undo_offset_equality(offset_manager_t *m, offset_undo_t *d) {
 /*
  * Scan the recheck queue after backtracking to level k
  * - any polynomial that was added at level > k is moved to the 'to_process' vector
- * - if k is base_level, remove all records from the queue
+ * - if k is base_level, remove all records with higher level from the queue
  */
 static void process_recheck_queue(offset_manager_t *m, uint32_t k) {
   recheck_queue_t *queue;
@@ -2370,16 +2366,10 @@ static void process_recheck_queue(offset_manager_t *m, uint32_t k) {
     while (i > 0 && queue->data[i-1].level > k) {
       i --;
       q = queue->data[i].id;
-      // test:
-      if (!offset_poly_is_marked(&m->ptable, q)) {      
-	printf("---> process_recheck_queue: found unmarked poly x%"PRId32"\n", m->ptable.eterm[q]);
-	fflush(stdout);
-      }
       push_to_process(m, q);
     }
   } else {
     // remove records of level >= k
-
     while (i > 0 && queue->data[i-1].level >= k) {
       i --;
     }

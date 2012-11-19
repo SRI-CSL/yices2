@@ -49,7 +49,6 @@
 #include "egraph_base_types.h"
 
 
-
 /*
  * Resizable array to map external variables (i.e., variables in the
  * Simplex solver) to internal indices (either polynomial indices or
@@ -137,7 +136,6 @@ static inline int32_t decode_idx(int32_t i) {
 }
 
 
-
 /*
  * Tracked polynomials
  * -------------------
@@ -163,10 +161,13 @@ static inline int32_t decode_idx(int32_t i) {
  *
  * We keep track of whether i is present in the hash table or not:
  * - if bit active is 1, then i is present in the hash table
+ *   it is also attached to the dependency vectors.
  * - if bit active is 0, then i is not present in the hash table
- *   this means that either i has just been created and its normal form
+ *   and not attached to the dependency vectors.
+ *   This means that either i has just been created and its normal form
  *   has not been computed yet, or that i is equal to another polynomial j
- *   present in the hash table.
+ *   present in the hash table. If i is inactive, then it must be in
+ *   the inactive_queue (or in the to_process vector).
  *
  * If i must be processed, then it's stored in the 'to_process' vector.
  * - mark[i] keeps track of this (mark[i] == 1 iff i is in the to_process vector)
@@ -200,7 +201,6 @@ typedef struct offset_poly_table_s {
 
 #define DEF_OFFSET_POLY_TABLE_SIZE 40
 #define MAX_OFFSET_POLY_TABLE_SIZE ((UINT32_MAX)/sizeof(polynomial_t *))
-
 
 
 /*
@@ -258,7 +258,6 @@ typedef struct offset_table_s {
   remap_array_t var2offset_var;
 } offset_table_t;
 
-
 #define DEF_OFFSET_TABLE_SIZE 100
 #define MAX_OFFSET_TABLE_SIZE (UINT32_MAX/sizeof(offset_desc_t))
 
@@ -285,13 +284,11 @@ typedef struct offset_hash_table_s {
   uint32_t cleanup_threshold;
 } offset_hash_table_t;
 
-
 #define DEF_OFFSET_HASH_TABLE_SIZE 64
 #define MAX_OFFSET_HASH_TABLE_SIZE (UINT32_MAX/sizeof(offset_hash_elem_t))
 
 #define OFFSET_HASH_TABLE_RESIZE_RATIO 0.6
 #define OFFSET_HASH_TABLE_CLEANUP_RATIO 0.2
-
 
 
 /*
@@ -328,7 +325,6 @@ typedef struct offset_equeue_s {
   uint32_t nlevels;
 } offset_equeue_t;
 
-
 #define DEF_OFFSET_EQUEUE_SIZE 100
 #define MAX_OFFSET_EQUEUE_SIZE (UINT32_MAX/sizeof(offset_eq_t))
 
@@ -355,10 +351,8 @@ typedef struct offset_undo_stack_s {
   uint32_t size;
 } offset_undo_stack_t;
 
-
 #define DEF_OFFSET_UNDO_SIZE 100
 #define MAX_OFFSET_UNDO_SIZE (UINT32_MAX/sizeof(offset_undo_t))
-
 
 
 /*
@@ -372,8 +366,6 @@ typedef struct inactive_poly_queue_s {
 
 #define DEF_INACTIVE_QUEUE_SIZE 100
 #define MAX_INACTIVE_QUEUE_SIZE (UINT32_MAX/sizeof(int32_t))
-
-
 
 
 /*
@@ -401,7 +393,6 @@ typedef struct offset_level_stack_s {
 #define MAX_OFFSET_LEVEL_STACK_SIZE (UINT32_MAX/sizeof(level_record_t))
 
 
-
 /*
  * Out-of-order polynomials
  * - if a polynomial i is added during the search (at decision level k > base_level)
@@ -426,7 +417,6 @@ typedef struct recheck_queue_s {
   uint32_t size; // size of the data array
 } recheck_queue_t;
 
-
 #define DEF_RECHECK_QUEUE_SIZE 20
 #define MAX_RECHECK_QUEUE_SIZE (UINT32_MAX/sizeof(recheck_elem_t))
 
@@ -450,10 +440,8 @@ typedef struct offset_trail_stack_s {
   uint32_t size;
 } offset_trail_stack_t;
 
-
 #define DEF_OFFSET_TRAIL_SIZE 20
 #define MAX_OFFSET_TRAIL_SIZE (UINT32_MAX/sizeof(offset_trail_t))
-
 
 
 /*
@@ -500,7 +488,6 @@ typedef struct offset_manager_s {
 
 
 
-
 /*
  * Initialize
  * - ext: external object passed as argument to notifier
@@ -508,12 +495,9 @@ typedef struct offset_manager_s {
  */
 extern void init_offset_manager(offset_manager_t *m, void *ext, eq_notifier_t f);
 
-
 extern void delete_offset_manager(offset_manager_t *m);
 
-
 extern void reset_offset_manager(offset_manager_t *m);
-
 
 
 /*
@@ -526,7 +510,6 @@ extern void offset_manager_push(offset_manager_t *m);
  * Restore the previous level
  */
 extern void offset_manager_pop(offset_manager_t *m);
-
 
 
 /*
@@ -589,7 +572,6 @@ extern void offset_manager_increase_decision_level(offset_manager_t *m);
  * - remove all equalities asserted at levels > k
  */
 extern void offset_manager_backtrack(offset_manager_t *m, uint32_t k);
-
 
 
 #endif /* __OFFSET_EQUALITIES_H */

@@ -1082,56 +1082,6 @@ static inline void push_push(op_stack_t *stack) {
 }
 
 
-/*
- * Undo assert_var/keep record poly
- * - stop on the top-most 'INCREASE_DLEVEL'
- */
-static void op_stack_backtrack(op_stack_t *stack) {
-  ivector_t saved_polys;
-  uint32_t i;
-  int32_t id;
-
-  init_ivector(&saved_polys, 10);
-
-  i = stack->top;
-  for (;;) {
-    assert(i> 0);
-    i --;
-    switch (stack->data[i].tag) {
-    case RECORD_POLY:
-      id = stack->data[i].arg.rec_id;
-      ivector_push(&saved_polys, id);
-      break;
-
-    case ASSERT_EQ: // undo
-    case PROPAGATE: // undo
-      break;
-
-    case INCREASE_DLEVEL:
-      goto done;
-
-    case PUSH:
-    default:
-      assert(false);
-      break;
-    }
-  }
-
- done:
-  stack->top = i;
-
-  // redo the record poly operations
-  i = saved_polys.size;
-  while (i > 0) {
-    i --;
-    id = saved_polys.data[i];
-    push_record_poly(stack, id);
-  }
-
-  delete_ivector(&saved_polys);
-}
-
-
 
 /*
  * Test bench
@@ -1245,6 +1195,84 @@ static void test_bench_undo_activations(test_bench_t *bench) {
 
  done:
   stack->top = i;
+
+  if (bench->conflict) {
+    // check whether the conflict equality has been removed
+    assert(bench->conflict_eq >= 0);
+    if (i <= bench->conflict_eq) {
+      bench->conflict_eq = -1;
+      bench->conflict = false;
+      bench->mngr_conflict = false;
+      printf("---> Conflict resolved\n");
+      fflush(stdout);
+    }
+  }
+
+}
+
+
+/*
+ * Undo assert_var/keep record poly
+ * - stop on the top-most 'INCREASE_DLEVEL'
+ */
+static void op_stack_backtrack(test_bench_t *bench) {
+  op_stack_t *stack;
+  ivector_t saved_polys;
+  uint32_t i;
+  int32_t id;
+
+  stack = &bench->stack;
+
+  init_ivector(&saved_polys, 10);
+  i = stack->top;
+  for (;;) {
+    assert(i > 0);
+    i --;
+    switch (stack->data[i].tag) {
+    case RECORD_POLY:
+      id = stack->data[i].arg.rec_id;
+      ivector_push(&saved_polys, id);
+      break;
+
+    case ASSERT_EQ: // undo
+    case PROPAGATE: // undo
+      break;
+
+    case INCREASE_DLEVEL:
+      goto done;
+
+    case PUSH:
+    default:
+      assert(false);
+      break;
+    }
+  }
+
+ done:
+  stack->top = i;
+
+  if (bench->conflict) {
+    // check whether the conflict equality has been removed
+    assert(bench->conflict_eq >= 0);
+    if (i <= bench->conflict_eq) {
+      bench->conflict_eq = -1;
+      bench->conflict = false;
+      bench->mngr_conflict = false;
+      printf("---> Conflict resolved\n");
+      fflush(stdout);
+    }
+  }
+
+
+  // redo the record poly operations
+  i = saved_polys.size;
+  while (i > 0) {
+    i --;
+    id = saved_polys.data[i];
+    push_record_poly(stack, id);
+  }
+
+  delete_ivector(&saved_polys);
 }
 
 
@@ -1968,18 +1996,9 @@ static void test_backtrack(test_bench_t *bench) {
   printf("[%"PRIu32"]: TEST BACKTRACK to decision level %"PRIu32"\n", ctr, bench->decision_level - 1);
   equality_queue_backtrack(&bench->equeue);
   test_bench_undo_subst(bench);
-  op_stack_backtrack(&bench->stack);
+  op_stack_backtrack(bench);
   bench->decision_level --;
 
-  if (bench->conflict) {
-    // check whether the conflict equality has been removed
-    assert(bench->conflict_eq >= 0);
-    if (bench->stack.top <= bench->conflict_eq) {
-      bench->conflict_eq = -1;
-      bench->conflict = false;
-      bench->mngr_conflict = false;
-    }
-  }
 
   if (bench->show_details) {
     // print state after backtracking
@@ -2009,7 +2028,7 @@ static void test_pop(test_bench_t *bench) {
     do {
       equality_queue_backtrack(&bench->equeue);
       test_bench_undo_subst(bench);
-      op_stack_backtrack(&bench->stack);
+      op_stack_backtrack(bench);
       bench->decision_level --;
     } while (bench->decision_level > bench->base_level);
 
@@ -2023,16 +2042,6 @@ static void test_pop(test_bench_t *bench) {
   test_bench_undo_activations(bench);
   bench->decision_level --;
   bench->base_level --;
-
-  if (bench->conflict) {
-    // check whether the conflict equality has been removed
-    assert(bench->conflict_eq >= 0);
-    if (bench->stack.top < bench->conflict_eq) {
-      bench->conflict_eq = -1;
-      bench->conflict = false;
-      bench->mngr_conflict = false;
-    }
-  }
 
   if (bench->show_details) {
     // print state after pop
@@ -2326,9 +2335,15 @@ int main(void) {
   base_test();
   random_test(1000, 40);
   
-  n = 100;
+  n = 1000;
   while (n > 0) {
     random_test(4000, 200);
+    n --;
+  }
+
+  n = 1000;
+  while (n > 0) {
+    random_test(4000, 100);
     n --;
   }
 
