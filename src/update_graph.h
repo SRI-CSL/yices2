@@ -11,7 +11,7 @@
  *   instantiation of the update/extensionality axioms
  *   directly in the Egraph.
  *
- * To do this, we add to the egraph and optional new component
+ * To do this, we add to the egraph an optional new component
  * called the update graph. Vertices in this graph are 
  * equivalence classes of function terms (extracted from the egraph)
  * and edges correspond to update terms. If a = (update b t1 .. tn v)

@@ -88,7 +88,7 @@
  *   BVAR = variable (no definition)
  *   BGATE = Boolean function of no more than 3 variables
  *   BOR = large or (more than 3 variables)
- * the other tags can be used for theory atoms
+ * more tags can be used for theory atoms
  */
 enum {
   BCONST,
@@ -142,7 +142,7 @@ typedef struct bgate_s {
 
 /*
  * Intermediate structure to store a truth table:
- * - this is used during gate construction to simplify and normalize truth tables/
+ * - this is used during gate construction to simplify and normalize truth tables
  * - a table consists of nvars columns where nvars is between 0 and 3
  * - each column is labeled by a signed integer, which can be either a literal
  *   or a Boolean variable, or -1

@@ -56,7 +56,7 @@
  *
  *
  * We use the following bit-tricks:
- * - the common variables of two clauses i and j is defined 
+ * - the common variables of two clauses i and j are defined 
  *   by the '1' bits in m[i] & m[j]
  * - the variables that have opposite polarities in i and j 
  *   are defined  by (i ^ j) & m[i] & m[j]
@@ -353,6 +353,7 @@ static void export_cnf_table(FILE *f, uint32_t cnf[256], const char *name) {
   }
   fprintf(f, "};\n\n");
 }
+
 
 /*
  * Two compilation tables

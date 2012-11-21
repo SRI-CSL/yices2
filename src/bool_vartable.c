@@ -579,7 +579,7 @@ literal_t literal_get_root(bool_vartable_t *table, literal_t l) {
     // if l is pos(x), replace l by map[x]
     // if l is neg(x), replace l by not(map[x])
     assert(table->map[var_of(l)] != null_literal);
-    l = table->map[var_of(l)] & sign_of_lit(l);
+    l = table->map[var_of(l)] ^ sign_of_lit(l);
   }
   return l;
 }
