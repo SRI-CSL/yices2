@@ -258,6 +258,16 @@ static void tstack_default_showtimeout_cmd(void) {
 #endif
 }
 
+static void tstack_default_help_cmd(char *topic) {
+#ifndef NDEBUG
+  if (topic == NULL) {
+    fprintf(stdout, "(help) called\n");
+  } else {
+    fprintf(stdout, "(help %s) called\n", topic);
+  }
+#endif
+}
+
 static void tstack_default_type_defined_cmd(char *name, type_t tau) {
 #if 0
   fprintf(stdout, "type definition: %s = ", name);
@@ -337,6 +347,7 @@ void init_tstack(tstack_t *stack) {
   stack->externals.resetstats_cmd = tstack_default_resetstats_cmd;
   stack->externals.settimeout_cmd = tstack_default_settimeout_cmd;
   stack->externals.showtimeout_cmd = tstack_default_showtimeout_cmd;
+  stack->externals.help_cmd = tstack_default_help_cmd;
   stack->externals.type_defined_cmd = tstack_default_type_defined_cmd;
   stack->externals.term_defined_cmd = tstack_default_term_defined_cmd;
 }
@@ -547,6 +558,7 @@ static const unsigned char assoc[NUM_OPCODES] = {
   0, // RESET_STATS_CMD
   0, // SET_TIMEOUT_CMD
   0, // SHOW_TIMEOUT_CMD
+  0, // HELP_CMD
   0, // DUMP_CMD
 };
 
@@ -5571,6 +5583,28 @@ static void eval_settimeout_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
+ * [help <topic>] or [help]
+ */
+static void check_help_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, HELP_CMD);
+  check_size(stack, n <= 1);
+  if (n == 1) check_tag(stack, f, TAG_SYMBOL);
+}
+
+static void eval_help_cmd(tstack_t *stack,  stack_elem_t *f, uint32_t n) {
+  char *topic;
+  
+  topic = NULL;
+  if (n == 1) {
+    topic = f->val.symbol;
+  }
+  stack->externals.help_cmd(topic);
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
  * Not supported or other error
  */
 static void eval_error(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -5691,6 +5725,7 @@ static evaluator_t eval[NUM_OPCODES] = {
   eval_resetstats_cmd,
   eval_settimeout_cmd,
   eval_showtimeout_cmd,
+  eval_help_cmd,
   eval_dump_cmd,
 };
 
@@ -5804,6 +5839,7 @@ static checker_t check[NUM_OPCODES] = {
   check_resetstats_cmd,
   check_settimeout_cmd,
   check_showtimeout_cmd,
+  check_help_cmd,
   check_dump_cmd,
 };
 

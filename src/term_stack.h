@@ -110,7 +110,7 @@ typedef enum opcode_enum {
   PUSH_CMD, POP_CMD, RESET_CMD, SHOWMODEL_CMD, EVAL_CMD, 
   SET_PARAM_CMD, SHOW_PARAM_CMD, SHOW_PARAMS_CMD, 
   SHOW_STATS_CMD, RESET_STATS_CMD, SET_TIMEOUT_CMD, 
-  SHOW_TIMEOUT_CMD,
+  SHOW_TIMEOUT_CMD, HELP_CMD,
 
   // DUMP_CMD is used below. Keep it last
   DUMP_CMD,
@@ -216,6 +216,7 @@ typedef struct param_val_s {
  * - void resetstats_cmd(void)
  * - void settimeout_cmd(int32_t val)
  * - void showtimeout_cmd(void)
+ * - void help_cmd(char *s)
  *
  * Two other commands are called within define-type or define-term: 
  * - void type_defined_cmd(char *name, type_t tau):
@@ -247,6 +248,7 @@ typedef void (*showstats_cmd_t)(void);
 typedef void (*resetstats_cmd_t)(void);
 typedef void (*settimeout_cmd_t)(int32_t timeout);
 typedef void (*showtimeout_cmd_t)(void);
+typedef void (*help_cmd_t)(char *topic);
 typedef void (*type_defined_cmd_t)(char *name, type_t tau);
 typedef void (*term_defined_cmd_t)(char *name, term_t t);
 
@@ -269,6 +271,7 @@ typedef struct external_cmd_s {
   resetstats_cmd_t resetstats_cmd;
   settimeout_cmd_t settimeout_cmd;
   showtimeout_cmd_t showtimeout_cmd;
+  help_cmd_t help_cmd;
   type_defined_cmd_t type_defined_cmd;
   term_defined_cmd_t term_defined_cmd;
 } external_cmd_t;
@@ -623,6 +626,10 @@ static inline void tstack_set_settimeout_cmd(tstack_t *stack, settimeout_cmd_t c
 
 static inline void tstack_set_showtimeout_cmd(tstack_t *stack, showtimeout_cmd_t cmd) {
   stack->externals.showtimeout_cmd = cmd;
+}
+
+static inline void tstack_set_help_cmd(tstack_t *stack, help_cmd_t cmd) {
+  stack->externals.help_cmd = cmd;
 }
 
 static inline void tstack_set_type_defined_cmd(tstack_t *stack, type_defined_cmd_t cmd) {

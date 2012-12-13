@@ -1,5 +1,8 @@
 /*
- * Tables of actions for parsing the Yices language
+ * Tables of actions for parsing the Yices language 
+ *
+ * These tables are explained in utils/yices_parser.txt.
+ * They are built by utils/table_builder using input file utils/yices_parser_tables.h
  */
 
 #ifndef __YICES_PARSE_TABLES_H
@@ -12,7 +15,7 @@
  * States
  */
 typedef enum state_s {
-  r0, c0, c1, c2, c3, c6, c7, c9, c10, c11, c12, c13, c14,
+  r0, c0, c1, c2, c3, c6, c7, c9, c10, c11, c12, c13, c14, c15,
   td0, td1, td2, td3, t0, t1, t4, t6,
   e0, e1, e3, e5, e7, e10, e11, e12, 
   e14, e15, e16, e17, e19, e20,
@@ -45,15 +48,16 @@ typedef enum actions {
   resetstats_next_goto_r0,
   showtimeout_next_goto_r0,
   settimeout_next_goto_c14,
+  help_next_goto_c15,
   typename_next_goto_c10, // token must be a free typename (TK_SYMBOL)
-  string_next_goto_r0,
+  string_next_goto_r0,    // string argument to echo, include, help
   termname_next_goto_c7,  // token must be a free termname (TK_SYMBOL)
   next_push_c9_goto_t0,
   symbol_next_goto_c12,   // in (set-param <symbol> ...)
   true_next_goto_r0,      // in (set-param ... true)
   false_next_goto_r0,     // in (set-param ... false)
   float_next_goto_r0,     // in (set-param ... <float>)
-  symbol_next_goto_r0,    // in (show-param <symbol>)
+  symbol_next_goto_r0,    // in (show-param <symbol>) or (help <symbol>)
   ret,                    // return
   push_r0_goto_e0,
   push_r0_goto_td0,
@@ -188,8 +192,8 @@ typedef enum actions {
  */
 
 // Table sizes
-#define NSTATES 35
-#define BSIZE 180
+#define NSTATES 36
+#define BSIZE 184
 
 // Default values for each state
 static const uint8_t default_value[NSTATES] = {
@@ -203,6 +207,7 @@ static const uint8_t default_value[NSTATES] = {
   push_r0_goto_e0,
   push_r0_goto_td0,
   error_symbol_expected,
+  error,
   error,
   error,
   error,
@@ -233,31 +238,32 @@ static const uint8_t default_value[NSTATES] = {
 // Base values for each state
 static const uint8_t base[NSTATES] = {
      0,   0,   0,   0,   0,   1,   0,   4,   5,   2,
-     7,   5,   2,   8,  13,   6,  21,  23,  23,  16,
-    30,  37,  52,  39,  41,  51,  53,  47,  55,  57,
-    59,  60,  52,  61,  63,
+     7,   5,   2,  14,  17,   6,  21,  30,  32,  20,
+     3,  33,  40,  55,  36,  38,  54,  56,  50,  58,
+    60,  62,  63,  55,  64,  66,
 };
 
 // Check table
 static const uint8_t check[BSIZE] = {
      2,   2,   2,   2,   2,   2,   2,   2,   2,   2,
      2,   2,   2,   2,   2,   2,   2,   2,   2,   2,
-    35,  35,  35,  35,  35,   1,   0,   6,   1,   4,
-     7,   8,  12,  13,   3,   5,   9,  10,  10,  11,
-    15,  10,  13,  13,  13,  13,  19,  16,  17,  10,
-    10,  14,  14,  14,  14,  16,  20,  17,  17,  17,
-    17,  18,  21,  18,  18,  23,  24,  21,  21,  21,
-    21,  21,  22,  22,  22,  22,  22,  25,  26,  21,
-    21,  27,  28,  29,  30,  31,  32,  33,  34,  34,
-    35,  29,  35,  35,  35,  35,  22,  22,  22,  22,
-    22,  22,  22,  22,  22,  22,  22,  22,  22,  22,
-    22,  22,  22,  22,  22,  22,  22,  22,  22,  22,
-    22,  22,  22,  22,  22,  22,  22,  22,  22,  22,
-    22,  22,  22,  22,  22,  22,  22,  22,  22,  22,
-    22,  22,  22,  22,  22,  22,  22,  22,  22,  22,
-    22,  22,  22,  22,  22,  22,  22,  22,  22,  22,
-    22,  22,  22,  35,  35,  35,  35,  35,  35,  35,
-    35,  35,  35,  35,  35,  35,  35,  35,  35,  35,
+     2,  36,  36,  36,  36,  36,   1,   0,   6,   1,
+     4,   7,   8,  12,  20,   3,   5,   9,  10,  10,
+    11,  13,  10,  14,  13,  15,  15,  15,  15,  13,
+    10,  10,  14,  14,  14,  14,  16,  17,  18,  19,
+    21,  19,  19,  24,  25,  17,  22,  18,  18,  18,
+    18,  22,  22,  22,  22,  22,  23,  23,  23,  23,
+    23,  26,  27,  22,  22,  28,  29,  30,  31,  32,
+    33,  34,  35,  35,  36,  30,  36,  36,  36,  36,
+    23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
+    23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
+    23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
+    23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
+    23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
+    23,  23,  23,  23,  23,  23,  23,  23,  23,  23,
+    23,  23,  23,  23,  23,  23,  23,  36,  36,  36,
+    36,  36,  36,  36,  36,  36,  36,  36,  36,  36,
+    36,  36,  36,  36,
 };
 
 // Value table
@@ -282,6 +288,7 @@ static const uint8_t value[BSIZE] = {
   resetstats_next_goto_r0,
   settimeout_next_goto_c14,
   showtimeout_next_goto_r0,
+  help_next_goto_c15,
   error,
   error,
   error,
@@ -295,40 +302,43 @@ static const uint8_t value[BSIZE] = {
   ret,
   ret,
   rational_next_goto_r0,
-  next_goto_td1,
+  rational_next_goto_r0,
   typename_next_goto_c10,
   termname_next_goto_c7,
   symbol_next_goto_c12,
   rational_next_goto_r0,
   float_next_goto_r0,
   symbol_next_goto_r0,
-  termname_next_goto_td3,
-  string_next_goto_r0,
-  typesymbol_return,
-  bool_return,
-  int_return,
-  real_return,
-  rational_next_goto_r0,
   ret,
-  next_goto_t1,
-  true_next_goto_r0,
-  false_next_goto_r0,
+  string_next_goto_r0,
+  next_goto_td1,
+  string_next_goto_r0,
   bitvector_next_goto_t4,
   scalar_next_goto_td2,
   tuple_next_push_t6_goto_t0,
   arrow_next_push_t6_push_t0_goto_t0,
-  termname_next_goto_td3,
-  ret,
+  symbol_next_goto_r0,
+  true_next_goto_r0,
+  false_next_goto_r0,
   typesymbol_return,
   bool_return,
   int_return,
   real_return,
+  termname_next_goto_td3,
+  ret,
+  next_goto_t1,
   bitvector_next_goto_t4,
-  next_goto_e1,
+  ret,
   tuple_next_push_t6_goto_t0,
   arrow_next_push_t6_push_t0_goto_t0,
   ret,
   next_push_e7_goto_e0,
+  termname_next_goto_td3,
+  next_goto_e1,
+  typesymbol_return,
+  bool_return,
+  int_return,
+  real_return,
   rational_return,
   float_return,
   bvbin_return,
@@ -443,6 +453,5 @@ static const uint8_t value[BSIZE] = {
   error,
   error,
 };
-
 
 #endif /* __YICES_PARSE_TABLES_H */

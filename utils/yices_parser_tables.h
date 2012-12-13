@@ -3,7 +3,7 @@
 
 typedef enum state_s {
   r0, 
-  c0, c1, c2, c3, c6, c7, c9, c10, c11, c12, c13, c14,
+  c0, c1, c2, c3, c6, c7, c9, c10, c11, c12, c13, c14, c15,
   td0, td1, td2, td3,
   t0, t1, t4, t6,
   e0, e1, e3, e5, e7, e10, e11, e12, e14, e15, e16, e17, e19, e20,
@@ -43,15 +43,16 @@ enum actions {
   resetstats_next_goto_r0,
   showtimeout_next_goto_r0,
   settimeout_next_goto_c14,
+  help_next_goto_c15,
   typename_next_goto_c10, // token must be a free typename (TK_SYMBOL)
-  string_next_goto_r0,
+  string_next_goto_r0,    // string argument to echo, include, help
   termname_next_goto_c7,  // token must be a free termname (TK_SYMBOL)
   next_push_c9_goto_t0,
   symbol_next_goto_c12,   // in (set-param <symbol> ...)
   true_next_goto_r0,      // in (set-param ... true)
   false_next_goto_r0,     // in (set-param ... false)
   float_next_goto_r0,     // in (set-param ... <float>)
-  symbol_next_goto_r0,    // in (show-param <symbol>)
+  symbol_next_goto_r0,    // in (show-param <symbol>) or (help <symbol>)
   ret,                    // return
   push_r0_goto_e0,
   push_r0_goto_td0,
@@ -204,6 +205,7 @@ static triple_t triples[] = {
   { c1, TK_SHOW_TIMEOUT, "showtimeout_next_goto_r0" },
   { c1, TK_RESET_STATS, "resetstats_next_goto_r0" },
   { c1, TK_SET_TIMEOUT, "settimeout_next_goto_c14" },
+  { c1, TK_HELP, "help_next_goto_c15" },
 
   { c2, TK_SYMBOL, "typename_next_goto_c10" },
   { c2, DEFAULT_TOKEN, "error_symbol_expected" },
@@ -235,6 +237,10 @@ static triple_t triples[] = {
   { c13, TK_SYMBOL, "symbol_next_goto_r0" },
 
   { c14, TK_NUM_RATIONAL, "rational_next_goto_r0" },
+
+  { c15, TK_SYMBOL, "symbol_next_goto_r0" },
+  { c15, TK_STRING, "string_next_goto_r0" },
+  { c15, TK_RP, "ret" },
 
   { td0, TK_INT, "int_return" },
   { td0, TK_REAL, "real_return" },

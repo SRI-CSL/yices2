@@ -35,6 +35,8 @@ Grammar
 	| ( set-timeout <number> )
 	| ( show-timeout )
         | ( dump-context )
+        | ( help <string> )
+        | ( help <symbol> )
 	| EOS
 
 immediate-value :: = 
@@ -150,6 +152,7 @@ c1	 define-type		c2
          set-param              c11
 	 show-param             c13
 	 set-timeout		c14
+         help                   c15
 c2	 <symbol>		c10
 c3	 <string>		c4 
 c4       )                      DONE
@@ -169,7 +172,9 @@ c12      true                   c4
          <symbol>               c4
 c13      <symbol>               c4
 c14	 <rational>             c4
-
+c15      <symbol>               c4
+         <string>               c4
+         )                      DONE
 
 parse-typedef: share states t2, t3, t4 with parse-type
 - initial-state = td0
@@ -364,6 +369,7 @@ c1       exit           next; goto r0
          reset-stats    next; goto r0
          show-timeout   next; goto r0
 	 set-timeout    next; goto c14
+         help           next; goto c15
 c2       <symbol>       next; goto c10
 c3       <string>       next; goto r0
 c6       <symbol>       next; goto c7
@@ -380,7 +386,9 @@ c12      true           next; goto r0
          <symbol>       next; goto r0
 c13      <symbol>       next; goto r0
 c14      <rational>     next; goto r0
-
+c15      <symbol>       next; goto r0
+         <string>       next; goto r0
+         )              return
 
 td0      int            return
          real           return
