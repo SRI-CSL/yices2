@@ -103,6 +103,9 @@ This is a summary of the commands and input language of the Yices 2 solver.
             | ( reset-stats )
 	    | ( set-timeout <number> )
             | ( dump-context )
+	    | ( help )
+            | ( help <symbol> )
+            | ( help <string> )
             | EOS
   
 
@@ -411,3 +414,9 @@ This is a summary of the commands and input language of the Yices 2 solver.
 
    (show-timeout): print the current timeout. The value displayed
           will be used as timeout in the next call to (check).
+
+   (help): print a summary of the main commands
+
+   (help <topic>): print help on a particular topic. <topic> can be given
+       as a symbol as in (help syntax) or as a string as in (help "syntax").
+
