@@ -632,7 +632,7 @@ static void process_command_line(int argc, char *argv[]) {
       goto bad_usage;
     }
     // use default settings
-    arch = CTX_ARCH_EGFUNSPLX;
+    arch = CTX_ARCH_EGFUNSPLXBV;
     iflag = true;
     qflag = false;
     break;
