@@ -35,6 +35,7 @@ Grammar
 	| ( set-timeout <number> )
 	| ( show-timeout )
         | ( dump-context )
+        | ( help )
         | ( help <string> )
         | ( help <symbol> )
 	| EOS
