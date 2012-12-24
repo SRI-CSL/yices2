@@ -527,6 +527,7 @@ extern void record_offset_poly(offset_manager_t *m, eterm_t t, thvar_t x, polyno
  * Push equality (x == y + k) into the queue
  * - id = unique id for this equality
  * - if y is -1, the assertion is interpreted as x == k
+ * - if x is -1. the assertion is interpreted as y + k == 0
  * - otherwise both x and y must be arithmetic variables.
  * - the equality is ignored if x or y are not mapped to an offset variable in m
  */

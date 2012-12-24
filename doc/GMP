@@ -197,7 +197,7 @@ the GMP configure script.
 5) What if configure rejects option ABI=64? 
 
    This may happen on some Mac hardware that's not properly recognized
-   but the GMP ./configure script. For example, for GMP-4.3.2, 
+   by the GMP ./configure script. For example, for GMP-4.3.2, 
 
       ./configure ABI=64
 

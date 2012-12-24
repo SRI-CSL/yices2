@@ -4009,6 +4009,16 @@ static void check_false_eq(egraph_t *egraph, pvector_t *v) {
   }  
 }
 
+/*
+ * Check whether equality with index i is from a theory solver
+ */
+static bool eq_is_from_satellite(egraph_t *egraph, int32_t i) {
+  expl_tag_t tag;
+
+  assert(0 <= i && i < egraph->stack.top);
+  tag = egraph->stack.etag[i];
+  return tag == EXPL_ARITH_PROPAGATION || tag == EXPL_BV_PROPAGATION;
+}
 
 /*
  * Process equality (t1 == t2): i = corresponding edge id
@@ -4203,15 +4213,27 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
    * Deal with theory variables of c1 and c2:
    * - if c2 has a theory var v2 but not c1, set v2 as theory var of c1
    * - if both have a theory variable, proagate equality (v1 == v2) to theory solvers
-   * NOTE: this is also how we propagate tuple equalities
+   * - check the explanation for i before propagating to the theory solver
+   *   if the equality i was propagated from Simplex or BV solver, there's no point
+   *   sending v1 == v2 to this solver (and doing pauses a circularity problem).
+   *
+   * NOTE: this is also how we propagate tuple/boolean equalities
+   *
+   * TODO:
+   * - extend this to deal with equalities between lambda terms 
+   *     (lambda t x) == (lambda t y) ==> (x == y) since t does not occur in x or y
+   *   this requires removing the satellite solver for array/function theory
+   *   and move support for these theories here (cf. update_graph)
    */
-  v2 = egraph->classes.thvar[c2];
-  if (v2 != null_thvar) {
-    v1 = egraph->classes.thvar[c1];
-    if (v1 != null_thvar) {
-      propagate_thvar_equality(egraph, c1, v1, c2, v2);
-    } else {
-      egraph->classes.thvar[c1] = v2;
+  if (!eq_is_from_satellite(egraph, i)) {
+    v2 = egraph->classes.thvar[c2];
+    if (v2 != null_thvar) {
+      v1 = egraph->classes.thvar[c1];
+      if (v1 != null_thvar) {
+	propagate_thvar_equality(egraph, c1, v1, c2, v2);
+      } else {
+	egraph->classes.thvar[c1] = v2;
+      }
     }
   }
 

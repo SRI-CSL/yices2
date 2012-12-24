@@ -249,7 +249,7 @@ fi
 
 dnl
 dnl CSL_CHECK_LIBGMP_PATH(path,option)
-dnl -------------------------------
+dnl ----------------------------------
 dnl path should be the full path to a static GMP library.
 dnl this checks whether the given file exists. Print an
 dnl error and exit otherwise.
