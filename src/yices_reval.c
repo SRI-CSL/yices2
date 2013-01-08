@@ -331,6 +331,7 @@ static const branch_t branching_code[NUM_BRANCHING_MODES] = {
  * -1 means not supported
  */
 static const int32_t logic2arch[NUM_SMT_LOGICS] = {
+  CTX_ARCH_NOSOLVERS,  // NONE
   -1,                  // AUFLIA
   -1,                  // AUFLIRA
   -1,                  // AUFNIRA
@@ -360,6 +361,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
  * Specify whether the integer solver should be activated
  */
 static const bool logic2iflag[NUM_SMT_LOGICS] = {
+  false,  // NONE
   true,   // AUFLIA
   true,   // AUFLIRA
   true,   // AUFNIRA
@@ -390,6 +392,7 @@ static const bool logic2iflag[NUM_SMT_LOGICS] = {
  * Specify whether quantifier support is needed
  */
 static const bool logic2qflag[NUM_SMT_LOGICS] = {
+  false,  // NONE
   true,   // AUFLIA
   true,   // AUFLIRA
   true,   // AUFNIRA
@@ -472,6 +475,7 @@ static void print_help(char *progname) {
 	 "  --verbose, -v             Run in verbose mode\n"
 	 "  --logic=<name>            Configure for the given logic\n"
 	 "                             <name> must be an SMT-LIB logic code (e.g., QF_UFLIA)\n"
+         "                                    or the special code 'NONE' for propositional logic\n"
 	 "  --arith-solver=<solver>   Select the arithmetic solver\n"
 	 "                             <solver> may be either 'simplex' or 'floyd-warshall' or 'auto'\n"
 	 "  --mode=<mode>             Select the usage mode\n"

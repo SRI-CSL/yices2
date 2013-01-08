@@ -1878,7 +1878,7 @@ static int process_benchmark(char *filename) {
 
     default:
       /*
-       * Not supported yet
+       * Not supported or unknown logic
        */
       print_internalization_code(LOGIC_NOT_SUPPORTED);
       return YICES_EXIT_ERROR;

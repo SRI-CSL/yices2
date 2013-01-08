@@ -430,6 +430,7 @@ void smt_lexer_activate_logic(smt_logic_t code) {
     break;
 
   case QF_UF:
+  case NONE:
   case SMT_UNKNOWN:
     break;
   }

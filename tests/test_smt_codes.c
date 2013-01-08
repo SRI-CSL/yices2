@@ -3,9 +3,10 @@
 
 #include "smt_logic_codes.h"
 
-#define NUM_TESTS 28
+#define NUM_TESTS 29
 
 static const char * const test_names[] = {
+  "NONE",
   "AUFLIA",
   "AUFLIRA",
   "AUFNIRA",
@@ -37,6 +38,7 @@ static const char * const test_names[] = {
 };
 
 static const char *const code2string[] = {
+  "NONE",
   "AUFLIA",
   "AUFLIRA",
   "AUFNIRA",

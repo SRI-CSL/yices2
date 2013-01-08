@@ -8,8 +8,11 @@
 
 /*
  * Codes for the logic (based on benchmarks available in June 2009)
+ * + one special code 'NONE' for propositional logic
  */
 typedef enum smt_logic {
+  NONE,        // added 12/27/2012
+
   AUFLIA,
   AUFLIRA,
   AUFNIRA,

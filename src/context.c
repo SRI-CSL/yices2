@@ -6644,7 +6644,6 @@ void init_context(context_t *ctx, term_table_t *terms,
    * Simplification/internalization support
    */
   init_intern_tbl(&ctx->intern, 0, terms);  
-  init_ivector(&ctx->assertions, CTX_DEFAULT_VECTOR_SIZE);
   init_ivector(&ctx->top_eqs, CTX_DEFAULT_VECTOR_SIZE);
   init_ivector(&ctx->top_atoms, CTX_DEFAULT_VECTOR_SIZE);
   init_ivector(&ctx->top_formulas, CTX_DEFAULT_VECTOR_SIZE);
@@ -6728,7 +6727,6 @@ void delete_context(context_t *ctx) {
   delete_gate_manager(&ctx->gate_manager);
 
   delete_intern_tbl(&ctx->intern);
-  delete_ivector(&ctx->assertions);
   delete_ivector(&ctx->top_eqs);
   delete_ivector(&ctx->top_atoms);
   delete_ivector(&ctx->top_formulas);
@@ -6767,7 +6765,6 @@ void reset_context(context_t *ctx) {
   reset_gate_manager(&ctx->gate_manager);
 
   reset_intern_tbl(&ctx->intern);
-  ivector_reset(&ctx->assertions);
   ivector_reset(&ctx->top_eqs);
   ivector_reset(&ctx->top_atoms);
   ivector_reset(&ctx->top_formulas);

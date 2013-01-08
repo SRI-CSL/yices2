@@ -137,6 +137,7 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
  * -1 means not supported
  */
 static const int32_t logic2arch[NUM_SMT_LOGICS] = {
+  -1,                  // NONE: not a real SMT logic (treat as unsupported)
   -1,                  // AUFLIA
   -1,                  // AUFLIRA
   -1,                  // AUFNIRA
@@ -166,6 +167,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
  * Specify whether the integer solver should be activated
  */
 static const bool logic2iflag[NUM_SMT_LOGICS] = {
+  false,  // NONE
   true,   // AUFLIA
   true,   // AUFLIRA
   true,   // AUFNIRA
@@ -196,6 +198,7 @@ static const bool logic2iflag[NUM_SMT_LOGICS] = {
  * Specify whether quantifier support is needed
  */
 static const bool logic2qflag[NUM_SMT_LOGICS] = {
+  false,  // NONE
   true,   // AUFLIA
   true,   // AUFLIRA
   true,   // AUFNIRA

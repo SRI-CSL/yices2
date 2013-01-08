@@ -10,7 +10,11 @@
 \contentsline {section}{\numberline {3.1}Main Components}{9}{section.3.1}
 \contentsline {section}{\numberline {3.2}Solvers}{10}{section.3.2}
 \contentsline {chapter}{\numberline {4}\texttt {yices}}{13}{chapter.4}
-\contentsline {chapter}{\numberline {5}\texttt {yices-smt}}{15}{chapter.5}
-\contentsline {chapter}{\numberline {6}Yices API}{17}{chapter.6}
-\contentsline {chapter}{\numberline {7}Yices License Terms}{19}{chapter.7}
-\contentsline {chapter}{Bibliography}{23}{chapter*.2}
+\contentsline {section}{\numberline {4.1}Example}{13}{section.4.1}
+\contentsline {section}{\numberline {4.2}Tool Invocation}{15}{section.4.2}
+\contentsline {section}{\numberline {4.3}Input Language}{16}{section.4.3}
+\contentsline {subsection}{\numberline {4.3.1}Tokens}{16}{subsection.4.3.1}
+\contentsline {chapter}{\numberline {5}\texttt {yices-smt}}{21}{chapter.5}
+\contentsline {chapter}{\numberline {6}Yices API}{23}{chapter.6}
+\contentsline {chapter}{\numberline {7}Yices License Terms}{25}{chapter.7}
+\contentsline {chapter}{Bibliography}{29}{chapter*.2}

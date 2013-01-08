@@ -73,8 +73,8 @@ This is a summary of the commands and input language of the Yices 2 solver.
 	define-type	define		assert	check	push	pop
 	reset		dump-context	exit	echo	include
 	show-model	eval		set-param	show-param
-	show-params
-
+	show-params     show-stats      reset-stats     set-timeout
+        dump-context    help
 
 
 
@@ -151,13 +151,15 @@ This is a summary of the commands and input language of the Yices 2 solver.
    <binding> ::= ( <symbol> <expression> )
 
 
-   <immediate-value> :: = 
-              true 
+   <immediate-value> ::= 
+              true
             | false
-            | <rational>
+            | <number>
             | <symbol>
 
-
+   <number> ::= 
+              <rational>
+            | <float>
 
 
 3) Types

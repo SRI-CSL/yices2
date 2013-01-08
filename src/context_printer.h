@@ -11,7 +11,7 @@
 
 
 /*
- * Internal strucutures used in flattening/simplifications/internalization
+ * Internal structures used in flattening/simplifications/internalization
  */
 extern void print_context_subst_eqs(FILE *f, context_t *ctx);
 extern void print_context_top_eqs(FILE *f, context_t *ctx);

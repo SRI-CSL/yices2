@@ -583,9 +583,8 @@ struct context_s {
   // hash table for Boolean gates
   gate_manager_t gate_manager;
 
-  // internalization + assertion queue
+  // internalization table
   intern_tbl_t intern;
-  ivector_t assertions;
 
   // result of flattening and simplification
   ivector_t top_eqs;

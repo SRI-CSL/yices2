@@ -1,19 +1,13 @@
-% Document Type: TeX
-\input{if} % Grammatech
-% \input{else} % Tech Rep
 \documentclass[11pt,twoside,fleqn,openright,titlepage]{cslreport}
 \input{moretext}
 \raggedbottom
 \usepackage{cite,relative,url,alltt,times}
 \usepackage{amsfonts,latexsym,amssymb}
 
-
 %%\usepackage{setspace}%\doublespacing
 \input{prelude}
-%\input{mathprel}
 \pagenumbering{roman} 
 \setcounter{page}{0} 
-%\input{nomemos}
 \makeatletter
 \@ifundefined{pdfoutput}%
 {\usepackage[bookmarks=true,hyperindex=true]{hyperref}}%
@@ -26,7 +20,6 @@
 %% \renewcommand{\baselinestretch}{1.5}
 
 \begin{document}
-\ifelse{\cslreportnumber{}}{}
 \begin{titlepage}
 \date{\today}
 \author{Bruno Dutertre\\
@@ -308,7 +301,7 @@ signed integers in two's complement representation), logical operators
 such as bitwise OR or AND, logical and arithmetic shifts,
 concatenation, and extraction of subvectors. Other operators are
 defined in the theory QF\_BV of SMT-LIB
-(cf.~\url{http://combination.cs.uiowa.edu/smtlib}); all of them are
+(cf.~\url{http://www.smtlib.org}); all of them are
 supported by Yices~2.
 
 \begin{table}
@@ -474,6 +467,7 @@ used by the internal SAT solver.
 
 
 \section{Solvers}
+\label{solvers}
 
 In Yices~2, it is possible to select a different solver (or combination
 of solvers) for the problem of interest. Each context can thus be
@@ -529,19 +523,628 @@ design and implementation of theory solvers.
 \chapter{\texttt{yices}}
 \label{yices-shell}
 
-The Yices~2 distribution includes a tool for processing input written
-in the Yices~2 language. This tool is callled \texttt{yices}
-(or \texttt{yices.exe} in the Windows and Cygwin distributions).  The
-syntax and the set of commands supported by \texttt{yices} are
-explained in the file \texttt{doc/YICES-LANGUAGE} included in the
-distribution. Several example specifications are also included in
-the \texttt{examples/} directory.
+The Yices~2 distribution includes  a tool for processing input written
+in  the Yices~2  language.  This tool  is  callled \texttt{yices}  (or
+\texttt{yices.exe}  in  the Windows  and  Cygwin distributions).   The
+syntax  and  the  set  of  commands supported  by  \texttt{yices}  are
+explained  in  the file  \texttt{doc/YICES-LANGUAGE}  included in  the
+distribution. Several example specifications  are also included in the
+\texttt{examples/} directory.
 
-By default, the \texttt{yices} tool supports the combination of
-arithmetic, uninterpreted functions and arrays. It builds a context
-that includes the Simplex, UF, and Array solvers. This can be changed 
-by giving command-line arguments to the tool. Try \texttt{yices --help} for
-more details.
+
+\section{Example}
+
+To illustrate the tool usage, consider file
+\texttt{examples/bv\_test2.ys} included in the distribution and shown
+in Figure~\ref{example:bv_test2}. The first line defines a type called
+\texttt{BV}. In this case, \texttt{BV} is a synonym for bitvectors of
+size 32. Then four terms called are declared of type \texttt{BV}.  The
+three constants \texttt{a}, \texttt{b}, and \texttt{d} are
+uninterpreted, while \texttt{c} is defined as the bitvector
+representation of the integer 1008832. The next line of the file is an
+assertion expressing a constraint between \texttt{a}, \texttt{b},
+\texttt{c}, and \texttt{d}, using bitvector operators. The command
+\texttt{(check)} checks whether the assertion is satisfiable. Since it
+is, command \texttt{show-model} asks for a satisfying model to be
+displayed. The next commands ask for the value of four terms in the
+model.
+
+\begin{figure}
+\begin{small}
+\begin{verbatim}
+(define-type BV (bitvector 32))
+
+(define a::BV)
+(define b::BV)
+(define c::BV (mk-bv 32 1008832))
+(define d::BV)
+
+(assert (= a (bv-or (bv-and (mk-bv 32 255) (bv-not (bv-or b (bv-not c)))) 
+                    (bv-and c (bv-xor d (mk-bv 32 1023))))))
+
+(check)
+
+(show-model)
+(eval a)
+(eval b)
+(eval c)
+(eval d)
+\end{verbatim}
+\end{small}
+\caption{Example Yices Script (from \texttt{examples/bv\_test2.ys})}
+\label{example:bv_test2}
+\end{figure}
+
+To run \texttt{yices} on this input file, just type
+\begin{small}
+\begin{verbatim}
+      yices examples/bv_test2.ys
+\end{verbatim}
+\end{small}
+The tool will output something like this:
+\begin{small}
+\begin{verbatim}
+      sat
+      (= d 0b00000000000000000000000000000000)
+      (= b 0b00000000000000000000000000000000)
+      (= a 0b00000000000000000000000011000000)
+
+      0b00000000000000000000000011000000
+      0b00000000000000000000000000000000
+      0b00000000000011110110010011000000
+      0b00000000000000000000000000000000
+\end{verbatim}
+\end{small}
+The result of the \texttt{(check)} command is shown on the first line
+(i.e., \texttt{sat} for satisfiable). The next three lines show the
+model as an assignment to the three uninterpreted terms \texttt{a},
+\texttt{b}, and \texttt{d}. Then, the tool displays one bitvector
+constant for each of the \texttt{(eval ...)} command.
+
+Since this example contains only terms and constructs from the
+bitvector theory, we could specify logic \texttt{QF\_BV} on the
+command line as follows:
+\begin{small}
+\begin{verbatim}
+      yices --logic=QF_BV examples/bv_test2.ys
+\end{verbatim}
+\end{small}
+To get a more detailed output, give option \texttt{--verbose}:
+\begin{small}
+\begin{verbatim}
+      yices --verbose examples/bv_test2.ys
+\end{verbatim}
+\end{small}
+
+\section{Tool Invocation}
+
+Yices is invoked on an input file by typing
+\begin{verbatim}
+      yices [option] <filename>
+\end{verbatim}
+If no \texttt{<filename>} is given, \texttt{yices} will run in
+interactive mode and will read standard input. The following options
+are supported
+\begin{description}
+\item[\texttt{--logic=<name>}] Select an SMT-LIB logic.\\[1mm]
+  \texttt{<name>} must either be an SMT-LIB logic name such as
+  \texttt{QF\_UFLIA} or the special name \texttt{NONE}.
+
+  Yices recognizes the logics defined at \url{http://www.smtlib.org}
+  (as of December 2012). Option \texttt{--logic=NONE} configures
+  \texttt{yices} for propositional logic.
+
+  By default---that is, if no logic is given---\texttt{yices} includes
+  all the theory solvers described in Section~\ref{solvers}. In this
+  default configuration, \texttt{yices} supports linear arithmetic,
+  bitvectors, uninterpreted functions, and arrays. If a logic is
+  specified, \texttt{yices} uses a specialized solver or combination
+  of solvers that is appropriate for the given logic. Some of the
+  search parameters will also be set to values that seem to work well
+  for this logic (based on extensive benchmarking). All the search
+  parameters can also be modified individually using the command
+  \texttt{(set-param ...)}. If option \texttt{--logic=NONE} is given,
+  then \texttt{yices} includes no theory solvers at all.
+
+\item[\texttt{--arith-solver=<solver>}] Select one of the possible arithmetic solvers.\\[1mm]
+\texttt{<solver>} must be one of \texttt{simplex}, \texttt{floyd-warshall}, or \texttt{auto}.
+
+If the logic is one of \texttt{QF\_IDL} (integer difference logic) or
+\texttt{QF\_RDL} (real difference logic), then this option can be used
+to select the arithmetic solver: either the generic Simplex-based
+solver or a specialized solver based on the Floyd-Warshall
+algorithm. If option \texttt{--arith-solver=auto} is given, then the
+arithmetic solver is determined automatically; the default is
+\texttt{auto}.
+
+This option has no effect for logics other than \texttt{QF\_IDL} or \texttt{QF\_RDL}.
+
+\item[\texttt{--mode=<mode>}]  Select solver features.\\[1mm]
+  \texttt{<mode>} must be one of \texttt{one-shot},
+  \texttt{multi-checks}, \texttt{push-pop}, or \texttt{interactive}.
+
+This option selects the set of functionalities supported by the solver as follows:
+\begin{itemize}
+\item \texttt{one-shot}: no assertions are allowed after
+  \texttt{(check)}, so only one call to \texttt{(check)} is possible.
+\item \texttt{multi-checks}: several calls to \texttt{(assert)} and
+  \texttt{(check)} are allowed.
+\item \texttt{push-pop}: like \texttt{multi-checks} with in addition
+  support for adding and retracting assertions via the commands
+  \texttt{(push)} and \texttt{(pop)}.
+\item \texttt{interactive}: supports the same features as
+  \texttt{push-pop} mode, but with a different behavior when
+  \texttt{(check)} is interrupted.
+\end{itemize}
+In the first two modes, \texttt{yices} employs more agressive
+simplifications when processing assertions; this can lead to better
+performance on some problems. In interactive mode, the solver context
+is saved before every call to \texttt{(check)}, and it is restored if
+\texttt{(check)} is interrupted. In this mode, the more assertions and
+commands can be processed after the search is interrupted. In the
+non-interactive modes, the solver exits after the first interruption
+or timeout.
+
+The default mode is \texttt{push-pop} if the solver is run with an
+input file, or \texttt{interactive} if no input file is given.  
+
+Mode \texttt{one-shot} is required if the Floyd-Warshall solvers are
+used.
+
+\item[\texttt{--version, -V}]  Display the solver version then exit.
+
+\item[\texttt{--help, -h}] Print a summary of options
+
+\item[\texttt{--verbose, -v}] Run in verbose mode
+\end{description}
+
+
+\section{Input Language}
+
+The syntax of the Yices input language is summarized in
+Figures~\ref{syntax:commands},~\ref{syntax:types},
+and~\ref{syntax:expressions}.
+
+
+
+\begin{figure}
+\begin{small}
+\begin{verbatim}
+   <command>  ::= 
+              ( define-type <symbol> )
+            | ( define-type <symbol> <typedef> )
+            | ( define <symbol> :: <type> )
+            | ( define <symbol> :: <type> <expression> )
+            | ( assert <expression> )
+            | ( exit )
+            | ( check )
+            | ( push )
+            | ( pop )
+            | ( reset )
+            | ( show-model )
+            | ( eval <expression> )
+            | ( echo <string> )
+            | ( include <string> )
+            | ( set-param <symbol> <immediate-value> )
+            | ( show-param <symbol> )
+            | ( show-params )
+            | ( show-stats )
+            | ( reset-stats )
+            | ( set-timeout <number> )
+            | ( dump-context )
+            | ( help )
+            | ( help <symbol> )
+            | ( help <string> )
+            | EOS
+
+   <immediate-value> ::= 
+              true 
+            | false
+            | <number>
+            | <symbol>
+
+   <number> ::=
+              <rational>
+            | <float>
+\end{verbatim}
+\end{small}
+\caption{Yices Syntax: Commands}
+\label{syntax:commands}
+\end{figure}  
+
+\begin{figure}
+\begin{small}
+\begin{verbatim}
+   <typedef> ::= 
+              <type>
+            | ( scalar <symbol> ... <symbol> )
+
+   <type> ::= 
+              <symbol> 
+            | ( tuple <type> ... <type> )
+            | ( -> <type> ... <type> <type> )
+            | ( bitvector <rational> )
+            | int
+            | bool
+            | real
+\end{verbatim}
+\end{small}
+\caption{Yices Syntax: Types}
+\label{syntax:types}
+\end{figure}
+
+\begin{figure}
+\begin{small}
+\begin{verbatim}
+   <expr> ::= 
+              true
+            | false
+            | <symbol>
+            | <rational>
+            | <float>
+            | <binary bv>
+            | <hexa bv>
+            | ( forall ( <var_decl> ... <var_decl> ) <expr> )
+            | ( exists ( <var_decl> ... <var_decl> ) <expr> )
+            | ( lambda ( <var_decl> ... <var_decl> ) <expr> )
+            | ( let ( <binding> ... <binding> ) <expr> )
+            | ( update <expr> ( <expr> ... <expr> ) <expr> )
+            | ( <function> <expr> ... <expr> )
+
+   <function> ::=
+              <function-keyword>
+            | <expr>
+
+   <var_decl> ::= <symbol> :: <type>
+
+   <binding> ::= ( <symbol> <expr> )
+\end{verbatim}
+\end{small}
+\caption{Yices Syntax: Expressions}
+\label{syntax:expressions}
+\end{figure}
+
+\subsection{Tokens}
+
+Input files may contain comments, which start with a semi-colon
+\texttt{`;'} and extend to the end of the line.  Strings are similar to
+strings in C. They are delimited by double quotes \texttt{`"'} and may
+contain escaped characters:
+\begin{itemize}
+\item The characters \texttt{`\textbackslash n'} and \texttt{`\textbackslash t'} are replaced by newline and tab, respectively.
+\item The character \texttt{`\textbackslash'} followed by at most
+  three octal digits (i.e., from \texttt{0} to \texttt{7}) is replaced
+  by the character whose ASCII code is the octal number.
+   \item In all other cases, \texttt{`\textbackslash <char>'} is replaced by
+     \texttt{`<char>'} (including if \texttt{<char>} is a newline or
+     '\texttt{\textbackslash'}).
+\item A newline cannot occur inside the string, unless preceded by \texttt{`\textbackslash'}.
+\end{itemize}
+
+Numeric constants can be written as rationals (e.g., \texttt{4} or
+\texttt{-1/3}) or using a floating-point notation (e.g.,
+\texttt{-1.2e+2}).
+
+Bitvector constants can be written in a binary format using the prefix
+\texttt{0b} or in hexadecimal using the prefix \texttt{0x}. For
+example, the expressions \texttt{0b01010101} and \texttt{0x55} denote
+the same bitvector constant of eight bits.
+
+A symbol is any character string that's not a keyword (see
+Table~\ref{syntax:keywords}) and doesn't start with a digit, a space,
+or one of the characters \texttt{`('}, \texttt{`)'}, \texttt{`;'},
+\texttt{`:'}, and \texttt{`"'}. If the first character is \texttt{`+'} or
+\texttt{`-'}, then it must not be followed by a digit. Symbols end by a
+space, or by any of the characters \texttt{`('}, \texttt{`)'}, \texttt{`;'},
+\texttt{`:'}, or \texttt{`"'}. Here are some examples:
+\begin{small}
+\begin{verbatim}
+   a_symbol  X123  &&&  +z203  t\12
+\end{verbatim}
+\end{small}
+All the predefined keywords and symbols are listed in Table~\ref{syntax:keywords}.
+
+\begin{table}
+\begin{small}
+\begin{center}
+\begin{tt}
+\begin{tabular}{|p{3.2cm}|p{3.2cm}|p{3.2cm}|p{3.2cm}|}
+\hline 
+* & + & - & -> \\
+/ & /= & < & <= \\
+<=> & = & => & > \\
+>= & \verb|^| & and & assert \\
+bitvector & bool & bv-add & bv-and \\
+bv-ashift-right & bv-ashr & bv-comp & bv-concat \\
+bv-div & bv-extract & bv-ge & bv-gt \\
+bv-le & bv-lshr & bv-lt & bv-mul \\
+bv-nand & bv-neg & bv-nor & bv-not \\
+bv-or & bv-pow & bv-redand & bv-redor \\
+bv-rem & bv-repeat & bv-rotate-left & bv-rotate-right \\
+bv-sdiv & bv-sge & bv-sgt & bv-shift-left0 \\
+bv-shift-left1 & bv-shift-right0 & bv-shift-right1 & bv-shl \\
+bv-sign-extend & bv-sle & bv-slt & bv-smod \\
+bv-srem & bv-sub & bv-xnor & bv-xor \\
+bv-zero-extend & check & define & define-type \\
+distinct & dump-context & dump-context & echo \\
+eval & exists & exit & false \\
+forall & help & if & include \\
+int & ite & lambda & let \\
+mk-bv & mk-tuple & not & or \\
+pop & push & real & reset \\
+reset-stats & scalar & select & set-param \\
+set-timeout & show-model & show-param & show-params \\
+show-stats & true & tuple & tuple-update \\
+update & xor &  & \\
+\hline
+\end{tabular}
+\end{tt}
+\end{center}
+\end{small}
+\caption{Keywords and predefined symbols}
+\label{syntax:keywords}
+\end{table}
+
+% 3) Types
+%    -----
+
+% 3.1) The primitive types are: bool, int, real, and (bitvector k) where k is 
+%      a positive integer.
+
+
+% 3.2) A new uninterpreted type T can be declared using
+
+%          (define-type T)
+   
+%      provided T is a fresh name (i.e., not already mapped to a type).
+
+
+% 3.3) A new scalar type (i.e., a finite enumeration) can de defined using:
+
+%          (define-type <name> (scalar <elem1> ... <elem_n>))
+
+%      <name> must be a fresh type name
+
+%      <elem1> ... <elem_n> must all be fresh term names and they must be distinct.
+
+%      There must be at list one element in the enumeration (i.e., n must be >= 1).
+
+%      This declaration introduces <name> as a new type of n elements
+%      and also introduces n new constant <elem_1> ... <elem_n>, all of type <name>.
+
+
+% 3.4) A tuple type is written (tuple tau_1 ... tau_n) where tau_i's are types
+    
+% 3.5) A function type is written (-> tau_1 ... tau_n sigma) where the tau_i's
+%      and sigma are types. This is the typed of functions of domain 
+%      tau_1 x ... x tau_n and range sigma.
+
+%      There's no distinct array type constructor. Arrays are functions.
+    
+
+
+% 4) Built-in constants and functions
+%    --------------------------------
+
+% 4.1) ite is the if-then-else construct. 
+%      if is a synonym for ite
+
+%      distinct takes are least 2 arguments.
+
+%      =, /= are strictly binary (unlike in SMT-LIB 1, where = can take more than two arguments).
+
+
+% 4.2) true, false, or, and, not, xor, <=>, => are the usual boolean constants and 
+%      functions.
+     
+%      or, and, xor can take any number of arguments (provided there's at least one).
+
+%      <=> and => are binary operators.
+
+
+% 4.3) tuple constructor: (mk-tuple <term_1> ... <term_n>) with n>=1
+
+%      projection: (select <tuple> i) is the i-th component of term
+%           <tuple> must have type (tuple tau_1 ... tau_n) 
+%       and i must be between 1 and n
+ 
+%      tuple update: (tuple-update <tuple> i <term>) is <tuple> with 
+%      the i-th component replaced by <term>
+
+
+% 4.4) function update: (update <function> (<arg_1> ... <arg_n>) <new_value>)
+
+
+% 4.5) bitvector functions:
+
+%      a) bitvector constant from an integer
+
+%         (mk-bv <size> <value>)
+
+%         Note: value must be a non-negative integer and 
+%         size must be a positive integer.
+
+
+%      b) bitvector arithmetic
+
+%         bv-add, bv-sub, bv-mul take exactly two arguments, and both 
+% 	must have the same size     
+
+%         (bv-neg x) = opposite of x in 2's complement arithmetic
+
+%         (bv-pow x k) = exponentiation (k must be a non-negative integer constant)
+
+
+%      c) bitwise logical operators
+
+%         (bv-not x) = bitwise negation of x
+
+%         bv-and, bv-or, bv-xor, bv-nand, bv-nor, bv-xnor: bitwise operators,
+%         all take two arguments of the same size
+
+%         note: (bv-xnor x y) is the same as (bv-not (bv-xor x y)).
+
+
+%      d) shift/rotate by a fixed constant
+
+%         (bv-shift-left0 x k):  shift x by k bits to the left, padding with 0
+%         (bv-shift-left1 x k):  shift x by k bits to the left, padding with 1
+%         (bv-shift-right0 x k): shift x by k bits to the right, padding with 0
+%         (bv-shift-right1 x k): shift x by k bits to the right, padding with 1
+
+%         (bv-ashift-right x k): arithmetic shift by k bits
+%         (bv-rotate-left x k):  rotate x by k bits to the left
+%         (bv-rotate-right x k): rotate x by k bits to the right
+
+%         In all these shift/rotate operations, k must an integer be between 0 
+% 	and the size of x.
+
+
+%        shift by a varying amount: in the following operations,
+%        x and y must be bitvectors of the same size (n bits)
+
+%         (bv-shl x y): shift x by k bits to the left, padding with 0
+%                       where k = value of bitvector y 
+
+%         (bv-lshr x y): logical shift: shift x by k bits to the right 
+%                        (padding with 0) where k = value of bitvector y
+
+%         (bv-ashr x y): arithmetic shift: shift x by k bits to the right,
+% 		       padding with x's sign bit, where k = value of 
+%                        bitvector y.
+
+%      e) subvector extraction:
+
+%         (bv-extract i j x): extract  bits j, j+1, .. i of x
+
+%         Requires 0 <= j <= i <= (size of x) - 1.
+
+
+%      f) bv-concat takes two arguments
+
+%      g) (bv-repeat x n) is n copies of x concatenated together. n must be > 0.
+
+%      h) (bv-sign-extend x n): add n times the sign bit to the left of x (n must be >= 0)
+%         (bv-zero-extend x n): add n times '0' to the left of x (n must be >= 0)	
+
+   
+%      i) unsigned bit-vector comparisons:
+
+%         (bv-ge x y): x >= y
+%         (bv-gt x y): x > y
+%         (bv-le x y): x <= y
+%         (bv-lt x y): x < y
+
+%         x and y are interpreted as non-negative integers (both must have the same size)
+
+%      j) signed bit-vector comparisons 
+
+%         (bv-sge x y): x >= y
+%         (bv-sgt x y): x > y
+%         (bv-sle x y): x <= y
+%         (bv-slt x y): x < y
+
+%         x and y are interpreted as signed integers (in 2's complement representation)
+%         they must have the same size
+
+
+%      k) (bv-div x y):  quotient in the unsigned division of x by y
+%         (bv-rem x y):  remainder in the unsigned division of x by y       
+
+%          x and y must have the same size (n bits)
+
+%          if y = 0, Yices uses the following convention:
+
+%            (bv-rem x 0) = x
+%            (bv-div x 0) = largest integer representable using n bits (i.e. 0b1111...1)
+
+
+%         (bv-sdiv x y):  quotient in the signed division of x by y, with rounding to 0
+%         (bv-srem x y):  remainder in the signed division of x by y (also rounding to 0).
+
+%          x and y must have the same size
+
+%          if y = 0, Yices uses the following convention:
+
+%            (bv-srem x 0) = x
+
+%            (bv-sdiv x 0) = 0b00000...01 if x < 0
+%            (bv-sdiv x 0) = 0b11111...11 if x >= 0
+
+
+%         (bv-smod x y):  remainder in the signed division of x by y, with rounding to minus 
+%                         infinity
+
+%          if y = 0, (bv-smod x 0) = x.
+
+
+%       l) (bv-redor x):  this is the 1-bit vector [(or b_0 ... b_{n-1})] where b_i is bit i of x
+%          (bv-redand x): same thing for and
+
+%          (bv-redcomp x y): compute a 1-bit vector u such that u = 0b1 if x and y are equal
+%                                                               u = 0b0 otherwise
+
+%           x and y must have the same size.
+
+
+
+
+% 4) Commands
+%    --------
+  
+%    (define-type name):  create a new uninterpreted type called 'name'
+
+%    (define-type name <type-definition>) : create a new type called 'name' equal
+%                                           to the <type-definition>
+
+%    (assert <formula>):  add an assertion to the context
+
+%    (check):  check whether the context is satisfiable
+
+%    (push):  start a new assertion scope
+
+%    (pop):  remove all assertions added after the matching (push)
+%    	   Note: this does not remove declarations.
+
+%    (reset):  clears the context (all assertions are removed, all 'push's are undone)
+%              the current model is also deleted (if any))
+
+%    (show-model): display the current model (if any)
+%                  a model is available after (check) provided (check) return sat or unknown
+%                  it is deleted on the next call to (assert) or (push) or (reset) or (pop)
+   
+%    (eval <term>): show the value of <term> in the current model
+
+%    (echo <string>):  prints <string> on stdout
+
+%    (include <string>):  <string> must be the name of a file that contains Yices commands
+%    	    		this reads and execude all the commands in that file
+
+%    (set-param <parameter-name> <parameter-value>):
+%                  assign a value to one parameter (parameters control simplification 
+%                  and search heuristics)
+
+%    (show-param <parameter-name>): show the current value of a parameter
+
+%    (show-params): show all parameters and their values
+
+%    (show-stats): show statistics (on the search).
+
+%    (reset-stats): reset all statistics to zero
+
+%    (set-timeout <value>): give a timeout in seconds. This timeout value
+%           will limit the search time on the subsequent call to (check)
+%           If <value> is 0 then the timeout is cleared (i.e., no timeout).
+% 	  The timeout is reset (to 0) after every call to (check).
+
+%    (show-timeout): print the current timeout. The value displayed
+%           will be used as timeout in the next call to (check).
+
+%    (help): print a summary of the main commands
+
+%    (help <topic>): print help on a particular topic. <topic> can be given
+%        as a symbol as in (help syntax) or as a string as in (help "syntax").
+
 
 
 \chapter{\texttt{yices-smt}}
