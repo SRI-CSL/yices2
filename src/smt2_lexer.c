@@ -390,6 +390,7 @@ void smt2_lexer_activate_logic(smt_logic_t logic) {
 
   case QF_UF:
   case SMT_UNKNOWN:
+  case NONE:
     break;
   }
 }

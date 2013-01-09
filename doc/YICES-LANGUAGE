@@ -374,6 +374,14 @@ This is a summary of the commands and input language of the Yices 2 solver.
    (define-type name <type-definition>) : create a new type called 'name' equal
                                           to the <type-definition>
 
+
+   (define name :: <type>): create a new uninterpreted constant (i.e., global variable) of the
+                            given <type> called <name>
+
+   (define name :: <type> <expr>):  create a new term called 'name' equal to <expr>
+                            After this definition, every occurrence of 'name' in any expression is
+                            replaced by <expr>.
+
    (assert <formula>):  add an assertion to the context
 
    (check):  check whether the context is satisfiable
