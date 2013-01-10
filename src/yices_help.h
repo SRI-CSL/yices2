@@ -14,4 +14,4 @@
  */
 extern void show_help(FILE *f, const char *topic);
 
-#endif /* __YICES_HELP_H *
+#endif /* __YICES_HELP_H */

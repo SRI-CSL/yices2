@@ -389,6 +389,7 @@ c13      <symbol>       next; goto r0
 c14      <rational>     next; goto r0
 c15      <symbol>       next; goto r0
          <string>       next; goto r0
+         ...            next; goto r0      --> treat all keywords as symbols here
          )              return
 
 td0      int            return

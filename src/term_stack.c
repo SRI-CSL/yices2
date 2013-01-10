@@ -258,7 +258,7 @@ static void tstack_default_showtimeout_cmd(void) {
 #endif
 }
 
-static void tstack_default_help_cmd(char *topic) {
+static void tstack_default_help_cmd(const char *topic) {
 #ifndef NDEBUG
   if (topic == NULL) {
     fprintf(stdout, "(help) called\n");

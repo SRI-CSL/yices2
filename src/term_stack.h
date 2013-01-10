@@ -216,7 +216,7 @@ typedef struct param_val_s {
  * - void resetstats_cmd(void)
  * - void settimeout_cmd(int32_t val)
  * - void showtimeout_cmd(void)
- * - void help_cmd(char *s)
+ * - void help_cmd(const char *s)
  *
  * Two other commands are called within define-type or define-term: 
  * - void type_defined_cmd(char *name, type_t tau):
@@ -248,7 +248,7 @@ typedef void (*showstats_cmd_t)(void);
 typedef void (*resetstats_cmd_t)(void);
 typedef void (*settimeout_cmd_t)(int32_t timeout);
 typedef void (*showtimeout_cmd_t)(void);
-typedef void (*help_cmd_t)(char *topic);
+typedef void (*help_cmd_t)(const char *topic);
 typedef void (*type_defined_cmd_t)(char *name, type_t tau);
 typedef void (*term_defined_cmd_t)(char *name, term_t t);
 

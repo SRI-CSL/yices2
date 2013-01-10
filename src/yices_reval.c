@@ -58,6 +58,7 @@
 #include "yices.h"
 #include "yices_globals.h"
 #include "yices_extensions.h"
+#include "yices_help.h"
 #include "yices_reval.h"
 
 
@@ -2128,6 +2129,14 @@ static void yices_dump_cmd(void) {
 }
 
 
+/*
+ * Help
+ */
+static void yices_help_cmd(const char *topic) {
+  show_help(stdout, topic);
+  printf("\n");
+}
+
 
 /*
  * Reset
@@ -2545,6 +2554,7 @@ int yices_main(int argc, char *argv[]) {
   tstack_set_eval_cmd(&stack, yices_eval_cmd);
   tstack_set_settimeout_cmd(&stack, yices_settimeout_cmd);
   tstack_set_showtimeout_cmd(&stack, yices_showtimeout_cmd);
+  tstack_set_help_cmd(&stack, yices_help_cmd);
   tstack_set_type_defined_cmd(&stack, yices_type_defined_cmd);
   tstack_set_term_defined_cmd(&stack, yices_term_defined_cmd);
   init_parameter_name_table();
