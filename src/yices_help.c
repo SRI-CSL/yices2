@@ -173,14 +173,78 @@ static const help_record_t help_data[] = {
     "\n"
     "To see the list of all possible topics: type '(help topics)'.\n" },
 
+  { "syntax", HMISC, NULL,
+    "Syntax",
+    "\n"
+    "  <command> ::=\n"
+    "         ( define-type <symbol> )\n"
+    "       | ( define-type <symbol> <typedef> )\n"
+    "       | ( define <symbol> :: <type> )\n"
+    "       | ( define <symbol> :: <type> <expr> )\n"
+    "       | ( assert <expr> )\n"
+    "       | ( exit )\n"
+    "       | ( check )\n"
+    "       | ( push )\n"
+    "       | ( pop )\n"
+    "       | ( reset )\n"
+    "       | ( show-model )\n"
+    "       | ( eval <expr> )\n"
+    "       | ( echo <string> )\n"
+    "       | ( include <string> )\n"
+    "       | ( set-param <symbol> <immediate-value> )\n"
+    "       | ( show-param <symbol> )\n"
+    "       | ( show-params )\n"
+    "       | ( show-stats )\n"
+    "       | ( reset-stats )\n"
+    "       | ( set-timeout <number> )\n"
+    "       | ( dump-context )\n"
+    "       | ( help )\n"
+    "       | ( help <symbol> )\n"
+    "       | ( help <string> )\n"
+    "\n"  
+    "  <typedef> ::=\n"
+    "         <type>\n"
+    "      | ( scalar <symbol> ... <symbol> )\n"
+    "\n"
+    " <type> ::=\n"
+    "         <symbol> \n"
+    "       | ( tuple <type> ... <type> )\n"
+    "       | ( -> <type> ... <type> <type> )\n"
+    "       | ( bitvector <rational> )\n"
+    "       | int\n"
+    "       | bool\n"
+    "       | real\n"
+    "\n"
+    " <expr> ::=\n"
+    "         true\n"
+    "       | false\n"
+    "       | <symbol>\n"
+    "       | <number>\n"
+    "       | <binary bv>\n"
+    "       | <hexa bv>\n"
+    "       | ( forall ( <var_decl> ... <var_decl> ) <expr> )\n"
+    "       | ( exists ( <var_decl> ... <var_decl> ) <expr> )\n"
+    "       | ( lambda ( <var_decl> ... <var_decl> ) <expr> )\n"
+    "       | ( let ( <binding> ... <binding> ) <expr> )\n"
+    "       | ( update <expr> ( <expr> ... <expr> ) <expr> )\n"
+    "       | ( <function> <expr> ... <expr> )\n"
+    "\n"
+    " <function> ::=\n"
+    "         <function-keyword>\n"
+    "       | <expr>\n"
+    "\n"
+    " <var_decl> ::= <symbol> :: <type>\n"
+    "\n"
+    " <binding> ::= ( <symbol> <expr> )\n"
+    "\n"
+    " <immediate-value> ::=  true | false | <number> | <symbol>\n"
+    "\n"
+    " <number> ::= <rational> | <float>\n"
+    "\n" },
+
   // END MARKER
   { NULL, HMISC, NULL, NULL },
 };
-
-
-
-
-
 
 
 /*
