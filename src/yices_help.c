@@ -15,7 +15,7 @@
  * Help data:
  * - an array of records
  * - each record consists of five fields
- *    name = a string
+ *    name = a string (used as key)
  *    category = code
  *    synopsis = a string
  *    short_expl = summary explanation
@@ -30,7 +30,7 @@ typedef enum {
   HTYPE,        // Types and type constructors
   HGENERIC,     // General constructs (apply to all types)
   HBOOLEAN,     // Boolean operators and constants
-  HARITHMETIC,  // Arithemtic operators and constants
+  HARITHMETIC,  // Arithmetic operators and constants
   HBITVECTOR,   // Bitvector operators
   HPARAM,       // Parameters (in (set-param ...)
   HMISC,        // Everything else
@@ -48,12 +48,12 @@ typedef struct help_record_s {
 static const help_record_t help_data[] = {
   { "define-type", HCOMMAND, 
     "(define-type [name])", 
-    "Declare a new uninterpreted type called [name]",
+    "Declare a new uninterpreted type",
     "   [name] must be a fresh name\n" },
 
   { "define-type", HCOMMAND, 
     "(define-type [name] [typedef])",
-    "Declare a new type called [name] equal to the given [typedef]",
+    "Define a new type",
     "   [name] must be a fresh name\n"
     "   [typedef] can be\n"
     "      a primitive type: 'bool', 'real', 'int', or '(bitvector k)'\n"
@@ -63,12 +63,12 @@ static const help_record_t help_data[] = {
 
   { "define", HCOMMAND, 
     "(define [name] :: [type])",
-    "Define a new uninterpreted constant of type [type] called [name]",
+    "Declare a new uninterpreted constant",
     "   [name] must be fresh\n" },
 
   { "define", HCOMMAND, 
     "(define [name] :: [type] [expr])",
-    "Introduce a new constant [name] of type [type], equal to [expr]",
+    "Define a new constant",
     "   [name] must be fresh\n"
     "   [expr] must be an expression of type [type] or a subtype of [type]\n" },
 
@@ -106,18 +106,18 @@ static const help_record_t help_data[] = {
 
   { "eval", HCOMMAND, 
     "(eval [expr])",
-    "Show the value of [expr] in the current model",
+    "Evaluate an expression in the current model",
     "\n"
     "This may be used after a call to (check) that returns 'sat' or 'unknown'.\n" },
 
   { "include", HCOMMAND,
     "(include [filename])",
-    "Reads commands from a file",
+    "Read commands from a file",
     "   [filename] must be given as a string as in \"example.ys\"\n" },
 
   { "echo", HCOMMAND,
     "(echo [string])",
-    "Output [string]",
+    "Output a message",
     NULL },
 
   { "set-param", HCOMMAND, 
@@ -131,7 +131,7 @@ static const help_record_t help_data[] = {
     "all parameters.\n" },
 
   { "show-param", HCOMMAND, "(show-param [name])",
-    "Show the value of parameter [name]",
+    "Show the value of a parameter",
     "\n"
     "Type '(help params)' to see the list of all parameters.\n" },
 
@@ -164,7 +164,7 @@ static const help_record_t help_data[] = {
     NULL },
 
   { "help", HCOMMAND, "(help [topic])",
-    "Show help on a specific [topic]",
+    "Show help on a specific topic",
     "    [topic] can be\n"
     "       a YICES command    (help \"define-type\")\n"
     "       a type construct   (help \"scalar\")\n"
