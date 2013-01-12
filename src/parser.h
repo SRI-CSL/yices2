@@ -73,7 +73,7 @@ extern void delete_parser(parser_t *parser);
  * - return a negative number if there's an error opening the file.
  * - return 0 otherwise
  */
-extern int32_t parser_push_lexer(parser_t *parser, char *filename);
+extern int32_t parser_push_lexer(parser_t *parser, const char *filename);
 
 
 /*

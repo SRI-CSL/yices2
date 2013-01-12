@@ -85,7 +85,7 @@ extern parser_state_t parser_pop_state(parser_stack_t *stack) {
  * - return a negative number if there's an error opening the file.
  * - return 0 otherwise
  */
-int32_t parser_push_lexer(parser_t *parser, char *filename) {
+int32_t parser_push_lexer(parser_t *parser, const char *filename) {
   lexer_t *new_lexer;
   int32_t code;
 

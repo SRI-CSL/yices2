@@ -1069,7 +1069,7 @@ static yices_param_t find_param(const char *name) {
  * - return true if the conversion works
  * - return false otherwise (and print an error message)
  */
-static bool param_val_to_bool(const char *name, param_val_t *v, bool *value) {
+static bool param_val_to_bool(const char *name, const param_val_t *v, bool *value) {
   bool code;
 
   code = true;
@@ -1084,7 +1084,7 @@ static bool param_val_to_bool(const char *name, param_val_t *v, bool *value) {
   return code;
 }
 
-static bool param_val_to_int32(const char *name, param_val_t *v, int32_t *value) {
+static bool param_val_to_int32(const char *name, const param_val_t *v, int32_t *value) {
   rational_t *q;
 
   if (v->tag == PARAM_VAL_RATIONAL) {
@@ -1104,7 +1104,7 @@ static bool param_val_to_int32(const char *name, param_val_t *v, int32_t *value)
   return false;
 }
 
-static bool param_val_to_pos32(const char *name, param_val_t *v, int32_t *value) {
+static bool param_val_to_pos32(const char *name, const param_val_t *v, int32_t *value) {
   if (param_val_to_int32(name, v, value)) {
     if (*value > 0) return true;
     report_invalid_param_value(name, "must be positive");
@@ -1112,7 +1112,7 @@ static bool param_val_to_pos32(const char *name, param_val_t *v, int32_t *value)
   return false;
 }
 
-static bool param_val_to_pos16(const char *name, param_val_t *v, int32_t *value) {
+static bool param_val_to_pos16(const char *name, const param_val_t *v, int32_t *value) {
   if (param_val_to_int32(name, v, value)) {
     if (1 <= *value && *value <= UINT16_MAX) {
       return true;
@@ -1122,7 +1122,7 @@ static bool param_val_to_pos16(const char *name, param_val_t *v, int32_t *value)
   return false;
 }
 
-static bool param_val_to_nonneg32(const char *name, param_val_t *v, int32_t *value) {
+static bool param_val_to_nonneg32(const char *name, const param_val_t *v, int32_t *value) {
   if (param_val_to_int32(name, v, value)) {
     if (*value > 0) return true;
     report_invalid_param_value(name, "cannot be negative");
@@ -1130,7 +1130,7 @@ static bool param_val_to_nonneg32(const char *name, param_val_t *v, int32_t *val
   return false;
 }
 
-static bool param_val_to_float(const char *name, param_val_t *v, double *value) {
+static bool param_val_to_float(const char *name, const param_val_t *v, double *value) {
   mpq_t aux;
 
   if (v->tag == PARAM_VAL_RATIONAL) {
@@ -1150,7 +1150,7 @@ static bool param_val_to_float(const char *name, param_val_t *v, double *value) 
   }
 }
 
-static bool param_val_to_posfloat(const char *name, param_val_t *v, double *value) {
+static bool param_val_to_posfloat(const char *name, const param_val_t *v, double *value) {
   if (param_val_to_float(name, v, value)) {
     if (*value > 0.0) return true;
     report_invalid_param_value(name, "must be positive");
@@ -1159,7 +1159,7 @@ static bool param_val_to_posfloat(const char *name, param_val_t *v, double *valu
 }
 
 // ratio: number between 0 and 1 (inclusive)
-static bool param_val_to_ratio(const char *name, param_val_t *v, double *value) {
+static bool param_val_to_ratio(const char *name, const param_val_t *v, double *value) {
   if (param_val_to_float(name, v, value)) {
     if (0 <= *value && *value <= 1.0) return true;
     report_invalid_param_value(name, "must be between 0 and 1");
@@ -1168,7 +1168,7 @@ static bool param_val_to_ratio(const char *name, param_val_t *v, double *value) 
 }
 
 // factor: must be at least 1
-static bool param_val_to_factor(const char *name, param_val_t *v, double *value) {
+static bool param_val_to_factor(const char *name, const param_val_t *v, double *value) {
   if (param_val_to_float(name, v, value)) {
     if (1.0 <= *value) return true;
     report_invalid_param_value(name, "must be at leat 1");
@@ -1183,7 +1183,7 @@ static bool param_val_to_factor(const char *name, param_val_t *v, double *value)
  * Special case: branching mode
  * - allowed modes are 'default' 'positive' 'negative' 'theory' 'th-neg' 'th-pos'
  */
-static bool param_val_to_branching(const char *name, param_val_t *v, branch_t *value) {
+static bool param_val_to_branching(const char *name, const param_val_t *v, branch_t *value) {
   int32_t i;
 
   if (v->tag == PARAM_VAL_SYMBOL) {
@@ -1450,7 +1450,7 @@ static void yices_exit_cmd(void) {
 /*
  * Echo
  */
-static void yices_echo_cmd(char *s) {
+static void yices_echo_cmd(const char *s) {
   fputs(s, stdout);
   fflush(stdout);
 }
@@ -1459,7 +1459,7 @@ static void yices_echo_cmd(char *s) {
 /*
  * Include a file
  */
-static void yices_include_cmd(char *s) {
+static void yices_include_cmd(const char *s) {
   if (parser_push_lexer(&parser, s) < 0) {
     report_system_error(s);
   } else {
@@ -1471,7 +1471,7 @@ static void yices_include_cmd(char *s) {
 /*
  * Parameter assignment
  */
-static void yices_setparam_cmd(char *param, param_val_t *val) {
+static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   bool tt;
   int32_t n;
   double x;
@@ -1785,7 +1785,7 @@ static void yices_setparam_cmd(char *param, param_val_t *val) {
 /*
  * Print parameter of the given name
  */
-static void yices_showparam_cmd(char *param) {
+static void yices_showparam_cmd(const char *param) {
   yices_param_t i;
 
   i = find_param(param);
@@ -2485,11 +2485,11 @@ static void yices_eval_cmd(term_t t) {
 /*
  * Feedback for define or define-term
  */
-static void yices_type_defined_cmd(char *name, type_t tau) {
+static void yices_type_defined_cmd(const char *name, type_t tau) {
   print_ok();
 }
 
-static void yices_term_defined_cmd(char *name, term_t t) {
+static void yices_term_defined_cmd(const char *name, term_t t) {
   print_ok();
 }
 

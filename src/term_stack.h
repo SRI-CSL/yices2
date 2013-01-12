@@ -205,12 +205,12 @@ typedef struct param_val_s {
  * - void pop_cmd(void)
  * - void reset_cmd(void)
  * - void dump_cmd(void)
- * - void echo_cmd(char *s)
- * - void include_cmd(char *s)
+ * - void echo_cmd(const char *s)
+ * - void include_cmd(const char *s)
  * - void assert_cmd(term_t t)
  * - void eval_cmd(term_t t)
- * - void setparam_cmd(char *param, param_val_t *val)
- * - void show_param_cmd(char *param)
+ * - void setparam_cmd(const char *param, const param_val_t *val)
+ * - void show_param_cmd(const char *param)
  * - void show_params_cmd(void)
  * - void showstats_cmd(void)
  * - void resetstats_cmd(void)
@@ -237,20 +237,20 @@ typedef void (*push_cmd_t)(void);
 typedef void (*pop_cmd_t)(void);
 typedef void (*reset_cmd_t)(void);
 typedef void (*dump_cmd_t)(void);
-typedef void (*echo_cmd_t)(char *s);
-typedef void (*include_cmd_t)(char *s);
+typedef void (*echo_cmd_t)(const char *s);
+typedef void (*include_cmd_t)(const char *s);
 typedef void (*assert_cmd_t)(term_t t);
 typedef void (*eval_cmd_t)(term_t t);
-typedef void (*setparam_cmd_t)(char *param, param_val_t *val);
-typedef void (*showparam_cmd_t)(char *param);
+typedef void (*setparam_cmd_t)(const char *param, const param_val_t *val);
+typedef void (*showparam_cmd_t)(const char *param);
 typedef void (*showparams_cmd_t)(void);
 typedef void (*showstats_cmd_t)(void);
 typedef void (*resetstats_cmd_t)(void);
 typedef void (*settimeout_cmd_t)(int32_t timeout);
 typedef void (*showtimeout_cmd_t)(void);
 typedef void (*help_cmd_t)(const char *topic);
-typedef void (*type_defined_cmd_t)(char *name, type_t tau);
-typedef void (*term_defined_cmd_t)(char *name, term_t t);
+typedef void (*type_defined_cmd_t)(const char *name, type_t tau);
+typedef void (*term_defined_cmd_t)(const char *name, term_t t);
 
 typedef struct external_cmd_s {
   exit_cmd_t exit_cmd;

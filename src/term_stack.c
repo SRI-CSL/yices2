@@ -110,7 +110,7 @@ static void __attribute__((noreturn)) report_yices_error(tstack_t *stack) {
  **********************/
 
 /*
- * These are for testing purpose
+ * These are for testing only
  */
 static void tstack_default_exit_cmd(void) {
 #ifndef NDEBUG
@@ -159,13 +159,13 @@ static void tstack_default_dump_cmd(void) {
 #endif
 }
 
-static void tstack_default_echo_cmd(char *s) {
+static void tstack_default_echo_cmd(const char *s) {
 #ifndef NDEBUG
   fprintf(stdout, "(echo \"%s\") called\n", s);
 #endif
 }
 
-static void tstack_default_include_cmd(char *s) {
+static void tstack_default_include_cmd(const char *s) {
 #ifndef NDEBUG
   fprintf(stdout, "(include \"%s\") called\n", s);
 #endif
@@ -190,7 +190,7 @@ static void tstack_default_eval_cmd(term_t t) {
 #endif
 }
 
-static void tstack_default_setparam_cmd(char *s, param_val_t *v) {
+static void tstack_default_setparam_cmd(const char *s, const param_val_t *v) {
 #ifndef NDEBUG
 
   fprintf(stdout, "(set-param %s ...) called\n", s);
@@ -221,7 +221,7 @@ static void tstack_default_setparam_cmd(char *s, param_val_t *v) {
 }
 
 
-static void tstack_default_showparam_cmd(char *s) {
+static void tstack_default_showparam_cmd(const char *s) {
 #ifndef NDEBUG
   fprintf(stdout, "(show-param %s) called\n", s);
 #endif
@@ -268,7 +268,7 @@ static void tstack_default_help_cmd(const char *topic) {
 #endif
 }
 
-static void tstack_default_type_defined_cmd(char *name, type_t tau) {
+static void tstack_default_type_defined_cmd(const char *name, type_t tau) {
 #if 0
   fprintf(stdout, "type definition: %s = ", name);
   print_type_id(stdout, tau);
@@ -276,7 +276,7 @@ static void tstack_default_type_defined_cmd(char *name, type_t tau) {
 #endif
 }
 
-static void tstack_default_term_defined_cmd(char *name, term_t t) {
+static void tstack_default_term_defined_cmd(const char *name, term_t t) {
 #if 0
   fprintf(stdout, "term definition: %s = ", name);
   print_term_id(stdout, t);
