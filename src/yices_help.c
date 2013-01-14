@@ -309,11 +309,256 @@ static const help_record_t help_data[] = {
     NULL,
     NULL },
 
-  // END MARKER: index 23
+  // bool: index 23
+  { HTYPE, "bool", "Boolean type", NULL, NULL },
+
+  // int: index 24
+  { HTYPE, "int", "Integer type", NULL, NULL },
+
+  // real: index 25
+  { HTYPE, "real", "Real type", NULL, NULL },
+
+  // bitvector: index 26
+  { HTYPE, 
+    "(bitvector [k])",
+    "Bitvectors of [k] bits",
+    "   [k] must be positive\n",
+    "(bitvector 32)\n" },
+
+  // scalar: index 27
+  { HTYPE,
+    "(define-type [name] (scalar [elem_1] ... [elem_k]))",
+    "Enumeration type",
+    "   [name] must be fresh\n"
+    "   [elem_1] ... [elem_k] must be distinct fresh names\n"
+    "\n"
+    "This declaration introduces [name] as a new type of k elements.\n"
+    "This also introduces k constants [elem_1] ... [elem_k] of type [name]\n",
+    "(define-type singleton (scalar A))\n"
+    "(define-type day (scalar Mon Tue Wed Thu Fri Sat Sun))\n" },
+
+  // tuple: index 28
+  { HTYPE,
+    "(tuple [type_1] ... [type_n])",
+    "Tuple type",
+    NULL,
+    "(define p::(tuple int int) (mk-tuple 0 1))\n"
+    "(define-type pair (tuple real real))\n" },
+
+  // ->: index 29
+  { HTYPE,
+    "(-> [type_1] ... [type_n] [tau])",
+    "Function type",
+    "This is the type of functions of domain [type_1] x ... x [type_n] and range [tau]\n",
+    "(define-type relation (-> int int bool))\n"
+    "(define f :: (-> int int))\n" },
+
+  // ite: index 30
+  { HGENERIC,
+    "(ite [condition] [expr1] [expr2])",
+    "If-then-else",
+    "   [condition] must be a Boolean expression\n"
+    "   [expr1] and [expr2] must have compatible types\n"
+    "\n"
+    "The expression '(ite c t1 t2)' means 'if c then t1 else t2'\n",
+    "(define min::real (ite (< x y) x y))\n" },
+
+  // if: index 31
+  { HGENERIC,
+    "(if  [condition] [expr1] [expr2])",
+    "If-then-else",
+    "'if' is a synonym for 'ite'. Try '(help ite)' for details\n",
+    NULL },
+
+  // =: index 32
+  { HGENERIC,
+    "(=  [expr1] [expr2])",
+    "Equality",
+    "   [expr1] and [expr2] must have compatible types\n",
+    NULL },
+
+  // /=: index 33
+  { HGENERIC,
+    "(/= [expr1] [expr2])",
+    "Disequality",
+    "   [expr1] and [expr2] must have compatible types\n",
+    NULL },
+
+  // distinct: index 34
+  { HGENERIC,
+    "(distinct [expr1] [expr2] ... [expr_k])",
+    "Distinct",
+    "   [expr1] ... [expr_k] must have compatible types\n"
+    "\n"
+    "   (distinct t1 ... tk) is true if t1 ... tk are pairwise distinct\n",
+    NULL },
+
+  // mk-tuple: index 35
+  { HGENERIC,
+    "(mk-tuple [expr1] ... [expr_k])",
+    "Tuple constructor",
+    NULL,
+    NULL },
+
+  // select: index 36
+  { HGENERIC,
+    "(select [tuple] [index])",
+    "Tuple projection",
+    "   [tuple] must be an expression of tuple type\n"
+    "   [index] must be an integer between 1 and the tuple's arity\n",
+    "(select (mk-tuple x y) 2)   is equal to y\n"
+    "(select (mk-tuple a) 1)     is equal to a\n" },
+
+  // tuple-update: index 37
+  { HGENERIC,
+    "(tuple-update [tuple] [index] [expr])",
+    "Tuple update",
+    "   [tuple] must be an expression of tuple type\n"
+    "   [index] must be an integer between 1 and the tuple's arity\n"
+    "\n"
+    "   (tuple-update t1 i e) is the tuple equal to t1 but with the i-th\n"
+    "   component replaced by e\n",
+    "(tuple-update (mk-tuple x y) 2 1)   is equal to (mk-tuple x 1)\n" },
+
+  // update: index 38
+  { HGENERIC,
+    "(update [function] ([arg_1] ... [arg_n]) [expr])",
+    "Function/array update",
+    "   (update f (t1 ... t_n) v) is a function of same type as f.\n"
+    "   It maps (t_1 ... t_n) to v and agrees with f on all other points.\n",
+    NULL },
+
+  // true: index 39
+  { HBOOLEAN, "true", "Boolean constant", NULL, NULL },
+
+  // false: index 40
+  { HBOOLEAN, "false", "Boolean constant", NULL, NULL },
+
+  // or: index 41
+  { HBOOLEAN,
+    "(or  [expr_1] ... [expr_n])",
+    "Disjunction",
+    "   [expr_1] ... [expr_n] must be Boolean expressions\n",
+    NULL },
+
+  // and: index 42
+  { HBOOLEAN,
+    "(and [expr_1] ... [expr_n])",
+    "Conjunction",
+    "   [expr_1] ... [expr_n] must be Boolean expressions\n",
+    NULL },
+    
+  // not: index 43
+  { HBOOLEAN,
+    "(not [expr])",
+    "Boolean negation",
+    "   [expr] must be a Boolean expression\n",
+    NULL },
+
+  // xor: index 44
+  { HBOOLEAN,
+    "(xor [expr1] ... [expr_n])",
+    "Exclusive or",
+    "   [expr_1] ... [expr_n] must be Boolean expressions\n",
+    NULL },
+
+  // <=>: index 45
+  { HBOOLEAN,
+    "(<=> [expr1] [expr2])",
+    "Boolean equivalence",
+    "   [expr1] and [expr2] must be Boolean expression\n"
+    "\n"
+    "   (<=> t1 t2) is the same as (= t1 t2) if t1 and t2 are Boolean\n",
+    NULL },
+
+  // =>: index 46
+  { HBOOLEAN,
+    "(=>  [expr1] [expr2])",
+    "Implication",
+    "   [expr1] and [expr2] must be Boolean expression\n"
+    "\n"
+    "'(=> t1 t2)' means 't1 implies t2'\n",
+    NULL },
+
+  // +: index 47
+  { HARITHMETIC,
+    "(+ [expr_1] ... [expr_n])", 
+    "Addition",
+    "   [expr_1] ... [expr_n] must be arithmetic expressions\n",
+    NULL },
+
+  // -: index 48
+  { HARITHMETIC,
+    "(- [expr_1] ... [expr_n])",
+    "Subtraction",
+    "   [expr_1] ... [expr_n] must be arithmetic expressions\n"
+    "\n"
+    "   (- t1 t2 t3 ... t_n) is interpreted as t1 - t2 - t3 ... - t_n\n",
+    NULL },
+
+  // -: index 49
+  { HARITHMETIC,
+    "(- [expr])",
+    "Negation",
+    "   [expr] must be an arithmetic expressions\n",
+    NULL },
+
+  // *: index 50
+  { HARITHMETIC,
+    "(* [expr_1] ... [expr_n])",
+    "Product",
+    "   [expr_1] ... [expr_n] must be arithmetic expressions\n",
+    NULL },
+
+  // /: index 51
+  { HARITHMETIC,
+    "(/ [expr] [divider])",
+    "Division",
+    "   [expr] must be an arithmetic expression\n"
+    "   [divider] must be a non-zero arithmetic constant\n",
+    "(/ x 2)\n" },
+
+  // ^: index 52
+  { HARITHMETIC,
+    "(^ [expr] [exponent])",
+    "Exponentiation",
+    "   [expr] must be an arithmetic expression\n"
+    "   [exponent] must be a non-negative integer constant\n",
+    "(^ (+ x y) 2)\n" },
+
+  // <: index 53
+  { HARITHMETIC,
+    "(<  [expr1] [expr2])",
+    "Less than",
+    "   [expr1] and [expr2] must be arithemtic expressions\n",
+    NULL },
+
+  // >: index 54
+  { HARITHMETIC,
+    "(>  [expr1] [expr2])",
+    "Greater than",
+    "   [expr1] and [expr2] must be arithemtic expressions\n",
+    NULL },
+
+  // <=: index 55
+  { HARITHMETIC,
+    "(<= [expr1] [expr2])",
+    "Less than or equal",
+    "   [expr1] and [expr2] must be arithemtic expressions\n",
+    NULL },
+
+  // >=: index 56
+  { HARITHMETIC,
+    "(>= [expr1] [expr2])",
+    "Greater than or equal",
+    "   [expr1] and [expr2] must be arithemtic expressions\n",
+    NULL },
+  
+  // END MARKER: index 57
   { HMISC, NULL, NULL, NULL, NULL },
 };
 
-#define END_HELP_DATA 23
+#define END_HELP_DATA 57
 
 
 
@@ -624,25 +869,52 @@ static void help_special(FILE *f, const char *topic, const char *aux, int32_t ix
  * INDEX TABLE
  */
 static const help_index_t help_index[] = {
-  { "arithmetic", "Arithmetic Operators", HBOOLEAN, help_for_category },
+  { "*", NULL, 50, help_basic },
+  { "+", NULL, 47, help_basic },
+  { "-", "Subtraction", 48, help_variant },
+  { "->", NULL, 29, help_basic },
+  { "/", NULL, 51, help_basic },
+  { "/=", NULL, 33, help_basic },
+  { "<", NULL, 53, help_basic },
+  { "<=", NULL, 55, help_basic },
+  { "<=>", NULL, 45, help_basic },
+  { "=", NULL, 32, help_basic },
+  { "=>", NULL, 46, help_basic },
+  { ">", NULL, 54, help_basic },
+  { ">=", NULL, 56, help_basic },
+  { "and", NULL, 42, help_basic },
+  { "arithmetic", "Arithmetic Operators", HARITHMETIC, help_for_category },
   { "assert", NULL, 4, help_basic },
-  { "bitvectors", "Bitvector Operators", HBOOLEAN, help_for_category },
-  { "boolean", "Boolean Operators", HBOOLEAN, help_for_category },
+  { "bitvector", NULL, 26, help_basic },
+  { "bitvectors", "Bitvector Operators", HBITVECTOR, help_for_category },
+  { "bool", NULL, 23, help_basic },
+  { "boolean", "Boolean Operators", HBOOLEAN, help_for_category }, 
   { "check", NULL, 5, help_basic },
   { "commands", "Command Symmary", HCOMMAND, help_for_category },
   { "define", "Declare or define a term", 2, help_variant },
   { "define-type", "Declare or define a type", 0, help_variant },
+  { "distinct", NULL, 34, help_basic },
   { "echo", NULL, 12, help_basic },
   { "eval", NULL, 10, help_basic },
   { "exit", NULL, 22, help_basic },
+  { "false", NULL, 40, help_basic },
   { "generic", "Generic Operators", HGENERIC, help_for_category },
   { "help", "Show help", 20, help_variant },
+  { "if", NULL, 31, help_basic },
   { "include", NULL, 11, help_basic },
+  { "int", NULL, 24, help_basic },
+  { "ite", NULL, 30, help_basic },
+  { "mk-tuple", NULL, 35, help_basic },
+  { "not", NULL, 43, help_basic },
+  { "or", NULL, 41, help_basic },
   { "params", "Parameters", HPARAM, help_for_category },
   { "push", NULL, 6, help_basic },
   { "pop", NULL, 7, help_basic },
+  { "real", NULL, 25, help_basic },
   { "reset", NULL, 8, help_basic },
   { "reset-stats", NULL, 17, help_basic },
+  { "scalar", NULL, 27, help_basic },
+  { "select", NULL, 36, help_basic },
   { "set-param", NULL, 13, help_basic },
   { "set-timeout", NULL, 18, help_basic },
   { "show-model", NULL, 9, help_basic },
@@ -651,7 +923,13 @@ static const help_index_t help_index[] = {
   { "show-stats", NULL, 16, help_basic },
   { "show-timeout", NULL, 19, help_basic },
   { "syntax", syntax_summary, 0, help_special },
+  { "true", NULL, 39, help_basic },
+  { "tuple", NULL, 28, help_basic },
+  { "tuple-update", NULL, 37, help_basic },
   { "types", "Type Contructs", HTYPE, help_for_category },
+  { "update", NULL, 38, help_basic },
+  { "xor", NULL, 44, help_basic },
+  { "^", NULL, 52, help_basic },
   // END MARKER
   { NULL, NULL, 0, NULL },
 };
