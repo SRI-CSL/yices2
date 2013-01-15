@@ -553,12 +553,288 @@ static const help_record_t help_data[] = {
     "Greater than or equal",
     "   [expr1] and [expr2] must be arithemtic expressions\n",
     NULL },
+
+  // mk-bv: index 57
+  { HBITVECTOR,
+    "(mk-bv [size] [value])",
+    "Convert an integer into a bitvector constant",
+    "   [size] must be a positive integer (number of bits)\n"
+    "   [value] must be a non-negative integer\n"
+    "\n"
+    "The bitvector constant (mk-bv n x) is the binary representation of (x mod 2^n)\n",
+    "(mk-bv 6 0)     is equal to 0b000000\n"
+    "(mk-bv 6 127)   is equal to 0b111111\n"},
+
+  // bv-add: index 58
+  { HBITVECTOR,
+    "(bv-add [expr1] [expr2])",
+    "Bitvector addition",
+    "   [expr1] and [expr2] must be two bitvector expressions of same size\n"
+    "   the result has the same number of bits as [expr1] and [expr2]\n",
+    NULL },
+
+  // bv-sub: index 59
+  { HBITVECTOR,
+    "(bv-sub [expr1] [expr2])",
+    "Bitvector subtraction",
+    "   [expr1] and [expr2] must be two bitvector expressions of same size\n"
+    "   the result has the same number of bits as [expr1] and [expr2]\n",
+    NULL },
+
+  // bv-mul: index 60
+  { HBITVECTOR,
+    "(bv-mul [expr1] [expr2])",
+    "Bitvector multiplication",
+    "   [expr1] and [expr2] must be two bitvector expressions of same size\n"
+    "   the result has the same number of bits as [expr1] and [expr2]\n",
+    NULL },
+
+  // bv-neg: index 61
+  { HBITVECTOR,
+    "(bv-neg [expr])",
+    "Bitvector opposite",
+    "   (bv-neg [expr]) is the opposite of {expr] in 2s complement representation\n",
+    NULL },
+
+  // bv-pow: index 62
+  { HBITVECTOR,
+    "(bv-pow [expr] [exponent])",
+    "Bitvector exponentiation",
+    "   [expr] must be a bitvector expression\n"
+    "   [exponent] must be a non-negative integer constant\n"
+    "   the result has the same nunber of bits as [expr]\n",
+    "(bv-pow (bv-add x y) 2)\n" },
+
+  // bv-not: index 63
+  { HBITVECTOR,
+    "(bv-not [expr])",
+    "Bitwise complement",
+    NULL,
+    NULL },
+
+  // bv-and: index 64
+  { HBITVECTOR,
+    "(bv-and [expr1] [expr2])",
+    "Bitwise and",
+    "   [expr1] and [expr2] must be bitvectors of the same size\n",
+    NULL },
+
+  // bv-or: index 65
+  { HBITVECTOR,
+    "(bv-or [expr1] [expr2])",
+    "Bitwise or",
+    "   [expr1] and [expr2] must be bitvectors of the same size\n",
+    NULL },
+
+  // bv-xor: index 66
+  { HBITVECTOR,
+    "(bv-xor [expr1] [expr2])",
+    "Bitwise exclusive or",
+    "   [expr1] and [expr2] must be bitvectors of the same size\n",
+    NULL },
+
+  // bv-nand: index 67
+  { HBITVECTOR,
+    "(bv-nand [expr1] [expr2])",
+    "Bitwise nand",
+    "   [expr1] and [expr2] must be bitvectors of the same size\n"
+    "\n"
+    "   (bv-nand x y) is the same as (bv-not (bv-and x y))\n",
+    NULL },
   
-  // END MARKER: index 57
+  // bv-nor: index 68
+  { HBITVECTOR,
+    "(bv-nor [expr1] [expr2])",
+    "Bitwise nor",
+    "   [expr1] and [expr2] must be bitvectors of the same size\n"
+    "\n"
+    "   (bv-nor x y) is the same as (bv-not (bv-or x y))\n",
+    NULL },
+
+  // bv-xnor: index 69
+  { HBITVECTOR,
+    "(bv-xnor [expr1] [expr2])",
+    "Bitwise not xor",
+    "   [expr1] and [expr2] must be bitvectors of the same size\n"
+    "\n"
+    "   (bv-xnor x y) is the same as (bv-not (bv-xor x y))\n",
+    NULL },
+
+  // bv-shift-left0: index 70
+  { HBITVECTOR,
+    "(bv-shift-left0 [expr] [shift-amount])",
+    "Shift left by a constant, padding with 0",
+    "    [shift-amount] must be an integer between 0 and the size of [expr]\n",
+    "(bv-shift-left0 0b011000 2)  is equal to 0b100000\n"
+    "(bv-shift-left0 0b011000 7)  is incorrect\n" },
+
+  // bv-shift-left1: index 71
+  { HBITVECTOR,
+    "(bv-shift-left1 [expr] [shift-amount])",
+    "Shift left by a constant, padding with 1",
+    "    [shift-amount] must be an integer between 0 and the size of [expr]\n",
+    "(bv-shift-left1 0b011000 2)  is equal to 0b100011\n"
+    "(bv-shift-left1 0b011000 7)  is incorrect\n" },
+
+  // bv-shift-right0: index 72
+  { HBITVECTOR,
+    "(bv-shift-right0 [expr] [shift-amount])",
+    "Shift right by a constant, padding with 0",
+    "    [shift-amount] must be an integer between 0 and the size of [expr]\n",
+    "(bv-shift-right0 0b011000 2)  is equal to 0b000110\n"
+    "(bv-shift-right0 0b011000 7)  is incorrect\n" },
+
+  // bv-shift-right1: index 73
+  { HBITVECTOR,
+    "(bv-shift-right1 [expr] [shift-amount])",
+    "Shift right by a constant, padding with 1",
+    "    [shift-amount] must be an integer between 0 and the size of [expr]\n",
+    "(bv-shift-right1 0b011000 2)  is equal to 0b110110\n"
+    "(bv-shift-right1 0b011000 7)  is incorrect\n" },
+
+  // bv-ashift-right: index 74
+  { HBITVECTOR,
+    "(bv-ashift-right [expr] [shift-amount])",
+    "Arithmetic shift by a constant",
+    "    [shift-amount] must be an integer between 0 and the size of [expr]\n"
+    "\n"
+    "[expr] is shifted by the given ammout padding with [expr]'s sign bit\n",
+    "(bv-ashift-right 0b011000 2)   is equal to 0b000110\n"
+    "(bv-ashift-right 0b111000 2)   is equal to 0b111110\n" },
+
+  // bv-rotate-left: index 75
+  { HBITVECTOR,
+    "(bv-rotate-left [expr] [shift-amount])",
+    "Rotate to the left by a constant amount",
+    "    [shift-amount] must be an integer between 0 and the size of [expr]\n",
+    "(bv-rotate-left 0b011000 2)  is equal to 0b100001\n" },
+
+  // bv-rotate-right: index 76
+  { HBITVECTOR,
+    "(bv-rotate-rightt [expr] [shift-amount])",
+    "Rotate to the right by a constant amount",
+    "    [shift-amount] must be an integer between 0 and the size of [expr]\n",
+    "(bv-rotate-right 0b011001 2)  is equal to 0b010110\n" },
+
+  // bv-shl: index 77
+  { HBITVECTOR,
+    "(bv-shl [expr1] [expr2])",
+    "Left shift",
+    "   [expr1] and [expr2] must be bitvectors of the same size\n"
+    "\n"
+    "(bv-shl x y) is x shifted to the left by k bits and padded with 0\n"
+    "             where k is the value of y, interpreted as an unsigned integer\n"
+    "If k is larger than the size of x, then the result is the zero bitvector '0b0...0\n",
+    "(bv-shl 0b011001 0b000010)  is equal to 0b100100\n"
+    "(bv-shl 0b011001 0b110000)  is equal to 0b000000\n" },
+
+  // bv-lshr: index 78
+  { HBITVECTOR,
+    "(bv-lshr [expr1] [expr2])",
+    "Logical right shirft",
+    "   [expr1] and [expr2] must be bitvectors of the same size\n"
+    "\n"
+    "(bv-lshr x y) is x shifted to the right by k bits and padded with 0\n"
+    "              where k is the value of y, interpreted as an unsigned integer\n"
+    "If k is larger than the size of x, then the result is the zero bitvector '0b0...0\n",
+    "(bv-lshr 0b011001 0b000010)  is equal to 0b000110\n"
+    "(bv-lshr 0b011001 0b110000)  is equal to 0b000000\n" },
+
+  // bv-ashr: index 79
+  { HBITVECTOR,
+    "(bv-ashr [expr1] [expr2])",
+    "Arithmetic right shift",
+    "   [expr1] and [expr2] must be bitvectors of the same size\n"
+    "\n"
+    "(bv-ashr x y) is x shifted to the right by k bits and padded with x's sign bit\n"
+    "              where k is the value of y, interpreted as an unsigned integer\n"
+    "If k is larger than the size of x, then the result is either the zero bitvector\n"
+    "'0b0...0, if x is non-negrative or the vector 0b1...1 if x is negative\n",
+    "(bv-ashr 0b011001 0b000010)  is equal to 0b000110\n"
+    "(bv-lshr 0b111001 0b110000)  is equal to 0b111110\n" },
+
+  // bv-extract: index 80
+  { HBITVECTOR,
+    "(bv-extract [high] [low] [expr])",
+    "Subvector extraction",
+    "   [expr] must be a bitvector expression\n"
+    "   [high] and [low] must be integer constants\n"
+    "\n"
+    "(bv-extract i j x) extracts bits j, j+1, ..., i of x\n"
+    "If x has n bits, then i and j must satisfy 0 <= j <= i <= n-1\n",
+    "(bv-extract 0 3 0b011010)  is equal to 0b1010\n"
+    "(bv-extract 1 1 0b011010)  is equal to 0b1\n" },
+
+  /// bv-concat: index 81
+  { HBITVECTOR,
+    "(bv-concat [expr1] [expr2])",
+    "Bitvector concatenation",
+    NULL,
+    "(bv-concat 0b100 0b11101  is equal to 0b10011101\n" },
+
+  // bv-repeat: index 82
+  { HBITVECTOR,
+    "(bv-repeat [expr] [constant])",
+    "Repeated concatenation",
+    "   [expr] nust be a bitvector expression\n"
+    "   [constant] must be a positive integer\n"
+    "\n"
+    "(bv-repeat x n) is n copies of x concatentated together\n",
+    "(bv-repeat 0b011010 3)   is equal to 0b011010011010011010\n" },
+
+  // bv-sign-extend: index 83
+  { HBITVECTOR,
+    "(bv-sign-extend [expr] [constant])",
+    "Sign extension",
+    "   [expr] must be a bitvector expression\n"
+    "   [constant] must be a non-negative integer\n"
+    "\n"
+    "(bv-sign-extend x n) adds n copies of x's sign bit to the left of x\n",
+    "(bv-sign-extend 0b011010 3) is equal to 0b000011010\n"
+    "(bv-sign-extend 0b111010 3) is equal to 0b111111010\n"
+    "(bv-sign-extend 0b111010 0) is equal to 0b111010\n" },
+
+  // bv-zero-extend: index 84
+  { HBITVECTOR,
+    "(bv-zero-extend [expr] [constant])",
+    "Zero extension",
+    "   [expr] must be a bitvector expression\n"
+    "   [constant] must be a non-negative integer\n"
+    "\n"
+    "(bv-zero-extend x n) adds n zero bits to the left of x\n",
+    "(bv-zero-extend 0b011010 3) is equal to 0b000011010\n"
+    "(bv-zero-extend 0b111010 3) is equal to 0b000011010\n"
+    "(bv-zero-extend 0b111010 0) is equal to 0b111010\n" },
+  
+  // bv-div: index 85
+  { HBITVECTOR,
+    "(bv-div [expr1] [expr2])",
+    "Quotient in unsigned bitvector division",
+    "   [expr1] and [expr2] must be bitvectors of the same size\n"
+    "\n"
+    "(bv-div x y) is the quotient in the unsigned division of x by y\n"
+    "\n"
+    "If y is 0b0...0 then the result is 0b1....1 (i.e., the largest unsigned\n"
+    "integer representable using n bits\n",
+    "(bv-div 0b10001 0b00101)  is equal to 0b00011  (i.e., 17 div 5 = 3)\n" },
+
+  // bv-rem: index 86
+  { HBITVECTOR,
+    "(bv-rem [expr1] [expr2])",
+    "Remainder in unsigned bitvector division",
+    "   [expr1] and [expr2] must be bitvectors of the same size\n"
+    "\n"
+    "(bv-rem x y) is the quotient in the unsigned division of x by y\n"
+    "\n"
+    "If y is 0b0...0 then the result is x\n"
+    "(bv-rem 0b10001 0b00101)  is equal to 0b00010  (i.e., 17 mod 5 = 2)\n" },
+
+    
+  // END MARKER: index 85
   { HMISC, NULL, NULL, NULL, NULL },
 };
 
-#define END_HELP_DATA 57
+#define END_HELP_DATA 85
 
 
 
@@ -888,7 +1164,34 @@ static const help_index_t help_index[] = {
   { "bitvector", NULL, 26, help_basic },
   { "bitvectors", "Bitvector Operators", HBITVECTOR, help_for_category },
   { "bool", NULL, 23, help_basic },
-  { "boolean", "Boolean Operators", HBOOLEAN, help_for_category }, 
+  { "boolean", "Boolean Operators", HBOOLEAN, help_for_category },
+  { "bv-add", NULL, 58, help_basic },  
+  { "bv-and", NULL, 64, help_basic },
+  { "bv-ashift-right", NULL, 74, help_basic },
+  { "bv-ashr", NULL, 79, help_basic },
+  { "bv-concat", NULL, 81, help_basic },
+  { "bv-extract", NULL, 80, help_basic },
+  { "bv-lshr", NULL, 78, help_basic },
+  { "bv-mul", NULL, 60, help_basic },  
+  { "bv-nand", NULL, 67, help_basic },
+  { "bv-neg", NULL, 61, help_basic },
+  { "bv-nor", NULL, 68, help_basic },
+  { "bv-not", NULL, 63, help_basic },
+  { "bv-or", NULL, 65, help_basic },
+  { "bv-pow", NULL, 62, help_basic },
+  { "bv-repeat", NULL, 82, help_basic },
+  { "bv-rotate-left", NULL, 75, help_basic },
+  { "bv-rotate-right", NULL, 76, help_basic },
+  { "bv-shift-left0", NULL, 70, help_basic },
+  { "bv-shift-left1", NULL, 71, help_basic },
+  { "bv-shift-right0", NULL, 72, help_basic },
+  { "bv-shift-right1", NULL, 73, help_basic },
+  { "bv-sign-extend", NULL, 83, help_basic },
+  { "bv-shl", NULL, 77, help_basic },
+  { "bv-sub", NULL, 59, help_basic }, 
+  { "bv-xnor", NULL, 69, help_basic },
+  { "bv-xor", NULL, 66, help_basic },
+  { "bv-zero-extend", NULL, 84, help_basic },
   { "check", NULL, 5, help_basic },
   { "commands", "Command Symmary", HCOMMAND, help_for_category },
   { "define", "Declare or define a term", 2, help_variant },
@@ -904,6 +1207,7 @@ static const help_index_t help_index[] = {
   { "include", NULL, 11, help_basic },
   { "int", NULL, 24, help_basic },
   { "ite", NULL, 30, help_basic },
+  { "mk-bv", NULL, 57, help_basic },
   { "mk-tuple", NULL, 35, help_basic },
   { "not", NULL, 43, help_basic },
   { "or", NULL, 41, help_basic },
