@@ -51,7 +51,7 @@
  * - proc has signature: 
  *     void proc(FILE *f, const char *key, const char *aux, int32_t idx)
  *
- * - when processeing "help(f, topic):
+ * - when processing "help(f, topic):
  *   search for a record r with key equal to topic
  *   then call r->proc(f, topic, r->aux, r->idx)
  *
@@ -238,7 +238,7 @@ static const help_record_t help_data[] = {
     "Show the value of a parameter",
     "\n"
     "Type '(help params)' to see the list of all parameters.\n",
-    "(show-param braching)\n"
+    "(show-param branching)\n"
     "(show-param random-seed)\n" },
 
   // show-params: index 15
@@ -530,28 +530,28 @@ static const help_record_t help_data[] = {
   { HARITHMETIC,
     "(<  [expr1] [expr2])",
     "Less than",
-    "   [expr1] and [expr2] must be arithemtic expressions\n",
+    "   [expr1] and [expr2] must be arithmetic expressions\n",
     NULL },
 
   // >: index 54
   { HARITHMETIC,
     "(>  [expr1] [expr2])",
     "Greater than",
-    "   [expr1] and [expr2] must be arithemtic expressions\n",
+    "   [expr1] and [expr2] must be arithmetic expressions\n",
     NULL },
 
   // <=: index 55
   { HARITHMETIC,
     "(<= [expr1] [expr2])",
     "Less than or equal",
-    "   [expr1] and [expr2] must be arithemtic expressions\n",
+    "   [expr1] and [expr2] must be arithmetic expressions\n",
     NULL },
 
   // >=: index 56
   { HARITHMETIC,
     "(>= [expr1] [expr2])",
     "Greater than or equal",
-    "   [expr1] and [expr2] must be arithemtic expressions\n",
+    "   [expr1] and [expr2] must be arithmetic expressions\n",
     NULL },
 
   // mk-bv: index 57
@@ -602,7 +602,7 @@ static const help_record_t help_data[] = {
     "Bitvector exponentiation",
     "   [expr] must be a bitvector expression\n"
     "   [exponent] must be a non-negative integer constant\n"
-    "   the result has the same nunber of bits as [expr]\n",
+    "   the result has the same number of bits as [expr]\n",
     "(bv-pow (bv-add x y) 2)\n" },
 
   // bv-not: index 63
@@ -698,7 +698,7 @@ static const help_record_t help_data[] = {
     "Arithmetic shift by a constant",
     "    [shift-amount] must be an integer between 0 and the size of [expr]\n"
     "\n"
-    "[expr] is shifted by the given ammout padding with [expr]'s sign bit\n",
+    "[expr] is shifted by the given amount padding with [expr]'s sign bit\n",
     "(bv-ashift-right 0b011000 2)   is equal to 0b000110\n"
     "(bv-ashift-right 0b111000 2)   is equal to 0b111110\n" },
 
@@ -731,7 +731,7 @@ static const help_record_t help_data[] = {
   // bv-lshr: index 78
   { HBITVECTOR,
     "(bv-lshr [expr1] [expr2])",
-    "Logical right shirft",
+    "Logical right shift",
     "   [expr1] and [expr2] must be bitvectors of the same size\n"
     "\n"
     "(bv-lshr x y) is x shifted to the right by k bits and padded with 0\n"
@@ -749,7 +749,7 @@ static const help_record_t help_data[] = {
     "(bv-ashr x y) is x shifted to the right by k bits and padded with x's sign bit\n"
     "              where k is the value of y, interpreted as an unsigned integer\n"
     "If k is larger than the size of x, then the result is either the zero bitvector\n"
-    "'0b0...0, if x is non-negrative or the vector 0b1...1 if x is negative\n",
+    "'0b0...0, if x is non-negative or the vector 0b1...1 if x is negative\n",
     "(bv-ashr 0b011001 0b000010)  is equal to 0b000110\n"
     "(bv-lshr 0b111001 0b110000)  is equal to 0b111110\n" },
 
@@ -776,10 +776,10 @@ static const help_record_t help_data[] = {
   { HBITVECTOR,
     "(bv-repeat [expr] [constant])",
     "Repeated concatenation",
-    "   [expr] nust be a bitvector expression\n"
+    "   [expr] must be a bitvector expression\n"
     "   [constant] must be a positive integer\n"
     "\n"
-    "(bv-repeat x n) is n copies of x concatentated together\n",
+    "(bv-repeat x n) is n copies of x concatenated together\n",
     "(bv-repeat 0b011010 3)   is equal to 0b011010011010011010\n" },
 
   // bv-sign-extend: index 83
@@ -829,16 +829,161 @@ static const help_record_t help_data[] = {
     "If y is 0b0...0 then the result is x\n"
     "(bv-rem 0b10001 0b00101)  is equal to 0b00010  (i.e., 17 mod 5 = 2)\n" },
 
+  // bv-sdiv: index 87
+  { HBITVECTOR,
+    "(bv-sdiv [expr1] [expr2])",
+    "Quotient in signed bitvector division (rounding to 0)",
+    "   [expr1] and [expr2] must be bitvectors of the same size\n"
+    "\n"
+    "(bv-sdiv x y) is the quotient of the signed division of x by y\n"
+    "x and y are interpreted as integers in 2s complement representation\n"
+    "\n"
+    "If y is 0b0...0 then the result is 0b0... 01 (i.e., +1) if x's sign bit is 1\n"
+    "or 0b1...1 (i.e., -1) if x's sign bit is 0.\n",
+    NULL },
+
+  // bv-srem: index 88
+  { HBITVECTOR,
+    "(bv-srem [expr1] [expr2])",
+    "Remainder in signed bitvector division (rounding to 0)",
+    "   [expr1] and [expr2] must be bitvectors of the same size\n"
+    "\n"
+    "(bv-srem x y) is the quotient of the signed division of x by y\n"
+    "x and y are interpreted as integers in 2s complement representation\n"
+    "\n"
+    "If y is 0b0...0 then the result is x\n",
+    NULL },
     
-  // END MARKER: index 85
+  // bv-smod: index 89
+  { HBITVECTOR,
+    "(bv-smod [expr1] [expr2])",
+    "Remainder in signed bitvector division (rounding to -infinity)",
+    "   [expr1] and [expr2] must be bitvectors of the same size\n"
+    "\n"
+    "(bv-srem x y) is the quotient of the signed division of x by y\n"
+    "x and y are interpreted as integers in 2s complement representation\n"
+    "\n"
+    "If y is 0b0...0 then the result is x\n",
+    NULL },
+ 
+  // bv-redand: index 90
+  { HBITVECTOR,
+    "(bv-redand [expr])",
+    "And reduction",
+    "   [expr] must be a bitvector expression\n"
+    "   The result is a bitvector of one bit\n"
+    "\n"
+    "(bv-redand x)  is 0b1 if all bits of x are 1\n"
+    "               or 0b0 otherwise\n",
+    NULL },
+
+  // bv-redor: index 91
+  { HBITVECTOR,
+    "(bv-redor [expr])",
+    "Or reduction",
+    "   [expr] must be a bitvector expression\n"
+    "   The result is a bitvector of one bit\n"
+    "\n"
+    "(bv-redor x)  is 0b0 if all bits of x are 0\n"
+    "              or 0b1 otherwise\n",
+    NULL },
+
+  // bv-comp: index 92
+  { HBITVECTOR,
+    "(bv-comp [expr1] [expr2])",
+    "Bitvector comparison",
+    "   [expr1] and [expr2] must be a bitvectors of the same size\n"
+    "   The result is a bitvector of one bit\n"
+    "\n"
+    "(bv-comp x y) is equal to 0b1 if x and y are equal\n"
+    "              or to 0b0 otherwise\n",
+    NULL },
+
+  // bv-ge: index 93
+  { HBITVECTOR,
+    "(bv-ge [expr1] [expr2])",
+    "Unsigned bitvector comparison: greater than or equal",
+    "   [expr1] and [expr2] must be a bitvectors of the same size\n"
+    "\n"
+    "(bv-ge x y) is true if x >= y when x and y are interpreted as unsigned integers\n",
+    NULL },
+
+  // bv-gt: index 94
+  { HBITVECTOR,
+    "(bv-gt [expr1] [expr2])",
+    "Unsigned bitvector comparison: greater than",
+    "   [expr1] and [expr2] must be a bitvectors of the same size\n"
+    "\n"
+    "(bv-gt x y) is true if x > y when x and y are interpreted as unsigned integers\n",
+    NULL },
+
+  // bv-le: index 95
+  { HBITVECTOR,
+    "(bv-le [expr1] [expr2])",
+    "Unsigned bitvector comparison: less than or equal",
+    "   [expr1] and [expr2] must be a bitvectors of the same size\n"
+    "\n"
+    "(bv-le x y) is true if x <= y when x and y are interpreted as unsigned integers\n",
+    NULL },
+
+  // bv-lt: index 96
+  { HBITVECTOR,
+    "(bv-lt [expr1] [expr2])",
+    "Unsigned bitvector comparison: less than or equal",
+    "   [expr1] and [expr2] must be a bitvectors of the same size\n"
+    "\n"
+    "(bv-lt x y) is true if x < y when x and y are interpreted as unsigned integers\n",
+    NULL },
+
+  // bv-sge: index 97
+  { HBITVECTOR,
+    "(bv-sge [expr1] [expr2])",
+    "Signed bitvector comparison: greater than or equal",
+    "   [expr1] and [expr2] must be a bitvectors of the same size\n"
+    "\n"
+    "(bv-sge x y) is true if x >= y when x and y are interpreted as signed integers\n"
+    "in 2s-complement representation\n",
+    NULL },
+
+  // bv-sgt: index 98
+  { HBITVECTOR,
+    "(bv-sgt [expr1] [expr2])",
+    "Signed bitvector comparison: greater than",
+    "   [expr1] and [expr2] must be a bitvectors of the same size\n"
+    "\n"
+    "(bv-sgt x y) is true if x > y when x and y are interpreted as signed integers\n"
+    "in 2s-complement representation\n",
+    NULL },
+
+  // bv-sle: index 99
+  { HBITVECTOR,
+    "(bv-sle [expr1] [expr2])",
+    "Signed bitvector comparison: less than or equal",
+    "   [expr1] and [expr2] must be a bitvectors of the same size\n"
+    "\n"
+    "(bv-sle x y) is true if x <= y when x and y are interpreted as signed integers\n"
+    "in 2s-complement representation\n",
+    NULL },
+
+  // bv-slt: index 100
+  { HBITVECTOR,
+    "(bv-slt [expr1] [expr2])",
+    "Signed bitvector comparison: less than or equal",
+    "   [expr1] and [expr2] must be a bitvectors of the same size\n"
+    "\n"
+    "(bv-slt x y) is true if x < y when x and y are interpreted as signed integers\n"
+    "in 2s-complement representation\n",
+    NULL },
+
+  // END MARKER: index 101
   { HMISC, NULL, NULL, NULL, NULL },
 };
 
-#define END_HELP_DATA 85
+#define END_HELP_DATA 101
 
 
 
-/*
+/*`
  * Help messages for special topics
  */
 #define syntax_summary \
@@ -1164,13 +1309,19 @@ static const help_index_t help_index[] = {
   { "bitvector", NULL, 26, help_basic },
   { "bitvectors", "Bitvector Operators", HBITVECTOR, help_for_category },
   { "bool", NULL, 23, help_basic },
-  { "boolean", "Boolean Operators", HBOOLEAN, help_for_category },
+  { "booleans", "Boolean Operators", HBOOLEAN, help_for_category },
   { "bv-add", NULL, 58, help_basic },  
   { "bv-and", NULL, 64, help_basic },
   { "bv-ashift-right", NULL, 74, help_basic },
   { "bv-ashr", NULL, 79, help_basic },
+  { "bv-comp", NULL, 92, help_basic },
   { "bv-concat", NULL, 81, help_basic },
+  { "bv-div", NULL, 85, help_basic },
   { "bv-extract", NULL, 80, help_basic },
+  { "bv-ge", NULL, 93, help_basic },
+  { "bv-gt", NULL, 94, help_basic },
+  { "bv-le", NULL, 95, help_basic },
+  { "bv-lt", NULL, 96, help_basic },
   { "bv-lshr", NULL, 78, help_basic },
   { "bv-mul", NULL, 60, help_basic },  
   { "bv-nand", NULL, 67, help_basic },
@@ -1179,21 +1330,31 @@ static const help_index_t help_index[] = {
   { "bv-not", NULL, 63, help_basic },
   { "bv-or", NULL, 65, help_basic },
   { "bv-pow", NULL, 62, help_basic },
+  { "bv-redand", NULL, 90, help_basic },
+  { "bv-redor", NULL, 91, help_basic },
+  { "bv-rem", NULL, 86, help_basic },
   { "bv-repeat", NULL, 82, help_basic },
   { "bv-rotate-left", NULL, 75, help_basic },
   { "bv-rotate-right", NULL, 76, help_basic },
+  { "bv-sdiv", NULL, 87, help_basic },
+  { "bv-sge", NULL, 97, help_basic },
+  { "bv-sgt", NULL, 98, help_basic },
   { "bv-shift-left0", NULL, 70, help_basic },
   { "bv-shift-left1", NULL, 71, help_basic },
   { "bv-shift-right0", NULL, 72, help_basic },
   { "bv-shift-right1", NULL, 73, help_basic },
-  { "bv-sign-extend", NULL, 83, help_basic },
   { "bv-shl", NULL, 77, help_basic },
+  { "bv-sign-extend", NULL, 83, help_basic },
+  { "bv-sle", NULL, 99, help_basic },
+  { "bv-slt", NULL, 100, help_basic },
+  { "bv-smod", NULL, 89, help_basic },
+  { "bv-srem", NULL, 88, help_basic },
   { "bv-sub", NULL, 59, help_basic }, 
   { "bv-xnor", NULL, 69, help_basic },
   { "bv-xor", NULL, 66, help_basic },
   { "bv-zero-extend", NULL, 84, help_basic },
   { "check", NULL, 5, help_basic },
-  { "commands", "Command Symmary", HCOMMAND, help_for_category },
+  { "commands", "Command Summary", HCOMMAND, help_for_category },
   { "define", "Declare or define a term", 2, help_variant },
   { "define-type", "Declare or define a type", 0, help_variant },
   { "distinct", NULL, 34, help_basic },
@@ -1230,7 +1391,7 @@ static const help_index_t help_index[] = {
   { "true", NULL, 39, help_basic },
   { "tuple", NULL, 28, help_basic },
   { "tuple-update", NULL, 37, help_basic },
-  { "types", "Type Contructs", HTYPE, help_for_category },
+  { "types", "Type Constructs", HTYPE, help_for_category },
   { "update", NULL, 38, help_basic },
   { "xor", NULL, 44, help_basic },
   { "^", NULL, 52, help_basic },

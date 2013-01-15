@@ -358,8 +358,8 @@ This is a summary of the commands and input language of the Yices 2 solver.
       l) (bv-redor x):  this is the 1-bit vector [(or b_0 ... b_{n-1})] where b_i is bit i of x
          (bv-redand x): same thing for and
 
-         (bv-redcomp x y): compute a 1-bit vector u such that u = 0b1 if x and y are equal
-                                                              u = 0b0 otherwise
+         (bv-comp x y): compute a 1-bit vector u such that u = 0b1 if x and y are equal
+                                                           u = 0b0 otherwise
 
           x and y must have the same size.
 
@@ -430,3 +430,105 @@ This is a summary of the commands and input language of the Yices 2 solver.
    (help <topic>): print help on a particular topic. <topic> can be given
        as a symbol as in (help syntax) or as a string as in (help "syntax").
 
+
+
+5) Parameters
+   ----------
+
+The following parameters can be set using (set-param ...) or examined using (show-param ...).
+
+   Name	        Type	     	Meaning
+
+   var-elim     Boolean		If var-elim is true then variable elimination is enabled.
+                                Example: assertion (and (= x (g a)) (P y (f x))) is simplified
+				to (P y (f (g a))) 
+
+   arith-elim   Boolean         If arith-elim is true then arithmetic variables are eliminated
+                                using Gaussion elimination.
+
+   flatten      Boolean         If flatten is true then nested or and and are flattened:
+   				Example: (or a b (or b c d))  is rewritten to (or a b c d).
+
+   learn-eq     Boolean         If learn-eq is true, then a heuristic that attempts to leran
+   				equalities across disjunction is enabled.
+                                Example: from assertion 
+                                  (or (and (= a b) (= b c) (= c d)) (and (= d e) (= e a)))
+				yices can learn (= a d) because it's implied by both disjunct.
+
+   keep-ite     Boolean         If keep-ite is true, then terms of the from (ite c a b) are
+     				represented as is in the E-graph. Otherwise, they are eliminated
+				using the rule
+                                   t = (ite c a b)   iff  c => (t = a)  AND  NOT c => (t = b)
+
+
+
+   fast-restart  Boolean       If true, yices will use a fast restart heuristics.
+
+   c-threshold	 Integer       Number of conflict before the first restart
+   c-factor	 Float	       Increase factor for c-threshold after every restart (must be >= 1.0)
+
+   d-threshold	 Integer       Secondary threshold used only if fast-restart is true
+   d-factor	 Float	       Increase factor for d-threshold (must be >= 1.0)
+
+   If fast-restart is false, the following procedure is used 
+   (restart with a geometric progression):
+      c := c-threshold
+      while not solved
+         dpll search
+	 when number of conflicts == c:
+	    restart the search
+	    c := c-factor * c
+
+   If fast-restart is true, the following procedure is used
+   (picosat-like restart)
+
+     d := d-threshold
+     c := c-threshold
+     while not solved
+        dpll search 
+	when number of conflicts == c:
+	   restart the search
+	   c := c_factor * c
+	   if c >= d then
+             c := c_threshold
+	     d := d_factor * d
+
+
+
+   r-threshold      Integer	Clause-reduction initial threshold
+   r-fraction       Float       Clause-reduction fraction (must be between 0 and 1.0)
+   r-factor         Float       Increase factor for clause reduction (must be >= 1.0)
+
+   To control clause deletion, Yices uses the following heuristic (same as Minisat 
+   and other SAT solvers)
+     
+   Initially:
+     reduction-bound = max(r-threshold, r-fraction * number of clauses in initial problem)
+
+   During the search: 
+      when the number of learned clauses >= reduction bound
+      call the clause-deletion function
+      reduction-bound  := r-factor * reduction-bound
+
+
+
+   var-decay      Float         Variable activity decay factor (must be between 0 and 1.0)
+
+   randomness     Float         Fraction of random decisions in branching (must be between 0 and 1.0)
+
+   random-seed    Integer       Random seed used by internal reandomization heuristics
+
+   branching      Enumeration   Branching modes can be default, positive, negative, 
+                                                       th-neg, th-pos, theory
+
+   clause-decay   Float
+
+   cache-tclauses  Boolean
+   tclause-size    Integer
+
+   dyn-ack	   Boolean
+   max-ack	   Integer
+   dyn-ack-threshold Integer
+
+   dyn-bool-ack    Boolean
+   max-bool-ack	   Integer
