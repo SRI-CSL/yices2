@@ -343,8 +343,17 @@ if test -z "$1"; then
    #
    # Some (non-GNU) versions of ld do not recognize --verbose
    #
+   # Also, some versions of GNU ld have things like SEARCH_DIR(=/usr/local/lib32)
+   # and the '=' causes us trouble.
+   #
+   # man ld says
+   #   If searchdir begins with "=", then the "=" will be replaced by the
+   #   sysroot prefix, a path specified when the linker is configured.
+   #
+   # We ignore this here. If the search dir starts with =, we remove =
+   #
    if ld --verbose > /dev/null 2>&1; then 
-      base_libs=`ld --verbose | grep SEARCH_DIR | sed -e 's,SEARCH_DIR(\"\?,,g' -e 's,\"\?);,,g'`
+      base_libs=`ld --verbose | grep SEARCH_DIR | sed -e 's,SEARCH_DIR(\"\?,,g' -e 's,\"\?);,,g' -e 's,=,,g' `
    else
       base_libs=""
    fi
