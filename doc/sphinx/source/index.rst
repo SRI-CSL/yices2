@@ -13,7 +13,7 @@ Contents:
 
    intro
    yices-grammar
-
+   yices-api
 
 
 Indices and tables
