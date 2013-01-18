@@ -975,11 +975,371 @@ static const help_record_t help_data[] = {
     "in 2s-complement representation\n",
     NULL },
 
-  // END MARKER: index 101
+
+  // var-elim: index 101
+  { HPARAM,
+    "(set-param var-elim [boolean])",
+    "Enable/disable variable elimination",
+    "If this parameter is true, Yices will simplify assertions by eliminating\n"
+    "redundant variables\n",
+    "(and (= x (g a)) (/= (f x) (f b)))   is simplified to (/= (f (g a)) (f b))\n" },
+
+  // arith-elim: index 102
+  { HPARAM,
+    "(set-param arith-elim [boolean])",
+    "Enable/disable simplification using Gaussian elimination",
+    "If this parameter is true, then Yices attempts to eliminate varibles\n"
+    "in arithmetic constraints\n",
+    "From an assertion such as (= (+ x (* 3 y) 4) 0)  Yices elimintes 'x' or 'y'\n" },
+
+  // flatten: index 103
+  { HPARAM,
+    "(set-param flatten [boolean])",
+    "Enable/disable flattening of disjunctions",
+    "If this parameter is true, Yices will flatten nested 'or' and 'and'\n"
+    "(or (or a b c) (or a d e))  is rewritten to (or a b c d e)\n" },
+
+  // learn-eq: index 104
+  { HPARAM,
+    "(set-param learn-eq [boolean])",
+    "Enable/disable a preprocessing step to learn equalities"
+    "If this parameter is true, Yices attempt to discover equalities that\n"
+    "hold in all branches of a disjunction.\n"
+    "In (assert (or (and (= a b) (= b c) (= c d)) (and (= d e)(= e a)))), Yices will learn (= a d)\n" },
+
+  // keep-ite: index 105
+  { HPARAM,
+    "(set-param keep-ite [boolean])",
+    "Keep or eliminate if-then-else terms",
+    "This parameter is relevant only for theories that require the Egraph\n"
+    "If''keep-ite' is true then (ite c a b)  is stored as a term in the Egraph\n"
+    "If 'keep-ite' is false then (ite c a b) is eliminated:\n"
+    "   a new term 't' is introduced in the Egraph\n"
+    "   the following two clauses are added to the solver\n:"
+    "         c => t = a\n"
+    "     not c => t = b\n",
+    NULL },
+
+  // fast-restart: index 106
+  { HPARAM,
+    "(set-param fast-restart [boolean])",
+    "Enable/disable the fast-restart heuristic in the SAT solver",
+    NULL,
+    NULL },
+
+  // c-threshold: index 107
+  { HPARAM,
+    "(set-param c-threhsold [integer])",
+    "Initial value of the primary restart counter",
+    "   [integer] must be positive\n",
+    NULL },
+
+  // c-factor: index 108
+  { HPARAM,
+    "(set-param c-factor [float])",
+    "Increase factro fpr the primary restart counter",
+    "   [float] must be at least 1.0\n",
+    NULL },
+
+  // d-threshold: index 109
+  { HPARAM,
+    "(set-param d-threshold [integer])",
+    "Initial value of the secondary restart counter"
+    "   [integer] must be positiver\n"
+    "   this parameter is relevant only if fast-restart is true\n",
+    NULL },
+
+  // d-factor: index 110
+  { HPARAM,
+    "(set-param d-factor [float])",
+    "Increase factor for the secondary restart counter",
+    "   [float] must be at least 1.0\n"
+    "   this parameter is relevant only if fast-restart is true\n",
+    NULL },
+
+  // r-threshold: index 111
+  { HPARAM,
+    "(set-param r-threshold [integer])",
+    "Clause-reduction hreshold"
+    "   [integer] must be positive\n"
+    "\n"
+    "Parameters r-threshold, r-fraction, and r-factor control how\n"
+    "often the clause-reduction procedure is called. This procedure\n"
+    "removes learned clauses of low activity.\n"
+    "\n"
+    "Sketch:\n"
+    "   Initially, set r := max(r-threshold, r-fraction * N)\n"
+    "   where N = total number of clauses in the problem\n"
+    "   When the number of learned clauses reaches r, call the clause\n"
+    "   reduction procedure, then update r to r = r-factor * r.\n",
+    NULL },
+
+  // r-fraction: index 112
+  { HPARAM,
+    "(set-param r-fraction [float])",
+    "Clause-reduction fraction",
+    "   [float] must be between 0.0 and 1.0\n"
+    "\n"
+    "Try (help r-threshold) for more details\n",
+    NULL },
+
+  // r-factor: index 113
+  { HPARAM,
+    "(set-param r-fractor [float])",
+    "Clause-reduction increase factor",
+    "   [float] must be at least 1.0\n"
+    "\n"
+    "Try (help r-threshold) for more details\n",
+    NULL },
+
+  // var-decay: index 114
+  { HPARAM,
+    "(set-param var-decay [float])",
+    "Variable activity decay factor",
+    "   [float] must be between 0 and 1.0\n"
+    "\n"
+    "Boolean variables have an activity score that's used by the decision\n"
+    "heuristic. After each conflict, variables that were not involved in\n"
+    "the conflict see their activity reduced by the var-decay factor:\n"
+    "   If 'x' is not involved in the conflict then\n"
+    "       activity[x] := var-decay * activity[x]\n",
+    NULL },
+
+  // randomness: index 115
+  { HPARAM,
+    "(set-param randomness [float])"
+    "Fraction of random decisions",
+    "   [float] must be between 0.0 and 1.0\n"
+    "\n"
+    "The SAT solver mostly uses a decision heuristic based on variable\n"
+    "activities, but some decision are done by just picking a variable\n"
+    "randomly. Parameter 'randomness' determines the fraction of random\n"
+    "decisions.\n",
+    "(set-param randomness 0)     always select decision variables based on activity\n"
+    "(set-param randomness 0.02)  1% of decisions are random\n" },
+
+  // random-seed: index 116
+  { HPARAM,
+    "(set-param random-seed [integer])",
+    "Random seed",
+    NULL,
+    NULL },
+
+  // branching: index 117
+  { HPARAM,
+    "(set-param branching [mode])",
+    "Select a bracning heuristic",
+    "   [mode] can be 'default', 'negative', 'positive', 'theory'. 'th-pos', or 'th-neg'\n",
+    NULL },
+
+  // clause-decay: index 118
+  { HPARAM,
+    "(set-param clause-decay [float])",
+    "Clause activity decay factor",
+    "   [float] must be between 0 and 1\n",
+    NULL },
+
+  // cache-tclauses: index 119
+  { HPARAM,
+    "(set-param cache-tclauses [boolean])",
+    "Enable/disable conversion of theory explanations to clauses",
+    "Theory solvers communicate with the SAT solver by generting so-called\n"
+    "theory explanations. By default, these theory explanations are temporary,\n"
+    "If cache-tclauses is true, Yices converts some theory explanations\n"
+    "into clauses, this making them permanent.\n",
+    NULL },
+
+  // tclause-size: index 120
+  { HPARAM,
+    "(set-param tclause-size [integer])",
+    "Bound on the size theory-explanations converted to clauses",
+    "   [intger] must be positive\n"
+    "\n"
+    "If cache-tclauses is true, theory explanations that contain more\n"
+    "than 'tclause-size' literals are never converted to clauses\n"
+    "(i.e., only small theory explanations become permanent.\n",
+    NULL },
+
+  // dyn-ack: index 121
+  { HPARAM,
+    "(set-param dyn-ack [boolean])",
+    "Enable/disable the generation of non-Boolean Ackermann lemmas",
+    NULL, 
+    NULL },
+
+  // dyn-bool-ack: index 122
+  { HPARAM,
+    "(set-param dyn-ack [boolean])",
+    "Enable/disable the generation of Boolean Ackermann lemmas",
+    NULL, 
+    NULL },
+
+  // max-ack: index 123
+  { HPARAM,
+    "(set-param max-ack [integer])",
+    "Maximal number of non-Boolean Ackermann lemmas",
+    "   [integer] must be non-negative\n",
+    NULL },
+
+  // max-bool-ack: index 124
+  { HPARAM,
+    "(set-param max-bool-ack [integer])",
+    "Maximal number of Boolean Ackermann lemmas",
+    "   [integer] must be non-negative\n",
+    NULL },
+
+  // aux-eq-quota: index 125
+  { HPARAM,
+    "(set-param aux-eq-quota [integer])",
+    "Bound on equality atoms created by Ackermann lemmas",
+    "   [integer] must be non-negative\n"
+    "\n"
+    "Parameters aux-eq-quota and aux-eq-ratio limit the number\n"
+    "of equality atoms created when generating Ackermann lemmas.\n"
+    "The bound is\n"
+    "   max(aux-eq-quota, aux-eq-ratio * num-terms)\n"
+    "where num-terms is the total number of terms in the Egraph.\n"
+    "Ater this limit is reached, onlt Ackermann lemmas that don't need\n"
+    "new equality atoms can be created.\n",
+    NULL },
+
+  // aux-eq-ratio: index 126
+  { HPARAM,
+    "(set-param aux-eq-ratio [float])",
+    "Bound on equality atoms created by Ackermamn lemmas",
+    "Try '(help aux-eq-quota) for detsails\n",
+    NULL },
+
+  // dyn-ack-threshold: index 127
+  { HPARAM,
+    "(set-param dyn-ack-threshold [integer])",
+    "Threshold for non-Boolean Ackermann lemmas",
+    "   {integer] must be positive\n"
+    "   a lower value makes Ackermann-lemma generation more agressive\n"
+    "   (i.e., Ackermann lemmas are generated more eagerly)\n",
+    NULL },
+
+  // dyn-bool-ack-threshold: index 128
+  { HPARAM,
+    "(set-param dyn-bool-ack-threshold [integer])",
+    "Threshold for Boolean Ackermann lemmas",
+    "   {integer] must be positive\n"
+    "   a lower value makes Ackermann-lemma generation more agressive\n"
+    "   (i.e., Ackermann lemmas are generated more eagerly)\n",
+    NULL },
+  
+  // max-interface-eqs: index 129
+  { HPARAM,
+    "(set-param max-interface-eqs [integer])",
+    "Maximal number of interface equalities per round\n"
+    "   [integer] must be poiotive\n"
+    "\n"
+    "To reconcile Egraph and the arithmetic and bitvector models, Yices\n"
+    "uses a variant of the Nelson-Oppen approach based on lazy\n"
+    "generation of so-called interface equalities. This parameter\n"
+    "is a bound on the number of interface equalities generated when\n"
+    "Egraph and arithmetic/bitvecotr models are nit compatible.\n",
+    NULL },
+
+  // eager-lemmas: index 130
+  { HPARAM,
+    "(set-param eager-lemmas [boolean])",
+    "Enable/disable the generation of simple lemmas by Simplex",
+    "If 'eager-lemmas' is true, Simplex will generate lemmas\n"
+    "of the form (x >= a) => (x >= b) where 'a' and 'b' are\n"
+    "two constants such that a > b.\n",
+    NULL },
+
+  // simplex-prop: index 131
+  { HPARAM,
+    "(set-param simplex-prop [boolean])",
+    "Enable/disable theory propagation in the Simplex solver\n",
+    NULL,
+    NULL },
+
+  // prop-threshold: index 132
+  { HPARAM,
+    "(set-param prop-threshold [integer])",
+    "Bound for theory propagation in the Simplex solver\n"
+    "If simplex-prop is true. the Simplex solver examines rows\n"
+    "in the tableau and uses interval arithmetic to propagate bounds\n"
+    "on variables."
+    "\n"
+    "Parameter 'prop-threshold' is a bound on the size of rows\n"
+    "that are considered for this pirpose. A higher bound may lead\n"
+    "to more propagation but it's more expensive.\n",
+    NULL },
+
+  // simplex-adjust: index 133
+  { HPARAM,
+    "(set-param simplex-adjust [boolean])",
+    "Enable/disable adjustments in Simplex model during model reconciliation\n",
+    "This parameter matters only for problems that mix uninterpreted functions\n"
+    "and arithmetic. For such problems, Yices uses a variant of the Nelson-Oppen\n"
+    "method to make Egraph and Simplex assignment consistenrt.\n"
+    "\n"
+    "If 'simplex-adjust' is true, the Simplex solver will attempt to randomly\n"
+    "modify variable assignments. This may increase the chance that the Egraph\n"
+    "and the Simplex assignments are consistent.\n",
+    NULL },
+
+  // bland-threshold: index 134
+  { HPARAM,
+    "(set-param bland-threshold [integer])",
+    "Number of pivoting steps before activation of Bland's rule",
+    "Bland's rule is a Simplex pivoring strategy that guarantees\n"
+    "convergence, but it is extremely slow. By default, Yices uses\n"
+    "a different strategy that's usually faster than Bland's rule,\n"
+    "but may fail to converge on some pathological cases. If this\n"
+    "default rule does not converge after 'bland-threshold' pivoting\n"
+    "steps, then Yices switches to Bland's rule.\n",
+    NULL },
+
+  // icheck: index 135
+  { HPARAM,
+    "(set-param icheck [boolean])",
+    "Enable/disable periodic check for integer feasibiliy",
+    "This paramer matters only on arithemtic problems that have integer variables\n"
+    "\n"
+    "If this parameter is true, the Simplex solver periodcially\n"
+    "runs a procedure intended to detect that the tableau has no\n"
+    "integer solution.\n",
+    NULL },
+
+  // icheck-period: index 136
+  { HPARAM,
+    "(set-param icheck-period [integer])",
+    "Periodiciy of the check for integer feasibility",
+    "This parameter matters only if icheck is true\n"
+    "It controls how often the optional integer-feasibility check\n"
+    "is called by the Simplex solver.\n",
+    NULL },
+
+  // max-update-conflicts: index 137
+  { HPARAM,
+    "(set-param max-update-conflicts [integer])",
+    "Maximal number of 'update axioms' per round",
+    "   [integer] must be positive\n"
+    "\n"
+    "This parameter matters only on problems that include array/function\n"
+    "updates.\n",
+    NULL },
+
+  // max-extensionality: index 138
+  { HPARAM,
+    "(set-param max-update-conflicts [integer])",
+    "Maximal number of 'extensionality axioms' per round",
+    "   [integer] must be positive\n"
+    "\n"
+    "This parameter matters only on problems that include equaliteis between arrays/functions\n",
+    NULL },
+
+    
+  // END MARKER: index 139
   { HMISC, NULL, NULL, NULL, NULL },
 };
 
-#define END_HELP_DATA 101
+#define END_HELP_DATA 139
 
 
 
