@@ -711,7 +711,7 @@ static const help_record_t help_data[] = {
 
   // bv-rotate-right: index 76
   { HBITVECTOR,
-    "(bv-rotate-rightt [expr] [shift-amount])",
+    "(bv-rotate-right [expr] [shift-amount])",
     "Rotate to the right by a constant amount",
     "    [shift-amount] must be an integer between 0 and the size of [expr]\n",
     "(bv-rotate-right 0b011001 2)  is equal to 0b010110\n" },
@@ -987,35 +987,36 @@ static const help_record_t help_data[] = {
   // arith-elim: index 102
   { HPARAM,
     "(set-param arith-elim [boolean])",
-    "Enable/disable simplification using Gaussian elimination",
-    "If this parameter is true, then Yices attempts to eliminate varibles\n"
+    "Enable/disable simplification by Gaussian elimination",
+    "If this parameter is true, then Yices attempts to eliminate variables\n"
     "in arithmetic constraints\n",
-    "From an assertion such as (= (+ x (* 3 y) 4) 0)  Yices elimintes 'x' or 'y'\n" },
+    "In an assertion such as (= (+ x (* 3 y) 4) 0)  Yices eliminates 'x' or 'y'\n" },
 
   // flatten: index 103
   { HPARAM,
     "(set-param flatten [boolean])",
     "Enable/disable flattening of disjunctions",
-    "If this parameter is true, Yices will flatten nested 'or' and 'and'\n"
+    "If this parameter is true, Yices will flatten nested 'or' and 'and'\n",
     "(or (or a b c) (or a d e))  is rewritten to (or a b c d e)\n" },
 
   // learn-eq: index 104
   { HPARAM,
     "(set-param learn-eq [boolean])",
-    "Enable/disable a preprocessing step to learn equalities"
+    "Enable/disable a preprocessing step to learn equalities",
     "If this parameter is true, Yices attempt to discover equalities that\n"
-    "hold in all branches of a disjunction.\n"
+    "hold in all branches of a disjunction.\n",
     "In (assert (or (and (= a b) (= b c) (= c d)) (and (= d e)(= e a)))), Yices will learn (= a d)\n" },
 
   // keep-ite: index 105
   { HPARAM,
     "(set-param keep-ite [boolean])",
     "Keep or eliminate if-then-else terms",
-    "This parameter is relevant only for theories that require the Egraph\n"
-    "If''keep-ite' is true then (ite c a b)  is stored as a term in the Egraph\n"
-    "If 'keep-ite' is false then (ite c a b) is eliminated:\n"
-    "   a new term 't' is introduced in the Egraph\n"
-    "   the following two clauses are added to the solver\n:"
+    "This parameter is relevant only for theories that require the Egraph.\n"
+    "\n"
+    "If keep-ite is true then (ite c a b)  is stored as a term in the Egraph\n"
+    "If keep-ite is false then (ite c a b) is eliminated:\n"
+    "- a new term 't' is introduced in the Egraph\n"
+    "- the following two clauses are added to the solver\n"
     "         c => t = a\n"
     "     not c => t = b\n",
     NULL },
@@ -1029,7 +1030,7 @@ static const help_record_t help_data[] = {
 
   // c-threshold: index 107
   { HPARAM,
-    "(set-param c-threhsold [integer])",
+    "(set-param c-threshold [integer])",
     "Initial value of the primary restart counter",
     "   [integer] must be positive\n",
     NULL },
@@ -1037,16 +1038,17 @@ static const help_record_t help_data[] = {
   // c-factor: index 108
   { HPARAM,
     "(set-param c-factor [float])",
-    "Increase factro fpr the primary restart counter",
+    "Increase factor for the primary restart counter",
     "   [float] must be at least 1.0\n",
     NULL },
 
   // d-threshold: index 109
   { HPARAM,
     "(set-param d-threshold [integer])",
-    "Initial value of the secondary restart counter"
+    "Initial value of the secondary restart counter",
     "   [integer] must be positiver\n"
-    "   this parameter is relevant only if fast-restart is true\n",
+    "\n"
+    "This parameter is relevant only if fast-restart is true\n",
     NULL },
 
   // d-factor: index 110
@@ -1054,24 +1056,25 @@ static const help_record_t help_data[] = {
     "(set-param d-factor [float])",
     "Increase factor for the secondary restart counter",
     "   [float] must be at least 1.0\n"
-    "   this parameter is relevant only if fast-restart is true\n",
+    "\n"
+    "This parameter is relevant only if fast-restart is true\n",
     NULL },
 
   // r-threshold: index 111
   { HPARAM,
     "(set-param r-threshold [integer])",
-    "Clause-reduction hreshold"
+    "Clause-reduction threshold",
     "   [integer] must be positive\n"
     "\n"
     "Parameters r-threshold, r-fraction, and r-factor control how\n"
-    "often the clause-reduction procedure is called. This procedure\n"
-    "removes learned clauses of low activity.\n"
+    "often the clause-reduction procedure is called to delete learned\n"
+    "clauses of low activity.\n"
     "\n"
-    "Sketch:\n"
-    "   Initially, set r := max(r-threshold, r-fraction * N)\n"
-    "   where N = total number of clauses in the problem\n"
-    "   When the number of learned clauses reaches r, call the clause\n"
-    "   reduction procedure, then update r to r = r-factor * r.\n",
+    "Sketch of the algorithm:\n"
+    "- Initially, set r := max(r-threshold, r-fraction * N)\n"
+    "  where N = total number of clauses in the problem.\n"    
+    "- When the number of learned clauses reaches r, call the clause\n"
+    "  reduction procedure, then update r to r = r-factor * r.\n",
     NULL },
 
   // r-fraction: index 112
@@ -1085,7 +1088,7 @@ static const help_record_t help_data[] = {
 
   // r-factor: index 113
   { HPARAM,
-    "(set-param r-fractor [float])",
+    "(set-param r-factor [float])",
     "Clause-reduction increase factor",
     "   [float] must be at least 1.0\n"
     "\n"
@@ -1100,14 +1103,14 @@ static const help_record_t help_data[] = {
     "\n"
     "Boolean variables have an activity score that's used by the decision\n"
     "heuristic. After each conflict, variables that were not involved in\n"
-    "the conflict see their activity reduced by the var-decay factor:\n"
-    "   If 'x' is not involved in the conflict then\n"
-    "       activity[x] := var-decay * activity[x]\n",
+    "the conflict see their activity reduced by the var-decay factor:\n"    
+    "- If 'x' is not involved in the conflict then\n"
+    "     activity[x] := var-decay * activity[x]\n",
     NULL },
 
   // randomness: index 115
   { HPARAM,
-    "(set-param randomness [float])"
+    "(set-param randomness [float])",
     "Fraction of random decisions",
     "   [float] must be between 0.0 and 1.0\n"
     "\n"
@@ -1128,7 +1131,7 @@ static const help_record_t help_data[] = {
   // branching: index 117
   { HPARAM,
     "(set-param branching [mode])",
-    "Select a bracning heuristic",
+    "Select a branching heuristic",
     "   [mode] can be 'default', 'negative', 'positive', 'theory'. 'th-pos', or 'th-neg'\n",
     NULL },
 
@@ -1143,36 +1146,38 @@ static const help_record_t help_data[] = {
   { HPARAM,
     "(set-param cache-tclauses [boolean])",
     "Enable/disable conversion of theory explanations to clauses",
-    "Theory solvers communicate with the SAT solver by generting so-called\n"
-    "theory explanations. By default, these theory explanations are temporary,\n"
+    "Theory solvers communicate with the SAT solver by generating so-called\n"
+    "theory explanations. By default, these theory explanations are temporary.\n"
     "If cache-tclauses is true, Yices converts some theory explanations\n"
-    "into clauses, this making them permanent.\n",
+    "into clauses, thus making them permanent.\n",
     NULL },
 
   // tclause-size: index 120
   { HPARAM,
     "(set-param tclause-size [integer])",
     "Bound on the size theory-explanations converted to clauses",
-    "   [intger] must be positive\n"
+    "   [integer] must be positive\n"
     "\n"
     "If cache-tclauses is true, theory explanations that contain more\n"
     "than 'tclause-size' literals are never converted to clauses\n"
-    "(i.e., only small theory explanations become permanent.\n",
+    "(i.e., only small theory explanations may become permanent).\n",
     NULL },
 
   // dyn-ack: index 121
   { HPARAM,
     "(set-param dyn-ack [boolean])",
     "Enable/disable the generation of non-Boolean Ackermann lemmas",
-    NULL, 
-    NULL },
+    "If dyn-ack is true, the Egraph generates instances of Ackermann's\n"
+    "lemma for pairs of terms.\n",
+    "For the terms (f x y) and (f z t), the lemma is '(x = z) and (y = t) implies (f x y) = (f z l)'\n"},
 
   // dyn-bool-ack: index 122
   { HPARAM,
-    "(set-param dyn-ack [boolean])",
+    "(set-param dyn-bool-ack [boolean])",
     "Enable/disable the generation of Boolean Ackermann lemmas",
-    NULL, 
-    NULL },
+    "If dyn-bool-ack is true, the Egraph generates instances of Ackermann's\n"
+    "lemma for Boolean terms. \n",
+    "For Boolean terms (P y) and (P z), two clauses are generated: 'z = y and (P x) => (P z)' and 'z = y and (P z) => (P x)'.\n"},
 
   // max-ack: index 123
   { HPARAM,
@@ -1196,49 +1201,52 @@ static const help_record_t help_data[] = {
     "\n"
     "Parameters aux-eq-quota and aux-eq-ratio limit the number\n"
     "of equality atoms created when generating Ackermann lemmas.\n"
-    "The bound is\n"
-    "   max(aux-eq-quota, aux-eq-ratio * num-terms)\n"
+    "\n"    
+    "The bound is  max(aux-eq-quota, aux-eq-ratio * num-terms)\n"
     "where num-terms is the total number of terms in the Egraph.\n"
-    "Ater this limit is reached, onlt Ackermann lemmas that don't need\n"
+    "\n"
+    "After this limit is reached, only Ackermann lemmas that don't need\n"
     "new equality atoms can be created.\n",
     NULL },
 
   // aux-eq-ratio: index 126
   { HPARAM,
     "(set-param aux-eq-ratio [float])",
-    "Bound on equality atoms created by Ackermamn lemmas",
-    "Try '(help aux-eq-quota) for detsails\n",
+    "Bound on equality atoms created by Ackermann lemmas",
+    "Try '(help aux-eq-quota) for details\n",
     NULL },
 
   // dyn-ack-threshold: index 127
   { HPARAM,
     "(set-param dyn-ack-threshold [integer])",
     "Threshold for non-Boolean Ackermann lemmas",
-    "   {integer] must be positive\n"
-    "   a lower value makes Ackermann-lemma generation more agressive\n"
-    "   (i.e., Ackermann lemmas are generated more eagerly)\n",
+    "   [integer] must be positive\n"
+    "\n"
+    "A lower value makes Ackermann-lemma generation more aggressive\n"
+    "(i.e., Ackermann lemmas are generated more eagerly).\n",
     NULL },
 
   // dyn-bool-ack-threshold: index 128
   { HPARAM,
     "(set-param dyn-bool-ack-threshold [integer])",
     "Threshold for Boolean Ackermann lemmas",
-    "   {integer] must be positive\n"
-    "   a lower value makes Ackermann-lemma generation more agressive\n"
-    "   (i.e., Ackermann lemmas are generated more eagerly)\n",
+    "   [integer] must be positive\n"
+    "\n"
+    "A lower value makes Ackermann-lemma generation more aggressive\n"
+    "(i.e., Ackermann lemmas are generated more eagerly).\n",
     NULL },
   
   // max-interface-eqs: index 129
   { HPARAM,
     "(set-param max-interface-eqs [integer])",
-    "Maximal number of interface equalities per round\n"
-    "   [integer] must be poiotive\n"
+    "Maximal number of interface equalities per round",
+    "   [integer] must be positive\n"
     "\n"
     "To reconcile Egraph and the arithmetic and bitvector models, Yices\n"
     "uses a variant of the Nelson-Oppen approach based on lazy\n"
     "generation of so-called interface equalities. This parameter\n"
     "is a bound on the number of interface equalities generated when\n"
-    "Egraph and arithmetic/bitvecotr models are nit compatible.\n",
+    "Egraph and arithmetic/bitvector models are not compatible.\n",
     NULL },
 
   // eager-lemmas: index 130
@@ -1253,30 +1261,30 @@ static const help_record_t help_data[] = {
   // simplex-prop: index 131
   { HPARAM,
     "(set-param simplex-prop [boolean])",
-    "Enable/disable theory propagation in the Simplex solver\n",
+    "Enable/disable theory propagation in the Simplex solver",
     NULL,
     NULL },
 
   // prop-threshold: index 132
   { HPARAM,
     "(set-param prop-threshold [integer])",
-    "Bound for theory propagation in the Simplex solver\n"
+    "Bound for theory propagation in the Simplex solver",
     "If simplex-prop is true. the Simplex solver examines rows\n"
     "in the tableau and uses interval arithmetic to propagate bounds\n"
-    "on variables."
+    "on variables.\n"
     "\n"
     "Parameter 'prop-threshold' is a bound on the size of rows\n"
-    "that are considered for this pirpose. A higher bound may lead\n"
-    "to more propagation but it's more expensive.\n",
+    "that are considered for bound propagation. A higher bound may\n"
+    "lead to more propagation but it's more expensive.\n",
     NULL },
 
   // simplex-adjust: index 133
   { HPARAM,
     "(set-param simplex-adjust [boolean])",
-    "Enable/disable adjustments in Simplex model during model reconciliation\n",
+    "Enable/disable adjustments in Simplex model during model reconciliation",
     "This parameter matters only for problems that mix uninterpreted functions\n"
     "and arithmetic. For such problems, Yices uses a variant of the Nelson-Oppen\n"
-    "method to make Egraph and Simplex assignment consistenrt.\n"
+    "method to make Egraph and Simplex assignment consistent.\n"
     "\n"
     "If 'simplex-adjust' is true, the Simplex solver will attempt to randomly\n"
     "modify variable assignments. This may increase the chance that the Egraph\n"
@@ -1287,7 +1295,7 @@ static const help_record_t help_data[] = {
   { HPARAM,
     "(set-param bland-threshold [integer])",
     "Number of pivoting steps before activation of Bland's rule",
-    "Bland's rule is a Simplex pivoring strategy that guarantees\n"
+    "Bland's rule is a Simplex pivoting strategy that guarantees\n"
     "convergence, but it is extremely slow. By default, Yices uses\n"
     "a different strategy that's usually faster than Bland's rule,\n"
     "but may fail to converge on some pathological cases. If this\n"
@@ -1298,10 +1306,10 @@ static const help_record_t help_data[] = {
   // icheck: index 135
   { HPARAM,
     "(set-param icheck [boolean])",
-    "Enable/disable periodic check for integer feasibiliy",
-    "This paramer matters only on arithemtic problems that have integer variables\n"
+    "Enable/disable periodic check for integer feasibility",
+    "This parameter matters only on arithmetic problems that have integer variables\n"
     "\n"
-    "If this parameter is true, the Simplex solver periodcially\n"
+    "If this parameter is true, the Simplex solver periodically\n"
     "runs a procedure intended to detect that the tableau has no\n"
     "integer solution.\n",
     NULL },
@@ -1309,7 +1317,7 @@ static const help_record_t help_data[] = {
   // icheck-period: index 136
   { HPARAM,
     "(set-param icheck-period [integer])",
-    "Periodiciy of the check for integer feasibility",
+    "Periodicity of the check for integer feasibility",
     "This parameter matters only if icheck is true\n"
     "It controls how often the optional integer-feasibility check\n"
     "is called by the Simplex solver.\n",
@@ -1318,7 +1326,7 @@ static const help_record_t help_data[] = {
   // max-update-conflicts: index 137
   { HPARAM,
     "(set-param max-update-conflicts [integer])",
-    "Maximal number of 'update axioms' per round",
+    "Maximal number of update axioms per round",
     "   [integer] must be positive\n"
     "\n"
     "This parameter matters only on problems that include array/function\n"
@@ -1327,11 +1335,11 @@ static const help_record_t help_data[] = {
 
   // max-extensionality: index 138
   { HPARAM,
-    "(set-param max-update-conflicts [integer])",
-    "Maximal number of 'extensionality axioms' per round",
+    "(set-param max-extensionality [integer])",
+    "Maximal number of extensionality axioms per round",
     "   [integer] must be positive\n"
     "\n"
-    "This parameter matters only on problems that include equaliteis between arrays/functions\n",
+    "This parameter matters only on problems that include equalities between arrays/functions\n",
     NULL },
 
     
@@ -1416,6 +1424,20 @@ static const help_record_t help_data[] = {
   "  <number> ::= <rational> | <float>\n"
 
 
+#define index_string \
+  "\n" \
+  "Help is available on the following topics\n" \
+  "\n" \
+  "  (help syntax)          Syntax summary\n" \
+  "  (help commands)        List of commands\n" \
+  "  (help types)           Type constructs\n" \
+  "  (help generic)         Generic functions\n" \
+  "  (help booleans)        Boolean terms and functions\n" \
+  "  (help arithmetic)      Arithmetic functions\n" \
+  "  (help bitvectors)      Bitvector functions\n" \
+  "  (help params)          Simplification and search parameters\n" \
+  "\n" \
+  "For help on a specific type, function, or parameter: type '(help \"name\")'\n"
 
 
 /*
@@ -1664,12 +1686,17 @@ static const help_index_t help_index[] = {
   { ">", NULL, 54, help_basic },
   { ">=", NULL, 56, help_basic },
   { "and", NULL, 42, help_basic },
+  { "arith-elim", NULL, 102, help_basic },
   { "arithmetic", "Arithmetic Operators", HARITHMETIC, help_for_category },
   { "assert", NULL, 4, help_basic },
+  { "aux-eq-quota", NULL, 125, help_basic },
+  { "aux-eq-ratio", NULL, 126, help_basic },
   { "bitvector", NULL, 26, help_basic },
   { "bitvectors", "Bitvector Operators", HBITVECTOR, help_for_category },
+  { "bland-threshold", NULL, 134, help_basic },
   { "bool", NULL, 23, help_basic },
   { "booleans", "Boolean Operators", HBOOLEAN, help_for_category },
+  { "branching", NULL, 117, help_basic },
   { "bv-add", NULL, 58, help_basic },  
   { "bv-and", NULL, 64, help_basic },
   { "bv-ashift-right", NULL, 74, help_basic },
@@ -1713,21 +1740,44 @@ static const help_index_t help_index[] = {
   { "bv-xnor", NULL, 69, help_basic },
   { "bv-xor", NULL, 66, help_basic },
   { "bv-zero-extend", NULL, 84, help_basic },
+  { "c-factor", NULL, 108, help_basic },
+  { "c-threshold", NULL, 107, help_basic },
+  { "cache-tclauses", NULL, 119, help_basic },
   { "check", NULL, 5, help_basic },
+  { "clause-decay", NULL, 118, help_basic },
   { "commands", "Command Summary", HCOMMAND, help_for_category },
+  { "d-factor", NULL, 110, help_basic },
+  { "d-threshold", NULL, 109, help_basic },
   { "define", "Declare or define a term", 2, help_variant },
   { "define-type", "Declare or define a type", 0, help_variant },
   { "distinct", NULL, 34, help_basic },
+  { "dyn-ack", NULL, 121, help_basic },
+  { "dyn-ack-threshold", NULL, 127, help_basic },
+  { "dyn-bool-ack", NULL, 122, help_basic },
+  { "dyn-bool-ack-threshold", NULL, 128, help_basic },
+  { "eager-lemmas", NULL, 130, help_basic },
   { "echo", NULL, 12, help_basic },
   { "eval", NULL, 10, help_basic },
   { "exit", NULL, 22, help_basic },
   { "false", NULL, 40, help_basic },
+  { "fast-restart", NULL, 106, help_basic },
+  { "flatten", NULL, 103, help_basic },
   { "generic", "Generic Operators", HGENERIC, help_for_category },
   { "help", "Show help", 20, help_variant },
+  { "icheck", NULL, 135, help_basic },
+  { "icheck-period", NULL, 136, help_basic },
   { "if", NULL, 31, help_basic },
   { "include", NULL, 11, help_basic },
+  { "index", index_string, 0, help_special },
   { "int", NULL, 24, help_basic },
   { "ite", NULL, 30, help_basic },
+  { "keep-ite", NULL, 105, help_basic },
+  { "learn-eq", NULL, 104, help_basic },
+  { "max-ack", NULL, 123, help_basic },
+  { "max-bool-ack", NULL, 124, help_basic },
+  { "max-extensionality", NULL, 138, help_basic },
+  { "max-interface-eqs", NULL, 129, help_basic },
+  { "max-update-conflicts", NULL, 137, help_basic },
   { "mk-bv", NULL, 57, help_basic },
   { "mk-tuple", NULL, 35, help_basic },
   { "not", NULL, 43, help_basic },
@@ -1735,6 +1785,12 @@ static const help_index_t help_index[] = {
   { "params", "Parameters", HPARAM, help_for_category },
   { "push", NULL, 6, help_basic },
   { "pop", NULL, 7, help_basic },
+  { "prop-threshold", NULL, 132, help_basic },
+  { "r-factor", NULL, 113, help_basic },
+  { "r-fraction", NULL, 112, help_basic },
+  { "r-threshold", NULL, 111, help_basic },
+  { "random-seed", NULL, 116, help_basic },
+  { "randomness", NULL, 115, help_basic },  
   { "real", NULL, 25, help_basic },
   { "reset", NULL, 8, help_basic },
   { "reset-stats", NULL, 17, help_basic },
@@ -1747,12 +1803,17 @@ static const help_index_t help_index[] = {
   { "show-params", NULL, 15, help_basic },
   { "show-stats", NULL, 16, help_basic },
   { "show-timeout", NULL, 19, help_basic },
+  { "simplex-adjust", NULL, 133, help_basic },
+  { "simplex-prop", NULL, 131, help_basic },
   { "syntax", syntax_summary, 0, help_special },
+  { "tclause-size", NULL, 120, help_basic },
   { "true", NULL, 39, help_basic },
   { "tuple", NULL, 28, help_basic },
   { "tuple-update", NULL, 37, help_basic },
   { "types", "Type Constructs", HTYPE, help_for_category },
   { "update", NULL, 38, help_basic },
+  { "var-decay", NULL, 114, help_basic },
+  { "var-elim", NULL, 101, help_basic },
   { "xor", NULL, 44, help_basic },
   { "^", NULL, 52, help_basic },
   // END MARKER

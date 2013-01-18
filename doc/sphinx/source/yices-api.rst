@@ -28,14 +28,17 @@ Types
 The following types are defined in :file:`yices_types.h`
 
 .. c:type:: term_t
+
 .. c:type:: type_t
 
 .. c:type:: context_t
+
 .. c:type:: model_t
+
 .. c:type:: param_t
 
 .. c:type:: error_report_t
-
+   
 
 Macros
 ------
@@ -62,6 +65,16 @@ Functions
 
 .. c:function:: void yices_init(void)
 
+   Initialize all internal data structures. This function must be called
+   before any other API function.
+
 .. c:function:: void yices_exit(void)
 
+   Delete all internal data structures and allocated objects. This
+   must be called to avoid memory leaks.
+
 .. c:function:: void yices_reset(void)
+
+   Full reset: delete all terms and types, and reset the symbol tables.
+   Delete all contexts, modesl, configuration descriptors, and 
+   parameter records.

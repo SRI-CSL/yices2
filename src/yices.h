@@ -108,7 +108,7 @@ __YICES_DLLSPEC__ extern void yices_exit(void);
 /*
  * Full reset
  * - delete all terms and types and reset the symbol tables
- * - delete all contexts, models, configuration descriptor and 
+ * - delete all contexts, models, configuration descriptors and 
  *   parameter records.
  */
 __YICES_DLLSPEC__ extern void yices_reset(void);
