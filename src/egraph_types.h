@@ -64,7 +64,7 @@
  *    v = (lambda t j)
  * and the descriptor table will store
  *    i --> arity = 2, dom[0] = int, dom[1] = int
- *    j --> aruty = 1, dom[0] = real.
+ *    j --> arity = 1, dom[0] = real.
  *
  *
  * To deal with boolean terms, we distinguish between positive and
@@ -82,7 +82,7 @@
  *
  * Equivalence classes
  * -------------------
- * - an equivalence class is a set of term occurences stored as a circular list
+ * - an equivalence class is a set of term occurrences stored as a circular list
  * - for every term t,
  *   - label[t] = class identifier + polarity
  *     label is extended to term occurrence by setting label[t+] = label[t],
@@ -117,7 +117,7 @@
  *   class of true or dmask[c] == 0.
  *
  * The merge algorithm ensures that root[c] is fixed. When a term t is created,
- * it's initally assigned to a fresh class c_0 and root[c_0] is set to t. This
+ * it's initially assigned to a fresh class c_0 and root[c_0] is set to t. This
  * root term is never modified.
  * (TODO: check whether root[c] can be removed. Since roots and terms are created
  *  together, we could ensure that root term and class have the same integer index).
@@ -289,7 +289,7 @@ typedef struct class_table_s {
  * - body[t] = descriptor (composite or special pointers)
  * - next[t] = next element in the same class
  * - edge[t] = edge id, used for constructing explanations
- *           (or if t is not active, egde[t] = etype of t)
+ *           (or if t is not active, edge[t] = etype of t)
  * - thvar[t] = theory variable attached to t
  * - mark[t] = 1/0 bit, used for constructing explanations
  * - real_type[t] = type of t (this is necessary for constructing models)
@@ -752,7 +752,7 @@ typedef struct egraph_trail_stack_s {
  *
  * A set of functions common to all satellite solvers are used by the
  * egraph during the search. To propagate equalities and disequalities
- * to a satelliter solver, the egraph calls one of the following
+ * to a satellite solver, the egraph calls one of the following
  * functions (in the th_egraph interface).
  *
  * 1) void assert_equality(void *solver, thvar_t x1, thvar_t x2)
@@ -1291,7 +1291,7 @@ struct egraph_s {
   /*
    * Limits on ackermann clause generation
    * - max_ackermann = bound on the number of non-boolean Ackermann lemmas
-   * - max_booleckermann = bound on the number of boolean Ackermann lemmas
+   * - max_boolackermann = bound on the number of boolean Ackermann lemmas
    * - aux_eq_quota = bound on the number of auxiliary equalities created
    *   by Ackermann lemmas
    */
@@ -1300,7 +1300,7 @@ struct egraph_s {
   uint32_t aux_eq_quota;
 
   /*
-   * Thesholds to trigger the generation of Ackermann/Boolean Ackermann
+   * Thresholds to trigger the generation of Ackermann/Boolean Ackermann
    * lemmas: when a candidate pair (t1 == t2) is selected, a counter
    * is increased. When that counter reaches the threshold, a lemma
    * is generated.

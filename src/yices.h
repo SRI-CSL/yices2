@@ -2164,7 +2164,7 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t 
  *   code = EVAL_FREEVAR_IN_TERM
  * If t contains quantifier(s)
  *   code = EVAL_QUANTIFIER
- * If t contains lamnda terms
+ * If t contains lambda terms
  *   code = EVAL_LAMBDA
  * If the evaluation fails for other reasons:
  *   code = EVAL_FAILED

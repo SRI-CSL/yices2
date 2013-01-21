@@ -281,7 +281,7 @@ static inline bool egraph_check_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
 }
 
 /*
- * Check whether t1 and t2 are known to be disequal
+ * Check whether t1 and t2 are known to be distinct
  * Returns true in the following cases:
  * 1) t1 and (not t2) are equal
  * 2) there are distinct constants a1 and a2 with t1 == a1 and t2 == a2
@@ -294,7 +294,7 @@ extern bool egraph_check_diseq(egraph_t *egraph, occ_t t1, occ_t t2);
 
 
 /*
- * Check whether t1 and t2 are disequal via the theory solver
+ * Check whether t1 and t2 are distinct via the theory solver
  * Return true if t1 and t2 are attached to two theory variables x1 and x2
  * and the corresponding theory solver knows that x1 and x2 are distinct
  */

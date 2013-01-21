@@ -374,7 +374,7 @@ static inline uint32_t get_lv_capacity(literal_t *v) {
  * - pointers: top of the stack
  * - pointers for boolean and theory propagation
  *   - prop_ptr: beginning of the boolean propagation queue
- *   - theory_ptr: beginnig of the theory propagation queue
+ *   - theory_ptr: beginning of the theory propagation queue
  * - literals in stack->lit[prop_ptr ... top-1] form the boolean propagation queue
  * - literals in stack->lit[theory_ptr ... top-1] form the theory  propagation queue
  * - for each decision level, an index into the stack points
@@ -662,7 +662,7 @@ typedef struct atom_table_s {
  *
  * 11) void end_atom_deletion(void *solver)
  *    - this is called when the core has finished deleting a group of atoms, to
- *      enable solver to take appropriate clenaup actions.
+ *      enable solver to take appropriate cleanup actions.
  *
  * 12) void push(void *solver)
  *     void pop(void *solver)
@@ -971,7 +971,7 @@ typedef enum smt_mode {
  * - antecedent[x]: antecedent type and value 
  * - level[x]: decision level (only meaningful if x is assigned)
  * - mark[x]: 1 bit used in UIP computation
- * - polarity[x]: 1 bit (preferred polary if x is picked as a decision variable)
+ * - polarity[x]: 1 bit (preferred polarity if x is picked as a decision variable)
  *
  * For every literal l between 0 and 2nb_vars - 1
  * - value[l]: current assignment
@@ -1127,7 +1127,7 @@ typedef struct smt_core_s {
  * - before smt_process returns, all activities are multiplied
  *   by the decay factor
  * - when a variable or clause activity increases above the 
- *   activity threhsold, then all activities are rescaled to
+ *   activity threshold, then all activities are rescaled to
  *   prevent overflow
  */
 #define VAR_DECAY_FACTOR               0.95
@@ -1178,11 +1178,11 @@ typedef struct smt_core_s {
  * - n = initial vsize = size of the variable-indexed arrays
  * - th = theory solver
  * - ctrl = descriptor of control functions for th
- * - smt = desriptor of the SMT functions for th
+ * - smt = descriptor of the SMT functions for th
  * - mode = to select optional features
  * This creates the predefined "constant" variable and the true/false literals
  *
- * The clause and variable activity increments, and the randonmess
+ * The clause and variable activity increments, and the randomness
  * parameters are set to their default values
  */
 extern void init_smt_core(smt_core_t *s, uint32_t n, void *th, 
@@ -1684,7 +1684,7 @@ extern void smt_checkpoint(smt_core_t *s);
  *       decay variable and clause activities
  *     endif
  *   elsif checkpoint-based garbage collection is possible
- *     do the gargage collection
+ *     do the garbage collection
  *   elsif lemmas are present then
  *     integrate them to the clause database
  *   else 

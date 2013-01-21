@@ -74,7 +74,7 @@
  * is identified by the atom id and a polarity bit (1 for negation).
  * Assertions are pushed onto the assertion stack when the core calls 
  * simplex_assert_atom(.., l) where l is a literal. The bound stack maintains the
- * current lower and upper bound on each varaible.
+ * current lower and upper bound on each variable.
  * 
  * Then simplex_propagate does the following operations:
  *
@@ -100,7 +100,7 @@
  *      conflicts or invalidate the current assignment (i.e.. val[x] no longer 
  *      between lb[x] and ub[x] because the bounds are strengthened).
  *    - if theory_propagation does not find a conflict but the current assignment is 
- *      invalid, attempt to correct it: make sure all non-basic variabels are within
+ *      invalid, attempt to correct it: make sure all non-basic variables are within
  *      their bounds then call make_feasible again. 
  *
  * 5) Find implied literals and propagate them to the core.
@@ -349,8 +349,8 @@ typedef struct arith_undo_stack_s {
  *******************/
 
 /*
- * The constraint matrix is modified (desctructively) on every simplex_start_search
- * To support push/pop and mulitple checsk, we must keep enough information to
+ * The constraint matrix is modified (destructively) on every simplex_start_search
+ * To support push/pop and multiple checks, we must keep enough information to
  * restore the matrix to what it was before the previous 'start_search'.
  * 
  * The matrix contains two types of rows:
@@ -551,7 +551,7 @@ typedef struct simplex_freshval_s {
  * Two more components are used for sampling
  * - k_min = smallest integer k such that lb <= k period 
  *   (i.e., k_min = ceil(lb/period))
- * - k_max = larest integer k such that k period <= ub
+ * - k_max = largest integer k such that k period <= ub
  *   (i.e., k_max = floor(ub/period))
  */
 typedef struct interval_s {
