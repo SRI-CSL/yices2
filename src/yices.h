@@ -725,7 +725,7 @@ __YICES_DLLSPEC__ extern term_t yices_parse_float(const char *s);
  *   code = INVALID_TERM
  *   term1 = t1 or t2
  * if t1 or t2 is not an arithmetic term
- *   code = ARITH_TERM_REQUIRED
+ *   code = ARITHTERM_REQUIRED
  *   term1 = t1 or t2
  *
  * for yices_mul, yices_square, and yices_power,
@@ -752,7 +752,7 @@ __YICES_DLLSPEC__ extern term_t yices_power(term_t t1, uint32_t d);  // t1 ^ d
  *   code = INVALID_TERM
  *   term1 = t[i]
  * if t[i] is not an arithmetic term
- *   code = ARITH_TERM_REQUIRED
+ *   code = ARITHTERM_REQUIRED
  *   term1 = t[i]
  */
 __YICES_DLLSPEC__ extern term_t yices_sum(uint32_t n, term_t t[]);
@@ -768,7 +768,7 @@ __YICES_DLLSPEC__ extern term_t yices_sum(uint32_t n, term_t t[]);
  *   code = INVALID_TERM
  *   term1 = t[i]
  * if t[i] is not an arithmetic term
- *   code = ARITH_TERM_REQUIRED
+ *   code = ARITHTERM_REQUIRED
  *   term1 = t[i]
  * if the result has degree > YICES_MAX_DEGREE
  *   code = DEGREE OVERFLOW
@@ -795,7 +795,7 @@ __YICES_DLLSPEC__ extern term_t yices_product(uint32_t n, term_t t[]);
  *   code = INVALID_TERM
  *   term1 = t[i]
  * if t[i] is not an arithmetic term
- *   code = ARITH_TERM_REQUIRED
+ *   code = ARITHTERM_REQUIRED
  *   term1 = t[i]
  */
 
@@ -843,7 +843,7 @@ __YICES_DLLSPEC__ extern term_t yices_poly_mpq(uint32_t n, mpq_t q[], term_t t[]
  *   code = INVALID_TERM
  *   term1 = t1 or t2
  * if t1 or t2 is not an arithmetic term
- *   code = ARITH_TERM_REQUIRED
+ *   code = ARITHTERM_REQUIRED
  *   term1 = t1 or t2
  */
 __YICES_DLLSPEC__ extern term_t yices_arith_eq_atom(term_t t1, term_t t2);   // t1 == t2
@@ -1774,28 +1774,28 @@ __YICES_DLLSPEC__ extern int32_t yices_default_config_for_logic(ctx_config_t *co
  *
  *
  * A context can be in one of the following states:
- * 1) IDLE: this is the initial state.
+ * 1) STATUS_IDLE: this is the initial state.
  *    In this state, it's possible to assert formulas.
- *    After assertions, the status may change to UNSAT (if
+ *    After assertions, the status may change to STATUS_UNSAT (if
  *    the assertions are trivially unsatisfiable). Otherwise
- *    the state remains IDLE.
+ *    the state remains STATUS_IDLE.
  * 
- * 2) SEARCHING: this is the context status during search.
+ * 2) STATUS_SEARCHING: this is the context status during search.
  *    The context moves into that state after a call to 'check'
  *    and remains in that state until the solver completes
  *    or the search is interrupted.
  *
- * 3) SAT/UNSAT/UNKNOWN: status returned after a search
- *    - UNSAT means the assertions are not satisfiable.
- *    - SAT means they are satisfiable.
- *    - UNKNOWN means that the solver could not determine whether
- *      the assertions are SAT or UNSAT. This may happen if 
+ * 3) STATUS_SAT/STATUS_UNSAT/STATUS_UNKNOWN: status returned after a search
+ *    - STATUS_UNSAT means the assertions are not satisfiable.
+ *    - STATUS_SAT means they are satisfiable.
+ *    - STATUS_UNKNOWN means that the solver could not determine whether
+ *      the assertions are satisfiable or not. This may happen if 
  *      Yices is not complete for the specific logic used (e.g.,
  *      if the formula includes quantifiers).
  *
- * 4) INTERRUPTED: if the context is in the SEARCHING state,
+ * 4) STATUS_INTERRUPTED: if the context is in the STATUS_SEARCHING state,
  *    then it can be interrupted via a call to stop_search.
- *    The status INTERRUPTED indicates that.
+ *    The status STATUS_INTERRUPTED indicates that.
  *
  * For fine tuning: there are options that determine which internal
  * simplifications are applied when formulas are asserted, and
@@ -1848,7 +1848,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_context_status(context_t *ctx);
 
 /*
  * Reset: remove all assertions and restore ctx's 
- * status to IDLE.
+ * status to STATUS_IDLE.
  */
 __YICES_DLLSPEC__ extern void yices_reset_context(context_t *ctx);
 
@@ -1861,7 +1861,7 @@ __YICES_DLLSPEC__ extern void yices_reset_context(context_t *ctx);
  * Error report:
  * - if the context is not configured to support push/pop
  *   code = CTX_OPERATION_NOT_SUPPORTED
- * - if the context status is UNSAT or SEARCHING or INTERRUPTED
+ * - if the context status is STATUS_UNSAT or STATUS_SEARCHING or STATUS_INTERRUPTED
  *   code = CTX_INVALID_OPERATION
  */
 __YICES_DLLSPEC__ extern int32_t yices_push(context_t *ctx);
@@ -1876,7 +1876,7 @@ __YICES_DLLSPEC__ extern int32_t yices_push(context_t *ctx);
  * - if the context is not configured to support push/pop
  *   code = CTX_OPERATION_NOT_SUPPORTED
  * - if there's no matching push (i.e., the context stack is empty)
- *   or if the context's status is SEARCHING or INTERRUPTED
+ *   or if the context's status is STATUS_SEARCHING or STATUS_INTERRUPTED
  *   code = CTX_INVALID_OPERATION
  */
 __YICES_DLLSPEC__ extern int32_t yices_pop(context_t *ctx);
@@ -1888,16 +1888,18 @@ __YICES_DLLSPEC__ extern int32_t yices_pop(context_t *ctx);
  * unless you really know what you're doing.
  *
  * The following functions selectively enable/disable a preprocessing
- * option. Current options include:
+ * option. The current options include:
  *   var-elim: whether to eliminate variables by substitution
  *   arith-elim: more variable elimination for arithmetic (Gaussian elimination)
  *   flatten: whether to flatten nested (or ...)
  *     (e.g., turn (or (or a b) (or c d) ) to (or a b c d))
- *   learn_eq: enable/disable heuristics to learn implied equalities
- *   keep_ite: whether to eliminate term if-then-else or keep them as terms
+ *   learn-eq: enable/disable heuristics to learn implied equalities
+ *   keep-ite: whether to eliminate term if-then-else or keep them as terms
  *
- * The following functions can be used to enable or disable one of these options.
- * - return code: -1 if there's an error, 0 otherwise.
+ * The parameter must be given as a string. For example, to disable var-elim,
+ * call  yices_context_disable_option(ctx, "var-elim")
+ *
+ * The two function return -1 if there's an error, 0 otherwise.
  *
  * Error codes:
  *  CTX_UNKNOWN_PARAMETER if the option name is not one of the above.
@@ -1909,15 +1911,15 @@ __YICES_DLLSPEC__ extern int32_t yices_context_disable_option(context_t *ctx, co
 
 /*
  * Assert formula t in ctx
- * - ctx status must be IDLE or UNSAT or SAT or UNKNOWN
+ * - ctx status must be STATUS_IDLE or STATUS_UNSAT or STATUS_SAT or STATUS_UNKNOWN
  * - t must be a boolean term
  *
- * If ctx's status is UNSAT, nothing is done.
+ * If ctx's status is STATUS_UNSAT, nothing is done.
  * 
- * If ctx's status is IDLE, SAT, or UNKNOWN, then the formula is
- * simplified and asserted in the context. The context status is
- * changed to UNSAT if the formula is simplified to 'false' or
- * to IDLE otherwise.
+ * If ctx's status is STATUS_IDLE, STATUS_SAT, or STATUS_UNKNOWN, then
+ * the formula is simplified and  asserted in the context. The context
+ * status is changed  to STATUS_UNSAT if the formula  is simplified to
+ * 'false' or to STATUS_IDLE otherwise.
  * 
  * This returns 0 if there's no error or -1 if there's an error.
  * 
@@ -1929,9 +1931,9 @@ __YICES_DLLSPEC__ extern int32_t yices_context_disable_option(context_t *ctx, co
  *   code = TYPE_MISMATCH
  *   term1 = t
  *   type1 = bool (expected type)
- * if ctx's status is not IDLE or UNSAT or SAT or UNKNOWN
+ * if ctx's status is not STATUS_IDLE or STATUS_UNSAT or STATUS_SAT or STATUS_UNKNOWN
  *   code = CTX_INVALID_OPERATION
- * if ctx's status is neither IDLE nor UNSAT, and the context is 
+ * if ctx's status is neither STATUS_IDLE nor STATUS_UNSAT, and the context is 
  * not configured for multiple checks
  *   code = CTX_OPERATION_NOT_SUPPORTED
  *
@@ -1943,7 +1945,7 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formula(context_t *ctx, term_t t);
 
 /*
  * Assert an array of n formulas t[0 ... n-1]
- * - ctx's status must be IDLE or UNSAT or SAT or UNKNOWN
+ * - ctx's status must be STATUS_IDLE or STATUS_UNSAT or STATUS_SAT or STATUS_UNKNOWN
  * - all t[i]'s must be valid boolean terms.
  *
  * The function returns -1 on error, 0 otherwise.
@@ -1965,25 +1967,25 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, uint32_t 
  *
  * The behavior and returned value depend on ctx's current status:
  *
- * 1) If ctx's status is SAT, UNSAT, or UNKNOWN, the function 
+ * 1) If ctx's status is STATUS_SAT, STATUS_UNSAT, or STATUS_UNKNOWN, the function 
  *    does nothing and just returns the status.
  *
- * 2) If ctx's status is IDLE, then the solver searches for a
+ * 2) If ctx's status is STATUS_IDLE, then the solver searches for a
  *    satisfying assignment. If param != NULL, the search parameters
  *    defined by params are used.
  * 
  *    The function returns one of the following codes:
- *    - SAT: the context is satisfiable
- *    - UNSAT: the context is not satisfiable
- *    - UNKNOWN: satisfiability can't be proved or disproved 
- *    - INTERRUPTED: the search was interrupted
+ *    - STATUS_SAT: the context is satisfiable
+ *    - STATUS_UNSAT: the context is not satisfiable
+ *    - STATUS_UNKNOWN: satisfiability can't be proved or disproved 
+ *    - STATUS_INTERRUPTED: the search was interrupted
  *
  *    The returned status is also stored as the new ctx's status flag,
  *    with the following exception. If the context was built with 
  *    mode = INTERACTIVE and the search was interrupted, then the
- *    function returns INTERRUPTED but the ctx's state is restored to
+ *    function returns STATUS_INTERRUPTED but the ctx's state is restored to
  *    what it was before the call to 'yices_check_context' and the
- *    status flag is reset to IDLE.
+ *    status flag is reset to STATUS_IDLE.
  *
  * 3) Otherwise, the function does nothing and returns 'STATUS_ERROR', 
  *    it also sets the yices error report (code = CTX_INVALID_OPERATION).
@@ -1994,18 +1996,18 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context(context_t *ctx, const 
 /*
  * Add a blocking clause: this is intended to help enumerate different models
  * for a set of assertions.
- * - if ctx's status is SAT or UNKNOWN, then a new clause is added to ctx
+ * - if ctx's status is STATUS_SAT or STATUS_UNKNOWN, then a new clause is added to ctx
  *   to remove the current truth assignment from the search space. After this
  *   clause is added, the next call to yices_check_context will either produce 
- *   a different truth assignment (hence a different model) or return UNSAT.
+ *   a different truth assignment (hence a different model) or return STATUS_UNSAT.
  *
- * - ctx's status flag is updated to IDLE (if the new clause is not empty) or 
- *   to UNSAT (if the new clause is the empty clause).
+ * - ctx's status flag is updated to STATUS_IDLE (if the new clause is not empty) or 
+ *   to STATUS_UNSAT (if the new clause is the empty clause).
  *
  * Return code: 0 if there's no error, -1 if there's an error.
  *
  * Error report:
- * if ctx's status is different from SAT or UNKNOWN
+ * if ctx's status is different from STATUS_SAT or STATUS_UNKNOWN
  *    code = CTX_INVALID_OPERATION
  * if ctx is not configured to support multiple checks
  *    code = CTX_OPERATION_NOT_SUPPORTED
@@ -2018,7 +2020,7 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_blocking_clause(context_t *ctx);
  * - this can be called from a signal handler to stop the search,
  *   after a call to yices_check_context to interrupt the solver.
  *
- * If ctx's status is SEARCHING, then the current search is
+ * If ctx's status is STATUS_SEARCHING, then the current search is
  * interrupted. Otherwise, the function does nothing.
  */
 __YICES_DLLSPEC__ extern void yices_stop_search(context_t *ctx);
@@ -2088,9 +2090,9 @@ __YICES_DLLSPEC__ extern void yices_free_param_record(param_t *param);
  *   the eliminated variables: 
  *   keep_subst = 0 means don't keep substitutions,
  *   keep_subst != 0 means keep them
- * - ctx status must be SAT or UNKNOWN
+ * - ctx status must be STATUS_SAT or STATUS_UNKNOWN
  *
- * The function returns NULL if the status isn't SAT or UNKNOWN 
+ * The function returns NULL if the status isn't SAT or STATUS_UNKNOWN 
  * and sets an error report (code = CTX_INVALID_OPERATION).
  *
  * When assertions are added to the context, the simplifications may
@@ -2105,7 +2107,7 @@ __YICES_DLLSPEC__ extern void yices_free_param_record(param_t *param);
  *    (bg-gt z 0b000)
  *
  * variable 'x' gets eliminated. Then a call to 'check_context' will
- * return SAT and we can ask for a model 'M'
+ * return STATUS_SAT and we can ask for a model 'M'
  * - if 'keep_subst' is false then the value of 'x' in 'M' is unavailable.
  * - if 'keep_subst' is true then the value of 'x' in 'M' is computed,
  *   based on the value of 'y' and 'z' in 'M'.
@@ -2194,7 +2196,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_bool_value(model_t *mdl, term_t t, in
  *
  * Error codes:
  * If t is not an arithmetic term:
- *   code = ARITH_TERM_REQUIRED
+ *   code = ARITHTERM_REQUIRED
  *   term1 = t
  * If t's value does not fit in the *val object
  *   code = EVAL_OVERFLOW
