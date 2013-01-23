@@ -1294,8 +1294,8 @@ __YICES_DLLSPEC__ extern term_t yices_bitextract(term_t t, uint32_t i);
 /*
  * Equality and disequality
  */
-__YICES_DLLSPEC__ extern term_t yices_bveq_atom(term_t t1, term_t t2);
-__YICES_DLLSPEC__ extern term_t yices_bvneq_atom(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_bveq_atom(term_t t1, term_t t2);   // t1 == t2
+__YICES_DLLSPEC__ extern term_t yices_bvneq_atom(term_t t1, term_t t2);  // t1 != t2
 
 
 /*
@@ -1421,7 +1421,7 @@ __YICES_DLLSPEC__ extern int32_t yices_subst_term_array(uint32_t n, term_t var[]
  *   previous mapping is hidden
  *
  * The functions return -1 and set the error report if the term or
- * type is invalid . Otherwise they return 0.
+ * type is invalid. Otherwise they return 0.
  *
  * A copy of string name is made internally.
  */
@@ -1607,7 +1607,7 @@ __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
  * - mixed integer/real linear arithmetic  (LIRA)
  *
  * In addition to the solver combination, a context can be configured
- * for different usage:
+ * for different usages:
  * - one-shot mode: check satisfiability of one set of formulas
  * - multiple checks: repeated calls to assert/check are allowed
  * - push/pop: push and pop are supported (implies multiple checks)
@@ -1670,7 +1670,7 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  *                    | "interactive"       |  like push-pop, but with automatic context clean
  *                    |                     |  up when search is interrupted.
  *   ----------------------------------------------------------------------------------------
- *    "uf-solver"     | "default"           |  the uf-solver is included
+ *    "uf-solver"     | "default"           |  the uf-solver is included (i.e., the egraph)
  *                    | "none"              |  no uf-solver
  *   ----------------------------------------------------------------------------------------
  *    "bv-solver"     | "default"           |  the bitvector solver is included
@@ -1690,11 +1690,11 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  *                    |                     |
  *                    | "none"              |  no arithmetic solver
  *   ----------------------------------------------------------------------------------------
- *   "arith-fragment" | IDL                 |  integer difference logic
- *                    | RDL                 |  real difference logic
- *                    | LIA                 |  linear integer arithmetic
- *                    | LRA                 |  linear real arithmetic
- *                    | LIRA                |  mixed linear arithmetic (real + integer variables)
+ *   "arith-fragment" | "IDL"               |  integer difference logic
+ *                    | "RDL"               |  real difference logic
+ *                    | "LIA"               |  linear integer arithmetic
+ *                    | "LRA"               |  linear real arithmetic
+ *                    | "LIRA"              |  mixed linear arithmetic (real + integer variables)
  *
  * 
  *
@@ -2066,7 +2066,11 @@ __YICES_DLLSPEC__ extern param_t *yices_new_param_record(void);
  *
  * TBD: describe the parameters and the range of values for each.
  *
- * Return -1 if there's an error, 0 otherwise
+ * Return -1 if there's an error, 0 otherwise.
+ *
+ * Error codes:
+ * - CTX_UNKNOWN_PARAMETER if pname is not a known parameter name
+ * - CRX_INVALID_PARAMETER_VALUE if value is not valid for the parameter
  */
 __YICES_DLLSPEC__ extern int32_t yices_set_param(param_t *p, const char *pname, const char *value);
 
