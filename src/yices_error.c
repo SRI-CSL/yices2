@@ -285,7 +285,7 @@ int32_t print_error(FILE *f) {
     break;
 
   case CTX_TOO_MANY_ARITH_VARS:
-    code = fprintf(f, "too many variables for the arithemtic solver\n");
+    code = fprintf(f, "too many variables for the arithmetic solver\n");
     break;
 
   case CTX_TOO_MANY_ARITH_ATOMS:
@@ -301,7 +301,7 @@ int32_t print_error(FILE *f) {
     break;
 
   case CTX_ARITH_SOLVER_EXCEPTION:
-    code = fprintf(f, "arithmetoic solver exception\n");
+    code = fprintf(f, "arithmetic solver exception\n");
     break;
 
   case CTX_BV_SOLVER_EXCEPTION:

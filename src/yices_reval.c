@@ -1171,7 +1171,7 @@ static bool param_val_to_ratio(const char *name, const param_val_t *v, double *v
 static bool param_val_to_factor(const char *name, const param_val_t *v, double *value) {
   if (param_val_to_float(name, v, value)) {
     if (1.0 <= *value) return true;
-    report_invalid_param_value(name, "must be at leat 1");
+    report_invalid_param_value(name, "must be at least 1");
   }
   return false;
 }

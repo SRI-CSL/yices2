@@ -790,7 +790,7 @@ __YICES_DLLSPEC__ extern term_t yices_product(uint32_t n, term_t t[]);
  * if t1 or t2 is not valid
  *    code = INVALID_TERM
  *    term1 = t1 or t2
- * if t1 is not an arihmetic term
+ * if t1 is not an arithmetic term
  *    code = ARITHTERM_REQUIRED
  *    term1 = t1
  * if t2 is not an arithmetic constant
@@ -2179,7 +2179,7 @@ __YICES_DLLSPEC__ extern void yices_print_model(FILE *f, model_t *mdl);
 /*
  * Pretty printing:
  * - f = output file to use
- * - witdh, height, offset define the print area
+ * - width, height, offset define the print area
  * 
  * return -1 on error, 0 otherwise
  *
