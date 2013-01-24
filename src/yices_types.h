@@ -89,7 +89,7 @@ typedef enum error_code {
   INVALID_TYPE,
   INVALID_TERM,
   INVALID_CONSTANT_INDEX,
-  INVALID_VAR_INDEX,  // Not used anymore??
+  INVALID_VAR_INDEX,  // Not used anymore
   INVALID_TUPLE_INDEX,
   INVALID_RATIONAL_FORMAT,
   INVALID_FLOAT_FORMAT,
@@ -117,6 +117,7 @@ typedef enum error_code {
   DUPLICATE_VARIABLE,
   INCOMPATIBLE_BVSIZES,
   EMPTY_BITVECTOR,
+  ARITHCONSTANT_REQUIRED, // added 2013/01/23
 
   /*
    * Parser errors
@@ -250,6 +251,7 @@ typedef enum error_code {
  *  DUPLICATE_VARIABLE         term1
  *  INCOMPATIBLE_BVSIZES       term1, type1, term2, type2
  *  EMPTY_BITVECTOR            none
+ *  ARITHCCONSTANT_REQUIRED    term1    
  *
  * The following error codes are used only by the parsing functions. 
  * No field other than line/column is set.

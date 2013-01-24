@@ -23,6 +23,7 @@
 #include "ptr_stack.h"
 #include "terms.h"
 
+
 /*
  * Collector structure:
  * - terms = pointer to the attached term table

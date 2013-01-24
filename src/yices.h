@@ -745,7 +745,7 @@ __YICES_DLLSPEC__ extern term_t yices_power(term_t t1, uint32_t d);  // t1 ^ d
 /*
  * Sum of n arithmetic terms t[0] ... t[n-1]
  *
- * Return NULL term if there's an error
+ * Return NULL_TERM if there's an error
  *
  * Error reports:
  * if t[i] is not valid
@@ -761,7 +761,7 @@ __YICES_DLLSPEC__ extern term_t yices_sum(uint32_t n, term_t t[]);
 /*
  * Product of n arithmetic terms t[0] ... t[n-1]
  *
- * Return NULL term if there's an error
+ * Return NULL_TERM if there's an error
  *
  * Error reports:
  * if t[i] is not valid
@@ -777,6 +777,29 @@ __YICES_DLLSPEC__ extern term_t yices_sum(uint32_t n, term_t t[]);
 __YICES_DLLSPEC__ extern term_t yices_product(uint32_t n, term_t t[]);
 
 
+
+/*
+ * Division:  t1/t2
+ *
+ * t1 must be an arithmetic term
+ * t2 must be a non-zero arithmetic constant
+ *
+ * Return NULL_TERM if there's an error
+ *
+ * Error report:
+ * if t1 or t2 is not valid
+ *    code = INVALID_TERM
+ *    term1 = t1 or t2
+ * if t1 is not an arihmetic term
+ *    code = ARITHTERM_REQUIRED
+ *    term1 = t1
+ * if t2 is not an arithmetic constant
+ *    code = ARITHCONSTANT_REQUIRED
+ *    term1 = t2
+ * if t2 is zero
+ *    code = DIVISION_BY_ZERO
+ */
+__YICES_DLLSPEC__ extern term_t yices_div(term_t t1, term_t t2);
 
 
 /*
@@ -1387,6 +1410,10 @@ __YICES_DLLSPEC__ extern int32_t yices_subst_term_array(uint32_t n, term_t var[]
 
 
 
+
+
+
+
 /************
  *  NAMES   *
  ***********/
@@ -1454,8 +1481,8 @@ __YICES_DLLSPEC__ extern term_t yices_get_term_by_name(const char *name);
  * The functions return -1 and set the error report if the 
  * type or term is invalid. Otherwise, they return 0.
  *
- * If tau or t doesn't have a name, the functions do nothing
- * and return 0.
+ * If tau or t doesn't have a base name, the functions do nothing and
+ * return 0.
  */
 __YICES_DLLSPEC__ extern int32_t yices_clear_type_name(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_clear_term_name(term_t t);
@@ -2133,6 +2160,18 @@ __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
 /*
  * Print model mdl on FILE f
  * - f must be open/writable
+ *
+ * The model stores a mapping from uninterpreted terms to values.
+ * This function will print the value of these uninterpreted terms,
+ * but it will skip the ones that don't have a name.
+ *
+ * To see that value of uninterpreted term x in the model, you have to
+ * do give a name to 'x'. For example, this can be done by creating 'x' 
+ * as follows:
+ *
+ *   x = yices_new_uninterpreted_term(<some type>)
+ *   yices_set_term_name(x, "x")
+ *
  */
 __YICES_DLLSPEC__ extern void yices_print_model(FILE *f, model_t *mdl);
 
@@ -2143,6 +2182,9 @@ __YICES_DLLSPEC__ extern void yices_print_model(FILE *f, model_t *mdl);
  * - witdh, height, offset define the print area
  * 
  * return -1 on error, 0 otherwise
+ *
+ * Like yices_print_model, this function ignores the uninterpreted terms
+ * that don't have a name. 
  *
  * On error:
  *   code = OUTPUT_ERROR (means that writing to f failed)

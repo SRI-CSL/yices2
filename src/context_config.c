@@ -123,6 +123,7 @@ static const int32_t config_key[NUM_CONFIG_KEYS] = {
  * the Floyd-Warshall solvers don't support all use modes.
  */
 static const int32_t logic2arch[NUM_SMT_LOGICS] = {
+  -1,                  // NONE
   -1,                  // AUFLIA
   -1,                  // AUFLIRA
   -1,                  // AUFNIRA
@@ -152,6 +153,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS] = {
  * Specify whether the integer solver should be activated
  */
 static const bool logic2iflag[NUM_SMT_LOGICS] = {
+  false,  // NONE
   true,   // AUFLIA
   true,   // AUFLIRA
   true,   // AUFNIRA
@@ -182,6 +184,7 @@ static const bool logic2iflag[NUM_SMT_LOGICS] = {
  * Specify whether quantifier support is needed
  */
 static const bool logic2qflag[NUM_SMT_LOGICS] = {
+  false,  // NONE
   true,   // AUFLIA
   true,   // AUFLIRA
   true,   // AUFNIRA
@@ -398,7 +401,7 @@ static inline int32_t arch_add_egraph(int32_t a) {
 
 static int32_t arch_add_array(int32_t a) {
   if (a == CTX_ARCH_EG || a == CTX_ARCH_NOSOLVERS) {
-    a = CTX_ARCH_EGFUN; // array requires egraph to we add both implicitly
+    a = CTX_ARCH_EGFUN; // array requires egraph so we add both implicitly
   } else {
     a = -1;
   }

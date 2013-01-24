@@ -153,6 +153,11 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "bitvector must have positive bitsize\n");
     break;
 
+  case ARITHCONSTANT_REQUIRED:
+    code = fprintf(f, "argument is not an arithmetic constant\n");
+    break;
+
+
     /*
      * Parser errors 
      */
@@ -225,7 +230,7 @@ int32_t print_error(FILE *f) {
     break;
 
   case ARITH_ERROR:
-    code = fprintf(f, "error in arithemtic operation\n");
+    code = fprintf(f, "error in arithmetic operation\n");
     break;
 
   case BVARITH_ERROR:

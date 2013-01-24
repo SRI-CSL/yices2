@@ -1275,6 +1275,21 @@ static bool check_arith_term(term_manager_t *mngr, term_t t) {
   return true;
 }
 
+// check whether t is an arihtmetic constant, t must be valid
+static bool check_arith_constant(term_manager_t *mngr, term_t t) {
+  term_table_t *tbl;
+
+  tbl = term_manager_get_terms(mngr);
+
+  if (term_kind(tbl, t) != ARITH_CONSTANT) {
+    error.code = ARITHCONSTANT_REQUIRED;
+    error.term1 = t;
+    return false;
+  }
+
+  return true;
+}
+
 // Check whether t is a bitvector term, t must be valid
 static bool check_bitvector_term(term_manager_t *mngr, term_t t) {
   term_table_t *tbl;
@@ -2510,6 +2525,40 @@ EXPORTED term_t yices_product(uint32_t n, term_t t[]) {
 
   return mk_arith_term(&manager, b);    
 }
+
+
+
+
+/*
+ * DIVISION
+ */
+EXPORTED term_t yices_div(term_t t1, term_t t2) {
+  arith_buffer_t *b;
+  term_table_t *tbl;
+  rational_t *q;
+  
+  if (! check_good_term(&manager, t1) ||
+      ! check_good_term(&manager, t2) ||
+      ! check_arith_term(&manager, t1) ||
+      ! check_arith_constant(&manager, t2)) {
+    return NULL_TERM;
+  }
+
+  tbl = get_terms();
+  q = rational_term_desc(tbl, t2);
+  if (q_is_zero(q)) {
+    error.code = DIVISION_BY_ZERO;
+    return NULL_TERM;
+  }
+
+  b = get_arith_buffer();
+  arith_buffer_reset(b);
+  arith_buffer_add_term(b, tbl, t1);
+  arith_buffer_div_const(b, q); // safe to use q here
+
+  return mk_arith_term(&manager, b);
+}
+
 
 
 

@@ -380,12 +380,13 @@ typedef struct arith_binop_s {
   term_t (*fun)(term_t, term_t);
 } arith_binop_t;
 
-#define NUM_BINOPS 9
+#define NUM_BINOPS 10
 
 static arith_binop_t binop_array[NUM_BINOPS] = {
   { "add", yices_add },
   { "sub", yices_sub },
   { "mul", yices_mul },
+  { "div", yices_div },
   { "eq",  yices_arith_eq_atom },
   { "neq", yices_arith_neq_atom },
   { "geq", yices_arith_geq_atom },
@@ -433,8 +434,14 @@ static term_t test_binop(uint32_t i, term_t t1, term_t t2) {
   printf(") --> ");
   fflush(stdout);
   t = binop_array[i].fun(t1, t2);
-  print_term(stdout, __yices_globals.terms, t);
-  printf("\n");
+  if (t < 0) {
+    printf("error code: %d\n", (int) yices_error_code());
+    yices_print_error(stdout);
+    printf("\n");
+  } else {
+    print_term(stdout, __yices_globals.terms, t);
+    printf("\n");
+  }
 
   fflush(stdout);
 
@@ -634,9 +641,10 @@ static void add_random_terms(uint32_t n) {
       t1 = term_store_sample(&all_terms, boolean, low_degree);
       t = test_power(t1, d);
     }
-    assert(t >= 0);
-    term_store_add_term(&all_terms, t);
-    n --;
+    if (t >= 0) {
+      term_store_add_term(&all_terms, t);
+      n --;
+    }
   }
 }
 
