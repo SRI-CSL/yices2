@@ -750,7 +750,7 @@ static particle_t get_unmarked_particle(pstore_t *store, particle_set_t *set) {
     for (i=0; i<n; i++) {
       k = set->data[i];
       if (! tst_bit(store->ptbl.mark, k)) {
-	return k;
+        return k;
       }
     }
   }
@@ -866,7 +866,7 @@ static bool pset_is_sorted(particle_set_t *set) {
     n --;
     for (i=0; i<n; i++) {
       if (set->data[i] >= set->data[i+1]) {
-	return false;
+        return false;
       }
     }
   }
@@ -951,7 +951,7 @@ static bool lexico_precedes(particle_table_t *table, particle_t x, particle_t y)
   uint32_t i, n;
 
   assert(0 <= x && x < table->nobjects && 0 <= y && y < table->nobjects &&
-	 table->kind[x] == TUPLE_PARTICLE && table->kind[y] == TUPLE_PARTICLE);
+         table->kind[x] == TUPLE_PARTICLE && table->kind[y] == TUPLE_PARTICLE);
 
   tx = (particle_tuple_t *) table->desc[x].ptr;
   ty = (particle_tuple_t *) table->desc[y].ptr;

@@ -112,7 +112,7 @@ enum {
  * - the table is empty, classes is not allocated yet (NULL).
  */
 extern void init_int_partition(ipart_t *pp, uint32_t n, void *aux, 
-			       ipart_hash_fun_t hash_fn, ipart_match_fun_t match_fn);
+                               ipart_hash_fun_t hash_fn, ipart_match_fun_t match_fn);
 
 
 /*

@@ -184,7 +184,7 @@ void bv_vartable_remove_eterms(bv_vartable_t *table, uint32_t nterms) {
     for (i=1; i<n; i++) {
       t = tmp[i];
       if (t != null_eterm && t >= nterms) {
-	tmp[i] = null_eterm;
+        tmp[i] = null_eterm;
       }
     }
   }
@@ -1237,7 +1237,7 @@ thvar_t find_div(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   bvdiv_hobj.tbl = table;
@@ -1252,7 +1252,7 @@ thvar_t find_rem(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   bvrem_hobj.tbl = table;
@@ -1267,7 +1267,7 @@ thvar_t find_sdiv(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   bvsdiv_hobj.tbl = table;
@@ -1282,7 +1282,7 @@ thvar_t find_srem(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   bvsrem_hobj.tbl = table;
@@ -1298,7 +1298,7 @@ thvar_t find_bvadd(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   bvadd_hobj.tbl = table;
@@ -1312,7 +1312,7 @@ thvar_t find_bvsub(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   bvsub_hobj.tbl = table;
@@ -1326,7 +1326,7 @@ thvar_t find_bvmul(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   bvmul_hobj.tbl = table;

@@ -655,7 +655,7 @@ static bool active_columns_compare(dcolumn_t *c1, dcolumn_t *c2) {
  */
 static bool active_rows_compare(dsolver_t *solver, int32_t i, int32_t j) {
   assert(0 <= i && i < solver->nrows && 0 <= j && j < solver->nrows && 
-	 solver->row[i] != NULL && solver->row[j] != NULL);
+         solver->row[i] != NULL && solver->row[j] != NULL);
   return ibag_nelems(solver->row[i]) < ibag_nelems(solver->row[j]);
 }
 
@@ -803,7 +803,7 @@ void reset_dsolver(dsolver_t *solver) {
     n = solver->nvars;
     for (i=0; i<n; i++) {
       if (solver->gen_sol[i] != NULL) {
-	free_polynomial(solver->gen_sol[i]);
+        free_polynomial(solver->gen_sol[i]);
       }
     }
     safe_free(solver->gen_sol);
@@ -904,7 +904,7 @@ void delete_dsolver(dsolver_t *solver) {
     n = solver->nvars;
     for (i=0; i<n; i++) {
       if (solver->gen_sol[i] != NULL) {
-	free_polynomial(solver->gen_sol[i]);
+        free_polynomial(solver->gen_sol[i]);
       }
     }
     safe_free(solver->gen_sol);
@@ -1000,11 +1000,11 @@ static void dsolver_set_nvars(dsolver_t *solver, uint32_t n) {
       // increase vsize to old vsize + 50% or n, whichever is larger
       vsize += vsize >> 1;
       if (vsize < n) {
-	vsize = n;
+        vsize = n;
       }
 
       if (vsize >= MAX_DSOLVER_VSIZE) {
-	out_of_memory();
+        out_of_memory();
       }
 
       solver->col_idx = (int32_t *) safe_realloc(solver->col_idx, vsize * sizeof(int32_t));
@@ -1432,13 +1432,13 @@ static void remove_cleared_elements(dcolumn_t *c) {
     k = 0;
     for (j=0; j<n; j++) {
       if (q_is_nonzero(&e[j].coeff)) {
-	if (k < j) {
-	  // copy c->data[j] into c->data[k]	
-	  q_copy_and_clear(&e[k].coeff, &e[j].coeff);
-	  e[k].r_idx = e[j].r_idx;
-	  e[k].r_ptr = e[j].r_ptr;
-	}
-	k ++;
+        if (k < j) {
+          // copy c->data[j] into c->data[k]    
+          q_copy_and_clear(&e[k].coeff, &e[j].coeff);
+          e[k].r_idx = e[j].r_idx;
+          e[k].r_ptr = e[j].r_ptr;
+        }
+        k ++;
       }
     }
 
@@ -1552,24 +1552,24 @@ static void eliminate_column(dsolver_t *solver, dcolumn_t *c, ptr_queue_t *queue
     n = ibag_size(row);
     for (i=0; i<n; i++) {
       if (i != j) {
-	k = row[i];
-	if (k >= 0) {
-	  d = solver->column[k];
-	  assert(d != NULL && d != c);
-	  k = find_row(d, r); // d->data[k] = element for row r in column d
-	  assert(k >= 0 && q_is_nonzero(&d->data[k].coeff) && d->active > 0);
+        k = row[i];
+        if (k >= 0) {
+          d = solver->column[k];
+          assert(d != NULL && d != c);
+          k = find_row(d, r); // d->data[k] = element for row r in column d
+          assert(k >= 0 && q_is_nonzero(&d->data[k].coeff) && d->active > 0);
 
-	  // copy the coefficient in p and clear it in d
-	  p->mono[t].var = d->var;
-	  q_copy_and_clear(&p->mono[t].coeff, &d->data[k].coeff);
-	  t ++;
+          // copy the coefficient in p and clear it in d
+          p->mono[t].var = d->var;
+          q_copy_and_clear(&p->mono[t].coeff, &d->data[k].coeff);
+          t ++;
 
-	  // check whether d can be eliminated, if so add it to the queue
-	  d->active --;
-	  if (column_can_be_eliminated(d)) {
-	    ptr_queue_push(queue, d);
-	  }
-	}
+          // check whether d can be eliminated, if so add it to the queue
+          d->active --;
+          if (column_can_be_eliminated(d)) {
+            ptr_queue_push(queue, d);
+          }
+        }
       }
     }
 
@@ -1781,8 +1781,8 @@ static void dsolver_activate_column(dsolver_t *solver, dcolumn_t *c, int32_t r) 
       ibag_clear_elem(solver->row[k], k_ptr);
       // remove k from the rows to process
       if (generic_heap_member(&solver->rows_to_process, k)) {
-	generic_heap_remove(&solver->rows_to_process, k);
-	ivector_push(&solver->aux_vector, k);
+        generic_heap_remove(&solver->rows_to_process, k);
+        ivector_push(&solver->aux_vector, k);
       }
     }
   }
@@ -1866,14 +1866,14 @@ static void dsolver_reduce_columns(dsolver_t *solver, int32_t r) {
       q_set(f, &c2->data[k].coeff);
       q_integer_div(f, active_coeff(c1));
       if (q_is_nonzero(f)) {
-	if (q_is_one(f)) {
-	  aux = column_sub(aux, c2, c1);
-	} else {
-	  aux = column_submul(aux, c2, f, c1);
-	}
-	solver->constant_column = aux;
-	aux = c2;
-	clear_column(aux);
+        if (q_is_one(f)) {
+          aux = column_sub(aux, c2, c1);
+        } else {
+          aux = column_submul(aux, c2, f, c1);
+        }
+        solver->constant_column = aux;
+        aux = c2;
+        clear_column(aux);
       }
     }
 #endif
@@ -1920,9 +1920,9 @@ static void dsolver_reduce_columns(dsolver_t *solver, int32_t r) {
     q_integer_div(f, active_coeff(c1));
     if (q_is_nonzero(f)) {
       if (q_is_one(f)) {
-	aux = column_sub(aux, c2, c1);
+        aux = column_sub(aux, c2, c1);
       } else {
-	aux = column_submul(aux, c2, f, c1);
+        aux = column_submul(aux, c2, f, c1);
       }
       solver->constant_column = aux;
       aux = c2;
@@ -1954,7 +1954,7 @@ static bool dsolver_process_row(dsolver_t *solver, int32_t r) {
 
   row = solver->row[r];
   assert(row != NULL && ptr_heap_is_empty(&solver->active_columns) && 
-	 solver->aux_vector.size == 0);
+         solver->aux_vector.size == 0);
 
   solver->num_process_rows ++;
 
@@ -1967,9 +1967,9 @@ static bool dsolver_process_row(dsolver_t *solver, int32_t r) {
     for (i=0; i<n; i++) {
       k = row[i];
       if (k >= 0) {
-	c = solver->column[k];
-	dsolver_activate_column(solver, c, r);
-	ptr_heap_add(&solver->active_columns, c);
+        c = solver->column[k];
+        dsolver_activate_column(solver, c, r);
+        ptr_heap_add(&solver->active_columns, c);
       }
     }
 
@@ -2091,7 +2091,7 @@ static void dsolver_build_base_sol_row(dsolver_t *solver) {
     if (k >= (int32_t) solver->main_rows) {
       k = find_row(c, k);
       if (k >= 0) {
-	q_set(solver->base_sol + i, &c->data[k].coeff);
+        q_set(solver->base_sol + i, &c->data[k].coeff);
       }
     }
   }
@@ -2191,8 +2191,8 @@ static void init_parameter_indices(dsolver_t *solver) {
     for (i=0; i<n; i++) {
       id[i] = -1;
       if (solver->column[i] != NULL) {
-	id[i] = k;
-	k++;
+        id[i] = k;
+        k++;
       }
     }
     solver->param_id = id;
@@ -2502,7 +2502,7 @@ static int32_t dsolver_expl_apply_row_subst(dsolver_t *solver, int32_t j) {
     if (k >= 0) {
       // add l to the heap if it's not already present
       if (! poly_buffer_has_var(buffer, l)) {
-	int_heap2_add(heap, l);
+        int_heap2_add(heap, l);
       }
       poly_buffer_submul_monomial(buffer, l, factor, &c->data[k].coeff);
     }
@@ -2601,8 +2601,8 @@ static inline void ivector_push_elim_row(dsolver_t *solver, ivector_t *v, int32_
  */
 static bool elim_var_compare(dsolver_t *solver, int32_t x, int32_t y) {
   assert(0 <= x && x < solver->nvars && 0 <= y && y < solver->nvars 
-	 && 0 <= solver->sol_row[x] && solver->sol_row[x] < solver->main_rows 
-	 && 0 <= solver->sol_row[y] && solver->sol_row[y] < solver->main_rows);
+         && 0 <= solver->sol_row[x] && solver->sol_row[x] < solver->main_rows 
+         && 0 <= solver->sol_row[y] && solver->sol_row[y] < solver->main_rows);
   return solver->sol_row[x] < solver->sol_row[y];
 }
 
@@ -2634,7 +2634,7 @@ static void dsolver_expl_store_elim_record(dsolver_t *solver, int32_t i) {
       poly_buffer_add_monomial(buffer, x, &p->mono[j].coeff);
       assert(0 <= solver->sol_row[x]);
       if (solver->sol_row[x] < solver->main_rows) {
-	int_heap2_add(heap, x);
+        int_heap2_add(heap, x);
       }
     }
   }
@@ -2678,7 +2678,7 @@ static int32_t dsolver_expl_eliminate_variable(dsolver_t *solver, int32_t x) {
     if (x != const_idx) {
       assert(0 <= solver->sol_row[x]);
       if (solver->sol_row[x] < solver->main_rows && ! poly_buffer_has_var(buffer, x)) {
-	int_heap2_add(heap, x);
+        int_heap2_add(heap, x);
       }
       poly_buffer_addmul_monomial(buffer, x, factor, &p->mono[j].coeff);
     }
@@ -2742,7 +2742,7 @@ static void dsolver_expl_addmul_row(dsolver_t *solver, rational_t *a, int32_t i)
     k = find_row(c, i);
     if (k >= 0) {
       if (! poly_buffer_has_var(buffer, j)) {
-	int_heap2_add(heap, j);
+        int_heap2_add(heap, j);
       }
       poly_buffer_addmul_monomial(buffer, j, a, &c->data[k].coeff);
     }

@@ -153,7 +153,7 @@ static value_t eval_arith_bineq(evaluator_t *eval, composite_term_t *eq) {
   v1 = eval_term(eval, eq->arg[0]);
   v2 = eval_term(eval, eq->arg[1]);
   assert(object_is_rational(eval->vtbl, v1) && 
-	 object_is_rational(eval->vtbl, v2));
+         object_is_rational(eval->vtbl, v2));
 
   return vtbl_mk_bool(eval->vtbl, v1 == v2); // because of hash consing
 }
@@ -406,7 +406,7 @@ static uint32_t get_shift_amount(value_bv_t *bv) {
     // if any of the higher order words is nonzero, return n
     for (i=1; i<k; i++) {
       if (bv->data[i] != 0) { 
-	return n;
+        return n;
       }
     }
     return s;
@@ -522,7 +522,7 @@ static value_t eval_bveq(evaluator_t *eval, composite_term_t *eq) {
   v1 = eval_term(eval, eq->arg[0]);
   v2 = eval_term(eval, eq->arg[1]);
   assert(object_is_bitvector(eval->vtbl, v1) &&
-	 object_is_bitvector(eval->vtbl, v2));
+         object_is_bitvector(eval->vtbl, v2));
 
   return vtbl_mk_bool(eval->vtbl, v1 == v2);
 }
@@ -746,19 +746,19 @@ static value_t eval_app(evaluator_t *eval, composite_term_t *app) {
       // check equality
       v = vtbl_eval_array_eq(eval->vtbl, a, b, n);
       if (is_unknown(eval->vtbl, v)) {
-	// result is unknown too
-	free_istack_array(&eval->stack, b);
-	goto done;
+        // result is unknown too
+        free_istack_array(&eval->stack, b);
+        goto done;
 
       } else if (is_true(eval->vtbl, v)) {
-	// ((update f (x_1 ... x_n) v) a[0] ... a[n-1]) --> v
-	v = eval_term(eval, update->arg[n+1]);
-	free_istack_array(&eval->stack, b);
-	goto done;
+        // ((update f (x_1 ... x_n) v) a[0] ... a[n-1]) --> v
+        v = eval_term(eval, update->arg[n+1]);
+        free_istack_array(&eval->stack, b);
+        goto done;
 
       } else {
-	// ((update f  ... v) a[0] ... a[n-1]) --> (f a[0] ... a[n-1])
-	fun = update->arg[0];
+        // ((update f  ... v) a[0] ... a[n-1]) --> (f a[0] ... a[n-1])
+        fun = update->arg[0];
       }
 
     } while (term_kind(eval->terms, fun) == UPDATE_TERM);
@@ -877,12 +877,12 @@ static value_t eval_distinct(evaluator_t *eval, composite_term_t *distinct) {
     for (j=0; j<i; j++) {
       eq = vtbl_eval_eq(eval->vtbl, a[j], v);
       if (is_unknown(eval->vtbl, eq)) {
-	v = eq; // i.e., unknown
-	goto done; 
+        v = eq; // i.e., unknown
+        goto done; 
       } else if (is_true(eval->vtbl, eq)) {
-	// a[j] == v so distinct is false
-	v = vtbl_mk_false(eval->vtbl);
-	goto done;
+        // a[j] == v so distinct is false
+        v = vtbl_mk_false(eval->vtbl);
+        goto done;
       }
     }
     a[i] = v;
@@ -1013,184 +1013,184 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
 
       switch (term_kind(terms, t)) {
       case CONSTANT_TERM:
-	if (t == true_term) {
-	  v = vtbl_mk_true(eval->vtbl);
-	} else if (t == false_term) {
-	  v = vtbl_mk_false(eval->vtbl); 
-	} else {
-	  v = vtbl_mk_const(eval->vtbl, term_type(terms, t), constant_term_index(terms, t), 
-			    term_name(terms, t));
-	}
-	break;
+        if (t == true_term) {
+          v = vtbl_mk_true(eval->vtbl);
+        } else if (t == false_term) {
+          v = vtbl_mk_false(eval->vtbl); 
+        } else {
+          v = vtbl_mk_const(eval->vtbl, term_type(terms, t), constant_term_index(terms, t), 
+                            term_name(terms, t));
+        }
+        break;
 
       case ARITH_CONSTANT:
-	v = vtbl_mk_rational(eval->vtbl, rational_term_desc(terms, t));
-	break;
+        v = vtbl_mk_rational(eval->vtbl, rational_term_desc(terms, t));
+        break;
 
       case BV64_CONSTANT:
-	v = eval_bv64_constant(eval, bvconst64_term_desc(terms, t));
-	break;
+        v = eval_bv64_constant(eval, bvconst64_term_desc(terms, t));
+        break;
 
       case BV_CONSTANT:
-	v = eval_bv_constant(eval, bvconst_term_desc(terms, t));
-	break;
+        v = eval_bv_constant(eval, bvconst_term_desc(terms, t));
+        break;
 
       case VARIABLE:
-	// free variable
-	longjmp(eval->env, MDL_EVAL_FREEVAR_IN_TERM);
-	break;
+        // free variable
+        longjmp(eval->env, MDL_EVAL_FREEVAR_IN_TERM);
+        break;
 
       case UNINTERPRETED_TERM:
-	// t has no value mapped in the model 
-	if (eval->model->has_alias) {
-	  v = eval_uninterpreted(eval, t);
-	} else {
-	  longjmp(eval->env, MDL_EVAL_UNKNOWN_TERM);
-	}
-	break;
+        // t has no value mapped in the model 
+        if (eval->model->has_alias) {
+          v = eval_uninterpreted(eval, t);
+        } else {
+          longjmp(eval->env, MDL_EVAL_UNKNOWN_TERM);
+        }
+        break;
 
       case ARITH_EQ_ATOM:
-	v = eval_arith_eq(eval, arith_eq_arg(terms, t));
-	break;
+        v = eval_arith_eq(eval, arith_eq_arg(terms, t));
+        break;
 
       case ARITH_GE_ATOM:
-	v = eval_arith_ge(eval, arith_ge_arg(terms, t));
-	break;
+        v = eval_arith_ge(eval, arith_ge_arg(terms, t));
+        break;
 
       case ITE_TERM:
       case ITE_SPECIAL:
-	v = eval_ite(eval, ite_term_desc(terms, t));
-	break;
+        v = eval_ite(eval, ite_term_desc(terms, t));
+        break;
 
       case APP_TERM:
-	v = eval_app(eval, app_term_desc(terms, t));
-	break;
+        v = eval_app(eval, app_term_desc(terms, t));
+        break;
 
       case UPDATE_TERM:
-	v = eval_update(eval, update_term_desc(terms, t));
-	break;
+        v = eval_update(eval, update_term_desc(terms, t));
+        break;
 
       case TUPLE_TERM:
-	v = eval_tuple(eval, tuple_term_desc(terms, t));
-	break;
+        v = eval_tuple(eval, tuple_term_desc(terms, t));
+        break;
 
       case EQ_TERM:
-	v = eval_eq(eval, eq_term_desc(terms, t));
-	break;
+        v = eval_eq(eval, eq_term_desc(terms, t));
+        break;
 
       case DISTINCT_TERM:
-	v = eval_distinct(eval, distinct_term_desc(terms, t));
-	break;
+        v = eval_distinct(eval, distinct_term_desc(terms, t));
+        break;
 
       case FORALL_TERM:
-	// don't try to evaluate forall for now
-	// but we could deal with quantification over finite types
-	longjmp(eval->env, MDL_EVAL_QUANTIFIER);
-	break;
+        // don't try to evaluate forall for now
+        // but we could deal with quantification over finite types
+        longjmp(eval->env, MDL_EVAL_QUANTIFIER);
+        break;
 
       case LAMBDA_TERM:
-	// don't evaluate
-	longjmp(eval->env, MDL_EVAL_LAMBDA);
-	break;
+        // don't evaluate
+        longjmp(eval->env, MDL_EVAL_LAMBDA);
+        break;
 
       case OR_TERM:
-	v = eval_or(eval, or_term_desc(terms, t));
-	break;
+        v = eval_or(eval, or_term_desc(terms, t));
+        break;
 
       case XOR_TERM:
-	v = eval_xor(eval, xor_term_desc(terms, t));
-	break;
+        v = eval_xor(eval, xor_term_desc(terms, t));
+        break;
 
       case ARITH_BINEQ_ATOM:
-	v = eval_arith_bineq(eval, arith_bineq_atom_desc(terms, t));
-	break;
+        v = eval_arith_bineq(eval, arith_bineq_atom_desc(terms, t));
+        break;
 
       case BV_ARRAY:
-	v = eval_bv_array(eval, bvarray_term_desc(terms, t));
-	break;
+        v = eval_bv_array(eval, bvarray_term_desc(terms, t));
+        break;
 
       case BV_DIV:
-	v = eval_bv_div(eval, bvdiv_term_desc(terms, t));
-	break;
+        v = eval_bv_div(eval, bvdiv_term_desc(terms, t));
+        break;
 
       case BV_REM:
-	v = eval_bv_rem(eval, bvrem_term_desc(terms, t));
-	break;
+        v = eval_bv_rem(eval, bvrem_term_desc(terms, t));
+        break;
 
       case BV_SDIV:
-	v = eval_bv_sdiv(eval, bvsdiv_term_desc(terms, t));
-	break;
+        v = eval_bv_sdiv(eval, bvsdiv_term_desc(terms, t));
+        break;
 
       case BV_SREM:
-	v = eval_bv_srem(eval, bvsrem_term_desc(terms, t));
-	break;
+        v = eval_bv_srem(eval, bvsrem_term_desc(terms, t));
+        break;
 
       case BV_SMOD:
-	v = eval_bv_smod(eval, bvsmod_term_desc(terms, t));
-	break;
+        v = eval_bv_smod(eval, bvsmod_term_desc(terms, t));
+        break;
 
       case BV_SHL:
-	v = eval_bv_shl(eval, bvshl_term_desc(terms, t));
-	break;
+        v = eval_bv_shl(eval, bvshl_term_desc(terms, t));
+        break;
 
       case BV_LSHR:
-	v = eval_bv_lshr(eval, bvlshr_term_desc(terms, t));
-	break;
+        v = eval_bv_lshr(eval, bvlshr_term_desc(terms, t));
+        break;
 
       case BV_ASHR:
-	v = eval_bv_ashr(eval, bvashr_term_desc(terms, t));
-	break;
+        v = eval_bv_ashr(eval, bvashr_term_desc(terms, t));
+        break;
 
       case BV_EQ_ATOM:
-	v = eval_bveq(eval, bveq_atom_desc(terms, t));
-	break;
+        v = eval_bveq(eval, bveq_atom_desc(terms, t));
+        break;
 
       case BV_GE_ATOM:
-	v = eval_bvge(eval, bvge_atom_desc(terms, t));
-	break;
+        v = eval_bvge(eval, bvge_atom_desc(terms, t));
+        break;
 
       case BV_SGE_ATOM:
-	v = eval_bvsge(eval, bvsge_atom_desc(terms, t));
-	break;
+        v = eval_bvsge(eval, bvsge_atom_desc(terms, t));
+        break;
 
       case SELECT_TERM:
-	v = eval_select(eval, select_term_desc(terms, t));
-	break;
+        v = eval_select(eval, select_term_desc(terms, t));
+        break;
 
       case BIT_TERM:
-	v = eval_bit(eval, bit_term_desc(terms, t));
-	break;
+        v = eval_bit(eval, bit_term_desc(terms, t));
+        break;
 
       case POWER_PRODUCT:
-	if (is_bitvector_term(terms, t)) {
-	  v = eval_bv_pprod(eval, pprod_term_desc(terms, t), term_bitsize(terms, t));
-	} else {
-	  assert(is_arithmetic_term(terms, t));
-	  v = eval_arith_pprod(eval, pprod_term_desc(terms, t));
-	}
-	break;
+        if (is_bitvector_term(terms, t)) {
+          v = eval_bv_pprod(eval, pprod_term_desc(terms, t), term_bitsize(terms, t));
+        } else {
+          assert(is_arithmetic_term(terms, t));
+          v = eval_arith_pprod(eval, pprod_term_desc(terms, t));
+        }
+        break;
 
       case ARITH_POLY:
-	v = eval_arith_poly(eval, poly_term_desc(terms, t));
-	break;
+        v = eval_arith_poly(eval, poly_term_desc(terms, t));
+        break;
 
       case BV64_POLY:
-	v = eval_bv64_poly(eval, bvpoly64_term_desc(terms, t));
-	break;
+        v = eval_bv64_poly(eval, bvpoly64_term_desc(terms, t));
+        break;
 
       case BV_POLY:
-	v = eval_bv_poly(eval, bvpoly_term_desc(terms, t));
-	break;
+        v = eval_bv_poly(eval, bvpoly_term_desc(terms, t));
+        break;
 
       default:
-	assert(false);
-	longjmp(eval->env, MDL_EVAL_INTERNAL_ERROR);
-	break;
+        assert(false);
+        longjmp(eval->env, MDL_EVAL_INTERNAL_ERROR);
+        break;
       }
 
       // it the result v is unknown we quit now
       if (object_is_unknown(eval->vtbl, v)) {
-	longjmp(eval->env, MDL_EVAL_FAILED);
+        longjmp(eval->env, MDL_EVAL_FAILED);
       }
 
       eval_cache_map(eval, t, v);

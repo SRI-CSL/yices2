@@ -89,7 +89,7 @@ static void print_monomial(FILE *f, rational_t *coeff, int32_t x, bool first) {
     if (first) {
       fprintf(f, "-");
       if (x != const_idx) {
-	fprintf(f, " ");
+        fprintf(f, " ");
       }
     } else {
       fprintf(f, " - ");
@@ -143,7 +143,7 @@ static void print_arith_monomial(FILE *f, rational_t *coeff, pprod_t *r, bool fi
     if (first) {
       fprintf(f, "-");
       if (!pp_is_empty(r)) {
-	fprintf(f, " ");
+        fprintf(f, " ");
       }
     } else {
       fprintf(f, " - ");
@@ -581,7 +581,7 @@ static void print_mono_recur(FILE *f, term_table_t *tbl, rational_t *coeff, int3
     if (first) {
       fprintf(f, "-");
       if (x != const_idx) {
-	fprintf(f, " ");
+        fprintf(f, " ");
       }
     } else {
       fprintf(f, " - ");
@@ -872,7 +872,7 @@ static void print_term_idx_recur(FILE *f, term_table_t *tbl, int32_t i, int32_t 
       print_bvpoly64_term(f, tbl, tbl->desc[i].ptr, level - 1);
     }
     break;
-	
+        
   case BV_POLY:
     if (name != NULL && level <= 0) {
       fputs(name, f);
@@ -899,7 +899,7 @@ static void print_term_recur(FILE *f, term_table_t *tbl, term_t t, int32_t level
     if (is_neg_term(t)) {
       fputs("(not ", f);
       print_term_idx_recur(f, tbl, i, level - 1);
-      fputc(')', f);	
+      fputc(')', f);    
     } else {
       print_term_idx_recur(f, tbl, i, level);
     }
@@ -1000,10 +1000,10 @@ static uint32_t max_term_name_length(term_table_t *tbl) {
     if (tbl->kind[i] != UNUSED_TERM) {
       name = term_name(tbl, pos_term(i));
       if (name != NULL) {
-	l = strlen(name);
-	if (l > max) {
-	  max = l;
-	}
+        l = strlen(name);
+        if (l > max) {
+          max = l;
+        }
       }
     }
   }
@@ -1126,7 +1126,7 @@ static void print_named_monomial(FILE *f, term_table_t *tbl, rational_t *coeff, 
     if (first) {
       fprintf(f, "-");
       if (x != const_idx) {
-	fprintf(f, " ");
+        fprintf(f, " ");
       }
     } else {
       fprintf(f, " - ");
@@ -1168,7 +1168,7 @@ static void print_named_polynomial(FILE *f, term_table_t *tbl, polynomial_t *p) 
 
 // bitvector polynomials
 static void print_named_bvmono(FILE *f, term_table_t *tbl, uint32_t *coeff, 
-			       int32_t x, uint32_t n, bool first) {
+                               int32_t x, uint32_t n, bool first) {
   uint32_t w;
 
   w = (n + 31) >> 5;
@@ -1212,7 +1212,7 @@ static void print_named_bvpoly(FILE *f, term_table_t *tbl, bvpoly_t *p) {
 
 // bitvector polynomials with small coefficients
 static void print_named_bvmono64(FILE *f, term_table_t *tbl, uint64_t coeff, 
-				 int32_t x, uint32_t n, bool first) {
+                                 int32_t x, uint32_t n, bool first) {
   if (x == const_idx) {
     if (! first) fputs(" + ", f);
     print_bvconst64(f, coeff, n);
@@ -1277,58 +1277,58 @@ void print_term_table(FILE *f, term_table_t *tbl) {
       // definition
       switch (tbl->kind[i]) {
       case RESERVED_TERM:
-	fprintf(f, "reserved");
-	break;
+        fprintf(f, "reserved");
+        break;
 
       case CONSTANT_TERM:
-	if (i == bool_const) {
-	  fprintf(f, "true");
-	} else {
-	  fprintf(f, "(const %"PRId32" of type ", tbl->desc[i].integer);
-	  print_type_name(f, tbl->types, tbl->type[i]);
-	  fputc(')', f);
-	}
-	break;
+        if (i == bool_const) {
+          fprintf(f, "true");
+        } else {
+          fprintf(f, "(const %"PRId32" of type ", tbl->desc[i].integer);
+          print_type_name(f, tbl->types, tbl->type[i]);
+          fputc(')', f);
+        }
+        break;
 
       case UNINTERPRETED_TERM:
-	fprintf(f, "(unint of type ");
-	print_type_name(f, tbl->types, tbl->type[i]);
-	fputc(')', f);
-	break;
+        fprintf(f, "(unint of type ");
+        print_type_name(f, tbl->types, tbl->type[i]);
+        fputc(')', f);
+        break;
 
       case VARIABLE:
-	fprintf(f, "(var %"PRId32" of type ", tbl->desc[i].integer);
-	print_type_name(f, tbl->types, tbl->type[i]);
-	fputc(')', f);
-	break;
+        fprintf(f, "(var %"PRId32" of type ", tbl->desc[i].integer);
+        print_type_name(f, tbl->types, tbl->type[i]);
+        fputc(')', f);
+        break;
 
       case ARITH_CONSTANT:
-	q_print(f, &tbl->desc[i].rational);
-	break;
+        q_print(f, &tbl->desc[i].rational);
+        break;
 
       case BV64_CONSTANT:
-	print_bvconst64_term(f, tbl->desc[i].ptr);
-	break;
+        print_bvconst64_term(f, tbl->desc[i].ptr);
+        break;
 
       case BV_CONSTANT:
-	print_bvconst_term(f, tbl->desc[i].ptr);
-	break;
+        print_bvconst_term(f, tbl->desc[i].ptr);
+        break;
 
       case ARITH_EQ_ATOM:
-	fputs("(arith-eq ", f);
-	print_name_or_constant(f, tbl, tbl->desc[i].integer);
-	fputs(" 0)", f);
-	break;
+        fputs("(arith-eq ", f);
+        print_name_or_constant(f, tbl, tbl->desc[i].integer);
+        fputs(" 0)", f);
+        break;
 
       case ARITH_GE_ATOM:
-	fputs("(arith-ge ", f);
-	print_name_or_constant(f, tbl, tbl->desc[i].integer);
-	fputs(" 0)", f);
-	break;
+        fputs("(arith-ge ", f);
+        print_name_or_constant(f, tbl, tbl->desc[i].integer);
+        fputs(" 0)", f);
+        break;
 
       case APP_TERM:
-	print_app(f, tbl, tbl->desc[i].ptr);
-	break;
+        print_app(f, tbl, tbl->desc[i].ptr);
+        break;
 
       case ITE_TERM:
       case ITE_SPECIAL:
@@ -1353,34 +1353,34 @@ void print_term_table(FILE *f, term_table_t *tbl) {
       case BV_EQ_ATOM:
       case BV_GE_ATOM:
       case BV_SGE_ATOM:
-	// i's descriptor is a composite term 
-	print_composite(f, tbl, tbl->kind[i], tbl->desc[i].ptr);
-	break;
+        // i's descriptor is a composite term 
+        print_composite(f, tbl, tbl->kind[i], tbl->desc[i].ptr);
+        break;
 
       case SELECT_TERM:
       case BIT_TERM:
-	print_select(f, tbl, tbl->kind[i], &tbl->desc[i].select);
-	break;
+        print_select(f, tbl, tbl->kind[i], &tbl->desc[i].select);
+        break;
 
       case POWER_PRODUCT:
-	print_named_pprod(f, tbl, tbl->desc[i].ptr);
-	break;
+        print_named_pprod(f, tbl, tbl->desc[i].ptr);
+        break;
 
       case ARITH_POLY:
-	print_named_polynomial(f, tbl, tbl->desc[i].ptr);
-	break;
+        print_named_polynomial(f, tbl, tbl->desc[i].ptr);
+        break;
 
       case BV64_POLY:
-	print_named_bvpoly64(f, tbl, tbl->desc[i].ptr);
-	break;
+        print_named_bvpoly64(f, tbl, tbl->desc[i].ptr);
+        break;
 
       case BV_POLY:
-	print_named_bvpoly(f, tbl, tbl->desc[i].ptr);
-	break;
+        print_named_bvpoly(f, tbl, tbl->desc[i].ptr);
+        break;
 
       default:
-	fprintf(f, "bad-term-%"PRIu32, i);
-	break;
+        fprintf(f, "bad-term-%"PRIu32, i);
+        break;
       }
 
       fputc('\n', f);
@@ -1723,9 +1723,9 @@ static double p_score(term_table_t *tbl, term_t t) {
     n = d->arity;
     for (i=0; i<n; i++) {
       if (is_pos_term(d->arg[i])) {
-	score += 1.0;
+        score += 1.0;
       } else {
-	score -= 1.0;
+        score -= 1.0;
       }
     }
     break;
@@ -1856,7 +1856,7 @@ static void pp_mono(yices_pp_t *printer, term_table_t *tbl, rational_t *coeff, i
       p = pprod_term_desc(tbl, x);
       n = p->len;
       for (i=0; i<n; i++) {
-	pp_exponent(printer, tbl, p->prod[i].var, p->prod[i].exp, level);
+        pp_exponent(printer, tbl, p->prod[i].var, p->prod[i].exp, level);
       }
     } else {
       pp_term_recur(printer, tbl, x, level, true);
@@ -1899,7 +1899,7 @@ static void pp_bvmono64(yices_pp_t *printer, term_table_t *tbl, uint64_t c, uint
       p = pprod_term_desc(tbl, x);
       n = p->len;
       for (i=0; i<n; i++) {
-	pp_exponent(printer, tbl, p->prod[i].var, p->prod[i].exp, level);
+        pp_exponent(printer, tbl, p->prod[i].var, p->prod[i].exp, level);
       }
     } else {
       pp_term_recur(printer, tbl, x, level, true);
@@ -1946,7 +1946,7 @@ static void pp_bvmono(yices_pp_t *printer, term_table_t *tbl, uint32_t *c, uint3
       p = pprod_term_desc(tbl, x);
       n = p->len;
       for (i=0; i<n; i++) {
-	pp_exponent(printer, tbl, p->prod[i].var, p->prod[i].exp, level);
+        pp_exponent(printer, tbl, p->prod[i].var, p->prod[i].exp, level);
       }
     } else {
       pp_term_recur(printer, tbl, x, level, true);
@@ -2082,7 +2082,7 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
     op = polarity ? PP_OPEN_EQ : PP_OPEN_NEQ;
     pp_binary_atom(printer, tbl, op, tbl->desc[i].ptr, level - 1);
     break;
-		  
+                  
   case BV_GE_ATOM:
     op = polarity ? PP_OPEN_BV_GE : PP_OPEN_BV_LT;
     pp_binary_atom(printer, tbl, op, tbl->desc[i].ptr, level - 1);
@@ -2136,7 +2136,7 @@ static void pp_term_idx(yices_pp_t *printer, term_table_t *tbl, int32_t i, int32
     assert(polarity);
     pp_bvpoly64(printer, tbl, tbl->desc[i].ptr, level - 1);
     break;
-	
+        
   case BV_POLY:
     assert(polarity);
     pp_bvpoly(printer, tbl, tbl->desc[i].ptr, level - 1);

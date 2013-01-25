@@ -378,7 +378,7 @@ literal_t remap_table_find_root(remap_table_t *table, literal_t l) {
  */
 bool remap_table_mergeable(remap_table_t *table, literal_t l1, literal_t l2) {
   assert(0 <= var_of(l1) && var_of(l1) < table->nvars && 
-	 0 <= var_of(l2) && var_of(l2) < table->nvars);
+         0 <= var_of(l2) && var_of(l2) < table->nvars);
   return var_of(l1) != var_of(l2) && 
     (table->map[var_of(l1)] == null_literal || table->map[var_of(l2)] == null_literal);
 }
@@ -408,7 +408,7 @@ void remap_table_merge(remap_table_t *table, literal_t l1, literal_t l2) {
   literal_t aux;
 
   assert(remap_table_is_root(table, l1) && remap_table_is_root(table, l2) && 
-	 var_of(l1) != var_of(l2));
+         var_of(l1) != var_of(l2));
 
   if (table->map[var_of(l1)] != null_literal) {
     // swap l1 and l2

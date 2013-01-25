@@ -175,41 +175,41 @@ static void syntax_error(lexer_t *lex, FILE *err, yices_token_t expected_token) 
   switch (tk) {
   case TK_OPEN_STRING:
     fprintf(err, "missing string terminator \" (line %"PRId32", column %"PRId32")\n", 
-	    rd->line, rd->column);
+            rd->line, rd->column);
     break;
 
   case TK_EMPTY_BVCONST:
     fprintf(err, "invalid binary constant %s (line %"PRId32", column %"PRId32")\n", 
-	    tkval(lex), lex->tk_line, lex->tk_column);
+            tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
   case TK_EMPTY_HEXCONST:
     fprintf(err, "invalid hexadecimal constant %s (line %"PRId32", column %"PRId32")\n", 
-	    tkval(lex), lex->tk_line, lex->tk_column);
+            tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
   case TK_INVALID_NUM:
     fprintf(err, "invalid number %s (line %"PRId32", column %"PRId32")\n", 
-	    tkval(lex), lex->tk_line, lex->tk_column);
+            tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
   case TK_ZERO_DIVISOR:
     fprintf(err, "zero divisor in constant %s (line %"PRId32", column %"PRId32")\n", 
-	    tkval(lex), lex->tk_line, lex->tk_column);
+            tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
   case TK_ERROR:
     fprintf(err, "invalid token %s (line %"PRId32", column %"PRId32")\n", 
-	    tkval(lex), lex->tk_line, lex->tk_column);
+            tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
   default:
     if (expected_token != -1) {
       fprintf(err, "syntax error (line %"PRId32", column %"PRId32"): %s expected\n",
-	      lex->tk_line, lex->tk_column, yices_token_to_string(expected_token));
+              lex->tk_line, lex->tk_column, yices_token_to_string(expected_token));
     } else {
       fprintf(err, "syntax error (line %"PRId32", column %"PRId32")\n", 
-	      lex->tk_line, lex->tk_column);
+              lex->tk_line, lex->tk_column);
     }
     break;
   } 
@@ -259,8 +259,8 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
 
   assert(parser_stack_is_empty(stack));
   assert(tstack_is_empty(tstack) || 
-	 tstack->top_op == BUILD_TYPE ||
-	 tstack->top_op == BUILD_TERM);
+         tstack->top_op == BUILD_TYPE ||
+         tstack->top_op == BUILD_TERM);
 
   // prepare to catch exceptions in term stack operations
   exception = setjmp(tstack->env);
@@ -451,7 +451,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       tstack_eval(tstack);
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
 
@@ -470,7 +470,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       assert(! parser_stack_is_empty(stack));
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
       
@@ -479,7 +479,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       assert(! parser_stack_is_empty(stack));
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
       
@@ -488,7 +488,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       assert(! parser_stack_is_empty(stack));
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
       
@@ -498,7 +498,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       assert(! parser_stack_is_empty(stack));
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
       
@@ -554,7 +554,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       assert(! parser_stack_is_empty(stack));
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
             
@@ -563,7 +563,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       assert(! parser_stack_is_empty(stack));
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
 
@@ -572,7 +572,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       assert(! parser_stack_is_empty(stack));
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
 
@@ -581,7 +581,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       assert(! parser_stack_is_empty(stack));
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
 
@@ -591,7 +591,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       tstack_push_bvbin(tstack, tkval(lex) + 2, tklen(lex) - 2, &loc);
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
 
@@ -601,7 +601,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       tstack_push_bvhex(tstack, tkval(lex) + 2, tklen(lex) - 2, &loc);
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
 
@@ -611,7 +611,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       assert(! parser_stack_is_empty(stack));
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
       
@@ -1199,7 +1199,7 @@ extern term_t parse_yices_term(parser_t *parser, FILE *err) {
   tstack_eval(parser->tstack);
 
   assert(parser_stack_is_empty(&parser->pstack) && 
-	 tstack_is_empty(parser->tstack));
+         tstack_is_empty(parser->tstack));
 
   return tstack_get_term(parser->tstack);
 }
@@ -1223,7 +1223,7 @@ type_t parse_yices_type(parser_t *parser, FILE *err) {
   tstack_eval(parser->tstack);
 
   assert(parser_stack_is_empty(&parser->pstack) && 
-	 tstack_is_empty(parser->tstack));
+         tstack_is_empty(parser->tstack));
 
   return tstack_get_type(parser->tstack);
 }

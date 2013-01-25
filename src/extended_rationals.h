@@ -1,6 +1,6 @@
 /*
  * Extended numbers = pairs of rationals (c, d)
- * represeting a number of the form c + d.delta
+ * representing a number of the form c + d.delta
  * where delta is infinitesimal.
  */
 

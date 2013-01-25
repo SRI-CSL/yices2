@@ -15,7 +15,7 @@
  * via a bit vector anymore.
  *
  * March 07, 2007. Removed bvconstant as a separate representation.
- * They can be stored as bdd-arrays. That's simpler and does not cause
+ * They can be stored as bdd arrays. That's simpler and does not cause
  * much overhead.
  *
  * March 24, 2007. Removed mandatory names for uninterpreted constants.
@@ -235,7 +235,7 @@ typedef enum {
   BV_SMOD,          // remainder in signed division (rounding to -infinity)
   BV_SHL,           // shift left (padding with 0)
   BV_LSHR,          // logical shift right (padding with 0)
-  BV_ASHR,          // arithmetic shift right (padding wih sign bit)
+  BV_ASHR,          // arithmetic shift right (padding with sign bit)
   BV_EQ_ATOM,       // equality: (t1 == t2)
   BV_GE_ATOM,       // unsigned comparison: (t1 >= t2)
   BV_SGE_ATOM,      // signed comparison (t1 >= t2)
@@ -457,7 +457,7 @@ static inline void term_table_set_finalizer(term_table_t *table, special_finaliz
  */
 
 /* 
- * All term constructors return a term occurence and all the arguments
+ * All term constructors return a term occurrence and all the arguments
  * the constructors must be term occurrences (term index + polarity
  * bit). The constructors do not check type correctness or attempt any
  * simplification. They just do hash consing.
@@ -676,7 +676,7 @@ extern term_t bvsge_atom(term_table_t *table, term_t l, term_t r);
  * Store t as the unique term of type tau:
  * - tau must be a singleton type
  * - t must be a valid term of type tau
- * - there musn't be a representative for tau already
+ * - there mustn't be a representative for tau already
  */
 extern void add_unit_type_rep(term_table_t *table, type_t tau, term_t t);
 
@@ -1294,7 +1294,7 @@ static inline term_t bit_term_arg(term_table_t *table, term_t t) {
 // argument of arith eq and arith ge atoms
 static inline term_t arith_atom_arg(term_table_t *table, term_t t) {
   assert(term_kind(table, t) == ARITH_EQ_ATOM || 
-	 term_kind(table, t) == ARITH_GE_ATOM);
+         term_kind(table, t) == ARITH_GE_ATOM);
   return integer_value_for_idx(table, index_of(t));
 }
 

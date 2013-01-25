@@ -114,7 +114,7 @@ uint32_t rbtree_find(rbtree_t *tree, uint32_t x) {
   while (tree->data[i] != x) {
     k = (tree->data[i] < x);
     assert((k == 0 && x < tree->data[i]) ||
-	   (k == 1 && x > tree->data[i]));
+           (k == 1 && x > tree->data[i]));
     i = tree->node[i][k];
     assert(i < tree->nbnodes);
   }
@@ -225,20 +225,20 @@ static void rbtree_balance(rbtree_t *tree, uint32_t p, uint32_t q) {
       i = child_index(tree, r, q);
       j = child_index(tree, q, p);
       if (i != j) {
-	/*
-	 * Rotate p and q
-	 * q becomes a child of p
-	 * p becomes a child of r
-	 */
-	assert(q != 0 && p != 0 && r != 0 && 
-	       tree->node[r][i] == q &&
-	       tree->node[q][j] == p);
-	tree->node[r][i] = p;
-	tree->node[q][j] = tree->node[p][i];
-	tree->node[p][i] = q;
+        /*
+         * Rotate p and q
+         * q becomes a child of p
+         * p becomes a child of r
+         */
+        assert(q != 0 && p != 0 && r != 0 && 
+               tree->node[r][i] == q &&
+               tree->node[q][j] == p);
+        tree->node[r][i] = p;
+        tree->node[q][j] = tree->node[p][i];
+        tree->node[p][i] = q;
 
-	// prepare for second rotation:
-	q = p;
+        // prepare for second rotation:
+        q = p;
       }
 
       /*
@@ -248,13 +248,13 @@ static void rbtree_balance(rbtree_t *tree, uint32_t p, uint32_t q) {
       assert(tree->node[r][i] == q);
       p = ivector_pop2(&tree->stack);
       if (p == null_rbnode) {
-	assert(r == tree->root);
-	tree->root = q;
+        assert(r == tree->root);
+        tree->root = q;
       } else {
-	// p is r's parent
-	j = child_index(tree, p, r);
-	assert(tree->node[p][j] == r);
-	tree->node[p][j] = q;	
+        // p is r's parent
+        j = child_index(tree, p, r);
+        assert(tree->node[p][j] == r);
+        tree->node[p][j] = q;   
       }
       tree->node[r][i] = tree->node[q][1-i];
       tree->node[q][1-i] = r;
@@ -289,7 +289,7 @@ uint32_t rbtree_get(rbtree_t *tree, uint32_t x, bool *new_node) {
   while (tree->data[i] != x) {
     k = (tree->data[i] < x);
     assert((k == 0 && x < tree->data[i]) ||
-	   (k == 1 && x > tree->data[i]));    
+           (k == 1 && x > tree->data[i]));    
 
     // save p on the stack for balancing
     ivector_push(&tree->stack, p);
@@ -385,7 +385,7 @@ uint32_t rbtree_get_var(rbtree_t *tree, uint32_t x, bool *new_node) {
   while (tree->data[i] != x) {
     k = (tree->data[i] < x);
     assert((k == 0 && x < tree->data[i]) ||
-	   (k == 1 && x > tree->data[i]));    
+           (k == 1 && x > tree->data[i]));    
 
     p = i;
     i = tree->node[i][k];

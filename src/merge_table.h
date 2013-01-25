@@ -67,7 +67,7 @@ typedef struct mtbl_trail_s {
  * - the current maps is defined by map[0 ... top - 1]
  * - for any non-negative x: 
  *   parent[x] = map[x] if 0 <= x < top
- *   parent[x] = -1 otherwisee
+ *   parent[x] = -1 otherwise
  * - prev_top = value of top on the preceding call to push
  *   (or 0 initially)
  *   when map[x] is written, we need to save x on the undo

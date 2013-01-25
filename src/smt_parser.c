@@ -64,23 +64,23 @@ static void syntax_error(lexer_t *lex, smt_token_t expected_token) {
   switch (tk) {
   case SMT_TK_OPEN_STRING:
     fprintf(stderr, "missing string terminator \" (line %"PRId32", column %"PRId32")\n", 
-	    rd->line, rd->column);
+            rd->line, rd->column);
     return;
   case SMT_TK_OPEN_USER_VAL:
     fprintf(stderr, "missing user-value terminator } (line %"PRId32", column %"PRId32")\n", 
-	    rd->line, rd->column);
+            rd->line, rd->column);
     return;
   case SMT_TK_INVALID_NUMBER:
     fprintf(stderr, "invalid number %s (line %"PRId32", column %"PRId32")\n", 
-	    tkval(lex), lex->tk_line, lex->tk_column);
+            tkval(lex), lex->tk_line, lex->tk_column);
     return;
   case SMT_TK_ZERO_DIVISOR:
     fprintf(stderr, "zero divisor in constant %s (line %"PRId32", column %"PRId32")\n", 
-	    tkval(lex), lex->tk_line, lex->tk_column);
+            tkval(lex), lex->tk_line, lex->tk_column);
     return;
   case SMT_TK_ERROR:
     fprintf(stderr, "invalid token %s (line %"PRId32", column %"PRId32")\n", 
-	    tkval(lex), lex->tk_line, lex->tk_column);
+            tkval(lex), lex->tk_line, lex->tk_column);
     return;
 
   default:
@@ -96,22 +96,22 @@ static void syntax_error(lexer_t *lex, smt_token_t expected_token) {
     case SMT_TK_STRING:
     case SMT_TK_ATTRIBUTE:
       fprintf(stderr, "syntax error (line %"PRId32", column %"PRId32"): %s expected\n",
-	      lex->tk_line, lex->tk_column, smt_token_to_string(expected_token));
+              lex->tk_line, lex->tk_column, smt_token_to_string(expected_token));
       break;
 
     case SMT_TK_STATUS:
       fprintf(stderr, "syntax error (line %"PRId32", column %"PRId32"): status expected\n",
-	      lex->tk_line, lex->tk_column);
+              lex->tk_line, lex->tk_column);
       break;
 
     case SMT_TK_RATIONAL:
       fprintf(stderr, "syntax error (line %"PRId32", column %"PRId32"): number expected\n",
-	      lex->tk_line, lex->tk_column);
+              lex->tk_line, lex->tk_column);
       break;
 
     default:
       fprintf(stderr, "syntax error (line %"PRId32", column %"PRId32")\n", 
-	      lex->tk_line, lex->tk_column);
+              lex->tk_line, lex->tk_column);
       break;
     }
   } 
@@ -273,7 +273,7 @@ static void add_assertion(smt_benchmark_t *bench, term_t t) {
       n ++;
       n += n>>1;
       if (n > MAX_FSIZE) {
-	out_of_memory();
+        out_of_memory();
       }
     }
     bench->formulas = (term_t *) safe_realloc(bench->formulas, n * sizeof(term_t));
@@ -1191,16 +1191,16 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
       set_logic_name(bench, lex);
       smt_lexer_activate_logic(smt_logic_code(bench->logic_name));
       if (strcmp(bench->logic_name, "QF_UF") == 0) {
-	// declare the predefined type "U"
-	yices_set_type_name(builtins.utype, "U");
+        // declare the predefined type "U"
+        yices_set_type_name(builtins.utype, "U");
       } else if (strcmp(bench->logic_name, "QF_AX") == 0) {
-	/*
-	 * remap the predefined type "Array" to ax_array
-	 * declare the types Index and Element
-	 */
-	builtins.array = builtins.ax_array;
-	yices_set_type_name(builtins.index_type, "Index");
-	yices_set_type_name(builtins.elem_type, "Element");
+        /*
+         * remap the predefined type "Array" to ax_array
+         * declare the types Index and Element
+         */
+        builtins.array = builtins.ax_array;
+        yices_set_type_name(builtins.index_type, "Index");
+        yices_set_type_name(builtins.elem_type, "Element");
       }
       state = b8;
       goto loop;
@@ -1222,11 +1222,11 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
       // check logic name and parameter here.
       // save integer parameter of logic
       if (strcmp(bench->logic_name, "QF_UFBV") == 0) {
-	default_bvsize = bench->logic_parameter;
-	if (default_bvsize <= 0) {
-	  fprintf(stderr, "invalid bitsize in :theory QF_UFBV\n");
-	  goto cleanup;
-	}
+        default_bvsize = bench->logic_parameter;
+        if (default_bvsize <= 0) {
+          fprintf(stderr, "invalid bitsize in :theory QF_UFBV\n");
+          goto cleanup;
+        }
       }
       state = b3;
       goto loop;

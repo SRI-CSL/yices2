@@ -11,7 +11,7 @@
  * The propagator interface consists of the following functions:
  * 1) simplex_init_propagator
  *    called in start search after simplify_matrix but before the tableau is constructed
- *    and checked for feasibiliy
+ *    and checked for feasibility
  * 2) simplex_start_propagator
  *    called in start_search after tableau is constructed, feasible, and all initial bounds 
  *    are known
@@ -119,7 +119,7 @@ static void collect_relevant_prop_rows(simplex_solver_t *solver) {
     if (col != NULL) {
       // skip the bound if it's not the current upper/lower bound on x
       if (arith_var_lower_index(vtbl, x) == i || arith_var_upper_index(vtbl, x) == i) {
-	collect_prop_rows_for_variable(solver, col);
+        collect_prop_rows_for_variable(solver, col);
       }
     }
   }
@@ -142,7 +142,7 @@ static bool var_has_unassigned_atoms(simplex_solver_t *solver, thvar_t x) {
     n = iv_size(atom_vector);
     for (i=0; i<n; i++) {
       if (arith_atom_is_unmarked(atbl, atom_vector[i])) {
-	return true;
+        return true;
       }
     }
   }
@@ -186,9 +186,9 @@ static void explain_upper_bounds(simplex_solver_t *solver, thvar_t x, row_t *p, 
     if (y >= 0 && y != x) {
       // explain bound: a.y <= c
       if (q_is_pos(&p->data[i].coeff)) {
-	k = arith_var_upper_index(vtbl, y);
+        k = arith_var_upper_index(vtbl, y);
       } else {
-	k = arith_var_lower_index(vtbl, y);
+        k = arith_var_lower_index(vtbl, y);
       }
       assert(k >= 0);
       ivector_push(v, k);
@@ -217,9 +217,9 @@ static void explain_lower_bounds(simplex_solver_t *solver, thvar_t x, row_t *p, 
     if (y >= 0 && y != x) {
       // explain bound: a.y <= c
       if (q_is_pos(&p->data[i].coeff)) {
-	k = arith_var_lower_index(vtbl, y);
+        k = arith_var_lower_index(vtbl, y);
       } else {
-	k = arith_var_upper_index(vtbl, y);
+        k = arith_var_upper_index(vtbl, y);
       }
       assert(k >= 0);
       ivector_push(v, k);
@@ -350,23 +350,23 @@ static int32_t assertion_implied_by_lb(simplex_solver_t *solver, thvar_t x, xrat
        * cmp > 0 means b > c
        */
       if (atom_is_ge(atom)) {
-	if (cmp >= 0) {
-	  // implied atom: (x >= c) with (b >= c)
-	  if (a < 0 || q_lt(c, best)) {
-	    a = mk_true_assertion(k);
-	    best = c;
-	  }
-	  if (cmp == 0) break; //b == c: can't improve
-	}
+        if (cmp >= 0) {
+          // implied atom: (x >= c) with (b >= c)
+          if (a < 0 || q_lt(c, best)) {
+            a = mk_true_assertion(k);
+            best = c;
+          }
+          if (cmp == 0) break; //b == c: can't improve
+        }
       } else {
-	assert(atom_is_le(atom));
-	if (cmp > 0) {
-	  // implied atom: (not (x <= c)) with (b>c)
-	  if (a < 0 || q_le(c, best)) {
-	    a = mk_false_assertion(k);
-	    best = c;
-	  }
-	}
+        assert(atom_is_le(atom));
+        if (cmp > 0) {
+          // implied atom: (not (x <= c)) with (b>c)
+          if (a < 0 || q_le(c, best)) {
+            a = mk_false_assertion(k);
+            best = c;
+          }
+        }
       }
     }
   }
@@ -411,23 +411,23 @@ static int32_t assertion_implied_by_ub(simplex_solver_t *solver, thvar_t x, xrat
        * cmp > 0 means b > c
        */
       if (atom_is_ge(atom)) {
-	if (cmp < 0) {
-	  // implied atom: (not (x >= c)) with (b < c)
-	  if (a < 0 || q_le(c, best)) {
-	    a = mk_false_assertion(k);
-	    best = c;
-	  }
-	}
+        if (cmp < 0) {
+          // implied atom: (not (x >= c)) with (b < c)
+          if (a < 0 || q_le(c, best)) {
+            a = mk_false_assertion(k);
+            best = c;
+          }
+        }
       } else {
-	assert(atom_is_le(atom));
-	if (cmp <= 0) {
-	  // implied atom: (x <= c) with (b <= c)
-	  if (a < 0 || q_lt(c, best)) {
-	    a = mk_true_assertion(k);
-	    best = c;
-	  }
-	  if (c == 0) break; // can't improve on (x <= b)
-	}
+        assert(atom_is_le(atom));
+        if (cmp <= 0) {
+          // implied atom: (x <= c) with (b <= c)
+          if (a < 0 || q_lt(c, best)) {
+            a = mk_true_assertion(k);
+            best = c;
+          }
+          if (c == 0) break; // can't improve on (x <= b)
+        }
       }
     }
   }
@@ -595,18 +595,18 @@ static void all_assertions_implied_by_lb(simplex_solver_t *solver, thvar_t x, xr
       atom = arith_atom(atbl, k);
       assert(var_of_atom(atom) == x);
       if (atom_is_ge(atom)) {
-	// atom is (x >= c) where c = bound_of_atom(atom)
-	if (xq_ge_q(b, bound_of_atom(atom))) {
-	  // b >= c so k is implied by (x >= b)
-	  ivector_push(v, mk_true_assertion(k));
-	}
+        // atom is (x >= c) where c = bound_of_atom(atom)
+        if (xq_ge_q(b, bound_of_atom(atom))) {
+          // b >= c so k is implied by (x >= b)
+          ivector_push(v, mk_true_assertion(k));
+        }
       } else {
-	assert(atom_is_le(atom));
-	// atom is (x <= c) where c = bound_of_atom(atom)
-	if (xq_gt_q(b, bound_of_atom(atom))) {
-	  // b > c so (not k) (i.e., x > c) is implied by (x >= b)
-	  ivector_push(v, mk_false_assertion(k));
-	}
+        assert(atom_is_le(atom));
+        // atom is (x <= c) where c = bound_of_atom(atom)
+        if (xq_gt_q(b, bound_of_atom(atom))) {
+          // b > c so (not k) (i.e., x > c) is implied by (x >= b)
+          ivector_push(v, mk_false_assertion(k));
+        }
       }      
     }
   }
@@ -640,18 +640,18 @@ static void all_assertions_implied_by_ub(simplex_solver_t *solver, thvar_t x, xr
       atom = arith_atom(atbl, k);
       assert(var_of_atom(atom) == x);
       if (atom_is_ge(atom)) {
-	// atom is (x >= c) where c = bound_of_atom(atom)
-	if (xq_lt_q(b, bound_of_atom(atom))) {
-	  // b < c so (not k) (i.e., x < c) is implied by (x <= b)
-	  ivector_push(v, mk_false_assertion(k));
-	}
+        // atom is (x >= c) where c = bound_of_atom(atom)
+        if (xq_lt_q(b, bound_of_atom(atom))) {
+          // b < c so (not k) (i.e., x < c) is implied by (x <= b)
+          ivector_push(v, mk_false_assertion(k));
+        }
       } else {
-	assert(atom_is_le(atom));
-	// atom is (x <= c) where c = bound_of_atom(atom)
-	if (xq_le_q(b, bound_of_atom(atom))) {
-	  // b <= c so k is implied by (x <= b)
-	  ivector_push(v, mk_true_assertion(k));
-	}
+        assert(atom_is_le(atom));
+        // atom is (x <= c) where c = bound_of_atom(atom)
+        if (xq_le_q(b, bound_of_atom(atom))) {
+          // b <= c so k is implied by (x <= b)
+          ivector_push(v, mk_true_assertion(k));
+        }
       }      
     }
   }
@@ -717,7 +717,7 @@ static void multiple_theory_props(simplex_solver_t *solver, ivector_t *v, ivecto
       // BUG FIX: we check whether l is already applied (via an other row)
       assert(literal_value(solver->core, l) != VAL_FALSE);
       if (literal_value(solver->core, l) == VAL_UNDEF) {
-	propagate_literal(solver->core, l, expl);
+        propagate_literal(solver->core, l, expl);
       }
 
 #if MARK_DERIVED_ATOMS
@@ -835,9 +835,9 @@ static void try_upper_bound_propagation(simplex_solver_t *solver, thvar_t y, row
     } else if (x >= 0) {
       // sum := sum - upper_bound on a.x
       if (q_is_pos(&a->coeff)) {
-	k = arith_var_upper_index(vtbl, x);
+        k = arith_var_upper_index(vtbl, x);
       } else {
-	k = arith_var_lower_index(vtbl, x);
+        k = arith_var_lower_index(vtbl, x);
       }
 
 #if TRACE_PROPAGATION
@@ -867,16 +867,16 @@ static void try_upper_bound_propagation(simplex_solver_t *solver, thvar_t y, row
 
     if (useful_lower_bound(solver, y, sum)) {
       if (simplex_option_enabled(solver, SIMPLEX_FULLPROP)) {
-	w = &solver->aux_vector2;
-	assert(w->size == 0);
-	all_assertions_implied_by_lb(solver, y, sum, w);
-	all_theory_props_from_upper_bounds(solver, w, y, p);
-	ivector_reset(w);
+        w = &solver->aux_vector2;
+        assert(w->size == 0);
+        all_assertions_implied_by_lb(solver, y, sum, w);
+        all_theory_props_from_upper_bounds(solver, w, y, p);
+        ivector_reset(w);
       } else {
-	k = assertion_implied_by_lb(solver, y, sum);
-	if (k >= 0) {
-	  theory_prop_from_upper_bounds(solver, k, y, p);
-	}
+        k = assertion_implied_by_lb(solver, y, sum);
+        if (k >= 0) {
+          theory_prop_from_upper_bounds(solver, k, y, p);
+        }
       }
     }
 
@@ -892,17 +892,17 @@ static void try_upper_bound_propagation(simplex_solver_t *solver, thvar_t y, row
 
     if (useful_upper_bound(solver, y, sum)) {
       if (simplex_option_enabled(solver, SIMPLEX_FULLPROP)) {
-	w = &solver->aux_vector2;
-	assert(w->size == 0);
-	all_assertions_implied_by_ub(solver, y, sum, w);
-	all_theory_props_from_upper_bounds(solver, w, y, p);
-	ivector_reset(w);
+        w = &solver->aux_vector2;
+        assert(w->size == 0);
+        all_assertions_implied_by_ub(solver, y, sum, w);
+        all_theory_props_from_upper_bounds(solver, w, y, p);
+        ivector_reset(w);
 
       } else {
-	k = assertion_implied_by_ub(solver, y, sum);
-	if (k >= 0) {
-	  theory_prop_from_upper_bounds(solver, k, y, p);
-	}
+        k = assertion_implied_by_ub(solver, y, sum);
+        if (k >= 0) {
+          theory_prop_from_upper_bounds(solver, k, y, p);
+        }
       }      
     }
   }
@@ -948,9 +948,9 @@ static void try_lower_bound_propagation(simplex_solver_t *solver, thvar_t y, row
     } else if (x >= 0) {
       // sum := sum - lower_bound on a.x
       if (q_is_pos(&a->coeff)) {
-	k = arith_var_lower_index(vtbl, x);
+        k = arith_var_lower_index(vtbl, x);
       } else {
-	k = arith_var_upper_index(vtbl, x);
+        k = arith_var_upper_index(vtbl, x);
       }
 #if TRACE_PROPAGATION
       printf("     ");
@@ -979,16 +979,16 @@ static void try_lower_bound_propagation(simplex_solver_t *solver, thvar_t y, row
 
     if (useful_upper_bound(solver, y, sum)) {
       if (simplex_option_enabled(solver, SIMPLEX_FULLPROP)) {
-	w = &solver->aux_vector2;
-	assert(w->size == 0);
-	all_assertions_implied_by_ub(solver, y, sum, w);
-	all_theory_props_from_lower_bounds(solver, w, y, p);
-	ivector_reset(w);
+        w = &solver->aux_vector2;
+        assert(w->size == 0);
+        all_assertions_implied_by_ub(solver, y, sum, w);
+        all_theory_props_from_lower_bounds(solver, w, y, p);
+        ivector_reset(w);
       } else {
-	k = assertion_implied_by_ub(solver, y, sum);
-	if (k >= 0) {
-	  theory_prop_from_lower_bounds(solver, k, y, p);
-	}
+        k = assertion_implied_by_ub(solver, y, sum);
+        if (k >= 0) {
+          theory_prop_from_lower_bounds(solver, k, y, p);
+        }
       }
     
     }
@@ -1005,16 +1005,16 @@ static void try_lower_bound_propagation(simplex_solver_t *solver, thvar_t y, row
 
     if (useful_lower_bound(solver, y, sum)) {
       if (simplex_option_enabled(solver, SIMPLEX_FULLPROP)) {
-	w = &solver->aux_vector2;
-	assert(w->size == 0);
-	all_assertions_implied_by_lb(solver, y, sum, w);
-	all_theory_props_from_lower_bounds(solver, w, y, p);
-	ivector_reset(w);
+        w = &solver->aux_vector2;
+        assert(w->size == 0);
+        all_assertions_implied_by_lb(solver, y, sum, w);
+        all_theory_props_from_lower_bounds(solver, w, y, p);
+        ivector_reset(w);
       } else {
-	k = assertion_implied_by_lb(solver, y, sum);
-	if (k >= 0) {
-	  theory_prop_from_lower_bounds(solver, k, y, p);
-	}
+        k = assertion_implied_by_lb(solver, y, sum);
+        if (k >= 0) {
+          theory_prop_from_lower_bounds(solver, k, y, p);
+        }
       }
     
     }
@@ -1048,9 +1048,9 @@ static void add_upper_bounds(simplex_solver_t *solver, row_t *p, xrational_t *b)
     x = a->c_idx;
     if (x >= 0) {
       if (q_is_pos(&a->coeff)) {
-	k = arith_var_upper_index(vtbl, x);
+        k = arith_var_upper_index(vtbl, x);
       } else {
-	k = arith_var_lower_index(vtbl, x);
+        k = arith_var_lower_index(vtbl, x);
       }
       assert(k >= 0);
 
@@ -1090,9 +1090,9 @@ static void add_lower_bounds(simplex_solver_t *solver, row_t *p, xrational_t *b)
     x = a->c_idx;
     if (x >= 0) {
       if (q_is_pos(&a->coeff)) {
-	k = arith_var_lower_index(vtbl, x);
+        k = arith_var_lower_index(vtbl, x);
       } else {
-	k = arith_var_upper_index(vtbl, x);
+        k = arith_var_upper_index(vtbl, x);
       }
       assert(k >= 0);
 
@@ -1155,61 +1155,61 @@ static void full_upper_bound_propagation(simplex_solver_t *solver, row_t *p) {
       xq_set(aux, sum);
       xq_div(aux, &a->coeff);
       if (q_is_pos(&a->coeff)) {
-	k = arith_var_upper_index(vtbl, x);
-	assert(k >= 0);
-	xq_add(aux, bstack->bound + k);
+        k = arith_var_upper_index(vtbl, x);
+        assert(k >= 0);
+        xq_add(aux, bstack->bound + k);
 
 #if TRACE_PROPAGATION
-	printf("     implied bound: ");
-	print_simplex_var(stdout, solver, x);
-	printf(" >= ");
-	xq_print(stdout, aux);
-	printf("\n");
+        printf("     implied bound: ");
+        print_simplex_var(stdout, solver, x);
+        printf(" >= ");
+        xq_print(stdout, aux);
+        printf("\n");
 #endif
 
-	if (useful_lower_bound(solver, x, aux)) {
-	  if (simplex_option_enabled(solver, SIMPLEX_FULLPROP)) {
-	    w = &solver->aux_vector2;
-	    assert(w->size == 0);
-	    all_assertions_implied_by_lb(solver, x, aux, w);
-	    all_theory_props_from_upper_bounds(solver, w, x, p);
-	    ivector_reset(w);
-	  } else {
-	    k = assertion_implied_by_lb(solver, x, aux);
-	    if (k >= 0) {
-	      theory_prop_from_upper_bounds(solver, k, x, p);
-	    }
-	  }
+        if (useful_lower_bound(solver, x, aux)) {
+          if (simplex_option_enabled(solver, SIMPLEX_FULLPROP)) {
+            w = &solver->aux_vector2;
+            assert(w->size == 0);
+            all_assertions_implied_by_lb(solver, x, aux, w);
+            all_theory_props_from_upper_bounds(solver, w, x, p);
+            ivector_reset(w);
+          } else {
+            k = assertion_implied_by_lb(solver, x, aux);
+            if (k >= 0) {
+              theory_prop_from_upper_bounds(solver, k, x, p);
+            }
+          }
     
-	}
+        }
 
       } else {
-	k = arith_var_lower_index(vtbl, x);
-	assert(k >= 0);
-	xq_add(aux, bstack->bound + k);
+        k = arith_var_lower_index(vtbl, x);
+        assert(k >= 0);
+        xq_add(aux, bstack->bound + k);
 
 #if TRACE_PROPAGATION
-	printf("     implied bound: ");
-	print_simplex_var(stdout, solver, x);
-	printf(" <= ");
-	xq_print(stdout, aux);
-	printf("\n");
+        printf("     implied bound: ");
+        print_simplex_var(stdout, solver, x);
+        printf(" <= ");
+        xq_print(stdout, aux);
+        printf("\n");
 #endif
 
-	if (useful_upper_bound(solver, x, aux)) {
-	  if (simplex_option_enabled(solver, SIMPLEX_FULLPROP)) {
-	    w = &solver->aux_vector2;
-	    assert(w->size == 0);
-	    all_assertions_implied_by_ub(solver, x, aux, w);
-	    all_theory_props_from_upper_bounds(solver, w, x, p);
-	    ivector_reset(w);
-	  } else {
-	    k = assertion_implied_by_ub(solver, x, aux);
-	    if (k >= 0) {
-	      theory_prop_from_upper_bounds(solver, k, x, p);
-	    }
-	  }	  
-	}
+        if (useful_upper_bound(solver, x, aux)) {
+          if (simplex_option_enabled(solver, SIMPLEX_FULLPROP)) {
+            w = &solver->aux_vector2;
+            assert(w->size == 0);
+            all_assertions_implied_by_ub(solver, x, aux, w);
+            all_theory_props_from_upper_bounds(solver, w, x, p);
+            ivector_reset(w);
+          } else {
+            k = assertion_implied_by_ub(solver, x, aux);
+            if (k >= 0) {
+              theory_prop_from_upper_bounds(solver, k, x, p);
+            }
+          }       
+        }
       }
 
 
@@ -1271,61 +1271,61 @@ static void full_lower_bound_propagation(simplex_solver_t *solver, row_t *p) {
       xq_set(aux, sum);
       xq_div(aux, &a->coeff);
       if (q_is_pos(&a->coeff)) {
-	k = arith_var_lower_index(vtbl, x);
-	assert(k >= 0);
-	xq_add(aux, bstack->bound + k);
+        k = arith_var_lower_index(vtbl, x);
+        assert(k >= 0);
+        xq_add(aux, bstack->bound + k);
 
 #if TRACE_PROPAGATION
-	printf("     implied bound: ");
-	print_simplex_var(stdout, solver, x);
-	printf(" <= ");
-	xq_print(stdout, aux);
-	printf("\n");
+        printf("     implied bound: ");
+        print_simplex_var(stdout, solver, x);
+        printf(" <= ");
+        xq_print(stdout, aux);
+        printf("\n");
 #endif
 
-	if (useful_upper_bound(solver, x, aux)) {
-	  if (simplex_option_enabled(solver, SIMPLEX_FULLPROP)) {
-	    w = &solver->aux_vector2;
-	    assert(w->size == 0);
-	    all_assertions_implied_by_ub(solver, x, aux, w);
-	    all_theory_props_from_lower_bounds(solver, w, x, p);
-	    ivector_reset(w);
-	  } else {
-	    k = assertion_implied_by_ub(solver, x, aux);
-	    if (k >= 0) {
-	      theory_prop_from_lower_bounds(solver, k, x, p);
-	    }
-	  }
+        if (useful_upper_bound(solver, x, aux)) {
+          if (simplex_option_enabled(solver, SIMPLEX_FULLPROP)) {
+            w = &solver->aux_vector2;
+            assert(w->size == 0);
+            all_assertions_implied_by_ub(solver, x, aux, w);
+            all_theory_props_from_lower_bounds(solver, w, x, p);
+            ivector_reset(w);
+          } else {
+            k = assertion_implied_by_ub(solver, x, aux);
+            if (k >= 0) {
+              theory_prop_from_lower_bounds(solver, k, x, p);
+            }
+          }
     
-	}
+        }
 
       } else {
-	k = arith_var_upper_index(vtbl, x);
-	assert(k >= 0);
-	xq_add(aux, bstack->bound + k);
+        k = arith_var_upper_index(vtbl, x);
+        assert(k >= 0);
+        xq_add(aux, bstack->bound + k);
 
 #if TRACE_PROPAGATION
-	printf("     implied bound: ");
-	print_simplex_var(stdout, solver, x);
-	printf(" >= ");
-	xq_print(stdout, aux);
-	printf("\n");
+        printf("     implied bound: ");
+        print_simplex_var(stdout, solver, x);
+        printf(" >= ");
+        xq_print(stdout, aux);
+        printf("\n");
 #endif
 
-	if (useful_lower_bound(solver, x, aux)) {
-	  if (simplex_option_enabled(solver, SIMPLEX_FULLPROP)) {
-	    w = &solver->aux_vector2;
-	    assert(w->size == 0);
-	    all_assertions_implied_by_lb(solver, x, aux, w);
-	    all_theory_props_from_lower_bounds(solver, w, x, p);
-	    ivector_reset(w);
-	  } else {
-	    k = assertion_implied_by_lb(solver, x, aux);
-	    if (k >= 0) {
-	      theory_prop_from_lower_bounds(solver, k, x, p);
-	    }
-	  }
-	}
+        if (useful_lower_bound(solver, x, aux)) {
+          if (simplex_option_enabled(solver, SIMPLEX_FULLPROP)) {
+            w = &solver->aux_vector2;
+            assert(w->size == 0);
+            all_assertions_implied_by_lb(solver, x, aux, w);
+            all_theory_props_from_lower_bounds(solver, w, x, p);
+            ivector_reset(w);
+          } else {
+            k = assertion_implied_by_lb(solver, x, aux);
+            if (k >= 0) {
+              theory_prop_from_lower_bounds(solver, k, x, p);
+            }
+          }
+        }
 
       }
     }
@@ -1363,10 +1363,10 @@ static void check_row_propagation(simplex_solver_t *solver, row_t *p)  {
     if (x >= 0) {
       s = q_sgn(&a->coeff);
       if ((s > 0 && arith_var_lower_index(vtbl, x) < 0) ||
-	  (s < 0 && arith_var_upper_index(vtbl, x) < 0)) {
-	// no lower bound on monomial a.x
-	if (y >= 0) goto try_upper_bounds;
-	y = x;
+          (s < 0 && arith_var_upper_index(vtbl, x) < 0)) {
+        // no lower bound on monomial a.x
+        if (y >= 0) goto try_upper_bounds;
+        y = x;
       }
     }
     a ++;
@@ -1388,10 +1388,10 @@ static void check_row_propagation(simplex_solver_t *solver, row_t *p)  {
     if (x >= 0) {
       s = q_sgn(&a->coeff);
       if ((s > 0 && arith_var_upper_index(vtbl, x) < 0) ||
-	  (s < 0 && arith_var_lower_index(vtbl, x) < 0)) {
-	// no upper bound on a.x
-	if (y >= 0) goto done;
-	y = x;
+          (s < 0 && arith_var_lower_index(vtbl, x) < 0)) {
+        // no upper bound on a.x
+        if (y >= 0) goto done;
+        y = x;
       }
     }
     a ++;
@@ -1509,7 +1509,7 @@ static inline void simplex_delete_propagator(simplex_solver_t *solver) {
 static void simplex_start_propagator(simplex_solver_t *solver) {
 #if 0
   printf("---> after base_level_prop: %"PRIu32" bounds, th-prop = %"PRIu32", prop-lemmas = %"PRIu32" \n", 
-	 solver->bstack.top, solver->stats.num_props, solver->stats.num_prop_lemmas);
+         solver->bstack.top, solver->stats.num_props, solver->stats.num_prop_lemmas);
   fflush(stdout);
 #endif
 
@@ -1518,7 +1518,7 @@ static void simplex_start_propagator(simplex_solver_t *solver) {
 
 #if 0
   printf("---> after all_rows_prop: %"PRIu32" bounds, th-prop = %"PRIu32", prop-lemmas = %"PRIu32" \n", 
-	 solver->bstack.top, solver->stats.num_props, solver->stats.num_prop_lemmas);
+         solver->bstack.top, solver->stats.num_props, solver->stats.num_prop_lemmas);
   fflush(stdout);
 #endif
 }
@@ -1537,7 +1537,7 @@ static void simplex_do_propagation(simplex_solver_t *solver) {
  * explain_propagation: called in simplex_expand_explanation
  */
 static void simplex_explain_propagation(simplex_solver_t *solver, literal_t l, 
-					literal_t *expl, ivector_t *v) {  
+                                        literal_t *expl, ivector_t *v) {  
   literal_t l0;
 
   l0 = *expl ++;

@@ -215,16 +215,16 @@ static epartition_t *get_epartition(epartition_manager_t *m) {
     for (i=0; i<n; i++) {
       r = m->root[i];
       if (r >= 0) {
-	t = r;
-	do {
-	  assert(j < tmp->size);
-	  tmp->data[j] = t;
-	  j ++;
-	  t = m->next[t];
-	} while (t != r);
-	assert(j < tmp->size);
-	tmp->data[j] = NULL_TERM; // end marker
-	j ++;
+        t = r;
+        do {
+          assert(j < tmp->size);
+          tmp->data[j] = t;
+          j ++;
+          t = m->next[t];
+        } while (t != r);
+        assert(j < tmp->size);
+        tmp->data[j] = NULL_TERM; // end marker
+        j ++;
       }
     }
     assert(j == tmp->size);
@@ -420,10 +420,10 @@ void epartition_meet(epartition_manager_t *m, epartition_t *p) {
     do {
       d = epartition_class_of_term(m, t);
       if (d < 0) {
-	epartition_add_to_class(m, t, c);
+        epartition_add_to_class(m, t, c);
       } else if (d != c) {
-	epartition_merge_classes(m, d, c);
-	c = d;
+        epartition_merge_classes(m, d, c);
+        c = d;
       }
       t = *q ++;
     } while (t >= 0);

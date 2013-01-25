@@ -133,7 +133,7 @@ static clause_t *new_clause(uint32_t len, literal_t *lit) {
   uint32_t i;
 
   result = (clause_t *) safe_malloc(sizeof(clause_t) + sizeof(literal_t) + 
-				    len * sizeof(literal_t));
+                                    len * sizeof(literal_t));
 
   for (i=0; i<len; i++) {
     result->cl[i] = lit[i];
@@ -164,7 +164,7 @@ static clause_t *new_learned_clause(uint32_t len, literal_t *lit) {
   uint32_t i;
 
   tmp = (learned_clause_t *) safe_malloc(sizeof(learned_clause_t) + sizeof(literal_t) + 
-					 len * sizeof(literal_t));
+                                         len * sizeof(literal_t));
   tmp->activity = 0.0;
   result = &(tmp->clause);
 
@@ -315,10 +315,10 @@ static void add_literal_to_vector(literal_t **v, literal_t l) {
       n ++;
       n += n>>1; // new cap = 50% more than old capacity
       if (n > MAX_LITERAL_VECTOR_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
       vector = (literal_vector_t *) 
-	safe_realloc(vector, sizeof(literal_vector_t) + n * sizeof(literal_t));
+        safe_realloc(vector, sizeof(literal_vector_t) + n * sizeof(literal_t));
       vector->capacity = n;
       d = vector->data;
       *v = d;
@@ -1001,7 +1001,7 @@ static void assign_literal(bit_solver_t *solver, literal_t l) {
   assert(solver->value[l] == VAL_UNDEF);
   assert(solver->decision_level == solver->base_level);
 
-  solver->nb_unit_clauses ++;	
+  solver->nb_unit_clauses ++;   
 
   solver->value[l] = VAL_TRUE;
   solver->value[not(l)] = VAL_FALSE;
@@ -1365,9 +1365,9 @@ static inline bool clause_is_locked(bit_solver_t *solver, clause_t *cl) {
   l1 = get_second_watch(cl);
   
   return (solver->value[l0] != VAL_UNDEF && 
-	  solver->antecedent[var_of(l0)] == mk_clause0_antecedent(cl))
+          solver->antecedent[var_of(l0)] == mk_clause0_antecedent(cl))
     || (solver->value[l1] != VAL_UNDEF && 
-	solver->antecedent[var_of(l1)] == mk_clause1_antecedent(cl));
+        solver->antecedent[var_of(l1)] == mk_clause1_antecedent(cl));
 }
 
 
@@ -1550,8 +1550,8 @@ static void simplify_clause_set(bit_solver_t *solver) {
     n = get_cv_size(v);
     for (i=0; i<n; i++) {
       if (! is_clause_to_be_removed(v[i]) && 
-	  ! clause_is_locked(solver, v[i])) {
-	simplify_clause(solver, v[i]);
+          ! clause_is_locked(solver, v[i])) {
+        simplify_clause(solver, v[i]);
       }
     }
     solver->stats.prob_literals = solver->aux_literals;
@@ -1565,7 +1565,7 @@ static void simplify_clause_set(bit_solver_t *solver) {
     for (i=0; i<n; i++) {
       assert(! is_clause_to_be_removed(v[i]));
       if (! clause_is_locked(solver, v[i])) {
-	simplify_clause(solver, v[i]);
+        simplify_clause(solver, v[i]);
       }
     }
     solver->stats.learned_literals = solver->aux_literals;
@@ -1581,8 +1581,8 @@ static void simplify_clause_set(bit_solver_t *solver) {
     n = get_cv_size(v);
     for (i=0; i<n; i++) {
       if (! is_clause_to_be_removed(v[i]) && 
-	  ! clause_is_locked(solver, v[i])) {
-	mark_true_clause(solver, v[i]);
+          ! clause_is_locked(solver, v[i])) {
+        mark_true_clause(solver, v[i]);
       }
     }
     solver->stats.prob_literals = solver->aux_literals;
@@ -1595,7 +1595,7 @@ static void simplify_clause_set(bit_solver_t *solver) {
     for (i=0; i<n; i++) {
       assert(! is_clause_to_be_removed(v[i]));
       if (! clause_is_locked(solver, v[i])) {
-	mark_true_clause(solver, v[i]);
+        mark_true_clause(solver, v[i]);
       }
     }
     solver->stats.learned_literals = solver->aux_literals;
@@ -1618,10 +1618,10 @@ static void simplify_clause_set(bit_solver_t *solver) {
     j = 0;
     for (i=0; i<n; i++) {
       if (is_clause_to_be_removed(v[i])) {
-	delete_clause(v[i]);
+        delete_clause(v[i]);
       } else {
-	v[j] = v[i];
-	j ++;
+        v[j] = v[i];
+        j ++;
       }
     }
     set_cv_size(v, j);
@@ -1697,12 +1697,12 @@ static void simplify_binary_vectors(bit_solver_t *solver) {
     if (v0 != NULL) {
       n = get_lv_size(v0);
       for (j=0; j<n; j++) {
-	l1 = v0[j];
-	if (solver->value[l1] == VAL_UNDEF) {
-	  // sol->bin[l1] is non null.
-	  assert(solver->bin[l1] != NULL);
-	  cleanup_binary_clause_vector(solver, solver->bin[l1]);
-	}
+        l1 = v0[j];
+        if (solver->value[l1] == VAL_UNDEF) {
+          // sol->bin[l1] is non null.
+          assert(solver->bin[l1] != NULL);
+          cleanup_binary_clause_vector(solver, solver->bin[l1]);
+        }
       }
 
       delete_literal_vector(v0);
@@ -1739,7 +1739,7 @@ static void simplify_binary_vectors(bit_solver_t *solver) {
  */
 static void simplify_clause_database(bit_solver_t *solver) {
   assert(solver->decision_level == solver->base_level && 
-	 solver->stack.top == solver->stack.prop_ptr);
+         solver->stack.top == solver->stack.prop_ptr);
 
   solver->stats.simplify_calls ++;
   simplify_clause_set(solver);
@@ -2025,43 +2025,43 @@ static inline bool propagation_via_watched_list(bit_solver_t *sol, uint8_t *val,
       k = 1;
       b = cl->cl;
       do {
-	k ++;
-	l = b[k];
+        k ++;
+        l = b[k];
       } while (val[l] == VAL_FALSE);
       
       if (l >= 0) {
-	/*
-	 * l occurs in b[k] = cl->cl[k] and is either TRUE or UNDEF
-	 * make l a new watched literal
-	 * - swap b[i] and b[k]
+        /*
+         * l occurs in b[k] = cl->cl[k] and is either TRUE or UNDEF
+         * make l a new watched literal
+         * - swap b[i] and b[k]
          * - insert cl into l's watched list (link[i])
-	 */
-	b[k] = b[i];
-	b[i] = l;
+         */
+        b[k] = b[i];
+        b[i] = l;
 
-	// insert cl in watch[l] list and move to the next clause
-	link = cl->link[i];
-	sol->watch[l] = cons(i, cl, sol->watch[l]);
+        // insert cl in watch[l] list and move to the next clause
+        link = cl->link[i];
+        sol->watch[l] = cons(i, cl, sol->watch[l]);
 
       } else {
-	/*
-	 * All literals of cl, except possibly l1, are false
-	 */
-	if (v1 == VAL_UNDEF) {
-	  // l1 is implied
-	  implied_literal(sol, l1, mk_clause_antecedent(cl, i^1));
+        /*
+         * All literals of cl, except possibly l1, are false
+         */
+        if (v1 == VAL_UNDEF) {
+          // l1 is implied
+          implied_literal(sol, l1, mk_clause_antecedent(cl, i^1));
 
-	  // move to the next clause
-	  *list = link;
-	  list = cl->link + i;
-	  link = cl->link[i];
+          // move to the next clause
+          *list = link;
+          list = cl->link + i;
+          link = cl->link[i];
 
-	} else {
-	  // v1 == VAL_FALSE: conflict found
-	  record_clause_conflict(sol, cl);
-	  *list = link;
-	  return false;
-	}
+        } else {
+          // v1 == VAL_FALSE: conflict found
+          record_clause_conflict(sol, cl);
+          *list = link;
+          return false;
+        }
       }
     }
   }
@@ -2271,12 +2271,12 @@ static bool analyze_antecedents(bit_solver_t *sol, literal_t l, uint32_t sgn) {
     l1 = c[i];
     while (l1 >= 0) {
       if (is_lit_unmarked(sol, l1)) {
-	if (check_level(sol, l1, sgn)) {
-	  set_lit_mark(sol, l1);
-	  ivector_push(b, l1);
-	} else {
-	  return false;
-	}
+        if (check_level(sol, l1, sgn)) {
+          set_lit_mark(sol, l1);
+          ivector_push(b, l1);
+        } else {
+          return false;
+        }
       }
       i ++;
       l1 = c[i];
@@ -2488,48 +2488,48 @@ static void analyze_conflict(bit_solver_t *sol) {
     if (is_lit_marked(sol, b)) {
       assert(sol->level[var_of(b)] == conflict_level);
       if (unresolved == 1) {
-	// b is the UIP literal we're done.
-	buffer->data[0] = not(b);
-	break;
+        // b is the UIP literal we're done.
+        buffer->data[0] = not(b);
+        break;
 
       } else {
-	unresolved --;
-	clear_lit_mark(sol, b);
-	a = sol->antecedent[var_of(b)];
-	/*
-	 * Process b's antecedent:
-	 */
-	switch (antecedent_tag(a)) {
-	case clause0_tag:
-	case clause1_tag:
-	  cl = clause_antecedent(a);
-	  i = clause_index(a);
-	  c = cl->cl;
-	  assert(c[i] == b);
-	  // process other watched literal
-	  l = c[i^1];
-	  process_literal(l);
-	  // rest of the clause
-	  c += 2;
-	  l = *c;
-	  while (l >= 0) {
-	    process_literal(l);
-	    c ++;
-	    l = *c;
-	  }
-	  if (l == end_learned) {
-	    increase_clause_activity(sol, cl);
-	  }
-	  break;
+        unresolved --;
+        clear_lit_mark(sol, b);
+        a = sol->antecedent[var_of(b)];
+        /*
+         * Process b's antecedent:
+         */
+        switch (antecedent_tag(a)) {
+        case clause0_tag:
+        case clause1_tag:
+          cl = clause_antecedent(a);
+          i = clause_index(a);
+          c = cl->cl;
+          assert(c[i] == b);
+          // process other watched literal
+          l = c[i^1];
+          process_literal(l);
+          // rest of the clause
+          c += 2;
+          l = *c;
+          while (l >= 0) {
+            process_literal(l);
+            c ++;
+            l = *c;
+          }
+          if (l == end_learned) {
+            increase_clause_activity(sol, cl);
+          }
+          break;
 
-	case literal_tag:
-	  l = literal_antecedent(a);
-	  process_literal(l);
-	  break;
+        case literal_tag:
+          l = literal_antecedent(a);
+          process_literal(l);
+          break;
 
-	case generic_tag:
-	  assert(false);
-	}
+        case generic_tag:
+          assert(false);
+        }
       }
     }
   }
@@ -2619,7 +2619,7 @@ static inline void backtrack(bit_solver_t *sol, uint32_t back_level) {
 
     assert(sol->value[l] == VAL_TRUE);
     assert(sol->level[var_of(l)] > back_level || 
-	   (sol->level[var_of(l)] == 0 && is_lit_marked(sol, l)));
+           (sol->level[var_of(l)] == 0 && is_lit_marked(sol, l)));
 
     sol->value[l] = VAL_UNDEF;
     sol->value[not(l)] = VAL_UNDEF;
@@ -2657,34 +2657,34 @@ static smt_status_t bit_solver_search(bit_solver_t *sol, uint32_t conflict_bound
        * No conflict
        */
       if (nb_conflicts >= conflict_bound) {
-      	if (sol->decision_level > sol->base_level) {
-	  backtrack(sol, sol->base_level);
-	}
-      	return STATUS_SEARCHING;
+        if (sol->decision_level > sol->base_level) {
+          backtrack(sol, sol->base_level);
+        }
+        return STATUS_SEARCHING;
       }
 
       // Simplify at the base level 
       //      if (sol->decision_level == sol->base_level &&
       if (sol->decision_level == sol->base_level &&
-	  sol->stack.top > sol->simplify_bottom && 
-	  sol->stats.propagations >= sol->simplify_props + sol->simplify_threshold) {
-	simplify_clause_database(sol);
-	sol->simplify_bottom = sol->stack.top;
-	sol->simplify_props = sol->stats.propagations;
-	sol->simplify_threshold = sol->stats.learned_literals + sol->stats.prob_literals + 2 * sol->nb_bin_clauses;
+          sol->stack.top > sol->simplify_bottom && 
+          sol->stats.propagations >= sol->simplify_props + sol->simplify_threshold) {
+        simplify_clause_database(sol);
+        sol->simplify_bottom = sol->stack.top;
+        sol->simplify_props = sol->stats.propagations;
+        sol->simplify_threshold = sol->stats.learned_literals + sol->stats.prob_literals + 2 * sol->nb_bin_clauses;
       }
 
       // Delete half the learned clauses if the threshold is reached
       // then increase the threshold
       if (get_cv_size(sol->learned_clauses) >= sol->reduce_threshold) {
-	reduce_learned_clause_set(sol);
-	sol->reduce_threshold = (uint32_t) (sol->reduce_threshold * REDUCE_FACTOR);
+        reduce_learned_clause_set(sol);
+        sol->reduce_threshold = (uint32_t) (sol->reduce_threshold * REDUCE_FACTOR);
       }
 
       l = select_literal(sol);
       if (l == null_literal) {
-	sol->status = STATUS_SAT;
-	return STATUS_SAT;
+        sol->status = STATUS_SAT;
+        return STATUS_SAT;
       }
       // assign l to true
       bit_solver_decide_literal(sol, l);
@@ -2698,8 +2698,8 @@ static smt_status_t bit_solver_search(bit_solver_t *sol, uint32_t conflict_bound
 
       // Check if UNSAT
       if (sol->decision_level == sol->base_level) {
-	sol->status = STATUS_UNSAT;
-	return STATUS_UNSAT;
+        sol->status = STATUS_UNSAT;
+        return STATUS_UNSAT;
       }
 
       // Otherwise: deal with the conflict
@@ -2714,16 +2714,16 @@ static smt_status_t bit_solver_search(bit_solver_t *sol, uint32_t conflict_bound
 
       // Add the learned clause and set the implied literal (UIP)
       if (n >= 3) {
-	cl = add_learned_clause(sol, n, b);
-	implied_literal(sol, l, mk_clause0_antecedent(cl));
+        cl = add_learned_clause(sol, n, b);
+        implied_literal(sol, l, mk_clause0_antecedent(cl));
 
       } else if (n == 2) {
-	bit_solver_add_binary_clause(sol, l, b[1]);
-	implied_literal(sol, l, mk_literal_antecedent(b[1]));
+        bit_solver_add_binary_clause(sol, l, b[1]);
+        implied_literal(sol, l, mk_literal_antecedent(b[1]));
 
       } else {
-	assert(n == 1);
-	assign_literal(sol, l);
+        assert(n == 1);
+        assign_literal(sol, l);
       }
 
       decay_var_activities(&sol->heap);
@@ -2834,7 +2834,7 @@ static void process_saved_units(bit_solver_t *solver) {
  */
 bool bit_solver_assume(bit_solver_t *solver, literal_t l) {
   assert(solver->status == STATUS_SEARCHING && 
-	 solver->base_level == solver->decision_level);
+         solver->base_level == solver->decision_level);
 
   ivector_push(&solver->assumptions, l);
 
@@ -2944,37 +2944,37 @@ static void bit_solver_get_assumptions(bit_solver_t *solver, literal_t *c, ivect
       switch (antecedent_tag(a)) {
       case clause0_tag:
       case clause1_tag:
-	cl = clause_antecedent(a);
-	c = cl->cl;
-	l = *c;
-	do {
-	  assert(l >= 0);
-	  if (l != b) {
-	    assert(solver->value[l] == VAL_FALSE);
-	    if (is_lit_unmarked(solver, l)) {
-	      set_lit_mark(solver, l);
-	      unresolved ++;
-	    }
-	  }
-	  c ++;
-	  l = *c;
-	} while (l >= 0);
-	break;
+        cl = clause_antecedent(a);
+        c = cl->cl;
+        l = *c;
+        do {
+          assert(l >= 0);
+          if (l != b) {
+            assert(solver->value[l] == VAL_FALSE);
+            if (is_lit_unmarked(solver, l)) {
+              set_lit_mark(solver, l);
+              unresolved ++;
+            }
+          }
+          c ++;
+          l = *c;
+        } while (l >= 0);
+        break;
 
       case literal_tag:
-	l = literal_antecedent(a);
-	if (l == null_literal) {
-	  // b is an assumption: add it to vector v
-	  ivector_push(v, b);
-	} else if (is_lit_unmarked(solver, l)) {
-	  // mark l to be resolved
-	  set_lit_mark(solver, l);
-	  unresolved ++;
-	}
-	break;
+        l = literal_antecedent(a);
+        if (l == null_literal) {
+          // b is an assumption: add it to vector v
+          ivector_push(v, b);
+        } else if (is_lit_unmarked(solver, l)) {
+          // mark l to be resolved
+          set_lit_mark(solver, l);
+          unresolved ++;
+        }
+        break;
 
       case generic_tag:
-	assert(false);
+        assert(false);
       }
     }
 
@@ -2991,7 +2991,7 @@ void bit_solver_get_unsat_core(bit_solver_t *solver, ivector_t *v) {
   literal_t l;
 
   assert(solver->status == STATUS_UNSAT && 
-	 solver->base_level == solver->decision_level);
+         solver->base_level == solver->decision_level);
 
   c = solver->conflict;
   l = *c;
@@ -3107,17 +3107,17 @@ smt_status_t bit_solver_check(bit_solver_t *sol) {
 
 #if TRACE
   printf("\n"
-	 "  Bit solver check: %"PRIu32" assumptions, %"PRIu32" variables\n"
-	 "                            Unit    Binary   Problem   Learned   Learned    Decisions\n"
-	 "           C         D   Clauses   Clauses   Clauses   Clauses     Lits.\n",
-	 bit_solver_num_assumptions(sol), bit_solver_nvars(sol));
+         "  Bit solver check: %"PRIu32" assumptions, %"PRIu32" variables\n"
+         "                            Unit    Binary   Problem   Learned   Learned    Decisions\n"
+         "           C         D   Clauses   Clauses   Clauses   Clauses     Lits.\n",
+         bit_solver_num_assumptions(sol), bit_solver_nvars(sol));
 #endif
 
   do {
 #if TRACE
     printf("    %8"PRIu32"  %8"PRIu32"  %8"PRIu32"  %8"PRIu32"  %8"PRIu32"  %8"PRIu32"  %8"PRIu64"     %8"PRIu64"\n",
-	   c_threshold, d_threshold, sol->nb_unit_clauses, sol->nb_bin_clauses, sol->nb_prob_clauses, 
-	   get_cv_size(sol->learned_clauses), sol->stats.learned_literals, sol->stats.decisions);
+           c_threshold, d_threshold, sol->nb_unit_clauses, sol->nb_bin_clauses, sol->nb_prob_clauses, 
+           get_cv_size(sol->learned_clauses), sol->stats.learned_literals, sol->stats.decisions);
     fflush(stdout);
 #endif
 
@@ -3128,7 +3128,7 @@ smt_status_t bit_solver_check(bit_solver_t *sol) {
       c_threshold = INITIAL_RESTART_THRESHOLD;
       d_threshold = (uint32_t)(d_threshold * RESTART_FACTOR_D);
       if (d_threshold > MAX_DTHRESHOLD) {
-	d_threshold = MAX_DTHRESHOLD;
+        d_threshold = MAX_DTHRESHOLD;
       }
     }
  

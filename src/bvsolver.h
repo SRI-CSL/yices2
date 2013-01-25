@@ -82,7 +82,7 @@ extern thvar_t bv_solver_create_const64(bv_solver_t *solver, bvconst64_term_t *c
  * Internalize the polynomial p
  * - map defines how terms of p are replaced by variables of solver:
  *   if p is of the form a_0 t_0 + ... + a_n t_n
- *   then map containts n+1 elements variables, and map[i] is the internalization of t_i
+ *   then map contains n+1 elements variables, and map[i] is the internalization of t_i
  * - exception: if t_0 is const_idx then map[0] = null_thvar
  */
 extern thvar_t bv_solver_create_bvpoly(bv_solver_t *solver, bvpoly_t *p, thvar_t *map);

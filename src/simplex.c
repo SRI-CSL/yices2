@@ -464,7 +464,7 @@ static void arith_trail_save(arith_trail_stack_t *stack, uint32_t nv, uint32_t n
     } else {
       n += n;
       if (n >= MAX_SIMPLEX_TRAIL_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
     }
     stack->data = (arith_trail_t *) safe_realloc(stack->data, n * sizeof(arith_trail_t));
@@ -1334,16 +1334,16 @@ static void create_binary_lemma(simplex_solver_t *solver, arith_atom_t *atom1, a
   case LE_ATM:
     if (tag_of_atom(atom2) == GE_ATM) {
       if (q_lt(a, b)) {
-	add_binary_clause(solver->core, not(l1), not(l2));  // (x > a) or (x > b)
+        add_binary_clause(solver->core, not(l1), not(l2));  // (x > a) or (x > b)
       } else {
-	add_binary_clause(solver->core, l1, l2);   // (x <= a) or (x >= b)
+        add_binary_clause(solver->core, l1, l2);   // (x <= a) or (x >= b)
       }
     } else {
       assert(tag_of_atom(atom2) == LE_ATM);
       if (q_le(a, b)) {
-	add_binary_clause(solver->core, not(l1), l2);  // (x <= a) ==> (x <= b)
+        add_binary_clause(solver->core, not(l1), l2);  // (x <= a) ==> (x <= b)
       } else {
-	add_binary_clause(solver->core, l1, not(l2));  // (x > a) ==> (x > b))
+        add_binary_clause(solver->core, l1, not(l2));  // (x > a) ==> (x > b))
       }
     }
     break;
@@ -1352,16 +1352,16 @@ static void create_binary_lemma(simplex_solver_t *solver, arith_atom_t *atom1, a
     switch (tag_of_atom(atom2)) {
     case GE_ATM:
       if (q_ge(a, b)) {
-	add_binary_clause(solver->core, not(l1), l2); // (x == a) ==> (x >= b))
+        add_binary_clause(solver->core, not(l1), l2); // (x == a) ==> (x >= b))
       } else {
-	add_binary_clause(solver->core, not(l1), not(l2));  // (x == a) ==> (x < b)
+        add_binary_clause(solver->core, not(l1), not(l2));  // (x == a) ==> (x < b)
       }
       break;
     case LE_ATM:
       if (q_le(a, b)) {
-	add_binary_clause(solver->core, not(l1), l2);   // (x == a) ==> (x <= b)
+        add_binary_clause(solver->core, not(l1), l2);   // (x == a) ==> (x <= b)
       } else {
-	add_binary_clause(solver->core, not(l1), not(l2)); // (x == a) ==> (x > b);
+        add_binary_clause(solver->core, not(l1), not(l2)); // (x == a) ==> (x > b);
       }
       break;
     case EQ_ATM:
@@ -1393,10 +1393,10 @@ static void build_binary_lemmas_for_atom(simplex_solver_t *solver, thvar_t x, in
       assert(var_of_atom(atom1) == x);
       n = iv_size(atom_vector);
       for (i=0; i<n; i++) {
-	id2 = atom_vector[i];
-	assert(id != id2);
-	atom2 = arith_atom(atbl, id2);
-	create_binary_lemma(solver, atom1, atom2);
+        id2 = atom_vector[i];
+        assert(id != id2);
+        atom2 = arith_atom(atbl, id2);
+        create_binary_lemma(solver, atom1, atom2);
       }
     }
   }
@@ -1431,7 +1431,7 @@ static bool trivial_variable(arith_vartable_t *tbl, thvar_t x) {
   polynomial_t *q;
 
   assert(arith_var_kind(tbl, x) == AVAR_FREE ||
-	 arith_var_kind(tbl, x) == AVAR_POLY);
+         arith_var_kind(tbl, x) == AVAR_POLY);
 
   /*
    * arith_var_def returns a void* pointer
@@ -2112,15 +2112,15 @@ static void add_eq_or_diseq_axiom(simplex_solver_t *solver, bool tt) {
     // Add the clause (or (not (p >= 0)) (not (p <= 0)))
     l = simplify_eq_atom(solver, &l1, &l2);
     if (l == null_literal) {
-      	// l1 is (p >= 0), l2 is (p <= 0): assert (or (not l1) (not l2))
-	add_binary_clause(solver->core, not(l1), not(l2));
+        // l1 is (p >= 0), l2 is (p <= 0): assert (or (not l1) (not l2))
+        add_binary_clause(solver->core, not(l1), not(l2));
 
 #if TRACE
-	printf("---> adding clause: ");
-	print_binary_clause(stdout, not(l1), not(l2));
-	printf("\n");
-	print_simplex_atomdef(stdout, solver, var_of(l1));
-	print_simplex_atomdef(stdout, solver, var_of(l2));
+        printf("---> adding clause: ");
+        print_binary_clause(stdout, not(l1), not(l2));
+        printf("\n");
+        print_simplex_atomdef(stdout, solver, var_of(l1));
+        print_simplex_atomdef(stdout, solver, var_of(l2));
 #endif
 
     } else if (l == true_literal) {
@@ -2197,23 +2197,23 @@ static void add_ge_axiom(simplex_solver_t *solver, bool tt) {
       // TODO: strengthen more if x is a polynomial (divide by GCD of x's coefficients)
       q_floor(&solver->constant);
       if (tt) {
-	// (p >= 0) is equivalent to (x <= constant)
-	add_ub_axiom(solver, x, &solver->constant, false);
+        // (p >= 0) is equivalent to (x <= constant)
+        add_ub_axiom(solver, x, &solver->constant, false);
       } else {
-	// not (p >= 0) is equivalent to (x >= constant + 1)
-	q_add_one(&solver->constant);
-	add_lb_axiom(solver, x, &solver->constant, false);
+        // not (p >= 0) is equivalent to (x >= constant + 1)
+        q_add_one(&solver->constant);
+        add_lb_axiom(solver, x, &solver->constant, false);
       }
     } else {
       // TODO: strengthen more if x is a polynomial (divide by GCD of x's coefficients)
       q_ceil(&solver->constant);
       if (tt) {
-	// (p >= 0) is equivalent to (x >= constant)
-	add_lb_axiom(solver, x, &solver->constant, false);
+        // (p >= 0) is equivalent to (x >= constant)
+        add_lb_axiom(solver, x, &solver->constant, false);
       } else {
-	// not (p >= 0) is equivalent to (x <= constant - 1)
-	q_sub_one(&solver->constant);
-	add_ub_axiom(solver, x, &solver->constant, false);
+        // not (p >= 0) is equivalent to (x <= constant - 1)
+        q_sub_one(&solver->constant);
+        add_ub_axiom(solver, x, &solver->constant, false);
       }
     }
 
@@ -2734,7 +2734,7 @@ static void simplex_simplify_matrix(simplex_solver_t *solver) {
       // must be kept too
       set_bit(keep, i);
       if (trivial_variable(vtbl, i)) {
-	mark_vars_of_poly(keep, arith_var_def(vtbl, i));
+        mark_vars_of_poly(keep, arith_var_def(vtbl, i));
       }
     }
   }
@@ -2976,22 +2976,22 @@ static void simplex_init_assignment(simplex_solver_t *solver) {
 #if 0
       i = arith_var_lower_index(vtbl, x);
       if (i < 0) {
-      	i = arith_var_upper_index(vtbl, x);
+        i = arith_var_upper_index(vtbl, x);
       }
 #else
       // test: give priority to upper bound
       i = arith_var_upper_index(vtbl, x);
       if (i < 0) {
-      	i = arith_var_lower_index(vtbl, x);
+        i = arith_var_lower_index(vtbl, x);
       }
 #endif
 
       v = arith_var_value(vtbl, x);
       if (i >= 0) {
-	xq_set(v, bound + i);
-	simplex_set_bound_flags(solver, x);
+        xq_set(v, bound + i);
+        simplex_set_bound_flags(solver, x);
       } else {
-	xq_clear(v);
+        xq_clear(v);
       }
     }
   }
@@ -3042,15 +3042,15 @@ static void update_non_basic_var_value(simplex_solver_t *solver, thvar_t x, xrat
     for (i=0; i<n; i++) {
       r = col->data[i].r_idx;
       if (r >= 0) {
-	y = matrix_basic_var(matrix, r);
-	v = arith_var_value(vtbl, y);
-	k = col->data[i].r_ptr;
-	xq_submul(v, delta, matrix_coeff(matrix, r, k));
+        y = matrix_basic_var(matrix, r);
+        v = arith_var_value(vtbl, y);
+        k = col->data[i].r_ptr;
+        xq_submul(v, delta, matrix_coeff(matrix, r, k));
 
-	// add y to the heap if the new value is not within its bounds
-	if (! value_within_bounds(solver, y, v)) {
-	  int_heap_add(&solver->infeasible_vars, y);
-	}
+        // add y to the heap if the new value is not within its bounds
+        if (! value_within_bounds(solver, y, v)) {
+          int_heap_add(&solver->infeasible_vars, y);
+        }
       }
     }
   }
@@ -3314,7 +3314,7 @@ static uint32_t entering_var_score(simplex_solver_t *solver, thvar_t x, uint32_t
   thvar_t y;
 
   assert(0 <= x && x < solver->matrix.ncolumns && 
-	 x != const_idx && matrix_is_nonbasic_var(&solver->matrix, x));
+         x != const_idx && matrix_is_nonbasic_var(&solver->matrix, x));
 
   score = 0;
   if (! simplex_free_variable(solver, x)) {
@@ -3331,8 +3331,8 @@ static uint32_t entering_var_score(simplex_solver_t *solver, thvar_t x, uint32_t
       y = matrix_basic_var(matrix, r);
       assert(y >= 0);
       if (! simplex_free_variable(solver, y)) {
-	score ++;
-	if (score > best_score) goto done;
+        score ++;
+        if (score > best_score) goto done;
       }
     }
   }
@@ -3405,9 +3405,9 @@ static int32_t find_entering_var_for_increase(simplex_solver_t *solver, row_t *r
     for (i=0; i<n; i++) {
       y = row->data[i].c_idx;
       if (y >= 0 && y != x && y < best_score && 
-	  possible_entering_var_for_increase(vtbl, y, &row->data[i].coeff)) {
-	best_score = y;
-	best_i = i;
+          possible_entering_var_for_increase(vtbl, y, &row->data[i].coeff)) {
+        best_score = y;
+        best_i = i;
       }
     }
 
@@ -3419,21 +3419,21 @@ static int32_t find_entering_var_for_increase(simplex_solver_t *solver, row_t *r
     for (i=0; i<n; i++) {
       y = row->data[i].c_idx;
       if (y >= 0 && y != x && 
-	  possible_entering_var_for_increase(vtbl, y, &row->data[i].coeff)) {
-	score = entering_var_score(solver, y, best_score);
+          possible_entering_var_for_increase(vtbl, y, &row->data[i].coeff)) {
+        score = entering_var_score(solver, y, best_score);
 
-	if (score < best_score) {
-	  // better variable
-	  best_score = score;
-	  best_i = i;
-	  k = 1;
-	} else if (score == best_score) {
-	  // pick uniformly among all variables with the same score
-	  k ++;
-	  if (random_uint(k) == 0) {
-	    best_i = i;
-	  }
-	}
+        if (score < best_score) {
+          // better variable
+          best_score = score;
+          best_i = i;
+          k = 1;
+        } else if (score == best_score) {
+          // pick uniformly among all variables with the same score
+          k ++;
+          if (random_uint(k) == 0) {
+            best_i = i;
+          }
+        }
 
       }
     }
@@ -3488,9 +3488,9 @@ static int32_t find_entering_var_for_decrease(simplex_solver_t *solver, row_t *r
     for (i=0; i<n; i++) {
       y = row->data[i].c_idx;
       if (y >= 0 && y != x && y < best_score && 
-	  possible_entering_var_for_decrease(vtbl, y, &row->data[i].coeff)) {
-	best_score = y;
-	best_i = i;
+          possible_entering_var_for_decrease(vtbl, y, &row->data[i].coeff)) {
+        best_score = y;
+        best_i = i;
       }
     }
 
@@ -3502,21 +3502,21 @@ static int32_t find_entering_var_for_decrease(simplex_solver_t *solver, row_t *r
     for (i=0; i<n; i++) {
       y = row->data[i].c_idx;
       if (y >= 0 && y != x && 
-	  possible_entering_var_for_decrease(vtbl, y, &row->data[i].coeff)) {
-	score = entering_var_score(solver, y, best_score);
+          possible_entering_var_for_decrease(vtbl, y, &row->data[i].coeff)) {
+        score = entering_var_score(solver, y, best_score);
 
-	if (score < best_score) {
-	  // better variable
-	  best_score = score;
-	  best_i = i;
-	  k = 1;
-	} else if (score == best_score) {
-	  // pick uniformly among all variables with the same score
-	  k ++;
-	  if (random_uint(k) == 0) {
-	    best_i = i;
-	  }
-	}
+        if (score < best_score) {
+          // better variable
+          best_score = score;
+          best_i = i;
+          k = 1;
+        } else if (score == best_score) {
+          // pick uniformly among all variables with the same score
+          k ++;
+          if (random_uint(k) == 0) {
+            best_i = i;
+          }
+        }
 
       }
     }
@@ -3553,11 +3553,11 @@ static void build_conflict_for_increase(simplex_solver_t *solver, row_t *row, th
     y = row->data[i].c_idx;
     if (y >= 0 && y != x) {
       if (q_is_pos(&row->data[i].coeff)) {
-	// a>0: we need the explanation for the lower bound on y
-	k = arith_var_lower_index(vtbl, y);
+        // a>0: we need the explanation for the lower bound on y
+        k = arith_var_lower_index(vtbl, y);
       } else {
-	// a<0: we need the explanation for the upper bound on y
-	k = arith_var_upper_index(vtbl, y);
+        // a<0: we need the explanation for the upper bound on y
+        k = arith_var_upper_index(vtbl, y);
       }
       enqueue_cnstr_index(v, k, &solver->bstack);
     }
@@ -3603,11 +3603,11 @@ static void build_conflict_for_decrease(simplex_solver_t *solver, row_t *row, th
     y = row->data[i].c_idx;
     if (y >= 0 && y != x) {
       if (q_is_pos(&row->data[i].coeff)) {
-	// a>0: we need the explanation for the upper bound on y
-	k = arith_var_upper_index(vtbl, y);
+        // a>0: we need the explanation for the upper bound on y
+        k = arith_var_upper_index(vtbl, y);
       } else {
-	// a<0: we need the explanation for the lower bound on y
-	k = arith_var_lower_index(vtbl, y);
+        // a<0: we need the explanation for the lower bound on y
+        k = arith_var_lower_index(vtbl, y);
       }
       enqueue_cnstr_index(v, k, &solver->bstack);
     }
@@ -3665,7 +3665,7 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
   vtbl = &solver->vtbl;
 
   /*
-   * leaving variables are stored in aux_vector	
+   * leaving variables are stored in aux_vector 
    * and marked in vtbl
    */
   leaving_vars = &solver->aux_vector;
@@ -3694,34 +3694,34 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
       // find an entering variable that allows x to increase
       k = find_entering_var_for_increase(solver, row, x);
       if (k < 0) {
-	// no entering variable ==> conflict
-	build_conflict_for_increase(solver, row, x);
-	int_heap_add(&solver->infeasible_vars, x); // x is still infeasible
-	feasible = false;
-	solver->last_conflict_row = r;
-	break;
+        // no entering variable ==> conflict
+        build_conflict_for_increase(solver, row, x);
+        int_heap_add(&solver->infeasible_vars, x); // x is still infeasible
+        feasible = false;
+        solver->last_conflict_row = r;
+        break;
       } else {
-	// pivot: make the entering variable basic
-	matrix_pivot(matrix, r, k);
-	update_to_lower_bound(solver, x);
-	solver->stats.num_pivots ++;
+        // pivot: make the entering variable basic
+        matrix_pivot(matrix, r, k);
+        update_to_lower_bound(solver, x);
+        solver->stats.num_pivots ++;
       }
 
     } else if (variable_above_upper_bound(solver, x)) {
       // find an entering variable that allows x to decrease
       k = find_entering_var_for_decrease(solver, row, x);
       if (k < 0) {
-	// no entering variable ==> conflict
-	build_conflict_for_decrease(solver, row, x);
-	int_heap_add(&solver->infeasible_vars, x); // x is still infeasible
-	feasible = false;
-	solver->last_conflict_row = r;
-	break;
+        // no entering variable ==> conflict
+        build_conflict_for_decrease(solver, row, x);
+        int_heap_add(&solver->infeasible_vars, x); // x is still infeasible
+        feasible = false;
+        solver->last_conflict_row = r;
+        break;
       } else {
-	// pivot: make the entering variable basic
-	matrix_pivot(matrix, r, k);
-	update_to_upper_bound(solver, x);
-	solver->stats.num_pivots ++;
+        // pivot: make the entering variable basic
+        matrix_pivot(matrix, r, k);
+        update_to_upper_bound(solver, x);
+        solver->stats.num_pivots ++;
       }
     }
 
@@ -3732,14 +3732,14 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
        *   pivoting round
        */
       if (! arith_var_is_marked(vtbl, x)) {
-	set_arith_var_mark(vtbl, x);
-	ivector_push(leaving_vars, x);
+        set_arith_var_mark(vtbl, x);
+        ivector_push(leaving_vars, x);
       } else {
-	repeats ++;
-	if (repeats > solver->bland_threshold) {
-	  solver->use_blands_rule = true;
-	  solver->stats.num_blands ++;
-	}
+        repeats ++;
+        if (repeats > solver->bland_threshold) {
+          solver->use_blands_rule = true;
+          solver->stats.num_blands ++;
+        }
       }
     }
   }
@@ -3810,26 +3810,26 @@ static void simplex_fix_nonbasic_assignment(simplex_solver_t *solver) {
        */
       cmp = xq_cmp(arith_var_value(vtbl, x), bstack->bound + i);
       if (cmp < 0) {
-	// value < lower-bound
-	if (matrix_is_nonbasic_var(matrix, x)) {	     
-	  // x is non-basic: correct its value
-	  update_to_lower_bound(solver, x);
+        // value < lower-bound
+        if (matrix_is_nonbasic_var(matrix, x)) {             
+          // x is non-basic: correct its value
+          update_to_lower_bound(solver, x);
 #if TRACE
-	  printf("     val[");
-	  print_simplex_var(stdout, solver, x);
-	  printf("] := ");
-	  xq_print(stdout, arith_var_value(vtbl, x));
-	  printf("\n");
+          printf("     val[");
+          print_simplex_var(stdout, solver, x);
+          printf("] := ");
+          xq_print(stdout, arith_var_value(vtbl, x));
+          printf("\n");
 #endif
-	} else {
-	  // x is basic: add it to the heap
-	  int_heap_add(&solver->infeasible_vars, x);
-	}
+        } else {
+          // x is basic: add it to the heap
+          int_heap_add(&solver->infeasible_vars, x);
+        }
 
       } else if (cmp == 0) {
-	// value == lower-bound: set the lower-bound flag on x
-	// this is required for non-basic vars and irrelevant for basic vars
-	set_arith_var_lb(vtbl, x);
+        // value == lower-bound: set the lower-bound flag on x
+        // this is required for non-basic vars and irrelevant for basic vars
+        set_arith_var_lb(vtbl, x);
       }
 
     } else if (constraint_is_upper_bound(bstack, i) && arith_var_upper_index(vtbl, x) == i) {
@@ -3838,24 +3838,24 @@ static void simplex_fix_nonbasic_assignment(simplex_solver_t *solver) {
        */
       cmp = xq_cmp(arith_var_value(vtbl, x), bstack->bound + i);
       if (cmp > 0) {
-	// value > upper bound
-	if (matrix_is_nonbasic_var(matrix, x)) {
-	  // correct x's value
-	  update_to_upper_bound(solver, x);
+        // value > upper bound
+        if (matrix_is_nonbasic_var(matrix, x)) {
+          // correct x's value
+          update_to_upper_bound(solver, x);
 #if TRACE
-	  printf("     val[");
-	  print_simplex_var(stdout, solver, x);
-	  printf("] := ");
-	  xq_print(stdout, arith_var_value(vtbl, x));
-	  printf("\n");
+          printf("     val[");
+          print_simplex_var(stdout, solver, x);
+          printf("] := ");
+          xq_print(stdout, arith_var_value(vtbl, x));
+          printf("\n");
 #endif
-	} else {
-	  // x is basic: add it to the heap
-	  int_heap_add(&solver->infeasible_vars, x);
-	}
+        } else {
+          // x is basic: add it to the heap
+          int_heap_add(&solver->infeasible_vars, x);
+        }
       } else if (cmp == 0) {
-	// value == upper bound: set the upper-bound flag on x
-	set_arith_var_ub(vtbl, x);
+        // value == upper bound: set the upper-bound flag on x
+        set_arith_var_ub(vtbl, x);
       }
     }
   }
@@ -4212,40 +4212,40 @@ static void check_lower_bound_implications(simplex_solver_t *solver, uint32_t i,
       assert(var_of_atom(p) == solver->bstack.var[i]);
       switch (tag_of_atom(p)) {
       case GE_ATM:
-	/*
-	 * x >= a implies x >= b  if a >= b
-	 */
-	if (xq_ge_q(a, bound_of_atom(p))) {
+        /*
+         * x >= a implies x >= b  if a >= b
+         */
+        if (xq_ge_q(a, bound_of_atom(p))) {
 
 #if TRACE
-	  printf("---> atom[%"PRId32"]:\t", atm);
-	  print_simplex_atom(stdout, solver, atm);
-	  printf("\t\tis true by ");
-	  print_simplex_bound(stdout, solver, i);
-	  printf("\n");
+          printf("---> atom[%"PRId32"]:\t", atm);
+          print_simplex_atom(stdout, solver, atm);
+          printf("\t\tis true by ");
+          print_simplex_bound(stdout, solver, i);
+          printf("\n");
 #endif
-	  simplex_implied_literal(solver, atm, i, pos_lit(boolvar_of_atom(p)));
+          simplex_implied_literal(solver, atm, i, pos_lit(boolvar_of_atom(p)));
 
-	}
-	break;
+        }
+        break;
       case LE_ATM:
       case EQ_ATM:
-	/*
-	 * x >= a implies (not x <= b) if a > b
-	 * x >= a implies (not x == b) if a > b
-	 */
-	if (xq_gt_q(a, bound_of_atom(p))) {
+        /*
+         * x >= a implies (not x <= b) if a > b
+         * x >= a implies (not x == b) if a > b
+         */
+        if (xq_gt_q(a, bound_of_atom(p))) {
 
 #if TRACE
-	  printf("---> atom[%"PRId32"]:\t", atm);
-	  print_simplex_atom(stdout, solver, atm);
-	  printf("\t\tis false by ");
-	  print_simplex_bound(stdout, solver, i);
-	  printf("\n");
+          printf("---> atom[%"PRId32"]:\t", atm);
+          print_simplex_atom(stdout, solver, atm);
+          printf("\t\tis false by ");
+          print_simplex_bound(stdout, solver, i);
+          printf("\n");
 #endif
-	  simplex_implied_literal(solver, atm, i, neg_lit(boolvar_of_atom(p)));
-	}
-	break;
+          simplex_implied_literal(solver, atm, i, neg_lit(boolvar_of_atom(p)));
+        }
+        break;
       }
     }
   }
@@ -4270,41 +4270,41 @@ static void check_upper_bound_implications(simplex_solver_t *solver, uint32_t i,
       assert(var_of_atom(p) == solver->bstack.var[i]);
       switch (tag_of_atom(p)) {
       case LE_ATM:
-	/*
-	 * x <= a implies x <= b  if a <= b
-	 */
-	if (xq_le_q(a, bound_of_atom(p))) {
+        /*
+         * x <= a implies x <= b  if a <= b
+         */
+        if (xq_le_q(a, bound_of_atom(p))) {
 
 #if TRACE
-	  printf("---> atom[%"PRId32"]:\t", atm);
-	  print_simplex_atom(stdout, solver, atm);
-	  printf("\t\tis true by ");
-	  print_simplex_bound(stdout, solver, i);
-	  printf("\n");
+          printf("---> atom[%"PRId32"]:\t", atm);
+          print_simplex_atom(stdout, solver, atm);
+          printf("\t\tis true by ");
+          print_simplex_bound(stdout, solver, i);
+          printf("\n");
 #endif
 
-	  simplex_implied_literal(solver, atm, i, pos_lit(boolvar_of_atom(p)));
-	}
-	break;
+          simplex_implied_literal(solver, atm, i, pos_lit(boolvar_of_atom(p)));
+        }
+        break;
       case GE_ATM:
       case EQ_ATM:
-	/*
-	 * x <= a implies (not x >= b) if a < b
-	 * x <= a implies (not x == b) if a < b
-	 */
-	if (xq_lt_q(a, bound_of_atom(p))) {
+        /*
+         * x <= a implies (not x >= b) if a < b
+         * x <= a implies (not x == b) if a < b
+         */
+        if (xq_lt_q(a, bound_of_atom(p))) {
 
 #if TRACE
-	  printf("---> atom[%"PRId32"]:\t", atm);
-	  print_simplex_atom(stdout, solver, atm);
-	  printf("\t\tis false by ");
-	  print_simplex_bound(stdout, solver, i);
-	  printf("\n");
+          printf("---> atom[%"PRId32"]:\t", atm);
+          print_simplex_atom(stdout, solver, atm);
+          printf("\t\tis false by ");
+          print_simplex_bound(stdout, solver, i);
+          printf("\n");
 #endif
 
-	  simplex_implied_literal(solver, atm, i, neg_lit(boolvar_of_atom(p)));
-	}
-	break;
+          simplex_implied_literal(solver, atm, i, neg_lit(boolvar_of_atom(p)));
+        }
+        break;
       }
     }
   }  
@@ -4325,7 +4325,7 @@ static void simplex_literal_propagation(simplex_solver_t *solver) {
   thvar_t x;
 
   assert(solver->assertion_queue.prop_ptr == solver->assertion_queue.top &&
-	 solver->bstack.fix_ptr == solver->bstack.top);
+         solver->bstack.fix_ptr == solver->bstack.top);
 
   bstack = &solver->bstack;
   vtbl = &solver->vtbl;
@@ -4338,10 +4338,10 @@ static void simplex_literal_propagation(simplex_solver_t *solver) {
        * bound[i] is a constraint on x
        */
       if (constraint_is_lower_bound(bstack, i)) {
-	check_lower_bound_implications(solver, i, bstack->bound + i, atom_vector);
+        check_lower_bound_implications(solver, i, bstack->bound + i, atom_vector);
       } else {
-	assert(constraint_is_upper_bound(bstack, i));
-	check_upper_bound_implications(solver, i, bstack->bound + i, atom_vector);
+        assert(constraint_is_upper_bound(bstack, i));
+        check_upper_bound_implications(solver, i, bstack->bound + i, atom_vector);
       }
     }
   }
@@ -4594,7 +4594,7 @@ static void simplex_restore_matrix(simplex_solver_t *solver) {
 
   if (! solver->matrix_ready) {
     assert(solver->save_rows && solver->matrix.nrows == 0 && 
-	   solver->matrix.ncolumns == 0);
+           solver->matrix.ncolumns == 0);
 
     // rebuild n empty columns in the matrix
     matrix_add_columns(&solver->matrix, solver->vtbl.nvars);
@@ -4612,7 +4612,7 @@ static void simplex_restore_matrix(simplex_solver_t *solver) {
     for (i=1; i<n; i++) {
       p = arith_var_def(&solver->vtbl, i);
       if (p != NULL && !simple_poly(p)) {
-	matrix_add_eq(&solver->matrix, i, p->mono, p->nterms);
+        matrix_add_eq(&solver->matrix, i, p->mono, p->nterms);
       }
     }
 
@@ -4882,11 +4882,11 @@ static void make_integer_vars_nonbasic(simplex_solver_t *solver) {
       row = matrix_row(matrix, i);
       k = find_real_var_in_row(solver, row);
       if (k >= 0) {
-	matrix_pivot(matrix, i, k);
-	solver->stats.num_pivots ++;
+        matrix_pivot(matrix, i, k);
+        solver->stats.num_pivots ++;
 
-	// make sure the ub/lb flags for x are correct
-	simplex_set_bound_flags(solver, x); 
+        // make sure the ub/lb flags for x are correct
+        simplex_set_bound_flags(solver, x); 
       }
     }
   }
@@ -4923,7 +4923,7 @@ static bool assign_integers_to_nonbasic_vars(simplex_solver_t *solver) {
   n = vtbl->nvars;
   for (i=0; i<n; i++) {
     if (arith_var_is_int(vtbl, i) && matrix_is_nonbasic_var(&solver->matrix, i) && 
-	! arith_var_value_is_int(vtbl, i)) {
+        ! arith_var_value_is_int(vtbl, i)) {
       /*
        * update value[i] to the ceil and set ub tag if needed
        * (since value[i] is not an integer and upper bound on i is an integer,
@@ -4933,7 +4933,7 @@ static bool assign_integers_to_nonbasic_vars(simplex_solver_t *solver) {
       xq_ceil(aux);
       update_non_basic_var_value(solver, i, aux);
       if (variable_at_upper_bound(solver, i)) {
-	set_arith_var_ub(vtbl, i);
+        set_arith_var_ub(vtbl, i);
       }
       assert(value_satisfies_bounds(solver, i));
     }
@@ -4964,9 +4964,9 @@ static bool move_nonbasic_vars_to_bounds(simplex_solver_t *solver) {
   for (i=0; i<n; i++) {
     if (matrix_is_nonbasic_var(&solver->matrix, i) && ! arith_var_at_bound(vtbl, i)) {
       if (arith_var_lower_index(vtbl, i) >= 0) {
-	update_to_lower_bound(solver, i);
+        update_to_lower_bound(solver, i);
       } else if (arith_var_upper_index(vtbl, i) >= 0) {
-	update_to_upper_bound(solver, i);
+        update_to_upper_bound(solver, i);
       }
     }
   }
@@ -4999,7 +4999,7 @@ static void collect_non_integer_basic_vars(simplex_solver_t *solver, ivector_t *
   n = vtbl->nvars;
   for (i=0; i<n; i++) {
     if (arith_var_is_int(vtbl, i) && matrix_is_basic_var(&solver->matrix, i) &&
-	! arith_var_value_is_int(vtbl, i)) {
+        ! arith_var_value_is_int(vtbl, i)) {
       ivector_push(v, i);
     }
   }
@@ -5109,7 +5109,7 @@ static thvar_t select_branch_variable(simplex_solver_t *solver, ivector_t *v) {
       // break ties randomly
       k ++;
       if (random_uint(k) == 0) {
-	best_var = x;
+        best_var = x;
       }
     }
   }
@@ -5376,27 +5376,27 @@ static bool strengthen_bounds_on_integer_variable(simplex_solver_t *solver, dsol
       q_integer_rem(aux, gcd);  // remainder of (l - b) divided by d
       if (q_is_pos(aux)) {
 
-	// the bound can be strengthened
-	xq_set(bound, solver->bstack.bound + k);
-	q_add(&bound->main, gcd);
-	q_sub(&bound->main, aux);
-	assert(xq_is_integer(bound));
+        // the bound can be strengthened
+        xq_set(bound, solver->bstack.bound + k);
+        q_add(&bound->main, gcd);
+        q_sub(&bound->main, aux);
+        assert(xq_is_integer(bound));
 
-	// build the antecedent for x == p into aux_vector2
-	q = &solver->aux_vector2; // WARNING: we can't use expl_queue here
-	assert(q->size == 0);
-	build_integer_solution_antecedent(solver, x, q);
+        // build the antecedent for x == p into aux_vector2
+        q = &solver->aux_vector2; // WARNING: we can't use expl_queue here
+        assert(q->size == 0);
+        build_integer_solution_antecedent(solver, x, q);
 
-	// add bound index k at the end of q
-	assert(not_in_vector(q, k));
-	ivector_push(q, k);
+        // add bound index k at the end of q
+        assert(not_in_vector(q, k));
+        ivector_push(q, k);
 
-	// add the new bound as a derived bound with antecedent q
-	ok = simplex_add_derived_lower_bound(solver, x, bound, q);
+        // add the new bound as a derived bound with antecedent q
+        ok = simplex_add_derived_lower_bound(solver, x, bound, q);
 
-	ivector_pop(q); // remove k from q but keep the rest
+        ivector_pop(q); // remove k from q but keep the rest
 
-	if (! ok) goto done;
+        if (! ok) goto done;
 
 
       }
@@ -5415,26 +5415,26 @@ static bool strengthen_bounds_on_integer_variable(simplex_solver_t *solver, dsol
       q_sub(aux, constant);
       q_integer_rem(aux, gcd);   // remainder of (u - b) divided by d
       if (q_is_pos(aux)) {
-	// the bound can be strengthened
-	xq_set(bound, solver->bstack.bound + k);
-	q_sub(&bound->main, aux);
-	assert(xq_is_integer(bound));
+        // the bound can be strengthened
+        xq_set(bound, solver->bstack.bound + k);
+        q_sub(&bound->main, aux);
+        assert(xq_is_integer(bound));
 
-	if (q == NULL) {
-	  // explain x == p: build antecedent in q
-	  q = &solver->aux_vector2; // can't use expl_queue or aux_vector
-	  assert(q->size == 0);
-	  build_integer_solution_antecedent(solver, x, q);
-	}
+        if (q == NULL) {
+          // explain x == p: build antecedent in q
+          q = &solver->aux_vector2; // can't use expl_queue or aux_vector
+          assert(q->size == 0);
+          build_integer_solution_antecedent(solver, x, q);
+        }
 
-	// add bound index k at the end of q
-	assert(not_in_vector(q, k));
-	ivector_push(q, k);
+        // add bound index k at the end of q
+        assert(not_in_vector(q, k));
+        ivector_push(q, k);
 
-	// add the new bound with antecedent q
-	ok = simplex_add_derived_upper_bound(solver, x, bound, q);
+        // add the new bound with antecedent q
+        ok = simplex_add_derived_upper_bound(solver, x, bound, q);
 
-	ivector_pop(q); // remove k for cleanup
+        ivector_pop(q); // remove k for cleanup
       }
     }
   }
@@ -5466,9 +5466,9 @@ static bool strengthen_integer_bounds(simplex_solver_t *solver, dsolver_t *dioph
     p = dsolver_gen_sol(dioph, i);
     if (p != NULL) {
       if (! strengthen_bounds_on_integer_variable(solver, dioph, i, p)) {
-	// conflict detected: exit
-	solver->stats.num_bound_conflicts ++;
-	return false;
+        // conflict detected: exit
+        solver->stats.num_bound_conflicts ++;
+        return false;
       }
     }
   }
@@ -5510,9 +5510,9 @@ static bool simplex_dsolver_add_row(simplex_solver_t *solver, dsolver_t *dioph, 
     x = row->data[i].c_idx;
     if (x >= 0) {
       if (simplex_fixed_variable(solver, x)) {
-	dsolver_row_addmul_constant(dioph, &row->data[i].coeff, fixed_variable_value(solver, x));
+        dsolver_row_addmul_constant(dioph, &row->data[i].coeff, fixed_variable_value(solver, x));
       } else {
-	dsolver_row_add_mono(dioph, &row->data[i].coeff, x);
+        dsolver_row_add_mono(dioph, &row->data[i].coeff, x);
       }
     }
   }
@@ -5547,9 +5547,9 @@ static bool simplex_dsolver_check(simplex_solver_t *solver) {
     row = matrix->row[i];
     if (pure_integer || matrix_row_is_integral(solver, row)) {
       if (! simplex_dsolver_add_row(solver, dioph, i, row)) {
-	// row i is not integer feasible (GCD test failed)
-	build_gcd_conflict(solver, row);
-	return false;
+        // row i is not integer feasible (GCD test failed)
+        build_gcd_conflict(solver, row);
+        return false;
       }
     }
   }
@@ -5598,8 +5598,8 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
 
 #if TRACE_BB
   printf("\n---> make integer feasible [dlevel = %"PRIu32", decisions = %"PRIu64"]: %"PRId32
-	 " integer-invalid vars\n", solver->core->decision_level, solver->core->stats.decisions, 
-	 simplex_num_integer_invalid_vars(solver));
+         " integer-invalid vars\n", solver->core->decision_level, solver->core->stats.decisions, 
+         simplex_num_integer_invalid_vars(solver));
 #endif
 
 #if DEBUG
@@ -5658,11 +5658,11 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
 
       // move non-integer variables to the basis
       if (simplex_is_mixed_system(solver)) {
-	make_integer_vars_nonbasic(solver);
+        make_integer_vars_nonbasic(solver);
       }
       // assign an integer value to all non-basic variables
       if (! assign_integers_to_nonbasic_vars(solver)) {
-	abort();
+        abort();
       }
     }
   }
@@ -5855,7 +5855,7 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
   }
 
   assert(simplex_fixed_variable(solver, y) && q_eq(fixed_variable_value(solver, y), c));
-			  
+                          
   return true;
 }
 
@@ -6020,7 +6020,7 @@ static uint32_t simplex_trichotomy_lemma(simplex_solver_t *solver, thvar_t x1, t
     printf("\n");
     if (! arith_var_is_free(&solver->vtbl, y)) {
       printf("     ");
-      print_simplex_vardef(stdout, solver, y);	
+      print_simplex_vardef(stdout, solver, y);  
     }
     printf("     simplex atom:\n      ");
     print_literal(stdout, l1);
@@ -6145,8 +6145,8 @@ static bool simplex_process_egraph_assertions(simplex_solver_t *solver) {
     switch (eassertion_get_kind(a)) {
     case EGRAPH_VAR_EQ:
       if (! simplex_process_var_eq(solver, a->var[0], a->var[1])) {
-	reset_eassertion_queue(&solver->egraph_queue);
-	return false;
+        reset_eassertion_queue(&solver->egraph_queue);
+        return false;
       }
       break;
 
@@ -6154,18 +6154,18 @@ static bool simplex_process_egraph_assertions(simplex_solver_t *solver) {
       x = a->var[0];
       y = a->var[1];
       if (x > y) {
-	z = x; x = y; y = z;
+        z = x; x = y; y = z;
       }
       if (pre_x != x || pre_y != y) {
-	/*
-	 * We use pre_x and pre_y as a cache to filter out duplicate
-	 * disequalities.  That's imperfect but that filters out a lot
-	 * of redundant disequalities, since the egraph tends to send
-	 * several times the same disequality in a sequence.
-	 */
-	simplex_process_var_diseq(solver, x, y);
-	pre_x = x;
-	pre_y = y;
+        /*
+         * We use pre_x and pre_y as a cache to filter out duplicate
+         * disequalities.  That's imperfect but that filters out a lot
+         * of redundant disequalities, since the egraph tends to send
+         * several times the same disequality in a sequence.
+         */
+        simplex_process_var_diseq(solver, x, y);
+        pre_x = x;
+        pre_y = y;
       }
       break;
 
@@ -6204,8 +6204,8 @@ static bool simplex_process_egraph_base_assertions(simplex_solver_t *solver) {
   eassertion_t *a, *end;
 
   assert(! solver->tableau_ready && 
-	 ! solver->unsat_before_search && 
-	 solver->base_level == solver->decision_level);
+         ! solver->unsat_before_search && 
+         solver->base_level == solver->decision_level);
 
   a = eassertion_queue_start(&solver->egraph_queue);
   end = eassertion_queue_end(&solver->egraph_queue);
@@ -6219,10 +6219,10 @@ static bool simplex_process_egraph_base_assertions(simplex_solver_t *solver) {
        */
       simplex_assert_vareq_axiom(solver, a->var[0], a->var[1], true);
       if (solver->unsat_before_search) {
-	// record the conflict in core
-	record_empty_theory_conflict(solver->core);
-	reset_eassertion_queue(&solver->egraph_queue);
-	return false;
+        // record the conflict in core
+        record_empty_theory_conflict(solver->core);
+        reset_eassertion_queue(&solver->egraph_queue);
+        return false;
       }
       break;
 
@@ -6469,12 +6469,12 @@ bool simplex_propagate(simplex_solver_t *solver) {
       if (! feasible) goto done;
 
       if (solver->recheck) {
-	simplex_fix_nonbasic_assignment(solver);
-	feasible = simplex_make_feasible(solver);
-	if (! feasible) goto done;
+        simplex_fix_nonbasic_assignment(solver);
+        feasible = simplex_make_feasible(solver);
+        if (! feasible) goto done;
       } else {
-	// implied bounds don't require fixing the assignment
-	solver->bstack.fix_ptr = solver->bstack.top;
+        // implied bounds don't require fixing the assignment
+        solver->bstack.fix_ptr = solver->bstack.top;
       }
 
 #if DEBUG
@@ -6504,13 +6504,13 @@ bool simplex_propagate(simplex_solver_t *solver) {
       if (! feasible) goto done;
 
       if (solver->recheck) {
-	simplex_fix_nonbasic_assignment(solver);
-	feasible = simplex_make_feasible(solver);
-	if (! feasible) goto done;
+        simplex_fix_nonbasic_assignment(solver);
+        feasible = simplex_make_feasible(solver);
+        if (! feasible) goto done;
       } else {
-	// bounds may have been strengthened 
-	// but don't require fixing the assignment
-	solver->bstack.fix_ptr = solver->bstack.top;
+        // bounds may have been strengthened 
+        // but don't require fixing the assignment
+        solver->bstack.fix_ptr = solver->bstack.top;
       }
 
 #if DEBUG
@@ -6552,7 +6552,7 @@ fcheck_code_t simplex_final_check(simplex_solver_t *solver) {
 
 #if TRACE
   printf("---> SIMPLEX FINAL CHECK [dlevel = %"PRIu32", decisions = %"PRIu64"]\n",
-	 solver->decision_level, solver->core->stats.decisions);
+         solver->decision_level, solver->core->stats.decisions);
   fflush(stdout);
 #endif
 
@@ -6647,7 +6647,7 @@ void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
    * Remove the bounds and fix the lb/ub tags
    */
   assert(undo->n_bounds <= bstack->prop_ptr && bstack->prop_ptr <= bstack->fix_ptr && 
-	 bstack->fix_ptr <= bstack->top);
+         bstack->fix_ptr <= bstack->top);
 
   i = bstack->top;
 
@@ -6700,7 +6700,7 @@ void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
    * Remove the assertions
    */
   assert(undo->n_assertions <= solver->assertion_queue.prop_ptr &&
-	 solver->assertion_queue.prop_ptr <= solver->assertion_queue.top);
+         solver->assertion_queue.prop_ptr <= solver->assertion_queue.top);
 
   n = undo->n_assertions;
   a = solver->assertion_queue.data;
@@ -6772,9 +6772,9 @@ void simplex_push(simplex_solver_t *solver) {
   uint32_t nv, na, nr, pa, pb;
 
   assert(solver->decision_level == solver->base_level && 
-	 solver->bstack.prop_ptr == solver->bstack.fix_ptr &&
-	 solver->save_rows &&
-	 eassertion_queue_is_empty(&solver->egraph_queue));
+         solver->bstack.prop_ptr == solver->bstack.fix_ptr &&
+         solver->save_rows &&
+         eassertion_queue_is_empty(&solver->egraph_queue));
 
   nv = solver->vtbl.nvars;
   na = solver->atbl.natoms;
@@ -6853,8 +6853,8 @@ void simplex_pop(simplex_solver_t *solver) {
   uint32_t nrows, ncolumns;
 
   assert(solver->base_level > 0 && 
-	 solver->base_level == solver->decision_level && 
-	 solver->save_rows);
+         solver->base_level == solver->decision_level && 
+         solver->save_rows);
 
   solver->unsat_before_search = false;
 
@@ -7460,7 +7460,7 @@ static bool simple_dependent_var(arith_vartable_t *tbl, thvar_t x) {
   uint32_t n;
 
   assert(arith_var_kind(tbl, x) == AVAR_FREE ||
-	 arith_var_kind(tbl, x) == AVAR_POLY);
+         arith_var_kind(tbl, x) == AVAR_POLY);
 
   q = arith_var_def(tbl, x);
   if (q != NULL) {
@@ -7531,7 +7531,7 @@ static inline void model_adjust_var(xq_hmap_t *hmap, arith_vartable_t *tbl, thva
  * - record the effect in hmap
  */
 static void model_adjust_var_dependents(xq_hmap_t *hmap, arith_vartable_t *tbl, dep_table_t *deps, 
-					thvar_t x, rational_t *delta) {
+                                        thvar_t x, rational_t *delta) {
   int32_t *v;
   uint32_t i, n;
   thvar_t y;
@@ -7557,7 +7557,7 @@ static void model_adjust_var_dependents(xq_hmap_t *hmap, arith_vartable_t *tbl, 
  * - record the effect in hmap
  */
 static void model_adjust_var_base_dependents(simplex_solver_t *solver, xq_hmap_t *hmap, dep_table_t *deps,
-					     thvar_t x, rational_t *delta) {
+                                             thvar_t x, rational_t *delta) {
   matrix_t *matrix;
   arith_vartable_t *vtbl;
   column_t *col;
@@ -7580,23 +7580,23 @@ static void model_adjust_var_base_dependents(simplex_solver_t *solver, xq_hmap_t
     for (i=0; i<n; i++) {
       r = col->data[i].r_idx;
       if (r >= 0) {
-	// x occurs in row r
-	y = matrix_basic_var(matrix, r); // y = basic variable for row r
-	assert(y != null_thvar);
-	if (is_root_var(solver, y)) {
-	  /*
-	   * Adjust y: 
-	   * - let c be the coefficient of x in row r
-	   * - the row is (y + .... + c.x + ... = 0)
-	   * - so new_val[y] must be val[y] - c * delta
-	   */
-	  j = col->data[i].r_ptr;
-	  q_set_neg(&a, matrix_coeff(matrix, r, j)); // - c
-	  q_mul(&a, delta);  // -c * delta
-	  
-	  model_adjust_var(hmap, vtbl, y, &a); // Update y
-	  model_adjust_var_dependents(hmap, vtbl, deps, y, &a); // Update y's dependents
-	}
+        // x occurs in row r
+        y = matrix_basic_var(matrix, r); // y = basic variable for row r
+        assert(y != null_thvar);
+        if (is_root_var(solver, y)) {
+          /*
+           * Adjust y: 
+           * - let c be the coefficient of x in row r
+           * - the row is (y + .... + c.x + ... = 0)
+           * - so new_val[y] must be val[y] - c * delta
+           */
+          j = col->data[i].r_ptr;
+          q_set_neg(&a, matrix_coeff(matrix, r, j)); // - c
+          q_mul(&a, delta);  // -c * delta
+          
+          model_adjust_var(hmap, vtbl, y, &a); // Update y
+          model_adjust_var_dependents(hmap, vtbl, deps, y, &a); // Update y's dependents
+        }
       }
     }
     
@@ -7614,7 +7614,7 @@ static void model_adjust_var_base_dependents(simplex_solver_t *solver, xq_hmap_t
  * x must not be a basic variable
  */
 static void simplex_full_adjust_var(simplex_solver_t *solver, xq_hmap_t *hmap, dep_table_t *deps,
-				    thvar_t x, rational_t *delta) {
+                                    thvar_t x, rational_t *delta) {
   if (is_root_var(solver, x)) {
     model_adjust_var(hmap, &solver->vtbl, x, delta);
   }
@@ -7644,8 +7644,8 @@ static bool simplex_useful_adjust_var(simplex_solver_t *solver, dep_table_t *dep
     for (i=0; i<n; i++) {
       r  = col->data[i].r_idx;
       if (r >= 0 && is_root_var(solver, matrix_basic_var(matrix, r))) {
-	// the basic variable in row r is root
-	return true;
+        // the basic variable in row r is root
+        return true;
       }
     }
   }
@@ -7719,64 +7719,64 @@ static void simplex_safe_adjust_interval(simplex_solver_t *solver, interval_t *s
     for (i=0; i<n; i++) {
       r = col->data[i].r_idx;
       if (r >= 0) {
-	/* 
-	 * x occurs in row r with coefficient a (a != 0)
-	 * store 1/a in inv_a
-	 */
-	j = col->data[i].r_ptr;
-	q_set(&inv_a, matrix_coeff(matrix, r, j)); // coefficient of x in row r
-	assert(q_is_nonzero(&inv_a));
-	q_inv(&inv_a);
+        /* 
+         * x occurs in row r with coefficient a (a != 0)
+         * store 1/a in inv_a
+         */
+        j = col->data[i].r_ptr;
+        q_set(&inv_a, matrix_coeff(matrix, r, j)); // coefficient of x in row r
+        assert(q_is_nonzero(&inv_a));
+        q_inv(&inv_a);
 
-	y = matrix_basic_var(matrix, r); // basic variable in row r
-	assert(y != x);
+        y = matrix_basic_var(matrix, r); // basic variable in row r
+        assert(y != x);
 
-	/*
-	 * Update the interval using the bounds on y + the type of y:
-	 * when val[x] is moved to val[x] + delta
-	 *      val[y] shifts to val[y] - a * delta
-	 */
-	j = arith_var_lower_index(vtbl, y);
-	if (j >= 0) {
-	  /*
-	   * y has a lower bound L:
-	   * if a > 0, we want delta <= (val[y] - L)/a
-	   * if a < 0, we want delta >= (val[y] - L)/a
-	   */
-	  xq_set(&aux, arith_var_value(vtbl, y));
-	  xq_sub(&aux, &solver->bstack.bound[j]); 
-	  xq_mul(&aux, &inv_a);   // aux := (val[y] - L)/a
-	  if (q_is_pos(&inv_a)) {
-	    interval_update_ub(s, &aux);
-	  } else {
-	    interval_update_lb(s, &aux);
-	  }
-	}
+        /*
+         * Update the interval using the bounds on y + the type of y:
+         * when val[x] is moved to val[x] + delta
+         *      val[y] shifts to val[y] - a * delta
+         */
+        j = arith_var_lower_index(vtbl, y);
+        if (j >= 0) {
+          /*
+           * y has a lower bound L:
+           * if a > 0, we want delta <= (val[y] - L)/a
+           * if a < 0, we want delta >= (val[y] - L)/a
+           */
+          xq_set(&aux, arith_var_value(vtbl, y));
+          xq_sub(&aux, &solver->bstack.bound[j]); 
+          xq_mul(&aux, &inv_a);   // aux := (val[y] - L)/a
+          if (q_is_pos(&inv_a)) {
+            interval_update_ub(s, &aux);
+          } else {
+            interval_update_lb(s, &aux);
+          }
+        }
 
-	j = arith_var_upper_index(vtbl, y);
-	if (j >= 0) {
-	  /*
-	   * y has an upper bound U:
-	   * if a > 0, we want delta >= (val[y] - U)/a
-	   * if a < 0, we want delta <= (val[y] - U)/a
-	   */
-	  xq_set(&aux, arith_var_value(vtbl, y));
-	  xq_sub(&aux, &solver->bstack.bound[j]);
-	  xq_mul(&aux, &inv_a);   // aux := (val[y] - U)/a
-	  if (q_is_pos(&inv_a)) {
-	    interval_update_lb(s, &aux);
-	  } else {
-	    interval_update_ub(s, &aux);
-	  }
-	}
+        j = arith_var_upper_index(vtbl, y);
+        if (j >= 0) {
+          /*
+           * y has an upper bound U:
+           * if a > 0, we want delta >= (val[y] - U)/a
+           * if a < 0, we want delta <= (val[y] - U)/a
+           */
+          xq_set(&aux, arith_var_value(vtbl, y));
+          xq_sub(&aux, &solver->bstack.bound[j]);
+          xq_mul(&aux, &inv_a);   // aux := (val[y] - U)/a
+          if (q_is_pos(&inv_a)) {
+            interval_update_lb(s, &aux);
+          } else {
+            interval_update_ub(s, &aux);
+          }
+        }
 
-	if (arith_var_is_int(vtbl, y)) {
-	  /*
-	   * We want a * delta to be an integer so 
-	   * delta must be a multiple of 1/a
-	   */
-	  interval_update_period(s, &inv_a);
-	}	
+        if (arith_var_is_int(vtbl, y)) {
+          /*
+           * We want a * delta to be an integer so 
+           * delta must be a multiple of 1/a
+           */
+          interval_update_period(s, &inv_a);
+        }       
       }
     }
 
@@ -7843,22 +7843,22 @@ static void simplex_shift_var_value(simplex_solver_t *solver, dep_table_t *deps,
     for (i=0; i<n; i++) {
       r = col->data[i].r_idx;
       if (r >= 0) {
-	y = matrix_basic_var(matrix, r);   // y = basic var in row r
-	assert(y != null_thvar);
+        y = matrix_basic_var(matrix, r);   // y = basic var in row r
+        assert(y != null_thvar);
 
-	// delta on y = - delta * coeff of x in row r
-	j = col->data[i].r_ptr;
-	q_set_neg(&a, matrix_coeff(matrix, r, j));
-	q_mul(&a, delta);
+        // delta on y = - delta * coeff of x in row r
+        j = col->data[i].r_ptr;
+        q_set_neg(&a, matrix_coeff(matrix, r, j));
+        q_mul(&a, delta);
 
-	// value[y] := value[y] + delta on y
-	xq_add_q(arith_var_value(vtbl, y), &a);
-	assert(value_satisfies_bounds(solver, y));
+        // value[y] := value[y] + delta on y
+        xq_add_q(arith_var_value(vtbl, y), &a);
+        assert(value_satisfies_bounds(solver, y));
 
 #if DEBUG
-	check_equation_satisfied(solver, r);
+        check_equation_satisfied(solver, r);
 #endif
-	simplex_shift_var_dependents(vtbl, deps, y, &a); // shift y's dependents
+        simplex_shift_var_dependents(vtbl, deps, y, &a); // shift y's dependents
       }
     }
   }
@@ -7920,7 +7920,7 @@ static bool simplex_get_shift_candidate(rational_t *delta, interval_t *interval,
  * - interval = adjustment interval for x
  */
 static void simplex_adjust_var(simplex_solver_t *solver, dep_table_t *deps, xq_hmap_t *hmap, xq_hmap_t *aux,
-			       interval_t *interval, thvar_t x) {
+                               interval_t *interval, thvar_t x) {
   rational_t delta;
   rational_t best_delta;
   uint32_t best_num_classes;
@@ -7956,12 +7956,12 @@ static void simplex_adjust_var(simplex_solver_t *solver, dep_table_t *deps, xq_h
       assert(xq_hmap_num_entries(aux) == xq_hmap_num_entries(hmap));
 
       if (n > best_num_classes) {
-	q_set(&best_delta, &delta);
-	best_num_classes = n;
-	if (n == xq_hmap_num_entries(aux)) {
-	  // n is optimal
-	  break;
-	}
+        q_set(&best_delta, &delta);
+        best_num_classes = n;
+        if (n == xq_hmap_num_entries(aux)) {
+          // n is optimal
+          break;
+        }
       }
     }
   }
@@ -8018,51 +8018,51 @@ static void simplex_adjust_assignment(simplex_solver_t *solver, dep_table_t *dep
      * equal lower and upper bounds.
      */
     if (matrix_is_nonbasic_var(&solver->matrix, i) &&
-	!trivial_variable(&solver->vtbl, i) && 
-	!simplex_fixed_variable(solver, i) && 
-	simplex_useful_adjust_var(solver, deps, i)) {
+        !trivial_variable(&solver->vtbl, i) && 
+        !simplex_fixed_variable(solver, i) && 
+        simplex_useful_adjust_var(solver, deps, i)) {
 
       // compute the safe interval for i
       simplex_safe_adjust_interval(solver, &interval, i);
       if (! singleton_interval(&interval)) {
-	/*
-	 * Modify the value of x to maximize the number of classes in hmap
-	 */
+        /*
+         * Modify the value of x to maximize the number of classes in hmap
+         */
 #if TRACE
-	printf("interval for ");
-	print_simplex_var(stdout, solver, i);
-	if (interval.has_lb) {
-	  printf(": lower bound = ");
-	  xq_print(stdout, &interval.lb);
-	} else {
-	  printf(": no lower bound");
-	}
-	
-	if (interval.has_ub) {
-	  printf(", upper bound = ");
-	  xq_print(stdout, &interval.ub);
-	} else {
-	  printf(", no upper bound");
-	}
+        printf("interval for ");
+        print_simplex_var(stdout, solver, i);
+        if (interval.has_lb) {
+          printf(": lower bound = ");
+          xq_print(stdout, &interval.lb);
+        } else {
+          printf(": no lower bound");
+        }
+        
+        if (interval.has_ub) {
+          printf(", upper bound = ");
+          xq_print(stdout, &interval.ub);
+        } else {
+          printf(", no upper bound");
+        }
 
-	printf(", period = ");
-	q_print(stdout, &interval.period);
-	printf("\n");
+        printf(", period = ");
+        q_print(stdout, &interval.period);
+        printf("\n");
 #endif
 
-	simplex_adjust_var(solver, deps, hmap, &aux, &interval, i);
+        simplex_adjust_var(solver, deps, hmap, &aux, &interval, i);
 
 #if DEBUG
-	check_assignment(solver);
-	check_integer_bounds(solver);
-	check_vartags(solver);
-	check_bound_marks(solver);
+        check_assignment(solver);
+        check_integer_bounds(solver);
+        check_vartags(solver);
+        check_bound_marks(solver);
 #endif
 
-	if (xq_hmap_num_classes(hmap) == xq_hmap_num_entries(hmap)) {
-	  // no improvement possible
-	  break;
-	}
+        if (xq_hmap_num_classes(hmap) == xq_hmap_num_entries(hmap)) {
+          // no improvement possible
+          break;
+        }
       }      
     }
   }
@@ -8091,7 +8091,7 @@ static void simplex_adjust_model(simplex_solver_t *solver) {
     if (is_root_var(solver, i)) {
       xq_hmap_add_entry(&hmap, arith_var_value(vtbl, i));
       if (simple_dependent_var(vtbl, i)) {
-	record_simple_var_dep(vtbl, &deps, i);
+        record_simple_var_dep(vtbl, &deps, i);
       }
     }
   }
@@ -8099,12 +8099,12 @@ static void simplex_adjust_model(simplex_solver_t *solver) {
   if (xq_hmap_num_classes(&hmap) < xq_hmap_num_entries(&hmap)) {
 #if TRACE
     printf("---> before adjustment: %"PRIu32" entries, %"PRIu32" classes\n",
-	   xq_hmap_num_entries(&hmap), xq_hmap_num_classes(&hmap));
+           xq_hmap_num_entries(&hmap), xq_hmap_num_classes(&hmap));
 #endif
     simplex_adjust_assignment(solver, &deps, &hmap);
 #if TRACE
     printf("---> after adjustment: %"PRIu32" entries, %"PRIu32" classes\n",
-	   xq_hmap_num_entries(&hmap), xq_hmap_num_classes(&hmap));
+           xq_hmap_num_entries(&hmap), xq_hmap_num_classes(&hmap));
 #endif
   }
 
@@ -8139,7 +8139,7 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
   }
 
   init_int_hclass(&hclass, 0, solver, (iclass_hash_fun_t) simplex_model_hash,
-		  (iclass_match_fun_t) simplex_var_equal_in_model);
+                  (iclass_match_fun_t) simplex_var_equal_in_model);
 
   neq = 0;
   n = solver->vtbl.nvars;
@@ -8147,10 +8147,10 @@ uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_eq) {
     if (is_root_var(solver, i)) {
       x = int_hclass_get_rep(&hclass, i);
       if (x != i) {
-	// x and i have the same value in the model
-	// but are in different classes in the egraph
-	neq += simplex_trichotomy_lemma(solver, x, i);
-	if (neq == max_eq) break;
+        // x and i have the same value in the model
+        // but are in different classes in the egraph
+        neq += simplex_trichotomy_lemma(solver, x, i);
+        if (neq == max_eq) break;
       }
     }
   }
@@ -8298,7 +8298,7 @@ static void simplex_gen_interface_lemma(simplex_solver_t *solver, literal_t l, t
     printf("\n");
     if (! arith_var_is_free(&solver->vtbl, y)) {
       printf("     ");
-      print_simplex_vardef(stdout, solver, y);	
+      print_simplex_vardef(stdout, solver, y);  
     }
     printf("     simplex atom:\n      ");
     print_literal(stdout, l1);
@@ -8332,7 +8332,7 @@ static ipart_t *simplex_build_model_partition(simplex_solver_t *solver) {
 
   partition = (ipart_t *) safe_malloc(sizeof(ipart_t));
   init_int_partition(partition, 0, solver, (ipart_hash_fun_t) simplex_model_hash, 
-		     (ipart_match_fun_t) simplex_var_equal_in_model);
+                     (ipart_match_fun_t) simplex_var_equal_in_model);
 
   n = solver->vtbl.nvars;
   for (i=1; i<n; i++) {
@@ -8426,10 +8426,10 @@ static void epsilon_for_egraph(simplex_solver_t *solver) {
     if (arith_var_has_eterm(vtbl, i)) {
       q1 = arith_var_value(vtbl, i);
       for (j=i+1; j<n; j++) {
-	if (arith_var_has_eterm(vtbl, j)) {
-	  q2 = arith_var_value(vtbl, j);
-	  epsilon_for_diseq(solver, q1, q2);
-	}
+        if (arith_var_has_eterm(vtbl, j)) {
+          q2 = arith_var_value(vtbl, j);
+          epsilon_for_diseq(solver, q1, q2);
+        }
       }
     }
   }
@@ -8761,19 +8761,19 @@ static bool assertions_hold_in_model(simplex_solver_t *solver) {
     switch (bvar_value(solver->core, v)) {
     case VAL_FALSE:
       if (truth) {
-	printf("---> BUG: invalid Simplex model\n");
-	print_simplex_atomdef(stdout, solver, v);
-	printf("  value[");
-	print_bvar(stdout, v);
-	printf("] = false\n");
-	printf("  value[");
-	print_simplex_var(stdout, solver, x);
-	printf("] = ");
-	q_print(stdout, solver->value + x);
-	printf("\n");
-	fflush(stdout);
+        printf("---> BUG: invalid Simplex model\n");
+        print_simplex_atomdef(stdout, solver, v);
+        printf("  value[");
+        print_bvar(stdout, v);
+        printf("] = false\n");
+        printf("  value[");
+        print_simplex_var(stdout, solver, x);
+        printf("] = ");
+        q_print(stdout, solver->value + x);
+        printf("\n");
+        fflush(stdout);
 
-	return false;
+        return false;
       }
       break;
     case VAL_UNDEF:
@@ -8781,17 +8781,17 @@ static bool assertions_hold_in_model(simplex_solver_t *solver) {
       break;
     case VAL_TRUE:
       if (! truth) {
-	printf("---> BUG: invalid Simplex model\n");
-	print_simplex_atomdef(stdout, solver, v);
-	printf("  value[");
-	print_bvar(stdout, v);
-	printf("] = true\n");
-	printf("  value[");
-	print_simplex_var(stdout, solver, x);
-	printf("] = ");
-	q_print(stdout, solver->value + x);
-	printf("\n");
-	fflush(stdout);
+        printf("---> BUG: invalid Simplex model\n");
+        print_simplex_atomdef(stdout, solver, v);
+        printf("  value[");
+        print_bvar(stdout, v);
+        printf("] = true\n");
+        printf("  value[");
+        print_simplex_var(stdout, solver, x);
+        printf("] = ");
+        q_print(stdout, solver->value + x);
+        printf("\n");
+        fflush(stdout);
       }
       break;
     }
@@ -8845,44 +8845,44 @@ static bool model_is_consistent_with_egraph(simplex_solver_t *solver) {
     for (i=0; i<n; i++) {
       t = arith_var_get_eterm(vtbl, i);
       if (t != null_eterm) {
-	for (j=i+1; j<n; j++) {
-	  u = arith_var_get_eterm(vtbl, j);
-	  if (u != null_eterm && !egraph_equal_terms(egraph, t, u)) {
-	    // t != u in the egraph so we want value[i] != value[j]
-	    if (q_eq(solver->value + i, solver->value + j)) {
-	      printf("---> BUG: invalid Simplex model\n");
-	      printf("The model is not consistent with the egraph\n");
-	      printf(" ");
-	      print_simplex_var(stdout, solver, i);
-	      printf(" is attached to egraph term: ");
-	      print_eterm_id(stdout, t);
-	      printf("\n ");
-	      print_simplex_var(stdout, solver, j);
-	      printf(" is attached to egraph term: ");
-	      print_eterm_id(stdout, u);
-	      printf("\n");
+        for (j=i+1; j<n; j++) {
+          u = arith_var_get_eterm(vtbl, j);
+          if (u != null_eterm && !egraph_equal_terms(egraph, t, u)) {
+            // t != u in the egraph so we want value[i] != value[j]
+            if (q_eq(solver->value + i, solver->value + j)) {
+              printf("---> BUG: invalid Simplex model\n");
+              printf("The model is not consistent with the egraph\n");
+              printf(" ");
+              print_simplex_var(stdout, solver, i);
+              printf(" is attached to egraph term: ");
+              print_eterm_id(stdout, t);
+              printf("\n ");
+              print_simplex_var(stdout, solver, j);
+              printf(" is attached to egraph term: ");
+              print_eterm_id(stdout, u);
+              printf("\n");
 
-	      printf(" value[");
-	      print_simplex_var(stdout, solver, i);
-	      printf("] = ");
-	      q_print(stdout, solver->value + i);
-	      printf("\n");
-	      printf(" value[");
-	      print_simplex_var(stdout, solver, j);
-	      printf("] = ");
-	      q_print(stdout, solver->value + j);
-	      printf("\n");
+              printf(" value[");
+              print_simplex_var(stdout, solver, i);
+              printf("] = ");
+              q_print(stdout, solver->value + i);
+              printf("\n");
+              printf(" value[");
+              print_simplex_var(stdout, solver, j);
+              printf("] = ");
+              q_print(stdout, solver->value + j);
+              printf("\n");
 
-	      printf(" but ");
-	      print_eterm_id(stdout, t);
-	      printf(" != ");
-	      print_eterm_id(stdout, u);
-	      printf(" in the egraph\n");
+              printf(" but ");
+              print_eterm_id(stdout, t);
+              printf(" != ");
+              print_eterm_id(stdout, u);
+              printf(" in the egraph\n");
 
-	      return false;
-	    }
-	  }
-	}
+              return false;
+            }
+          }
+        }
       }
     }
   }
@@ -9001,25 +9001,25 @@ static void simplex_init_freshval(simplex_solver_t *solver) {
     q = solver->value + i; // value of i
     if (q_is_integer(q)) {
       if (q_lt(&set->max_used, q)) {
-	// value[i] > max_used: update max_used
-	q_set(&set->max_used, q);
+        // value[i] > max_used: update max_used
+        q_set(&set->max_used, q);
 
       } else {
-	q_normalize(q); // just to be safe
-	if (q_is_smallint(q)) {
-	  x = q_get_smallint(q);
-	  if (0 <= x && x < SIMPLEX_NVAL) {
-	    set_bit(set->used_val, x);	    
-	  } else if (set->low <= x && x < set->high) {
-	    // Heuristic: reduce [low, high] to [x+1, high] or [low, x]
-	    // whichever is larger
-	    if (x > (set->high + set->low)/2) {
-	      set->high = x;
-	    } else {
-	      set->low = x + 1;
-	    }
-	  }
-	}
+        q_normalize(q); // just to be safe
+        if (q_is_smallint(q)) {
+          x = q_get_smallint(q);
+          if (0 <= x && x < SIMPLEX_NVAL) {
+            set_bit(set->used_val, x);      
+          } else if (set->low <= x && x < set->high) {
+            // Heuristic: reduce [low, high] to [x+1, high] or [low, x]
+            // whichever is larger
+            if (x > (set->high + set->low)/2) {
+              set->high = x;
+            } else {
+              set->low = x + 1;
+            }
+          }
+        }
       }
     }
   }
@@ -9040,11 +9040,11 @@ static void simplex_get_freshval(simplex_freshval_t *set, rational_t *v) {
   if (i < SIMPLEX_NVAL) {
     do {
       if (! tst_bit(set->used_val, i)) {
-	// i can be used
-	set_bit(set->used_val, i);
-	q_set32(v, i);
-	set->used_val_idx = i+1;
-	return;
+        // i can be used
+        set_bit(set->used_val, i);
+        q_set32(v, i);
+        set->used_val_idx = i+1;
+        return;
       }
       i ++;
 
@@ -9055,7 +9055,7 @@ static void simplex_get_freshval(simplex_freshval_t *set, rational_t *v) {
   }
 
   assert(SIMPLEX_NVAL <= set->low && set->low <= set->high && 
-	 set->high <= SIMPLEX_HVAL);
+         set->high <= SIMPLEX_HVAL);
 
   i = set->low;
   if (i < set->high) {
@@ -9449,7 +9449,7 @@ static void check_all_nonbasic_bounds_satisfied(simplex_solver_t *solver) {
   n = solver->vtbl.nvars;
   for (i=0; i<n; i++) {
     if (matrix_is_nonbasic_var(&solver->matrix, i) && 
-	! value_satisfies_bounds(solver, i)) {
+        ! value_satisfies_bounds(solver, i)) {
       printf("---> ERROR: non-basic val[");
       print_simplex_var(stdout, solver, i);
       printf("] not within bounds\n");
@@ -9534,25 +9534,25 @@ static void check_vartags(simplex_solver_t *solver) {
       at_bound = variable_at_lower_bound(solver, i);
       tag = arith_var_at_lower_bound(&solver->vtbl, i);
       if (at_bound != tag) {
-	printf("---> ERROR: wrong tag for variable ");
-	print_simplex_var(stdout, solver, i);
-	printf("\n");
-	print_var_value(solver, i);
-	print_var_lower_bound(solver, i);
-	print_var_lower_tag(solver, i);
-	fflush(stdout);
+        printf("---> ERROR: wrong tag for variable ");
+        print_simplex_var(stdout, solver, i);
+        printf("\n");
+        print_var_value(solver, i);
+        print_var_lower_bound(solver, i);
+        print_var_lower_tag(solver, i);
+        fflush(stdout);
       }
 
       at_bound = variable_at_upper_bound(solver, i);
       tag = arith_var_at_upper_bound(&solver->vtbl, i);
       if (at_bound != tag) {
-	printf("---> ERROR: wrong tag for variable ");
-	print_simplex_var(stdout, solver, i);
-	printf("\n");
-	print_var_value(solver, i);
-	print_var_upper_bound(solver, i);
-	print_var_upper_tag(solver, i);
-	fflush(stdout);
+        printf("---> ERROR: wrong tag for variable ");
+        print_simplex_var(stdout, solver, i);
+        printf("\n");
+        print_var_value(solver, i);
+        print_var_upper_bound(solver, i);
+        print_var_upper_tag(solver, i);
+        fflush(stdout);
       }
     }
   }  
@@ -9592,20 +9592,20 @@ static void check_integer_bounds(simplex_solver_t *solver) {
     if (arith_var_is_int(&solver->vtbl, i)) {
       k = arith_var_upper_index(&solver->vtbl, i);
       if (k >= 0 && ! xq_is_integer(solver->bstack.bound + k)) {
-	printf("---> ERROR: non-integer bound on an integer variable ");
-	print_simplex_var(stdout, solver, i);
-	printf("\n");
-	print_var_upper_bound(solver, i);
-	fflush(stdout);
+        printf("---> ERROR: non-integer bound on an integer variable ");
+        print_simplex_var(stdout, solver, i);
+        printf("\n");
+        print_var_upper_bound(solver, i);
+        fflush(stdout);
       }
 
       k = arith_var_lower_index(&solver->vtbl, i);
       if (k >= 0 && ! xq_is_integer(solver->bstack.bound + k)) {
-	printf("---> ERROR: non-integer bound on an integer variable ");
-	print_simplex_var(stdout, solver, i);
-	printf("\n");
-	print_var_lower_bound(solver, i);
-	fflush(stdout);
+        printf("---> ERROR: non-integer bound on an integer variable ");
+        print_simplex_var(stdout, solver, i);
+        printf("\n");
+        print_var_lower_bound(solver, i);
+        fflush(stdout);
       }
     }
   }

@@ -428,7 +428,7 @@ static inline eterm_t edge_next(equeue_elem_t *eq, eterm_t t) {
  */
 static inline occ_t edge_next_occ(equeue_elem_t *eq, occ_t u) {
   assert(term_of_occ(eq->lhs) == term_of_occ(u) || 
-	 term_of_occ(eq->rhs) == term_of_occ(u));
+         term_of_occ(eq->rhs) == term_of_occ(u));
   return eq->lhs ^ eq->rhs ^ u;
 }
 

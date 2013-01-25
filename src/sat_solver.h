@@ -354,7 +354,7 @@ typedef struct solver_stats_s {
   uint64_t decisions;        // number of decisions
   uint64_t random_decisions; // number of random decisions
   uint64_t propagations;     // number of boolean propagations
-  uint64_t conflicts;        // number of conflicts/backtrackings
+  uint64_t conflicts;        // number of conflicts/backtracking
 
   uint64_t prob_literals;     // number of literals in problem clauses
   uint64_t learned_literals;  // number of literals in learned clauses
@@ -402,7 +402,7 @@ typedef struct solver_stats_s {
  *
  * - an assignment stack
  *
- * - other arrays for contructing and simplifying learned clauses
+ * - other arrays for constructing and simplifying learned clauses
  */
 typedef struct sat_solver_s {
   //  solver_status_t status;     // UNSOLVED, SAT, OR UNSAT
@@ -502,7 +502,7 @@ extern void sat_solver_add_empty_clause(sat_solver_t *solver);
 extern void sat_solver_add_unit_clause(sat_solver_t *solver, literal_t l);
 extern void sat_solver_add_binary_clause(sat_solver_t *solver, literal_t l0, literal_t l1);
 extern void sat_solver_add_ternary_clause(sat_solver_t *solver, literal_t l0, literal_t l1, 
-					  literal_t l2);
+                                          literal_t l2);
 
 // clause l[0] ... l[n-1]
 extern void sat_solver_add_clause(sat_solver_t *solver, uint32_t n, literal_t *l);

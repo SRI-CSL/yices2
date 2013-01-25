@@ -85,8 +85,8 @@ void reset_bvconst_hmap(bvconst_hmap_t *hmap) {
   for (i=0; i<n; i++) {
     if (tmp->key >= 0) {
       if (tmp->nbits > 64) {
-	k = (tmp->nbits + 31) >> 5;
-	bvconst_free(tmp->val.p, k);
+        k = (tmp->nbits + 31) >> 5;
+        bvconst_free(tmp->val.p, k);
       }
       tmp->key = BVCONST_HMAP_EMPTY_KEY;
     }    

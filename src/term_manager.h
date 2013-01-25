@@ -311,7 +311,7 @@ extern term_t mk_arith_lt0(term_manager_t *manager, arith_buffer_t *b);   // b <
 
 
 /*
- * Variant: create an arithmetci atom from term t
+ * Variant: create an arithmetic atom from term t
  */
 extern term_t mk_arith_term_eq0(term_manager_t *manager, term_t t);   // t == 0
 extern term_t mk_arith_term_neq0(term_manager_t *manager, term_t t);  // t != 0

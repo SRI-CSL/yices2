@@ -317,7 +317,7 @@ extern bool yices_check_bvextend(bvlogic_buffer_t *b, int32_t n);
  * - arithvar and bvarithvar elimination
  */
 extern context_t *yices_create_context(context_arch_t arch, context_mode_t mode,
-				       bool iflag, bool qflag);
+                                       bool iflag, bool qflag);
 
 
 /*

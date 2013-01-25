@@ -93,11 +93,11 @@ typedef struct particle_tuple_s {
 
 /*
  * Particle table
- * - valid objects have indices between 0 and nojects - 1
+ * - valid objects have indices between 0 and nobjects - 1
  * - for each object i: 
  *     kind[i] = its kind
  *     desc[i] = its descriptor
- *     concrete[i] = its concretisation
+ *     concrete[i] = its concretization
  *     mark[i] = general purpose mark bit
  * - other components: 
  *     htbl = hash table for hash consing
@@ -222,7 +222,7 @@ extern particle_t pstore_labeled_particle(pstore_t *store, elabel_t l, type_t ta
 
 
 /*
- * Create a fresh praticle of type tau
+ * Create a fresh particle of type tau
  * - the particle is added to the set for tau
  */
 extern particle_t pstore_fresh_particle(pstore_t *store, type_t tau);
@@ -306,7 +306,7 @@ static inline particle_t get_another_particle(pstore_t *store, type_t tau, parti
  * - return null_particle if that's not possible
  */
 extern particle_t get_distinct_tuple(pstore_t *store, uint32_t n, type_t *tau,
-				     uint32_t p, particle_t *a);
+                                     uint32_t p, particle_t *a);
 
 
 

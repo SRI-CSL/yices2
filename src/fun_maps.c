@@ -235,7 +235,7 @@ static bool map_is_normal(map_t *map) {
     n --;
     for (i=0; i<n; i++) {
       if (map->data[i].index >= map->data[i+1].index) {
-	return false;
+        return false;
       }
     }
   }
@@ -261,7 +261,7 @@ void add_elem_to_map(map_t *map, particle_t index, particle_t value) {
   uint32_t i;
 
   assert(index != null_particle && value != null_particle && 
-	 !index_is_in_map(map, index));
+         !index_is_in_map(map, index));
 
   i = map->nelems;
   if (i == map->size) {
@@ -384,19 +384,19 @@ particle_t disagreement_point(map_t *map1, map_t *map2) {
     if (k1 < k2) {
       // k1 not in map2's domain so map2[k1] = d2
       if (map1->data[i1].value != d2 && d2 != null_particle) {
-	return k1;
+        return k1;
       }
       i1 ++;
     } else if (k2 < k1) {
       // k2 not in map1's domain so map1[k2] = d1
       if (map2->data[i2].value != d1 && d1 != null_particle) {
-	return k2;
+        return k2;
       }
       i2 ++;
     } else {
       // k1  == k2
       if (map1->data[i1].value != map2->data[i2].value) {
-	return k1;	
+        return k1;      
       }
       i1 ++;
       i2 ++;
@@ -407,7 +407,7 @@ particle_t disagreement_point(map_t *map1, map_t *map2) {
     while (i1 < n1) {
       k1 = map1->data[i1].index;
       if (map1->data[i1].value != d2) {
-	return k1;
+        return k1;
       }
       i1 ++;
     }
@@ -417,7 +417,7 @@ particle_t disagreement_point(map_t *map1, map_t *map2) {
     while (i2 < n2) {
       k2 = map2->data[i2].index;
       if (map2->data[i2].value != d1) {
-	return k2;
+        return k2;
       }
       i2 ++;
     }

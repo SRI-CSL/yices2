@@ -283,7 +283,7 @@ extern boolgate_t *gate_table_find(gate_table_t *table, uint32_t tag, literal_t 
 
 /*
  * Find or create a descriptor with the given tag/input literals
- * - if the descriptor is new, then its output are initialzed to null_literal
+ * - if the descriptor is new, then its output are initialized to null_literal
  */
 extern boolgate_t *gate_table_get(gate_table_t *table, uint32_t tag, literal_t *a);
 

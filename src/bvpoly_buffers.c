@@ -28,7 +28,7 @@ void init_bvpoly_buffer(bvpoly_buffer_t *buffer) {
   uint32_t i, n;
 
   assert(DEF_BVPOLYBUFFER_ISIZE < MAX_BVPOLYBUFFER_ISIZE &&
-	 DEF_BVPOLYBUFFER_SIZE < MAX_BVPOLYBUFFER_SIZE);
+         DEF_BVPOLYBUFFER_SIZE < MAX_BVPOLYBUFFER_SIZE);
 
   n = DEF_BVPOLYBUFFER_ISIZE;
   tmp = (int32_t *) safe_malloc(n * sizeof(int32_t));
@@ -155,7 +155,7 @@ void reset_bvpoly_buffer(bvpoly_buffer_t *buffer, uint32_t bitsize) {
       // new w_size = max(2 * current w_size, w)
       w_size <<= 1;
       if (w_size < w) {
-	w_size = w;
+        w_size = w;
       }
       buffer->w_size = w_size;
     }
@@ -885,17 +885,17 @@ static void bvpoly_buffer_reduce_coefficients(bvpoly_buffer_t *buffer) {
       p = buffer->p[i];
       bvconst_normalize(p, b);
       if (bvconst_is_zero(p, w)) {
-	// remove monomial i
-	buffer->index[x] = -1;
+        // remove monomial i
+        buffer->index[x] = -1;
       } else {
-	if (j < i) {
-	  // move monomial i to position j
-	  buffer->index[x] = j;
-	  buffer->var[j] = x;
-	  buffer->p[i] = buffer->p[j]; // swap rather than copy p[i] into p[j]
-	  buffer->p[j] = p;
-	}
-	j ++;
+        if (j < i) {
+          // move monomial i to position j
+          buffer->index[x] = j;
+          buffer->var[j] = x;
+          buffer->p[i] = buffer->p[j]; // swap rather than copy p[i] into p[j]
+          buffer->p[j] = p;
+        }
+        j ++;
       }      
     }
     buffer->nterms = j;
@@ -911,16 +911,16 @@ static void bvpoly_buffer_reduce_coefficients(bvpoly_buffer_t *buffer) {
       x = buffer->var[i];
       buffer->c[i] &= mask; // clear high-order bits
       if (buffer->c[i] == 0) {
-	// remove monomial i
-	buffer->index[x] = -1;
+        // remove monomial i
+        buffer->index[x] = -1;
       } else {
-	if (j < i) {
-	  // move monomial i to position j
-	  buffer->index[x] = j;
-	  buffer->var[j] = x;
-	  buffer->c[j] = buffer->c[i];
-	}
-	j ++;
+        if (j < i) {
+          // move monomial i to position j
+          buffer->index[x] = j;
+          buffer->var[j] = x;
+          buffer->c[j] = buffer->c[i];
+        }
+        j ++;
       }
     }
     buffer->nterms = j;
@@ -953,15 +953,15 @@ static bool bvpoly_buffer_is_normalized(bvpoly_buffer_t *buffer) {
     w = buffer->width;
     for (i=0; i<n; i++) {
       if (bvconst_is_zero(buffer->p[i], w) ||
-	  ! bvconst_is_normalized(buffer->p[i], b)) {
-	return false;
+          ! bvconst_is_normalized(buffer->p[i], b)) {
+        return false;
       }
     }
   } else {
     for (i=0; i<n; i++) {
       c = buffer->c[i];
       if (c == 0 || c != norm64(c, b)) {
-	return false;
+        return false;
       }
     }
   }
@@ -1087,7 +1087,7 @@ bool bvpoly_buffer_equal_poly(bvpoly_buffer_t *b, bvpoly_t *p) {
 
   for (i=0; i<n; i++) {
     if (b->var[i] != p->mono[i].var || 
-	bvconst_neq(b->p[i], p->mono[i].coeff, w)) {
+        bvconst_neq(b->p[i], p->mono[i].coeff, w)) {
       return false;
     }
   }

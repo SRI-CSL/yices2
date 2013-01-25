@@ -1029,7 +1029,7 @@ static bool eq_bvc_prod_hobj(bvc_prod_hobj_t *p, bvnode_t i) {
 
   for (j=0; j<n; j++) {
     if (p->pp[j].var != o->prod[j].var ||
-	p->pp[j].exp != o->prod[j].exp) {
+        p->pp[j].exp != o->prod[j].exp) {
       return false;
     }
   }
@@ -1718,7 +1718,7 @@ static void reclassify_dependents(bvc_dag_t *dag, bvnode_t i) {
     for (j=0; j<m; j++) {
       r = l[j];
       if (node_is_elementary(dag, r)) {
-	bvc_dag_move_to_elementary_list(dag, r);
+        bvc_dag_move_to_elementary_list(dag, r);
       }
     }
   }
@@ -1866,7 +1866,7 @@ static void replace_node(bvc_dag_t *dag, bvnode_t i, node_occ_t n) {
       replace_node_in_desc(dag->desc[x], i, n);
       bvc_dag_add_dependency(dag, node_of_occ(n), x);  // now x depends on n
       if (node_is_elementary(dag, x)) {
-	bvc_dag_move_to_elementary_list(dag, x);
+        bvc_dag_move_to_elementary_list(dag, x);
       }
     }
     delete_index_vector(l);
@@ -1954,23 +1954,23 @@ static void try_reduce_sum(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n,
       k1 = -1;
       k2 = -1;
       for (j=0; j<m; j++) {
-	if (same_node(n1, p->sum[j])) {
-	  assert(k1 < 0);
-	  k1 = j;
-	} else if (same_node(n2, p->sum[j])) {
-	  assert(k2 < 0);
-	  k2 = j;
-	}
+        if (same_node(n1, p->sum[j])) {
+          assert(k1 < 0);
+          k1 = j;
+        } else if (same_node(n2, p->sum[j])) {
+          assert(k2 < 0);
+          k2 = j;
+        }
       }
 
       if (k1 >= 0 && k2 >= 0) {
-	// p->sum[k1] contains +/- n1
-	// p->sum[k2] contains +/- n2
-	if (p->sum[k1] == n1 && p->sum[k2] == n2) {
-	  shrink_sum(dag, p, i, n, n1, n2);
-	} else if (p->sum[k1] == negate_occ(n1) && p->sum[k2] == negate_occ(n2)) {
-	  shrink_sum(dag, p, i, negate_occ(n), negate_occ(n1), negate_occ(n2));
-	}
+        // p->sum[k1] contains +/- n1
+        // p->sum[k2] contains +/- n2
+        if (p->sum[k1] == n1 && p->sum[k2] == n2) {
+          shrink_sum(dag, p, i, n, n1, n2);
+        } else if (p->sum[k1] == negate_occ(n1) && p->sum[k2] == negate_occ(n2)) {
+          shrink_sum(dag, p, i, negate_occ(n), negate_occ(n1), negate_occ(n2));
+        }
       }
     }
   }
@@ -2044,21 +2044,21 @@ static bool check_reduce_sum(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t 
       k1 = -1;
       k2 = -1;
       for (j=0; j<m; j++) {
-	if (same_node(n1, p->sum[j])) {
-	  assert(k1 < 0);
-	  k1 = j;
-	  if (k2 >= 0) break;
-	} else if (same_node(n2, p->sum[j])) {
-	  assert(k2 < 0);
-	  k2 = j;
-	  if (k1 >= 0) break;
-	}
+        if (same_node(n1, p->sum[j])) {
+          assert(k1 < 0);
+          k1 = j;
+          if (k2 >= 0) break;
+        } else if (same_node(n2, p->sum[j])) {
+          assert(k2 < 0);
+          k2 = j;
+          if (k1 >= 0) break;
+        }
       }
 
       if (k1 >= 0 && k2 >= 0) {
-	// could use more xor tricks here?
-	return (p->sum[k1] == n1 && p->sum[k2] == n2) || 
-	  (p->sum[k1] == negate_occ(n1) && p->sum[k2] == negate_occ(n2));
+        // could use more xor tricks here?
+        return (p->sum[k1] == n1 && p->sum[k2] == n2) || 
+          (p->sum[k1] == negate_occ(n1) && p->sum[k2] == negate_occ(n2));
       }
     }
   }
@@ -2096,7 +2096,7 @@ bool bvc_dag_check_reduce_sum(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2) {
 
     for (i=0; i<m; i++) {
       if (check_reduce_sum(dag, l1[i], h, n1, n2)) {
-	return true;
+        return true;
       }
     }
   }
@@ -2201,44 +2201,44 @@ static void try_reduce_prod(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t n
       k1 = pprod_get_index(p, n1);
       k2 = pprod_get_index(p, n2);
       if (k1 >= 0 && k2 >= 0) {
-	/*
-	 * p contains n1^e1 * n2^e2 where e1>0 and e2>0
-	 * If e1 <= e2: n1^e1 * n2^e2 --> n^e1 * n2^(e2 - e1)
-	 * If e2 < e1:  n1^e1 * n2^e2 --> n^e2 * n1^(e1 - e2)
-	 */
-	e1 = p->prod[k1].exp;
-	e2 = p->prod[k2].exp;
-	if (e1 <= e2) {
-	  bvc_dag_remove_dependent(dag, node_of_occ(n1), i);
-	  p->prod[k1].exp = 0;
-	  p->prod[k2].exp -= e1;
-	  if (e1 == e2) {
-	    bvc_dag_remove_dependent(dag, node_of_occ(n2), i);
-	  }
-	} else {
-	  bvc_dag_remove_dependent(dag, node_of_occ(n2), i); 
-	  p->prod[k1].exp -= e2;
-	  p->prod[k2].exp = 0;
-	  k1 = k2;
-	  e1 = e2;
-	}
+        /*
+         * p contains n1^e1 * n2^e2 where e1>0 and e2>0
+         * If e1 <= e2: n1^e1 * n2^e2 --> n^e1 * n2^(e2 - e1)
+         * If e2 < e1:  n1^e1 * n2^e2 --> n^e2 * n1^(e1 - e2)
+         */
+        e1 = p->prod[k1].exp;
+        e2 = p->prod[k2].exp;
+        if (e1 <= e2) {
+          bvc_dag_remove_dependent(dag, node_of_occ(n1), i);
+          p->prod[k1].exp = 0;
+          p->prod[k2].exp -= e1;
+          if (e1 == e2) {
+            bvc_dag_remove_dependent(dag, node_of_occ(n2), i);
+          }
+        } else {
+          bvc_dag_remove_dependent(dag, node_of_occ(n2), i); 
+          p->prod[k1].exp -= e2;
+          p->prod[k2].exp = 0;
+          k1 = k2;
+          e1 = e2;
+        }
 
-	// increase exponent of n by e1
-	assert(p->prod[k1].exp == 0);
-	k = pprod_get_index(p, n);
-	if (k >= 0) {
-	  p->prod[k].exp += e1;
-	} else {
-	  bvc_dag_add_dependency(dag, node_of_occ(n), i);
-	  // store n^e1 at index k1
-	  p->prod[k1].var = n;
-	  p->prod[k1].exp = e1;
-	}
+        // increase exponent of n by e1
+        assert(p->prod[k1].exp == 0);
+        k = pprod_get_index(p, n);
+        if (k >= 0) {
+          p->prod[k].exp += e1;
+        } else {
+          bvc_dag_add_dependency(dag, node_of_occ(n), i);
+          // store n^e1 at index k1
+          p->prod[k1].var = n;
+          p->prod[k1].exp = e1;
+        }
 
-	cleanup_prod(p);	    
-	if (prod_node_is_elementary(dag, p)) {
-	  bvc_dag_move_to_elementary_list(dag, i);
-	}
+        cleanup_prod(p);            
+        if (prod_node_is_elementary(dag, p)) {
+          bvc_dag_move_to_elementary_list(dag, i);
+        }
       }
     }
 
@@ -2267,39 +2267,39 @@ static void try_reduce_square(bvc_dag_t *dag, bvnode_t i, uint32_t h, node_occ_t
       k1 = pprod_get_index(p, n1);
       e = p->prod[k1].exp;
       if (k1 >= 0 && e >= 2) {
-	/*
-	 * p contains n1^e with e >= 2
-	 * If e is 2t+1: n1^e ---> n1 * n^t
-	 * If e is 2t:   n1^e ---> n^t
-	 */
-	if ((e & 1) == 0) {
-	  p->prod[k1].exp = 0;
-	  bvc_dag_remove_dependent(dag, node_of_occ(n1), i);	  
-	} else {
-	  p->prod[k1].exp = 1;
-	}
+        /*
+         * p contains n1^e with e >= 2
+         * If e is 2t+1: n1^e ---> n1 * n^t
+         * If e is 2t:   n1^e ---> n^t
+         */
+        if ((e & 1) == 0) {
+          p->prod[k1].exp = 0;
+          bvc_dag_remove_dependent(dag, node_of_occ(n1), i);      
+        } else {
+          p->prod[k1].exp = 1;
+        }
 
-	e >>= 1;
-	k = pprod_get_index(p, n);
-	if (k >= 0) {
-	  p->prod[k].exp += e;
-	  cleanup_prod(p);
-	} else {
-	  bvc_dag_add_dependency(dag, node_of_occ(n), i);
-	  if (p->prod[k1].exp == 0) {
-	    // store n^e at index k1
-	    p->prod[k1].var = n;
-	    p->prod[k1].exp = e;
-	    cleanup_prod(p);
-	  } else {
-	    p = mk_prod_times_occ_power(dag, p, n, e);
-	    dag->desc[i] = &p->header;
-	  }
-	}
+        e >>= 1;
+        k = pprod_get_index(p, n);
+        if (k >= 0) {
+          p->prod[k].exp += e;
+          cleanup_prod(p);
+        } else {
+          bvc_dag_add_dependency(dag, node_of_occ(n), i);
+          if (p->prod[k1].exp == 0) {
+            // store n^e at index k1
+            p->prod[k1].var = n;
+            p->prod[k1].exp = e;
+            cleanup_prod(p);
+          } else {
+            p = mk_prod_times_occ_power(dag, p, n, e);
+            dag->desc[i] = &p->header;
+          }
+        }
 
-	if (prod_node_is_elementary(dag, p)) {
-	  bvc_dag_move_to_elementary_list(dag, i);
-	}
+        if (prod_node_is_elementary(dag, p)) {
+          bvc_dag_move_to_elementary_list(dag, i);
+        }
       }
 
     }
@@ -2345,11 +2345,11 @@ void bvc_dag_reduce_prod(bvc_dag_t *dag, node_occ_t n, node_occ_t n1, node_occ_t
 
     if (n1 == n2) {
       for (i=0; i<m; i++) {
-	try_reduce_square(dag, v->data[i], h, n, n1);
+        try_reduce_square(dag, v->data[i], h, n, n1);
       }
     } else {
       for (i=0; i<m; i++) {
-	try_reduce_prod(dag, v->data[i], h, n, n1, n2);
+        try_reduce_prod(dag, v->data[i], h, n, n1, n2);
       }
     }
 
@@ -2438,15 +2438,15 @@ bool bvc_dag_check_reduce_prod(bvc_dag_t *dag, node_occ_t n1, node_occ_t n2) {
      */
     if (n1 == n2) {
       for (i=0; i<m; i++) {
-	if (check_reduce_square(dag, l1[i], h, n1)) {
-	  return true;
-	}
+        if (check_reduce_square(dag, l1[i], h, n1)) {
+          return true;
+        }
       }
     } else {
       for (i=0; i<m; i++) {
-	if (check_reduce_prod(dag, l1[i], h, n1, n2)) {
-	  return true;
-	}
+        if (check_reduce_prod(dag, l1[i], h, n1, n2)) {
+          return true;
+        }
       }
     }
   } 
@@ -2537,8 +2537,8 @@ static void affinity_scores_sum(bvc_dag_t *dag, bvnode_t r, bvnode_t s, uint32_t
     if (d->tag == BVC_SUM) {
       p = sum_node(d);
       if ((p->hash & h) == h) {
-	// p may contain r and s
-	affinity_scores_in_sum(p, r, s, score);
+        // p may contain r and s
+        affinity_scores_in_sum(p, r, s, score);
       }
     }
   }
@@ -2598,7 +2598,7 @@ static uint32_t affinity_score_prod(bvc_dag_t *dag, bvnode_t r, bvnode_t s) {
     if (d->tag == BVC_PROD) {
       p = prod_node(d);
       if ((p->hash & h) == h && node_pair_occurs_in_prod(p, r, s)) {
-	score ++;
+        score ++;
       }
     }
   }
@@ -2631,7 +2631,7 @@ static uint32_t affinity_score_square(bvc_dag_t *dag, bvnode_t r) {
     if (d->tag == BVC_PROD) {
       p = prod_node(d);
       if ((p->hash & h) == h && node_square_occurs_in_prod(p, r)) {
-	score ++;
+        score ++;
       }
     }
   }
@@ -2687,7 +2687,7 @@ static void prod_get_leaves(bvc_dag_t *dag, bvc_prod_t *p, ivector_t *v) {
     if (bvc_dag_node_is_leaf(dag, x)) {
       ivector_push(v, x);
       if (p->prod[i].exp > 1) {
-	ivector_push(v, x);
+        ivector_push(v, x);
       }
     }
   }
@@ -2722,15 +2722,15 @@ static void search_sum_pairs(bvc_dag_t *dag, bvc_pair_t *b, bvnode_t *a, uint32_
     if (bvnode_num_occs(dag, s) > b->score) {
       affinity_scores_sum(dag, r, s, score);
       if (score[0] > b->score) {
-	b->score = score[0];
-	b->n1 = bvp(r);
-	b->n2 = bvp(s);
+        b->score = score[0];
+        b->n1 = bvp(r);
+        b->n2 = bvp(s);
       }
 
       if (score[1] > b->score) {
-	b->score = score[1];
-	b->n1 = bvp(r);
-	b->n2 = bvn(s);
+        b->score = score[1];
+        b->n1 = bvp(r);
+        b->n2 = bvn(s);
       }
     }
   }
@@ -2744,14 +2744,14 @@ static void search_prod_pairs(bvc_dag_t *dag, bvc_pair_t *b, bvnode_t *a, uint32
     s = a[i];
     if (bvnode_num_occs(dag, s) > b->score) {
       if (r == s) {
-	score = affinity_score_square(dag, r);
+        score = affinity_score_square(dag, r);
       } else {
-	score = affinity_score_prod(dag, r, s);
+        score = affinity_score_prod(dag, r, s);
       }
       if (score > b->score) {
-	b->score = score;
-	b->n1 = bvp(r);
-	b->n2 = bvp(s);
+        b->score = score;
+        b->n1 = bvp(r);
+        b->n2 = bvp(s);
       }
     }
   }
@@ -2878,10 +2878,10 @@ void bvc_dag_force_elem_node(bvc_dag_t *dag) {
       assert(!prod_node_is_elementary(dag, p));
       search_pair_in_prod(dag, &aux, p);
       if (aux.score > 0) {
-	// found a new pair
-	assert(aux.n1 > 0 && aux.n2 > 0);
-	(void) bvc_dag_pprod2(dag, aux.n1, aux.n2, d->bitsize);
-	return;
+        // found a new pair
+        assert(aux.n1 > 0 && aux.n2 > 0);
+        (void) bvc_dag_pprod2(dag, aux.n1, aux.n2, d->bitsize);
+        return;
       }
       break;
 
@@ -2889,13 +2889,13 @@ void bvc_dag_force_elem_node(bvc_dag_t *dag) {
       q = sum_node(d);
       assert(!sum_node_is_elementary(dag, q));
       if (q->len >= 2) {
-	search_pair_in_sum(dag, &aux, q);
-	if (aux.score > 0) {
-	  // found a new pair
-	  assert(aux.n1 > 0 && aux.n2 > 0);
-	  (void) bvc_dag_sum2(dag, aux.n1, aux.n2, d->bitsize);
-	  return;
-	}
+        search_pair_in_sum(dag, &aux, q);
+        if (aux.score > 0) {
+          // found a new pair
+          assert(aux.n1 > 0 && aux.n2 > 0);
+          (void) bvc_dag_sum2(dag, aux.n1, aux.n2, d->bitsize);
+          return;
+        }
       }
       break;
 

@@ -497,7 +497,7 @@ static smt_token_t smt_read_string(lexer_t *lex) {
     if (c == '\\') {
       c = reader_next_char(rd);
       if (c != '"') { // keep backslash
-	string_buffer_append_char(buffer, '\\');
+        string_buffer_append_char(buffer, '\\');
       }
     }
     string_buffer_append_char(buffer, c);
@@ -537,7 +537,7 @@ static smt_token_t smt_read_user_val(lexer_t *lex) {
     if (c == '\\') {
       c = reader_next_char(rd);
       if (c != '{' && c != '}') {
-	string_buffer_append_char(buffer, '\\');
+        string_buffer_append_char(buffer, '\\');
       }
     }
     string_buffer_append_char(buffer, c);
@@ -716,25 +716,25 @@ static smt_token_t symbol_type(string_buffer_t *buffer) {
     if (n > 5 && s[2] == 'b' && s[3] == 'i' && s[4] == 'n') {
       // bvbin prefix
       for (i=5; i<n; i++) {
-	if (s[i] != '0' && s[i] != '1') {
-	  return SMT_TK_SYMBOL;
-	}
+        if (s[i] != '0' && s[i] != '1') {
+          return SMT_TK_SYMBOL;
+        }
       }
       return SMT_TK_BV_BINCONSTANT;
       
     } else if (n > 5 && s[2] == 'h' && s[3] == 'e' && s[4] == 'x') {
       // bvhex prefix
       for (i=5; i<n; i++) {
-	// need coercion here to stop a warning
-	if (! isxdigit((int) s[i])) return SMT_TK_SYMBOL;
+        // need coercion here to stop a warning
+        if (! isxdigit((int) s[i])) return SMT_TK_SYMBOL;
       }
       return SMT_TK_BV_HEXCONSTANT;
 
     } else {
       // bv prefix
       for (i=2; i<n; i++) {
-	// need coercion here to stop a warning
-	if (! isdigit((int) s[i])) return SMT_TK_SYMBOL;
+        // need coercion here to stop a warning
+        if (! isdigit((int) s[i])) return SMT_TK_SYMBOL;
       }
       // constant in decimal
       return SMT_TK_BV_CONSTANT;

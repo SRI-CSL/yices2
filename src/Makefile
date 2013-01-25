@@ -78,7 +78,7 @@ static_smt_distdir := $(BUILD)/static_smt_dist
 #
 base_src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c  \
               arith_buffer_terms.c arith_vartable.c backtrack_arrays.c     \
-	      bit_blaster.c bit_expr.c bit_term_conversion.c               \
+              bit_blaster.c bit_expr.c bit_term_conversion.c               \
               bvarith_buffers.c bvarith_buffer_terms.c bvarith64_buffers.c \
               bvarith64_buffer_terms.c bvlogic_buffers.c bv_atomtable.c    \
               bv_constants.c bv64_constants.c bvconst_hmap.c               \
@@ -452,16 +452,16 @@ STATIC_LIBS := $(STATIC_GMP) $(subst $(LIBS),-lgmp,)
 # Dependency files
 #
 $(objdir)/%.d: %.c
-	@ echo Building dependency file $@
-	@ $(CC) -MM -MG $(CFLAGS) $(CPPFLAGS) $< > $@.tmp
-	@ $(SED) 's,\($*\).o[ :]*,$(objdir)/\1.o $@ : , g' < $@.tmp > $@
-	@ rm -f $@.tmp
+        @ echo Building dependency file $@
+        @ $(CC) -MM -MG $(CFLAGS) $(CPPFLAGS) $< > $@.tmp
+        @ $(SED) 's,\($*\).o[ :]*,$(objdir)/\1.o $@ : , g' < $@.tmp > $@
+        @ rm -f $@.tmp
 
 $(static_objdir)/%.d: %.c
-	@ echo Building dependency file $@
-	@ $(CC) -MM -MG $(CFLAGS) $(STATIC_CPPFLAGS) $< > $@.tmp
-	@ $(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.tmp > $@
-	@ rm -f $@.tmp
+        @ echo Building dependency file $@
+        @ $(CC) -MM -MG $(CFLAGS) $(STATIC_CPPFLAGS) $< > $@.tmp
+        @ $(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.tmp > $@
+        @ rm -f $@.tmp
 
 include $(dep)
 include $(bin_dep)
@@ -477,12 +477,12 @@ include $(static_version_dep)
 # - we need to give different names to the yices and smt lookup functions
 #
 yices_hash_keywords.h: yices_keywords.txt
-	$(GPERF) -C -G -L ANSI-C -W yices_kw --output-file=yices_hash_keywords.h \
-	--lookup-function-name=in_yices_kw yices_keywords.txt
+        $(GPERF) -C -G -L ANSI-C -W yices_kw --output-file=yices_hash_keywords.h \
+        --lookup-function-name=in_yices_kw yices_keywords.txt
 
 smt_hash_keywords.h: smt_keywords.txt
-	$(GPERF) -C -G -L ANSI-C -W smt_kw --output-file=smt_hash_keywords.h \
-	--lookup-function-name=in_smt_kw smt_keywords.txt
+        $(GPERF) -C -G -L ANSI-C -W smt_kw --output-file=smt_hash_keywords.h \
+        --lookup-function-name=in_smt_kw smt_keywords.txt
 
 #
 # Tables for SMT2:
@@ -492,16 +492,16 @@ smt_hash_keywords.h: smt_keywords.txt
 #   we can't use -G and we must give -E
 #
 smt2_hash_tokens.h: smt2_tokens.txt
-	$(GPERF) -C -L ANSI-C -W smt2_tk -H hash_tk -E --output-file=smt2_hash_tokens.h \
-	--lookup-function-name=in_smt2_tk smt2_tokens.txt
+        $(GPERF) -C -L ANSI-C -W smt2_tk -H hash_tk -E --output-file=smt2_hash_tokens.h \
+        --lookup-function-name=in_smt2_tk smt2_tokens.txt
 
 smt2_hash_keywords.h: smt2_keywords.txt
-	$(GPERF) -C -L ANSI-C -W smt2_kw -H hash_kw -E --output-file=smt2_hash_keywords.h \
-	--lookup-function-name=in_smt2_kw smt2_keywords.txt
+        $(GPERF) -C -L ANSI-C -W smt2_kw -H hash_kw -E --output-file=smt2_hash_keywords.h \
+        --lookup-function-name=in_smt2_kw smt2_keywords.txt
 
 smt2_hash_symbols.h: smt2_symbols.txt
-	$(GPERF) -C -L ANSI-C -W smt2_sym -H hash_sym -E --output-file=smt2_hash_symbols.h \
-	--lookup-function-name=in_smt2_sym smt2_symbols.txt
+        $(GPERF) -C -L ANSI-C -W smt2_sym -H hash_sym -E --output-file=smt2_hash_symbols.h \
+        --lookup-function-name=in_smt2_sym smt2_symbols.txt
 
 
 #
@@ -519,9 +519,9 @@ else
 endif
 
 yices_version.c: yices_version_template.txt
-	$(SED) -e 's/YICES_VERSION/$(YICES_VERSION)/g' -e 's/YICES_COMPILATION_DATE/$(now)/g' \
+        $(SED) -e 's/YICES_VERSION/$(YICES_VERSION)/g' -e 's/YICES_COMPILATION_DATE/$(now)/g' \
                -e 's;SVN_URL;$(url);g' -e 's/SVN_REVISION/$(rev)/g' \
-	       -e 's/YICES_ARCH/$(ARCH)/g' -e 's/YICES_BUILD_MODE/$(YICES_MODE)/g' \
+               -e 's/YICES_ARCH/$(ARCH)/g' -e 's/YICES_BUILD_MODE/$(YICES_MODE)/g' \
                yices_version_template.txt > $@
 
 
@@ -530,38 +530,38 @@ yices_version.c: yices_version_template.txt
 # Object files
 #
 $(objdir)/%.o: %.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(PIC) -c $< -o $@
+        $(CC) $(CPPFLAGS) $(CFLAGS) $(PIC) -c $< -o $@
 
 $(static_version_obj): yices_version.c
-	$(CC) -DYICES_STATIC $(STATIC_CPPFLAGS) $(CFLAGS) -c yices_version.c -o $(static_version_obj)
+        $(CC) -DYICES_STATIC $(STATIC_CPPFLAGS) $(CFLAGS) -c yices_version.c -o $(static_version_obj)
 
 $(static_objdir)/%o: %c
-	$(CC) $(STATIC_CPPFLAGS) $(CFLAGS) -c $< -o $@
+        $(CC) $(STATIC_CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 
 #
 # Static libraries
 #
 $(libyices): $(obj) $(version_obj)
-	@ rm -f $(libyices)
-	$(AR) cr $(libyices) $(obj) $(version_obj)
-	$(RANLIB) $(libyices)
+        @ rm -f $(libyices)
+        $(AR) cr $(libyices) $(obj) $(version_obj)
+        $(RANLIB) $(libyices)
 
 $(static_libyices):  $(static_obj) $(static_version_obj)
-	@ rm -f $(static_libyices)
-	$(AR) cr $(static_libyices) $(static_obj) $(static_version_obj)
-	$(RANLIB) $(static_libyices)
+        @ rm -f $(static_libyices)
+        $(AR) cr $(static_libyices) $(static_obj) $(static_version_obj)
+        $(RANLIB) $(static_libyices)
 
 
 #
 # Executables
 #
 $(bindir)/%$(EXEEXT): $(objdir)/%.o $(libyices)
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
+        $(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
            -o $@ $< $(libyices) $(LIBS)
 
 $(static_bindir)/%$(EXEEXT): $(static_objdir)/%.o $(static_libyices)
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIND_LDFLAGS) $(STATIC) \
+        $(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIND_LDFLAGS) $(STATIC) \
           -o $@ $< $(static_libyices) $(STATIC_LIBS)
 
 
@@ -579,16 +579,16 @@ $(static_bindir)/%$(EXEEXT): $(static_objdir)/%.o $(static_libyices)
 # machine, unless we also give -lc. 
 #
 $(libdir)/$(libyices_so): $(base_obj) $(version_obj)
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
-	-Wl,-soname,$(libyices_soname) -Wl,--no-undefined \
+        $(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
+        -Wl,-soname,$(libyices_soname) -Wl,--no-undefined \
         $(base_obj) $(version_obj) $(LIBS) -lc
-	$(STRIP) -x $@
+        $(STRIP) -x $@
 
 $(static_libdir)/$(libyices_so): $(base_obj) $(version_obj)
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
-	-Wl,-soname,$(libyices_soname) -Wl,--no-undefined \
+        $(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
+        -Wl,-soname,$(libyices_soname) -Wl,--no-undefined \
         $(base_obj) $(version_obj) $(PIC_GMP) -lc
-	$(STRIP) -x $@
+        $(STRIP) -x $@
 
 
 #
@@ -606,18 +606,18 @@ $(static_libdir)/$(libyices_so): $(base_obj) $(version_obj)
 # static_libdir.
 #
 $(bindir)/$(libyices_dll): $(base_obj) $(version_obj)
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
-	-Wl,--out-implib=$(libdir)/$(libyices_implib) \
-	-Wl,--no-undefined \
-	$(base_obj) $(version_obj) $(LIBS)
-	$(STRIP) $@
+        $(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
+        -Wl,--out-implib=$(libdir)/$(libyices_implib) \
+        -Wl,--no-undefined \
+        $(base_obj) $(version_obj) $(LIBS)
+        $(STRIP) $@
 
 $(static_bindir)/$(libyices_dll): $(static_base_obj) $(static_version_obj)
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
-	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
-	-Wl,--no-undefined \
-	$(static_base_obj) $(static_version_obj) $(PIC_GMP)
-	$(STRIP) -x $@
+        $(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
+        -Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
+        -Wl,--no-undefined \
+        $(static_base_obj) $(static_version_obj) $(PIC_GMP)
+        $(STRIP) -x $@
 
 
 #
@@ -632,20 +632,20 @@ $(static_bindir)/$(libyices_dll): $(static_base_obj) $(static_version_obj)
 # Change: 2012/07/12 as above: build DLLs in bin directories.
 #
 $(bindir)/$(libyices_mingw_dll): $(base_obj) $(version_obj)
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
-	-Wl,--out-implib=$(libdir)/$(libyices_implib) \
-	-Wl,--output-def,$(libdir)/$(libyices_def) \
-	-Wl,--no-undefined \
-	$(base_obj) $(version_obj) $(LIBS)
-	$(STRIP) $@
+        $(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
+        -Wl,--out-implib=$(libdir)/$(libyices_implib) \
+        -Wl,--output-def,$(libdir)/$(libyices_def) \
+        -Wl,--no-undefined \
+        $(base_obj) $(version_obj) $(LIBS)
+        $(STRIP) $@
 
 $(static_bindir)/$(libyices_mingw_dll): $(static_base_obj) $(static_version_obj)
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
-	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
-	-Wl,--output-def,$(static_libdir)/$(libyices_def) \
-	-Wl,--no-undefined \
-	$(static_base_obj) $(static_version_obj) $(PIC_GMP)
-	$(STRIP) $@
+        $(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
+        -Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
+        -Wl,--output-def,$(static_libdir)/$(libyices_def) \
+        -Wl,--no-undefined \
+        $(static_base_obj) $(static_version_obj) $(PIC_GMP)
+        $(STRIP) $@
 
 
 #
@@ -657,24 +657,24 @@ $(static_bindir)/$(libyices_mingw_dll): $(static_base_obj) $(static_version_obj)
 #   safely change the install name using install_name_tool.
 #
 $(libdir)/$(libyices_dylib): $(base_obj) $(version_obj)
-	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib -o $@ \
-	-current_version $(libyices_curr_version) \
-	-compatibility_version $(libyices_compat_version) \
-	-Wl,-install_name,$(libyices_install_name) \
-	-Wl,-headerpad_max_install_names \
-	-Wl,-dead_strip \
-	$(base_obj) $(version_obj) $(LIBS) 
-	$(STRIP) -x $@
+        $(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib -o $@ \
+        -current_version $(libyices_curr_version) \
+        -compatibility_version $(libyices_compat_version) \
+        -Wl,-install_name,$(libyices_install_name) \
+        -Wl,-headerpad_max_install_names \
+        -Wl,-dead_strip \
+        $(base_obj) $(version_obj) $(LIBS) 
+        $(STRIP) -x $@
 
 $(static_libdir)/$(libyices_dylib): $(base_obj) $(version_obj)
-	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib -o $@ \
-	-current_version $(libyices_curr_version) \
-	-compatibility_version $(libyices_compat_version) \
-	-Wl,-install_name,$(libyices_install_name) \
-	-Wl,-headerpad_max_install_names \
-	-Wl,-dead_strip \
-	$(base_obj) $(version_obj) $(PIC_GMP)
-	$(STRIP) -x $@
+        $(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib -o $@ \
+        -current_version $(libyices_curr_version) \
+        -compatibility_version $(libyices_compat_version) \
+        -Wl,-install_name,$(libyices_install_name) \
+        -Wl,-headerpad_max_install_names \
+        -Wl,-dead_strip \
+        $(base_obj) $(version_obj) $(PIC_GMP)
+        $(STRIP) -x $@
 
 
 
@@ -716,49 +716,49 @@ STRIPFLAGS=
 # into the bin directory?
 #
 dist: bin lib
-	rm -r -f $(distdir)/*
-	mkdir $(distdir)/include
-	cp yices.h yices_types.h yices_limits.h yices_exit_codes.h $(distdir)/include
-	mkdir $(distdir)/bin
-	cp $(bindir)/yices_main$(EXEEXT) $(distdir)/bin/yices$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices$(EXEEXT)
-	cp $(bindir)/yices_smtcomp$(EXEEXT) $(distdir)/bin/yices-smt$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt$(EXEEXT)
-	cp $(bindir)/yices_sat$(EXEEXT) $(distdir)/bin/yices-sat$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-sat$(EXEEXT)
-	cp $(bindir)/*.dll $(distdir)/bin || true
-	mkdir $(distdir)/lib
-	cp $(libdir)/* $(distdir)/lib
-	rm -f $(distdir)/lib/libyices.a
+        rm -r -f $(distdir)/*
+        mkdir $(distdir)/include
+        cp yices.h yices_types.h yices_limits.h yices_exit_codes.h $(distdir)/include
+        mkdir $(distdir)/bin
+        cp $(bindir)/yices_main$(EXEEXT) $(distdir)/bin/yices$(EXEEXT)
+        $(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices$(EXEEXT)
+        cp $(bindir)/yices_smtcomp$(EXEEXT) $(distdir)/bin/yices-smt$(EXEEXT)
+        $(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt$(EXEEXT)
+        cp $(bindir)/yices_sat$(EXEEXT) $(distdir)/bin/yices-sat$(EXEEXT)
+        $(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-sat$(EXEEXT)
+        cp $(bindir)/*.dll $(distdir)/bin || true
+        mkdir $(distdir)/lib
+        cp $(libdir)/* $(distdir)/lib
+        rm -f $(distdir)/lib/libyices.a
 
 static-dist: static-bin static-lib
-	rm -r -f $(static_distdir)/*
-	mkdir $(static_distdir)/include
-	cp yices.h yices_types.h yices_limits.h yices_exit_codes.h $(static_distdir)/include
-	mkdir $(static_distdir)/bin
-	cp $(static_bindir)/yices_main$(EXEEXT) $(static_distdir)/bin/yices$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices$(EXEEXT)
-	cp $(static_bindir)/yices_smtcomp$(EXEEXT) $(static_distdir)/bin/yices-smt$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt$(EXEEXT)
-	cp $(static_bindir)/yices_sat$(EXEEXT) $(static_distdir)/bin/yices-sat$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-sat$(EXEEXT)
-	cp $(static_bindir)/*.dll $(static_distdir)/bin || true
-	mkdir $(static_distdir)/lib
-	cp $(static_libdir)/* $(static_distdir)/lib
-	rm -f $(static_distdir)/lib/libyices.a
+        rm -r -f $(static_distdir)/*
+        mkdir $(static_distdir)/include
+        cp yices.h yices_types.h yices_limits.h yices_exit_codes.h $(static_distdir)/include
+        mkdir $(static_distdir)/bin
+        cp $(static_bindir)/yices_main$(EXEEXT) $(static_distdir)/bin/yices$(EXEEXT)
+        $(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices$(EXEEXT)
+        cp $(static_bindir)/yices_smtcomp$(EXEEXT) $(static_distdir)/bin/yices-smt$(EXEEXT)
+        $(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt$(EXEEXT)
+        cp $(static_bindir)/yices_sat$(EXEEXT) $(static_distdir)/bin/yices-sat$(EXEEXT)
+        $(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-sat$(EXEEXT)
+        cp $(static_bindir)/*.dll $(static_distdir)/bin || true
+        mkdir $(static_distdir)/lib
+        cp $(static_libdir)/* $(static_distdir)/lib
+        rm -f $(static_distdir)/lib/libyices.a
 
 
 smt-dist: bin
-	rm -r -f $(smt_distdir)/*
-	mkdir $(smt_distdir)/bin
-	cp $(bindir)/yices_smtcomp$(EXEEXT) $(smt_distdir)/bin/yices$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(smt_distdir)/bin/yices$(EXEEXT)
+        rm -r -f $(smt_distdir)/*
+        mkdir $(smt_distdir)/bin
+        cp $(bindir)/yices_smtcomp$(EXEEXT) $(smt_distdir)/bin/yices$(EXEEXT)
+        $(STRIP) $(STRIPFLAGS) $(smt_distdir)/bin/yices$(EXEEXT)
 
 static-smt-dist: static-bin
-	rm -r -f $(static_smt_distdir)/*
-	mkdir $(static_smt_distdir)/bin
-	cp $(bindir)/yices_smtcomp$(EXEEXT) $(static_smt_distdir)/bin/yices$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(static_smt_distdir)/bin/yices$(EXEEXT)
+        rm -r -f $(static_smt_distdir)/*
+        mkdir $(static_smt_distdir)/bin
+        cp $(bindir)/yices_smtcomp$(EXEEXT) $(static_smt_distdir)/bin/yices$(EXEEXT)
+        $(STRIP) $(STRIPFLAGS) $(static_smt_distdir)/bin/yices$(EXEEXT)
 
 
 .PHONY: dist static-dist
@@ -772,14 +772,14 @@ static-smt-dist: static-bin
 # rules to avoid triggering the .DEFAULT rule if .h or .c files have been deleted
 #
 %.h:
-	@ echo
-	@ echo "$@ missing"
-	@ echo 
+        @ echo
+        @ echo "$@ missing"
+        @ echo 
 
 %.c:
-	@ echo
-	@ echo "Missing source file: $@"
-	@ echo
+        @ echo
+        @ echo "Missing source file: $@"
+        @ echo
 
 
 #
@@ -787,36 +787,36 @@ static-smt-dist: static-bin
 # print the options as set by this Makefile
 #
 .DEFAULT:
-	@ echo
-	@ echo "*** src/Mafefile ***"
-	@ echo
-	@ echo "target is $@"
-	@ echo
-	@ echo "ARCH is $(ARCH)"
-	@ echo "POSIXOS is $(POSIXOS)"
-	@ echo "YICES_TOP_DIR is $(YICES_TOP_DIR)"
-	@ echo "YICES_MAKE_INCLUDE is $(YICES_MAKE_INCLUDE)"
-	@ echo "YICES_MODE is $(YICES_MODE)"
-	@ echo "BUILD is $(BUILD)"
-	@ echo
-	@ echo "Configuration"
-	@ echo "  EXEEXT   = $(EXEEXT)"
-	@ echo "  SED      = $(SED)"
-	@ echo "  LN_S     = $(LN_S)"
-	@ echo "  MKDIR_P  = $(MKDIR_P)"
-	@ echo "  CC       = $(CC)"
-	@ echo "  CPPFLAGS = $(CPPFLAGS)"
-	@ echo "  LIBS     = $(LIBS)"
-	@ echo "  LDFLAGS  = $(LDFLAGS)"
-	@ echo "  LD       = $(LD)"
-	@ echo "  AR       = $(AR)"
-	@ echo "  RANLIB   = $(RANLIB)"
-	@ echo "  STRIP    = $(STRIP)"
-	@ echo "  NO_STACK_PROTECTOR = $(NO_STACK_PROTECTOR)"
-	@ echo "  STATIC_GMP = $(STATIC_GMP)"
-	@ echo "  STATIC_GMP_INCLUDE_DIR = $(STATIC_GMP_INCLUDE_DIR)"
-	@ echo "  PIC_GMP = $(PIC_GMP)"
-	@ echo "  PIC_GMP_INCLUDE_DIR = $(PIC_GMP_INCLUDE_DIR)"
-	@ echo
+        @ echo
+        @ echo "*** src/Mafefile ***"
+        @ echo
+        @ echo "target is $@"
+        @ echo
+        @ echo "ARCH is $(ARCH)"
+        @ echo "POSIXOS is $(POSIXOS)"
+        @ echo "YICES_TOP_DIR is $(YICES_TOP_DIR)"
+        @ echo "YICES_MAKE_INCLUDE is $(YICES_MAKE_INCLUDE)"
+        @ echo "YICES_MODE is $(YICES_MODE)"
+        @ echo "BUILD is $(BUILD)"
+        @ echo
+        @ echo "Configuration"
+        @ echo "  EXEEXT   = $(EXEEXT)"
+        @ echo "  SED      = $(SED)"
+        @ echo "  LN_S     = $(LN_S)"
+        @ echo "  MKDIR_P  = $(MKDIR_P)"
+        @ echo "  CC       = $(CC)"
+        @ echo "  CPPFLAGS = $(CPPFLAGS)"
+        @ echo "  LIBS     = $(LIBS)"
+        @ echo "  LDFLAGS  = $(LDFLAGS)"
+        @ echo "  LD       = $(LD)"
+        @ echo "  AR       = $(AR)"
+        @ echo "  RANLIB   = $(RANLIB)"
+        @ echo "  STRIP    = $(STRIP)"
+        @ echo "  NO_STACK_PROTECTOR = $(NO_STACK_PROTECTOR)"
+        @ echo "  STATIC_GMP = $(STATIC_GMP)"
+        @ echo "  STATIC_GMP_INCLUDE_DIR = $(STATIC_GMP_INCLUDE_DIR)"
+        @ echo "  PIC_GMP = $(PIC_GMP)"
+        @ echo "  PIC_GMP_INCLUDE_DIR = $(PIC_GMP_INCLUDE_DIR)"
+        @ echo
 
 

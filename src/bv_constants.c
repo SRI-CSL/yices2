@@ -1144,7 +1144,7 @@ void bvconst_concat(uint32_t *bv, uint32_t *a, uint32_t n, uint32_t *b, uint32_t
       y = *b;
       *bv ++ = (y << r) | x;
       if (s > t) {
-	*bv = y >> t;
+        *bv = y >> t;
       }
     }
   }

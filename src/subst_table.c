@@ -195,8 +195,8 @@ static void partition_add(subst_table_t *subst, term_t t) {
   type_t tau;
 
   assert(is_pos_term(t) && 
-	 ai32_read(&subst->parent, t) == NULL_TERM &&
-	 term_kind(subst->terms, t) == UNINTERPRETED_TERM);
+         ai32_read(&subst->parent, t) == NULL_TERM &&
+         term_kind(subst->terms, t) == UNINTERPRETED_TERM);
 
   tau = term_type(subst->terms, t);
   ai32_write(&subst->parent, t, t); // parent[t] := t
@@ -231,15 +231,15 @@ static void partition_merge(subst_table_t *subst, term_t x, term_t y) {
   uint8_t r_x, r_y;
 
   assert(subst_table_is_root(subst, x) && 
-	 subst_table_is_root(subst, y) && 
-	 term_type(subst->terms, x) == term_type(subst->terms, y) && 
-	 x != y); 
+         subst_table_is_root(subst, y) && 
+         term_type(subst->terms, x) == term_type(subst->terms, y) && 
+         x != y); 
 
   r_x = au8_get(&subst->rank, x);
   r_y = au8_get(&subst->rank, y);
 
   assert(r_x < 255 || r_y < 255);
-	
+        
   if (r_x < r_y) {
     // y stays root, parent[x] := y
     ai32_write(&subst->parent, x, y);    
@@ -339,9 +339,9 @@ static bool dfs_occurs_check(subst_table_t *subst, term_t t, term_t v) {
     case UNINTERPRETED_TERM:
       assert(is_pseudo_root(subst, x));
       if (x == t) {
-	// found a cycle
-	found = true;
-	goto done;
+        // found a cycle
+        found = true;
+        goto done;
       }
       break;
 

@@ -51,7 +51,7 @@ void init_mpq_aux() {
 #endif
   if (ULONG_SIZE != sizeof(unsigned long)) {
     printf("*** BUG: Bad configuration: ULONG_SIZE = %u, should be %u\n",
-	   (unsigned int) ULONG_SIZE, (unsigned int) sizeof(unsigned long));
+           (unsigned int) ULONG_SIZE, (unsigned int) sizeof(unsigned long));
     fflush(stdout);
     abort();
   }

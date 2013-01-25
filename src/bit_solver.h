@@ -81,7 +81,7 @@ typedef struct bit_solver_stats_s {
  *
  * - an assignment + propagation stack
  *
- * - other arrays for contructing and simplifying learned clauses
+ * - other arrays for constructing and simplifying learned clauses
  */
 typedef struct bit_solver_s {
   uint32_t status;            // UNSOLVED, SAT, OR UNSAT

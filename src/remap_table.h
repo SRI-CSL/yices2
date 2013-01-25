@@ -55,7 +55,7 @@
  * - nvars = number of pseudo variables
  *   for each v in 0, .., nvars-1, there are two pseudo literals,
  *   namely, pos_lit(v) and neg_lit(w).
- * - merge_bit[v] = mark to distinguish subsituted/root variables
+ * - merge_bit[v] = mark to distinguish substituted/root variables
  * - map[v] = mapping for v:
  *   initially, merge_bit[v] = 0, map[v] = null_literal
  *   after a substitution v := l,  we set merge_bit[v] = 1, map[v] = l
@@ -78,7 +78,7 @@
  * - top = top of the stack
  * - size = full size of array data
  */
-typedef struct remap_undo_stack_s {
+typedef struct remap_undo_stack_s {anything
   uint32_t size;
   uint32_t top;
   int32_t *data;
@@ -92,7 +92,7 @@ typedef struct remap_undo_stack_s {
  * Trail stack:
  * - for each level, we keep track of the top of the undo_stack
  *   and the size of the remap (i.e., last variables
- *   that was mapped to anyting) on entry to that level.
+ *   that was mapped to anything) on entry to that level.
  */
 typedef struct remap_trail_elem_s {
   uint32_t undo_top;
@@ -273,13 +273,13 @@ extern void remap_table_merge(remap_table_t *table, literal_t l1, literal_t l2);
  * Assign l1 to the class of l
  * - l1 must be a non-null 'real' literal
  * - the class must not be assigned to anything yet
- * - this assings map[root(l)] := l1
+ * - this assigns map[root(l)] := l1
  */
 extern void remap_table_assign(remap_table_t *table, literal_t l, literal_t l1);
 
 /*
  * Auxiliary function used below: 
- * - flip the polary bit of l if sgn is 1 and l is non-null
+ * - flip the polarity bit of l if sgn is 1 and l is non-null
  * - keep l unchanged otherwise
  */
 static inline literal_t xor_sign(literal_t l, uint32_t sgn) {

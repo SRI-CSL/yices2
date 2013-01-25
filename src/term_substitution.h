@@ -3,7 +3,7 @@
  */
 
 /*
- * Subsitution on terms:
+ * Substitution on terms:
  * - the substitution is defined by a hash map that stores
  *   a mapping from variables to terms.
  * - a cache stores the result of applying the substitution to
@@ -80,7 +80,7 @@ extern bool good_term_subst(term_table_t *terms, uint32_t n, term_t *v, term_t *
  * The jump buffer env is not initialized.
  */
 extern void init_term_subst(term_subst_t *subst, term_manager_t *mngr,
-			    uint32_t n, term_t *v, term_t *t);
+                            uint32_t n, term_t *v, term_t *t);
 
 
 /*
@@ -100,7 +100,7 @@ extern void init_term_subst(term_subst_t *subst, term_manager_t *mngr,
  * For example: this sequence is not recommended
  *   t1 = apply_term_subst(subst, t0);
  *   t2 = apply_term_susbt(subst, t1);
- * because t1 may contain fresh variables intoduced by apply_subst.
+ * because t1 may contain fresh variables introduced by apply_subst.
  */
 extern term_t apply_term_subst(term_subst_t *subst, term_t t);
 

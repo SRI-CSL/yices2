@@ -142,11 +142,11 @@ void prop_table_set_numvars(prop_table_t *table, uint32_t m) {
       // new var size = max(m, old size + 50%)
       n += n>>1;
       if (n < m) {
-	n = m;
+        n = m;
       }
 
       if (n >= MAX_PROPTABLE_VAR_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
 
       table->col = (int32_t **) safe_realloc(table->col, n * sizeof(int32_t *));
@@ -287,7 +287,7 @@ void prop_table_add_row(prop_table_t *table, row_t *row) {
       assert(q_is_nonzero(&p->mono[j].coeff));
       j ++;
       if (x >= max_x) {
-	max_x = x;
+        max_x = x;
       }
     }
   }
@@ -430,8 +430,8 @@ void prop_table_reduce(prop_table_t *table) {
     for (i=0; i<n; i++) {
       p = table->row[i];
       if (p != NULL) {
-	a[j] = p->activity;
-	j ++;
+        a[j] = p->activity;
+        j ++;
       }
     }
     // add end-marker

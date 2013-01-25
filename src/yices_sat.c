@@ -259,24 +259,24 @@ static option_desc_t options[NUM_OPTIONS] = {
 static void print_version(FILE *f) {
   fprintf(f, 
           "Yices %s. Copyright SRI International.\n"
-	  "Build date: %s\n"
-	  "Platform: %s (%s)\n",
-	  yices_version,
-	  yices_build_date,
-	  yices_build_arch,
-	  yices_build_mode);
+          "Build date: %s\n"
+          "Platform: %s (%s)\n",
+          yices_version,
+          yices_build_date,
+          yices_build_arch,
+          yices_build_mode);
   fflush(f);
 }
 
 static void print_help(char *progname) {
   printf("Usage: %s [options] filename\n\n", progname);
   printf("Option summary:\n"
-	 "   --version, -V              Show version and exit\n"
-	 "   --help, -h                 Print this message and exit\n"
-	 "   --model, -m                Show a model (some variables may be eliminated)\n"
-	 "   --verbose, -v              Print statistics during the search\n"
-	 "\n"
-	 "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
+         "   --version, -V              Show version and exit\n"
+         "   --help, -h                 Print this message and exit\n"
+         "   --model, -m                Show a model (some variables may be eliminated)\n"
+         "   --verbose, -v              Print statistics during the search\n"
+         "\n"
+         "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
 }
 
@@ -312,10 +312,10 @@ static void parse_command_line(int argc, char *argv[]) {
 
     case cmdline_argument:
       if (input_filename == NULL) {
-	input_filename = elem.arg;
+        input_filename = elem.arg;
       } else {
-	fprintf(stderr, "%s: too many arguments\n", parser.command_name);
-	goto bad_usage;
+        fprintf(stderr, "%s: too many arguments\n", parser.command_name);
+        goto bad_usage;
       }
       break;
 
@@ -323,20 +323,20 @@ static void parse_command_line(int argc, char *argv[]) {
       k = elem.key;
       switch (k) {
       case version_flag:
-	print_version(stdout);
-	exit(YICES_EXIT_SUCCESS);
+        print_version(stdout);
+        exit(YICES_EXIT_SUCCESS);
 
       case help_flag:
-	print_help(parser.command_name);
-	exit(YICES_EXIT_SUCCESS);
+        print_help(parser.command_name);
+        exit(YICES_EXIT_SUCCESS);
 
       case model_flag:
-	model = true;
-	break;
+        model = true;
+        break;
 
       case verbose_flag:
-	verbose = true;
-	break;
+        verbose = true;
+        break;
       }
       break;
 
@@ -449,13 +449,13 @@ static void print_model(void) {
       val = get_variable_assignment(&solver, v);
       switch (val) {
       case val_false:
-	printf("%d ", - (v + 1)); 
-	break;
+        printf("%d ", - (v + 1)); 
+        break;
       case val_true:
-	printf("%d ", (v + 1));
-	break;
+        printf("%d ", (v + 1));
+        break;
       case val_undef:
-	break;
+        break;
       }
     }
     printf("0\n");

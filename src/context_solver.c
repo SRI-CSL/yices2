@@ -77,7 +77,7 @@ typedef literal_t (*branching_fun_t)(smt_core_t *core, literal_t l);
  * - use the branching heuristic implemented by branch
  */
 static void special_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_threshold, 
-			   double r_factor, branching_fun_t branch) {
+                           double r_factor, branching_fun_t branch) {
   uint64_t max_conflicts;
   uint32_t r_threshold;
   literal_t l;
@@ -185,7 +185,7 @@ static literal_t bv_branch(smt_core_t *core, literal_t l) {
  * Print some statistic data + header if requested (on stderr)
  */
 static void show_progress(smt_core_t *core, 
-			  uint32_t restart_threshold, uint32_t reduce_threshold, bool show_header) {
+                          uint32_t restart_threshold, uint32_t reduce_threshold, bool show_header) {
 
   if (show_header) {
     fprintf(stderr, "---------------------------------------------------------------------------------------------------\n");
@@ -195,15 +195,15 @@ static void show_progress(smt_core_t *core,
   }
 
   fprintf(stderr, "| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f | %8"PRIu64" %6"PRIu64" |\n", 
-	  restart_threshold, reduce_threshold, 
-	  num_binary_clauses(core), 
-	  num_prob_clauses(core), num_prob_literals(core),
-	  num_learned_clauses(core), num_learned_literals(core), 
-	  ((double) num_learned_literals(core)/num_learned_clauses(core)),
-	  core->stats.decisions, core->stats.random_decisions);
+          restart_threshold, reduce_threshold, 
+          num_binary_clauses(core), 
+          num_prob_clauses(core), num_prob_literals(core),
+          num_learned_clauses(core), num_learned_literals(core), 
+          ((double) num_learned_literals(core)/num_learned_clauses(core)),
+          core->stats.decisions, core->stats.random_decisions);
   fflush(stderr);
 }
-			  
+                          
 
 /*
  * Full solver:
@@ -240,26 +240,26 @@ static void solve(smt_core_t *core, const param_t *params, bool verbose) {
     for (;;) {
       switch (params->branching) {
       case BRANCHING_DEFAULT:
-	search(core, c_threshold, &reduce_threshold, params->r_factor);
-	break;
+        search(core, c_threshold, &reduce_threshold, params->r_factor);
+        break;
       case BRANCHING_NEGATIVE:
-	special_search(core, c_threshold, &reduce_threshold, params->r_factor, negative_branch);
-	break;
+        special_search(core, c_threshold, &reduce_threshold, params->r_factor, negative_branch);
+        break;
       case BRANCHING_POSITIVE:
-	special_search(core, c_threshold, &reduce_threshold, params->r_factor, positive_branch);
-	break;
+        special_search(core, c_threshold, &reduce_threshold, params->r_factor, positive_branch);
+        break;
       case BRANCHING_THEORY:
-	special_search(core, c_threshold, &reduce_threshold, params->r_factor, theory_branch);
-	break;
+        special_search(core, c_threshold, &reduce_threshold, params->r_factor, theory_branch);
+        break;
       case BRANCHING_TH_NEG:
-	special_search(core, c_threshold, &reduce_threshold, params->r_factor, theory_or_neg_branch);
-	break;
+        special_search(core, c_threshold, &reduce_threshold, params->r_factor, theory_or_neg_branch);
+        break;
       case BRANCHING_TH_POS:
-	special_search(core, c_threshold, &reduce_threshold, params->r_factor, theory_or_pos_branch);
-	break;
+        special_search(core, c_threshold, &reduce_threshold, params->r_factor, theory_or_pos_branch);
+        break;
       case BRANCHING_BV:
-	special_search(core, c_threshold, &reduce_threshold, params->r_factor, bv_branch);
-	break;
+        special_search(core, c_threshold, &reduce_threshold, params->r_factor, bv_branch);
+        break;
       }
 
       if (smt_status(core) != STATUS_SEARCHING) break;
@@ -270,16 +270,16 @@ static void solve(smt_core_t *core, const param_t *params, bool verbose) {
       c_threshold = (uint32_t) (c_threshold * params->c_factor);
 
       if (c_threshold >= d_threshold) {
-	d_threshold = c_threshold; // Minisat-style
-	if (params->fast_restart) {
-	  // outer restart: reset c_threshold and increase d_threshold
-	  c_threshold = params->c_threshold;
-	  d_threshold = (uint32_t) (d_threshold * params->d_factor);
-	}
+        d_threshold = c_threshold; // Minisat-style
+        if (params->fast_restart) {
+          // outer restart: reset c_threshold and increase d_threshold
+          c_threshold = params->c_threshold;
+          d_threshold = (uint32_t) (d_threshold * params->d_factor);
+        }
 
-	if (verbose) {
-	  show_progress(core, d_threshold, reduce_threshold, false);
-	}
+        if (verbose) {
+          show_progress(core, d_threshold, reduce_threshold, false);
+        }
       }
     }
   }
@@ -335,20 +335,20 @@ smt_status_t check_context(context_t *ctx, const param_t *params, bool verbose) 
      */
     if (egraph != NULL) {
       if (params->use_dyn_ack) {
-	egraph_enable_dyn_ackermann(egraph, params->max_ackermann);
-	egraph_set_ackermann_threshold(egraph, params->dyn_ack_threshold);
+        egraph_enable_dyn_ackermann(egraph, params->max_ackermann);
+        egraph_set_ackermann_threshold(egraph, params->dyn_ack_threshold);
       } else {
-	egraph_disable_dyn_ackermann(egraph);
+        egraph_disable_dyn_ackermann(egraph);
       }
       if (params->use_bool_dyn_ack) {
-	egraph_enable_dyn_boolackermann(egraph, params->max_boolackermann);
-	egraph_set_boolack_threshold(egraph, params->dyn_bool_ack_threshold);
+        egraph_enable_dyn_boolackermann(egraph, params->max_boolackermann);
+        egraph_set_boolack_threshold(egraph, params->dyn_bool_ack_threshold);
       } else {
-	egraph_disable_dyn_boolackermann(egraph);
+        egraph_disable_dyn_boolackermann(egraph);
       }
       quota = egraph_num_terms(egraph) * params->aux_eq_ratio;
       if (quota < params->aux_eq_quota) {
-	quota = params->aux_eq_quota;
+        quota = params->aux_eq_quota;
       }
       egraph_set_aux_eq_quota(egraph, quota);
       egraph_set_max_interface_eqs(egraph, params->max_interface_eqs);
@@ -360,16 +360,16 @@ smt_status_t check_context(context_t *ctx, const param_t *params, bool verbose) 
     if (context_has_simplex_solver(ctx)) {
       simplex = ctx->arith_solver;
       if (params->use_simplex_prop) {
-	simplex_enable_propagation(simplex);
-	simplex_set_prop_threshold(simplex, params->max_prop_row_size);
+        simplex_enable_propagation(simplex);
+        simplex_set_prop_threshold(simplex, params->max_prop_row_size);
       }
       if (params->adjust_simplex_model) {
-	simplex_enable_adjust_model(simplex);
+        simplex_enable_adjust_model(simplex);
       }
       simplex_set_bland_threshold(simplex, params->bland_threshold);
       if (params->integer_check) {
-	simplex_enable_periodic_icheck(simplex);
-	simplex_set_integer_check_period(simplex, params->integer_check_period);
+        simplex_enable_periodic_icheck(simplex);
+        simplex_set_integer_check_period(simplex, params->integer_check_period);
       }
     }
 
@@ -496,12 +496,12 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
     if (code_is_eterm(x)) {
       // x refers to an egraph object or true_occ/false_occ
       if (x == bool2code(true)) {
-	v = vtbl_mk_true(vtbl);
+        v = vtbl_mk_true(vtbl);
       } else if (x == bool2code(false)) {
-	v = vtbl_mk_false(vtbl);
+        v = vtbl_mk_false(vtbl);
       } else {
-	assert(context_has_egraph(ctx));
-	v = egraph_get_value(ctx->egraph, vtbl, code2occ(x));
+        assert(context_has_egraph(ctx));
+        v = egraph_get_value(ctx->egraph, vtbl, code2occ(x));
       }
 
     } else {
@@ -509,27 +509,27 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
       tau = term_type(ctx->terms, r);
       switch (type_kind(ctx->types, tau)) {
       case BOOL_TYPE:
-	v = bool_value(ctx, vtbl, code2literal(x));
-	break;
+        v = bool_value(ctx, vtbl, code2literal(x));
+        break;
 
       case INT_TYPE:
       case REAL_TYPE:
-	v = arith_value(ctx, vtbl, code2thvar(x));
-	break;
+        v = arith_value(ctx, vtbl, code2thvar(x));
+        break;
 
       case BITVECTOR_TYPE:
-	v = bv_value(ctx, vtbl, code2thvar(x));
-	break;
+        v = bv_value(ctx, vtbl, code2thvar(x));
+        break;
 
       default:
-	/*
-	 * This should never happen: 
-	 * scalar, uninterpreted, tuple, function terms
-	 * are mapped to egraph terms.
-	 */
-	assert(false); 
-	v = vtbl_mk_unknown(vtbl); // prevent GCC warning
-	break;
+        /*
+         * This should never happen: 
+         * scalar, uninterpreted, tuple, function terms
+         * are mapped to egraph terms.
+         */
+        assert(false); 
+        v = vtbl_mk_unknown(vtbl); // prevent GCC warning
+        break;
       }
     }
 
@@ -538,10 +538,10 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
      */
     if (! object_is_unknown(vtbl, v)) {
       if (object_is_boolean(vtbl, v)) {
-	if (polarity) {
-	  // negate the value
-	  v = vtbl_mk_not(vtbl, v);
-	}
+        if (polarity) {
+          // negate the value
+          v = vtbl_mk_not(vtbl, v);
+        }
       }
       model_map_term(model, t, v);
     }

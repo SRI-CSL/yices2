@@ -158,9 +158,9 @@ static void model_print_constant_assignments(FILE *f, model_t *model, term_t *a,
       name = term_name(terms, t);
       assert(name != NULL);
       if (d->name == NULL || strcmp(name, d->name) != 0) {
-	fprintf(f, "(= %s ", name);
-	vtbl_print_object(f, &model->vtbl, c);
-	fputs(")\n", f);
+        fprintf(f, "(= %s ", name);
+        vtbl_print_object(f, &model->vtbl, c);
+        fputs(")\n", f);
       }
     }
   }
@@ -216,19 +216,19 @@ static void model_print_function_assignments(FILE *f, model_t *model, term_t *a,
       name = term_name(terms, t);
       assert(name != NULL);
       if (object_is_function(&model->vtbl, c)) {
-	fun = vtbl_function(&model->vtbl, c);
-	if (fun->name == NULL || strcmp(name, fun->name) != 0) {
-	  fprintf(f, "(= %s ", name);
-	  vtbl_print_object(f, &model->vtbl, c);
-	  fputs(")\n", f);
-	} else {
-	  ivector_push(&v, c);
-	}
+        fun = vtbl_function(&model->vtbl, c);
+        if (fun->name == NULL || strcmp(name, fun->name) != 0) {
+          fprintf(f, "(= %s ", name);
+          vtbl_print_object(f, &model->vtbl, c);
+          fputs(")\n", f);
+        } else {
+          ivector_push(&v, c);
+        }
 #if 0 
       } else {
-	fprintf(f, "(= %s ", name);
-	vtbl_print_object(f, &model->vtbl, c);
-	fputs(")\n", f);
+        fprintf(f, "(= %s ", name);
+        vtbl_print_object(f, &model->vtbl, c);
+        fputs(")\n", f);
 #endif
       }
     }
@@ -244,7 +244,7 @@ static void model_print_function_assignments(FILE *f, model_t *model, term_t *a,
       name = term_name(terms, t);
       assert(name != NULL);
       if (object_is_update(&model->vtbl, c)) {
-	vtbl_normalize_and_print_update(f, &model->vtbl, name, c, true);
+        vtbl_normalize_and_print_update(f, &model->vtbl, name, c, true);
       }
     }
   }
@@ -426,9 +426,9 @@ static void eval_print_constant_assignments(FILE *f, evaluator_t *eval, term_t *
       name = term_name(terms, t);
       assert(name != NULL);
       if (d->name == NULL || strcmp(name, d->name) != 0) {
-	fprintf(f, "(= %s ", name);
-	vtbl_print_object(f, &model->vtbl, c);
-	fputs(")\n", f);
+        fprintf(f, "(= %s ", name);
+        vtbl_print_object(f, &model->vtbl, c);
+        fputs(")\n", f);
       }
     }
   }
@@ -467,19 +467,19 @@ static void eval_print_function_assignments(FILE *f, evaluator_t *eval, term_t *
       name = term_name(terms, t);
       assert(name != NULL);
       if (object_is_function(&model->vtbl, c)) {
-	fun = vtbl_function(&model->vtbl, c);
-	if (fun->name == NULL || strcmp(name, fun->name) != 0) {
-	  fprintf(f, "(= %s ", name);
-	  vtbl_print_object(f, &model->vtbl, c);
-	  fputs(")\n", f);
-	} else {
-	  ivector_push(&v, c);
-	}
+        fun = vtbl_function(&model->vtbl, c);
+        if (fun->name == NULL || strcmp(name, fun->name) != 0) {
+          fprintf(f, "(= %s ", name);
+          vtbl_print_object(f, &model->vtbl, c);
+          fputs(")\n", f);
+        } else {
+          ivector_push(&v, c);
+        }
 #if 0
       } else {
-	fprintf(f, "(= %s ", name);
-	vtbl_print_object(f, &model->vtbl, c);
-	fputs(")\n", f);
+        fprintf(f, "(= %s ", name);
+        vtbl_print_object(f, &model->vtbl, c);
+        fputs(")\n", f);
 #endif
       }
     }
@@ -498,7 +498,7 @@ static void eval_print_function_assignments(FILE *f, evaluator_t *eval, term_t *
       name = term_name(terms, t);
       assert(name != NULL);
       if (object_is_update(&model->vtbl, c)) {
-	vtbl_normalize_and_print_update(f, &model->vtbl, name, c, true);
+        vtbl_normalize_and_print_update(f, &model->vtbl, name, c, true);
       }
     }
   }
@@ -540,7 +540,7 @@ static void model_eval_all_terms(model_t *model, evaluator_t *eval) {
     while (r != NULL) {
       t = r->key;
       if (term_to_print(terms, t)) {
-	(void) eval_in_model(eval, t);
+        (void) eval_in_model(eval, t);
       }
       r = int_hmap_next_record(hmap, r);
     }
@@ -733,10 +733,10 @@ static void model_pp_constant_assignments(yices_pp_t *printer, model_t *model, t
       name = term_name(terms, t);
       assert(name != NULL);
       if (d->name == NULL || strcmp(name, d->name) != 0) {
-	pp_open_block(printer, PP_OPEN_EQ);
-	pp_string(printer, name);
-	vtbl_pp_object(printer, &model->vtbl, c);
-	pp_close_block(printer, true);
+        pp_open_block(printer, PP_OPEN_EQ);
+        pp_string(printer, name);
+        vtbl_pp_object(printer, &model->vtbl, c);
+        pp_close_block(printer, true);
       }
     }
   }
@@ -791,15 +791,15 @@ static void model_pp_function_assignments(yices_pp_t *printer, model_t *model, t
       name = term_name(terms, t);
       assert(name != NULL);
       if (object_is_function(&model->vtbl, c)) {
-	fun = vtbl_function(&model->vtbl, c);
-	if (fun->name == NULL || strcmp(name, fun->name) != 0) {
-	  pp_open_block(printer, PP_OPEN_EQ);
-	  pp_string(printer, name);
-	  vtbl_pp_object(printer, &model->vtbl, c);
-	  pp_close_block(printer, true);
-	} else {
-	  ivector_push(&v, c);
-	}
+        fun = vtbl_function(&model->vtbl, c);
+        if (fun->name == NULL || strcmp(name, fun->name) != 0) {
+          pp_open_block(printer, PP_OPEN_EQ);
+          pp_string(printer, name);
+          vtbl_pp_object(printer, &model->vtbl, c);
+          pp_close_block(printer, true);
+        } else {
+          ivector_push(&v, c);
+        }
       }
     }
   }
@@ -814,7 +814,7 @@ static void model_pp_function_assignments(yices_pp_t *printer, model_t *model, t
       name = term_name(terms, t);
       assert(name != NULL);
       if (object_is_update(&model->vtbl, c)) {
-	vtbl_normalize_and_pp_update(printer, &model->vtbl, name, c, true);
+        vtbl_normalize_and_pp_update(printer, &model->vtbl, name, c, true);
       }
     }
   }
@@ -990,10 +990,10 @@ static void eval_pp_constant_assignments(yices_pp_t *printer, evaluator_t *eval,
       name = term_name(terms, t);
       assert(name != NULL);
       if (d->name == NULL || strcmp(name, d->name) != 0) {
-	pp_open_block(printer, PP_OPEN_EQ);
-	pp_string(printer, name);
-	vtbl_pp_object(printer, &model->vtbl, c);
-	pp_close_block(printer, true);
+        pp_open_block(printer, PP_OPEN_EQ);
+        pp_string(printer, name);
+        vtbl_pp_object(printer, &model->vtbl, c);
+        pp_close_block(printer, true);
       }
     }
   }
@@ -1032,15 +1032,15 @@ static void eval_pp_function_assignments(yices_pp_t *printer, evaluator_t *eval,
       name = term_name(terms, t);
       assert(name != NULL);
       if (object_is_function(&model->vtbl, c)) {
-	fun = vtbl_function(&model->vtbl, c);
-	if (fun->name == NULL || strcmp(name, fun->name) != 0) {
-	  pp_open_block(printer, PP_OPEN_EQ);
-	  pp_string(printer, name);
-	  vtbl_pp_object(printer, &model->vtbl, c);
-	  pp_close_block(printer, true);
-	} else {
-	  ivector_push(&v, c);
-	}
+        fun = vtbl_function(&model->vtbl, c);
+        if (fun->name == NULL || strcmp(name, fun->name) != 0) {
+          pp_open_block(printer, PP_OPEN_EQ);
+          pp_string(printer, name);
+          vtbl_pp_object(printer, &model->vtbl, c);
+          pp_close_block(printer, true);
+        } else {
+          ivector_push(&v, c);
+        }
       }
     }
   }
@@ -1058,7 +1058,7 @@ static void eval_pp_function_assignments(yices_pp_t *printer, evaluator_t *eval,
       name = term_name(terms, t);
       assert(name != NULL);
       if (object_is_update(&model->vtbl, c)) {
-	vtbl_normalize_and_pp_update(printer, &model->vtbl, name, c, true);
+        vtbl_normalize_and_pp_update(printer, &model->vtbl, name, c, true);
       }
     }
   }

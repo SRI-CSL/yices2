@@ -25,7 +25,7 @@ extern int32_t binary_search_string(const char *s, const char * const *a, int32_
 
 /*
  * Parse s as a keyword:
- * - a must be an array of strings sorted in lexcographic order
+ * - a must be an array of strings sorted in lexicographic order
  * - b must be an array of integer codes of same size as a
  * - n = size of a and b (n must be positive)
  * - s = string to search for
@@ -76,7 +76,7 @@ extern integer_parse_code_t parse_as_integer(const char *s, int32_t *val);
  * strtod, and store the corresponding number into val
  *
  * Return code:
- * - valid_double means correct format, no oveflow
+ * - valid_double means correct format, no overflow
  * - double_overflow means correct format but overflow
  * - invalid_double means wrong format
  */

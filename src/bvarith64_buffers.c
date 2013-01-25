@@ -950,8 +950,8 @@ void bvarith64_buffer_mul_mlist_power(bvarith64_buffer_t *b, bvmlist64_t *p1, ui
        */
       assert(d > 0);
       if ((d & 1) != 0) {
-	bvarith64_buffer_mul_mlist(b, aux->list); // b := b * aux
-	bvarith64_buffer_normalize(b);
+        bvarith64_buffer_mul_mlist(b, aux->list); // b := b * aux
+        bvarith64_buffer_normalize(b);
       }
       d >>= 1;                               // d := d/2
       if (d == 0) break;
@@ -1351,7 +1351,7 @@ void bvarith64_buffer_mul_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *poly, pprod_
  * - use aux as an auxiliary buffer (aux must be distinct from b)
  */
 void bvarith64_buffer_mul_bvpoly_power(bvarith64_buffer_t *b, bvpoly64_t *poly, pprod_t **pp, 
-				       uint32_t d, bvarith64_buffer_t *aux) {
+                                       uint32_t d, bvarith64_buffer_t *aux) {
   uint32_t i;
 
   assert(b != aux && good_pprod_array(poly->mono, pp) && b->bitsize == poly->bitsize);
@@ -1374,8 +1374,8 @@ void bvarith64_buffer_mul_bvpoly_power(bvarith64_buffer_t *b, bvpoly64_t *poly, 
        */
       assert(d > 0);
       if ((d & 1) != 0) {
-	bvarith64_buffer_mul_buffer(b, aux); // b := b * aux
-	bvarith64_buffer_normalize(b);
+        bvarith64_buffer_mul_buffer(b, aux); // b := b * aux
+        bvarith64_buffer_normalize(b);
       }
       d >>= 1;                           // d := d/2
       if (d == 0) break;

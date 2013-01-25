@@ -485,13 +485,13 @@ void print_simplex_vars_summary(FILE *f, simplex_solver_t *solver) {
     if (lb >= 0 || ub >= 0) {
       fputs("\t", f);
       if (lb >= 0) {
-	xq_print(f, solver->bstack.bound + lb);
-	fputs(" <= ", f);
+        xq_print(f, solver->bstack.bound + lb);
+        fputs(" <= ", f);
       }
       print_avar(f, &solver->vtbl, i);
       if (ub >= 0) {
-	fputs(" <= ", f);
-	xq_print(f, solver->bstack.bound + ub);
+        fputs(" <= ", f);
+        xq_print(f, solver->bstack.bound + ub);
       }
     }
 
@@ -654,10 +654,10 @@ void print_simplex_reduced_row(FILE *f, simplex_solver_t *solver, row_t *row) {
       l = arith_var_lower_index(&solver->vtbl, x);
       u = arith_var_upper_index(&solver->vtbl, x);
       if (l >= 0 && u >= 0 && xq_eq(bstack->bound + l, bstack->bound + u)) {
-	// x is a a fixed variable
-	assert(xq_eq(bstack->bound + l, arith_var_value(vtbl, x)));
-	assert(xq_is_rational(arith_var_value(vtbl, x)));
-	q_addmul(&q, &row->data[i].coeff, &arith_var_value(vtbl, x)->main);
+        // x is a a fixed variable
+        assert(xq_eq(bstack->bound + l, arith_var_value(vtbl, x)));
+        assert(xq_is_rational(arith_var_value(vtbl, x)));
+        q_addmul(&q, &row->data[i].coeff, &arith_var_value(vtbl, x)->main);
       }
     }
   }
@@ -675,9 +675,9 @@ void print_simplex_reduced_row(FILE *f, simplex_solver_t *solver, row_t *row) {
       l = arith_var_lower_index(&solver->vtbl, x);
       u = arith_var_upper_index(&solver->vtbl, x);
       if (l < 0 || u < 0 || xq_neq(bstack->bound + l, bstack->bound + u)) {
-	// x is not a fixed variable
-	print_avar_monomial(f, vtbl, x, &row->data[i].coeff, first);
-	first = false;
+        // x is not a fixed variable
+        print_avar_monomial(f, vtbl, x, &row->data[i].coeff, first);
+        first = false;
       }
     }
   }
@@ -706,11 +706,11 @@ void print_simplex_bounds2(FILE *f, simplex_solver_t *solver) {
     ub = arith_var_upper_index(&solver->vtbl, i);
     if (lb >= 0 && ub >= 0) {
       if (xq_neq(solver->bstack.bound + lb, solver->bstack.bound + ub)) {
-	fputs("  ", f);
-	xq_print(f, solver->bstack.bound + lb);
-	fprintf(f, " <= x_%"PRIu32" <= ", i);
-	xq_print(f, solver->bstack.bound + ub);
-	fputc('\n', f);
+        fputs("  ", f);
+        xq_print(f, solver->bstack.bound + lb);
+        fprintf(f, " <= x_%"PRIu32" <= ", i);
+        xq_print(f, solver->bstack.bound + ub);
+        fputc('\n', f);
       }
     } else if (lb >= 0) {
       fputs("  ", f);

@@ -135,11 +135,11 @@ int32_t bvlogic_buffer_get_var(bvlogic_buffer_t *b) {
 
       // check whether the other bits are (select i x)
       for (i=1; i<n; i++) {
-	aux = b->bit[i];
-	if (! check_select_bit(nodes, aux, i, x)) {
-	  x = -1;
-	  break;
-	}
+        aux = b->bit[i];
+        if (! check_select_bit(nodes, aux, i, x)) {
+          x = -1;
+          break;
+        }
       }
     }    
   }
@@ -1381,7 +1381,7 @@ void bvlogic_buffer_and_term(bvlogic_buffer_t *b, term_table_t *table, term_t t)
   int32_t i;
 
   assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && 
-	 term_bitsize(table, t) == b->bitsize);
+         term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
   switch (table->kind[i]) {
@@ -1416,7 +1416,7 @@ void bvlogic_buffer_or_term(bvlogic_buffer_t *b, term_table_t *table, term_t t) 
   int32_t i;
 
   assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && 
-	 term_bitsize(table, t) == b->bitsize);
+         term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
   switch (table->kind[i]) {
@@ -1451,7 +1451,7 @@ void bvlogic_buffer_xor_term(bvlogic_buffer_t *b, term_table_t *table, term_t t)
   int32_t i;
 
   assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && 
-	 term_bitsize(table, t) == b->bitsize);
+         term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
   switch (table->kind[i]) {
@@ -1489,7 +1489,7 @@ void bvlogic_buffer_comp_term(bvlogic_buffer_t *b, term_table_t *table, term_t t
   int32_t i;
 
   assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && 
-	 term_bitsize(table, t) == b->bitsize);
+         term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
   switch (table->kind[i]) {

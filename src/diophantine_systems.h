@@ -120,7 +120,7 @@
  * ---------
  * When the matrix A is constructed, each column of A is mapped to an 
  * external variable x. Conversely, for each variable x, we store the 
- * corresponding colum index in array solver->col_idx[x]. If x does not
+ * corresponding column index in array solver->col_idx[x]. If x does not
  * occur, then solver->col_idx[x] = -1.
  *
  * After the system is solved, solver->sol_row[x] stores a row index where
@@ -394,7 +394,7 @@ typedef struct dsolver_s {
    * with the problem variables in [0 ... nvars-1]). 
    * - if column[c] is not a solved or eliminated column then param_id[c] is the parameter
    *   id for column c. 
-   * - otherwise, column[c] is NULL and parm_id[c] is -1.
+   * - otherwise, column[c] is NULL and param_id[c] is -1.
    * - num_params is the number of non-NULL columns = number of parameters.
    *
    * NOTE: param_id and num_params are computed when the generic solution is constructed.

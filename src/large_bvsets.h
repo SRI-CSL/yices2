@@ -31,7 +31,7 @@
 
 /*
  * Data-structures:
- * - set = bivector of 2^k bits for some k <= n 
+ * - set = bitvector of 2^k bits for some k <= n 
  * - size = 2^k
  * - nelems = number of bits set in set = card of S
  * - max_val = max value in the domain:

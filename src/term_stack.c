@@ -1331,7 +1331,7 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
 
   case TAG_OP:
     printf("<op: code = %d, mult = %u, prev = %u>", e->val.opval.opcode, 
-	   e->val.opval.multiplicity,e->val.opval.prev);
+           e->val.opval.multiplicity,e->val.opval.prev);
     break;
 
   case TAG_SYMBOL:
@@ -1650,7 +1650,7 @@ static rational_t *get_divisor(tstack_t *stack, stack_elem_t *den) {
     if (term_kind(terms, t) == ARITH_CONSTANT) {
       d = rational_term_desc(terms, t);
       if (q_is_zero(d)) {
-	raise_exception(stack, den, TSTACK_DIVIDE_BY_ZERO);
+        raise_exception(stack, den, TSTACK_DIVIDE_BY_ZERO);
       }
     } else if (is_arithmetic_term(terms, t)) { 
       raise_exception(stack, den, TSTACK_NON_CONSTANT_DIVISOR);     
@@ -1664,8 +1664,8 @@ static rational_t *get_divisor(tstack_t *stack, stack_elem_t *den) {
     if (arith_buffer_is_constant(c)) {
       m = arith_buffer_get_constant_mono(c);
       if (m == NULL) {
-	assert(arith_buffer_is_zero(c));
-	raise_exception(stack, den, TSTACK_DIVIDE_BY_ZERO);
+        assert(arith_buffer_is_zero(c));
+        raise_exception(stack, den, TSTACK_DIVIDE_BY_ZERO);
       }
       d = &m->coeff;
     } else {
@@ -1876,7 +1876,7 @@ static void mul_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
 
   case TAG_TERM:
     if (! yices_check_arith_term(e->val.term) ||
-	! yices_check_mul_term(b, e->val.term)) {
+        ! yices_check_mul_term(b, e->val.term)) {
       report_yices_error(stack);
     }
     arith_buffer_mul_term(b, __yices_globals.terms, e->val.term);

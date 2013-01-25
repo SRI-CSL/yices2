@@ -1,5 +1,5 @@
 /*
- * MISCELANEOUS COMPUTATIONS ON TERMS
+ * MISCELLANEOUS COMPUTATIONS ON TERMS
  */
 
 /*
@@ -74,7 +74,7 @@ extern bool term_has_nonneg_finite_domain(term_table_t *tbl, term_t t);
 
 /*
  * Check whether all elements in t's domain are negative
- * - t must be a special if-then-else term of arithemtic type
+ * - t must be a special if-then-else term of arithmetic type
  * - the domain of t is computed if required
  */
 extern bool term_has_negative_finite_domain(term_table_t *tbl, term_t t);
@@ -169,7 +169,7 @@ extern bool arith_term_is_nonzero(term_table_t *tbl, term_t t);
  */
 
 /*
- * Compute an uppper/lower bound on a bitvector term t 
+ * Compute an upper/lower bound on a bitvector term t 
  * - the result is stored in c
  * - there are two cases, depending on whether t is interpreted
  *   as a signed (2's complement) or as an unsigned number.

@@ -35,7 +35,7 @@ void add_ptr_to_vector(void ***v, void *p) {
       n ++;
       n += n>>1;
       if (n > MAX_PTR_VECTOR_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
       u = (ptr_vector_t *) safe_realloc(u, sizeof(ptr_vector_t) + n * sizeof(void *));
       u->capacity = n;
@@ -68,7 +68,7 @@ void resize_ptr_vector(void ***v, uint32_t n) {
     if (new_cap < n) {
       new_cap = n;
       if (new_cap > MAX_PTR_VECTOR_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
     }
     u = (ptr_vector_t *) safe_malloc(sizeof(ptr_vector_t) + new_cap * sizeof(void *));
@@ -79,7 +79,7 @@ void resize_ptr_vector(void ***v, uint32_t n) {
     u = pv_header(d);
     if (u->capacity < n) {
       if (n > MAX_PTR_VECTOR_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
       u = (ptr_vector_t *) safe_realloc(u, sizeof(ptr_vector_t) + n * sizeof(void *));
       u->capacity = n;

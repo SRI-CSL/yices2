@@ -272,7 +272,7 @@ void bv_zero_interval(bv_interval_t *intv, uint32_t n) {
  */
 void bv_interval_set_u(bv_interval_t *intv, uint32_t *x, uint32_t *y, uint32_t n) {
   assert(n > 0 && bvconst_is_normalized(x, n) && bvconst_is_normalized(y, n) &&
-	 bvconst_le(x, y, n));
+         bvconst_le(x, y, n));
 
   resize_bv_interval(intv, n);
   bvconst_set(intv->low, intv->width, x);
@@ -289,7 +289,7 @@ void bv_interval_set_u(bv_interval_t *intv, uint32_t *x, uint32_t *y, uint32_t n
  */
 void bv_interval_set_s(bv_interval_t *intv, uint32_t *x, uint32_t *y, uint32_t n) {
   assert(n > 0 && bvconst_is_normalized(x, n) && bvconst_is_normalized(y, n) && 
-	 bvconst_sle(x, y, n));
+         bvconst_sle(x, y, n));
 
   resize_bv_interval(intv, n);
   bvconst_set(intv->low, intv->width, x);
@@ -581,12 +581,12 @@ void bv_interval_addmul_u(bv_interval_t *a, bv_interval_t *b, uint32_t *c, bv_au
        * trivial interval.
        */
       if (bvconst_eq(aux->buffer_c, aux->buffer_d, w)) {
-	bvconst_set(a->low, w, aux->buffer_a);
-	bvconst_set(a->high, w, aux->buffer_b);
+        bvconst_set(a->low, w, aux->buffer_a);
+        bvconst_set(a->high, w, aux->buffer_b);
       } else {
-	bvconst_clear(a->low, w);
-	bvconst_set_minus_one(a->high, w);
-	bvconst_normalize(a->high, n);
+        bvconst_clear(a->low, w);
+        bvconst_set_minus_one(a->high, w);
+        bvconst_normalize(a->high, n);
       }
 
     } else {
@@ -609,12 +609,12 @@ void bv_interval_addmul_u(bv_interval_t *a, bv_interval_t *b, uint32_t *c, bv_au
        * - quotient of H/2^n  in aux->buffer_d
        */
       if (bvconst_eq(aux->buffer_c, aux->buffer_d, w)) {
-	bvconst_set(a->low, w, aux->buffer_a);
-	bvconst_set(a->high, w, aux->buffer_b);
+        bvconst_set(a->low, w, aux->buffer_a);
+        bvconst_set(a->high, w, aux->buffer_b);
       } else {
-	bvconst_clear(a->low, w);
-	bvconst_set_minus_one(a->high, w);
-	bvconst_normalize(a->high, n);
+        bvconst_clear(a->low, w);
+        bvconst_set_minus_one(a->high, w);
+        bvconst_normalize(a->high, n);
       }
 
       // restore c's value
@@ -695,16 +695,16 @@ void bv_interval_addmul_s(bv_interval_t *a, bv_interval_t *b, uint32_t *c, bv_au
     } else {
       bvconst_add_one(aux->buffer_c, w);
       if (bvconst_eq(aux->buffer_c, aux->buffer_d, w) && 
-	  bvconst_tst_bit(aux->buffer_a, n-1)  && !bvconst_tst_bit(aux->buffer_b, n-1)) {
-	// quotient for low = quotient for high -1
-	// remainder for low is negative
-	// remainder for high is positive
-	bvconst_set(a->low, w, aux->buffer_a);
-	bvconst_set(a->high, w, aux->buffer_b);
+          bvconst_tst_bit(aux->buffer_a, n-1)  && !bvconst_tst_bit(aux->buffer_b, n-1)) {
+        // quotient for low = quotient for high -1
+        // remainder for low is negative
+        // remainder for high is positive
+        bvconst_set(a->low, w, aux->buffer_a);
+        bvconst_set(a->high, w, aux->buffer_b);
       } else {
-	// the full interval is larger than 2^n
-	bvconst_set_min_signed(a->low, n);
-	bvconst_set_max_signed(a->high, n);
+        // the full interval is larger than 2^n
+        bvconst_set_min_signed(a->low, n);
+        bvconst_set_max_signed(a->high, n);
       }
     }
   }

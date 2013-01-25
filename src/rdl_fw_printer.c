@@ -35,28 +35,28 @@ void print_rdl_const(FILE *f, rdl_const_t *c) {
       fputc('0', f);
     } else {
       if (d < 0) {
-	fputs("- ", f);
-	d = - d;
+        fputs("- ", f);
+        d = - d;
       }
       if (d == 1) {
-	fputs("delta", f);
+        fputs("delta", f);
       } else {
-	fprintf(f, "%"PRId32" * delta", d);
+        fprintf(f, "%"PRId32" * delta", d);
       }
     }
   } else {
     q_print(f, &c->q);
     if (d != 0) {
       if (d < 0) {
-	fputs(" - ", f);
-	d = - d;
+        fputs(" - ", f);
+        d = - d;
       } else {
-	fputs(" + ", f);
+        fputs(" + ", f);
       }
       if (d == 1) {
-	fputs("delta", f);
+        fputs("delta", f);
       } else {
-	fprintf(f, "%"PRId32" * delta", d);
+        fprintf(f, "%"PRId32" * delta", d);
       }
     }
   }

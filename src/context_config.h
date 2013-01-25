@@ -75,7 +75,7 @@ typedef enum solver_code {
 
 
 /*
- * Configuration decriptor
+ * Configuration descriptor
  */
 struct ctx_config_s {
   context_mode_t    mode;
@@ -156,7 +156,7 @@ extern int32_t config_set_field(ctx_config_t *config, const char *key, const cha
  *   0 if the config is valid and supported
  */
 extern int32_t decode_config(const ctx_config_t *config, context_arch_t *arch, 
-			     context_mode_t *mode, bool *iflag, bool *qflag);
+                             context_mode_t *mode, bool *iflag, bool *qflag);
 
 
 

@@ -24,7 +24,7 @@ typedef bool (* heap_cmp_fun_t)(void *data, int32_t x, int32_t y);
 
 
 /*
- * Heap stucture
+ * Heap structure
  * - nelems = number of elements stored in the heap
  * - heap = array of integers
  *   heap[0] is a marker
@@ -37,7 +37,7 @@ typedef bool (* heap_cmp_fun_t)(void *data, int32_t x, int32_t y);
  *
  * Ordering is defined by:
  * - heap->cmp and heap->data
- * - both are setup when the heap is initialzed
+ * - both are setup when the heap is initialized
  */
 typedef struct generic_heap_s {
   // the heap itself
@@ -68,7 +68,7 @@ typedef struct generic_heap_s {
  * - data = some data used for computing the ordering
  */
 extern void init_generic_heap(generic_heap_t *heap, uint32_t n, uint32_t m,
-			      heap_cmp_fun_t cmp, void *data);
+                              heap_cmp_fun_t cmp, void *data);
 
 
 /*

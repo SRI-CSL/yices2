@@ -5,7 +5,7 @@
  * The table is divided into two parts:
  * - permanent objects = objects that must be kept in the model
  * - temporary objects = objects created when evaluating the value of a non-atomic term.
- * The termporary objects can be deleted.
+ * The temporary objects can be deleted.
  *
  * The implementation works in two modes:
  * - default mode: create permanent objects
@@ -531,7 +531,7 @@ extern void vtbl_print_function(FILE *f, value_table_t *table, value_t c, bool s
  * - if show_default is true, also print the default value
  */
 extern void vtbl_normalize_and_print_update(FILE *f, value_table_t *table, char *name,
-					    value_t c, bool show_default);
+                                            value_t c, bool show_default);
 
 
 /*
@@ -553,7 +553,7 @@ extern void vtbl_print_anonymous_functions(FILE *f, value_table_t *table, bool s
 extern void vtbl_pp_object(yices_pp_t *printer, value_table_t *table, value_t c);
 extern void vtbl_pp_function(yices_pp_t *printer, value_table_t *table, value_t c, bool show_default);
 extern void vtbl_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, char *name, 
-					 value_t c, bool show_default);
+                                         value_t c, bool show_default);
 extern void vtbl_pp_anonymous_functions(yices_pp_t *printer, value_table_t *table, bool show_default);
 
 

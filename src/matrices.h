@@ -341,7 +341,7 @@ extern void matrix_add_columns(matrix_t *matrix, uint32_t m);
 
 /*
  * The two following functions can add arbitrary rows to the matrix,
- * without assigninig basic variables to the new row. They cannot be 
+ * without assigning basic variables to the new row. They cannot be 
  * used if the matrix is in tableau form.
  */
 
@@ -643,7 +643,7 @@ extern void reset_fvar_vector(fvar_vector_t *v);
 
 
 /*
- * MATRIX SIMPLIFICIATION AND TABLEAU CONSTRUCTION
+ * MATRIX SIMPLIFICATION AND TABLEAU CONSTRUCTION
  */
 
 /*
@@ -676,7 +676,7 @@ extern void reset_fvar_vector(fvar_vector_t *v);
  * - the caller must check for this
  */
 extern void simplify_matrix(matrix_t *matrix, int32_t *elim_candidates, uint32_t n, 
-			    byte_t *i_flag, elim_matrix_t *elim, fvar_vector_t *fvars);
+                            byte_t *i_flag, elim_matrix_t *elim, fvar_vector_t *fvars);
 
 
 

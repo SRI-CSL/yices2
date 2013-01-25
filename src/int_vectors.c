@@ -102,9 +102,9 @@ void ivector_remove_duplicates(ivector_t *v) {
     for (i=1; i<n; i++) {
       y = a[i];
       if (x != y) {
-	a[j] = y;
-	x = y;
-	j ++;	
+        a[j] = y;
+        x = y;
+        j ++;   
       }
     }
     v->size = j;

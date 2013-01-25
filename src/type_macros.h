@@ -152,7 +152,7 @@ extern void reset_type_mtbl(type_mtbl_t *table);
  * - body = type
  */
 extern void add_type_macro(type_mtbl_t *table, char *name, 
-			   uint32_t n, type_t *vars, type_t body);
+                           uint32_t n, type_t *vars, type_t body);
 
 
 /*
@@ -210,7 +210,7 @@ extern void delete_type_macro(type_mtbl_t *table, int32_t id);
  * In both case, the instance is stored in table->hmap
  */
 extern type_t instantiate_type_macro(type_mtbl_t *table, int32_t id,
-				     uint32_t n, type_t *actual);
+                                     uint32_t n, type_t *actual);
 
 
 

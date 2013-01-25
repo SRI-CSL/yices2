@@ -558,7 +558,7 @@ static void explain_diseq_via_distinct(egraph_t *egraph, occ_t x, occ_t y, compo
     if (egraph_class(egraph, t) == cx && causally_equal(egraph, t, x, k)) {
       assert(tx == null_occurrence);
       tx = t;
-      if (ty != null_occurrence) break;	
+      if (ty != null_occurrence) break; 
 
     } else if (egraph_class(egraph, t) == cy && causally_equal(egraph, t, y, k)) {
       assert(ty == null_occurrence);
@@ -743,7 +743,7 @@ static inline etype_t etag2theory(expl_tag_t id) {
  * - v = vector of literals (partial explanation under construction)
  */
 static void explain_theory_equality(egraph_t *egraph, expl_tag_t id, eterm_t t1, eterm_t t2, 
-				    void *expl, ivector_t *v) {
+                                    void *expl, ivector_t *v) {
   th_explanation_t *e;
   etype_t tau;
   thvar_t x1, x2;
@@ -892,9 +892,9 @@ static void build_explanation_vector(egraph_t *egraph, ivector_t *v) {
       t1 = term_of_occ(eq[i].lhs);
       assert(composite_body(body[t1]));
       if (eq[i].rhs == false_occ) {
-	explain_simp_or_false(egraph, body[t1]);
+        explain_simp_or_false(egraph, body[t1]);
       } else {
-	explain_simp_or(egraph, body[t1], eq[i].rhs);
+        explain_simp_or(egraph, body[t1], eq[i].rhs);
       }
       break;
 
@@ -1242,8 +1242,8 @@ static void explain_distinct_via_dmask(egraph_t *egraph, composite_t *d, uint32_
       p = int_hmap_get(imap, x);
       t2 = p->val;
       if (t2 >= 0) {
-	assert(egraph_equal_occ(egraph, t1, t2));
-	explain_eq(egraph, t1, t2);
+        assert(egraph_equal_occ(egraph, t1, t2));
+        explain_eq(egraph, t1, t2);
       }
     }
       
@@ -1554,7 +1554,7 @@ bool egraph_inconsistent_not_distinct(egraph_t *egraph, composite_t *d, ivector_
     for (j=i+1; j<m; j++) {
       t2 = d->child[j];
       if ((dmask[egraph_class(egraph, t2)] & dmsk) == 0 && ! check_diseq1(egraph, t1, t2)) {
-	return false;
+        return false;
       }
     } 
   }
@@ -1709,9 +1709,9 @@ static int32_t egraph_search_for_reconcile_edge(egraph_t *egraph, int32_t source
       t1 = term_of_occ(eq[i].lhs);
       assert(composite_body(body[t1]));
       if (eq[i].rhs == false_occ) {
-	explain_simp_or_false(egraph, body[t1]);
+        explain_simp_or_false(egraph, body[t1]);
       } else {
-	explain_simp_or(egraph, body[t1], eq[i].rhs);
+        explain_simp_or(egraph, body[t1], eq[i].rhs);
       }
       break;
 

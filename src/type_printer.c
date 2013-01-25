@@ -83,49 +83,49 @@ static void print_type_recur(FILE *f, type_table_t *tbl, type_t tau, int32_t lev
     } else {
       switch (type_kind(tbl, tau)) {
       case BITVECTOR_TYPE:
-	fprintf(f, "(bitvector %"PRIu32")", bv_type_size(tbl, tau));
-	break;
+        fprintf(f, "(bitvector %"PRIu32")", bv_type_size(tbl, tau));
+        break;
       case SCALAR_TYPE:
-	fprintf(f, "(enum!%"PRId32" %"PRIu32")", tau, scalar_type_cardinal(tbl, tau));
-	break;
+        fprintf(f, "(enum!%"PRId32" %"PRIu32")", tau, scalar_type_cardinal(tbl, tau));
+        break;
       case UNINTERPRETED_TYPE:
-	fprintf(f, "unint!%"PRId32, tau);	
-	break;
+        fprintf(f, "unint!%"PRId32, tau);       
+        break;
       case VARIABLE_TYPE:
-	fprintf(f, "var!%"PRIu32, type_variable_id(tbl, tau));
-	break;
+        fprintf(f, "var!%"PRIu32, type_variable_id(tbl, tau));
+        break;
       case TUPLE_TYPE:
-	fputs("(tuple", f);
-	n = tuple_type_arity(tbl, tau);
-	for (i=0; i<n; i++) {
-	  fputc(' ', f);
-	  print_type_recur(f, tbl, tuple_type_component(tbl, tau, i), level - 1);
-	}
-	fputc(')', f);
-	break;
+        fputs("(tuple", f);
+        n = tuple_type_arity(tbl, tau);
+        for (i=0; i<n; i++) {
+          fputc(' ', f);
+          print_type_recur(f, tbl, tuple_type_component(tbl, tau, i), level - 1);
+        }
+        fputc(')', f);
+        break;
       case FUNCTION_TYPE:
-	fputs("(-> ", f);
-	n = function_type_arity(tbl, tau);
-	for (i=0; i<n; i++) {
-	  print_type_recur(f, tbl, function_type_domain(tbl, tau, i), level - 1);
-	  fputc(' ', f);
-	}
-	print_type_recur(f, tbl, function_type_range(tbl, tau), level - 1);
-	fputc(')', f);
-	break;
+        fputs("(-> ", f);
+        n = function_type_arity(tbl, tau);
+        for (i=0; i<n; i++) {
+          print_type_recur(f, tbl, function_type_domain(tbl, tau, i), level - 1);
+          fputc(' ', f);
+        }
+        print_type_recur(f, tbl, function_type_range(tbl, tau), level - 1);
+        fputc(')', f);
+        break;
       case INSTANCE_TYPE:
-	fputc('(', f);
-	print_macro_name(f, tbl, instance_type_cid(tbl, tau));
-	n = instance_type_arity(tbl, tau);
-	for (i=0; i<n; i++) {
-	  fputc(' ', f);
-	  print_type_recur(f, tbl, instance_type_param(tbl, tau, i), level - 1);	  
-	}
-	fputc(')', f);
-	break;
+        fputc('(', f);
+        print_macro_name(f, tbl, instance_type_cid(tbl, tau));
+        n = instance_type_arity(tbl, tau);
+        for (i=0; i<n; i++) {
+          fputc(' ', f);
+          print_type_recur(f, tbl, instance_type_param(tbl, tau, i), level - 1);          
+        }
+        fputc(')', f);
+        break;
       default:
-	assert(false);
-	break;
+        assert(false);
+        break;
       }
     }
   }
@@ -237,10 +237,10 @@ static uint32_t max_name_length(type_table_t *tbl) {
     if (type_kind(tbl, i) != UNUSED_TYPE) {
       name = tbl->name[i];
       if (name != NULL) {
-	l = strlen(name);
-	if (l > max) {
-	  max = l;
-	}
+        l = strlen(name);
+        if (l > max) {
+          max = l;
+        }
       }
     }
   }
@@ -309,53 +309,53 @@ void print_type_table(FILE *f, type_table_t *tbl) {
       case BOOL_TYPE:
       case INT_TYPE:
       case REAL_TYPE:
-	fputs(type2string[i], f);
-	fputc('\n', f);
-	break;
+        fputs(type2string[i], f);
+        fputc('\n', f);
+        break;
       case BITVECTOR_TYPE:
-	fprintf(f, "(bitvector %"PRIu32")\n", bv_type_size(tbl, i));
-	break;
+        fprintf(f, "(bitvector %"PRIu32")\n", bv_type_size(tbl, i));
+        break;
       case SCALAR_TYPE:
-	fprintf(f, "(enum, card = %"PRIu32")\n", scalar_type_cardinal(tbl, i));
-	break;
+        fprintf(f, "(enum, card = %"PRIu32")\n", scalar_type_cardinal(tbl, i));
+        break;
       case UNINTERPRETED_TYPE:
-	fputs("(uninterpreted)\n", f);
-	break;
+        fputs("(uninterpreted)\n", f);
+        break;
       case VARIABLE_TYPE:
-	fprintf(f, "(variable, id = %"PRIu32")\n", type_variable_id(tbl, i));
-	break;
+        fprintf(f, "(variable, id = %"PRIu32")\n", type_variable_id(tbl, i));
+        break;
       case TUPLE_TYPE:
-	fputs("(tuple", f);
-	m = tuple_type_arity(tbl, i);
-	for (j=0; j<m; j++) {
-	  fputc(' ', f);
-	  print_type_name(f, tbl, tuple_type_component(tbl, i, j));
-	}
-	fputs(")\n", f);
-	break;
+        fputs("(tuple", f);
+        m = tuple_type_arity(tbl, i);
+        for (j=0; j<m; j++) {
+          fputc(' ', f);
+          print_type_name(f, tbl, tuple_type_component(tbl, i, j));
+        }
+        fputs(")\n", f);
+        break;
       case FUNCTION_TYPE:
-	fputs("(-> ", f);
-	m = function_type_arity(tbl, i);
-	for (j=0; j<m; j++) {
-	  print_type_name(f, tbl, function_type_domain(tbl, i, j));
-	  fputc(' ', f);
-	}
-	print_type_name(f, tbl, function_type_range(tbl, i));
-	fputs(")\n", f);
-	break;
+        fputs("(-> ", f);
+        m = function_type_arity(tbl, i);
+        for (j=0; j<m; j++) {
+          print_type_name(f, tbl, function_type_domain(tbl, i, j));
+          fputc(' ', f);
+        }
+        print_type_name(f, tbl, function_type_range(tbl, i));
+        fputs(")\n", f);
+        break;
       case INSTANCE_TYPE:
-	fputc('(', f);
-	print_macro_name(f, tbl, instance_type_cid(tbl, i));
-	m = instance_type_arity(tbl, i);
-	for (j=0; j<m; j++) {
-	  fputc(' ', f);
-	  print_type_name(f, tbl, instance_type_param(tbl, i, j));
-	}
-	fputs(")\n", f);
-	break;
+        fputc('(', f);
+        print_macro_name(f, tbl, instance_type_cid(tbl, i));
+        m = instance_type_arity(tbl, i);
+        for (j=0; j<m; j++) {
+          fputc(' ', f);
+          print_type_name(f, tbl, instance_type_param(tbl, i, j));
+        }
+        fputs(")\n", f);
+        break;
       default:
-	fputs("invalid type code\n", f);	
-	break;
+        fputs("invalid type code\n", f);        
+        break;
       }
     }
   }
@@ -374,7 +374,7 @@ void print_type_macros(FILE *f, type_table_t *tbl) {
     n = mtbl->nelems;
     for (i=0; i<n; i++) {
       if (good_type_macro(mtbl, i)) {
-	print_macro_def(f, tbl, i);
+        print_macro_def(f, tbl, i);
       }
     }
   }
@@ -424,61 +424,61 @@ static void pp_type_recur(yices_pp_t *printer, type_table_t *tbl, type_t tau, in
     } else {
       switch (type_kind(tbl, tau)) {
       case BITVECTOR_TYPE:
-	pp_open_block(printer, PP_OPEN_BV_TYPE);
-	pp_uint32(printer, bv_type_size(tbl, tau));
-	pp_close_block(printer, true);
-	break;
+        pp_open_block(printer, PP_OPEN_BV_TYPE);
+        pp_uint32(printer, bv_type_size(tbl, tau));
+        pp_close_block(printer, true);
+        break;
 
       case SCALAR_TYPE:
       case UNINTERPRETED_TYPE:
-	if (name != NULL) {
-	  pp_string(printer, name);
-	} else {
-	  pp_id(printer, "tau!", tau);
-	}
-	break;
+        if (name != NULL) {
+          pp_string(printer, name);
+        } else {
+          pp_id(printer, "tau!", tau);
+        }
+        break;
 
       case VARIABLE_TYPE:
-	if (name != NULL) {
-	  pp_string(printer, name);
-	} else {
-	  pp_id(printer, "var!", type_variable_id(tbl, tau));
-	}
-	break;
+        if (name != NULL) {
+          pp_string(printer, name);
+        } else {
+          pp_id(printer, "var!", type_variable_id(tbl, tau));
+        }
+        break;
 
       case TUPLE_TYPE:
-	pp_open_block(printer, PP_OPEN_TUPLE_TYPE);
-	n = tuple_type_arity(tbl, tau);
-	for (i=0; i<n; i++) {
-	  pp_type_recur(printer, tbl, tuple_type_component(tbl, tau, i), level - 1);
-	}
-	pp_close_block(printer, true);
-	break;
+        pp_open_block(printer, PP_OPEN_TUPLE_TYPE);
+        n = tuple_type_arity(tbl, tau);
+        for (i=0; i<n; i++) {
+          pp_type_recur(printer, tbl, tuple_type_component(tbl, tau, i), level - 1);
+        }
+        pp_close_block(printer, true);
+        break;
 
       case FUNCTION_TYPE:
-	pp_open_block(printer, PP_OPEN_FUN_TYPE);
-	n = function_type_arity(tbl, tau);
-	for (i=0; i<n; i++) {
-	  pp_type_recur(printer, tbl, function_type_domain(tbl, tau, i), level - 1);
-	}
-	pp_type_recur(printer, tbl, function_type_range(tbl, tau), level - 1);
-	pp_close_block(printer, true);
-	break;
+        pp_open_block(printer, PP_OPEN_FUN_TYPE);
+        n = function_type_arity(tbl, tau);
+        for (i=0; i<n; i++) {
+          pp_type_recur(printer, tbl, function_type_domain(tbl, tau, i), level - 1);
+        }
+        pp_type_recur(printer, tbl, function_type_range(tbl, tau), level - 1);
+        pp_close_block(printer, true);
+        break;
 
       case INSTANCE_TYPE:
-	pp_open_block(printer, PP_OPEN_PAR);
-	assert(tbl->macro_tbl != NULL);
-	pp_string(printer, type_macro_name(tbl->macro_tbl, instance_type_cid(tbl, tau)));
-	n = instance_type_arity(tbl, tau);
-	for (i=0; i<n; i++) {
-	  pp_type_recur(printer, tbl, instance_type_param(tbl, tau, i), level - 1);
-	}
-	pp_close_block(printer, true);
-	break;
+        pp_open_block(printer, PP_OPEN_PAR);
+        assert(tbl->macro_tbl != NULL);
+        pp_string(printer, type_macro_name(tbl->macro_tbl, instance_type_cid(tbl, tau)));
+        n = instance_type_arity(tbl, tau);
+        for (i=0; i<n; i++) {
+          pp_type_recur(printer, tbl, instance_type_param(tbl, tau, i), level - 1);
+        }
+        pp_close_block(printer, true);
+        break;
 
       default:
-	assert(false);
-	break;
+        assert(false);
+        break;
       }
     }
   }

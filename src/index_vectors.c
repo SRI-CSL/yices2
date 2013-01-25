@@ -38,7 +38,7 @@ void add_index_to_vector(int32_t **v, int32_t k) {
       n ++;
       n += n>>1; // new capacity
       if (n > MAX_IDX_VECTOR_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
       u = (index_vector_t *) safe_realloc(u, sizeof(index_vector_t) + n * sizeof(int32_t));
       u->capacity = n;
@@ -70,7 +70,7 @@ void resize_index_vector(int32_t **v, uint32_t n) {
     if (new_cap < n) {
       new_cap = n;
       if (new_cap > MAX_IDX_VECTOR_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
     }
     u = (index_vector_t *) safe_malloc(sizeof(index_vector_t) + new_cap * sizeof(int32_t));
@@ -81,7 +81,7 @@ void resize_index_vector(int32_t **v, uint32_t n) {
     u = iv_header(d);
     if (u->capacity < n) {
       if (n > MAX_IDX_VECTOR_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
       u = (index_vector_t *) safe_realloc(u, sizeof(index_vector_t) + n * sizeof(int32_t));
       u->capacity = n;
@@ -106,16 +106,16 @@ void remove_index_from_vector(int32_t *v, int32_t k) {
     if (n > 0) {
       n --;
       if (v[n] != k) {
-	i = n;
-	do {
-	  if (i == 0) return; // k is not in v
-	  i --;
-	} while (v[i] != k);
-	// shift elements v[i+1... n] into v[i .. n-1]
-	while (i < n) {
-	  v[i] = v[i+1];
-	  i ++;
-	}
+        i = n;
+        do {
+          if (i == 0) return; // k is not in v
+          i --;
+        } while (v[i] != k);
+        // shift elements v[i+1... n] into v[i .. n-1]
+        while (i < n) {
+          v[i] = v[i+1];
+          i ++;
+        }
       }
       iv_header(v)->size = n;
     }

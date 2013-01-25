@@ -280,10 +280,10 @@ static int32_t dep_vector_alloc_slot(dep_t **v) {
       // the free list is empty: increase nelems
       k = vector->nelems;
       if (k == vector->size) {
-	// full vector: make it larger
-	vector = extend_dep_vector(vector);
-	*v = vector;
-	assert(0 <= k && k < vector->size);
+        // full vector: make it larger
+        vector = extend_dep_vector(vector);
+        *v = vector;
+        assert(0 <= k && k < vector->size);
       }
       vector->nelems ++;
     } else {
@@ -650,7 +650,7 @@ static void reset_offset_table(offset_table_t *table) {
   table->desc[0].next = 0;
 
   assert(table->edge[0] < 0 && table->dep[0] == NULL && 
-	 table->desc[0].root == 0  && q_is_zero(&table->desc[0].offset));
+         table->desc[0].root == 0  && q_is_zero(&table->desc[0].offset));
 }
 
 
@@ -712,8 +712,8 @@ static void make_offset_vars_for_poly(offset_table_t *table, polynomial_t *p) {
       x = p->mono[i].var;
       j = remap_get(&table->var2offset_var, x);
       if (j < 0) {
-	j = alloc_offset_var(table);
-	remap_set(&table->var2offset_var, x, j);
+        j = alloc_offset_var(table);
+        remap_set(&table->var2offset_var, x, j);
       }
       i ++;
     }
@@ -1546,9 +1546,9 @@ void reset_offset_manager(offset_manager_t *m) {
   reset_offset_trail_stack(&m->tstack);
 
   assert(m->stack.size > 0 && 
-	 m->stack.data[0].eq_ptr == 0 && 
-	 m->stack.data[0].undo_ptr == 0 &&
-	 m->stack.data[0].inactive_ptr == 0);
+         m->stack.data[0].eq_ptr == 0 && 
+         m->stack.data[0].undo_ptr == 0 &&
+         m->stack.data[0].inactive_ptr == 0);
 
   reset_recheck_queue(&m->recheck);
   ivector_reset(&m->to_process);
@@ -1809,7 +1809,7 @@ void record_offset_poly(offset_manager_t *m, eterm_t t, thvar_t x, polynomial_t 
   offset_poly_init_vars(m, i);
 
   assert(offset_poly_is_inactive(&m->ptable, i) && 
-	 !offset_poly_is_marked(&m->ptable, i));
+         !offset_poly_is_marked(&m->ptable, i));
 
   // add i to the to_process vector and to the recheck queue if needed
   ivector_push(&m->to_process, i);
@@ -1845,7 +1845,7 @@ static void collect_polys_to_process(offset_manager_t *m, dep_t *v) {
     for (i=0; i<n; i++) {
       k = v->data[i];
       if (k >= 0) {
-	push_to_process(m, k);
+        push_to_process(m, k);
       }
     }
   }
@@ -2149,7 +2149,7 @@ static bool process_offset_equality(offset_manager_t *m, int32_t x, int32_t y, r
      * Otherwise, we take as lhs the variable with smallest dep vector
      */
     if (rx == 0 || 
-	(ry != 0 && offset_var_dep_size(vtbl, rx) > offset_var_dep_size(vtbl, ry))) {
+        (ry != 0 && offset_var_dep_size(vtbl, rx) > offset_var_dep_size(vtbl, ry))) {
       z = rx; rx = ry; ry = z;
       z = x; x = y; y = z;
       q_neg(delta);

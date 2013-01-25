@@ -204,12 +204,12 @@ static int32_t cbuffer_resolver_index(cbuffer_t *buffer, uint32_t i, uint32_t k)
   assert(0 <= i && i < CBUFFER_NCLAUSES && 0 <= k && k < CBUFFER_NCLAUSES);
   for (j=0; j<CBUFFER_NVARS; j++) {
     if (buffer->data[i][j] != 0 && buffer->data[k][j] != 0 && 
-	buffer->data[i][j] != buffer->data[k][j]) {
+        buffer->data[i][j] != buffer->data[k][j]) {
       // clause i and clause k have opposite literals for var[j]
       if (f < 0) {
-	f = j;
+        f = j;
       } else {
-	return -1;
+        return -1;
       }
     }
   }
@@ -255,7 +255,7 @@ static void remove_clause_if_subsumed(cbuffer_t *buffer, uint32_t i) {
   n = buffer->nclauses;
   for (k=0; k<n; k++) {
     if (k != i && live_clause(buffer, k) && var_subset(buffer, k, i) &&
-	cbuffer_subsumes(buffer, k, i)) {
+        cbuffer_subsumes(buffer, k, i)) {
       kill_clause(buffer, i);
       break;
     }
@@ -274,7 +274,7 @@ static void remove_clauses_subsumed(cbuffer_t *buffer, uint32_t i) {
   n = buffer->nclauses;
   for (k=0; k<n; k++) {
     if (k != i && live_clause(buffer, k) && var_subset(buffer, i, k) &&
-	cbuffer_subsumes(buffer, i, k)) {
+        cbuffer_subsumes(buffer, i, k)) {
       kill_clause(buffer, k);
     }
   }
@@ -297,16 +297,16 @@ static bool resolution_subsumption(cbuffer_t *buffer) {
   for (k=0; k<n; k++) {
     if (live_clause(buffer, k)) {
       for (i=0; i<n; i++) {
-	if (i != k && live_clause(buffer, i) && var_subset(buffer, i, k)) {
-	  // var_of(clause[i]) is a subset of var_of(clause[k])
-	  j = cbuffer_resolver_index(buffer, i, k);
-	  if (j >= 0) {
-	    // replace clause[k] = (A or B or not(l)) by (A or B)
-	    cbuffer_remove_lit(buffer, k, j);
-	    remove_clauses_subsumed(buffer, k);
-	    return true;
-	  }
-	}
+        if (i != k && live_clause(buffer, i) && var_subset(buffer, i, k)) {
+          // var_of(clause[i]) is a subset of var_of(clause[k])
+          j = cbuffer_resolver_index(buffer, i, k);
+          if (j >= 0) {
+            // replace clause[k] = (A or B or not(l)) by (A or B)
+            cbuffer_remove_lit(buffer, k, j);
+            remove_clauses_subsumed(buffer, k);
+            return true;
+          }
+        }
       }
     }
   }
@@ -326,14 +326,14 @@ static void remove_dead_clauses(cbuffer_t *buffer) {
     k = 0;
     for (i=0; i<n; i++) {
       if (live_clause(buffer, i)) {
-	if (k < i) {
-	  // copy clause[i] into clause[k];
-	  for (j=0; j<CBUFFER_NVARS; j++) {
-	    buffer->data[k][j] = buffer->data[i][j];
-	  }
-	  buffer->signature[k] = buffer->signature[i];
-	}
-	k ++;
+        if (k < i) {
+          // copy clause[i] into clause[k];
+          for (j=0; j<CBUFFER_NVARS; j++) {
+            buffer->data[k][j] = buffer->data[i][j];
+          }
+          buffer->signature[k] = buffer->signature[i];
+        }
+        k ++;
       }
     }
     buffer->mask = 0;
@@ -578,7 +578,7 @@ static void push_binary_clause(bit_blaster_t *s, cbuffer_t *buffer, literal_t a,
  * Add clause {a, b, c} 
  */
 static void push_ternary_clause(bit_blaster_t *s, cbuffer_t *buffer, 
-				literal_t a, literal_t b, literal_t c) {
+                                literal_t a, literal_t b, literal_t c) {
   bool true_clause;
   uint32_t i;
 
@@ -598,7 +598,7 @@ static void push_ternary_clause(bit_blaster_t *s, cbuffer_t *buffer,
  * Add a clause {a, b, c, d}
  */
 static void push_quad_clause(bit_blaster_t *s, cbuffer_t *buffer, 
-			     literal_t a, literal_t b, literal_t c, literal_t d) {
+                             literal_t a, literal_t b, literal_t c, literal_t d) {
   bool true_clause;
   uint32_t i;
 
@@ -662,7 +662,7 @@ static bool normalized_vector(ivector_t *v) {
   if (n > 1) {
     for (i=0; i<n-1; i++) {
       if (var_of(v->data[i]) >= var_of(v->data[i+1])) {
-	return false;
+        return false;
       }
     }
   }
@@ -709,10 +709,10 @@ static void simplify_or(bit_blaster_t *s, literal_t *a, uint32_t n, ivector_t *v
     for (i=1; i<n; i++) {
       aux = v->data[i];
       if (aux != l) {
-	if (aux == not(l)) goto or_is_true;
-	v->data[j] = aux;
-	l = aux;
-	j ++;
+        if (aux == not(l)) goto or_is_true;
+        v->data[j] = aux;
+        l = aux;
+        j ++;
       }
     }
   
@@ -800,7 +800,7 @@ static void assert_ordef_clauses(bit_blaster_t *s, literal_t x, ivector_t *v) {
     if (k < 0) {
       // No simplifications
       for (i=0; i<n; i++) {
-	bit_blaster_add_binary_clause(s, x, not(a[i]));
+        bit_blaster_add_binary_clause(s, x, not(a[i]));
       }
       ivector_push(v, not(x));
       bit_blaster_add_clause(s, n+1, v->data);            
@@ -810,31 +810,31 @@ static void assert_ordef_clauses(bit_blaster_t *s, literal_t x, ivector_t *v) {
 
       aux = a[k];
       if (x == aux) {
-	/*
-	 * Constraint x == (or a[0] ... x ... a[n-1])
-	 * Need clauses { x, ~a[0] } ... { x, ~a[n-1] }
-	 */
-	for (i=0; i<n; i++) {
-	  if (i != k) {
-	    assert(a[i] != x && a[i] != not(x));
-	    bit_blaster_add_binary_clause(s, x, not(a[i]));
-	  }
-	}
+        /*
+         * Constraint x == (or a[0] ... x ... a[n-1])
+         * Need clauses { x, ~a[0] } ... { x, ~a[n-1] }
+         */
+        for (i=0; i<n; i++) {
+          if (i != k) {
+            assert(a[i] != x && a[i] != not(x));
+            bit_blaster_add_binary_clause(s, x, not(a[i]));
+          }
+        }
       } else {
-	/*
-	 * Constraint x == (or a[0] ... ~x ... a[n-1])
-	 * Clauses: { x } and { a[0], ..., a[n-1] } 
-	 */
-	assert(aux == not(x));
-	bit_blaster_add_unit_clause(s, x);
+        /*
+         * Constraint x == (or a[0] ... ~x ... a[n-1])
+         * Clauses: { x } and { a[0], ..., a[n-1] } 
+         */
+        assert(aux == not(x));
+        bit_blaster_add_unit_clause(s, x);
 
-	// remove ~x from v (may be overkill?)
-	for (i=k+1; i<n; i++) {
-	  assert(a[i] != x && a[i] != not(x));
-	  a[i-1] = a[i];
-	}
-	bit_blaster_add_clause(s, n-1, a);
-	
+        // remove ~x from v (may be overkill?)
+        for (i=k+1; i<n; i++) {
+          assert(a[i] != x && a[i] != not(x));
+          a[i-1] = a[i];
+        }
+        bit_blaster_add_clause(s, n-1, a);
+        
       }
     } 
     break;
@@ -920,11 +920,11 @@ static uint32_t simplify_xor(bit_blaster_t *s, uint32_t n, literal_t *a, literal
     while (i<n-1) {
       l = a[i];
       if (l == a[i+1]) { // (xor l l) --> 0
-	i += 2;
+        i += 2;
       } else {
-	a[j] = l;
-	j ++;
-	i ++;
+        a[j] = l;
+        j ++;
+        i ++;
       }
     }
     if (i == n-1){ 
@@ -2238,16 +2238,16 @@ void bit_blaster_make_bveq2(bit_blaster_t *s, literal_t *a, literal_t *b, litera
     for (i=0; i<n; i++) {
       aux[i] = find_xor2(s, a[i], b[i]);
       if (aux[i] == true_literal) {
-	// l must be false since a[i] != b[i]
-	bit_blaster_add_unit_clause(s, not(l));
-	return;
+        // l must be false since a[i] != b[i]
+        bit_blaster_add_unit_clause(s, not(l));
+        return;
       }
     }
     for (i=0; i<n; i++) {
       if (aux[i] == null_literal) {
-	// TODO?: use a simpler/faster constructor
-	// rather than the generic make_xor2
-	aux[i] = bit_blaster_make_xor2(s, a[i], b[i]);
+        // TODO?: use a simpler/faster constructor
+        // rather than the generic make_xor2
+        aux[i] = bit_blaster_make_xor2(s, a[i], b[i]);
       }
     }
 
@@ -2346,14 +2346,14 @@ static literal_t find_mux(bit_blaster_t *s, literal_t c, literal_t a, literal_t 
     if (is_neg(a)) {
       g = gate_table_find_ite(&s->htbl, c, not(a), not(b));
       if (g != NULL) {
-	assert(g->lit[3] != null_literal);
-	l = not(g->lit[3]);
+        assert(g->lit[3] != null_literal);
+        l = not(g->lit[3]);
       }
     } else {
       g = gate_table_find_ite(&s->htbl, c, a, b);
       if (g != NULL) {
-	assert(g->lit[3] != null_literal);
-	l = g->lit[3];
+        assert(g->lit[3] != null_literal);
+        l = g->lit[3];
       }
     }
   }
@@ -2446,7 +2446,7 @@ static void assert_mux(bit_blaster_t *s, literal_t c, literal_t a, literal_t b, 
  * - circuit output: pseudo-literal array u of size n
  */
 void bit_blaster_make_bvmux(bit_blaster_t *s, literal_t c, literal_t *a, literal_t *b, 
-			    literal_t *u, uint32_t n) {
+                            literal_t *u, uint32_t n) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
@@ -2559,8 +2559,8 @@ void bit_blaster_make_bvneg(bit_blaster_t *s, literal_t *a, literal_t *u, uint32
        * u[i] := sum, d := carry out
        */
       if (f == null_literal) {
-	f = bit_blaster_fresh_literal(s);
-	remap_table_assign(rmap, u[i], f);
+        f = bit_blaster_fresh_literal(s);
+        remap_table_assign(rmap, u[i], f);
       }
       d = bit_blaster_fresh_literal(s);
       make_half_add(s, not(a[i]), c, f, d);
@@ -2570,9 +2570,9 @@ void bit_blaster_make_bvneg(bit_blaster_t *s, literal_t *a, literal_t *u, uint32
        * Assert s = u[i]
        */
       if (f == null_literal) {
-	remap_table_assign(rmap, u[i], sum);
+        remap_table_assign(rmap, u[i], sum);
       } else {
-	bit_blaster_eq(s, f, sum);
+        bit_blaster_eq(s, f, sum);
       }
     }
     c = d;
@@ -2592,9 +2592,9 @@ static void sort3(literal_t a, literal_t b, literal_t c, literal_t *v) {
     if (a <= c) {
       v[0] = a;
       if (b <= c) {
-	v[1] = b; v[2] = c;
+        v[1] = b; v[2] = c;
       } else {
-	v[1] = c; v[2] = b;
+        v[1] = c; v[2] = b;
       }
     } else {
       v[0] = c; v[1] = a; v[2] = b;
@@ -2603,9 +2603,9 @@ static void sort3(literal_t a, literal_t b, literal_t c, literal_t *v) {
     if (b <= c) {
       v[0] = b;
       if (a <= c) {
-	v[1] = a; v[2] = c;
+        v[1] = a; v[2] = c;
       } else {
-	v[1] = c; v[2] = a;
+        v[1] = c; v[2] = a;
       }
     } else {
       v[0] = c; v[1] = b; v[2] = a;
@@ -2620,7 +2620,7 @@ static void sort3(literal_t a, literal_t b, literal_t c, literal_t *v) {
  * Set s and d to null if the gate is not found
  */
 static void find_full_add(bit_blaster_t *s, literal_t a, literal_t b, literal_t c,
-			  literal_t *sum, literal_t *d) {
+                          literal_t *sum, literal_t *d) {
   boolgate_t *g;
   literal_t aux[3];
   literal_t s0, d0;
@@ -2658,7 +2658,7 @@ static void find_full_add(bit_blaster_t *s, literal_t a, literal_t b, literal_t 
  * - sum is the sum and d is the carry
  */
 static void make_full_add(bit_blaster_t *s, literal_t a, literal_t b, literal_t c,
-			  literal_t sum, literal_t d) {
+                          literal_t sum, literal_t d) {
   boolgate_t *g;
   literal_t aux[3];
 
@@ -2697,8 +2697,8 @@ void bit_blaster_make_bvadd(bit_blaster_t *s, literal_t *a, literal_t *b, litera
        * with u[i] := sum, d := carry out
        */
       if (f == null_literal) {
-	f = bit_blaster_fresh_literal(s);
-	remap_table_assign(rmap, u[i], f);
+        f = bit_blaster_fresh_literal(s);
+        remap_table_assign(rmap, u[i], f);
       }
       d = bit_blaster_fresh_literal(s);
       make_full_add(s, a[i], b[i], c, f, d);
@@ -2708,9 +2708,9 @@ void bit_blaster_make_bvadd(bit_blaster_t *s, literal_t *a, literal_t *b, litera
        * Assert s = u[i]
        */
       if (f == null_literal) {
-	remap_table_assign(rmap, u[i], sum);
+        remap_table_assign(rmap, u[i], sum);
       } else {
-	bit_blaster_eq(s, f, sum);
+        bit_blaster_eq(s, f, sum);
       }
     }
     c = d;
@@ -2743,8 +2743,8 @@ void bit_blaster_make_bvsub(bit_blaster_t *s, literal_t *a, literal_t *b, litera
        * with u[i] := sum, d := carry out
        */
       if (f == null_literal) {
-	f = bit_blaster_fresh_literal(s);
-	remap_table_assign(rmap, u[i], f);
+        f = bit_blaster_fresh_literal(s);
+        remap_table_assign(rmap, u[i], f);
       }
       d = bit_blaster_fresh_literal(s);
       make_full_add(s, a[i], not(b[i]), c, f, d);
@@ -2754,9 +2754,9 @@ void bit_blaster_make_bvsub(bit_blaster_t *s, literal_t *a, literal_t *b, litera
        * Assert s = u[i]
        */
       if (f == null_literal) {
-	remap_table_assign(rmap, u[i], sum);
+        remap_table_assign(rmap, u[i], sum);
       } else {
-	bit_blaster_eq(s, f, sum);
+        bit_blaster_eq(s, f, sum);
       }
     }
     c = d;
@@ -2811,7 +2811,7 @@ static literal_t make_and2(bit_blaster_t *s, literal_t a, literal_t b) {
  * - k must satisfy (0 <= k && k < n)
  */
 static void bit_blaster_partial_product(bit_blaster_t *s, literal_t *sum, literal_t *a, uint32_t n, 
-					literal_t b, literal_t d, uint32_t k) {
+                                        literal_t b, literal_t d, uint32_t k) {
   remap_table_t *rmap;
   uint32_t i;
   literal_t p, f, s0, c0, d0;
@@ -2966,7 +2966,7 @@ static void bit_blaster_bvadd1(bit_blaster_t *s, literal_t *sum, literal_t p, ui
  * - k must satisfy (0 <= k < n)
  */
 static void bit_blaster_column_product(bit_blaster_t *s, literal_t *sum, literal_t *a, literal_t *b, uint32_t n,
-				       literal_t d, uint32_t k) {
+                                       literal_t d, uint32_t k) {
   remap_table_t *rmap;
   uint32_t i;
   literal_t p, f, w, c;
@@ -3118,7 +3118,7 @@ static void bit_blaster_submul(bit_blaster_t *s, literal_t *a, literal_t *b, lit
  * Assert q = (bvudiv a b) and r = (bvurem a b)
  */
 void bit_blaster_make_udivision(bit_blaster_t *s, literal_t *a, literal_t *b,
-				literal_t *q, literal_t *r, uint32_t n) {
+                                literal_t *q, literal_t *r, uint32_t n) {
   remap_table_t *rmap;
   ivector_t *v;
   literal_t *aux;
@@ -3145,9 +3145,9 @@ void bit_blaster_make_udivision(bit_blaster_t *s, literal_t *a, literal_t *b,
       // assert l = q[i]
       f = remap_table_find(rmap, q[i]);
       if (f == null_literal) {
-	remap_table_assign(rmap, q[i], l);
+        remap_table_assign(rmap, q[i], l);
       } else {
-	bit_blaster_eq(s, f, l);
+        bit_blaster_eq(s, f, l);
       }
     }
   }
@@ -3158,9 +3158,9 @@ void bit_blaster_make_udivision(bit_blaster_t *s, literal_t *a, literal_t *b,
     for (i=0; i<n; i++) {
       f = remap_table_find(rmap, r[i]);
       if (f == null_literal) {
-	remap_table_assign(rmap, r[i], aux[i]);
+        remap_table_assign(rmap, r[i], aux[i]);
       } else {
-	bit_blaster_eq(s, f, aux[i]);
+        bit_blaster_eq(s, f, aux[i]);
       }
     }
   }
@@ -3312,7 +3312,7 @@ static void abseq_constraint(bit_blaster_t *s, literal_t c, literal_t *a, litera
  * Assert q = (bvsdiv a b) and r = (bvsrem a b)
  */
 void bit_blaster_make_sdivision(bit_blaster_t *s, literal_t *a, literal_t *b,
-				literal_t *q, literal_t *r, uint32_t n) {
+                                literal_t *q, literal_t *r, uint32_t n) {
   ivector_t *v;
   literal_t *aux;
   literal_t *abs_b;
@@ -3514,7 +3514,7 @@ void bit_blaster_make_smod(bit_blaster_t *s, literal_t *a, literal_t *b, literal
  * - k must satisfy (0 <= k && k < n)
  */
 static void bit_blaster_partial_addmul(bit_blaster_t *s, literal_t *a, literal_t *b,
-				       literal_t q, uint32_t n, uint32_t k) {
+                                       literal_t q, uint32_t n, uint32_t k) {
   uint32_t i;
   literal_t p, s0, c0, d0;
 
@@ -3596,7 +3596,7 @@ static int32_t bv_is_power_of_two(bit_blaster_t *s, literal_t *b, uint32_t n) {
  * - q must be an array of n pseudo literals
  */
 static void bit_blaster_divpower_quotient(bit_blaster_t *s, literal_t *a, literal_t *q,
-					  uint32_t n, uint32_t k) {
+                                          uint32_t n, uint32_t k) {
   uint32_t i;
 
   assert(0 <= k && k < n);
@@ -3615,7 +3615,7 @@ static void bit_blaster_divpower_quotient(bit_blaster_t *s, literal_t *a, litera
  * - r must be an array of n pseudo-literals
  */
 static void bit_blaster_divpower_remainder(bit_blaster_t *s, literal_t *a, literal_t *r,
-					   uint32_t n, uint32_t k) {
+                                           uint32_t n, uint32_t k) {
   uint32_t i;
 
   assert(0 <= k && k < n);
@@ -3703,7 +3703,7 @@ static void init_from_fresh(bit_blaster_t *s, literal_t *a, uint32_t n) {
  * Assert q = (bvudiv a b) and r = (bvurem a b)
  */
 void bit_blaster_make_udivision2(bit_blaster_t *s, literal_t *a, literal_t *b,
-				 literal_t *q, literal_t *r, uint32_t n) {
+                                 literal_t *q, literal_t *r, uint32_t n) {
   ivector_t *v;
   literal_t *quotient;
   literal_t *remainder;
@@ -3841,7 +3841,7 @@ static literal_t *make_bvneg_litarray(bit_blaster_t *s, literal_t *b, uint32_t n
  * Assert q = (bvsdiv a b) and r = (bvsrem a b)
  */
 void bit_blaster_make_sdivision2(bit_blaster_t *s, literal_t *a, literal_t *b,
-				 literal_t *q, literal_t *r, uint32_t n) {
+                                 literal_t *q, literal_t *r, uint32_t n) {
   ivector_t *v;
   literal_t *quotient;
   literal_t *remainder;
@@ -4046,7 +4046,7 @@ static void assert_shift_overflow(bit_blaster_t *s, literal_t *u, uint32_t n, li
  * - a must be an array of n literals
  */
 static void assert_conditional_shift_overflow(bit_blaster_t *s, literal_t *u, literal_t overflow,
-					      literal_t *a, uint32_t n, literal_t l) {
+                                              literal_t *a, uint32_t n, literal_t l) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
@@ -4192,12 +4192,12 @@ void bit_blaster_make_shift_left(bit_blaster_t *s, literal_t *a, literal_t *b, l
       // process control bits from b[0] to b[k-2]
       shift = 1;
       for (i=0; i<k-1; i++) {
-	c = b[i];
-	if (var_of(c) != const_bvar) {
-	  // aux := (ite c (aux << 2^i) aux)
-	  conditional_shift_left(s, aux, c, aux, n, shift);
-	}
-	shift <<= 1;
+        c = b[i];
+        if (var_of(c) != const_bvar) {
+          // aux := (ite c (aux << 2^i) aux)
+          conditional_shift_left(s, aux, c, aux, n, shift);
+        }
+        shift <<= 1;
       }      
 
       // last stage: assert (u == (ite c (aux << 2^(k-1)) aux)
@@ -4214,8 +4214,8 @@ void bit_blaster_make_shift_left(bit_blaster_t *s, literal_t *a, literal_t *b, l
     for (i=0; i<k; i++) {
       c = b[i];
       if (var_of(c) != const_bvar) {
-	// aux := (ite c (aux << 2^i) aux)
-	conditional_shift_left(s, aux, c, aux, n, shift);
+        // aux := (ite c (aux << 2^i) aux)
+        conditional_shift_left(s, aux, c, aux, n, shift);
       }
       shift <<= 1;     
     }
@@ -4360,12 +4360,12 @@ void bit_blaster_make_lshift_right(bit_blaster_t *s, literal_t *a, literal_t *b,
       // process control bits from b[0] to b[k-2]
       shift = 1;
       for (i=0; i<k-1; i++) {
-	c = b[i];
-	if (var_of(c) != const_bvar) {
-	  // aux := (ite c (aux << 2^i) aux)
-	  conditional_lshift_right(s, aux, c, aux, n, shift);
-	}
-	shift <<= 1;
+        c = b[i];
+        if (var_of(c) != const_bvar) {
+          // aux := (ite c (aux << 2^i) aux)
+          conditional_lshift_right(s, aux, c, aux, n, shift);
+        }
+        shift <<= 1;
       }      
 
       // last stage: assert (u == (ite c (aux << 2^(k-1)) aux)
@@ -4382,8 +4382,8 @@ void bit_blaster_make_lshift_right(bit_blaster_t *s, literal_t *a, literal_t *b,
     for (i=0; i<k; i++) {
       c = b[i];
       if (var_of(c) != const_bvar) {
-	// aux := (ite c (aux << 2^i) aux)
-	conditional_lshift_right(s, aux, c, aux, n, shift);
+        // aux := (ite c (aux << 2^i) aux)
+        conditional_lshift_right(s, aux, c, aux, n, shift);
       }
       shift <<= 1;     
     }
@@ -4537,12 +4537,12 @@ void bit_blaster_make_ashift_right(bit_blaster_t *s, literal_t *a, literal_t *b,
       // process control bits from b[0] to b[k-2]
       shift = 1;
       for (i=0; i<k-1; i++) {
-	c = b[i];
-	if (var_of(c) != const_bvar) {
-	  // aux := (ite c (aux << 2^i) aux)
-	  conditional_ashift_right(s, aux, c, aux, n, shift);
-	}
-	shift <<= 1;
+        c = b[i];
+        if (var_of(c) != const_bvar) {
+          // aux := (ite c (aux << 2^i) aux)
+          conditional_ashift_right(s, aux, c, aux, n, shift);
+        }
+        shift <<= 1;
       }      
 
       // last stage: assert (u == (ite c (aux << 2^(k-1)) aux)
@@ -4559,8 +4559,8 @@ void bit_blaster_make_ashift_right(bit_blaster_t *s, literal_t *a, literal_t *b,
     for (i=0; i<k; i++) {
       c = b[i];
       if (var_of(c) != const_bvar) {
-	// aux := (ite c (aux << 2^i) aux)
-	conditional_ashift_right(s, aux, c, aux, n, shift);
+        // aux := (ite c (aux << 2^i) aux)
+        conditional_ashift_right(s, aux, c, aux, n, shift);
       }
       shift <<= 1;     
     }
@@ -4594,10 +4594,10 @@ static void trace_cbuffer(cbuffer_t *buffer) {
     } else {
       printf("Clauses:\n");
       for (i=0; i<n; i++) {
-	k = cbuffer_extract_clause(buffer, i, aux);
-	int_array_sort(aux, k);
-	print_litarray(stdout, k, aux);
-	printf("\n");
+        k = cbuffer_extract_clause(buffer, i, aux);
+        int_array_sort(aux, k);
+        print_litarray(stdout, k, aux);
+        printf("\n");
       }
       printf("----\n");
     }

@@ -307,9 +307,9 @@ static void resize_rdl_matrix(rdl_matrix_t *matrix, uint32_t n) {
       dst = matrix->data + n * i;  // start of new row i
       j = d;
       while (j > 0) {
-	j --;
-	// copy src[j] into dst[j]
-	copy_rdl_cell(dst+j, src+j);
+        j --;
+        // copy src[j] into dst[j]
+        copy_rdl_cell(dst+j, src+j);
       }
     }
 
@@ -318,7 +318,7 @@ static void resize_rdl_matrix(rdl_matrix_t *matrix, uint32_t n) {
     dst = matrix->data;
     for (i=0; i<d; i++) {
       for (j=d; j<n; j++) {
-	dst[j].id = null_rdl_edge;
+        dst[j].id = null_rdl_edge;
       }
       dst += n;
     }
@@ -326,7 +326,7 @@ static void resize_rdl_matrix(rdl_matrix_t *matrix, uint32_t n) {
     // initialize cells [0 ... n-1] in rows d to n-1
     while (i<n) {
       for (j=0; j<n; j++) {
-	dst[j].id = null_rdl_edge;
+        dst[j].id = null_rdl_edge;
       }
       i ++;
       dst += n;
@@ -347,8 +347,8 @@ static void resize_rdl_matrix(rdl_matrix_t *matrix, uint32_t n) {
       src = matrix->data + d * i;
       dst = matrix->data + n * i;
       for (j=0; j<n; j++) {
-	// copy src[j] into dst[j]
-	copy_rdl_cell(dst+j, src+j);
+        // copy src[j] into dst[j]
+        copy_rdl_cell(dst+j, src+j);
       }
     }
   }  
@@ -668,24 +668,24 @@ static void rdl_graph_add_edge(rdl_graph_t *graph, int32_t x, int32_t y, rdl_con
       // (c + r[x].dist < r[y].dist)
       // w is relevant: check D[w, z] for all z in vector aux
       for (i=0; i<n; i++) {
-	z = aux[i];
-	if (w != z) {
-	  // d := length of path w ---> x -> y ---> z
-	  rdl_const_set(d, &r[x].dist);
-	  rdl_const_add(d, c);
-	  rdl_const_add(d, rdl_dist(m, y, z));
-	  // we have r[z] == cell[w, z]
-	  if (r[z].id < 0 || rdl_const_lt(d, &r[z].dist)) {
-	    // path w ---> x --> y ---> z is shorter than 
-	    // the current path from w to z.
-	    // save then update cell[w, z]
-	    if (r[z].id < k) {
-	      rdl_graph_save_cell(graph, r + z);
-	    }
-	    r[z].id = id;
-	    rdl_const_set(&r[z].dist, d);
-	  }
-	}
+        z = aux[i];
+        if (w != z) {
+          // d := length of path w ---> x -> y ---> z
+          rdl_const_set(d, &r[x].dist);
+          rdl_const_add(d, c);
+          rdl_const_add(d, rdl_dist(m, y, z));
+          // we have r[z] == cell[w, z]
+          if (r[z].id < 0 || rdl_const_lt(d, &r[z].dist)) {
+            // path w ---> x --> y ---> z is shorter than 
+            // the current path from w to z.
+            // save then update cell[w, z]
+            if (r[z].id < k) {
+              rdl_graph_save_cell(graph, r + z);
+            }
+            r[z].id = id;
+            rdl_const_set(&r[z].dist, d);
+          }
+        }
       }
     }
   }
@@ -776,29 +776,29 @@ static bool valid_rdl_graph(rdl_graph_t *graph) {
     for (y=0; y<m->dim; y++) {
       i = rdl_edge_id(m, x, y);
       if (i == null_rdl_edge) {
-	if (x == y) return false;
+        if (x == y) return false;
       } else if (i == 0) {
-	if (x != y || ! rdl_const_is_zero(rdl_dist(m, x, y))) return false;
+        if (x != y || ! rdl_const_is_zero(rdl_dist(m, x, y))) return false;
       } else {
-	if (x == y || i >= rdl_graph_num_edges(graph)) return false;
+        if (x == y || i >= rdl_graph_num_edges(graph)) return false;
 
-	e = graph->edges.data + i;
-	u = e->source;
-	v = e->target;
+        e = graph->edges.data + i;
+        u = e->source;
+        v = e->target;
 
-	if (rdl_edge_id(m, x, u) == null_rdl_edge || rdl_edge_id(m, x, u) >= i ||
-	    rdl_edge_id(m, v, y) == null_rdl_edge || rdl_edge_id(m, v, y) >= i ||
-	    rdl_edge_id(m, u, v) != i) {
-	  return false;
-	}
+        if (rdl_edge_id(m, x, u) == null_rdl_edge || rdl_edge_id(m, x, u) >= i ||
+            rdl_edge_id(m, v, y) == null_rdl_edge || rdl_edge_id(m, v, y) >= i ||
+            rdl_edge_id(m, u, v) != i) {
+          return false;
+        }
 
 
-	rdl_const_set(&d, rdl_dist(m, x, u));
-	rdl_const_add(&d, rdl_dist(m, u, v)); // i.e. cost of edge e
-	rdl_const_add(&d, rdl_dist(m, v, y));
-	if (! rdl_const_eq(&d, rdl_dist(m, x, y))){
-	  return false;
-	}
+        rdl_const_set(&d, rdl_dist(m, x, u));
+        rdl_const_add(&d, rdl_dist(m, u, v)); // i.e. cost of edge e
+        rdl_const_add(&d, rdl_dist(m, v, y));
+        if (! rdl_const_eq(&d, rdl_dist(m, x, y))){
+          return false;
+        }
       }
     }
   }
@@ -1321,7 +1321,7 @@ static void rdl_trail_stack_save(rdl_trail_stack_t *stack, uint32_t nv, uint32_t
     } else {
       n += n>>1; // 50% larger 
       if (n >= MAX_RDL_TRAIL_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
     }
     stack->data = (rdl_trail_t *) safe_realloc(stack->data, n * sizeof(rdl_trail_t));
@@ -1523,7 +1523,7 @@ literal_t rdl_make_atom(rdl_solver_t *solver, int32_t x, int32_t y, rational_t *
       rdl_const_add(d, &cell->dist);
       // dist[y, x] + c < 0, so new atom is false
       if (rdl_const_is_neg(d)) {
-	return false_literal;
+        return false_literal;
       }
     }
   }
@@ -1659,7 +1659,7 @@ static bool rdl_add_edge(rdl_solver_t *solver, int32_t x, int32_t y, rdl_const_t
        */
       n = v->size;
       for (i=0; i<n; i++) {
-	v->data[i] = not(v->data[i]);
+        v->data[i] = not(v->data[i]);
       }
       ivector_push(v, null_literal); // end marker
       record_theory_conflict(solver->core, v->data);
@@ -2693,7 +2693,7 @@ static void rdl_adjust_epsilon(rdl_solver_t *solver, int32_t x, int32_t y) {
       q_set32(factor, -b);
       q_div(aux, factor);  // aux := - (a+a')/(b+b');
       if (q_lt(aux, &solver->epsilon)) {
-	q_set(&solver->epsilon, aux);
+        q_set(&solver->epsilon, aux);
       }
     }
   }
@@ -2812,7 +2812,7 @@ static void rdl_get_value_for_new_vertex(rdl_solver_t *solver, int32_t x, ration
       rdl_sub_rational_distance(solver, aux, &cell->dist);
       // aux is val[y] - dist[y, x]
       if (q_gt(aux, v)) {
-	q_set(v, aux);
+        q_set(v, aux);
       }
     }
   }
@@ -2841,33 +2841,33 @@ static bool good_rdl_model(rdl_solver_t *solver) {
     for (y=0; y<n; y++) {
       cell = rdl_cell(m, x, y);
       if (cell->id >= 0) {
-	// aux := val[x] - val[y]
-	q_set(aux, val + x);
-	q_sub(aux, val + y);
-	// check whether aux <= dist[x, y]
-	if (rdl_const_lt_q(&cell->dist, aux)) {
-	  printf("---> BUG: invalid RDL model\n");
-	  printf("   val[");
-	  print_rdl_vertex(stdout, x);
-	  printf("] = ");
-	  q_print(stdout, val + x);
-	  printf("\n");
-	  printf("   val[");
-	  print_rdl_vertex(stdout, y);
-	  printf("] = ");
-	  q_print(stdout, val + y);
-	  printf("\n");
-	  printf("   dist[");
-	  print_rdl_vertex(stdout, x);
-	  printf(", ");
-	  print_rdl_vertex(stdout, y);
-	  printf("] = ");
-	  print_rdl_const(stdout, &cell->dist);
-	  printf("\n");
-	  fflush(stdout);
+        // aux := val[x] - val[y]
+        q_set(aux, val + x);
+        q_sub(aux, val + y);
+        // check whether aux <= dist[x, y]
+        if (rdl_const_lt_q(&cell->dist, aux)) {
+          printf("---> BUG: invalid RDL model\n");
+          printf("   val[");
+          print_rdl_vertex(stdout, x);
+          printf("] = ");
+          q_print(stdout, val + x);
+          printf("\n");
+          printf("   val[");
+          print_rdl_vertex(stdout, y);
+          printf("] = ");
+          q_print(stdout, val + y);
+          printf("\n");
+          printf("   dist[");
+          print_rdl_vertex(stdout, x);
+          printf(", ");
+          print_rdl_vertex(stdout, y);
+          printf("] = ");
+          print_rdl_const(stdout, &cell->dist);
+          printf("\n");
+          fflush(stdout);
 
-	  return false;
-	}
+          return false;
+        }
       }
     }
   }

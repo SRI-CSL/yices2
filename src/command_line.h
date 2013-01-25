@@ -101,7 +101,7 @@ typedef struct cmdline_elem_s {
 enum cmd_line_status {
   cmdline_done,     // all arguments have been processed
   cmdline_argument, // generic argument 
-  cmdline_option,   // valid otion
+  cmdline_option,   // valid option
   cmdline_error,    // incorrect option
 };
 
@@ -126,7 +126,7 @@ enum cmdline_error {
 
 /*
  * Parser structure:
- * - options = array of option decriptors
+ * - options = array of option descriptors
  * - noptions = size of that array
  * - argv = array of string (command line arguments)
  * - argc = size of that array
@@ -149,8 +149,8 @@ typedef struct cmdline_parser_s {
  * given options and command-line arguments
  */
 extern void init_cmdline_parser(cmdline_parser_t *p,
-				option_desc_t *options, uint32_t noptions,
-				char **argv, uint32_t argc);
+                                option_desc_t *options, uint32_t noptions,
+                                char **argv, uint32_t argc);
 
 
 /*

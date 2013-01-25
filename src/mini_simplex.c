@@ -263,63 +263,63 @@ static void mini_simplex_check_bounds(mini_simplex_t *s) {
        * to get a more precise explanation (not involving strengthening)
        */
       if (q_gt(s->lb + i, s->ub +i)) {
-	s->status = MINI_SIMPLEX_BOUND_CONFLICT;
-	s->conflict_var = i;
-	return;
+        s->status = MINI_SIMPLEX_BOUND_CONFLICT;
+        s->conflict_var = i;
+        return;
       }
       // fall through to compute gcd, etc.
     case MINI_SIMPLEX_LB_ONLY: 
     case MINI_SIMPLEX_UB_ONLY:
       if (p != NULL) {
-	monarray_gcd(p->mono, gcd);
-	assert(q_is_nonneg(gcd));
-	if (q_cmp_int32(gcd, 1, 1) > 0) { // gcd > 1/1
-	  monarray_constant(p->mono, constant);
+        monarray_gcd(p->mono, gcd);
+        assert(q_is_nonneg(gcd));
+        if (q_cmp_int32(gcd, 1, 1) > 0) { // gcd > 1/1
+          monarray_constant(p->mono, constant);
 
-	  if (tau & MINI_SIMPLEX_LB_MASK) {
-	    /*
-	     * Let b = constant of p and l = current lower bound;
-	     * the strengthened bound is l' = b + d * ceil((l - b)/d)
-	     * Let r = remainder of (l-b) divided by d
-	     * if r = 0, then l' = l else l' = l + d - r (and l' > l)
-	     */
-	    q_set(aux, s->lb + i);
-	    q_sub(aux, constant);   
-	    q_integer_rem(aux, gcd);  // remainder of (l - b) divided by d
-	    if (q_is_pos(aux)) {
-	      // strengthen the bound and mark it
-	      q_add(s->lb + i, gcd);
-	      q_sub(s->lb + i, aux);
-	      s->tag[i] |= MINI_SIMPLEX_STRLB_MASK;
-	    }
-	  }
+          if (tau & MINI_SIMPLEX_LB_MASK) {
+            /*
+             * Let b = constant of p and l = current lower bound;
+             * the strengthened bound is l' = b + d * ceil((l - b)/d)
+             * Let r = remainder of (l-b) divided by d
+             * if r = 0, then l' = l else l' = l + d - r (and l' > l)
+             */
+            q_set(aux, s->lb + i);
+            q_sub(aux, constant);   
+            q_integer_rem(aux, gcd);  // remainder of (l - b) divided by d
+            if (q_is_pos(aux)) {
+              // strengthen the bound and mark it
+              q_add(s->lb + i, gcd);
+              q_sub(s->lb + i, aux);
+              s->tag[i] |= MINI_SIMPLEX_STRLB_MASK;
+            }
+          }
 
-	  if (tau & MINI_SIMPLEX_UB_MASK) {
-	    /*
-	     * The strengthened bound is u' = b + d * floor((u - b)/d)
-	     * Let r = remainder of (u - b) divided by d
-	     * If r = 0 then u' = u else u' = u - r
-	     */
-	    q_set(aux, s->ub + i);
-	    q_sub(aux, constant);
-	    q_integer_rem(aux, gcd);
-	    if (q_is_pos(aux)) {
-	      // strengthen the bound and mark it
-	      q_sub(s->ub + i, aux);
-	      s->tag[i] |= MINI_SIMPLEX_STRUB_MASK;
-	    }
-	  }
+          if (tau & MINI_SIMPLEX_UB_MASK) {
+            /*
+             * The strengthened bound is u' = b + d * floor((u - b)/d)
+             * Let r = remainder of (u - b) divided by d
+             * If r = 0 then u' = u else u' = u - r
+             */
+            q_set(aux, s->ub + i);
+            q_sub(aux, constant);
+            q_integer_rem(aux, gcd);
+            if (q_is_pos(aux)) {
+              // strengthen the bound and mark it
+              q_sub(s->ub + i, aux);
+              s->tag[i] |= MINI_SIMPLEX_STRUB_MASK;
+            }
+          }
 
-	  /*
-	   * Check whether the two bounds are still compatible after
-	   * strengthening.
-	   */
-	  if (tau == MINI_SIMPLEX_BOTH_BOUNDS && q_gt(s->lb + i, s->ub +i)) {
-	    s->status = MINI_SIMPLEX_BOUND_CONFLICT;
-	    s->conflict_var = i;
-	    return;
-	  }
-	}
+          /*
+           * Check whether the two bounds are still compatible after
+           * strengthening.
+           */
+          if (tau == MINI_SIMPLEX_BOTH_BOUNDS && q_gt(s->lb + i, s->ub +i)) {
+            s->status = MINI_SIMPLEX_BOUND_CONFLICT;
+            s->conflict_var = i;
+            return;
+          }
+        }
       }
     }
   }
@@ -361,7 +361,7 @@ static void mini_simplex_init_assignment(mini_simplex_t *s) {
     if (p != NULL) {
       monarray_constant(p->mono, s->val + i); // v[x_i] = constant of p_i = b_i
       if (! mini_simplex_value_within_bounds(s, i)) {
-	int_heap_add(&s->infeasible_vars, i);
+        int_heap_add(&s->infeasible_vars, i);
       }
     } else {
       /*
@@ -369,9 +369,9 @@ static void mini_simplex_init_assignment(mini_simplex_t *s) {
        * (x_i does not occur in the tableau)
        */
       if (mini_simplex_var_has_lb(s, i)) {
-	q_set(s->val + i, s->lb + i);
+        q_set(s->val + i, s->lb + i);
       } else if (mini_simplex_var_has_ub(s, i)) {
-	q_set(s->val + i, s->ub + i);
+        q_set(s->val + i, s->ub + i);
       }
       
     }
@@ -438,7 +438,7 @@ static void mini_simplex_update_solution(mini_simplex_t *s, int32_t x) {
 
       // add y to the heap if new val[y] is not withing bounds      
       if (y < s->nvars && ! mini_simplex_value_within_bounds(s, y)) {       
-	int_heap_add(&s->infeasible_vars, y);
+        int_heap_add(&s->infeasible_vars, y);
       }
     }
   }
@@ -492,8 +492,8 @@ static uint32_t mini_simplex_var_score(mini_simplex_t *s, int32_t x, uint32_t be
       y = matrix_basic_var(matrix, r);
       assert(y >= 0);
       if (! mini_simplex_var_is_free(s, y)) {
-	score ++;
-	if (score > best) goto done;
+        score ++;
+        if (score > best) goto done;
       }
     }
   }
@@ -563,20 +563,20 @@ static int32_t mini_simplex_find_entering_var(mini_simplex_t *s, row_t *row, int
   for (i=0; i<n; i++) {
     y = row->data[i].c_idx;  
     if (y >= param || 
-	(y >= 1 && y != x && monomial_can_change(s, y, &row->data[i].coeff, incr))) {      
+        (y >= 1 && y != x && monomial_can_change(s, y, &row->data[i].coeff, incr))) {      
       // a * y can go in the right direction
       score = mini_simplex_var_score(s, y, best_score);
 
       if (score < best_score) {
-	best_score = score;
-	best_i = i;
-	k = 1;
+        best_score = score;
+        best_i = i;
+        k = 1;
       } else if (score == best_score) {
-	// pick uniformly among variables with equal score
-	k ++;
-	if (random_uint(k) == 0) {
-	  best_i = i;
-	}
+        // pick uniformly among variables with equal score
+        k ++;
+        if (random_uint(k) == 0) {
+          best_i = i;
+        }
       }
     }
   }
@@ -649,26 +649,26 @@ static bool mini_simplex_make_feasible(mini_simplex_t *s, uint32_t max_pivot) {
     if (! mini_simplex_value_within_bounds(s, x)) {
       k = mini_simplex_find_entering_var(s, row, x);
       if (k < 0) {
-	// conflict
-	s->status = MINI_SIMPLEX_ROW_CONFLICT;
-	s->conflict_var = x;
-	return false;
+        // conflict
+        s->status = MINI_SIMPLEX_ROW_CONFLICT;
+        s->conflict_var = x;
+        return false;
       } else {
-	// pivot
+        // pivot
 #if 0
-	printf("Entering var: ");
-	dsolver_splx_print_var(stdout, s, row->data[k].c_idx);
-	printf("\n\n");
+        printf("Entering var: ");
+        dsolver_splx_print_var(stdout, s, row->data[k].c_idx);
+        printf("\n\n");
 #endif
-	matrix_pivot(matrix, r, k);
-	mini_simplex_update_solution(s, x);
-	max_pivot --;
+        matrix_pivot(matrix, r, k);
+        mini_simplex_update_solution(s, x);
+        max_pivot --;
 
 #if 0
-	dsolver_splx_print_tableau(stdout, s);
-	dsolver_splx_print_sol_and_bounds(stdout, s);
-	dsolver_splx_print_infeasible_vars(stdout, s);
-	printf("-----\n");
+        dsolver_splx_print_tableau(stdout, s);
+        dsolver_splx_print_sol_and_bounds(stdout, s);
+        dsolver_splx_print_infeasible_vars(stdout, s);
+        printf("-----\n");
 #endif
       }
     }
@@ -799,13 +799,13 @@ void mini_simplex_explain_row_conflict_bounds(mini_simplex_t *s, ivector_t *v) {
     if (y >= 1 && y != x) {
       assert(y < s->nvars && q_is_nonzero(&row->data[i].coeff));
       if (q_is_pos(&row->data[i].coeff) == incr) {
-	// (a * y) can't increase with a>0 or (a * y) can't decrease with a < 0
-	assert(mini_simplex_var_has_ub(s, y) && q_eq(s->val + y, s->ub + y));
-	ivector_push(v, mini_expl_ub(y));
+        // (a * y) can't increase with a>0 or (a * y) can't decrease with a < 0
+        assert(mini_simplex_var_has_ub(s, y) && q_eq(s->val + y, s->ub + y));
+        ivector_push(v, mini_expl_ub(y));
       } else {
-	// (a * y) can't increase with a<0 or (a * y) can't decrease with a>0
-	assert(mini_simplex_var_has_lb(s, y) && q_eq(s->val + y, s->lb + y));
-	ivector_push(v, mini_expl_lb(y));
+        // (a * y) can't increase with a<0 or (a * y) can't decrease with a>0
+        assert(mini_simplex_var_has_lb(s, y) && q_eq(s->val + y, s->lb + y));
+        ivector_push(v, mini_expl_lb(y));
       }
     }
   }  

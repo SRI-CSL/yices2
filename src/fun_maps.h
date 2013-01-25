@@ -149,7 +149,7 @@ extern particle_t disagreement_point(map_t *map1, map_t *map2);
 /*
  * Search for a point that's in domain of map1 or map2 
  * but not in both.
- * - both maps mut be norrmalized
+ * - both maps must be normalized
  * - return null_particle if map1 and map2 have the same domain
  */
 extern particle_t distinguishing_point(map_t *map1, map_t *map2);

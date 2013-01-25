@@ -35,11 +35,11 @@ extern void init_egraph(egraph_t *egraph, type_table_t *ttbl);
  * - ctrl, smt, eg, arith_eg = interface descriptors
  */
 extern void egraph_attach_arithsolver(egraph_t *egraph, 
-				      void *solver,
-				      th_ctrl_interface_t *ctrl,
-				      th_smt_interface_t *smt,
-				      th_egraph_interface_t *eg,
-				      arith_egraph_interface_t *arith_eg);
+                                      void *solver,
+                                      th_ctrl_interface_t *ctrl,
+                                      th_smt_interface_t *smt,
+                                      th_egraph_interface_t *eg,
+                                      arith_egraph_interface_t *arith_eg);
 
 /*
  * Attach a bitvector solver
@@ -47,11 +47,11 @@ extern void egraph_attach_arithsolver(egraph_t *egraph,
  * - ctrl, smt, eg, bv_eg = interface descriptors
  */
 extern void egraph_attach_bvsolver(egraph_t *egraph, 
-				   void *solver,
-				   th_ctrl_interface_t *ctrl,
-				   th_smt_interface_t *smt,
-				   th_egraph_interface_t *eg,
-				   bv_egraph_interface_t *bv_eg);
+                                   void *solver,
+                                   th_ctrl_interface_t *ctrl,
+                                   th_smt_interface_t *smt,
+                                   th_egraph_interface_t *eg,
+                                   bv_egraph_interface_t *bv_eg);
 
 /*
  * Attach a function/array subsolver
@@ -59,10 +59,10 @@ extern void egraph_attach_bvsolver(egraph_t *egraph,
  * - ctrl, eg, fun_eg = interface descriptors
  */
 extern void egraph_attach_funsolver(egraph_t *egraph,
-				    void *solver,
-				    th_ctrl_interface_t *ctrl,
-				    th_egraph_interface_t *eg,
-				    fun_egraph_interface_t *fun_eg);
+                                    void *solver,
+                                    th_ctrl_interface_t *ctrl,
+                                    th_egraph_interface_t *eg,
+                                    fun_egraph_interface_t *fun_eg);
 
 
 /*

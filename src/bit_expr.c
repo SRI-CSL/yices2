@@ -554,7 +554,7 @@ static bit_t make_xor2(node_table_t *table, bit_t a, bit_t b) {
   b &= ~1;
 
   assert(bit_is_pos(a) && bit_is_pos(b) && a != b && 
-	 a != true_bit && b != true_bit);
+         a != true_bit && b != true_bit);
   if (a > b) {
     aux = a; a = b; b = aux;
   }
@@ -704,7 +704,7 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
    */
   if (is_nonleaf_node(table, na) && is_nonleaf_node(table, nb)) {
     assert(a0 == left_child_of_node(table, na) && a1 == right_child_of_node(table, na) && 
-	   b0 == left_child_of_node(table, nb) && b1 == right_child_of_node(table, nb));
+           b0 == left_child_of_node(table, nb) && b1 == right_child_of_node(table, nb));
 
     switch (combine_shapes(a_shape, b_shape)) {
     case POS_OR_POS_OR:
@@ -715,8 +715,8 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
        * (or (or a0 a1) (or b0 ~a1)) --> true
        */
       if (opposite_bits(a0, b0) || opposite_bits(a0, b1) ||
-	  opposite_bits(a1, b0) || opposite_bits(a1, b1)) 
-	return true_bit;
+          opposite_bits(a1, b0) || opposite_bits(a1, b1)) 
+        return true_bit;
       break;
 
     case POS_OR_NEG_OR:
@@ -727,8 +727,8 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
        * (or (or a0 a1) ~(or b0 ~a1))  --> (or a0 a1)
        */
       if (opposite_bits(a0, b0) || opposite_bits(a0, b1) ||
-	  opposite_bits(a1, b0) || opposite_bits(a1, b1)) 
-	return a;
+          opposite_bits(a1, b0) || opposite_bits(a1, b1)) 
+        return a;
       break;
     case NEG_OR_POS_OR:
       /*
@@ -738,8 +738,8 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
        * (or ~(or a0 ~b1) (or b0 b1))  --> (or b0 b1)
        */
       if (opposite_bits(a0, b0) || opposite_bits(a0, b1) ||
-	  opposite_bits(a1, b0) || opposite_bits(a1, b1)) 
-	return b;
+          opposite_bits(a1, b0) || opposite_bits(a1, b1)) 
+        return b;
       break;
 
     case POS_OR_NEG_XOR:
@@ -755,9 +755,9 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
        * (or (or a0 a1) (xor ~a0 ~a1)) --> (or a0 a1)
        */
       if ((opposite_bits(a0, b0) && a1 == b1) || (a0 == b0 && opposite_bits(a1, b1)))
-	return true_bit;
+        return true_bit;
       if ((a0 == b0 && a1 == b1) || (opposite_bits(a0, b0) && opposite_bits(a1, b1)))
-	return a;
+        return a;
       break;
 
     case NEG_XOR_POS_OR:
@@ -773,9 +773,9 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
        * (or (xor ~b0 ~b1) (or b0 b1)) --> (or b0 b1)
        */
       if ((opposite_bits(a0, b0) && a1 == b1) || (a0 == b0 && opposite_bits(a1, b1)))
-	return true_bit;
+        return true_bit;
       if ((a0 == b0 && a1 == b1) || (opposite_bits(a0, b0) && opposite_bits(a1, b1)))
-	return b;
+        return b;
       break;
 
     case NEG_OR_NEG_OR:
@@ -787,13 +787,13 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
        * (or ~(or a0 a1) ~(or ~a0 ~a1)) --> ~(xor a0 a1)
        */
       if (opposite_bits(a0, b0) && a1 == b1) 
-	return bit_not(a1);
+        return bit_not(a1);
       if (a0 == b0 && opposite_bits(a1, b1))
-	return bit_not(a0);
+        return bit_not(a0);
       // test rule: disabled for now
       //      if ((opposite_bits(a0, b0) && opposite_bits(a1, b1)) ||
-      //	  (opposite_bits(a0, b1) && opposite_bits(a1, b0)))
-      //	return bit_not(bit_xor2(table, a0, a1));
+      //          (opposite_bits(a0, b1) && opposite_bits(a1, b0)))
+      //        return bit_not(bit_xor2(table, a0, a1));
       break;
 
     case NEG_OR_NEG_XOR:
@@ -807,7 +807,7 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
        * (or ~(or a0 a1) (xor a0 ~a1))  --> (xor a0 ~a1)
        */
       if ((opposite_bits(a0, b0) && a1 == b1) || (a0 == b0 && opposite_bits(a1, b1)))
-	return b;
+        return b;
       break;
 
     case NEG_XOR_NEG_OR:
@@ -821,7 +821,7 @@ bit_t bit_or2simplify(node_table_t *table, bit_t a, bit_t b) {
        * (or (xor a0 a1) ~(or a0 ~a1))  --> (xor a0 a1)
        */
       if ((opposite_bits(a0, b0) && a1 == b1) || (a0 == b0 && opposite_bits(a1, b1)))
-	return a;      
+        return a;      
       break;
 
     case POS_XOR_POS_XOR:
@@ -950,7 +950,7 @@ bit_t bit_xor2simplify(node_table_t *table, bit_t a, bit_t b) {
 
   if (is_nonleaf_node(table, na) && is_nonleaf_node(table, nb)) {
     assert(a0 == left_child_of_node(table, na) && a1 == right_child_of_node(table, na) && 
-	   b0 == left_child_of_node(table, nb) && b1 == right_child_of_node(table, nb));
+           b0 == left_child_of_node(table, nb) && b1 == right_child_of_node(table, nb));
 
     if (combine_shapes(a_shape, b_shape) == POS_OR_POS_OR ) {
       /*
@@ -1033,7 +1033,7 @@ static bit_t bit_or_aux(node_table_t *table, ivector_t *v) {
     c = a[i];
     if (c != b) {
       if (c == bit_not(b)) {
-	return true_bit;
+        return true_bit;
       }
       a[j++] = c;
       b = c;
@@ -1180,10 +1180,10 @@ bit_t bit_xor(node_table_t *table, bit_t *a, uint32_t n) {
       b = a[i];
       assert(bit_is_pos(b));
       if (b == a[i+1]) {
-	i += 2;
+        i += 2;
       } else {
-	a[j++] = b;
-	i ++;
+        a[j++] = b;
+        i ++;
       }
     }
     if (i == n-1) {

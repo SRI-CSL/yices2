@@ -111,7 +111,7 @@ static void ordata_array_resize(ordata_array_t *a, uint32_t n) {
        */
       new_size = DEF_ORDATA_ARRAY_SIZE;
       if (new_size < n) {
-	new_size = n;
+        new_size = n;
       }
       assert(new_size <= MAX_ORDATA_ARRAY_SIZE);
 
@@ -126,9 +126,9 @@ static void ordata_array_resize(ordata_array_t *a, uint32_t n) {
       new_size = old_size;
       new_size += new_size >> 1;
       if (new_size > MAX_ORDATA_ARRAY_SIZE) {
-	new_size = MAX_ORDATA_ARRAY_SIZE;
+        new_size = MAX_ORDATA_ARRAY_SIZE;
       } else if (new_size < n) {
-	new_size = n;
+        new_size = n;
       }
       
       assert(new_size <= MAX_ORDATA_ARRAY_SIZE && n <= new_size);
@@ -1403,11 +1403,11 @@ literal_t make_xor(bool_vartable_t *table, uint32_t n, literal_t *a) {
     while (i<n-1) {
       l = a[i];
       if (l == a[i+1]) {
-	i += 2;
+        i += 2;
       } else {
-	a[p] = l;
-	p ++;
-	i ++;
+        a[p] = l;
+        p ++;
+        i ++;
       }
     }
     assert(i == n-1 || i == n);

@@ -38,7 +38,7 @@ static void ppart_push(void ***v, void *p) {
       n ++;
       n += n>>1;
       if (n > MAX_PPART_VSIZE) {
-	out_of_memory();
+        out_of_memory();
       }
       u = (ppart_vector_t *) safe_realloc(u, sizeof(ppart_vector_t) + n * sizeof(void *));
       u->capacity = n;
@@ -234,7 +234,7 @@ static uint32_t allocate_class(ppart_t *pp) {
       n ++;
       n += n>>1; // 50% larger
       if (n > MAX_PPART_CSIZE) {
-	out_of_memory();
+        out_of_memory();
       }
     }
 
@@ -277,7 +277,7 @@ void ptr_partition_add(ppart_t *pp, void *ptr) {
       r->data = ptr;
       pp->nelems ++;
       if (pp->nelems > pp->resize_threshold) {
-	resize_ptr_partition(pp);
+        resize_ptr_partition(pp);
       }
       return;
     }
@@ -286,9 +286,9 @@ void ptr_partition_add(ppart_t *pp, void *ptr) {
       // match found: add ptr to r's class
       i = r->cid;
       if (i < 0) {
-	i = allocate_class(pp);
-	r->cid = i;
-	ppart_push(pp->classes + i, r->data);
+        i = allocate_class(pp);
+        r->cid = i;
+        ppart_push(pp->classes + i, r->data);
       }
       ppart_push(pp->classes + i, ptr);
       return;

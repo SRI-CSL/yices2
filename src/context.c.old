@@ -526,13 +526,13 @@ static void create_idl_solver(context_t *ctx) {
   smt_mode_t cmode;
 
   assert(ctx->egraph == NULL && ctx->arith_solver == NULL && ctx->bv_solver == NULL &&
-	 ctx->fun_solver == NULL && ctx->core != NULL);
+         ctx->fun_solver == NULL && ctx->core != NULL);
 
   cmode = core_mode[ctx->mode];
   solver = (idl_solver_t *) safe_malloc(sizeof(idl_solver_t));
   init_idl_solver(solver, ctx->core, &ctx->gate_manager);
   init_smt_core(ctx->core, CTX_DEFAULT_CORE_SIZE, solver, idl_ctrl_interface(solver),
-		idl_smt_interface(solver), cmode);
+                idl_smt_interface(solver), cmode);
   idl_solver_init_jmpbuf(solver, &ctx->env);
   ctx->arith_solver = solver;
   ctx->arith = idl_arith_interface(solver);
@@ -549,13 +549,13 @@ static void create_rdl_solver(context_t *ctx) {
   smt_mode_t cmode;
 
   assert(ctx->egraph == NULL && ctx->arith_solver == NULL && ctx->bv_solver == NULL &&
-	 ctx->fun_solver == NULL && ctx->core != NULL);
+         ctx->fun_solver == NULL && ctx->core != NULL);
 
   cmode = core_mode[ctx->mode];
   solver = (rdl_solver_t *) safe_malloc(sizeof(rdl_solver_t));
   init_rdl_solver(solver, ctx->core, &ctx->gate_manager);
   init_smt_core(ctx->core, CTX_DEFAULT_CORE_SIZE, solver, rdl_ctrl_interface(solver),
-		rdl_smt_interface(solver), cmode);
+                rdl_smt_interface(solver), cmode);
   rdl_solver_init_jmpbuf(solver, &ctx->env);
   ctx->arith_solver = solver;
   ctx->arith = rdl_arith_interface(solver);
@@ -592,12 +592,12 @@ static void create_simplex_solver(context_t *ctx) {
   if (ctx->egraph != NULL) {
     // attach the simplex solver as a satellite solver to the egraph
     egraph_attach_arithsolver(ctx->egraph, solver, simplex_ctrl_interface(solver),
-			      simplex_smt_interface(solver), simplex_egraph_interface(solver),
-			      simplex_arith_egraph_interface(solver));
+                              simplex_smt_interface(solver), simplex_egraph_interface(solver),
+                              simplex_arith_egraph_interface(solver));
   } else {
     // attach simplex to the core and initialize the core
     init_smt_core(ctx->core, CTX_DEFAULT_CORE_SIZE, solver, simplex_ctrl_interface(solver),
-		  simplex_smt_interface(solver), cmode);
+                  simplex_smt_interface(solver), cmode);
   }
 
   simplex_solver_init_jmpbuf(solver, &ctx->env);
@@ -716,8 +716,8 @@ static void create_fun_solver(context_t *ctx) {
   solver = (fun_solver_t *) safe_malloc(sizeof(fun_solver_t));
   init_fun_solver(solver, ctx->core, &ctx->gate_manager, ctx->egraph, ctx->types);
   egraph_attach_funsolver(ctx->egraph, solver, fun_solver_ctrl_interface(solver),
-			  fun_solver_egraph_interface(solver),
-			  fun_solver_fun_egraph_interface(solver));
+                          fun_solver_egraph_interface(solver),
+                          fun_solver_fun_egraph_interface(solver));
 
   ctx->fun_solver = solver;
   ctx->fun = fun_solver_funsolver_interface(solver);
@@ -743,16 +743,16 @@ static void create_bv_solver(context_t *ctx) {
   if (ctx->egraph != NULL) {
     // make solver a satellite of the egraph
     egraph_attach_bvsolver(ctx->egraph, solver, 
-			   bv_solver_ctrl_interface(solver),
-			   bv_solver_smt_interface(solver), 
-			   bv_solver_egraph_interface(solver),
-			   bv_solver_bv_egraph_interface(solver));
+                           bv_solver_ctrl_interface(solver),
+                           bv_solver_smt_interface(solver), 
+                           bv_solver_egraph_interface(solver),
+                           bv_solver_bv_egraph_interface(solver));
   } else {
     // attach solver directly to the core and initialize the core
     init_smt_core(ctx->core, CTX_DEFAULT_CORE_SIZE, solver,
-		  bv_solver_ctrl_interface(solver),
-		  bv_solver_smt_interface(solver),
-		  cmode);
+                  bv_solver_ctrl_interface(solver),
+                  bv_solver_smt_interface(solver),
+                  cmode);
   }
 
   bv_solver_init_jmpbuf(solver, &ctx->env);
@@ -820,7 +820,7 @@ static void init_solvers(context_t *ctx) {
   core = ctx->core;
   if (egraph != NULL) {
     init_smt_core(core, CTX_DEFAULT_CORE_SIZE, egraph, egraph_ctrl_interface(egraph), 
-		  egraph_smt_interface(egraph), cmode);
+                  egraph_smt_interface(egraph), cmode);
     egraph_attach_core(egraph, core);
 
   } else if (ctx->theories == 0) {
@@ -1570,13 +1570,13 @@ static void process_toplevel_eq_main(context_t *ctx, term_t x, term_t y, term_t 
       ivector_push(&ctx->top_eqs, e); 
     } else if (is_constant_term(ctx, y)) {
       if (compatible_subst_candidate(ctx, y, x)) {
-	// (X == <constant>) is OK
-	make_term_root(ctx, y);
-	partition_merge(p, x, y);
+        // (X == <constant>) is OK
+        make_term_root(ctx, y);
+        partition_merge(p, x, y);
       } else {
-	// (X == <constant>) is probably false
-	// just keep it in top_eqs for future processing
-	ivector_push(&ctx->top_eqs, e);
+        // (X == <constant>) is probably false
+        // just keep it in top_eqs for future processing
+        ivector_push(&ctx->top_eqs, e);
       }
     } else {
       // (X == <term>) 
@@ -1589,15 +1589,15 @@ static void process_toplevel_eq_main(context_t *ctx, term_t x, term_t y, term_t 
       ivector_push(&ctx->top_eqs, e);
     } else if (is_constant_term(ctx, x)) {
       if (compatible_subst_candidate(ctx, x, y)) {
-	// (Y == <constant>) is OK
-	make_term_root(ctx, x);
-	partition_merge(p, x, y);
+        // (Y == <constant>) is OK
+        make_term_root(ctx, x);
+        partition_merge(p, x, y);
       } else {
-	// keep (Y == constant) in top_eqs for future processing
-	ivector_push(&ctx->top_eqs, e);
+        // keep (Y == constant) in top_eqs for future processing
+        ivector_push(&ctx->top_eqs, e);
       }
     } else {
-	// (Y == <term>): candidate substitution
+        // (Y == <term>): candidate substitution
       ivector_push(&ctx->subst_eqs, e);
     }
   } else {
@@ -1683,8 +1683,8 @@ static bool process_subst_eq_main(context_t *ctx, term_t x, term_t y) {
     if (! root_is_frozen(&ctx->partition, x) && compatible_subst_candidate(ctx, y, x)) {
       mp = int_hmap_get(&ctx->pseudo_subst, x);
       if (mp->val < 0) { // add [X --> y]
-	mp->val = y;
-	return true;
+        mp->val = y;
+        return true;
       }
     }
   }
@@ -1930,18 +1930,18 @@ static bool visit(context_t *ctx, term_t t) {
     case UNINTERPRETED_TERM:
       r = find_term_root(ctx, t);
       if (r != t) {
-	result = visit(ctx, r);
+        result = visit(ctx, r);
       } else {
-	// t is a root in the partition table
-	r = subst_candidate(ctx, t);
-	if (r != NULL_TERM && visit(ctx, r)) {
-	  /*
-	   * There's a cycle u --> ... --> t := r --> ... --> u
-	   * remove the substitution t := r to break the cycle
-	   */
-	  remove_subst_candidate(ctx, t);
-	}      
-	result = false;
+        // t is a root in the partition table
+        r = subst_candidate(ctx, t);
+        if (r != NULL_TERM && visit(ctx, r)) {
+          /*
+           * There's a cycle u --> ... --> t := r --> ... --> u
+           * remove the substitution t := r to break the cycle
+           */
+          remove_subst_candidate(ctx, t);
+        }      
+        result = false;
       }
       break;
       
@@ -2023,7 +2023,7 @@ static bool visit(context_t *ctx, term_t t) {
 
     default:
       assert(false);
-      longjmp(ctx->env, INTERNAL_ERROR);	
+      longjmp(ctx->env, INTERNAL_ERROR);        
     }
 
     if (result) {
@@ -2177,7 +2177,7 @@ static bool boolean_class_map_is_consistent(context_t *ctx, term_t t, bool value
 
   terms = ctx->terms;
   assert(term_is_root(&ctx->partition, t) && 
-	 partition_class_type(&ctx->partition, t) == bool_type(ctx->types));
+         partition_class_type(&ctx->partition, t) == bool_type(ctx->types));
 
   x = code_of_term(&ctx->trans, t);
   if (x >= 0) {
@@ -2289,16 +2289,16 @@ static int32_t flatten_assertions(context_t *ctx, tree_stack_t *stack) {
     if (top->counter == 0) {
       x = code_of_term(&ctx->trans, t);
       if (x != nil) {
-	// term t already visited
-	if (x == bool2code(polarity)) {
-	  tree_stack_pop(stack);
-	  continue;
-	} else {
-	  // contradiction: t == true/ t == false
-	  assert(x == bool2code(! polarity));
-	  code = TRIVIALLY_UNSAT;
-	  goto abort;
-	}
+        // term t already visited
+        if (x == bool2code(polarity)) {
+          tree_stack_pop(stack);
+          continue;
+        } else {
+          // contradiction: t == true/ t == false
+          assert(x == bool2code(! polarity));
+          code = TRIVIALLY_UNSAT;
+          goto abort;
+        }
       }
     }
 
@@ -2311,10 +2311,10 @@ static int32_t flatten_assertions(context_t *ctx, tree_stack_t *stack) {
     case CONSTANT_TERM:
       assert(t == true_term(terms) || t == false_term(terms));
       if ((polarity && t == false_term(terms)) ||
-	  (! polarity && t == true_term(terms))) {
-	// inconsitency detected
-	code = TRIVIALLY_UNSAT;
-	goto abort;
+          (! polarity && t == true_term(terms))) {
+        // inconsitency detected
+        code = TRIVIALLY_UNSAT;
+        goto abort;
       }
       map_term_to_bool(&ctx->trans, t, polarity);
       tree_stack_pop(stack);
@@ -2324,17 +2324,17 @@ static int32_t flatten_assertions(context_t *ctx, tree_stack_t *stack) {
       // if t is in the partition table, map t's class to true or false
       r = partition_find(&ctx->partition, t);
       if (r >= 0) {
-	// t is in the partition and r = root of t's class
-	if (boolean_class_map_is_consistent(ctx, r, polarity)) {
-	  map_class_to_bool(ctx, r, polarity);
-	} else {
-	  // inconsistency
-	  code = TRIVIALLY_UNSAT;
-	  goto abort;
-	}
+        // t is in the partition and r = root of t's class
+        if (boolean_class_map_is_consistent(ctx, r, polarity)) {
+          map_class_to_bool(ctx, r, polarity);
+        } else {
+          // inconsistency
+          code = TRIVIALLY_UNSAT;
+          goto abort;
+        }
       } else {
-	// t is not in the partition: make it true or false
-	map_term_to_bool(&ctx->trans, t, polarity);
+        // t is not in the partition: make it true or false
+        map_term_to_bool(&ctx->trans, t, polarity);
       }
       tree_stack_pop(stack);
       break;
@@ -2345,93 +2345,93 @@ static int32_t flatten_assertions(context_t *ctx, tree_stack_t *stack) {
 
     case NOT_TERM:
       if (top->counter == 0) {
-	// explore the child term after flipping polarity
-	top->counter ++; 
-	tree_stack_push_term(stack, terms, top->desc.integer);
-	polarity = !polarity;
+        // explore the child term after flipping polarity
+        top->counter ++; 
+        tree_stack_push_term(stack, terms, top->desc.integer);
+        polarity = !polarity;
       } else {
-	// restore polarity and return
-	polarity = !polarity;
-	map_term_to_bool(&ctx->trans, t, polarity);
-	tree_stack_pop(stack);
+        // restore polarity and return
+        polarity = !polarity;
+        map_term_to_bool(&ctx->trans, t, polarity);
+        tree_stack_pop(stack);
       }
       break;
 
     case OR_TERM:
       if (top->counter == 0 && polarity) {
-	// we can't flatten: store t as a top-level formula
-	ivector_push(formulas, t);
-	map_term_to_bool(&ctx->trans, t, true);
-	tree_stack_pop(stack);	
+        // we can't flatten: store t as a top-level formula
+        ivector_push(formulas, t);
+        map_term_to_bool(&ctx->trans, t, true);
+        tree_stack_pop(stack);  
       } else {
-	// explore child i where i = top->counter
-	assert(! polarity);
-	d = (or_term_t *) top->desc.ptr;
-	i = top->counter;
-	if (i < d->nargs) {
-	  top->counter ++;
-	  tree_stack_push_term(stack, terms, d->arg[i]);
-	} else {
-	  // all children have been explored
-	  map_term_to_bool(&ctx->trans, t, false);
-	  tree_stack_pop(stack);
-	}
+        // explore child i where i = top->counter
+        assert(! polarity);
+        d = (or_term_t *) top->desc.ptr;
+        i = top->counter;
+        if (i < d->nargs) {
+          top->counter ++;
+          tree_stack_push_term(stack, terms, d->arg[i]);
+        } else {
+          // all children have been explored
+          map_term_to_bool(&ctx->trans, t, false);
+          tree_stack_pop(stack);
+        }
       }
       break;
 
     case ITE_TERM:
       assert (is_boolean_ite(terms, top->desc.ptr));
       if (top->counter == 0) {
-	// check if the condition is true or false
-	ite = (ite_term_t *) top->desc.ptr;
-	x = code_of_term(&ctx->trans, ite->cond);
-	if (x != nil) {
-	  // explore the then or else child
-	  top->counter ++;
-	  if (x == bool2code(true)) {
-	    tree_stack_push_term(stack, terms, ite->then_arg);
-	  } else {
-	    assert(x == bool2code(false));
-	    tree_stack_push_term(stack, terms, ite->else_arg);
-	  }	
-	} else {
-	  // we can't flatten
-	  ivector_push(formulas, t);
-	  map_term_to_bool(&ctx->trans, t, polarity);
-	  tree_stack_pop(stack);
-	}
+        // check if the condition is true or false
+        ite = (ite_term_t *) top->desc.ptr;
+        x = code_of_term(&ctx->trans, ite->cond);
+        if (x != nil) {
+          // explore the then or else child
+          top->counter ++;
+          if (x == bool2code(true)) {
+            tree_stack_push_term(stack, terms, ite->then_arg);
+          } else {
+            assert(x == bool2code(false));
+            tree_stack_push_term(stack, terms, ite->else_arg);
+          }     
+        } else {
+          // we can't flatten
+          ivector_push(formulas, t);
+          map_term_to_bool(&ctx->trans, t, polarity);
+          tree_stack_pop(stack);
+        }
       } else {
-	// then or else child has been explored
-	map_term_to_bool(&ctx->trans, t, polarity);
-	tree_stack_pop(stack);
+        // then or else child has been explored
+        map_term_to_bool(&ctx->trans, t, polarity);
+        tree_stack_pop(stack);
       }
       break;
 
     case EQ_TERM:
       if (polarity) {
-	process_toplevel_eq(ctx, t);
+        process_toplevel_eq(ctx, t);
       } else {
-	ivector_push(atoms, t);
+        ivector_push(atoms, t);
       }
       map_term_to_bool(&ctx->trans, t, polarity);
-      tree_stack_pop(stack);	
+      tree_stack_pop(stack);    
       break;
 
     case BV_EQ_ATOM:
       if (polarity) {
-	process_toplevel_bveq(ctx, t);
+        process_toplevel_bveq(ctx, t);
       } else {
-	ivector_push(atoms, t);
+        ivector_push(atoms, t);
       }
       map_term_to_bool(&ctx->trans, t, polarity);
-      tree_stack_pop(stack);	
+      tree_stack_pop(stack);    
       break;
 
     case ARITH_BINEQ_ATOM:
       if (polarity) {
-	process_toplevel_aritheq(ctx, t);
+        process_toplevel_aritheq(ctx, t);
       } else {
-	ivector_push(atoms, t);
+        ivector_push(atoms, t);
       }
       map_term_to_bool(&ctx->trans, t, polarity);
       tree_stack_pop(stack);
@@ -2439,9 +2439,9 @@ static int32_t flatten_assertions(context_t *ctx, tree_stack_t *stack) {
 
     case ARITH_EQ_ATOM: // p == 0
       if (polarity) {
-	ivector_push(eqs, t);
+        ivector_push(eqs, t);
       } else {
-	ivector_push(atoms, t);
+        ivector_push(atoms, t);
       }
       map_term_to_bool(&ctx->trans, t, polarity);
       tree_stack_pop(stack);
@@ -2591,11 +2591,11 @@ static term_t try_poly_substitution(context_t *ctx, polynomial_t *p) {
       assert(x != const_idx);
       t = arithvar_manager_term_of_var(ctx->arith_manager, x);
       if (is_elimination_candidate(ctx, t)) {
-	if (is_real_term(ctx->terms, t) || 
-	    (all_int && integralpoly_after_div(p, &p->mono[i].coeff))) {
-	  // t is candidate for elimination
-	  return t;
-	}
+        if (is_real_term(ctx->terms, t) || 
+            (all_int && integralpoly_after_div(p, &p->mono[i].coeff))) {
+          // t is candidate for elimination
+          return t;
+        }
       }
     }
   }
@@ -2702,7 +2702,7 @@ static bool check_diff_logic_poly(context_t *ctx, dl_data_t *stats, polynomial_t
     x = q[0].var;
     y = null_thvar;
   } else if (n == 2 && ((q_is_one(&q[0].coeff) && q_is_minus_one(&q[1].coeff)) ||
-			(q_is_minus_one(&q[0].coeff) && q_is_one(&q[1].coeff)))) {
+                        (q_is_minus_one(&q[0].coeff) && q_is_one(&q[1].coeff)))) {
     x = q[0].var;
     y = q[1].var;
   } else {
@@ -2771,13 +2771,13 @@ static void analyze_dl(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
     case UNINTERPRETED_TERM:
       r = find_term_root(ctx, t);
       if (r != t) {
-	t = r;
-	goto loop;
+        t = r;
+        goto loop;
       }
       r = subst_candidate(ctx, t);
       if (r != NULL_TERM) {
-	t = r;
-	goto loop;
+        t = r;
+        goto loop;
       }
       break;
 
@@ -2795,10 +2795,10 @@ static void analyze_dl(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
     case EQ_TERM:
       eq = eq_term_desc(terms, t);
       if (is_boolean_eq(terms, eq)) {
-	analyze_dl(ctx, stats, eq->left, idl);
-	analyze_dl(ctx, stats, eq->right, idl);
+        analyze_dl(ctx, stats, eq->left, idl);
+        analyze_dl(ctx, stats, eq->right, idl);
       } else {
-	goto abort;
+        goto abort;
       }
       break;
 
@@ -2806,26 +2806,26 @@ static void analyze_dl(context_t *ctx, dl_data_t *stats, term_t t, bool idl) {
       or = or_term_desc(terms, t);
       n = or->nargs;
       for (i=0; i<n; i++) {
-	analyze_dl(ctx, stats, or->arg[i], idl);
+        analyze_dl(ctx, stats, or->arg[i], idl);
       }
       break;
 
     case ARITH_EQ_ATOM:
       if (! check_diff_logic_poly(ctx, stats, arith_desc(terms, t), idl)) {
-	goto abort;
+        goto abort;
       }
       stats->num_eqs ++;
       break;
 
     case ARITH_GE_ATOM:
       if (! check_diff_logic_poly(ctx, stats, arith_desc(terms, t), idl)) {
-	goto abort;
+        goto abort;
       }
       break;
 
     case ARITH_BINEQ_ATOM:
       if (! check_diff_logic_eq(ctx, stats, arith_bineq_desc(terms, t), idl)) {
-	goto abort;
+        goto abort;
       }
       break;
 
@@ -2937,8 +2937,8 @@ static int32_t add_aux_eq(context_t *ctx, term_t x, term_t y) {
 
   terms = ctx->terms;
   assert(!is_arithmetic_term(terms, x) && !is_boolean_term(terms, x) && !is_bitvector_term(terms, x) &&
-	 !is_arithmetic_term(terms, y) && !is_boolean_term(terms, y) && !is_bitvector_term(terms, y) &&
-	 x != y);
+         !is_arithmetic_term(terms, y) && !is_boolean_term(terms, y) && !is_bitvector_term(terms, y) &&
+         x != y);
 
   if (x > y) {
     eq = eq_term(terms, y, x);
@@ -3096,27 +3096,27 @@ static void flatten_or_recur(context_t *ctx, ivector_t *v, term_t t) {
       terms = ctx->terms;
       switch (term_kind(terms, t)) {
       case OR_TERM:
-	or = or_term_desc(terms, t);
-	n = or->nargs;
-	for (i=0; i<n; i++) {
-	  flatten_or_recur(ctx, v, or->arg[i]);
-	}
-	break;
+        or = or_term_desc(terms, t);
+        n = or->nargs;
+        for (i=0; i<n; i++) {
+          flatten_or_recur(ctx, v, or->arg[i]);
+        }
+        break;
       case NOT_TERM:
-	if (context_flatten_diseq_enabled(ctx)) {
-	  u = not_term_arg(terms, t);
-	  if (term_kind(terms, u) == ARITH_EQ_ATOM) {
-	    // t is NOT (p == 0)
-	    // rewrite t to (not p >= 0) or (not -p >= 0)
-	    ivector_push(v, not_geq_atom_poly(ctx, arith_atom_desc(terms, u)));
-	    ivector_push(v, not_leq_atom_poly(ctx, arith_atom_desc(terms, u)));
-	    break;
-	  }
-	}
-	/* fall through: can't flatten t */
+        if (context_flatten_diseq_enabled(ctx)) {
+          u = not_term_arg(terms, t);
+          if (term_kind(terms, u) == ARITH_EQ_ATOM) {
+            // t is NOT (p == 0)
+            // rewrite t to (not p >= 0) or (not -p >= 0)
+            ivector_push(v, not_geq_atom_poly(ctx, arith_atom_desc(terms, u)));
+            ivector_push(v, not_leq_atom_poly(ctx, arith_atom_desc(terms, u)));
+            break;
+          }
+        }
+        /* fall through: can't flatten t */
       default:
-	ivector_push(v, t);
-	break;
+        ivector_push(v, t);
+        break;
       }
     }
   }
@@ -3208,9 +3208,9 @@ static bool context_acceptable_bvprod_subst(context_t *ctx, varprod_t *d) {
       x = d->prod[i].var;
       q = context_subst_bvvar(ctx, x);
       if (q != NULL && q->nterms <= 2) {
-	// the subsitution x:= q is considered cheap enough
-	j *= q->nterms;
-	some_subst = true;
+        // the subsitution x:= q is considered cheap enough
+        j *= q->nterms;
+        some_subst = true;
       }
     }
   }
@@ -3236,11 +3236,11 @@ static void context_apply_bvprod_subst(context_t *ctx, varprod_t *d, bvarith_buf
       x = d->prod[i].var;
       q = context_subst_bvvar(ctx, x);
       if (q != NULL && q->nterms <= 2) {
-	// replace x by q
-	bvarith_buffer_mul_expr(b, q);
+        // replace x by q
+        bvarith_buffer_mul_expr(b, q);
       } else {
-	// keep x
-	bvarith_buffer_mul_var(b, x);
+        // keep x
+        bvarith_buffer_mul_var(b, x);
       }
     } else {
       // multiply by y = x^d
@@ -3279,29 +3279,29 @@ static term_t context_simplify_bvarith(context_t *ctx, bvarith_expr_t *p) {
     for (i=0; i<n; i++) {
       x = p->mono[i].var;
       if (bv_var_manager_var_is_primitive(ctx->bv_manager, x)) {
-	q = context_subst_bvvar(ctx, x);
-	if (q != NULL) {
-	  /*
-	   * Replace monomial a.x by polynomial a.q in b
-	   */
-	  narrow_buffer_add_mono_times_expr(b, q, const_idx, p->mono[i].coeff.c);
-	  continue;
-	}
+        q = context_subst_bvvar(ctx, x);
+        if (q != NULL) {
+          /*
+           * Replace monomial a.x by polynomial a.q in b
+           */
+          narrow_buffer_add_mono_times_expr(b, q, const_idx, p->mono[i].coeff.c);
+          continue;
+        }
       } else {
-	// x denotes a product (x_1^d_1 ... x_n^d_n)
-	d = bv_var_manager_var_product(ctx->bv_manager, x);
-	if (context_acceptable_bvprod_subst(ctx, d)) {
-	  /*
-	   * Replace a.x by a * subst(x_1^d1 ... x_n^d_n)
-	   */
-	  prod = context_get_bvbuffer2(ctx, size);
-	  bvarith_buffer_set_one(prod); // prod := 1
-	  context_apply_bvprod_subst(ctx, d, prod); // prod := result of substitution
-	  narrow_buffer_add_mono_times_buffer(b, prod, const_idx, p->mono[i].coeff.c);
-	  continue;
-	}
+        // x denotes a product (x_1^d_1 ... x_n^d_n)
+        d = bv_var_manager_var_product(ctx->bv_manager, x);
+        if (context_acceptable_bvprod_subst(ctx, d)) {
+          /*
+           * Replace a.x by a * subst(x_1^d1 ... x_n^d_n)
+           */
+          prod = context_get_bvbuffer2(ctx, size);
+          bvarith_buffer_set_one(prod); // prod := 1
+          context_apply_bvprod_subst(ctx, d, prod); // prod := result of substitution
+          narrow_buffer_add_mono_times_buffer(b, prod, const_idx, p->mono[i].coeff.c);
+          continue;
+        }
       }
-	       
+               
       /*
        * No substitution performed: keep a.x
        */
@@ -3319,29 +3319,29 @@ static term_t context_simplify_bvarith(context_t *ctx, bvarith_expr_t *p) {
     for (i=0; i<n; i++) {
       x = p->mono[i].var;
       if (bv_var_manager_var_is_primitive(ctx->bv_manager, x)) {
-	q = context_subst_bvvar(ctx, x);
-	if (q != NULL) {
-	  /*
-	   * Replace monomial a.x by polynomial a.q in b
-	   */
-	  wide_buffer_add_mono_times_expr(b, q, const_idx, p->mono[i].coeff.ptr);
-	  continue;
-	}
+        q = context_subst_bvvar(ctx, x);
+        if (q != NULL) {
+          /*
+           * Replace monomial a.x by polynomial a.q in b
+           */
+          wide_buffer_add_mono_times_expr(b, q, const_idx, p->mono[i].coeff.ptr);
+          continue;
+        }
       } else {
-	// x denotes a product (x_1^d_1 ... x_n^d_n)
-	d = bv_var_manager_var_product(ctx->bv_manager, x);
-	if (context_acceptable_bvprod_subst(ctx, d)) {
-	  /*
-	   * Replace a.x by a * subst(x_1^d1 ... x_n^d_n)
-	   */
-	  prod = context_get_bvbuffer2(ctx, size);
-	  bvarith_buffer_set_one(prod); // prod := 1
-	  context_apply_bvprod_subst(ctx, d, prod); // prod := result of substitution
-	  wide_buffer_add_mono_times_buffer(b, prod, const_idx, p->mono[i].coeff.ptr);
-	  continue;
-	}
+        // x denotes a product (x_1^d_1 ... x_n^d_n)
+        d = bv_var_manager_var_product(ctx->bv_manager, x);
+        if (context_acceptable_bvprod_subst(ctx, d)) {
+          /*
+           * Replace a.x by a * subst(x_1^d1 ... x_n^d_n)
+           */
+          prod = context_get_bvbuffer2(ctx, size);
+          bvarith_buffer_set_one(prod); // prod := 1
+          context_apply_bvprod_subst(ctx, d, prod); // prod := result of substitution
+          wide_buffer_add_mono_times_buffer(b, prod, const_idx, p->mono[i].coeff.ptr);
+          continue;
+        }
       }
-	       
+               
       /*
        * No substitution performed: keep a.x
        */
@@ -4241,7 +4241,7 @@ static thvar_t map_uninterpreted_to_arith(context_t *ctx, term_t t) {
   thvar_t v;
 
   assert(code_of_term(&ctx->trans, t) < 0 && 
-	 term_kind(ctx->terms, t) == UNINTERPRETED_TERM);
+         term_kind(ctx->terms, t) == UNINTERPRETED_TERM);
 
   r = find_term_root(ctx, t);
   if (r != t) {
@@ -4262,9 +4262,9 @@ static thvar_t map_uninterpreted_to_arith(context_t *ctx, term_t t) {
       print_term_id(stdout, t);
       printf("\n");
       if (term_has_theory_var(terms, t)) {
-	printf("---> thvar = ");
-	print_arith_var(stdout, term_theory_var(terms, t));
-	printf("\n");
+        printf("---> thvar = ");
+        print_arith_var(stdout, term_theory_var(terms, t));
+        printf("\n");
       }
 #endif
       v = ctx->arith->create_var(ctx->arith_solver, root_type_is_integer(ctx, t));
@@ -4393,7 +4393,7 @@ static thvar_t map_uninterpreted_to_bv(context_t *ctx, term_t t) {
   thvar_t v;
 
   assert(code_of_term(&ctx->trans, t) < 0 && 
-	 term_kind(ctx->terms, t) == UNINTERPRETED_TERM);
+         term_kind(ctx->terms, t) == UNINTERPRETED_TERM);
 
   terms = ctx->terms;
   r = find_term_root(ctx, t);
@@ -4498,10 +4498,10 @@ static thvar_t internalize_to_bv(context_t *ctx, term_t t) {
        */
       x = code_of_term(&ctx->trans, q);
       if (code_is_valid(x)) {
-	v = translate_code_to_bv(ctx, x);
+        v = translate_code_to_bv(ctx, x);
       } else {
-	v = map_bvarith_to_bv(ctx, bvarith_term_desc(terms, q));
-	map_term_to_bvvar(&ctx->trans, q, v);
+        v = map_bvarith_to_bv(ctx, bvarith_term_desc(terms, q));
+        map_term_to_bvvar(&ctx->trans, q, v);
       }
     } else {
       // no simplification found
@@ -4581,7 +4581,7 @@ static literal_t map_uninterpreted_to_literal(context_t *ctx, term_t t) {
   literal_t l;
 
   assert(code_of_term(&ctx->trans, t) < 0 &&
-	 term_kind(ctx->terms, t) == UNINTERPRETED_TERM);
+         term_kind(ctx->terms, t) == UNINTERPRETED_TERM);
 
   r = find_term_root(ctx, t);
   if (r != t) {
@@ -4684,7 +4684,7 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
   case ARITH_EQ_ATOM:
     l = map_aritheq_to_literal(ctx, arith_atom_desc(terms, t));
     break;
-			       
+                               
   case ARITH_GE_ATOM:
     l = map_arithge_to_literal(ctx, arith_atom_desc(terms, t));
     break;
@@ -4791,7 +4791,7 @@ static occ_t translate_thvar_to_eterm(context_t *ctx, term_t t, thvar_t v) {
     return translate_bvvar_to_eterm(ctx, v, tau);
   default:
     assert(false);
-    longjmp(ctx->env, INTERNAL_ERROR);	
+    longjmp(ctx->env, INTERNAL_ERROR);  
   }
 }
 
@@ -4829,7 +4829,7 @@ static occ_t translate_code_to_eterm(context_t *ctx, term_t t, icode_t x) {
 
     default:
       assert(false);
-      longjmp(ctx->env, INTERNAL_ERROR);	
+      longjmp(ctx->env, INTERNAL_ERROR);        
     }
 
     // save the mapping t --> term occurrence in the translation table
@@ -4850,7 +4850,7 @@ static occ_t map_uninterpreted_to_eterm(context_t *ctx, term_t t) {
   type_t tau;
 
   assert(code_of_term(&ctx->trans, t) < 0 &&
-	 term_kind(ctx->terms, t) == UNINTERPRETED_TERM);
+         term_kind(ctx->terms, t) == UNINTERPRETED_TERM);
 
   r = find_term_root(ctx, t);
   if (r != t) {
@@ -5217,28 +5217,28 @@ static void assert_toplevel_aritheq(context_t *ctx, term_t t) {
        */
       internalize_subst_polynomial(ctx, p, x);
       if (is_unassigned_var(ctx, u)) {
-	build_poly_substitution(ctx, p, x);
-	q = monarray_getpoly(ctx->monarray, p->nterms - 1);
-	v = map_arith_term_to_arith(ctx, q);
+        build_poly_substitution(ctx, p, x);
+        q = monarray_getpoly(ctx->monarray, p->nterms - 1);
+        v = map_arith_term_to_arith(ctx, q);
 #if TRACE
-	printf("---> toplevel equality: ");
-	print_termdef(stdout, t);
-	printf(" simplified to ");
-	print_arith_var(stdout, term_theory_var(terms, u));
-	printf(" := ");
-	print_polynomial(stdout, q);
-	printf("\n");
+        printf("---> toplevel equality: ");
+        print_termdef(stdout, t);
+        printf(" simplified to ");
+        print_arith_var(stdout, term_theory_var(terms, u));
+        printf(" := ");
+        print_polynomial(stdout, q);
+        printf("\n");
 #endif
-	map_term_to_arithvar(&ctx->trans, u, v);
-	free_polynomial(q);
+        map_term_to_arithvar(&ctx->trans, u, v);
+        free_polynomial(q);
 
       } else {
-	/*
-	 * Some variables of p other than x depend on t so the substitution
-	 * is not valid.
-	 */
-	internalize_arithvar(ctx, x); // i.e., finish internalization of p
-	ctx->arith->assert_eq_axiom(ctx->arith_solver, p, &ctx->trans.arith_map, true);
+        /*
+         * Some variables of p other than x depend on t so the substitution
+         * is not valid.
+         */
+        internalize_arithvar(ctx, x); // i.e., finish internalization of p
+        ctx->arith->assert_eq_axiom(ctx->arith_solver, p, &ctx->trans.arith_map, true);
       }
 
       return;
@@ -5483,13 +5483,13 @@ static void assert_toplevel_or(context_t *ctx, term_t t) {
       n = v->size;
       a = alloc_istack_array(&ctx->istack, n);
       for (i=0; i<n; i++) {
-	a[i] = v->data[i];
+        a[i] = v->data[i];
       }
       ivector_reset(v);
 
       // internalize elements in a
       for (i=0; i<n; i++) {
-	a[i] = internalize_to_literal(ctx, a[i]);
+        a[i] = internalize_to_literal(ctx, a[i]);
       }
 
     } else {
@@ -5499,7 +5499,7 @@ static void assert_toplevel_or(context_t *ctx, term_t t) {
       n = or->nargs;
       a = alloc_istack_array(&ctx->istack, n);
       for (i=0; i<n; i++) {
-	a[i] = internalize_to_literal(ctx, or->arg[i]);
+        a[i] = internalize_to_literal(ctx, or->arg[i]);
       }
     }
 
@@ -5670,14 +5670,14 @@ static int32_t internalize(context_t *ctx) {
     for (i=0; i<n; i++) {
 #if TRACE
       if (context_dump_enabled(ctx)) {
-	printf("\n=== eq %"PRIu32" ===\n", i);
-	print_termdef(stdout, v->data[i]);
-	printf("\n");
+        printf("\n=== eq %"PRIu32" ===\n", i);
+        print_termdef(stdout, v->data[i]);
+        printf("\n");
       }
 #endif
       assert_toplevel_atom(ctx, v->data[i]);
       if (true && ! base_propagate(ctx->core)) {
-	return TRIVIALLY_UNSAT;
+        return TRIVIALLY_UNSAT;
       }
     }
 
@@ -5693,18 +5693,18 @@ static int32_t internalize(context_t *ctx) {
     for (i=0; i<n; i++) {
 #if TRACE
       if (context_dump_enabled(ctx)) {
-	if (term_mapped_to_true(&ctx->trans, v->data[i])) {
-	  printf("\n=== atom %"PRIu32" (true) ===\n", i);
-	} else {
-	  printf("\n=== atom %"PRIu32" (false) ===\n", i);
-	}
-	print_termdef(stdout, v->data[i]);
-	printf("\n");
+        if (term_mapped_to_true(&ctx->trans, v->data[i])) {
+          printf("\n=== atom %"PRIu32" (true) ===\n", i);
+        } else {
+          printf("\n=== atom %"PRIu32" (false) ===\n", i);
+        }
+        print_termdef(stdout, v->data[i]);
+        printf("\n");
       }
 #endif
       assert_toplevel_atom(ctx, v->data[i]);
       if (true && ! base_propagate(ctx->core)) {
-	return TRIVIALLY_UNSAT;
+        return TRIVIALLY_UNSAT;
       }
     }
 
@@ -5720,9 +5720,9 @@ static int32_t internalize(context_t *ctx) {
     for (i=0; i<n; i++) {
 #if TRACE
       if (context_dump_enabled(ctx)) {
-	printf("\n=== formula %"PRIu32" out of %"PRIu32" ===\n", i, n);
-	print_termdef(stdout, v->data[i]);
-	printf("\n");
+        printf("\n=== formula %"PRIu32" out of %"PRIu32" ===\n", i, n);
+        print_termdef(stdout, v->data[i]);
+        printf("\n");
       }
 #endif
       assert_toplevel_formula(ctx, v->data[i]);
@@ -5837,8 +5837,8 @@ int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f) {
   int32_t code;
 
   assert(ctx->arch == CTX_ARCH_AUTO_IDL || 
-	 ctx->arch == CTX_ARCH_AUTO_RDL ||
-	 smt_status(ctx->core) == STATUS_IDLE);
+         ctx->arch == CTX_ARCH_AUTO_RDL ||
+         smt_status(ctx->core) == STATUS_IDLE);
 
   code = context_process_formulas(ctx, n, f);
   if (code == TRIVIALLY_UNSAT && 

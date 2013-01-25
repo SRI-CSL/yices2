@@ -457,32 +457,32 @@ static option_desc_t options[NUM_OPTIONS] = {
 static void print_version(FILE *f) {
   fprintf(f, 
           "Yices %s. Copyright SRI International.\n"
-	  "GMP %s. Copyright Free Software Foundation, Inc.\n"
-	  "Build date: %s\n"
-	  "Platform: %s (%s)\n",
-	  yices_version,
-	  gmp_version,
-	  yices_build_date,
-	  yices_build_arch,
-	  yices_build_mode);
+          "GMP %s. Copyright Free Software Foundation, Inc.\n"
+          "Build date: %s\n"
+          "Platform: %s (%s)\n",
+          yices_version,
+          gmp_version,
+          yices_build_date,
+          yices_build_arch,
+          yices_build_mode);
   fflush(f);
 }
 
 static void print_help(char *progname) {
   printf("Usage: %s [options] filename\n\n", progname);
   printf("Options:\n"
-	 "  --version, -V             Display version and exit\n"
-	 "  --help, -h                Display this information\n"
-	 "  --verbose, -v             Run in verbose mode\n"
-	 "  --logic=<name>            Configure for the given logic\n"
-	 "                             <name> must be an SMT-LIB logic code (e.g., QF_UFLIA)\n"
+         "  --version, -V             Display version and exit\n"
+         "  --help, -h                Display this information\n"
+         "  --verbose, -v             Run in verbose mode\n"
+         "  --logic=<name>            Configure for the given logic\n"
+         "                             <name> must be an SMT-LIB logic code (e.g., QF_UFLIA)\n"
          "                                    or 'NONE' for propositional logic\n"
-	 "  --arith-solver=<solver>   Select the arithmetic solver\n"
- 	 "                             <solver> may be either 'simplex' or 'floyd-warshall' or 'auto'\n"
-	 "  --mode=<mode>             Select the usage mode\n"
-	 "                             <mode> may be either 'one-shot' or 'multi-checks' or 'interactive' or 'push-pop'\n"
-	 "\n"
-	 "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
+         "  --arith-solver=<solver>   Select the arithmetic solver\n"
+         "                             <solver> may be either 'simplex' or 'floyd-warshall' or 'auto'\n"
+         "  --mode=<mode>             Select the usage mode\n"
+         "                             <mode> may be either 'one-shot' or 'multi-checks' or 'interactive' or 'push-pop'\n"
+         "\n"
+         "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
 }
 
@@ -550,72 +550,72 @@ static void process_command_line(int argc, char *argv[]) {
 
     case cmdline_argument:
       if (input_filename == NULL) {
-	input_filename = elem.arg;
+        input_filename = elem.arg;
       } else {
-	fprintf(stderr, "%s: can't have several input files\n", parser.command_name);
-	goto bad_usage;
+        fprintf(stderr, "%s: can't have several input files\n", parser.command_name);
+        goto bad_usage;
       }
       break;
 
     case cmdline_option:
       switch (elem.key) {
       case logic_option:
-	if (logic_name == NULL) {
-	  logic_name = elem.s_value;
-	  logic_code = smt_logic_code(logic_name);
-	  if (logic_code == SMT_UNKNOWN) {
-	    fprintf(stderr, "%s: invalid logic %s\n", parser.command_name, logic_name);
-	    goto bad_usage;
-	  }
-	} else if (strcmp(logic_name, elem.s_value) != 0) {
-	  fprintf(stderr, "%s: only one logic can be specified\n", parser.command_name);
-	  goto bad_usage;
-	}
-	break;
+        if (logic_name == NULL) {
+          logic_name = elem.s_value;
+          logic_code = smt_logic_code(logic_name);
+          if (logic_code == SMT_UNKNOWN) {
+            fprintf(stderr, "%s: invalid logic %s\n", parser.command_name, logic_name);
+            goto bad_usage;
+          }
+        } else if (strcmp(logic_name, elem.s_value) != 0) {
+          fprintf(stderr, "%s: only one logic can be specified\n", parser.command_name);
+          goto bad_usage;
+        }
+        break;
 
       case arith_option:
-	if (arith_name == NULL) {
-	  arith_name = elem.s_value;
-	  arith_code = arith_solver_code(arith_name);
-	  if (arith_code == ARITH_UNKNOWN) {
-	    fprintf(stderr, "%s: invalid arithmetic solver %s\n", parser.command_name, arith_name);
-	    goto bad_usage;
-	  }
-	} else if (strcmp(arith_name, elem.s_value) != 0) {
-	  fprintf(stderr, "%s: only one arithmetic solver can be specified\n", parser.command_name);
-	  goto bad_usage;
-	}
-	break;
+        if (arith_name == NULL) {
+          arith_name = elem.s_value;
+          arith_code = arith_solver_code(arith_name);
+          if (arith_code == ARITH_UNKNOWN) {
+            fprintf(stderr, "%s: invalid arithmetic solver %s\n", parser.command_name, arith_name);
+            goto bad_usage;
+          }
+        } else if (strcmp(arith_name, elem.s_value) != 0) {
+          fprintf(stderr, "%s: only one arithmetic solver can be specified\n", parser.command_name);
+          goto bad_usage;
+        }
+        break;
 
       case mode_option:
-	if (mode_name == NULL) {
-	  mode_name = elem.s_value;
-	  mode_code = context_mode_code(mode_name);
-	  if (mode_code < 0) {
-	    fprintf(stderr, "%s: invalid mode %s\n", parser.command_name, mode_name);
-	    goto bad_usage;
-	  }
-	} else if (strcmp(mode_name, elem.s_value) != 0) {
-	  fprintf(stderr, "%s: only one mode can be specified\n", parser.command_name);
-	  goto bad_usage;
-	}
-	break;
+        if (mode_name == NULL) {
+          mode_name = elem.s_value;
+          mode_code = context_mode_code(mode_name);
+          if (mode_code < 0) {
+            fprintf(stderr, "%s: invalid mode %s\n", parser.command_name, mode_name);
+            goto bad_usage;
+          }
+        } else if (strcmp(mode_name, elem.s_value) != 0) {
+          fprintf(stderr, "%s: only one mode can be specified\n", parser.command_name);
+          goto bad_usage;
+        }
+        break;
 
       case version_flag:
-	print_version(stdout);
-	goto quick_exit;
+        print_version(stdout);
+        goto quick_exit;
 
       case help_flag:
-	print_help(parser.command_name);
-	goto quick_exit;
+        print_help(parser.command_name);
+        goto quick_exit;
 
       case verbose_flag:
-	verbose = true;
-	break;
+        verbose = true;
+        break;
 
       default:
-	assert(false);
-	break;
+        assert(false);
+        break;
       }
       break;
 
@@ -697,8 +697,8 @@ static void process_command_line(int argc, char *argv[]) {
     mode = (context_mode_t) mode_code;
     if ((logic_code == QF_IDL || logic_code == QF_RDL) && arch != CTX_ARCH_SPLX) {
       if (mode != CTX_MODE_ONECHECK) {
-	fprintf(stderr, "%s: the Floyd-Warshal solvers support only mode='one-shot'\n", parser.command_name);
-	goto bad_usage;
+        fprintf(stderr, "%s: the Floyd-Warshal solvers support only mode='one-shot'\n", parser.command_name);
+        goto bad_usage;
       }
     }
   }
@@ -840,7 +840,7 @@ static void report_invalid_param(const char *name) {
     fprintf(stderr, "%s: ", rd->name);
   }
   fprintf(stderr, "invalid parameter %s (line %"PRId32", column %"PRId32")\n", 
-	  name, reader_line(rd), reader_column(rd));
+          name, reader_line(rd), reader_column(rd));
   done = !interactive;
 }
 
@@ -852,7 +852,7 @@ static void report_invalid_param_value(const char *name, const char *reason) {
     fprintf(stderr, "%s: ", rd->name);
   }
   fprintf(stderr, "invalid value for parameter %s: %s (line %"PRId32", column %"PRId32")\n", 
-	  name, reason, reader_line(rd), reader_column(rd));
+          name, reason, reader_line(rd), reader_column(rd));
   done = !interactive;
 }
 
@@ -1481,9 +1481,9 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   case PARAM_VAR_ELIM:
     if (param_val_to_bool(param, val, &tt)) {
       if (tt) {
-	enable_variable_elimination(context);
+        enable_variable_elimination(context);
       } else {
-	disable_variable_elimination(context);
+        disable_variable_elimination(context);
       }
       print_ok();
     }
@@ -1492,9 +1492,9 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   case PARAM_ARITH_ELIM:
     if (param_val_to_bool(param, val, &tt)) {
       if (tt) {
-	enable_arith_elimination(context);
+        enable_arith_elimination(context);
       } else {
-	disable_arith_elimination(context);
+        disable_arith_elimination(context);
       }
       print_ok();
     }
@@ -1503,9 +1503,9 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   case PARAM_FLATTEN:
     if (param_val_to_bool(param, val, &tt)) {
       if (tt) {
-	enable_diseq_and_or_flattening(context);
+        enable_diseq_and_or_flattening(context);
       } else {
-	disable_diseq_and_or_flattening(context);
+        disable_diseq_and_or_flattening(context);
       }
       print_ok();
     }
@@ -1514,9 +1514,9 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   case PARAM_LEARN_EQ:
     if (param_val_to_bool(param, val, &tt)) {
       if (tt) {
-	enable_eq_abstraction(context);
+        enable_eq_abstraction(context);
       } else {
-	disable_eq_abstraction(context);
+        disable_eq_abstraction(context);
       }
       print_ok();
     }
@@ -1525,9 +1525,9 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   case PARAM_KEEP_ITE:
     if (param_val_to_bool(param, val, &tt)) {
       if (tt) {
-	enable_keep_ite(context);
+        enable_keep_ite(context);
       } else {
-	disable_keep_ite(context);
+        disable_keep_ite(context);
       }
       print_ok();
     }
@@ -1705,9 +1705,9 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   case PARAM_EAGER_LEMMAS:
     if (param_val_to_bool(param, val, &tt)) {
       if (tt) {
-	enable_splx_eager_lemmas(context);
+        enable_splx_eager_lemmas(context);
       } else {
-	disable_splx_eager_lemmas(context);
+        disable_splx_eager_lemmas(context);
       }
       print_ok();
     } 
@@ -1744,9 +1744,9 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   case PARAM_ICHECK:
     if (param_val_to_bool(param, val, &tt)) {
       if (tt) {
-	enable_splx_periodic_icheck(context);
+        enable_splx_periodic_icheck(context);
       } else {
-	disable_splx_periodic_icheck(context);
+        disable_splx_periodic_icheck(context);
       }
       print_ok();
     }
@@ -2163,8 +2163,8 @@ static void yices_push_cmd(void) {
     case STATUS_SAT:
       // cleanup model and return to IDLE
       if (model != NULL) {
-	free_model(model);
-	model = NULL;
+        free_model(model);
+        model = NULL;
       }
       context_clear(context);
       assert(context_status(context) == STATUS_IDLE);
@@ -2207,8 +2207,8 @@ static void yices_pop_cmd(void) {
     case STATUS_SAT:
       // delete the model first
       if (model != NULL) {
-	free_model(model);
-	model = NULL;
+        free_model(model);
+        model = NULL;
       }
       context_clear(context);
       assert(context_status(context) == STATUS_IDLE);
@@ -2250,8 +2250,8 @@ static void yices_assert_cmd(term_t f) {
     case STATUS_SAT:
       // cleanup then return to the idle state
       if (model != NULL) {
-	free_model(model);
-	model = NULL;
+        free_model(model);
+        model = NULL;
       }
       context_clear(context); 
       assert(context_status(context) == STATUS_IDLE);
@@ -2259,10 +2259,10 @@ static void yices_assert_cmd(term_t f) {
 
     case STATUS_IDLE:
       if (yices_term_is_bool(f)) {
-	code = assert_formula(context, f);
-	print_internalization_code(code);
+        code = assert_formula(context, f);
+        print_internalization_code(code);
       } else {
-	report_error("type error in assert: boolean term required");
+        report_error("type error in assert: boolean term required");
       }
       break;
 
@@ -2369,11 +2369,11 @@ static void yices_check_cmd(void) {
     fputc('\n', stdout);
     if (stat == STATUS_INTERRUPTED) {
       if (mode == CTX_MODE_INTERACTIVE) {
-	context_cleanup(context);
-	assert(context_status(context) == STATUS_IDLE);
+        context_cleanup(context);
+        assert(context_status(context) == STATUS_IDLE);
       } else {
-	// force quit
-	done = true;
+        // force quit
+        done = true;
       }
     }
     fflush(stdout);
@@ -2450,8 +2450,8 @@ static void yices_eval_cmd(term_t t) {
     if (v >= 0) {
       vtbl_print_object(stdout, model_get_vtbl(model), v);
       if (object_is_function(model_get_vtbl(model), v)) {
-	fputc('\n', stdout);
-	vtbl_print_function(stdout, model_get_vtbl(model), v, true);
+        fputc('\n', stdout);
+        vtbl_print_function(stdout, model_get_vtbl(model), v, true);
       }
       fputc('\n', stdout);
     } else {
@@ -2585,18 +2585,18 @@ int yices_main(int argc, char *argv[]) {
     if (code < 0) {
       // error
       if (interactive) {
-	/*
-	 * If the error occurs within an include file, 
-	 * we close all included files and return to main
-	 */
-	while (include_depth > 0) {
-	  parser_pop_lexer(&parser);
-	  include_depth --;
-	}
-	flush_lexer(&lexer);
+        /*
+         * If the error occurs within an include file, 
+         * we close all included files and return to main
+         */
+        while (include_depth > 0) {
+          parser_pop_lexer(&parser);
+          include_depth --;
+        }
+        flush_lexer(&lexer);
       } else {
-	done = true;
-	exit_code = YICES_EXIT_SYNTAX_ERROR;
+        done = true;
+        exit_code = YICES_EXIT_SYNTAX_ERROR;
       }
     }    
   }

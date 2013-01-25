@@ -1587,10 +1587,10 @@ static bool check_no_duplicates(uint32_t n, term_t *v) {
     int_array_sort(a, n);
     for (i=1; i<n; i++) {
       if (a[i-1] == a[i]) {
-	error.code = DUPLICATE_VARIABLE;
-	error.term1 = a[i];
-	result = false;
-	break;
+        error.code = DUPLICATE_VARIABLE;
+        error.term1 = a[i];
+        result = false;
+        break;
       }
     }
 

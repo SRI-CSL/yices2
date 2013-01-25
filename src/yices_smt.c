@@ -335,11 +335,11 @@ static option_val_t opt_val[NUM_OPTIONS];
  */
 static void print_version(void) {
   printf("Yices %s. Copyright SRI International.\n"
-	 "GMP %s. Copyright Free Software Foundation, Inc.\n"
-	 "Build date: %s\n"
-	 "Platform: %s (%s)\n",
-	 yices_version, gmp_version, yices_build_date,
-	 yices_build_arch, yices_build_mode);
+         "GMP %s. Copyright Free Software Foundation, Inc.\n"
+         "Build date: %s\n"
+         "Platform: %s (%s)\n",
+         yices_version, gmp_version, yices_build_date,
+         yices_build_arch, yices_build_mode);
   fflush(stdout);
 }
 
@@ -347,66 +347,66 @@ static void yices_help(char *progname) {
   printf("Usage: %s [options] filename\n", progname);
   printf("Option summary:\n"
          "  General:\n"
-	 "    --version, -V\n"
-	 "    --help, -h\n"
-	 "    --timeout, -t\n"
-	 "  Internalization:\n"
-	 "    --var-elim\n"
-	 "    --flatten\n"
-	 "    --learn-eq\n"
-	 "    --arith-elim\n"
-	 "    --keep-ite\n"
-	 "  Model construction\n"
-	 "    --show-model\n"
-	 "  Debugging:\n"
-	 "    --dump\n"
-	 "    --dump-internalization\n"
-	 "  Restart:\n"
-	 "    --fast-restarts\n"
-	 "    --c-threshold=<int>\n"
-	 "    --c-factor=<float>\n"
-	 "    --d-threshold=<int>\n"
-	 "    --d-factor=<float>\n"
-	 "  Learned-clause deletion:\n"
-	 "    --r-threshold=<int>\n"
-	 "    --r-fraction=<float>\n"
-	 "    --r-factor=<float>\n"
-	 "  Branching heuristic:\n"
-	 "    --var-decay=<float>\n"
-	 "    --randomness=<float>\n"
-	 "    --random-seed=<int>\n"
-	 "    --neg-branching\n"
-	 "    --pos-branching\n"
-	 "    --theory-branching\n"
-	 "    --th-neg-branching\n"
-	 "    --th-pos-branching\n"
-	 "    --bv-branching\n"
-	 "  Clause-learning heuristic\n"
-	 "    --clause-decay=<float>\n"
-	 "    --cache-tclauses\n"
-	 "    --tclause-size\n"
-	 "  Egraph options:\n"
-	 "    --dyn-ack\n"
-	 "    --dyn-bool-ack\n"
-	 "    --max-ack=<int>\n"
-	 "    --max-bool-ack=<int>\n"
-	 "    --aux-eq-quota=<int>\n"
-	 "    --aux-eq-ratio=<float>\n"
-	 "    --max-interface-eqs=<int>\n"
-	 "  Arithmetic:\n"
-	 "   --floyd-warshall\n"
-	 "   --simplex\n"
-	 "   --eager-lemmas\n"
-	 "   --simplex-prop\n"
-	 "   --prop-threshold\n"
+         "    --version, -V\n"
+         "    --help, -h\n"
+         "    --timeout, -t\n"
+         "  Internalization:\n"
+         "    --var-elim\n"
+         "    --flatten\n"
+         "    --learn-eq\n"
+         "    --arith-elim\n"
+         "    --keep-ite\n"
+         "  Model construction\n"
+         "    --show-model\n"
+         "  Debugging:\n"
+         "    --dump\n"
+         "    --dump-internalization\n"
+         "  Restart:\n"
+         "    --fast-restarts\n"
+         "    --c-threshold=<int>\n"
+         "    --c-factor=<float>\n"
+         "    --d-threshold=<int>\n"
+         "    --d-factor=<float>\n"
+         "  Learned-clause deletion:\n"
+         "    --r-threshold=<int>\n"
+         "    --r-fraction=<float>\n"
+         "    --r-factor=<float>\n"
+         "  Branching heuristic:\n"
+         "    --var-decay=<float>\n"
+         "    --randomness=<float>\n"
+         "    --random-seed=<int>\n"
+         "    --neg-branching\n"
+         "    --pos-branching\n"
+         "    --theory-branching\n"
+         "    --th-neg-branching\n"
+         "    --th-pos-branching\n"
+         "    --bv-branching\n"
+         "  Clause-learning heuristic\n"
+         "    --clause-decay=<float>\n"
+         "    --cache-tclauses\n"
+         "    --tclause-size\n"
+         "  Egraph options:\n"
+         "    --dyn-ack\n"
+         "    --dyn-bool-ack\n"
+         "    --max-ack=<int>\n"
+         "    --max-bool-ack=<int>\n"
+         "    --aux-eq-quota=<int>\n"
+         "    --aux-eq-ratio=<float>\n"
+         "    --max-interface-eqs=<int>\n"
+         "  Arithmetic:\n"
+         "   --floyd-warshall\n"
+         "   --simplex\n"
+         "   --eager-lemmas\n"
+         "   --simplex-prop\n"
+         "   --prop-threshold\n"
          "   --simplex-adjust-model\n"
-	 "   --bland-threshold\n"
-	 "   --icheck-period\n"
-	 "  Array solver options:\n"
-	 "   --max-update-conflicts=<int>\n"
-	 "   --max-extensionality=<int>\n"
-	 "\n"
-	 "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
+         "   --bland-threshold\n"
+         "   --icheck-period\n"
+         "  Array solver options:\n"
+         "   --max-update-conflicts=<int>\n"
+         "   --max-extensionality=<int>\n"
+         "\n"
+         "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
 }
 
@@ -613,16 +613,16 @@ static void check_parameters(char *progname) {
     if (params.fast_restart && opt_set[c_threshold_opt]) {
       v = opt_val[d_threshold_opt].i_value;
       if (v < params.c_threshold) {
-	fprintf(stderr, "%s: %s must be at least as large as %s\n", progname,
-		opt_name(d_threshold_opt), opt_name(c_threshold_opt));
-	goto error;
+        fprintf(stderr, "%s: %s must be at least as large as %s\n", progname,
+                opt_name(d_threshold_opt), opt_name(c_threshold_opt));
+        goto error;
       }
       params.d_threshold = v;
       use_default_params = false;
     } else {
       fprintf(stderr, "%s: option %s requires both %s and %s\n", progname, 
-	      opt_name(d_threshold_opt), opt_name(fast_restart_opt), 
-	      opt_name(c_threshold_opt));
+              opt_name(d_threshold_opt), opt_name(fast_restart_opt), 
+              opt_name(c_threshold_opt));
       goto error;
     }
   }
@@ -631,8 +631,8 @@ static void check_parameters(char *progname) {
     if (params.fast_restart) {
       x = opt_val[d_factor_opt].d_value;
       if (x < 1.0) {
-	fprintf(stderr, "%s: %s must be at least 1\n", progname, opt_name(d_factor_opt));
-	goto error;
+        fprintf(stderr, "%s: %s must be at least 1\n", progname, opt_name(d_factor_opt));
+        goto error;
       }
       params.d_factor = x;
       use_default_params = false;
@@ -699,7 +699,7 @@ static void check_parameters(char *progname) {
   if (opt_set[theory_neg_branching_opt]) {
     if (params.branching != BRANCHING_DEFAULT) {
       fprintf(stderr, "%s: conflict between branching options %s and %s (pick one)\n", progname,
-	      opt_name(neg_branching_opt), branching_name(params.branching));
+              opt_name(neg_branching_opt), branching_name(params.branching));
       goto error;
     }
     params.branching = BRANCHING_TH_NEG;
@@ -709,7 +709,7 @@ static void check_parameters(char *progname) {
   if (opt_set[theory_pos_branching_opt]) {
     if (params.branching != BRANCHING_DEFAULT) {
       fprintf(stderr, "%s: conflict between branching options %s and %s (pick one)\n", progname,
-	      opt_name(neg_branching_opt), branching_name(params.branching));
+              opt_name(neg_branching_opt), branching_name(params.branching));
       goto error;
     }
     params.branching = BRANCHING_TH_POS;
@@ -719,7 +719,7 @@ static void check_parameters(char *progname) {
   if (opt_set[neg_branching_opt]) {
     if (params.branching != BRANCHING_DEFAULT) {
       fprintf(stderr, "%s: conflict between branching options %s and %s (pick one)\n", progname,
-	      opt_name(neg_branching_opt), branching_name(params.branching));
+              opt_name(neg_branching_opt), branching_name(params.branching));
       goto error;
     }
     params.branching = BRANCHING_NEGATIVE;
@@ -729,7 +729,7 @@ static void check_parameters(char *progname) {
   if (opt_set[pos_branching_opt]) {
     if (params.branching != BRANCHING_DEFAULT) {
       fprintf(stderr, "%s: conflict between branching options %s and %s (pick one)\n", progname,
-	      opt_name(pos_branching_opt), branching_name(params.branching));
+              opt_name(pos_branching_opt), branching_name(params.branching));
       goto error;
     }
     params.branching = BRANCHING_POSITIVE;
@@ -739,7 +739,7 @@ static void check_parameters(char *progname) {
   if (opt_set[theory_branching_opt]) {
     if (params.branching != BRANCHING_DEFAULT) {
       fprintf(stderr, "%s: conflict between branching options %s and %s (pick one)\n", progname,
-	      opt_name(theory_branching_opt), branching_name(params.branching));
+              opt_name(theory_branching_opt), branching_name(params.branching));
       goto error;
     }
     params.branching = BRANCHING_THEORY;
@@ -749,7 +749,7 @@ static void check_parameters(char *progname) {
   if (opt_set[bv_branching_opt]) {
     if (params.branching != BRANCHING_DEFAULT) {
       fprintf(stderr, "%s: conflict between branching options %s and %s (pick one)\n", progname,
-	      opt_name(theory_branching_opt), branching_name(params.branching));
+              opt_name(theory_branching_opt), branching_name(params.branching));
       goto error;
     }
     params.branching = BRANCHING_BV;
@@ -777,8 +777,8 @@ static void check_parameters(char *progname) {
     if (params.cache_tclauses) {
       v = opt_val[tclause_size_opt].i_value;
       if (v < 0) {
-	fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(tclause_size_opt));
-	goto error;
+        fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(tclause_size_opt));
+        goto error;
       }
       params.tclause_size = v;
       use_default_params = false;
@@ -801,8 +801,8 @@ static void check_parameters(char *progname) {
     if (params.use_dyn_ack) {
       v = opt_val[max_ackermann_opt].i_value;
       if (v < 0) {
-	fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(max_ackermann_opt));
-	goto error;
+        fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(max_ackermann_opt));
+        goto error;
       }
       params.max_ackermann = v;
     } else {
@@ -815,13 +815,13 @@ static void check_parameters(char *progname) {
     if (params.use_bool_dyn_ack) {
       v = opt_val[max_boolackermann_opt].i_value;
       if (v < 0) {
-	fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(max_boolackermann_opt));
-	goto error;
+        fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(max_boolackermann_opt));
+        goto error;
       }
       params.max_boolackermann = v;
     } else {
       fprintf(stderr, "%s: %s requires %s\n", progname, opt_name(max_boolackermann_opt), 
-	      opt_name(dyn_boolack_opt));
+              opt_name(dyn_boolack_opt));
       goto error;
     }
   }
@@ -830,13 +830,13 @@ static void check_parameters(char *progname) {
     if (params.use_dyn_ack || params.use_bool_dyn_ack) {
       v = opt_val[aux_eq_quota_opt].i_value;
       if (v < 0) {
-	fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(aux_eq_quota_opt));
-	goto error;
+        fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(aux_eq_quota_opt));
+        goto error;
       }
       params.aux_eq_quota = v;
     } else {
       fprintf(stderr, "%s: %s requires %s or %s\n", progname, opt_name(aux_eq_quota_opt),
-	      opt_name(dyn_ack_opt), opt_name(dyn_boolack_opt));
+              opt_name(dyn_ack_opt), opt_name(dyn_boolack_opt));
       goto error;
     }
   }
@@ -845,13 +845,13 @@ static void check_parameters(char *progname) {
     if (params.use_dyn_ack || params.use_bool_dyn_ack) {
       x = opt_val[aux_eq_ratio_opt].d_value;
       if (x <= 0.0) {
-	fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(aux_eq_ratio_opt));
-	goto error;
+        fprintf(stderr, "%s: %s must be positive\n", progname, opt_name(aux_eq_ratio_opt));
+        goto error;
       }
       params.aux_eq_ratio = x;      
     } else {
       fprintf(stderr, "%s: %s requires %s or %s\n", progname, opt_name(aux_eq_ratio_opt),
-	      opt_name(dyn_ack_opt), opt_name(dyn_boolack_opt));
+              opt_name(dyn_ack_opt), opt_name(dyn_boolack_opt));
       goto error;
     }
   }
@@ -924,11 +924,11 @@ static void parse_command_line(int argc, char *argv[]) {
 
     case cmdline_argument:
       if (filename == NULL) {
-	filename = elem.arg;
+        filename = elem.arg;
       } else {
-	fprintf(stderr, "%s: too many arguments\n", parser.command_name);
-	yices_usage(parser.command_name);
-	exit(YICES_EXIT_USAGE);
+        fprintf(stderr, "%s: too many arguments\n", parser.command_name);
+        yices_usage(parser.command_name);
+        exit(YICES_EXIT_USAGE);
       }
       break;
 
@@ -937,14 +937,14 @@ static void parse_command_line(int argc, char *argv[]) {
       opt_set[k] = true;
       switch (k) {
       case show_version_opt:
-	print_version();
-	exit(YICES_EXIT_SUCCESS);
+        print_version();
+        exit(YICES_EXIT_SUCCESS);
 
       case print_help_opt:
-	yices_help(parser.command_name);
-	exit(YICES_EXIT_SUCCESS);
+        yices_help(parser.command_name);
+        exit(YICES_EXIT_SUCCESS);
 
-	// boolean options
+        // boolean options
       case var_elim_opt:
       case flatten_opt:
       case learneq_opt:
@@ -969,9 +969,9 @@ static void parse_command_line(int argc, char *argv[]) {
       case simplex_eager_lemmas:
       case simplex_prop_enabled:
       case simplex_adjust_model:
-	break;
+        break;
 
-	// integer parameters
+        // integer parameters
       case c_threshold_opt:
       case d_threshold_opt:
       case r_threshold_opt:
@@ -987,10 +987,10 @@ static void parse_command_line(int argc, char *argv[]) {
       case max_update_conflicts:
       case max_extensionality:
       case timeout_opt:
-	opt_val[k].i_value = elem.i_value;
-	break;
+        opt_val[k].i_value = elem.i_value;
+        break;
 
-	// real-valued parameters
+        // real-valued parameters
       case c_factor_opt:
       case d_factor_opt:
       case r_fraction_opt:
@@ -999,8 +999,8 @@ static void parse_command_line(int argc, char *argv[]) {
       case randomness_opt:
       case clause_decay_opt:
       case aux_eq_ratio_opt:
-	opt_val[k].d_value = elem.d_value;
-	break;
+        opt_val[k].d_value = elem.d_value;
+        break;
       }
       break;
 
@@ -1314,15 +1314,15 @@ static void print_options(FILE *f, context_t *ctx) {
       fprintf(f, " --simplex");
       simplex = context_get_simplex_solver(ctx);
       if (simplex_option_enabled(simplex, SIMPLEX_EAGER_LEMMAS)) {
-	fprintf(f, " --eager-lemmas");
+        fprintf(f, " --eager-lemmas");
       }
       if (simplex_option_enabled(simplex, SIMPLEX_PROPAGATION) || 
-	  params.use_simplex_prop) {
-	fprintf(f, " --simplex-prop --prop-threshold=%"PRIu32, params.max_prop_row_size);
+          params.use_simplex_prop) {
+        fprintf(f, " --simplex-prop --prop-threshold=%"PRIu32, params.max_prop_row_size);
       }
       if (simplex_option_enabled(simplex, SIMPLEX_ADJUST_MODEL) ||
-	  params.adjust_simplex_model) {
-	fprintf(f, " --simplex-adjust-model");
+          params.adjust_simplex_model) {
+        fprintf(f, " --simplex-adjust-model");
       }
       fprintf(f, " --bland-threshold=%"PRIu32, params.bland_threshold);
       fprintf(f, " --icheck-period=%"PRId32, params.integer_check_period);
@@ -1336,10 +1336,10 @@ static void print_options(FILE *f, context_t *ctx) {
     fprintf(f, "Egraph: ");
     if (params.use_dyn_ack || params.use_bool_dyn_ack) {
       if (params.use_dyn_ack) {
-	fprintf(f, " --dyn-ack --max-ack=%"PRIu32, params.max_ackermann);
+        fprintf(f, " --dyn-ack --max-ack=%"PRIu32, params.max_ackermann);
       }
       if (params.use_bool_dyn_ack) {
-	fprintf(f, " --dyn-bool-ack --max-bool-ack=%"PRIu32, params.max_boolackermann);
+        fprintf(f, " --dyn-bool-ack --max-bool-ack=%"PRIu32, params.max_boolackermann);
       }
       fprintf(f, " --aux-eq-quota=%"PRIu32" --aux-eq-ratio=%.3f", params.aux_eq_quota, params.aux_eq_ratio);
     }
@@ -1348,7 +1348,7 @@ static void print_options(FILE *f, context_t *ctx) {
 
   if (context_has_fun_solver(ctx)) {
     fprintf(f, "Array solver: --max-update-conflicts=%"PRIu32" --max-extensionality=%"PRIu32"\n", 
-	    params.max_update_conflicts, params.max_extensionality);
+            params.max_update_conflicts, params.max_extensionality);
   }
 
   if (params.fast_restart || params.cache_tclauses || params.branching != BRANCHING_DEFAULT) {
@@ -1458,14 +1458,14 @@ static void test_evaluator(FILE *f, model_t *model) {
       v = eval_in_model(&eval, i);
       fprintf(f, "evaluates to: ");
       if (v >= 0) {
-	vtbl_print_object(f, model_get_vtbl(model), v);
-	if (object_is_function(model_get_vtbl(model), v)) {
-	  fprintf(f, "\n");
-	  vtbl_print_function(f, model_get_vtbl(model), v, true);	  
-	}
-	fprintf(f, "\n\n");
+        vtbl_print_object(f, model_get_vtbl(model), v);
+        if (object_is_function(model_get_vtbl(model), v)) {
+          fprintf(f, "\n");
+          vtbl_print_function(f, model_get_vtbl(model), v, true);         
+        }
+        fprintf(f, "\n\n");
       } else {
-	fprintf(f, "unknown (code = %"PRId32")\n\n", v);
+        fprintf(f, "unknown (code = %"PRId32")\n\n", v);
       }
       fflush(f);
       reset_evaluator(&eval);
@@ -1500,10 +1500,10 @@ static void check_model(FILE *f, smt_benchmark_t *bench, model_t *model) {
       fflush(f);
       fprintf(f, "evaluates to: ");
       if (v >= 0) {
-	vtbl_print_object(f, model_get_vtbl(model), v);
-	fprintf(f, "\n\n");
+        vtbl_print_object(f, model_get_vtbl(model), v);
+        fprintf(f, "\n\n");
       } else {
-	fprintf(f, "unknown (code = %"PRId32")\n\n", v);
+        fprintf(f, "unknown (code = %"PRId32")\n\n", v);
       }
       fflush(f);
     }
@@ -1769,14 +1769,14 @@ static int process_benchmark(char *filename) {
        */
       switch (arith_solver) {
       case ARITH_SOLVER_AUTOMATIC:
-	arch = CTX_ARCH_AUTO_IDL;
-	break;
+        arch = CTX_ARCH_AUTO_IDL;
+        break;
       case ARITH_SOLVER_SIMPLEX:
-	arch = CTX_ARCH_SPLX;
-	break;
+        arch = CTX_ARCH_SPLX;
+        break;
       case ARITH_SOLVER_FLOYD_WARSHALL:
-	arch = CTX_ARCH_IFW;
-	break;
+        arch = CTX_ARCH_IFW;
+        break;
       }
       break;
 
@@ -1787,14 +1787,14 @@ static int process_benchmark(char *filename) {
        */
       switch (arith_solver) {
       case ARITH_SOLVER_AUTOMATIC:
-	arch = CTX_ARCH_AUTO_RDL;
-	break;
+        arch = CTX_ARCH_AUTO_RDL;
+        break;
       case ARITH_SOLVER_SIMPLEX:
-	arch = CTX_ARCH_SPLX;
-	break;
+        arch = CTX_ARCH_SPLX;
+        break;
       case ARITH_SOLVER_FLOYD_WARSHALL:
-	arch = CTX_ARCH_RFW;
-	break;
+        arch = CTX_ARCH_RFW;
+        break;
       }
       break;
 
@@ -1830,11 +1830,11 @@ static int process_benchmark(char *filename) {
       switch (arith_solver) {
       case ARITH_SOLVER_AUTOMATIC:
       case ARITH_SOLVER_SIMPLEX:
-	arch = CTX_ARCH_EGSPLX;
-	break;
+        arch = CTX_ARCH_EGSPLX;
+        break;
       case ARITH_SOLVER_FLOYD_WARSHALL:
-	arch = CTX_ARCH_IFW;
-	break;
+        arch = CTX_ARCH_IFW;
+        break;
       }
       break;
 

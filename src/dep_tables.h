@@ -3,7 +3,7 @@
  */
 
 /*
- * This is a data structure to store dependencies betwen integer indices.
+ * This is a data structure to store dependencies between integer indices.
  * Given n integers, the table stores an array dep[i] for all 
  * i between 0 and n, where dep[i] is a vector of integers.
  *

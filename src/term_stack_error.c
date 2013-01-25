@@ -343,7 +343,7 @@ static void yices_error(FILE *f, const char *name, tstack_t *tstack) {
     fprintf(f, "%s: ", name);
   }
   fprintf(f, "error in %s, line %"PRId32", column %"PRId32": ",
-	  opcode2string[tstack->error_op], tstack->error_loc.line, tstack->error_loc.column);
+          opcode2string[tstack->error_op], tstack->error_loc.line, tstack->error_loc.column);
 
   print_error(f);
 }
@@ -379,7 +379,7 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
   case TSTACK_INVALID_FRAME:
   case TSTACK_NONPOSITIVE_BVSIZE:
     fprintf(f, "in %s (line %"PRId32", column %"PRId32")\n",
-	    opcode2string[tstack->error_op], tstack->error_loc.line, tstack->error_loc.column);
+            opcode2string[tstack->error_op], tstack->error_loc.line, tstack->error_loc.column);
     break;
 
   case TSTACK_OP_NOT_IMPLEMENTED:
@@ -397,7 +397,7 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
   case TSTACK_TYPENAME_REDEF:
   case TSTACK_TERMNAME_REDEF:
     fprintf(f, "%s (line %"PRId32", column %"PRId32")\n",
-	    tstack->error_string, tstack->error_loc.line, tstack->error_loc.column);
+            tstack->error_string, tstack->error_loc.line, tstack->error_loc.column);
     break;
 
   case TSTACK_NOT_A_RATIONAL:
@@ -413,7 +413,7 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
   case TSTACK_BVLOGIC_ERROR:
   case TSTACK_TYPE_ERROR_IN_DEFTERM:
     fprintf(f, "(line %"PRId32", column %"PRId32")\n",
-	    tstack->error_loc.line, tstack->error_loc.column);
+            tstack->error_loc.line, tstack->error_loc.column);
     break;
 
   default:

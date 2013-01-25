@@ -235,7 +235,7 @@ static bool lpair_set_has_match(lpair_set_t *set, int32_t tag, type_t tau) {
   data = set->data;
   for (i=0; i<n; i++) {
     if (data->tag == tag &&
-	(data->range == tau || compatible_types(set->types, tau, data->range))) {
+        (data->range == tau || compatible_types(set->types, tau, data->range))) {
       return true;
     }
     data ++;
@@ -595,8 +595,8 @@ void build_ugraph(update_graph_t *ugraph) {
   composite_t *cmp;
 
   assert(ugraph->nodes == 0 && 
-	 ptr_partition_is_empty(&ugraph->partition) &&
-	 lpair_set_is_empty(&ugraph->lpair_set));
+         ptr_partition_is_empty(&ugraph->partition) &&
+         lpair_set_is_empty(&ugraph->lpair_set));
 
   egraph = ugraph->egraph;
 
@@ -622,21 +622,21 @@ void build_ugraph(update_graph_t *ugraph) {
     if (composite_body(cmp)) {
       switch (composite_kind(cmp)) {
       case COMPOSITE_APPLY:
-	// add cmp to the partition (if it's a congruence root)
-	if (congruence_table_is_root(&egraph->ctable, cmp, egraph->terms.label)) {
-	  ptr_partition_add(&ugraph->partition, cmp);
-	}
-	break;
+        // add cmp to the partition (if it's a congruence root)
+        if (congruence_table_is_root(&egraph->ctable, cmp, egraph->terms.label)) {
+          ptr_partition_add(&ugraph->partition, cmp);
+        }
+        break;
 
       case COMPOSITE_UPDATE:
-	// add cmp as an edge (it it's a congruence root)
-	if (congruence_table_is_root(&egraph->ctable, cmp, egraph->terms.label)) {
-	  ugraph_add_edges_for_update(ugraph, cmp);
-	}
-	break;
+        // add cmp as an edge (it it's a congruence root)
+        if (congruence_table_is_root(&egraph->ctable, cmp, egraph->terms.label)) {
+          ugraph_add_edges_for_update(ugraph, cmp);
+        }
+        break;
 
       default:
-	break;
+        break;
       }
     }
   }
@@ -866,18 +866,18 @@ static void ugraph_push_transparent_successors(update_graph_t *ugraph, ugraph_qu
     for (i=0; i<n; i++) {
       u = edges[i];
       if (ptr_tag(u) == 0) {
-	// direct edge of the form g := (update f ...) for f in class[x]
-	y = node_of_term(ugraph, u->id);
+        // direct edge of the form g := (update f ...) for f in class[x]
+        y = node_of_term(ugraph, u->id);
       } else {
-	// reverse egde: f := (update g ...) for f in class[x]
-	u = untag_ptr(u);
-	y = node_of_term(ugraph, term_of_occ(u->child[0]));
+        // reverse egde: f := (update g ...) for f in class[x]
+        u = untag_ptr(u);
+        y = node_of_term(ugraph, term_of_occ(u->child[0]));
       }
       
       assert(0 <= y && y < ugraph->nodes);
 
       if (ugraph_node_is_unmarked(ugraph, y) && transparent_edge(ugraph->egraph, u, c)) {
-	ugraph_queue_push_next(queue, y, u); // u is not used here
+        ugraph_queue_push_next(queue, y, u); // u is not used here
       }
     }
   }
@@ -916,9 +916,9 @@ static uint32_t ugraph_base_propagate_application(update_graph_t *ugraph, int32_
     d = find_modified_application(ugraph, y, c);
     if (d != NULL) {
       if (! egraph_equal_occ(ugraph->egraph, pos_occ(c->id), pos_occ(d->id))) {
-	egraph_assert_eq_axiom(ugraph->egraph, pos_occ(c->id), pos_occ(d->id));
-	ugraph->stats.num_update_props ++;
-	neqs ++;
+        egraph_assert_eq_axiom(ugraph->egraph, pos_occ(c->id), pos_occ(d->id));
+        ugraph->stats.num_update_props ++;
+        neqs ++;
       }
 
       /*
@@ -929,9 +929,9 @@ static uint32_t ugraph_base_propagate_application(update_graph_t *ugraph, int32_
     } else {
       d = find_lambda_term(ugraph, y);
       if (d != NULL && !egraph_equal_occ(ugraph->egraph, pos_occ(c->id), d->child[0])) {
-	egraph_assert_eq_axiom(ugraph->egraph, pos_occ(c->id), d->child[0]);
-	ugraph->stats.num_lambda_props ++;
-	neqs ++;
+        egraph_assert_eq_axiom(ugraph->egraph, pos_occ(c->id), d->child[0]);
+        ugraph->stats.num_lambda_props ++;
+        neqs ++;
       }
  
       ugraph_push_transparent_successors(ugraph, queue, y, c);
@@ -964,12 +964,12 @@ uint32_t ugraph_base_propagate(update_graph_t *ugraph) {
   for (i=0; i<n; i++) {
     c = egraph_term_body(egraph, i);
     if (composite_body(c) && 
-	composite_kind(c) == COMPOSITE_APPLY && 
-	congruence_table_is_root(&egraph->ctable, c, egraph->terms.label)) {
+        composite_kind(c) == COMPOSITE_APPLY && 
+        congruence_table_is_root(&egraph->ctable, c, egraph->terms.label)) {
       // c is of the form (apply f ... ) is a congruence root
       x = node_of_term(ugraph, term_of_occ(c->child[0])); // x := node of f
       if (relevant_apply(ugraph, x, c)) {
-	neqs += ugraph_base_propagate_application(ugraph, x, c);
+        neqs += ugraph_base_propagate_application(ugraph, x, c);
       }
     }
   }
@@ -1001,17 +1001,17 @@ static void ugraph_push_successors(update_graph_t *ugraph, ugraph_queue_t *queue
       u = edges[i];
       v = untag_ptr(u);
       if (ptr_tag(u) == 0) {
-	// direct edge of the form g := (update f ...) for f in class[x]
-	y = node_of_term(ugraph, u->id);
+        // direct edge of the form g := (update f ...) for f in class[x]
+        y = node_of_term(ugraph, u->id);
       } else {
-	// reverse egde: f := (update g ...) for f in class[x]
-	y = node_of_term(ugraph, term_of_occ(u->child[0]));
+        // reverse egde: f := (update g ...) for f in class[x]
+        y = node_of_term(ugraph, term_of_occ(u->child[0]));
       }
       
       assert(0 <= y && y < ugraph->nodes);
 
       if (ugraph_node_is_unmarked(ugraph, y) && !opaque_edge(ugraph->egraph, v, c)) {
-	ugraph_queue_push_next(queue, y, u);
+        ugraph_queue_push_next(queue, y, u);
       }
     }
   }
@@ -1046,16 +1046,16 @@ static uint32_t ugraph_propagate_application(update_graph_t *ugraph, int32_t x, 
     d = find_modified_application(ugraph, y, c);
     if (d != NULL) {
       if (! egraph_equal_occ(ugraph->egraph, pos_occ(c->id), pos_occ(d->id))) {
-	// found instance of the udpdate axiom
-	// TBD
-	nlemmas ++;
+        // found instance of the udpdate axiom
+        // TBD
+        nlemmas ++;
       }
     } else {
       d = find_lambda_term(ugraph, y);;
       if (d != NULL && !egraph_equal_occ(ugraph->egraph, pos_occ(c->id), d->child[0])) {
-	// found instance of the lambda/update axiom
-	// TBD
-	nlemmas ++;
+        // found instance of the lambda/update axiom
+        // TBD
+        nlemmas ++;
       }
 
       ugraph_push_successors(ugraph, queue, y, c);
@@ -1085,12 +1085,12 @@ uint32_t ugraph_propagate(update_graph_t *ugraph) {
   for (i=0; i<n; i++) {
     c = egraph_term_body(egraph, i);
     if (composite_body(c) && 
-	composite_kind(c) == COMPOSITE_APPLY && 
-	congruence_table_is_root(&egraph->ctable, c, egraph->terms.label)) {
+        composite_kind(c) == COMPOSITE_APPLY && 
+        congruence_table_is_root(&egraph->ctable, c, egraph->terms.label)) {
       // c is of the form (apply f ... ) and is a congruence root
       x = node_of_term(ugraph, term_of_occ(c->child[0])); // x := node of f
       if (relevant_apply(ugraph, x, c)) {
-	nlemmas += ugraph_propagate_application(ugraph, x, c);
+        nlemmas += ugraph_propagate_application(ugraph, x, c);
       }
     }
   }

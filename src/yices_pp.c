@@ -394,7 +394,7 @@ static void free_close_token(yices_pp_t *printer, pp_close_token_t *tk) {
  * If area is NULL, then the default is used (cf. pretty_printer.h)
  */
 void init_yices_pp(yices_pp_t *printer, FILE *file, pp_area_t *area,
-		   pp_print_mode_t mode, uint32_t indent) {
+                   pp_print_mode_t mode, uint32_t indent) {
   pp_token_converter_t converter;
 
   /*
@@ -720,8 +720,8 @@ void pp_open_block(yices_pp_t *printer, pp_open_type_t id) {
   desc = open_desc + id;
   open = new_open_token(printer);
   tk = init_open_token(open,
-		       desc->formats, desc->flags, desc->label_size, 
-		       desc->indent, desc->short_indent, id);
+                       desc->formats, desc->flags, desc->label_size, 
+                       desc->indent, desc->short_indent, id);
 
   pp_push_token(&printer->pp, tk);
 }

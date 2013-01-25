@@ -143,7 +143,7 @@ typedef struct rdl_edge_stack_s {
  * Cell in the matrix
  * - cell[x, y].id = largest edge index along the shortest path from x to y
  *   (null_rdl_edge if there's no path from x to y)
- * - cell[x, y].dist = legnth of the shortests path from x to y
+ * - cell[x, y].dist = length of the shortest path from x to y
  */
 typedef struct rdl_cell_s {
   int32_t id;
@@ -209,7 +209,7 @@ typedef struct rdl_graph_s {
 /*
  * Each atom has an index i (in the global atom table)
  * - the atom includes <source vertex, target vertex, cost, boolean variable>
- * - the atom is (source - targe <= cost) so cost is a rational
+ * - the atom is (source - target <= cost) so cost is a rational
  * - if atom->boolvar = v then the atom index is attached to v in the smt_core
  *   (Hack: this is done by converting the int32_t index to void*).
  */

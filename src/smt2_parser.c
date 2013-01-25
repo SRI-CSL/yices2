@@ -50,51 +50,51 @@ static void syntax_error(lexer_t *lex, FILE *err, int32_t expected_token) {
   switch (tk) {
   case SMT2_TK_INVALID_STRING:
     fprintf(err, "missing string terminator \" (line %"PRId32", column %"PRId32")\n",
-	    rd->line, rd->column);
+            rd->line, rd->column);
     break;
 
   case SMT2_TK_INVALID_NUMERAL:
     fprintf(err, "invalid numeral %s (line %"PRId32", column %"PRId32")\n",
-	    tkval(lex), lex->tk_line, lex->tk_column);
+            tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
   case SMT2_TK_INVALID_DECIMAL:
     fprintf(err, "invalid decimal %s (line %"PRId32", column %"PRId32")\n",
-	    tkval(lex), lex->tk_line, lex->tk_column);
+            tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
   case SMT2_TK_INVALID_HEXADECIMAL:
     fprintf(err, "invalid hexadecimal constant %s (line %"PRId32", column %"PRId32")\n",
-	    tkval(lex), lex->tk_line, lex->tk_column);
+            tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
   case SMT2_TK_INVALID_BINARY:
     fprintf(err, "invalid binary constant %s (line %"PRId32", column %"PRId32")\n",
-	    tkval(lex), lex->tk_line, lex->tk_column);
+            tkval(lex), lex->tk_line, lex->tk_column);
     break;
 
   case SMT2_TK_INVALID_SYMBOL:
     fprintf(err, "invalid symbol (line %"PRId32", column %"PRId32")\n", 
-	    lex->tk_line, lex->tk_column);
+            lex->tk_line, lex->tk_column);
     break;
 
   case SMT2_TK_INVALID_KEYWORD:
     fprintf(err, "invalid keyword (line %"PRId32", column %"PRId32")\n",
-	    lex->tk_line, lex->tk_column);
+            lex->tk_line, lex->tk_column);
     break;
 
   case SMT2_TK_ERROR:
     fprintf(err, "invalid token %s (line %"PRId32", column %"PRId32")\n",
-	    tkval(lex), lex->tk_line, lex->tk_column);
+            tkval(lex), lex->tk_line, lex->tk_column);
     break;
     
   default:
     if (expected_token >= 0) {
       fprintf(err, "syntax error (line %"PRId32", column %"PRId32"): %s expected\n",
-	      lex->tk_line, lex->tk_column, smt2_token_to_string(expected_token));
+              lex->tk_line, lex->tk_column, smt2_token_to_string(expected_token));
     } else {
       fprintf(err, "syntax error (line %"PRId32", column %"PRId32")\n",
-	      lex->tk_line, lex->tk_column);
+              lex->tk_line, lex->tk_column);
     }
     break;
   }
@@ -247,7 +247,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
     case get_value_next_goto_c12:
       state = c12;
       goto loop;
-	
+        
     case numeral_next_goto_r0:
       state = r0;
       goto loop;
@@ -267,7 +267,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
     case next_return:
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
      
@@ -350,42 +350,42 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
     case numeral_next_return:
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
 
     case decimal_next_return:
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
       
     case hexadecimal_next_return:
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
      
     case binary_next_return:
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
 
     case string_next_return:
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
 
     case symbol_next_return:
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
 
@@ -401,7 +401,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
     case keyword_next_return:
       state = parser_pop_state(stack);
       if (state == done) {
-	goto the_end;
+        goto the_end;
       }
       goto loop;
 
@@ -534,11 +534,11 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
     case check_keyword_then_branch:
       kw = smt2_string_to_keyword(tkval(lex), tklen(lex));
       if (kw == SMT2_KW_NAMED) {
-	state = t4d;
+        state = t4d;
       } else if (kw == SMT2_KW_PATTERN) {
-	state = t4e;
+        state = t4e;
       } else {
-	state = t4b;
+        state = t4b;
       }
       goto loop;
       

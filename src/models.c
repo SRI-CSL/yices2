@@ -149,8 +149,8 @@ void model_add_substitution(model_t *model, term_t t, term_t u) {
   int_hmap_pair_t *r;
 
   assert(term_kind(model->terms, t) == UNINTERPRETED_TERM &&
-	 good_term(model->terms, u) && t != u && model->has_alias &&
-	 int_hmap_find(&model->map, t) == NULL);
+         good_term(model->terms, u) && t != u && model->has_alias &&
+         int_hmap_find(&model->map, t) == NULL);
 
   alias = model->alias_map;
   if (alias == NULL) {

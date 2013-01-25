@@ -294,28 +294,28 @@ static option_desc_t options[NUM_OPTIONS] = {
  */
 static void print_version(void) {
   printf("Yices %s. Copyright SRI International.\n"
-	 "GMP %s. Copyright Free Software Foundation, Inc.\n"
-	 "Build date: %s\n"
-	 "Platform: %s (%s)\n",
-	 yices_version, gmp_version, 
-	 yices_build_date, yices_build_arch, yices_build_mode);
+         "GMP %s. Copyright Free Software Foundation, Inc.\n"
+         "Build date: %s\n"
+         "Platform: %s (%s)\n",
+         yices_version, gmp_version, 
+         yices_build_date, yices_build_arch, yices_build_mode);
   fflush(stdout);
 }
 
 static void yices_help(char *progname) {
   printf("Usage: %s [options] filename\n", progname);
   printf("Option summary:\n"
-	 "   --version, -V              Show version and exit\n"
-	 "   --help, -h                 Print this message and exit\n"
-	 "   --model, -m                Show a model (some variables may be eliminated)\n"
-	 "   --full-model, -f           Show a model that includes all variables\n"
-	 "   --verbose, -v              Print statistics during the search\n"
+         "   --version, -V              Show version and exit\n"
+         "   --help, -h                 Print this message and exit\n"
+         "   --model, -m                Show a model (some variables may be eliminated)\n"
+         "   --full-model, -f           Show a model that includes all variables\n"
+         "   --verbose, -v              Print statistics during the search\n"
 #if SHOW_STATISTICS
-	 "   --stats, -s                Show search statistics\n"
+         "   --stats, -s                Show search statistics\n"
 #endif
-	 "   --timeout=<int>, -t <int>  Give a timeout in seconds (default: no timeout)\n"
-	 "\n"
-	 "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
+         "   --timeout=<int>, -t <int>  Give a timeout in seconds (default: no timeout)\n"
+         "\n"
+         "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
 }
 
@@ -356,11 +356,11 @@ static void parse_command_line(int argc, char *argv[]) {
 
     case cmdline_argument:
       if (filename == NULL) {
-	filename = elem.arg;
+        filename = elem.arg;
       } else {
-	fprintf(stderr, "%s: too many arguments\n", parser.command_name);
-	yices_usage(parser.command_name);
-	exit(YICES_EXIT_USAGE);
+        fprintf(stderr, "%s: too many arguments\n", parser.command_name);
+        yices_usage(parser.command_name);
+        exit(YICES_EXIT_USAGE);
       }
       break;
 
@@ -368,40 +368,40 @@ static void parse_command_line(int argc, char *argv[]) {
       k = elem.key;
       switch (k) {
       case show_version_opt:
-	print_version();
-	exit(YICES_EXIT_SUCCESS);
+        print_version();
+        exit(YICES_EXIT_SUCCESS);
 
       case print_help_opt:
-	yices_help(parser.command_name);
-	exit(YICES_EXIT_SUCCESS);
+        yices_help(parser.command_name);
+        exit(YICES_EXIT_SUCCESS);
 
       case simple_model_opt:
-	simple_model = true;
-	break;
+        simple_model = true;
+        break;
 
       case full_model_opt:
-	full_model = true;
-	break;
+        full_model = true;
+        break;
 
       case verbose_opt:
-	verbose = true;
-	break;
+        verbose = true;
+        break;
 
 #if SHOW_STATISTICS
       case show_stats_opt:
-	show_statistics = true;
-	break;
+        show_statistics = true;
+        break;
 #endif
 
       case timeout_opt:
-	val = elem.i_value;
-	if (val <= 0) {
-	  fprintf(stderr, "%s: the timeout must be positive\n", parser.command_name);
-	  yices_usage(parser.command_name);
-	  exit(YICES_EXIT_USAGE);
-	}
-	timeout = val;
-	break;
+        val = elem.i_value;
+        if (val <= 0) {
+          fprintf(stderr, "%s: the timeout must be positive\n", parser.command_name);
+          yices_usage(parser.command_name);
+          exit(YICES_EXIT_USAGE);
+        }
+        timeout = val;
+        break;
       }
       break;
 
@@ -499,7 +499,7 @@ static void print_presearch_stats(FILE *f) {
 /*
  * Print parameters and settings:
  * - disabled this for now: these options can't be set so there's
- *   no reason to print them. Alos the meaning of many of them
+ *   no reason to print them. Also the meaning of many of them
  *   is mysterious.
  */
 static void print_options(FILE *f, context_t *ctx) {
@@ -538,15 +538,15 @@ static void print_options(FILE *f, context_t *ctx) {
       fprintf(f, " --simplex");
       simplex = context_get_simplex_solver(ctx);
       if (simplex_option_enabled(simplex, SIMPLEX_EAGER_LEMMAS)) {
-	fprintf(f, " --eager-lemmas");
+        fprintf(f, " --eager-lemmas");
       }
       if (simplex_option_enabled(simplex, SIMPLEX_PROPAGATION) ||
-	  params.use_simplex_prop) {
-	fprintf(f, " --simplex-prop --prop-threshold=%"PRIu32, params.max_prop_row_size);
+          params.use_simplex_prop) {
+        fprintf(f, " --simplex-prop --prop-threshold=%"PRIu32, params.max_prop_row_size);
       }
       if (simplex_option_enabled(simplex, SIMPLEX_ADJUST_MODEL) ||
-	  params.adjust_simplex_model) {
-	fprintf(f, " --simplex-ajust-model");
+          params.adjust_simplex_model) {
+        fprintf(f, " --simplex-ajust-model");
       }
       fprintf(f, " --bland-threshold=%"PRIu32, params.bland_threshold);
       fprintf(f, " --icheck-period=%"PRId32, params.integer_check_period);
@@ -560,12 +560,12 @@ static void print_options(FILE *f, context_t *ctx) {
     fprintf(f, "Egraph: ");
     if (params.use_dyn_ack || params.use_bool_dyn_ack) {
       if (params.use_dyn_ack) {
-	fprintf(f, " --dyn-ack --max-ack=%"PRIu32" --dyn-ack-threshold=%"PRIu32, 
-		params.max_ackermann, (uint32_t) params.dyn_ack_threshold);
+        fprintf(f, " --dyn-ack --max-ack=%"PRIu32" --dyn-ack-threshold=%"PRIu32, 
+                params.max_ackermann, (uint32_t) params.dyn_ack_threshold);
       }
       if (params.use_bool_dyn_ack) {
-	fprintf(f, " --dyn-bool-ack --max-bool-ack=%"PRIu32" --dyn-bool-ack-threshold=%"PRIu32, 
-		params.max_boolackermann, (uint32_t) params.dyn_bool_ack_threshold);
+        fprintf(f, " --dyn-bool-ack --max-bool-ack=%"PRIu32" --dyn-bool-ack-threshold=%"PRIu32, 
+                params.max_boolackermann, (uint32_t) params.dyn_bool_ack_threshold);
       }
       fprintf(f, " --aux-eq-quota=%"PRIu32" --aux-eq-ratio=%.3f\n", params.aux_eq_quota, params.aux_eq_ratio); 
     }
@@ -574,7 +574,7 @@ static void print_options(FILE *f, context_t *ctx) {
 
   if (context_has_fun_solver(ctx)) {
     fprintf(f, "Array solver: --max-update-conflicts=%"PRIu32" --max-extensionality=%"PRIu32"\n", 
-	    params.max_update_conflicts, params.max_extensionality);
+            params.max_update_conflicts, params.max_extensionality);
   }
 
   if (params.fast_restart || params.cache_tclauses || params.branching != BRANCHING_DEFAULT) {
@@ -767,16 +767,16 @@ static void print_results() {
       fprintf(stderr, " egraph terms            : %"PRIu32"\n", egraph->terms.nterms);
       fprintf(stderr, " egraph eq_quota         : %"PRIu32"\n", egraph->aux_eq_quota);
       if (context_has_fun_solver(&context)) {
-	fsolver = context.fun_solver;
-	show_funsolver_stats(&fsolver->stats);
+        fsolver = context.fun_solver;
+        show_funsolver_stats(&fsolver->stats);
       }
     }
 
     if (context_has_simplex_solver(&context)) {
       simplex = context_get_simplex_solver(&context);
       if (simplex != NULL) {
-	simplex_collect_statistics(simplex);
-	show_simplex_stats(&simplex->stats);
+        simplex_collect_statistics(simplex);
+        show_simplex_stats(&simplex->stats);
       }
     }
 
@@ -894,10 +894,10 @@ static void check_model(FILE *f, smt_benchmark_t *bench, model_t *model) {
       fflush(f);
       fprintf(f, "evaluates to: ");
       if (v >= 0) {
-	vtbl_print_object(f, model_get_vtbl(model), v);
-	fprintf(f, "\n\n");
+        vtbl_print_object(f, model_get_vtbl(model), v);
+        fprintf(f, "\n\n");
       } else {
-	fprintf(f, "unknown (code = %"PRId32")\n\n", v);
+        fprintf(f, "unknown (code = %"PRId32")\n\n", v);
       }
       fflush(f);
     }
@@ -969,7 +969,7 @@ static void timeout_handler(void *p) {
 /*
  * MAIN SOLVER FUNCTION
  * - parse input file (assumed to be in SMT-LIB format)
- * - solve bechmark
+ * - solve benchmark
  * - return an exit code (defined in yices_exit_codes.h)
  */
 static int process_benchmark(void) {
@@ -1082,10 +1082,10 @@ static int process_benchmark(void) {
     if (need_icheck) {
       enable_splx_periodic_icheck(&context);
       if (logic == QF_LIA) {
-	// TESTS for yices_smtcomp8 on QF_LIA
-	enable_splx_eager_lemmas(&context);
-	params.use_simplex_prop = true;
-	params.tclause_size = 20;
+        // TESTS for yices_smtcomp8 on QF_LIA
+        enable_splx_eager_lemmas(&context);
+        params.use_simplex_prop = true;
+        params.tclause_size = 20;
       }
     }
     break;
@@ -1178,38 +1178,38 @@ static int process_benchmark(void) {
     switch (arch) {
     case CTX_ARCH_AUTO_IDL:
       if (context_has_idl_solver(&context)) {
-	// IDL/Floyd-Warshall: --flatten --cache-tclauses --fast-restarts
-	params.cache_tclauses = true;
-	params.tclause_size = 8;
-	params.fast_restart = true;
+        // IDL/Floyd-Warshall: --flatten --cache-tclauses --fast-restarts
+        params.cache_tclauses = true;
+        params.tclause_size = 8;
+        params.fast_restart = true;
       
       } else {
-	assert(context_has_simplex_solver(&context));
-	// SIMPLEX: --split-eqs --theory-branching --cache-tclauses
-	params.branching = BRANCHING_THEORY;
-	params.cache_tclauses = true;
-	params.tclause_size = 8;
-	// if equalities are present also enable --simplex-prop
-	if (get_diff_logic_profile(&context)->num_eqs >= 10) {
-	  params.use_simplex_prop = true;
-	}
+        assert(context_has_simplex_solver(&context));
+        // SIMPLEX: --split-eqs --theory-branching --cache-tclauses
+        params.branching = BRANCHING_THEORY;
+        params.cache_tclauses = true;
+        params.tclause_size = 8;
+        // if equalities are present also enable --simplex-prop
+        if (get_diff_logic_profile(&context)->num_eqs >= 10) {
+          params.use_simplex_prop = true;
+        }
       }
       break;
 
     case CTX_ARCH_AUTO_RDL:
       if (context_has_rdl_solver(&context)) {
-	// RDL/Floyd-Warshall: --cache-tclauses --fast-restarts --tclause-size=20
-	params.cache_tclauses = true;
-	params.tclause_size = 20;
-	params.fast_restart = true;
+        // RDL/Floyd-Warshall: --cache-tclauses --fast-restarts --tclause-size=20
+        params.cache_tclauses = true;
+        params.tclause_size = 20;
+        params.fast_restart = true;
       } else {
-	assert(context_has_simplex_solver(&context));
-	// SIMPLEX: --theory-branching  --flatten --split-eqs
-	params.branching = BRANCHING_THEORY;
-	// test for version 1826
-	params.cache_tclauses = true;
-	params.tclause_size = 20;
-	params.use_simplex_prop = true;
+        assert(context_has_simplex_solver(&context));
+        // SIMPLEX: --theory-branching  --flatten --split-eqs
+        params.branching = BRANCHING_THEORY;
+        // test for version 1826
+        params.cache_tclauses = true;
+        params.tclause_size = 20;
+        params.use_simplex_prop = true;
       }
       break;
 
@@ -1253,9 +1253,9 @@ static int process_benchmark(void) {
       context_build_model(model, &context);
       printf("\n");
       if (full_model) {
-	model_print_full(stdout, model);
+        model_print_full(stdout, model);
       } else {
-	model_print(stdout, model);
+        model_print(stdout, model);
       }
 #if CHECK_MODEL
       check_model(stdout, &bench, model);      
@@ -1291,7 +1291,7 @@ static int process_benchmark(void) {
 
 int main(int argc, char *argv[]) {
 #if SHOW_STATISTICS
-  show_statistics = true; // can be overriden by parse_command_line if enabled
+  show_statistics = true; // can be overridden by parse_command_line if enabled
 #endif
 
 #if COMMAND_LINE_OPTIONS

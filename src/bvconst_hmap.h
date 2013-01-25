@@ -99,7 +99,7 @@ extern void bvconst_hmap_set_val64(bvconst_hmap_t *hmap, int32_t x, uint64_t c, 
  * - c must point to an array of k words, where k = ceil(n/32).
  * - a copy of c is made internally then it's normalized modulo 2^n
  */
-extern void bvconst_hmap_set_val(bvconst_hmap_t *hamp, int32_t x, uint32_t *c, uint32_t n);
+extern void bvconst_hmap_set_val(bvconst_hmap_t *hmap, int32_t x, uint32_t *c, uint32_t n);
 
 
 

@@ -838,7 +838,7 @@ static void egraph_trail_save(egraph_trail_stack_t *stack, uint32_t nt, uint32_t
     } else {
       n += n;
       if (n >= MAX_EGRAPH_TRAIL_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
     }
     stack->data = (egraph_trail_t *) safe_realloc(stack->data, n * sizeof(egraph_trail_t));
@@ -1719,7 +1719,7 @@ static inline void add_eq_implies_eq(egraph_t *egraph, composite_t *p, occ_t x, 
  * The implied equality is always (p->id == false), where p is an equality term.
  */
 static inline void add_diseq_implies_eq(egraph_t *egraph, composite_t *p, occ_t x, 
-					occ_t t1, occ_t t2, uint32_t dmsk) {
+                                        occ_t t1, occ_t t2, uint32_t dmsk) {
   int32_t k;
   uint32_t i;
 
@@ -2405,7 +2405,7 @@ bool egraph_check_distinct_true(egraph_t *egraph, composite_t *d) {
     for (j=i+1; j<n; j++) {
       y = d->child[j];
       if (! egraph_check_diseq(egraph, x, y) && ! egraph_check_theory_diseq(egraph, x, y)) {
-	return false;
+        return false;
       }
     }
   }
@@ -2467,7 +2467,7 @@ static bool egraph_term_asserted_false(egraph_t *egraph, eterm_t t) {
   for (i=egraph->stack.prop_ptr; i<n; i++) {
     e = egraph->stack.eq + i;
     if ((e->lhs == u && e->rhs == false_occ) || 
-	(e->lhs == false_occ && e->rhs == u)) {
+        (e->lhs == false_occ && e->rhs == u)) {
       return true;
     }      
   }
@@ -2806,17 +2806,17 @@ static occ_t egraph_reduce_apply(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a
       return composite_child(cmp, n+1);
     } else {
       if (g != f) {
-	// (apply f a[0] ... a[n-1]) == (apply g a[0] ... a[n-1])
-	// so we return (apply g a[0] ... a[n-1]).
-	t = egraph_apply_term(egraph, g, n, a);
-	if (egraph_term_is_fresh(egraph, t)) {
-	  type_t tau;
+        // (apply f a[0] ... a[n-1]) == (apply g a[0] ... a[n-1])
+        // so we return (apply g a[0] ... a[n-1]).
+        t = egraph_apply_term(egraph, g, n, a);
+        if (egraph_term_is_fresh(egraph, t)) {
+          type_t tau;
 
-	  tau = egraph_term_real_type(egraph, term_of_occ(g));
-	  tau = function_type_range(egraph->types, tau);
-	  auto_activate(egraph, t, tau);
-	}
-	return pos_occ(t);
+          tau = egraph_term_real_type(egraph, term_of_occ(g));
+          tau = function_type_range(egraph->types, tau);
+          auto_activate(egraph, t, tau);
+        }
+        return pos_occ(t);
       }
       break;
     }
@@ -2976,10 +2976,10 @@ eterm_t egraph_make_apply(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a, type_
       // check for apply/update reduction
       u = egraph_reduce_apply(egraph, f, n, a);
       if (u != null_occurrence) {
-	// add (t == u) as an axiom
-	k = egraph_stack_push_eq(&egraph->stack, pos_occ(t), u);
-	egraph->stack.etag[k] = EXPL_AXIOM;
-	egraph->stats.app_reductions ++;
+        // add (t == u) as an axiom
+        k = egraph_stack_push_eq(&egraph->stack, pos_occ(t), u);
+        egraph->stack.etag[k] = EXPL_AXIOM;
+        egraph->stats.app_reductions ++;
       }
     }
   }
@@ -3349,7 +3349,7 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
     assert(egraph_term_type(egraph, b2) == ETYPE_BOOL);
 
     if (egraph_option_enabled(egraph, EGRAPH_DYNAMIC_BOOLACKERMANN) &&
-	egraph->stats.boolack_lemmas < egraph->max_boolackermann) {
+        egraph->stats.boolack_lemmas < egraph->max_boolackermann) {
       
       /*
        * (f t_1 ... t_n) and (f u_1 ... u_n) are boolean.
@@ -3365,42 +3365,42 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
        */
       e = cache_get_ackermann_lemma(&egraph->cache, b1, b2);
       if (e->flag < egraph->boolack_threshold) {
-	e->flag ++;
-	if (e->flag == egraph->boolack_threshold) {
-	  x1 = egraph_term_base_thvar(egraph, b1);
-	  x2 = egraph_term_base_thvar(egraph, b2);
-	  if (x1 != null_thvar && x2 != null_thvar) {
-	    // generate the clause
-	    v = &egraph->aux_buffer;
-	    ivector_reset(v);
-	    n = composite_arity(c1);
-	    for (i=0; i<n; i++) {
-	      l = egraph_make_aux_eq(egraph, c1->child[i], c2->child[i]);
-	      if (l == null_literal) return; // quota exceeded: fail
-	      if (l != true_literal) {
-		ivector_push(v, not(l));
-	      }
-	    }
-	    i = v->size;
-	    // add x1 ==> x2
-	    ivector_push(v, neg_lit(x1));
-	    ivector_push(v, pos_lit(x2));	
-	    add_clause(egraph->core, v->size, v->data);
-	    // add x2 ==> x1
-	    v->data[i] = neg_lit(x2);
-	    v->data[i+1] = pos_lit(x1);
-	    add_clause(egraph->core, v->size, v->data); 
-	
-	    egraph->stats.boolack_lemmas ++;
-	  }
-	}
+        e->flag ++;
+        if (e->flag == egraph->boolack_threshold) {
+          x1 = egraph_term_base_thvar(egraph, b1);
+          x2 = egraph_term_base_thvar(egraph, b2);
+          if (x1 != null_thvar && x2 != null_thvar) {
+            // generate the clause
+            v = &egraph->aux_buffer;
+            ivector_reset(v);
+            n = composite_arity(c1);
+            for (i=0; i<n; i++) {
+              l = egraph_make_aux_eq(egraph, c1->child[i], c2->child[i]);
+              if (l == null_literal) return; // quota exceeded: fail
+              if (l != true_literal) {
+                ivector_push(v, not(l));
+              }
+            }
+            i = v->size;
+            // add x1 ==> x2
+            ivector_push(v, neg_lit(x1));
+            ivector_push(v, pos_lit(x2));       
+            add_clause(egraph->core, v->size, v->data);
+            // add x2 ==> x1
+            v->data[i] = neg_lit(x2);
+            v->data[i+1] = pos_lit(x1);
+            add_clause(egraph->core, v->size, v->data); 
+        
+            egraph->stats.boolack_lemmas ++;
+          }
+        }
       }
     }
 
   } else { 
 
     if (egraph_option_enabled(egraph, EGRAPH_DYNAMIC_ACKERMANN) &&
-	egraph->stats.ack_lemmas < egraph->max_ackermann) {
+        egraph->stats.ack_lemmas < egraph->max_ackermann) {
     
       /*
        * Non-boolean case: add the clause 
@@ -3412,48 +3412,48 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
        */
       e = cache_get_ackermann_lemma(&egraph->cache, b1, b2);
       if (e->flag < egraph->ackermann_threshold) {
-	e->flag ++;
-	if (e->flag == egraph->ackermann_threshold) {
-	  v = &egraph->aux_buffer;
-	  ivector_reset(v);
-	  n = composite_arity(c1);
-	  for (i=0; i<n; i++) {
-	    l = egraph_make_aux_eq(egraph, c1->child[i], c2->child[i]);
-	    if (l == null_literal) return; // aux_eq_quota exceeded
-	    if (l != true_literal) {
-	      ivector_push(v, not(l));
-	    }
-	  }
-	  l = egraph_make_eq(egraph, pos_occ(b1), pos_occ(b2));
-	  ivector_push(v, l);
+        e->flag ++;
+        if (e->flag == egraph->ackermann_threshold) {
+          v = &egraph->aux_buffer;
+          ivector_reset(v);
+          n = composite_arity(c1);
+          for (i=0; i<n; i++) {
+            l = egraph_make_aux_eq(egraph, c1->child[i], c2->child[i]);
+            if (l == null_literal) return; // aux_eq_quota exceeded
+            if (l != true_literal) {
+              ivector_push(v, not(l));
+            }
+          }
+          l = egraph_make_eq(egraph, pos_occ(b1), pos_occ(b2));
+          ivector_push(v, l);
 
 #if 0
-	  printf("---> ackermann lemma[%"PRIu32"]:\n", egraph->stats.ack_lemmas + 1);
-	  n = v->size;
-	  assert(n > 0);
-	  if (n > 1) {
-	    printf("(or ");
-	  }
-	  for (i=0; i<n; i++) {
-	    printf(" ");
-	    print_egraph_atom_of_literal(stdout, egraph, v->data[i]);
-	  }
-	  if (n > 1) {
-	    printf(")");
-	  }
-	  printf("\n");
-	  printf("      ");
-	  print_eterm_def(stdout, egraph,  c1->id);
-	  printf("      ");
-	  print_eterm_def(stdout, egraph,  c2->id);
-	  fflush(stdout);
+          printf("---> ackermann lemma[%"PRIu32"]:\n", egraph->stats.ack_lemmas + 1);
+          n = v->size;
+          assert(n > 0);
+          if (n > 1) {
+            printf("(or ");
+          }
+          for (i=0; i<n; i++) {
+            printf(" ");
+            print_egraph_atom_of_literal(stdout, egraph, v->data[i]);
+          }
+          if (n > 1) {
+            printf(")");
+          }
+          printf("\n");
+          printf("      ");
+          print_eterm_def(stdout, egraph,  c1->id);
+          printf("      ");
+          print_eterm_def(stdout, egraph,  c2->id);
+          fflush(stdout);
 #endif
 
-	  add_clause(egraph->core, v->size, v->data);
+          add_clause(egraph->core, v->size, v->data);
 
-	  // update statistics
-	  egraph->stats.ack_lemmas ++;
-	}
+          // update statistics
+          egraph->stats.ack_lemmas ++;
+        }
       }
     }
   }
@@ -3531,7 +3531,7 @@ static void propagate_tuple_equality(egraph_t *egraph, eterm_t v1, eterm_t v2) {
   // if input is type correct, then p1 and p2 must have same arity
   // so p1->tag == p2->tag
   assert(composite_body(p1) && composite_body(p2) && p1->tag == p2->tag
-	 && composite_kind(p1) == COMPOSITE_TUPLE);
+         && composite_kind(p1) == COMPOSITE_TUPLE);
 
   assert(egraph_equal_occ(egraph, pos_occ(v1), pos_occ(v2)));
 
@@ -3575,12 +3575,12 @@ static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2) {
        * assign the same value to atm->boolvar, with NULL as antecedent
        */
       assert(egraph_term_is_true(egraph, atm->eterm) || 
-	     egraph_term_is_false(egraph, atm->eterm));
+             egraph_term_is_false(egraph, atm->eterm));
 
       if (bvar_value(core, atm->boolvar) == VAL_UNDEF) {
-	l = mk_lit(atm->boolvar, egraph_term_is_false(egraph, atm->eterm));
-	propagate_literal(core, l, NULL);
-	egraph->stats.th_props ++;
+        l = mk_lit(atm->boolvar, egraph_term_is_false(egraph, atm->eterm));
+        propagate_literal(core, l, NULL);
+        egraph->stats.th_props ++;
       }
 
       atm = atm->next;
@@ -3606,8 +3606,8 @@ static void propagate_thvar_equality(egraph_t *egraph, class_t c1, thvar_t v1, c
   etype_t i;
 
   assert(v1 != null_thvar && v2 != null_thvar && 
-	 v1 == egraph_class_thvar(egraph, c1) &&
-	 v2 == egraph_class_thvar(egraph, c2));
+         v1 == egraph_class_thvar(egraph, c1) &&
+         v2 == egraph_class_thvar(egraph, c2));
 
   i = egraph->classes.etype[c1];
   switch (i) {
@@ -3643,8 +3643,8 @@ static void undo_thvar_equality(egraph_t *egraph, class_t c1, thvar_t v1, class_
   smt_core_t *core;
 
   assert(v1 != null_thvar && v2 != null_thvar && 
-	 v1 == egraph_class_thvar(egraph, c1) &&
-	 v2 == egraph_class_thvar(egraph, c2));
+         v1 == egraph_class_thvar(egraph, c1) &&
+         v2 == egraph_class_thvar(egraph, c2));
 
   if (egraph->classes.etype[c1] == ETYPE_BOOL) {
     core = egraph->core;
@@ -3710,7 +3710,7 @@ static void check_eq_atom(egraph_t *egraph, occ_t t, composite_t *atom) {
       c2 = egraph_class(egraph, t2);
       v2 = egraph->classes.thvar[c2];
       if (v1 != null_thvar && v2 != null_thvar) {
-	propagate_satellite_disequality(egraph, i, v1, v2, atom);	
+        propagate_satellite_disequality(egraph, i, v1, v2, atom);       
       }
       
     } else if (i == ETYPE_BOOL) {
@@ -3719,18 +3719,18 @@ static void check_eq_atom(egraph_t *egraph, occ_t t, composite_t *atom) {
        * Propagation rule: (eq t1 t2) == false implies (t1 == not t2)
        */
       if (! egraph_opposite_occ(egraph, t1, t2)) {
-	k = egraph_stack_push_eq(&egraph->stack, t1, opposite_occ(t2));
-	egraph->stack.etag[k] = EXPL_EQ;
-	egraph->stack.edata[k].t[0] = t;
-	egraph->stack.edata[k].t[1] = false_occ;
+        k = egraph_stack_push_eq(&egraph->stack, t1, opposite_occ(t2));
+        egraph->stack.etag[k] = EXPL_EQ;
+        egraph->stack.edata[k].t[0] = t;
+        egraph->stack.edata[k].t[1] = false_occ;
 #if TRACE
-	printf("---> EGRAPH: equality ");
-	print_occurrence(stdout, t1);
-	printf(" == ");
-	print_occurrence(stdout, opposite_occ(t2));
-	printf(" implied by ");
-	print_composite(stdout, atom);
-	printf(" == false\n");     
+        printf("---> EGRAPH: equality ");
+        print_occurrence(stdout, t1);
+        printf(" == ");
+        print_occurrence(stdout, opposite_occ(t2));
+        printf(" implied by ");
+        print_composite(stdout, atom);
+        printf(" == false\n");     
 #endif
       }
     }
@@ -3824,24 +3824,24 @@ static void assert_distinct(egraph_t *egraph, composite_t *atom) {
     for (j=0; j<m; j++) {
       p = v->data[j];
       if (valid_entry(p) && p->tag == mk_eq_tag()) {
-	// p in v implies that p is in the congruence table,
-	// so it was not false (or true) on entry to this function
-	t1 = p->child[0];
-	t2 = p->child[1];
-	c1 = egraph_class(egraph, t1);
-	c2 = egraph_class(egraph, t2);
-	assert(c1 == c || c2 == c);
+        // p in v implies that p is in the congruence table,
+        // so it was not false (or true) on entry to this function
+        t1 = p->child[0];
+        t2 = p->child[1];
+        c1 = egraph_class(egraph, t1);
+        c2 = egraph_class(egraph, t2);
+        assert(c1 == c || c2 == c);
 
-	if ((dmask[c1] & dmask[c2]) != 0) {
-	  assert((dmask[c1] & dmask[c2]) == msk);
-	  // p = (eq t1 t2) is false
-	  add_diseq_implies_eq(egraph, p, false_occ, t1, t2, msk);
-	  congruence_table_remove(&egraph->ctable, p);
-	  detach_composite(p, egraph->terms.label, egraph->classes.parents);
-	  assert(empty_entry(v->data[j]));
-	  // save p  to restore it on backtracking
-	  undo_stack_push_composite(&egraph->undo, p); 
-	}
+        if ((dmask[c1] & dmask[c2]) != 0) {
+          assert((dmask[c1] & dmask[c2]) == msk);
+          // p = (eq t1 t2) is false
+          add_diseq_implies_eq(egraph, p, false_occ, t1, t2, msk);
+          congruence_table_remove(&egraph->ctable, p);
+          detach_composite(p, egraph->terms.label, egraph->classes.parents);
+          assert(empty_entry(v->data[j]));
+          // save p  to restore it on backtracking
+          undo_stack_push_composite(&egraph->undo, p); 
+        }
 
       }
     }
@@ -4172,13 +4172,13 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
     p = v->data[j];
     if (valid_entry(p)) {
       if (composite_simplifies(egraph, p)) {
-	// p is no longer in the congruence table
-	// put a mark for backtracking
-	mark_use_vector_entry(v, j);
+        // p is no longer in the congruence table
+        // put a mark for backtracking
+        mark_use_vector_entry(v, j);
       } else {
-	// put p back into the use vectors
-	// this adds p into c1's parent vector
-	attach_composite(p, egraph->terms.label, egraph->classes.parents);
+        // put p back into the use vectors
+        // this adds p into c1's parent vector
+        attach_composite(p, egraph->terms.label, egraph->classes.parents);
       }
     }
   }
@@ -4203,8 +4203,8 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
     do {
       t = egraph_next(egraph, t);
       if (! check_atom_propagation(egraph, t)) {
-	// conflict
-	return false;
+        // conflict
+        return false;
       }
     } while (t != t2);    
   }
@@ -4230,9 +4230,9 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
     if (v2 != null_thvar) {
       v1 = egraph->classes.thvar[c1];
       if (v1 != null_thvar) {
-	propagate_thvar_equality(egraph, c1, v1, c2, v2);
+        propagate_thvar_equality(egraph, c1, v1, c2, v2);
       } else {
-	egraph->classes.thvar[c1] = v2;
+        egraph->classes.thvar[c1] = v2;
       }
     }
   }
@@ -4275,7 +4275,7 @@ void egraph_start_search(egraph_t *egraph) {
 
 #if TRACE
   fprintf(stdout, "---> EGRAPH START_SEARCH [dlevel = %"PRIu32", decisions = %"PRIu64"]\n", 
-	  egraph->decision_level, egraph->core->stats.decisions);
+          egraph->decision_level, egraph->core->stats.decisions);
   fprintf(stdout, "\n=== EGRAPH TERMS ===\n");
   print_egraph_terms(stdout, egraph);
   fprintf(stdout, "\n");
@@ -4599,7 +4599,7 @@ static void undo_merge(egraph_t *egraph, occ_t t2, elabel_t l2) {
     assert(egraph->classes.thvar[c1] != null_thvar);
     if (egraph->classes.thvar[c1] == egraph->classes.thvar[c2])  {
       if (c1 != bool_constant_class) {
-	egraph->classes.thvar[c1] = null_thvar;
+        egraph->classes.thvar[c1] = null_thvar;
       }
     } else {
       undo_thvar_equality(egraph, c1, egraph->classes.thvar[c1], c2, egraph->classes.thvar[c2]);
@@ -4818,7 +4818,7 @@ static void restore_eterms(egraph_t *egraph, uint32_t n) {
       // remove atom if there's one
       atom = get_egraph_atom_for_bvar(egraph, x);
       if (atom != NULL) {
-	delete_egraph_atom(egraph, atom);
+        delete_egraph_atom(egraph, atom);
       }
     }
   }
@@ -4968,7 +4968,7 @@ bool egraph_propagate(egraph_t *egraph) {
 
 #if TRACE
   printf("---> EGRAPH PROPAGATE [dlevel = %"PRIu32", decisions = %"PRIu64"]\n", 
-	 egraph->decision_level, egraph->core->stats.decisions);
+         egraph->decision_level, egraph->core->stats.decisions);
 #endif
 
   if (! egraph_internal_propagation(egraph)) {
@@ -4994,7 +4994,7 @@ bool egraph_propagate(egraph_t *egraph) {
   for (i=0; i<NUM_SATELLITES; i++) {
     if (egraph->ctrl[i] != NULL) {
       if (! egraph->ctrl[i]->propagate(egraph->th[i])) {
-	return false;
+        return false;
       }
     }
   }
@@ -5204,11 +5204,11 @@ static void check_interface_duplicates(ivector_t *v) {
     t2 = v->data[i+1];
     for (j=i+2; j<n; j += 2) {
       if ((v->data[j] == t1 && v->data[j+1] == t2) 
-	  || (v->data[j] == t2 && v->data[j+1] == t1)) {
-	printf("---> EGRAPH: interface lemma duplicate: "
-	       "v[%"PRIu32", %"PRIu32"] = (%"PRId32", %"PRId32"); "
-	       "v[%"PRIu32", %"PRIu32"] = (%"PRId32", %"PRId32")\n", i, i+1, t1, t2, j, j+1, v->data[j], v->data[j+1]);
-	fflush(stdout);
+          || (v->data[j] == t2 && v->data[j+1] == t1)) {
+        printf("---> EGRAPH: interface lemma duplicate: "
+               "v[%"PRIu32", %"PRIu32"] = (%"PRId32", %"PRId32"); "
+               "v[%"PRIu32", %"PRIu32"] = (%"PRId32", %"PRId32")\n", i, i+1, t1, t2, j, j+1, v->data[j], v->data[j+1]);
+        fflush(stdout);
       }
     }
   }
@@ -5344,8 +5344,8 @@ static void reconcile_thvar(egraph_t *egraph, class_t c1, thvar_t v1, class_t c2
   etype_t i;
 
   assert(v1 != null_thvar && v2 != null_thvar &&
-	 v1 == egraph_class_thvar(egraph, c1) &&
-	 v2 == egraph_class_thvar(egraph, c2));
+         v1 == egraph_class_thvar(egraph, c1) &&
+         v2 == egraph_class_thvar(egraph, c2));
 
   i = egraph->classes.etype[c1];
 
@@ -5454,11 +5454,11 @@ static bool test_merge(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
     p = v->data[j];
     if (valid_entry(p)) {
       if (composite_simplifies(egraph, p)) {
-	// p no longer a congruence root: put a mark for backtracking
-	mark_use_vector_entry(v, j);
+        // p no longer a congruence root: put a mark for backtracking
+        mark_use_vector_entry(v, j);
       } else {
-	// put p back into the use vectors: this add p to c's parent
-	attach_composite(p, egraph->terms.label, egraph->classes.parents);
+        // put p back into the use vectors: this add p to c's parent
+        attach_composite(p, egraph->terms.label, egraph->classes.parents);
       }
     }
   }
@@ -5898,14 +5898,14 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
     c = egraph->ctrl[ETYPE_FUNCTION]->final_check(egraph->th[ETYPE_FUNCTION]);    
     if (c == FCHECK_SAT) {
       if (egraph_is_high_order(egraph)) {
-	i = egraph->eg[ETYPE_FUNCTION]->reconcile_model(egraph->th[ETYPE_FUNCTION], 1);
-	if (i > 0) {
+        i = egraph->eg[ETYPE_FUNCTION]->reconcile_model(egraph->th[ETYPE_FUNCTION], 1);
+        if (i > 0) {
 #if TRACE_FCHECK
-	  printf("---> exit after array reconcile: %"PRIu32" lemmas\n", i);
-	  fflush(stdout);
+          printf("---> exit after array reconcile: %"PRIu32" lemmas\n", i);
+          fflush(stdout);
 #endif
-	  c = FCHECK_CONTINUE;
-	}
+          c = FCHECK_CONTINUE;
+        }
       }
     } else {
 #if TRACE_FCHECK
@@ -6156,7 +6156,7 @@ void egraph_assert_distinct_axiom(egraph_t *egraph, uint32_t n, occ_t *t) {
      */
     for (i=0; i<n-1; i++) {
       for (j=i+1; j<n; j++) {
-	egraph_assert_diseq_axiom(egraph, t[i], t[j]);
+        egraph_assert_diseq_axiom(egraph, t[i], t[j]);
       }
     }
   }
@@ -6235,10 +6235,10 @@ void egraph_propagate_equality(egraph_t *egraph, eterm_t t1, eterm_t t2, expl_ta
   int32_t k;
 
   assert((id == EXPL_ARITH_PROPAGATION && egraph_term_is_arith(egraph, t1) && 
-	  egraph_term_is_arith(egraph, t2)) ||
-	 (id == EXPL_BV_PROPAGATION && egraph_term_is_bv(egraph, t1) && egraph_term_is_bv(egraph, t2)) ||
-	 (id == EXPL_FUN_PROPAGATION && egraph_term_is_function(egraph, t1) && 
-	  egraph_term_is_function(egraph, t2)));
+          egraph_term_is_arith(egraph, t2)) ||
+         (id == EXPL_BV_PROPAGATION && egraph_term_is_bv(egraph, t1) && egraph_term_is_bv(egraph, t2)) ||
+         (id == EXPL_FUN_PROPAGATION && egraph_term_is_function(egraph, t1) && 
+          egraph_term_is_function(egraph, t2)));
 
   if (egraph_equal_occ(egraph, pos_occ(t1), pos_occ(t2))) { 
     // redundant
@@ -6493,8 +6493,8 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
  *   so that push/pop/reset/start_search are not called twice
  */
 void egraph_attach_arithsolver(egraph_t *egraph, void *solver, th_ctrl_interface_t *ctrl,
-			       th_smt_interface_t *smt, th_egraph_interface_t *eg,
-			       arith_egraph_interface_t *arith_eg) {
+                               th_smt_interface_t *smt, th_egraph_interface_t *eg,
+                               arith_egraph_interface_t *arith_eg) {
 
   assert(egraph->core == NULL && egraph->arith_smt == NULL);
 
@@ -6513,8 +6513,8 @@ void egraph_attach_arithsolver(egraph_t *egraph, void *solver, th_ctrl_interface
  * Attach a bitvector solver
  */
 void egraph_attach_bvsolver(egraph_t *egraph, void *solver, th_ctrl_interface_t *ctrl,
-			    th_smt_interface_t *smt, th_egraph_interface_t *eg,
-			    bv_egraph_interface_t *bv_eg) {
+                            th_smt_interface_t *smt, th_egraph_interface_t *eg,
+                            bv_egraph_interface_t *bv_eg) {
 
   assert(egraph->core == NULL && egraph->bv_smt == NULL);
 
@@ -6532,7 +6532,7 @@ void egraph_attach_bvsolver(egraph_t *egraph, void *solver, th_ctrl_interface_t 
  * - ctrl, eg, fun_eg  = interface descriptors
  */
 void egraph_attach_funsolver(egraph_t *egraph, void *solver, th_ctrl_interface_t *ctrl,
-			     th_egraph_interface_t *eg, fun_egraph_interface_t *fun_eg) {
+                             th_egraph_interface_t *eg, fun_egraph_interface_t *fun_eg) {
   etype_t id;
 
   assert(egraph->core == NULL && egraph->ctrl[ETYPE_FUNCTION] == NULL);
@@ -6645,7 +6645,7 @@ void egraph_collect_applications(egraph_t *egraph, eterm_t f, pvector_t *v) {
     if (valid_entry(p) && composite_kind(p) == COMPOSITE_APPLY) {
       g = composite_child(p, 0); // function term of p
       if (egraph_class(egraph, g) == c) {
-	pvector_push(v, p);
+        pvector_push(v, p);
       }
     }
   }
@@ -6695,10 +6695,10 @@ elabel_t egraph_get_label_for_type(egraph_t *egraph, type_t tau) {
     k = 0;
     for (t=0; t<n; t++) {
       if (egraph_term_real_type(egraph, t) == tau) {
-	k ++;
-	if (random_uint(k) == 0) {
-	  u = t;
-	}
+        k ++;
+        if (random_uint(k) == 0) {
+          u = t;
+        }
       }
     }
     if (u == null_eterm) {
@@ -6741,14 +6741,14 @@ uint32_t egraph_get_labels_for_type(egraph_t *egraph, type_t tau, elabel_t *a, u
     k = 0;
     for (c=0; c<p; c++) {
       if (egraph_class_is_root_class(egraph, c)) {
-	t = term_of_occ(egraph_class_root(egraph, c));
-	if (egraph_term_real_type(egraph, t) == tau) {
-	  assert(k < n);
-	  a[k] = pos_label(c);
-	  assert(a[k] == egraph_term_label(egraph, t));
-	  k ++;
-	  if (k == n) break;
-	}
+        t = term_of_occ(egraph_class_root(egraph, c));
+        if (egraph_term_real_type(egraph, t) == tau) {
+          assert(k < n);
+          a[k] = pos_label(c);
+          assert(a[k] == egraph_term_label(egraph, t));
+          k ++;
+          if (k == n) break;
+        }
       }
     }
 
@@ -6772,7 +6772,7 @@ uint32_t egraph_num_classes_of_type(egraph_t *egraph, type_t tau) {
     if (egraph_class_is_root_class(egraph, c)) {
       t = term_of_occ(egraph_class_root(egraph, c));
       if (egraph_term_real_type(egraph, t) == tau) {
-	k ++;
+        k ++;
       }
     }
   }
@@ -6848,8 +6848,8 @@ void egraph_build_arg_partition(egraph_t *egraph) {
     n --;
     cmp = egraph_term_body(egraph, n);
     if (composite_body(cmp) && 
-	composite_kind(cmp) == COMPOSITE_APPLY && 
-	congruence_table_is_root(&egraph->ctable, cmp, egraph->terms.label)) {
+        composite_kind(cmp) == COMPOSITE_APPLY && 
+        congruence_table_is_root(&egraph->ctable, cmp, egraph->terms.label)) {
       ptr_partition_add(pp, cmp);
     }
   }
@@ -7025,7 +7025,7 @@ static value_t make_fresh_tuple(egraph_t *egraph, value_table_t *vtbl, type_t ta
     default:
       aux[i] = make_fresh_value(egraph, vtbl, sigma);
       if (! object_is_unknown(vtbl, aux[i])) {
-	fresh = true;
+        fresh = true;
       }
       break;
     } 
@@ -7067,10 +7067,10 @@ static value_t make_fresh_value(egraph_t *egraph, value_table_t *vtbl, type_t ta
       aux = &egraph->mdl.arith_buffer;
       // try to get a fresh value from the solver
       if (egraph->arith_eg->fresh_value(egraph->th[ETYPE_INT], aux, is_integer_type(tau))) {
-	v = vtbl_mk_rational(vtbl, aux);
+        v = vtbl_mk_rational(vtbl, aux);
       } else {
-	// solver failed to create a fresh value
-	v = vtbl_mk_unknown(vtbl);
+        // solver failed to create a fresh value
+        v = vtbl_mk_unknown(vtbl);
       }
     }
     break;
@@ -7084,9 +7084,9 @@ static value_t make_fresh_value(egraph_t *egraph, value_table_t *vtbl, type_t ta
       // get a fresh value from the solver
       bv = &egraph->mdl.bv_buffer;
       if (egraph->bv_eg->fresh_value(egraph->th[ETYPE_BV], bv, n)) {
-	v = vtbl_mk_bv_from_constant(vtbl, bv);
+        v = vtbl_mk_bv_from_constant(vtbl, bv);
       } else {
-	v = vtbl_mk_unknown(vtbl);
+        v = vtbl_mk_unknown(vtbl);
       }
     }
     break;
@@ -7148,13 +7148,13 @@ static value_t egraph_concretize_value(egraph_t *egraph, value_table_t *vtbl, pa
     case LABEL_PARTICLE:
       l = particle_label(pstore, x);
       if (is_pos_label(l)) {
-	v = egraph_value_of_class(egraph, vtbl, class_of(l));
+        v = egraph_value_of_class(egraph, vtbl, class_of(l));
       } else if (l == false_label) {
-	v  = vtbl_mk_false(vtbl);
+        v  = vtbl_mk_false(vtbl);
       } else {
-	// should not happen
-	assert(false);
-	v = vtbl_mk_unknown(vtbl);
+        // should not happen
+        assert(false);
+        v = vtbl_mk_unknown(vtbl);
       }
       break;
 
@@ -7346,13 +7346,13 @@ static value_t egraph_value_of_tuple_class(egraph_t *egraph, value_table_t *vtbl
     for (i=0; i<n; i++) {
       l = egraph_label(egraph, composite_child(cmp, i));
       if (is_pos_label(l)) {
-	aux[i] = egraph_value_of_class(egraph, vtbl, class_of(l));
+        aux[i] = egraph_value_of_class(egraph, vtbl, class_of(l));
       } else if (l == false_label) {
-	aux[i] = vtbl_mk_false(vtbl);
+        aux[i] = vtbl_mk_false(vtbl);
       } else {
-	// should not happen if all boolean terms have a value
-	assert(false);
-	aux[i] = vtbl_mk_unknown(vtbl);
+        // should not happen if all boolean terms have a value
+        assert(false);
+        aux[i] = vtbl_mk_unknown(vtbl);
       }
     }
 
@@ -7468,8 +7468,8 @@ static value_t egraph_make_fun_value(egraph_t *egraph, value_table_t *vtbl, clas
     if (valid_entry(p) && composite_kind(p) == COMPOSITE_APPLY) {
       g = composite_child(p, 0); // function term of p
       if (egraph_class(egraph, g) == c) {
-	all_maps[j] = egraph_composite_value(egraph, vtbl, p);
-	j ++;
+        all_maps[j] = egraph_composite_value(egraph, vtbl, p);
+        j ++;
       }
     }
   }
@@ -7592,7 +7592,7 @@ static value_t egraph_value_of_class(egraph_t *egraph, value_table_t *vtbl, clas
        * the bool_constant_class. So the value[c] must be true.
        */
       assert(c == bool_constant_class &&
-	     bvar_value(egraph->core, egraph_class_thvar(egraph, c)) == VAL_TRUE);
+             bvar_value(egraph->core, egraph_class_thvar(egraph, c)) == VAL_TRUE);
       v = vtbl_mk_true(vtbl);
       break;
 

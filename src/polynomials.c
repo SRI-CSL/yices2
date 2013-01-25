@@ -158,7 +158,7 @@ void sort_monarray(monomial_t *a, uint32_t n) {
  *   from rationals.h 
  */
 static void quick_sort_monarray2(monomial_t *a, void *data, var_cmp_fun_t cmp, 
-				 uint32_t low, uint32_t high) {
+                                 uint32_t low, uint32_t high) {
   uint32_t i, j, p;
   monomial_t pivot, aux;
 
@@ -238,10 +238,10 @@ uint32_t normalize_monarray(monomial_t *a, uint32_t n) {
       q_clear(&a[i].coeff);
     } else {
       if (q_is_nonzero(&c)) {
-	a[j].var = v;
-	// copy c into a[j].coeff, then clear c
-	q_copy_and_clear(&a[j].coeff, &c);
-	j ++;
+        a[j].var = v;
+        // copy c into a[j].coeff, then clear c
+        q_copy_and_clear(&a[j].coeff, &c);
+        j ++;
       }
       v = a[i].var;
       // copy a[i].coeff in c then clear a[i].coeff
@@ -541,7 +541,7 @@ void monarray_pair_common_part(monomial_t *p, monomial_t *q, ivector_t *v) {
       y = q->var;
     } else {
       if (q_eq(&p->coeff, &q->coeff)) {
-	ivector_push(v, x);
+        ivector_push(v, x);
       }
       p ++;
       x = p->var;
@@ -586,9 +586,9 @@ void monarray_pair_non_common_gcd(monomial_t *p, monomial_t *q, rational_t *fact
     if (x == y) {
       if (x == max_idx) break;
       if (q_neq(&p->coeff, &q->coeff)) {
-	// a.x and b.x not in the common part
-	aux_gcd(factor, &p->coeff);
-	aux_gcd(factor, &q->coeff);
+        // a.x and b.x not in the common part
+        aux_gcd(factor, &p->coeff);
+        aux_gcd(factor, &q->coeff);
       }
       p ++;
       x = p->var;

@@ -178,7 +178,7 @@ static uint32_t allocate_class(ipart_t *pp) {
       n ++;
       n += n>>1; // 50% larger
       if (n > MAX_IPART_CSIZE) {
-	out_of_memory();
+        out_of_memory();
       }
     }
 
@@ -221,7 +221,7 @@ void int_partition_add(ipart_t *pp, int32_t x) {
       r->data = x;
       pp->nelems ++;
       if (pp->nelems > pp->resize_threshold) {
-	resize_int_partition(pp);
+        resize_int_partition(pp);
       }
       return;
     }
@@ -230,9 +230,9 @@ void int_partition_add(ipart_t *pp, int32_t x) {
       // match found: add ptr to r's class
       i = r->cid;
       if (i < 0) {
-	i = allocate_class(pp);
-	r->cid = i;
-	add_index_to_vector(pp->classes + i, r->data);
+        i = allocate_class(pp);
+        r->cid = i;
+        add_index_to_vector(pp->classes + i, r->data);
       }
       add_index_to_vector(pp->classes + i, x);
       return;

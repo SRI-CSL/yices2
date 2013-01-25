@@ -25,7 +25,7 @@ static bool is_power_of_two(uint32_t n) {
  * - the table is empty, classes is not allocated yet (NULL).
  */
 void init_ptr_hclass(ptr_hclass_t *table, uint32_t n, void *aux, pclass_hash_fun_t hash_fn, 
-		     pclass_match_fun_t match_fn) {
+                     pclass_match_fun_t match_fn) {
   void **tmp;
   uint32_t i;
 

@@ -24,7 +24,7 @@
  *   It's not possible to merge two classes whose roots are both frozen.
  *
  *   If rank[r] is less than 255, then the root is free. This means
- *   that r is an uninterprreted term and is not mapped to any object
+ *   that r is an uninterpreted term and is not mapped to any object
  *   yet (i.e., map[r] = NULL). The class of r has size >= 2^rank[r]
  *   and all elements in the class are uninterpreted. It's possible to
  *   merge the r's class with another class.
@@ -109,7 +109,7 @@ extern void delete_intern_tbl(intern_tbl_t *tbl);
 
 
 /*
- * Reset to the empty tblitution
+ * Reset to the empty table
  */
 extern void reset_intern_tbl(intern_tbl_t *tbl);
 
@@ -199,7 +199,7 @@ extern term_t intern_tbl_find_root(intern_tbl_t *tbl, term_t t);
 static inline bool intern_tbl_root_is_mapped(intern_tbl_t *tbl, term_t r) {
   assert(intern_tbl_is_root(tbl, r));
   return ai32_read(&tbl->map, index_of(r)) != NULL_MAP;
-}								  
+}                                                                 
 
 /*
  * Type of r's class (return the type of r if r is not in tbl)

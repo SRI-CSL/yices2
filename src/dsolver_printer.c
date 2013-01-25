@@ -175,14 +175,14 @@ static void dsolver_print_row_core(FILE *f, dsolver_t *solver, int32_t r, int32_
     // print the matrix element
     for (i=0; i<n; i++) {
       if (v[i] >= 0) {
-	assert(v[i] < solver->ncolumns);
-	c = solver->column[v[i]];
-	assert(c != NULL);
-	k = find_row(c, r);
-	assert(k >= 0);
+        assert(v[i] < solver->ncolumns);
+        c = solver->column[v[i]];
+        assert(c != NULL);
+        k = find_row(c, r);
+        assert(k >= 0);
 
-	fprintf(f, " ");
-	dsolver_print_monomial(f, &c->data[k].coeff, c->var, prefix);
+        fprintf(f, " ");
+        dsolver_print_monomial(f, &c->data[k].coeff, c->var, prefix);
       }
     }
 
@@ -298,14 +298,14 @@ static void dsolver_print_sol_row_core(FILE *f, dsolver_t *solver, int32_t x, in
     // print the matrix element
     for (i=0; i<n; i++) {
       if (v[i] >= 0) {
-	assert(v[i] < solver->ncolumns);
-	c = solver->column[v[i]];
-	assert(c != NULL);
-	k = find_row(c, r);
-	assert(k >= 0);
+        assert(v[i] < solver->ncolumns);
+        c = solver->column[v[i]];
+        assert(c != NULL);
+        k = find_row(c, r);
+        assert(k >= 0);
 
-	fprintf(f, " ");
-	dsolver_print_monomial(f, &c->data[k].coeff, c->var, 'i');
+        fprintf(f, " ");
+        dsolver_print_monomial(f, &c->data[k].coeff, c->var, 'i');
       }
     }
 
@@ -519,12 +519,12 @@ void dsolver_print_solved_columns(FILE *f, dsolver_t *solver) {
     for (r=0; r<solver->nrows; r++) {
       fprintf(f, "row[%"PRId32"]:", r);
       for (j=0; j<n; j++) {
-	c = solver->solved_columns[j];
-	k = find_row(c, r);
-	if (k >= 0) {
-	  fprintf(f, " ");
-	  dsolver_print_monomial(f, &c->data[k].coeff, c->var, 'i');
-	}
+        c = solver->solved_columns[j];
+        k = find_row(c, r);
+        if (k >= 0) {
+          fprintf(f, " ");
+          dsolver_print_monomial(f, &c->data[k].coeff, c->var, 'i');
+        }
       }
       fprintf(f, "\n");      
     }
@@ -546,9 +546,9 @@ void dsolver_print_solution(FILE *f, dsolver_t *solver) {
     n = solver->nvars;
     for (i=0; i<n; i++) {
       if (solver->sol_row[i] >= 0) {
-	fprintf(f, "  x_%"PRIu32" = ", i);
-	q_print(f, dsolver_get_value(solver, i));
-	fprintf(f, "\n");
+        fprintf(f, "  x_%"PRIu32" = ", i);
+        q_print(f, dsolver_get_value(solver, i));
+        fprintf(f, "\n");
       }
     }
   }
@@ -571,9 +571,9 @@ void dsolver_print_gen_solution(FILE *f, dsolver_t *solver) {
     for (i=0; i<n; i++) {
       p = dsolver_gen_sol(solver, i);
       if (p != NULL && solver->sol_row[i] >= 0) {
-	fprintf(f, "  x_%"PRIu32" = ", i);
-	dsolver_print_poly(f, p, 'i');
-	fprintf(f, "\n");
+        fprintf(f, "  x_%"PRIu32" = ", i);
+        dsolver_print_poly(f, p, 'i');
+        fprintf(f, "\n");
       }
     }
   }
@@ -605,13 +605,13 @@ static void dsolver_print_matrix_row(FILE *f, row_t *row, int32_t m) {
     for (i=0; i<n; i++) {
       x = row->data[i].c_idx;
       if (x >= 0) {
-	fputc(' ', f);
-	if (x == const_idx) {
-	  q_print(f, &row->data[i].coeff);
-	} else {
-	  prefix = x < m ? 'x' : 'i';
-	  dsolver_print_monomial(f, &row->data[i].coeff, x, prefix);
-	}
+        fputc(' ', f);
+        if (x == const_idx) {
+          q_print(f, &row->data[i].coeff);
+        } else {
+          prefix = x < m ? 'x' : 'i';
+          dsolver_print_monomial(f, &row->data[i].coeff, x, prefix);
+        }
       } 
     }
 

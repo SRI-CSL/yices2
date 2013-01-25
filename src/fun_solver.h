@@ -311,7 +311,7 @@ typedef struct fun_solver_s {
  * - ttbl = attached type table
  */
 extern void init_fun_solver(fun_solver_t *solver, smt_core_t *core,
-			    gate_manager_t *gates, egraph_t *egraph, type_table_t *ttbl);
+                            gate_manager_t *gates, egraph_t *egraph, type_table_t *ttbl);
 
 
 /*
@@ -467,7 +467,7 @@ extern void fun_solver_build_model(fun_solver_t *solver, pstore_t *store);
 /*
  * Return the map assigned to theory variable x
  * - that's the map of root[x]
- * - retun NULL if the construction fails in some way
+ * - return NULL if the construction fails in some way
  */
 extern map_t *fun_solver_value_in_model(fun_solver_t *solver, thvar_t x);
 

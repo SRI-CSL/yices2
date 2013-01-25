@@ -151,7 +151,7 @@ static clause_t *new_clause(uint32_t len, literal_t *lit) {
   uint32_t i;
 
   result = (clause_t *) safe_malloc(sizeof(clause_t) + sizeof(literal_t) + 
-				    len * sizeof(literal_t));
+                                    len * sizeof(literal_t));
 
   for (i=0; i<len; i++) {
     result->cl[i] = lit[i];
@@ -182,7 +182,7 @@ static clause_t *new_learned_clause(uint32_t len, literal_t *lit) {
   uint32_t i;
 
   tmp = (learned_clause_t *) safe_malloc(sizeof(learned_clause_t) + sizeof(literal_t) + 
-					 len * sizeof(literal_t));
+                                         len * sizeof(literal_t));
   tmp->activity = 0.0;
   result = &(tmp->clause);
 
@@ -307,10 +307,10 @@ static void add_literal_to_vector(literal_t **v, literal_t l) {
       n ++;
       n += n>>1; // new cap = 50% more than old capacity
       if (n > MAX_LITERAL_VECTOR_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
       vector = (literal_vector_t *) 
-	safe_realloc(vector, sizeof(literal_vector_t) + n * sizeof(literal_t));
+        safe_realloc(vector, sizeof(literal_vector_t) + n * sizeof(literal_t));
       vector->capacity = n;
       d = vector->data;
       *v = d;
@@ -762,7 +762,7 @@ static void init_trail_stack(trail_stack_t *stack) {
  * - t_ptr = theory propagation pointer
  */
 static void trail_stack_save(trail_stack_t *stack, uint32_t v, uint32_t u, uint32_t b, uint32_t p, 
-			     uint32_t b_ptr, uint32_t t_ptr) {
+                             uint32_t b_ptr, uint32_t t_ptr) {
   uint32_t i, n;
 
   i = stack->top;
@@ -773,7 +773,7 @@ static void trail_stack_save(trail_stack_t *stack, uint32_t v, uint32_t u, uint3
     } else {
       n += n;
       if (n >= MAX_DPLL_TRAIL_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
     }
     stack->data = (trail_t *) safe_realloc(stack->data, n * sizeof(trail_t));
@@ -1050,7 +1050,7 @@ static void push_lemma(lemma_queue_t *queue, uint32_t n, literal_t *a) {
 
   blk = find_block_for_lemma(queue, n+1);
   assert(queue->free_block > 0 && blk == queue->block[queue->free_block-1] 
-	 && blk->ptr + n < blk->size);
+         && blk->ptr + n < blk->size);
 
   b = blk->data + blk->ptr;
   for (i=0; i<n; i++) {
@@ -1265,8 +1265,8 @@ static inline void reset_statistics(dpll_stats_t *stats) {
  * parameters are set to their default values
  */
 void init_smt_core(smt_core_t *s, uint32_t n, void *th, 
-		   th_ctrl_interface_t *ctrl, th_smt_interface_t *smt,
-		   smt_mode_t mode) {
+                   th_ctrl_interface_t *ctrl, th_smt_interface_t *smt,
+                   smt_mode_t mode) {
   uint32_t lsize;
   
   s->th_solver = th;
@@ -1783,7 +1783,7 @@ void decide_literal(smt_core_t *s, literal_t l) {
   bvar_t v;
 
   assert((s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED) 
-	 && s->value[l] == VAL_UNDEF);
+         && s->value[l] == VAL_UNDEF);
 
   s->stats.decisions ++;
 
@@ -2407,42 +2407,42 @@ static inline bool propagation_via_watched_list(smt_core_t *s, uint8_t *val, lit
       k = 1;
       b = cl->cl;
       do {
-	k ++;
-	l = b[k];
+        k ++;
+        l = b[k];
       } while (val[l] == VAL_FALSE);
       
       if (l >= 0) {
-	/*
-	 * l occurs in b[k] = cl->cl[k] and is either TRUE or UNDEF
-	 * make l a new watched literal
-	 * - swap b[i] and b[k]
+        /*
+         * l occurs in b[k] = cl->cl[k] and is either TRUE or UNDEF
+         * make l a new watched literal
+         * - swap b[i] and b[k]
          * - insert cl into l's watched list (link[i])
-	 */
-	b[k] = b[i];
-	b[i] = l;
+         */
+        b[k] = b[i];
+        b[i] = l;
 
-	// insert cl in watch[l] list and move to the next clause
-	link = cl->link[i];
-	s->watch[l] = cons(i, cl, s->watch[l]);
+        // insert cl in watch[l] list and move to the next clause
+        link = cl->link[i];
+        s->watch[l] = cons(i, cl, s->watch[l]);
       } else {
-	/*
-	 * All literals of cl, except possibly l1, are false
-	 */
-	if (v1 == VAL_UNDEF) {
-	  // l1 is implied
-	  implied_literal(s, l1, mk_clause_antecedent(cl, i^1));
+        /*
+         * All literals of cl, except possibly l1, are false
+         */
+        if (v1 == VAL_UNDEF) {
+          // l1 is implied
+          implied_literal(s, l1, mk_clause_antecedent(cl, i^1));
 
-	  // move to the next clause
-	  *list = link;
-	  list = cl->link + i;
-	  link = cl->link[i];
+          // move to the next clause
+          *list = link;
+          list = cl->link + i;
+          link = cl->link[i];
 
-	} else {
-	  // v1 == VAL_FALSE: conflict found
-	  record_clause_conflict(s, cl);
-	  *list = link;
-	  return false;
-	}
+        } else {
+          // v1 == VAL_FALSE: conflict found
+          record_clause_conflict(s, cl);
+          *list = link;
+          return false;
+        }
       }
     }
   }
@@ -2524,14 +2524,14 @@ static bool theory_propagation(smt_core_t *s) {
     x = var_of(l);
     if (x < n && tst_bit(has_atom, x)) {
       if (! s->th_smt.assert_atom(s->th_solver, atom[x], l)) {
-	// theory conflict reported
-	//	assert(s->inconsistent && s->theory_conflict);
-	/*
-	 * HACK: Changed this assert because the bvsolver adds the empty clause
-	 * rather than create a theory conflict.
-	 */
-	assert(s->inconsistent);
-	return false;
+        // theory conflict reported
+        //      assert(s->inconsistent && s->theory_conflict);
+        /*
+         * HACK: Changed this assert because the bvsolver adds the empty clause
+         * rather than create a theory conflict.
+         */
+        assert(s->inconsistent);
+        return false;
       }
     }
   }
@@ -2714,8 +2714,8 @@ static void add_learned_clause(smt_core_t *s, uint32_t n, literal_t *a) {
     for (i=2; i<n; i++) {
       q = s->level[var_of(a[i])];
       if (q > k) {
-	k = q;
-	j = i;
+        k = q;
+        j = i;
       }
     }
 
@@ -2924,7 +2924,7 @@ static void try_cache_theory_implication(smt_core_t *s, uint32_t n, literal_t *a
  */
 static void explain_antecedent(smt_core_t *s, literal_t l, antecedent_t a) {
   assert(s->value[l] == VAL_TRUE && a == s->antecedent[var_of(l)] && 
-	 antecedent_tag(a) == generic_tag);
+         antecedent_tag(a) == generic_tag);
 
   ivector_reset(&s->explanation);
   s->th_smt.expand_explanation(s->th_solver, l, generic_antecedent(a), &s->explanation);
@@ -3003,12 +3003,12 @@ static bool analyze_antecedents(smt_core_t *s, literal_t l, uint32_t sgn) {
     l1 = c[i];
     while (l1 >= 0) {
       if (is_lit_unmarked(s, l1)) {
-	if (check_level(s, l1, sgn)) {
-	  set_lit_mark(s, l1);
-	  ivector_push(b, l1);
-	} else {
-	  return false;
-	}
+        if (check_level(s, l1, sgn)) {
+          set_lit_mark(s, l1);
+          ivector_push(b, l1);
+        } else {
+          return false;
+        }
       }
       i ++;
       l1 = c[i];
@@ -3030,12 +3030,12 @@ static bool analyze_antecedents(smt_core_t *s, literal_t l, uint32_t sgn) {
     for (i=0; i<s->explanation.size; i++) {
       l1 = not(c[i]);
       if (is_lit_unmarked(s, l1)) {
-	if (check_level(s, l1, sgn)) {
-	  set_lit_mark(s, l1);
-	  ivector_push(b, l1);
-	} else {
-	  return false;
-	}	
+        if (check_level(s, l1, sgn)) {
+          set_lit_mark(s, l1);
+          ivector_push(b, l1);
+        } else {
+          return false;
+        }       
       }
     }
     break;
@@ -3284,61 +3284,61 @@ static void resolve_conflict(smt_core_t *s) {
     assert(d_level(s, b) == conflict_level);
     if (is_lit_marked(s, b)) {
       if (unresolved == 1) {
-	// not b is the implied literal; we're done.
-	buffer->data[0] = not(b);
-	break;
+        // not b is the implied literal; we're done.
+        buffer->data[0] = not(b);
+        break;
 
       } else {
-	unresolved --;
-	clear_lit_mark(s, b);
-	a = s->antecedent[var_of(b)];
-	/*
-	 * Process b's antecedent:
-	 */
-	switch (antecedent_tag(a)) {
-	case clause0_tag:
-	case clause1_tag:
-	  cl = clause_antecedent(a);
-	  i = clause_index(a);
-	  c = cl->cl;
-	  assert(c[i] == b);
-	  // process other watched literal
-	  l = c[i^1];
-	  process_literal(l);
-	  // rest of the clause
-	  c += 2;
-	  l = *c;
-	  while (l >= 0) {
-	    process_literal(l);
-	    c ++;
-	    l = *c;
-	  }
-	  if (l == end_learned) {
-	    increase_clause_activity(s, cl);
-	  }
-	  break;
+        unresolved --;
+        clear_lit_mark(s, b);
+        a = s->antecedent[var_of(b)];
+        /*
+         * Process b's antecedent:
+         */
+        switch (antecedent_tag(a)) {
+        case clause0_tag:
+        case clause1_tag:
+          cl = clause_antecedent(a);
+          i = clause_index(a);
+          c = cl->cl;
+          assert(c[i] == b);
+          // process other watched literal
+          l = c[i^1];
+          process_literal(l);
+          // rest of the clause
+          c += 2;
+          l = *c;
+          while (l >= 0) {
+            process_literal(l);
+            c ++;
+            l = *c;
+          }
+          if (l == end_learned) {
+            increase_clause_activity(s, cl);
+          }
+          break;
 
-	case literal_tag:
-	  l = literal_antecedent(a);
-	  process_literal(l);
-	  break;
+        case literal_tag:
+          l = literal_antecedent(a);
+          process_literal(l);
+          break;
 
-	case generic_tag:
-	  explain_antecedent(s, b, a);
-	  c = s->explanation.data;
-	  // explanation is c[0] ... c[n-1] where ((and c[0] ... c[n-1]) implies b)
-	  for (i=0; i<s->explanation.size; i++) {
-	    l = not(c[i]);
-	    assert(d_level(s, l) <= conflict_level);
-	    process_literal(l);
-	  }
-	  // cache the implication as a learned clause
-	  if (s->th_cache_enabled) {
-	    assert(i == s->explanation.size);
-	    try_cache_theory_implication(s, i, c, b);
-	  }
-	  break;
-	}
+        case generic_tag:
+          explain_antecedent(s, b, a);
+          c = s->explanation.data;
+          // explanation is c[0] ... c[n-1] where ((and c[0] ... c[n-1]) implies b)
+          for (i=0; i<s->explanation.size; i++) {
+            l = not(c[i]);
+            assert(d_level(s, l) <= conflict_level);
+            process_literal(l);
+          }
+          // cache the implication as a learned clause
+          if (s->th_cache_enabled) {
+            assert(i == s->explanation.size);
+            try_cache_theory_implication(s, i, c, b);
+          }
+          break;
+        }
       }
     }
   }
@@ -3704,8 +3704,8 @@ static bool preprocess_clause(smt_core_t *s, uint32_t *n, literal_t *a) {
  */
 static inline bool on_the_fly(smt_core_t *s) {
   assert((s->status == STATUS_IDLE && s->decision_level == s->base_level) || 
-	 (s->status == STATUS_SEARCHING && s->decision_level >= s->base_level) || 
-	 (s->status == STATUS_INTERRUPTED && s->decision_level >= s->base_level));
+         (s->status == STATUS_SEARCHING && s->decision_level >= s->base_level) || 
+         (s->status == STATUS_INTERRUPTED && s->decision_level >= s->base_level));
   return s->status != STATUS_IDLE;
 }
 
@@ -4204,8 +4204,8 @@ void remove_irrelevant_learned_clauses(smt_core_t *s) {
     if (! clause_is_locked(s, cl)) {
       relevance = i < p ? HEAD_RELEVANCE : TAIL_RELEVANCE;
       if (get_activity(cl) < HEAD_ACTIVITY - coeff * i && 
-	  unassigned_literals(s, cl) > relevance) {
-	mark_for_removal(cl);
+          unassigned_literals(s, cl) > relevance) {
+        mark_for_removal(cl);
       }
     }
   }
@@ -4313,8 +4313,8 @@ static void simplify_clause_set(smt_core_t *s) {
     n = get_cv_size(v);
     for (i=0; i<n; i++) {
       if (! is_clause_to_be_removed(v[i]) && 
-	  ! clause_is_locked(s, v[i])) {
-	simplify_clause(s, v[i]);
+          ! clause_is_locked(s, v[i])) {
+        simplify_clause(s, v[i]);
       }
     }
     s->stats.prob_literals = s->aux_literals;
@@ -4328,7 +4328,7 @@ static void simplify_clause_set(smt_core_t *s) {
     for (i=0; i<n; i++) {
       assert(! is_clause_to_be_removed(v[i]));
       if (! clause_is_locked(s, v[i])) {
-	simplify_clause(s, v[i]);
+        simplify_clause(s, v[i]);
       }
     }
     s->stats.learned_literals = s->aux_literals;
@@ -4344,8 +4344,8 @@ static void simplify_clause_set(smt_core_t *s) {
     n = get_cv_size(v);
     for (i=0; i<n; i++) {
       if (! is_clause_to_be_removed(v[i]) && 
-	  ! clause_is_locked(s, v[i])) {
-	mark_true_clause(s, v[i]);
+          ! clause_is_locked(s, v[i])) {
+        mark_true_clause(s, v[i]);
       }
     }
     s->stats.prob_literals = s->aux_literals;
@@ -4358,7 +4358,7 @@ static void simplify_clause_set(smt_core_t *s) {
     for (i=0; i<n; i++) {
       assert(! is_clause_to_be_removed(v[i]));
       if (! clause_is_locked(s, v[i])) {
-	mark_true_clause(s, v[i]);
+        mark_true_clause(s, v[i]);
       }
     }
     s->stats.learned_literals = s->aux_literals;
@@ -4381,10 +4381,10 @@ static void simplify_clause_set(smt_core_t *s) {
     j = 0;
     for (i=0; i<n; i++) {
       if (is_clause_to_be_removed(v[i])) {
-	delete_clause(v[i]);
+        delete_clause(v[i]);
       } else {
-	v[j] = v[i];
-	j ++;
+        v[j] = v[i];
+        j ++;
       }
     }
     set_cv_size(v, j);
@@ -4462,12 +4462,12 @@ static void simplify_binary_vectors(smt_core_t *s) {
     if (v0 != NULL) {
       n = get_lv_size(v0);
       for (j=0; j<n; j++) {
-	l1 = v0[j];
-	if (s->value[l1] == VAL_UNDEF) {
-	  // sol->bin[l1] is non null.
-	  assert(s->bin[l1] != NULL);
-	  cleanup_binary_clause_vector(s, s->bin[l1]);
-	}
+        l1 = v0[j];
+        if (s->value[l1] == VAL_UNDEF) {
+          // sol->bin[l1] is non null.
+          assert(s->bin[l1] != NULL);
+          cleanup_binary_clause_vector(s, s->bin[l1]);
+        }
       }
 
       delete_literal_vector(v0);
@@ -4566,9 +4566,9 @@ void smt_push(smt_core_t *s) {
    * - propagation pointers
    */
   trail_stack_save(&s->trail_stack, 
-		   s->nvars, s->nb_unit_clauses, s->binary_clauses.size, 
-		   get_cv_size(s->problem_clauses), 
-		   s->stack.prop_ptr, s->stack.theory_ptr);
+                   s->nvars, s->nb_unit_clauses, s->binary_clauses.size, 
+                   get_cv_size(s->problem_clauses), 
+                   s->stack.prop_ptr, s->stack.theory_ptr);
 
   /*
    * Notify the theory solver
@@ -4799,7 +4799,7 @@ void smt_pop(smt_core_t *s) {
    * Abort if push_pop is not enabled or if there's no pushed state
    */
   assert((s->option_flag & PUSH_POP_MASK) != 0 && s->base_level > 0 &&
-	 s->status != STATUS_INTERRUPTED && s->status != STATUS_SEARCHING);
+         s->status != STATUS_INTERRUPTED && s->status != STATUS_SEARCHING);
 
   // We need to backtrack before calling the pop function of th_solver
   backtrack_to_base_level(s);
@@ -4834,7 +4834,7 @@ void smt_pop(smt_core_t *s) {
  */
 void smt_cleanup(smt_core_t *s) {
   assert((s->status == STATUS_INTERRUPTED || s->status == STATUS_UNSAT) 
-	 && (s->option_flag & CLEAN_INTERRUPT_MASK) != 0); 
+         && (s->option_flag & CLEAN_INTERRUPT_MASK) != 0); 
   s->status = STATUS_IDLE; // make sure pop does not abort
   smt_pop(s);
 }
@@ -4889,7 +4889,7 @@ void smt_clear_unsat(smt_core_t *s) {
  */
 void smt_checkpoint(smt_core_t *s) {
   assert(s->status == STATUS_SEARCHING || 
-	 s->status == STATUS_INTERRUPTED);
+         s->status == STATUS_INTERRUPTED);
   push_checkpoint(&s->checkpoints, s->decision_level, s->nvars);
   s->cp_flag = false;
 }
@@ -5009,10 +5009,10 @@ static void remove_garbage_bin_clauses(smt_core_t *s, uint32_t old_nvars) {
     if (v0 != NULL) {
       n = get_lv_size(v0);
       for (j=0; j<n; j++) {
-	l = v0[j];
-	if (l < max && s->bin[l] != NULL) {
-	  cleanup_garbage_in_binary_clause_vector(s, s->bin[l]);
-	}
+        l = v0[j];
+        if (l < max && s->bin[l] != NULL) {
+          cleanup_garbage_in_binary_clause_vector(s, s->bin[l]);
+        }
       }
       delete_literal_vector(v0);
       s->bin[l0] = NULL;
@@ -5168,9 +5168,9 @@ static void purge_all_dynamic_atoms(smt_core_t *s) {
   bvar_t x;
 
   assert(s->base_level == s->decision_level && 
-	 s->stack.top == s->stack.prop_ptr && 
-	 s->stack.top == s->stack.theory_ptr &&
-	 s->nb_unit_clauses == s->stack.top);
+         s->stack.top == s->stack.prop_ptr && 
+         s->stack.top == s->stack.theory_ptr &&
+         s->nb_unit_clauses == s->stack.top);
 
   cp = &s->checkpoints;
   if (non_empty_checkpoint_stack(cp)) {
@@ -5186,13 +5186,13 @@ static void purge_all_dynamic_atoms(smt_core_t *s) {
       l = u[i];
       x = var_of(l);
       if (x >= base_nvars) {
-	// variable to delete
-	s->value[l] = VAL_UNDEF;
-	s->value[not(l)] = VAL_UNDEF;
+        // variable to delete
+        s->value[l] = VAL_UNDEF;
+        s->value[not(l)] = VAL_UNDEF;
       } else {
-	// keep l
-	u[j] = l;
-	j ++;
+        // keep l
+        u[j] = l;
+        j ++;
       }
     }
 
@@ -5341,10 +5341,10 @@ void smt_process(smt_core_t *s) {
     if (s->inconsistent) {
       resolve_conflict(s);
       if (s->inconsistent) {
-	// conflict could not be resolved: unsat problem
-	// the lemma queue may be non-empty so we must clear it here
-	reset_lemma_queue(&s->lemmas);
-	s->status = STATUS_UNSAT;
+        // conflict could not be resolved: unsat problem
+        // the lemma queue may be non-empty so we must clear it here
+        reset_lemma_queue(&s->lemmas);
+        s->status = STATUS_UNSAT;
       }
       // decay activities after every conflict
       s->cla_inc *= s->inv_cla_decay;
@@ -5372,7 +5372,7 @@ void smt_process(smt_core_t *s) {
       s->stack.top > s->simplify_bottom && 
       s->stats.propagations >= s->simplify_props + s->simplify_threshold) {
     simplify_clause_database(s);
-  }	
+  }     
 
 }
 
@@ -5456,9 +5456,9 @@ static bool all_binary_clauses_are_true(smt_core_t *s) {
       // check whether l is true for all binary clauses {l0, l}
       v = s->bin[l0];
       if (v != NULL) {
-	// this loop terminates with l<0 (end-marker) if all clauses {l0, l} are true
-	do { l = *v ++; } while (s->value[l] == VAL_TRUE);
-	if (l >= 0) return false;
+        // this loop terminates with l<0 (end-marker) if all clauses {l0, l} are true
+        do { l = *v ++; } while (s->value[l] == VAL_TRUE);
+        if (l >= 0) return false;
       }
     }
   }
@@ -5758,7 +5758,7 @@ static void check_marks(smt_core_t *s) {
     l = s->stack.lit[i];
     if (is_lit_unmarked(s, l)) {
       printf("Warning: literal %"PRId32" assigned at level %"PRIu32" but not marked\n", 
-	     l, s->level[var_of(l)]);
+             l, s->level[var_of(l)]);
       fflush(stdout);
     }
   }

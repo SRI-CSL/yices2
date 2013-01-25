@@ -1,5 +1,5 @@
 /*
- * Heap of generic objects (implemeted using void *pointers)
+ * Heap of generic objects (implemented using void *pointers)
  * - store pointers to a set of object
  * - the order between these objects is defined when the heap is
  *   initialized
@@ -25,7 +25,7 @@ typedef bool (* ptr_heap_cmp_fun_t)(void *x, void *y);
 
 
 /*
- * Heap stucture
+ * Heap structure
  * - nelems = number of elements stored in the heap
  * - heap = array of pointers
  *   heap[0] is a marker (always NULL)

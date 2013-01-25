@@ -183,12 +183,12 @@ void print_binary_clauses(FILE *f, smt_core_t *core) {
     bin = core->bin[l1];
     if (bin != NULL) {
       for (;;) {
-	l2 = *bin++;
-	if (l2 < 0) break;
-	if (l1 <= l2) {
-	  print_binary_clause(f, l1, l2);
-	  fputc('\n', f);
-	}
+        l2 = *bin++;
+        if (l2 < 0) break;
+        if (l1 <= l2) {
+          print_binary_clause(f, l1, l2);
+          fputc('\n', f);
+        }
       }
     }
   }
@@ -304,10 +304,10 @@ void print_conflict(FILE *f, smt_core_t *core) {
     } else {
       fputs("Conflict:", f);    
       while (l >= 0) {
-	fputc(' ', f);
-	print_literal(f, l);
-	i ++;
-	l = core->conflict[i];
+        fputc(' ', f);
+        print_literal(f, l);
+        i ++;
+        l = core->conflict[i];
       }
       fputc('\n', f);
     }

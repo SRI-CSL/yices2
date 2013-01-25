@@ -160,7 +160,7 @@ static value_t hash_eval_app(value_table_t *table, value_t f, uint32_t n, value_
     if (d[i].function == f) {
       j = d[i].map;
       if (mapping_matches_array(table, j, n, a)) {
-	return vtbl_map_result(table, j);
+        return vtbl_map_result(table, j);
       }
     }
     i ++;
@@ -177,7 +177,7 @@ static value_t hash_eval_app(value_table_t *table, value_t f, uint32_t n, value_
  * - there must be an empty slot in data
  */
 static void map_htbl_clean_copy(value_table_t *table, map_pair_t *data, 
-				map_pair_t *p, uint32_t mask) {
+                                map_pair_t *p, uint32_t mask) {
   uint32_t i;
   
   i = hash_map_pair(table, p->function, p->map) & mask;
@@ -766,7 +766,7 @@ value_t vtbl_mk_unint(value_table_t *table, type_t tau, char *name) {
   value_t i;
 
   assert(type_kind(table->type_table, tau) == SCALAR_TYPE || 
-	 type_kind(table->type_table, tau) == UNINTERPRETED_TYPE);
+         type_kind(table->type_table, tau) == UNINTERPRETED_TYPE);
 
   d = (value_unint_t *) safe_malloc(sizeof(value_unint_t));
   d->type = tau;
@@ -810,9 +810,9 @@ static uint32_t normalize_map_array(uint32_t n, value_t *a) {
     for (i=1; i<n; i++) {
       w = a[i];
       if (v != w) {
-	a[j] = w;
-	j ++;
-	v = w;
+        a[j] = w;
+        j ++;
+        v = w;
       }
     }
     n = j;
@@ -859,7 +859,7 @@ static uint32_t remove_redundant_mappings(value_table_t *table, uint32_t n, valu
  * *def and *tau
  */
 static void normalize_update(value_table_t *table, value_t i, map_hset_t *hset, 
-			     value_t *def, type_t *tau) { 
+                             value_t *def, type_t *tau) { 
   value_update_t *upd;
   value_fun_t *fun;
   uint32_t j, n;
@@ -1532,7 +1532,7 @@ value_t vtbl_mk_const(value_table_t *table, type_t tau, int32_t id, char *name) 
   value_t v;
 
   assert(type_kind(table->type_table, tau) == SCALAR_TYPE || 
-	 type_kind(table->type_table, tau) == UNINTERPRETED_TYPE);
+         type_kind(table->type_table, tau) == UNINTERPRETED_TYPE);
   assert(0 <= id);
 
   const_hobj.table = table;
@@ -1777,8 +1777,8 @@ value_t vtbl_eval_eq(value_table_t *table, value_t a, value_t b) {
      * a and b are non canonical
      */
     if (object_is_function(table, a) && object_is_function(table, b) && 
-	semi_canonical(table, a) && semi_canonical(table, b) && 
-	vtbl_function(table, a)->def == vtbl_function(table, b)->def) {
+        semi_canonical(table, a) && semi_canonical(table, b) && 
+        vtbl_function(table, a)->def == vtbl_function(table, b)->def) {
       // since the two maps have the same default value, there's no ambiguity
       v = vtbl_mk_false(table);
     } else {
@@ -1802,9 +1802,9 @@ value_t vtbl_eval_array_eq(value_table_t *table, value_t *a, value_t *b, uint32_
 
     if (a[i] != b[i]) {
       if (object_is_canonical(table, a[i]) || object_is_canonical(table, b[i])) {
-	return vtbl_mk_false(table);
+        return vtbl_mk_false(table);
       } else {
-	return vtbl_mk_unknown(table);
+        return vtbl_mk_unknown(table);
       }
     }
   }
@@ -2148,9 +2148,9 @@ void vtbl_print_anonymous_functions(FILE *f, value_table_t *table, bool show_def
     if (object_is_function(table, i)) {
       fun = table->desc[i].ptr;
       if (fun->name == NULL) {
-	vtbl_print_function(f, table, i, show_default);
+        vtbl_print_function(f, table, i, show_default);
       }
-    }	
+    }   
   }
 }
 
@@ -2437,9 +2437,9 @@ void vtbl_pp_anonymous_functions(yices_pp_t *printer, value_table_t *table, bool
     if (object_is_function(table, i)) {
       fun = table->desc[i].ptr;
       if (fun->name == NULL) {
-	vtbl_pp_function(printer, table, i, show_default);
+        vtbl_pp_function(printer, table, i, show_default);
       }
-    }	
+    }   
   }
 }
 

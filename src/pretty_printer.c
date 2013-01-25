@@ -144,7 +144,7 @@ static uint32_t line_width_for_indent(pp_area_t *area, uint32_t indent) {
  * - indent = initial indentation
  */
 static void init_printer(printer_t *p, FILE *file, pp_token_converter_t *converter,
-			 pp_area_t *area, pp_print_mode_t mode, uint32_t indent) {
+                         pp_area_t *area, pp_print_mode_t mode, uint32_t indent) {
   uint32_t next_width;
 
   p->file = file;
@@ -570,18 +570,18 @@ static void print_atomic_token(printer_t *p, pp_atomic_token_t *tk) {
       print_blank(p);
       new_col = p->col + tk->size;
       if (new_col + 4 <= p->margin) {
-	// tk fits and there's room for ' ...' after it
-	print_atomic(p, tk);
+        // tk fits and there's room for ' ...' after it
+        print_atomic(p, tk);
       } else if (new_col <= p->margin) {
-	// we can't tell whether tk fits fully yet 
-	// because we may need ellipsis after tk.
-	p->pending_col = p->col;
-	p->col = new_col;
-	pvector_push(&p->pending_tokens, tag_atomic(tk));
+        // we can't tell whether tk fits fully yet 
+        // because we may need ellipsis after tk.
+        p->pending_col = p->col;
+        p->col = new_col;
+        pvector_push(&p->pending_tokens, tag_atomic(tk));
       } else {
-	// tk does not fit: print it truncated followed by ellipsis
-	print_atomic_truncated(p, tk);
-	p->full_line = true;
+        // tk does not fit: print it truncated followed by ellipsis
+        print_atomic_truncated(p, tk);
+        p->full_line = true;
       }
 
     } else if (!p->full_line) {
@@ -593,14 +593,14 @@ static void print_atomic_token(printer_t *p, pp_atomic_token_t *tk) {
       // add tk to the pending tokens if it fits
       new_col = p->col + tk->size + (! p->no_space);
       if (new_col <= p->margin) {
-	p->col = new_col;
-	pvector_push(&p->pending_tokens, tag_atomic(tk));
+        p->col = new_col;
+        pvector_push(&p->pending_tokens, tag_atomic(tk));
       } else {
-	// the pending tokens don't fit
-	// print what we can + ellipsis
-	print_pending_truncated(p);
-	free_atomic_token(p, tk);
-	p->full_line = true;
+        // the pending tokens don't fit
+        // print what we can + ellipsis
+        print_pending_truncated(p);
+        free_atomic_token(p, tk);
+        p->full_line = true;
       }
 
     } else {
@@ -637,18 +637,18 @@ static void print_open_token(printer_t *p, pp_open_token_t *tk) {
       print_blank(p);
       new_col = p->col + tk->label_size + tk_has_par(tk);
       if (new_col + 4 <= p->margin) {
-	// tk fits and there's room for ' ...' after it
-	print_label(p, tk);
+        // tk fits and there's room for ' ...' after it
+        print_label(p, tk);
       } else if (new_col <= p->margin) {
-	// we can't tell whether tk fits yet
-	// because we may need ellipsis
-	p->pending_col = p->col;
-	p->col = new_col;
-	pvector_push(&p->pending_tokens, tag_open(tk));
+        // we can't tell whether tk fits yet
+        // because we may need ellipsis
+        p->pending_col = p->col;
+        p->col = new_col;
+        pvector_push(&p->pending_tokens, tag_open(tk));
       } else {
-	// tk does not fit: print it truncated
-	print_label_truncated(p, tk);
-	p->full_line = true;;
+        // tk does not fit: print it truncated
+        print_label_truncated(p, tk);
+        p->full_line = true;;
       }
 
     } else if (!p->full_line) {
@@ -660,14 +660,14 @@ static void print_open_token(printer_t *p, pp_open_token_t *tk) {
       // add tk to the pending tokens if it fits
       new_col = p->col + tk->bsize + tk_has_par(tk) + (! p->no_space);
       if (new_col <= p->margin) {
-	p->col = new_col;
-	pvector_push(&p->pending_tokens, tag_open(tk));
+        p->col = new_col;
+        pvector_push(&p->pending_tokens, tag_open(tk));
       } else {
-	// the pending tokens don't fit
-	// print what we can + ellipsis
-	print_pending_truncated(p);
-	free_open_token(p, tk);
-	p->full_line = true;
+        // the pending tokens don't fit
+        // print what we can + ellipsis
+        print_pending_truncated(p);
+        free_open_token(p, tk);
+        p->full_line = true;
       }
 
     } else {
@@ -696,32 +696,32 @@ static void print_close_token(printer_t *p, pp_close_token_t *tk) {
     if (p->area.truncate) {
 
       if (p->col + 5 <= p->margin) {
-	// tuncate mode, no pending tokens and enough space for ') ...'
-	assert(!p->full_line && p->pending_tokens.size == 0);
-	print_close(p, tk);
+        // tuncate mode, no pending tokens and enough space for ') ...'
+        assert(!p->full_line && p->pending_tokens.size == 0);
+        print_close(p, tk);
       } else if (p->col + 4 == p->margin) {
-	// truncate mode, no pending tokens, space for 4 more characters
-	assert(!p->full_line && p->pending_tokens.size == 0);
-	p->pending_col = p->col;
-	p->col ++;
-	pvector_push(&p->pending_tokens, tag_close(tk));
+        // truncate mode, no pending tokens, space for 4 more characters
+        assert(!p->full_line && p->pending_tokens.size == 0);
+        p->pending_col = p->col;
+        p->col ++;
+        pvector_push(&p->pending_tokens, tag_close(tk));
       } else if (!p->full_line) {
-	// pending tokens, line not full
-	assert(p->pending_tokens.size > 0);
-	if (p->col < p->margin) {
-	  // enough space for one more ')' 
-	  p->col ++;
-	  pvector_push(&p->pending_tokens, tag_close(tk));
-	} else  {
-	  // no space for ')'
-	  print_pending_truncated(p);
-	  free_close_token(p, tk);
-	  p->full_line = true;
-	}
+        // pending tokens, line not full
+        assert(p->pending_tokens.size > 0);
+        if (p->col < p->margin) {
+          // enough space for one more ')' 
+          p->col ++;
+          pvector_push(&p->pending_tokens, tag_close(tk));
+        } else  {
+          // no space for ')'
+          print_pending_truncated(p);
+          free_close_token(p, tk);
+          p->full_line = true;
+        }
       } else {
-	// the line is full
-	assert(p->pending_tokens.size == 0);
-	free_close_token(p, tk);
+        // the line is full
+        assert(p->pending_tokens.size == 0);
+        free_close_token(p, tk);
       }
 
     } else {
@@ -862,9 +862,9 @@ static void printer_push_state(printer_t *p, pp_open_token_t *tk) {
   pp_print_mode_t new_mode;
 
   assert(p->mode == pp_stack_top_mode(&p->stack) && 
-	 p->indent >= p->area.offset + pp_stack_top_indent(&p->stack) &&
-	 (!p->area.truncate || p->margin >= 4) &&
-	 p->line < p->area.height);
+         p->indent >= p->area.offset + pp_stack_top_indent(&p->stack) &&
+         (!p->area.truncate || p->margin >= 4) &&
+         p->line < p->area.height);
 
 
   /*
@@ -918,18 +918,18 @@ static void printer_push_state(printer_t *p, pp_open_token_t *tk) {
     default:
       // several layouts are allowed, check what works
       if (tk_has_hlayout(tk) && block_fits_horizontally(p, tk)) {
-	new_mode = PP_HMODE;
-	indent_delta = 0;
+        new_mode = PP_HMODE;
+        indent_delta = 0;
       } else if (tk_has_mlayout(tk) && subblocks_fit_horizontally(p, tk)) {
-	new_mode = PP_HVMODE;
-	indent_delta = tk->indent;
+        new_mode = PP_HVMODE;
+        indent_delta = tk->indent;
       } else if (tk_has_vlayout(tk) && subblocks_fit_horizontally(p, tk)) {
-	new_mode = PP_VMODE;
-	indent_delta = tk->indent;
+        new_mode = PP_VMODE;
+        indent_delta = tk->indent;
       } else {
-	new_mode = PP_VMODE;
-	indent_delta = tk->short_indent;
-	p->no_break = p->no_space;       
+        new_mode = PP_VMODE;
+        indent_delta = tk->short_indent;
+        p->no_break = p->no_space;       
       }
       break;
     }
@@ -969,9 +969,9 @@ static void printer_pop_state(printer_t *p) {
   uint32_t indent_delta;
 
   assert(p->mode == pp_stack_top_mode(&p->stack) &&
-	 p->indent >= p->area.offset + pp_stack_top_indent(&p->stack) &&
-	 (!p->area.truncate || p->margin >= 4) &&
-	 p->line < p->area.height);
+         p->indent >= p->area.offset + pp_stack_top_indent(&p->stack) &&
+         (!p->area.truncate || p->margin >= 4) &&
+         p->line < p->area.height);
 
   indent_delta = pp_stack_top_indent(&p->stack);
   pp_stack_pop(&p->stack);
@@ -1103,7 +1103,7 @@ static void extend_block_queue(pp_block_queue_t *q) {
  * - nsub is initialized to 0
  */
 static void block_queue_push(pp_block_queue_t *q, 
-			     pp_open_token_t *tk, uint32_t col) {
+                             pp_open_token_t *tk, uint32_t col) {
   uint32_t i, n, j;
 
   // q->tail is always available
@@ -1345,12 +1345,12 @@ static void set_bsizes_and_close(formatter_t *f) {
       assert(f->queue_size == 0);
       tk = f->head_token;
       if (tk != NULL) {
-	if (tk->fsize == 0) {
-	  tk->fsize = csize;
-	  tk->csize = csize;
-	} else if (tk->csize < csize) {
-	  tk->csize = csize;
-	}
+        if (tk->fsize == 0) {
+          tk->fsize = csize;
+          tk->csize = csize;
+        } else if (tk->csize < csize) {
+          tk->csize = csize;
+        }
       }
     } else {
       // update csize and fsize of the last block
@@ -1358,10 +1358,10 @@ static void set_bsizes_and_close(formatter_t *f) {
       b = last_block(&f->block_queue);
       tk = b->token;
       if (tk->fsize == 0) {
-	tk->fsize = csize;
-	tk->csize = csize;
+        tk->fsize = csize;
+        tk->csize = csize;
       } else if (tk->csize < csize) {
-	tk->csize = csize;
+        tk->csize = csize;
       }
     }
   }
@@ -1451,7 +1451,7 @@ static void flush_wide_blocks(formatter_t *f) {
       // update csize and fsize of the head token
       head->csize = PP_MAX_BSIZE;
       if (head->fsize == 0) {
-	head->fsize = PP_MAX_BSIZE;
+        head->fsize = PP_MAX_BSIZE;
       }
     }
     // print all queued tokens, until tk
@@ -1600,14 +1600,14 @@ static pp_area_t default_area = {
  * mode + indent are the bottom stack element
  */
 void init_pp(pp_t *pp, pp_token_converter_t *converter, FILE *file,
-	     pp_area_t *area, pp_print_mode_t mode, uint32_t indent) {
+             pp_area_t *area, pp_print_mode_t mode, uint32_t indent) {
 
   if (area == NULL) {
     area = &default_area;
   }
 
   assert(area->width >= PP_MINIMAL_WIDTH &&
-	 area->height >= PP_MINIMAL_HEIGHT);
+         area->height >= PP_MINIMAL_HEIGHT);
 
   init_printer(&pp->printer, file, converter, area, mode, indent);
   init_formatter(&pp->formatter, &pp->printer);
@@ -1690,8 +1690,8 @@ bool pp_is_full(pp_t *pp) {
  * - user_tag = whatever the converter needs
  */
 void *init_open_token(pp_open_token_t *tk, uint32_t formats, uint32_t flags,
-		      uint16_t lsize, uint16_t indent, uint16_t short_indent,
-		      uint32_t user_tag) {
+                      uint16_t lsize, uint16_t indent, uint16_t short_indent,
+                      uint32_t user_tag) {
   // formats must fit in the lower 4 bits 
   // and at least one of these bits must be set
   assert((formats & ~((uint32_t) 15)) == 0 && formats != 0);

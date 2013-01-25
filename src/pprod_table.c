@@ -356,10 +356,10 @@ void pprod_table_gc(pprod_table_t *table) {
       // i is not marked
       p = table->data[i];
       if (!has_int_tag(p)) {
-	// not already deleted
-	h = hash_varexp_array(p->prod, p->len);
-	erase_pprod_id(table, i);
-	int_htbl_erase_record(&table->htbl, h, i);
+        // not already deleted
+        h = hash_varexp_array(p->prod, p->len);
+        erase_pprod_id(table, i);
+        int_htbl_erase_record(&table->htbl, h, i);
       }
     }
   }

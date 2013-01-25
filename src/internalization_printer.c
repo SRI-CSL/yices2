@@ -88,12 +88,12 @@ void print_term_intern(FILE *f, intern_tbl_t *tbl, term_t t) {
       fputs("          internalized to: ", f);
       code = intern_tbl_map_of_root(tbl, unsigned_term(r));
       if (is_pos_term(r)) {
-	print_intern_code(f, code, types, tau);
-	fputc('\n', f);
+        print_intern_code(f, code, types, tau);
+        fputc('\n', f);
       } else {
-	assert(is_boolean_type(tau));
-	print_opposite_code(f, code);
-	fputc('\n', f);
+        assert(is_boolean_type(tau));
+        print_opposite_code(f, code);
+        fputc('\n', f);
       }
     } else {
       fputs("          not internalzed\n", f);
@@ -145,13 +145,13 @@ void print_intern_mapping(FILE *f, intern_tbl_t *tbl) {
     if (good_term_idx(terms, i) && intern_tbl_is_root_idx(tbl, i)) {
       r = pos_term(i);
       if (intern_tbl_root_is_mapped(tbl, r)) {
-	tau = intern_tbl_type_of_root(tbl, r);
-	code = intern_tbl_map_of_root(tbl, r);
-	fprintf(f, "t!%"PRIu32": ", i);
-	print_term_desc(f, terms, r);
-	fputs(" mapped to ", f);
-	print_intern_code(f, code, types, tau);
-	fputs("\n", f);
+        tau = intern_tbl_type_of_root(tbl, r);
+        code = intern_tbl_map_of_root(tbl, r);
+        fprintf(f, "t!%"PRIu32": ", i);
+        print_term_desc(f, terms, r);
+        fputs(" mapped to ", f);
+        print_intern_code(f, code, types, tau);
+        fputs("\n", f);
       }
     }
   }

@@ -121,7 +121,7 @@ static bool good_sizes(fun_node_t *n) {
     c = n->u.child;
     while (c != NULL) {
       if (! good_sizes(c)) {
-	return false;
+        return false;
       }
       c = c->next;
     }
@@ -206,18 +206,18 @@ static bool split_leaf(fun_tree_t *tree, fun_node_t *n, map_t *m2, ivector_t *v)
       
       f = tree->ftype;
       if (f->ndom == 1) {
-	idx = get_distinct_particle(tree->pstore, f->domain[0], v->size, v->data);
+        idx = get_distinct_particle(tree->pstore, f->domain[0], v->size, v->data);
       } else {
-	idx = get_distinct_tuple(tree->pstore, f->ndom, f->domain, v->size, v->data);
+        idx = get_distinct_tuple(tree->pstore, f->ndom, f->domain, v->size, v->data);
       }
 
       if (idx == null_particle) {
-	/*
-	 * this means that the domain is finite and all elements
-	 * in the domain occur on the path from the root to n
-	 * so the default values are irrelevant and the two maps are equal.
-	 */
-	return false;
+        /*
+         * this means that the domain is finite and all elements
+         * in the domain occur on the path from the root to n
+         * so the default values are irrelevant and the two maps are equal.
+         */
+        return false;
       }
 
     } else {

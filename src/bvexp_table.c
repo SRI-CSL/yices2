@@ -201,7 +201,7 @@ void delete_bvexp_table(bvexp_table_t *table) {
     if (p != NULL) {
       b = bvvar_bitsize(table->vtbl, i);
       if (b > 64) {
-	delete_bvmlist_coeffs(p, b);
+        delete_bvmlist_coeffs(p, b);
       }      
     }
   }
@@ -357,15 +357,15 @@ void expand_bvpoly64(bvexp_table_t *table, bvarith64_buffer_t *buffer, bvpoly_bu
       c = bvpoly_buffer_coeff64(p, i);
       i ++;
       if (bvvar_is_const64(vtbl, x)) {
-	c *= bvvar_val64(vtbl, x);
-	bvarith64_buffer_add_const(buffer, c);
+        c *= bvvar_val64(vtbl, x);
+        bvarith64_buffer_add_const(buffer, c);
       } else {
-	q = bvexp_def64(table, x);
-	if (q != NULL) {
-	  bvarith64_buffer_add_const_times_mlist(buffer, q, c);
-	} else {
-	  bvarith64_buffer_add_varmono(buffer, c, x);
-	}
+        q = bvexp_def64(table, x);
+        if (q != NULL) {
+          bvarith64_buffer_add_const_times_mlist(buffer, q, c);
+        } else {
+          bvarith64_buffer_add_varmono(buffer, c, x);
+        }
       }
     }
 
@@ -402,14 +402,14 @@ void expand_bvpoly(bvexp_table_t *table, bvarith_buffer_t *buffer, bvpoly_buffer
       c = bvpoly_buffer_coeff(p, i);
       i ++;
       if (bvvar_is_const(vtbl, x)) {
-	bvarith_buffer_add_const_times_const(buffer, c, bvvar_val(vtbl, x));
+        bvarith_buffer_add_const_times_const(buffer, c, bvvar_val(vtbl, x));
       } else {
-	q = bvexp_def(table, x);
-	if (q != NULL) {
-	  bvarith_buffer_add_const_times_mlist(buffer, q, c);
-	} else {
-	  bvarith_buffer_add_varmono(buffer, c, x);
-	}
+        q = bvexp_def(table, x);
+        if (q != NULL) {
+          bvarith_buffer_add_const_times_mlist(buffer, q, c);
+        } else {
+          bvarith_buffer_add_varmono(buffer, c, x);
+        }
       }
     }
 
@@ -508,12 +508,12 @@ static bool total_degree_test64(bvexp_table_t *table, bv_vartable_t *vtbl, pp_bu
     if (! bvvar_is_const64(vtbl, x)) {
       q = bvexp_def64(table, x);
       if (q != NULL && mlist64_is_short(q, &e) && d * e <= BVEXP_DEGREE_LIMIT) {
-	// x will be expanded to q^e of so x^d has degree d * e
-	d *= e;
+        // x will be expanded to q^e of so x^d has degree d * e
+        d *= e;
       }
       total += d;
       if (total > BVEXP_TOTAL_LIMIT) {
-	return false;
+        return false;
       }
     }
   }
@@ -537,11 +537,11 @@ static bool total_degree_test(bvexp_table_t *table, bv_vartable_t *vtbl, pp_buff
     if (! bvvar_is_const(vtbl, x)) {
       q = bvexp_def(table, x);
       if (q != NULL && mlist_is_short(q, &e) && d * e <= BVEXP_DEGREE_LIMIT) {
-	d *= e;
+        d *= e;
       }
       total += d;
       if (total > BVEXP_TOTAL_LIMIT) {
-	return false;
+        return false;
       }
     }
   }
@@ -593,17 +593,17 @@ void expand_bvpprod64(bvexp_table_t *table, bvarith64_buffer_t *buffer, pp_buffe
       x = p->prod[i].var;
       d = p->prod[i].exp;
       if (bvvar_is_const64(vtbl, x)) {
-	a = bvvar_val64(vtbl, x);
-	c *= upower64(a, d);
+        a = bvvar_val64(vtbl, x);
+        c *= upower64(a, d);
       } else {
-	q = bvexp_def64(table, x);
-	if (q != NULL && mlist64_is_short(q, &e) && d * e <= BVEXP_DEGREE_LIMIT) {
-	  // replace x^d by q^d in buffer
-	  bvarith64_buffer_mul_mlist_power(buffer, q, d, &table->aux64);
-	} else {
-	  // copy x^d into aux
-	  pp_buffer_mul_varexp(aux, x, d);
-	}
+        q = bvexp_def64(table, x);
+        if (q != NULL && mlist64_is_short(q, &e) && d * e <= BVEXP_DEGREE_LIMIT) {
+          // replace x^d by q^d in buffer
+          bvarith64_buffer_mul_mlist_power(buffer, q, d, &table->aux64);
+        } else {
+          // copy x^d into aux
+          pp_buffer_mul_varexp(aux, x, d);
+        }
       }
     }
 
@@ -653,15 +653,15 @@ void expand_bvpprod(bvexp_table_t *table, bvarith_buffer_t *buffer, pp_buffer_t 
       x = p->prod[i].var;
       d = p->prod[i].exp;
       if (bvvar_is_const(vtbl, x)) {
-	a = bvvar_val(vtbl, x);
-	bvconst_mulpower(c, k, a, d);
+        a = bvvar_val(vtbl, x);
+        bvconst_mulpower(c, k, a, d);
       } else {
-	q = bvexp_def(table, x);
-	if (q != NULL && mlist_is_short(q, &e) && d * e <= BVEXP_DEGREE_LIMIT) {
-	  bvarith_buffer_mul_mlist_power(buffer, q, d, &table->aux);
-	} else {
-	  pp_buffer_mul_varexp(aux, x, d);
-	}
+        q = bvexp_def(table, x);
+        if (q != NULL && mlist_is_short(q, &e) && d * e <= BVEXP_DEGREE_LIMIT) {
+          bvarith_buffer_mul_mlist_power(buffer, q, d, &table->aux);
+        } else {
+          pp_buffer_mul_varexp(aux, x, d);
+        }
       }
     }
 

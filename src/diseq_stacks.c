@@ -11,8 +11,8 @@
  */
 void init_diseq_stack(diseq_stack_t *stack) {
   assert(DEF_DISEQ_STACK_SIZE < MAX_DISEQ_STACK_SIZE &&
-	 0 < DEF_DISEQ_STACK_NLEVELS &&
-	 DEF_DISEQ_STACK_NLEVELS < MAX_DISEQ_STACK_NLEVELS);
+         0 < DEF_DISEQ_STACK_NLEVELS &&
+         DEF_DISEQ_STACK_NLEVELS < MAX_DISEQ_STACK_NLEVELS);
 
   stack->size = DEF_DISEQ_STACK_SIZE;
   stack->top = 0;

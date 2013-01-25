@@ -27,7 +27,7 @@ typedef bool (* int_heap_cmp_fun_t)(void *data, int32_t x, int32_t y);
 
 
 /*
- * Heap stucture
+ * Heap structure
  * - nelems = number of elements stored in the heap
  * - heap = array of pointers
  *   heap[0] is always 0

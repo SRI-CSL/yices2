@@ -156,7 +156,7 @@ static inline void bit_blaster_set_level(bit_blaster_t *blaster, uint32_t n) {
  * The basic gates are listed in gates_hash_table.h.  All functions
  * below add clauses that encode the definition of a specific
  * gate. The clauses are simplified as much as possible. If the
- * contraints are inconsistent then the empty clause is added to
+ * constraints are inconsistent then the empty clause is added to
  * the solver.
  */
 
@@ -232,7 +232,7 @@ extern void bit_blaster_xor_gate(bit_blaster_t *blaster, uint32_t n, literal_t *
  *    y = (and a b)
  */
 extern void bit_blaster_half_adder(bit_blaster_t *blaster, literal_t a, literal_t b,
-				   literal_t x, literal_t y);
+                                   literal_t x, literal_t y);
 
 /*
  * Constraint: (x, y) = full-adder(a, b, c) where x = sum, y = carry
@@ -241,7 +241,7 @@ extern void bit_blaster_half_adder(bit_blaster_t *blaster, literal_t a, literal_
  *    y = (majority a b c)
  */
 extern void bit_blaster_full_adder(bit_blaster_t *blaster, literal_t a, literal_t b, literal_t c,
-				   literal_t x, literal_t y);
+                                   literal_t x, literal_t y);
 
 
 
@@ -501,7 +501,7 @@ extern void bit_blaster_assert_bvslt(bit_blaster_t *blaster, literal_t *a, liter
  * - c must be a valid literal in the bit_solver
  */
 extern void bit_blaster_make_bvmux(bit_blaster_t *blaster, literal_t c, literal_t *a,
-				   literal_t *b, literal_t *u, uint32_t n);
+                                   literal_t *b, literal_t *u, uint32_t n);
 
 
 /*
@@ -532,19 +532,19 @@ extern void bit_blaster_make_bvmul2(bit_blaster_t *blaster, literal_t *a, litera
  *   q = (bvudiv a b): quotient 
  *   r = (bvurem a b): remainder
  * If r is NULL only the first part is asserted.
- * If q is NULL only the secont equality is asserted.
+ * If q is NULL only the second equality is asserted.
  *
  * This asserts (a = b * q + r) AND (b == 0 or r < b)
  *
  * For division by zero: q is 0b111...1 and r = a.
  */
 extern void bit_blaster_make_udivision(bit_blaster_t *blaster, literal_t *a, literal_t *b, 
-				       literal_t *q, literal_t *r, uint32_t n);
+                                       literal_t *q, literal_t *r, uint32_t n);
 
 
-// Variant implementaion
+// Variant implementation
 extern void bit_blaster_make_udivision2(bit_blaster_t *blaster, literal_t *a, literal_t *b, 
-					literal_t *q, literal_t *r, uint32_t n);
+                                        literal_t *q, literal_t *r, uint32_t n);
 
 
 
@@ -574,12 +574,12 @@ extern void bit_blaster_make_udivision2(bit_blaster_t *blaster, literal_t *a, li
  *
  */
 extern void bit_blaster_make_sdivision(bit_blaster_t *blaster, literal_t *a, literal_t *b, 
-				       literal_t *q, literal_t *r, uint32_t n);
+                                       literal_t *q, literal_t *r, uint32_t n);
 
 
 // Variant implementation
 extern void bit_blaster_make_sdivision2(bit_blaster_t *blaster, literal_t *a, literal_t *b, 
-					literal_t *q, literal_t *r, uint32_t n);
+                                        literal_t *q, literal_t *r, uint32_t n);
 
 
 

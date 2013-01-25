@@ -51,7 +51,7 @@ typedef struct pmap2_rec_s {
  *
  * When free_block = 0, the whole bank is empty. Otherwise,
  * new records are allocated in block[free_block-1]:
- * - alloc_ptr = index of the first avaiable record in block[free_block-1]
+ * - alloc_ptr = index of the first available record in block[free_block-1]
  * - for 0 <= i < free_block-1, block[i] is full.
  */
 typedef struct pmap2_bank_s {
@@ -134,7 +134,7 @@ typedef struct pmap2_htbl_s {
 
 
 /*
- * Ratios for resizeing and removing deleted elements
+ * Ratios for resizing and removing deleted elements
  */
 #define PMAP2_HTBL_RESIZE_RATIO 0.6
 #define PMAP2_HTBL_CLEANUP_RATIO 0.2

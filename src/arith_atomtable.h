@@ -129,7 +129,7 @@ typedef struct arith_listelem_s {
 /*
  * Atom table
  * - size = size of the atom array
- * - natoms = number of atoms ctreated
+ * - natoms = number of atoms created
  * - atoms = atom array
  * - free_list = array of natoms+1 list elements (indexed from -1 to natoms-1)
  *   the free_list has full size = size + 1 but only the first natoms elements are used

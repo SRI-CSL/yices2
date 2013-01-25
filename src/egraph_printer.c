@@ -619,33 +619,33 @@ void print_egraph_terms(FILE *f, egraph_t *egraph) {
       fputs("\t\t", f);
       switch(egraph_term_type(egraph, i)) {
       case ETYPE_INT:
-	fprintf(f, "arith(i!%"PRId32")\t\t", x);
-	break;
+        fprintf(f, "arith(i!%"PRId32")\t\t", x);
+        break;
       case ETYPE_REAL:
-	fprintf(f, "arith(z!%"PRId32")\t\t", x);
-	break;
+        fprintf(f, "arith(z!%"PRId32")\t\t", x);
+        break;
       case ETYPE_BV:
-	fprintf(f, "bv(u!%"PRId32")\t\t", x);
-	break;
+        fprintf(f, "bv(u!%"PRId32")\t\t", x);
+        break;
       case ETYPE_FUNCTION:
-	fprintf(f, "fun(f!%"PRId32")", x);
-	break;
+        fprintf(f, "fun(f!%"PRId32")", x);
+        break;
       case ETYPE_BOOL:
-	fprintf(f, "lit(p!%"PRId32")\t\t", x);
-	print_bval(f, bvar_value(egraph->core, x));
-	break;
+        fprintf(f, "lit(p!%"PRId32")\t\t", x);
+        print_bval(f, bvar_value(egraph->core, x));
+        break;
       case ETYPE_TUPLE:
-	fprintf(f, "tup(g!%"PRId32")", x);
-	break;
+        fprintf(f, "tup(g!%"PRId32")", x);
+        break;
       default:
-	fprintf(f, "BADTHVAR(%"PRId32")", x);
-	break;
+        fprintf(f, "BADTHVAR(%"PRId32")", x);
+        break;
       }
     } else {
       if (egraph_term_is_true(egraph, i)) {
-	fputs("\t\t(true term)", f);
+        fputs("\t\t(true term)", f);
       } else if (egraph_term_is_false(egraph, i)) {
-	fputs("\t\t(false term)", f);
+        fputs("\t\t(false term)", f);
       }
     }
 
@@ -726,8 +726,8 @@ void print_egraph_atoms(FILE *f, egraph_t *egraph) {
     for (v=0; v<n; v++) {
       atm = bvar_atom(core, v);
       if (atm != NULL && atom_tag(atm) == EGRAPH_ATM_TAG) {
-	print_egraph_atom(f, egraph, untag_atom(atm));
-	fputc('\n', f);
+        print_egraph_atom(f, egraph, untag_atom(atm));
+        fputc('\n', f);
       }
     }
   }

@@ -111,8 +111,8 @@ static uint32_t alloc_column_elem(column_t **v) {
     } else {
       i = c->size;
       if (i == c->capacity) {
-	c = extend_column(c);
-	*v = c;
+        c = extend_column(c);
+        *v = c;
       }
       assert(i < c->capacity);
       c->size ++;
@@ -231,8 +231,8 @@ static uint32_t alloc_row_elem(row_t **v) {
     } else {
       i = r->size;
       if (i == r->capacity) {
-	r = extend_row(r);
-	*v = r;
+        r = extend_row(r);
+        *v = r;
       }
       assert(i < r->capacity);
       // initialize the rational coefficient
@@ -467,7 +467,7 @@ static uint32_t add_column_elem(matrix_t *matrix, uint32_t j, uint32_t r_idx, ui
  * - return the element index in row i
  */
 static uint32_t add_row_elem(matrix_t *matrix, uint32_t i, uint32_t c_idx, uint32_t c_ptr, 
-			     rational_t *coeff) {
+                             rational_t *coeff) {
   uint32_t k;
   row_elem_t *e;
 
@@ -656,9 +656,9 @@ static void matrix_compact_column(matrix_t *matrix, uint32_t c) {
     if (r >= 0) {
       assert(j <= i);
       if (j < i) {
-	r_ptr = column->data[i].r_ptr;
-	column->data[j] = column->data[i];
-	matrix->row[r]->data[r_ptr].c_ptr = j;
+        r_ptr = column->data[i].r_ptr;
+        column->data[j] = column->data[i];
+        matrix->row[r]->data[r_ptr].c_ptr = j;
       }
       j ++;
     }
@@ -889,11 +889,11 @@ static void matrix_compact_row(matrix_t *matrix, uint32_t r) {
     if (c >= 0) {
       assert(j <= i);
       if (j < i) {
-	c_ptr = row->data[i].c_ptr;
-	row->data[j].c_idx = c;
-	row->data[j].c_ptr = c_ptr;
-	q_set(&row->data[j].coeff, &row->data[i].coeff);
-	matrix->column[c]->data[c_ptr].r_ptr = j;
+        c_ptr = row->data[i].c_ptr;
+        row->data[j].c_idx = c;
+        row->data[j].c_ptr = c_ptr;
+        q_set(&row->data[j].coeff, &row->data[i].coeff);
+        matrix->column[c]->data[c_ptr].r_ptr = j;
       }
       j ++;
     }
@@ -962,21 +962,21 @@ static void compact_matrix(matrix_t *matrix) {
     row = matrix->row[i];
     if (row != NULL) {
       if (row->nelems == 0) {
-	// delete the row
-	delete_row(row);
+        // delete the row
+        delete_row(row);
       } else {
-	if (j < i) {
-	  matrix_change_row_index(matrix, row, j);
-	  matrix->row[j] = row;
-	  assign_bit(matrix->marks, j, tst_bit(matrix->marks, i));
+        if (j < i) {
+          matrix_change_row_index(matrix, row, j);
+          matrix->row[j] = row;
+          assign_bit(matrix->marks, j, tst_bit(matrix->marks, i));
 
-	  x = matrix->base_var[i];
-	  matrix->base_var[j] = x;
-	  if (x >= 0) {
-	    matrix->base_row[x] = j;
-	  }
-	}
-	j ++;
+          x = matrix->base_var[i];
+          matrix->base_var[j] = x;
+          if (x >= 0) {
+            matrix->base_row[x] = j;
+          }
+        }
+        j ++;
       }
     }
   }
@@ -1108,35 +1108,35 @@ void matrix_eliminate_fixed_variable(matrix_t *matrix, int32_t x, rational_t *a)
     for (i=0; i<n; i++) {
       j = col->data[i].r_idx;
       if (j >= 0) {
-	r_ptr = col->data[i].r_ptr;
-	free_row_elem(matrix->row[j], r_ptr);
+        r_ptr = col->data[i].r_ptr;
+        free_row_elem(matrix->row[j], r_ptr);
       }
     }
   } else {
     for (i=0; i<n; i++) {
       j = col->data[i].r_idx;
       if (j >= 0) {
-	/*
-	 * e --> element c.x in row j = element of index r_ptr
-	 */
-	r_ptr = col->data[i].r_ptr;
-	e = row_elem(matrix, j, r_ptr);
-	assert(e->c_idx == x);
-	k = matrix->constant[j];
-	if (k < 0) {
-	  // row j has no constant: attach e to column 0
-	  c_ptr = add_column_elem(matrix, const_idx, j, r_ptr);
-	  e->c_idx = const_idx;
-	  e->c_ptr = c_ptr;
-	  q_mul(&e->coeff, a); // make constant = a.c
-	  matrix->constant[j] = r_ptr;
-	} else {
-	  // add a.c to element k of row j
-	  cnst = row_elem(matrix, j, k);
-	  q_addmul(&cnst->coeff, &e->coeff, a);
-	  // free e (from row j)
-	  free_row_elem(matrix->row[j], r_ptr);
-	}
+        /*
+         * e --> element c.x in row j = element of index r_ptr
+         */
+        r_ptr = col->data[i].r_ptr;
+        e = row_elem(matrix, j, r_ptr);
+        assert(e->c_idx == x);
+        k = matrix->constant[j];
+        if (k < 0) {
+          // row j has no constant: attach e to column 0
+          c_ptr = add_column_elem(matrix, const_idx, j, r_ptr);
+          e->c_idx = const_idx;
+          e->c_ptr = c_ptr;
+          q_mul(&e->coeff, a); // make constant = a.c
+          matrix->constant[j] = r_ptr;
+        } else {
+          // add a.c to element k of row j
+          cnst = row_elem(matrix, j, k);
+          q_addmul(&cnst->coeff, &e->coeff, a);
+          // free e (from row j)
+          free_row_elem(matrix->row[j], r_ptr);
+        }
       }
     }
   }
@@ -1166,8 +1166,8 @@ void matrix_cleanup_constants(matrix_t *matrix) {
       e = row_elem(matrix, i, r_ptr);
       assert(e->c_idx == const_idx);
       if (q_is_zero(&e->coeff)) {
-	free_column_elem(matrix->column[const_idx], e->c_ptr);
-	free_row_elem(matrix->row[i], r_ptr);
+        free_column_elem(matrix->column[const_idx], e->c_ptr);
+        free_row_elem(matrix->row[i], r_ptr);
       }
     }
   }  
@@ -1411,9 +1411,9 @@ static void markowitz_init_row(markowitz_t *d, matrix_t *matrix, row_t *row, uin
     if (x >= 0 && tst_bit(d->elim_flag, x)) {
       c = matrix->column[x]->nelems;
       if (c < best_c) {
-	best_c = c;
-	best_x = x;
-	best_i = i;
+        best_c = c;
+        best_x = x;
+        best_i = i;
       }
     }
   }
@@ -1608,9 +1608,9 @@ static void markowitz_update_row(markowitz_t *d, matrix_t *matrix, row_t *row, u
     if (x >= 0 && tst_bit(d->elim_flag, x)) {
       c = matrix->column[x]->nelems;
       if (c < best_c) {
-	best_c = c;
-	best_x = x;
-	best_i = i;
+        best_c = c;
+        best_x = x;
+        best_i = i;
       }
     }
   }
@@ -1684,7 +1684,7 @@ void matrix_scale_row(row_t *r, uint32_t k) {
     n = r->size;
     for (i=0; i<n; i++) {
       if (r->data[i].c_idx >= 0) {
-	q_neg(&r->data[i].coeff);
+        q_neg(&r->data[i].coeff);
       }
     }
     assert(q_is_one(a));
@@ -1695,7 +1695,7 @@ void matrix_scale_row(row_t *r, uint32_t k) {
     for (i=0; i<n; i++) {
       c = r->data[i].c_idx;
       if (c >= 0 && c != x) {
-	q_div(&r->data[i].coeff, a);
+        q_div(&r->data[i].coeff, a);
       }
     }
     q_set_one(a);
@@ -1749,17 +1749,17 @@ void matrix_submul_row(matrix_t *matrix, uint32_t r, uint32_t k, row_t *row0) {
     for (i=0; i<n; i++) {
       x = e[i].c_idx;
       if (x >= 0) {
-	j = index[x];
-	if (j < 0) {
-	  // x does not occur in row r: create a new element
-	  j = alloc_row_elem(&row);
-	  row->data[j].c_idx = x;
-	  row->data[j].c_ptr = add_column_elem(matrix, x, r, j); 
-	  q_set_neg(&row->data[j].coeff, &row0->data[i].coeff);
-	} else {
-	  // x occurs in row 
-	  q_sub(&row->data[j].coeff, &row0->data[i].coeff);
-	}
+        j = index[x];
+        if (j < 0) {
+          // x does not occur in row r: create a new element
+          j = alloc_row_elem(&row);
+          row->data[j].c_idx = x;
+          row->data[j].c_ptr = add_column_elem(matrix, x, r, j); 
+          q_set_neg(&row->data[j].coeff, &row0->data[i].coeff);
+        } else {
+          // x occurs in row 
+          q_sub(&row->data[j].coeff, &row0->data[i].coeff);
+        }
       }
     }
 
@@ -1770,17 +1770,17 @@ void matrix_submul_row(matrix_t *matrix, uint32_t r, uint32_t k, row_t *row0) {
     for (i=0; i<n; i++) {
       x = e[i].c_idx;
       if (x >= 0) {
-	j = index[x];
-	if (j < 0) {
-	  // x does not occur in row r
-	  j = alloc_row_elem(&row);
-	  row->data[j].c_idx = x;
-	  row->data[j].c_ptr = add_column_elem(matrix, x, r, j);
-	  q_set(&row->data[j].coeff, &row0->data[i].coeff);       
-	} else {
-	  // x occurs in row 
-	  q_add(&row->data[j].coeff, &row0->data[i].coeff);
-	}
+        j = index[x];
+        if (j < 0) {
+          // x does not occur in row r
+          j = alloc_row_elem(&row);
+          row->data[j].c_idx = x;
+          row->data[j].c_ptr = add_column_elem(matrix, x, r, j);
+          q_set(&row->data[j].coeff, &row0->data[i].coeff);       
+        } else {
+          // x occurs in row 
+          q_add(&row->data[j].coeff, &row0->data[i].coeff);
+        }
       }
     }
 
@@ -1791,18 +1791,18 @@ void matrix_submul_row(matrix_t *matrix, uint32_t r, uint32_t k, row_t *row0) {
     for (i=0; i<n; i++) {
       x = e[i].c_idx;
       if (x >= 0) {
-	j = index[x];
-	if (j < 0) {
-	  // x does not occur in row r: create a new element
-	  j = alloc_row_elem(&row);
-	  row->data[j].c_idx = x;
-	  row->data[j].c_ptr = add_column_elem(matrix, x, r, j);
-	  q_set_neg(&row->data[j].coeff, a);
-	  q_mul(&row->data[j].coeff, &row0->data[i].coeff);
-	} else {
-	  // x occurs in element j of row r
-	  q_submul(&row->data[j].coeff, a, &row0->data[i].coeff);
-	}
+        j = index[x];
+        if (j < 0) {
+          // x does not occur in row r: create a new element
+          j = alloc_row_elem(&row);
+          row->data[j].c_idx = x;
+          row->data[j].c_ptr = add_column_elem(matrix, x, r, j);
+          q_set_neg(&row->data[j].coeff, a);
+          q_mul(&row->data[j].coeff, &row0->data[i].coeff);
+        } else {
+          // x occurs in element j of row r
+          q_submul(&row->data[j].coeff, a, &row0->data[i].coeff);
+        }
       } 
     }
   }
@@ -1826,7 +1826,7 @@ void matrix_submul_row(matrix_t *matrix, uint32_t r, uint32_t k, row_t *row0) {
     if (x >= 0) {
       index[x] = -1;
       if (q_is_zero(&e[i].coeff)) {
-	remove_row_elem(matrix, r, i);
+        remove_row_elem(matrix, r, i);
       }
     }
   }
@@ -1934,7 +1934,7 @@ static void matrix_eliminate_zero_variable(matrix_t *matrix, markowitz_t *d, int
 
       // update the heap
       if (d != NULL) {
-	markowitz_update(d, matrix, r);
+        markowitz_update(d, matrix, r);
       }
     }
   }
@@ -2020,7 +2020,7 @@ static void matrix_substitute_variable(matrix_t *matrix, markowitz_t *d, int32_t
       // subtract a.(x + b.y) from row r
       matrix_submul_simple_row(matrix, r, k, e);
       if (d != NULL) {
-	markowitz_update(d, matrix, r);
+        markowitz_update(d, matrix, r);
       }
     }
   }
@@ -2181,7 +2181,7 @@ static uint32_t elim_matrix_alloc_row(elim_matrix_t *matrix) {
       n ++;
       n += n>>1;
       if (n >= MAX_ELIM_MATRIX_NUM_ROWS) {
-	out_of_memory();
+        out_of_memory();
       }
     }
 
@@ -2271,7 +2271,7 @@ static uint32_t fvar_vector_alloc(fvar_vector_t *v) {
       n ++;
       n += n>>1;
       if (n >= MAX_FVAR_VECTOR_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
     }
     v->fvar = (fvar_rec_t *) safe_realloc(v->fvar, n * sizeof(fvar_rec_t));
@@ -2330,8 +2330,8 @@ static void fvar_vector_add0(fvar_vector_t *v, int32_t x) {
  * - fvar = fixed var vector
  */
 static void gauss_elim_simple_row(matrix_t *matrix, markowitz_t *d, byte_t *i_flag,
-				  row_t *row0, uint32_t r0, uint32_t k,
-				  elim_matrix_t *elim, fvar_vector_t *fvars) {
+                                  row_t *row0, uint32_t r0, uint32_t k,
+                                  elim_matrix_t *elim, fvar_vector_t *fvars) {
   uint32_t i;
   int32_t x, y;
   bool y_is_int;
@@ -2381,10 +2381,10 @@ static void gauss_elim_simple_row(matrix_t *matrix, markowitz_t *d, byte_t *i_fl
     if (tst_bit(d->elim_flag, y)) {
       matrix_scale_row(row0, i); // rewrite row0 as a.x + y == 0
       if (!y_is_int || q_is_integer(&row0->data[k].coeff)) {
-	// we can apply y := -a.x
-	x = y;
-	i = k;
-	goto save_and_substitute;
+        // we can apply y := -a.x
+        x = y;
+        i = k;
+        goto save_and_substitute;
       }
     }
 
@@ -2423,7 +2423,7 @@ static bool all_integer_row(row_t *row, byte_t *i_flag) {
     x = row->data[i].c_idx;
     if (x >= 0) {
       if (! (tst_bit(i_flag, x) && q_is_integer(&row->data[i].coeff))) {
-	return false;
+        return false;
       }
     }
   }
@@ -2442,8 +2442,8 @@ static bool all_integer_row(row_t *row, byte_t *i_flag) {
  * - elim = elimination matrix (or NULL)
  */
 static void gauss_elim_row(matrix_t *matrix, markowitz_t *d, byte_t *i_flag,
-			   row_t *row0, uint32_t r0, uint32_t k,
-			   elim_matrix_t *elim) {
+                           row_t *row0, uint32_t r0, uint32_t k,
+                           elim_matrix_t *elim) {
 
   column_t *col;
   uint32_t i, n;
@@ -2502,7 +2502,7 @@ static void gauss_elim_row(matrix_t *matrix, markowitz_t *d, byte_t *i_flag,
  *   if elim is NULL, the eliminated rows are not stored anywhere.
  */
 static void gaussian_elimination(matrix_t *matrix, markowitz_t *d, byte_t *i_flag,
-				 elim_matrix_t *elim, fvar_vector_t *fvars) {
+                                 elim_matrix_t *elim, fvar_vector_t *fvars) {
   row_t *row0;
   int32_t r0;
   uint32_t x, k;
@@ -2583,7 +2583,7 @@ static void gaussian_elimination(matrix_t *matrix, markowitz_t *d, byte_t *i_fla
  * - the caller must check for this
  */
 void simplify_matrix(matrix_t *matrix, int32_t *elim_candidates, uint32_t n, byte_t *i_flag,
-		     elim_matrix_t *elim, fvar_vector_t *fvars) {
+                     elim_matrix_t *elim, fvar_vector_t *fvars) {
   markowitz_t d;
 
   init_markowitz(&d, matrix->nrows, matrix->ncolumns);
@@ -2626,7 +2626,7 @@ void simplify_matrix(matrix_t *matrix, int32_t *elim_candidates, uint32_t n, byt
  * the assignments in fvars.
  */
 static void tableau_remove_singleton_row(matrix_t *matrix, markowitz_t *d, 
-					 row_t *row0, uint32_t r0, fvar_vector_t *fvars) {
+                                         row_t *row0, uint32_t r0, fvar_vector_t *fvars) {
   uint32_t i;
   int32_t x;
 
@@ -2671,7 +2671,7 @@ static void tableau_remove_singleton_row(matrix_t *matrix, markowitz_t *d,
  * constant. The assignments must be checked for feasibility by the callers.
  */
 static void tableau_remove_simple_row(matrix_t *matrix, markowitz_t *d,
-				      row_t *row0, uint32_t r0, int32_t x, row_elem_t *e, fvar_vector_t *fvars) {
+                                      row_t *row0, uint32_t r0, int32_t x, row_elem_t *e, fvar_vector_t *fvars) {
   assert(0 <= x && x < matrix->ncolumns && matrix->column[x] != NULL && matrix->row[r0] == row0 && e->c_idx == const_idx);
 
   // save the assignment x := - e->coeff
@@ -2773,10 +2773,10 @@ static void tableau_process_row(matrix_t *matrix, row_t *row0, uint32_t r0) {
     if (x >= 0 && x != const_idx) {
       c = matrix->column[x]->nelems;
       if (c < best_c) {
-	best_c = c;
-	best_i = i;
+        best_c = c;
+        best_i = i;
 #ifndef NDEBUG
-	best_x = x;
+        best_x = x;
 #endif
       }
     }
@@ -2843,7 +2843,7 @@ void simple_tableau_construction(matrix_t *matrix, fvar_vector_t *fvars) {
  * - k = index of monomial where x occurs in row0
  */
 static void markowitz_tableau_process_simple_row(matrix_t *matrix, markowitz_t *d,
-						 row_t *row0, uint32_t r0, uint32_t k, fvar_vector_t *fvars) {
+                                                 row_t *row0, uint32_t r0, uint32_t k, fvar_vector_t *fvars) {
   uint32_t i;
   int32_t x, y;
 
@@ -2903,7 +2903,7 @@ static void markowitz_tableau_revisit_simple_row(matrix_t *matrix, row_t *row0, 
      * Since x is basic, it occurs only in r0 so there's no substitution to propagate
      */
     assert(matrix->base_var[r0] == x && matrix->column[x] != NULL && 
-	   matrix->column[x]->nelems == 1);
+           matrix->column[x]->nelems == 1);
 
     fvar_vector_add_neg(fvars, x, &row0->data[i].coeff);
 
@@ -2954,17 +2954,17 @@ void markowitz_tableau_construction(matrix_t *matrix, fvar_vector_t *fvars) {
        */
       switch (row0->nelems) {
       case 0:
-	abort();
+        abort();
       case 1:
-	tableau_remove_singleton_row(matrix, &d, row0, r0, fvars);
-	break;
+        tableau_remove_singleton_row(matrix, &d, row0, r0, fvars);
+        break;
       case 2:
-	markowitz_tableau_process_simple_row(matrix, &d, row0, r0, k, fvars);
-	break;
+        markowitz_tableau_process_simple_row(matrix, &d, row0, r0, k, fvars);
+        break;
       default:
-	matrix_pivot_and_update(matrix, &d, r0, k);
-	assert(matrix->base_var[r0] == x);
-	break;
+        matrix_pivot_and_update(matrix, &d, r0, k);
+        assert(matrix->base_var[r0] == x);
+        break;
       }
 
     } else {
@@ -2973,21 +2973,21 @@ void markowitz_tableau_construction(matrix_t *matrix, fvar_vector_t *fvars) {
        * check whether it can be eliminated
        */
       if (row0->nelems == 1) {
-	assert(matrix->base_var[r0] == x && matrix->column[x] != NULL &&
-	       matrix->column[x]->nelems == 1);
+        assert(matrix->base_var[r0] == x && matrix->column[x] != NULL &&
+               matrix->column[x]->nelems == 1);
 
-	// store x := 0 to fvars then delete the row and colum
-	fvar_vector_add0(fvars, x);
-	delete_row(row0);
-	matrix->row[r0] = NULL;
-	delete_column(matrix->column[x]);
-	matrix->column[x] = NULL;
-	
-	// x is no longer basic
-	matrix->base_row[x] = -1;
+        // store x := 0 to fvars then delete the row and colum
+        fvar_vector_add0(fvars, x);
+        delete_row(row0);
+        matrix->row[r0] = NULL;
+        delete_column(matrix->column[x]);
+        matrix->column[x] = NULL;
+        
+        // x is no longer basic
+        matrix->base_row[x] = -1;
 
       } else if (row0->nelems == 2) {
-	markowitz_tableau_revisit_simple_row(matrix, row0, r0, x, fvars);
+        markowitz_tableau_revisit_simple_row(matrix, row0, r0, x, fvars);
       }
 
     }
@@ -3045,12 +3045,12 @@ static bool good_base_var(matrix_t *matrix) {
     x = matrix->base_var[i];
     if (x >= 0) {
       if (x == const_idx || x >= matrix->ncolumns || matrix->base_row[x] != i) {
-	return false;
+        return false;
       }
       row = matrix->row[i];
       k = get_var_in_row(row, x);
       if (k < 0 || ! q_is_one(&row->data[k].coeff)) {
-	return false;
+        return false;
       }
     }
   }
@@ -3072,7 +3072,7 @@ static bool good_base_row(matrix_t *matrix) {
     r = matrix->base_row[i];
     if (r >= 0) {
       if (r >= matrix->nrows || matrix->base_var[r] != i) {
-	return false;
+        return false;
       }
     }
   }
@@ -3103,11 +3103,11 @@ static bool good_row(matrix_t *matrix, uint32_t r) {
     x = row->data[i].c_idx;
     if (x >= 0) {
       if (x >= matrix->ncolumns || q_is_zero(&row->data[i].coeff)) {
-	return false;
+        return false;
       }
       k = row->data[i].c_ptr;
       if (k < 0 || k >= matrix->column[x]->size) {
-	return false;
+        return false;
       }
       e = column_elem(matrix, x, k);
       if (e->r_idx != r || e->r_ptr != i) return false;
@@ -3139,14 +3139,14 @@ static bool good_column(matrix_t *matrix, uint32_t c) {
     for (i=0; i<n; i++) {
       r = column->data[i].r_idx;
       if (r >= 0) {
-	if (r >= matrix->nrows) return false;
-	k = column->data[i].r_ptr;
-	if (k < 0 || k >= matrix->row[r]->size) {
-	  return false;
-	}
-	e = row_elem(matrix, r, k);
-	if (e->c_idx != c || e->c_ptr != i) return false;
-	j ++;
+        if (r >= matrix->nrows) return false;
+        k = column->data[i].r_ptr;
+        if (k < 0 || k >= matrix->row[r]->size) {
+          return false;
+        }
+        e = row_elem(matrix, r, k);
+        if (e->c_idx != c || e->c_ptr != i) return false;
+        j ++;
       }
     }
 
@@ -3167,18 +3167,18 @@ bool good_matrix(matrix_t *matrix) {
     n = matrix->nrows;
     for (i=0; i<n; i++) {
       if (! good_row(matrix, i)) {
-	printf("---> Bad row[%"PRIu32"]\n", i);
-	fflush(stdout);
-	return false;
+        printf("---> Bad row[%"PRIu32"]\n", i);
+        fflush(stdout);
+        return false;
       }
     }
 
     n = matrix->ncolumns;
     for (i=0; i<n; i++) {
       if (! good_column(matrix, i)) {
-	printf("---> Bad column[%"PRIu32"]\n", i);
-	fflush(stdout);
-	return false;
+        printf("---> Bad column[%"PRIu32"]\n", i);
+        fflush(stdout);
+        return false;
       }
     }
 

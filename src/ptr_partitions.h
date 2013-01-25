@@ -100,7 +100,7 @@ typedef struct ppart_s {
  * - the table is empty, classes is not allocated yet (NULL).
  */
 extern void init_ptr_partition(ppart_t *pp, uint32_t n, void *aux, 
-			       ppart_hash_fun_t hash_fn, ppart_match_fun_t match_fn);
+                               ppart_hash_fun_t hash_fn, ppart_match_fun_t match_fn);
 
 
 /*
@@ -127,7 +127,7 @@ extern void ptr_partition_add(ppart_t *pp, void *ptr);
 
 
 /*
- * Return the index of the partition vector that containts ptr
+ * Return the index of the partition vector that contains ptr
  * - return -1 if there's no such vector
  */
 extern int32_t ptr_partition_get_index(ppart_t *pp, void *ptr);

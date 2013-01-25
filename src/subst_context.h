@@ -108,7 +108,7 @@ extern void subst_ctx_collect_bindings(subst_ctx_t *ctx, uint32_t n, int32_t *a)
 
 
 /*
- * Check whether the context is empyt
+ * Check whether the context is empty
  */
 static inline bool subst_ctx_is_empty(subst_ctx_t *ctx) {
   return ctx->nelems == 0;

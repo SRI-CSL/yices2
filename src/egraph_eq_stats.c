@@ -633,7 +633,7 @@ egeq_elem_t *egeq_get(egeq_t *egeq, int32_t x, int32_t y) {
  */
 static void print_egeq_record(FILE *f, egeq_elem_t *e) {
   fprintf(f, "[i!%"PRId32", i!%"PRId32"]: %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32"\n", 
-	  e->x[0], e->x[1], e->ctr[0], e->ctr[1], e->ctr[2], e->ctr[3], e->ctr[4]);
+          e->x[0], e->x[1], e->ctr[0], e->ctr[1], e->ctr[2], e->ctr[3], e->ctr[4]);
 }
 
 void print_egeq(FILE *f, egeq_t *egeq) {

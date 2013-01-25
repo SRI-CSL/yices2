@@ -13,7 +13,7 @@
 
 
 /*
- * Heap stucture
+ * Heap structure
  * - nelems = number of elements stored in the heap
  * - heap = array of integers
  *   heap[0] is a marker
@@ -92,7 +92,7 @@ static inline uint32_t int_heap_nelems(int_heap_t *heap) {
 
 
 /*
- * Check whether x is in ther heap
+ * Check whether x is in the heap
  */
 static inline bool int_heap_member(int_heap_t *heap, int32_t x) {
   assert(0 <= x);

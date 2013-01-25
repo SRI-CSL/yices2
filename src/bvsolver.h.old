@@ -19,8 +19,8 @@
  * - tbl = node table for the XOR/OR graph
  */
 extern void init_bv_solver(bv_solver_t *solver, smt_core_t *core,
-			   egraph_t *egraph, bv_var_manager_t *vm, 
-			   node_table_t *tbl);
+                           egraph_t *egraph, bv_var_manager_t *vm, 
+                           node_table_t *tbl);
 
 
 /*

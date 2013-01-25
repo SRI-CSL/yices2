@@ -1,6 +1,6 @@
 /*
  * SUPPORT FOR CONVERTING BIT-VECTOR POLYNOMIALS
- * TO ELEMENTATY EXPRESSSIONS.
+ * TO ELEMENTARY EXPRESSIONS.
  */
 
 /*
@@ -39,7 +39,7 @@
 /*
  * Queue of variable
  * - each element in this queue is a variable index i 
- * - the variables are sorted in topologicographic order
+ * - the variables are sorted in topological order
  *   (i.e., if i is (BVADD j k) and j is (BVAD ...) then
  *   j occurs before i in the queue).
  *
@@ -68,7 +68,7 @@ typedef struct bvc_queue_s {
  * - in_queue = set of all elements in the queue
  */
 typedef struct bvc_s {
-  bv_vartable_t *vtbl;
+  bv_vartable_t *vtol;
   mtbl_t *mtbl;
   int_hmap_t cmap;
   bvc_queue_t elemexp;
@@ -92,12 +92,12 @@ typedef struct bvc_s {
 
 /*
  * Initialization:
- * - vtbl = the attached variable table
+ * - vtol = the attached variable table
  * - mtbl = the attached merge table
  * - elemexp is initially empty
  * - cmap has default initial size (cf. int_hash_map)
  */
-extern void init_bv_compiler(bvc_t *c, bv_vartable_t *vtbl, mtbl_t *mthl);
+extern void init_bv_compiler(bvc_t *c, bv_vartable_t *vtol, mtbl_t *mtbl);
 
 /*
  * Free all memory

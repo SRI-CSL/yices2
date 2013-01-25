@@ -72,15 +72,15 @@ int32_t ibag_add(int32_t **v, int32_t k) {
       i = b->size;
       n = b->capacity;
       if (i == n) {
-	// make the vector 50% larger
-	n ++;
-	n += n >> 1;
-	if (n > MAX_INT_BAG_SIZE) {
-	  out_of_memory();
-	}
-	b = (int_bag_t *) safe_realloc(b, sizeof(int_bag_t) + n * sizeof(int32_t));
-	b->capacity =n;
-	*v = b->data;
+        // make the vector 50% larger
+        n ++;
+        n += n >> 1;
+        if (n > MAX_INT_BAG_SIZE) {
+          out_of_memory();
+        }
+        b = (int_bag_t *) safe_realloc(b, sizeof(int_bag_t) + n * sizeof(int32_t));
+        b->capacity =n;
+        *v = b->data;
       }
       assert(i <= b->capacity);
       b->size ++;

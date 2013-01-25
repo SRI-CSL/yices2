@@ -156,7 +156,7 @@ static term_t map_node_to_term(term_table_t *terms, node_table_t *nodes, node_t 
     case OR_NODE:
       t = make_or2(terms, nodes, children_of_node(nodes, x));
       break;
-		     
+                     
     case XOR_NODE:
       t = make_xor2(terms, nodes, children_of_node(nodes, x));
       break;

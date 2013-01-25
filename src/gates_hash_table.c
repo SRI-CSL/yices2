@@ -162,10 +162,10 @@ static levlist_t *top_list(levlist_stack_t *stack) {
     if (i == n) {
       // allocate initial data array or make existing array larger
       if (n < DEF_LEVLIST_STACK_SIZE) {
-	n = DEF_LEVLIST_STACK_SIZE;
+        n = DEF_LEVLIST_STACK_SIZE;
       } else {
-	n += n>>1;
-	if (n > MAX_LEVLIST_STACK_SIZE) out_of_memory();
+        n += n>>1;
+        if (n > MAX_LEVLIST_STACK_SIZE) out_of_memory();
       }
       stack->data = (levlist_t *) safe_realloc(stack->data, n * sizeof(levlist_t));
       stack->size = n;

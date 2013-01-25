@@ -85,11 +85,11 @@ static void dimacs_print_binary_clauses(FILE *f, smt_core_t *core) {
     bin = core->bin[l1];
     if (bin != NULL) {
       for (;;) {
-	l2 = *bin ++;
-	if (l2 < 0) break;
-	if (l1 <= l2) {
-	  dimacs_print_binary_clause(f, l1, l2);
-	}
+        l2 = *bin ++;
+        if (l2 < 0) break;
+        if (l1 <= l2) {
+          dimacs_print_binary_clause(f, l1, l2);
+        }
       }
     }
   }

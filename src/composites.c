@@ -662,8 +662,8 @@ void hook_composite(composite_t *c, elabel_t *label, use_vector_t *u, class_t r0
     if (c0 == r0) {
       k = h[i];
       if (k < 0) {
-	k = use_vector_store(u + r0, c);
-	h[i] = k;
+        k = use_vector_store(u + r0, c);
+        h[i] = k;
       }
       break;
     }
@@ -879,9 +879,9 @@ void signature_or(composite_t *c, elabel_t *label, signature_t *s) {
     for (i=1; i<n; i++) {
       l_aux = a[i];
       if (l_aux != l) {
-	a[j] = l_aux;
-	j ++;
-	l = l_aux;
+        a[j] = l_aux;
+        j ++;
+        l = l_aux;
       }
     }
   }
@@ -987,7 +987,7 @@ bool signature_matches(composite_t *c, signature_t *s, signature_t *aux, elabel_
     if (n != tag_arity(s_tag)) return false;
     for (i=0; i<n; i++) {
       if (s->sigma[i] != get_label(label, c->child[i])) {
-	return false;
+        return false;
       }
     }
     return true;
@@ -1395,7 +1395,7 @@ composite_t  *congruence_table_find(congruence_table_t *tbl, signature_t *s, ela
   for (;;) {
     c = tbl->data[j];
     if (c == NULL_COMPOSITE || 
-	(c != DELETED_COMPOSITE && c->hash == h && signature_matches(c, s, &tbl->buffer, label))) {
+        (c != DELETED_COMPOSITE && c->hash == h && signature_matches(c, s, &tbl->buffer, label))) {
       return c;
     }
     j ++;
@@ -1442,8 +1442,8 @@ composite_t *congruence_table_find_eq(congruence_table_t *tbl, occ_t t1, occ_t t
   for (;;) {
     c = tbl->data[j];
     if (c == NULL_COMPOSITE ||
-	(c != DELETED_COMPOSITE && 
-	 c->tag == mk_eq_tag() && c->hash == h && matches_sigma_eq(c, s, label))) {
+        (c != DELETED_COMPOSITE && 
+         c->tag == mk_eq_tag() && c->hash == h && matches_sigma_eq(c, s, label))) {
       return c;
     }
     j ++;
@@ -1488,7 +1488,7 @@ composite_t  *congruence_table_get(congruence_table_t *tbl, composite_t *c, sign
       goto add;
     }
     if (aux != DELETED_COMPOSITE && 
-	aux->hash == h && signature_matches(aux, s, &tbl->buffer, label)) goto found;
+        aux->hash == h && signature_matches(aux, s, &tbl->buffer, label)) goto found;
   }
 
  add:

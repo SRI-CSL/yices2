@@ -2,7 +2,7 @@
  * Maps pairs of 32bit integers to 32bit integers.
  * The keys must be non-negative.
  *
- * Supported oprations: addition/query/garbage collection.
+ * Supported operations: addition/query/garbage collection.
  * Removal of individual records is not supported.
  */
 

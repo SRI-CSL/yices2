@@ -211,7 +211,7 @@ extern bool bvarith64_buffer_equal(bvarith64_buffer_t *b1, bvarith64_buffer_t *b
  * 
  * Some operations use one or two other buffers b1 and b2.  In such
  * cases, b, b1, and b2 must all have the same power-product table
- * and must all have the same bitszie.
+ * and must all have the same bitsize.
  */
 
 /*
@@ -540,7 +540,7 @@ static inline void bvarith64_buffer_sub_buffer_times_buffer(bvarith64_buffer_t *
 /*
  * A bit-vector polynomial is an array of monomials of the form 
  * (coeff, index) where indices are signed integers. Operations 
- * between buffers and poynomials require a conversion of 
+ * between buffers and polynomials require a conversion of 
  * the integer indices used by monomials to power products used by buffers.
  *
  * All operations below take three arguments:
@@ -589,14 +589,14 @@ extern void bvarith64_buffer_sub_const_times_bvpoly(bvarith64_buffer_t *b, bvpol
  * Add a * r * poly to b
  */
 extern void bvarith64_buffer_add_mono_times_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *poly, 
-						   pprod_t **pp, uint64_t a, pprod_t *r);
+                                                   pprod_t **pp, uint64_t a, pprod_t *r);
 
 
 /*
  * Add -a * r * poly to b
  */
 extern void bvarith64_buffer_sub_mono_times_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *poly,
-						   pprod_t **pp, uint64_t a, pprod_t *r);
+                                                   pprod_t **pp, uint64_t a, pprod_t *r);
 
 
 /*
@@ -610,7 +610,7 @@ extern void bvarith64_buffer_mul_bvpoly(bvarith64_buffer_t *b, bvpoly64_t *poly,
  * - use aux as an auxiliary buffer (aux must be distinct from b)
  */
 extern void bvarith64_buffer_mul_bvpoly_power(bvarith64_buffer_t *b, bvpoly64_t *poly, pprod_t **pp, 
-					      uint32_t d, bvarith64_buffer_t *aux);
+                                              uint32_t d, bvarith64_buffer_t *aux);
 
 
 

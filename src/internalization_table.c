@@ -242,7 +242,7 @@ static void partition_add(intern_tbl_t *tbl, term_t t) {
   type_t tau;
 
   assert(term_kind(tbl->terms, t) == UNINTERPRETED_TERM &&
-	 ai32_read(&tbl->map, index_of(t)) == NULL_MAP);
+         ai32_read(&tbl->map, index_of(t)) == NULL_MAP);
 
   tau = term_type(tbl->terms, t);
   ai32_write(&tbl->type, index_of(t), tau);
@@ -362,7 +362,7 @@ type_t intern_tbl_type_of_root(intern_tbl_t *tbl, term_t r) {
  */
 void intern_tbl_map_root(intern_tbl_t *tbl, term_t r, int32_t x) {
   assert(0 <= x && x < INT32_MAX &&
-	 is_pos_term(r) && ai32_read(&tbl->map, index_of(r)) == NULL_MAP);
+         is_pos_term(r) && ai32_read(&tbl->map, index_of(r)) == NULL_MAP);
 
   // Freeze r and record its type if needed
   if (! intern_tbl_term_present(tbl, r)) {
@@ -375,7 +375,7 @@ void intern_tbl_map_root(intern_tbl_t *tbl, term_t r, int32_t x) {
   ai32_write(&tbl->map, index_of(r), (INT32_MIN|x));
 
   assert(intern_tbl_map_of_root(tbl, r) == x && 
-	 intern_tbl_is_root(tbl, r) && !intern_tbl_root_is_free(tbl, r));
+         intern_tbl_is_root(tbl, r) && !intern_tbl_root_is_free(tbl, r));
 }
 
 
@@ -386,7 +386,7 @@ void intern_tbl_map_root(intern_tbl_t *tbl, term_t r, int32_t x) {
  */
 void intern_tbl_remap_root(intern_tbl_t *tbl, term_t r, int32_t x) {
   assert(0 <= x && x < INT32_MAX && is_pos_term(r) && 
-	 intern_tbl_is_root(tbl, r) && intern_tbl_root_is_mapped(tbl, r));
+         intern_tbl_is_root(tbl, r) && intern_tbl_root_is_mapped(tbl, r));
 
   ai32_write(&tbl->map, index_of(r), (INT32_MIN|x));
 
@@ -540,9 +540,9 @@ static bool bfs_occurs_check(intern_tbl_t *tbl, term_t t, term_t v) {
 
     case UNINTERPRETED_TERM:
       if (x == index_of(t)) {
-	// found a cycle
-	found = true;
-	goto done;
+        // found a cycle
+        found = true;
+        goto done;
       }
       break;
 
@@ -628,9 +628,9 @@ static bool bfs_occurs_check(intern_tbl_t *tbl, term_t t, term_t v) {
  */
 bool intern_tbl_valid_subst(intern_tbl_t *tbl, term_t r1, term_t r2) {
   assert(is_pos_term(r1) && 
-	 intern_tbl_is_root(tbl, r1) && 
-	 intern_tbl_is_root(tbl, r2) && 
-	 !is_constant_term(tbl->terms, r2));
+         intern_tbl_is_root(tbl, r1) && 
+         intern_tbl_is_root(tbl, r2) && 
+         !is_constant_term(tbl->terms, r2));
 
 
   return intern_tbl_root_is_free(tbl, r1) && ! bfs_occurs_check(tbl, r1, r2);
@@ -652,9 +652,9 @@ bool intern_tbl_valid_const_subst(intern_tbl_t *tbl, term_t r1, term_t r2) {
   bool ok;
 
   assert(is_pos_term(r1) && 
-	 intern_tbl_is_root(tbl, r1) &&
-	 intern_tbl_is_root(tbl, r2) &&
-	 is_constant_term(tbl->terms, r2));
+         intern_tbl_is_root(tbl, r1) &&
+         intern_tbl_is_root(tbl, r2) &&
+         is_constant_term(tbl->terms, r2));
 
   ok = false;
 
@@ -696,7 +696,7 @@ void intern_tbl_add_subst(intern_tbl_t *tbl, term_t r1, term_t r2) {
  */
 void intern_tbl_merge_classes(intern_tbl_t *tbl, term_t r1, term_t r2) {
   assert(intern_tbl_root_is_free(tbl, r1) &&
-	 intern_tbl_root_is_free(tbl, r2));
+         intern_tbl_root_is_free(tbl, r2));
 
   if (! intern_tbl_term_present(tbl, r1)) {
     partition_add(tbl, r1);

@@ -220,7 +220,7 @@ void start_timeout(uint32_t delay, timeout_handler_t handler, void *param) {
 
   duetime = delay * 1000; // delay in milliseconds
   if (CreateTimerQueueTimer(&timer, timer_queue, (WAITORTIMERCALLBACK) timer_callback,
-			    NULL, duetime, 0, 0)) {
+                            NULL, duetime, 0, 0)) {
     // timer created
     the_timeout.state = TIMEOUT_ACTIVE;
     the_timeout.handler = handler;
@@ -229,7 +229,7 @@ void start_timeout(uint32_t delay, timeout_handler_t handler, void *param) {
     fprintf(stderr, "Yices: CreateTimerQueueTimer failed with error code %"PRIu32"\n", (uint32_t) GetLastError());
     fflush(stderr);
     exit(YICES_EXIT_INTERNAL_ERROR);
-  }			    
+  }                         
 }
 
 

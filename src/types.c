@@ -655,8 +655,8 @@ static type_t new_tuple_type(type_table_t *table, uint32_t n, type_t *e) {
 
   default:
     assert(flag == FREE_TYPE_FLAGS ||
-	   flag == LARGE_TYPE_FLAGS || 
-	   (flag & ~MINMAX_FLAGS_MASK) == INFINITE_TYPE_FLAGS);
+           flag == LARGE_TYPE_FLAGS || 
+           (flag & ~MINMAX_FLAGS_MASK) == INFINITE_TYPE_FLAGS);
     card = UINT32_MAX;
     break;
   }
@@ -737,7 +737,7 @@ static type_t new_function_type(type_table_t *table, uint32_t n, type_t *e, type
     // or the range and all domains are finite but at least one 
     // of them is large.
     assert(flag == LARGE_TYPE_FLAGS || 
-	   (flag & ~MINMAX_FLAGS_MASK) == INFINITE_TYPE_FLAGS);
+           (flag & ~MINMAX_FLAGS_MASK) == INFINITE_TYPE_FLAGS);
     card = UINT32_MAX;
     flag = minmax | (flag & ~MINMAX_FLAGS_MASK);
     break;
@@ -1214,7 +1214,7 @@ static bool all_distinct_vars(type_table_t *table, uint32_t n, type_t v[]) {
   for (i=0; i<n; i++) {
     for (j=i+1; j<n; j++) {
       if (v[i] == v[j]) {
-	return false;
+        return false;
       }
     }
   }
@@ -1329,33 +1329,33 @@ static type_t type_subst_recur(type_table_t *table, int_hmap_t *hmap, type_t tau
     } else {
       switch (type_kind(table, tau)) {
       case TUPLE_TYPE:
-	tup = tuple_type_desc(table, tau);
-	result = tuple_type_subst(table, hmap, tup->elem, tup->nelem);
-	p = int_hmap_get(hmap, tau);
-	assert(p->val < 0);
-	p->val = result;
-	break;
+        tup = tuple_type_desc(table, tau);
+        result = tuple_type_subst(table, hmap, tup->elem, tup->nelem);
+        p = int_hmap_get(hmap, tau);
+        assert(p->val < 0);
+        p->val = result;
+        break;
 
       case FUNCTION_TYPE:
-	fun = function_type_desc(table, tau);
-	result = function_type_subst(table, hmap, fun->range, fun->domain, fun->ndom);
-	p = int_hmap_get(hmap, tau);
-	assert(p->val < 0);
-	p->val = result;
-	break;
+        fun = function_type_desc(table, tau);
+        result = function_type_subst(table, hmap, fun->range, fun->domain, fun->ndom);
+        p = int_hmap_get(hmap, tau);
+        assert(p->val < 0);
+        p->val = result;
+        break;
 
       case INSTANCE_TYPE:
-	inst = instance_type_desc(table, tau);
-	result = instance_type_subst(table, hmap, inst->cid, inst->param, inst->arity);
-	p = int_hmap_get(hmap, tau);
-	assert(p->val < 0);
-	p->val = result;
-	break;
+        inst = instance_type_desc(table, tau);
+        result = instance_type_subst(table, hmap, inst->cid, inst->param, inst->arity);
+        p = int_hmap_get(hmap, tau);
+        assert(p->val < 0);
+        p->val = result;
+        break;
 
       default:
-	assert(is_type_variable(table, tau));
-	result = tau;
-	break;
+        assert(is_type_variable(table, tau));
+        result = tau;
+        break;
       }
 
     }    
@@ -1484,7 +1484,7 @@ bool types_match(type_table_t *table, type_t tau, type_t sigma, int_hmap_t *subs
   switch (type_kind(table, tau)) {
   case TUPLE_TYPE:
     if (! match_tuple_types(table, tuple_type_desc(table, tau), tuple_type_desc(table, sigma), subst)) {
-      return false;	
+      return false;     
     }
     break;
       
@@ -1670,14 +1670,14 @@ static type_t cheap_sup(type_table_t *table, type_t tau1, type_t tau2) {
   switch (table->kind[tau1]) {
   case TUPLE_TYPE:
     if (table->kind[tau2] != TUPLE_TYPE || 
-	tuple_type_arity(table, tau1) != tuple_type_arity(table, tau2)) {
+        tuple_type_arity(table, tau1) != tuple_type_arity(table, tau2)) {
       return NULL_TYPE;
     }
     break;
 
   case FUNCTION_TYPE:
     if (table->kind[tau2] != FUNCTION_TYPE ||
-	function_type_arity(table, tau1) != function_type_arity(table, tau2)) {
+        function_type_arity(table, tau1) != function_type_arity(table, tau2)) {
       return NULL_TYPE;
     }
     break;
@@ -1803,19 +1803,19 @@ type_t super_type(type_table_t *table, type_t tau1, type_t tau2) {
        * The result is not in the cache.
        */
       if (table->kind[tau1] == TUPLE_TYPE) {
-	tup1 = tuple_type_desc(table, tau1);
-	tup2 = tuple_type_desc(table, tau2);
-	assert(tup1->nelem == tup2->nelem);
-	aux = sup_tuple_types(table, tup1->nelem, tup1->elem, tup2->elem);
+        tup1 = tuple_type_desc(table, tau1);
+        tup2 = tuple_type_desc(table, tau2);
+        assert(tup1->nelem == tup2->nelem);
+        aux = sup_tuple_types(table, tup1->nelem, tup1->elem, tup2->elem);
 
       } else {
-	fun1 = function_type_desc(table, tau1);
-	fun2 = function_type_desc(table, tau2);
-	assert(fun1->ndom == fun2->ndom);
-	aux = NULL_TYPE;
-	if (equal_type_arrays(fun1->ndom, fun1->domain, fun2->domain)) {
-	  aux = sup_fun_types(table, fun1->ndom, fun1->domain, fun1->range, fun2->range);
-	}
+        fun1 = function_type_desc(table, tau1);
+        fun2 = function_type_desc(table, tau2);
+        assert(fun1->ndom == fun2->ndom);
+        aux = NULL_TYPE;
+        if (equal_type_arrays(fun1->ndom, fun1->domain, fun2->domain)) {
+          aux = sup_fun_types(table, fun1->ndom, fun1->domain, fun1->range, fun2->range);
+        }
       }
 
       int_hmap2_add(sup_tbl, tau1, tau2, aux);
@@ -1852,14 +1852,14 @@ static type_t cheap_inf(type_table_t *table, type_t tau1, type_t tau2) {
   switch (table->kind[tau1]) {
   case TUPLE_TYPE:
     if (table->kind[tau2] != TUPLE_TYPE || 
-	tuple_type_arity(table, tau1) != tuple_type_arity(table, tau2)) {
+        tuple_type_arity(table, tau1) != tuple_type_arity(table, tau2)) {
       return NULL_TYPE;
     }
     break;
 
   case FUNCTION_TYPE:
     if (table->kind[tau2] != FUNCTION_TYPE ||
-	function_type_arity(table, tau1) != function_type_arity(table, tau2)) {
+        function_type_arity(table, tau1) != function_type_arity(table, tau2)) {
       return NULL_TYPE;
     }
     break;
@@ -1971,19 +1971,19 @@ type_t inf_type(type_table_t *table, type_t tau1, type_t tau2) {
        * The result is not in the cache.
        */
       if (table->kind[tau1] == TUPLE_TYPE) {
-	tup1 = tuple_type_desc(table, tau1);
-	tup2 = tuple_type_desc(table, tau2);
-	assert(tup1->nelem == tup2->nelem);
-	aux = inf_tuple_types(table, tup1->nelem, tup1->elem, tup2->elem);
+        tup1 = tuple_type_desc(table, tau1);
+        tup2 = tuple_type_desc(table, tau2);
+        assert(tup1->nelem == tup2->nelem);
+        aux = inf_tuple_types(table, tup1->nelem, tup1->elem, tup2->elem);
 
       } else {
-	fun1 = function_type_desc(table, tau1);
-	fun2 = function_type_desc(table, tau2);
-	assert(fun1->ndom == fun2->ndom);
-	aux = NULL_TYPE;
-	if (equal_type_arrays(fun1->ndom, fun1->domain, fun2->domain)) {
-	  aux = inf_fun_types(table, fun1->ndom, fun1->domain, fun1->range, fun2->range);
-	}
+        fun1 = function_type_desc(table, tau1);
+        fun2 = function_type_desc(table, tau2);
+        assert(fun1->ndom == fun2->ndom);
+        aux = NULL_TYPE;
+        if (equal_type_arrays(fun1->ndom, fun1->domain, fun2->domain)) {
+          aux = inf_fun_types(table, fun1->ndom, fun1->domain, fun1->range, fun2->range);
+        }
       }
 
       int_hmap2_add(inf_tbl, tau1, tau2, aux);
@@ -2079,9 +2079,9 @@ type_t max_super_type(type_table_t *table, type_t tau) {
     } else {
       // max is not in the cache
       if (table->kind[tau] == TUPLE_TYPE) {
-	aux = max_tuple_super_type(table, tuple_type_desc(table, tau));
+        aux = max_tuple_super_type(table, tuple_type_desc(table, tau));
       } else {
-	aux = max_function_super_type(table, function_type_desc(table,tau));
+        aux = max_function_super_type(table, function_type_desc(table,tau));
       }
       int_hmap_add(max_tbl, tau, aux);
     }

@@ -30,7 +30,7 @@ bool good_term_subst(term_table_t *terms, uint32_t n, term_t *v, term_t *t) {
     u = t[i];
     assert(good_term(terms, x) && good_term(terms, u));
     if (is_neg_term(x) || term_kind(terms, x) != VARIABLE || 
-	!is_subtype(types, term_type(terms, u), term_type(terms, x))) {
+        !is_subtype(types, term_type(terms, u), term_type(terms, x))) {
       return false;
     }
   }
@@ -60,7 +60,7 @@ void init_term_subst(term_subst_t *subst, term_manager_t *mngr, uint32_t n, term
   for (i=0; i<n; i++) {
     x = v[i];
     assert(is_pos_term(x) && term_kind(subst->terms, x) == VARIABLE && 
-	   good_term(subst->terms, t[i]));
+           good_term(subst->terms, t[i]));
     p = int_hmap_get(&subst->map, x);
     p->val = t[i];
   }
@@ -1140,7 +1140,7 @@ static term_t subst_composite(term_subst_t *subst, term_t t) {
   case ITE_SPECIAL:
     result = subst_ite(subst, ite_term_desc(terms, t));
     break;
-		       
+                       
   case APP_TERM:
     result = subst_app(subst, app_term_desc(terms, t));
     break;
@@ -1305,9 +1305,9 @@ static term_t get_subst(term_subst_t *subst, term_t t) {
     }  else {
       result = get_cached_subst(subst, t);
       if (result < 0) {
-	assert(result == NULL_TERM);
-	result = subst_composite(subst, t);
-	cache_subst_result(subst, t, result);
+        assert(result == NULL_TERM);
+        result = subst_composite(subst, t);
+        cache_subst_result(subst, t, result);
       }
     }
     break;

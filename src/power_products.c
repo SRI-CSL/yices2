@@ -218,10 +218,10 @@ static uint32_t normalize_varexp_array(varexp_t *a, uint32_t n) {
     if (a[i].var == v) {
       d += a[i].exp;
     } else {
-      if (d != 0) {	
-	a[j].var = v;
-	a[j].exp = d;
-	j ++;
+      if (d != 0) {     
+        a[j].var = v;
+        a[j].exp = d;
+        j ++;
       }
       v = a[i].var;
       d = a[i].exp;

@@ -31,9 +31,9 @@ void print_epartition(FILE *f, term_table_t *terms, epartition_t *p) {
       fprintf(f, " {");
       t = *q ++;
       while (t >= 0) {
-	fputc(' ', f);
-	print_term_name(f, terms, t);
-	t = *q ++;
+        fputc(' ', f);
+        print_term_name(f, terms, t);
+        t = *q ++;
       }
       fprintf(f, " }");
     }

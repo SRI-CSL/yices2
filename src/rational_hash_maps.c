@@ -372,7 +372,7 @@ void copy_xq_hmap(xq_hmap_t *hmap1, xq_hmap_t *hmap2) {
   }
 
   assert(hmap1->nentries == 0 && hmap1->nelems == 0 && 
-	 hmap1->ndeleted == 0);
+         hmap1->ndeleted == 0);
 
 
   n1 = hmap1->size;

@@ -69,16 +69,16 @@ static void collect_finite_domain(term_table_t *tbl, int_hset_t *cache, ivector_
     if (term_kind(tbl, t) == ITE_SPECIAL) {
       d = ite_special_desc(tbl, t);
       if (d->extra != NULL) {
-	add_domain(cache, v, d->extra);
+        add_domain(cache, v, d->extra);
       } else {
-	collect_finite_domain(tbl, cache, v, d->body.arg[1]);
-	collect_finite_domain(tbl, cache, v, d->body.arg[2]);
+        collect_finite_domain(tbl, cache, v, d->body.arg[1]);
+        collect_finite_domain(tbl, cache, v, d->body.arg[2]);
       }
     } else {
       // t must be a constant, not already in v
       assert(term_kind(tbl, t) == ARITH_CONSTANT ||
-	     term_kind(tbl, t) == BV64_CONSTANT ||
-	     term_kind(tbl, t) == BV_CONSTANT);
+             term_kind(tbl, t) == BV64_CONSTANT ||
+             term_kind(tbl, t) == BV_CONSTANT);
       ivector_push(v, t);
     }
   }
@@ -518,7 +518,7 @@ static bool disequal_bitarray_bvconst64(composite_term_t *a, bvconst64_term_t *c
     if (index_of(a->arg[i]) == bool_const) {
       assert(a->arg[i] == true_term || a->arg[i] == false_term);
       if (a->arg[i] != bool2term(tst_bit64(c->value, i))) {
-	return true;
+        return true;
       }
     }
   }
@@ -541,7 +541,7 @@ static bool disequal_bitarray_bvconst(composite_term_t *a, bvconst_term_t *c) {
     if (index_of(a->arg[i]) == bool_const) {
       assert(a->arg[i] == true_term || a->arg[i] == false_term);
       if (a->arg[i] != bool2term(bvconst_tst_bit(c->data, i))) {
-	return true;
+        return true;
       }
     }
   }
@@ -765,7 +765,7 @@ static bool disequal_bv_terms(term_table_t *tbl, term_t x, term_t y) {
  */
 bool disequal_bitvector_terms(term_table_t *tbl, term_t x, term_t y) {
   assert(is_bitvector_term(tbl, x) && is_bitvector_term(tbl, y) &&
-	 term_bitsize(tbl, x) == term_bitsize(tbl, y));
+         term_bitsize(tbl, x) == term_bitsize(tbl, y));
   
   if (term_bitsize(tbl, x) <= 64) {
     return disequal_bv64_terms(tbl, x, y);
@@ -1502,7 +1502,7 @@ term_t simplify_bveq(term_table_t *tbl, term_t t1, term_t t2) {
   term_t aux;
 
   assert(is_bitvector_term(tbl, t1) && is_bitvector_term(tbl, t2) && 
-	 term_bitsize(tbl, t1) == term_bitsize(tbl, t2));
+         term_bitsize(tbl, t1) == term_bitsize(tbl, t2));
 
   k1 = term_kind(tbl, t1);
   k2 = term_kind(tbl, t2);
@@ -1624,7 +1624,7 @@ bool bveq_flattens(term_table_t *tbl, term_t t1, term_t t2, ivector_t *v) {
   term_kind_t k1, k2;
 
   assert(is_bitvector_term(tbl, t1) && is_bitvector_term(tbl, t2) &&
-	 term_bitsize(tbl, t1) == term_bitsize(tbl, t2));
+         term_bitsize(tbl, t1) == term_bitsize(tbl, t2));
 
   k1 = term_kind(tbl, t1);
   k2 = term_kind(tbl, t2);

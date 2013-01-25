@@ -51,9 +51,9 @@ static void print_bv_mono64(FILE *f, uint64_t c, thvar_t x, uint32_t n, bool fir
   if (c == 1) {    
     if (first) {
       if (x == const_idx) {
-	fputs("1", f);
+        fputs("1", f);
       } else {
-	print_bvvar(f, x);
+        print_bvvar(f, x);
       }
     } else {
       fputs(" + ", f);
@@ -63,10 +63,10 @@ static void print_bv_mono64(FILE *f, uint64_t c, thvar_t x, uint32_t n, bool fir
   } else if (bvconst64_is_minus_one(c, n)) {
     if (first) {
       if (x == const_idx) {
-	fputs("-1", f);
+        fputs("-1", f);
       } else {
-	fputs("- ", f);
-	print_bvvar(f, x);
+        fputs("- ", f);
+        print_bvvar(f, x);
       }
     } else {
       fputs(" - ", f);
@@ -113,9 +113,9 @@ static void print_bv_mono(FILE *f, uint32_t *c, thvar_t x, uint32_t n, bool firs
   if (bvconst_is_one(c, w)) {
     if (first) {
       if (x == const_idx) {
-	fputs("1", f);
+        fputs("1", f);
       } else {
-	print_bvvar(f, x);
+        print_bvvar(f, x);
       }
     } else {
       fputs(" + ", f);
@@ -125,10 +125,10 @@ static void print_bv_mono(FILE *f, uint32_t *c, thvar_t x, uint32_t n, bool firs
   } else if (bvconst_is_minus_one(c, n)) {
     if (first) {
       if (x == const_idx) {
-	fputs("-1", f);
+        fputs("-1", f);
       } else {
-	fputs("- ", f);
-	print_bvvar(f, x);
+        fputs("- ", f);
+        print_bvvar(f, x);
       }
     } else {
       fputs(" - ", f);

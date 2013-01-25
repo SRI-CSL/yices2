@@ -144,7 +144,7 @@ extern bool bvconst_is_normalized(uint32_t *bv, uint32_t n);
 
 
 /*
- * Hash code of bitconstant a, n = bitsize
+ * Hash code of bitvector constant a, n = bitsize
  * - a must be normalized modulo 2^n first.
  */
 extern uint32_t bvconst_hash(uint32_t *a, uint32_t n);
@@ -217,7 +217,7 @@ extern void bvconst_set_max_signed(uint32_t *bv, uint32_t n);
  * - mode = -1: sign extension (padding = high-order bit).
  */
 extern void bvconst_set_extend(uint32_t *bv, uint32_t n, uint32_t *a,
-			       uint32_t m, int32_t mode);
+                               uint32_t m, int32_t mode);
 
 
 /*
@@ -239,7 +239,7 @@ extern int32_t bvconst_set_from_string(uint32_t *bv, uint32_t n, const char *s);
  * to a bitvector constant.
  * - n = number of characters, must be positive.
  * - s must be at least n character long
- * - bk must be an array of at least ceil(4*n/32) words
+ * - bv must be an array of at least ceil(4*n/32) words
  * 
  * Reads the n first characters of s. 
  * All must be '0' to '9' or 'a' to 'f' or 'A' to 'F'
@@ -577,7 +577,7 @@ static inline bool bvconst_sgt(uint32_t *a, uint32_t *b, uint32_t n) {
 
 
 /*
- * VARIANTS: using bvconstant stuctures
+ * VARIANTS: using bvconstant structures
  */
 static inline void bvconstant_normalize(bvconstant_t *a) {
   bvconst_normalize(a->data, a->bitsize);

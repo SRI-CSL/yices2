@@ -91,7 +91,7 @@ struct param_s {
    *
    * Limits to stop the Ackermann trick if too many lemmas are generated
    * - max_ackermann: limit for the non-boolean version
-   * - max_boolackermann: limit for the boolem version
+   * - max_boolackermann: limit for the boolean version
    *
    * The Ackermann clauses may require the construction of new equality
    * terms that were not present in the context. This is controlled by

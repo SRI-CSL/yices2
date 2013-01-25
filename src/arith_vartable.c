@@ -289,7 +289,7 @@ void arith_vartable_remove_eterms(arith_vartable_t *table, uint32_t nterms) {
     for (i=0; i<n; i++) {
       t = tmp[i];
       if (t != null_eterm && t >= nterms) {
-	tmp[i] = null_eterm;
+        tmp[i] = null_eterm;
       }
     }
   }

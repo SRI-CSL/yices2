@@ -377,7 +377,7 @@ typedef void (*assert_arith_axiom_fun_t)(void *solver, polynomial_t *p, itable_t
 typedef void (*assert_arith_vareq_axiom_fun_t)(void *solver, thvar_t x, thvar_t y, bool tt);
 typedef void (*assert_arith_cond_vareq_axiom_fun_t)(void* solver, literal_t c, thvar_t x, thvar_t y);
 typedef void (*assert_arith_cond_polyeq_axiom_fun_t)(void* solver, literal_t c, thvar_t x,
-						     polynomial_t *p, itable_t *arith_map);
+                                                     polynomial_t *p, itable_t *arith_map);
 
 typedef void (*build_model_fun_t)(void *solver);
 typedef void (*free_model_fun_t)(void *solver);

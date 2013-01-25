@@ -68,7 +68,7 @@ void th_explanation_add_atom(th_explanation_t *e, literal_t l) {
       n ++;
       n += n>>1; // increase capacity by 50%
       if (n > MAX_ATOM_VECTOR_SIZE) {
-	out_of_memory(); // abort
+        out_of_memory(); // abort
       }
       av = (atom_vector_t *) safe_realloc(av, sizeof(atom_vector_t) + n * sizeof(literal_t));
       av->capacity = n;
@@ -104,7 +104,7 @@ void th_explanation_add_eq(th_explanation_t *e, eterm_t t1, eterm_t t2) {
       n ++;
       n += n>>1;
       if (n > MAX_EQ_VECTOR_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
       eqv = (eq_vector_t *) safe_realloc(eqv, sizeof(eq_vector_t) + n * sizeof(th_eq_t));
       eqv->capacity = n;
@@ -141,7 +141,7 @@ void th_explanation_add_diseq(th_explanation_t *e, diseq_pre_expl_t *d) {
       n ++;
       n += n>>1;
       if (n > MAX_DISEQ_VECTOR_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
       diseqv = (diseq_vector_t *) safe_realloc(diseqv, sizeof(diseq_vector_t) + n * sizeof(diseq_pre_expl_t));
       diseqv->capacity = n;

@@ -1256,8 +1256,8 @@ void bvarith_buffer_mul_mlist_power(bvarith_buffer_t *b, bvmlist_t *p1, uint32_t
        */
       assert(d > 0);
       if ((d & 1) != 0) {
-	bvarith_buffer_mul_mlist(b, aux->list); // b := b * aux
-	bvarith_buffer_normalize(b);
+        bvarith_buffer_mul_mlist(b, aux->list); // b := b * aux
+        bvarith_buffer_normalize(b);
       }
       d >>= 1;                             // d := d/2
       if (d == 0) break;
@@ -1804,8 +1804,8 @@ void bvarith_buffer_mul_bvpoly_power(bvarith_buffer_t *b, bvpoly_t *poly, pprod_
        */
       assert(d > 0);
       if ((d & 1) != 0) {
-	bvarith_buffer_mul_buffer(b, aux); // b := b * aux
-	bvarith_buffer_normalize(b);
+        bvarith_buffer_mul_buffer(b, aux); // b := b * aux
+        bvarith_buffer_normalize(b);
       }
       d >>= 1;                           // d := d/2
       if (d == 0) break;

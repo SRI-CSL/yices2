@@ -644,14 +644,14 @@ bool rescale_poly_buffer_to_dl_triple(poly_buffer_t *b, dl_triple_t *d) {
   } else if (n == 2) {
     if (q_opposite(&p[0].coeff, &p[1].coeff)) {
       if (q_is_pos(&p[0].coeff)) {
-	q_set(&a, &p[0].coeff);
-	x = p[0].var - 1;
-	y = p[1].var - 1;
+        q_set(&a, &p[0].coeff);
+        x = p[0].var - 1;
+        y = p[1].var - 1;
       } else {
-	assert(q_is_pos(&p[1].coeff));
-	q_set(&a, &p[1].coeff);
-	x = p[1].var - 1;
-	y = p[0].var - 1;
+        assert(q_is_pos(&p[1].coeff));
+        q_set(&a, &p[1].coeff);
+        x = p[1].var - 1;
+        y = p[0].var - 1;
       }
 
     } else {

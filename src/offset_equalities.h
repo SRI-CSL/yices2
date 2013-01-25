@@ -16,7 +16,7 @@
  *
  * Example: if egraph term t1 is mapped to p1 = x1 + 2 x2 + 1 in
  * Simplex and term t2 is mapped to p2 = x3 + 2 x2 + 2 in Simplex,
- * then we can propgate t1 == t2 to the Egraph when the offset
+ * then we can propagate t1 == t2 to the Egraph when the offset
  * equality (x1 == x3 + 1) is asserted.
  *
  * To support this, we keep the polynomials p1 and p2 normalized
@@ -139,7 +139,7 @@ static inline int32_t decode_idx(int32_t i) {
 /*
  * Tracked polynomials
  * -------------------
- * - polyniomials are indexed from 0 to npolys - 1
+ * - polynomials are indexed from 0 to npolys - 1
  * - each polynomial represents a triple (t, x, p)
  *   - t is an egraph term
  *   - x is the arithmetic variable attached to t in the arithmetic solver
@@ -268,7 +268,7 @@ typedef struct offset_table_s {
  *   where the polynomial index is an index in the offset_poly_table
  *   and hash is the hash code of that polynomial
  * - index = -1 means that data[i] is not used
- * - index = -2 measn that data[i] is deleted
+ * - index = -2 means that data[i] is deleted
  */
 typedef struct offset_hash_elem_s {
   int32_t index;
@@ -336,7 +336,7 @@ typedef struct offset_equeue_s {
  * - when we process equality (x := y + k), we find rx := x's root
  *   then we change the descriptors of all elements in rx's class
  *   and we add an edge from x to y in the merge trees.
- * - when we backtrack, we need to revert this. It's enouugh to keep
+ * - when we backtrack, we need to revert this. It's enough to keep
  *   track of x and rx.
  * We store both in the undo stack.
  */

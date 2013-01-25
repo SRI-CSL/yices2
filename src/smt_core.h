@@ -1186,8 +1186,8 @@ typedef struct smt_core_s {
  * parameters are set to their default values
  */
 extern void init_smt_core(smt_core_t *s, uint32_t n, void *th, 
-			  th_ctrl_interface_t *ctrl, th_smt_interface_t *smt,
-			  smt_mode_t mode);
+                          th_ctrl_interface_t *ctrl, th_smt_interface_t *smt,
+                          smt_mode_t mode);
 
 
 /*

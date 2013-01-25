@@ -20,7 +20,7 @@
  * - no row saving, no jump buffer (exceptions cause abort)
  */
 extern void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, 
-				gate_manager_t *gates, egraph_t *egraph);
+                                gate_manager_t *gates, egraph_t *egraph);
 
 
 /*

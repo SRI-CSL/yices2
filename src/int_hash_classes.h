@@ -71,7 +71,7 @@ enum {
  * - hash_fn, match_fn, aux: customization 
  */
 extern void init_int_hclass(int_hclass_t *table, uint32_t n, void *aux, 
-			    iclass_hash_fun_t hash_fn, iclass_match_fun_t match_fn);
+                            iclass_hash_fun_t hash_fn, iclass_match_fun_t match_fn);
 
 
 /*

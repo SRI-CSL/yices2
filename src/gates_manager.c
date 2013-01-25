@@ -307,10 +307,10 @@ static uint32_t simplify_xor(smt_core_t *s, uint32_t n, literal_t *a, ivector_t 
     while (i<n-1) {
       l = a[i];
       if (l == a[i+1]) {
-	i += 2;
+        i += 2;
       } else {
-	a[p++] = l;
-	i ++;
+        a[p++] = l;
+        i ++;
       }
     }
     if (i == n-1) {
@@ -593,22 +593,22 @@ void assert_ite(gate_manager_t *m, literal_t c, literal_t l1, literal_t l2, bool
       v1 = literal_base_value(s, l1);
       v2 = literal_base_value(s, l2);
       if (c == l1 || v1 == VAL_TRUE)  {
-	add_binary_clause(s, c, l2); // assert (or c l2)
-	break;
+        add_binary_clause(s, c, l2); // assert (or c l2)
+        break;
       }
       if (c == l2 || v2 == VAL_FALSE) {
-	add_unit_clause(s, c);
-	add_unit_clause(s, l1); // assert (and c l1)
-	break;
+        add_unit_clause(s, c);
+        add_unit_clause(s, l1); // assert (and c l1)
+        break;
       }
       if (c == not(l1) || v1 == VAL_FALSE) {
-	add_unit_clause(s, not(c));
-	add_unit_clause(s, l2); // assert (and (not c) l2)
-	break;
+        add_unit_clause(s, not(c));
+        add_unit_clause(s, l2); // assert (and (not c) l2)
+        break;
       }
       if (c == not(l2) || v2 == VAL_TRUE)  {
-	add_binary_clause(s, not(c), l1); // assert (or (not c) l1)
-	break;
+        add_binary_clause(s, not(c), l1); // assert (or (not c) l1)
+        break;
       }
 
       add_binary_clause(s, not(c), l1);

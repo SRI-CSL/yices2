@@ -83,7 +83,7 @@ typedef enum msplx_status {
  * - lb[x] and ub[x] are two integers (stored as rational_t objects)
  *
  * The parameters y_1,..., y_k have an index in the range [nvars, .., nvars + k -1]
- * The problem variablex x_1, ..., x_n have an index in the range [0, ..., nvars-1]
+ * The problem variables x_1, ..., x_n have an index in the range [0, ..., nvars-1]
  * (index 0 is not really a variable. It represents the constant and eq[0] is always 
  *  the polynomial 1.)
  *

@@ -154,7 +154,7 @@ void *arena_alloc(arena_t *a, size_t n) {
   a->index = idx;
 
   assert(size_is_multiple_of_eight(idx) &&
-	 ptr_is_aligned(a->current_block->data + idx));
+         ptr_is_aligned(a->current_block->data + idx));
 
   return a->current_block->data + idx;
 }

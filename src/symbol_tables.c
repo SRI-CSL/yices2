@@ -217,7 +217,7 @@ void delete_stbl(stbl_t *sym_table) {
     // apply finalizer to all live records
     for (r = b->block + k; r < b->block + STBL_BANK_SIZE; r ++) {
       if (r->string != NULL) {
-	sym_table->finalize(r);
+        sym_table->finalize(r);
       }
     }
     // delete b
@@ -273,9 +273,9 @@ void stbl_remove(stbl_t *sym_table, const char *symbol) {
   for (r = sym_table->data[i]; r != NULL; r = r->next) {
     if (r->hash == h && strcmp(symbol, r->string) == 0) {
       if (p == NULL) {
-	sym_table->data[i] = r->next;
+        sym_table->data[i] = r->next;
       } else {
-	p->next = r->next;
+        p->next = r->next;
       }
       sym_table->finalize(r);
       stbl_free_record(sym_table, r);
@@ -301,9 +301,9 @@ void stbl_delete_mapping(stbl_t *sym_table, const char *symbol, int32_t val) {
   for (r = sym_table->data[i]; r != NULL; r = r->next) {
     if (r->hash == h && r->value == val && strcmp(symbol, r->string) == 0) {
       if (p == NULL) {
-	sym_table->data[i] = r->next;
+        sym_table->data[i] = r->next;
       } else {
-	p->next = r->next;
+        p->next = r->next;
       }
       sym_table->finalize(r);
       stbl_free_record(sym_table, r);
@@ -375,8 +375,8 @@ void stbl_iterate(stbl_t *sym_table, void *aux, stbl_iterator_t f) {
   for (b = sym_table->bnk; b != NULL; b = b->next) {
     for (r = b->block + k; r < b->block + STBL_BANK_SIZE; r++) {
       if (r->string != NULL) {
-	// r is a live record
-	f(aux, r);
+        // r is a live record
+        f(aux, r);
       }
     }
     k = 0;

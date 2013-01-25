@@ -263,7 +263,7 @@ tuple_hmap_rec_t *tuple_hmap_find(tuple_hmap_t *hmap, uint32_t n, int32_t key[])
   uint32_t i, h, mask;
 
   assert(n <= TUPLE_HMAP_MAX_ARITY && hmap->nelems < hmap->size 
-	 && is_power_of_two(hmap->size));
+         && is_power_of_two(hmap->size));
 
   h = hash_tuple_key(n, key);
   mask = hmap->size - 1;
@@ -272,7 +272,7 @@ tuple_hmap_rec_t *tuple_hmap_find(tuple_hmap_t *hmap, uint32_t n, int32_t key[])
   for (;;) {
     r = hmap->data[i];
     if (r == NULL || 
-	(r != TUPLE_HMAP_DELETED && r->hash == h && r->arity == n && equal_tuples(n, key, r->key))) {
+        (r != TUPLE_HMAP_DELETED && r->hash == h && r->arity == n && equal_tuples(n, key, r->key))) {
       return r;
     }
     i ++;
@@ -295,7 +295,7 @@ tuple_hmap_rec_t *tuple_hmap_get(tuple_hmap_t *hmap, uint32_t n, int32_t key[], 
   uint32_t i, j, h, mask;
 
   assert(n <= TUPLE_HMAP_MAX_ARITY && hmap->nelems < hmap->size &&
-	 is_power_of_two(hmap->size));
+         is_power_of_two(hmap->size));
 
   h = hash_tuple_key(n, key);
   mask = hmap->size - 1;
@@ -322,7 +322,7 @@ tuple_hmap_rec_t *tuple_hmap_get(tuple_hmap_t *hmap, uint32_t n, int32_t key[], 
     }
     if (r != TUPLE_HMAP_DELETED && r->hash == h && r->arity == n && equal_tuples(n, key, r->key)) {
       goto found;
-    }	
+    }   
   }
 
  add:
@@ -416,7 +416,7 @@ void tuple_hmap_remove(tuple_hmap_t *hmap, uint32_t n, int32_t key[]) {
   uint32_t i, h, mask;
 
   assert(n <= TUPLE_HMAP_MAX_ARITY && hmap->nelems < hmap->size &&
-	 is_power_of_two(hmap->size));
+         is_power_of_two(hmap->size));
 
   h = hash_tuple_key(n, key);
   mask = hmap->size - 1;
@@ -426,7 +426,7 @@ void tuple_hmap_remove(tuple_hmap_t *hmap, uint32_t n, int32_t key[]) {
     r = hmap->data[i];
     if (r == NULL) return;
     if (r != TUPLE_HMAP_DELETED && r->hash == h && 
-	r->arity == n && equal_tuples(n, key, r->key)) break;
+        r->arity == n && equal_tuples(n, key, r->key)) break;
     i ++;
     i &= mask;
   }

@@ -156,11 +156,11 @@ static uint32_t large_bvset_search_fresh(large_bvset_t *s, uint32_t t, uint32_t 
       i = jenkins_hash_uint32(t) & mask;
       assert(i < s->size);
       if (! tst_bit(s->set, i)) {
-	// t is fresh, i = hash code for t
-	set_bit(s->set, i);
-	s->nelems ++;
-	large_bvset_store_fval(s, t);
-	return t;
+        // t is fresh, i = hash code for t
+        set_bit(s->set, i);
+        s->nelems ++;
+        large_bvset_store_fval(s, t);
+        return t;
       }
       n --;
     }

@@ -380,7 +380,7 @@ static thvar_t bv_compiler_mk_power_product(bvc_t *c, uint32_t n, pp_buffer_t *b
     for (i=0; i<m; i++) {
       d = a[i].exp;
       if ((d & 1) != 0) {
-	x = mk_bvmul_aux(c, n, x, a[i].var);
+        x = mk_bvmul_aux(c, n, x, a[i].var);
       }
       d >>= 1;
       a[i].exp = d;
@@ -681,7 +681,7 @@ static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
   uint64_t a;
 
   assert(0 < x && x < c->vtbl->nvars && int_bvset_member(&c->in_queue, x));
-	   
+           
   q = -1; // Stop GCC warning
 
   vtbl = c->vtbl;
@@ -693,7 +693,7 @@ static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
     if (bvpoly_buffer_is_constant(b)) {
       a = 0;
       if (!bvpoly_buffer_is_zero(b)) {
-	a = bvpoly_buffer_coeff64(b, 0);
+        a = bvpoly_buffer_coeff64(b, 0);
       }
       bv_compiler_map_to_const64(c, x, a, b->bitsize);
       return;
@@ -706,9 +706,9 @@ static void bv_compiler_map_var_to_dag(bvc_t *c, thvar_t x) {
     bv_compiler_simplify_poly(c, bvvar_poly_def(vtbl, x), b);
     if (bvpoly_buffer_is_constant(b)) {
       if (bvpoly_buffer_is_zero(b)) {
-	bv_compiler_map_to_zero(c, x, b->bitsize);
+        bv_compiler_map_to_zero(c, x, b->bitsize);
       } else {
-	bv_compiler_map_to_const(c, x, bvpoly_buffer_coeff(b, 0), b->bitsize);
+        bv_compiler_map_to_const(c, x, bvpoly_buffer_coeff(b, 0), b->bitsize);
       }
       return;
     } 
@@ -746,7 +746,7 @@ static void bv_compiler_simplify_dag_bvadd(bvc_t *c, thvar_t x, thvar_t y, thvar
   if (bvc_dag_check_reduce_sum(dag, ny, nz)) {
     nbits = bvvar_bitsize(c->vtbl, x);
     assert(bvvar_bitsize(c->vtbl, y) == nbits && 
-	   bvvar_bitsize(c->vtbl, z) == nbits);
+           bvvar_bitsize(c->vtbl, z) == nbits);
 
     nx = bvc_dag_leaf(dag, x, nbits);
     bvc_dag_reduce_sum(dag, nx, ny, nz);
@@ -765,7 +765,7 @@ static void bv_compiler_simplify_dag_bvsub(bvc_t *c, thvar_t x, thvar_t y, thvar
   if (bvc_dag_check_reduce_sum(dag, ny, nz)) {
     nbits = bvvar_bitsize(c->vtbl, x);
     assert(bvvar_bitsize(c->vtbl, y) == nbits && 
-	   bvvar_bitsize(c->vtbl, z) == nbits);
+           bvvar_bitsize(c->vtbl, z) == nbits);
 
     nx = bvc_dag_leaf(dag, x, nbits);
     bvc_dag_reduce_sum(dag, nx, ny, nz);
@@ -784,7 +784,7 @@ static void bv_compiler_simplify_dag_bvmul(bvc_t *c, thvar_t x, thvar_t y, thvar
   if (bvc_dag_check_reduce_prod(dag, ny, nz)) {
     nbits = bvvar_bitsize(c->vtbl, x);
     assert(bvvar_bitsize(c->vtbl, y) == nbits && 
-	   bvvar_bitsize(c->vtbl, z) == nbits);
+           bvvar_bitsize(c->vtbl, z) == nbits);
 
     nx = bvc_dag_leaf(dag, x, nbits);
     bvc_dag_reduce_prod(dag, nx, ny, nz);
@@ -895,7 +895,7 @@ static void bvc_process_elem_prod(bvc_t *c, bvnode_t i, bvc_prod_t *d) {
   thvar_t x, y, z;
 
   assert((d->len == 1 && d->prod[0].exp == 2) || 
-	 (d->len == 2 && d->prod[0].exp == 1 && d->prod[1].exp == 1));
+         (d->len == 2 && d->prod[0].exp == 1 && d->prod[1].exp == 1));
   
   nbits = d->header.bitsize;
 
@@ -1101,16 +1101,16 @@ static void bvc_process_simple_sum(bvc_t *c, bvnode_t i, bvc_sum_t *p) {
     y = bvc_dag_get_var_of_leaf(&c->dag, n);
     if (all_neg) {
       if (sign_of_occ(n) == 0) {
-	x = bv_compiler_mk_bvsub(c, nbits, y, x);
-	all_neg = false;
+        x = bv_compiler_mk_bvsub(c, nbits, y, x);
+        all_neg = false;
       } else {
-	x = bv_compiler_mk_bvadd(c, nbits, x, y);
+        x = bv_compiler_mk_bvadd(c, nbits, x, y);
       }
     } else {
       if (sign_of_occ(n) == 0) {
-	x = bv_compiler_mk_bvadd(c, nbits, x, y);
+        x = bv_compiler_mk_bvadd(c, nbits, x, y);
       } else {
-	x = bv_compiler_mk_bvsub(c, nbits, x, y);
+        x = bv_compiler_mk_bvsub(c, nbits, x, y);
       }
     }
   }

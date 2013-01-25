@@ -20,7 +20,7 @@
 
 /*
  * Interval structure:
- * - low and high are two bitvector constaints of n bits (n >= 1)
+ * - low and high are two bitvector constants of n bits (n >= 1)
  * - they are stored as arrays of k 32bit words where k = ceil(n/32)
  * - n is stored in nbits
  * - k is stored in width

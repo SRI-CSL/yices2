@@ -825,7 +825,7 @@ static thvar_t get_add(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   if (x > y) {
     aux = x; x = y; y = aux;
@@ -839,7 +839,7 @@ static thvar_t get_sub(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   return get_binop(table, n, BVTAG_SUB, x, y);
@@ -858,7 +858,7 @@ static thvar_t get_mul(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   if (x > y) {
     aux = x; x = y; y = aux;
@@ -872,7 +872,7 @@ static thvar_t get_udiv(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   return get_binop(table, n, BVTAG_UDIV, x, y);
@@ -882,7 +882,7 @@ static thvar_t get_urem(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   return get_binop(table, n, BVTAG_UREM, x, y);
@@ -892,7 +892,7 @@ static thvar_t get_sdiv(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   return get_binop(table, n, BVTAG_SDIV, x, y);
@@ -902,7 +902,7 @@ static thvar_t get_srem(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   return get_binop(table, n, BVTAG_SREM, x, y);
@@ -912,7 +912,7 @@ static thvar_t get_smod(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   return get_binop(table, n, BVTAG_SMOD, x, y);
@@ -922,7 +922,7 @@ static thvar_t get_shl(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   return get_binop(table, n, BVTAG_SHL, x, y);
@@ -932,7 +932,7 @@ static thvar_t get_lshr(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   return get_binop(table, n, BVTAG_LSHR, x, y);  
@@ -942,7 +942,7 @@ static thvar_t get_ashr(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   return get_binop(table, n, BVTAG_ASHR, x, y);  
@@ -953,7 +953,7 @@ static thvar_t get_ite(bv_vartable_t *table, literal_t c, thvar_t x, thvar_t y) 
   thvar_t aux;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
  
   // Normalization: rewrite (ite (not b) x y) to (ite b y x)
   // Could check whether c is true or false?? 
@@ -984,7 +984,7 @@ static thvar_t find_udiv(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   return find_binop(table, n, BVTAG_UDIV, x, y);
@@ -994,7 +994,7 @@ static thvar_t find_urem(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   return find_binop(table, n, BVTAG_UREM, x, y);
@@ -1004,7 +1004,7 @@ static thvar_t find_sdiv(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   return find_binop(table, n, BVTAG_SDIV, x, y);
@@ -1014,7 +1014,7 @@ static thvar_t find_srem(bv_vartable_t *table, thvar_t x, thvar_t y) {
   uint32_t n;
 
   assert(valid_bvvar(table, x) && valid_bvvar(table, y) &&
-	 table->bit_size[x] == table->bit_size[y]);
+         table->bit_size[x] == table->bit_size[y]);
 
   n = table->bit_size[x];
   return find_binop(table, n, BVTAG_SREM, x, y);
@@ -1401,7 +1401,7 @@ static void merge_bv_classes(bv_partition_t *p, thvar_t x, thvar_t y) {
       // x stays root, increment its rank if rx == ry
       p->parent[y] = x;
       if (rx == ry) {
-	p->rank[x] = rx + 1;
+        p->rank[x] = rx + 1;
       }
     }
   } else {
@@ -1456,7 +1456,7 @@ static void bv_partition_pop(bv_partition_t *p) {
   thvar_t y, x;
 
   assert(p->level > 0 && p->trail.top_frame >= 0 && 
-	 p->trail.top > p->trail.top_frame);
+         p->trail.top > p->trail.top_frame);
 
   stack = &p->trail;
   k = stack->top_frame;
@@ -1473,9 +1473,9 @@ static void bv_partition_pop(bv_partition_t *p) {
     } else {
       // undo merge x y
       p->parent[y] = y;
-      if (incr_of_merge_code(c)) {	
-	p->rank[x] --;
-	assert(p->rank[x] == p->rank[y]);
+      if (incr_of_merge_code(c)) {      
+        p->rank[x] --;
+        assert(p->rank[x] == p->rank[y]);
       }
     }
     n --;
@@ -1842,7 +1842,7 @@ static void bv_trail_save(bv_trail_stack_t *stack, uint32_t nv, uint32_t na) {
     } else {
       n += n;
       if (n >= MAX_BV_TRAIL_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
     }
     stack->data = (bv_trail_t *) safe_realloc(stack->data, n * sizeof(bv_trail_t));
@@ -2039,7 +2039,7 @@ static uint32_t used_vals_new_set(used_bvval_t *used_vals) {
       n ++;
       n += n>>1;
       if (n >= USED_BVVAL_MAX_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
       used_vals->data = (bvset_t *) safe_realloc(used_vals->data, n * sizeof(bvset_t));
       used_vals->size = n;
@@ -2316,7 +2316,7 @@ static thvar_t bv_solver_create_var_exp(bv_solver_t *solver, thvar_t x, int32_t 
     for (;;) {
       assert(d > 0);
       if ((d & 1) != 0) {
-	a = get_mul_aux(&solver->vtbl, a, b);
+        a = get_mul_aux(&solver->vtbl, a, b);
       }
       d >>= 1;
       if (d == 0) break;
@@ -2623,39 +2623,39 @@ static thvar_t bv_solver_map_poly(bv_solver_t *solver, bvarith_expr_t *p, itable
     x = p->mono[i].var;
     if (x == const_idx) {
       if (nbits <= 64) {
-	bvpoly_buffer_add_const64(b, p->mono[i].coeff.c);
+        bvpoly_buffer_add_const64(b, p->mono[i].coeff.c);
       } else {
-	bvpoly_buffer_add_constant(b, p->mono[i].coeff.ptr);
+        bvpoly_buffer_add_constant(b, p->mono[i].coeff.ptr);
       }
     } else {
       y = itable_get(bv_map, x);
       if (y == nil) {
-	// x not internalized yet: so x must be an auxiliary variable
-	assert(bv_var_manager_var_is_aux(m, x));
-	y = bv_solver_map_varprod(solver, bv_var_manager_var_product(m, x), bv_map, nbits);
-	// store the mapping x |-> y in bv_map
-	itable_map(bv_map, x, y);
+        // x not internalized yet: so x must be an auxiliary variable
+        assert(bv_var_manager_var_is_aux(m, x));
+        y = bv_solver_map_varprod(solver, bv_var_manager_var_product(m, x), bv_map, nbits);
+        // store the mapping x |-> y in bv_map
+        itable_map(bv_map, x, y);
       }
       assert(valid_bvvar(vtbl, y) && bvvar_bitsize(vtbl, y) == nbits);
 
       // replace y by its value if it's a constant
       switch (bvvar_tag(vtbl, y)) {
       case BVTAG_SMALL_CONST:
-	bvpoly_buffer_addmul_mono64(b, const_idx, p->mono[i].coeff.c, small_const_value(vtbl, y));
-	break;
+        bvpoly_buffer_addmul_mono64(b, const_idx, p->mono[i].coeff.c, small_const_value(vtbl, y));
+        break;
 
       case BVTAG_BIG_CONST:
-	bvpoly_buffer_addmul_monomial(b, const_idx, p->mono[i].coeff.ptr, big_const_value(vtbl, y));
-	break;
+        bvpoly_buffer_addmul_monomial(b, const_idx, p->mono[i].coeff.ptr, big_const_value(vtbl, y));
+        break;
 
       default:
-	// y is not a constant
-       	if (nbits <= 64) {
-	  bvpoly_buffer_add_mono64(b, y, p->mono[i].coeff.c);
-	} else {
-	  bvpoly_buffer_add_monomial(b, y, p->mono[i].coeff.ptr);
-	}
-	break;
+        // y is not a constant
+        if (nbits <= 64) {
+          bvpoly_buffer_add_mono64(b, y, p->mono[i].coeff.c);
+        } else {
+          bvpoly_buffer_add_monomial(b, y, p->mono[i].coeff.ptr);
+        }
+        break;
       }
     }
   }
@@ -2718,13 +2718,13 @@ static thvar_t map_udiv(bv_solver_t *solver, thvar_t x, thvar_t y) {
       vy = vtbl->def[y].ival;
       if (vy == 0) {
 #if TRACE
-	printf("---> Warning: division by zero bitvector\n");
-	fflush(stdout);
+        printf("---> Warning: division by zero bitvector\n");
+        fflush(stdout);
 #endif
-	vx = mask64(n); // all ones
+        vx = mask64(n); // all ones
       } else {
-	vx /= vy;
-	assert(vx == (vx & mask64(n)));
+        vx /= vy;
+        assert(vx == (vx & mask64(n)));
       }
       return get_small_const(vtbl, n, vx);
 
@@ -2735,13 +2735,13 @@ static thvar_t map_udiv(bv_solver_t *solver, thvar_t x, thvar_t y) {
       aux = &solver->aux1;
       if (bvconst_is_zero(vtbl->def[y].pval, w)) {
 #if TRACE
-	printf("---> Warning: division by zero bitvector\n");
-	fflush(stdout);
+        printf("---> Warning: division by zero bitvector\n");
+        fflush(stdout);
 #endif
-	bvconstant_set_all_one(aux, n);
+        bvconstant_set_all_one(aux, n);
       } else {
-	bvconstant_set_bitsize(aux, n);
-	bvconst_udiv2(aux->data, n, vtbl->def[x].pval, vtbl->def[y].pval);
+        bvconstant_set_bitsize(aux, n);
+        bvconst_udiv2(aux->data, n, vtbl->def[x].pval, vtbl->def[y].pval);
       }
       return get_big_const(vtbl, n, aux->data);
     }
@@ -2777,13 +2777,13 @@ static thvar_t map_urem(bv_solver_t *solver, thvar_t x, thvar_t y) {
       vy = vtbl->def[y].ival;
       if (vy == 0) {
 #if TRACE
-	printf("---> Warning: division by zero bitvector\n");
-	fflush(stdout);
+        printf("---> Warning: division by zero bitvector\n");
+        fflush(stdout);
 #endif
-	// remainder = vx in that case
+        // remainder = vx in that case
       } else {
-	vx %= vy;
-	assert(vx == (vx & mask64(n)));
+        vx %= vy;
+        assert(vx == (vx & mask64(n)));
       }
       return get_small_const(vtbl, n, vx);
 
@@ -2794,13 +2794,13 @@ static thvar_t map_urem(bv_solver_t *solver, thvar_t x, thvar_t y) {
       aux = &solver->aux1;
       if (bvconst_is_zero(vtbl->def[y].pval, w)) {
 #if TRACE
-	printf("---> Warning: division by zero bitvector\n");
-	fflush(stdout);
+        printf("---> Warning: division by zero bitvector\n");
+        fflush(stdout);
 #endif
-	bvconstant_copy(aux, n, vtbl->def[x].pval); // result = x
+        bvconstant_copy(aux, n, vtbl->def[x].pval); // result = x
       } else {
-	bvconstant_set_bitsize(aux, n);
-	bvconst_urem2(aux->data, n, vtbl->def[x].pval, vtbl->def[y].pval);
+        bvconstant_set_bitsize(aux, n);
+        bvconst_urem2(aux->data, n, vtbl->def[x].pval, vtbl->def[y].pval);
       }
       return get_big_const(vtbl, n, aux->data);
     }
@@ -2838,16 +2838,16 @@ static thvar_t map_sdiv(bv_solver_t *solver, thvar_t x, thvar_t y) {
       vy = signed_int64(vtbl->def[y].ival, n);
       if (vy == 0) {
 #if TRACE
-	printf("---> Warning: division by zero bitvector\n");
-	fflush(stdout);
+        printf("---> Warning: division by zero bitvector\n");
+        fflush(stdout);
 #endif
-	if (vx >= 0) {
-	  vx = -1;
-	} else {
-	  vx = 1;
-	}
+        if (vx >= 0) {
+          vx = -1;
+        } else {
+          vx = 1;
+        }
       } else {
-	vx /= vy;
+        vx /= vy;
       }
       z = ((uint64_t) vx) & mask64(n);
       return get_small_const(vtbl, n, z);
@@ -2859,20 +2859,20 @@ static thvar_t map_sdiv(bv_solver_t *solver, thvar_t x, thvar_t y) {
       aux = &solver->aux1;
       if (bvconst_is_zero(vtbl->def[y].pval, w)) {
 #if TRACE
-	printf("---> Warning: division by zero bitvector\n");
-	fflush(stdout);
+        printf("---> Warning: division by zero bitvector\n");
+        fflush(stdout);
 #endif
-	if (bvconst_tst_bit(vtbl->def[x].pval, n-1)) {
-	  // x is negative: q = 1
-	  bvconstant_set_bitsize(aux, n);
-	  bvconst_set_one(aux->data, w);
-	} else {
-	  // x >= 0: q = -1
-	  bvconstant_set_all_one(aux, n);
-	}
+        if (bvconst_tst_bit(vtbl->def[x].pval, n-1)) {
+          // x is negative: q = 1
+          bvconstant_set_bitsize(aux, n);
+          bvconst_set_one(aux->data, w);
+        } else {
+          // x >= 0: q = -1
+          bvconstant_set_all_one(aux, n);
+        }
       } else {
-	bvconstant_set_bitsize(aux, n);
-	bvconst_sdiv2(aux->data, n, vtbl->def[x].pval, vtbl->def[y].pval);
+        bvconstant_set_bitsize(aux, n);
+        bvconst_sdiv2(aux->data, n, vtbl->def[x].pval, vtbl->def[y].pval);
       }
       return get_big_const(vtbl, n, aux->data);
     }
@@ -2910,12 +2910,12 @@ static thvar_t map_srem(bv_solver_t *solver, thvar_t x, thvar_t y) {
       vy = signed_int64(vtbl->def[y].ival, n);
       if (vy == 0) {
 #if TRACE
-	printf("---> Warning: division by zero bitvector\n");
-	fflush(stdout); // keep vx unchanged
+        printf("---> Warning: division by zero bitvector\n");
+        fflush(stdout); // keep vx unchanged
 #endif
       } else {
-	// NOTE: check whether this is correct. check the C standard.
-	vx %= vy;
+        // NOTE: check whether this is correct. check the C standard.
+        vx %= vy;
       }
       z = ((uint64_t) vx) & mask64(n);
       return get_small_const(vtbl, n, z);
@@ -2927,13 +2927,13 @@ static thvar_t map_srem(bv_solver_t *solver, thvar_t x, thvar_t y) {
       aux = &solver->aux1;
       if (bvconst_is_zero(vtbl->def[y].pval, w)) {
 #if TRACE
-	printf("---> Warning: division by zero bitvector\n");
-	fflush(stdout);
+        printf("---> Warning: division by zero bitvector\n");
+        fflush(stdout);
 #endif
-	bvconstant_copy(aux, n, vtbl->def[x].pval); // result = x
+        bvconstant_copy(aux, n, vtbl->def[x].pval); // result = x
       } else {
-	bvconstant_set_bitsize(aux, n);
-	bvconst_srem2(aux->data, n, vtbl->def[x].pval, vtbl->def[y].pval);
+        bvconstant_set_bitsize(aux, n);
+        bvconst_srem2(aux->data, n, vtbl->def[x].pval, vtbl->def[y].pval);
       }
       return get_big_const(vtbl, n, aux->data);
     }
@@ -2971,17 +2971,17 @@ static thvar_t map_smod(bv_solver_t *solver, thvar_t x, thvar_t y) {
       vy = signed_int64(vtbl->def[y].ival, n);
       if (vy == 0) {
 #if TRACE
-	printf("---> Warning: division by zero bitvector\n");
-	fflush(stdout); // leave vx unchanged
+        printf("---> Warning: division by zero bitvector\n");
+        fflush(stdout); // leave vx unchanged
 #endif
       } else {
-	d = vx/vy;
-	if (vx == d * vy) {
-	  vx = 0;
-	} else {
-	  if (d < 0) d --; // floor division
-	  vx -= d * vy; // remainder = vx - d * vy
-	}
+        d = vx/vy;
+        if (vx == d * vy) {
+          vx = 0;
+        } else {
+          if (d < 0) d --; // floor division
+          vx -= d * vy; // remainder = vx - d * vy
+        }
       }
       z = ((uint64_t) vx) & mask64(n);
       return get_small_const(vtbl, n, z);
@@ -2993,13 +2993,13 @@ static thvar_t map_smod(bv_solver_t *solver, thvar_t x, thvar_t y) {
       aux = &solver->aux1;
       if (bvconst_is_zero(vtbl->def[y].pval, w)) {
 #if TRACE
-	printf("---> Warning: division by zero bitvector\n");
-	fflush(stdout);
+        printf("---> Warning: division by zero bitvector\n");
+        fflush(stdout);
 #endif
-	bvconstant_copy(aux, n, vtbl->def[x].pval); // result = x
+        bvconstant_copy(aux, n, vtbl->def[x].pval); // result = x
       } else {
-	bvconstant_set_bitsize(aux, n);
-	bvconst_smod2(aux->data, n, vtbl->def[x].pval, vtbl->def[y].pval);
+        bvconstant_set_bitsize(aux, n);
+        bvconst_smod2(aux->data, n, vtbl->def[x].pval, vtbl->def[y].pval);
       }
       return get_big_const(vtbl, n, aux->data);
     }
@@ -3202,8 +3202,8 @@ static bit_t simplify_bit_or(bv_vartable_t *table, bit_t a, bit_t b) {
   if (a_shape != AIG_ATOM && b_shape != AIG_ATOM) {
     assert(a0 == table->def[va].bop[0] && 
            a1 == table->def[va].bop[1] && 
-	   b0 == table->def[vb].bop[0] && 
-	   b1 == table->def[vb].bop[1]);
+           b0 == table->def[vb].bop[0] && 
+           b1 == table->def[vb].bop[1]);
 
     switch (combine_shapes(a_shape, b_shape)) {
     case AIG_POS_OR_POS_OR:
@@ -3214,8 +3214,8 @@ static bit_t simplify_bit_or(bv_vartable_t *table, bit_t a, bit_t b) {
        * (or (or a0 a1) (or b0 ~a1)) --> true
        */
       if (opposite_bits(a0, b0) || opposite_bits(a0, b1) ||
-	  opposite_bits(a1, b0) || opposite_bits(a1, b1)) 
-	return true_bit;
+          opposite_bits(a1, b0) || opposite_bits(a1, b1)) 
+        return true_bit;
       break;
 
     case AIG_POS_OR_NEG_OR:
@@ -3226,8 +3226,8 @@ static bit_t simplify_bit_or(bv_vartable_t *table, bit_t a, bit_t b) {
        * (or (or a0 a1) ~(or b0 ~a1))  --> (or a0 a1)
        */
       if (opposite_bits(a0, b0) || opposite_bits(a0, b1) ||
-	  opposite_bits(a1, b0) || opposite_bits(a1, b1)) 
-	return a;
+          opposite_bits(a1, b0) || opposite_bits(a1, b1)) 
+        return a;
       break;
 
     case AIG_NEG_OR_POS_OR:
@@ -3238,8 +3238,8 @@ static bit_t simplify_bit_or(bv_vartable_t *table, bit_t a, bit_t b) {
        * (or ~(or a0 ~b1) (or b0 b1))  --> (or b0 b1)
        */
       if (opposite_bits(a0, b0) || opposite_bits(a0, b1) ||
-	  opposite_bits(a1, b0) || opposite_bits(a1, b1)) 
-	return b;
+          opposite_bits(a1, b0) || opposite_bits(a1, b1)) 
+        return b;
       break;
 
     case AIG_POS_OR_NEG_XOR:
@@ -3255,9 +3255,9 @@ static bit_t simplify_bit_or(bv_vartable_t *table, bit_t a, bit_t b) {
        * (or (or a0 a1) (xor ~a0 ~a1)) --> (or a0 a1)
        */
       if ((opposite_bits(a0, b0) && a1 == b1) || (a0 == b0 && opposite_bits(a1, b1)))
-	return true_bit;
+        return true_bit;
       if ((a0 == b0 && a1 == b1) || (opposite_bits(a0, b0) && opposite_bits(a1, b1)))
-	return a;
+        return a;
       break;
 
     case AIG_NEG_XOR_POS_OR:
@@ -3273,9 +3273,9 @@ static bit_t simplify_bit_or(bv_vartable_t *table, bit_t a, bit_t b) {
        * (or (xor ~b0 ~b1) (or b0 b1)) --> (or b0 b1)
        */
       if ((opposite_bits(a0, b0) && a1 == b1) || (a0 == b0 && opposite_bits(a1, b1)))
-	return true_bit;
+        return true_bit;
       if ((a0 == b0 && a1 == b1) || (opposite_bits(a0, b0) && opposite_bits(a1, b1)))
-	return b;
+        return b;
       break;
 
     case AIG_NEG_OR_NEG_OR:
@@ -3286,9 +3286,9 @@ static bit_t simplify_bit_or(bv_vartable_t *table, bit_t a, bit_t b) {
        * (or ~(or a0 a1) ~(or ~a0 ~a1)) --> ~(xor a0 a1)
        */
       if (opposite_bits(a0, b0) && a1 == b1) 
-	return bit_not(a1);
+        return bit_not(a1);
       if (a0 == b0 && opposite_bits(a1, b1))
-	return bit_not(a0);
+        return bit_not(a0);
       break;
 
     case AIG_NEG_OR_NEG_XOR:
@@ -3302,7 +3302,7 @@ static bit_t simplify_bit_or(bv_vartable_t *table, bit_t a, bit_t b) {
        * (or ~(or a0 a1) (xor a0 ~a1))  --> (xor a0 ~a1)
        */
       if ((opposite_bits(a0, b0) && a1 == b1) || (a0 == b0 && opposite_bits(a1, b1)))
-	return b;
+        return b;
       break;
 
     case AIG_NEG_XOR_NEG_OR:
@@ -3316,7 +3316,7 @@ static bit_t simplify_bit_or(bv_vartable_t *table, bit_t a, bit_t b) {
        * (or (xor a0 a1) ~(or a0 ~a1))  --> (xor a0 a1)
        */
       if ((opposite_bits(a0, b0) && a1 == b1) || (a0 == b0 && opposite_bits(a1, b1)))
-	return a;      
+        return a;      
       break;
 
     case AIG_POS_XOR_POS_XOR:
@@ -3422,9 +3422,9 @@ static bit_t simplify_bit_xor(bv_vartable_t *table, bit_t a, bit_t b) {
 
   if (a_shape != AIG_ATOM && b_shape != AIG_ATOM) {
     assert(a0 == table->def[va].bop[0] && 
-	   a1 == table->def[va].bop[1] && 
-	   b0 == table->def[vb].bop[0] &&
-	   b1 == table->def[vb].bop[1]);
+           a1 == table->def[va].bop[1] && 
+           b0 == table->def[vb].bop[0] &&
+           b1 == table->def[vb].bop[1]);
 
     if (combine_shapes(a_shape, b_shape) == AIG_POS_OR_POS_OR ) {
       /*
@@ -3895,16 +3895,16 @@ static bool diseq_var_small_const(bv_solver_t *solver, thvar_t x, uint64_t c, ui
       t = vtbl->def[x].op[0];
       u = vtbl->def[x].op[1];
       if (bvvar_is_small_const(vtbl, t)) {
-	// (add t u) /= c iff u /= (c - t)
-	c -= vtbl->def[t].ival;
-	c &= mask64(n);
-	return diseq_var_small_const(solver, u, c, depth-1);
+        // (add t u) /= c iff u /= (c - t)
+        c -= vtbl->def[t].ival;
+        c &= mask64(n);
+        return diseq_var_small_const(solver, u, c, depth-1);
       }
       if (bvvar_is_small_const(vtbl, u)) {
-	// (add t u) /= c iff t /= (c - u)
-	c -= vtbl->def[u].ival;
-	c &= mask64(n);
-	return diseq_var_small_const(solver, t, c, depth-1);
+        // (add t u) /= c iff t /= (c - u)
+        c -= vtbl->def[u].ival;
+        c &= mask64(n);
+        return diseq_var_small_const(solver, t, c, depth-1);
       }
       break;
     
@@ -3913,16 +3913,16 @@ static bool diseq_var_small_const(bv_solver_t *solver, thvar_t x, uint64_t c, ui
       t = vtbl->def[x].op[0];
       u = vtbl->def[x].op[1];
       if (bvvar_is_small_const(vtbl, t)) {
-	// (sub t u) /= c iff u /= (t - c)
-	c = vtbl->def[t].ival - c;
-	c &= mask64(n);
-	return diseq_var_small_const(solver, u, c, depth-1);
+        // (sub t u) /= c iff u /= (t - c)
+        c = vtbl->def[t].ival - c;
+        c &= mask64(n);
+        return diseq_var_small_const(solver, u, c, depth-1);
       }
       if (bvvar_is_small_const(vtbl, u)) {
-	// (sub t u) /= c iff t /= (c + u)
-	c += vtbl->def[u].ival;
-	c &= mask64(n);
-	return diseq_var_small_const(solver, t, c, depth-1);
+        // (sub t u) /= c iff t /= (c + u)
+        c += vtbl->def[u].ival;
+        c &= mask64(n);
+        return diseq_var_small_const(solver, t, c, depth-1);
       }
       break;
 
@@ -4098,17 +4098,17 @@ static bool bv_solver_check_diseq_recur(bv_solver_t *solver, thvar_t x, thvar_t 
        */
       switch (xtag) {
       case BVTAG_BIT:
-	return opposite_bits(vtbl->def[x].bval, vtbl->def[y].bval);
+        return opposite_bits(vtbl->def[x].bval, vtbl->def[y].bval);
       case BVTAG_BIT_ARRAY:
-	return diseq_bitarrays(vtbl->def[x].bit, vtbl->def[y].bit, n);
+        return diseq_bitarrays(vtbl->def[x].bit, vtbl->def[y].bit, n);
       case BVTAG_ADD:
-	return diseq_bvadd(solver, x, y, depth);
+        return diseq_bvadd(solver, x, y, depth);
       case BVTAG_SUB:
-	return diseq_bvsub(solver, x, y, depth);
+        return diseq_bvsub(solver, x, y, depth);
       case BVTAG_NEG:
-	return diseq_bvneg(solver, x, y, depth);
+        return diseq_bvneg(solver, x, y, depth);
       default:
-	break;
+        break;
       }
     }
   } 
@@ -4182,15 +4182,15 @@ static void simplify_eq_var_small_const(bv_solver_t *solver, thvar_t *vx, uint64
       t = vtbl->def[x].op[0];
       u = vtbl->def[x].op[1];
       if (bvvar_is_small_const(vtbl, t)) {
-	// (add t u) == c iff u == (c - t)
-	c -= vtbl->def[t].ival;
-	x = u;
-	changed = true;
+        // (add t u) == c iff u == (c - t)
+        c -= vtbl->def[t].ival;
+        x = u;
+        changed = true;
       } else if (bvvar_is_small_const(vtbl, u)) {
-	// (add t u) == c iff t == (c - u)
-	c -= vtbl->def[u].ival;
-	x = t;
-	changed = true;
+        // (add t u) == c iff t == (c - u)
+        c -= vtbl->def[u].ival;
+        x = t;
+        changed = true;
       }
       break;
 
@@ -4199,15 +4199,15 @@ static void simplify_eq_var_small_const(bv_solver_t *solver, thvar_t *vx, uint64
       t = vtbl->def[x].op[0];
       u = vtbl->def[x].op[1];
       if (bvvar_is_small_const(vtbl, t)) {
-	// (sub t u) == c iff u == (t - c)
-	c = vtbl->def[t].ival - c;
-	x = u;
-	changed = true;
+        // (sub t u) == c iff u == (t - c)
+        c = vtbl->def[t].ival - c;
+        x = u;
+        changed = true;
       } else if (bvvar_is_small_const(vtbl, u)) {
-	// (sub t u) == c iff t == (c + u)
-	c += vtbl->def[u].ival;
-	x = t;
-	changed = true;
+        // (sub t u) == c iff t == (c + u)
+        c += vtbl->def[u].ival;
+        x = t;
+        changed = true;
       }
       break;
 
@@ -4409,8 +4409,8 @@ static void bv_solver_simplify_eq(bv_solver_t *solver, thvar_t *vx, thvar_t *vy)
       z = y;
       simplify_eq_var_small_const(solver, &z, &c);
       if (z != y) {
-	x = get_small_const2(solver, n, c);
-	y = z;
+        x = get_small_const2(solver, n, c);
+        y = z;
       }
 
     } else if (ytag == BVTAG_SMALL_CONST) {
@@ -4418,27 +4418,27 @@ static void bv_solver_simplify_eq(bv_solver_t *solver, thvar_t *vx, thvar_t *vy)
       z = x;
       simplify_eq_var_small_const(solver, &z, &c);
       if (z != x) {
-	x = z;
-	y = get_small_const2(solver, n, c);
+        x = z;
+        y = get_small_const2(solver, n, c);
       }
       
     } else if (xtag == ytag) {
       switch (xtag) {
       case BVTAG_ADD:
-	iterate = simplify_eq_bvadd(solver, &x, &y);
-	break;
+        iterate = simplify_eq_bvadd(solver, &x, &y);
+        break;
 
       case BVTAG_SUB:
-	iterate = simplify_eq_bvsub(solver, &x, &y);
-	break;
+        iterate = simplify_eq_bvsub(solver, &x, &y);
+        break;
 
       case BVTAG_NEG:
-	simplify_eq_bvneg(solver, &x, &y);
-	iterate = true;
-	break;
+        simplify_eq_bvneg(solver, &x, &y);
+        iterate = true;
+        break;
 
       default:
-	break;
+        break;
       }
     }
 
@@ -4614,7 +4614,7 @@ static void check_bit_prop_small_const(bv_solver_t *solver, thvar_t x, thvar_t y
   vtbl = &solver->vtbl;
 
   assert(bvvar_tag(vtbl, y) == BVTAG_SMALL_CONST && 
-	 bvvar_bitsize(vtbl, x) == bvvar_bitsize(vtbl, y));
+         bvvar_bitsize(vtbl, x) == bvvar_bitsize(vtbl, y));
 
   vy = vtbl->def[y].ival;
 
@@ -4633,7 +4633,7 @@ static void check_bit_prop_small_const(bv_solver_t *solver, thvar_t x, thvar_t y
     for (i=0; i<n; i++) {
       b = vtbl->def[x].bit[i];
       if (! tst_bit64(vy, i)) { // bit i of vy is 0
-	b = not(b); // b := 0
+        b = not(b); // b := 0
       }
       bv_solver_propagate_true_bit(solver, b);
     }
@@ -4687,7 +4687,7 @@ static void check_bit_prop_big_const(bv_solver_t *solver, thvar_t x, thvar_t y) 
   vtbl = &solver->vtbl;
 
   assert(bvvar_tag(vtbl, y) == BVTAG_BIG_CONST && 
-	 bvvar_bitsize(vtbl, x) == bvvar_bitsize(vtbl, y));
+         bvvar_bitsize(vtbl, x) == bvvar_bitsize(vtbl, y));
 
   vy = vtbl->def[y].pval;
 
@@ -4697,7 +4697,7 @@ static void check_bit_prop_big_const(bv_solver_t *solver, thvar_t x, thvar_t y) 
     for (i=0; i<n; i++) {
       b = vtbl->def[x].bit[i];
       if (! bvconst_tst_bit(vy, i)) {
-	b = not(b);
+        b = not(b);
       }
       bv_solver_propagate_true_bit(solver, b);
     }
@@ -4746,7 +4746,7 @@ static void check_bit_propagation(bv_solver_t *solver, thvar_t x, thvar_t y) {
   bvvar_tag_t xtag, ytag;
 
   assert(bv_partition_get_root(&solver->partition, x) == 
-	 bv_partition_get_root(&solver->partition, y));
+         bv_partition_get_root(&solver->partition, y));
 
   vtbl = &solver->vtbl;
   xtag = bvvar_tag(vtbl, x);
@@ -4877,15 +4877,15 @@ static bool process_bv_prop_queue(bv_solver_t *solver) {
     case BVTAG_SELECT:
       y = vtbl->def[x].sel.var;
       if (bvvar_tag(vtbl, y) == BVTAG_ITE) {
-	i = vtbl->def[x].sel.idx;
-	check_ite_bit_prop(solver, vtbl->def[y].ite, i, vx);
+        i = vtbl->def[x].sel.idx;
+        check_ite_bit_prop(solver, vtbl->def[y].ite, i, vx);
       }
       break;
 
     case BVTAG_OR:
       if (vx == VAL_FALSE) {
-	bv_solver_propagate_false_bit(solver, vtbl->def[x].bop[0]);
-	bv_solver_propagate_false_bit(solver, vtbl->def[x].bop[1]);
+        bv_solver_propagate_false_bit(solver, vtbl->def[x].bop[0]);
+        bv_solver_propagate_false_bit(solver, vtbl->def[x].bop[1]);
       }
       break;
 
@@ -5173,8 +5173,8 @@ static bvbound_t *bvadd_bounds_unsigned64(bv_solver_t *solver, thvar_t x, uint32
   uint64_t ly, uy, lz, uz, lx, ux;
 
   assert(bvvar_tag(&solver->vtbl, x) == BVTAG_ADD &&
-	 bvvar_bitsize(&solver->vtbl, x) == n && 
-	 0 < n && n <= 64);
+         bvvar_bitsize(&solver->vtbl, x) == n && 
+         0 < n && n <= 64);
 
   b = get_cached_bvbound(solver, x, BVBOUND_UNSIGNED);
   if (b == NULL) {
@@ -5238,8 +5238,8 @@ static bvbound_t *bvadd_bounds_signed64(bv_solver_t *solver, thvar_t x, uint32_t
   uint64_t ly, uy, lz, uz, lx, ux;
 
   assert(bvvar_tag(&solver->vtbl, x) == BVTAG_ADD &&
-	 bvvar_bitsize(&solver->vtbl, x) == n && 
-	 0 < n && n <= 64);
+         bvvar_bitsize(&solver->vtbl, x) == n && 
+         0 < n && n <= 64);
 
   b = get_cached_bvbound(solver, x, BVBOUND_SIGNED);
   if (b == NULL) {
@@ -5293,8 +5293,8 @@ static bvbound_t *bvsub_bounds_unsigned64(bv_solver_t *solver, thvar_t x, uint32
   uint64_t ly, uy, lz, uz, lx, ux;
 
   assert(bvvar_tag(&solver->vtbl, x) == BVTAG_SUB &&
-	 bvvar_bitsize(&solver->vtbl, x) == n && 
-	 0 < n && n <= 64);
+         bvvar_bitsize(&solver->vtbl, x) == n && 
+         0 < n && n <= 64);
 
   b = get_cached_bvbound(solver, x, BVBOUND_UNSIGNED);
   if (b == NULL) {
@@ -5309,7 +5309,7 @@ static bvbound_t *bvsub_bounds_unsigned64(bv_solver_t *solver, thvar_t x, uint32
 
     // bounds on y and z must be normalized modulo 2^n
     assert(ly == (ly & mask64(n)) && uy == (uy & mask64(n)) &&
-	   lz == (lz & mask64(n)) && uz == (uz & mask64(n)));
+           lz == (lz & mask64(n)) && uz == (uz & mask64(n)));
 
     lx = (ly - uz) & mask64(n);   // lx = (ly - uz) mod 2^n
     ux = (uy - lz) & mask64(n);   // ux = (uy - lz) mod 2^n
@@ -5688,7 +5688,7 @@ static bool check_toplevel_atom(bv_solver_t *solver, bvatm_t *atm) {
   switch (bvatm_tag(atm)) {
   case BVEQ_ATM:
     if ((v == VAL_TRUE && bv_solver_check_diseq(solver, atm->left, atm->right)) ||
-	(v == VAL_FALSE && bv_solver_check_eq(solver, atm->left, atm->right))) {
+        (v == VAL_FALSE && bv_solver_check_eq(solver, atm->left, atm->right))) {
       goto conflict;
     }
     break;
@@ -5809,9 +5809,9 @@ static void bv_solver_pseudo_map_variable(bv_solver_t *solver, thvar_t x) {
     switch (bvvar_tag(vtbl, x)) {
     case BVTAG_SMALL_CONST:
       if (n == 1) {
-	vtbl->map[x].lit = map_bit1_const(vtbl->def[x].ival);
+        vtbl->map[x].lit = map_bit1_const(vtbl->def[x].ival);
       } else {
-	vtbl->map[x].array = map_small_const(vtbl->def[x].ival, n);
+        vtbl->map[x].array = map_small_const(vtbl->def[x].ival, n);
       }
       break;
 
@@ -5845,7 +5845,7 @@ static void bv_solver_pseudo_map_variable(bv_solver_t *solver, thvar_t x) {
     case BVTAG_BIT_ARRAY:
       // x is (BITARRAY b0 ... b_{n-1})
       for (i=0; i<n; i++) {
-	bv_solver_pseudo_map_variable(solver, var_of_bit(vtbl->def[x].bit[i]));
+        bv_solver_pseudo_map_variable(solver, var_of_bit(vtbl->def[x].bit[i]));
       }
       vtbl->map[x].array = get_map_of_bitarray(vtbl, rmap, vtbl->def[x].bit, n);
       break;
@@ -5854,9 +5854,9 @@ static void bv_solver_pseudo_map_variable(bv_solver_t *solver, thvar_t x) {
       // map[x] = an array of fresh pseudo literals
       assert(n > 0);
       if (n == 1) {
-	vtbl->map[x].lit = remap_table_fresh_lit(rmap);
+        vtbl->map[x].lit = remap_table_fresh_lit(rmap);
       } else {
-	vtbl->map[x].array = remap_table_fresh_array(rmap, n);
+        vtbl->map[x].array = remap_table_fresh_array(rmap, n);
       }
       break;
     }    
@@ -5909,7 +5909,7 @@ static bool merge_map_bit(remap_table_t *rmap, bv_vartable_t *vtbl, literal_t l,
  * Return true otherwise.
  */
 static bool merge_map_bitarray(remap_table_t *rmap, bv_vartable_t *vtbl,
-			       literal_t *a, bit_t *b, uint32_t n) {
+                               literal_t *a, bit_t *b, uint32_t n) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
@@ -5953,41 +5953,41 @@ static bool bv_solver_build_pseudo_maps(bv_solver_t *solver) {
       bv_solver_pseudo_map_variable(solver, x);      
       k = bvvar_bitsize(vtbl, i);
       if (k <= 1) {
-	assert(vtbl->map[x].lit != null_literal);
-	vtbl->map[i].lit = vtbl->map[x].lit;
+        assert(vtbl->map[x].lit != null_literal);
+        vtbl->map[i].lit = vtbl->map[x].lit;
       } else {
-	assert(vtbl->map[x].array != NULL);
-	vtbl->map[i].array = vtbl->map[x].array;
+        assert(vtbl->map[x].array != NULL);
+        vtbl->map[i].array = vtbl->map[x].array;
       }
 
 
       switch (bvvar_tag(vtbl, i)) {
       case BVTAG_BIT:
-	/*
-	 * i is (BIT b): make sure i and b are mapped to the same 
-	 * pseudo literal. If that's not possible, the system is unsat
-	 */
-	bv_solver_pseudo_map_variable(solver, var_of_bit(vtbl->def[i].bval));
-	if (!merge_map_bit(rmap, vtbl, vtbl->map[i].lit, vtbl->def[i].bval)) {
-	  goto unsat_detected;
-	}
-	break;
+        /*
+         * i is (BIT b): make sure i and b are mapped to the same 
+         * pseudo literal. If that's not possible, the system is unsat
+         */
+        bv_solver_pseudo_map_variable(solver, var_of_bit(vtbl->def[i].bval));
+        if (!merge_map_bit(rmap, vtbl, vtbl->map[i].lit, vtbl->def[i].bval)) {
+          goto unsat_detected;
+        }
+        break;
 
       case BVTAG_BIT_ARRAY:
-	/*
-	 * i is (BITARRAY b_0 ... b_{k-1}): make sure 
-	 * the array map[i].lit is the same as [map(b0) ... map(b_{k-1})]
-	 */
-	for (j=0; j<k; j++) {
-	  bv_solver_pseudo_map_variable(solver, var_of_bit(vtbl->def[i].bit[j]));
-	}
-	if (!merge_map_bitarray(rmap, vtbl, vtbl->map[i].array, vtbl->def[i].bit, k)) {
-	  goto unsat_detected;
-	}
-	break;
+        /*
+         * i is (BITARRAY b_0 ... b_{k-1}): make sure 
+         * the array map[i].lit is the same as [map(b0) ... map(b_{k-1})]
+         */
+        for (j=0; j<k; j++) {
+          bv_solver_pseudo_map_variable(solver, var_of_bit(vtbl->def[i].bit[j]));
+        }
+        if (!merge_map_bitarray(rmap, vtbl, vtbl->map[i].array, vtbl->def[i].bit, k)) {
+          goto unsat_detected;
+        }
+        break;
 
       default: // do nothing
-	break;
+        break;
       }
 
       
@@ -6040,31 +6040,31 @@ static bool bv_solver_propagate_truth_assignment(bv_solver_t *solver) {
     for (i=0; i<n; i++) {
       switch (bv_prop_queue_get_val(queue, i)) {
       case VAL_TRUE:
-	assert(bvvar_bitsize(vtbl, i) == 0);
-	l0 = vtbl->map[i].lit;
-	if (l0 != null_literal) {
-	  if (! merge_pseudo_lits(rmap, l0, true_literal)) {
-	    return false;
-	  }
-	} else {
-	  vtbl->map[i].lit = true_literal;
-	}
-	break;
+        assert(bvvar_bitsize(vtbl, i) == 0);
+        l0 = vtbl->map[i].lit;
+        if (l0 != null_literal) {
+          if (! merge_pseudo_lits(rmap, l0, true_literal)) {
+            return false;
+          }
+        } else {
+          vtbl->map[i].lit = true_literal;
+        }
+        break;
 
       case VAL_FALSE:
-	assert(bvvar_bitsize(vtbl, i) == 0);
-	l0 = vtbl->map[i].lit;
-	if (l0 != null_literal) {
-	  if (! merge_pseudo_lits(rmap, l0, false_literal)) {
-	    return false;
-	  }
-	} else {
-	  vtbl->map[i].lit = false_literal;
-	}
-	break;
+        assert(bvvar_bitsize(vtbl, i) == 0);
+        l0 = vtbl->map[i].lit;
+        if (l0 != null_literal) {
+          if (! merge_pseudo_lits(rmap, l0, false_literal)) {
+            return false;
+          }
+        } else {
+          vtbl->map[i].lit = false_literal;
+        }
+        break;
 
       case VAL_UNDEF:
-	break;
+        break;
       }
     }
   }
@@ -6210,7 +6210,7 @@ static literal_t flatten_xor_definition(bv_solver_t *solver, thvar_t x, literal_
 
   vtbl = &solver->vtbl;
   assert(valid_bitvar(vtbl, x) && bvvar_tag(vtbl, x) == BVTAG_XOR && 
-	 vtbl->map[x].lit == l0 && l0 != null_literal);
+         vtbl->map[x].lit == l0 && l0 != null_literal);
 
   b0 = vtbl->def[x].bop[0];
   b1 = vtbl->def[x].bop[1];
@@ -6296,7 +6296,7 @@ static literal_t flatten_or_definition(bv_solver_t *solver, thvar_t x, literal_t
 
   vtbl = &solver->vtbl;
   assert(valid_bitvar(vtbl, x) && bvvar_tag(vtbl, x) == BVTAG_OR && 
-	 vtbl->map[x].lit == l0 && l0 != null_literal);
+         vtbl->map[x].lit == l0 && l0 != null_literal);
 
   b0 = vtbl->def[x].bop[0];
   b1 = vtbl->def[x].bop[1];
@@ -6387,34 +6387,34 @@ static literal_t bv_solver_bitblast_bitvar(bv_solver_t *solver, thvar_t x) {
        */
       y = vtbl->def[x].sel.var;
       if (l0 == null_literal) {
-	// assign pseudo literal i of y to x
-	i = vtbl->def[x].sel.idx;
-	if (bvvar_bitsize(vtbl, y) == 1) {
-	  assert(i == 0);
-	  l0 = vtbl->map[y].lit;
-	} else {
-	  assert(vtbl->map[y].array != NULL);
-	  l0 = vtbl->map[y].array[i];
-	}
-	assert(l0 != null_literal);
-	vtbl->map[x].lit = l0;
+        // assign pseudo literal i of y to x
+        i = vtbl->def[x].sel.idx;
+        if (bvvar_bitsize(vtbl, y) == 1) {
+          assert(i == 0);
+          l0 = vtbl->map[y].lit;
+        } else {
+          assert(vtbl->map[y].array != NULL);
+          l0 = vtbl->map[y].array[i];
+        }
+        assert(l0 != null_literal);
+        vtbl->map[x].lit = l0;
       }
       /*
        * Optimization if y is unininterpreted: we try to assign
        * literals only to the bits of y that are used somewhere.
        */
       if (bvvar_is_uninterpreted(vtbl, y)) {
-	l = remap_table_find(rmap, l0);
-	if (l == null_literal) {
-	  l = bit_blaster_fresh_literal(solver->blaster);
-	  remap_table_assign(rmap, l0, l);
-	}
+        l = remap_table_find(rmap, l0);
+        if (l == null_literal) {
+          l = bit_blaster_fresh_literal(solver->blaster);
+          remap_table_assign(rmap, l0, l);
+        }
       } else {
-	// general case: bitblast variable y
-	// as a side effect this will assign a concrete literal to l0
-	bv_solver_bitblast_variable(solver, y);	
-	l = remap_table_find(rmap, l0);
-	assert(l != null_literal);
+        // general case: bitblast variable y
+        // as a side effect this will assign a concrete literal to l0
+        bv_solver_bitblast_variable(solver, y); 
+        l = remap_table_find(rmap, l0);
+        assert(l != null_literal);
       }
       break;
 
@@ -6425,8 +6425,8 @@ static literal_t bv_solver_bitblast_bitvar(bv_solver_t *solver, thvar_t x) {
        * then store l1 as the concrete literal for l0
        */
       if (l0 == null_literal) {
-	l0 = remap_table_fresh_lit(rmap);
-	vtbl->map[x].lit = l0;
+        l0 = remap_table_fresh_lit(rmap);
+        vtbl->map[x].lit = l0;
       }
       l = flatten_xor_definition(solver, x, l0);
       break;
@@ -6438,8 +6438,8 @@ static literal_t bv_solver_bitblast_bitvar(bv_solver_t *solver, thvar_t x) {
        * then store l1 as the concrete literal for l0
        */
       if (l0 == null_literal) {
-	l0 = remap_table_fresh_lit(rmap);
-	vtbl->map[x].lit = l0;
+        l0 = remap_table_fresh_lit(rmap);
+        vtbl->map[x].lit = l0;
       }
       l = flatten_or_definition(solver, x, l0);
       break;
@@ -6471,7 +6471,7 @@ static literal_t bv_solver_bitblast_bitvar(bv_solver_t *solver, thvar_t x) {
  * - u must be an array of n pseudo literals
  */
 static void bit_blaster_make_bvop(bit_blaster_t *blaster, bvvar_tag_t op, literal_t *a, literal_t *b, 
-				  literal_t *u, uint32_t n) {
+                                  literal_t *u, uint32_t n) {
   switch (op) {
   case BVTAG_ADD:
     bit_blaster_make_bvadd(blaster, a, b, u, n);
@@ -6514,7 +6514,7 @@ static void bit_blaster_make_bvop(bit_blaster_t *blaster, bvvar_tag_t op, litera
  * apply the bit-blasting operation to z too.
  */
 static void bit_blaster_make_bvdivop(bv_solver_t *solver, bvvar_tag_t op, thvar_t x, thvar_t y,
-				     literal_t *a, literal_t *b, literal_t *u, uint32_t n) {
+                                     literal_t *a, literal_t *b, literal_t *u, uint32_t n) {
   bv_vartable_t *vtbl;
   literal_t *v;
   literal_t aux;
@@ -6528,11 +6528,11 @@ static void bit_blaster_make_bvdivop(bv_solver_t *solver, bvvar_tag_t op, thvar_
     z = find_urem(vtbl, x, y);
     if (z != null_thvar) {
       if (n == 1) {
-	aux = vtbl->map[z].lit;
-	assert(aux != null_literal);
-	v = &aux;
+        aux = vtbl->map[z].lit;
+        assert(aux != null_literal);
+        v = &aux;
       } else {
-	v = vtbl->map[z].array;
+        v = vtbl->map[z].array;
       }
     }
     bit_blaster_make_udivision(solver->blaster, a, b, u, v, n);
@@ -6542,11 +6542,11 @@ static void bit_blaster_make_bvdivop(bv_solver_t *solver, bvvar_tag_t op, thvar_
     z = find_udiv(vtbl, x, y);
     if (z != null_thvar) {
       if (n == 1) {
-	aux = vtbl->map[z].lit;
-	assert(aux != null_literal);
-	v = &aux;
+        aux = vtbl->map[z].lit;
+        assert(aux != null_literal);
+        v = &aux;
       } else {
-	v = vtbl->map[z].array;
+        v = vtbl->map[z].array;
       }
     }
     bit_blaster_make_udivision(solver->blaster, a, b, v, u, n);    
@@ -6556,11 +6556,11 @@ static void bit_blaster_make_bvdivop(bv_solver_t *solver, bvvar_tag_t op, thvar_
     z = find_srem(vtbl, x, y);
     if (z != null_thvar) {
       if (n == 1) {
-	aux = vtbl->map[z].lit;
-	assert(aux != null_literal);
-	v = &aux;
+        aux = vtbl->map[z].lit;
+        assert(aux != null_literal);
+        v = &aux;
       } else {
-	v = vtbl->map[z].array;
+        v = vtbl->map[z].array;
       }
     }
     bit_blaster_make_sdivision(solver->blaster, a, b, u, v, n);
@@ -6570,11 +6570,11 @@ static void bit_blaster_make_bvdivop(bv_solver_t *solver, bvvar_tag_t op, thvar_
     z = find_sdiv(vtbl, x, y);
     if (z != null_thvar) {
       if (n == 1) {
-	aux = vtbl->map[z].lit;
-	assert(aux != null_literal);
-	v = &aux;
+        aux = vtbl->map[z].lit;
+        assert(aux != null_literal);
+        v = &aux;
       } else {
-	v = vtbl->map[z].array;
+        v = vtbl->map[z].array;
       }
     }
     bit_blaster_make_sdivision(solver->blaster, a, b, v, u, n);
@@ -6636,11 +6636,11 @@ static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
     case BVTAG_VAR:
       // complete u with fresh literals
       for (i=0; i<n; i++) {
-	l = remap_table_find(rmap, u[i]);
-	if (l == null_literal) {
-	  l = bit_blaster_fresh_literal(solver->blaster);
-	  remap_table_assign(rmap, u[i], l);
-	}
+        l = remap_table_find(rmap, u[i]);
+        if (l == null_literal) {
+          l = bit_blaster_fresh_literal(solver->blaster);
+          remap_table_assign(rmap, u[i], l);
+        }
       }
       break;
     
@@ -6652,8 +6652,8 @@ static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
 
     case BVTAG_BIT_ARRAY:
       for (i=0; i<n; i++) {
-	l = bv_solver_bitblast_bit(solver, vtbl->def[x].bit[i]);
-	assert(l != null_literal && remap_table_find(rmap, u[i]) == l);
+        l = bv_solver_bitblast_bit(solver, vtbl->def[x].bit[i]);
+        assert(l != null_literal && remap_table_find(rmap, u[i]) == l);
       }
       break;
 
@@ -6688,7 +6688,7 @@ static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
       collect_var_literals(solver, vtbl->def[x].op[1], b);
       assert(a->size == n && b->size == n);
       bit_blaster_make_bvdivop(solver, op, vtbl->def[x].op[0],
-			       vtbl->def[x].op[1], a->data, b->data, u, n);
+                               vtbl->def[x].op[1], a->data, b->data, u, n);
       break;
 
     case BVTAG_NEG:
@@ -6706,15 +6706,15 @@ static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
       assert(l != null_literal);
 #if TRACE
       if (l == true_literal || l == false_literal) {
-	if (l == true_literal) {
-	  printf("---> condition in ite is true\n");
-	} else {
-	  printf("---> condition in ite is false\n");
-	}
-	print_bvsolver_vardef(stdout, solver, x);
-	print_bvsolver_vardef(stdout, solver, vtbl->def[x].ite->left);
-	print_bvsolver_vardef(stdout, solver, vtbl->def[x].ite->right);
-	fflush(stdout);
+        if (l == true_literal) {
+          printf("---> condition in ite is true\n");
+        } else {
+          printf("---> condition in ite is false\n");
+        }
+        print_bvsolver_vardef(stdout, solver, x);
+        print_bvsolver_vardef(stdout, solver, vtbl->def[x].ite->left);
+        print_bvsolver_vardef(stdout, solver, vtbl->def[x].ite->right);
+        fflush(stdout);
       }
 #endif
       /*
@@ -6756,7 +6756,7 @@ static void bv_solver_preprocess_bveq(bv_solver_t *solver, literal_t p, thvar_t 
   vtbl = &solver->vtbl;
   
   assert(bvvar_bitsize(vtbl, x) == 1 && bvvar_bitsize(vtbl, y) == 1 &&
-	 bvvar_is_small_const(vtbl, y));
+         bvvar_is_small_const(vtbl, y));
 
   assert(vtbl->def[y].ival == 0 || vtbl->def[y].ival == 1);
   
@@ -6803,22 +6803,22 @@ static bool bv_solver_bvuge_var_def(bv_solver_t *solver, int32_t x, int32_t y, i
     atbl = &solver->atbl;
 
     assert(atbl->data[i].left == x && atbl->data[i].right == y && 
-	   bvatm_tag(atbl->data + i) == BVUGE_ATM);
+           bvatm_tag(atbl->data + i) == BVUGE_ATM);
 
     j = find_bvuge_atom(&solver->atbl, y, x);
     if (j >= 0) {
       k = find_bveq_atom(&solver->atbl, x, y);
       if (k >= 0) {
-	assert(j != i && j != k && k != i);
+        assert(j != i && j != k && k != i);
 
-	// success
-	ge_xy = atbl->data[i].lit;
-	eq_xy = atbl->data[k].lit;
-	ge_yx = atbl->data[j].lit;
+        // success
+        ge_xy = atbl->data[i].lit;
+        eq_xy = atbl->data[k].lit;
+        ge_yx = atbl->data[j].lit;
 
-	// assert ge_xy = (or eq_xy (not ge_yx))
-	bit_blaster_or2_gate(solver->blaster, eq_xy, not(ge_yx), ge_xy);
-	return true;
+        // assert ge_xy = (or eq_xy (not ge_yx))
+        bit_blaster_or2_gate(solver->blaster, eq_xy, not(ge_yx), ge_xy);
+        return true;
       }
     }    
   }
@@ -6840,22 +6840,22 @@ static bool bv_solver_bvsge_var_def(bv_solver_t *solver, int32_t x, int32_t y, i
     atbl = &solver->atbl;
 
     assert(atbl->data[i].left == x && atbl->data[i].right == y && 
-	   bvatm_tag(atbl->data + i) == BVSGE_ATM);
+           bvatm_tag(atbl->data + i) == BVSGE_ATM);
 
     j = find_bvsge_atom(&solver->atbl, y, x);
     if (j >= 0) {
       k = find_bveq_atom(&solver->atbl, x, y);
       if (k >= 0) {
-	assert(j != i && j != k && k != i);
+        assert(j != i && j != k && k != i);
 
-	// success
-	ge_xy = atbl->data[i].lit;
-	eq_xy = atbl->data[k].lit;
-	ge_yx = atbl->data[j].lit;
+        // success
+        ge_xy = atbl->data[i].lit;
+        eq_xy = atbl->data[k].lit;
+        ge_yx = atbl->data[j].lit;
 
-	// assert ge_xy = (or eq_xy (not ge_yx))
-	bit_blaster_or2_gate(solver->blaster, eq_xy, not(ge_yx), ge_xy);
-	return true;
+        // assert ge_xy = (or eq_xy (not ge_yx))
+        bit_blaster_or2_gate(solver->blaster, eq_xy, not(ge_yx), ge_xy);
+        return true;
       }
     }    
   }
@@ -6898,9 +6898,9 @@ static void bv_solver_bitblast_all_atoms(bv_solver_t *solver) {
     if (bvatm_tag(atbl->data + i) == BVEQ_ATM && bvvar_bitsize(vtbl, x) == 1) {
       assert(bvvar_bitsize(vtbl, y) == 1);
       if (bvvar_is_small_const(vtbl, x)) {
-	bv_solver_preprocess_bveq(solver, l, y, x);
+        bv_solver_preprocess_bveq(solver, l, y, x);
       } else if (bvvar_is_small_const(vtbl, y)){
-	bv_solver_preprocess_bveq(solver, l, x, y);
+        bv_solver_preprocess_bveq(solver, l, x, y);
       }
     }
   }
@@ -6934,14 +6934,14 @@ static void bv_solver_bitblast_all_atoms(bv_solver_t *solver) {
     case BVUGE_ATM:
       // Try variant definition. If that fails, bitblast.
       if (! bv_solver_bvuge_var_def(solver, x, y, i)) {
-	bit_blaster_make_bvuge2(solver->blaster, a->data, b->data, l, a->size);
+        bit_blaster_make_bvuge2(solver->blaster, a->data, b->data, l, a->size);
       }
       break;
 
     case BVSGE_ATM:
       // Try variant definition. If that fails, bitblast.
       if (! bv_solver_bvsge_var_def(solver, x, y, i)) {
-	bit_blaster_make_bvsge2(solver->blaster, a->data, b->data, l, a->size);
+        bit_blaster_make_bvsge2(solver->blaster, a->data, b->data, l, a->size);
       }
       break;
 
@@ -6974,19 +6974,19 @@ static void bv_solver_bitblast_variables(bv_solver_t *solver) {
     if (!bvvar_is_marked(vtbl, i)) {
       // i has not beem processed yet:
       if (bv_is_replaced(&solver->partition, i)) {
-	/*
-	 * i has a root variable y. Process the root y
-	 * if it's not marked, then bitblast i.
-	 */
-	y = bv_partition_find_root(&solver->partition, i);
-	assert(y != null_thvar && y != i);
-	if (! bvvar_is_marked(vtbl, y)) {
-	  bv_solver_bitblast_variable(solver, y);
-	}
-	bv_solver_bitblast_variable(solver, i);
+        /*
+         * i has a root variable y. Process the root y
+         * if it's not marked, then bitblast i.
+         */
+        y = bv_partition_find_root(&solver->partition, i);
+        assert(y != null_thvar && y != i);
+        if (! bvvar_is_marked(vtbl, y)) {
+          bv_solver_bitblast_variable(solver, y);
+        }
+        bv_solver_bitblast_variable(solver, i);
 
       } else if (bvvar_has_eterm(&solver->vtbl, i)) {
-	bv_solver_bitblast_variable(solver, i);
+        bv_solver_bitblast_variable(solver, i);
       }
     }
   }
@@ -7356,13 +7356,13 @@ static literal_t bv_solver_make_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t 
       // to figure out how to generate explanations.
       v = var_of(l);
       if (bvar_has_atom(solver->core, v)) {
-	// we need a fresh literal
-	v = create_boolean_variable(solver->core);
-	l0 = pos_lit(v);
-	atbl->data[i].lit = l0;
-	// assert (l == l0) in the core
-	bit_blaster_eq(solver->blaster, l, l0);
-	l = l0;
+        // we need a fresh literal
+        v = create_boolean_variable(solver->core);
+        l0 = pos_lit(v);
+        atbl->data[i].lit = l0;
+        // assert (l == l0) in the core
+        bit_blaster_eq(solver->blaster, l, l0);
+        l = l0;
       }
       attach_atom_to_bvar(solver->core, v, bvatom_idx2tagged_ptr(i));
       // TEST
@@ -7437,7 +7437,7 @@ literal_t bv_solver_create_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
       // BUG fix: if 0b1 was just created, it's not mapped to 
       // a pseudo literal and bv_solver_make_eq_atom will crash
       if (solver->bit_blasted && vtbl->map[x].lit == null_literal) {
-	vtbl->map[x].lit = true_literal;
+        vtbl->map[x].lit = true_literal;
       }
       return not(bv_solver_make_eq_atom(solver, x, y));
     }
@@ -7446,7 +7446,7 @@ literal_t bv_solver_create_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
       // rewrite (bveq x 0b0) to (not (bveq x 0b1))
       y = get_small_const(vtbl, 1, 1); // y = 0b1
       if (solver->bit_blasted && vtbl->map[y].lit == null_literal) {
-	vtbl->map[y].lit = true_literal;
+        vtbl->map[y].lit = true_literal;
       }
       return not(bv_solver_make_eq_atom(solver, x, y));
     }
@@ -7508,12 +7508,12 @@ void bv_solver_assert_eq_axiom(bv_solver_t *solver, thvar_t x, thvar_t y, bool t
       i = get_bveq_atom(atbl, x, y);
       l = atbl->data[i].lit;
       if (l == null_literal) {
-	assert(atbl->natoms > n);
-	// new atom: mark it as false
-	atbl->data[i].lit = false_literal;
+        assert(atbl->natoms > n);
+        // new atom: mark it as false
+        atbl->data[i].lit = false_literal;
       } else {
-	// existing atom: assert not(l)
-	add_unit_clause(solver->core, not(l));
+        // existing atom: assert not(l)
+        add_unit_clause(solver->core, not(l));
       }
     }
     num_diseq_axioms ++;
@@ -7898,7 +7898,7 @@ uint32_t bv_solver_num_sge_atoms(bv_solver_t *solver) {
  * - tbl = node table for the XOR/OR graph
  */
 void init_bv_solver(bv_solver_t *solver, smt_core_t *core, egraph_t *egraph, 
-		    bv_var_manager_t *vm, node_table_t *tbl) {
+                    bv_var_manager_t *vm, node_table_t *tbl) {
 
   thvar_t x;
 
@@ -8078,11 +8078,11 @@ bool bv_solver_assert_atom(bv_solver_t *solver, void *atom, literal_t l) {
      */
     if (bvatm_is_eq(atm)) {
       if (is_pos(l)) {
-	num_extra_eq_axioms ++;
-	return process_eq_axiom(solver, atm->left, atm->right);
+        num_extra_eq_axioms ++;
+        return process_eq_axiom(solver, atm->left, atm->right);
       } else if (diseq_axiom_convertible_to_eq(solver, atm->left, atm->right)) {
-	num_extra_eq_axioms ++;
-	return convert_diseq_axiom_to_eq(solver, atm->left, atm->right);
+        num_extra_eq_axioms ++;
+        return convert_diseq_axiom_to_eq(solver, atm->left, atm->right);
       }
     }
 
@@ -8218,7 +8218,7 @@ void bv_solver_pop(bv_solver_t *solver) {
 
   // the constant should still be present
   assert(solver->vtbl.nvars > constant_node && 
-	 bvvar_tag(&solver->vtbl, constant_node) == BVTAG_TRUE);
+         bvvar_tag(&solver->vtbl, constant_node) == BVTAG_TRUE);
 }
 
 
@@ -8416,8 +8416,8 @@ void bv_solver_assert_var_distinct(bv_solver_t *solver, uint32_t n, thvar_t *a, 
       x = a[i];
       assert(bvvar_has_eterm(&solver->vtbl, x));
       for (j=i+1; j<n; j++) {
-	y = a[j];
-	diseq_axiom_from_egraph(solver, x, y);
+        y = a[j];
+        diseq_axiom_from_egraph(solver, x, y);
       }
     }
 
@@ -8525,7 +8525,7 @@ static bool bv_solver_var_equal_in_model(bv_solver_t *solver, thvar_t x1, thvar_
       v2 = literal_value(core, l2);
       assert(v1 != VAL_UNDEF && v2 != VAL_UNDEF);
       if (v1 != v2) {
-	return false;
+        return false;
       }
     }
 
@@ -8578,7 +8578,7 @@ static uint32_t bvsolver_word_value_in_model(bv_solver_t *solver, thvar_t x, uin
       l = remap_table_find(rmap, s);
       assert(l != null_literal && literal_value(core, l) != VAL_UNDEF);
       if (literal_value(core, l) == VAL_TRUE) {
-	c |= 1; // set low-order bit
+        c |= 1; // set low-order bit
       }
       c <<= 1;
     }
@@ -8723,33 +8723,33 @@ uint32_t bv_solver_reconcile_model(bv_solver_t *solver, uint32_t max_eq) {
    *   bitvector model says that x = y
    */
   init_int_hclass(&hclass, 0, solver, (iclass_hash_fun_t) bvsolver_model_hash,
-		  (iclass_match_fun_t) bv_solver_var_equal_in_model);
+                  (iclass_match_fun_t) bv_solver_var_equal_in_model);
 
   n = solver->vtbl.nvars;
   for (i=0; i<n; i++) {
     if (is_root_var(solver, i)) {
       x = int_hclass_get_rep(&hclass, i);
       if (x != i) {
-	// x and i have the same value in the model
-	// but are in different classes in the egraph
+        // x and i have the same value in the model
+        // but are in different classes in the egraph
 #if TRACE
-	t1 = bvvar_get_eterm(&solver->vtbl, x);
-	t2 = bvvar_get_eterm(&solver->vtbl, i);
-	printf("---> lemma from conflict:\n");
-	printf("     x1 = ");
-	print_bvsolver_var(stdout, x);
-	printf(", t1 = ");
-	print_eterm_id(stdout, t1);
-	printf("\n");
-	printf("     x2 = ");
-	print_bvsolver_var(stdout, i);
-	printf(", t2 = ");
-	print_eterm_id(stdout, t2);
-	printf("\n");
+        t1 = bvvar_get_eterm(&solver->vtbl, x);
+        t2 = bvvar_get_eterm(&solver->vtbl, i);
+        printf("---> lemma from conflict:\n");
+        printf("     x1 = ");
+        print_bvsolver_var(stdout, x);
+        printf(", t1 = ");
+        print_eterm_id(stdout, t1);
+        printf("\n");
+        printf("     x2 = ");
+        print_bvsolver_var(stdout, i);
+        printf(", t2 = ");
+        print_eterm_id(stdout, t2);
+        printf("\n");
 #endif
-	bv_solver_bvequiv_lemma(solver, x, i);
-	neq ++;
-	if (neq == max_eq) break;
+        bv_solver_bvequiv_lemma(solver, x, i);
+        neq ++;
+        if (neq == max_eq) break;
       }
     }
   }
@@ -8826,7 +8826,7 @@ uint32_t bv_solver_reconcile_model(bv_solver_t *solver, uint32_t max_eq) {
    *   bitvector model says that x = y
    */
   init_int_partition(&partition, 0, solver, (ipart_hash_fun_t) bvsolver_model_hash,
-		     (ipart_match_fun_t) bv_solver_var_equal_in_model);
+                     (ipart_match_fun_t) bv_solver_var_equal_in_model);
 
   n = solver->vtbl.nvars;
   for (i=0; i<n; i++) {
@@ -8915,7 +8915,7 @@ static bool bv_solver_variable_all_undef(bv_solver_t *solver, thvar_t x) {
       assert(l0 != null_literal);
       l = remap_table_find(rmap, l0);
       if (l != null_literal) {
-	return false;
+        return false;
       }
     }
 
@@ -8962,7 +8962,7 @@ static bval_t bv_solver_value_for_bit(bv_solver_t *solver, bit_t b) {
       assert(v1 != VAL_UNDEF && v2 != VAL_UNDEF);
       l = false_literal;
       if (v1 == VAL_TRUE || v2 == VAL_TRUE) {
-	l = true_literal;
+        l = true_literal;
       }
       remap_table_assign(rmap, l0, l);
       break;
@@ -8973,7 +8973,7 @@ static bval_t bv_solver_value_for_bit(bv_solver_t *solver, bit_t b) {
       assert(v1 != VAL_UNDEF && v2 != VAL_UNDEF);
       l = false_literal;
       if ((v1 == VAL_TRUE && v2 == VAL_FALSE) || (v1 == VAL_FALSE && v2 == VAL_TRUE)) {
-	l = true_literal;
+        l = true_literal;
       }
       remap_table_assign(rmap, l0, l);
       break;
@@ -9016,7 +9016,7 @@ static void bv_solver_copy_value(bv_solver_t *solver, thvar_t x, thvar_t y) {
     l0 = vtbl->map[x].lit;
     l1 = vtbl->map[y].lit;
     assert(l0 != null_literal && l1 != null_literal &&
-	   remap_table_find(rmap, l0) == null_literal);
+           remap_table_find(rmap, l0) == null_literal);
     l = remap_table_find(rmap, l1);
     assert(l != null_literal);
     remap_table_assign(rmap, l0, l);
@@ -9026,7 +9026,7 @@ static void bv_solver_copy_value(bv_solver_t *solver, thvar_t x, thvar_t y) {
       l0 = vtbl->map[x].array[i];
       l1 = vtbl->map[y].array[i];
       assert(l0 != null_literal && l1 != null_literal && 
-	     remap_table_find(rmap, l0) == null_literal);
+             remap_table_find(rmap, l0) == null_literal);
       l = remap_table_find(rmap, l1);
       assert(l != null_literal);
       remap_table_assign(rmap, l0, l);
@@ -9335,12 +9335,12 @@ static void bv_solver_value_for_variable(bv_solver_t *solver, thvar_t x) {
     case BVTAG_VAR:      
       // we can assign an arbitrary value to the undefined bits of x
       for (i=0; i<n; i++) {
-	l0 = a[i];
-	assert(l0 != null_literal);
-	l = remap_table_find(rmap, l0);
-	if (l == null_literal) {
-	  remap_table_assign(rmap, l0, false_literal);
-	}
+        l0 = a[i];
+        assert(l0 != null_literal);
+        l = remap_table_find(rmap, l0);
+        if (l == null_literal) {
+          remap_table_assign(rmap, l0, false_literal);
+        }
       }
       break;
 
@@ -9349,20 +9349,20 @@ static void bv_solver_value_for_variable(bv_solver_t *solver, thvar_t x) {
       assert(l0 != null_literal);
       l = remap_table_find(rmap, l0);
       if (l == null_literal) {
-	(void) bv_solver_value_for_bit(solver, vtbl->def[x].bval);
-       	assert(remap_table_find(rmap, l0) != null_literal);
+        (void) bv_solver_value_for_bit(solver, vtbl->def[x].bval);
+        assert(remap_table_find(rmap, l0) != null_literal);
       }
       break;
 
     case BVTAG_BIT_ARRAY:
       for (i=0; i<n; i++) {
-	l0 = a[i];
-	assert(l0 != null_literal);
-	l = remap_table_find(rmap, l0);
-	if (l == null_literal) {
-	  (void) bv_solver_value_for_bit(solver, vtbl->def[x].bit[i]);
-	  assert(remap_table_find(rmap, l0) != null_literal);
-	}
+        l0 = a[i];
+        assert(l0 != null_literal);
+        l = remap_table_find(rmap, l0);
+        if (l == null_literal) {
+          (void) bv_solver_value_for_bit(solver, vtbl->def[x].bit[i]);
+          assert(remap_table_find(rmap, l0) != null_literal);
+        }
       }
       break;
 
@@ -9396,10 +9396,10 @@ static void bv_solver_value_for_variable(bv_solver_t *solver, thvar_t x) {
       assert(bv_solver_variable_all_undef(solver, x));
       l = vtbl->def[x].ite->cond;
       if (literal_value(solver->core, l) == VAL_TRUE) {
-	y = vtbl->def[x].ite->left;
+        y = vtbl->def[x].ite->left;
       } else {
-	assert(literal_value(solver->core, l) == VAL_FALSE);
-	y = vtbl->def[x].ite->right;
+        assert(literal_value(solver->core, l) == VAL_FALSE);
+        y = vtbl->def[x].ite->right;
       }
       // assign a value to y then assign the same value to x
       bv_solver_value_for_variable(solver, y);
@@ -9459,47 +9459,47 @@ bool bv_solver_value_in_model(bv_solver_t *solver, thvar_t x, bvconstant_t *c) {
       assert(l0 != null_literal);
       l = remap_table_find(rmap, l0);
       if (l == null_literal) {
-	// NOTE: this should not happen if bv_solver_value_for_variable
-	// works properly
-	goto not_defined;
+        // NOTE: this should not happen if bv_solver_value_for_variable
+        // works properly
+        goto not_defined;
       } else {
-	switch (literal_value(solver->core, l)) {
-	case VAL_FALSE:
-	  bvconst_clr_bit(c->data, 0);
-	  break;
-	case VAL_TRUE:
-	  bvconst_set_bit(c->data, 0);
-	  break;
-	case VAL_UNDEF:
-	default:
-	  goto not_defined;
-	}
+        switch (literal_value(solver->core, l)) {
+        case VAL_FALSE:
+          bvconst_clr_bit(c->data, 0);
+          break;
+        case VAL_TRUE:
+          bvconst_set_bit(c->data, 0);
+          break;
+        case VAL_UNDEF:
+        default:
+          goto not_defined;
+        }
       }
 
     } else {
 
       a = vtbl->map[x].array;
       for (i=0; i<n; i++) {
-	l0 = a[i];
-	assert(l0 != null_literal);
-	l = remap_table_find(rmap, l0);
-	if (l == null_literal) {
-	  // NOTE: this should not happen if bv_solver_value_for_variable
-	  // works properly
-	  goto not_defined;
-	} else {
-	  switch (literal_value(solver->core, l)) {
-	  case VAL_FALSE:
-	    bvconst_clr_bit(c->data, i);
-	    break;
-	  case VAL_TRUE:
-	    bvconst_set_bit(c->data, i);
-	    break;
-	  case VAL_UNDEF:
-	  default:
-	    goto not_defined;
-	  }
-	}
+        l0 = a[i];
+        assert(l0 != null_literal);
+        l = remap_table_find(rmap, l0);
+        if (l == null_literal) {
+          // NOTE: this should not happen if bv_solver_value_for_variable
+          // works properly
+          goto not_defined;
+        } else {
+          switch (literal_value(solver->core, l)) {
+          case VAL_FALSE:
+            bvconst_clr_bit(c->data, i);
+            break;
+          case VAL_TRUE:
+            bvconst_set_bit(c->data, i);
+            break;
+          case VAL_UNDEF:
+          default:
+            goto not_defined;
+          }
+        }
       }
     }
 
@@ -9543,7 +9543,7 @@ static void collect_used_values_small(bv_solver_t *solver, bvset_t *set) {
   n = vtbl->nvars;
   for (i=0; i<n; i++) {
     if (bvvar_bitsize(vtbl, i) == bitsize && 
-	bv_solver_value_in_model(solver, i, &aux)) {
+        bv_solver_value_in_model(solver, i, &aux)) {
       // aux = value of i in the model
       // it's stored in aux.data[0]
       small_bvset_add(s, aux.data[0]);
@@ -9576,7 +9576,7 @@ static void collect_used_values_rb(bv_solver_t *solver, bvset_t *set) {
   n = vtbl->nvars;
   for (i=0; i<n; i++) {
     if (bvvar_bitsize(vtbl, i) == bitsize && 
-	bv_solver_value_in_model(solver, i, &aux)) {
+        bv_solver_value_in_model(solver, i, &aux)) {
       // aux = value of i in the model
       // copy the low-order word aux.data[0] into s
       rb_bvset_add(s, aux.data[0]);

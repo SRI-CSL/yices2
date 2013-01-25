@@ -172,7 +172,7 @@ static void push_alloc_mark(pmap2_stack_t *stack, uint32_t b, uint32_t p) {
     } else {
       n += n>>1;
       if (n >= PMAP2_MAX_STACK_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
     }
     stack->data = (pmap2_mark_t *) safe_realloc(stack->data, n * sizeof(pmap2_mark_t));

@@ -348,7 +348,7 @@ extern void bvarith_buffer_square(bvarith_buffer_t *b);
 /*
  * In all operations, p1 and p2 must be lists of monomials built using the 
  * same pprod_table as b. The coefficients in p1 and p2 must have the 
- * same bitsize as in b. The monomual lists must be sorted and terminated
+ * same bitsize as in b. The monomial lists must be sorted and terminated
  * by the end marker.
  */
 
@@ -569,7 +569,7 @@ static inline void bvarith_buffer_mul_buffer_power(bvarith_buffer_t *b, bvarith_
  */
 static inline void bvarith_buffer_add_buffer_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, bvarith_buffer_t *b2) {
   assert(b != b1 && b != b2 && b1->ptbl == b->ptbl && b2->ptbl == b->ptbl && 
-	 b->bitsize == b1->bitsize && b->bitsize == b2->bitsize);
+         b->bitsize == b1->bitsize && b->bitsize == b2->bitsize);
   bvarith_buffer_add_mlist_times_mlist(b, b1->list, b2->list);
 }
 
@@ -580,7 +580,7 @@ static inline void bvarith_buffer_add_buffer_times_buffer(bvarith_buffer_t *b, b
  */
 static inline void bvarith_buffer_sub_buffer_times_buffer(bvarith_buffer_t *b, bvarith_buffer_t *b1, bvarith_buffer_t *b2) {
   assert(b != b1 && b != b2 && b1->ptbl == b->ptbl && b2->ptbl == b->ptbl &&
-	 b->bitsize == b1->bitsize && b->bitsize == b2->bitsize);
+         b->bitsize == b1->bitsize && b->bitsize == b2->bitsize);
   bvarith_buffer_sub_mlist_times_mlist(b, b1->list, b2->list);
 }
 
@@ -596,7 +596,7 @@ static inline void bvarith_buffer_sub_buffer_times_buffer(bvarith_buffer_t *b, b
 /*
  * A bit-vector polynomial is an array of monomials of the form 
  * (coeff, index) where indices are signed integers. Operations 
- * between buffers and poynomials require a conversion of 
+ * between buffers and polynomials require a conversion of 
  * the integer indices used by monomials to power products used by buffers.
  *
  * All operations below take three arguments:

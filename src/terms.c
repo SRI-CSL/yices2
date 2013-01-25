@@ -1277,7 +1277,7 @@ void add_unit_type_rep(term_table_t *table, type_t tau, term_t t) {
   int_hmap_pair_t *p;
 
   assert(is_unit_type(table->types, tau) && good_term(table, t) && 
-	 term_type(table, t) == tau);
+         term_type(table, t) == tau);
 
   p = int_hmap_get(&table->utbl, tau);
   assert(p->val == EMPTY_KEY); // i.e., -1
@@ -1296,7 +1296,7 @@ void store_unit_type_rep(term_table_t *table, type_t tau, term_t t) {
   int_hmap_pair_t *p;
 
   assert(is_unit_type(table->types, tau) && good_term(table, t) && 
-	 term_type(table, t) == tau);
+         term_type(table, t) == tau);
 
   p = int_hmap_get(&table->utbl, tau);
   if (p->val == EMPTY_KEY) {
@@ -2901,7 +2901,7 @@ bool is_constant_tuple(term_table_t *table, term_t t) {
   // second pass: recursively check all subterms
   for (i=0; i<n; i++) {
     if (! is_const_term(table, tup->arg[i]) && 
-	! is_constant_tuple(table, tup->arg[i])) {
+        ! is_constant_tuple(table, tup->arg[i])) {
       return false;
     }
   }
@@ -2943,8 +2943,8 @@ term_t find_constant_term(term_table_t *table, type_t tau, int32_t index) {
   }
 
   assert(i == NULL_TERM || 
-	 (term_kind(table, i) == CONSTANT_TERM && term_type(table, i) == tau 
-	  && constant_term_index(table, i) == index));
+         (term_kind(table, i) == CONSTANT_TERM && term_type(table, i) == tau 
+          && constant_term_index(table, i) == index));
 
   return i;
 }

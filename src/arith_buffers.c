@@ -309,7 +309,7 @@ uint32_t arith_buffer_var_degree(arith_buffer_t *b, int32_t x) {
     if (q_is_nonzero(&p->coeff)) {
       e = pprod_var_degree(p->prod, x);
       if (e > d) {
-	d = e;
+        d = e;
       }
     }
     p = p->next;
@@ -1549,8 +1549,8 @@ void arith_buffer_mul_monarray_power(arith_buffer_t *b, monomial_t *p, pprod_t *
        */
       assert(d > 0);
       if ((d & 1) != 0) {
-	arith_buffer_mul_buffer(b, aux); // b := b * aux
-	arith_buffer_normalize(b);
+        arith_buffer_mul_buffer(b, aux); // b := b * aux
+        arith_buffer_normalize(b);
       }
       d >>= 1;                           // d := d/2
       if (d == 0) break;

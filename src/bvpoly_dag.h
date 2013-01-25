@@ -32,7 +32,7 @@
  * There are five types of nodes:
  * - [leaf x] where x is a bitvector variable
  * - [offset a0 n1] denotes (a0 + n1)
- * - [mono   a0 n1] deontes (a0 * n1)
+ * - [mono   a0 n1] denotes (a0 * n1)
  * - [prod  n1^d1 ... n_k^d_k] denotes a power product
  * - [sum  n1 + ... + n_k]
  * Where a0 is a constant, and n_t is a node occurrence.
@@ -64,7 +64,7 @@
  * - bitsize: number of bits
  *
  * For offset and monomial nodes: the constant is either a 64bit integer or a
- * pointer to an array of k 32bit words, where k = ceil(bitize/32).
+ * pointer to an array of k 32bit words, where k = ceil(bitsize/32).
  *
  * The nodes are organized in three disjoint sets:
  * - leaf nodes
@@ -177,7 +177,7 @@ typedef struct bvc_mono_s {
 
 /*
  * Product
- * - varexp_t is a pair var/exponent definied in power_products.h
+ * - varexp_t is a pair var/exponent defined in power_products.h
  * - hash = bitmask based on the nodes occurring in the products 
  * - len = number of pairs in the power product 
  * - prod = array of size elements
@@ -199,7 +199,7 @@ typedef struct bvc_prod_s {
  * Sum:
  * - each integer in the sum array is either +n or -n for some node index n
  * - len = number of elements in the sum
- * - hash = bitmasak
+ * - hash = bitmask
  * - sum = array of size elements (size >= len)
  * The operands are in sum[0 .. len-1].
  */
@@ -547,7 +547,7 @@ static inline int32_t bvc_dag_get_var_of_leaf(bvc_dag_t *dag, node_occ_t n) {
  * - to encode the signs, we return either bvp(x) or bvn(x)
  *   where x is a variable
  *     bvp(x) means that n is compiled to x
- *     bvn(x) means that n is compoled to (bvneg x)
+ *     bvn(x) means that n is compiled to (bvneg x)
  * - in all other cases, the function returns -1
  */
 extern int32_t bvc_dag_get_nocc_compilation(bvc_dag_t *dag, node_occ_t n);
@@ -571,7 +571,7 @@ extern node_occ_t bvc_dag_mono(bvc_dag_t *dag, uint32_t *a, node_occ_t n, uint32
 /*
  * Construct an offset node q
  * - a must be normalized modulo 2^bitsize
- * - this creates q := [offet a n] and returns q
+ * - this creates q := [offset a n] and returns q
  * There are two versions: one for bitsize <= 64, one for bitsize > 64.
  */
 extern node_occ_t bvc_dag_offset64(bvc_dag_t *dag, uint64_t a, node_occ_t n, uint32_t bitsize);
@@ -664,7 +664,7 @@ static inline bvnode_t bvc_first_complex_node(bvc_dag_t *dag) {
 extern void bvc_move_node_to_aux_list(bvc_dag_t *dag, bvnode_t i);
 
 /*
- * Move the auxliary list to the elem/complex list
+ * Move the auxiliary list to the elem/complex list
  */
 extern void bvc_move_aux_to_elem_list(bvc_dag_t *dag);
 extern void bvc_move_aux_to_complex_list(bvc_dag_t *dag);

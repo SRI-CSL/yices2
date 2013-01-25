@@ -578,10 +578,10 @@ static bool scale_coeffs_to_integers(monomial_t *a, uint32_t n, rational_t *b) {
     // flip the signs to make the main coefficient positive
     if (negated) {
       for (i=0; i<n; i++) {
-	q_neg(&a[i].coeff);
+        q_neg(&a[i].coeff);
       }
       if (b != NULL) {
-	q_neg(b);
+        q_neg(b);
       }
     }
     
@@ -650,8 +650,8 @@ bool poly_buffer_make_nonconstant_integral(poly_buffer_t *buffer) {
     // if no other terms, make the constant positive
     if (n == 0) {
       if (q_is_neg(constant)) {
-	q_neg(constant);
-	return true;
+        q_neg(constant);
+        return true;
       }
       return false;
     }
@@ -752,14 +752,14 @@ void poly_buffer_substitution(poly_buffer_t *buffer, matrix_t *matrix) {
        * we subtract a * (y + terms) to eliminate y from buffer
        */
       if (q_is_one(a)) {
-	poly_buffer_sub_row(buffer, row);
+        poly_buffer_sub_row(buffer, row);
       } else if (q_is_minus_one(a)) {
-	poly_buffer_add_row(buffer, row);
+        poly_buffer_add_row(buffer, row);
       } else if (q_is_nonzero(a)) {
-	// we need to make a copy of a since a --> mono[i].coeff
-	// and it mono[i].coeff will be reset to 0
-	q_set(&buffer->aux, a);
-	poly_buffer_submul_row(buffer, row, &buffer->aux);
+        // we need to make a copy of a since a --> mono[i].coeff
+        // and it mono[i].coeff will be reset to 0
+        q_set(&buffer->aux, a);
+        poly_buffer_submul_row(buffer, row, &buffer->aux);
       }
     }
   }

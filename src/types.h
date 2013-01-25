@@ -238,7 +238,7 @@ typedef struct type_mtbl_s {
  * - name[i] = string id or NULL.
  * - flags[i] = 8bit flags:
  *    bit 0 of flag[i] is 1 if i is finite
- *    bit 1 of flag[i] is 1 if i is a unit tupe
+ *    bit 1 of flag[i] is 1 if i is a unit type
  *    bit 2 of flag[i] is 1 if card[i] is exact
  *    bit 3 of flag[i] is 1 if i has no strict supertype 
  *    bit 4 of flag[i] is 1 if i has no strict subtype
@@ -387,7 +387,7 @@ extern type_t bv_type(type_table_t *table, uint32_t size);
 extern type_t new_scalar_type(type_table_t *table, uint32_t size);
 
 /*
- * Declare a new unintrepreted type
+ * Declare a new uninterpreted type
  */
 extern type_t new_uninterpreted_type(type_table_t *table);
 
@@ -756,7 +756,7 @@ extern uint32_t card_of_type_product(type_table_t *table, uint32_t n, type_t *ta
  * Approximate cardinality of the domain and range of a function type tau
  * - both function return a 32bit unsigned number (which is a lower bound 
  *   on the actual domain or range size).
- * - the resut is exact if it's less than UINT32_MAX.
+ * - the result is exact if it's less than UINT32_MAX.
  */
 extern uint32_t card_of_domain_type(type_table_t *table, type_t tau);
 extern uint32_t card_of_range_type(type_table_t *table, type_t tau);
@@ -940,7 +940,7 @@ extern void delete_type_macro(type_table_t *table, int32_t id);
  *
  * Otherwise:
  * - if the macro is a type constructor (i.e., body = NULL_TYPE) 
- *   then a new type instance is contructed.
+ *   then a new type instance is constructed.
  * - if the macro is a normal macro (body != NULL_TYPE), then
  *   the instance is constructed by substituting the actuals
  *   for the macro variable.

@@ -63,7 +63,7 @@ typedef struct xq_hmap_s {
  * Initialization
  * - n = initial size 
  * - n must be 0 or a power of two
- * - if n = 0, then the default size is uzed.
+ * - if n = 0, then the default size is used.
  */
 extern void init_xq_hmap(xq_hmap_t *hmap, uint32_t n);
 
@@ -95,7 +95,7 @@ extern void copy_xq_hmap(xq_hmap_t *hmap1, xq_hmap_t *hmap2);
  *   its value by 1
  * - otherwise, create a new record with key q and value = 1
  * - this increments hmap->nentries
- * - if a new record is created, hmpa->nelems is also incremented
+ * - if a new record is created, hmap->nelems is also incremented
  */
 extern void xq_hmap_add_entry(xq_hmap_t *hmap, xrational_t *q);
 

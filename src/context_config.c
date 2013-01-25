@@ -528,7 +528,7 @@ static bool arch_supports_mode(context_arch_t a, context_mode_t mode) {
  *  -3 if the solver combination is valid but does not support the specified mode
  */
 int32_t decode_config(const ctx_config_t *config, context_arch_t *arch, 
-		      context_mode_t *mode, bool *iflag, bool *qflag) {
+                      context_mode_t *mode, bool *iflag, bool *qflag) {
 
   smt_logic_t logic_code;
   int32_t a, r;

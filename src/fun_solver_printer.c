@@ -108,8 +108,8 @@ void print_fsolver_classes(FILE *f, fun_solver_t *solver) {
       fprintf(f, "class of f!%"PRIu32" = {", i);
       x = i;
       do {
-	fprintf(f, " f!%"PRId32, x);
-	x = vtbl->next[x];
+        fprintf(f, " f!%"PRId32, x);
+        x = vtbl->next[x];
       } while (x != null_thvar);
       fprintf(f, " }\n");
     }
@@ -131,16 +131,16 @@ void print_fsolver_apps(FILE *f, fun_solver_t *solver) {
     if (vtbl->root[i] == i) {
       p = (composite_t **) vtbl->app[i];
       if (p != NULL) {
-	fprintf(f, "--- Apps for f!%"PRIu32" ---\n", i);
-	m = pv_size((void **) p);
-	for (j=0; j<m; j++) {
-	  print_composite(f, p[j]);
-	  fputs("  == ", f);
-	  print_label(f, egraph_term_label(solver->egraph, p[j]->id));
-	  fputc('\n', f);
-	}
+        fprintf(f, "--- Apps for f!%"PRIu32" ---\n", i);
+        m = pv_size((void **) p);
+        for (j=0; j<m; j++) {
+          print_composite(f, p[j]);
+          fputs("  == ", f);
+          print_label(f, egraph_term_label(solver->egraph, p[j]->id));
+          fputc('\n', f);
+        }
       } else {
-	fprintf(f, "--- No apps for f!%"PRIu32" ---\n", i);
+        fprintf(f, "--- No apps for f!%"PRIu32" ---\n", i);
       }
     }
   }
@@ -188,10 +188,10 @@ void print_fsolver_maps(FILE *f, fun_solver_t *solver) {
       fprintf(f, "base = %"PRId32"\n", vtbl->base[i]);
       p = (composite_t **) vtbl->app[i];
       if (p != NULL) {
-	m = pv_size((void **) p);
-	for (j=0; j<m; j++) {
-	  print_map(f, egraph, p[j]);	  
-	}
+        m = pv_size((void **) p);
+        for (j=0; j<m; j++) {
+          print_map(f, egraph, p[j]);     
+        }
       }
     }
   }
@@ -220,12 +220,12 @@ void print_fsolver_base_values(FILE *f, fun_solver_t *solver) {
       k = solver->base_value[c];
       fprintf(f, "base value for f!%"PRIu32": ", i);
       if (k < 0) {
-	fprintf(f, "fresh(%"PRId32")\n", - (k + 1));
+        fprintf(f, "fresh(%"PRId32")\n", - (k + 1));
       } else if (k == INT32_MAX) {
-	fputs("unknown\n", f);
+        fputs("unknown\n", f);
       } else {
-	print_label(f, k);
-	fputc('\n', f);
+        print_label(f, k);
+        fputc('\n', f);
       }
     }
   }
@@ -318,14 +318,14 @@ void print_fsolver_values(FILE *f, fun_solver_t *solver) {
       fprintf(f, "--- Value for f!%"PRIu32" ---\n", i);
       map = solver->value[i];
       if (map != NULL) {
-	for (j=0; j<map->nelems; j++) {
-	  print_map_elem(f, egraph, map->data[j].index, map->data[j].value);	  
-	}
-	if (map->def != null_particle) {
-	  fputs("[else -> ", f);
-	  print_particle_value(f, egraph, map->def);
-	  fputs("]\n", f);
-	}
+        for (j=0; j<map->nelems; j++) {
+          print_map_elem(f, egraph, map->data[j].index, map->data[j].value);      
+        }
+        if (map->def != null_particle) {
+          fputs("[else -> ", f);
+          print_particle_value(f, egraph, map->def);
+          fputs("]\n", f);
+        }
       }
     }
   }

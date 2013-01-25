@@ -40,11 +40,11 @@
  *         b_n)
  *
  * There are constraints between the selected layout for a block and the
- * allowed layouts for its sublocks:
- * - if b is printed horizontally, then all its subblocks must also be 
+ * allowed layouts for its sub-blocks:
+ * - if b is printed horizontally, then all its sub-blocks must also be 
  *   printed horizontally
  * - if b is printed in vertical or mixed layouts, then all
- *   its subblocks must be printed horizontally
+ *   its sub-blocks must be printed horizontally
  *
  * As in Oppen's paper the pretty printer consists of two main components
  * - a printer does the actual printing.
@@ -76,7 +76,7 @@
  * - 0001: horizontal
  * - 0010: mixed horizontal/vertical
  * - 0100: vertical
- * - 1000: thight vertical
+ * - 1000: tight vertical
  */
 #define PP_H_LAYOUT ((uint32_t) 1)
 #define PP_M_LAYOUT ((uint32_t) 2)
@@ -124,7 +124,7 @@
  * space for 'width' characters independent of 'indent'. 
  *
  * A 'truncate' flag specifies how to deal with an atomic token that does
- * not fit on the print line (e.g., if the identation is large):
+ * not fit on the print line (e.g., if the indentation is large):
  * - if 'truncate' is true, the token is truncated (nothing is printed
  * beyond the display area's boundary).
  * - otherwise, the token is printed in full and may extend beyond the
@@ -149,8 +149,8 @@ typedef struct pp_area_s {
  * Default print area:
  * - 80 columns
  * - infinitely many lines
- * - no offest
- * - strecth disabled
+ * - no offset
+ * - stretch disabled
  * - truncate enabled
  */
 #define PP_DEFAULT_WIDTH  80
@@ -201,7 +201,7 @@ typedef struct pp_atomic_token_s {
  * - indent = indentation for VLAYOUT or MLAYOUT
  * - short_indent = indentation for TLAYOUT
  * - formats = allowed formats
- * - flags = whether the block is enclosed wih '(' and ')
+ * - flags = whether the block is enclosed with '(' and ')
  *           whether space/break is allowed after the label
  * - user_tag = provided by the user
  *
@@ -224,7 +224,7 @@ typedef struct pp_open_token_s {
 /*
  * bit masks for the flag field:
  *  b0 --> 1 for blocks that require '(' and ')
- *         0 for blocks with no delimitors
+ *         0 for blocks with no delimiters
  *  b1 --> 1 if space/break is allowed after the label
  *         0 otherwise
  */
@@ -528,7 +528,7 @@ typedef struct printer_s {
  * - the bsize and csize of all open tokens
  *
  * The formatter works as if all the tokens were printed on
- * a single (long) horizonal line (the formatting line). 
+ * a single (long) horizontal line (the formatting line). 
  * The formatter state includes:
  *
  * 1) A queue of tokens.
@@ -702,7 +702,7 @@ typedef struct pp_s {
  * width = 80, height = infinite, offset = 0, don't stretch, truncate.
  */
 extern void init_pp(pp_t *pp, pp_token_converter_t *converter, FILE *file,
-		    pp_area_t *area, pp_print_mode_t mode, uint32_t indent);
+                    pp_area_t *area, pp_print_mode_t mode, uint32_t indent);
 
 
 /*
@@ -752,8 +752,8 @@ static inline uint32_t pp_depth(pp_t *pp) {
  * - user_tag = whatever the converter needs
  */
 extern void *init_open_token(pp_open_token_t *tk, uint32_t formats, uint32_t flags,
-			     uint16_t lsize, uint16_t indent, uint16_t short_indent,
-			     uint32_t user_tag);
+                             uint16_t lsize, uint16_t indent, uint16_t short_indent,
+                             uint32_t user_tag);
 
 
 /*

@@ -43,7 +43,7 @@ typedef struct ptr_hclass_s {
 } ptr_hclass_t;
 
 
-// default + maximla size
+// default + maximal size
 #define DEF_PCLASS_SIZE 64
 #define MAX_PCLASS_SIZE (UINT32_MAX/sizeof(void *))
 
@@ -59,7 +59,7 @@ typedef struct ptr_hclass_s {
  * - hash_fn, match_fn, aux: customization 
  */
 extern void init_ptr_hclass(ptr_hclass_t *table, uint32_t n, void *aux, 
-			    pclass_hash_fun_t hash_fn, pclass_match_fun_t match_fn);
+                            pclass_hash_fun_t hash_fn, pclass_match_fun_t match_fn);
 
 
 /*

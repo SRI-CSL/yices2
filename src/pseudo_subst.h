@@ -138,7 +138,7 @@ extern subst_triple_t *pseudo_subst_find(pseudo_subst_t *subst, term_t x);
  * Search for a triple with variable x in subst. If such a triple
  * is found, return it. Otherwise create a fresh record, add it
  * to the table, and return it.
- * - the fresh record is inialized with var = x, map = NULL_TERM, 
+ * - the fresh record is initialized with var = x, map = NULL_TERM, 
  *   and eq = NULL_TERM.
  */
 extern subst_triple_t *pseudo_subst_get(pseudo_subst_t *subst, term_t x);

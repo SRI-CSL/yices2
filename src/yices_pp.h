@@ -212,14 +212,14 @@ extern void init_yices_pp_tables(void);
  * If area is NULL, then the default is used (cf. pretty_printer.h)
  */
 extern void init_yices_pp(yices_pp_t *printer, FILE *file, pp_area_t *area,
-			  pp_print_mode_t mode, uint32_t indent);
+                          pp_print_mode_t mode, uint32_t indent);
 
 
 /*
  * Variant: use default mode and indent
  */
 static inline void init_default_yices_pp(yices_pp_t *printer, 
-					 FILE *file, pp_area_t *area) {
+                                         FILE *file, pp_area_t *area) {
   init_yices_pp(printer, file, area, PP_VMODE, 0);
 }
 

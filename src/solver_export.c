@@ -85,9 +85,9 @@ static void export_avar_product(FILE *f, arith_vartable_t *table, varprod_t *p) 
       x = p->prod[i].var;
       m = p->prod[i].exp;
       while (m > 0) {
-	fputc(' ', f);
-	export_avar(f, table, x);
-	m --;
+        fputc(' ', f);
+        export_avar(f, table, x);
+        m --;
       }
     }
     fputc(')', f);
@@ -148,8 +148,8 @@ static void export_row(FILE *f, arith_vartable_t *vtbl, row_t *row) {
     for (i=0; i<n; i++) {
       x = row->data[i].c_idx;
       if (x >= 0) {
-	fputc(' ', f);
-	export_avar_monomial(f, vtbl, x, &row->data[i].coeff);
+        fputc(' ', f);
+        export_avar_monomial(f, vtbl, x, &row->data[i].coeff);
       }
     }
     if (row->nelems > 1) {
@@ -193,22 +193,22 @@ static void export_avar_bounds(FILE *f, arith_vartable_t *vtbl, arith_bstack_t *
 
       // find the comparison type
       if (arith_tag_get_type(bstack->tag[i]) == ATYPE_UB) {
-	// upper bound: (x <= b)
-	if (xq_is_rational(b)) {
-	  fputs("<=", f);
-	} else {
-	  // (x <= b - delta) encodes (x < b)
-	  assert(q_is_minus_one(&b->delta));
-	  fputc('<', f);
-	}
+        // upper bound: (x <= b)
+        if (xq_is_rational(b)) {
+          fputs("<=", f);
+        } else {
+          // (x <= b - delta) encodes (x < b)
+          assert(q_is_minus_one(&b->delta));
+          fputc('<', f);
+        }
       } else {
-	// lower bound: (x >= n)
-	if (xq_is_rational(b)) {
-	  fputs(">=", f);
-	} else {
-	  assert(q_is_one(&b->delta));
-	  fputc('>', f);
-	}
+        // lower bound: (x >= n)
+        if (xq_is_rational(b)) {
+          fputs(">=", f);
+        } else {
+          assert(q_is_one(&b->delta));
+          fputc('>', f);
+        }
       }
       
       fputc(' ', f);
@@ -320,11 +320,11 @@ static void export_binary_clauses(FILE *f, smt_core_t *core) {
     bin = core->bin[l1];
     if (bin != NULL) {
       for (;;) {
-	l2 = *bin++;
-	if (l2 < 0) break;
-	if (l1 <= l2) {
-	  export_binary_clause(f, l1, l2);
-	}
+        l2 = *bin++;
+        if (l2 < 0) break;
+        if (l1 <= l2) {
+          export_binary_clause(f, l1, l2);
+        }
       }
     }
   }

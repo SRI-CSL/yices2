@@ -262,24 +262,24 @@ static yices_token_t read_string(lexer_t *lex) {
       case 'n': c = '\n'; break;
       case 't': c = '\t'; break;
       default:
-	if ('0' <= c && c <= '7') {
-	  // read at most 2 more octal digits
-	  x = c - '0';
-	  c = reader_next_char(rd);
-	  if ('0' <= c && c <= '7') {
-	    x = 8 * x + (c - '0');
-	    c = reader_next_char(rd);
-	    if ('0' <= c && c <= '7') {
-	      x = 8 * x + (c - '0');
-	      c = reader_next_char(rd);
-	    }
-	  }
-	  // x = character built from the octal digits
-	  // c = character after octal digit
-	  string_buffer_append_char(buffer, x);
-	  continue;
-	} // else skip '\': copy c in the buffer
-	break;
+        if ('0' <= c && c <= '7') {
+          // read at most 2 more octal digits
+          x = c - '0';
+          c = reader_next_char(rd);
+          if ('0' <= c && c <= '7') {
+            x = 8 * x + (c - '0');
+            c = reader_next_char(rd);
+            if ('0' <= c && c <= '7') {
+              x = 8 * x + (c - '0');
+              c = reader_next_char(rd);
+            }
+          }
+          // x = character built from the octal digits
+          // c = character after octal digit
+          string_buffer_append_char(buffer, x);
+          continue;
+        } // else skip '\': copy c in the buffer
+        break;
       }
     }
     string_buffer_append_char(buffer, c);

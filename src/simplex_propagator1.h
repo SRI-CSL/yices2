@@ -12,7 +12,7 @@
  * The propagator interface consists of the following functions:
  * 1) simplex_init_propagator
  *    called in start search after simplify_matrix but before the tableau is constructed
- *    and checked for feasibiliy
+ *    and checked for feasibility
  * 2) simplex_start_propagator
  *    called in start_search after the tableau is constructed, feasible, and all initial 
  *    bounds  are known
@@ -112,7 +112,7 @@ static bool var_has_unassigned_atoms(simplex_solver_t *solver, thvar_t x) {
     n = iv_size(atom_vector);
     for (i=0; i<n; i++) {
       if (arith_atom_is_unmarked(atbl, atom_vector[i])) {
-	return true;
+        return true;
       }
     }
   }
@@ -159,23 +159,23 @@ static bool lb_can_propagate_literals(simplex_solver_t *solver, thvar_t x, xrati
     for (i=0; i<n; i++) {
       k = atom_vector[i];
       if (arith_atom_is_unmarked(atbl, k)) {
-	// k is not already assigned
-	atom = arith_atom(atbl, k);
-	assert(var_of_atom(atom) == x);
-	if (atom_is_ge(atom)) {
-	  /*
-	   * Atom k is (x >= c)
-	   * (x >= b) implies (x >= c) if b >= c
-	   */
-	  if (xq_ge_q(b, bound_of_atom(atom))) return true;
-	} else {
-	  /*
-	   * Atom k is (x <= c)
-	   * (x >= b) implies (not (x <= c)) if b > c
-	   */
-	  assert(atom_is_le(atom));
-	  if (xq_gt_q(b, bound_of_atom(atom))) return true;	  
-	}
+        // k is not already assigned
+        atom = arith_atom(atbl, k);
+        assert(var_of_atom(atom) == x);
+        if (atom_is_ge(atom)) {
+          /*
+           * Atom k is (x >= c)
+           * (x >= b) implies (x >= c) if b >= c
+           */
+          if (xq_ge_q(b, bound_of_atom(atom))) return true;
+        } else {
+          /*
+           * Atom k is (x <= c)
+           * (x >= b) implies (not (x <= c)) if b > c
+           */
+          assert(atom_is_le(atom));
+          if (xq_gt_q(b, bound_of_atom(atom))) return true;       
+        }
       }
     }
   }
@@ -201,23 +201,23 @@ static bool ub_can_propagate_literals(simplex_solver_t *solver, thvar_t x, xrati
     for (i=0; i<n; i++) {
       k = atom_vector[i];
       if (arith_atom_is_unmarked(atbl, k)) {
-	// k is not already assigned
-	atom = arith_atom(atbl, k);
-	assert(var_of_atom(atom) == x);
-	if (atom_is_ge(atom)) {
-	  /*
-	   * Atom k is (x >= c)
-	   * (x <= b) implies (not (x >= c)) if b < c
-	   */
-	  if (xq_lt_q(b, bound_of_atom(atom))) return true;
-	} else {
-	  /*
-	   * Atom k is (x <= c)
-	   * (x <= b) implies (x <= c) if b <= c
-	   */
-	  assert(atom_is_le(atom));
-	  if (xq_le_q(b, bound_of_atom(atom))) return true;	  
-	}
+        // k is not already assigned
+        atom = arith_atom(atbl, k);
+        assert(var_of_atom(atom) == x);
+        if (atom_is_ge(atom)) {
+          /*
+           * Atom k is (x >= c)
+           * (x <= b) implies (not (x >= c)) if b < c
+           */
+          if (xq_lt_q(b, bound_of_atom(atom))) return true;
+        } else {
+          /*
+           * Atom k is (x <= c)
+           * (x <= b) implies (x <= c) if b <= c
+           */
+          assert(atom_is_le(atom));
+          if (xq_le_q(b, bound_of_atom(atom))) return true;       
+        }
       }
     }
   }
@@ -229,7 +229,7 @@ static bool ub_can_propagate_literals(simplex_solver_t *solver, thvar_t x, xrati
 
 /*
  * Bound x >= b is accepted as derived bound if it's better than the existing lower bound on x
- * and can proagate a literal
+ * and can propagate a literal
  */
 static inline bool useful_derived_lb(simplex_solver_t *solver, thvar_t x, xrational_t *b) {
   return improved_lower_bound(solver, x, b) && lb_can_propagate_literals(solver, x, b);
@@ -317,9 +317,9 @@ static void explain_upper_bounds(simplex_solver_t *solver, thvar_t x, row_t *p, 
     if (y >= 0 && y != x) {
       // explain bound: a.y <= c
       if (q_is_pos(&p->data[i].coeff)) {
-	k = arith_var_upper_index(vtbl, y);
+        k = arith_var_upper_index(vtbl, y);
       } else {
-	k = arith_var_lower_index(vtbl, y);
+        k = arith_var_lower_index(vtbl, y);
       }
       assert(k >= 0);
       ivector_push(v, k);
@@ -348,9 +348,9 @@ static void explain_lower_bounds(simplex_solver_t *solver, thvar_t x, row_t *p, 
     if (y >= 0 && y != x) {
       // explain bound: a.y <= c
       if (q_is_pos(&p->data[i].coeff)) {
-	k = arith_var_lower_index(vtbl, y);
+        k = arith_var_lower_index(vtbl, y);
       } else {
-	k = arith_var_upper_index(vtbl, y);
+        k = arith_var_upper_index(vtbl, y);
       }
       assert(k >= 0);
       ivector_push(v, k);
@@ -407,9 +407,9 @@ static bool try_upper_bound_propagation(simplex_solver_t *solver, thvar_t y, row
     } else if (x >= 0) {
       // sum := sum - upper_bound on a.x
       if (q_is_pos(&a->coeff)) {
-	k = arith_var_upper_index(vtbl, x);
+        k = arith_var_upper_index(vtbl, x);
       } else {
-	k = arith_var_lower_index(vtbl, x);
+        k = arith_var_lower_index(vtbl, x);
       }
 
 #if TRACE_PROPAGATION
@@ -522,9 +522,9 @@ static bool try_lower_bound_propagation(simplex_solver_t *solver, thvar_t y, row
     } else if (x >= 0) {
       // sum := sum - lower_bound on a.x
       if (q_is_pos(&a->coeff)) {
-	k = arith_var_lower_index(vtbl, x);
+        k = arith_var_lower_index(vtbl, x);
       } else {
-	k = arith_var_upper_index(vtbl, x);
+        k = arith_var_upper_index(vtbl, x);
       }
 #if TRACE_PROPAGATION
       printf("     ");
@@ -617,9 +617,9 @@ static void add_upper_bounds(simplex_solver_t *solver, row_t *p, xrational_t *b)
     x = a->c_idx;
     if (x >= 0) {
       if (q_is_pos(&a->coeff)) {
-	k = arith_var_upper_index(vtbl, x);
+        k = arith_var_upper_index(vtbl, x);
       } else {
-	k = arith_var_lower_index(vtbl, x);
+        k = arith_var_lower_index(vtbl, x);
       }
       assert(k >= 0);
 
@@ -659,9 +659,9 @@ static void add_lower_bounds(simplex_solver_t *solver, row_t *p, xrational_t *b)
     x = a->c_idx;
     if (x >= 0) {
       if (q_is_pos(&a->coeff)) {
-	k = arith_var_lower_index(vtbl, x);
+        k = arith_var_lower_index(vtbl, x);
       } else {
-	k = arith_var_upper_index(vtbl, x);
+        k = arith_var_upper_index(vtbl, x);
       }
       assert(k >= 0);
 
@@ -728,56 +728,56 @@ static bool full_upper_bound_propagation(simplex_solver_t *solver, row_t *p) {
       xq_set(aux, sum);
       xq_div(aux, &a->coeff);
       if (q_is_pos(&a->coeff)) {
-	k = arith_var_upper_index(vtbl, x);
-	assert(k >= 0);
-	xq_add(aux, bstack->bound + k);
+        k = arith_var_upper_index(vtbl, x);
+        assert(k >= 0);
+        xq_add(aux, bstack->bound + k);
 
 #if TRACE_PROPAGATION
-	printf("     implied bound: ");
-	print_simplex_var(stdout, solver, x);
-	printf(" >= ");
-	xq_print(stdout, aux);
-	printf("\n");
-	fflush(stdout);
+        printf("     implied bound: ");
+        print_simplex_var(stdout, solver, x);
+        printf(" >= ");
+        xq_print(stdout, aux);
+        printf("\n");
+        fflush(stdout);
 #endif
 
-	if (useful_derived_lb(solver, x, aux)) {
-	  v = &solver->aux_vector;
-	  assert(v->size == 0);
-	  explain_upper_bounds(solver, x, p, v);
-	  ok = simplex_add_derived_lower_bound(solver, x, aux, v);
-	  ivector_reset(v);	  
+        if (useful_derived_lb(solver, x, aux)) {
+          v = &solver->aux_vector;
+          assert(v->size == 0);
+          explain_upper_bounds(solver, x, p, v);
+          ok = simplex_add_derived_lower_bound(solver, x, aux, v);
+          ivector_reset(v);       
 
 #if TRACE_THEORY
-	  trace_simplex_implied_lb(p, x, aux);
+          trace_simplex_implied_lb(p, x, aux);
 #endif
-	}
+        }
 
       } else {
-	k = arith_var_lower_index(vtbl, x);
-	assert(k >= 0);
-	xq_add(aux, bstack->bound + k);
+        k = arith_var_lower_index(vtbl, x);
+        assert(k >= 0);
+        xq_add(aux, bstack->bound + k);
 
 #if TRACE_PROPAGATION
-	printf("     implied bound: ");
-	print_simplex_var(stdout, solver, x);
-	printf(" <= ");
-	xq_print(stdout, aux);
-	printf("\n");
-	fflush(stdout);
+        printf("     implied bound: ");
+        print_simplex_var(stdout, solver, x);
+        printf(" <= ");
+        xq_print(stdout, aux);
+        printf("\n");
+        fflush(stdout);
 #endif
 
-	if (useful_derived_ub(solver, x, aux)) {
-	  v = &solver->aux_vector;
-	  assert(v->size == 0);
-	  explain_upper_bounds(solver, x, p, v);
-	  ok = simplex_add_derived_upper_bound(solver, x, aux, v);
-	  ivector_reset(v);
+        if (useful_derived_ub(solver, x, aux)) {
+          v = &solver->aux_vector;
+          assert(v->size == 0);
+          explain_upper_bounds(solver, x, p, v);
+          ok = simplex_add_derived_upper_bound(solver, x, aux, v);
+          ivector_reset(v);
 
 #if TRACE_THEORY
-	  trace_simplex_implied_ub(p, x, aux);
+          trace_simplex_implied_ub(p, x, aux);
 #endif
-	}
+        }
       }
 
 
@@ -844,57 +844,57 @@ static bool full_lower_bound_propagation(simplex_solver_t *solver, row_t *p) {
       xq_set(aux, sum);
       xq_div(aux, &a->coeff);
       if (q_is_pos(&a->coeff)) {
-	k = arith_var_lower_index(vtbl, x);
-	assert(k >= 0);
-	xq_add(aux, bstack->bound + k);
+        k = arith_var_lower_index(vtbl, x);
+        assert(k >= 0);
+        xq_add(aux, bstack->bound + k);
 
 #if TRACE_PROPAGATION
-	printf("     implied bound: ");
-	print_simplex_var(stdout, solver, x);
-	printf(" <= ");
-	xq_print(stdout, aux);
-	printf("\n");
-	fflush(stdout);
+        printf("     implied bound: ");
+        print_simplex_var(stdout, solver, x);
+        printf(" <= ");
+        xq_print(stdout, aux);
+        printf("\n");
+        fflush(stdout);
 #endif
 
-	if (useful_derived_ub(solver, x, aux)) {
-	  v = &solver->aux_vector;
-	  assert(v->size == 0);
-	  explain_lower_bounds(solver, x, p, v);
-	  ok = simplex_add_derived_upper_bound(solver, x, aux, v);
-	  ivector_reset(v);
+        if (useful_derived_ub(solver, x, aux)) {
+          v = &solver->aux_vector;
+          assert(v->size == 0);
+          explain_lower_bounds(solver, x, p, v);
+          ok = simplex_add_derived_upper_bound(solver, x, aux, v);
+          ivector_reset(v);
 
 #if TRACE_THEORY
-	  trace_simplex_implied_ub(p, x, aux);
+          trace_simplex_implied_ub(p, x, aux);
 #endif
-	}
+        }
 
       } else {
-	k = arith_var_upper_index(vtbl, x);
-	assert(k >= 0);
-	xq_add(aux, bstack->bound + k);
+        k = arith_var_upper_index(vtbl, x);
+        assert(k >= 0);
+        xq_add(aux, bstack->bound + k);
 
 #if TRACE_PROPAGATION
-	printf("     implied bound: ");
-	print_simplex_var(stdout, solver, x);
-	printf(" >= ");
-	xq_print(stdout, aux);
-	printf("\n");
-	fflush(stdout);
+        printf("     implied bound: ");
+        print_simplex_var(stdout, solver, x);
+        printf(" >= ");
+        xq_print(stdout, aux);
+        printf("\n");
+        fflush(stdout);
 #endif
 
-	if (useful_derived_lb(solver, x, aux)) {
-	  v = &solver->aux_vector;
-	  assert(v->size == 0);
-	  explain_lower_bounds(solver, x, p, v);
-	  ok = simplex_add_derived_lower_bound(solver, x, aux, v);
-	  ivector_reset(v);
+        if (useful_derived_lb(solver, x, aux)) {
+          v = &solver->aux_vector;
+          assert(v->size == 0);
+          explain_lower_bounds(solver, x, p, v);
+          ok = simplex_add_derived_lower_bound(solver, x, aux, v);
+          ivector_reset(v);
 
 #if TRACE_THEORY
-	  trace_simplex_implied_lb(p, x, aux);
+          trace_simplex_implied_lb(p, x, aux);
 #endif
 
-	}
+        }
 
       }
     }
@@ -942,10 +942,10 @@ static bool check_row_propagation(simplex_solver_t *solver, row_t *p)  {
     if (x >= 0) {
       s = q_sgn(&a->coeff);
       if ((s > 0 && arith_var_lower_index(vtbl, x) < 0) ||
-	  (s < 0 && arith_var_upper_index(vtbl, x) < 0)) {
-	// no lower bound on monomial a.x
-	if (y >= 0) goto try_upper_bounds;
-	y = x;
+          (s < 0 && arith_var_upper_index(vtbl, x) < 0)) {
+        // no lower bound on monomial a.x
+        if (y >= 0) goto try_upper_bounds;
+        y = x;
       }
     }
     a ++;
@@ -968,10 +968,10 @@ static bool check_row_propagation(simplex_solver_t *solver, row_t *p)  {
     if (x >= 0) {
       s = q_sgn(&a->coeff);
       if ((s > 0 && arith_var_upper_index(vtbl, x) < 0) ||
-	  (s < 0 && arith_var_lower_index(vtbl, x) < 0)) {
-	// no upper bound on a.x
-	if (y >= 0) goto done;
-	y = x;
+          (s < 0 && arith_var_lower_index(vtbl, x) < 0)) {
+        // no upper bound on a.x
+        if (y >= 0) goto done;
+        y = x;
       }
     }
     a ++;
@@ -1084,7 +1084,7 @@ static void collect_relevant_prop_rows(simplex_solver_t *solver) {
     if (col != NULL) {
       // skip the bound if it's not the current upper/lower bound on x
       if (arith_var_lower_index(vtbl, x) == i || arith_var_upper_index(vtbl, x) == i) {
-	collect_prop_rows_for_variable(solver, col);
+        collect_prop_rows_for_variable(solver, col);
       }
     }
   }
@@ -1130,12 +1130,12 @@ static bool visit_candidate_rows(simplex_solver_t *solver) {
     row = matrix->row[r];
     if (row->nelems <= solver->prop_row_size) {
       if (! check_row_propagation(solver, row)) {
-	// conflict: return immediately
+        // conflict: return immediately
 #if TRACE_PROPAGATION
-	printf("---> END OF SIMPLEX PROAGATION: CONFLICT DETECTED\n");
+        printf("---> END OF SIMPLEX PROPAGATION: CONFLICT DETECTED\n");
 #endif
-	ok = false;
-	goto done;
+        ok = false;
+        goto done;
       }
     }
   }
@@ -1180,9 +1180,9 @@ static bool visit_candidate_rows(simplex_solver_t *solver) {
     if (row->nelems <= solver->prop_row_size) {
       if (! check_row_propagation(solver, row)) {
 #if TRACE_PROPAGATION
-	printf("---> END OF SIMPLEX PROAGATION: CONFLICT DETECTED\n");
+        printf("---> END OF SIMPLEX PROPAGATION: CONFLICT DETECTED\n");
 #endif
-	return false;
+        return false;
       }
     }
   }

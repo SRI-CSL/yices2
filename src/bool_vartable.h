@@ -27,7 +27,7 @@
  * variables, and delay the conversion to CNF until all the gates have
  * been created, and all equalities have been processed.
  *
- * That's what this module is intendend for: it stores a set of
+ * That's what this module is intended for: it stores a set of
  * Boolean variables, a set of clauses. and set of equalities between
  * literals. 
  *
@@ -197,7 +197,7 @@ typedef struct ordata_array_s {
  * - the other clauses are stored in set[0 ... 5]
  * - small clauses (1 to 5 literals) are stored in set[1 .. 5]:
  *   set[i] = vector for clauses of size i
- * - clauses with more than 5 literasl are stored in set[0]
+ * - clauses with more than 5 literals are stored in set[0]
  *   In set[0], a clause of n literals requires (n+1) integers.
  *   If it's stored at index k in set[0].data then we have
  *      set[0].data[k] = n (header)
@@ -449,7 +449,7 @@ extern bool root_literals_can_be_merged(bool_vartable_t *table, literal_t l1, li
 
 /*
  * Merge the classes of l1 and l2:
- * - ll and l2 must be root literals amd the two classes must be mergeable
+ * - ll and l2 must be root literals and the two classes must be mergeable
  */
 extern void merge_root_literals(bool_vartable_t *table, literal_t l1, literal_t l2);
 

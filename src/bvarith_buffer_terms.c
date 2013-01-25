@@ -61,7 +61,7 @@ void bvarith_buffer_add_term(bvarith_buffer_t *b, term_table_t *table, term_t t)
 
   assert(b->ptbl == table->pprods);
   assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && 
-	 term_bitsize(table, t) == b->bitsize);
+         term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
   switch (table->kind[i]) {
@@ -99,7 +99,7 @@ void bvarith_buffer_sub_term(bvarith_buffer_t *b, term_table_t *table, term_t t)
 
   assert(b->ptbl == table->pprods);
   assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && 
-	 term_bitsize(table, t) == b->bitsize);
+         term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
   switch (table->kind[i]) {
@@ -138,7 +138,7 @@ void bvarith_buffer_mul_term(bvarith_buffer_t *b, term_table_t *table, term_t t)
 
   assert(b->ptbl == table->pprods);
   assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && 
-	 term_bitsize(table, t) == b->bitsize);
+         term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
   switch (table->kind[i]) {
@@ -178,7 +178,7 @@ void bvarith_buffer_add_const_times_term(bvarith_buffer_t *b, term_table_t *tabl
 
   assert(b->ptbl == table->pprods);
   assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) && 
-	 term_bitsize(table, t) == b->bitsize);
+         term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
   switch (table->kind[i]) {
@@ -223,7 +223,7 @@ void bvarith_buffer_mul_term_power(bvarith_buffer_t *b, term_table_t *table, ter
 
   assert(b->ptbl == table->pprods);
   assert(pos_term(t) && good_term(table, t) && is_bitvector_term(table, t) &&
-	 term_bitsize(table, t) == b->bitsize);
+         term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
   switch (table->kind[i]) {

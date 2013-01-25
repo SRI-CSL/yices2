@@ -58,7 +58,7 @@ void printer_init(context_t *ctx) {
       t = code2eterm(code);
       aux = term_name(terms, i);
       if (aux != NULL && m < t) {
-	m = t;
+        m = t;
       }
     }
   }
@@ -76,8 +76,8 @@ void printer_init(context_t *ctx) {
       aux = term_name(terms, i);
       assert(aux == NULL || t < m);
       if (aux != NULL && name[t] == NULL) {
-	string_incref(aux);
-	name[t] = aux;
+        string_incref(aux);
+        name[t] = aux;
       }
     }
   }
@@ -423,12 +423,12 @@ void print_binary_clauses(FILE *f, smt_core_t *core) {
     bin = core->bin[l1];
     if (bin != NULL) {
       for (;;) {
-	l2 = *bin++;
-	if (l2 < 0) break;
-	if (l1 <= l2) {
-	  print_binary_clause(f, l1, l2);
-	  fputc('\n', f);
-	}
+        l2 = *bin++;
+        if (l2 < 0) break;
+        if (l1 <= l2) {
+          print_binary_clause(f, l1, l2);
+          fputc('\n', f);
+        }
       }
     }
   }
@@ -542,10 +542,10 @@ void print_conflict(FILE *f, smt_core_t *core) {
     } else {
       fputs("Conflict:", f);    
       while (l >= 0) {
-	fputc(' ', f);
-	print_literal(f, l);
-	i ++;
-	l = core->conflict[i];
+        fputc(' ', f);
+        print_literal(f, l);
+        i ++;
+        l = core->conflict[i];
       }
       fputc('\n', f);
     }
@@ -1127,39 +1127,39 @@ void print_egraph_terms(FILE *f, egraph_t *egraph) {
       fputs("\t\t", f);
       switch(egraph_term_type(egraph, i)) {
       case ETYPE_INT:
-	fprintf(f, "arith(i!%"PRId32")\t\t", x);
-	// HACK
-	print_simplex_var_value(f, egraph->th[ETYPE_INT], x);
-	break;
+        fprintf(f, "arith(i!%"PRId32")\t\t", x);
+        // HACK
+        print_simplex_var_value(f, egraph->th[ETYPE_INT], x);
+        break;
       case ETYPE_REAL:
-	fprintf(f, "arith(z!%"PRId32")\t\t", x);
-	// HACK
-	print_simplex_var_value(f, egraph->th[ETYPE_INT], x);
-	break;
+        fprintf(f, "arith(z!%"PRId32")\t\t", x);
+        // HACK
+        print_simplex_var_value(f, egraph->th[ETYPE_INT], x);
+        break;
       case ETYPE_BV:
-	fprintf(f, "bv(u!%"PRId32")\t\t", x);
-	// HACK
-	print_bvsolver_var_value(f, egraph->th[ETYPE_BV], x);
-	break;
+        fprintf(f, "bv(u!%"PRId32")\t\t", x);
+        // HACK
+        print_bvsolver_var_value(f, egraph->th[ETYPE_BV], x);
+        break;
       case ETYPE_FUNCTION:
-	fprintf(f, "fun(f!%"PRId32")", x);
-	break;
+        fprintf(f, "fun(f!%"PRId32")", x);
+        break;
       case ETYPE_BOOL:
-	fprintf(f, "lit(p!%"PRId32")\t\t", x);
-	print_bval(f, bvar_value(egraph->core, x));
-	break;
+        fprintf(f, "lit(p!%"PRId32")\t\t", x);
+        print_bval(f, bvar_value(egraph->core, x));
+        break;
       case ETYPE_TUPLE:
-	fprintf(f, "tup(g!%"PRId32")", x);
-	break;
+        fprintf(f, "tup(g!%"PRId32")", x);
+        break;
       default:
-	fprintf(f, "BADTHVAR(%"PRId32")", x);
-	break;
+        fprintf(f, "BADTHVAR(%"PRId32")", x);
+        break;
       }
     } else {
       if (egraph_term_is_true(egraph, i)) {
-	fputs("\t\t(true term)", f);
+        fputs("\t\t(true term)", f);
       } else if (egraph_term_is_false(egraph, i)) {
-	fputs("\t\t(false term)", f);
+        fputs("\t\t(false term)", f);
       }
     }
 
@@ -1244,8 +1244,8 @@ void print_egraph_atoms(FILE *f, egraph_t *egraph) {
     for (v=0; v<n; v++) {
       atm = bvar_atom(core, v);
       if (atm != NULL && atom_tag(atm) == EGRAPH_ATM_TAG) {
-	print_egraph_atom(f, egraph, untag_atom(atm));
-	fputc('\n', f);
+        print_egraph_atom(f, egraph, untag_atom(atm));
+        fputc('\n', f);
       }
     }
   }
@@ -1483,28 +1483,28 @@ void print_rdl_const(FILE *f, rdl_const_t *c) {
       fputc('0', f);
     } else {
       if (d < 0) {
-	fputs("- ", f);
-	d = - d;
+        fputs("- ", f);
+        d = - d;
       }
       if (d == 1) {
-	fputs("delta", f);
+        fputs("delta", f);
       } else {
-	fprintf(f, "%"PRId32" * delta", d);
+        fprintf(f, "%"PRId32" * delta", d);
       }
     }
   } else {
     q_print(f, &c->q);
     if (d != 0) {
       if (d < 0) {
-	fputs(" - ", f);
-	d = - d;
+        fputs(" - ", f);
+        d = - d;
       } else {
-	fputs(" + ", f);
+        fputs(" + ", f);
       }
       if (d == 1) {
-	fputs("delta", f);
+        fputs("delta", f);
       } else {
-	fprintf(f, "%"PRId32" * delta", d);
+        fprintf(f, "%"PRId32" * delta", d);
       }
     }
   }
@@ -1594,16 +1594,16 @@ void print_core_summary(FILE *f, smt_core_t *core) {
     if (atom != NULL) {
       switch (atom_tag(atom)) {
       case EGRAPH_ATM_TAG:
-	eg_atoms ++;
-	break;
+        eg_atoms ++;
+        break;
       case ARITH_ATM_TAG:
-	arith_atoms ++;
-	break;
+        arith_atoms ++;
+        break;
       case BV_ATM_TAG:
-	bv_atoms ++;
-	break;
+        bv_atoms ++;
+        break;
       default:
-	break;
+        break;
       }
     }
   }
@@ -1623,7 +1623,7 @@ void print_core_summary(FILE *f, smt_core_t *core) {
   fprintf(f, "decision_level = %"PRIu32"\n", core->decision_level);
   print_conflict(f, core);
   fprintf(f, "propagation queue: prop_ptr = %"PRIu32", th_ptr = %"PRIu32", top = %"PRIu32"\n", 
-	  core->stack.prop_ptr, core->stack.theory_ptr, core->stack.top);
+          core->stack.prop_ptr, core->stack.theory_ptr, core->stack.top);
 }
 
 
@@ -1639,7 +1639,7 @@ void print_egraph_summary(FILE *f, egraph_t *egraph) {
   fprintf(f, "base_level = %"PRIu32"\n", egraph->base_level);
   fprintf(f, "decision_level = %"PRIu32"\n", egraph->decision_level);
   fprintf(f, "equality propagation queue: prop_ptr = %"PRIu32", top = %"PRIu32"\n",
-	  egraph->stack.prop_ptr, egraph->stack.top);
+          egraph->stack.prop_ptr, egraph->stack.top);
 }
 
 
@@ -1683,22 +1683,22 @@ static void print_internal_code(FILE *f, icode_t x, type_kind_t tau) {
     } else {
       switch (tau) {
       case BOOL_TYPE:
-	fputs("lit(", f);
-	print_literal(f, code2literal(x));
-	fputc(')', f);
-	break;
+        fputs("lit(", f);
+        print_literal(f, code2literal(x));
+        fputc(')', f);
+        break;
       case INT_TYPE:
-	fprintf(f, "arith(y!%"PRId32")", code2arithvar(x));
-	break;
+        fprintf(f, "arith(y!%"PRId32")", code2arithvar(x));
+        break;
       case REAL_TYPE:
-	fprintf(f, "arith(x!%"PRId32")", code2arithvar(x));
-	break;
+        fprintf(f, "arith(x!%"PRId32")", code2arithvar(x));
+        break;
       case BITVECTOR_TYPE:
-	fprintf(f, "bv(u!%"PRId32")", code2bvvar(x));
-	break;
+        fprintf(f, "bv(u!%"PRId32")", code2bvvar(x));
+        break;
       default:
-	fprintf(f, "VAR(%"PRId32")", x);
-	break;
+        fprintf(f, "VAR(%"PRId32")", x);
+        break;
       }
     }
   } else if (x == nil) {
@@ -1861,13 +1861,13 @@ void print_substitutions(FILE *f, context_t *ctx) {
     if (r == i) {
       s = subst_candidate(ctx, r);
       if (s != NULL_TERM) {
-	fputs("term ", f);
-	print_term_id(f, r);
-	fputs(", ", f);
-	print_term(f, r);
-	fputs(" --> ", f);
-	print_termdef(f, s);
-	fputc('\n', f);	
+        fputs("term ", f);
+        print_term_id(f, r);
+        fputs(", ", f);
+        print_term(f, r);
+        fputs(" --> ", f);
+        print_termdef(f, s);
+        fputc('\n', f); 
       }
     }
   }
@@ -2368,10 +2368,10 @@ void print_simplex_reduced_row(FILE *f, simplex_solver_t *solver, row_t *row) {
       l = arith_var_lower_index(&solver->vtbl, x);
       u = arith_var_upper_index(&solver->vtbl, x);
       if (l >= 0 && u >= 0 && xq_eq(bstack->bound + l, bstack->bound + u)) {
-	// x is a a fixed variable
-	assert(xq_eq(bstack->bound + l, arith_var_value(vtbl, x)));
-	assert(xq_is_rational(arith_var_value(vtbl, x)));
-	q_addmul(&q, &row->data[i].coeff, &arith_var_value(vtbl, x)->main);
+        // x is a a fixed variable
+        assert(xq_eq(bstack->bound + l, arith_var_value(vtbl, x)));
+        assert(xq_is_rational(arith_var_value(vtbl, x)));
+        q_addmul(&q, &row->data[i].coeff, &arith_var_value(vtbl, x)->main);
       }
     }
   }
@@ -2389,9 +2389,9 @@ void print_simplex_reduced_row(FILE *f, simplex_solver_t *solver, row_t *row) {
       l = arith_var_lower_index(&solver->vtbl, x);
       u = arith_var_upper_index(&solver->vtbl, x);
       if (l < 0 || u < 0 || xq_neq(bstack->bound + l, bstack->bound + u)) {
-	// x is not a fixed variable
-	print_avar_monomial(f, vtbl, x, &row->data[i].coeff, first);
-	first = false;
+        // x is not a fixed variable
+        print_avar_monomial(f, vtbl, x, &row->data[i].coeff, first);
+        first = false;
       }
     }
   }
@@ -2420,11 +2420,11 @@ void print_simplex_bounds2(FILE *f, simplex_solver_t *solver) {
     ub = arith_var_upper_index(&solver->vtbl, i);
     if (lb >= 0 && ub >= 0) {
       if (xq_neq(solver->bstack.bound + lb, solver->bstack.bound + ub)) {
-	fputs("  ", f);
-	xq_print(f, solver->bstack.bound + lb);
-	fprintf(f, " <= x_%"PRIu32" <= ", i);
-	xq_print(f, solver->bstack.bound + ub);
-	fputc('\n', f);
+        fputs("  ", f);
+        xq_print(f, solver->bstack.bound + lb);
+        fprintf(f, " <= x_%"PRIu32" <= ", i);
+        xq_print(f, solver->bstack.bound + ub);
+        fputc('\n', f);
       }
     } else if (lb >= 0) {
       fputs("  ", f);
@@ -2542,8 +2542,8 @@ void print_fsolver_classes(FILE *f, fun_solver_t *solver) {
       fprintf(f, "class of f!%"PRIu32" = {", i);
       x = i;
       do {
-	fprintf(f, " f!%"PRId32, x);
-	x = vtbl->next[x];
+        fprintf(f, " f!%"PRId32, x);
+        x = vtbl->next[x];
       } while (x != null_thvar);
       fprintf(f, " }\n");
     }
@@ -2565,16 +2565,16 @@ void print_fsolver_apps(FILE *f, fun_solver_t *solver) {
     if (vtbl->root[i] == i) {
       p = (composite_t **) vtbl->app[i];
       if (p != NULL) {
-	fprintf(f, "--- Apps for f!%"PRIu32" ---\n", i);
-	m = pv_size((void **) p);
-	for (j=0; j<m; j++) {
-	  print_composite(f, p[j]);
-	  fputs("  == ", f);
-	  print_label(f, egraph_term_label(solver->egraph, p[j]->id));
-	  fputc('\n', f);
-	}
+        fprintf(f, "--- Apps for f!%"PRIu32" ---\n", i);
+        m = pv_size((void **) p);
+        for (j=0; j<m; j++) {
+          print_composite(f, p[j]);
+          fputs("  == ", f);
+          print_label(f, egraph_term_label(solver->egraph, p[j]->id));
+          fputc('\n', f);
+        }
       } else {
-	fprintf(f, "--- No apps for f!%"PRIu32" ---\n", i);
+        fprintf(f, "--- No apps for f!%"PRIu32" ---\n", i);
       }
     }
   }
@@ -2622,10 +2622,10 @@ void print_fsolver_maps(FILE *f, fun_solver_t *solver) {
       fprintf(f, "base = %"PRId32"\n", vtbl->base[i]);
       p = (composite_t **) vtbl->app[i];
       if (p != NULL) {
-	m = pv_size((void **) p);
-	for (j=0; j<m; j++) {
-	  print_map(f, egraph, p[j]);	  
-	}
+        m = pv_size((void **) p);
+        for (j=0; j<m; j++) {
+          print_map(f, egraph, p[j]);     
+        }
       }
     }
   }
@@ -2654,12 +2654,12 @@ void print_fsolver_base_values(FILE *f, fun_solver_t *solver) {
       k = solver->base_value[c];
       fprintf(f, "base value for f!%"PRIu32": ", i);
       if (k < 0) {
-	fprintf(f, "fresh(%"PRId32")\n", - (k + 1));
+        fprintf(f, "fresh(%"PRId32")\n", - (k + 1));
       } else if (k == INT32_MAX) {
-	fputs("unknown\n", f);
+        fputs("unknown\n", f);
       } else {
-	print_label(f, k);
-	fputc('\n', f);
+        print_label(f, k);
+        fputc('\n', f);
       }
     }
   }
@@ -2752,14 +2752,14 @@ void print_fsolver_values(FILE *f, fun_solver_t *solver) {
       fprintf(f, "--- Value for f!%"PRIu32" ---\n", i);
       map = solver->value[i];
       if (map != NULL) {
-	for (j=0; j<map->nelems; j++) {
-	  print_map_elem(f, egraph, map->data[j].index, map->data[j].value);	  
-	}
-	if (map->def != null_particle) {
-	  fputs("[else -> ", f);
-	  print_particle_value(f, egraph, map->def);
-	  fputs("]\n", f);
-	}
+        for (j=0; j<map->nelems; j++) {
+          print_map_elem(f, egraph, map->data[j].index, map->data[j].value);      
+        }
+        if (map->def != null_particle) {
+          fputs("[else -> ", f);
+          print_particle_value(f, egraph, map->def);
+          fputs("]\n", f);
+        }
       }
     }
   }
@@ -2809,12 +2809,12 @@ void print_bit_solver_binary_clauses(FILE *f, bit_solver_t *solver) {
     bin = solver->bin[l1];
     if (bin != NULL) {
       for (;;) {
-	l2 = *bin++;
-	if (l2 < 0) break;
-	if (l1 <= l2) {
-	  print_binary_clause(f, l1, l2);
-	  fputc('\n', f);
-	}
+        l2 = *bin++;
+        if (l2 < 0) break;
+        if (l1 <= l2) {
+          print_binary_clause(f, l1, l2);
+          fputc('\n', f);
+        }
       }
     }
   }
@@ -3025,8 +3025,8 @@ static void print_pseudo_litarray(FILE *f, literal_t *a, uint32_t n) {
     if (n > 0) {
       print_pseudo_literal(f, a[0]);
       for (i=1; i<n; i++) {
-	fputc(' ', f);
-	print_pseudo_literal(f, a[i]);
+        fputc(' ', f);
+        print_pseudo_literal(f, a[i]);
       }
     }
     fputc(']', f);
@@ -3052,8 +3052,8 @@ static void print_pseudo_litarray_root(FILE *f, remap_table_t *table, literal_t 
     if (n > 0) {
       print_pseudo_literal_root(f, table, a[0]);
       for (i=1; i<n; i++) {
-	fputc(' ', f);
-	print_pseudo_literal_root(f, table, a[i]);
+        fputc(' ', f);
+        print_pseudo_literal_root(f, table, a[i]);
       }
     }
     fputc(']', f);
@@ -3077,8 +3077,8 @@ static void print_pseudo_litarray_bits(FILE *f, remap_table_t *table, literal_t 
     if (n > 0) {
       print_pseudo_literal_bit(f, table, a[0]);
       for (i=1; i<n; i++) {
-	fputc(' ', f);
-	print_pseudo_literal_bit(f, table, a[i]);
+        fputc(' ', f);
+        print_pseudo_literal_bit(f, table, a[i]);
       }
     }
     fputc(']', f);
@@ -3140,15 +3140,15 @@ void print_bvsolver_var_value(FILE *f, bv_solver_t *solver, thvar_t x) {
     } else {
       a = vtbl->map[x].array;
       if (a == NULL) {
-	for (i=0; i<nbits; i++) {
-	  fputc('x', f);
-	}
+        for (i=0; i<nbits; i++) {
+          fputc('x', f);
+        }
       } else {
-	i = nbits;
-	do {
-	  i --;
-	  print_pseudo_literal_value(f, solver, a[i]);
-	} while (i > 0);
+        i = nbits;
+        do {
+          i --;
+          print_pseudo_literal_value(f, solver, a[i]);
+        } while (i > 0);
       }
     }
   }
@@ -3172,7 +3172,7 @@ void print_bvsolver_varmap(FILE *f, bv_solver_t *solver, thvar_t x) {
     if (nbits == 1) {
       a = NULL;
       if (vtbl->map[x].lit != null_literal) {
-	a = &vtbl->map[x].lit;
+        a = &vtbl->map[x].lit;
       }
     } else {
       a = vtbl->map[x].array;
@@ -3206,7 +3206,7 @@ void print_bvsolver_varbitmap(FILE *f, bv_solver_t *solver, thvar_t x) {
     if (nbits == 1) {
       a = NULL;
       if (vtbl->map[x].lit != null_literal) {
-	a = &vtbl->map[x].lit;
+        a = &vtbl->map[x].lit;
       }
     } else {
       a = vtbl->map[x].array;
@@ -3236,7 +3236,7 @@ void print_bvsolver_root_varmap(FILE *f, bv_solver_t *solver, thvar_t x) {
     if (nbits == 1) {
       a = NULL;
       if (vtbl->map[x].lit != null_literal) {
-	a = &vtbl->map[x].lit;
+        a = &vtbl->map[x].lit;
       }
     } else {
       a = vtbl->map[x].array;
@@ -3376,11 +3376,11 @@ void print_bvsolver_partition(FILE *f, bv_solver_t *solver) {
     if (y >= 0) {
       x = i;
       while (y != x) {
-	x = y;
-	y = parent[x];
+        x = y;
+        y = parent[x];
       }
       if (i != y) {
-	fprintf(f, "  u!%"PRIu32" --> u!%"PRId32"\n", i, y);
+        fprintf(f, "  u!%"PRIu32" --> u!%"PRId32"\n", i, y);
       }
     }
   }

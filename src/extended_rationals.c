@@ -101,9 +101,9 @@ void xq_print(FILE *f, xrational_t *r) {
     if (q_is_nonzero(&r->main)) {
       q_print(f, &r->main);
       if (s > 0) {
-	fputs(" + ", f);
+        fputs(" + ", f);
       } else {
-	fputs(" - ", f);
+        fputs(" - ", f);
       }
     } else if (s < 0) {
       fputs("- ", f);

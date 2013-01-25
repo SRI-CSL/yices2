@@ -57,7 +57,7 @@ static void print_subst_eq(FILE *f, context_t *ctx, term_t e) {
   }
 
   assert(is_pos_term(v) && 
-	 term_kind(terms, v) == UNINTERPRETED_TERM);
+         term_kind(terms, v) == UNINTERPRETED_TERM);
 
   print_term_desc(f, terms, v);
   fputs(" := ", f);

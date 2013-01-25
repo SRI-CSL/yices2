@@ -164,8 +164,8 @@ static void resize_idl_matrix(idl_matrix_t *matrix, uint32_t n) {
       dst = matrix->data + n * i;  // start of new row i
       j = d;
       while (j > 0) {
-	j --;
-	dst[j] = src[j];
+        j --;
+        dst[j] = src[j];
       }
     }
 
@@ -173,7 +173,7 @@ static void resize_idl_matrix(idl_matrix_t *matrix, uint32_t n) {
     dst = matrix->data;
     for (i=0; i<d; i++) {
       for (j=d; j<n; j++) {
-	dst[j].id = null_idl_edge;
+        dst[j].id = null_idl_edge;
       }
       dst += n;
     }
@@ -181,7 +181,7 @@ static void resize_idl_matrix(idl_matrix_t *matrix, uint32_t n) {
     // initialize cells [0 ... n-1] in rows d to n-1
     while (i<n) {
       for (j=0; j<n; j++) {
-	dst[j].id = null_idl_edge;
+        dst[j].id = null_idl_edge;
       }
       i ++;
       dst += n;
@@ -202,7 +202,7 @@ static void resize_idl_matrix(idl_matrix_t *matrix, uint32_t n) {
       src = matrix->data + d * i;
       dst = matrix->data + n * i;
       for (j=0; j<n; j++) {
-	dst[j] = src[j];
+        dst[j] = src[j];
       }
     }
   }  
@@ -475,20 +475,20 @@ static void idl_graph_add_edge(idl_graph_t *graph, int32_t x, int32_t y, int32_t
     if (r[x].id >= 0 && (r[y].id < 0 || c + r[x].dist < r[y].dist)) {
       // w is relevant: check D[w, z] for all z in vector v
       for (i=0; i<n; i++) {
-	z = aux[i];
-	if (w != z) {
-	  // r[z] == cell[w, z] and s --> cell[y, z]
-	  s = idl_cell(m, y, z);
-	  d = r[x].dist + c + s->dist; // distance w ---> x -> y ---> z
-	  if (r[z].id < 0 || d < r[z].dist) {
-	    // save then update cell[w, z]
-	    if (r[z].id < k) {
-	      idl_graph_save_cell(graph, r + z);
-	    }
-	    r[z].id = id;
-	    r[z].dist = d;
-	  }
-	}
+        z = aux[i];
+        if (w != z) {
+          // r[z] == cell[w, z] and s --> cell[y, z]
+          s = idl_cell(m, y, z);
+          d = r[x].dist + c + s->dist; // distance w ---> x -> y ---> z
+          if (r[z].id < 0 || d < r[z].dist) {
+            // save then update cell[w, z]
+            if (r[z].id < k) {
+              idl_graph_save_cell(graph, r + z);
+            }
+            r[z].id = id;
+            r[z].dist = d;
+          }
+        }
       }
     }
   }
@@ -575,21 +575,21 @@ static bool valid_idl_graph(idl_graph_t *graph) {
     for (y=0; y<m->dim; y++) {
       i = idl_edge_id(m, x, y);
       if (i == null_idl_edge) {
-	if (x == y) return false;
+        if (x == y) return false;
       } else if (i == 0) {
-	if (x != y || idl_dist(m, x, y) != 0) return false;
+        if (x != y || idl_dist(m, x, y) != 0) return false;
       } else {
-	if (x == y || i >= idl_graph_num_edges(graph)) return false;
+        if (x == y || i >= idl_graph_num_edges(graph)) return false;
 
-	e = graph->edges.data + i;
-	u = e->source;
-	v = e->target;
+        e = graph->edges.data + i;
+        u = e->source;
+        v = e->target;
 
-	if (idl_edge_id(m, x, u) == null_idl_edge || idl_edge_id(m, x, u) >= i ||
-	    idl_edge_id(m, v, y) == null_idl_edge || idl_edge_id(m, v, y) >= i ||
-	    idl_dist(m, x, y) != idl_dist(m, x, u) + e->cost + idl_dist(m, v, y)) {
-	  return false;
-	}
+        if (idl_edge_id(m, x, u) == null_idl_edge || idl_edge_id(m, x, u) >= i ||
+            idl_edge_id(m, v, y) == null_idl_edge || idl_edge_id(m, v, y) >= i ||
+            idl_dist(m, x, y) != idl_dist(m, x, u) + e->cost + idl_dist(m, v, y)) {
+          return false;
+        }
       }
     }
   }
@@ -1086,7 +1086,7 @@ static void idl_trail_stack_save(idl_trail_stack_t *stack, uint32_t nv, uint32_t
     } else {
       n += n>>1; // 50% larger 
       if (n >= MAX_IDL_TRAIL_SIZE) {
-	out_of_memory();
+        out_of_memory();
       }
     }
     stack->data = (idl_trail_t *) safe_realloc(stack->data, n * sizeof(idl_trail_t));
@@ -2497,7 +2497,7 @@ static int32_t value_of_new_vertex(idl_solver_t *solver, int32_t x, byte_t *mark
     if (cell->id > 0 && tst_bit(mark, y)) {
       aux = solver->value[y] - cell->dist;
       if (aux > vx) {
-	vx = aux;
+        vx = aux;
       }
     }
   }
@@ -2526,21 +2526,21 @@ static bool good_model(idl_solver_t *solver) {
     for (y=0; y<n; y++) {
       cell = idl_cell(m, x, y);
       if (cell->id >= 0 && val[x] - val[y] > cell->dist) {
-	printf("---> BUG: invalid IDL model\n");
-	printf("   val[");
-	print_idl_vertex(stdout, x);
-	printf("] = %"PRId32"\n", val[x]);
-	printf("   val[");
-	print_idl_vertex(stdout, y);
-	printf("] = %"PRId32"\n", val[y]);
-	printf("   dist[");
-	print_idl_vertex(stdout, x);
-	printf(", ");
-	print_idl_vertex(stdout, y);
-	printf("] = %"PRId32"\n", cell->dist);
-	fflush(stdout);
+        printf("---> BUG: invalid IDL model\n");
+        printf("   val[");
+        print_idl_vertex(stdout, x);
+        printf("] = %"PRId32"\n", val[x]);
+        printf("   val[");
+        print_idl_vertex(stdout, y);
+        printf("] = %"PRId32"\n", val[y]);
+        printf("   dist[");
+        print_idl_vertex(stdout, x);
+        printf(", ");
+        print_idl_vertex(stdout, y);
+        printf("] = %"PRId32"\n", cell->dist);
+        fflush(stdout);
 
-	return false;
+        return false;
       }
     }
   }

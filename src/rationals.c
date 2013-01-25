@@ -295,14 +295,14 @@ void q_set_int64(rational_t *r, int64_t a, uint64_t b) {
     // loop invariant: abs_a is odd or b is odd (or both)
     for (;;) {
       if ((a_1 & 1) == 0) {
-	a_1 >>= 1;
+        a_1 >>= 1;
       } else if ((b_1 & 1) == 0) {
-	b_1 >>= 1;
+        b_1 >>= 1;
       } else if (a_1 >= b_1) {
-	a_1 = (a_1 - b_1) >> 1;
-	if (a_1 == 0) break;
+        a_1 = (a_1 - b_1) >> 1;
+        if (a_1 == 0) break;
       } else {
-	b_1 = (b_1 - a_1) >> 1;
+        b_1 = (b_1 - a_1) >> 1;
       }
     }
 
@@ -388,15 +388,15 @@ void q_set_int32(rational_t *r, int32_t a, uint32_t b) {
     // loop invariant: abs_a is odd or b is odd (or both)
     for (;;) {
       if ((a_1 & 1) == 0) {
-	a_1 >>= 1;
+        a_1 >>= 1;
       } else if ((b_1 & 1) == 0) {
-	b_1 >>= 1;
+        b_1 >>= 1;
       } else if (a_1 >= b_1) {
-	a_1 = (a_1 - b_1) >> 1;
-	if (a_1 == 0) break;
+        a_1 = (a_1 - b_1) >> 1;
+        if (a_1 == 0) break;
 
       } else {
-	b_1 = (b_1 - a_1) >> 1;
+        b_1 = (b_1 - a_1) >> 1;
       }
     }
 
@@ -523,9 +523,9 @@ void q_normalize(rational_t *r) {
       num = mpz_get_si(mpq_numref(q));
       den = mpz_get_ui(mpq_denref(q));
       if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR && den <= MAX_DENOMINATOR) {
-	free_mpq(r->num);
-	r->num = (int32_t) num;
-	r->den = (uint32_t) den;
+        free_mpq(r->num);
+        r->num = (int32_t) num;
+        r->den = (uint32_t) den;
       }
     }
   }
@@ -626,10 +626,10 @@ void q_get_num(rational_t *r1, rational_t *r2) {
     if (mpz_fits_slong_p(mpq_numref(q))) {
       num = mpz_get_si(mpq_numref(q));
       if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR) {
-	if (r1->den == 0) free_mpq(r1->num);
-	r1->num = num;
-	r1->den = 1;
-	return;
+        if (r1->den == 0) free_mpq(r1->num);
+        r1->num = num;
+        r1->den = 1;
+        return;
       } 
     }
     // BUG:    q_set_mpz(r1, mpq_numref(q));
@@ -658,10 +658,10 @@ void q_get_den(rational_t *r1, rational_t *r2) {
     if (mpz_fits_ulong_p(mpq_denref(q))) {
       den = mpz_get_ui(mpq_denref(q));
       if (den <= MAX_DENOMINATOR) {
-	if (r1->den == 0) free_mpq(r1->num);
-	r1->num = den;
-	r1->den = 1;
-	return;
+        if (r1->den == 0) free_mpq(r1->num);
+        r1->num = den;
+        r1->den = 1;
+        return;
       }
     }
     // BUG    q_set_mpz(r1, mpq_denref(q));
@@ -1203,7 +1203,7 @@ void q_mulexp(rational_t *r1, rational_t *r2, uint32_t n) {
     for (;;) {
       assert(n > 0);
       if ((n & 1) != 0) {
-	q_mul(r1, &aux);
+        q_mul(r1, &aux);
       }
       n >>= 1;
       if (n == 0) break;
@@ -1243,10 +1243,10 @@ void q_lcm(rational_t *r1, rational_t *r2) {
       b = abs32(r2->num);
       d = ((uint64_t) a) * ((uint64_t) (b/gcd32(a, b)));
       if (d <= MAX_NUMERATOR) {
-	r1->num = d;
-	r1->den = 1;
+        r1->num = d;
+        r1->den = 1;
       } else {
-	set_to_gmp64(r1, d);
+        set_to_gmp64(r1, d);
       }
     } else {
       // r2 is 32bits, r1 is gmp
@@ -1324,7 +1324,7 @@ void q_integer_div(rational_t *r1, rational_t *r2) {
       n = r1->num % r2->num; // remainder: n has the same sign as r1 (or n == 0)
       r1->num /= r2->num;    // quotient: same sign as r1, rounded towards 0
       if (n < 0) {
-	r1->num --;
+        r1->num --;
       }
     } else {
       // r1 is gmp, r2 is a small integer
@@ -1341,14 +1341,14 @@ void q_integer_div(rational_t *r1, rational_t *r2) {
        */
       assert(r1->den == 1);
       if (r1->num >= 0) {
-	r1->num = 0;
+        r1->num = 0;
       } else {
-	r1->num = -1;
+        r1->num = -1;
       }
     } else {
       // both r1 and r2 are gmp rationals
       mpz_fdiv_q(mpq_numref(bank_q[r1->num]), mpq_numref(bank_q[r1->num]), 
-		 mpq_numref(bank_q[r2->num]));
+                 mpq_numref(bank_q[r2->num]));
       assert(mpq_is_integer(bank_q[r1->num]));
     }
   }
@@ -1373,7 +1373,7 @@ void q_integer_rem(rational_t *r1, rational_t *r2) {
        */
       n = r1->num % r2->num;
       if (n < 0) {
-	n += r2->num;
+        n += r2->num;
       }
       assert(0 <= n && n < r2->num);
       r1->num = n;
@@ -1396,18 +1396,18 @@ void q_integer_rem(rational_t *r1, rational_t *r2) {
        */
       assert(r1->den == 1);
       if (r1->num < 0) {
-	n = alloc_mpq();
-	mpq_set_si(bank_q[n], r1->num, 1UL);
-	mpz_add(mpq_numref(bank_q[n]), mpq_numref(bank_q[n]), mpq_numref(bank_q[r2->num]));
-	r1->num = n;
-	r1->den = 0;
-	assert(mpq_is_integer(bank_q[n]) && mpq_sgn(bank_q[n]) > 0);
+        n = alloc_mpq();
+        mpq_set_si(bank_q[n], r1->num, 1UL);
+        mpz_add(mpq_numref(bank_q[n]), mpq_numref(bank_q[n]), mpq_numref(bank_q[r2->num]));
+        r1->num = n;
+        r1->den = 0;
+        assert(mpq_is_integer(bank_q[n]) && mpq_sgn(bank_q[n]) > 0);
       }
 
     } else {
       // both r1 and r2 are gmp rationals
       mpz_fdiv_r(mpq_numref(bank_q[r1->num]), mpq_numref(bank_q[r1->num]), 
-		 mpq_numref(bank_q[r2->num]));
+                 mpq_numref(bank_q[r2->num]));
       assert(mpq_is_integer(bank_q[r1->num]));
     }
   }

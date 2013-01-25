@@ -42,8 +42,8 @@ static char *get_basename(char *path) {
  * Initialize parser
  */
 void init_cmdline_parser(cmdline_parser_t *p,
-			 option_desc_t *options, uint32_t noptions,
-			 char **argv, uint32_t argc) {
+                         option_desc_t *options, uint32_t noptions,
+                         char **argv, uint32_t argc) {
   p->options = options;
   p->noptions = noptions;
   p->argv = argv;  
@@ -115,11 +115,11 @@ static option_desc_t *find_by_name(option_desc_t *options, uint32_t n, char *s, 
     q = check_prefix(p->name, s);
     if (q != NULL) {
       if (*q == '\0') {
-	*value = NULL;
-	return p;
+        *value = NULL;
+        return p;
       } else if (*q == '=') {
-	*value = q + 1;
-	return p;
+        *value = q + 1;
+        return p;
       }
     }
     p ++;
@@ -326,7 +326,7 @@ static void parse_optional_string(cmdline_parser_t *p, cmdline_elem_t *e) {
  * - e->s_value is NULL if the option was given as -o or --option
  */
 static void check_option_parameter(cmdline_parser_t *p, cmdline_elem_t *e,
-				   option_desc_t *d) {
+                                   option_desc_t *d) {
   uint32_t i;
 
   switch (d->type) {
@@ -352,12 +352,12 @@ static void check_option_parameter(cmdline_parser_t *p, cmdline_elem_t *e,
     if (e->s_value == NULL) {
       i = p->scan_index;
       if (i >= p->argc) {
-	e->status = cmdline_error;
-	e->e_code = cmdline_val_missing;
-	return;
+        e->status = cmdline_error;
+        e->e_code = cmdline_val_missing;
+        return;
       } else {
-	e->s_value = p->argv[i];
-	p->scan_index = i+1;
+        e->s_value = p->argv[i];
+        p->scan_index = i+1;
       }
     }
     check_integer_value(e);
@@ -375,12 +375,12 @@ static void check_option_parameter(cmdline_parser_t *p, cmdline_elem_t *e,
     if (e->s_value == NULL) {
       i = p->scan_index;
       if (i >= p->argc) {
-	e->status = cmdline_error;
-	e->e_code = cmdline_val_missing;
-	return;
+        e->status = cmdline_error;
+        e->e_code = cmdline_val_missing;
+        return;
       } else {
-	e->s_value = p->argv[i];
-	p->scan_index = i+1;
+        e->s_value = p->argv[i];
+        p->scan_index = i+1;
       }
     }
     check_double_value(e);
@@ -400,13 +400,13 @@ static void check_option_parameter(cmdline_parser_t *p, cmdline_elem_t *e,
     if (e->s_value == NULL) {
       i = p->scan_index;
       if (i >= p->argc) {
-	e->status = cmdline_error;
-	e->e_code = cmdline_val_missing;
-	return;
+        e->status = cmdline_error;
+        e->e_code = cmdline_val_missing;
+        return;
 
       } else {
-	e->s_value = p->argv[i];
-	p->scan_index = i+1;
+        e->s_value = p->argv[i];
+        p->scan_index = i+1;
       }
     }
     e->status = cmdline_option;
@@ -478,12 +478,12 @@ static void parse_long_option(cmdline_parser_t *p, cmdline_elem_t *e, char *a) {
       e->s_value = suffix;
 
       if (suffix != NULL) {
-	e->format = cmdline_long_val;
-	if (blank_string(suffix)) {
-	  e->status = cmdline_error;
-	  e->e_code = cmdline_format;
-	  return;
-	}
+        e->format = cmdline_long_val;
+        if (blank_string(suffix)) {
+          e->status = cmdline_error;
+          e->e_code = cmdline_format;
+          return;
+        }
       }
 
       check_option_parameter(p, e, d);

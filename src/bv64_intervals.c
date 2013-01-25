@@ -427,11 +427,11 @@ void bv64_interval_addmul_u(bv64_interval_t *a, bv64_interval_t *b, uint64_t c) 
        * Otherwise we return the trivial interval.
        */
       if (q1 == q2) {
-	a->low = norm64(a->low + c * l,  n);
-	a->high = norm64(a->high + c * u, n);
+        a->low = norm64(a->low + c * l,  n);
+        a->high = norm64(a->high + c * u, n);
       } else {
-	a->low = 0;
-	a->high = mask64(n);
+        a->low = 0;
+        a->high = mask64(n);
       }
 
     } else {
@@ -442,11 +442,11 @@ void bv64_interval_addmul_u(bv64_interval_t *a, bv64_interval_t *b, uint64_t c) 
       assert(signed64_le(q1, q2, n));
 
       if (q1 == q2) {
-	a->low = norm64(a->low - c * u, n);
-	a->high = norm64(a->high - c * l, n);
+        a->low = norm64(a->low - c * u, n);
+        a->high = norm64(a->high - c * l, n);
       } else {
-	a->low = 0;
-	a->high = mask64(n);
+        a->low = 0;
+        a->high = mask64(n);
       }
     }
 
@@ -493,7 +493,7 @@ void bv64_interval_addmul_s(bv64_interval_t *a, bv64_interval_t *b, uint64_t c) 
     }
 
     if ((q1 == q2 && signed64_le(l, u, n)) || 
-	(q1 == q2 - 1 && is_neg64(l, n) && is_pos64(u, n))) {
+        (q1 == q2 - 1 && is_neg64(l, n) && is_pos64(u, n))) {
       a->low = l;
       a->high = u;
     } else {

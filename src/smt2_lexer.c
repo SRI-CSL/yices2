@@ -487,8 +487,8 @@ static smt2_token_t smt2_read_string(lexer_t *lex) {
     if (c == '\\') {
       c = reader_next_char(rd);
       if (c != '"' && c != '\\') {
-	// keep the backslash
-	string_buffer_append_char(buffer, '\\');
+        // keep the backslash
+        string_buffer_append_char(buffer, '\\');
       }
     }
     string_buffer_append_char(buffer, c);
@@ -524,7 +524,7 @@ static smt2_token_t smt2_read_binary(lexer_t *lex) {
   c = reader_current_char(rd);
 
   assert(string_buffer_length(buffer) == 1 && 
-	 buffer->data[0] == '#' && c == 'b');
+         buffer->data[0] == '#' && c == 'b');
 
   do {
     string_buffer_append_char(buffer, c);
@@ -565,7 +565,7 @@ static smt2_token_t smt2_read_hexa(lexer_t *lex) {
   c = reader_current_char(rd);
 
   assert(string_buffer_length(buffer) == 1 && 
-	 buffer->data[0] == '#' && c == 'x');
+         buffer->data[0] == '#' && c == 'x');
 
   do {
     string_buffer_append_char(buffer, c);
@@ -825,12 +825,12 @@ static smt2_token_t smt2_read_quoted_symbol(lexer_t *lex) {
   rd = &lex->reader;
   buffer = lex->buffer;
   assert(string_buffer_length(buffer) == 0 &&
-	 reader_current_char(rd) == '|');
+         reader_current_char(rd) == '|');
 
   for (;;) {
     c = reader_next_char(rd);
     if (c == '|' || c == '\\' || 
-	(!isprint(c) && !isspace(c))) {
+        (!isprint(c) && !isspace(c))) {
       // either the terminator '|' or a character not allowed in quoted symbols
       break;
     }
@@ -1007,7 +1007,7 @@ static smt2_symbol_t string_to_bv_constant(const char *s, uint32_t n) {
   if (n >= 3 && s[0] == 'b' && s[1] == 'v') {
     for (i=2; i<n; i++) {
       if (!isdigit((int) s[i])) {
-	goto done; // not of the form bv<digits>
+        goto done; // not of the form bv<digits>
       }
     }
 

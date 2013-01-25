@@ -199,7 +199,7 @@ bool int_hset_add(int_hset_t *set, uint32_t x) {
     if (result) {
       set->nelems ++;
       if (set->nelems > set->resize_threshold) {
-	hset_extend(set);
+        hset_extend(set);
       }
     }
   }

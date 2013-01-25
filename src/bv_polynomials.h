@@ -74,7 +74,7 @@ extern bvpoly_t *alloc_bvpoly(uint32_t n, uint32_t size);
 
 
 /*
- * Free p and all the coefficents
+ * Free p and all the coefficients
  */
 extern void free_bvpoly(bvpoly_t *p);
 

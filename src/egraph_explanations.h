@@ -152,7 +152,7 @@ extern void egraph_explain_term_diseq(egraph_t *egraph, eterm_t t1, eterm_t t2, 
  *
  * 1) eager step: call egraph_store_diseq_pre_expl 
  *    This must be done when (x1 != x2) is received from the egraph
- *    to store sufficnet data into a diseq_pre_expl_t object.
+ *    to store sufficient data into a diseq_pre_expl_t object.
  *
  * 2) lazy step: expand the pre-expl data into a set of literals.
  *    Can be done lazily, only when the explanation is needed.

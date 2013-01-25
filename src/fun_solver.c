@@ -799,7 +799,7 @@ static void collect_equal_arg_atoms(fun_solver_t *solver, composite_t *c, compos
   literal_t l;
 
   assert(composite_kind(c) == COMPOSITE_APPLY && composite_kind(d) == COMPOSITE_APPLY &&
-	 composite_arity(c) == composite_arity(d));
+         composite_arity(c) == composite_arity(d));
 
   egraph = solver->egraph;
   n = composite_arity(c);
@@ -892,7 +892,7 @@ static literal_t apply_edge_equal_args(fun_solver_t *solver, composite_t *c, fun
   literal_t l;
 
   assert(composite_kind(c) == COMPOSITE_APPLY && 
-	 composite_arity(c) == 1 + solver->vtbl.arity[e->source]);
+         composite_arity(c) == 1 + solver->vtbl.arity[e->source]);
 
   egraph = solver->egraph;
   n = composite_arity(c);
@@ -1131,15 +1131,15 @@ static void fun_solver_label_component(fun_solver_t *solver, thvar_t x, int32_t 
       // explore edges incident to x's class
       edges = vtbl->edges[x];
       if (edges != NULL) {
-	n = iv_size(edges);
-	for (i=0; i<n; i++) {
-	  j = edges[i];
-	  y = adjacent_root(solver, x, j);
-	  if (vtbl->base[y] < 0) {
-	    fun_queue_push(queue, y);
-	    vtbl->base[y] = k;
-	  }
-	}
+        n = iv_size(edges);
+        for (i=0; i<n; i++) {
+          j = edges[i];
+          y = adjacent_root(solver, x, j);
+          if (vtbl->base[y] < 0) {
+            fun_queue_push(queue, y);
+            vtbl->base[y] = k;
+          }
+        }
       }
       x = vtbl->next[x];
     } while (x != null_thvar);
@@ -1237,7 +1237,7 @@ static bool app_equiv(egraph_t *egraph, composite_t *c, composite_t *d) {
   uint32_t i, n;
 
   assert(composite_kind(c) == COMPOSITE_APPLY && composite_kind(d) == COMPOSITE_APPLY &&
-	 composite_arity(c) == composite_arity(d));
+         composite_arity(c) == composite_arity(d));
 
   n = composite_arity(c);
   for (i=1; i<n; i++) {
@@ -1260,7 +1260,7 @@ static int32_t app_cmp(egraph_t *egraph, composite_t *c, composite_t *d) {
   elabel_t l1, l2;
 
   assert(composite_kind(c) == COMPOSITE_APPLY && composite_kind(d) == COMPOSITE_APPLY &&
-	 composite_arity(c) == composite_arity(d));
+         composite_arity(c) == composite_arity(d));
 
   n = composite_arity(c);
   for (i=1; i<n; i++) {
@@ -1306,11 +1306,11 @@ static void normalize_app_vector(fun_solver_t *solver, void **v) {
     for (i=1; i<n; i++) {
       d = v[i];
       if (! app_equiv(egraph, c, d)) {
-	v[j] = d;
-	c = d;
-	j ++;
+        v[j] = d;
+        c = d;
+        j ++;
       } else {
-	assert(egraph_equal_terms(egraph, c->id, d->id));
+        assert(egraph_equal_terms(egraph, c->id, d->id));
       }
     }
 
@@ -1481,7 +1481,7 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
   printf("Target app: ");
   print_eterm_def(stdout, solver->egraph, d->id);
   printf("Path length: %"PRIu32"\n", path_length(solver, x, z));
-	 
+         
 #if 0
   printf("Path:\n");
   y = z;
@@ -1519,8 +1519,8 @@ static void fun_solver_add_axiom2(fun_solver_t *solver, thvar_t x, thvar_t z, co
     } else {
       printf("(AND");
       for (i=0; i<lemma->size; i++) {
-	printf(" ");
-	print_egraph_atom_of_literal(stdout, solver->egraph, lemma->data[i]);
+        printf(" ");
+        print_egraph_atom_of_literal(stdout, solver->egraph, lemma->data[i]);
       }
       printf(")");
     }
@@ -1633,10 +1633,10 @@ static bool update_conflict_for_application(fun_solver_t *solver, thvar_t x, com
     d = egraph_find_modified_application(egraph, vtbl->eterm[z], c);
     if (z != x && d != NULL_COMPOSITE) {
       if (! egraph_equal_apps(egraph, c, d)) {
-	// conflict: add an instance of the update axiom
-	fun_solver_add_axiom2(solver, x, z, c, d);
-	result = true;
-	goto done;
+        // conflict: add an instance of the update axiom
+        fun_solver_add_axiom2(solver, x, z, c, d);
+        result = true;
+        goto done;
       }
     } else {
       /*
@@ -1646,21 +1646,21 @@ static bool update_conflict_for_application(fun_solver_t *solver, thvar_t x, com
        */
       add_ptr_to_vector(vtbl->app + z, c); // We could do this only after checking for conflicts
       do {
-	// edges incident to node z
-	edges = vtbl->edges[z];
-	if (edges != NULL) {
-	  n = iv_size(edges);
-	  for (i=0; i<n; i++) {
-	    k = edges[i];
-	    y = adjacent_root(solver, z, k);
-	    if (vtbl->pre[y] < 0 && !masking_edge(solver, k, c)) {
-	      // y not visited yet: add it to the queue
-	      fun_queue_push(queue, y);
-	      vtbl->pre[y] = k;
-	    }
-	  }
-	}
-	z = vtbl->next[z];
+        // edges incident to node z
+        edges = vtbl->edges[z];
+        if (edges != NULL) {
+          n = iv_size(edges);
+          for (i=0; i<n; i++) {
+            k = edges[i];
+            y = adjacent_root(solver, z, k);
+            if (vtbl->pre[y] < 0 && !masking_edge(solver, k, c)) {
+              // y not visited yet: add it to the queue
+              fun_queue_push(queue, y);
+              vtbl->pre[y] = k;
+            }
+          }
+        }
+        z = vtbl->next[z];
       } while (z != null_thvar);
     }
   }
@@ -1730,12 +1730,12 @@ static bool update_conflicts(fun_solver_t *solver) {
       c = v[j];
       x = root_app_var(egraph, c);
       if (update_conflict_for_application(solver, x, c)) {
-	result = true;
-	num_updates ++;
-	// exit if max_update_conflicts is reached
-	// move to the next class otherwise
-	if (num_updates >= solver->max_update_conflicts) goto done;
-	break;
+        result = true;
+        num_updates ++;
+        // exit if max_update_conflicts is reached
+        // move to the next class otherwise
+        if (num_updates >= solver->max_update_conflicts) goto done;
+        break;
       }
     }
   }
@@ -1748,15 +1748,15 @@ static bool update_conflicts(fun_solver_t *solver) {
   for (i=0; i<n; i++) {
     c = egraph_term_body(egraph, i);
     if (composite_body(c) &&
-	composite_kind(c) == COMPOSITE_APPLY &&
-	congruence_table_is_root(&egraph->ctable, c, egraph->terms.label) &&
-	ptr_partition_get_index(pp, c) >= 0) {
+        composite_kind(c) == COMPOSITE_APPLY &&
+        congruence_table_is_root(&egraph->ctable, c, egraph->terms.label) &&
+        ptr_partition_get_index(pp, c) >= 0) {
       x = root_app_var(egraph, c);
       if (update_conflict_for_application(solver, x, c)) {
-	result = true;
-	num_updates ++;
-	// exit if max_update_conflicts is reached
-	if (num_updates >= solver->max_update_conflicts) goto done;
+        result = true;
+        num_updates ++;
+        // exit if max_update_conflicts is reached
+        if (num_updates >= solver->max_update_conflicts) goto done;
       }
     }
   }
@@ -1796,7 +1796,7 @@ static bool update_conflicts(fun_solver_t *solver) {
  * - ttbl = attached type table
  */
 void init_fun_solver(fun_solver_t *solver, smt_core_t *core,
-		     gate_manager_t *gates, egraph_t *egraph, type_table_t *ttbl) {
+                     gate_manager_t *gates, egraph_t *egraph, type_table_t *ttbl) {
 
   solver->core = core;
   solver->gate_manager = gates;
@@ -2296,16 +2296,16 @@ static void propagate_application(fun_solver_t *solver, composite_t *c, thvar_t 
     do {
       edges = vtbl->edges[z]; // edges incident to z
       if (edges != NULL) {
-	n = iv_size(edges);
-	for (i=0; i<n; i++) {
-	  k = edges[i];
-	  y = adjacent_root(solver, z, k);
-	  if (!tst_bit(vtbl->mark, y) && !masking_edge(solver, k, c)) {
-	    // y not visited yet and reached via a non-masking path
-	    fun_queue_push(queue, y);
-	    set_bit(vtbl->mark, y);
-	  }
-	}
+        n = iv_size(edges);
+        for (i=0; i<n; i++) {
+          k = edges[i];
+          y = adjacent_root(solver, z, k);
+          if (!tst_bit(vtbl->mark, y) && !masking_edge(solver, k, c)) {
+            // y not visited yet and reached via a non-masking path
+            fun_queue_push(queue, y);
+            set_bit(vtbl->mark, y);
+          }
+        }
       }
       z = vtbl->next[z]; // next node in the class
     } while (z != null_thvar);
@@ -2418,7 +2418,7 @@ static void fun_solver_init_base_value(fun_solver_t *solver) {
  */
 static bool root_lt(fun_vartable_t *vtbl, thvar_t x, thvar_t y) {
   assert(0 <= x && x < vtbl->nvars && vtbl->root[x] == x &&
-	 0 <= y && y < vtbl->nvars && vtbl->root[y] == y);
+         0 <= y && y < vtbl->nvars && vtbl->root[y] == y);
 
   return vtbl->type[x] < vtbl->type[y];
 }
@@ -2453,8 +2453,8 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
     if (vtbl->root[i] == i) {
       k = vtbl->base[i];
       if (solver->base_value[k] == NULL_BASE_VALUE) {
-	ivector_push(v, i);
-	solver->base_value[k] = UNKNOWN_BASE_VALUE; // mark
+        ivector_push(v, i);
+        solver->base_value[k] = UNKNOWN_BASE_VALUE; // mark
       }
     }
   }
@@ -2511,58 +2511,58 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
 
 #if TRACE
       printf("---> assign base value: sigma = %"PRId32", card = %"PRIu32", num classes = %"PRIu32"\n",
-	     sigma, h, p);
+             sigma, h, p);
       fflush(stdout);
 #endif
 
       j = m;
       while (false && p < h) { // BD: disabled this (April 24 2012)
-	x = v->data[j];
-	k = vtbl->base[x];
-	assert(solver->base_value[k] == UNKNOWN_BASE_VALUE);
-	solver->base_value[k] = -(k+1); // fresh value
+        x = v->data[j];
+        k = vtbl->base[x];
+        assert(solver->base_value[k] == UNKNOWN_BASE_VALUE);
+        solver->base_value[k] = -(k+1); // fresh value
 #if TRACE
-	printf("---> base_value[%"PRId32"] = %"PRId32"\n", k, solver->base_value[k]);
+        printf("---> base_value[%"PRId32"] = %"PRId32"\n", k, solver->base_value[k]);
 #endif
-	j ++;
-	p ++;
-	if (j == i) break;
+        j ++;
+        p ++;
+        if (j == i) break;
       }
 
       if (j < i) {
-	// Fresh values are exhausted, get values from the egraph
+        // Fresh values are exhausted, get values from the egraph
 
-	// allocate a buffer b to store base labels
-	if (b == NULL) {
-	  b = buffer;
-	  if (solver->num_bases > 4) {
-	    b = (elabel_t *) safe_malloc(solver->num_bases * sizeof(elabel_t));
-	  }
-	}
+        // allocate a buffer b to store base labels
+        if (b == NULL) {
+          b = buffer;
+          if (solver->num_bases > 4) {
+            b = (elabel_t *) safe_malloc(solver->num_bases * sizeof(elabel_t));
+          }
+        }
 
-	// get base labels from the egraph
-	//	p = egraph_get_labels_for_type(solver->egraph, sigma, b, i - m);
-	p = egraph_get_labels_for_type(solver->egraph, sigma, b, i - j);
+        // get base labels from the egraph
+        //      p = egraph_get_labels_for_type(solver->egraph, sigma, b, i - m);
+        p = egraph_get_labels_for_type(solver->egraph, sigma, b, i - j);
 
-	/*
-	 * Assign the labels in b[0 ... p-1] to components of type tau.
-	 */
-	assert(p > 0);
-	h = 0;
-	while (j < i) {
-	  x = v->data[j];
-	  k = vtbl->base[x];
-	  assert(solver->base_value[k] == UNKNOWN_BASE_VALUE && h < p);
-	  solver->base_value[k] = b[h];
+        /*
+         * Assign the labels in b[0 ... p-1] to components of type tau.
+         */
+        assert(p > 0);
+        h = 0;
+        while (j < i) {
+          x = v->data[j];
+          k = vtbl->base[x];
+          assert(solver->base_value[k] == UNKNOWN_BASE_VALUE && h < p);
+          solver->base_value[k] = b[h];
 #if TRACE
-	  printf("---> base_value[%"PRId32"] = %"PRId32"\n", k, solver->base_value[k]);
+          printf("---> base_value[%"PRId32"] = %"PRId32"\n", k, solver->base_value[k]);
 #endif
-	  h ++;
-	  j ++;
-	  if (h == p) {
-	    h = 0;
-	  }
-	}
+          h ++;
+          j ++;
+          if (h == p) {
+            h = 0;
+          }
+        }
       }
 
 
@@ -2571,10 +2571,10 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
        * Infinite range: all base values are fresh
        */
       for (j=m; j<i; j++) {
-	x = v->data[j];
-	k = vtbl->base[x];
-	assert(solver->base_value[k] == UNKNOWN_BASE_VALUE);
-	solver->base_value[k] = - (k+1); // encoding for 'fresh value'
+        x = v->data[j];
+        k = vtbl->base[x];
+        assert(solver->base_value[k] == UNKNOWN_BASE_VALUE);
+        solver->base_value[k] = - (k+1); // encoding for 'fresh value'
       }
     }
     
@@ -2642,24 +2642,24 @@ static bool equal_mappings(fun_solver_t *solver, void **v, void **w, int32_t dv,
     } else {
       cmp = app_cmp(egraph, c, d);
       if (cmp < 0) {
-	// c < d in lex ordering
-	if (egraph_term_label(egraph, c->id) != dw) {
-	  return false;
-	}
-	i ++;
+        // c < d in lex ordering
+        if (egraph_term_label(egraph, c->id) != dw) {
+          return false;
+        }
+        i ++;
       } else if (cmp > 0) {
-	// c > d in lex ordering
-	if (egraph_term_label(egraph, d->id) != dv) {
-	  return false;
-	}
-	j ++;
+        // c > d in lex ordering
+        if (egraph_term_label(egraph, d->id) != dv) {
+          return false;
+        }
+        j ++;
       } else {
-	// c == d in lex ordering
-	if (! egraph_equal_terms(egraph, c->id, d->id)) {
-	  return false;
-	}
-	i ++;
-	j ++;
+        // c == d in lex ordering
+        if (! egraph_equal_terms(egraph, c->id, d->id)) {
+          return false;
+        }
+        i ++;
+        j ++;
       }
       p ++;
     }
@@ -2900,7 +2900,7 @@ uint32_t fun_solver_reconcile_model(fun_solver_t *solver, uint32_t max_eq) {
 
   // check for more conflicts between the egraph classes and the solver model.
   init_int_hclass(&hclass, 0, solver, (iclass_hash_fun_t) fun_solver_model_hash,
-		  (iclass_match_fun_t) fun_solver_var_equal_in_model);
+                  (iclass_match_fun_t) fun_solver_var_equal_in_model);
 
   vtbl = &solver->vtbl;
   n = vtbl->nvars;
@@ -2908,9 +2908,9 @@ uint32_t fun_solver_reconcile_model(fun_solver_t *solver, uint32_t max_eq) {
     if (vtbl->root[i] == i) {
       x = int_hclass_get_rep(&hclass, i);
       if (x != i) {
-	fun_solver_extensionality_axiom(solver, x, i); 
-	neq ++;
-	if (neq == max_eq) break;
+        fun_solver_extensionality_axiom(solver, x, i); 
+        neq ++;
+        if (neq == max_eq) break;
       }
     }
   }
@@ -3238,7 +3238,7 @@ static void copy_base_map(fun_solver_t *solver, thvar_t x) {
  * - store = particle store
  */
 static void build_maps_for_type(fun_solver_t *solver, type_t tau, uint32_t n, thvar_t *v,
-				fun_tree_t *tree, pstore_t *store) {
+                                fun_tree_t *tree, pstore_t *store) {
   map_t *map;
   function_type_t *f;
   uint32_t i;
@@ -3270,10 +3270,10 @@ static void build_maps_for_type(fun_solver_t *solver, type_t tau, uint32_t n, th
     if (map == NULL) {
       // get the default value for this component
       if (solver->base_value[b] < 0) {
-	d = pstore_fresh_particle(store, sigma);
+        d = pstore_fresh_particle(store, sigma);
       } else {
-	assert(egraph_label_is_valid(solver->egraph, solver->base_value[b]));
-	d = pstore_labeled_particle(store, solver->base_value[b], sigma);
+        assert(egraph_label_is_valid(solver->egraph, solver->base_value[b]));
+        d = pstore_labeled_particle(store, solver->base_value[b], sigma);
       }
       // the default base maps everything to d
       map = new_map(0);
@@ -3304,7 +3304,7 @@ static void build_maps_for_type(fun_solver_t *solver, type_t tau, uint32_t n, th
   if (collision) {
     // this should not happen unless f has finite range and infinite domain
     assert(solver->reconciled && is_finite_type(solver->types, sigma) && 
-	   !type_has_finite_domain(solver->types, tau));
+           !type_has_finite_domain(solver->types, tau));
 
     // update the base maps to make them all distinct
     fix_base_maps(solver, store, f, v, n);
@@ -3350,8 +3350,8 @@ static void fun_solver_build_maps(fun_solver_t *solver, ivector_t *v, fun_tree_t
       x = a[i];
       assert(vtbl->root[x] == x);
       if (vtbl->type[x] != tau) {
-	assert(vtbl->type[x] > tau);
-	break;
+        assert(vtbl->type[x] > tau);
+        break;
       }
     }
 

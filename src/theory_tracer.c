@@ -293,8 +293,8 @@ static void trace_simplex_row(row_t *row) {
     for (i=0; i<n; i++) {
       x = row->data[i].c_idx;
       if (x >= 0) {
-	if (i > 0) fputc(' ', trace_file);
-	trace_simplex_monomial(solver, &row->data[i].coeff, x);
+        if (i > 0) fputc(' ', trace_file);
+        trace_simplex_monomial(solver, &row->data[i].coeff, x);
       }
     }
     if (m > 1) {
@@ -388,10 +388,10 @@ static void trace_simplex_reduced_row(row_t *row) {
     x = row->data[i].c_idx;
     if (x >= 0) {
       if (simplex_fixed_variable(solver, x)) {
-	xq_addmul(&constant, simplex_variable_value(solver, x), &row->data[i].coeff);
+        xq_addmul(&constant, simplex_variable_value(solver, x), &row->data[i].coeff);
       } else {
-	fputc(' ', trace_file);
-	trace_simplex_monomial(solver, &row->data[i].coeff, x);
+        fputc(' ', trace_file);
+        trace_simplex_monomial(solver, &row->data[i].coeff, x);
       }
     }
   }
@@ -516,33 +516,33 @@ static void trace_atom(literal_t l) {
     if (egraph_exists) {
       switch (atom_tag(atom)) {
       case EGRAPH_ATM_TAG:
-	trace_egraph_atom(untag_atom(atom));
-	break;
+        trace_egraph_atom(untag_atom(atom));
+        break;
       case ARITH_ATM_TAG:
-	trace_simplex_atom(untag_atom(atom));
-	break;
+        trace_simplex_atom(untag_atom(atom));
+        break;
       case BV_ATM_TAG:
-	trace_bv_atom(untag_atom(atom));
-	break;
+        trace_bv_atom(untag_atom(atom));
+        break;
       }
       
     } else {
       switch (arith_type) {
       case NO_SOLVER:
-	trace_bv_atom(untag_atom(atom));
-	break;
+        trace_bv_atom(untag_atom(atom));
+        break;
 
       case SPLX_SOLVER:
-	trace_simplex_atom(untag_atom(atom));
-	break;
+        trace_simplex_atom(untag_atom(atom));
+        break;
 
       case IFW_SOLVER:
-	trace_idl_atom(untag_atom(atom));
-	break;
+        trace_idl_atom(untag_atom(atom));
+        break;
 
       case RFW_SOLVER:
-	trace_rdl_atom(untag_atom(atom));
-	break;
+        trace_rdl_atom(untag_atom(atom));
+        break;
       }      
     }
 
@@ -646,7 +646,7 @@ void trace_simplex_conflict(row_t *row, literal_t *a) {
   if (! tracer_ready) return;
 
   fprintf(trace_file, "Simplex conflict [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n", 
-	  core->decision_level, core->stats.decisions);
+          core->decision_level, core->stats.decisions);
   fputs("Row: ", trace_file);
   trace_simplex_row(row);
   fputc('\n', trace_file);
@@ -662,7 +662,7 @@ void trace_simplex_assertion_conflict(int32_t k, literal_t l, literal_t *a) {
   if (! tracer_ready) return;
 
   fprintf(trace_file, "Simplex assertion conflict [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n",
-	  core->decision_level, core->stats.decisions);
+          core->decision_level, core->stats.decisions);
 
   fputs("Current bound: ", trace_file);
   trace_simplex_bound(k);
@@ -685,7 +685,7 @@ void trace_simplex_gcd_conflict(row_t *row, literal_t *a) {
   if (! tracer_ready) return;
 
   fprintf(trace_file, "GCD conflict [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n",
-	  core->decision_level, core->stats.decisions);
+          core->decision_level, core->stats.decisions);
   fputs("Row: ", trace_file);
   trace_simplex_row(row);
 
@@ -718,7 +718,7 @@ void trace_simplex_derived_lb(int32_t x, xrational_t *b, ivector_t *v) {
 
   solver = (simplex_solver_t *) arith_solver;
   fprintf(trace_file, "Simplex derived bound [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n",
-	  core->decision_level, core->stats.decisions);
+          core->decision_level, core->stats.decisions);
 
   fputs("Antecedents:\n", trace_file);
   n = v->size;
@@ -751,7 +751,7 @@ void trace_simplex_derived_ub(int32_t x, xrational_t *b, ivector_t *v) {
 
   solver = (simplex_solver_t *) arith_solver;
   fprintf(trace_file, "Simplex derived bound [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n",
-	  core->decision_level, core->stats.decisions);
+          core->decision_level, core->stats.decisions);
 
   fputs("Antecedents:\n", trace_file);
   n = v->size;
@@ -785,7 +785,7 @@ void trace_simplex_derived_lb_conflict(int32_t k, int32_t x, xrational_t *b, ive
 
   solver = (simplex_solver_t *) arith_solver;
   fprintf(trace_file, "Simplex conflict via derived bound [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n",
-	  core->decision_level, core->stats.decisions);
+          core->decision_level, core->stats.decisions);
 
   fputs("Antecedents:\n", trace_file);
   n = v->size;
@@ -825,7 +825,7 @@ void trace_simplex_derived_ub_conflict(int32_t k, int32_t x, xrational_t *b, ive
 
   solver = (simplex_solver_t *) arith_solver;
   fprintf(trace_file, "Simplex conflict via derived bound [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n",
-	  core->decision_level, core->stats.decisions);
+          core->decision_level, core->stats.decisions);
 
   fputs("Antecedents:\n", trace_file);
   n = v->size;
@@ -870,7 +870,7 @@ void trace_simplex_dsolver_conflict(ivector_t *v, literal_t *a) {
   matrix = &solver->matrix;
 
   fprintf(trace_file, "Diophantine conflict [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n", 
-	  core->decision_level, core->stats.decisions);
+          core->decision_level, core->stats.decisions);
 
   n = v->size;
   for (i=0; i<n; i++) {
@@ -919,7 +919,7 @@ void trace_simplex_egraph_eq_conflict(int32_t k, int32_t x1, int32_t x2, literal
   splx = (simplex_solver_t *) arith_solver;
 
   fprintf(trace_file, "Simplex/egraph conflict [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n",
-	  core->decision_level, core->stats.decisions);
+          core->decision_level, core->stats.decisions);
 
   fputs("Bound: ", trace_file);
   trace_simplex_bound(k);
@@ -959,7 +959,7 @@ void trace_dsolver_var_phase_and_period(int32_t x, rational_t *period, rational_
   assert(dsolver != NULL);
 
   fprintf(trace_file, "Diophantine strengthening [dlevel = %"PRIu32", decisions = %"PRIu64"]\n\n",
-	  core->decision_level, core->stats.decisions);
+          core->decision_level, core->stats.decisions);
 
   v = &buffer;
   assert(v->size == 0);
@@ -1036,7 +1036,7 @@ void trace_simplex_derived_bound(row_t *row, int32_t k) {
   splx = (simplex_solver_t *) arith_solver;
 
   fprintf(trace_file, "Simplex derived bound [dlevel = %"PRId32", decisions = %"PRIu64"]\n\n",
-	  core->decision_level, core->stats.decisions);
+          core->decision_level, core->stats.decisions);
 
   fputs("Row: ", trace_file);
   trace_simplex_row(row);
@@ -1083,9 +1083,9 @@ static void trace_simplex_lower_bounds_as_antecedents(simplex_solver_t *solver, 
        * lower bound on (a * y) = a * lb[y] if a>0 or a * ub[y] if a < 0
        */
       if (q_is_pos(&row->data[i].coeff)) {
-	k = arith_var_lower_index(&solver->vtbl, y);
+        k = arith_var_lower_index(&solver->vtbl, y);
       } else {
-	k = arith_var_upper_index(&solver->vtbl, y);
+        k = arith_var_upper_index(&solver->vtbl, y);
       }
       assert(k >= 0);
       fputs("  ", trace_file);
@@ -1107,9 +1107,9 @@ static void trace_simplex_upper_bounds_as_antecedents(simplex_solver_t *solver, 
        * upper bound on (a * y) = a * ub[y] if a>0 or a * lb[y] if a < 0
        */
       if (q_is_pos(&row->data[i].coeff)) {
-	k = arith_var_upper_index(&solver->vtbl, y);
+        k = arith_var_upper_index(&solver->vtbl, y);
       } else {
-	k = arith_var_lower_index(&solver->vtbl, y);
+        k = arith_var_lower_index(&solver->vtbl, y);
       }
       assert(k >= 0);
       fputs("  ", trace_file);
@@ -1147,7 +1147,7 @@ void trace_simplex_implied_lb(row_t *row, int32_t x, xrational_t *a) {
   splx = (simplex_solver_t *) arith_solver;
 
   fprintf(trace_file, "Simplex derived lb [dlevel = %"PRIu32", decisions = %"PRIu64"]\n",
-	  core->decision_level, core->stats.decisions);
+          core->decision_level, core->stats.decisions);
 
   fputs("Row: ", trace_file);
   trace_simplex_row(row);
@@ -1181,7 +1181,7 @@ void trace_simplex_implied_ub(row_t *row, int32_t x, xrational_t *a) {
   splx = (simplex_solver_t *) arith_solver;
 
   fprintf(trace_file, "Simplex derived ub [dlevel = %"PRIu32", decisions = %"PRIu64"]\n",
-	  core->decision_level, core->stats.decisions);
+          core->decision_level, core->stats.decisions);
 
   fputs("Row: ", trace_file);
   trace_simplex_row(row);
@@ -1212,7 +1212,7 @@ void trace_simplex_implied_literal(int32_t k, literal_t l) {
   if (! tracer_ready) return;
 
   fprintf(trace_file, "Simplex implied literal [dlevel = %"PRIu32", decisions = %"PRIu64"]\n", 
-	  core->decision_level, core->stats.decisions);
+          core->decision_level, core->stats.decisions);
   
   fputs("Bound: ", trace_file);
   trace_simplex_bound(k);
@@ -1254,7 +1254,7 @@ void trace_simplex_multiprops(row_t *row, ivector_t *v, ivector_t *w) {
   if (! tracer_ready) return;
 
   fprintf(trace_file, "Simplex multiple props [dlevel = %"PRIu32", decisions = %"PRIu64"]\n", 
-	  core->decision_level, core->stats.decisions);
+          core->decision_level, core->stats.decisions);
   fputs("        ", trace_file);
   trace_simplex_row(row);
   fputc('\n', trace_file);
@@ -1294,7 +1294,7 @@ void trace_tableau(void) {
   if (! tracer_ready) return;
 
   fprintf(trace_file, "Simplex tableau [dlevel = %"PRIu32", decisions = %"PRIu64"]\n",
-	  core->decision_level, core->stats.decisions);
+          core->decision_level, core->stats.decisions);
 
   splx = (simplex_solver_t *) arith_solver;
   matrix = &splx->matrix;

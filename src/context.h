@@ -151,7 +151,7 @@ typedef enum {
 #define LIA_MASK       0x10
 #define LRA_MASK       0x20
 #define LIRA_MASK      0x40
-#define NLIRA_MASK     0x80     // non-linear arithmeatic
+#define NLIRA_MASK     0x80     // non-linear arithmetic
 #define FUN_UPDT_MASK  0x100
 #define FUN_EXT_MASK   0x200
 #define QUANT_MASK     0x400
@@ -225,7 +225,7 @@ enum {
  *    - r if of the form t_0^d_0 x ... x t_n^d_n where t_0 ... t_n are arithmetic
  *      terms
  *    - map is an array of n+1 variables: map[i] = variable x_i mapped to t_i
- *    - the solver must return an arithmetic varable y equal to (x_0^d_0 x ... x x_n^d_n)
+ *    - the solver must return an arithmetic variable y equal to (x_0^d_0 x ... x x_n^d_n)
  *
  *
  * Atom constructors
@@ -338,7 +338,7 @@ typedef literal_t (*create_arith_patom_fun_t)(void *solver, polynomial_t *p, thv
 typedef literal_t (*create_arith_vareq_atom_fun_t)(void *solver, thvar_t x, thvar_t y);
 
 typedef void (*assert_arith_axiom_fun_t)(void *solver, thvar_t x, bool tt);
-typedef void (*assert_arith_paxiom_fun_t)(void *solvr, polynomial_t *p, thvar_t *map, bool tt);
+typedef void (*assert_arith_paxiom_fun_t)(void *solver, polynomial_t *p, thvar_t *map, bool tt);
 typedef void (*assert_arith_vareq_axiom_fun_t)(void *solver, thvar_t x, thvar_t y, bool tt);
 typedef void (*assert_arith_cond_vareq_axiom_fun_t)(void* solver, literal_t c, thvar_t x, thvar_t y);
 
@@ -690,7 +690,7 @@ enum {
  * If arch is one of the ARCH_AUTO_... variants, then mode must be ONECHECK
  */
 extern void init_context(context_t *ctx, term_table_t *terms, 
-			 context_mode_t mode, context_arch_t arch, bool qflag);
+                         context_mode_t mode, context_arch_t arch, bool qflag);
 
 
 /*
@@ -806,7 +806,7 @@ extern void context_stop_search(context_t *ctx);
 
 /*
  * Cleanup after check is interrupted
- * - must not be called if the clean_interupt option is disabled
+ * - must not be called if the clean_interrupt option is disabled
  * - restore the context to a good state (status = IDLE)
  */
 extern void context_cleanup(context_t *ctx);
@@ -912,7 +912,7 @@ extern void disable_splx_periodic_icheck(context_t *ctx);
 
 
 /*
- * Chek which options are enabled
+ * Check which options are enabled
  */
 static inline bool context_var_elim_enabled(context_t *ctx) {
   return (ctx->options & VARELIM_OPTION_MASK) != 0;

@@ -546,9 +546,9 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
     r = set_double_param(value, &x, 0.0, (double) FLT_MAX);
     if (r == 0) {
       if (x > 0.0) {
-	parameters->aux_eq_ratio = (float) x;
+        parameters->aux_eq_ratio = (float) x;
       } else {
-	r = -2;
+        r = -2;
       }
     }
     break;

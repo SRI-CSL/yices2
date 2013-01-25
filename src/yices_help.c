@@ -1624,8 +1624,8 @@ static void help_variant(FILE *f, const char *topic, const char *aux, int32_t id
   if (r1->example != NULL || r2->example != NULL) {
     fputs("Example", f);
     if ((r1->example != NULL && r2->example != NULL) 
-	|| (r1->example != NULL && multiple_lines(r1->example))
-	|| (r2->example != NULL && multiple_lines(r2->example))) {
+        || (r1->example != NULL && multiple_lines(r1->example))
+        || (r2->example != NULL && multiple_lines(r2->example))) {
       fputc('s', f);
     }
     fputs(":\n\n", f);
@@ -1855,7 +1855,7 @@ void show_help(FILE *f, const char *topic) {
       index->proc(f, topic, index->aux, index->idx);
     } else {
       fputs("\nSorry, nothing relevant\n"
-	    "\nTry '(help index)' for a list of help topics\n\n", f);
+            "\nTry '(help index)' for a list of help topics\n\n", f);
     }
   }
 

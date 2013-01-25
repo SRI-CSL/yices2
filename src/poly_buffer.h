@@ -386,7 +386,7 @@ extern int32_t poly_buffer_nonconstant_convert_to_var(poly_buffer_t *buffer);
 
 
 /*
- * Given p = content of buffer, check whehter (p == 0) can be rewritten
+ * Given p = content of buffer, check whether (p == 0) can be rewritten
  * to x = a where x is a variable and a is a rational constant.
  * - if so return the variable index x and copy the constant in a
  * - otherwise, return null_idx and leave a unchanged

@@ -158,8 +158,8 @@ static harray_t *merge_fvar_sets(fvar_collector_t *collect, harray_t **a, uint32
     for (i=1; i<n; i++) {
       c = a[i];
       if (c != b) {
-	fvar_merge(v, aux, b);
-	b = c;
+        fvar_merge(v, aux, b);
+        b = c;
       }
     }
 

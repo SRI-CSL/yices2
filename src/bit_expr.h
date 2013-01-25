@@ -39,7 +39,7 @@
  *   a node occurrence u_i is a 32 bit integer formatted as
  *     [0|node index|polarity bit]
  *   polarity 0 means positive occurrence
- *   polarity 1 measn negative occurrence
+ *   polarity 1 means negative occurrence
  * - there are five types of nodes
  *   - the constant node: 0
  *   - variable node: (term-idx i) where i is an integer
@@ -140,7 +140,7 @@ enum {
 
 
 /*
- * Node desciptor:
+ * Node descriptor:
  * - either an integer (for a variable node)
  * - of a pair index, var (for a select node)
  * - or a pair of bits (for a binary node).
@@ -321,7 +321,7 @@ extern bit_t bit_xor(node_table_t *table, bit_t *b, uint32_t n);
 
 
 /*
- * GARGAGE COLLECTION
+ * GARBAGE COLLECTION
  */
 // increment the reference counter
 static inline void node_table_incref(node_table_t *table) {
