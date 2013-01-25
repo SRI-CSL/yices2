@@ -78,7 +78,7 @@
  * - top = top of the stack
  * - size = full size of array data
  */
-typedef struct remap_undo_stack_s {anything
+typedef struct remap_undo_stack_s {
   uint32_t size;
   uint32_t top;
   int32_t *data;

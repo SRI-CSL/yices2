@@ -68,7 +68,7 @@ typedef struct bvc_queue_s {
  * - in_queue = set of all elements in the queue
  */
 typedef struct bvc_s {
-  bv_vartable_t *vtol;
+  bv_vartable_t *vtbl;
   mtbl_t *mtbl;
   int_hmap_t cmap;
   bvc_queue_t elemexp;
