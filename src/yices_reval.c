@@ -697,7 +697,7 @@ static void process_command_line(int argc, char *argv[]) {
     mode = (context_mode_t) mode_code;
     if ((logic_code == QF_IDL || logic_code == QF_RDL) && arch != CTX_ARCH_SPLX) {
       if (mode != CTX_MODE_ONECHECK) {
-        fprintf(stderr, "%s: the Floyd-Warshal solvers support only mode='one-shot'\n", parser.command_name);
+        fprintf(stderr, "%s: the Floyd-Warshall solvers support only mode='one-shot'\n", parser.command_name);
         goto bad_usage;
       }
     }

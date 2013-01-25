@@ -19,7 +19,7 @@
  * - flags = whether the block starts with '('
  *         + whether a space or line break is required after the label
  * - indent = indentation level (for M and V layouts)
- * - short_indent = identation in T layout.
+ * - short_indent = indentation in T layout.
  */
 typedef struct pp_open_desc_s {
   char *label;

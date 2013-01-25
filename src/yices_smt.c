@@ -1676,7 +1676,7 @@ static bool benchmark_reduced_to_false(smt_benchmark_t *bench) {
 /*
  * MAIN SOLVER FUNCTION
  * - parse input file (assumed to be in SMT-LIB format)
- * - solve bechmark
+ * - solve benchmark
  * - return an exit code (defined in yices_exit_codes.h)
  */
 static int process_benchmark(char *filename) {
