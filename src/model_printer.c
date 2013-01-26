@@ -626,7 +626,7 @@ void model_print_full(FILE *f, model_t *model) {
  */
 
 /*
- * Print the assingment for i in model
+ * Print the assignment for i in model
  */
 void model_pp_term_value(yices_pp_t *printer, model_t *model, term_t t) {
   int_hmap_pair_t *r;

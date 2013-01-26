@@ -96,7 +96,7 @@ static bool is_power_of_two(uint32_t n) {
 
 /*
  * Initialization:
- * - n = initial size (nmust be a power of 2)
+ * - n = initial size (must be a power of 2)
  * - if n = 0, the default initial size is used
  */
 void init_tuple_hmap(tuple_hmap_t *hmap, uint32_t n) {
@@ -447,7 +447,7 @@ void tuple_hmap_remove(tuple_hmap_t *hmap, uint32_t n, int32_t key[]) {
  * Garbage collection
  * - f is a function that indicates whether a record should be kept or not
  * - aux is an auxiliary pointer passed as argument to f
- * The function scans the hash tabe and calls f(aux, r) for every record r
+ * The function scans the hash table and calls f(aux, r) for every record r
  * in the table. If f returns false, r is deleted, otherwise, r is kept.
  */
 void tuple_hmap_gc(tuple_hmap_t *hmap, void *aux, tuple_hmap_keep_fun_t f) {

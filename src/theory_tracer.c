@@ -41,7 +41,7 @@ typedef enum {
  * - egraph
  * - arith_solver
  * - bit vector solver
- * - arrady solver
+ * - array solver
  */
 static FILE *trace_file = NULL;
 static char *file_name = NULL;

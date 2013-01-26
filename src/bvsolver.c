@@ -574,7 +574,7 @@ static uint32_t used_vals_new_set(used_bvval_t *used_vals) {
 
 /*
  * Return the set descriptor for bit-vectors of size k
- * - allocate and initialize a new desciptor if necessary
+ * - allocate and initialize a new descriptor if necessary
  * - for a new descriptor, the internal small_set or red-black tree is NULL
  */ 
 static bvset_t *used_vals_get_set(used_bvval_t *used_vals, uint32_t k) {
@@ -1549,7 +1549,7 @@ static void bv_solver_save_delayed_var(bv_solver_t *solver, thvar_t x) {
 
 /*
  * Recursive bit-blasting:
- * - if x is biblasted already: do nothing
+ * - if x is bitblasted already: do nothing
  */
 static void bv_solver_bitblast_variable(bv_solver_t *solver, thvar_t x) {
   bv_vartable_t *vtbl;
@@ -2670,7 +2670,7 @@ static thvar_t get_zero(bv_solver_t *solver, uint32_t nbits) {
 
 
 /*
- * Build the oppposite of constant a
+ * Build the opposite of constant a
  */
 static inline thvar_t get_opp_bvconst64(bv_solver_t *solver, uint64_t a, uint32_t nbits) {
   assert(1 <= nbits && nbits <= 64);
@@ -3019,7 +3019,7 @@ static void simplify_bvpoly_eq_term(bv_solver_t *solver, bvpoly_t *p, thvar_t t,
  * - on entry, x and y must be stored in *vx and *vy
  * - x and y must be root in solver->mtbl
  * - on exit, the simplified form is stored in *vx and *vy
- * - return true if the equality was simplfied (i.e. if *vx != x or *vy != y)
+ * - return true if the equality was simplified (i.e. if *vx != x or *vy != y)
  */
 static bool simplify_eq(bv_solver_t *solver, thvar_t *vx, thvar_t *vy) {
   bv_vartable_t *vtbl;
@@ -4213,7 +4213,7 @@ static bool diseq_bvvar(bv_solver_t *solver, thvar_t x, thvar_t y) {
  */
 
 /*
- * Check diequalities using asserted bounds
+ * Check disequalities using asserted bounds
  * - x and y are variables
  * - n = number of bits
  * - return true if x and y 
@@ -4352,7 +4352,7 @@ static thvar_t simplify_expanded_poly(bv_solver_t *solver, bvarith_buffer_t *b) 
 
   } else if (n == 1) {
     m = b->list; // unique monomial of b
-    r = m->prod; // power product in this mononial
+    r = m->prod; // power product in this monomial
     if (r == empty_pp) {
       // b is a constant
       x = get_bvconst(vtbl, nbits, m->coeff);
@@ -4386,7 +4386,7 @@ static thvar_t simplify_expanded_poly64(bv_solver_t *solver, bvarith64_buffer_t 
 
   } else if (n == 1) {
     m = b->list; // unique monomial of b
-    r = m->prod; // power product in this mononial
+    r = m->prod; // power product in this monomial
     if (r == empty_pp) {
       // b is a constant
       x = get_bvconst64(vtbl, nbits, m->coeff);
@@ -4714,7 +4714,7 @@ static uint64_t bvarray_to_uint64(literal_t *a, uint32_t n) {
 
 
 /*
- * Convert constant array a[0 ... n-1] to a bitvecotr constant
+ * Convert constant array a[0 ... n-1] to a bitvector constant
  * - copy the result in c
  */
 static void bvarray_to_bvconstant(literal_t *a, uint32_t n, bvconstant_t *c) {
@@ -4817,7 +4817,7 @@ thvar_t bv_solver_create_const64(bv_solver_t *solver, bvconst64_term_t *c) {
  * Internalize a polynomial p:
  * - map = variable renaming
  *   if p is of the form a_0 t_0 + ... + a_n t_n
- *   then map containts n+1 variables, and map[i] is the internalization of t_i
+ *   then map contains n+1 variables, and map[i] is the internalization of t_i
  * - exception: if t_0 is const_idx then map[0] = null_thvar
  */
 thvar_t bv_solver_create_bvpoly(bv_solver_t *solver, bvpoly_t *p, thvar_t *map) {
@@ -5981,7 +5981,7 @@ static literal_t on_the_fly_eq_atom(bv_solver_t *solver, thvar_t x, thvar_t y) {
       atbl->data[i].lit = l;
       v = var_of(l);
       if (bvar_has_atom(solver->core, v)) {
-        // neeed a fresh variable
+        // need a fresh variable
         v = create_boolean_variable(solver->core);
         l0 = pos_lit(v);
         atbl->data[i].lit = l0;
@@ -6324,10 +6324,10 @@ static void bv_solver_add_conflict(bv_solver_t *solver, ivector_t *v) {
 
 
 /*
- * Check whether x1 and x2 are distinct in the current asignmment
+ * Check whether x1 and x2 are distinct in the current assignment
  * - x1 and x2 are two variables attached to egraph terms t1 and t2
  * - the egraph has propagated the equality x1 == x2
- * - if (x1 != x2), generate a theory conflict and retrun true
+ * - if (x1 != x2), generate a theory conflict and return true
  * - return false if there's no conflict
  */
 static bool bv_solver_bvequiv_conflict(bv_solver_t *solver, thvar_t x1, thvar_t x2) {
@@ -6416,7 +6416,7 @@ static bool bv_solver_bvequiv_conflict(bv_solver_t *solver, thvar_t x1, thvar_t 
  * - disequalities are handled lazily in reconcile_model
  * - for all equalities (x == y) in the queue, we create the 
  *   lemma (bveq x1 x2) <=> (t1 == t2)
- * - return false if a conflict is detected (and record a theoy conflict in the core)
+ * - return false if a conflict is detected (and record a theory conflict in the core)
  */
 static bool bv_solver_process_egraph_assertions(bv_solver_t *solver) {
   eassertion_t *a, *end;
@@ -7471,7 +7471,7 @@ uint32_t bv_solver_reconcile_model(bv_solver_t *solver, uint32_t max_eq) {
  */
 
 /*
- * Prepare model and relase model: nothing to do
+ * Prepare model and release model: nothing to do
  * - equal_in_model is the same as bv_solver_var_equal_in_model (defined above)
  */
 static void bv_solver_prepare_model(bv_solver_t *solver) {
@@ -7984,7 +7984,7 @@ static bool bv_solver_pprod_value(bv_solver_t *solver, pprod_t *p, uint32_t n, u
 /*
  * Compute the value of x based on its definition
  * - check the val_map first: if x's value is in the map return it
- * - otherwise, compue if then add it to the val_map
+ * - otherwise, compute if then add it to the val_map
  *
  * - return true if the value can be computed/false otherwise
  */

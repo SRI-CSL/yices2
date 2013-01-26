@@ -578,7 +578,7 @@ static inline dl_list_t *header_of_param_structure(param_t *p) {
 }
 
 /*
- * Allocate a structure and insert it into the generict
+ * Allocate a structure and insert it into the generic
  * WARNING: the record is not initialized
  */
 static inline ctx_config_t *alloc_config_structure(void) {
@@ -598,7 +598,7 @@ static inline param_t *alloc_param_structure(void) {
 }
 
 /*
- * Remove a strcuture form the generic list
+ * Remove a structure form the generic list
  */
 static inline void free_config_structure(ctx_config_t *c) {
   dl_list_t *elem;
@@ -796,7 +796,7 @@ EXPORTED void yices_exit(void) {
 
 
 /*
- * Full reset: delete everythinng
+ * Full reset: delete everything
  */
 EXPORTED void yices_reset(void) {
   yices_exit();
@@ -1216,7 +1216,7 @@ static bool check_arg_types(term_manager_t *mngr, uint32_t n, term_t *a, type_t 
   return true;
 }
 
-// check whether (f a[0] ... a[n-1]) is typecorrect
+// check whether (f a[0] ... a[n-1]) is type correct
 static bool check_good_application(term_manager_t *mngr, term_t f, uint32_t n, term_t *a) {
   term_table_t *tbl;
   function_type_t *ft;
@@ -1275,7 +1275,7 @@ static bool check_arith_term(term_manager_t *mngr, term_t t) {
   return true;
 }
 
-// check whether t is an arihtmetic constant, t must be valid
+// check whether t is an arithmetic constant, t must be valid
 static bool check_arith_constant(term_manager_t *mngr, term_t t) {
   term_table_t *tbl;
 
@@ -1944,6 +1944,7 @@ EXPORTED term_t yices_neq(term_t left, term_t right) {
 
   return mk_neq(&manager, left, right);
 }
+
 
 /*
  * BOOLEAN NEGATION
@@ -4425,7 +4426,7 @@ bool yices_check_bvextract(uint32_t n, int32_t i, int32_t j) {
 /*
  * Check whether repeat_concat(b, n) is valid
  * - return true if it is
- * - returm false and set errort report if it's not.
+ * - return false and set error report if it's not.
  *
  * Error report:
  * if n <= 0
@@ -4500,7 +4501,7 @@ bool yices_check_bvextend(bvlogic_buffer_t *b, int32_t n) {
  *
  * In all cases, the function set the error report and
  * return false if there's an overflow:
- *   code = DEGREE_OVEFLOW
+ *   code = DEGREE_OVERFLOW
  *   badval = degree of the product
  *
  * All return true if there's no overflow.
@@ -4577,7 +4578,7 @@ bool yices_check_bvmul_buffer(bvarith_buffer_t *b1, bvarith_buffer_t *b2) {
  * - every occurrence of var[i] in t is replaced by map[i]
  * 
  *
- * Return the resuting term or NULL_TERM if there's an error.
+ * Return the resulting term or NULL_TERM if there's an error.
  *
  * Error codes:
  * - INVALID_TERM if var[i] or map[i] is not valid
@@ -5089,7 +5090,7 @@ EXPORTED int32_t yices_set_param(param_t *param, const char *name, const char *v
 
 /*
  * Set the default preprocessing options for a context
- * - arch = architeture
+ * - arch = architecture
  * - iflag = true if integer solver is active
  * - qflag = true if quantifier support is required
  *
@@ -5124,7 +5125,7 @@ static void context_set_default_options(context_t *ctx, context_arch_t arch, boo
 
 
 /*
- * Allocate and initalize a new context.
+ * Allocate and initialize a new context.
  * The configuration is specified by arch/mode/iflag/qflag.
  * - arch = architecture to use
  * - mode = which optional features are supported
@@ -5338,7 +5339,7 @@ static inline void convert_internalization_error(int32_t code) {
  *
  * If ctx's status is UNSAT, nothing is done.
  * 
- * If cts's status is IDLE, SAT, or UNKNONW, then the formula is
+ * If ctx's status is IDLE, SAT, or UNKNOWN, then the formula is
  * simplified and asserted in the context. The context status is
  * changed to UNSAT if the formula is simplified to 'false' or
  * to IDLE if it does not simplify to false.
@@ -5593,7 +5594,7 @@ static param_t default_params;
 /*
  * Check satisfiability: check whether the assertions stored in ctx
  * are satisfiable.  
- * - params is an optional structure that stores heurisitic parameters.
+ * - params is an optional structure that stores heuristic parameters.
  * - if params is NULL, default parameter settings are used.
  *
  * It's better to keep params=NULL unless you encounter performance

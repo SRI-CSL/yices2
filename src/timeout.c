@@ -257,7 +257,7 @@ void clear_timeout(void) {
      */
     if (! DeleteTimerQueueTimer(timer_queue, timer, INVALID_HANDLE_VALUE)) {
       error_code = (uint32_t) GetLastError();
-      // The microsoft doc says we should try again
+      // The Microsoft doc says we should try again
       // unless error code is ERROR_IO_PENDING??
       fprintf(stderr, "Yices: DeleteTimerQueueTimer failed with error code %"PRIu32"\n", error_code);
       fflush(stderr);

@@ -1,9 +1,9 @@
 /*
  * Abstract objects used by the array solver to construct models.
- * - an array variable is modeles as a mapping from [tau1 ... tau_n -> sigma]
+ * - an array variable is modeled as a mapping from [tau1 ... tau_n -> sigma]
  * - tau_1 ... tau_n and sigma are types defined in the global type table 
  *
- * An array A is sepcified via a finite number of mappings
+ * An array A is specified via a finite number of mappings
  *        [x_11 ... x_1n -> y_1]
  *           ...
  *        [x_m1 ... x_mn -> y_m]
@@ -820,7 +820,7 @@ particle_t get_new_particle(pstore_t *store, type_t tau) {
  * tau[0] x ... x tau[n-1], we want to construct a particle k distinct
  * from a[0] ... a[p-1]. To do this, we sort elements of a in
  * lexicographic order. Because all types have finitely many particles,
- * we can define the successor and precedessor (succ(a), pre(a)) of any
+ * we can define the successor and predecessor (succ(a), pre(a)) of any
  * element a of type tau[0] x ... x tau[n-1] in the lexicographic order 
  * (except the first and last elements). To find an element not in 
  *  a[0 ... p-1], we search for a[i] such that a' = suc(a[i]) or pre(a[i]) 

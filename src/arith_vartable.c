@@ -299,7 +299,7 @@ void arith_vartable_remove_eterms(arith_vartable_t *table, uint32_t nterms) {
 
 /*
  * Collect the set of integer variables as a bit vector
- * - i.e., retrun a bitvector V of size n = table->nvars
+ * - i.e., return a bitvector V of size n = table->nvars
  * - bit i of V is 1 if variable i has integer type.
  * - V must be deleted when no longer used by calling delete_bitvector(V)
  *   (cf. bitvectors.h)

@@ -267,7 +267,7 @@ bool term_has_nonneg_finite_domain(term_table_t *tbl, term_t t) {
 
 /*
  * Check whether all elements in t's domain are negative
- * - t must be a special if-then-else term of arithemtic type
+ * - t must be a special if-then-else term of arithmetic type
  * - the domain of t is computed if required
  */
 bool term_has_negative_finite_domain(term_table_t *tbl, term_t t) {

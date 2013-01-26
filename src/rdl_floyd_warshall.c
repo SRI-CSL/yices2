@@ -127,7 +127,7 @@ static inline bool rdl_const_eq(rdl_const_t *c1, rdl_const_t *c2) {
  * Comparisons between c and a rational q
  * - rdl_const_le_q(c, q) tests whether c <= q
  * - rdl_const_lt_q(c, q) tests whether c < q
- * - rdl_const_eq_q(c, q) tests whehter c = q
+ * - rdl_const_eq_q(c, q) tests whether c = q
  */
 static inline bool rdl_const_le_q(rdl_const_t *c, rational_t *q) {
   return q_lt(&c->q, q) || (q_eq(&c->q, q) && c->delta <= 0);
@@ -571,7 +571,7 @@ static inline void resize_rdl_graph(rdl_graph_t *graph, uint32_t n) {
 
 
 /*
- * Get number of egdes and saved cells
+ * Get number of edges and saved cells
  */
 static inline uint32_t rdl_graph_num_edges(rdl_graph_t *graph) {
   return graph->edges.top;
@@ -838,7 +838,7 @@ static void init_rdl_atbl(rdl_atbl_t *table, uint32_t n) {
   table->mark = allocate_bitvector(n);
 
   // table->free_list[-1] is the list header
-  // the list is initiallly empty
+  // the list is initially empty
   tmp = (rdl_listelem_t *) safe_malloc((n+1) * sizeof(rdl_listelem_t));
   tmp[0].pre = -1;
   tmp[0].next = -1;
@@ -1214,7 +1214,7 @@ static inline void delete_rdl_astack(rdl_astack_t *stack) {
  * The initial record for decision level 0 must be initialized with
  * - number of egdes = -1
  * - number of saved cells = 0
- * - numbef of atoms = 0
+ * - number of atoms = 0
  */
 
 /*
@@ -1379,7 +1379,7 @@ static inline void delete_rdl_trail_stack(rdl_trail_stack_t *stack) {
 
 /*
  * Create a new vertex and return its index
- * - return null_rdl_verex if there are too many vertices
+ * - return null_rdl_vertex if there are too many vertices
  */
 int32_t rdl_new_vertex(rdl_solver_t *solver) {
   uint32_t n;
@@ -1584,7 +1584,7 @@ static void rdl_axiom_edge(rdl_solver_t *solver, int32_t x, int32_t y, rdl_const
   /*
    * save limit for add_edge: 
    * k = top edge id stored in the top record of the undo stack
-   * if base level == 0, k = -1, so nothing wiell be saved
+   * if base level == 0, k = -1, so nothing will be saved
    */
   assert(solver->stack.top == solver->decision_level + 1);
   k = rdl_undo_stack_top(&solver->stack)->edge_id;
@@ -1717,7 +1717,7 @@ static literal_t *gen_rdl_prop_antecedent(rdl_solver_t *solver, int32_t x, int32
 
 /*
  * Check whether atom i (or its negation) is implied by the graph
- * - if so, progate the literal to the core
+ * - if so, propagate the literal to the core
  * - add the atom index to the propagation queue
  *   (this is required for backtracking)
  * Side effect: modifies solver->c1
@@ -2804,7 +2804,7 @@ static void rdl_get_value_for_new_vertex(rdl_solver_t *solver, int32_t x, ration
 
   q_clear(v); // set default to 0
 
-  // scan precedessors and increase v if needed
+  // scan predecessors and increase v if needed
   for (y=0; y<n; y++) {
     cell = rdl_cell(m, y, x);
     if (cell->id > 0 && tst_bit(mark, y)) {
@@ -3030,7 +3030,7 @@ static arith_interface_t rdl_intern = {
  ****************/
 
 /*
- * Initialze solver: 
+ * Initialize solver: 
  * - core = attached smt_core solver
  * - gates = the attached gate manager
  */

@@ -4778,7 +4778,7 @@ static void eval_mk_bv_le(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
- * [mk-bv-lt <bv> <abv>]
+ * [mk-bv-lt <bv> <bv>]
  */
 static void check_mk_bv_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, MK_BV_LT);

@@ -82,7 +82,7 @@ void arith_buffer_sub_term(arith_buffer_t *b, term_table_t *table, term_t t) {
 
 
 /*
- * Mulitply b by t
+ * Multiply b by t
  * - t must be an arithmetic term
  * - b->ptbl and table->pprods must be equal
  */

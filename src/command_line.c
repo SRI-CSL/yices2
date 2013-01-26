@@ -447,7 +447,7 @@ static void parse_short_option(cmdline_parser_t *p, cmdline_elem_t *e, char *a) 
 
 
 /*
- * Parse string a as a long opion (leading '--' have been removed)
+ * Parse string a as a long option (leading '--' have been removed)
  */
 static void parse_long_option(cmdline_parser_t *p, cmdline_elem_t *e, char *a) {
   option_desc_t *d;
@@ -456,7 +456,7 @@ static void parse_long_option(cmdline_parser_t *p, cmdline_elem_t *e, char *a) {
 
   e->format = cmdline_long;
   if (a[0] == '\0') {
-    // '--' option: interpret the next argument as a generic paramater
+    // '--' option: interpret the next argument as a generic parameter
     i = p->scan_index;
     if (i < p->argc) {
       e->status = cmdline_argument;

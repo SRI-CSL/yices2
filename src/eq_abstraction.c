@@ -77,7 +77,7 @@ void init_epartition_manager(epartition_manager_t *m) {
   m->sc_size = n;
   m->subclass = (int32_t *) safe_malloc(n * sizeof(int32_t));
   
-  // sublcass[i] must be -1 for all i
+  // subclass[i] must be -1 for all i
   for (i=0; i<n; i++) {
     m->subclass[i] = -1;
   }
@@ -452,7 +452,7 @@ epartition_t *epartition_get_meet(epartition_manager_t *m) {
 
 /*
  * Split/join operations construct a partition in m by splitting classes of m
- * into smalller subclasses. In this mode, terms are not labeled by their 
+ * into smaller subclasses. In this mode, terms are not labeled by their 
  * class id, but the label array is used internally by epartition_join
  */
 

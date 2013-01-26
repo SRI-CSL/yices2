@@ -446,7 +446,7 @@ const char *smt2_keyword_to_string(smt2_keyword_t kw) {
  * - return code:
  *   SMT2_TK_STRING if the string is valid
  *   SMT2_TK_INVALID_STRING if the string is terminated by 
- *   a non-printable characeter
+ *   a non-printable character
  *
  * NOTE: this is not strictly compliant with the SMT-LIB 2.0
  * standard as we may include non-ascii printable characters
@@ -852,7 +852,7 @@ static smt2_token_t smt2_read_quoted_symbol(lexer_t *lex) {
 /*
  * Read the next token and return its code tk
  * - set lex->token to tk
- * - set lex->tk_pos ect
+ * - set lex->tk_pos
  * - if the token is not '(' or ')', then its value is in lex->buffer
  *   as a string
  */

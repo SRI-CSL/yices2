@@ -147,7 +147,7 @@ static void bvc_move_list(bvc_item_t *list, int32_t k, int32_t j) {
 }
 
 /*
- * Restore the elementary or dafault list from the aux list
+ * Restore the elementary or default list from the aux list
  */
 void bvc_move_aux_to_elem_list(bvc_dag_t *dag) {
   bvc_move_list(dag->list, BVC_DAG_AUX_LIST, BVC_DAG_ELEM_LIST);
@@ -2918,7 +2918,7 @@ void bvc_dag_force_elem_node(bvc_dag_t *dag) {
  * - to encode the signs, we return either bvp(x) or bvn(x)
  *   where x is a variable
  *     bvp(x) means that n is compiled to x
- *     bvn(x) means that n is compoled to (bvneg x)
+ *     bvn(x) means that n is compiled to (bvneg x)
  * - in all other cases, the function returns -1
  */
 int32_t bvc_dag_get_nocc_compilation(bvc_dag_t *dag, node_occ_t n) {

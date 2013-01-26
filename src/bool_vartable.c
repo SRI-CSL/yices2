@@ -791,7 +791,7 @@ static bvar_t get_bor(bool_vartable_t *table, uint32_t n, literal_t *a) {
 
 
 /*
- * ELEMENTATY OPERATIONS ON TRUTH TABLES
+ * ELEMENTARY OPERATIONS ON TRUTH TABLES
  */
 
 /*
@@ -800,7 +800,7 @@ static bvar_t get_bor(bool_vartable_t *table, uint32_t n, literal_t *a) {
  *                    label by x and fix the bit mask (permutation)
  * - swap two adjacent columns
  * - remove irrelevant columns
- * - merge adjacnet columns if they're labeled with the same variable
+ * - merge adjacent columns if they're labeled with the same variable
  * - remove column 0 if it's labeled with variable 0 (i.e., column 0 is the true constant)
  */
 
@@ -874,7 +874,7 @@ static inline uint8_t merge12(uint8_t b) {
 }
 
 /*
- * Check whether column 0 is irrrelevant
+ * Check whether column 0 is irrelevant
  * - i.e. whether (b7 b6 b5 b4) == (b3 b2 b1 b0)
  */
 static inline bool irrelevant0(uint8_t b) {
@@ -1367,7 +1367,7 @@ literal_t make_and(bool_vartable_t *table, uint32_t n, literal_t *a) {
 
 
 /*
- * N-ary XOR contructor
+ * N-ary XOR constructor
  */
 literal_t make_xor(bool_vartable_t *table, uint32_t n, literal_t *a) {
   literal_t l;

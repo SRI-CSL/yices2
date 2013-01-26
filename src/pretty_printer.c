@@ -822,9 +822,9 @@ static bool subblocks_fit_horizontally(printer_t *p, pp_open_token_t *tk) {
  * Push the print state specified by open token tk onto
  * the stack.
  * - tk->formats specify the next print mode
- * - tk->indent or tk->short_ident is added to the current 
+ * - tk->indent or tk->short_indent is added to the current 
  *   indentation
- * - if tk->sep is 0 (no sepatator) then no_space and no_break 
+ * - if tk->sep is 0 (no separator) then no_space and no_break 
  *   are set true
  *
  * The new mode and indentation are chosen according to the 
@@ -1079,7 +1079,7 @@ static void delete_block_queue(pp_block_queue_t *q) {
 
 
 /*
- * Make the data arry 50% larger
+ * Make the data array 50% larger
  */
 static void extend_block_queue(pp_block_queue_t *q) {
   uint32_t n;

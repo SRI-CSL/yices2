@@ -270,7 +270,7 @@ static int32_t int_htbl_store_new_obj(int_htbl_t *table, int_hrec_t *r, uint32_t
 
   v = o->build(o);
 
-  // error in build is signalled by returning v < 0
+  // error in build is signaled by returning v < 0
   if (v >= 0) {
     table->nelems ++;
     r->key = k;

@@ -1257,7 +1257,7 @@ static inline void reset_statistics(dpll_stats_t *stats) {
  * - n = initial vsize = size of the variable-indexed arrays
  * - th = theory solver
  * - ctrl = descriptor of control functions for th
- * - smt = desriptor of the SMT functions for th
+ * - smt = descriptor of the SMT functions for th
  * - mode = to select optional features
  * This creates the predefined "constant" variable and the true/false literals
  *
@@ -2252,7 +2252,7 @@ static inline void record_clause_conflict(smt_core_t *s, clause_t *cl) {
 /*
  * Externally generated conflict (i.e., by a theory solver)
  * - a must be an array of literals terminated by null_literal
- * - all literals in a must be false in the current assignement
+ * - all literals in a must be false in the current assignment
  */
 void record_theory_conflict(smt_core_t *s, literal_t *a) {
 #if TRACE
@@ -2834,7 +2834,7 @@ static bool try_cache_theory_clause(smt_core_t *s, uint32_t n, literal_t *a) {
 /*
  * Attempt to add a theory conflict as a learned clause
  * - a = array of literals
- * - n = size fo the array
+ * - n = size of the array
  * - all literals a[0] ... a[n-1] must be false
  * The clause is added if we can find two literals of level == s->decision_level.
  * Uses s->buffer2.
@@ -4220,7 +4220,7 @@ void remove_irrelevant_learned_clauses(smt_core_t *s) {
 
 
 /*********************************************************
- *  SIMPLICATION: REMOVE CLAUSES TRUE AT THE BASE LEVEL  *
+ *  SIMPLIFICATION: REMOVE CLAUSES TRUE AT THE BASE LEVEL  *
  ********************************************************/
 
 /*
@@ -4906,7 +4906,7 @@ void smt_checkpoint(smt_core_t *s) {
  *   1) s->cp_flag is true (i.e., after backtracking)
  *   2) the segment level is <= the current decision level in s
  *   3) all variables in the segment are unassigned.
- * - if these condistions hold, we remove all variables in [n, s->nvars - 1] 
+ * - if these conditions hold, we remove all variables in [n, s->nvars - 1] 
  *   and all the atoms attached to these variable, then we consider the next
  *   segment in the checkpoint stack.
  * - after this, we remove all the clauses that refer to a deleted variables
@@ -5396,7 +5396,7 @@ void smt_final_check(smt_core_t *s) {
     case FCHECK_CONTINUE:
       /*
        * deal with conflicts or lemmas if any.
-       * leave status as it is so that the search can proceeed
+       * leave status as it is so that the search can proceed
        */
       smt_process(s);
       break;

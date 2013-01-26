@@ -96,7 +96,7 @@ uint64_t bvconst64_lshr(uint64_t a, uint64_t b, uint32_t n) {
 
 /*
  * Arithmetic shift right: (a >> b), padding with a's sign bit
- * - n = number of bist in a and b
+ * - n = number of bits in a and b
  * - if b is more than n, return 0b00000 or 0b11111 depending on a's sign bit
  * - the result is normalized.
  */
@@ -293,7 +293,7 @@ int32_t bvconst64_set_from_string(uint64_t *a, uint32_t n, char *s) {
  *
  * Read the first n characters of s.
  * All must be in the ranges '0' to '9' or 'a' to 'f' or 'A' to 'F'.
- * The string is read in big-endian foramt: first character defines
+ * The string is read in big-endian format: first character defines
  * the four high-order bits.
  *
  * Return -1 if the format is wrong (and leave *a unchanged).

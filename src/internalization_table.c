@@ -21,7 +21,7 @@
  *   It's not possible to merge two classes whose roots are both frozen.
  *
  *   If rank[r] is less than 255, then the root is free. This means
- *   that r is an uninterprreted term and is not mapped to any object
+ *   that r is an uninterpreted term and is not mapped to any object
  *   yet (i.e., map[r] = NULL). The class of r contains has size >=
  *   2^rank[r] and all elements in the class are uninterpreted. It's
  *   possible to merge the class of r with another class.

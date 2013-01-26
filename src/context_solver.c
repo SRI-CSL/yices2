@@ -331,7 +331,7 @@ smt_status_t check_context(context_t *ctx, const param_t *params, bool verbose) 
     }
 
     /*
-     * Set egraph paramters
+     * Set egraph parameters
      */
     if (egraph != NULL) {
       if (params->use_dyn_ack) {

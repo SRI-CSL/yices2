@@ -620,7 +620,7 @@ static void init_idl_atbl(idl_atbl_t *table, uint32_t n) {
   table->mark = allocate_bitvector(n);
 
   // table->free_list[-1] is the list header
-  // the list is initiallly empty
+  // the list is initially empty
   tmp = (idl_listelem_t *) safe_malloc((n+1) * sizeof(idl_listelem_t));
   tmp[0].pre = -1;
   tmp[0].next = -1;
@@ -783,7 +783,7 @@ static void mark_atom_assigned(idl_atbl_t *table, int32_t i) {
 
 
 /*
- * Record that atom i is no longer assigned: cleart is mark,
+ * Record that atom i is no longer assigned: clear its mark,
  * put it back into the free list
  */
 static void mark_atom_unassigned(idl_atbl_t *table, int32_t i) {
@@ -1360,7 +1360,7 @@ void idl_add_axiom_edge(idl_solver_t *solver, int32_t x, int32_t y, int32_t d) {
   /*
    * save limit for add_edge: 
    * k = top edge id stored in the top record of the undo stack
-   * if base level == 0, k = -1, so nothing wiell be saved
+   * if base level == 0, k = -1, so nothing will be saved
    */
   assert(solver->stack.top == solver->decision_level + 1);
   k = idl_undo_stack_top(&solver->stack)->edge_id;
@@ -1463,7 +1463,7 @@ static literal_t *gen_idl_prop_antecedent(idl_solver_t *solver, int32_t x, int32
 
 /*
  * Check whether atom i (or its negation) is implied by the graph
- * - if so, progate the literal to the core
+ * - if so, propagate the literal to the core
  * - add the atom index to the propagation queue
  *   (this is required for backtracking)
  */

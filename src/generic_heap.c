@@ -15,7 +15,7 @@
  * Initialize heap
  * - n = initial size of the heap array. If n =0, use default
  * - m = initial size of the h_idx array. If m=0, use default
- * - cmp = comparision function
+ * - cmp = comparison function
  * - data = user data (used by cmp)
  */
 void init_generic_heap(generic_heap_t *heap, uint32_t n, uint32_t m, heap_cmp_fun_t cmp, void *data) {
@@ -44,7 +44,7 @@ void init_generic_heap(generic_heap_t *heap, uint32_t n, uint32_t m, heap_cmp_fu
   heap->idx = tmp;
   heap->idx_size = m;
 
-  // odering
+  // ordering
   heap->cmp = cmp;
   heap->data = data;
 }

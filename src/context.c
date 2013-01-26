@@ -1318,7 +1318,7 @@ static inline bool is_integer_root(context_t *ctx, term_t r) {
 
 
 /*
- * Check whethre t is in an integer or real class
+ * Check whether t is in an integer or real class
  */
 static inline bool in_integer_class(context_t *ctx, term_t t) {
   return is_integer_root(ctx, intern_tbl_get_root(&ctx->intern, t));
@@ -1465,7 +1465,7 @@ static void flatten_arith_eq0(context_t *ctx, term_t r, bool tt) {
   }
 }
 
-// r is (t1 == t2) for two arithemtic terms t1 and t2
+// r is (t1 == t2) for two arithmetic terms t1 and t2
 static void flatten_arith_eq(context_t *ctx, term_t r, bool tt) {
   composite_term_t *eq;
   term_t t1, t2, t;
@@ -2818,7 +2818,7 @@ static void add_type_constraints(context_t *ctx, occ_t t, type_t tau) {
  *
  * A more compact skolemization would be to assert:
  *   (= u  (tuple (tuple u2 u3) (tuple v2 v3)))
- * To eliminatre the variables u1 and u2.
+ * To eliminate the variables u1 and u2.
  */
 static void skolemize_tuple(context_t *ctx, occ_t u, type_t tau) {
   type_table_t *types;

@@ -271,7 +271,7 @@ static bool eq_hash_bvexp_hobj(bvexp_hobj_t *o, thvar_t i) {
 
 /*
  * Check whether the polynomial p stored in buffer is present in table
- * - if so, return the variable index i sucb that def[i] = p
+ * - if so, return the variable index i such that def[i] = p
  *   otherwise, return -1
  * - buffer must be normalized and h must be the hash code of p
  * - buffer->store must be the same as table->store (or table->store64).

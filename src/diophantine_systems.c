@@ -2359,7 +2359,7 @@ void dsolver_build_general_solution(dsolver_t *solver) {
  * that are enough to reduce  
  *    - b_k/a_kk - a_k1/a_kk x_1 - a_k2/a_kk x_2 ... - a_k{k-1}/a_kk x_{k-1}
  * to a constant. For example, the first substitution may be ignored if 
- * x_1 cancels out after applying other substittions. 
+ * x_1 cancels out after applying other substitutions. 
  *
  * All this is equivalent to finding a set of substitutions that reduce 
  *      a_k1 x_1 + a_k2 x_2 + ... + a_k{k-1} x_{k-1}
@@ -2751,7 +2751,7 @@ static void dsolver_expl_addmul_row(dsolver_t *solver, rational_t *a, int32_t i)
 
 
 /*
- * Second phase of explanation: collect elimininated columns 
+ * Second phase of explanation: collect eliminated columns 
  * - aux_buffer2 must be normalized and contain a polynomial in variables x_1, ..., x_n
  * - a substitution for x_j is defined by sol_row[x_j] = one row of the unimodular matrix U
  * - that row is of the form a_1 c_1 + ... + a_n c_n where c_1, ..., c_n are column indices

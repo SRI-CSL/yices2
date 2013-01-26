@@ -196,7 +196,7 @@ typedef enum param_key {
 
 #define NUM_PARAM_KEYS (PARAM_MAX_EXTENSIONALITY+1)
 
-// parameter names in lexigraphic ordering
+// parameter names in lexicographic ordering
 static const char *const param_key_names[NUM_PARAM_KEYS] = {
   "aux-eq-quota",
   "aux-eq-ratio",

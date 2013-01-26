@@ -225,7 +225,7 @@ static bool index_is_in_map(map_t *map, particle_t idx) {
 
 
 /*
- * For debugging: check whether map is in striclty increasing index order
+ * For debugging: check whether map is in strictly increasing index order
  */
 static bool map_is_normal(map_t *map) {
   uint32_t i, n;

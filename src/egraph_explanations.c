@@ -61,7 +61,7 @@
  * Antecedent for (distinct t_1 ... t_n) == false
  * The antecedent is EXPL_EQ(t_i, t_j) where t_i and t_j have label x
  * - c = composite term (distinct t_1 ... t_n)
- * - x = label (via which the simplication was detected)
+ * - x = label (via which the simplification was detected)
  * - k = index where the explanation must be stored in egraph->stack
  */
 void gen_distinct_simpl_antecedent(egraph_t *egraph, composite_t *c, elabel_t x, int32_t k) {
@@ -384,7 +384,7 @@ static void explain_eq(egraph_t *egraph, occ_t x, occ_t y) {
 
 /*
  * Check whether all edges on the path from t1 to t precede k
- * (i.e., whether t1 == t was true when egde k was added).
+ * (i.e., whether t1 == t was true when edge k was added).
  * - t must be an ancestor of t1
  */
 static bool path_precedes_edge(egraph_t *egraph, eterm_t t1, eterm_t t, int32_t k) {
@@ -813,7 +813,7 @@ static void explain_theory_equality(egraph_t *egraph, expl_tag_t id, eterm_t t1,
  */
 
 /*
- * Expand the marked egdes into a vector of literals
+ * Expand the marked edges into a vector of literals
  * - v = result vector: literals are added to it (v is not reset)
  */
 static void build_explanation_vector(egraph_t *egraph, ivector_t *v) {
@@ -1067,7 +1067,7 @@ void egraph_explain_disequality(egraph_t *egraph, occ_t t1, occ_t t2, ivector_t 
  * - hint must be a composite provided by the egraph in assert_disequality or assert_distinct
  *
  * WARNING: THIS CANNOT BE USED TO EXPAND EXPLANATIONS LAZILY
- * - that's because we can't guarantee that explain_diseq_via_eq or explain_diseq_via_disticnt
+ * - that's because we can't guarantee that explain_diseq_via_eq or explain_diseq_via_distinct
  *   generate a valid explanation when there's a conflict.
  * - for example, explain_diseq_via_eq corresponds to either one of the 
  *   following propagation rules:
@@ -1625,7 +1625,7 @@ static bool interface_lemma_candidate(egraph_t *egraph, occ_t t1, occ_t t2) {
 /*
  * Scan the explanation queue until we get an edge that can be used for interface lemma
  * - the returned edge must be larger than source and be an equality between
- *   terms that have arithmetic or bit-vector variebles
+ *   terms that have arithmetic or bit-vector variables
  * - return the index of that edge
  */
 static int32_t egraph_search_for_reconcile_edge(egraph_t *egraph, int32_t source) {

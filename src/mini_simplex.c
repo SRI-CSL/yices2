@@ -436,7 +436,7 @@ static void mini_simplex_update_solution(mini_simplex_t *s, int32_t x) {
       // where a = coeff of x in row[r]
       q_submul(s->val + y, delta, matrix_coeff(matrix, r, k));
 
-      // add y to the heap if new val[y] is not withing bounds      
+      // add y to the heap if new val[y] is not within bounds      
       if (y < s->nvars && ! mini_simplex_value_within_bounds(s, y)) {       
         int_heap_add(&s->infeasible_vars, y);
       }
@@ -535,7 +535,7 @@ static inline bool monomial_can_change(mini_simplex_t *s, int32_t x, rational_t 
  * - x = current basic variable in that row
  * - val[x] must be above ub[x] or below lb[x]
  * - return -1 if no entering variable is found
- *   otherwise, return the index i such that row->data[i] constains the entering variable
+ *   otherwise, return the index i such that row->data[i] constrains the entering variable
  */
 static int32_t mini_simplex_find_entering_var(mini_simplex_t *s, row_t *row, int32_t x) {
   uint32_t i, n;
@@ -589,7 +589,7 @@ static int32_t mini_simplex_find_entering_var(mini_simplex_t *s, row_t *row, int
 
 /*
  * Check for feasibility:
- * - check for a (possibly rational) assignment that satisfies all bnounds
+ * - check for a (possibly rational) assignment that satisfies all bounds
  * - the infeasible variables must be stored in s->infeasible_vars
  * - the current solution must be integral
  * - max_pivot is a bound on the number of pivoting steps to perform
@@ -602,7 +602,7 @@ static int32_t mini_simplex_find_entering_var(mini_simplex_t *s, row_t *row, int
  *   solution found, all integral: s->status = MINI_SIMPLEX_SAT
  *   solution found, not all integral: s->status = MINI_SIMPLEX_UNKNOWN
  *   conflict row found: s->status = MINI_SIMPLEX_ROW_CONFLICT
- *                       s->conflict_var = basic varibale in that row
+ *                       s->conflict_var = basic variable in that row
  *   max_pivot reached: s->status  = MINI_SIMPLEX_UNKNOWN
  */
 static bool mini_simplex_make_feasible(mini_simplex_t *s, uint32_t max_pivot) {
@@ -841,7 +841,7 @@ void mini_simplex_explain_bound_conflict(mini_simplex_t *s, ivector_t *v) {
   ivector_push(v, mini_expl_lb(x));
   ivector_push(v, mini_expl_ub(x));
   if ((s->tag[x] & (MINI_SIMPLEX_STRLB_MASK|MINI_SIMPLEX_STRUB_MASK)) != 0) {
-    // the conflict was obtained by bound strenghtening
+    // the conflict was obtained by bound strengthening
     ivector_push(v, mini_expl_eq(x));
   }
 }

@@ -100,7 +100,7 @@ void mpq_init2(mpq_t q, unsigned long n) {
 /*
  * Add rational num/den to q.
  * - den must be non zero
- * - num and dem must have no common factor
+ * - num and den must have no common factor
  * rational 0 must be given as num=0/den=1
  */
 void mpq_add_si(mpq_t q, long num, unsigned long den) {
@@ -257,7 +257,7 @@ void mpq_div_si(mpq_t q, long num, unsigned long den) {
  */
 
 /*
- * Assignment from 64bit integers: assing num/den to q
+ * Assignment from 64bit integers: assign num/den to q
  * - den must be non-zero
  * - if num and den have common factors, then q must be
  * made canonical using mpq_canonicalize.
@@ -277,7 +277,7 @@ void mpq_set_int64(mpq_t q, int64_t num, uint64_t den) {
    */   
   absnum = (num >= 0) ? (uint64_t) num : (uint64_t) (- num);
 
-  //  printf("- num = %lld, absmum = %llu\n", - num, absnum);
+  //  printf("- num = %lld, absnum = %llu\n", - num, absnum);
 
   mpz_set_ui(z0, (long) (absnum >> 32)); // high order bits of absnum
   mpz_mul_2exp(z0, z0, 32);

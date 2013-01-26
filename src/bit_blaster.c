@@ -1920,7 +1920,7 @@ static literal_t make_cmp(bit_blaster_t *s, literal_t a, literal_t b, literal_t 
 
 
 /*
- * Usigned comparison: return l such that the equivalence l == (a >= b) holds
+ * Unsigned comparison: return l such that the equivalence l == (a >= b) holds
  * in the solver.
  * - a and b must be literal arrays of size n
  * - n = 0 is allowed: the function will give the right answer (true_literal).
@@ -2130,7 +2130,7 @@ void bit_blaster_assert_bvult(bit_blaster_t *s, literal_t *a, literal_t *b, uint
     // (a[i] = b[i]) is false and l is equivalent to (b[i] > a[i])
     bit_blaster_add_unit_clause(s, l);
   } else {
-    // no simplifciation
+    // no simplification
     l = bit_blaster_make_bvuge(s, a, b, i); // l is (bvuge a[i-1...0] b[i-1...0])
     bit_blaster_cmp(s, a[i], b[i], l, false_literal); // assert (cmp a[i] b[i] l) == false
   }
@@ -2461,7 +2461,7 @@ void bit_blaster_make_bvmux(bit_blaster_t *s, literal_t c, literal_t *a, literal
  */
 
 /*
- * Short-cut: evalue (and a b): return null_literal if that does not simplify
+ * Short-cut: evaluate (and a b): return null_literal if that does not simplify
  */
 static inline literal_t bit_blaster_eval_and2(bit_blaster_t *s, literal_t a, literal_t b) {
   literal_t l;
@@ -2534,7 +2534,7 @@ static void make_half_add(bit_blaster_t *s, literal_t a, literal_t b, literal_t 
 /*
  * Assert u = (bvneg a)
  * - input a: array of n literals
- * - ouput u: array of n pseudo literals
+ * - output u: array of n pseudo literals
  */
 void bit_blaster_make_bvneg(bit_blaster_t *s, literal_t *a, literal_t *u, uint32_t n) {
   remap_table_t *rmap;
@@ -2676,7 +2676,7 @@ static void make_full_add(bit_blaster_t *s, literal_t a, literal_t b, literal_t 
 /*
  * Assert u = (bvadd a b)
  * - input: a and b must be arrays of n literals
- * - ouput u: array of n pseudo literals
+ * - output u: array of n pseudo literals
  */
 void bit_blaster_make_bvadd(bit_blaster_t *s, literal_t *a, literal_t *b, literal_t *u, uint32_t n) {
   remap_table_t *rmap;
@@ -2721,7 +2721,7 @@ void bit_blaster_make_bvadd(bit_blaster_t *s, literal_t *a, literal_t *b, litera
 /*
  * Assert u = (bvsub a b)
  * - input: a and b must be arrays of n literals
- * - ouput u: array of n pseudo literals
+ * - output u: array of n pseudo literals
  */
 void bit_blaster_make_bvsub(bit_blaster_t *s, literal_t *a, literal_t *b, literal_t *u, uint32_t n) {
   remap_table_t *rmap;
@@ -3529,7 +3529,7 @@ static void bit_blaster_partial_addmul(bit_blaster_t *s, literal_t *a, literal_t
     /*
      * s0 = a[i] + (b[i-k] * q) + c0
      * c0 = carry in
-     * d0 = carray out
+     * d0 = carry out
      */
     p = make_and2(s, b[i-k], q); // p = b[i-k] * q
     find_full_add(s, a[i], p, c0, &s0, &d0); // s0 = sum, d0 = carry

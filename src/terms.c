@@ -112,7 +112,7 @@ static void term_table_init(term_table_t *table, uint32_t n, type_table_t *ttbl,
   table->pprods = ptbl;
   table->finalize = default_special_finalizer;
 
-  // initialize hashtable tables with default initial size 
+  // initialize tables with default initial size 
   init_int_htbl(&table->htbl, 0);
   init_stbl(&table->stbl, 0);
   init_ptr_hmap(&table->ntbl, 0);
@@ -1271,7 +1271,7 @@ term_t unit_type_rep(term_table_t *table, type_t tau) {
  * Store t as the unique term of type tau:
  * - tau must be a singleton type
  * - t must be a valid term occurrence of type tau
- * - there musn't be a representative for tau already
+ * - there mustn't be a representative for tau already
  */
 void add_unit_type_rep(term_table_t *table, type_t tau, term_t t) {
   int_hmap_pair_t *p;
@@ -1289,7 +1289,7 @@ void add_unit_type_rep(term_table_t *table, type_t tau, term_t t) {
  * Store t as the unique term of type tau:
  * - tau must be a singleton type
  * - t must be a valid term occurrence of type tau
- * - there musn't be a representative for tau already or 
+ * - there mustn't be a representative for tau already or 
  *   the representative must be equal to t
  */
 void store_unit_type_rep(term_table_t *table, type_t tau, term_t t) {

@@ -69,7 +69,7 @@ static column_t *new_column(uint32_t n) {
 
 
 /*
- * Return a colum equal to v but 50% larger
+ * Return a column equal to v but 50% larger
  */
 static column_t *extend_column(column_t *v) {
   uint32_t n;
@@ -699,7 +699,7 @@ static void matrix_increase_row_capacity(matrix_t *matrix) {
  * - n = size of that array
  * - there must be an existing column in the matrix for 
  *   all the variables in p (i.e., a[0].var, ...., a[n-1].var)
- *   (i.e., a[i].var < matrix->ncolums for i=0, ..., n-1)
+ *   (i.e., a[i].var < matrix->ncolumns for i=0, ..., n-1)
  * - p must be normalized (all monomials must have different variables,
  *   and all coefficients must be non zero).
  */
@@ -1089,7 +1089,7 @@ void matrix_collect_constants(matrix_t *matrix) {
 
 
 /*
- * Eliminate fixed variable x (i.e., apply the susbtitution x := a)
+ * Eliminate fixed variable x (i.e., apply the substitution x := a)
  * - x must not be the const_idx
  */
 void matrix_eliminate_fixed_variable(matrix_t *matrix, int32_t x, rational_t *a) {
@@ -1744,7 +1744,7 @@ void matrix_submul_row(matrix_t *matrix, uint32_t r, uint32_t k, row_t *row0) {
   e = row0->data;
   if (q_is_one(a)) {
     /*
-     * special case a=1: substract row0 from row
+     * special case a=1: subtract row0 from row
      */
     for (i=0; i<n; i++) {
       x = e[i].c_idx;
@@ -1997,7 +1997,7 @@ static void matrix_submul_simple_row(matrix_t *matrix, uint32_t r, uint32_t k, r
 
 
 /*
- * Perform the subsitution x := -e = - b.y 
+ * Perform the substitution x := -e = - b.y 
  * - if d != NULL, the markowitz record of all modified rows is updated
  * - e must not occur in the rows that are being modified
  *   and the variable in e must be distinct from x
@@ -2527,7 +2527,7 @@ static void gaussian_elimination(matrix_t *matrix, markowitz_t *d, byte_t *i_fla
     /*
      * row0 = row[r0] = row to eliminate
      * x = variable to eliminate
-     * k = index of mononial a.x in row0
+     * k = index of monomial a.x in row0
      */
     markowitz_remove_record(d, r0);
 
@@ -2667,7 +2667,7 @@ static void tableau_remove_singleton_row(matrix_t *matrix, markowitz_t *d,
  * NOTE: e is an element inside row0
  *
  * The assignment x := - e is saved in fvars even if it's inconsistent.
- * This may happeen if x is an integer variable and e is not an integer
+ * This may happen if x is an integer variable and e is not an integer
  * constant. The assignments must be checked for feasibility by the callers.
  */
 static void tableau_remove_simple_row(matrix_t *matrix, markowitz_t *d,
@@ -2839,7 +2839,7 @@ void simple_tableau_construction(matrix_t *matrix, fvar_vector_t *fvars) {
 /*
  * Check whether simple row row0 can be eliminated
  * - if so add the assignment x := constant to fvars
- * - othwerwise, make variable x basic in that row
+ * - otherwise, make variable x basic in that row
  * - k = index of monomial where x occurs in row0
  */
 static void markowitz_tableau_process_simple_row(matrix_t *matrix, markowitz_t *d,
@@ -3059,7 +3059,7 @@ static bool good_base_var(matrix_t *matrix) {
 
 
 /*
- * Consistency poperties for base_row
+ * Consistency properties for base_row
  * - base_var[base_row[x]] == x for all basic variables
  * - base_var[r] < nrows 
  */

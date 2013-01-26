@@ -446,7 +446,7 @@ uint32_t pprod_var_degree(pprod_t *p, int32_t x) {
 /*
  * Build a vaprod object by making a copy of a
  * - a must be normalized
- * - n = lentgh of a
+ * - n = length of a
  * - n must be less than PPROD_MAX_LENGTH
  */
 pprod_t *make_pprod(varexp_t *a, uint32_t n) {
@@ -607,7 +607,7 @@ int32_t pprod_lex_cmp(pprod_t *p1, pprod_t *p2) {
 
 
 /*
- * Check whether p1 precedes p2 (stricly) in the degree + lex ordering
+ * Check whether p1 precedes p2 (strictly) in the degree + lex ordering
  */
 bool pprod_precedes(pprod_t *p1, pprod_t *p2) {
   uint32_t d1, d2;

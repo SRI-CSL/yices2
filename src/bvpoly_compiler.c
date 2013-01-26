@@ -1,6 +1,6 @@
 /*
  * SUPPORT FOR CONVERTING BIT-VECTOR POLYNOMIALS
- * TO ELEMENTATY EXPRESSSIONS.
+ * TO ELEMENTARY EXPRESSIONS.
  */
 
 #include <assert.h>
@@ -105,7 +105,7 @@ static void delete_bvc_queue(bvc_queue_t *queue) {
 /*
  * Initialize:
  * - vtbl = attached variable table
- * - mtbl = attahced merge table
+ * - mtbl = attached merge table
  */
 void init_bv_compiler(bvc_t *c, bv_vartable_t *vtbl, mtbl_t *mtbl) {
   c->vtbl = vtbl;

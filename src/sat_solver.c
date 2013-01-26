@@ -1425,9 +1425,9 @@ static void reduce_learned_clause_set(sat_solver_t *solver) {
 
 
 
-/******************************************
- *  SIMPLICATION OF THE CLAUSE DATABASE   *
- *****************************************/
+/********************************************
+ *  SIMPLIFICATION OF THE CLAUSE DATABASE   *
+ *******************************************/
 
 /*
  * Simplify clause cl, given the current literal assignment
@@ -2267,7 +2267,7 @@ static void analyze_conflict(sat_solver_t *sol) {
   }
 
   /*
-   * Scan the assignement stack from top to bottom and process the
+   * Scan the assignment stack from top to bottom and process the
    * antecedent of all marked literals.
    */
   stack = sol->stack.lit;

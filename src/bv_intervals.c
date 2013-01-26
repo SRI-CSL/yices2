@@ -65,7 +65,7 @@ static void bv_aux_buffers_set_size(bv_aux_buffers_t *aux, uint32_t n) {
  * Compute a + b * c using aux
  * - a, b, and c must all be normalized modulo 2^n
  * - a, b, and c are interpreted as unsigned integers
- * - aux->size must be large enough to sotore bitvectors of size 2*n
+ * - aux->size must be large enough to store bitvectors of size 2*n
  * - the result is stored in aux->buffer_a as a bitvector of size 2*n
  * - side effect: use buffer_c and buffer_d
  */
@@ -370,7 +370,7 @@ static void bv_interval_add_u_core(bv_interval_t *a, uint32_t *l, uint32_t *u, u
  * - sa = sign of a0 before the operation
  * - n = number of bits in a and b
  * - overflow: if (a0 >= 0) and (b >= 0) and (a < 0)
- * - undeflow: if (a0 < 0) and (b < 0) and (a >= 0)
+ * - underflow: if (a0 < 0) and (b < 0) and (a >= 0)
  */
 static inline bool add_overflow(uint32_t *a, uint32_t *b, bool sa, uint32_t n) {
   // sign bit of a0 = 0, sign bit of b = 0, sign bit of a = 1

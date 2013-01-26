@@ -37,7 +37,7 @@ void print_fsolver_edge(FILE *f, fun_solver_t *solver, uint32_t edge_id) {
 
 
 /*
- * Print the egdes
+ * Print the edges
  */
 void print_fsolver_edges(FILE *f, fun_solver_t *solver) {
   uint32_t i, n;

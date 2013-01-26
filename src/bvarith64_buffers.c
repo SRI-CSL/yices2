@@ -461,7 +461,7 @@ void bvarith64_buffer_add_mono(bvarith64_buffer_t *b, uint64_t a, pprod_t *r) {
   }
 
   // p points to a monomial with p->prod >= r
-  // q points to p0->next, where p0 is p's precedessor (and p0->prod < r)
+  // q points to p0->next, where p0 is p's predecessor (and p0->prod < r)
   // or q points to b->list if p is first in the list.
   if (p->prod == r) {
     p->coeff += a;

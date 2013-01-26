@@ -2,7 +2,7 @@
  * Maps pairs of 32bit integers to 32bit integers.
  * The keys must be non-negative.
  *
- * Supported oprations: addition/query/garbage collection.
+ * Supported operations: addition/query/garbage collection.
  * Removal of individual records is not supported.
  */
 
@@ -13,7 +13,7 @@
 
 
 /*
- * For degugging: check whether n is 0 or a power of 2
+ * For debugging: check whether n is 0 or a power of 2
  */
 #ifndef NDEBUG
 static bool is_power_of_two(uint32_t n) {

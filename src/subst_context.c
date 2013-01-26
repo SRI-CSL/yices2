@@ -52,7 +52,7 @@ static int_array_hset_t *subst_ctx_get_hset(subst_ctx_t *ctx) {
 
 /*
  * Get the internal set of variables
- * - alloccate and initialize it if needed
+ * - allocate and initialize it if needed
  */
 static int_bvset_t *subst_ctx_get_vset(subst_ctx_t *ctx) {
   int_bvset_t *vset;

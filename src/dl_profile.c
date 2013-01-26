@@ -108,7 +108,7 @@ static void print_presearch_stats() {
 
   printf("eliminated equalities   : %"PRIu32"\n", num_eliminated_eqs(&context));
   printf("subst candidates        : %"PRIu32"\n", num_subst_candidates(&context));
-  printf("subtitutions            : %"PRIu32"\n", num_substitutions(&context));
+  printf("substitutions           : %"PRIu32"\n", num_substitutions(&context));
   printf("top equalities          : %"PRIu32"\n", num_top_eqs(&context));
   printf("top atoms               : %"PRIu32"\n", num_top_atoms(&context));
   printf("top formulas            : %"PRIu32"\n", num_top_formulas(&context));
@@ -149,7 +149,7 @@ static void print_internalization_code(int32_t code) {
 /*
  * MAIN SOLVER FUNCTION
  * - parse input file (assumed to be in SMT-LIB format)
- * - solve bechmark
+ * - solve benchmark
  * - return an exit code (defined in yices_exit_codes.h)
  */
 static int process_benchmark(char *filename) {

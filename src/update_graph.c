@@ -223,7 +223,7 @@ static inline bool lpair_set_is_empty(lpair_set_t *set) {
 
 /*
  * Check whether the set contains a pair [tag, sigma]
- * where sigma is compatble with tau
+ * where sigma is compatible with tau
  */
 static bool lpair_set_has_match(lpair_set_t *set, int32_t tag, type_t tau) {
   lambda_pair_t *data;
@@ -885,7 +885,7 @@ static void ugraph_push_transparent_successors(update_graph_t *ugraph, ugraph_qu
 
 
 /*
- * Propagation through transparent egdes
+ * Propagation through transparent edges
  * - propagate c through all transparent edges from node x
  * - c must be of the form (apply f t_1 ... t_n)
  * - x should be the node for class of f
@@ -984,7 +984,7 @@ uint32_t ugraph_base_propagate(update_graph_t *ugraph) {
  */
 
 /*
- * Push all unmarled successors of x that can be reached by a non-opaque edge for c
+ * Push all unmarked successors of x that can be reached by a non-opaque edge for c
  */
 static void ugraph_push_successors(update_graph_t *ugraph, ugraph_queue_t *queue, int32_t x, composite_t *c) {
   void **edges;
@@ -1046,7 +1046,7 @@ static uint32_t ugraph_propagate_application(update_graph_t *ugraph, int32_t x, 
     d = find_modified_application(ugraph, y, c);
     if (d != NULL) {
       if (! egraph_equal_occ(ugraph->egraph, pos_occ(c->id), pos_occ(d->id))) {
-        // found instance of the udpdate axiom
+        // found instance of the update axiom
         // TBD
         nlemmas ++;
       }

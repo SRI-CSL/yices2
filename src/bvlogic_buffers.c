@@ -192,7 +192,7 @@ void bvlogic_buffer_get_constant(bvlogic_buffer_t *b, bvconstant_t *c) {
 
 
 /*
- * Check wether all bits in b are equal to bit
+ * Check whether all bits in b are equal to bit
  */
 bool bvlogic_buffer_allbits_equal(bvlogic_buffer_t *b, bit_t bit) {
   uint32_t i, n;
@@ -1008,7 +1008,7 @@ void bvlogic_buffer_rotate_right(bvlogic_buffer_t *b, uint32_t k) {
  */
 
 /*
- * Convert bitvector constant c into a shift amound valid for 
+ * Convert bitvector constant c into a shift amount valid for 
  * a bitvector of m bits.
  * - c is interpreted as an unsigned integer.
  * - if c's value is larger than m, return m
@@ -1479,7 +1479,7 @@ void bvlogic_buffer_xor_term(bvlogic_buffer_t *b, term_table_t *table, term_t t)
 
 
 /*
- * COMP reduction: t must be a valid btivector term of same size as b
+ * COMP reduction: t must be a valid bitvector term of same size as b
  */
 void bvlogic_buffer_comp_term(bvlogic_buffer_t *b, term_table_t *table, term_t t) {
   bvconst64_term_t *c64;

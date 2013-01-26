@@ -860,7 +860,7 @@ static void bvconst_shift_left1(uint32_t *bv, uint32_t k, uint32_t d, uint32_t r
  * Shift by m bits to the left, padding with b
  * - n = size of bv in bits
  * - m must be between 0 and n
- * - b = false ==> padding wih 0, otherwise padding with 1
+ * - b = false ==> padding with 0, otherwise padding with 1
  */
 void bvconst_shift_left(uint32_t *bv, uint32_t n, uint32_t m, bool b) {
   uint32_t k, d, r;
@@ -954,7 +954,7 @@ static void bvconst_shift_right1(uint32_t *bv, uint32_t k, uint32_t d, uint32_t 
  * Shift by m bits to the right, padding with b
  * - n = size of bv in bits
  * - m must be between 0 and n
- * - b = false ==> padding wih 0, otherwise padding with 1
+ * - b = false ==> padding with 0, otherwise padding with 1
  */
 void bvconst_shift_right(uint32_t *bv, uint32_t n, uint32_t m, bool b) {
   uint32_t k, d, r, s;

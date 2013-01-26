@@ -59,7 +59,7 @@ void init_stream_lexer(lexer_t *lex, FILE *f, const char *name) {
 
 
 /*
- * Initilize lexer for a string data
+ * Initialize lexer for a string data
  */
 void init_string_lexer(lexer_t *lex, const char *data, const char *name) {
   init_string_reader(&lex->reader, data, name);
@@ -84,7 +84,7 @@ void reset_string_lexer(lexer_t *lex, const char *data) {
 
 /*
  * Nested lexer: get buffer from parent
- * the reader is initialzed for filename.
+ * the reader is initialized for filename.
  * TODO: report an error if there's a circular nesting
  * (i.e., same file is already open in an enclosing lexer)
  */

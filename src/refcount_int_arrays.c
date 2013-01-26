@@ -1,5 +1,5 @@
 /*
- * Integer arraays with reference counters
+ * Integer arrays with reference counters
  */
 
 #include <assert.h>

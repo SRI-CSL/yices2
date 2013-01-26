@@ -1336,7 +1336,7 @@ term_t mk_bool_ite(term_manager_t *manager, term_t c, term_t x, term_t y) {
  * - if b is a constant: return an arith constant term
  * - if b is of the form 1 . t: return t
  * - if b is of the form 1 . x_1^d_1 ... x_n^d_n: build a power product
- * - othwerwise: build a polynomial term
+ * - otherwise: build a polynomial term
  */
 static term_t arith_buffer_to_term(term_table_t *tbl, arith_buffer_t *b) {
   mlist_t *m;
@@ -1867,7 +1867,7 @@ static term_t check_aritheq_simplifies(term_table_t *tbl, term_t t1, term_t t2) 
 /*
  * Auxiliary function: build binary equality (t1 == t2)
  * for two arithmetic terms t1 and t2.
- * - try simplication and normalize first
+ * - try simplification and normalize first
  */
 static term_t mk_arith_bineq_atom(term_table_t *tbl, term_t t1, term_t t2) {
   term_t aux;

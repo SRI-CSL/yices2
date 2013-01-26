@@ -825,7 +825,7 @@ static void init_egraph_trail(egraph_trail_stack_t *stack) {
 /*
  * Save level:
  * - nt = number of terms
- * - p = progation pointer
+ * - p = propagation pointer
  */
 static void egraph_trail_save(egraph_trail_stack_t *stack, uint32_t nt, uint32_t p) {
   uint32_t i, n;
@@ -891,7 +891,7 @@ static inline void delete_egraph_trail(egraph_trail_stack_t *stack) {
  **********************/
 
 /*
- * Initialze all counters to 0
+ * Initialize all counters to 0
  */
 static void init_egraph_stats(egraph_stats_t *s) {
   s->app_reductions = 0;
@@ -4524,7 +4524,7 @@ static void undo_merge(egraph_t *egraph, occ_t t2, elabel_t l2) {
   /*
    * parents[c2] stores composites that need to be reinserted
    * in ctable after relabeling.
-   * - marked elements in parents[c2] --> not currenctly in ctable
+   * - marked elements in parents[c2] --> not currently in ctable
    * - valid elements in parents[c2] --> still in ctable
    * First loop: remove all composites in parents[c2] from ctable,
    * remove mark from the marked elements.
@@ -5078,7 +5078,7 @@ static inline bool composite_child_is_function(egraph_t *egraph, composite_t *cm
 
 /*
  * Check whether one child of p is a function:
- * - scan chidren from i to p's arity (i=0 or i=1 to skip the first child)
+ * - scan children from i to p's arity (i=0 or i=1 to skip the first child)
  */
 static bool composite_has_function_child(egraph_t *egraph, composite_t *cmp, uint32_t i) {
   uint32_t n;
@@ -5377,7 +5377,7 @@ static void reconcile_thvar(egraph_t *egraph, class_t c1, thvar_t v1, class_t c2
 /*
  * Attempt to merge the classes of t1 and t2 without affecting the theory models
  * - t1 and t2 must not be Boolean
- * - i = correspondign edge id
+ * - i = corresponding edge id
  * - return true if t1 and t2 can be merged
  * - return false otherwise
  */
@@ -5404,7 +5404,7 @@ static bool test_merge(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
 
   assert(c1 != c2 && (egraph->classes.dmask[c1] & egraph->classes.dmask[c2]) == 0);
 
-  // make sure c2 is the class with smallesrt parent vector
+  // make sure c2 is the class with smallest parent vector
   if (egraph_class_nparents(egraph, c2) > egraph_class_nparents(egraph, c1)) {
     aux = t1; t1 = t2; t2 = aux;
     aux = c1; c1 = c2; c2 = aux;
@@ -5712,7 +5712,7 @@ static void egraph_reconciliation_restore(egraph_t *egraph) {
 /*
  * BASELINE VERSION OF FINAL CHECK
  * - call final_check on all satellites then use the reconcile_model
- *   funciton in each solver
+ *   function in each solver
  */
 static fcheck_code_t baseline_final_check(egraph_t *egraph) {
   fcheck_code_t c;
@@ -6276,7 +6276,7 @@ void egraph_expand_explanation(egraph_t *egraph, literal_t l, void *expl, ivecto
     assert(bvar_value(egraph->core, var_of(l)) == egraph_term_truth_value(egraph, a->eterm));
     u = mk_occ(a->eterm, sign_of(l));
     /*
-     * Build the explantion for u == true
+     * Build the explanation for u == true
      */
     egraph_explain_equality(egraph, u, true_occ, v);
     break;
@@ -6827,7 +6827,7 @@ static ppart_t *egraph_get_app_partition(egraph_t *egraph) {
  * - scan all composite terms that are (apply ...) and congruence roots
  * - add them one by one to the pp structure
  * - two terms (apply f t_1 ... t_n) and (apply g u_1 ... u_m)
- *   are in the same partition if their aguments are equal in the egraph:
+ *   are in the same partition if their arguments are equal in the egraph:
  *   (i.e., n = m and t_1 == u_1 and ... and t_n == u_m)
  * Result:
  * - all non-singleton classes are stored in pp->classes
@@ -7536,7 +7536,7 @@ static value_t egraph_value_of_uninterpreted_class(egraph_t *egraph, value_table
   
   /* 
    * Search for a constant t in the class. If there's none
-   * create an anonmymous uninterpreted constant/
+   * create an anonymous uninterpreted constant/
    */
   root = egraph_class_root(egraph, c);
   assert(is_pos_occ(root));

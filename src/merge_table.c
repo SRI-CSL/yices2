@@ -95,7 +95,7 @@ static void init_mtbl_trail(mtbl_trail_t *stack) {
 }
 
 /*
- * Increse the size or allocate the initial data array
+ * Increase the size or allocate the initial data array
  */
 static void extend_mtbl_trail(mtbl_trail_t *stack) {
   uint32_t n;
@@ -334,7 +334,7 @@ static void mtbl_increase_top(mtbl_t *table, uint32_t i) {
 /*
  * Store y as parent of x
  * - both x and y must be non-negative
- * - x must not be mapped to anything yet (i.e., eiher map[x] = -1 or x >= table->top)
+ * - x must not be mapped to anything yet (i.e., either map[x] = -1 or x >= table->top)
  * - y must be distinct from x
  */
 void mtbl_map(mtbl_t *table, int32_t x, int32_t y) {

@@ -865,7 +865,7 @@ static void collect_path_atoms(fun_solver_t *solver, thvar_t x, thvar_t y, compo
   while (y != x) {
     z = node_for_root(solver, y, k); // extremity of edge k in class of y
     k = vtbl->pre[y];                // previous edge on the path
-    u = node_for_root(solver, y, k); // extermity of that edge in class of y
+    u = node_for_root(solver, y, k); // extremity of that edge in class of y
     assert(vtbl->root[z] == y && vtbl->root[u] == y);
     if (u != z) {
       l = egraph_make_eq(egraph, pos_occ(vtbl->eterm[z]), pos_occ(vtbl->eterm[u]));
@@ -981,7 +981,7 @@ static void fun_solver_skolem_domain(fun_solver_t *solver, type_t tau, ivector_t
 
 /*
  * Range of variable x:
- * - x has functiom type tau = [tau_1 ... tau_n --> sigma]
+ * - x has function type tau = [tau_1 ... tau_n --> sigma]
  * - the range is sigma
  */
 static inline type_t fun_var_range_type(fun_solver_t *solver, thvar_t x) {
@@ -1314,7 +1314,7 @@ static void normalize_app_vector(fun_solver_t *solver, void **v) {
       }
     }
 
-    // udpate size of v
+    // update size of v
     ptr_vector_shrink(v, j);
   }
 }
@@ -2497,7 +2497,7 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
        * (i.e., the bitvector solver) that are not attached to any
        * egraph terms. So we don't get an accurate count of the
        * number of used values by just calling egraph_num_classes_of_type.
-       * (i.e., we have p <= actual numer of used values <= h).
+       * (i.e., we have p <= actual number of used values <= h).
        *
        * Since p is not exact, we can't be sure that 'fresh values' are
        * available.
@@ -2927,7 +2927,7 @@ uint32_t fun_solver_reconcile_model(fun_solver_t *solver, uint32_t max_eq) {
 
 
 /*
- * NEW MODEL RECONCILIAITON API
+ * NEW MODEL RECONCILIATION API
  */
 static void fun_solver_prepare_model(fun_solver_t *solver) {
   solver->reconciled = true;

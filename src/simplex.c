@@ -48,7 +48,7 @@
 
 
 /*
- * Debuggging functions are defined at the end of this file
+ * Debugging functions are defined at the end of this file
  */
 #if DUMP
 
@@ -98,7 +98,7 @@ static void check_equation_satisfied(simplex_solver_t *solver, uint32_t r);
  * - prop_ptr = index of the first assertion to process for literal propagation 
  *   (all bounds of index prop_ptr to top-1 are unprocessed)
  * - fix_ptr = index of the first assertion to process for updating assignments
- *   (all bound of index fix_prt to top-1 are to be processed)
+ *   (all bound of index fix_ptr to top-1 are to be processed)
  * - size = size of all subarrays
  */
 
@@ -317,7 +317,7 @@ static void delete_arith_astack(arith_astack_t *stack) {
  * - sign bit = 0 means atom asserted true 
  * - sign bit = 1 means atom asserted false
  *
- * The following functions convert betwen atom_id+sign and 32bit code
+ * The following functions convert between atom_id+sign and 32bit code
  */
 static inline int32_t mk_true_assertion(int32_t atom_id) {
   return atom_id << 1;
@@ -2513,7 +2513,7 @@ void simplex_assert_ge_axiom(simplex_solver_t *solver, thvar_t x, bool tt){
 /*
  * Assert a top-level inequality (either p >= 0 or p < 0)
  * - map: convert p's variables to simplex variables
- * - tt indicates whih of the two inequalities to assert
+ * - tt indicates which of the two inequalities to assert
  */
 void simplex_assert_poly_ge_axiom(simplex_solver_t *solver, polynomial_t *p, thvar_t *map, bool tt) {
   rename_poly(solver, p, map);
@@ -2713,7 +2713,7 @@ static void simplex_simplify_matrix(simplex_solver_t *solver) {
   byte_t *ivars;
   
 #if TRACE_INIT
-  printf("\n**** SIMPIFYING THE MATRIX ****\n\n");
+  printf("\n**** SIMPLIFYING THE MATRIX ****\n\n");
   print_simplex_matrix(stdout, solver);
 #endif
 
@@ -3277,7 +3277,7 @@ static void convert_expl_to_clause(ivector_t *v) {
  * Build a conflict clause from the content of the explanation queue
  * and store it in v.
  * - queue must contain a set of bound indices (that is inconsistent)
- * - this is expanded first into a conjuncion of literals (inconsistent)
+ * - this is expanded first into a conjunction of literals (inconsistent)
  * - then this is turned into a clause
  */
 static void simplex_build_conflict_clause(simplex_solver_t *solver, ivector_t *v) {
@@ -5031,7 +5031,7 @@ static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
 
   (void) get_literal_for_ge_atom(&solver->atbl, x, true, &bound->main, &new_idx);
   /*
-   * BD: TEMPORATY HACK (to support periodic calls to make_integer_feasible)
+   * BD: TEMPORARY HACK (to support periodic calls to make_integer_feasible)
    * - we don't always call make_feasible in final check 
    * - so we can't assume the branch atom is new anymore
    */
@@ -5720,7 +5720,7 @@ static void record_egraph_eq_conflict(simplex_solver_t *solver, int32_t k, thvar
 
   v = &solver->expl_vector;
   ivector_reset(v);
-  simplex_explain_bound(solver, k, v); // conjuntion of literals that imply k
+  simplex_explain_bound(solver, k, v); // conjunction of literals that imply k
 
   t1 = arith_var_eterm(&solver->vtbl, x1);
   t2 = arith_var_eterm(&solver->vtbl, x2);
@@ -6248,9 +6248,9 @@ static bool simplex_process_egraph_base_assertions(simplex_solver_t *solver) {
 
 
 
-/**************************
- *  INTENALIZATION START  *
- *************************/
+/***************************
+ *  INTERNALISATION START  *
+ **************************/
 
 /*
  * This is called before any new atom/variable is created
@@ -6421,7 +6421,7 @@ bool simplex_propagate(simplex_solver_t *solver) {
   feasible = true;
 
   if (! solver->tableau_ready) {
-    // start seach has not been called yet
+    // start search has not been called yet
     assert(solver->decision_level == solver->base_level);
     if (solver->unsat_before_search) {
       record_empty_theory_conflict(solver->core);
@@ -6653,7 +6653,7 @@ void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
 
   /*
    * Bounds in bstack[fix_ptr ... top-1] have not been visited by fix_nonbasic_assignment
-   * - so variable assigment and tags are what they were before 
+   * - so variable assignment and tags are what they were before 
    *   all bounds i for bstack->fix_ptr <= i < bstack->top have 
    *   been processed
    * ==> we must not touch the lb or ub tags for these bounds
@@ -7473,7 +7473,7 @@ static bool simple_dependent_var(arith_vartable_t *tbl, thvar_t x) {
 
 
 /*
- * Get the monomual b.y in x's definition
+ * Get the monomial b.y in x's definition
  * - x must be a simple dependent variable
  */
 static monomial_t *simple_depvar_mono(arith_vartable_t *tbl, thvar_t x) {
@@ -8437,7 +8437,7 @@ static void epsilon_for_egraph(simplex_solver_t *solver) {
 
 
 /*
- * Ajust epsilon to ensure concretization of q1 <= concretization of q2 
+ * Adjust epsilon to ensure concretization of q1 <= concretization of q2 
  * - q1 is a + b \delta  --> concrete rational value = a + b * epsilon
  * - q2 is c + d \delta  --> concrete rational value = c + d * epsilon
  * - epsilon must be positive
@@ -9489,7 +9489,7 @@ static void check_equation_satisfied(simplex_solver_t *solver, uint32_t r) {
 
 
 /*
- * Check whether all equations in matrix are satisified
+ * Check whether all equations in matrix are satisfied
  */
 static void check_all_equations_satisfied(simplex_solver_t *solver) {
   uint32_t i, n;

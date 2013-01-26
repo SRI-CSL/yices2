@@ -617,7 +617,7 @@ void monarray_pair_non_common_gcd(monomial_t *p, monomial_t *q, rational_t *fact
  ****************/
 
 /*
- * Allocate and partially initialize a polyomial of n terms
+ * Allocate and partially initialize a polynomial of n terms
  * - the rational coefficients are initialized to 0
  * - the variable indices are not initialized, except for the end marker
  */

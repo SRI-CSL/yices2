@@ -778,7 +778,7 @@ static void swap_monomials(bvpoly_buffer_t *buffer, uint32_t i, uint32_t j) {
 
 /*
  * Sort monomials at indices between l and (h-1)
- * - use inserion or quicksort
+ * - use insertion or quicksort
  */
 static void sort_buffer(bvpoly_buffer_t *buffer, uint32_t l, uint32_t h);
 

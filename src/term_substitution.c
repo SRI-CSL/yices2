@@ -201,7 +201,7 @@ static void cache_subst_result(term_subst_t *subst, term_t t, term_t u) {
 
 
 /*
- * Extend the current renaming context: by renamings for v[0 .. n-1]
+ * Extend the current renaming context: by renaming for v[0 .. n-1]
  * (cf. renaming_context.h)
  * - v[0] ... v[n-1] must all be variables in subst->terms
  * - this allocates and initializes the renaming data structure if needed
@@ -479,7 +479,7 @@ static term_t build_bvarith_poly(term_manager_t *mngr, bvpoly_t *p, uint32_t n, 
 
 
 /*
- * BETA-REDUCTION/RECURSIVE SUBSTUTION
+ * BETA-REDUCTION/RECURSIVE SUBSTITUTION
  */
 
 #define TRACE 0

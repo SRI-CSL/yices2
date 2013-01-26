@@ -632,7 +632,7 @@ static type_t new_tuple_type(type_table_t *table, uint32_t n, type_t *e) {
 
   /*
    * set flags and card
-   * - type_flags_conjunct sets all the bits correctky
+   * - type_flags_conjunct sets all the bits correctly
    *   except possibly the exact card bit
    */
   flag = type_flags_conjunct(table, n, e);
@@ -773,7 +773,7 @@ static type_t new_type_variable(type_table_t *table, uint32_t id) {
  * - param[0 ... n-1] = parameters
  *
  * If param[0] ... param[n-1] are all ground types, then the instance
- * is treated like a new uninterpreted type. Othewrise, we mark it
+ * is treated like a new uninterpreted type. Otherwise, we mark it
  * as a type with variables (flag = FREE_TYPE_FLAGS, card = UINT32_MAX).
  */
 static type_t new_instance_type(type_table_t *table, int32_t cid, uint32_t n, type_t *param) {

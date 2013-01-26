@@ -739,7 +739,7 @@ static void remove_offset_vars(offset_table_t *table, uint32_t nv) {
 
 
 /*
- * Add i in the depency vector of x
+ * Add i in the dependency vector of x
  * - return the index k where is is stored (i.e., dep[x]->data[k] = i)
  */
 static int32_t offset_var_add_dep(offset_table_t *table, int32_t x, int32_t i) {
@@ -1702,7 +1702,7 @@ static void attach_offset_poly(offset_manager_t *m, int32_t i) {
 
 
 /*
- * Remove poly i from the depency vectors
+ * Remove poly i from the dependency vectors
  * - vars[i] contains pairs [x, k] where x an offset variable 
  *   and k is an index in dep[x] such that dep[x]->data[k] = i
  * - to remove i from the dependency vectors:
@@ -1953,7 +1953,7 @@ static void offset_explanation_sub_branch(offset_manager_t *m, poly_buffer_t *b,
 }
 
 /*
- * Add coeff * branch for bvuffer b
+ * Add coeff * branch for buffer b
  */
 static void offset_explanation_addmul_branch(offset_manager_t *m, poly_buffer_t *b, rational_t *coeff, int32_t x) {
   offset_table_t *vtbl;
@@ -2300,7 +2300,7 @@ void offset_manager_increase_decision_level(offset_manager_t *m) {
  * Undo equality
  * - d = undo record for this equality: 
  *   d->saved_var = variable x that was eliminated
- *   d->saved_root = root of x befroe the equality was processed
+ *   d->saved_root = root of x before the equality was processed
  */
 static void undo_offset_equality(offset_manager_t *m, offset_undo_t *d) {
   offset_table_t *vtbl;  

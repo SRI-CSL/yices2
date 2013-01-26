@@ -1046,7 +1046,7 @@ void signature_modified_apply(composite_t *c, eterm_t g, elabel_t *label, signat
 
 
 /*
- * Variant: signature if (apply glable i1 ... in)
+ * Variant: signature of (apply glabel i1 ... in)
  */
 void signature_modified_apply2(composite_t *c, elabel_t glabel, elabel_t *label, signature_t *s) {
   uint32_t i, n, tag;
@@ -1065,7 +1065,7 @@ void signature_modified_apply2(composite_t *c, elabel_t glabel, elabel_t *label,
 /*
  * Check whether two apply composites have the same argument tuple (modulo the egraph)
  * - c must be of the form (apply f i_1 ... i_n) 
- *   d must be of fhe form (apply g j_i ... j_m)
+ *   d must be of the form (apply g j_i ... j_m)
  * - return true if n == m and label[i_1] = label[j_1], ..., label[i_n] = label[j_m]
  */
 bool same_arg_signature(composite_t *c, composite_t *d, elabel_t *label) {
@@ -1092,7 +1092,7 @@ bool same_arg_signature(composite_t *c, composite_t *d, elabel_t *label) {
  * Compute a hash code of c's argument tuple
  * - c must be of the form (apply f i_1 ... i_n)
  * - return a hash computed based one n and label[i_1], ..., label[i_n]
- * - so if same_arg_signatrue(c, d, label) is true then 
+ * - so if same_arg_signature(c, d, label) is true then 
  *   hash_arg_signature(c, label) = hash_arg_signature(d, label).
  */
 uint32_t hash_arg_signature(composite_t *c, elabel_t *label) {

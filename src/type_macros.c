@@ -282,7 +282,7 @@ void remove_type_macro_name(type_mtbl_t *table, const char *name) {
  * - if the macro is a type constructor (i.e., body = NULL_TYPE) 
  *   then a new uninterpreted type is returned.
  * - if the macro is a normal macro (body != NULL_TYPE), then
- *   the instance is constructed by subsituting the actuals
+ *   the instance is constructed by substituting the actuals
  *   for the macro variable.
  * In both case, the instance is stored in table->hmap
  */

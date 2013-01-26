@@ -143,7 +143,7 @@ static bool mappings_match(value_table_t *table, value_t i, value_t j) {
  * Search for a pair (f, k) in table such that k is of the form
  * (a[0] ... a[n-1] |-> v)
  * - vtbl = the value table where all objects are defined
- * - return v if such a pair is found, null_value otherwsie
+ * - return v if such a pair is found, null_value otherwise
  */
 static value_t hash_eval_app(value_table_t *table, value_t f, uint32_t n, value_t *a) {
   map_pair_t *d;  
@@ -2040,7 +2040,7 @@ static void vtbl_print_function_header(FILE *f, value_table_t *table, value_t c,
 
 /*
  * Print the function c
- * - if show_default is true, also print the default falue
+ * - if show_default is true, also print the default value
  */
 void vtbl_print_function(FILE *f, value_table_t *table, value_t c, bool show_default) {
   value_fun_t *fun;
@@ -2357,7 +2357,7 @@ void vtbl_pp_function(yices_pp_t *printer, value_table_t *table, value_t c, bool
     vtbl_pp_object(printer, table, fun->def);
     pp_close_block(printer, true); // close (default ..
   }
-  pp_close_block(printer, true); // clore (function ...
+  pp_close_block(printer, true); // close (function ...
 }
 
 

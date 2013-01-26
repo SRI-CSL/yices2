@@ -1453,9 +1453,9 @@ static void reduce_learned_clause_set(bit_solver_t *solver) {
 
 
 
-/******************************************
- *  SIMPLICATION OF THE CLAUSE DATABASE   *
- *****************************************/
+/********************************************
+ *  SIMPLIFICATION OF THE CLAUSE DATABASE   *
+ *******************************************/
 
 /*
  * Simplify clause cl, given the current literal assignment
@@ -2855,7 +2855,7 @@ bool bit_solver_assume(bit_solver_t *solver, literal_t l) {
     return false;
 
   case VAL_UNDEF:
-    // push l onto the assigment stack
+    // push l onto the assignment stack
     // increment base_level and do one round of propagation
     bit_solver_decide_literal(solver, l);
     solver->base_level ++;
