@@ -405,7 +405,7 @@ install-solaris: install-default
 	/sbin/ldconfig -n $(libdir)
 	ln -sf libyices.so.$(YICES_VERSION) $(libdir)/libyices.so
 
-install-linux install-unix:
+install-linux install-unix: install-default
 	/sbin/ldconfig -n $(libdir)
 	ln -sf libyices.so.$(YICES_VERSION) $(libdir)/libyices.so
 

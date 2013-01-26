@@ -352,7 +352,9 @@ if test -z "$1"; then
    #
    # We ignore this here. If the search dir starts with =, we remove =
    #
-   if ld --verbose > /dev/null 2>&1; then 
+   # NOTE: this sed command uses \? which, is a GNU extension.
+   #
+   if ld --verbose > /dev/null 2>&1; then
       base_libs=`ld --verbose | grep SEARCH_DIR | sed -e 's,SEARCH_DIR(\"\?,,g' -e 's,\"\?);,,g' -e 's,=,,g' `
    else
       base_libs=""
