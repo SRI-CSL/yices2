@@ -12,7 +12,7 @@ As many as three different versions of GMP can be used to build Yices.
    standard libgmp.a works. For the dynamic yices library, we need a
    version of libgmp.a that's position-independent code (i.e.,
    compiled with -fPIC). PIC is the default on Windows and relatives
-   (cygwin/mingw) so we need only one libgmp.a on these platgorms.
+   (cygwin/mingw) so we need only one libgmp.a on these platforms.
 
    On Linux and MacOS X, the default 'libgmp.a' is typically not PIC
    so we need to build another version.
@@ -240,7 +240,7 @@ and install it somewhere else:
      make check
      make install     
 
-   The resulting GMP librar(ies) are installed as
+   The resulting GMP library(ies) are installed as
 
      /usr/bin/cyggmp-3.dll    (DLL)
      /usr/lib/libgmp.dll.a    (import library)

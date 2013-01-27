@@ -587,7 +587,7 @@ For compatibility with Mac OS 10.5, we may also need
 but it doesn't seem to be required for Yices 2 (so far). 
 
 Update: option -isysroot /Developer/SDKs/MacOSX10.5.sdk 
-doees  not work out of the box, because the GMP header file 
+does  not work out of the box, because the GMP header file 
 <gmp.h> is not found in /Developer/SDKs/MacOSX10.5.sdk. 
 A work around is to add a symbolic link to /usr/local/include
 in /Developer/SDKs/MacOSX10.5.sdk/usr/local.
@@ -931,7 +931,7 @@ The libraries are in
   and c:\cygwin\home\...\build\x86_64-pc-mingw32\static_dist\lib
 
 
-The procedure is the same as for minww32, except in step 3. 
+The procedure is the same as for mingww32, except in step 3. 
 
 To create a lib file for 64bit Windows (x86_64 hardware), use:
 
@@ -1011,7 +1011,7 @@ method is to install the pre-built mingw32 and mingw64 compilers using
 Cygwin's 'setup.exe' tool.
 
 
-TO DO IT THE HARD WAY, FOLLOW THESE INSTRUCIONS:
+TO DO IT THE HARD WAY, FOLLOW THESE INSTRUCTIONS:
 
 It's a good idea to read the GCC documentation first to learn how to
 do this (although it does not explain everything well). A Google

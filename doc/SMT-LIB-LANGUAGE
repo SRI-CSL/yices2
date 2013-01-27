@@ -14,13 +14,13 @@ SMT-LIB LANGUAGE (as done in Yices)
     the user value must be preceded by \
 
 
-  delimitors are spaces EOF " { } ( ) [ ] ; : ? $ \ ,
+  delimiters are spaces EOF " { } ( ) [ ] ; : ? $ \ ,
 
   <var> start by ?,  followed by a nonempty sequence of characters, 
-        until a delimitor is read
+        until a delimiter is read
 
   <fvar> start by $ followed by nonempty sequence of characters, 
-        until a delimitor is read
+        until a delimiter is read
 
   <float> are of the form <digits>.<digits>
 
@@ -33,12 +33,12 @@ SMT-LIB LANGUAGE (as done in Yices)
 
   <bvhex constants> start by 'bvhex' followed by a non-empty sequence of hexadecimal digits
 
-  <attributes> start by ':' followd by a letter, followed by a sequence of chars until
-        a delimitor is read
+  <attributes> start by ':' followed by a letter, followed by a sequence of chars until
+        a delimiter is read
 
   a <symbol> is anything that's not a <bv/bvbin/bvhex constant> and that starts by a 
-       letter (more exactly, anything that's not a delimitor, or a digit, or . or ')
-       followed by a sequence of characters until a delimitor is read 
+       letter (more exactly, anything that's not a delimiter, or a digit, or . or ')
+       followed by a sequence of characters until a delimiter is read 
  
 
 
@@ -58,7 +58,7 @@ SMT-LIB LANGUAGE (as done in Yices)
 	shift_right0	shift_right1	bit0	bit1	bvudiv	bvurem
 	bvsdiv	bvsrem	bvsmod	bvshl	bvlshr	bvashr	bvnand	bvnor
 	bvxnor	bvredor	bvredand	bvcomp	repeat	zero_extend
-	rotate_left	rotate_right	bvult	bvule	bvuget	bvuge
+	rotate_left	rotate_right	bvult	bvule	bvugt	bvuge
 	bvsle	bvsge
 
 

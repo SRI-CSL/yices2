@@ -322,7 +322,7 @@ A term in the arithmetic solver is identified by an integer index (arithmetic va
     - r if of the form t_0^d_0 x ... x t_n^d_n where t_0 ... t_n are arithmetic
       terms
     - map is an array of n+1 variables: map[i] = variable x_i mapped to t_i
-    - the solver must return an arithmetic varable y equal to (x_0^d_0 x ... x x_n^d_n)
+    - the solver must return an arithmetic variable y equal to (x_0^d_0 x ... x x_n^d_n)
 
 
 Atom constructors
@@ -437,7 +437,7 @@ power products:
   with den positive.  Otherwise, there's an indirection: den is set to
   0, and num is an index in a global table of GMP rationals (mpq_t).
 
-- a poynomial is an array of monomials: each monomial is a pair (rational, variable)
+- a polynomial is an array of monomials: each monomial is a pair (rational, variable)
   where the variable is a 32bit integer. The special variable 0 is used to denote
   the constant part of a polynomial. The monomials are stored in increasing variable 
   order, and all coefficients are non-zero.
@@ -570,7 +570,7 @@ The general idea is then as follows:
    set of atoms is satisfiable when 'final_check' is called.
    If they are not, the solver must produce an explanation
    for the conflict, that is, it must find a subset of atoms
-   that are inconsistent, convert that to a clausse and 
+   that are inconsistent, convert that to a clause and 
    send the clause to the SMT core. The smaller this subset 
    the better.
 
