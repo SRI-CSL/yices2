@@ -52,6 +52,8 @@ AC_PROG_SED
 AC_PROG_LN_S
 AC_PROG_MKDIR_P
 AC_PROG_INSTALL
+AC_PROG_LEX
+AC_PROG_YACC
 
 AC_PROG_CC
 AC_PROG_RANLIB
@@ -355,7 +357,7 @@ if test -z "$1"; then
    # NOTE: this sed command uses \? which, is a GNU extension.
    #
    if ld --verbose > /dev/null 2>&1; then
-      base_libs=`ld --verbose | grep SEARCH_DIR | sed -e 's,SEARCH_DIR(\"\?,,g' -e 's,\"\?);,,g' -e 's,=,,g' `
+      base_libs=`ld --verbose | grep SEARCH_DIR | sed -e 's,SEARCH_DIR(\"\?=\?,,g' -e 's,\"\?);,,g'`
    else
       base_libs=""
    fi
