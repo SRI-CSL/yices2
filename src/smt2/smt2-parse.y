@@ -95,7 +95,7 @@ void undeclare_var_names(int count, var_t *b);
 %type <var> var
 %type <indexes> indexes
 
-%destructor { VECTOR_free($$); } <strings> <terms> <types> <vars> <binds> <indexes>
+%destructor { VECTOR_free($$); } symbols sorts vars binds attributes indexes
 
 %%
 
