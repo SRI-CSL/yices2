@@ -176,8 +176,10 @@ void eval_init()
 value_t eval_sexpr(value_t fn, int ac, value_t *av)
 {
     value_t rv;
-    term_t args[ac], t;
+    term_t temp[64], *args = temp, t;
     int i;
+    if (ac > 64)
+	args = malloc(ac * sizeof(term_t));
     yices_clear_error();
     for (i = 0; i < ac; i++) {
 	if (av[i].tag == vtTERM)
@@ -254,6 +256,8 @@ value_t eval_sexpr(value_t fn, int ac, value_t *av)
     if (yices_error_code()) {
 	yices_print_error(stderr);
 	yices_clear_error(); }
+    if (ac > 64)
+	free(args);
     return rv;
 }
 
