@@ -3728,7 +3728,7 @@ static literal_t make_bv_distinct(context_t *ctx, uint32_t n, thvar_t *a) {
   assert(v->size == 0);
   for (i=0; i<n-1; i++) {
     for (j=i+1; j<n; j++) {
-      l = ctx->bv.create_eq_atom(ctx->arith_solver, a[i], a[j]);
+      l = ctx->bv.create_eq_atom(ctx->bv_solver, a[i], a[j]);
       ivector_push(v, l);
     }
   }

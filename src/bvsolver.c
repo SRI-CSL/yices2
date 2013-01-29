@@ -112,7 +112,7 @@ static void bv_bound_queue_resize(bv_bound_queue_t *queue, thvar_t x) {
   }
 
   tmp = (int32_t *) safe_realloc(queue->bound, n * sizeof(int32_t));
-  for (i=queue->size; i<n; i++) {
+  for (i=queue->bsize; i<n; i++) {
     tmp[i] = -1;
   }
 
