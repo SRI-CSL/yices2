@@ -198,7 +198,7 @@ value_t eval_sexpr(value_t fn, int ac, value_t *av)
 	    rv.tag = vtTERM;
 	    rv.v.term = yices_application(t, ac, args);
 	} else {
-	    struct fn_info *info = hashmap_lookup(symbolfunc, fn.v.str, 0);
+	    const struct fn_info *info = hashmap_lookup(symbolfunc, fn.v.str, 0);
 	    if (info && info->fn) {
 		rv.tag = vtTERM;
 		rv.v.term = info->fn(ac, args, info->arg); } }

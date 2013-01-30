@@ -9,12 +9,12 @@
  * FIXME -- exceeds INT_MAX elements.  That requires 16GB+ memory... */
 
 struct hash_table_internal {
-    unsigned         (*gethash)(hash_table *, size_t);
-    void        (*sethash)(hash_table *, size_t, unsigned);
-    void        **(*key)(hash_table *, unsigned);
-    void        **(*val)(hash_table *, unsigned);
-    unsigned	maxset;
-    char        ismap, ismulti, hashelsize, contentelsize;
+  unsigned      (*gethash)(hash_table *, size_t);
+  void          (*sethash)(hash_table *, size_t, unsigned);
+  const void    **(*key)(hash_table *, unsigned);
+  const void    **(*val)(hash_table *, unsigned);
+  unsigned	maxset;
+  char          ismap, ismulti, hashelsize, contentelsize;
 };
 
 static unsigned gethash_s1(hash_table *ht, size_t i) { return ht->hash.s1[i]; }
@@ -27,11 +27,11 @@ static void sethash_s2(hash_table *ht, size_t i, unsigned v) {
 static void sethash_s3(hash_table *ht, size_t i, unsigned v) {
 	ht->hash.s3[i] = v; }
 
-static void **key_set(hash_table *ht, unsigned i) {
+static const void **key_set(hash_table *ht, unsigned i) {
 	return &ht->contents.set[i]; }
-static void **key_map(hash_table *ht, unsigned i) {
+static const void **key_map(hash_table *ht, unsigned i) {
 	return &ht->contents.map[i].key; }
-static void **val_map(hash_table *ht, unsigned i) {
+static const void **val_map(hash_table *ht, unsigned i) {
 	return &ht->contents.map[i].val; }
 
 static struct hash_table_internal formats[] = {
@@ -174,7 +174,7 @@ static unsigned hashmap_find(hash_table *ht, const void *key,
 {
     size_t hash = mod_hashsize[ht->log_hashsize]((**ht->hashfn)(key));
     unsigned idx, collisions = 0;
-    void *k;
+    const void *k;
     while ((idx = ht->i->gethash(ht, hash)) &&
 	   (!(k = *ht->i->key(ht, idx-1)) || ht->cmpfn(key, k)))
     {
@@ -190,7 +190,7 @@ static unsigned hashmap_find_next(hash_table *ht, const void *key,
 {
     size_t hash = cache->slot;
     unsigned idx, collisions = cache->collisions;
-    void *k;
+    const void *k;
     if (!(idx = ht->i->gethash(ht, hash))) return idx;
     if (++hash == ht->hashsize) hash = 0;
     while ((idx = ht->i->gethash(ht, hash)) &&
@@ -203,7 +203,7 @@ static unsigned hashmap_find_next(hash_table *ht, const void *key,
     return idx;
 }
 
-void *hashmap_lookup(hash_table *ht, const void *key, hash_lookup_cache *cache)
+const void *hashmap_lookup(hash_table *ht, const void *key, hash_lookup_cache *cache)
 {
     unsigned idx;
     hash_lookup_cache	local;
@@ -212,7 +212,7 @@ void *hashmap_lookup(hash_table *ht, const void *key, hash_lookup_cache *cache)
     return idx ? *ht->i->val(ht, idx-1) : 0;
 }
 
-void *hashmap_lookup_next(hash_table *ht, const void *key, hash_lookup_cache *cache)
+const void *hashmap_lookup_next(hash_table *ht, const void *key, hash_lookup_cache *cache)
 {
     unsigned idx = 0;
     if (ht->i->ismulti)
@@ -223,7 +223,7 @@ void *hashmap_lookup_next(hash_table *ht, const void *key, hash_lookup_cache *ca
 static void redo_hash(hash_table *ht)
 {
     unsigned i, j;
-    void *k, *v;
+    const void *k, *v;
     hash_lookup_cache	cache;
     memset(ht->hash.s1, 0, ht->hashsize * ht->i->hashelsize);
     ht->collisions = 0;
@@ -242,11 +242,11 @@ static void redo_hash(hash_table *ht)
     ht->limit = ht->use = j;
 }
 
-void *hashmap_insert(hash_table *ht, const void *key, const void *val,
-		     hash_lookup_cache *cache)
+const void *hashmap_insert(hash_table *ht, const void *key, const void *val,
+			   hash_lookup_cache *cache)
 {
     hash_lookup_cache	local;
-    void		*rv = 0;
+    const void		*rv = 0;
     unsigned		idx, need_redo;
     if (!val)
 	return hashmap_remove(ht, key, cache);
@@ -316,11 +316,11 @@ void *hashmap_insert(hash_table *ht, const void *key, const void *val,
     return rv;
 }
 
-void *hashmap_remove(hash_table *ht, const void *key,
-		     hash_lookup_cache *cache)
+const void *hashmap_remove(hash_table *ht, const void *key,
+			   hash_lookup_cache *cache)
 {
     hash_lookup_cache	local;
-    void		*rv = 0;
+    const void		*rv = 0;
     unsigned		idx;
     if (cache) {
 #ifndef NDEBUG
@@ -344,43 +344,43 @@ void *hashmap_remove(hash_table *ht, const void *key,
     return rv;
 }
 
-void *hashmap_first(hash_table *ht, hash_table_iter *iter)
+const void *hashmap_first(hash_table *ht, hash_table_iter *iter)
 {
     unsigned	idx = 0;
-    void	*val = 0;
+    const void	*val = 0;
     while (idx < ht->limit && !(val = *ht->i->val(ht, idx))) idx++;
     if (iter) *iter = idx;
     return val;
 }
 
-void *hashmap_last(hash_table *ht, hash_table_iter *iter)
+const void *hashmap_last(hash_table *ht, hash_table_iter *iter)
 {
     unsigned	idx = ht->limit;
-    void	*val = 0;
+    const void	*val = 0;
     while (idx > 0 && !(val = *ht->i->val(ht, --idx)));
     if (iter) *iter = idx;
     return val;
 }
 
-void *hashmap_next(hash_table *ht, hash_table_iter *iter)
+const void *hashmap_next(hash_table *ht, hash_table_iter *iter)
 {
     unsigned idx = *iter + 1;
-    void *val = 0;
+    const void *val = 0;
     while (idx < ht->limit && !(val = *ht->i->val(ht, idx))) idx++;
     *iter = idx;
     return val;
 }
 
-void *hashmap_prev(hash_table *ht, hash_table_iter *iter)
+const void *hashmap_prev(hash_table *ht, hash_table_iter *iter)
 {
     unsigned idx = *iter;
-    void *val = 0;
+    const void *val = 0;
     while (idx > 0 && !(val = *ht->i->val(ht, --idx)));
     *iter = idx;
     return val;
 }
 
-void *hashiter_key(hash_table *ht, hash_table_iter *iter)
+const void *hashiter_key(hash_table *ht, hash_table_iter *iter)
 {
     return *ht->i->key(ht, *iter);
 }

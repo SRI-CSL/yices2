@@ -175,7 +175,7 @@ static_smt2_dep = $(static_objdir)/smt2/smt2-lex.d $(smt2_src_c:%.c=$(static_obj
 version_obj := $(objdir)/yices_version.o
 version_dep := $(version_c:%.c=$(objdir)/%.d)
 static_version_obj := $(static_objdir)/yices_version.o
-static_version_dep := $(static_objdir)/yices_version.d
+static_version_dep := $(version_c:%.c=$(static_objdir)/%.d)
 
 
 #
@@ -490,11 +490,11 @@ include $(static_version_dep)
 # - we need to give different names to the yices and smt lookup functions
 #
 yices_hash_keywords.h: yices_keywords.txt
-	$(GPERF) -C -G -L ANSI-C -W yices_kw --output-file=yices_hash_keywords.h \
+	$(GPERF) -C -L ANSI-C -W yices_kw --output-file=yices_hash_keywords.h \
 	--lookup-function-name=in_yices_kw yices_keywords.txt
 
 smt_hash_keywords.h: smt_keywords.txt
-	$(GPERF) -C -G -L ANSI-C -W smt_kw --output-file=smt_hash_keywords.h \
+	$(GPERF) -C -L ANSI-C -W smt_kw --output-file=smt_hash_keywords.h \
 	--lookup-function-name=in_smt_kw smt_keywords.txt
 
 #

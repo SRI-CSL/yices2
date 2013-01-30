@@ -489,7 +489,19 @@ AC_CHECK_LIB(gmp, __gmpz_cmp, [],
     [AC_MSG_ERROR([*** GMP library not found. Try to set LDFLAGS ***])])
 
 
-
+#
+# Fix MKDIR_P to an absolute path if it's set to './install-sh -c -d'
+# because the Makefiles import its definition via ./configs/make.include.
+# This may be unreliable (it won't handle spaces in directory names).
+#
+case "$MKDIR_P" in
+  ./install-sh*)
+     curdir=`pwd`
+     new_mkdir_p="$curdir/$MKDIR_P"
+     AC_MSG_WARN([*** MKDIR_P is relative: contering $MKDIR_P to $new_mkdir_p ***]) 
+     MKDIR_P=$new_mkdir_p
+     ;;
+esac
 
 #
 # Restore CFLAGS

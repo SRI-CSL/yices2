@@ -6047,7 +6047,7 @@ static void assert_term(context_t *ctx, term_t t, bool tt) {
 /*
  * Map architecture id to theories word
  */
-static const uint32_t const arch2theories[NUM_ARCH] = {
+static const uint32_t arch2theories[NUM_ARCH] = {
   0,                           //  CTX_ARCH_NOSOLVERS --> empty theory
 
   UF_MASK,                     //  CTX_ARCH_EG
@@ -6082,7 +6082,7 @@ static const uint32_t const arch2theories[NUM_ARCH] = {
 #define BVSLVR 0x10
 #define FSLVR  0x20
 
-static const uint8_t const arch_components[NUM_ARCH] = {
+static const uint8_t arch_components[NUM_ARCH] = {
   0,                        //  CTX_ARCH_NOSOLVERS
 
   EGRPH,                    //  CTX_ARCH_EG
@@ -6106,7 +6106,7 @@ static const uint8_t const arch_components[NUM_ARCH] = {
 /*
  * Smt mode for a context mode
  */
-static const smt_mode_t const core_mode[NUM_MODES] = {
+static const smt_mode_t core_mode[NUM_MODES] = {
   SMT_MODE_BASIC,       // one check
   SMT_MODE_BASIC,       // multichecks
   SMT_MODE_PUSHPOP,     // push/pop
@@ -6117,7 +6117,7 @@ static const smt_mode_t const core_mode[NUM_MODES] = {
 /*
  * Flags for a context mode
  */
-static const uint32_t const mode2options[NUM_MODES] = {
+static const uint32_t mode2options[NUM_MODES] = {
   0,
   MULTICHECKS_OPTION_MASK,
   MULTICHECKS_OPTION_MASK|PUSHPOP_OPTION_MASK,

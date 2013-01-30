@@ -436,7 +436,7 @@ typedef enum bit_shape {
  * - kind is one of UNUSED, CONSTANT, VARIABLE, OR_NODE, XOR_NODE
  * - sign is 0 or 1 (0 means positive, 1 means negative)
  */
-static const bit_shape_t const shape[12] = {
+static const bit_shape_t shape[12] = {
   ERROR,    // UNUSED, POSITIVE
   ERROR,    // UNUSED, NEGATIVE
   ATOMIC,   // CONSTANT, POSITIVE (true)

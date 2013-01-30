@@ -1544,7 +1544,7 @@ void pp_term_name(yices_pp_t *printer, term_table_t *tbl, term_t t) {
  * term_kind2block[k] = 0 means k is atomic or can't be printed
  * (Note this is ok, since 0 is PP_OPEN).
  */
-static const pp_open_type_t const term_kind2block[NUM_TERM_KINDS] = {
+static const pp_open_type_t term_kind2block[NUM_TERM_KINDS] = {
   0,                 //  UNUSED_TERM
   0,                 //  RESERVED_TERM
 

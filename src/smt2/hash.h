@@ -17,10 +17,10 @@ struct hash_table {
 	unsigned int *s3;
     } hash;
     union {
-	void	**set;
+	const void	**set;
 	struct {
-	    void *key;
-	    void *val;
+	    const void *key;
+	    const void *val;
 	} *map;
     } contents;
     size_t	hashsize;
@@ -55,14 +55,14 @@ hash_table *new_multiset(size_t (**hashfn)(const void *), void  *cmpfn,
 void fini_hash_table(hash_table *ht);
 void free_hashmap(hash_table *ht);
 
-void *hashmap_lookup(hash_table *ht, const void *key,
-		     hash_lookup_cache *cache DEFAULT(0));
-void *hashmap_lookup_next(hash_table *ht, const void *key,
+const void *hashmap_lookup(hash_table *ht, const void *key,
+			   hash_lookup_cache *cache DEFAULT(0));
+const void *hashmap_lookup_next(hash_table *ht, const void *key,
 			  hash_lookup_cache *cache);
-void *hashmap_insert(hash_table *ht, const void *key, const void *val,
-		     hash_lookup_cache *cache DEFAULT(0));
-void *hashmap_remove(hash_table *ht, const void *key,
-		     hash_lookup_cache *cache DEFAULT(0));
+const void *hashmap_insert(hash_table *ht, const void *key, const void *val,
+			   hash_lookup_cache *cache DEFAULT(0));
+const void *hashmap_remove(hash_table *ht, const void *key,
+			   hash_lookup_cache *cache DEFAULT(0));
 
 #define free_hashset(ht)		free_hashmap(ht)
 #define hashset_lookup(ht, k, c)	hashmap_lookup(ht, k, c)
@@ -70,11 +70,11 @@ void *hashmap_remove(hash_table *ht, const void *key,
 #define hashset_insert(ht, k, c)	hashmap_insert(ht, k, k, c)
 #define hashset_remove(ht, k, c)	hashmap_remove(ht, k, c)
 
-void *hashmap_first(hash_table *ht, hash_table_iter *iter);
-void *hashmap_last(hash_table *ht, hash_table_iter *iter);
-void *hashmap_next(hash_table *ht, hash_table_iter *iter);
-void *hashmap_prev(hash_table *ht, hash_table_iter *iter);
-void *hashiter_key(hash_table *ht, hash_table_iter *iter);
+const void *hashmap_first(hash_table *ht, hash_table_iter *iter);
+const void *hashmap_last(hash_table *ht, hash_table_iter *iter);
+const void *hashmap_next(hash_table *ht, hash_table_iter *iter);
+const void *hashmap_prev(hash_table *ht, hash_table_iter *iter);
+const void *hashiter_key(hash_table *ht, hash_table_iter *iter);
 
 #define hashset_first(ht, it)		hashmap_first(ht, it)
 #define hashset_last(ht, it)		hashmap_last(ht, it)
