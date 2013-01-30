@@ -946,19 +946,32 @@ static term_t subst_bvsge(term_subst_t *subst, composite_term_t *d) {
   return mk_bvsge(subst->mngr, t1, t2);
 }
 
-// projection and bit select
+/*
+ * projection and bit select
+ *
+ * Warning: d is not a safe pointer (it may become invalid if new
+ * terms are created). cf. terms.h
+ *
+ * So we must make a copy of d->arg and d->idx before the recursive call
+ */
 static term_t subst_select(term_subst_t *subst, select_term_t *d) {
-  term_t t;
+  term_t t, arg;
+  uint32_t idx;
 
-  t = get_subst(subst, d->arg);
-  return mk_select(subst->mngr, d->idx, t);
+  arg = d->arg;
+  idx = d->idx;
+  t = get_subst(subst, arg);
+  return mk_select(subst->mngr, idx, t);
 }
 
 static term_t subst_bit_select(term_subst_t *subst, select_term_t *d) {
-  term_t t;
+  term_t t, arg;
+  uint32_t idx;
 
-  t = get_subst(subst, d->arg);
-  return mk_bitextract(subst->mngr, t, d->idx);
+  arg = d->arg;
+  idx = d->idx;
+  t = get_subst(subst, arg);
+  return mk_bitextract(subst->mngr, t, idx);
 }
 
 
