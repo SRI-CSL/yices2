@@ -985,7 +985,7 @@ static term_t subst_pprod(term_subst_t *subst, pprod_t *p, type_t tau) {
 
   n = p->len;
   a = alloc_istack_array(&subst->stack, n);
-  
+
   /*
    * p is t_0^e_0 ... t_{n-1}^e_{n-1}
    * compute a[i] = subst(t_i), stop if a[i] is zero
