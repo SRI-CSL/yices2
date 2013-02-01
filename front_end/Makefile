@@ -1,5 +1,5 @@
 #
-# tests/Makefile
+# front_end/Makefile
 #
 # Must be invoked with the following variables set
 #
@@ -29,7 +29,6 @@ conf=$(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
 include $(conf)
 
 
-
 #
 # build subdirectories
 #
@@ -42,19 +41,16 @@ static_libdir := $(BUILD)/static_lib
 static_bindir := $(BUILD)/static_bin
 
 
-#
-# All source files in this directory
-#
-src_c := $(wildcard *.c)
+# all source files in the current directory
+src_c := smt2-parse.c smt2-eval.c hash.c vector.c
 
-#
-# Dependencies and binaries
-#
-dep := $(src_c:%.c=$(objdir)/%.d)
+obj := $(src_c:%.c=$(objdir)/%.o)
+static_obj := $(src_c:%.c=$(static_objdir)/%.o)
+
+# dependencies
+dep := $(src_c:%.c=$(objdir)/%.d) $(objdir)/smt2-lex.d
 static_dep := $(src_c:%.c=$(static_objdir)/%.d)
 
-tests := $(src_c:%.c=$(bindir)/%$(EXEEXT))
-static_tests := $(src_c:%.c=$(static_bindir)/%$(EXEEXT))
 
 #
 # Archives to link with:
@@ -64,6 +60,11 @@ static_tests := $(src_c:%.c=$(static_bindir)/%$(EXEEXT))
 libyices := $(libdir)/libyices.a
 static_libyices := $(static_libdir)/libyices.a
 
+#
+# Binaries
+#
+binaries := $(bindir)/yices_smt2$(EXEEXT)
+static_binaries := $(static_bindir)/yices_smt2$(EXEEXT)
 
 
 #
@@ -73,21 +74,15 @@ static_libyices := $(static_libdir)/libyices.a
 # -static: not supported by Darwin and our Solaris2.10 
 # matchine
 #
-# All tests are linked with libyices.a
-# so we don't want any dllimport/export in yices.h 
-# So we use -DNOYICES_DLL on cygwin and mingw
-#
 ifeq ($(POSIXOS),cygwin)
-  CPPFLAGS := $(CPPFLAGS) -DCYGWIN -DNOYICES_DLL
-  PIC=
-  STATIC=-static -static-libgcc
-  LDFLAGS += -Wl,--stack,8388608
-else
-ifeq ($(POSIXOS),mingw)
-  CPPFLAGS := $(CPPFLAGS) -DMINGW -DNOYICES_DLL
+  CPPFLAGS := $(CPPFLAGS) -DCYGWIN
   PIC=
   STATIC=-static
-  LDFLAGS += -Wl,--stack,8388608
+else
+ifeq ($(POSIXOS),mingw)
+  CPPFLAGS := $(CPPFLAGS) -DMINGW
+  PIC=
+  STATIC=-static
 else
 ifeq ($(POSIXOS),darwin)
   CPPFLAGS := $(CPPFLAGS) -DMACOSX
@@ -101,23 +96,27 @@ ifeq ($(POSIXOS),sunos)
 else
 ifeq ($(POSIXOS),linux)
   CPPFLAGS := $(CPPFLAGS) -DLINUX
-  PIC=-fPIC
+  PIC=-fpic
   STATIC=-static
 else
 ifeq ($(POSIXOS),freebsd)
   CPPFLAGS := $(CPPFLAGS) -DFREEBSD
+  PIC=-fpic
+  STATIC=-static
+else
+ifeq ($(POSIXOS),unix)
+  CPPFLAGS := $(CPPFLAGS) -DLINUX
   PIC=-fPIC
   STATIC=-static
 else
-  PIC=-fPIC
-  STATIC=-static
+ $(error  "Don't know how to compile on $(POSIXOS)")
 endif
 endif
 endif
 endif
 endif
 endif
-
+endif
 
 
 #
@@ -126,41 +125,41 @@ endif
 CFLAGS += -Wall -Winline -Wredundant-decls
 ifeq ($(POSIXOS),mingw)
   ifeq ($(findstring -mno-cygwin, $(CFLAGS)), -mno-cygwin)
-   #	
    # compilation on mingw using the -mno-cygwin flag
-   # We disable -Wformat because mingw uses non-standard
-   # formats in printf/fprintf that do not seem to be 
-   # understood by gcc and cause useless warnings.
-   #
+   # we disable -Wformat warning because mingw uses non-standard
+   # formats in printf that causes useless warnings.
    CFLAGS += -Wno-format
   endif
 endif
 
 
+
+
 #
-# Compilation flags dependent on MODE
+# Compilation flags depending on MODE
+#
 #
 ifeq ($(YICES_MODE),release) 
-  CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer
-  CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer
+CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else 
 ifeq ($(YICES_MODE),devel) 
 CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),profile)
-  CFLAGS := $(CFLAGS) -O3 -pg
-  CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+CFLAGS := $(CFLAGS) $(PIC) -O3 -pg
+CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),gcov)
-  CFLAGS := $(CFLAGS) -fprofile-arcs -ftest-coverage
-  CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+CFLAGS := $(CFLAGS) -fprofile-arcs -ftest-coverage
+CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(findstring $(YICES_MODE),valgrind quantify purify),$(YICES_MODE))
-  CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer -g
-  CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+CFLAGS := $(CFLAGS) -O3 -g
+CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
-  CFLAGS := $(CFLAGS) -g
+CFLAGS := $(CFLAGS) -g
 endif
 endif
 endif
@@ -182,10 +181,9 @@ endif
 
 
 #
-# Include path
+# Need include path for yices.h
 #
 CPPFLAGS := $(CPPFLAGS) -I../src
-
 
 #
 # More CPPFLAGS for compiling static objects
@@ -197,19 +195,6 @@ else
 endif
 
 #
-# These are not needed for the tests -DNOYICES_DLL is already 
-# in CPPFLAGS
-#
-# ifeq ($(POSIXOS),cygwin)
-#   STATIC_CPPFLAGS += -DNOYICES_DLL
-# else
-# ifeq ($(POSIXOS),mingw)
-#   STATIC_CPPFLAGS += -DNOYICES_DLL
-# endif
-# endif
-
-
-#
 # LIBS for compiling in static mode
 #
 # We need to remove -lgmp from LIBS in static mode, otherwise adding
@@ -218,9 +203,9 @@ endif
 STATIC_LIBS := $(STATIC_GMP) $(subst $(LIBS),-lgmp,)
 
 
-
-
-# Dependency file
+#
+# Dependency files
+#
 $(objdir)/%.d: %.c
 	@ echo Building dependency file $@
 	@ $(CC) -MM $(CPPFLAGS) $< > $@.tmp
@@ -238,46 +223,63 @@ include $(static_dep)
 
 
 
-# All test binaries, using dynamic GMP library
-all: $(tests)
+#
+# bison/flex
+#
+smt2-parse.c: smt2-parse.y smt2-lex.c
+	$(YACC) $< -o smt2-parse.c 
 
-$(bindir)/%$(EXEEXT): %.c $(libyices)
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $<  $(libyices) $(LIBS)
-
-
-# Test binaries compiled statically
-all-static: $(static_tests)
-
-$(static_bindir)/%$(EXEEXT): %.c $(static_libyices)
-	$(LNK) $(STATIC_CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ $<  $(static_libyices) $(STATIC_LIBS)
+smt2-lex.c: smt2-lex.l
+	$(LEX) $< && mv lex.yy.c $@
 
 
-.PHONY: all all-static
+# Object files
+$(objdir)/%.o: %.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+$(static_objdir)/%o: %c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+
+# Binaries
+$(bindir)/yices_smt2$(EXEEXT): $(obj) $(libyices)
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
+	   -o $@ $^ $(libyices) $(LIBS)
+
+$(static_bindir)/yices_smt2$(EXEEXT): $(static_obj) $(static_libyices)
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIND_LDFLAGS) $(STATIC) \
+	  -o $@ $^ $(static_libyices) $(STATIC_LIBS)
+
+
+# All objects
+obj: $(obj) $(bin_obj)
+
+static-obj: $(static_obj) $(static_bin_obj)
 
 
 #
-# rules to avoid triggering the .DEFAULT rule if .h or .c files have been deleted
+# Top-level binaries
 #
-%.h:
-	@ echo
-	@ echo "$@ missing"
-	@ echo 
+bin: $(binaries)
 
-%.c:
-	@ echo
-	@ echo "Missing source file: $@"
-	@ echo
+
+#
+# Top-level static binaries
+#
+static-bin: $(static_binaries)
 
 
 
+
+.PHONY: all objects bin clean static-bin
 
 # For debugging
 .DEFAULT:
 	@ echo
-	@ echo "*** src/Mafefile ***"
+	@ echo "*** front_end/Mafefile ***"
 	@ echo
 	@ echo "target is $@"
-	@ echo 
+	@ echo
 	@ echo "ARCH is $(ARCH)"
 	@ echo "POSIXOS is $(POSIXOS)"
 	@ echo "YICES_TOP_DIR is $(YICES_TOP_DIR)"
@@ -292,7 +294,6 @@ $(static_bindir)/%$(EXEEXT): %.c $(static_libyices)
 	@ echo "  MKDIR_P  = $(MKDIR_P)"
 	@ echo "  CC       = $(CC)"
 	@ echo "  CPPFLAGS = $(CPPFLAGS)"
-	@ echo "  CFLAGS   = $(CFLAGS)"
 	@ echo "  LIBS     = $(LIBS)"
 	@ echo "  LDFLAGS  = $(LDFLAGS)"
 	@ echo "  LD       = $(LD)"

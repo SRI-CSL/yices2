@@ -145,8 +145,6 @@ src_c := $(base_src_c) $(extra_src_c)
 # additional source files for the binaries
 #
 bin_src_c := yices_main.c yices_smtcomp.c yices_smt.c yices_sat.c
-smt2_src_c := smt2/smt2-parse.c smt2/smt2-eval.c smt2/hash.c smt2/vector.c
-
 
 #
 # Auto-generated version file
@@ -167,10 +165,6 @@ bin_dep := $(bin_src_c:%.c=$(objdir)/%.d)
 static_bin_obj = $(bin_src_c:%.c=$(static_objdir)/%.o)
 static_bin_dep = $(bin_src_c:%.c=$(static_objdir)/%.d)
 
-smt2_obj := $(smt2_src_c:%.c=$(objdir)/%.o)
-smt2_dep := $(objdir)/smt2/smt2-lex.d $(smt2_src_c:%.c=$(objdir)/%.d)
-static_smt2_obj = $(smt2_src_c:%.c=$(static_objdir)/%.o)
-static_smt2_dep = $(static_objdir)/smt2/smt2-lex.d $(smt2_src_c:%.c=$(static_objdir)/%.d)
 
 version_obj := $(objdir)/yices_version.o
 version_dep := $(version_c:%.c=$(objdir)/%.d)
@@ -188,9 +182,8 @@ static_libyices := $(static_libdir)/libyices.a
 #
 # Binaries
 #
-binaries := $(bin_src_c:%.c=$(bindir)/%$(EXEEXT)) $(bindir)/yices_smt2$(EXEEXT)
-static_binaries := $(bin_src_c:%.c=$(static_bindir)/%$(EXEEXT)) $(static_bindir)/yices_smt2$(EXEEXT)
-
+binaries := $(bin_src_c:%.c=$(bindir)/%$(EXEEXT))
+static_binaries := $(bin_src_c:%.c=$(static_bindir)/%$(EXEEXT))
 
 
 #
@@ -462,25 +455,21 @@ STATIC_LIBS := $(STATIC_GMP) $(subst $(LIBS),-lgmp,)
 #
 $(objdir)/%.d: %.c
 	@ echo Building dependency file $@
-	@ $(MKDIR_P) `dirname $@`
 	@ $(CC) -MM -MG $(CFLAGS) $(CPPFLAGS) $< > $@.tmp
 	@ $(SED) 's,\($*\).o[ :]*,$(objdir)/\1.o $@ : , g' < $@.tmp > $@
 	@ rm -f $@.tmp
 
 $(static_objdir)/%.d: %.c
 	@ echo Building dependency file $@
-	@ $(MKDIR_P) `dirname $@`
 	@ $(CC) -MM -MG $(CFLAGS) $(STATIC_CPPFLAGS) $< > $@.tmp
 	@ $(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.tmp > $@
 	@ rm -f $@.tmp
 
 include $(dep)
 include $(bin_dep)
-include $(smt2_dep)
 include $(version_dep)
 include $(static_dep)
 include $(static_bin_dep)
-include $(static_smt2_dep)
 include $(static_version_dep)
 
 
@@ -537,16 +526,6 @@ yices_version.c: yices_version_template.txt
 	       -e 's/YICES_ARCH/$(ARCH)/g' -e 's/YICES_BUILD_MODE/$(YICES_MODE)/g' \
 	       yices_version_template.txt > $@
 
-#
-# bison/flex (these should be implicit, but aren't?)
-#
-
-%.c: %.y
-	$(YACC) $< && mv y.tab.c $@
-
-%.c: %.l
-	$(LEX) $< && mv lex.yy.c $@
-
 
 #
 # Object files
@@ -585,13 +564,6 @@ $(static_bindir)/%$(EXEEXT): $(static_objdir)/%.o $(static_libyices)
 	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIND_LDFLAGS) $(STATIC) \
 	  -o $@ $< $(static_libyices) $(STATIC_LIBS)
 
-$(bindir)/yices_smt2$(EXEEXT): $(smt2_obj) $(libyices)
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
-           -o $@ $^ $(libyices) $(LIBS)
-
-$(static_bindir)/yices_smt2$(EXEEXT): $(static_smt2_obj) $(static_libyices)
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIND_LDFLAGS) $(STATIC) \
-          -o $@ $^ $(static_libyices) $(STATIC_LIBS)
 
 #
 # For dynamic libraries, the rules are platform-dependent.
@@ -749,8 +721,6 @@ dist: bin lib
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices$(EXEEXT)
 	cp $(bindir)/yices_smtcomp$(EXEEXT) $(distdir)/bin/yices-smt$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt$(EXEEXT)
-	cp $(bindir)/yices_smt2$(EXEEXT) $(distdir)/bin/yices-smt2$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-smt2$(EXEEXT)
 	cp $(bindir)/yices_sat$(EXEEXT) $(distdir)/bin/yices-sat$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(distdir)/bin/yices-sat$(EXEEXT)
 	cp $(bindir)/*.dll $(distdir)/bin || true
@@ -767,8 +737,6 @@ static-dist: static-bin static-lib
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices$(EXEEXT)
 	cp $(static_bindir)/yices_smtcomp$(EXEEXT) $(static_distdir)/bin/yices-smt$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt$(EXEEXT)
-	cp $(static_bindir)/yices_smt2$(EXEEXT) $(static_distdir)/bin/yices-smt2$(EXEEXT)
-	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-smt2$(EXEEXT)
 	cp $(static_bindir)/yices_sat$(EXEEXT) $(static_distdir)/bin/yices-sat$(EXEEXT)
 	$(STRIP) $(STRIPFLAGS) $(static_distdir)/bin/yices-sat$(EXEEXT)
 	cp $(static_bindir)/*.dll $(static_distdir)/bin || true

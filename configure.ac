@@ -494,14 +494,15 @@ AC_CHECK_LIB(gmp, __gmpz_cmp, [],
 # because the Makefiles import its definition via ./configs/make.include.
 # This may be unreliable (it won't handle spaces in directory names).
 #
-case "$MKDIR_P" in
-  ./install-sh*)
-     curdir=`pwd`
-     new_mkdir_p="$curdir/$MKDIR_P"
-     AC_MSG_WARN([*** MKDIR_P is relative: contering $MKDIR_P to $new_mkdir_p ***]) 
-     MKDIR_P=$new_mkdir_p
-     ;;
-esac
+# case "$MKDIR_P" in
+#   ./install-sh*)
+#      curdir=`pwd`
+#      new_mkdir_p="$curdir/$MKDIR_P"
+#     AC_MSG_WARN([*** MKDIR_P is relative: contering $MKDIR_P to $new_mkdir_p ***]) 
+#     MKDIR_P=$new_mkdir_p
+#     ;;
+# esac
+#
 
 #
 # Restore CFLAGS

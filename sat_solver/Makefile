@@ -84,7 +84,9 @@ CPPFLAGS := $(CPPFLAGS) -I../src
 # -fPIC: default on Darwin/Cygwin/Mingw (and causes 
 #  compilation warning if present)
 # -static: not supported by Darwin and our Solaris2.10 
-# matchine
+#  matchine
+# -fpic does not always work on Sparc/Solaris so -
+#  fPIC is safer
 #
 ifeq ($(POSIXOS),cygwin)
   CPPFLAGS := $(CPPFLAGS) -DCYGWIN
@@ -103,7 +105,7 @@ ifeq ($(POSIXOS),darwin)
 else
 ifeq ($(POSIXOS),sunos)
   CPPFLAGS := $(CPPFLAGS) -DSOLARIS
-  PIC=-fpic
+  PIC=-fPIC
   STATIC=
 else
 ifeq ($(POSIXOS),linux)

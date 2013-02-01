@@ -42,6 +42,7 @@ include $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
 srcdir = src
 testdir = tests
 satdir = sat_solver
+smt2dir = front_end
 
 #
 # Build directory: for this architecture and mode
@@ -219,7 +220,25 @@ static-test: build_subdirs
 	@ echo "=== Building tests ==="
 	@ $(MAKE) -C $(testdir) BUILD=../$(build_dir) all-static
 
-.PHONY: all obj static-obj lib static-lib bin static-bin test static-test
+
+#
+# SMT2 front-end: same as test
+#
+smt2: build_subdirs
+	@ echo "=== Building libraries ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) lib
+	@ echo "=== Building smt2 front end ==="
+	@ $(MAKE) -C $(smt2dir) BUILD=../$(build_dir) bin
+
+static-smt2: build_subdirs
+	@ echo "=== Building libraries ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-lib
+	@ echo "=== Building smt2 front end  ==="
+	@ $(MAKE) -C $(smt2dir) BUILD=../$(build_dir) static-bin
+
+
+
+.PHONY: all obj static-obj lib static-lib bin static-bin test static-test smt2 static-smt2
 
 
 

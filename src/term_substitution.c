@@ -573,7 +573,7 @@ term_t beta_reduce(term_manager_t *mngr, term_t t) {
  * Error codes returned:
  * - if the substitution creates a term of degree > YICES_MAX_DEGREE
  *   abort by calling longjmp(subst->env): return -1 (NULL_TERM)
- * - if something else goes wrong (either because the subsitution is wrong
+ * - if something else goes wrong (either because the substitution is wrong
  *   or there's a bug somewhere): return -2
  */
 static term_t get_subst(term_subst_t *subst, term_t t);
@@ -952,25 +952,23 @@ static term_t subst_bvsge(term_subst_t *subst, composite_term_t *d) {
  * Warning: d is not a safe pointer (it may become invalid if new
  * terms are created). cf. terms.h
  *
- * So we must make a copy of d->arg and d->idx before the recursive call
+ * So we must make a copy of d->idx before the recursive call
  */
 static term_t subst_select(term_subst_t *subst, select_term_t *d) {
-  term_t t, arg;
   uint32_t idx;
+  term_t t;
 
-  arg = d->arg;
   idx = d->idx;
-  t = get_subst(subst, arg);
+  t = get_subst(subst, d->arg);
   return mk_select(subst->mngr, idx, t);
 }
 
 static term_t subst_bit_select(term_subst_t *subst, select_term_t *d) {
-  term_t t, arg;
   uint32_t idx;
+  term_t t;
 
-  arg = d->arg;
   idx = d->idx;
-  t = get_subst(subst, arg);
+  t = get_subst(subst, d->arg);
   return mk_bitextract(subst->mngr, t, idx);
 }
 
