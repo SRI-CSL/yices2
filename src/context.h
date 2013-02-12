@@ -79,6 +79,7 @@ typedef enum {
  * Options passed to the simplex solver when it's created
  * - EAGER_LEMMAS
  * - ENABLE_ICHECK
+ * - EQPROP
  *
  * Options for testing and debugging
  * - LAX_OPTION: try to keep going when the assertions contain unsupported
@@ -99,6 +100,7 @@ typedef enum {
 
 #define SPLX_EGRLMAS_OPTION_MASK  0x10000
 #define SPLX_ICHECK_OPTION_MASK   0x20000
+#define SPLX_EQPROP_OPTION_MASK   0x40000
 
 // FOR TESTING
 #define LAX_OPTION_MASK         0x40000000
@@ -909,6 +911,8 @@ extern void enable_splx_eager_lemmas(context_t *ctx);
 extern void disable_splx_eager_lemmas(context_t *ctx);
 extern void enable_splx_periodic_icheck(context_t *ctx);
 extern void disable_splx_periodic_icheck(context_t *ctx);
+extern void enable_splx_eqprop(context_t *ctx);
+extern void disable_splx_eqprop(context_t *ctx);
 
 
 /*
@@ -956,6 +960,10 @@ static inline bool splx_eager_lemmas_enabled(context_t *ctx) {
 
 static inline bool splx_periodic_icheck_enabled(context_t *ctx) {
   return (ctx->options & SPLX_ICHECK_OPTION_MASK) != 0;
+}
+
+static inline bool splx_eqprop_enabled(context_t *ctx) {
+  return (ctx->options & SPLX_EQPROP_OPTION_MASK) != 0;
 }
 
 

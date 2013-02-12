@@ -1127,6 +1127,7 @@ static int process_benchmark(void) {
     if (need_icheck) {
       enable_splx_periodic_icheck(&context);
     }
+    enable_splx_eqprop(&context);
     break;
 
   case CTX_ARCH_EGBV:         // egraph+bitvector solver

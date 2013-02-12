@@ -161,6 +161,16 @@ static inline void simplex_disable_adjust_model(simplex_solver_t *solver) {
 }
 
 
+/*
+ * Enable/disable the equality propagator
+ * - the default is to disable
+ * - the call to enable_eqprop allocates and initialize the propagator
+ * - the call to disable_eqprop deletes the propagator if any
+ */
+extern void simplex_enable_eqprop(simplex_solver_t *solver);
+
+extern void simplex_disable_eqprop(simplex_solver_t *solver);
+
 
 /*******************************
  *  INTERNALIZATION FUNCTIONS  *

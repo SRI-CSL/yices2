@@ -429,7 +429,7 @@ extern void egraph_assert_notpred_axiom(egraph_t *egraph, occ_t f, uint32_t n, o
  *   valid codes are EXPL_ARITH_PROPAGATION, EXPL_BV_PROPAGATION, EXPL_FUN_PROPAGATION
  * - expl = any data that the solver needs to expand the explanation if needed
  */
-extern void egraph_propagate_equality(egraph_t *egraph, occ_t t1, occ_t t2, expl_tag_t id, void *expl);
+extern void egraph_propagate_equality(egraph_t *egraph, eterm_t t1, eterm_t t2, expl_tag_t id, void *expl);
 
 
 

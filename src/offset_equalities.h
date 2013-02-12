@@ -29,8 +29,8 @@
  * we merge two equivalence classes.
  *
  * To propagate equalities to the Egraph, we store polynomials in a
- * hash table, that uses equality modulo the offset classes.  This is
- * cheap to implement, since we just apply a variable substitutions of
+ * hash table that uses equality modulo the offset classes.  This is
+ * cheap to implement, since we just apply a variable substitution of
  * the form x := r + k (replace x by its root + offset pair).
  */
 
@@ -397,11 +397,11 @@ typedef struct offset_level_stack_s {
  * Out-of-order polynomials
  * - if a polynomial i is added during the search (at decision level k > base_level)
  *   then we may discover that (i == j) for some other polynomial j
- * - this equality will be reported first at level k (first call to propagate after i is added)
- *   but it may be true at levels < k.
+ * - this equality will be reported first at level k (first call to propagate after
+ *   i is added) but it may be true at levels < k.
  * - to deal with this, we store all polynomials added during the search to
- *   the following recheck structure. When we backtrack to decision level <= k, we move
- *   all polynomials added at levels > k to the process queue.
+ *   the following recheck structure. When we backtrack to decision level <= k, we 
+ *   move all polynomials added at levels > k to the process queue.
  *
  * Each element in the recheck queue stores a polynomial id + the decision level at 
  * which this polynomial was added.

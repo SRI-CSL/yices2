@@ -133,6 +133,7 @@
 #include "diophantine_systems.h"
 #include "egraph_assertion_queues.h"
 #include "diseq_stacks.h"
+#include "offset_equalities.h"
 
 #include "smt_core.h"
 #include "gates_manager.h"
@@ -452,6 +453,37 @@ typedef struct aprop_egraph_diseq_s {
 
 
 
+
+/*****************************************
+ *  PROPAGATION USING OFFSET EQUALITIES  *
+ ****************************************/
+
+/*
+ * To propagate equalities to the egraph:
+ * - we use offset_manager as an auxiliary solver
+ * - for every theory variable x, we mark x as relevant
+ *   if its definition is suitable for offset equality:
+ *   (i.e., x's definition must be of the form x := y - z
+ *    so that we can propagate y == z + a when we detect a <= x <= a)
+ * - to detect frozen variables, we keep a propagation pointer
+ *   (an index in the simplex's bound stack).
+ */
+typedef struct eq_propagator_s {
+  offset_manager_t mngr;
+  byte_t *relevant;   // one bit per variable
+  uint32_t nvars;     // number of variables
+  uint32_t size;      // size of vector 'relevant' (number of bits)
+  uint32_t prop_ptr;  // propagation pointer
+
+  ivector_t aux;      // for explanations
+  rational_t q_aux;
+} eq_propagator_t;
+
+
+#define DEF_EQPROP_SIZE 128
+
+
+
 /******************
  *  CACHED DATA   *
  *****************/
@@ -707,6 +739,10 @@ typedef struct simplex_solver_s {
    */
   void *propagator;
 
+  /*
+   * Propagator for the egraph: optional
+   */
+  eq_propagator_t *eqprop;
 
   /*
    * Matrix/tableau
@@ -840,6 +876,7 @@ typedef struct simplex_solver_s {
  * - ICHECK: enable periodic integer checking
  * - ADJUST_MODEL: attempt to modify the variable assignment to
  *   make the simplex model consistent with the egraph (as much as possible).
+ * - EQPROP: enable propagation of equalities to the egraph
  *
  * Bland's rule threshold: based on the count of repeat
  * leaving variable. The counter is incremented whenever
@@ -853,6 +890,7 @@ typedef struct simplex_solver_s {
 #define SIMPLEX_PROPAGATION         0x2
 #define SIMPLEX_ICHECK              0x4
 #define SIMPLEX_ADJUST_MODEL        0x8
+#define SIMPLEX_EQPROP              0x10
 
 #define SIMPLEX_DISABLE_ALL_OPTIONS 0x0
 

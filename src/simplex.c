@@ -20,7 +20,7 @@
  * To dump the initial tableau, set DUMP to 1
  *
  * To trace simplifications and tableau initialization set TRACE_INIT to 1
- * To trace the theory propagation set TRACE_PROPAGATION to 1
+ * To trace the theory propagation set TRACE_PROPAGATION to 1 (in 
  * To trace the branch&bound algorithm set TRACE_BB to 1
  */
 #define TRACE   0
@@ -32,7 +32,7 @@
 #define TRACE_BB 0
 
 
-#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG)
+#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG) || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -1091,6 +1091,406 @@ static aprop_t *make_simplex_prop_object(simplex_solver_t *solver, int32_t k) {
 
 
 
+/*******************************
+ *  PROPAGATION TO THE EGRAPH  *
+ ******************************/
+
+/*
+ * Callback: called when equality between two egraph term is detected
+ */
+static void prop_eq_to_egraph(void *s, eterm_t t1, eterm_t t2) {
+  simplex_solver_t *solver;
+  egraph_t *egraph;
+
+  solver = s;
+  egraph = solver->egraph;
+  assert(egraph != NULL);
+
+  //  egraph_propagate_equality(egraph, t1, t2, EXPL_ARITH_PROPAGATION, NULL);
+#if 1
+  printf("---> eq prop: g!%"PRId32" == g!%"PRId32"\n", t1, t2);
+#endif
+}
+
+
+/*
+ * Check whether p is of the form c + y - z or y - z
+ * where c is a constant and y and z are variables.
+ */
+static bool offset_poly(polynomial_t *p) {
+  monomial_t *mono;
+  uint32_t n;
+
+  n = p->nterms;
+  mono = p->mono;
+  if (n > 0 && mono[0].var == const_idx) {
+    // skip the constant
+    mono ++;
+    n --;
+  }
+
+  if (n == 2) {
+    assert(mono[0].var != const_idx && mono[1].var != const_idx);
+    return (q_is_one(&mono[0].coeff) && q_is_minus_one(&mono[1].coeff)) 
+      || (q_is_minus_one(&mono[0].coeff) && q_is_one(&mono[1].coeff));
+  }
+
+  return false;
+}
+
+
+/*
+ * Check whether variable x is relevant for offset equality propagation
+ */
+static bool eqprop_relevant_var(simplex_solver_t *solver, thvar_t x) {
+  arith_vartable_t *vtbl;
+  polynomial_t *p;
+
+  vtbl = &solver->vtbl;
+
+  assert(arith_var_kind(vtbl, x) == AVAR_FREE || arith_var_kind(vtbl, x) == AVAR_POLY);
+
+  p = arith_var_def(vtbl, x);
+
+  /*
+   * If p is NULL, then x is a variable => relevant?
+   * Otherwise, p is a polynomial. x is relevant if p is of the 
+   * form (c + z - y) where c is a constant (possibly 0).
+   *
+   * Note: if p is of the form (c + z) or (c - y), then x is
+   * a trivial_variable so it's eliminated from all definitions.
+   * This means that x is not relevant here.
+   */
+  return (p == NULL) || offset_poly(p);  
+}
+
+
+/*
+ * Increase the size of bitarray eqprop->relevant to store relevance bit for variable i
+ */
+static void resize_eqprop(eq_propagator_t *eqprop, uint32_t i) {
+  uint32_t n;
+
+  n = eqprop->size;
+  if (n <= i) {
+    n += n;
+    if (n <= i) {
+      n = i+1;
+    }
+    eqprop->relevant = extend_bitvector0(eqprop->relevant, n, eqprop->size);
+    eqprop->size = n;
+  }
+}
+
+
+/*
+ * Set the relevance bit for variable x
+ * - x must be in the vartable and different from const_idx
+ * - solver->eqprop must be initialized
+ */
+static void eqprop_set_relevance(simplex_solver_t *solver, thvar_t x) {
+  eq_propagator_t *eqprop;
+
+  assert(0 < x && x < solver->vtbl.nvars && solver->eqprop != NULL);
+  
+  eqprop = solver->eqprop;
+  resize_eqprop(eqprop, x);
+  assert(x < eqprop->size);
+
+  if (eqprop_relevant_var(solver, x)) {
+    set_bit(eqprop->relevant, x);
+  }
+}
+
+
+/*
+ * Allocate and initialize the propagator object
+ */
+static void simplex_alloc_eqprop(simplex_solver_t *solver) {
+  eq_propagator_t *tmp;
+  uint32_t i, n;
+
+  assert(solver->eqprop == NULL);
+
+  tmp = (eq_propagator_t *) safe_malloc(sizeof(eq_propagator_t));
+  init_offset_manager(&tmp->mngr, solver, prop_eq_to_egraph);
+
+  n = DEF_EQPROP_SIZE;
+  assert(n > 0);
+
+  tmp->relevant = allocate_bitvector0(n);
+  tmp->nvars = 1;
+  tmp->size = n;
+  tmp->prop_ptr = 2; // skip bounds on const_idx (cf. create_constant)
+  init_ivector(&tmp->aux, 20);
+  q_init(&tmp->q_aux);
+
+  solver->eqprop = tmp;
+
+  // initialize the relevance bits of all other variables if any
+  // for variable 0 = const_idx, relevant[0] stays 0
+  n = solver->vtbl.nvars;
+  for (i=1; i<n; i++) {
+    eqprop_set_relevance(solver, i);
+  }
+}
+
+
+/*
+ * Delete the propagator
+ */
+static void simplex_delete_eqprop(simplex_solver_t *solver) {
+  eq_propagator_t *eqprop;
+
+  eqprop = solver->eqprop;
+  assert(eqprop != NULL);
+  delete_offset_manager(&eqprop->mngr);
+  delete_bitvector(eqprop->relevant);
+  delete_ivector(&eqprop->aux);
+  q_clear(&eqprop->q_aux);
+
+  safe_free(eqprop);
+  solver->eqprop = NULL;
+}
+
+
+/*
+ * Reset
+ */
+static void simplex_reset_eqprop(simplex_solver_t *solver) {
+  eq_propagator_t *eqprop;
+
+  eqprop = solver->eqprop;
+  assert(eqprop != NULL);
+  reset_offset_manager(&eqprop->mngr);
+  clear_bitvector(eqprop->relevant, eqprop->size);
+  ivector_reset(&eqprop->aux);
+  q_clear(&eqprop->q_aux);
+}
+
+
+
+/*
+ * Push
+ */
+static void simplex_push_eqprop(simplex_solver_t *solver) {
+  eq_propagator_t *eqprop;
+
+  eqprop = solver->eqprop;
+  assert(eqprop != NULL);
+  offset_manager_push(&eqprop->mngr);
+}
+
+
+/*
+ * Pop
+ */
+static void simplex_pop_eqprop(simplex_solver_t *solver) {
+  eq_propagator_t *eqprop;
+  uint32_t i, n;
+
+  eqprop = solver->eqprop;
+  assert(eqprop != NULL);
+  offset_manager_push(&eqprop->mngr);
+
+  // clear bits (of deleted variables)
+  n = eqprop->size;
+  for (i = solver->vtbl.nvars; i<n; i++) {
+    clr_bit(eqprop->relevant, i);
+  }
+
+  // reset the propagation pointer (same as in solver)
+  assert(solver->bstack.prop_ptr == solver->bstack.fix_ptr);
+  eqprop->prop_ptr = solver->bstack.prop_ptr;
+}
+
+
+/*
+ * Enable eqprop option: the option is ignored if solver->egraph is NULL
+ */
+void simplex_enable_eqprop(simplex_solver_t *solver) {
+  if (solver->egraph != NULL) {
+    simplex_enable_options(solver, SIMPLEX_EQPROP);
+    if (solver->eqprop == NULL) {
+      simplex_alloc_eqprop(solver);
+    }
+  }
+}
+
+void simplex_disable_eqprop(simplex_solver_t *solver) {
+  if (solver->egraph != NULL) {
+    simplex_disable_options(solver, SIMPLEX_EQPROP);
+    if (solver->eqprop != NULL) {
+      simplex_delete_eqprop(solver);
+    }
+  }
+}
+
+
+/*
+ * Record that x is attached to eterm t
+ */
+static void eqprop_record_eterm(simplex_solver_t *solver, thvar_t x, eterm_t t) {
+  eq_propagator_t *eqprop;
+  arith_vartable_t *vtbl;
+  polynomial_t *p;
+
+  vtbl = &solver->vtbl;
+  eqprop = solver->eqprop;
+
+  assert(eqprop != NULL && (arith_var_kind(vtbl, x) == AVAR_FREE || arith_var_kind(vtbl, x) == AVAR_POLY));
+  p = arith_var_def(vtbl, x);
+
+  record_offset_poly(&eqprop->mngr, t, x, p);
+}
+
+
+/*
+ * Check whether bound i freezes the value of variable x
+ * - this returns true if x's lower and upper bound are equal and if i is the last bound
+ *   asserted
+ */
+static bool bound_freezes_var(simplex_solver_t *solver, thvar_t x, int32_t i) {
+  int32_t l, u;
+
+  assert(i >= 0);
+
+  l = arith_var_lower_index(&solver->vtbl, x); // lower bound on x
+  u = arith_var_upper_index(&solver->vtbl, x); // upper bound on x
+  
+  if (u < l) {
+    // l = last bound on x
+    return (l == i) && (u >= 0) && xq_eq(&solver->bstack.bound[l], &solver->bstack.bound[u]);
+  } else {
+    // u = last bound on x
+    return (u == i) && (l >= 0) && xq_eq(&solver->bstack.bound[l], &solver->bstack.bound[u]);
+  }
+}
+
+
+/*
+ * Process frozen variable x
+ * - x is relevant to eqprop
+ */
+static void eqprop_process_frozen_var(simplex_solver_t *solver, thvar_t x) {
+  eq_propagator_t *eqprop;
+  polynomial_t *p;
+  monomial_t *mono;
+  rational_t *a;
+  thvar_t y, z;
+
+  assert(eqprop_relevant_var(solver, x) && simplex_fixed_variable(solver, x));
+
+  eqprop = solver->eqprop;
+  assert(eqprop != NULL);
+
+  /*
+   * We have (a == x) and (x == c + y - z):
+   * - we propagate x == a and y == z + (a - c)
+   */
+  a = fixed_variable_value(solver, x);
+  p = arith_var_def(&solver->vtbl, x);
+
+  assert_offset_equality(&eqprop->mngr, x, -1, a, x); // x == a with id = x
+
+  if (p != NULL) {
+    mono = p->mono;
+    assert((p->nterms == 3 && mono[0].var == const_idx) || 
+	   (p->nterms == 2 && mono[0].var > const_idx));
+
+    // store a - c in q_aux
+    q_set(&eqprop->q_aux, a);
+    if (mono[0].var == const_idx) {
+      q_sub(&eqprop->q_aux, &mono[0].coeff);
+      mono ++;
+    }
+
+    if (q_is_one(&mono[0].coeff)) {
+      assert(q_is_minus_one(&mono[1].coeff));
+      y = mono[0].var;
+      z = mono[1].var;
+    } else {
+      assert(q_is_minus_one(&mono[0].coeff) && q_is_one(&mono[1].coeff));
+      y = mono[1].var;
+      z = mono[0].var;
+    }
+
+    // propagate (y == z + q_aux) to manager; use x as id
+    assert_offset_equality(&eqprop->mngr, y, z, &eqprop->q_aux, x); 
+  }
+}
+
+
+/*
+ * Scan all new bounds in solver->bstack
+ * - for each frozen variable, add an offset equality to the offset manager
+ */
+static void simplex_propagate_equalities(simplex_solver_t *solver) {
+  eq_propagator_t *eqprop;
+  arith_bstack_t *bstack;
+  uint32_t i, n, eqs;
+  thvar_t x;
+  bool feasible;
+
+  bstack = &solver->bstack;
+  eqprop = solver->eqprop;
+  assert(eqprop != NULL);
+
+  n = bstack->top;
+  eqs = 0;
+  for (i=eqprop->prop_ptr; i<n; i++) {
+    x = bstack->var[i];
+    if (bound_freezes_var(solver, x, i) && eqprop_relevant_var(solver, x)) {
+      /*
+       * x is frozen and relevant: propagate the constraint x == value
+       * to the offset manager.
+       */
+      assert(tst_bit(eqprop->relevant, x));
+      assert(simplex_fixed_variable(solver, x));
+#if 1
+      printf("---> fixed var: ");
+      print_simplex_var(stdout, solver, x);
+      printf(" == ");
+      print_simplex_var_value(stdout, solver, x);
+      printf(" (bound = %"PRIu32")\n", i);
+#endif
+
+      eqprop_process_frozen_var(solver, x);
+      eqs ++;
+    }
+  }
+
+  if (eqs > 0) {
+    feasible = offset_manager_propagate(&eqprop->mngr);
+    assert(feasible);
+  }
+  
+  eqprop->prop_ptr = n;
+}
+
+
+/*
+ * Build an explanation for the egraph
+ * - this function is called by the egraph when it needs the explanation for (x1 == x2)
+ * - expl is NULL (we ignore it)
+ * - the explanation must be stored in result
+ */
+static void simplex_expand_th_explanation(simplex_solver_t *solver, thvar_t x1, thvar_t x2, void *expl, th_explanation_t *result) {
+  eq_propagator_t *eqprop;
+
+  eqprop = solver->eqprop;
+  assert(eqprop != NULL);
+
+  /*
+   * collect the relevant frozen variables in aux
+   */
+  ivector_reset(&eqprop->aux);
+  offset_manager_explain_equality(&eqprop->mngr, x1, x2, &eqprop->aux);
+
+  // TBD: convert aux to a th_explanation object
+  assert(false);
+}
+
 
 /****************************
  *  SOLVER INITIALIZATION   *
@@ -1173,6 +1573,8 @@ void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, gate_manage
   init_arith_vartable(&solver->vtbl);
 
   solver->propagator = NULL; // allocated if needed in start search
+
+  solver->eqprop = NULL; // allocated by simple_enable_eqprop
 
   init_matrix(&solver->matrix, 0, 0);
   solver->tableau_ready = false;
@@ -1610,6 +2012,10 @@ static thvar_t get_var_from_buffer(simplex_solver_t *solver) {
     if (new_var) {
       matrix_add_column(&solver->matrix);
       activate_variable(solver, x);
+      // set relevance mark in solver->eqprop
+      if (solver->eqprop != NULL) {
+	eqprop_set_relevance(solver, x);
+      }
     }
   }
   reset_poly_buffer(b);
@@ -1695,6 +2101,10 @@ static thvar_t decompose_and_get_var(simplex_solver_t *solver) {
     if (new_var) {
       matrix_add_column(&solver->matrix);
       activate_variable(solver, x);
+      // set relevance mark in solver->eqprop
+      if (solver->eqprop != NULL) {
+	eqprop_set_relevance(solver, x);
+      }
     }
   }
   reset_poly_buffer(b);
@@ -2259,8 +2669,14 @@ static void add_ge_axiom(simplex_solver_t *solver, bool tt) {
  * - also add a matrix column
  */
 thvar_t simplex_create_var(simplex_solver_t *solver, bool is_int) {
+  thvar_t x;
+
   matrix_add_column(&solver->matrix);
-  return create_arith_var(&solver->vtbl, is_int);
+  x = create_arith_var(&solver->vtbl, is_int);
+  if (solver->eqprop != NULL) {
+    eqprop_set_relevance(solver, x);
+  }
+  return x;
 }
 
 
@@ -2280,6 +2696,10 @@ thvar_t simplex_create_const(simplex_solver_t *solver, rational_t *q) {
   x = get_var_for_poly(&solver->vtbl, poly_buffer_mono(b), poly_buffer_nterms(b), &new_var);  
   if (new_var) {
     matrix_add_column(&solver->matrix);
+    // set relevance mark in solver->eqprop
+    if (solver->eqprop != NULL) {
+      eqprop_set_relevance(solver, x);
+    }
   }
   reset_poly_buffer(b);
 
@@ -2335,6 +2755,10 @@ thvar_t simplex_create_pprod(simplex_solver_t *solver, pprod_t *p, thvar_t *map)
  */
 void simplex_attach_eterm(simplex_solver_t *solver, thvar_t v, eterm_t t) {
   attach_eterm_to_arith_var(&solver->vtbl, v, t);
+  // propagate to the eq_propagator if it exists
+  if (solver->eqprop != NULL) {
+    eqprop_record_eterm(solver, v, t);
+  }
 }
 
 
@@ -4672,6 +5096,11 @@ static thvar_t decompose_and_get_dynamic_var(simplex_solver_t *solver) {
       assert(0 <= r && r < matrix->nrows);
       simplex_set_basic_var_value(solver, x, matrix_row(matrix, r));
 
+      // set the relevance bit in eqprop if present
+      if (solver->eqprop != NULL) {
+	eqprop_set_relevance(solver, x);
+      }
+
 #if TRACE
       printf("     new simplex variable: ");
       print_simplex_vardef(stdout, solver, x);
@@ -5750,7 +6179,7 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
 
   assert(arith_var_has_eterm(&solver->vtbl, x1) && arith_var_has_eterm(&solver->vtbl, x2) && x1 != x2);
 
-#if TRACE
+#if TRACE || 1
   printf("---> Simplex: process egraph equality: ");
   print_simplex_var(stdout, solver, x1);
   printf(" = ");
@@ -5788,7 +6217,7 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
     c = &solver->constant;
   }
 
-#if TRACE
+#if TRACE || 1
   printf("     asserting ");
   print_simplex_var(stdout, solver, y);
   printf(" == ");
@@ -5822,7 +6251,7 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
     if (cmp_lb > 0) {
       record_egraph_eq_conflict(solver, k, x1, x2);
 
-#if TRACE
+#if TRACE || 1
       printf("     conflict with bound ");
       print_simplex_bound(stdout, solver, k);
       printf("\n");
@@ -5837,7 +6266,7 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
     if (cmp_ub < 0) {
       record_egraph_eq_conflict(solver, k, x1, x2);
 
-#if TRACE
+#if TRACE || 1
       printf("     conflict with bound ");
       print_simplex_bound(stdout, solver, k);
       printf("\n");
@@ -6455,7 +6884,12 @@ bool simplex_propagate(simplex_solver_t *solver) {
     // check for feasibility
     feasible = simplex_make_feasible(solver);
     if (! feasible) goto done;
-    
+
+    // propagate egraph equalities
+    if (solver->eqprop != NULL) {
+      simplex_propagate_equalities(solver);
+    }
+
     /*
      * Theory propagation
      * - propagation may strengthen bounds on integer variables,
@@ -6597,6 +7031,13 @@ void simplex_increase_decision_level(simplex_solver_t *solver) {
   // new scope in arena
   arena_push(&solver->arena);
 
+  // propagate to eqprop
+  if (solver->eqprop != NULL) {
+#if 1
+    printf("---> eq prop: increase decision level to %"PRIu32"\n", solver->decision_level);
+#endif
+    offset_manager_increase_decision_level(&solver->eqprop->mngr);
+  }
 #if TRACE
   printf("\n---> Simplex: increase decision level to %"PRIu32"\n", solver->decision_level);
 #endif
@@ -6730,11 +7171,21 @@ void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
   reset_eassertion_queue(&solver->egraph_queue);
 
   /*
+   * Propagate to the eqprop
+   */
+  if (solver->eqprop != NULL) {
+#if 1
+    printf("---> eq prop: backtrack to level %"PRIu32"\n", back_level);
+#endif
+    offset_manager_backtrack(&solver->eqprop->mngr, back_level);
+  }
+
+  /*
    * Restore the undo stack and the decision level
    */
   solver->stack.top = back_level + 1;
   solver->decision_level = back_level;
-  
+
 
 #if DEBUG
   if (solver->tableau_ready) {
@@ -6789,6 +7240,11 @@ void simplex_push(simplex_solver_t *solver) {
 
   solver->base_level ++;
   simplex_increase_decision_level(solver);
+
+  // propagate to eqprop if present
+  if (solver->eqprop != NULL) {
+    simplex_push_eqprop(solver);
+  }
 }
 
 
@@ -6874,7 +7330,7 @@ void simplex_pop(simplex_solver_t *solver) {
    *     assertion_queue->prop_ptr < assertion_queue->n_assertions.
    * 
    * In such a case, we fix the fix/prop_ptr before calling 
-   * backtrack. This does not cause problem since, we'll restore
+   * backtrack. This does not cause problems since we'll restore
    * fix_ptr/prop_ptr after simplex_backtrack anyway.
    */
   undo = solver->stack.data + solver->base_level;
@@ -6925,6 +7381,11 @@ void simplex_pop(simplex_solver_t *solver) {
     ncolumns = num_arith_vars(&solver->vtbl);
     matrix_shrink(&solver->matrix, nrows, ncolumns);
   }
+
+  // remove variables and reset propagation pointer in eqprop
+  if (solver->eqprop != NULL) {
+    simplex_pop_eqprop(solver);
+  }
 }
 
 
@@ -6971,6 +7432,10 @@ void simplex_reset(simplex_solver_t *solver) {
 
   if (solver->cache != NULL) {
     reset_cache(solver->cache);
+  }
+
+  if (solver->eqprop != NULL) {
+    simplex_reset_eqprop(solver);
   }
 
   if (solver->propagator != NULL) {
@@ -7199,6 +7664,10 @@ void delete_simplex_solver(simplex_solver_t *solver) {
 
   delete_arith_atomtable(&solver->atbl);
   delete_arith_vartable(&solver->vtbl);
+
+  if (solver->eqprop != NULL) {
+    simplex_delete_eqprop(solver);
+  }
 
   if (solver->propagator != NULL) {
     simplex_delete_propagator(solver);
@@ -9201,7 +9670,7 @@ static th_egraph_interface_t simplex_egraph = {
   (assert_distinct_fun_t) simplex_assert_var_distinct,
   (check_diseq_fun_t) simplex_check_disequality,
   (is_constant_fun_t) simplex_var_is_constant,
-  NULL, // no need for expand_th_explanation
+  (expand_eq_exp_fun_t) simplex_expand_th_explanation,
   (reconcile_model_fun_t) simplex_reconcile_model,
   (prepare_model_fun_t) simplex_prep_model,
   (equal_in_model_fun_t) simplex_var_equal_in_model,

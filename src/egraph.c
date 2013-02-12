@@ -4215,7 +4215,7 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
    * - if both have a theory variable, proagate equality (v1 == v2) to theory solvers
    * - check the explanation for i before propagating to the theory solver
    *   if the equality i was propagated from Simplex or BV solver, there's no point
-   *   sending v1 == v2 to this solver (and doing pauses a circularity problem).
+   *   sending v1 == v2 to this solver (and doing so pauses a circularity problem).
    *
    * NOTE: this is also how we propagate tuple/boolean equalities
    *
@@ -5934,7 +5934,7 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
   egraph->stats.final_checks ++;
 
   if (false) {
-     return baseline_final_check(egraph);
+    return baseline_final_check(egraph);
   } else {
     return experimental_final_check(egraph);
   }

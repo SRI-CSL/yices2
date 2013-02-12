@@ -6231,6 +6231,20 @@ void disable_splx_periodic_icheck(context_t *ctx) {
   }
 }
 
+void enable_splx_eqprop(context_t *ctx) {
+  ctx->options |= SPLX_EQPROP_OPTION_MASK;
+  if (context_has_simplex_solver(ctx)) {
+    simplex_enable_eqprop(ctx->arith_solver);
+  }
+}
+
+void disable_splx_eqprop(context_t *ctx) {
+  ctx->options &= ~SPLX_EQPROP_OPTION_MASK;
+  if (context_has_simplex_solver(ctx)) {
+    simplex_disable_eqprop(ctx->arith_solver);
+  }
+}
+
 
 
 /****************************
@@ -6320,6 +6334,9 @@ static void create_simplex_solver(context_t *ctx) {
   }
   if (splx_periodic_icheck_enabled(ctx)) {
     simplex_enable_periodic_icheck(solver);
+  }
+  if (splx_eqprop_enabled(ctx)) {
+    simplex_enable_eqprop(solver);
   }
 
   // row saving must be enabled unless we're in ONECHECK mode

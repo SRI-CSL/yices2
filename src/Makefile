@@ -78,44 +78,45 @@ static_smt_distdir := $(BUILD)/static_smt_dist
 #
 base_src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c  \
 	      arith_buffer_terms.c arith_vartable.c backtrack_arrays.c     \
-	      bit_blaster.c bit_expr.c bit_term_conversion.c	       \
+	      bit_blaster.c bit_expr.c bit_term_conversion.c               \
 	      bvarith_buffers.c bvarith_buffer_terms.c bvarith64_buffers.c \
 	      bvarith64_buffer_terms.c bvlogic_buffers.c bv_atomtable.c    \
-	      bv_constants.c bv64_constants.c bvconst_hmap.c	       \
-	      bv_intervals.c bv64_intervals.c bv_polynomials.c	     \
-	      bv64_polynomials.c bvpoly_buffers.c bvpoly_compiler.c	\
+	      bv_constants.c bv64_constants.c bvconst_hmap.c               \
+	      bv_intervals.c bv64_intervals.c bv_polynomials.c             \
+	      bv64_polynomials.c bvpoly_buffers.c bvpoly_compiler.c        \
 	      bvpoly_dag.c bvsolver.c bv_vartable.c bvexp_table.c cache.c  \
 	      composites.c concrete_values.c context.c context_config.c    \
-	      context_solver.c dep_tables.c diophantine_systems.c	  \
+	      context_solver.c dep_tables.c diophantine_systems.c          \
 	      diseq_stacks.c dl_vartable.c egraph_assertion_queues.c       \
-	      egraph_explanations.c egraph_utils.c egraph.c		\
-	      eq_abstraction.c eq_learner.c extended_rationals.c	   \
+	      egraph_explanations.c egraph_utils.c egraph.c                \
+	      eq_abstraction.c eq_learner.c extended_rationals.c           \
 	      free_var_collector.c fun_maps.c fun_solver.c fun_trees.c     \
 	      gates_hash_table.c gates_manager.c gcd.c generic_heap.c      \
-	      hash_functions.c idl_floyd_warshall.c index_vectors.c	\
-	      int_array_hsets.c int_array_sort.c int_array_sort2.c	 \
+	      hash_functions.c idl_floyd_warshall.c index_vectors.c        \
+	      int_array_hsets.c int_array_sort.c int_array_sort2.c         \
 	      int_bags.c int_bv_sets.c int_hash_classes.c int_hash_map.c   \
-	      int_hash_map2.c int_hash_sets.c int_hash_tables.c	    \
-	      int_heap.c int_heap2.c int_partitions.c int_powers.c	 \
-	      int_queues.c int_stack.c int_vectors.c		       \
+	      int_hash_map2.c int_hash_sets.c int_hash_tables.c            \
+	      int_heap.c int_heap2.c int_partitions.c int_powers.c         \
+	      int_queues.c int_stack.c int_vectors.c                       \
 	      internalization_table.c lexer.c mark_vectors.c matrices.c    \
-	      memalloc.c merge_table.c models.c model_eval.c	       \
-	      model_printer.c mpq_aux.c object_stores.c pair_hash_map2.c   \
-	      parser.c pointer_vectors.c polynomials.c poly_buffer.c       \
-	      power_products.c pprod_table.c pretty_printer.c	      \
-	      pseudo_subst.c ptr_array_sort.c ptr_array_sort2.c	    \
-	      ptr_hash_classes.c ptr_hash_map.c ptr_heap.c		 \
+	      memalloc.c merge_table.c models.c model_eval.c               \
+	      model_printer.c mpq_aux.c object_stores.c                    \
+              offset_equalities.c pair_hash_map2.c parser.c                \
+              pointer_vectors.c polynomials.c poly_buffer.c                \
+	      power_products.c pprod_table.c pretty_printer.c              \
+	      pseudo_subst.c ptr_array_sort.c ptr_array_sort2.c            \
+	      ptr_hash_classes.c ptr_hash_map.c ptr_heap.c                 \
 	      ptr_partitions.c ptr_queues.c ptr_stack.c ptr_vectors.c      \
-	      rationals.c rational_hash_maps.c rb_bvsets.c		 \
-	      rdl_floyd_warshall.c reader.c refcount_int_arrays.c	  \
-	      refcount_strings.c remap_table.c renaming_context.c	  \
+	      rationals.c rational_hash_maps.c rb_bvsets.c                 \
+	      rdl_floyd_warshall.c reader.c refcount_int_arrays.c          \
+	      refcount_strings.c remap_table.c renaming_context.c          \
 	      search_parameters.c simplex.c small_bvsets.c smt_core.c      \
-	      smt_logic_codes.c string_buffers.c string_utils.c	    \
-	      subst_cache.c subst_context.c symbol_tables.c terms.c	\
-	      term_manager.c term_printer.c term_stack.c		   \
-	      term_stack_error.c  term_substitution.c term_utils.c	 \
-	      theory_explanations.c tuple_hash_map.c types.c	       \
-	      type_printer.c uint_rbtrees.c use_vectors.c		  \
+	      smt_logic_codes.c string_buffers.c string_utils.c            \
+	      subst_cache.c subst_context.c symbol_tables.c terms.c        \
+	      term_manager.c term_printer.c term_stack.c                   \
+	      term_stack_error.c  term_substitution.c term_utils.c         \
+	      theory_explanations.c tuple_hash_map.c types.c               \
+	      type_printer.c uint_rbtrees.c use_vectors.c                  \
 	      variable_renaming.c yices_api.c yices_error.c yices_lexer.c  \
 	      yices_pp.c yices_parser.c
 
@@ -126,16 +127,16 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c  \
 # + functions for printing/debugging
 # + old stuff not needed anymore (except for tests)
 #
-extra_src_c := arith_solver_codes.c bvsolver_printer.c command_line.c \
-	       context_printer.c dsolver_printer.c egraph_printer.c   \
-	       egraph_eq_stats.c fun_solver_printer.c gates_printer.c \
-	       idl_fw_printer.c internalization_printer.c	     \
-	       large_bvsets.c memsize.c offset_equalities.c	   \
-	       pair_hash_map.c pair_hash_sets.c rdl_fw_printer.c      \
-	       sat_solver.c simplex_printer.c simplex_prop_table.c    \
-	       smt_core_exporter.c smt_core_printer.c smt_lexer.c     \
-	       smt_parser.c smt2_lexer.c smt2_parser.c timeout.c      \
-	       union_find.c update_graph.c yices_help.c yices_reval.c
+extra_src_c := arith_solver_codes.c bvsolver_printer.c command_line.c    \
+	       context_printer.c dsolver_printer.c egraph_printer.c      \
+	       egraph_eq_stats.c fun_solver_printer.c gates_printer.c    \
+	       idl_fw_printer.c internalization_printer.c                \
+	       large_bvsets.c memsize.c pair_hash_map.c pair_hash_sets.c \
+               rdl_fw_printer.c sat_solver.c simplex_printer.c           \
+               simplex_prop_table.c smt_core_exporter.c                  \
+               smt_core_printer.c smt_lexer.c smt_parser.c smt2_lexer.c  \
+               smt2_parser.c timeout.c union_find.c update_graph.c       \
+               yices_help.c yices_reval.c
 
 
 src_c := $(base_src_c) $(extra_src_c)
