@@ -6,6 +6,7 @@
 #include <assert.h>
 
 #include "memalloc.h"
+#include "int_array_sort.h"
 #include "theory_explanations.h"
 
 
@@ -80,6 +81,7 @@ void th_explanation_add_atom(th_explanation_t *e, literal_t l) {
   }
 }
 
+
 /*
  * Add equality t1 == t2 to e
  */
@@ -153,3 +155,114 @@ void th_explanation_add_diseq(th_explanation_t *e, diseq_pre_expl_t *d) {
   }
 }
 
+
+
+/*
+ * Cleanup: remove duplicate literals
+ */
+void th_explanation_remove_duplicate_atoms(th_explanation_t *e) {
+  atom_vector_t *av;
+  uint32_t i, j, n;
+  literal_t l0, l1;
+
+  if (e->atoms != NULL) {
+    av = av_header(e->atoms);
+    n = av->size;
+    if (n >= 2) {
+      int_array_sort(av->data, n);
+      l0 = av->data[0];
+      j = 1;
+      for (i=1; i<n; i++) {
+	l1 = av->data[i];
+	if (l0 != l1) {
+	  av->data[j] = l1;
+	  l0 = l1;
+	  j ++;
+	}
+      }
+      av->size = j;
+    }
+  }
+}
+
+
+
+/*
+ * Remove duplicate equalities
+ */
+
+// normalize eq: make sure lhs < rhs
+static void normalize_eq(th_eq_t *eq) {
+  eterm_t aux;
+
+  if (eq->lhs > eq->rhs) {
+    aux = eq->lhs; eq->lhs = eq->rhs; eq->rhs = aux;
+  }
+}
+
+static void normalize_eq_array(th_eq_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    normalize_eq(a + i);
+  }
+}
+
+
+/*
+ * Sort array a[0 ... n-1].
+ * All sort function requires normalized equalities
+ */
+// eq1 < eq2 in lex ordering
+static bool eq_precedes(th_eq_t *eq1, th_eq_t *eq2) {
+  return eq1->lhs < eq2->lhs || (eq1->lhs == eq2->lhs && eq1->rhs < eq2->rhs);
+}
+
+static bool same_eq(th_eq_t *eq1, th_eq_t *eq2) {
+  return eq1->lhs == eq2->lhs && eq1->rhs == eq2->rhs;
+}
+
+// insertion sort
+static void isort_eq_array(th_eq_t *a, uint32_t n) {
+  uint32_t i, j;
+  th_eq_t eq;
+
+  for (i=1; i<n; i++) {
+    eq = a[i];
+    j = 0;
+    while (eq_precedes(&a[j], &eq)) j++; // while (a[j] < eq) j++;
+    while (i > j) {
+      a[i] = a[i-1];
+      i --;
+    }
+    a[j] = eq;
+  }
+}
+
+
+// TBD: quick sort
+// static void qsort_eq_array(th_eq_t *a, uint32_t n);
+
+
+void th_explanation_remove_duplicate_eqs(th_explanation_t *e) {
+  eq_vector_t *eqv;
+  uint32_t i, j, n;
+  
+  if (e->eqs != NULL) {
+    eqv = eqv_header(e->eqs);
+    n = eqv->size;
+    if (n >= 2) {
+      normalize_eq_array(eqv->data, n);
+      isort_eq_array(eqv->data, n);
+      j = 0;
+      for (i=1; i<n; i++) {
+	if (! same_eq(eqv->data + j, eqv->data + i)) {
+	  j ++;
+	  eqv->data[j] = eqv->data[i];
+	}
+      }
+      eqv->size = j+1;
+    }
+  }
+
+}

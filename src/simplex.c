@@ -10,6 +10,7 @@
 #include "hash_functions.h"
 #include "rational_hash_maps.h"
 #include "dep_tables.h"
+#include "theory_explanations.h"
 #include "simplex.h"
 
 
@@ -32,7 +33,7 @@
 #define TRACE_BB 0
 
 
-#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG) || 1
+#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG)
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -1106,8 +1107,8 @@ static void prop_eq_to_egraph(void *s, eterm_t t1, eterm_t t2) {
   egraph = solver->egraph;
   assert(egraph != NULL);
 
-  //  egraph_propagate_equality(egraph, t1, t2, EXPL_ARITH_PROPAGATION, NULL);
-#if 1
+  egraph_propagate_equality(egraph, t1, t2, EXPL_ARITH_PROPAGATION, NULL);
+#if 0
   printf("---> eq prop: g!%"PRId32" == g!%"PRId32"\n", t1, t2);
 #endif
 }
@@ -1447,7 +1448,7 @@ static void simplex_propagate_equalities(simplex_solver_t *solver) {
        */
       assert(tst_bit(eqprop->relevant, x));
       assert(simplex_fixed_variable(solver, x));
-#if 1
+#if 0
       printf("---> fixed var: ");
       print_simplex_var(stdout, solver, x);
       printf(" == ");
@@ -1468,28 +1469,6 @@ static void simplex_propagate_equalities(simplex_solver_t *solver) {
   eqprop->prop_ptr = n;
 }
 
-
-/*
- * Build an explanation for the egraph
- * - this function is called by the egraph when it needs the explanation for (x1 == x2)
- * - expl is NULL (we ignore it)
- * - the explanation must be stored in result
- */
-static void simplex_expand_th_explanation(simplex_solver_t *solver, thvar_t x1, thvar_t x2, void *expl, th_explanation_t *result) {
-  eq_propagator_t *eqprop;
-
-  eqprop = solver->eqprop;
-  assert(eqprop != NULL);
-
-  /*
-   * collect the relevant frozen variables in aux
-   */
-  ivector_reset(&eqprop->aux);
-  offset_manager_explain_equality(&eqprop->mngr, x1, x2, &eqprop->aux);
-
-  // TBD: convert aux to a th_explanation object
-  assert(false);
-}
 
 
 /****************************
@@ -3711,6 +3690,138 @@ static void simplex_build_conflict_clause(simplex_solver_t *solver, ivector_t *v
 }
 
 
+
+/*
+ * EXPLANATIONS FOR EQUALITIES SENT TO THE EGRAPH
+ */
+
+/*
+ * Add the two bounds for x to q (unless they are marked)
+ */
+static void enqueue_frozen_var_constraints(simplex_solver_t *solver, ivector_t *q, thvar_t x) {
+  int32_t l, u;
+
+  assert(simplex_fixed_variable(solver, x));
+
+  l = arith_var_lower_index(&solver->vtbl, x);
+  u = arith_var_lower_index(&solver->vtbl, x);
+  enqueue_cnstr_index(q, l, &solver->bstack);
+  enqueue_cnstr_index(q, u, &solver->bstack);
+}
+
+
+/*
+ * For an equality (x1 == x2) received from the egraph, add the corresponding egraph equality
+ * (t1 == t2) to resu;t.
+ */
+static void explain_vareq_from_egraph(simplex_solver_t *solver, thvar_t x1, thvar_t x2, th_explanation_t *result) {
+  eterm_t t1, t2;
+
+  t1 = arith_var_eterm(&solver->vtbl, x1);
+  t2 = arith_var_eterm(&solver->vtbl, x2);
+  th_explanation_add_eq(result, t1, t2);
+}
+
+
+/*
+ * Expand the explanation queue and build a theory explanation object for the egraph
+ * - solver->expl_queue must contain a set of constraint indices that imply an equality (x1 == x2)
+ *   that was propagated to the egraph.
+ * - the queue is emptied and all constraint marks are cleared
+ */
+static void simplex_build_theory_explanation(simplex_solver_t *solver, th_explanation_t *result) {
+  arith_bstack_t *bstack;
+  ivector_t *queue;
+  uint8_t *tag;
+  uint32_t k;
+  int32_t i;
+
+  queue = &solver->expl_queue;
+  bstack = &solver->bstack;
+  tag = bstack->tag;
+
+  for (k=0; k<queue->size; k++) {
+    i = queue->data[k];
+    assert(arith_cnstr_is_marked(bstack, i));
+    switch (arith_tag(tag[i])) {
+    case ARITH_AXIOM_LB:
+    case ARITH_AXIOM_UB:
+      // nothing to do
+      break;
+     
+    case ARITH_ASSERTED_LB:
+    case ARITH_ASSERTED_UB:
+      // add literal explanation to result
+      th_explanation_add_atom(result, bstack->expl[i].lit);
+      break;
+
+    case ARITH_DERIVED_LB:
+    case ARITH_DERIVED_UB:
+      // add antecedents to the queue
+      enqueue_cnstr_array_indices(queue, bstack->expl[i].ptr, bstack);
+      solver->stats.num_prop_expl ++;
+      break;
+
+    case ARITH_EGRAPHEQ_LB:
+    case ARITH_EGRAPHEQ_UB:
+      // add eq to the result
+      explain_vareq_from_egraph(solver, bstack->expl[i].v[0], bstack->expl[i].v[1], result);
+      break;
+
+    default:
+      abort();
+      break;
+    }
+  }
+
+  // remove duplicates in result
+  cleanup_th_explanation(result);
+
+  // cleanup the marks and empty the queue
+  for (k=0; k<queue->size; k++) {
+    i = queue->data[k];
+    arith_cnstr_clr_mark(bstack, i);
+  }
+  ivector_reset(queue);
+}
+
+
+/*
+ * Build an explanation for the egraph
+ * - this function is called by the egraph when it needs the explanation for (x1 == x2)
+ * - expl is NULL (we ignore it)
+ * - the explanation must be stored in result
+ * - when this function is called, result is empty
+ */
+static void simplex_expand_th_explanation(simplex_solver_t *solver, thvar_t x1, thvar_t x2, void *expl, th_explanation_t *result) {
+  eq_propagator_t *eqprop;
+  ivector_t *queue, *v;
+  uint32_t i, n;
+
+  eqprop = solver->eqprop;
+  assert(eqprop != NULL);
+
+  /*
+   * collect the relevant frozen variables in aux
+   */
+  v = &eqprop->aux;
+  ivector_reset(v);
+  offset_manager_explain_equality(&eqprop->mngr, x1, x2, v);
+
+  /*
+   * All variables in eqprop->aux are frozen: add explanation for them
+   * to solver->expl_queue
+   */
+  queue = &solver->expl_queue;
+  assert(queue->size == 0);
+  n = v->size;
+  for (i=0; i<n; i++) {
+    enqueue_frozen_var_constraints(solver, queue, v->data[i]);
+  }
+  
+  // build the explanation from the queue
+  simplex_build_theory_explanation(solver, result);
+}
 
 
 
@@ -6179,7 +6290,7 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
 
   assert(arith_var_has_eterm(&solver->vtbl, x1) && arith_var_has_eterm(&solver->vtbl, x2) && x1 != x2);
 
-#if TRACE || 1
+#if TRACE 
   printf("---> Simplex: process egraph equality: ");
   print_simplex_var(stdout, solver, x1);
   printf(" = ");
@@ -6217,7 +6328,7 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
     c = &solver->constant;
   }
 
-#if TRACE || 1
+#if TRACE
   printf("     asserting ");
   print_simplex_var(stdout, solver, y);
   printf(" == ");
@@ -6251,7 +6362,7 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
     if (cmp_lb > 0) {
       record_egraph_eq_conflict(solver, k, x1, x2);
 
-#if TRACE || 1
+#if TRACE
       printf("     conflict with bound ");
       print_simplex_bound(stdout, solver, k);
       printf("\n");
@@ -6266,7 +6377,7 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
     if (cmp_ub < 0) {
       record_egraph_eq_conflict(solver, k, x1, x2);
 
-#if TRACE || 1
+#if TRACE
       printf("     conflict with bound ");
       print_simplex_bound(stdout, solver, k);
       printf("\n");
@@ -6542,7 +6653,7 @@ static void simplex_process_var_diseq(simplex_solver_t *solver, thvar_t x1, thva
  * - this does nothing: just print trace if TRACE is enabled
  */
 static void simplex_process_var_distinct(simplex_solver_t *solver, uint32_t n, thvar_t *a, composite_t *hint) {
-#if TRACE || 1
+#if TRACE
   uint32_t i, j;
 
   for (i=0; i<n-1; i++) {
@@ -7033,7 +7144,7 @@ void simplex_increase_decision_level(simplex_solver_t *solver) {
 
   // propagate to eqprop
   if (solver->eqprop != NULL) {
-#if 1
+#if 0
     printf("---> eq prop: increase decision level to %"PRIu32"\n", solver->decision_level);
 #endif
     offset_manager_increase_decision_level(&solver->eqprop->mngr);
@@ -7174,7 +7285,7 @@ void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
    * Propagate to the eqprop
    */
   if (solver->eqprop != NULL) {
-#if 1
+#if 0
     printf("---> eq prop: backtrack to level %"PRIu32"\n", back_level);
 #endif
     offset_manager_backtrack(&solver->eqprop->mngr, back_level);

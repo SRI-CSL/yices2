@@ -23,7 +23,7 @@
 #define TRACE 0
 #define TRACE_FCHECK 0
 
-#if TRACE || TRACE_FCHECK
+#if TRACE || TRACE_FCHECK || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -6244,6 +6244,13 @@ void egraph_propagate_equality(egraph_t *egraph, eterm_t t1, eterm_t t2, expl_ta
     // redundant
     return;
   }
+
+  // for testing only: print the non-redundant equalities
+#if 1
+  printf("---> egraph: got eq: g!%"PRId32" == g!%"PRId32"\n", t1, t2);
+  return;
+#endif
+  
 
   k = egraph_stack_push_eq(&egraph->stack, pos_occ(t1), pos_occ(t2));
   egraph->stack.etag[k] = id;

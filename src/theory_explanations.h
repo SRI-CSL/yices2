@@ -128,4 +128,22 @@ extern void th_explanation_add_eq(th_explanation_t *e, eterm_t t1, eterm_t t2);
 extern void th_explanation_add_diseq(th_explanation_t *e, diseq_pre_expl_t *d);
 
 
+/*
+ * Cleanup functions to simplify the explanation object
+ * - remove duplicate literals in e->atoms
+ * - remove duplicate equalities in e->eqs
+ *
+ * TODO: Do we need more? (i.e, remove redundant equalities if any)
+ */
+extern void th_explanation_remove_duplicate_atoms(th_explanation_t *e);
+extern void th_explanation_remove_duplicate_eqs(th_explanation_t *e);
+
+// full cleanup
+static inline void cleanup_th_explanation(th_explanation_t *e) {
+  th_explanation_remove_duplicate_atoms(e);
+  th_explanation_remove_duplicate_eqs(e);
+}
+
+
+
 #endif /* __THEORY_EXPLANATIONS_H */
