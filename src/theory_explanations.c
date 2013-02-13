@@ -7,6 +7,7 @@
 
 #include "memalloc.h"
 #include "int_array_sort.h"
+#include "prng.h"
 #include "theory_explanations.h"
 
 
@@ -222,26 +223,74 @@ static bool same_eq(th_eq_t *eq1, th_eq_t *eq2) {
   return eq1->lhs == eq2->lhs && eq1->rhs == eq2->rhs;
 }
 
+
+static void sort_eq_array(th_eq_t *a, uint32_t n);
+
 // insertion sort
 static void isort_eq_array(th_eq_t *a, uint32_t n) {
-  uint32_t i, j;
+  uint32_t i, j, k;
   th_eq_t eq;
 
   for (i=1; i<n; i++) {
     eq = a[i];
     j = 0;
     while (eq_precedes(&a[j], &eq)) j++; // while (a[j] < eq) j++;
-    while (i > j) {
-      a[i] = a[i-1];
-      i --;
+    k = i;
+    while (k > j) {
+      a[k] = a[k-1];
+      k --;
     }
     a[j] = eq;
   }
 }
 
 
-// TBD: quick sort
-// static void qsort_eq_array(th_eq_t *a, uint32_t n);
+// quick sort: requires n > 1
+static void qsort_eq_array(th_eq_t *a, uint32_t n) {
+  uint32_t i, j;
+  th_eq_t x, y;
+
+  assert(n > 1);
+
+  // x = random pivot
+  i = random_uint(n);
+  x = a[i];
+
+  // swap x and a[0];
+  a[i] = a[0];
+  a[0] = x;
+
+  i = 0;
+  j = n;
+  do { j--; } while (eq_precedes(&x, &a[j]));           // while x < a[j]
+  do { i++; } while (i <= j && eq_precedes(&a[i], &x)); // while a[i] < x
+
+  while (i < j) {
+    // swap a[i] and a[j]
+    y = a[i]; a[i] = a[j]; a[j] = y;
+
+    do { j--; } while (eq_precedes(&x, &a[j])); // while x < a[j]
+    do { i++; } while (eq_precedes(&a[i], &x)); // while a[i] < x    
+  }
+
+  // move pivot into a[j]
+  a[0] = a[j];
+  a[j] = x;
+
+  // sort a[0...j-1] and a[j+1 .. n-1]
+  sort_eq_array(a, j);
+  j++;
+  sort_eq_array(a + j, n - j);
+}
+
+// top-level sort
+static void sort_eq_array(th_eq_t *a, uint32_t n) {
+  if (n < 10) {
+    isort_eq_array(a, n); 
+  } else {
+    qsort_eq_array(a, n);
+  }
+}
 
 
 void th_explanation_remove_duplicate_eqs(th_explanation_t *e) {
@@ -253,7 +302,7 @@ void th_explanation_remove_duplicate_eqs(th_explanation_t *e) {
     n = eqv->size;
     if (n >= 2) {
       normalize_eq_array(eqv->data, n);
-      isort_eq_array(eqv->data, n);
+      sort_eq_array(eqv->data, n);
       j = 0;
       for (i=1; i<n; i++) {
 	if (! same_eq(eqv->data + j, eqv->data + i)) {
