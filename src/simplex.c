@@ -7617,7 +7617,7 @@ bool simplex_assert_atom(simplex_solver_t *solver, void *a, literal_t l) {
     push_assertion(&solver->assertion_queue, mk_assertion(id, sign_of(l)));
     mark_arith_atom(&solver->atbl, id);
 
-#if TRACE || 1
+#if TRACE
     printf("---> added atom[%"PRId32"]: ", id);
     print_simplex_atom(stdout, solver, id);
     if (is_pos(l)) {
@@ -7843,7 +7843,7 @@ void simplex_assert_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
   assert(arith_var_has_eterm(&solver->vtbl, x1) && arith_var_has_eterm(&solver->vtbl, x2));
   eassertion_push_eq(&solver->egraph_queue, x1, x2);
 
-#if TRACE || 1
+#if TRACE
   printf("\n---> Simplex: received egraph equality: ");
   print_simplex_var(stdout, solver, x1);
   printf(" = ");
