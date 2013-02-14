@@ -99,8 +99,9 @@ static inline uint32_t tag_indegree(uint32_t tag) {
   return tag & GTAG_IDEG_MASK;
 }
 
+// clang gives warning for op <= MAX_OPCODE: coerced op to int to fix that
 static inline uint32_t mk_gate_tag(gate_op_t op, uint32_t in_deg, uint32_t out_deg) {
-  assert(op <= MAX_OPCODE && in_deg <= MAX_INDEGREE && out_deg <= MAX_OUTDEGREE);
+  assert((int) op <= MAX_OPCODE && in_deg <= MAX_INDEGREE && out_deg <= MAX_OUTDEGREE);
   return (((uint32_t)op) << GTAG_GATE_SHIFT) | (out_deg << GTAG_ODEG_SHIFT) | in_deg;
 }
 
