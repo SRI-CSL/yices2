@@ -446,13 +446,15 @@ The following parameters can be set using (set-param ...) or examined using (sho
    Name
 
    var-elim     Boolean		If var-elim is true then variable elimination is enabled.
+
                                 Example: assertion (and (= x (g a)) (P y (f x))) is simplified
 				to (P y (f (g a))) 
 
    arith-elim   Boolean         If arith-elim is true then arithmetic variables are eliminated
                                 using Gaussian elimination.
 
-   flatten      Boolean         If flatten is true then nested or and and are flattened:
+   flatten      Boolean         If flatten is true then nested 'or' and 'and' are flattened:
+
    				Example: (or a b (or b c d))  is rewritten to (or a b c d).
 
    learn-eq     Boolean         If learn-eq is true, then a heuristic that attempts to learn
@@ -464,14 +466,16 @@ The following parameters can be set using (set-param ...) or examined using (sho
    keep-ite     Boolean         If keep-ite is true, then terms of the from (ite c a b) are
      				represented as is in the E-graph. Otherwise, they are eliminated
 				using the rule
+
                                    t = (ite c a b)   iff  c => (t = a)  AND  NOT c => (t = b)
 
+                                This parameter is relevant only for            
 
 
 
 5.2) SAT Solver Parameters
 
-   Yices uses a CDCL SAT solver, similar to Minisat or Picosat. The following parameters
+   Yices uses a CDCL SAT solver, similar to Minisat and Picosat. The following parameters
    affect heuristics used by this SAT solver.
 
 
@@ -580,7 +584,7 @@ The following parameters can be set using (set-param ...) or examined using (sho
 				picked randomly).
 
    branching      see below
-	
+
 
 
 

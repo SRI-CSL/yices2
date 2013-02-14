@@ -3704,7 +3704,7 @@ static void enqueue_frozen_var_constraints(simplex_solver_t *solver, ivector_t *
   assert(simplex_fixed_variable(solver, x));
 
   l = arith_var_lower_index(&solver->vtbl, x);
-  u = arith_var_lower_index(&solver->vtbl, x);
+  u = arith_var_upper_index(&solver->vtbl, x);
   enqueue_cnstr_index(q, l, &solver->bstack);
   enqueue_cnstr_index(q, u, &solver->bstack);
 }
@@ -6290,7 +6290,7 @@ static bool simplex_process_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t
 
   assert(arith_var_has_eterm(&solver->vtbl, x1) && arith_var_has_eterm(&solver->vtbl, x2) && x1 != x2);
 
-#if TRACE 
+#if TRACE
   printf("---> Simplex: process egraph equality: ");
   print_simplex_var(stdout, solver, x1);
   printf(" = ");
@@ -7617,13 +7617,13 @@ bool simplex_assert_atom(simplex_solver_t *solver, void *a, literal_t l) {
     push_assertion(&solver->assertion_queue, mk_assertion(id, sign_of(l)));
     mark_arith_atom(&solver->atbl, id);
 
-#if TRACE
+#if TRACE || 1
     printf("---> added atom[%"PRId32"]: ", id);
     print_simplex_atom(stdout, solver, id);
     if (is_pos(l)) {
-      printf("  (true)\n");
+      printf("  (p!%"PRId32" is true)\n", var_of(l));
     } else {
-      printf("  (false)\n");
+      printf("  (p!%"PRId32" is false)\n", var_of(l));
     }
   } else {
     printf("---> skipped atom[%"PRId32"]: ", id);
@@ -7843,8 +7843,8 @@ void simplex_assert_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
   assert(arith_var_has_eterm(&solver->vtbl, x1) && arith_var_has_eterm(&solver->vtbl, x2));
   eassertion_push_eq(&solver->egraph_queue, x1, x2);
 
-#if TRACE
-  printf("---> Simplex: received egraph equality: ");
+#if TRACE || 1
+  printf("\n---> Simplex: received egraph equality: ");
   print_simplex_var(stdout, solver, x1);
   printf(" = ");
   print_simplex_var(stdout, solver, x2);
@@ -7852,6 +7852,12 @@ void simplex_assert_var_eq(simplex_solver_t *solver, thvar_t x1, thvar_t x2) {
   print_simplex_vardef(stdout, solver, x1);
   printf("---> ");
   print_simplex_vardef(stdout, solver, x2);
+  printf("---> eterm[");
+  print_simplex_var(stdout, solver, x1);
+  printf("] = g!%"PRId32"\n", arith_var_get_eterm(&solver->vtbl, x1));
+  printf("---> eterm[");
+  print_simplex_var(stdout, solver, x2);
+  printf("] = g!%"PRId32"\n", arith_var_get_eterm(&solver->vtbl, x2));
 #endif
 }
 

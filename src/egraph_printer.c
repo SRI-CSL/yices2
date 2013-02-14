@@ -366,14 +366,14 @@ void print_theory_explanation(FILE *f, th_explanation_t *e) {
 
   eqs = e->eqs;
   if (eqs != NULL && get_eqv_size(eqs) > 0) {
-    if (! empty) fputc(' ', f);
+    if (! empty) fputc('\n', f);
     print_th_eq_array(f, eqs, get_eqv_size(eqs));
     empty = false;
   }
 
   diseqs = e->diseqs;
   if (diseqs != NULL && get_diseqv_size(diseqs) > 0) {
-    if (! empty) fputc(' ', f);
+    if (! empty) fputc('\n', f);
     print_th_diseq_array(f, diseqs, get_diseqv_size(diseqs));
     empty = false;
   }
