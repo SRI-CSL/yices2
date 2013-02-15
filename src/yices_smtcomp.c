@@ -654,6 +654,7 @@ static void show_stats(dpll_stats_t *stat) {
  */
 static void show_egraph_stats(egraph_stats_t *stat) {
   fprintf(stderr, "Egraph\n");
+  fprintf(stderr, " eq from simplex         : %"PRIu32"\n", stat->eq_props);
   fprintf(stderr, " prop. to core           : %"PRIu32"\n", stat->th_props);
   fprintf(stderr, " conflicts               : %"PRIu32"\n", stat->th_conflicts);
   fprintf(stderr, " non-distinct lemmas     : %"PRIu32"\n", stat->nd_lemmas);

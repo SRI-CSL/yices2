@@ -1224,6 +1224,7 @@ static void simplex_alloc_eqprop(simplex_solver_t *solver) {
   tmp->size = n;
   tmp->prop_ptr = 2; // skip bounds on const_idx (cf. create_constant)
   init_ivector(&tmp->aux, 20);
+  init_ivector(&tmp->expl_queue, 20);
   q_init(&tmp->q_aux);
 
   solver->eqprop = tmp;
@@ -1248,6 +1249,7 @@ static void simplex_delete_eqprop(simplex_solver_t *solver) {
   delete_offset_manager(&eqprop->mngr);
   delete_bitvector(eqprop->relevant);
   delete_ivector(&eqprop->aux);
+  delete_ivector(&eqprop->expl_queue);
   q_clear(&eqprop->q_aux);
 
   safe_free(eqprop);
@@ -1266,6 +1268,7 @@ static void simplex_reset_eqprop(simplex_solver_t *solver) {
   reset_offset_manager(&eqprop->mngr);
   clear_bitvector(eqprop->relevant, eqprop->size);
   ivector_reset(&eqprop->aux);
+  ivector_reset(&eqprop->expl_queue);
   q_clear(&eqprop->q_aux);
 }
 
@@ -3725,18 +3728,16 @@ static void explain_vareq_from_egraph(simplex_solver_t *solver, thvar_t x1, thva
 
 /*
  * Expand the explanation queue and build a theory explanation object for the egraph
- * - solver->expl_queue must contain a set of constraint indices that imply an equality (x1 == x2)
+ * - queue must contain a set of constraint indices that imply an equality (x1 == x2)
  *   that was propagated to the egraph.
  * - the queue is emptied and all constraint marks are cleared
  */
-static void simplex_build_theory_explanation(simplex_solver_t *solver, th_explanation_t *result) {
+static void simplex_build_theory_explanation(simplex_solver_t *solver, ivector_t *queue, th_explanation_t *result) {
   arith_bstack_t *bstack;
-  ivector_t *queue;
   uint8_t *tag;
   uint32_t k;
   int32_t i;
 
-  queue = &solver->expl_queue;
   bstack = &solver->bstack;
   tag = bstack->tag;
 
@@ -3810,17 +3811,17 @@ static void simplex_expand_th_explanation(simplex_solver_t *solver, thvar_t x1, 
 
   /*
    * All variables in eqprop->aux are frozen: add explanation for them
-   * to solver->expl_queue
+   * to eqprop->expl_queue
    */
-  queue = &solver->expl_queue;
+  queue = &eqprop->expl_queue;
   assert(queue->size == 0);
   n = v->size;
   for (i=0; i<n; i++) {
     enqueue_frozen_var_constraints(solver, queue, v->data[i]);
   }
   
-  // build the explanation from the queue
-  simplex_build_theory_explanation(solver, result);
+  // build the explanation from the queue then reset the queue
+  simplex_build_theory_explanation(solver, queue, result);
 }
 
 

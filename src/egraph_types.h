@@ -1220,7 +1220,7 @@ typedef enum elemma_tag {
 typedef struct egraph_stats_s {
   uint32_t app_reductions;
 
-  uint32_t eq_props;         // ?? not used
+  uint32_t eq_props;         // equalities propagated by satellite solvers (simplex)
   uint32_t th_props;         // propagations from egraph to core
   uint32_t th_conflicts;     // conflicts detected by egraph
   uint32_t nd_lemmas;        // number of non-distinct lemmas

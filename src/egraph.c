@@ -4966,94 +4966,104 @@ static bool egraph_internal_propagation(egraph_t *egraph) {
  * If the conflict is in the egraph, report it to the core.
  */
 bool egraph_propagate(egraph_t *egraph) {
-  th_explanation_t tester;
-  occ_t t1, t2;
-  thvar_t x1, x2;
   uint32_t i, k;
   ivector_t *conflict;
-  void *solver;
 
 #if TRACE
   printf("---> EGRAPH PROPAGATE [dlevel = %"PRIu32", decisions = %"PRIu64"]\n", 
          egraph->decision_level, egraph->core->stats.decisions);
 #endif
 
-  if (! egraph_internal_propagation(egraph)) {
-    /*
-     * Egraph conflict:
-     * the conflict is in egraph->expl_vector, in the form "not (l1 and .... and l_n)"
-     * we need to turn this into the clause "(not l_1) or ... or (not l_n)"
-     * and add the end marker.
-     */
-    conflict = &egraph->expl_vector;
-    for (i=0; i<conflict->size; i++) {
-      conflict->data[i] = not(conflict->data[i]);
+  do {
+    if (! egraph_internal_propagation(egraph)) {
+      /*
+       * Egraph conflict:
+       * the conflict is in egraph->expl_vector, in the form "not (l1 and .... and l_n)"
+       * we need to turn this into the clause "(not l_1) or ... or (not l_n)"
+       * and add the end marker.
+       */
+      conflict = &egraph->expl_vector;
+      for (i=0; i<conflict->size; i++) {
+	conflict->data[i] = not(conflict->data[i]);
+      }
+      ivector_push(conflict, null_literal); // end marker
+      record_theory_conflict(egraph->core, conflict->data);
+
+      egraph->stats.th_conflicts ++;
+
+      return false;
     }
-    ivector_push(conflict, null_literal); // end marker
-    record_theory_conflict(egraph->core, conflict->data);
 
-    egraph->stats.th_conflicts ++;
 
-    return false;
-  }
-
-  // FOR TESTING SIMPLEX -> EGRAPH PROPAGATION
-  k = egraph->stack.prop_ptr;
+    // To detect equalities propagated from the theroy solvers (i.e., the simplex
+    // solver for now).
+    k = egraph->stack.top;
   
-  // go through all the satellite solvers
-  for (i=0; i<NUM_SATELLITES; i++) {
-    if (egraph->ctrl[i] != NULL) {
-      if (! egraph->ctrl[i]->propagate(egraph->th[i])) {
-        return false;
+    // go through all the satellite solvers
+    for (i=0; i<NUM_SATELLITES; i++) {
+      if (egraph->ctrl[i] != NULL) {
+	if (! egraph->ctrl[i]->propagate(egraph->th[i])) {
+	  return false;
+	}
       }
     }
-  }
 
-  // SHOW ALL EQUALITIES + EXPLANATIONS
-  if (egraph->stack.top > k) {
-    solver = egraph->th[ETYPE_REAL];
-    //    printf("\n--- Simplex vars ---\n");
-    //    print_simplex_vars(stdout, solver);
-    printf("\n--- Simplex bounds ---\n");
-    print_simplex_bounds(stdout, solver);
-    printf("\n--- Propagated equalities ---\n");
-    init_th_explanation(&tester);
-    for (i=k; i<egraph->stack.top; i++) {
-      t1 = egraph->stack.eq[i].lhs;
-      t2 = egraph->stack.eq[i].rhs;
-      x1 = egraph_base_thvar(egraph, t1);
-      x2 = egraph_base_thvar(egraph, t2);
-      print_occurrence(stdout, t1);
-      printf(" == ");
-      print_occurrence(stdout, t2);
-      printf("\n");
 
-      printf("var[");
-      print_occurrence(stdout, t1);
-      printf("] = ");
-      print_simplex_var(stdout, solver, x1);
-      printf("\n");
-      printf("var[");
-      print_occurrence(stdout, t2);
-      printf("] = ");
-      print_simplex_var(stdout, solver, x2);
-      printf("\n");
+#if 0
+    // SHOW ALL EQUALITIES + EXPLANATIONS
+    if (egraph->stack.top > k) {
+      th_explanation_t tester;
+      occ_t t1, t2;
+      thvar_t x1, x2;
+      void *solver;
 
-      print_simplex_vardef(stdout, solver, x1);
-      print_simplex_vardef(stdout, solver, x2);
+      solver = egraph->th[ETYPE_REAL];
+      //    printf("\n--- Simplex vars ---\n");
+      //    print_simplex_vars(stdout, solver);
+      printf("\n--- Simplex bounds ---\n");
+      print_simplex_bounds(stdout, solver);
+      printf("\n--- Propagated equalities ---\n");
+      init_th_explanation(&tester);
+      for (i=k; i<egraph->stack.top; i++) {
+	t1 = egraph->stack.eq[i].lhs;
+	t2 = egraph->stack.eq[i].rhs;
+	x1 = egraph_base_thvar(egraph, t1);
+	x2 = egraph_base_thvar(egraph, t2);
+	print_occurrence(stdout, t1);
+	printf(" == ");
+	print_occurrence(stdout, t2);
+	printf("\n");
 
-      reset_th_explanation(&tester);
-      egraph->eg[ETYPE_REAL]->expand_th_explanation(solver, x1, x2, NULL, &tester);
-      printf("Implied by\n");
-      print_theory_explanation(stdout, &tester);
-      printf("\n\n");
-    }
+	printf("var[");
+	print_occurrence(stdout, t1);
+	printf("] = ");
+	print_simplex_var(stdout, solver, x1);
+	printf("\n");
+	printf("var[");
+	print_occurrence(stdout, t2);
+	printf("] = ");
+	print_simplex_var(stdout, solver, x2);
+	printf("\n");
 
-    delete_th_explanation(&tester);
+	print_simplex_vardef(stdout, solver, x1);
+	print_simplex_vardef(stdout, solver, x2);
 
-    egraph->stack.top = k;
-    
-  }
+	reset_th_explanation(&tester);
+	egraph->eg[ETYPE_REAL]->expand_th_explanation(solver, x1, x2, NULL, &tester);
+	printf("Implied by\n");
+	print_theory_explanation(stdout, &tester);
+	printf("\n\n");
+      }
+
+      delete_th_explanation(&tester);
+
+      // egraph->stack.top = k;
+    }      
+#endif
+
+
+  } while (egraph->stack.top > k);
+
   
   return true;
 }
@@ -5989,7 +5999,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
 fcheck_code_t egraph_final_check(egraph_t *egraph) {
   egraph->stats.final_checks ++;
 
-  if (false) {
+  if (true) {
     return baseline_final_check(egraph);
   } else {
     return experimental_final_check(egraph);
@@ -6300,6 +6310,8 @@ void egraph_propagate_equality(egraph_t *egraph, eterm_t t1, eterm_t t2, expl_ta
     // redundant
     return;
   }
+
+  egraph->stats.eq_props ++;
 
   k = egraph_stack_push_eq(&egraph->stack, pos_occ(t1), pos_occ(t2));
   egraph->stack.etag[k] = id;

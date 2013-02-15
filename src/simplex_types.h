@@ -467,6 +467,14 @@ typedef struct aprop_egraph_diseq_s {
  *    so that we can propagate y == z + a when we detect a <= x <= a)
  * - to detect frozen variables, we keep a propagation pointer
  *   (an index in the simplex's bound stack).
+ *
+ * To build explanations:
+ * - aux = vector of frozen variables
+ * - expl_queue = queue of constraint indices used to convert aux
+ *   into a th_explanation_t objet.
+ * - we need a separate expl_queue than the one in the egraph
+ *   because simplex_expand_th_explanation may be called
+ *   within simplex_build_explanation
  */
 typedef struct eq_propagator_s {
   offset_manager_t mngr;
@@ -475,7 +483,8 @@ typedef struct eq_propagator_s {
   uint32_t size;      // size of vector 'relevant' (number of bits)
   uint32_t prop_ptr;  // propagation pointer
 
-  ivector_t aux;      // for explanations
+  ivector_t aux;         // for explanations
+  ivector_t expl_queue;  // also for explanations
   rational_t q_aux;
 } eq_propagator_t;
 

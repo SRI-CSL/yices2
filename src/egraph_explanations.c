@@ -769,37 +769,43 @@ static void explain_theory_equality(egraph_t *egraph, expl_tag_t id, eterm_t t1,
    * e->atoms = list of literals (attached to theory specific atoms)
    */
   atoms = e->atoms;
-  n = get_av_size(atoms);
-  for (i=0; i<n; i++) {
-    ivector_push(v, atoms[i]);
+  if (atoms != NULL) {
+    n = get_av_size(atoms);
+    for (i=0; i<n; i++) {
+      ivector_push(v, atoms[i]);
+    }
   }
 
   /*
    * e->eqs = list of equalities
    */
   eqs = e->eqs;
-  n = get_eqv_size(eqs);
-  for (i=0; i<n; i++) {
-    explain_eq(egraph, pos_occ(eqs[i].lhs), pos_occ(eqs[i].rhs));
+  if (eqs != NULL) {
+    n = get_eqv_size(eqs);
+    for (i=0; i<n; i++) {
+      explain_eq(egraph, pos_occ(eqs[i].lhs), pos_occ(eqs[i].rhs));
+    }
   }
 
   /*
    * e->diseqs = list of disequalities + hint
    */
   diseqs = e->diseqs;
-  n = get_diseqv_size(diseqs);
-  for (i=0; i<n; i++) {
-    cmp = diseqs[i].hint;
-    t = pos_occ(cmp->id);
-    if (composite_kind(cmp) == COMPOSITE_EQ) {
-      assert(egraph_label(egraph, t) == false_label);
-      explain_eq(egraph, t, false_occ);
-    } else {
-      assert(composite_kind(cmp) == COMPOSITE_DISTINCT && egraph_label(egraph, t) == true_label);
-      explain_eq(egraph, t, true_occ);
+  if (diseqs != NULL) {
+    n = get_diseqv_size(diseqs);
+    for (i=0; i<n; i++) {
+      cmp = diseqs[i].hint;
+      t = pos_occ(cmp->id);
+      if (composite_kind(cmp) == COMPOSITE_EQ) {
+	assert(egraph_label(egraph, t) == false_label);
+	explain_eq(egraph, t, false_occ);
+      } else {
+	assert(composite_kind(cmp) == COMPOSITE_DISTINCT && egraph_label(egraph, t) == true_label);
+	explain_eq(egraph, t, true_occ);
+      }
+      explain_eq(egraph, pos_occ(diseqs[i].t1), pos_occ(diseqs[i].u1));
+      explain_eq(egraph, pos_occ(diseqs[i].t2), pos_occ(diseqs[i].u2));
     }
-    explain_eq(egraph, pos_occ(diseqs[i].t1), pos_occ(diseqs[i].u1));
-    explain_eq(egraph, pos_occ(diseqs[i].t2), pos_occ(diseqs[i].u2));
   }
 }
 
