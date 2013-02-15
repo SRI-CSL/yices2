@@ -33,7 +33,7 @@
 #define TRACE_BB 0
 
 
-#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG)
+#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG) || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -3635,6 +3635,8 @@ static void simplex_build_explanation(simplex_solver_t *solver, ivector_t *v) {
   ivector_add(v, aux->data, aux->size);
   ivector_reset(aux);
 
+  ivector_remove_duplicates(v);  // TEST
+
   // cleanup the marks and empty the queue
   for (k=0; k<queue->size; k++) {
     i = queue->data[k];
@@ -3687,9 +3689,28 @@ static void convert_expl_to_clause(ivector_t *v) {
  * - then this is turned into a clause
  */
 static void simplex_build_conflict_clause(simplex_solver_t *solver, ivector_t *v) {
+  uint32_t i, j, n;
+  bool show;
+
   assert(v->size == 0);
   simplex_build_explanation(solver, v);
   convert_expl_to_clause(v);
+#if 1
+  show = true;
+  n = v->size;
+  for (i=0; i<n; i++) {
+    for (j=i+1; j<n; j++) {
+      if (v->data[i] == v->data[j]) {
+	if (show) {
+	  printf("---> Simplex: conflict clause (size = %"PRIu32")\n", n);
+	  show = false;
+	}
+	printf("     duplicate literal: %"PRId32" (at index %"PRIu32" and %"PRIu32")\n", v->data[i], i, j); 
+      }
+    }
+  }
+
+#endif
 }
 
 
