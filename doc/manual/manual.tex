@@ -538,16 +538,15 @@ To illustrate the tool usage, consider file
 \texttt{examples/bv\_test2.ys} included in the distribution and shown
 in Figure~\ref{example:bv_test2}. The first line defines a type called
 \texttt{BV}. In this case, \texttt{BV} is a synonym for bitvectors of
-size 32. Then four terms called are declared of type \texttt{BV}.  The
-three constants \texttt{a}, \texttt{b}, and \texttt{d} are
-uninterpreted, while \texttt{c} is defined as the bitvector
-representation of the integer 1008832. The next line of the file is an
-assertion expressing a constraint between \texttt{a}, \texttt{b},
-\texttt{c}, and \texttt{d}, using bitvector operators. The command
-\texttt{(check)} checks whether the assertion is satisfiable. Since it
-is, command \texttt{show-model} asks for a satisfying model to be
-displayed. The next commands ask for the value of four terms in the
-model.
+size 32. Then four terms are declared of type \texttt{BV}.  The three
+constants \texttt{a}, \texttt{b}, and \texttt{d} are uninterpreted,
+while \texttt{c} is defined as the bitvector representation of the
+integer 1008832. The next line of the file is an assertion expressing
+a constraint between \texttt{a}, \texttt{b}, \texttt{c}, and
+\texttt{d}, using bitvector operators. The command \texttt{(check)}
+checks whether the assertion is satisfiable. Since it is, command
+\texttt{show-model} asks for a satisfying model to be displayed. The
+next commands ask for the value of four terms in the model.
 
 \begin{figure}
 \begin{small}
@@ -649,7 +648,7 @@ are supported
 \item[\texttt{--arith-solver=<solver>}] Select one of the possible arithmetic solvers.\\[1mm]
 \texttt{<solver>} must be one of \texttt{simplex}, \texttt{floyd-warshall}, or \texttt{auto}.
 
-If the logic is one of \texttt{QF\_IDL} (integer difference logic) or
+If the logic is \texttt{QF\_IDL} (integer difference logic) or
 \texttt{QF\_RDL} (real difference logic), then this option can be used
 to select the arithmetic solver: either the generic Simplex-based
 solver or a specialized solver based on the Floyd-Warshall
@@ -669,8 +668,8 @@ This option selects the set of functionalities supported by the solver as follow
   \texttt{(check)}, so only one call to \texttt{(check)} is possible.
 \item \texttt{multi-checks}: several calls to \texttt{(assert)} and
   \texttt{(check)} are allowed.
-\item \texttt{push-pop}: like \texttt{multi-checks} with in addition
-  support for adding and retracting assertions via the commands
+\item \texttt{push-pop}: like \texttt{multi-checks} but with support
+  for adding and retracting assertions via the commands
   \texttt{(push)} and \texttt{(pop)}.
 \item \texttt{interactive}: supports the same features as
   \texttt{push-pop} mode, but with a different behavior when
@@ -680,7 +679,7 @@ In the first two modes, \texttt{yices} employs more agressive
 simplifications when processing assertions; this can lead to better
 performance on some problems. In interactive mode, the solver context
 is saved before every call to \texttt{(check)}, and it is restored if
-\texttt{(check)} is interrupted. In this mode, the more assertions and
+\texttt{(check)} is interrupted. In this mode, more assertions and
 commands can be processed after the search is interrupted. In the
 non-interactive modes, the solver exits after the first interruption
 or timeout.
