@@ -5,7 +5,19 @@
 #include <assert.h>
 #include "yices.h"
 #include "memalloc.h"
+
+#include "cputime.h"
+#include "memsize.h"
 #include "smt2-eval.h"
+
+/*
+ * Functions declared in yices_extensions.h
+ * We can't include it here because of a conflict in type definition
+ * (value_t) is defined twice.
+ */ 
+extern void yices_print_presearch_stats(FILE *f, context_t *ctx);
+extern void yices_show_statistics(FILE *f, context_t *ctx);
+
 
 int yylex();
 extern void yyerror(const char *fmt, ...);
@@ -284,37 +296,54 @@ void yyerror(const char *fmt, ...)
 
 static ctx_config_t *config = 0;
 static context_t *context = 0;
+static VECTOR(term_t) assertions;
 
 int main(int ac, char **av)
 {
-    while (*++av) {
+  int code;
+
+  VECTOR_init(assertions);
+  while (*++av) {
 #if YYDEBUG
-	if (!strcmp(*av, "-d"))
-	    yydebug = 1;
-	else
+    if (!strcmp(*av, "-d"))
+      yydebug = 1;
+    else
 #endif
-	if (!freopen(*av, "r", stdin))
-	    fprintf(stderr, "Can't open %s\n", *av);
-    }
-    yices_init();
-    eval_init();
-    return yyparse();
+      if (!freopen(*av, "r", stdin))
+	fprintf(stderr, "Can't open %s\n", *av);
+  }
+  yices_init();
+  eval_init();
+  code = yyparse();
+
+  VECTOR_free(assertions);
+  
+  return code;
 }
 
 void set_logic(const char *name)
 {
-    if (config) yyerror("already have logic");
-    else {
-	config = yices_new_config();
-	if (yices_default_config_for_logic(config, name)) {
-	    yyerror("Unknown/unsupported logic %s", name);
-	    exit(3); } }
-    if (config)
-	context = yices_new_context(config);
-    if (yices_error_code()) {
-	yyerror("yices error:");
-	yices_print_error(stderr);
-	yices_clear_error(); }
+  if (config) {
+    yyerror("already have logic");
+  } else {
+    config = yices_new_config();
+    if (yices_default_config_for_logic(config, name)) {
+      yyerror("Unknown/unsupported logic %s", name);
+      exit(3); 
+    }
+  }
+
+  if (config) {
+    yices_set_config(config, "mode", "one-shot");
+    context = yices_new_context(config);
+    yices_context_enable_option(context, "flatten");    // Force flattening
+  }  
+
+  if (yices_error_code()) {
+    yyerror("yices error:");
+    yices_print_error(stderr);
+    yices_clear_error(); 
+  }
 }
 
 void set_option(const char *name, value_t val)
@@ -411,52 +440,87 @@ void do_pop(int cnt)
 	yices_clear_error(); }
 }
 
+#define DELAY_ASSERTIONS 1
+
 void do_assert(value_t t)
 {
-    if (t.tag != vtTERM) {
-	fprintf(stderr, "%d:FIXME -- assert of non-term: ", lineno);
-	print_value(stderr, t);
-	fprintf(stderr, "\n");
-    } else if (yices_assert_formula(context, t.v.term)) {
-	fprintf(stderr, "%d:FIXME -- failed assert: ", lineno);
-	print_value(stderr, t);
-	fprintf(stderr, "\n"); }
+  if (t.tag != vtTERM) {
+    fprintf(stderr, "%d:FIXME -- assert of non-term: ", lineno);
+    print_value(stderr, t);
+    fprintf(stderr, "\n");
+  } else {
+#if DELAY_ASSERTIONS
+    // delay assertion: store it in the assertions vector
+    VECTOR_add(assertions, t.v.term);
+#else
+    // process immediately
+    if (yices_assert_formula(context, t.v.term)) {
+      fprintf(stderr, "%d:FIXME -- failed assert: ", lineno);
+      print_value(stderr, t);
+      fprintf(stderr, "\n"); 
+    }
     if (yices_error_code()) {
-	yyerror("yices error:");
-	yices_print_error(stderr);
-	yices_clear_error(); }
+      yyerror("yices error:");
+      yices_print_error(stderr);
+      yices_clear_error(); 
+    }
+#endif
+  }
 }
 
 void check_sat()
 {
-    if (exit_code == 2) return; /* don't bother if there were parse errors */
-    smt_status_t rv = yices_check_context(context, 0);
-    switch(rv) {
-    case STATUS_SAT:
-	printf("sat\n");
-	if (status_needed && !strcmp(status_needed, "sat") && exit_code == 1)
-	    exit_code = 0;
-	break;
-    case STATUS_UNSAT:
-	printf("unsat\n");
-	if (status_needed && !strcmp(status_needed, "unsat") && exit_code == 1)
-	    exit_code = 0;
-	break;
-    case STATUS_UNKNOWN:
-	printf("unknwon\n");
-	break;
-    case STATUS_INTERRUPTED:
-	printf("interrupted\n");
-	break;
-    case STATUS_ERROR:
-	printf("error\n");
-	break;
-    default: printf("unknown code %d\n", rv); break;
-    }
-    if (yices_error_code()) {
-	yyerror("yices error:");
-	yices_print_error(stderr);
-	yices_clear_error(); }
+  if (exit_code == 2) return; /* don't bother if there were parse errors */
+
+#if DELAY_ASSERTIONS
+  // process the delayed assertions
+  int code = yices_assert_formulas(context, assertions.size, assertions.data);
+  if (code < 0) {
+    fprintf(stderr, "%d: Error asserting formulas\n", lineno);
+    yices_print_error(stderr);
+    exit(2);
+  } 
+#endif
+
+  // output run time
+  double construction_time = get_cpu_time();
+  double mem_used = mem_size() / (1024 * 1024);
+  fprintf(stderr, "Construction time: %.4f s\n", construction_time);
+  fprintf(stderr, "Memory used: %.2f MB\n\n", mem_used);
+  yices_print_presearch_stats(stderr, context);
+  fflush(stderr);
+
+  smt_status_t rv = yices_check_context(context, 0);
+  //    smt_status_t rv = STATUS_UNKNOWN; // to benchmark parsing/internalization
+  switch(rv) {
+  case STATUS_SAT:
+    printf("sat\n");
+    if (status_needed && !strcmp(status_needed, "sat") && exit_code == 1)
+      exit_code = 0;
+    break;
+  case STATUS_UNSAT:
+    printf("unsat\n");
+    if (status_needed && !strcmp(status_needed, "unsat") && exit_code == 1)
+      exit_code = 0;
+    break;
+  case STATUS_UNKNOWN:
+    printf("unknown\n");
+    break;
+  case STATUS_INTERRUPTED:
+    printf("interrupted\n");
+    break;
+  case STATUS_ERROR:
+    printf("error\n");
+    break;
+  default: 
+    printf("unknown code %d\n", rv); 
+    break;
+  }
+  if (yices_error_code()) {
+    yyerror("yices error:");
+    yices_print_error(stderr);
+    yices_clear_error(); 
+  }
 }
 
 type_t parameterized_sort(const char *name, int ac, type_t *av)

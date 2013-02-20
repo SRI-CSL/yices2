@@ -1078,6 +1078,7 @@ static void show_stats(dpll_stats_t *stat) {
  */
 static void show_egraph_stats(egraph_stats_t *stat) {
   printf("Egraph\n");
+  printf(" eq from simplex         : %"PRIu32"\n", stat->eq_props);
   printf(" app/update reductions   : %"PRIu32"\n", stat->app_reductions);
   printf(" prop. to core           : %"PRIu32"\n", stat->th_props);
   printf(" conflicts               : %"PRIu32"\n", stat->th_conflicts);

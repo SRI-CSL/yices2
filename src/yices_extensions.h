@@ -6,6 +6,8 @@
 #ifndef __YICES_EXTENSIONS_H
 #define __YICES_EXTENSIONS_H
 
+#include <stdio.h>
+
 #include "terms.h"
 #include "bvlogic_buffers.h"
 #include "context.h"
@@ -326,5 +328,13 @@ extern context_t *yices_create_context(context_arch_t arch, context_mode_t mode,
  */
 extern void yices_set_default_params(context_t *ctx, param_t *params);
 
+
+
+/*
+ * TRACE/STATISTICS AND SUPPORT FOR DEBUGGING
+ */
+extern void yices_print_presearch_stats(FILE *f, context_t *ctx);
+extern void yices_show_statistics(FILE *f, context_t *ctx);
+extern void yices_dump_context(FILE *f, context_t *ctx);
 
 #endif /* __YICES_EXTENSIONS_H */
