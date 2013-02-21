@@ -9,7 +9,13 @@
 
 
 /*
- * The result of parsing is stored in the following structure
+ * The result of parsing is stored in the following structure:
+ *
+ * We keep track of whether any function or predicate is declared
+ * (with non-zero arity). This helps detecting incorrect/misleading
+ * logic labels (e.g. the bcnscheduling benchmakrs are in QF_UFIDL but
+ * they are actually pure QF_IDL. They don't have functions or
+ * predicates.
  */
 typedef enum smt_stat {
   smt_none,
@@ -18,11 +24,13 @@ typedef enum smt_stat {
   smt_unknown,
 } smt_stat_t;
 
+
 typedef struct smt_benchmark_s {
   char *name;
   char *logic_name;
   int32_t logic_parameter; // used only for QF_UFBV[xx]
   smt_stat_t status;
+  bool has_uf;        // true if the benchmark declares uninterpreted functions or predicates
   uint32_t nformulas; // number of formulas and assumptions
   uint32_t fsize;     // size of array formulas
   term_t *formulas;   // the corresponding terms

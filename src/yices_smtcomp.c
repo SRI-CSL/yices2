@@ -1039,11 +1039,19 @@ static int process_benchmark(void) {
    */
   if (bench.logic_name != NULL) {
     logic = smt_logic_code(bench.logic_name);
+
+    // HACK: fix incorrect logic labels (for QF_UFIDL)
+    if (logic == QF_UFIDL && !bench.has_uf) {
+      fprintf(stderr, "Warning: logic should be QF_IDL\n");
+      logic = QF_IDL;
+    }
+
     code = logic2arch[logic];
     if (code < 0) {
       print_internalization_code(LOGIC_NOT_SUPPORTED);
       return YICES_EXIT_ERROR;
     }
+
     arch = (context_arch_t) code;
     need_icheck = logic2iflag[logic];
     qflag = logic2qflag[logic];

@@ -337,6 +337,8 @@ static void dump_context(FILE *f, context_t *ctx) {
 }
 
 
+
+
 /*
  * Temporary test. Check whether one of the input assertion is reduced
  * to false by simplification. This is checked independent of the
@@ -558,6 +560,8 @@ static void test_internalization(smt_benchmark_t *bench) {
   } else {
     print_internalization_code(code);
   }
+
+  pp_context(stdout, &context);
 
   if (dump) {
     if (dump_file == NULL) {

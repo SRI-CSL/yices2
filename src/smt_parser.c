@@ -201,6 +201,7 @@ void init_benchmark(smt_benchmark_t *bench) {
   bench->logic_name = NULL;
   bench->logic_parameter = 0;
   bench->status = smt_none;
+  bench->has_uf = false;
   bench->nformulas = 0;
   bench->fsize = 0;
   bench->formulas = NULL;
@@ -1274,10 +1275,16 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
       goto loop;
 
     case push_b17_goto_s0:
+      /*
+       * This is talen in :extrapreds ((P T1 ... Tn)) 
+       * but not in :extrapreds ((P))
+       * so it indicates predicates with arity > 0.
+       */
+      bench->has_uf = true;
       parser_push_state(stack, b17);
       state = s0;
       goto skip_token;
-
+     
     case next_goto_b21:
       state = b21;
       goto loop;
@@ -1309,6 +1316,14 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
       goto loop;
 
     case push_b24_goto_s0:
+      /*
+       * This transition is taken in 
+       *   :extrafuns ((name T1 T2 ... Tn))
+       * but not in 
+       *   :extrafuns  ((name T1)) 
+       * so it indicates functions with arity > 0.
+       */
+      bench->has_uf = true;
       parser_push_state(stack, b24);
       state = s0;
       goto skip_token;

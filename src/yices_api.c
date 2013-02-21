@@ -5590,6 +5590,7 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
   case CTX_ARCH_AUTO_IDL:
   case CTX_ARCH_AUTO_RDL:
   default:
+    // nothing required
     break;
   }
 }

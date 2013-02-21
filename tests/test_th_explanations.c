@@ -183,7 +183,7 @@ static void constant_test(th_explanation_t *e, uint32_t n) {
 static void decreasing_test(th_explanation_t *e, uint32_t n) {
   int32_t x;
 
-  x  = n + ((uint32_t) random()) & 0x1f;
+  x  = n + (((uint32_t) random()) & 0x1f);
   while (n > 0) {
     th_explanation_add_eq(e, n, x);
     n --;
@@ -202,7 +202,7 @@ static void increasing_test(th_explanation_t *e, uint32_t n) {
   uint32_t i;
   int32_t x;
 
-  x  = n + ((uint32_t) random()) & 0x1f;
+  x  = n + (((uint32_t) random()) & 0x1f);
   for (i=1; i<=n; i++) {
     th_explanation_add_eq(e, i, x);
   }

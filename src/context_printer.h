@@ -25,5 +25,10 @@ extern void print_context_intern_subst(FILE *f, context_t *ctx);
 extern void print_context_intern_mapping(FILE *f, context_t *ctx);
 
 
+/*
+ * Pretty printing: display the result of flattening + variable elimination
+ */
+extern void pp_context(FILE *f, context_t *ctx);
+
 
 #endif /* __CONTEXT_PRINTER_H */

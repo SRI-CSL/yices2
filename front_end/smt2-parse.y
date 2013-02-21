@@ -336,7 +336,7 @@ void set_logic(const char *name)
   if (config) {
     yices_set_config(config, "mode", "one-shot");
     context = yices_new_context(config);
-    yices_context_enable_option(context, "flatten");    // Force flattening
+    yices_context_enable_option(context, "flatten");    // BD: Force flattening
   }  
 
   if (yices_error_code()) {
@@ -482,13 +482,16 @@ void check_sat()
   } 
 #endif
 
-  // output run time
+  // output run time + stat summary
   double construction_time = get_cpu_time();
   double mem_used = mem_size() / (1024 * 1024);
   fprintf(stderr, "Construction time: %.4f s\n", construction_time);
   fprintf(stderr, "Memory used: %.2f MB\n\n", mem_used);
   yices_print_presearch_stats(stderr, context);
   fflush(stderr);
+
+  // print the internalization vectors
+  //  pp_context(stderr, context);
 
   smt_status_t rv = yices_check_context(context, 0);
   //    smt_status_t rv = STATUS_UNKNOWN; // to benchmark parsing/internalization

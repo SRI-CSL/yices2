@@ -128,3 +128,88 @@ void print_context_intern_subst(FILE *f, context_t *ctx) {
 void print_context_intern_mapping(FILE *f, context_t *ctx) {
   print_intern_mapping(f, &ctx->intern);
 }
+
+
+
+
+
+/*
+ * PRETTY PRINTER FOR  FLATTENING + VARIABLE ELIMINATION
+ */
+
+/*
+ * Print the internal substitutions
+ */
+static void pp_intern_substitutions(yices_pp_t *printer, intern_tbl_t *tbl) {
+  term_table_t *terms;
+  uint32_t i, n;
+  term_t t, r;
+
+  terms = tbl->terms;
+  n = tbl->map.top;
+  for (i=0; i<n; i++) {
+    if (good_term_idx(terms, i) && !intern_tbl_is_root_idx(tbl, i)) {
+      t = pos_term(i);
+      r = intern_tbl_find_root(tbl, t);
+      pp_open_block(printer, PP_OPEN);
+      pp_term_name(printer, terms, t);
+      pp_string(printer, " := ");
+      pp_term_full(printer, terms, r);
+      pp_close_block(printer, false);
+      flush_yices_pp(printer);
+    }
+  }
+}
+
+
+/*
+ * Pretty print a vector
+ */
+static void pp_term_array(yices_pp_t *printer, term_table_t *terms, term_t *a, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    pp_term_full(printer, terms, a[i]);
+    flush_yices_pp(printer);
+  }
+}
+
+static void pp_term_vector(yices_pp_t *printer, term_table_t *terms, ivector_t *v) {
+  pp_term_array(printer, terms, v->data, v->size);
+}
+
+/*
+ * Pretty print the result of flattening + variable elimination
+ */
+void pp_context(FILE *f, context_t *ctx) {
+  pp_area_t area;
+  yices_pp_t printer;
+  term_table_t *terms;
+
+  terms = ctx->terms;
+
+  area.width = 180;
+  area.height = UINT32_MAX;
+  area.offset = 0;
+  area.stretch = false;
+  area.truncate = false;
+
+  init_yices_pp(&printer, f, &area, PP_VMODE, 0);
+  pp_string(&printer, "Substitutions");
+  flush_yices_pp(&printer);
+  pp_intern_substitutions(&printer, &ctx->intern);
+
+  pp_string(&printer, "Top equalities");
+  flush_yices_pp(&printer);
+  pp_term_vector(&printer, terms, &ctx->top_eqs);
+
+  pp_string(&printer, "Top atoms");
+  flush_yices_pp(&printer);
+  pp_term_vector(&printer, terms, &ctx->top_atoms);
+
+  pp_string(&printer, "Top formulas");
+  flush_yices_pp(&printer);
+  pp_term_vector(&printer, terms, &ctx->top_formulas);
+  delete_yices_pp(&printer);
+}
+
