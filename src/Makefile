@@ -86,28 +86,28 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c  \
 	      bv64_polynomials.c bvpoly_buffers.c bvpoly_compiler.c        \
 	      bvpoly_dag.c bvsolver.c bv_vartable.c bvexp_table.c cache.c  \
 	      composites.c concrete_values.c context.c context_config.c    \
-	      context_solver.c dep_tables.c diophantine_systems.c          \
-	      diseq_stacks.c dl_vartable.c egraph_assertion_queues.c       \
-	      egraph_explanations.c egraph_utils.c egraph.c                \
-	      eq_abstraction.c eq_learner.c extended_rationals.c           \
-	      free_var_collector.c fun_maps.c fun_solver.c fun_trees.c     \
-	      gates_hash_table.c gates_manager.c gcd.c generic_heap.c      \
-	      hash_functions.c idl_floyd_warshall.c index_vectors.c        \
-	      int_array_hsets.c int_array_sort.c int_array_sort2.c         \
-	      int_bags.c int_bv_sets.c int_hash_classes.c int_hash_map.c   \
-	      int_hash_map2.c int_hash_sets.c int_hash_tables.c            \
-	      int_heap.c int_heap2.c int_partitions.c int_powers.c         \
-	      int_queues.c int_stack.c int_vectors.c                       \
-	      internalization_table.c lexer.c mark_vectors.c matrices.c    \
-	      memalloc.c merge_table.c models.c model_eval.c               \
+	      context_simplifier.c context_solver.c dep_tables.c           \
+              diophantine_systems.c diseq_stacks.c dl_vartable.c           \
+              egraph_assertion_queues.c egraph_explanations.c              \
+              egraph_utils.c egraph.c eq_abstraction.c eq_learner.c        \
+              extended_rationals.c free_var_collector.c fun_maps.c         \
+              fun_solver.c fun_trees.c gates_hash_table.c gates_manager.c  \
+              gcd.c generic_heap.c hash_functions.c idl_floyd_warshall.c   \
+              index_vectors.c int_array_hsets.c int_array_sort.c           \
+              int_array_sort2.c int_bags.c int_bv_sets.c                   \
+              int_hash_classes.c int_hash_map.c int_hash_map2.c            \
+              int_hash_sets.c int_hash_tables.c int_heap.c int_heap2.c     \
+              int_partitions.c int_powers.c int_queues.c int_stack.c       \
+              int_vectors.c internalization_table.c lexer.c mark_vectors.c \
+              matrices.c memalloc.c merge_table.c models.c model_eval.c    \
 	      model_printer.c mpq_aux.c object_stores.c                    \
               offset_equalities.c pair_hash_map2.c parser.c                \
               pointer_vectors.c polynomials.c poly_buffer.c                \
-	      power_products.c pprod_table.c pretty_printer.c              \
-	      pseudo_subst.c ptr_array_sort.c ptr_array_sort2.c            \
-	      ptr_hash_classes.c ptr_hash_map.c ptr_heap.c                 \
-	      ptr_partitions.c ptr_queues.c ptr_stack.c ptr_vectors.c      \
-	      rationals.c rational_hash_maps.c rb_bvsets.c                 \
+	      poly_buffer_terms.c power_products.c pprod_table.c           \
+              pretty_printer.c pseudo_subst.c ptr_array_sort.c             \
+              ptr_array_sort2.c ptr_hash_classes.c ptr_hash_map.c          \
+              ptr_heap.c ptr_partitions.c ptr_queues.c ptr_stack.c         \
+              ptr_vectors.c rationals.c rational_hash_maps.c rb_bvsets.c   \
 	      rdl_floyd_warshall.c reader.c refcount_int_arrays.c          \
 	      refcount_strings.c remap_table.c renaming_context.c          \
 	      search_parameters.c simplex.c small_bvsets.c smt_core.c      \

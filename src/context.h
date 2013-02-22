@@ -75,6 +75,13 @@ typedef enum {
  * - EQABSTRACT enables the abstraction-based equality learning heuristic
  * - ARITHELIM enables variable elimination in arithmetic
  * - KEEP_ITE: keep if-then-else terms in the egraph
+ * - BREAKSYM: enables symmetry breaking
+ * - PSEUDO_INVERSE: enables elimination of unconstrained terms using 
+ *   pseudo-inverse tricks.
+ *
+ * BREAKSYM for QF_UF is based on the paper by Deharbe et al (CADE 2011)
+ *
+ * PSEUDO_INVERSE is based on Brummayer's thesis (Boolector stuff).
  *
  * Options passed to the simplex solver when it's created
  * - EAGER_LEMMAS
@@ -86,18 +93,23 @@ typedef enum {
  *               constructs (e.g., quantifiers/bitvectors).
  * - DUMP_OPTION
  */
-#define VARELIM_OPTION_MASK      0x10
-#define FLATTENOR_OPTION_MASK    0x20
-#define FLATTENDISEQ_OPTION_MASK 0x40
-#define EQABSTRACT_OPTION_MASK   0x80
-#define ARITHELIM_OPTION_MASK    0x100
-#define KEEP_ITE_OPTION_MASK     0x200
-#define BVARITHELIM_OPTION_MASK  0x400
+#define VARELIM_OPTION_MASK             0x10
+#define FLATTENOR_OPTION_MASK           0x20
+#define FLATTENDISEQ_OPTION_MASK        0x40
+#define EQABSTRACT_OPTION_MASK          0x80
+#define ARITHELIM_OPTION_MASK           0x100
+#define KEEP_ITE_OPTION_MASK            0x200
+#define BVARITHELIM_OPTION_MASK         0x400
+#define BREAKSYM_OPTION_MASK            0x800
+#define PSEUDO_INVERSE_OPTION_MASK      0x1000
+
 
 #define PREPROCESSING_OPTIONS_MASK \
  (VARELIM_OPTION_MASK|FLATTENOR_OPTION_MASK|FLATTENDISEQ_OPTION_MASK|\
-  EQABSTRACT_OPTION_MASK|ARITHELIM_OPTION_MASK|KEEP_ITE_OPTION_MASK|BVARITHELIM_OPTION_MASK)
+  EQABSTRACT_OPTION_MASK|ARITHELIM_OPTION_MASK|KEEP_ITE_OPTION_MASK|\
+  BVARITHELIM_OPTION_MASK|BREAKSYM_OPTION_MASK|PSEUDO_INVERSE_OPTION_MASK)
 
+// SIMPLEX OPTIONS
 #define SPLX_EGRLMAS_OPTION_MASK  0x10000
 #define SPLX_ICHECK_OPTION_MASK   0x20000
 #define SPLX_EQPROP_OPTION_MASK   0x40000
@@ -717,6 +729,339 @@ extern void context_pop(context_t *ctx);
 
 
 
+/**********************************
+ *  SIMPLIFICATION AND UTILITIES  *
+ *********************************/
+
+/*
+ * The following functions are implemented in context_simplifier.c.
+ * They can be used by any procedure that processes assertions but does
+ * not depend on the solvers instantiated in a conterxt.
+ */
+
+/*
+ * INTERNAL CACHES AND AUXILIARY STRUCTURES
+ */
+
+/*
+ * There are two internal caches for visiting terms.
+ * - the 'cache' uses a bitvector implementation and should be 
+ *   better for operations that visit many terms.
+ * - the 'small_cache' uses a hash table and should be better
+ *   for operations that visit a small number of terms.
+ *
+ * There are three buffers for internal construction of polynomials
+ * - arith_buffer is more expensive (requires more memory) but 
+ *   it supports more operations (e.g., term constructors in yices_api.c
+ *   take arith_buffers as arguments).
+ * - poly_buffer is a cheaper data structure, but it does not support 
+ *   all the operations
+ * - aux_poly is even cheaper, but it's for direct construction only 
+ */
+
+/*
+ * Allocate/reset/free the small cache
+ * - the cache is allocated and initialized on the first call to get_small_cache
+ * - reset and free do nothing if the cache is not allocated
+ */
+extern int_hset_t *context_get_small_cache(context_t *ctx);
+extern void context_reset_small_cache(context_t *ctx);
+extern void context_free_small_cache(context_t *ctx);
+
+
+/*
+ * Allocate/free the cache
+ * - same conventions as for the small_cache
+ */
+extern int_bvset_t *context_get_cache(context_t *ctx);
+extern void context_free_cache(context_t *ctx);
+
+
+/*
+ * Buffers for polynomials
+ */
+extern arith_buffer_t *context_get_arith_buffer(context_t *ctx);
+extern void context_free_arith_buffer(context_t *ctx);
+
+extern poly_buffer_t *context_get_poly_buffer(context_t *ctx);
+extern void context_free_poly_buffer(context_t *ctx);
+extern void context_reset_poly_buffer(context_t *ctx);
+
+
+/*
+ * Allocate the auxiliary polynomial buffer and make it large enough
+ * for n monomials.
+ */
+extern polynomial_t *context_get_aux_poly(context_t *ctx, uint32_t n);
+
+/*
+ * Free the auxiliary polynomial
+ */
+extern void context_free_aux_poly(context_t *ctx);
+
+
+
+/*
+ * EQUALITY CACHE
+ */
+
+/*
+ * If lift-if is enabled then arithmetic equalities
+ *  (eq (ite c t1 t2) u) are rewritten to (ite c (eq t1 u) (eq t2 u))
+ * We don't create new terms (eq t1 u) or (eq t2 u). Instead, we store
+ * the internalization of equalities (eq t1 u) in the eq_cache:
+ * This cache maps pairs of terms <t, u> to a literal l (such that
+ * l is the internalization of (t == u)).
+ *
+ * The following functions operate on this cache: reset/free/push/pop
+ * do nothing if the cache does not exist.
+ */
+extern pmap2_t *context_get_eq_cache(context_t *ctx);
+extern void context_free_eq_cache(context_t *ctx);
+extern void context_eq_cache_push(context_t *ctx);
+extern void context_eq_cache_pop(context_t *ctx);
+
+static inline void context_reset_eq_cache(context_t *ctx) {
+  context_free_eq_cache(ctx);
+}
+
+
+/*
+ * Check what's mapped to (t1, t2) in the internal eq_cache.
+ * - return null_literal if nothing is mapped to (t1, t2) (or if the cache does not exit)
+ */
+extern literal_t find_in_eq_cache(context_t *ctx, term_t t1, term_t t2);
+
+
+/*
+ * Add the mapping (t1, t2) --> l to the equality cache.
+ * - allocate and initialize the cache if needed.
+ * - the pair (t1, t2) must not be in the cache already.
+ * - l must be different from null_literal
+ */
+extern void add_to_eq_cache(context_t *ctx, term_t t1, term_t t2, literal_t l);
+
+
+
+/*
+ * SIMPLIFICATION
+ */
+
+/*
+ * Check whether t is true or false (i.e., mapped to 'true_occ' or 'false_occ'
+ * in the internalization table.
+ * - t must be a root in the internalization table
+ */
+extern bool term_is_true(context_t *ctx, term_t t);
+extern bool term_is_false(context_t *ctx, term_t t);
+
+
+/*
+ * Check whether (t1 == t2) can be simplified to an existing term
+ * (including true_term or false_term).
+ * - t1 and t2 must be Boolean terms
+ * - return NULL_TERM if no simplifcation is found
+ */
+extern term_t simplify_bool_eq(context_t *ctx, term_t t1, term_t t2);
+
+
+/*
+ * Same thing for bitvector terms
+ * - both t1 and t2 must be root terms in the internalization table
+ */
+extern term_t simplify_bitvector_eq(context_t *ctx, term_t t1, term_t t2);
+
+
+
+/*
+ * FLATTENING AND VARIABLE ELIMINATION
+ */
+
+/*
+ * Flattening of disjunctions
+ * - rewrite nested OR terms to flat OR terms
+ * - if option FLATTENDISEQ is enabled, also replace arithmetic 
+ *   disequalities by disjunctions of strict inequalities:
+ *    (i.e., rewrite x!= 0 to (or (< x 0) (> x 0))
+ *
+ * The function applies flattenning to composite term or:
+ * - or must be of the form (or t1 .... tn)
+ * - v must be empty
+ * - flattening is applied recursively to t1 ... t_n
+ * - the result is stored in v: it 's an array of Boolean terms 
+ *   u_1 .... u_m such that (or t1 ... t_n)  is equivalent to (or u_1 ... u_m).
+ *
+ * Side effect: use ctx's small_cache then reset it
+ */
+extern void flatten_or_term(context_t *ctx, ivector_t *v, composite_term_t *or);
+
+
+/*
+ * If t is (ite c a b), we can try to rewrite (= t k) into a conjunction
+ * of terms using the two rules:
+ *   (= (ite c a b) k) --> c and (= a k)        if k != b holds
+ *   (= (ite c a b) k) --> (not c) and (= b k)  if k != a holds
+ *
+ * This works best for the NEC benchmarks in SMT LIB, where many terms
+ * are deeply nested if-then-else terms with constant leaves.
+ *
+ * The function below does that: it rewrites (eq t k) to (and c_0 ... c_n (eq t' k))
+ * - the boolean terms c_0 ... c_n are added to vector v
+ * - the term t' is returned
+ *
+ * So the simplification worked it the returned term t' is different from t
+ * (and then v->size is not 0).
+ */
+extern term_t flatten_ite_equality(context_t *ctx, ivector_t *v, term_t t, term_t k);
+
+
+/*
+ * Simplify and flatten assertion f. 
+ *
+ * This function performs top-down Boolean propagation and collects
+ * all subterms of f that can't be flattened into four vectors: 
+ *
+ * 1) ctx->top_eqs = top-level equalities.
+ *    Every t in top_eqs is (eq t1 * t2) (or a variant) asserted true.  
+ *    t is mapped to true in the internalization table.
+ *
+ * 2) ctx->top_atoms = top-level atoms.
+ *    Every t in top_atoms is an atom or the negation of an atom (that 
+ *    can't go into top_eqs).
+ *    t is mapped to true in the internalization table.
+ *
+ * 3) ctx->top_formulas = non-atomic terms.
+ *    Every t in top_formulas is either an (OR ...) or (ITE ...) or (XOR ...) 
+ *    or the negation of such a term.
+ *    t is mapped to true in the internalization table.
+ *
+ * 4) ctx->top_interns = already internalized terms.
+ *    Every t in top_interns is a term that's been internalized before
+ *    and is mapped to a literal l or an egraph occurrence g in
+ *    the internalization table.
+ *    l or g must be asserted true in later stages.
+ * 
+ *
+ * If variable elimination is enabled, then equalities of the form (= x t)
+ * where x is a variable are converted to substitutions if possible:
+ *
+ * 1) if t is a constant or variable: then [x := t] is added as a substitution
+ *    to ctx->intern_tbl (if possible) 
+ *
+ * 2) other equalities of the form (= x t) are added to ctx->subst_eqs. to
+ *    be processed later by process_candidate_subst
+ *
+ * This function raises an exception via longjmp if there's an error
+ * or if a contradiction is detected. So ctx->env must be set.
+ */
+extern void flatten_assertion(context_t *ctx, term_t f);
+
+
+/*
+ * Process all candidate substitutions after flattening
+ * - the candidate substitutions are in ctx->subst_eqs
+ * - all elemenst of subst_eqs must be equality terms asserted true
+ *   and of the form (= x t) for some variable x.
+ * - converts these equalities into substitutions, as long as this 
+ *   can be done without creating substitution cycles.
+ * - candidate substitution  that can't be converted are moved to
+ *   ctx->top_eqs.
+ */
+extern void context_process_candidate_subst(context_t *ctx);
+
+
+
+
+/*
+ * TYPES AFTER VARIABLE ELIMINATION
+ */
+
+/*
+ * Get the type of r's class
+ * - r must be a root in the internalization table
+ */
+static inline type_t type_of_root(context_t *ctx, term_t r) {
+  return intern_tbl_type_of_root(&ctx->intern, r);
+}
+
+/*
+ * Check whether r is root of an integer class
+ * - r must be a root in the internalization table
+ */
+static inline bool is_integer_root(context_t *ctx, term_t r) {
+  return intern_tbl_is_integer_root(&ctx->intern, r);
+}
+
+
+/*
+ * Check whether t is in an integer or real class
+ */
+static inline bool in_integer_class(context_t *ctx, term_t t) {
+  return is_integer_root(ctx, intern_tbl_get_root(&ctx->intern, t));
+}
+
+static inline bool in_real_class(context_t *ctx, term_t t) {
+  return is_real_type(type_of_root(ctx, intern_tbl_get_root(&ctx->intern, t)));
+}
+
+
+
+/*
+ * PREPROCESSING/ANALYSIS AFTER FLATTENING/VARIABLE ELIMINATIONS
+ */
+
+
+/*
+ * Attempt to learn global equalities implied 
+ * by the formulas stored in ctx->top_formulas.
+ * Any such equality is added to ctx->top_eqs
+ * - return CTX_NO_ERROR if no contradiction is found
+ * - return TRIVIALLY_UNSAT if a contradiction is found
+ */
+extern int32_t analyze_uf(context_t *ctx);
+
+
+/*
+ * Check difference logic after flattening:
+ * - check whether all formulas in top_eqs, top_atoms, and top_formulas
+ *   are in the difference logic fragment. If so, compute the benchmark 
+ *   profile (i.e., statistics on number of variables + atoms)
+ * - if idl is true, all variables must be integer (i.e., the formula is 
+ *   in the IDL fragment), otherwise all variables must be real (i.e., the 
+ *   formula is in the RDL fragment).
+ *
+ * - if all assertions are in IDL or RDL.
+ *   the statistics are stored in ctx->dl_profile. 
+ * - raise an exception 'LOGIC_NOT_SUPPORTED' otherwise.
+ *
+ * This function is used to decide whether to use simplex or a
+ * specialized solver when the architecture is CTX_AUTO_IDL or
+ * CTX_AUTO_RDL.  Because this function is called before the actual
+ * arithmetic solver is created, we assume that no arithmetic term is
+ * internalized, and that top_interns is empty.
+ */
+extern void analyze_diff_logic(context_t *ctx, bool idl);
+
+
+
+
+/*
+ * CLEANUP
+ */
+
+/*
+ * Subst/mark are used by flattening if variable elimination is enabled
+ * dl_profile is allocated if analyze_ The following functions must be called
+ * to delete these internal structures. They do nothing if the structures 
+ * haven't been allocated.
+ */
+extern void context_free_subst(context_t *ctx);
+extern void context_free_marks(context_t *ctx);
+extern void context_free_dl_profile(context_t *ctx);
+
+
+
+
 /****************************
  *   ASSERTIONS AND CHECK   *
  ***************************/
@@ -903,6 +1248,22 @@ static inline void disable_bvarith_elimination(context_t *ctx) {
   ctx->options &= ~BVARITHELIM_OPTION_MASK;
 }
 
+static inline void enable_symmetry_breaking(context_t *ctx) {
+  ctx->options |= BREAKSYM_OPTION_MASK;
+}
+
+static inline void disable_symmetry_breaking(context_t *ctx) {
+  ctx->options &= ~BREAKSYM_OPTION_MASK;
+}
+
+static inline void enable_pseudo_inverse_simplification(context_t *ctx) {
+  ctx->options |= PSEUDO_INVERSE_OPTION_MASK;
+}
+
+static inline void disable_pseudo_inverse_simplification(context_t *ctx) {
+  ctx->options &= ~PSEUDO_INVERSE_OPTION_MASK;
+}
+
 
 /*
  * Simplex-related options
@@ -944,6 +1305,14 @@ static inline bool context_keep_ite_enabled(context_t *ctx) {
 
 static inline bool context_bvarith_elim_enabled(context_t *ctx) {
   return (ctx->options & BVARITHELIM_OPTION_MASK) != 0;
+}
+
+static inline bool context_breaksym_enabled(context_t *ctx) {
+  return (ctx->options & BREAKSYM_OPTION_MASK) != 0;
+}
+
+static inline bool context_pseudo_inverse_enabled(context_t *ctx) {
+  return (ctx->options & PSEUDO_INVERSE_OPTION_MASK) != 0;
 }
 
 static inline bool context_has_preprocess_options(context_t *ctx) {
