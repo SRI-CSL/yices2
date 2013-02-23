@@ -12,12 +12,12 @@
 
 /*
  * Functions declared in yices_extensions.h
- * We can't include it here because of a conflict in type definition
+ * We can't use #include "yices_externsionas.h" 
+ & here because of a conflict in type definition
  * (value_t) is defined twice.
  */ 
 extern void yices_print_presearch_stats(FILE *f, context_t *ctx);
 extern void yices_show_statistics(FILE *f, context_t *ctx);
-
 
 int yylex();
 extern void yyerror(const char *fmt, ...);

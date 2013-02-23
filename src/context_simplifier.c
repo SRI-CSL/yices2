@@ -14,13 +14,16 @@
 
 #include "context.h"
 #include "eq_learner.h"
+#include "symmetry_breaking.h"
+
 
 #define TRACE_SUBST  0
 #define TRACE_EQ_ABS 0
 #define TRACE_DL     0
 
+#define TRACE_SYM_BREAKING 1
 
-#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DEL
+#if TRACE_SUBST || TRACE_EQ_ABS || TRACE_DEL || TRACE_SYM_BREAKING
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -2625,4 +2628,92 @@ term_t flatten_ite_equality(context_t *ctx, ivector_t *v, term_t t, term_t k) {
 
 
 
+
+
+
+
+/***********************
+ *  SYMMETRY BREAKING  *
+ **********************/
+
+#if TRACE_SYM_BREAKING
+
+static void show_constant_set(yices_pp_t *pp, term_table_t *terms, rng_record_t *r) {
+  uint32_t i, n;
+
+  n = r->num_constants;
+  pp_open_block(pp, PP_OPEN);
+  for (i=0; i<n; i++) {
+    pp_term(pp, terms, r->cst[i]);
+  }
+  pp_close_block(pp, false);  
+}
+
+static void pp_constraints(yices_pp_t *pp, sym_breaker_t *breaker, rng_record_t *r) {
+  uint32_t i, j, n;
+
+  n = r->num_terms;
+  for (i=0; i<n; i++) {
+    j = r->idx[i];
+    pp_open_block(pp, PP_OPEN);
+    pp_string(pp, "Formula ");
+    pp_uint32(pp, j);
+    pp_close_block(pp, false);
+    flush_yices_pp(pp);
+
+    pp_term_full(pp, breaker->terms, breaker->ctx->top_formulas.data[j]);
+    flush_yices_pp(pp);
+
+    pp_open_block(pp, PP_OPEN);
+    pp_string(pp, "constraint on term ");
+    pp_term_full(pp, breaker->terms, r->trm[i]);
+    pp_close_block(pp, false);
+    flush_yices_pp(pp);
+    flush_yices_pp(pp);
+  }
+}
+
+static void show_range_constraints(sym_breaker_t *breaker) {
+  yices_pp_t pp;
+  pp_area_t area;
+  rng_vector_t *v;
+  uint32_t i, n;
+
+  area.width = 150;
+  area.height = 30;
+  area.offset = 0;
+  area.stretch = false;
+  area.truncate = true;
+  init_default_yices_pp(&pp, stdout, &area);
+
+  v = &breaker->range_constraints;
+  n = v->nelems;
+  for (i=0; i<n; i++) {
+    pp_open_block(&pp, PP_OPEN);
+    pp_string(&pp, "Range constraints for set: ");
+    show_constant_set(&pp, breaker->terms, v->data + i);
+    pp_close_block(&pp, false);
+    flush_yices_pp(&pp);
+    flush_yices_pp(&pp);
+    pp_constraints(&pp, breaker, v->data + i);
+  }
+}
+
+#endif
+
+
+/*
+ * For testing only: to be completed
+ */
+void break_uf_symmetries(context_t *ctx) {
+  sym_breaker_t breaker;
+
+  init_sym_breaker(&breaker, ctx);
+  collect_range_constraints(&breaker);
+#if TRACE_SYM_BREAKING
+  show_range_constraints(&breaker);
+#endif
+
+  delete_sym_breaker(&breaker);
+}
 

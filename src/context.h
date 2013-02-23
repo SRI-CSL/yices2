@@ -1043,6 +1043,22 @@ extern int32_t analyze_uf(context_t *ctx);
 extern void analyze_diff_logic(context_t *ctx, bool idl);
 
 
+/*
+ * Break symmetries for uf theory: this is based on the following paper:
+ *
+ *   David Delharbe, Pascal Fontaine, Stephan Merz, and Bruno Woltzenlogel Paleo
+ *   Exploiting Summetry in SMT Problems, CADE 2011
+ * 
+ * Summary:
+ * - search for clauses of the form (or (= t c0) ... (= t c_n))
+ *   where c0 ... c_n are uninterpreted constants
+ * - reduce the clause to (or (= t c0) .. (= t c_i)) for some i<n
+ * - this can be done if the rest of the assertions are invariant
+ *   with respect to permutations of c0 ... c_n, and if t doesn't
+ *   contain c0 ... c_i.
+ */
+extern void break_uf_symmetries(context_t *ctx);
+
 
 
 /*
@@ -1050,10 +1066,11 @@ extern void analyze_diff_logic(context_t *ctx, bool idl);
  */
 
 /*
- * Subst/mark are used by flattening if variable elimination is enabled
- * dl_profile is allocated if analyze_ The following functions must be called
- * to delete these internal structures. They do nothing if the structures 
- * haven't been allocated.
+ * Subst/mark are used by flattening if variable elimination is
+ * enabled. The dl_profile is allocated in analyze_diff_logic. The
+ * following functions must be called to delete these internal
+ * structures. They do nothing if the structures haven't been
+ * allocated.
  */
 extern void context_free_subst(context_t *ctx);
 extern void context_free_marks(context_t *ctx);
