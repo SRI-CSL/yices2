@@ -14,7 +14,7 @@
 #include "bvsolver.h"
 
 
-#define TRACE        0
+#define TRACE 0
 
 #if TRACE
 

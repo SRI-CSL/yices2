@@ -23,8 +23,8 @@
 
 /*
  * Internal components:
- * - terms = term table
- * - pprod = power-product table
+ * - terms = pointer to a term table
+ * - pprod = pointer to a power-product table
  * - types = pointer to an external type table.
  * 
  * Optional components allocated and initialized lazily:
@@ -45,9 +45,9 @@
  * - vector0: vector of integers
  */
 typedef struct term_manager_s {
-  term_table_t terms;
+  term_table_t *terms;
   type_table_t *types;
-  pprod_table_t pprods;
+  pprod_table_t *pprods;
 
   arith_buffer_t *arith_buffer;
   bvarith_buffer_t *bvarith_buffer;
@@ -74,10 +74,10 @@ typedef struct term_manager_s {
 
 /*
  * Initialization:
- * - n = initial term table size
+ * - terms = attached term table
  * - types = attached type table
  */
-extern void init_term_manager(term_manager_t *manager, type_table_t *types, uint32_t n);
+extern void init_term_manager(term_manager_t *manager, type_table_t *types, term_table_t *terms);
 
 
 /*
@@ -90,11 +90,11 @@ extern void delete_term_manager(term_manager_t *manager);
  * Get the internal components
  */
 static inline term_table_t *term_manager_get_terms(term_manager_t *manager) {
-  return &manager->terms;
+  return manager->terms;
 }
 
 static inline pprod_table_t *term_manager_get_pprods(term_manager_t *manager) {
-  return &manager->pprods;
+  return manager->pprods;
 }
 
 static inline type_table_t *term_manager_get_types(term_manager_t *manager) {

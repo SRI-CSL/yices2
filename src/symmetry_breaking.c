@@ -426,6 +426,259 @@ static term_t formula_is_range_constraint(sym_breaker_t *breaker, term_t f, ivec
 
 
 
+
+/*
+ * SUBSTITUTIONS
+ */
+
+/*
+ * Initialize to the empty substitution:
+ * - every constant is mapped to itself
+ */
+static void init_ctx_subst(ctx_subst_t *s, context_t *ctx) {
+  uint32_t n;
+
+  n = DEF_CTX_SUBST_SIZE;
+  assert(n <= MAX_CTX_SUBST_SIZE);
+
+  s->intern = &ctx->intern;
+  s->terms = ctx->terms;
+  s->subst = (term_t *) safe_malloc(n * sizeof(term_t));
+  s->nterms = 0;
+  s->size = n;
+  init_term_manager(&s->mngr, ctx->types, ctx->terms);
+  init_istack(&s->stack);
+}
+
+
+/*
+ * Make sure s->subst is large enough to store s->subst[i]
+ */
+static void resize_ctx_subst(ctx_subst_t *s, uint32_t i) {
+  uint32_t n;
+
+  assert(i < UINT32_MAX);
+
+  n = s->size;
+  if (i >= n) {
+    n += (n >> 1); // 50% larger
+    if (i >= n) {
+      n = i+1;
+    }
+    if (n > MAX_CTX_SUBST_SIZE) {
+      out_of_memory();
+    }
+    s->subst = (term_t *) safe_realloc(s->subst, n * sizeof(term_t));
+    s->size = n;
+  }
+}
+
+
+/*
+ * Store the mapping [i --> t] into subst
+ */
+static void ctx_subst_store(ctx_subst_t *s, uint32_t i, term_t t) {  
+  uint32_t j;
+
+  if (i >= s->nterms) {
+    // initialize s->subst[s->nterms to i-1]
+    resize_ctx_subst(s, i);
+    assert(i < s->size);
+    for (j=s->nterms; j < i; j++) {
+      s->subst[j] = NULL_TERM;
+    }
+    s->nterms = i+1;
+  }
+  s->subst[i] = t;
+}
+
+
+/*
+ * Return s->subst[i] (NULL_TERM if not defined)
+ */
+static term_t ctx_subst_find(ctx_subst_t *s, uint32_t i) {
+  return (i < s->nterms) ? s->subst[i] : NULL_TERM;
+}
+
+
+/*
+ * Same thing for a term t: take polarity into account
+ */
+static term_t ctx_subst_of_term(ctx_subst_t *s, term_t t) {
+  term_t u;
+
+  assert(t >= 0 && intern_tbl_is_root(s->intern, t));
+  u = ctx_subst_find(s, index_of(t));
+  if (u >= 0) { // flip sign bit if t has negative sign
+    u ^= polarity_of(t);
+  }
+  return u;
+}
+
+
+/*
+ * Store the mapping t --> u in s
+ */
+static void set_ctx_subst_of_term(ctx_subst_t *s, term_t t, term_t u) {
+  assert(t >= 0 && intern_tbl_is_root(s->intern, t));
+  // if t has negative sign, replace u by not u:
+  u ^= polarity_of(t);
+  ctx_subst_store(s, index_of(t), u);
+}
+
+
+/*
+ * Delete s
+ */
+static void delete_ctx_subst(ctx_subst_t *s) {
+  safe_free(s->subst);
+  s->subst = NULL;
+  delete_term_manager(&s->mngr);
+  delete_istack(&s->stack);
+}
+
+
+/*
+ * Reset to the empty substitution
+ */
+static inline void reset_ctx_subst(ctx_subst_t *s) {
+  s->nterms = 0;
+  reset_istack(&s->stack);
+}
+
+
+
+
+/*
+ * APPLY SUBSTITUTION
+ */
+
+/*
+ * Get the term mapped to t in s
+ * - raise an exception (bu longjmp(s->env, -1) if something goes wrong
+ *   (i.e., t is not in the QF_UF fragment)
+ */
+static term_t ctx_subst(ctx_subst_t *s, term_t t);
+
+// (ite c t1 t2)
+static term_t ctx_subst_ite(ctx_subst_t *s, composite_term_t *d) {
+  return NULL_TERM; // TBD
+}
+
+// (eq t1 t2)
+static term_t ctx_subst_eq(ctx_subst_t *s, composite_term_t *d) {
+  return NULL_TERM;
+}
+
+// (or t1 .... tn)
+static term_t ctx_subst_or(ctx_subst_t *s, composite_term_t *d) {
+  return NULL_TERM;
+}
+
+// (xor t1 ... tn)
+static term_t ctx_subst_xor(ctx_subst_t *s, composite_term_t *d) {
+  return NULL_TERM;
+}
+
+// (apply f t1 ... tn)
+static term_t ctx_subst_app(ctx_subst_t *s, composite_term_t *d) {
+  return NULL_TERM;
+}
+
+// (tuple t1 ... tn)
+static term_t ctx_subst_tuple(ctx_subst_t *s, composite_term_t *d) {
+  return NULL_TERM;
+}
+
+// (select t i)
+static term_t ctx_subst_select(ctx_subst_t *s, select_term_t *d) {
+  return NULL_TERM;
+}
+
+// (distinct t1 ... tn)
+static term_t ctx_subst_distinct(ctx_subst_t *s, composite_term_t *d) {
+  return NULL_TERM;
+}
+
+
+
+static term_t ctx_subst(ctx_subst_t *s, term_t t) {
+  term_table_t *terms;
+  uint32_t polarity;
+  term_t r, x;
+
+  // replace t by its root in the internalization table
+  r = intern_tbl_get_root(s->intern, t);
+  polarity = polarity_of(r);
+  r = unsigned_term(r);
+
+  /*
+   * Find what's mapped to r. Since r has positive polarity,
+   * we can use ctx_subst_find directly.
+   */
+  x = ctx_subst_find(s, index_of(r));
+  if (x == NULL_TERM) {
+    terms = s->terms;
+    switch (term_kind(terms, r)) {
+    case CONSTANT_TERM:
+    case UNINTERPRETED_TERM:
+      x = r;
+      break;
+
+    case ITE_TERM:
+    case ITE_SPECIAL:
+      x = ctx_subst_ite(s, ite_term_desc(terms, r));
+      break;
+
+    case EQ_TERM:
+      x = ctx_subst_eq(s, eq_term_desc(terms, r));
+      break;
+
+    case OR_TERM:
+      x = ctx_subst_or(s, or_term_desc(terms, r));
+      break;
+
+    case XOR_TERM:
+      x = ctx_subst_xor(s, xor_term_desc(terms, r));
+      break;
+
+    case APP_TERM:
+      x = ctx_subst_app(s, app_term_desc(terms, r));
+      break;
+
+    case TUPLE_TERM:
+      x = ctx_subst_tuple(s, tuple_term_desc(terms, r));
+      break;
+
+    case SELECT_TERM:
+      x = ctx_subst_select(s, select_term_desc(terms, r));
+      break;
+
+    case DISTINCT_TERM:
+      x = ctx_subst_distinct(s, distinct_term_desc(terms, r));
+      break;
+
+    default:
+      longjmp(s->env, -1);
+      break;
+    }
+
+    assert(x != NULL_TERM);
+
+    // store the mapping r --> x in s
+    ctx_subst_store(s, index_of(r), x);
+  }
+
+  return x ^ polarity;
+}
+
+
+
+
+
+
+
+
 /*
  * SYMMETRY BREAKER
  */

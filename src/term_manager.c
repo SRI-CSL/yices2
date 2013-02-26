@@ -25,13 +25,15 @@
 
 /*
  * Initialization:
- * - n = initial term table size
+ * - terms = attached term table
  * - types = attached type table
  */
-void init_term_manager(term_manager_t *manager, type_table_t *types, uint32_t n) {
-  init_pprod_table(&manager->pprods, 0);
-  init_term_table(&manager->terms, n, types, &manager->pprods);
+void init_term_manager(term_manager_t *manager, type_table_t *types, term_table_t *terms) {
+  //  init_pprod_table(&manager->pprods, 0);
+  //  init_term_table(&manager->terms, n, types, &manager->pprods);
+  manager->terms = terms;
   manager->types = types;
+  manager->pprods = terms->pprods;
 
   manager->arith_buffer = NULL;
   manager->bvarith_buffer = NULL;
@@ -120,7 +122,7 @@ arith_buffer_t *term_manager_get_arith_buffer(term_manager_t *manager) {
   if (tmp == NULL) {
     mstore = term_manager_get_arith_store(manager);
     tmp = (arith_buffer_t *) safe_malloc(sizeof(arith_buffer_t));
-    init_arith_buffer(tmp, &manager->pprods, mstore);
+    init_arith_buffer(tmp, manager->pprods, mstore);
     manager->arith_buffer = tmp;
   }
 
@@ -135,7 +137,7 @@ bvarith_buffer_t *term_manager_get_bvarith_buffer(term_manager_t *manager) {
   if (tmp == NULL) {
     mstore = term_manager_get_bvarith_store(manager);
     tmp = (bvarith_buffer_t *) safe_malloc(sizeof(bvarith_buffer_t));
-    init_bvarith_buffer(tmp, &manager->pprods, mstore);
+    init_bvarith_buffer(tmp, manager->pprods, mstore);
     manager->bvarith_buffer = tmp;
   }
 
@@ -150,7 +152,7 @@ bvarith64_buffer_t *term_manager_get_bvarith64_buffer(term_manager_t *manager) {
   if (tmp == NULL) {
     mstore = term_manager_get_bvarith64_store(manager);
     tmp = (bvarith64_buffer_t *) safe_malloc(sizeof(bvarith64_buffer_t));
-    init_bvarith64_buffer(tmp, &manager->pprods, mstore);
+    init_bvarith64_buffer(tmp, manager->pprods, mstore);
     manager->bvarith64_buffer = tmp;
   }
 
@@ -283,8 +285,8 @@ extern void delete_term_manager(term_manager_t *manager) {
   delete_bvconstant(&manager->bv2);
   delete_ivector(&manager->vector0);
 
-  delete_term_table(&manager->terms);
-  delete_pprod_table(&manager->pprods);
+  //  delete_term_table(&manager->terms);
+  //  delete_pprod_table(&manager->pprods);
 }
 
 
@@ -417,7 +419,7 @@ static term_t bvarray_get_term(term_manager_t *manager, term_t *a, uint32_t n) {
 
   assert(n > 0);
 
-  terms = &manager->terms;
+  terms = manager->terms;
 
   if (bvarray_is_constant(a, n)) {
     if (n <= 64) {
@@ -497,8 +499,8 @@ static term_t mk_bveq_arrays1(term_manager_t *manager, term_t t1, term_t t2) {
   composite_term_t *a;
   composite_term_t *b;
 
-  a = bvarray_term_desc(&manager->terms, t1);
-  b = bvarray_term_desc(&manager->terms, t2);
+  a = bvarray_term_desc(manager->terms, t1);
+  b = bvarray_term_desc(manager->terms, t2);
 
   assert(a->arity == 1 && b->arity == 1);
   return mk_iff(manager, a->arg[0], b->arg[0]);
@@ -515,7 +517,7 @@ static term_t mk_bitvector_eq(term_manager_t *manager, term_t t1, term_t t2) {
   term_table_t *tbl;
   term_t aux;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   if (t1 == t2) return true_term;
   if (disequal_bitvector_terms(tbl, t1, t2)) {
@@ -577,7 +579,7 @@ static term_t try_iff_bveq_simplification(term_manager_t *manager, term_t x, ter
   pa = false;
   pb = false; // to prevent GCC warning
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   a = term_is_bveq1(tbl, x, &pa);
   b = term_is_bveq1(tbl, y, &pb);
@@ -653,7 +655,7 @@ term_t mk_binary_or(term_manager_t *manager, term_t x, term_t y) {
     aux[0] = y; aux[1] = x;
   }
 
-  return or_term(&manager->terms, 2, aux);
+  return or_term(manager->terms, 2, aux);
 }
 
 
@@ -677,7 +679,7 @@ term_t mk_implies(term_manager_t *manager, term_t x, term_t y) {
  * Check whether x is uninterpreted or the negation of an uninterpreted boolean term
  */
 static inline bool is_literal(term_manager_t *manager, term_t x) {
-  return kind_for_idx(&manager->terms, index_of(x)) == UNINTERPRETED_TERM;
+  return kind_for_idx(manager->terms, index_of(x)) == UNINTERPRETED_TERM;
 }
 
 
@@ -731,7 +733,7 @@ term_t mk_iff(term_manager_t *manager, term_t x, term_t y) {
     y = opposite_term(y); 
   }
 
-  return eq_term(&manager->terms, x, y);
+  return eq_term(manager->terms, x, y);
 }
 
 
@@ -800,7 +802,7 @@ term_t mk_or(term_manager_t *manager, uint32_t n, term_t *a) {
     // if j = 1, then x is the unique non-false term in a
     return x;
   } else {
-    return or_term(&manager->terms, j, a);
+    return or_term(manager->terms, j, a);
   }
 }
 
@@ -912,11 +914,11 @@ term_t mk_xor(term_manager_t *manager, uint32_t n, term_t *a) {
         y = opposite_term(y);
       }
     } 
-    return eq_term(&manager->terms, x, y);
+    return eq_term(manager->terms, x, y);
   }
 
   // general case: j >= 3
-  x = xor_term(&manager->terms, j, a);
+  x = xor_term(manager->terms, j, a);
   if (negate) {
     x = opposite_term(x);
   }
@@ -1133,7 +1135,7 @@ term_t mk_bv_ite(term_manager_t *manager, term_t c, term_t x, term_t y) {
   term_kind_t kind_x, kind_y;
   term_t aux;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   assert(term_type(tbl, x) == term_type(tbl, y) && 
          is_bitvector_term(tbl, x) && 
@@ -1215,8 +1217,8 @@ term_t mk_bv_ite(term_manager_t *manager, term_t c, term_t x, term_t y) {
 static term_t mk_bveq_ite(term_manager_t *manager, term_t c, term_t x, term_t y, term_t z) {
   term_t ite, aux;
 
-  assert(term_type(&manager->terms, x) == term_type(&manager->terms, y) && 
-         term_type(&manager->terms, x) == term_type(&manager->terms, z));
+  assert(term_type(manager->terms, x) == term_type(manager->terms, y) && 
+         term_type(manager->terms, x) == term_type(manager->terms, z));
 
   ite = mk_bv_ite(manager, c, y, z);
 
@@ -1225,7 +1227,7 @@ static term_t mk_bveq_ite(term_manager_t *manager, term_t c, term_t x, term_t y,
     aux = x; x = ite; ite = aux;
   }
 
-  return bveq_atom(&manager->terms, x, ite);
+  return bveq_atom(manager->terms, x, ite);
 }
 
 
@@ -1240,7 +1242,7 @@ static term_t mk_lifted_ite_bveq(term_manager_t *manager, term_t c, term_t t, te
   composite_term_t *eq1, *eq2;
   term_t x;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   assert(is_pos_term(t) && is_pos_term(e) && 
          term_kind(tbl, t) == BV_EQ_ATOM && term_kind(tbl, e) == BV_EQ_ATOM);
@@ -1309,12 +1311,12 @@ term_t mk_bool_ite(term_manager_t *manager, term_t c, term_t x, term_t y) {
   }
 
   if (is_pos_term(x) && is_pos_term(y) && 
-      term_kind(&manager->terms, x) == BV_EQ_ATOM && 
-      term_kind(&manager->terms, y) == BV_EQ_ATOM) {
+      term_kind(manager->terms, x) == BV_EQ_ATOM && 
+      term_kind(manager->terms, y) == BV_EQ_ATOM) {
     return mk_lifted_ite_bveq(manager, c, x, y);
   }
 
-  return ite_term(&manager->terms, bool_type(manager->types), c, x, y);
+  return ite_term(manager->terms, bool_type(manager->types), c, x, y);
 }
 
 
@@ -1415,7 +1417,7 @@ static term_t remove_monomials(term_manager_t *manager, polynomial_t *p, term_t 
       i ++;
     } else {
       assert(x < a[i]);
-      arith_buffer_add_mono(b, &mono->coeff, pprod_for_term(&manager->terms, x));
+      arith_buffer_add_mono(b, &mono->coeff, pprod_for_term(manager->terms, x));
     }
     mono ++;
     x = mono->var;
@@ -1428,7 +1430,7 @@ static term_t remove_monomials(term_manager_t *manager, polynomial_t *p, term_t 
 
   // build the term from b
   arith_buffer_normalize(b);
-  return arith_buffer_to_term(&manager->terms, b);
+  return arith_buffer_to_term(manager->terms, b);
 }  
 
 
@@ -1445,7 +1447,7 @@ static term_t add_mono_to_common_part(term_manager_t *manager, polynomial_t *p, 
   uint32_t i;
   term_t x;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
   b = term_manager_get_arith_buffer(manager);
   arith_buffer_reset(b);  
 
@@ -1491,7 +1493,7 @@ static term_t polynomial_div_const(term_manager_t *manager, polynomial_t *p, rat
   term_table_t *tbl;
   arith_buffer_t *b;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
   b = term_manager_get_arith_buffer(manager);
   arith_buffer_reset(b);
 
@@ -1510,7 +1512,7 @@ static term_t mk_mul_term_const(term_manager_t *manager, term_t t, rational_t *c
   term_table_t *tbl;
   arith_buffer_t *b;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
   b = term_manager_get_arith_buffer(manager);
   arith_buffer_reset(b);
   arith_buffer_add_mono(b, c, pprod_for_term(tbl, t));
@@ -1533,7 +1535,7 @@ static term_t mk_integer_polynomial_ite(term_manager_t *manager, term_t c, term_
   rational_t *r0;
   term_t ite;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   assert(is_integer_term(tbl, t) && is_integer_term(tbl, e));
 
@@ -1621,7 +1623,7 @@ static term_t simplify_ite_update(term_manager_t *manager, term_t c, term_t t, t
   term_t aux;
   type_t sigma;
 
-  terms = &manager->terms;
+  terms = manager->terms;
 
   assert(is_function_term(terms, t) && is_function_term(terms, e));
 
@@ -1736,15 +1738,15 @@ term_t mk_ite(term_manager_t *manager, term_t c, term_t t, term_t e, type_t tau)
 
   // boolean ite
   if (is_boolean_type(tau)) {
-    assert(is_boolean_term(&manager->terms, t) && 
-           is_boolean_term(&manager->terms, e));
+    assert(is_boolean_term(manager->terms, t) && 
+           is_boolean_term(manager->terms, e));
     return mk_bool_ite(manager, c, t, e);
   }
 
   // bit-vector ite
   if (is_bv_type(manager->types, tau)) {
-    assert(is_bitvector_term(&manager->terms, t) &&
-           is_bitvector_term(&manager->terms, e));
+    assert(is_bitvector_term(manager->terms, t) &&
+           is_bitvector_term(manager->terms, e));
     return mk_bv_ite(manager, c, t, e);
   }
 
@@ -1752,8 +1754,8 @@ term_t mk_ite(term_manager_t *manager, term_t c, term_t t, term_t e, type_t tau)
   if (c == true_term) return t;
   if (c == false_term) return e;
 
-  t = simplify_in_context(&manager->terms, c, t);
-  e = simplify_in_context(&manager->terms, opposite_term(c), e);
+  t = simplify_in_context(manager->terms, c, t);
+  e = simplify_in_context(manager->terms, opposite_term(c), e);
   if (t == e) return t;
 
   if (is_neg_term(c)) {
@@ -1764,8 +1766,8 @@ term_t mk_ite(term_manager_t *manager, term_t c, term_t t, term_t e, type_t tau)
 
   // check whether both sides are integer polynomials
   if (is_integer_type(tau) 
-      && term_kind(&manager->terms, t) == ARITH_POLY 
-      && term_kind(&manager->terms, e) == ARITH_POLY) {
+      && term_kind(manager->terms, t) == ARITH_POLY 
+      && term_kind(manager->terms, e) == ARITH_POLY) {
     return mk_integer_polynomial_ite(manager, c, t, e);
   }
 
@@ -1775,7 +1777,7 @@ term_t mk_ite(term_manager_t *manager, term_t c, term_t t, term_t e, type_t tau)
     if (aux != NULL_TERM) return aux;
   }
 
-  return ite_term(&manager->terms, tau, c, t, e);
+  return ite_term(manager->terms, tau, c, t, e);
 }
 
 
@@ -1790,7 +1792,7 @@ term_t mk_ite(term_manager_t *manager, term_t c, term_t t, term_t e, type_t tau)
  * - r must be normalized
  */
 term_t mk_arith_constant(term_manager_t *manager, rational_t *r) {
-  return arith_constant(&manager->terms, r);
+  return arith_constant(manager->terms, r);
 }
 
 
@@ -1809,7 +1811,7 @@ term_t mk_arith_constant(term_manager_t *manager, rational_t *r) {
  */
 term_t mk_arith_term(term_manager_t *manager, arith_buffer_t *b) {
   arith_buffer_normalize(b);
-  return arith_buffer_to_term(&manager->terms, b);
+  return arith_buffer_to_term(manager->terms, b);
 }
 
 
@@ -1911,10 +1913,10 @@ term_t mk_arith_eq0(term_manager_t *manager, arith_buffer_t *b) {
   term_t t1, t2, t;
   uint32_t n;
 
-  assert(b->ptbl == &manager->pprods);
+  assert(b->ptbl == manager->pprods);
   arith_buffer_normalize(b);
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   n = b->nterms;
   if (n == 0) {
@@ -2115,7 +2117,7 @@ term_t mk_direct_arith_geq0(term_table_t *tbl, arith_buffer_t *b) {
  * Same thing: using a manager
  */
 term_t mk_arith_geq0(term_manager_t *manager, arith_buffer_t *b) {
-  return mk_direct_arith_geq0(&manager->terms, b);
+  return mk_direct_arith_geq0(manager->terms, b);
 }
 
 
@@ -2193,8 +2195,8 @@ static bool check_for_lift_if(term_table_t *tbl, term_t t1, term_t t2, lift_resu
  */
 static void mk_arith_diff(term_manager_t *manager, arith_buffer_t *b, term_t t1, term_t t2) {
   arith_buffer_reset(b);
-  arith_buffer_add_term(b, &manager->terms, t1);
-  arith_buffer_sub_term(b, &manager->terms, t2);
+  arith_buffer_add_term(b, manager->terms, t1);
+  arith_buffer_sub_term(b, manager->terms, t2);
 }
 
 
@@ -2256,10 +2258,10 @@ term_t mk_arith_eq(term_manager_t *manager, term_t t1, term_t t2) {
   arith_buffer_t *b;
   lift_result_t tmp;
 
-  assert(is_arithmetic_term(&manager->terms, t1) && 
-         is_arithmetic_term(&manager->terms, t2));
+  assert(is_arithmetic_term(manager->terms, t1) && 
+         is_arithmetic_term(manager->terms, t2));
 
-  if (check_for_lift_if(&manager->terms, t1, t2, &tmp)) {
+  if (check_for_lift_if(manager->terms, t1, t2, &tmp)) {
     return mk_lifted_aritheq(manager, tmp.cond, tmp.left1, tmp.left2, tmp.right1, tmp.right2);
   } 
 
@@ -2278,10 +2280,10 @@ term_t mk_arith_geq(term_manager_t *manager, term_t t1, term_t t2) {
   arith_buffer_t *b;
   lift_result_t tmp;
 
-  assert(is_arithmetic_term(&manager->terms, t1) && 
-         is_arithmetic_term(&manager->terms, t2));
+  assert(is_arithmetic_term(manager->terms, t1) && 
+         is_arithmetic_term(manager->terms, t2));
 
-  if (check_for_lift_if(&manager->terms, t1, t2, &tmp)) {
+  if (check_for_lift_if(manager->terms, t1, t2, &tmp)) {
     return mk_lifted_arithgeq(manager, tmp.cond, tmp.left1, tmp.left2, tmp.right1, tmp.right2);
   } 
 
@@ -2347,7 +2349,7 @@ term_t mk_arith_term_eq0(term_manager_t *manager, term_t t) {
 
   b = term_manager_get_arith_buffer(manager);
   arith_buffer_reset(b);
-  arith_buffer_add_term(b, &manager->terms, t);
+  arith_buffer_add_term(b, manager->terms, t);
 
   return mk_arith_eq0(manager, b);
 }
@@ -2358,7 +2360,7 @@ term_t mk_arith_term_neq0(term_manager_t *manager, term_t t) {
 
   b = term_manager_get_arith_buffer(manager);
   arith_buffer_reset(b);
-  arith_buffer_add_term(b, &manager->terms, t);
+  arith_buffer_add_term(b, manager->terms, t);
 
   return mk_arith_neq0(manager, b);
 }
@@ -2369,7 +2371,7 @@ term_t mk_arith_term_geq0(term_manager_t *manager, term_t t) {
 
   b = term_manager_get_arith_buffer(manager);
   arith_buffer_reset(b);
-  arith_buffer_add_term(b, &manager->terms, t);
+  arith_buffer_add_term(b, manager->terms, t);
 
   return mk_arith_geq0(manager, b);
 }
@@ -2380,7 +2382,7 @@ term_t mk_arith_term_leq0(term_manager_t *manager, term_t t) {
 
   b = term_manager_get_arith_buffer(manager);
   arith_buffer_reset(b);
-  arith_buffer_add_term(b, &manager->terms, t);
+  arith_buffer_add_term(b, manager->terms, t);
 
   return mk_arith_leq0(manager, b);
 }
@@ -2391,7 +2393,7 @@ term_t mk_arith_term_gt0(term_manager_t *manager, term_t t) {
 
   b = term_manager_get_arith_buffer(manager);
   arith_buffer_reset(b);
-  arith_buffer_add_term(b, &manager->terms, t);
+  arith_buffer_add_term(b, manager->terms, t);
 
   return mk_arith_gt0(manager, b);
 }
@@ -2402,7 +2404,7 @@ term_t mk_arith_term_lt0(term_manager_t *manager, term_t t) {
 
   b = term_manager_get_arith_buffer(manager);
   arith_buffer_reset(b);
-  arith_buffer_add_term(b, &manager->terms, t);
+  arith_buffer_add_term(b, manager->terms, t);
 
   return mk_arith_lt0(manager, b);
 }
@@ -2455,7 +2457,7 @@ term_t mk_eq(term_manager_t *manager, term_t t1, term_t t2) {
   term_table_t *tbl;
   term_t aux;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   if (is_boolean_term(tbl, t1)) {
     assert(is_boolean_term(tbl, t2));
@@ -2497,7 +2499,7 @@ term_t mk_neq(term_manager_t *manager, term_t t1, term_t t2) {
   term_table_t *tbl;
   term_t aux;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   if (is_boolean_term(tbl, t1)) {
     assert(is_boolean_term(tbl, t2));
@@ -2550,9 +2552,9 @@ term_t mk_constant(term_manager_t *manager, type_t tau, int32_t i) {
   term_t t;
 
   assert(i >= 0);
-  t = constant_term(&manager->terms, tau, i);
+  t = constant_term(manager->terms, tau, i);
   if (is_unit_type(manager->types, tau)) {
-    store_unit_type_rep(&manager->terms, tau, t);
+    store_unit_type_rep(manager->terms, tau, t);
   }
 
   return t;
@@ -2565,10 +2567,10 @@ term_t mk_constant(term_manager_t *manager, type_t tau, int32_t i) {
  */
 term_t mk_uterm(term_manager_t *manager, type_t tau) {
   if (is_unit_type(manager->types, tau)) {
-    return get_unit_type_rep(&manager->terms, tau);
+    return get_unit_type_rep(manager->terms, tau);
   }
 
-  return new_uninterpreted_term(&manager->terms, tau);
+  return new_uninterpreted_term(manager->terms, tau);
 }
 
 
@@ -2577,7 +2579,7 @@ term_t mk_uterm(term_manager_t *manager, type_t tau) {
  * - this creates a fresh variable (for quantifiers)
  */
 term_t mk_variable(term_manager_t *manager, type_t tau) {
-  return new_variable(&manager->terms, tau);
+  return new_variable(manager->terms, tau);
 }
 
 
@@ -2600,7 +2602,7 @@ term_t mk_application(term_manager_t *manager, term_t fun, uint32_t n, term_t ar
   composite_term_t *update;
   type_t tau;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
   types = manager->types;
 
   // singleton function type
@@ -2689,7 +2691,7 @@ term_t mk_tuple(term_manager_t *manager, uint32_t n, term_t arg[]) {
   term_t x;
   type_t tau;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
   x = simplify_mk_tuple(tbl, n, arg);
   if (x == NULL_TERM) {
     // not simplifeid
@@ -2721,11 +2723,11 @@ term_t mk_select(term_manager_t *manager, uint32_t index, term_t tuple) {
   term_t x;
 
   // simplify
-  if (term_kind(&manager->terms, tuple) == TUPLE_TERM) {
-    x = composite_term_arg(&manager->terms, tuple, index);
+  if (term_kind(manager->terms, tuple) == TUPLE_TERM) {
+    x = composite_term_arg(manager->terms, tuple, index);
   } else {
     // check for singleton type
-    tbl = &manager->terms;
+    tbl = manager->terms;
     types = manager->types;
     tau = term_type(tbl, tuple);
     tau = tuple_type_component(types, tau, index);
@@ -2755,7 +2757,7 @@ term_t mk_update(term_manager_t *manager, term_t fun, uint32_t n, term_t arg[], 
   composite_term_t *update, *app;
   type_t tau;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   // singleton function type
   tau = term_type(tbl, fun);
@@ -2821,7 +2823,7 @@ term_t mk_distinct(term_manager_t *manager, uint32_t n, term_t arg[]) {
   }
   
   // check for finite types
-  tau = term_type(&manager->terms, arg[0]);
+  tau = term_type(manager->terms, arg[0]);
   if (type_card(manager->types, tau) < n && type_card_is_exact(manager->types, tau)) {
     // card exact implies that tau is finite (and small)
     return false_term;
@@ -2837,11 +2839,11 @@ term_t mk_distinct(term_manager_t *manager, uint32_t n, term_t arg[]) {
   }
 
   // WARNING: THIS CAN BE EXPENSIVE
-  if (pairwise_disequal_terms(&manager->terms, n, arg)) {
+  if (pairwise_disequal_terms(manager->terms, n, arg)) {
     return true_term;
   }
 
-  return distinct_term(&manager->terms, n, arg);
+  return distinct_term(manager->terms, n, arg);
 }
 
 
@@ -2865,7 +2867,7 @@ static term_t mk_tuple_aux(term_manager_t *manager, term_t tuple, uint32_t n, ui
   term_t t;
   uint32_t j;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   if (is_pos_term(v) && term_kind(tbl, v) == SELECT_TERM && 
       select_term_arg(tbl, v) == tuple && select_term_index(tbl, v) == i) {
@@ -2912,9 +2914,9 @@ term_t mk_tuple_update(term_manager_t *manager, term_t tuple, uint32_t index, te
   type_t tau;
 
   // singleton type
-  tau = term_type(&manager->terms, tuple);
+  tau = term_type(manager->terms, tuple);
   if (is_unit_type(manager->types, tau)) {
-    assert(unit_type_rep(&manager->terms, tau) == tuple);
+    assert(unit_type_rep(manager->terms, tau) == tuple);
     return tuple;
   }
 
@@ -2941,7 +2943,7 @@ term_t mk_forall(term_manager_t *manager, uint32_t n, term_t var[], term_t body)
   if (body == true_term) return body;
   if (body == false_term) return body;
 
-  return forall_term(&manager->terms, n, var, body);
+  return forall_term(manager->terms, n, var, body);
 }
 
 term_t mk_exists(term_manager_t *manager, uint32_t n, term_t var[], term_t body) {
@@ -2949,7 +2951,7 @@ term_t mk_exists(term_manager_t *manager, uint32_t n, term_t var[], term_t body)
   if (body == false_term) return body;
 
   // (not (forall ... (not body))
-  return opposite_term(forall_term(&manager->terms, n, var, opposite_term(body)));
+  return opposite_term(forall_term(manager->terms, n, var, opposite_term(body)));
 }
 
 
@@ -3004,7 +3006,7 @@ term_t mk_lambda(term_manager_t *manager, uint32_t n, term_t var[], term_t body)
   
   assert(0 < n && n <= YICES_MAX_ARITY);
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
   if (term_kind(tbl, body) == APP_TERM) {
     d = app_term_desc(tbl, body);
     if (d->arity == n+1 && equal_arrays(var, d->arg + 1, n)) {
@@ -3015,7 +3017,7 @@ term_t mk_lambda(term_manager_t *manager, uint32_t n, term_t var[], term_t body)
     }
   }
 
-  return lambda_term(&manager->terms, n, var, body);
+  return lambda_term(manager->terms, n, var, body);
 }
 
 
@@ -3048,9 +3050,9 @@ term_t mk_bv_constant(term_manager_t *manager, bvconstant_t *b) {
     } else {
       x = bvconst_get64(b->data);
     }
-    t = bv64_constant(&manager->terms, n, x);
+    t = bv64_constant(manager->terms, n, x);
   } else {
-    t = bvconst_term(&manager->terms, n, b->data);
+    t = bvconst_term(manager->terms, n, b->data);
   }
 
   return t;
@@ -3073,7 +3075,7 @@ static term_t bvlogic_buffer_get_bvconst(term_manager_t *manager, bvlogic_buffer
 
   bv = &manager->bv0;
   bvlogic_buffer_get_constant(b, bv);
-  return bvconst_term(&manager->terms, bv->bitsize, bv->data);
+  return bvconst_term(manager->terms, bv->bitsize, bv->data);
 }
 
 
@@ -3088,7 +3090,7 @@ static term_t bvlogic_buffer_get_bvarray(term_manager_t *manager, bvlogic_buffer
   nodes = manager->nodes;
   assert(b->nodes == nodes && nodes != NULL);
 
-  terms = &manager->terms;
+  terms = manager->terms;
 
   // translate each bit of b into a boolean term
   // we store the translation in b->bit
@@ -3120,7 +3122,7 @@ term_t mk_bvlogic_term(term_manager_t *manager, bvlogic_buffer_t *b) {
   if (bvlogic_buffer_is_constant(b)) {
     if (n <= 64) {
       // small constant
-      t = bv64_constant(&manager->terms, n, bvlogic_buffer_get_constant64(b));
+      t = bv64_constant(manager->terms, n, bvlogic_buffer_get_constant64(b));
     } else {
       // wide constant
       t = bvlogic_buffer_get_bvconst(manager, b);
@@ -3128,14 +3130,14 @@ term_t mk_bvlogic_term(term_manager_t *manager, bvlogic_buffer_t *b) {
 
   } else {
     t = bvlogic_buffer_get_var(b);
-    if (t < 0 || term_bitsize(&manager->terms, t) != n) {
+    if (t < 0 || term_bitsize(manager->terms, t) != n) {
       // not a variable
       t = bvlogic_buffer_get_bvarray(manager, b);
     }
   }
 
-  assert(is_bitvector_term(&manager->terms, t) && 
-         term_bitsize(&manager->terms, t) == n);
+  assert(is_bitvector_term(manager->terms, t) && 
+         term_bitsize(manager->terms, t) == n);
 
   bvlogic_buffer_clear(b);
   
@@ -3319,7 +3321,7 @@ static term_t convert_bvarith_to_bvarray(term_manager_t *manager, bvarith_buffer
   }
 
   while (m->next != NULL) {
-    bv = pprod_get_bvarray(&manager->terms, m->prod);
+    bv = pprod_get_bvarray(manager->terms, m->prod);
     if (bv == NULL) return NULL_TERM;
 
     assert(bv->arity == n);
@@ -3332,7 +3334,7 @@ static term_t convert_bvarith_to_bvarray(term_manager_t *manager, bvarith_buffer
   }
 
   // Success: construct a bit array from v
-  return bvarray_term(&manager->terms, n, v->data);
+  return bvarray_term(manager->terms, n, v->data);
 }
 
 
@@ -3363,7 +3365,7 @@ static term_t convert_bvarith64_to_bvarray(term_manager_t *manager, bvarith64_bu
   }
 
   while (m->next != NULL) {
-    bv = pprod_get_bvarray(&manager->terms, m->prod);
+    bv = pprod_get_bvarray(manager->terms, m->prod);
     if (bv == NULL) return NULL_TERM;
 
     assert(bv->arity == n);
@@ -3376,7 +3378,7 @@ static term_t convert_bvarith64_to_bvarray(term_manager_t *manager, bvarith64_bu
   }
 
   // Success: construct a bit array from v
-  return bvarray_term(&manager->terms, n, v->data);
+  return bvarray_term(manager->terms, n, v->data);
 }
 
 
@@ -3394,16 +3396,16 @@ static term_t make_zero_bv(term_manager_t *manager, uint32_t n) {
 
   if (n > 64) {
     bvconstant_set_all_zero(bv, n);
-    return bvconst_term(&manager->terms, bv->bitsize, bv->data);
+    return bvconst_term(manager->terms, bv->bitsize, bv->data);
   } else {
-    return bv64_constant(&manager->terms, n, 0);
+    return bv64_constant(manager->terms, n, 0);
   }
 }
 
 
 /*
  * Convert a polynomial buffer to a bitvector terms:
- * - b must use the same pprod as manager (i.e., b->ptbl = &manager->pprods)
+ * - b must use the same pprod as manager (i.e., b->ptbl = manager->pprods)
  * - b may be equal to manager->bvarith_buffer
  * - side effect: b is reset
  *
@@ -3440,12 +3442,12 @@ term_t mk_bvarith_term(term_manager_t *manager, bvarith_buffer_t *b) {
     r = m->prod;
     if (r == empty_pp) {
       // constant 
-      t = bvconst_term(&manager->terms, n, m->coeff);
+      t = bvconst_term(manager->terms, n, m->coeff);
       goto done;
     }
     if (bvconst_is_one(m->coeff, k)) {
       // power product
-      t = pp_is_var(r) ? var_of_pp(r) : pprod_term(&manager->terms, r);
+      t = pp_is_var(r) ? var_of_pp(r) : pprod_term(manager->terms, r);
       goto done;
     } 
   }
@@ -3454,13 +3456,13 @@ term_t mk_bvarith_term(term_manager_t *manager, bvarith_buffer_t *b) {
   t = convert_bvarith_to_bvarray(manager, b);
   if (t == NULL_TERM) {
     // conversion failed: build a bvpoly
-    t = bv_poly(&manager->terms, b);
+    t = bv_poly(manager->terms, b);
   }
 
  done:
   bvarith_buffer_prepare(b, 32); // reset b, any positive n would do
-  assert(is_bitvector_term(&manager->terms, t) && 
-         term_bitsize(&manager->terms, t) == n);
+  assert(is_bitvector_term(manager->terms, t) && 
+         term_bitsize(manager->terms, t) == n);
 
   return t;  
 }
@@ -3493,12 +3495,12 @@ term_t mk_bvarith64_term(term_manager_t *manager, bvarith64_buffer_t *b) {
     r = m->prod;
     if (r == empty_pp) {
       // constant 
-      t = bv64_constant(&manager->terms, n, m->coeff);
+      t = bv64_constant(manager->terms, n, m->coeff);
       goto done;
     }
     if (m->coeff == 1) {
       // power product
-      t = pp_is_var(r) ? var_of_pp(r) : pprod_term(&manager->terms, r);
+      t = pp_is_var(r) ? var_of_pp(r) : pprod_term(manager->terms, r);
       goto done;
     }
   }
@@ -3507,13 +3509,13 @@ term_t mk_bvarith64_term(term_manager_t *manager, bvarith64_buffer_t *b) {
   t = convert_bvarith64_to_bvarray(manager, b);
   if (t == NULL_TERM) {
     // conversion failed: build a bvpoly
-    t = bv64_poly(&manager->terms, b);
+    t = bv64_poly(manager->terms, b);
   }
 
  done:
   bvarith64_buffer_prepare(b, 32); // reset b, any positive n would do
-  assert(is_bitvector_term(&manager->terms, t) && 
-         term_bitsize(&manager->terms, t) == n);
+  assert(is_bitvector_term(manager->terms, t) && 
+         term_bitsize(manager->terms, t) == n);
 
   return t;  
 }
@@ -3535,7 +3537,7 @@ term_t mk_bvarray(term_manager_t *manager, uint32_t n, term_t *a) {
   assert(0 < n && n <= YICES_MAX_BVSIZE);
 
   b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term_array(b, &manager->terms, n, a);
+  bvlogic_buffer_set_term_array(b, manager->terms, n, a);
   return mk_bvlogic_term(manager, b);
 }
 
@@ -3565,7 +3567,7 @@ static term_t mk_bvshl_const64(term_manager_t *manager, term_t t1, bvconst64_ter
   bvlogic_buffer_t *b;
 
   b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, &manager->terms, t1);
+  bvlogic_buffer_set_term(b, manager->terms, t1);
   bvlogic_buffer_shl_constant64(b, c->bitsize, c->value);
 
   return mk_bvlogic_term(manager, b);
@@ -3576,7 +3578,7 @@ static term_t mk_bvshl_const(term_manager_t *manager, term_t t1, bvconst_term_t 
   bvlogic_buffer_t *b;
 
   b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, &manager->terms, t1);
+  bvlogic_buffer_set_term(b, manager->terms, t1);
   bvlogic_buffer_shl_constant(b, c->bitsize, c->data);
 
   return mk_bvlogic_term(manager, b);
@@ -3608,7 +3610,7 @@ static bool term_is_bvzero(term_table_t *tbl, term_t t1) {
 term_t mk_bvshl(term_manager_t *manager, term_t t1, term_t t2) {  
   term_table_t *tbl;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   assert(is_bitvector_term(tbl, t1) && is_bitvector_term(tbl, t2) 
          && term_type(tbl, t1) == term_type(tbl, t2));
@@ -3640,7 +3642,7 @@ static term_t mk_bvlshr_const64(term_manager_t *manager, term_t t1, bvconst64_te
   bvlogic_buffer_t *b;
 
   b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, &manager->terms, t1);
+  bvlogic_buffer_set_term(b, manager->terms, t1);
   bvlogic_buffer_lshr_constant64(b, c->bitsize, c->value);
 
   return mk_bvlogic_term(manager, b);
@@ -3651,7 +3653,7 @@ static term_t mk_bvlshr_const(term_manager_t *manager, term_t t1, bvconst_term_t
   bvlogic_buffer_t *b;
 
   b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, &manager->terms, t1);
+  bvlogic_buffer_set_term(b, manager->terms, t1);
   bvlogic_buffer_lshr_constant(b, c->bitsize, c->data);
 
   return mk_bvlogic_term(manager, b);
@@ -3661,7 +3663,7 @@ static term_t mk_bvlshr_const(term_manager_t *manager, term_t t1, bvconst_term_t
 term_t mk_bvlshr(term_manager_t *manager, term_t t1, term_t t2) {
   term_table_t *tbl;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   assert(is_bitvector_term(tbl, t1) && is_bitvector_term(tbl, t2) 
          && term_type(tbl, t1) == term_type(tbl, t2));
@@ -3693,7 +3695,7 @@ static term_t mk_bvashr_const64(term_manager_t *manager, term_t t1, bvconst64_te
   bvlogic_buffer_t *b;
 
   b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, &manager->terms, t1);
+  bvlogic_buffer_set_term(b, manager->terms, t1);
   bvlogic_buffer_ashr_constant64(b, c->bitsize, c->value);
 
   return mk_bvlogic_term(manager, b);
@@ -3704,7 +3706,7 @@ static term_t mk_bvashr_const(term_manager_t *manager, term_t t1, bvconst_term_t
   bvlogic_buffer_t *b;
 
   b = term_manager_get_bvlogic_buffer(manager);
-  bvlogic_buffer_set_term(b, &manager->terms, t1);
+  bvlogic_buffer_set_term(b, manager->terms, t1);
   bvlogic_buffer_ashr_constant(b, c->bitsize, c->data);
 
   return mk_bvlogic_term(manager, b);
@@ -3738,7 +3740,7 @@ static bool term_is_bvashr_invariant(term_table_t *tbl, term_t t1) {
 term_t mk_bvashr(term_manager_t *manager, term_t t1, term_t t2) {
   term_table_t *tbl;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   assert(is_bitvector_term(tbl, t1) && is_bitvector_term(tbl, t2) 
          && term_type(tbl, t1) == term_type(tbl, t2));
@@ -3793,7 +3795,7 @@ static term_t bvdiv_const64(term_manager_t *manager, bvconst64_term_t *a, bvcons
   x = bvconst64_udiv2z(a->value, b->value, n);
   assert(x == norm64(x, n));
 
-  return bv64_constant(&manager->terms, n, x);
+  return bv64_constant(manager->terms, n, x);
 }
 
 
@@ -3810,14 +3812,14 @@ static term_t bvdiv_const(term_manager_t *manager, bvconst_term_t *a, bvconst_te
   bvconst_udiv2z(bv->data, n, a->data, b->data);
   bvconst_normalize(bv->data, n);
 
-  return bvconst_term(&manager->terms, n, bv->data);
+  return bvconst_term(manager->terms, n, bv->data);
 }
 
 
 term_t mk_bvdiv(term_manager_t *manager, term_t t1, term_t t2) {
   term_table_t *tbl;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   assert(is_bitvector_term(tbl, t1) && is_bitvector_term(tbl, t2) 
          && term_type(tbl, t1) == term_type(tbl, t2));
@@ -3855,7 +3857,7 @@ static term_t bvrem_const64(term_manager_t *manager, bvconst64_term_t *a, bvcons
   x = bvconst64_urem2z(a->value, b->value, n);
   assert(x == norm64(x, n));
 
-  return bv64_constant(&manager->terms, n, x);
+  return bv64_constant(manager->terms, n, x);
 }
 
 static term_t bvrem_const(term_manager_t *manager, bvconst_term_t *a, bvconst_term_t *b) {
@@ -3871,13 +3873,13 @@ static term_t bvrem_const(term_manager_t *manager, bvconst_term_t *a, bvconst_te
   bvconst_urem2z(bv->data, n, a->data, b->data);
   bvconst_normalize(bv->data, n);
 
-  return bvconst_term(&manager->terms, n, bv->data);
+  return bvconst_term(manager->terms, n, bv->data);
 }
 
 term_t mk_bvrem(term_manager_t *manager, term_t t1, term_t t2) {
   term_table_t *tbl;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   assert(is_bitvector_term(tbl, t1) && is_bitvector_term(tbl, t2) 
          && term_type(tbl, t1) == term_type(tbl, t2));
@@ -3915,7 +3917,7 @@ static term_t bvsdiv_const64(term_manager_t *manager, bvconst64_term_t *a, bvcon
   x = bvconst64_sdiv2z(a->value, b->value, n);
   assert(x == norm64(x, n));
 
-  return bv64_constant(&manager->terms, n, x);
+  return bv64_constant(manager->terms, n, x);
 }
 
 static term_t bvsdiv_const(term_manager_t *manager, bvconst_term_t *a, bvconst_term_t *b) {
@@ -3931,13 +3933,13 @@ static term_t bvsdiv_const(term_manager_t *manager, bvconst_term_t *a, bvconst_t
   bvconst_sdiv2z(bv->data, n, a->data, b->data);
   bvconst_normalize(bv->data, n);
 
-  return bvconst_term(&manager->terms, n, bv->data);
+  return bvconst_term(manager->terms, n, bv->data);
 }
 
 term_t mk_bvsdiv(term_manager_t *manager, term_t t1, term_t t2) {
   term_table_t *tbl;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   assert(is_bitvector_term(tbl, t1) && is_bitvector_term(tbl, t2) 
          && term_type(tbl, t1) == term_type(tbl, t2));
@@ -3975,7 +3977,7 @@ static term_t bvsrem_const64(term_manager_t *manager, bvconst64_term_t *a, bvcon
   x = bvconst64_srem2z(a->value, b->value, n);
   assert(x == norm64(x, n));
 
-  return bv64_constant(&manager->terms, n, x);
+  return bv64_constant(manager->terms, n, x);
 }
 
 static term_t bvsrem_const(term_manager_t *manager, bvconst_term_t *a, bvconst_term_t *b) {
@@ -3991,13 +3993,13 @@ static term_t bvsrem_const(term_manager_t *manager, bvconst_term_t *a, bvconst_t
   bvconst_srem2z(bv->data, n, a->data, b->data);
   bvconst_normalize(bv->data, n);
 
-  return bvconst_term(&manager->terms, n, bv->data);
+  return bvconst_term(manager->terms, n, bv->data);
 }
 
 term_t mk_bvsrem(term_manager_t *manager, term_t t1, term_t t2) {
   term_table_t *tbl;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   assert(is_bitvector_term(tbl, t1) && is_bitvector_term(tbl, t2) 
          && term_type(tbl, t1) == term_type(tbl, t2));
@@ -4035,7 +4037,7 @@ static term_t bvsmod_const64(term_manager_t *manager, bvconst64_term_t *a, bvcon
   x = bvconst64_smod2z(a->value, b->value, n);
   assert(x == norm64(x, n));
 
-  return bv64_constant(&manager->terms, n, x);
+  return bv64_constant(manager->terms, n, x);
 }
 
 static term_t bvsmod_const(term_manager_t *manager, bvconst_term_t *a, bvconst_term_t *b) {
@@ -4051,14 +4053,14 @@ static term_t bvsmod_const(term_manager_t *manager, bvconst_term_t *a, bvconst_t
   bvconst_smod2z(bv->data, n, a->data, b->data);
   bvconst_normalize(bv->data, n);
 
-  return bvconst_term(&manager->terms, n, bv->data);
+  return bvconst_term(manager->terms, n, bv->data);
 }
 
 
 term_t mk_bvsmod(term_manager_t *manager, term_t t1, term_t t2) {
   term_table_t *tbl;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   assert(is_bitvector_term(tbl, t1) && is_bitvector_term(tbl, t2) 
          && term_type(tbl, t1) == term_type(tbl, t2));
@@ -4104,7 +4106,7 @@ term_t mk_bitextract(term_manager_t *manager, term_t t, uint32_t i) {
   composite_term_t *bv;
   term_t u;
 
-  tbl = &manager->terms;
+  tbl = manager->terms;
 
   assert(is_bitvector_term(tbl, t) && 0 <= i && i < term_bitsize(tbl, t));
 
@@ -4163,8 +4165,8 @@ static bool must_lt(term_manager_t *manager, term_t t1, term_t t2) {
 
   bv1 = &manager->bv1;
   bv2 = &manager->bv2;
-  upper_bound_unsigned(&manager->terms, t1, bv1); // t1 <= bv1
-  lower_bound_unsigned(&manager->terms, t2, bv2); // bv2 <= t2
+  upper_bound_unsigned(manager->terms, t1, bv1); // t1 <= bv1
+  lower_bound_unsigned(manager->terms, t2, bv2); // bv2 <= t2
   assert(bv1->bitsize == bv2->bitsize);
 
   return bvconst_lt(bv1->data, bv2->data, bv1->bitsize);
@@ -4176,8 +4178,8 @@ static bool must_le(term_manager_t *manager, term_t t1, term_t t2) {
 
   bv1 = &manager->bv1;
   bv2 = &manager->bv2;
-  upper_bound_unsigned(&manager->terms, t1, bv1);
-  lower_bound_unsigned(&manager->terms, t2, bv2);
+  upper_bound_unsigned(manager->terms, t1, bv1);
+  lower_bound_unsigned(manager->terms, t2, bv2);
   assert(bv1->bitsize == bv2->bitsize);
 
   return bvconst_le(bv1->data, bv2->data, bv1->bitsize);
@@ -4185,7 +4187,7 @@ static bool must_le(term_manager_t *manager, term_t t1, term_t t2) {
 
  // t1 >= t2: unsigned
 term_t mk_bvge(term_manager_t *manager, term_t t1, term_t t2) {
-  assert(valid_bvcomp(&manager->terms, t1, t2));
+  assert(valid_bvcomp(manager->terms, t1, t2));
 
   if (t1 == t2 || must_le(manager, t2, t1)) {
     return true_term;
@@ -4195,17 +4197,17 @@ term_t mk_bvge(term_manager_t *manager, term_t t1, term_t t2) {
     return false_term;
   }
 
-  if (bvterm_is_min_unsigned(&manager->terms, t1)) {
+  if (bvterm_is_min_unsigned(manager->terms, t1)) {
     // 0b0000..00 >= t2  iff t2 == 0b0000..00
     return mk_bitvector_eq(manager, t1, t2);
   }
 
-  if (bvterm_is_max_unsigned(&manager->terms, t2)) {
+  if (bvterm_is_max_unsigned(manager->terms, t2)) {
     // t1 >= 0b1111..11  iff t1 == 0b1111..11
     return mk_bitvector_eq(manager, t1, t2);
   }
 
-  return bvge_atom(&manager->terms, t1, t2);
+  return bvge_atom(manager->terms, t1, t2);
 }
 
 // t1 > t2: unsigned
@@ -4236,8 +4238,8 @@ static bool must_slt(term_manager_t *manager, term_t t1, term_t t2) {
 
   bv1 = &manager->bv1;
   bv2 = &manager->bv2;
-  upper_bound_signed(&manager->terms, t1, bv1);
-  lower_bound_signed(&manager->terms, t2, bv2);
+  upper_bound_signed(manager->terms, t1, bv1);
+  lower_bound_signed(manager->terms, t2, bv2);
   assert(bv1->bitsize == bv2->bitsize);
 
   return bvconst_slt(bv1->data, bv2->data, bv1->bitsize);
@@ -4249,8 +4251,8 @@ static bool must_sle(term_manager_t *manager, term_t t1, term_t t2) {
 
   bv1 = &manager->bv1;
   bv2 = &manager->bv2;
-  upper_bound_signed(&manager->terms, t1, bv1);
-  lower_bound_signed(&manager->terms, t2, bv2);
+  upper_bound_signed(manager->terms, t1, bv1);
+  lower_bound_signed(manager->terms, t2, bv2);
   assert(bv1->bitsize == bv2->bitsize);
 
   return bvconst_sle(bv1->data, bv2->data, bv1->bitsize);
@@ -4258,7 +4260,7 @@ static bool must_sle(term_manager_t *manager, term_t t1, term_t t2) {
 
 // t1 >= t2: signed
 term_t mk_bvsge(term_manager_t *manager, term_t t1, term_t t2) {
-  assert(valid_bvcomp(&manager->terms, t1, t2));
+  assert(valid_bvcomp(manager->terms, t1, t2));
 
   if (t1 == t2 || must_sle(manager, t2, t1)) {
     return true_term;
@@ -4268,17 +4270,17 @@ term_t mk_bvsge(term_manager_t *manager, term_t t1, term_t t2) {
     return false_term;
   }
 
-  if (bvterm_is_min_signed(&manager->terms, t1)) {
+  if (bvterm_is_min_signed(manager->terms, t1)) {
     // 0b1000..00 >= t2  iff t2 == 0b1000..00
     return mk_bitvector_eq(manager, t1, t2);
   }
 
-  if (bvterm_is_max_signed(&manager->terms, t2)) {
+  if (bvterm_is_max_signed(manager->terms, t2)) {
     // t1 >= 0b0111..11  iff t1 == 0b0111..11
     return mk_bitvector_eq(manager, t1, t2);
   }
   
-  return bvsge_atom(&manager->terms, t1, t2);
+  return bvsge_atom(manager->terms, t1, t2);
 }
 
 // t1 > t2: signed

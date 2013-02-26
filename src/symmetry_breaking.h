@@ -6,16 +6,23 @@
 #define __SYMMETRY_BREAKING_H
 
 #include <stdint.h>
+#include <setjmp.h>
 
 #include "int_vectors.h"
 #include "int_queues.h"
 #include "int_hash_sets.h"
+#include "int_stack.h"
+#include "term_manager.h"
 
 #include "context.h"
 
 
+
 /*
- * Range constraints:
+ * RANGE CONSTRAINTS
+ */
+
+/*
  * - an assertion f is a range constraint if it's equivalent to
  *   a formula of the form (or (= t c_1) .... (= t c_n))
  * - where c_1 ... c_n are distinct uninterpreted constants
@@ -65,6 +72,49 @@ typedef struct rng_vector_s {
 #define MAX_RNG_VECTOR_SIZE (UINT32_MAX/sizeof(rng_record_t))
 
 
+
+/*
+ * SUBSTITUTION
+ */
+
+/*
+ * To check whether a set of assertions is invariant by permutations
+ * of a set of constants {c_0. ,,, c_n}, we check invariance for
+ * - the permutation that swaps c_0 and c_1
+ * - the cicular permuation c_0 := c_1, ...., c_n := c_0
+ *
+ * We need to apply such substitutions in the assertion context (i,e.,
+ * by taking into account the internalization table). We use the following
+ * data structure to store a substitution and its results.
+ * - array subst[t] = result of applying the substitution to term index t
+ *    or -1 if it's not computed yet.
+ * - nterms = initialization bound: for any t in 0 ... nterms, subst[t] is
+ *   defined or initialized (i.e, NULL_TERM)
+ * - size = full size of the array.
+ * Subst is a mapping from term indices to terms
+ *
+ * Auxiliary data structures:
+ * - mngr = term manager for term construction/simplification
+ * - stack for allocation of integer arrays (in recursive calls)
+ * - env = jmp buffer to exception handling
+ */
+typedef struct ctx_subst_s {
+  intern_tbl_t *intern;
+  term_table_t *terms;
+  term_t *subst;
+  uint32_t nterms;
+  uint32_t size;
+  term_manager_t mngr;
+  int_stack_t stack;
+  jmp_buf env;
+} ctx_subst_t;
+
+#define DEF_CTX_SUBST_SIZE 100
+#define MAX_CTX_SUBST_SIZE (UINT32_MAX/sizeof(term_t))
+
+
+
+
 /*
  * Symmetry breaker
  * - pointers to the relevant context + term table
@@ -81,6 +131,9 @@ typedef struct sym_breaker_s {
   int_hset_t cache;
   ivector_t aux;
 } sym_breaker_t;
+
+
+
 
 
 

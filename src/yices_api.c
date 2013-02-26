@@ -68,13 +68,17 @@
 #include "bvsolver.h"
 // END
 
+
 /*
  * Global tables: 
- * - type table + a single term_manager
+ * - type table + term_table + pprod_table + term_manager
  */
 // global tables
 static type_table_t types;
+static pprod_table_t pprods;
+static term_table_t terms;
 static term_manager_t manager;
+
 
 // error report
 static error_report_t error;
@@ -718,7 +722,7 @@ static void delete_parsing_objects(void) {
  */
 static void init_globals(yices_globals_t *glob) {
   glob->types = &types;
-  glob->terms = term_manager_get_terms(&manager);
+  glob->terms = &terms;
   glob->manager = &manager;
   glob->tstack = NULL;
   glob->error = &error;
@@ -752,7 +756,9 @@ EXPORTED void yices_init(void) {
 
   // tables
   init_type_table(&types, INIT_TYPE_SIZE);
-  init_term_manager(&manager, &types, INIT_TERM_SIZE);
+  init_pprod_table(&pprods, 0);
+  init_term_table(&terms, INIT_TERM_SIZE, &types, &pprods);
+  init_term_manager(&manager, &types, &terms);
 
   // buffer lists
   clear_list(&arith_buffer_list);
@@ -794,6 +800,8 @@ EXPORTED void yices_exit(void) {
   free_generic_list();
 
   delete_term_manager(&manager);
+  delete_term_table(&terms);
+  delete_pprod_table(&pprods);
   delete_type_table(&types);
 
   q_clear(&r0);
@@ -861,14 +869,6 @@ EXPORTED int32_t yices_print_error(FILE *f) {
 /*
  * Short cuts: extract manager components
  */
-static inline term_table_t *get_terms(void) {
-  return term_manager_get_terms(&manager);
-}
-
-static inline pprod_table_t *get_pprods(void) {
-  return term_manager_get_pprods(&manager);
-}
-
 static inline node_table_t *get_nodes(void) {
   return term_manager_get_nodes(&manager);
 }
@@ -913,7 +913,7 @@ arith_buffer_t *yices_new_arith_buffer(void) {
   arith_buffer_t *b;
   
   b = alloc_arith_buffer();
-  init_arith_buffer(b, get_pprods(), get_arith_store());
+  init_arith_buffer(b, &pprods, get_arith_store());
   return b;
 }
 
@@ -936,7 +936,7 @@ bvarith_buffer_t *yices_new_bvarith_buffer(uint32_t n) {
   bvarith_buffer_t *b;
 
   b = alloc_bvarith_buffer();
-  init_bvarith_buffer(b, get_pprods(), get_bvarith_store());
+  init_bvarith_buffer(b, &pprods, get_bvarith_store());
   bvarith_buffer_prepare(b, n);
 
   return b;
@@ -961,7 +961,7 @@ bvarith64_buffer_t *yices_new_bvarith64_buffer(uint32_t n) {
   bvarith64_buffer_t *b;
 
   b = alloc_bvarith64_buffer();
-  init_bvarith64_buffer(b, get_pprods(), get_bvarith64_store());
+  init_bvarith64_buffer(b, &pprods, get_bvarith64_store());
   bvarith64_buffer_prepare(b, n);
 
   return b;
@@ -1922,7 +1922,7 @@ EXPORTED term_t yices_ite(term_t cond, term_t then_term, term_t else_term) {
   }
 
   // Check whether then/else are compatible and get the supertype
-  tbl = get_terms();
+  tbl = &terms;
   tau = super_type(&types, term_type(tbl, then_term), term_type(tbl, else_term));
 
   if (tau == NULL_TYPE) {
@@ -2358,7 +2358,7 @@ EXPORTED term_t yices_add(term_t t1, term_t t2) {
   }
 
   b = get_arith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   arith_buffer_reset(b);
   arith_buffer_add_term(b, tbl, t1);
   arith_buffer_add_term(b, tbl, t2);
@@ -2379,7 +2379,7 @@ EXPORTED term_t yices_sub(term_t t1, term_t t2) {
   }
 
   b = get_arith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   arith_buffer_reset(b);
   arith_buffer_add_term(b, tbl, t1);
   arith_buffer_sub_term(b, tbl, t2);
@@ -2401,7 +2401,7 @@ EXPORTED term_t yices_neg(term_t t1) {
   }
 
   b = get_arith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   arith_buffer_reset(b);
   arith_buffer_sub_term(b, tbl, t1);
 
@@ -2422,7 +2422,7 @@ EXPORTED term_t yices_mul(term_t t1, term_t t2) {
   }
 
   b = get_arith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   arith_buffer_reset(b);
   arith_buffer_add_term(b, tbl, t1);
   arith_buffer_mul_term(b, tbl, t2);
@@ -2445,7 +2445,7 @@ EXPORTED term_t yices_square(term_t t1) {
   }
 
   b = get_arith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   arith_buffer_reset(b);
   arith_buffer_add_term(b, tbl, t1);
   arith_buffer_mul_term(b, tbl, t1);
@@ -2468,7 +2468,7 @@ EXPORTED term_t yices_power(term_t t1, uint32_t d) {
   }
 
   b = get_arith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   arith_buffer_set_one(b);
   arith_buffer_mul_term_power(b, tbl, t1, d);
 
@@ -2490,7 +2490,7 @@ EXPORTED term_t yices_sum(uint32_t n, term_t t[]) {
   }
 
   b = get_arith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   arith_buffer_reset(b);
   for (i=0; i<n; i++) {
     arith_buffer_add_term(b, tbl, t[i]);
@@ -2528,7 +2528,7 @@ EXPORTED term_t yices_product(uint32_t n, term_t t[]) {
   }
 
   b = get_arith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   arith_buffer_set_one(b);
   for (i=0; i<n; i++) {
     arith_buffer_mul_term(b, tbl, t[i]);
@@ -2555,7 +2555,7 @@ EXPORTED term_t yices_div(term_t t1, term_t t2) {
     return NULL_TERM;
   }
 
-  tbl = get_terms();
+  tbl = &terms;
   q = rational_term_desc(tbl, t2);
   if (q_is_zero(q)) {
     error.code = DIVISION_BY_ZERO;
@@ -2591,7 +2591,7 @@ EXPORTED term_t yices_poly_int32(uint32_t n, int32_t a[], term_t t[]) {
   }
 
   b = get_arith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   arith_buffer_reset(b);
   for (i=0; i<n; i++) {
     q_set32(&r0, a[i]);
@@ -2612,7 +2612,7 @@ EXPORTED term_t yices_poly_int64(uint32_t n, int64_t a[], term_t t[]) {
   }
 
   b = get_arith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   arith_buffer_reset(b);
   for (i=0; i<n; i++) {
     q_set64(&r0, a[i]);
@@ -2644,7 +2644,7 @@ EXPORTED term_t yices_poly_rational32(uint32_t n, int32_t num[], uint32_t den[],
   }
 
   b = get_arith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   arith_buffer_reset(b);
   for (i=0; i<n; i++) {
     q_set_int32(&r0, num[i], den[i]);
@@ -2666,7 +2666,7 @@ EXPORTED term_t yices_poly_rational64(uint32_t n, int64_t num[], uint64_t den[],
   }
 
   b = get_arith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   arith_buffer_reset(b);
   for (i=0; i<n; i++) {
     q_set_int64(&r0, num[i], den[i]);
@@ -2691,7 +2691,7 @@ EXPORTED term_t yices_poly_mpz(uint32_t n, mpz_t z[], term_t t[]) {
   }
 
   b = get_arith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   arith_buffer_reset(b);
   for (i=0; i<n; i++) {
     q_set_mpz(&r0, z[i]);
@@ -2715,7 +2715,7 @@ EXPORTED term_t yices_poly_mpq(uint32_t n, mpq_t q[], term_t t[]) {
   }
 
   b = get_arith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   arith_buffer_reset(b);
   for (i=0; i<n; i++) {
     q_set_mpq(&r0, q[i]);
@@ -3009,7 +3009,7 @@ static term_t mk_bvadd64(term_t t1, term_t t2) {
   term_table_t *tbl;
 
   b = get_bvarith64_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvarith64_buffer_set_term(b, tbl, t1);
   bvarith64_buffer_add_term(b, tbl, t2);
 
@@ -3021,7 +3021,7 @@ static term_t mk_bvadd(term_t t1, term_t t2) {
   term_table_t *tbl;
 
   b = get_bvarith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvarith_buffer_set_term(b, tbl, t1);
   bvarith_buffer_add_term(b, tbl, t2);
 
@@ -3033,7 +3033,7 @@ EXPORTED term_t yices_bvadd(term_t t1, term_t t2) {
     return NULL_TERM;
   }
 
-  if (term_bitsize(get_terms(), t1) <= 64) {
+  if (term_bitsize(&terms, t1) <= 64) {
     return mk_bvadd64(t1, t2);
   } else {
     return mk_bvadd(t1, t2);
@@ -3046,7 +3046,7 @@ static term_t mk_bvsub64(term_t t1, term_t t2) {
   term_table_t *tbl;
 
   b = get_bvarith64_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvarith64_buffer_set_term(b, tbl, t1);
   bvarith64_buffer_sub_term(b, tbl, t2);
 
@@ -3058,7 +3058,7 @@ static term_t mk_bvsub(term_t t1, term_t t2) {
   term_table_t *tbl;
 
   b = get_bvarith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvarith_buffer_set_term(b, tbl, t1);
   bvarith_buffer_sub_term(b, tbl, t2);
 
@@ -3070,7 +3070,7 @@ EXPORTED term_t yices_bvsub(term_t t1, term_t t2) {
     return NULL_TERM;
   }
 
-  if (term_bitsize(get_terms(), t1) <= 64) {
+  if (term_bitsize(&terms, t1) <= 64) {
     return mk_bvsub64(t1, t2);
   } else {
     return mk_bvsub(t1, t2);
@@ -3083,7 +3083,7 @@ static term_t mk_bvneg64(term_t t1) {
   term_table_t *tbl;
 
   b = get_bvarith64_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvarith64_buffer_set_term(b, tbl, t1);
   bvarith64_buffer_negate(b);
 
@@ -3095,7 +3095,7 @@ static term_t mk_bvneg(term_t t1) {
   term_table_t *tbl;
 
   b = get_bvarith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvarith_buffer_set_term(b, tbl, t1);
   bvarith_buffer_negate(b);
 
@@ -3108,7 +3108,7 @@ EXPORTED term_t yices_bvneg(term_t t1) {
     return NULL_TERM;
   }
 
-  if (term_bitsize(get_terms(), t1) <= 64) {
+  if (term_bitsize(&terms, t1) <= 64) {
     return mk_bvneg64(t1);
   } else {
     return mk_bvneg(t1);
@@ -3121,7 +3121,7 @@ static term_t mk_bvmul64(term_t t1, term_t t2) {
   term_table_t *tbl;
 
   b = get_bvarith64_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvarith64_buffer_set_term(b, tbl, t1);
   bvarith64_buffer_mul_term(b, tbl, t2);
 
@@ -3133,7 +3133,7 @@ static term_t mk_bvmul(term_t t1, term_t t2) {
   term_table_t *tbl;
 
   b = get_bvarith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvarith_buffer_set_term(b, tbl, t1);
   bvarith_buffer_mul_term(b, tbl, t2);
 
@@ -3146,7 +3146,7 @@ EXPORTED term_t yices_bvmul(term_t t1, term_t t2) {
     return NULL_TERM;
   }
 
-  if (term_bitsize(get_terms(), t1) <= 64) {
+  if (term_bitsize(&terms, t1) <= 64) {
     return mk_bvmul64(t1, t2);
   } else {
     return mk_bvmul(t1, t2);
@@ -3159,7 +3159,7 @@ static term_t mk_bvsquare64(term_t t1) {
   term_table_t *tbl;
 
   b = get_bvarith64_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvarith64_buffer_set_term(b, tbl, t1);
   bvarith64_buffer_square(b);
 
@@ -3171,7 +3171,7 @@ static term_t mk_bvsquare(term_t t1) {
   term_table_t *tbl;
 
   b = get_bvarith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvarith_buffer_set_term(b, tbl, t1);
   bvarith_buffer_square(b);
 
@@ -3185,7 +3185,7 @@ EXPORTED term_t yices_bvsquare(term_t t1) {
     return NULL_TERM;
   }
 
-  if (term_bitsize(get_terms(), t1) <= 64) {
+  if (term_bitsize(&terms, t1) <= 64) {
     return mk_bvsquare64(t1);
   } else {
     return mk_bvsquare(t1);
@@ -3201,7 +3201,7 @@ static term_t mk_bvpower64(term_t t1, uint32_t d) {
   uint32_t n;
 
   b = get_bvarith64_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   n = term_bitsize(tbl, t1);
   bvarith64_buffer_prepare(b, n);
   bvarith64_buffer_set_one(b);
@@ -3216,7 +3216,7 @@ static term_t mk_bvpower(term_t t1, uint32_t d) {
   uint32_t n;
 
   b = get_bvarith_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   n = term_bitsize(tbl, t1);
   bvarith_buffer_prepare(b, n);
   bvarith_buffer_set_one(b);
@@ -3232,7 +3232,7 @@ EXPORTED term_t yices_bvpower(term_t t1, uint32_t d) {
     return NULL_TERM;
   }
 
-  if (term_bitsize(get_terms(), t1) <= 64) {
+  if (term_bitsize(&terms, t1) <= 64) {
     return mk_bvpower64(t1, d);
   } else {
     return mk_bvpower(t1, d);
@@ -3255,7 +3255,7 @@ EXPORTED term_t yices_bvnot(term_t t1) {
   }
 
   b = get_bvlogic_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvlogic_buffer_set_term(b, tbl, t1);
   bvlogic_buffer_not(b);
 
@@ -3272,7 +3272,7 @@ EXPORTED term_t yices_bvand(term_t t1, term_t t2) {
   }
 
   b = get_bvlogic_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvlogic_buffer_set_term(b, tbl, t1);
   bvlogic_buffer_and_term(b, tbl, t2);
 
@@ -3288,7 +3288,7 @@ EXPORTED term_t yices_bvor(term_t t1, term_t t2) {
   }
 
   b = get_bvlogic_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvlogic_buffer_set_term(b, tbl, t1);
   bvlogic_buffer_or_term(b, tbl, t2);
 
@@ -3304,7 +3304,7 @@ EXPORTED term_t yices_bvxor(term_t t1, term_t t2) {
   }
 
   b = get_bvlogic_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvlogic_buffer_set_term(b, tbl, t1);
   bvlogic_buffer_xor_term(b, tbl, t2);
 
@@ -3321,7 +3321,7 @@ EXPORTED term_t yices_bvnand(term_t t1, term_t t2) {
   }
 
   b = get_bvlogic_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvlogic_buffer_set_term(b, tbl, t1);
   bvlogic_buffer_and_term(b, tbl, t2);
   bvlogic_buffer_not(b);
@@ -3338,7 +3338,7 @@ EXPORTED term_t yices_bvnor(term_t t1, term_t t2) {
   }
 
   b = get_bvlogic_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvlogic_buffer_set_term(b, tbl, t1);
   bvlogic_buffer_or_term(b, tbl, t2);
   bvlogic_buffer_not(b);
@@ -3355,7 +3355,7 @@ EXPORTED term_t yices_bvxnor(term_t t1, term_t t2) {
   }
 
   b = get_bvlogic_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvlogic_buffer_set_term(b, tbl, t1);
   bvlogic_buffer_xor_term(b, tbl, t2);
   bvlogic_buffer_not(b);
@@ -3399,7 +3399,7 @@ EXPORTED term_t yices_shift_left0(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  tbl = get_terms();
+  tbl = &terms;
 
   if (! check_good_term(&manager, t) ||
       ! check_bitvector_term(&manager, t) || 
@@ -3418,7 +3418,7 @@ EXPORTED term_t yices_shift_left1(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  tbl = get_terms();
+  tbl = &terms;
 
   if (! check_good_term(&manager, t) ||
       ! check_bitvector_term(&manager, t) || 
@@ -3437,7 +3437,7 @@ EXPORTED term_t yices_shift_right0(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  tbl = get_terms();
+  tbl = &terms;
 
   if (! check_good_term(&manager, t) ||
       ! check_bitvector_term(&manager, t) || 
@@ -3456,7 +3456,7 @@ EXPORTED term_t yices_shift_right1(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  tbl = get_terms();
+  tbl = &terms;
 
   if (! check_good_term(&manager, t) ||
       ! check_bitvector_term(&manager, t) || 
@@ -3475,7 +3475,7 @@ EXPORTED term_t yices_ashift_right(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  tbl = get_terms();
+  tbl = &terms;
 
   if (! check_good_term(&manager, t) ||
       ! check_bitvector_term(&manager, t) || 
@@ -3494,7 +3494,7 @@ EXPORTED term_t yices_rotate_left(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  tbl = get_terms();
+  tbl = &terms;
 
   if (! check_good_term(&manager, t) ||
       ! check_bitvector_term(&manager, t) || 
@@ -3515,7 +3515,7 @@ EXPORTED term_t yices_rotate_right(term_t t, uint32_t n) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  tbl = get_terms();
+  tbl = &terms;
 
   if (! check_good_term(&manager, t) ||
       ! check_bitvector_term(&manager, t) || 
@@ -3566,7 +3566,7 @@ EXPORTED term_t yices_bvextract(term_t t, uint32_t i, uint32_t j) {
     return NULL_TERM;
   }
 
-  tbl = get_terms();
+  tbl = &terms;
   n = term_bitsize(tbl, t);
   if (! check_bitextract(i, j, n)) {
     return NULL_TERM;
@@ -3603,7 +3603,7 @@ EXPORTED term_t yices_bvconcat(term_t t1, term_t t2) {
   bvlogic_buffer_t *b;
   term_table_t *tbl;
 
-  tbl = get_terms();
+  tbl = &terms;
 
   if (! check_good_term(&manager, t1) ||
       ! check_good_term(&manager, t2) ||
@@ -3654,7 +3654,7 @@ EXPORTED term_t yices_bvrepeat(term_t t, uint32_t n) {
   }
 
   // check size
-  tbl = get_terms();
+  tbl = &terms;
   m = ((uint64_t) n) * term_bitsize(tbl, t);
   if (m > (uint64_t) YICES_MAX_BVSIZE) {
     error.code = MAX_BVSIZE_EXCEEDED;
@@ -3700,7 +3700,7 @@ EXPORTED term_t yices_sign_extend(term_t t, uint32_t n) {
 
 
   // check size
-  tbl = get_terms();
+  tbl = &terms;
   m = ((uint64_t) n) + term_bitsize(tbl, t);
   if (m > (uint64_t) YICES_MAX_BVSIZE) {
     error.code = MAX_BVSIZE_EXCEEDED;
@@ -3745,7 +3745,7 @@ EXPORTED term_t yices_zero_extend(term_t t, uint32_t n) {
   }
 
   // check size
-  tbl = get_terms();
+  tbl = &terms;
   m = ((uint64_t) n) + term_bitsize(tbl, t);
   if (m > (uint64_t) YICES_MAX_BVSIZE) {
     error.code = MAX_BVSIZE_EXCEEDED;
@@ -3789,7 +3789,7 @@ EXPORTED term_t yices_redand(term_t t) {
   }
 
   b = get_bvlogic_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvlogic_buffer_set_term(b, tbl, t);
   bvlogic_buffer_redand(b);
 
@@ -3806,7 +3806,7 @@ EXPORTED term_t yices_redor(term_t t) {
   }
 
   b = get_bvlogic_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvlogic_buffer_set_term(b, tbl, t);
   bvlogic_buffer_redor(b);
 
@@ -3844,7 +3844,7 @@ EXPORTED term_t yices_redcomp(term_t t1, term_t t2) {
   }
 
   b = get_bvlogic_buffer();
-  tbl = get_terms();
+  tbl = &terms;
   bvlogic_buffer_set_term(b, tbl, t1);
   bvlogic_buffer_comp_term(b, tbl, t2);
 
@@ -3984,7 +3984,7 @@ EXPORTED term_t yices_bvarray(uint32_t n, term_t arg[]) {
 EXPORTED term_t yices_bitextract(term_t t, uint32_t i) {
   if (! check_good_term(&manager, t) ||
       ! check_bitvector_term(&manager, t) ||
-      ! check_bitextract(i, i, term_bitsize(get_terms(), t))) {
+      ! check_bitextract(i, i, term_bitsize(&terms, t))) {
     return NULL_TERM;
   }
   return mk_bitextract(&manager, t, i);
@@ -4145,7 +4145,7 @@ EXPORTED int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t heigh
   area.truncate = true;
 
   init_default_yices_pp(&printer, f, &area);
-  pp_term_full(&printer, get_terms(), t);
+  pp_term_full(&printer, &terms, t);
   flush_yices_pp(&printer);
 
   // check for error
@@ -4178,7 +4178,7 @@ EXPORTED type_t yices_type_of_term(term_t t) {
   if (! check_good_term(&manager, t)) {
     return NULL_TYPE;
   }
-  return term_type(get_terms(), t);
+  return term_type(&terms, t);
 }
 
 
@@ -4191,37 +4191,37 @@ EXPORTED type_t yices_type_of_term(term_t t) {
  * and set the error report as above.
  */
 EXPORTED int32_t yices_term_is_bool(term_t t) {
-  return check_good_term(&manager, t) && is_boolean_term(get_terms(), t);
+  return check_good_term(&manager, t) && is_boolean_term(&terms, t);
 }
 
 EXPORTED int32_t yices_term_is_int(term_t t) {
-  return check_good_term(&manager, t) && is_integer_term(get_terms(), t);
+  return check_good_term(&manager, t) && is_integer_term(&terms, t);
 }
 
 EXPORTED int32_t yices_term_is_real(term_t t) {
-  return check_good_term(&manager, t) && is_real_term(get_terms(), t);
+  return check_good_term(&manager, t) && is_real_term(&terms, t);
 }
 
 EXPORTED int32_t yices_term_is_arithmetic(term_t t) {
-  return check_good_term(&manager, t) && is_arithmetic_term(get_terms(), t);
+  return check_good_term(&manager, t) && is_arithmetic_term(&terms, t);
 }
 
 EXPORTED int32_t yices_term_is_bitvector(term_t t) {
-  return check_good_term(&manager, t) && is_bitvector_term(get_terms(), t);
+  return check_good_term(&manager, t) && is_bitvector_term(&terms, t);
 }
 
 EXPORTED int32_t yices_term_is_tuple(term_t t) {
-  return check_good_term(&manager, t) && is_tuple_term(get_terms(), t);
+  return check_good_term(&manager, t) && is_tuple_term(&terms, t);
 }
 
 EXPORTED int32_t yices_term_is_function(term_t t) {
-  return check_good_term(&manager, t) && is_function_term(get_terms(), t);
+  return check_good_term(&manager, t) && is_function_term(&terms, t);
 }
 
 EXPORTED int32_t yices_term_is_scalar(term_t t) {
   term_table_t *tbl;
 
-  tbl = get_terms();
+  tbl = &terms;
   return check_good_term(&manager, t) && (is_scalar_term(tbl, t) || is_utype_term(tbl, t));
 }
 
@@ -4234,7 +4234,7 @@ EXPORTED uint32_t yices_term_bitsize(term_t t) {
   if (! check_bitvector_term(&manager, t)) {
     return 0;
   }
-  return term_bitsize(get_terms(), t);
+  return term_bitsize(&terms, t);
 }
 
 
@@ -4285,16 +4285,16 @@ term_t bvarith64_buffer_get_term(bvarith64_buffer_t *b) {
 
 term_t yices_bvconst_term(uint32_t n, uint32_t *v) {
   assert(64 < n && n <= YICES_MAX_BVSIZE);
-  return bvconst_term(get_terms(), n, v);
+  return bvconst_term(&terms, n, v);
 }
 
 term_t yices_bvconst64_term(uint32_t n, uint64_t c) {
   assert(1 <= n && n <= 64 && c == norm64(c, n));
-  return bv64_constant(get_terms(), n, c);
+  return bv64_constant(&terms, n, c);
 }
 
 term_t yices_rational_term(rational_t *q) {
-  return arith_constant(get_terms(), q);
+  return arith_constant(&terms, q);
 }
 
 
@@ -4334,7 +4334,7 @@ bool yices_check_mul_term(arith_buffer_t *b, term_t t) {
   term_table_t *tbl;
   uint32_t d1, d2;
 
-  tbl = get_terms();
+  tbl = &terms;
 
   assert(good_term(tbl, t) && is_arithmetic_term(tbl, t));
 
@@ -4518,7 +4518,7 @@ bool yices_check_bvmul64_term(bvarith64_buffer_t *b, term_t t) {
   term_table_t *tbl;
   uint32_t d1, d2;
 
-  tbl = get_terms();
+  tbl = &terms;
 
   assert(good_term(tbl, t) && is_bitvector_term(tbl, t));
 
@@ -4545,7 +4545,7 @@ bool yices_check_bvmul_term(bvarith_buffer_t *b, term_t t) {
   term_table_t *tbl;
   uint32_t d1, d2;
 
-  tbl = get_terms();
+  tbl = &terms;
 
   assert(good_term(tbl, t) && is_bitvector_term(tbl, t));
 
@@ -4735,7 +4735,7 @@ EXPORTED int32_t yices_set_term_name(term_t t, const char *name) {
 
   // make a copy of name
   clone = clone_string(name);
-  set_term_name(get_terms(), t, clone);
+  set_term_name(&terms, t, clone);
 
   return 0;
 }
@@ -4761,7 +4761,7 @@ EXPORTED const char *yices_get_term_name(term_t t) {
   if (! check_good_term(&manager, t)) {
     return NULL;
   }
-  return term_name(get_terms(), t);
+  return term_name(&terms, t);
 }
 
 
@@ -4778,7 +4778,7 @@ EXPORTED void yices_remove_type_name(const char *name) {
  * Remove name from the term table.
  */
 EXPORTED void yices_remove_term_name(const char *name) {
-  remove_term_name(get_terms(), name);
+  remove_term_name(&terms, name);
 }
 
 
@@ -4794,7 +4794,7 @@ EXPORTED type_t yices_get_type_by_name(const char *name) {
  * Get term of the given name or return NULL_TERM
  */
 EXPORTED term_t yices_get_term_by_name(const char *name) {
-  return get_term_by_name(get_terms(), name);
+  return get_term_by_name(&terms, name);
 }
 
 
@@ -4824,7 +4824,7 @@ EXPORTED int32_t yices_clear_term_name(term_t t) {
     return -1;
   }
 
-  clear_term_name(get_terms(), t);
+  clear_term_name(&terms, t);
   return 0;
 }
 
@@ -5144,7 +5144,7 @@ context_t *yices_create_context(context_arch_t arch, context_mode_t mode, bool i
   context_t *ctx;
 
   ctx = alloc_context();
-  init_context(ctx, get_terms(), mode, arch, qflag);
+  init_context(ctx, &terms, mode, arch, qflag);
   context_set_default_options(ctx, arch, iflag, qflag);
 
   return ctx;
@@ -5895,7 +5895,7 @@ EXPORTED model_t *yices_get_model(context_t *ctx, int32_t keep_subst) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
     mdl = alloc_model();
-    init_model(mdl, get_terms(), (keep_subst != 0));
+    init_model(mdl, &terms, (keep_subst != 0));
     context_build_model(mdl, ctx);
     break;
 
