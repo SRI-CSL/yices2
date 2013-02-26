@@ -20,11 +20,11 @@ KEYWORD	:[-0-9a-zA-Z+/*=%?!.$_~&^<>@]+
 %%
 
 [ \t\r]			{ ; }
-\n			{ lineno++; }
-[()!_]			{ return *yytext; }
+\n			{ lineno++; prompt(); }
+[()!_]			{ prompt_level = 1; return *yytext; }
 ";"			{ BEGIN comment; }
 <comment>.		{ ; }
-<comment>\n		{ lineno++; BEGIN 0; }
+<comment>\n		{ lineno++; BEGIN 0; prompt(); }
 
 "as"			{ return AS; }
 "assert"		{ return ASSERT; }
@@ -70,20 +70,20 @@ KEYWORD	:[-0-9a-zA-Z+/*=%?!.$_~&^<>@]+
 		  return SYMBOL; }
 <symbol>.	{ string_buffer_append_char(&lex_string_buffer, *yytext); }
 <symbol>\n	{ string_buffer_append_char(&lex_string_buffer, *yytext);
-		  lineno++; }
+		  lineno++; prompt(); }
 {KEYWORD}	{ yylval.str = cached_string(yytext+1);
 		  return KEYWORD; }
 
 \"		{ string_buffer_reset(&lex_string_buffer);
 		  BEGIN string; }
-<string>\\.	{ string_buffer_append_char(&lex_string_buffer, yytext[1]); }
 <string>\"	{ BEGIN 0;
 		  string_buffer_close(&lex_string_buffer);
 		  yylval.str = cached_string(lex_string_buffer.data);
 		  return STRING; }
+<string>\\.	{ string_buffer_append_char(&lex_string_buffer, yytext[1]); }
 <string>.	{ string_buffer_append_char(&lex_string_buffer, *yytext); }
 <string>\n	{ string_buffer_append_char(&lex_string_buffer, *yytext);
-		  lineno++; }
+		  lineno++; prompt(); }
 
 .		{ if (*yytext > 32 && *yytext < 127)
 		    fprintf(stderr, "spurious character '%c' in input\n",
@@ -91,6 +91,9 @@ KEYWORD	:[-0-9a-zA-Z+/*=%?!.$_~&^<>@]+
 		  else
 		    fprintf(stderr, "spurious character '\\x%x' in input\n",
 			    *yytext); }
+
+<<EOF>>		{ yypop_buffer_state();
+		  if (!YY_CURRENT_BUFFER) yyterminate(); }
 
 %%
 

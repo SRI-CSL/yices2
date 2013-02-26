@@ -19,7 +19,8 @@
 extern void yices_print_presearch_stats(FILE *f, context_t *ctx);
 extern void yices_show_statistics(FILE *f, context_t *ctx);
 
-int yylex();
+#define YY_DECL static int yylex()
+YY_DECL;
 extern void yyerror(const char *fmt, ...);
 #define YYMAXDEPTH	10000000
 
@@ -43,6 +44,8 @@ DECLARE_VECTOR(int)
 
 static int exit_code = 0;
 static const char *status_needed = 0;
+static int prompt_level = 0;
+static void prompt();
 
 void set_logic(const char *name);
 void set_option(const char *name, value_t val);
@@ -111,7 +114,10 @@ void undeclare_var_names(int count, var_t *b);
 
 %%
 
-input	: /* empty */ | input command ;
+input	: /* empty */
+	| input command
+	    { prompt_level = 0; }
+;
 
 command : '(' SET_LOGIC SYMBOL ')'
 	    { set_logic($3); }
@@ -160,14 +166,18 @@ command : '(' SET_LOGIC SYMBOL ')'
 	    { assert(0); }
 	| '(' EXIT ')'
 	    { exit(exit_code); }
+	| '(' error ')'
+	| error
 ;
 
 symbols	: /*empty*/	 { VECTOR_init($$); }
 	| symbols SYMBOL { VECTOR_add($1, $2); $$ = $1; }
+	| symbols error	 { $$ = $1; }
 	;
 
 sorts	: /*empty*/	{ VECTOR_init($$); }
 	| sorts sort	{ VECTOR_add($1, $2); $$ = $1; }
+	| sorts error	{ $$ = $1; }
 	;
 sort	: SYMBOL
 	    { if (($$ = yices_get_type_by_name($1)) == NULL_TYPE)
@@ -182,14 +192,17 @@ sort	: SYMBOL
     
 vars	: /*empty*/	{ VECTOR_init($$); }
 	| vars var	{ VECTOR_add($1, $2); $$ = $1; }
+	| vars error	{ $$ = $1; }
 	;
 var	: '(' SYMBOL sort ')'	{ $$.name = $2; $$.type = $3; }
+	| '(' error ')'		{ $$.name = 0; $$.type = NULL_TYPE; }
 	;
 
 binds	: /*empty*/	{ VECTOR_init($$); }
 	| binds bind	{ VECTOR_add($1, $2); $$ = $1; }
 	;
 bind	: '(' SYMBOL term ')'	{ $$.name = $2; $$.val = $3; }
+	| '(' error ')'		{ $$.name = 0; $$.val = UNKNOWNval(); }
 	;
 
 terms	: term		{ VECTOR_init($$); VECTOR_add($$, $1); }
@@ -236,6 +249,8 @@ term	: NUMERAL	{ $$.tag = vtTERM; $$.v.term = $1.term; }
 	    { $$ = $3;
 	      yyerror("FIXME -- ignoring attributes with !");
 	      VECTOR_free($4); }
+	| '(' error ')'
+	    { $$ = UNKNOWNval(); }
 	;
 
 qual_identifier
@@ -259,7 +274,7 @@ indexes	: NUMERAL		{ VECTOR_init($$); VECTOR_add($$, $1.val); }
 attributes: attrib		{ VECTOR_init($$); VECTOR_add($$, $1); }
 	| attributes attrib	{ VECTOR_add($1, $2); $$ = $1; }
 	;
-attrib	: KEYWORD		{ $$.name = $1; $$.val.tag = vtUNKNOWN; }
+attrib	: KEYWORD		{ $$.name = $1; $$.val = UNKNOWNval(); }
 	| KEYWORD value		{ $$.name = $1; $$.val = $2; }
 	;
 
@@ -277,6 +292,8 @@ value	: NUMERAL	{ $$.tag = vtTERM; $$.v.term = $1.term; }
 	| '(' values ')'
 	    { $$ = eval_sexpr($2.data[0], $2.size-1, $2.data+1);
 	      VECTOR_free($2); }
+	| '(' error ')'
+	    { $$ = UNKNOWNval(); }
 	;
 
 %%
@@ -286,7 +303,8 @@ value	: NUMERAL	{ $$.tag = vtTERM; $$.v.term = $1.term; }
 void yyerror(const char *fmt, ...)
 {
     va_list	args;
-    fprintf(stderr, "%d: ", lineno);
+    if (!YY_CURRENT_BUFFER->yy_is_interactive)
+	fprintf(stderr, "%d: ", lineno);
     va_start(args, fmt);
     vfprintf(stderr, fmt, args);
     va_end(args);
@@ -300,6 +318,7 @@ static VECTOR(term_t) assertions;
 
 int main(int ac, char **av)
 {
+  FILE *fp = 0;
   int code;
 
   VECTOR_init(assertions);
@@ -309,9 +328,13 @@ int main(int ac, char **av)
       yydebug = 1;
     else
 #endif
-      if (!freopen(*av, "r", stdin))
-	fprintf(stderr, "Can't open %s\n", *av);
+    if (fp)
+      fprintf(stderr, "Only one source on command line supported\n");
+    else if (!(fp = fopen(*av, "r")))
+      fprintf(stderr, "Can't open %s\n", *av);
   }
+  yy_switch_to_buffer(yy_create_buffer(fp ? fp : stdin, YY_BUF_SIZE));
+  prompt();
   yices_init();
   eval_init();
   code = yyparse();
@@ -319,6 +342,14 @@ int main(int ac, char **av)
   VECTOR_free(assertions);
   
   return code;
+}
+
+static void prompt()
+{
+  if (YY_CURRENT_BUFFER->yy_is_interactive) {
+    printf("%s> ", prompt_level ? "..." : "yices-smt2");
+    fflush(stdout);
+  }
 }
 
 void set_logic(const char *name)
@@ -366,6 +397,9 @@ void set_info(const char *name, value_t val)
 
 void declare_sort(const char *name, int params)
 {
+    if (!config) {
+	yyerror("no logic set");
+	return; }
     type_t n = yices_new_uninterpreted_type();
     yices_set_type_name(n, name);
     if (params)
@@ -389,6 +423,9 @@ void declare_fun(const char *name, int ac, type_t *av, type_t ret)
 {
     type_t t = ret;
     term_t n;
+    if (!config) {
+	yyerror("no logic set");
+	return; }
     if (ac > 0)
 	t = yices_function_type(ac, av, ret);
     n = yices_new_uninterpreted_term(t);
@@ -401,6 +438,9 @@ void declare_fun(const char *name, int ac, type_t *av, type_t ret)
 
 void define_fun(const char *name, int ac, term_t *av, type_t ret, value_t body)
 {
+    if (!config) {
+	yyerror("no logic set");
+	return; }
     if (body.tag == vtSYMBOL) {
 	body.v.term = yices_get_term_by_name(body.v.str);
 	body.tag = vtTERM; }
@@ -420,6 +460,9 @@ void define_fun(const char *name, int ac, term_t *av, type_t ret, value_t body)
 
 void do_push(int cnt)
 {
+    if (!config) {
+	yyerror("no logic set");
+	return; }
     while(cnt-- > 0)
 	if (yices_push(context))
 	    yyerror("FIXME -- push failed");
@@ -431,6 +474,9 @@ void do_push(int cnt)
 
 void do_pop(int cnt)
 {
+    if (!config) {
+	yyerror("no logic set");
+	return; }
     while(cnt-- > 0)
 	if (yices_pop(context))
 	    yyerror("FIXME -- pop failed");
@@ -444,6 +490,9 @@ void do_pop(int cnt)
 
 void do_assert(value_t t)
 {
+  if (!config) {
+    yyerror("no logic set");
+    return; }
   if (t.tag != vtTERM) {
     fprintf(stderr, "%d:FIXME -- assert of non-term: ", lineno);
     print_value(stderr, t);
@@ -470,16 +519,23 @@ void do_assert(value_t t)
 
 void check_sat()
 {
-  if (exit_code == 2) return; /* don't bother if there were parse errors */
+  if (!config) {
+    yyerror("no logic set");
+    return; }
+  if (exit_code == 2 && !YY_CURRENT_BUFFER->yy_is_interactive)
+    return; /* don't bother if there were parse errors and not interactive*/
 
 #if DELAY_ASSERTIONS
   // process the delayed assertions
-  int code = yices_assert_formulas(context, assertions.size, assertions.data);
-  if (code < 0) {
-    fprintf(stderr, "%d: Error asserting formulas\n", lineno);
-    yices_print_error(stderr);
-    exit(2);
-  } 
+  if (assertions.size > 0) {
+    int code = yices_assert_formulas(context, assertions.size, assertions.data);
+    if (code < 0) {
+      yyerror("Error asserting formulas:");
+      yices_print_error(stderr);
+      exit(2);
+    } 
+    assertions.size = 0;
+  }
 #endif
 
   // output run time + stat summary
