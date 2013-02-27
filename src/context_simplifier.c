@@ -2697,7 +2697,21 @@ static void show_range_constraints(sym_breaker_t *breaker) {
     flush_yices_pp(&pp);
     pp_constraints(&pp, breaker, v->data + i);
   }
+
+  delete_yices_pp(&pp);
 }
+
+
+static void print_constant_set(sym_breaker_t *breaker, rng_record_t *r) {
+  uint32_t i, n;
+
+  n = r->num_constants;
+  for (i=0; i<n; i++) {
+    fputc(' ', stdout);
+    print_term(stdout, breaker->terms, r->cst[i]);
+  }
+}
+
 
 #endif
 
@@ -2707,12 +2721,29 @@ static void show_range_constraints(sym_breaker_t *breaker) {
  */
 void break_uf_symmetries(context_t *ctx) {
   sym_breaker_t breaker;
+  rng_vector_t *v;
+  uint32_t i, n;
 
   init_sym_breaker(&breaker, ctx);
   collect_range_constraints(&breaker);
 #if TRACE_SYM_BREAKING
-  show_range_constraints(&breaker);
+  if (false) {
+    show_range_constraints(&breaker);
+  }
 #endif
+
+  printf("\n*** CHECKING SYMMETRY CANDIDATES ***\n\n");
+  v = &breaker.range_constraints;
+  n = v->nelems;
+  for (i=0; i<n; i++) {
+    printf("Set[%"PRIu32"]:", i);
+    print_constant_set(&breaker, v->data + i);
+    if (check_assertion_invariance(&breaker, v->data + i)) {
+      printf("  YES\n");
+    } else {
+      printf("  NO\n");
+    }
+  }
 
   delete_sym_breaker(&breaker);
 }

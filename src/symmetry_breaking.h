@@ -162,5 +162,11 @@ extern void delete_sym_breaker(sym_breaker_t *breaker);
 extern void collect_range_constraints(sym_breaker_t *breaker);
 
 
+/*
+ * Check whether the assertions are invariant by permutation of 
+ * constants in record r.
+ */
+extern bool check_assertion_invariance(sym_breaker_t *breaker, rng_record_t *r);
+
 
 #endif /* __SYMMETTY_BREAKING_H */

@@ -9,6 +9,11 @@
 #include "memalloc.h"
 #include "symmetry_breaking.h"
 
+#define TRACE 0
+
+#if TRACE
+#include "term_printer.h"
+#endif
 
 
 /*
@@ -292,16 +297,21 @@ static match_code_t match_term(context_t *ctx, term_t t, term_t *a, term_t *x) {
 	eq = eq_term_desc(terms, t);
 	t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
 	t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
-	if (false_eq(terms, t1, t2)) {
-	  code = MATCH_FALSE;
-	} else if (term_is_constant(terms, t1)) {
-	  *a = t1;
-	  *x = t2;
-	  code = MATCH_EQ;
-	} else if (term_is_constant(terms, t2)) {
-	  *a = t2;
-	  *x = t1;
-	  code = MATCH_EQ;
+	if (t1 != t2) {
+	  /* 
+	   * if (t1 and t2) are equal, we return MATCH_OTHER, since (eq t1 t2) is true
+	   */
+	  if (false_eq(terms, t1, t2)) {
+	    code = MATCH_FALSE;
+	  } else if (term_is_constant(terms, t1)) {
+	    *a = t1;
+	    *x = t2;
+	    code = MATCH_EQ;
+	  } else if (term_is_constant(terms, t2)) {
+	    *a = t2;
+	    *x = t1;
+	    code = MATCH_EQ;
+	  }
 	}
       }
     }
@@ -501,6 +511,9 @@ static term_t ctx_subst_find(ctx_subst_t *s, uint32_t i) {
 }
 
 
+#if 0
+
+// NOT USED
 /*
  * Same thing for a term t: take polarity into account
  */
@@ -515,6 +528,7 @@ static term_t ctx_subst_of_term(ctx_subst_t *s, term_t t) {
   return u;
 }
 
+#endif
 
 /*
  * Store the mapping t --> u in s
@@ -560,46 +574,148 @@ static inline void reset_ctx_subst(ctx_subst_t *s) {
  */
 static term_t ctx_subst(ctx_subst_t *s, term_t t);
 
+
+/*
+ * apply the substitution s to all children of d
+ * - return the result in an array allocated in s->stack
+ */
+static term_t *ctx_subst_children(ctx_subst_t *s, composite_term_t *d) {
+  term_t *a;
+  uint32_t i, n;
+
+  n = d->arity;
+  a= alloc_istack_array(&s->stack, n);
+  for (i=0; i<n; i++) {
+    a[i] = ctx_subst(s, d->arg[i]);
+  }
+  return a;
+}
+
 // (ite c t1 t2)
 static term_t ctx_subst_ite(ctx_subst_t *s, composite_term_t *d) {
-  return NULL_TERM; // TBD
+  term_table_t *terms;
+  term_t c, t1, t2;
+  type_t tau;
+  term_t result;
+
+  assert(d->arity == 3);
+
+  c = ctx_subst(s, d->arg[0]);
+  if (c == true_term) {
+    result = ctx_subst(s, d->arg[1]);
+  } else if (c == false_term) {
+    result = ctx_subst(s, d->arg[2]);
+  } else {
+    t1 = ctx_subst(s, d->arg[1]);
+    t2 = ctx_subst(s, d->arg[2]);
+
+    terms = s->terms;
+    tau = super_type(terms->types, term_type(terms, t1), term_type(terms, t2));
+    assert(tau != NULL_TYPE);;
+
+    result = mk_ite(&s->mngr, c, t1, t2, tau);
+  }
+  
+  return result;
 }
 
 // (eq t1 t2)
 static term_t ctx_subst_eq(ctx_subst_t *s, composite_term_t *d) {
-  return NULL_TERM;
+  term_t t1, t2;
+  
+  assert(d->arity == 2);
+  t1 = ctx_subst(s, d->arg[0]);
+  t2 = ctx_subst(s, d->arg[1]);
+  return mk_eq(&s->mngr, t1, t2);
 }
 
 // (or t1 .... tn)
-static term_t ctx_subst_or(ctx_subst_t *s, composite_term_t *d) {
-  return NULL_TERM;
+static term_t ctx_subst_or(ctx_subst_t *s, composite_term_t *d) {  
+  term_t *a;
+  term_t result;
+  uint32_t i, n;
+
+  n = d->arity;
+  assert(n >= 2);
+
+  a = alloc_istack_array(&s->stack, n);
+  result = true_term;
+  for (i=0; i<n; i++) {
+    a[i] = ctx_subst(s, d->arg[i]);
+    if (a[i] == true_term) goto done;
+  }
+  result = mk_or(&s->mngr, n, a);
+
+ done:
+  free_istack_array(&s->stack, a);
+
+  return result;
 }
 
 // (xor t1 ... tn)
 static term_t ctx_subst_xor(ctx_subst_t *s, composite_term_t *d) {
-  return NULL_TERM;
+  term_t *a;
+  term_t result;
+
+  assert(d->arity >= 2);
+  a = ctx_subst_children(s, d);
+  result = mk_xor(&s->mngr, d->arity, a);
+  free_istack_array(&s->stack, a);
+
+  return result;
 }
 
 // (apply f t1 ... tn)
 static term_t ctx_subst_app(ctx_subst_t *s, composite_term_t *d) {
-  return NULL_TERM;
+  term_t *a;
+  term_t result;
+
+  assert(d->arity >= 2);
+
+  a = ctx_subst_children(s, d);
+  result = mk_application(&s->mngr, a[0], d->arity-1, a+1);
+  free_istack_array(&s->stack, a);
+
+  return result;
 }
 
 // (tuple t1 ... tn)
 static term_t ctx_subst_tuple(ctx_subst_t *s, composite_term_t *d) {
-  return NULL_TERM;
+  term_t *a;
+  term_t result;
+
+  assert(d->arity >= 1);
+
+  a = ctx_subst_children(s, d);
+  result = mk_tuple(&s->mngr, d->arity, a);
+  free_istack_array(&s->stack, a);
+
+  return result;
 }
 
 // (select t i)
 static term_t ctx_subst_select(ctx_subst_t *s, select_term_t *d) {
-  return NULL_TERM;
+  uint32_t idx;
+  term_t t;
+
+  idx = d->idx; // d may become invalid if new terms are created
+  t = ctx_subst(s, d->arg);
+  return mk_select(&s->mngr, t, idx);
 }
 
 // (distinct t1 ... tn)
 static term_t ctx_subst_distinct(ctx_subst_t *s, composite_term_t *d) {
-  return NULL_TERM;
-}
+  term_t *a;
+  term_t result;
 
+  assert(d->arity >= 1);
+
+  a = ctx_subst_children(s, d);
+  result = mk_distinct(&s->mngr, d->arity, a);
+  free_istack_array(&s->stack, a);
+
+  return result;
+}
 
 
 static term_t ctx_subst(ctx_subst_t *s, term_t t) {
@@ -674,8 +790,138 @@ static term_t ctx_subst(ctx_subst_t *s, term_t t) {
 
 
 
+/*
+ * Apply s to a[0 ... n-1]; store the result in b[0 ... n-1]
+ */
+static void ctx_subst_array(ctx_subst_t *s, term_t *a, term_t *b, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    b[i] = ctx_subst(s, a[i]);
+  }
+}
 
 
+/*
+ * Apply s to vectors ctx->top_eqs, ctx->top_atoms, and ctx->top_formuals
+ * - store the result in array a
+ */
+static void ctx_subst_assertions(ctx_subst_t *s, context_t *ctx, term_t *a) {
+  ivector_t *v;
+  uint32_t n;
+
+  v = &ctx->top_eqs;
+  n = v->size;
+  ctx_subst_array(s, v->data, a, n);
+  a += n;
+
+  v = &ctx->top_atoms;
+  n = v->size;
+  ctx_subst_array(s, v->data, a, n);
+  a += n;
+
+  v = &ctx->top_formulas;
+  n = v->size;
+  ctx_subst_array(s, v->data, a, n);
+}
+
+
+
+
+/*
+ * Build the substitution that swaps c0 and c1
+ */
+static void make_swap(ctx_subst_t *s, term_t c0, term_t c1) {
+  reset_ctx_subst(s);
+  set_ctx_subst_of_term(s, c0, c1);
+  set_ctx_subst_of_term(s, c1, c0);
+}
+
+
+/*
+ * Build circular substitution for c[0 ... n-1]
+ * - subst(c[i+1]) = c[i]
+ * - subst(c[0]) = c[n-1]
+ */
+static void make_cycle(ctx_subst_t *s, term_t *c, uint32_t n) {
+  uint32_t i;
+
+  reset_ctx_subst(s);
+  set_ctx_subst_of_term(s, c[0], c[n-1]);
+  for (i=1; i<n; i++) {
+    set_ctx_subst_of_term(s, c[i], c[i-1]);
+  }
+}
+ 
+
+/*
+ * Check whether the assertions in ctx are invariant with respect
+ * to permutations of the contants in array c
+ * - n = size of c (must be >= 2)
+ * - use s to build the substitutions
+ */
+static bool check_perm_invariance(context_t *ctx, ctx_subst_t *s, term_t *c, uint32_t n) {
+  term_t *b;
+  uint32_t m;
+  term_t norm1, norm2, norm3;
+  int code;
+  bool result;
+
+  assert(n >= 2);
+
+  /*
+   * this sum can't overflow because vector sizes are at most MAX_IVECTOR_SIZE
+   * (i.e., UINT32_MAX/8).
+   */
+  m = ctx->top_eqs.size + ctx->top_atoms.size + ctx->top_formulas.size;
+  b = (term_t *) safe_malloc(m * sizeof(term_t));
+
+  result = false;
+
+  code = setjmp(s->env);
+  if (code == 0) {
+    // empty substituion = normalize the assertions
+    reset_ctx_subst(s);
+    ctx_subst_assertions(s, ctx, b);
+    norm1 = mk_and(&s->mngr, m, b);
+
+#if TRACE
+    printf("perm invariance: norm1\n");
+    pretty_print_term_full(stdout, NULL, ctx->terms, norm1);
+#endif
+
+    // swap c[0] and c[1]
+    make_swap(s, c[0], c[1]);
+    ctx_subst_assertions(s, ctx, b);
+    norm2 = mk_and(&s->mngr, m, b);
+
+#if TRACE
+    printf("perm invariance: norm2\n");
+    pretty_print_term_full(stdout, NULL, ctx->terms, norm2);
+#endif
+
+    if (norm1 != norm2) goto done;
+
+    // circular substitution
+    make_cycle(s, c, n);
+    ctx_subst_assertions(s, ctx, b);
+    norm3 = mk_and(&s->mngr, m, b);
+
+#if TRACE
+    printf("perm invariance: norm3\n");
+    pretty_print_term_full(stdout, NULL, ctx->terms, norm2);
+#endif
+
+    result = (norm1 == norm3);
+  } else {
+    // exception
+    assert(! result);
+  }
+
+ done:
+  safe_free(b);
+  return result;
+}
 
 
 
@@ -731,3 +977,18 @@ void collect_range_constraints(sym_breaker_t *breaker) {
   }
 }
 
+
+/*
+ * Check whether the assertions are invariant by permutation of 
+ * constants in record r.
+ */
+bool check_assertion_invariance(sym_breaker_t *breaker, rng_record_t *r) {
+  ctx_subst_t subst;
+  bool result;
+
+  init_ctx_subst(&subst, breaker->ctx);
+  result = check_perm_invariance(breaker->ctx, &subst, r->cst, r->num_constants);
+  delete_ctx_subst(&subst);
+
+  return result;
+}

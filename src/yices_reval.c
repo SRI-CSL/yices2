@@ -121,6 +121,13 @@ static param_t parameters;
 
 
 /*
+ * Experimental: if mode = one-shot, we delay assertions
+ * - all assertions are pushed into this vector
+ */
+static ivector_t delayed_assertions;
+
+
+/*
  * Random seed: we keep a copy here for (show-params ...)
  */
 static uint32_t the_seed;
@@ -702,6 +709,11 @@ static void process_command_line(int argc, char *argv[]) {
       }
     }
   }
+
+
+  /*
+   * EXPERIMENTAL
+   */
 
   return;
 
@@ -2259,7 +2271,13 @@ static void yices_assert_cmd(term_t f) {
 
     case STATUS_IDLE:
       if (yices_term_is_bool(f)) {
-        code = assert_formula(context, f);
+	if (mode == CTX_MODE_ONECHECK) {
+	  // delayed assertion
+	  ivector_push(&delayed_assertions, f);
+	  code = CTX_NO_ERROR;
+	} else {
+	  code = assert_formula(context, f);
+	}
         print_internalization_code(code);
       } else {
         report_error("type error in assert: boolean term required");
@@ -2348,6 +2366,15 @@ static smt_status_t do_check(void) {
  */
 static void yices_check_cmd(void) {
   smt_status_t stat;
+  int code;
+
+  if (mode == CTX_MODE_ONECHECK) {
+    code = assert_formulas(context, delayed_assertions.size, delayed_assertions.data);
+    if (code < 0) {
+      print_internalization_code(code);
+      return;
+    }
+  }
 
   stat = context_status(context);
   switch (stat) {
@@ -2509,7 +2536,7 @@ int yices_main(int argc, char *argv[]) {
 
   // Deal with command-line options
   process_command_line(argc, argv);
-
+  
   /*
    * Check the input file
    * - initialize the lexer
@@ -2534,6 +2561,7 @@ int yices_main(int argc, char *argv[]) {
   /*
    * The lexer is ready: initialize the other structures
    */
+  init_ivector(&delayed_assertions, 10);
   yices_init();
   init_tstack(&stack);
   tstack_set_exit_cmd(&stack, yices_exit_cmd);
@@ -2614,6 +2642,7 @@ int yices_main(int argc, char *argv[]) {
   }
   delete_tstack(&stack);
   yices_exit();
+  delete_ivector(&delayed_assertions);
 
   if (timeout_initialized) {
     delete_timeout();
