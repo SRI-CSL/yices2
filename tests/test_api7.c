@@ -21,6 +21,7 @@ static const char* const mode2string[NUM_MODES] = {
 };
 
 static const char* const logic2string[NUM_SMT_LOGICS+1] = {
+  "NONE",
   "AUFLIA",
   "AUFLIRA",
   "AUFNIRA",
@@ -61,6 +62,7 @@ static const char* const fragment2string[NUM_ARITH_FRAGMENTS] = {
 static const char* const solver_code2string[NUM_SOLVER_CODES] = {
   "none",
   "default",
+  "auto",
   "simplex",
   "ifw",
   "rfw",
@@ -72,6 +74,7 @@ static const char* const solver_code2string[NUM_SOLVER_CODES] = {
  * Which logics are currently supported
  */
 static const bool logic_is_supported[NUM_SMT_LOGICS] = {
+  true,   // NONE
   false,  // AUFLIA
   false,  // AUFLIRA
   false,  // AUFNIRA
@@ -218,6 +221,7 @@ static void test_logic_configs(ctx_config_t *config) {
 }
 
 
+
 /*
  * Tests of set config
  */
@@ -243,6 +247,7 @@ static void test_set_configs(ctx_config_t *config) {
 
   test_set_config(config, "arith-solver", "default", 0, 0);
   test_set_config(config, "arith-solver", "none", 0, 0);
+  test_set_config(config, "arith-solver", "auto", 0, 0);
   test_set_config(config, "arith-solver", "simplex", 0, 0);
   test_set_config(config, "arith-solver", "ifw", 0, 0);
   test_set_config(config, "arith-solver", "rfw", 0, 0);

@@ -64,6 +64,10 @@ typedef enum solver_code {
   CTX_CONFIG_NONE,            // no solver of that type
   CTX_CONFIG_DEFAULT,         // the default solver of that type
 
+  // special code: if mode=ONECHECK then decide
+  // the solver based on the assertions.
+  CTX_CONFIG_AUTO,
+
   // the next codes are for the arithmetic solver only
   CTX_CONFIG_ARITH_SIMPLEX,   // simplex solver
   CTX_CONFIG_ARITH_IFW,       // integer Floyd-Warshall solver
@@ -147,7 +151,12 @@ extern int32_t config_set_field(ctx_config_t *config, const char *key, const cha
  *    one of the supported architectures (cf. context.h) and if
  *    the solvers all support the requested mode.
  *
- * 2) if config->logic is specified, then solver codes and 
+ * 2) if config->logic is QF_IDL or QF_RDL and mode=ONESHOT 
+ *     and arith solver core is AUTO then we build a context
+ *     with architecture CTX_ARCH_AUTO_IDL or CTX_ARCH_AUTO_RDL.
+ *     The actual solver to chosen on the first call to assert_formulas.
+ *
+ * 3) otherwise, if config->logic is specified, then solver codes and 
  *    arithmetic fragments are ignored.
  *
  * Return code:

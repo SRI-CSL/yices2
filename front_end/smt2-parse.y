@@ -365,6 +365,10 @@ void set_logic(const char *name)
   }
 
   if (config) {
+    // special case for QF_IDL and QF_RDL: use AUTO 
+    if (strcmp(name, "QF_IDL") == 0 || strcmp(name, "QF_RDL") == 0) {
+      yices_set_config(config, "arith-solver", "auto");
+    } 
     yices_set_config(config, "mode", "one-shot");
     context = yices_new_context(config);
     yices_context_enable_option(context, "flatten");    // BD: Force flattening

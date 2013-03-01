@@ -1715,6 +1715,11 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  *                    |                     |
  *                    | "default"           |  same as "simplex"
  *                    |                     |
+ *                    | "auto"              |  same as "simplex" unless mode="one-shot" and
+ *                    |                     |  logic is QF_IDL or QF_RDL, in which case the
+ *                    |                     |  solver is determined after the first call to
+ *                    |                     |  yices_assert_formula(s).
+ *                    |                     |
  *                    | "none"              |  no arithmetic solver
  *   ----------------------------------------------------------------------------------------
  *   "arith-fragment" | "IDL"               |  integer difference logic
@@ -1741,6 +1746,8 @@ __YICES_DLLSPEC__ extern int32_t yices_set_config(ctx_config_t *config, const ch
  *
  * The logic must be given as a string, using the SMT-LIB conventions.
  * Currently, Yices recognizes and supports the following logics:
+ *
+ *   NONE:      no theories (i.e., propositional logic only)
  *
  *   QF_ABV:    arrays and bitvectors
  *   QF_AUFBV:  arrays, bitvectors, uninterpreted functions

@@ -58,6 +58,7 @@ static const int32_t fragment[NUM_ARITH_FRAGMENTS] = {
  * Solver codes
  */
 static const char * const solver_code_names[NUM_SOLVER_CODES] = {
+  "auto",
   "default",
   "ifw",
   "none",
@@ -66,6 +67,7 @@ static const char * const solver_code_names[NUM_SOLVER_CODES] = {
 };
 
 static const int32_t solver_code[NUM_SOLVER_CODES] = {
+  CTX_CONFIG_AUTO,
   CTX_CONFIG_DEFAULT,
   CTX_CONFIG_ARITH_IFW,
   CTX_CONFIG_NONE,
@@ -123,7 +125,7 @@ static const int32_t config_key[NUM_CONFIG_KEYS] = {
  * the Floyd-Warshall solvers don't support all use modes.
  */
 static const int32_t logic2arch[NUM_SMT_LOGICS] = {
-  -1,                  // NONE
+  CTX_ARCH_NOSOLVERS,  // NONE
   -1,                  // AUFLIA
   -1,                  // AUFLIRA
   -1,                  // AUFNIRA
@@ -297,7 +299,7 @@ static int32_t set_solver_code(const char *value, solver_code_t *dest) {
   v = parse_as_keyword(value, solver_code_names, solver_code, NUM_SOLVER_CODES);
   if (v < 0) {
     r = -2;
-  } else if (v >= CTX_CONFIG_ARITH_SIMPLEX) {
+  } else if (v >= CTX_CONFIG_AUTO) {
     r = -3;
   } else {
     assert(v == CTX_CONFIG_DEFAULT || v == CTX_CONFIG_NONE);
@@ -488,6 +490,7 @@ static int32_t arch_add_arith(int32_t a, solver_code_t c) {
     break;
 
   case CTX_CONFIG_DEFAULT:  // simplex is the default
+  case CTX_CONFIG_AUTO:     // auto = simplex here too
   case CTX_CONFIG_ARITH_SIMPLEX:
     a = arch_add_simplex(a);
     break;
@@ -541,6 +544,28 @@ int32_t decode_config(const ctx_config_t *config, context_arch_t *arch,
      * The intended logic is specified
      */
     assert(0 <= logic_code && logic_code < NUM_SMT_LOGICS);
+
+    /*
+     * Special case: difference logic + mode = ONECHECK + arith_config == AUTO
+     */
+    if (config->arith_config == CTX_CONFIG_AUTO && config->mode == CTX_MODE_ONECHECK) {
+      if (logic_code == QF_IDL) {
+	*arch = CTX_ARCH_AUTO_IDL;
+	*mode = CTX_MODE_ONECHECK;
+	*iflag = false;
+	*qflag = false;	
+	goto done;
+      }
+
+      if (logic_code == QF_RDL) {
+	*arch = CTX_ARCH_AUTO_RDL;
+	*mode = CTX_MODE_ONECHECK;
+	*iflag = false;
+	*qflag = false;	
+	goto done;
+      }
+    }
+    
     a = logic2arch[logic_code];
     if (a < 0) {
       // not supported
@@ -552,7 +577,6 @@ int32_t decode_config(const ctx_config_t *config, context_arch_t *arch,
       *qflag = logic2qflag[logic_code];
       *mode = config->mode;
     }
-
   } else {
     /*
      * No logic specified.
@@ -564,7 +588,7 @@ int32_t decode_config(const ctx_config_t *config, context_arch_t *arch,
     if (config->array_config == CTX_CONFIG_DEFAULT) {
       a = arch_add_array(a);
     }
-    if (config->array_config == CTX_CONFIG_DEFAULT) {
+    if (config->bv_config == CTX_CONFIG_DEFAULT) {
       a = arch_add_bv(a);
     }
     a = arch_add_arith(a, config->arith_config);
@@ -584,6 +608,7 @@ int32_t decode_config(const ctx_config_t *config, context_arch_t *arch,
     }
   }
 
+ done:
   return r;
 }
 
