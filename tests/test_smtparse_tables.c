@@ -216,6 +216,14 @@ int main() {
 
   init_smt_stdin_lexer(&lex);
 
+  /*
+   * NOTE: Clang (version 3.2) gives the following warning for s<NSTATES:
+   *
+   *    comparison of constant 64 with expression of type 'state_t'
+   *    (aka 'enum state_s') is always true.
+   * 
+   * It gives no warning for tk<NUM_SMT_TOKENS.
+   */
   for (s=0; s<NSTATES; s++) {
     printf("Source state %s\n", state2string[s]);
     for (tk=SMT_TK_LP; tk<NUM_SMT_TOKENS; tk++) {

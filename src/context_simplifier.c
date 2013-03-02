@@ -2715,6 +2715,43 @@ static void print_constant_set(sym_breaker_t *breaker, rng_record_t *r) {
 
 #endif
 
+/*
+ * Test of collect_constants
+ */
+extern void collect_constants(sym_breaker_t *breaker, term_t t, term_t *c, uint32_t n, ivector_t *v);
+
+static void show_constant_vector(sym_breaker_t *breaker, term_t *c, ivector_t *v) {
+  uint32_t i, j, n;
+
+  n = v->size;
+  for (i=0; i<n; i++) {
+    j = v->data[i];
+    fputc(' ', stdout);
+    print_term(stdout, breaker->terms, c[j]);
+  }
+}
+
+static void test_collect_constants(sym_breaker_t *breaker, rng_record_t *r) {
+  ivector_t v;
+  uint32_t i, n;
+  term_t t;
+
+  init_ivector(&v, 10);
+
+  n = r->num_terms;
+  for (i=0; i<n; i++) {
+    t = r->trm[i];
+    collect_constants(breaker, t, r->cst, r->num_constants, &v);
+    printf("   ");
+    print_term_full(stdout, breaker->terms, t);
+    printf("  --> ");
+    show_constant_vector(breaker, r->cst, &v);
+    printf("\n");
+  }
+  printf("\n");
+
+  delete_ivector(&v);
+}
 
 /*
  * For testing only: to be completed
@@ -2727,7 +2764,7 @@ void break_uf_symmetries(context_t *ctx) {
   init_sym_breaker(&breaker, ctx);
   collect_range_constraints(&breaker);
 #if TRACE_SYM_BREAKING
-  if (true) {
+  if (false) {
     show_range_constraints(&breaker);
   }
 #endif
@@ -2740,12 +2777,12 @@ void break_uf_symmetries(context_t *ctx) {
       printf("Set[%"PRIu32"]:", i);
       print_constant_set(&breaker, v[i]);
       if (check_assertion_invariance(&breaker, v[i])) {
-	printf("  YES\n");
+	printf("  YES\n\n");
+	test_collect_constants(&breaker, v[i]);
       } else {
-	printf("  NO\n");
+	printf("  NO\n\n");
       }
     }
-    printf("\n");
   } else {
     printf("\n*** NO SYMMETRY CANDIDATES ***\n\n");
   }

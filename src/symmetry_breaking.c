@@ -248,7 +248,6 @@ static void push_children(int_queue_t *queue, int_hset_t *cache, composite_term_
   }
 }
 
-
 /*
  * Add last child of c to the queue/cache (for lambda/forall)
  */
@@ -260,6 +259,62 @@ static void push_last_child(int_queue_t *queue, int_hset_t *cache, composite_ter
 }
 
 
+/*
+ * Polynomials and power products
+ */
+static void push_poly_vars(int_queue_t *queue, int_hset_t *cache, polynomial_t *p) {
+  uint32_t i, n;
+
+  n = p->nterms;
+  assert(n > 0);
+
+  i = 0;
+  if (p->mono[i].var == const_idx) { // skip constant
+    i = 1;
+  }
+  while (i<n) {
+    push_term(queue, cache, p->mono[i].var);
+  }
+}
+
+static void push_bvpoly64_vars(int_queue_t *queue, int_hset_t *cache, bvpoly64_t *p) {
+  uint32_t i, n;
+
+  n = p->nterms;
+  assert(n > 0);
+
+  i = 0;
+  if (p->mono[i].var == const_idx) { // skip constant
+    i = 1;
+  }
+  while (i<n) {
+    push_term(queue, cache, p->mono[i].var);
+  }
+}
+
+static void push_bvpoly_vars(int_queue_t *queue, int_hset_t *cache, bvpoly_t *p) {
+  uint32_t i, n;
+
+  n = p->nterms;
+  assert(n > 0);
+
+  i = 0;
+  if (p->mono[i].var == const_idx) { // skip constant
+    i = 1;
+  }
+  while (i<n) {
+    push_term(queue, cache, p->mono[i].var);
+  }
+}
+
+static void push_pprod_vars(int_queue_t *queue, int_hset_t *cache, pprod_t *p) {
+  uint32_t i, n;
+
+  n = p->len;
+  for (i=0; i<n; i++) {
+    push_term(queue, cache, p->prod[i].var);
+  }
+}
 
 
 /*
@@ -486,8 +541,10 @@ static bool sorted_array(term_t *c, uint32_t n) {
 /*
  * Check whether a belongs to array c[0 ... n-1]
  * - c must be sorted in strict increasing order
+ * - return true if a is in the array and store a's position 
+ *   in *j.
  */
-bool constant_is_in_set(term_t a, term_t *c, uint32_t n) {
+bool constant_is_in_set(term_t a, term_t *c, uint32_t n, uint32_t *j) {
   uint32_t l, h, k;
 
   assert(n > 0 && sorted_array(c, n));
@@ -505,13 +562,14 @@ bool constant_is_in_set(term_t a, term_t *c, uint32_t n) {
     }
   }
 
+  *j = k;
   return c[k] == a;
 }
 
 
 /*
  * Collect all constants of c[0 ... n-1] that occur in t
- * - store them in vector v
+ * - store their indices in vector v
  * - side effect: use breaker->queue and breaker->cache
  */
 void collect_constants(sym_breaker_t *breaker, term_t t, term_t *c, uint32_t n, ivector_t *v) {
@@ -520,6 +578,7 @@ void collect_constants(sym_breaker_t *breaker, term_t t, term_t *c, uint32_t n, 
   term_table_t *terms;
   intern_tbl_t *intern;
   term_t r;
+  uint32_t k;
 
   queue = &breaker->queue;
   cache = &breaker->cache;
@@ -543,8 +602,9 @@ void collect_constants(sym_breaker_t *breaker, term_t t, term_t *c, uint32_t n, 
       
     case CONSTANT_TERM:
     case UNINTERPRETED_TERM:
-      if (constant_is_in_set(r, c, n)) {
-	ivector_push(v, r);
+      if (constant_is_in_set(r, c, n, &k)) {
+	assert(0 <= k && k < n && c[k] == r);
+	ivector_push(v, k);
       }
       break;
 
@@ -592,14 +652,23 @@ void collect_constants(sym_breaker_t *breaker, term_t t, term_t *c, uint32_t n, 
 
     case SELECT_TERM:
     case BIT_TERM:
-      push_term(queue, cache, select_for_idx(terms, index_of(t))->arg);
+      push_term(queue, cache, select_for_idx(terms, index_of(r))->arg);
       break;
 
     case POWER_PRODUCT:
+      push_pprod_vars(queue, cache, pprod_term_desc(terms, r));
+      break;
+
     case ARITH_POLY:
+      push_poly_vars(queue, cache, poly_term_desc(terms, r));
+      break;
+
     case BV64_POLY:
+      push_bvpoly64_vars(queue, cache, bvpoly64_term_desc(terms, r));
+      break;
+
     case BV_POLY:
-      // TBD
+      push_bvpoly_vars(queue, cache, bvpoly_term_desc(terms, r));
       break;      
     }
   } while (! int_queue_is_empty(queue));
