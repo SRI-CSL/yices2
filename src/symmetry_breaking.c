@@ -6,6 +6,7 @@
 #include <assert.h>
 
 #include "int_array_sort.h"
+#include "ptr_array_sort2.h"
 #include "memalloc.h"
 #include "symmetry_breaking.h"
 
@@ -19,6 +20,21 @@
 /*
  * RANGE-CONSTRAINT RECORDS
  */
+
+/*
+ * Hash for a set of constants a[0 ... n-1]
+ * - we use index_of(a[i]) since the sign bit of a[i] is 0
+ */
+static uint32_t hash_const_set(term_t *a, uint32_t n) {
+  uint32_t h, i;
+
+  h = 0;
+  for (i=0; i<n; i++) {
+    h |= ((uint32_t) 1) << ((uint32_t) index_of(a[i]) & 0x1f);
+  }
+  return h;
+}
+
 
 /*
  * Initialize r for the set of constants a[0 ... n-1]
@@ -42,6 +58,7 @@ static void init_rng_record(rng_record_t *r, term_t *a, uint32_t n) {
   r->cst = tmp;
   r->trm = (term_t *) safe_malloc(nt * sizeof(term_t));
   r->idx = (uint32_t *) safe_malloc(nt * sizeof(uint32_t));
+  r->hash = hash_const_set(a, n);
   r->num_constants = n;
   r->num_terms = 0;
   r->size = nt;
@@ -207,7 +224,7 @@ static void add_range_constraint(rng_vector_t *v, term_t *a, uint32_t n, term_t 
 /*
  * For breadth-first term exploration we use a queue + cache
  * - terms to be processed are in the queue 
- * - terms already processeed or already in the queue are in cache
+ * - terms already processed or already in the queue are in cache
  */
 
 /*
@@ -230,6 +247,19 @@ static void push_children(int_queue_t *queue, int_hset_t *cache, composite_term_
     push_term(queue, cache, c->arg[i]);
   }
 }
+
+
+/*
+ * Add last child of c to the queue/cache (for lambda/forall)
+ */
+static void push_last_child(int_queue_t *queue, int_hset_t *cache, composite_term_t *c) {
+  uint32_t n;
+
+  n = c->arity;
+  push_term(queue, cache, c->arg[n-1]);
+}
+
+
 
 
 /*
@@ -434,6 +464,149 @@ static term_t formula_is_range_constraint(sym_breaker_t *breaker, term_t f, ivec
   return t;
 }
 
+
+
+
+/*
+ * COLLECT CONSTANTS
+ */
+
+#ifndef NDEBUG
+static bool sorted_array(term_t *c, uint32_t n) {
+  uint32_t i;
+
+  for (i=1; i<n; i++) {
+    if (c[i-1] >= c[i]) return false;
+  }
+  return true;
+}
+#endif
+
+
+/*
+ * Check whether a belongs to array c[0 ... n-1]
+ * - c must be sorted in strict increasing order
+ */
+bool constant_is_in_set(term_t a, term_t *c, uint32_t n) {
+  uint32_t l, h, k;
+
+  assert(n > 0 && sorted_array(c, n));
+
+  l = 0;
+  h = n;
+  for (;;) {
+    k = (l + h)/2;
+    assert(l <= k && k < h);
+    if (k == l) break; 
+    if (a < c[k]) {
+      h = k;
+    } else {
+      l = k;
+    }
+  }
+
+  return c[k] == a;
+}
+
+
+/*
+ * Collect all constants of c[0 ... n-1] that occur in t
+ * - store them in vector v
+ * - side effect: use breaker->queue and breaker->cache
+ */
+void collect_constants(sym_breaker_t *breaker, term_t t, term_t *c, uint32_t n, ivector_t *v) {
+  int_queue_t *queue;
+  int_hset_t *cache;
+  term_table_t *terms;
+  intern_tbl_t *intern;
+  term_t r;
+
+  queue = &breaker->queue;
+  cache = &breaker->cache;
+  terms = breaker->terms;
+  intern = &breaker->ctx->intern;
+
+  ivector_reset(v);
+
+  assert(int_queue_is_empty(queue) && int_hset_is_empty(cache));
+  push_term(queue, cache, t);
+
+  do {
+    // r := root of the first term in the queue
+    r = intern_tbl_get_root(intern, int_queue_pop(queue)); 
+    switch (term_kind(terms, r)) {
+    case UNUSED_TERM:
+    case RESERVED_TERM:
+      assert(false);
+      abort();
+      break;
+      
+    case CONSTANT_TERM:
+    case UNINTERPRETED_TERM:
+      if (constant_is_in_set(r, c, n)) {
+	ivector_push(v, r);
+      }
+      break;
+
+    case ARITH_CONSTANT:
+    case BV64_CONSTANT:
+    case BV_CONSTANT:
+    case VARIABLE:
+      // ignore it
+      break;
+
+    case ARITH_EQ_ATOM:
+    case ARITH_GE_ATOM:
+      push_term(queue, cache, arith_atom_arg(terms, r));
+      break;
+      
+    case ITE_TERM:
+    case ITE_SPECIAL:
+    case APP_TERM:
+    case UPDATE_TERM:
+    case TUPLE_TERM:
+    case EQ_TERM:
+    case DISTINCT_TERM:
+    case OR_TERM:
+    case XOR_TERM:
+    case ARITH_BINEQ_ATOM:
+    case BV_ARRAY:
+    case BV_DIV:
+    case BV_REM:
+    case BV_SDIV:
+    case BV_SREM:
+    case BV_SMOD:
+    case BV_SHL:
+    case BV_LSHR:
+    case BV_ASHR:
+    case BV_EQ_ATOM:
+    case BV_GE_ATOM:
+    case BV_SGE_ATOM:
+      push_children(queue, cache, composite_term_desc(terms, r));
+      break;
+
+    case FORALL_TERM:
+    case LAMBDA_TERM:
+      push_last_child(queue, cache, composite_term_desc(terms, r));
+      break;
+
+    case SELECT_TERM:
+    case BIT_TERM:
+      push_term(queue, cache, select_for_idx(terms, index_of(t))->arg);
+      break;
+
+    case POWER_PRODUCT:
+    case ARITH_POLY:
+    case BV64_POLY:
+    case BV_POLY:
+      // TBD
+      break;      
+    }
+  } while (! int_queue_is_empty(queue));
+
+  int_queue_reset(queue);
+  int_hset_reset(cache);
+}
 
 
 
@@ -869,10 +1042,7 @@ static bool check_perm_invariance(context_t *ctx, ctx_subst_t *s, term_t *c, uin
 
   assert(n >= 2);
 
-  /*
-   * this sum can't overflow because vector sizes are at most MAX_IVECTOR_SIZE
-   * (i.e., UINT32_MAX/8).
-   */
+  // this sum can't overflow because vector sizes are at most MAX_IVECTOR_SIZE (i.e., UINT32_MAX/8).
   m = ctx->top_eqs.size + ctx->top_atoms.size + ctx->top_formulas.size;
   b = (term_t *) safe_malloc(m * sizeof(term_t));
 
@@ -880,7 +1050,7 @@ static bool check_perm_invariance(context_t *ctx, ctx_subst_t *s, term_t *c, uin
 
   code = setjmp(s->env);
   if (code == 0) {
-    // empty substituion = normalize the assertions
+    // empty substitution = normalize the assertions
     reset_ctx_subst(s);
     ctx_subst_assertions(s, ctx, b);
     norm1 = mk_and(&s->mngr, m, b);
@@ -909,7 +1079,7 @@ static bool check_perm_invariance(context_t *ctx, ctx_subst_t *s, term_t *c, uin
 
 #if TRACE
     printf("perm invariance: norm3\n");
-    pretty_print_term_full(stdout, NULL, ctx->terms, norm2);
+    pretty_print_term_full(stdout, NULL, ctx->terms, norm3);
 #endif
 
     result = (norm1 == norm3);
@@ -937,6 +1107,8 @@ void init_sym_breaker(sym_breaker_t *breaker, context_t *ctx) {
   breaker->ctx = ctx;
   breaker->terms = ctx->terms;
   init_rng_vector(&breaker->range_constraints);
+  breaker->sorted_constraints = NULL;
+  breaker->num_constraints = 0;
   init_int_queue(&breaker->queue, 0);
   init_int_hset(&breaker->cache, 0);
   init_ivector(&breaker->aux, 10);
@@ -948,9 +1120,38 @@ void init_sym_breaker(sym_breaker_t *breaker, context_t *ctx) {
  */
 void delete_sym_breaker(sym_breaker_t *breaker) {
   delete_rng_vector(&breaker->range_constraints);
-  delete_int_queue(&breaker->queue);
+  safe_free(breaker->sorted_constraints);
+  delete_int_queue(&breaker->queue); 
   delete_int_hset(&breaker->cache);
   delete_ivector(&breaker->aux);
+}
+
+
+/*
+ * Build the sorted array of constraints
+ */
+// ordering: r1 > r2  if r1->num_cst > r2->num_cst
+static bool gt_cnstr(void *aux, void *x, void *y) {
+  return ((rng_record_t *) x)->num_constants > ((rng_record_t *) y)->num_constants;
+}
+
+static void sort_range_constraints(sym_breaker_t *breaker) {
+  uint32_t i, n;
+  rng_record_t **tmp;
+
+  assert(breaker->sorted_constraints == NULL && breaker->num_constraints == 0);
+
+  n = breaker->range_constraints.nelems;
+  if (n > 0) {
+    tmp = (rng_record_t **) safe_malloc(n * sizeof(rng_record_t *));
+    for (i=0; i<n; i++) {
+      tmp[i] = breaker->range_constraints.data + i;
+    }
+    ptr_array_sort2((void **) tmp, n, NULL, gt_cnstr);
+
+    breaker->sorted_constraints = tmp;
+    breaker->num_constraints = n;
+  }
 }
 
 
@@ -975,7 +1176,11 @@ void collect_range_constraints(sym_breaker_t *breaker) {
       add_range_constraint(&breaker->range_constraints, v->data, v->size, t, i);
     }
   }
+
+  sort_range_constraints(breaker);
 }
+
+
 
 
 /*
@@ -992,3 +1197,5 @@ bool check_assertion_invariance(sym_breaker_t *breaker, rng_record_t *r) {
 
   return result;
 }
+
+

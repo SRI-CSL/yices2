@@ -2676,7 +2676,7 @@ static void pp_constraints(yices_pp_t *pp, sym_breaker_t *breaker, rng_record_t 
 static void show_range_constraints(sym_breaker_t *breaker) {
   yices_pp_t pp;
   pp_area_t area;
-  rng_vector_t *v;
+  rng_record_t **v;
   uint32_t i, n;
 
   area.width = 150;
@@ -2686,16 +2686,16 @@ static void show_range_constraints(sym_breaker_t *breaker) {
   area.truncate = true;
   init_default_yices_pp(&pp, stdout, &area);
 
-  v = &breaker->range_constraints;
-  n = v->nelems;
+  v = breaker->sorted_constraints;
+  n = breaker->num_constraints;
   for (i=0; i<n; i++) {
     pp_open_block(&pp, PP_OPEN);
     pp_string(&pp, "Range constraints for set: ");
-    show_constant_set(&pp, breaker->terms, v->data + i);
+    show_constant_set(&pp, breaker->terms, v[i]);
     pp_close_block(&pp, false);
     flush_yices_pp(&pp);
     flush_yices_pp(&pp);
-    pp_constraints(&pp, breaker, v->data + i);
+    pp_constraints(&pp, breaker, v[i]);
   }
 
   delete_yices_pp(&pp);
@@ -2721,28 +2721,33 @@ static void print_constant_set(sym_breaker_t *breaker, rng_record_t *r) {
  */
 void break_uf_symmetries(context_t *ctx) {
   sym_breaker_t breaker;
-  rng_vector_t *v;
+  rng_record_t **v;
   uint32_t i, n;
 
   init_sym_breaker(&breaker, ctx);
   collect_range_constraints(&breaker);
 #if TRACE_SYM_BREAKING
-  if (false) {
+  if (true) {
     show_range_constraints(&breaker);
   }
 #endif
 
-  printf("\n*** CHECKING SYMMETRY CANDIDATES ***\n\n");
-  v = &breaker.range_constraints;
-  n = v->nelems;
-  for (i=0; i<n; i++) {
-    printf("Set[%"PRIu32"]:", i);
-    print_constant_set(&breaker, v->data + i);
-    if (check_assertion_invariance(&breaker, v->data + i)) {
-      printf("  YES\n");
-    } else {
-      printf("  NO\n");
+  v = breaker.sorted_constraints;
+  n = breaker.num_constraints;
+  if (n > 0) {
+    printf("\n*** CHECKING SYMMETRY CANDIDATES ***\n\n");
+    for (i=0; i<n; i++) {
+      printf("Set[%"PRIu32"]:", i);
+      print_constant_set(&breaker, v[i]);
+      if (check_assertion_invariance(&breaker, v[i])) {
+	printf("  YES\n");
+      } else {
+	printf("  NO\n");
+      }
     }
+    printf("\n");
+  } else {
+    printf("\n*** NO SYMMETRY CANDIDATES ***\n\n");
   }
 
   delete_sym_breaker(&breaker);

@@ -23,10 +23,10 @@
  */
 
 /*
- * - an assertion f is a range constraint if it's equivalent to
- *   a formula of the form (or (= t c_1) .... (= t c_n))
- * - where c_1 ... c_n are distinct uninterpreted constants
- *   and t is a term.
+ * An assertion f is a range constraint if it's equivalent to
+ * a formula of the form (or (= t c_1) .... (= t c_n))
+ * where c_1 ... c_n are distinct uninterpreted constants
+ * and t is a term.
  *
  * We collect such assertions into an array of range-constraint records:
  * - each record stores the terms [c1 ... c_n]
@@ -34,6 +34,11 @@
  * - for each index i_j in { i_1 ,.... i_m } we have
  *   assertion ctx->top_formula[i_j] is a range constraint 
  *   equivalent to (or (= t_j c1) .... (= t_j c_n))
+ *
+ * We want to be able to check inclusion between sets of constants in
+ * different constraints. To accelerate this, we store a 32bit hash
+ * used as a bit map:
+ * - bit i of hash is 1 if there's a constant c_j such that (c_j mod 32) = i
  */
 
 /*
@@ -42,6 +47,7 @@
  * - trm[0 ... nt - 1] = the terms
  *   idx[0 ... nt - 1] = the corresponding indices
  * - num_constants = nc number of constants
+ * - hash = bit map
  * - num_terms = nt = number of terms
  *   size = size of arrays trm and idx
  * The constants in cst are sorted (in increasing order).
@@ -49,8 +55,9 @@
 typedef struct rng_record_s {
   term_t *cst;
   term_t *trm;
-  uint32_t *idx;
+  uint32_t *idx;  
   uint32_t num_constants;
+  uint32_t hash;
   uint32_t num_terms;
   uint32_t size;
 } rng_record_t;
@@ -119,21 +126,25 @@ typedef struct ctx_subst_s {
  * Symmetry breaker
  * - pointers to the relevant context + term table
  * - vector of range constraint descriptors 
+ * - substitution
  * - auxiliary structures to explore terms
  */
 typedef struct sym_breaker_s {
   context_t *ctx;
   term_table_t *terms;
+
+  // vector of range_constraints
   rng_vector_t range_constraints;
+
+  // array for sorting and removing subsumed constraints
+  rng_record_t **sorted_constraints;
+  uint32_t num_constraints; // size of this array
 
   // auxiliary structures
   int_queue_t queue;
   int_hset_t cache;
   ivector_t aux;
 } sym_breaker_t;
-
-
-
 
 
 
