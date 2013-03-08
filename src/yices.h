@@ -571,7 +571,6 @@ __YICES_DLLSPEC__ extern term_t yices_update(term_t fun, uint32_t n, term_t arg[
 __YICES_DLLSPEC__ extern term_t yices_distinct(uint32_t n, term_t arg[]);
 
 
-
 /*
  * Quantified terms
  *  (forall (var[0] ... var[n-1]) body)
@@ -602,7 +601,6 @@ __YICES_DLLSPEC__ extern term_t yices_distinct(uint32_t n, term_t arg[]);
  */
 __YICES_DLLSPEC__ extern term_t yices_forall(uint32_t n, term_t var[], term_t body);
 __YICES_DLLSPEC__ extern term_t yices_exists(uint32_t n, term_t var[], term_t body);
-
 
 
 /*
@@ -775,7 +773,6 @@ __YICES_DLLSPEC__ extern term_t yices_sum(uint32_t n, term_t t[]);
  *   badval = degree
  */
 __YICES_DLLSPEC__ extern term_t yices_product(uint32_t n, term_t t[]);
-
 
 
 /*
