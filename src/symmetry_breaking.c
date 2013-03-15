@@ -17,6 +17,7 @@
 #endif
 
 
+
 /*
  * RANGE-CONSTRAINT RECORDS
  */
@@ -134,6 +135,37 @@ static bool rng_record_match(rng_record_t *r, term_t *a, uint32_t n) {
 
 
 
+/*
+ * Check whether r1's constant set is strictly included in r2's constant set
+ */
+bool range_record_subset(rng_record_t *r1, rng_record_t *r2) {
+  uint32_t i, j, n1, n2;
+  term_t c;
+
+  n1 = r1->num_constants;
+  n2 = r2->num_constants;
+
+  if ((r1->hash & ~r2->hash) == 0 && n1 < n2) {
+    i = 0;
+    j = 0;
+
+    while (i < n1) {
+      c = r1->cst[i];
+      i ++;
+      while (j < n2 && r2->cst[j] < c) j++;
+      if (j == n2 || r2->cst[j] > c) goto not_subset;
+      assert(r2->cst[j] == c);
+      j ++;
+    }
+
+    return true;
+  }
+
+ not_subset:
+  return false;
+}
+
+
 
 /*
  * ARRAY OF RANGE-CONSTRAINT RECORDS
@@ -214,6 +246,7 @@ static void add_range_constraint(rng_vector_t *v, term_t *a, uint32_t n, term_t 
   rng_record_add(v->data + i, t, id);
   v->nelems = i+1;
 }
+
 
 
 
@@ -520,162 +553,6 @@ static term_t formula_is_range_constraint(sym_breaker_t *breaker, term_t f, ivec
 }
 
 
-
-
-/*
- * COLLECT CONSTANTS
- */
-
-#ifndef NDEBUG
-static bool sorted_array(term_t *c, uint32_t n) {
-  uint32_t i;
-
-  for (i=1; i<n; i++) {
-    if (c[i-1] >= c[i]) return false;
-  }
-  return true;
-}
-#endif
-
-
-/*
- * Check whether a belongs to array c[0 ... n-1]
- * - c must be sorted in strict increasing order
- * - return true if a is in the array and store a's position 
- *   in *j.
- */
-bool constant_is_in_set(term_t a, term_t *c, uint32_t n, uint32_t *j) {
-  uint32_t l, h, k;
-
-  assert(n > 0 && sorted_array(c, n));
-
-  l = 0;
-  h = n;
-  for (;;) {
-    k = (l + h)/2;
-    assert(l <= k && k < h);
-    if (k == l) break; 
-    if (a < c[k]) {
-      h = k;
-    } else {
-      l = k;
-    }
-  }
-
-  *j = k;
-  return c[k] == a;
-}
-
-
-/*
- * Collect all constants of c[0 ... n-1] that occur in t
- * - store their indices in vector v
- * - side effect: use breaker->queue and breaker->cache
- */
-void collect_constants(sym_breaker_t *breaker, term_t t, term_t *c, uint32_t n, ivector_t *v) {
-  int_queue_t *queue;
-  int_hset_t *cache;
-  term_table_t *terms;
-  intern_tbl_t *intern;
-  term_t r;
-  uint32_t k;
-
-  queue = &breaker->queue;
-  cache = &breaker->cache;
-  terms = breaker->terms;
-  intern = &breaker->ctx->intern;
-
-  ivector_reset(v);
-
-  assert(int_queue_is_empty(queue) && int_hset_is_empty(cache));
-  push_term(queue, cache, t);
-
-  do {
-    // r := root of the first term in the queue
-    r = intern_tbl_get_root(intern, int_queue_pop(queue)); 
-    switch (term_kind(terms, r)) {
-    case UNUSED_TERM:
-    case RESERVED_TERM:
-      assert(false);
-      abort();
-      break;
-      
-    case CONSTANT_TERM:
-    case UNINTERPRETED_TERM:
-      if (constant_is_in_set(r, c, n, &k)) {
-	assert(0 <= k && k < n && c[k] == r);
-	ivector_push(v, k);
-      }
-      break;
-
-    case ARITH_CONSTANT:
-    case BV64_CONSTANT:
-    case BV_CONSTANT:
-    case VARIABLE:
-      // ignore it
-      break;
-
-    case ARITH_EQ_ATOM:
-    case ARITH_GE_ATOM:
-      push_term(queue, cache, arith_atom_arg(terms, r));
-      break;
-      
-    case ITE_TERM:
-    case ITE_SPECIAL:
-    case APP_TERM:
-    case UPDATE_TERM:
-    case TUPLE_TERM:
-    case EQ_TERM:
-    case DISTINCT_TERM:
-    case OR_TERM:
-    case XOR_TERM:
-    case ARITH_BINEQ_ATOM:
-    case BV_ARRAY:
-    case BV_DIV:
-    case BV_REM:
-    case BV_SDIV:
-    case BV_SREM:
-    case BV_SMOD:
-    case BV_SHL:
-    case BV_LSHR:
-    case BV_ASHR:
-    case BV_EQ_ATOM:
-    case BV_GE_ATOM:
-    case BV_SGE_ATOM:
-      push_children(queue, cache, composite_term_desc(terms, r));
-      break;
-
-    case FORALL_TERM:
-    case LAMBDA_TERM:
-      push_last_child(queue, cache, composite_term_desc(terms, r));
-      break;
-
-    case SELECT_TERM:
-    case BIT_TERM:
-      push_term(queue, cache, select_for_idx(terms, index_of(r))->arg);
-      break;
-
-    case POWER_PRODUCT:
-      push_pprod_vars(queue, cache, pprod_term_desc(terms, r));
-      break;
-
-    case ARITH_POLY:
-      push_poly_vars(queue, cache, poly_term_desc(terms, r));
-      break;
-
-    case BV64_POLY:
-      push_bvpoly64_vars(queue, cache, bvpoly64_term_desc(terms, r));
-      break;
-
-    case BV_POLY:
-      push_bvpoly_vars(queue, cache, bvpoly_term_desc(terms, r));
-      break;      
-    }
-  } while (! int_queue_is_empty(queue));
-
-  int_queue_reset(queue);
-  int_hset_reset(cache);
-}
 
 
 
@@ -1164,6 +1041,579 @@ static bool check_perm_invariance(context_t *ctx, ctx_subst_t *s, term_t *c, uin
 
 
 
+
+
+/*
+ * SETS OF CONSTANTS AND CANDIDATES
+ */
+
+/*
+ * Initialization: don't allocate anything yet.
+ */
+static void init_sym_breaker_sets(sym_breaker_sets_t *s) {
+  s->cst = NULL;
+  s->used_cst = NULL;
+  s->num_cst = 0;
+  s->num_used = 0;
+  s->cst_size = 0;
+
+  s->candidates = NULL;
+  s->num_candidates = 0;
+  s->candidate_size = 0;
+}
+
+
+/*
+ * Make cst and used_cst large enough for n elements
+ */
+static void resize_constant_sets(sym_breaker_sets_t *s, uint32_t n) {
+  assert(n <= MAX_SBREAK_SET_SIZE);
+
+  if (s->cst_size < n) {
+    s->cst = (term_t *) safe_realloc(s->cst, n * sizeof(term_t));
+    s->used_cst = (term_t *) safe_realloc(s->used_cst, n * sizeof(term_t));
+    s->cst_size = n;
+  }
+}
+
+/*
+ * Make the candidate array large enough for n elements
+ */
+static void resize_candidate_set(sym_breaker_sets_t *s, uint32_t n) {
+  assert(n <= MAX_SBREAK_SET_SIZE);
+
+  if (s->candidate_size < n) {
+    s->candidates = (term_t *) safe_realloc(s->candidates, n * sizeof(term_t));
+    s->candidate_size = n;
+  }
+}
+
+
+/*
+ * Free everything
+ */
+static void delete_sym_breaker_sets(sym_breaker_sets_t *s) {
+  safe_free(s->cst);
+  safe_free(s->used_cst);
+  safe_free(s->candidates);
+  s->cst = NULL;
+  s->used_cst = NULL;
+  s->candidates = NULL;
+}
+
+
+/*
+ * Copy array of constants c[0 ... n-1] into s
+ * - c must be sorted
+ * - c is stored in s->cst
+ * - used_cst is reset
+ */
+static void copy_constant_set(sym_breaker_sets_t *s, term_t *c, uint32_t n) {
+  uint32_t i;
+
+  resize_constant_sets(s, n);
+  for (i=0; i<n; i++) {
+    s->cst[i] = c[i];    
+  }
+  s->num_cst = n;
+  s->num_used = 0;
+}
+
+
+/*
+ * Copy array of candidates t[0 ... n-1] into s
+ */
+static void copy_candidate_set(sym_breaker_sets_t *s, term_t *t, uint32_t n) {
+  uint32_t i;
+
+  resize_candidate_set(s, n);
+  for (i=0; i<n; i++) {
+    s->candidates[i] = t[i];
+  }
+  s->num_candidates = n;
+}
+
+
+/*
+ * Add more candidates
+ */
+static void add_candidate_set(sym_breaker_sets_t *s, term_t *t, uint32_t n) {
+  uint32_t i, new_size;
+  term_t *d;
+
+  assert(n <= MAX_SBREAK_SET_SIZE);
+
+  new_size = n + s->candidate_size;
+  if (new_size > MAX_SBREAK_SET_SIZE) {
+    out_of_memory();
+  }
+  resize_candidate_set(s, new_size);
+  d = s->candidates + s->num_candidates;
+  for (i=0; i<n; i++) {
+    d[i] = t[i];
+  }
+  s->num_candidates = new_size;
+}
+
+
+/*
+ * Remove s->candidates[i] from the set
+ */
+static void remove_candidate(sym_breaker_sets_t *s, uint32_t i) {
+  uint32_t j;
+
+  assert(0 <= i && i < s->num_candidates);
+  j = s->num_candidates - 1;
+  if (i < j) {
+    // move last element into position i
+    s->candidates[i] = s->candidates[j];
+  }
+  s->num_candidates = j;
+}
+
+
+/*
+ * Add t to the set of used constants
+ */
+static void add_used_constant(sym_breaker_sets_t *s, term_t t) {
+  uint32_t i;
+
+  assert(0 <= t);
+  i = s->num_used;
+  s->used_cst[i] = t;
+  s->num_used = i+1;
+}
+
+
+/*
+ * Mark constants from s->cst as not usable
+ * - a = array of n distinct indices
+ * - a[i] must be an index between 0 and s->num_cst
+ * - s->cst[a[i]] is marked (replaced by its negation)
+ */
+static void mark_constants(sym_breaker_sets_t *s, int32_t *a, uint32_t n) {
+  uint32_t i;
+  int32_t j;
+  term_t c;
+
+  for (i=0; i<n; i++) {
+    j = a[i];
+    assert(0 <= j && j < s->num_cst);
+    c = s->cst[j];
+    assert(c > 0); // term 0 is reserved and should never occur in s->cst
+    s->cst[j] = -c;
+  }
+}
+
+
+/*
+ * Remove the marked constants from s->cst and move them into s->used_cst
+ */
+static void move_marked_constants(sym_breaker_sets_t *s) {
+  uint32_t i, j, n;
+  term_t c;
+
+  n = s->num_cst;
+  j = 0;
+  for (i=0; i<n; i++) {
+    c = s->cst[i];
+    if (c > 0) {
+      // not marked: keep c in cst
+      s->cst[j] = c;
+      j ++;
+    } else {
+      // marked: move -c to used_cst
+      assert(c < 0);
+      add_used_constant(s, -c);
+    }
+  }
+
+  s->num_cst = j;
+}
+
+
+/*
+ * Clear the marks
+ */
+static void clear_constant_marks(sym_breaker_sets_t *s) {
+  uint32_t i, n;
+  term_t c;
+
+  n = s->num_cst;
+  for (i=0; i<n; i++) {
+    c = s->cst[i];
+    if (c < 0) {
+      s->cst[i] = -c;
+    }
+  }
+}
+
+
+
+
+
+/*
+ * COLLECT CONSTANTS IN TERMS
+ */
+
+#ifndef NDEBUG
+static bool sorted_array(term_t *c, uint32_t n) {
+  uint32_t i;
+
+  for (i=1; i<n; i++) {
+    if (c[i-1] >= c[i]) return false;
+  }
+  return true;
+}
+#endif
+
+
+/*
+ * Check whether a belongs to array c[0 ... n-1]
+ * - c must be sorted in strict increasing order
+ * - return true if a is in the array and store a's position 
+ *   in *j.
+ */
+static bool constant_is_in_set(term_t a, term_t *c, uint32_t n, uint32_t *j) {
+  uint32_t l, h, k;
+
+  assert(n > 0 && sorted_array(c, n));
+
+  l = 0;
+  h = n;
+  for (;;) {
+    k = (l + h)/2;
+    assert(l <= k && k < h);
+    if (k == l) break; 
+    if (a < c[k]) {
+      h = k;
+    } else {
+      l = k;
+    }
+  }
+
+  *j = k;
+  return c[k] == a;
+}
+
+
+/*
+ * Collect all constants of c[0 ... n-1] that occur in t
+ * - store their indices in vector v
+ * - side effect: use breaker->queue and breaker->cache
+ */
+static void collect_constants(sym_breaker_t *breaker, term_t t, term_t *c, uint32_t n, ivector_t *v) {
+  int_queue_t *queue;
+  int_hset_t *cache;
+  term_table_t *terms;
+  intern_tbl_t *intern;
+  term_t r;
+  uint32_t k;
+
+  queue = &breaker->queue;
+  cache = &breaker->cache;
+  terms = breaker->terms;
+  intern = &breaker->ctx->intern;
+
+  ivector_reset(v);
+
+  assert(int_queue_is_empty(queue) && int_hset_is_empty(cache));
+  push_term(queue, cache, t);
+
+  do {
+    // r := root of the first term in the queue
+    r = intern_tbl_get_root(intern, int_queue_pop(queue)); 
+    switch (term_kind(terms, r)) {
+    case UNUSED_TERM:
+    case RESERVED_TERM:
+      assert(false);
+      abort();
+      break;
+      
+    case CONSTANT_TERM:
+    case UNINTERPRETED_TERM:
+      if (constant_is_in_set(r, c, n, &k)) {
+	assert(0 <= k && k < n && c[k] == r);
+	ivector_push(v, k);
+      }
+      break;
+
+    case ARITH_CONSTANT:
+    case BV64_CONSTANT:
+    case BV_CONSTANT:
+    case VARIABLE:
+      // ignore it
+      break;
+
+    case ARITH_EQ_ATOM:
+    case ARITH_GE_ATOM:
+      push_term(queue, cache, arith_atom_arg(terms, r));
+      break;
+      
+    case ITE_TERM:
+    case ITE_SPECIAL:
+    case APP_TERM:
+    case UPDATE_TERM:
+    case TUPLE_TERM:
+    case EQ_TERM:
+    case DISTINCT_TERM:
+    case OR_TERM:
+    case XOR_TERM:
+    case ARITH_BINEQ_ATOM:
+    case BV_ARRAY:
+    case BV_DIV:
+    case BV_REM:
+    case BV_SDIV:
+    case BV_SREM:
+    case BV_SMOD:
+    case BV_SHL:
+    case BV_LSHR:
+    case BV_ASHR:
+    case BV_EQ_ATOM:
+    case BV_GE_ATOM:
+    case BV_SGE_ATOM:
+      push_children(queue, cache, composite_term_desc(terms, r));
+      break;
+
+    case FORALL_TERM:
+    case LAMBDA_TERM:
+      push_last_child(queue, cache, composite_term_desc(terms, r));
+      break;
+
+    case SELECT_TERM:
+    case BIT_TERM:
+      push_term(queue, cache, select_for_idx(terms, index_of(r))->arg);
+      break;
+
+    case POWER_PRODUCT:
+      push_pprod_vars(queue, cache, pprod_term_desc(terms, r));
+      break;
+
+    case ARITH_POLY:
+      push_poly_vars(queue, cache, poly_term_desc(terms, r));
+      break;
+
+    case BV64_POLY:
+      push_bvpoly64_vars(queue, cache, bvpoly64_term_desc(terms, r));
+      break;
+
+    case BV_POLY:
+      push_bvpoly_vars(queue, cache, bvpoly_term_desc(terms, r));
+      break;      
+    }
+  } while (! int_queue_is_empty(queue));
+
+  int_queue_reset(queue);
+  int_hset_reset(cache);
+}
+
+
+
+
+
+/*
+ * SYMMETRY-BREAKING CLAUSES
+ */
+
+/*
+ * Build the equality term: (= t c)
+ */
+static term_t make_aux_eq(term_table_t *terms, term_t t, term_t c) {
+  term_t aux;
+
+  if (t > c) {
+    // normalize (cf. term_manager.c)
+    aux = t; t = c; c = aux;
+  }
+  assert(t < c);
+  return eq_term(terms, t, c);
+}
+
+
+
+/*
+ * Add the clause (or (= t c[0]) .... (= t c[n-1]))
+ * - t and all elements of c must be root terms in ctx->intern
+ * - n must be positive
+ * - the terms (= t c[i]) must not simplify to false
+ *
+ * Side effect: uses break->aux
+ *
+ * Precaution: if (or (= t c[0]) ... (= t c[n-1])) is already
+ * internalized, we do nothing to make sure we're doing something
+ * sound.
+ */
+static void add_symmetry_breaking_clause(sym_breaker_t *breaker, term_t t, term_t *c, uint32_t n) {
+  term_table_t *terms;
+  context_t *ctx;
+  intern_tbl_t *intern;
+  ivector_t *v;
+  term_t eq, or;
+  uint32_t i;
+
+  terms = breaker->terms;
+  ctx = breaker->ctx;
+  intern = &ctx->intern;
+
+  assert(intern_tbl_is_root(intern, t));
+
+  if (n == 1) {
+    /*
+     * special case: we add (= t c[0]) as a toplevel equality
+     */
+    eq = make_aux_eq(terms, t, c[0]);
+    assert(intern_tbl_is_root(intern, eq) && !term_is_false(ctx, eq));
+
+    if (! intern_tbl_root_is_mapped(intern, eq)) {
+      // mark that eq is true and add it to top_eqs
+      intern_tbl_map_root(intern, eq, bool2code(true));
+      ivector_push(&ctx->top_eqs, eq);
+    }
+    
+  } else {
+    v = &breaker->aux;
+    assert(v->size == 0);
+
+    for (i=0; i<n; i++) {
+      assert(intern_tbl_is_root(intern, c[i]));
+      eq = make_aux_eq(terms, t, c[i]);
+      assert(intern_tbl_is_root(intern, eq) && 
+	     !term_is_false(ctx, eq) &&
+	     !intern_tbl_root_is_mapped(intern, eq));
+
+      ivector_push(v, eq);
+    }
+
+
+    /*
+     * build (or v->data[0] ... v->data[n])
+     * add it as a top-level formula
+     */
+    int_array_sort(v->data, n);
+    or = or_term(terms, n, v->data);
+    assert(intern_tbl_is_root(intern, or) && !term_is_false(ctx, or));
+
+    if (! intern_tbl_root_is_mapped(intern, or)) {
+      intern_tbl_map_root(intern, or, bool2code(true));
+      ivector_push(&ctx->top_formulas, or);
+    }
+
+    ivector_reset(v);
+  }
+
+}
+
+
+
+/*
+ * Select a suitable term for symmetry breaking in s->candidates
+ * then remove t from the candidate set.
+ * - return NULL_TERM if nothing is found
+ *
+ * TODO: use some heuristic to find the "best" one
+ */
+static term_t select_candidate(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
+  uint32_t i;
+  term_t t;
+
+  if (s->num_candidates == 0) {
+    return NULL_TERM;
+  }
+
+  // just for testing: pick the middle term
+  i = s->num_candidates >> 1;
+  t = s->candidates[i];
+  remove_candidate(s, i);
+
+  return t;
+}
+
+
+
+/*
+ * Check whether term (= t c) is false
+ */
+static bool aux_eq_is_false(sym_breaker_t *breaker, term_t t, term_t c) {
+  term_t eq;
+
+  eq = make_aux_eq(breaker->terms, t, c);
+  return term_is_false(breaker->ctx, eq);
+}
+
+
+/*
+ * Search for an unmarked constant c in s->cst such that (eq t c) is not false
+ * - return the constant index in s->cst or -1 if nothing is found
+ * - if a constant is found, mark it
+ */
+static int32_t select_constant_for_term(sym_breaker_t *breaker, sym_breaker_sets_t *s, term_t t) {
+  uint32_t i;
+  term_t c;
+
+  i = s->num_cst;
+  while (i > 0) {
+    i --;
+    c = s->cst[i];
+    if (c > 0 && !aux_eq_is_false(breaker, t, c)) { // found
+      s->cst[i] = -c;
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+
+/*
+ * Attempt to add a symmetry-breaking clause for term t
+ * - update the set of constants/used constants
+ * - side effect: use breaker->aux
+ */
+static void break_symmetries_for_term(sym_breaker_t *breaker, sym_breaker_sets_t *s, term_t t) {
+  ivector_t *v;
+  int32_t k;
+
+  v = &breaker->aux;
+  collect_constants(breaker, t, s->cst, s->num_cst, v);
+  mark_constants(s, v->data, v->size);
+  ivector_reset(v);
+
+  k = select_constant_for_term(breaker, s, t);
+  if (k >= 0) {
+    // success: found a usable constant
+    assert(k < s->num_cst && s->cst[k] < 0);
+    move_marked_constants(s); // all marked constants are now in s->used_cst
+    add_symmetry_breaking_clause(breaker, t, s->used_cst, s->num_used);
+  } else {
+    // cleanup: clear the marks
+    clear_constant_marks(s);
+  }
+}
+
+
+
+/*
+ * Break symmetries based on constant and candidate sets s
+ */
+void break_symmetries(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
+  term_t t;
+
+  while (s->num_cst > 0) {
+    t = select_candidate(breaker, s);
+    if (t == NULL_TERM) break; // no candidates
+    break_symmetries_for_term(breaker, s, t);
+  }
+}
+
+
+
+
+
+
+
+
+
+
 /*
  * SYMMETRY BREAKER
  */
@@ -1178,6 +1628,7 @@ void init_sym_breaker(sym_breaker_t *breaker, context_t *ctx) {
   init_rng_vector(&breaker->range_constraints);
   breaker->sorted_constraints = NULL;
   breaker->num_constraints = 0;
+  init_sym_breaker_sets(&breaker->sets);
   init_int_queue(&breaker->queue, 0);
   init_int_hset(&breaker->cache, 0);
   init_ivector(&breaker->aux, 10);
@@ -1190,6 +1641,7 @@ void init_sym_breaker(sym_breaker_t *breaker, context_t *ctx) {
 void delete_sym_breaker(sym_breaker_t *breaker) {
   delete_rng_vector(&breaker->range_constraints);
   safe_free(breaker->sorted_constraints);
+  delete_sym_breaker_sets(&breaker->sets);
   delete_int_queue(&breaker->queue); 
   delete_int_hset(&breaker->cache);
   delete_ivector(&breaker->aux);
@@ -1265,6 +1717,24 @@ bool check_assertion_invariance(sym_breaker_t *breaker, rng_record_t *r) {
   delete_ctx_subst(&subst);
 
   return result;
+}
+
+
+
+/*
+ * Initialize set s from r
+ */
+void breaker_sets_copy_record(sym_breaker_sets_t *s, rng_record_t *r) {
+  copy_constant_set(s, r->cst, r->num_constants);
+  copy_candidate_set(s, r->trm, r->num_terms);
+}
+
+
+/*
+ * Add all terms of r to s->candidates
+ */
+void breaker_sets_add_record(sym_breaker_sets_t *s, rng_record_t *r) {
+  add_candidate_set(s, r->trm, r->num_terms);
 }
 
 

@@ -34,6 +34,7 @@
  * - for each index i_j in { i_1 ,.... i_m } we have
  *   assertion ctx->top_formula[i_j] is a range constraint 
  *   equivalent to (or (= t_j c1) .... (= t_j c_n))
+ * - every c_i and every t_j is a root term in ctx->intern
  *
  * We want to be able to check inclusion between sets of constants in
  * different constraints. To accelerate this, we store a 32bit hash
@@ -120,6 +121,56 @@ typedef struct ctx_subst_s {
 #define MAX_CTX_SUBST_SIZE (UINT32_MAX/sizeof(term_t))
 
 
+/*
+ * Arrays used during symmetry breaking
+ * 
+ * We store two sets of constants + a set of candidate terms
+ * - cst = set of available constants 
+ * - used_cst = set of constants already used
+ *
+ * Initially, 
+ * - cst = set of constants cst from a rng_record
+ * - used_cst = empty set
+ * Then we pick terms t in the set of candidates and for each of them
+ * we generate a symmetry-breaking clause. This is done as follows:
+ *   A := constants of cst that occur in t
+ *   add A to used_cst
+ *   remove A from cst
+ *   pick another constant c in cst
+ *   add c to used_cst
+ *   let c_0, ..., c_k be the elements of used_cst,
+ *   add the clause (or (= t c_0) ... (= t c_k))
+ *
+ * The set cst is stored as an array of terms, sorted in increasing order.
+ * - cst = array of constant terms
+ * - num_cst = number of elements in cst
+ * - used_cst = array of constants already used in symmetry-breaking clauses
+ * - num_used = number of elements in used_cst
+ * - cst_size = size of both arrays
+ *
+ * The set of candidates is also stored as an array
+ * - candidates = array of terms (candidates t for symmetry-bracking clauses)
+ * - num_candidates = number of elements in candidates
+ * - candidate_size = size of the candidates array
+ *
+ * NOTE: the implementation may be inefficient if there are many
+ * constants.  In the SMT-LIB benchmarks, there are less than 10
+ * constants so this should work fine.
+ */
+typedef struct sym_breaker_sets_s {
+  term_t *cst;
+  term_t *used_cst;
+  uint32_t num_cst;
+  uint32_t num_used;
+  uint32_t cst_size;
+
+  term_t *candidates;
+  uint32_t num_candidates;
+  uint32_t candidate_size;
+} sym_breaker_sets_t;
+
+
+#define MAX_SBREAK_SET_SIZE (UINT32_MAX/sizeof(term_t))
 
 
 /*
@@ -139,6 +190,9 @@ typedef struct sym_breaker_s {
   // array for sorting and removing subsumed constraints
   rng_record_t **sorted_constraints;
   uint32_t num_constraints; // size of this array
+
+  // sets used for symmetry breaking
+  sym_breaker_sets_t sets;
 
   // auxiliary structures
   int_queue_t queue;
@@ -178,6 +232,36 @@ extern void collect_range_constraints(sym_breaker_t *breaker);
  * constants in record r.
  */
 extern bool check_assertion_invariance(sym_breaker_t *breaker, rng_record_t *r);
+
+
+/*
+ * Check whether r1's constant set is included (strictly) in r2's constant set
+ */
+extern bool range_record_subset(rng_record_t *r1, rng_record_t *r2);
+
+
+/*
+ * Copy r into set structure s
+ * - constants of r are stored in s->cst
+ * - s->used_cst is reset
+ * - terms of r are stored in s->candidates
+ */
+extern void breaker_sets_copy_record(sym_breaker_sets_t *s, rng_record_t *r);
+
+
+/*
+ * Add candidates of r into s
+ * - this should be done only if r->cst is a subset of s->cst
+ */
+extern void breaker_sets_add_record(sym_breaker_sets_t *s, rng_record_t *r);
+
+
+/*
+ * Break symmetries using s
+ */
+extern void break_symmetries(sym_breaker_t *breaker, sym_breaker_sets_t *s);
+
+
 
 
 #endif /* __SYMMETTY_BREAKING_H */
