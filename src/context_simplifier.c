@@ -2712,6 +2712,17 @@ static void print_constant_set(sym_breaker_t *breaker, rng_record_t *r) {
   }
 }
 
+static void print_candidates(sym_breaker_t *breaker, sym_breaker_sets_t *sets) {
+  uint32_t i, n;
+
+  printf("--- Candidates ---\n");
+  n = sets->num_candidates;
+  for (i=0; i<n; i++) {
+    printf("   ");
+    print_term_full(stdout, breaker->terms, sets->candidates[i]);
+    printf("\n");
+  }
+}
 
 #endif
 
@@ -2721,6 +2732,7 @@ static void print_constant_set(sym_breaker_t *breaker, rng_record_t *r) {
  */
 void break_uf_symmetries(context_t *ctx) {
   sym_breaker_t breaker;
+  sym_breaker_sets_t *sets;
   rng_record_t **v;
   uint32_t i, j, n;
 
@@ -2735,6 +2747,7 @@ void break_uf_symmetries(context_t *ctx) {
   v = breaker.sorted_constraints;
   n = breaker.num_constraints;
   if (n > 0) {
+#if 0
     printf("\n*** CHECKING SYMMETRY CANDIDATES ***\n\n");
     for (i=0; i<n; i++) {
       printf("Set[%"PRIu32"]:", i);
@@ -2759,10 +2772,26 @@ void break_uf_symmetries(context_t *ctx) {
 	}
       }
     }
+#endif
 
+    // test of symmetry breaking
+    sets = &breaker.sets;
+    for (i=0; i<n; i++) {
+      if (check_assertion_invariance(&breaker, v[i])) {	
+	printf("Breaking symmetries using set[%"PRIu32"]:", i);
+	print_constant_set(&breaker, v[i]);
+	printf("\n");
+	breaker_sets_copy_record(sets, v[i]);
+	print_candidates(&breaker, sets);
+	printf("\n");
+	break_symmetries(&breaker, sets);
+      }
+    }
+    
   } else {
     printf("\n*** NO SYMMETRY CANDIDATES ***\n\n");
   }
+
 
   delete_sym_breaker(&breaker);
 }

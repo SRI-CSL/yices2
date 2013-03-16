@@ -7,7 +7,7 @@
  *   of x that's not 0
  * - x must be nonzero
  *
- * uint32_t ctx64(uint64_t x):
+ * uint32_t ctz64(uint64_t x):
  * - return the index (between 0 and 63) of the lowest-order bit
  *   of x that's not 0
  * - x must be nonzero

@@ -12,7 +12,7 @@
 
 #define TRACE 0
 
-#if TRACE
+#if TRACE || 1
 #include "term_printer.h"
 #endif
 
@@ -1468,6 +1468,12 @@ static void add_symmetry_breaking_clause(sym_breaker_t *breaker, term_t t, term_
       // mark that eq is true and add it to top_eqs
       intern_tbl_map_root(intern, eq, bool2code(true));
       ivector_push(&ctx->top_eqs, eq);
+
+#if TRACE || 1
+      printf("Adding symmetry breaking constraint\n");
+      pretty_print_term_full(stdout, NULL, terms, eq);
+#endif
+
     }
     
   } else {
@@ -1496,6 +1502,12 @@ static void add_symmetry_breaking_clause(sym_breaker_t *breaker, term_t t, term_
     if (! intern_tbl_root_is_mapped(intern, or)) {
       intern_tbl_map_root(intern, or, bool2code(true));
       ivector_push(&ctx->top_formulas, or);
+
+#if TRACE || 1
+      printf("Adding symmetry breaking constraint\n");
+      pretty_print_term_full(stdout, NULL, terms, or);
+#endif
+
     }
 
     ivector_reset(v);
@@ -1520,8 +1532,8 @@ static term_t select_candidate(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
     return NULL_TERM;
   }
 
-  // just for testing: pick the middle term
-  i = s->num_candidates >> 1;
+  // just for testing: pick the last term
+  i = s->num_candidates - 1;
   t = s->candidates[i];
   remove_candidate(s, i);
 
@@ -1604,8 +1616,6 @@ void break_symmetries(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
     break_symmetries_for_term(breaker, s, t);
   }
 }
-
-
 
 
 
