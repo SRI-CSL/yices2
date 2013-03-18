@@ -1215,6 +1215,7 @@ static void init_sym_breaker_sets(sym_breaker_sets_t *s) {
   init_cset(&s->removed);
   s->used = NULL;
   s->num_used = 0;
+  s->used_size = 0;
   s->candidates = NULL;
   s->cost = NULL;
   s->hash = NULL;
