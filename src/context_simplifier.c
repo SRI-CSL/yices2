@@ -2734,7 +2734,7 @@ void break_uf_symmetries(context_t *ctx) {
   sym_breaker_t breaker;
   sym_breaker_sets_t *sets;
   rng_record_t **v;
-  uint32_t i, j, n;
+  uint32_t i, n;
 
   init_sym_breaker(&breaker, ctx);
   collect_range_constraints(&breaker);
