@@ -4212,7 +4212,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
         if (code != CTX_NO_ERROR) return code;
       }
       // TESTING
-      //      break_uf_symmetries(ctx);      
+      break_uf_symmetries(ctx);      
       break;
 
     case CTX_ARCH_AUTO_IDL:

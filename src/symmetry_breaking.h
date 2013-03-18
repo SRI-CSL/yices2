@@ -12,6 +12,7 @@
 #include "int_queues.h"
 #include "int_hash_sets.h"
 #include "int_stack.h"
+#include "csets.h"
 #include "term_manager.h"
 
 #include "context.h"
@@ -124,49 +125,71 @@ typedef struct ctx_subst_s {
 /*
  * Arrays used during symmetry breaking
  * 
- * We store two sets of constants + a set of candidate terms
- * - cst = set of available constants 
- * - used_cst = set of constants already used
+ * Given a fixed set of constants C0 (obtained from a rng_record_t),
+ * we keep three subsets of C0:
+ * - available = constants that don't occur in any symmetry breaking clause
+ * - used = complement of available = set of constants already used
+ * - removed = auxiliary set: this is a subset of available that's added
+ *             to used at every iteration
  *
- * Initially, 
- * - cst = set of constants cst from a rng_record
- * - used_cst = empty set
- * Then we pick terms t in the set of candidates and for each of them
- * we generate a symmetry-breaking clause. This is done as follows:
- *   A := constants of cst that occur in t
- *   add A to used_cst
- *   remove A from cst
- *   pick another constant c in cst
- *   add c to used_cst
- *   let c_0, ..., c_k be the elements of used_cst,
- *   add the clause (or (= t c_0) ... (= t c_k))
+ * We use the following data structures:
+ * - constants = fixed array of constants
+ * - num_constants = size of this array
+ * - available = set of indices in [0 ... num_constants - 1] (as a cset)
+ * - removed = set of indices in [0 ... num_constants - 1] (as a cset too)
+ * - used = array of constants 
+ * - num_used = number of elements in this array
  *
- * The set cst is stored as an array of terms, sorted in increasing order.
- * - cst = array of constant terms
- * - num_cst = number of elements in cst
- * - used_cst = array of constants already used in symmetry-breaking clauses
- * - num_used = number of elements in used_cst
- * - cst_size = size of both arrays
+ * Initially:
+ * - available := full set
+ * - removed := empty set
+ * - used := empty array
  *
- * The set of candidates is also stored as an array
- * - candidates = array of terms (candidates t for symmetry-bracking clauses)
- * - num_candidates = number of elements in candidates
- * - candidate_size = size of the candidates array
+ * At each iteration: we select a term t and generate a symmetry breaking 
+ * clause for t. The sets are updated as follows:
+ * - removed := available \inter constants of t 
+ *         a := a constant of available that's not in removed
+ * - used := used \union removed
+ * - available := available \minus removed
  *
- * NOTE: the implementation may be inefficient if there are many
- * constants.  In the SMT-LIB benchmarks, there are less than 10
- * constants so this should work fine.
+ * Set of candidates:
+ * - we store the set of candidate terms in an array candidates
+ * - num_candidates = number of elements in this array
+ * - for each i in [0 ... num_candidates - 1], we keep
+ *    cost[i] = cost of candidates[i]
+ *    hash[i] = hash code for accelerating processing of candidates[i]
+ *
+ * - cost[i] is the size of the set of constants of candidates[i]
+ *   that also occur in 'available'. If term t = candidates[i] is
+ *   selected then we'll remove cost[i]+1 constants from 'available' and
+ *   move them to 'used'. 
+ *
+ * - hash[i] is a 32bit hash of the set of constants occurring in
+ *   candidates[i] and in 'available'. In each iteration, we check
+ *   whether (hash[i] & removed->hash) is 0. If so, cost[i] and hash[i]
+ *   don't change.
  */
 typedef struct sym_breaker_sets_s {
-  term_t *cst;
-  term_t *used_cst;
-  uint32_t num_cst;
-  uint32_t num_used;
-  uint32_t cst_size;
+  // fixed part
+  term_t *constants;
+  uint32_t num_constants;
 
+  // subsets
+  cset_t available;
+  cset_t removed;
+  term_t *used;
+  uint32_t num_used;
+  uint32_t used_size;
+
+  // candidate set + scores
   term_t *candidates;
+  uint32_t *cost;
+  uint32_t *hash;
   uint32_t num_candidates;
   uint32_t candidate_size;
+
+  // auxilairy vector to compute constants of a term
+  ivector_t aux;
 } sym_breaker_sets_t;
 
 

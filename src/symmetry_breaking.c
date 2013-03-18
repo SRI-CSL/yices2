@@ -1044,215 +1044,6 @@ static bool check_perm_invariance(context_t *ctx, ctx_subst_t *s, term_t *c, uin
 
 
 /*
- * SETS OF CONSTANTS AND CANDIDATES
- */
-
-/*
- * Initialization: don't allocate anything yet.
- */
-static void init_sym_breaker_sets(sym_breaker_sets_t *s) {
-  s->cst = NULL;
-  s->used_cst = NULL;
-  s->num_cst = 0;
-  s->num_used = 0;
-  s->cst_size = 0;
-
-  s->candidates = NULL;
-  s->num_candidates = 0;
-  s->candidate_size = 0;
-}
-
-
-/*
- * Make cst and used_cst large enough for n elements
- */
-static void resize_constant_sets(sym_breaker_sets_t *s, uint32_t n) {
-  assert(n <= MAX_SBREAK_SET_SIZE);
-
-  if (s->cst_size < n) {
-    s->cst = (term_t *) safe_realloc(s->cst, n * sizeof(term_t));
-    s->used_cst = (term_t *) safe_realloc(s->used_cst, n * sizeof(term_t));
-    s->cst_size = n;
-  }
-}
-
-/*
- * Make the candidate array large enough for n elements
- */
-static void resize_candidate_set(sym_breaker_sets_t *s, uint32_t n) {
-  assert(n <= MAX_SBREAK_SET_SIZE);
-
-  if (s->candidate_size < n) {
-    s->candidates = (term_t *) safe_realloc(s->candidates, n * sizeof(term_t));
-    s->candidate_size = n;
-  }
-}
-
-
-/*
- * Free everything
- */
-static void delete_sym_breaker_sets(sym_breaker_sets_t *s) {
-  safe_free(s->cst);
-  safe_free(s->used_cst);
-  safe_free(s->candidates);
-  s->cst = NULL;
-  s->used_cst = NULL;
-  s->candidates = NULL;
-}
-
-
-/*
- * Copy array of constants c[0 ... n-1] into s
- * - c must be sorted
- * - c is stored in s->cst
- * - used_cst is reset
- */
-static void copy_constant_set(sym_breaker_sets_t *s, term_t *c, uint32_t n) {
-  uint32_t i;
-
-  resize_constant_sets(s, n);
-  for (i=0; i<n; i++) {
-    s->cst[i] = c[i];    
-  }
-  s->num_cst = n;
-  s->num_used = 0;
-}
-
-
-/*
- * Copy array of candidates t[0 ... n-1] into s
- */
-static void copy_candidate_set(sym_breaker_sets_t *s, term_t *t, uint32_t n) {
-  uint32_t i;
-
-  resize_candidate_set(s, n);
-  for (i=0; i<n; i++) {
-    s->candidates[i] = t[i];
-  }
-  s->num_candidates = n;
-}
-
-
-/*
- * Add more candidates
- */
-static void add_candidate_set(sym_breaker_sets_t *s, term_t *t, uint32_t n) {
-  uint32_t i, new_size;
-  term_t *d;
-
-  assert(n <= MAX_SBREAK_SET_SIZE);
-
-  new_size = n + s->candidate_size;
-  if (new_size > MAX_SBREAK_SET_SIZE) {
-    out_of_memory();
-  }
-  resize_candidate_set(s, new_size);
-  d = s->candidates + s->num_candidates;
-  for (i=0; i<n; i++) {
-    d[i] = t[i];
-  }
-  s->num_candidates = new_size;
-}
-
-
-/*
- * Remove s->candidates[i] from the set
- */
-static void remove_candidate(sym_breaker_sets_t *s, uint32_t i) {
-  uint32_t j;
-
-  assert(0 <= i && i < s->num_candidates);
-  j = s->num_candidates - 1;
-  if (i < j) {
-    // move last element into position i
-    s->candidates[i] = s->candidates[j];
-  }
-  s->num_candidates = j;
-}
-
-
-/*
- * Add t to the set of used constants
- */
-static void add_used_constant(sym_breaker_sets_t *s, term_t t) {
-  uint32_t i;
-
-  assert(0 <= t);
-  i = s->num_used;
-  s->used_cst[i] = t;
-  s->num_used = i+1;
-}
-
-
-/*
- * Mark constants from s->cst as not usable
- * - a = array of n distinct indices
- * - a[i] must be an index between 0 and s->num_cst
- * - s->cst[a[i]] is marked (replaced by its negation)
- */
-static void mark_constants(sym_breaker_sets_t *s, int32_t *a, uint32_t n) {
-  uint32_t i;
-  int32_t j;
-  term_t c;
-
-  for (i=0; i<n; i++) {
-    j = a[i];
-    assert(0 <= j && j < s->num_cst);
-    c = s->cst[j];
-    assert(c > 0); // term 0 is reserved and should never occur in s->cst
-    s->cst[j] = -c;
-  }
-}
-
-
-/*
- * Remove the marked constants from s->cst and move them into s->used_cst
- */
-static void move_marked_constants(sym_breaker_sets_t *s) {
-  uint32_t i, j, n;
-  term_t c;
-
-  n = s->num_cst;
-  j = 0;
-  for (i=0; i<n; i++) {
-    c = s->cst[i];
-    if (c > 0) {
-      // not marked: keep c in cst
-      s->cst[j] = c;
-      j ++;
-    } else {
-      // marked: move -c to used_cst
-      assert(c < 0);
-      add_used_constant(s, -c);
-    }
-  }
-
-  s->num_cst = j;
-}
-
-
-/*
- * Clear the marks
- */
-static void clear_constant_marks(sym_breaker_sets_t *s) {
-  uint32_t i, n;
-  term_t c;
-
-  n = s->num_cst;
-  for (i=0; i<n; i++) {
-    c = s->cst[i];
-    if (c < 0) {
-      s->cst[i] = -c;
-    }
-  }
-}
-
-
-
-
-
-/*
  * COLLECT CONSTANTS IN TERMS
  */
 
@@ -1410,6 +1201,310 @@ static void collect_constants(sym_breaker_t *breaker, term_t t, term_t *c, uint3
 
 
 
+/*
+ * SETS OF CONSTANTS AND CANDIDATES
+ */
+
+/*
+ * Initialization: don't allocate anything yet.
+ */
+static void init_sym_breaker_sets(sym_breaker_sets_t *s) {
+  s->constants = NULL;
+  s->num_constants = 0;
+  init_cset(&s->available);
+  init_cset(&s->removed);
+  s->used = NULL;
+  s->num_used = 0;
+  s->candidates = NULL;
+  s->cost = NULL;
+  s->hash = NULL;
+  s->num_candidates = 0;
+  s->candidate_size = 0;
+}
+
+
+/*
+ * Make array used large enough for n elements
+ */
+static void resize_used_set(sym_breaker_sets_t *s, uint32_t n) {
+  assert(n <= MAX_SBREAK_SET_SIZE);
+
+  if (s->used_size < n) {
+    s->used = (term_t *) safe_realloc(s->used, n * sizeof(term_t));
+    s->used_size = n;
+  }
+}
+
+/*
+ * Make the candidate arrays large enough for n elements
+ */
+static void resize_candidate_set(sym_breaker_sets_t *s, uint32_t n) {
+  assert(n <= MAX_SBREAK_SET_SIZE);
+
+  if (s->candidate_size < n) {
+    s->candidates = (term_t *) safe_realloc(s->candidates, n * sizeof(term_t));
+    s->cost = (uint32_t *) safe_realloc(s->cost, n * sizeof(uint32_t));
+    s->hash = (uint32_t *) safe_realloc(s->hash, n * sizeof(uint32_t));
+    s->candidate_size = n;
+  }
+}
+
+
+/*
+ * Free everything
+ */
+static void delete_sym_breaker_sets(sym_breaker_sets_t *s) {
+  delete_cset(&s->available);
+  delete_cset(&s->removed);
+  safe_free(s->used);
+  safe_free(s->candidates);
+  safe_free(s->cost);
+  safe_free(s->hash);
+  s->used = NULL;
+  s->candidates = NULL;
+  s->cost = NULL;
+  s->hash = NULL;
+}
+
+
+/*
+ * Copy array of constants c[0 ... n-1] into s
+ * - c must be sorted and fixed
+ */
+static void copy_constant_set(sym_breaker_sets_t *s, term_t *c, uint32_t n) {
+  s->constants = c;
+  s->num_constants = n;
+  cset_init_full(&s->available, n);
+  cset_init_empty(&s->removed, n);
+  resize_used_set(s, n);
+  s->num_used = 0;
+}
+
+
+/*
+ * Copy array of candidates t[0 ... n-1] into s
+ */
+static void copy_candidate_set(sym_breaker_sets_t *s, term_t *t, uint32_t n) {
+  uint32_t i;
+
+  resize_candidate_set(s, n);
+  for (i=0; i<n; i++) {
+    s->candidates[i] = t[i];
+  }
+  s->num_candidates = n;
+}
+
+
+/*
+ * Add more candidates
+ */
+static void add_candidate_set(sym_breaker_sets_t *s, term_t *t, uint32_t n) {
+  uint32_t i, new_size;
+  term_t *d;
+
+  assert(n <= MAX_SBREAK_SET_SIZE);
+
+  new_size = n + s->candidate_size;
+  if (new_size > MAX_SBREAK_SET_SIZE) {
+    out_of_memory();
+  }
+  resize_candidate_set(s, new_size);
+  d = s->candidates + s->num_candidates;
+  for (i=0; i<n; i++) {
+    d[i] = t[i];
+  }
+  s->num_candidates = new_size;
+}
+
+
+/*
+ * Remove s->candidates[i] from the set
+ */
+static void remove_candidate(sym_breaker_sets_t *s, uint32_t i) {
+  uint32_t j;
+
+  assert(0 <= i && i < s->num_candidates);
+  j = s->num_candidates - 1;
+  if (i < j) {
+    // move last element into position i
+    s->candidates[i] = s->candidates[j];
+    s->cost[i] = s->cost[j];
+    s->hash[i] = s->hash[j];
+  }
+  s->num_candidates = j;
+}
+
+
+
+/*
+ * Get the set of constants of term candidates[i] and compute cost and hash
+ */
+static void compute_cost(sym_breaker_t *breaker, sym_breaker_sets_t *s, uint32_t i) {
+  ivector_t *v;
+  uint32_t j, k, n, cost, hash;
+
+  assert(i < s->num_candidates);
+  v = &breaker->aux;
+  collect_constants(breaker, s->candidates[i], s->constants, s->num_constants, v);
+
+  hash = 0;
+  cost = 0;
+  n = v->size;
+  for (j=0; j<n; j++) {
+    k = v->data[j];
+    if (cset_member(&s->available, k)) {
+      cost ++;
+      hash |= ((uint32_t) 1) << (k & 0x1f);
+    }
+  }
+  s->cost[i] = cost;
+  s->hash[i] = hash;
+}
+
+
+/*
+ * Compute all the costs: must be call after the set of candidates is set
+ */
+static void compute_costs(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
+  uint32_t i, n;
+
+  n = s->num_candidates;
+  for (i=0; i<n; i++) {
+    compute_cost(breaker, s, i);
+  }
+}
+
+
+/*
+ * Update the cost of i based on the removed set:
+ * - removed = set of constants that were moved from available to used
+ * - let C[i] = set of constants of candidate[i]
+ *       D[i] = C[i] \inter old available set
+ *       E[i] = C[i] \inter new available set
+ * - we have new available set = old available set - removed
+ *   So if removed \inter D[i] is empty, we know that E[i] = D[i]
+ *   and cost[i] does not change. 
+ * - We check whether hash[i] & removed->hash is 0. If so, we know that
+ *   D[i] inter removed is empty.
+ */
+static void update_cost(sym_breaker_t *breaker, sym_breaker_sets_t *s, uint32_t i) {
+  assert(i < s->num_candidates);
+  if ((s->hash[i] & s->removed.hash) != 0) {
+    compute_cost(breaker, s, i);
+  }
+}
+
+
+/*
+ * Update all the costs
+ */
+static void update_costs(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
+  uint32_t i, n;
+
+  n = s->num_candidates;
+  for (i=0; i<n; i++) {
+    update_cost(breaker, s, i);
+  }
+}
+
+
+							
+/*
+ * Select a term t from s->candidates then remove t from the candidate set.
+ * - heuristic: terms with lower cost are prefered, in case of ties (equal costs)
+ *   t is prefered over u if t is a constant and u is not
+ * - return NULL_TERM if nothing is found
+ */
+static term_t select_candidate(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
+  uint32_t j, n, min_so_far;
+  uint32_t cost;
+  term_t t;
+
+  n = s->num_candidates;
+  if (n == 0) {
+    return NULL_TERM;
+  }
+
+  min_so_far = UINT32_MAX;;
+  j = n; // stop GCC warning
+
+  do {
+    n --;
+    t = s->candidates[n];
+    cost = s->cost[n];
+    if (cost <= min_so_far) {
+      if (term_is_constant(breaker->terms, t)) {
+	j = n;
+	break;
+      } else if (cost < min_so_far) {
+	min_so_far = cost;
+	j = n;
+      }
+    }
+  } while (n > 0);
+
+  assert(j < s->num_candidates);
+  t = s->candidates[j];
+  remove_candidate(s, j);
+
+  return t;
+}
+
+
+
+/*
+ * Move the constants:
+ * - remove all elements of 'removed' from 'available'
+ * - add them to 'used'
+ */
+static void move_constants(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
+  ivector_t *v;
+  uint32_t i, j, n;
+  term_t c;
+
+  assert(cset_subset(&s->removed, &s->available));
+  cset_remove_set(&s->available, &s->removed);
+
+  // append remove to array s->used
+  v = &breaker->aux;
+  ivector_reset(v);
+  cset_extract(&s->removed, v);
+
+  j = s->num_used;
+  n  = v->size;
+  for (i=0; i<n; i++) {
+    assert(0 <= v->data[i] && v->data[i] < s->num_constants);
+    c = s->constants[v->data[i]];
+    s->used[j] = c;
+    j ++;
+  }
+  s->num_used = j;
+}
+ 
+
+
+/*
+ * Collect all constants of term t
+ * - add the constants that are in s->available to s->remove
+ */
+static void remove_constants_of_term(sym_breaker_t *breaker, sym_breaker_sets_t *s, term_t t) {
+  ivector_t *v;
+  uint32_t i, n, j;
+
+  cset_empty(&s->removed);
+
+  v = &breaker->aux;
+  collect_constants(breaker, t, s->constants, s->num_constants, v);
+  n = v->size;
+  for (i=0; i<n; i++) {
+    j = v->data[i];
+    if (cset_member(&s->available, j)) {
+      cset_add(&s->removed, j);
+    }
+  }
+  ivector_reset(v);
+}
+
 
 /*
  * SYMMETRY-BREAKING CLAUSES
@@ -1478,7 +1573,7 @@ static void add_symmetry_breaking_clause(sym_breaker_t *breaker, term_t t, term_
     
   } else {
     v = &breaker->aux;
-    assert(v->size == 0);
+    ivector_reset(v);
 
     for (i=0; i<n; i++) {
       assert(intern_tbl_is_root(intern, c[i]));
@@ -1517,29 +1612,6 @@ static void add_symmetry_breaking_clause(sym_breaker_t *breaker, term_t t, term_
 
 
 
-/*
- * Select a suitable term for symmetry breaking in s->candidates
- * then remove t from the candidate set.
- * - return NULL_TERM if nothing is found
- *
- * TODO: use some heuristic to find the "best" one
- */
-static term_t select_candidate(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
-  uint32_t i;
-  term_t t;
-
-  if (s->num_candidates == 0) {
-    return NULL_TERM;
-  }
-
-  // just for testing: pick the last term
-  i = s->num_candidates - 1;
-  t = s->candidates[i];
-  remove_candidate(s, i);
-
-  return t;
-}
-
 
 
 /*
@@ -1554,21 +1626,22 @@ static bool aux_eq_is_false(sym_breaker_t *breaker, term_t t, term_t c) {
 
 
 /*
- * Search for an unmarked constant c in s->cst such that (eq t c) is not false
- * - return the constant index in s->cst or -1 if nothing is found
- * - if a constant is found, mark it
+ * Search for a constant c in s->constants such that 
+ * 1) c is in s->available and not in s->removed
+ * 2) (eq t c) is not false
+ * - return c's index or -1 if nothing is found
  */
 static int32_t select_constant_for_term(sym_breaker_t *breaker, sym_breaker_sets_t *s, term_t t) {
-  uint32_t i;
+  uint32_t i, n;
   term_t c;
 
-  i = s->num_cst;
-  while (i > 0) {
-    i --;
-    c = s->cst[i];
-    if (c > 0 && !aux_eq_is_false(breaker, t, c)) { // found
-      s->cst[i] = -c;
-      return i;
+  n = s->num_constants;
+  for (i=0; i<n; i++) {
+    if (cset_member(&s->available, i) && !cset_member(&s->removed, i)) {
+      c = s->constants[i];
+      if (! aux_eq_is_false(breaker, t, c)) {
+	return i;
+      }
     }
   }
 
@@ -1582,23 +1655,17 @@ static int32_t select_constant_for_term(sym_breaker_t *breaker, sym_breaker_sets
  * - side effect: use breaker->aux
  */
 static void break_symmetries_for_term(sym_breaker_t *breaker, sym_breaker_sets_t *s, term_t t) {
-  ivector_t *v;
   int32_t k;
 
-  v = &breaker->aux;
-  collect_constants(breaker, t, s->cst, s->num_cst, v);
-  mark_constants(s, v->data, v->size);
-  ivector_reset(v);
-
+  remove_constants_of_term(breaker, s, t);
   k = select_constant_for_term(breaker, s, t);
   if (k >= 0) {
     // success: found a usable constant
-    assert(k < s->num_cst && s->cst[k] < 0);
-    move_marked_constants(s); // all marked constants are now in s->used_cst
-    add_symmetry_breaking_clause(breaker, t, s->used_cst, s->num_used);
-  } else {
-    // cleanup: clear the marks
-    clear_constant_marks(s);
+    cset_add(&s->removed, k);   // add k to removed
+    move_constants(breaker, s); // copy all removed constants from available to used
+    add_symmetry_breaking_clause(breaker, t, s->used, s->num_used); // add the clause
+
+    update_costs(breaker, s);  // update the costs
   }
 }
 
@@ -1610,14 +1677,14 @@ static void break_symmetries_for_term(sym_breaker_t *breaker, sym_breaker_sets_t
 void break_symmetries(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
   term_t t;
 
-  while (s->num_cst > 0) {
+  compute_costs(breaker, s);
+ 
+  while (! cset_is_empty(&s->available)) {
     t = select_candidate(breaker, s);
     if (t == NULL_TERM) break; // no candidates
     break_symmetries_for_term(breaker, s, t);
   }
 }
-
-
 
 
 
