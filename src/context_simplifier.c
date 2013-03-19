@@ -2734,7 +2734,7 @@ void break_uf_symmetries(context_t *ctx) {
   sym_breaker_t breaker;
   sym_breaker_sets_t *sets;
   rng_record_t **v;
-  uint32_t i, n;
+  uint32_t i, j, n;
 
   init_sym_breaker(&breaker, ctx);
   collect_range_constraints(&breaker);
@@ -2782,6 +2782,14 @@ void break_uf_symmetries(context_t *ctx) {
 	print_constant_set(&breaker, v[i]);
 	printf("\n");
 	breaker_sets_copy_record(sets, v[i]);
+	for (j=i+1; j<n; j++) {
+	  if (range_record_subset(v[j], v[i])) {
+	    printf("Adding set[%"PRIu32"]:", j);
+	    print_constant_set(&breaker, v[j]);
+	    printf("\n");
+	    breaker_sets_add_record(sets, v[j]);
+	  }
+	}
 	print_candidates(&breaker, sets);
 	printf("\n");
 	break_symmetries(&breaker, sets);
