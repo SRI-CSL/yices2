@@ -112,7 +112,7 @@ typedef struct {
  * - arity = number of type parameters
  * - param[0 ... arity-1] = parameters
  *
- * NOTE: this is use for something like (Set T) when we instantiate T
+ * NOTE: this is used for something like (Set T) when we instantiate T
  * with a real type. The cid is the index of a type constructor in
  * the macro table. For now, an instance type is treated like an
  * uninterpreted type.
@@ -125,7 +125,7 @@ typedef struct {
 
 
 /*
- * Descriptor: either a pointer to a descriptor or an integer The size
+ * Descriptor: either a pointer to a descriptor or an integer. The size
  * of a bitvector type or scalar type i is stored in desc[i].integer.
  * Also each type variable is identified by an index stored in desc[i].integer.
  * It's also used as pointer to the next element in the free list.
@@ -194,7 +194,7 @@ typedef struct type_macro_s {
  * Table of macros
  * - macros are identified by an index 
  * - the table maps the index to a macro descriptor
- * - it also includes a symbol table that maps macro name
+ * - it also includes a symbol table that maps a macro name
  *   to its id, and a hash table that stores macro instances.
  * - deleted descriptors are stored in a free list
  *

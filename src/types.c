@@ -1401,7 +1401,6 @@ type_t type_substitution(type_table_t *table, type_t tau, uint32_t n, type_t v[]
  * MATCHING
  */
 
-
 /*
  * Check whether two tuples/functions/instance type descriptor match 
  */
