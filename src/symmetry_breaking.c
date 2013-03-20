@@ -1418,6 +1418,7 @@ static void update_costs(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
  */
 static term_t select_candidate(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
   uint32_t j, n, min_so_far;
+  uint32_t i;
   uint32_t cost;
   term_t t;
 
@@ -1429,6 +1430,7 @@ static term_t select_candidate(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
   min_so_far = UINT32_MAX;;
   j = n; // stop GCC warning
 
+#if 0
   do {
     n --;
     t = s->candidates[n];
@@ -1443,6 +1445,23 @@ static term_t select_candidate(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
       }
     }
   } while (n > 0);
+#else
+
+  for (i=0; i<n; i++) {
+    t = s->candidates[i];
+    cost = s->cost[i];
+    if (cost <= min_so_far) {
+      if (term_is_constant(breaker->terms, t)) {
+	j = i;
+	break;
+      } else if (cost < min_so_far) {
+	min_so_far = cost;
+	j = i;
+      }
+    }
+  }
+
+#endif
 
   assert(j < s->num_candidates);
   t = s->candidates[j];

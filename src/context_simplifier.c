@@ -2793,6 +2793,10 @@ void break_uf_symmetries(context_t *ctx) {
 	print_candidates(&breaker, sets);
 	printf("\n");
 	break_symmetries(&breaker, sets);
+      } else {
+	printf("Set[%"PRIu32"]:", i);
+	print_constant_set(&breaker, v[i]);
+	printf(" not symmetrical\n\n");
       }
     }
     

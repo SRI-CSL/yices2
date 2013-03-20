@@ -1071,7 +1071,7 @@ static int process_benchmark(void) {
   switch (arch) {
   case CTX_ARCH_EG:
     // QF_UF options: --var-elim --cache-tclauses --learn-eq --dyn-bool-ack
-    enable_variable_elimination(&context);
+    //    enable_variable_elimination(&context); // this helps if symmetry breaking is used
     enable_eq_abstraction(&context);
     params.use_bool_dyn_ack = true;
     params.use_dyn_ack = true;
