@@ -276,19 +276,19 @@ static void init_samples(void) {
 /*
  * Show a matching
  */
-static void show_matching(int_hmap_t *subst) {
-  int_hmap_pair_t *r;
+static void show_matching(type_matcher_t *matcher) {
+  uint32_t i, n;
+  type_t x;
 
-  r = int_hmap_first_record(subst);
-  while (r != NULL) {
-    if (is_type_variable(&types, r->key)) {
-      printf("    ");
-      print_type(stdout, &types, r->key);
-      printf(" := ");
-      print_type(stdout, &types, r->val);
-      printf("\n");
-    }
-    r = int_hmap_next_record(subst, r);
+  n = matcher->nvars;
+  for (i=0; i<n; i++) {
+    x = matcher->var[i];
+    assert(is_type_variable(&types, x));
+    printf("    ");
+    print_type(stdout, &types, x);
+    printf(" := ");
+    print_type(stdout, &types, matcher->map[i]);
+    printf("\n");    
   }
 }
 
@@ -296,31 +296,26 @@ static void show_matching(int_hmap_t *subst) {
 /*
  * Check that the matching works
  */
-static void check_matching(int_hmap_t *subst, type_t pattern, type_t target) {
-  int_hmap_pair_t *r;
-  type_t v[NVARS];
-  type_t map[NVARS];
+static void check_exact_matching(type_matcher_t *matcher, type_t pattern, type_t target) {
   type_t test;
-  uint32_t n;
 
-  n = 0;
-  r = int_hmap_first_record(subst);
-  while (r != NULL) {
-    if (is_type_variable(&types, r->key)) {
-      assert(n < NVARS);
-      v[n] = r->key;
-      map[n] = r->val;
-      n ++;
-    }
-    r = int_hmap_next_record(subst, r);
-  }
-
-  test = type_substitution(&types, pattern, n, v, map);
+  test = apply_type_matching(matcher, pattern);
   if (test != target) {
-    fprintf(stderr, "BUG: incorrect matching\n");
+    fprintf(stderr, "BUG: incorrect matching (expected exact matching)\n");
     exit(1);
   }  
 }
+
+static void check_submatching(type_matcher_t *matcher, type_t pattern, type_t target) {
+  type_t test;
+
+  test = apply_type_matching(matcher, pattern);
+  if (! is_subtype(&types, target, test)) {
+    fprintf(stderr, "BUG: incorrect matching (expected subtype)\n");
+    exit(1);
+  }
+}
+
 
 
 /*
@@ -328,11 +323,8 @@ static void check_matching(int_hmap_t *subst, type_t pattern, type_t target) {
  * - if so apply the resulting substitution
  *   to all types in array sample
  */
-static void test_matching(type_t pattern, type_t target) {
-  int_hmap_t subst;
-
-  init_int_hmap(&subst, 8);
-  printf("Test matching\n");
+static void test_exact_matching(type_matcher_t *matcher, type_t pattern, type_t target) {
+  printf("Test exact matching\n");
   printf("  pattern: ");
   print_type(stdout, &types, pattern);
   printf("\n");
@@ -340,24 +332,23 @@ static void test_matching(type_t pattern, type_t target) {
   print_type(stdout, &types, target);
   printf("\n");
 
-  if (types_match(&types, pattern, target, &subst)) {
+  reset_type_matcher(matcher);
+  if (type_matcher_add_constraint(matcher, pattern, target, true)) {
+    type_matcher_build_subst(matcher);
     printf("  Matching found:\n");
-    show_matching(&subst);
+    show_matching(matcher);
     printf("\n");
-    check_matching(&subst, pattern, target);
+    check_exact_matching(matcher, pattern, target);
   } else {
     printf("  No match\n\n");
   }
-
-  delete_int_hmap(&subst);
 }
 
 
 /*
  * Test2: apply a substitution to pattern to force matching to succeed
  */
-static void test_forced_matching(type_t pattern) {
-  int_hmap_t subst;
+static void test_forced_matching(type_matcher_t *matcher, type_t pattern) {
   type_t v[NVARS];
   type_t map[NVARS];
   type_t test;
@@ -369,7 +360,6 @@ static void test_forced_matching(type_t pattern) {
   }
 
   test = type_substitution(&types, pattern, NVARS, v, map);
-  init_int_hmap(&subst, 8);
   printf("Forced matching\n");
   printf("  pattern: ");
   print_type(stdout, &types, pattern);
@@ -378,30 +368,33 @@ static void test_forced_matching(type_t pattern) {
   print_type(stdout, &types, test);
   printf("\n");
 
-  if (types_match(&types, pattern, test, &subst)) {
+  reset_type_matcher(matcher);
+  if (type_matcher_add_constraint(matcher, pattern, test, true)) {
+    type_matcher_build_subst(matcher);
     printf("  OK\n");
-    show_matching(&subst);
+    show_matching(matcher);
     printf("\n");
   } else {
     fprintf(stderr, "BUG: matching failed\n");
     exit(1);
   }
-
-  delete_int_hmap(&subst);
 }
 
 
 
 
 int main(void) {
+  type_matcher_t matcher;
   uint32_t i, j;
   type_t pattern;
-
+  
   init_type_table(&types, 0);
   init_variables();
   init_constructors();
   init_base_types();
   init_samples();
+
+  init_type_matcher(&matcher, &types);
 
   //  printf("\n===== TYPES =====\n");
   //  print_type_table(stdout, &types);
@@ -410,15 +403,16 @@ int main(void) {
   for (i=0; i<NTYPES; i++) {
     pattern = sample[i];
     if (! ground_type(&types, pattern)) {
-      test_forced_matching(pattern);
-      test_forced_matching(pattern);
+      test_forced_matching(&matcher, pattern);
+      test_forced_matching(&matcher, pattern);
       for (j=0; j<NTYPES; j++) {
-	test_matching(sample[i], sample[j]);
+	test_exact_matching(&matcher, sample[i], sample[j]);
       }
       printf("---\n");
     }
   }
 
+  delete_type_matcher(&matcher);
   delete_type_table(&types);
 
   return 0;

@@ -1402,40 +1402,410 @@ type_t type_substitution(type_table_t *table, type_t tau, uint32_t n, type_t v[]
  */
 
 /*
- * Check whether two tuples/functions/instance type descriptor match 
+ * Initialize matcher
  */
-static bool match_type_arrays(type_table_t *table, type_t *a, type_t *b, uint32_t n, int_hmap_t *subst) {
+void init_type_matcher(type_matcher_t *matcher, type_table_t *types) {
+  uint32_t n;
+
+  matcher->types = types;
+  init_int_hmap(&matcher->tc, 0); // used default size
+
+  n = DEF_TYPE_MATCHER_SIZE;
+  assert(n <= MAX_TYPE_MATCHER_SIZE);
+  matcher->var = (type_t *) safe_malloc(n * sizeof(type_t));
+  matcher->map = (type_t *) safe_malloc(n * sizeof(type_t));
+  matcher->nvars = 0;
+  matcher->varsize = n;
+}
+
+
+/*
+ * Make room for more variables
+ */
+static void type_matcher_extend(type_matcher_t *matcher) {
+  uint32_t n;
+
+  n = matcher->varsize;
+  n += (n >> 1); // 50% larger
+  n ++;
+  if (n > MAX_TYPE_MATCHER_SIZE) {
+    out_of_memory();
+  }
+
+  matcher->var = (type_t *) safe_realloc(matcher->var, n * sizeof(type_t));
+  matcher->map = (type_t *) safe_realloc(matcher->map, n * sizeof(type_t));
+  matcher->varsize = n;
+}
+
+
+/*
+ * Add a type variable x to matcher->var
+ * - x is mapped to NULL_TYPE
+ */
+static void type_matcher_addvar(type_matcher_t *matcher, type_t x) {
+  uint32_t i;
+
+  assert(is_type_variable(matcher->types, x));
+  i = matcher->nvars;
+  if (i == matcher->varsize) {
+    type_matcher_extend(matcher);
+  }
+  assert(i < matcher->varsize);
+  matcher->var[i] = x;
+  matcher->map[i] = NULL_TYPE;
+  matcher->nvars = i + 1;
+}
+
+
+/*
+ * Reset to the empty set
+ */
+void reset_type_matcher(type_matcher_t *matcher) {
+  int_hmap_reset(&matcher->tc);
+  matcher->nvars = 0;
+}
+
+
+/*
+ * Delete all
+ */
+void delete_type_matcher(type_matcher_t *matcher) {
+  delete_int_hmap(&matcher->tc);
+  safe_free(matcher->var);
+  safe_free(matcher->map);
+}
+
+
+
+/*
+ * Contraint code for (sigma, eq):
+ * - low-order bit = 1 --> equality constraint
+ * - low-order bit = 0 --> type inclusion constraint
+ * - rest of the 32tbit integer is sigma
+ */
+static inline int32_t mk_constraint_code(type_t sigma, bool eq) {
+  int32_t k;
+
+  assert(0 <= sigma);
+  k = (sigma << 1) | eq;
+  assert(k >= 0);
+
+  return k;
+}
+
+
+/*
+ * Check the type of constraint encoded by k
+ */
+static inline bool is_eq_constraint(int32_t k) {  
+  assert(k >= 0);
+  return (k & 1) != 0;
+}
+
+static inline bool is_subtype_constraint(int32_t k) {
+  assert(k >= 0);
+  return (k & 1) == 0;
+}
+
+static inline type_t arg_of_constraint(int32_t k) {
+  assert(k >= 0);
+  return k >> 1;
+}
+
+
+
+/*
+ * Check whether constraint codes k1 and k2 are compatible
+ * - at least one of k1 and k2 must be non-negative
+ * - if so return the code for the conjunction of k1 and k2
+ * - oftherwise return -1
+ */
+static int32_t merge_constraints(type_matcher_t *matcher, int32_t k1, int32_t k2) {
+  type_t sigma1, sigma2, sigma;
+
+  assert(k1 >= 0 || k2 >= 0);
+
+  if (k1 < 0) return k2;
+  if (k2 < 0) return k1;
+  if (k1 == k2) return k1;
+
+  sigma1 = arg_of_constraint(k1);
+  sigma2 = arg_of_constraint(k2);
+
+  if (is_eq_constraint(k1) && is_eq_constraint(k2)) {
+    // k1 says [tau == sigma1]
+    // k2 says [tau == sigma2]
+    assert(sigma1 != sigma2);
+    return -1;
+  }
+
+  if (is_eq_constraint(k1)) {
+    assert(is_subtype_constraint(k2));
+    // k1 says [tau == sigma1] 
+    // k2 says [tau is a supertype of sigma2]
+    if (is_subtype(matcher->types, sigma2, sigma1)) {
+      return k1;
+    }
+    return -1;
+  } 
+
+  if (is_eq_constraint(k2)) {
+    assert(is_subtype_constraint(k1));
+    // k1 says [tau is a supertype of sigma1]
+    // k2 says [tau == sigma2]
+    if (is_subtype(matcher->types, sigma1, sigma2)) {
+      return k2;
+    }
+    return -1;
+  }
+
+  assert(is_subtype_constraint(k1) && is_subtype_constraint(k2));
+  // k1 says [tau is a supertype of sigma1]
+  // k2 says [tau is a supertype of sigma2]
+  sigma = super_type(matcher->types, sigma1, sigma2);
+  if (sigma != NULL_TYPE) {
+    return mk_constraint_code(sigma, false); // [tau is a supertype of sigma]
+  }
+
+  return -1;
+}
+
+
+/*
+ * Get the constraint code for tau
+ * -1 means no constraint on tau yet
+ */
+static int32_t type_matcher_get_constraint(type_matcher_t *matcher, type_t tau) {
+  int_hmap_pair_t *p;
+  int32_t k;
+
+  k = -1;
+  p = int_hmap_find(&matcher->tc, tau);
+  if (p != NULL) {
+    k = p->val;
+  }
+  return k;
+}
+
+
+/*
+ * Set the constraint code for tau to k
+ *  k must be a valid constraint code(not -1)
+ */
+static void type_matcher_set_constraint(type_matcher_t *matcher, type_t tau, int32_t k) {
+  int_hmap_pair_t *p;
+
+  assert(k >= 0 && good_type(matcher->types, arg_of_constraint(k)));
+
+  p = int_hmap_get(&matcher->tc, tau);
+  assert(p->key == tau);
+  p->val = k;
+}
+
+
+
+
+/*
+ * Add a set of constraints: 
+ * - a and b must be array of types of the same size
+ * - n = size of these arrays
+ * - eq = constraint type
+ *
+ * Each a[i] should be a type to be matched with b[i]
+ * - if eq is true, we want exact matching
+ * - if eq is fasle, we want b[i] \subtype of a[i]
+ *
+ * - return false if the matching fails, true otherwise 
+ */
+static bool match_type_arrays(type_matcher_t *matcher, type_t *a, type_t *b, uint32_t n, bool eq) {
   uint32_t i;
 
   for (i=0; i<n; i++) {
-    if (!types_match(table, a[i], b[i], subst)) {
+    if (!type_matcher_add_constraint(matcher, a[i], b[i], eq)) {
       return false;
     }
   }
-
   return true;
 }
 
-static bool match_tuple_types(type_table_t *table, tuple_type_t *tau, tuple_type_t *sigma, int_hmap_t *subst) {
+// check matching between two tuple types
+static bool match_tuple_types(type_matcher_t *matcher, tuple_type_t *tau, tuple_type_t *sigma, bool eq) {
   uint32_t n;
 
   n = tau->nelem;
-  return n == sigma->nelem && match_type_arrays(table, tau->elem, sigma->elem, n, subst);
+  return n == sigma->nelem && match_type_arrays(matcher, tau->elem, sigma->elem, n, eq);
 }
 
-static bool match_function_types(type_table_t *table, function_type_t *tau, function_type_t *sigma, int_hmap_t *subst) {
+/*
+ * Check matching between two function types:
+ * - we add equality constraints for the domain types
+ * - we propagate 'eq' for the range
+ */
+static bool match_function_types(type_matcher_t *matcher, function_type_t *tau, function_type_t *sigma, bool eq) {
   uint32_t n;
 
   n = tau->ndom;
-  return n == sigma->ndom && match_type_arrays(table, tau->domain, sigma->domain, n, subst) 
-    && types_match(table, tau->range, sigma->range, subst);
+  return n == sigma->ndom 
+    && match_type_arrays(matcher, tau->domain, sigma->domain, n, true)
+    && type_matcher_add_constraint(matcher, tau->range, sigma->range, eq);
 }
 
-static bool match_instance_types(type_table_t *table, instance_type_t *tau, instance_type_t *sigma, int_hmap_t *subst) {
+
+/*
+ * For instance types: we force equality
+ * - e.g., List[X] is a substype of List[Y] iff (List[X] == List[Y]) iff (X == Y) 
+ */
+static bool match_instance_types(type_matcher_t *matcher, instance_type_t *tau, instance_type_t *sigma) {
   assert(tau->cid != sigma->cid || tau->arity == sigma->arity);
-  return tau->cid == sigma->cid && match_type_arrays(table, tau->param, sigma->param, tau->arity, subst);
+  return tau->cid == sigma->cid && match_type_arrays(matcher, tau->param, sigma->param, tau->arity, true);
 }
 
+
+/*
+ * Add a type constraint:
+ * - both tau and sigma must be valid types defined in matcher->types
+ *   (and tau should contain type variables)
+ * - if eq is true the constraint is "tau = sigma" 
+ *   otherwise it's "tau is a subtype of sigma"
+ * - return false if the set of constraints is inconsistent
+ * - return true otherwise and update the solution
+ */
+bool type_matcher_add_constraint(type_matcher_t *matcher, type_t tau, type_t sigma, bool eq) {
+  type_table_t *table;
+  int32_t k1, k2;
+
+  table = matcher->types;
+
+  assert(good_type(table, tau) && good_type(table, sigma));
+
+  if (eq && ground_type(table, tau)) {
+    return tau == sigma;
+  }
+
+  switch (type_kind(table, tau)) {
+  case UNUSED_TYPE:
+    assert(false); // should not happen
+    break;
+
+  case BOOL_TYPE:
+  case INT_TYPE:
+  case BITVECTOR_TYPE:
+  case SCALAR_TYPE:
+  case UNINTERPRETED_TYPE:
+    // tau is a minimal type to (sigma subtype of tau) is the same as tau == sigma
+    assert(! eq);
+    return tau == sigma;
+
+  case REAL_TYPE:
+    // (sigma subtype of tau) IFF (sigma is int or real)
+    assert(! eq && tau == real_id);
+    return sigma == int_id || sigma == real_id;
+
+  case VARIABLE_TYPE:
+    k1 = type_matcher_get_constraint(matcher, tau);
+    k2 = merge_constraints(matcher, k1, mk_constraint_code(sigma, eq));
+    if (k2 >= 0) {
+      // no conflict
+      if (k1 != k2) {
+	type_matcher_set_constraint(matcher, tau, k2);
+	if (k1 < 0) {
+	  type_matcher_addvar(matcher, tau);
+	}
+      }
+      return true;
+    } 
+    break;
+
+
+  case TUPLE_TYPE:
+    if (type_kind(table, sigma) == TUPLE_TYPE) {
+      k1 = type_matcher_get_constraint(matcher, tau);
+      k2 = merge_constraints(matcher, k1, mk_constraint_code(sigma, eq));
+      if (k2 >= 0) {
+	if (k2 == k1) return true;
+	// new constraint on tau encoded in k2
+	sigma = arg_of_constraint(k2);
+	eq = is_eq_constraint(eq);
+	if (match_tuple_types(matcher, tuple_type_desc(table, tau), tuple_type_desc(table, sigma), eq)) {
+	  type_matcher_set_constraint(matcher, tau, k2);
+	  return true;
+	}
+      }
+    }
+    break;
+
+  case FUNCTION_TYPE:
+    if (type_kind(table, sigma) == FUNCTION_TYPE) {
+      k1 = type_matcher_get_constraint(matcher, tau);
+      k2 = merge_constraints(matcher, k1, mk_constraint_code(sigma, eq));
+      if (k2 >= 0) {
+	if (k1 == k2) return true;
+	// new constraint on tau encoded in k2
+	sigma = arg_of_constraint(k2);
+	eq = is_eq_constraint(eq);
+	if (match_function_types(matcher, function_type_desc(table, tau), function_type_desc(table, sigma), eq)) {
+	  type_matcher_set_constraint(matcher, tau, k2);
+	  return true;
+	}
+      }      
+    }
+    break;
+
+  case INSTANCE_TYPE:
+    if (type_kind(table, sigma) == INSTANCE_TYPE) {
+      // we ignore eq here (i.e., do as if eq is true)
+      k1 = type_matcher_get_constraint(matcher, tau);
+      k2 = merge_constraints(matcher, k1, mk_constraint_code(sigma, true));
+      if (k2 >= 0) {
+	if (k1 == k2) return true;
+	// new constraint on tau
+	sigma = arg_of_constraint(k2);
+	if (match_instance_types(matcher, instance_type_desc(table, tau), instance_type_desc(table, sigma))) {
+	  type_matcher_set_constraint(matcher, tau, k2);
+	  return true;	  
+	}
+      }
+    }
+    break;
+  }
+
+
+  return false;
+}
+
+
+
+/*
+ * Collect the substitution stored in matcher
+ * - this is defined only if the matching worked (i.e., add_constraint did not return false)
+ */
+void type_matcher_build_subst(type_matcher_t *matcher) {
+  uint32_t i, n;
+  int32_t k;
+
+  n = matcher->nvars;
+  for (i=0; i<n; i++) {
+    k = type_matcher_get_constraint(matcher, matcher->var[i]);
+    assert(k >= 0);
+    matcher->map[i] = arg_of_constraint(k);
+  }
+}
+
+
+
+/*
+ * Apply the matcher's substitution to tau
+ */
+type_t apply_type_matching(type_matcher_t *matcher, type_t tau) {
+  return type_substitution(matcher->types, tau, matcher->nvars, matcher->var, matcher->map);
+}
+
+
+
+
+
+
+#if 0
 
 /*
  * Check whether tau matches sigma
@@ -1517,16 +1887,7 @@ bool types_match(type_table_t *table, type_t tau, type_t sigma, int_hmap_t *subs
 }
 
 
-
-/*
- * Apply substitution stored in subst to tau
- * - subst is what's returned by types_match
- */
-type_t apply_type_matching(type_table_t *table, type_t tau, int_hmap_t *subst) {
-  return type_subst_recur(table, subst, tau);
-}
-
-
+#endif
 
 
 /*
@@ -2569,4 +2930,5 @@ void type_table_gc(type_table_t *table)  {
   if (table->macro_tbl != NULL) {
     tuple_hmap_gc(&table->macro_tbl->cache, table, keep_in_tuple_cache);
   }
+
 }
