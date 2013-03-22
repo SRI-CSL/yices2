@@ -4343,15 +4343,30 @@ int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f) {
          smt_status(ctx->core) == STATUS_IDLE);
 
   code = context_process_assertions(ctx, n, f);
-  if (code == TRIVIALLY_UNSAT &&
-      ctx->arch != CTX_ARCH_AUTO_IDL &&
-      ctx->arch != CTX_ARCH_AUTO_RDL &&
-      smt_status(ctx->core) != STATUS_UNSAT) {
-    // force UNSAT in the core
-    // we can't do that in AUTO_IDL/AUTO_RDL modes since
-    // the core is not initialized yet.
-    add_empty_clause(ctx->core);
-    ctx->core->status = STATUS_UNSAT;
+  if (code == TRIVIALLY_UNSAT) {
+    if (ctx->arch == CTX_ARCH_AUTO_IDL || ctx->arch == CTX_ARCH_AUTO_RDL) {
+      /*
+       * Initialize the core now so that we can record the unsat
+       * status (otherwise, a subsequent call to check_context will 
+       * seg fault).
+       */
+      assert(ctx->arith_solver == NULL && ctx->bv_solver == NULL && ctx->fun_solver == NULL && 
+	     ctx->mode == CTX_MODE_ONECHECK);
+
+      // use a small size here (2 instead of CTX_DEFAULT_CORE_SIZE)
+      init_smt_core(ctx->core, 2, NULL, &null_ctrl, &null_smt, SMT_MODE_BASIC);
+
+      // cleanup: reset arch/config to 'no theory'
+      ctx->arch = CTX_ARCH_NOSOLVERS;
+      ctx->theories = 0;
+      ctx->options = 0;
+    }
+
+    if( smt_status(ctx->core) != STATUS_UNSAT) {
+      // force UNSAT in the core
+      add_empty_clause(ctx->core);
+      ctx->core->status = STATUS_UNSAT;
+    }
   }
 
   return code;

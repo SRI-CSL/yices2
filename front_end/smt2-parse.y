@@ -537,7 +537,7 @@ void check_sat()
       yyerror("Error asserting formulas:");
       yices_print_error(stderr);
       exit(2);
-    } 
+    }
     assertions.size = 0;
   }
 #endif
