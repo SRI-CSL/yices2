@@ -396,7 +396,7 @@ static void test_forced_matching(type_matcher_t *matcher, type_t pattern) {
 static bool test_multi_matching(type_matcher_t *matcher, type_t *pattern, type_t *tau, uint32_t n) {
   uint32_t i;
 
-  printf("Multiple subtye constraints\n");
+  printf("Multiple subtype constraints\n");
   for (i=0; i<n; i++) {
     printf("  ");
     print_type(stdout, &types, tau[i]);
