@@ -208,7 +208,7 @@ static void print_type_flags(FILE *f, uint8_t flags) {
     if (flags & CARD_IS_EXACT_MASK) {
       c[2] = 'S'; // small finite type
     } else {
-      c[2] = 'L'; // large finit type
+      c[2] = 'L'; // large finite type
     }
   } else {
     c[2] = 'I'; // infinite type

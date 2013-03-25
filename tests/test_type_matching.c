@@ -169,7 +169,7 @@ static void init_base_types(void) {
  * Create a random new type by applying a type constructor
  * to existing types picked in a[0 ... n-1]
  */
-// select k out elements of a, store them in b[0 .. k-1]
+// select k elements of a, store them in b[0 .. k-1]
 static void select_random_types(type_t *b, uint32_t k, type_t *a, uint32_t n) {
   uint32_t i, j;
 
@@ -242,6 +242,14 @@ static type_t random_type(type_t *a, uint32_t n) {
 
   random_types(&result, 1, a, n);
   return result;
+}
+
+// one random type variable
+static type_t random_var(void) {
+  uint32_t i;
+
+  i = random() % NVARS;
+  return var[i];
 }
 
 /*
@@ -381,6 +389,113 @@ static void test_forced_matching(type_matcher_t *matcher, type_t pattern) {
 }
 
 
+/*
+ * Test3: solve constraints (tau[i] subtype of pattern[i])
+ * - n = number of elements
+ */
+static bool test_multi_matching(type_matcher_t *matcher, type_t *pattern, type_t *tau, uint32_t n) {
+  uint32_t i;
+
+  printf("Multiple subtye constraints\n");
+  for (i=0; i<n; i++) {
+    printf("  ");
+    print_type(stdout, &types, tau[i]);
+    printf(" subtype of ");
+    print_type(stdout, &types, pattern[i]);
+    printf("\n");
+  }
+
+  reset_type_matcher(matcher);
+  for (i=0; i<n; i++) {
+    if (! type_matcher_add_constraint(matcher, pattern[i], tau[i], false)) {
+      printf("No match\n\n");
+      return false;
+    }
+  }
+
+  type_matcher_build_subst(matcher);
+  printf("Matching found:\n");
+  show_matching(matcher);
+  printf("\n");
+
+  // check it
+  for (i=0; i<n; i++) {
+    check_submatching(matcher, pattern[i], tau[i]);
+  }
+
+  return true;
+}
+
+
+/*
+ * Random tests of subtype matching
+ * - n = number of tests
+ * - p = array size (must be 5 or less)
+ */
+static void test_random_multi_vars(type_matcher_t *matcher, uint32_t n, uint32_t p) {
+  type_t pattern[5];
+  type_t tau[5];
+  uint32_t i;
+
+  assert(p <= 5);
+
+  while (n > 0) {
+    n--;
+    for (i=0; i<p; i++) {
+      pattern[i] = random_var();
+      tau[i] = random_type(sample, 50);
+    }
+    test_multi_matching(matcher, pattern, tau, p);
+  }
+}
+
+static void test_random_multi_patterns(type_matcher_t *matcher, uint32_t n, uint32_t p) {
+  type_t pattern[5];
+  type_t tau[5];
+  uint32_t i;
+
+  assert(p <= 5);
+
+  while (n > 0) {
+    n--;
+    for (i=0; i<p; i++) {
+      pattern[i] = random_type(sample, 50);
+      tau[i] = random_type(sample, 50);
+    }
+    test_multi_matching(matcher, pattern, tau, p);
+  }
+}
+
+static void test_random_multi_forced(type_matcher_t *matcher, uint32_t n, uint32_t p) {
+  type_t v[NVARS];
+  type_t map[NVARS];
+  type_t pattern[5];
+  type_t tau[5];
+  uint32_t i;
+
+  for (i=0; i<NVARS; i++) {
+    v[i] = var[i];
+    map[i] = random_type(sample, 30);
+  }
+
+  while (n > 0) {
+    n --;
+
+    for (i=0; i<NVARS; i++) {
+      map[i] = random_type(sample, 30);
+    }
+
+    for (i=0; i<p; i++) {
+      pattern[i] = random_type(sample, 30);
+      tau[i] = type_substitution(&types, pattern[i], NVARS, v, map);
+    }
+
+    if (! test_multi_matching(matcher, pattern, tau, p)) {
+      fprintf(stderr, "BUG: matching failed\n");
+      exit(1);
+    }
+  }
+}
 
 
 int main(void) {
@@ -411,6 +526,21 @@ int main(void) {
       printf("---\n");
     }
   }
+
+  test_random_multi_vars(&matcher, 20, 2);
+  test_random_multi_vars(&matcher, 20, 3);
+  test_random_multi_vars(&matcher, 20, 4);
+  test_random_multi_vars(&matcher, 20, 5);
+
+  test_random_multi_patterns(&matcher, 20, 2);
+  test_random_multi_patterns(&matcher, 20, 3);
+  test_random_multi_patterns(&matcher, 20, 4);
+  test_random_multi_patterns(&matcher, 20, 5);
+
+  test_random_multi_forced(&matcher, 20, 2);
+  test_random_multi_forced(&matcher, 20, 3);
+  test_random_multi_forced(&matcher, 20, 4);
+  test_random_multi_forced(&matcher, 20, 5);
 
   delete_type_matcher(&matcher);
   delete_type_table(&types);
