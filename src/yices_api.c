@@ -2543,7 +2543,7 @@ EXPORTED term_t yices_product(uint32_t n, term_t t[]) {
 /*
  * DIVISION
  */
-EXPORTED term_t yices_div(term_t t1, term_t t2) {
+EXPORTED term_t yices_division(term_t t1, term_t t2) {
   arith_buffer_t *b;
   term_table_t *tbl;
   rational_t *q;

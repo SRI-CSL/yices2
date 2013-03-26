@@ -796,7 +796,7 @@ __YICES_DLLSPEC__ extern term_t yices_product(uint32_t n, term_t t[]);
  * if t2 is zero
  *    code = DIVISION_BY_ZERO
  */
-__YICES_DLLSPEC__ extern term_t yices_div(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_division(term_t t1, term_t t2);
 
 
 /*

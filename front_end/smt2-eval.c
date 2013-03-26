@@ -115,7 +115,7 @@ static struct fn_info symbolfunc_table[] = {
     { "<=", eval_binary_left_and, yices_arith_leq_atom },
     { ">=", eval_binary_left_and, yices_arith_geq_atom },
     /* Reals theory */
-    { "/", eval_binary, yices_div },
+    { "/", eval_binary, yices_division },
     /* Reals_Ints theory */
     { "to_real", 0, 0 },
     { "to_int", 0, 0 },
