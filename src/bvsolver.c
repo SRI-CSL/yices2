@@ -3999,6 +3999,10 @@ static bool diseq_bvvar_const64(bv_solver_t *solver, thvar_t x, uint64_t c, uint
      * true or false, or to an equivalent disequality (x' != c')
      */
 
+    // in bvpoly64_is_simple, we follow the roots
+    // this coudl cause looping so we force exit when d == 0
+    d --;
+
     // x should be a root in mtbl
     assert(x == mtbl_get_root(&solver->mtbl, x));
 
@@ -4035,8 +4039,6 @@ static bool diseq_bvvar_const64(bv_solver_t *solver, thvar_t x, uint64_t c, uint
     default:
       return false;
     }
-
-    d --;
   }
 
   // default answer if d == 0: don't know
@@ -4064,6 +4066,8 @@ static bool diseq_bvvar_const(bv_solver_t *solver, thvar_t x, bvconstant_t *c, u
      * In this loop, we rewrite (x != c) to 
      * true or false, or to an equivalent disequality (x' != c')
      */
+
+    d --;
 
     // x should be a root in mtbl
     assert(x == mtbl_get_root(&solver->mtbl, x));
@@ -4112,7 +4116,6 @@ static bool diseq_bvvar_const(bv_solver_t *solver, thvar_t x, bvconstant_t *c, u
       return false;
     }
 
-    d --;
   }
 
   // default answer if d == 0: don't know
