@@ -251,6 +251,30 @@ static void test_multi_matching(type_matcher_t *matcher, type_t *pattern, type_t
 
 
 /*
+ * Filter: check whether tau and sigma have a chance of matching
+ * - return true of tau is a variable
+ *   or if the toplevel constructs in tau and sigma are equal
+ */
+static bool match_possible(type_t tau, type_t sigma) {
+  type_kind_t ktau, ksigma;
+  
+  ktau = type_kind(&types, tau);  
+  ksigma = type_kind(&types, sigma);
+  switch (ktau) {
+  case VARIABLE_TYPE:
+    return true;
+
+  case INT_TYPE:
+  case REAL_TYPE:
+    return ksigma == INT_TYPE || ksigma == REAL_TYPE;
+
+  default:
+    return ktau == ksigma; 
+  }
+}
+
+
+/*
  * Full test
  */
 static void all_tests(type_matcher_t *matcher) {
@@ -264,13 +288,17 @@ static void all_tests(type_matcher_t *matcher) {
 
   for (i=0; i<npatterns; i++) {
     pat[0] = patterns.data[i];
-    for (j=0; j<npatterns; j++) {
-      pat[1] = patterns.data[j];
-      for (k=0; k<ntests; k++) {
-	tau[0] = tests.data[k];
-	for (l=0; l<ntests; l++) {
-	  tau[1] = tests.data[l];
-	  test_multi_matching(matcher, pat, tau, 2);
+    for (k=0; k<ntests; k++) {
+      tau[0] = tests.data[k];
+      if (match_possible(pat[0], tau[0])) {
+	for (j=0; j<npatterns; j++) {
+	  pat[1] = patterns.data[j];
+	  for (l=0; l<ntests; l++) {
+	    tau[1] = tests.data[l];
+	    if (match_possible(pat[1], tau[1])) {
+	      test_multi_matching(matcher, pat, tau, 2);
+	    }
+	  }
 	}
       }
     }
