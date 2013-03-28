@@ -9,14 +9,14 @@
 #include "assert_utils.h"
 
 static bool good_function(const char *msg) {
-  printf("good_function called with $%s\n", msg);
+  printf("good_function called with %s\n", msg);
   fflush(stdout);
 
   return true;
 }
 
 static bool bad_function(const char *msg) {
-  printf("bad_function called with $%s\n", msg);
+  printf("bad_function called with %s\n", msg);
   fflush(stdout);
 
   return false;

@@ -405,6 +405,13 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
       }
       goto loop;
 
+    case sort_symbol_next_return:
+      state = parser_pop_state(stack);
+      if (state == done) {
+        goto the_end;
+      }
+      goto loop;
+
     case next_goto_s1:
       state = s1;
       goto loop;
@@ -451,6 +458,13 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
       parser_push_state(stack, s10);
       state = s0;
       goto skip_token;
+
+    case term_symbol_next_return:
+      state = parser_pop_state(stack);
+      if (state == done) {
+        goto the_end;
+      }
+      goto loop;
 
     case next_goto_t1:
       state = t1;

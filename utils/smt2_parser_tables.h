@@ -84,6 +84,7 @@ enum actions {
   keyword_next_return,
 
   // sorts
+  sort_sumbol_next_return,
   next_goto_s1,
   next_goto_s2,
   next_goto_s5,
@@ -97,6 +98,7 @@ enum actions {
   push_s10_goto_s0,
 
   // terms
+  term_symbol_next_return,
   next_goto_t1,
   next_goto_t2,           // (let 
   forall_next_goto_t3,    // (forall
@@ -274,7 +276,7 @@ static triple_t triples[] = {
   { v0, SMT2_TK_KEYWORD, "keyword_next_return" },
   { v0, SMT2_TK_LP, "next_goto_a1" },
 
-  { s0, SMT2_TK_SYMBOL, "symbol_next_return" },
+  { s0, SMT2_TK_SYMBOL, "sort_symbol_next_return" },
   { s0, SMT2_TK_LP, "next_goto_s1" },
 
   { s1, SMT2_TK_UNDERSCORE, "next_goto_s2" },
@@ -310,7 +312,7 @@ static triple_t triples[] = {
   { t0, SMT2_TK_HEXADECIMAL, "hexadecimal_next_return" },
   { t0, SMT2_TK_BINARY, "binary_next_return" },
   { t0, SMT2_TK_STRING, "string_next_return" },
-  { t0, SMT2_TK_SYMBOL, "symbol_next_return" },
+  { t0, SMT2_TK_SYMBOL, "term_symbol_next_return" },
   { t0, SMT2_TK_LP, "next_goto_t1" },
 
   { t1, SMT2_TK_LET, "next_goto_t2" },

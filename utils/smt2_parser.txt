@@ -190,6 +190,8 @@ Grammar (SMT-LIB 2.0, December 21 2010)
     
 The EOS part in <command> is non standard but it makes sense to allow it.
 
+
+
 We rewrite  the rules  for <term> and  <sort> to remove  the ambiguity
 caused by <identifiers>. For example, when we parse a <sort>, we can't
 tell whether an opening '(' is for an indexed identifier '( _ <symbol>
@@ -197,8 +199,15 @@ tell whether an opening '(' is for an indexed identifier '( _ <symbol>
 
 Also,  to simplify  term  construction, we  unroll  the definition  of
 <identifier> in (as <identifier> <sort>) because <sort> is interpreted
-in a different way depending on the context (i.e., whether it's in (as
-<identifier> <sort>) or ((as <identifier> <sort>) <arg1> ... <arg_n>).
+in a different way depending on the context (i.e., whether it's in 
+
+   (as <identifier> <sort>) 
+or 
+
+   ((as <identifier> <sort>) <arg1> ... <arg_n>).
+
+
+
 
 The new rules are as follows:
 

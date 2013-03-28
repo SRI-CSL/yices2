@@ -86,6 +86,7 @@ typedef enum actions {
   keyword_next_return,
 
   // sorts
+  sort_symbol_next_return,
   next_goto_s1,
   next_goto_s2,
   next_goto_s5,
@@ -99,6 +100,7 @@ typedef enum actions {
   push_s10_goto_s0,
 
   // terms
+  term_symbol_next_return,
   next_goto_t1,
   next_goto_t2,           // (let 
   forall_next_goto_t3,    // (forall
@@ -349,7 +351,7 @@ static const uint8_t value[BSIZE] = {
   string_next_return,
   symbol_next_return,
   next_goto_a1,
-  symbol_next_return,
+  sort_symbol_next_return,
   next_goto_s5,
   numeral_next_return,
   decimal_next_return,
@@ -378,7 +380,7 @@ static const uint8_t value[BSIZE] = {
   hexadecimal_next_return,
   binary_next_return,
   string_next_return,
-  symbol_next_return,
+  term_symbol_next_return,
   symbol_next_push_t8a_goto_t0,
   next_goto_t2b,
   symbol_next_push_t2d_goto_t0,
