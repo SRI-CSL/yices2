@@ -48,7 +48,7 @@ typedef enum tag_enum {
   TAG_BV,               // bit-vector constant (more than 64 bits)
   TAG_RATIONAL,         // rational constant
   TAG_TERM,             // term index + polarity (from the global term table)
-  TAG_TYPE,             // type index (from the global type table);
+  TAG_TYPE,             // type index (from the global type table)
   TAG_ARITH_BUFFER,     // polynomial buffer (rational coefficients)
   TAG_BVARITH64_BUFFER, // polynomial buffer (bitvector coefficients, 1 to 64 bits)
   TAG_BVARITH_BUFFER,   // polynomial buffer (bitvector coefficients, more than 64 bits)
@@ -504,7 +504,8 @@ extern void tstack_push_int32(tstack_t *stack, int32_t val, loc_t *loc);
 
 
 /*
- * Push terms or types built by other means: used for predefined SMT-LIB
+ * Push terms or types built by other means:
+ * use these functions for predefined SMT-LIB terms and types
  */
 extern void tstack_push_term(tstack_t *stack, term_t t, loc_t *loc);
 extern void tstack_push_type(tstack_t *stack, type_t tau, loc_t *loc);

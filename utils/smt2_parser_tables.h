@@ -7,9 +7,11 @@ typedef enum state_s {
   a0, a1, v0,
   s0, s1, s2, s3, s4, s5, s6, s7, s8, s10,
   t0, t1, t2, t2a, t2b, t2d, t2e, 
-  t3, t3a, t3b, t3d, t3e, t4a, t4b, t4c, t4d, t4e, t4g,
-  t6, t6c, t6d, t6e, t6f, t7, t7a, t7b, t8a,
-  i0, i1, i2, i3, i4,
+  t3, t3a, t3b, t3d, t3e, 
+  t4a, t4b, t4c, t4d, t4e, t4g,
+  t5, t5a, t5b, t5c, t5d, 
+  t6, t6a, t6b, t6c, t6d, t6e, t6g, t6h, t6i, t6j,
+  t7, t7a, t7b, t8a,
   r0,
 } state_t;
 
@@ -86,7 +88,6 @@ enum actions {
   next_goto_s2,
   next_goto_s5,
   symbol_next_push_s10_goto_s0,
-  bitvec_next_goto_s3,
   symbol_next_goto_s3,
   numeral_next_goto_s4,
   next_goto_s6,
@@ -97,13 +98,13 @@ enum actions {
 
   // terms
   next_goto_t1,
-  let_next_goto_t2,
-  forall_next_goto_t3,
-  exists_next_goto_t3,
-  bang_next_push_t4a_goto_t0,
-  next_push_r0_push_s0_goto_i0, // (as
-  next_goto_t6, // ((
-  next_goto_t7, // (_
+  next_goto_t2,           // (let 
+  forall_next_goto_t3,    // (forall
+  exists_next_goto_t3,    // (exists
+  next_push_t4a_goto_t0,  // (! 
+  next_goto_t5,           // (as
+  next_goto_t6,           // ((
+  next_goto_t7,           // (_
 
   // simple function application (<symbol> <term> ... <term>)
   symbol_next_push_t8a_goto_t0,
@@ -129,25 +130,36 @@ enum actions {
   next_goto_t4c,
   push_t4g_goto_t0,
 
-  // (( ...
-  next_push_t6c_push_s0_goto_i0,
-  next_goto_t6d,
-  next_push_t8a_goto_t0,
-  symbol_next_goto_t6e,
-  numeral_next_goto_t6f,
+  // (as ...
+  next_goto_t5a,
+  symbol_next_push_r0_goto_s0,
+  next_goto_t5b,
+  symbol_next_goto_t5c,
+  numeral_next_goto_t5d,
 
+  // (( ...
+  next_goto_t6a,
+  next_goto_t6h,
+
+  // ((as ...
+  next_goto_t6b,
+  symbol_next_push_t6g_goto_s0,
+  next_goto_t6c,
+  symbol_next_goto_t6d,
+  numeral_next_goto_t6e,
+  next_push_t6g_goto_s0,
+  next_push_t8a_goto_t0,
+
+  // ((_ ...
+  symbol_next_goto_t6i,
+  numeral_next_goto_t6j,
+  
   // (_ ...
   symbol_next_goto_t7a,
   numeral_next_goto_t7b,
   
-  // (F <term> ....
+  // after <term> in a function application
   push_t8a_goto_t0,
-
-  // identifier
-  next_goto_i1,
-  next_goto_i2,
-  symbol_next_goto_i3,
-  numeral_next_goto_i4,
 
   // errors
   error_lp_expected,
@@ -301,16 +313,14 @@ static triple_t triples[] = {
   { t0, SMT2_TK_SYMBOL, "symbol_next_return" },
   { t0, SMT2_TK_LP, "next_goto_t1" },
 
-  { t1, SMT2_TK_LET, "let_next_goto_t2" },
+  { t1, SMT2_TK_LET, "next_goto_t2" },
   { t1, SMT2_TK_FORALL, "forall_next_goto_t3" },
   { t1, SMT2_TK_EXISTS, "exists_next_goto_t3" },
-  { t1, SMT2_TK_BANG, "bang_next_push_t4a_goto_t0" },
-  { t1, SMT2_TK_AS, "next_push_r0_push_s0_goto_i0" },
+  { t1, SMT2_TK_BANG, "next_push_t4a_goto_t0" },
+  { t1, SMT2_TK_AS, "next_goto_t5" },
   { t1, SMT2_TK_LP, "next_goto_t6" },
   { t1, SMT2_TK_UNDERSCORE, "next_goto_t7" },
-
   { t1, SMT2_TK_SYMBOL, "symbol_next_push_t8a_goto_t0" },
-  { t1, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { t2, SMT2_TK_LP, "next_goto_t2a" },
   { t2, DEFAULT_TOKEN, "error_lp_expected" },
@@ -361,20 +371,50 @@ static triple_t triples[] = {
   { t4g, SMT2_TK_RP, "next_goto_t4c" },
   { t4g, DEFAULT_TOKEN, "push_t4g_goto_t0" },
 
-  { t6, SMT2_TK_AS, "next_push_t6c_push_s0_goto_i0" },
-  { t6, SMT2_TK_UNDERSCORE, "next_goto_t6d" },
+  { t5, SMT2_TK_LP, "next_goto_t5a" },
+  { t5, SMT2_TK_SYMBOL, "symbol_next_push_r0_goto_s0" },
 
-  { t6c, SMT2_TK_RP, "next_push_t8a_goto_t0" },
-  { t6c, DEFAULT_TOKEN, "error_rp_expected" },
+  { t5a, SMT2_TK_UNDERSCORE, "next_goto_t5b" },
+  { t5a, DEFAULT_TOKEN, "error_underscore_expected" },
 
-  { t6d, SMT2_TK_SYMBOL, "symbol_next_goto_t6e" },
-  { t6d, DEFAULT_TOKEN, "error_symbol_expected" },
+  { t5b, SMT2_TK_SYMBOL, "symbol_next_goto_t5c" },
+  { t5b, DEFAULT_TOKEN, "error_symbol_expected" },
 
-  { t6e, SMT2_TK_NUMERAL, "numeral_next_goto_t6f" },
-  { t6e, DEFAULT_TOKEN, "error_numeral_expected" },
+  { t5c, SMT2_TK_NUMERAL, "numeral_next_goto_t5d" },
+  { t5c, DEFAULT_TOKEN, "error_numeral_expected" },
 
-  { t6f, SMT2_TK_RP, "next_push_t8a_goto_t0" },
-  { t6f, SMT2_TK_NUMERAL, "numeral_next_goto_t6f" },
+  { t5d, SMT2_TK_NUMERAL, "numeral_next_goto_t5d" },
+  { t5d, SMT2_TK_RP, "next_push_r0_goto_s0" },
+
+  { t6, SMT2_TK_AS, "next_goto_t6a" },
+  { t6, SMT2_TK_UNDERSCORE, "next_goto_t6h" },
+
+  { t6a, SMT2_TK_LP, "next_goto_t6b" },
+  { t6a, SMT2_TK_SYMBOL, "next_push_t6g_goto_s0" },
+ 
+  { t6b, SMT2_TK_UNDERSCORE, "next_goto_t6c" },
+  { t6b, DEFAULT_TOKEN, "error_underscore_expected" },
+
+  { t6c, SMT2_TK_SYMBOL, "symbol_next_goto_t6d" },
+  { t6c, DEFAULT_TOKEN, "error_symbol_expected" },
+
+  { t6d, SMT2_TK_NUMERAL, "numeral_next_goto_t6e" },
+  { t6d, DEFAULT_TOKEN, "error_numeral_expected" },
+
+  { t6e, SMT2_TK_NUMERAL, "numeral_next_goto_t6e" },
+  { t6e, SMT2_TK_RP, "next_push_t6g_goto_s0" },
+
+  { t6g, SMT2_TK_RP, "next_push_t8a_goto_t0" },
+  { t6g, DEFAULT_TOKEN, "error_rp_expected" },
+
+  { t6h, SMT2_TK_SYMBOL, "symbol_next_goto_t6i" },
+  { t6h, DEFAULT_TOKEN, "error_symbol_expected" },
+
+  { t6i, SMT2_TK_NUMERAL, "numeral_next_goto_t6j" },
+  { t6i, DEFAULT_TOKEN, "error_numeral_expected" },
+
+  { t6j, SMT2_TK_NUMERAL, "numeral_next_goto_t6j" },
+  { t6j, SMT2_TK_RP, "next_push_t8a_goto_t0" },
 
   { t7, SMT2_TK_SYMBOL, "symbol_next_goto_t7a" },
   { t7, DEFAULT_TOKEN, "error_symbol_expected" },
@@ -387,21 +427,6 @@ static triple_t triples[] = {
 
   { t8a, SMT2_TK_RP, "next_return" },
   { t8a, DEFAULT_TOKEN, "push_t8a_goto_t0" },
-
-  { i0, SMT2_TK_SYMBOL, "symbol_next_return" },
-  { i0, SMT2_TK_LP, "next_goto_i1" },
-
-  { i1, SMT2_TK_UNDERSCORE, "next_goto_i2" },
-  { i1, DEFAULT_TOKEN, "error_underscore_expected" },
-
-  { i2, SMT2_TK_SYMBOL, "symbol_next_goto_i3" },
-  { i2, DEFAULT_TOKEN, "error_symbol_expected" },
-
-  { i3, SMT2_TK_NUMERAL, "numeral_next_goto_i4" },
-  { i3, DEFAULT_TOKEN, "error_numeral_expected" },
-
-  { i4, SMT2_TK_RP, "next_return" },
-  { i4, SMT2_TK_NUMERAL, "numeral_next_goto_i4" },
 
   { r0, SMT2_TK_RP, "next_return" },
   { r0, DEFAULT_TOKEN, "error_rp_expected" },

@@ -386,7 +386,7 @@ static arith_binop_t binop_array[NUM_BINOPS] = {
   { "add", yices_add },
   { "sub", yices_sub },
   { "mul", yices_mul },
-  { "div", yices_div },
+  { "div", yices_division },
   { "eq",  yices_arith_eq_atom },
   { "neq", yices_arith_neq_atom },
   { "geq", yices_arith_geq_atom },

@@ -228,7 +228,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
       state = t0;
       goto loop;
 
-    case  declare_sort_next_goto_c8:
+    case declare_sort_next_goto_c8:
       state = c8;
       goto loop;
 
@@ -456,7 +456,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
       state = t1;
       goto loop;
 
-    case let_next_goto_t2:
+    case next_goto_t2:
       state = t2;
       goto loop;
 
@@ -468,15 +468,13 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
       state = t3;
       goto loop;
 
-    case bang_next_push_t4a_goto_t0:
+    case next_push_t4a_goto_t0:
       parser_push_state(stack, t4a);
       state = t0;
       goto loop;
 
-    case next_push_r0_push_s0_goto_i0:
-      parser_push_state(stack, r0);
-      parser_push_state(stack, s0);
-      state = i0;
+    case next_goto_t5:
+      state = t5;
       goto loop;
 
     case next_goto_t6:
@@ -565,27 +563,72 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
       state = t0;
       goto skip_token;
 
-    case next_push_t6c_push_s0_goto_i0:
-      parser_push_state(stack, t6c);
-      parser_push_state(stack, s0);
-      state = i0;
+    case next_goto_t5a:
+      state = t5a;
       goto loop;
 
-    case next_goto_t6d:
+    case symbol_next_push_r0_goto_s0:
+      parser_push_state(stack, r0);
+      state = s0;
+      goto loop;
+
+    case next_goto_t5b:
+      state = t5b;
+      goto loop;
+
+    case symbol_next_goto_t5c:
+      state = t5c;
+      goto loop;
+
+    case numeral_next_goto_t5d:
+      state = t5d;
+      goto loop;
+
+    case next_goto_t6a:
+      state = t6a;
+      goto loop;
+
+    case next_goto_t6h:
+      state = t6h;
+      goto loop;
+
+    case next_goto_t6b:
+      state = t6b;
+      goto loop;
+
+    case symbol_next_push_t6g_goto_s0:
+      parser_push_state(stack, t6g);
+      state = s0;
+      goto loop;
+
+    case next_goto_t6c:
+      state = t6c;
+      goto loop;
+
+    case symbol_next_goto_t6d:
       state = t6d;
       goto loop;
 
+    case numeral_next_goto_t6e:
+      state = t6e;
+      goto loop;
+
+    case next_push_t6g_goto_s0:
+      parser_push_state(stack, t6g);
+      state = s0;
+      goto loop;
+      
     case next_push_t8a_goto_t0:
       parser_push_state(stack, t8a);
       state = t0;
       goto loop;
 
-    case symbol_next_goto_t6e:
-      state = t6e;
+    case symbol_next_goto_t6i:
+      state = t6i;
       goto loop;
 
-    case numeral_next_goto_t6f:
-      state = t6f;
+    case numeral_next_goto_t6j:
+      state = t6j;
       goto loop;
 
     case symbol_next_goto_t7a:
@@ -600,22 +643,6 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
       parser_push_state(stack, t8a);
       state = t0;
       goto skip_token;
-
-    case next_goto_i1:
-      state = i1;
-      goto loop;
-
-    case next_goto_i2:
-      state = i2;
-      goto loop;
-
-    case symbol_next_goto_i3:
-      state = i3;
-      goto loop;
-
-    case numeral_next_goto_i4:
-      state = i4;
-      goto loop;
 
     case error_lp_expected:
       syntax_error(lex, err, SMT2_TK_LP);

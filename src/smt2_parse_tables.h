@@ -16,9 +16,11 @@ typedef enum state_s {
   a0, a1, v0,
   s0, s1, s2, s3, s4, s5, s6, s7, s8, s10,
   t0, t1, t2, t2a, t2b, t2d, t2e, 
-  t3, t3a, t3b, t3d, t3e, t4a, t4b, t4c, t4d, t4e, t4g,
-  t6, t6c, t6d, t6e, t6f, t7, t7a, t7b, t8a,
-  i0, i1, i2, i3, i4,
+  t3, t3a, t3b, t3d, t3e, 
+  t4a, t4b, t4c, t4d, t4e, t4g,
+  t5, t5a, t5b, t5c, t5d, 
+  t6, t6a, t6b, t6c, t6d, t6e, t6g, t6h, t6i, t6j,
+  t7, t7a, t7b, t8a,
   r0,
 } state_t;
 
@@ -26,7 +28,7 @@ typedef enum state_s {
 /*
  * Action codes
  */
-typedef enum smt2_action {
+typedef enum actions {
   // commands
   next_goto_c1,
   empty_command_return,
@@ -98,13 +100,13 @@ typedef enum smt2_action {
 
   // terms
   next_goto_t1,
-  let_next_goto_t2,
-  forall_next_goto_t3,
-  exists_next_goto_t3,
-  bang_next_push_t4a_goto_t0,
-  next_push_r0_push_s0_goto_i0, // (as
-  next_goto_t6, // ((
-  next_goto_t7, // (_
+  next_goto_t2,           // (let 
+  forall_next_goto_t3,    // (forall
+  exists_next_goto_t3,    // (exists
+  next_push_t4a_goto_t0,  // (! 
+  next_goto_t5,           // (as
+  next_goto_t6,           // ((
+  next_goto_t7,           // (_
 
   // simple function application (<symbol> <term> ... <term>)
   symbol_next_push_t8a_goto_t0,
@@ -130,25 +132,36 @@ typedef enum smt2_action {
   next_goto_t4c,
   push_t4g_goto_t0,
 
-  // (( ...
-  next_push_t6c_push_s0_goto_i0,
-  next_goto_t6d,
-  next_push_t8a_goto_t0,
-  symbol_next_goto_t6e,
-  numeral_next_goto_t6f,
+  // (as ...
+  next_goto_t5a,
+  symbol_next_push_r0_goto_s0,
+  next_goto_t5b,
+  symbol_next_goto_t5c,
+  numeral_next_goto_t5d,
 
+  // (( ...
+  next_goto_t6a,
+  next_goto_t6h,
+
+  // ((as ...
+  next_goto_t6b,
+  symbol_next_push_t6g_goto_s0,
+  next_goto_t6c,
+  symbol_next_goto_t6d,
+  numeral_next_goto_t6e,
+  next_push_t6g_goto_s0,
+  next_push_t8a_goto_t0,
+
+  // ((_ ...
+  symbol_next_goto_t6i,
+  numeral_next_goto_t6j,
+  
   // (_ ...
   symbol_next_goto_t7a,
   numeral_next_goto_t7b,
   
-  // (F <term> ....
+  // after <term> in a function application
   push_t8a_goto_t0,
-
-  // identifier
-  next_goto_i1,
-  next_goto_i2,
-  symbol_next_goto_i3,
-  numeral_next_goto_i4,
 
   // errors
   error_lp_expected,
@@ -169,8 +182,8 @@ typedef enum smt2_action {
  */
 
 // Table sizes
-#define NSTATES 67
-#define BSIZE 171
+#define NSTATES 72
+#define BSIZE 180
 
 // Default values for each state
 static const uint8_t default_value[NSTATES] = {
@@ -209,7 +222,7 @@ static const uint8_t default_value[NSTATES] = {
   error,
   push_s10_goto_s0,
   error,
-  error_symbol_expected,
+  error,
   error_lp_expected,
   error_lp_expected,
   error_symbol_expected,
@@ -227,6 +240,16 @@ static const uint8_t default_value[NSTATES] = {
   error_lp_expected,
   push_t4g_goto_t0,
   error,
+  error_underscore_expected,
+  error_symbol_expected,
+  error_numeral_expected,
+  error,
+  error,
+  error,
+  error_underscore_expected,
+  error_symbol_expected,
+  error_numeral_expected,
+  error,
   error_rp_expected,
   error_symbol_expected,
   error_numeral_expected,
@@ -235,11 +258,6 @@ static const uint8_t default_value[NSTATES] = {
   error_numeral_expected,
   error,
   push_t8a_goto_t0,
-  error,
-  error_underscore_expected,
-  error_symbol_expected,
-  error_numeral_expected,
-  error,
   error_rp_expected,
 };
 
@@ -250,12 +268,13 @@ static const uint8_t base[NSTATES] = {
     40,  42,  42,  51,  44,  53,  54,  60,  63,  51,
     60,  66,  69,  70,  73,  74,  75,  83,  76,  84,
     86,  94,  95,  88,  96,  98,  91, 100, 101,  95,
-   104, 104,  92, 106, 103, 109, 112, 106, 113, 116,
-   117, 120, 107, 114, 120, 123, 124,
+   104, 104, 106,  93, 100, 108, 112, 102, 112, 103,
+   111, 118, 121, 122, 117, 123, 126, 120, 127, 130,
+   131, 133,
 };
 
 // Check table
-static uint8_t check[BSIZE] = {
+static const uint8_t check[BSIZE] = {
      0,   6,   0,   2,   9,  12,  10,  13,   4,   3,
      5,   7,   8,  10,  11,  14,  15,  16,  16,  17,
      1,   1,   1,   1,   1,   1,   1,   1,   1,   1,
@@ -266,14 +285,14 @@ static uint8_t check[BSIZE] = {
     32,  33,  32,  34,  35,  36,  34,  34,  34,  34,
     34,  34,  35,  37,  38,  39,  40,  40,  35,  35,
     35,  35,  35,  35,  41,  42,  43,  44,  45,  45,
-    46,  47,  48,  49,  50,  51,  52,  53,  52,  47,
-    48,  54,  55,  56,  57,  56,  58,  59,  60,  59,
-    61,  62,  63,  64,  65,  66,  65,  67,  61,  67,
-    67,  67,  67,  67,  67,  67,  67,  67,  67,  67,
-    67,  67,  67,  67,  67,  67,  67,  67,  67,  67,
-    67,  67,  67,  67,  67,  67,  67,  67,  67,  67,
-    67,  67,  67,  67,  67,  67,  67,  67,  67,  67,
-    67,
+    46,  47,  48,  49,  50,  51,  52,  53,  54,  47,
+    48,  55,  58,  56,  52,  56,  57,  59,  57,  60,
+    58,  61,  62,  63,  62,  64,  65,  66,  67,  66,
+    68,  69,  70,  69,  71,  72,  72,  72,  72,  72,
+    72,  72,  72,  72,  72,  72,  72,  72,  72,  72,
+    72,  72,  72,  72,  72,  72,  72,  72,  72,  72,
+    72,  72,  72,  72,  72,  72,  72,  72,  72,  72,
+    72,  72,  72,  72,  72,  72,  72,  72,  72,  72,
 };
 
 // Value table
@@ -367,9 +386,9 @@ static const uint8_t value[BSIZE] = {
   next_goto_t2b,
   next_push_r0_goto_t0,
   next_goto_t7,
-  bang_next_push_t4a_goto_t0,
-  next_push_r0_push_s0_goto_i0,
-  let_next_goto_t2,
+  next_push_t4a_goto_t0,
+  next_goto_t5,
+  next_goto_t2,
   exists_next_goto_t3,
   forall_next_goto_t3,
   next_goto_t3a,
@@ -384,29 +403,38 @@ static const uint8_t value[BSIZE] = {
   symbol_next_goto_t4c,
   next_push_t4g_goto_t0,
   next_goto_t4c,
-  next_goto_t6d,
+  next_goto_t5a,
+  next_goto_t5b,
+  symbol_next_goto_t5c,
+  check_keyword_then_branch,
+  check_keyword_then_branch,
+  numeral_next_goto_t5d,
+  next_goto_t6b,
+  next_push_r0_goto_s0,
+  symbol_next_push_r0_goto_s0,
+  numeral_next_goto_t5d,
+  next_goto_t6h,
+  next_goto_t6c,
+  next_goto_t6a,
+  symbol_next_goto_t6d,
+  next_push_t6g_goto_s0,
+  numeral_next_goto_t6e,
+  next_push_t6g_goto_s0,
   next_push_t8a_goto_t0,
-  next_push_t6c_push_s0_goto_i0,
-  check_keyword_then_branch,
-  check_keyword_then_branch,
-  symbol_next_goto_t6e,
-  numeral_next_goto_t6f,
+  numeral_next_goto_t6e,
+  symbol_next_goto_t6i,
+  numeral_next_goto_t6j,
   next_push_t8a_goto_t0,
   symbol_next_goto_t7a,
-  numeral_next_goto_t6f,
+  numeral_next_goto_t6j,
   numeral_next_goto_t7b,
   next_return,
   next_return,
   numeral_next_goto_t7b,
-  next_goto_i1,
-  next_goto_i2,
-  symbol_next_goto_i3,
-  numeral_next_goto_i4,
   next_return,
-  next_return,
-  numeral_next_goto_i4,
   error,
-  symbol_next_return,
+  error,
+  error,
   error,
   error,
   error,
@@ -450,8 +478,6 @@ static const uint8_t value[BSIZE] = {
   error,
   error,
 };
-
-
 
 
 #endif /* __SMT2_PARSE_TABLES_H */

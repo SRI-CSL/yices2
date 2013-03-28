@@ -590,21 +590,25 @@ extern void clear_type_name(type_table_t *table, type_t t);
  * - n = arity. It must be no more than TYPE_MACRO_MAX_ARITY
  * - vars = array of n type variables (must be all distinct)
  * - body = type
+ *
+ * return the macro's id
  */
-extern void add_type_macro(type_table_t *table, char *name, uint32_t n, type_t *vars, type_t body);
+extern int32_t add_type_macro(type_table_t *table, char *name, uint32_t n, type_t *vars, type_t body);
 
 
 /*
  * Add an uninterpreted type constructor:
  * - name = macro name
  * - n = arity. It must be no more than TYPE_MACRO_MAX_ARITY
+ *
+ * return the constructor's id
  */
-extern void add_type_constructor(type_table_t *table, char *name, uint32_t n);
+extern int32_t add_type_constructor(type_table_t *table, char *name, uint32_t n);
 
 
 /*
  * Get a macro id of the given name
- * - return -1 if there's no macro with this name
+ * - return -1 if there's no macro or constuctor with this name
  */
 extern int32_t get_type_macro_by_name(type_table_t *table, const char *name);
 

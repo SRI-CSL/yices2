@@ -2509,7 +2509,7 @@ bool compatible_types(type_table_t *table, type_t tau1, type_t tau2) {
  * - vars = array of n type variables (must be all distinct)
  * - body = type
  */
-void add_type_macro(type_table_t *table, char *name, uint32_t n, type_t *vars, type_t body) {
+int32_t add_type_macro(type_table_t *table, char *name, uint32_t n, type_t *vars, type_t body) {
   type_mtbl_t *mtbl;
   type_macro_t *d;
   int32_t i;
@@ -2524,7 +2524,9 @@ void add_type_macro(type_table_t *table, char *name, uint32_t n, type_t *vars, t
   mtbl->data[i] = d;
 
   stbl_add(&mtbl->stbl, name, i);
-  string_incref(name);  
+  string_incref(name);
+
+  return i;
 }
 
 
@@ -2533,7 +2535,7 @@ void add_type_macro(type_table_t *table, char *name, uint32_t n, type_t *vars, t
  * - name = macro name
  * - n = arity. It must be no more than TYPE_MACRO_MAX_ARITY
  */
-void add_type_constructor(type_table_t *table, char *name, uint32_t n) {
+int32_t add_type_constructor(type_table_t *table, char *name, uint32_t n) {
   type_mtbl_t *mtbl;
   type_macro_t *d;
   int32_t i;
@@ -2547,6 +2549,8 @@ void add_type_constructor(type_table_t *table, char *name, uint32_t n) {
   
   stbl_add(&mtbl->stbl, name, i);
   string_incref(name);  
+
+  return i;
 }
 
 
@@ -2692,6 +2696,7 @@ type_t instantiate_type_macro(type_table_t *table, int32_t id, uint32_t n, type_
     result = r->value;
     if (new) {
       result = type_substitution(table, d->body, n, d->vars, actual);
+      assert(tuple_hmap_find(&mtbl->cache, n+1, key) == r); // i.e. r is still valid
       r->value = result;
     }
   }

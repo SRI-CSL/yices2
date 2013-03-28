@@ -232,7 +232,7 @@ typedef enum smt2_symbol smt2_symbol_t;
  *    extract bits[j .. i] of u
  *
  * repeat:  (_ repeat i): (_ BitVec n) -> (_ BitVec n*i)
- *    where i>=1: concatenate u, i times with itself
+ *    where i >= 1: concatenate u, i times with itself
  *
  * zero_extend: (_ zero_extend i) where i >= 0
  *   append i '0' on the left-hand side (high-order bits)
