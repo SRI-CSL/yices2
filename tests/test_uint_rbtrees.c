@@ -174,14 +174,14 @@ static void test_scan_tree(rbtree_t *tree) {
  * Speed test: add all elements of a into tree.
  */
 static void test_tree_speed_add(rbtree_t *tree, uint32_t *a, uint32_t n) {
-  uint32_t i, x, k;
+  uint32_t i, x;
   uint32_t cnt; // number of additions
   bool new;
 
   cnt = 0;
   for (i=0; i<n; i++) {
     x = a[i];
-    k = rbtree_get(tree, x, &new);
+    (void) rbtree_get(tree, x, &new);
     if (new) {
       cnt ++;
     }

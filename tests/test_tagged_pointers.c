@@ -4,6 +4,8 @@
 #include <inttypes.h>
 #include <assert.h>
 
+#include "assert_utils.h"
+
 typedef size_t tptr_t;
 
 typedef enum tag_e {
@@ -54,17 +56,17 @@ static void test_int(int32_t x) {
 
   printf("Test int: x = %"PRId32, x);
   p = tag_int(x, tag00);
-  assert(get_tag(p) == tag00);
-  assert(untag_int(p) == x);
+  assert_true(get_tag(p) == tag00);
+  assert_true(untag_int(p) == x);
   p = tag_int(x, tag01);
-  assert(get_tag(p) == tag01);
-  assert(untag_int(p) == x);
+  assert_true(get_tag(p) == tag01);
+  assert_true(untag_int(p) == x);
   p = tag_int(x, tag10);
-  assert(get_tag(p) == tag10);
-  assert(untag_int(p) == x);
+  assert_true(get_tag(p) == tag10);
+  assert_true(untag_int(p) == x);
   p = tag_int(x, tag11);
-  assert(get_tag(p) == tag11);
-  assert(untag_int(p) == x);
+  assert_true(get_tag(p) == tag11);
+  assert_true(untag_int(p) == x);
   printf(": OK\n");
   fflush(stdout);
 }
@@ -75,17 +77,17 @@ static void test_uint(uint32_t x) {
 
   printf("Test uint: x = %"PRIu32, x);
   p = tag_uint(x, tag00);
-  assert(get_tag(p) == tag00);
-  assert(untag_uint(p) == x);
+  assert_true(get_tag(p) == tag00);
+  assert_true(untag_uint(p) == x);
   p = tag_uint(x, tag01);
-  assert(get_tag(p) == tag01);
-  assert(untag_uint(p) == x);
+  assert_true(get_tag(p) == tag01);
+  assert_true(untag_uint(p) == x);
   p = tag_uint(x, tag10);
-  assert(get_tag(p) == tag10);
-  assert(untag_uint(p) == x);
+  assert_true(get_tag(p) == tag10);
+  assert_true(untag_uint(p) == x);
   p = tag_uint(x, tag11);
-  assert(get_tag(p) == tag11);
-  assert(untag_uint(p) == x);
+  assert_true(get_tag(p) == tag11);
+  assert_true(untag_uint(p) == x);
   printf(": OK\n");
   fflush(stdout);
 }
@@ -96,17 +98,17 @@ static void test_ptr(void *x) {
 
   printf("Test pointer: x = %p", x);
   p = tag_ptr(x, tag00);
-  assert(get_tag(p) == tag00);
-  assert(untag_ptr(p) == x);
+  assert_true(get_tag(p) == tag00);
+  assert_true(untag_ptr(p) == x);
   p = tag_ptr(x, tag01);
-  assert(get_tag(p) == tag01);
-  assert(untag_ptr(p) == x);
+  assert_true(get_tag(p) == tag01);
+  assert_true(untag_ptr(p) == x);
   p = tag_ptr(x, tag10);
-  assert(get_tag(p) == tag10);
-  assert(untag_ptr(p) == x);
+  assert_true(get_tag(p) == tag10);
+  assert_true(untag_ptr(p) == x);
   p = tag_ptr(x, tag11);
-  assert(get_tag(p) == tag11);
-  assert(untag_ptr(p) == x);
+  assert_true(get_tag(p) == tag11);
+  assert_true(untag_ptr(p) == x);
   printf(": OK\n");
   fflush(stdout);
 }

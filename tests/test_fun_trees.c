@@ -315,7 +315,7 @@ static void test2(void) {
  * Use an infinite domain so all additions should succeed.
  */
 static void test3(void) {
-  particle_t tt, ff;
+  particle_t ff;
   map_t *map[5];
   type_t unint, tau;
   bool ok;
@@ -327,7 +327,6 @@ static void test3(void) {
          "***********************\n");
   
   tau = bool_type(&types);
-  tt = pstore_labeled_particle(&store, 0, tau);
   ff = pstore_labeled_particle(&store, 1, tau);
 
   // all maps have default false
@@ -564,7 +563,7 @@ static void test5(void) {
  * Test 6: maps of type [bool, bool -> bool]
  */
 static void test6(void) {
-  particle_t tt, ff;
+  particle_t tt;
   map_t *map[20];
   type_t tau;
   bool ok;
@@ -577,7 +576,6 @@ static void test6(void) {
   
   tau = bool_type(&types);
   tt = pstore_labeled_particle(&store, 0, tau);
-  ff = pstore_labeled_particle(&store, 1, tau);
 
   // all maps initially empty, with default value tt
   for (i=0; i<20; i++) {

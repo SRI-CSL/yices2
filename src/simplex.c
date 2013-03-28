@@ -4,6 +4,7 @@
  * Version 3: started 2008/11/03
  */
 
+#include "assert_utils.h"
 #include "prng.h"
 #include "bitvectors.h"
 #include "int_hash_classes.h"
@@ -1434,7 +1435,6 @@ static void simplex_propagate_equalities(simplex_solver_t *solver) {
   arith_bstack_t *bstack;
   uint32_t i, n, eqs;
   thvar_t x;
-  bool feasible;
 
   bstack = &solver->bstack;
   eqprop = solver->eqprop;
@@ -1465,8 +1465,7 @@ static void simplex_propagate_equalities(simplex_solver_t *solver) {
   }
 
   if (eqs > 0) {
-    feasible = offset_manager_propagate(&eqprop->mngr);
-    assert(feasible);
+    assert_true(offset_manager_propagate(&eqprop->mngr));
   }
   
   eqprop->prop_ptr = n;

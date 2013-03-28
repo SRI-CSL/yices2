@@ -150,7 +150,7 @@ static void print_symbol_table(FILE *f, stbl_t *table, uint32_t level) {
 
 int main() {
   type_t bv10, bv32, i, any, enumtype, ft, unit, tt;
-  type_t unit2, unit_pair, finite_pair, finite_fun, unit_fun, finite_fun2;
+  type_t unit2, finite_fun;
   type_t var1, var2, fvar1, tvar;
 
   init_yices_pp_tables();
@@ -219,12 +219,12 @@ int main() {
   printf("\n");
 
   printf("*** Creating unit pair ***\n");
-  unit_pair = tuple_type_pair(&table, unit, unit2);
+  (void) tuple_type_pair(&table, unit, unit2);
   print_type_table(stdout, &table);
   printf("\n");
 
   printf("*** Creating finite pair ***\n");
-  finite_pair = tuple_type_pair(&table, bool_type(&table), enumtype);
+  (void) tuple_type_pair(&table, bool_type(&table), enumtype);
   print_type_table(stdout, &table);
   printf("\n");
 
@@ -234,12 +234,12 @@ int main() {
   printf("\n");
 
   printf("*** Creating unit function ***\n");
-  unit_fun = binary_function_type(&table, int_type(&table), int_type(&table), unit);
+  (void) binary_function_type(&table, int_type(&table), int_type(&table), unit);
   print_type_table(stdout, &table);
   printf("\n");
 
   printf("*** Creating large finite function ***\n");
-  finite_fun2 = binary_function_type(&table, finite_fun, bool_type(&table), enumtype);
+  (void) binary_function_type(&table, finite_fun, bool_type(&table), enumtype);
   print_type_table(stdout, &table);
   printf("\n");
 

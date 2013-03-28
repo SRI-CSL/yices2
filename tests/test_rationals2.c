@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <gmp.h>
 
+#include "assert_utils.h"
 #include "rationals.h"
 #include "mpq_aux.h"
 
@@ -119,7 +120,7 @@ static void test_gcd(void) {
     for (j=0; j<14; j++) {
       q_set32(&r0, num[i]);
       code = q_set_from_string(&r1, big_num[j]);
-      assert(code == 0);
+      assert_true(code == 0);
       q_gcd(&r0, &r1);
       // print
       printf("gcd(%"PRId32", %s) = ", num[i], big_num[j]);
@@ -137,7 +138,7 @@ static void test_gcd(void) {
   for (i=0; i<14; i++) {
     for (j=0; j<48; j++) {
       code = q_set_from_string(&r0, big_num[i]);
-      assert(code == 0);
+      assert_true(code == 0);
       q_set32(&r1, num[j]);
       q_gcd(&r0, &r1);
       // print
@@ -156,9 +157,9 @@ static void test_gcd(void) {
   for (i=0; i<14; i++) {
     for (j=0; j<14; j++) {
       code = q_set_from_string(&r0, big_num[i]);
-      assert(code == 0);
+      assert_true(code == 0);
       code = q_set_from_string(&r1, big_num[j]);
-      assert(code == 0);
+      assert_true(code == 0);
       q_gcd(&r0, &r1);
       // print
       printf("gcd(%s, %s) = ", big_num[i], big_num[j]);
@@ -205,7 +206,7 @@ static void test_lcm(void) {
     for (j=0; j<14; j++) {
       q_set32(&r0, num[i]);
       code = q_set_from_string(&r1, big_num[j]);
-      assert(code == 0);
+      assert_true(code == 0);
       q_lcm(&r0, &r1);
       // print
       printf("lcm(%"PRId32", %s) = ", num[i], big_num[j]);
@@ -223,7 +224,7 @@ static void test_lcm(void) {
   for (i=0; i<14; i++) {
     for (j=0; j<48; j++) {
       code = q_set_from_string(&r0, big_num[i]);
-      assert(code == 0);
+      assert_true(code == 0);
       q_set32(&r1, num[j]);
       q_lcm(&r0, &r1);
       // print
@@ -242,9 +243,9 @@ static void test_lcm(void) {
   for (i=0; i<14; i++) {
     for (j=0; j<14; j++) {
       code = q_set_from_string(&r0, big_num[i]);
-      assert(code == 0);
+      assert_true(code == 0);
       code = q_set_from_string(&r1, big_num[j]);
-      assert(code == 0);
+      assert_true(code == 0);
       q_lcm(&r0, &r1);
       // print
       printf("lcm(%s, %s) = ", big_num[i], big_num[j]);
@@ -296,7 +297,7 @@ static void test_divides(void) {
     for (j=0; j<14; j++) {
       q_set32(&r0, num[i]);
       code = q_set_from_string(&r1, big_num[j]);
-      assert(code == 0);
+      assert_true(code == 0);
       result = q_divides(&r0, &r1);
       // print
       if (result) {
@@ -319,7 +320,7 @@ static void test_divides(void) {
   for (i=0; i<14; i++) {
     for (j=0; j<48; j++) {
       code = q_set_from_string(&r0, big_num[i]);
-      assert(code == 0);
+      assert_true(code == 0);
       q_set32(&r1, num[j]);
       result = q_divides(&r0, &r1);
       // print
@@ -343,9 +344,9 @@ static void test_divides(void) {
   for (i=0; i<14; i++) {
     for (j=0; j<14; j++) {
       code = q_set_from_string(&r0, big_num[i]);
-      assert(code == 0);
+      assert_true(code == 0);
       code = q_set_from_string(&r1, big_num[j]);
-      assert(code == 0);
+      assert_true(code == 0);
       result = q_divides(&r0, &r1);
       // print
       if (result) {

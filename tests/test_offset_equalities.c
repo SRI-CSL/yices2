@@ -1,6 +1,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 
+#include "assert_utils.h"
 #include "int_vectors.h"
 #include "offset_equalities.h"
 
@@ -466,6 +467,7 @@ static void test_equality(int32_t x, int32_t y, int32_t offset, int32_t id) {
 }
 
 
+// Used assert_true instead of assert to prevent compiler warnings
 int main(void) {
   uint32_t i;
   bool ok;
@@ -494,7 +496,7 @@ int main(void) {
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
   print_vtable(&mngr);
-  assert(ok);
+  assert_true(ok);
 
   offset_manager_increase_decision_level(&mngr);
   test_equality(var[3], var[4], 0, 123);
@@ -503,7 +505,7 @@ int main(void) {
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
   print_vtable(&mngr);
-  assert(ok);
+  assert_true(ok);
 
   offset_manager_backtrack(&mngr, 0);
   printf("\n*** After backtracking to level 0 ***\n");
@@ -517,14 +519,14 @@ int main(void) {
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
   print_vtable(&mngr);  
-  assert(ok);
+  assert_true(ok);
 
   offset_manager_backtrack(&mngr, 0);
   ok = offset_manager_propagate(&mngr);
   printf("\n*** After backtracking to level 0 ***\n");
   print_ptable(&mngr);
   print_vtable(&mngr);
-  assert(ok);
+  assert_true(ok);
 
   /*
    * SECOND TEST
@@ -563,7 +565,7 @@ int main(void) {
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
   print_vtable(&mngr);
-  assert(ok);
+  assert_true(ok);
   
   offset_manager_pop(&mngr);
   printf("\n*** After pop ****\n");
@@ -577,7 +579,7 @@ int main(void) {
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
   print_vtable(&mngr);
-  assert(ok);
+  assert_true(ok);
   
   /*
    * THIRD TEST
@@ -597,7 +599,7 @@ int main(void) {
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
   print_vtable(&mngr);
-  assert(ok);
+  assert_true(ok);
 
   offset_manager_push(&mngr);
 
@@ -622,7 +624,7 @@ int main(void) {
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
   print_vtable(&mngr);
-  assert(ok);
+  assert_true(ok);
 
   offset_manager_pop(&mngr);
 
@@ -636,7 +638,7 @@ int main(void) {
   printf("\n*** After propagate ****\n");
   print_ptable(&mngr);
   print_vtable(&mngr);
-  assert(ok);
+  assert_true(ok);
 
   delete_offset_manager(&mngr);
   delete_polys();

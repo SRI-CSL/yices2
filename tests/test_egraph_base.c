@@ -91,7 +91,6 @@ static smt_core_t core;
 static void test1(void) {
   eterm_t tx, ty;
   occ_t x, y;
-  literal_t l;
   type_t u;
 
   printf("***********************\n"
@@ -116,11 +115,11 @@ static void test1(void) {
   
   // create (eq x y)
   printf("---> building (eq x y)\n");
-  l = egraph_make_eq(&egraph, x, y);
+  (void) egraph_make_eq(&egraph, x, y);
 
   // create (eq y y)
   printf("---> building (eq x x)\n");
-  l = egraph_make_eq(&egraph, y, y);
+  (void) egraph_make_eq(&egraph, y, y);
 
   print_solver(&egraph, &core);
 

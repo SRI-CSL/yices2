@@ -131,14 +131,14 @@ static void test_binary_search(int32_t *a, uint32_t n) {
 static void speed_test_binary_search(int32_t *a, uint32_t n) {
   double start, done;
   uint32_t i;
-  int32_t x, top, k;
+  int32_t x, top;
 
   top = 5 * n + 12;
   printf("Binary search: size = %"PRIu32"   (10000*%"PRId32" searches)\n", n, top+12);
   start = get_cpu_time();
   for (i=0; i<10000; i++) {
     for (x = -12; x<top; x++) {
-      k = binary_search(a, n, x);
+      (void) binary_search(a, n, x);
     }
   }
   done = get_cpu_time();
@@ -152,14 +152,14 @@ static void speed_test_binary_search(int32_t *a, uint32_t n) {
 static void speed_test_sequential_search(int32_t *a, uint32_t n) {
   double start, done;
   uint32_t i;
-  int32_t x, top, k;
+  int32_t x, top;
 
   top = 5 * n + 12;
   printf("Sequential search: size = %"PRIu32"   (10000*%"PRId32" searches)\n", n, top+12);
   start = get_cpu_time();
   for (i=0; i<10000; i++) {
     for (x = -12; x<top; x++) {
-      k = sequential_search(a, n, x);
+      (void) sequential_search(a, n, x);
     }
   }
   done = get_cpu_time();

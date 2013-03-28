@@ -138,7 +138,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
   lexer_t *lex;
   tstack_t *tstack;
   int exception;
-  loc_t loc;
+  //  loc_t loc;
 
   stack = &parser->pstack;
   lex = parser->lex;
@@ -156,8 +156,8 @@ static int32_t smt2_parse(parser_t *parser, state_t start, FILE *err) {
   loop:
     // jump here for actions that consume the current token
     token = next_smt2_token(lex);
-    loc.line = current_token_line(lex);
-    loc.column = current_token_column(lex);
+    //    loc.line = current_token_line(lex);
+    //    loc.column = current_token_column(lex);
 
   skip_token:
     // jump here for actions that don't consume the token
