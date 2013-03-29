@@ -76,7 +76,7 @@ static const char * const smt2_keyword_string[NUM_SMT2_KEYWORDS] = {
   ":produce-models",          // SMT2_KW_PRODUCE_MODELS
   ":produce-assignments",     // SMT2_KW_PRODUCE_ASSIGNMENTS
   ":regular-output-channel",  // SMT2_KW_REGULAR_OUTPUT
-  ":regular-diagnostic-channel",  // SMT2_KW_DIAGNOSTIC_OUTPUT
+  ":diagnostic-output-channel",  // SMT2_KW_DIAGNOSTIC_OUTPUT
   ":random-seed",             // SMT2_KW_RANDOM_SEED
   ":verbosity",               // SMT2_KW_VERBOSITY
   ":error-behavior",          // SMT2_KW_ERROR_BEHAVIOR

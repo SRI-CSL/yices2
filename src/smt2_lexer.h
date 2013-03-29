@@ -241,6 +241,8 @@ typedef enum smt2_symbol smt2_symbol_t;
  *
  * rotate_left: (_ rotate_left i) where i >= 0
  * rotate_right: (_ rotate_right i) where i >= 0
+ *
+ * divisible: (_ divisible n) for integer n > 0
  */
  
 /*
