@@ -435,7 +435,7 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
  * (more exactly in the range [0 .. ARITHCONSTANT_REQUIRED].
  * We assign a severity to these errors, as defined below.
  */
-#define NUM_YICES_ERRORS (ARITHCONSTANT_REQUIRED+1)
+#define NUM_YICES_ERRORS (DUPLICATE_TYPE_VAR+1)
 
 /*
  * Severity of an error:
@@ -477,6 +477,10 @@ static uint8_t severity[NUM_YICES_ERRORS] = {
   0, // INCOMPATIBLE_BVSIZES
   2, // EMPTY_BITVECTOR
   2, // ARITHCONSTANT_REQUIRED (should never be raised by term stack, see eval_mk_div)
+  2, // INVALID_MACRO (bug in term_stack)
+  0, // TOO_MANY_MACRO_PARAMS
+  2, // TYPE_VAR_REQUIRED (bug in term_stack)
+  0, // DUPLICATE_TYPE_VAR
 };
 
 

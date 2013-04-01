@@ -1097,6 +1097,21 @@ static bool check_arity(uint32_t n) {
   return true;
 }
 
+// Check whether n is less than TYPE_MACRO_MAX_ARITY
+static bool check_macro_arity(uint32_t n) {
+  if (n == 0) {
+    error.code = POS_INT_REQUIRED;
+    error.badval = n;
+    return false;
+  }
+  if (n > TYPE_MACRO_MAX_ARITY) {
+    error.code = TOO_MANY_MACRO_PARAMS;
+    error.badval = n;
+    return false;
+  }
+  return true;
+}
+
 // Check whether n is less than YICES_MAX_VARS
 static bool check_maxvars(uint32_t n) {
   if (n > YICES_MAX_VARS) {
@@ -1150,6 +1165,56 @@ static bool check_good_types(type_table_t *tbl, uint32_t n, type_t *a) {
   }
   return true;
 }
+
+// Check whether all types in a[0 ... n-1] are type variables
+static bool check_all_type_variables(type_table_t *tbl, uint32_t n, type_t *a) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (! is_type_variable(tbl, a[i])) {
+      error.code = TYPE_VAR_REQUIRED;
+      error.type1 = a[i];
+      return false;
+    }
+  }
+  return true;
+}
+
+// Check whether all variables in a[0...n-1] are distinct
+static bool check_no_duplicate_type_vars(uint32_t n, type_t *a) {
+  type_t aux[10];
+  type_t *b;
+  uint32_t i;
+  bool result;
+
+  assert(n < UINT32_MAX/sizeof(type_t));
+
+  result = true;
+  if (n > 1) {
+    b = aux;
+    if (n > 10) {
+      b = (int32_t *) safe_malloc(n * sizeof(int32_t));
+    }
+    for (i=0; i<n; i++) {
+      b[i] = a[i];
+    }
+    int_array_sort(b, n);
+    for (i=1; i<n; i++) {
+      if (b[i-1] == b[i]) {
+	error.code = DUPLICATE_TYPE_VAR;
+	error.type1 = b[i];
+	result = false;
+	break;
+      }
+    }
+    if (n > 10) {
+      safe_free(b);
+    }
+  }
+
+  return result;
+}
+
 
 // Check whether tau is uninterpreted or scalar, and whether 
 // i a valid constant index for type tau.
@@ -1833,6 +1898,99 @@ EXPORTED type_t yices_function_type(uint32_t n, type_t dom[], type_t range) {
 }
 
 
+/*
+ * Type macros and constructors
+ */
+
+/*
+ * Type variable with the given id
+ */
+type_t yices_type_variable(uint32_t id) {
+  return type_variable(&types, id);
+}
+
+
+/*
+ * Create a type constructor:
+ * - name = its name
+ * - n = airty
+ * return -1 if there's an error or the macro id otherwise
+ */
+int32_t yices_type_constructor(const char *name, uint32_t n) {
+  char *clone;
+
+  if (! check_macro_arity(n)) {
+    return -1;
+  }
+  clone = clone_string(name);
+  return add_type_constructor(&types, clone, n);
+}
+
+/*
+ * Create a type macro:
+ * - name = its name
+ * - n = arity
+ * - vars = array of n distinct type variables
+ * - body = type
+ *
+ * return -1 if there's an error or the macro id otherwise
+ */
+int32_t yices_type_macro(const char *name, uint32_t n, type_t *vars, type_t body) {
+  char *clone;
+
+  if (! check_macro_arity(n) ||
+      ! check_good_type(&types, body) ||
+      ! check_good_types(&types, n, vars) ||
+      ! check_all_type_variables(&types, n, vars) ||
+      ! check_no_duplicate_type_vars(n, vars)) {
+    return -1;
+  }
+
+  clone = clone_string(name);
+  return add_type_macro(&types, clone, n, vars, body);
+}
+
+
+/*
+ * Instance of a macro or constructor
+ * - cid = constructor or macro id
+ * - n = number of arguments
+ * - tau[0 ... n-1] = argument types
+ *
+ * return NULL_TYPE if there's an error
+ */
+type_t yices_instance_type(int32_t cid, uint32_t n, type_t tau[]) {
+  type_macro_t *macro;
+
+  macro = type_macro(&types, cid);
+  if (macro == NULL) {
+    error.code = INVALID_MACRO;
+    error.badval = cid;
+    return NULL_TYPE;
+  }
+
+  if (n != macro->arity) {
+    error.code = WRONG_NUMBER_OF_ARGUMENTS;
+    error.type1 = NULL_TYPE;
+    error.badval = n;
+    return NULL_TYPE;
+  }
+
+  if (! check_good_types(&types, n, tau)) {
+    return NULL_TYPE;
+  }
+
+  return instance_type(&types, cid, n, tau);
+}
+
+
+/*
+ * Get the macro id for a given name
+ * - return -1 if there's no macro or constructor with that name
+ */
+int32_t yices_get_macro_by_name(const char *name) {
+  return get_type_macro_by_name(&types, name);
+}
 
 
 

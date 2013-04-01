@@ -118,6 +118,10 @@ typedef enum error_code {
   INCOMPATIBLE_BVSIZES,
   EMPTY_BITVECTOR,
   ARITHCONSTANT_REQUIRED, // added 2013/01/23
+  INVALID_MACRO,          // added 2013/03/31
+  TOO_MANY_MACRO_PARAMS,  // added 2013/03/31
+  TYPE_VAR_REQUIRED,      // added 2013/03/31
+  DUPLICATE_TYPE_VAR,     // added 2013/03/31
 
   /*
    * Parser errors
@@ -251,7 +255,11 @@ typedef enum error_code {
  *  DUPLICATE_VARIABLE         term1
  *  INCOMPATIBLE_BVSIZES       term1, type1, term2, type2
  *  EMPTY_BITVECTOR            none
- *  ARITHCCONSTANT_REQUIRED    term1    
+ *  ARITHCCONSTANT_REQUIRED    term1
+ *  INVALID_MACRO              badval
+ *  TOO_MANY_MACRO_PARAMS      badval
+ *  TYPE_VAR_REQUIRED          type1
+ *  DUPLICATE_TYPE_VAR         type1
  *
  * The following error codes are used only by the parsing functions. 
  * No field other than line/column is set.

@@ -615,7 +615,7 @@ extern int32_t get_type_macro_by_name(type_table_t *table, const char *name);
 
 /*
  * Get the descriptor for the given id
- * - id must be a valid macro id (of a non-deleted macro)
+ * - return NULL if id is not valid (including if it refers to a deleted macro)
  */
 extern type_macro_t *type_macro(type_table_t *table, int32_t id);
 

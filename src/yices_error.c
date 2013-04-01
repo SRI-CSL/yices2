@@ -142,7 +142,7 @@ int32_t print_error(FILE *f) {
     break;
 
   case DUPLICATE_VARIABLE:
-    code = fprintf(f, "duplicate variable in quantifier\n");
+    code = fprintf(f, "duplicate variable in quantifier or lambda\n");
     break;
 
   case INCOMPATIBLE_BVSIZES:
@@ -157,6 +157,21 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "argument is not an arithmetic constant\n");
     break;
 
+  case INVALID_MACRO:
+    code = fprintf(f, "invalid macro id: %"PRId64"\n", error->badval);
+    break;
+
+  case TOO_MANY_MACRO_PARAMS:
+    code = fprintf(f, "too many arguments in type constructor or macro (max = %"PRIu32")\n", TYPE_MACRO_MAX_ARITY);
+    break;
+
+  case TYPE_VAR_REQUIRED:
+    code = fprintf(f, "argument is not a type variable\n");
+    break;
+
+  case DUPLICATE_TYPE_VAR:
+    code = fprintf(f, "duplicate variable in type macro definition\n");
+    break;
 
     /*
      * Parser errors 

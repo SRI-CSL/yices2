@@ -413,7 +413,6 @@ typedef enum tstack_error_s {
 extern void init_tstack(tstack_t *stack);
 extern void delete_tstack(tstack_t *stack);
 
-
 /*
  * Empty the stack
  */

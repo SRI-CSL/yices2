@@ -2574,15 +2574,19 @@ int32_t get_type_macro_by_name(type_table_t *table, const char *name) {
 
 /*
  * Get the descriptor for the given id
- * - id must be a valid macro id (of a non-deleted macro)
+ * - return NULL if id is not valid (including if it refers to a deleted macro)
  */
 type_macro_t *type_macro(type_table_t *table, int32_t id) {
   type_mtbl_t *mtbl;
+  type_macro_t *macro;
 
   mtbl = table->macro_tbl;
-  assert(mtbl != NULL && good_type_macro(mtbl, id) && mtbl->data[id] != NULL);
+  macro = NULL;
+  if (mtbl != NULL && good_type_macro(mtbl, id)) {
+    macro = mtbl->data[id];
+  }
 
-  return (type_macro_t*) mtbl->data[id];
+  return macro;
 }
 
 
