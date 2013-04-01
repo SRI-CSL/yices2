@@ -35,7 +35,7 @@ typedef struct parser_stack_s {
 
 
 #define DEFAULT_PARSER_STACK_SIZE 500
-#define MAX_PARSER_STACK_SIZE (UINT32_MAX/2)
+#define MAX_PARSER_STACK_SIZE (UINT32_MAX/sizeof(parser_state_t))
 
 
 /*
