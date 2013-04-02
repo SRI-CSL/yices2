@@ -11,7 +11,8 @@
  * names to terms (for let, forall, exists). The binding of name to term
  * is erased when the binding is deleted.
  *
- * To help reporting errors, each element on the stack has location information.
+ * To help reporting errors, each element on the stack has location
+ * information.
  *
  * Each operation is defined by an op code and implemented by two functions:
  * - one for checking types and number of arguments
@@ -148,7 +149,6 @@ typedef struct stack_elem_s {
  *   eval[op] = evaluation function
  * - size = size of arrays assoc, check, and eval
  */
-
 typedef struct tstack_s tstack_t;
 // type of evaluator and check functions
 typedef void (*evaluator_t)(tstack_t *stack, stack_elem_t *f, uint32_t n);
@@ -214,7 +214,11 @@ struct tstack_s {
   bvarith64_buffer_t *bva64buffer;
   bvarith_buffer_t *bvabuffer;
   bvlogic_buffer_t *bvlbuffer;  
-  
+
+  // counter for type-variable creation
+  uint32_t tvar_id;
+
+  // result of BUILD_TERM/BUILD_TYPE
   union {
     term_t term;
     type_t type;
@@ -405,7 +409,6 @@ enum base_opcodes {
 #define NUM_BASE_OPCODES (BUILD_TYPE + 1)
 
 
-
 /*
  * Initialization
  * - n = size of the operator table (must be >= NUM_BASE_OPCODES)
@@ -418,7 +421,8 @@ extern void init_tstack(tstack_t *stack, uint32_t n);
  * - op = operator code 
  * - asssoc = whether op is associative or not
  * - eval. check = evaluator and checker functions
- * - op must be non-negative
+ * - op must be non-negative and less than the operator's table size
+ *   (set in init_tstack)
  *
  * If op is between 0 and stack->op_table.num_ops then the
  * current values for op are replaced. If op is larger than
@@ -470,10 +474,7 @@ static inline void tstack_push_symbol(tstack_t *stack, char *s, uint32_t n, loc_
   tstack_push_str(stack, TAG_SYMBOL, s, n, loc);
 }
 
-
 /*
- * For define-type or define term: push a name s on the stack.
- *
  * These functions are like push_symbol but they raise an exception if
  * the name is already used (TSTACK_TYPENAME_REDEF,
  * TSTACK_TERMNAME_REDEF, or TSTACK_MACRO_REDEF)
@@ -543,7 +544,6 @@ extern void tstack_push_type(tstack_t *stack, type_t tau, loc_t *loc);
 extern void tstack_push_macro(tstack_t *stack, int32_t id, loc_t *loc);
 
 
-
 /*
  * EVALUATION
  */
@@ -583,15 +583,9 @@ static inline term_t tstack_get_type(tstack_t *stack) {
 }
 
 
-
 /****************
  *  UTILITIES   *
  ***************/
-
-/*
- * The following functions can be used to implement
- * checkers/evaluators.
- */
 
 /*
  * Exception raised when processing element e
@@ -611,30 +605,6 @@ extern void __attribute__((noreturn)) raise_exception(tstack_t *stack, stack_ele
  * - stack->error_string is NULL
  */
 extern void __attribute__((noreturn)) report_yices_error(tstack_t *stack);
-
-
-/*
- * Check various conditions and raise an exception if the test fails
- */
-// check whether e has tag tg
-extern void check_tag(tstack_t *stack, stack_elem_t *e, tag_t tg);
-
-// check whether top_op is equal to op
-extern void check_op(tstack_t *stack, int32_t op);
-
-// check whether cond is true, if not raise TSTACK_INVALID_FRAME
-// to be used to check the frame size as in check_size(tstack, n>=2)
-extern void check_size(tstack_t *stack, bool cond);
-
-// check whether all elements in e ... end (end excluded) have tag tg
-extern void check_all_tags(tstack_t *stack, stack_elem_t *e, stack_elem_t *end, tag_t tg);
-
-// check whether tau is non NULL, otherwise raise YICES_ERROR
-extern void check_type(tstack_t *stack, type_t tau);
-
-// same thing for term t
-extern void check_term(tstack_t *stack, term_t t);
-
 
 
 /*
@@ -675,7 +645,6 @@ static inline void no_result(tstack_t *stack) {
  * - v's TAG must not be string/symbol.
  */
 extern void copy_result_and_pop_frame(tstack_t *stack, stack_elem_t *v);
-
 
 
 #endif /* __TERM_STACK2_H */

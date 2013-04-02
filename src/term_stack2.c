@@ -173,6 +173,8 @@ static void alloc_tstack(tstack_t *stack, uint32_t nops) {
   stack->bvabuffer = NULL;
   stack->bvlbuffer = NULL;
 
+  stack->tvar_id = 0;
+
   stack->error_op = NO_OP;
   stack->error_loc.line = 0;
   stack->error_loc.column = 0;
@@ -227,48 +229,6 @@ static stack_elem_t *tstack_get_topelem(tstack_t *stack) {
 
 
 
-/*
- * Delete the stack
- */
-void delete_tstack(tstack_t *stack) {
-  tstack_reset(stack);
-
-  safe_free(stack->elem);
-  stack->elem = NULL;
-
-  delete_op_table(&stack->op_table);
-
-  delete_arena(&stack->mem);
-
-  safe_free(stack->aux_buffer);
-  stack->aux_buffer = NULL;
-
-  delete_bvconstant(&stack->bvconst_buffer);
-
-  if (stack->abuffer != NULL) {
-    yices_free_arith_buffer(stack->abuffer);
-    stack->abuffer = NULL;
-  }
-
-  if (stack->bva64buffer != NULL) {
-    yices_free_bvarith64_buffer(stack->bva64buffer);
-    stack->bva64buffer = NULL;
-  }
-
-  if (stack->bvabuffer != NULL) {
-    yices_free_bvarith_buffer(stack->bvabuffer);
-    stack->bvabuffer = NULL;
-  }
-  
-  if (stack->bvlbuffer != NULL) {
-    yices_free_bvlogic_buffer(stack->bvlbuffer);
-    stack->bvlbuffer = NULL;
-  }
-}
-
-
-
-
 
 
 /*********************
@@ -299,6 +259,8 @@ void tstack_push_op(tstack_t *stack, int32_t op, loc_t *loc) {
 #ifndef NDEBUG
   if (0 < op ||
       op >= stack->op_table.num_ops ||
+      stack->op_table.check[op] == NULL ||
+      stack->op_table.eval[op] == NULL ||
       (op == BIND && stack->top_op != LET) ||
       (op == DECLARE_VAR && stack->top_op != MK_FORALL && 
        stack->top_op != MK_EXISTS && stack->top_op != MK_LAMBDA)) {
@@ -842,10 +804,40 @@ static void tstack_free_val(tstack_t *stack, stack_elem_t *e) {
 
 
 /*
+ * Empty the stack and clear error data
+ */
+void tstack_reset(tstack_t *stack) {
+  stack_elem_t *e;
+  uint32_t i;
+
+  i = stack->top;
+  e = stack->elem + i;
+  while (i > 0) {
+    i --;
+    e --;
+    tstack_free_val(stack, e);
+  }
+
+  arena_reset(&stack->mem);
+  stack->top = 1;
+  stack->frame = 0;
+  stack->top_op = NO_OP;
+
+  stack->tvar_id = 0;
+
+  stack->error_op = NO_OP;
+  stack->error_loc.line = 0;
+  stack->error_loc.column = 0;
+  stack->error_string = NULL;
+}
+
+
+/*
  * Remove the elements above the top-frame index
  * (i.e. all the parameters in the top frame, but not the operator)
  *
- * If top-op is not BIND or DECLARE_VAR, also close the arena scope.
+ * If top-op is not BIND or DECLARE_VAR or DECLARE_TYPE_VAR, also
+ * close the arena scope.
  */
 static void tstack_pop_frame(tstack_t *stack) {
   uint32_t i, n;
@@ -870,7 +862,7 @@ static void tstack_pop_frame(tstack_t *stack) {
   }
   stack->top = n;
 
-  if (op != BIND && op != DECLARE_VAR) {
+  if (op != BIND && op != DECLARE_VAR && op != DECLARE_TYPE_VAR) {
     arena_pop(&stack->mem);
   }
 }
@@ -1024,34 +1016,6 @@ void set_type_binding_result(tstack_t *stack, type_t tau, char *symbol) {
 }
 
 
-/*
- * Empty the stack and clear error data
- */
-void tstack_reset(tstack_t *stack) {
-  stack_elem_t *e;
-  uint32_t i;
-
-  i = stack->top;
-  e = stack->elem + i;
-  while (i > 0) {
-    i --;
-    e --;
-    tstack_free_val(stack, e);
-  }
-
-  arena_reset(&stack->mem);
-  stack->top = 1;
-  stack->frame = 0;
-  stack->top_op = NO_OP;
-
-  stack->error_op = NO_OP;
-  stack->error_loc.line = 0;
-  stack->error_loc.column = 0;
-  stack->error_string = NULL;
-}
-
-
-
 #if 0
 
 /*
@@ -1102,6 +1066,10 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
     printf(">");
     break;
 
+  case TAG_MACRO:
+    printf("<macro: %"PRId32">", e->val.macro);
+    break;
+    
   case TAG_ARITH_BUFFER:
     printf("<arith-buffer: ");
     print_arith_buffer(stdout, e->val.arith_buffer);
@@ -1129,6 +1097,12 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
   case TAG_BINDING:
     printf("<binding: %s --> ", e->val.binding.symbol);
     print_term_id(stdout, e->val.binding.term);
+    printf(">");
+    break;
+
+  case TAG_TYPE_BINDING:
+    printf("<type-binding: %s --> ", e->val.type_binding.symbol);
+    print_type_id(stdout, e->val.type_binding.type);
     printf(">");
     break;
 
@@ -1172,34 +1146,34 @@ static int invalid_tag(tag_t tg) {
   return error_code;
 }
 
-void check_tag(tstack_t *stack, stack_elem_t *e, tag_t tg) {
+static void check_tag(tstack_t *stack, stack_elem_t *e, tag_t tg) {
   if (e->tag != tg) raise_exception(stack, e, invalid_tag(tg));
 }
 
-void check_op(tstack_t *stack, int32_t op) {
+static void check_op(tstack_t *stack, int32_t op) {
   if (stack->top_op != op) {
     raise_exception(stack, stack->elem + stack->frame, TSTACK_INTERNAL_ERROR);
   }
 }
 
-void check_size(tstack_t *stack, bool cond) {
+static void check_size(tstack_t *stack, bool cond) {
   if (! cond) {
     raise_exception(stack, stack->elem + stack->frame, TSTACK_INVALID_FRAME);
   }
 }
 
-void check_all_tags(tstack_t *stack, stack_elem_t *e, stack_elem_t *end, tag_t tg) {
+static void check_all_tags(tstack_t *stack, stack_elem_t *e, stack_elem_t *end, tag_t tg) {
   while (e < end) {
     check_tag(stack, e, tg);
     e ++;
   }
 }
 
-void check_type(tstack_t *stack, type_t tau) {
+static void check_type(tstack_t *stack, type_t tau) {
   if (tau == NULL_TYPE) report_yices_error(stack);
 }
 
-void check_term(tstack_t *stack, term_t t) {
+static void check_term(tstack_t *stack, term_t t) {
   if (t == NULL_TERM) report_yices_error(stack);
 }
 
@@ -2672,6 +2646,30 @@ static void eval_declare_var(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
+ * [declare-type-var <symbol> ] --> [type_binding <symbol> <type-var]
+ */
+static void check_declare_type_var(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, DECLARE_TYPE_VAR);
+  check_size(stack, n == 1);
+  check_tag(stack, f, TAG_SYMBOL);
+}
+
+static void eval_declare_type_var(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  type_t tau;
+  char *name;
+
+  name = f[0].val.symbol;
+  tau = yices_type_variable(stack->tvar_id);
+  assert(tau != NULL_TYPE);
+  stack->tvar_id ++;
+
+  yices_set_type_name(tau, name);
+  tstack_pop_frame(stack);
+  set_type_binding_result(stack, tau, name);
+}
+
+
+/*
  * [let <binding> ... <binding> <term>]
  */
 static void check_let(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -2683,10 +2681,6 @@ static void check_let(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 static void eval_let(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   copy_result_and_pop_frame(stack, f + (n-1));
 }
-
-
-
-
 
 
 /*
@@ -2758,8 +2752,10 @@ static void check_mk_tuple_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_tuple_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  type_t tau[n], sigma;
+  type_t *tau, sigma;
   uint32_t i;
+
+  tau = get_aux_buffer(stack, n);
 
   for (i=0; i<n; i++) {
     tau[i] = f[i].val.type;
@@ -2784,11 +2780,13 @@ static void check_mk_fun_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_fun_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  type_t tau[n], sigma;
+  type_t *tau, sigma;
   uint32_t i;
 
   if (n >= 2) {
     // first n-1 types are the domain, last one is the range
+    tau = get_aux_buffer(stack, n);
+
     for (i=0; i<n; i++) {
       tau[i] = f[i].val.type;
     }
@@ -2804,6 +2802,37 @@ static void eval_mk_fun_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   set_type_result(stack, sigma);
 }
 
+
+/*
+ * [mk-app-type <macro> <type> ... <type> ]
+ */
+static void check_mk_app_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_APP_TYPE);
+  check_size(stack, n >= 2);
+  check_tag(stack, f, TAG_MACRO);
+  check_all_tags(stack, f+1, f+n, TAG_TYPE);
+}
+
+static void eval_mk_app_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  type_t *tau, sigma;
+  int32_t id;
+  uint32_t i;
+
+  assert(n > 0);
+  id = f[0].val.macro;
+
+  n --;
+  f ++;
+  tau = get_aux_buffer(stack, n);
+  for (i=0; i<n; i++) {
+    tau[i] = f[i].val.type;
+  }
+  sigma = yices_instance_type(id, n, tau);
+  check_type(stack, sigma);
+
+  tstack_pop_frame(stack);
+  set_type_result(stack, sigma);
+}
 
 
 /*
@@ -5057,13 +5086,13 @@ static const checker_t check[NUM_BASE_OPCODES] = {
   eval_error, // NO_OP
   check_bind,
   check_declare_var,
-  NULL,  // check_declare_type_var,
+  check_declare_type_var,
   check_let,
   check_mk_bv_type,
   check_mk_scalar_type,
   check_mk_tuple_type,
   check_mk_fun_type,
-  NULL, // check_mk_app_type,
+  check_mk_app_type,
   check_mk_apply,
   check_mk_ite,
   check_mk_eq,
@@ -5144,13 +5173,13 @@ static const evaluator_t eval[NUM_BASE_OPCODES] = {
   NULL, // NO_OP
   eval_bind,
   eval_declare_var,
-  NULL, // eval_declare_type_var,
+  eval_declare_type_var,
   eval_let,
   eval_mk_bv_type,
   eval_mk_scalar_type,
   eval_mk_tuple_type,
   eval_mk_fun_type,
-  NULL, // eval_mk_app_type,
+  eval_mk_app_type,
   eval_mk_apply,
   eval_mk_ite,
   eval_mk_eq,
@@ -5247,4 +5276,72 @@ void init_tstack(tstack_t *stack, uint32_t n) {
     table->check[i] = check[i];
   }
   table->num_ops = i;
+}
+
+/*
+ * Delete the stack
+ */
+void delete_tstack(tstack_t *stack) {
+  tstack_reset(stack);
+
+  safe_free(stack->elem);
+  stack->elem = NULL;
+
+  delete_op_table(&stack->op_table);
+
+  delete_arena(&stack->mem);
+
+  safe_free(stack->aux_buffer);
+  stack->aux_buffer = NULL;
+
+  delete_bvconstant(&stack->bvconst_buffer);
+
+  if (stack->abuffer != NULL) {
+    yices_free_arith_buffer(stack->abuffer);
+    stack->abuffer = NULL;
+  }
+
+  if (stack->bva64buffer != NULL) {
+    yices_free_bvarith64_buffer(stack->bva64buffer);
+    stack->bva64buffer = NULL;
+  }
+
+  if (stack->bvabuffer != NULL) {
+    yices_free_bvarith_buffer(stack->bvabuffer);
+    stack->bvabuffer = NULL;
+  }
+  
+  if (stack->bvlbuffer != NULL) {
+    yices_free_bvlogic_buffer(stack->bvlbuffer);
+    stack->bvlbuffer = NULL;
+  }
+}
+
+
+/*
+ * Add or replace an operator
+ * - op = operator code 
+ * - asssoc = whether op is associative or not
+ * - eval. check = evaluator and checker functions
+ * - op must be non-negative and less than the operator's table size
+ *   (as set in init_tstack)
+ *
+ * If op is between 0 and stack->op_table.num_ops then the
+ * current values for op are replaced. If op is larger than
+ * num_ops, then a new operation is added. 
+ */
+void tstack_add_op(tstack_t *stack, int32_t op, bool assoc, evaluator_t eval, checker_t check) {
+  uint32_t i, nops;
+
+  assert(0 <= op && op < stack->op_table.size);
+
+  i = op;
+  stack->op_table.assoc[i] = assoc;
+  stack->op_table.eval[i] = eval;
+  stack->op_table.check[i] = check;
+
+  nops = stack->op_table.num_ops;
+  if (i >= nops) {
+    stack->op_table.num_ops = i+1;
+  }
 }
