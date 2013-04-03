@@ -2925,7 +2925,7 @@ static void check_define_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_define_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  type_t tau;  
+  type_t tau;
 
   if (n == 1) {
     tau = yices_new_uninterpreted_type();    

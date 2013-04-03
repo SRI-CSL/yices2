@@ -5278,6 +5278,7 @@ void init_tstack(tstack_t *stack, uint32_t n) {
   table->num_ops = i;
 }
 
+
 /*
  * Delete the stack
  */
