@@ -520,6 +520,9 @@ static void print_options(FILE *f, context_t *ctx) {
     if (context_eq_abstraction_enabled(ctx)) {
       fprintf(f, " --learn-eq");
     }
+    if (context_breaksym_enabled(ctx)) {
+      fprintf(f, " --break-symmetries");
+    }
     if (context_arith_elim_enabled(ctx)) {
       fprintf(f, " --arith-elim");
     }
@@ -1073,6 +1076,7 @@ static int process_benchmark(void) {
     // QF_UF options: --var-elim --cache-tclauses --learn-eq --dyn-bool-ack
     //    enable_variable_elimination(&context); // this helps if symmetry breaking is used
     enable_eq_abstraction(&context);
+    enable_symmetry_breaking(&context);
     params.use_bool_dyn_ack = true;
     params.use_dyn_ack = true;
     //    params.max_ackermann = 100;

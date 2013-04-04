@@ -45,6 +45,7 @@
 
 #include "arena.h"
 #include "terms.h"
+
 #include "bvlogic_buffers.h"
 
 /*
@@ -582,69 +583,6 @@ static inline term_t tstack_get_type(tstack_t *stack) {
   return stack->result.type;
 }
 
-
-/****************
- *  UTILITIES   *
- ***************/
-
-/*
- * Exception raised when processing element e
- * - stack->error_pos is set to e->pos
- * - stack->error_op is set to stack->top_op
- * - stack->error_string is set to e's string field if e is a symbol or a binding, 
- *   or to NULL otherwise.
- * code is returned to exception handler by longjmp
- */
-extern void __attribute__((noreturn)) raise_exception(tstack_t *stack, stack_elem_t *e, int code);
-
-/*
- * Exception raised when a yices function returns NULL_TERM or another error code.
- * - this raises exception TSTACK_YICES_ERROR
- * - stack->error_loc is set to the top-frame's location
- * - stack->error_op is set to the top_operator code
- * - stack->error_string is NULL
- */
-extern void __attribute__((noreturn)) report_yices_error(tstack_t *stack);
-
-
-/*
- * POP_FRAME AND STORE RESULTS
- */
-
-/*
- * Remove the top-frame (except the operator)
- * - this must be followed by set_xxx_result, which replaces the top
- *   stack element element by a result
- */
-extern void pop_frame(tstack_t *stack);
-
-/*
- * Replace the top stack element by a new value
- * - this keeps the top-element's loc field unchanged
- */
-extern void set_term_result(tstack_t *stack, term_t t);
-extern void set_type_result(tstack_t *stack, type_t tau);
-extern void set_binding_result(tstack_t *stack, term_t t, char *symbol);
-extern void set_type_binding_result(tstack_t *stack, type_t, char *symbol);
-extern void set_bv64_result(tstack_t *stack, uint32_t nbits, uint64_t c);
-extern void set_bv_result(tstack_t *stack, uint32_t nbits, uint32_t *bv);
-extern void set_arith_result(tstack_t *stack, arith_buffer_t *b);
-extern void set_bvarith64_result(tstack_t *stack, bvarith64_buffer_t *b);
-extern void set_bvarith_result(tstack_t *stack, bvarith_buffer_t *b);
-extern void set_bvlogic_result(tstack_t *stack, bvlogic_buffer_t *b);
-
-// no result: remove the top element
-static inline void no_result(tstack_t *stack) {
-  stack->top --;
-}
-
-/*
- * Copy v as result in place of the current stack->frame
- * then remove all elements above the top frame index.
- * - v must be a pointer in the current top frame
- * - v's TAG must not be string/symbol.
- */
-extern void copy_result_and_pop_frame(tstack_t *stack, stack_elem_t *v);
 
 
 #endif /* __TERM_STACK2_H */

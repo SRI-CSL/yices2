@@ -25,7 +25,7 @@
  *  
  * All descriptors are stored in a global array 'help_data'
  *
- * * Some commands exist in two variants. Each variant is described by its
+ * Some commands exist in two variants. Each variant is described by its
  * own record. The two variants must appear one after the other in the 
  * help array.
  *
@@ -1580,6 +1580,7 @@ static void help_basic(FILE *f, const char *topic, const char *aux, int32_t idx)
     fputc('\n', f);
   }
   if (r->example != NULL) {
+    if (r->detail == NULL) fputc('\n', f);
     fputs("Example", f);
     if (multiple_lines(r->example)) {
       fputc('s', f); // more than one example.

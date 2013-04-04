@@ -630,7 +630,7 @@ void tstack_push_macro(tstack_t *stack, int32_t id, loc_t *loc) {
 /*
  * Get the internal buffers (or allocate a new one)
  */
-static arith_buffer_t *tstack_get_abuffer(tstack_t *stack) {
+arith_buffer_t *tstack_get_abuffer(tstack_t *stack) {
   arith_buffer_t *tmp;
 
   tmp = stack->abuffer;
@@ -644,7 +644,7 @@ static arith_buffer_t *tstack_get_abuffer(tstack_t *stack) {
   return tmp;
 }
 
-static bvarith64_buffer_t *tstack_get_bva64buffer(tstack_t *stack, uint32_t bitsize) {
+bvarith64_buffer_t *tstack_get_bva64buffer(tstack_t *stack, uint32_t bitsize) {
   bvarith64_buffer_t *tmp;
 
   assert(1 <= bitsize && bitsize <= 64);
@@ -662,7 +662,7 @@ static bvarith64_buffer_t *tstack_get_bva64buffer(tstack_t *stack, uint32_t bits
   return tmp;
 }
 
-static bvarith_buffer_t *tstack_get_bvabuffer(tstack_t *stack, uint32_t bitsize) {
+bvarith_buffer_t *tstack_get_bvabuffer(tstack_t *stack, uint32_t bitsize) {
   bvarith_buffer_t *tmp;
 
   assert(64 < bitsize && bitsize <= YICES_MAX_BVSIZE);
@@ -680,7 +680,7 @@ static bvarith_buffer_t *tstack_get_bvabuffer(tstack_t *stack, uint32_t bitsize)
   return tmp;
 }
 
-static bvlogic_buffer_t *tstack_get_bvlbuffer(tstack_t *stack) {
+bvlogic_buffer_t *tstack_get_bvlbuffer(tstack_t *stack) {
   bvlogic_buffer_t *tmp;
 
   tmp = stack->bvlbuffer;
@@ -737,7 +737,7 @@ static void recycle_bvlbuffer(tstack_t *stack, bvlogic_buffer_t *b) {
 /*
  * Make the auxiliary buffer large enough for n terms or types
  */
-static void extend_aux_buffer(tstack_t *stack, uint32_t n) {
+void extend_aux_buffer(tstack_t *stack, uint32_t n) {
   uint32_t new_size;
   assert (stack->aux_size < n);
   
@@ -753,12 +753,14 @@ static void extend_aux_buffer(tstack_t *stack, uint32_t n) {
   stack->aux_size  = new_size;
 }
 
+
 static inline int32_t *get_aux_buffer(tstack_t *stack, uint32_t n) {
   if (stack->aux_size < n) {
     extend_aux_buffer(stack, n);
   }
   return stack->aux_buffer;
 }
+
 
 
 /*********************
@@ -839,7 +841,7 @@ void tstack_reset(tstack_t *stack) {
  * If top-op is not BIND or DECLARE_VAR or DECLARE_TYPE_VAR, also
  * close the arena scope.
  */
-static void tstack_pop_frame(tstack_t *stack) {
+void tstack_pop_frame(tstack_t *stack) {
   uint32_t i, n;
   int32_t op;
 
@@ -1014,6 +1016,12 @@ void set_type_binding_result(tstack_t *stack, type_t tau, char *symbol) {
   e->val.type_binding.type = tau;
   e->val.type_binding.symbol = symbol;
 }
+
+// no result: remove the top element
+static inline void no_result(tstack_t *stack) {
+  stack->top --;
+}
+
 
 
 #if 0
@@ -1255,7 +1263,7 @@ static void check_distinct_binding_names(tstack_t *stack, stack_elem_t *f, uint3
 /*
  * Convert element e to a term or raise an exception
  */
-static term_t get_term(tstack_t *stack, stack_elem_t *e) {
+term_t get_term(tstack_t *stack, stack_elem_t *e) {
   uint64_t c;
   term_t t;
 
@@ -1315,7 +1323,7 @@ static term_t get_term(tstack_t *stack, stack_elem_t *e) {
  * Return integer value of e (e must have rational tag)
  * Raise an exception if e is too large or is not an integer.
  */
-static int32_t get_integer(tstack_t *stack, stack_elem_t *e) {
+int32_t get_integer(tstack_t *stack, stack_elem_t *e) {
   int32_t v;
 
   assert(e->tag == TAG_RATIONAL);
@@ -1336,7 +1344,7 @@ static int32_t get_integer(tstack_t *stack, stack_elem_t *e) {
  * Support for division: return a rational constant equal to den
  * provided den is constant and non-zero
  */
-static rational_t *get_divisor(tstack_t *stack, stack_elem_t *den) {
+rational_t *get_divisor(tstack_t *stack, stack_elem_t *den) {
   rational_t *d;
   term_t t;
   arith_buffer_t *c;
@@ -1472,7 +1480,7 @@ static void check_bv_term(tstack_t *stack, stack_elem_t *e, uint32_t n) {
  * Add arithmetic element e to buffer b. Raise an exception if e is not 
  * arithmetic or if the operation fails.
  */
-static void add_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
+void add_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
   switch (e->tag) {
   case TAG_RATIONAL:
     arith_buffer_add_const(b, &e->val.rational);
@@ -1499,7 +1507,7 @@ static void add_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
 /*
  * Negate element e (in place). Raise an exception if e is not an arithmetic term.
  */
-static void neg_elem(tstack_t *stack, stack_elem_t *e) {
+void neg_elem(tstack_t *stack, stack_elem_t *e) {
   arith_buffer_t *b;
   term_table_t *terms;
   term_t t;
@@ -1548,7 +1556,7 @@ static void neg_elem(tstack_t *stack, stack_elem_t *e) {
 /*
  * Subtract element e from buffer b.
  */
-static void sub_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
+void sub_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
   switch (e->tag) {
   case TAG_RATIONAL:
     arith_buffer_sub_const(b, &e->val.rational);
@@ -1575,7 +1583,7 @@ static void sub_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
 /*
  * Product
  */
-static void mul_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
+void mul_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
   switch (e->tag) {
   case TAG_RATIONAL:
     arith_buffer_mul_const(b, &e->val.rational);
@@ -1613,7 +1621,7 @@ static void mul_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
  * Add element e to buffer b.
  * - raise an exception if e is not a bitvector of equal size as b
  */
-static void bva64_add_elem(tstack_t *stack, bvarith64_buffer_t *b, stack_elem_t *e) {
+void bva64_add_elem(tstack_t *stack, bvarith64_buffer_t *b, stack_elem_t *e) {
   uint32_t n;
   term_t t;
 
@@ -1671,7 +1679,7 @@ static void bva64_add_elem(tstack_t *stack, bvarith64_buffer_t *b, stack_elem_t 
  * Subtract element e from buffer b.
  * - raise an exception if e is not a bitvector of equal size as b
  */
-static void bva64_sub_elem(tstack_t *stack, bvarith64_buffer_t *b, stack_elem_t *e) {
+void bva64_sub_elem(tstack_t *stack, bvarith64_buffer_t *b, stack_elem_t *e) {
   uint32_t n;
   term_t t;
 
@@ -1731,7 +1739,7 @@ static void bva64_sub_elem(tstack_t *stack, bvarith64_buffer_t *b, stack_elem_t 
  * - raise an exception if e is not a bitvector of equal size as b
  *   or if there's a degree overflow
  */
-static void bva64_mul_elem(tstack_t *stack, bvarith64_buffer_t *b, stack_elem_t *e) {
+void bva64_mul_elem(tstack_t *stack, bvarith64_buffer_t *b, stack_elem_t *e) {
   term_table_t *terms;
   uint32_t n;
   term_t t;
@@ -1808,7 +1816,7 @@ static void bva64_mul_elem(tstack_t *stack, bvarith64_buffer_t *b, stack_elem_t 
  * Add element e to buffer b.
  * - raise an exception if e is not a bitvector of equal size as b
  */
-static void bva_add_elem(tstack_t *stack, bvarith_buffer_t *b, stack_elem_t *e) {
+void bva_add_elem(tstack_t *stack, bvarith_buffer_t *b, stack_elem_t *e) {
   uint32_t n;
   term_t t;
 
@@ -1866,7 +1874,7 @@ static void bva_add_elem(tstack_t *stack, bvarith_buffer_t *b, stack_elem_t *e) 
  * Subtract element e from buffer b.
  * - raise an exception if e is not a bitvector of equal size as b
  */
-static void bva_sub_elem(tstack_t *stack, bvarith_buffer_t *b, stack_elem_t *e) {
+void bva_sub_elem(tstack_t *stack, bvarith_buffer_t *b, stack_elem_t *e) {
   uint32_t n;
   term_t t;
 
@@ -1925,7 +1933,7 @@ static void bva_sub_elem(tstack_t *stack, bvarith_buffer_t *b, stack_elem_t *e) 
  * - raise an exception if e is not a bitvector of equal size as b
  *   or if there's a degree overflow
  */
-static void bva_mul_elem(tstack_t *stack, bvarith_buffer_t *b, stack_elem_t *e) {
+void bva_mul_elem(tstack_t *stack, bvarith_buffer_t *b, stack_elem_t *e) {
   term_table_t *terms;
   uint32_t n;
   term_t t;
@@ -2071,7 +2079,7 @@ static void copy_bvneg_term(tstack_t *stack, stack_elem_t *e, term_t t) {
 /*
  * Negate element e in place. Raise an exception if e is not a bitvector element.
  */
-static void bvneg_elem(tstack_t *stack, stack_elem_t *e) {
+void bvneg_elem(tstack_t *stack, stack_elem_t *e) {
   bvlogic_buffer_t *b;
   uint32_t k;
   term_t t;
@@ -2127,7 +2135,7 @@ static void bvneg_elem(tstack_t *stack, stack_elem_t *e) {
  * Copy element e in bvlogic buffer b
  * Raise an exception if e is not a bitvector
  */
-static void bvl_set_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
+void bvl_set_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
   term_t t;
 
   switch (e->tag) {
@@ -2174,7 +2182,7 @@ static void bvl_set_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) 
  * Raise an exception if e is not a bitvector.
  * - i and j must be valid (i.e., 0 <= i <= j < e's bitsize)
  */
-static void bvl_set_slice_elem(tstack_t *stack, bvlogic_buffer_t *b, uint32_t i, uint32_t j, stack_elem_t *e) {
+void bvl_set_slice_elem(tstack_t *stack, bvlogic_buffer_t *b, uint32_t i, uint32_t j, stack_elem_t *e) {
   term_t t;
 
   assert(i <= j);
@@ -2223,7 +2231,7 @@ static void bvl_set_slice_elem(tstack_t *stack, bvlogic_buffer_t *b, uint32_t i,
 /*
  * Check whether e is a bitvector constant
  */
-static bool elem_is_bvconst(stack_elem_t *e) {
+bool elem_is_bvconst(stack_elem_t *e) {
   term_kind_t k;
 
   switch (e->tag) {
@@ -2276,7 +2284,7 @@ static void bvconstant_copy_term(bvconstant_t *c, term_t t) {
  * Copy the constant value of e into c
  * - e must satisfy elem_is_bvconst(e)
  */
-static void bvconst_set_elem(bvconstant_t *c, stack_elem_t *e) {
+void bvconst_set_elem(bvconstant_t *c, stack_elem_t *e) {
   assert(elem_is_bvconst(e));
 
   switch (e->tag) {
@@ -2310,7 +2318,7 @@ static void bvconst_set_elem(bvconstant_t *c, stack_elem_t *e) {
 /*
  * Bitwise operations between buffer b and element e
  */
-static void bvand_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
+void bvand_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
   uint32_t n;
   term_t t;
 
@@ -2364,7 +2372,7 @@ static void bvand_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
   }
 }
 
-static void bvor_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
+void bvor_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
   uint32_t n;
   term_t t;
 
@@ -2418,7 +2426,7 @@ static void bvor_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
   }
 }
 
-static void bvxor_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
+void bvxor_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
   uint32_t n;
   term_t t;
 
@@ -2473,7 +2481,7 @@ static void bvxor_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
   }
 }
 
-static void bvcomp_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
+void bvcomp_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
   uint32_t n;
   term_t t;
 
@@ -2530,7 +2538,7 @@ static void bvcomp_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
 
 
 // add e to the right of b (i.e., high-order bits are from b, low-order bits from e)
-static void bvconcat_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
+void bvconcat_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
   term_t t;
   
   switch (e->tag) {
@@ -3526,19 +3534,18 @@ static void eval_mk_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
  * BITVECTOR ARITHMETIC
  */
 
-/*
- * [mk-bv-const <size> <value>]
+/* 
+ * Build bitvector constant defined by val and size:
+ * - size = number of bits
+ * - val = value
+ * - f = frame index: it's used for error reporting only
+ * Raise an exception if size <= 0 or size > MAX_BV_SIZE or val is not a non-negative
+ * integer
+ *
+ * Warning: val is a pointer inside a stack element that is reset by q_clear on pop_frame. 
+ * So we must make a copy before calling pop_frame
  */
-static void check_mk_bv_const(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_BV_CONST);
-  check_size(stack, n == 2);
-  check_tag(stack, f, TAG_RATIONAL);
-  check_tag(stack, f+1, TAG_RATIONAL);
-}
-
-// Warning: val is a pointer inside a stack element that is reset by q_clear on pop_frame. 
-// So we must make a copy before calling pop_frame
-static void mk_bv_const_core(tstack_t *stack, stack_elem_t *f, int32_t size, rational_t *val) {
+void mk_bv_const_core(tstack_t *stack, stack_elem_t *f, int32_t size, rational_t *val) {
   uint32_t k;
   uint32_t *tmp;
   uint64_t c;
@@ -3571,6 +3578,59 @@ static void mk_bv_const_core(tstack_t *stack, stack_elem_t *f, int32_t size, rat
     tstack_pop_frame(stack);
     set_bv_result(stack, size, tmp);
   }
+}
+
+
+/*
+ * Sign-extend: bv = bitvector, idx = number of bits to add
+ */
+void mk_bv_sign_extend_core(tstack_t *stack, stack_elem_t *bv, stack_elem_t *idx) {
+  int32_t i;
+  bvlogic_buffer_t *b;
+
+  i = get_integer(stack, idx);
+  b = tstack_get_bvlbuffer(stack);
+  bvl_set_elem(stack, b, bv);
+  if (! yices_check_bvextend(b, i)) {
+    report_yices_error(stack);    
+  }
+  bvlogic_buffer_sign_extend(b, i + bvlogic_buffer_bitsize(b));
+
+  tstack_pop_frame(stack);
+  set_bvlogic_result(stack, b);
+}
+
+
+/*
+ * Zero-extend: bv, idx as for sign-extend
+ */
+void mk_bv_zero_extend_core(tstack_t *stack, stack_elem_t *bv, stack_elem_t *idx) {
+  int32_t i;
+  bvlogic_buffer_t *b;
+
+  i = get_integer(stack, idx);
+  b = tstack_get_bvlbuffer(stack);
+  bvl_set_elem(stack, b, bv);
+  if (! yices_check_bvextend(b, i)) {
+    report_yices_error(stack);    
+  }
+  bvlogic_buffer_zero_extend(b, i + bvlogic_buffer_bitsize(b));
+
+  tstack_pop_frame(stack);
+  set_bvlogic_result(stack, b);
+}
+
+
+
+
+/*
+ * [mk-bv-const <size> <value>]
+ */
+static void check_mk_bv_const(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_BV_CONST);
+  check_size(stack, n == 2);
+  check_tag(stack, f, TAG_RATIONAL);
+  check_tag(stack, f+1, TAG_RATIONAL);
 }
 
 static void eval_mk_bv_const(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -4170,22 +4230,6 @@ static void check_mk_bv_sign_extend(tstack_t *stack, stack_elem_t *f, uint32_t n
   check_tag(stack, f+1, TAG_RATIONAL);  
 }
 
-static void mk_bv_sign_extend_core(tstack_t *stack, stack_elem_t *bv, stack_elem_t *idx) {
-  int32_t i;
-  bvlogic_buffer_t *b;
-
-  i = get_integer(stack, idx);
-  b = tstack_get_bvlbuffer(stack);
-  bvl_set_elem(stack, b, bv);
-  if (! yices_check_bvextend(b, i)) {
-    report_yices_error(stack);    
-  }
-  bvlogic_buffer_sign_extend(b, i + bvlogic_buffer_bitsize(b));
-
-  tstack_pop_frame(stack);
-  set_bvlogic_result(stack, b);
-}
-
 static void eval_mk_bv_sign_extend(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   mk_bv_sign_extend_core(stack, f, f+1);
 }
@@ -4200,22 +4244,6 @@ static void check_mk_bv_zero_extend(tstack_t *stack, stack_elem_t *f, uint32_t n
   check_op(stack, MK_BV_ZERO_EXTEND);
   check_size(stack, n == 2);
   check_tag(stack, f+1, TAG_RATIONAL);  
-}
-
-static void mk_bv_zero_extend_core(tstack_t *stack, stack_elem_t *bv, stack_elem_t *idx) {
-  int32_t i;
-  bvlogic_buffer_t *b;
-
-  i = get_integer(stack, idx);
-  b = tstack_get_bvlbuffer(stack);
-  bvl_set_elem(stack, b, bv);
-  if (! yices_check_bvextend(b, i)) {
-    report_yices_error(stack);    
-  }
-  bvlogic_buffer_zero_extend(b, i + bvlogic_buffer_bitsize(b));
-
-  tstack_pop_frame(stack);
-  set_bvlogic_result(stack, b);
 }
 
 static void eval_mk_bv_zero_extend(tstack_t *stack, stack_elem_t *f, uint32_t n) {

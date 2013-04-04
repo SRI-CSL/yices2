@@ -84,7 +84,7 @@ typedef enum opcode_enum {
   MK_ADD, MK_SUB, MK_NEG, MK_MUL, MK_DIV, MK_POW, MK_GE, MK_GT, MK_LE, MK_LT,
 
   // bitvectors
-  MK_BV_CONST,      // (mk-bv number size)
+  MK_BV_CONST,      // (mk-bv size number)
   MK_BV_ADD, MK_BV_SUB, MK_BV_MUL, MK_BV_NEG, MK_BV_POW,
   MK_BV_NOT, MK_BV_AND, MK_BV_OR, MK_BV_XOR,
   MK_BV_NAND, MK_BV_NOR, MK_BV_XNOR,

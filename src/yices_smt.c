@@ -118,6 +118,7 @@ static const char * const code2error[NUM_INTERNALIZATION_ERRORS] = {
 static bool var_elim;
 static bool flatten_or;
 static bool learn_eq;
+static bool break_sym;
 static bool arith_elim;
 static bool bvarith_elim;
 static bool keep_ite;
@@ -177,6 +178,7 @@ typedef enum optid {
   var_elim_opt,               // apply var elimination during internalization
   flatten_opt,                // flatten or and disequality terms
   learneq_opt,                // learn UF equalities
+  breaksym_opt,               // break symmetries in UF
   arith_elim_opt,             // eliminate arithmetic variables
   bvarith_elim_opt,           // simplification of bitvector arithmetic expressions
   keep_ite_opt,               // keep term if-then-else in the egraph
@@ -256,6 +258,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "var-elim", '\0', FLAG_OPTION, var_elim_opt },
   { "flatten", '\0', FLAG_OPTION, flatten_opt },
   { "learn-eq", '\0', FLAG_OPTION, learneq_opt },
+  { "break-symmetries", '\0', FLAG_OPTION, breaksym_opt },
   { "arith-elim", '\0', FLAG_OPTION, arith_elim_opt },
   { "bvarith-elim", '\0', FLAG_OPTION, bvarith_elim_opt },
   { "keep-ite", '\0', FLAG_OPTION, keep_ite_opt },
@@ -354,6 +357,7 @@ static void yices_help(char *progname) {
          "    --var-elim\n"
          "    --flatten\n"
          "    --learn-eq\n"
+	 "    --break-symmetries\n"
          "    --arith-elim\n"
          "    --keep-ite\n"
          "  Model construction\n"
@@ -477,6 +481,7 @@ static void check_parameters(char *progname) {
   var_elim = opt_set[var_elim_opt];
   flatten_or = opt_set[flatten_opt];
   learn_eq = opt_set[learneq_opt];
+  break_sym = opt_set[breaksym_opt];
   arith_elim = opt_set[arith_elim_opt];
   bvarith_elim = opt_set[bvarith_elim_opt];
   keep_ite = opt_set[keep_ite_opt];
@@ -948,6 +953,7 @@ static void parse_command_line(int argc, char *argv[]) {
       case var_elim_opt:
       case flatten_opt:
       case learneq_opt:
+      case breaksym_opt:
       case arith_elim_opt:
       case bvarith_elim_opt:
       case keep_ite_opt:
@@ -1295,6 +1301,9 @@ static void print_options(FILE *f, context_t *ctx) {
       fprintf(f, " --flatten-diseq");
     }
     if (context_eq_abstraction_enabled(ctx)) {
+      fprintf(f, " --learn-eq");
+    }
+    if (context_breaksym_enabled(ctx)) {
       fprintf(f, " --learn-eq");
     }
     if (context_arith_elim_enabled(ctx)) {
@@ -1904,6 +1913,9 @@ static int process_benchmark(char *filename) {
   }
   if (learn_eq && arch == CTX_ARCH_EG) {
     enable_eq_abstraction(&context); 
+  }
+  if (break_sym && arch == CTX_ARCH_EG) {
+    enable_symmetry_breaking(&context);
   }
   if (arith_elim) {
     enable_arith_elimination(&context);
