@@ -7,7 +7,7 @@
 #include <setjmp.h>
 #include <stdio.h>
 
-#include "term_stack.h"
+#include "term_stack2.h"
 #include "term_printer.h"
 #include "type_printer.h"
 #include "yices.h"
@@ -52,7 +52,7 @@ int main() {
   term_t t;
 
   yices_init();
-  init_tstack(&stack);
+  init_tstack(&stack, NUM_BASE_OPCODES);
   loc.line = 0;
   loc.column = 0;
 

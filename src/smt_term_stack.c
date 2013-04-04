@@ -14,7 +14,7 @@
 #include "yices.h"
 #include "yices_extensions.h"
 #include "tstack_internals.h"
-#include "tstack_smt_ops.h"
+#include "smt_term_stack.h"
 
 
 /*
@@ -244,9 +244,10 @@ static void smt_eval_mk_bv_zero_extend(tstack_t *stack, stack_elem_t *f, uint32_
 
 
 /*
- * Intall all these operations
+ * Initialize stack then install all these operations
  */
-void tstack_enable_smt(tstack_t *stack) {
+void init_smt_tstack(tstack_t *stack) {
+  init_tstack(stack, NUM_BASE_OPCODES);
   tstack_add_op(stack, MK_EQ, false, smt_eval_mk_eq, smt_check_mk_eq);
   tstack_add_op(stack, MK_BV_CONST, false, smt_eval_mk_bv_const, smt_check_mk_bv_const);
   tstack_add_op(stack, MK_BV_ROTATE_LEFT, false, smt_eval_mk_bv_rotate_left, smt_check_mk_bv_rotate_left);

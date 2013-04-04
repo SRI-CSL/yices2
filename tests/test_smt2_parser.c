@@ -43,8 +43,7 @@ int main(int argc, char *argv[]) {
   }
 
   yices_init();
-  tstack_set_smt_mode();
-  init_tstack(&stack);
+  init_tstack(&stack, NUM_BASE_OPCODES);
   init_parser(&parser, &lexer, &stack);
 
   done = false;

@@ -152,18 +152,18 @@ typedef struct stack_elem_s {
  */
 typedef struct tstack_s tstack_t;
 // type of evaluator and check functions
-typedef void (*evaluator_t)(tstack_t *stack, stack_elem_t *f, uint32_t n);
-typedef evaluator_t checker_t;
+typedef void (*eval_fun_t)(tstack_t *stack, stack_elem_t *f, uint32_t n);
+typedef eval_fun_t check_fun_t;
 
 typedef struct op_table_s {
   uint8_t *assoc;
-  evaluator_t *eval;
-  checker_t *check;
+  eval_fun_t *eval;
+  check_fun_t *check;
   uint32_t num_ops;
   uint32_t size;
 } op_table_t;
 
-#define MAX_OP_TABLE_SIZE (UINT32_MAX/sizeof(evaluator_t))
+#define MAX_OP_TABLE_SIZE (UINT32_MAX/sizeof(eval_fun_t))
 
 /*
  * Stack:
@@ -281,7 +281,8 @@ typedef enum tstack_error_s {
   TSTACK_INTEGER_OVERFLOW,
   TSTACK_NEGATIVE_EXPONENT,
   TSTACK_NOT_AN_INTEGER,
-  TSTACK_NOT_A_SYMBOL,
+  TSTACK_NOT_A_STRING,
+  TSTACK_NOT_A_SYMBOL,  
   TSTACK_NOT_A_RATIONAL,
   TSTACK_NOT_A_TYPE,
   TSTACK_ARITH_ERROR,
@@ -304,6 +305,10 @@ typedef enum tstack_error_s {
  */
 enum base_opcodes {
   NO_OP,              // used as a marker
+
+  // global definitions
+  DEFINE_TYPE,        // [define-type <symbol>] or [define-type <symbol> <type>]
+  DEFINE_TERM,        // [define-term <symbol> <type>] or [define-term <symbol> <type> <value> ]
 
   // bindings
   BIND,               // [bind <symbol> <term> ]
@@ -338,7 +343,7 @@ enum base_opcodes {
   MK_EXISTS,          // [mk-exists <binding> ... <binding> <term> ]
   MK_LAMBDA,          // [mk-lambda <binding> ... <binding> <term> ]
 
-  // arithmeitc
+  // arithmetic
   MK_ADD,             // [mk-add <arith> ... <arith> ]
   MK_SUB,             // [mk-sub <arith> ... <arith> ]
   MK_NEG,             // [mk-neg <arith> ]
@@ -407,6 +412,7 @@ enum base_opcodes {
   BUILD_TYPE,         // [build-type <type> ]
 };
 
+
 #define NUM_BASE_OPCODES (BUILD_TYPE + 1)
 
 
@@ -429,7 +435,7 @@ extern void init_tstack(tstack_t *stack, uint32_t n);
  * current values for op are replaced. If op is larger than
  * num_ops, then a new operation is added. 
  */
-extern void tstack_add_op(tstack_t *stack, int32_t op, bool assoc, evaluator_t eval, checker_t check);
+extern void tstack_add_op(tstack_t *stack, int32_t op, bool assoc, eval_fun_t eval, check_fun_t check);
 
 /*
  * Empty the stack

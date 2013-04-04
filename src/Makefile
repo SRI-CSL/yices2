@@ -111,14 +111,14 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c  \
 	      rdl_floyd_warshall.c reader.c refcount_int_arrays.c          \
 	      refcount_strings.c remap_table.c renaming_context.c          \
 	      search_parameters.c simplex.c small_bvsets.c smt_core.c      \
-	      smt_logic_codes.c string_buffers.c string_utils.c            \
-	      subst_cache.c subst_context.c symbol_tables.c                \
+	      smt_logic_codes.c smt_term_stack.c string_buffers.c          \
+              string_utils.c subst_cache.c subst_context.c symbol_tables.c \
               symmetry_breaking.c terms.c term_manager.c term_printer.c    \
-              term_stack.c term_stack_error.c  term_substitution.c         \
+              term_stack2.c term_stack_error.c  term_substitution.c        \
               term_utils.c theory_explanations.c tuple_hash_map.c types.c  \
-	      type_printer.c uint_rbtrees.c use_vectors.c                  \
-	      variable_renaming.c yices_api.c yices_error.c yices_lexer.c  \
-	      yices_pp.c yices_parser.c
+              type_printer.c uint_rbtrees.c use_vectors.c                  \
+              variable_renaming.c yices_api.c yices_error.c yices_lexer.c  \
+              yices_pp.c yices_parser.c
 
 #
 # Other source files for libyices.a 
@@ -451,6 +451,7 @@ STATIC_LIBS := $(STATIC_GMP) $(subst $(LIBS),-lgmp,)
 #  BUILD RULES  #
 #################
 
+
 #
 # Dependency files
 #
@@ -466,6 +467,9 @@ $(static_objdir)/%.d: %.c
 	@ $(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.tmp > $@
 	@ rm -f $@.tmp
 
+
+ifneq ($(MAKECMDGOALS),clean)
+
 include $(dep)
 include $(bin_dep)
 include $(version_dep)
@@ -473,6 +477,7 @@ include $(static_dep)
 include $(static_bin_dep)
 include $(static_version_dep)
 
+endif
 
 
 #
@@ -778,6 +783,16 @@ static-smt-dist: static-bin
 	@ echo
 	@ echo "Missing source file: $@"
 	@ echo
+
+
+#
+# Clean: remove the generated source files
+#
+clean:
+	rm -f yices_version.c yices_hash_keywords.h smt_hash_keywords.h smt2_hash_tokens.h \
+	smt2_hash_keywords.h smt2_hash_symbols.h
+
+.PHONY: clean
 
 
 #

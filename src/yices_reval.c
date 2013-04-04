@@ -18,7 +18,10 @@
 
 #include "yices_lexer.h"
 #include "yices_parser.h"
-#include "term_stack.h"
+
+#include "term_stack2.h"
+#include "tstack_internals.h"
+#include "yices_tstack_ops.h"
 
 #include "cputime.h"
 #include "memsize.h"
@@ -1033,6 +1036,31 @@ static void delete_ctx(void) {
  */
 static const char *param2string[NUM_PARAMETERS];
 static const char *branching2string[NUM_BRANCHING_MODES];
+
+
+/*
+ * Argument to the setparam command encodes an immediate value
+ * - the tag is given by the enumeration below
+ * - PARAM_VAL_ERROR means an unexpected value was pushed
+ * - the value is either a pointer to rational or a symbol 
+ */
+typedef enum param_val_enum {
+  PARAM_VAL_FALSE,
+  PARAM_VAL_TRUE,
+  PARAM_VAL_RATIONAL,
+  PARAM_VAL_SYMBOL,
+  PARAM_VAL_ERROR,
+} param_val_enum_t;
+
+typedef struct param_val_s {
+  param_val_enum_t tag;
+  union {
+    rational_t *rational;
+    char *symbol;
+  } val;
+} param_val_t;
+
+
 
 
 /*
@@ -2509,17 +2537,454 @@ static void yices_eval_cmd(term_t t) {
 
 
 
+
+/*************************
+ *  TERM STACK WRAPPERS  *
+ ************************/
+
 /*
- * Feedback for define or define-term
+ * Utilities to raise exceptions
  */
-static void yices_type_defined_cmd(const char *name, type_t tau) {
+static int invalid_tag(tag_t tg) {
+  int error_code;
+
+  switch (tg) {
+  case TAG_SYMBOL: 
+    error_code = TSTACK_NOT_A_SYMBOL;
+    break;
+
+  case TAG_STRING:
+    error_code = TSTACK_NOT_A_STRING;
+    break;
+
+  case TAG_RATIONAL:
+    error_code = TSTACK_NOT_A_RATIONAL;
+    break;
+
+  default:
+    error_code = TSTACK_INTERNAL_ERROR;
+    break;
+  }
+
+  return error_code;
+}
+
+static void check_tag(tstack_t *stack, stack_elem_t *e, tag_t tg) {
+  if (e->tag != tg) raise_exception(stack, e, invalid_tag(tg));
+}
+
+static void check_op(tstack_t *stack, int32_t op) {
+  if (stack->top_op != op) {
+    raise_exception(stack, stack->elem + stack->frame, TSTACK_INTERNAL_ERROR);
+  }
+}
+
+static void check_size(tstack_t *stack, bool cond) {
+  if (! cond) {
+    raise_exception(stack, stack->elem + stack->frame, TSTACK_INVALID_FRAME);
+  }
+}
+
+
+
+/*
+ * Variants of define-term and define-type:
+ * - call the default then print_ok()
+ */
+static void check_def_yices_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  call_tstack_check(stack, DEFINE_TYPE, f, n);
+}
+
+static void eval_def_yices_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  call_tstack_eval(stack, DEFINE_TYPE, f, n);
   print_ok();
 }
 
-static void yices_term_defined_cmd(const char *name, term_t t) {
+static void check_def_yices_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  call_tstack_check(stack, DEFINE_TERM, f, n);
+}
+
+static void eval_def_yices_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  call_tstack_eval(stack, DEFINE_TERM, f, n);
   print_ok();
 }
 
+
+/*
+ * [exit-cmd]
+ */
+static void check_exit_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, EXIT_CMD);
+  check_size(stack, n == 0);
+}
+
+static void eval_exit_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  yices_exit_cmd();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
+ * [check-cmd]
+ */
+static void check_check_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, CHECK_CMD);
+  check_size(stack, n == 0);
+}
+
+static void eval_check_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  yices_check_cmd();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
+ * [push-cmd]
+ */
+static void check_push_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, PUSH_CMD);
+  check_size(stack, n == 0);
+}
+
+static void eval_push_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  yices_push_cmd();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+
+/*
+ * [pop-cmd]
+ */
+static void check_pop_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, POP_CMD);
+  check_size(stack, n == 0);
+}
+
+static void eval_pop_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  yices_pop_cmd();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+
+/*
+ * [reset-cmd]
+ */
+static void check_reset_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, RESET_CMD);
+  check_size(stack, n == 0);
+}
+
+static void eval_reset_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  yices_reset_cmd();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+
+/*
+ * [showmodel-cmd]
+ */
+static void check_showmodel_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SHOWMODEL_CMD);
+  check_size(stack, n == 0);
+}
+
+static void eval_showmodel_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  yices_showmodel_cmd();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
+ * [dump-cmd]
+ */
+static void check_dump_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, DUMP_CMD);
+  check_size(stack, n == 0);
+}
+
+static void eval_dump_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  yices_dump_cmd();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+
+/*
+ * [echo <string>]
+ */
+static void check_echo_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, ECHO_CMD);
+  check_size(stack, n == 1);
+  check_tag(stack, f, TAG_STRING);
+}
+
+static void eval_echo_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  yices_echo_cmd(f->val.string);
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
+ * [include <string>]
+ */
+static void check_include_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, INCLUDE_CMD);
+  check_size(stack, n == 1);
+  check_tag(stack, f, TAG_STRING);
+}
+
+static void eval_include_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  yices_include_cmd(f->val.string);
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
+ * [assert <term>]
+ */
+static void check_assert_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, ASSERT_CMD);
+  check_size(stack, n == 1);  
+}
+
+static void eval_assert_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t t;
+
+  t = get_term(stack, f);
+  yices_assert_cmd(t);
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
+ * [eval <term>]
+ */
+static void check_eval_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, EVAL_CMD);
+  check_size(stack, n == 1);  
+}
+
+static void eval_eval_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t t;
+
+  t = get_term(stack, f);
+  yices_eval_cmd(t);
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
+ * [set-param <symbol> <value>]
+ */
+static void check_setparam_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SET_PARAM_CMD);
+  check_size(stack, n == 2);
+  check_tag(stack, f, TAG_SYMBOL);
+}
+
+static void eval_setparam_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  stack_elem_t *e;
+  param_val_t aux;
+
+  e = f + 1;
+  switch (e->tag) {
+  case TAG_SYMBOL:
+    aux.tag = PARAM_VAL_SYMBOL;
+    aux.val.symbol = e->val.symbol;
+    break;
+
+  case TAG_RATIONAL:
+    aux.tag = PARAM_VAL_RATIONAL;
+    aux.val.rational = &e->val.rational;
+    break;
+
+  case TAG_TERM:
+    if (e->val.term == yices_true()) {
+      aux.tag = PARAM_VAL_TRUE;
+    } else if (e->val.term == yices_false()) {
+      aux.tag = PARAM_VAL_FALSE;
+    } else {
+      aux.tag = PARAM_VAL_ERROR;
+    }
+    break;
+
+  default:
+    aux.tag = PARAM_VAL_ERROR;
+    break;
+  }
+
+  yices_setparam_cmd(f->val.symbol, &aux);
+  
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
+ * [show-param <symbol>]
+ */
+static void check_showparam_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SHOW_PARAM_CMD);
+  check_size(stack, n == 1);
+  check_tag(stack, f, TAG_SYMBOL);
+}
+
+static void eval_showparam_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  yices_showparam_cmd(f->val.symbol);
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
+ * [show-params]
+ */
+static void check_showparams_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SHOW_PARAMS_CMD);
+  check_size(stack, n == 0);
+}
+
+static void eval_showparams_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  yices_showparams_cmd();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
+ * [show-stats]
+ */
+static void check_showstats_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SHOW_STATS_CMD);
+  check_size(stack, n == 0);
+}
+
+static void eval_showstats_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  yices_showstats_cmd();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
+ * [reset-stats]
+ */
+static void check_resetstats_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, RESET_STATS_CMD);
+  check_size(stack, n == 0);
+}
+
+static void eval_resetstats_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  yices_resetstats_cmd();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+
+/*
+ * [show-timeout]
+ */
+static void check_showtimeout_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SHOW_TIMEOUT_CMD);
+  check_size(stack, n == 0);
+}
+
+static void eval_showtimeout_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  yices_showtimeout_cmd();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
+ * [set-timeout <rational>]
+ */
+static void check_settimeout_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SET_TIMEOUT_CMD);
+  check_size(stack, n == 1);
+  check_tag(stack, f, TAG_RATIONAL);
+}
+
+
+static void eval_settimeout_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  int32_t timeout;
+
+  timeout = get_integer(stack, f);
+  yices_settimeout_cmd(timeout); // will check for timeout < 0 etc.
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
+ * [help <topic>] or [help]
+ */
+static void check_help_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, HELP_CMD);
+  check_size(stack, n <= 1);
+  if (n == 1) {
+    if (f->tag != TAG_STRING && f->tag != TAG_SYMBOL) {
+      raise_exception(stack, f, TSTACK_NOT_A_STRING); // should use a different code for STING or SYMBOL
+    }
+  }
+}
+
+static void eval_help_cmd(tstack_t *stack,  stack_elem_t *f, uint32_t n) {
+  char *topic;
+  
+  topic = NULL;
+  if (n == 1) {
+    topic = f->val.symbol;
+  }
+  yices_help_cmd(topic);
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+
+/*
+ * Initialize the term stack and add these commmands
+ */
+static void init_yices_tstack(tstack_t *stack) {
+  init_tstack(stack, NUM_YICES_OPCODES);
+  tstack_add_op(stack, DEF_YICES_TYPE, false, eval_def_yices_type, check_def_yices_type);
+  tstack_add_op(stack, DEF_YICES_TERM, false, eval_def_yices_term, check_def_yices_term);
+  tstack_add_op(stack, EXIT_CMD, false, eval_exit_cmd, check_exit_cmd);
+  tstack_add_op(stack, ASSERT_CMD, false, eval_assert_cmd, check_assert_cmd);
+  tstack_add_op(stack, CHECK_CMD, false, eval_check_cmd, check_check_cmd);
+  tstack_add_op(stack, SHOWMODEL_CMD, false, eval_showmodel_cmd, check_showmodel_cmd);
+  tstack_add_op(stack, EVAL_CMD, false, eval_eval_cmd, check_eval_cmd);
+  tstack_add_op(stack, PUSH_CMD, false, eval_push_cmd, check_push_cmd);
+  tstack_add_op(stack, POP_CMD, false, eval_pop_cmd, check_pop_cmd);
+  tstack_add_op(stack, RESET_CMD, false, eval_reset_cmd, check_reset_cmd);
+  tstack_add_op(stack, ECHO_CMD, false, eval_echo_cmd, check_echo_cmd);
+  tstack_add_op(stack, INCLUDE_CMD, false, eval_include_cmd, check_include_cmd);
+  tstack_add_op(stack, SET_PARAM_CMD, false, eval_setparam_cmd, check_setparam_cmd);
+  tstack_add_op(stack, SHOW_PARAM_CMD, false, eval_showparam_cmd, check_showparam_cmd);
+  tstack_add_op(stack, SHOW_PARAMS_CMD, false, eval_showparams_cmd, check_showparams_cmd);
+  tstack_add_op(stack, SHOW_STATS_CMD, false, eval_showstats_cmd, check_showstats_cmd);
+  tstack_add_op(stack, RESET_STATS_CMD, false, eval_resetstats_cmd, check_resetstats_cmd);
+  tstack_add_op(stack, SET_TIMEOUT_CMD, false, eval_settimeout_cmd, check_settimeout_cmd);
+  tstack_add_op(stack, SHOW_TIMEOUT_CMD, false, eval_showtimeout_cmd, check_showtimeout_cmd);
+  tstack_add_op(stack, HELP_CMD, false, eval_help_cmd, check_help_cmd);
+  tstack_add_op(stack, DUMP_CMD, false, eval_dump_cmd, check_dump_cmd);
+}
 
 
 /**********
@@ -2563,28 +3028,7 @@ int yices_main(int argc, char *argv[]) {
    */
   init_ivector(&delayed_assertions, 10);
   yices_init();
-  init_tstack(&stack);
-  tstack_set_exit_cmd(&stack, yices_exit_cmd);
-  tstack_set_echo_cmd(&stack, yices_echo_cmd);
-  tstack_set_include_cmd(&stack, yices_include_cmd);
-  tstack_set_setparam_cmd(&stack, yices_setparam_cmd);
-  tstack_set_showparam_cmd(&stack, yices_showparam_cmd);
-  tstack_set_showparams_cmd(&stack, yices_showparams_cmd);
-  tstack_set_showstats_cmd(&stack, yices_showstats_cmd);
-  tstack_set_resetstats_cmd(&stack, yices_resetstats_cmd);
-  tstack_set_dump_cmd(&stack, yices_dump_cmd);
-  tstack_set_reset_cmd(&stack, yices_reset_cmd);
-  tstack_set_push_cmd(&stack, yices_push_cmd);
-  tstack_set_pop_cmd(&stack, yices_pop_cmd);
-  tstack_set_assert_cmd(&stack, yices_assert_cmd);
-  tstack_set_check_cmd(&stack, yices_check_cmd);
-  tstack_set_showmodel_cmd(&stack, yices_showmodel_cmd);
-  tstack_set_eval_cmd(&stack, yices_eval_cmd);
-  tstack_set_settimeout_cmd(&stack, yices_settimeout_cmd);
-  tstack_set_showtimeout_cmd(&stack, yices_showtimeout_cmd);
-  tstack_set_help_cmd(&stack, yices_help_cmd);
-  tstack_set_type_defined_cmd(&stack, yices_type_defined_cmd);
-  tstack_set_term_defined_cmd(&stack, yices_term_defined_cmd);
+  init_yices_tstack(&stack);
   init_parameter_name_table();
 
   init_parser(&parser, &lexer, &stack);

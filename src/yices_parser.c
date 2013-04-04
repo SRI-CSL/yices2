@@ -6,6 +6,7 @@
 #include <setjmp.h>
 #include <inttypes.h>
 
+#include "yices_tstack_ops.h"
 #include "yices_parse_tables.h"
 #include "yices_parser.h"
 #include "yices_lexer.h"
@@ -336,12 +337,12 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       goto loop;
       
     case deftype_next_goto_c2:
-      tstack_push_op(tstack, DEFINE_TYPE, &loc);
+      tstack_push_op(tstack, DEF_YICES_TYPE, &loc);
       state = c2;
       goto loop;
 
     case defterm_next_goto_c6:
-      tstack_push_op(tstack, DEFINE_TERM, &loc);
+      tstack_push_op(tstack, DEF_YICES_TERM, &loc);
       state = c6;
       goto loop;
 
@@ -420,7 +421,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
 
     case symbol_next_goto_c12:
       // symbol in (set-param <symbol> value)
-      tstack_push_string(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       state = c12;
       goto loop;
 
@@ -441,7 +442,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
 
     case symbol_next_goto_r0:
       // symbol in (show-param <symbol>) or (help <symbol>)
-      tstack_push_string(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       state = r0;
       goto loop;
 
@@ -717,7 +718,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       goto loop;
 
     case div_next_push_e3_goto_e0:
-      tstack_push_op(tstack, MK_DIV, &loc);
+      tstack_push_op(tstack, MK_DIVISION, &loc);
       parser_push_state(stack, e3);
       state = e0;
       goto loop;
@@ -1078,7 +1079,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
     case e11_varname_next_goto_e12:
       // first var decl in quantifiers
       tstack_push_op(tstack, DECLARE_VAR, &loc);
-      tstack_push_string(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       state = e12;
       goto loop;
 
@@ -1092,7 +1093,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       tstack_eval(tstack); // eval previous binding
       // prepare for next var decl
       tstack_push_op(tstack, DECLARE_VAR, &loc);
-      tstack_push_string(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       state = e12;
       goto loop;
 
@@ -1114,7 +1115,7 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
     case termname_next_push_e19_goto_e0:
       // name in binding
       tstack_push_op(tstack, BIND, &loc);
-      tstack_push_string(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       parser_push_state(stack, e19);
       state = e0;
       goto loop;
@@ -1193,7 +1194,7 @@ extern term_t parse_yices_term(parser_t *parser, FILE *err) {
 
   /*
    * Unless there's a bug somewhere. eval cannot generate an exception here.
-   * (cf. eval_build_term in term_stack.c
+   * (cf. eval_build_term in term_stack.c)
    */
   assert(parser->tstack->top_op == BUILD_TERM);
   tstack_eval(parser->tstack);

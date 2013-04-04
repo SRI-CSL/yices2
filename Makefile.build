@@ -532,13 +532,13 @@ clean:
 arch-clean:
 	rm -rf build/$(ARCH)-*
 
-
 #
 # All clean delete all build directories
+# - also clean the src directory
 #
 all-clean:
 	rm -rf build/*
-
+	$(MAKE) -C $(srcdir) clean
 
 .PHONY: clean arch-clean all-clean
 

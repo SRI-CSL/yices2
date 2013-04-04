@@ -21,16 +21,17 @@
  * as Yices for sign-extend. We don't support it.
  */
 
-#ifndef __TSTACK_SMT_OPS
-#define __TSTACK_SMT_OPS
+#ifndef __SMT_TERM_STACK
+#define __SMT_TERM_STACK
 
 #include "term_stack2.h"
 
 /*
- * Initialize stack for SMT-LIB 1.2:
- * - this redefines the operations above
+ * Initialize stack for SMT-LIB 1.2: 
+ * - initialize the stack then redefines the 
+ *   operations above
  */
-extern void tstack_enable_smt(tstack_t *stack);
+extern void init_smt_tstack(tstack_t *stack);
 
 
-#endif /* __TSTACK_SMT_OPTS */
+#endif /* __SMT_TERM_STACK */

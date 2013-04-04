@@ -206,6 +206,19 @@ extern void copy_result_and_pop_frame(tstack_t *stack, stack_elem_t *v);
 
 
 /*
+ * CALL AN EXISTING OPERATION
+ */
+
+/*
+ * Call the function check[op] or eval[op] on the top frame
+ * - f and n must be the top frame
+ */
+extern void call_tstack_check(tstack_t *stack, int32_t op, stack_elem_t *f, uint32_t n);
+extern void call_tstack_eval(tstack_t *stack, int32_t op, stack_elem_t *f, uint32_t n);
+
+
+
+/*
  * BIT-VECTOR OPERATIONS
  */
 

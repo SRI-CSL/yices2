@@ -663,7 +663,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
       goto loop;
 
     case div_next_push_f3_goto_f0:
-      tstack_push_op(tstack, MK_DIV, &loc);
+      tstack_push_op(tstack, MK_DIVISION, &loc);
       parser_push_state(stack, f3);
       state = f0;
       goto loop;
@@ -1061,7 +1061,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
 
     case var_next_push_f19_goto_f0: // var in let or flet
       tstack_push_op(tstack, BIND, &loc);
-      tstack_push_string(tstack, tkval(lex), tklen(lex), &loc); // var name
+      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc); // var name
       parser_push_state(stack, f19);
       state = f0;
       goto loop;
@@ -1080,7 +1080,7 @@ static int32_t smt_parse(parser_t *parser, smt_benchmark_t *bench, state_t start
 
     case var_next_push_f23_goto_s0: // var in quantifier
       tstack_push_op(tstack, DECLARE_VAR, &loc);
-      tstack_push_string(tstack, tkval(lex), tklen(lex), &loc); // var name
+      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc); // var name
       parser_push_state(stack, f23);
       state = s0;
       goto loop;

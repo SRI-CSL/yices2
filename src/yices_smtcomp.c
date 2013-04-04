@@ -17,7 +17,7 @@
 
 #include "smt_lexer.h"
 #include "smt_parser.h"
-#include "term_stack.h"
+#include "smt_term_stack.h"
 #include "context.h"
 #include "smt_logic_codes.h"
 
@@ -1013,8 +1013,8 @@ static int process_benchmark(void) {
    * Parse and build the formula
    */
   yices_init();
-  tstack_set_smt_mode();
-  init_tstack(&stack);
+  init_smt_tstack(&stack);
+
   init_parser(&parser, &lexer, &stack);
   init_benchmark(&bench);
   code = parse_smt_benchmark(&parser, &bench);

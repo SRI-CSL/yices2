@@ -662,7 +662,7 @@ static parser_t *get_parser(const char *s) {
   if (parser == NULL) {
     assert(lexer == NULL && tstack == NULL);
     tstack = (tstack_t *) safe_malloc(sizeof(tstack_t));
-    init_tstack(tstack);
+    init_tstack(tstack, NUM_BASE_OPCODES);
 
     lexer = (lexer_t *) safe_malloc(sizeof(lexer_t));
     init_string_lexer(lexer, s, "yices");

@@ -7,7 +7,7 @@
 
 #include "term_printer.h"
 #include "type_printer.h"
-#include "term_stack.h"
+#include "term_stack2.h"
 #include "yices_lexer.h"
 #include "yices_parser.h"
 #include "yices.h"
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
   process_command_line(argc, argv);
 
   yices_init();
-  init_tstack(&stack);
+  init_tstack(&stack, NUM_BASE_OPCODES);
   interactive = false;
 
   if (input_filename == NULL) {

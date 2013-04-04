@@ -10,7 +10,7 @@
 
 #include "smt_lexer.h"
 #include "smt_parser.h"
-#include "term_stack.h"
+#include "term_stack2.h"
 #include "term_printer.h"
 
 #include "context.h"

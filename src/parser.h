@@ -15,7 +15,7 @@
 #include <assert.h>
 
 #include "lexer.h"
-#include "term_stack.h"
+#include "term_stack2.h"
 
 
 /*

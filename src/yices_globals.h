@@ -12,7 +12,7 @@
 #define __YICES_GLOBALS_H
 
 #include "term_manager.h"
-#include "term_stack.h"
+#include "term_stack2.h"
 
 typedef struct yices_globals_s {
   type_table_t *types;     // type table

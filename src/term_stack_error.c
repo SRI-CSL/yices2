@@ -13,6 +13,7 @@
 #include <inttypes.h>
 #include <assert.h>
 
+#include "yices_tstack_ops.h"
 #include "yices_error.h"
 #include "yices_exit_codes.h"
 #include "yices.h"
@@ -31,12 +32,14 @@ static const char * const code2string[NUM_TSTACK_ERRORS] = {
   "operation not supported",
   "undefined term",
   "undefined type",
+  "undefined type macro",
   "invalid rational format",
   "invalid float format",
   "invalid bitvector binary format",
   "invalid bitvector hexadecimal format",
   "cannot redefine type",
   "cannot redefine term",
+  "cannot redefine type macro",
   "duplicate name",
   "duplicate variable name",
   "invalid operation",
@@ -44,6 +47,7 @@ static const char * const code2string[NUM_TSTACK_ERRORS] = {
   "constant too large",
   "exponent must be non-negative",
   "constant is not an integer",
+  "string required",
   "symbol required",
   "numerical constant required",
   "type required",
@@ -66,19 +70,22 @@ static const char * const code2string[NUM_TSTACK_ERRORS] = {
  * We use two tables because some operators have a different name in
  * the SMT-LIB notation and in the Yices language.
  */
-static const char * const opcode2smt_string[NUM_OPCODES] = {
+static const char * const opcode2smt_string[NUM_BASE_OPCODES] = {
   "no_op",
 
   "define-type",
   "define",
+
   "bind",
-  "declare_var",
+  "var declaration",
+  "type-var declaration",  // for SMT2
   "let",
 
   "bitvector type",
   "scalar type",   // not in SMT
   "tuple type",    // not in SMT
   "function type",
+  "macro application",  // for SMT2
 
   "function application",
   "if-then-else",
@@ -116,6 +123,12 @@ static const char * const opcode2smt_string[NUM_OPCODES] = {
   "bvmul",
   "bvneg",
   "bvpow",   // not in SMT
+  "bvudiv",
+  "bvurem",
+  "bvsdiv",
+  "bvsrem",
+  "bvsmod",
+
   "bvnot",
   "bvand",
   "bvor",
@@ -123,6 +136,7 @@ static const char * const opcode2smt_string[NUM_OPCODES] = {
   "bvnand",
   "bvnor",
   "bvxnor",
+
   "shift_left0",
   "shift_left1",
   "shift_right0",
@@ -130,74 +144,55 @@ static const char * const opcode2smt_string[NUM_OPCODES] = {
   "ashift_right",
   "rotate_left",
   "rotate_right",
+
+  "bvshl",
+  "bvlshr",
+  "bvashr",
+
   "extract",
   "concat",
   "repeat",
   "sign_extend",
   "zero_extend",
-  "bitvector inequality",
-  "bitvector inequality",
-  "bitvector inequality",
-  "bitvector inequality",
-  "bitvector inequality",
-  "bitvector inequality",
-  "bitvector inequality",
-  "bitvector inequality",
 
-  "bvshl",
-  "bvlshr",
-  "bvashr",
-  "bvdiv",
-  "bvrem",
-  "bvsdiv",
-  "bvsrem",
-  "bvsmod",
-  "bvredor",
   "bvredand",
+  "bvredor",
   "bvcomp",
+
+  "bitvector inequality",
+  "bitvector inequality",
+  "bitvector inequality",
+  "bitvector inequality",
+  "bitvector inequality",
+  "bitvector inequality",
+  "bitvector inequality",
+  "bitvector inequality",
 
   "build term",
   "build type",
-
-  // commands are not in SMT-LIB either
-  "exit",
-  "check",
-  "echo",
-  "include",
-  "assert",
-  "push",
-  "pop",
-  "reset",
-  "show-model",
-  "eval",
-  "set-param",
-  "show-param",
-  "show-params",
-  "show-stats",
-  "reset-stats",
-  "set-timeout",
-  "show-timeout",
-  "dump-context",
 };
 
 
 
 /*
- * Translate opcode to string
+ * Translate opcode to string: Yices version has more opcodes
  */
-static const char * const opcode2yices_string[NUM_OPCODES] = {
+static const char * const opcode2yices_string[NUM_YICES_OPCODES] = {
   "no_op",
 
   "define-type",
   "define",
+
   "bind",
-  "declare_var",
+  "var declaration",
+  "type-var declaration",  // SMT2 only
   "let",
 
   "bitvector type",
   "scalar type",
   "tuple type",
   "function type",
+  "type-macro application", // SMT2
 
   "function application",
   "if-then-else",
@@ -235,6 +230,12 @@ static const char * const opcode2yices_string[NUM_OPCODES] = {
   "bv-mul",
   "bv-neg",
   "bv-pow",
+  "bv-udiv",
+  "bv-urem",
+  "bv-sdiv",
+  "bv-srem",
+  "bv-smod",
+
   "bv-not",
   "bv-and",
   "bv-or",
@@ -242,6 +243,7 @@ static const char * const opcode2yices_string[NUM_OPCODES] = {
   "bv-nand",
   "bv-nor",
   "bv-xnor",
+
   "bv-shift-left0",
   "bv-shift-left1",
   "bv-shift-right0",
@@ -249,45 +251,46 @@ static const char * const opcode2yices_string[NUM_OPCODES] = {
   "bv-ashift-right",
   "bv-rotate-left",
   "bv-rotate-right",
+
+  "bv-shl",
+  "bv-lshr",
+  "bv-ashr",
+
   "bv-extract",
   "bv-concat",
   "bv-repeat",
   "bv-sign-extend",
   "bv-zero-extend",
-  "bitvector inequality",
-  "bitvector inequality",
-  "bitvector inequality",
-  "bitvector inequality",
-  "bitvector inequality",
-  "bitvector inequality",
-  "bitvector inequality",
-  "bitvector inequality",
 
-  "bv-shl",
-  "bv-lshr",
-  "bv-ashr",
-  "bv-udiv",
-  "bv-urem",
-  "bv-sdiv",
-  "bv-srem",
-  "bv-smod",
-  "bv-redor",
   "bv-redand",
+  "bv-redor",
   "bv-comp",
+
+  "bitvector inequality",
+  "bitvector inequality",
+  "bitvector inequality",
+  "bitvector inequality",
+  "bitvector inequality",
+  "bitvector inequality",
+  "bitvector inequality",
+  "bitvector inequality",
 
   "build term",
   "build type",
 
+  // commands in yices_tstack_ops.h
+  "define-type",
+  "define",
   "exit",
-  "check",
-  "echo",
-  "include",
   "assert",
+  "check",
+  "show-model",
+  "eval",
   "push",
   "pop",
   "reset",
-  "show-model",
-  "eval",
+  "echo",
+  "include",
   "set-param",
   "show-param",
   "show-params",
@@ -295,6 +298,7 @@ static const char * const opcode2yices_string[NUM_OPCODES] = {
   "reset-stats",
   "set-timeout",
   "show-timeout",
+  "help",
   "dump-context",
 };
 
@@ -304,7 +308,6 @@ static const char * const opcode2yices_string[NUM_OPCODES] = {
  * Global pointer: either equal to opcode2yices_string or to opcode2smt_string.
  */
 static const char * const *opcode2string;
-
 
 
 
@@ -388,6 +391,7 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
 
   case TSTACK_UNDEF_TERM:
   case TSTACK_UNDEF_TYPE:
+  case TSTACK_UNDEF_MACRO:
   case TSTACK_DUPLICATE_SCALAR_NAME:
   case TSTACK_DUPLICATE_VAR_NAME:
   case TSTACK_RATIONAL_FORMAT:
@@ -396,14 +400,16 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
   case TSTACK_BVHEX_FORMAT:
   case TSTACK_TYPENAME_REDEF:
   case TSTACK_TERMNAME_REDEF:
+  case TSTACK_MACRO_REDEF:
     fprintf(f, "%s (line %"PRId32", column %"PRId32")\n",
             tstack->error_string, tstack->error_loc.line, tstack->error_loc.column);
     break;
 
-  case TSTACK_NOT_A_RATIONAL:
   case TSTACK_INTEGER_OVERFLOW:
   case TSTACK_NEGATIVE_EXPONENT:
   case TSTACK_NOT_AN_INTEGER:
+  case TSTACK_NOT_A_STRING:
+  case TSTACK_NOT_A_RATIONAL:
   case TSTACK_ARITH_ERROR:
   case TSTACK_DIVIDE_BY_ZERO:
   case TSTACK_NON_CONSTANT_DIVISOR:
@@ -478,9 +484,9 @@ static uint8_t severity[NUM_YICES_ERRORS] = {
   2, // EMPTY_BITVECTOR
   2, // ARITHCONSTANT_REQUIRED (should never be raised by term stack, see eval_mk_div)
   2, // INVALID_MACRO (bug in term_stack)
-  0, // TOO_MANY_MACRO_PARAMS
+  0, // TOO_MANY_MACRO_PARAMS (TBD)
   2, // TYPE_VAR_REQUIRED (bug in term_stack)
-  0, // DUPLICATE_TYPE_VAR
+  0, // DUPLICATE_TYPE_VAR (TBD)
 };
 
 

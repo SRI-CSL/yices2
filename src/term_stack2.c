@@ -113,8 +113,8 @@ void __attribute__((noreturn)) report_yices_error(tstack_t *stack) {
 static void alloc_op_table(op_table_t *table, uint32_t n) {
   assert(n <= MAX_OP_TABLE_SIZE);
   table->assoc = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
-  table->eval = (evaluator_t *) safe_malloc(n * sizeof(evaluator_t));
-  table->check = (checker_t *) safe_malloc(n * sizeof(checker_t));
+  table->eval = (eval_fun_t *) safe_malloc(n * sizeof(eval_fun_t));
+  table->check = (check_fun_t *) safe_malloc(n * sizeof(check_fun_t));
   table->num_ops = 0;
   table->size = n;
 }
@@ -257,7 +257,7 @@ void tstack_push_op(tstack_t *stack, int32_t op, loc_t *loc) {
   stack_elem_t *e;
 
 #ifndef NDEBUG
-  if (0 < op ||
+  if (op < 0 ||
       op >= stack->op_table.num_ops ||
       stack->op_table.check[op] == NULL ||
       stack->op_table.eval[op] == NULL ||
@@ -2608,6 +2608,64 @@ void bvconcat_elem(tstack_t *stack, bvlogic_buffer_t *b, stack_elem_t *e) {
  */
 
 /*
+ * [define-type <symbol> ]
+ * [define-type <symbol> <type> ]
+ */
+static void check_define_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, DEFINE_TYPE);
+  check_size(stack, (n == 1 || n == 2));
+  check_tag(stack, f, TAG_SYMBOL);
+  if (n == 2) check_tag(stack, f+1, TAG_TYPE);
+}
+
+static void eval_define_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  type_t tau;
+
+  if (n == 1) {
+    tau = yices_new_uninterpreted_type();    
+  } else {
+    tau = f[1].val.type;
+  }
+  yices_set_type_name(tau, f[0].val.symbol);
+
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+/*
+ * [define-term <symbol> <type> ]
+ * [define-term <symbol> <type> <term> ]
+ */
+static void check_define_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, DEFINE_TERM);
+  check_size(stack, (n == 2 || n == 3));
+  check_tag(stack, f, TAG_SYMBOL);
+  check_tag(stack, f+1, TAG_TYPE);
+  // no need to check val[f+2]: get_term will raise an exception if 
+  // it can't be converted to a term.
+}
+
+static void eval_define_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  type_t tau;
+  term_t t;
+
+  tau = f[1].val.type;
+  if (n == 2) {
+    t = yices_new_uninterpreted_term(tau);
+  } else {
+    t = get_term(stack, f+2);
+    if (! is_subtype(__yices_globals.types, term_type(__yices_globals.terms, t), tau)) {
+      raise_exception(stack, f+2, TSTACK_TYPE_ERROR_IN_DEFTERM);
+    }
+  }
+  yices_set_term_name(t, f[0].val.symbol);
+
+  tstack_pop_frame(stack);
+  no_result(stack);  
+}
+
+
+/*
  * [bind <string> <term>]
  */
 static void check_bind(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -4835,189 +4893,30 @@ void tstack_eval(tstack_t *stack) {
 
 
 /*
- * SMT VARIANTS (FOR SMT-LIB 1.2)
+ * Direct calls of check[op] and eval[op]
  */
+void call_tstack_check(tstack_t *stack, int32_t op, stack_elem_t *f, uint32_t n) {
+  int32_t saved_op;
 
-/*
- * Some bitvector and other functions have an SMT-LIB versions because
- * they take arguments in a different orders or allow more
- * arguments. We need this because the parsers do not swap arguments
- * around: for example, in smt_parser, (sign_extend[x] term) leads to
- * the stack frame [mk-bv-sign-extend x <term>].
- *
- * mk_eq: SMT-LIB allows (= t1 ... tn) with n>=2 as an abbreviation
- * for (and (= t1 t2) ... (t1 tn))
- *
- *                      Yices                          SMT
- * bv_const:   [mk-bv-const size number]     [mk-bv-const number size]
- * bv_rotate:   [bv-rotate-.. bv index]         [bv-rotate.. index bv]
- * bv-repeat:     [bv-repeat  bv index]          [bv-repeat index bv]
- * bv-zero-extend:  [zero-ext bv number]        [bv-extend number bv]
- *
- * bv-sign-extend: order depends on SMT-LIB version. 2006 version uses
- * the syntax (sign-extend <bv> n), like Yices. The 2007 version uses
- * (sign-extend[n] <bv>).
- */
+  assert(0 <= op && op < stack->op_table.num_ops && stack->op_table.check[op] != NULL);
 
-#if 0
-/*
- * SMT variant: [mk-eq <term> ... <term>]
- */
-static void smt_check_mk_eq(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_EQ);
-  check_size(stack, n >= 2);
+  /*
+   * we save top_op and replace it by op to prevent 'bad_opcode exception' 
+   * raised by 'check[op]
+   */
+  saved_op = stack->top_op;
+  stack->top_op = op;
+  stack->op_table.check[op](stack, f, n);
+  stack->top_op = saved_op;
 }
 
-static void smt_eval_mk_eq(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  term_t *arg, last, t;
-  uint32_t i;
-
-  if (n == 2) {
-    eval_mk_eq(stack, f, n);
-  } else {
-    arg = get_aux_buffer(stack, n);
-    n --;
-    last = get_term(stack, f+n);
-    for (i=0; i<n; i++) {
-      t = yices_eq(get_term(stack, f+i), last);
-      check_term(stack, t);
-      arg[i] = t;
-    }
-    t = yices_and(n, arg);
-    check_term(stack, t);
-
-    tstack_pop_frame(stack);
-    set_term_result(stack, t);
-  }
+void call_tstack_eval(tstack_t *stack, int32_t op, stack_elem_t *f, uint32_t n) {
+  assert(0 <= op && op < stack->op_table.num_ops && stack->op_table.eval[op] != NULL);
+  stack->top_op = op;
+  stack->op_table.eval[op](stack, f, n);
 }
 
-/*
- * SMT-LIB variant: [mk-bv-const <value> <size>]
- */
-static void smt_eval_mk_bv_const(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  int32_t size;
-  rational_t *val;
 
-  size = get_integer(stack, f+1);
-  val = &f[0].val.rational;
-  mk_bv_const_core(stack, f, size, val);
-}
-
-/*
- * SMT-LIB Variant: [mk-bv-rotate-left <rational> <bv>]
- */
-static void smt_check_mk_bv_rotate_left(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_BV_ROTATE_LEFT);
-  check_size(stack, n == 2);
-  check_tag(stack, f, TAG_RATIONAL);
-}
-
-static void smt_eval_mk_bv_rotate_left(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  int32_t index;
-  bvlogic_buffer_t *b;
-
-  index = get_integer(stack, f);
-  b = tstack_get_bvlbuffer(stack);
-  bvl_set_elem(stack, b, f+1);
-  if (! yices_check_bitshift(b, index)) {
-    report_yices_error(stack);
-  }
-  // we known 0 <= index <= bitsize of b
-  if (index < bvlogic_buffer_bitsize(b)) {
-    bvlogic_buffer_rotate_left(b, index);
-  }
-  tstack_pop_frame(stack);
-  set_bvlogic_result(stack, b);
-}
-
-/*
- * SMT-LIB Variant: [mk-bv-rotate-right <rational> <bv>]
- */
-static void smt_check_mk_bv_rotate_right(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_BV_ROTATE_RIGHT);
-  check_size(stack, n == 2);
-  check_tag(stack, f, TAG_RATIONAL);
-}
-
-static void smt_eval_mk_bv_rotate_right(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  int32_t index;
-  bvlogic_buffer_t *b;
-
-  index = get_integer(stack, f);
-  b = tstack_get_bvlbuffer(stack);
-  bvl_set_elem(stack, b, f+1);
-  if (! yices_check_bitshift(b, index)) {
-    report_yices_error(stack);
-  }
-  // we known 0 <= index <= bitsize of b
-  if (index < bvlogic_buffer_bitsize(b)) {
-    bvlogic_buffer_rotate_right(b, index);
-  }
-  tstack_pop_frame(stack);
-  set_bvlogic_result(stack, b);
-}
-
-/*
- * SMT-LIB variant [mk-bv-repeat <rational> <bv>]
- */
-static void smt_check_mk_bv_repeat(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_BV_REPEAT);
-  check_size(stack, n == 2);
-  check_tag(stack, f, TAG_RATIONAL);
-}
-
-static void smt_eval_mk_bv_repeat(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  int32_t i;
-  bvlogic_buffer_t *b;
-
-  i = get_integer(stack, f);
-  b = tstack_get_bvlbuffer(stack);
-  bvl_set_elem(stack, b, f+1);
-
-  // check for overflow or for i <= 0
-  if (! yices_check_bvrepeat(b, i)) {
-    report_yices_error(stack);    
-  }
-  bvlogic_buffer_repeat_concat(b, i);
-  tstack_pop_frame(stack);
-  set_bvlogic_result(stack, b);
-}
-
-/*
- * SMT-LIB variants:
- *    [mk-bv-sign-extend <bv> <rational>]
- * or [mk-bv-sign-extend <rational> <bv>]
- */
-static void smt_check_mk_bv_sign_extend(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_BV_SIGN_EXTEND);
-  check_size(stack, n == 2);
-  check_size(stack, (f[0].tag == TAG_RATIONAL || f[1].tag == TAG_RATIONAL));
-}
-
-static void smt_eval_mk_bv_sign_extend(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  if (f[0].tag == TAG_RATIONAL) {
-    mk_bv_sign_extend_core(stack, f+1, f);
-  } else {
-    assert(f[1].tag == TAG_RATIONAL);
-    mk_bv_sign_extend_core(stack, f, f+1);
-  }
-}
-
-/*
- * SMT-LIB variant [mk-bv-zero-extend <rational> <bv>]
- * rational n = number of bits to add
- */
-static void smt_check_mk_bv_zero_extend(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, MK_BV_ZERO_EXTEND);
-  check_size(stack, n == 2);
-  check_tag(stack, f, TAG_RATIONAL);  
-}
-
-static void smt_eval_mk_bv_zero_extend(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  mk_bv_zero_extend_core(stack, f+1, f);
-}
-
-#endif
 
 
 /*
@@ -5025,6 +4924,8 @@ static void smt_eval_mk_bv_zero_extend(tstack_t *stack, stack_elem_t *f, uint32_
  */
 static const uint8_t assoc[NUM_BASE_OPCODES] = {
   0, // NO_OP
+  0, // DEFINE_TYPE
+  0, // DEFINE_TERM
   0, // BIND
   0, // DECLARE_VAR
   0, // DECLARE_TYPE_VAR
@@ -5110,8 +5011,10 @@ static const uint8_t assoc[NUM_BASE_OPCODES] = {
   0, // BUILD_TYPE
 };
 
-static const checker_t check[NUM_BASE_OPCODES] = {
+static const check_fun_t check[NUM_BASE_OPCODES] = {
   eval_error, // NO_OP
+  check_define_type,
+  check_define_term,
   check_bind,
   check_declare_var,
   check_declare_type_var,
@@ -5197,8 +5100,10 @@ static const checker_t check[NUM_BASE_OPCODES] = {
   check_build_type,
 };
 
-static const evaluator_t eval[NUM_BASE_OPCODES] = {
+static const eval_fun_t eval[NUM_BASE_OPCODES] = {
   NULL, // NO_OP
+  eval_define_type,
+  eval_define_term,
   eval_bind,
   eval_declare_var,
   eval_declare_type_var,
@@ -5359,7 +5264,7 @@ void delete_tstack(tstack_t *stack) {
  * current values for op are replaced. If op is larger than
  * num_ops, then a new operation is added. 
  */
-void tstack_add_op(tstack_t *stack, int32_t op, bool assoc, evaluator_t eval, checker_t check) {
+void tstack_add_op(tstack_t *stack, int32_t op, bool assoc, eval_fun_t eval, check_fun_t check) {
   uint32_t i, nops;
 
   assert(0 <= op && op < stack->op_table.size);

@@ -9,10 +9,10 @@
 
 #include "term_printer.h"
 #include "type_printer.h"
-#include "term_stack.h"
+#include "smt_logic_codes.h"
 #include "smt_lexer.h"
 #include "smt_parser.h"
-#include "smt_logic_codes.h"
+#include "smt_term_stack.h"
 #include "context.h"
 #include "context_printer.h"
 
@@ -223,8 +223,8 @@ int main(int argc, char *argv[]) {
   }
 
   yices_init();
-  tstack_set_smt_mode();
-  init_tstack(&stack);
+  init_smt_tstack(&stack);
+
   init_parser(&parser, &lexer, &stack);
   init_benchmark(&bench);
   code = parse_smt_benchmark(&parser, &bench);
