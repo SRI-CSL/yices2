@@ -338,7 +338,7 @@ arith_buffers.c
 poly_buffer.h:			Simplified buffer used by the arithmetic solver
 poly_buffer.c			(more specialized, more efficient than arith_buffer).
 
-poly_buffer_terms.h:		Operation involing poly_buffers and terms
+poly_buffer_terms.h:		Operation involving poly_buffers and terms
 poly_buffer_terms.c
 
 bv64_polynomials.h:		Polynomials with small bitvector coefficients
