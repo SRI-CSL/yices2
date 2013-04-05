@@ -134,6 +134,9 @@ ptr_heap.c
 
 1.3.d  Sets/Collections
 
+csets.h:                Sets of integers (all elements are in an interval [0 .. n-1]
+csets.c                 where n is fixed when the set is created)
+
 int_bv_sets.h:		sets of unsigned integers implemented using resizable bitvectors
 int_bv_sets.c
 
@@ -198,6 +201,9 @@ pair_hash_map2.c        int_hash_map2)
 
 pair_hash_sets.h:	sets of pairs of integers (implemented as a hash table)
 pair_hash_sets.c
+
+ptr_hash_classes.h:     hash table for maintaining equivalence classes of objects (identified
+ptr_hash_classes.c      by pointers). The table stores one representative per class
 
 ptr_hash_map.h:		maps int32 to (void *) pointers (hash table)
 ptr_hash_map.c
@@ -332,7 +338,8 @@ arith_buffers.c
 poly_buffer.h:			Simplified buffer used by the arithmetic solver
 poly_buffer.c			(more specialized, more efficient than arith_buffer).
 
-
+poly_buffer_terms.h:		Operation involing poly_buffers and terms
+poly_buffer_terms.c
 
 bv64_polynomials.h:		Polynomials with small bitvector coefficients
 bv64_polynomials.c
@@ -344,8 +351,8 @@ bvarith64_buffers.c
 bv_polynomials.h:		Polynomials with arbitrary-size bitvector coefficients
 bv_polynomials.c
 
-bvarith64_buffers.h:		Buffers for constructing these polynomials
-bvarith64_buffers.c
+bvarith_buffers.h:		Buffers for constructing these polynomials
+bvarith_buffers.c
 
 
 
@@ -503,7 +510,13 @@ yices_globals.h:	 Export the global term and type tables and other
 
 
 term_stack.h:		 A stack-based term builder/interpreter
-term_stack.c             intended to help parsing
+term_stack.c             intended to help parsing (NOT USED ANYMORE)
+
+term_stack2.h:		 New implementation of term_stack (removed the commands
+term_stac2.c             that were specific to Yices).
+
+smt_term_stack.h:	 Built-on top of term_stack2: with some operations redefined
+smt_term_stack.c         to SMT-LIB 1.2 variants of the default
 
 yices_error.h:		 Error messages based on an error_report structure
 yices_error.c            maintained by yices_api.c
@@ -596,6 +609,9 @@ smt2_parser.c		 yet)
 smt_core.h:		DPLL-based SAT solver with support for connection to a theory solver
 smt_core.c
 
+smt_core_exporter.h:	Export the smt_core content to a file (dimacs format)
+smt_core_exporter.c     (this takes only the Boolean part into account) 
+
 smt_core_printer.h:     Print functions for the core
 smt_core_printer.c
 
@@ -607,6 +623,9 @@ gates_manager.c
 
 gates_printer.h:	Print functions for Boolean gates
 gates_printer.c
+
+sat_solver.h:		A separate DPLL SAT solver similar to core but without theory solver
+sat_solver.c            (it's used to build the yices_sat standalone SAT solver)
 
 
 
@@ -627,6 +646,9 @@ egraph_utils.c
 composites.h:		    Support for construction of composite terms (for the egraph)
 composites.c                and implementation of a congruence table.
 
+egraph_eq_stats.h:          Data structure to collect statistics about the egraph
+egraph_eq_stats.c           (not used).
+
 egraph_explanations.h:	    Generation of explanations from the egraph
 egraph_explanations.c
 
@@ -634,8 +656,7 @@ egraph_assertion_queues.h:  Queues to store equalities/disequalities/distinct pr
 egraph_assertion_queues.c   that are propagated by the egraph to the satellite solvers.
 
 theory_explanation.h:       Data structure to store explanations produced by satellite solvers
-theory_explanation.c	    - not used for now, may be useful for theory solvers that can
-			    propagate equalities to the egraph
+theory_explanation.c
 
 diseq_stacks.h:	            Stack that can be used by satellite solvers to store disequalities
 diseq_stacks.c              they receive from the egraph.
@@ -646,6 +667,10 @@ egraph.c
 
 egraph_printer.h:	    Print functions
 egraph_printer.c
+
+
+update_graph.h:             Incomplete: new module intended to replace the array solver
+update_graph.c              (including support for simple lambda terms)
 
 
 
@@ -692,6 +717,9 @@ dsolver_printer.c
 matrices.h:		Matrix representation used by the Simplex solver
 matrices.c
 
+offset_equalities.h:    Support for processing equalities of the form x = y + k (where k is a constant)
+offset_equalities.c     (intended to be propagate equalities to the egraph)
+
 simplex_types.h:	Simplex-related type definitions
 
 simplex_propagator0.h:  Experimental code to implement theory propagation in the Simplex solver
@@ -713,11 +741,16 @@ simplex_printer.c
 fun_solver.h:		Solver for the function/array theory
 fun_solver.c            - deals with extensionality and array updates
 
+fun_solver_printer.h:	Print functions for the array solver
+fun_solver_printer.c
 
 
 
 7.5) Bit vector solver
      -----------------
+
+merge_table.h:		Table for representing equivalence classes of variables
+merge_table.c		(union-find with support for push/pop)
 
 remap_table.h:          Support for building equivalence classes of pseudo literals 
 remap_table.c           and for mapping these to real literals in the SAT solver
@@ -747,6 +780,9 @@ bv64_intervals.c        of no more than 64 bits. (Used by bvsolver for simplific
 bv_intervals.h: 	More general version: intervals defined by two bit-vector constants
 bv_intervals.c          with more than 64bits. (Used by bvsolver for simplification)
 
+bvpoly_buffer.h:        Buffer for construction of bit-vector polynomials
+bvpoly_buffer.c         (simpler/more efficient than bvarith_buffer and bvarith64_buffer)
+
 bvpoly_compiler.h:      Support for converting bit-vector polynomials to more elementary 
 bvpoly_compiler.c       terms built using binary add, binary product, etc.
 
@@ -757,6 +793,10 @@ bvsolver_types.h:       Data types used by the bitvector solver
 
 bvsolver.h:             Bit-vector solver
 bvsolver.c
+
+bvsolver_printer.h:     Print functions for the bitvector solver
+bvsolver_printer.c
+
 
 
 7.6) Model construction
@@ -845,12 +885,17 @@ eq_abstraction.c	      the set of equalities implied by F (over a fixed set of t
 eq_learner.h:		      Computation of equality abstraction for a formula F
 eq_learner.c
 
+symmetry_breaking.h:	      Add constraints to break symmetries in QF_UF problems
+symmetry_breaking.c
 
-context.h:		     Top-level context module, intended to provide assert/push/pop/reset 
-context.c                    - implements the translation of yices terms (as provided by yices.h API)
-			     into the egraph and solver data structures
+context_simplifier.c:         Simplification and preprocessing procedures used by context.c
+                              - implements simplifications that are independent of the solvers
 
-context_printer.h:	     Print internal context structures
+context.h:		      Top-level context module, intended to provide assert/push/pop/reset 
+context.c                     - implements the translation of yices terms (as provided by yices.h API)
+			        into the egraph and solver(s) data structures
+
+context_printer.h:	      Print internal context structures
 context_printer.c
 
 
@@ -894,9 +939,15 @@ yices_smtcomp.c:            Solver for problems in the SMT-LIB notation
 			    - competition version: no parameter setting available
 			    on the command line.
 
+yices_help.h:		    On-line help for the solver (Yices language)
+yices_help.c
+
 yices_reval.h:		    Read-eval-print loop. Accepts input in the Yices language
 yices_reval.c               - this is separated so that the reval functions can be called
 			      from LISP
 
 yices_main.c:              Top-level Yices module for problems in the Yices language
 		           - just calls yices_reval
+
+
+yices_sat.c: 		   SAT solver: reads DIMACS CNF input
