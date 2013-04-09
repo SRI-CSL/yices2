@@ -32,7 +32,7 @@
  * - stack->error_op is set to stack->top_op
  * - stack->error_string is set to e's string field if e is a symbol or a binding, 
  *   or to NULL otherwise.
- * code is returned to exception handler by longjmp
+ * code is returned to the enclosing exception handler by longjmp
  */
 extern void __attribute__((noreturn)) raise_exception(tstack_t *stack, stack_elem_t *e, int code);
 

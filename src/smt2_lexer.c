@@ -22,7 +22,7 @@ static const char * const smt2_token_string[NUM_SMT2_TOKENS] = {
   "<end-of-stream>",       // SMT2_TK_EOS
   "<numeral>",             // SMT2_TK_NUMERAL
   "<decimal>",             // SMT2_TK_DECIMAL
-  "<hexdecimal>",          // SMT2_TK_HEXADECIMAL
+  "<hexadecimal>",         // SMT2_TK_HEXADECIMAL
   "<binary>",              // SMT2_TK_BINARY
   "<string>",              // SMT2_TK_STRING
   "<symbol>",              // SMT2_TK_SYMBOL

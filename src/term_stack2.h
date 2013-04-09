@@ -45,8 +45,9 @@
 
 #include "arena.h"
 #include "terms.h"
-
+#include "attribute_values.h"
 #include "bvlogic_buffers.h"
+
 
 /*
  * Objects on the stack
@@ -68,6 +69,7 @@ typedef enum tag_enum {
   TAG_TERM,             // term index + polarity (from the global term table)
   TAG_TYPE,             // type index (from the global type table)
   TAG_MACRO,            // type macro (index in the type table)
+  TAG_ATTRIBUTE,        // attribute value (index in an attribute value table)
   TAG_ARITH_BUFFER,     // polynomial buffer (rational coefficients)
   TAG_BVARITH64_BUFFER, // polynomial buffer (bitvector coefficients, 1 to 64 bits)
   TAG_BVARITH_BUFFER,   // polynomial buffer (bitvector coefficients, more than 64 bits)
@@ -130,6 +132,7 @@ typedef struct stack_elem_s {
     term_t term;
     type_t type;
     int32_t macro;
+    aval_t aval;
     arith_buffer_t *arith_buffer;
     bvarith64_buffer_t *bvarith64_buffer;
     bvarith_buffer_t *bvarith_buffer;
