@@ -33,6 +33,10 @@
  * - stack->error_string is set to e's string field if e is a symbol or a binding, 
  *   or to NULL otherwise.
  * code is returned to the enclosing exception handler by longjmp
+ *
+ * NOTE: It's possible to raise exceptions that are not defined in tstack_error_t 
+ * by using an integer code > TSTACK_YICES_ERROR. This requires that the interrupt
+ * handler knows how to deal with such codes.
  */
 extern void __attribute__((noreturn)) raise_exception(tstack_t *stack, stack_elem_t *e, int code);
 

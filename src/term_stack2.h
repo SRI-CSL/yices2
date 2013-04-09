@@ -261,7 +261,8 @@ struct tstack_s {
  */
 
 /*
- * Error codes
+ * Error codes (for Yices and SMT-LIB 1.2) 
+ * SMT-LIB 2 adds more exception codes.
  */
 typedef enum tstack_error_s {
   TSTACK_NO_ERROR = 0,

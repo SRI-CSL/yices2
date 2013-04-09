@@ -253,13 +253,13 @@ extern aval_t smt_bv_attr(uint32_t n, uint32_t *c);
  * - must return an aval_t index
  * - don't increment its refcounter
  */
-extern aval_t smt_symbol_attr(const char *name);
+extern aval_t smt2_symbol_attr(const char *name);
 
 
 /*
  * Same thing for a string
  */
-extern aval_t smt_string_attr(const char *name);
+extern aval_t smt2_string_attr(const char *name);
 
 
 /*
@@ -308,7 +308,6 @@ extern void smt2_syntax_error(lexer_t *lex, int32_t expected_token);
 
 /*
  * Exception raised by the tstack
- * - reader_name = same as lex->reader.name above
  * - tstack = term stack
  * - exception = error code (defined in term_stack2.h)
  *
@@ -320,7 +319,7 @@ extern void smt2_syntax_error(lexer_t *lex, int32_t expected_token);
  * - tstack->error_string = erroneous input
  * - tstack->error_op = erroneous operation
  */
-extern void smt2_tstack_error(const char *reader_name, tstack_t *tstack, tstack_error_t exception);
+extern void smt2_tstack_error(tstack_t *tstack, int32_t exception);
 
 
 #endif /* __SMT2_COMMANDS_H */
