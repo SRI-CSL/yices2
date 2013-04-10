@@ -18,52 +18,11 @@
 
 
 /*
- * Utilities: check stuff and raise exception if stuff doesn't hold
+ * Raise exception on Yices error
  */
-static int invalid_tag(tag_t tg) {
-  int error_code;
-
-  switch (tg) {
-  case TAG_SYMBOL: 
-    error_code = TSTACK_NOT_A_SYMBOL;
-    break;
-
-  case TAG_RATIONAL:
-    error_code = TSTACK_NOT_A_RATIONAL;
-    break;
-
-  case TAG_TYPE:
-    error_code = TSTACK_NOT_A_TYPE;
-    break;
-
-  default:
-    error_code = TSTACK_INTERNAL_ERROR;
-  }
-
-  return error_code;
-}
-
-static void check_tag(tstack_t *stack, stack_elem_t *e, tag_t tg) {
-  if (e->tag != tg) raise_exception(stack, e, invalid_tag(tg));
-}
-
-static void check_op(tstack_t *stack, int32_t op) {
-  if (stack->top_op != op) {
-    raise_exception(stack, stack->elem + stack->frame, TSTACK_INTERNAL_ERROR);
-  }
-}
-
-static void check_size(tstack_t *stack, bool cond) {
-  if (! cond) {
-    raise_exception(stack, stack->elem + stack->frame, TSTACK_INVALID_FRAME);
-  }
-}
-
 static void check_term(tstack_t *stack, term_t t) {
   if (t == NULL_TERM) report_yices_error(stack);
 }
-
-
 
 /*
  * SMT variant for [mk-eq <term> ... <term>]

@@ -175,6 +175,8 @@ static void alloc_tstack(tstack_t *stack, uint32_t nops) {
 
   stack->tvar_id = 0;
 
+  stack->avtbl = NULL;
+
   stack->error_op = NO_OP;
   stack->error_loc.line = 0;
   stack->error_loc.column = 0;
@@ -781,6 +783,12 @@ static void tstack_free_val(tstack_t *stack, stack_elem_t *e) {
   case TAG_RATIONAL:
     q_clear(&e->val.rational);
     break;
+  case TAG_ATTRIBUTE:
+    assert(stack->avtbl != NULL);
+    if (e->val.aval != AVAL_NULL) {
+      aval_decref(stack->avtbl, e->val.aval);
+    }
+    break;
   case TAG_ARITH_BUFFER:
     recycle_abuffer(stack, e->val.arith_buffer);
     break;
@@ -1017,6 +1025,23 @@ void set_type_binding_result(tstack_t *stack, type_t tau, char *symbol) {
   e->val.type_binding.symbol = symbol;
 }
 
+
+void set_aval_result(tstack_t *stack, aval_t v) {
+  stack_elem_t *e;
+
+  assert(stack->avtbl != NULL);
+
+  e = stack->elem + (stack->top - 1);
+  e->tag = TAG_ATTRIBUTE;
+  e->val.aval = v;
+
+  if (v != AVAL_NULL) {
+    aval_incref(stack->avtbl, v);
+  }
+}
+
+
+
 // no result: remove the top element
 static inline void no_result(tstack_t *stack) {
   stack->top --;
@@ -1154,23 +1179,23 @@ static int invalid_tag(tag_t tg) {
   return error_code;
 }
 
-static void check_tag(tstack_t *stack, stack_elem_t *e, tag_t tg) {
+void check_tag(tstack_t *stack, stack_elem_t *e, tag_t tg) {
   if (e->tag != tg) raise_exception(stack, e, invalid_tag(tg));
 }
 
-static void check_op(tstack_t *stack, int32_t op) {
+void check_op(tstack_t *stack, int32_t op) {
   if (stack->top_op != op) {
     raise_exception(stack, stack->elem + stack->frame, TSTACK_INTERNAL_ERROR);
   }
 }
 
-static void check_size(tstack_t *stack, bool cond) {
+void check_size(tstack_t *stack, bool cond) {
   if (! cond) {
     raise_exception(stack, stack->elem + stack->frame, TSTACK_INVALID_FRAME);
   }
 }
 
-static void check_all_tags(tstack_t *stack, stack_elem_t *e, stack_elem_t *end, tag_t tg) {
+void check_all_tags(tstack_t *stack, stack_elem_t *e, stack_elem_t *end, tag_t tg) {
   while (e < end) {
     check_tag(stack, e, tg);
     e ++;
@@ -1242,7 +1267,7 @@ static void check_distinct_scalar_names(tstack_t *stack, stack_elem_t *f, uint32
  * - names are in f[0] .. f[n-1]
  * - all are bindings
  */
-static void check_distinct_binding_names(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+void check_distinct_binding_names(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   uint32_t i;
   tagged_string_t check[n];
 
@@ -1254,6 +1279,25 @@ static void check_distinct_binding_names(tstack_t *stack, stack_elem_t *f, uint3
     }
   }
 }
+
+
+/*
+ * Same thing for type-variable bindings
+ */
+void check_distinct_type_binding_names(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  uint32_t i;
+  tagged_string_t check[n];
+
+  // check for duplicate strings in the sequence
+  for (i=0; i<n; i++) {
+    assert(f[i].tag == TAG_TYPE_BINDING);
+    if (check_duplicate_string(check, i, f[i].val.type_binding.symbol)) {
+      raise_exception(stack, f+i, TSTACK_DUPLICATE_TYPE_VAR_NAME);
+    }
+  }
+}
+
+
 
 
 /*

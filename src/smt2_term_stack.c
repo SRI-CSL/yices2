@@ -2,82 +2,43 @@
  * OPERATIONS FOR SMT-LIB 2.0
  */
 
+#include <string.h>
+
 #include "attribute_values.h"
 #include "tstack_internals.h"
+#include "smt2_lexer.h"
 #include "smt2_term_stack.h"
-
-
-/*
- * Utilities to raise exceptions
- */
-static int invalid_tag(tag_t tg) {
-  int error_code;
-
-  switch (tg) {
-  case TAG_SYMBOL: 
-    error_code = TSTACK_NOT_A_SYMBOL;
-    break;
-
-  case TAG_STRING:
-    error_code = TSTACK_NOT_A_STRING;
-    break;
-
-  case TAG_RATIONAL:
-    error_code = TSTACK_NOT_A_RATIONAL;
-    break;
-
-  default:
-    error_code = TSTACK_INTERNAL_ERROR;
-    break;
-  }
-
-  return error_code;
-}
-
-static void check_tag(tstack_t *stack, stack_elem_t *e, tag_t tg) {
-  if (e->tag != tg) raise_exception(stack, e, invalid_tag(tg));
-}
-
-static void check_op(tstack_t *stack, int32_t op) {
-  if (stack->top_op != op) {
-    raise_exception(stack, stack->elem + stack->frame, TSTACK_INTERNAL_ERROR);
-  }
-}
-
-static void check_size(tstack_t *stack, bool cond) {
-  if (! cond) {
-    raise_exception(stack, stack->elem + stack->frame, TSTACK_INVALID_FRAME);
-  }
-}
-
+#include "smt2_commands.h"
 
 
 /*
  * Convert element e to an attribute value
- * - raise exception SMT2_INVALID_VALUE if that can't be done
+ * - raise exception INTERNAL_ERROR if that can't be done
  */
 static aval_t get_aval(tstack_t *stack, stack_elem_t *e) {
   aval_t v;
 
+  assert(stack->avtbl != NULL);
+
   switch (e->tag) {
   case TAG_SYMBOL:
-    v = smt2_symbol_attr(e->val.symbol);
+    v = attr_vtbl_symbol(stack->avtbl, e->val.symbol);
     break;
 
   case TAG_STRING: 
-    v = smt2_string_attr(e->val.symbol);
+    v = attr_vtbl_string(stack->avtbl, e->val.symbol);
     break;
 
   case TAG_BV64:
-    v = smt2_bv64_attr(e->val.bv64.bitsize, e->val.bv64.value);
+    v = attr_vtbl_bv64(stack->avtbl, e->val.bv64.bitsize, e->val.bv64.value);
     break;
 
   case TAG_BV:
-    v = smt2_bv_attr(e->val.bv.bitsize, e->val.bv.data);
+    v = attr_vtbl_bv(stack->avtbl, e->val.bv.bitsize, e->val.bv.data);
     break;
 
   case TAG_RATIONAL:
-    v = smt2_rational_attr(&e->val.rational);
+    v = attr_vtbl_rational(stack->avtbl, &e->val.rational);
     break;
 
   case TAG_ATTRIBUTE:
@@ -94,15 +55,21 @@ static aval_t get_aval(tstack_t *stack, stack_elem_t *e) {
 
 
 /*
- * Store an attribute value on top of the stack (replace the current top_op)
+ * Convert element e into an smt2_keyword 
+ * - raise exception INTERNAL_ERROR if e is not a symbol
  */
-static void set_aval_result(tstack_t *stack, aval_t v) {
-  stack_elem_t *e;
+static smt2_keyword_t get_keyword(tstack_t *stack, stack_elem_t *e) {
+  uint32_t len;
 
-  e = stack->elem + (stack->top - 1);
-  e->tag = TAG_ATTRIBUTE:
-  e->val.aval = v;
+  if (e->tag != TAG_SYMBOL) {
+    raise_exception(stack, e, TSTACK_INTERNAL_ERROR);
+  }
+
+  len = strlen(e->val.symbol);
+  return smt2_string_to_keyword(e->val.symbol, len);
 }
+
+
 
 /*
  * NEW OPCODES
@@ -195,7 +162,7 @@ static void eval_smt2_get_value(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t *a;
   uint32_t i;
 
-  a = get_aux_buffer(stack);
+  a = get_aux_buffer(stack, n);
   for (i=0; i<n; i++) {
     a[i] = get_term(stack, f + i);
   }
@@ -255,7 +222,7 @@ static void eval_smt2_set_option(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     v = get_aval(stack, f+1);
   }
   smt2_set_option(f[0].val.symbol, v);
-  pop_frame(stack);
+  tstack_pop_frame(stack);
   no_result(stack);
 }
 
@@ -276,8 +243,8 @@ static void eval_smt2_set_info(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   if (n == 2) {
     v = get_aval(stack, f+1);
   }
-  smt2_set_option(f[0].val.symbol, v);
-  pop_frame(stack);
+  smt2_set_info(f[0].val.symbol, v);
+  tstack_pop_frame(stack);
   no_result(stack);
 }
 
@@ -286,7 +253,7 @@ static void eval_smt2_set_info(tstack_t *stack, stack_elem_t *f, uint32_t n) {
  * [set-logic <name> ]
  */
 static void check_smt2_set_logic(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, SMT2_SET_LOGI);
+  check_op(stack, SMT2_SET_LOGIC);
   check_size(stack, n == 1);
   check_tag(stack, f, TAG_SYMBOL);
 }
@@ -406,9 +373,27 @@ static void eval_smt2_declare_sort(tstack_t *stack, stack_elem_t *f, uint32_t n)
  * [define-sort <symbol> <type-binding> ... <type-binding> <type>]
  */
 static void check_smt2_define_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_DEFINE_SORT);
+  check_size(stack, n >= 2);
+  check_tag(stack, f, TAG_SYMBOL);
+  check_all_tags(stack, f+1, f+(n-1), TAG_TYPE_BINDING);
+  check_distinct_type_binding_names(stack, f+1, n-2);
+  check_tag(stack, f+(n-1), TAG_TYPE);
 }
 
 static void eval_smt2_define_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  type_t *a;
+  uint32_t i, nvars;
+
+  nvars = n - 2;
+  a = get_aux_buffer(stack, nvars);
+  for (i=0; i<nvars; i++) {
+    a[i] = f[i+1].val.type_binding.type;
+  }
+
+  smt2_define_sort(f[0].val.symbol, nvars, a, f[n-1].val.type);
+  tstack_pop_frame(stack);
+  no_result(stack);
 }
 
 
@@ -416,9 +401,25 @@ static void eval_smt2_define_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) 
  * [declare-fun <symbol> <sort> ... <sort>]
  */
 static void check_smt2_declare_fun(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_DECLARE_FUN);
+  check_size(stack, n>=2);
+  check_tag(stack, f, TAG_SYMBOL);
+  check_all_tags(stack, f+1, f+n, TAG_TYPE);
 }
 
 static void eval_smt2_declare_fun(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  type_t *a;
+  uint32_t i, ntypes;
+
+  ntypes = n - 1;
+  a = get_aux_buffer(stack, ntypes);
+  for (i=0; i<n; i++) {
+    a[i] = f[i+1].val.type;
+  }
+
+  smt2_declare_fun(f[0].val.symbol, ntypes, a);
+  tstack_pop_frame(stack);
+  no_result(stack);
 }
 
 
@@ -426,9 +427,30 @@ static void eval_smt2_declare_fun(tstack_t *stack, stack_elem_t *f, uint32_t n) 
  * [define-fun <symbol> <binding> ... <binding> <sort> <term> ]
  */
 static void check_smt2_define_fun(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_DEFINE_FUN);
+  check_size(stack, n >= 3);
+  check_tag(stack, f, TAG_SYMBOL);
+  check_all_tags(stack, f+1, f+(n-2), TAG_BINDING);
+  check_distinct_binding_names(stack, f+1, n-3);
+  check_tag(stack, f+(n-2), TAG_TYPE);
 }
 
 static void eval_smt2_define_fun(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t *a;
+  term_t body;
+  uint32_t i, nvars;
+
+  body = get_term(stack, f+(n-1));
+
+  nvars = n-3;
+  a = get_aux_buffer(stack, nvars);
+  for (i=0; i<nvars; i++) {
+    a[i] = f[i+1].val.binding.term;
+  }
+
+  smt2_define_fun(f[0].val.symbol, nvars, a, body, f[n-2].val.type);
+  tstack_pop_frame(stack);
+  no_result(stack);
 }
 
 
@@ -436,15 +458,28 @@ static void eval_smt2_define_fun(tstack_t *stack, stack_elem_t *f, uint32_t n) {
  * ATTRIBUTES
  */
 
-
 /*
  * [make-attr-list <value> ... <value> ]
  */
 static void check_smt2_make_attr_list(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_MAKE_ATTR_LIST);
 }
 
 static void eval_smt2_make_attr_list(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  aval_t *a;
+  uint32_t i;
+  aval_t v;
+
+  a = get_aux_buffer(stack, n);
+  for (i=0; i<n; i++) {
+    a[i] = get_aval(stack, f + i);
+  }
+  v = attr_vtbl_list(stack->avtbl, n, a);
+
+  tstack_pop_frame(stack);
+  set_aval_result(stack, v);
 }
+
 
 
 /*
@@ -452,10 +487,137 @@ static void eval_smt2_make_attr_list(tstack_t *stack, stack_elem_t *f, uint32_t 
  * - only attributes kept are :named and :pattern 
  */
 static void check_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_ADD_ATTRIBUTES);  
+  check_size(stack, n>=1);
+}
+
+// check whether f[i] is in the frame (i.e., i<n) and has tag == SYMBOL
+static void check_name(tstack_t *stack, stack_elem_t *f, uint32_t i, uint32_t n) {
+  if (i == n || f[i].tag != TAG_SYMBOL) {
+    raise_exception(stack, f, SMT2_MISSING_NAME);
+  }
+}
+
+// check whether f[i] is in the frame and is a term
+// return the term if so, raise an exception otherwise
+static term_t check_pattern(tstack_t *stack, stack_elem_t *f, uint32_t i, uint32_t n) {
+  if (i == n) raise_exception(stack, f, SMT2_MISSING_PATTERN);
+  return get_term(stack, f+i);
 }
 
 static void eval_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t t, pattern;
+  uint32_t i;
+
+  t = get_term(stack, f);
+
+  i = 1;
+  while (i<n) {
+    switch (get_keyword(stack, f+i)) {
+    case SMT2_KW_NAMED:
+      i ++;
+      check_name(stack, f, i, n);
+      smt2_add_name(t, f[i].val.symbol);
+      break;
+
+    case SMT2_KW_PATTERN:
+      i ++;
+      pattern = check_pattern(stack, f, i, n);
+      smt2_add_pattern(t, pattern);
+      break;
+
+    default:
+      // ignore the attribute and skip the attribute value if there's one
+      i ++;
+      if (i < n && f[i].tag != TAG_SYMBOL) {
+	i ++; 
+      }
+      break;
+    }
+  }
+
+  tstack_pop_frame(stack);
+  no_result(stack);
 }
+
+
+
+/*
+ * PROCESS SYMBOLS
+ */
+
+/*
+ * All functions below are variants of push_symbol
+ * - s = string, n = its length, loc = location in the inpit
+ * - if s denotes a built-in operation, then we push the opcode
+ *   otherwise, we push a generic version (e.g., MK_APPLY) if available.
+ */
+
+/*
+ * Sort name
+ */
+void tstack_push_sort_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+}
+
+
+/*
+ * Symbol in an indexed sort
+ * (_ <symbol> <number> ... <number> )
+ */
+void tstack_push_idx_sort(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+}
+
+
+/*
+ * Symbol as a sort cconstructor
+ * (<symbol> <sort> .,, <sort>)
+ */
+void tstack_push_sort_constructor(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+}
+
+/*
+ * Symbol in an indexed sort constructor
+ * ( (_ <symbol> <number> ... <number> ) <sort> ... <sort> )
+ */
+void tstack_push_idx_sort_constructor(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+}
+
+
+/*
+ * Term name (constant term)
+ */
+void tstack_push_term_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+  
+}
+
+
+/*
+ * Symbol in a function application
+ *  ( <symbol> <term> ... <term> )
+ */
+void tstack_push_smt2_op(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+}
+
+
+/*
+ * Symbol in an indexed function application
+ *  ( (_ <symbol> <number> ... <number> ) <term> ... <term> )
+ */
+void tstack_push_smt2_idx_op(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+}
+
+
+/*
+ * Symbol in an indexed term
+ *  ( _ <symbol> <number> ... <number> )
+ */
+void tstack_push_idx_term(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {  
+}
+
+
+
+
+
 
 
 /*
@@ -463,12 +625,19 @@ static void eval_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t 
  */
 
 /*
+ * Indexed stuff should all be eliminated so we just raise an exception
+ * if any of these are called. That's because all indexed symbols are
+ * defined in a theory (the user can't add new ones).
+ */
+
+/*
  * [indexed-sort <symbol> <numeral> ... <numeral> ]
  */
 static void check_smt2_indexed_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
 }
 
-static void eval_smt2_indexed_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+static void eval_smt2_indexed_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {  
 }
 
 
@@ -476,6 +645,7 @@ static void eval_smt2_indexed_sort(tstack_t *stack, stack_elem_t *f, uint32_t n)
  * [app-indexed-sort <symbol> <numeral> ... <numeral> <type> ... <type>]
  */
 static void check_smt2_app_indexed_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
 }
 
 static void eval_smt2_app_indexed_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -486,9 +656,43 @@ static void eval_smt2_app_indexed_sort(tstack_t *stack, stack_elem_t *f, uint32_
  * [indexed-term <symbol> <numeral> ... <numeral> ]
  */
 static void check_smt2_indexed_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
 }
 
 static void eval_smt2_indexed_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+}
+
+
+/*
+ * [sorted-index-term <symbol> <numeral> ... <numeral> <type>]
+ */
+static void check_smt2_sorted_indexed_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
+}
+
+static void eval_smt2_sorted_indexed_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+}
+
+
+/*
+ * [indexed-apply <symbol> <numeral> ... <numeral> ]
+ */
+static void check_smt2_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
+}
+
+static void eval_smt2_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+}
+
+
+/*
+ * [sorted-index-apply <symbol> <numeral> ... <numeral> <type>]
+ */
+static void check_smt2_sorted_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
+}
+
+static void eval_smt2_sorted_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 
@@ -502,25 +706,6 @@ static void eval_smt2_sorted_term(tstack_t *stack, stack_elem_t *f, uint32_t n) 
 }
 
 
-/*
- * [sorted-index-term <symbol> <numeral> ... <numeral> <type>]
- */
-static void check_smt2_sorted_indexed_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-}
-
-static void eval_smt2_sorted_indexed_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-}
-
-
-/*
- * [indexed-apply <symbol> <numeral> ... <numeral> ]
- */
-static void check_smt2_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-}
-
-static void eval_smt2_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-}
-
 
 /*
  * [sorted-apply <symbol> <type>]
@@ -532,13 +717,42 @@ static void eval_smt2_sorted_apply(tstack_t *stack, stack_elem_t *f, uint32_t n)
 }
 
 
+
 /*
- * [sorted-index-apply <symbol> <numeral> ... <numeral> <type>]
+ * Initialize stack for smt2:
+ * - must be called after init_smt2
  */
-static void check_smt2_sorted_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+void init_smt2_tstack(tstack_t *stack) {
+  init_tstack(stack, NUM_SMT2_OPCODES);
+  tstack_set_avtbl(stack, __smt2_globals.avtbl);
+
+  tstack_add_op(stack, SMT2_EXIT, false, eval_smt2_exit, check_smt2_exit);
+  tstack_add_op(stack, SMT2_GET_ASSERTIONS, false, eval_smt2_get_assertions, check_smt2_get_assertions);
+  tstack_add_op(stack, SMT2_GET_ASSIGNMENT, false, eval_smt2_get_assignment, check_smt2_get_assignment);
+  tstack_add_op(stack, SMT2_GET_PROOF, false, eval_smt2_get_proof, check_smt2_get_proof);
+  tstack_add_op(stack, SMT2_GET_UNSAT_CORE, false, eval_smt2_get_unsat_core, check_smt2_get_unsat_core);
+  tstack_add_op(stack, SMT2_GET_VALUE, false, eval_smt2_get_value, check_smt2_get_value);
+  tstack_add_op(stack, SMT2_GET_OPTION, false, eval_smt2_get_option, check_smt2_get_option);
+  tstack_add_op(stack, SMT2_GET_INFO, false, eval_smt2_get_info, check_smt2_get_info);
+  tstack_add_op(stack, SMT2_SET_OPTION, false, eval_smt2_set_option, check_smt2_set_option);
+  tstack_add_op(stack, SMT2_SET_INFO, false, eval_smt2_set_info, check_smt2_set_info);
+  tstack_add_op(stack, SMT2_SET_LOGIC, false, eval_smt2_set_logic, check_smt2_set_logic);
+  tstack_add_op(stack, SMT2_PUSH, false, eval_smt2_push, check_smt2_push);
+  tstack_add_op(stack, SMT2_POP, false, eval_smt2_pop, check_smt2_pop);
+  tstack_add_op(stack, SMT2_ASSERT, false, eval_smt2_assert, check_smt2_assert);
+  tstack_add_op(stack, SMT2_CHECK_SAT, false, eval_smt2_check_sat, check_smt2_check_sat);
+  tstack_add_op(stack, SMT2_DECLARE_SORT, false, eval_smt2_declare_sort, check_smt2_declare_sort);
+  tstack_add_op(stack, SMT2_DEFINE_SORT, false, eval_smt2_define_sort, check_smt2_define_sort);
+  tstack_add_op(stack, SMT2_DECLARE_FUN, false, eval_smt2_declare_fun, check_smt2_declare_fun);
+  tstack_add_op(stack, SMT2_DEFINE_FUN, false, eval_smt2_define_fun, check_smt2_define_fun);
+  tstack_add_op(stack, SMT2_MAKE_ATTR_LIST, false, eval_smt2_make_attr_list, check_smt2_make_attr_list);
+  tstack_add_op(stack, SMT2_ADD_ATTRIBUTES, false, eval_smt2_add_attributes, check_smt2_add_attributes);
+  tstack_add_op(stack, SMT2_INDEXED_SORT, false, eval_smt2_indexed_sort, check_smt2_indexed_sort);
+  tstack_add_op(stack, SMT2_APP_INDEXED_SORT, false, eval_smt2_app_indexed_sort, check_smt2_app_indexed_sort);
+  tstack_add_op(stack, SMT2_INDEXED_TERM, false, eval_smt2_indexed_term, check_smt2_indexed_term);
+  tstack_add_op(stack, SMT2_SORTED_TERM, false, eval_smt2_sorted_term, check_smt2_sorted_term);
+  tstack_add_op(stack, SMT2_SORTED_INDEXED_TERM, false, eval_smt2_sorted_indexed_term, check_smt2_sorted_indexed_term);
+  tstack_add_op(stack, SMT2_INDEXED_APPLY, false, eval_smt2_indexed_apply, check_smt2_indexed_apply);
+  tstack_add_op(stack, SMT2_SORTED_APPLY, false, eval_smt2_sorted_apply, check_smt2_sorted_apply);
+  tstack_add_op(stack, SMT2_SORTED_INDEXED_APPLY, false, eval_smt2_sorted_indexed_apply, check_smt2_sorted_indexed_apply);
 }
-
-static void eval_smt2_sorted_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-}
-
-

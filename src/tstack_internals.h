@@ -51,6 +51,57 @@ extern void __attribute__((noreturn)) report_yices_error(tstack_t *stack);
 
 
 /*
+ * Check whether e->tag is equal to tg
+ * - if not raise an exception
+ */
+extern void check_tag(tstack_t *stack, stack_elem_t *e, tag_t tg);
+
+
+/*
+ * Check whether cond is true (cond should be a constraint on the number of elements 
+ * on the top frame). If cond is fasle, raise execption INVALID_FRAME.
+ */
+extern void check_size(tstack_t *stack, bool cond);
+
+
+/*
+ * Check whether the top operator is equal to op.
+ * - if not rause exception INTERNAL_ERROR
+ */
+extern void check_op(tstack_t *stack, int32_t op);
+
+
+/*
+ * Check whether all elements from e to end have tag tg
+ * - if not raise an exception
+ *
+ * This is equivalent to 
+ *   for (t = e; t<end; t++) {
+ *     check_tag(stack, t, tg);
+ *   }
+ */
+extern void check_all_tags(tstack_t *stack, stack_elem_t *e, stack_elem_t *end, tag_t tg);
+
+
+/*
+ * Check whether all names in a list of variable bindings are distinct
+ * - names are in f[0] .. f[n-1]
+ * - all must be  bindings (tag == TAG_BINDING)
+ * if the test fails, raise exception DUPLICATTE_VAR_NAME
+ */
+extern void check_distinct_binding_names(tstack_t *stack, stack_elem_t *f, uint32_t n);
+
+
+/*
+ * Check whether all names in a list of type variables are distinct
+ * - names are in f[0] .. f[n-1]
+ * - all must be have tag == TAG_TYPE_BINDING
+ * if the test fails, raise exception DUPLICATTE_TYPE_VAR_NAME
+ */
+extern void check_distinct_type_binding_names(tstack_t *stack, stack_elem_t *f, uint32_t n);
+
+
+/*
  * CONVERSION
  */
 
@@ -194,6 +245,7 @@ extern void set_arith_result(tstack_t *stack, arith_buffer_t *b);
 extern void set_bvarith64_result(tstack_t *stack, bvarith64_buffer_t *b);
 extern void set_bvarith_result(tstack_t *stack, bvarith_buffer_t *b);
 extern void set_bvlogic_result(tstack_t *stack, bvlogic_buffer_t *b);
+extern void set_aval_result(tstack_t *stack, aval_t v);
 
 // no result: remove the top element
 static inline void no_result(tstack_t *stack) {

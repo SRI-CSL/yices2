@@ -2542,50 +2542,6 @@ static void yices_eval_cmd(term_t t) {
  *  TERM STACK WRAPPERS  *
  ************************/
 
-/*
- * Utilities to raise exceptions
- */
-static int invalid_tag(tag_t tg) {
-  int error_code;
-
-  switch (tg) {
-  case TAG_SYMBOL: 
-    error_code = TSTACK_NOT_A_SYMBOL;
-    break;
-
-  case TAG_STRING:
-    error_code = TSTACK_NOT_A_STRING;
-    break;
-
-  case TAG_RATIONAL:
-    error_code = TSTACK_NOT_A_RATIONAL;
-    break;
-
-  default:
-    error_code = TSTACK_INTERNAL_ERROR;
-    break;
-  }
-
-  return error_code;
-}
-
-static void check_tag(tstack_t *stack, stack_elem_t *e, tag_t tg) {
-  if (e->tag != tg) raise_exception(stack, e, invalid_tag(tg));
-}
-
-static void check_op(tstack_t *stack, int32_t op) {
-  if (stack->top_op != op) {
-    raise_exception(stack, stack->elem + stack->frame, TSTACK_INTERNAL_ERROR);
-  }
-}
-
-static void check_size(tstack_t *stack, bool cond) {
-  if (! cond) {
-    raise_exception(stack, stack->elem + stack->frame, TSTACK_INVALID_FRAME);
-  }
-}
-
-
 
 /*
  * Variants of define-term and define-type:

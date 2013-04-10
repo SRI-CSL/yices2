@@ -384,7 +384,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case sort_symbol_next_return:
       // sort name
-      tstack_push_type_by_name(tstack, tkval(lex), &loc);
+      tstack_push_sort_name(tstack, tkval(lex), tklen(lex), &loc);
       state = parser_pop_state(stack);
       if (state == done) {
         goto the_end;
@@ -405,8 +405,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
      
     case symbol_next_push_s10_goto_s0:
       // sort constructor in ( <symbol> <sort> ... <sort> )
-      tstack_push_op(tstack, MK_APP_TYPE, &loc);
-      tstack_push_macro_by_name(tstack, tkval(lex), &loc);
+      tstack_push_sort_constructor(tstack, tkval(lex), tklen(lex), &loc);
       parser_push_state(stack, s10);
       state = s0;
       goto loop;
@@ -452,7 +451,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case term_symbol_next_return:
       // term name
-      tstack_push_term_by_name(tstack, tkval(lex), &loc);
+      tstack_push_term_name(tstack, tkval(lex), tklen(lex), &loc);
       state = parser_pop_state(stack);
       if (state == done) {
         goto the_end;
@@ -732,7 +731,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
    
   } else {
     // exception from term_stack
-
+    smt2_tstack_error(tstack, exception);
     goto cleanup;
   }
 

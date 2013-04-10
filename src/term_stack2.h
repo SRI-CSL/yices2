@@ -183,8 +183,12 @@ typedef struct op_table_s {
  * - a global counter for creating fresh variables
  * - a longjmp buffer for simulating exceptions
  *
- * - result: some operations store a term or type result in
- *   stack->term_result or stack->type_result
+ * - some operations store a term or type result in
+ *   stack->result.term or stack->result.type
+ *
+ * - optional component: if attribute-values are used, then
+ *   the stack must have a pointer to the attribute-value table
+ *   (for refcounts).
  *
  * - diagnosis data for error reporting is stored in
  *   error_loc = loc[i] if error occurred on element i 
@@ -204,6 +208,7 @@ struct tstack_s {
   // operator table
   op_table_t op_table;
 
+  // arena
   arena_t mem;
 
   // vector to store types or terms
@@ -228,6 +233,10 @@ struct tstack_s {
     type_t type;
   } result;
 
+  // external table (NULL by default)
+  attr_vtbl_t *avtbl;
+
+  // exceptions/errors
   jmp_buf env;
   loc_t error_loc;
   int32_t error_op;
@@ -280,6 +289,7 @@ typedef enum tstack_error_s {
   TSTACK_MACRO_REDEF,
   TSTACK_DUPLICATE_SCALAR_NAME,
   TSTACK_DUPLICATE_VAR_NAME,
+  TSTACK_DUPLICATE_TYPE_VAR_NAME,
   TSTACK_INVALID_OP,
   TSTACK_INVALID_FRAME,
   TSTACK_INTEGER_OVERFLOW,
@@ -426,6 +436,18 @@ enum base_opcodes {
  * - the op_table is initialized: all default operators are defined
  */
 extern void init_tstack(tstack_t *stack, uint32_t n);
+
+
+/*
+ * Add an attribute-value table
+ * - must be done after init_tstack and before any operation
+ *   that add attribute values
+ */
+static inline void tstack_set_avtbl(tstack_t *stack, attr_vtbl_t *table) {
+  assert(stack->avtbl == NULL);
+  stack->avtbl = table;
+}
+
 
 /*
  * Add or replace an operator

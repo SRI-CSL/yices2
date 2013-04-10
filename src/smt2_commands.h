@@ -27,9 +27,50 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "lexer.h"
 #include "term_stack2.h"
+
+
+/*
+ * New exception codes
+ */
+enum smt2_errors {
+  SMT2_MISSING_NAME = NUM_TSTACK_ERRORS,   // missing name in (! <term> ,,,, :name X ...)
+  SMT2_MISSING_PATTERN,                    // missing p in (! <term> ... :pattern p ...)
+};
+
+
+/*
+ * Global structure initialized by init_smt2:
+ * - include option flags mandated by SMT2
+ */
+typedef struct smt2_globals_s {
+  // logic: initially SMT_UNKNOWN 
+  smt_logic_t logic_code;
+
+  // output/diagnostic channels
+  FILE *out;           // default = stdout
+  FILE *err;           // default = stderr
+
+  // options
+  bool print_success;         // default = true
+  bool expand_definitions;    // default = false
+  bool interactive_mode;      // default = false
+  bool produce_proofs;        // default = false
+  bool produce_unsat_core;    // default = false
+  bool produce_models;        // default = false
+  bool produce_assignments;   // default = false
+  uint32_t random_seed;       // default = 0
+  uint32_t verbosity;         // default = 0
+
+  attr_vtbl_t *avtbl;        // global attribute table
+} smt2_globals_t;
+
+
+extern smt2_globals_t __smt2_globals;
+
 
 
 /*
@@ -224,56 +265,6 @@ extern void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t bo
  */
 
 /*
- * Convert rational q to an attribute value
- * - must return an aval_t index
- * - don't increment its refcounter
- */
-extern aval_t smt2_rational_attr(rational_t *q);
-
-/*
- * Convert a bitvector constant to an attribute value
- * - must return an aval_t index
- * - don't increment its refcounter
- *
- * smt2_bv64_attr(n, c)
- * - n = number of bits (with 1 <= n <= 64)
- * - c = constant value (normalized modulo 2^n)
- *
- * smt2_bv_attr(n, c)
- * - n = number of bits (with 64 < n)
- * - c = constant value (normalized modulo 2^n)
- *   c is an array of 32bit words
- */
-extern aval_t smt2_bv64_attr(uint32_t n, uint64_t c);
-extern aval_t smt_bv_attr(uint32_t n, uint32_t *c);
-
-
-/*
- * Convert a keyword or symbol to an attribute value
- * - must return an aval_t index
- * - don't increment its refcounter
- */
-extern aval_t smt2_symbol_attr(const char *name);
-
-
-/*
- * Same thing for a string
- */
-extern aval_t smt2_string_attr(const char *name);
-
-
-/*
- * Build an attribute list (s-expr)
- * - a[0] ... a[n-1] = list elements
- * - each element in the list is an aval_t index
- *   returned by the attr functions
- * - this must return an aval_t index representing the list
- * - don't increment its ref counter
- */
-extern aval_t smt2_list_attr(uint32_t n, aval_t *a);
-
-
-/*
  * Add a :named attribute to term t
  */
 extern void smt2_add_name(term_t t, const char *name);
@@ -319,7 +310,8 @@ extern void smt2_syntax_error(lexer_t *lex, int32_t expected_token);
  * - tstack->error_string = erroneous input
  * - tstack->error_op = erroneous operation
  */
-extern void smt2_tstack_error(tstack_t *tstack, int32_t exception);
+extern void smt2_tstack_error(tstack_t *stack, int32_t exception);
+
 
 
 #endif /* __SMT2_COMMANDS_H */

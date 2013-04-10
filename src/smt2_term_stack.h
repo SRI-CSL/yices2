@@ -52,6 +52,7 @@ enum smt2_opcodes {
 
 #define NUM_SMT2_OPCODES (SMT2_SORTED_INDEXED_APPLY+1)
 
+
 /*
  * Special treatment of function and sort symbols
  * - the following function take a symbol argument
@@ -68,11 +69,22 @@ enum smt2_opcodes {
  *      push_op(mk_apply, ...); 
  *      push_term_by_name("f",,,,)
  */
+
+// symbol as a sort name (e.g., Int)
+extern void tstack_push_sort_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc);
+
 // symbol in indexed sorts (currently that's only (_ BitVec <n>))
 extern void tstack_push_idx_sort(tstack_t *stack, char *s, uint32_t n, loc_t *loc);
 
+// symbol as a sort constructor: (e.g. Array)
+extern void tstack_push_sort_constructor(tstack_t *stack, char *s, uint32_t n, loc_t *loc);
+
 // symbol in indexed sort constructor (don't exist in any theory yet)
 extern void tstack_push_idx_sort_constructor(tstack_t *stack, char *s, uint32_t n, loc_t *loc);
+
+
+// symbol as a term name
+extern void tstack_push_term_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc);
 
 // symbol in function application
 extern void tstack_push_smt2_op(tstack_t *stack, char *s, uint32_t n, loc_t *loc);
@@ -88,6 +100,7 @@ extern void tstack_push_idx_term(tstack_t *stack, char *s, uint32_t n, loc_t *lo
  * Initialize stack for SMT2:
  * - add all the operations defined above
  * - modify the implementation of default operations
+ * - this must be called after init_smt2() because it needs __smt2_globals.avtbl
  */
 extern void init_smt2_tstack(tstack_t *stack);
 

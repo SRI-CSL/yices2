@@ -11,24 +11,21 @@
 #include "smt2_lexer.h"
 #include "smt2_commands.h"
 
+
 /*
  * GLOBAL OBJECTS
  */
-static FILE *err;     // error/trace output: default = stderr
-static FILE *out;     // normal output: default = stdout
-
-static char *logic_name;           // logic: initially NULL
-static smt_logic_t logic_code;     // code: set after logic_name is given
-
 static bool done;    // set to true on exit
-
 static attr_vtbl_t avtbl; // attribute values
+
+
+// exported globals
+smt2_globals_t __smt2_globals;
 
 
 /*
  * ERROR REPORTS
  */
-
 static inline char *tkval(lexer_t *lex) {
   return current_token_value(lex);
 }
@@ -52,51 +49,51 @@ void smt2_syntax_error(lexer_t *lex, int32_t expected_token) {
   tk = current_token(lex);
   rd = &lex->reader;
 
-  fprintf(out, "(error on line %"PRId32", column %"PRId32": ", rd->line, rd->column);
+  fprintf(__smt2_globals.out, "(error on line %"PRId32", column %"PRId32": ", rd->line, rd->column);
 
   switch (tk) {
   case SMT2_TK_INVALID_STRING:
-    fprintf(out, "missing string terminator");
+    fprintf(__smt2_globals.out, "missing string terminator");
     break;
 
   case SMT2_TK_INVALID_NUMERAL:
-    fprintf(out, "invalid numeral %s", tkval(lex));
+    fprintf(__smt2_globals.out, "invalid numeral %s", tkval(lex));
     break;
 
   case SMT2_TK_INVALID_DECIMAL:
-    fprintf(out, "invalid decimal %s", tkval(lex));
+    fprintf(__smt2_globals.out, "invalid decimal %s", tkval(lex));
     break;
 
   case SMT2_TK_INVALID_HEXADECIMAL:
-    fprintf(out, "invalid hexadecimal constant %s", tkval(lex));
+    fprintf(__smt2_globals.out, "invalid hexadecimal constant %s", tkval(lex));
     break;
 
   case SMT2_TK_INVALID_BINARY:
-    fprintf(out, "invalid binary constant %s", tkval(lex));
+    fprintf(__smt2_globals.out, "invalid binary constant %s", tkval(lex));
     break;
 
   case SMT2_TK_INVALID_SYMBOL:
-    fprintf(out, "invalid symbol");
+    fprintf(__smt2_globals.out, "invalid symbol");
     break;
 
   case SMT2_TK_INVALID_KEYWORD:
-    fprintf(out, "invalid keyword");
+    fprintf(__smt2_globals.out, "invalid keyword");
     break;
 
   case SMT2_TK_ERROR:
-    fprintf(out, "invalid token %s", tkval(lex));
+    fprintf(__smt2_globals.out, "invalid token %s", tkval(lex));
     break;
     
   default:
     if (expected_token >= 0) {
-      fprintf(out, "syntax error: %s expected", smt2_token_to_string(expected_token));
+      fprintf(__smt2_globals.out, "syntax error: %s expected", smt2_token_to_string(expected_token));
     } else {
-      fprintf(out, "syntax error");
+      fprintf(__smt2_globals.out, "syntax error");
     }
     break;
   }
-  fprintf(out, ")\n" );
-  fflush(out);
+  fprintf(__smt2_globals.out, ")\n" );
+  fflush(__smt2_globals.out);
 }
 
 
@@ -114,11 +111,23 @@ void smt2_syntax_error(lexer_t *lex, int32_t expected_token) {
  * - tstack->error_op = erroneous operation
  */
 void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
-  fprintf(out, "(error on line %"PRId32", column %"PRId32" tstack exception %"PRId32")\n",
+  fprintf(__smt2_globals.out, "(error on line %"PRId32", column %"PRId32" tstack exception %"PRId32")\n",
 	  tstack->error_loc.line, tstack->error_loc.column, exception);
-  fflush(out);
+  fflush(__smt2_globals.out);
 }
 
+
+
+
+/*
+ * Print
+ */
+static void report_success(void) {
+  if (__smt2_globals.print_success) {
+    fprintf(__smt2_globals.out, "success\n");
+    fflush(__smt2_globals.out);
+  }
+}
 
 
 /*
@@ -133,12 +142,24 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
  * - this is called after yices_init so all Yices internals are ready
  */
 void init_smt2(bool benchmark) {
-  err = stderr;
-  out = stdout;
-  logic_name = NULL;
-  logic_code = SMT_UNKNOWN;
   done = false;
   init_attr_vtbl(&avtbl);
+
+  // copy into __smt2_globals
+  __smt2_globals.logic_code = SMT_UNKNOWN;
+  __smt2_globals.out = stdout;
+  __smt2_globals.err = stderr;
+  __smt2_globals.print_success = true;
+  __smt2_globals.expand_definitions = false;
+  __smt2_globals.interactive_mode = false;
+  __smt2_globals.produce_proofs = false;
+  __smt2_globals.produce_unsat_core = false;
+  __smt2_globals.produce_models = false;
+  __smt2_globals.produce_assignments = false;
+  __smt2_globals.random_seed = 0;
+  __smt2_globals.verbosity = 0;
+
+  __smt2_globals.avtbl = &avtbl;
 }
 
 
@@ -146,11 +167,11 @@ void init_smt2(bool benchmark) {
  * Delete all structures (close files too)
  */
 void delete_smt2(void) {
-  if (out != stdout) {
-    fclose(out);
+  if (__smt2_globals.out != stdout) {
+    fclose(__smt2_globals.out);
   }
-  if (err != stderr) {
-    fclose(err);
+  if (__smt2_globals.err != stderr) {
+    fclose(__smt2_globals.err);
   }
   delete_attr_vtbl(&avtbl);
 }
@@ -183,8 +204,8 @@ void smt2_exit(void) {
  * Show all formulas asserted so far
  */
 void smt2_get_assertions(void) {
-  fprintf(out, "unsupported");
-  fflush(out);
+  fprintf(__smt2_globals.out, "get_assertions: unsupported\n");
+  fflush(__smt2_globals.out);
 }
 
 
@@ -193,8 +214,8 @@ void smt2_get_assertions(void) {
  * (i.e., those that have a :named attribute)
  */
 void smt2_get_assignment(void) {
-  fprintf(out, "unsupported");  
-  fflush(out);
+  fprintf(__smt2_globals.out, "get_assignment: unsupported\n");  
+  fflush(__smt2_globals.out);
 }
 
 
@@ -202,8 +223,8 @@ void smt2_get_assignment(void) {
  * Show a proof when context is unsat
  */
 void smt2_get_proof(void) {
-  fprintf(out, "unsupported");
-  fflush(out);  
+  fprintf(__smt2_globals.out, "get_proof: unsupported\n");
+  fflush(__smt2_globals.out);  
 }
 
 
@@ -211,8 +232,8 @@ void smt2_get_proof(void) {
  * Get the unsat core: subset of :named assertions that form an unsat core
  */
 void smt2_get_unsat_core(void) {
-  fprintf(out, "unsupported");  
-  fflush(out);  
+  fprintf(__smt2_globals.out, "get_unsat_core: unsupported\n");  
+  fflush(__smt2_globals.out);  
 }
 
 
@@ -222,8 +243,8 @@ void smt2_get_unsat_core(void) {
  * - n = number of elements in the array
  */
 void smt2_get_value(term_t *a, uint32_t n) {
-  fprintf(out, "unsupported");  
-  fflush(out);  
+  fprintf(__smt2_globals.out, "get_value: unsupported\n");  
+  fflush(__smt2_globals.out);  
 }
 
 
@@ -232,8 +253,8 @@ void smt2_get_value(term_t *a, uint32_t n) {
  * - name = option name (a keyword)
  */
 void smt2_get_option(const char *name) {
-  fprintf(out, "unsupported");
-  fflush(out);  
+  fprintf(__smt2_globals.out, "get_option: unsupported\n");
+  fflush(__smt2_globals.out);  
 }
 
 
@@ -242,8 +263,8 @@ void smt2_get_option(const char *name) {
  * - name = keyword
  */
 void smt2_get_info(const char *name) {
-  fprintf(out, "unsupported");
-  fflush(out);  
+  fprintf(__smt2_globals.out, "get_info: unsupported\n");
+  fflush(__smt2_globals.out);  
 }
 
 
@@ -256,8 +277,8 @@ void smt2_get_info(const char *name) {
  * this function is called with value = NULL_VALUE (i.e., -1).
  */
 void smt2_set_option(const char *name, aval_t value) {
-  fprintf(out, "unsupported");
-  fflush(out);  
+  fprintf(__smt2_globals.out, "set_option: unsupported\n");
+  fflush(__smt2_globals.out);  
 }
 
 
@@ -266,8 +287,8 @@ void smt2_set_option(const char *name, aval_t value) {
  * - same conventions as set_option
  */
 void smt2_set_info(const char *name, aval_t value) {
-  fprintf(out, "unsupported");
-  fflush(out);  
+  fprintf(__smt2_globals.out, "set_info: unsupported\n");
+  fflush(__smt2_globals.out);  
 }
 
 
@@ -276,8 +297,17 @@ void smt2_set_info(const char *name, aval_t value) {
  * - name = logic name (using the SMT-LIB conventions)
  */
 void smt2_set_logic(const char *name) {
-  fprintf(out, "unsupported");
-  fflush(out);
+  smt_logic_t code;
+
+  code = smt_logic_code(name);
+  if (code != SMT_UNKNOWN) {
+    smt2_lexer_activate_logic(code);
+    __smt2_globals.logic_code = code;
+    report_success();
+  } else {
+    fprintf(__smt2_globals.out, "(error: unknown logic %s)\n", name);
+    fflush(__smt2_globals.out);
+  }
 }
 
 
@@ -287,8 +317,8 @@ void smt2_set_logic(const char *name) {
  * - if n = 0, nothing should be done
  */
 void smt2_push(uint32_t n) {
-  fprintf(out, "unsupported");
-  fflush(out);  
+  fprintf(__smt2_globals.out, "push: unsupported\n");
+  fflush(__smt2_globals.out);  
 }
 
 
@@ -300,8 +330,8 @@ void smt2_push(uint32_t n) {
  *   and nothing done
  */
 void smt2_pop(uint32_t n) {
-  fprintf(out, "unsupported");
-  fflush(out);
+  fprintf(__smt2_globals.out, "pop: unsupported\n");
+  fflush(__smt2_globals.out);
 }
 
 
@@ -310,8 +340,8 @@ void smt2_pop(uint32_t n) {
  * - if t is a :named assertion then it should be recorded for unsat-core
  */
 void smt2_assert(term_t t) {
-  fprintf(out, "unsupported");
-  fflush(out);
+  fprintf(__smt2_globals.out, "assert: unsupported\n");
+  fflush(__smt2_globals.out);
 }
 
 
@@ -319,8 +349,8 @@ void smt2_assert(term_t t) {
  * Check satsifiability of the current set of assertions
  */
 void smt2_check_sat(void) {
-  fprintf(out, "unsupported");
-  fflush(out);
+  fprintf(__smt2_globals.out, "check_sat: unsupported\n");
+  fflush(__smt2_globals.out);
 }
 
 
@@ -333,8 +363,8 @@ void smt2_check_sat(void) {
  * Otherwise, this defines a new type constructor.
  */
 void smt2_declare_sort(const char *name, uint32_t arity) {
-  fprintf(out, "unsupported");
-  fflush(out);
+  fprintf(__smt2_globals.out, "declare_sort: unsupported\n");
+  fflush(__smt2_globals.out);
 }
 
 
@@ -346,8 +376,8 @@ void smt2_declare_sort(const char *name, uint32_t arity) {
  * - body = type expressions
  */
 void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body) {
-  fprintf(out, "unsupported");
-  fflush(out);
+  fprintf(__smt2_globals.out, "define_sort: unsupported\n");
+  fflush(__smt2_globals.out);
 }
 
 
@@ -361,8 +391,8 @@ void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body) {
  * Otherwise, this creates an uninterpreted function of type tau[0] x ... x tau[n-1] to tau[n] 
  */
 void smt2_declare_fun(const char *name, uint32_t n, type_t *tau) {
-  fprintf(out, "unsupported");
-  fflush(out);
+  fprintf(__smt2_globals.out, "declare_fun: unsupported\n");
+  fflush(__smt2_globals.out);
 }
 
 
@@ -378,8 +408,8 @@ void smt2_declare_fun(const char *name, uint32_t n, type_t *tau) {
  * Otherwise, a lambda term is created.
  */
 void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, type_t tau) {
-  fprintf(out, "unsupported");
-  fflush(out);
+  fprintf(__smt2_globals.out, "define_fun: unsupported\n");
+  fflush(__smt2_globals.out);
 }
 
 
@@ -387,69 +417,6 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
 /*
  * ATTRIBUTES
  */
-
-/*
- * Convert rational q to an attribute value
- * - must return an aval_t index
- * - don't increment its refcounter
- */
-aval_t smt2_rational_attr(rational_t *q) {
-  return attr_vtbl_rational(&avtbl, q);
-}
-
-/*
- * Convert a bitvector constant to an attribute value
- * - must return an aval_t index
- * - don't increment its refcounter
- *
- * smt2_bv64_attr(n, c)
- * - n = number of bits (with 1 <= n <= 64)
- * - c = constant value (normalized modulo 2^n)
- *
- * smt2_bv_attr(n, c)
- * - n = number of bits (with 64 < n)
- * - c = constant value (normalized modulo 2^n)
- *   c is an array of 32bit words
- */
-aval_t smt2_bv64_attr(uint32_t n, uint64_t c) {
-  return attr_vtbl_bv64(&avtbl, n, c); 
-}
-
-aval_t smt_bv_attr(uint32_t n, uint32_t *c) {
-  return attr_vtbl_bv(&avtbl, n, c);
-}
-
-
-/*
- * Convert a keyword or symbol to an attribute value
- * - must return an aval_t index
- * - don't increment its refcounter
- */
-aval_t smt_symbol_attr(const char *name) {
-  return attr_vtbl_symbol(&avtbl, name);
-}
-
-
-/*
- * Same thing for a string
- */
-aval_t smt_string_attr(const char *name) {
-  return attr_vtbl_string(&avtbl, name);
-}
-
-
-/*
- * Build an attribute list (s-expr)
- * - a[0] ... a[n-1] = list elements
- * - each element in the list is an aval_t index
- *   returned by the attr functions
- * - this must return an aval_t index representing the list
- * - don't increment its ref counter
- */
-aval_t smt2_list_attr(uint32_t n, aval_t *a) {
-  return attr_vtbl_list(&avtbl, n, a);
-}
-
 
 /*
  * Add a :named attribute to term t

@@ -8,6 +8,8 @@
 
 #include "smt2_lexer.h"
 #include "smt2_parser.h"
+#include "smt2_term_stack.h"
+#include "smt2_commands.h"
 #include "yices.h"
 #include "yices_exit_codes.h"
 
@@ -43,7 +45,8 @@ int main(int argc, char *argv[]) {
   }
 
   yices_init();
-  init_tstack(&stack, NUM_BASE_OPCODES);
+  init_smt2(false);
+  init_smt2_tstack(&stack);
   init_parser(&parser, &lexer, &stack);
 
   done = false;
@@ -54,7 +57,7 @@ int main(int argc, char *argv[]) {
       fputs("smt2> ", stdout);
       fflush(stdout);
     }
-    code = parse_smt2_command(&parser, stderr);
+    code = parse_smt2_command(&parser);
     if (code < 0) {
       bad ++;
       if (interactive) {
