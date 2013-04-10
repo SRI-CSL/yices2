@@ -38,6 +38,10 @@ enum smt2_opcodes {
   // attributes
   SMT2_MAKE_ATTR_LIST,                  // [make-attr-list <value> .... <value> ]
   SMT2_ADD_ATTRIBUTES,                  // [add-attribute <term> <keyword> <value> ... <keyword> <value>] (<value> may be omitted)
+  // array theory
+  SMT2_MK_ARRAY,                        // [mk-array <index-sort> <sort> ]
+  SMT2_MK_SELECT,                       // [select <array> <index> ]
+  SMT2_MK_STORE,                        // [store <array> <index> <value> ]
   // sort constructors
   SMT2_INDEXED_SORT,                    // [indexed-sort <symbol> <numeral> ... <numeral> ]
   SMT2_APP_INDEXED_SORT,                // [app-indexed-sort <symbol> <numeral> ... <numeral> <sort> ... <sort>]
@@ -47,7 +51,7 @@ enum smt2_opcodes {
   SMT2_SORTED_INDEXED_TERM,             // [sorted-indexed-term <symbol> <numeral> ... <numeral> <sort> ]
   SMT2_INDEXED_APPLY,                   // [indexed-apply <symbol> <numeral> ... <numeral> <term> ... <term>]
   SMT2_SORTED_APPLY,                    // [sorted-apply <symbol> <sort> <term> ... <term> ]
-  SMT2_SORTED_INDEXED_APPLY,            // [sorted-indexed-apply <symbol> <numeral> ... <numeral> <sort> <term> ... <term> ]
+  SMT2_SORTED_INDEXED_APPLY,            // [sorted-indexed-apply <symbol> <numeral> ... <numeral> <sort> <term> ... <term> ]  
 } smt2_opcodes_t;
 
 #define NUM_SMT2_OPCODES (SMT2_SORTED_INDEXED_APPLY+1)

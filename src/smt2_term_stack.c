@@ -2,7 +2,15 @@
  * OPERATIONS FOR SMT-LIB 2.0
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#ifndef __YICES_DLLSPEC__
+#define __YICES_DLLSPEC__ __declspec(dllexport)
+#endif
+#endif
+
 #include <string.h>
+
+#include "yices.h"
 
 #include "attribute_values.h"
 #include "tstack_internals.h"
@@ -554,9 +562,217 @@ static void eval_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t 
  */
 
 /*
+ * Conversion keys: specify how to interpret a symbol
+ *
+ * NOTE: this works for now because the SMT2 symbols are all
+ * in a single category (i.e., one key per symbol is enough).
+ */
+typedef enum smt2_key {
+  SMT2_KEY_TYPE,         // type name
+  SMT2_KEY_TYPE_OP,      // type constructor 
+  SMT2_KEY_IDX_TYPE,     // indexed type
+  SMT2_KEY_IDX_TYPE_OP,  // indexed type constructor
+
+  SMT2_KEY_TERM,         // term name
+  SMT2_KEY_TERM_OP,      // function name
+  SMT2_KEY_IDX_TERM,     // indexed term
+  SMT2_KEY_IDX_TERM_OP,  // indexed term constructor
+
+  // special codes
+  SMT2_KEY_IDX_BV,       // for bv<numeral> construct
+  SMT2_KEY_ERROR_BV,     // for an invalid bv<xxx> (<xxx> not a numeral)
+  SMT2_KEY_UNKNOWN,      // not a built-in symbol
+} smt2_key_t;
+
+
+/*
+ * Conversion table:
+ * - a symbol s can be converted to a type, a term, an opcode, 
+ *   or something else. The conversion is determined by 
+ *      smt2_key[s] = conversion key
+ *      smt2_map[s] = conversion value (i.e., type, term, or opcode)
+ *
+ * - if key is KEY_TYPE then map is a type id
+ * - if key is KEY_TERM then map is a term id
+ * - if key is KEY_UNKNOWN or KEY_ERROR_BV then map is ignored
+ * - otherwise map is an opcode
+ *
+ * For operations that Yices does not yet support, we set map to -1
+ * (independent of the key).
+ */
+static const uint8_t smt2_key[NUM_SMT2_SYMBOLS] = {
+  SMT2_KEY_TYPE,         // SMT2_SYM_BOOL
+  SMT2_KEY_TERM,         // SMT2_SYM_TRUE
+  SMT2_KEY_TERM,         // SMT2_SYM_FALSE
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_NOT
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_IMPLIES
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_AND
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_OR
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_XOR
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_EQ
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_DISTINCT
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_ITE
+  SMT2_KEY_TYPE_OP,      // SMT2_SYM_ARRAY
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_SELECT
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_STORE
+  SMT2_KEY_TYPE,         // SMT2_SYM_INT
+  SMT2_KEY_TYPE,         // SMT2_SYM_REAL
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_MINUS
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_PLUS
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_TIMES
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_DIVIDES
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_LE
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_LT
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_GE
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_GT
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_DIV
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_MOD
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_ABS
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_TO_REAL
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_TO_INT
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_IS_INT
+  SMT2_KEY_IDX_TERM_OP,  // SMT2_SYM_DIVISIBLE
+  SMT2_KEY_IDX_BV,       // SMT2_SYM_BV_CONSTANT
+  SMT2_KEY_IDX_TYPE,     // SMT2_SYM_BITVEC
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_CONCAT
+  SMT2_KEY_IDX_TERM_OP,  // SMT2_SYM_EXTRACT
+  SMT2_KEY_IDX_TERM_OP,  // SMT2_SYM_REPEAT
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVCOMP
+  SMT2_KEY_UNKNOWN,      // SMT2_SYM_BVREDOR (should not occur)
+  SMT2_KEY_UNKNOWN,      // SMT2_SYM_BVREDAND (should not occur)
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVNOT
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVAND
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVOR
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVNAND
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVNOR
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVXOR
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVXNOR
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVNEG
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVADD
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVSUB
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVMUL
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVUDIV
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVUREM
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVSDIV
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVSREM
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVSMOD
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVSHL
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVLSHR
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVASHR
+  SMT2_KEY_IDX_TERM_OP,  // SMT2_SYM_ZERO_EXTEND
+  SMT2_KEY_IDX_TERM_OP,  // SMT2_SYM_SIGN_EXTEND
+  SMT2_KEY_IDX_TERM_OP,  // SMT2_SYM_ROTATE_LEFT
+  SMT2_KEY_IDX_TERM_OP,  // SMT2_SYM_ROTATE_RIGHT
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVULT
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVULE
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVUGT
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVUGE
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVSLT
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVSLE
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVSGT
+  SMT2_KEY_TERM_OP,      // SMT2_SYM_BVSGE
+  SMT2_KEY_ERROR_BV,     // SMT2_SYM_INVALID_BV_CONSTANT
+  SMT2_KEY_UNKNOWN,      // SMT2_SYM_UNKNOWN
+};
+
+static const int32_t smt2_val[NUM_SMT2_SYMBOLS] = {
+  bool_id,               // SMT2_SYM_BOOL (in types.h)
+  true_term,             // SMT2_SYM_TRUE (in terms.h)
+  false_term,            // SMT2_SYM_FALSE (in terms.h)
+  MK_NOT,                // SMT2_SYM_NOT
+  MK_IMPLIES,            // SMT2_SYM_IMPLIES
+  MK_AND,                // SMT2_SYM_AND
+  MK_OR,                 // SMT2_SYM_OR
+  MK_XOR,                // SMT2_SYM_XOR
+  MK_EQ,                 // SMT2_SYM_EQ
+  MK_DISTINCT,           // SMT2_SYM_DISTINCT
+  MK_ITE,                // SMT2_SYM_ITE
+  SMT2_MK_ARRAY,         // SMT2_SYM_ARRAY
+  SMT2_MK_SELECT,        // SMT2_SYM_SELECT
+  SMT2_MK_STORE,         // SMT2_SYM_STORE
+  int_id,                // SMT2_SYM_INT
+  real_id,               // SMT2_SYM_REAL
+  MK_SUB,                // SMT2_SYM_MINUS
+  MK_ADD,                // SMT2_SYM_PLUS
+  MK_MUL,                // SMT2_SYM_TIMES
+  MK_DIVISION,           // SMT2_SYM_DIVIDES
+  MK_LE,                 // SMT2_SYM_LE
+  MK_LT,                 // SMT2_SYM_LT
+  MK_GE,                 // SMT2_SYM_GE
+  MK_GT,                 // SMT2_SYM_GT
+  -1,                    // SMT2_SYM_DIV (integer division not supported)
+  -1,                    // SMT2_SYM_MOD 
+  -1,                    // SMT2_SYM_ABS
+  -1,                    // SMT2_SYM_TO_REAL (?? could use a NO_OP for that one)
+  -1,                    // SMT2_SYM_TO_INT
+  -1,                    // SMT2_SYM_IS_INT
+  -1,                    // SMT2_SYM_DIVISIBLE
+  MK_BV_CONST,           // SMT2_SYM_BV_CONSTANT ( for _bv<value> size)
+  MK_BV_TYPE,            // SMT2_SYM_BITVEC
+  MK_BV_CONCAT,          // SMT2_SYM_CONCAT
+  MK_BV_EXTRACT,         // SMT2_SYM_EXTRACT
+  MK_BV_REPEAT,          // SMT2_SYM_REPEAT
+  MK_BV_COMP,            // SMT2_SYM_BVCOMP
+  MK_BV_REDOR,           // SMT2_SYM_BVREDOR (should not occur)
+  MK_BV_REDAND,          // SMT2_SYM_BVREDAND
+  MK_BV_NOT,             // SMT2_SYM_BVNOT
+  MK_BV_AND,             // SMT2_SYM_BVAND
+  MK_BV_OR,              // SMT2_SYM_BVOR
+  MK_BV_NAND,            // SMT2_SYM_BVNAND
+  MK_BV_NOR,             // SMT2_SYM_BVNOR
+  MK_BV_XOR,             // SMT2_SYM_BVXOR
+  MK_BV_XNOR,            // SMT2_SYM_BVXNOR
+  MK_BV_NEG,             // SMT2_SYM_BVNEG
+  MK_BV_ADD,             // SMT2_SYM_BVADD
+  MK_BV_SUB,             // SMT2_SYM_BVSUB
+  MK_BV_MUL,             // SMT2_SYM_BVMUL
+  MK_BV_DIV,             // SMT2_SYM_BVUDIV
+  MK_BV_REM,             // SMT2_SYM_BVUREM
+  MK_BV_SDIV,            // SMT2_SYM_BVSDIV
+  MK_BV_SREM,            // SMT2_SYM_BVSREM
+  MK_BV_SMOD,            // SMT2_SYM_BVSMOD
+  MK_BV_SHL,             // SMT2_SYM_BVSHL
+  MK_BV_LSHR,            // SMT2_SYM_BVLSHR
+  MK_BV_ASHR,            // SMT2_SYM_BVASHR
+  MK_BV_ZERO_EXTEND,     // SMT2_SYM_ZERO_EXTEND
+  MK_BV_SIGN_EXTEND,     // SMT2_SYM_SIGN_EXTEND
+  MK_BV_ROTATE_LEFT,     // SMT2_SYM_ROTATE_LEFT
+  MK_BV_ROTATE_RIGHT,    // SMT2_SYM_ROTATE_RIGHT
+  MK_BV_LT,              // SMT2_SYM_BVULT
+  MK_BV_LE,              // SMT2_SYM_BVULE
+  MK_BV_GT,              // SMT2_SYM_BVUGT
+  MK_BV_GE,              // SMT2_SYM_BVUGE
+  MK_BV_SLT,             // SMT2_SYM_BVSLT
+  MK_BV_SLE,             // SMT2_SYM_BVSLE
+  MK_BV_SGT,             // SMT2_SYM_BVSGT
+  MK_BV_SGE,             // SMT2_SYM_BVSGE
+  NO_OP,                 // SMT2_SYM_INVALID_BV_CONSTANT (ignored)
+  NO_OP,                 // SMT2_SYM_UNKNOWN (ignored)
+};
+
+
+/*
  * Sort name
  */
 void tstack_push_sort_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+  smt2_symbol_t symbol;
+  smt2_key_t key;
+
+  symbol = smt2_string_to_symbol(s, n);
+  key = smt2_key[symbol];
+  switch (key) {
+  case SMT2_KEY_TYPE:
+    tstack_push_type(stack, smt2_val[symbol], loc);
+    break;
+
+  case SMT2_KEY_UNKNOWN:
+    tstack_push_type_by_name(stack, s, loc);
+    break;
+
+  default:
+    // error
+    break;
+  }
 }
 
 
@@ -565,6 +781,16 @@ void tstack_push_sort_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
  * (_ <symbol> <number> ... <number> )
  */
 void tstack_push_idx_sort(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+  smt2_symbol_t symbol;
+  smt2_key_t key;
+
+  symbol = smt2_string_to_symbol(s, n);
+  key = smt2_key[symbol];
+  if (key == SMT2_KEY_IDX_TYPE) {
+    tstack_push_op(stack, smt2_val[symbol], loc);
+  } else {
+    // error
+  }
 }
 
 
@@ -573,13 +799,42 @@ void tstack_push_idx_sort(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
  * (<symbol> <sort> .,, <sort>)
  */
 void tstack_push_sort_constructor(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+  smt2_symbol_t symbol;
+  smt2_key_t key;
+
+  symbol = smt2_string_to_symbol(s, n);
+  key = smt2_key[symbol];
+  switch (key) {
+  case SMT2_KEY_TYPE_OP:
+    tstack_push_op(stack, smt2_val[symbol], loc);
+    break;
+
+  case SMT2_KEY_UNKNOWN:
+    tstack_push_macro_by_name(stack, s, loc);
+    break;
+
+  default:
+    // error
+    break;
+  }
 }
+
 
 /*
  * Symbol in an indexed sort constructor
  * ( (_ <symbol> <number> ... <number> ) <sort> ... <sort> )
  */
 void tstack_push_idx_sort_constructor(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+  smt2_symbol_t symbol;
+  smt2_key_t key;
+
+  symbol = smt2_string_to_symbol(s, n);
+  key = smt2_key[symbol];
+  if (key == SMT2_KEY_IDX_TYPE_OP) {
+    tstack_push_op(stack, smt2_val[symbol], loc);
+  } else {
+    // error
+  }
 }
 
 
@@ -587,7 +842,24 @@ void tstack_push_idx_sort_constructor(tstack_t *stack, char *s, uint32_t n, loc_
  * Term name (constant term)
  */
 void tstack_push_term_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
-  
+  smt2_symbol_t symbol;
+  smt2_key_t key;
+
+  symbol = smt2_string_to_symbol(s, n);
+  key = smt2_key[symbol];
+  switch (key) {
+  case SMT2_KEY_TERM:
+    tstack_push_term(stack, smt2_val[symbol], loc);
+    break;
+
+  case SMT2_KEY_UNKNOWN:
+    tstack_push_term_by_name(stack, s, loc);
+    break;
+
+  default:
+    // error
+    break;
+  }  
 }
 
 
@@ -596,6 +868,26 @@ void tstack_push_term_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
  *  ( <symbol> <term> ... <term> )
  */
 void tstack_push_smt2_op(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+  smt2_symbol_t symbol;
+  smt2_key_t key;
+
+  symbol = smt2_string_to_symbol(s, n);
+  key = smt2_key[symbol];
+  switch (key) {
+  case SMT2_KEY_TERM_OP:
+    tstack_push_op(stack, smt2_val[symbol], loc);
+    break;
+
+  case SMT2_KEY_UNKNOWN:
+    // uninterprted function
+    tstack_push_op(stack, MK_APPLY, loc);
+    tstack_push_term_by_name(stack, s, loc);
+    break;
+
+  default:
+    // error
+    break;
+  }
 }
 
 
@@ -604,6 +896,16 @@ void tstack_push_smt2_op(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
  *  ( (_ <symbol> <number> ... <number> ) <term> ... <term> )
  */
 void tstack_push_smt2_idx_op(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+  smt2_symbol_t symbol;
+  smt2_key_t key;
+
+  symbol = smt2_string_to_symbol(s, n);
+  key = smt2_key[symbol];
+  if (key == SMT2_KEY_IDX_TERM_OP) {
+    tstack_push_op(stack, smt2_val[symbol], loc);
+  } else {
+    // error
+  }
 }
 
 
@@ -611,23 +913,119 @@ void tstack_push_smt2_idx_op(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
  * Symbol in an indexed term
  *  ( _ <symbol> <number> ... <number> )
  */
-void tstack_push_idx_term(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {  
+void tstack_push_idx_term(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+  smt2_symbol_t symbol;
+  smt2_key_t key;
+
+  symbol = smt2_string_to_symbol(s, n);
+  key = smt2_key[symbol];
+  switch (key) {
+  case SMT2_KEY_IDX_TERM:
+    tstack_push_op(stack, smt2_val[symbol], loc);
+    break;
+
+  case SMT2_KEY_IDX_BV:
+    // s is bv<numeral> and is to be interpreted as (mk-bv <numeral> ...)
+    assert(n > 2);
+    tstack_push_op(stack, MK_BV_CONST, loc);
+    tstack_push_rational(stack, s + 2, loc); // skip the 'bv' prefix
+    break;
+
+  case SMT2_KEY_ERROR_BV:
+    // s is bv0<xxx>: invalid bv<numeral>
+    // error
+    break;
+
+  default:
+    // error
+    break;
+  }
 }
 
 
+/*
+ * ARRAY-THEORY
+ */
 
+static void check_term(tstack_t *stack, term_t t) {
+  if (t == NULL_TERM) report_yices_error(stack);
+}
 
+/*
+ * [mk-array <sort1> <sort2> ] --> turned to function from <sort1> to <sort2>
+ */
+static void check_smt2_mk_array(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_MK_ARRAY);
+  check_size(stack, n == 2);
+  check_tag(stack, f, TAG_TYPE);
+  check_tag(stack, f+1, TAG_TYPE);
+}
 
+static void eval_smt2_mk_array(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  type_t dom, range, tau;
+
+  dom = f[0].val.type;
+  range = f[1].val.type;
+  tau = yices_function_type(1, &dom, range);
+
+  assert(tau != NULL_TYPE);
+  tstack_pop_frame(stack);
+  set_type_result(stack, tau);
+}
 
 
 /*
- * SORT/TERM CONSTRUCTORS
+ * [select <array> <index> ] --> converted to (apply <array> <index> )
+ */
+static void check_smt2_mk_select(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_MK_SELECT);
+  check_size(stack, n == 2);
+}
+
+static void eval_smt2_mk_select(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t array, index, t;
+
+  array = get_term(stack, f);
+  index = get_term(stack, f+1);
+  t = yices_application(array, 1, &index);
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);  
+}
+
+
+/*
+ * [store <array> <index> <value> ] --> converted to (update <array> <index> <value> )
+ */
+static void check_smt2_mk_store(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_MK_STORE);
+  check_size(stack, n == 3);
+}
+
+static void eval_smt2_mk_store(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t array, index, value, t;
+
+  array = get_term(stack, f);
+  index = get_term(stack, f+1);
+  value = get_term(stack, f+2);
+  t = yices_update(array, 1, &index, value);
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
+}
+
+
+/*
+ * SORT CONSTRUCTORS
  */
 
 /*
- * Indexed stuff should all be eliminated so we just raise an exception
- * if any of these are called. That's because all indexed symbols are
- * defined in a theory (the user can't add new ones).
+ * Indexed symbol should all be eliminated so we just raise an
+ * exception if any of the indexed_sort/term/appl are called. That's
+ * because all indexed symbols are defined in a theory (the user can't
+ * add new ones).
  */
 
 /*
@@ -638,6 +1036,7 @@ static void check_smt2_indexed_sort(tstack_t *stack, stack_elem_t *f, uint32_t n
 }
 
 static void eval_smt2_indexed_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {  
+  raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
 }
 
 
@@ -649,6 +1048,7 @@ static void check_smt2_app_indexed_sort(tstack_t *stack, stack_elem_t *f, uint32
 }
 
 static void eval_smt2_app_indexed_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
 }
 
 
@@ -660,6 +1060,7 @@ static void check_smt2_indexed_term(tstack_t *stack, stack_elem_t *f, uint32_t n
 }
 
 static void eval_smt2_indexed_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
 }
 
 
@@ -671,6 +1072,7 @@ static void check_smt2_sorted_indexed_term(tstack_t *stack, stack_elem_t *f, uin
 }
 
 static void eval_smt2_sorted_indexed_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
 }
 
 
@@ -682,6 +1084,7 @@ static void check_smt2_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t 
 }
 
 static void eval_smt2_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
 }
 
 
@@ -693,6 +1096,7 @@ static void check_smt2_sorted_indexed_apply(tstack_t *stack, stack_elem_t *f, ui
 }
 
 static void eval_smt2_sorted_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
 }
 
 
@@ -747,6 +1151,9 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_add_op(stack, SMT2_DEFINE_FUN, false, eval_smt2_define_fun, check_smt2_define_fun);
   tstack_add_op(stack, SMT2_MAKE_ATTR_LIST, false, eval_smt2_make_attr_list, check_smt2_make_attr_list);
   tstack_add_op(stack, SMT2_ADD_ATTRIBUTES, false, eval_smt2_add_attributes, check_smt2_add_attributes);
+  tstack_add_op(stack, SMT2_MK_ARRAY, false, eval_smt2_mk_array, check_smt2_mk_array);
+  tstack_add_op(stack, SMT2_MK_SELECT, false, eval_smt2_mk_select, check_smt2_mk_select);
+  tstack_add_op(stack, SMT2_MK_STORE, false, eval_smt2_mk_store, check_smt2_mk_store);
   tstack_add_op(stack, SMT2_INDEXED_SORT, false, eval_smt2_indexed_sort, check_smt2_indexed_sort);
   tstack_add_op(stack, SMT2_APP_INDEXED_SORT, false, eval_smt2_app_indexed_sort, check_smt2_app_indexed_sort);
   tstack_add_op(stack, SMT2_INDEXED_TERM, false, eval_smt2_indexed_term, check_smt2_indexed_term);

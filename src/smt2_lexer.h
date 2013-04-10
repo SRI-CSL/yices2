@@ -312,8 +312,8 @@ extern bool smt2_symbol_is_active(smt2_symbol_t sym);
  * theory is active:
  * - if the string is of the form 'bv<numeral>' then the 
  *   returned id is SMT2_SYM_BV_CONSTANT
- * - if the string starts with 'bv' but the rest is not <numeral>, then
- *   the returned if is SMT2_SYM_INVALID_BV_CONSTANT
+ * - if the string starts with 'bv0<digits>' then
+ *   the returned id is SMT2_SYM_INVALID_BV_CONSTANT
  */
 extern smt2_symbol_t smt2_string_to_symbol(const char *s, uint32_t n);
 
