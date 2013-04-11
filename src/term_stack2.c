@@ -47,20 +47,29 @@
  * Exception raised when processing element e
  * - stack->error_pos is set to e->pos
  * - stack->error_op is set to stack->top_op
- * - stack->error_string is set to e's string field if e is a symbol or a binding, 
- *   or to NULL otherwise.
+ * - stack->error_string is set to e's string field if e is a symbol or a string 
+ *   or a binding, or to NULL otherwise.
  * code is returned to exception handler by longjmp
  */
 void __attribute__((noreturn)) raise_exception(tstack_t *stack, stack_elem_t *e, int code) {
   stack->error_loc = e->loc;
   stack->error_op = stack->top_op;
-  stack->error_string = NULL;
-  if (e->tag == TAG_SYMBOL) {
+  switch (e->tag) {
+  case TAG_SYMBOL:
     stack->error_string = e->val.symbol;
-  } else if (e->tag == TAG_BINDING) {
+    break;
+  case TAG_STRING:
+    stack->error_string = e->val.string;
+    break;
+  case TAG_BINDING:
     stack->error_string = e->val.binding.symbol;
-  } else if (e->tag == TAG_TYPE_BINDING) {
+    break;
+  case TAG_TYPE_BINDING:
     stack->error_string = e->val.type_binding.symbol;
+    break;
+  default:
+    stack->error_string = NULL;
+    break;
   }
   longjmp(stack->env, code);
 }
@@ -79,10 +88,11 @@ static void __attribute__((noreturn)) bad_op_exception(tstack_t *stack, loc_t *l
 }
 #endif
 
+
 /*
  * Bad format or other error on a push_rational, push_float, push_bvbin, push_hexbin operation, etc.
  */
-static void __attribute__((noreturn)) push_exception(tstack_t *stack, loc_t *loc, char *s, int code) {
+void __attribute__((noreturn)) push_exception(tstack_t *stack, loc_t *loc, char *s, int code) {
   stack->error_loc = *loc;
   stack->error_op = NO_OP;
   stack->error_string = s;

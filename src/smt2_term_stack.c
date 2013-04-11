@@ -770,7 +770,7 @@ void tstack_push_sort_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
     break;
 
   default:
-    // error
+    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_SORT);
     break;
   }
 }
@@ -786,10 +786,18 @@ void tstack_push_idx_sort(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
 
   symbol = smt2_string_to_symbol(s, n);
   key = smt2_key[symbol];
-  if (key == SMT2_KEY_IDX_TYPE) {
+  switch (key) {
+  case SMT2_KEY_IDX_TYPE:
     tstack_push_op(stack, smt2_val[symbol], loc);
-  } else {
-    // error
+    break;
+
+  case SMT2_KEY_UNKNOWN:
+    push_exception(stack, loc, s, SMT2_UNDEF_IDX_SORT);
+    break;
+
+  default:
+    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_IDX_SORT);
+    break;
   }
 }
 
@@ -814,7 +822,7 @@ void tstack_push_sort_constructor(tstack_t *stack, char *s, uint32_t n, loc_t *l
     break;
 
   default:
-    // error
+    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_SORT_OP);
     break;
   }
 }
@@ -830,10 +838,18 @@ void tstack_push_idx_sort_constructor(tstack_t *stack, char *s, uint32_t n, loc_
 
   symbol = smt2_string_to_symbol(s, n);
   key = smt2_key[symbol];
-  if (key == SMT2_KEY_IDX_TYPE_OP) {
+  switch (key) {
+  case SMT2_KEY_IDX_TYPE_OP:
     tstack_push_op(stack, smt2_val[symbol], loc);
-  } else {
-    // error
+    break;
+
+  case SMT2_KEY_UNKNOWN:
+    push_exception(stack, loc, s, SMT2_UNDEF_IDX_SORT_OP);
+    break;
+
+  default:
+    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_IDX_SORT_OP);
+    break;
   }
 }
 
@@ -857,7 +873,7 @@ void tstack_push_term_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
     break;
 
   default:
-    // error
+    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_TERM);
     break;
   }  
 }
@@ -885,7 +901,7 @@ void tstack_push_smt2_op(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
     break;
 
   default:
-    // error
+    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_FUNCTION);
     break;
   }
 }
@@ -901,10 +917,18 @@ void tstack_push_smt2_idx_op(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
 
   symbol = smt2_string_to_symbol(s, n);
   key = smt2_key[symbol];
-  if (key == SMT2_KEY_IDX_TERM_OP) {
+  switch (key) {
+  case SMT2_KEY_IDX_TERM_OP:
     tstack_push_op(stack, smt2_val[symbol], loc);
-  } else {
-    // error
+    break;
+
+  case SMT2_KEY_UNKNOWN:
+    push_exception(stack, loc, s, SMT2_UNDEF_IDX_FUNCTION);
+    break;
+
+  default:
+    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_IDX_FUNCTION);
+    break;
   }
 }
 
@@ -933,11 +957,15 @@ void tstack_push_idx_term(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
 
   case SMT2_KEY_ERROR_BV:
     // s is bv0<xxx>: invalid bv<numeral>
-    // error
+    push_exception(stack, loc, s, SMT2_INVALID_IDX_BV);
+    break;
+
+  case SMT2_KEY_UNKNOWN:
+    push_exception(stack, loc, s, SMT2_UNDEF_IDX_TERM);
     break;
 
   default:
-    // error
+    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_IDX_TERM);
     break;
   }
 }

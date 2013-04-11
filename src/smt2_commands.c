@@ -2,6 +2,14 @@
  * ALL SMT-LIB 2 COMMANDS
  */
 
+#if defined(CYGWIN) || defined(MINGW)
+#define EXPORTED __declspec(dllexport)
+#define __YICES_DLLSPEC__ EXPORTED
+#else
+#define EXPORTED __attribute__((visibility("default")))
+#endif
+
+
 #include <stdio.h>
 #include <inttypes.h>
 #include <assert.h>
@@ -10,6 +18,9 @@
 #include "smt_logic_codes.h"
 #include "smt2_lexer.h"
 #include "smt2_commands.h"
+
+#include "yices.h"
+#include "yices_exit_codes.h"
 
 
 /*
@@ -26,9 +37,6 @@ smt2_globals_t __smt2_globals;
 /*
  * ERROR REPORTS
  */
-static inline char *tkval(lexer_t *lex) {
-  return current_token_value(lex);
-}
 
 /*
  * Syntax error (reported by tstack)
@@ -42,6 +50,10 @@ static inline char *tkval(lexer_t *lex) {
  * - lex->tk_line and lex->tk_column = start of the token in the input
  * - lex->reader.name  = name of the input file (NULL means input is stdin)
  */
+static inline char *tkval(lexer_t *lex) {
+  return current_token_value(lex);
+}
+
 void smt2_syntax_error(lexer_t *lex, int32_t expected_token) {
   reader_t *rd;
   smt2_token_t tk;
@@ -98,6 +110,214 @@ void smt2_syntax_error(lexer_t *lex, int32_t expected_token) {
 
 
 /*
+ * EXCEPTIONS
+ */
+
+/*
+ * Error messages for tstack exceptions
+ * NULL means that this should never occur (i.e., fatal exception)
+ */
+static const char * const exception_string[NUM_SMT2_EXCEPTIONS] = {
+  NULL,                                 // TSTACK_NO_ERROR
+  NULL,                                 // TSTACK_INTERNAL_ERROR
+  "operation not implemented",          // TSTACK_OP_NOT_IMPLEMENTED
+  "undefinedd term",                    // TSTACK_UNDEF_TERM
+  "undefined sort",                     // TSTACK_UNDEF_TYPE
+  "undefined sort constructor",         // TSTACK_UNDEF_MACRO,
+  "invalid numeral",                    // TSTACK_RATIONAL_FORMAT
+  "invalid decimal'",                   // TSTACK_FLOAT_FORMAT
+  "invalid binary",                     // TSTACK_BVBIN_FORMAT
+  "invalid hexadecimal",                // TSTACK_BVHEX_FORMAT
+  "can't redefine sort",                // TSTACK_TYPENAME_REDEF
+  "can't redefine term",                // TSTACK_TERMNAME_REDEF
+  "can't redefine sort constructor",    // TSTACK_MACRO_REDEF
+  NULL,                                 // TSTACK_DUPLICATE_SCALAR_NAME
+  "duplicate variable name",            // TSTACK_DUPLICATE_VAR_NAME
+  "duplicate variable name",            // TSTACK_DUPLICATE_TYPE_VAR_NAME
+  NULL,                                 // TSTACK_INVALID_OP
+  "wrong number of arguments",          // TSTACK_INVALID_FRAME
+  "constant too large",                 // TSTACK_INTEGER_OVERFLOW
+  NULL,                                 // TSTACK_NEGATIVE_EXPONENT
+  "integer required",                   // TSTACK_NOT_AN_INTEGER
+  "string required",                    // TSTACK_NOT_A_STRING
+  "symbol required",                    // TSTACK_NOT_A_SYMBOL 
+  "numeral required",                   // TSTACK_NOT_A_RATIONAL
+  "sort required",                      // TSTACK_NOT_A_TYPE
+  "error in arithmetic operation",      // TSTACK_ARITH_ERROR
+  "division by zero",                   // TSTACK_DIVIDE_BY_ZERO
+  "divisor must be constant",           // TSTACK_NON_CONSTANT_DIVISOR
+  "size must be positive",              // TSTACK_NONPOSITIVE_BVSIZE
+  "bitvectors have incompatible sizes", // TSTACK_INCOMPATIBLE_BVSIZES
+  "number can't be converted to a bitvector constant", // TSTACK_INVALID_BVCONSTANT
+  "error in bitvector arithmetic operation",  //TSTACK_BVARITH_ERROR
+  "error in bitvector operation",       // TSTACK_BVLOGIC_ERROR
+  "incompatible sort in definition",    // TSTACK_TYPE_ERROR_IN_DEFTERM
+  NULL,                                 // TSTACK_YICES_ERROR
+  "missing symbol in :named attribute", // SMT2_MISSING_NAME
+  "no pattern given",                   // SMT2_MISSING_PATTERN
+  "not a sort identifier",              // SMT2_SYMBOL_NOT_SORT
+  "not an indexed sort identifier",     // SMT2_SYMBOL_NOT_IDX_SORT
+  "not a sort constructor",             // SMT2_SYMBOL_NOT_SORT_OP
+  "not an indexed sort constructor",    // SMT2_SYMBOL_NOT_IDX_SORT_OP
+  "not a term identifier",              // SMT2_SYMBOL_NOT_TERM
+  "not an indexed term identifier",     // SMT2_SYMBOL_NOT_IDX_TERM
+  "not a function identifier",          // SMT2_SYMBOL_NOT_FUNCTION
+  "not an indexed function identifier", // SMT2_SYMBOL_NOT_IDX_FUNCTION
+  "undefined identifier",               // SMT2_UNDEF_IDX_SORT
+  "undefined identifier",               // SMT2_UNDEF_IDX_SORT_OP
+  "undefined identifier",               // SMT2_UNDEF_IDX_TERM
+  "undefined identifier",               // SMT2_UNDEF_IDX_FUNCTION
+  "invalid bitvector constant",         // SMT2_INVALID_IDX_BV
+};
+
+
+/*
+ * Conversion of opcodes to strings
+ */
+static const char * const opcode_string[NUM_SMT2_OPCODES] = {
+  NULL,                   // NO_OP
+  "sort definition",      // DEFINE_TYPE (should not occur?)
+  "term definition",      // DEFINE_TERM (should not occur?)
+  "binding",              // BIND?
+  "variable declaration", // DECLARE_VAR
+  "sort-variable declaration", // DECLARE_TYPE_VAR
+  "let",                  // LET
+  "BitVec",               // MK_BV_TYPE
+  NULL,                   // MK_SCALAR_TYPE
+  NULL,                   // MK_TUPLE_TYPE
+  "function type",        // MK_FUN_TYPE
+  "type constructor",     // MK_APP_TYPE
+  "function application", // MK_APPLY
+  "ite",                  // MK_ITE
+  "equality",             // MK_EQ
+  "disequality",          // MK_DISEQ
+  "distinct",             // MK_DISTINCT
+  "not",                  // MK_NOT
+  "or",                   // MK_OR
+  "and",                  // MK_AND
+  "xor",                  // MK_XOR
+  "iff",                  // MK_IFF (not in SMT2?)
+  "=>",                   // MK_IMPLIES
+  NULL,                   // MK_TUPLE
+  NULL,                   // MK_SELECT
+  NULL,                   // MK_TUPLE_UPDATE
+  NULL,                   // MK_UPDATE (replaced by SMT2_MK_STORE)
+  "forall",               // MK_FORALL
+  "exists",               // MK_EXISTS
+  "lambda",               // MK_LAMBDA (not in SMT2)
+  "addition",             // MK_ADD
+  "subtraction",          // MK_SUB
+  "negation",             // MK_NEG
+  "multiplication",       // MK_MUL
+  "division",             // MK_DIVISION
+  "expponetiation",       // MK_POW
+  "inequality",           // MK_GE
+  "inequality",           // MK_GT
+  "inequality",           // MK_LE
+  "inequality",           // MK_LT
+  "bitvector constant",   // MK_BV_CONST
+  "bvadd",                // MK_BV_ADD
+  "bvsub",                // MK_BV_SUB
+  "bvmul",                // MK_BV_MUL
+  "bvneg",                // MK_BV_NEG
+  "bvpow",                // MK_BV_POW (not in SMT2)
+  "bvudiv",               // MK_BV_DIV
+  "bvurem",               // MK_BV_REM
+  "bvsdiv",               // MK_BV_SDIV
+  "bvsrme",               // MK_BV_SREM
+  "bvsmod",               // MK_BV_SMOD
+  "bvnot",                // MK_BV_NOT
+  "bvand",                // MK_BV_AND
+  "bvor",                 // MK_BV_OR
+  "bvxor",                // MK_BV_XOR
+  "bvnand",               // MK_BV_NAND
+  "bvnor",                // MK_BV_NOR
+  "bvxnor",               // MK_BV_XNOR
+  NULL,                   // MK_BV_SHIFT_LEFT0
+  NULL,                   // MK_BV_SHIFT_LEFT1
+  NULL,                   // MK_BV_SHIFT_RIGHT0
+  NULL,                   // MK_BV_SHIFT_RIGHT1
+  NULL,                   // MK_BV_ASHIFT_RIGHT
+  "rotate_left",          // MK_BV_ROTATE_LEFT
+  "rotate_right",         // MK_BV_ROTATE_RIGHT
+  "bvshl",                // MK_BV_SHL
+  "bvlshr",               // MK_BV_LSHR
+  "bvashr",               // MK_BV_ASHR
+  "extract",              // MK_BV_EXTRACT
+  "concat",               // MK_BV_CONCAT
+  "repeat",               // MK_BV_REPEAT
+  "sign_extenrd",         // MK_BV_SIGN_EXTEND
+  "zero_extend",          // MK_BV_ZERO_EXTEND
+  "bvredand",             // MK_BV_REDAND (not in SMT2)
+  "bvredor",              // MK_BV_REDOR (not in SMT2)
+  "bvomp",                // MK_BV_COMP
+  "bvuge",                // MK_BV_GE,
+  "bvugt",                // MK_BV_GT
+  "bvule",                // MK_BV_LE
+  "bvult",                // MK_BV_LT
+  "bvsge",                // MK_BV_SGE
+  "bvsgt",                // MK_BV_SGT
+  "bvsle",                // MK_BV_SLE
+  "bvslt",                // MK_BV_SLT
+  "build term",           // BUILD_TERM
+  "build_type",           // BUILD_TYPE
+  // 
+  "exit",                 // SMT2_EXIT
+  "get_assertions",       // SMT2_GET_ASSERTIONS
+  "get_assignment",       // SMT2_GET_ASSIGNMENT
+  "get_proof",            // SMT2_GET_PROOF
+  "get_unsat_CORE",       // SMT2_GET_UNSAT_CORE
+  "get_value",            // SMT2_GET_VALUE
+  "get_option",           // SMT2_GET_OPTION
+  "get_info",             // SMT2_GET_INFO
+  "set_option",           // SMT2_SET_OPTION
+  "set_info",             // SMT2_SET_INFO
+  "set_logic",            // SMT2_SET_LOGIC
+  "push",                 // SMT2_PUSH
+  "pop",                  // SMT2_POP
+  "assert",               // SMT2_ASSERT,
+  "check_sat",            // SMT2_CHECK_SAT,
+  "declare_sort",         // SMT2_DECLARE_SORT
+  "define_sort",          // SMT2_DEFINE_SORT
+  "declare_fun",          // SMT2_DECLARE_FUN
+  "define_fun",           // SMT2_DEFINE_FUN
+  "attributes",           // SMT2_MAKE_ATTR_LIST
+  "term annotation",      // SMT2_ADD_ATTRIBUTES
+  "Array",                // SMT2_MK_ARRAY
+  "select",               // SMT2_MK_SELECT
+  "store",                // SMT2_MK_STORE
+  "indexed_sort",         // SMT2_INDEXED_SORT
+  "sort expression",      // SMT2_APP_INDEXED_SORT
+  "indexed identifier",   // SMT2_INDEXED_TERM
+  "as",                   // SMT2_SORTED_TERM
+  "as",                   // SMT2_SORTED_INDEXED_TERM
+  "function application", // SMT2_INDEXED_APPLY
+  "function application", // SMT2_SORTED_APPLY
+  "function application", // SMT2_SORTED_INDEXED_APPLY
+};
+
+
+/*
+ * Ask for a bug report
+ */
+static void report_bug(FILE *f) {
+  fprintf(f, "\n*************************************************************\n");
+  fprintf(f, "FATAL ERROR\n\n");
+  fprintf(f, "Please report this bug to yices-bugs@csl.sri.com.\n");
+  fprintf(f, "To help us diagnose this problem, please include the\n"
+                  "following information in your bug report:\n\n");
+  fprintf(f, "  Yices version: %s\n", yices_version);
+  fprintf(f, "  Build date: %s\n", yices_build_date);
+  fprintf(f, "  Platform: %s (%s)\n", yices_build_arch, yices_build_mode);
+  fprintf(f, "\n");
+  fprintf(f, "Thank you for your help.\n");
+  fprintf(f, "*************************************************************\n\n");
+  fflush(f);
+
+  exit(YICES_EXIT_INTERNAL_ERROR);
+}
+
+/*
  * Exception raised by tstack
  * - tstack = term stack
  * - exception = error code (defined in term_stack2.h)
@@ -111,9 +331,91 @@ void smt2_syntax_error(lexer_t *lex, int32_t expected_token) {
  * - tstack->error_op = erroneous operation
  */
 void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
-  fprintf(__smt2_globals.out, "(error on line %"PRId32", column %"PRId32" tstack exception %"PRId32")\n",
-	  tstack->error_loc.line, tstack->error_loc.column, exception);
-  fflush(__smt2_globals.out);
+  FILE *out;
+
+  out = __smt2_globals.out;
+
+  fprintf(out, "(error at line %"PRId32", column %"PRId32": ", 
+	  tstack->error_loc.line, tstack->error_loc.column);
+
+  switch (exception) {
+  case TSTACK_OP_NOT_IMPLEMENTED:
+    fprintf(out, "operation %s not implemented)\n", opcode_string[tstack->error_op]);
+    break;
+    
+  case TSTACK_UNDEF_TERM:
+  case TSTACK_UNDEF_TYPE:
+  case TSTACK_UNDEF_MACRO:
+  case TSTACK_DUPLICATE_VAR_NAME:
+  case TSTACK_DUPLICATE_TYPE_VAR_NAME:
+  case TSTACK_RATIONAL_FORMAT:
+  case TSTACK_FLOAT_FORMAT:
+  case TSTACK_BVBIN_FORMAT:
+  case TSTACK_BVHEX_FORMAT:
+  case TSTACK_TYPENAME_REDEF:
+  case TSTACK_TERMNAME_REDEF:
+  case TSTACK_MACRO_REDEF:
+  case SMT2_SYMBOL_NOT_SORT:
+  case SMT2_SYMBOL_NOT_IDX_SORT:
+  case SMT2_SYMBOL_NOT_SORT_OP:
+  case SMT2_SYMBOL_NOT_IDX_SORT_OP:
+  case SMT2_SYMBOL_NOT_TERM: 
+  case SMT2_SYMBOL_NOT_IDX_TERM:
+  case SMT2_SYMBOL_NOT_FUNCTION: 
+  case SMT2_SYMBOL_NOT_IDX_FUNCTION:
+  case SMT2_UNDEF_IDX_SORT:
+  case SMT2_UNDEF_IDX_SORT_OP:
+  case SMT2_UNDEF_IDX_TERM:
+  case SMT2_UNDEF_IDX_FUNCTION:
+    fprintf(out, "%s: %s)\n", exception_string[exception], tstack->error_string);
+    break;
+
+  case TSTACK_INVALID_FRAME:
+  case TSTACK_NONPOSITIVE_BVSIZE:
+    fprintf(out, "%s in %s)\n", exception_string[exception], opcode_string[tstack->error_op]);
+    break;
+
+  case TSTACK_INTEGER_OVERFLOW:
+  case TSTACK_NOT_AN_INTEGER:
+  case TSTACK_NOT_A_STRING:
+  case TSTACK_NOT_A_SYMBOL:
+  case TSTACK_NOT_A_RATIONAL:
+  case TSTACK_NOT_A_TYPE:
+  case TSTACK_ARITH_ERROR:
+  case TSTACK_DIVIDE_BY_ZERO:
+  case TSTACK_NON_CONSTANT_DIVISOR:
+  case TSTACK_INCOMPATIBLE_BVSIZES:
+  case TSTACK_INVALID_BVCONSTANT:
+  case TSTACK_BVARITH_ERROR:
+  case TSTACK_BVLOGIC_ERROR:
+  case TSTACK_TYPE_ERROR_IN_DEFTERM:
+  case SMT2_MISSING_NAME:
+  case SMT2_MISSING_PATTERN:
+    fprintf(out, "%s)\n", exception_string[exception]);
+    break;
+
+  case TSTACK_YICES_ERROR:
+    // TODO: extract mode information from yices_error_report();
+    fprintf(out, "in %s)\n", opcode_string[tstack->error_op]);
+    break;
+
+  case SMT2_INVALID_IDX_BV:
+    fprintf(out, "%s)\n", exception_string[exception]);
+    break;
+
+  case TSTACK_NO_ERROR:
+  case TSTACK_INTERNAL_ERROR:
+  case TSTACK_DUPLICATE_SCALAR_NAME:
+  case TSTACK_INVALID_OP:
+  case TSTACK_NEGATIVE_EXPONENT:
+  default:
+    fprintf(out, ")\n");
+    fflush(out);
+    report_bug(__smt2_globals.err);
+    break;
+  }
+
+  fflush(out);
 }
 
 
@@ -135,6 +437,28 @@ static void report_success(void) {
  */
 
 /*
+ * Initialize g to defaults
+ */
+static void init_smt2_globals(smt2_globals_t *g) {
+  g->logic_code = SMT_UNKNOWN;
+  g->benchmark = false;
+  g->out = stdout;
+  g->err = stderr;
+  g->print_success = true;
+  g->expand_definitions = false;
+  g->interactive_mode = false;
+  g->produce_proofs = false;
+  g->produce_unsat_core = false;
+  g->produce_models = false;
+  g->produce_assignments = false;
+  g->random_seed = 0;
+  g->verbosity = 0;
+  g->avtbl = NULL;
+  g->ctx = NULL;
+  g->model = NULL;
+}
+
+/*
  * Initialize all internal structures
  * - benchmark: if true, the input is assumed to be an SMT-LIB 2.0 benchmark
  *  (i.e., a set of assertions followed by a single call to check-sat)
@@ -143,22 +467,9 @@ static void report_success(void) {
  */
 void init_smt2(bool benchmark) {
   done = false;
+  init_smt2_globals(&__smt2_globals);
   init_attr_vtbl(&avtbl);
-
-  // copy into __smt2_globals
-  __smt2_globals.logic_code = SMT_UNKNOWN;
-  __smt2_globals.out = stdout;
-  __smt2_globals.err = stderr;
-  __smt2_globals.print_success = true;
-  __smt2_globals.expand_definitions = false;
-  __smt2_globals.interactive_mode = false;
-  __smt2_globals.produce_proofs = false;
-  __smt2_globals.produce_unsat_core = false;
-  __smt2_globals.produce_models = false;
-  __smt2_globals.produce_assignments = false;
-  __smt2_globals.random_seed = 0;
-  __smt2_globals.verbosity = 0;
-
+  __smt2_globals.benchmark = benchmark;
   __smt2_globals.avtbl = &avtbl;
 }
 

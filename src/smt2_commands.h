@@ -35,24 +35,112 @@
 
 /*
  * New exception codes
+ * - in SMT2, we distinguish between eight types of symbols
+ * 
+ *   sort name (e.g., Real)
+ *   indexed sort name (e.g.,  BitVec)
+ *   sort constructor (e.g., Array)
+ *   indexed sort constructor (no example yet, but the standard allows them)
+ *
+ *   term name (e.g., true)
+ *   indexed term (e.g. bv234 in (_ bv234 13)
+ *   function name (e.g., distinct)
+ *   indexed function name (e.g., sign-extend in ((_ sign-extend 3) x)
+ *
+ * - we raise different exceptions when a built-in symbol is misused and 
+ *   when a symbol is undefined.
  */
 enum smt2_errors {
   SMT2_MISSING_NAME = NUM_TSTACK_ERRORS,   // missing name in (! <term> ,,,, :name X ...)
   SMT2_MISSING_PATTERN,                    // missing p in (! <term> ... :pattern p ...)
+
+  SMT2_SYMBOL_NOT_SORT,                    // misused as a sort name
+  SMT2_SYMBOL_NOT_IDX_SORT,                // misused as an indexed sort name
+  SMT2_SYMBOL_NOT_SORT_OP,                 // misused as a sort constuctor
+  SMT2_SYMBOL_NOT_IDX_SORT_OP,             // misused as an indexed sort constructor
+  SMT2_SYMBOL_NOT_TERM,
+  SMT2_SYMBOL_NOT_IDX_TERM,
+  SMT2_SYMBOL_NOT_FUNCTION,
+  SMT2_SYMBOL_NOT_IDX_FUNCTION,
+
+  SMT2_UNDEF_IDX_SORT,                     // undefined indexed sort
+  SMT2_UNDEF_IDX_SORT_OP,                  // undefined indexed sort constructor
+  SMT2_UNDEF_IDX_TERM,                     // undefined indexed term
+  SMT2_UNDEF_IDX_FUNCTION,                 // undefined indexed function
+
+  SMT2_INVALID_IDX_BV,                    // raised by (_ bv0xxx ...)
 };
+
+
+#define NUM_SMT2_EXCEPTIONS (SMT2_INVALID_IDX_BV+1)
+
+
+/*
+ * New opcodes:
+ * - all top-level commands for SMT-LIB 2
+ * - special constructors for indexed sort symbols, 
+ *   indexed term symbols, and terms with sorts
+ * - constructor for attribute list
+ * - array theoru sort and functions
+ * - processing of term annotations
+ */
+enum smt2_opcodes {
+  SMT2_EXIT = NUM_BASE_OPCODES,         // [exit]
+  SMT2_GET_ASSERTIONS,                  // [get-assertions]
+  SMT2_GET_ASSIGNMENT,                  // [get-assignment]
+  SMT2_GET_PROOF,                       // [get-proof]
+  SMT2_GET_UNSAT_CORE,                  // [get-unsat-core]
+  SMT2_GET_VALUE,                       // [get-value <term> ... <term> ]
+  SMT2_GET_OPTION,                      // [get-option <keyword> ]
+  SMT2_GET_INFO,                        // [get-info <keyword> ]
+  SMT2_SET_OPTION,                      // [set-option <keyword> ] or [set-option <keyword> <value> ]
+  SMT2_SET_INFO,                        // [set-info <keyword> ] or [set-info <keyword> <value> ]
+  SMT2_SET_LOGIC,                       // [set-logic <symbol> ]
+  SMT2_PUSH,                            // [push <numeral> ]
+  SMT2_POP,                             // [pop <numeral> ]
+  SMT2_ASSERT,                          // [assert <term> ]
+  SMT2_CHECK_SAT,                       // [check-sat ]
+  SMT2_DECLARE_SORT,                    // [declare-sort <symbol> <numeral> ]
+  SMT2_DEFINE_SORT,                     // [define-sort <symbol> <type-binding> ... <type-binding> <sort> ]
+  SMT2_DECLARE_FUN,                     // [declare-fun <symbol> <sort> ... <sort> ]
+  SMT2_DEFINE_FUN,                      // [define-fun <symbol> <binding> ... <binding> <sort> <term> ]
+  // attributes
+  SMT2_MAKE_ATTR_LIST,                  // [make-attr-list <value> .... <value> ]
+  SMT2_ADD_ATTRIBUTES,                  // [add-attribute <term> <keyword> <value> ... <keyword> <value>] (<value> may be omitted)
+  // array theory
+  SMT2_MK_ARRAY,                        // [mk-array <index-sort> <sort> ]
+  SMT2_MK_SELECT,                       // [select <array> <index> ]
+  SMT2_MK_STORE,                        // [store <array> <index> <value> ]
+  // sort constructors
+  SMT2_INDEXED_SORT,                    // [indexed-sort <symbol> <numeral> ... <numeral> ]
+  SMT2_APP_INDEXED_SORT,                // [app-indexed-sort <symbol> <numeral> ... <numeral> <sort> ... <sort>]
+  // term constructors
+  SMT2_INDEXED_TERM,                    // [indexed-term <symbol> <numeral> ... <numeral> ]
+  SMT2_SORTED_TERM,                     // [sorted-term <symbol> <sort> ]
+  SMT2_SORTED_INDEXED_TERM,             // [sorted-indexed-term <symbol> <numeral> ... <numeral> <sort> ]
+  SMT2_INDEXED_APPLY,                   // [indexed-apply <symbol> <numeral> ... <numeral> <term> ... <term>]
+  SMT2_SORTED_APPLY,                    // [sorted-apply <symbol> <sort> <term> ... <term> ]
+  SMT2_SORTED_INDEXED_APPLY,            // [sorted-indexed-apply <symbol> <numeral> ... <numeral> <sort> <term> ... <term> ]  
+} smt2_opcodes_t;
+
+#define NUM_SMT2_OPCODES (SMT2_SORTED_INDEXED_APPLY+1)
+
 
 
 /*
  * Global structure initialized by init_smt2:
  * - include option flags mandated by SMT2
+ * - the benchmark flag is true for SMT2 benchmarks
+ * - this is the same as mode=one-check for Yices
  */
 typedef struct smt2_globals_s {
   // logic: initially SMT_UNKNOWN 
   smt_logic_t logic_code;
+  bool benchmark;
 
   // output/diagnostic channels
-  FILE *out;           // default = stdout
-  FILE *err;           // default = stderr
+  FILE *out;                  // default = stdout
+  FILE *err;                  // default = stderr
 
   // options
   bool print_success;         // default = true
@@ -65,7 +153,10 @@ typedef struct smt2_globals_s {
   uint32_t random_seed;       // default = 0
   uint32_t verbosity;         // default = 0
 
+  // internals
   attr_vtbl_t *avtbl;        // global attribute table
+  context_t *ctx;            // context (initially NULL)
+  model_t *model;            // model (ihitially NULL)
 } smt2_globals_t;
 
 

@@ -27,7 +27,7 @@
 
 
 /*
- * Exception raised when processing element e
+ * Raise an exception when processing element e
  * - stack->error_pos is set to e->pos
  * - stack->error_op is set to stack->top_op
  * - stack->error_string is set to e's string field if e is a symbol or a binding, 
@@ -40,8 +40,18 @@
  */
 extern void __attribute__((noreturn)) raise_exception(tstack_t *stack, stack_elem_t *e, int code);
 
+
 /*
- * Exception raised when a yices function returns NULL_TERM or another error code.
+ * Raise an exception when pushing data on the stack
+ * - stack->error_pos is set to loc
+ * - stack->error_string is set to s (not a copy)
+ * then code is returned to the enclosing exception handler by longjmp
+ */
+extern void __attribute__((noreturn)) push_exception(tstack_t *stack, loc_t *loc, char *s, int code);
+
+
+/*
+ * Raise an exception when a yices function returns NULL_TERM or another error code.
  * - this raises exception TSTACK_YICES_ERROR
  * - stack->error_loc is set to the top-frame's location
  * - stack->error_op is set to the top_operator code
