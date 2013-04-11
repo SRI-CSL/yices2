@@ -300,6 +300,14 @@ extern bool yices_check_mul_term(arith_buffer_t *b, term_t t);
 extern bool yices_check_mul_buffer(arith_buffer_t *b1, arith_buffer_t *b2);
 
 
+/*
+ * Check whether t has a type that match tau (i.e., t's type is a subtype of tau)
+ * If not set the error report:
+ *   code = TYPE_MISMATCH
+ *   term1 = t
+ *   type1 = tau
+ */
+extern bool yices_check_term_type(term_t t, type_t tau);
 
 /*
  * Check whether n <= YICES_MAX_BVSIZE and if not set the error report:

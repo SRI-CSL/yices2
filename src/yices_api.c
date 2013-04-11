@@ -4520,6 +4520,23 @@ bool yices_check_mul_buffer(arith_buffer_t *b1, arith_buffer_t *b2) {
 
 
 /*
+ * Check whether t's type is a subtype of tau
+ */
+bool yices_check_term_type(term_t t, type_t tau) {
+  term_table_t *tbl;
+
+  tbl = &terms;
+  if (! is_subtype(tbl->types, term_type(tbl, t), tau)) {
+    error.code = TYPE_MISMATCH;
+    error.term1 = t;
+    error.type1 = tau;
+    return false;
+  }
+
+  return true;
+}
+
+/*
  * Check whether n <= YICES_MAX_BVSIZE and if not set the error report.
  */
 bool yices_check_bvsize(uint32_t n) {

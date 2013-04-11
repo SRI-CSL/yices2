@@ -818,6 +818,7 @@ void tstack_push_sort_constructor(tstack_t *stack, char *s, uint32_t n, loc_t *l
     break;
 
   case SMT2_KEY_UNKNOWN:
+    tstack_push_op(stack, MK_APP_TYPE, loc);
     tstack_push_macro_by_name(stack, s, loc);
     break;
 

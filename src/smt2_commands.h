@@ -327,10 +327,10 @@ extern void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t b
 /*
  * Declare a new uninterpreted function symbol
  * - name = function name
- * - n = arity
- * - tau = array of n+1 types
+ * - n = arity + 1
+ * - tau = array of n types
  *
- * If n = 0, this creates an uninterpreted constant of type tau[0]
+ * If n = 1, this creates an uninterpreted constant of type tau[0]
  * Otherwise, this creates an uninterpreted function of type tau[0] x ... x tau[n-1] to tau[n] 
  */
 extern void smt2_declare_fun(const char *name, uint32_t n, type_t *tau);

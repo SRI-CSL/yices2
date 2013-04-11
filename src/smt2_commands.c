@@ -21,6 +21,7 @@
 
 #include "yices.h"
 #include "yices_exit_codes.h"
+#include "yices_extensions.h"
 
 
 /*
@@ -37,6 +38,27 @@ smt2_globals_t __smt2_globals;
 /*
  * ERROR REPORTS
  */
+
+/*
+ * bug report
+ */
+static void report_bug(FILE *f) {
+  fprintf(f, "\n*************************************************************\n");
+  fprintf(f, "FATAL ERROR\n\n");
+  fprintf(f, "Please report this bug to yices-bugs@csl.sri.com.\n");
+  fprintf(f, "To help us diagnose this problem, please include the\n"
+                  "following information in your bug report:\n\n");
+  fprintf(f, "  Yices version: %s\n", yices_version);
+  fprintf(f, "  Build date: %s\n", yices_build_date);
+  fprintf(f, "  Platform: %s (%s)\n", yices_build_arch, yices_build_mode);
+  fprintf(f, "\n");
+  fprintf(f, "Thank you for your help.\n");
+  fprintf(f, "*************************************************************\n\n");
+  fflush(f);
+
+  exit(YICES_EXIT_INTERNAL_ERROR);
+}
+
 
 /*
  * Syntax error (reported by tstack)
@@ -106,6 +128,132 @@ void smt2_syntax_error(lexer_t *lex, int32_t expected_token) {
   }
   fprintf(__smt2_globals.out, ")\n" );
   fflush(__smt2_globals.out);
+}
+
+
+/*
+ * ERROR FROM YICES (in yices_error_report)
+ */
+
+/*
+ * If full is true: print (error <message>)
+ * Otherwise: print <message>
+ */
+static void print_yices_error(bool full) {
+  FILE *out;
+  error_report_t *error;
+
+  out = __smt2_globals.out;
+  if (full) fputs("(error: ", out);
+
+  error = yices_error_report();
+  switch (error->code) {
+  case INVALID_BITSHIFT:
+    fputs("invalid index in rotate", out);
+    break;
+  case INVALID_BVEXTRACT:
+    fputs("invalid indices in bit-vector extract", out);
+    break;
+  case TOO_MANY_ARGUMENTS:
+    fprintf(out, "too many arguments. Function arity is at most %"PRIu32, YICES_MAX_ARITY);
+    break;
+  case TOO_MANY_VARS:
+    fprintf(out, "too many variables in quantifier. Max is %"PRIu32, YICES_MAX_VARS);
+    break;
+  case MAX_BVSIZE_EXCEEDED:
+    fprintf(out, "bit-vector size too large. Max is %"PRIu32, YICES_MAX_BVSIZE);
+    break;
+  case DEGREE_OVERFLOW:
+    fputs("maximal polynomial degree exceeeded", out);
+    break;
+  case DIVISION_BY_ZERO:
+    fputs("division by zero", out);    
+    break;
+  case POS_INT_REQUIRED:
+    fputs("integer argument must be positive", out);
+    break;
+  case NONNEG_INT_REQUIRED:
+    fputs("integer argument must be non-negative", out);
+    break;
+  case FUNCTION_REQUIRED:
+    fputs("argument is not a function", out);
+    break;
+  case ARITHTERM_REQUIRED:
+    fputs("argument is not an arithmetic term", out);
+    break;
+  case BITVECTOR_REQUIRED:
+    fputs("argument is not a bit-vector term", out);
+    break;
+  case WRONG_NUMBER_OF_ARGUMENTS:
+    fputs("wrong number of arguments", out);
+    break;
+  case TYPE_MISMATCH:
+    fputs("type error: invalid arguments", out);
+    break;
+  case INCOMPATIBLE_TYPES:
+    fputs("incomaptible types", out);
+    break;
+  case INCOMPATIBLE_BVSIZES:
+    fputs("arguments do not have the same number of bits", out);
+    break;
+  case EMPTY_BITVECTOR:
+    fputs("bit-vectors can't have 0 bits", out);
+    break;
+  case ARITHCONSTANT_REQUIRED:
+    fputs("argument is not an arithmetic constant", out);
+    break;
+  case TOO_MANY_MACRO_PARAMS:
+    fprintf(out, "too many arguments in sort constructor. Max is %"PRIu32, TYPE_MACRO_MAX_ARITY);
+    break;
+
+  case CTX_FREE_VAR_IN_FORMULA:
+  case CTX_LOGIC_NOT_SUPPORTED:
+  case CTX_UF_NOT_SUPPORTED:
+  case CTX_ARITH_NOT_SUPPORTED:
+  case CTX_BV_NOT_SUPPORTED:
+  case CTX_ARRAYS_NOT_SUPPORTED:
+  case CTX_QUANTIFIERS_NOT_SUPPORTED:
+  case CTX_NONLINEAR_ARITH_NOT_SUPPORTED:
+  case CTX_FORMULA_NOT_IDL:
+  case CTX_FORMULA_NOT_RDL:
+  case CTX_TOO_MANY_ARITH_VARS:
+  case CTX_TOO_MANY_ARITH_ATOMS:
+  case CTX_TOO_MANY_BV_VARS:
+  case CTX_TOO_MANY_BV_ATOMS:
+  case CTX_ARITH_SOLVER_EXCEPTION:
+  case CTX_BV_SOLVER_EXCEPTION:
+  case CTX_ARRAY_SOLVER_EXCEPTION:
+  case CTX_OPERATION_NOT_SUPPORTED:
+  case CTX_INVALID_CONFIG:
+  case CTX_UNKNOWN_PARAMETER:
+  case CTX_INVALID_PARAMETER_VALUE:
+  case CTX_UNKNOWN_LOGIC:
+    fputs("context exception", out); // expand
+    break;
+
+  case EVAL_UNKNOWN_TERM:
+  case EVAL_FREEVAR_IN_TERM:
+  case EVAL_QUANTIFIER:
+  case EVAL_LAMBDA:
+  case EVAL_OVERFLOW:
+  case EVAL_FAILED:
+    fputs("can't evaluate term value", out); // expand
+    break;
+
+  case OUTPUT_ERROR:
+    fputs(" IO error", out);
+    break;
+
+  default:
+    fputs("BUG detected", out);
+    if (full) fputc(')', out);
+    fflush(out);
+    report_bug(__smt2_globals.err);
+    break;
+  }
+
+  if (full) fputs(")\n", out);
+  fflush(out);  
 }
 
 
@@ -298,26 +446,6 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
 
 
 /*
- * Ask for a bug report
- */
-static void report_bug(FILE *f) {
-  fprintf(f, "\n*************************************************************\n");
-  fprintf(f, "FATAL ERROR\n\n");
-  fprintf(f, "Please report this bug to yices-bugs@csl.sri.com.\n");
-  fprintf(f, "To help us diagnose this problem, please include the\n"
-                  "following information in your bug report:\n\n");
-  fprintf(f, "  Yices version: %s\n", yices_version);
-  fprintf(f, "  Build date: %s\n", yices_build_date);
-  fprintf(f, "  Platform: %s (%s)\n", yices_build_arch, yices_build_mode);
-  fprintf(f, "\n");
-  fprintf(f, "Thank you for your help.\n");
-  fprintf(f, "*************************************************************\n\n");
-  fflush(f);
-
-  exit(YICES_EXIT_INTERNAL_ERROR);
-}
-
-/*
  * Exception raised by tstack
  * - tstack = term stack
  * - exception = error code (defined in term_stack2.h)
@@ -396,7 +524,9 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
 
   case TSTACK_YICES_ERROR:
     // TODO: extract mode information from yices_error_report();
-    fprintf(out, "in %s)\n", opcode_string[tstack->error_op]);
+    fprintf(out, "in %s: ", opcode_string[tstack->error_op]);
+    print_yices_error(false);
+    fprintf(out, ")\n");
     break;
 
   case SMT2_INVALID_IDX_BV:
@@ -508,6 +638,7 @@ bool smt2_active(void) {
  */
 void smt2_exit(void) {
   done = true;
+  report_success();
 }
 
 
@@ -674,8 +805,22 @@ void smt2_check_sat(void) {
  * Otherwise, this defines a new type constructor.
  */
 void smt2_declare_sort(const char *name, uint32_t arity) {
-  fprintf(__smt2_globals.out, "declare_sort: unsupported\n");
-  fflush(__smt2_globals.out);
+  type_t tau;
+  int32_t macro;
+
+  if (arity == 0) {
+    tau = yices_new_uninterpreted_type();
+    yices_set_type_name(tau, name);
+    report_success();
+  } else {
+    macro = yices_type_constructor(name, arity);
+    if (macro < 0) {
+      print_yices_error(true);
+    } else {
+      report_success();
+    }
+  }
+
 }
 
 
@@ -687,23 +832,43 @@ void smt2_declare_sort(const char *name, uint32_t arity) {
  * - body = type expressions
  */
 void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body) {
-  fprintf(__smt2_globals.out, "define_sort: unsupported\n");
-  fflush(__smt2_globals.out);
+  int32_t macro;
+
+  macro = yices_type_macro(name, n, var, body);
+  if (macro < 0) {
+    print_yices_error(true);
+  } else {
+    report_success();
+  }
 }
 
 
 /*
  * Declare a new uninterpreted function symbol
  * - name = function name
- * - n = arity
- * - tau = array of n+1 types
+ * - n = arity + 1
+ * - tau = array of n types
  *
- * If n = 0, this creates an uninterpreted constant of type tau[0]
+ * If n = 1, this creates an uninterpreted constant of type tau[0]
  * Otherwise, this creates an uninterpreted function of type tau[0] x ... x tau[n-1] to tau[n] 
  */
 void smt2_declare_fun(const char *name, uint32_t n, type_t *tau) {
-  fprintf(__smt2_globals.out, "declare_fun: unsupported\n");
-  fflush(__smt2_globals.out);
+  term_t t;
+  type_t sigma;
+  
+  assert(n > 0);
+  n --;
+  sigma = tau[n]; // range
+  if (n > 0) {
+    sigma = yices_function_type(n, tau, sigma);
+  }
+  assert(sigma != NULL_TYPE);
+
+  t = yices_new_uninterpreted_term(sigma);
+  assert(t != NULL_TERM);
+  yices_set_term_name(t, name);
+
+  report_success();
 }
 
 
@@ -719,8 +884,24 @@ void smt2_declare_fun(const char *name, uint32_t n, type_t *tau) {
  * Otherwise, a lambda term is created.
  */
 void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, type_t tau) {
-  fprintf(__smt2_globals.out, "define_fun: unsupported\n");
-  fflush(__smt2_globals.out);
+  term_t t;
+
+  if (! yices_check_term_type(body, tau)) {
+    print_yices_error(true);
+    return;
+  } 
+
+  t = body;
+  if (n > 0) {
+    t = yices_lambda(n, var, t);
+    if (t < 0) {
+      print_yices_error(true);
+      return;
+    }
+  }
+  yices_set_term_name(t, name);
+
+  report_success();
 }
 
 

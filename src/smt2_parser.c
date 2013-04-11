@@ -247,7 +247,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       // type variable
       tstack_push_op(tstack, DECLARE_TYPE_VAR, &loc);
       tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
-      tstack_eval(tstack);
+      tstack_eval(tstack); // eval DECLARE_TYPE_VAR
       state = c9b;
       goto loop;
 
@@ -526,7 +526,8 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       goto loop;
 
     case next_goto_t2e:
-      state = t2e;
+      tstack_eval(tstack); // eval the BIND
+      state = t2e;      
       goto loop;
 
     case next_push_r0_goto_t0:
@@ -551,6 +552,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       goto loop;
 
     case next_goto_t3e:
+      tstack_eval(tstack); // eval DECLARE_VAR
       state = t3e;
       goto loop;
 
