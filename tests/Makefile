@@ -187,9 +187,10 @@ endif
 
 
 #
-# Include path
+# Include path: -I../src must be first in case there
+# are other -I in CPPFLAGS
 #
-CPPFLAGS := $(CPPFLAGS) -I../src
+CPPFLAGS := -I../src $(CPPFLAGS)
 
 
 #

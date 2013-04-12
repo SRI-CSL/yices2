@@ -327,9 +327,9 @@ endif
 endif
 
 #
-# include dirs
+# include dirs: we want -I. first
 #
-CPPFLAGS += -I.
+CPPFLAGS := -I. $(CPPFLAGS)
 
 #
 # Warning levels
