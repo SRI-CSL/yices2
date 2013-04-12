@@ -171,6 +171,7 @@ enum actions {
   error_keyword_expected,
   error_rp_expected,
   error_underscore_expected,
+  error_command_expected,
   error,
 };
 
@@ -198,6 +199,7 @@ static triple_t triples[] = {
   { c1, SMT2_TK_DECLARE_FUN, "declare_fun_next_goto_c10" },
   { c1, SMT2_TK_DEFINE_FUN, "define_fun_next_goto_c11" },
   { c1, SMT2_TK_GET_VALUE, "get_value_next_goto_c12" },
+  { c1, DEFAULT_TOKEN, "error_command_expected" },
 
   { c3, SMT2_TK_NUMERAL, "numeral_next_goto_r0" },
   { c3, DEFAULT_TOKEN, "error_numeral_expected" },

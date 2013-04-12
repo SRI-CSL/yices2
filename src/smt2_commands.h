@@ -31,6 +31,7 @@
 
 #include "lexer.h"
 #include "term_stack2.h"
+#include "string_hash_map.h"
 
 
 /*
@@ -149,12 +150,17 @@ typedef struct smt2_globals_s {
   FILE *out;                  // default = stdout
   FILE *err;                  // default = stderr
 
+  // names of the output/dianostic channels
+  char *out_name;             // default = NULL (means "stdout")
+  char *err_name;             // default = NULL (means "stderr")
+
+
   // options
   bool print_success;         // default = true
   bool expand_definitions;    // default = false
   bool interactive_mode;      // default = false
   bool produce_proofs;        // default = false
-  bool produce_unsat_core;    // default = false
+  bool produce_unsat_cores;   // default = false
   bool produce_models;        // default = false
   bool produce_assignments;   // default = false
   uint32_t random_seed;       // default = 0
@@ -162,6 +168,7 @@ typedef struct smt2_globals_s {
 
   // internals
   attr_vtbl_t *avtbl;        // global attribute table
+  strmap_t *info;            // for set-info/get-info (initially NULL)
   context_t *ctx;            // context (initially NULL)
   model_t *model;            // model (ihitially NULL)
 } smt2_globals_t;
@@ -390,7 +397,7 @@ extern void smt2_add_pattern(term_t t, term_t p);
 /*
  * Syntax error
  * - lex = lexer 
- * - expected_token = either an smt2_token or -1
+ * - expected_token = either an smt2_token or -1 or -2
  *
  * lex is as follows: 
  * - current_token(lex) = token that caused the error
@@ -398,6 +405,8 @@ extern void smt2_add_pattern(term_t t, term_t p);
  * - current_token_length(lex) = length of that string
  * - lex->tk_line and lex->tk_column = start of the token in the input
  * - lex->reader.name  = name of the input file (NULL means input is stdin)
+ *
+ * expected token = -2, means 'command expected'
  */
 extern void smt2_syntax_error(lexer_t *lex, int32_t expected_token);
 

@@ -173,6 +173,7 @@ typedef enum actions {
   error_keyword_expected,
   error_rp_expected,
   error_underscore_expected,
+  error_command_expected,
   error,
 } smt2_action_t;
 
@@ -190,7 +191,7 @@ typedef enum actions {
 // Default values for each state
 static const uint8_t default_value[NSTATES] = {
   error_lp_expected,
-  error,
+  error_command_expected,
   error_numeral_expected,
   error_keyword_expected,
   error_symbol_expected,

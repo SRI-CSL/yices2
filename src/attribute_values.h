@@ -138,6 +138,7 @@ static inline void aval_incref(attr_vtbl_t *table, aval_t i) {
 
 extern void aval_decref(attr_vtbl_t *table, aval_t i);
 
+
 /*
  * Access to the components
  */
@@ -159,6 +160,36 @@ static inline uint32_t aval_refcount(attr_vtbl_t *table, aval_t i) {
   return table->refcount[i];
 }
 
+static inline attr_desc_t *aval_descriptor(attr_vtbl_t *table, aval_t i) {
+  assert(good_aval(table, i));
+  return table->desc + i;
+}
+
+// use with care: pointer can become invalid after creation of new aval
+static inline rational_t *aval_rational(attr_vtbl_t *table, aval_t i) {
+  assert(aval_tag(table, i) == ATTR_RATIONAL);
+  return &table->desc[i].rational;
+}
+
+static inline bvconst_attr_t *aval_bvconst(attr_vtbl_t *table, aval_t i) {
+  assert(aval_tag(table, i) == ATTR_BV);
+  return table->desc[i].ptr;
+}
+
+static inline char *aval_string(attr_vtbl_t *table, aval_t i) {
+  assert(aval_tag(table, i) == ATTR_STRING);
+  return table->desc[i].ptr;
+}
+
+static inline char *aval_symbol(attr_vtbl_t *table, aval_t i) {
+  assert(aval_tag(table, i) == ATTR_SYMBOL);
+  return table->desc[i].ptr;
+}
+
+static inline attr_list_t *aval_list(attr_vtbl_t *table, aval_t i) {
+  assert(aval_tag(table, i) == ATTR_LIST);
+  return table->desc[i].ptr;
+}
 
 
 #endif /* __ATTRIBUTE_VALUES_H */

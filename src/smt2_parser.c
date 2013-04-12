@@ -725,7 +725,11 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
     case error_underscore_expected:
       smt2_syntax_error(lex, SMT2_TK_UNDERSCORE);
       goto cleanup;
-      
+
+    case error_command_expected:
+      smt2_syntax_error(lex, -2);
+      goto cleanup;
+
     case error:
       smt2_syntax_error(lex, -1);
       goto cleanup;

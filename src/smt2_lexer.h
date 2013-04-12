@@ -83,6 +83,7 @@ typedef enum smt2_token smt2_token_t;
 
 #define NUM_SMT2_TOKENS (SMT2_TK_ERROR+1)
 
+
 /*
  * Predefined keywords + a few other that are common in benchmarks
  */
