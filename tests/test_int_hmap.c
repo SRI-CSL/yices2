@@ -26,7 +26,7 @@ static void print_map(int_hmap_t *map) {
 }
 
 
-int main() {
+int main(void) {
   int_hmap_pair_t *d;
   int32_t i;
 

@@ -26,7 +26,7 @@ typedef struct strmap_rec_s {
  * Deleted records are marked by setting key to DELETED_KEY.
  * Empty recors have key = NULL.
  */
-#define DELETED_KEY ((char *) 1);
+#define DELETED_KEY ((char *) 1)
 
 
 /*
@@ -65,6 +65,11 @@ extern void init_strmap(strmap_t *hmap, uint32_t n);
  */
 extern void delete_strmap(strmap_t *hmap);
 
+
+/*
+ * Reset: empty the table
+ */
+extern void reset_strmap(strmap_t *hmap);
 
 /*
  * Find record with the given key.
