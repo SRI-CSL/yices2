@@ -225,9 +225,10 @@ include $(static_dep)
 
 #
 # bison/flex
+# Note: $< must be last to work on FreeBSD
 #
 smt2-parse.c: smt2-parse.y smt2-lex.c
-	$(YACC) $< -o smt2-parse.c 
+	$(YACC) -o smt2-parse.c $< 
 
 smt2-lex.c: smt2-lex.l
 	$(LEX) $< && mv lex.yy.c $@
