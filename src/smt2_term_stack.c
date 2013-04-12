@@ -99,6 +99,21 @@ static void eval_smt2_exit(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
+ * [silent-exit]
+ */
+static void check_smt2_silent_exit(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_SILENT_EXIT);
+  check_size(stack, n == 0);
+} 
+
+static void eval_smt2_silent_exit(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  smt2_silent_exit();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+/*
  * [get-assertions]
  */
 static void check_smt2_get_assertions(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -225,11 +240,14 @@ static void check_smt2_set_option(tstack_t *stack, stack_elem_t *f, uint32_t n) 
 static void eval_smt2_set_option(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   aval_t v;
 
-  v = AVAL_NULL;
-  if (n == 2) {
+  if (n == 1) {
+    smt2_set_option(f[0].val.symbol, AVAL_NULL);
+  } else {
     v = get_aval(stack, f+1);
+    aval_incref(stack->avtbl, v);
+    smt2_set_option(f[0].val.symbol, v);
+    aval_decref(stack->avtbl, v);
   }
-  smt2_set_option(f[0].val.symbol, v);
   tstack_pop_frame(stack);
   no_result(stack);
 }
@@ -247,11 +265,14 @@ static void check_smt2_set_info(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 static void eval_smt2_set_info(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   aval_t v;
 
-  v = AVAL_NULL;
-  if (n == 2) {
+  if (n == 1) {
+    smt2_set_info(f[0].val.symbol, AVAL_NULL);
+  } else {
     v = get_aval(stack, f+1);
+    aval_incref(stack->avtbl, v);
+    smt2_set_info(f[0].val.symbol, v);
+    aval_decref(stack->avtbl, v);
   }
-  smt2_set_info(f[0].val.symbol, v);
   tstack_pop_frame(stack);
   no_result(stack);
 }
@@ -1160,6 +1181,7 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_set_avtbl(stack, __smt2_globals.avtbl);
 
   tstack_add_op(stack, SMT2_EXIT, false, eval_smt2_exit, check_smt2_exit);
+  tstack_add_op(stack, SMT2_SILENT_EXIT, false, eval_smt2_silent_exit, check_smt2_silent_exit);
   tstack_add_op(stack, SMT2_GET_ASSERTIONS, false, eval_smt2_get_assertions, check_smt2_get_assertions);
   tstack_add_op(stack, SMT2_GET_ASSIGNMENT, false, eval_smt2_get_assignment, check_smt2_get_assignment);
   tstack_add_op(stack, SMT2_GET_PROOF, false, eval_smt2_get_proof, check_smt2_get_proof);

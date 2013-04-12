@@ -86,6 +86,7 @@ enum smt2_errors {
  */
 enum smt2_opcodes {
   SMT2_EXIT = NUM_BASE_OPCODES,         // [exit]
+  SMT2_SILENT_EXIT,                     // [silent-exit]
   SMT2_GET_ASSERTIONS,                  // [get-assertions]
   SMT2_GET_ASSIGNMENT,                  // [get-assignment]
   SMT2_GET_PROOF,                       // [get-proof]
@@ -132,11 +133,17 @@ enum smt2_opcodes {
  * - include option flags mandated by SMT2
  * - the benchmark flag is true for SMT2 benchmarks
  * - this is the same as mode=one-check for Yices
+ *
+ * NOTE: all solvers I've tried use :print-success false by default
+ * (even though the standard says otherwise).
  */
 typedef struct smt2_globals_s {
   // logic: initially SMT_UNKNOWN 
   smt_logic_t logic_code;
   bool benchmark;
+
+  // logic name
+  char *logic_name;
 
   // output/diagnostic channels
   FILE *out;                  // default = stdout
@@ -195,9 +202,16 @@ extern bool smt2_active(void);
  */
 
 /*
- * Exit function (also called on end-of-file)
+ * Exit function
  */
 extern void smt2_exit(void);
+
+
+/*
+ * Silent exits (on end-of-file)
+ * - same as exit but never prints success
+ */
+extern void smt2_silent_exit(void);
 
 
 /*

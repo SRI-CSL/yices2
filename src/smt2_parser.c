@@ -88,7 +88,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       goto loop;
 
     case empty_command_return:
-      tstack_push_op(tstack, SMT2_EXIT, &loc);
+      tstack_push_op(tstack, SMT2_SILENT_EXIT, &loc);
       tstack_eval(tstack);
       state = parser_pop_state(stack);
       assert(state == done);

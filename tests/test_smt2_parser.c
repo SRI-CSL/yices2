@@ -78,6 +78,7 @@ int main(int argc, char *argv[]) {
   delete_parser(&parser);
   close_lexer(&lexer);
   delete_tstack(&stack);
+  delete_smt2();
   yices_exit();
 
   return YICES_EXIT_SUCCESS;

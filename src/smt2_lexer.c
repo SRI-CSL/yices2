@@ -83,11 +83,14 @@ static const char * const smt2_keyword_string[NUM_SMT2_KEYWORDS] = {
   ":name",                    // SMT2_KW_NAME
   ":authors",                 // SMT2_KW_AUTHORS
   ":version",                 // SMT2_KW_VERSION
-  ":status",                  // SMT2_KW_STATUS
   ":reason-unknown",          // SMT2_KW_REASON_UNKNOWN
   ":all-statistics",          // SMT2_KW_ALL_STATISTICS
   ":named",                   // SMT2_KW_NAMED
   ":pattern",                 // SMT2_KW_PATTERN
+  ":status",                  // SMT2_KW_STATUS
+  ":source",                  // SMT2_KW_SOURCE
+  ":smt-lib-version",         // SMT2_KW_SMT_LIB_VERSION
+  ":category",                // SMT2_KW_CATEGORY
   "<unknown-keyword>",        // SMT2_KW_UNKNOWN
 };
 

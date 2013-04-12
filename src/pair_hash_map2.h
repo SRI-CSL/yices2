@@ -11,7 +11,7 @@
  *
  * Example: lifting if-then-else in equalities rewrites
  *  (eq t1 (ite c t2 t3)) to (ite c (eq t1 t2) (eq t1 t3)).
- * When the right hand side is process, then (eq t1 t2) and 
+ * When the right hand side is processed, then (eq t1 t2) and 
  * (eq t1 t3) are mapped to two literals l1 and l2. We keep
  * the mappings <t1, t2> --> l1 and <t1, t3> --> l2 in
  * a hash table.

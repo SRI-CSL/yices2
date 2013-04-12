@@ -84,7 +84,7 @@ typedef enum smt2_token smt2_token_t;
 #define NUM_SMT2_TOKENS (SMT2_TK_ERROR+1)
 
 /*
- * Predefined keywords
+ * Predefined keywords + a few other that are common in benchmarks
  */
 enum smt2_keyword {
   // Predefined keywords for (set-option ...)
@@ -100,18 +100,25 @@ enum smt2_keyword {
   SMT2_KW_RANDOM_SEED,
   SMT2_KW_VERBOSITY,
 
-  // Predefined keywords for (set-info ...)
+  // Predefined keywords for (get-info ...)
   SMT2_KW_ERROR_BEHAVIOR,
   SMT2_KW_NAME,
   SMT2_KW_AUTHORS,
   SMT2_KW_VERSION,
-  SMT2_KW_STATUS,
   SMT2_KW_REASON_UNKNOWN,
   SMT2_KW_ALL_STATISTICS,
 
   // Attribute names for terms
   SMT2_KW_NAMED,
   SMT2_KW_PATTERN,   // not quite an official name yet
+
+  // Keywords in (set-info ...) of smt2 benchmarks
+  SMT2_KW_STATUS,
+  SMT2_KW_SOURCE,
+  SMT2_KW_SMT_LIB_VERSION,
+  SMT2_KW_CATEGORY,
+  SMT2_KW_DIFFICULTY,
+  SMT2_KW_NOTES,
 
   // Anything other keyword
   SMT2_KW_UNKNOWN,

@@ -1980,7 +1980,7 @@ type_t yices_instance_type(int32_t cid, uint32_t n, type_t tau[]) {
     return NULL_TYPE;
   }
 
-  return instance_type(&types, cid, n, tau);
+  return instantiate_type_macro(&types, cid, n, tau);
 }
 
 
