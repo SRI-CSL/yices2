@@ -76,7 +76,7 @@ static_binaries := $(static_bindir)/sat_solver1$(EXEEXT) $(static_bindir)/sat_so
 #
 # Need include path
 #
-CPPFLAGS := $(CPPFLAGS) -I../src
+CPPFLAGS := -I../src $(CPPFLAGS)
 
 
 #

@@ -183,7 +183,7 @@ endif
 #
 # Need include path for yices.h
 #
-CPPFLAGS := $(CPPFLAGS) -I../src
+CPPFLAGS := -I../src $(CPPFLAGS)
 
 #
 # More CPPFLAGS for compiling static objects
