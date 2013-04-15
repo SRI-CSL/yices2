@@ -245,7 +245,7 @@ typedef enum smt2_symbol smt2_symbol_t;
  * zero_extend: (_ zero_extend i) where i >= 0
  *   append i '0' on the left-hand side (high-order bits)
  *
- * sign_extend: (_ signe_extend i) where i >= 0
+ * sign_extend: (_ sign_extend i) where i >= 0
  *
  * rotate_left: (_ rotate_left i) where i >= 0
  * rotate_right: (_ rotate_right i) where i >= 0

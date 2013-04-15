@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "yices.h"
+#include "yices_extensions.h"
 
 #include "attribute_values.h"
 #include "tstack_internals.h"
@@ -77,6 +78,159 @@ static smt2_keyword_t get_keyword(tstack_t *stack, stack_elem_t *e) {
   return smt2_string_to_keyword(e->val.symbol, len);
 }
 
+
+/*
+ * MODIFIED OPCODES
+ */
+
+/*
+ * TODO: deal with other SMT2 nonsense
+ * 
+ * 1) mk_implies can take more than two arguments
+ *    (=> a b c) is interpreted as (=> a (=> b c))
+ *
+ * 2) chainable operators:
+ *    core: =
+ *    arithmetic: <=, <, >=, >
+ *
+ * 3) missing operators: div, mod, abs, divisible
+ *    note: div is marked as left-associative!
+ *    (div a b c) is interpreted as (div (div a b) c)
+ */
+
+/*
+ * (_ bv<xx> n) is mapped to [mk-bv-const xx n]
+ * - xx is the value, n is the number of bits
+ * - this is the opposite order of Yices (i.e.. [mk-bv-const n xx])
+ */
+static void check_smt2_mk_bv_const(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_BV_CONST);
+  check_size(stack, n == 2);
+  check_tag(stack, f, TAG_RATIONAL);
+  check_tag(stack, f+1, TAG_RATIONAL);
+}
+
+static void eval_smt2_mk_bv_const(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  int32_t size;
+  rational_t *val;
+
+  size = get_integer(stack, f+1);
+  val = &f[0].val.rational;
+  mk_bv_const_core(stack, f, size, val);
+}
+
+
+/*
+ * ((_ rotate_left i)  bv) is mapped to [mk-rotate-left i bv]
+ * - the defaut mk-rotate-left expect arguments in the other order
+ */
+static void check_smt2_mk_bv_rotate_left(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_BV_ROTATE_LEFT);
+  check_size(stack, n == 2);
+  check_tag(stack, f, TAG_RATIONAL);
+}
+
+static void eval_smt2_mk_bv_rotate_left(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  int32_t index;
+  bvlogic_buffer_t *b;
+
+  index = get_integer(stack, f);
+  b = tstack_get_bvlbuffer(stack);
+  bvl_set_elem(stack, b, f+1);
+  if (! yices_check_bitshift(b, index)) {
+    report_yices_error(stack);
+  }
+  // we known 0 <= index <= bitsize of b
+  if (index < bvlogic_buffer_bitsize(b)) {
+    bvlogic_buffer_rotate_left(b, index);
+  }
+  tstack_pop_frame(stack);
+  set_bvlogic_result(stack, b);
+}
+
+
+/*
+ * ((_ rotate_right i)  bv) is mapped to [mk-rotate-right i bv]
+ * - the defaut mk-rotate-left expect arguments in the other order
+ */
+static void check_smt2_mk_bv_rotate_right(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_BV_ROTATE_RIGHT);
+  check_size(stack, n == 2);
+  check_tag(stack, f, TAG_RATIONAL);
+}
+
+static void eval_smt2_mk_bv_rotate_right(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  int32_t index;
+  bvlogic_buffer_t *b;
+
+  index = get_integer(stack, f);
+  b = tstack_get_bvlbuffer(stack);
+  bvl_set_elem(stack, b, f+1);
+  if (! yices_check_bitshift(b, index)) {
+    report_yices_error(stack);
+  }
+  // we known 0 <= index <= bitsize of b
+  if (index < bvlogic_buffer_bitsize(b)) {
+    bvlogic_buffer_rotate_left(b, index);
+  }
+  tstack_pop_frame(stack);
+  set_bvlogic_result(stack, b);
+}
+
+
+/*
+ * ((_ repeat i) bv) is mapped to [mk-bv-repeat <rational> <bv>]
+ */
+static void check_smt2_mk_bv_repeat(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_BV_REPEAT);
+  check_size(stack, n == 2);
+  check_tag(stack, f, TAG_RATIONAL);
+}
+
+static void eval_smt2_mk_bv_repeat(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  int32_t i;
+  bvlogic_buffer_t *b;
+
+  i = get_integer(stack, f);
+  b = tstack_get_bvlbuffer(stack);
+  bvl_set_elem(stack, b, f+1);
+
+  // check for overflow or for i <= 0
+  if (! yices_check_bvrepeat(b, i)) {
+    report_yices_error(stack);    
+  }
+  bvlogic_buffer_repeat_concat(b, i);
+  tstack_pop_frame(stack);
+  set_bvlogic_result(stack, b);
+}
+
+
+/*
+ * ((_ sign_extend i) bv) is mapped to [mk-bv-sign-extend <rational> <bv>]
+ */
+static void check_smt2_mk_bv_sign_extend(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_BV_SIGN_EXTEND);
+  check_size(stack, n == 2);
+  check_tag(stack, f, TAG_RATIONAL);
+}
+
+static void eval_smt2_mk_bv_sign_extend(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  mk_bv_sign_extend_core(stack, f+1, f);
+}
+
+
+/*
+ * ((_ zero_extend i) bv) is mapped to [mk-bv-zero-extend <rational> <bv>]
+ */
+static void check_smt2_mk_bv_zero_extend(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_BV_ZERO_EXTEND);
+  check_size(stack, n == 2);
+  check_tag(stack, f, TAG_RATIONAL);  
+}
+
+static void eval_smt2_mk_bv_zero_extend(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  mk_bv_zero_extend_core(stack, f+1, f);
+}
 
 
 /*
@@ -1179,6 +1333,13 @@ static void eval_smt2_sorted_apply(tstack_t *stack, stack_elem_t *f, uint32_t n)
 void init_smt2_tstack(tstack_t *stack) {
   init_tstack(stack, NUM_SMT2_OPCODES);
   tstack_set_avtbl(stack, __smt2_globals.avtbl);
+
+  tstack_add_op(stack, MK_BV_CONST, false, eval_smt2_mk_bv_const, check_smt2_mk_bv_const);
+  tstack_add_op(stack, MK_BV_ROTATE_LEFT, false, eval_smt2_mk_bv_rotate_left, check_smt2_mk_bv_rotate_left);
+  tstack_add_op(stack, MK_BV_ROTATE_RIGHT, false, eval_smt2_mk_bv_rotate_right, check_smt2_mk_bv_rotate_right);
+  tstack_add_op(stack, MK_BV_REPEAT, false, eval_smt2_mk_bv_repeat, check_smt2_mk_bv_repeat);
+  tstack_add_op(stack, MK_BV_SIGN_EXTEND, false, eval_smt2_mk_bv_sign_extend, check_smt2_mk_bv_sign_extend);
+  tstack_add_op(stack, MK_BV_ZERO_EXTEND, false, eval_smt2_mk_bv_zero_extend, check_smt2_mk_bv_zero_extend);
 
   tstack_add_op(stack, SMT2_EXIT, false, eval_smt2_exit, check_smt2_exit);
   tstack_add_op(stack, SMT2_SILENT_EXIT, false, eval_smt2_silent_exit, check_smt2_silent_exit);

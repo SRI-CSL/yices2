@@ -864,8 +864,6 @@ static void set_uint32_option(smt2_globals_t *g, const char *name, aval_t value,
 }
 
 
-
-
 /*
  * Set/change the output channel:
  * - name = keyword (should be :regular-output-channel
@@ -960,51 +958,101 @@ static void print_kw_uint32_pair(const char *keyword, uint32_t value) {
 
 
 /*
- * General case: val is an attribute value in g->avbtl
+ * Print attribute values
+ */
+static void print_aval(smt2_globals_t *g, aval_t val); 
+
+static void print_aval_list(smt2_globals_t *g, attr_list_t *d) {
+  uint32_t i, n;
+
+  n = d->nelems;
+  assert(n > 0);
+  print_out("(");
+  print_aval(g, d->data[0]);
+  for (i=1; i<n; i++) {
+    print_out(" ");
+    print_aval(g, d->data[i]);
+  }
+  print_out(")");
+}
+
+/*
+ * We can't use bvconst_print here because it uses prefix 0b
+ */
+static void print_aval_bv(smt2_globals_t *q, bvconst_attr_t *bv) {
+  uint32_t n;
+
+  n = bv->nbits;
+  assert(n > 0);
+  print_out("#b");
+  do {
+    n --;
+    print_out("%u", (unsigned) bvconst_tst_bit(bv->data, n));
+  } while (n > 0);
+}
+
+static void print_aval_rational(smt2_globals_t *g, rational_t *q) {
+  q_print(g->out, q);
+  if (ferror(g->out)) {
+    failed_output();
+  }
+}
+
+static void print_aval(smt2_globals_t *g, aval_t val) {
+  assert(good_aval(g->avtbl, val));
+  switch (aval_tag(g->avtbl, val)) {
+  case ATTR_RATIONAL:
+    print_aval_rational(g, aval_rational(g->avtbl, val));
+    break;
+
+  case ATTR_BV:
+    print_aval_bv(g, aval_bvconst(g->avtbl, val));
+    break;
+
+  case ATTR_STRING:
+    print_out("\"%s\"", aval_string(g->avtbl, val));
+    break;
+
+  case ATTR_SYMBOL:
+    print_out("%s", aval_symbol(g->avtbl, val));
+    break;
+
+  case ATTR_LIST:
+    print_aval_list(g, aval_list(g->avtbl, val));
+    break;
+
+  case ATTR_DELETED:
+    report_bug(g->err);
+    break;    
+  }
+}
+
+/*
+ * Print pair keyword/val
  */
 static void print_kw_value_pair(smt2_globals_t *g, const char *name, aval_t val) {
-  attr_vtbl_t *avtbl;
-  bvconst_attr_t *bv;
-
   if (val < 0) {
     print_out("(%s)\n", name);
   } else {
-    avtbl = g->avtbl;
-    switch (aval_tag(avtbl, val)) {
-    case ATTR_RATIONAL:
-      print_out("(%s ", name);
-      q_print(g->out, aval_rational(avtbl, val));
-      print_out(")\n");
-      break;
-
-    case ATTR_BV:
-      bv = aval_bvconst(avtbl, val);
-      print_out("(%s ", name);
-      bvconst_print(g->out, bv->data, bv->nbits);
-      print_out(")\n");
-      break;
-
-    case ATTR_STRING:
-      print_kw_string_pair(name, aval_string(avtbl, val));
-      break;
-
-    case ATTR_SYMBOL:
-      print_kw_symbol_pair(name, aval_symbol(avtbl, val));
-      break;
-
-    case ATTR_LIST:
-      // TBD
-      print_out("(%s (...))\n");
-      break;
-
-    case ATTR_DELETED:
-      report_bug(__smt2_globals.err);
-      break;
-    }
+    print_out("(%s ", name);
+    print_aval(g, val);
+    print_out(")\n");
   }
 }
 
 
+
+/*
+ * Check whether the logic is set
+ * - if not print an error
+ */
+static bool check_logic(void) {
+  if (__smt2_globals.logic_code == SMT_UNKNOWN) {
+    print_error("no logic set");
+    return false;
+  }
+  return true;
+}
 
 
 /*
@@ -1118,8 +1166,10 @@ void smt2_silent_exit(void) {
  * Show all formulas asserted so far
  */
 void smt2_get_assertions(void) {
-  print_out("get_assertions: unsupported\n");
-  flush_out();
+  if (check_logic()) {
+    print_out("get_assertions: unsupported\n");
+    flush_out();
+  }
 }
 
 
@@ -1128,8 +1178,10 @@ void smt2_get_assertions(void) {
  * (i.e., those that have a :named attribute)
  */
 void smt2_get_assignment(void) {
-  print_out("get_assignment: unsupported\n");  
-  flush_out();
+  if (check_logic()) {
+    print_out("get_assignment: unsupported\n");  
+    flush_out();
+  }
 }
 
 
@@ -1137,8 +1189,10 @@ void smt2_get_assignment(void) {
  * Show a proof when context is unsat
  */
 void smt2_get_proof(void) {
-  print_out("get_proof: unsupported\n");
-  flush_out();  
+  if (check_logic()) { 
+    print_out("get_proof: unsupported\n");
+    flush_out();
+  }
 }
 
 
@@ -1146,8 +1200,10 @@ void smt2_get_proof(void) {
  * Get the unsat core: subset of :named assertions that form an unsat core
  */
 void smt2_get_unsat_core(void) {
-  print_out("get_unsat_core: unsupported\n");  
-  flush_out();  
+  if (check_logic()) {
+    print_out("get_unsat_core: unsupported\n");  
+    flush_out();
+  }
 }
 
 
@@ -1157,8 +1213,10 @@ void smt2_get_unsat_core(void) {
  * - n = number of elements in the array
  */
 void smt2_get_value(term_t *a, uint32_t n) {
-  print_out("get_value: unsupported\n");  
-  flush_out();  
+  if (check_logic()) {
+    print_out("get_value: unsupported\n");  
+    flush_out();
+  }
 }
 
 
@@ -1418,8 +1476,10 @@ void smt2_set_logic(const char *name) {
  * - if n = 0, nothing should be done
  */
 void smt2_push(uint32_t n) {
-  print_out("push: unsupported\n");
-  flush_out();  
+  if (check_logic()) {
+    print_out("push: unsupported\n");
+    flush_out();
+  }
 }
 
 
@@ -1431,8 +1491,10 @@ void smt2_push(uint32_t n) {
  *   and nothing done
  */
 void smt2_pop(uint32_t n) {
-  print_out("pop: unsupported\n");
-  flush_out();
+  if (check_logic()) {
+    print_out("pop: unsupported\n");
+    flush_out();
+  }
 }
 
 
@@ -1441,8 +1503,10 @@ void smt2_pop(uint32_t n) {
  * - if t is a :named assertion then it should be recorded for unsat-core
  */
 void smt2_assert(term_t t) {
-  print_out("assert: unsupported\n");
-  flush_out();
+  if (check_logic()) {
+    print_out("assert: unsupported\n");
+    flush_out();
+  }
 }
 
 
@@ -1450,8 +1514,10 @@ void smt2_assert(term_t t) {
  * Check satsifiability of the current set of assertions
  */
 void smt2_check_sat(void) {
-  print_out("check_sat: unsupported\n");
-  flush_out();
+  if (check_logic()) {
+    print_out("check_sat: unsupported\n");
+    flush_out();
+  }
 }
 
 
@@ -1467,16 +1533,18 @@ void smt2_declare_sort(const char *name, uint32_t arity) {
   type_t tau;
   int32_t macro;
 
-  if (arity == 0) {
-    tau = yices_new_uninterpreted_type();
-    yices_set_type_name(tau, name);
-    report_success();
-  } else {
-    macro = yices_type_constructor(name, arity);
-    if (macro < 0) {
-      print_yices_error(true);
-    } else {
+  if (check_logic()) {
+    if (arity == 0) {
+      tau = yices_new_uninterpreted_type();
+      yices_set_type_name(tau, name);
       report_success();
+    } else {
+      macro = yices_type_constructor(name, arity);
+      if (macro < 0) {
+	print_yices_error(true);
+      } else {
+	report_success();
+      }
     }
   }
 
@@ -1493,11 +1561,13 @@ void smt2_declare_sort(const char *name, uint32_t arity) {
 void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body) {
   int32_t macro;
 
-  macro = yices_type_macro(name, n, var, body);
-  if (macro < 0) {
-    print_yices_error(true);
-  } else {
-    report_success();
+  if (check_logic()) {
+    macro = yices_type_macro(name, n, var, body);
+    if (macro < 0) {
+      print_yices_error(true);
+    } else {
+      report_success();
+    }
   }
 }
 
@@ -1514,20 +1584,23 @@ void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body) {
 void smt2_declare_fun(const char *name, uint32_t n, type_t *tau) {
   term_t t;
   type_t sigma;
-  
+
   assert(n > 0);
-  n --;
-  sigma = tau[n]; // range
-  if (n > 0) {
-    sigma = yices_function_type(n, tau, sigma);
+
+  if (check_logic()) {
+    n --;
+    sigma = tau[n]; // range
+    if (n > 0) {
+      sigma = yices_function_type(n, tau, sigma);
+    }
+    assert(sigma != NULL_TYPE);
+
+    t = yices_new_uninterpreted_term(sigma);
+    assert(t != NULL_TERM);
+    yices_set_term_name(t, name);
+
+    report_success();
   }
-  assert(sigma != NULL_TYPE);
-
-  t = yices_new_uninterpreted_term(sigma);
-  assert(t != NULL_TERM);
-  yices_set_term_name(t, name);
-
-  report_success();
 }
 
 
@@ -1545,22 +1618,24 @@ void smt2_declare_fun(const char *name, uint32_t n, type_t *tau) {
 void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, type_t tau) {
   term_t t;
 
-  if (! yices_check_term_type(body, tau)) {
-    print_yices_error(true);
-    return;
-  } 
-
-  t = body;
-  if (n > 0) {
-    t = yices_lambda(n, var, t);
-    if (t < 0) {
+  if (check_logic()) {
+    if (! yices_check_term_type(body, tau)) {
       print_yices_error(true);
       return;
     }
-  }
-  yices_set_term_name(t, name);
 
-  report_success();
+    t = body;
+    if (n > 0) {
+      t = yices_lambda(n, var, t);
+      if (t < 0) {
+	print_yices_error(true);
+	return;
+      }
+    }
+    yices_set_term_name(t, name);
+
+    report_success();
+  }
 }
 
 
