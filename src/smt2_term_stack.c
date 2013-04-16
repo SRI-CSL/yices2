@@ -1624,6 +1624,12 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_add_op(stack, MK_BV_REPEAT, false, eval_smt2_mk_bv_repeat, check_smt2_mk_bv_repeat);
   tstack_add_op(stack, MK_BV_SIGN_EXTEND, false, eval_smt2_mk_bv_sign_extend, check_smt2_mk_bv_sign_extend);
   tstack_add_op(stack, MK_BV_ZERO_EXTEND, false, eval_smt2_mk_bv_zero_extend, check_smt2_mk_bv_zero_extend);
+  tstack_add_op(stack, MK_IMPLIES, false, eval_smt2_mk_implies, check_smt2_mk_implies);
+  tstack_add_op(stack, MK_EQ, false, eval_smt2_mk_eq, check_smt2_mk_eq);
+  tstack_add_op(stack, MK_GE, false, eval_smt2_mk_ge, check_smt2_mk_ge);
+  tstack_add_op(stack, MK_GT, false, eval_smt2_mk_gt, check_smt2_mk_gt);
+  tstack_add_op(stack, MK_LE, false, eval_smt2_mk_le, check_smt2_mk_le);
+  tstack_add_op(stack, MK_LT, false, eval_smt2_mk_lt, check_smt2_mk_lt);
 
   tstack_add_op(stack, SMT2_EXIT, false, eval_smt2_exit, check_smt2_exit);
   tstack_add_op(stack, SMT2_SILENT_EXIT, false, eval_smt2_silent_exit, check_smt2_silent_exit);
