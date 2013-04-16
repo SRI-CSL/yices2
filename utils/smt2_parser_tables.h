@@ -68,6 +68,7 @@ enum actions {
   next_push_r0_push_t0_goto_s0,
   next_goto_c11d,
   symbol_next_push_c11f_goto_s0,
+  eval_next_goto_c11b,
   next_push_c12b_goto_t0,
   next_goto_r0,
   push_c12b_goto_t0,
@@ -249,7 +250,7 @@ static triple_t triples[] = {
   { c11d, SMT2_TK_SYMBOL, "symbol_next_push_c11f_goto_s0" },
   { c11d, DEFAULT_TOKEN, "error_symbol_expected" },
 
-  { c11f, SMT2_TK_RP, "next_goto_c11b" },
+  { c11f, SMT2_TK_RP, "eval_next_goto_c11b" },
   { c11f, DEFAULT_TOKEN, "error_rp_expected" },
 
   { c12, SMT2_TK_LP, "next_push_c12b_goto_t0" },

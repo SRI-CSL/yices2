@@ -72,7 +72,6 @@ static void __attribute__((noreturn)) failed_output(void) {
  */
 static void __attribute__((noreturn)) report_bug(FILE *f) {
   fprintf(f, "\n*************************************************************\n");
-  fprintf(f, "FATAL ERROR\n\n");
   fprintf(f, "Please report this bug to yices-bugs@csl.sri.com.\n");
   fprintf(f, "To help us diagnose this problem, please include the\n"
                   "following information in your bug report:\n\n");
@@ -645,6 +644,7 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   case TSTACK_INVALID_OP:
   case TSTACK_NEGATIVE_EXPONENT:
   default:
+    print_out("FATAL ERROR");
     close_error();
     report_bug(__smt2_globals.err);
     break;
@@ -1504,8 +1504,9 @@ void smt2_pop(uint32_t n) {
  */
 void smt2_assert(term_t t) {
   if (check_logic()) {
-    print_out("assert: unsupported\n");
-    flush_out();
+    // disabled this for testing on the SMT2 benchmarks
+    //    print_out("assert: unsupported\n");
+    //    flush_out();
   }
 }
 
@@ -1654,8 +1655,8 @@ void smt2_add_name(term_t t, const char *name) {
 
 /*
  * Add a :pattern attribute to term t
- * - the pattern is a term p
+ * - the pattern is an array p of n terms
  */
-void smt2_add_pattern(term_t t, term_t p) {
+void smt2_add_pattern(term_t t, term_t *p, uint32_t n) {
   // TBD
 }

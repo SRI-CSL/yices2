@@ -260,9 +260,12 @@ static stack_elem_t *tstack_get_topelem(tstack_t *stack) {
  * For all operators except BIND, DECLARE_VAR, and DECLARE_TYPE_VAR,
  * we also open a new scope in the arena. For BIND the arena scope
  * remains the one open by the enclosing LET. For DECLARE_VAR, it's
- * the one of the enclosing FORALL, EXISTS, LAMBDA. For DECLARE_TYPE_VAR,
- * it's also the one open by the enclosing operator (must be something
- * like SMT LIB 2's define-sort).
+ * the one of the enclosing FORALL, EXISTS, or LAMBDA. For
+ * DECLARE_TYPE_VAR, it's also the one open by the enclosing operator
+ * (must be something like SMT LIB 2's define-sort).
+ *
+ * NOTE: in SMT-LIB 2, we can have DECLARE_VAR inside a define-fun
+ * operation. 
  */
 void tstack_push_op(tstack_t *stack, int32_t op, loc_t *loc) {
   uint32_t i;
@@ -272,10 +275,7 @@ void tstack_push_op(tstack_t *stack, int32_t op, loc_t *loc) {
   if (op < 0 ||
       op >= stack->op_table.num_ops ||
       stack->op_table.check[op] == NULL ||
-      stack->op_table.eval[op] == NULL ||
-      (op == BIND && stack->top_op != LET) ||
-      (op == DECLARE_VAR && stack->top_op != MK_FORALL && 
-       stack->top_op != MK_EXISTS && stack->top_op != MK_LAMBDA)) {
+      stack->op_table.eval[op] == NULL) {
     bad_op_exception(stack, loc, op);
   }
 #endif

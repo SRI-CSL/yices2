@@ -384,9 +384,9 @@ extern void smt2_add_name(term_t t, const char *name);
 
 /*
  * Add a :pattern attribute to term t
- * - the pattern is a term p
+ * - the pattern is a an array p of n terms
  */
-extern void smt2_add_pattern(term_t t, term_t p);
+extern void smt2_add_pattern(term_t t, term_t *p, uint32_t n);
 
 
 

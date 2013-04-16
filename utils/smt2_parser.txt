@@ -570,7 +570,7 @@ c11a	     (			next; goto c11b
 c11b	     )			next; push r0; push t0; goto s0
 	     (			next; goto c11d
 c11d	     <symbol>		next; push c11f; goto s0
-c11f	     )			next; goto c11b
+c11f	     )			eval; next; goto c11b      (evaluate the variable declaration here)
 
 // after '(get-value'
 c12	     (			next; push c12b; goto t0

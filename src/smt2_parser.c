@@ -295,6 +295,12 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       state = s0;
       goto loop;
 
+    case eval_next_goto_c11b:
+      // evaluate the DECLARE_VAR
+      tstack_eval(tstack);
+      state = c11b;
+      goto loop;
+
     case next_push_c12b_goto_t0:
       parser_push_state(stack, c12b);
       state = t0;

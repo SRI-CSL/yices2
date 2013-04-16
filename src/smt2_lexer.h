@@ -9,6 +9,7 @@
 #ifndef __SMT2_LEXER_H
 #define __SMT2_LEXER_H
 
+#include <assert.h>
 #include <stdint.h>
 
 #include "lexer.h"
@@ -286,6 +287,15 @@ extern smt2_token_t next_smt2_token(lexer_t *lex);
 extern const char *smt2_token_to_string(smt2_token_t tk);
 extern const char *smt2_keyword_to_string(smt2_keyword_t kw);
 extern const char *smt2_symbol_to_string(smt2_symbol_t sym);
+
+
+/*
+ * Check whether s is a keyword: (i.e., non-empty string that stats with ':')
+ */
+static inline bool smt2_string_is_keyword(const char *s) {
+  assert(s != NULL);
+  return *s == ':';
+}
 
 
 /*

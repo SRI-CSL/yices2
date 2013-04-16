@@ -49,6 +49,11 @@ int main(int argc, char *argv[]) {
   init_smt2_tstack(&stack);
   init_parser(&parser, &lexer, &stack);
 
+  // non-interactive node: set print_success to false
+  if (!interactive) {
+    __smt2_globals.print_success = false;
+  }
+
   done = false;
   good = 0;
   bad = 0;

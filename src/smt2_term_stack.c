@@ -64,18 +64,34 @@ static aval_t get_aval(tstack_t *stack, stack_elem_t *e) {
 
 
 /*
+ * Check whether element e is an smt2_keyword
+ */
+static bool is_keyword(stack_elem_t *e) {
+  return e->tag == TAG_SYMBOL && smt2_string_is_keyword(e->val.symbol);
+}
+
+
+/*
  * Convert element e into an smt2_keyword 
- * - raise exception INTERNAL_ERROR if e is not a symbol
+ * - raise exception INTERNAL_ERROR if e is not a keyword
  */
 static smt2_keyword_t get_keyword(tstack_t *stack, stack_elem_t *e) {
   uint32_t len;
 
-  if (e->tag != TAG_SYMBOL) {
+  if (! is_keyword(e)) {
     raise_exception(stack, e, TSTACK_INTERNAL_ERROR);
   }
 
   len = strlen(e->val.symbol);
   return smt2_string_to_keyword(e->val.symbol, len);
+}
+
+
+/*
+ * Check whether t is a valid term
+ */
+static void check_term(tstack_t *stack, term_t t) {
+  if (t == NULL_TERM) report_yices_error(stack);
 }
 
 
@@ -231,6 +247,259 @@ static void check_smt2_mk_bv_zero_extend(tstack_t *stack, stack_elem_t *f, uint3
 static void eval_smt2_mk_bv_zero_extend(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   mk_bv_zero_extend_core(stack, f+1, f);
 }
+
+
+/*
+ * n-ary implies: convert (=> t1 .... t_{n-1} t_n) to
+ * (=> (and t1 ... t_{n-1}) t_n)
+ */
+static void check_smt2_mk_implies(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_IMPLIES);
+  check_size(stack, n >= 2);
+}
+
+static void eval_smt2_mk_implies(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t *arg, left, right, t;
+  uint32_t i;
+
+  if (i == 2) {
+    left = get_term(stack, f);
+    right = get_term(stack, f+1);
+  } else {
+    n --;
+    arg = get_aux_buffer(stack, n);
+    for (i=0; i<n; i++) {
+      arg[i] = get_term(stack, f+i);
+    }
+    left = yices_and(n, arg);
+    right = get_term(stack, f+n);
+  }
+  
+  t = yices_implies(left, right);
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
+}
+
+
+
+/*
+ * CHAINABLE OPERATORS
+ */
+
+/*
+ * smt_eq: can take more than two arguments;
+ * we rewrite [mk-eq t1 ... t_n] to (and (eq t1 t_n) .... (eq t_{n-1} t_n))
+ */
+static void check_smt2_mk_eq(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_EQ);
+  check_size(stack, n >= 2);
+}
+
+static void eval_smt2_mk_eq(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t *arg, last, first, t;
+  uint32_t i;
+
+  if (n == 2) {
+    first = get_term(stack, f);
+    last = get_term(stack, f+1);
+    t = yices_eq(first, last);
+  } else {
+    arg = get_aux_buffer(stack, n);
+    n --;
+    last = get_term(stack, f+n);
+    for (i=0; i<n; i++) {
+      t = yices_eq(get_term(stack, f+i), last);
+      check_term(stack, t);
+      arg[i] = t;
+    }
+    t = yices_and(n, arg);
+  }
+  check_term(stack, t);
+  
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
+}
+
+
+
+/*
+ * Arithmetic comparisions are all chainable.
+ * For example,  (< t1 t2 ... t_n) is (and (< t1 t2) (< t2 t3)  ... (< t_{n-1} t_n))
+ */
+
+// [mk-ge t1 .... t_n]
+static void check_smt2_mk_ge(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_GE);
+  check_size(stack, n >= 2);
+}
+
+// auxiliary function: build ge(f, f+1)
+static term_t mk_binary_ge(tstack_t *stack, stack_elem_t *f) {
+  arith_buffer_t *b;
+  term_t t;
+
+  b = tstack_get_abuffer(stack);
+  add_elem(stack, b, f);
+  sub_elem(stack, b, f+1);
+  t = arith_buffer_get_geq0_atom(b); // [f] - [f+1] >= 0
+  assert(t != NULL_TERM);
+
+  return t;
+}
+
+static void eval_smt2_mk_ge(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t *arg, t;
+  uint32_t i;
+
+  if (n == 2) {
+    t = mk_binary_ge(stack, f);
+  } else {
+    n --;
+    arg = get_aux_buffer(stack, n);
+    for (i=0; i<n; i++) {
+      arg[i] = mk_binary_ge(stack, f+i);
+    }
+    t = yices_and(n, arg);
+  }
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);  
+}
+
+
+// [mk-gt t1 ... t_n]
+static void check_smt2_mk_gt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_GT);
+  check_size(stack, n >= 2);
+}
+
+// auxiliary function: build ge(f, f+1)
+static term_t mk_binary_gt(tstack_t *stack, stack_elem_t *f) {
+  arith_buffer_t *b;
+  term_t t;
+
+  b = tstack_get_abuffer(stack);
+  add_elem(stack, b, f);
+  sub_elem(stack, b, f+1);
+  t = arith_buffer_get_gt0_atom(b); // [f] - [f+1] >= 0
+  assert(t != NULL_TERM);
+
+  return t;
+}
+
+static void eval_smt2_mk_gt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t *arg, t;
+  uint32_t i;
+
+  if (n == 2) {
+    t = mk_binary_gt(stack, f);
+  } else {
+    n --;
+    arg = get_aux_buffer(stack, n);
+    for (i=0; i<n; i++) {
+      arg[i] = mk_binary_gt(stack, f+i);
+    }
+    t = yices_and(n, arg);
+  }
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);  
+}
+
+
+
+// [mk-le t1 ... t_n]
+static void check_smt2_mk_le(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_LE);
+  check_size(stack, n >= 2);
+}
+
+// auxiliary function: build le(f, f+1)
+static term_t mk_binary_le(tstack_t *stack, stack_elem_t *f) {
+  arith_buffer_t *b;
+  term_t t;
+
+  b = tstack_get_abuffer(stack);
+  add_elem(stack, b, f);
+  sub_elem(stack, b, f+1);
+  t = arith_buffer_get_leq0_atom(b); // [f] - [f+1] >= 0
+  assert(t != NULL_TERM);
+
+  return t;
+}
+
+static void eval_smt2_mk_le(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t *arg, t;
+  uint32_t i;
+
+  if (n == 2) {
+    t = mk_binary_le(stack, f);
+  } else {
+    n --;
+    arg = get_aux_buffer(stack, n);
+    for (i=0; i<n; i++) {
+      arg[i] = mk_binary_le(stack, f+i);
+    }
+    t = yices_and(n, arg);
+  }
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);  
+}
+
+
+// [mk-lt t1 ... t_n]
+static void check_smt2_mk_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, MK_LT);
+  check_size(stack, n >= 2);
+}
+
+// auxiliary function: build ge(f, f+1)
+static term_t mk_binary_lt(tstack_t *stack, stack_elem_t *f) {
+  arith_buffer_t *b;
+  term_t t;
+
+  b = tstack_get_abuffer(stack);
+  add_elem(stack, b, f);
+  sub_elem(stack, b, f+1);
+  t = arith_buffer_get_lt0_atom(b); // [f] - [f+1] >= 0
+  assert(t != NULL_TERM);
+
+  return t;
+}
+
+static void eval_smt2_mk_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  term_t *arg, t;
+  uint32_t i;
+
+  if (n == 2) {
+    t = mk_binary_lt(stack, f);
+  } else {
+    n --;
+    arg = get_aux_buffer(stack, n);
+    for (i=0; i<n; i++) {
+      arg[i] = mk_binary_lt(stack, f+i);
+    }
+    t = yices_and(n, arg);
+  }
+  check_term(stack, t);
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);  
+}
+
+
+
+
+
+
+
+
 
 
 /*
@@ -667,7 +936,11 @@ static void eval_smt2_make_attr_list(tstack_t *stack, stack_elem_t *f, uint32_t 
 
 /*
  * [add-attributes <term> <keyword> <value> ... ]
- * - only attributes kept are :named and :pattern 
+ * - the attributes we care about are of the form 
+ *    :named <symbol>
+ *    :pattern <term> ... <term>
+ * - for future extensions, we also allow 
+ *    :keyword <optional-value> where <optional value> is not a keyword
  */
 static void check_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_ADD_ATTRIBUTES);  
@@ -676,7 +949,7 @@ static void check_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t
 
 // check whether f[i] is in the frame (i.e., i<n) and has tag == SYMBOL
 static void check_name(tstack_t *stack, stack_elem_t *f, uint32_t i, uint32_t n) {
-  if (i == n || f[i].tag != TAG_SYMBOL) {
+  if (f[i].tag != TAG_SYMBOL) {
     raise_exception(stack, f, SMT2_MISSING_NAME);
   }
 }
@@ -684,13 +957,17 @@ static void check_name(tstack_t *stack, stack_elem_t *f, uint32_t i, uint32_t n)
 // check whether f[i] is in the frame and is a term
 // return the term if so, raise an exception otherwise
 static term_t check_pattern(tstack_t *stack, stack_elem_t *f, uint32_t i, uint32_t n) {
-  if (i == n) raise_exception(stack, f, SMT2_MISSING_PATTERN);
+  if (i == n) {
+    raise_exception(stack, f, SMT2_MISSING_PATTERN);
+  }
   return get_term(stack, f+i);
 }
 
 static void eval_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t t, pattern;
-  uint32_t i;
+  term_t *plist;      // list of terms
+  uint32_t np;        // number of terms in the list
+  uint32_t i;  
 
   t = get_term(stack, f);
 
@@ -698,21 +975,32 @@ static void eval_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t 
   while (i<n) {
     switch (get_keyword(stack, f+i)) {
     case SMT2_KW_NAMED:
+      // expecting :named <symbol>
       i ++;
       check_name(stack, f, i, n);
       smt2_add_name(t, f[i].val.symbol);
+      i ++;
       break;
 
     case SMT2_KW_PATTERN:
+      // expecting :pattern <term> .... <term>
+      // (a non-empty list of terms)
       i ++;
-      pattern = check_pattern(stack, f, i, n);
-      smt2_add_pattern(t, pattern);
+      plist = get_aux_buffer(stack, n); // just make sure there's enough room
+      np = 0;
+      do {
+	pattern = check_pattern(stack, f, i, n);
+	plist[np] = pattern;
+	np ++;
+	i ++;
+      } while (i < n && !is_keyword(f + i));
+      smt2_add_pattern(t, plist, np);
       break;
 
     default:
       // ignore the attribute and skip the attribute value if there's one
       i ++;
-      if (i < n && f[i].tag != TAG_SYMBOL) {
+      if (i < n && !is_keyword(f + i)) {
 	i ++; 
       }
       break;
@@ -720,7 +1008,7 @@ static void eval_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t 
   }
 
   tstack_pop_frame(stack);
-  no_result(stack);
+  set_term_result(stack, t);
 }
 
 
@@ -1150,10 +1438,6 @@ void tstack_push_idx_term(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
 /*
  * ARRAY-THEORY
  */
-
-static void check_term(tstack_t *stack, term_t t) {
-  if (t == NULL_TERM) report_yices_error(stack);
-}
 
 /*
  * [mk-array <sort1> <sort2> ] --> turned to function from <sort1> to <sort2>
