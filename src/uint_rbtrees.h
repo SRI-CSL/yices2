@@ -7,7 +7,6 @@
 #define __UINT_RBTREES_H
 
 #include <stdint.h>
-#include <stdbool.h>
 #include <assert.h>
 
 #include "bitvectors.h"
