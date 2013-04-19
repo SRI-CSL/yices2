@@ -119,7 +119,7 @@ static const char * const smt2_symbol_string[NUM_SMT2_SYMBOLS] = {
   "<",                       // SMT2_SYM_LT
   ">=",                      // SMT2_SYM_GE
   ">",                       // SMT2_SYM_GT
-  "/",                       // SMT2_SYM_DIV
+  "div",                     // SMT2_SYM_DIV
   "mod",                     // SMT2_SYM_MOD
   "abs",                     // SMT2_SYM_ABS
   "to_real",                 // SMT2_SYM_TO_REAL
@@ -248,9 +248,9 @@ static void smt2_activate_arrays(void) {
 
 
 /*
- * Integer arithmetic (theory Ints)
+ * Integer difference logic
  */
-static void smt2_activate_ints(void) {
+static void smt2_activate_idl(void) {
   active_symbol[SMT2_SYM_INT] = true;
   active_symbol[SMT2_SYM_MINUS] = true;
   active_symbol[SMT2_SYM_PLUS] = true;
@@ -259,6 +259,14 @@ static void smt2_activate_ints(void) {
   active_symbol[SMT2_SYM_LT] = true;
   active_symbol[SMT2_SYM_GE] = true;
   active_symbol[SMT2_SYM_GT] = true;
+}
+
+
+/*
+ * Integer arithmetic (theory Ints)
+ */
+static void smt2_activate_ints(void) {
+  smt2_activate_idl();
   active_symbol[SMT2_SYM_DIV] = true;
   active_symbol[SMT2_SYM_MOD] = true;
   active_symbol[SMT2_SYM_ABS] = true;
@@ -383,9 +391,12 @@ void smt2_lexer_activate_logic(smt_logic_t logic) {
     break;
 
   case QF_IDL:
+  case QF_UFIDL:
+    smt2_activate_idl();
+    break;
+
   case QF_LIA:
   case QF_NIA:
-  case QF_UFIDL:
   case QF_UFLIA:
   case UFNIA:
     smt2_activate_ints();

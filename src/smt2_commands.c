@@ -553,6 +553,14 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "function application", // SMT2_INDEXED_APPLY
   "function application", // SMT2_SORTED_APPLY
   "function application", // SMT2_SORTED_INDEXED_APPLY
+  // operations not supported
+  "div",                  // SMT2_MK_DIV
+  "mod",                  // SMT2_MK_MOD
+  "abs",                  // SMT2_MK_ABS
+  "to_real",              // SMT2_MK_TO_REAL
+  "to_int",               // SMT2_MK_TO_INT
+  "is_int",               // SMT2_MK_IS_INT
+  "divisible",            // SMT2_MK_DIVISIBLE
 };
 
 

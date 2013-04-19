@@ -123,9 +123,17 @@ enum smt2_opcodes {
   SMT2_INDEXED_APPLY,                   // [indexed-apply <symbol> <numeral> ... <numeral> <term> ... <term>]
   SMT2_SORTED_APPLY,                    // [sorted-apply <symbol> <sort> <term> ... <term> ]
   SMT2_SORTED_INDEXED_APPLY,            // [sorted-indexed-apply <symbol> <numeral> ... <numeral> <sort> <term> ... <term> ]  
+  // not implemented yet
+  SMT2_MK_DIV,
+  SMT2_MK_MOD,
+  SMT2_MK_ABS,
+  SMT2_MK_TO_REAL,
+  SMT2_MK_TO_INT,
+  SMT2_MK_IS_INT,
+  SMT2_MK_DIVISIBLE,
 } smt2_opcodes_t;
 
-#define NUM_SMT2_OPCODES (SMT2_SORTED_INDEXED_APPLY+1)
+#define NUM_SMT2_OPCODES (SMT2_MK_DIVISIBLE+1)
 
 
 

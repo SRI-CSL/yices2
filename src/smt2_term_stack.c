@@ -1059,9 +1059,6 @@ typedef enum smt2_key {
  * - if key is KEY_TERM then map is a term id
  * - if key is KEY_UNKNOWN or KEY_ERROR_BV then map is ignored
  * - otherwise map is an opcode
- *
- * For operations that Yices does not yet support, we set map to -1
- * (independent of the key).
  */
 static const uint8_t smt2_key[NUM_SMT2_SYMBOLS] = {
   SMT2_KEY_TYPE,         // SMT2_SYM_BOOL
@@ -1163,13 +1160,13 @@ static const int32_t smt2_val[NUM_SMT2_SYMBOLS] = {
   MK_LT,                 // SMT2_SYM_LT
   MK_GE,                 // SMT2_SYM_GE
   MK_GT,                 // SMT2_SYM_GT
-  -1,                    // SMT2_SYM_DIV (integer division not supported)
-  -1,                    // SMT2_SYM_MOD 
-  -1,                    // SMT2_SYM_ABS
-  -1,                    // SMT2_SYM_TO_REAL (?? could use a NO_OP for that one)
-  -1,                    // SMT2_SYM_TO_INT
-  -1,                    // SMT2_SYM_IS_INT
-  -1,                    // SMT2_SYM_DIVISIBLE
+  SMT2_MK_DIV,           // SMT2_SYM_DIV (integer division not supported)
+  SMT2_MK_MOD,           // SMT2_SYM_MOD 
+  SMT2_MK_ABS,           // SMT2_SYM_ABS
+  SMT2_MK_TO_REAL,       // SMT2_SYM_TO_REAL (?? could use a NO_OP for that one)
+  SMT2_MK_TO_INT,        // SMT2_SYM_TO_INT
+  SMT2_MK_IS_INT,        // SMT2_SYM_IS_INT
+  SMT2_MK_DIVISIBLE,     // SMT2_SYM_DIVISIBLE
   MK_BV_CONST,           // SMT2_SYM_BV_CONSTANT ( for _bv<value> size)
   MK_BV_TYPE,            // SMT2_SYM_BITVEC
   MK_BV_CONCAT,          // SMT2_SYM_CONCAT
@@ -1436,6 +1433,17 @@ void tstack_push_idx_term(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
 
 
 /*
+ * PLACE-HOLDERS FOR UNSUPPORTED FUNCTIONS
+ */
+static void check_not_supported(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  raise_exception(stack, f, TSTACK_OP_NOT_IMPLEMENTED);
+}
+
+static void eval_not_supported(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+}
+
+
+/*
  * ARRAY-THEORY
  */
 
@@ -1664,4 +1672,12 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_add_op(stack, SMT2_INDEXED_APPLY, false, eval_smt2_indexed_apply, check_smt2_indexed_apply);
   tstack_add_op(stack, SMT2_SORTED_APPLY, false, eval_smt2_sorted_apply, check_smt2_sorted_apply);
   tstack_add_op(stack, SMT2_SORTED_INDEXED_APPLY, false, eval_smt2_sorted_indexed_apply, check_smt2_sorted_indexed_apply);
+
+  tstack_add_op(stack, SMT2_MK_DIV, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_MOD, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_ABS, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_TO_REAL, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_TO_INT, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_IS_INT, false, eval_not_supported, check_not_supported);
+  tstack_add_op(stack, SMT2_MK_DIVISIBLE, false, eval_not_supported, check_not_supported);
 }
