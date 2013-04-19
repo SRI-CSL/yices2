@@ -744,7 +744,7 @@ static void eval_smt2_push(tstack_t *stack, stack_elem_t *f, uint32_t n) {
  * [pop <number> ]
  */
 static void check_smt2_pop(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, SMT2_PUSH);
+  check_op(stack, SMT2_POP);
   check_size(stack, n == 1);
   check_tag(stack, f, TAG_RATIONAL);
 }
