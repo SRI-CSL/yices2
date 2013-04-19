@@ -262,7 +262,7 @@ static void eval_smt2_mk_implies(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t *arg, left, right, t;
   uint32_t i;
 
-  if (i == 2) {
+  if (n == 2) {
     left = get_term(stack, f);
     right = get_term(stack, f+1);
   } else {
