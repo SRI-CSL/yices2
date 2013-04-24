@@ -128,12 +128,14 @@ static inline uint32_t rba_buffer_num_terms(rba_buffer_t *b) {
   return b->nterms;
 }
 
+
 /*
  * Check whether b is zero
  */
 static inline bool rba_buffer_is_zero(rba_buffer_t *b) {
   return b->nterms == 0;
 }
+
 
 /*
  * Check whether b is constant
@@ -182,15 +184,14 @@ extern uint32_t rba_buffer_var_degree(rba_buffer_t *b, int32_t x);
 
 /*
  * Main term = maximal power product of b in the deg-lex ordering.
- * - b must be normalized and non zero
+ * - b must be non-zero
  */
 extern pprod_t *rba_buffer_main_term(rba_buffer_t *b);
 
 
 /*
  * Main monomial = monomial whose pp is the main term
- * - b must be normalized and non zero
- * - this returns the last element in b's monomial list
+ * - b must be non-zero
  */
 extern mono_t *rba_buffer_main_mono(rba_buffer_t *b);
 
@@ -203,7 +204,7 @@ extern mono_t *rba_buffer_get_mono(rba_buffer_t *b, pprod_t *r);
 
 
 /*
- * Copy the constant monomial of b
+ * Get the constant monomial of b
  * - return NULL if b does not have a constant monomial
  */
 extern mono_t *rba_buffer_get_constant_mono(rba_buffer_t *b);
