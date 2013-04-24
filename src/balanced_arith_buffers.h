@@ -67,6 +67,7 @@ typedef struct mono_s {
 // node = array of two indices
 typedef uint32_t rb_node_t[2];
 
+// important: rba_null must be 0
 enum {
   rba_null = 0,
 };

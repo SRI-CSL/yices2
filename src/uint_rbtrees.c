@@ -276,7 +276,6 @@ static void rbtree_balance(rbtree_t *tree, uint32_t p, uint32_t q) {
 uint32_t rbtree_get(rbtree_t *tree, uint32_t x, bool *new_node) {
   uint32_t k, i, p;
 
-
   assert(tree->stack.size == 0);
 
   // to force termination: store x in the null_node

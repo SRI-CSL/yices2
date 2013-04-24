@@ -165,6 +165,33 @@ static inline void mark_black(rba_buffer_t *b, uint32_t p) {
   clr_bit(b->isred, p);
 }
 
+// make p the same color as q
+static inline void copy_color(rba_buffer_t *b, uint32_t p, uint32_t q) {
+  assert(p < b->num_nodes && q < b->num_nodes);
+  assign_bit(b->isred, p, is_red(b, q));
+}
+
+
+
+/*
+ * Fix child links in p's parent after a rotation
+ * - p is now a child of q so p's parent must be updated to point to q
+ * - p's parent must be the last element of b->stack
+ */
+static void fix_parent(rba_buffer_t *b, uint32_t p, uint32_t q) {
+  uint32_t r;
+  uint32_t i;
+
+  r = ivector_last(&b->stack);
+  if (r == rba_null) {
+    assert(b->root == p);
+    b->root = q;
+  } else {
+    i = child_index(b, r, p);
+    b->child[r][i] = q;
+  }
+}
+
 
 /*
  * Balance the tree after adding a node
@@ -223,16 +250,7 @@ static void rba_balance_after_add(rba_buffer_t *b, uint32_t p, uint32_t q) {
        * and fix the colors: r becomes red, q becomes black
        */
       assert(b->child[r][i] == q);
-      p = ivector_pop2(&b->stack);
-      if (p == rba_null) {
-        assert(r == b->root);
-        b->root = q;
-      } else {
-        // p is r's parent
-        j = child_index(b, p, r);
-        assert(b->child[p][j] == r);
-        b->child[p][j] = q;   
-      }
+      fix_parent(b, r, q);
       b->child[r][i] = b->child[q][1-i];
       b->child[q][1-i] = r;
       mark_red(b, r);
@@ -244,6 +262,100 @@ static void rba_balance_after_add(rba_buffer_t *b, uint32_t p, uint32_t q) {
 }
 
 
+/*
+ * Balance the tree after deleting a black node
+ * - p = node that replaces the deleted node
+ * - q = parent of p
+ * - b->stack contains the path [null, root, ... r] where r is q's parent
+ */
+static void rba_balance_after_delete(rba_buffer_t *b, uint32_t p, uint32_t q) {
+  uint32_t r, s, t;
+  uint32_t i;
+
+  assert(is_parent_node(b, q, p) && is_black(b, b->root));
+
+ loop:
+  if (is_red(b, p)) {
+    mark_black(b, p);   // done
+  } else {
+    i = child_index(b, q, p);
+    r = sibling(b, q, p);
+
+    assert(is_black(b, p) && p == b->child[q][i] && r == b->child[q][1 - i]);
+
+    if (is_red(b, r)) {
+      // rotate and switch the colors of q and r
+      fix_parent(b, q, r);
+      b->child[q][1 - i] = b->child[r][i];
+      b->child[r][i] = q;
+      mark_black(b, r);
+      mark_red(b, q);
+
+      ivector_push(&b->stack, r); // r is now parent of q
+
+      // r := new sibling of p after the rotation
+      r = b->child[q][1 - i];
+    }
+
+    assert(is_black(b, r) && is_black(b, p) && 
+	   p == b->child[q][i] && r == b->child[q][1 - i]);
+
+    // three subcases depending on r's children
+    s = b->child[r][i];
+    t = b->child[r][1 - i];
+    if (is_black(b, s) && is_black(b, t)) {
+      // two black children: change r's color to red and move up
+      mark_red(b, r);
+      p = q;
+      q = ivector_pop2(&b->stack);
+      // q is either null if p is the root (then we're done)
+      // or q is p's parent and we loop
+      if (q != rba_null) {
+	assert(is_parent_node(b, q, p));
+	goto loop;
+      }
+
+    } else {
+      // at least one red child
+      if (is_black(b, t)) {
+	// rotate s and r
+	// change r's color to red
+	// change s's color to black
+	b->child[r][i] = b->child[s][1 - i];
+	b->child[s][1 - i] = r;
+	b->child[q][1 - i] = s;
+	mark_red(b, r);
+	mark_black(b, s);
+
+	t = r;
+	r = s;
+	s = b->child[r][i];
+      }
+
+      assert(is_black(b, p) && is_black(b, r) && is_red(b, t) && 
+	     p == b->child[q][i] && r == b->child[q][1 - i] &&
+	     s == b->child[r][i] && t == b->child[r][1 - i]);
+
+      // rotate r and q and change colors
+      // r takes the same color as q
+      // t becomes black
+      // q becomes black
+      fix_parent(b, q, r);
+      b->child[r][i] = q;
+      b->child[q][1 - i] = s;
+      copy_color(b, r, q);
+      mark_black(b, q);
+      mark_black(b, t);
+    }
+  }
+
+  assert(is_black(b, b->root));
+}
+
+
+/*
+ * BUFFER OPERATIONS
+ */
 
 /*
  * Initialize and finalize a monomial
@@ -400,6 +512,150 @@ void reset_rba_buffer(rba_buffer_t *b) {
   b->root = 0;
   b->free_list = 0;
 }
+
+
+
+/*
+ * NODE ADDITION AND DELETION
+ */
+
+/*
+ * Search for a monomial whose prod is equal to r
+ * - if there's one return its id and set new_node to false
+ * - if there isn't one, create a new node (with coeff = 0 and prod = r)
+ *   and set new_node to true.
+ *
+ * Side effects: 
+ * - if a new node is created, num_terms is incremented
+ * - if new_node is false, the path from the root to the returned
+ *   node p is stored in b->stack in the form
+ *     [rba_null, root, ...., q] where q is p's parent
+ */
+//static 
+uint32_t rba_get_node(rba_buffer_t *b, pprod_t *r, bool *new_node) {
+  uint32_t k, i, p;
+
+  ivector_reset(&b->stack);
+
+  // to force termination, store r in the null_node2
+  b->mono[0].prod = r;
+
+  k = 0; // otherwise GCC gives a warning
+
+  // invariant: p = parent of i (and we use rba_null as parent of the root)
+  p = rba_null;
+  i = b->root;
+  while (b->mono[i].prod != r) {
+    k = pprod_precedes(b->mono[i].prod, r);
+    // save p in the stack
+    ivector_push(&b->stack, p);
+    p = i;
+    i = b->child[i][k];
+  }
+
+  if (i == 0) {
+    // add a new node
+    *new_node = true;
+    i = rba_alloc_node(b);
+
+    b->nterms ++;
+
+    b->mono[i].prod = r;
+    assert(q_is_zero(&b->mono[i].coeff));
+    b->child[i][0] = rba_null;
+    b->child[1][1] = rba_null;
+
+    if (p == rba_null) {
+      // i becomes the root. make sure it is black
+      b->root = i;
+      mark_black(b, i);
+    } else {
+      // add i as child of p and balance the tree
+      assert(p < b->num_nodes && b->child[p][k] == rba_null);
+      b->child[p][k] = i;
+      mark_red(b, i);
+      rba_balance_after_add(b, i, p);
+    }
+  } else {
+    // node exists; save p on the stack
+    *new_node = false;
+    ivector_push(&b->stack, p);
+  }
+
+  assert(i > 0 && b->mono[i].prod == r);
+
+  return i;
+}
+
+
+
+/*
+ * Delete node i
+ * - mono[i].coeff must be zero
+ * - b->stack must contain the path from the root to i's parent
+ *   (as set by get_node: [null, root, ...., parent of i]
+ *
+ * Side effect:
+ * - decrement b->num_terms
+ */
+//static
+void rba_delete_node(rba_buffer_t *b, uint32_t i) {
+  uint32_t p, j, k;
+
+  assert(0 < i && i < b->num_nodes && q_is_zero(&b->mono[i].coeff));
+
+  b->nterms --;
+
+  if (b->child[i][0] != rba_null &&  b->child[i][1] != rba_null) {
+    /*
+     * i has two children: find the successor node of i = the node
+     * that will be deleted. Store the path to that leaf in b->stack
+     */
+    p = i;
+    j = b->child[p][1];
+    do {
+      ivector_push(&b->stack, p);
+      p = j;
+      j = b->child[j][0];
+    } while (j != rba_null);
+
+    assert(0 < p && p < b->num_nodes);
+
+    /*
+     * copy p's content into node i
+     * we can do a direct copy of b->node[p].coeff into b->node[i].coeff
+     * because b->mono[i].coeff is 1/0
+     */
+    b->mono[i].prod = b->mono[p].prod;
+    q_copy_and_clear(&b->mono[i].coeff, &b->mono[p].coeff);
+
+    i = p;
+  }
+
+  j = b->child[i][0] + b->child[i][1]; // child of i or rba_null if i has no children
+  assert(j == b->child[i][0] || j == b->child[i][1]);
+
+  p = ivector_pop2(&b->stack); // parent of i or null if i is the root
+
+  // we can free node i now
+  rba_free_node(b, i);
+
+  if (p == rba_null) {
+    assert(b->root = i);
+    b->root = j;
+    mark_black(b, j);
+  } else {
+    k = child_index(b, p, i);
+    b->child[p][k] = j;
+
+    // we've deleted i but the color flag is still good
+    if (is_black(b, i)) {
+      rba_balance_after_delete(b, j, p);
+    }
+  }
+}
+
+
 
 
 
