@@ -24,6 +24,7 @@ static inline uint32_t naive_ctz(uint32_t x) {
 }
 
 
+
 /*
  * Same thing for a 64bit number x
  */
@@ -37,6 +38,23 @@ static inline uint32_t naive_ctz64(uint64_t x) {
   while ((x & m) == 0) {
     i ++;
     m += m;
+  }
+  return i;
+}
+
+
+/*
+ * Number of leading 0 bits in x
+ */
+static inline uint32_t naive_clz(uint32_t x) {
+  uint32_t m, i;
+
+  assert(x != 0);
+  m = 0x80000000u;
+  i = 0;
+  while ((x & m) == 0) {
+    i ++;
+    m >>= 1;
   }
   return i;
 }
@@ -104,6 +122,27 @@ int main() {
   for (i=0; i<64; i++) {
     x = ((uint64_t) 1) << i;
     printf("__builtin_ctz64(%"PRIu64") = %"PRIu32"\n", x, ctz64(x));
+  }
+  printf("\n");
+
+  for (i=0; i<32; i++) {
+    n = 1<<i;
+    printf("naive_clz(%"PRIu32") = %"PRIu32"\n", n, naive_clz(n));
+  }
+  printf("\n");
+
+  for (i=0; i<32; i++) {
+    n = 1<<i;
+    printf("__builtin_clz(%"PRIu32") = %"PRIu32"\n", n, clz(n));
+  }
+  printf("\n");
+
+  printf("binlog(0) = %"PRIu32"\n", binlog(0));
+  printf("binlog(1) = %"PRIu32"\n", binlog(1));
+  for (i=1; i<32; i++) {
+    n = 1<<i;
+    printf("binlog(%"PRIu32") = %"PRIu32"\n", n, binlog(n));
+    printf("binlog(%"PRIu32") = %"PRIu32"\n", n+1, binlog(n+1));    
   }
   printf("\n");
 

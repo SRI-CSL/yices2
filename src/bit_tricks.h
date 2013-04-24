@@ -2,15 +2,18 @@
  * Low-level bit and bit-mask operations
  * -------------------------------------
  *
- * uint32_t ctz(uint32_t x):
+ * uint32_t ctz(uint32_t x): number of trailing zeros
  * - return the index (between 0 and 31) of the lowest-order bit 
- *   of x that's not 0
+ *   of x that's not 0 
  * - x must be nonzero
  *
  * uint32_t ctz64(uint64_t x):
  * - return the index (between 0 and 63) of the lowest-order bit
  *   of x that's not 0
  * - x must be nonzero
+ *
+ * uint32_t binlog(uint32_t x): return the smallest k such that 
+ * - x <= 2^k 
  *
  * uint32_t popcount32(uint32_t x):
  * uint32_t popcount64(uint64_t x):
@@ -36,6 +39,10 @@
  * __builtin_ctzl(unsigned long)
  * __builtin_ctzll(unsigned long long)
  *
+ * __builtin_clz(unsigned int)
+ * __builtin_clzl(unsigned long)
+ * __builtin_clzll(unsigned long long)
+ *
  * __builtin_popcount(unsigned int)
  * __builtin_popcountl(unsigned long)
  * __builtin_popcountll(unsigned long long)
@@ -52,49 +59,88 @@
  * and (unsigned long long) is at least 64bits
  */
 
+
+/*
+ * 32bit operations
+ */
+#if (UINT_MAX < UINT32_MAX)
+//#warning "bit_tricks: uint32_t is (unsigned long)"
+
 static inline uint32_t ctz(uint32_t x) {
   assert(x != 0);
-#if (UINT_MAX < UINT32_MAX)
-  //#warning "ctz: uint32_t is not (unsigned int)"
   return __builtin_ctzl(x);
-#else
-  return __builtin_ctz(x);
-#endif
 }
+
+static inline uint32_t clz(uint32_t x) {
+  assert(x != 0);
+  return __builtin_clzl(x);
+}
+
+static inline uint32_t popcount32(uint32_t x) {
+  return __builtin_popcountl(x);  
+}
+
+#else 
+//#warning "ctz: uint32_t is (unsigned int)"
+
+static inline uint32_t ctz(uint32_t x) {
+  assert(x != 0);
+  return __builtin_ctz(x);
+}
+
+static inline uint32_t clz(uint32_t x) {
+  assert(x != 0);
+  return __builtin_clz(x);
+}
+
+static inline uint32_t popcount32(uint32_t x) {
+  return __builtin_popcount(x);  
+}
+
+#endif
+
+
+/*
+ * 64bit operations
+ */
+#if (ULONG_MAX < UINT64_MAX)
+// #warning "bit_tricks: uint64_t is (unsigned long long)
 
 static inline uint32_t ctz64(uint64_t x) {
   assert(x != 0);
-#if (ULONG_MAX < UINT64_MAX) 
   return __builtin_ctzll(x);
-#else 
-  return __builtin_ctzl(x);
-#endif
 }
 
-
-static inline uint32_t popcount32(uint32_t x) {
-#if (UINT_MAX < UINT32_MAX)
-  //#warning "popcount32: uint32_t is not (unsigned int)"
-  return __builtin_popcountl(x);
-#else 
-  return __builtin_popcount(x);
-#endif
+static inline uint32_t clz64(uint64_t x) {
+  assert(x != 0);
+  return __builtin_clzll(x);
 }
-
 
 static inline uint32_t popcount64(uint64_t x) {
-#if (ULONG_MAX < UINT64_MAX)
-  //#warning "popcount64: uint64_t is not (unsigned long)"
   return __builtin_popcountll(x);
-#else
-  return __builtin_popcountl(x);
-#endif
 }
 
+#else 
+// #warning "bit_tricks: uint64_t is (unsigned long)
+
+static inline uint32_t ctz64(uint64_t x) {
+  assert(x != 0);
+  return __builtin_ctzl(x);
+}
+
+static inline uint32_t clz64(uint64_t x) {
+  assert(x != 0);
+  return __builtin_clzl(x);
+}
+
+static inline uint32_t popcount64(uint64_t x) {
+  return __builtin_popcountl(x);
+}
+
+#endif // 64bit versions
 
 
 #else 
-
 
 /*
  * Not GCC
@@ -126,6 +172,19 @@ static inline uint32_t ctz64(uint64_t x) {
   return i;
 }
 
+static inline uint32_t clz(uint32_t x) {
+  uint32_t m, i;
+
+  assert(x != 0);
+  m = 0x80000000u;
+  i = 0;
+  while ((x & m) == 0) {
+    i ++;
+    m >>= 1;
+  }
+  return i;
+}
+
 static inline uint32_t popcount32(uint32_t x) {
   uint32_t c;
 
@@ -151,6 +210,16 @@ static inline uint32_t popcount64(uint64_t x) {
 }
 
 #endif 
+
+
+static inline uint32_t binlog(uint32_t x) {
+  uint32_t k;
+
+  k = (x == 0) ? 31 : clz(x);
+  assert(k < 32);
+  return (x & (~0x80000000u >> k)) ? 32 - k : 31 - k;
+}
+
 
 
 #endif /* __BIT_TRICKS_H */

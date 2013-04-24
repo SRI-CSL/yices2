@@ -33,9 +33,9 @@
  *
  * The tree is represented using three arrasy:
  * - mono[i] = monomial for node i
- * - node[i] = pair of children: 
- *   node[i][0] = left child, node[i][1] = right child
- *   (if i is a leed node then left and right children are 0)
+ * - child[i] = pair of children: 
+ *   child[i][0] = left child, child[i][1] = right child
+ *   (if i is a leaf node then left and right children are 0)
  * - isred[i] = one bit: 1 means red node, 0 means black node
  *
  * Global data:
@@ -74,7 +74,7 @@ enum {
 // tree structure
 typedef struct rba_buffer_s {
   mono_t *mono;
-  rb_node_t *node;
+  rb_node_t *child;
   byte_t *isred;
   pprod_table_t *ptbl;
   ivector_t stack;
