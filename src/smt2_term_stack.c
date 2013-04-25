@@ -828,9 +828,9 @@ static void check_smt2_define_sort(tstack_t *stack, stack_elem_t *f, uint32_t n)
   check_op(stack, SMT2_DEFINE_SORT);
   check_size(stack, n >= 2);
   check_tag(stack, f, TAG_SYMBOL);
-  check_all_tags(stack, f+1, f+(n-1), TAG_TYPE_BINDING);
+  check_all_tags(stack, f + 1, f + (n-1), TAG_TYPE_BINDING);
   check_distinct_type_binding_names(stack, f+1, n-2);
-  check_tag(stack, f+(n-1), TAG_TYPE);
+  check_tag(stack, f + (n-1), TAG_TYPE);
 }
 
 static void eval_smt2_define_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -844,6 +844,7 @@ static void eval_smt2_define_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) 
   }
 
   smt2_define_sort(f[0].val.symbol, nvars, a, f[n-1].val.type);
+
   tstack_pop_frame(stack);
   no_result(stack);
 }

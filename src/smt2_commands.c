@@ -1571,11 +1571,16 @@ void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body) {
   int32_t macro;
 
   if (check_logic()) {
-    macro = yices_type_macro(name, n, var, body);
-    if (macro < 0) {
-      print_yices_error(true);
+    if (n == 0) {
+      yices_set_type_name(body, name);
+      report_success();      
     } else {
-      report_success();
+      macro = yices_type_macro(name, n, var, body);
+      if (macro < 0) {
+	print_yices_error(true);
+      } else {
+	report_success();
+      }
     }
   }
 }
