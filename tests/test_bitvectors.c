@@ -19,7 +19,7 @@ int main() {
   int32_t i;
 
   bv = allocate_bitvector(20);
-  printf("%p bv:\n", bv);
+  printf("initial 20bit bv (%p):\n", bv);
   display_bitvector(bv, 20);
   clear_bitvector(bv, 20);
   printf("all cleared:\n");
@@ -31,12 +31,12 @@ int main() {
   display_bitvector(bv, 20);
 
   bv = extend_bitvector(bv, 32);
-  printf("%p bv:\n", bv);
+  printf("extended to 32bits (%p):\n", bv);
   display_bitvector(bv, 32);
   for (i=20; i<32; i++) {
     set_bit(bv, i);
   }
-  printf("setting new bits:\n");
+  printf("setting bits 20 to 31:\n");
   display_bitvector(bv, 32);
 
   flip_bit(bv, 0);
@@ -51,7 +51,67 @@ int main() {
   printf("clearing bits 0, 10, 13:\n");
   display_bitvector(bv, 32);  
 
+  clear_bitvector(bv, 32);
+  printf("clearing all bits:\n");
+  display_bitvector(bv, 32);
+  printf("\n");
+
+  set_bitvector(bv, 32);
+  printf("setting all bits:\n");
+  display_bitvector(bv, 32);
+
+  for (i=0; i<32; i += 3) {
+    clr_bit(bv, i);
+  }
+  printf("cleared one in three bits:\n");
+  display_bitvector(bv, 32);
+
+  assign_bit(bv, 1, tst_bit(bv, 0));
+  printf("copied bit[0] to bit[1]:\n");
+  display_bitvector(bv, 32);
+  
+  assign_bit(bv, 5, tst_bit(bv, 4));
+  printf("copied bit[4] to bit[5]:\n");
+  display_bitvector(bv, 32);
+  
+  assign_bit(bv, 6, tst_bit(bv, 7));
+  printf("copied bit[7] to bit[6]:\n");
+  display_bitvector(bv, 32);
+  
+  assign_bit(bv, 30, tst_bit(bv, 27));
+  printf("copied bit[27] to bit[30]:\n");
+  display_bitvector(bv, 32);
+  printf("\n");
+
+  set_bitvector(bv, 32);
+  printf("setting all bits:\n");
+  display_bitvector(bv, 32);
+
+  for (i=0; i<32; i += 3) {
+    clr_bit(bv, i);
+  }
+  printf("cleared one in three bits:\n");
+  display_bitvector(bv, 32);
+
+  assign_bit_old(bv, 1, tst_bit(bv, 0));
+  printf("copied bit[0] to bit[1]:\n");
+  display_bitvector(bv, 32);
+  
+  assign_bit_old(bv, 5, tst_bit(bv, 4));
+  printf("copied bit[4] to bit[5]:\n");
+  display_bitvector(bv, 32);
+  
+  assign_bit_old(bv, 6, tst_bit(bv, 7));
+  printf("copied bit[7] to bit[6]:\n");
+  display_bitvector(bv, 32);
+  
+  assign_bit_old(bv, 30, tst_bit(bv, 27));
+  printf("copied bit[27] to bit[30]:\n");
+  display_bitvector(bv, 32);
+  
+
   delete_bitvector(bv);
+
 
   printf("\n**** 0-initialized vectors ****\n");
   bv = allocate_bitvector0(19);

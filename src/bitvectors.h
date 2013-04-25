@@ -123,7 +123,7 @@ static inline void clr_bit(byte_t *bv, uint32_t i) {
 /*
  * Assign bit i: to 1 if bit is true, to 0 otherwise
  */
-static inline void assign_bit(byte_t *bv, uint32_t i, bool bit) {
+static inline void assign_bit_old(byte_t *bv, uint32_t i, bool bit) {
   uint32_t j;
   byte_t mask;
 
@@ -135,6 +135,18 @@ static inline void assign_bit(byte_t *bv, uint32_t i, bool bit) {
     bv[j] &= ~mask;
   }
 }
+
+// variant: without if-then-else
+static inline void assign_bit(byte_t *bv, uint32_t i, bool bit) {
+  uint32_t j;
+  byte_t x, mask;
+
+  j = (i >> 3);
+  mask = 1 << (i & 0x7);
+  x = ((byte_t) bit) << (i & 0x7);
+  bv[j] ^= (bv[j] ^ x) & mask;
+}
+
 
 /*
  * Flip bit i

@@ -1933,11 +1933,7 @@ literal_t select_unassigned_literal(smt_core_t *s) {
 
   // if polarity[x] == 1 use pos_lit(x) otherwise use neg_lit(x)
  var_found:
-  if (tst_bit(s->polarity, x)) {
-    return pos_lit(x);
-  } else {
-    return neg_lit(x);
-  }
+  return mk_signed_lit(x, tst_bit(s->polarity, x));
 }
 
 

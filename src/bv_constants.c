@@ -340,7 +340,7 @@ void bvconst_flip_bit(uint32_t *bv, uint32_t i) {
   bv[j] ^= mask;  
 }
 
-void bvconst_assign_bit(uint32_t *bv, uint32_t i, bool bit) {
+void bvconst_assign_bit_old(uint32_t *bv, uint32_t i, bool bit) {
   uint32_t j, mask;
 
   j = i >> 5;
@@ -350,6 +350,15 @@ void bvconst_assign_bit(uint32_t *bv, uint32_t i, bool bit) {
   } else {
     bv[j] &= ~mask;
   }
+}
+
+void bvconst_assign_bit(uint32_t *bv, uint32_t i, bool bit) {
+  uint32_t j, mask, x;
+  
+  j = i >> 5;
+  mask = 1 << (i & 0x1f);
+  x = ((uint32_t) bit) << (i & 0x1f);
+  bv[j] ^= (bv[j] ^ x) & mask;
 }
 
 

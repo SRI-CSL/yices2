@@ -44,14 +44,172 @@ Menlo Park CA 94025 USA
 This manual is an introduction to the logic, language, and
 architecture of the Yices~2 SMT solver. Yices is developed in SRI
 International's Computer Science Laboratory and is distributed
-free-of-charge for personal use, under the terms of the Yices
-License~\ref{license}.  To discuss alternative license terms, please
-contact us at \texttt{fm-license@csl.sri.com}.
+free-of-charge for personal use, under the terms of the Yices License
+(reproduced in Chapter~\ref{license} of this manual).  To discuss
+alternative license terms, please contact us at
+\texttt{fm-license@csl.sri.com}.
 
-Yices can be downloaded at \url{http://yices.csl.sri.com}. The Yices
-website provides the latest release and information about Yices.
-For bug reports and questions about Yices, please contact us via
-the Yices mailing lists:
+\section{Installation}
+
+The latest version of Yices~2 can be downloaded at
+\url{http://yices.csl.sri.com/download-yices2.shtml}.  We provide
+precompiled binary distributions for the platforms and operating
+systems listed in Table~\ref{versions}. To download Yices~2, go to
+\url{http://yices.csl.sri.com/download-yices2.shtml} and select the
+distribution that you want to install. This will open a web page
+showing the license terms. If you agree to the terms, click on the
+``accept'' button to download a tarfile or zip file. Untar or unzip
+the file and follow the instructions in the included README file.
+
+
+\begin{table}
+\begin{center}
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{|l|l|}
+\hline
+\textbf{OS/Hardware} & \textbf{Notes} \\
+\hline
+\hline
+Linux (32 and 64bit)    & Requires Kernel 2.6.8 or more recent \\
+\hline
+Mac~OS~X (Intel 32 and 64bit) & Compatible with MacOS X 10.5 (Leopard) and more recent \\
+\hline
+Windows (32bits and 64bit) & Compatible with Windows XP, Vista, 7 and 8\\
+\hline
+Cygwin (32bit Intel)  &  \\
+\hline
+FreeBSD~9.0 (32 and 64bits) &  \\
+\hline
+Solaris~2.10 (Sparc 64bits)  & \\
+\hline
+\end{tabular}
+\end{center}
+\caption{Supported Platforms}
+\label{versions}
+\end{table}
+
+
+\section{Distribution Content}
+
+The distribution includes the Yices executables, the Yices library and
+header files, and examples and documentation.  The Yices library and
+header files allows you to use Yices via its API, as explained in
+Chapter~\ref{yices-api}.
+
+Three solvers are currently included in the distribution:
+\begin{itemize}
+\item \texttt{yices} is the main SMT solver. It can read and process input
+  given in Yices~2's specification language. This language is
+  explained in Chapter~\ref{yices-shell}.
+
+\item \texttt{yices-smt} is a solver for input in the SMT-LIB~1.2
+  notation~\cite{SMTLIB12:2006}.
+
+\item \texttt{yices-sat} is a Boolean satsifiability solver that can
+  read input in the DIMACS CNF format.
+\end{itemize}
+We are developing a new solver that will support the more recent
+SMT-LIB~2 notation, but this solver is not complete yet, and it is not
+included in the distribution.
+
+
+
+\section{Library Dependencies}
+
+Yices uses the GNU Multiple Precision Arithmetic Library (GMP). We
+recommend most people to download a Yices distribution that is
+statically linked against GMP. However, we also provide Yices builds
+that are linked dynamically againts GMP. To use such distributions,
+you have to install a compatible version of GMP on your
+machine. GMP-5.0.x or more recent should work. To see the exact GMP
+version used by Yices, check the README file. The GMP library can be
+installed using common package managers in most Linux
+distributions. It can also be built and installed from source. For more
+information, please visit the GMP website \url{http://gmplib.org}.
+
+
+\section{Supported Logics}
+
+The current Yices~2 release supports quantifier-free combinations of
+linear integer and real arithmetic, uninterpreted function, arrays,
+and bitvectors. Currently, Yices~2 supports all SMT-LIB logics that do
+not involve quantifiers or nonlinear arithmetic as summarized in
+Table~\ref{supported-logics}.  The meaning of the logics and theories
+in this table is explained at the SMT-LIB website
+(\url{http://www.smtlib.org}). In addition, Yices~2 support a more
+general set of array operations than required by SMT-LIB, and Yices~2
+has support for tuple and enumeration types, which are not part of
+SMT-LIB.
+
+\begin{table}
+\begin{center}
+\renewcommand{\arraystretch}{1}
+\begin{tabular}{|r|l|c|}
+\hline
+\textbf{Logic} & \textbf{Description} & \textbf{Supported} \\
+\hline
+\hline
+\texttt{AUFLIA} & Arrays, Linear Integer Arithmetic & no \\
+ & Quantifiers, Uninterpreted Functions & \\
+\hline
+\texttt{AUFLIRA} & Arrays, Mixed Linear Arithmetic & no \\
+ & Quantifiers, Uninterpreted Functions & \\
+\hline
+\texttt{AUFNIRA} & Arrays, Nonlinear Integer Arithmetic & no \\
+                &  Quantifiers, Uninterpreted Functions & \\
+\hline
+\texttt{LIA} & Linear Integer Arithmetic, Quantifiers & no \\
+\hline
+\texttt{LRA} & Linear Real Arithmetic, Quantifiers & no \\
+\hline
+\texttt{QF\_A} & Arrays (without extensionality) & yes \\
+\hline
+\texttt{QF\_AUFBV} & Arrays, Bitvectors & yes \\
+ & Uninterpreted Functions & \\
+\hline
+\texttt{QF\_AUFLIA} & Arrays, Linear Integer Arithmetic & yes \\
+ & Uninterpreted Functions & \\
+\hline
+\texttt{QF\_AX} & Arrays (with extensionality) & yes \\
+\hline
+\texttt{QF\_BV} & Bitvectors & yes \\
+\hline
+\texttt{QF\_IDL} & Integer Difference Logic  & yes \\
+\hline
+\texttt{QF\_LIA} & Linear Integer Arithmetic  & yes \\
+\hline
+\texttt{QF\_LIA} & Linear Real Arithmetic  & yes \\
+\hline
+\texttt{QF\_NIA} & Nonlinear Integer Arithmetic  & no \\
+\hline
+\texttt{QF\_RDL} & Real Difference Logic  & yes \\
+\hline
+\texttt{QF\_UF} & Uninterpreted Functions  & yes \\
+\hline
+\texttt{QF\_UFIDL} & Uninterpreted Functions, Integer Difference Logic & yes \\
+\hline
+\texttt{QF\_UFBV} & Uninterpreted Functions, Bitvectors & yes \\
+\hline
+\texttt{QF\_UFLIA} & Uninterpreted Functions, Linear Integer Arithmetic & yes \\
+\hline
+\texttt{QF\_UFLRA} & Uninterpreted Functions, Linear Real Arithmetic & yes \\
+\hline
+\texttt{QF\_UFNRA} & Uninterpreted Functions, Nonlinear Real Arithmetic & yes \\
+\hline
+\texttt{UFNIA} & Nonlinear Integer Arithmetic, Quantifiers & no \\
+ & Uninterpreted Functions & \\
+\hline
+\end{tabular}
+\end{center}
+\caption{Logics Supported by Yices~2}
+\label{supported-logics}
+\end{table}
+
+\section{Getting Help and Reporting Bugs}
+
+The Yices website provides the latest release and information about
+Yices.  For bug reports and questions about Yices, please contact us
+via the Yices mailing lists:
 \begin{itemize}
 \item To report a bug, send e-mail to \texttt{yices-bugs@csl.sri.com}.
 
@@ -75,6 +233,7 @@ constructs have been removed.
 
 
 \section{Type System}
+\label{type-system}
 
 Yices~2 has a few built-in types for primitive objects:
 \begin{itemize}
@@ -342,13 +501,13 @@ unsigned less than\\
 $\mathtt{bvugt}::((\mathtt{bv}\ n)\times (\mathtt{bv}\ n) \rightarrow \mathtt{bool}$ &
 unsigned greater than\\
 $\mathtt{bvsle}::((\mathtt{bv}\ n)\times (\mathtt{bv}\ n) \rightarrow \mathtt{bool}$ &
-unsigned less than or equal\\
+signed less than or equal\\
 $\mathtt{bvsge}::((\mathtt{bv}\ n)\times (\mathtt{bv}\ n) \rightarrow \mathtt{bool}$ &
-unsigned greater than or equal\\
+signed greater than or equal\\
 $\mathtt{bvslt}::((\mathtt{bv}\ n)\times (\mathtt{bv}\ n) \rightarrow \mathtt{bool}$ &
-unsigned less than\\
+signed less than\\
 $\mathtt{bvsgt}::((\mathtt{bv}\ n)\times (\mathtt{bv}\ n) \rightarrow \mathtt{bool}$ &
-unsigned greater than\\
+signed greater than\\
 \hline
 $\mathtt{bvand}::((\mathtt{bv}\ n)\times (\mathtt{bv}\ n) \rightarrow (\mathtt{bv}\ n))$ &
 bitwise and\\
@@ -622,8 +781,8 @@ Yices is invoked on an input file by typing
       yices [option] <filename>
 \end{verbatim}
 If no \texttt{<filename>} is given, \texttt{yices} will run in
-interactive mode and will read standard input. The following options
-are supported
+interactive mode and will read the standard input. The following
+options are supported
 \begin{description}
 \item[\texttt{--logic=<name>}] Select an SMT-LIB logic.\\[1mm]
   \texttt{<name>} must either be an SMT-LIB logic name such as
@@ -703,7 +862,6 @@ used.
 The syntax of the Yices input language is summarized in
 Figures~\ref{syntax:commands},~\ref{syntax:types},
 and~\ref{syntax:expressions}.
-
 
 
 \begin{figure}
@@ -883,6 +1041,59 @@ update & xor &  & \\
 \caption{Keywords and predefined symbols}
 \label{syntax:keywords}
 \end{table}
+
+
+\subsection{Declarations}
+
+\subsection{Types}
+
+The predefined types are \texttt{bool}, \texttt{int}, \texttt{real},
+and \texttt{(bitvector k)} where $k$ is a positive integer. For
+example a bit-vector variable \texttt{b} of 32 bits is declared using
+the command
+\begin{small}
+\begin{verbatim}
+   (define b::(bitvector 32))
+\end{verbatim}
+\end{small}
+The number of bits must be positive so \texttt{(bitvector 0)} is not a
+valid type.  There is also a hard-coded limit on the size of
+bitvectors that Yices can handle.
+
+\medskip
+
+A new uninterpreted type T can be introduced using the command
+\begin{small}
+\begin{verbatim}
+   (define-type T)
+\end{verbatim}
+\end{small}
+This command will succeed provided \texttt{T} is a fresh type name,
+that is, there is no existing type called \texttt{T}.  As explained in
+Section~\ref{type-system}, an uninterpreted type denotes a nonempty
+collection of objects. There is no cardinality constraint on
+\texttt{T}, except that \texttt{T} is not empty.
+
+\medskip
+
+A {\em scalar type} is defined by enumerating its elements. For example, 
+the following declaration
+\begin{small}
+\begin{verbatim}
+   (define-type P (scalar A B C))
+\end{verbatim}
+\end{small}
+defines a new scalar type called \texttt{P} that contains three
+distinct constants \texttt{A}, \texttt{B}, and \texttt{C}. Such a
+declaration is valud provided \texttt{P} is a fresh type name and 
+\texttt{A}, \texttt{B}, and \texttt{C} are all fresh term names.
+
+
+\subsection{Terms}
+
+\subsection{Commands}
+
+
 
 % 3) Types
 %    -----
@@ -1150,11 +1361,10 @@ update & xor &  & \\
 \label{yices-smt}
 
 Another tool included in the distribution can process input written in
-the SMT-LIB notation. This tool is called \texttt{yices-smt}
-(or \texttt{yices-smt.exe}). It is included in the \texttt{bin}
-directory.  Currently, this tool supports version~1.2 of
-SMT-LIB. Support for the more recent SMT-LIB~2 will be provided in
-future releases.
+the SMT-LIB notation. This tool is called \texttt{yices-smt} (or
+\texttt{yices-smt.exe}). It is included in the \texttt{bin} directory.
+Currently, this tool supports version~1.2 of SMT-LIB. Support for the
+more recent SMT-LIB~2 will be provided in future releases.
 
 
 \chapter{Yices API}
