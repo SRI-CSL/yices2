@@ -418,11 +418,18 @@ void declare_sort(const char *name, int params)
 
 void define_sort(const char *name, int ac, const char **av, type_t as)
 {
-    yyerror("FIXME -- define-sort not implemented");
-    if (yices_error_code()) {
-	yyerror("yices error:");
-	yices_print_error(stderr);
-	yices_clear_error(); }
+  if (!config) {
+    yyerror("no logic set");
+    return;
+  }
+  if (ac > 0) {
+    yyerror("FIXME -- parameterized define-sort not implemented");
+  }
+  yices_set_type_name(as, name);
+  if (yices_error_code()) {
+    yyerror("yices error:");
+    yices_print_error(stderr);
+    yices_clear_error(); }
 }
 
 void declare_fun(const char *name, int ac, type_t *av, type_t ret)
