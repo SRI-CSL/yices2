@@ -24,16 +24,25 @@
 #  -h --help: print a short help message
 #
 
-usage="Usage: $0 [OPTIONS] <directory>
-    or $0 [OPTIONS] here
+usage="Usage: $0 <directory>
+    or $0 here
 
-Installs Yices in the location specified by <directory> as follows:
+The fist form installs Yices in the location specified by <directory>.
+This copies binaries, libraries, and header files as follows:
+
    binaries      in <directory>/bin
    libraries     in <directory>/lib
    include files in <directory>/include
 
-If the second form is used, nothing is copied but symbolic links
-are created in ./lib.
+If the <directory> is not given, this script will attempt to install
+Yices in the default location, that is, in /usr/local. To use this
+option, you typically need 
+ 
+   sudo ./$0
+
+The second form install yices locally. The script will just create symbolic 
+links in the ./lib directory.
+
 
 OPTIONS:
   -h --help:  print this message
@@ -194,6 +203,7 @@ if test "$install_dir" != "/usr/local" ; then
      echo "Could not fix the install name" 
      echo "" 
      exit 1 ; }
+fi
 
 #
 # Create the symbolic link to lib/liyices.2.dylib
@@ -203,6 +213,5 @@ if test "$install_dir" != "/usr/local" ; then
     echo "Could not create symbolic link libyices.dylib"
     echo ""
     exit 1 ; }
-
 
 echo "Done"
