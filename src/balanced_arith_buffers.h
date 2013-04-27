@@ -118,6 +118,45 @@ extern void reset_rba_buffer(rba_buffer_t *b);
 
 
 
+/*
+ * LOW-LEVEL TREE OPERATIONS (EXPORTED FOR TESTING)
+ */
+
+/*
+ * Search for a node whose prod is equal to r
+ * - return its index or rba_null if there's no such node
+ */
+extern uint32_t rba_find_node(rba_buffer_t *b, pprod_t *r);
+
+/*
+ * Search for a monomial whose prod is equal to r
+ * - if there's one return its id and set new_node to false
+ * - if there isn't one, create a new node (with coeff = 0 and prod = r)
+ *   and set new_node to true.
+ *
+ * Side effects: 
+ * - if a new node is created, num_terms is incremented
+ * - if new_node is false, the path from the root to the returned
+ *   node p is stored in b->stack in the form
+ *     [rba_null, root, ...., q] where q is p's parent
+ */
+extern uint32_t rba_get_node(rba_buffer_t *b, pprod_t *r, bool *new_node);
+
+
+/*
+ * Delete node i
+ * - mono[i].coeff must be zero
+ * - b->stack must contain the path from the root to i's parent
+ *   (as set by get_node: [null, root, ...., parent of i]
+ *
+ * Side effect:
+ * - decrement b->num_terms
+ */
+extern void rba_delete_node(rba_buffer_t *b, uint32_t i);
+
+
+
+
 /*************
  *  QUERIES  *
  ************/

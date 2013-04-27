@@ -89,7 +89,7 @@ static inline uint32_t rba_smallest_idx(rba_buffer_t *b) {
  * Search for a node whose prod is equal to r
  * - return its index or rba_null if there's no such node
  */
-static uint32_t rba_find_node(rba_buffer_t *b, pprod_t *r) {
+uint32_t rba_find_node(rba_buffer_t *b, pprod_t *r) {
   uint32_t i, k;
 
   // to force termination: store r in the null node
@@ -563,7 +563,7 @@ uint32_t rba_get_node(rba_buffer_t *b, pprod_t *r, bool *new_node) {
     b->mono[i].prod = r;
     assert(q_is_zero(&b->mono[i].coeff));
     b->child[i][0] = rba_null;
-    b->child[1][1] = rba_null;
+    b->child[i][1] = rba_null;
 
     if (p == rba_null) {
       // i becomes the root. make sure it is black
