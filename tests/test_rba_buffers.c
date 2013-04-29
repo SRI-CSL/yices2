@@ -160,6 +160,28 @@ static void check_tree(rba_buffer_t *b) {
 }
 
 
+/*
+ * Full height: longest path from node x to a leag
+ */
+static uint32_t node_height(rba_buffer_t *b, uint32_t x) {
+  uint32_t i, j, hi, hj;
+
+  if (x == 0) return 0;
+  
+  i = b->child[x][0];
+  j = b->child[x][1];
+  hi = node_height(b, i);
+  hj = node_height(b, j);
+  if (hi > hj) {
+    return hi + 1;
+  } else {
+    return hj + 1;
+  }
+}
+
+static uint32_t tree_height(rba_buffer_t *b) {
+  return node_height(b, b->root);
+}
 
 /*
  * Test node addition: p = power_product to add
@@ -209,6 +231,41 @@ static void test_add(rba_buffer_t *b, pprod_t *p) {
 
 
 /*
+ * Test node removal: p = power_product to remove
+ */
+static void test_remove(rba_buffer_t *b, pprod_t *p) {
+  uint32_t i, j;
+  bool new_node;
+
+  if (p == empty_pp) {
+    printf("test remove: empty product\n");
+  } else {
+    printf("test remove: x%"PRId32"\n", var_of_pp(p));
+  }
+
+  i = rba_find_node(b, p);
+  if (i != 0) {
+    q_clear(&b->mono[i].coeff);
+    // get_node must be called first to setup b->stack
+    j = rba_get_node(b, p, &new_node);
+    if (j != i && new_node) {
+      printf("Error in test_removed: get_node failed\n");
+      fflush(stdout);
+      exit(1);
+    }
+    rba_delete_node(b, i);
+    j = rba_find_node(b, p);
+    if (j != 0) {
+      printf("Error in test_remove: removal failed\n");
+      fflush(stdout);
+      exit(1);
+    }
+
+    check_tree(b);
+  }  
+}
+
+/*
  * Array of power products
  */
 #define NUM_TESTS 100000
@@ -238,7 +295,7 @@ static void init_tests(void) {
 
 
 /*
- * Basic tests for now
+ * Tests: add and remove
  */
 static void run_tests(rba_buffer_t *b) {
   uint32_t i, h, n;
@@ -256,10 +313,45 @@ static void run_tests(rba_buffer_t *b) {
   printf("   num_terms = %"PRIu32"\n", b->nterms);
   printf("   root node = %"PRIu32"\n", b->root);
   if (is_balanced(b, b->root, &h)) {
-    printf("   height = %"PRIu32"\n", h);
+    printf("   b-height    = %"PRIu32"\n", h);
+    printf("   full height = %"PRIu32"\n", tree_height(b));
   } else {
     printf("   not balanced\n");
   }
+  printf("\n");
+
+  // remove half
+  n = NUM_TESTS/2;
+  for (i=0; i<n; i++) {
+    test_remove(b, test[i]);
+  }
+  printf("\nAfter %"PRIu32" removals\n", n);
+  printf("   num_nodes = %"PRIu32"\n", b->num_nodes);
+  printf("   num_terms = %"PRIu32"\n", b->nterms);
+  printf("   root node = %"PRIu32"\n", b->root);
+  if (is_balanced(b, b->root, &h)) {
+    printf("   b-height    = %"PRIu32"\n", h);
+    printf("   full height = %"PRIu32"\n", tree_height(b));
+  } else {
+    printf("   not balanced\n");
+  }
+
+  // add them back
+  for (i=0; i<n; i++) {
+    test_add(b, test[i]);
+  }
+  printf("\nAfter %"PRIu32" additions\n", n);
+  printf("   num_nodes = %"PRIu32"\n", b->num_nodes);
+  printf("   num_terms = %"PRIu32"\n", b->nterms);
+  printf("   root node = %"PRIu32"\n", b->root);
+  if (is_balanced(b, b->root, &h)) {
+    printf("   b-height    = %"PRIu32"\n", h);
+    printf("   full height = %"PRIu32"\n", tree_height(b));
+  } else {
+    printf("   not balanced\n");
+  }
+  printf("\n");
+
 
   // Try again after reset
   reset_rba_buffer(b);
@@ -275,7 +367,26 @@ static void run_tests(rba_buffer_t *b) {
   printf("   num_terms = %"PRIu32"\n", b->nterms);
   printf("   root node = %"PRIu32"\n", b->root);
   if (is_balanced(b, b->root, &h)) {
-    printf("   height = %"PRIu32"\n", h);
+    printf("   b-height    = %"PRIu32"\n", h);
+    printf("   full height = %"PRIu32"\n", tree_height(b));
+  } else {
+    printf("   not balanced\n");
+  }
+  printf("\n");
+
+  i = n;
+  while (i > 0) {
+    i --;
+    test_remove(b, test[i]);
+  }
+
+  printf("\nAfter %"PRIu32" removals\n", n);
+  printf("   num_nodes = %"PRIu32"\n", b->num_nodes);
+  printf("   num_terms = %"PRIu32"\n", b->nterms);
+  printf("   root node = %"PRIu32"\n", b->root);
+  if (is_balanced(b, b->root, &h)) {
+    printf("   b-height    = %"PRIu32"\n", h);
+    printf("   full height = %"PRIu32"\n", tree_height(b));
   } else {
     printf("   not balanced\n");
   }

@@ -637,9 +637,6 @@ void rba_delete_node(rba_buffer_t *b, uint32_t i) {
 
   p = ivector_pop2(&b->stack); // parent of i or null if i is the root
 
-  // we can free node i now
-  rba_free_node(b, i);
-
   if (p == rba_null) {
     assert(b->root = i);
     b->root = j;
@@ -648,11 +645,12 @@ void rba_delete_node(rba_buffer_t *b, uint32_t i) {
     k = child_index(b, p, i);
     b->child[p][k] = j;
 
-    // we've deleted i but the color flag is still good
     if (is_black(b, i)) {
       rba_balance_after_delete(b, j, p);
     }
   }
+
+  rba_free_node(b, i);
 }
 
 
