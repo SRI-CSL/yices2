@@ -177,10 +177,18 @@ static inline bool rba_buffer_is_zero(rba_buffer_t *b) {
 }
 
 
+
 /*
  * Check whether b is constant
  */
 extern bool rba_buffer_is_constant(rba_buffer_t *b);
+
+
+/*
+ * Check whether b is constant and nonzero
+ * - b must be normalized
+ */
+extern bool rba_buffer_is_nonzero(rba_buffer_t *b);
 
 
 /*

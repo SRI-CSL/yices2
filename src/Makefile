@@ -78,8 +78,8 @@ static_smt_distdir := $(BUILD)/static_smt_dist
 #
 base_src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c  \
 	      arith_buffer_terms.c arith_vartable.c attribute_values.c     \
-              balanced_arith_buffers.c backtrack_arrays.c bit_blaster.c    \
-              bit_expr.c bit_term_conversion.c bvarith_buffers.c           \
+              backtrack_arrays.c bit_blaster.c bit_expr.c                  \
+              bit_term_conversion.c bvarith_buffers.c                      \
               bvarith_buffer_terms.c bvarith64_buffers.c                   \
 	      bvarith64_buffer_terms.c bvlogic_buffers.c bv_atomtable.c    \
 	      bv_constants.c bv64_constants.c bvconst_hmap.c               \
@@ -128,17 +128,17 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c arith_buffers.c  \
 # + functions for printing/debugging
 # + old stuff not needed anymore (except for tests)
 #
-extra_src_c := arith_solver_codes.c bvsolver_printer.c command_line.c     \
-               context_printer.c dsolver_printer.c egraph_printer.c       \
-               egraph_eq_stats.c fun_solver_printer.c gates_printer.c     \
-               idl_fw_printer.c internalization_printer.c large_bvsets.c  \
-               memsize.c pair_hash_map.c pair_hash_sets.c                 \
-               rdl_fw_printer.c sat_solver.c simplex_printer.c            \
-               simplex_prop_table.c smt_core_exporter.c                   \
-               smt_core_printer.c smt_lexer.c smt_parser.c                \
-               smt2_commands.c smt2_lexer.c smt2_parser.c                 \
-               smt2_term_stack.c string_hash_map.c timeout.c union_find.c \
-               update_graph.c yices_help.c yices_reval.c
+extra_src_c := balanced_arith_buffers.c arith_solver_codes.c               \
+               bvsolver_printer.c command_line.c context_printer.c         \
+               dsolver_printer.c egraph_printer.c egraph_eq_stats.c        \
+               fun_solver_printer.c gates_printer.c idl_fw_printer.c       \
+               internalization_printer.c large_bvsets.c memsize.c          \
+               pair_hash_map.c pair_hash_sets.c rdl_fw_printer.c           \
+               rba_buffer_terms.c sat_solver.c simplex_printer.c           \
+               simplex_prop_table.c smt_core_exporter.c smt_core_printer.c \
+               smt_lexer.c smt_parser.c smt2_commands.c smt2_lexer.c       \
+               smt2_parser.c smt2_term_stack.c string_hash_map.c timeout.c \
+               union_find.c update_graph.c yices_help.c yices_reval.c
 
 src_c := $(base_src_c) $(extra_src_c)
 

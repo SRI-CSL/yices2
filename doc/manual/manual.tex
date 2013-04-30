@@ -5,17 +5,10 @@
 \usepackage{amsfonts,latexsym,amssymb}
 
 %%\usepackage{setspace}%\doublespacing
-\input{prelude}
+%% \input{prelude}
 \pagenumbering{roman} 
 \setcounter{page}{0} 
-\makeatletter
-\@ifundefined{pdfoutput}%
-{\usepackage[bookmarks=true,hyperindex=true]{hyperref}}%
-{%\usepackage[pdftex,dvipsnames,usenames]{color}%
-\usepackage[chapter]{tocbibind}%
-\usepackage[bookmarks=true,hyperindex=true,colorlinks=true,linkcolor=blue,citecolor=blue,backref=page,pagebackref=true,plainpages=false,pdfpagelabels]{hyperref}%
-}%
-\makeatother
+\usepackage[bookmarks=true,hyperindex=true,colorlinks=true,linkcolor=black,citecolor=blue]{hyperref}
 
 %% \renewcommand{\baselinestretch}{1.5}
 
@@ -49,16 +42,16 @@ free-of-charge for personal use, under  the terms of the Yices License
 alternative     license     terms,     please    contact     us     at
 \texttt{fm-license@csl.sri.com}.
 
-\section{Installation}
+\section{Download and Installation}
 
 The    latest   version    of   Yices~2    can   be    downloaded   at
 \url{http://yices.csl.sri.com/download-yices2.shtml}.     We   provide
-precompiled  binary  distributions  for  the platforms  and  operating
-systems  listed in  Table~\ref{versions}. To  download Yices~2,  go to
+binary distributions for the platforms and operating systems listed in
+Table~\ref{versions}.      To     download     Yices~2,      go     to
 \url{http://yices.csl.sri.com/download-yices2.shtml}  and  select  the
 distribution  that you  want to  install. This  will open  a  web page
 showing the  license terms. If  you agree to  the terms, click  on the
-``accept'' button  to download a tarfile  or zip file.  Untar or unzip
+``accept'' button to  download a tarfile or zip  file.  Untar or unzip
 the file and follow the instructions in the included README file.
 
 
@@ -89,7 +82,7 @@ Solaris~2.10 (Sparc 64bits)  & \\
 \end{table}
 
 
-\section{Distribution Content}
+\section{Wha'ts Included in the Distribution}
 
 The distribution includes the Yices executables, the Yices library and
 header files,  and examples and documentation.  The  Yices library and
@@ -105,7 +98,7 @@ Three solvers are currently included in the distribution:
 \item  \texttt{yices-smt} is  a solver  for input  in  the SMT-LIB~1.2
   notation~\cite{SMTLIB12:2006}.
 
-\item \texttt{yices-sat}  is a Boolean satsifiability  solver that can
+\item \texttt{yices-sat}  is a Boolean satisfiability  solver that can
   read input in the DIMACS CNF format.
 \end{itemize}
 We  are developing  a new  solver that  will support  the  more recent
@@ -119,7 +112,7 @@ included in the distribution.
 Yices  uses the GNU  Multiple Precision  Arithmetic Library  (GMP). We
 recommend  most  people  to  download  a Yices  distribution  that  is
 statically linked  against GMP. However, we also  provide Yices builds
-that are  linked dynamically againts  GMP. To use  such distributions,
+that are  linked dynamically against  GMP. To use  such distributions,
 you   have  to   install  a   compatible  version   of  GMP   on  your
 machine. GMP-5.0.x  or more recent should  work. To see  the exact GMP
 version used by  Yices, check the README file. The  GMP library can be
@@ -212,13 +205,14 @@ The Yices  website provides the  latest release and  information about
 Yices.  For bug  reports and questions about Yices,  please contact us
 via the Yices mailing lists:
 \begin{itemize}
+\item If you have questions about Yices usage or installation, 
+   send e-mail to \texttt{yices-help@csl.sri.com}.
+
 \item To report a bug, send e-mail to \texttt{yices-bugs@csl.sri.com}.
 
   Please include enough information in your bug report to enable us
   to reproduce the problem.
 
-\item If you have any questions about Yices usage or installation, 
-   send e-mail to \texttt{yices-help@csl.sri.com}.
 \end{itemize}
 
 
@@ -426,7 +420,7 @@ describe the  type-checking rules  for quantifiers here  since Yices~2
 does not have a solver for quantified formulas at this point.
 
 
-\section{Supported Theories}
+\section{Theories}
 
 In addition  to the generic operators presented  previously, the Yices
 language includes the standard arithmetic  operators and a rich set of
@@ -689,7 +683,7 @@ design and implementation of theory solvers.
 \label{yices-shell}
 
 The Yices~2 distribution includes  a tool for processing input written
-in  the Yices~2  language.  This  tool is  callled  \texttt{yices} (or
+in  the Yices~2  language.  This  tool is  called  \texttt{yices} (or
 \texttt{yices.exe}  in  the Windows  and  Cygwin distributions).   The
 syntax  and  the  set  of  commands supported  by  \texttt{yices}  are
 explained  in  the file  \texttt{doc/YICES-LANGUAGE}  included in  the
@@ -847,7 +841,7 @@ options are supported
     \texttt{push-pop}  mode,  but   with  a  different  behavior  when
     \texttt{(check)} is interrupted.
   \end{itemize}
-  In  the  first  two  modes, \texttt{yices}  employs  more  agressive
+  In  the  first  two  modes, \texttt{yices}  employs  more  aggressive
   simplifications when processing assertions;  this can lead to better
   performance on some problems.
 
@@ -1093,6 +1087,41 @@ update & xor &  & \\
 
 \subsection{Declarations}
 
+\subsubsection*{Type Declaration}
+
+A type declaration is a command of the following two forms.
+\begin{small}
+\begin{verbatim}
+   (detine-type <name>)
+   (define-type <name> <type>)
+\end{verbatim}
+\end{small}
+The fist form creates a new uninterpreted type called
+\texttt{<name>}. The second form gives a \texttt{<name>} to an
+existing \texttt{<type>}. After this definition, every occurrence of
+\texttt{<name>} refers to \texttt{<type>}. A variant of this second
+form is used to define scalar types. In these two commands,
+\texttt{<name>} must be a symbol that's not already used as a type
+name.
+
+
+\subsubsection*{Term Declaration}
+
+A term is declared using one for the following two commands.
+\begin{small}
+\begin{verbatim}
+   (define <name> :: <type>)
+   (define <name> :: <type> <term>)
+\end{verbatim}
+\end{small}
+The first form declares a new uninterpreted term of the given
+\texttt{<type>}.  The second form assigns a \texttt{<name>} to the
+given \texttt{<term>}, which must be of type \texttt{<type>}. The
+\texttt{<name>} must be a symbol that's not already used as a term
+name.
+
+Yices uses different name spaces for types and terms. It is then
+permitted to use the same name for a type and for a term.
 
 
 
@@ -1138,7 +1167,7 @@ following declaration
 \end{small}
 defines a  new scalar type  called \texttt{P} that contains  the three
 distinct  constants  \texttt{A}, \texttt{B},  and  \texttt{C}. Such  a
-declaration  is valud  provided \texttt{P}  is a  fresh type  name and
+declaration  is valid  provided \texttt{P}  is a  fresh type  name and
 \texttt{A}, \texttt{B}, and \texttt{C} are all fresh term names.
 
 \smallskip\noindent The enumeration must include at least one element,
@@ -1498,7 +1527,7 @@ website \url{http://yices.csl.sri.com/}.
 Before downloading and using Yices, you will be asked to agree to the
 Yices license terms reproduced below. SRI is open to distributing
 Yices under other agreements. Contact us
-at \texttt{fm-licencing@csl.sri.com} to discuss alternative licence
+at \texttt{fm-licensing@csl.sri.com} to discuss alternative license
 terms.
 
 \begin{footnotesize}
