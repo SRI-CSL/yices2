@@ -4,6 +4,7 @@
 
 #include "bit_tricks.h"
 #include "memalloc.h"
+#include "hash_functions.h"
 #include "balanced_arith_buffers.h"
 
 
@@ -15,7 +16,7 @@
  * When performing some operation f on the monomials stored in b, we
  * can either do a linear scan
  *
- *    for (i=0; i<b->num_nodes; i++) {
+ *    for (i=1; i<b->num_nodes; i++) {
  *      f(b->mono + i)
  *    }
  * 
@@ -26,10 +27,10 @@
  * Tree traversal has cost K * nterms * log(nterms) (approximately)
  * for some constant K>1.
  *
- * In most cases, the linear scan should be faster. But the recursive
- * scan will be faster if num_terms is really small compared to 
- * num_nodes. The following function is a heuristic that attempts to
- * determine when tree traversal is cheaper than linear scan.
+ * In most cases, the linear scan should be faster. We use a recursive
+ * scan if num_terms is really small compared to num_nodes. The
+ * following function is a heuristic that attempts to determine when
+ * tree traversal is cheaper than linear scan.
  */
 static bool rba_tree_is_small(rba_buffer_t *b) {
   uint32_t n, p;
@@ -870,7 +871,1207 @@ mono_t *rba_buffer_get_constant_mono(rba_buffer_t *b) {
   return p;
 }
 
+
+
 /*
- * Convert b to a polynomial then reset b
- * - v = array of variables
+ * Check whether monomial p occurs in b
+ * - i.e., b contains a monomial with same product and coefficient as m
+ * - m must have a non-zero coefficient
  */
+static bool rba_buffer_has_monomial(rba_buffer_t *b, mono_t *p) {
+  uint32_t i;
+
+  assert(q_is_nonzero(&p->coeff));
+  i = rba_find_node(b, p->prod);
+  return i != rba_null && q_eq(&p->coeff, &b->mono[i].coeff);
+}
+
+
+/*
+ * Check whether all monomials in b1's subtree rooted at x occur in b2
+ */
+static bool tree_eq(rba_buffer_t *b1, rba_buffer_t *b2, uint32_t x) {
+  uint32_t i, j;
+
+  assert(x < b1->num_nodes);
+
+  if (x == rba_null) return true;
+
+  i = b1->child[x][0];
+  j = b1->child[x][1];
+  return rba_buffer_has_monomial(b2, b1->mono + x) && tree_eq(b1, b2, i) && tree_eq(b1, b2, j);
+}
+
+
+/*
+ * Check equality:
+ * - b1 and b2 are two buffers with same number of terms
+ * - n = number of terms
+ */
+static bool rba_buffer_eq(rba_buffer_t *b1, rba_buffer_t *b2) {
+  rba_buffer_t *aux;
+  mono_t *p;
+  uint32_t n;
+
+  assert(b1->nterms == b2->nterms);
+
+  // swap if b1 has more nodes than b2
+  if (b1->num_nodes > b2->num_nodes) {
+    aux = b1; b1 = b2; b2 = aux;
+  }
+
+  if (rba_tree_is_small(b1)) {
+    return tree_eq(b1, b2, b1->root);
+  }
+   
+  p = b1->mono;
+  n = b1->num_nodes - 1;
+  while (n > 0) {
+    n --;
+    p ++;
+    if (q_is_nonzero(&p->coeff) && !rba_buffer_has_monomial(b2, p)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/*
+ * Check equality between b1 and b2
+ * - both must use the same product table
+ */
+bool rba_buffer_equal(rba_buffer_t *b1, rba_buffer_t *b2) {
+  assert(b1->ptbl == b2->ptbl);
+  return b1->nterms  == b2->nterms && rba_buffer_eq(b1, b2);
+}
+
+
+
+
+/*****************************
+ *  POLYNOMIAL CONSTRUCTION  *
+ ****************************/
+
+/*
+ * Set b to the constant 1
+ */
+void rba_buffer_set_one(rba_buffer_t *b) {
+  uint32_t i;
+
+  reset_rba_buffer(b);
+  assert(b->root == rba_null && b->nterms == 0);
+
+  i = rba_alloc_node(b);
+
+  b->mono[i].prod = empty_pp;
+  assert(q_is_zero(&b->mono[i].coeff));
+  q_set_one(&b->mono[i].coeff);
+  b->child[i][0] = rba_null;
+  b->child[i][1] = rba_null;
+
+  b->root = i;
+  mark_black(b, i);
+
+  b->nterms = 1;
+}
+
+
+/*
+ * Negate: multiply all coefficients by -1
+ */
+static void negate_tree(rba_buffer_t *b, uint32_t x) {
+  assert(x < b->num_nodes);
+  if (x != rba_null) {
+    q_neg(&b->mono[x].coeff);
+    negate_tree(b, b->child[x][0]);
+    negate_tree(b, b->child[x][1]);
+  }
+}
+
+void rba_buffer_negate(rba_buffer_t *b) {
+  uint32_t i, n;
+
+  if (rba_tree_is_small(b)) {
+    negate_tree(b, b->root);
+  } else {
+    n = b->num_nodes;
+    for (i=1; i<n; i++) {
+      // Not clear whether skipping zero coeff is faster
+      q_neg(&b->mono[i].coeff);
+    }
+  }
+}
+
+
+/*
+ * Multiply all coefficients by constant a
+ */
+// a must be non-zero here
+static void mul_const_tree(rba_buffer_t *b, rational_t *a, uint32_t x) {
+  assert(x < b->num_nodes);
+  if (x != rba_null) {
+    q_mul(&b->mono[x].coeff, a);
+    mul_const_tree(b, a, b->child[x][0]);
+    mul_const_tree(b, a, b->child[x][1]);
+  }
+}
+
+void rba_buffer_mul_const(rba_buffer_t *b, rational_t *a) {
+  uint32_t i, n;
+
+  if (q_is_zero(a)) {
+    reset_rba_buffer(b);
+  } else if (rba_tree_is_small(b)) {
+    mul_const_tree(b, a, b->root);
+  } else {
+    n = b->num_nodes;
+    for (i=1; i<n; i++) {
+      // Skip zero coeff? 
+      q_mul(&b->mono[i].coeff, a);
+    }
+  }
+}
+
+
+/*
+ * Divide all coefficients by a non-zero constant
+ */
+void rba_buffer_div_const(rba_buffer_t *b, rational_t *a) {
+  rational_t inv_a;
+  uint32_t i, n;
+
+  assert(q_is_nonzero(a));
+
+  if (rba_tree_is_small(b)) {
+    q_init(&inv_a);
+    q_set(&inv_a, a);
+    q_inv(&inv_a);
+    mul_const_tree(b, &inv_a, b->root);
+    q_clear(&inv_a);
+  } else {
+    n = b->num_nodes;
+    for (i=1; i<n; i++) {
+      // Skip zero coeff?
+      q_div(&b->mono[i].coeff, a);
+    }
+  }
+}
+
+
+/*
+ * Multiply by a power product r 
+ * - the monomial ordering is compatible with product:
+ *   p1 < p2 => r * p1 < r * p2
+ */
+static void mul_pp_tree(rba_buffer_t *b, pprod_t *r, uint32_t x) {
+  assert(x < b->num_nodes);
+
+  if (x != rba_null) {
+    b->mono[x].prod = pprod_mul(b->ptbl, b->mono[x].prod, r);
+    mul_pp_tree(b, r, b->child[x][0]);
+    mul_pp_tree(b, r, b->child[x][1]);
+  }
+}
+
+void rba_buffer_mul_pp(rba_buffer_t *b, pprod_t *r) {
+  pprod_table_t *tbl;
+  mono_t *p;
+  uint32_t n;
+
+  if (rba_tree_is_small(b)) {
+    mul_pp_tree(b, r, b->root);
+  } else {
+    tbl = b->ptbl;
+    p = b->mono;
+    n = b->num_nodes - 1;
+    while (n > 0) {
+      n --;
+      p ++;
+      if (q_is_nonzero(&p->coeff)) {
+	p->prod = pprod_mul(tbl, p->prod, r);
+      }
+    }
+  }
+}
+
+
+/*
+ * Multiply by (-1) * r
+ */
+static void mul_negpp_tree(rba_buffer_t *b, pprod_t *r, uint32_t x) {
+  assert(x < b->num_nodes);
+
+  if (x != rba_null) {
+    b->mono[x].prod = pprod_mul(b->ptbl, b->mono[x].prod, r);
+    q_neg(&b->mono[x].coeff);
+    mul_pp_tree(b, r, b->child[x][0]);
+    mul_pp_tree(b, r, b->child[x][1]);
+  }
+
+}
+
+void rba_buffer_mul_negpp(rba_buffer_t *b, pprod_t *r) {
+  pprod_table_t *tbl;
+  mono_t *p;
+  uint32_t n;
+
+  if (rba_tree_is_small(b)) {
+    mul_negpp_tree(b, r, b->root);
+  } else {
+    tbl = b->ptbl;
+    p = b->mono;
+    n = b->num_nodes - 1;
+    while (n > 0) {
+      n --;
+      p ++;
+      if (q_is_nonzero(&p->coeff)) {
+	p->prod = pprod_mul(tbl, p->prod, r);
+	q_neg(&p->coeff);
+      }
+    }
+  }
+}
+
+
+
+/*
+ * Multiply by a * r
+ */
+// a must be non-zero here
+static void mul_mono_tree(rba_buffer_t *b, rational_t *a, pprod_t *r, uint32_t x) {
+  assert(x < b->num_nodes);
+
+  if (x != rba_null) {
+    b->mono[x].prod = pprod_mul(b->ptbl, b->mono[x].prod, r);
+    q_mul(&b->mono[x].coeff, a);
+    mul_mono_tree(b, a, r, b->child[x][0]);
+    mul_mono_tree(b, a, r, b->child[x][1]);
+  }
+}
+
+void rba_buffer_mul_mono(rba_buffer_t *b, rational_t *a, pprod_t *r) {
+  pprod_table_t *tbl;
+  mono_t *p;
+  uint32_t n;
+
+  if (q_is_zero(a)) {
+    reset_rba_buffer(b);
+  } else if (rba_tree_is_small(b)) {
+    mul_mono_tree(b, a, r, b->root);
+  } else {
+    tbl = b->ptbl;
+    p = b->mono;
+    n = b->num_nodes - 1;
+    while (n > 0) {
+      n --;
+      p ++;
+      if (q_is_nonzero(&p->coeff)) {
+	p->prod = pprod_mul(tbl, p->prod, r);
+	q_mul(&p->coeff, a);
+      }
+    }
+  }
+}
+
+
+/*
+ * Add or subtract a * r when a is non-zero
+ */
+static void rba_add_mono(rba_buffer_t *b, rational_t *a, pprod_t *r) {
+  uint32_t i;
+  bool new_node;
+
+  assert(q_is_nonzero(a));
+
+  i = rba_get_node(b, r, &new_node);
+  assert(0 < i && i < b->num_nodes && b->mono[i].prod == r);
+  q_add(&b->mono[i].coeff, a);
+  if (!new_node && q_is_zero(&b->mono[i].coeff)) {
+    rba_delete_node(b, i);
+  }
+}
+
+static void rba_sub_mono(rba_buffer_t *b, rational_t *a, pprod_t *r) {
+  uint32_t i;
+  bool new_node;
+
+  assert(q_is_nonzero(a));
+
+  i = rba_get_node(b, r, &new_node);
+  assert(0 < i && i < b->num_nodes && b->mono[i].prod == r);
+  q_sub(&b->mono[i].coeff, a);
+  if (!new_node && q_is_zero(&b->mono[i].coeff)) {
+    rba_delete_node(b, i);
+  }
+}
+
+
+/*
+ * Add or subtract a * c * r 
+ * - a and c must be non-zero
+ */
+static void rba_addmul_mono(rba_buffer_t *b, rational_t *a, rational_t *c, pprod_t *r) {
+  uint32_t i;
+  bool new_node;
+
+  assert(q_is_nonzero(a) && q_is_nonzero(c));
+
+  i = rba_get_node(b, r, &new_node);
+  assert(0 < i && i < b->num_nodes && b->mono[i].prod == r);
+  q_addmul(&b->mono[i].coeff, a, c);
+  if (!new_node && q_is_zero(&b->mono[i].coeff)) {
+    rba_delete_node(b, i);
+  }
+}
+
+static void rba_submul_mono(rba_buffer_t *b, rational_t *a, rational_t *c, pprod_t *r) {
+  uint32_t i;
+  bool new_node;
+
+  assert(q_is_nonzero(a) && q_is_nonzero(c));
+
+  i = rba_get_node(b, r, &new_node);
+  assert(0 < i && i < b->num_nodes && b->mono[i].prod == r);
+  q_submul(&b->mono[i].coeff, a, c);
+  if (!new_node && q_is_zero(&b->mono[i].coeff)) {
+    rba_delete_node(b, i);
+  }
+}
+
+
+
+
+/*
+ * Add or subtract monomial a * r
+ */
+void rba_buffer_add_mono(rba_buffer_t *b, rational_t *a, pprod_t *r) {
+  if (q_is_nonzero(a)) {
+    rba_add_mono(b, a, r);
+  }
+}
+
+void rba_buffer_sub_mono(rba_buffer_t *b, rational_t *a, pprod_t *r) {
+  if (q_is_nonzero(a)) {
+    rba_sub_mono(b, a, r);
+  }
+}
+
+void rba_buffer_add_const(rba_buffer_t *b, rational_t *a) {
+  rba_buffer_add_mono(b, a, empty_pp);
+}
+
+void rba_buffer_sub_const(rba_buffer_t *b, rational_t *a) {
+  rba_buffer_sub_mono(b, a, empty_pp);
+}
+
+
+
+
+
+/*
+ * Add or subtract r
+ */
+void rba_buffer_add_pp(rba_buffer_t *b, pprod_t *r) {
+  uint32_t i;
+  bool new_node;
+
+  i = rba_get_node(b, r, &new_node);
+  assert(0 < i && i < b->num_nodes && b->mono[i].prod == r);
+  q_add_one(&b->mono[i].coeff);
+  if (!new_node && q_is_zero(&b->mono[i].coeff)) {
+    rba_delete_node(b, i);
+  }
+}
+
+void rba_buffer_sub_pp(rba_buffer_t *b, pprod_t *r) {
+  uint32_t i;
+  bool new_node;
+
+  i = rba_get_node(b, r, &new_node);
+  assert(0 < i && i < b->num_nodes && b->mono[i].prod == r);
+  q_sub_one(&b->mono[i].coeff);
+  if (!new_node && q_is_zero(&b->mono[i].coeff)) {
+    rba_delete_node(b, i);
+  }
+}
+
+
+/*
+ * Add b1 to b
+ * - the two buffers must have the same ptbl and must be distinct
+ * - b1 must be distinct from b
+ */
+static void add_buffer_tree(rba_buffer_t *b, rba_buffer_t *b1, uint32_t x) {
+  assert(x < b1->num_nodes);
+  if (x != rba_null) {
+    rba_add_mono(b, &b1->mono[x].coeff, b1->mono[x].prod);
+    add_buffer_tree(b, b1, b1->child[x][0]);
+    add_buffer_tree(b, b1, b1->child[x][1]);
+  }
+}
+
+void rba_buffer_add_buffer(rba_buffer_t *b, rba_buffer_t *b1) {
+  mono_t *p;
+  uint32_t n;
+
+  assert(b->ptbl == b1->ptbl && b != b1);
+  if (rba_tree_is_small(b1)) {
+    add_buffer_tree(b, b1, b1->root);
+  } else {
+    p = b1->mono;
+    n = b1->num_nodes - 1;
+    while (n > 0) {
+      n --;
+      p ++;
+      if (q_is_nonzero(&p->coeff)) {
+	rba_add_mono(b, &p->coeff, p->prod);
+      }
+    }
+  }
+}
+
+
+/*
+ * Subtract b1 from  b
+ * - the two buffers must have the same ptbl
+ * - b1 must be distinct from b
+ */
+static void sub_buffer_tree(rba_buffer_t *b, rba_buffer_t *b1, uint32_t x) {
+  assert(x < b1->num_nodes);
+  if (x != rba_null) {
+    rba_sub_mono(b, &b1->mono[x].coeff, b1->mono[x].prod);
+    sub_buffer_tree(b, b1, b1->child[x][0]);
+    sub_buffer_tree(b, b1, b1->child[x][1]);
+  }
+}
+
+void rba_buffer_sub_buffer(rba_buffer_t *b, rba_buffer_t *b1) {
+  mono_t *p;
+  uint32_t n;
+
+  assert(b->ptbl == b1->ptbl && b != b1);
+
+  if (rba_tree_is_small(b1)) {
+    sub_buffer_tree(b, b1, b1->root);
+  } else {
+    p = b1->mono;
+    n = b1->num_nodes;
+    while (n > 0) {
+      n --;
+      p ++;
+      if (q_is_nonzero(&p->coeff)) {
+	rba_sub_mono(b, &p->coeff, p->prod);
+      }
+    }
+  }
+}
+
+
+/*
+ * Add a * b1 to b
+ * - the two buffers must have the same ptbl
+ * - b1 must be distinct from b
+ */
+static void addmul_const_tree(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, uint32_t x) {
+  assert(x < b1->num_nodes);
+  if (x != rba_null) {
+    rba_addmul_mono(b, a, &b1->mono[x].coeff, b1->mono[x].prod);
+    addmul_const_tree(b, b1, a, b1->child[x][0]);
+    addmul_const_tree(b, b1, a, b1->child[x][1]);
+  }
+}
+
+void rba_add_const_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a) {
+  mono_t *p;
+  uint32_t n;
+
+  assert(b->ptbl == b1->ptbl && b != b1);
+
+  if (rba_tree_is_small(b1)) {
+    addmul_const_tree(b, b1, a, b1->root);
+  } else {
+    p = b1->mono;
+    n = b1->num_nodes - 1;
+    while (n > 0) {
+      n --;
+      p ++;
+      if (q_is_nonzero(&p->coeff)) {
+	rba_addmul_mono(b, a, &p->coeff, p->prod);
+      }
+    }
+  }
+}
+
+
+/*
+ * Subtract a * b1 from b
+ * - the two buffers must have the same ptbl
+ * - b1 must be distinct from b
+ */
+static void submul_const_tree(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, uint32_t x) {
+  assert(x < b1->num_nodes);
+  if (x != rba_null) {
+    rba_submul_mono(b, a, &b1->mono[x].coeff, b1->mono[x].prod);
+    submul_const_tree(b, b1, a, b1->child[x][0]);
+    submul_const_tree(b, b1, a, b1->child[x][1]);
+  }
+}
+
+void rba_sub_const_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a) {
+  mono_t *p;
+  uint32_t n;
+
+  assert(b->ptbl == b1->ptbl && b != b1);
+
+  if (rba_tree_is_small(b1)) {
+    submul_const_tree(b, b1, a, b1->root);
+  } else {
+    p = b1->mono;
+    n = b1->num_nodes - 1;
+    while (n > 0) {
+      n --;
+      p ++;
+      if (q_is_nonzero(&p->coeff)) {
+	rba_submul_mono(b, a, &p->coeff, p->prod);
+      }
+    }
+  }
+}
+
+
+
+/*
+ * Add r * b1 to b
+ * - b1 must be different from b
+ */
+static void addmul_pp_tree(rba_buffer_t *b, rba_buffer_t *b1, pprod_t *r, uint32_t x) {
+  pprod_t *q;
+
+  assert(x < b1->num_nodes);
+
+  if (x != rba_null) {
+    q = pprod_mul(b1->ptbl, r, b1->mono[x].prod);
+    rba_add_mono(b, &b1->mono[x].coeff, q);
+    addmul_pp_tree(b, b1, r, b1->child[x][0]);
+    addmul_pp_tree(b, b1, r, b1->child[x][1]);
+  }
+}
+
+void rba_buffer_add_pp_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, pprod_t *r) {
+  pprod_table_t *tbl;
+  mono_t *p;
+  pprod_t *q;
+  uint32_t n;
+
+  assert(b->ptbl == b1->ptbl && b != b1);
+
+  if (rba_tree_is_small(b1)) {
+    addmul_pp_tree(b, b1, r, b1->root);
+  } else {
+    tbl = b1->ptbl;
+    p = b1->mono;
+    n = b1->num_nodes - 1;
+    while (n > 0) {
+      n --;
+      p ++;
+      if (q_is_nonzero(&p->coeff)) {
+	q = pprod_mul(tbl, r, p->prod);
+	rba_add_mono(b, &p->coeff, q);
+      }
+    }
+  }
+}
+
+
+/*
+ * Add - r * b1 to b
+ * - b1 must be different from b
+ */
+static void submul_pp_tree(rba_buffer_t *b, rba_buffer_t *b1, pprod_t *r, uint32_t x) {
+  pprod_t *q;
+
+  assert(x < b1->num_nodes);
+
+  if (x != rba_null) {
+    q = pprod_mul(b1->ptbl, r, b1->mono[x].prod);
+    rba_sub_mono(b, &b1->mono[x].coeff, q);
+    submul_pp_tree(b, b1, r, b1->child[x][0]);
+    submul_pp_tree(b, b1, r, b1->child[x][1]);
+  }
+}
+
+void rba_buffer_sub_pp_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, pprod_t *r) {
+  pprod_table_t *tbl;
+  mono_t *p;
+  pprod_t *q;
+  uint32_t n;
+
+  assert(b->ptbl == b1->ptbl && b != b1);
+
+  if (rba_tree_is_small(b1)) {
+    submul_pp_tree(b, b1, r, b1->root);
+  } else {
+    tbl = b1->ptbl;
+    p = b1->mono;
+    n = b1->num_nodes - 1;
+    while (n > 0) {
+      n --;
+      p ++;
+      if (q_is_nonzero(&p->coeff)) {
+	q = pprod_mul(tbl, r, p->prod);
+	rba_sub_mono(b, &p->coeff, q);
+      }
+    }
+  }
+}
+
+
+/*
+ * Add a * r * b1 to b
+ * - b1 must be different from b
+ */
+static void addmul_mono_tree(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, pprod_t *r, uint32_t x) {
+  pprod_t *q;
+
+  assert(x < b1->num_nodes);
+
+  if (x != rba_null) {
+    q = pprod_mul(b1->ptbl, r, b1->mono[x].prod);
+    rba_addmul_mono(b, a, &b1->mono[x].coeff, q);
+    addmul_mono_tree(b, b1, a, r, b1->child[x][0]);
+    addmul_mono_tree(b, b1, a, r, b1->child[x][1]);
+  }
+}
+
+void rba_buffer_add_mono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, pprod_t *r) {
+  pprod_table_t *tbl;
+  mono_t *p;
+  pprod_t *q;
+  uint32_t n;
+  
+  assert(b->ptbl == b1->ptbl && b != b1);
+
+  if (q_is_nonzero(a)) {
+    if (rba_tree_is_small(b1)) {
+      addmul_mono_tree(b, b1, a, r, b1->root);
+    } else {
+      tbl = b1->ptbl;
+      p = b1->mono;
+      n = b1->num_nodes - 1;
+      while (n > 0) {
+	n --;
+	p ++;
+	if (q_is_nonzero(&p->coeff)) {
+	  q = pprod_mul(tbl, r, p->prod);
+	  rba_addmul_mono(b, a, &p->coeff, q);
+	}
+      }
+    }
+  }
+}
+
+
+/*
+ * Add -a * r * b1 to b
+ * - b1 must be different from b
+ */
+static void submul_mono_tree(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, pprod_t *r, uint32_t x) {
+  pprod_t *q;
+
+  assert(x < b1->num_nodes);
+
+  if (x != rba_null) {
+    q = pprod_mul(b1->ptbl, r, b1->mono[x].prod);
+    rba_submul_mono(b, a, &b1->mono[x].coeff, q);
+    submul_mono_tree(b, b1, a, r, b1->child[x][0]);
+    submul_mono_tree(b, b1, a, r, b1->child[x][1]);
+  }
+}
+
+void rba_buffer_sub_mono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, pprod_t *r) {
+  pprod_table_t *tbl;
+  mono_t *p;
+  pprod_t *q;
+  uint32_t n;
+
+  assert(b->ptbl == b1->ptbl && b != b1);
+
+  if (q_is_nonzero(a)) {
+    if (rba_tree_is_small(b1)) {
+      submul_mono_tree(b, b1, a, r, b1->root);
+    } else {
+      tbl = b1->ptbl;
+      p = b1->mono;
+      n = b1->num_nodes - 1;
+      while (n > 0) {
+	n --;
+	p ++;
+	if (q_is_nonzero(&p->coeff)) {
+	  q = pprod_mul(tbl, r, p->prod);
+	  rba_submul_mono(b, a, &p->coeff, q);
+	}
+      }
+    }
+  }
+}
+
+
+/*
+ * Add b1 * b2 to b
+ * - b1 and b2 must be distinct from b (but b1 may be equal to b2)
+ */
+static void rba_addmul_buffer_tree(rba_buffer_t *b, rba_buffer_t *b1, rba_buffer_t *b2, uint32_t x) {
+  assert(x < b2->num_nodes);
+
+  if (x != rba_null) {
+    // could use more efficient versions if coeff = +/-1 or prod = empty_pp?
+    rba_buffer_add_mono_times_buffer(b, b1, &b2->mono[x].coeff, b2->mono[x].prod);
+    rba_addmul_buffer_tree(b, b1, b2, b2->child[x][0]);
+    rba_addmul_buffer_tree(b, b1, b2, b2->child[x][1]);
+  }
+}
+
+void rba_buffer_add_buffer_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rba_buffer_t *b2) {
+  mono_t *p;
+  uint32_t n;
+
+  assert(b1->ptbl == b->ptbl && b2->ptbl == b->ptbl && b != b1 && b != b2);
+
+  if (rba_tree_is_small(b2)) {
+    rba_addmul_buffer_tree(b, b1, b2, b2->root);
+  } else {
+    p = b2->mono;
+    n = b2->num_nodes - 1;
+    while (n > 0) {
+      n --;
+      p ++;
+      if (q_is_nonzero(&p->coeff)) {
+	rba_buffer_add_mono_times_buffer(b, b1, &p->coeff, p->prod);
+      }
+    }
+  }
+}
+
+
+/*
+ * Add - b1 * b2 to b
+ * - b1 and b2 must be distinct from b (but b1 may be equal to b2)
+ */
+static void rba_submul_buffer_tree(rba_buffer_t *b, rba_buffer_t *b1, rba_buffer_t *b2, uint32_t x) {
+  assert(x < b2->num_nodes);
+
+  if (x != rba_null) {
+    // could use more efficient versions if coeff = +/-1 or prod = empty_pp?
+    rba_buffer_sub_mono_times_buffer(b, b1, &b2->mono[x].coeff, b2->mono[x].prod);
+    rba_submul_buffer_tree(b, b1, b2, b2->child[x][0]);
+    rba_submul_buffer_tree(b, b1, b2, b2->child[x][1]);
+  }
+}
+
+void rba_buffer_sub_buffer_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rba_buffer_t *b2) {
+  mono_t *p;
+  uint32_t n;
+
+  assert(b1->ptbl == b->ptbl && b2->ptbl == b->ptbl && b != b1 && b != b2);  
+
+  if (rba_tree_is_small(b2)) {
+    rba_submul_buffer_tree(b, b1, b2, b2->root);
+  } else {
+    p = b2->mono;
+    n = b2->num_nodes - 1;
+    while (n > 0) {
+      n --;
+      p ++;
+      if (q_is_nonzero(&p->coeff)) {
+	rba_buffer_sub_mono_times_buffer(b, b1, &p->coeff, p->prod);
+      }
+    }
+  }
+}
+
+
+
+/*
+ * Multiply b by b1
+ */
+void rba_buffer_mul_buffer(rba_buffer_t *b, rba_buffer_t *b1) {
+  rba_buffer_t aux;
+
+  assert(b->ptbl == b1->ptbl);
+
+  aux = *b;  // clone of b
+  init_rba_buffer(b, aux.ptbl);
+  rba_buffer_add_buffer_times_buffer(b, &aux, b1);
+  delete_rba_buffer(&aux);
+}
+
+
+/*
+ * Compute the square of b
+ */
+void rba_buffer_square(rba_buffer_t *b) {
+  rba_buffer_t aux;
+
+  aux = *b;
+  init_rba_buffer(b, aux.ptbl);
+  rba_buffer_add_buffer_times_buffer(b, &aux, &aux);
+  delete_rba_buffer(&aux);
+}
+
+
+
+
+
+
+/*************************************
+ *  OPERATIONS WITH MONOMIAL ARRAYS  *
+ ************************************/
+
+/*
+ * Add poly to buffer b
+ */
+void rba_buffer_add_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp) {
+  while (poly->var < max_idx) {
+    rba_add_mono(b, &poly->coeff, *pp);
+    poly ++;
+    pp ++;
+  }
+}
+
+
+/*
+ * Subtract poly from buffer b
+ */
+void rba_buffer_sub_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp) {
+  while (poly->var < max_idx) {
+    rba_sub_mono(b, &poly->coeff, *pp);
+    poly ++;
+    pp ++;
+  }
+}
+
+
+/*
+ * Add a * poly to buffer b
+ */
+void rba_buffer_add_const_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, rational_t *a) {
+  if (q_is_nonzero(a)) {
+    while (poly->var < max_idx) {
+      rba_addmul_mono(b, a, &poly->coeff, *pp);
+      poly ++;
+      pp ++;
+    }
+  }
+}
+
+
+/*
+ * Subtract a * poly from b
+ */
+void rba_buffer_sub_const_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, rational_t *a) {
+  if (q_is_nonzero(a)) {
+    while (poly->var < max_idx) {
+      rba_submul_mono(b, a, &poly->coeff, *pp);
+      poly ++;
+      pp ++;
+    }
+  }
+}
+
+
+/*
+ * Add a * r * poly to b
+ */
+void rba_buffer_add_mono_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, rational_t *a, pprod_t *r) {
+  pprod_table_t *tbl;
+  pprod_t *q;
+
+  if (q_is_nonzero(a)) {
+    tbl = b->ptbl;
+    while (poly->var < max_idx) {
+      q = pprod_mul(tbl, r, *pp);
+      rba_addmul_mono(b, a, &poly->coeff, q);
+      poly ++;
+      pp ++;
+    }
+  }
+}
+
+
+/*
+ * Add -a * r * poly to b
+ */
+void rba_buffer_sub_mono_times_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, rational_t *a, pprod_t *r) {
+  pprod_table_t *tbl;
+  pprod_t *q;
+
+  if (q_is_nonzero(a)) {
+    tbl = b->ptbl;
+    while (poly->var < max_idx) {
+      q = pprod_mul(tbl, r, *pp);
+      rba_submul_mono(b, a, &poly->coeff, q);
+      poly ++;
+      pp ++;
+    }
+  }
+}
+
+
+/*
+ * Multiply b by poly
+ */
+void rba_buffer_mul_monarray(rba_buffer_t *b, monomial_t *poly, pprod_t **pp) {
+  rba_buffer_t aux;
+
+  aux = *b;
+  init_rba_buffer(b, aux.ptbl);
+  while (poly->var < max_idx) {
+    rba_buffer_add_mono_times_buffer(b, &aux, &poly->coeff, *pp);
+    poly ++;
+    pp ++;
+  }
+  delete_rba_buffer(&aux);
+}
+
+
+/*
+ * Multiply b by  poly ^ d
+ * - pp = power products for the variables of poly
+ * - use aux as an auxiliary buffer (aux must be distinct from b)
+ * - store the result in b (normalized)
+ */
+void rba_buffer_mul_monarray_power(rba_buffer_t *b, monomial_t *poly, pprod_t **pp, uint32_t d, rba_buffer_t *aux) {
+  uint32_t i;
+
+  assert(b != aux && b->ptbl == aux->ptbl);
+
+  if (d <= 4) {
+    // small exponent: aux is not used
+    for (i=0; i<d; i++) {
+      rba_buffer_mul_monarray(b, poly, pp);
+    }
+  } else {
+    // larger exponent
+    reset_rba_buffer(aux);
+    rba_buffer_add_monarray(aux, poly, pp); // aux := poly
+    for (;;) {
+      /*
+       * loop invariant: b0 * p^d0 == b * aux^ d 
+       * with b0 = b on entry to the function
+       *      d0 = d on entry to the function
+       */
+      assert(d > 0);
+      if ((d & 1) != 0) {
+	rba_buffer_mul_buffer(b, aux); // b := b * aux
+      }
+      d >>= 1;                         // d := d/2
+      if (d == 0) break;
+      rba_buffer_square(aux);          // aux := aux^2
+    }
+  }
+}
+
+
+
+/*******************************************************************
+ *  SUPPORT FOR HASH CONSING AND CONVERSION TO POLYNOMIAL OBJECTS  *
+ ******************************************************************/
+
+/*
+ * The conversion of a buffer b to a polynomial object requires two steps:
+ * 1) convert all the power-products in b to integer indices.
+ *    This must map empty_pp to const_idx and end_pp to max_idx.
+ * 2) build a polynomial from the coefficients of b and the integer indices
+ *
+ * The operations below use a buffer b and an integer array v.
+ * The array v stores the conversion from power-products to integer indices:
+ * If b contains a_0 r_0 + ... + a_n r_n then v must have (n+2) elements
+ * and the integer index for power product r_i is v[i], and the last element
+ * of v must be max_idx.
+ *
+ * The pair (b, v) defines then a polynomial P(b, v) = a_1 v[1] + ... + a_n v[n],
+ */
+
+/*
+ * Store the subterm of P(b, v) rooted at x into polynomial p
+ * - i = number of terms to the left of subtree rooted at x
+ * - return i + number of terms in the subtree rooted at x
+ */
+static uint32_t rba_copy_tree(polynomial_t *p, rba_buffer_t *b, int32_t *v, uint32_t i, uint32_t x) {
+  assert(x < b->num_nodes);
+
+  if (x != rba_null) {
+    i = rba_copy_tree(p, b, v, i, b->child[x][0]);
+    assert(i < p->nterms);
+    p->mono[i].var = v[i];
+    q_copy_and_clear(&p->mono[i].coeff, &b->mono[x].coeff);
+    i = rba_copy_tree(p, b, v, i+1, b->child[x][1]);
+  }
+
+  return i;
+}
+
+
+/*
+ * Build P(b, v) (i.e., convert b to a polynomial then reset b).
+ * SIDE EFFECT: b is reset to the zero polynomial.
+ */
+#ifdef NDEBUG
+polynomial_t *rba_buffer_get_poly(rba_buffer_t *b, int32_t *v) {
+  polynomial_t *tmp;
+
+  tmp = alloc_raw_polynomial(b->nterms);
+  (void) rba_copy_tree(tmp, b, v, 0, b->root);
+
+  // reset b but don't call cleanup
+  b->num_nodes = 1;
+  b->nterms = 0;
+  b->root = 0;
+  b->free_list = 0;
+
+  return tmp;
+}
+
+#else
+
+/*
+ * Debugging enabled
+ */
+
+// check that all monomials are cleared 
+static bool rba_buffer_is_clean(rba_buffer_t *b) {
+  uint32_t i, n;
+
+  n = b->num_nodes;
+  for (i=1; i<n; i++) {
+    if (q_is_nonzero(&b->mono[i].coeff)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// same function with debugging
+polynomial_t *rba_buffer_get_poly(rba_buffer_t *b, int32_t *v) {
+  polynomial_t *tmp;
+  uint32_t n;
+
+  tmp = alloc_raw_polynomial(b->nterms);
+  n = rba_copy_tree(tmp, b, v, 0, b->root);
+  assert(n == b->nterms);
+
+  // reset b but don't call cleanup
+  assert(rba_buffer_is_clean(b));
+
+  b->num_nodes = 1;
+  b->nterms = 0;
+  b->root = 0;
+  b->free_list = 0;
+
+  return tmp;
+}
+
+
+#endif
+
+
+/*
+ * Hash code support: iterate the hash code computation
+ * through all nodes reachable from x (in monomial order)
+ * - *i = number of terms to the left of the subtree rooted at x
+ * - h = hash code for this subtree
+ * - update i: add the number of terms in the subtree rooted at x
+ */
+static uint32_t rba_hash_tree(rba_buffer_t *b, int32_t *v, uint32_t *i, uint32_t h, uint32_t x) {
+  uint32_t num, den, j;
+
+  assert(x < b->nterms);
+
+  if (x != rba_null) {
+    h = rba_hash_tree(b, v, i, h, b->child[x][0]); // left subtree
+
+    // apply hash for node x
+    q_hash_decompose(&b->mono[x].coeff, &num, &den);
+    j = *i;
+    assert(j < b->nterms);
+    h = jenkins_hash_triple(v[j], num, den, h);
+    *i = j+1;
+
+    h = rba_hash_tree(b, v, i, h, b->child[x][1]); // right subtree
+  }
+
+  return h;
+}
+
+
+/*
+ * Hash code for P(b, v). 
+ * This function is consistent with hash_polynomial defined in polynomials.c:
+ * If P(b, v) = p0 then hash_rba_buffer(b, v) = hash_polynomial(p0).
+ */
+uint32_t hash_rba_buffer(rba_buffer_t *b, int32_t *v) {
+  uint32_t h, n;
+  
+  n = 0;
+  h = rba_hash_tree(b, v, &n, HASH_POLY_SEED + b->nterms, b->root);
+  assert(n == b->nterms);
+  return h;
+}
+
+
+
+/*
+ * Check that the subtree rooted at x is equal to a segment of p 
+ * that start at *i:
+ * - if the subtree rooted at x has n nodes then this returns true
+ *   if the subtree is equal to p[j ... j+n-1] where j = *i
+ * - side effect: if the function returns true then *i is updated to j+n-1
+ */
+// aux function: check where p->mono[*i] is equal to the node x
+// if so increment *i
+static bool rba_equal_node(polynomial_t *p, rba_buffer_t *b, int32_t *v, uint32_t *i, uint32_t x) {
+  uint32_t j;
+
+  assert(0 < x && x < b->num_nodes && q_is_nonzero(&b->mono[x].coeff));
+
+  j = *i;
+  assert(j < p->nterms);
+
+  if (v[j] == p->mono[j].var && q_eq(&b->mono[x].coeff, &p->mono[j].coeff)) {
+    *i = j+1;
+    return true;
+  }
+
+  return false;
+}
+
+static bool rba_equal_tree(polynomial_t *p, rba_buffer_t *b, int32_t *v, uint32_t *i, uint32_t x) {
+  assert(x < b->nterms);
+  return (x == rba_null) || 
+    (rba_equal_tree(p, b, v, i, b->child[x][0]) && 
+     rba_equal_node(p, b, v, i, x) && rba_equal_tree(p, b, v, i, b->child[x][1]));
+}
+
+
+/*
+ * Check where P(b, v) is equal to p
+ */
+bool rba_buffer_equal_poly(rba_buffer_t *b, int32_t *v, polynomial_t *p) {
+  uint32_t n;
+  bool result;
+
+  result = false;
+  if (p->nterms == b->nterms) {
+    n = 0;
+    result = rba_equal_tree(p, b, v, &n, b->root);
+    assert(n == b->nterms);
+  }
+
+  return result;
+}
+
+
+
+
+

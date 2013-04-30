@@ -151,10 +151,70 @@ static bool tree_is_balanced(rba_buffer_t *b) {
 
 
 /*
+ * Check size
+ * - size of the tree must be equal to num_terms
+ * - size of the free list must be equak to num_nodes - num_terms - 1
+ */
+
+// size of subtree rooted at x
+static uint32_t subtree_size(rba_buffer_t *b, uint32_t x) {
+  uint32_t i, j;
+
+  if (x == 0) return 0; 
+  
+  i = b->child[x][0];
+  j = b->child[x][1];
+  return 1 + subtree_size(b, i) + subtree_size(b, j);
+}
+
+// size of the full tree
+static uint32_t tree_size(rba_buffer_t *b) {
+  return subtree_size(b, b->root);
+}
+
+// size of the free list
+static uint32_t free_list_size(rba_buffer_t *b) {
+  uint32_t n, i;
+
+  n = 0;
+  i = b->free_list;
+  while (i != 0) {
+    n ++;
+    i = b->child[i][0];
+  }
+
+  return n;
+}
+
+// check
+static bool check_sizes(rba_buffer_t *b) {
+  uint32_t s;
+ 
+  s = tree_size(b);
+  if (s != b->nterms) {
+    printf("invalid tree: size = %"PRIu32", nterms = %"PRIu32"\n", s, b->nterms);
+    fflush(stdout);
+    return false;
+  }
+
+  s = free_list_size(b);
+  if (s != b->num_nodes - b->nterms - 1) {
+    printf("invalid free list: size = %"PRIu32", should be %"PRIu32"\n",
+	   s, b->num_nodes - b->nterms - 1);
+    fflush(stdout);
+    return false;
+  }
+
+  return true;
+}
+
+
+/*
  * All checks
  */
 static void check_tree(rba_buffer_t *b) {
-  if (!tree_is_ordered(b) || !tree_is_well_colored(b) || !tree_is_balanced(b)) {    
+  if (!tree_is_ordered(b) || !tree_is_well_colored(b) || 
+      !tree_is_balanced(b) || !check_sizes(b)) {    
     exit(1);
   }  
 }
@@ -268,7 +328,7 @@ static void test_remove(rba_buffer_t *b, pprod_t *p) {
 /*
  * Array of power products
  */
-#define NUM_TESTS 100000
+#define NUM_TESTS 4000
 
 static pprod_t *test[NUM_TESTS];
 

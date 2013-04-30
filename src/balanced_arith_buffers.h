@@ -272,8 +272,9 @@ extern bool rba_buffer_equal(rba_buffer_t *b1, rba_buffer_t *b2);
  * r is a tagged variable, or r occurs in b->ptbl).
  *
  * Some operations use one or two other buffers b1 and b2.  In such
- * cases, b, b1, and b2 must all have the same power-product table.
- */
+ * cases, b, b1, and b2 must all have the same power-product table
+ * and the modified buffer b must be distinct from b1 and b2.
+ */ 
 
 /*
  * Set b to the constant 1
@@ -357,19 +358,21 @@ extern void rba_buffer_sub_mono(rba_buffer_t *b, rational_t *a, pprod_t *r);
 
 /*
  * Add b1 to b
+ * - b1 must be different from b
  */
 extern void rba_buffer_add_buffer(rba_buffer_t *b, rba_buffer_t *b1);
 
 
 /*
  * Add (-b1) to b
+ * - b1 must be different from b
  */
 extern void rba_buffer_sub_buffer(rba_buffer_t *b, rba_buffer_t *b1);
 
 
 /*
  * Multiply b by b1
- * - b1 must be different from b
+ * - b1 must be different form b
  */
 extern void rba_buffer_mul_buffer(rba_buffer_t *b, rba_buffer_t *b1);
 
@@ -382,35 +385,41 @@ extern void rba_buffer_square(rba_buffer_t *b);
 
 /*
  * Add a * b1 to b
+ * - b1 must be different from b
  */
 extern void rba_buffer_add_const_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a);
 
 
 /*
  * Add (-a) * b1 to b
+ * - b1 must be different from b
  */
 extern void rba_buffer_sub_const_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a);
 
 
 /*
  * Add r * b1 to b
+ * - b1 must be different from b
  */
 extern void rba_buffer_add_pp_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, pprod_t *r);
 
 
 /*
  * Add - r * b1 to b
+ * - b1 must be different from b
  */
 extern void rba_buffer_sub_pp_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, pprod_t *r);
 
 
 /*
  * Add a * r * b1 to b
+ * - b1 must be different from b
  */
 extern void rba_buffer_add_mono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, pprod_t *r);
 
 /*
  * Add -a * r * b1 to b
+ * - b1 must be different from b
  */
 extern void rba_buffer_sub_mono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_t *a, pprod_t *r);
 
