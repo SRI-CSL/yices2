@@ -37,6 +37,17 @@ include $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
 
 
 #
+# ldconfig is used by the install rules.
+# We don't check for ldconfig in configure.ac (since that doesn't
+# make much sense). We use /sbin/ldconfig as default here. If that's
+# wrong, change it on the command line:
+#
+#   make install LDCONFIG=...
+#
+LDCONFIG= /sbin/ldconfig
+
+
+#
 # Source directories
 #
 srcdir = src
@@ -418,20 +429,17 @@ install-default: $(build_dir) $(dist_dir)
 	$(INSTALL) $(dist_dir)/lib/* $(libdir)
 
 install-darwin: install-default
-	ln -sf libyices.$(MAJOR).dylib $(libdir)/libyices.dylib
+	(cd $(libdir) && $(LN_S) -f libyices.$(MAJOR).dylib libyices.dylib)
 
 install-solaris: install-default
-	/sbin/ldconfig -n $(libdir)
-	ln -sf libyices.so.$(YICES_VERSION) $(libdir)/libyices.so
+	$(LDCONFIG) -n $(libdir) && (cd $(libdir) && $(LN_S) -f libyices.so.$(YICES_VERSION) libyices.so)
 
 install-linux install-unix: install-default
-	/sbin/ldconfig -n $(libdir)
-	ln -sf libyices.so.$(YICES_VERSION) $(libdir)/libyices.so
+	$(LDCONFIG) -n $(libdir) && (cd $(libdir) && $(LN_S) -f libyices.so.$(YICES_VERSION) libyices.so)
 
 # on FreeBSD: the library file is libyices.so.X.Y and lconfig does not take -n
 install-freebsd: install-default
-	/sbin/ldconfig -m $(libdir)
-	ln -sf libyices.so.$(MAJOR).$(MINOR) $(libdir)/libyices.so
+	$(LDCONFIG) -m $(libdir) && (cd $(libdir) && $(LN_S) -f libyices.so.$(MAJOR).$(MINOR) libyices.so)
 
 
 #
