@@ -374,6 +374,12 @@ void set_logic(const char *name)
     yices_set_config(config, "mode", "one-shot");
     context = yices_new_context(config);
     yices_context_enable_option(context, "flatten");    // BD: Force flattening
+
+    // more preprocessing options for UF
+    if (strcmp(name, "QF_UF") == 0) {
+      yices_context_enable_option(context, "break-symmetries");
+      yices_context_enable_option(context, "learn-eq");
+    }
   }  
 
   if (yices_error_code()) {
@@ -562,7 +568,7 @@ void check_sat()
   // print the internalization vectors
   //  pp_context(stderr, context);
 
-  smt_status_t rv = yices_check_context(context, 0);
+  smt_status_t rv = yices_check_context(context, NULL);
   //    smt_status_t rv = STATUS_UNKNOWN; // to benchmark parsing/internalization
   switch(rv) {
   case STATUS_SAT:

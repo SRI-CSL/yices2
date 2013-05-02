@@ -1010,7 +1010,6 @@ static inline bool in_real_class(context_t *ctx, term_t t) {
  * PREPROCESSING/ANALYSIS AFTER FLATTENING/VARIABLE ELIMINATIONS
  */
 
-
 /*
  * Attempt to learn global equalities implied 
  * by the formulas stored in ctx->top_formulas.
@@ -1484,6 +1483,12 @@ static inline bool context_supports_cleaninterrupt(context_t *ctx) {
 }
 
 
+/*
+ * Read the mode flag
+ */
+static inline context_mode_t context_get_mode(context_t *ctx) {
+  return ctx->mode;
+}
 
 
 

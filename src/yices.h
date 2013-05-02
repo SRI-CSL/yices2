@@ -1920,12 +1920,20 @@ __YICES_DLLSPEC__ extern int32_t yices_pop(context_t *ctx);
  *
  * The following functions selectively enable/disable a preprocessing
  * option. The current options include:
+ *
  *   var-elim: whether to eliminate variables by substitution
+ *
  *   arith-elim: more variable elimination for arithmetic (Gaussian elimination)
+ *
  *   flatten: whether to flatten nested (or ...)
  *     (e.g., turn (or (or a b) (or c d) ) to (or a b c d))
+ *
  *   learn-eq: enable/disable heuristics to learn implied equalities
+ *
  *   keep-ite: whether to eliminate term if-then-else or keep them as terms
+ *
+ *   break-symmetries: attempt to detect symmetries and add constraints
+ *    to remove them (only used if the context is created for QF_UF)
  *
  * The parameter must be given as a string. For example, to disable var-elim,
  * call  yices_context_disable_option(ctx, "var-elim")

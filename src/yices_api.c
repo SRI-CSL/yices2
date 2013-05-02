@@ -5088,6 +5088,7 @@ typedef enum ctx_option {
   CTX_OPTION_BVARITH_ELIM,
   CTX_OPTION_FLATTEN,
   CTX_OPTION_LEARN_EQ,
+  CTX_OPTION_BREAK_SYMMETRIES,
   CTX_OPTION_KEEP_ITE,
   CTX_OPTION_EAGER_ARITH_LEMMAS,
 } ctx_option_t;
@@ -5100,6 +5101,7 @@ typedef enum ctx_option {
  */
 static const char * const ctx_option_names[NUM_CTX_OPTIONS] = {
   "arith-elim",
+  "break-symmetries",
   "bvarith-elim",
   "eager-arith-lemmas",
   "flatten",
@@ -5114,6 +5116,7 @@ static const char * const ctx_option_names[NUM_CTX_OPTIONS] = {
  */
 static const int32_t ctx_option_key[NUM_CTX_OPTIONS] = {
   CTX_OPTION_ARITH_ELIM,
+  CTX_OPTION_BREAK_SYMMETRIES,
   CTX_OPTION_BVARITH_ELIM,
   CTX_OPTION_EAGER_ARITH_LEMMAS,
   CTX_OPTION_FLATTEN,
@@ -5150,6 +5153,10 @@ EXPORTED int32_t yices_context_enable_option(context_t *ctx, const char *option)
 
   case CTX_OPTION_LEARN_EQ:
     enable_eq_abstraction(ctx);
+    break;
+
+  case CTX_OPTION_BREAK_SYMMETRIES:
+    enable_symmetry_breaking(ctx);
     break;
 
   case CTX_OPTION_KEEP_ITE:
@@ -5199,6 +5206,10 @@ EXPORTED int32_t yices_context_disable_option(context_t *ctx, const char *option
 
   case CTX_OPTION_LEARN_EQ:
     disable_eq_abstraction(ctx);
+    break;
+
+  case CTX_OPTION_BREAK_SYMMETRIES:
+    disable_symmetry_breaking(ctx);
     break;
 
   case CTX_OPTION_KEEP_ITE:
