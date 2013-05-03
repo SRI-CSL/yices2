@@ -9,8 +9,9 @@
 #include <assert.h>
 
 #include "gates_manager.h"
-#include "solver_printer.h"
+#include "gates_printer.h"
 #include "smt_core.h"
+#include "smt_core_printer.h"
 
 
 
