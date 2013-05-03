@@ -185,6 +185,8 @@ void print_arith_buffer(FILE *f, arith_buffer_t *b) {
   }
 }
 
+#if 0
+// not used
 void print_mlist(FILE *f, mlist_t *p) {
   bool first;
 
@@ -201,7 +203,7 @@ void print_mlist(FILE *f, mlist_t *p) {
     }
   }
 }
-
+#endif
 
 /*
  * Bit-vector polynomial
@@ -293,6 +295,8 @@ void print_bvarith_buffer(FILE *f, bvarith_buffer_t *b) {
   }
 }
 
+#if 0
+// not used
 void print_bvmlist(FILE *f, bvmlist_t *p, uint32_t n) {
   bool first;
 
@@ -309,7 +313,7 @@ void print_bvmlist(FILE *f, bvmlist_t *p, uint32_t n) {
     }
   }
 }
-
+#endif
 
 /*
  * Bit-vector polynomial, small coefficients
@@ -409,6 +413,8 @@ void print_bvarith64_buffer(FILE *f, bvarith64_buffer_t *b) {
   }
 }
 
+#if 0
+// not used
 void print_bvmlist64(FILE *f, bvmlist64_t *p, uint32_t n) {
   bool first;
 
@@ -425,6 +431,7 @@ void print_bvmlist64(FILE *f, bvmlist64_t *p, uint32_t n) {
     }
   }
 }
+#endif
 
 
 /*

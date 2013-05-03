@@ -1356,7 +1356,7 @@ void rba_buffer_sub_buffer(rba_buffer_t *b, rba_buffer_t *b1) {
     sub_buffer_tree(b, b1, b1->root);
   } else {
     p = b1->mono;
-    n = b1->num_nodes;
+    n = b1->num_nodes - 1;
     while (n > 0) {
       n --;
       p ++;

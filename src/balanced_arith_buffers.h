@@ -91,7 +91,7 @@ typedef struct rba_buffer_s {
 /*
  * Default and maximal size
  */
-#define DEF_RBA_BUFFER_SIZE 64
+#define DEF_RBA_BUFFER_SIZE 4
 #define MAX_RBA_BUFFER_SIZE (UINT32_MAX/sizeof(mono_t))
 
 
