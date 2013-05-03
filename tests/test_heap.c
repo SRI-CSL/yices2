@@ -3,6 +3,7 @@
 #include <float.h>
 #include <inttypes.h>
 
+#include "assert_utils.h"
 #include "memalloc.h"
 #include "smt_core.h"
 
@@ -325,7 +326,7 @@ static void check_heap(var_heap_t *heap, uint32_t nvars) {
     assert(heap->heap_index[x] == i);
 
     y = heap->heap[i/2];
-    assert(act[x] <= act[y]);
+    assert_true(act[x] <= act[y]); // cf. assert_utils.h
   }
 
   y = nvars;

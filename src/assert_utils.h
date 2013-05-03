@@ -1,7 +1,7 @@
 /*
  * Variant of assert.
  *
- * In several place, we call a function that returns a Boolean reasult,
+ * In several place, we call a function that returns a Boolean result
  * and treat this result differently depending on the compilation mode:
  * - in DEBUG mode: we want to assert that the result is true
  * - in other modes, we just ignore the result.
