@@ -5,7 +5,7 @@
 #ifndef __YICES_ITERATORS_H
 #define __YICES_ITERATORS_H
 
-#include "arith_buffers.h"
+#include "balanced_arith_buffers.h"
 #include "bvarith_buffers.h"
 #include "bvarith64_buffers.h"
 #include "bvlogic_buffers.h"
@@ -17,7 +17,7 @@
  * and a function f and call f(aux, x) for all global
  * objects x of a specified type.
  */
-extern void arith_buffer_iterate(void *aux, void (*f)(void *, arith_buffer_t *));
+extern void arith_buffer_iterate(void *aux, void (*f)(void *, rba_buffer_t *));
 extern void bvarith_buffer_iterate(void *aux, void (*f)(void *, bvarith_buffer_t *));
 extern void bvarith64_buffer_iterate(void *aux, void (*f)(void *, bvarith64_buffer_t *));
 extern void bvlogic_buffer_iterate(void *aux, void (*f)(void *, bvlogic_buffer_t *));

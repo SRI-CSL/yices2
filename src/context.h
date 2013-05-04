@@ -623,8 +623,7 @@ struct context_s {
   dl_data_t *dl_profile;
 
   // buffers for arithmetic simplification/internalization
-  object_store_t *mlist_store; // for arith buffer
-  arith_buffer_t *arith_buffer;
+  rba_buffer_t *arith_buffer;
   poly_buffer_t *poly_buffer;
   polynomial_t *aux_poly;
   uint32_t aux_poly_size;  // number of monomials in aux_poly
@@ -780,7 +779,7 @@ extern void context_free_cache(context_t *ctx);
 /*
  * Buffers for polynomials
  */
-extern arith_buffer_t *context_get_arith_buffer(context_t *ctx);
+extern rba_buffer_t *context_get_arith_buffer(context_t *ctx);
 extern void context_free_arith_buffer(context_t *ctx);
 
 extern poly_buffer_t *context_get_poly_buffer(context_t *ctx);

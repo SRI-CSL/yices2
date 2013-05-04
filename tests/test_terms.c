@@ -27,7 +27,6 @@
 static pprod_table_t pprods;
 static type_table_t types;
 static term_table_t terms;
-static object_store_t mlist_store;
 static object_store_t bvmlist_store;
 static object_store_t bvmlist64_store;
 
@@ -39,7 +38,6 @@ static void init_globals(void) {
   init_pprod_table(&pprods, 10);
   init_type_table(&types, 10);
   init_term_table(&terms, 10, &types, &pprods);
-  init_mlist_store(&mlist_store);
   init_bvmlist_store(&bvmlist_store);
   init_bvmlist64_store(&bvmlist64_store);
   init_rationals();
@@ -54,7 +52,6 @@ static void delete_globals(void) {
   delete_term_table(&terms);
   delete_type_table(&types);
   delete_pprod_table(&pprods);
-  delete_mlist_store(&mlist_store);
   delete_bvmlist_store(&bvmlist_store);
   delete_bvmlist64_store(&bvmlist64_store);
   cleanup_rationals();
@@ -1404,30 +1401,28 @@ static bool check_polynomial(term_t x, type_t tau) {
 }
 
 static void test_polynomials(void) {
-  arith_buffer_t buffer1;
-  arith_buffer_t buffer2;
+  rba_buffer_t buffer1;
+  rba_buffer_t buffer2;
   rational_t a;
   term_t x, y, s, t;
   pprod_t *r0;
 
-  init_arith_buffer(&buffer1, &pprods, &mlist_store);
-  init_arith_buffer(&buffer2, &pprods, &mlist_store);
+  init_rba_buffer(&buffer1, &pprods);
+  init_rba_buffer(&buffer2, &pprods);
   q_init(&a);
 
   // integer polynomial: x + 3 x y + 1
   x = test_uninterpreted_term(int_type(&types), "xx");
   y = test_uninterpreted_term(int_type(&types), "yy");
-  arith_buffer_add_var(&buffer1, x);
+  rba_buffer_add_var(&buffer1, x);
   r0 = pprod_mul(&pprods, var_pp(x), var_pp(y)); // x * y
   q_set_int32(&a, 3, 1);
-  arith_buffer_add_mono(&buffer1, &a, r0);
+  rba_buffer_add_mono(&buffer1, &a, r0);
   q_set_int32(&a, 1, 1);
-  arith_buffer_add_const(&buffer1, &a);
-  arith_buffer_normalize(&buffer1);
+  rba_buffer_add_const(&buffer1, &a);
 
-  arith_buffer_add_buffer(&buffer2, &buffer1); // make a copy
-  arith_buffer_normalize(&buffer2);
-  assert(arith_buffer_equal(&buffer1, &buffer2));
+  rba_buffer_add_buffer(&buffer2, &buffer1); // make a copy
+  assert(rba_buffer_equal(&buffer1, &buffer2));
   
   printf("Testing: ");
   print_arith_buffer(stdout, &buffer1);
@@ -1447,20 +1442,18 @@ static void test_polynomials(void) {
   printf("\n");
   
   // real polynomial x + y - 1/2  
-  arith_buffer_reset(&buffer1);
-  arith_buffer_reset(&buffer2);
-  arith_buffer_add_var(&buffer1, x);
-  arith_buffer_add_var(&buffer1, y);
+  reset_rba_buffer(&buffer1);
+  reset_rba_buffer(&buffer2);
+  rba_buffer_add_var(&buffer1, x);
+  rba_buffer_add_var(&buffer1, y);
   q_set_int32(&a, -1, 2);
-  arith_buffer_add_const(&buffer1, &a);
-  arith_buffer_normalize(&buffer1);
+  rba_buffer_add_const(&buffer1, &a);
   printf("Testing: ");
   print_arith_buffer(stdout, &buffer1);
   printf(": ");
 
-  arith_buffer_add_buffer(&buffer2, &buffer1); // make a copy
-  arith_buffer_normalize(&buffer2);
-  assert(arith_buffer_equal(&buffer1, &buffer2));
+  rba_buffer_add_buffer(&buffer2, &buffer1); // make a copy
+  assert(rba_buffer_equal(&buffer1, &buffer2));
 
   s = arith_poly(&terms, &buffer1);
   if (! check_polynomial(s, real_type(&types))) {
@@ -1476,8 +1469,8 @@ static void test_polynomials(void) {
   printf("\n");
   
   q_clear(&a);
-  delete_arith_buffer(&buffer1);
-  delete_arith_buffer(&buffer2);
+  delete_rba_buffer(&buffer1);
+  delete_rba_buffer(&buffer2);
   printf("\n");
 }
 

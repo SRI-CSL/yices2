@@ -25,15 +25,10 @@ extern void print_pprod(FILE *f, pprod_t *r);
 extern void print_polynomial(FILE *f, polynomial_t *p);
 extern void print_bvpoly(FILE *f, bvpoly_t *p);
 extern void print_bvpoly64(FILE *f, bvpoly64_t *p);
-extern void print_arith_buffer(FILE *f, arith_buffer_t *b);
+extern void print_arith_buffer(FILE *f, rba_buffer_t *b);
 extern void print_bvarith_buffer(FILE *f, bvarith_buffer_t *b);
 extern void print_bvarith64_buffer(FILE *f, bvarith64_buffer_t *b);
 extern void print_bvlogic_buffer(FILE *f, bvlogic_buffer_t *b);
-
-// list of monomials: for bvmlist and bvmlist64, n = number of bits
-extern void print_mlist(FILE *f, mlist_t *p);
-extern void print_bvmlist(FILE *f, bvmlist_t *p, uint32_t n);
-extern void print_bvmlist64(FILE *f, bvmlist64_t *p, uint32_t n);
 
 
 /*

@@ -17,7 +17,7 @@
 #include "bv_constants.h"
 #include "bv64_constants.h"
 
-#include "arith_buffer_terms.h"
+#include "rba_buffer_terms.h"
 #include "bvarith_buffer_terms.h"
 #include "bvarith64_buffer_terms.h"
 
@@ -642,17 +642,17 @@ void tstack_push_macro(tstack_t *stack, int32_t id, loc_t *loc) {
 /*
  * Get the internal buffers (or allocate a new one)
  */
-arith_buffer_t *tstack_get_abuffer(tstack_t *stack) {
-  arith_buffer_t *tmp;
+rba_buffer_t *tstack_get_abuffer(tstack_t *stack) {
+  rba_buffer_t *tmp;
 
   tmp = stack->abuffer;
   if (tmp == NULL) {
     tmp = yices_new_arith_buffer();
     stack->abuffer = tmp;
   } else {
-    arith_buffer_reset(tmp);
+    reset_rba_buffer(tmp);
   }
-  assert(arith_buffer_is_zero(tmp));
+  assert(rba_buffer_is_zero(tmp));
   return tmp;
 }
 
@@ -709,9 +709,9 @@ bvlogic_buffer_t *tstack_get_bvlbuffer(tstack_t *stack) {
 /*
  * Free or recycle a buffer
  */
-static void recycle_abuffer(tstack_t *stack, arith_buffer_t *b) {
+static void recycle_abuffer(tstack_t *stack, rba_buffer_t *b) {
   if (stack->abuffer == NULL) {
-    arith_buffer_reset(b);
+    reset_rba_buffer(b);
     stack->abuffer = b;
   } else if (stack->abuffer != b) {
     yices_free_arith_buffer(b);
@@ -952,7 +952,7 @@ void set_type_result(tstack_t *stack, type_t tau) {
 }
 
 // b must be equal to stack->abuffer. We reset stack->abuffer to NULL
-void set_arith_result(tstack_t *stack, arith_buffer_t *b) {
+void set_arith_result(tstack_t *stack, rba_buffer_t *b) {
   stack_elem_t *e;
 
   assert(b == stack->abuffer);
@@ -1401,9 +1401,9 @@ int32_t get_integer(tstack_t *stack, stack_elem_t *e) {
 rational_t *get_divisor(tstack_t *stack, stack_elem_t *den) {
   rational_t *d;
   term_t t;
-  arith_buffer_t *c;
+  rba_buffer_t *c;
   term_table_t *terms;
-  mlist_t *m;
+  mono_t *m;
   
   switch (den->tag) {
   case TAG_RATIONAL:
@@ -1430,10 +1430,10 @@ rational_t *get_divisor(tstack_t *stack, stack_elem_t *den) {
 
   case TAG_ARITH_BUFFER:
     c = den->val.arith_buffer;
-    if (arith_buffer_is_constant(c)) {
-      m = arith_buffer_get_constant_mono(c);
+    if (rba_buffer_is_constant(c)) {
+      m = rba_buffer_get_constant_mono(c);
       if (m == NULL) {
-        assert(arith_buffer_is_zero(c));
+        assert(rba_buffer_is_zero(c));
         raise_exception(stack, den, TSTACK_DIVIDE_BY_ZERO);
       }
       d = &m->coeff;
@@ -1534,21 +1534,21 @@ static void check_bv_term(tstack_t *stack, stack_elem_t *e, uint32_t n) {
  * Add arithmetic element e to buffer b. Raise an exception if e is not 
  * arithmetic or if the operation fails.
  */
-void add_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
+void add_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e) {
   switch (e->tag) {
   case TAG_RATIONAL:
-    arith_buffer_add_const(b, &e->val.rational);
+    rba_buffer_add_const(b, &e->val.rational);
     break;
 
   case TAG_TERM:
     if (! yices_check_arith_term(e->val.term)) {
       report_yices_error(stack);    
     }
-    arith_buffer_add_term(b, __yices_globals.terms, e->val.term);
+    rba_buffer_add_term(b, __yices_globals.terms, e->val.term);
     break;
 
   case TAG_ARITH_BUFFER:
-    arith_buffer_add_buffer(b, e->val.arith_buffer);
+    rba_buffer_add_buffer(b, e->val.arith_buffer);
     break;
 
   default:
@@ -1562,7 +1562,7 @@ void add_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
  * Negate element e (in place). Raise an exception if e is not an arithmetic term.
  */
 void neg_elem(tstack_t *stack, stack_elem_t *e) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_table_t *terms;
   term_t t;
 
@@ -1585,8 +1585,8 @@ void neg_elem(tstack_t *stack, stack_elem_t *e) {
     } else {
       // compute -b
       b = tstack_get_abuffer(stack);
-      assert(arith_buffer_is_zero(b));
-      arith_buffer_sub_term(b, __yices_globals.terms, e->val.term);
+      assert(rba_buffer_is_zero(b));
+      rba_buffer_sub_term(b, __yices_globals.terms, e->val.term);
       // overwrite e
       e->tag = TAG_ARITH_BUFFER;
       e->val.arith_buffer = b;
@@ -1597,7 +1597,7 @@ void neg_elem(tstack_t *stack, stack_elem_t *e) {
     break;
 
   case TAG_ARITH_BUFFER:
-    arith_buffer_negate(e->val.arith_buffer);
+    rba_buffer_negate(e->val.arith_buffer);
     break;
 
   default:
@@ -1610,21 +1610,21 @@ void neg_elem(tstack_t *stack, stack_elem_t *e) {
 /*
  * Subtract element e from buffer b.
  */
-void sub_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
+void sub_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e) {
   switch (e->tag) {
   case TAG_RATIONAL:
-    arith_buffer_sub_const(b, &e->val.rational);
+    rba_buffer_sub_const(b, &e->val.rational);
     break;
 
   case TAG_TERM:
     if (! yices_check_arith_term(e->val.term)) {
       report_yices_error(stack);
     }
-    arith_buffer_sub_term(b, __yices_globals.terms, e->val.term);
+    rba_buffer_sub_term(b, __yices_globals.terms, e->val.term);
     break;
 
   case TAG_ARITH_BUFFER:
-    arith_buffer_sub_buffer(b, e->val.arith_buffer);
+    rba_buffer_sub_buffer(b, e->val.arith_buffer);
     break;
 
   default:
@@ -1637,10 +1637,10 @@ void sub_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
 /*
  * Product
  */
-void mul_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
+void mul_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e) {
   switch (e->tag) {
   case TAG_RATIONAL:
-    arith_buffer_mul_const(b, &e->val.rational);
+    rba_buffer_mul_const(b, &e->val.rational);
     break;
 
   case TAG_TERM:
@@ -1648,7 +1648,7 @@ void mul_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
         ! yices_check_mul_term(b, e->val.term)) {
       report_yices_error(stack);
     }
-    arith_buffer_mul_term(b, __yices_globals.terms, e->val.term);
+    rba_buffer_mul_term(b, __yices_globals.terms, e->val.term);
     break;
 
   case TAG_ARITH_BUFFER:
@@ -1656,7 +1656,7 @@ void mul_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e) {
       // degree overflow
       report_yices_error(stack);
     }
-    arith_buffer_mul_buffer(b, e->val.arith_buffer);
+    rba_buffer_mul_buffer(b, e->val.arith_buffer);
     break;
 
   default:
@@ -3404,7 +3404,7 @@ static void check_mk_add(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 static void eval_mk_add(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   uint32_t i;
-  arith_buffer_t *b;
+  rba_buffer_t *b;
 
   b = tstack_get_abuffer(stack);
   for (i=0; i<n; i++) {
@@ -3425,7 +3425,7 @@ static void check_mk_sub(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 static void eval_mk_sub(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   uint32_t i;
-  arith_buffer_t *b;
+  rba_buffer_t *b;
 
   // if n == 1, we interpret this a unary minus (unlike yices-1.0.x)
   if (n == 1) {
@@ -3469,7 +3469,7 @@ static void check_mk_mul(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 static void eval_mk_mul(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   uint32_t i;
-  arith_buffer_t *b;
+  rba_buffer_t *b;
 
   b = tstack_get_abuffer(stack);
   add_elem(stack, b, f);
@@ -3490,8 +3490,8 @@ static void check_mk_division(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_division(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  rational_t aux, *divisor;
-  arith_buffer_t *b;
+  rational_t *divisor;
+  rba_buffer_t *b;
 
   divisor = get_divisor(stack, f+1);
 
@@ -3503,12 +3503,7 @@ static void eval_mk_division(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     b = tstack_get_abuffer(stack);
 
     add_elem(stack, b, f);
-    // aux := 1/divisor
-    q_init(&aux);
-    q_set(&aux, divisor);
-    q_inv(&aux);
-    arith_buffer_mul_const(b, &aux);
-    q_clear(&aux);
+    rba_buffer_div_const(b, divisor);
     tstack_pop_frame(stack);
     set_arith_result(stack, b);
   }
@@ -3555,7 +3550,7 @@ static void check_mk_ge(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_ge(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_t t;
 
   b = tstack_get_abuffer(stack);  
@@ -3578,7 +3573,7 @@ static void check_mk_gt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_gt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_t t;
 
   b = tstack_get_abuffer(stack);  
@@ -3601,7 +3596,7 @@ static void check_mk_le(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_le(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_t t;
 
   b = tstack_get_abuffer(stack);  
@@ -3624,7 +3619,7 @@ static void check_mk_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_mk_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_t t;
 
   b = tstack_get_abuffer(stack);  

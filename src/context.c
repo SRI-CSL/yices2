@@ -4013,7 +4013,6 @@ void init_context(context_t *ctx, term_table_t *terms,
   ctx->eq_cache = NULL;
 
   ctx->dl_profile = NULL;
-  ctx->mlist_store = NULL;
   ctx->arith_buffer = NULL;
   ctx->poly_buffer = NULL;
   ctx->aux_poly = NULL;

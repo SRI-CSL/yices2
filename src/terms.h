@@ -147,7 +147,7 @@
 
 #include "types.h"
 #include "pprod_table.h"
-#include "arith_buffers.h"
+#include "balanced_arith_buffers.h"
 #include "bvarith_buffers.h"
 #include "bvarith64_buffers.h"
 
@@ -561,7 +561,7 @@ extern term_t arith_constant(term_table_t *table, rational_t *a);
  *
  * SIDE EFFECT: b is reset to zero
  */
-extern term_t arith_poly(term_table_t *table, arith_buffer_t *b);
+extern term_t arith_poly(term_table_t *table, rba_buffer_t *b);
 
 
 /*

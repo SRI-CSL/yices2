@@ -839,6 +839,30 @@ uint32_t rba_buffer_var_degree(rba_buffer_t *b, int32_t x) {
 
 
 /*
+ * Collect the two monomials of b into *m[0] and *m[1]
+ * - b must have exactly two monomials
+ */
+void rba_buffer_monomial_pair(rba_buffer_t *b, mono_t *m[2]) {
+  uint32_t x, i, j;
+
+  assert(b->nterms == 2);
+
+  x = b->root;
+  i = b->child[x][0];
+  j = b->child[x][1];
+  
+  if (i == rba_null) {
+    m[0] = b->mono + x;
+    m[1] = b->mono + j;
+  } else {
+    assert(j == rba_null);
+    m[0] = b->mono + i;
+    m[1] = b->mono + x;
+  }  
+}
+
+
+/*
  * Monomial whose pp is equal to r (or NULL)
  */
 mono_t *rba_buffer_get_mono(rba_buffer_t *b, pprod_t *r) {
@@ -1986,7 +2010,7 @@ polynomial_t *rba_buffer_get_poly(rba_buffer_t *b, int32_t *v) {
 static uint32_t rba_hash_tree(rba_buffer_t *b, int32_t *v, uint32_t *i, uint32_t h, uint32_t x) {
   uint32_t num, den, j;
 
-  assert(x < b->nterms);
+  assert(x < b->num_nodes);
 
   if (x != rba_null) {
     h = rba_hash_tree(b, v, i, h, b->child[x][0]); // left subtree
@@ -2047,10 +2071,11 @@ static bool rba_equal_node(polynomial_t *p, rba_buffer_t *b, int32_t *v, uint32_
 }
 
 static bool rba_equal_tree(polynomial_t *p, rba_buffer_t *b, int32_t *v, uint32_t *i, uint32_t x) {
-  assert(x < b->nterms);
+  assert(x < b->num_nodes);
   return (x == rba_null) || 
     (rba_equal_tree(p, b, v, i, b->child[x][0]) && 
-     rba_equal_node(p, b, v, i, x) && rba_equal_tree(p, b, v, i, b->child[x][1]));
+     rba_equal_node(p, b, v, i, x) && 
+     rba_equal_tree(p, b, v, i, b->child[x][1]));
 }
 
 

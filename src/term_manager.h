@@ -29,7 +29,6 @@
  * 
  * Optional components allocated and initialized lazily:
  * - nodes = node table for bvlogic buffer
- * - arith_store = store for arithmetic monomials
  * - bvarith_store = store for bitvector monomials (large coefficients)
  * - bvarith64_store = store for bitvector monomials (64bit coefficients)
  *
@@ -49,12 +48,11 @@ typedef struct term_manager_s {
   type_table_t *types;
   pprod_table_t *pprods;
 
-  arith_buffer_t *arith_buffer;
+  rba_buffer_t *arith_buffer;
   bvarith_buffer_t *bvarith_buffer;
   bvarith64_buffer_t *bvarith64_buffer;
   bvlogic_buffer_t *bvlogic_buffer;
 
-  object_store_t *arith_store;
   object_store_t *bvarith_store;
   object_store_t *bvarith64_store;
   node_table_t *nodes;
@@ -107,7 +105,6 @@ static inline type_table_t *term_manager_get_types(term_manager_t *manager) {
  * - the store is allocated and initialized if needed
  */
 extern node_table_t *term_manager_get_nodes(term_manager_t *manager);
-extern object_store_t *term_manager_get_arith_store(term_manager_t *manager);
 extern object_store_t *term_manager_get_bvarith_store(term_manager_t *manager);
 extern object_store_t *term_manager_get_bvarith64_store(term_manager_t *manager);
 
@@ -119,7 +116,7 @@ extern object_store_t *term_manager_get_bvarith64_store(term_manager_t *manager)
  * WARNING:
  * - the term constructors may modify these buffers
  */
-extern arith_buffer_t *term_manager_get_arith_buffer(term_manager_t *manager);
+extern rba_buffer_t *term_manager_get_arith_buffer(term_manager_t *manager);
 extern bvarith_buffer_t *term_manager_get_bvarith_buffer(term_manager_t *manager);
 extern bvarith64_buffer_t *term_manager_get_bvarith64_buffer(term_manager_t *manager);
 extern bvlogic_buffer_t *term_manager_get_bvlogic_buffer(term_manager_t *manager);
@@ -292,7 +289,7 @@ extern term_t mk_arith_constant(term_manager_t *manager, rational_t *r);
  * - if b is of the from 1. t_1^d_1 ... t_n^d_n then a power product is returned
  * - otherwise a polynomial term is created
  */
-extern term_t mk_arith_term(term_manager_t *manager, arith_buffer_t *b);
+extern term_t mk_arith_term(term_manager_t *manager, rba_buffer_t *b);
 
 
 /*
@@ -302,12 +299,12 @@ extern term_t mk_arith_term(term_manager_t *manager, arith_buffer_t *b);
  * - all functions normalize b first
  * - side effect: b is reset
  */
-extern term_t mk_arith_eq0(term_manager_t *manager, arith_buffer_t *b);   // b == 0
-extern term_t mk_arith_neq0(term_manager_t *manager, arith_buffer_t *b);  // b != 0
-extern term_t mk_arith_geq0(term_manager_t *manager, arith_buffer_t *b);  // b >= 0
-extern term_t mk_arith_leq0(term_manager_t *manager, arith_buffer_t *b);  // b <= 0
-extern term_t mk_arith_gt0(term_manager_t *manager, arith_buffer_t *b);   // b > 0
-extern term_t mk_arith_lt0(term_manager_t *manager, arith_buffer_t *b);   // b < 0
+extern term_t mk_arith_eq0(term_manager_t *manager, rba_buffer_t *b);   // b == 0
+extern term_t mk_arith_neq0(term_manager_t *manager, rba_buffer_t *b);  // b != 0
+extern term_t mk_arith_geq0(term_manager_t *manager, rba_buffer_t *b);  // b >= 0
+extern term_t mk_arith_leq0(term_manager_t *manager, rba_buffer_t *b);  // b <= 0
+extern term_t mk_arith_gt0(term_manager_t *manager, rba_buffer_t *b);   // b > 0
+extern term_t mk_arith_lt0(term_manager_t *manager, rba_buffer_t *b);   // b < 0
 
 
 /*
@@ -339,10 +336,10 @@ extern term_t mk_arith_lt(term_manager_t *manager, term_t t1, term_t t2);   // t
  * These functions normalize b then create an atom
  * - side effect: b is reset
  */
-extern term_t mk_direct_arith_geq0(term_table_t *tbl, arith_buffer_t *b);  // b >= 0
-extern term_t mk_direct_arith_leq0(term_table_t *tbl, arith_buffer_t *b);  // b <= 0
-extern term_t mk_direct_arith_gt0(term_table_t *tbl, arith_buffer_t *b);   // b > 0
-extern term_t mk_direct_arith_lt0(term_table_t *tbl, arith_buffer_t *b);   // b < 0
+extern term_t mk_direct_arith_geq0(term_table_t *tbl, rba_buffer_t *b);  // b >= 0
+extern term_t mk_direct_arith_leq0(term_table_t *tbl, rba_buffer_t *b);  // b <= 0
+extern term_t mk_direct_arith_gt0(term_table_t *tbl, rba_buffer_t *b);   // b > 0
+extern term_t mk_direct_arith_lt0(term_table_t *tbl, rba_buffer_t *b);   // b < 0
 
 
 /*

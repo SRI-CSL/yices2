@@ -146,7 +146,7 @@ extern rational_t *get_divisor(tstack_t *stack, stack_elem_t *den);
  * pushed onto the stack using set_arith_result,
  * set_bvarith64_results, and variants.
  */
-extern arith_buffer_t *tstack_get_abuffer(tstack_t *stack);
+extern rba_buffer_t *tstack_get_abuffer(tstack_t *stack);
 extern bvarith64_buffer_t *tstack_get_bva64buffer(tstack_t *stack, uint32_t bitsize);
 extern bvarith_buffer_t *tstack_get_bvabuffer(tstack_t *stack, uint32_t bitsize);
 extern bvlogic_buffer_t *tstack_get_bvlbuffer(tstack_t *stack);
@@ -175,9 +175,9 @@ static inline int32_t *get_aux_buffer(tstack_t *stack, uint32_t n) {
  *   right type. then apply the operation to buffer
  */
 // arithmetic
-extern void add_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e);
-extern void sub_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e);
-extern void mul_elem(tstack_t *stack, arith_buffer_t *b, stack_elem_t *e);
+extern void add_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e);
+extern void sub_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e);
+extern void mul_elem(tstack_t *stack, rba_buffer_t *b, stack_elem_t *e);
 
 // bitvector arithmetic for size <= 64
 extern void bva64_add_elem(tstack_t *stack, bvarith64_buffer_t *b, stack_elem_t *e);
@@ -251,7 +251,7 @@ extern void set_binding_result(tstack_t *stack, term_t t, char *symbol);
 extern void set_type_binding_result(tstack_t *stack, type_t, char *symbol);
 extern void set_bv64_result(tstack_t *stack, uint32_t nbits, uint64_t c);
 extern void set_bv_result(tstack_t *stack, uint32_t nbits, uint32_t *bv);
-extern void set_arith_result(tstack_t *stack, arith_buffer_t *b);
+extern void set_arith_result(tstack_t *stack, rba_buffer_t *b);
 extern void set_bvarith64_result(tstack_t *stack, bvarith64_buffer_t *b);
 extern void set_bvarith_result(tstack_t *stack, bvarith_buffer_t *b);
 extern void set_bvlogic_result(tstack_t *stack, bvlogic_buffer_t *b);

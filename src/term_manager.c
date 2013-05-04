@@ -9,7 +9,7 @@
 #include "int_vectors.h"
 #include "memalloc.h"
 #include "bit_tricks.h"
-#include "arith_buffer_terms.h"
+#include "rba_buffer_terms.h"
 #include "bv64_constants.h"
 #include "bv_constants.h"
 #include "bit_term_conversion.h"
@@ -29,8 +29,6 @@
  * - types = attached type table
  */
 void init_term_manager(term_manager_t *manager, type_table_t *types, term_table_t *terms) {
-  //  init_pprod_table(&manager->pprods, 0);
-  //  init_term_table(&manager->terms, n, types, &manager->pprods);
   manager->terms = terms;
   manager->types = types;
   manager->pprods = terms->pprods;
@@ -40,7 +38,6 @@ void init_term_manager(term_manager_t *manager, type_table_t *types, term_table_
   manager->bvarith64_buffer = NULL;
   manager->bvlogic_buffer = NULL;
 
-  manager->arith_store = NULL;
   manager->bvarith_store = NULL;
   manager->bvarith64_store = NULL;
   manager->nodes = NULL;
@@ -66,19 +63,6 @@ node_table_t *term_manager_get_nodes(term_manager_t *manager) {
     init_node_table(tmp, 0);
     manager->nodes = tmp;
   }
-
-  return tmp;
-}
-
-object_store_t *term_manager_get_arith_store(term_manager_t *manager) {
-  object_store_t *tmp;
-
-  tmp = manager->arith_store;
-  if (tmp == NULL) {
-    tmp = (object_store_t *) safe_malloc(sizeof(object_store_t));
-    init_mlist_store(tmp);
-    manager->arith_store = tmp;
-  } 
 
   return tmp;
 }
@@ -114,15 +98,13 @@ object_store_t *term_manager_get_bvarith64_store(term_manager_t *manager) {
  * Access to the internal buffers:
  * - they are allocated and initialized if needed (and the store they need too)
  */
-arith_buffer_t *term_manager_get_arith_buffer(term_manager_t *manager) {
-  arith_buffer_t *tmp;
-  object_store_t *mstore;
+rba_buffer_t *term_manager_get_arith_buffer(term_manager_t *manager) {
+  rba_buffer_t *tmp;
 
   tmp = manager->arith_buffer;
   if (tmp == NULL) {
-    mstore = term_manager_get_arith_store(manager);
-    tmp = (arith_buffer_t *) safe_malloc(sizeof(arith_buffer_t));
-    init_arith_buffer(tmp, manager->pprods, mstore);
+    tmp = (rba_buffer_t *) safe_malloc(sizeof(rba_buffer_t));
+    init_rba_buffer(tmp, manager->pprods);
     manager->arith_buffer = tmp;
   }
 
@@ -189,17 +171,6 @@ static void term_manager_free_nodes(term_manager_t *manager) {
   }
 }
 
-static void term_manager_free_arith_store(term_manager_t *manager) {
-  object_store_t *tmp;
-
-  tmp = manager->arith_store;
-  if (tmp != NULL) {
-    delete_mlist_store(tmp);
-    safe_free(tmp);
-    manager->arith_store = NULL;
-  }
-}
-
 static void term_manager_free_bvarith_store(term_manager_t *manager) {
   object_store_t *tmp;
 
@@ -224,11 +195,11 @@ static void term_manager_free_bvarith64_store(term_manager_t *manager) {
 
 
 static void term_manager_free_arith_buffer(term_manager_t *manager) {
-  arith_buffer_t *tmp;
+  rba_buffer_t *tmp;
 
   tmp = manager->arith_buffer;
   if (tmp != NULL) {
-    delete_arith_buffer(tmp);
+    delete_rba_buffer(tmp);
     safe_free(tmp);
     manager->arith_buffer = NULL;
   }
@@ -274,7 +245,6 @@ extern void delete_term_manager(term_manager_t *manager) {
   term_manager_free_bvarith64_buffer(manager);
   term_manager_free_bvlogic_buffer(manager);
 
-  term_manager_free_arith_store(manager);
   term_manager_free_bvarith_store(manager);
   term_manager_free_bvarith64_store(manager);
   term_manager_free_nodes(manager);
@@ -284,9 +254,6 @@ extern void delete_term_manager(term_manager_t *manager) {
   delete_bvconstant(&manager->bv1);
   delete_bvconstant(&manager->bv2);
   delete_ivector(&manager->vector0);
-
-  //  delete_term_table(&manager->terms);
-  //  delete_pprod_table(&manager->pprods);
 }
 
 
@@ -623,6 +590,74 @@ static term_t try_iff_bveq_simplification(term_manager_t *manager, term_t x, ter
 
   return NULL_TERM;
 }
+
+
+
+
+/**********************
+ *  ARITHMETIC TERMS  *
+ *********************/
+
+/*
+ * Arithmetic constant (rational)
+ * - r must be normalized
+ */
+term_t mk_arith_constant(term_manager_t *manager, rational_t *r) {
+  return arith_constant(manager->terms, r);
+}
+
+
+/*
+ * Convert b to an arithmetic term:
+ * - b->ptbl must be equal to manager->pprods
+ * - b may be the same as manager->arith_buffer
+ * - side effect: b is reset
+ *
+ * Simplifications (after normalization)
+ * - if b is a constant then a constant rational is created
+ * - if b is of the form 1. t then t is returned
+ * - if b is of the from 1. t_1^d_1 ... t_n^d_n then a power product is returned
+ * - otherwise a polynomial term is created
+ */
+static term_t arith_buffer_to_term(term_table_t *tbl, rba_buffer_t *b) {
+  mono_t *m;
+  pprod_t *r;
+  uint32_t n;
+  term_t t;
+
+  assert(b->ptbl == tbl->pprods);
+
+  n = b->nterms;
+  if (n == 0) {
+    t = zero_term;
+  } else if (n == 1) {
+    m = rba_buffer_root_mono(b); // unique monomial of b
+    r = m->prod;
+    if (r == empty_pp) {
+      // constant polynomial
+      t = arith_constant(tbl, &m->coeff);
+    } else if (q_is_one(&m->coeff)) {
+      // term or power product
+      t =  pp_is_var(r) ? var_of_pp(r) : pprod_term(tbl, r);
+    } else {
+    // can't simplify
+      t = arith_poly(tbl, b);
+    }
+  } else {
+    t = arith_poly(tbl, b);
+  }
+
+  reset_rba_buffer(b);
+
+  return t;
+}
+
+
+term_t mk_arith_term(term_manager_t *manager, rba_buffer_t *b) {
+  return arith_buffer_to_term(manager->terms, b);
+}
+
+
 
 
 
@@ -1321,6 +1356,8 @@ term_t mk_bool_ite(term_manager_t *manager, term_t c, term_t x, term_t y) {
 
 
 
+
+
 /*
  * PUSH IF INSIDE INTEGER POLYNOMIALS
  *
@@ -1333,48 +1370,6 @@ term_t mk_bool_ite(term_manager_t *manager, term_t c, term_t x, term_t y) {
  */
 
 /*
- * Convert b to a term and reset b:
- * - b must be normalized
- * - if b is a constant: return an arith constant term
- * - if b is of the form 1 . t: return t
- * - if b is of the form 1 . x_1^d_1 ... x_n^d_n: build a power product
- * - otherwise: build a polynomial term
- */
-static term_t arith_buffer_to_term(term_table_t *tbl, arith_buffer_t *b) {
-  mlist_t *m;
-  pprod_t *r;
-  uint32_t n;
-  term_t t;
-
-  assert(b->ptbl == tbl->pprods);
-
-  n = b->nterms;
-  if (n == 0) {
-    t = zero_term;
-  } else if (n == 1) {
-    m = b->list; // unique monomial of b
-    r = m->prod;
-    if (r == empty_pp) {
-      // constant polynomial
-      t = arith_constant(tbl, &m->coeff);
-    } else if (q_is_one(&m->coeff)) {
-      // term or power product
-      t =  pp_is_var(r) ? var_of_pp(r) : pprod_term(tbl, r);
-    } else {
-    // can't simplify
-      t = arith_poly(tbl, b);
-    }
-  } else {
-    t = arith_poly(tbl, b);
-  }
-
-  arith_buffer_reset(b);
-
-  return t;
-}
-
-
-/*
  * Remove every monomial of p whose variable is in a then divide the 
  * result by c
  * - a = array of terms sorted in increasing order
@@ -1384,7 +1379,7 @@ static term_t arith_buffer_to_term(term_table_t *tbl, arith_buffer_t *b) {
  * - return the term (p - r)/c
  */
 static term_t remove_monomials(term_manager_t *manager, polynomial_t *p, term_t *a, rational_t *c) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   monomial_t *mono;
   uint32_t i;
   term_t x;
@@ -1392,7 +1387,7 @@ static term_t remove_monomials(term_manager_t *manager, polynomial_t *p, term_t 
   assert(q_is_nonzero(c));
 
   b = term_manager_get_arith_buffer(manager);
-  arith_buffer_reset(b);
+  reset_rba_buffer(b);
 
   i = 0;
   mono = p->mono;
@@ -1404,7 +1399,7 @@ static term_t remove_monomials(term_manager_t *manager, polynomial_t *p, term_t 
       i ++;
     } else {
       assert(x < a[i]);
-      arith_buffer_add_const(b, &mono->coeff);
+      rba_buffer_add_const(b, &mono->coeff);
     }
     mono ++;
     x = mono->var;
@@ -1417,7 +1412,7 @@ static term_t remove_monomials(term_manager_t *manager, polynomial_t *p, term_t 
       i ++;
     } else {
       assert(x < a[i]);
-      arith_buffer_add_mono(b, &mono->coeff, pprod_for_term(manager->terms, x));
+      rba_buffer_add_mono(b, &mono->coeff, pprod_for_term(manager->terms, x));
     }
     mono ++;
     x = mono->var;
@@ -1425,11 +1420,10 @@ static term_t remove_monomials(term_manager_t *manager, polynomial_t *p, term_t 
 
   // divide by c
   if (! q_is_one(c)) {
-    arith_buffer_div_const(b, c);
+    rba_buffer_div_const(b, c);
   }
 
   // build the term from b
-  arith_buffer_normalize(b);
   return arith_buffer_to_term(manager->terms, b);
 }  
 
@@ -1442,14 +1436,14 @@ static term_t remove_monomials(term_manager_t *manager, polynomial_t *p, term_t 
  */
 static term_t add_mono_to_common_part(term_manager_t *manager, polynomial_t *p, term_t *a, rational_t *c, term_t t) {
   term_table_t *tbl;
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   monomial_t *mono;
   uint32_t i;
   term_t x;
 
   tbl = manager->terms;
   b = term_manager_get_arith_buffer(manager);
-  arith_buffer_reset(b);  
+  reset_rba_buffer(b);  
 
   i = 0;
   mono = p->mono;
@@ -1459,7 +1453,7 @@ static term_t add_mono_to_common_part(term_manager_t *manager, polynomial_t *p, 
   if (x == const_idx) {
     assert(x <= a[i]);
     if (x == a[i]) {
-      arith_buffer_add_const(b, &mono->coeff);
+      rba_buffer_add_const(b, &mono->coeff);
       i ++;
     }
     mono ++;
@@ -1470,7 +1464,7 @@ static term_t add_mono_to_common_part(term_manager_t *manager, polynomial_t *p, 
   while (x < max_idx) {
     assert(x <= a[i]);
     if (x == a[i]) {
-      arith_buffer_add_mono(b, &mono->coeff, pprod_for_term(tbl, x));
+      rba_buffer_add_mono(b, &mono->coeff, pprod_for_term(tbl, x));
       i ++;
     }
     mono ++;
@@ -1478,9 +1472,8 @@ static term_t add_mono_to_common_part(term_manager_t *manager, polynomial_t *p, 
   }
 
   // add c * t
-  arith_buffer_add_mono(b, c, pprod_for_term(tbl, t));
+  rba_buffer_add_mono(b, c, pprod_for_term(tbl, t));
 
-  arith_buffer_normalize(b);
   return arith_buffer_to_term(tbl, b);
 }
 
@@ -1491,15 +1484,15 @@ static term_t add_mono_to_common_part(term_manager_t *manager, polynomial_t *p, 
  */
 static term_t polynomial_div_const(term_manager_t *manager, polynomial_t *p, rational_t *c) {
   term_table_t *tbl;
-  arith_buffer_t *b;
+  rba_buffer_t *b;
 
   tbl = manager->terms;
   b = term_manager_get_arith_buffer(manager);
-  arith_buffer_reset(b);
+  reset_rba_buffer(b);
 
-  arith_buffer_add_monarray(b, p->mono, pprods_for_poly(tbl, p));
+  rba_buffer_add_monarray(b, p->mono, pprods_for_poly(tbl, p));
   term_table_reset_pbuffer(tbl);
-  arith_buffer_div_const(b, c);
+  rba_buffer_div_const(b, c);
 
   return arith_buffer_to_term(tbl, b);
 }
@@ -1510,12 +1503,12 @@ static term_t polynomial_div_const(term_manager_t *manager, polynomial_t *p, rat
  */
 static term_t mk_mul_term_const(term_manager_t *manager, term_t t, rational_t *c) {
   term_table_t *tbl;
-  arith_buffer_t *b;
+  rba_buffer_t *b;
 
   tbl = manager->terms;
   b = term_manager_get_arith_buffer(manager);
-  arith_buffer_reset(b);
-  arith_buffer_add_mono(b, c, pprod_for_term(tbl, t));
+  reset_rba_buffer(b);
+  rba_buffer_add_mono(b, c, pprod_for_term(tbl, t));
 
   return arith_buffer_to_term(tbl, b);
 }
@@ -1783,39 +1776,6 @@ term_t mk_ite(term_manager_t *manager, term_t c, term_t t, term_t e, type_t tau)
 
 
 
-/**********************
- *  ARITHMETIC TERMS  *
- *********************/
-
-/*
- * Arithmetic constant (rational)
- * - r must be normalized
- */
-term_t mk_arith_constant(term_manager_t *manager, rational_t *r) {
-  return arith_constant(manager->terms, r);
-}
-
-
-/*
- * Convert b to an arithmetic term:
- * - b->ptbl must be equal to manager->pprods
- * - b may be the same as manager->arith_buffer
- * - b is normalized first then converted to a term
- * - side effect: b is reset
- *
- * Simplifications (after normalization)
- * - if b is a constant then a constant rational is created
- * - if b is of the form 1. t then t is returned
- * - if b is of the from 1. t_1^d_1 ... t_n^d_n then a power product is returned
- * - otherwise a polynomial term is created
- */
-term_t mk_arith_term(term_manager_t *manager, arith_buffer_t *b) {
-  arith_buffer_normalize(b);
-  return arith_buffer_to_term(manager->terms, b);
-}
-
-
-
 
 /**********************
  *  ARITHMETIC ATOMS  *
@@ -1905,16 +1865,15 @@ static term_t mk_arith_bineq_atom(term_table_t *tbl, term_t t1, term_t t2) {
  * - otherwise, create a polynomial term t from b
  *   and return the atom (t == 0).
  */
-term_t mk_arith_eq0(term_manager_t *manager, arith_buffer_t *b) {
+term_t mk_arith_eq0(term_manager_t *manager, rba_buffer_t *b) {
   term_table_t *tbl;
-  mlist_t *m1, *m2;
+  mono_t *m[2], *m1, *m2;
   pprod_t *r1, *r2;
   rational_t *r0;
   term_t t1, t2, t;
   uint32_t n;
 
   assert(b->ptbl == manager->pprods);
-  arith_buffer_normalize(b);
 
   tbl = manager->terms;
 
@@ -1929,7 +1888,7 @@ term_t mk_arith_eq0(term_manager_t *manager, arith_buffer_t *b) {
      * (a1 * r1 == 0) is false if r1 is the empty product
      * (a1 * r1 == 0) simplifies to (r1 == 0) otherwise
      */
-    m1 = b->list; 
+    m1 = rba_buffer_root_mono(b); 
     r1 = m1->prod;  
     assert(q_is_nonzero(&m1->coeff));
     if (r1 == empty_pp) {
@@ -1946,9 +1905,10 @@ term_t mk_arith_eq0(term_manager_t *manager, arith_buffer_t *b) {
      * - rewrite (b == 0) to (r2 == -a1/a2) if r1 is the empty product
      * - rewrite (b == 0) to (r1 == r2) is a1 + a2 = 0
      */
-    m1 = b->list;
+    rba_buffer_monomial_pair(b, m);
+    m1 = m[0];
+    m2 = m[1];
     r1 = m1->prod;
-    m2 = m1->next;
     r2 = m2->prod;
     assert(q_is_nonzero(&m1->coeff) && q_is_nonzero(&m2->coeff));
 
@@ -1985,7 +1945,7 @@ term_t mk_arith_eq0(term_manager_t *manager, arith_buffer_t *b) {
   }
 
 
-  arith_buffer_reset(b);
+  reset_rba_buffer(b);
   assert(good_term(tbl, t) && is_boolean_term(tbl, t));
 
   return t;
@@ -2059,14 +2019,13 @@ static term_t mk_arith_geq_atom(term_table_t *tbl, term_t t) {
  * - simplify to true or false if b is a constant
  * - otherwise build a term t from b and return the atom (t >= 0)
  */
-term_t mk_direct_arith_geq0(term_table_t *tbl, arith_buffer_t *b) {
-  mlist_t *m;
+term_t mk_direct_arith_geq0(term_table_t *tbl, rba_buffer_t *b) {
+  mono_t *m;
   pprod_t *r;
   term_t t;
   uint32_t n;
 
   assert(b->ptbl == tbl->pprods);
-  arith_buffer_normalize(b);
 
   n = b->nterms;
   if (n == 0) {
@@ -2078,7 +2037,7 @@ term_t mk_direct_arith_geq0(term_table_t *tbl, arith_buffer_t *b) {
      * if r is the empty product, (b >= 0) simplifies to true or false
      * otherwise, (b >= 0) simplifies either to r >= 0 or -r >= 0
      */
-    m = b->list;
+    m = rba_buffer_root_mono(b); // unique monomial of b
     r = m->prod;
     if (q_is_pos(&m->coeff)) {
       // a > 0
@@ -2106,7 +2065,7 @@ term_t mk_direct_arith_geq0(term_table_t *tbl, arith_buffer_t *b) {
     t = mk_arith_geq_atom(tbl, t);
   }
 
-  arith_buffer_reset(b);
+  reset_rba_buffer(b);
   assert(good_term(tbl, t) && is_boolean_term(tbl, t));
 
   return t;
@@ -2116,7 +2075,7 @@ term_t mk_direct_arith_geq0(term_table_t *tbl, arith_buffer_t *b) {
 /*
  * Same thing: using a manager
  */
-term_t mk_arith_geq0(term_manager_t *manager, arith_buffer_t *b) {
+term_t mk_arith_geq0(term_manager_t *manager, rba_buffer_t *b) {
   return mk_direct_arith_geq0(manager->terms, b);
 }
 
@@ -2193,10 +2152,10 @@ static bool check_for_lift_if(term_table_t *tbl, term_t t1, term_t t2, lift_resu
 /*
  * Store t1 - t2 in buffer b
  */
-static void mk_arith_diff(term_manager_t *manager, arith_buffer_t *b, term_t t1, term_t t2) {
-  arith_buffer_reset(b);
-  arith_buffer_add_term(b, manager->terms, t1);
-  arith_buffer_sub_term(b, manager->terms, t2);
+static void mk_arith_diff(term_manager_t *manager, rba_buffer_t *b, term_t t1, term_t t2) {
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, manager->terms, t1);
+  rba_buffer_sub_term(b, manager->terms, t2);
 }
 
 
@@ -2206,7 +2165,7 @@ static void mk_arith_diff(term_manager_t *manager, arith_buffer_t *b, term_t t1,
  * - t1, t2, t3, t4 are all arithmetic terms
  */
 static term_t mk_lifted_aritheq(term_manager_t *manager, term_t c, term_t t1, term_t t2, term_t t3, term_t t4) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_t left, right;
 
   b = term_manager_get_arith_buffer(manager);
@@ -2226,7 +2185,7 @@ static term_t mk_lifted_aritheq(term_manager_t *manager, term_t c, term_t t1, te
  * - t1, t2, t3, t4 are all arithmetic terms
  */
 static term_t mk_lifted_arithgeq(term_manager_t *manager, term_t c, term_t t1, term_t t2, term_t t3, term_t t4) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_t left, right;
 
   b = term_manager_get_arith_buffer(manager);
@@ -2255,7 +2214,7 @@ static term_t mk_lifted_arithgeq(term_manager_t *manager, term_t c, term_t t1, t
  *
  */
 term_t mk_arith_eq(term_manager_t *manager, term_t t1, term_t t2) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   lift_result_t tmp;
 
   assert(is_arithmetic_term(manager->terms, t1) && 
@@ -2277,7 +2236,7 @@ term_t mk_arith_eq(term_manager_t *manager, term_t t1, term_t t2) {
  * Try the cheap lift-if rules. 
  */
 term_t mk_arith_geq(term_manager_t *manager, term_t t1, term_t t2) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   lift_result_t tmp;
 
   assert(is_arithmetic_term(manager->terms, t1) && 
@@ -2319,23 +2278,23 @@ term_t mk_arith_lt(term_manager_t *manager, term_t t1, term_t t2) {
 
 
 // b != 0   -->  not (b == 0)
-term_t mk_arith_neq0(term_manager_t *manager, arith_buffer_t *b) {
+term_t mk_arith_neq0(term_manager_t *manager, rba_buffer_t *b) {
   return opposite_term(mk_arith_eq0(manager, b));
 }
 
 // b <= 0  -->  (- b) >= 0
-term_t mk_arith_leq0(term_manager_t *manager, arith_buffer_t *b) {
-  arith_buffer_negate(b);
+term_t mk_arith_leq0(term_manager_t *manager, rba_buffer_t *b) {
+  rba_buffer_negate(b);
   return mk_arith_geq0(manager, b);
 }
 
 // b > 0  -->  not (b <= 0)
-term_t mk_arith_gt0(term_manager_t *manager, arith_buffer_t *b) {
+term_t mk_arith_gt0(term_manager_t *manager, rba_buffer_t *b) {
   return opposite_term(mk_arith_leq0(manager, b));
 }
 
 // b < 0  -->  not (b >= 0)
-term_t mk_arith_lt0(term_manager_t *manager, arith_buffer_t *b) {
+term_t mk_arith_lt0(term_manager_t *manager, rba_buffer_t *b) {
   return opposite_term(mk_arith_geq0(manager, b));
 }
 
@@ -2345,66 +2304,66 @@ term_t mk_arith_lt0(term_manager_t *manager, arith_buffer_t *b) {
  */
 // t == 0
 term_t mk_arith_term_eq0(term_manager_t *manager, term_t t) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
 
   b = term_manager_get_arith_buffer(manager);
-  arith_buffer_reset(b);
-  arith_buffer_add_term(b, manager->terms, t);
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, manager->terms, t);
 
   return mk_arith_eq0(manager, b);
 }
 
 // t != 0
 term_t mk_arith_term_neq0(term_manager_t *manager, term_t t) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
 
   b = term_manager_get_arith_buffer(manager);
-  arith_buffer_reset(b);
-  arith_buffer_add_term(b, manager->terms, t);
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, manager->terms, t);
 
   return mk_arith_neq0(manager, b);
 }
 
 // t >= 0
 term_t mk_arith_term_geq0(term_manager_t *manager, term_t t) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
 
   b = term_manager_get_arith_buffer(manager);
-  arith_buffer_reset(b);
-  arith_buffer_add_term(b, manager->terms, t);
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, manager->terms, t);
 
   return mk_arith_geq0(manager, b);
 }
 
 // t <= 0
 term_t mk_arith_term_leq0(term_manager_t *manager, term_t t) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
 
   b = term_manager_get_arith_buffer(manager);
-  arith_buffer_reset(b);
-  arith_buffer_add_term(b, manager->terms, t);
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, manager->terms, t);
 
   return mk_arith_leq0(manager, b);
 }
 
 // t > 0
 term_t mk_arith_term_gt0(term_manager_t *manager, term_t t) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
 
   b = term_manager_get_arith_buffer(manager);
-  arith_buffer_reset(b);
-  arith_buffer_add_term(b, manager->terms, t);
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, manager->terms, t);
 
   return mk_arith_gt0(manager, b);
 }
 
 // t < 0
 term_t mk_arith_term_lt0(term_manager_t *manager, term_t t) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
 
   b = term_manager_get_arith_buffer(manager);
-  arith_buffer_reset(b);
-  arith_buffer_add_term(b, manager->terms, t);
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, manager->terms, t);
 
   return mk_arith_lt0(manager, b);
 }
@@ -2414,18 +2373,18 @@ term_t mk_arith_term_lt0(term_manager_t *manager, term_t t) {
  * Variant: use a term table
  */
 // b <= 0  -->  (- b) >= 0
-term_t mk_direct_arith_leq0(term_table_t *tbl, arith_buffer_t *b) {
-  arith_buffer_negate(b);
+term_t mk_direct_arith_leq0(term_table_t *tbl, rba_buffer_t *b) {
+  rba_buffer_negate(b);
   return mk_direct_arith_geq0(tbl, b);
 }
 
 // b > 0  -->  not (b <= 0)
-term_t mk_direct_arith_gt0(term_table_t *tbl, arith_buffer_t *b) {
+term_t mk_direct_arith_gt0(term_table_t *tbl, rba_buffer_t *b) {
   return opposite_term(mk_direct_arith_leq0(tbl, b));
 }
 
 // b < 0  -->  not (b >= 0)
-term_t mk_direct_arith_lt0(term_table_t *tbl, arith_buffer_t *b) {
+term_t mk_direct_arith_lt0(term_table_t *tbl, rba_buffer_t *b) {
   return opposite_term(mk_direct_arith_geq0(tbl, b));
 }
 

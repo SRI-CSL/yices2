@@ -168,42 +168,27 @@ static void print_arith_monomial(FILE *f, rational_t *coeff, pprod_t *r, bool fi
 
 }
 
-void print_arith_buffer(FILE *f, arith_buffer_t *b) {
-  mlist_t *p;
-  bool first;
+static void print_rba_tree(FILE *f, rba_buffer_t *b, uint32_t x, bool first) {
+  uint32_t i, j;
 
-  if (arith_buffer_is_zero(b)) {
+  if (x != 0) {
+    i = b->child[x][0];
+    j = b->child[x][1];
+    print_rba_tree(f, b, i, first);
+    first &= (i == 0);
+    print_arith_monomial(f, &b->mono[x].coeff, b->mono[x].prod, first);    
+    print_rba_tree(f, b, j, false);
+  }		   
+}
+
+void print_arith_buffer(FILE *f, rba_buffer_t *b) {
+  if (rba_buffer_is_zero(b)) {
     fprintf(f, "0");
   } else {
-    p = b->list;
-    first = true;
-    while (p->next != NULL) {
-      print_arith_monomial(f, &p->coeff, p->prod, first);
-      first = false;
-      p = p->next;
-    }
+    print_rba_tree(f, b, b->root, true);
   }
 }
 
-#if 0
-// not used
-void print_mlist(FILE *f, mlist_t *p) {
-  bool first;
-
-  assert(p != NULL);
-
-  if (p->next == NULL) {
-    fprintf(f, "0");
-  } else {
-    first = true;
-    while (p->next != NULL) {
-      print_arith_monomial(f, &p->coeff, p->prod, first);
-      first = false;
-      p = p->next;
-    }
-  }
-}
-#endif
 
 /*
  * Bit-vector polynomial
@@ -294,26 +279,6 @@ void print_bvarith_buffer(FILE *f, bvarith_buffer_t *b) {
     }
   }
 }
-
-#if 0
-// not used
-void print_bvmlist(FILE *f, bvmlist_t *p, uint32_t n) {
-  bool first;
-
-  assert(p != NULL);
-
-  if (p->next == NULL) {
-    fprintf(f, "0");
-  } else {
-    first = true;
-    while (p->next != NULL) {
-      print_bvarith_mono(f, p->coeff, p->prod, n, first);
-      first = false;
-      p = p->next;
-    }
-  }
-}
-#endif
 
 /*
  * Bit-vector polynomial, small coefficients
@@ -413,25 +378,6 @@ void print_bvarith64_buffer(FILE *f, bvarith64_buffer_t *b) {
   }
 }
 
-#if 0
-// not used
-void print_bvmlist64(FILE *f, bvmlist64_t *p, uint32_t n) {
-  bool first;
-
-  assert(p != NULL);
-
-  if (p->next == NULL) {
-    fprintf(f, "0");
-  } else {
-    first = true;
-    while (p->next != NULL) {
-      print_bvarith64_mono(f, p->coeff, p->prod, n, first);
-      first = false;
-      p = p->next;
-    }
-  }
-}
-#endif
 
 
 /*

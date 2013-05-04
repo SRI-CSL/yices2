@@ -726,7 +726,7 @@ typedef struct {
   int_hobj_t m;
   term_table_t *tbl;
   type_t tau;
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   int32_t *v;
 } poly_term_hobj_t;
 
@@ -823,7 +823,7 @@ static uint32_t hash_pprod_hobj(pprod_term_hobj_t *o) {
 }
 
 static uint32_t hash_poly_hobj(poly_term_hobj_t *o) {
-  return hash_arith_buffer(o->b, o->v);
+  return hash_rba_buffer(o->b, o->v);
 }
 
 static uint32_t hash_bvpoly_hobj(bvpoly_term_hobj_t *o) {
@@ -983,7 +983,7 @@ static bool eq_poly_hobj(poly_term_hobj_t *o, int32_t i) {
   assert(good_term_idx(table, i));
 
   return table->kind[i] == ARITH_POLY && 
-    arith_buffer_equal_poly(o->b, o->v, table->desc[i].ptr);
+    rba_buffer_equal_poly(o->b, o->v, table->desc[i].ptr);
 }
 
 static bool eq_bvpoly_hobj(bvpoly_term_hobj_t *o, int32_t i) {
@@ -1099,7 +1099,7 @@ static int32_t build_pprod_hobj(pprod_term_hobj_t *o) {
 static int32_t build_poly_hobj(poly_term_hobj_t *o) {
   polynomial_t *p;
 
-  p = arith_buffer_get_poly(o->b, o->v);
+  p = rba_buffer_get_poly(o->b, o->v);
   return new_ptr_term(o->tbl, ARITH_POLY, o->tau, p);
 }
 
@@ -2522,6 +2522,33 @@ static bool all_integer_terms(term_table_t *table, term_t *v, uint32_t n) {
 
 
 /*
+ * Auxiliary function: convert power products of subtree rooted at x
+ * to term indices and check whether all coefficients are integer
+ * - input: x = node in the buffer b
+ *          i = number of nodes in the subtree at the left of x
+ *          v = array to store conversion
+ * - output: return i + number of nodes in the subtree rooted at x
+ *   update *all_int so that it's true if all nodes in x have
+ *   integer coefficients and *all_int was true on entry to the function
+ *
+ * So v[i] will store the conversion of the left-most monomial in x's subtree
+ */
+static uint32_t convert_rba_tree(term_table_t *table, rba_buffer_t *b, int32_t *v, bool *all_int,
+				 uint32_t i, uint32_t x) {
+  assert(x < b->num_nodes);
+
+  if (x != rba_null) {
+    i = convert_rba_tree(table, b, v, all_int, i, b->child[x][0]);
+    assert(i < b->nterms);
+    v[i] = poly_index_for_pprod(table, b->mono[x].prod);
+    *all_int = *all_int && q_is_integer(&b->mono[x].coeff);
+    i = convert_rba_tree(table, b, v, all_int, i+1, b->child[x][1]);
+  }
+
+  return i;
+}
+
+/*
  * Arithmetic term
  * - all variables of b must be real or integer terms defined in table
  * - b must be normalized and b->ptbl must be the same as table->ptbl
@@ -2532,8 +2559,7 @@ static bool all_integer_terms(term_table_t *table, term_t *v, uint32_t n) {
  *
  * SIDE EFFECT: b is reset to zero
  */
-term_t arith_poly(term_table_t *table, arith_buffer_t *b) {
-  mlist_t *q;
+term_t arith_poly(term_table_t *table, rba_buffer_t *b) {
   int32_t *v;
   type_t tau;
   int32_t i;
@@ -2553,16 +2579,9 @@ term_t arith_poly(term_table_t *table, arith_buffer_t *b) {
 
   resize_ivector(&table->ibuffer, n + 1);
   v = table->ibuffer.data;
-  q = b->list;
   all_int = true;
-  for (j=0; j<n; j++) {
-    assert(q->next != NULL);
-    v[j] = poly_index_for_pprod(table, q->prod);
-    all_int = all_int && q_is_integer(&q->coeff);
-    q = q->next;
-  }
-  // add the end marker
-  assert(q->next == NULL && q->prod == end_pp);
+  j = convert_rba_tree(table, b, v, &all_int, 0, b->root);
+  assert(j == n);
   v[j] = max_idx;
 
   // type of b: either int or real

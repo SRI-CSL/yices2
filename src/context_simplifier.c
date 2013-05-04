@@ -8,7 +8,7 @@
 
 #include "memalloc.h"
 #include "term_utils.h"
-#include "arith_buffer_terms.h"
+#include "rba_buffer_terms.h"
 #include "poly_buffer_terms.h"
 #include "term_manager.h"
 
@@ -208,19 +208,13 @@ void context_free_cache(context_t *ctx) {
 /*
  * Allocate the arithmetic buffer + store if necessary
  */
-arith_buffer_t *context_get_arith_buffer(context_t *ctx) {
-  arith_buffer_t *tmp;
-  object_store_t *store;
+rba_buffer_t *context_get_arith_buffer(context_t *ctx) {
+  rba_buffer_t *tmp;
 
   tmp = ctx->arith_buffer;
   if (tmp == NULL) {
-    assert(ctx->mlist_store == NULL);
-    store = (object_store_t *) safe_malloc(sizeof(object_store_t));
-    init_mlist_store(store);
-    ctx->mlist_store = store;
-
-    tmp = (arith_buffer_t *) safe_malloc(sizeof(arith_buffer_t));
-    init_arith_buffer(tmp, ctx->terms->pprods, store);
+    tmp = (rba_buffer_t *) safe_malloc(sizeof(rba_buffer_t));
+    init_rba_buffer(tmp, ctx->terms->pprods);
     ctx->arith_buffer = tmp;
   }
   
@@ -232,20 +226,13 @@ arith_buffer_t *context_get_arith_buffer(context_t *ctx) {
  * Free the arithmetic buffer + store
  */
 void context_free_arith_buffer(context_t *ctx) {
-  arith_buffer_t *tmp;
-  object_store_t *store;
+  rba_buffer_t *tmp;
 
   tmp = ctx->arith_buffer;
   if (tmp != NULL) {
-    delete_arith_buffer(tmp);
+    delete_rba_buffer(tmp);
     safe_free(tmp);
     ctx->arith_buffer = NULL;
-
-    store = ctx->mlist_store;
-    assert(store != NULL);
-    delete_mlist_store(store);
-    safe_free(store);
-    ctx->mlist_store = NULL;
   }
 }
 
@@ -1934,14 +1921,14 @@ void context_process_candidate_subst(context_t *ctx) {
  * Build the atom (t < 0)
  */
 static term_t lt0_atom(context_t *ctx, term_t t) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
 
   assert(is_pos_term(t) && is_arithmetic_term(ctx->terms, t));
 
   b = ctx->arith_buffer;
-  assert(b != NULL && arith_buffer_is_zero(b));
+  assert(b != NULL && rba_buffer_is_zero(b));
 
-  arith_buffer_add_term(b, ctx->terms, t);
+  rba_buffer_add_term(b, ctx->terms, t);
   return mk_direct_arith_lt0(ctx->terms, b);
 }
 
@@ -1949,14 +1936,14 @@ static term_t lt0_atom(context_t *ctx, term_t t) {
  * Build a term equivalent to (t > 0)
  */
 static term_t gt0_atom(context_t *ctx, term_t t) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
 
   assert(is_pos_term(t) && is_arithmetic_term(ctx->terms, t));
 
   b = ctx->arith_buffer;
-  assert(b != NULL && arith_buffer_is_zero(b));
+  assert(b != NULL && rba_buffer_is_zero(b));
 
-  arith_buffer_add_term(b, ctx->terms, t);
+  rba_buffer_add_term(b, ctx->terms, t);
   return mk_direct_arith_gt0(ctx->terms, b);  
 }
 

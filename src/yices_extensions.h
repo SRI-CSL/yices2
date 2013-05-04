@@ -107,12 +107,12 @@ extern int32_t yices_get_macro_by_name(const char *name);
 /*
  * Allocate an arithmetic buffer, initialized to the zero polynomial.
  */
-extern arith_buffer_t *yices_new_arith_buffer(void);
+extern rba_buffer_t *yices_new_arith_buffer(void);
 
 /*
  * Free a buffer returned by the previous function.
  */
-extern void yices_free_arith_buffer(arith_buffer_t *b);
+extern void yices_free_arith_buffer(rba_buffer_t *b);
 
 /*
  * Allocate and initialize a bvarith_buffer
@@ -164,7 +164,7 @@ extern void yices_free_bvlogic_buffer(bvlogic_buffer_t *b);
  * 3) if b is of the form 1.t_1^d_1 x ... x t_n^d_n, then a power product is returned
  * 4) otherwise, a polynomial term is returned
  */
-extern term_t arith_buffer_get_term(arith_buffer_t *b);
+extern term_t arith_buffer_get_term(rba_buffer_t *b);
 
 /*
  * Construct the atom (b == 0) then reset b.
@@ -176,7 +176,7 @@ extern term_t arith_buffer_get_term(arith_buffer_t *b);
  * - otherwise, create a polynomial term t from b
  *   and return the atom (t == 0).
  */
-extern term_t arith_buffer_get_eq0_atom(arith_buffer_t *b);
+extern term_t arith_buffer_get_eq0_atom(rba_buffer_t *b);
 
 /*
  * Construct the atom (b >= 0) then reset b.
@@ -185,22 +185,22 @@ extern term_t arith_buffer_get_eq0_atom(arith_buffer_t *b);
  * - simplify to true or false if b is a constant
  * - otherwise, create term t from b and return the atom (t >= 0)
  */
-extern term_t arith_buffer_get_geq0_atom(arith_buffer_t *b);
+extern term_t arith_buffer_get_geq0_atom(rba_buffer_t *b);
 
 /*
  * Atom (b <= 0): rewritten to (-b >= 0)
  */
-extern term_t arith_buffer_get_leq0_atom(arith_buffer_t *b);
+extern term_t arith_buffer_get_leq0_atom(rba_buffer_t *b);
 
 /*
  * Atom (b > 0): rewritten to (not (b <= 0))
  */
-extern term_t arith_buffer_get_gt0_atom(arith_buffer_t *b);
+extern term_t arith_buffer_get_gt0_atom(rba_buffer_t *b);
 
 /*
  * Atom (b < 0): rewritten to (not (b >= 0))
  */
-extern term_t arith_buffer_get_lt0_atom(arith_buffer_t *b);
+extern term_t arith_buffer_get_lt0_atom(rba_buffer_t *b);
 
 
 /*
@@ -290,14 +290,14 @@ extern bool yices_check_arith_term(term_t t);
  *   code = DEGREE_OVERFLOW
  *   badval = degree of b + degree of t
  */
-extern bool yices_check_mul_term(arith_buffer_t *b, term_t t);
+extern bool yices_check_mul_term(rba_buffer_t *b, term_t t);
 
 
 /*
  * Same thing for the product of two buffers b1 and b2.
  * - both must be buffers allocated using yices_new_arith_buffer().
  */
-extern bool yices_check_mul_buffer(arith_buffer_t *b1, arith_buffer_t *b2);
+extern bool yices_check_mul_buffer(rba_buffer_t *b1, rba_buffer_t *b2);
 
 
 /*

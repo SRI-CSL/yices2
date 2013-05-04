@@ -337,7 +337,7 @@ static void check_smt2_mk_ge(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 // auxiliary function: build ge(f, f+1)
 static term_t mk_binary_ge(tstack_t *stack, stack_elem_t *f) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_t t;
 
   b = tstack_get_abuffer(stack);
@@ -378,7 +378,7 @@ static void check_smt2_mk_gt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 // auxiliary function: build ge(f, f+1)
 static term_t mk_binary_gt(tstack_t *stack, stack_elem_t *f) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_t t;
 
   b = tstack_get_abuffer(stack);
@@ -420,7 +420,7 @@ static void check_smt2_mk_le(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 // auxiliary function: build le(f, f+1)
 static term_t mk_binary_le(tstack_t *stack, stack_elem_t *f) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_t t;
 
   b = tstack_get_abuffer(stack);
@@ -461,7 +461,7 @@ static void check_smt2_mk_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 // auxiliary function: build ge(f, f+1)
 static term_t mk_binary_lt(tstack_t *stack, stack_elem_t *f) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_t t;
 
   b = tstack_get_abuffer(stack);

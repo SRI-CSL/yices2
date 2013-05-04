@@ -32,7 +32,7 @@
 #include "int_array_sort.h"
 
 #include "bv64_constants.h"
-#include "arith_buffer_terms.h"
+#include "rba_buffer_terms.h"
 #include "bvarith_buffer_terms.h"
 #include "bvarith64_buffer_terms.h"
 
@@ -130,7 +130,7 @@ yices_globals_t __yices_globals = {
  */
 typedef struct {
   dl_list_t header;
-  arith_buffer_t buffer;
+  rba_buffer_t buffer;
 } arith_buffer_elem_t;
 
 static dl_list_t arith_buffer_list;
@@ -217,21 +217,21 @@ static dl_list_t generic_list;
 /*
  * Get header of buffer b, assuming b is embedded into an arith_buffer_elem
  */
-static inline dl_list_t *arith_buffer_header(arith_buffer_t *b) {
+static inline dl_list_t *arith_buffer_header(rba_buffer_t *b) {
   return (dl_list_t *)(((char *)b) - offsetof(arith_buffer_elem_t, buffer));
 }
 
 /*
  * Get buffer of header l
  */
-static inline arith_buffer_t *arith_buffer(dl_list_t *l) {
-  return (arith_buffer_t *)(((char *) l) + offsetof(arith_buffer_elem_t, buffer));
+static inline rba_buffer_t *arith_buffer(dl_list_t *l) {
+  return (rba_buffer_t *)(((char *) l) + offsetof(arith_buffer_elem_t, buffer));
 }
 
 /*
  * Allocate an arithmetic buffer and insert it into the list
  */
-static inline arith_buffer_t *alloc_arith_buffer(void) {
+static inline rba_buffer_t *alloc_arith_buffer(void) {
   arith_buffer_elem_t *new_elem;
 
   new_elem = (arith_buffer_elem_t *) safe_malloc(sizeof(arith_buffer_elem_t));
@@ -242,7 +242,7 @@ static inline arith_buffer_t *alloc_arith_buffer(void) {
 /*
  * Remove b from the list and free b
  */
-static inline void free_arith_buffer(arith_buffer_t *b) {
+static inline void free_arith_buffer(rba_buffer_t *b) {
   dl_list_t *elem;
 
   elem = arith_buffer_header(b);
@@ -259,7 +259,7 @@ static void free_arith_buffer_list(void) {
   elem = arith_buffer_list.next;
   while (elem != &arith_buffer_list) {
     aux = elem->next;
-    delete_arith_buffer(arith_buffer(elem));
+    delete_rba_buffer(arith_buffer(elem));
     safe_free(elem);
     elem = aux;
   }
@@ -873,10 +873,6 @@ static inline node_table_t *get_nodes(void) {
   return term_manager_get_nodes(&manager);
 }
 
-static inline object_store_t *get_arith_store(void) {
-  return term_manager_get_arith_store(&manager);
-}
-
 static inline object_store_t *get_bvarith_store(void) {
   return term_manager_get_bvarith_store(&manager);
 }
@@ -886,7 +882,7 @@ static inline object_store_t *get_bvarith64_store(void) {
 }
 
 
-static inline arith_buffer_t *get_arith_buffer(void) {
+static inline rba_buffer_t *get_arith_buffer(void) {
   return term_manager_get_arith_buffer(&manager);
 }
 
@@ -909,11 +905,11 @@ static inline bvlogic_buffer_t *get_bvlogic_buffer(void) {
  * Allocate an arithmetic buffer, initialized to the zero polynomial.
  * Add it to the buffer list
  */
-arith_buffer_t *yices_new_arith_buffer(void) {
-  arith_buffer_t *b;
+rba_buffer_t *yices_new_arith_buffer(void) {
+  rba_buffer_t *b;
   
   b = alloc_arith_buffer();
-  init_arith_buffer(b, &pprods, get_arith_store());
+  init_rba_buffer(b, &pprods);
   return b;
 }
 
@@ -921,8 +917,8 @@ arith_buffer_t *yices_new_arith_buffer(void) {
 /*
  * Free an allocated buffer
  */
-void yices_free_arith_buffer(arith_buffer_t *b) {
-  delete_arith_buffer(b);
+void yices_free_arith_buffer(rba_buffer_t *b) {
+  delete_rba_buffer(b);
   free_arith_buffer(b);
 }
 
@@ -1006,7 +1002,7 @@ void yices_free_bvlogic_buffer(bvlogic_buffer_t *b) {
  *  ITERATORS  *
  **************/
 
-void arith_buffer_iterate(void *aux, void (*f)(void *, arith_buffer_t *)) {
+void arith_buffer_iterate(void *aux, void (*f)(void *, rba_buffer_t *)) {
   dl_list_t *elem;
 
   for (elem = arith_buffer_list.next;
@@ -2508,7 +2504,7 @@ EXPORTED term_t yices_parse_float(const char *s) {
  * Add t1 and t2
  */
 EXPORTED term_t yices_add(term_t t1, term_t t2) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_table_t *tbl;
 
   if (! check_both_arith_terms(&manager, t1, t2)) {
@@ -2517,9 +2513,9 @@ EXPORTED term_t yices_add(term_t t1, term_t t2) {
 
   b = get_arith_buffer();
   tbl = &terms;
-  arith_buffer_reset(b);
-  arith_buffer_add_term(b, tbl, t1);
-  arith_buffer_add_term(b, tbl, t2);
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, tbl, t1);
+  rba_buffer_add_term(b, tbl, t2);
 
   return mk_arith_term(&manager, b);
 }
@@ -2529,7 +2525,7 @@ EXPORTED term_t yices_add(term_t t1, term_t t2) {
  * Subtract t2 from t1
  */
 EXPORTED term_t yices_sub(term_t t1, term_t t2) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_table_t *tbl;
 
   if (! check_both_arith_terms(&manager, t1, t2)) {
@@ -2538,9 +2534,9 @@ EXPORTED term_t yices_sub(term_t t1, term_t t2) {
 
   b = get_arith_buffer();
   tbl = &terms;
-  arith_buffer_reset(b);
-  arith_buffer_add_term(b, tbl, t1);
-  arith_buffer_sub_term(b, tbl, t2);
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, tbl, t1);
+  rba_buffer_sub_term(b, tbl, t2);
 
   return mk_arith_term(&manager, b);
 }
@@ -2550,7 +2546,7 @@ EXPORTED term_t yices_sub(term_t t1, term_t t2) {
  * Negate t1
  */
 EXPORTED term_t yices_neg(term_t t1) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_table_t *tbl;
 
   if (! check_good_term(&manager, t1) || 
@@ -2560,8 +2556,8 @@ EXPORTED term_t yices_neg(term_t t1) {
 
   b = get_arith_buffer();
   tbl = &terms;
-  arith_buffer_reset(b);
-  arith_buffer_sub_term(b, tbl, t1);
+  reset_rba_buffer(b);
+  rba_buffer_sub_term(b, tbl, t1);
 
   return mk_arith_term(&manager, b);
 }
@@ -2571,7 +2567,7 @@ EXPORTED term_t yices_neg(term_t t1) {
  * Multiply t1 and t2
  */
 EXPORTED term_t yices_mul(term_t t1, term_t t2) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_table_t *tbl;
 
   if (! check_both_arith_terms(&manager, t1, t2) ||
@@ -2581,9 +2577,9 @@ EXPORTED term_t yices_mul(term_t t1, term_t t2) {
 
   b = get_arith_buffer();
   tbl = &terms;
-  arith_buffer_reset(b);
-  arith_buffer_add_term(b, tbl, t1);
-  arith_buffer_mul_term(b, tbl, t2);
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, tbl, t1);
+  rba_buffer_mul_term(b, tbl, t2);
 
   return mk_arith_term(&manager, b);
 }
@@ -2593,7 +2589,7 @@ EXPORTED term_t yices_mul(term_t t1, term_t t2) {
  * Compute the square of t1
  */
 EXPORTED term_t yices_square(term_t t1) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_table_t *tbl;
 
   if (! check_good_term(&manager, t1) || 
@@ -2604,9 +2600,9 @@ EXPORTED term_t yices_square(term_t t1) {
 
   b = get_arith_buffer();
   tbl = &terms;
-  arith_buffer_reset(b);
-  arith_buffer_add_term(b, tbl, t1);
-  arith_buffer_mul_term(b, tbl, t1);
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, tbl, t1);
+  rba_buffer_mul_term(b, tbl, t1);
 
   return mk_arith_term(&manager, b);
 }
@@ -2616,7 +2612,7 @@ EXPORTED term_t yices_square(term_t t1) {
  * Compute t1 ^ d
  */
 EXPORTED term_t yices_power(term_t t1, uint32_t d) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_table_t *tbl;
 
   if (! check_good_term(&manager, t1) || 
@@ -2627,8 +2623,8 @@ EXPORTED term_t yices_power(term_t t1, uint32_t d) {
 
   b = get_arith_buffer();
   tbl = &terms;
-  arith_buffer_set_one(b);
-  arith_buffer_mul_term_power(b, tbl, t1, d);
+  rba_buffer_set_one(b);
+  rba_buffer_mul_term_power(b, tbl, t1, d);
 
   return mk_arith_term(&manager, b);
 }
@@ -2638,7 +2634,7 @@ EXPORTED term_t yices_power(term_t t1, uint32_t d) {
  * Sum of n terms t[0] ... t[n-1]
  */
 EXPORTED term_t yices_sum(uint32_t n, term_t t[]) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
 
@@ -2649,9 +2645,9 @@ EXPORTED term_t yices_sum(uint32_t n, term_t t[]) {
 
   b = get_arith_buffer();
   tbl = &terms;
-  arith_buffer_reset(b);
+  reset_rba_buffer(b);
   for (i=0; i<n; i++) {
-    arith_buffer_add_term(b, tbl, t[i]);
+    rba_buffer_add_term(b, tbl, t[i]);
   }
 
   return mk_arith_term(&manager, b);    
@@ -2662,7 +2658,7 @@ EXPORTED term_t yices_sum(uint32_t n, term_t t[]) {
  * Product of n terms t[0] ... t[n-1]
  */
 EXPORTED term_t yices_product(uint32_t n, term_t t[]) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
 
@@ -2687,9 +2683,9 @@ EXPORTED term_t yices_product(uint32_t n, term_t t[]) {
 
   b = get_arith_buffer();
   tbl = &terms;
-  arith_buffer_set_one(b);
+  rba_buffer_set_one(b);
   for (i=0; i<n; i++) {
-    arith_buffer_mul_term(b, tbl, t[i]);
+    rba_buffer_mul_term(b, tbl, t[i]);
   }
 
   return mk_arith_term(&manager, b);    
@@ -2702,7 +2698,7 @@ EXPORTED term_t yices_product(uint32_t n, term_t t[]) {
  * DIVISION
  */
 EXPORTED term_t yices_division(term_t t1, term_t t2) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_table_t *tbl;
   rational_t *q;
   
@@ -2721,9 +2717,9 @@ EXPORTED term_t yices_division(term_t t1, term_t t2) {
   }
 
   b = get_arith_buffer();
-  arith_buffer_reset(b);
-  arith_buffer_add_term(b, tbl, t1);
-  arith_buffer_div_const(b, q); // safe to use q here
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, tbl, t1);
+  rba_buffer_div_const(b, q); // safe to use q here
 
   return mk_arith_term(&manager, b);
 }
@@ -2739,7 +2735,7 @@ EXPORTED term_t yices_division(term_t t1, term_t t2) {
  * integer coefficients
  */
 EXPORTED term_t yices_poly_int32(uint32_t n, int32_t a[], term_t t[]) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
 
@@ -2750,17 +2746,17 @@ EXPORTED term_t yices_poly_int32(uint32_t n, int32_t a[], term_t t[]) {
 
   b = get_arith_buffer();
   tbl = &terms;
-  arith_buffer_reset(b);
+  reset_rba_buffer(b);
   for (i=0; i<n; i++) {
     q_set32(&r0, a[i]);
-    arith_buffer_add_const_times_term(b, tbl, &r0, t[i]);
+    rba_buffer_add_const_times_term(b, tbl, &r0, t[i]);
   }
 
   return mk_arith_term(&manager, b);  
 }
 
 EXPORTED term_t yices_poly_int64(uint32_t n, int64_t a[], term_t t[]) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
 
@@ -2771,10 +2767,10 @@ EXPORTED term_t yices_poly_int64(uint32_t n, int64_t a[], term_t t[]) {
 
   b = get_arith_buffer();
   tbl = &terms;
-  arith_buffer_reset(b);
+  reset_rba_buffer(b);
   for (i=0; i<n; i++) {
     q_set64(&r0, a[i]);
-    arith_buffer_add_const_times_term(b, tbl, &r0, t[i]);
+    rba_buffer_add_const_times_term(b, tbl, &r0, t[i]);
   }
 
   return mk_arith_term(&manager, b);  
@@ -2791,7 +2787,7 @@ EXPORTED term_t yices_poly_int64(uint32_t n, int64_t a[], term_t t[]) {
  *   code = DIVISION_BY_ZERO
  */
 EXPORTED term_t yices_poly_rational32(uint32_t n, int32_t num[], uint32_t den[], term_t t[]) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
 
@@ -2803,17 +2799,17 @@ EXPORTED term_t yices_poly_rational32(uint32_t n, int32_t num[], uint32_t den[],
 
   b = get_arith_buffer();
   tbl = &terms;
-  arith_buffer_reset(b);
+  reset_rba_buffer(b);
   for (i=0; i<n; i++) {
     q_set_int32(&r0, num[i], den[i]);
-    arith_buffer_add_const_times_term(b, tbl, &r0, t[i]);
+    rba_buffer_add_const_times_term(b, tbl, &r0, t[i]);
   }
 
   return mk_arith_term(&manager, b);  
 }
 
 EXPORTED term_t yices_poly_rational64(uint32_t n, int64_t num[], uint64_t den[], term_t t[]) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
 
@@ -2825,10 +2821,10 @@ EXPORTED term_t yices_poly_rational64(uint32_t n, int64_t num[], uint64_t den[],
 
   b = get_arith_buffer();
   tbl = &terms;
-  arith_buffer_reset(b);
+  reset_rba_buffer(b);
   for (i=0; i<n; i++) {
     q_set_int64(&r0, num[i], den[i]);
-    arith_buffer_add_const_times_term(b, tbl, &r0, t[i]);
+    rba_buffer_add_const_times_term(b, tbl, &r0, t[i]);
   }
 
   return mk_arith_term(&manager, b);  
@@ -2839,7 +2835,7 @@ EXPORTED term_t yices_poly_rational64(uint32_t n, int64_t num[], uint64_t den[],
  * GMP integers and rationals
  */
 EXPORTED term_t yices_poly_mpz(uint32_t n, mpz_t z[], term_t t[]) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
 
@@ -2850,10 +2846,10 @@ EXPORTED term_t yices_poly_mpz(uint32_t n, mpz_t z[], term_t t[]) {
 
   b = get_arith_buffer();
   tbl = &terms;
-  arith_buffer_reset(b);
+  reset_rba_buffer(b);
   for (i=0; i<n; i++) {
     q_set_mpz(&r0, z[i]);
-    arith_buffer_add_const_times_term(b, tbl, &r0, t[i]);
+    rba_buffer_add_const_times_term(b, tbl, &r0, t[i]);
   }
 
   q_clear(&r0);
@@ -2863,7 +2859,7 @@ EXPORTED term_t yices_poly_mpz(uint32_t n, mpz_t z[], term_t t[]) {
 
 
 EXPORTED term_t yices_poly_mpq(uint32_t n, mpq_t q[], term_t t[]) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
 
@@ -2874,10 +2870,10 @@ EXPORTED term_t yices_poly_mpq(uint32_t n, mpq_t q[], term_t t[]) {
 
   b = get_arith_buffer();
   tbl = &terms;
-  arith_buffer_reset(b);
+  reset_rba_buffer(b);
   for (i=0; i<n; i++) {
     q_set_mpq(&r0, q[i]);
-    arith_buffer_add_const_times_term(b, tbl, &r0, t[i]);
+    rba_buffer_add_const_times_term(b, tbl, &r0, t[i]);
   }
 
   q_clear(&r0);
@@ -4405,27 +4401,27 @@ EXPORTED uint32_t yices_term_bitsize(term_t t) {
 /*
  * These term constructors are used in term_stack
  */
-term_t arith_buffer_get_term(arith_buffer_t *b) {
+term_t arith_buffer_get_term(rba_buffer_t *b) {
   return mk_arith_term(&manager, b);
 }
 
-term_t arith_buffer_get_eq0_atom(arith_buffer_t *b) {
+term_t arith_buffer_get_eq0_atom(rba_buffer_t *b) {
   return mk_arith_eq0(&manager, b);
 }
 
-term_t arith_buffer_get_geq0_atom(arith_buffer_t *b) {
+term_t arith_buffer_get_geq0_atom(rba_buffer_t *b) {
   return mk_arith_geq0(&manager, b);
 }
 
-term_t arith_buffer_get_leq0_atom(arith_buffer_t *b) {
+term_t arith_buffer_get_leq0_atom(rba_buffer_t *b) {
   return mk_arith_leq0(&manager, b);
 }
 
-term_t arith_buffer_get_gt0_atom(arith_buffer_t *b) {
+term_t arith_buffer_get_gt0_atom(rba_buffer_t *b) {
   return mk_arith_gt0(&manager, b);
 }
 
-term_t arith_buffer_get_lt0_atom(arith_buffer_t *b) {
+term_t arith_buffer_get_lt0_atom(rba_buffer_t *b) {
   return mk_arith_lt0(&manager, b);
 }
 
@@ -4488,7 +4484,7 @@ bool yices_check_arith_term(term_t t) {
  *   code = DEGREE_OVERFLOW
  *   badval = degree of b + degree of t
  */
-bool yices_check_mul_term(arith_buffer_t *b, term_t t) {
+bool yices_check_mul_term(rba_buffer_t *b, term_t t) {
   term_table_t *tbl;
   uint32_t d1, d2;
 
@@ -4496,7 +4492,7 @@ bool yices_check_mul_term(arith_buffer_t *b, term_t t) {
 
   assert(good_term(tbl, t) && is_arithmetic_term(tbl, t));
 
-  d1 = arith_buffer_degree(b);
+  d1 = rba_buffer_degree(b);
   d2 = term_degree(tbl, t);
   assert(d1 <= YICES_MAX_DEGREE && d2 <= YICES_MAX_DEGREE);
 
@@ -4508,11 +4504,11 @@ bool yices_check_mul_term(arith_buffer_t *b, term_t t) {
  * Same thing for the product of two buffers b1 and b2.
  * - both must be buffers allocated using yices_new_arith_buffer().
  */
-bool yices_check_mul_buffer(arith_buffer_t *b1, arith_buffer_t *b2) {
+bool yices_check_mul_buffer(rba_buffer_t *b1, rba_buffer_t *b2) {
   uint32_t d1, d2;
 
-  d1 = arith_buffer_degree(b1);
-  d2 = arith_buffer_degree(b2);
+  d1 = rba_buffer_degree(b1);
+  d2 = rba_buffer_degree(b2);
   assert(d1 <= YICES_MAX_DEGREE && d2 <= YICES_MAX_DEGREE);
 
   return check_maxdegree(d1 + d2);  

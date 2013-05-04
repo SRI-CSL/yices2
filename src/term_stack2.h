@@ -133,7 +133,7 @@ typedef struct stack_elem_s {
     type_t type;
     int32_t macro;
     aval_t aval;
-    arith_buffer_t *arith_buffer;
+    rba_buffer_t *arith_buffer;
     bvarith64_buffer_t *bvarith64_buffer;
     bvarith_buffer_t *bvarith_buffer;
     bvlogic_buffer_t *bvlogic_buffer;
@@ -219,7 +219,7 @@ struct tstack_s {
   bvconstant_t bvconst_buffer;
 
   // dynamically allocated buffers
-  arith_buffer_t *abuffer;
+  rba_buffer_t *abuffer;
   bvarith64_buffer_t *bva64buffer;
   bvarith_buffer_t *bvabuffer;
   bvlogic_buffer_t *bvlbuffer;  

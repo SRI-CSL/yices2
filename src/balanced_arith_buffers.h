@@ -245,6 +245,23 @@ extern mono_t *rba_buffer_main_mono(rba_buffer_t *b);
 
 
 /*
+ * Root monomial: b must be non-zero
+ */
+static inline mono_t *rba_buffer_root_mono(rba_buffer_t *b) {
+  assert(b->nterms > 0);
+  return b->mono + b->root;
+}
+
+
+/*
+ * Extract the first and second monomial (b must have 2 monomials)
+ *  m[0] --> fist monomial in lex order
+ *  m[1] --> second monomial in lex order
+ */
+extern void rba_buffer_monomial_pair(rba_buffer_t *b, mono_t *m[2]);
+
+
+/*
  * Return the monomial of b whose pp is equal to r
  * - return NULL if r does not occur in b
  */

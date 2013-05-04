@@ -5,7 +5,7 @@
 #include <assert.h>
 
 #include "memalloc.h"
-#include "arith_buffer_terms.h"
+#include "rba_buffer_terms.h"
 #include "bvarith_buffer_terms.h"
 #include "bvarith64_buffer_terms.h"
 
@@ -301,7 +301,7 @@ static bool term_is_zero(term_table_t *tbl, term_t t) {
  * - this function constructs the term a[0]^e_0 ... a[n-1]^e_{n-1}
  */
 static term_t arith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, term_t *a) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
 
@@ -310,10 +310,10 @@ static term_t arith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, term_t *
   tbl = term_manager_get_terms(mngr);
   b = term_manager_get_arith_buffer(mngr);
 
-  arith_buffer_set_one(b); // b := 1
+  rba_buffer_set_one(b); // b := 1
   for (i=0; i<n; i++) {
     // b := b * a[i]^e[i]
-    arith_buffer_mul_term_power(b, tbl, a[i], p->prod[i].exp); 
+    rba_buffer_mul_term_power(b, tbl, a[i], p->prod[i].exp); 
   }
 
   return mk_arith_term(mngr, b);
@@ -385,7 +385,7 @@ static term_t bvarith_pprod(term_manager_t *mngr, pprod_t *p, uint32_t n, term_t
  *   (or c_0 + c_1 a[1] + ... + c_{n-1} a[n-1] if a[0] = const_idx)
  */
 static term_t build_arith_poly(term_manager_t *mngr, polynomial_t *p, uint32_t n, term_t *a) {
-  arith_buffer_t *b;
+  rba_buffer_t *b;
   term_table_t *tbl;
   uint32_t i;
 
@@ -393,19 +393,19 @@ static term_t build_arith_poly(term_manager_t *mngr, polynomial_t *p, uint32_t n
 
   tbl = term_manager_get_terms(mngr);
   b = term_manager_get_arith_buffer(mngr);
-  arith_buffer_reset(b);
+  reset_rba_buffer(b);
 
   // deal with the constant
   i = 0;
   if (a[i] == const_idx) {
     assert(p->mono[0].var == const_idx);
-    arith_buffer_add_const(b, &p->mono[0].coeff);
+    rba_buffer_add_const(b, &p->mono[0].coeff);
     i ++;
   }
 
   // rest
   while (i < n) {
-    arith_buffer_add_const_times_term(b, tbl, &p->mono[i].coeff, a[i]);
+    rba_buffer_add_const_times_term(b, tbl, &p->mono[i].coeff, a[i]);
     i ++;
   }
 
