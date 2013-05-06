@@ -404,13 +404,12 @@ void init_rba_buffer(rba_buffer_t *b, pprod_table_t *ptbl) {
 
 
 /*
- * Extend: increase size by 50%
+ * Extend: double size
  */
 static void extend_rba_buffer(rba_buffer_t *b) {
   uint32_t n;
 
-  n = b->size + 1;
-  n += (n >> 1);
+  n = b->size << 1;
   if (n > MAX_RBA_BUFFER_SIZE) {
     out_of_memory();
   }

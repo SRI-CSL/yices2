@@ -23,7 +23,8 @@ static bool interactive;
 int main(int argc, char *argv[]) {
   char *filename;
   uint32_t good, bad;
-  int32_t code;  
+  int32_t code;
+  double time, mem_used;
 
   if (argc > 2) {
     fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
@@ -78,6 +79,10 @@ int main(int argc, char *argv[]) {
 
   // summarize
   printf("read %"PRIu32" commands (%"PRIu32" errors)\n", good + bad, bad);
+  time = get_cpu_time();
+  mem_used = mem_size() / (1024 * 1024);
+  printf("\nConstruction time: %.4f s\n", time);
+  printf("Memory used: %.2f MB\n\n", mem_used);
   fflush(stdout);
 
   delete_parser(&parser);
