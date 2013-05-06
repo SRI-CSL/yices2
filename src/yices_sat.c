@@ -105,8 +105,8 @@ static literal_t read_literal(FILE *f, int nv) {
    * where var = variable index in DIMACS format (between 1 and nv)
    *     delta = -2 if literal is positive in DIMACS format
    *     delta = -1 if literal is negative in DIMACS format
-   * This works since msat variable index = DIMAC var - 1
-   * and literal in msat format = 2 (var index msat) + sign
+   * This works since yices variable index = DIMACS var - 1
+   * and literal in yices format = 2 * (var index) + sign
    */
   delta = -2;
   var = 0;
@@ -160,14 +160,14 @@ static int build_instance(char *filename) {
 
   s = fgets(line, MAX_LINE, f);
   l = 1; /* line number */
-
+s
   if (s == NULL) {
     fprintf(stderr, "%s: empty file\n", filename);
     fclose(f);
     return FORMAT_ERROR;
   }
 
-  /* skip empty and comment lines */
+  /* skip empty lines and comments */
   while (*s == 'c' || *s == '\n') {
     s = fgets(line, MAX_LINE, f);
     l ++;

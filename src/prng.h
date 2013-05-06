@@ -1,5 +1,5 @@
 /*
- * Simple PRNG based on linear congruence modulo 2^32.
+ * Simple PRNG based on a linear congruence modulo 2^32.
  *
  * Recurrence X_{t+1} = (a X_t + b) mod 2^32
  * - X_0 is the seed,
@@ -7,7 +7,7 @@
  * - b = 1013904223
  * (Source: Wikipedia + Knuth's Art of Computer Programming, Vol. 2)
  *
- * Low-order bits are not random.
+ * The low-order bits are not random.
  *
  * Note: the state of the PRNG (variable seed) is local.
  * So every file that imports this will have its own copy of the PRNG,
@@ -25,8 +25,6 @@
 #define PRNG_DEFAULT_SEED 0xabcdef98
 
 static uint32_t seed = PRNG_DEFAULT_SEED; // default seed
-
-//static uint32_t seed = 0xcccccc;
 
 static inline void random_seed(uint32_t s) {
   seed = s;
@@ -48,8 +46,9 @@ static inline uint32_t random_uint(uint32_t n) {
   return (random_uint32() >> 8) % n;  
 }
 
+
 /*
- * Other linear congruence
+ * Another linear congruence
  */
 static double dseed = 91648253;
 

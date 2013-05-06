@@ -1,5 +1,5 @@
 /*
- * Solver parameters for heuristics
+ * Parameters for SAT solver heuristics
  */
 
 #ifndef __SAT_PARAMETERS_H
@@ -16,16 +16,11 @@
 #define CLAUSE_DECAY_FACTOR      0.999
 #define VAR_RANDOM_FACTOR        0.02
 
-//#define VAR_ACTIVITY_THRESHOLD      (DBL_MAX/2)
-//#define CLAUSE_ACTIVITY_THRESHOLD   (FLT_MAX/2)
-
 #define VAR_ACTIVITY_THRESHOLD        (1e100)
 #define INV_VAR_ACTIVITY_THRESHOLD    (1e-100)
 
 #define CLAUSE_ACTIVITY_THRESHOLD     (1e20)
 #define INV_CLAUSE_ACTIVITY_THRESHOLD (1e-20)
-//#define CLAUSE_ACTIVITY_THRESHOLD      (1e100)
-//#define INV_CLAUSE_ACTIVITY_THRESHOLD  (1e-100)
 
 #define INIT_VAR_ACTIVITY_INCREMENT     1.0
 #define INIT_CLAUSE_ACTIVITY_INCREMENT  1.0

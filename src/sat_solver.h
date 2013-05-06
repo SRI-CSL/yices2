@@ -247,8 +247,8 @@ typedef struct {
  * - activity[x]: for every variable x between 0 and nvars - 1
  *   activity[-1] = DBL_MAX (higher than any activity)
  * - heap_index[x]: for every variable x,
- *   heap_index[x] = i if x is in the heap and heap[i] = x
- * or heap_index[x] = -1 if x is not in the heap
+ *      heap_index[x] = i if x is in the heap and heap[i] = x
+ *   or heap_index[x] = -1 if x is not in the heap
  * - heap: array of nvars + 1 variables
  * - heap_last: index of last element in the heap
  *   heap[0] = -1, 
@@ -274,6 +274,8 @@ typedef struct var_heap_s {
  * - tag = 01: clause with implied literal as cl[1]
  * - tag = 10: literal
  * - tag = 11: generic explanation
+ *
+ * NOTE: generic explanation is not used for Boolean problems
  */
 typedef size_t antecedent_t;
 
@@ -405,7 +407,6 @@ typedef struct solver_stats_s {
  * - other arrays for constructing and simplifying learned clauses
  */
 typedef struct sat_solver_s {
-  //  solver_status_t status;     // UNSOLVED, SAT, OR UNSAT
   uint32_t status;            // UNSOLVED, SAT, OR UNSAT
 
   uint32_t nb_vars;           // Number of variables
