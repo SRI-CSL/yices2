@@ -46,7 +46,8 @@ static attr_vtbl_t avtbl; // attribute values
 // exported globals
 smt2_globals_t __smt2_globals;
 
-
+// search parameters
+static param_t parameters;
 
 
 /*
@@ -137,7 +138,7 @@ static void report_success(void) {
  * Error prefix/suffix
  * - SMT2 wants errors to be printed as 
  *        (error "explanation")
- *   on the current output channnel
+ *   on the current output channel
  * - start_error(l, c) prints '(error "at line x, column y: '
  * - open_error() prints '(error "
  * - close_error() prints '")' and a newline then flush the output channel
@@ -276,7 +277,7 @@ static void print_yices_error(bool full) {
     print_out("bit-vector size too large. Max is %"PRIu32, YICES_MAX_BVSIZE);
     break;
   case DEGREE_OVERFLOW:
-    print_out("maximal polynomial degree exceeeded");
+    print_out("maximal polynomial degree exceeded");
     break;
   case DIVISION_BY_ZERO:
     print_out("division by zero");    
@@ -303,7 +304,7 @@ static void print_yices_error(bool full) {
     print_out("type error: invalid arguments");
     break;
   case INCOMPATIBLE_TYPES:
-    print_out("incomaptible types");
+    print_out("incompatible types");
     break;
   case INCOMPATIBLE_BVSIZES:
     print_out("arguments do not have the same number of bits");
@@ -367,6 +368,7 @@ static void print_yices_error(bool full) {
 }
 
 
+
 /*
  * EXCEPTIONS
  */
@@ -379,7 +381,7 @@ static const char * const exception_string[NUM_SMT2_EXCEPTIONS] = {
   NULL,                                 // TSTACK_NO_ERROR
   NULL,                                 // TSTACK_INTERNAL_ERROR
   "operation not implemented",          // TSTACK_OP_NOT_IMPLEMENTED
-  "undefinedd term",                    // TSTACK_UNDEF_TERM
+  "undefined term",                    // TSTACK_UNDEF_TERM
   "undefined sort",                     // TSTACK_UNDEF_TYPE
   "undefined sort constructor",         // TSTACK_UNDEF_MACRO,
   "invalid numeral",                    // TSTACK_RATIONAL_FORMAT
@@ -468,7 +470,7 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "negation",             // MK_NEG
   "multiplication",       // MK_MUL
   "division",             // MK_DIVISION
-  "expponetiation",       // MK_POW
+  "exponentiation",       // MK_POW
   "inequality",           // MK_GE
   "inequality",           // MK_GT
   "inequality",           // MK_LE
@@ -482,7 +484,7 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "bvudiv",               // MK_BV_DIV
   "bvurem",               // MK_BV_REM
   "bvsdiv",               // MK_BV_SDIV
-  "bvsrme",               // MK_BV_SREM
+  "bvurem",               // MK_BV_SREM
   "bvsmod",               // MK_BV_SMOD
   "bvnot",                // MK_BV_NOT
   "bvand",                // MK_BV_AND
@@ -508,7 +510,7 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "zero_extend",          // MK_BV_ZERO_EXTEND
   "bvredand",             // MK_BV_REDAND (not in SMT2)
   "bvredor",              // MK_BV_REDOR (not in SMT2)
-  "bvomp",                // MK_BV_COMP
+  "bvcomp",                // MK_BV_COMP
   "bvuge",                // MK_BV_GE,
   "bvugt",                // MK_BV_GT
   "bvule",                // MK_BV_LE
@@ -525,7 +527,7 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "get_assertions",       // SMT2_GET_ASSERTIONS
   "get_assignment",       // SMT2_GET_ASSIGNMENT
   "get_proof",            // SMT2_GET_PROOF
-  "get_unsat_CORE",       // SMT2_GET_UNSAT_CORE
+  "get_unsat_core",       // SMT2_GET_UNSAT_CORE
   "get_value",            // SMT2_GET_VALUE
   "get_option",           // SMT2_GET_OPTION
   "get_info",             // SMT2_GET_INFO
@@ -794,7 +796,7 @@ static bool has_info(smt2_globals_t *g, const char *name, aval_t *val) {
 
 /*
  * Check whether v is a boolean. 
- * If so copy its value in *resul, otherwise leave result unchanged
+ * If so copy its value in *result, otherwise leave result unchanged
  */
 static bool aval_is_boolean(attr_vtbl_t *avtbl, aval_t v, bool *result) {
   char *s;
@@ -848,7 +850,7 @@ static void set_boolean_option(smt2_globals_t *g, const char *name, aval_t value
  * Integer option
  * - name = option name
  * - val = value in (g->avtbl)
- * - *result = wher to copy the value
+ * - *result = where to copy the value
  */
 static void set_uint32_option(smt2_globals_t *g, const char *name, aval_t value, uint32_t *result) {
   rational_t aux;
@@ -906,7 +908,7 @@ static void set_output_file(smt2_globals_t *g, const char *name, aval_t value) {
 
 
 /*
- * Set/change the dianostic channel
+ * Set/change the diagnostic channel
  * - name = keyword (should be :regular-output-channel
  * - val = value (should be a string)
  */
@@ -1063,6 +1065,149 @@ static bool check_logic(void) {
 }
 
 
+/*
+ * Converse: make sure that no logic is set
+ * - if it is, print (error "...") and return false
+ */
+static bool option_can_be_set(const char *option_name) {
+  if (__smt2_globals.logic_code != SMT_UNKNOWN) {
+    print_error("option %s can't be set now. If must be set before (set-logic ...)");
+    return false;
+  }
+  return true;
+}
+
+
+/*
+ * CONTEXT INITIALIZATION
+ */
+
+/*
+ * Conversion of SMT logic code to architecture code
+ * -1 means not supported
+ */
+static const int32_t logic2arch[NUM_SMT_LOGICS] = {
+  -1,                  // NONE: not a real SMT logic (treat as unsupported)
+  -1,                  // AUFLIA
+  -1,                  // AUFLIRA
+  -1,                  // AUFNIRA
+  -1,                  // LRA
+  CTX_ARCH_EGFUNBV,    // QF_ABV
+  CTX_ARCH_EGFUNBV,    // QF_AUFBV
+  CTX_ARCH_EGFUNSPLX,  // QF_AUFLIA
+  CTX_ARCH_EGFUN,      // QF_AX
+  CTX_ARCH_BV,         // QF_BV
+  CTX_ARCH_AUTO_IDL,   // QF_IDL
+  CTX_ARCH_SPLX,       // QF_LIA
+  CTX_ARCH_SPLX,       // QF_LRA
+  -1,                  // QF_NIA
+  -1,                  // QF_NRA
+  CTX_ARCH_AUTO_RDL,   // QF_RDL
+  CTX_ARCH_EG,         // QF_UF
+  CTX_ARCH_EGBV,       // QF_UFBV[xx]
+  CTX_ARCH_EGSPLX,     // QF_UFIDL
+  CTX_ARCH_EGSPLX,     // QF_UFLIA
+  CTX_ARCH_EGSPLX,     // QF_UFLRA
+  -1,                  // QF_UFNRA
+  -1,                  // UFLRA
+  -1,                  // UFNIA
+};
+
+/*
+ * Specify whether the integer solver should be activated
+ */
+static const bool logic2iflag[NUM_SMT_LOGICS] = {
+  false,  // NONE
+  true,   // AUFLIA
+  true,   // AUFLIRA
+  true,   // AUFNIRA
+  false,  // LRA
+  false,  // QF_ABV
+  false,  // QF_AUFBV
+  true,   // QF_AUFLIA
+  false,  // QF_AX
+  false,  // QF_BV
+  false,  // QF_IDL
+  true,   // QF_LIA
+  false,  // QF_LRA
+  true,   // QF_NIA
+  false,  // QF_NRA
+  false,  // QF_RDL
+  false,  // QF_UF
+  false,  // QF_UFBV[x]
+  false,  // QF_UFIDL
+  true,   // QF_UFLIA
+  false,  // QF_UFLRA
+  false,  // QF_UFNRA
+  false,  // UFLRA
+  true,   // UFNIA
+};
+
+
+/*
+ * Specify whether quantifier support is needed
+ */
+static const bool logic2qflag[NUM_SMT_LOGICS] = {
+  false,  // NONE
+  true,   // AUFLIA
+  true,   // AUFLIRA
+  true,   // AUFNIRA
+  true,   // LRA
+  false,  // QF_ABV
+  false,  // QF_AUFBV
+  false,  // QF_AUFLIA
+  false,  // QF_AX
+  false,  // QF_BV
+  false,  // QF_IDL
+  false,  // QF_LIA
+  false,  // QF_LRA
+  false,  // QF_NIA
+  false,  // QF_NRA
+  false,  // QF_RDL
+  false,  // QF_UF
+  false,  // QF_UFBV[x]
+  false,  // QF_UFIDL
+  false,  // QF_UFLIA
+  false,  // QF_UFLRA
+  false,  // QF_UFNRA
+  true,   // UFLRA
+  true,   // UFNIA
+};
+
+
+/*
+ * Allocate and initialize the context based on g->logic
+ * - also initialize the global parameter table
+ * - make sure the logic is supported before calling this
+ */
+static void init_smt2_context(smt2_globals_t *g) {
+  context_arch_t arch;
+  context_mode_t mode;
+  bool iflag;
+  bool qflag;
+
+  assert(logic2arch[g->logic_code] >= 0);
+
+  // default: assume g->benchmark is true
+  mode = CTX_MODE_ONECHECK;
+  arch = (context_arch_t) logic2arch[g->logic_code];
+  iflag = logic2iflag[g->logic_code];
+  qflag = logic2qflag[g->logic_code];
+
+  if (! g->benchmark) {
+    // change mode and arch 
+    // to support push/pop, we can't use the Floyd-Warshall solver
+    mode = CTX_MODE_PUSHPOP;
+    if (arch == CTX_ARCH_AUTO_RDL || arch == CTX_ARCH_AUTO_IDL) {
+      arch = CTX_ARCH_SPLX;
+    }
+  }
+
+  g->ctx = yices_create_context(arch, mode, iflag, qflag);
+  yices_set_default_params(g->ctx, &parameters);
+  assert(g->ctx != NULL);
+}
+
 
 
 /*
@@ -1086,15 +1231,48 @@ static void add_assertion(smt2_globals_t *g, term_t t) {
 
 /*
  * Check satisfiability of all assertions
- * - just check for trivially true or false benchmarks for now
  */
 static void check_assertions(smt2_globals_t *g) {
+  int32_t code;
+  smt_status_t status;
+
   if (g->trivially_unsat) {
     print_out("unsat\n");
   } else if (g->assertions.size == 0) {
     print_out("sat\n");
   } else {
-    print_out("unknown\n");
+    init_smt2_context(g);
+    code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
+    if (code < 0) {
+      // error during assertions
+      print_yices_error(true);
+      return;
+    }
+    status = yices_check_context(g->ctx, NULL);
+    switch (status) {
+    case STATUS_IDLE:
+    case STATUS_SEARCHING:
+      print_error("Unexpected context status");
+      report_bug(g->err);
+      break;
+
+    case STATUS_SAT:
+      print_out("sat\n");
+      break;
+
+    case STATUS_UNSAT:
+      print_out("unsat\n");
+      break;
+
+    case STATUS_UNKNOWN:
+    case STATUS_INTERRUPTED:
+      print_out("unknown\n");
+      break;
+
+    case STATUS_ERROR:
+      print_yices_error(true);
+      break;
+    }
   }
   flush_out();
 }
@@ -1133,6 +1311,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   
   init_ivector(&g->assertions, 0);
   g->trivially_unsat = false;
+  g->frozen = false;
 }
 
 
@@ -1416,46 +1595,67 @@ void smt2_set_option(const char *name, aval_t value) {
 
   switch (kw) {
   case SMT2_KW_PRINT_SUCCESS:
+    // required
     set_boolean_option(g, name, value, &g->print_success);
     break;
 
   case SMT2_KW_EXPAND_DEFINITIONS:
+    // optional: influence term printing (we ignore it)
     set_boolean_option(g, name, value, &g->expand_definitions);
     break;
 
   case SMT2_KW_INTERACTIVE_MODE:
-    set_boolean_option(g, name, value, &g->interactive_mode);
+    // optional: if true, get-assertions can be used
+    if (option_can_be_set(name)) {
+      set_boolean_option(g, name, value, &g->interactive_mode);
+    }
     break;
 
   case SMT2_KW_PRODUCE_PROOFS:
-    set_boolean_option(g, name, value, &g->produce_proofs);
+    // optional: if true, get-proof can be used
+    if (option_can_be_set(name)) {
+      set_boolean_option(g, name, value, &g->produce_proofs);
+    }
     break;
 
   case SMT2_KW_PRODUCE_UNSAT_CORES:
-    set_boolean_option(g, name, value, &g->produce_unsat_cores);
+    // optional: if true, get-unsat-core can be used
+    if (option_can_be_set(name)) {
+      set_boolean_option(g, name, value, &g->produce_unsat_cores);
+    }
     break;
 
   case SMT2_KW_PRODUCE_MODELS:
-    set_boolean_option(g, name, value, &g->produce_models);
+    // optional: if true, get-value can be used
+    if (option_can_be_set(name)) {
+      set_boolean_option(g, name, value, &g->produce_models);
+    }
     break;
 
   case SMT2_KW_PRODUCE_ASSIGNMENTS:
-    set_boolean_option(g, name, value, &g->produce_assignments);
+    // optional: if true, get-assignment can be used
+    if (option_can_be_set(name)) {
+      set_boolean_option(g, name, value, &g->produce_assignments);
+    }
     break;
 
   case SMT2_KW_REGULAR_OUTPUT:
+    // required
     set_output_file(g, name, value);
     break;
 
   case SMT2_KW_DIAGNOSTIC_OUTPUT:
+    // required
     set_error_file(g, name, value);
     break;
 
   case SMT2_KW_RANDOM_SEED:
+    // optional
     set_uint32_option(g, name, value, &g->random_seed);
     break;
 
   case SMT2_KW_VERBOSITY:
+    // optional
     set_uint32_option(g, name, value, &g->verbosity);
     break;
 
@@ -1502,13 +1702,18 @@ void smt2_set_logic(const char *name) {
   smt_logic_t code;
 
   if (__smt2_globals.logic_code != SMT_UNKNOWN) {
-    print_error("the logic is alreay set");
+    print_error("the logic is already set");
     return;
   }
 
   code = smt_logic_code(name);
   if (code == SMT_UNKNOWN) {
     print_error("unknown logic: %s", name);
+    return;
+  }
+
+  if (logic2arch[code] < 0) {
+    print_error("logic %s is not supported", name);
     return;
   }
 
@@ -1573,7 +1778,7 @@ void smt2_assert(term_t t) {
 
 
 /*
- * Check satsifiability of the current set of assertions
+ * Check satisfiability of the current set of assertions
  */
 void smt2_check_sat(void) {
   if (check_logic()) {

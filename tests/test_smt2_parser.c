@@ -16,13 +16,10 @@
 static lexer_t lexer;
 static parser_t parser;
 static tstack_t stack;
-
-static bool done;
 static bool interactive;
 
 int main(int argc, char *argv[]) {
   char *filename;
-  uint32_t good, bad;
   int32_t code;
   double time, mem_used;
 
@@ -72,7 +69,7 @@ int main(int argc, char *argv[]) {
     fflush(stdout);
   }
 
-  // summarize
+  // statistics
   time = get_cpu_time();
   mem_used = mem_size() / (1024 * 1024);
   printf("\nRun time: %.4f s\n", time);
