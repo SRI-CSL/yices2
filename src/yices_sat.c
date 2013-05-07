@@ -160,7 +160,7 @@ static int build_instance(char *filename) {
 
   s = fgets(line, MAX_LINE, f);
   l = 1; /* line number */
-s
+
   if (s == NULL) {
     fprintf(stderr, "%s: empty file\n", filename);
     fclose(f);
