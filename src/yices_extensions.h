@@ -32,7 +32,7 @@ extern type_t yices_type_variable(uint32_t id);
  * if n == 0
  *   code = POS_INT_REQUIRED
  *   badval = n
- * if n > TYPE_MACRO_MAX_ARITY
+, * if n > TYPE_MACRO_MAX_ARITY
  *   code = TOO_MANY_MACRO_PARAMS
  *   badval = n
  */
@@ -263,6 +263,21 @@ extern term_t yices_rational_term(rational_t *q);
 /*
  * SUPPORT FOR TYPE-CHECKING
  */
+
+/*
+ * Check whether t is a valid boolean term
+ * - if not set the internal error report
+ *
+ * If t is not a valid term:
+ *   code = INVALID_TERM
+ *   term1 = t
+ *   index = -1
+ * If t is not Boolean
+ *   code = TYPE_MISMATCH
+ *   term1 = t
+ *   type = bool
+ */
+extern bool yices_check_boolean_term(term_t t);
 
 /*
  * Check whether t is a valid arithmetic term

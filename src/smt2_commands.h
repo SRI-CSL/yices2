@@ -29,6 +29,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "int_vectors.h"
 #include "lexer.h"
 #include "term_stack2.h"
 #include "string_hash_map.h"
@@ -143,6 +144,11 @@ enum smt2_opcodes {
  * - the benchmark flag is true for SMT2 benchmarks
  * - this is the same as mode=one-check for Yices
  *
+ * If the solver is initialized for SMT2 benchmarks (i.e., by calling
+ *  init_smt2(true)
+ * then we delay the processing of assertions until the call to check_sat().
+ * So smt2_assert(t) just adds t to the assertion vector.
+ *
  * NOTE: all solvers I've tried use :print-success false by default
  * (even though the standard says otherwise).
  */
@@ -162,7 +168,6 @@ typedef struct smt2_globals_s {
   char *out_name;             // default = NULL (means "stdout")
   char *err_name;             // default = NULL (means "stderr")
 
-
   // options
   bool print_success;         // default = true
   bool expand_definitions;    // default = false
@@ -179,6 +184,14 @@ typedef struct smt2_globals_s {
   strmap_t *info;            // for set-info/get-info (initially NULL)
   context_t *ctx;            // context (initially NULL)
   model_t *model;            // model (ihitially NULL)
+
+  /*
+   * Support for delayed assertions
+   * assertions = a set of assertions
+   * trivially_unsat: true if one of the assertions simplifies to false
+   */
+  ivector_t assertions;
+  bool trivially_unsat; 
 } smt2_globals_t;
 
 

@@ -504,7 +504,7 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "extract",              // MK_BV_EXTRACT
   "concat",               // MK_BV_CONCAT
   "repeat",               // MK_BV_REPEAT
-  "sign_extenrd",         // MK_BV_SIGN_EXTEND
+  "sign_extend",          // MK_BV_SIGN_EXTEND
   "zero_extend",          // MK_BV_ZERO_EXTEND
   "bvredand",             // MK_BV_REDAND (not in SMT2)
   "bvredor",              // MK_BV_REDOR (not in SMT2)
@@ -1063,6 +1063,45 @@ static bool check_logic(void) {
 }
 
 
+
+
+/*
+ * DELAYED ASSERTION/CHECK_SAT
+ */
+
+/*
+ * Add a assertion t to g->assertions
+ * - do nothing if t is true
+ * - if t is false, set g->trivially_unsat to true
+ */
+static void add_assertion(smt2_globals_t *g, term_t t) {
+  if (t != true_term) {
+    ivector_push(&g->assertions, t);
+    if (t == false_term) {
+      g->trivially_unsat = true;
+    }
+  }
+}
+
+
+/*
+ * Check satisfiability of all assertions
+ * - just check for trivially true or false benchmarks for now
+ */
+static void check_assertions(smt2_globals_t *g) {
+  if (g->trivially_unsat) {
+    print_out("unsat\n");
+  } else if (g->assertions.size == 0) {
+    print_out("sat\n");
+  } else {
+    print_out("unknown\n");
+  }
+  flush_out();
+}
+
+
+
+
 /*
  * MAIN CONTROL FUNCTIONS
  */
@@ -1091,6 +1130,9 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->info = NULL;
   g->ctx = NULL;
   g->model = NULL;
+  
+  init_ivector(&g->assertions, 0);
+  g->trivially_unsat = false;
 }
 
 
@@ -1512,9 +1554,20 @@ void smt2_pop(uint32_t n) {
  */
 void smt2_assert(term_t t) {
   if (check_logic()) {
-    // disabled this for testing on the SMT2 benchmarks
-    //    print_out("assert: unsupported\n");
-    //    flush_out();
+    if (yices_term_is_bool(t)) {
+      if (__smt2_globals.benchmark) {
+	// delayed assertion
+	add_assertion(&__smt2_globals, t);
+	report_success();
+      } else {
+	// TBD
+	print_out("assert: not supported\n");
+	flush_out();
+      }
+    } else {
+      // not a Boolean term
+      print_error("type error in assert: Boolean term required");
+    }
   }
 }
 
@@ -1524,8 +1577,12 @@ void smt2_assert(term_t t) {
  */
 void smt2_check_sat(void) {
   if (check_logic()) {
-    print_out("check_sat: unsupported\n");
-    flush_out();
+    if (__smt2_globals.benchmark) {
+      check_assertions(&__smt2_globals);
+    } else {
+      print_out("check_sat: unsupported\n");
+      flush_out();
+    }
   }
 }
 

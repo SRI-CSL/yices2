@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
   }
 
   yices_init();
-  init_smt2(false);
+  init_smt2(true);
   init_smt2_tstack(&stack);
   init_parser(&parser, &lexer, &stack);
 
@@ -55,33 +55,27 @@ int main(int argc, char *argv[]) {
     __smt2_globals.print_success = false;
   }
 
-  done = false;
-  good = 0;
-  bad = 0;
-  while (current_token(&lexer) != SMT2_TK_EOS && !done) {
+  while (smt2_active()) {
     if (interactive) {
       fputs("smt2> ", stdout);
       fflush(stdout);
     }
     code = parse_smt2_command(&parser);
     if (code < 0) {
-      bad ++;
+      // syntax error
       if (interactive) {
 	flush_lexer(&lexer); 
       } else {
-	done = true;
+	break; // exit
       }
-    } else {
-      good ++;
     }
     fflush(stdout);
   }
 
   // summarize
-  printf("read %"PRIu32" commands (%"PRIu32" errors)\n", good + bad, bad);
   time = get_cpu_time();
   mem_used = mem_size() / (1024 * 1024);
-  printf("\nConstruction time: %.4f s\n", time);
+  printf("\nRun time: %.4f s\n", time);
   printf("Memory used: %.2f MB\n\n", mem_used);
   fflush(stdout);
 

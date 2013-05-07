@@ -4457,6 +4457,23 @@ term_t yices_rational_term(rational_t *q) {
  ******************************************/
 
 /*
+ * Check whether t is a valid boolean term
+ * - if not set the internal error report
+ *
+ * If t is not a valid term:
+ *   code = INVALID_TERM
+ *   term1 = t
+ *   index = -1
+ * If t is not Boolean
+ *   code = TYPE_MISMATCH
+ *   term1 = t
+ *   type = bool
+ */
+bool yices_check_boolean_term(term_t t) {
+  return check_good_term(&manager, t) && check_boolean_term(&manager, t);
+}
+
+/*
  * Check whether t is a valid arithmetic term
  * - if not set the internal error report:
  *
@@ -5493,7 +5510,7 @@ EXPORTED int32_t yices_pop(context_t *ctx) {
 
 /*
  * Convert an error code reported by assert_formula
- * into the corresponding yces_error value.
+ * into the corresponding yices_error value.
  */
 static const error_code_t intern_code2error[NUM_INTERNALIZATION_ERRORS] = {
   NO_ERROR,                  // CTX_NO_ERROR
