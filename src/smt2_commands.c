@@ -712,7 +712,7 @@ static strmap_t *get_info_table(smt2_globals_t *g) {
 
   hmap = g->info;
   if (hmap == NULL) {
-    hmap = (strmap_t *) safe_malloc(sizeof(smt2_globals_t));
+    hmap = (strmap_t *) safe_malloc(sizeof(strmap_t));
     init_strmap(hmap, 0); // default size
     g->info = hmap;
   }
@@ -740,6 +740,9 @@ static void delete_info_table(smt2_globals_t *g) {
   hmap = g->info;
   if (hmap != NULL) {
     strmap_iterate(hmap, g->avtbl, info_finalizer);
+    delete_strmap(hmap);
+    safe_free(hmap);
+    g->info = NULL;
   }
 }
 
@@ -1321,6 +1324,10 @@ static void init_smt2_globals(smt2_globals_t *g) {
  */
 static void delete_smt2_globals(smt2_globals_t *g) {
   delete_info_table(g);
+  if (g->logic_name != NULL) {
+    string_decref(g->logic_name);
+    g->logic_name = NULL;
+  }
   if (g->ctx != NULL) {
     yices_free_context(g->ctx);
     g->ctx = NULL;
@@ -1329,6 +1336,8 @@ static void delete_smt2_globals(smt2_globals_t *g) {
     yices_free_model(g->model);
     g->model = NULL;
   }
+  delete_ivector(&g->assertions);
+
   close_output_file(g);
   close_error_file(g);
 }

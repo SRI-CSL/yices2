@@ -67,6 +67,12 @@ extern void ivector_add(ivector_t *v, int32_t *a, uint32_t n);
 
 
 /*
+ * Swap the content of v1 and v2
+ */
+extern void ivector_swap(ivector_t *v1, ivector_t *v2);
+
+
+/*
  * add x at the end of v
  */
 static inline void ivector_push(ivector_t *v, int32_t x) {

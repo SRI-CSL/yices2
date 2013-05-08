@@ -969,6 +969,12 @@ extern void flatten_assertion(context_t *ctx, term_t f);
 extern void context_process_candidate_subst(context_t *ctx);
 
 
+/*
+ * Go through all equalities in ctx->top_eqs and attempt to 
+ * eliminate variables.
+ * - this is useful after symmetry breaking
+ */
+extern void context_process_deferred_substitutions(context_t *ctx);
 
 
 /*

@@ -1,3 +1,4 @@
+
 /*
  * SUPPORT FOR BREAKING SYMMETRIES IN UF FORMULAS
  */
@@ -1430,23 +1431,6 @@ static term_t select_candidate(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
   min_so_far = UINT32_MAX;;
   j = n; // stop GCC warning
 
-#if 0
-  do {
-    n --;
-    t = s->candidates[n];
-    cost = s->cost[n];
-    if (cost <= min_so_far) {
-      if (term_is_constant(breaker->terms, t)) {
-	j = n;
-	break;
-      } else if (cost < min_so_far) {
-	min_so_far = cost;
-	j = n;
-      }
-    }
-  } while (n > 0);
-#else
-
   for (i=0; i<n; i++) {
     t = s->candidates[i];
     cost = s->cost[i];
@@ -1460,8 +1444,6 @@ static term_t select_candidate(sym_breaker_t *breaker, sym_breaker_sets_t *s) {
       }
     }
   }
-
-#endif
 
   assert(j < s->num_candidates);
   t = s->candidates[j];

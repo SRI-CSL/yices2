@@ -83,6 +83,16 @@ void ivector_add(ivector_t *v, int32_t *a, uint32_t n) {
 }
 
 
+/*
+ * Swap v1 and v2 
+ */
+void ivector_swap(ivector_t *v1, ivector_t *v2) {
+  ivector_t aux;
+
+  aux = *v1;
+  *v1 = *v2;
+  *v2 = aux;
+}
 
 
 /*

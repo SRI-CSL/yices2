@@ -5317,17 +5317,17 @@ static void context_set_default_options(context_t *ctx, context_arch_t arch, boo
     }
   }
 
-  // flattening makes things worse for QF_BV
   switch (arch) {
   case CTX_ARCH_EG:
+    enable_diseq_and_or_flattening(ctx);
     if (context_get_mode(ctx) == CTX_MODE_ONECHECK) {
-      disable_diseq_and_or_flattening(ctx);
-      disable_variable_elimination(ctx); // this helps symmetry breaking
+      disable_variable_elimination(ctx);
       enable_symmetry_breaking(ctx);
     }
     break;
 
   case CTX_ARCH_BV:
+    // flattening makes things worse for QF_BV
     disable_diseq_and_or_flattening(ctx);  
     break;
 
