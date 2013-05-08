@@ -1562,7 +1562,9 @@ static void eval_smt2_indexed_term(tstack_t *stack, stack_elem_t *f, uint32_t n)
 
 
 /*
- * [sorted-index-term <symbol> <numeral> ... <numeral> <type>]
+ * [sorted-indexed-term <symbol> <numeral> ... <numeral> <type>]
+ *
+ * This is for (at (_ <symbol> <numeral> ... <numeral>) <sort>)
  */
 static void check_smt2_sorted_indexed_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
@@ -1586,7 +1588,7 @@ static void eval_smt2_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n
 
 
 /*
- * [sorted-index-apply <symbol> <numeral> ... <numeral> <type>]
+ * [sorted-indexed-apply <symbol> <numeral> ... <numeral> <type> <term> ... <term>]
  */
 static void check_smt2_sorted_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
@@ -1599,6 +1601,8 @@ static void eval_smt2_sorted_indexed_apply(tstack_t *stack, stack_elem_t *f, uin
 
 /*
  * [sorted-term <symbol> <type>]
+ *
+ * SMT2 construct for overloaded symbols:  (as <symbol> <type>)
  */
 static void check_smt2_sorted_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
@@ -1609,7 +1613,14 @@ static void eval_smt2_sorted_term(tstack_t *stack, stack_elem_t *f, uint32_t n) 
 
 
 /*
- * [sorted-apply <symbol> <type>]
+ * [sorted-apply <symbol> <type> <term> .... <term> ]
+ *
+ * SMT2 construct for overloaded function symbols:
+ *  ((as <symbol> <type>) <term> ... <term>)
+ *
+ * The intended semantics is to build the function application (<symbol> <term> ... <term>)
+ * with the overall term coerced to <type> (i.e., <type> applies to the result of the function
+ * application, not to the <function> symbol).
  */
 static void check_smt2_sorted_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }

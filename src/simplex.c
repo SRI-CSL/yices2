@@ -1555,7 +1555,7 @@ void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, gate_manage
 
   solver->propagator = NULL; // allocated if needed in start search
 
-  solver->eqprop = NULL; // allocated by simple_enable_eqprop
+  solver->eqprop = NULL; // allocated by simplex_enable_eqprop
 
   init_matrix(&solver->matrix, 0, 0);
   solver->tableau_ready = false;
