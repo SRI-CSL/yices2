@@ -421,7 +421,7 @@ static const uint8_t value[BSIZE] = {
   next_goto_t6c,
   next_goto_t6a,
   symbol_next_goto_t6d,
-  next_push_t6g_goto_s0,
+  symbol_next_push_t6g_goto_s0,
   numeral_next_goto_t6e,
   next_push_t6g_goto_s0,
   next_push_t8a_goto_t0,

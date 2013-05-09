@@ -31,11 +31,8 @@ static aval_t get_aval(tstack_t *stack, stack_elem_t *e) {
 
   switch (e->tag) {
   case TAG_SYMBOL:
-    v = attr_vtbl_symbol(stack->avtbl, e->val.symbol);
-    break;
-
   case TAG_STRING: 
-    v = attr_vtbl_string(stack->avtbl, e->val.symbol);
+    v = attr_vtbl_symbol(stack->avtbl, e->val.string);
     break;
 
   case TAG_BV64:
@@ -67,7 +64,7 @@ static aval_t get_aval(tstack_t *stack, stack_elem_t *e) {
  * Check whether element e is an smt2_keyword
  */
 static bool is_keyword(stack_elem_t *e) {
-  return e->tag == TAG_SYMBOL && smt2_string_is_keyword(e->val.symbol);
+  return e->tag == TAG_SYMBOL && smt2_string_is_keyword(e->val.string);
 }
 
 
@@ -82,8 +79,8 @@ static smt2_keyword_t get_keyword(tstack_t *stack, stack_elem_t *e) {
     raise_exception(stack, e, TSTACK_INTERNAL_ERROR);
   }
 
-  len = strlen(e->val.symbol);
-  return smt2_string_to_keyword(e->val.symbol, len);
+  len = strlen(e->val.string);
+  return smt2_string_to_keyword(e->val.string, len);
 }
 
 
@@ -498,10 +495,6 @@ static void eval_smt2_mk_lt(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 
-
-
-
-
 /*
  * NEW OPCODES
  */
@@ -629,7 +622,7 @@ static void check_smt2_get_option(tstack_t *stack, stack_elem_t *f, uint32_t n) 
 }
 
 static void eval_smt2_get_option(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  smt2_get_option(f[0].val.symbol);
+  smt2_get_option(f[0].val.string);
   tstack_pop_frame(stack);
   no_result(stack);
 }
@@ -645,7 +638,7 @@ static void check_smt2_get_info(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_smt2_get_info(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  smt2_get_info(f[0].val.symbol);
+  smt2_get_info(f[0].val.string);
   tstack_pop_frame(stack);
   no_result(stack);
 }
@@ -664,11 +657,11 @@ static void eval_smt2_set_option(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   aval_t v;
 
   if (n == 1) {
-    smt2_set_option(f[0].val.symbol, AVAL_NULL);
+    smt2_set_option(f[0].val.string, AVAL_NULL);
   } else {
     v = get_aval(stack, f+1);
     aval_incref(stack->avtbl, v);
-    smt2_set_option(f[0].val.symbol, v);
+    smt2_set_option(f[0].val.string, v);
     aval_decref(stack->avtbl, v);
   }
   tstack_pop_frame(stack);
@@ -689,11 +682,11 @@ static void eval_smt2_set_info(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   aval_t v;
 
   if (n == 1) {
-    smt2_set_info(f[0].val.symbol, AVAL_NULL);
+    smt2_set_info(f[0].val.string, AVAL_NULL);
   } else {
     v = get_aval(stack, f+1);
     aval_incref(stack->avtbl, v);
-    smt2_set_info(f[0].val.symbol, v);
+    smt2_set_info(f[0].val.string, v);
     aval_decref(stack->avtbl, v);
   }
   tstack_pop_frame(stack);
@@ -711,7 +704,7 @@ static void check_smt2_set_logic(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_smt2_set_logic(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  smt2_set_logic(f[0].val.symbol);
+  smt2_set_logic(f[0].val.string);
   tstack_pop_frame(stack);
   no_result(stack);
 }
@@ -815,7 +808,7 @@ static void eval_smt2_declare_sort(tstack_t *stack, stack_elem_t *f, uint32_t n)
     // should not happen: in SMT2, numerals are non-negative (cf. smt2_lexer)
     raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
   }
-  smt2_declare_sort(f[0].val.symbol, i);
+  smt2_declare_sort(f[0].val.string, i);
   tstack_pop_frame(stack);
   no_result(stack);
 }
@@ -843,7 +836,7 @@ static void eval_smt2_define_sort(tstack_t *stack, stack_elem_t *f, uint32_t n) 
     a[i] = f[i+1].val.type_binding.type;
   }
 
-  smt2_define_sort(f[0].val.symbol, nvars, a, f[n-1].val.type);
+  smt2_define_sort(f[0].val.string, nvars, a, f[n-1].val.type);
 
   tstack_pop_frame(stack);
   no_result(stack);
@@ -870,7 +863,7 @@ static void eval_smt2_declare_fun(tstack_t *stack, stack_elem_t *f, uint32_t n) 
     a[i] = f[i+1].val.type;
   }
 
-  smt2_declare_fun(f[0].val.symbol, ntypes, a);
+  smt2_declare_fun(f[0].val.string, ntypes, a);
   tstack_pop_frame(stack);
   no_result(stack);
 }
@@ -901,7 +894,7 @@ static void eval_smt2_define_fun(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     a[i] = f[i+1].val.binding.term;
   }
 
-  smt2_define_fun(f[0].val.symbol, nvars, a, body, f[n-2].val.type);
+  smt2_define_fun(f[0].val.string, nvars, a, body, f[n-2].val.type);
   tstack_pop_frame(stack);
   no_result(stack);
 }
@@ -979,7 +972,7 @@ static void eval_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t 
       // expecting :named <symbol>
       i ++;
       check_name(stack, f, i, n);
-      smt2_add_name(t, f[i].val.symbol);
+      smt2_add_name(t, f[i].val.string);
       i ++;
       break;
 
@@ -1515,7 +1508,7 @@ static void eval_smt2_mk_store(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
- * SORT CONSTRUCTORS
+ * INDEXED CONSTRUCTORS
  */
 
 /*
@@ -1560,21 +1553,6 @@ static void eval_smt2_indexed_term(tstack_t *stack, stack_elem_t *f, uint32_t n)
   raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
 }
 
-
-/*
- * [sorted-indexed-term <symbol> <numeral> ... <numeral> <type>]
- *
- * This is for (at (_ <symbol> <numeral> ... <numeral>) <sort>)
- */
-static void check_smt2_sorted_indexed_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
-}
-
-static void eval_smt2_sorted_indexed_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
-}
-
-
 /*
  * [indexed-apply <symbol> <numeral> ... <numeral> ]
  */
@@ -1587,46 +1565,121 @@ static void eval_smt2_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n
 }
 
 
-/*
- * [sorted-indexed-apply <symbol> <numeral> ... <numeral> <type> <term> ... <term>]
- */
-static void check_smt2_sorted_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
-}
 
-static void eval_smt2_sorted_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  raise_exception(stack, f, TSTACK_INTERNAL_ERROR);
-}
+
+/*
+ * SORTED CONSTRUCTORS
+ */
+
+/*
+ * SMT2 includes constructs similar to type coercion:
+ *
+ *  (as <symbol> <sort>)
+ *  (as (_ <symbol> <numeral> ... <numeral>) <sort>)
+ *  ((as <symbol> <sort>) <term> ... <term>)
+ *  ((as (_ <symbol> <numeral> ... <numeral>) <sort>) <term> ... <term>)
+ *
+ * This is intended to disambiguate <symbol> is overloaded.  There's
+ * no real need for this given the theories we have, but nothing stops
+ * people from using these constructs anyway.  In such cases, we 
+ * construct the term then check whether it has the correct <sort>.
+ */
 
 
 /*
  * [sorted-term <symbol> <type>]
- *
- * SMT2 construct for overloaded symbols:  (as <symbol> <type>)
  */
 static void check_smt2_sorted_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_SORTED_TERM);
+  check_size(stack, n == 2);
+  check_tag(stack, f, TAG_SYMBOL);
+  check_tag(stack, f+1, TAG_TYPE);
 }
 
 static void eval_smt2_sorted_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  char *s;
+  uint32_t len;
+  smt2_symbol_t symbol;
+  smt2_key_t key;
+  term_t t;
+  type_t tau;
+  
+  s = f[0].val.string;
+  len = strlen(s);
+  symbol = smt2_string_to_symbol(s, len);
+  key = smt2_key[symbol];
+  switch (key) {
+  case SMT2_KEY_TERM:
+    t = smt2_val[symbol];
+    break;
+
+  case SMT2_KEY_UNKNOWN:
+    t = yices_get_term_by_name(s);
+    if (t == NULL_TERM) raise_exception(stack, f, TSTACK_UNDEF_TERM);
+    break;
+
+  default:
+    raise_exception(stack, f, SMT2_SYMBOL_NOT_TERM);
+    break;
+  }
+
+  tau = f[1].val.type;
+  if (!yices_check_term_type(t, tau)) {
+    // Could use a more precise error report?
+    report_yices_error(stack);
+  }
+
+  tstack_pop_frame(stack);
+  set_term_result(stack, t);
 }
 
+
+/*
+ * [sorted-indexed-term <symbol> <numeral> ... <numeral> <type>]
+ *
+ * This is for (as (_ <symbol> <numeral> ... <numeral>) <sort>)
+ */
+static void check_smt2_sorted_indexed_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_SORTED_INDEXED_TERM);
+  check_size(stack, n >= 3);
+  check_tag(stack, f, TAG_SYMBOL);
+  check_all_tags(stack, f + 1, f + (n-1), TAG_RATIONAL);
+  check_tag(stack, f + (n-1), TAG_TYPE);
+}
+
+static void eval_smt2_sorted_indexed_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  raise_exception(stack, f, SMT2_QUAL_NOT_IMPLEMENTED);  
+}
 
 
 /*
  * [sorted-apply <symbol> <type> <term> .... <term> ]
- *
- * SMT2 construct for overloaded function symbols:
- *  ((as <symbol> <type>) <term> ... <term>)
- *
- * The intended semantics is to build the function application (<symbol> <term> ... <term>)
- * with the overall term coerced to <type> (i.e., <type> applies to the result of the function
- * application, not to the <function> symbol).
  */
 static void check_smt2_sorted_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_SORTED_APPLY);
+  check_size(stack, n >= 3);
+  check_tag(stack, f, TAG_SYMBOL);
+  check_tag(stack, f+1, TAG_TYPE);
 }
 
 static void eval_smt2_sorted_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  raise_exception(stack, f, SMT2_QUAL_NOT_IMPLEMENTED);  
 }
+
+
+/*
+ * [sorted-indexed-apply <symbol> <numeral> ... <numeral> <type> <term> ... <term>]
+ */
+static void check_smt2_sorted_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_SORTED_INDEXED_APPLY);
+  check_size(stack, n >= 4);
+  check_tag(stack, f, TAG_SYMBOL);
+}
+
+static void eval_smt2_sorted_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  raise_exception(stack, f, SMT2_QUAL_NOT_IMPLEMENTED);  
+}
+
 
 
 

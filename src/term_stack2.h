@@ -124,8 +124,7 @@ typedef struct stack_elem_s {
   tag_t tag;
   union {
     opval_t opval;
-    char *symbol;
-    char *string;
+    char *string;   // for TAG_STRING and TAG_SYMBOL
     bv64_t bv64;
     bv_t bv;
     rational_t rational;

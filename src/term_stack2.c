@@ -56,8 +56,6 @@ void __attribute__((noreturn)) raise_exception(tstack_t *stack, stack_elem_t *e,
   stack->error_op = stack->top_op;
   switch (e->tag) {
   case TAG_SYMBOL:
-    stack->error_string = e->val.symbol;
-    break;
   case TAG_STRING:
     stack->error_string = e->val.string;
     break;
@@ -317,7 +315,7 @@ void tstack_push_str(tstack_t *stack, tag_t tag, char *s, uint32_t n, loc_t *loc
   strcpy(tmp, s);
   e = tstack_get_topelem(stack);
   e->tag = tag;
-  e->val.symbol = tmp;
+  e->val.string = tmp;
   e->loc = *loc;
 }
 
@@ -1076,7 +1074,7 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
     break;
 
   case TAG_SYMBOL:
-    printf("<symbol: %s>", e->val.symbol);
+    printf("<symbol: %s>", e->val.string);
     break;
 
   case TAG_BV64:
@@ -1265,7 +1263,7 @@ static void check_distinct_scalar_names(tstack_t *stack, stack_elem_t *f, uint32
   // check for duplicate strings in the sequence
   for (i=0; i<n; i++) {
     assert(f[i].tag == TAG_SYMBOL);
-    if (check_duplicate_string(check, i, f[i].val.symbol)) {
+    if (check_duplicate_string(check, i, f[i].val.string)) {
       raise_exception(stack, f+i, TSTACK_DUPLICATE_SCALAR_NAME);
     }
   }
@@ -1327,7 +1325,7 @@ term_t get_term(tstack_t *stack, stack_elem_t *e) {
     break;
 
   case TAG_SYMBOL:
-    t = yices_get_term_by_name(e->val.symbol);
+    t = yices_get_term_by_name(e->val.string);
     if (t == NULL_TERM) {
       raise_exception(stack, e, TSTACK_UNDEF_TERM);
     }
@@ -2680,7 +2678,7 @@ static void eval_define_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   } else {
     tau = f[1].val.type;
   }
-  yices_set_type_name(tau, f[0].val.symbol);
+  yices_set_type_name(tau, f[0].val.string);
 
   tstack_pop_frame(stack);
   no_result(stack);
@@ -2712,7 +2710,7 @@ static void eval_define_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
       raise_exception(stack, f+2, TSTACK_TYPE_ERROR_IN_DEFTERM);
     }
   }
-  yices_set_term_name(t, f[0].val.symbol);
+  yices_set_term_name(t, f[0].val.string);
 
   tstack_pop_frame(stack);
   no_result(stack);  
@@ -2732,7 +2730,7 @@ static void eval_bind(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t t;
   char *name;
 
-  name = f[0].val.symbol;
+  name = f[0].val.string;
   t = get_term(stack, f+1);
   yices_set_term_name(t, name);
   tstack_pop_frame(stack);
@@ -2755,7 +2753,7 @@ static void eval_declare_var(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t var;
   char *name;
 
-  name = f[0].val.symbol;
+  name = f[0].val.string;
   tau = f[1].val.type;
   var = yices_new_variable(tau);
 
@@ -2778,7 +2776,7 @@ static void eval_declare_type_var(tstack_t *stack, stack_elem_t *f, uint32_t n) 
   type_t tau;
   char *name;
 
-  name = f[0].val.symbol;
+  name = f[0].val.string;
   tau = yices_type_variable(stack->tvar_id);
   assert(tau != NULL_TYPE);
   stack->tvar_id ++;
@@ -2855,7 +2853,7 @@ static void eval_mk_scalar_type(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   for (i=0; i<card; i++) {
     x = yices_constant(tau, i);
     assert(x != NULL_TERM);
-    yices_set_term_name(x, f[i].val.symbol);
+    yices_set_term_name(x, f[i].val.string);
   }
 
   tstack_pop_frame(stack);

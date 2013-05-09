@@ -395,7 +395,7 @@ static triple_t triples[] = {
   { t6, SMT2_TK_UNDERSCORE, "next_goto_t6h" },
 
   { t6a, SMT2_TK_LP, "next_goto_t6b" },
-  { t6a, SMT2_TK_SYMBOL, "next_push_t6g_goto_s0" },
+  { t6a, SMT2_TK_SYMBOL, "symbol_next_push_t6g_goto_s0" },
  
   { t6b, SMT2_TK_UNDERSCORE, "next_goto_t6c" },
   { t6b, DEFAULT_TOKEN, "error_underscore_expected" },

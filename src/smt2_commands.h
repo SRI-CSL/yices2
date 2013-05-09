@@ -70,7 +70,9 @@ enum smt2_errors {
   SMT2_UNDEF_IDX_TERM,                     // undefined indexed term
   SMT2_UNDEF_IDX_FUNCTION,                 // undefined indexed function
 
-  SMT2_INVALID_IDX_BV,                    // raised by (_ bv0xxx ...)
+  SMT2_QUAL_NOT_IMPLEMENTED,               // for the (as ... ) variants we don't support
+
+  SMT2_INVALID_IDX_BV,                     // raised by (_ bv0xxx ...)
 };
 
 

@@ -2760,7 +2760,7 @@ static void eval_setparam_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   switch (e->tag) {
   case TAG_SYMBOL:
     aux.tag = PARAM_VAL_SYMBOL;
-    aux.val.symbol = e->val.symbol;
+    aux.val.symbol = e->val.string;
     break;
 
   case TAG_RATIONAL:
@@ -2783,7 +2783,7 @@ static void eval_setparam_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
     break;
   }
 
-  yices_setparam_cmd(f->val.symbol, &aux);
+  yices_setparam_cmd(f->val.string, &aux);
   
   tstack_pop_frame(stack);
   no_result(stack);
@@ -2800,7 +2800,7 @@ static void check_showparam_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_showparam_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  yices_showparam_cmd(f->val.symbol);
+  yices_showparam_cmd(f->val.string);
   tstack_pop_frame(stack);
   no_result(stack);
 }
@@ -2905,7 +2905,7 @@ static void eval_help_cmd(tstack_t *stack,  stack_elem_t *f, uint32_t n) {
   
   topic = NULL;
   if (n == 1) {
-    topic = f->val.symbol;
+    topic = f->val.string;
   }
   yices_help_cmd(topic);
   tstack_pop_frame(stack);

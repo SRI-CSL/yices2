@@ -301,7 +301,7 @@ static void print_yices_error(bool full) {
     print_out("wrong number of arguments");
     break;
   case TYPE_MISMATCH:
-    print_out("type error: invalid arguments");
+    print_out("type error");
     break;
   case INCOMPATIBLE_TYPES:
     print_out("incompatible types");
@@ -381,7 +381,7 @@ static const char * const exception_string[NUM_SMT2_EXCEPTIONS] = {
   NULL,                                 // TSTACK_NO_ERROR
   NULL,                                 // TSTACK_INTERNAL_ERROR
   "operation not implemented",          // TSTACK_OP_NOT_IMPLEMENTED
-  "undefined term",                    // TSTACK_UNDEF_TERM
+  "undefined term",                     // TSTACK_UNDEF_TERM
   "undefined sort",                     // TSTACK_UNDEF_TYPE
   "undefined sort constructor",         // TSTACK_UNDEF_MACRO,
   "invalid numeral",                    // TSTACK_RATIONAL_FORMAT
@@ -427,6 +427,7 @@ static const char * const exception_string[NUM_SMT2_EXCEPTIONS] = {
   "undefined identifier",               // SMT2_UNDEF_IDX_SORT_OP
   "undefined identifier",               // SMT2_UNDEF_IDX_TERM
   "undefined identifier",               // SMT2_UNDEF_IDX_FUNCTION
+  "sort qualifier not supported",       // SMT2_QUAL_NOT_IMPLEMENTED
   "invalid bitvector constant",         // SMT2_INVALID_IDX_BV
 };
 
@@ -550,11 +551,11 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "indexed_sort",         // SMT2_INDEXED_SORT
   "sort expression",      // SMT2_APP_INDEXED_SORT
   "indexed identifier",   // SMT2_INDEXED_TERM
-  "as",                   // SMT2_SORTED_TERM
-  "as",                   // SMT2_SORTED_INDEXED_TERM
+  "sort qualifier",       // SMT2_SORTED_TERM
+  "sort qualifier",       // SMT2_SORTED_INDEXED_TERM
   "function application", // SMT2_INDEXED_APPLY
-  "function application", // SMT2_SORTED_APPLY
-  "function application", // SMT2_SORTED_INDEXED_APPLY
+  "sort qualifier",       // SMT2_SORTED_APPLY
+  "sort qualifier",       // SMT2_SORTED_INDEXED_APPLY
   // operations not supported
   "div",                  // SMT2_MK_DIV
   "mod",                  // SMT2_MK_MOD
@@ -635,6 +636,7 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   case TSTACK_TYPE_ERROR_IN_DEFTERM:
   case SMT2_MISSING_NAME:
   case SMT2_MISSING_PATTERN:
+  case SMT2_QUAL_NOT_IMPLEMENTED:
     print_out("%s", exception_string[exception]);
     break;
 
