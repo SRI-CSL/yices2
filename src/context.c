@@ -3594,10 +3594,11 @@ static void create_egraph(context_t *ctx) {
 /*
  * Create and initialize the idl solver and attach it to the core
  * - there must be no other solvers and no egraph
- * - also initialize the core
+ * - if automatic is true, attach the solver to the core, otherwise
+ *   initialize the core
  * - copy the solver's internalization interface into arith
  */
-static void create_idl_solver(context_t *ctx) {
+static void create_idl_solver(context_t *ctx, bool automatic) {
   idl_solver_t *solver;
   smt_mode_t cmode;
 
@@ -3607,8 +3608,13 @@ static void create_idl_solver(context_t *ctx) {
   cmode = core_mode[ctx->mode];
   solver = (idl_solver_t *) safe_malloc(sizeof(idl_solver_t));
   init_idl_solver(solver, ctx->core, &ctx->gate_manager);
-  init_smt_core(ctx->core, CTX_DEFAULT_CORE_SIZE, solver, idl_ctrl_interface(solver),
-                idl_smt_interface(solver), cmode);
+  if (automatic) {
+    smt_core_reset_thsolver(ctx->core, solver, idl_ctrl_interface(solver),
+			    idl_smt_interface(solver));
+  } else {
+    init_smt_core(ctx->core, CTX_DEFAULT_CORE_SIZE, solver, idl_ctrl_interface(solver),
+		  idl_smt_interface(solver), cmode);
+  }
   idl_solver_init_jmpbuf(solver, &ctx->env);
   ctx->arith_solver = solver;
   ctx->arith = *idl_arith_interface(solver);
@@ -3618,10 +3624,11 @@ static void create_idl_solver(context_t *ctx) {
 /*
  * Create and initialize the rdl solver and attach it to the core.
  * - there must be no other solvers and no egraph
- * - also initialize the core
+ * - if automatic is true, attach rdl to the core, otherwise
+ *   initialize the core
  * - copy the solver's internalization interface in ctx->arith
  */
-static void create_rdl_solver(context_t *ctx) {
+static void create_rdl_solver(context_t *ctx, bool automatic) {
   rdl_solver_t *solver;
   smt_mode_t cmode;
 
@@ -3631,8 +3638,13 @@ static void create_rdl_solver(context_t *ctx) {
   cmode = core_mode[ctx->mode];
   solver = (rdl_solver_t *) safe_malloc(sizeof(rdl_solver_t));
   init_rdl_solver(solver, ctx->core, &ctx->gate_manager);
-  init_smt_core(ctx->core, CTX_DEFAULT_CORE_SIZE, solver, rdl_ctrl_interface(solver),
-                rdl_smt_interface(solver), cmode);
+  if (automatic) {
+    smt_core_reset_thsolver(ctx->core, solver, rdl_ctrl_interface(solver),
+			    rdl_smt_interface(solver));
+  } else {
+    init_smt_core(ctx->core, CTX_DEFAULT_CORE_SIZE, solver, rdl_ctrl_interface(solver),
+		  rdl_smt_interface(solver), cmode);
+  }
   rdl_solver_init_jmpbuf(solver, &ctx->env);
   ctx->arith_solver = solver;
   ctx->arith = *rdl_arith_interface(solver);
@@ -3642,8 +3654,10 @@ static void create_rdl_solver(context_t *ctx) {
 /*
  * Create an initialize the simplex solver and attach it to the core
  * or to the egraph if the egraph exists.
+ * - if automatic is true, this is part of auto_idl or auto_rdl. So the 
+ *   core is already initialized.
  */
-static void create_simplex_solver(context_t *ctx) {
+static void create_simplex_solver(context_t *ctx, bool automatic) {
   simplex_solver_t *solver;
   smt_mode_t cmode;
 
@@ -3674,10 +3688,14 @@ static void create_simplex_solver(context_t *ctx) {
     egraph_attach_arithsolver(ctx->egraph, solver, simplex_ctrl_interface(solver),
                               simplex_smt_interface(solver), simplex_egraph_interface(solver),
                               simplex_arith_egraph_interface(solver));
-  } else {
+  } else if (!automatic) {
     // attach simplex to the core and initialize the core
     init_smt_core(ctx->core, CTX_DEFAULT_CORE_SIZE, solver, simplex_ctrl_interface(solver),
                   simplex_smt_interface(solver), cmode);
+  } else {
+    // the core is already initialized: attach simplex 
+    smt_core_reset_thsolver(ctx->core, solver, simplex_ctrl_interface(solver), 
+			    simplex_smt_interface(solver));
   }
 
   simplex_solver_init_jmpbuf(solver, &ctx->env);
@@ -3705,17 +3723,17 @@ static void create_auto_idl_solver(context_t *ctx) {
 
   if (sum_const >= 1073741824) {
     // simplex required because of arithmetic overflow
-    create_simplex_solver(ctx);
+    create_simplex_solver(ctx, true);
     ctx->arch = CTX_ARCH_SPLX;
   } else if (profile->num_vars >= 1000) {
     // too many variables for FW
-    create_simplex_solver(ctx);
+    create_simplex_solver(ctx, true);
     ctx->arch = CTX_ARCH_SPLX;
   } else if (profile->num_vars <= 200 || profile->num_eqs == 0) {
     // use FW for now, until we've tested SIMPLEX more
     // 0 equalities usually means a scheduling problem
     // --flatten works better on IDL/FW
-    create_idl_solver(ctx);
+    create_idl_solver(ctx, true);
     ctx->arch = CTX_ARCH_IFW;
     enable_diseq_and_or_flattening(ctx);
 
@@ -3730,11 +3748,11 @@ static void create_auto_idl_solver(context_t *ctx) {
 
     if (atom_density >= 10.0) {
       // high density: use FW
-      create_idl_solver(ctx);
+      create_idl_solver(ctx, true);
       ctx->arch = CTX_ARCH_IFW;
       enable_diseq_and_or_flattening(ctx);
     } else {
-      create_simplex_solver(ctx);
+      create_simplex_solver(ctx, true);
       ctx->arch = CTX_ARCH_SPLX;
     }
   }
@@ -3752,10 +3770,10 @@ static void create_auto_rdl_solver(context_t *ctx) {
   profile = ctx->dl_profile;
 
   if (profile->num_vars >= 1000) {
-    create_simplex_solver(ctx);
+    create_simplex_solver(ctx, true);
     ctx->arch = CTX_ARCH_SPLX;
   } else if (profile->num_vars <= 200 || profile->num_eqs == 0) {
-    create_rdl_solver(ctx); 
+    create_rdl_solver(ctx, true); 
     ctx->arch = CTX_ARCH_RFW;
   } else {
     // problem density
@@ -3767,11 +3785,11 @@ static void create_auto_rdl_solver(context_t *ctx) {
 
     if (atom_density >= 7.0) {
       // high density: use FW
-      create_rdl_solver(ctx);
+      create_rdl_solver(ctx, true);
       ctx->arch = CTX_ARCH_RFW;
     } else {
       // low-density: use SIMPLEX
-      create_simplex_solver(ctx);
+      create_simplex_solver(ctx, true);
       ctx->arch = CTX_ARCH_SPLX;
     }
   }
@@ -3834,8 +3852,8 @@ static void create_fun_solver(context_t *ctx) {
 /*
  * Allocate and initialize solvers based on architecture and mode
  * - core and gate manager must exist at this point 
- * - if the architecture is either AUTO_IDL or AUTO_RDL, nothing is done yet,
- *   and the core is not initialized.
+ * - if the architecture is either AUTO_IDL or AUTO_RDL, no theory solver
+ *   is allocated yet, and the core is initialized for Boolean only
  * - otherwise, all components are ready and initialized, including the core.
  */
 static void init_solvers(context_t *ctx) {
@@ -3858,11 +3876,11 @@ static void init_solvers(context_t *ctx) {
 
   // Arithmetic solver
   if (solvers & SPLX) {
-    create_simplex_solver(ctx);
+    create_simplex_solver(ctx, false);
   } else if (solvers & IFW) {
-    create_idl_solver(ctx);
+    create_idl_solver(ctx, false);
   } else if (solvers & RFW) {
-    create_rdl_solver(ctx);
+    create_rdl_solver(ctx, false);
   }
 
   // Bitvector solver
@@ -3876,9 +3894,9 @@ static void init_solvers(context_t *ctx) {
   }
 
   /*
-   * At this point all solvers are ready and initialized,
-   * except the egraph and core if the egraph is present 
-   * or the core if there are no solvers
+   * At this point all solvers are ready and initialized, except the
+   * egraph and core if the egraph is present or the core if there are
+   * no solvers, or if arch is AUTO_IDL or AUTO_RDL.
    */
   cmode = core_mode[ctx->mode];   // initialization mode for the core
   egraph = ctx->egraph;
@@ -3888,7 +3906,7 @@ static void init_solvers(context_t *ctx) {
                   egraph_smt_interface(egraph), cmode);
     egraph_attach_core(egraph, core);
 
-  } else if (ctx->theories == 0) {
+  } else {
     /*
      * Boolean solver only
      */
@@ -4023,7 +4041,7 @@ void init_context(context_t *ctx, term_table_t *terms,
 
   /*
    * Allocate and initialize the solvers and core
-   * NOTE: the core is not initialized yet if arch is AUTO_IDL or AUTO_RDL
+   * NOTE: no theory solver yet if arch is AUTO_IDL or AUTO_RDL
    */
   init_solvers(ctx);
 }
@@ -4346,18 +4364,9 @@ int32_t assert_formulas(context_t *ctx, uint32_t n, term_t *f) {
   code = context_process_assertions(ctx, n, f);
   if (code == TRIVIALLY_UNSAT) {
     if (ctx->arch == CTX_ARCH_AUTO_IDL || ctx->arch == CTX_ARCH_AUTO_RDL) {
-      /*
-       * Initialize the core now so that we can record the unsat
-       * status (otherwise, a subsequent call to check_context will 
-       * seg fault).
-       */
+      // cleanup: reset arch/config to 'no theory'
       assert(ctx->arith_solver == NULL && ctx->bv_solver == NULL && ctx->fun_solver == NULL && 
 	     ctx->mode == CTX_MODE_ONECHECK);
-
-      // use a small size here (2 instead of CTX_DEFAULT_CORE_SIZE)
-      init_smt_core(ctx->core, 2, NULL, &null_ctrl, &null_smt, SMT_MODE_BASIC);
-
-      // cleanup: reset arch/config to 'no theory'
       ctx->arch = CTX_ARCH_NOSOLVERS;
       ctx->theories = 0;
       ctx->options = 0;

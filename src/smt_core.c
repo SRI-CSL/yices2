@@ -1392,6 +1392,19 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
 }
 
 
+
+/*
+ * Replace the theory solver and interface descriptors
+ * - this can used provided no atom/clause has been added yet
+ */
+void smt_core_reset_thsolver(smt_core_t *s, void *th, th_ctrl_interface_t *ctrl, 
+			     th_smt_interface_t *smt) {
+  s->th_solver = th;
+  s->th_ctrl = *ctrl; // make a full copy
+  s->th_smt = *smt;   // ditto
+}
+
+
 /*
  * Delete: free all allocated memory
  */
