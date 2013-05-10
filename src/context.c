@@ -3906,9 +3906,11 @@ static void init_solvers(context_t *ctx) {
                   egraph_smt_interface(egraph), cmode);
     egraph_attach_core(egraph, core);
 
-  } else {
+  } else if (solvers == 0) {
     /*
-     * Boolean solver only
+     * Boolean solver only. If arch if AUTO_IDL or AUTO_RDL, the
+     * theory solver will be changed lated by create_auto_idl_solver 
+     * or create_auto_rdl_solver.
      */
     assert(ctx->arith_solver == NULL && ctx->bv_solver == NULL && ctx->fun_solver == NULL);
     init_smt_core(core, CTX_DEFAULT_CORE_SIZE, NULL, &null_ctrl, &null_smt, cmode);
