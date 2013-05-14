@@ -25,7 +25,7 @@
 #include "yices.h"
 #include "yices_exit_codes.h"
 #include "yices_extensions.h"
-
+#include "yices_globals.h"
 
 
 /*
@@ -1220,6 +1220,186 @@ static void init_smt2_context(smt2_globals_t *g) {
  */
 
 /*
+ * Check whether term t requires the Egraph
+ * - seen = hset of all terms seen so far (none of them requires the Egraph)
+ */
+static bool needs_egraph(int_hset_t *seen, term_t t);
+
+static bool composite_needs_egraph(int_hset_t *seen, composite_term_t *d) {
+  uint32_t i, n;
+
+  n = d->arity;
+  for (i=0; i<n; i++) {
+    if (needs_egraph(seen, d->arg[i])) return true;
+  }
+  return false;
+}
+
+static bool product_needs_egraph(int_hset_t *seen, pprod_t *p) {
+  uint32_t i, n;
+
+  n = p->len;
+  for (i=0; i<n; i++) {
+    if (needs_egraph(seen, p->prod[i].var)) return true;
+  }
+  return false;
+}
+
+static bool poly_needs_egraph(int_hset_t *seen, polynomial_t *p) {
+  uint32_t i, n;
+
+  n = p->nterms;
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    i ++;
+  }
+  while (i < n) {
+    if (needs_egraph(seen, p->mono[i].var)) return true;
+    i ++;
+  }
+  return false;
+}
+
+static bool bvpoly64_needs_egraph(int_hset_t *seen, bvpoly64_t *p) {
+  uint32_t i, n;
+
+  n = p->nterms;
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    i ++;
+  }
+  while (i < n) {
+    if (needs_egraph(seen, p->mono[i].var)) return true;
+    i ++;
+  }
+  return false;
+}
+
+static bool bvpoly_needs_egraph(int_hset_t *seen, bvpoly_t *p) {
+  uint32_t i, n;
+
+  n = p->nterms;
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    i ++;
+  }
+  while (i < n) {
+    if (needs_egraph(seen, p->mono[i].var)) return true;
+    i ++;
+  }
+  return false;
+}
+
+
+
+static bool needs_egraph(int_hset_t *seen, term_t t) {
+  term_table_t *terms;
+  bool result;
+
+  result = false;
+  t = unsigned_term(t); // clear polarity
+  if (! int_hset_add(seen, t)) {
+    // not seen yet
+    terms = __yices_globals.terms;
+    switch (term_kind(terms, t)) {
+    case UNUSED_TERM:
+    case RESERVED_TERM:
+      assert(false);
+      break;
+
+    case CONSTANT_TERM:
+    case VARIABLE:
+    case UNINTERPRETED_TERM:
+      result = is_utype_term(terms, t);
+      break;
+
+    case ARITH_CONSTANT:
+    case BV64_CONSTANT:
+    case BV_CONSTANT:
+      result = false;
+      break;
+
+    case ARITH_EQ_ATOM:
+    case ARITH_GE_ATOM:
+      result = needs_egraph(seen, arith_atom_arg(terms, t));
+      break;
+
+    case ITE_TERM:
+    case ITE_SPECIAL:
+    case EQ_TERM:
+    case DISTINCT_TERM:
+    case OR_TERM:
+    case XOR_TERM:
+    case ARITH_BINEQ_ATOM:
+    case BV_ARRAY:
+    case BV_DIV:
+    case BV_REM:
+    case BV_SDIV:
+    case BV_SREM:
+    case BV_SMOD:
+    case BV_SHL:
+    case BV_LSHR:
+    case BV_ASHR:
+    case BV_EQ_ATOM:
+    case BV_GE_ATOM:
+    case BV_SGE_ATOM:
+      result = composite_needs_egraph(seen, composite_term_desc(terms, t));
+      break;
+
+    case BIT_TERM:
+      result = needs_egraph(seen, bit_term_arg(terms, t));
+      break;
+
+    case APP_TERM:
+    case UPDATE_TERM:
+    case TUPLE_TERM:
+    case FORALL_TERM:
+    case LAMBDA_TERM:
+    case SELECT_TERM:
+      result = true;
+      break;
+
+    case POWER_PRODUCT:
+      result = product_needs_egraph(seen, pprod_term_desc(terms, t));
+      break;
+
+    case ARITH_POLY:
+      result = poly_needs_egraph(seen, poly_term_desc(terms, t));
+      break;
+
+    case BV64_POLY:
+      result = bvpoly64_needs_egraph(seen, bvpoly64_term_desc(terms, t));
+      break;
+
+    case BV_POLY:
+      result = bvpoly_needs_egraph(seen, bvpoly_term_desc(terms, t));
+      break;
+    }
+  }
+
+  return result;
+}
+
+/*
+ * Check whether any formula is a[0...n-1] contains an uninterpreted function
+ */
+static bool has_uf(term_t *a, uint32_t n) {
+  int_hset_t seen; // set of visited terms
+  bool result;
+  uint32_t i;
+
+  result = false;
+  init_int_hset(&seen, 32);
+  for (i=0; i<n; i++) {
+    result = needs_egraph(&seen, a[i]);
+    if (result) break;
+  }
+  delete_int_hset(&seen);
+
+  return result;
+}
+
+/*
  * Add a assertion t to g->assertions
  * - do nothing if t is true
  * - if t is false, set g->trivially_unsat to true
@@ -1246,6 +1426,14 @@ static void check_assertions(smt2_globals_t *g) {
   } else if (g->assertions.size == 0) {
     print_out("sat\n");
   } else {
+    /*
+     * check for mislabeled benchmarks: some benchmarks 
+     * marked as QF_UFIDL do not require the Egraph (should be QF_IDL)
+     */
+    if (g->benchmark && g->logic_code == QF_UFIDL && !has_uf(g->assertions.data, g->assertions.size)) {
+      fprintf(g->err, "Warning: switching logic to QF_IDL\n");
+      g->logic_code = QF_IDL;
+    }
     init_smt2_context(g);
     code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
     if (code < 0) {
