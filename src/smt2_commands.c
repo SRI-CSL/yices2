@@ -1298,7 +1298,7 @@ static bool needs_egraph(int_hset_t *seen, term_t t) {
 
   result = false;
   t = unsigned_term(t); // clear polarity
-  if (! int_hset_add(seen, t)) {
+  if (int_hset_add(seen, t)) {
     // not seen yet
     terms = __yices_globals.terms;
     switch (term_kind(terms, t)) {
