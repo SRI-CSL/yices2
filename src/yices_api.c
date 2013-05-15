@@ -5328,7 +5328,15 @@ static void context_set_default_options(context_t *ctx, context_arch_t arch, boo
 
   case CTX_ARCH_BV:
     // flattening makes things worse for QF_BV
-    disable_diseq_and_or_flattening(ctx);  
+    // disable_diseq_and_or_flattening(ctx);
+    // FOR TESTING: ENABLE IT (r2831)
+    enable_diseq_and_or_flattening(ctx);
+    break;
+
+  case CTX_ARCH_EGSPLX:
+  case CTX_ARCH_EGFUNSPLX:
+    // FOR TESTING: ENABLE EQ PROPAGATION (r2831)
+    enable_splx_eqprop(ctx);
     break;
 
   default:

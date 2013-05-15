@@ -1430,7 +1430,8 @@ static void check_assertions(smt2_globals_t *g) {
      * check for mislabeled benchmarks: some benchmarks 
      * marked as QF_UFIDL do not require the Egraph (should be QF_IDL)
      */
-    if (g->benchmark && g->logic_code == QF_UFIDL && !has_uf(g->assertions.data, g->assertions.size)) {
+    if (g->benchmark && g->logic_code == QF_UFIDL && 
+	!has_uf(g->assertions.data, g->assertions.size)) {
       fprintf(g->err, "Warning: switching logic to QF_IDL\n");
       g->logic_code = QF_IDL;
     }
