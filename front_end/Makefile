@@ -75,14 +75,16 @@ static_binaries := $(static_bindir)/yices_smt2$(EXEEXT)
 # matchine
 #
 ifeq ($(POSIXOS),cygwin)
-  CPPFLAGS := $(CPPFLAGS) -DCYGWIN
+  CPPFLAGS := $(CPPFLAGS) -DCYGWIN -DNOYICES_DLL
   PIC=
-  STATIC=-static
+  STATIC=-static -static-libgcc
+  LDFLAGS += -Wl,--stack,8388608
 else
 ifeq ($(POSIXOS),mingw)
-  CPPFLAGS := $(CPPFLAGS) -DMINGW
+  CPPFLAGS := $(CPPFLAGS) -DMINGW -DNOYICES_DLL
   PIC=
   STATIC=-static
+  LDFLAGS += -Wl,--stack,8388608
 else
 ifeq ($(POSIXOS),darwin)
   CPPFLAGS := $(CPPFLAGS) -DMACOSX
@@ -194,6 +196,7 @@ else
   STATIC_CPPFLAGS := $(CPPFLAGS)
 endif
 
+
 #
 # LIBS for compiling in static mode
 #
@@ -218,6 +221,7 @@ $(static_objdir)/%.d: %.c
 	@ $(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.tmp > $@
 	@ rm -f $@.tmp
 
+
 include $(dep)
 include $(static_dep)
 
@@ -239,17 +243,15 @@ $(objdir)/%.o: %.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 $(static_objdir)/%o: %c
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+	$(CC) $(STATIC_CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 
 # Binaries
 $(bindir)/yices_smt2$(EXEEXT): $(obj) $(libyices)
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
-	   -o $@ $^ $(libyices) $(LIBS)
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(libyices) $(LIBS)
 
 $(static_bindir)/yices_smt2$(EXEEXT): $(static_obj) $(static_libyices)
-	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIND_LDFLAGS) $(STATIC) \
-	  -o $@ $^ $(static_libyices) $(STATIC_LIBS)
+	$(LNK) $(STATIC_CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ $^ $(static_libyices) $(STATIC_LIBS)
 
 
 # All objects
