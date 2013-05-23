@@ -74,6 +74,11 @@ static void check_equation_satisfied(simplex_solver_t *solver, uint32_t r);
 #endif
 
 
+#if TRACE
+
+static void show_heap(FILE *f, simplex_solver_t *solver);
+
+#endif
 
 
 /*************************
@@ -4204,7 +4209,7 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
   bool feasible;
 
 #if TRACE
-  printf("---> Simplex: make feasible\n");
+  printf("---> SIMPLEX: MAKE FEASIBLE\n");
 #endif
 
 #if DEBUG
@@ -4241,6 +4246,10 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
       feasible = true;
       break;
     }
+
+#if TRACE
+    show_heap(stdout, solver);
+#endif
 
     r = matrix_basic_row(matrix, x);
     row = matrix_row(matrix, r);
@@ -10237,5 +10246,28 @@ static void check_bound_marks(simplex_solver_t *solver) {
 }
 
 
+#endif
 
+
+
+#if TRACE
+
+/*
+ * Show the list of infeasible variables (bounds not satisfied)
+ * - these variables are stored in the heap after a call to 
+ *   simplex_fix_nonbasic_assingment
+ */
+static void show_heap(FILE *f, simplex_solver_t *solver) {
+  uint32_t i, n;
+
+  n = solver->matrix.nrows;
+  fprintf(f, "Infeasible vars:");
+  for (i=0; i<n; i++) {
+    if (int_heap_member(&solver->infeasible_vars, i)) {
+      fprintf(f, " x_%"PRIu32, i);
+    }
+  }
+  fprintf(f, "\n");
+}
+ 
 #endif
