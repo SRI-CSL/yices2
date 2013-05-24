@@ -4023,6 +4023,7 @@ void init_context(context_t *ctx, term_table_t *terms,
    * Auxiliary internalization buffers
    */
   init_ivector(&ctx->subst_eqs, CTX_DEFAULT_VECTOR_SIZE);
+  init_ivector(&ctx->aux_eqs, CTX_DEFAULT_VECTOR_SIZE);
   init_ivector(&ctx->aux_vector, CTX_DEFAULT_VECTOR_SIZE);
   init_istack(&ctx->istack);
   init_int_queue(&ctx->queue, 0);
@@ -4094,6 +4095,7 @@ void delete_context(context_t *ctx) {
   delete_ivector(&ctx->top_interns);
 
   delete_ivector(&ctx->subst_eqs);
+  delete_ivector(&ctx->aux_eqs);
   delete_ivector(&ctx->aux_vector);
   delete_istack(&ctx->istack);
   delete_int_queue(&ctx->queue);
@@ -4135,6 +4137,7 @@ void reset_context(context_t *ctx) {
   intern_tbl_map_root(&ctx->intern, true_term, bool2code(true));
 
   ivector_reset(&ctx->subst_eqs);
+  ivector_reset(&ctx->aux_eqs);
   ivector_reset(&ctx->aux_vector);
   reset_istack(&ctx->istack);
   int_queue_reset(&ctx->queue);
@@ -4203,6 +4206,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
   ivector_reset(&ctx->top_formulas);
   ivector_reset(&ctx->top_interns);
   ivector_reset(&ctx->subst_eqs);
+  ivector_reset(&ctx->aux_eqs);
 
   code = setjmp(ctx->env);
   if (code == 0) {
@@ -4211,28 +4215,25 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
       flatten_assertion(ctx, a[i]);
     }
 
-    // deal with variable substitutions if any
-    if (ctx->subst_eqs.size > 0) {
-      context_process_candidate_subst(ctx);
-    }
-
     /*
-     * At this point, the assertions are stored into the four vectors
-     * top_eqs, top_atoms, top_formulas, and top_interns, and
-     * ctx->intern stores the internalized terms and the variable
-     * substitutions.
+     * At this point, the assertions are stored into the vectors
+     * top_eqs, top_atoms, top_formulas, and top_interns
+     * - more top-level equalities may be in subst_eqs 
+     * - ctx->intern stores the internalized terms and the variable
+     *   substitutions.
      */
 
     // optional processing
     switch (ctx->arch) {
     case CTX_ARCH_EG:
-      if (context_eq_abstraction_enabled(ctx)) {
-        code = analyze_uf(ctx);
-        if (code != CTX_NO_ERROR) return code;
-      }
       if (context_breaksym_enabled(ctx)) {
 	break_uf_symmetries(ctx);
-	context_process_deferred_substitutions(ctx); // EXPERIMENTAL
+      }
+      if (context_eq_abstraction_enabled(ctx)) {
+        analyze_uf(ctx);
+      }
+      if (ctx->aux_eqs.size > 0) {
+	process_aux_eqs(ctx);
       }
       break;
 
@@ -4248,6 +4249,14 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
 
     default:
       break;
+    }
+
+
+    /*
+     * Process the candidate variable substitutions if any
+     */
+    if (ctx->subst_eqs.size > 0) {
+      context_process_candidate_subst(ctx);
     }
 
 

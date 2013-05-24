@@ -1511,7 +1511,6 @@ static void remove_constants_of_term(sym_breaker_t *breaker, sym_breaker_sets_t 
 /*
  * SYMMETRY-BREAKING CLAUSES
  */
-
 /*
  * Build the equality term: (= t c)
  */
@@ -1525,7 +1524,6 @@ static term_t make_aux_eq(term_table_t *terms, term_t t, term_t c) {
   assert(t < c);
   return eq_term(terms, t, c);
 }
-
 
 
 /*
@@ -1556,23 +1554,15 @@ static void add_symmetry_breaking_clause(sym_breaker_t *breaker, term_t t, term_
 
   if (n == 1) {
     /*
-     * special case: we add (= t c[0]) as a toplevel equality
+     * special case: we add (= t c[0]) as an auxiliary equality
      */
-    eq = make_aux_eq(terms, t, c[0]);
-    assert(intern_tbl_is_root(intern, eq) && !term_is_false(ctx, eq));
-
-    if (! intern_tbl_root_is_mapped(intern, eq)) {
-      // mark that eq is true and add it to top_eqs
-      intern_tbl_map_root(intern, eq, bool2code(true));
-      ivector_push(&ctx->top_eqs, eq);
+    add_aux_eq(ctx, t, c[0]);
 
 #if TRACE || 1
-      printf("Adding symmetry breaking constraint\n");
-      pretty_print_term_full(stdout, NULL, terms, eq);
+    printf("Adding symmetry breaking constraint\n");
+    pretty_print_term_full(stdout, NULL, terms, make_aux_eq(terms, t, c[0]));
 #endif
 
-    }
-    
   } else {
     v = &breaker->aux;
     ivector_reset(v);
@@ -1586,7 +1576,6 @@ static void add_symmetry_breaking_clause(sym_breaker_t *breaker, term_t t, term_
 
       ivector_push(v, eq);
     }
-
 
     /*
      * build (or v->data[0] ... v->data[n])

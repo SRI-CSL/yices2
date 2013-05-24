@@ -608,6 +608,7 @@ struct context_s {
   
   // auxiliary buffers and structures for internalization
   ivector_t subst_eqs;
+  ivector_t aux_eqs;
   int_queue_t queue;
   ivector_t aux_vector;
   int_stack_t istack;
@@ -957,7 +958,29 @@ extern void flatten_assertion(context_t *ctx, term_t f);
 
 
 /*
- * Process all candidate substitutions after flattening
+ * Auxiliary equalities:
+ * - add a new equality (x == y) in the aux_eq vector.
+ * - this is useful for simplification procedures that are executed after
+ *   assertion flattening (e.g., symmetry breaking).
+ * - the auxiliary equalities can then be processed by process_aux_eqs
+ */
+extern void add_aux_eq(context_t *ctx, term_t x, term_t y);
+
+
+/*
+ * Process the auxiliary equalities:
+ * - if substitution is not enabled, then all aux equalities are added to top_eqs
+ * - otherwise, cheap substitutions are performand and candidate substitutions
+ *   are added to subst_eqs.
+ *
+ * This function raises an exception via longjmp if a contradiction os detected.
+ */
+extern void process_aux_eqs(context_t *ctx);
+
+
+/*
+ * Process all candidate substitutions after flattening and processing of 
+ * auxiliary equalities.
  * - the candidate substitutions are in ctx->subst_eqs
  * - all elemenst of subst_eqs must be equality terms asserted true
  *   and of the form (= x t) for some variable x.
@@ -969,12 +992,14 @@ extern void flatten_assertion(context_t *ctx, term_t f);
 extern void context_process_candidate_subst(context_t *ctx);
 
 
+#if 0
 /*
  * Go through all equalities in ctx->top_eqs and attempt to 
  * eliminate variables.
  * - this is useful after symmetry breaking
  */
 extern void context_process_deferred_substitutions(context_t *ctx);
+#endif
 
 
 /*
@@ -1012,17 +1037,15 @@ static inline bool in_real_class(context_t *ctx, term_t t) {
 
 
 /*
- * PREPROCESSING/ANALYSIS AFTER FLATTENING/VARIABLE ELIMINATIONS
+ * PREPROCESSING/ANALYSIS AFTER FLATTENING
  */
 
 /*
  * Attempt to learn global equalities implied 
  * by the formulas stored in ctx->top_formulas.
- * Any such equality is added to ctx->top_eqs
- * - return CTX_NO_ERROR if no contradiction is found
- * - return TRIVIALLY_UNSAT if a contradiction is found
+ * Any such equality is added to ctx->aux_eqs
  */
-extern int32_t analyze_uf(context_t *ctx);
+extern void analyze_uf(context_t *ctx);
 
 
 /*

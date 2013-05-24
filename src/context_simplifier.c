@@ -777,6 +777,7 @@ static void process_candidate_subst(context_t *ctx, term_t t1, term_t t2, term_t
   }
 }
 
+
 /*
  * Attempt to turn (eq t1 t2) into a variable substitution
  * - both t1 and t2 are root terms in the internalization table
@@ -1905,6 +1906,7 @@ void context_process_candidate_subst(context_t *ctx) {
 
 
 
+#if 0
 /*
  * Go through all equalities in ctx->top_eqs and attempt to eliminate variables
  * - for now we just check equalities between uninterpreted terms 
@@ -1960,6 +1962,100 @@ void context_process_deferred_substitutions(context_t *ctx) {
     ctx->options = saved_options;
     delete_ivector(&eqs);
   }
+}
+
+#endif
+
+
+/**************************
+ *  AUXILIARY EQUALITIES  *
+ *************************/
+
+/*
+ * Add an auxiliary equality (x == y) to the context
+ * - this create eq := (eq x y) then add it to aux_eq
+ */
+void add_aux_eq(context_t *ctx, term_t x, term_t y) {
+  term_table_t *terms;
+  term_t eq;
+
+  x = intern_tbl_get_root(&ctx->intern, x);
+  y = intern_tbl_get_root(&ctx->intern, y);
+
+  if (x != y) {
+    /*
+     * Build/get term (eq x y)
+     */
+    terms = ctx->terms;  
+    if (x > y) {
+      eq = eq_term(terms, y, x);
+    } else {
+      eq = eq_term(terms, x, y);
+    }
+
+    assert(intern_tbl_is_root(&ctx->intern, eq));
+
+    ivector_push(&ctx->aux_eqs, eq);
+  }
+}
+
+
+/*
+ * Process an auxiliary equality eq
+ */
+static void process_aux_eq(context_t *ctx, term_t eq) {
+  composite_term_t *d;
+  term_t t1, t2;
+  int32_t code;
+
+  assert(intern_tbl_is_root(&ctx->intern, eq));
+  
+  if (intern_tbl_root_is_mapped(&ctx->intern, eq)) {
+    // eq is already internalized
+    code = intern_tbl_map_of_root(&ctx->intern, eq);
+    if (code == bool2code(false)) {
+      // contradiction
+      longjmp(ctx->env, TRIVIALLY_UNSAT);
+    } else if (code != bool2code(true)) {
+      ivector_push(&ctx->top_interns, eq);
+    }
+  } else {
+    // map e to true and try to process it as a substitution
+    intern_tbl_map_root(&ctx->intern, eq, bool2code(true));
+
+    // process e as a substitution if possible
+    d = eq_term_desc(ctx->terms, eq);
+    t1 = intern_tbl_get_root(&ctx->intern, d->arg[0]);
+    t2 = intern_tbl_get_root(&ctx->intern, d->arg[1]);
+    if (is_boolean_term(ctx->terms, t1)) {
+      try_bool_substitution(ctx, t1, t2, eq);
+    } else {
+      try_substitution(ctx, t1, t2, eq);
+    }
+  }
+}
+
+
+/*
+ * Process the auxiliary equalities:
+ * - if substitution is not enabled, then all aux equalities are added to top_eqs
+ * - otherwise, cheap substitutions are performand and candidate substitutions
+ *   are added to subst_eqs.
+ *
+ * This function raises an exception via longjmp if a contradiction is detected.
+ */
+void process_aux_eqs(context_t *ctx) {
+  uint32_t i, n;
+  ivector_t *aux_eqs;
+
+  aux_eqs = &ctx->aux_eqs;
+  n = aux_eqs->size;
+  for (i=0; i<n; i++) {
+    process_aux_eq(ctx, aux_eqs->data[i]);
+  }
+
+  // cleanup
+  ivector_reset(&ctx->aux_eqs);
 }
 
 
@@ -2092,6 +2188,9 @@ void flatten_or_term(context_t *ctx, ivector_t *v, composite_term_t *or) {
  *  EQUALITY LEARNING   *
  ***********************/
 
+#if 0
+
+// OBSOLETE
 /*
  * Process implied equality (x == y):
  * - x and y should not be boolean, bitvector, or arithmetic terms,
@@ -2149,16 +2248,14 @@ static int32_t add_aux_eq(context_t *ctx, term_t x, term_t y) {
   return CTX_NO_ERROR;
 }
 
+#endif
 
 /*
- * Add implied top_level equalities defined by the partition p
- * - return CTX_NO_ERROR if the equalities could be added
- * - return TRIVIALLY_UNSAT if an equality to add is known to be false
+ * Add implied equalities defined by the partition p to the aux_eqs vector
  */
-static int32_t add_implied_equalities(context_t *ctx, epartition_t *p) {
+static void add_implied_equalities(context_t *ctx, epartition_t *p) {
   uint32_t i, n;
   term_t *q, x, y;
-  int32_t k;
   
   n = p->nclasses;
   q = p->data;
@@ -2167,44 +2264,36 @@ static int32_t add_implied_equalities(context_t *ctx, epartition_t *p) {
     assert(x >= 0);
     y = *q ++;
     while (y >= 0) {
-      k = add_aux_eq(ctx, x, y);
-      if (k != CTX_NO_ERROR) return k;
+      add_aux_eq(ctx, x, y);
       y = *q ++;
     }
   }
-  return CTX_NO_ERROR;
 }
 
 
 /*
  * Attempt to learn global equalities implied 
  * by the formulas stored in ctx->top_formulas.
- * Any such equality is added to ctx->top_eqs
- * - return CTX_NO_ERROR if no contradiction is found
- * - return TRIVIALLY_UNSAT if a contradiction is found
+ * Any such equality is added to ctx->aux_eqs
  */
-int32_t analyze_uf(context_t *ctx) {
+void analyze_uf(context_t *ctx) {
   ivector_t *v;
   uint32_t i, n;
   eq_learner_t eql;
   epartition_t *p;
-  int32_t k;
 
   init_eq_learner(&eql, ctx->terms);
   v = &ctx->top_formulas;
   n = v->size;
 
-  k = CTX_NO_ERROR;
   for (i=0; i<n; i++) {
     p = eq_learner_process(&eql, v->data[i]);
     if (p->nclasses > 0) {
-      k = add_implied_equalities(ctx, p);
-      if (k != CTX_NO_ERROR) break;
+      add_implied_equalities(ctx, p);
     }
   }
 
   delete_eq_learner(&eql);
-  return k;
 }
 
 
@@ -2683,6 +2772,7 @@ term_t flatten_ite_equality(context_t *ctx, ivector_t *v, term_t t, term_t k) {
 
 #if TRACE_SYM_BREAKING
 
+#if 0
 static void show_constant_set(yices_pp_t *pp, term_table_t *terms, rng_record_t *r) {
   uint32_t i, n;
 
@@ -2745,7 +2835,7 @@ static void show_range_constraints(sym_breaker_t *breaker) {
 
   delete_yices_pp(&pp);
 }
-
+#endif
 
 static void print_constant_set(sym_breaker_t *breaker, rng_record_t *r) {
   uint32_t i, n;
@@ -2757,6 +2847,8 @@ static void print_constant_set(sym_breaker_t *breaker, rng_record_t *r) {
   }
 }
 
+
+#if 0
 static void print_candidates(sym_breaker_t *breaker, sym_breaker_sets_t *sets) {
   uint32_t i, n;
 
@@ -2768,6 +2860,7 @@ static void print_candidates(sym_breaker_t *breaker, sym_breaker_sets_t *sets) {
     printf("\n");
   }
 }
+#endif
 
 #endif
 
