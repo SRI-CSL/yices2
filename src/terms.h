@@ -585,6 +585,11 @@ extern term_t arith_bineq_atom(term_table_t *table, term_t left, term_t right);
 
 
 
+/*
+ * Check whether b stores an integer polynomial
+ */
+extern bool arith_poly_is_integer(term_table_t *table, rba_buffer_t *b);
+
 
 
 /*

@@ -24,17 +24,16 @@ extern void *safe_realloc(void *ptr, size_t size) __attribute__ ((malloc));
 
 
 /*
- * Safer free: check whether ptr is NULL before calling free.
+ * Safer free: used to check whether ptr is NULL before calling free.
  *
- * NOTE: C99 specifies that free shall have no effect if ptr
- * is NULL. It's safer to check anyway.
+ * Updated to just call free. The check is redundant on most
+ * systes, The C99 standarrd specifies that free shall have no effect
+ * if ptr is NULL.
  *
- * The __attribute__ always_inline prevents many warnings if GCC 4.4.x
- * is used. Without it, GCC refuses to inline safe_free in many places
- * and prints an annoying compilation warning.
  */
-static inline  void safe_free(void *ptr)  {
-  if (ptr != NULL) free(ptr);
+static inline void safe_free(void *ptr)  {
+  //  if (ptr != NULL) free(ptr);
+  free(ptr);
 }
 
 

@@ -4078,7 +4078,7 @@ static void cleanup_watch_lists(smt_core_t *s) {
 /*
  * Check whether cl is an antecedent clause
  */
-static inline bool clause_is_locked(smt_core_t *s, clause_t *cl) {
+static bool clause_is_locked(smt_core_t *s, clause_t *cl) {
   literal_t l0, l1;
 
   l0 = get_first_watch(cl);

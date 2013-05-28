@@ -586,6 +586,20 @@ extern bool rba_buffer_equal_poly(rba_buffer_t *b, int32_t *v, polynomial_t *p);
 extern polynomial_t *rba_buffer_get_poly(rba_buffer_t *b, int32_t *v);
 
 
+/*
+ * Check whether b is an integral polynomial 
+ * (i.e., all variables and coefficients are integer)
+ * - this uses a function poihter var_is_int to check the type of all
+ *   variables:
+ * - for every variable x, var_is_int(aux, x) must return true if x is
+ *   integer, false if x is real.
+ */
+typedef bool (*var_type_fun_t)(void *aux, int32_t x);
+
+extern bool rba_buffer_is_int(rba_buffer_t *b, void *aux, var_type_fun_t var_is_int);
+
+
+
 
 
 

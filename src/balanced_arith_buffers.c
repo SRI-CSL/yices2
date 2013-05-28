@@ -22,7 +22,7 @@
  * 
  * or we can traverse the tree using a recursive function.
  *
- * Linear scan has a cost of linear in num_nodes.
+ * Linear scan has a cost linear in num_nodes.
  *
  * Tree traversal has cost K * nterms * log(nterms) (approximately)
  * for some constant K>1.
@@ -2097,5 +2097,81 @@ bool rba_buffer_equal_poly(rba_buffer_t *b, int32_t *v, polynomial_t *p) {
 
 
 
+/*
+ * TYPE CHECKING
+ */
+
+/*
+ * All functions use an external function to check the type of variables
+ * - for every variable x, var_is_int(aux, x) must return true if x is
+ *   integer, false if x is real.
+ */
 
 
+/*
+ * Check whether monomial m is integral:
+ */
+static bool monomial_is_int(mono_t *m, void *aux, var_type_fun_t var_is_int) {
+  pprod_t *p;
+  uint32_t i, n;
+
+  if (q_is_zero(&m->coeff)) {
+    return true;
+  }
+
+  if (!q_is_integer(&m->coeff)) {
+    return false;
+  }
+
+  p = m->prod;
+  if (pp_is_empty(p)) {
+    return true;
+  } 
+
+  if (pp_is_var(p)) {
+    return var_is_int(aux, var_of_pp(p));
+  }
+
+  n = p->len;
+  for (i=0; i<n; i++) {
+    if (! var_is_int(aux, p->prod[i].var)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+/*
+ * Check whether all monomials in x's subtree are integral
+ */
+static bool tree_is_int(rba_buffer_t *b, uint32_t x, void *aux, var_type_fun_t var_is_int) {
+  return x == rba_null || 
+    (monomial_is_int(b->mono + x, aux, var_is_int) &&
+     tree_is_int(b, b->child[x][0], aux, var_is_int) && 
+     tree_is_int(b, b->child[x][1], aux, var_is_int));
+}
+
+
+
+/*
+ * Check whether b is an integral polynomial 
+ */
+typedef bool (*var_type_fun_t)(void *aux, int32_t x);
+
+bool rba_buffer_is_int(rba_buffer_t *b, void *aux, var_type_fun_t var_is_int) {
+  uint32_t i, n;
+
+  if (rba_tree_is_small(b)) {
+    return tree_is_int(b, b->root, aux, var_is_int);
+  } else {
+    n = b->num_nodes;
+    for (i=1; i<n; i++) {
+      if (!monomial_is_int(&b->mono[i], aux, var_is_int)) {
+	return false;
+      }
+    }
+    return true;
+  }
+}

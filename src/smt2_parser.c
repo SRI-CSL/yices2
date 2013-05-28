@@ -668,6 +668,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       goto loop;
 
     case numeral_next_goto_t6e:
+      tstack_push_rational(tstack, tkval(lex), &loc);
       state = t6e;
       goto loop;
 

@@ -407,6 +407,12 @@ extern bool yices_check_bvextend(bvlogic_buffer_t *b, int32_t n);
 
 
 /*
+ * Check whether b is an integer polynomial
+ */
+extern bool yices_arith_buffer_is_int(rba_buffer_t *b);
+
+
+/*
  * CONTEXT INITILIZATION
  */
 

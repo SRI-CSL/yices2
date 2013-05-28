@@ -1688,14 +1688,6 @@ static void eval_smt2_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n
  */
 
 /*
- * Auxiliary function: check whether b is an integer
- * TODO: don't create the intermediate term?
- */
-static bool arith_buffer_is_integer(rba_buffer_t *b) {
-  return yices_term_is_int(arith_buffer_get_term(b));
-}
-
-/*
  * Check whether element e on the stack has type tau
  */
 static bool stack_elem_has_type(tstack_t *stack, stack_elem_t *e, type_t tau) {
@@ -1718,7 +1710,7 @@ static bool stack_elem_has_type(tstack_t *stack, stack_elem_t *e, type_t tau) {
 
   case TAG_ARITH_BUFFER:
     return is_real_type(tau) || 
-      (is_integer_type(tau) && arith_buffer_is_integer(e->val.arith_buffer));
+      (is_integer_type(tau) && yices_arith_buffer_is_int(e->val.arith_buffer));
 
   case TAG_BVARITH64_BUFFER:
     n = bvarith64_buffer_bitsize(e->val.bvarith64_buffer);
@@ -1759,6 +1751,40 @@ static void check_topelem_type(tstack_t *stack, type_t tau) {
     raise_exception(stack, e, SMT2_TYPE_ERROR_IN_QUAL);
   }
 }
+
+
+
+/*
+ * Scan the stack starting from f to f+n, and return the index of the
+ * first element that has tag 'TYPE'. Return n if there's no such
+ * element.
+ */
+static uint32_t find_type_elem(stack_elem_t *f, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (f[i].tag == TAG_TYPE) break;
+  }
+
+  return i;
+}
+
+
+/*
+ * Shift stack elements: 
+ * - copy f[0 ... n-1] into f[1 ... n]
+ *   f[0] is left unchanged, f[n] is lost
+ */
+static void shift_stack_elems(stack_elem_t *f, uint32_t n) {
+  while (n > 0) {
+    f[n] = f[n-1];
+    n --;
+  }
+}
+
+
+
+
 
 /*
  * [sorted-term <xxx> <type>]
@@ -1825,7 +1851,22 @@ static void check_smt2_sorted_apply(tstack_t *stack, stack_elem_t *f, uint32_t n
 }
 
 static void eval_smt2_sorted_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  raise_exception(stack, f, SMT2_QUAL_NOT_IMPLEMENTED);  
+  int32_t op;
+  type_t tau;
+
+  /*
+   * frame content:
+   *   f[0] = opcode
+   *   f[1] = sort
+   *   f[2 ... n-1] = arguments
+   */
+  op = f[0].val.op;
+  tau = f[1].val.type;
+
+  call_tstack_check(stack, op, f+2, n-2);
+  call_tstack_eval(stack, op, f+2, n-2);
+
+  check_topelem_type(stack, tau);
 }
 
 
@@ -1841,7 +1882,29 @@ static void check_smt2_sorted_indexed_apply(tstack_t *stack, stack_elem_t *f, ui
 }
 
 static void eval_smt2_sorted_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  raise_exception(stack, f, SMT2_QUAL_NOT_IMPLEMENTED);  
+  int32_t op;
+  type_t tau;
+  uint32_t k;
+  
+  /*
+   * frame content:
+   *   f[0] = opcode
+   *   f[1 ... k-1] = indices
+   *   f[k] = sort
+   *   f[k+1 ... n-1] = arguments
+   */
+  op  = f[0].val.op;
+  k = find_type_elem(f, n);
+  assert(2 <= k && k < n && f[k].tag == TAG_TYPE);
+  tau = f[k].val.type;
+
+  // shift f[1 ... k-1] into f[2 ... k]
+  shift_stack_elems(f+1, k-1);
+
+  call_tstack_check(stack, op, f+2, n-2);
+  call_tstack_eval(stack, op, f+2, n-2);
+
+  check_topelem_type(stack, tau);
 }
 
 

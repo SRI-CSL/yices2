@@ -2098,6 +2098,7 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
 
   if (check_logic()) {
     if (! yices_check_term_type(body, tau)) {
+      // ? print a better error message?
       print_yices_error(true);
       return;
     }

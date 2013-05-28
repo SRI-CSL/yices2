@@ -4840,6 +4840,12 @@ bool yices_check_bvmul_buffer(bvarith_buffer_t *b1, bvarith_buffer_t *b2) {
 }
 
 
+/*
+ * Check whether b contains an integer polynomial
+ */
+bool yices_arith_buffer_is_int(rba_buffer_t *b) {
+  return arith_poly_is_integer(&terms, b);
+}
 
 
 

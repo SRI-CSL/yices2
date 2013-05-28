@@ -96,7 +96,7 @@ static void cleanup(void) {
 /*
  * Create a new literal
  */
-static inline literal_t fresh_lit(void) {
+static literal_t fresh_lit(void) {
   return pos_lit(bit_blaster_new_var(&blaster));
 }
 

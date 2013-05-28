@@ -2471,6 +2471,7 @@ term_t bvsge_atom(term_table_t *table, term_t l, term_t r) {
 
 
 
+
 /*
  * POLYNOMIAL TERM CONSTRUCTORS
  */
@@ -2534,7 +2535,7 @@ static bool all_integer_terms(term_table_t *table, term_t *v, uint32_t n) {
  * So v[i] will store the conversion of the left-most monomial in x's subtree
  */
 static uint32_t convert_rba_tree(term_table_t *table, rba_buffer_t *b, int32_t *v, bool *all_int,
-				 uint32_t i, uint32_t x) {
+                                 uint32_t i, uint32_t x) {
   assert(x < b->num_nodes);
 
   if (x != rba_null) {
@@ -2547,6 +2548,7 @@ static uint32_t convert_rba_tree(term_table_t *table, rba_buffer_t *b, int32_t *
 
   return i;
 }
+
 
 /*
  * Arithmetic term
@@ -2603,6 +2605,7 @@ term_t arith_poly(term_table_t *table, rba_buffer_t *b) {
 
   return pos_term(i);
 }
+
 
 /*
  * Bitvector polynomials are constructed from a buffer b
@@ -2886,6 +2889,29 @@ pprod_t **pprods_for_poly(term_table_t *table, polynomial_t *p) {
   return (pprod_t **) v;
 }
 
+
+
+
+/***************************
+ *  TYPE CHECKING SUPPORT  *
+ **************************/
+
+/*
+ * Wrapper function: check whether x has integer type
+ */
+static bool var_is_int(void *aux, int32_t x) {
+  term_table_t *table;
+
+  table = aux;
+  return is_integer_type(term_type(table, x));
+}
+
+/*
+ * Check whether b stores an integer polynomial
+ */
+bool arith_poly_is_integer(term_table_t *table, rba_buffer_t *b) {
+  return rba_buffer_is_int(b, table, var_is_int);
+}
 
 
 

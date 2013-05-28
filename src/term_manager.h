@@ -279,7 +279,6 @@ extern term_t mk_arith_constant(term_manager_t *manager, rational_t *r);
 
 /*
  * Convert b to an arithmetic term:
- * - b must be normalized
  * - b->ptbl must be equal to manager->pprods
  * - b may be the same as manager->arith_buffer
  * - side effect: b is reset
