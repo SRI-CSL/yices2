@@ -210,7 +210,7 @@ static void eval_smt2_mk_bv_repeat(tstack_t *stack, stack_elem_t *f, uint32_t n)
 
   // check for overflow or for i <= 0
   if (! yices_check_bvrepeat(b, i)) {
-    report_yices_error(stack);    
+    report_yices_error(stack);
   }
   bvlogic_buffer_repeat_concat(b, i);
   tstack_pop_frame(stack);
