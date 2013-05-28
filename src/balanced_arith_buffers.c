@@ -2158,8 +2158,6 @@ static bool tree_is_int(rba_buffer_t *b, uint32_t x, void *aux, var_type_fun_t v
 /*
  * Check whether b is an integral polynomial 
  */
-typedef bool (*var_type_fun_t)(void *aux, int32_t x);
-
 bool rba_buffer_is_int(rba_buffer_t *b, void *aux, var_type_fun_t var_is_int) {
   uint32_t i, n;
 
