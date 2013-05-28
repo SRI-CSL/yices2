@@ -1427,6 +1427,108 @@ void tstack_push_idx_term(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
 
 
 /*
+ * Symbol in qualified epression
+ *  (as <symbol> <sort> )
+ */
+void tstack_push_qual_term_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+  tstack_push_term_name(stack, s, n, loc);
+}
+
+
+/*
+ * Indexed symbol in qualified expression:
+ *  (as (_ <symbol> <idx> ... <idx>) <sort> )
+ */
+void tstack_push_qual_idx_term_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+    smt2_symbol_t symbol;
+  smt2_key_t key;
+
+  symbol = smt2_string_to_symbol(s, n);
+  key = smt2_key[symbol];
+  switch (key) {
+  case SMT2_KEY_IDX_TERM:
+    tstack_push_opcode(stack, smt2_val[symbol], loc);
+    break;
+
+  case SMT2_KEY_IDX_BV:
+    // s is bv<numeral> and is to be interpreted as (mk-bv <numeral> ...)
+    assert(n > 2);
+    tstack_push_opcode(stack, MK_BV_CONST, loc);
+    tstack_push_rational(stack, s + 2, loc); // skip the 'bv' prefix
+    break;
+
+  case SMT2_KEY_ERROR_BV:
+    // s is bv0<xxx>: invalid bv<numeral>
+    push_exception(stack, loc, s, SMT2_INVALID_IDX_BV);
+    break;
+
+  case SMT2_KEY_UNKNOWN:
+    push_exception(stack, loc, s, SMT2_UNDEF_IDX_TERM);
+    break;
+
+  default:
+    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_IDX_TERM);
+    break;
+  }
+}
+
+
+/*
+ * Function name in SORTED_APPLY
+ *  ((as <symbol> <sort>) <arg> ... <arg>)
+ */
+void tstack_push_qual_smt2_op(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+  smt2_symbol_t symbol;
+  smt2_key_t key;
+
+  symbol = smt2_string_to_symbol(s, n);
+  key = smt2_key[symbol];
+  switch (key) {
+  case SMT2_KEY_TERM_OP:
+    tstack_push_opcode(stack, smt2_val[symbol], loc);
+    break;
+
+  case SMT2_KEY_UNKNOWN:
+    // uninterprted function
+    tstack_push_opcode(stack, MK_APPLY, loc);
+    tstack_push_term_by_name(stack, s, loc);
+    break;
+
+  default:
+    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_FUNCTION);
+    break;
+  }
+}
+
+
+/*
+ * function name in SORTED_INDEXED_APPLY
+ *  ((as (_ <symbol> <idx> ... <idx>) <sort>) <arg> ... <arg>)
+ */
+void tstack_push_qual_smt2_idx_op(tstack_t *stack, char *s, uint32_t n, loc_t *loc) { 
+  smt2_symbol_t symbol;
+  smt2_key_t key;
+
+  symbol = smt2_string_to_symbol(s, n);
+  key = smt2_key[symbol];
+  switch (key) {
+  case SMT2_KEY_IDX_TERM_OP:
+    tstack_push_opcode(stack, smt2_val[symbol], loc);
+    break;
+
+  case SMT2_KEY_UNKNOWN:
+    push_exception(stack, loc, s, SMT2_UNDEF_IDX_FUNCTION);
+    break;
+
+  default:
+    push_exception(stack, loc, s, SMT2_SYMBOL_NOT_IDX_FUNCTION);
+    break;
+  }
+}
+
+
+
+/*
  * PLACE-HOLDERS FOR UNSUPPORTED FUNCTIONS
  */
 static void check_not_supported(tstack_t *stack, stack_elem_t *f, uint32_t n) {
@@ -1585,80 +1687,140 @@ static void eval_smt2_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n
  * construct the term then check whether it has the correct <sort>.
  */
 
+/*
+ * Auxiliary function: check whether b is an integer
+ * TODO: don't create the intermediate term?
+ */
+static bool arith_buffer_is_integer(rba_buffer_t *b) {
+  return yices_term_is_int(arith_buffer_get_term(b));
+}
 
 /*
- * [sorted-term <symbol> <type>]
+ * Check whether element e on the stack has type tau
+ */
+static bool stack_elem_has_type(tstack_t *stack, stack_elem_t *e, type_t tau) {
+  uint32_t n;
+
+  switch (e->tag) {
+  case TAG_BV64:
+    n = e->val.bv64.bitsize;
+    break;
+
+  case TAG_BV:
+    n = e->val.bv.bitsize;
+    break;
+
+  case TAG_RATIONAL:
+    return is_real_type(tau) || (is_integer_type(tau) && q_is_integer(&e->val.rational));
+
+  case TAG_TERM:
+    return yices_check_term_type(e->val.term, tau);
+
+  case TAG_ARITH_BUFFER:
+    return is_real_type(tau) || 
+      (is_integer_type(tau) && arith_buffer_is_integer(e->val.arith_buffer));
+
+  case TAG_BVARITH64_BUFFER:
+    n = bvarith64_buffer_bitsize(e->val.bvarith64_buffer);
+    break;
+
+  case TAG_BVARITH_BUFFER:
+    n = bvarith_buffer_bitsize(e->val.bvarith_buffer);
+    break;
+
+  case TAG_BVLOGIC_BUFFER:
+    n = bvlogic_buffer_bitsize(e->val.bvlogic_buffer);
+    break;
+
+  default:
+    raise_exception(stack, e, TSTACK_INTERNAL_ERROR);
+    break;
+  }
+
+  /*
+   * e is a bitvector of n bits
+   * - we use the fact that yices_bvtype_size(tau) returns 0
+   *   if tau is not (bitvector k).
+   */
+  assert(n > 0);
+  return yices_bvtype_size(tau) == n;
+}
+
+/*
+ * Check whether the element on top of stack has a type compatible with tau
+ * - if not, raise exception TYPE_ERROR_IN_QUAL
+ */
+static void check_topelem_type(tstack_t *stack, type_t tau) {
+  stack_elem_t *e;
+
+  assert(stack->top > 0);
+  e = stack->elem + (stack->top - 1);
+  if (!stack_elem_has_type(stack, e, tau)) {
+    raise_exception(stack, e, SMT2_TYPE_ERROR_IN_QUAL);
+  }
+}
+
+/*
+ * [sorted-term <xxx> <type>]
+ *
+ * The first argument is always a term (cf. push_qual_term_name). But this may
+ * change so we use get_term.
  */
 static void check_smt2_sorted_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_SORTED_TERM);
   check_size(stack, n == 2);
-  check_tag(stack, f, TAG_SYMBOL);
   check_tag(stack, f+1, TAG_TYPE);
 }
 
 static void eval_smt2_sorted_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  char *s;
-  uint32_t len;
-  smt2_symbol_t symbol;
-  smt2_key_t key;
   term_t t;
   type_t tau;
-  
-  s = f[0].val.string;
-  len = strlen(s);
-  symbol = smt2_string_to_symbol(s, len);
-  key = smt2_key[symbol];
-  switch (key) {
-  case SMT2_KEY_TERM:
-    t = smt2_val[symbol];
-    break;
 
-  case SMT2_KEY_UNKNOWN:
-    t = yices_get_term_by_name(s);
-    if (t == NULL_TERM) raise_exception(stack, f, TSTACK_UNDEF_TERM);
-    break;
-
-  default:
-    raise_exception(stack, f, SMT2_SYMBOL_NOT_TERM);
-    break;
-  }
-
+  t = get_term(stack, f);
   tau = f[1].val.type;
-  if (!yices_check_term_type(t, tau)) {
-    // Could use a more precise error report?
-    report_yices_error(stack);
-  }
 
   tstack_pop_frame(stack);
   set_term_result(stack, t);
+
+  check_topelem_type(stack, tau);
 }
 
 
 /*
- * [sorted-indexed-term <symbol> <numeral> ... <numeral> <type>]
+ * [sorted-indexed-term <opcode> <numeral> ... <numeral> <type>]
  *
  * This is for (as (_ <symbol> <numeral> ... <numeral>) <sort>)
  */
 static void check_smt2_sorted_indexed_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_SORTED_INDEXED_TERM);
   check_size(stack, n >= 3);
-  check_tag(stack, f, TAG_SYMBOL);
+  check_tag(stack, f, TAG_OPCODE);
   check_all_tags(stack, f + 1, f + (n-1), TAG_RATIONAL);
   check_tag(stack, f + (n-1), TAG_TYPE);
 }
 
 static void eval_smt2_sorted_indexed_term(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  raise_exception(stack, f, SMT2_QUAL_NOT_IMPLEMENTED);  
+  int32_t op;
+  type_t tau;
+
+  tau = f[n-1].val.type;
+  op = f[0].val.op;
+  call_tstack_check(stack, op, f+1, n-2);
+  call_tstack_eval(stack, op, f+1, n-2);
+
+  check_topelem_type(stack, tau);
 }
 
 
 /*
  * [sorted-apply <symbol> <type> <term> .... <term> ]
+ *
+ * For SMT2 expression ((as <symbol> <sort>) <arg> ... <arg>)
  */
 static void check_smt2_sorted_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_SORTED_APPLY);
   check_size(stack, n >= 3);
-  check_tag(stack, f, TAG_SYMBOL);
+  check_tag(stack, f, TAG_OPCODE);
   check_tag(stack, f+1, TAG_TYPE);
 }
 
@@ -1669,11 +1831,13 @@ static void eval_smt2_sorted_apply(tstack_t *stack, stack_elem_t *f, uint32_t n)
 
 /*
  * [sorted-indexed-apply <symbol> <numeral> ... <numeral> <type> <term> ... <term>]
+ *
+ * For SMT2 expression ((as (_ <symbol> <idx> ... <idx>) <sort>) <arg> ... <arg>)
  */
 static void check_smt2_sorted_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_op(stack, SMT2_SORTED_INDEXED_APPLY);
   check_size(stack, n >= 4);
-  check_tag(stack, f, TAG_SYMBOL);
+  check_tag(stack, f, TAG_OPCODE);
 }
 
 static void eval_smt2_sorted_indexed_apply(tstack_t *stack, stack_elem_t *f, uint32_t n) {

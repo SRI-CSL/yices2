@@ -1238,6 +1238,16 @@ static bool check_good_constant(type_table_t *tbl, type_t tau, int32_t i) {
   return true;
 }
 
+// Check whether tau is a bitvector type (tau is valid)
+static bool check_bvtype(type_table_t *tbl, type_t tau) {
+  if (! is_bv_type(tbl, tau)) {
+    error.code = BVTYPE_REQUIRED;
+    error.type1 = tau;
+    return false;
+  }
+  return true;
+}
+
 // Check whether t is a valid term
 static bool check_good_term(term_manager_t *mngr, term_t t) {
   term_table_t *tbl;
@@ -4314,6 +4324,79 @@ EXPORTED int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t heigh
   return code;  
 }
 
+
+
+/*********************
+ *  CHECKS ON TYPES  *
+ ********************/
+
+/*
+ * Checks on a type tau:
+ * - all functions return 0 for false, 1 for true
+ * 
+ * yices_type_is_arithmetic(tau) returns true if tau is either int or real.
+ *
+ * if tau not a valid type, the functions return false
+ * and set the error report:
+ *   code = INVALID_TYPE
+ *   type1 = tau
+ */
+EXPORTED int32_t yices_type_is_bool(type_t tau) {
+  return check_good_type(&types, tau) && is_boolean_type(tau);
+}
+
+EXPORTED int32_t yices_type_is_int(type_t tau) {
+  return check_good_type(&types, tau) && is_integer_type(tau);
+} 
+
+EXPORTED int32_t yices_type_is_real(type_t tau) {
+  return check_good_type(&types, tau) && is_real_type(tau);
+}
+
+EXPORTED int32_t yices_type_is_arithmetic(type_t tau) {
+  return check_good_type(&types, tau) && is_arithmetic_type(tau);
+}
+
+EXPORTED int32_t yices_type_is_bitvector(type_t tau) {
+  return check_good_type(&types, tau) && is_bv_type(&types, tau);
+}
+
+EXPORTED int32_t yices_type_is_tuple(type_t tau) {
+  return check_good_type(&types, tau) && is_tuple_type(&types, tau);
+}
+
+EXPORTED int32_t yices_type_is_function(type_t tau) {
+  return check_good_type(&types, tau) && is_function_type(&types, tau);
+}
+
+EXPORTED int32_t yices_type_is_scalar(type_t tau) {
+  return check_good_type(&types, tau) && is_scalar_type(&types, tau);
+}
+
+EXPORTED int32_t yices_type_is_uninterpreted(type_t tau) {
+  return check_good_type(&types, tau) && is_uninterpreted_type(&types, tau);
+}
+
+
+/*
+ * Number of bits for type tau
+ * - return 0 if there's an error
+ *
+ * Error report:
+ * if tau is not a valid type
+ *    code = INVALID_TYPE
+ *    type1 = tau
+ * if tau is not a bitvector type
+ *    code = BVTYPE_REQUIRED
+ *    type1 = tau
+ */
+EXPORTED uint32_t yices_bvtype_size(type_t tau) {
+  if (! check_good_type(&types, tau) || 
+      ! check_bvtype(&types, tau)) {
+    return 0;
+  }
+  return bv_type_size(&types, tau);
+}
 
 
 /**************************

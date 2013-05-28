@@ -173,6 +173,10 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "duplicate variable in type macro definition\n");
     break;
 
+  case BVTYPE_REQUIRED:
+    code = fprintf(f, "bitvector type required\n");
+    break;
+
     /*
      * Parser errors 
      */

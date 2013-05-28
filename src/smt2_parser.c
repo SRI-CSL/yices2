@@ -60,6 +60,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
   tstack_t *tstack;
   int exception;
   loc_t loc;
+  loc_t saved_loc; // used to store location of (as ...
 
   stack = &parser->pstack;
   lex = parser->lex;
@@ -495,6 +496,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case next_goto_t5:
       // (as
+      saved_loc = loc;
       state = t5;
       goto loop;
 
@@ -609,8 +611,8 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case symbol_next_push_r0_goto_s0:
       // in (as <symbol> <sort> )
-      tstack_push_op(tstack, SMT2_SORTED_TERM, &loc);
-      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_op(tstack, SMT2_SORTED_TERM, &saved_loc);
+      tstack_push_qual_term_name(tstack, tkval(lex), tklen(lex), &loc);
       parser_push_state(stack, r0);
       state = s0;
       goto loop;
@@ -621,8 +623,8 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case symbol_next_goto_t5c:
       // in (as (_ <symbol> ...) <sort> )
-      tstack_push_op(tstack, SMT2_SORTED_INDEXED_TERM, &loc);
-      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_op(tstack, SMT2_SORTED_INDEXED_TERM, &saved_loc);
+      tstack_push_qual_idx_term_name(tstack, tkval(lex), tklen(lex), &loc);
       state = t5c;
       goto loop;
 
@@ -633,6 +635,8 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       goto loop;
 
     case next_goto_t6a:
+      // ((as 
+      saved_loc = loc;
       state = t6a;
       goto loop;
 
@@ -646,8 +650,8 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case symbol_next_push_t6g_goto_s0:
       // in ((as <symbol> <sort>) <arg> ... <arg>)
-      tstack_push_op(tstack, SMT2_SORTED_APPLY, &loc);
-      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_op(tstack, SMT2_SORTED_APPLY, &saved_loc);
+      tstack_push_qual_smt2_op(tstack, tkval(lex), tklen(lex), &loc);
       parser_push_state(stack, t6g);
       state = s0;
       goto loop;
@@ -658,8 +662,8 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
     case symbol_next_goto_t6d:
       // in ((as (_ <symbol> ...) <sort> ) <arg> ... <arg> )
-      tstack_push_op(tstack, SMT2_SORTED_INDEXED_APPLY, &loc);
-      tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
+      tstack_push_op(tstack, SMT2_SORTED_INDEXED_APPLY, &saved_loc);
+      tstack_push_qual_smt2_idx_op(tstack, tkval(lex), tklen(lex), &loc);
       state = t6d;
       goto loop;
 

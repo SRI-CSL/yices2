@@ -276,8 +276,9 @@ extern void copy_result_and_pop_frame(tstack_t *stack, stack_elem_t *v);
  */
 
 /*
- * Call the function check[op] or eval[op] on the top frame
- * - f and n must be the top frame
+ * Call the function check[op] or eval[op] on f[0] .... f[n-1]
+ * - call_tstack_eval removes the top frame and stores the result of 
+ *   (op f[0] ... f[n-1]) on top of the stack.
  */
 extern void call_tstack_check(tstack_t *stack, int32_t op, stack_elem_t *f, uint32_t n);
 extern void call_tstack_eval(tstack_t *stack, int32_t op, stack_elem_t *f, uint32_t n);

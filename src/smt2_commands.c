@@ -427,6 +427,7 @@ static const char * const exception_string[NUM_SMT2_EXCEPTIONS] = {
   "undefined identifier",               // SMT2_UNDEF_IDX_SORT_OP
   "undefined identifier",               // SMT2_UNDEF_IDX_TERM
   "undefined identifier",               // SMT2_UNDEF_IDX_FUNCTION
+  "invalid qualifier: types don't match",  // SMT2_TYPE_ERROR_IN_QUAL
   "sort qualifier not supported",       // SMT2_QUAL_NOT_IMPLEMENTED
   "invalid bitvector constant",         // SMT2_INVALID_IDX_BV
 };
@@ -636,6 +637,7 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   case TSTACK_TYPE_ERROR_IN_DEFTERM:
   case SMT2_MISSING_NAME:
   case SMT2_MISSING_PATTERN:
+  case SMT2_TYPE_ERROR_IN_QUAL:
   case SMT2_QUAL_NOT_IMPLEMENTED:
     print_out("%s", exception_string[exception]);
     break;

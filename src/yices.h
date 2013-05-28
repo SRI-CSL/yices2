@@ -37,7 +37,7 @@
 
 
 #ifdef __cplusplus
-extern "C" {
+// extern "C" {
 #endif
 
 
@@ -1533,9 +1533,45 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width
 
 
 
-/**************************
- *  SOME CHECKS ON TERMS  *
- *************************/
+/************************************
+ *  SOME CHECKS ON TERMS AND TYPES  *
+ ***********************************/
+
+/*
+ * Checks on a type tau:
+ * - all functions return 0 for false, 1 for true
+ * 
+ * yices_type_is_arithmetic(tau) returns true if tau is either int or real.
+ *
+ * if tau not a valid type, the functions return false
+ * and set the error report:
+ *   code = INVALID_TYPE
+ *   type1 = tau
+ */
+__YICES_DLLSPEC__ extern int32_t yices_type_is_bool(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_type_is_int(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_type_is_real(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_type_is_arithmetic(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_type_is_bitvector(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_type_is_tuple(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_type_is_function(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_type_is_scalar(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_type_is_uninterpreted(type_t tau);
+
+/*
+ * Number of bits for type tau
+ * - return 0 if there's an error
+ *
+ * Error report:
+ * if tau is not a valid type
+ *    code = INVALID_TYPE
+ *    type1 = tau
+ * if tau is not a bitvector type
+ *    code = BVTYPE_REQUIRED
+ *    type1 = tau
+ */
+__YICES_DLLSPEC__ extern uint32_t yices_bvtype_size(type_t tau);
+
 
 /*
  * Get the type of term t

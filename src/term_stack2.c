@@ -302,6 +302,25 @@ void tstack_push_op(tstack_t *stack, int32_t op, loc_t *loc) {
 
 
 /*
+ * Push opcode on top of the stack. Don't create a new frame.
+ * Don't open a new scope in the arena.
+ */
+void tstack_push_opcode(tstack_t *stack, int32_t op, loc_t *loc) {
+  stack_elem_t *e;
+
+#ifndef NDEBUG
+  if (op < 0 || op >= stack->op_table.num_ops) {
+    bad_op_exception(stack, loc, op);
+  }
+#endif
+
+  e = tstack_get_topelem(stack);
+  e->tag = TAG_OPCODE;
+  e->val.op = op;
+  e->loc = *loc;
+}
+
+/*
  * Push a copy of string s, n = length of s
  * - tag = type of string (either TAG_STRING or TAG_SYMBOL)
  */
@@ -1069,8 +1088,12 @@ static void print_elem(tstack_t *stack, stack_elem_t *e) {
     break;
 
   case TAG_OP:
-    printf("<op: code = %d, mult = %u, prev = %u>", e->val.opval.opcode, 
+    printf("<op: code = %"PRId32", mult = %"PRIu32", prev = %"PRIu32">", e->val.opval.opcode, 
            e->val.opval.multiplicity,e->val.opval.prev);
+    break;
+
+  case TAG_OPCODE:
+    printf("<opcode: %"PRId32">", e->val.op);
     break;
 
   case TAG_SYMBOL:

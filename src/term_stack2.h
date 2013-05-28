@@ -1,5 +1,5 @@
 /*
- * Stack-based API for building terms and types
+ * Stack-based API for building terms and types.
  * Intended to support parsing.
  *
  * The stack contains a nested sequence of frames.  Each frame
@@ -10,6 +10,9 @@
  * Bindings are pairs <name, term>. They record temporary bindings from
  * names to terms (for let, forall, exists). The binding of name to term
  * is erased when the binding is deleted.
+ *
+ * Added May 27, 2013: to support the (as ...) construct in SMTLIB2, we 
+ * can also store op codes as arguments.
  *
  * To help reporting errors, each element on the stack has location
  * information.
@@ -57,10 +60,13 @@
  *
  * For operators, we record an opcode, a multiplicity index (for associative
  * operators), and the index of the previous operator on the stack.
+ *
+ * Note: an opcode is stored as just an integer (different from TAG_OP)
  */
 typedef enum tag_enum {
   TAG_NONE,
   TAG_OP,               // operator
+  TAG_OPCODE,           // opcode as argument
   TAG_SYMBOL,           // symbol
   TAG_STRING,           // string constant
   TAG_BV64,             // bit-vector constant (1 to 64 bits)
@@ -128,6 +134,7 @@ typedef struct stack_elem_s {
     bv64_t bv64;
     bv_t bv;
     rational_t rational;
+    int32_t op;
     term_t term;
     type_t type;
     int32_t macro;
@@ -483,12 +490,22 @@ extern void delete_tstack(tstack_t *stack);
  * - loc = location
  * op is considered valid if it's between 0 and num_ops
  *
- * raise exception TSTACK_INVALID_OP if op is invalid and set 
+ * This starts a new frame.
+ *
+ * In DEBUG mode: raise exception TSTACK_INVALID_OP if op is invalid and set 
  *  stack->error_loc = loc
  *  stack->error_op = op
  *  stack->error_string = NULL
  */
 extern void tstack_push_op(tstack_t *stack, int32_t op, loc_t *loc);
+
+/*
+ * Push opcode op (to be used as argument to another operation)
+ * - this does not modify the current frame, just push op on top of the current frame.
+ *
+ * In DEBUG mode, raise exception TSTACK_INVALID_OP if op is invalid (same as above)
+ */
+extern void tstack_push_opcode(tstack_t *stack, int32_t op, loc_t *loc);
 
 /*
  * Push a string or symbol of length n

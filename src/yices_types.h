@@ -122,6 +122,7 @@ typedef enum error_code {
   TOO_MANY_MACRO_PARAMS,  // added 2013/03/31
   TYPE_VAR_REQUIRED,      // added 2013/03/31
   DUPLICATE_TYPE_VAR,     // added 2013/03/31
+  BVTYPE_REQUIRED,        // added 2013/05/27
 
   /*
    * Parser errors
@@ -260,6 +261,7 @@ typedef enum error_code {
  *  TOO_MANY_MACRO_PARAMS      badval
  *  TYPE_VAR_REQUIRED          type1
  *  DUPLICATE_TYPE_VAR         type1
+ *  BVTYPE_REQUIRED            type1
  *
  * The following error codes are used only by the parsing functions. 
  * No field other than line/column is set.
