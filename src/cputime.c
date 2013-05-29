@@ -3,7 +3,7 @@
  * except mingw.
  *
  * The function used to be 'inline' in cputime.h
- * but GCC 4.6.3 gives compilation warnings (r
+ * but GCC 4.6.3 gives compilation warnings.
  */
 
 #include "cputime.h"
