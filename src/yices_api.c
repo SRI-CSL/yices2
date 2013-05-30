@@ -5946,7 +5946,7 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
       yices_set_default_params(ctx, &default_params);
       params = &default_params;
     }
-    stat = check_context(ctx, params, false); // TODO? add verbosity option
+    stat = check_context(ctx, params);
     if (stat == STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
       context_cleanup(ctx);
     }

@@ -1389,6 +1389,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   init_trail_stack(&s->trail_stack);
   init_checkpoint_stack(&s->checkpoints);
   s->cp_flag = false;
+  s->trace = NULL;
 }
 
 
@@ -1590,6 +1591,15 @@ void smt_set_seed(uint32_t x) {
   random_seed(x);
 }
 
+
+
+/*
+ * Set the trace file
+ */
+void smt_core_set_trace(smt_core_t *s, tracer_t *tracer) {
+  assert(s->trace == NULL);
+  s->trace = tracer;
+}
 
 
 

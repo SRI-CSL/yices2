@@ -19,6 +19,68 @@
 
 
 /*
+ * TRACE FUNCTIONS
+ */
+
+/*
+ * On start_search:
+ * - d_threshold = restart threshold
+ * - r_threshold = reduce threshold
+ */
+static void trace_start(smt_core_t *core, uint32_t d_threshold, uint32_t r_threshold) {
+  tprintf(core->trace, 1, 
+	  "(start-search: bin clauses: %"PRIu32", prob. clauses: %"PRIu32", prob. literals: %"PRIu64"\n"
+	  "               first restart: %"PRIu32", reduce threshold: %"PRIu32")\n",
+	  num_binary_clauses(core), num_prob_clauses(core), num_prob_literals(core), d_threshold, r_threshold);
+}
+
+
+/*
+ * On restart
+ */
+static void trace_restart(smt_core_t *core, uint32_t d_threshold) {
+  tprintf(core->trace, 2,
+	  "(restart: bin clause: %"PRIu32", prob. clauses: %"PRIu32", prob. literals: %"PRIu32"\n"
+          "          learned clauses: %"PRIu32", learned lits: %"PRIu64", lits/clause: %.1f\n"
+	  "          decisions: %"PRIu64", random decisions: %"PRIu64")\n",
+	  num_binary_clauses(core), num_prob_clauses(core), num_prob_literals(core),
+	  num_learned_clauses(core), num_learned_literals(core), (double) num_learned_literals(core)/num_learned_clauses(core),
+	  core->stats.decisions, core->stats.random_decisions);
+  tprintf(core->trace, 1, "(next restart: %"PRIu32")\n", d_threshold);
+}
+
+
+/*
+ * On reduce clause database
+ */
+static void trace_reduce(smt_core_t *core, uint32_t r_threshold, uint64_t deleted) {
+  tprintf(core->trace, 2,
+	  "(reduce clauses: %"PRIu64" learned clauses deleted\n"
+	  "                 bin clause: %"PRIu32", prob. clauses: %"PRIu32", prob. literals: %"PRIu32"\n"
+          "                 learned clauses: %"PRIu32", learned lits: %"PRIu64", lits/clause: %.1f)\n",
+	  deleted,
+	  num_binary_clauses(core), num_prob_clauses(core), num_prob_literals(core),
+	  num_learned_clauses(core), num_learned_literals(core), (double) num_learned_literals(core)/num_learned_clauses(core));
+  tprintf(core->trace, 2, "(next reduction: %"PRIu32")\n", r_threshold);
+}
+
+
+
+/*
+ * End of search
+ */
+static void trace_done(smt_core_t *core) {
+  tprintf(core->trace, 1,
+	  "(done: bin clause: %"PRIu32", prob. clauses: %"PRIu32", prob. literals: %"PRIu32"\n"
+          "       learned clauses: %"PRIu32", learned lits: %"PRIu64", lits/clause: %.1f\n"
+	  "       decisions: %"PRIu64", random decisions: %"PRIu64")\n",
+	  num_binary_clauses(core), num_prob_clauses(core), num_prob_literals(core),
+	  num_learned_clauses(core), num_learned_literals(core), (double) num_learned_literals(core)/num_learned_clauses(core),
+	  core->stats.decisions, core->stats.random_decisions);
+}
+
+
+/*
  * MAIN SEARCH FUNCTIONS
  */
 
@@ -31,6 +93,7 @@
  */
 static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_threshold, double r_factor) {
   uint64_t max_conflicts;
+  uint64_t deletions;
   uint32_t r_threshold;
   literal_t l;
 
@@ -43,8 +106,10 @@ static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_t
   while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
     // reduce heuristic
     if (num_learned_clauses(core) >= r_threshold) {
+      deletions = core->stats.learned_clauses_deleted;
       reduce_clause_database(core);
       r_threshold = (uint32_t) (r_threshold * r_factor);
+      trace_reduce(core, r_threshold, core->stats.learned_clauses_deleted - deletions);
     }
 
     // decision
@@ -181,44 +246,20 @@ static literal_t bv_branch(smt_core_t *core, literal_t l) {
  * CORE SOLVER
  */
 
-/*
- * Print some statistic data + header if requested (on stderr)
- */
-static void show_progress(smt_core_t *core, 
-                          uint32_t restart_threshold, uint32_t reduce_threshold, bool show_header) {
-
-  if (show_header) {
-    fprintf(stderr, "---------------------------------------------------------------------------------------------------\n");
-    fprintf(stderr, "|     Thresholds    |  Binary   |      Original     |          Learned          |     Decisions   |\n");
-    fprintf(stderr, "|   Conf.      Del. |  Clauses  |   Clauses   Lits. |   Clauses  Lits. Lits/Cl. |   Total  Random |\n");
-    fprintf(stderr, "---------------------------------------------------------------------------------------------------\n");
-  }
-
-  fprintf(stderr, "| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f | %8"PRIu64" %6"PRIu64" |\n", 
-          restart_threshold, reduce_threshold, 
-          num_binary_clauses(core), 
-          num_prob_clauses(core), num_prob_literals(core),
-          num_learned_clauses(core), num_learned_literals(core), 
-          ((double) num_learned_literals(core)/num_learned_clauses(core)),
-          core->stats.decisions, core->stats.random_decisions);
-  fflush(stderr);
-}
-                          
 
 /*
  * Full solver:
  * - params: heuristic parameters.
  *   If params is NULL, the default settings are used.
- * - verbose: if true, prints some data after each outer restart
  */
-static void solve(smt_core_t *core, const param_t *params, bool verbose) {
+static void solve(smt_core_t *core, const param_t *params) {
   uint32_t c_threshold, d_threshold; // Picosat-style
   uint32_t reduce_threshold;
 
   assert(smt_status(core) == STATUS_IDLE);
 
   c_threshold = params->c_threshold;
-  d_threshold = c_threshold; // required by show_progress in slow_restart mode
+  d_threshold = c_threshold; // required by trace_start in slow_restart mode
   if (params->fast_restart) {
     d_threshold = params->d_threshold;
   }
@@ -230,10 +271,7 @@ static void solve(smt_core_t *core, const param_t *params, bool verbose) {
 
   // initialize then do a propagation + simplification step.
   start_search(core);
-  smt_process(core);
-  if (verbose) {
-    show_progress(core, d_threshold, reduce_threshold, true);
-  }
+  trace_start(core, d_threshold, reduce_threshold);
 
   if (smt_status(core) == STATUS_SEARCHING) {
     // loop
@@ -277,17 +315,12 @@ static void solve(smt_core_t *core, const param_t *params, bool verbose) {
           d_threshold = (uint32_t) (d_threshold * params->d_factor);
         }
 
-        if (verbose) {
-          show_progress(core, d_threshold, reduce_threshold, false);
-        }
+	trace_restart(core, d_threshold);
       }
     }
   }
 
-  if (verbose) {
-    fprintf(stderr, "---------------------------------------------------------------------------------------------------\n\n");
-    fflush(stderr);
-  }
+  trace_done(core);
 }
 
 
@@ -298,7 +331,7 @@ static void solve(smt_core_t *core, const param_t *params, bool verbose) {
  * Initialize search parameters then call solve
  * - if ctx->status is not IDLE, return the status.
  */ 
-smt_status_t check_context(context_t *ctx, const param_t *params, bool verbose) {
+smt_status_t check_context(context_t *ctx, const param_t *params) {
   smt_status_t stat;
   smt_core_t *core;
   egraph_t *egraph;
@@ -383,7 +416,7 @@ smt_status_t check_context(context_t *ctx, const param_t *params, bool verbose) 
       fun_solver_set_max_extensionality(fsolver, params->max_extensionality);
     }
 
-    solve(core, params, verbose);
+    solve(core, params);
     stat = smt_status(core);
   }
  

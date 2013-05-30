@@ -36,6 +36,7 @@
 
 #include "bitvectors.h"
 #include "int_vectors.h"
+#include "tracer.h"
 #include "yices_types.h"
 
 
@@ -1124,6 +1125,9 @@ typedef struct smt_core_s {
   checkpoint_stack_t checkpoints;
   bool cp_flag;  // set true when backtracking. false when checkpoints are added
 
+  /* Tracer object (default to NULL) */
+  tracer_t *trace;
+
 } smt_core_t;
 
 
@@ -1220,6 +1224,14 @@ extern void delete_smt_core(smt_core_t *s);
  * - also calls reset on the attached theory solver
  */
 extern void reset_smt_core(smt_core_t *s);
+
+
+/*
+ * Attach a tracer object:
+ * - s->trace must be NULL
+ */
+extern void smt_core_set_trace(smt_core_t *s, tracer_t *tracer);
+
 
 
 /*

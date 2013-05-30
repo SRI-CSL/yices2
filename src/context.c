@@ -4042,6 +4042,8 @@ void init_context(context_t *ctx, term_table_t *terms,
   q_init(&ctx->aux);
   init_bvconstant(&ctx->bv_buffer);
 
+  ctx->trace = NULL;
+
   /*
    * Allocate and initialize the solvers and core
    * NOTE: no theory solver yet if arch is AUTO_IDL or AUTO_RDL
@@ -4155,6 +4157,15 @@ void reset_context(context_t *ctx) {
   q_clear(&ctx->aux);
 }
 
+
+/*
+ * Add tracer to ctx and ctx->core
+ */
+void context_set_trace(context_t *ctx, tracer_t *trace) {
+  assert(ctx->trace == NULL);
+  ctx->trace = trace;
+  smt_core_set_trace(ctx->core, trace);
+}
 
 
 /*

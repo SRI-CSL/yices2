@@ -23,6 +23,7 @@
 #include "int_bv_sets.h"
 #include "pair_hash_map2.h"
 #include "poly_buffer.h"
+#include "tracer.h"
 
 #include "terms.h"
 #include "internalization_table.h"
@@ -635,6 +636,9 @@ struct context_s {
 
   // for exception handling
   jmp_buf env;
+
+  // for verbose output (default NULL)
+  tracer_t *trace;
 };
 
 
@@ -717,6 +721,15 @@ extern void delete_context(context_t *ctx);
  * Reset: remove all assertions
  */
 extern void reset_context(context_t *ctx);
+
+
+/*
+ * Set the trace:
+ * - the current tracer must be NULL.
+ * - the tracer is also attached to the context's smt_core
+ *   (so all solvers can use it to print stuff).
+ */
+extern void context_set_trace(context_t *ctx, tracer_t *trace);
 
 
 /*
@@ -1161,13 +1174,11 @@ extern int32_t assert_blocking_clause(context_t *ctx);
  * Check whether the context is consistent
  * - parameters = search and heuristic parameters to use
  * - if parameters is NULL, the default values are used
- * - if verbose is true, some statistics are displayed on stderr
- *   at every restart.
  *
  * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN, 
  * STATUS_INTERRUPTED (these codes are defined in smt_core.h)
  */
-extern smt_status_t check_context(context_t *ctx, const param_t *parameters, bool verbose);
+extern smt_status_t check_context(context_t *ctx, const param_t *parameters);
 
 
 /*

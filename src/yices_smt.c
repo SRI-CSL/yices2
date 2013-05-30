@@ -75,6 +75,12 @@ static bool context_exists;
 
 
 /*
+ * Trace
+ */
+static tracer_t tracer;
+
+
+/*
  * Conversion of status code in the benchmark header
  */
 static const char * const status2string[] = {
@@ -1934,8 +1940,10 @@ static int process_benchmark(char *filename) {
   if (dump_context) {
     context.options |= DUMP_OPTION_MASK;
   }
+  init_trace (&tracer);
+  set_trace_vlevel(&tracer, 3);
+  context_set_trace(&context, &tracer);
   context_exists = true;
-
 
   /*
    * Assert then internalize
@@ -1969,7 +1977,7 @@ static int process_benchmark(char *filename) {
       init_timeout();
       start_timeout(timeout, timeout_handler, &context);
     }
-    code = check_context(&context, search_options, true);
+    code = check_context(&context, search_options);
     clear_handler();
 
     if (timeout > 0) {

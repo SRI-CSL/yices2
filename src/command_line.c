@@ -16,7 +16,7 @@
 
 /*
  * Extract name out of a path as in /usr/bin/name
- * - same to basename
+ * - same as basename
  */
 
 // TODO check whether this works on mingw

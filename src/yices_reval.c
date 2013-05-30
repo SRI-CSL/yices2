@@ -89,6 +89,7 @@
  * - timeout: timeout value in second (applies to check)
  *   timeout value = 0 means no timeout
  * - timeout_initialized: true once init_timeout is called
+ * - tracer: initialized to (stderr, 2) in verbose mode (otherwise not used)
  */
 static char *input_filename;
 static lexer_t lexer;
@@ -102,6 +103,7 @@ static bool verbose;
 
 static uint32_t timeout;
 static bool timeout_initialized;
+static tracer_t tracer;
 
 static char *logic_name;
 static char *arith_name;
@@ -1006,6 +1008,12 @@ static void init_ctx(context_arch_t arch, context_mode_t mode, bool iflag, bool 
   context = yices_create_context(arch, mode, iflag, qflag);
   //  init_params_to_defaults(&parameters);
   yices_set_default_params(context, &parameters);
+  if (verbose) {
+    init_trace(&tracer);
+    set_trace_vlevel(&tracer, 2);
+    context_set_trace(context, &tracer);
+  }
+  
   init_handlers();
 }
 
@@ -2371,7 +2379,7 @@ static smt_status_t do_check(void) {
    * Collect runtime statistics + call check
    */
   check_start_time = get_cpu_time();
-  stat = check_context(context, &parameters, verbose);
+  stat = check_context(context, &parameters);
   check_process_time = get_cpu_time() - check_start_time;
   if (check_process_time < 0.0) {
     check_process_time = 0.0;

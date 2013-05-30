@@ -245,6 +245,11 @@ static bool verbose;
 static double construction_time;
 
 /*
+ * Tracer object (for verbose mode)
+ */
+static tracer_t tracer;
+
+/*
  * Timeout value in seconds (0 means no timeout)
  */
 static uint32_t timeout;
@@ -1070,6 +1075,15 @@ static int process_benchmark(void) {
    */
   init_params_to_defaults(&params);
   init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, arch, qflag);
+
+#if COMMAND_LINE_OPTIONS
+  if (verbose) {
+    init_trace(&tracer);
+    set_trace_vlevel(&tracer, 3);
+    context_set_trace(&context, &tracer);
+  }
+#endif
+
   context_exists = true;
   switch (arch) {
   case CTX_ARCH_EG:
@@ -1246,7 +1260,7 @@ static int process_benchmark(void) {
       init_timeout();
       start_timeout(timeout, timeout_handler, &context);
     }
-    code = check_context(&context, &params, verbose);
+    code = check_context(&context, &params);
     clear_handler();
     if (timeout > 0) {
       clear_timeout();
@@ -1285,7 +1299,7 @@ static int process_benchmark(void) {
 #if SHOW_STATISTICS
     start_search_time = get_cpu_time();    
 #endif
-    code = check_context(&context, &params, false);
+    code = check_context(&context, &params);
     clear_handler();
     print_results();
 #endif
