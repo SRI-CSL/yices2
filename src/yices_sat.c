@@ -25,7 +25,6 @@
 
 
 
-
 /*
  * GLOBAL OBJECTS
  */
@@ -454,7 +453,8 @@ static void print_model(void) {
       case val_true:
         printf("%d ", (v + 1));
         break;
-      case val_undef:
+      case val_undef_false:
+      case val_undef_true:
         break;
       }
     }

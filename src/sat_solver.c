@@ -16,6 +16,7 @@
 #include <assert.h>
 #include <stddef.h>
 #include <float.h>
+#include <time.h>
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -29,7 +30,7 @@
 
 #define DEBUG 0
 #define TRACE 0
-
+#define PROFILE 0
 
 /*
  * Internal checks
@@ -44,7 +45,31 @@ static void check_top_var(sat_solver_t *sol, bvar_t x);
 #endif
 
 
+uint64_t heap_time;
 
+#if PROFILE
+
+static void add_prop_time(clock_t begin, sat_solver_t *sol) { 
+  sol->stats.prop_time += clock()-begin;
+}
+
+static void add_learn_time(clock_t begin, sat_solver_t *sol) { 
+  sol->stats.learn_time += clock()-begin;
+}
+
+static void add_backtrack_time(clock_t begin, sat_solver_t *sol) { 
+  sol->stats.backtrack_time += clock()-begin;
+}
+
+static void add_reduce_learned_time(clock_t begin, sat_solver_t *sol) { 
+  sol->stats.reduce_learned_time += clock()-begin;
+}
+
+static void add_heap_time(clock_t begin) { 
+  heap_time += clock()-begin;
+}
+
+#endif
 
 
 /*
@@ -521,6 +546,10 @@ static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
   bvar_t *h, y;
   uint32_t j;
 
+#if PROFILE
+  clock_t begin = clock();
+#endif
+
   h = heap->heap;
   index = heap->heap_index;
   act = heap->activity;
@@ -545,6 +574,11 @@ static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
   // i is the new position for variable x
   h[i] = x;
   index[x] = i;  
+
+#if PROFILE
+  add_heap_time(begin);
+#endif
+
 }
 
 
@@ -560,6 +594,10 @@ static void update_down(var_heap_t *heap) {
   bvar_t *h, x, y;
   uint32_t i, j, last;
 
+#if PROFILE
+  clock_t begin = clock();
+#endif
+
   h = heap->heap;
   index = heap->heap_index;
   act = heap->activity;
@@ -567,6 +605,11 @@ static void update_down(var_heap_t *heap) {
 
   if (last <= 1 ) { // empty heap.
     heap->heap_last = 0;
+
+#if PROFILE
+    add_heap_time(begin); 
+#endif
+
     return; 
   }
 
@@ -593,6 +636,11 @@ static void update_down(var_heap_t *heap) {
       y = h[last];
       h[i] = y;
       index[y] = i;
+
+#if PROFILE
+      add_heap_time(begin); 
+#endif
+
       return;
     }
 
@@ -623,7 +671,11 @@ static void update_down(var_heap_t *heap) {
     h[i] = y;
     index[y] = i;
   }
-  
+
+#if PROFILE
+ add_heap_time(begin); 
+#endif 
+ 
 }
 
 
@@ -714,6 +766,11 @@ static inline void decay_var_activities(var_heap_t *heap) {
  * Initialize a statistics record
  */
 static void init_stats(solver_stats_t *stat) {
+  stat->prop_time = 0;
+  stat->learn_time = 0;
+  stat->backtrack_time = 0;
+  stat->reduce_learned_time = 0;
+
   stat->starts = 0;
   stat->simplify_calls = 0;
   stat->reduce_calls = 0;
@@ -771,16 +828,14 @@ void init_sat_solver(sat_solver_t *solver, uint32_t size) {
   solver->learned_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
 
   // Variable-indexed arrays: not initialized
+  solver->value = (uint8_t *) safe_malloc((size + 1) * sizeof(uint8_t)) + 1;
+  solver->value[-1] = val_undef_false; // for end_clause marker
   solver->antecedent = (antecedent_t *) safe_malloc(size * sizeof(antecedent_t)); 
   solver->level = (uint32_t *) safe_malloc(size * sizeof(uint32_t));
   solver->mark = allocate_bitvector(size);
-  solver->polarity = allocate_bitvector(size);
 
   // Literal-indexed arrays
   // value is indexed from -2 to 2n -1, with value[-2] = value[-1] = VAL_UNDEF
-  solver->value = (uint8_t *) safe_malloc((lsize + 2) * sizeof(uint8_t)) + 2;
-  solver->value[-2] = val_undef; // for end_learned marker
-  solver->value[-1] = val_undef; // for end_clause marker
   solver->bin = (literal_t **) safe_malloc(lsize * sizeof(literal_t *));
   solver->watch = (link_t *) safe_malloc(lsize * sizeof(link_t));
 
@@ -827,10 +882,7 @@ void delete_sat_solver(sat_solver_t *solver) {
   safe_free(solver->antecedent);
   safe_free(solver->level);
   delete_bitvector(solver->mark);
-  delete_bitvector(solver->polarity);
-
-  // literal values
-  safe_free(solver->value - 2);
+  safe_free(solver->value - 1);
 
   // delete the literal vectors in the propagation structures
   n = solver->nb_lits;
@@ -871,7 +923,6 @@ static void sat_solver_extend(sat_solver_t *solver, uint32_t new_size) {
   solver->antecedent = (antecedent_t *) safe_realloc(solver->antecedent, new_size * sizeof(antecedent_t));
   solver->level = (uint32_t *) safe_realloc(solver->level, new_size * sizeof(uint32_t));
   solver->mark = extend_bitvector(solver->mark, new_size);
-  solver->polarity = extend_bitvector(solver->polarity, new_size);
 
   tmp = solver->value - 2;
   tmp = (uint8_t *) safe_realloc(tmp, (lsize + 2) * sizeof(uint8_t));
@@ -904,13 +955,14 @@ void sat_solver_add_vars(sat_solver_t *solver, uint32_t n) {
 
   for (i=nvars; i<nvars+n; i++) {
     clr_bit(solver->mark, i);
-    clr_bit(solver->polarity, i);  // 0 means negative
+
     solver->level[i] = UINT32_MAX;
     solver->antecedent[i] = mk_literal_antecedent(null_literal);
     l0 = pos_lit(i);
     l1 = neg_lit(i);
-    solver->value[l0] = val_undef;
-    solver->value[l1] = val_undef;
+
+    solver->value[i] = val_undef_false; // preferred polarity = false
+
     solver->bin[l0] = NULL;
     solver->bin[l1] = NULL;
     solver->watch[l0] = NULL_LINK;
@@ -939,13 +991,14 @@ bvar_t sat_solver_new_var(sat_solver_t *solver) {
   }
 
   clr_bit(solver->mark, i);
-  clr_bit(solver->polarity, i);
+
   solver->level[i] = UINT32_MAX;
   solver->antecedent[i] = mk_literal_antecedent(null_literal);
   l0 = pos_lit(i);
   l1 = neg_lit(i);
-  solver->value[l0] = val_undef;
-  solver->value[l1] = val_undef;
+  
+  solver->value[i] = val_undef_false; // preferred polarity = false
+
   solver->bin[l0] = NULL;
   solver->bin[l1] = NULL;
   solver->watch[l0] = NULL_LINK;
@@ -958,6 +1011,17 @@ bvar_t sat_solver_new_var(sat_solver_t *solver) {
 }
 
 
+/*
+ * Assign literal l to true
+ * - let x = var_of(l)
+ * - if sign_of(l) is 0, we set value[x] to val_true = val_true ^ 0b0
+ * - if sign_of(l) is 1, we set value[x] to val_false = val_true ^ 0b1
+ */
+static inline void set_lit_true(sat_solver_t *solver, literal_t l) {
+  assert(! lit_is_assigned(solver, l));
+  solver->value[var_of(l)] = val_true ^ sign_of(l);
+  assert(lit_val(solver, l) == val_true);
+}
 
 /*
  * Assign literal l at base level
@@ -969,11 +1033,12 @@ static void assign_literal(sat_solver_t *solver, literal_t l) {
   printf("---> Assigning literal %d, decision level = %u\n", l, solver->decision_level);
 #endif
   assert(0 <= l && l < solver->nb_lits);
-  assert(solver->value[l] == val_undef);
+
+  assert(! lit_is_assigned(solver, l));
   assert(solver->decision_level == 0);
 
-  solver->value[l] = val_true;
-  solver->value[not(l)] = val_false;
+  set_lit_true(solver, l);
+
   push_literal(&solver->stack, l);
 
   v = var_of(l);
@@ -1000,11 +1065,13 @@ void sat_solver_add_unit_clause(sat_solver_t *solver, literal_t l) {
 #endif
 
   assert(0 <= l && l < solver->nb_lits);
-  switch (solver->value[l]) {
+
+  switch (lit_val(solver, l)) {
   case val_false:
     solver->status = status_unsat;
     break;
-  case val_undef:
+  case val_undef_false :
+  case val_undef_true :
     assign_literal(solver, l);
     solver->nb_unit_clauses ++;
     break;
@@ -1110,7 +1177,7 @@ void sat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, litera
    * Remove duplicates and check for opposite literals l, not(l)
    * (sorting ensure that not(l) is just after l)
    */
-  int_array_sort(lit, n);  
+  int_array_sort(lit, n);
   l = lit[0];
   j = 1;
   for (i=1; i<n; i++) {
@@ -1131,10 +1198,11 @@ void sat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, litera
   j = 0;
   for (i=0; i<n; i++) {
     l = lit[i];
-    switch (solver->value[l]) {
+    switch (lit_val(solver, l)) {
     case val_false:
       break;
-    case val_undef:
+    case val_undef_false : 
+    case val_undef_true : 
       lit[j] = l;
       j++;
       break;
@@ -1336,10 +1404,10 @@ static inline bool clause_is_locked(sat_solver_t *solver, clause_t *cl) {
   l0 = get_first_watch(cl);
   l1 = get_second_watch(cl);
   
-  return (solver->value[l0] != val_undef && 
+  return (lit_is_assigned(solver, l0) && 
           solver->antecedent[var_of(l0)] == mk_clause0_antecedent(cl))
-    || (solver->value[l1] != val_undef && 
-        solver->antecedent[var_of(l1)] == mk_clause1_antecedent(cl));
+    || (lit_is_assigned(solver, l1) && 
+          solver->antecedent[var_of(l1)] == mk_clause1_antecedent(cl));
 }
 
 
@@ -1389,6 +1457,10 @@ static void reduce_learned_clause_set(sat_solver_t *solver) {
   //  float median_act, act_threshold;
   float act_threshold;
 
+#if PROFILE
+  clock_t begin = clock(); 
+#endif 
+
   assert(get_cv_size(solver->learned_clauses) > 0);
 
   // put the clauses with lowest activity in the upper
@@ -1420,6 +1492,11 @@ static void reduce_learned_clause_set(sat_solver_t *solver) {
 
   delete_learned_clauses(solver);
   solver->stats.reduce_calls ++;
+
+#if PROFILE
+  add_reduce_learned_time(begin,solver);
+#endif 
+
 }
 
 
@@ -1444,11 +1521,9 @@ static void simplify_clause(sat_solver_t *solver, clause_t *cl) {
   do {
     l = cl->cl[i];
     i ++;
-    switch (solver->value[l]) {
-      //    case val_false:
-      //      break;
-
-    case val_undef:
+    switch (lit_val(solver, l)) {
+    case val_undef_false:
+    case val_undef_true:
       cl->cl[j] = l;
       j ++;
       break;
@@ -1456,6 +1531,9 @@ static void simplify_clause(sat_solver_t *solver, clause_t *cl) {
     case val_true:
       mark_for_deletion(cl);
       return;
+
+    case val_false:
+      break;
     }
   } while (l >= 0);
 
@@ -1541,7 +1619,7 @@ static void cleanup_binary_clause_vector(sat_solver_t *solver, literal_t *v) {
   j = 0;
   do {
     l = v[i++];
-    if (solver->value[l] == val_undef) { //keep l
+    if (lit_is_unassigned(solver, l)) { //keep l
       v[j ++] = l;
     }    
   } while (l >= 0); // end-marker is copied too
@@ -1571,7 +1649,7 @@ static void simplify_binary_vectors(sat_solver_t *solver) {
       n = get_lv_size(v0);
       for (j=0; j<n; j++) {
         l1 = v0[j];
-        if (solver->value[l1] == val_undef) {
+        if (lit_is_unassigned(solver, l1)) {
           // sol->bin[l1] is non null.
           assert(solver->bin[l1] != NULL);
           cleanup_binary_clause_vector(solver, solver->bin[l1]);
@@ -1624,16 +1702,42 @@ static void simplify_clause_database(sat_solver_t *solver) {
  ***********************/
 
 /*
- * Decide literal: increase decision level then
- * assign literal l to true and push it on the stack
+ * Assign variable x to its preferred polarity
+ * - x must be unassigned
+ * - we just set bit 1 of value[x] to 1
  */
-static void decide_literal(sat_solver_t *solver, literal_t l) {
+static inline void assign_variable(sat_solver_t *solver, bvar_t x) {
+  solver->value[x] |= 2;
+}
+
+
+/*
+ * Literal corresponding to the assignment or preferred polarity of x
+ * - if x is true or has preferred value true (i.e., value[x] is
+ *   val_true or val_undef_true) then return pos_lit(x)
+ * - if x is false of has preferred value false (i.e., value[x]
+ *   is val_false of val_undef_false) then return neg_lit(x)
+ *
+ * In all cases, the literal is computed from x and the lower-order
+ * bit of value[x]:
+ * - if this bit is 0, we return neg_lit(x) (i.e., x<<1 | 1)
+ * - if this bit is 1, we return pos_lit(x) (i.e., x<<1 | 0)
+ */
+static inline literal_t preferred_literal(sat_solver_t *solver, bvar_t x) {
+  return (x << 1) | ((~solver->value[x]) & 1);
+}
+
+
+/*
+ * Assign x to its preferred value then push the corresponding literal
+ * on the propagation stack
+ * - x must be unassigned
+ */
+static void decide_variable(sat_solver_t *solver, bvar_t x) {
   uint32_t d;
-  bvar_t v;
+  literal_t l;
 
-  assert(solver->value[l] == val_undef);
-
-  solver->stats.decisions ++;
+  assert(var_is_unassigned(solver, x));
 
   // Increase decision level
   d = solver->decision_level + 1;
@@ -1643,18 +1747,20 @@ static void decide_literal(sat_solver_t *solver, literal_t l) {
   }
   solver->stack.level_index[d] = solver->stack.top;
 
-  solver->value[l] = val_true;
-  solver->value[not(l)] = val_false;
-  push_literal(&solver->stack, l);
+  solver->value[x] |= 2; // set bit 1 to 1 --> use preferred value
+  solver->antecedent[x] = mk_literal_antecedent(null_literal);
+  solver->level[x] = d;
 
-  v = var_of(l);
-  solver->level[v] = d;
-  solver->antecedent[v] = mk_literal_antecedent(null_literal);
+  l = preferred_literal(solver, x);
+  assert(lit_val(solver, l) == val_true);
+
+  push_literal(&solver->stack, l);
 
 #if TRACE
   printf("---> Decision: literal %d, decision level = %u\n", l, solver->decision_level);
-#endif
+#endif 
 }
+
 
 
 /*
@@ -1664,7 +1770,7 @@ static void decide_literal(sat_solver_t *solver, literal_t l) {
 static void implied_literal(sat_solver_t *solver, literal_t l, antecedent_t a) {
   bvar_t v;
 
-  assert(solver->value[l] == val_undef);
+  assert(lit_is_unassigned(solver, l));
 
 #if TRACE
   printf("---> Implied literal %d, decision level = %u\n", l, solver->decision_level);
@@ -1672,13 +1778,12 @@ static void implied_literal(sat_solver_t *solver, literal_t l, antecedent_t a) {
 
   solver->stats.propagations ++;
 
-  solver->value[l] = val_true;
-  solver->value[not(l)] = val_false;
   push_literal(&solver->stack, l);
 
   v = var_of(l);
-  solver->level[v] = solver->decision_level;
+  solver->value[v] = val_true ^ sign_of(l);
   solver->antecedent[v] = a;
+  solver->level[v] = solver->decision_level;
   if (solver->decision_level == 0) {
     set_bit(solver->mark, v);
   }
@@ -1747,24 +1852,25 @@ static inline void record_clause_conflict(sat_solver_t *solver, clause_t *cl) {
  * v must be != NULL 
  * Code returned is either no_conflict or binary_conflict
  */
-static int32_t propagation_via_bin_vector(sat_solver_t *sol, uint8_t *val, literal_t l0, literal_t *v) {
+static int32_t propagation_via_bin_vector(sat_solver_t *sol, literal_t l0, literal_t *v) {
   literal_t l1;
   bval_t v1;
+  // uint8_t *val = sol->value; 
 
   assert(v != NULL);
-  assert(sol->value == val && sol->bin[l0] == v && sol->value[l0] == val_false);
+  assert(sol->bin[l0] == v && lit_val(sol, l0) == val_false);
 
   for (;;) {
     // Search for non-true literals in v
     // This terminates since val[end_marker] = VAL_UNDEF
     do {
       l1 = *v ++;
-      v1 = val[l1];
+      v1 = lit_val(sol, l1);
     } while (v1 == val_true);
 
     if (l1 < 0) break; // end_marker
 
-    if (v1 == val_undef) {
+    if (is_unassigned_val(v1)) {
       implied_literal(sol, l1, mk_literal_antecedent(l0));
     } else {
       record_binary_conflict(sol, l0, l1);
@@ -1782,21 +1888,19 @@ static int32_t propagation_via_bin_vector(sat_solver_t *sol, uint8_t *val, liter
  * - val = literal value array (must be sol->value)
  * - list = start of the watch list (must be sol->watch + l0)
  */
-static inline int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, link_t *list) {
+static inline int propagation_via_watched_list(sat_solver_t *sol, link_t *list) {
   bval_t v1;
   clause_t *cl;
   link_t link;
   uint32_t k, i;
   literal_t l1, l, *b;
 
-  assert(sol->value == val);
-
   link = *list;
   while (link != NULL_LINK) {
     cl = clause_of(link);
     i = idx_of(link);
     l1 = get_other_watch(cl, i);
-    v1 = val[l1];
+    v1 = lit_val(sol, l1);
 
     assert(next_of(link) == cl->link[i]);
     assert(cdr_ptr(link) == cl->link + i);
@@ -1820,7 +1924,7 @@ static inline int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, 
       do {
         k ++;
         l = b[k];
-      } while (val[l] == val_false);
+      } while (lit_val(sol, l) == val_false);
       
       if (l >= 0) {
         /*
@@ -1840,7 +1944,7 @@ static inline int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, 
         /*
          * All literals of cl, except possibly l1, are false
          */
-        if (v1 == val_undef) {
+        if (is_unassigned_val(v1)) {
           // l1 is implied
           implied_literal(sol, l1, mk_clause_antecedent(cl, i^1));
 
@@ -1864,7 +1968,6 @@ static inline int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, 
   return no_conflict;
 }
 
-
 /*
  * Full propagation: until either the propagation queue is empty,
  * or a conflict is found
@@ -1874,53 +1977,45 @@ static inline int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, 
  * Variant gave bad experimental results. Reverted to previous method.
  */
 static int32_t propagation(sat_solver_t *sol) {
-  uint8_t *val;
   literal_t *queue;
   literal_t l, *bin;
-  // uint32_t i, j;
   uint32_t i;
   int32_t code;
 
-  val = sol->value;
-  queue = sol->stack.lit;
+#if PROFILE
+  clock_t begin = clock();
+#endif 
 
-#if 0
-  i = sol->stack.prop_ptr;
-  j = i;
-  for (;;) {
-    if (i < sol->stack.top) {
-      l = not(queue[i]);
-      i ++;
-      bin = sol->bin[l];
-      if (bin != NULL) {
-        code = propagation_via_bin_vector(sol, val, l, bin);
-        if (code != no_conflict) return code;
-      }
-    } else if (j < sol->stack.top) {
-      l = not(queue[j]);
-      j ++;
-      code = propagation_via_watched_list(sol, val, sol->watch + l);
-      if (code != no_conflict) return code;
-    } else {
-      break;
-    }
-  }
-#endif
+  queue = sol->stack.lit;
 
   for (i = sol->stack.prop_ptr; i < sol->stack.top; i++) {
     l = not(queue[i]);
-    
     bin = sol->bin[l];
     if (bin != NULL) {
-      code = propagation_via_bin_vector(sol, val, l, bin);
-      if (code != no_conflict) return code;
+      code = propagation_via_bin_vector(sol, l, bin);
+      if (code != no_conflict) { 
+#if PROFILE
+	add_prop_time(begin, sol); 
+#endif
+	return code; 
+      } 
     }
     
-    code = propagation_via_watched_list(sol, val, sol->watch + l);
-    if (code != no_conflict) return code;
+    code = propagation_via_watched_list(sol, sol->watch + l);
+    if (code != no_conflict) { 
+#if PROFILE
+      add_prop_time(begin, sol); 
+#endif
+      return code;
+    }
   }
 
   sol->stack.prop_ptr = i;
+
+#if PROFILE
+  add_prop_time(begin, sol); 
+#endif 
+
   return no_conflict;
 }
 
@@ -2232,6 +2327,10 @@ static void analyze_conflict(sat_solver_t *sol) {
   clause_t *cl;
   ivector_t *buffer;
 
+#if PROFILE
+  clock_t begin = clock(); 
+#endif 
+
   conflict_level = sol->decision_level;
   buffer = &sol->buffer;
   unresolved = 0;
@@ -2329,6 +2428,10 @@ static void analyze_conflict(sat_solver_t *sol) {
    */
   simplify_learned_clause(sol);
 
+#if PROFILE
+  add_learn_time(begin,sol);
+#endif
+
 #if DEBUG
   check_marks(sol);
 #endif
@@ -2338,6 +2441,7 @@ static void analyze_conflict(sat_solver_t *sol) {
    * Move a literal of second highest decision level in position 1
    */
   prepare_to_backtrack(sol);
+
 }
 
 
@@ -2346,52 +2450,42 @@ static void analyze_conflict(sat_solver_t *sol) {
  *  MAIN SOLVING PROCEDURES  *
  ****************************/
 
-
 /*
- * Select an unassigned literal l.
- * - returns null_literal (i.e., -1) if all literals are assigned.
+ * Select an unassigned literal variable x
+ * - returns null_var (i.e., -1) if all variables are assigned.
  */
-static literal_t select_literal(sat_solver_t *solver) {
-  literal_t l;
+static bvar_t select_variable(sat_solver_t *solver) {
   uint32_t rnd;
   bvar_t x;
-  uint8_t *v;
 
-  v = solver->value;
-
+#if 1
   rnd = random_uint32() & 0xFFFFFF;
   if (rnd <= (uint32_t) (0x1000000 * VAR_RANDOM_FACTOR)) {
-    l = random_uint(solver->nb_lits);
-    if (v[l] == val_undef) {
+    x = random_uint(solver->nb_vars);
+    if (var_is_unassigned(solver, x)) {
 #if TRACE
       printf("---> Random selection: literal %d\n", l);
 #endif
       solver->stats.random_decisions ++;
-      return l;
+      return x;
     }
   }
+#endif 
 
   /* 
    * select unassigned variable x with highest activity
-   * return neg_lit(x) (same as minisat heuristic)
    * HACK: this works (and terminates) even if the heap is empty,
-   * because neg_lit(-1) = -1 and v[-1] = val_undef.
+   * because value[-1] is undefined
    */
   do {
     x = heap_get_top(&solver->heap);
-    l = neg_lit(x);
-  } while (v[l] != val_undef);
-
-  // if polarity[x] == 1 use pos_lit(x) rather than neg_lit[x]
-  if (x >= 0 && tst_bit(solver->polarity, x)) {
-    l = not(l);
-  }
+  } while (var_is_assigned(solver, x));
 
 #if DEBUG
   check_top_var(solver, x);
 #endif
 
-  return l;
+  return x;
 }
 
 
@@ -2401,11 +2495,15 @@ static literal_t select_literal(sat_solver_t *solver) {
  * - requires sol->decision_level > back_level, otherwise
  *   level_index[back_level+1] may not be set properly
  */
-static inline void backtrack(sat_solver_t *sol, uint32_t back_level) {
+static void backtrack(sat_solver_t *sol, uint32_t back_level) {
   uint32_t i;
   uint32_t d;
   literal_t *s, l;
   bvar_t x;
+
+#if PROFILE
+  clock_t begin = clock(); 
+#endif 
 
 #if TRACE
   printf("---> Backtracking to level %u\n", back_level);
@@ -2420,22 +2518,24 @@ static inline void backtrack(sat_solver_t *sol, uint32_t back_level) {
     i --;
     l = s[i];
 
-    assert(sol->value[l] == val_true);
+    assert(lit_val(sol, l) == val_true);
     assert(sol->level[var_of(l)] > back_level);
-
-    sol->value[l] = val_undef;
-    sol->value[not(l)] = val_undef;
 
     x = var_of(l);
     heap_insert(&sol->heap, x);
 
-    // save current polarity: 0 if l =neg_lit(x), 1 if l = pos_lit(x);
-    assign_bit(sol->polarity, x, is_pos(l));
+    // clear assignment (i.e. bit 1) but keep current polarity (i.e. bit 0)
+    sol->value[x] &= 1;
   }
 
   sol->stack.top = i;
   sol->stack.prop_ptr = i;
   sol->decision_level = back_level;
+
+#if PROFILE
+  add_backtrack_time(begin,sol);
+#endif 
+
 }
 
 
@@ -2448,6 +2548,7 @@ static inline void backtrack(sat_solver_t *sol, uint32_t back_level) {
 solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
   int32_t code;
   literal_t l, *b;
+  bvar_t x;
   uint32_t nb_conflicts, n;
   clause_t *cl;
 
@@ -2455,6 +2556,7 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
   nb_conflicts = 0;
 
   for (;;) {
+
     code = propagation(sol);
 
     if (code == no_conflict) {
@@ -2473,11 +2575,13 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
       if (sol->decision_level == 0 &&
           sol->stack.top > sol->simplify_bottom && 
           sol->stats.propagations >= sol->simplify_props + sol->simplify_threshold) {
+
 #if TRACE
         printf("---> Simplify\n");
         printf("---> level = %u, bottom = %u, top = %u\n", sol->decision_level, sol->simplify_bottom, sol->stack.top);
         printf("---> props = %"PRIu64", threshold = %"PRIu64"\n", sol->stats.propagations, sol->simplify_threshold);
-#endif
+#endif 
+
         simplify_clause_database(sol);
         sol->simplify_bottom = sol->stack.top;
         sol->simplify_props = sol->stats.propagations;
@@ -2491,19 +2595,21 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
         sol->reduce_threshold = (uint32_t) (sol->reduce_threshold * REDUCE_FACTOR);
       }
 
-      l = select_literal(sol);
-      if (l == null_literal) {
+      x = select_variable(sol);
+      if (x < 0) {
         sol->status = status_sat;
         return status_sat;
       }
-      // assign l to true
-      decide_literal(sol, l);
+
+      // assign x to its preferred polarity
+      // then push the corresponding literal in the queue
+      decide_variable(sol, x);
 
     } else {      
       sol->stats.conflicts ++;
       nb_conflicts ++;
 
-      // Check if UNSAT or conflict bound reached
+      // Check if UNSAT
       if (sol->decision_level == 0) {
         sol->status = status_unsat;
         return status_unsat;
@@ -2580,13 +2686,13 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
 
   // Initialize the heap
   for (x = 0; x < sol->nb_vars; x ++) {
-    if (sol->value[pos_lit(x)] == val_undef) {
+    if (var_is_unassigned(sol, x)) {
       heap_insert(&sol->heap, x);
     }
   }
 
   /*
-   * restart strategy based on picosat/luby
+   * restart strategy based on picosat
    */
   // c_threshold = number of conflicts in each iteration
   // increased by RETART_FACTOR after each iteration
@@ -2662,7 +2768,7 @@ void get_allvars_assignment(sat_solver_t *solver, bval_t *val) {
 
   n = solver->nb_vars;
   for (i=0; i<n; i++) {
-    val[i] = solver->value[pos_lit(i)];
+    val[i] = solver->value[i];
   }
 }
 
@@ -2680,7 +2786,7 @@ uint32_t get_true_literals(sat_solver_t *solver, literal_t *a) {
 
   n = 0;
   for (l = 0; l<solver->nb_lits; l++) {
-    if (solver->value[l] == val_true) {
+    if (lit_val(solver, l) == val_true) {
       a[n] = l;
       n ++;
     }
@@ -2711,7 +2817,7 @@ static void check_top_var(sat_solver_t *solver, bvar_t x) {
   n = heap->heap_last;
   for (i=1; i<n; i++) {
     y = heap->heap[i];
-    if (solver->value[y] == val_undef && heap->activity[y] > heap->activity[x]) {
+    if (var_is_unassigned(solver,y) && heap->activity[y] > heap->activity[x]) {
       printf("ERROR: incorrect heap\n");
       fflush(stdout);
     }
@@ -2749,17 +2855,16 @@ static void check_literal_vector(literal_t *v) {
  */
 static void check_propagation_bin(sat_solver_t *sol, literal_t l0) {
   literal_t l1, *v;
-  uint8_t *val;
 
   v = sol->bin[l0];
-  val = sol->value;
-  if (v == NULL || val[l0] != val_false) return;
+
+  if (v == NULL || lit_val(sol,l0) != val_false) return;
 
   l1 = *v ++;
   while (l1 >= 0) {
-    if (val[l1] == val_undef) {
+    if (lit_is_unassigned(sol,l1)) {
       printf("ERROR: missed propagation. Binary clause {%d, %d}\n", l0, l1);
-    } else if (val[l1] == val_false) {
+    } else if (lit_val(sol,l1) == val_false) {
       printf("ERROR: missed conflict. Binary clause {%d, %d}\n", l0, l1);
     }
     l1 = *v ++;
@@ -2796,22 +2901,25 @@ static void check_propagation_clause(sat_solver_t *sol, clause_t *cl) {
   val = sol->value;
 
   l0 = get_first_watch(cl);
-  nf += indicator(val[l0], val_false);
-  nt += indicator(val[l0], val_true);
-  nu += indicator(val[l0], val_undef);
+  nf += indicator(lit_val(sol, l0), val_false);
+  nt += indicator(lit_val(sol, l0), val_true);
+  nu += indicator(lit_val(sol, l0), val_undef_false);
+  nu += indicator(lit_val(sol, l0), val_undef_true);
 
   l1 = get_second_watch(cl);
-  nf += indicator(val[l1], val_false);
-  nt += indicator(val[l1], val_true);
-  nu += indicator(val[l1], val_undef);
+  nf += indicator(lit_val(sol, l1), val_false);
+  nt += indicator(lit_val(sol, l1), val_true);
+  nu += indicator(lit_val(sol, l1), val_undef_false);
+  nu += indicator(lit_val(sol, l1), val_undef_true);
 
   d = cl->cl;
   i = 2;
   l = d[i];
   while (l >= 0) {
-    nf += indicator(val[l], val_false);
-    nt += indicator(val[l], val_true);
-    nu += indicator(val[l], val_undef);
+    nf += indicator(lit_val(sol, l), val_false);
+    nt += indicator(lit_val(sol, l), val_true);
+    nu += indicator(lit_val(sol, l), val_undef_false);
+    nu += indicator(lit_val(sol, l), val_undef_true);
 
     i ++;
     l = d[i];

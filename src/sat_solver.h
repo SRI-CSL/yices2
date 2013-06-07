@@ -13,7 +13,6 @@
 #include "bitvectors.h"
 #include "int_vectors.h"
 
-
 /*
  * BOOLEAN VARIABLES AND LITERALS
  */
@@ -44,15 +43,20 @@ enum {
  * Conversions from variables to literals
  */
 static inline literal_t pos_lit(bvar_t x) {
-  return x+x;
+  return (x << 1);
 }
 
 static inline literal_t neg_lit(bvar_t x) {
-  return x+x+1;
+  return (x << 1) + 1;
 }
 
 static inline bvar_t var_of(literal_t l) {
   return l>>1;
+}
+
+// sign: 0 --> positive, 1 --> negative
+static inline int32_t sign_of(literal_t l) {
+  return l & 1;
 }
 
 // negation of literal l
@@ -77,14 +81,32 @@ static inline bool is_neg(literal_t l) {
 
 
 /*
- * Assignment values for a literal or variable
- * Bit structure: false --> 00, undef --> 01, true --> 10
+ * Assignment values for a variable:
+ * - we use four values to encode the truth value of x
+ *   when x is assigned and the preferred value when x is
+ *   not assigned.
+ * - value[x] is interepreted as follows
+ *   val_undef_false = 0b00 --> x not assigned, preferred value = false
+ *   val_undef_true  = 0b01 --> x not assigned, preferred value = true
+ *   val_false = 0b10       --> x assigned false
+ *   val_true =  0b11       --> x assigned true
+ *
+ * The preferred value is used when x is selected as a decision variable.
+ * Then we assign x to true or false depending on the preferred value.
+ * This is done by setting bit 1 in value[x].
  */
 typedef enum bval {
-  val_false = 0,
-  val_undef = 1,
-  val_true = 2,
+  val_undef_false = 0,
+  val_undef_true = 1,
+  val_false = 2,
+  val_true = 3,
 } bval_t;
+
+
+// check whether val is undef_true or undef_false
+static inline bool is_unassigned_val(bval_t val) {
+  return (val & 0x2) == 0;
+}
 
 
 /*
@@ -343,7 +365,6 @@ enum {
 };
 
 
-
 /*
  * Statistics 
  */
@@ -368,6 +389,12 @@ typedef struct solver_stats_s {
 
   uint64_t literals_before_simpl;
   uint64_t subsumed_literals;
+
+  uint64_t prop_time;
+  uint64_t learn_time;
+  uint64_t backtrack_time;
+  uint64_t reduce_learned_time;
+
 } solver_stats_t;
 
 
@@ -392,13 +419,10 @@ typedef struct solver_stats_s {
  *   - antecedent[x]: antecedent type and value 
  *   - level[x]: decision level (only meaningful if x is assigned)
  *   - mark[x]: 1 bit used in UIP computation
- *   - polarity[x]: 1 bit (preferred polary if x is picked as a decision variable)
- *
- * - for every literal l between 0 and 2nb_vars - 1
- *   - value[l]: current assignment
- *   - NOTE: value ranges from -2 to 2nb_vars - 1 so that
- *     value[x] exists for the two end makers (x = END_CLAUSE or x = END_LEARNED)
- *     value[x] = VAL_UNDEF in both cases.
+ *   - value[x]: current assignment
+ *     value ranges from -1 to nbvars: so that value[x] exists for x = null_bvar
+ *     (and for end-marker literals l=END_CLAUSE and l=END_LEARNED)
+ *     value[null_bvar] is always val_undef_false
  *
  * - a heap for the decision heuristic
  *
@@ -419,8 +443,8 @@ typedef struct sat_solver_s {
   uint32_t nb_bin_clauses;    // Number of binary clauses
 
   /* Activity increments and decays for learned clauses */
-  float cla_inc;          // Clause activity increment
-  float inv_cla_decay;    // Inverse of clause decay (e.g., 1/0.999)
+  float cla_inc;              // Clause activity increment
+  float inv_cla_decay;        // Inverse of clause decay (e.g., 1/0.999)
 
   /* Current decision level */
   uint32_t decision_level;
@@ -442,15 +466,14 @@ typedef struct sat_solver_s {
   clause_t **learned_clauses;
 
   /* Variable-indexed arrays */
+  uint8_t *value;
   antecedent_t *antecedent;
   uint32_t *level;
-  byte_t *mark;        // bitvector
-  byte_t *polarity;    // bitvector
+  byte_t *mark;                 // bitvector
 
   /* Literal-indexed arrays */
-  uint8_t *value;
-  literal_t **bin;   // array of literal vectors
-  link_t *watch;     // array of watch lists
+  literal_t **bin;             // array of literal vectors
+  link_t *watch;               // array of watch lists
 
   /* Heap */
   var_heap_t heap;
@@ -470,8 +493,31 @@ typedef struct sat_solver_s {
 } sat_solver_t;
 
 
+/*
+ * Access to truth assignment
+ */
+static inline bval_t lit_val(sat_solver_t *solver, literal_t l) {
+  assert(-2 <= l && l < (int32_t) solver->nb_lits);
+  return solver->value[var_of(l)] ^ sign_of(l);
+}
 
+// assigned: if bit 1 of value[x] is 1
+static inline bool var_is_assigned(sat_solver_t *solver, bvar_t x) {
+  assert(-1 <= x && x < (int32_t) solver->nb_vars);
+  return (solver->value[x] & 2) != 0;
+}
 
+static inline bool lit_is_assigned(sat_solver_t *solver, literal_t l) {
+  return var_is_assigned(solver, var_of(l));
+}
+
+static inline bool var_is_unassigned(sat_solver_t *solver, bvar_t x) {
+  return !var_is_assigned(solver, x);
+}
+
+static inline bool lit_is_unassigned(sat_solver_t *solver, literal_t l) {
+  return var_is_unassigned(solver, var_of(l));
+}
 
 /*
  * Solver initialization
@@ -562,12 +608,12 @@ static inline solver_stats_t * solver_statistics(sat_solver_t *solver) {
  */
 static inline bval_t get_literal_assignment(sat_solver_t *solver, literal_t l) {
   assert(0 <= l && l < solver->nb_lits);
-  return solver->value[l];
+  return lit_val(solver, l);
 }
 
 static inline bval_t get_variable_assignment(sat_solver_t *solver, bvar_t x) {
   assert(0 <= x && x < solver->nb_vars);
-  return solver->value[pos_lit(x)];
+  return solver->value[x];
 }
 
 /*
