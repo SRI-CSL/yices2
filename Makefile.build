@@ -505,7 +505,8 @@ source-distribution: $(distributions)
 	   src/smt2_tokens.txt src/smt2_keywords.txt src/smt2_symbols.txt \
 	   src/yices_version_template.txt $(srcdist_dir)/src
 	cp tests/Makefile tests/*.c $(srcdist_dir)/tests
-	cp doc/NOTES doc/YICES-LANGUAGE doc/GMP  $(srcdist_dir)/doc
+	cp doc/NOTES doc/YICES-LANGUAGE doc/GMP doc/manual.pdf \
+           $(srcdist_dir)/doc
 	cp utils/gmp-hack.h utils/mingw-build utils/setup-vs2010 \
 	   utils/yices_parser.txt utils/yices_parser_tables.h \
 	   utils/smt_parser.txt utils/smt_parser_tables.h \
