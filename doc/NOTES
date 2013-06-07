@@ -399,9 +399,6 @@ yices_limits.h:          Define the hard-coded limits that may be used in the AP
 types.h:                 Table of types + type constructors
 types.c
 
-type_macros.h:           Table of type macro. This is intended to support the SMT-LIB2
-type_macros.c            constructs (declare-sort ... <arity>) 
-                                and (define-sort <name> (<variables>) <body)
 
 terms.h:                 Table of terms and basic term constructors
 terms.c
