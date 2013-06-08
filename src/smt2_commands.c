@@ -1078,7 +1078,7 @@ static bool check_logic(void) {
  */
 static bool option_can_be_set(const char *option_name) {
   if (__smt2_globals.logic_code != SMT_UNKNOWN) {
-    print_error("option %s can't be set now. If must be set before (set-logic ...)");
+    print_error("option %s can't be set now. If must be set before (set-logic ...)", option_name);
     return false;
   }
   return true;
