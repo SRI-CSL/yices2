@@ -640,16 +640,23 @@ static inline void heap_insert(var_heap_t *heap, bvar_t x) {
   }
 }
 
+
+/*
+ * Check whether the heap is empty
+ */
+static inline bool heap_is_empty(var_heap_t *heap) {
+  return heap->heap_last == 0;
+}
+
+
 /*
  * Get and remove top element
- * - returns null_var (i.e., -1) if the heap is empty.
+ * - the heap must not be empty
  */
 static inline bvar_t heap_get_top(var_heap_t *heap) {  
   bvar_t top;
 
-  if (heap->heap_last == 0) {
-    return null_bvar;
-  }
+  assert(heap->heap_last > 0);
 
   // remove top element
   top = heap->heap[1];
@@ -713,11 +720,6 @@ static inline void decay_var_activities(var_heap_t *heap) {
  * Initialize a statistics record
  */
 static void init_stats(solver_stats_t *stat) {
-  stat->prop_time = 0;
-  stat->learn_time = 0;
-  stat->backtrack_time = 0;
-  stat->reduce_learned_time = 0;
-
   stat->starts = 0;
   stat->simplify_calls = 0;
   stat->reduce_calls = 0;
@@ -2367,13 +2369,15 @@ static void analyze_conflict(sat_solver_t *sol) {
 
 /*
  * Select an unassigned literal variable x
- * - returns null_var (i.e., -1) if all variables are assigned.
+ * - returns null_bvar (i.e., -1) if all variables are assigned.
  */
 static bvar_t select_variable(sat_solver_t *solver) {
   uint32_t rnd;
   bvar_t x;
 
-#if 1
+  /*
+   * Try a random variable
+   */
   rnd = random_uint32() & 0xFFFFFF;
   if (rnd <= (uint32_t) (0x1000000 * VAR_RANDOM_FACTOR)) {
     x = random_uint(solver->nb_vars);
@@ -2385,22 +2389,25 @@ static bvar_t select_variable(sat_solver_t *solver) {
       return x;
     }
   }
-#endif 
 
   /* 
-   * select unassigned variable x with highest activity
-   * HACK: this works (and terminates) even if the heap is empty,
-   * because value[-1] is undefined
+   * Select unassigned variable x with highest activity
    */
-  do {
+  while (! heap_is_empty(&solver->heap)) {
     x = heap_get_top(&solver->heap);
-  } while (var_is_assigned(solver, x));
-
+    if (var_is_unassigned(solver, x)) {
 #if DEBUG
-  check_top_var(solver, x);
+      check_top_var(solver, x);
 #endif
+      return x;
+      
+    }
+  }
 
-  return x;
+  /*
+   * Empty heap
+   */
+  return null_bvar;
 }
 
 

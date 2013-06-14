@@ -1065,6 +1065,7 @@ typedef struct smt_core_s {
   float inv_cla_decay;       // Inverse of clause decay (e.g., 1/0.999)
 
   /* Randomness parameter */
+  uint32_t prng;             // state of the pseudo random number generator
   uint32_t scaled_random;    // 0x1000000 * random_factor
 
   /* Theory cache parameters */
@@ -1275,9 +1276,8 @@ extern void set_randomness(smt_core_t *s, float random_factor);
 
 /*
  * Set the pseudo random number generator seed
- * (this is a global seed)
  */
-extern void smt_set_seed(uint32_t seed);
+extern void smt_set_seed(smt_core_t *s, uint32_t seed);
 
 
 /*
@@ -1370,9 +1370,6 @@ static inline uint64_t num_propagations(smt_core_t *s) {
 static inline uint64_t num_conflicts(smt_core_t *s) {
   return s->stats.conflicts;
 }
-
-// TEMPORARY
-extern double random_tries_fraction(smt_core_t *s);
 
 
 /*

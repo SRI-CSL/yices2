@@ -388,12 +388,6 @@ typedef struct solver_stats_s {
 
   uint64_t literals_before_simpl;
   uint64_t subsumed_literals;
-
-  uint64_t prop_time;
-  uint64_t learn_time;
-  uint64_t backtrack_time;
-  uint64_t reduce_learned_time;
-
 } solver_stats_t;
 
 

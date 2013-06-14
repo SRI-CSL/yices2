@@ -34,8 +34,6 @@
 #include "arith_solver_codes.h"
 #include "yices_exit_codes.h"
 
-// Need PRNG_DEFAULT_SEED in show-params
-#include "prng.h"
 
 // FOR DUMP
 #include "term_printer.h"
@@ -1008,6 +1006,9 @@ static void init_ctx(context_arch_t arch, context_mode_t mode, bool iflag, bool 
   context = yices_create_context(arch, mode, iflag, qflag);
   //  init_params_to_defaults(&parameters);
   yices_set_default_params(context, &parameters);
+  // make a copy of the seed for show-params
+  the_seed = context->core->prng;
+
   if (verbose) {
     init_trace(&tracer);
     set_trace_vlevel(&tracer, 2);
@@ -1653,7 +1654,7 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
 
   case PARAM_RANDOM_SEED:
     if (param_val_to_int32(param, val, &n)) {
-      smt_set_seed((uint32_t) n);
+      smt_set_seed(context->core, (uint32_t) n);
       the_seed = n;
       print_ok();
     }
@@ -2975,7 +2976,6 @@ int yices_main(int argc, char *argv[]) {
   timeout = 0;
   timeout_initialized = false;
   include_depth = 0;
-  the_seed = PRNG_DEFAULT_SEED;  
   ready_time = 0.0;
   check_process_time = 0.0;
 

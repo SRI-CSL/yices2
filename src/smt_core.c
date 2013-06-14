@@ -6,12 +6,11 @@
 #include <stddef.h>
 #include <float.h>
 
-
 #include "memalloc.h"
 #include "int_array_sort.h"
-#include "prng.h"
 #include "gcd.h"
 #include "smt_core.h"
+
 
 #define TRACE 0
 #define DEBUG 0
@@ -40,6 +39,46 @@ static void check_watched_literals(smt_core_t *s, uint32_t n, literal_t *a);
 static void check_lemma(smt_core_t *s, uint32_t n, literal_t *a);
 
 #endif
+
+
+
+
+/**********
+ *  PRNG  *
+ *********/
+
+/*
+ * PARAMETERS FOR THE PSEUDO RANDOM NUMBER GENERATOR
+ *
+ * We  use the same linear congruence as in prgn.h,
+ * but we use a local implementation so that different
+ * solvers can use different seeds.
+ */
+
+#define CORE_PRNG_MULTIPLIER 1664525
+#define CORE_PRNG_CONSTANT   1013904223
+#define CORE_PRNG_SEED       0xabcdef98
+
+
+/*
+ * Return a 32bit unsigned int
+ */
+static inline uint32_t random_uint32(smt_core_t *s) {
+  uint32_t x;
+
+  x = s->prng;
+  s->prng = x * ((uint32_t) CORE_PRNG_MULTIPLIER) + ((uint32_t) CORE_PRNG_CONSTANT);
+  return x;
+}
+
+
+/*
+ * Return a 32bit integer between 0 and n-1
+ */
+static inline uint32_t random_uint(smt_core_t *s, uint32_t n) {
+  return (random_uint32(s) >> 8) % n;
+}
+
 
 
 
@@ -700,15 +739,21 @@ static void heap_remove(var_heap_t *heap, bvar_t x) {
 
 
 /*
+ * Check whether the heap is empty
+ */
+static inline bool heap_is_empty(var_heap_t *heap) {
+  return heap->heap_last == 0;
+}
+
+
+/*
  * Get and remove the top element
- * - returns null_bvar (i.e., -1) if the heap is empty.
+ * - the heap must not be empty
  */
 static inline bvar_t heap_get_top(var_heap_t *heap) {  
   bvar_t top;
 
-  if (heap->heap_last == 0) {
-    return null_bvar;
-  }
+  assert(heap->heap_last > 0);
 
   // remove top element
   top = heap->heap[1];
@@ -719,6 +764,7 @@ static inline bvar_t heap_get_top(var_heap_t *heap) {
 
   return top;
 }
+
 
 /*
  * Rescale variable activities: divide by VAR_ACTIVITY_THRESHOLD
@@ -1319,8 +1365,10 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   s->decision_level = 0;
   s->base_level = 0;
 
+  // heuristic parameters
   s->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
   s->inv_cla_decay = 1/CLAUSE_DECAY_FACTOR;
+  s->prng = CORE_PRNG_SEED;
   s->scaled_random = (uint32_t) (VAR_RANDOM_FACTOR * VAR_RANDOM_SCALE);
 
   // theory caching: disabled initially
@@ -1517,6 +1565,7 @@ void reset_smt_core(smt_core_t *s) {
   // heuristic parameters: it makes a difference to reset cla_inc
   s->cla_inc = INIT_CLAUSE_ACTIVITY_INCREMENT;
   s->inv_cla_decay = 1/CLAUSE_DECAY_FACTOR;
+  s->prng = CORE_PRNG_SEED;
   s->scaled_random = (uint32_t) (VAR_RANDOM_FACTOR * VAR_RANDOM_SCALE);
 
   // reset conflict data
@@ -1587,8 +1636,8 @@ void set_randomness(smt_core_t *s, float random_factor) {
 /*
  * Set the internal seed 
  */
-void smt_set_seed(uint32_t x) {
-  random_seed(x);
+void smt_set_seed(smt_core_t *s, uint32_t x) {
+  s->prng = x;
 }
 
 
@@ -1903,15 +1952,6 @@ void propagate_literal(smt_core_t *s, literal_t l, void *expl) {
  **************************/
 
 /*
- * Counter to test PRNG
- */
-static uint32_t nrnd = 0;
-
-double random_tries_fraction(smt_core_t *s) {
-  return ((double) nrnd)/s->stats.decisions;
-}
-
-/*
  * Select an unassigned literal: returns null_literal if all literals 
  * are assigned. Use activity-based heuristic + randomization.
  */
@@ -1926,97 +1966,43 @@ literal_t select_unassigned_literal(smt_core_t *s) {
 
   v = s->value;
 
-  rnd = random_uint32() & VAR_RANDOM_MASK;
-  if (rnd < s->scaled_random) {
-    nrnd ++;
-    x = random_uint(s->nvars);
-    assert(0 <= x && x < s->nvars);
-    if (v[pos_lit(x)] == VAL_UNDEF) {
+  if (s->scaled_random > 0) {
+    rnd = random_uint32(s);
+    if (rnd < s->scaled_random) {
+      x = random_uint(s, s->nvars);
+      assert(0 <= x && x < s->nvars);
+      if (v[pos_lit(x)] == VAL_UNDEF) {
 #if TRACE
-      printf("---> DPLL:   Random selection: variable ");
-      print_bvar(stdout, x);
-      printf("\n");
-      fflush(stdout);
+	printf("---> DPLL:   Random selection: variable ");
+	print_bvar(stdout, x);
+	printf("\n");
+	fflush(stdout);
 #endif
-      s->stats.random_decisions ++;
-      goto var_found;
+	s->stats.random_decisions ++;
+	goto var_found;
+      }
     }
   }
 
   /* 
    * select unassigned variable x with highest activity
-   * HACK: this works (and terminates) even if the heap is empty,
-   * because pos_lit(-1) = -2 and v[-2] = VAL_UNDEF.
    */
-  do {
+  while (! heap_is_empty(&s->heap)) {
     x = heap_get_top(&s->heap);
-  } while (v[pos_lit(x)] != VAL_UNDEF);
+    if (v[pos_lit(x)] == VAL_UNDEF) {
+      goto var_found;
+    }
+  } 
 
-  if (x < 0) return null_literal;
+  // empty heap
+  return null_literal;
 
-  // if polarity[x] == 1 use pos_lit(x) otherwise use neg_lit(x)
+
  var_found:
+  // if polarity[x] == 1 use pos_lit(x) otherwise use neg_lit(x)
   return mk_signed_lit(x, tst_bit(s->polarity, x));
 }
 
-
-#if 0
-
-// OLD VERSION
-
-/*
- * Select an unassigned literal: returns null_literal if all literals 
- * are assigned. Use activity-based heuristic + randomization.
- */
-literal_t select_unassigned_literal(smt_core_t *s) {
-  literal_t l;
-  uint32_t rnd;
-  bvar_t x;
-  uint8_t *v;
-
-
-#if DEBUG
-  check_heap(s);
-#endif
-
-  v = s->value;
-
-  rnd = random_uint32() & VAR_RANDOM_MASK;
-  if (rnd < s->scaled_random) {
-    nrnd ++;
-    l = random_uint(s->nlits);
-    if (v[l] == VAL_UNDEF) {
-#if TRACE
-      printf("---> DPLL:   Random selection: literal ");
-      print_literal(stdout, l);
-      printf("\n");
-      fflush(stdout);
-#endif
-      s->stats.random_decisions ++;
-      return l;
-    }
-  }
-
-  /* 
-   * select unassigned variable x with highest activity
-   * HACK: this works (and terminates) even if the heap is empty,
-   * because pos_lit(-1) = -2 and v[-2] = VAL_UNDEF.
-   */
-  do {
-    x = heap_get_top(&s->heap);
-  } while (v[pos_lit(x)] != VAL_UNDEF);
-
-  if (x < 0) return null_literal;
-
-  // if polarity[x] == 1 use pos_lit(x) otherwise use neg_lit(x)
-  if (tst_bit(s->polarity, x)) {
-    return pos_lit(x);
-  } else {
-    return neg_lit(x);
-  }
-}
-
-#endif
 
 
 /*
@@ -2028,10 +2014,16 @@ bvar_t select_most_active_bvar(smt_core_t *s) {
   uint8_t *v;
 
   v = s->value;
-  do {
+  while (! heap_is_empty(&s->heap)) {
     x = heap_get_top(&s->heap);
-  } while (v[pos_lit(x)] != VAL_UNDEF);
+    if (v[pos_lit(x)] == VAL_UNDEF) {
+      goto var_found;
+    }
+  } 
 
+  x = null_bvar;
+  
+ var_found:
   return x;
 }
 
@@ -2048,13 +2040,15 @@ bvar_t select_random_bvar(smt_core_t *s) {
 
   v = s->value;
   n = s->nvars;
-  x = random_uint(n); // 0 ... n-1
+  x = random_uint(s, n); // 0 ... n-1
+  assert(0 <= x && x < n);
+
   if (v[pos_lit(x)] == VAL_UNDEF) return x;
   
   if (all_variables_assigned(s)) return null_bvar;
 
   // d = random increment, must be prime with n.
-  d = 1 + random_uint(n - 1); // 1 ... n-1
+  d = 1 + random_uint(s, n - 1); // 1 ... n-1
   while (gcd32(d, n) != 1) d--;
 
   // search in sequence x, x+d, x+2d, ... (modulo n)
