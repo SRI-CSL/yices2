@@ -372,7 +372,6 @@ typedef struct solver_stats_s {
   uint32_t starts;           // 1 + number of restarts
   uint32_t simplify_calls;   // number of calls to simplify_clause_database
   uint32_t reduce_calls;     // number of calls to reduce_learned_clause_set
-  uint32_t remove_calls;     // number of calls to remove_irrelevant_learned_clauses
 
   uint64_t decisions;        // number of decisions
   uint64_t random_decisions; // number of random decisions

@@ -16,8 +16,6 @@
 #include <assert.h>
 #include <stddef.h>
 #include <float.h>
-#include <time.h>
-
 #include <stdio.h>
 #include <inttypes.h>
 
@@ -30,7 +28,8 @@
 
 #define DEBUG 0
 #define TRACE 0
-#define PROFILE 0
+
+
 
 /*
  * Internal checks
@@ -45,31 +44,6 @@ static void check_top_var(sat_solver_t *sol, bvar_t x);
 #endif
 
 
-uint64_t heap_time;
-
-#if PROFILE
-
-static void add_prop_time(clock_t begin, sat_solver_t *sol) { 
-  sol->stats.prop_time += clock()-begin;
-}
-
-static void add_learn_time(clock_t begin, sat_solver_t *sol) { 
-  sol->stats.learn_time += clock()-begin;
-}
-
-static void add_backtrack_time(clock_t begin, sat_solver_t *sol) { 
-  sol->stats.backtrack_time += clock()-begin;
-}
-
-static void add_reduce_learned_time(clock_t begin, sat_solver_t *sol) { 
-  sol->stats.reduce_learned_time += clock()-begin;
-}
-
-static void add_heap_time(clock_t begin) { 
-  heap_time += clock()-begin;
-}
-
-#endif
 
 
 /*
@@ -546,10 +520,6 @@ static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
   bvar_t *h, y;
   uint32_t j;
 
-#if PROFILE
-  clock_t begin = clock();
-#endif
-
   h = heap->heap;
   index = heap->heap_index;
   act = heap->activity;
@@ -574,11 +544,6 @@ static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
   // i is the new position for variable x
   h[i] = x;
   index[x] = i;  
-
-#if PROFILE
-  add_heap_time(begin);
-#endif
-
 }
 
 
@@ -594,10 +559,6 @@ static void update_down(var_heap_t *heap) {
   bvar_t *h, x, y;
   uint32_t i, j, last;
 
-#if PROFILE
-  clock_t begin = clock();
-#endif
-
   h = heap->heap;
   index = heap->heap_index;
   act = heap->activity;
@@ -605,11 +566,6 @@ static void update_down(var_heap_t *heap) {
 
   if (last <= 1 ) { // empty heap.
     heap->heap_last = 0;
-
-#if PROFILE
-    add_heap_time(begin); 
-#endif
-
     return; 
   }
 
@@ -636,11 +592,6 @@ static void update_down(var_heap_t *heap) {
       y = h[last];
       h[i] = y;
       index[y] = i;
-
-#if PROFILE
-      add_heap_time(begin); 
-#endif
-
       return;
     }
 
@@ -672,10 +623,6 @@ static void update_down(var_heap_t *heap) {
     index[y] = i;
   }
 
-#if PROFILE
- add_heap_time(begin); 
-#endif 
- 
 }
 
 
@@ -774,7 +721,6 @@ static void init_stats(solver_stats_t *stat) {
   stat->starts = 0;
   stat->simplify_calls = 0;
   stat->reduce_calls = 0;
-  stat->remove_calls = 0;
   stat->decisions = 0;
   stat->random_decisions = 0;
   stat->propagations = 0;
@@ -1457,10 +1403,6 @@ static void reduce_learned_clause_set(sat_solver_t *solver) {
   //  float median_act, act_threshold;
   float act_threshold;
 
-#if PROFILE
-  clock_t begin = clock(); 
-#endif 
-
   assert(get_cv_size(solver->learned_clauses) > 0);
 
   // put the clauses with lowest activity in the upper
@@ -1492,11 +1434,6 @@ static void reduce_learned_clause_set(sat_solver_t *solver) {
 
   delete_learned_clauses(solver);
   solver->stats.reduce_calls ++;
-
-#if PROFILE
-  add_reduce_learned_time(begin,solver);
-#endif 
-
 }
 
 
@@ -1982,10 +1919,6 @@ static int32_t propagation(sat_solver_t *sol) {
   uint32_t i;
   int32_t code;
 
-#if PROFILE
-  clock_t begin = clock();
-#endif 
-
   queue = sol->stack.lit;
 
   for (i = sol->stack.prop_ptr; i < sol->stack.top; i++) {
@@ -1994,27 +1927,17 @@ static int32_t propagation(sat_solver_t *sol) {
     if (bin != NULL) {
       code = propagation_via_bin_vector(sol, l, bin);
       if (code != no_conflict) { 
-#if PROFILE
-	add_prop_time(begin, sol); 
-#endif
 	return code; 
       } 
     }
     
     code = propagation_via_watched_list(sol, sol->watch + l);
     if (code != no_conflict) { 
-#if PROFILE
-      add_prop_time(begin, sol); 
-#endif
       return code;
     }
   }
 
   sol->stack.prop_ptr = i;
-
-#if PROFILE
-  add_prop_time(begin, sol); 
-#endif 
 
   return no_conflict;
 }
@@ -2327,10 +2250,6 @@ static void analyze_conflict(sat_solver_t *sol) {
   clause_t *cl;
   ivector_t *buffer;
 
-#if PROFILE
-  clock_t begin = clock(); 
-#endif 
-
   conflict_level = sol->decision_level;
   buffer = &sol->buffer;
   unresolved = 0;
@@ -2428,10 +2347,6 @@ static void analyze_conflict(sat_solver_t *sol) {
    */
   simplify_learned_clause(sol);
 
-#if PROFILE
-  add_learn_time(begin,sol);
-#endif
-
 #if DEBUG
   check_marks(sol);
 #endif
@@ -2501,10 +2416,6 @@ static void backtrack(sat_solver_t *sol, uint32_t back_level) {
   literal_t *s, l;
   bvar_t x;
 
-#if PROFILE
-  clock_t begin = clock(); 
-#endif 
-
 #if TRACE
   printf("---> Backtracking to level %u\n", back_level);
 #endif
@@ -2531,10 +2442,6 @@ static void backtrack(sat_solver_t *sol, uint32_t back_level) {
   sol->stack.top = i;
   sol->stack.prop_ptr = i;
   sol->decision_level = back_level;
-
-#if PROFILE
-  add_backtrack_time(begin,sol);
-#endif 
 
 }
 

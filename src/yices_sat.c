@@ -367,7 +367,6 @@ static void show_stats(solver_stats_t *stat) {
   fprintf(stderr, "starts                  : %"PRIu32"\n", stat->starts);
   fprintf(stderr, "simplify db             : %"PRIu32"\n", stat->simplify_calls);
   fprintf(stderr, "reduce db               : %"PRIu32"\n", stat->reduce_calls);
-  fprintf(stderr, "remove irrelevant       : %"PRIu32"\n", stat->remove_calls);
   fprintf(stderr, "decisions               : %"PRIu64"\n", stat->decisions);
   fprintf(stderr, "random decisions        : %"PRIu64"\n", stat->random_decisions);
   fprintf(stderr, "propagations            : %"PRIu64"\n", stat->propagations);
