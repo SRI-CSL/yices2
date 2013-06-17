@@ -1636,7 +1636,7 @@ void set_randomness(smt_core_t *s, float random_factor) {
 /*
  * Set the internal seed 
  */
-void smt_set_seed(smt_core_t *s, uint32_t x) {
+void set_random_seed(smt_core_t *s, uint32_t x) {
   s->prng = x;
 }
 

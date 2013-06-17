@@ -75,11 +75,6 @@ static double construction_time, start_search_time, search_time;
 static bool context_exists;
 
 
-/* 
- * PRNG seed (if given on the command line)
- */
-static uint32_t the_seed = 0xabcdef98; // same as the default seed in smt_core
-
 /*
  * Trace
  */
@@ -709,7 +704,7 @@ static void check_parameters(char *progname) {
 
   if (opt_set[randomseed_opt]) {
     v = opt_val[randomseed_opt].i_value;
-    the_seed = (uint32_t) v;
+    params.random_seed = (uint32_t) v;
   }
 
   // Branching mode
@@ -1916,7 +1911,6 @@ static int process_benchmark(char *filename) {
    * Initialize the context and set options
    */
   init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, arch, false);  
-  smt_set_seed(context.core, the_seed);
   if (var_elim) {
     enable_variable_elimination(&context);
   }

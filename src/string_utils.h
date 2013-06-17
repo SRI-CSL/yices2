@@ -72,6 +72,15 @@ extern integer_parse_code_t parse_as_integer(const char *s, int32_t *val);
 
 
 /*
+ * Parse s as an unsigned integer
+ * - decimal, hexa, octal formats are allowed (as supported by strtoul)
+ *
+ * Same return codes as the previous function.
+ */
+extern integer_parse_code_t parse_as_uint(const char *s, uint32_t *val);
+
+
+/*
  * Parse s as a floating point number in the format recognized by
  * strtod, and store the corresponding number into val
  *

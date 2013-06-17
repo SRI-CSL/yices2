@@ -355,6 +355,7 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
      * Set core parameters
      */
     set_randomness(core, params->randomness);
+    set_random_seed(core, params->random_seed);
     set_var_decay_factor(core, params->var_decay);
     set_clause_decay_factor(core, params->clause_decay);
     if (params->cache_tclauses) {

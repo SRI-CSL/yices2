@@ -62,6 +62,7 @@ struct param_s {
    * - randomness and var_decay are used by the branching heuristic
    *   the default branching mode uses the cached polarity in smt_core.
    * - clause_decay influence clause deletion
+   * - random seed
    * 
    * SMT Core caching of theory lemmas:
    * - if cache_tclauses is true, then the core internally turns 
@@ -75,6 +76,7 @@ struct param_s {
    */
   double   var_decay;       // decay factor for variable activity
   float    randomness;      // probability of a random pick in select_unassigned_literal
+  uint32_t random_seed;
   branch_t branching;       // branching heuristic
   float    clause_decay;    // decay factor for learned-clause activity
   bool     cache_tclauses;

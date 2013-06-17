@@ -1277,7 +1277,7 @@ extern void set_randomness(smt_core_t *s, float random_factor);
 /*
  * Set the pseudo random number generator seed
  */
-extern void smt_set_seed(smt_core_t *s, uint32_t seed);
+extern void set_random_seed(smt_core_t *s, uint32_t seed);
 
 
 /*

@@ -129,12 +129,6 @@ static param_t parameters;
  */
 static ivector_t delayed_assertions;
 
-
-/*
- * Random seed: we keep a copy here for (show-params ...)
- */
-static uint32_t the_seed;
-
 /*
  * Counters for run-time statistics
  * - ready_time = run time after the context is initialized
@@ -1006,9 +1000,6 @@ static void init_ctx(context_arch_t arch, context_mode_t mode, bool iflag, bool 
   context = yices_create_context(arch, mode, iflag, qflag);
   //  init_params_to_defaults(&parameters);
   yices_set_default_params(context, &parameters);
-  // make a copy of the seed for show-params
-  the_seed = context->core->prng;
-
   if (verbose) {
     init_trace(&tracer);
     set_trace_vlevel(&tracer, 2);
@@ -1373,7 +1364,7 @@ static void show_param(yices_param_t p, uint32_t n) {
     break;
 
   case PARAM_RANDOM_SEED:
-    show_pos32_param(param2string[p], the_seed, n);
+    show_pos32_param(param2string[p], parameters.random_seed, n);
     break;
 
   case PARAM_BRANCHING:
@@ -1654,8 +1645,7 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
 
   case PARAM_RANDOM_SEED:
     if (param_val_to_int32(param, val, &n)) {
-      smt_set_seed(context->core, (uint32_t) n);
-      the_seed = n;
+      parameters.random_seed = (uint32_t) n;
       print_ok();
     }
     break;

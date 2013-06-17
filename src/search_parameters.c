@@ -56,6 +56,12 @@
 #define DEFAULT_CACHE_TCLAUSES false
 #define DEFAULT_TCLAUSE_SIZE   0
 
+
+/*
+ * Default random seed as in smt_core.d
+ */
+#define DEFAULT_RANDOM_SEED    0xabcdef98
+
 /*
  * Default branching = the smt_core default
  */
@@ -114,6 +120,7 @@ static param_t default_settings = {
 
   DEFAULT_VAR_DECAY,
   DEFAULT_RANDOMNESS,
+  DEFAULT_RANDOM_SEED,
   DEFAULT_BRANCHING,
   DEFAULT_CLAUSE_DECAY,
   DEFAULT_CACHE_TCLAUSES,
@@ -167,6 +174,7 @@ typedef enum param_key {
   // branching heuristic
   PARAM_VAR_DECAY,
   PARAM_RANDOMNESS,
+  PARAM_RANDOM_SEED,
   PARAM_BRANCHING,
   // learned clauses
   PARAM_CLAUSE_DECAY,
@@ -224,6 +232,7 @@ static const char *const param_key_names[NUM_PARAM_KEYS] = {
   "r-factor",
   "r-fraction",
   "r-threshold",
+  "random-seed",
   "randomness",
   "simplex-adjust",
   "simplex-prop",
@@ -259,6 +268,7 @@ static const int32_t param_code[NUM_PARAM_KEYS] = {
   PARAM_R_FACTOR,
   PARAM_R_FRACTION,
   PARAM_R_THRESHOLD,
+  PARAM_RANDOM_SEED,
   PARAM_RANDOMNESS,
   PARAM_SIMPLEX_ADJUST,
   PARAM_SIMPLEX_PROP,
@@ -381,6 +391,31 @@ static int32_t set_int32_param(const char *value, int32_t *v, int32_t low, int32
 }
 
 
+/*
+ * Parse value as an unsigned integer
+ * - no interval check
+ * - if val is not an unsigned integer, return -2
+ */
+static int32_t set_uint32_param(const char *value, uint32_t *v) {
+  integer_parse_code_t k;
+  int32_t code;
+
+  k = parse_as_uint(value, v);
+  switch (k) {
+  case valid_integer:
+    code = 0;
+    break;
+
+  case integer_overflow:
+  case invalid_integer:
+  default:
+    code = -2;
+    break;
+  }
+
+  return code;
+}
+
 
 
 /*
@@ -489,6 +524,10 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
     if (r == 0) {
       parameters->randomness = (float) x;
     }
+    break;
+
+  case PARAM_RANDOM_SEED:
+    r = set_uint32_param(value, &parameters->random_seed);
     break;
 
   case PARAM_BRANCHING:

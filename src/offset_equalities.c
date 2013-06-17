@@ -2151,7 +2151,8 @@ static bool process_offset_equality(offset_manager_t *m, int32_t x, int32_t y, r
     if (rx == 0 || 
         (ry != 0 && offset_var_dep_size(vtbl, rx) > offset_var_dep_size(vtbl, ry))) {
       z = rx; rx = ry; ry = z;
-      z = x; x = y; y = z;
+      // z = x; x = y; y = z;
+      x = y;
       q_neg(delta);
     }
 

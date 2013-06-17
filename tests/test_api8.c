@@ -50,6 +50,7 @@ static void show_params(param_t *params) {
   printf("--- core ---\n");
   printf("  var-decay     = %.4f\n", params->var_decay);
   printf("  randomness    = %.4f\n", (double) params->randomness);
+  printf("  random_seed   = %"PRIu32"\n", params->random_seed);
   printf("  branching     = %s\n", branching2string[params->branching]);
   printf("  clause-decay  = %.4f\n", (double) params->clause_decay);
   printf("  cache-tclause = %s\n", bool2string(params->cache_tclauses));
@@ -194,6 +195,25 @@ static void test_set_posint16_param(param_t *params, const char *name) {
 
 
 /*
+ * Unsigned integer paramer (32bits)
+ */
+static void test_set_uint32_pram(param_t *params, const char *name) {
+  test_set_param(params, name, "0", 0, 0);
+  test_set_param(params, name, "111111111", 0, 0);
+  test_set_param(params, name, "4294967295", 0, 0); // 2^32 - 1
+  test_set_param(params, name, "0xabcdef98", 0, 0); // hexadecimal format is allowed
+  test_set_param(params, name, "0777777777", 0, 0); // octal format is allowed
+
+  test_set_param(params, name, "-10", -1, CTX_INVALID_PARAMETER_VALUE);
+  test_set_param(params, name, "4294967296", -1, CTX_INVALID_PARAMETER_VALUE);
+  test_set_param(params, name, "18446744073709551616", -1, CTX_INVALID_PARAMETER_VALUE); // 2^64
+
+  test_set_param(params, name, "xxxxxx", -1, CTX_INVALID_PARAMETER_VALUE);
+}
+
+
+
+/*
  * Branching parameter
  */
 static void test_set_branching(param_t *params, const char *name) {
@@ -239,6 +259,7 @@ static void test_set_params(param_t *params) {
   test_set_posint16_param(params, "dyn-ack-threshold");
   test_set_posint16_param(params, "dyn-bool-ack-threshold");
 
+  test_set_uint32_pram(params, "random-seed");
 
   test_set_branching(params, "branching");  
 

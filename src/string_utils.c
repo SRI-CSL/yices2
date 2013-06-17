@@ -113,6 +113,9 @@ integer_parse_code_t parse_as_integer(const char *s, int32_t *val) {
   if (errno == ERANGE) {
     return integer_overflow;  //overflow or underflow
   }
+  if (errno == EINVAL) {
+    return invalid_integer;
+  }
 
   if (aux > (long) INT32_MAX || aux < (long) INT32_MIN) {
     return integer_overflow;
@@ -129,6 +132,36 @@ integer_parse_code_t parse_as_integer(const char *s, int32_t *val) {
 }
 
 
+/*
+ * Variant: parse s as an unsigned integer
+ */
+integer_parse_code_t parse_as_uint(const char *s, uint32_t *val) {
+  unsigned long aux;
+  char *b;
+
+  while (isspace((int) *s)) s ++;
+  errno = 0;
+  aux = strtoul(s, &b, 0);
+  if (errno == ERANGE) {
+    return integer_overflow;
+  }
+  if (errno == EINVAL) {
+    return invalid_integer;
+  }
+
+  if (aux > (unsigned long) UINT32_MAX) {
+    return integer_overflow;
+  }
+
+  while (isspace((int) *b)) b++;
+
+  if (*b == '\0' && b != s) {
+    *val = (uint32_t) aux;
+    return valid_integer;
+  }
+
+  return invalid_integer;
+}
 
 
 /*
