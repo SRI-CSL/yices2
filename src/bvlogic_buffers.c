@@ -285,6 +285,24 @@ void bvlogic_buffer_set_term_array(bvlogic_buffer_t *b, term_table_t *table, uin
 
 
 
+/*
+ * Set bit[0 ... k-1] to 1 and bits[k... n-1] to 0
+ */
+void bvlogic_buffer_set_low_mask(bvlogic_buffer_t *b, uint32_t k, uint32_t n) {
+  uint32_t i;
+
+  assert(k < n);
+
+  resize_bvlogic_buffer(b, n);
+  for (i=0;i<k; i++) {
+    b->bit[i] = true_bit;
+  }
+  while (i<n) {
+    b->bit[i] = false_bit;
+    i ++;
+  }
+}
+
 
 /*
  * SLICE ASSIGNMENT

@@ -23,45 +23,43 @@
  */
 
 /*
+ * Basic statistics
+ */
+static void trace_stats(smt_core_t *core, const char *when, uint32_t level) {
+  tprintf(core->trace, level, "(%-8s %"PRIu32" %"PRIu64" %"PRIu64" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %.1f)\n",
+	  when, core->stats.conflicts, core->stats.decisions, core->stats.random_decisions,
+	  num_binary_clauses(core), num_prob_clauses(core), num_prob_literals(core),
+	  num_learned_clauses(core), num_learned_literals(core), (double) num_learned_literals(core)/num_learned_clauses(core));
+}
+
+/*
  * On start_search:
  * - d_threshold = restart threshold
  * - r_threshold = reduce threshold
  */
-static void trace_start(smt_core_t *core, uint32_t d_threshold, uint32_t r_threshold) {
-  tprintf(core->trace, 1, 
-	  "(start-search: bin clauses: %"PRIu32", prob. clauses: %"PRIu32", prob. literals: %"PRIu64"\n"
-	  "               first restart: %"PRIu32", reduce threshold: %"PRIu32")\n",
-	  num_binary_clauses(core), num_prob_clauses(core), num_prob_literals(core), d_threshold, r_threshold);
+static void trace_start(smt_core_t *core) {
+  trace_stats(core, "start:", 2);
 }
 
 
 /*
  * On restart
  */
-static void trace_restart(smt_core_t *core, uint32_t d_threshold) {
-  tprintf(core->trace, 2,
-	  "(restart: bin clause: %"PRIu32", prob. clauses: %"PRIu32", prob. literals: %"PRIu32"\n"
-          "          learned clauses: %"PRIu32", learned lits: %"PRIu64", lits/clause: %.1f\n"
-	  "          decisions: %"PRIu64", random decisions: %"PRIu64")\n",
-	  num_binary_clauses(core), num_prob_clauses(core), num_prob_literals(core),
-	  num_learned_clauses(core), num_learned_literals(core), (double) num_learned_literals(core)/num_learned_clauses(core),
-	  core->stats.decisions, core->stats.random_decisions);
-  tprintf(core->trace, 1, "(next restart: %"PRIu32")\n", d_threshold);
+static void trace_restart(smt_core_t *core) {
+  trace_stats(core, "restart:", 3);
+}
+
+static void trace_inner_restart(smt_core_t *core) {
+  trace_stats(core, "inner restart:", 5);
 }
 
 
 /*
  * On reduce clause database
  */
-static void trace_reduce(smt_core_t *core, uint32_t r_threshold, uint64_t deleted) {
-  tprintf(core->trace, 2,
-	  "(reduce clauses: %"PRIu64" learned clauses deleted\n"
-	  "                 bin clause: %"PRIu32", prob. clauses: %"PRIu32", prob. literals: %"PRIu32"\n"
-          "                 learned clauses: %"PRIu32", learned lits: %"PRIu64", lits/clause: %.1f)\n",
-	  deleted,
-	  num_binary_clauses(core), num_prob_clauses(core), num_prob_literals(core),
-	  num_learned_clauses(core), num_learned_literals(core), (double) num_learned_literals(core)/num_learned_clauses(core));
-  tprintf(core->trace, 2, "(next reduction: %"PRIu32")\n", r_threshold);
+static void trace_reduce(smt_core_t *core, uint64_t deleted) {
+  trace_stats(core, "reduce:", 3);
+  tprintf(core->trace, 4, "(reduce:  %"PRIu64" clauses deleted)\n", deleted);
 }
 
 
@@ -70,13 +68,8 @@ static void trace_reduce(smt_core_t *core, uint32_t r_threshold, uint64_t delete
  * End of search
  */
 static void trace_done(smt_core_t *core) {
-  tprintf(core->trace, 1,
-	  "(done: bin clause: %"PRIu32", prob. clauses: %"PRIu32", prob. literals: %"PRIu32"\n"
-          "       learned clauses: %"PRIu32", learned lits: %"PRIu64", lits/clause: %.1f\n"
-	  "       decisions: %"PRIu64", random decisions: %"PRIu64")\n",
-	  num_binary_clauses(core), num_prob_clauses(core), num_prob_literals(core),
-	  num_learned_clauses(core), num_learned_literals(core), (double) num_learned_literals(core)/num_learned_clauses(core),
-	  core->stats.decisions, core->stats.random_decisions);
+  trace_stats(core, "done:", 2);
+  tnewline(core->trace, 2);
 }
 
 
@@ -109,7 +102,7 @@ static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_t
       deletions = core->stats.learned_clauses_deleted;
       reduce_clause_database(core);
       r_threshold = (uint32_t) (r_threshold * r_factor);
-      trace_reduce(core, r_threshold, core->stats.learned_clauses_deleted - deletions);
+      trace_reduce(core, core->stats.learned_clauses_deleted - deletions);
     }
 
     // decision
@@ -271,7 +264,7 @@ static void solve(smt_core_t *core, const param_t *params) {
 
   // initialize then do a propagation + simplification step.
   start_search(core);
-  trace_start(core, d_threshold, reduce_threshold);
+  trace_start(core);
 
   if (smt_status(core) == STATUS_SEARCHING) {
     // loop
@@ -315,7 +308,9 @@ static void solve(smt_core_t *core, const param_t *params) {
           d_threshold = (uint32_t) (d_threshold * params->d_factor);
         }
 
-	trace_restart(core, d_threshold);
+	trace_restart(core);
+      } else {
+	trace_inner_restart(core);
       }
     }
   }

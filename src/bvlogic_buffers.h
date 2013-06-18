@@ -1,3 +1,4 @@
+
 /*
  * BUFFERS FOR BITVECTORS REPRESENTED AS ARRAYS OF BOOLEAN TERMS
  */
@@ -184,6 +185,14 @@ extern void bvlogic_buffer_set_term(bvlogic_buffer_t *b, term_table_t *table, te
  */
 extern void bvlogic_buffer_set_term_array(bvlogic_buffer_t *b, term_table_t *table, uint32_t n, term_t *a);
 
+
+/*
+ * Set the k low order bits of b to 1, and the rest to 0
+ * (i.e., store 2^k - 1)
+ * - n = number of bits
+ * - n must be positive and k must be between 0 and n-1
+ */
+extern void bvlogic_buffer_set_low_mask(bvlogic_buffer_t *b, uint32_t k, uint32_t n);
 
 
 /*

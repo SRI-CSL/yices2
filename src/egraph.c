@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <stdio.h>
+#include <inttypes.h>
 
 #include "bit_tricks.h"
 #include "memalloc.h"
@@ -13,6 +15,7 @@
 #include "ptr_partitions.h"
 #include "hash_functions.h"
 #include "index_vectors.h"
+#include "tracer.h"
 
 #include "composites.h"
 #include "egraph_utils.h"
@@ -23,16 +26,10 @@
 #define TRACE 0
 #define TRACE_FCHECK 0
 
-#if TRACE || TRACE_FCHECK || 1
-
-#include <stdio.h>
-#include <inttypes.h>
+#if TRACE || TRACE_FCHECK
 
 #include "smt_core_printer.h"
 #include "egraph_printer.h"
-
-// FOR TESTING
-#include "simplex_printer.h"
 
 #endif
 
@@ -5009,59 +5006,6 @@ bool egraph_propagate(egraph_t *egraph) {
     }
 
 
-#if 0
-    // SHOW ALL EQUALITIES + EXPLANATIONS
-    if (egraph->stack.top > k) {
-      th_explanation_t tester;
-      occ_t t1, t2;
-      thvar_t x1, x2;
-      void *solver;
-
-      solver = egraph->th[ETYPE_REAL];
-      //    printf("\n--- Simplex vars ---\n");
-      //    print_simplex_vars(stdout, solver);
-      printf("\n--- Simplex bounds ---\n");
-      print_simplex_bounds(stdout, solver);
-      printf("\n--- Propagated equalities ---\n");
-      init_th_explanation(&tester);
-      for (i=k; i<egraph->stack.top; i++) {
-	t1 = egraph->stack.eq[i].lhs;
-	t2 = egraph->stack.eq[i].rhs;
-	x1 = egraph_base_thvar(egraph, t1);
-	x2 = egraph_base_thvar(egraph, t2);
-	print_occurrence(stdout, t1);
-	printf(" == ");
-	print_occurrence(stdout, t2);
-	printf("\n");
-
-	printf("var[");
-	print_occurrence(stdout, t1);
-	printf("] = ");
-	print_simplex_var(stdout, solver, x1);
-	printf("\n");
-	printf("var[");
-	print_occurrence(stdout, t2);
-	printf("] = ");
-	print_simplex_var(stdout, solver, x2);
-	printf("\n");
-
-	print_simplex_vardef(stdout, solver, x1);
-	print_simplex_vardef(stdout, solver, x2);
-
-	reset_th_explanation(&tester);
-	egraph->eg[ETYPE_REAL]->expand_th_explanation(solver, x1, x2, NULL, &tester);
-	printf("Implied by\n");
-	print_theory_explanation(stdout, &tester);
-	printf("\n\n");
-      }
-
-      delete_th_explanation(&tester);
-
-      // egraph->stack.top = k;
-    }      
-#endif
-
-
   } while (egraph->stack.top > k);
 
   
@@ -5926,29 +5870,14 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
 
     max_eqs = egraph->max_interface_eqs;
 
-#if 1
     // Generate interface equalities
     i = egraph_gen_interface_lemmas(egraph, max_eqs, &egraph->interface_eqs);
-#else 
-    // VARIANT: call the theory reconcile model functions here
-    i = 0;
-    assert(i < max_eqs);
-    if (egraph->ctrl[ETYPE_REAL] != NULL) {
-      // reconcile for arithmetic solver
-      assert(egraph->eg[ETYPE_REAL] != NULL);
-      i = egraph->eg[ETYPE_REAL]->reconcile_model(egraph->th[ETYPE_REAL], max_eqs);
-    }
-      
-    if (i < max_eqs && egraph->ctrl[ETYPE_BV] != NULL) {
-      // reconcile in bitvector solver
-      assert(egraph->eg[ETYPE_BV] != NULL);
-      i += egraph->eg[ETYPE_BV]->reconcile_model(egraph->th[ETYPE_BV], max_eqs - i);
-    }
-#endif
 
     egraph->stats.interface_eqs += i;
     ivector_reset(&egraph->interface_eqs);
     c = FCHECK_CONTINUE;
+
+    tprintf(egraph->core->trace, 2, "(final check: %"PRIu32" interface lemmas)\n", i);
 
 #if TRACE_FCHECK
     printf("---> egraph reconcile failed: %"PRIu32" interface lemmas\n", i);
@@ -5970,6 +5899,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
           printf("---> exit after array reconcile: %"PRIu32" lemmas\n", i);
           fflush(stdout);
 #endif
+	  tprintf(egraph->core->trace, 2, "(final check: %"PRIu32" array lemmas)\n", i);
           c = FCHECK_CONTINUE;
         }
       }

@@ -22,6 +22,7 @@
 
 extern void print_literal(FILE *f, literal_t l);
 extern void print_bval(FILE *f, bval_t b);
+extern void print_bvar(FILE *f, bvar_t x);
 
 #endif
 
@@ -1967,7 +1968,7 @@ literal_t select_unassigned_literal(smt_core_t *s) {
   v = s->value;
 
   if (s->scaled_random > 0) {
-    rnd = random_uint32(s);
+    rnd = random_uint32(s) >> 8;
     if (rnd < s->scaled_random) {
       x = random_uint(s, s->nvars);
       assert(0 <= x && x < s->nvars);

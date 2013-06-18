@@ -705,6 +705,55 @@ static void close_error_file(smt2_globals_t *g) {
 
 
 /*
+ * Allocate and initialize the trace object
+ */
+static tracer_t *get_tracer(smt2_globals_t *g) {
+  tracer_t *tmp;
+
+  tmp = g->tracer;
+  if (tmp == NULL) {
+    tmp = (tracer_t *) safe_malloc(sizeof(tracer_t));
+    init_trace(tmp);
+    set_trace_vlevel(tmp, g->verbosity);
+    set_trace_file(tmp, g->err);
+    g->tracer = tmp;
+  }
+  return tmp;
+}
+
+
+/*
+ * Delete the trace object
+ */
+static void delete_tracer(smt2_globals_t *g) {
+  if (g->tracer != NULL) {
+    safe_free(g->tracer);
+    g->tracer = NULL;
+  }
+}
+
+/*
+ * Change the trace file
+ */
+static void update_trace_file(smt2_globals_t *g) {
+  if (g->tracer != NULL) {
+    set_trace_file(g->tracer, g->err);
+  }
+}
+
+
+/*
+ * Change the verbosity level in g->tracer
+ */
+static void update_trace_verbosity(smt2_globals_t *g) {
+  if (g->tracer != NULL) {
+    set_trace_vlevel(g->tracer, g->verbosity);
+  }
+}
+
+
+
+/*
  * INFO TABLE
  */
 
@@ -940,10 +989,42 @@ static void set_error_file(smt2_globals_t *g, const char *name, aval_t value) {
       string_incref(g->err_name);
     }
     g->err = f;
+    update_trace_file(g);
     report_success();
   } else {
     print_error("option %s requires a string value", name);
   }  
+}
+
+
+
+/*
+ * Set the verbosity level
+ * - name = keyword (should be :verbosity)
+ * - val = value (in g->avtbl)
+ */
+static void set_verbosity(smt2_globals_t *g, const char *name, aval_t value) {
+  rational_t aux;
+  int64_t x;
+
+  q_init(&aux);
+  if (aval_is_rational(g->avtbl, value, &aux) && q_is_integer(&aux)) {
+    if (q_is_neg(&aux)) {
+      print_error("option %s must be non-negative", name);
+    } else if (q_get64(&aux, &x) && x <= (int64_t) UINT32_MAX) {
+      /*
+       * x = verbosity level
+       */
+      g->verbosity = (uint32_t) x;
+      update_trace_verbosity(g);
+      report_success();
+    } else {
+      print_error("integer overflow: %s must be at most %"PRIu32, UINT32_MAX);
+    }
+  } else {
+    print_error("option %s requires an integer value", name);
+  }
+  q_clear(&aux);
 }
 
 
@@ -1213,6 +1294,9 @@ static void init_smt2_context(smt2_globals_t *g) {
   g->ctx = yices_create_context(arch, mode, iflag, qflag);
   yices_set_default_params(g->ctx, &parameters);
   assert(g->ctx != NULL);
+  if (g->verbosity > 0) {
+    context_set_trace(g->ctx, get_tracer(g));
+  }
 }
 
 
@@ -1491,6 +1575,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->err = stderr;
   g->out_name = NULL;
   g->err_name = NULL;
+  g->tracer = NULL;
   g->print_success = true;
   g->expand_definitions = false;
   g->interactive_mode = false;
@@ -1533,6 +1618,7 @@ static void delete_smt2_globals(smt2_globals_t *g) {
 
   close_output_file(g);
   close_error_file(g);
+  delete_tracer(g);
 }
 
 
@@ -1858,7 +1944,7 @@ void smt2_set_option(const char *name, aval_t value) {
 
   case SMT2_KW_VERBOSITY:
     // optional
-    set_uint32_option(g, name, value, &g->verbosity);
+    set_verbosity(g, name, value);
     break;
 
   default:

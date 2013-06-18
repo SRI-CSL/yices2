@@ -36,7 +36,7 @@ static inline void init_trace(tracer_t *tracer) {
 
 
 /*
- * Set verbosity level
+i * Set verbosity level
  */
 static inline void set_trace_vlevel(tracer_t *tracer, uint32_t level) {
   tracer->vlevel = level;
@@ -46,17 +46,11 @@ static inline void set_trace_vlevel(tracer_t *tracer, uint32_t level) {
 /*
  * Change output file:
  * - f must be open and writable
- * - close the current file if it's not stderr
  * - reset the print_failed and err_code flags
+ *
+ * Warning: this function does not close the current tracer->file 
  */
 extern void set_trace_file(tracer_t *tracer, FILE *f);
-
-
-/*
- * Close the trace file (if not stderr)
- * - no operation can be performed after this
- */
-extern void close_trace(tracer_t *tracer);
 
 
 /*
@@ -85,6 +79,11 @@ extern void tprintf(tracer_t *tracer, uint32_t level, const char *format, ...);
  */
 extern void tputs(tracer_t *tracer, uint32_t level, const char *s);
 
+
+/*
+ * Newline
+ */
+extern void tnewline(tracer_t *trace, uint32_t level);
 
 
 #endif /* __TRACER_H */

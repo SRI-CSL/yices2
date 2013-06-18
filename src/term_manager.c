@@ -3743,6 +3743,31 @@ term_t mk_bvashr(term_manager_t *manager, term_t t1, term_t t2) {
 
 
 /*
+ * Check whether b is a power of 2.
+ * - if so return the k such such b = 2^k
+ * - otherwise, return -1
+ */
+static int32_t bvconst64_term_is_power_of_two(bvconst64_term_t *b) {
+  uint32_t k;
+
+  k = ctz64(b->value);
+  assert(0 <= k && k < b->bitsize && b->bitsize <= 64);
+  if (b->value == ((uint64_t) 1) << k) {
+    return k;
+  } else {
+    return -1;
+  }
+}
+
+static int32_t bvconst_term_is_power_of_two(bvconst_term_t *b) {
+  uint32_t w;
+
+  w = (b->bitsize + 31) >> 5; // number of words in b->data
+  return bvconst_is_power_of_two(b->data, w);
+}
+
+
+/*
  * UNSIGNED DIVISION: QUOTIENT
  */
 static term_t bvdiv_const64(term_manager_t *manager, bvconst64_term_t *a, bvconst64_term_t *b) {
@@ -3775,8 +3800,23 @@ static term_t bvdiv_const(term_manager_t *manager, bvconst_term_t *a, bvconst_te
 }
 
 
+// divide t1 by 2^k
+static term_t bvdiv_power(term_manager_t *manager, term_t t1, uint32_t k) {
+  bvlogic_buffer_t *b;
+
+  if (k == 0) return t1;
+
+  b = term_manager_get_bvlogic_buffer(manager);
+  bvlogic_buffer_set_term(b, manager->terms, t1);
+  bvlogic_buffer_shift_right0(b, k);
+
+  return mk_bvlogic_term(manager, b);
+}
+
+
 term_t mk_bvdiv(term_manager_t *manager, term_t t1, term_t t2) {
   term_table_t *tbl;
+  int32_t k;
 
   tbl = manager->terms;
 
@@ -3788,11 +3828,19 @@ term_t mk_bvdiv(term_manager_t *manager, term_t t1, term_t t2) {
     if (term_kind(tbl, t1) == BV64_CONSTANT) {
       return bvdiv_const64(manager, bvconst64_term_desc(tbl, t1), bvconst64_term_desc(tbl, t2));
     }
+    k = bvconst64_term_is_power_of_two(bvconst64_term_desc(tbl, t2));
+    if (k >= 0) {
+      return bvdiv_power(manager, t1, k);
+    }
     break;
 
   case BV_CONSTANT:
     if (term_kind(tbl, t1) == BV_CONSTANT) {
       return bvdiv_const(manager, bvconst_term_desc(tbl, t1), bvconst_term_desc(tbl, t2));
+    }
+    k = bvconst_term_is_power_of_two(bvconst_term_desc(tbl, t2));
+    if (k >= 0) {
+      return bvdiv_power(manager, t1, k);
     }
     break;
 
@@ -3835,8 +3883,25 @@ static term_t bvrem_const(term_manager_t *manager, bvconst_term_t *a, bvconst_te
   return bvconst_term(manager->terms, n, bv->data);
 }
 
+// remainder of t1/2^k
+static term_t bvrem_power(term_manager_t *manager, term_t t1, uint32_t k) {
+  bvlogic_buffer_t *b;
+  uint32_t n;
+
+  n = term_bitsize(manager->terms, t1);
+  assert(0 <= k && k < n);
+
+  b = term_manager_get_bvlogic_buffer(manager);
+  bvlogic_buffer_set_low_mask(b, k, n);
+  bvlogic_buffer_and_term(b, manager->terms, t1);
+
+  return mk_bvlogic_term(manager, b);  
+}
+
+
 term_t mk_bvrem(term_manager_t *manager, term_t t1, term_t t2) {
   term_table_t *tbl;
+  int32_t k;
 
   tbl = manager->terms;
 
@@ -3848,11 +3913,19 @@ term_t mk_bvrem(term_manager_t *manager, term_t t1, term_t t2) {
     if (term_kind(tbl, t1) == BV64_CONSTANT) {
       return bvrem_const64(manager, bvconst64_term_desc(tbl, t1), bvconst64_term_desc(tbl, t2));
     }
+    k = bvconst64_term_is_power_of_two(bvconst64_term_desc(tbl, t2));
+    if (k >= 0) {
+      return bvrem_power(manager, t1, k);
+    }
     break;
 
   case BV_CONSTANT:
     if (term_kind(tbl, t1) == BV_CONSTANT) {
       return bvrem_const(manager, bvconst_term_desc(tbl, t1), bvconst_term_desc(tbl, t2));
+    }
+    k = bvconst_term_is_power_of_two(bvconst_term_desc(tbl, t2));
+    if (k >= 0) {
+      return bvrem_power(manager, t1, k);
     }
     break;
 

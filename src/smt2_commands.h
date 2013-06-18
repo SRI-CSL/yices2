@@ -33,6 +33,7 @@
 #include "lexer.h"
 #include "term_stack2.h"
 #include "string_hash_map.h"
+#include "tracer.h"
 
 
 /*
@@ -166,10 +167,13 @@ typedef struct smt2_globals_s {
   // output/diagnostic channels
   FILE *out;                  // default = stdout
   FILE *err;                  // default = stderr
-
+  
   // names of the output/dianostic channels
   char *out_name;             // default = NULL (means "stdout")
   char *err_name;             // default = NULL (means "stderr")
+
+  // tracer object: used only if verbosity > 0
+  tracer_t *tracer;
 
   // options
   bool print_success;         // default = true

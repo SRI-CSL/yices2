@@ -67,3 +67,16 @@ void tputs(tracer_t *tracer, uint32_t level, const char *s) {
     }
   }
 }
+
+// newline if tracer->vlevel >= level
+void tnewline(tracer_t *tracer, uint32_t level) {
+  int code;
+
+  if (tracer != NULL && level <= tracer->vlevel && !tracer->print_failed) {
+    code = fputc('\n', tracer->file);
+    if (code < 0) {
+      tracer->print_failed = true;
+      tracer->err_code = errno;
+    }
+  }
+}
