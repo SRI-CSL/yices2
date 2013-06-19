@@ -371,13 +371,14 @@ static inline bool egraph_same_class(egraph_t *egraph, occ_t x, occ_t y) {
 
 /*
  * Truth-value of eterm t:
- * - if label[t] is C0+ == 0, t is true  --> truth_value is VAL_TRUE (== 2)
- * - if label[t] is C0- == 1, t is false --> truth_value is VAL_FALSE (== 0)
+ * - if label[t] is C0+ == 0, t is true  --> truth_value is VAL_TRUE (== 3)
+ * - if label[t] is C0- == 1, t is false --> truth_value is VAL_FALSE (== 2)
+ *
  * Use only if t's class is C0
  */
 static inline bval_t egraph_term_truth_value(egraph_t *egraph, eterm_t t) {
   assert(egraph_term_class(egraph, t) == bool_constant_class);
-  return (egraph_term_label(egraph, t) ^ 1) << 1;
+  return VAL_TRUE ^ egraph_term_label(egraph, t);
 }
 
 // variants: check whether t is true or false

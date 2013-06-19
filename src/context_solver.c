@@ -437,7 +437,8 @@ static value_t bool_value(context_t *ctx, value_table_t *vtbl, literal_t l) {
   case VAL_FALSE:
     v = vtbl_mk_false(vtbl);
     break;
-  case VAL_UNDEF:
+  case VAL_UNDEF_FALSE:
+  case VAL_UNDEF_TRUE:
     v = vtbl_mk_unknown(vtbl);
     break;
   case VAL_TRUE:

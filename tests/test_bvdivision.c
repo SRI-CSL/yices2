@@ -213,7 +213,8 @@ static literal_t eval_literal(literal_t l) {
     return false_literal;
   case VAL_TRUE:
     return true_literal;
-  case VAL_UNDEF:
+  case VAL_UNDEF_FALSE:
+  case VAL_UNDEF_TRUE:
   default:
     return l;
   }

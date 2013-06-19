@@ -547,7 +547,8 @@ static bool sclause_push(bit_blaster_t *s, cbuffer_t *buffer, uint32_t i, litera
   switch (base_value(s, l)) {
   case VAL_FALSE: // skip l
     return false;
-  case VAL_UNDEF:
+  case VAL_UNDEF_TRUE:
+  case VAL_UNDEF_FALSE:
     return cbuffer_add_lit(buffer, i, l);
   case VAL_TRUE:
   default: // prevents GCC warning
@@ -689,7 +690,8 @@ static void simplify_or(bit_blaster_t *s, literal_t *a, uint32_t n, ivector_t *v
     switch (base_value(s, l)) {
     case VAL_FALSE:
       break;
-    case VAL_UNDEF:
+    case VAL_UNDEF_FALSE:
+    case VAL_UNDEF_TRUE:
       ivector_push(v, l);
       break;
     case VAL_TRUE:
@@ -795,7 +797,8 @@ static void assert_ordef_clauses(bit_blaster_t *s, literal_t x, ivector_t *v) {
     }
     break;
 
-  case VAL_UNDEF:
+  case VAL_UNDEF_FALSE:
+  case VAL_UNDEF_TRUE:
     k = find_in_vector(v, x);
     if (k < 0) {
       // No simplifications
@@ -882,7 +885,8 @@ static uint32_t simplify_xor(bit_blaster_t *s, uint32_t n, literal_t *a, literal
     switch (base_value(s, l)) {
     case VAL_FALSE:
       break;
-    case VAL_UNDEF:
+    case VAL_UNDEF_FALSE:
+    case VAL_UNDEF_TRUE:
       sgn ^= sign_of_lit(l);  // flip sgn if l is negative 
       l &= ~1;                // remove sign of l = low-order bit
       ivector_push(v, l);
@@ -897,7 +901,8 @@ static uint32_t simplify_xor(bit_blaster_t *s, uint32_t n, literal_t *a, literal
   switch (base_value(s, x)) {
   case VAL_FALSE:
     break;
-  case VAL_UNDEF:
+  case VAL_UNDEF_FALSE:
+  case VAL_UNDEF_TRUE:
     sgn ^= sign_of_lit(x);  // flip sign is x is negative
     x &= ~1;                 // remove sign of x
     ivector_push(v, x);
@@ -1385,7 +1390,8 @@ static literal_t eval_literal(bit_blaster_t *s, literal_t l) {
     return false_literal;
   case VAL_TRUE:
     return true_literal;
-  case VAL_UNDEF:
+  case VAL_UNDEF_FALSE:
+  case VAL_UNDEF_TRUE:
   default:
     return l;
   }
@@ -4615,7 +4621,8 @@ static void trace_unit_clause(bit_blaster_t *s, literal_t a) {
   case VAL_FALSE:
     printf("{}\n");
     break;
-  case VAL_UNDEF:
+  case VAL_UNDEF_FALSE:
+  case VAL_UNDEF_TRUE:
     printf("{");
     print_literal(stdout, a);
     printf("}\n");

@@ -176,25 +176,37 @@ static inline literal_t bool2literal(bool tt) {
 
 /*
  * Assignment values for a literal or variable
- * Bit structure: false --> 00, undef --> 01, true --> 10
+ * - we use four values to encode the truth value of x
+ *   when x is assigned and the preferred value when x is
+ *   not assigned.
+ * - value[x] is interepreted as follows
+ *   VAL_UNDEF_FALSE = 0b00 --> x not assigned, preferred value = false
+ *   VAL_UNDEF_TRUE  = 0b01 --> x not assigned, preferred value = true
+ *   VAL_FALSE = 0b10       --> x assigned false
+ *   VAL_TRUE =  0b11       --> x assigned true
+ *
+ * The preferred value is used when x is selected as a decision variable.
+ * Then we assign x to true or false depending on the preferred value.
+ * This is done by setting bit 1 in value[x].
  */
 typedef enum bval {
-  VAL_FALSE = 0,
-  VAL_UNDEF = 1,
-  VAL_TRUE = 2,
+  VAL_UNDEF_FALSE = 0,
+  VAL_UNDEF_TRUE = 1,
+  VAL_FALSE = 2,
+  VAL_TRUE = 3,
 } bval_t;
 
 
 /*
- * Boolean value opposite of v:
- * VAL_FALSE --> VAL_TRUE
- * VAL_TRUE  --> VAL_FALSE
- * VAL_UNDEF --> VAL_UNDEF
+ * Check on boolean values
  */
-static inline bval_t opposite_bval(bval_t v) {
-  return (bval_t) (2 - v);
+static inline bool bval_is_undef(bval_t v) { // bit 1 is unset
+  return (v & 2) == 0;
 }
 
+static inline bool bval_is_def(bval_t v) { // bit 1 is set
+  return (v & 2) != 0;
+}
 
 
 /***********
@@ -224,8 +236,7 @@ static inline bval_t opposite_bval(bval_t v) {
  * - for problem clauses, end_marker = -1 
  * - for learned clauses, end_marker = -2
  *
- * A solver stores a value for these two end_markers: it must 
- * always be equal to VAL_UNDEF.
+ * A solver stores a value for these two end_markers: value[-1] = VAL_UNDEF_FALSE
  *
  * CLAUSE DELETION AND SIMPLIFICATION: 
  * - to mark a clause for deletion or to removed it from the watched lists,
@@ -983,12 +994,9 @@ typedef enum smt_mode {
  * - antecedent[x]: antecedent type and value 
  * - level[x]: decision level (only meaningful if x is assigned)
  * - mark[x]: 1 bit used in UIP computation
- * - polarity[x]: 1 bit (preferred polarity if x is picked as a decision variable)
- *
- * For every literal l between 0 and 2nb_vars - 1
- * - value[l]: current assignment
- * - NOTE: value ranges from -2 to 2nb_vars - 1 so that
- *   value[x] = VAL_UNDEF for the two end makers (x = END_CLAUSE or x = END_LEARNED)
+ * - value[x] = current assignment
+ *   value ranges from -1 to nbvars - 1 so that value[x] exists when x = null_bvar = -1
+ *   value[-1] is always set to VAL_UNDEF_FALSE
  *
  * Assignment stack
  *
@@ -1094,13 +1102,12 @@ typedef struct smt_core_s {
   ivector_t binary_clauses;  // Keeps a copy of binary clauses added at base_levels>0
 
   /* Variable-indexed arrays (of size vsize) */
+  uint8_t *value;
   antecedent_t *antecedent;
   uint32_t *level;
   byte_t *mark;        // bitvector: for conflict resolution
-  byte_t *polarity;    // bitvector: preferred polarity in decide
 
   /* Literal-indexed arrays (of size lsize) */
-  uint8_t *value;
   literal_t **bin;   // array of literal vectors
   link_t *watch;     // array of watch lists
 
@@ -1487,24 +1494,6 @@ static inline double get_bvar_activity(smt_core_t *s, bvar_t x) {
   return s->heap.activity[x];
 }
 
-/*
- * Set the preferred branching polarity for variable x to p:
- * if p == true, branching heuristic will set x true if x is selected
- * as a decision variable.
- */
-static inline void set_bvar_polarity(smt_core_t *s, bvar_t x, bool p) {
-  assert(0 <= x && x < s->nvars);
-  assign_bit(s->polarity, x, p);
-}
-
-/*
- * Read the cached branching polarity for variable x
- */
-static inline bool get_bvar_polarity(smt_core_t *s, bvar_t x) {
-  assert(0 <= x && x < s->nvars);
-  return tst_bit(s->polarity, x);
-}
-
 
 
 /*************************
@@ -1512,42 +1501,86 @@ static inline bool get_bvar_polarity(smt_core_t *s, bvar_t x) {
  ************************/
 
 /*
- * Read the value assigned to literal l at the current decision level
- * - returns VAL_UNDEF if no value is assigned.
+ * Check whether variable x is assigned
  */
-static inline bval_t literal_value(smt_core_t *s, literal_t l) {
-  assert(0 <= l && l < s->nlits);
-  return s->value[l];
+static inline bool bvar_is_assigned(smt_core_t *s, bvar_t x) {
+  assert(0 <= x && x < s->nvars);
+  return bval_is_def(s->value[x]);
+}
+
+static inline bool bvar_is_unassigned(smt_core_t *s, bvar_t x) {
+  assert(0 <= x && x < s->nvars);
+  return bval_is_undef(s->value[x]);
 }
 
 /*
- * Read the value assigned to a literal l at the base level
- * - returns VAL_UNDEF if l is not assigned at that level
+ * Same thing for literal l
  */
-static inline bval_t literal_base_value(smt_core_t *s, literal_t l) {
-  assert(0 <= l && l < s->nlits);
-  //  s->level[var_of(l)] is not valid if s->value[l] == VAL_UNDEF
-  //  but that does not matter here
-  if (s->level[var_of(l)] > s->base_level) {
-    return VAL_UNDEF;
-  } else {
-    return s->value[l];
-  }
+static inline bool literal_is_assigned(smt_core_t *s, literal_t l) {
+  return bvar_is_assigned(s, var_of(l));
 }
+
+static inline bool literal_is_unassigned(smt_core_t *s, literal_t l) {
+  return bvar_is_unassigned(s, var_of(l));
+}
+
 
 /*
  * Read the value assigned to variable x at the current decision level.
  * This can be used to build a model if s->status is SAT (or UNKNOWN).
  */
 static inline bval_t bvar_value(smt_core_t *s, bvar_t x) {
-  return literal_value(s, pos_lit(x));
+  assert(0 <= x &&  x < s->nvars);
+  return s->value[x];
 }
+
 
 /*
  * Read the value assigned to a variable x at the base level
+ * - if x is not assigned at the base level, this returns the 
+ *   preferred value (either VAL_UNDEF_FALSE or VAL_UNDEF_TRUE)
  */
 static inline bval_t bvar_base_value(smt_core_t *s, bvar_t x) {
-  return literal_base_value(s, pos_lit(x));
+  bval_t v;
+  assert(0 <= x && x < s->nvars);
+  v = s->value[x];
+  if (s->level[x] > s->base_level) {
+    v &= 1; // clear bit 1, keep bit 0
+    assert(bval_is_undef(v));
+  }
+  return v;
+}
+
+/*
+ * Get the polarity bit of x = low-order bit of value[x]
+ * - if x is assigned, polarity = current value (0 means true, 1 means false)
+ * - if x is unassigned, polarity = preferrred value
+ */
+static inline uint32_t bvar_polarity(smt_core_t *s, bvar_t x) {
+  assert(0 <= x && x < s->nvars);
+  return (uint32_t) (s->value[x] & 1);
+}
+
+
+/*
+ * Read the value assigned to literal l at the current decision level
+ * - let x var_of(l) then 
+ * - if sign_of(l) = 0, val(l) = val(x)
+ *   if sign_of(l) = 1, val(l) = opposite of val(x)
+ * - returns VAL_UNDEF_TRUE or VAL_UNDEF_FALSE if no value is assigned.
+ */
+static inline bval_t literal_value(smt_core_t *s, literal_t l) {
+  assert(0 <= l && l < (int32_t) s->nlits);
+  return s->value[var_of(l)] ^ sign_of_lit(l);
+}
+
+/*
+ * Read the value assigned to a literal l at the base level
+ * - returns VAL_UNDEF_FALSE or VAL_UNDEF_TRUE if l is not assigned at that level
+ */
+static inline bval_t literal_base_value(smt_core_t *s, literal_t l) {
+  assert(0 <= l && l < s->nlits);
+  return bvar_base_value(s, var_of(l)) ^ sign_of_lit(l);
 }
 
 

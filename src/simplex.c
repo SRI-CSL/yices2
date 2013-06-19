@@ -9392,7 +9392,8 @@ static bool assertions_hold_in_model(simplex_solver_t *solver) {
         return false;
       }
       break;
-    case VAL_UNDEF:
+    case VAL_UNDEF_FALSE:
+    case VAL_UNDEF_TRUE:
       // should not happen??
       break;
     case VAL_TRUE:

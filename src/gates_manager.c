@@ -131,7 +131,8 @@ literal_t mk_or_gate(gate_manager_t *m, uint32_t n, literal_t *a) {
     switch (literal_base_value(s, l)) {
     case VAL_FALSE: 
       break;
-    case VAL_UNDEF:
+    case VAL_UNDEF_FALSE:
+    case VAL_UNDEF_TRUE:
       ivector_push(v, l);
       break;
     case VAL_TRUE:
@@ -185,7 +186,8 @@ literal_t mk_and_gate(gate_manager_t *m, uint32_t n, literal_t *a) {
     switch (literal_base_value(s, l)) {
     case VAL_FALSE: 
       return false_literal;
-    case VAL_UNDEF:
+    case VAL_UNDEF_FALSE:
+    case VAL_UNDEF_TRUE:
       ivector_push(v, not(l));
       break;
     case VAL_TRUE:
@@ -285,7 +287,8 @@ static uint32_t simplify_xor(smt_core_t *s, uint32_t n, literal_t *a, ivector_t 
     switch (literal_base_value(s, l)) {
     case VAL_FALSE:
       break;
-    case VAL_UNDEF:
+    case VAL_UNDEF_FALSE:
+    case VAL_UNDEF_TRUE:
       sgn ^= sign_of_lit(l);  // flip sgn if l is negative 
       l &= ~1;                // remove sign = low-order bit
       ivector_push(v, l);
@@ -532,7 +535,8 @@ literal_t mk_ite_gate(gate_manager_t *m, literal_t c, literal_t l1, literal_t l2
   switch (literal_base_value(s, c)) {
   case VAL_FALSE: 
     return l2;
-  case VAL_UNDEF:
+  case VAL_UNDEF_FALSE:
+  case VAL_UNDEF_TRUE:
     /*
      * (ite c l l) == l
      * (ite c l (not l)) == (iff c l) --> CHECK THIS: not clear that it helps
@@ -589,7 +593,8 @@ void assert_ite(gate_manager_t *m, literal_t c, literal_t l1, literal_t l2, bool
       add_unit_clause(s, l2);
       break;
 
-    case VAL_UNDEF:
+    case VAL_UNDEF_FALSE:
+    case VAL_UNDEF_TRUE:
       v1 = literal_base_value(s, l1);
       v2 = literal_base_value(s, l2);
       if (c == l1 || v1 == VAL_TRUE)  {

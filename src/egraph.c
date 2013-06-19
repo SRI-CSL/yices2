@@ -3577,7 +3577,7 @@ static void propagate_boolean_equality(egraph_t *egraph, bvar_t v1, bvar_t v2) {
       assert(egraph_term_is_true(egraph, atm->eterm) || 
              egraph_term_is_false(egraph, atm->eterm));
 
-      if (bvar_value(core, atm->boolvar) == VAL_UNDEF) {
+      if (bvar_is_unassigned(core, atm->boolvar)) {
         l = mk_lit(atm->boolvar, egraph_term_is_false(egraph, atm->eterm));
         propagate_literal(core, l, NULL);
         egraph->stats.th_props ++;
@@ -6273,7 +6273,8 @@ void egraph_expand_explanation(egraph_t *egraph, literal_t l, void *expl, ivecto
   case EGRAPH_ATM_TAG:
     a = (atom_t *) atom;
     assert(a->boolvar == var_of(l));
-    assert(bvar_value(egraph->core, var_of(l)) == egraph_term_truth_value(egraph, a->eterm));
+    assert(literal_is_assigned(egraph->core, l) &&
+	   bvar_value(egraph->core, var_of(l)) == egraph_term_truth_value(egraph, a->eterm));
     u = mk_occ(a->eterm, sign_of(l));
     /*
      * Build the explanation for u == true

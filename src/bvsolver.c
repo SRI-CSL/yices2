@@ -6090,7 +6090,8 @@ static void diagnose_bvequiv(bv_solver_t *solver, thvar_t x1, thvar_t y1) {
       fflush(stdout);
       return;
 
-    case VAL_UNDEF:
+    case VAL_UNDEF_FALSE:
+    case VAL_UNDEF_TRUE:
       break;
     }
   }
@@ -7186,7 +7187,7 @@ static bool bv_solver_var_equal_in_model(bv_solver_t *solver, thvar_t x1, thvar_
     assert(l1 != null_literal && l2 != null_literal);
     v1 = literal_value(core, l1);
     v2 = literal_value(core, l2);
-    assert(v1 != VAL_UNDEF && v2 != VAL_UNDEF);
+    assert(bval_is_def(v1) && bval_is_def(v2));
     if (v1 != v2) {
       return false;
     }
@@ -7228,7 +7229,7 @@ static uint32_t bvsolver_word_value_in_model(bv_solver_t *solver, thvar_t x, uin
   for (i=k; i<n; i++) {
     s = mx[i];
     l = remap_table_find(rmap, s);
-    assert(l != null_literal && literal_value(core, l) != VAL_UNDEF);
+    assert(l != null_literal && literal_is_assigned(core, l));
     if (literal_value(core, l) == VAL_TRUE) {
       c |= 1; // set low-order bit
     }
@@ -7627,7 +7628,8 @@ static bool get_bitblasted_var_value(bv_solver_t *solver, thvar_t x, uint32_t *c
       bvconst_set_bit(c, i);
       break;
 
-    case VAL_UNDEF:
+    case VAL_UNDEF_FALSE:
+    case VAL_UNDEF_TRUE:
       return false;
     }
   }
@@ -7656,7 +7658,8 @@ static bool get_bvarray_value(bv_solver_t *solver, literal_t *a, uint32_t n, uin
       bvconst_set_bit(c, i);
       break;
 
-    case VAL_UNDEF:
+    case VAL_UNDEF_FALSE:
+    case VAL_UNDEF_TRUE:
       return false;
     }
   }

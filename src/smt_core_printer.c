@@ -8,7 +8,7 @@
 
 
 static const char * const bval2string[] = {
-  "false", "undef", "true", "<invalid bval>",
+  "undef", "undef", "false", "true", "<invalid bval>",
 };
 
 static const char * const status2string[] = {

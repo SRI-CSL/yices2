@@ -19,6 +19,8 @@
  *   no composite that may conflict with it.
  */
 
+#include <inttypes.h>
+
 #include "prng.h"
 
 #include "memalloc.h"
@@ -29,6 +31,7 @@
 #include "ptr_partitions.h"
 #include "hash_functions.h"
 #include "int_hash_classes.h"
+#include "tracer.h"
 
 #include "fun_trees.h"
 #include "fun_solver.h"
@@ -39,7 +42,6 @@
 #if TRACE
 
 #include <stdio.h>
-#include <inttypes.h>
 
 #include "smt_core_printer.h"
 #include "egraph_printer.h"
@@ -1764,11 +1766,12 @@ static bool update_conflicts(fun_solver_t *solver) {
 
 
  done:
-#if TRACE
   if (num_updates > 0) {
+    tprintf(solver->core->trace, 3, "(final check: %"PRIu32" update lemmas)\n", num_updates);
+#if TRACE
     printf("---> ARRAY SOLVER: update axioms in %"PRIu32" classes out of %"PRIu32"\n", num_updates, n);
-  }
 #endif
+  }
 
   // cleanup  
   egraph_reset_app_partition(egraph);

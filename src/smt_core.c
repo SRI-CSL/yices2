@@ -1396,24 +1396,20 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   /*
    * Variable-indexed arrays
    *
-   * level is indexed from -1 to n-1
+   * level and value are indexed from -1 to n-1
    * level[-1] = UINT32_MAX (never assigned, marker variable)
+   * value[-1] = VAL_UNDEF_FALSE (not assigned)
    */
+  s->value = (uint8_t *) safe_malloc((n + 1) * sizeof(uint8_t)) + 1;
   s->antecedent = (antecedent_t *) safe_malloc(n * sizeof(antecedent_t)); 
   s->level = (uint32_t *) safe_malloc((n + 1) * sizeof(uint32_t)) + 1;
   s->mark = allocate_bitvector(n);
-  s->polarity = allocate_bitvector(n);
   s->level[-1] = UINT32_MAX;
+  s->value[-1] = VAL_UNDEF_FALSE;
 
   /*
    * Literal-indexed arrays
-   *
-   * value is indexed from -2 to 2n-1:
-   * value[-2] = value[-1] = VAL_UNDEF (end markers for clauses)
    */
-  s->value = (uint8_t *) safe_malloc((lsize + 2) * sizeof(uint8_t)) + 2;
-  s->value[-2] = VAL_UNDEF; // end_learned marker
-  s->value[-1] = VAL_UNDEF; // end_clause marker
   s->bin = (literal_t **) safe_malloc(lsize * sizeof(literal_t *));
   s->watch = (link_t *) safe_malloc(lsize * sizeof(link_t));
 
@@ -1422,9 +1418,11 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
    */
   assert(const_bvar == 0 && true_literal == 0 && false_literal == 1 && s->nvars > 0);
   s->level[const_bvar] = 0;
-  s->value[true_literal] = VAL_TRUE;
-  s->value[false_literal] = VAL_FALSE;
+  s->value[const_bvar] = VAL_TRUE;
   set_bit(s->mark, const_bvar);
+  assert(literal_value(s, true_literal) == VAL_TRUE && 
+	 literal_value(s, false_literal) == VAL_FALSE);
+
   s->bin[true_literal] = NULL;
   s->bin[false_literal] = NULL;
   s->watch[true_literal] = NULL_LINK;
@@ -1484,13 +1482,12 @@ void delete_smt_core(smt_core_t *s) {
   delete_ivector(&s->binary_clauses);
 
   // var-indexed arrays  
+  safe_free(s->value - 1);
   safe_free(s->antecedent);
   safe_free(s->level - 1);
   delete_bitvector(s->mark);
-  delete_bitvector(s->polarity);
 
   // literal-indexed arrays
-  safe_free(s->value - 2);
   n = s->nlits;
   for (i=0; i<n; i++) {
     delete_literal_vector(s->bin[i]);
@@ -1598,12 +1595,11 @@ static void extend_smt_core(smt_core_t *s, uint32_t n) {
   s->vsize = n;
   s->lsize = lsize;
 
+  s->value = (uint8_t *) safe_realloc(s->value - 1, (n + 1) * sizeof(uint8_t)) + 1;
   s->antecedent = (antecedent_t *) safe_realloc(s->antecedent, n * sizeof(antecedent_t));
   s->level = (uint32_t *) safe_realloc(s->level - 1, (n + 1) * sizeof(uint32_t)) + 1;
   s->mark = extend_bitvector(s->mark, n);
-  s->polarity = extend_bitvector(s->polarity, n);
 
-  s->value = (uint8_t *) safe_realloc(s->value - 2, (lsize + 2) * sizeof(uint8_t)) + 2;
   s->bin = (literal_t **) safe_realloc(s->bin, lsize * sizeof(literal_t *));
   s->watch = (link_t *) safe_realloc(s->watch, lsize * sizeof(link_t));
 
@@ -1662,11 +1658,10 @@ void smt_core_set_trace(smt_core_t *s, tracer_t *tracer) {
  * - antecedent[x] = NULL
  * - level[x] = UINT32_MAX
  * - mark[x] = 0
- * - polarity[x] = 0 (negative polarity preferred)
+ * - value[x] = VAL_UNDEF_FALSE (negative polarity preferred)
  * - activity[x] = 0 (in heap)
  *
  * For l=pos_lit(x) or neg_lit(x):
- * - value[l] = VAL_UNDEF
  * - bin[l] = NULL
  * - watch[l] = NULL
  */
@@ -1674,9 +1669,9 @@ static void init_variable(smt_core_t *s, bvar_t x) {
   literal_t l0, l1;
 
   clr_bit(s->mark, x);
-  clr_bit(s->polarity, x);
-  s->level[x] = UINT32_MAX;
+  s->value[x] = VAL_UNDEF_FALSE;
   s->antecedent[x] = mk_literal_antecedent(null_literal);
+  s->level[x] = UINT32_MAX;
 
   // HACK for testing initial order
   //  assert(s->heap.heap_index[x] < 0);
@@ -1686,8 +1681,6 @@ static void init_variable(smt_core_t *s, bvar_t x) {
 
   l0 = pos_lit(x);
   l1 = neg_lit(x);
-  s->value[l0] = VAL_UNDEF;
-  s->value[l1] = VAL_UNDEF;
   s->bin[l0] = NULL;
   s->bin[l1] = NULL;
   s->watch[l0] = NULL_LINK;
@@ -1833,17 +1826,18 @@ static void assign_literal(smt_core_t *s, literal_t l) {
   printf(", decision level = %"PRIu32"\n", s->decision_level);
 #endif
   assert(0 <= l && l < s->nlits);
-  assert(s->value[l] == VAL_UNDEF);
+  assert(literal_is_unassigned(s, l));
   assert(s->decision_level == s->base_level);
 
-  s->value[l] = VAL_TRUE;
-  s->value[not(l)] = VAL_FALSE;
   push_literal(&s->stack, l);
 
   v = var_of(l);
+  s->value[v] = (VAL_TRUE ^ sign_of_lit(l));
   s->level[v] = s->base_level;
   s->antecedent[v] = mk_literal_antecedent(null_literal);
   set_bit(s->mark, v); // assigned at (or below) base_level
+
+  assert(literal_value(s, l) == VAL_TRUE && literal_value(s, not(l)) == VAL_FALSE);
 }
 
 
@@ -1855,8 +1849,8 @@ void decide_literal(smt_core_t *s, literal_t l) {
   uint32_t k;
   bvar_t v;
 
-  assert((s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED) 
-         && s->value[l] == VAL_UNDEF);
+  assert(s->status == STATUS_SEARCHING || s->status == STATUS_INTERRUPTED);
+  assert(literal_is_unassigned(s, l));
 
   s->stats.decisions ++;
 
@@ -1868,13 +1862,14 @@ void decide_literal(smt_core_t *s, literal_t l) {
   }
   s->stack.level_index[k] = s->stack.top;
 
-  s->value[l] = VAL_TRUE;
-  s->value[not(l)] = VAL_FALSE;
   push_literal(&s->stack, l);
 
   v = var_of(l);
+  s->value[v] = (VAL_TRUE ^ sign_of_lit(l));
   s->level[v] = k;
   s->antecedent[v] = mk_literal_antecedent(null_literal);
+
+  assert(literal_value(s, l) == VAL_TRUE && literal_value(s, not(l)) == VAL_FALSE);
 
   // Notify the theory solver
   s->th_ctrl.increase_decision_level(s->th_solver);
@@ -1895,7 +1890,7 @@ void decide_literal(smt_core_t *s, literal_t l) {
 static void implied_literal(smt_core_t *s, literal_t l, antecedent_t a) {
   bvar_t v;
 
-  assert(s->value[l] == VAL_UNDEF);
+  assert(literal_is_unassigned(s, l));
 
 #if TRACE
   printf("---> DPLL:   Implied literal ");
@@ -1905,24 +1900,25 @@ static void implied_literal(smt_core_t *s, literal_t l, antecedent_t a) {
 
   s->stats.propagations ++;
 
-  s->value[l] = VAL_TRUE;
-  s->value[not(l)] = VAL_FALSE;
   push_literal(&s->stack, l);
 
   v = var_of(l);
+  s->value[v] = (VAL_TRUE ^ sign_of_lit(l));
   s->level[v] = s->decision_level;
   s->antecedent[v] = a;
   if (s->decision_level == s->base_level) {
     set_bit(s->mark, v);
     s->nb_unit_clauses ++;
   }
+
+  assert(literal_value(s, l) == VAL_TRUE && literal_value(s, not(l)) == VAL_FALSE);
 }
 
 
 void propagate_literal(smt_core_t *s, literal_t l, void *expl) {
   bvar_t v;
 
-  assert(s->value[l] == VAL_UNDEF);
+  assert(literal_is_unassigned(s, l));
   assert(bvar_has_atom(s, var_of(l))); 
 
 #if TRACE
@@ -1934,17 +1930,18 @@ void propagate_literal(smt_core_t *s, literal_t l, void *expl) {
   s->stats.propagations ++;
   s->stats.th_props ++;
 
-  s->value[l] = VAL_TRUE;
-  s->value[not(l)] = VAL_FALSE;
   push_literal(&s->stack, l);
 
   v = var_of(l);
+  s->value[v] = (VAL_TRUE ^ sign_of_lit(l));
   s->level[v] = s->decision_level;
   s->antecedent[v] = mk_generic_antecedent(expl);
   if (s->decision_level == s->base_level) {
     set_bit(s->mark, v);
     s->nb_unit_clauses ++;
   }
+
+  assert(literal_value(s, l) == VAL_TRUE && literal_value(s, not(l)) == VAL_FALSE);
 }
 
 
@@ -1972,7 +1969,7 @@ literal_t select_unassigned_literal(smt_core_t *s) {
     if (rnd < s->scaled_random) {
       x = random_uint(s, s->nvars);
       assert(0 <= x && x < s->nvars);
-      if (v[pos_lit(x)] == VAL_UNDEF) {
+      if (bval_is_undef(v[x])) {
 #if TRACE
 	printf("---> DPLL:   Random selection: variable ");
 	print_bvar(stdout, x);
@@ -1990,7 +1987,7 @@ literal_t select_unassigned_literal(smt_core_t *s) {
    */
   while (! heap_is_empty(&s->heap)) {
     x = heap_get_top(&s->heap);
-    if (v[pos_lit(x)] == VAL_UNDEF) {
+    if (bval_is_undef(v[x])) {
       goto var_found;
     }
   } 
@@ -2000,8 +1997,8 @@ literal_t select_unassigned_literal(smt_core_t *s) {
 
 
  var_found:
-  // if polarity[x] == 1 use pos_lit(x) otherwise use neg_lit(x)
-  return mk_signed_lit(x, tst_bit(s->polarity, x));
+  // if polarity x == 1 use pos_lit(x) otherwise use neg_lit(x)
+  return mk_signed_lit(x, v[x] & 1);
 }
 
 
@@ -2017,7 +2014,7 @@ bvar_t select_most_active_bvar(smt_core_t *s) {
   v = s->value;
   while (! heap_is_empty(&s->heap)) {
     x = heap_get_top(&s->heap);
-    if (v[pos_lit(x)] == VAL_UNDEF) {
+    if (bval_is_undef(v[x])) {
       goto var_found;
     }
   } 
@@ -2044,7 +2041,7 @@ bvar_t select_random_bvar(smt_core_t *s) {
   x = random_uint(s, n); // 0 ... n-1
   assert(0 <= x && x < n);
 
-  if (v[pos_lit(x)] == VAL_UNDEF) return x;
+  if (bval_is_undef(v[x])) return x;
   
   if (all_variables_assigned(s)) return null_bvar;
 
@@ -2058,7 +2055,7 @@ bvar_t select_random_bvar(smt_core_t *s) {
     y += d;
     if (y > n) y -= n;
     assert(x != y); // don't loop
-  } while (v[pos_lit(y)] != VAL_UNDEF);
+  } while (bval_is_def(v[y]));
 
   return y;
 }
@@ -2164,17 +2161,15 @@ static void backtrack(smt_core_t *s, uint32_t back_level) {
     i --;
     l = u[i];
 
-    assert(s->value[l] == VAL_TRUE);
+    assert(literal_value(s, l) == VAL_TRUE);
     assert(s->level[var_of(l)] > back_level);
 
-    s->value[l] = VAL_UNDEF;
-    s->value[not(l)] = VAL_UNDEF;
-
+    // clear assignment of x, keep polarity bit
     x = var_of(l);
+    s->value[x] &= 1;
     heap_insert(&s->heap, x);
 
-    // save current polarity: 0 if l =neg_lit(x), 1 if l = pos_lit(x);
-    assign_bit(s->polarity, x, is_pos(l));
+    assert(literal_value(s, l) == VAL_UNDEF_TRUE);
   }
 
   s->stack.top = i;
@@ -2339,6 +2334,14 @@ void record_ternary_theory_conflict(smt_core_t *s, literal_t l1, literal_t l2, l
  ************************/
 
 /*
+ * Short cut: lit_val(v, l) is value of l
+ * - v must be equal to solver->value
+ */
+static inline bval_t lit_val(uint8_t *v, literal_t l) {
+  return v[var_of(l)] ^ sign_of_lit(l);
+}
+
+/*
  * Propagation via binary clauses:
  * - val = literal value array (must be s->value)
  * - l0 = literal (must be false in the current assignment)
@@ -2352,19 +2355,19 @@ static inline bool propagation_via_bin_vector(smt_core_t *s, uint8_t *val, liter
   bval_t v1;
 
   assert(v != NULL);
-  assert(s->value == val && s->bin[l0] == v && s->value[l0] == VAL_FALSE);
+  assert(s->value == val && s->bin[l0] == v && literal_value(s, l0) == VAL_FALSE);
 
   for (;;) {
     // Search for non-true literals in v
     // This terminates since val[end_marker] = VAL_UNDEF
     do {
       l1 = *v ++;
-      v1 = val[l1];
+      v1 = lit_val(val, l1);
     } while (v1 == VAL_TRUE);
 
     if (l1 < 0) break; // end_marker
 
-    if (v1 == VAL_UNDEF) {
+    if (bval_is_undef(v1)) {
       implied_literal(s, l1, mk_literal_antecedent(l0));
     } else {
       record_binary_conflict(s, l0, l1);
@@ -2399,7 +2402,7 @@ static inline bool propagation_via_watched_list(smt_core_t *s, uint8_t *val, lit
     cl = clause_of(link);
     i = idx_of(link);
     l1 = get_other_watch(cl, i);
-    v1 = val[l1];
+    v1 = lit_val(val, l1);
 
     assert(next_of(link) == cl->link[i]);
     assert(cdr_ptr(link) == cl->link + i);
@@ -2423,7 +2426,7 @@ static inline bool propagation_via_watched_list(smt_core_t *s, uint8_t *val, lit
       do {
         k ++;
         l = b[k];
-      } while (val[l] == VAL_FALSE);
+      } while (lit_val(val, l) == VAL_FALSE);
       
       if (l >= 0) {
         /*
@@ -2442,7 +2445,7 @@ static inline bool propagation_via_watched_list(smt_core_t *s, uint8_t *val, lit
         /*
          * All literals of cl, except possibly l1, are false
          */
-        if (v1 == VAL_UNDEF) {
+	if (bval_is_undef(v1)) {
           // l1 is implied
           implied_literal(s, l1, mk_clause_antecedent(cl, i^1));
 
@@ -2694,7 +2697,7 @@ static void add_learned_clause(smt_core_t *s, uint32_t n, literal_t *a) {
   if (n == 1) { 
 
     backtrack_to_base_level(s);
-    if (s->value[l0] == VAL_FALSE) {
+    if (literal_value(s, l0) == VAL_FALSE) {
       // conflict (the whole thing is unsat)
       s->inconsistent = true;
       s->conflict = s->conflict_buffer;
@@ -2866,7 +2869,7 @@ static void try_cache_theory_conflict(smt_core_t *s, uint32_t n, literal_t *a) {
   // remove literals false at the base level
   for (i=0; i<n; i++) {
     l = a[i];
-    assert(s->value[l] == VAL_FALSE && d_level(s, l) <= s->decision_level);
+    assert(literal_value(s, l) == VAL_FALSE && d_level(s, l) <= s->decision_level);
     if (d_level(s, l) > s->base_level) {
       ivector_push(v, l);
     }
@@ -2901,14 +2904,14 @@ static void try_cache_theory_implication(smt_core_t *s, uint32_t n, literal_t *a
   v = &s->buffer2;
   assert(v->size == 0);
 
-  assert(d_level(s, l0) == s->decision_level && s->value[l0] == VAL_TRUE);
+  assert(d_level(s, l0) == s->decision_level && literal_value(s, l0) == VAL_TRUE);
   ivector_push(v, l0);
   
   // turn the implication into a clause
   // ignore literals assigned at the base level
   for (i=0; i<n; i++) {
     l = a[i];
-    assert(s->value[l] == VAL_TRUE && d_level(s, l) <= s->decision_level);
+    assert(literal_value(s, l) == VAL_TRUE && d_level(s, l) <= s->decision_level);
     if (d_level(s, l) > s->base_level) {
       ivector_push(v, not(l));
     }
@@ -2937,7 +2940,7 @@ static void try_cache_theory_implication(smt_core_t *s, uint32_t n, literal_t *a
  * must be before l in the assignment/propagation stack.
  */
 static void explain_antecedent(smt_core_t *s, literal_t l, antecedent_t a) {
-  assert(s->value[l] == VAL_TRUE && a == s->antecedent[var_of(l)] && 
+  assert(literal_value(s, l) == VAL_TRUE && a == s->antecedent[var_of(l)] && 
          antecedent_tag(a) == generic_tag);
 
   ivector_reset(&s->explanation);
@@ -3166,7 +3169,7 @@ static uint32_t get_conflict_level(smt_core_t *s, literal_t *a) {
   for (;;) {
     l = a[i];
     if (l < 0) break;
-    assert(s->value[l] == VAL_FALSE);
+    assert(literal_value(s, l) == VAL_FALSE);
     q = d_level(s, l);
     if (q > k) { 
       k = q;
@@ -3502,16 +3505,16 @@ static void add_simplified_binary_clause(smt_core_t *s, literal_t l0, literal_t 
   direct_binary_clause(s, l0, l1); // add the clause
 
   if (s->base_level == s->decision_level) {
-    assert(s->value[l0] == VAL_UNDEF && s->value[l1] == VAL_UNDEF);
+    assert(literal_is_unassigned(s, l0) && literal_is_unassigned(s, l1));
     return;
   }
 
   k0 = UINT32_MAX; 
   k1 = UINT32_MAX;
-  v0 = s->value[l0];
-  if (v0 != VAL_UNDEF) k0 = s->level[var_of(l0)];
-  v1 = s->value[l1];
-  if (v1 != VAL_UNDEF) k1 = s->level[var_of(l1)];
+  v0 = literal_value(s, l0);
+  if (bval_is_def(v0)) k0 = s->level[var_of(l0)];
+  v1 = literal_value(s, l1);
+  if (bval_is_def(v1)) k1 = s->level[var_of(l1)];
 
   if (v0 == VAL_FALSE && k0 < k1) {
     // l1 implied at level k0
@@ -3543,7 +3546,7 @@ static void add_simplified_binary_clause(smt_core_t *s, literal_t l0, literal_t 
  * that are minimal for a preference relation <
  *
  * To compare l and l', we look at 
- *  (v  k) where v = value of l and k = level of l
+ *  (v  k)  where v  = value of l  and k  = level of l
  *  (v' k') where v' = value of l' and k' = level of l'
  *
  * Rules:
@@ -3557,14 +3560,31 @@ static void add_simplified_binary_clause(smt_core_t *s, literal_t l0, literal_t 
  *
  * Prefer returns true if (v1, k1) < (v2, k2)
  */
-static inline bool prefer(bval_t v1, uint32_t k1, bval_t v2, uint32_t k2) {
-  if (v1 == v2) {
+
+/*
+ * Priority table: 
+ * - prio[true] = 1
+ * - prio[undef] = 0
+ * - prio[false]  = -1
+ *
+ * If prio[v1] > prio[v2] then v1 is preferred
+ * If prio[v1] = prio[v2] 
+ */
+static const int8_t prio[4] = {
+  0, 0, -1, +1,
+};
+
+static bool prefer(bval_t v1, uint32_t k1, bval_t v2, uint32_t k2) {
+  int8_t p1, p2;
+  p1 = prio[v1];
+  p2 = prio[v2];
+  if (p1 == p2) {
     return (v1 == VAL_TRUE && k1 < k2) || (v1 == VAL_FALSE && k1 > k2);
   } else {
-    assert(VAL_TRUE > VAL_UNDEF && VAL_UNDEF > VAL_FALSE);
-    return v1 > v2; 
+    return p1 > p2;
   }
 }
+
 
 /*
  * Add simplified clause { a[0] ... a[n-1] }
@@ -3586,11 +3606,11 @@ static void add_simplified_clause(smt_core_t *s, uint32_t n, literal_t *a) {
 
   // find watched literals
   l = a[0];
-  v0 = s->value[l];
+  v0 = literal_value(s, l);
   k0 = s->level[var_of(l)];
 
   l = a[1];
-  v1 = s->value[l];
+  v1 = literal_value(s, l);
   k1 = s->level[var_of(l)];
   if (prefer(v1, k1, v0, k0)) {
     // swap a[0] and a[1]
@@ -3601,7 +3621,7 @@ static void add_simplified_clause(smt_core_t *s, uint32_t n, literal_t *a) {
 
   for (i=2; i<n; i++) {
     l = a[i];
-    v = s->value[l];
+    v = literal_value(s, l);
     k = s->level[var_of(l)];
     if (prefer(v, k, v0, k0)) {
       // circular rotation: a[i] --> a[0] --> a[1] --> a[i]
@@ -3621,8 +3641,8 @@ static void add_simplified_clause(smt_core_t *s, uint32_t n, literal_t *a) {
 
   cl = new_problem_clause(s, n, a);
 
-  if (v0 == VAL_UNDEF) k0 = UINT32_MAX;
-  if (v1 == VAL_UNDEF) k1 = UINT32_MAX;
+  if (bval_is_undef(v0)) k0 = UINT32_MAX;
+  if (bval_is_undef(v1)) k1 = UINT32_MAX;
 
   if (v0 == VAL_FALSE && k0 < k1) {
     // a[1] implied at level k0
@@ -3688,9 +3708,13 @@ static bool preprocess_clause(smt_core_t *s, uint32_t *n, literal_t *a) {
   for (i=0; i<m; i++) {
     l = a[i];
     switch (literal_base_value(s, l)) {
-    case VAL_FALSE: break;
-    case VAL_UNDEF: a[j++] = l; break;
-    case VAL_TRUE: return false; // true clause
+    case VAL_FALSE: 
+      break;
+    case VAL_UNDEF_FALSE:
+    case VAL_UNDEF_TRUE: 
+      a[j++] = l; break;
+    case VAL_TRUE:
+      return false; // true clause
     }
   }
 
@@ -3772,11 +3796,11 @@ void add_unit_clause(smt_core_t *s, literal_t l) {
 
   assert(0 <= l && l < s->nlits);
 
-  if (s->value[l] == VAL_TRUE && s->level[var_of(l)] <= s->base_level) {
+  if (literal_value(s, l) == VAL_TRUE && s->level[var_of(l)] <= s->base_level) {
     return; // l is already true at the base level
   }
 
-  if (s->value[l] == VAL_FALSE) {
+  if (literal_value(s, l) == VAL_FALSE) {
     // conflict (the whole thing is unsat)
     s->inconsistent = true;
     s->conflict = s->conflict_buffer;
@@ -4084,13 +4108,13 @@ static void cleanup_watch_lists(smt_core_t *s) {
  * Check whether cl is an antecedent clause
  */
 static bool clause_is_locked(smt_core_t *s, clause_t *cl) {
-  literal_t l0, l1;
+  bvar_t x0, x1;
 
-  l0 = get_first_watch(cl);
-  l1 = get_second_watch(cl);
+  x0 = var_of(get_first_watch(cl));
+  x1 = var_of(get_second_watch(cl));
 
-  return (s->value[l0] != VAL_UNDEF && s->antecedent[var_of(l0)] == mk_clause0_antecedent(cl))
-    || (s->value[l1] != VAL_UNDEF && s->antecedent[var_of(l1)] == mk_clause1_antecedent(cl));
+  return (bval_is_def(s->value[x0]) && s->antecedent[x0] == mk_clause0_antecedent(cl))
+    || (bval_is_def(s->value[x1]) && s->antecedent[x1] == mk_clause1_antecedent(cl));
 }
 
 
@@ -4185,7 +4209,7 @@ static uint32_t unassigned_literals(smt_core_t *s, clause_t *cl) {
   a = cl->cl;
   l = *a;
   while (l >= 0) {
-    if (s->value[l] == VAL_UNDEF) n ++;
+    if (literal_is_unassigned(s,l)) n ++;
     a ++;
     l = *a;
   }
@@ -4233,9 +4257,27 @@ void remove_irrelevant_learned_clauses(smt_core_t *s) {
 
 
 
-/*********************************************************
+/***********************************************************
  *  SIMPLIFICATION: REMOVE CLAUSES TRUE AT THE BASE LEVEL  *
- ********************************************************/
+ **********************************************************/
+
+/*
+ * Variant of literal_value: l can be negative
+ */
+static inline bval_t unsafe_literal_value(smt_core_t *s, literal_t l) {
+  assert(end_learned <= l && l <= (int32_t) s->nlits);
+  return lit_val(s->value, l);
+}
+
+
+/*
+ * Variant of literal_is_unassigned (same reason)
+ */
+static inline bval_t unsafe_literal_is_unassigned(smt_core_t *s, literal_t l) {
+  assert(end_learned <= l && l <= (int32_t) s->nlits);
+  return bval_is_undef(s->value[var_of(l)]);
+}
+
 
 /*
  * Simplify clause cl, given the current literal assignment
@@ -4259,11 +4301,12 @@ static void simplify_clause(smt_core_t *s, clause_t *cl) {
   do {
     l = cl->cl[i];
     i ++;
-    switch (s->value[l]) {
-      //    case VAL_FALSE:
-      //      break;
+    switch (unsafe_literal_value(s, l)) {
+    case VAL_FALSE:
+      break;
 
-    case VAL_UNDEF:
+    case VAL_UNDEF_FALSE:
+    case VAL_UNDEF_TRUE:
       cl->cl[j] = l;
       j ++;
       break;
@@ -4294,7 +4337,7 @@ static void mark_true_clause(smt_core_t *s, clause_t *cl) {
   do {
     l = cl->cl[i];
     i ++;
-    if (s->value[l] == VAL_TRUE) {
+    if (unsafe_literal_value(s, l) == VAL_TRUE) {
       mark_for_removal(cl);
       return;
     }
@@ -4442,7 +4485,7 @@ static void cleanup_binary_clause_vector(smt_core_t *s, literal_t *v) {
   j = 0;
   do {
     l = v[i++];
-    if (s->value[l] == VAL_UNDEF) { //keep l
+    if (unsafe_literal_is_unassigned(s, l)) { //keep l
       v[j ++] = l;
     }    
   } while (l >= 0); // end-marker is copied too
@@ -4477,7 +4520,7 @@ static void simplify_binary_vectors(smt_core_t *s) {
       n = get_lv_size(v0);
       for (j=0; j<n; j++) {
         l1 = v0[j];
-        if (s->value[l1] == VAL_UNDEF) {
+	if (literal_is_unassigned(s, l1)) {
           // sol->bin[l1] is non null.
           assert(s->bin[l1] != NULL);
           cleanup_binary_clause_vector(s, s->bin[l1]);
@@ -4793,7 +4836,7 @@ static void clear_base_level_marks(smt_core_t *s) {
   for (i=s->stack.level_index[k]; i<n; i++) {
     l = u[i];
     x = var_of(l);
-    assert(s->value[l] == VAL_TRUE);
+    assert(literal_value(s, l) == VAL_TRUE);
     assert(s->level[x] == k);
     assert(is_var_marked(s, x));
     clr_var_mark(s, x);
@@ -4944,7 +4987,7 @@ static bool delete_variables(smt_core_t *s, uint32_t n) {
 
   m = s->nvars;
   for (x=n; x<m; x++) {
-    if (bvar_value(s, x) != VAL_UNDEF) return false;
+    if (bvar_is_assigned(s, x)) return false;
   }
 
   // delete the atoms
@@ -5201,8 +5244,7 @@ static void purge_all_dynamic_atoms(smt_core_t *s) {
       x = var_of(l);
       if (x >= base_nvars) {
         // variable to delete
-        s->value[l] = VAL_UNDEF;
-        s->value[not(l)] = VAL_UNDEF;
+        s->value[x] = VAL_UNDEF_FALSE;
       } else {
         // keep l
         u[j] = l;
@@ -5466,12 +5508,14 @@ static bool all_binary_clauses_are_true(smt_core_t *s) {
   literal_t l0, l, *v;
 
   for (l0=0; l0<s->nlits; l0++) {
-    if (s->value[l0] != VAL_TRUE) {
+    if (literal_value(s, l0) != VAL_TRUE) {
       // check whether l is true for all binary clauses {l0, l}
       v = s->bin[l0];
       if (v != NULL) {
         // this loop terminates with l<0 (end-marker) if all clauses {l0, l} are true
-        do { l = *v ++; } while (s->value[l] == VAL_TRUE);
+        do { 
+	  l = *v ++; 
+	} while (literal_value(s, l) == VAL_TRUE);
         if (l >= 0) return false;
       }
     }
@@ -5492,7 +5536,7 @@ static bool clause_is_true(smt_core_t *s, clause_t *cl) {
   do {
     l = cl->cl[i];
     i ++;
-    if (s->value[l] == VAL_TRUE) return true;
+    if (literal_value(s, l) == VAL_TRUE) return true;
   } while (l >= 0);
 
   return false;
@@ -5586,7 +5630,7 @@ static void check_heap_content(smt_core_t *s) {
   }
 
   for (x=0; x<s->nvars; x++) {
-    if (s->value[pos_lit(x)] == VAL_UNDEF && s->heap.heap_index[x] < 0) {
+    if (bval_is_undef(s->value[x]) && s->heap.heap_index[x] < 0) {
       printf("ERROR: incorrect heap: unassigned variable %"PRIu32" is not in the heap\n", x);
       fflush(stdout);
     }
@@ -5632,17 +5676,15 @@ static void check_heap(smt_core_t *s) {
  */
 static void check_propagation_bin(smt_core_t *s, literal_t l0) {
   literal_t l1, *v;
-  uint8_t *val;
 
   v = s->bin[l0];
-  val = s->value;
-  if (v == NULL || val[l0] != VAL_FALSE) return;
+  if (v == NULL || literal_value(s, l0) != VAL_FALSE) return;
 
   l1 = *v ++;
   while (l1 >= 0) {
-    if (val[l1] == VAL_UNDEF) {
+    if (literal_is_unassigned(s, l1)) {
       printf("ERROR: missed propagation. Binary clause {%"PRId32", %"PRId32"}\n", l0, l1);
-    } else if (val[l1] == VAL_FALSE) {
+    } else if (literal_value(s, l1) == VAL_FALSE) {
       printf("ERROR: missed conflict. Binary clause {%"PRId32", %"PRId32"}\n", l0, l1);
     }
     l1 = *v ++;
@@ -5669,32 +5711,34 @@ static void check_watch_list(smt_core_t *s, literal_t l, clause_t *cl) {
 static void check_propagation_clause(smt_core_t *s, clause_t *cl) {
   literal_t l0, l1, l;
   literal_t *d;
-  uint8_t *val;
   int32_t nf, nt, nu;
   uint32_t i;
+  bval_t v;
 
   nf = 0;
   nt = 0;
   nu = 0;
-  val = s->value;
 
   l0 = get_first_watch(cl);
-  nf += indicator(val[l0], VAL_FALSE);
-  nt += indicator(val[l0], VAL_TRUE);
-  nu += indicator(val[l0], VAL_UNDEF);
+  v = literal_value(s, l0);
+  nf += indicator(v, VAL_FALSE);
+  nt += indicator(v, VAL_TRUE);
+  nu += indicator(v, VAL_UNDEF_FALSE) + indicator(v, VAL_UNDEF_TRUE);
 
   l1 = get_second_watch(cl);
-  nf += indicator(val[l1], VAL_FALSE);
-  nt += indicator(val[l1], VAL_TRUE);
-  nu += indicator(val[l1], VAL_UNDEF);
+  v = literal_value(s, l1);
+  nf += indicator(v, VAL_FALSE);
+  nt += indicator(v, VAL_TRUE);
+  nu += indicator(v, VAL_UNDEF_FALSE) + indicator(v, VAL_UNDEF_TRUE);
 
   d = cl->cl;
   i = 2;
   l = d[i];
   while (l >= 0) {
-    nf += indicator(val[l], VAL_FALSE);
-    nt += indicator(val[l], VAL_TRUE);
-    nu += indicator(val[l], VAL_UNDEF);
+    v = literal_value(s, l);
+    nf += indicator(v, VAL_FALSE);
+    nt += indicator(v, VAL_TRUE);
+    nu += indicator(v, VAL_UNDEF_FALSE) + indicator(v, VAL_UNDEF_TRUE);
 
     i ++;
     l = d[i];
@@ -5810,7 +5854,7 @@ static void check_theory_conflict(smt_core_t *s, literal_t *a) {
   i = 0;
   l = a[i];
   while (l >= 0) {
-    if (s->value[l] != VAL_FALSE) {
+    if (literal_value(s, l) != VAL_FALSE) {
       printf("Warning: invalid theory conflict. Literal %"PRId32" is not false\n", l);
       printf("Conflict: ");
       print_literal_array(a);
@@ -5886,7 +5930,7 @@ static void check_theory_explanation(smt_core_t *s, literal_t l) {
   for (i=0; i<n; i++) {
     l0 = s->explanation.data[i];    
 
-    if (s->value[l0] != VAL_TRUE) {
+    if (literal_value(s, l0) != VAL_TRUE) {
       print_theory_explanation_warning(&s->explanation, l, &print);
       printf("Literal %"PRId32" should be true\n", l0);
 
@@ -5915,10 +5959,20 @@ static void print_lit_val_level(literal_t l, bval_t v, uint32_t k) {
   print_literal(stdout, l);
   printf(": value = ");
   print_bval(stdout, v);
-  if (v != VAL_UNDEF) {
+  if (bval_is_def(v)) {
     printf(" at level %"PRIu32, k);
   }
   printf("\n");
+}
+
+/*
+ * Check whether (v1, k1) must be preferred to (v2, k2) 
+ * - rule1:  (undef, _) < (false, _)
+ * - rule2:  k2 < k1 implies (false, k1) < (false, k2)
+ */
+static bool check_prefer(bval_t v1, uint32_t k1, bval_t v2, uint32_t k2) {
+  return (bval_is_undef(v1) && v2 == VAL_FALSE) 
+    || (v1 == VAL_FALSE && v2 == VAL_FALSE && k1 > k2);
 }
 
 static void check_watched_literals(smt_core_t *s, uint32_t n, literal_t *a) {
@@ -5927,18 +5981,18 @@ static void check_watched_literals(smt_core_t *s, uint32_t n, literal_t *a) {
   uint32_t k0, k1, k, i;
 
   l = a[0];
-  v0 = s->value[l];
+  v0 = literal_value(s, l);
   k0 = s->level[var_of(l)];
 
   l = a[1];
-  v1 = s->value[l];
+  v1 = literal_value(s, l);
   k1 = s->level[var_of(l)];
 
   for (i=2; i<n; i++) {
     l = a[i];
-    v = s->value[l];
+    v = literal_value(s, l);
     k = s->level[var_of(l)];
-    if (prefer(v, k, v0, k0) || prefer(v, k, v1, k1)) {
+    if (check_prefer(v, k, v0, k0) || check_prefer(v, k, v1, k1)) {
       goto error;
     }
   }
