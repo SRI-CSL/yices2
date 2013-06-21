@@ -5848,6 +5848,9 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
     params->c_factor = 1.1;  
     params->d_factor = 1.1; 
     params->randomness = 0.0;
+    // EXPERIMENTAL: FASTER RESTARTS
+    params->c_factor = 1.05;
+    params->d_factor = 1.05; 
     break;
 
   case CTX_ARCH_EGSPLX:       // egraph+simplex
@@ -5876,6 +5879,9 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
     params->d_factor = 1.1; 
     params->randomness = 0.0;
     params->max_interface_eqs = 15;
+    // EXPERIMENTAL: FASTER RESTARTS
+    params->c_factor = 1.05;
+    params->d_factor = 1.05; 
     break;
 
   case CTX_ARCH_IFW:

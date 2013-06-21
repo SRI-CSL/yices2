@@ -935,6 +935,7 @@ typedef struct dpll_stats_s {
  *   other operation. This also restores the state to idle.
  */
 #if 0
+// this type is now imported from yices_types.h
 typedef enum smt_status {
   STATUS_IDLE,
   STATUS_SEARCHING,
