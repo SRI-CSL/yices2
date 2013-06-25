@@ -331,7 +331,7 @@ static void clause_set_add(clause_set_t *cs, uint32_t k, literal_t *a) {
 
 
 /*
- * Short cuts for n=0, 1, and 2
+ * Short cuts for n=0, 1, 2, ajd 3
  */
 static inline void clause_set_add_empty_clause(clause_set_t *cs) {
   cs->has_empty_clause = true;
@@ -345,10 +345,18 @@ static inline void clause_set_add_binary_clause(clause_set_t *cs, literal_t l1, 
   literal_t aux[2];
 
   aux[0] = l1;
-  aux[2] = l2;
+  aux[1] = l2;
   fixed_lvector_add_clause(cs->set + 2, 2, aux);
 }
 
+static inline void clause_set_add_ternay_clause(clause_set_t *cs, literal_t l1, literal_t l2, literal_t l3) {
+  literal_t aux[3];
+
+  aux[0] = l1;
+  aux[1] = l2;
+  aux[2] = l3;
+  fixed_lvector_add_clause(cs->set + 3, 3, aux);
+}
 
 
 /*
@@ -560,6 +568,10 @@ void bool_vartable_add_unit_clause(bool_vartable_t *table, literal_t l1) {
 
 void bool_vartable_add_binary_clause(bool_vartable_t *table, literal_t l1, literal_t l2) {
   clause_set_add_binary_clause(&table->clauses, l1, l2);
+}
+
+void bool_vartable_add_ternary_clause(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
+  clause_set_add_ternary_clause(&table->clauses, l1, l2, l3);
 }
 
 

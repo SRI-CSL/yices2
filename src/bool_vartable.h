@@ -225,7 +225,7 @@ typedef struct clause_set_s {
 /*
  * Equality queue:
  * - each element in the queue is a pair of literals
- * - we keep to pointers: top = top of the stack
+ * - we keep two pointers: top = top of the stack
  * - prop_ptr = start of the queue
  *   equalities in data[prop_ptr ... top - 1] are to be processed
  */
@@ -257,7 +257,7 @@ typedef struct equiv_queue_s {
  *
  * - if tag[x] = BCONST or tag[x] = BVAR then desc[x] is not used (it's set to 0)
  * - if tag[x] = BGATE then desc[x] = index k in the gate array
- * - if tag[x] = BOR then desc[x] = index k in array data
+ * - if tag[x] = BOR then desc[x] = index k in array ordata
  */
 typedef struct bool_vartable_s {
   uint32_t nvars;   // number of variables 
@@ -419,7 +419,7 @@ static inline literal_t root_literal_map(bool_vartable_t *table, literal_t l) {
 }
 
 static inline literal_t root_literal_is_mapped(bool_vartable_t *table, literal_t l) {
-  return root_literal_map(table, l) != null_literal;
+  return root_boolvar_map(table, var_of(x)) != null_literal;
 }
 
 
@@ -557,6 +557,12 @@ static inline literal_t make_cmp(bool_vartable_t *table, literal_t l1, literal_t
 extern literal_t make_or(bool_vartable_t *table, uint32_t n, literal_t *a);
 extern literal_t make_and(bool_vartable_t *table, uint32_t n, literal_t *a);
 extern literal_t make_xor(bool_vartable_t *table, uint32_t n, literal_t *a);
+
+
+
+/*
+ * CLAUSE ADDITION
+ */
 
 
 
