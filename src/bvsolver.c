@@ -970,7 +970,7 @@ static void bv_solver_mark_vars_in_atoms(bv_solver_t *solver) {
 /*
  * Scan the variables
  * - if x == y in the merge table then mark both x and y
- * - also if x has an eterm mark x
+ * - also if x has an eterm, mark x
  */
 static void bv_solver_mark_merged_vars(bv_solver_t *solver) {
   bv_vartable_t *vtbl;
@@ -1039,7 +1039,7 @@ static void bv_solver_compile_polynomials(bv_solver_t *solver) {
     case BVTAG_POLY64:
     case BVTAG_POLY:
     case BVTAG_PPROD:
-      if (bvvar_is_useful(solver, i)) { // FOR TESTING
+      if (bvvar_is_useful(solver, i)) {
         bv_compiler_push_var(compiler, i);
       }
       break;
@@ -1260,7 +1260,7 @@ static bool merge_pseudo_map3(bv_solver_t *solver, thvar_t x, thvar_t y, thvar_t
   if (my != NULL) k |= 2;
   if (mz != NULL) k |= 1;
 
-  assert(0 <= k && k < 7);
+  assert(0 <= k && k <= 7);
   switch (k) {
   case 0:
     assert(mx == NULL && my == NULL && mz == NULL);

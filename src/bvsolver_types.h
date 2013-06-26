@@ -56,7 +56,7 @@
  ****************/
 
 /*
- * A bound on a variable 'x' an atom (x >= a) where a is a constant,
+ * A bound on a variable 'x' is an atom (x >= a) where a is a constant,
  * and the atom is either true or false at the top-level.
  * - the bounds on x are stored in a queue
  * - each element in the queue is an atom index 
@@ -153,7 +153,7 @@ typedef struct bv_interval_stack_s {
  * For such an x,  a literal l = (select x i) was
  * returned to the context, so 'x' must be considered
  * a top-level variable when bit-blasting. Also, this 
- * means that x has an pseudo map attached, and this pseudo
+ * means that x has a pseudo map attached, and this pseudo
  * map must be preserved by bv_solver_pop.
  *
  * Another queue stores the variables 'x' that were created at some level
@@ -298,9 +298,6 @@ typedef struct bv_stats_s {
  *  SOLVER  * 
  ***********/
 
-/*
- * Minimal solver for now: to test internalization
- */
 typedef struct bv_solver_s {
   /*
    * Attached smt core + egraph

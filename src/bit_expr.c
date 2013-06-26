@@ -432,7 +432,7 @@ typedef enum bit_shape {
 
 /*
  * Table: given k = type_kind(node_of(x)) << sign_of(x)
- * then shape[k] = its code shape
+ * then shape[k] = its shape code
  * - kind is one of UNUSED, CONSTANT, VARIABLE, OR_NODE, XOR_NODE
  * - sign is 0 or 1 (0 means positive, 1 means negative)
  */
