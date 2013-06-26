@@ -111,7 +111,7 @@ The source subdirectories include
 
 The following subdirectories are created/used during compilation:
 
-  ./configs:       configuration files for each platform. Each file store 
+  ./configs:       configuration files for each platform. Each file stores
                    compilation options and other settings used by the Makefile(s).       
 
   ./build:         where all object, executable, and library files are built
