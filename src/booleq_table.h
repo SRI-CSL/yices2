@@ -1,0 +1,9 @@
+/*
+ * EXPERIMENTAL: TABLE OF BOOLEAN EQUALITIES
+ */
+
+#ifndef __BOOLEQ_TABLE_H
+#define __BOOLEQ_TABLE_H
+
+
+#endif

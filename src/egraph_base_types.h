@@ -7,7 +7,7 @@
 #ifndef __EGRAPH_BASE_TYPES_H
 #define __EGRAPH_BASE_TYPES_H
 
-#include "smt_core.h"
+#include "smt_core_base_types.h"
 
 
 /***************************

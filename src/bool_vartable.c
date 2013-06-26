@@ -331,7 +331,7 @@ static void clause_set_add(clause_set_t *cs, uint32_t k, literal_t *a) {
 
 
 /*
- * Short cuts for n=0, 1, 2, ajd 3
+ * Short cuts for n=0, 1, 2, and 3
  */
 static inline void clause_set_add_empty_clause(clause_set_t *cs) {
   cs->has_empty_clause = true;
@@ -349,7 +349,7 @@ static inline void clause_set_add_binary_clause(clause_set_t *cs, literal_t l1, 
   fixed_lvector_add_clause(cs->set + 2, 2, aux);
 }
 
-static inline void clause_set_add_ternay_clause(clause_set_t *cs, literal_t l1, literal_t l2, literal_t l3) {
+static inline void clause_set_add_ternary_clause(clause_set_t *cs, literal_t l1, literal_t l2, literal_t l3) {
   literal_t aux[3];
 
   aux[0] = l1;

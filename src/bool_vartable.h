@@ -79,7 +79,7 @@
 
 #include "bitvectors.h"
 #include "int_hash_tables.h"
-#include "smt_core.h" 
+#include "smt_core_base_types.h" 
 
 
 /*
@@ -419,7 +419,7 @@ static inline literal_t root_literal_map(bool_vartable_t *table, literal_t l) {
 }
 
 static inline literal_t root_literal_is_mapped(bool_vartable_t *table, literal_t l) {
-  return root_boolvar_map(table, var_of(x)) != null_literal;
+  return root_boolvar_map(table, var_of(l)) != null_literal;
 }
 
 
