@@ -573,12 +573,10 @@ static void reset_heap(var_heap_t *heap) {
  * - ay = activity of y
  */
 static inline bool heap_cmp(bvar_t x, bvar_t y, double ax, double ay) {
-  /// EXPERIMENT: IGNORE ACTIVITIES
-  return x < y;
 #if BREAK_TIES
   return (ax > ay) || (ax == ay && x < y);
 #else
-  return ax > axy;
+  return ax > ay;
 #endif
 }
 
@@ -642,7 +640,7 @@ static void update_down(var_heap_t *heap, uint32_t i) {
   last = heap->heap_last;
   heap->heap_last = last - 1;
 
-  //  assert(i <= last && act[h[i]] >= act[h[last]]);
+  assert(i <= last && act[h[i]] >= act[h[last]]);
 
   if (last == i) return;  // last element was removed
 

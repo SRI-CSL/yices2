@@ -141,9 +141,9 @@ static inline literal_t bool2literal(bool tt) {
 /*
  * Assignment values for a literal or variable
  * - we use four values to encode the truth value of x
- *   when x is assigned and the preferred value when x is
+ *   when x is assigned, and the preferred value when x is
  *   not assigned.
- * - value[x] is interepreted as follows
+ * - value[x] is interpreted as follows
  *   VAL_UNDEF_FALSE = 0b00 --> x not assigned, preferred value = false
  *   VAL_UNDEF_TRUE  = 0b01 --> x not assigned, preferred value = true
  *   VAL_FALSE = 0b10       --> x assigned false
