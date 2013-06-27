@@ -16,7 +16,7 @@
 
 #define TRACE 0
 
-#if TRACE || 1
+#if TRACE
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -2463,7 +2463,7 @@ static void assert_toplevel_iff(context_t *ctx, term_t t1, term_t t2, bool tt) {
     l2 = internalize_to_literal(ctx, t2);
     assert_iff(&ctx->gate_manager, l1, l2, tt);
 
-#if 1
+#if 0
     if (tt) {
       printf("top assert: (eq ");
       print_literal(stdout, l1);
@@ -3841,7 +3841,7 @@ static void create_bv_solver(context_t *ctx) {
   }
 
   // EXPERIMENT
-  smt_core_make_etable(ctx->core);
+  //  smt_core_make_etable(ctx->core);
   // END
 
   bv_solver_init_jmpbuf(solver, &ctx->env);

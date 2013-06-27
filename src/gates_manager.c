@@ -236,9 +236,9 @@ static literal_t assert_xordef2(smt_core_t *s, literal_t l1, literal_t l2) {
   add_ternary_clause(s, l1, l2, not(l));
 
   // EXPERIMENTAL
-  if (s->etable != NULL) {
-    smt_core_record_xor_def(s, l, l1, l2);
-  }
+  //  if (s->etable != NULL) {
+  //    smt_core_record_xor_def(s, l, l1, l2);
+  //  }
 
   return l;
 }

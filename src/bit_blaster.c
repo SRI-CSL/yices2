@@ -992,7 +992,7 @@ static inline literal_t make_xor2(bit_blaster_t *s, literal_t a, literal_t b) {
   bit_blaster_assert_xor3(s, a, b, not(l));
 
   // EXPERIMENT
-  smt_core_record_xor_def(s->solver, l, a, b);
+  //  smt_core_record_xor_def(s->solver, l, a, b);
 
   return l;
 }
@@ -1114,7 +1114,7 @@ void bit_blaster_xor2_gate(bit_blaster_t *s, literal_t a, literal_t b, literal_t
     cbuffer_simplify(buffer);
   } else {
     // EXPERIMENTAL
-    smt_core_record_xor_def(s->solver, x, a, b);
+    //    smt_core_record_xor_def(s->solver, x, a, b);
   }
 
   commit_buffer(s, buffer);

@@ -15,7 +15,7 @@
 #define TRACE 0
 #define DEBUG 0
 
-#if DEBUG || TRACE || 1
+#if DEBUG || TRACE
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -1300,6 +1300,8 @@ static inline void reset_statistics(dpll_stats_t *stats) {
  *  EXPERIMENTAL: EQUALITY TABLE  *
  *********************************/
 
+#if 0
+
 /*
  * Allocate and initialize the etable
  */
@@ -1320,14 +1322,12 @@ void smt_core_record_xor_def(smt_core_t *s, literal_t l, literal_t a, literal_t 
   assert(s->etable != NULL);
   booleq_table_record_xor(s->etable, l, a, b);
 
-#if 1
   print_literal(stdout, l);
   printf(" := (xor ");
   print_literal(stdout, a);
   printf(" ");
   print_literal(stdout, b);
   printf(")\n");
-#endif
 }
 
 
@@ -1428,6 +1428,8 @@ static void test_eq_conflict(smt_core_t *s) {
     }    
   }
 }
+
+#endif
 
 
 /************************
@@ -1640,7 +1642,7 @@ void delete_smt_core(smt_core_t *s) {
   delete_checkpoint_stack(&s->checkpoints);
 
   // EXPERIMENTAL
-  delete_etable(s);
+  //  delete_etable(s);
 }
 
 
@@ -1716,7 +1718,7 @@ void reset_smt_core(smt_core_t *s) {
   s->th_ctrl.reset(s->th_solver);
 
   // EXPERIMENTAL
-  reset_etable(s);
+  //  reset_etable(s);
 }
 
 
@@ -2871,9 +2873,9 @@ static void add_learned_clause(smt_core_t *s, uint32_t n, literal_t *a) {
   } else {
 
     // EXPERIMENTAL
-    if (s->etable != NULL) {
-      test_eq_clause(s, "after simplification", n, a);
-    }
+    //    if (s->etable != NULL) {
+    //      test_eq_clause(s, "after simplification", n, a);
+    //    }
 
     // find literal of second highest level in a[0 ... n-1]
     j = 1;
@@ -3511,10 +3513,10 @@ static void resolve_conflict(smt_core_t *s) {
   }
 
   // EXPERIMENTAL
-  if (s->etable != NULL) {
-    test_eq_conflict(s);
-    //    test_eq_clause(s, "before simplification", s-> buffer.size, s->buffer.data);
-  }
+  //  if (s->etable != NULL) {
+  //    test_eq_conflict(s);
+  //    test_eq_clause(s, "before simplification", s-> buffer.size, s->buffer.data);
+  //  }
 
 
   /*
