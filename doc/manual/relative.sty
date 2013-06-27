@@ -1,0 +1,20 @@
+\def\smaller{\ifx\@currsize\Huge \protect\huge \else
+              \ifx\@currsize\huge \protect\LARGE \else
+               \ifx\@currsize\LARGE \protect\Large \else
+                \ifx\@currsize\Large \protect\large \else
+                 \ifx\@currsize\large \protect\normalsize \else
+                  \ifx\@currsize\normalsize \protect\small \else
+                   \ifx\@currsize\small \protect\footnotesize \else
+                    \ifx\@currsize\footnotesize \protect\scriptsize \else
+                       \protect\tiny
+                    \fi\fi\fi\fi\fi\fi\fi\fi}
+\def\larger{\ifx\@currsize\tiny \protect\scriptsize \else
+              \ifx\@currsize\scriptsize \protect\footnotesize \else
+               \ifx\@currsize\footnotesize \protect\small \else
+                \ifx\@currsize\small \protect\normalsize \else
+                 \ifx\@currsize\normalsize \protect\large \else
+                  \ifx\@currsize\large \protect\Large \else
+                   \ifx\@currsize\Large \protect\LARGE \else
+                    \ifx\@currsize\LARGE \protect\huge \else
+                       \protect\Huge
+                    \fi\fi\fi\fi\fi\fi\fi\fi}
