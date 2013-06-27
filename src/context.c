@@ -16,12 +16,13 @@
 
 #define TRACE 0
 
-#if TRACE
+#if TRACE || 1
 
 #include <stdio.h>
 #include <inttypes.h>
 
 #include "term_printer.h"
+#include "smt_core_printer.h"
 
 #endif
 
@@ -2461,6 +2462,22 @@ static void assert_toplevel_iff(context_t *ctx, term_t t1, term_t t2, bool tt) {
     l1 = internalize_to_literal(ctx, t1);
     l2 = internalize_to_literal(ctx, t2);
     assert_iff(&ctx->gate_manager, l1, l2, tt);
+
+#if 1
+    if (tt) {
+      printf("top assert: (eq ");
+      print_literal(stdout, l1);
+      printf(" ");
+      print_literal(stdout, l2);
+      printf(")\n");
+    } else {
+      printf("top assert: (xor ");
+      print_literal(stdout, l1);
+      printf(" ");
+      print_literal(stdout, l2);
+      printf(")\n");
+    }
+#endif
   }
 }
 
@@ -3822,6 +3839,10 @@ static void create_bv_solver(context_t *ctx) {
     init_smt_core(ctx->core, CTX_DEFAULT_CORE_SIZE, solver, bv_solver_ctrl_interface(solver),
                   bv_solver_smt_interface(solver), cmode);
   }
+
+  // EXPERIMENT
+  smt_core_make_etable(ctx->core);
+  // END
 
   bv_solver_init_jmpbuf(solver, &ctx->env);
   ctx->bv_solver = solver;

@@ -130,11 +130,11 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c arith_vartable.c \
 # + old stuff not needed anymore (except for tests)
 #
 extra_src_c := arith_buffers.c arith_solver_codes.c bvsolver_printer.c     \
-               bool_vartable.c command_line.c cputime.c context_printer.c  \
-               dsolver_printer.c egraph_printer.c egraph_eq_stats.c        \
-               fun_solver_printer.c gates_printer.c idl_fw_printer.c       \
-               internalization_printer.c large_bvsets.c memsize.c          \
-               pair_hash_map.c pair_hash_sets.c rdl_fw_printer.c           \
+               bool_vartable.c booleq_table.c command_line.c cputime.c     \
+               context_printer.c dsolver_printer.c egraph_printer.c        \
+               egraph_eq_stats.c fun_solver_printer.c gates_printer.c      \
+               idl_fw_printer.c internalization_printer.c large_bvsets.c   \
+               memsize.c pair_hash_map.c pair_hash_sets.c rdl_fw_printer.c \
                sat_solver.c simplex_printer.c simplex_prop_table.c         \
                smt_core_exporter.c smt_core_printer.c smt_lexer.c          \
                smt_parser.c smt2_commands.c smt2_lexer.c smt2_parser.c     \

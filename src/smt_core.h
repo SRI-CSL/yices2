@@ -41,6 +41,10 @@
 #include "yices_types.h"
 
 
+// EXPERIMENTAL
+#include "booleq_table.h"
+
+
 /***********
  * CLAUSES *
  **********/
@@ -966,6 +970,9 @@ typedef struct smt_core_s {
   checkpoint_stack_t checkpoints;
   bool cp_flag;  // set true when backtracking. false when checkpoints are added
 
+  /* EXPERIMENTAL (default to NULL) */
+  booleq_table_t *etable;
+
   /* Tracer object (default to NULL) */
   tracer_t *trace;
 
@@ -1072,6 +1079,19 @@ extern void reset_smt_core(smt_core_t *s);
  * - s->trace must be NULL
  */
 extern void smt_core_set_trace(smt_core_t *s, tracer_t *tracer);
+
+
+/*
+ * EXPERIMENTAL: create the etable
+ */
+extern void smt_core_make_etable(smt_core_t *s);
+
+
+/*
+ * EXPERIMENTAL: record l = (xor a b)
+ * - call smt_core_make_etable first
+ */
+extern void smt_core_record_xor_def(smt_core_t *s, literal_t l, literal_t a, literal_t b);
 
 
 

@@ -15,7 +15,7 @@
 #define TRACE 0
 #define DEBUG 0
 
-#if DEBUG || TRACE
+#if DEBUG || TRACE || 1
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -378,7 +378,7 @@ static inline void delete_literal_vector(literal_t *v) {
 /*
  * Remove the last literal from vector v
  */
-static inline void literal_vector_pop(literal_t *v) {
+static  void literal_vector_pop(literal_t *v) {
   uint32_t i;
 
   i = get_lv_size(v);
@@ -457,7 +457,7 @@ static void delete_stack(prop_stack_t *s) {
 /*
  * Push literal l on top of stack s
  */
-static inline void push_literal(prop_stack_t *s, literal_t l) {
+static void push_literal(prop_stack_t *s, literal_t l) {
   uint32_t i;
   i = s->top;
   s->lit[i] = l;
@@ -573,6 +573,8 @@ static void reset_heap(var_heap_t *heap) {
  * - ay = activity of y
  */
 static inline bool heap_cmp(bvar_t x, bvar_t y, double ax, double ay) {
+  /// EXPERIMENT: IGNORE ACTIVITIES
+  return x < y;
 #if BREAK_TIES
   return (ax > ay) || (ax == ay && x < y);
 #else
@@ -591,7 +593,7 @@ static inline bool heap_precedes(double *act, bvar_t x, bvar_t y) {
  * Move x up in the heap.
  * i = current position of x in the heap (or heap_last if x is being inserted)
  */
-static inline void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
+static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
   double ax, *act;
   int32_t *index;
   bvar_t *h, y;
@@ -628,7 +630,7 @@ static inline void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
  * Remove element at index i in the heap.
  * Replace it by the current last element.
  */
-static inline void update_down(var_heap_t *heap, uint32_t i) {
+static void update_down(var_heap_t *heap, uint32_t i) {
   double az, *act;
   int32_t* index; 
   bvar_t *h, x, y, z;
@@ -640,7 +642,7 @@ static inline void update_down(var_heap_t *heap, uint32_t i) {
   last = heap->heap_last;
   heap->heap_last = last - 1;
 
-  assert(i <= last && act[h[i]] >= act[h[last]]);
+  //  assert(i <= last && act[h[i]] >= act[h[last]]);
 
   if (last == i) return;  // last element was removed
 
@@ -700,7 +702,7 @@ static inline void update_down(var_heap_t *heap, uint32_t i) {
  * No effect if x is already in the heap.
  * - x must be between 0 and nvars - 1 
  */
-static inline void heap_insert(var_heap_t *heap, bvar_t x) {
+static void heap_insert(var_heap_t *heap, bvar_t x) {
   if (heap->heap_index[x] < 0) {
     // x not in the heap
     heap->heap_last ++;
@@ -751,7 +753,7 @@ static inline bool heap_is_empty(var_heap_t *heap) {
  * Get and remove the top element
  * - the heap must not be empty
  */
-static inline bvar_t heap_get_top(var_heap_t *heap) {  
+static bvar_t heap_get_top(var_heap_t *heap) {  
   bvar_t top;
 
   assert(heap->heap_last > 0);
@@ -1294,6 +1296,139 @@ static inline void reset_statistics(dpll_stats_t *stats) {
 
 
 
+/**********************************
+ *  EXPERIMENTAL: EQUALITY TABLE  *
+ *********************************/
+
+/*
+ * Allocate and initialize the etable
+ */
+void smt_core_make_etable(smt_core_t *s) {
+  booleq_table_t *tmp;
+
+  assert(s->etable == NULL);
+  tmp = (booleq_table_t *) safe_malloc(sizeof(booleq_table_t));
+  init_booleq_table(tmp);
+  s->etable = tmp;
+}
+
+
+/*
+ * Record l = (xor a b)
+ */
+void smt_core_record_xor_def(smt_core_t *s, literal_t l, literal_t a, literal_t b) {
+  assert(s->etable != NULL);
+  booleq_table_record_xor(s->etable, l, a, b);
+
+#if 1
+  print_literal(stdout, l);
+  printf(" := (xor ");
+  print_literal(stdout, a);
+  printf(" ");
+  print_literal(stdout, b);
+  printf(")\n");
+#endif
+}
+
+
+/*
+ * Delete the table if any
+ */
+static void delete_etable(smt_core_t *s) {
+  if (s->etable != NULL) {
+    delete_booleq_table(s->etable);
+    safe_free(s->etable);
+    s->etable = NULL;
+  }
+}
+
+
+/*
+ * Reset it
+ */
+static void reset_etable(smt_core_t *s) {
+  if (s->etable != NULL) {
+    reset_booleq_table(s->etable);
+  }
+}
+
+
+/*
+ * Display details about a learned clause if it contains
+ * at least two xor or equality atoms
+ */
+static void test_eq_clause(smt_core_t *s, const char *msg, uint32_t n, literal_t *a) {
+  uint32_t i, neq;
+  literal_t u, v;
+
+  assert(s->etable != NULL);
+
+  neq = 0;
+  for (i=0; i<n; i++) {
+    if (literal_is_eq(s->etable, a[i])) {
+      neq ++;
+    }
+  }
+  
+  if (neq >= 0) {
+    printf("\n--- Learned clause %"PRIu64" %s ---\n", s->stats.conflicts, msg);
+    printf("{");
+    for (i=0; i<n; i++) {
+      printf(" ");
+      print_literal(stdout, a[i]);
+    }
+    printf(" }\n");
+
+    for (i=0; i<n; i++) {
+      if (get_booleq(s->etable, not(a[i]), &u, &v)) {
+	print_literal(stdout, not(a[i]));
+	printf(" := (eq ");
+	print_literal(stdout, u);
+	printf(" ");
+	print_literal(stdout, v);
+	printf(")\n");
+      }
+    }
+    printf("\n");
+  }
+}
+
+
+/*
+ * Same thing for the conflict clause
+ */
+static void test_eq_conflict(smt_core_t *s) {
+  literal_t *c;
+  literal_t u, v;
+
+  assert(s->etable != NULL);
+
+  if (! s->theory_conflict) {
+    c = s->conflict;
+    printf("\n--- Conflict %"PRIu64" ---\n", s->stats.conflicts);
+    printf("{");
+    while (*c >= 0) {
+      printf(" ");
+      print_literal(stdout, *c);
+      c ++;
+    }
+    printf(" }\n");
+
+    c = s->conflict;
+    while (*c >= 0) {
+      if (get_booleq(s->etable, not(*c), &u, &v)) {
+	print_literal(stdout, not(*c));
+	printf(" := (eq ");
+	print_literal(stdout, u);
+	printf(" ");
+	print_literal(stdout, v);
+	printf(")\n");
+      }
+      c ++;
+    }    
+  }
+}
+
 
 /************************
  *  GENERAL OPERATIONS  *
@@ -1436,6 +1571,8 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   init_trail_stack(&s->trail_stack);
   init_checkpoint_stack(&s->checkpoints);
   s->cp_flag = false;
+
+  s->etable = NULL;
   s->trace = NULL;
 }
 
@@ -1501,6 +1638,9 @@ void delete_smt_core(smt_core_t *s) {
   delete_atom_table(&s->atoms);
   delete_trail_stack(&s->trail_stack);
   delete_checkpoint_stack(&s->checkpoints);
+
+  // EXPERIMENTAL
+  delete_etable(s);
 }
 
 
@@ -1574,6 +1714,9 @@ void reset_smt_core(smt_core_t *s) {
 
   // reset the theory solver
   s->th_ctrl.reset(s->th_solver);
+
+  // EXPERIMENTAL
+  reset_etable(s);
 }
 
 
@@ -1638,7 +1781,6 @@ void set_random_seed(smt_core_t *s, uint32_t x) {
 }
 
 
-
 /*
  * Set the trace file
  */
@@ -1646,6 +1788,9 @@ void smt_core_set_trace(smt_core_t *s, tracer_t *tracer) {
   assert(s->trace == NULL);
   s->trace = tracer;
 }
+
+
+
 
 
 
@@ -2121,7 +2266,7 @@ static void rescale_clause_activities(smt_core_t *s) {
 /*
  * Increase activity of learned clause cl
  */
-static inline void increase_clause_activity(smt_core_t *s, clause_t *cl) {
+static void increase_clause_activity(smt_core_t *s, clause_t *cl) {
   increase_activity(cl, s->cla_inc);
   if (get_activity(cl) > CLAUSE_ACTIVITY_THRESHOLD) {
     rescale_clause_activities(s);
@@ -2188,14 +2333,14 @@ static void backtrack(smt_core_t *s, uint32_t back_level) {
 /*
  * Cause both s and the theory solver to backtrack
  */
-static inline void backtrack_to_level(smt_core_t *s, uint32_t back_level) {
+static void backtrack_to_level(smt_core_t *s, uint32_t back_level) {
   if (back_level < s->decision_level) {
     backtrack(s, back_level);
     s->th_ctrl.backtrack(s->th_solver, back_level);
   }
 }
 
-static inline void backtrack_to_base_level(smt_core_t *s) {
+static void backtrack_to_base_level(smt_core_t *s) {
   backtrack_to_level(s, s->base_level);
 }
 
@@ -2208,7 +2353,7 @@ static inline void backtrack_to_base_level(smt_core_t *s) {
 /*
  * Record a two-literal conflict: clause {l0, l1} is false
  */
-static inline void record_binary_conflict(smt_core_t *s, literal_t l0, literal_t l1) {
+static void record_binary_conflict(smt_core_t *s, literal_t l0, literal_t l1) {
 #if TRACE
   printf("\n---> DPLL:   Binary conflict: {");
   print_literal(stdout, l0);
@@ -2230,7 +2375,7 @@ static inline void record_binary_conflict(smt_core_t *s, literal_t l0, literal_t
 /*
  * Record cl as a conflict clause
  */
-static inline void record_clause_conflict(smt_core_t *s, clause_t *cl) {
+static void record_clause_conflict(smt_core_t *s, clause_t *cl) {
 #if TRACE
   uint32_t i;
   literal_t ll;
@@ -2350,7 +2495,7 @@ static inline bval_t lit_val(uint8_t *v, literal_t l) {
  *
  * Return true if there's no conflict, false otherwise.
  */
-static inline bool propagation_via_bin_vector(smt_core_t *s, uint8_t *val, literal_t l0, literal_t *v) {
+static bool propagation_via_bin_vector(smt_core_t *s, uint8_t *val, literal_t l0, literal_t *v) {
   literal_t l1;
   bval_t v1;
 
@@ -2386,7 +2531,7 @@ static inline bool propagation_via_bin_vector(smt_core_t *s, uint8_t *val, liter
  *
  * Return true if there's no conflict, false otherwise
  */
-static inline bool propagation_via_watched_list(smt_core_t *s, uint8_t *val, literal_t l0) {
+static bool propagation_via_watched_list(smt_core_t *s, uint8_t *val, literal_t l0) {
   clause_t *cl;
   link_t *list;
   link_t link;
@@ -2725,6 +2870,11 @@ static void add_learned_clause(smt_core_t *s, uint32_t n, literal_t *a) {
 
   } else {
 
+    // EXPERIMENTAL
+    if (s->etable != NULL) {
+      test_eq_clause(s, "after simplification", n, a);
+    }
+
     // find literal of second highest level in a[0 ... n-1]
     j = 1;
     k = s->level[var_of(a[1])];
@@ -2958,7 +3108,7 @@ static void explain_antecedent(smt_core_t *s, literal_t l, antecedent_t a) {
  * b = array of literals
  * n = number of literals
  */
-static inline uint32_t signature(smt_core_t *s, literal_t *b, uint32_t n) {
+static uint32_t signature(smt_core_t *s, literal_t *b, uint32_t n) {
   uint32_t i, u;
 
   u = 0;
@@ -3360,6 +3510,13 @@ static void resolve_conflict(smt_core_t *s) {
     }
   }
 
+  // EXPERIMENTAL
+  if (s->etable != NULL) {
+    test_eq_conflict(s);
+    //    test_eq_clause(s, "before simplification", s-> buffer.size, s->buffer.data);
+  }
+
+
   /*
    * Simplify the learned clause and clear the marks
    */
@@ -3740,7 +3897,7 @@ static bool preprocess_clause(smt_core_t *s, uint32_t *n, literal_t *a) {
  * (if compiled in DEBUG mode also abort
  *  if s->status is not IDLE or SEARCHING or INTERRUPTED).
  */
-static inline bool on_the_fly(smt_core_t *s) {
+static bool on_the_fly(smt_core_t *s) {
   assert((s->status == STATUS_IDLE && s->decision_level == s->base_level) || 
          (s->status == STATUS_SEARCHING && s->decision_level >= s->base_level) || 
          (s->status == STATUS_INTERRUPTED && s->decision_level >= s->base_level));
@@ -3752,7 +3909,7 @@ static inline bool on_the_fly(smt_core_t *s) {
  * - if resolve conflict is called after this, it will do the 
  * right thing (namely, see that the conflict can't be resolved).
  */
-static inline void record_empty_conflict(smt_core_t *s) {
+static void record_empty_conflict(smt_core_t *s) {
   assert(s->decision_level == s->base_level);
 
 #if TRACE
@@ -4064,7 +4221,7 @@ static void quick_split(clause_t **a, uint32_t low, uint32_t high) {
 /*
  * Apply this to a vector v of learned_clauses
  */
-static inline void reorder_clause_vector(clause_t **v) {
+static void reorder_clause_vector(clause_t **v) {
   quick_split(v, 0, get_cv_size(v));
 }
 
@@ -4073,7 +4230,7 @@ static inline void reorder_clause_vector(clause_t **v) {
  * Auxiliary function: follow clause list of l0
  * Remove all clauses marked for removal
  */
-static inline void cleanup_watch_list(smt_core_t *s, literal_t l0) {
+static void cleanup_watch_list(smt_core_t *s, literal_t l0) {
   link_t lnk;
   clause_t *cl;
   link_t *list;
