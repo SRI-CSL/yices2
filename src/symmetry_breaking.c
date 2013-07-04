@@ -13,7 +13,7 @@
 
 #define TRACE 0
 
-#if TRACE || 1
+#if TRACE
 #include "term_printer.h"
 #endif
 
@@ -1558,10 +1558,12 @@ static void add_symmetry_breaking_clause(sym_breaker_t *breaker, term_t t, term_
      */
     add_aux_eq(ctx, t, c[0]);
 
-#if TRACE || 1
-    printf("Adding symmetry breaking constraint\n");
+#if TRACE
+    printf("Adding symmetry-breaking constraint\n");
     pretty_print_term_full(stdout, NULL, terms, make_aux_eq(terms, t, c[0]));
 #endif
+    tputs(ctx->trace, 5, "Adding symmetry-breaking constraint\n");
+    tpp_term(ctx->trace, 5, terms, make_aux_eq(terms, t, c[0]));
 
   } else {
     v = &breaker->aux;
@@ -1589,11 +1591,12 @@ static void add_symmetry_breaking_clause(sym_breaker_t *breaker, term_t t, term_
       intern_tbl_map_root(intern, or, bool2code(true));
       ivector_push(&ctx->top_formulas, or);
 
-#if TRACE || 1
+#if TRACE
       printf("Adding symmetry breaking constraint\n");
       pretty_print_term_full(stdout, NULL, terms, or);
 #endif
-
+      tputs(ctx->trace, 5, "Adding symmetry-breaking constraint\n");
+      tpp_term(ctx->trace, 5, terms, or);
     }
 
     ivector_reset(v);

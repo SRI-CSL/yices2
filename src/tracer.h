@@ -9,17 +9,23 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "yices_pp.h"
+#include "terms.h"
+#include "types.h"
+
 
 /*
  * Tracer structure:
  * - an open FILE
+ * + an optional pretty printing object
  * + a verbosity level (higher means more verbose)
  * + error codes if printing fails
  */
 typedef struct tracer_s {
   FILE *file;
+  yices_pp_t *pp;
   uint32_t vlevel;
-  bool print_failed;  // true if printing fails
+  bool print_failed;     // true if printing fails
   int err_code;          // copy of errno when failure was reported
 } tracer_t;
 
@@ -29,6 +35,7 @@ typedef struct tracer_s {
  */
 static inline void init_trace(tracer_t *tracer) {
   tracer->file = stderr;
+  tracer->pp = NULL;
   tracer->vlevel = 0;
   tracer->print_failed = false;
   tracer->err_code = 0;
@@ -36,7 +43,7 @@ static inline void init_trace(tracer_t *tracer) {
 
 
 /*
-i * Set verbosity level
+ * Set verbosity level
  */
 static inline void set_trace_vlevel(tracer_t *tracer, uint32_t level) {
   tracer->vlevel = level;
@@ -47,6 +54,7 @@ static inline void set_trace_vlevel(tracer_t *tracer, uint32_t level) {
  * Change output file:
  * - f must be open and writable
  * - reset the print_failed and err_code flags
+ * - also close and delete the tracer->pp object if there is one
  *
  * Warning: this function does not close the current tracer->file 
  */
@@ -84,6 +92,27 @@ extern void tputs(tracer_t *tracer, uint32_t level, const char *s);
  * Newline
  */
 extern void tnewline(tracer_t *trace, uint32_t level);
+
+
+/*
+ * Pretty printing:
+ * - the tracer->pp object is created and initialized on the 
+ *   first call to one of these functions (provided tracer->vlevle >= level)
+ */
+
+/*
+ * Pretty printing of term t + newline
+ * - tbl = corresponding term table
+ * - use the default printing area
+ */
+extern void tpp_term(tracer_t *trace, uint32_t level, term_table_t *tbl, term_t t);
+
+/*
+ * Pretty printing of type tau + newline
+ * - tbl = corresponding type table
+ * - use the default printing area
+ */
+extern void tpp_type(tracer_t *traced, uint32_t level, type_table_t *tbl, type_t tau);
 
 
 #endif /* __TRACER_H */

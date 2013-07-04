@@ -31,8 +31,11 @@ static aval_t get_aval(tstack_t *stack, stack_elem_t *e) {
 
   switch (e->tag) {
   case TAG_SYMBOL:
-  case TAG_STRING: 
     v = attr_vtbl_symbol(stack->avtbl, e->val.string);
+    break;
+
+  case TAG_STRING: 
+    v = attr_vtbl_string(stack->avtbl, e->val.string);
     break;
 
   case TAG_BV64:
