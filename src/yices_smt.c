@@ -1728,20 +1728,24 @@ static int process_benchmark(char *filename) {
   init_parser(&parser, &lexer, &stack);
   init_benchmark(&bench);
   code = parse_smt_benchmark(&parser, &bench);
-  if (code < 0) {
-    return YICES_EXIT_SYNTAX_ERROR;
+  if (code == 0) {
+    construction_time = get_cpu_time();
+    mem_used = mem_size() / (1024 * 1024);
+    print_benchmark(stdout, &bench);
+    printf("Construction time: %.4f s\n", construction_time);
+    printf("Memory used: %.2f MB\n", mem_used);
+    fflush(stdout);
   }
-
-  construction_time = get_cpu_time();
-  mem_used = mem_size() / (1024 * 1024);
-  print_benchmark(stdout, &bench);
-  printf("Construction time: %.4f s\n", construction_time);
-  printf("Memory used: %.2f MB\n", mem_used);
-  fflush(stdout);
 
   delete_parser(&parser);
   close_lexer(&lexer);
   delete_tstack(&stack);
+
+  if (code < 0) {
+    code = YICES_EXIT_SYNTAX_ERROR;
+    goto cleanup_benchmark;
+  }
+
 
   /*
    * Check whether the simplifier solved it
@@ -1749,10 +1753,8 @@ static int process_benchmark(char *filename) {
   if (benchmark_reduced_to_false(&bench)) {
     printf("\nReduced to false\n\nunsat\n");
     fflush(stdout);
-    delete_benchmark(&bench);
-    yices_exit();
-
-    return YICES_EXIT_SUCCESS;
+    code = YICES_EXIT_SUCCESS;
+    goto cleanup_benchmark;
   }
 
   /*
@@ -1897,12 +1899,14 @@ static int process_benchmark(char *filename) {
        * Not supported or unknown logic
        */
       print_internalization_code(LOGIC_NOT_SUPPORTED);
-      return YICES_EXIT_ERROR;
+      code = YICES_EXIT_ERROR;
+      goto cleanup_benchmark;
     }
 
   } else {
     fprintf(stderr, "No logic specified\n");
-    return YICES_EXIT_ERROR;
+    code = YICES_EXIT_ERROR;
+    goto cleanup_benchmark;
   }
 
 
@@ -1953,7 +1957,8 @@ static int process_benchmark(char *filename) {
   print_internalization_code(code);
   if (code < 0) {
     print_results();
-    return YICES_EXIT_ERROR;
+    code = YICES_EXIT_ERROR;
+    goto cleanup_context;
   }
 
   if (dump_context || dump_internalization) {
@@ -2009,14 +2014,24 @@ static int process_benchmark(char *filename) {
     dump_the_context(&context, &bench, "yices_end.dmp");
   }
 
+  code = YICES_EXIT_SUCCESS;
+
+
   /*
-   * Cleanup
+   * Cleanup and return code 
+   *
+   * To cleanup aftere an error: jump to cleanup_context if the error
+   * is detected after the context is initialized or to cleanup_benchmark
+   * if the error is detected before the context is initialized.
    */
+ cleanup_context:
   delete_context(&context);
+  delete_trace(&tracer);
+ cleanup_benchmark:
   delete_benchmark(&bench);
   yices_exit();
 
-  return YICES_EXIT_SUCCESS;
+  return code;
 }
 
 

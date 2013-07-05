@@ -64,10 +64,12 @@ void set_trace_file(tracer_t *tracer, FILE *f) {
 /*
  * Close the file (unless it's stderr)
  */
-void close_trace(tracer_t *tracer) {
+void delete_trace(tracer_t *tracer) {
   if (tracer->file != stderr) {
     fclose(tracer->file);
   }
+  tracer_delete_pp(tracer);
+  tracer->file = NULL;
 }
 
 

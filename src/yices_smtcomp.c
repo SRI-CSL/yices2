@@ -1022,13 +1022,10 @@ static int process_benchmark(void) {
 
   init_parser(&parser, &lexer, &stack);
   init_benchmark(&bench);
-  code = parse_smt_benchmark(&parser, &bench);
-  if (code < 0) {
-    return YICES_EXIT_SYNTAX_ERROR;
-  }
+  code = parse_smt_benchmark(&parser, &bench); // code < 0 means syntax error, 0 means OK
 
 #if COMMAND_LINE_OPTIONS
-  if (verbose) {
+  if (verbose && code == 0) {
     construction_time = get_cpu_time();
     mem_used = mem_size() / (1024 * 1024);
     print_benchmark(stderr, &bench);
@@ -1041,6 +1038,12 @@ static int process_benchmark(void) {
   delete_parser(&parser);
   close_lexer(&lexer);
   delete_tstack(&stack);
+
+  if (code < 0) {
+    code = YICES_EXIT_SYNTAX_ERROR;
+    goto cleanup_benchmark;
+  }
+
 
   /*
    * Select architecture based on the benchmark logic
@@ -1057,7 +1060,8 @@ static int process_benchmark(void) {
     code = logic2arch[logic];
     if (code < 0) {
       print_internalization_code(LOGIC_NOT_SUPPORTED);
-      return YICES_EXIT_ERROR;
+      code = YICES_EXIT_ERROR;
+      goto cleanup_benchmark;
     }
 
     arch = (context_arch_t) code;
@@ -1066,7 +1070,8 @@ static int process_benchmark(void) {
   } else {
     printf("unknown\n");
     printf("No logic specified\n");
-    return YICES_EXIT_ERROR;
+    code = YICES_EXIT_ERROR;
+    goto cleanup_benchmark;
   }
 
   /*
@@ -1195,7 +1200,8 @@ static int process_benchmark(void) {
   code = assert_formulas(&context, bench.nformulas, bench.formulas);
   print_internalization_code(code);
   if (code < 0) {
-    return YICES_EXIT_ERROR;
+    code = YICES_EXIT_ERROR;
+    goto cleanup_context;
   }
 
   if (code != TRIVIALLY_UNSAT) {
@@ -1305,14 +1311,24 @@ static int process_benchmark(void) {
 #endif
   }
 
+  code = YICES_EXIT_SUCCESS;
+
   /*
-   * Cleanup
+   * Cleanup and return code
    */
+ cleanup_context:
   delete_context(&context);
+#if COMMAND_LINE_OPTIONS
+  if (verbose) {
+    delete_trace(&tracer);
+  }
+#endif
+
+ cleanup_benchmark:
   delete_benchmark(&bench);
   yices_exit();
 
-  return YICES_EXIT_SUCCESS;
+  return code;
 }
 
 

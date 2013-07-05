@@ -727,6 +727,7 @@ static tracer_t *get_tracer(smt2_globals_t *g) {
  */
 static void delete_tracer(smt2_globals_t *g) {
   if (g->tracer != NULL) {
+    delete_trace(g->tracer);
     safe_free(g->tracer);
     g->tracer = NULL;
   }

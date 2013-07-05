@@ -2914,7 +2914,9 @@ void break_uf_symmetries(context_t *ctx) {
     }
     
   } else {
+#if TRACE_SYM_BREAKING
     printf("\n*** NO SYMMETRY CANDIDATES ***\n\n");
+#endif
   }
 
 

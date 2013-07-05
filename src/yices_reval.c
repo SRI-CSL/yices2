@@ -3038,8 +3038,12 @@ int yices_main(int argc, char *argv[]) {
     close_lexer(&lexer);
   }
   delete_tstack(&stack);
-  yices_exit();
   delete_ivector(&delayed_assertions);
+  if (verbose) {
+    delete_trace(&tracer);
+  }
+
+  yices_exit();
 
   if (timeout_initialized) {
     delete_timeout();

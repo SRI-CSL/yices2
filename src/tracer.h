@@ -53,13 +53,18 @@ static inline void set_trace_vlevel(tracer_t *tracer, uint32_t level) {
 /*
  * Change output file:
  * - f must be open and writable
+ * - close the current file if it's not stderr
  * - reset the print_failed and err_code flags
  * - also close and delete the tracer->pp object if there is one
- *
- * Warning: this function does not close the current tracer->file 
  */
 extern void set_trace_file(tracer_t *tracer, FILE *f);
 
+/*
+ * Close/delete the tracer
+ * - close the current file if it's not stderr
+ * - close and delete the pp object if any
+ */
+extern void delete_trace(tracer_t *tracer);
 
 /*
  * Output functions:
