@@ -87,7 +87,7 @@ enum smt2_errors {
  * - special constructors for indexed sort symbols, 
  *   indexed term symbols, and terms with sorts
  * - constructor for attribute list
- * - array theoru sort and functions
+ * - array theory sort and functions
  * - processing of term annotations
  */
 enum smt2_opcodes {
@@ -211,8 +211,8 @@ extern smt2_globals_t __smt2_globals;
 /*
  * Initialize all internal structures
  * - benchmark: if true, the input is assumed to be an SMT-LIB 2.0 benchmark
- *  (i.e., a set of assertions followed by a single call to check-sat)
- *  In this mode, destructive simplifications are allowed.
+ *   (i.e., a set of assertions followed by a single call to check-sat)
+ *   In this mode, destructive simplifications are allowed.
  * - this is called after yices_init so all Yices internals are ready
  */
 extern void init_smt2(bool benchmark);
@@ -271,7 +271,7 @@ extern void smt2_get_proof(void);
 
 
 /*
- * Get the unsat core: subset of :named assertions that form an unsat core
+ * Get the unsat core: subset of :named assertions that forms an unsat core
  */
 extern void smt2_get_unsat_core(void);
 
@@ -336,13 +336,13 @@ extern void smt2_push(uint32_t n);
  * - n = number of scopes to remove
  * - if n = 0 nothing should be done
  * - if n > total number of scopes then an error should be printed
- *   and nothing done
+ *   and nothing else should be done
  */
 extern void smt2_pop(uint32_t n);
 
 
 /*
- * Assert one formula t
+ * Assert a formula t
  * - if t is a :named assertion then it should be recorded for unsat-core
  */
 extern void smt2_assert(term_t t);
@@ -370,7 +370,7 @@ extern void smt2_declare_sort(const char *name, uint32_t arity);
  * - name = macro name
  * - n = number of variables
  * - var = array of type variables
- * - body = type expressions
+ * - body = type expression
  */
 extern void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body);
 
