@@ -29,12 +29,176 @@
 
 
 /*
+ * NAME STACKS
+ */
+
+/*
+ * Initialize; nothing allocated yet
+ */
+static void init_smt2_name_stack(smt2_name_stack_t *s) {
+  s->names = NULL;
+  s->top = 0;
+  s->size = 0;
+}
+
+/*
+ * Make room for some names to be pushed
+ */
+static void extend_smt2_name_stack(smt2_name_stack_t *s) {
+  uint32_t n;
+
+  n = s->size;
+  if (n == 0) {
+    n = DEF_SMT2_NAME_STACK_SIZE;
+    assert(n <= MAX_SMT2_NAME_STACK_SIZE);
+    s->names = (char **) safe_malloc(n * sizeof(char *));
+    s->size = n;
+  } else {
+    n += (n >> 1) + 1;
+    if (n > MAX_SMT2_NAME_STACK_SIZE) {
+      out_of_memory();
+    }
+    s->names = (char **) safe_realloc(s->names, n * sizeof(char *));
+    s->size = n;
+  }
+}
+
+
+/*
+ * Push name on top of the stack
+ * - name must be a refcount strincg
+ * - name's reference counter is incremented
+ */
+static void smt2_push_name(smt2_name_stack_t *s, char *name) {
+  uint32_t i;
+
+  i = s->top;
+  if (i == s->size) {
+    extend_smt2_name_stack(s);
+  }
+  assert(i < s->size);
+  s->names[i] = name;
+  string_incref(name);
+  s->top = i+1;
+}
+
+
+/*
+ * Remove names on top of the stack
+ * - ptr = new top: names[0 ... ptr-1] are kept
+ */
+static void smt2_pop_names(smt2_name_stack_t *s, uint32_t ptr) {
+  uint32_t n;
+
+  n = s->top;
+  while (n > ptr) {
+    n --;
+    string_decref(s->names[n]);
+  }
+  s->top = n;
+}
+
+
+/*
+ * Deletion
+ */
+static void delete_smt2_name_stack(smt2_name_stack_t *s) {
+  smt2_pop_names(s, 0);
+  safe_free(s->names);
+  s->names = NULL;
+}
+
+
+/*
+ * PUSH/POP STACK
+ */
+
+/*
+ * Initialize: nothing allocated yet
+ */
+static void init_smt2_stack(smt2_stack_t *s) {
+  s->data = NULL;
+  s->top = 0;
+  s->size = 0;
+}
+
+/*
+ * Make room
+ */
+static void extend_smt2_stack(smt2_stack_t *s) {
+  uint32_t n;
+
+  n = s->size;
+  if (n == 0) {
+    n = DEF_SMT2_STACK_SIZE;
+    assert(n <= MAX_SMT2_STACK_SIZE);
+    s->data = (smt2_push_rec_t *) safe_malloc(n * sizeof(smt2_push_rec_t));
+    s->size = n;
+  } else {
+    n += (n >> 1) + 1;
+    if (n > MAX_SMT2_STACK_SIZE) {
+      out_of_memory();
+    }
+    s->data = (smt2_push_rec_t *) safe_realloc(s->data, n * sizeof(smt2_push_rec_t));
+    s->size = n;
+  }
+}
+
+
+/*
+ * Push data:
+ * - m = multiplicity
+ * - terms, types, macros = number of term/type/macro declarations
+ */
+static void smt2_stack_push(smt2_stack_t *s, uint32_t m, uint32_t terms, uint32_t types, uint32_t macros) {
+  uint32_t i;
+
+  i = s->top;
+  if (i == s->size) {
+    extend_smt2_stack(s);
+  }
+  assert(i < s->size);
+  s->data[i].multiplicity = m;
+  s->data[i].term_decls = terms;
+  s->data[i].type_decls = types;
+  s->data[i].macro_decls = macros;
+  s->top = i+1;
+}
+
+
+/*
+ * Get the top element:
+ * - warning: this pointer may become invalid is data is pushed on s
+ */
+static inline smt2_push_rec_t *smt2_stack_top(smt2_stack_t *s) {
+  assert(s->top > 0);
+  return s->data + (s->top - 1);
+}
+
+
+/*
+ * Remove the top element
+ */
+static inline void smt2_stack_pop(smt2_stack_t *s) {
+  assert(s->top > 0);
+  s->top --;
+}
+
+/*
+ * Delete
+ */
+static void delete_smt2_stack(smt2_stack_t *s) {
+  safe_free(s->data);
+  s->data = NULL;
+}
+
+
+/*
  * REQUIRED INFO
  */
 static const char *yices_name = "Yices";
 static const char *yices_authors = "Bruno Dutertre";
 static const char *error_behavior = "immediate-exit";
-
 
 /*
  * GLOBAL OBJECTS
@@ -1590,7 +1754,12 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->info = NULL;
   g->ctx = NULL;
   g->model = NULL;
-  
+
+  init_smt2_stack(&g->stack);
+  init_smt2_name_stack(&g->term_names);
+  init_smt2_name_stack(&g->type_names);
+  init_smt2_name_stack(&g->macro_names);
+
   init_ivector(&g->assertions, 0);
   g->trivially_unsat = false;
   g->frozen = false;
@@ -1616,6 +1785,11 @@ static void delete_smt2_globals(smt2_globals_t *g) {
     g->model = NULL;
   }
   delete_ivector(&g->assertions);
+
+  delete_smt2_stack(&g->stack);
+  delete_smt2_name_stack(&g->term_names);
+  delete_smt2_name_stack(&g->type_names);
+  delete_smt2_name_stack(&g->macro_names);
 
   close_output_file(g);
   close_error_file(g);

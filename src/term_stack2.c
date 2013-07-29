@@ -367,6 +367,17 @@ void tstack_push_free_macroname(tstack_t *stack, char *s, uint32_t n, loc_t *loc
   tstack_push_str(stack, TAG_SYMBOL, s, n, loc);
 }
 
+/*
+ * Variant: raise exception (TSTACK_TYPENAME_REDEF) if s is already
+ * used either as a type or as a macro name
+ */
+void tstack_push_free_type_or_macro_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc) {
+  if (yices_get_type_by_name(s) != NULL_TYPE || yices_get_macro_by_name(s) >= 0) {
+    push_exception(stack, loc, s, TSTACK_TYPENAME_REDEF);
+  }
+  tstack_push_str(stack, TAG_SYMBOL, s, n, loc);
+}
+
 
 /*
  * Convert a string to a rational and push that

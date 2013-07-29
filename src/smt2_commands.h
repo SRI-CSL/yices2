@@ -141,6 +141,60 @@ enum smt2_opcodes {
 #define NUM_SMT2_OPCODES (SMT2_MK_DIVISIBLE+1)
 
 
+/*
+ * Stack to deal with push and pop.
+ * SMT2 push/pop is complicated 
+ * - push and pop take a numerical argument. In theory,
+ *   one can write stuff like:
+ *     (push 102898)
+ *     (pop 102897)
+ *   which should have the same effect as a simple (push 1)
+ * - another issue is that declarations don't have global
+ *   scope so we must remove symbols from the symbol tables
+ *   on calls to (pop ...)
+ * - we make the latter point optional (add an option that
+ *   enable declatations
+ *
+ * To support these features:
+ * - we use a stack that keeps tracks of (push n) and of 
+ *   term/type/macro names.
+ * - we convert (push n) when n > 1 as a real (push) followed 
+ *   by n-1 no-ops.
+ *
+ * We use three name_stacks to store symbols (for terms, types, and macros).
+ * For each (push n): we store
+ * - multiplicity = n
+ * - term_dcls = number of term declarations so far
+ * - type_dcls = number of type declarations 
+ * - macro_dcls = number of type macro declarations
+ */
+typedef struct smt2_name_stack_s {
+  char **names;
+  uint32_t top;
+  uint32_t size;
+} smt2_name_stack_t;
+
+#define DEF_SMT2_NAME_STACK_SIZE 1024
+#define MAX_SMT2_NAME_STACK_SIZE (UINT32_MAX/sizeof(char *))
+
+// what we keep for each push
+typedef struct smt2_push_rec_s {
+  uint32_t multiplicity;
+  uint32_t term_decls;
+  uint32_t type_decls;
+  uint32_t macro_decls;
+} smt2_push_rec_t;
+
+typedef struct smt2_stack_s {
+  smt2_push_rec_t *data;
+  uint32_t top;
+  uint32_t size;
+} smt2_stack_t;
+
+#define DEF_SMT2_STACK_SIZE 128
+#define MAX_SMT2_STACK_SIZE (UINT32_MAX/sizeof(smt2_push_rec_t))
+
+
 
 /*
  * Global structure initialized by init_smt2:
@@ -191,6 +245,12 @@ typedef struct smt2_globals_s {
   strmap_t *info;            // for set-info/get-info (initially NULL)
   context_t *ctx;            // context (initially NULL)
   model_t *model;            // model (ihitially NULL)
+
+  // push/pop support
+  smt2_stack_t stack;
+  smt2_name_stack_t term_names;
+  smt2_name_stack_t type_names;
+  smt2_name_stack_t macro_names;
 
   /*
    * Support for delayed assertions

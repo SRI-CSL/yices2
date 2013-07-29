@@ -525,12 +525,19 @@ static inline void tstack_push_symbol(tstack_t *stack, char *s, uint32_t n, loc_
 
 /*
  * These functions are like push_symbol but they raise an exception if
- * the name is already used (TSTACK_TYPENAME_REDEF,
+ * the name s is already used (TSTACK_TYPENAME_REDEF,
  * TSTACK_TERMNAME_REDEF, or TSTACK_MACRO_REDEF)
  */
 extern void tstack_push_free_typename(tstack_t *stack, char *s, uint32_t n, loc_t *loc);
 extern void tstack_push_free_termname(tstack_t *stack, char *s, uint32_t n, loc_t *loc);
 extern void tstack_push_free_macroname(tstack_t *stack, char *s, uint32_t n, loc_t *loc);
+
+/*
+ * Variant: raise exception (TSTACK_TYPENAME_REDEF) if s is already
+ * used either as a type or as a macro name
+ */
+extern void tstack_push_free_type_or_macro_name(tstack_t *stack, char *s, uint32_t n, loc_t *loc);
+
 
 /*
  * Find the term or type of name s and push that term or type on the stack
