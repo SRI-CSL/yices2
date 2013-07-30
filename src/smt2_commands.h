@@ -200,7 +200,9 @@ typedef struct smt2_stack_s {
  * Global structure initialized by init_smt2:
  * - include option flags mandated by SMT2
  * - the benchmark flag is true for SMT2 benchmarks
- * - this is the same as mode=one-check for Yices
+ *   this is the same as mode=one-check for Yices
+ * - scoped_decls indicates whether declarations should
+ *   be removed by pop (true by default)
  *
  * If the solver is initialized for SMT2 benchmarks (i.e., by calling
  *  init_smt2(true)
@@ -214,6 +216,7 @@ typedef struct smt2_globals_s {
   // logic: initially SMT_UNKNOWN 
   smt_logic_t logic_code;
   bool benchmark;
+  bool scoped_decls;
 
   // logic name
   char *logic_name;

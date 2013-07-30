@@ -1735,6 +1735,7 @@ static void check_assertions(smt2_globals_t *g) {
 static void init_smt2_globals(smt2_globals_t *g) {
   g->logic_code = SMT_UNKNOWN;
   g->benchmark = false;
+  g->scoped_decls = true;
   g->logic_name = NULL;
   g->out = stdout;
   g->err = stderr;
@@ -1800,9 +1801,13 @@ static void delete_smt2_globals(smt2_globals_t *g) {
 /*
  * Initialize all internal structures
  * - benchmark: if true, the input is assumed to be an SMT-LIB 2.0 benchmark
- *  (i.e., a set of assertions followed by a single call to check-sat)
- *  In this mode, destructive simplifications are allowed.
- * - this is called after yices_init so all Yices internals are ready
+ *   (i.e., a set of assertions followed by a single call to check-sat)
+ *   In this mode, 
+ *   - destructive simplifications are allowed.
+ *   - push/pop are not supported
+ *   - assert can't be used after (check-sat)
+ *
+ * This function is called after yices_init so all Yices internals are ready
  */
 void init_smt2(bool benchmark) {
   done = false;
