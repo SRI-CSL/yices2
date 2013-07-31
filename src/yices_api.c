@@ -3092,23 +3092,27 @@ EXPORTED term_t yices_bvconst_from_array(uint32_t n, int32_t a[]) {
 /*
  * Parse a string of '0' and '1' and convert to a bit constant
  * - the number of bits is the length of s
- * - the string is in read in big-endian format: the first character
+ * - the string is read in big-endian format: the first character
  *   is the high-order bit.
  */
 EXPORTED term_t yices_parse_bvbin(const char *s) {
+  size_t len;
   uint32_t n;
   int32_t code;
 
-  n = strlen(s);
-  if (n == 0) {
+  len = strlen(s);
+  if (len == 0) {
     error.code = INVALID_BVBIN_FORMAT;
     return NULL_TERM;
   }
 
-  if (! check_maxbvsize(n)) {
+  if (len > YICES_MAX_BVSIZE) {
+    error.code = MAX_BVSIZE_EXCEEDED;
+    error.badval = len; // slightly wrong: len is unsigned, badval is signed
     return NULL_TERM;
   }
 
+  n = (uint32_t) len;
   bvconstant_set_bitsize(&bv0, n);
   code = bvconst_set_from_string(bv0.data, n, s);
   if (code < 0) {
@@ -3128,21 +3132,23 @@ EXPORTED term_t yices_parse_bvbin(const char *s) {
  *   the four high-order bits).
  */
 EXPORTED term_t yices_parse_bvhex(const char *s) {
+  size_t len;
   uint32_t n;
   int32_t code;
 
-  n = strlen(s);
-  if (n == 0) {
+  len = strlen(s);
+  if (len == 0) {
     error.code = INVALID_BVHEX_FORMAT;
     return NULL_TERM;
   }
 
-  if (n > YICES_MAX_BVSIZE/4) {
+  if (len > YICES_MAX_BVSIZE/4) {
     error.code = MAX_BVSIZE_EXCEEDED;
-    error.badval = ((uint64_t) n) * 4; // badval is 64bits
+    error.badval = ((uint64_t) len) * 4; // could overflow here
     return NULL_TERM;
   }
 
+  n = (uint32_t) len;
   bvconstant_set_bitsize(&bv0, 4 * n);
   code = bvconst_set_from_hexa_string(bv0.data, n, s);
   if (code < 0) {

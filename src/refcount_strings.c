@@ -9,13 +9,20 @@
 #include "memalloc.h"
 #include "refcount_strings.h"
 
+
 /*
  * Allocate character string with reference counting
  * Make a copy of str and set ref count to 0.
  */
 char *clone_string(const char *str) {
   string_t *tmp;
-  tmp = (string_t *) safe_malloc(sizeof(string_t) + strlen(str) + 1);
+  size_t l;
+
+  l = strlen(str);
+  if (l > MAX_REFCOUNT_STRING_SIZE) {
+    out_of_memory();
+  }
+  tmp = (string_t *) safe_malloc(sizeof(string_t) + l + 1);
   tmp->ref = 0;
   strcpy(tmp->str, str);
   return tmp->str;

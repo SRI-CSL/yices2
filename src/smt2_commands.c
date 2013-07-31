@@ -28,6 +28,7 @@
 #include "yices_globals.h"
 
 
+
 /*
  * NAME STACKS
  */
@@ -176,6 +177,10 @@ static inline smt2_push_rec_t *smt2_stack_top(smt2_stack_t *s) {
 }
 
 
+static inline bool smt2_stack_is_nonempty(smt2_stack_t *s) {
+  return s->top > 0;
+}
+
 /*
  * Remove the top element
  */
@@ -191,6 +196,9 @@ static void delete_smt2_stack(smt2_stack_t *s) {
   safe_free(s->data);
   s->data = NULL;
 }
+
+
+
 
 
 /*
@@ -1441,13 +1449,13 @@ static void init_smt2_context(smt2_globals_t *g) {
 
   assert(logic2arch[g->logic_code] >= 0);
 
-  // default: assume g->benchmark is true
+  // default: assume g->benchmark_mode is true
   mode = CTX_MODE_ONECHECK;
   arch = (context_arch_t) logic2arch[g->logic_code];
   iflag = logic2iflag[g->logic_code];
   qflag = logic2qflag[g->logic_code];
 
-  if (! g->benchmark) {
+  if (! g->benchmark_mode) {
     // change mode and arch 
     // to support push/pop, we can't use the Floyd-Warshall solver
     mode = CTX_MODE_PUSHPOP;
@@ -1655,7 +1663,7 @@ static bool has_uf(term_t *a, uint32_t n) {
  * - do nothing if t is true
  * - if t is false, set g->trivially_unsat to true
  */
-static void add_assertion(smt2_globals_t *g, term_t t) {
+static void add_delayed_assertion(smt2_globals_t *g, term_t t) {
   if (t != true_term) {
     ivector_push(&g->assertions, t);
     if (t == false_term) {
@@ -1668,9 +1676,12 @@ static void add_assertion(smt2_globals_t *g, term_t t) {
 /*
  * Check satisfiability of all assertions
  */
-static void check_assertions(smt2_globals_t *g) {
+static void check_delayed_assertions(smt2_globals_t *g) {
   int32_t code;
   smt_status_t status;
+
+  // set frozen to true to disable more assertions
+  g->frozen = true;
 
   if (g->trivially_unsat) {
     print_out("unsat\n");
@@ -1681,7 +1692,7 @@ static void check_assertions(smt2_globals_t *g) {
      * check for mislabeled benchmarks: some benchmarks 
      * marked as QF_UFIDL do not require the Egraph (should be QF_IDL)
      */
-    if (g->benchmark && g->logic_code == QF_UFIDL && 
+    if (g->benchmark_mode && g->logic_code == QF_UFIDL && 
 	!has_uf(g->assertions.data, g->assertions.size)) {
       fprintf(g->err, "Warning: switching logic to QF_IDL\n");
       g->logic_code = QF_IDL;
@@ -1724,6 +1735,38 @@ static void check_assertions(smt2_globals_t *g) {
 
 
 
+/*
+ * DECLARATIONS AND PUSH/POP
+ */
+
+/*
+ * If scoped_decls is true and the push/pop stack is not empty, push a
+ * name onto a name stack so that we can remove the declaration on pop.
+ *
+ * NOTE: s is cloned twice: once to be stored in the term/type/macro
+ * symbol tables and once more here. Maybe we could optimize this.
+ */
+static void save_name(smt2_globals_t *g, smt2_name_stack_t *name_stack, const char *s) {
+  char *clone;
+
+  if (g->scoped_decls && smt2_stack_is_nonempty(&g->stack)) {
+    clone = clone_string(s);
+    smt2_push_name(name_stack, clone);
+  }
+}
+
+static inline void save_term_name(smt2_globals_t *g, const char *s) {
+  save_name(g, &g->term_names, s);
+}
+
+static inline void save_type_name(smt2_globals_t *g, const char *s) {
+  save_name(g, &g->type_names, s);
+}
+
+static inline void save_macro_name(smt2_globals_t *g, const char *s) {
+  save_name(g, &g->macro_names, s);
+}
+
 
 /*
  * MAIN CONTROL FUNCTIONS
@@ -1734,7 +1777,7 @@ static void check_assertions(smt2_globals_t *g) {
  */
 static void init_smt2_globals(smt2_globals_t *g) {
   g->logic_code = SMT_UNKNOWN;
-  g->benchmark = false;
+  g->benchmark_mode = false;
   g->scoped_decls = true;
   g->logic_name = NULL;
   g->out = stdout;
@@ -1813,8 +1856,11 @@ void init_smt2(bool benchmark) {
   done = false;
   init_smt2_globals(&__smt2_globals);
   init_attr_vtbl(&avtbl);
-  __smt2_globals.benchmark = benchmark;
   __smt2_globals.avtbl = &avtbl;
+  if (benchmark) {
+    __smt2_globals.benchmark_mode = true;
+    __smt2_globals.scoped_decls = false;
+  }
 }
 
 
@@ -1918,6 +1964,27 @@ void smt2_get_value(term_t *a, uint32_t n) {
 
 
 /*
+ * Wrapper aroung strlen:
+ * - strlen(s) has type size_t, which may be larger than 32bits
+ * - just in case somebody provides a giant string, we use
+ *   this wrapper to truncate the length to a 32bit number if it's really big
+ * - big means more than MAX_KW_LEN, which can be any constant larger
+ *   than the largest keyword defined in smt2_keywords.txt
+ */
+#define MAX_KW_LEN ((size_t) 1000000)
+
+static uint32_t kwlen(const char *s) {
+  size_t l;
+
+  l = strlen(s);
+  if (l > MAX_KW_LEN) {
+    l = MAX_KW_LEN;
+  }
+  return (uint32_t) l;
+}
+
+
+/*
  * Get the value of an option
  * - name = option name (a keyword)
  */
@@ -1928,7 +1995,7 @@ void smt2_get_option(const char *name) {
   uint32_t n;
 
   g = &__smt2_globals;
-  n = strlen(name);
+  n = kwlen(name);
   kw = smt2_string_to_keyword(name, n);
   switch (kw) {
   case SMT2_KW_PRINT_SUCCESS:
@@ -2002,7 +2069,7 @@ void smt2_get_info(const char *name) {
   uint32_t n;
   aval_t value;
 
-  n = strlen(name);
+  n = kwlen(name);
   kw = smt2_string_to_keyword(name, n);
   switch (kw) {
   case SMT2_KW_ERROR_BEHAVIOR:
@@ -2058,7 +2125,7 @@ void smt2_set_option(const char *name, aval_t value) {
   uint32_t n;
 
   g = &__smt2_globals;
-  n = strlen(name);
+  n = kwlen(name);
   kw = smt2_string_to_keyword(name, n);
 
   switch (kw) {
@@ -2142,7 +2209,7 @@ void smt2_set_info(const char *name, aval_t value) {
   smt2_keyword_t kw;
   uint32_t n;
 
-  n = strlen(name);
+  n = kwlen(name);
   kw = smt2_string_to_keyword(name, n);
   switch (kw) {
   case SMT2_KW_ERROR_BEHAVIOR:
@@ -2189,6 +2256,14 @@ void smt2_set_logic(const char *name) {
   __smt2_globals.logic_code = code;
   __smt2_globals.logic_name = clone_string(name);
   string_incref(__smt2_globals.logic_name);
+
+  /*
+   * In non-interactive mode: initialize the context
+   */
+  if (! __smt2_globals.benchmark_mode) {
+    init_smt2_context(&__smt2_globals);
+  }
+  
   report_success();
 }
 
@@ -2200,8 +2275,12 @@ void smt2_set_logic(const char *name) {
  */
 void smt2_push(uint32_t n) {
   if (check_logic()) {
-    print_out("push: unsupported\n");
-    flush_out();
+    if (__smt2_globals.benchmark_mode) {
+      print_error("push not allowed in non-interactive mode");
+    } else {
+      print_out("push: unsupported\n");
+      flush_out();
+    }
   }
 }
 
@@ -2215,8 +2294,12 @@ void smt2_push(uint32_t n) {
  */
 void smt2_pop(uint32_t n) {
   if (check_logic()) {
-    print_out("pop: unsupported\n");
-    flush_out();
+    if (__smt2_globals.benchmark_mode) {
+      print_error("pop not allowed in non-interactive mode");
+    } else {
+      print_out("pop: unsupported\n");
+      flush_out();
+    }
   }
 }
 
@@ -2228,12 +2311,14 @@ void smt2_pop(uint32_t n) {
 void smt2_assert(term_t t) {
   if (check_logic()) {
     if (yices_term_is_bool(t)) {
-      if (__smt2_globals.benchmark) {
-	// delayed assertion
-	add_assertion(&__smt2_globals, t);
-	report_success();
+      if (__smt2_globals.benchmark_mode) {
+	if (__smt2_globals.frozen) {
+	  print_error("assertions are not allowed after (check-sat) in non-interactive mode");
+	} else {
+	  add_delayed_assertion(&__smt2_globals, t);
+	  report_success();
+	}
       } else {
-	// TBD
 	print_out("assert: not supported\n");
 	flush_out();
       }
@@ -2250,8 +2335,12 @@ void smt2_assert(term_t t) {
  */
 void smt2_check_sat(void) {
   if (check_logic()) {
-    if (__smt2_globals.benchmark) {
-      check_assertions(&__smt2_globals);
+    if (__smt2_globals.benchmark_mode) {
+      if (__smt2_globals.frozen) {
+	print_error("multiple calls to (check-sat) are not allowed in non-interactive mode");	
+      } else {
+	check_delayed_assertions(&__smt2_globals);
+      }
     } else {
       print_out("check_sat: unsupported\n");
       flush_out();
@@ -2276,12 +2365,14 @@ void smt2_declare_sort(const char *name, uint32_t arity) {
     if (arity == 0) {
       tau = yices_new_uninterpreted_type();
       yices_set_type_name(tau, name);
+      save_type_name(&__smt2_globals, name);
       report_success();
     } else {
       macro = yices_type_constructor(name, arity);
       if (macro < 0) {
 	print_yices_error(true);
       } else {
+	save_macro_name(&__smt2_globals, name);
 	report_success();
       }
     }
@@ -2303,12 +2394,14 @@ void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body) {
   if (check_logic()) {
     if (n == 0) {
       yices_set_type_name(body, name);
+      save_type_name(&__smt2_globals, name);
       report_success();      
     } else {
       macro = yices_type_macro(name, n, var, body);
       if (macro < 0) {
 	print_yices_error(true);
       } else {
+	save_macro_name(&__smt2_globals, name);
 	report_success();
       }
     }
@@ -2342,6 +2435,7 @@ void smt2_declare_fun(const char *name, uint32_t n, type_t *tau) {
     t = yices_new_uninterpreted_term(sigma);
     assert(t != NULL_TERM);
     yices_set_term_name(t, name);
+    save_term_name(&__smt2_globals, name);
 
     report_success();
   }
@@ -2378,6 +2472,7 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
       }
     }
     yices_set_term_name(t, name);
+    save_term_name(&__smt2_globals, name);
 
     report_success();
   }

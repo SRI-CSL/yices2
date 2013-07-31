@@ -19,10 +19,21 @@ typedef struct {
 
 
 /*
+ * Bound on the string size: for a string of length n
+ * we need to allocate (n + 1) + sizeof(string_t) bytes.
+ * Just to be safe, we raise an 'out_of_memory' exception
+ * if n is more than MAX_REFCOUNT_STRING_SIZE.
+ */
+#define MAX_REFCOUNT_STRING_SIZE (UINT32_MAX - sizeof(string_t) - 1)
+
+
+/*
  * Make a copy of str with ref count 0.
  * - str must be terminated by '\0'
+ * - may cause 'out_of_memory' error
  */
 extern char *clone_string(const char *str);
+
 
 /*
  * header of string s
