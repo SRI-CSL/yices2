@@ -94,6 +94,17 @@ extern type_t yices_instance_type(int32_t cid, uint32_t n, type_t tau[]);
  */
 extern int32_t yices_get_macro_by_name(const char *name);
 
+/*
+ * Remove the mapping of name --> macro id
+ * - no change if no such mapping exists
+ */
+extern void yices_remove_type_macro_name(const char *name);
+
+/*
+ * Remove a macro with the given id
+ * - id must be a valid macro index (non-negative)
+ */
+extern void yices_delete_type_macro(int32_t id);
 
 
 /*

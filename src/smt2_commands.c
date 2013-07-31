@@ -85,26 +85,91 @@ static void smt2_push_name(smt2_name_stack_t *s, char *name) {
 
 
 /*
- * Remove names on top of the stack
+ * Remove names on top of the stack and remove them from the term_name table
  * - ptr = new top: names[0 ... ptr-1] are kept
  */
-static void smt2_pop_names(smt2_name_stack_t *s, uint32_t ptr) {
+static void smt2_pop_term_names(smt2_name_stack_t *s, uint32_t ptr) {
+  char *name;
   uint32_t n;
 
   n = s->top;
   while (n > ptr) {
     n --;
-    string_decref(s->names[n]);
+    name = s->names[n];
+
+    assert(yices_get_term_by_name(name) != NULL_TERM);
+    yices_remove_term_name(name);
+    assert(yices_get_term_by_name(name) == NULL_TERM);
+
+    string_decref(name);
   }
   s->top = n;
 }
 
 
 /*
+ * Remove names on top of the stack and remove them from the type-name table
+ * - ptr = new top: names[0 ... ptr - 1] are kept
+ */
+static void smt2_pop_type_names(smt2_name_stack_t *s, uint32_t ptr) {
+  char *name;
+  uint32_t n;
+
+  n = s->top;
+  while (n > ptr) {
+    n --;
+    name = s->names[n];
+
+    assert(yices_get_type_by_name(name) != NULL_TYPE);
+    yices_remove_type_name(name);
+    assert(yices_get_type_by_name(name) == NULL_TYPE);
+
+    string_decref(name);
+  }
+  s->top = n;
+}
+
+
+/*
+ * Remove names on top of the stack and remove them from the macro name table
+ * - ptr = new top: names[0 ... ptr - 1] are kept
+ *
+ * NOTE: we can't delete the type_macro. We just remove the mapping
+ * name -> macro id. If we remove type_constructor, then we'll delete
+ * all instances of that constructor from the type table, but that's
+ * not safe unless we remove all terms that have such a type.
+ */
+static void smt2_pop_macro_names(smt2_name_stack_t *s, uint32_t ptr) {
+  char *name;
+  uint32_t n;
+
+  n = s->top;
+  while (n > ptr) {
+    n --;
+    name = s->names[n];
+
+    assert(yices_get_macro_by_name(name) >= 0);
+    yices_remove_type_macro_name(name);
+    assert(yices_get_macro_by_name(name) < 0);
+
+    string_decref(name);
+  }
+  s->top = n;
+}
+
+
+
+/*
  * Deletion
  */
 static void delete_smt2_name_stack(smt2_name_stack_t *s) {
-  smt2_pop_names(s, 0);
+  uint32_t n;
+
+  n = s->top;
+  while (n > 0) {
+    n --;
+    string_decref(s->names[n]);
+  }
   safe_free(s->names);
   s->names = NULL;
 }
@@ -121,6 +186,7 @@ static void init_smt2_stack(smt2_stack_t *s) {
   s->data = NULL;
   s->top = 0;
   s->size = 0;
+  s->levels = 0;
 }
 
 /*
@@ -163,6 +229,7 @@ static void smt2_stack_push(smt2_stack_t *s, uint32_t m, uint32_t terms, uint32_
   s->data[i].term_decls = terms;
   s->data[i].type_decls = types;
   s->data[i].macro_decls = macros;
+  s->levels += m;
   s->top = i+1;
 }
 
@@ -184,9 +251,14 @@ static inline bool smt2_stack_is_nonempty(smt2_stack_t *s) {
 /*
  * Remove the top element
  */
-static inline void smt2_stack_pop(smt2_stack_t *s) {
+static void smt2_stack_pop(smt2_stack_t *s) {
+  uint32_t i;
+
   assert(s->top > 0);
-  s->top --;
+  i = s->top - 1;
+  assert(s->levels >= s->data[i].multiplicity);
+  s->levels -= s->data[i].multiplicity;
+  s->top = i;
 }
 
 /*
@@ -1736,6 +1808,51 @@ static void check_delayed_assertions(smt2_globals_t *g) {
 
 
 /*
+ * CONTEXT OPERATIONS: INTERACTIVE MODE
+ */
+
+/*
+ * Assert t in g->ctx
+ */
+static void add_assertion(smt2_globals_t *g, term_t t) {
+  assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
+  // TBD
+  print_out("assert: not supported\n");
+  flush_out();
+}
+
+/*
+ * Check satisfiability
+ */
+static void ctx_check_sat(smt2_globals_t *g) {
+  assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
+  // TBD
+  print_out("check_sat: unsupported\n");
+  flush_out();
+}
+
+/*
+ * New assertion scope
+ */
+static void ctx_push(smt2_globals_t *g) {
+  assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
+  // TBD
+  print_out("push: unsupported\n");
+  flush_out();
+}
+
+/*
+ * Backtrack to the previous scope
+ */
+static void ctx_pop(smt2_globals_t *g) {
+  assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
+  // TBD
+  print_out("pop: unsupported\n");
+  flush_out();
+}
+
+
+/*
  * DECLARATIONS AND PUSH/POP
  */
 
@@ -1768,6 +1885,8 @@ static inline void save_macro_name(smt2_globals_t *g, const char *s) {
 }
 
 
+
+
 /*
  * MAIN CONTROL FUNCTIONS
  */
@@ -1779,6 +1898,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->logic_code = SMT_UNKNOWN;
   g->benchmark_mode = false;
   g->scoped_decls = true;
+  g->pushes_after_unsat = 0;
   g->logic_name = NULL;
   g->out = stdout;
   g->err = stderr;
@@ -2274,12 +2394,15 @@ void smt2_set_logic(const char *name) {
  * - if n = 0, nothing should be done
  */
 void smt2_push(uint32_t n) {
+  smt2_globals_t *g;
+
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {
       print_error("push not allowed in non-interactive mode");
-    } else {
-      print_out("push: unsupported\n");
-      flush_out();
+    } else if (n > 0) {
+      g = &__smt2_globals;
+      smt2_stack_push(&g->stack, n, g->term_names.top, g->type_names.top, g->macro_names.top);
+      ctx_push(g);
     }
   }
 }
@@ -2293,12 +2416,41 @@ void smt2_push(uint32_t n) {
  *   and nothing done
  */
 void smt2_pop(uint32_t n) {
+  smt2_globals_t *g;
+  smt2_push_rec_t *r;
+  uint32_t m;
+
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {
       print_error("pop not allowed in non-interactive mode");
-    } else {
-      print_out("pop: unsupported\n");
-      flush_out();
+    } else if (n > 0) {
+      g = &__smt2_globals;
+      if (n > g->stack.levels) {
+	print_error("can't pop more than %"PRIu64" levels", g->stack.levels);
+      } else {
+	m = 0; // number of levels removed 
+	do {
+	  r = smt2_stack_top(&g->stack);
+	  m += r->multiplicity;
+	  
+	  // remove declarations: this has no effect if g->scoped_decls is false
+	  smt2_pop_term_names(&g->term_names, r->term_decls);
+	  smt2_pop_type_names(&g->type_names, r->type_decls);
+	  smt2_pop_macro_names(&g->macro_names, r->macro_decls);
+
+	  // pop on g->ctx
+	  ctx_pop(g);
+	  smt2_stack_pop(&g->stack);
+	} while (n > m);
+
+	if (n < m) {
+	  // push (m - n)
+	  smt2_stack_push(&g->stack, n, g->term_names.top, g->type_names.top, g->macro_names.top);
+	  ctx_push(g);	  
+	}
+
+	report_success();
+      }
     }
   }
 }
@@ -2319,8 +2471,8 @@ void smt2_assert(term_t t) {
 	  report_success();
 	}
       } else {
-	print_out("assert: not supported\n");
-	flush_out();
+	add_assertion(&__smt2_globals, t);
+	report_success();
       }
     } else {
       // not a Boolean term
@@ -2342,8 +2494,7 @@ void smt2_check_sat(void) {
 	check_delayed_assertions(&__smt2_globals);
       }
     } else {
-      print_out("check_sat: unsupported\n");
-      flush_out();
+      ctx_check_sat(&__smt2_globals);
     }
   }
 }

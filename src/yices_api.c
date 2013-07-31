@@ -1999,6 +1999,23 @@ int32_t yices_get_macro_by_name(const char *name) {
 }
 
 
+/*
+ * Remove the mapping of name --> macro id
+ * - no change if no such mapping exists
+ */
+void yices_remove_type_macro_name(const char *name) {
+  remove_type_macro_name(&types, name);
+}
+
+/*
+ * Remove a macro with the given id
+ * - id must be a valid macro index (non-negative)
+ */
+void yices_delete_type_macro(int32_t id) {
+  delete_type_macro(&types, id);
+}
+
+
 
 
 /***********************

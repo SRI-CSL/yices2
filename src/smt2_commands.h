@@ -158,8 +158,8 @@ enum smt2_opcodes {
  * To support these features:
  * - we use a stack that keeps tracks of (push n) and of 
  *   term/type/macro names.
- * - we convert (push n) when n > 1 as a real (push) followed 
- *   by n-1 no-ops.
+ * - we convert (push n) when n > 1 as (n-1) no ops followed by a single 
+ *   a real (push) on the context.
  *
  * We use three name_stacks to store symbols (for terms, types, and macros).
  * For each (push n): we store
@@ -185,10 +185,12 @@ typedef struct smt2_push_rec_s {
   uint32_t macro_decls;
 } smt2_push_rec_t;
 
+// levels = sum of all multiplicities
 typedef struct smt2_stack_s {
   smt2_push_rec_t *data;
   uint32_t top;
   uint32_t size;
+  uint64_t levels;
 } smt2_stack_t;
 
 #define DEF_SMT2_STACK_SIZE 128
@@ -204,11 +206,26 @@ typedef struct smt2_stack_s {
  * - scoped_decls indicates whether declarations should
  *   be removed by pop (true by default)
  *
- * If the solver is initialized for SMT2 benchmarks (i.e., by calling
- *  init_smt2(true)
- * then we delay the processing of assertions until the call to check_sat().
- * So smt2_assert(t) just adds t to the assertion vector.
+ * The solver can be initialized in benchmark_mode by calling init_smt2(true).
+ * This mode is intended for basic SMT2 benchmarks: a sequence of declarations,
+ * and assert followed by a single call to (check-sat).
+ * In this mode:
+ * - push/pop are not supported
+ * - destructive simplifications are applied to the assertions
+ * - we delay the processing of assertions until the call to check_sat().
+ *   So every call to smt2_assert(t) just adds t to the assertion vector.
  *
+ * The solver is initialzed in incremental node by calling init_smt2(false).
+ * In this mode, push/pop are supported. Some preprocessing is disabled 
+ * (e.g., symmetry breaking).
+ *
+ * In incremental mode, we must accept commands such as (assert) and
+ * (push) even if the context is already unsat. Since an unsat yices
+ * context can't accept new assertions or push, we turn these into no-ops
+ * (i.e., silently ignore them). Except that to correctly match the (push)
+ * and (pop), we keep track of the number of calls to (push) after unsat.
+ * This is kept in the push_after_unsat counter.
+ * 
  * NOTE: all solvers I've tried use :print-success false by default
  * (even though the standard says otherwise).
  */
@@ -217,6 +234,9 @@ typedef struct smt2_globals_s {
   smt_logic_t logic_code;
   bool benchmark_mode;
   bool scoped_decls;
+
+  // number of calls to push after the ctx is unsat
+  uint32_t pushes_after_unsat;
 
   // logic name
   char *logic_name;
