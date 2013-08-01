@@ -2089,7 +2089,7 @@ bool rba_buffer_equal_poly(rba_buffer_t *b, int32_t *v, polynomial_t *p) {
   if (p->nterms == b->nterms) {
     n = 0;
     result = rba_equal_tree(p, b, v, &n, b->root);
-    assert(n == b->nterms);
+    assert(!result || n == b->nterms);
   }
 
   return result;

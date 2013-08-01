@@ -1301,7 +1301,7 @@ static void simplex_pop_eqprop(simplex_solver_t *solver) {
 
   eqprop = solver->eqprop;
   assert(eqprop != NULL);
-  offset_manager_push(&eqprop->mngr);
+  offset_manager_pop(&eqprop->mngr);
 
   // clear bits (of deleted variables)
   n = eqprop->size;
@@ -7161,7 +7161,11 @@ fcheck_code_t simplex_final_check(simplex_solver_t *solver) {
  *  INCREASE DECISION LEVEL  *
  ***************************/
 
-void simplex_increase_decision_level(simplex_solver_t *solver) {
+/*
+ * Increase simplex level but don't do it in eqprop
+ * - this is needed in simplex_push
+ */
+static void simplex_increase_dlevel(simplex_solver_t *solver) {
   uint32_t nb, na;
 
   nb = solver->bstack.top;
@@ -7171,8 +7175,13 @@ void simplex_increase_decision_level(simplex_solver_t *solver) {
 
   // new scope in arena
   arena_push(&solver->arena);
+}
 
-  // propagate to eqprop
+/*
+ * Increase dlevel in simplex and eqprop
+ */
+void simplex_increase_decision_level(simplex_solver_t *solver) {
+  simplex_increase_dlevel(solver);
   if (solver->eqprop != NULL) {
 #if 0
     printf("---> eq prop: increase decision level to %"PRIu32"\n", solver->decision_level);
@@ -7193,8 +7202,9 @@ void simplex_increase_decision_level(simplex_solver_t *solver) {
 /*
  * Backtrack to back_level:
  * - remove all bounds and assertions added at levels > back_level
+ * - don't propagate the backtrack to eqprop (this is needed for simplex_pop)
  */
-void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
+static void simplex_go_back(simplex_solver_t *solver, uint32_t back_level) {
   arith_bstack_t *bstack;
   arith_vartable_t *vtbl;
   arith_undo_record_t *undo;
@@ -7202,10 +7212,6 @@ void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
   uint32_t i, n;
   thvar_t x;
   int32_t k;
-
-#if TRACE
-  printf("---> Simplex: backtracking to level %"PRIu32"\n", back_level);
-#endif
 
   assert(solver->base_level <= back_level && back_level < solver->decision_level);
 
@@ -7295,7 +7301,6 @@ void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
   solver->assertion_queue.top = n;
   solver->assertion_queue.prop_ptr = n;
 
-
   /*
    * Backtrack arena
    */
@@ -7312,20 +7317,28 @@ void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
   reset_eassertion_queue(&solver->egraph_queue);
 
   /*
-   * Propagate to the eqprop
+   * Restore the undo stack and the decision level
    */
+  solver->stack.top = back_level + 1;
+  solver->decision_level = back_level;
+}
+
+
+/*
+ * Full backtrack
+ */
+void simplex_backtrack(simplex_solver_t *solver, uint32_t back_level) {
+#if TRACE
+  printf("---> Simplex: backtracking to level %"PRIu32"\n", back_level);
+#endif
+
+  simplex_go_back(solver, back_level);
   if (solver->eqprop != NULL) {
 #if 0
     printf("---> eq prop: backtrack to level %"PRIu32"\n", back_level);
 #endif
     offset_manager_backtrack(&solver->eqprop->mngr, back_level);
   }
-
-  /*
-   * Restore the undo stack and the decision level
-   */
-  solver->stack.top = back_level + 1;
-  solver->decision_level = back_level;
 
 
 #if DEBUG
@@ -7380,7 +7393,12 @@ void simplex_push(simplex_solver_t *solver) {
   }
 
   solver->base_level ++;
-  simplex_increase_decision_level(solver);
+
+  /*
+   * we don't want increase_decision_level here (otherwise, 
+   * eqprop's decision level would be incremented twice).
+   */
+  simplex_increase_dlevel(solver);
 
   // propagate to eqprop if present
   if (solver->eqprop != NULL) {
@@ -7486,7 +7504,8 @@ void simplex_pop(simplex_solver_t *solver) {
   if (solver->assertion_queue.prop_ptr < undo->n_assertions) {
     solver->assertion_queue.prop_ptr = undo->n_assertions;
   }
-  simplex_backtrack(solver, solver->base_level);
+  // can't use simplex_backtrack here
+  simplex_go_back(solver, solver->base_level);
 
 
   /*
