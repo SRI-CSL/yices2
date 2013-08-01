@@ -91,6 +91,9 @@ static const char * const smt2_keyword_string[NUM_SMT2_KEYWORDS] = {
   ":source",                  // SMT2_KW_SOURCE
   ":smt-lib-version",         // SMT2_KW_SMT_LIB_VERSION
   ":category",                // SMT2_KW_CATEGORY
+  ":difficulty",              // SMT2_KW_DIFFICULTY
+  ":notes",                   // SMT2_KW_NOTES
+  ":global-decls",            // SMT2_KW_GLOBAL_DECLS
   "<unknown-keyword>",        // SMT2_KW_UNKNOWN
 };
 

@@ -912,6 +912,37 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
 }
 
 
+
+/*
+ * Bug report: unexpected status
+ */
+static void __attribute__((noreturn)) bad_status_bug(FILE *f) {
+  print_error("Internal error: unexpected context status");
+  flush_out();
+  report_bug(f);
+}
+
+
+
+/*
+ * PRINT STATUS AND STATISTICS
+ */
+static const char * const status2string[] = {
+  "idle",
+  "searching",
+  "unknown",
+  "sat",
+  "unsat",
+  "interrupted",
+  "error",
+};
+
+static void print_status(smt_status_t status) {
+  print_out("%s\n", status2string[status]);
+}
+
+
+
 /*
  * OUTPUT/ERROR FILES
  */
@@ -1772,36 +1803,32 @@ static void check_delayed_assertions(smt2_globals_t *g) {
     init_smt2_context(g);
     code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
     if (code < 0) {
-      // error during assertions
+      // error during assertion processing
       print_yices_error(true);
       return;
     }
+
     status = yices_check_context(g->ctx, NULL);
     switch (status) {
-    case STATUS_IDLE:
-    case STATUS_SEARCHING:
-      print_error("Unexpected context status");
-      report_bug(g->err);
-      break;
-
-    case STATUS_SAT:
-      print_out("sat\n");
-      break;
-
-    case STATUS_UNSAT:
-      print_out("unsat\n");
-      break;
-
     case STATUS_UNKNOWN:
+    case STATUS_UNSAT:
+    case STATUS_SAT:
     case STATUS_INTERRUPTED:
-      print_out("unknown\n");
+      print_status(status);
       break;
 
     case STATUS_ERROR:
       print_yices_error(true);
       break;
+
+    case STATUS_IDLE:
+    case STATUS_SEARCHING:
+    default:
+      bad_status_bug(g->err);
+      break;
     }
   }
+
   flush_out();
 }
 
@@ -1811,45 +1838,138 @@ static void check_delayed_assertions(smt2_globals_t *g) {
  * CONTEXT OPERATIONS: INTERACTIVE MODE
  */
 
+
 /*
  * Assert t in g->ctx
+ * - t is known to be a Boolean term here
  */
 static void add_assertion(smt2_globals_t *g, term_t t) {
+  int32_t code;
+
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
-  // TBD
-  print_out("assert: not supported\n");
-  flush_out();
+
+  switch (context_status(g->ctx)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    // cleanup model and return to IDLE
+    if (g->model != NULL) {
+      yices_free_model(g->model);
+      g->model = NULL;
+    }
+    context_clear(g->ctx);
+    assert(context_status(g->ctx) == STATUS_IDLE);
+    // fall through intended
+
+  case STATUS_IDLE:
+    code = yices_assert_formula(g->ctx, t);
+    if (code < 0) {
+      print_yices_error(true);
+    } else {
+      report_success();
+    }
+    break;
+
+  case STATUS_UNSAT:
+    /*
+     * Ignore the assertion. We don't try to check whether
+     * t is a correct assertion (e.g., no free variables in f).
+     */
+    report_success();
+    break;
+
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+  default:
+    bad_status_bug(g->err);
+    break;
+  }
+
 }
 
 /*
- * Check satisfiability
+ * Check satisfiability: just print the current status for now
  */
 static void ctx_check_sat(smt2_globals_t *g) {
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
-  // TBD
-  print_out("check_sat: unsupported\n");
-  flush_out();
+  print_status(context_status(g->ctx));  
 }
+
 
 /*
  * New assertion scope
  */
 static void ctx_push(smt2_globals_t *g) {
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
-  // TBD
-  print_out("push: unsupported\n");
-  flush_out();
+
+  switch (context_status(g->ctx)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    // cleanup model and return to IDLE
+    if (g->model != NULL) {
+      yices_free_model(g->model);
+      g->model = NULL;
+    }
+    context_clear(g->ctx);
+    assert(context_status(g->ctx) == STATUS_IDLE);
+    // fall through intended
+
+  case STATUS_IDLE:
+    context_push(g->ctx);
+    break;
+
+  case STATUS_UNSAT:
+    g->pushes_after_unsat ++;
+    break;
+
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+  default:
+    bad_status_bug(g->err);
+    break;
+  }
 }
+
 
 /*
  * Backtrack to the previous scope
  */
 static void ctx_pop(smt2_globals_t *g) {
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
-  // TBD
-  print_out("pop: unsupported\n");
-  flush_out();
+
+  switch (context_status(g->ctx)) {
+  case STATUS_UNKNOWN:
+  case STATUS_SAT:
+    // delete the model if any
+    if (g->model != NULL) {
+      yices_free_model(g->model);
+      g->model = NULL;
+    }
+    context_clear(g->ctx);
+    assert(context_status(g->ctx) == STATUS_IDLE);
+    // fall-through intended
+
+  case STATUS_IDLE:
+    context_pop(g->ctx);
+    break;
+
+  case STATUS_UNSAT:
+    assert(g->model == NULL);
+    if (g->pushes_after_unsat > 0) {
+      g->pushes_after_unsat --;
+    } else {
+      context_clear_unsat(g->ctx);
+      context_pop(g->ctx);
+    }
+    break;
+
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+  default:
+    bad_status_bug(g->err);
+    break;
+  }
 }
+
 
 
 /*
@@ -1857,7 +1977,7 @@ static void ctx_pop(smt2_globals_t *g) {
  */
 
 /*
- * If scoped_decls is true and the push/pop stack is not empty, push a
+ * If global_decls is false and the push/pop stack is not empty, push a
  * name onto a name stack so that we can remove the declaration on pop.
  *
  * NOTE: s is cloned twice: once to be stored in the term/type/macro
@@ -1866,7 +1986,7 @@ static void ctx_pop(smt2_globals_t *g) {
 static void save_name(smt2_globals_t *g, smt2_name_stack_t *name_stack, const char *s) {
   char *clone;
 
-  if (g->scoped_decls && smt2_stack_is_nonempty(&g->stack)) {
+  if (!g->global_decls && smt2_stack_is_nonempty(&g->stack)) {
     clone = clone_string(s);
     smt2_push_name(name_stack, clone);
   }
@@ -1886,6 +2006,48 @@ static inline void save_macro_name(smt2_globals_t *g, const char *s) {
 
 
 
+/*
+ * For debugging: check that the stack look reasonable
+ */
+#ifndef NDEBUG
+
+static void check_stack(smt2_globals_t *g) {
+  smt2_stack_t *stack;
+  uint64_t sum;
+  uint32_t i;
+
+  if (g->ctx != NULL) {
+    stack = &g->stack;
+    // check that stack->levels is correct
+    sum = 0; 
+    for (i=0; i<stack->top; i++) {
+      sum += stack->data[i].multiplicity;      
+    }
+    if (sum != stack->levels) {
+      print_error("Invalid stack: levels don't match");
+      report_bug(g->err);
+    }
+
+    if (context_base_level(g->ctx) + g->pushes_after_unsat != stack->top) {
+      print_error("Invalid stack: push counters don't match");
+      report_bug(g->err);
+    }
+
+    if (g->pushes_after_unsat > 0 && context_status(g->ctx) != STATUS_UNSAT) {
+      print_error("Invalid stack: push_after_unsat is positive but context is not unsat");
+      report_bug(g->err);
+    }
+  }
+}
+
+#else
+
+// Do nothing
+static inline void check_stack(smt2_globals_t *g) {
+}
+
+#endif
+
 
 /*
  * MAIN CONTROL FUNCTIONS
@@ -1897,7 +2059,7 @@ static inline void save_macro_name(smt2_globals_t *g, const char *s) {
 static void init_smt2_globals(smt2_globals_t *g) {
   g->logic_code = SMT_UNKNOWN;
   g->benchmark_mode = false;
-  g->scoped_decls = true;
+  g->global_decls = false;
   g->pushes_after_unsat = 0;
   g->logic_name = NULL;
   g->out = stdout;
@@ -1977,10 +2139,11 @@ void init_smt2(bool benchmark) {
   init_smt2_globals(&__smt2_globals);
   init_attr_vtbl(&avtbl);
   __smt2_globals.avtbl = &avtbl;
-  if (benchmark) {
+  if (false && benchmark) {
     __smt2_globals.benchmark_mode = true;
-    __smt2_globals.scoped_decls = false;
+    __smt2_globals.global_decls = true;
   }
+  check_stack(&__smt2_globals);
 }
 
 
@@ -2172,6 +2335,10 @@ void smt2_get_option(const char *name) {
     print_kw_uint32_pair(name, g->verbosity);
     break;
 
+  case SMT2_KW_GLOBAL_DECLS:
+    print_kw_boolean_pair(name, g->global_decls);
+    break;
+
   default:
     print_out("unsupported\n");
     break;   
@@ -2314,6 +2481,13 @@ void smt2_set_option(const char *name, aval_t value) {
     set_verbosity(g, name, value);
     break;
 
+  case SMT2_KW_GLOBAL_DECLS:
+    // non-standard option (same as MathSAT)
+    if (option_can_be_set(name)) {
+      set_boolean_option(g, name, value, &g->global_decls);
+    }
+    break;
+
   default:
     print_out("unsupported\n");
     break;
@@ -2399,10 +2573,14 @@ void smt2_push(uint32_t n) {
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {
       print_error("push not allowed in non-interactive mode");
-    } else if (n > 0) {
-      g = &__smt2_globals;
-      smt2_stack_push(&g->stack, n, g->term_names.top, g->type_names.top, g->macro_names.top);
-      ctx_push(g);
+    } else {
+      if (n > 0) {
+	g = &__smt2_globals;
+	smt2_stack_push(&g->stack, n, g->term_names.top, g->type_names.top, g->macro_names.top);
+	ctx_push(g);
+      }
+      check_stack(g);
+      report_success();
     }
   }
 }
@@ -2423,21 +2601,30 @@ void smt2_pop(uint32_t n) {
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {
       print_error("pop not allowed in non-interactive mode");
-    } else if (n > 0) {
+    } else if (n == 0) {
+      // do nothing
+      report_success(); 
+    } else {
       g = &__smt2_globals;
       if (n > g->stack.levels) {
-	print_error("can't pop more than %"PRIu64" levels", g->stack.levels);
+	if (g->stack.levels > 1) {
+	  print_error("can't pop more than %"PRIu64" levels", g->stack.levels);
+	} else if (g->stack.levels > 0) {
+	  print_error("can't pop more than one level");
+	} else {
+	  print_error("can't pop at the bottom level");
+	}
       } else {
 	m = 0; // number of levels removed 
 	do {
 	  r = smt2_stack_top(&g->stack);
 	  m += r->multiplicity;
-	  
-	  // remove declarations: this has no effect if g->scoped_decls is false
+
+	  // remove declarations: this has no effect if g->global_decls is true
 	  smt2_pop_term_names(&g->term_names, r->term_decls);
 	  smt2_pop_type_names(&g->type_names, r->type_decls);
 	  smt2_pop_macro_names(&g->macro_names, r->macro_decls);
-
+	  
 	  // pop on g->ctx
 	  ctx_pop(g);
 	  smt2_stack_pop(&g->stack);
@@ -2445,10 +2632,11 @@ void smt2_pop(uint32_t n) {
 
 	if (n < m) {
 	  // push (m - n)
-	  smt2_stack_push(&g->stack, n, g->term_names.top, g->type_names.top, g->macro_names.top);
-	  ctx_push(g);	  
+	  smt2_stack_push(&g->stack, m - n, g->term_names.top, g->type_names.top, g->macro_names.top);
+	  ctx_push(g);
 	}
 
+	check_stack(g);
 	report_success();
       }
     }
@@ -2472,7 +2660,6 @@ void smt2_assert(term_t t) {
 	}
       } else {
 	add_assertion(&__smt2_globals, t);
-	report_success();
       }
     } else {
       // not a Boolean term

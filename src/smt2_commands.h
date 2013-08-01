@@ -203,8 +203,11 @@ typedef struct smt2_stack_s {
  * - include option flags mandated by SMT2
  * - the flag benchmark_mode is true for SMT2 benchmarks
  *   this is the same as mode=one-check for Yices
- * - scoped_decls indicates whether declarations should
- *   be removed by pop (true by default)
+ * - gloabl_decls indicates whether declarations should
+ *   be global or scoped. In scoped mode, declarations that
+ *   occur after a (push ..) command are removed by the matching (pop ..).
+ *   In global mode, declarations are kept independent of (push ..) and (pop ...)
+ *   global_decls is false by default.
  *
  * The solver can be initialized in benchmark_mode by calling init_smt2(true).
  * This mode is intended for basic SMT2 benchmarks: a sequence of declarations,
@@ -233,7 +236,7 @@ typedef struct smt2_globals_s {
   // logic: initially SMT_UNKNOWN 
   smt_logic_t logic_code;
   bool benchmark_mode;
-  bool scoped_decls;
+  bool global_decls;
 
   // number of calls to push after the ctx is unsat
   uint32_t pushes_after_unsat;
