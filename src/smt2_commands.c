@@ -2578,8 +2578,8 @@ void smt2_push(uint32_t n) {
 	g = &__smt2_globals;
 	smt2_stack_push(&g->stack, n, g->term_names.top, g->type_names.top, g->macro_names.top);
 	ctx_push(g);
+	check_stack(g);
       }
-      check_stack(g);
       report_success();
     }
   }
