@@ -91,9 +91,10 @@ static void delete_buffer(void) {
 #define BAD_INPUT -1
 #define END_OF_CLAUSE -2
 
-static literal_t read_literal(FILE *f, int nv) {
-  int d, var, delta;
-  
+static literal_t read_literal(FILE *f, int32_t nv) {
+  int d;
+  int32_t var, delta;
+
   do {
     d = getc(f);
   } while (isspace(d));

@@ -2612,7 +2612,7 @@ void smt2_pop(uint32_t n) {
 	} else if (g->stack.levels > 0) {
 	  print_error("can't pop more than one level");
 	} else {
-	  print_error("can't pop at the bottom level");
+	  print_error("pop not allowed at the bottom level");
 	}
       } else {
 	m = 0; // number of levels removed 
