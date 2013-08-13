@@ -3,9 +3,6 @@
  */
 
 /*
- * Added some randomization to the generation of clauses
- * (by varying the order in which nodes are examined).
- *
  * Optimization in final check:
  * - We consider the following equivalence relation between composite terms 
  *   in the egraph:
@@ -20,8 +17,6 @@
  */
 
 #include <inttypes.h>
-
-#include "prng.h"
 
 #include "memalloc.h"
 #include "index_vectors.h"

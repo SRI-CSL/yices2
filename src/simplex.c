@@ -5,8 +5,8 @@
  */
 
 #include "assert_utils.h"
-#include "prng.h"
 #include "bitvectors.h"
+#include "dprng.h"
 #include "int_hash_classes.h"
 #include "hash_functions.h"
 #include "rational_hash_maps.h"
@@ -79,6 +79,47 @@ static void check_equation_satisfied(simplex_solver_t *solver, uint32_t r);
 static void show_heap(FILE *f, simplex_solver_t *solver);
 
 #endif
+
+
+
+/**********
+ *  PRNG  *
+ *********/
+
+/*
+ * PARAMETERS FOR THE PSEUDO RANDOM NUMBER GENERATOR
+ *
+ * We  use the same linear congruence as in prgn.h,
+ * but we use a local implementation so that different
+ * solvers can use different seeds.
+ */
+#define SPLX_PRNG_MULTIPLIER 1664525
+#define SPLX_PRNG_CONSTANT   1013904223
+#define SPLX_PRNG_SEED       0xabcdef98
+
+
+/*
+ * Return a 32bit unsigned int
+ */
+static inline uint32_t random_uint32(simplex_solver_t *s) {
+  uint32_t x;
+
+  x = s->prng;
+  s->prng = x * ((uint32_t) SPLX_PRNG_MULTIPLIER) + ((uint32_t) SPLX_PRNG_CONSTANT);
+  return x;
+}
+
+
+/*
+ * Return a 32bit integer between 0 and n-1
+ * - n must be positive
+ */
+static inline uint32_t random_uint(simplex_solver_t *s, uint32_t n) {
+  assert(n > 0);
+  return (random_uint32(s) >> 8) % n;
+}
+
+
 
 
 /*************************
@@ -1545,6 +1586,8 @@ void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, gate_manage
   solver->prop_row_size = SIMPLEX_DEFAULT_PROP_ROW_SIZE;
   solver->last_conflict_row = -1;
   solver->recheck = false;
+
+  solver->prng = SPLX_PRNG_SEED;
 
   solver->integer_solving = false;
   solver->check_counter = 0;
@@ -3991,7 +4034,7 @@ static int32_t find_entering_var_for_increase(simplex_solver_t *solver, row_t *r
         } else if (score == best_score) {
           // pick uniformly among all variables with the same score
           k ++;
-          if (random_uint(k) == 0) {
+          if (random_uint(solver, k) == 0) {
             best_i = i;
           }
         }
@@ -4074,7 +4117,7 @@ static int32_t find_entering_var_for_decrease(simplex_solver_t *solver, row_t *r
         } else if (score == best_score) {
           // pick uniformly among all variables with the same score
           k ++;
-          if (random_uint(k) == 0) {
+          if (random_uint(solver, k) == 0) {
             best_i = i;
           }
         }
@@ -5678,7 +5721,7 @@ static thvar_t select_branch_variable(simplex_solver_t *solver, ivector_t *v) {
     } else if (score == best_score) {
       // break ties randomly
       k ++;
-      if (random_uint(k) == 0) {
+      if (random_uint(solver, k) == 0) {
         best_var = x;
       }
     }
@@ -7560,6 +7603,8 @@ void simplex_reset(simplex_solver_t *solver) {
   solver->unsat_before_search = false;
   solver->interrupted = false;
 
+  solver->prng = SPLX_PRNG_SEED;
+
   reset_simplex_statistics(&solver->stats);
 
   if (solver->freshval != NULL) {
@@ -8516,8 +8561,11 @@ static void simplex_shift_var_value(simplex_solver_t *solver, dep_table_t *deps,
  * - return false otherwise.
  */
 static bool simplex_get_shift_candidate(rational_t *delta, interval_t *interval, uint32_t i) {
+  double prng;
   int64_t w;
   int32_t k;
+
+  prng = DPRNG_DEFAULT_SEED;
 
   w = (int64_t) interval->k_max - (int64_t) interval->k_min;
   if (w <= MAX_SHIFT_CANDIDATES + 1) {
@@ -8525,10 +8573,10 @@ static bool simplex_get_shift_candidate(rational_t *delta, interval_t *interval,
     k += interval->k_min;
     if (k > interval->k_max) return false;
   } else if (w < 1000 * MAX_SHIFT_CANDIDATES) {
-    k = irand(w);
+    k = irand(&prng, w);
     k += interval->k_min;
   } else {
-    k = irand(1000 * MAX_SHIFT_CANDIDATES);
+    k = irand(&prng, 1000 * MAX_SHIFT_CANDIDATES);
     if (interval->k_min > -500 * MAX_SHIFT_CANDIDATES) {
       k += interval->k_min;
     } else if (interval->k_max < 500 * MAX_SHIFT_CANDIDATES) {

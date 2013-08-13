@@ -11,7 +11,6 @@
 #include "bit_tricks.h"
 #include "memalloc.h"
 #include "theory_explanations.h"
-#include "prng.h"
 #include "ptr_partitions.h"
 #include "hash_functions.h"
 #include "index_vectors.h"
@@ -6672,7 +6671,9 @@ composite_t *egraph_find_modified_application(egraph_t *egraph, eterm_t g, compo
 }
 
 
+#if 0
 
+// NOT USED
 /*
  * Return a randomly chosen class label of type tau
  * - if there's no term of type tau, return null_label
@@ -6712,7 +6713,7 @@ elabel_t egraph_get_label_for_type(egraph_t *egraph, type_t tau) {
   }
 }
 
-
+#endif
 
 
 /*

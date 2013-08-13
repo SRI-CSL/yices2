@@ -47,25 +47,6 @@ static inline uint32_t random_uint(uint32_t n) {
 }
 
 
-/*
- * Another linear congruence
- */
-static double dseed = 91648253;
-
-// Returns a random float 0 <= x < 1. Seed must never be 0.
-static inline double drand(void) {
-  int q;
-  dseed *= 1389796;
-  q = (int)(dseed / 2147483647);
-  dseed -= (double)q * 2147483647;
-  return dseed / 2147483647; 
-}
-
-// Returns a random integer 0 <= x < size. Seed must never be 0.
-static inline uint32_t irand(uint32_t size) {
-  return (uint32_t)(drand() * size); 
-}
-
 
 #endif
 

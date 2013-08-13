@@ -715,6 +715,11 @@ typedef struct simplex_solver_s {
   bool recheck;               // true if make_feasible must be called after propagation
 
   /*
+   * Pseudo-random number generator
+   */
+  uint32_t prng;
+
+  /*
    * Flag and parameter for integer arithmetic 
    */
   bool integer_solving;

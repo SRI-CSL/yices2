@@ -23,7 +23,6 @@ typedef enum {
   BRANCHING_THEORY,   // defer to the theory solver
   BRANCHING_TH_NEG,   // defer to theory solver for atoms, branch l := false otherwise
   BRANCHING_TH_POS,   // defer to theory solver for atoms, branch l := true otherwise
-  BRANCHING_BV,       // experimental: default for atoms, random otherwise 
 } branch_t;
 
 #define NUM_BRANCHING_MODES 6

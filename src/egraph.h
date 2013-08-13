@@ -461,10 +461,15 @@ extern void egraph_collect_applications(egraph_t *egraph, eterm_t f, pvector_t *
 extern composite_t *egraph_find_modified_application(egraph_t *egraph, eterm_t g, composite_t *c);
 
 
+#if 0
+
+// NOT USED
 /*
  * Return a randomly chosen class label of type tau
  */
 extern elabel_t egraph_get_label_for_type(egraph_t *egraph, type_t tau);
+
+#endif
 
 
 /*

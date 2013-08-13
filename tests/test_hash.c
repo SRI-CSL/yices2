@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "hash_functions.h"
 #include "cputime.h"
@@ -114,7 +115,10 @@ uint32_t jenkins_hash_string_ori(char *s, uint32_t seed) {
 }
 
 
-
+/*
+ * Hack: we print the value of h to stop a GCC warning (variable h set
+ * but not used).
+ */
 int main() {
   int i, n;
   uint32_t h;
@@ -129,6 +133,7 @@ int main() {
   runtime = get_cpu_time() - runtime;
   printf("naive hash:   %u calls\n", 10000000 * 58);
   printf("cpu time:     %.4f s\n", runtime);
+  printf("last code:    %"PRIu32"\n", h);
 
   runtime = get_cpu_time();
   for (n=0; n<1000000; n++) {
@@ -139,6 +144,7 @@ int main() {
   runtime = get_cpu_time() - runtime;
   printf("jenkins hash:  %u calls\n", 10000000 * 58);
   printf("cpu time:      %.4f s\n", runtime);
+  printf("last code:    %"PRIu32"\n", h);
 
   runtime = get_cpu_time();
   for (n=0; n<1000000; n++) {
@@ -149,6 +155,7 @@ int main() {
   runtime = get_cpu_time() - runtime;
   printf("jenkins hash2: %u calls\n", 10000000 * 58);
   printf("cpu time:      %.4f s\n", runtime);
+  printf("last code:    %"PRIu32"\n", h);
 
   return 0;
 }

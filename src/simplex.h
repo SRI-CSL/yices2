@@ -65,6 +65,11 @@ extern th_egraph_interface_t *simplex_egraph_interface(simplex_solver_t *solver)
 extern arith_egraph_interface_t *simplex_arith_egraph_interface(simplex_solver_t *solver);
 
 
+/*
+ * Set the random seed
+ */
+extern void simplex_set_random_seed(simplex_solver_t *solver, uint32_t x);
+
 
 
 /****************************

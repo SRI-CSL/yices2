@@ -218,7 +218,6 @@ typedef enum optid {
   theory_branching_opt,       // let the theory solver decide
   theory_neg_branching_opt,   // theory solver + neg for non-atom
   theory_pos_branching_opt,   // theory solver + pos for non-atom
-  bv_branching_opt,           // bit-vector branching
 
   // Clause learning
   clause_decay_opt,           // decay factor for learned clause
@@ -293,7 +292,6 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "theory-branching", '\0', FLAG_OPTION, theory_branching_opt },
   { "th-neg-branching", '\0', FLAG_OPTION, theory_neg_branching_opt },
   { "th-pos-branching", '\0', FLAG_OPTION, theory_pos_branching_opt },
-  { "bv-branching", '\0', FLAG_OPTION, bv_branching_opt },
 
   { "clause-decay", '\0', MANDATORY_FLOAT, clause_decay_opt },
   { "cache-tclauses", '\0', FLAG_OPTION, cache_tclause_opt },
@@ -391,7 +389,6 @@ static void yices_help(char *progname) {
          "    --theory-branching\n"
          "    --th-neg-branching\n"
          "    --th-pos-branching\n"
-         "    --bv-branching\n"
          "  Clause-learning heuristic\n"
          "    --clause-decay=<float>\n"
          "    --cache-tclauses\n"
@@ -462,9 +459,6 @@ static char *branching_name(branch_t b) {
     break;
   case BRANCHING_TH_POS:
     name = opt_name(theory_pos_branching_opt);
-    break;
-  case BRANCHING_BV:
-    name = opt_name(bv_branching_opt);
     break;
   }
   return name;
@@ -758,17 +752,6 @@ static void check_parameters(char *progname) {
     use_default_params = false;
   }
 
-  if (opt_set[bv_branching_opt]) {
-    if (params.branching != BRANCHING_DEFAULT) {
-      fprintf(stderr, "%s: conflict between branching options %s and %s (pick one)\n", progname,
-              opt_name(theory_branching_opt), branching_name(params.branching));
-      goto error;
-    }
-    params.branching = BRANCHING_BV;
-    use_default_params = false;
-  }
-
-
   if (opt_set[clause_decay_opt]) {
     x = opt_val[clause_decay_opt].d_value;
     if (x < 0 || x > 1.0) {
@@ -973,7 +956,6 @@ static void parse_command_line(int argc, char *argv[]) {
       case theory_branching_opt:
       case theory_neg_branching_opt:
       case theory_pos_branching_opt:
-      case bv_branching_opt:
       case cache_tclause_opt:
       case dyn_ack_opt:
       case dyn_boolack_opt:
@@ -1393,9 +1375,6 @@ static void print_options(FILE *f, context_t *ctx) {
       break;
     case BRANCHING_TH_POS:
       fprintf(f, " --th-pos-branching");
-      break;
-    case BRANCHING_BV:
-      fprintf(f, " --bv-branching");
       break;
     }
     fprintf(f, "\n");

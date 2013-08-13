@@ -14,7 +14,6 @@
 #include "context.h"
 #include "simplex.h"
 #include "fun_solver.h"
-#include "prng.h"
 
 
 
@@ -221,18 +220,6 @@ static literal_t theory_or_pos_branch(smt_core_t *core, literal_t l) {
 
 
 
-/*
- * Bit-vector branching: for atoms, branch using the default 
- * For literals with no atoms attached, branch randomly
- */
-static literal_t bv_branch(smt_core_t *core, literal_t l) {
-  if (!bvar_has_atom(core, var_of(l)) && (random_uint32() & 0x400)) {
-    l = not(l);
-  }
-  return l;
-}
-
-
 
 
 /*
@@ -287,9 +274,6 @@ static void solve(smt_core_t *core, const param_t *params) {
         break;
       case BRANCHING_TH_POS:
         special_search(core, c_threshold, &reduce_threshold, params->r_factor, theory_or_pos_branch);
-        break;
-      case BRANCHING_BV:
-        special_search(core, c_threshold, &reduce_threshold, params->r_factor, bv_branch);
         break;
       }
 

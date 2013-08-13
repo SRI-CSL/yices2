@@ -611,9 +611,6 @@ static void print_options(FILE *f, context_t *ctx) {
     case BRANCHING_TH_POS:
       fprintf(f, " --th-pos-branching");
       break;
-    case BRANCHING_BV:
-      fprintf(f, " --bv-branching");
-      break;
     }
     fprintf(f, "\n");
   }
