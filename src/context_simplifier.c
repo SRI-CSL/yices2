@@ -2119,6 +2119,16 @@ static term_t lt_atom(context_t *ctx, term_t t, term_t u) {
   return mk_direct_arith_lt0(ctx->terms, b);
 }
 
+/*
+ * Add t to vector t if it's not in the small cache
+ */
+static void flatten_or_add_atom(context_t *ctx, ivector_t *v, term_t t) {
+  assert(is_boolean_term(ctx->terms, t));
+
+  if (int_hset_add(ctx->small_cache, t)) {
+    ivector_push(v, t);
+  }
+}
 
 /*
  * Flatten term t:
@@ -2164,8 +2174,8 @@ static void flatten_or_recur(context_t *ctx, ivector_t *v, term_t t) {
 	case ARITH_EQ_ATOM:
 	  // t is (not (eq x 0)): rewrite to (or (x < 0) (x > 0))
 	  x = intern_tbl_get_root(&ctx->intern, arith_eq_arg(terms, t));
-	  flatten_or_recur(ctx, v, lt0_atom(ctx, x));
-	  flatten_or_recur(ctx, v, gt0_atom(ctx, x));
+	  flatten_or_add_atom(ctx, v, lt0_atom(ctx, x));
+	  flatten_or_add_atom(ctx, v, gt0_atom(ctx, x));
 	  break;
 
 	case ARITH_BINEQ_ATOM:
@@ -2173,8 +2183,8 @@ static void flatten_or_recur(context_t *ctx, ivector_t *v, term_t t) {
 	  eq = arith_bineq_atom_desc(terms, t);
 	  x = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
 	  y = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
-	  flatten_or_recur(ctx, v, lt_atom(ctx, x, y));
-	  flatten_or_recur(ctx, v, lt_atom(ctx, y, x));
+	  flatten_or_add_atom(ctx, v, lt_atom(ctx, x, y));
+	  flatten_or_add_atom(ctx, v, lt_atom(ctx, y, x));
 	  break;
 
 	default:
