@@ -2103,6 +2103,24 @@ static term_t gt0_atom(context_t *ctx, term_t t) {
 
 
 /*
+ * Build a term equivalent to (t < u)
+ */
+static term_t lt_atom(context_t *ctx, term_t t, term_t u) {
+  rba_buffer_t *b;
+
+  assert(is_pos_term(t) && is_arithmetic_term(ctx->terms, t));
+  assert(is_pos_term(u) && is_arithmetic_term(ctx->terms, u));
+
+  // build atom (t - u < 0)
+  b = ctx->arith_buffer;
+  assert(b != NULL && rba_buffer_is_zero(b));
+  rba_buffer_add_term(b, ctx->terms, t);
+  rba_buffer_sub_term(b, ctx->terms, u); 
+  return mk_direct_arith_lt0(ctx->terms, b);
+}
+
+
+/*
  * Flatten term t:
  * - if t is already internalized, keep t and add it to v
  * - if t is (OR t1 ... t_n), recursively flatten t_1 ... t_n
@@ -2114,9 +2132,10 @@ static term_t gt0_atom(context_t *ctx, term_t t) {
 static void flatten_or_recur(context_t *ctx, ivector_t *v, term_t t) {
   term_table_t *terms;
   composite_term_t *or;
+  composite_term_t *eq;
   uint32_t i, n;
   term_kind_t kind;
-  term_t x;
+  term_t x, y;
 
   assert(is_boolean_term(ctx->terms, t));
 
@@ -2140,12 +2159,29 @@ static void flatten_or_recur(context_t *ctx, ivector_t *v, term_t t) {
         for (i=0; i<n; i++) {
           flatten_or_recur(ctx, v, or->arg[i]);
         }
-      } else if (is_neg_term(t) && kind == ARITH_EQ_ATOM && 
-                 context_flatten_diseq_enabled(ctx)) {
-        // t is (not (eq x 0)): rewrite to (or (x < 0) (x > 0))
-        x = intern_tbl_get_root(&ctx->intern, arith_eq_arg(terms, t));
-        ivector_push(v, lt0_atom(ctx, x));
-        ivector_push(v, gt0_atom(ctx, x));
+      } else if (is_neg_term(t) && context_flatten_diseq_enabled(ctx)) {
+	switch (kind) {
+	case ARITH_EQ_ATOM:
+	  // t is (not (eq x 0)): rewrite to (or (x < 0) (x > 0))
+	  x = intern_tbl_get_root(&ctx->intern, arith_eq_arg(terms, t));
+	  flatten_or_recur(ctx, v, lt0_atom(ctx, x));
+	  flatten_or_recur(ctx, v, gt0_atom(ctx, x));
+	  break;
+
+	case ARITH_BINEQ_ATOM:
+	  // t is (not (eq x y)): rewrite to (or (x < y) (y < x))
+	  eq = arith_bineq_atom_desc(terms, t);
+	  x = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
+	  y = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
+	  flatten_or_recur(ctx, v, lt_atom(ctx, x, y));
+	  flatten_or_recur(ctx, v, lt_atom(ctx, y, x));
+	  break;
+
+	default:
+	  // can't flatten
+	  ivector_push(v, t);
+	  break;
+	}
 
       } else {
         // can't flatten
