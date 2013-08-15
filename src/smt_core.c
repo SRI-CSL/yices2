@@ -2110,7 +2110,7 @@ literal_t select_unassigned_literal(smt_core_t *s) {
   v = s->value;
 
   if (s->scaled_random > 0) {
-    rnd = random_uint32(s) >> 8;
+    rnd = random_uint32(s) & VAR_RANDOM_MASK;
     if (rnd < s->scaled_random) {
       x = random_uint(s, s->nvars);
       assert(0 <= x && x < s->nvars);

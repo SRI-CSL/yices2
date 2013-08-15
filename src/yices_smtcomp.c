@@ -1213,7 +1213,7 @@ static int process_benchmark(void) {
         params.cache_tclauses = true;
         params.tclause_size = 8;
         params.fast_restart = true;
-      
+
       } else {
         assert(context_has_simplex_solver(&context));
         // SIMPLEX: --split-eqs --theory-branching --cache-tclauses
