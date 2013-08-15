@@ -2122,7 +2122,7 @@ static term_t lt_atom(context_t *ctx, term_t t, term_t u) {
 /*
  * Add t to vector t if it's not in the small cache
  */
-static void flatten_or_add_atom(context_t *ctx, ivector_t *v, term_t t) {
+static void flatten_or_add_term(context_t *ctx, ivector_t *v, term_t t) {
   assert(is_boolean_term(ctx->terms, t));
 
   if (int_hset_add(ctx->small_cache, t)) {
@@ -2172,19 +2172,39 @@ static void flatten_or_recur(context_t *ctx, ivector_t *v, term_t t) {
       } else if (is_neg_term(t) && context_flatten_diseq_enabled(ctx)) {
 	switch (kind) {
 	case ARITH_EQ_ATOM:
-	  // t is (not (eq x 0)): rewrite to (or (x < 0) (x > 0))
+	  /*
+	   * t is (not (eq x 0)): rewrite to (or (x < 0) (x > 0))
+	   *
+	   * Exception: keep it as an equality if x is an if-then-else term
+	   */
 	  x = intern_tbl_get_root(&ctx->intern, arith_eq_arg(terms, t));
-	  flatten_or_add_atom(ctx, v, lt0_atom(ctx, x));
-	  flatten_or_add_atom(ctx, v, gt0_atom(ctx, x));
+	  if (is_ite_term(terms, x)) {
+	    ivector_push(v, t);
+	  } else {
+	    flatten_or_add_term(ctx, v, lt0_atom(ctx, x));
+	    flatten_or_add_term(ctx, v, gt0_atom(ctx, x));
+	  }
 	  break;
 
 	case ARITH_BINEQ_ATOM:
-	  // t is (not (eq x y)): rewrite to (or (x < y) (y < x))
+	  /*
+	   * t is (not (eq x y)): rewrite to (or (x < y) (y < x))
+	   *
+	   * Exception: if x or y is an if-then-else term, then it's
+	   * better to keep (eq x y) because the if-lifting
+	   * simplifications are more likely to work on
+	   *    (ite c a b) =y 
+	   * than (ite c a b) >= y AND (ite c a b) <= y
+	   */
 	  eq = arith_bineq_atom_desc(terms, t);
 	  x = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
 	  y = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
-	  flatten_or_add_atom(ctx, v, lt_atom(ctx, x, y));
-	  flatten_or_add_atom(ctx, v, lt_atom(ctx, y, x));
+	  if (is_ite_term(terms, x) || is_ite_term(terms, y)) {
+	    ivector_push(v, t);
+	  } else {
+	    flatten_or_add_term(ctx, v, lt_atom(ctx, x, y));
+	    flatten_or_add_term(ctx, v, lt_atom(ctx, y, x));
+	  }
 	  break;
 
 	default:

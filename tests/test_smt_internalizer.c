@@ -47,11 +47,12 @@ static context_t context;
  * - dump_file = name of the dump file 
  *   if dump is true and dump_file is NULL, we
  *   use 'yices2intern.dmp' as default.
+ * - print = whether to print the assertions (can be very expensive)
  */
 static char *filename;
-static bool dump;
 static char *dump_file;
-
+static bool dump;
+static bool print;
 
 /*
  * Command-line options
@@ -59,14 +60,16 @@ static char *dump_file;
 enum {
   dump_option,
   out_option,
+  pp_option,
   help_flag,
 };
 
-#define NUM_OPTIONS 3
+#define NUM_OPTIONS 4
 
 static option_desc_t options[NUM_OPTIONS] = {
   { "dump", 'd', FLAG_OPTION, dump_option },
-  { "out",  'o', MANDATORY_STRING, out_option },
+  { "out",  'o', MANDATORY_STRING, out_option },  
+  { "print", 'p', FLAG_OPTION, pp_option },
   { "help", 'h', FLAG_OPTION, help_flag },
 };
 
@@ -74,6 +77,7 @@ static void print_help(char *progname) {
   printf("Usage: %s [options] filename\n\n", progname);
   printf("Options:\n"
 	 "  --help, -h                   Display this information\n"
+	 "  --print, -p                  Pretty print the assertions (can be expensive)\n"
 	 "  --dump, -d                   Dump the result\n"
 	 "  --out=<file> or -o <file>    Set the dump file (default = 'yices2intern.dmp')\n"
 	 "\n");
@@ -95,8 +99,9 @@ static void process_command_line(int argc, char *argv[]) {
 
   // default options
   filename = NULL;
-  dump = false;
   dump_file = NULL;
+  dump = false;
+  print = false;
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
   for (;;) {
@@ -127,6 +132,10 @@ static void process_command_line(int argc, char *argv[]) {
 	  fprintf(stderr, "%s: can't have several dump files\n", parser.command_name);
 	  goto bad_usage;
 	}
+	break;
+
+      case pp_option:
+	print = true;
 	break;
 
       case help_flag:
@@ -561,7 +570,9 @@ static void test_internalization(smt_benchmark_t *bench) {
     print_internalization_code(code);
   }
 
-  pp_context(stdout, &context);
+  if (print) {
+    pp_context(stdout, &context);
+  }
 
   if (dump) {
     if (dump_file == NULL) {

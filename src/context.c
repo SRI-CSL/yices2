@@ -1143,25 +1143,6 @@ static literal_t map_poly_eq_to_literal(context_t *ctx, polynomial_t *p) {
 
 
 /*
- * Arithmetic atom: (t == 0)
- */
-static literal_t map_arith_eq_to_literal(context_t *ctx, term_t t) {
-  term_table_t *terms;
-  thvar_t x;
-  literal_t l;
-
-  terms = ctx->terms;
-  if (term_kind(terms, t) == ARITH_POLY) {
-    l = map_poly_eq_to_literal(ctx, poly_term_desc(terms, t));
-  } else {
-    x = internalize_to_arith(ctx, t);
-    l = ctx->arith.create_eq_atom(ctx->arith_solver, x);
-  }
-  return l;
-}
-
-
-/*
  * Arithmetic atom: (p >= 0)
  */
 static literal_t map_poly_ge_to_literal(context_t *ctx, polynomial_t *p) {
@@ -1348,6 +1329,29 @@ static inline literal_t map_arith_bineq_to_literal(context_t *ctx, composite_ter
   assert(eq->arity == 2);
   return map_arith_bineq(ctx, eq->arg[0], eq->arg[1]);
 }
+
+
+
+/*
+ * Arithmetic atom: (t == 0)
+ */
+static literal_t map_arith_eq_to_literal(context_t *ctx, term_t t) {
+  term_table_t *terms;
+  thvar_t x;
+  literal_t l;
+
+  terms = ctx->terms;
+  if (term_kind(terms, t) == ARITH_POLY) {
+    l = map_poly_eq_to_literal(ctx, poly_term_desc(terms, t));
+  } else if (is_ite_term(terms, t)) {
+    l = map_arith_bineq(ctx, t, zero_term);
+  } else {
+    x = internalize_to_arith(ctx, t);
+    l = ctx->arith.create_eq_atom(ctx->arith_solver, x);
+  }
+  return l;
+}
+
 
 
 /*
@@ -2375,6 +2379,159 @@ static bool try_arithvar_elim(context_t *ctx, polynomial_t *p, bool all_int) {
 
 
 
+
+
+
+/******************************************************
+ *  TOP-LEVEL ARITHMETIC EQUALITIES OR DISEQUALITIES  *
+ *****************************************************/
+
+static void assert_arith_bineq(context_t *ctx, term_t t1, term_t t2, bool tt);
+
+/*
+ * Top-level equality: t == (ite c u1 u2) between arithmetic terms
+ * - apply lift-if rule: (t == (ite c u1 u2)) --> (ite c (t == u1) (t == u2)
+ * - if tt is true: assert the equality otherwise assert the disequality
+ */
+static void assert_ite_arith_bineq(context_t *ctx, composite_term_t *ite, term_t t, bool tt) {
+  literal_t l1, l2, l3;
+
+  assert(ite->arity == 3);
+
+  l1 = internalize_to_literal(ctx, ite->arg[0]);
+  if (l1 == true_literal) {
+    // (ite c u1 u2) --> u1
+    assert_arith_bineq(ctx, ite->arg[1], t, tt);
+  } else if (l1 == false_literal) {
+    // (ite c u1 u2) --> u2
+    assert_arith_bineq(ctx, ite->arg[2], t, tt);
+  } else {
+    l2 = map_arith_bineq(ctx, ite->arg[1], t); // (u1 == t)
+    l3 = map_arith_bineq(ctx, ite->arg[2], t); // (u2 == t)
+    assert_ite(&ctx->gate_manager, l1, l2, l3, tt);
+  }
+}
+
+
+/*
+ * Try substitution t1 := t2
+ * - both are arithmetic terms and roots in the internalization table
+ */
+static void try_arithvar_bineq_elim(context_t *ctx, term_t t1, term_t t2) {
+  intern_tbl_t *intern;  
+  thvar_t x, y;
+  int32_t code;
+
+  assert(is_pos_term(t1) && intern_tbl_is_root(&ctx->intern, t1) && 
+         intern_tbl_root_is_free(&ctx->intern, t1));
+
+  intern = &ctx->intern;
+
+  if (is_constant_term(ctx->terms, t2)) {
+    if (intern_tbl_valid_const_subst(intern, t1, t2)) {
+      intern_tbl_add_subst(intern, t1, t2);
+    } else {
+      // unsat by type incompatibility
+      longjmp(ctx->env, TRIVIALLY_UNSAT);
+    }
+
+  } else {
+    /*
+     * Internalize t2 to x.
+     * If t1 is still free after that, we can map t1 to x 
+     * otherwise, t2 depends on t1 so we can't substitute
+     */
+    x = internalize_to_arith(ctx, t2);
+    if (intern_tbl_root_is_free(intern, t1)) {
+      intern_tbl_map_root(&ctx->intern, t1, thvar2code(x));
+    } else {
+      assert(intern_tbl_root_is_mapped(intern, t1));
+      code = intern_tbl_map_of_root(intern, t1);
+      y = translate_code_to_arith(ctx, code);
+      
+      // assert x == y in the arithmetic solver
+      ctx->arith.assert_vareq_axiom(ctx->arith_solver, x, y, true);
+    }
+  }
+}
+
+
+/*
+ * Top-level arithmetic equality t1 == t2:
+ * - if tt is true: assert t1 == t2 otherwise assert (t1 != t2)
+ * - both t1 and t2 are arithmetic terms and roots in the internalization table
+ * - the equality (t1 == t2) is not reducible by if-then-else flattening
+ */
+static void assert_arith_bineq_aux(context_t *ctx, term_t t1, term_t t2, bool tt) {
+  term_table_t *terms;
+  intern_tbl_t *intern;;
+  bool free1, free2;
+  thvar_t x, y;
+  occ_t u, v;
+
+  assert(is_pos_term(t1) && intern_tbl_is_root(&ctx->intern, t1) &&
+         is_pos_term(t2) && intern_tbl_is_root(&ctx->intern, t2));
+
+  terms = ctx->terms;
+  if (is_ite_term(terms, t1) && !is_ite_term(terms, t2)) {
+    assert_ite_arith_bineq(ctx, ite_term_desc(terms, t1), t2, tt);
+    return;
+  } 
+
+  if (is_ite_term(terms, t2) && !is_ite_term(terms, t1)) {
+    assert_ite_arith_bineq(ctx, ite_term_desc(terms, t2), t1, tt);
+    return;
+  }
+
+  if (tt && context_arith_elim_enabled(ctx)) {
+    /*
+     * try a substitution
+     */
+    intern = &ctx->intern;
+    free1 = intern_tbl_root_is_free(intern, t1);
+    free2 = intern_tbl_root_is_free(intern, t2);
+
+    if (free1 && free2) {
+      if (t1 != t2) {
+        intern_tbl_merge_classes(intern, t1, t2);
+      }
+      return;
+    }
+
+    if (free1) {
+      try_arithvar_bineq_elim(ctx, t1, t2);
+      return;
+    }
+
+    if (free2) {
+      try_arithvar_bineq_elim(ctx, t2, t1);
+      return;
+    }
+    
+  }
+
+  /*
+   * Default: assert the constraint in the egraph or in the arithmetic
+   * solver if there's no egraph.
+   */
+  if (context_has_egraph(ctx)) {
+    u = internalize_to_eterm(ctx, t1);
+    v = internalize_to_eterm(ctx, t2);
+    if (tt) {
+      egraph_assert_eq_axiom(ctx->egraph, u, v);
+    } else {
+      egraph_assert_diseq_axiom(ctx->egraph, u, v);
+    }
+  } else {
+    x = internalize_to_arith(ctx, t1);
+    y = internalize_to_arith(ctx, t2);
+    ctx->arith.assert_vareq_axiom(ctx->arith_solver, x, y, tt);
+  }
+}
+
+
+
+
 /*****************************************************
  *  INTERNALIZATION OF TOP-LEVEL ATOMS AND FORMULAS  *
  ****************************************************/
@@ -2386,7 +2543,6 @@ static bool try_arithvar_elim(context_t *ctx, polynomial_t *p, bool all_int) {
  * - t is not necessarily a root in the internalization table
  */ 
 static void assert_term(context_t *ctx, term_t t, bool tt);
-
 
 
 /*
@@ -2586,276 +2742,6 @@ static void assert_toplevel_distinct(context_t *ctx, composite_term_t *distinct,
 
 
 /*
- * Top-level arithmetic assertion: 
- * - if tt is true, assert p == 0 
- * - if tt is false, assert p != 0
- */
-static void assert_toplevel_poly_eq(context_t *ctx, polynomial_t *p, bool tt) {
-  uint32_t i, n;
-  thvar_t *a;
-
-  n = p->nterms;
-  a = alloc_istack_array(&ctx->istack, n);;
-  // skip the constant if any
-  i = 0;
-  if (p->mono[0].var == const_idx) {
-    a[0] = null_thvar;
-    i ++;
-  }
-
-  // deal with the non-constant monomials
-  while (i<n) {
-    a[i] = internalize_to_arith(ctx, p->mono[i].var);
-    i ++;
-  }
-
-  // assertion
-  ctx->arith.assert_poly_eq_axiom(ctx->arith_solver, p, a, tt);
-  free_istack_array(&ctx->istack, a);
-}
-
-
-
-/*
- * Top-level arithmetic equality:
- * - t is an arithmetic term
- * - if tt is true, assert (t == 0)
- * - otherwise, assert (t != 0)
- */
-static void assert_toplevel_arith_eq(context_t *ctx, term_t t, bool tt) {
-  term_table_t *terms;
-  polynomial_t *p;
-  bool all_int;
-  thvar_t x;
-
-  assert(is_arithmetic_term(ctx->terms, t));
-
-  terms = ctx->terms;
-  if (tt && context_arith_elim_enabled(ctx) && term_kind(terms, t) == ARITH_POLY) {
-    /*
-     * Polynomial equality: a_1 t_1 + ... + a_n t_n = 0
-     * attempt to eliminate one of t_1 ... t_n
-     */
-    p = poly_term_desc(terms, t);
-    all_int = is_integer_term(terms, t);
-    if (try_arithvar_elim(ctx, p, all_int)) { // elimination worked
-      return;
-    }
-  }
-
-  // default
-  if (term_kind(terms, t) == ARITH_POLY) {
-    assert_toplevel_poly_eq(ctx, poly_term_desc(terms, t), tt);
-  } else {
-    x = internalize_to_arith(ctx, t);
-    ctx->arith.assert_eq_axiom(ctx->arith_solver, x, tt);
-  }
-}
-
-
-
-/*
- * Top-level arithmetic assertion: 
- * - if tt is true, assert p >= 0 
- * - if tt is false, assert p < 0
- */
-static void assert_toplevel_poly_geq(context_t *ctx, polynomial_t *p, bool tt) {
-  uint32_t i, n;
-  thvar_t *a;
-
-  n = p->nterms;
-  a = alloc_istack_array(&ctx->istack, n);;
-  // skip the constant if any
-  i = 0;
-  if (p->mono[0].var == const_idx) {
-    a[0] = null_thvar;
-    i ++;
-  }
-
-  // deal with the non-constant monomials
-  while (i<n) {
-    a[i] = internalize_to_arith(ctx, p->mono[i].var);
-    i ++;
-  }
-
-  // assertion
-  ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, a, tt);
-  free_istack_array(&ctx->istack, a);
-}
-
-
-
-/*
- * Top-level arithmetic inequality:
- * - t is an arithmetic term
- * - if tt is true, assert (t >= 0)
- * - if tt is false, assert (t < 0)
- */
-static void assert_toplevel_arith_geq(context_t *ctx, term_t t, bool tt) {
-  term_table_t *terms;
-  thvar_t x;
-
-  assert(is_arithmetic_term(ctx->terms, t));
-
-  terms = ctx->terms;
-  if (term_kind(terms, t) == ARITH_POLY) {
-    assert_toplevel_poly_geq(ctx, poly_term_desc(terms, t), tt);
-  } else {
-    x = internalize_to_arith(ctx, t);
-    ctx->arith.assert_ge_axiom(ctx->arith_solver, x, tt);
-  }
-}
-
-
-
-/*
- * TOP-LEVEL ARITHMETIC EQUALITIES OR DISEQUALITIES
- */
-static void assert_arith_bineq(context_t *ctx, term_t t1, term_t t2, bool tt);
-
-/*
- * Top-level equality: t == (ite c u1 u2) between arithmetic terms
- * - apply lift-if rule: (t == (ite c u1 u2)) --> (ite c (t == u1) (t == u2)
- * - if tt is true: assert the equality otherwise assert the disequality
- */
-static void assert_ite_arith_bineq(context_t *ctx, composite_term_t *ite, term_t t, bool tt) {
-  literal_t l1, l2, l3;
-
-  assert(ite->arity == 3);
-
-  l1 = internalize_to_literal(ctx, ite->arg[0]);
-  if (l1 == true_literal) {
-    // (ite c u1 u2) --> u1
-    assert_arith_bineq(ctx, ite->arg[1], t, tt);
-  } else if (l1 == false_literal) {
-    // (ite c u1 u2) --> u2
-    assert_arith_bineq(ctx, ite->arg[2], t, tt);
-  } else {
-    l2 = map_arith_bineq(ctx, ite->arg[1], t); // (u1 == t)
-    l3 = map_arith_bineq(ctx, ite->arg[2], t); // (u2 == t)
-    assert_ite(&ctx->gate_manager, l1, l2, l3, tt);
-  }
-}
-
-
-/*
- * Try substitution t1 := t2
- * - both are arithmetic terms and roots in the internalization table
- */
-static void try_arithvar_bineq_elim(context_t *ctx, term_t t1, term_t t2) {
-  intern_tbl_t *intern;  
-  thvar_t x, y;
-  int32_t code;
-
-  assert(is_pos_term(t1) && intern_tbl_is_root(&ctx->intern, t1) && 
-         intern_tbl_root_is_free(&ctx->intern, t1));
-
-  intern = &ctx->intern;
-
-  if (is_constant_term(ctx->terms, t2)) {
-    if (intern_tbl_valid_const_subst(intern, t1, t2)) {
-      intern_tbl_add_subst(intern, t1, t2);
-    } else {
-      // unsat by type incompatibility
-      longjmp(ctx->env, TRIVIALLY_UNSAT);
-    }
-
-  } else {
-    /*
-     * Internalize t2 to x.
-     * If t1 is still free after that we can map t1 to x 
-     * otherwise, t2 depends on t1 so we can't substitute
-     */
-    x = internalize_to_arith(ctx, t2);
-    if (intern_tbl_root_is_free(intern, t1)) {
-      intern_tbl_map_root(&ctx->intern, t1, thvar2code(x));
-    } else {
-      assert(intern_tbl_root_is_mapped(intern, t1));
-      code = intern_tbl_map_of_root(intern, t1);
-      y = translate_code_to_arith(ctx, code);
-      
-      // assert x == y in the arithmetic solver
-      ctx->arith.assert_vareq_axiom(ctx->arith_solver, x, y, true);
-    }
-  }
-}
-
-
-/*
- * Top-level arithmetic equality t1 == t2:
- * - if tt is true: assert t1 == t2 otherwise assert (t1 != t2)
- * - both t1 and t2 are arithmetic terms and roots in the internalization table
- * - the equality (t1 == t2) is not reducible by if-then-else flattening
- */
-static void assert_arith_bineq_aux(context_t *ctx, term_t t1, term_t t2, bool tt) {
-  term_table_t *terms;
-  intern_tbl_t *intern;;
-  bool free1, free2;
-  thvar_t x, y;
-  occ_t u, v;
-
-  assert(is_pos_term(t1) && intern_tbl_is_root(&ctx->intern, t1) &&
-         is_pos_term(t2) && intern_tbl_is_root(&ctx->intern, t2));
-
-  terms = ctx->terms;
-  if (is_ite_term(terms, t1) && !is_ite_term(terms, t2)) {
-    assert_ite_arith_bineq(ctx, ite_term_desc(terms, t1), t2, tt);
-    return;
-  } 
-
-  if (is_ite_term(terms, t2) && !is_ite_term(terms, t1)) {
-    assert_ite_arith_bineq(ctx, ite_term_desc(terms, t2), t1, tt);
-    return;
-  }
-
-  if (tt && context_arith_elim_enabled(ctx)) {
-    /*
-     * try a substitution
-     */
-    intern = &ctx->intern;
-    free1 = intern_tbl_root_is_free(intern, t1);
-    free2 = intern_tbl_root_is_free(intern, t2);
-
-    if (free1 && free2) {
-      if (t1 != t2) {
-        intern_tbl_merge_classes(intern, t1, t2);
-      }
-      return;
-    }
-
-    if (free1) {
-      try_arithvar_bineq_elim(ctx, t1, t2);
-      return;
-    }
-
-    if (free2) {
-      try_arithvar_bineq_elim(ctx, t2, t1);
-      return;
-    }
-    
-  }
-
-  /*
-   * Default: assert the constraint in the egraph or in the arithmetic
-   * solver if there's no egraph.
-   */
-  if (context_has_egraph(ctx)) {
-    u = internalize_to_eterm(ctx, t1);
-    v = internalize_to_eterm(ctx, t2);
-    if (tt) {
-      egraph_assert_eq_axiom(ctx->egraph, u, v);
-    } else {
-      egraph_assert_diseq_axiom(ctx->egraph, u, v);
-    }
-  } else {
-    x = internalize_to_arith(ctx, t1);
-    y = internalize_to_arith(ctx, t2);
-    ctx->arith.assert_vareq_axiom(ctx->arith_solver, x, y, tt);
-  }
-}
-
-
-/*
  * Top-level arithmetic equality t1 == u1:
  * - t1 and u1 are arithmetic terms
  * - if tt is true assert (t1 == u1) otherwise assert (t1 != u1)
@@ -2919,6 +2805,132 @@ static void assert_arith_bineq(context_t *ctx, term_t t1, term_t u1, bool tt) {
     free_istack_array(&ctx->istack, a);
   }
 }
+
+
+/*
+ * Top-level arithmetic assertion: 
+ * - if tt is true, assert p == 0 
+ * - if tt is false, assert p != 0
+ */
+static void assert_toplevel_poly_eq(context_t *ctx, polynomial_t *p, bool tt) {
+  uint32_t i, n;
+  thvar_t *a;
+
+  n = p->nterms;
+  a = alloc_istack_array(&ctx->istack, n);;
+  // skip the constant if any
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    a[0] = null_thvar;
+    i ++;
+  }
+
+  // deal with the non-constant monomials
+  while (i<n) {
+    a[i] = internalize_to_arith(ctx, p->mono[i].var);
+    i ++;
+  }
+
+  // assertion
+  ctx->arith.assert_poly_eq_axiom(ctx->arith_solver, p, a, tt);
+  free_istack_array(&ctx->istack, a);
+}
+
+
+
+/*
+ * Top-level arithmetic equality:
+ * - t is an arithmetic term
+ * - if tt is true, assert (t == 0)
+ * - otherwise, assert (t != 0)
+ */
+static void assert_toplevel_arith_eq(context_t *ctx, term_t t, bool tt) {
+  term_table_t *terms;
+  polynomial_t *p;
+  bool all_int;
+  thvar_t x;
+
+  assert(is_arithmetic_term(ctx->terms, t));
+
+  terms = ctx->terms;
+  if (tt && context_arith_elim_enabled(ctx) && term_kind(terms, t) == ARITH_POLY) {
+    /*
+     * Polynomial equality: a_1 t_1 + ... + a_n t_n = 0
+     * attempt to eliminate one of t_1 ... t_n
+     */
+    p = poly_term_desc(terms, t);
+    all_int = is_integer_term(terms, t);
+    if (try_arithvar_elim(ctx, p, all_int)) { // elimination worked
+      return;
+    }
+  }
+
+  // default
+  if (term_kind(terms, t) == ARITH_POLY) {
+    assert_toplevel_poly_eq(ctx, poly_term_desc(terms, t), tt);
+  } else if (is_ite_term(terms, t)) {
+    assert_arith_bineq(ctx, t, zero_term, tt);
+  } else {
+    x = internalize_to_arith(ctx, t);
+    ctx->arith.assert_eq_axiom(ctx->arith_solver, x, tt);
+  }
+}
+
+
+
+/*
+ * Top-level arithmetic assertion: 
+ * - if tt is true, assert p >= 0 
+ * - if tt is false, assert p < 0
+ */
+static void assert_toplevel_poly_geq(context_t *ctx, polynomial_t *p, bool tt) {
+  uint32_t i, n;
+  thvar_t *a;
+
+  n = p->nterms;
+  a = alloc_istack_array(&ctx->istack, n);;
+  // skip the constant if any
+  i = 0;
+  if (p->mono[0].var == const_idx) {
+    a[0] = null_thvar;
+    i ++;
+  }
+
+  // deal with the non-constant monomials
+  while (i<n) {
+    a[i] = internalize_to_arith(ctx, p->mono[i].var);
+    i ++;
+  }
+
+  // assertion
+  ctx->arith.assert_poly_ge_axiom(ctx->arith_solver, p, a, tt);
+  free_istack_array(&ctx->istack, a);
+}
+
+
+
+/*
+ * Top-level arithmetic inequality:
+ * - t is an arithmetic term
+ * - if tt is true, assert (t >= 0)
+ * - if tt is false, assert (t < 0)
+ */
+static void assert_toplevel_arith_geq(context_t *ctx, term_t t, bool tt) {
+  term_table_t *terms;
+  thvar_t x;
+
+  assert(is_arithmetic_term(ctx->terms, t));
+
+  terms = ctx->terms;
+  if (term_kind(terms, t) == ARITH_POLY) {
+    assert_toplevel_poly_geq(ctx, poly_term_desc(terms, t), tt);
+  } else {
+    x = internalize_to_arith(ctx, t);
+    ctx->arith.assert_ge_axiom(ctx->arith_solver, x, tt);
+  }
+}
+
+
 
 
 /*
