@@ -13,13 +13,16 @@ static inline double drand(double *seed) {
 
   x = (*seed) * 1389796;
   q = (int)(x / 2147483647);
-  *seed -= (double)q * 2147483647;
+  x -= (double)q * 2147483647;
+  *seed = x;
   return x / 2147483647; 
 }
 
 // Returns a random integer 0 <= x < size. Seed must not be 0.
 static inline uint32_t irand(double *seed, uint32_t size) {
-  return (uint32_t)(drand(seed) * size); 
+  uint32_t x = (uint32_t)(drand(seed) * size);
+  assert(0 <= x && x < size);
+  return x;
 }
 
 #endif

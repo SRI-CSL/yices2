@@ -1024,6 +1024,8 @@ static void update_trace_file(smt2_globals_t *g) {
 static void update_trace_verbosity(smt2_globals_t *g) {
   if (g->tracer != NULL) {
     set_trace_vlevel(g->tracer, g->verbosity);
+  } else if (g->ctx != NULL && g->verbosity > 0) {
+    context_set_trace(g->ctx, get_tracer(g));
   }
 }
 
@@ -1886,12 +1888,40 @@ static void add_assertion(smt2_globals_t *g, term_t t) {
 
 }
 
+
+// TEMPORARY COUNTER FOR DEBUGGING
+static uint32_t num_check_sat = 0;
+
 /*
  * Check satisfiability: just print the current status for now
  */
 static void ctx_check_sat(smt2_globals_t *g) {
+  smt_status_t stat;
+  
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
-  print_status(context_status(g->ctx));  
+  num_check_sat ++;
+  fprintf(g->out, "--- check_sat: %"PRIu32 "----\n", num_check_sat);
+
+  stat = context_status(g->ctx);
+  switch (stat) {
+  case STATUS_UNKNOWN:
+  case STATUS_UNSAT:
+  case STATUS_SAT:
+    // already solved: print the status
+    print_status(stat);
+    break;
+
+  case STATUS_IDLE:
+    stat = check_context(g->ctx, &parameters);
+    print_status(stat);
+    break;
+
+  case STATUS_SEARCHING:
+  case STATUS_INTERRUPTED:
+  default:
+    bad_status_bug(g->err);
+    break;
+  }
 }
 
 

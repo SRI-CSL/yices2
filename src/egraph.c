@@ -5814,6 +5814,8 @@ static fcheck_code_t baseline_final_check(egraph_t *egraph) {
 
   egraph->stats.interface_eqs += i;
   
+  tprintf(egraph->core->trace, 4, "(final check: %"PRIu32" interface lemmas)\n", i);
+
   c = FCHECK_SAT; // default value
   if (i > 0) {
     c = FCHECK_CONTINUE;
