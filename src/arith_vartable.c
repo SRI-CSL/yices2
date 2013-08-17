@@ -431,6 +431,24 @@ void attach_eterm_to_arith_var(arith_vartable_t *table, thvar_t x, eterm_t t) {
 
 
 /*
+ * Check whether there's at least one variable with an attached eterm in table
+ */
+bool arith_vartable_has_eterms(arith_vartable_t *table) {
+  uint32_t i, n;
+
+  if (table->eterm != NULL) {
+    n = table->nvars;
+    for (i=0; i<n; i++) {
+      if (table->eterm[i] != null_eterm) {
+	return true;
+      }
+    }
+  }
+  return false;
+}
+
+
+/*
  * Attach atom index i to atoms[x]
  * - i must not be in atoms[x]
  */
@@ -791,10 +809,6 @@ thvar_t get_var_for_poly(arith_vartable_t *table, monomial_t *p, uint32_t n, boo
   poly_hobj.poly = p;
   poly_hobj.len = n;
   x = int_htbl_get_obj(&table->htbl, &poly_hobj.m);
-  if (x == 53 && n == 2 && p[0].var == 40 && p[1].var == 45) {
-    printf("---> Var 53 created\n");
-    fflush(stdout);
-  }
   *new_var = table->nvars > nv;
   return x;
 }

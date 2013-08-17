@@ -553,4 +553,19 @@ static inline uint32_t egraph_get_max_interface_eqs(egraph_t *egraph) {
 }
 
 
+/*
+ * Select final_check version:
+ * - optimistic version should work better on most problems
+ * - baseline version generates more interface equalities but it works
+ *   better on a few problems (in QF_UFLIA)
+ * - baseline is the default
+ */
+static inline void egraph_enable_optimistic_final_check(egraph_t *egraph) {
+  egraph_enable_options(egraph, EGRAPH_OPTIMISTIC_FCHECK);
+}
+
+static inline void egraph_disable_optimistic_final_check(egraph_t *egraph) {
+  egraph_disable_options(egraph, EGRAPH_OPTIMISTIC_FCHECK);
+}
+
 #endif

@@ -79,9 +79,10 @@
  * The dynamic ackermann heuristic is disabled for both 
  * boolean and non-boolean terms.
  */
-#define DEFAULT_USE_DYN_ACK        false
-#define DEFAULT_USE_BOOL_DYN_ACK   false
-#define DEFAULT_AUX_EQ_RATIO       0.3
+#define DEFAULT_USE_DYN_ACK           false
+#define DEFAULT_USE_BOOL_DYN_ACK      false
+#define DEFAULT_USE_OPTIMISTIC_FCHECK true
+#define DEFAULT_AUX_EQ_RATIO          0.3
 
 
 /*
@@ -128,6 +129,7 @@ static param_t default_settings = {
 
   DEFAULT_USE_DYN_ACK,
   DEFAULT_USE_BOOL_DYN_ACK,
+  DEFAULT_USE_OPTIMISTIC_FCHECK,
   DEFAULT_MAX_ACKERMANN,
   DEFAULT_MAX_BOOLACKERMANN,
   DEFAULT_AUX_EQ_QUOTA,
@@ -183,6 +185,7 @@ typedef enum param_key {
   // egraph parameters
   PARAM_DYN_ACK,
   PARAM_DYN_BOOL_ACK,
+  PARAM_OPTIMISTIC_FCHECK,
   PARAM_MAX_ACK,
   PARAM_MAX_BOOL_ACK,
   PARAM_AUX_EQ_QUOTA,
@@ -228,6 +231,7 @@ static const char *const param_key_names[NUM_PARAM_KEYS] = {
   "max-extensionality",
   "max-interface-eqs",
   "max-update-conflicts",
+  "optimistic-final-check",
   "prop-threshold",
   "r-factor",
   "r-fraction",
@@ -264,6 +268,7 @@ static const int32_t param_code[NUM_PARAM_KEYS] = {
   PARAM_MAX_EXTENSIONALITY,
   PARAM_MAX_INTERFACE_EQS,
   PARAM_MAX_UPDATE_CONFLICTS,
+  PARAM_OPTIMISTIC_FCHECK,
   PARAM_PROP_THRESHOLD,
   PARAM_R_FACTOR,
   PARAM_R_FRACTION,
@@ -558,6 +563,10 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
 
   case PARAM_DYN_BOOL_ACK:
     r = set_bool_param(value, &parameters->use_bool_dyn_ack);
+    break;
+
+  case PARAM_OPTIMISTIC_FCHECK:
+    r = set_bool_param(value, &parameters->use_optimistic_fcheck);
     break;
 
   case PARAM_MAX_ACK:

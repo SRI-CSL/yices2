@@ -1997,6 +1997,7 @@ static bool all_integer_vars(simplex_solver_t *solver) {
 /*
  * Activate variable x:
  * - add the row x - p == 0 to the matrix provided x is not trivial
+ *   and mark x as active
  */
 static void activate_variable(simplex_solver_t *solver, thvar_t x) {
   polynomial_t *p;
@@ -2004,6 +2005,7 @@ static void activate_variable(simplex_solver_t *solver, thvar_t x) {
   p = arith_var_def(&solver->vtbl, x);
   if (p != NULL && ! simple_poly(p)) {
     matrix_add_eq(&solver->matrix, x, p->mono, p->nterms);
+    mark_arith_var_active(&solver->vtbl, x);
   }
 }
 
@@ -2015,7 +2017,8 @@ static void activate_variable(simplex_solver_t *solver, thvar_t x) {
 
 /*
  * Get a variable x whose definition is equal to the buffer then reset the buffer
- * - if x is a new variable, add a column to the matrix
+ * - if x is a new variable, add a column to the matrix and add a of the form
+ *   x - buffer = 0
  */
 static thvar_t get_var_from_buffer(simplex_solver_t *solver) {
   poly_buffer_t *b;
@@ -3138,6 +3141,7 @@ static inline void simplex_set_initial_stats(simplex_solver_t *solver) {
 }
 
 
+#if 0
 /*
  * keep is a bitvector: mark all variables of p
  */
@@ -3153,7 +3157,7 @@ static void mark_vars_of_poly(byte_t *keep, polynomial_t *p) {
     }
   }
 }
-
+#endif
 
 /*
  * Simplify the matrix
@@ -3177,17 +3181,24 @@ static void simplex_simplify_matrix(simplex_solver_t *solver) {
   n = solver->vtbl.nvars;
   keep = allocate_bitvector0(n);  // default: all bits are 0
 
-  for (i=1; i<n; i++) { // skip the constant
-    if (!simplex_free_variable(solver, i) || arith_var_num_atoms(vtbl, i) > 0) {
-      // i is constrained or has atoms attached: keep it
+  if (solver->egraph != NULL && arith_vartable_has_eterms(vtbl)) {
+    /*
+     * We must keep at least any variable whose definition is the
+     * difference of two e-terms. More generally, we assume the egraph
+     * can dynamically create arbitrary linear combination of eterms.
+     *
+     * We could try to compute the set of variables whose definition
+     * is a linear combination of eterms. Instead we just keep
+     * everything.
+     */
+    for (i=1; i<n; i++) {
       set_bit(keep, i);
-    } else if (arith_var_has_eterm(vtbl, i)) {
-      // i has an egraph term: keep it
-      // also if i is trivial then all variables in i's definition
-      // must be kept too
-      set_bit(keep, i);
-      if (trivial_variable(vtbl, i)) {
-        mark_vars_of_poly(keep, arith_var_def(vtbl, i));
+    }
+  } else {
+    for (i=1; i<n; i++) { // skip the constant
+      if (!simplex_free_variable(solver, i) || arith_var_num_atoms(vtbl, i) > 0) {
+	// i is constrained or has atoms attached: keep it
+	set_bit(keep, i);
       }
     }
   }
@@ -5265,7 +5276,7 @@ static thvar_t decompose_and_get_dynamic_var(simplex_solver_t *solver) {
     x = get_var_for_poly_offset(&solver->vtbl, poly_buffer_mono(b), poly_buffer_nterms(b), &new_var);
     if (new_var) {
       matrix = &solver->matrix;
-      // add a new column to the matrix
+      // add a new column to the matrix`
       assert(x == matrix->ncolumns);
       matrix_add_column(matrix);
 
@@ -5274,6 +5285,7 @@ static thvar_t decompose_and_get_dynamic_var(simplex_solver_t *solver) {
       poly_buffer_substitution(b, matrix); // substitute basic variables of b
       normalize_poly_buffer(b);
       matrix_add_tableau_eq(matrix, x, poly_buffer_mono(b), poly_buffer_nterms(b));
+      mark_arith_var_active(&solver->vtbl, x);
 
       // compute the value of x
       r = matrix_basic_row(matrix, x);

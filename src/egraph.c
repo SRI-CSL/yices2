@@ -5228,8 +5228,6 @@ static void check_interface_duplicates(ivector_t *v) {
 #endif
 
 
-#if 1
-
 /*
  * Generate interface lemmas for pairs of term occurrences stored in v
  * - stop as soon as max_eqs interface lemmas are produced
@@ -5261,11 +5259,6 @@ static uint32_t egraph_gen_interface_lemmas(egraph_t *egraph, uint32_t max_eqs, 
     x2 = egraph_base_thvar(egraph, t2);
     assert(x1 != null_thvar && x2 != null_thvar);
 
-    if (t1 == 110 && x1 == 40 && t2 == 122 && x2 == 45) {
-      printf("*** HERE ***\n");
-      fflush(stdout);
-    }
-
     switch (egraph_type(egraph, t1)) {
     case ETYPE_INT:
     case ETYPE_REAL:
@@ -5294,7 +5287,6 @@ static uint32_t egraph_gen_interface_lemmas(egraph_t *egraph, uint32_t max_eqs, 
   return n/2;
 }
 
-#endif
 
 /*
  * Check whether x1 and x2 have different values in the relevant theory solver
@@ -5819,7 +5811,7 @@ static fcheck_code_t baseline_final_check(egraph_t *egraph) {
 
   egraph->stats.interface_eqs += i;
   
-  tprintf(egraph->core->trace, 4, "(final check: %"PRIu32" interface lemmas)\n", i);
+  tprintf(egraph->core->trace, 2, "(final check: %"PRIu32" interface lemmas)\n", i);
 
   c = FCHECK_SAT; // default value
   if (i > 0) {
@@ -5937,14 +5929,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
 fcheck_code_t egraph_final_check(egraph_t *egraph) {
   egraph->stats.final_checks ++;
 
-  if (egraph->stats.final_checks == 23) {
-    printf("*** HERE ***\n");
-    fflush(stdout);
-  }
-
-  // r2805: enabled the experimental_final_check
-  // for benchmarking on smt-lib2 
-  if (false) {
+  if (egraph_option_disabled(egraph, EGRAPH_OPTIMISTIC_FCHECK)) {
     return baseline_final_check(egraph);
   } else {
     return experimental_final_check(egraph);

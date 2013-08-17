@@ -857,7 +857,7 @@ typedef struct egraph_trail_stack_s {
  *       (0 means that the egraph and solver model are consistent).
  *
  *
- * Experimental API to support more flexible interface generation algorithms (08/28/2012)
+* Experimental API to support more flexible interface generation algorithms (08/28/2012)
  * 
  * 6a) void prepare_model(void *solver)
  *
@@ -1432,6 +1432,9 @@ struct egraph_s {
  * DYNAMIC_BOOLACKERMANN enables the generation of ackermann lemmas for boolean terms.
  * If that's enabled, max_boolackermann is a bound on the number of lemmas generated.
  *
+ * OPTIMISTIC_FCHECK selects the experimental version of final_check instead of the 
+ * baseline verion.
+ *
  * In addition, aux_eq_quota is a bound on the total number of new equalities allowed
  * for ackermann lemmas.
  *
@@ -1440,6 +1443,7 @@ struct egraph_s {
  */
 #define EGRAPH_DYNAMIC_ACKERMANN       0x1
 #define EGRAPH_DYNAMIC_BOOLACKERMANN   0x2
+#define EGRAPH_OPTIMISTIC_FCHECK       0x4
 #define EGRAPH_DISABLE_ALL_OPTIONS     0x0
 
 #define DEFAULT_MAX_ACKERMANN         1000

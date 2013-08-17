@@ -347,6 +347,11 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
      * Set egraph parameters
      */
     if (egraph != NULL) {
+      if (params->use_optimistic_fcheck) {
+	egraph_enable_optimistic_final_check(egraph);
+      } else {
+	egraph_disable_optimistic_final_check(egraph);
+      }
       if (params->use_dyn_ack) {
         egraph_enable_dyn_ackermann(egraph, params->max_ackermann);
         egraph_set_ackermann_threshold(egraph, params->dyn_ack_threshold);

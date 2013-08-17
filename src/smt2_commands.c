@@ -1863,7 +1863,7 @@ static void add_assertion(smt2_globals_t *g, term_t t) {
     // fall through intended
 
   case STATUS_IDLE:
-    code = yices_assert_formula(g->ctx, t);
+    code = assert_formula(g->ctx, t);
     if (code < 0) {
       print_yices_error(true);
     } else {
@@ -1900,11 +1900,7 @@ static void ctx_check_sat(smt2_globals_t *g) {
   
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
   num_check_sat ++;
-  //  fprintf(g->out, "--- check_sat: %"PRIu32 "----\n", num_check_sat);
-  if (num_check_sat == 21622) {
-    fprintf(g->out, "*** SOON ***\n");
-    fflush(g->out);
-  }
+  fprintf(g->out, "--- check_sat: %"PRIu32 "----\n", num_check_sat);
 
   stat = context_status(g->ctx);
   switch (stat) {

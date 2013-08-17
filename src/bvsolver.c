@@ -6946,10 +6946,6 @@ void bv_solver_pop(bv_solver_t *solver) {
   mtbl_pop(&solver->mtbl);
 
   bv_trail_pop(&solver->trail_stack);
-
-  //  printf("---> BVSOLVER: pop to level %"PRIu32" (%"PRIu32" vars, %"PRIu32" atoms, ptr = %"PRIu32")\n\n", 
-  //     solver->base_level, solver->vtbl.nvars, solver->atbl.natoms, solver->bbptr);
-  //  fflush(stdout);
 }
 
 

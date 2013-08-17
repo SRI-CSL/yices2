@@ -80,7 +80,6 @@
  * - bit 6 is 1 if x's definition is encoded in the simplex tableau
  *   (i.e., if there's a row of the tableau of the form x - p = 0
  *    where p is x's definition). We say then that 'x is active'.
- *   NOT USED ANYMORE
  */
 
 #define AVARTAG_MARK_MASK  ((uint8_t) 0x1)
@@ -571,6 +570,12 @@ static inline void set_arith_var_tag(arith_vartable_t *table, thvar_t x, uint8_t
  * - x must not have an existing eterm attached
  */
 extern void attach_eterm_to_arith_var(arith_vartable_t *table, thvar_t x, eterm_t t);
+
+
+/*
+ * Check whether there's at least one variable with an attached eterm in table
+ */
+extern bool arith_vartable_has_eterms(arith_vartable_t *table);
 
 
 /*
