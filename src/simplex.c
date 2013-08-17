@@ -7102,7 +7102,7 @@ bool simplex_propagate(simplex_solver_t *solver) {
 #endif
     }
 
-    // propagate to literals
+    // propagate literals
     simplex_literal_propagation(solver);
 
   }
@@ -7136,6 +7136,10 @@ bool simplex_propagate(simplex_solver_t *solver) {
       check_assignment(solver);
       check_integer_bounds(solver);
 #endif
+
+      // the dsolver may have added new bounds
+      // check whether we can propagate literals
+      simplex_literal_propagation(solver);
 
     } else {
       solver->check_counter = INT32_MAX; // i.e., infinity
@@ -8868,7 +8872,7 @@ static void simplex_release_model(simplex_solver_t *solver) {
 
 /*
  * Add the lemma l => x1 != x2
- * - if equiv is true: it's also allowed to generate the reverse implication
+ * - if equiv is true, also generate the reverse implication
  */
 static void simplex_gen_interface_lemma(simplex_solver_t *solver, literal_t l, thvar_t x1, thvar_t x2, bool equiv) {
   rational_t *c;

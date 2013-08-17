@@ -791,6 +791,10 @@ thvar_t get_var_for_poly(arith_vartable_t *table, monomial_t *p, uint32_t n, boo
   poly_hobj.poly = p;
   poly_hobj.len = n;
   x = int_htbl_get_obj(&table->htbl, &poly_hobj.m);
+  if (x == 53 && n == 2 && p[0].var == 40 && p[1].var == 45) {
+    printf("---> Var 53 created\n");
+    fflush(stdout);
+  }
   *new_var = table->nvars > nv;
   return x;
 }

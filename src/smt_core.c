@@ -3869,7 +3869,8 @@ static bool preprocess_clause(smt_core_t *s, uint32_t *n, literal_t *a) {
       break;
     case VAL_UNDEF_FALSE:
     case VAL_UNDEF_TRUE: 
-      a[j++] = l; break;
+      a[j++] = l;
+      break;
     case VAL_TRUE:
       return false; // true clause
     }

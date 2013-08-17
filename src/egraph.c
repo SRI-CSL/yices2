@@ -5261,6 +5261,11 @@ static uint32_t egraph_gen_interface_lemmas(egraph_t *egraph, uint32_t max_eqs, 
     x2 = egraph_base_thvar(egraph, t2);
     assert(x1 != null_thvar && x2 != null_thvar);
 
+    if (t1 == 110 && x1 == 40 && t2 == 122 && x2 == 45) {
+      printf("*** HERE ***\n");
+      fflush(stdout);
+    }
+
     switch (egraph_type(egraph, t1)) {
     case ETYPE_INT:
     case ETYPE_REAL:
@@ -5931,6 +5936,11 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
  */
 fcheck_code_t egraph_final_check(egraph_t *egraph) {
   egraph->stats.final_checks ++;
+
+  if (egraph->stats.final_checks == 23) {
+    printf("*** HERE ***\n");
+    fflush(stdout);
+  }
 
   // r2805: enabled the experimental_final_check
   // for benchmarking on smt-lib2 
