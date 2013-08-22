@@ -30,7 +30,7 @@ extern void simplex_solver_init_jmpbuf(simplex_solver_t *solver, jmp_buf *buffer
 
 
 /*
- * Enable row-saving (to support push/pop/multiple checks)
+ * Enable row saving (to support push/pop/multiple checks)
  * - must be done before any assertions
  */
 static inline void simplex_enable_row_saving(simplex_solver_t *solver) {
