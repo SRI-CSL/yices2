@@ -9,6 +9,10 @@
 #include "memalloc.h"
 #include "backtrack_arrays.h"
 
+// PROVISIONAL
+#include <stdio.h>
+#include <inttypes.h>
+
 
 /*
  * UNDO STACK
@@ -323,10 +327,16 @@ static void int32_array_resize(int32_array_t *a, uint32_t i) {
  */
 static void int32_array_set_default(int32_array_t *a, uint32_t i, uint32_t def) {
   uint32_t j;
+  int32_t *map;
 
+  printf("---> ai32_set_default: top = %"PRIu32", i = %"PRIu32"\n", a->top, i);
+  fflush(stdout);
+  map = a->map;
   for (j=a->top; j<i; j++) {
-    a->map[j] = def;
+    map[j] = def;
   }
+  printf("---> ai32: done\n");
+  fflush(stdout);
 }
 
 
@@ -477,9 +487,11 @@ static void uint8_array_resize(uint8_array_t *a, uint32_t i) {
  */
 static void uint8_array_set_default(uint8_array_t *a, uint32_t i, uint8_t def) {
   uint32_t j;
+  uint8_t *map;
 
+  map = a->map;
   for (j=a->top; j<i; j++) {
-    a->map[j] = def;
+    map[j] = def;
   }
 }
 

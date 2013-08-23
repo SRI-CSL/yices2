@@ -76,10 +76,6 @@
  *    01 --> def[x] is a polynomial
  *    10 --> def[x] is a power product
  *    11 --> def[x] is a rational constant
- *
- * - bit 6 is 1 if x's definition is encoded in the simplex tableau
- *   (i.e., if there's a row of the tableau of the form x - p = 0
- *    where p is x's definition). We say then that 'x is active'.
  */
 
 #define AVARTAG_MARK_MASK  ((uint8_t) 0x1)
@@ -88,7 +84,6 @@
 #define AVARTAG_INT_MASK    ((uint8_t) 0x8)
 
 #define AVARTAG_KIND_MASK   ((uint8_t) 0x30)
-#define AVARTAG_ACTIVE_MASK ((uint8_t) 0x40)
 
 
 /*
@@ -232,12 +227,6 @@ static inline uint32_t num_real_vars(arith_vartable_t *table) {
 extern byte_t *get_integer_vars_vector(arith_vartable_t *table);
 
 
-/*
- * Number of active variables
- */
-extern uint32_t num_active_vars(arith_vartable_t *table);
-
-
 
 /*
  * VARIABLE CREATION
@@ -249,7 +238,7 @@ extern uint32_t num_active_vars(arith_vartable_t *table);
  * - empty atom vector
  * - value = 0
  * - lower bound and upper bound indices = -1
- * - all flags are 0 (not marked, not at lower/upper bound, not active)
+ * - all flags are 0 (not marked, not at lower/upper bound)
  *
  * The kind and the integer bit set according to the definition
  */
@@ -467,15 +456,6 @@ static inline bool arith_var_is_marked(arith_vartable_t *table, thvar_t x) {
   return (table->tag[x] & AVARTAG_MARK_MASK) != 0;
 }
 
-static inline bool arith_var_is_active(arith_vartable_t *table, thvar_t x) {
-  assert(valid_arith_var(table, x));
-  return (table->tag[x] & AVARTAG_ACTIVE_MASK) != 0;
-}
-
-static inline bool arith_var_is_inactive(arith_vartable_t *table, thvar_t x) {
-  return !arith_var_is_active(table, x);
-}
-
 static inline bool arith_var_at_lower_bound(arith_vartable_t *table, thvar_t x) {
   assert(valid_arith_var(table, x));
   return (table->tag[x] & AVARTAG_ATLB_MASK) != 0;
@@ -540,15 +520,6 @@ static inline void clear_arith_var_ub(arith_vartable_t *table, thvar_t x) {
   table->tag[x] &= ~AVARTAG_ATUB_MASK;
 }
 
-static inline void mark_arith_var_active(arith_vartable_t *table, thvar_t x) {
-  assert(valid_arith_var(table, x));
-  table->tag[x] |= AVARTAG_ACTIVE_MASK;
-}
-
-static inline void mark_arith_var_inactive(arith_vartable_t *table, thvar_t x) {
-  assert(valid_arith_var(table, x));
-  table->tag[x] &= ~AVARTAG_ACTIVE_MASK;
-}
 
 // set the full tag
 static inline void set_arith_var_tag(arith_vartable_t *table, thvar_t x, uint8_t tg) {

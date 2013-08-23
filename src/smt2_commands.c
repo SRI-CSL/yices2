@@ -1900,7 +1900,6 @@ static void ctx_check_sat(smt2_globals_t *g) {
   
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
   num_check_sat ++;
-  fprintf(g->out, "--- check_sat: %"PRIu32 "----\n", num_check_sat);
 
   stat = context_status(g->ctx);
   switch (stat) {

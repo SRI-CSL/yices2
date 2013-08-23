@@ -1334,15 +1334,29 @@ static void simplex_push_eqprop(simplex_solver_t *solver) {
 
 
 /*
- * Pop
+ * Pop is divided in two steps
+ * - before we remove variables from solver->vtbl, we must
+ *   call pop on solver->eqprop.mngr to remove offset variables
+ *   and their definitions. This must be done first because
+ *   polynomials may be shared between solver->vtbl and 
+ *   solver->eqprop.mngr.
+ * - after we remove variables from solver->vtbl, we must
+ *   mark all deleted variables as irrelevant in solver->eqprop.
  */
 static void simplex_pop_eqprop(simplex_solver_t *solver) {
+  eq_propagator_t *eqprop;
+
+  eqprop = solver->eqprop;
+  assert(eqprop != NULL);
+  offset_manager_pop(&eqprop->mngr);
+}
+
+static void simplex_eqprop_cleanup(simplex_solver_t *solver) {
   eq_propagator_t *eqprop;
   uint32_t i, n;
 
   eqprop = solver->eqprop;
   assert(eqprop != NULL);
-  offset_manager_pop(&eqprop->mngr);
 
   // clear bits (of deleted variables)
   n = eqprop->size;
@@ -1354,6 +1368,7 @@ static void simplex_pop_eqprop(simplex_solver_t *solver) {
   assert(solver->bstack.prop_ptr == solver->bstack.fix_ptr);
   eqprop->prop_ptr = solver->bstack.prop_ptr;
 }
+
 
 
 /*
@@ -1997,7 +2012,6 @@ static bool all_integer_vars(simplex_solver_t *solver) {
 /*
  * Activate variable x:
  * - add the row x - p == 0 to the matrix provided x is not trivial
- *   and mark x as active
  */
 static void activate_variable(simplex_solver_t *solver, thvar_t x) {
   polynomial_t *p;
@@ -2005,7 +2019,6 @@ static void activate_variable(simplex_solver_t *solver, thvar_t x) {
   p = arith_var_def(&solver->vtbl, x);
   if (p != NULL && ! simple_poly(p)) {
     matrix_add_eq(&solver->matrix, x, p->mono, p->nterms);
-    mark_arith_var_active(&solver->vtbl, x);
   }
 }
 
@@ -3188,8 +3201,7 @@ static void simplex_simplify_matrix(simplex_solver_t *solver) {
      * can dynamically create arbitrary linear combination of eterms.
      *
      * We could try to compute the set of variables whose definition
-     * is a linear combination of eterms. Instead we just keep
-     * everything.
+     * is a linear combination of eterms. Instead we keep everything.
      */
     for (i=1; i<n; i++) {
       set_bit(keep, i);
@@ -5205,11 +5217,15 @@ static void simplex_reset_tableau(simplex_solver_t *solver) {
  * Prepare for new assertions:
  * - rebuild the constraint matrix as it was before the previous call to 
  *   start_search (modulo reordering; the rows may be permuted)
+ * - we must make sure the rows are added in chronological order:
+ *   all rows created at base_level 0 must come first,
+ *   then all rows created at base_level 1 and so forth.
  */
 static void simplex_restore_matrix(simplex_solver_t *solver) {
+  arith_trail_t *trail;
   pvector_t *v;
   polynomial_t *p;
-  uint32_t i, n;
+  uint32_t i, n, ns, nv;
 
   if (! solver->matrix_ready) {
     assert(solver->save_rows && solver->matrix.nrows == 0 && 
@@ -5218,21 +5234,60 @@ static void simplex_restore_matrix(simplex_solver_t *solver) {
     // rebuild n empty columns in the matrix
     matrix_add_columns(&solver->matrix, solver->vtbl.nvars);
 
-    // restore all the saved rows
+    /*
+     * Restore rows from the trail stack:
+     * - for each base_level i,
+     *   tail->nvars = number of variables
+     *   tail->nsaved_rows = number of polynomials in solver->saved_rows
+     * (these counters are saved when we leave base_level i and enter i+1)
+     */
+
     v = &solver->saved_rows;
-    n = v->size;
+
+    ns = 0; // number of saved rows added so far
+    nv = 1; // number of variables visited so far (we start with 1 to skip const_idx)
+
+    n = solver->trail_stack.top;
+    trail = solver->trail_stack.data;
+    assert(n == solver->baseL-evel);
+
     for (i=0; i<n; i++) {
-      p = v->data[i];
-      matrix_add_row(&solver->matrix, p->mono, p->nterms);
+      // saved rows for level i
+      while (ns < trail->nsaved_rows) {
+	assert(ns < v->size);
+	p = v->data[ns];
+	matrix_add_row(&solver->matrix, p->mono, p->nterms);
+	ns ++;
+      }
+
+      // definition rows for level i
+      while (nv < trail->nvars) {
+	p = arith_var_def(&solver->vtbl, nv);
+	if (p != NULL && !simple_poly(p)) {
+	  matrix_add_eq(&solver->matrix, nv, p->mono, p->nterms);
+	}
+	nv ++;
+      }
+
+      trail ++;
     }
 
-    // restore the definitions of all non-trivial variables
+    /*
+     * Restore rows added at the current base level
+     */
+    while (ns < v->size) {
+      p = v->data[ns];
+      matrix_add_row(&solver->matrix, p->mono, p->nterms);
+      ns ++;
+    }
+
     n = solver->vtbl.nvars;
-    for (i=1; i<n; i++) {
-      p = arith_var_def(&solver->vtbl, i);
+    while (nv < n) {
+      p = arith_var_def(&solver->vtbl, nv);
       if (p != NULL && !simple_poly(p)) {
-        matrix_add_eq(&solver->matrix, i, p->mono, p->nterms);
+        matrix_add_eq(&solver->matrix, nv, p->mono, p->nterms);
       }
+      nv ++;
     }
 
     // mark that the matrix is ready
@@ -5285,7 +5340,6 @@ static thvar_t decompose_and_get_dynamic_var(simplex_solver_t *solver) {
       poly_buffer_substitution(b, matrix); // substitute basic variables of b
       normalize_poly_buffer(b);
       matrix_add_tableau_eq(matrix, x, poly_buffer_mono(b), poly_buffer_nterms(b));
-      mark_arith_var_active(&solver->vtbl, x);
 
       // compute the value of x
       r = matrix_basic_row(matrix, x);
@@ -7519,6 +7573,30 @@ static void simplex_remove_dead_eterms(simplex_solver_t *solver) {
 
 
 /*
+ * Number of active variables = all variables x whose
+ * definition p is not a simple prolynomial.
+ * For all these variables, the matrix containts a row of 
+ * the form x - p = 0.  If x is alive, this row must be kept
+ * when we backtrack.
+ */
+static uint32_t num_active_vars(arith_vartable_t *vtbl) {
+  polynomial_t *p;
+  uint32_t a, i, n;
+
+  a = 0;
+  n = vtbl->nvars;
+  for (i=0; i<n; i++) {
+    p = arith_var_def(vtbl, i);
+    if (p != NULL && !simple_poly(p)) {
+      a++;
+    }
+  }
+
+  return a;
+}
+
+
+/*
  * Return to the previous base level
  */
 void simplex_pop(simplex_solver_t *solver) {
@@ -7568,6 +7646,15 @@ void simplex_pop(simplex_solver_t *solver) {
 
 
   /*
+   * Remove variables in eqprop. This must be done before we delete
+   * variables in solver->vtbl, because polynomials in vtbl->def[x]
+   * may occur in the eqprop's data structures.
+   */
+  if (solver->eqprop != NULL) {
+    simplex_pop_eqprop(solver);
+  }
+
+  /*
    * Remove saved_rows, variables, and atoms that were
    * created at the current base_level.
    */
@@ -7601,9 +7688,10 @@ void simplex_pop(simplex_solver_t *solver) {
     matrix_shrink(&solver->matrix, nrows, ncolumns);
   }
 
-  // remove variables and reset propagation pointer in eqprop
+  // cleanup the relevant marks of deleted variables 
+  // reset propagation pointer in eqprop
   if (solver->eqprop != NULL) {
-    simplex_pop_eqprop(solver);
+    simplex_eqprop_cleanup(solver);
   }
 }
 
