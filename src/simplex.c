@@ -5249,7 +5249,7 @@ static void simplex_restore_matrix(simplex_solver_t *solver) {
 
     n = solver->trail_stack.top;
     trail = solver->trail_stack.data;
-    assert(n == solver->baseL-evel);
+    assert(n == solver->base_level);
 
     for (i=0; i<n; i++) {
       // saved rows for level i

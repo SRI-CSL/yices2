@@ -37,22 +37,16 @@ typedef struct array_undo_stack_s {
 /*
  * Trail stack: for each level, we keep
  * - the top of the undo stack on entry to that level
- * - the size of the map on entry to that level
  */
-typedef struct array_trail_elem_s {
-  uint32_t undo_top;
-  uint32_t map_top;
-} array_trail_elem_t;
-
 typedef struct array_trail_s {
   uint32_t size;
   uint32_t top;
-  array_trail_elem_t *data;
+  uint32_t *undo_top;
 } array_trail_t;
 
 
 #define DEF_ARRAY_TRAIL_SIZE 30
-#define MAX_ARRAY_TRAIL_SIZE (UINT32_MAX/sizeof(array_trail_elem_t))
+#define MAX_ARRAY_TRAIL_SIZE (UINT32_MAX/sizeof(uint32_t))
 
 
 
@@ -65,18 +59,14 @@ typedef struct array_trail_s {
  * - the current array is defined by map[0 ... top] and def
  *   array[i] = map[i]  if 0 <= i < top
  *   array[i] = def if top <= i
- * - backtop = top of the array on the preceding push
- *   a write at index i requires saving the previous a[i]
- *   only if i < backtop.
  * - size is the total size of map (as allocated)
- * - invariant backtop <= top <= size holds
+ * - invariant top <= size holds
  */
 // range = 32bit integers
 typedef struct int32_array_s {
   int32_t *map;
   int32_t def;
   uint32_t top;
-  uint32_t backtop;
   uint32_t size;
   array_undo_stack_t undo;
   array_trail_t trail;
@@ -164,7 +154,6 @@ typedef struct uint8_array_s {
   uint8_t *map;
   uint8_t def;
   uint32_t top;
-  uint32_t backtop;
   uint32_t size;
   array_undo_stack_t undo;
   array_trail_t trail;

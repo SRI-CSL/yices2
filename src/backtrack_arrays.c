@@ -9,10 +9,6 @@
 #include "memalloc.h"
 #include "backtrack_arrays.h"
 
-// PROVISIONAL
-#include <stdio.h>
-#include <inttypes.h>
-
 
 /*
  * UNDO STACK
@@ -114,7 +110,7 @@ static void array_undo_stack_push_uint8(array_undo_stack_t *stack, int32_t idx, 
 static void init_array_trail(array_trail_t *stack) {
   stack->size = 0;
   stack->top = 0;
-  stack->data = NULL;
+  stack->undo_top = NULL;
 }
 
 
@@ -130,7 +126,7 @@ static void extend_array_trail(array_trail_t *stack) {
   if (n == 0) {
     n = DEF_ARRAY_TRAIL_SIZE;
     assert(n < MAX_ARRAY_TRAIL_SIZE);
-    stack->data = (array_trail_elem_t *) safe_malloc(n * sizeof(array_trail_elem_t));
+    stack->undo_top = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
     stack->size = n;
   } else {
     n ++;
@@ -138,7 +134,7 @@ static void extend_array_trail(array_trail_t *stack) {
     if (n >= MAX_ARRAY_TRAIL_SIZE) {
       out_of_memory();
     }
-    stack->data = (array_trail_elem_t *) safe_realloc(stack->data, n * sizeof(array_trail_elem_t));
+    stack->undo_top = (uint32_t *) safe_realloc(stack->undo_top, n * sizeof(uint32_t));
     stack->size = n;
   }
 }
@@ -148,8 +144,8 @@ static void extend_array_trail(array_trail_t *stack) {
  * Delete: free memory
  */
 static void delete_array_trail(array_trail_t *stack) {
-  safe_free(stack->data);
-  stack->data = NULL;
+  safe_free(stack->undo_top);
+  stack->undo_top = NULL;
 }
 
 
@@ -162,9 +158,9 @@ static inline void reset_array_trail(array_trail_t *stack) {
 
 
 /*
- * Push pair (undo_top, map_top)
+ * Push k on top of the trail stack
  */
-static void array_trail_push(array_trail_t *stack, uint32_t undo_top, uint32_t map_top) {
+static void array_trail_push(array_trail_t *stack, uint32_t k) {
   uint32_t i;
 
   i = stack->top;
@@ -172,35 +168,18 @@ static void array_trail_push(array_trail_t *stack, uint32_t undo_top, uint32_t m
     extend_array_trail(stack);
   }
   assert(i < stack->size);
-  stack->data[i].undo_top = undo_top;
-  stack->data[i].map_top = map_top;
+  stack->undo_top[i] = k;
   stack->top = i+1;
 }
 
 
 /*
- * Remove top element
+ * Get top element and remove it from the stack
  */
-static inline void array_trail_pop(array_trail_t *stack) {
+static inline uint32_t array_trail_pop(array_trail_t *stack) {
   assert(stack->top > 0);
   stack->top --;
-}
-
-
-/*
- * Get top element
- */
-static inline array_trail_elem_t *array_trail_get_top(array_trail_t *stack) {
-  assert(stack->top > 0);
-  return stack->data + (stack->top - 1);
-}
-
-
-/*
- * Check emptiness
- */
-static inline bool array_trail_is_empty(array_trail_t *stack) {
-  return stack->top == 0;
+  return stack->undo_top[stack->top];
 }
 
 
@@ -226,7 +205,6 @@ void init_int32_array(int32_array_t *a, int32_t def, uint32_t n) {
   a->map = (int32_t *) safe_malloc(n * sizeof(int32_t));
   a->def = def;
   a->top = 0;
-  a->backtop = 0;
   a->size = n;
   init_array_undo_stack(&a->undo);
   init_array_trail(&a->trail);
@@ -250,7 +228,6 @@ void delete_int32_array(int32_array_t *a) {
  */
 void reset_int32_array(int32_array_t *a) {
   a->top = 0;
-  a->backtop = 0;
   reset_array_undo_stack(&a->undo);
   reset_array_trail(&a->trail);
 }
@@ -260,8 +237,7 @@ void reset_int32_array(int32_array_t *a) {
  * Push: start a new level.
  */
 void int32_array_push(int32_array_t *a) {  
-  array_trail_push(&a->trail, a->undo.top, a->top);
-  a->backtop = a->top;
+  array_trail_push(&a->trail, a->undo.top);
 }
 
 
@@ -270,16 +246,10 @@ void int32_array_push(int32_array_t *a) {
  * - the trail stack must be non-empty.
  */
 void int32_array_pop(int32_array_t *a) {
-  array_trail_elem_t *s;
   array_undo_t *u;
   uint32_t i, n;
 
-  assert(a->trail.top > 0);
-
-  s = array_trail_get_top(&a->trail);
-  a->top = s->map_top;
-
-  n = s->undo_top;
+  n  = array_trail_pop(&a->trail);
   i = a->undo.top;
   while (i > n) {
     i --;
@@ -288,15 +258,7 @@ void int32_array_pop(int32_array_t *a) {
     a->map[u->index] = u->saved.i32;
   }
   a->undo.top = n;
-
-  array_trail_pop(&a->trail);
-  if (array_trail_is_empty(&a->trail)) {
-    a->backtop = 0;
-  } else {
-    a->backtop = array_trail_get_top(&a->trail)->map_top;
-  }
 }
-
 
 
 /*
@@ -323,20 +285,16 @@ static void int32_array_resize(int32_array_t *a, uint32_t i) {
 
 
 /*
- * Store the default value in map[j] for j:= a->top to i-1
+ * Store the default value in map[j] for j:= a->top to i
  */
 static void int32_array_set_default(int32_array_t *a, uint32_t i, uint32_t def) {
   uint32_t j;
   int32_t *map;
 
-  printf("---> ai32_set_default: top = %"PRIu32", i = %"PRIu32"\n", a->top, i);
-  fflush(stdout);
   map = a->map;
-  for (j=a->top; j<i; j++) {
+  for (j=a->top; j<=i; j++) {
     map[j] = def;
   }
-  printf("---> ai32: done\n");
-  fflush(stdout);
 }
 
 
@@ -347,17 +305,16 @@ static void int32_array_set_default(int32_array_t *a, uint32_t i, uint32_t def) 
 void ai32_write(int32_array_t *a, int32_t i, int32_t x) {
   assert(0 <= i);
 
-  if (i < a->top) {
-    assert(i < a->size);
-    if (i < a->backtop) {
-      array_undo_stack_push_int32(&a->undo, i, a->map[i]);
-    }
-  } else {
+  if (i >= a->top) {
     int32_array_resize(a, i);
     int32_array_set_default(a, i, a->def);
-    a->top = i+1;
-  }  
+    a->top = i+1;    
+  }
 
+  assert(i < a->size);
+  if (a->trail.top > 0) {
+    array_undo_stack_push_int32(&a->undo, i, a->map[i]);
+  }
   a->map[i] = x;
 }
 
@@ -386,7 +343,6 @@ void init_uint8_array(uint8_array_t *a, uint8_t def, uint32_t n) {
   a->map = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
   a->def = def;
   a->top = 0;
-  a->backtop = 0;
   a->size = n;
   init_array_undo_stack(&a->undo);
   init_array_trail(&a->trail);
@@ -410,7 +366,6 @@ void delete_uint8_array(uint8_array_t *a) {
  */
 void reset_uint8_array(uint8_array_t *a) {
   a->top = 0;
-  a->backtop = 0;
   reset_array_undo_stack(&a->undo);
   reset_array_trail(&a->trail);
 }
@@ -420,8 +375,7 @@ void reset_uint8_array(uint8_array_t *a) {
  * Push: start a new level.
  */
 void uint8_array_push(uint8_array_t *a) {  
-  array_trail_push(&a->trail, a->undo.top, a->top);
-  a->backtop = a->top;
+  array_trail_push(&a->trail, a->undo.top);
 }
 
 
@@ -430,16 +384,10 @@ void uint8_array_push(uint8_array_t *a) {
  * - the trail stack must be non-empty.
  */
 void uint8_array_pop(uint8_array_t *a) {
-  array_trail_elem_t *s;
   array_undo_t *u;
   uint32_t i, n;
 
-  assert(a->trail.top > 0);
-
-  s = array_trail_get_top(&a->trail);
-  a->top = s->map_top;
-
-  n = s->undo_top;
+  n = array_trail_pop(&a->trail);
   i = a->undo.top;
   while (i > n) {
     i --;
@@ -448,13 +396,6 @@ void uint8_array_pop(uint8_array_t *a) {
     a->map[u->index] = u->saved.u8;
   }
   a->undo.top = n;
-
-  array_trail_pop(&a->trail);
-  if (array_trail_is_empty(&a->trail)) {
-    a->backtop = 0;
-  } else {
-    a->backtop = array_trail_get_top(&a->trail)->map_top;
-  }
 }
 
 
@@ -483,14 +424,14 @@ static void uint8_array_resize(uint8_array_t *a, uint32_t i) {
 
 
 /*
- * Store the default value in map[j] for j:= a->top to i-1
+ * Store the default value in map[j] for j:= a->top to i
  */
 static void uint8_array_set_default(uint8_array_t *a, uint32_t i, uint8_t def) {
   uint32_t j;
   uint8_t *map;
 
   map = a->map;
-  for (j=a->top; j<i; j++) {
+  for (j=a->top; j<=i; j++) {
     map[j] = def;
   }
 }
@@ -504,17 +445,16 @@ static void uint8_array_set_default(uint8_array_t *a, uint32_t i, uint8_t def) {
 void au8_write(uint8_array_t *a, int32_t i, uint8_t x) {
   assert(0 <= i);
 
-  if (i < a->top) {
-    assert(i < a->size);
-    if (i < a->backtop) {
-      array_undo_stack_push_uint8(&a->undo, i, a->map[i]);
-    }
-  } else {    
+  if (i >= a->top) {
     uint8_array_resize(a, i);
     uint8_array_set_default(a, i, a->def);
     a->top = i+1;
-  }  
+  }
 
+  assert(i < a->size);
+  if (a->trail.top > 0) {
+    array_undo_stack_push_uint8(&a->undo, i, a->map[i]);
+  }
   a->map[i] = x;
 }
 
