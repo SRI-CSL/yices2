@@ -2,6 +2,8 @@
  * Vectors to store a map from 32bit indices to 8bit values
  */
 
+#include <string.h>
+
 #include "memalloc.h"
 #include "mark_vectors.h"
 
@@ -64,17 +66,18 @@ static void extend_mark_vector(mark_vector_t *v, int32_t i) {
  * - overwrite the current value of i if any
  */
 void mark_vector_add_mark(mark_vector_t *v, int32_t i, uint32_t x) {
-  uint32_t j;
+  uint8_t *map;
+  uint32_t n;
+  uint8_t def;
 
   assert(i >= 0);
 
-  if (i >= v->end_map) {
+  n = v->end_map;
+  if (i >= n) {
     if (i >= v->size) {
       extend_mark_vector(v, i);
     }
-    for (j = v->end_map; j<i; j++) {
-      v->map[j] = v->def;
-    }
+    memset(v->map + v->end_map, v->def, i - n);
     v->end_map = ((uint32_t) i) + 1;
   }
 
