@@ -8,6 +8,9 @@
 #include <stdint.h>
 #include <assert.h>
 
+// PROVISIONAL
+#include <stdio.h>
+#include <inttypes.h>
 
 /*
  * Vector:
@@ -21,8 +24,9 @@
  * - we always have end_map <= size
  */
 typedef struct mark_vector_s {
-  uint8_t *map;
+  uint8_t *map;  
   uint32_t end_map;
+  uint32_t start_map;
   uint32_t size;
   uint8_t def;
 } mark_vector_t;
@@ -41,7 +45,14 @@ extern void init_mark_vector(mark_vector_t *v, uint32_t n, uint8_t d);
  * Reset to the initial map: everything mapped to v->def
  */
 static inline void reset_mark_vector(mark_vector_t *v) {
-  v->end_map = 0;
+  //  printf("--- reset_mark_vector: start = %"PRIu32", end = %"PRIu32"\n", 
+  //	 v->start_map, v->end_map);
+  //  fflush(stdout);
+  if (v->start_map < v->end_map) {
+    v->end_map = v->start_map;
+  } else {
+    v->end_map = 0;
+  }
 }
 
 /*

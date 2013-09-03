@@ -1837,7 +1837,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
 
 
 /*
- * CONTEXT OPERATIONS: INTERACTIVE MODE
+ * CONTEXT OPERATIONS: INCREMENTAL MODE
  */
 
 
@@ -2096,7 +2096,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->out_name = NULL;
   g->err_name = NULL;
   g->tracer = NULL;
-  g->print_success = true;
+  g->print_success = false;  // the standard says that this should be true??
   g->expand_definitions = false;
   g->interactive_mode = false;
   g->produce_proofs = false;
@@ -2168,7 +2168,7 @@ void init_smt2(bool benchmark) {
   init_smt2_globals(&__smt2_globals);
   init_attr_vtbl(&avtbl);
   __smt2_globals.avtbl = &avtbl;
-  if (false && benchmark) {
+  if (benchmark) {
     __smt2_globals.benchmark_mode = true;
     __smt2_globals.global_decls = true;
   }
@@ -2601,7 +2601,7 @@ void smt2_push(uint32_t n) {
 
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {
-      print_error("push not allowed in non-interactive mode");
+      print_error("push not allowed in non-incremental mode");
     } else {
       if (n > 0) {
 	g = &__smt2_globals;
@@ -2629,7 +2629,7 @@ void smt2_pop(uint32_t n) {
 
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {
-      print_error("pop not allowed in non-interactive mode");
+      print_error("pop not allowed in non-incremental mode");
     } else if (n == 0) {
       // do nothing
       report_success(); 
@@ -2682,7 +2682,7 @@ void smt2_assert(term_t t) {
     if (yices_term_is_bool(t)) {
       if (__smt2_globals.benchmark_mode) {
 	if (__smt2_globals.frozen) {
-	  print_error("assertions are not allowed after (check-sat) in non-interactive mode");
+	  print_error("assertions are not allowed after (check-sat) in non-incremental mode");
 	} else {
 	  add_delayed_assertion(&__smt2_globals, t);
 	  report_success();
@@ -2705,7 +2705,7 @@ void smt2_check_sat(void) {
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {
       if (__smt2_globals.frozen) {
-	print_error("multiple calls to (check-sat) are not allowed in non-interactive mode");	
+	print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");	
       } else {
 	check_delayed_assertions(&__smt2_globals);
       }

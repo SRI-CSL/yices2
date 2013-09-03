@@ -23,6 +23,7 @@ void init_mark_vector(mark_vector_t *v, uint32_t n, uint8_t d) {
   }
   v->map = tmp;
   v->end_map = 0;
+  v->start_map = UINT32_MAX;
   v->size = n;
   v->def = d;
 }
@@ -66,9 +67,7 @@ static void extend_mark_vector(mark_vector_t *v, int32_t i) {
  * - overwrite the current value of i if any
  */
 void mark_vector_add_mark(mark_vector_t *v, int32_t i, uint32_t x) {
-  uint8_t *map;
   uint32_t n;
-  uint8_t def;
 
   assert(i >= 0);
 
@@ -80,7 +79,9 @@ void mark_vector_add_mark(mark_vector_t *v, int32_t i, uint32_t x) {
     memset(v->map + v->end_map, v->def, i - n);
     v->end_map = ((uint32_t) i) + 1;
   }
-
+  if (i < v->start_map) {
+    v->start_map = i;
+  }
   v->map[i] = x;  
 }
 
