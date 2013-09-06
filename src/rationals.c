@@ -1053,7 +1053,7 @@ void q_addmul(rational_t *r1, rational_t *r2, rational_t *r3) {
   int64_t num;
   rational_t tmp;
 
-  if (r1->den == 1 && r2->den == 1 && r3->den == 1) {
+  if ((r1->den == 1) & (r2->den == 1) & (r3->den == 1)) {
     num = r1->num + r2->num * ((int64_t) r3->num);
     if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR) {
       r1->num = (int32_t) num;
@@ -1080,7 +1080,7 @@ void q_submul(rational_t *r1, rational_t *r2, rational_t *r3) {
   int64_t num;
   rational_t tmp;
 
-  if (r1->den == 1 && r2->den == 1 && r3->den == 1) {
+  if ((r1->den == 1) & (r2->den == 1) & (r3->den == 1)) {
     num = r1->num - r2->num * ((int64_t) r3->num);
     if (MIN_NUMERATOR <= num && num <= MAX_NUMERATOR) {
       r1->num = (int32_t) num;

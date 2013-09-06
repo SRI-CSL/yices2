@@ -1893,13 +1893,14 @@ static void add_assertion(smt2_globals_t *g, term_t t) {
 static uint32_t num_check_sat = 0;
 
 /*
- * Check satisfiability: just print the current status for now
+ * Check satisfiability
  */
 static void ctx_check_sat(smt2_globals_t *g) {
   smt_status_t stat;
   
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
   num_check_sat ++;
+  tprintf(g->tracer, 1, "--- check_sat: %"PRIu32" ---\n", num_check_sat);
 
   stat = context_status(g->ctx);
   switch (stat) {
@@ -2118,6 +2119,10 @@ static void init_smt2_globals(smt2_globals_t *g) {
   init_ivector(&g->assertions, 0);
   g->trivially_unsat = false;
   g->frozen = false;
+
+  // provisional
+  g->verbosity = 4;
+  update_trace_verbosity(g);
 }
 
 
