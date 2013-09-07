@@ -1571,6 +1571,9 @@ static void init_smt2_context(smt2_globals_t *g) {
 
   g->ctx = yices_create_context(arch, mode, iflag, qflag);
   yices_set_default_params(g->ctx, &parameters);
+  // PROVISIONAL FOR TESTING INCREMENTAL/QF_LRA AND QF_LIA
+  parameters.branching = BRANCHING_DEFAULT;
+  // END
   assert(g->ctx != NULL);
   if (g->verbosity > 0) {
     context_set_trace(g->ctx, get_tracer(g));
@@ -2586,7 +2589,7 @@ void smt2_set_logic(const char *name) {
   string_incref(__smt2_globals.logic_name);
 
   /*
-   * In non-interactive mode: initialize the context
+   * In incremental mode: initialize the context
    */
   if (! __smt2_globals.benchmark_mode) {
     init_smt2_context(&__smt2_globals);
