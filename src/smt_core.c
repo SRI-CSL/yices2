@@ -630,7 +630,7 @@ static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
  */
 static void update_down(var_heap_t *heap, uint32_t i) {
   double az, *act;
-  int32_t* index; 
+  int32_t *index; 
   bvar_t *h, x, y, z;
   uint32_t j, last;
 

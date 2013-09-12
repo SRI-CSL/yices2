@@ -352,7 +352,7 @@ endif
 # Compilation flags dependent on MODE
 #
 # Option -fomit-frame-pointer confuses the Mac OS profiling tools
-# (don't use it if MODE=profile)
+# (don't use it if MODE=profile).
 #
 # Option -fno-stack-protector is useful on Ubuntu (and probably other
 # Linux distributions). On these distributions, gcc has
@@ -408,6 +408,7 @@ endif
 #
 # Link command for purify/quantify
 #
+ifeq ($(POSIXOS),sunos)
 ifeq ($(YICES_MODE),purify)
 LNK := purify $(CC)
 else
@@ -417,7 +418,9 @@ else
 LNK := $(CC)
 endif
 endif
-
+else
+LNK := $(CC)
+endif
 
 
 #
