@@ -875,6 +875,7 @@ typedef struct smt_core_s {
   void *th_solver;                 // pointer to the theory solver
   th_ctrl_interface_t th_ctrl;     // control functions
   th_smt_interface_t th_smt;       // SMT-specific operations
+  bool bool_only;                  // true means no theory propagation required
 
   /* Status */
   int32_t status;
@@ -903,7 +904,7 @@ typedef struct smt_core_s {
 
   /* Current decision level */
   uint32_t decision_level;
-  uint32_t base_level;       // Incremented on push/decremented on pop
+  uint32_t base_level;          // Incremented on push/decremented on pop
 
   /* Activity increments and decays for learned clauses */
   float cla_inc;             // Clause activity increment
@@ -1052,6 +1053,14 @@ extern void init_smt_core(smt_core_t *s, uint32_t n, void *th,
                           th_ctrl_interface_t *ctrl, th_smt_interface_t *smt,
                           smt_mode_t mode);
 
+
+/*
+ * Set the bool_only flag (this an optimization for pure bitvector problems)
+ * - if this flag is set, there's no theory propagation
+ */
+static inline void smt_core_set_bool_only(smt_core_t *s) {
+  s->bool_only = true;
+}
 
 /*
  * Replace the theory solver and interface descriptors

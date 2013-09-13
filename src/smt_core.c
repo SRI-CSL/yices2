@@ -1454,6 +1454,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   s->th_solver = th;
   s->th_ctrl = *ctrl; // make a full copy
   s->th_smt = *smt;   // ditto
+  s->bool_only = false;
 
   s->status = STATUS_IDLE;
 
@@ -2623,15 +2624,13 @@ static bool propagation_via_watched_list(smt_core_t *s, uint8_t *val, literal_t 
  */
 static bool boolean_propagation(smt_core_t *s) {
   uint8_t *val;
-  literal_t *queue;
   literal_t l, *bin;
   uint32_t i;
 
   val = s->value;
-  queue = s->stack.lit;
 
   for (i = s->stack.prop_ptr; i < s->stack.top; i++) {
-    l = not(queue[i]);
+    l = not(s->stack.lit[i]);
     
     bin = s->bin[l];
     if (bin != NULL && ! propagation_via_bin_vector(s, val, l, bin)) {
@@ -2719,7 +2718,7 @@ static bool smt_propagation(smt_core_t *s) {
   bool code;
   uint32_t n;
 
-  if (s->atoms.natoms == 0) {
+  if (s->bool_only) {
     // purely boolean problem
     return boolean_propagation(s);
   }

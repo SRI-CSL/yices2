@@ -3948,6 +3948,14 @@ static void init_solvers(context_t *ctx) {
     assert(ctx->arith_solver == NULL && ctx->bv_solver == NULL && ctx->fun_solver == NULL);
     init_smt_core(core, CTX_DEFAULT_CORE_SIZE, NULL, &null_ctrl, &null_smt, cmode);
   }
+
+
+  /*
+   * Optimization: if the arch is NOSOLVERS or BV then we set bool_only in the core
+   */
+  if (ctx->arch == CTX_ARCH_NOSOLVERS || ctx->arch == CTX_ARCH_BV) {
+    smt_core_set_bool_only(core);
+  }
 }
 
 
