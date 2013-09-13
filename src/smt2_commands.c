@@ -1572,7 +1572,7 @@ static void init_smt2_context(smt2_globals_t *g) {
   g->ctx = yices_create_context(arch, mode, iflag, qflag);
   yices_set_default_params(g->ctx, &parameters);
   // PROVISIONAL FOR TESTING INCREMENTAL/QF_LRA AND QF_LIA
-  parameters.branching = BRANCHING_DEFAULT;
+  //  parameters.branching = BRANCHING_DEFAULT;
   // END
   assert(g->ctx != NULL);
   if (g->verbosity > 0) {

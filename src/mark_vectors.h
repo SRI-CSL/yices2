@@ -8,9 +8,6 @@
 #include <stdint.h>
 #include <assert.h>
 
-// PROVISIONAL
-#include <stdio.h>
-#include <inttypes.h>
 
 /*
  * Vector:
@@ -45,9 +42,6 @@ extern void init_mark_vector(mark_vector_t *v, uint32_t n, uint8_t d);
  * Reset to the initial map: everything mapped to v->def
  */
 static inline void reset_mark_vector(mark_vector_t *v) {
-  //  printf("--- reset_mark_vector: start = %"PRIu32", end = %"PRIu32"\n", 
-  //	 v->start_map, v->end_map);
-  //  fflush(stdout);
   if (v->start_map < v->end_map) {
     v->end_map = v->start_map;
   } else {
