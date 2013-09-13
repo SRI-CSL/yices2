@@ -154,7 +154,8 @@ static inline void mark_for_removal(clause_t *cl) {
 }
 
 static inline bool is_clause_to_be_removed(clause_t *cl) {
-  return cl->cl[0] < 0 || cl->cl[1] < 0;
+  //  return cl->cl[0] < 0 || cl->cl[1] < 0;
+  return cl->cl[0] < 0;
 }
 
 /*
