@@ -630,44 +630,47 @@ static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
  * Replace it by the current last element.
  */
 static void update_down(var_heap_t *heap, uint32_t i) {
-  double az, *act;
+  double *act;
   int32_t *index; 
-  bvar_t *h, x, y, z;
+  bvar_t *h;
+  double ax, ay, az;
+  bvar_t x, y, z;
   uint32_t j, last;
+
+  last = heap->heap_last;
+  heap->heap_last = last - 1;
+  if (last == i) return;  // last element was removed
 
   h = heap->heap;
   index = heap->heap_index;
   act = heap->activity;
-  last = heap->heap_last;
-  heap->heap_last = last - 1;
 
-  assert(i <= last && act[h[i]] >= act[h[last]]);
-
-  if (last == i) return;  // last element was removed
+  assert(i < last && act[h[i]] >= act[h[last]]);
 
   z = h[last]; // last element
   az = act[z]; // activity of last heap element.
 
-  j = 2 * i;      // left child of i
-  
-  while (j + 1 < last) {
+  j = 2 * i;   // left child of i
+
+  while (j < last) {
     // find child of i with highest activity.
     x = h[j];
-    y = h[j+1];
-    if (heap_precedes(act, y, x)) {
-      j++; 
-      x = y;
+    ax = act[x];
+    if (j + 1 < last) {
+      y = h[j+1];
+      ay = act[y];
+      if (heap_cmp(y, x, ay, ax)) {
+	j ++;
+	x = y;
+	ax = ay;
+      }
     }
 
     // x = child of node i of highest activity
-    // j = position of x in the heap (j = 2i or j = 2i+1)
-    if (heap_cmp(z, x, az, act[x])) {
-      h[i] = z;
-      index[z] = i;
-      return;
-    }
+    // j = position of x in the heap (j = 2i or j = 2i+1)    
+    if (heap_cmp(z, x, az, ax)) break;    
 
-    // Otherwise, move x up, into heap[i]
+    // move x up, into heap[i]
     h[i] = x;
     index[x] = i;
 
@@ -676,23 +679,8 @@ static void update_down(var_heap_t *heap, uint32_t i) {
     j <<= 1;
   }
 
-  // Final steps: j + 1 >= last:
-  // x's position is either i or j.
-  if (j < last) {
-    x = h[j];
-    if (heap_cmp(z, x, az, act[x])) {
-      h[i] = z;
-      index[z] = i;
-    } else {
-      h[i] = x;
-      index[x] = i;
-      h[j] = z;
-      index[z] = j;
-    }
-  } else {
-    h[i] = z;
-    index[z] = i;
-  }
+  h[i] = z;
+  index[z] = i;
 }
 
 
