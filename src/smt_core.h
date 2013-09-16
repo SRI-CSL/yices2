@@ -336,7 +336,9 @@ static inline antecedent_t mk_generic_antecedent(void *g) {
 /*
  * Heap: for activity-based variable selection heuristic
  * - activity[x]: for every variable x between 0 and nvars - 1
+ * - indices -1 and -2 are used as sentinels:
  *   activity[-1] = DBL_MAX (higher than any activity)
+ *   activity[-2] = -1.0 (lower than any variable activity)
  * - heap_index[x]: for every variable x,
  *      heap_index[x] = i if x is in the heap and heap[i] = x
  *   or heap_index[x] = -1 if x is not in the heap

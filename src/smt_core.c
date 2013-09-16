@@ -477,6 +477,7 @@ static void push_literal(prop_stack_t *s, literal_t l) {
  * - heap is initially empty: heap_last = 0
  * - heap[0] = -1 is a marker, with activity[-1] higher 
  *   than any variable activity.
+ * - we also use -2 as a marker with negtative activity
  * - activity increment and threshold are set to their
  *   default initial value.
  */
@@ -485,8 +486,8 @@ static void init_heap(var_heap_t *heap, uint32_t n) {
   double *tmp;
 
   heap->size = n;
-  tmp = (double *) safe_malloc((n+1) * sizeof(double));
-  heap->activity = tmp + 1;
+  tmp = (double *) safe_malloc((n+2) * sizeof(double));
+  heap->activity = tmp + 2;
   heap->heap_index = (int32_t *) safe_malloc(n * sizeof(int32_t));
   heap->heap = (bvar_t *) safe_malloc((n+1) * sizeof(bvar_t));
 
@@ -495,6 +496,7 @@ static void init_heap(var_heap_t *heap, uint32_t n) {
     heap->activity[i] = 0.0;
   }
 
+  heap->activity[-2] = -1.0;
   heap->activity[-1] = DBL_MAX;
   heap->heap[0] = -1;
   heap->heap_last = 0;
@@ -513,9 +515,9 @@ static void extend_heap(var_heap_t *heap, uint32_t n) {
   old_size = heap->size;
   assert(old_size < n);
   heap->size = n;
-  tmp = heap->activity - 1;
-  tmp = (double *) safe_realloc(tmp, (n+1) * sizeof(double));
-  heap->activity = tmp + 1;
+  tmp = heap->activity - 2;
+  tmp = (double *) safe_realloc(tmp, (n+2) * sizeof(double));
+  heap->activity = tmp + 2;
   heap->heap_index = (int32_t *) safe_realloc(heap->heap_index, n * sizeof(int32_t));
   heap->heap = (int32_t *) safe_realloc(heap->heap, (n+1) * sizeof(int32_t));
 
@@ -529,7 +531,7 @@ static void extend_heap(var_heap_t *heap, uint32_t n) {
  * Free the heap
  */
 static void delete_heap(var_heap_t *heap) {
-  safe_free(heap->activity - 1);
+  safe_free(heap->activity - 2);
   safe_free(heap->heap_index);
   safe_free(heap->heap);
 }
@@ -566,7 +568,7 @@ static void reset_heap(var_heap_t *heap) {
  * issue for now, it should not matter much anyway??
  */
 
-#define BREAK_TIES 1
+#define BREAK_TIES 0
 
 /*
  * Comparison: return true if x precedes y in the heap ordering (strict ordering) 
@@ -650,20 +652,24 @@ static void update_down(var_heap_t *heap, uint32_t i) {
   z = h[last]; // last element
   az = act[z]; // activity of last heap element.
 
+  // set end marker: act[-2] is less than any variable activity
+  h[last] = -2;
+
   j = 2 * i;   // left child of i
 
   while (j < last) {
-    // find child of i with highest activity.
+    /*
+     * find child of i with highest activity.
+     * Since we've set h[last] = -2, we don't need to check for j+1 < last
+     */
     x = h[j];
     ax = act[x];
-    if (j + 1 < last) {
-      y = h[j+1];
-      ay = act[y];
-      if (heap_cmp(y, x, ay, ax)) {
-	j ++;
-	x = y;
-	ax = ay;
-      }
+    y = h[j+1];
+    ay = act[y];
+    if (heap_cmp(y, x, ay, ax)) {
+      j ++;
+      x = y;
+      ax = ay;
     }
 
     // x = child of node i of highest activity

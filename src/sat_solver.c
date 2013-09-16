@@ -451,6 +451,7 @@ static inline void push_literal(sol_stack_t *s, literal_t l) {
  * - heap is initially empty: heap_last = 0
  * - heap[0] = -1 is a marker, with activity[-1] higher 
  *   than any variable activity.
+ * - we also use -2 as a marker with negtative activity
  * - activity increment and threshold are set to their
  *   default initial value.
  */
@@ -459,8 +460,8 @@ static void init_heap(var_heap_t *heap, uint32_t n) {
   double *tmp;
 
   heap->size = n;
-  tmp = (double *) safe_malloc((n+1) * sizeof(double));
-  heap->activity = tmp + 1;
+  tmp = (double *) safe_malloc((n+2) * sizeof(double));
+  heap->activity = tmp + 2;
   heap->heap_index = (int32_t *) safe_malloc(n * sizeof(int32_t));
   heap->heap = (bvar_t *) safe_malloc((n+1) * sizeof(bvar_t));
 
@@ -469,6 +470,7 @@ static void init_heap(var_heap_t *heap, uint32_t n) {
     heap->activity[i] = 0.0;
   }
 
+  heap->activity[-2] = -1.0;
   heap->activity[-1] = DBL_MAX;
   heap->heap[0] = -1;
   heap->heap_last = 0;
@@ -487,9 +489,9 @@ static void extend_heap(var_heap_t *heap, uint32_t n) {
   old_size = heap->size;
   assert(old_size < n);
   heap->size = n;
-  tmp = heap->activity - 1;
-  tmp = (double *) safe_realloc(tmp, (n+1) * sizeof(double));
-  heap->activity = tmp + 1;
+  tmp = heap->activity - 2;
+  tmp = (double *) safe_realloc(tmp, (n+2) * sizeof(double));
+  heap->activity = tmp + 2;
   heap->heap_index = (int32_t *) safe_realloc(heap->heap_index, n * sizeof(int32_t));
   heap->heap = (int32_t *) safe_realloc(heap->heap, (n+1) * sizeof(int32_t));
 
@@ -503,7 +505,7 @@ static void extend_heap(var_heap_t *heap, uint32_t n) {
  * Free the heap
  */
 static void delete_heap(var_heap_t *heap) {
-  safe_free(heap->activity - 1);
+  safe_free(heap->activity - 2);
   safe_free(heap->heap_index);
   safe_free(heap->heap);
 }
@@ -554,48 +556,50 @@ static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
  * - decrement last.
  */
 static void update_down(var_heap_t *heap) {
-  double ax, *act;
-  int32_t* index;
-  bvar_t *h, x, y;
+  double *act;
+  int32_t *index;
+  bvar_t *h;
+  bvar_t x, y, z;
+  double ax, ay, az;
   uint32_t i, j, last;
+
+  last = heap->heap_last;
+  heap->heap_last = last - 1;
+  if (last <= 1 ) { // empty heap.
+    assert(heap->heap_last == 0);
+    return; 
+  }
 
   h = heap->heap;
   index = heap->heap_index;
   act = heap->activity;
-  last = heap->heap_last;
 
-  if (last <= 1 ) { // empty heap.
-    heap->heap_last = 0;
-    return; 
-  }
-
-  heap->heap_last = last - 1;
-
-  ax = act[h[last]]; // activity of last heap element.
+  z = h[last];   // last element
+  az = act[z];   // its acticity
+  h[last] = -2;  // set end marker: act[-2] is negative
  
   i = 1;      // root  
   j = 2;      // left child of i
-  
-  while (j + 1 < last) {
-    // find child of i with highest activity.
+  while (j  < last) {
+    /* 
+     * find child of i with highest activity.
+     * Since h[last] = -2, we don't check j+1 < last
+     */
     x = h[j];
     y = h[j+1];
-    if (act[y] > act[x]) {
+    ax = act[x];
+    ay = act[y];
+    if (ay > ax) {
       j++; 
       x = y;
+      ax = ay;
     }
 
     // x = child of node i of highest activity
     // j = position of x in the heap (j = 2i or j = 2i+1)
-    if (ax >= act[x]) {
-      // We're done: store last element in position i
-      y = h[last];
-      h[i] = y;
-      index[y] = i;
-      return;
-    }
+    if (az >= ax) break;
 
-    // Otherwise, move x up, into heap[i]
+    // move x up, into heap[i]
     h[i] = x;
     index[x] = i;
 
@@ -604,25 +608,8 @@ static void update_down(var_heap_t *heap) {
     j <<= 1;
   }
 
-  // Final steps: j + 1 >= last:
-  // x's position is either i or j.
-  y = h[last];
-  if (j < last) {
-    x = h[j];
-    if (ax >= act[x]) {
-      h[i] = y;
-      index[y] = i;      
-    } else {
-      h[i] = x;
-      index[x] = i;
-      h[j] = y;
-      index[y] = j;
-    }
-  } else {
-    h[i] = y;
-    index[y] = i;
-  }
-
+  h[i] = z;
+  index[z] = i;
 }
 
 
