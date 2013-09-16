@@ -763,14 +763,15 @@ void init_sat_solver(sat_solver_t *solver, uint32_t size) {
   solver->learned_clauses = new_clause_vector(DEF_CLAUSE_VECTOR_SIZE);
 
   // Variable-indexed arrays: not initialized
-  solver->value = (uint8_t *) safe_malloc((size + 1) * sizeof(uint8_t)) + 1;
-  solver->value[-1] = val_undef_false; // for end_clause marker
   solver->antecedent = (antecedent_t *) safe_malloc(size * sizeof(antecedent_t)); 
   solver->level = (uint32_t *) safe_malloc(size * sizeof(uint32_t));
   solver->mark = allocate_bitvector(size);
 
   // Literal-indexed arrays
-  // value is indexed from -2 to 2n -1, with value[-2] = value[-1] = VAL_UNDEF
+  // value is indexed from -2 to 2n -1, with value[-2] = value[-1] = val_undef
+  solver->value = (uint8_t *) safe_malloc((lsize + 2) * sizeof(uint8_t)) + 2;
+  solver->value[-2] = val_undef_false; // for end_clause marker
+  solver->value[-1] = val_undef_false; // for end_clause marker
   solver->bin = (literal_t **) safe_malloc(lsize * sizeof(literal_t *));
   solver->watch = (link_t *) safe_malloc(lsize * sizeof(link_t));
 
@@ -817,9 +818,9 @@ void delete_sat_solver(sat_solver_t *solver) {
   safe_free(solver->antecedent);
   safe_free(solver->level);
   delete_bitvector(solver->mark);
-  safe_free(solver->value - 1);
 
   // delete the literal vectors in the propagation structures
+  safe_free(solver->value - 2);
   n = solver->nb_lits;
   for (i=0; i<n; i++) {
     delete_literal_vector(solver->bin[i]);
@@ -840,6 +841,7 @@ void delete_sat_solver(sat_solver_t *solver) {
 /***************************************
  *  ADDITION OF VARIABLES AND CLAUSES  *
  **************************************/
+
 /*
  * Extend solver for new_size
  */
@@ -896,7 +898,9 @@ void sat_solver_add_vars(sat_solver_t *solver, uint32_t n) {
     l0 = pos_lit(i);
     l1 = neg_lit(i);
 
-    solver->value[i] = val_undef_false; // preferred polarity = false
+    // preferred polarity = false
+    solver->value[l0] = val_undef_false;
+    solver->value[l1] = val_undef_true;
 
     solver->bin[l0] = NULL;
     solver->bin[l1] = NULL;
@@ -932,7 +936,9 @@ bvar_t sat_solver_new_var(sat_solver_t *solver) {
   l0 = pos_lit(i);
   l1 = neg_lit(i);
   
-  solver->value[i] = val_undef_false; // preferred polarity = false
+  // preferred polarity = false
+  solver->value[l0] = val_undef_false;
+  solver->value[l1] = val_undef_true;
 
   solver->bin[l0] = NULL;
   solver->bin[l1] = NULL;
@@ -945,18 +951,6 @@ bvar_t sat_solver_new_var(sat_solver_t *solver) {
   return i;
 }
 
-
-/*
- * Assign literal l to true
- * - let x = var_of(l)
- * - if sign_of(l) is 0, we set value[x] to val_true = val_true ^ 0b0
- * - if sign_of(l) is 1, we set value[x] to val_false = val_true ^ 0b1
- */
-static inline void set_lit_true(sat_solver_t *solver, literal_t l) {
-  assert(! lit_is_assigned(solver, l));
-  solver->value[var_of(l)] = val_true ^ sign_of(l);
-  assert(lit_val(solver, l) == val_true);
-}
 
 /*
  * Assign literal l at base level
@@ -972,7 +966,8 @@ static void assign_literal(sat_solver_t *solver, literal_t l) {
   assert(! lit_is_assigned(solver, l));
   assert(solver->decision_level == 0);
 
-  set_lit_true(solver, l);
+  solver->value[l] = val_true;
+  solver->value[not(l)] = val_false;
 
   push_literal(&solver->stack, l);
 
@@ -1628,29 +1623,15 @@ static void simplify_clause_database(sat_solver_t *solver) {
  ***********************/
 
 /*
- * Assign variable x to its preferred polarity
- * - x must be unassigned
- * - we just set bit 1 of value[x] to 1
- */
-static inline void assign_variable(sat_solver_t *solver, bvar_t x) {
-  solver->value[x] |= 2;
-}
-
-
-/*
  * Literal corresponding to the assignment or preferred polarity of x
- * - if x is true or has preferred value true (i.e., value[x] is
- *   val_true or val_undef_true) then return pos_lit(x)
- * - if x is false of has preferred value false (i.e., value[x]
- *   is val_false of val_undef_false) then return neg_lit(x)
- *
- * In all cases, the literal is computed from x and the lower-order
- * bit of value[x]:
- * - if this bit is 0, we return neg_lit(x) (i.e., x<<1 | 1)
- * - if this bit is 1, we return pos_lit(x) (i.e., x<<1 | 0)
+ * - if value[pos_lit(x)] = val_undef_true  --> pos_lit(x)
+ * - if value[pos_lit(x)] = val_undef_false --> neg_lit(x)
  */
 static inline literal_t preferred_literal(sat_solver_t *solver, bvar_t x) {
-  return (x << 1) | ((~solver->value[x]) & 1);
+  literal_t l;
+
+  l = pos_lit(x);
+  return l | (~solver->value[l] & 1);
 }
 
 
@@ -1673,12 +1654,13 @@ static void decide_variable(sat_solver_t *solver, bvar_t x) {
   }
   solver->stack.level_index[d] = solver->stack.top;
 
-  solver->value[x] |= 2; // set bit 1 to 1 --> use preferred value
   solver->antecedent[x] = mk_literal_antecedent(null_literal);
   solver->level[x] = d;
 
   l = preferred_literal(solver, x);
-  assert(lit_val(solver, l) == val_true);
+  assert(l == pos_lit(x) || l == neg_lit(x));
+  solver->value[l] = val_true;
+  solver->value[not(l)] = val_false;
 
   push_literal(&solver->stack, l);
 
@@ -1706,8 +1688,10 @@ static void implied_literal(sat_solver_t *solver, literal_t l, antecedent_t a) {
 
   push_literal(&solver->stack, l);
 
+  solver->value[l] = val_true;
+  solver->value[not(l)] = val_false;
+
   v = var_of(l);
-  solver->value[v] = val_true ^ sign_of(l);
   solver->antecedent[v] = a;
   solver->level[v] = solver->decision_level;
   if (solver->decision_level == 0) {
@@ -2426,11 +2410,12 @@ static void backtrack(sat_solver_t *sol, uint32_t back_level) {
     assert(lit_val(sol, l) == val_true);
     assert(sol->level[var_of(l)] > back_level);
 
+    // clear assignment (i.e. bit 1) but keep current polarity (i.e. bit 0)
+    sol->value[l] = val_undef_true;
+    sol->value[not(l)] = val_undef_false;
+
     x = var_of(l);
     heap_insert(&sol->heap, x);
-
-    // clear assignment (i.e. bit 1) but keep current polarity (i.e. bit 0)
-    sol->value[x] &= 1;
   }
 
   sol->stack.top = i;
@@ -2669,7 +2654,7 @@ void get_allvars_assignment(sat_solver_t *solver, bval_t *val) {
 
   n = solver->nb_vars;
   for (i=0; i<n; i++) {
-    val[i] = solver->value[i];
+    val[i] = solver->value[pos_lit(i)];
   }
 }
 

@@ -413,11 +413,10 @@ typedef struct solver_stats_s {
  *   - antecedent[x]: antecedent type and value 
  *   - level[x]: decision level (only meaningful if x is assigned)
  *   - mark[x]: 1 bit used in UIP computation
- *   - value[x]: current assignment
- *     value ranges from -1 to nbvars: so that value[x] exists for x = null_bvar
- *     (and for end-marker literals l=END_CLAUSE and l=END_LEARNED)
- *     value[null_bvar] is always val_undef_false
  *
+ * - for every literal l between 0 and nb_lits - 1
+ *   - value[l] = current assignemnt
+ *   - value[-2] = value[-1] = val_undef_false
  * - a heap for the decision heuristic
  *
  * - an assignment stack
@@ -460,12 +459,12 @@ typedef struct sat_solver_s {
   clause_t **learned_clauses;
 
   /* Variable-indexed arrays */
-  uint8_t *value;
   antecedent_t *antecedent;
   uint32_t *level;
   byte_t *mark;                 // bitvector
 
   /* Literal-indexed arrays */
+  uint8_t *value;
   literal_t **bin;             // array of literal vectors
   link_t *watch;               // array of watch lists
 
@@ -492,26 +491,26 @@ typedef struct sat_solver_s {
  */
 static inline bval_t lit_val(sat_solver_t *solver, literal_t l) {
   assert(-2 <= l && l < (int32_t) solver->nb_lits);
-  return solver->value[var_of(l)] ^ sign_of(l);
+  return solver->value[l];
 }
 
-// assigned: if bit 1 of value[x] is 1
-static inline bool var_is_assigned(sat_solver_t *solver, bvar_t x) {
-  assert(-1 <= x && x < (int32_t) solver->nb_vars);
-  return (solver->value[x] & 2) != 0;
+static inline bool lit_is_unassigned(sat_solver_t *solver, literal_t l) {
+  return is_unassigned_val(lit_val(solver, l));
 }
 
 static inline bool lit_is_assigned(sat_solver_t *solver, literal_t l) {
-  return var_is_assigned(solver, var_of(l));
+  return ! lit_is_unassigned(solver, l);
+}
+
+
+static inline bool var_is_assigned(sat_solver_t *solver, bvar_t x) {
+  return lit_is_assigned(solver, pos_lit(x));
 }
 
 static inline bool var_is_unassigned(sat_solver_t *solver, bvar_t x) {
   return !var_is_assigned(solver, x);
 }
 
-static inline bool lit_is_unassigned(sat_solver_t *solver, literal_t l) {
-  return var_is_unassigned(solver, var_of(l));
-}
 
 /*
  * Solver initialization
@@ -607,7 +606,7 @@ static inline bval_t get_literal_assignment(sat_solver_t *solver, literal_t l) {
 
 static inline bval_t get_variable_assignment(sat_solver_t *solver, bvar_t x) {
   assert(0 <= x && x < solver->nb_vars);
-  return solver->value[x];
+  return lit_val(solver, pos_lit(x));
 }
 
 /*
