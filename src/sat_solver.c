@@ -575,8 +575,8 @@ static void update_down(var_heap_t *heap) {
   act = heap->activity;
 
   z = h[last];   // last element
-  az = act[z];   // its acticity
   h[last] = -2;  // set end marker: act[-2] is negative
+  az = act[z];   // activity of the last element
  
   i = 1;      // root  
   j = 2;      // left child of i
@@ -1762,12 +1762,11 @@ static inline void record_clause_conflict(sat_solver_t *solver, clause_t *cl) {
  * v must be != NULL 
  * Code returned is either no_conflict or binary_conflict
  */
-static int32_t propagation_via_bin_vector(sat_solver_t *sol, literal_t l0, literal_t *v) {
+static int32_t propagation_via_bin_vector(sat_solver_t *sol, uint8_t *val, literal_t l0, literal_t *v) {
   literal_t l1;
   bval_t v1;
-  // uint8_t *val = sol->value; 
 
-  assert(v != NULL);
+  assert(v != NULL && val == solv->value);
   assert(sol->bin[l0] == v && lit_val(sol, l0) == val_false);
 
   for (;;) {
@@ -1775,7 +1774,8 @@ static int32_t propagation_via_bin_vector(sat_solver_t *sol, literal_t l0, liter
     // This terminates since val[end_marker] = VAL_UNDEF
     do {
       l1 = *v ++;
-      v1 = lit_val(sol, l1);
+      //      v1 = lit_val(sol, l1);
+      v1 = val[l1];
     } while (v1 == val_true);
 
     if (l1 < 0) break; // end_marker
@@ -1798,19 +1798,22 @@ static int32_t propagation_via_bin_vector(sat_solver_t *sol, literal_t l0, liter
  * - val = literal value array (must be sol->value)
  * - list = start of the watch list (must be sol->watch + l0)
  */
-static inline int propagation_via_watched_list(sat_solver_t *sol, link_t *list) {
+static inline int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, link_t *list) {
   bval_t v1;
   clause_t *cl;
   link_t link;
   uint32_t k, i;
   literal_t l1, l, *b;
 
+  assert(val == sol->value);
+
   link = *list;
   while (link != NULL_LINK) {
     cl = clause_of(link);
     i = idx_of(link);
     l1 = get_other_watch(cl, i);
-    v1 = lit_val(sol, l1);
+    //    v1 = lit_val(sol, l1);
+    v1 = val[l1];
 
     assert(next_of(link) == cl->link[i]);
     assert(cdr_ptr(link) == cl->link + i);
@@ -1834,7 +1837,8 @@ static inline int propagation_via_watched_list(sat_solver_t *sol, link_t *list) 
       do {
         k ++;
         l = b[k];
-      } while (lit_val(sol, l) == val_false);
+      } while (val[l] == val_false);
+      //      } while (lit_val(sol, l) == val_false);
       
       if (l >= 0) {
         /*
@@ -1898,13 +1902,13 @@ static int32_t propagation(sat_solver_t *sol) {
     l = not(queue[i]);
     bin = sol->bin[l];
     if (bin != NULL) {
-      code = propagation_via_bin_vector(sol, l, bin);
+      code = propagation_via_bin_vector(sol, sol->value, l, bin);
       if (code != no_conflict) { 
 	return code; 
       } 
     }
     
-    code = propagation_via_watched_list(sol, sol->watch + l);
+    code = propagation_via_watched_list(sol, sol->value, sol->watch + l);
     if (code != no_conflict) { 
       return code;
     }
