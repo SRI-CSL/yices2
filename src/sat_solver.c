@@ -528,19 +528,19 @@ static void update_up(var_heap_t *heap, bvar_t x, uint32_t i) {
 
   ax = act[x];
 
-  j = i >> 1;    // parent of i
-  y = h[j];      // variable at position j in the heap
+  for (;;) {
+    j = i >> 1;    // parent of i
+    y = h[j];      // variable at position j in the heap
 
-  // The loop terminates since act[h[0]] = DBL_MAX 
-  while (act[y] < ax) {
+    // The loop terminates since act[h[0]] = DBL_MAX 
+    if (act[y] >= ax) break;
+
     // move y down, into position i
     h[i] = y;
     index[y] = i;
 
-    // move i and j up
+    // move i up
     i = j;
-    j >>= 1;
-    y = h[j];
   }
 
   // i is the new position for variable x
@@ -966,12 +966,12 @@ static void assign_literal(sat_solver_t *solver, literal_t l) {
   assert(! lit_is_assigned(solver, l));
   assert(solver->decision_level == 0);
 
+  push_literal(&solver->stack, l);
+
   solver->value[l] = val_true;
   solver->value[not(l)] = val_false;
 
-  push_literal(&solver->stack, l);
-
-  v = var_of(l);
+  v = var_of(not(l));
   solver->level[v] = 0;
   solver->antecedent[v] = mk_literal_antecedent(null_literal);
   set_bit(solver->mark, v); // marked at level 0
@@ -1691,7 +1691,7 @@ static void implied_literal(sat_solver_t *solver, literal_t l, antecedent_t a) {
   solver->value[l] = val_true;
   solver->value[not(l)] = val_false;
 
-  v = var_of(l);
+  v = var_of(not(l));
   solver->antecedent[v] = a;
   solver->level[v] = solver->decision_level;
   if (solver->decision_level == 0) {
@@ -1766,7 +1766,7 @@ static int32_t propagation_via_bin_vector(sat_solver_t *sol, uint8_t *val, liter
   literal_t l1;
   bval_t v1;
 
-  assert(v != NULL && val == solv->value);
+  assert(v != NULL && val == sol->value);
   assert(sol->bin[l0] == v && lit_val(sol, l0) == val_false);
 
   for (;;) {
@@ -2393,9 +2393,10 @@ static bvar_t select_variable(sat_solver_t *solver) {
  *   level_index[back_level+1] may not be set properly
  */
 static void backtrack(sat_solver_t *sol, uint32_t back_level) {
+  uint16_t *val;
   uint32_t i;
   uint32_t d;
-  literal_t *s, l;
+  literal_t l;
   bvar_t x;
 
 #if TRACE
@@ -2404,21 +2405,25 @@ static void backtrack(sat_solver_t *sol, uint32_t back_level) {
 
   assert(back_level < sol->decision_level);
 
-  s = sol->stack.lit;
+  val = (uint16_t *) sol->value;
   d = sol->stack.level_index[back_level + 1];
   i = sol->stack.top;
   while (i > d) {
     i --;
-    l = s[i];
+    l = sol->stack.lit[i];
 
     assert(lit_val(sol, l) == val_true);
     assert(sol->level[var_of(l)] > back_level);
 
     // clear assignment (i.e. bit 1) but keep current polarity (i.e. bit 0)
-    sol->value[l] = val_undef_true;
-    sol->value[not(l)] = val_undef_false;
-
+    //    val[l] = val_undef_true;
+    //    val[not(l)] = val_undef_false;
+    //    x = var_of(not(l));
     x = var_of(l);
+    val[x] ^= (uint16_t) (0x0202); // flip assign bits of val[l] and val[not(l)]
+
+    assert(lit_val(sol, l) == val_undef_true && lit_val(sol, not(l)) == val_undef_false);
+
     heap_insert(&sol->heap, x);
   }
 
