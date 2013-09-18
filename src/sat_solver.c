@@ -2435,6 +2435,55 @@ static void backtrack(sat_solver_t *sol, uint32_t back_level) {
 
 
 /*
+ * Cleanup the heap: remove variables until the top var is unassigned
+ */
+static void cleanup_heap(sat_solver_t *sol) {
+  var_heap_t *heap;
+  bvar_t x;
+
+  heap = &sol->heap;
+  x = heap->heap[1];
+  while (var_is_assigned(sol, x)) {
+    assert(x >= 0 && heap->heap_last > 0);
+    heap->heap_index[x] = -1;
+    update_down(heap);
+    x = heap->heap[1];
+  }
+}
+
+/*
+ * Partial restart:
+ * - find the unassigned variable of highest activity
+ * - keep all current decisions that have an activity higher than that
+ */
+static void partial_restart(sat_solver_t *sol) {
+  double ax;
+  bvar_t x;
+  uint32_t i, k, n;
+
+  assert(sol->decision_level > 0);
+
+  cleanup_heap(sol);
+  x = sol->heap.heap[1]; // top variable
+  assert(x >= 0 && var_is_unassigned(sol, x));
+  ax = sol->heap.activity[x];
+
+  n = sol->decision_level;
+  for (i=1; i<=n; i++) {
+    k = sol->stack.level_index[i];
+    x = var_of(sol->stack.lit[k]);  // decision variable for level i
+    assert(var_is_assigned(sol, x) && 
+	   sol->level[x] == i && 
+	   sol->antecedent[x] == mk_literal_antecedent(null_literal));
+    if (sol->heap.activity[x] < ax) {
+      backtrack(sol, i - 1);
+      break;
+    }
+  }
+}
+
+
+/*
  * Search until the given number of conflict is reached.
  * - sol: solver
  * - conflict_bound: number of conflict 
@@ -2461,7 +2510,9 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
 
       if (nb_conflicts >= conflict_bound) {
         if (sol->decision_level > 0) {
-          backtrack(sol, 0);
+	  // restart
+	  //          backtrack(sol, 0);
+	  partial_restart(sol);
         }
         return status_unsolved;
       }
