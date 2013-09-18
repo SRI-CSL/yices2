@@ -1673,7 +1673,6 @@ static void decide_variable(sat_solver_t *solver, bvar_t x) {
 
 /*
  * Assign literal l to true and attach antecedent a.
- * solver->mark[v] is set if decision level = 0
  */
 static void implied_literal(sat_solver_t *solver, literal_t l, antecedent_t a) {
   bvar_t v;
@@ -1694,9 +1693,6 @@ static void implied_literal(sat_solver_t *solver, literal_t l, antecedent_t a) {
   v = var_of(not(l));
   solver->antecedent[v] = a;
   solver->level[v] = solver->decision_level;
-  if (solver->decision_level == 0) {
-    set_bit(solver->mark, v);
-  }
 }
 
 
@@ -1920,6 +1916,21 @@ static int32_t propagation(sat_solver_t *sol) {
 }
 
 
+/*
+ * After propagation at level 0, mark all the implied literals
+ */
+static void mark_level0_literals(sat_solver_t *solver) {
+  uint32_t i, n;
+  bvar_t v;
+
+  assert(solver->decision_level == 0);
+
+  n = solver->stack.top;
+  for (i=0; i<n; i++) {
+    v = var_of(solver->stack.lit[i]);
+    set_bit(solver->mark, v);
+  }
+}
 
 
 /*******************************************************
@@ -2451,6 +2462,40 @@ static void cleanup_heap(sat_solver_t *sol) {
   }
 }
 
+
+/*
+ * Check whether all variables assigned at level k have
+ * activity less than ax
+ */
+static bool level_has_lower_activity(sat_solver_t *sol, double ax, uint32_t k) {
+  sol_stack_t *stack;
+  uint32_t i, n;
+  bvar_t x;
+  
+  assert(k <= sol->decision_level);
+  stack = &sol->stack;
+
+  // i := start of level k
+  // n := end of level k
+  i = stack->level_index[k]; 
+  n = stack->top;
+  if (k < sol->decision_level) {
+    n = stack->level_index[k+1]; 
+  }
+
+  while (i < n) {
+    x = var_of(stack->lit[i]);
+    assert(var_is_assigned(sol, x) && sol->level[x] == k);
+    if (sol->heap.activity[x] >= ax) {
+      return false;
+    }
+    i ++;
+  }
+
+  return true;
+}
+
+
 /*
  * Partial restart:
  * - find the unassigned variable of highest activity
@@ -2477,6 +2522,33 @@ static void partial_restart(sat_solver_t *sol) {
 	   sol->antecedent[x] == mk_literal_antecedent(null_literal));
     if (sol->heap.activity[x] < ax) {
       backtrack(sol, i - 1);
+      break;
+    }
+  }
+}
+
+
+/*
+ * Variant:
+ * - find the unassigned variable of highest activity
+ * - keep all current decision levels that have at least one variable
+ *   with highet ativity than that
+ */
+static void partial_restart_var(sat_solver_t *sol) {
+  double ax;
+  bvar_t x;
+  uint32_t i, n;
+
+  assert(sol->decision_level > 0);
+  cleanup_heap(sol);
+  x = sol->heap.heap[1];
+  assert(x >= 0 && var_is_unassigned(sol, x));
+  ax = sol->heap.activity[x];
+
+  n = sol->decision_level;
+  for (i=1; i<=n; i++) {
+    if (level_has_lower_activity(sol, ax, i)) {
+      backtrack(sol, i-1);
       break;
     }
   }
@@ -2512,26 +2584,29 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
         if (sol->decision_level > 0) {
 	  // restart
 	  //          backtrack(sol, 0);
-	  partial_restart(sol);
+	  partial_restart_var(sol);
         }
         return status_unsolved;
       }
 
-      // Simplify at level 0
-      if (sol->decision_level == 0 &&
-          sol->stack.top > sol->simplify_bottom && 
-          sol->stats.propagations >= sol->simplify_props + sol->simplify_threshold) {
+      // At level 0: mark literals + simplify
+      if (sol->decision_level == 0) {
+	mark_level0_literals(sol);
+
+	if (sol->stack.top > sol->simplify_bottom && 
+	    sol->stats.propagations >= sol->simplify_props + sol->simplify_threshold) {
 
 #if TRACE
-        printf("---> Simplify\n");
-        printf("---> level = %u, bottom = %u, top = %u\n", sol->decision_level, sol->simplify_bottom, sol->stack.top);
-        printf("---> props = %"PRIu64", threshold = %"PRIu64"\n", sol->stats.propagations, sol->simplify_threshold);
+	  printf("---> Simplify\n");
+	  printf("---> level = %u, bottom = %u, top = %u\n", sol->decision_level, sol->simplify_bottom, sol->stack.top);
+	  printf("---> props = %"PRIu64", threshold = %"PRIu64"\n", sol->stats.propagations, sol->simplify_threshold);
 #endif 
 
-        simplify_clause_database(sol);
-        sol->simplify_bottom = sol->stack.top;
-        sol->simplify_props = sol->stats.propagations;
-        sol->simplify_threshold = sol->stats.learned_literals + sol->stats.prob_literals + 2 * sol->nb_bin_clauses;
+	  simplify_clause_database(sol);
+	  sol->simplify_bottom = sol->stack.top;
+	  sol->simplify_props = sol->stats.propagations;
+	  sol->simplify_threshold = sol->stats.learned_literals + sol->stats.prob_literals + 2 * sol->nb_bin_clauses;
+	}
       }
 
       // Delete half the learned clauses if the threshold is reached
