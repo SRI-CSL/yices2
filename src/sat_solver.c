@@ -66,11 +66,11 @@ static inline literal_t get_second_watch(clause_t *cl) {
 
 /*
  * Get watched literal of index (1 - i) in cl.
- * \param i = 0 or 1
+ * - i must be 0 or 1
  */
 static inline literal_t get_other_watch(clause_t *cl, uint32_t i) {
   // flip low-order bit of i
-  return cl->cl[i ^ 1];
+  return cl->cl[1 - i];
 }
 
 /*
@@ -1805,8 +1805,8 @@ static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, link_t 
 
   link = *list;
   while (link != NULL_LINK) {
-    cl = clause_of(link);
     i = idx_of(link);
+    cl = clause_of(link);
     l1 = get_other_watch(cl, i);
     v1 = val[l1];
 
