@@ -13,9 +13,11 @@
 #include "bitvectors.h"
 #include "int_vectors.h"
 
-/*
- * BOOLEAN VARIABLES AND LITERALS
- */
+
+
+/************************************
+ *  BOOLEAN VARIABLES AND LITERALS  *
+ ***********************************/
 
 /*
  * Boolean variables: integers between 0 and nvars - 1
@@ -34,10 +36,12 @@ enum {
   null_literal = -1,
 };
 
+
 /*
  * Maximal number of boolean variables
  */
-#define MAX_VARIABLES (INT32_MAX >> 2)
+#define MAX_VARIABLES (UINT32_MAX >> 3)
+
 
 /*
  * Conversions from variables to literals
@@ -79,7 +83,6 @@ static inline bool is_neg(literal_t l) {
 }
 
 
-
 /*
  * Assignment values for a variable:
  * - we use four values to encode the truth value of x
@@ -117,6 +120,16 @@ typedef enum solver_status {
   status_sat,
   status_unsat,
 } solver_status_t;
+
+
+/*
+ * Codes returned by the propagation functions
+ */
+enum {
+  no_conflict,
+  binary_conflict,
+  clause_conflict,
+};
 
 
 
@@ -214,6 +227,12 @@ static inline link_t *cdr_ptr(link_t lnk) {
 }
 
 
+
+
+/**********
+ * SOLVER *
+ *********/
+
 /*
  * INTERNAL STRUCTURES
  */
@@ -259,10 +278,12 @@ typedef struct {
   uint32_t nlevels; // size of level_index array
 } sol_stack_t;
 
+
 /*
  * Initial size of level_index
  */
 #define DEFAULT_NLEVELS 100
+
 
 /*
  * Heap and variable activities for variable selection heuristic
@@ -288,6 +309,7 @@ typedef struct var_heap_s {
   double act_increment;
   double inv_act_decay;
 } var_heap_t;
+
 
 
 /*
@@ -357,17 +379,7 @@ static inline antecedent_t mk_generic_antecedent(void *g) {
 
 
 /*
- * Codes returned by propagation function
- */
-enum {
-  no_conflict,
-  binary_conflict,
-  clause_conflict,
-};
-
-
-/*
- * Statistics 
+ * STATISTICS 
  */
 typedef struct solver_stats_s {
   uint32_t starts;           // 1 + number of restarts
@@ -391,11 +403,6 @@ typedef struct solver_stats_s {
   uint64_t subsumed_literals;
 } solver_stats_t;
 
-
-
-/**********
- * SOLVER *
- *********/
 
 /*
  * Solver state
@@ -486,6 +493,8 @@ typedef struct sat_solver_s {
 } sat_solver_t;
 
 
+
+
 /*
  * Access to truth assignment
  */
@@ -511,6 +520,11 @@ static inline bool var_is_unassigned(sat_solver_t *solver, bvar_t x) {
   return !var_is_assigned(solver, x);
 }
 
+
+
+/********************
+ *  MAIN FUNCTIONS  *
+ *******************/
 
 /*
  * Solver initialization
@@ -546,6 +560,7 @@ extern void sat_solver_add_ternary_clause(sat_solver_t *solver, literal_t l0, li
 
 // clause l[0] ... l[n-1]
 extern void sat_solver_add_clause(sat_solver_t *solver, uint32_t n, literal_t *l);
+
 
 /*
  * Simplify then add a clause: remove duplicate literals, and already

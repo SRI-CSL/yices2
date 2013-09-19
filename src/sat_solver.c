@@ -2,15 +2,6 @@
  * Baseline SAT solver
  *
  * Mostly based on Minisat but with different data structures.
- * 
- * TODO: Fix clause deletion heuristics:
- * - reduce_learned_clause_set is almost never called because the
- *   deletion threshold is never reached. Done: reduced the initial
- *   threshold and increase it only when reduce is called (rather than
- *   at every restart)
- * - alternative remove_irrelevant_learned_clauses
- *   is not used right now. Yices 1.0.x uses this but it may delete
- *   too many clauses. It's also too complicated (six parameters!).
  */
 
 #include <assert.h>
@@ -697,6 +688,25 @@ static void increase_var_activity(var_heap_t *heap, bvar_t x) {
 static inline void decay_var_activities(var_heap_t *heap) {
   heap->act_increment *= heap->inv_act_decay;
 }
+
+
+/*
+ * Cleanup the heap: remove variables until the top var is unassigned
+ */
+static void cleanup_heap(sat_solver_t *sol) {
+  var_heap_t *heap;
+  bvar_t x;
+
+  heap = &sol->heap;
+  x = heap->heap[1];
+  while (var_is_assigned(sol, x)) {
+    assert(x >= 0 && heap->heap_last > 0);
+    heap->heap_index[x] = -1;
+    update_down(heap);
+    x = heap->heap[1];
+  }
+}
+
 
 
 /******************************************
@@ -1945,7 +1955,7 @@ static inline uint32_t d_level(sat_solver_t *sol, literal_t l) {
 /*
  * Prepare to backtrack: search for a literal of second
  * highest decision level and set backtrack_level
- * - sol->buffer contains the learned clause, with UIP in sol->buffer.data[0]
+ * - sol->buffer contains the learned clause, with implied literal in sol->buffer.data[0]
  */
 static void prepare_to_backtrack(sat_solver_t *sol) {
   uint32_t i, j, d, x, n;
@@ -2133,7 +2143,7 @@ static bool subsumed(sat_solver_t *sol, literal_t l, uint32_t sgn) {
 /*
  * Simplification of a learned clause
  * - the clause is stored in sol->buffer as an array of literals
- * - sol->buffer[0] is the UIP
+ * - sol->buffer[0] is the implied literal
  */
 static void simplify_learned_clause(sat_solver_t *sol) {
   uint32_t hash;
@@ -2210,7 +2220,7 @@ static inline void set_var_mark(sat_solver_t *sol, bvar_t x) {
  *   terminated by -1 with all literals in sol->cl false).
  * result:
  * - the learned clause is stored in sol->buffer as an array of literals
- * - sol->buffer.data[0] is the UIP
+ * - sol->buffer.data[0] is the implied literal
  */
 #define process_literal(l)                    \
 do {                                          \
@@ -2437,24 +2447,6 @@ static void backtrack(sat_solver_t *sol, uint32_t back_level) {
   sol->stack.prop_ptr = i;
   sol->decision_level = back_level;
 
-}
-
-
-/*
- * Cleanup the heap: remove variables until the top var is unassigned
- */
-static void cleanup_heap(sat_solver_t *sol) {
-  var_heap_t *heap;
-  bvar_t x;
-
-  heap = &sol->heap;
-  x = heap->heap[1];
-  while (var_is_assigned(sol, x)) {
-    assert(x >= 0 && heap->heap_last > 0);
-    heap->heap_index[x] = -1;
-    update_down(heap);
-    x = heap->heap[1];
-  }
 }
 
 
