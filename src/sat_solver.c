@@ -432,7 +432,7 @@ static void delete_stack(sol_stack_t *s) {
 /*
  * Push literal l on top of stack s
  */
-static inline void push_literal(sol_stack_t *s, literal_t l) {
+static void push_literal(sol_stack_t *s, literal_t l) {
   uint32_t i;
   i = s->top;
   s->lit[i] = l;
@@ -619,7 +619,7 @@ static void update_down(var_heap_t *heap) {
  * No effect if x is already in the heap.
  * - x must be between 0 and nvars - 1 
  */
-static inline void heap_insert(var_heap_t *heap, bvar_t x) {
+static void heap_insert(var_heap_t *heap, bvar_t x) {
   if (heap->heap_index[x] < 0) {
     // x not in the heap
     heap->heap_last ++;
@@ -640,7 +640,7 @@ static inline bool heap_is_empty(var_heap_t *heap) {
  * Get and remove top element
  * - the heap must not be empty
  */
-static inline bvar_t heap_get_top(var_heap_t *heap) {  
+static bvar_t heap_get_top(var_heap_t *heap) {  
   bvar_t top;
 
   assert(heap->heap_last > 0);
@@ -1178,7 +1178,7 @@ static void rescale_clause_activities(sat_solver_t *solver) {
  * Increase activity of learned clause cl
  * Rescale all activities if clause-activity max threshold is reached
  */
-static inline void increase_clause_activity(sat_solver_t *solver, clause_t *cl) {
+static void increase_clause_activity(sat_solver_t *solver, clause_t *cl) {
   increase_activity(cl, solver->cla_inc);
   if (get_activity(cl) > CLAUSE_ACTIVITY_THRESHOLD) {
     rescale_clause_activities(solver);
@@ -1293,7 +1293,7 @@ static void quick_split(clause_t **a, uint32_t low, uint32_t high) {
 /*
  * Apply this to a vector v of learned_clauses
  */
-static inline void reorder_clause_vector(clause_t **v) {
+static void reorder_clause_vector(clause_t **v) {
   quick_split(v, 0, get_cv_size(v));
 }
 
@@ -1303,7 +1303,7 @@ static inline void reorder_clause_vector(clause_t **v) {
  * Auxiliary function: follow clause list 
  * Remove all clauses marked for deletion
  */
-static inline void cleanup_watch_list(link_t *list) {
+static void cleanup_watch_list(link_t *list) {
   link_t lnk;
   clause_t *cl;
 
@@ -1334,7 +1334,7 @@ static void cleanup_watch_lists(sat_solver_t *solver) {
 /*
  * Check whether cl is an antecedent clause
  */
-static inline bool clause_is_locked(sat_solver_t *solver, clause_t *cl) {
+static bool clause_is_locked(sat_solver_t *solver, clause_t *cl) {
   literal_t l0, l1;
 
   l0 = get_first_watch(cl);
@@ -1713,7 +1713,7 @@ static void implied_literal(sat_solver_t *solver, literal_t l, antecedent_t a) {
 /*
  * Record a two-literal conflict: clause {l0, l1} is false
  */
-static inline void record_binary_conflict(sat_solver_t *solver, literal_t l0, literal_t l1) {
+static void record_binary_conflict(sat_solver_t *solver, literal_t l0, literal_t l1) {
 #if TRACE
   printf("\n---> Binary conflict: {%d, %d}\n", l0, l1);
 #endif
@@ -1728,7 +1728,7 @@ static inline void record_binary_conflict(sat_solver_t *solver, literal_t l0, li
 /*
  * Record cl as a conflict clause
  */
-static inline void record_clause_conflict(sat_solver_t *solver, clause_t *cl) {
+static void record_clause_conflict(sat_solver_t *solver, clause_t *cl) {
 #if TRACE
   uint32_t i;
   literal_t ll;
@@ -1794,7 +1794,7 @@ static int32_t propagation_via_bin_vector(sat_solver_t *sol, uint8_t *val, liter
  * - val = literal value array (must be sol->value)
  * - list = start of the watch list (must be sol->watch + l0)
  */
-static inline int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, link_t *list) {
+static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, link_t *list) {
   bval_t v1;
   clause_t *cl;
   link_t link;
@@ -2011,7 +2011,7 @@ static inline void clear_lit_mark(sat_solver_t *sol, literal_t l) {
  * b = array of literals
  * n = number of literals
  */
-static inline uint32_t signature(sat_solver_t *sol, literal_t *b, uint32_t n) {
+static uint32_t signature(sat_solver_t *sol, literal_t *b, uint32_t n) {
   uint32_t i, s;
 
   s = 0;
@@ -2888,7 +2888,7 @@ static void check_propagation_bin(sat_solver_t *sol, literal_t l0) {
   }
 }
 
-static inline int32_t indicator(bval_t v, bval_t c) {
+static int32_t indicator(bval_t v, bval_t c) {
   return (v == c) ? 1 : 0;
 }
 
