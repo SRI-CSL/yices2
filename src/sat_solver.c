@@ -768,10 +768,10 @@ void init_sat_solver(sat_solver_t *solver, uint32_t size) {
   solver->mark = allocate_bitvector(size);
 
   // Literal-indexed arrays
-  // value is indexed from -2 to 2n -1, with value[-2] = value[-1] = val_undef
+  // value is indexed from -2 to 2n -1, with value[-2] = value[-1] = val_undef_false
   solver->value = (uint8_t *) safe_malloc((lsize + 2) * sizeof(uint8_t)) + 2;
-  solver->value[-2] = val_undef_false; // for end_clause marker
-  solver->value[-1] = val_undef_false; // for end_clause marker
+  solver->value[-2] = val_undef_false;
+  solver->value[-1] = val_undef_false;
   solver->bin = (literal_t **) safe_malloc(lsize * sizeof(literal_t *));
   solver->watch = (link_t *) safe_malloc(lsize * sizeof(link_t));
 
@@ -880,6 +880,12 @@ void sat_solver_add_vars(sat_solver_t *solver, uint32_t n) {
   literal_t l0, l1;
 
   nvars = solver->nb_vars;
+
+  if (nvars + n < nvars) {
+    // arithmetic overflow: too many variables
+    out_of_memory();
+  }
+
   if (nvars + n > solver->vsize) {
     new_size = solver->vsize + 1;
     new_size += new_size >> 1;
@@ -1384,7 +1390,6 @@ static void delete_learned_clauses(sat_solver_t *solver) {
 static void reduce_learned_clause_set(sat_solver_t *solver) {
   uint32_t i, n;
   clause_t **v;
-  //  float median_act, act_threshold;
   float act_threshold;
 
   assert(get_cv_size(solver->learned_clauses) > 0);
@@ -1396,12 +1401,7 @@ static void reduce_learned_clause_set(sat_solver_t *solver) {
   v = solver->learned_clauses;
   n = get_cv_size(v);
 
-  //  median_act = get_activity(v[n/2]);
   act_threshold = solver->cla_inc/n;
-
-  //  if (median_act < act_threshold) {
-  //    act_threshold = median_act;
-  //  }
 
   // prepare for deletion: all non-locked clauses, with activity less
   // than activitiy_threshold are marked for deletion.
@@ -1808,7 +1808,6 @@ static inline int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, 
     cl = clause_of(link);
     i = idx_of(link);
     l1 = get_other_watch(cl, i);
-    //    v1 = lit_val(sol, l1);
     v1 = val[l1];
 
     assert(next_of(link) == cl->link[i]);
@@ -1834,7 +1833,6 @@ static inline int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, 
         k ++;
         l = b[k];
       } while (val[l] == val_false);
-      //      } while (lit_val(sol, l) == val_false);
       
       if (l >= 0) {
         /*
@@ -2427,9 +2425,6 @@ static void backtrack(sat_solver_t *sol, uint32_t back_level) {
     assert(sol->level[var_of(l)] > back_level);
 
     // clear assignment (i.e. bit 1) but keep current polarity (i.e. bit 0)
-    //    val[l] = val_undef_true;
-    //    val[not(l)] = val_undef_false;
-    //    x = var_of(not(l));
     x = var_of(l);
     val[x] ^= (uint16_t) (0x0202); // flip assign bits of val[l] and val[not(l)]
 
