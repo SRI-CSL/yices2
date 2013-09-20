@@ -34,19 +34,28 @@
 /*
  * Restart parameters
  */
-#define INITIAL_RESTART_THRESHOLD  100  // number of conflicts before the first restart
+// #define INITIAL_RESTART_THRESHOLD  100  // number of conflicts before the first restart
+#define INITIAL_RESTART_THRESHOLD  50  // number of conflicts before the first restart
 #define MINISAT_RESTART_FACTOR 1.5      // increase factor for the restart threshold
 
 /*
  * Heuristic for deletion of half the learned clauses
+ * - changed on 2013/09/19: use linear rather than geometric increment
+ * - first reduce is when the number of learned clause reaches INIT_REDUCE_THRESHOLD
+ * - then after every call to reduce, the threshold is increased by INCR_REDUCE_THRESHOLD
  */
+#define INITIAL_REDUCE_THRESHOLD 10000
+#define INCR_REDUCE_THRESHOLD  5000
+
+// older version: not used anymore
 #define MIN_REDUCE_THRESHOLD 1000       // minimum initial threshold
 #define MINISAT_REDUCE_FACTOR 1.1       // increase factor for the threshold
 
 /*
  * Picosat-style restart and reduce
  */
-#define RESTART_FACTOR 1.1
+// #define RESTART_FACTOR 1.1
+#define RESTART_FACTOR 1.05
 #define REDUCE_FACTOR  1.05
 #define MAX_DTHRESHOLD 1000000
 
