@@ -2736,8 +2736,8 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
       if (nb_conflicts >= conflict_bound) {
         if (sol->decision_level > 0) {
 	  // restart
-	  //          backtrack(sol, 0);
-	  partial_restart_var(sol);
+	  backtrack(sol, 0);
+	  //	  partial_restart_var(sol);
 	  // partial_restart(sol);
         }
         return status_unsolved;
