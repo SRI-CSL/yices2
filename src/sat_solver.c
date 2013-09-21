@@ -709,6 +709,148 @@ static void cleanup_heap(sat_solver_t *sol) {
 
 
 
+
+/***********************************
+ *  STATISTICS ON LEARNED CLAUSES  *
+ **********************************/
+
+#if INSTRUMENT_CLAUSES
+
+/*
+ * Global statistics record
+ */
+static learned_clauses_stats_t stat_buffer = {
+  NULL, 0, 0, NULL,
+};
+
+#define SBUFFER_SIZE 20000
+
+
+/*
+ * Initialize the buffer
+ */
+void init_learned_clauses_stats(FILE *f) {
+  stat_buffer.data = (lcstat_t *) safe_malloc(SBUFFER_SIZE * sizeof(lcstat_t));
+  stat_buffer.nrecords = 0;
+  stat_buffer.size = SBUFFER_SIZE;
+  stat_buffer.file = f;
+}
+
+
+/*
+ * Flush the buffer: save all in the file then reset nrecords to 0
+ */
+static void flush_stat_buffer(void) {
+  FILE *f;
+  lcstat_t *d;
+  uint32_t i, n;
+
+  d = stat_buffer.data;
+  f = stat_buffer.file;
+  n = stat_buffer.nrecords;
+  for (i=0; i<n; i++) {
+    fprintf(f, "%"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32"\n", 
+	    d->creation, d->deletion, d->props, d->last_prop, d->resos, d->last_reso);
+    d ++;
+  }
+  fflush(f);
+  stat_buffer.nrecords = 0;
+}
+
+
+/*
+ * Add r to the buffer
+ */
+static void stat_buffer_push(lcstat_t *r) {
+  uint32_t i;
+
+  if (stat_buffer.data != NULL) {
+    i = stat_buffer.nrecords;
+    if (i == stat_buffer.size) {
+      flush_stat_buffer();
+      i = 0;
+    }
+    assert(i < stat_buffer.size);
+    stat_buffer.data[i] = *r;
+    stat_buffer.nrecords = i+1;
+  }
+}
+
+
+/*
+ * Save all statiscis into the statistics file
+ */
+void flush_learned_clauses_stats(void) {
+  if (stat_buffer.data != NULL) {
+    flush_stat_buffer();
+    safe_free(stat_buffer.data);
+    stat_buffer.data = NULL;
+  }
+}
+
+
+
+/*
+ * Initialize a learned clause statistics
+ * - n = number of conflicts acts as the clause id
+ * - we also set last_prop and last_reso to n to ensure that
+ *   creation <= last_prop and creation <= last_reso
+ */
+static void learned_clause_created(sat_solver_t *solver, clause_t *cl) {
+  learned_clause_t *tmp;
+  uint32_t n;
+
+  n = solver->stats.conflicts; 
+
+  tmp = learned(cl);
+  tmp->stat.creation = n;
+  tmp->stat.deletion = 0;
+  tmp->stat.props = 0;
+  tmp->stat.last_prop = n;
+  tmp->stat.resos = 0;
+  tmp->stat.last_reso = n;
+}
+
+
+/*
+ * Update the resolution statistics
+ */
+static void learned_clause_reso(sat_solver_t *solver, clause_t *cl) {
+  learned_clause_t *tmp;
+
+  tmp = learned(cl);
+  tmp->stat.resos ++;
+  tmp->stat.last_reso = solver->stats.conflicts;
+}
+
+
+/*
+ * Update the propagation statistics
+ */
+static void learned_clause_prop(sat_solver_t *solver, clause_t *cl) {
+  learned_clause_t *tmp;
+
+  tmp = learned(cl);
+  tmp->stat.props ++;
+  tmp->stat.last_prop = solver->stats.conflicts;
+}
+
+
+/*
+ * Deletion
+ */
+static void learned_clause_deletion(sat_solver_t *solver, clause_t *cl) {
+  learned_clause_t *tmp;
+
+  tmp = learned(cl);
+  tmp->stat.deletion = solver->stats.conflicts;
+  stat_buffer_push(&tmp->stat);
+}
+
+
+#endif
+
+
 /******************************************
  *  SOLVER ALLOCATION AND INITIALIZATION  *
  *****************************************/
@@ -819,6 +961,9 @@ void delete_sat_solver(sat_solver_t *solver) {
   cl = solver->learned_clauses;
   n = get_cv_size(cl);  
   for (i=0; i<n; i++) {
+#if INSTRUMENT_CLAUSES
+    learned_clause_deletion(solver, cl[i]);
+#endif
     delete_learned_clause(cl[i]);
   }
   delete_clause_vector(cl);
@@ -1163,6 +1308,7 @@ void sat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, litera
 
 
 
+
 /**********************************
  *  ADDITION OF LEARNED CLAUSES   *
  *********************************/
@@ -1221,7 +1367,12 @@ static clause_t *add_learned_clause(sat_solver_t *solver, uint32_t n, literal_t 
   cl = new_learned_clause(n, lit);
   add_clause_to_vector(&solver->learned_clauses, cl);
   increase_clause_activity(solver, cl);
-  
+
+  // statistics
+#if INSTRUMENT_CLAUSES
+  learned_clause_created(solver, cl);
+#endif
+
   // insert cl into the watched lists
   l = lit[0];
   solver->watch[l] = cons(0, cl, solver->watch[l]);
@@ -1376,6 +1527,9 @@ static void delete_learned_clauses(sat_solver_t *solver) {
   j = 0;
   for (i = 0; i<n; i++) {
     if (is_clause_to_be_deleted(v[i])) {
+#if INSTRUMENT_CLAUSES
+      learned_clause_deletion(solver, v[i]);
+#endif
       delete_learned_clause(v[i]);
     } else {
       solver->stats.learned_literals += clause_length(v[i]);
@@ -1866,6 +2020,12 @@ static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, link_t 
           // l1 is implied
           implied_literal(sol, l1, mk_clause_antecedent(cl, i^1));
 
+#if INSTRUMENT_CLAUSES
+	  if (l == end_learned) {
+	    learned_clause_prop(sol, cl);
+	  }
+#endif
+
           // move to the next clause
           *list = link;
           list = cl->link + i;
@@ -2278,6 +2438,9 @@ static void analyze_conflict(sat_solver_t *sol) {
    */
   if (l == end_learned) {
     increase_clause_activity(sol, sol->false_clause);
+#if INSTRUMENT_CLAUSES
+    learned_clause_reso(sol, sol->false_clause);
+#endif
   }
 
   /*
@@ -2323,6 +2486,9 @@ static void analyze_conflict(sat_solver_t *sol) {
           }
           if (l == end_learned) {
             increase_clause_activity(sol, cl);
+#if INSTRUMENT_CLAUSES
+	    learned_clause_reso(sol, cl);
+#endif
           }
           break;
 
@@ -2636,6 +2802,9 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
       if (n >= 3) {
         cl = add_learned_clause(sol, n, b);
         implied_literal(sol, l, mk_clause0_antecedent(cl));
+#if INSTRUMENT_CLAUSES
+	learned_clause_prop(sol, cl);
+#endif
 
       } else if (n == 2) {
         sat_solver_add_binary_clause(sol, l, b[1]);

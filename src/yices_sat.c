@@ -489,6 +489,9 @@ static void init_handler(void) {
 
 
 int main(int argc, char* argv[]) {
+#if INSTRUMENT_CLAUSES
+  FILE *stats;
+#endif
   int resu;
 
   parse_command_line(argc, argv);
@@ -508,12 +511,29 @@ int main(int argc, char* argv[]) {
       print_solver_size(stderr, &solver);
     }
 
+#if INSTRUMENT_CLAUSES
+    stats = fopen("clauses.data", "w");
+    if (stats == NULL) {
+      fprintf(stderr, "Couldn't open the statistics file\n");
+      perror("clauses.data");
+      fflush(stderr);
+      return YICES_EXIT_SYSTEM_ERROR;
+    }
+
+    init_learned_clauses_stats(stats);
+#endif
+
     init_handler();
     (void) solve(&solver, verbose);
     print_results();
     if (model) {
       print_model();
     }
+
+#if INSTRUMENT_CLAUSES
+    flush_learned_clauses_stats();
+    fclose(stats);
+#endif
 
     delete_sat_solver(&solver);
 

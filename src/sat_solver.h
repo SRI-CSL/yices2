@@ -181,10 +181,58 @@ struct clause_s {
   literal_t cl[0];
 };
 
+
+#define INSTRUMENT_CLAUSES 0
+
+#if INSTRUMENT_CLAUSES
+
+/*
+ * Instrumentation for learned clauses
+ * - creation = number of conflicts when the clause was created
+ * - deletion = number of conflics when the clause is deleted
+ * - props = number of propagations involving that clause
+ * - last_prop = last time the clause caused a propagation
+ * - resos = number of times the clause is used in resolution 
+ * - last_reso = last time hte clause was involved in a resolution step
+ */
+typedef struct lcstats_s {
+  uint32_t creation;
+  uint32_t deletion;
+  uint32_t props;
+  uint32_t last_prop;
+  uint32_t resos;
+  uint32_t last_reso;
+} lcstat_t;
+
+
+typedef struct learned_clause_s {
+  lcstat_t stat;
+  float activity;
+  clause_t clause;
+} learned_clause_t;
+
+
+/*
+ * Statistics array for learned clauses
+ * - each element stores the stat record of a clause. It's set when
+ *   the clause is deleted.
+ */
+typedef struct learned_clauses_stats_s {
+  lcstat_t *data;
+  uint32_t nrecords;
+  uint32_t size;
+  FILE *file;  
+} learned_clauses_stats_t;
+
+
+#else
+
 typedef struct learned_clause_s {
   float activity;
   clause_t clause;
 } learned_clause_t;
+
+#endif
 
 
 /*
@@ -225,6 +273,8 @@ static inline link_t cons(uint32_t i, clause_t *c, link_t lnk) {
 static inline link_t *cdr_ptr(link_t lnk) {
   return clause_of(lnk)->link + idx_of(lnk);
 }
+
+
 
 
 
@@ -637,6 +687,25 @@ extern void get_allvars_assignment(sat_solver_t *solver, bval_t *val);
  * - a must be have size >= solver->nb_vars
  */
 extern uint32_t get_true_literals(sat_solver_t *solver, literal_t *a);
+
+
+#if INSTRUMENT_CLAUSES
+
+/*
+ * Statistics records:
+ * - allocate the statistics data structure
+ * - f must be open and writeable. It will be use to
+ *   store the statistics data.
+ */
+extern void init_learned_clauses_stats(FILE *f);
+
+
+/*
+ * Save all statiscis into the statistics file
+ */
+extern void flush_learned_clauses_stats(void);
+
+#endif
 
 
 #endif /* __SAT_SOLVER_H */
