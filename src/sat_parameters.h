@@ -60,6 +60,11 @@
 #define MAX_DTHRESHOLD 1000000
 
 /*
+ * Luby-style restart
+ */
+#define LUBY_INTERVAL 50
+
+/*
  * Parameters for removing irrelevant learned clauses
  * (zchaff-style).
  */
