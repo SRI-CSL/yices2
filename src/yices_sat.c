@@ -231,25 +231,31 @@ static int build_instance(char *filename) {
  * - input_filename = name of the input file
  * - verbose = true for verbose output
  * - model = true for produce model (if SAT)
+ * - seed_given = true if a seed is given on the command line
+ *   seed_value = value of the seed
  */
 static char *input_filename = NULL;
 static bool verbose;
 static bool model;
+static bool seed_given;
+static uint32_t seed_value;
 
 enum {
   version_flag,
   help_flag,
   verbose_flag,
   model_flag,
+  seed_opt,
 };
 
-#define NUM_OPTIONS (model_flag+1)
+#define NUM_OPTIONS (seed_opt+1)
 
 static option_desc_t options[NUM_OPTIONS] = {
   { "version", 'V', FLAG_OPTION, version_flag },
   { "help", 'h', FLAG_OPTION, help_flag },
   { "verbose", 'v', FLAG_OPTION, verbose_flag },
   { "model", 'm', FLAG_OPTION, model_flag },
+  { "seed", 's', MANDATORY_INT, seed_opt },
 };
 
 
@@ -301,6 +307,7 @@ static void parse_command_line(int argc, char *argv[]) {
   input_filename = NULL;
   model = false;
   verbose = false;
+  seed_given = false;
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
 
@@ -337,6 +344,11 @@ static void parse_command_line(int argc, char *argv[]) {
       case verbose_flag:
         verbose = true;
         break;
+
+      case seed_opt:
+	seed_given = true;
+	seed_value = elem.i_value;
+	break;
       }
       break;
 
@@ -509,6 +521,10 @@ int main(int argc, char* argv[]) {
       construction_time = get_cpu_time();
       fprintf(stderr, "Construction time    : %.4f s\n", construction_time);
       print_solver_size(stderr, &solver);
+    }
+
+    if (seed_given) {
+      sat_solver_set_seed(&solver, seed_value);
     }
 
 #if INSTRUMENT_CLAUSES

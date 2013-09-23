@@ -583,6 +583,12 @@ static inline bool var_is_unassigned(sat_solver_t *solver, bvar_t x) {
 extern void init_sat_solver(sat_solver_t *solver, uint32_t size);
 
 /*
+ * Set the prng seed
+ */
+extern void sat_solver_set_seed(sat_solver_t *solver, uint32_t seed);
+
+
+/*
  * Delete solver
  */
 extern void delete_sat_solver(sat_solver_t *solver);
