@@ -546,12 +546,13 @@ int main(int argc, char* argv[]) {
       print_model();
     }
 
+    delete_sat_solver(&solver);
+
 #if INSTRUMENT_CLAUSES
     flush_learned_clauses_stats();
     fclose(stats);
 #endif
 
-    delete_sat_solver(&solver);
 
     return YICES_EXIT_SUCCESS;
   }

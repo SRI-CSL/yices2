@@ -308,6 +308,146 @@ extern void reset_bool_vartable(bool_vartable_t *table);
 
 
 
+
+/*
+ * VARIABLE CONSTRUCTORS
+ */
+
+/*
+ * New variable (no definition)
+ */
+extern bvar_t make_fresh_boolvar(bool_vartable_t *table);
+
+static inline literal_t make_fresh_literal(bool_vartable_t *table) {
+  return pos_lit(make_fresh_boolvar(table));
+}
+
+
+/*
+ * Theory atom:
+ * - tag = an identifier used by the theory solver (it must not be
+ *   one of the four reserved tags above)
+ * - index = an index also used by the theory solver
+ * This function does not use hash-consing. It creates a fresh variable
+ * index and returns it.
+ */
+extern bvar_t bool_vartable_add_atom(bool_vartable_t *table, uint8_t tag, uint32_t index);
+
+
+/*
+ * Gate constructors: the functions take two or three literals as input
+ *   and return a literal
+ * - each literal must be of the form pos_lit(x) or neg_lit(x)
+ *   where x is a variable in the table.
+ * - the actual gate is defined by the 8bit truth-table b
+ * - for make_gate2, b must be of the form [b3 b3 b2 b2 b1 b1 b0 b0]
+ *
+ * The gate is normalized and simplified. But the simplifications do
+ * not take equivalnce classes into account. (e.g., l1 is not replaced
+ * by the root of its equivalence class).
+ */
+extern literal_t make_gate3(bool_vartable_t *table, uint8_t b, literal_t l1, literal_t l2, literal_t l3);
+extern literal_t make_gate2(bool_vartable_t *table, uint8_t b, literal_t l1, literal_t l2);
+
+
+/*
+ * Primitive gates
+ */
+static inline literal_t make_or2(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  return make_gate2(table, 0xfc, l1, l2);
+}
+
+static inline literal_t make_xor2(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  return make_gate2(table, 0x3c, l1, l2);
+}
+
+static inline literal_t make_or3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
+  return make_gate3(table, 0xfe, l1, l2, l3);
+}
+
+static inline literal_t make_xor3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
+  return make_gate3(table, 0x96, l1, l2, l3);
+}
+
+static inline literal_t make_maj3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
+  return make_gate3(table, 0xe8, l1, l2, l3);
+}
+
+static inline literal_t make_ite(bool_vartable_t *table, literal_t c, literal_t l1, literal_t l2) {
+  return make_gate3(table, 0xca, c, l1, l2);
+}
+
+
+
+/*
+ * Derived gates
+ */
+static inline literal_t make_and2(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  return not(make_or2(table, not(l1), not(l2)));
+}
+
+static inline literal_t make_and3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
+  return not(make_or3(table, not(l1), not(l2), not(l3)));
+}
+
+static inline literal_t make_implies(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  return make_or2(table, not(l1), l2);
+}
+
+static inline literal_t make_iff(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  return not(make_xor2(table, l1, l2));
+}
+
+static inline literal_t make_cmp(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
+  return make_maj3(table, l1, not(l2), l3);
+}
+
+
+
+/*
+ * Large arity OR/AND/XOR gates
+ * - n = arity
+ * - a[0 ... n-1] = arguments
+ * Warning: a may be modified
+ */
+extern literal_t make_or(bool_vartable_t *table, uint32_t n, literal_t *a);
+extern literal_t make_and(bool_vartable_t *table, uint32_t n, literal_t *a);
+extern literal_t make_xor(bool_vartable_t *table, uint32_t n, literal_t *a);
+
+
+
+/*
+ * CLAUSE ADDITION
+ */
+
+/*
+ * First version: add clauses without simplification.
+ * - the generic form is bool_vartable_add_clause(table, n, a):
+ *   a must be an array of n literals defined in table
+ * - short cuts are provided for short clauses (n=0, 1. 2, 3)
+ */
+extern void bool_vartable_add_clause(bool_vartable_t *table, uint32_t n, literal_t *a);
+extern void bool_vartable_add_empty_clause(bool_vartable_t *table);
+extern void bool_vartable_add_unit_clause(bool_vartable_t *table, literal_t l1);
+extern void bool_vartable_add_binary_clause(bool_vartable_t *table, literal_t l1, literal_t l2);
+extern void bool_vartable_add_ternary_clause(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3);
+
+
+/*
+ * Second version: simplfy then add a clause
+ * - simplification used: remove false literals and duplicate literals.
+ *   do nothing if the clause is true (either because it contains 
+ *   true_literal or a pair of complementary literals).
+ * - WARNING: in bool_vartable_simplify_and_add_cluase(table, n, a): array a may be modified
+ */
+extern void bool_vartable_simplify_and_add_clause(bool_vartable_t *table, uint32_t n, literal_t *a);
+extern void bool_vartable_simplify_and_add_unit_clause(bool_vartable_t *table, literal_t l1);
+extern void bool_vartable_simplify_and_add_binary_clause(bool_vartable_t *table, literal_t l1, literal_t l2);
+extern void bool_vartable_simplify_and_add_ternary_clause(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3);
+
+
+
+
 /*
  * ACCESS TO DESCRIPTORS
  */
@@ -358,6 +498,7 @@ static inline int32_t *boolvar_or_desc(bool_vartable_t *table, bvar_t x) {
   assert(boolvar_is_or(table, x));
   return table->ordata.data + table->desc[x];
 }
+
 
 
 /*
@@ -437,7 +578,6 @@ static inline literal_t boolvar_get_map(bool_vartable_t *table, bvar_t x) {
 }
 
 
-
 /*
  * Check whether the classes of l1 and l2 can be merged
  * - l1 and l2 must be root literals
@@ -452,117 +592,6 @@ extern bool root_literals_can_be_merged(bool_vartable_t *table, literal_t l1, li
  * - ll and l2 must be root literals and the two classes must be mergeable
  */
 extern void merge_root_literals(bool_vartable_t *table, literal_t l1, literal_t l2);
-
-
-
-
-/*
- * VARIABLE CONSTRUCTORS
- */
-
-/*
- * New variable (no definition)
- */
-extern bvar_t make_fresh_boolvar(bool_vartable_t *table);
-
-static inline literal_t make_fresh_literal(bool_vartable_t *table) {
-  return pos_lit(make_fresh_boolvar(table));
-}
-
-
-/*
- * Theory atom:
- * - tag = an identifier used by the theory solver (it must not be
- *   one of the four reserved tags above)
- * - index = an index also used by the theory solver
- * This function does not use hash-consing. It creates a fresh variable
- * index and returns it.
- */
-extern bvar_t bool_vartable_add_atom(bool_vartable_t *table, uint8_t tag, uint32_t index);
-
-
-/*
- * Gate constructors: the functions take two or three literals as input
- *   and return a literal
- * - each literal must be of the form pos_lit(x) or neg_lit(x)
- *   where x is a variable in the table.
- * - the actual gate is defined by the 8bit truth-table b
- * - for make_gate2, b must be of the form [b3 b3 b2 b2 b1 b1 b0 b0]
- */
-extern literal_t make_gate3(bool_vartable_t *table, uint8_t b, literal_t l1, literal_t l2, literal_t l3);
-extern literal_t make_gate2(bool_vartable_t *table, uint8_t b, literal_t l1, literal_t l2);
-
-
-
-/*
- * Primitive gates
- */
-static inline literal_t make_or2(bool_vartable_t *table, literal_t l1, literal_t l2) {
-  return make_gate2(table, 0xfc, l1, l2);
-}
-
-static inline literal_t make_xor2(bool_vartable_t *table, literal_t l1, literal_t l2) {
-  return make_gate2(table, 0x3c, l1, l2);
-}
-
-static inline literal_t make_or3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
-  return make_gate3(table, 0xfe, l1, l2, l3);
-}
-
-static inline literal_t make_xor3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
-  return make_gate3(table, 0x96, l1, l2, l3);
-}
-
-static inline literal_t make_maj3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
-  return make_gate3(table, 0xe8, l1, l2, l3);
-}
-
-static inline literal_t make_ite(bool_vartable_t *table, literal_t c, literal_t l1, literal_t l2) {
-  return make_gate3(table, 0xca, c, l1, l2);
-}
-
-
-
-/*
- * Derived gates
- */
-static inline literal_t make_and2(bool_vartable_t *table, literal_t l1, literal_t l2) {
-  return not(make_or2(table, not(l1), not(l2)));
-}
-
-static inline literal_t make_and3(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
-  return not(make_or3(table, not(l1), not(l2), not(l3)));
-}
-
-static inline literal_t make_implies(bool_vartable_t *table, literal_t l1, literal_t l2) {
-  return make_or2(table, not(l1), l2);
-}
-
-static inline literal_t make_iff(bool_vartable_t *table, literal_t l1, literal_t l2) {
-  return not(make_xor2(table, l1, l2));
-}
-
-static inline literal_t make_cmp(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
-  return make_maj3(table, l1, not(l2), l3);
-}
-
-
-
-/*
- * Large arity OR/AND/XOR gates
- * - n = arity
- * - a[0 ... n-1] = arguments
- * Warning: a may be modified
- */
-extern literal_t make_or(bool_vartable_t *table, uint32_t n, literal_t *a);
-extern literal_t make_and(bool_vartable_t *table, uint32_t n, literal_t *a);
-extern literal_t make_xor(bool_vartable_t *table, uint32_t n, literal_t *a);
-
-
-
-/*
- * CLAUSE ADDITION
- */
 
 
 

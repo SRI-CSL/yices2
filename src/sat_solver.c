@@ -750,7 +750,7 @@ static void flush_stat_buffer(void) {
   n = stat_buffer.nrecords;
   for (i=0; i<n; i++) {
     fprintf(f, "%"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32"\n", 
-	    d->creation, d->deletion, d->props, d->last_prop, d->resos, d->last_reso);
+	    d->creation, d->last_prop, d->last_reso, d->deletion, d->props, d->resos);
     d ++;
   }
   fflush(f);
@@ -2894,7 +2894,11 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
   //  threshold = LUBY_INTERVAL;
 
   // initial reduce threshold
-  sol->reduce_threshold = sol->nb_clauses/4;
+  /*
+   * For testing: disable reduce
+   */
+  sol->reduce_threshold = UINT32_MAX;
+  //  sol->reduce_threshold = sol->nb_clauses/4;
   if (sol->reduce_threshold < MIN_REDUCE_THRESHOLD) {
     sol->reduce_threshold = MIN_REDUCE_THRESHOLD;
   }

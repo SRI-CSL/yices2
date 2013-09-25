@@ -182,7 +182,7 @@ struct clause_s {
 };
 
 
-#define INSTRUMENT_CLAUSES 0
+#define INSTRUMENT_CLAUSES 1
 
 #if INSTRUMENT_CLAUSES
 

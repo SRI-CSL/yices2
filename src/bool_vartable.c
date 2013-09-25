@@ -576,6 +576,11 @@ void bool_vartable_add_ternary_clause(bool_vartable_t *table, literal_t l1, lite
 
 
 
+/*
+ * Clause simplification
+ */
+
+
 
 /*
  * EQUIVALENCE CLASSES
