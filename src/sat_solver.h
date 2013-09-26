@@ -194,6 +194,7 @@ struct clause_s {
  * - last_prop = last time the clause caused a propagation
  * - resos = number of times the clause is used in resolution 
  * - last_reso = last time hte clause was involved in a resolution step
+ * - glue = glue score
  */
 typedef struct lcstats_s {
   uint32_t creation;
@@ -202,6 +203,7 @@ typedef struct lcstats_s {
   uint32_t last_prop;
   uint32_t resos;
   uint32_t last_reso;
+  uint32_t glue;
 } lcstat_t;
 
 
@@ -225,8 +227,29 @@ typedef struct learned_clauses_stats_s {
 } learned_clauses_stats_t;
 
 
+
+/*
+ * Level map: to compute the glue score of a clause
+ * - we record which decision levels occur in clause C
+ * - this is stored in the following structure:
+ *   map[l] = an 8bit value for level l. By default, map[l] is 0.
+ *   marked = vector of l such that map[l] /= 0
+ */
+typedef struct level_map_s {
+  uint8_t *map;
+  ivector_t marked;
+  uint32_t size;
+} level_map_t;
+
+#define MAX_LVL_MAP_SIZE (UINT32_MAX/sizeof(uint8_t))
+#define DEF_LVL_MAP_SIZE 100
+
+
 #else
 
+/*
+ * No instrumentation of learned clauses
+ */
 typedef struct learned_clause_s {
   float activity;
   clause_t clause;

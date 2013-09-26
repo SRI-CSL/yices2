@@ -716,6 +716,89 @@ static void cleanup_heap(sat_solver_t *sol) {
 
 #if INSTRUMENT_CLAUSES
 
+
+/*
+ * LEVEL MAPS
+ */
+static void init_level_map(level_map_t *lvl) {
+  uint32_t i, n;
+
+  n = DEF_LVL_MAP_SIZE;
+  assert(n <= MAX_LVL_MAP_SIZE);
+  lvl->map = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
+  init_ivector(&lvl->marked, 100);
+  lvl->size = n;
+
+  for (i=0; i<n; i++) {
+    lvl->map[i] = 0;
+  }
+}
+
+
+static void delete_level_map(level_map_t *lvl) {
+  safe_free(lvl->map);
+  delete_ivector(&lvl->marked);
+  lvl->map = NULL;
+}
+
+// make sure we can store map[k]
+static void resize_level_map(level_map_t *lvl, uint32_t k) {
+  uint32_t i, n;
+
+  assert(k >= lvl->size);
+
+  n = 2 * lvl->size;
+  if (k >= n) {
+    n = k+1;
+  }
+
+  if (n > MAX_LVL_MAP_SIZE) {
+    out_of_memory();
+  }
+  lvl->map = (uint8_t *) safe_realloc(lvl->map, n * sizeof(uint8_t));
+  for (i= lvl->size; i<n; i++) {
+    lvl->map[i] = 0;
+  }
+  lvl->size = n;
+}
+
+
+// store map[k] := d
+static void level_map_set(level_map_t *lvl, uint32_t k, uint8_t d) {
+  assert(d > 0);
+
+  if (k < lvl->size) {
+    if (lvl->map[k] == 0) {
+      ivector_push(&lvl->marked, k);
+    }
+  } else {
+    resize_level_map(lvl, k);
+  }
+  assert(k < lvl->size);
+  lvl->map[k] = d;
+}
+
+
+// reset the map
+static void level_map_clear(level_map_t *lvl) {
+  uint32_t i, k, n;
+
+  n = lvl->marked.size;
+  for (i=0; i<n; i++) {
+    k = lvl->marked.data[i];
+    assert(k < lvl->size && lvl->map[k] > 0);
+    lvl->map[k] = 0;
+  }
+  ivector_reset(&lvl->marked);
+}
+
+// get what's mapped to k
+static uint8_t level_map_get(level_map_t *lvl, uint32_t k) {
+  return (k < lvl->size) ? lvl->map[k] : 0;
+}
+
+
+
 /*
  * Global statistics record
  */
@@ -727,6 +810,12 @@ static learned_clauses_stats_t stat_buffer = {
 
 
 /*
+ * Level map for computing glue
+ */
+static level_map_t lvl;
+
+
+/*
  * Initialize the buffer
  */
 void init_learned_clauses_stats(FILE *f) {
@@ -734,6 +823,7 @@ void init_learned_clauses_stats(FILE *f) {
   stat_buffer.nrecords = 0;
   stat_buffer.size = SBUFFER_SIZE;
   stat_buffer.file = f;
+  init_level_map(&lvl);
 }
 
 
@@ -749,8 +839,8 @@ static void flush_stat_buffer(void) {
   f = stat_buffer.file;
   n = stat_buffer.nrecords;
   for (i=0; i<n; i++) {
-    fprintf(f, "%"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32"\n", 
-	    d->creation, d->last_prop, d->last_reso, d->deletion, d->props, d->resos);
+    fprintf(f, "%"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32"\n", 
+	    d->creation, d->last_prop, d->last_reso, d->deletion, d->props, d->resos, d->glue);
     d ++;
   }
   fflush(f);
@@ -785,9 +875,42 @@ void flush_learned_clauses_stats(void) {
     flush_stat_buffer();
     safe_free(stat_buffer.data);
     stat_buffer.data = NULL;
+    delete_level_map(&lvl);
   }
 }
 
+
+/*
+ * Compute the glue score of clause cl
+ * If cl is {l1, ... l_n} then the glue score is the number
+ * of distinct levels in level[l1], ...., level[l_n].
+ *
+ * NOTE: we use solver->level[var_of(l)] even if l is not currently
+ * assigned. Since level[x] is not reset when we backtrack, 
+ * it keeps the last decision level at which x was assigned.
+ */
+static uint32_t glue_score(sat_solver_t *solver, clause_t *cl) {
+  literal_t *a;
+  literal_t l;
+  uint32_t k, n;
+
+  a = cl->cl;
+  n = 0;
+  for (;;) {
+    l = *a ++;
+    if (l < 0) break;
+    k = solver->level[var_of(l)];
+    if (level_map_get(&lvl, k) == 0) {
+      // level k not seen before
+      level_map_set(&lvl, k, 1);
+      n ++;
+    }
+  }
+
+  level_map_clear(&lvl);
+
+  return n;
+}
 
 
 /*
@@ -809,6 +932,8 @@ static void learned_clause_created(sat_solver_t *solver, clause_t *cl) {
   tmp->stat.last_prop = n;
   tmp->stat.resos = 0;
   tmp->stat.last_reso = n;
+
+  tmp->stat.glue = glue_score(solver, cl);
 }
 
 
@@ -846,6 +971,25 @@ static void learned_clause_deletion(sat_solver_t *solver, clause_t *cl) {
   tmp->stat.deletion = solver->stats.conflicts;
   stat_buffer_push(&tmp->stat);
 }
+
+
+/*
+ * Snapshot: collect data about the current set of learned clasues
+ * then export that.
+ * - HACK: we call learned_clause_deletion. 
+ */
+static void snapshot(sat_solver_t *solver) {
+  clause_t **cl;
+  uint32_t i, n;
+
+  cl = solver->learned_clauses;
+  n = get_cv_size(cl);
+  for (i=0; i<n; i++) {
+    learned_clause_deletion(solver, cl[i]);
+  }
+  flush_stat_buffer();
+}
+
 
 
 #endif
@@ -2717,6 +2861,14 @@ static void partial_restart_var(sat_solver_t *sol) {
 
 
 /*
+ * TEMPORARY
+ */
+#if INSTRUMENT_CLAUSES
+static uint32_t next_snapshot;
+#endif
+
+
+/*
  * Search until the given number of conflict is reached.
  * - sol: solver
  * - conflict_bound: number of conflict 
@@ -2770,6 +2922,15 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
 	  sol->simplify_threshold = sol->stats.learned_literals + sol->stats.prob_literals + 2 * sol->nb_bin_clauses;
 	}
       }
+
+#if INSTRUMENT_CLAUSES
+      if (sol->stats.conflicts >= next_snapshot) {
+	snapshot(sol);
+	do {
+	  next_snapshot += 10000;
+	} while (next_snapshot < sol->stats.conflicts);
+      }
+#endif
 
       // Delete half the learned clauses if the threshold is reached
       // then increase the threshold
@@ -2903,6 +3064,9 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
     sol->reduce_threshold = MIN_REDUCE_THRESHOLD;
   }
 
+#if INSTRUMENT_CLAUSES
+  next_snapshot = 10000;
+#endif
 
   if (verbose) {
     fprintf(stderr, "---------------------------------------------------------------------------------\n");
