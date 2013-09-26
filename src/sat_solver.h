@@ -194,7 +194,9 @@ struct clause_s {
  * - last_prop = last time the clause caused a propagation
  * - resos = number of times the clause is used in resolution 
  * - last_reso = last time hte clause was involved in a resolution step
- * - glue = glue score
+ * - base_glue = glue score at creation
+ * - glue = last comptued glue
+ * - min_glue = minimal of all glues so far
  */
 typedef struct lcstats_s {
   uint32_t creation;
@@ -203,7 +205,9 @@ typedef struct lcstats_s {
   uint32_t last_prop;
   uint32_t resos;
   uint32_t last_reso;
+  uint32_t base_glue;
   uint32_t glue;
+  uint32_t min_glue;
 } lcstat_t;
 
 

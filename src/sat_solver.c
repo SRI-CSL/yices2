@@ -752,9 +752,9 @@ static void resize_level_map(level_map_t *lvl, uint32_t k) {
     n = k+1;
   }
 
-  if (n > MAX_LVL_MAP_SIZE) {
-    out_of_memory();
-  }
+  //  if (n > MAX_LVL_MAP_SIZE) {
+  //    out_of_memory();
+  //  }
   lvl->map = (uint8_t *) safe_realloc(lvl->map, n * sizeof(uint8_t));
   for (i= lvl->size; i<n; i++) {
     lvl->map[i] = 0;
@@ -839,8 +839,9 @@ static void flush_stat_buffer(void) {
   f = stat_buffer.file;
   n = stat_buffer.nrecords;
   for (i=0; i<n; i++) {
-    fprintf(f, "%"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32"\n", 
-	    d->creation, d->last_prop, d->last_reso, d->deletion, d->props, d->resos, d->glue);
+    fprintf(f, "%"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32"\n", 
+	    d->creation, d->last_prop, d->last_reso, d->deletion, d->props, d->resos, 
+	    d->base_glue, d->min_glue, d->glue);
     d ++;
   }
   fflush(f);
@@ -933,7 +934,11 @@ static void learned_clause_created(sat_solver_t *solver, clause_t *cl) {
   tmp->stat.resos = 0;
   tmp->stat.last_reso = n;
 
-  tmp->stat.glue = glue_score(solver, cl);
+  n = glue_score(solver, cl);
+
+  tmp->stat.base_glue = n;
+  tmp->stat.glue = n;
+  tmp->stat.min_glue = n;
 }
 
 
@@ -962,13 +967,19 @@ static void learned_clause_prop(sat_solver_t *solver, clause_t *cl) {
 
 
 /*
- * Deletion
+ * Deletion: update glue then record statistics
  */
 static void learned_clause_deletion(sat_solver_t *solver, clause_t *cl) {
   learned_clause_t *tmp;
+  uint32_t n;
 
   tmp = learned(cl);
   tmp->stat.deletion = solver->stats.conflicts;
+  n = glue_score(solver, cl);
+  tmp->stat.glue = n;
+  if (tmp->stat.min_glue > n) {
+    tmp->stat.min_glue = n;
+  }
   stat_buffer_push(&tmp->stat);
 }
 
