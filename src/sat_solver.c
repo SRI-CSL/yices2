@@ -2697,9 +2697,10 @@ static void analyze_conflict(sat_solver_t *sol) {
  * - returns null_bvar (i.e., -1) if all variables are assigned.
  */
 static bvar_t select_variable(sat_solver_t *solver) {
-  uint32_t rnd;
+  //  uint32_t rnd;
   bvar_t x;
 
+#if 0
   /*
    * Try a random variable
    */
@@ -2714,6 +2715,7 @@ static bvar_t select_variable(sat_solver_t *solver) {
       return x;
     }
   }
+#endif
 
   /* 
    * Select unassigned variable x with highest activity
@@ -2815,6 +2817,18 @@ static bool level_has_lower_activity(sat_solver_t *sol, double ax, uint32_t k) {
 
 
 /*
+ * RESTARTS: THREE VARIANTS
+ * - full restart: backtrack(sol, 0)
+ * - partial restart: lazier version: backtrak(sol, k) for some 
+ *   level k >= 0 determined by variable activties:
+ * - partial_restart_var: even lazier version: if partial restart
+ *   would backtrak to level k then partial_restart_var backtracks
+ *   ot k' >= k. 
+ * - benchmarking shows that partial_restart_var seems to work best.
+ */
+
+#if 0
+/*
  * Partial restart:
  * - find the unassigned variable of highest activity
  * - keep all current decisions that have an activity higher than that
@@ -2844,7 +2858,7 @@ static void partial_restart(sat_solver_t *sol) {
     }
   }
 }
-
+#endif
 
 /*
  * Variant:
@@ -2909,9 +2923,7 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
       if (nb_conflicts >= conflict_bound) {
         if (sol->decision_level > 0) {
 	  // restart
-	  // backtrack(sol, 0);
 	  partial_restart_var(sol);
-	  // partial_restart(sol);
         }
         return status_unsolved;
       }
@@ -3066,13 +3078,8 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
   //  u = 1;
   //  v = 1;
   //  threshold = LUBY_INTERVAL;
-
-  // initial reduce threshold
-  /*
-   * For testing: disable reduce
-   */
-  sol->reduce_threshold = UINT32_MAX;
-  //  sol->reduce_threshold = sol->nb_clauses/4;
+  //  sol->reduce_threshold = UINT32_MAX;
+  sol->reduce_threshold = sol->nb_clauses/4;
   if (sol->reduce_threshold < MIN_REDUCE_THRESHOLD) {
     sol->reduce_threshold = MIN_REDUCE_THRESHOLD;
   }
