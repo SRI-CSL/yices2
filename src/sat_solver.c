@@ -981,6 +981,10 @@ static void learned_clause_deletion(sat_solver_t *solver, clause_t *cl) {
     tmp->stat.min_glue = n;
   }
   stat_buffer_push(&tmp->stat);
+
+  // reset the props and reso counters
+  tmp->stat.props = 0;
+  tmp->stat.resos = 0;
 }
 
 
@@ -1612,6 +1616,7 @@ static void quick_split(clause_t **a, uint32_t low, uint32_t high) {
     }    
   } while (j != half);
 }
+
 
 
 /*
