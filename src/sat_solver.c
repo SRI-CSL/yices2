@@ -724,7 +724,7 @@ static void init_level_map(level_map_t *lvl) {
   uint32_t i, n;
 
   n = DEF_LVL_MAP_SIZE;
-  assert(n <= MAX_LVL_MAP_SIZE);
+  //  assert(n <= MAX_LVL_MAP_SIZE); always true
   lvl->map = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
   init_ivector(&lvl->marked, 100);
   lvl->size = n;
@@ -752,9 +752,6 @@ static void resize_level_map(level_map_t *lvl, uint32_t k) {
     n = k+1;
   }
 
-  //  if (n > MAX_LVL_MAP_SIZE) {
-  //    out_of_memory();
-  //  }
   lvl->map = (uint8_t *) safe_realloc(lvl->map, n * sizeof(uint8_t));
   for (i= lvl->size; i<n; i++) {
     lvl->map[i] = 0;

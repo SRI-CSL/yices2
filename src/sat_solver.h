@@ -245,6 +245,7 @@ typedef struct level_map_s {
   uint32_t size;
 } level_map_t;
 
+// MAX_LVL_MAP_SIZE is not used since it's equal to UINT32_MAX
 #define MAX_LVL_MAP_SIZE (UINT32_MAX/sizeof(uint8_t))
 #define DEF_LVL_MAP_SIZE 100
 

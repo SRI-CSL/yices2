@@ -129,6 +129,7 @@ static void stbl_restore_list(stbl_rec_t **tmp, uint32_t mask, stbl_rec_t *list)
 
 /*
  * Extend the table: make it twice as large.
+ * - do nothing if malloc fails or if the table has maximal size already
  */
 static void stbl_extend(stbl_t *sym_table) {
   stbl_rec_t **tmp;
@@ -139,13 +140,15 @@ static void stbl_extend(stbl_t *sym_table) {
   n = old_size << 1;
   if (n == 0 || n >= MAX_STBL_SIZE) {
     // overflow: cannot expand 
-    out_of_memory();
+    return;
   }
 
   assert(is_power_of_two(n));
 
   // new data array
-  tmp = (stbl_rec_t **) safe_malloc(n * sizeof(stbl_rec_t *));
+  tmp = (stbl_rec_t **) malloc(n * sizeof(stbl_rec_t *));
+  if (tmp == NULL)  return;
+
   for (i=0; i<n; i++) {
     tmp[i] = NULL;
   }
