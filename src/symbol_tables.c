@@ -6,6 +6,15 @@
 #include <stdbool.h>
 #include <string.h>
 
+#define TRACE_RESIZE 1
+
+#if TRACE_RESIZE 
+// PROVISIONAL
+#include <stdio.h>
+#include <inttypes.h>
+
+#endif
+
 #include "memalloc.h"
 #include "hash_functions.h"
 #include "symbol_tables.h"
@@ -52,7 +61,8 @@ static stbl_rec_t *stbl_alloc_record(stbl_t *sym_table) {
   uint32_t i;
 
   tmp = sym_table->free_rec;
-  if (tmp != NULL) {    
+  if (tmp != NULL) {
+    assert(sym_table->ndeleted > 0);
     sym_table->free_rec = tmp->next;
     sym_table->ndeleted --;
     return tmp;
@@ -166,6 +176,13 @@ static void stbl_extend(stbl_t *sym_table) {
   safe_free(sym_table->data);
   sym_table->data = tmp;
   sym_table->size = n;
+
+#if TRACE_RESIZE
+  printf("resize table %p: cost = %.2f, nelems = %"PRIu32", ndeleted = %"PRIu32
+         ", old size = %"PRIu32", new size = %"PRIu32"\n", 
+	 sym_table, sym_table->cost, sym_table->nelems, sym_table->ndeleted, old_size, n);
+  fflush(stdout);
+#endif
 }
 
 
@@ -192,13 +209,14 @@ void init_stbl(stbl_t *sym_table, uint32_t n) {
     tmp[i] = NULL;
   }
 
+  sym_table->data = tmp;
+  sym_table->bnk = NULL;
+  sym_table->free_rec = NULL;
   sym_table->size = n;
   sym_table->nelems = 0;
   sym_table->ndeleted = 0;
-  sym_table->bnk = NULL;
   sym_table->free_idx = 0;
-  sym_table->free_rec = NULL;
-  sym_table->data = tmp;
+  sym_table->cost = 0.0;
   sym_table->finalize = default_stbl_finalizer;
 }
 
@@ -211,6 +229,12 @@ void delete_stbl(stbl_t *sym_table) {
   stbl_bank_t *b, *next;
   stbl_rec_t *r;
   uint32_t k;
+
+#if TRACE_RESIZE
+  printf("delete table %p: cost = %.2f, nelems = %"PRIu32", ndeleted = %"PRIu32", size = %"PRIu32"\n",
+	 sym_table, sym_table->cost, sym_table->nelems, sym_table->ndeleted, sym_table->size);
+  fflush(stdout);
+#endif
 
   b = sym_table->bnk;
   sym_table->bnk = NULL;
@@ -232,6 +256,7 @@ void delete_stbl(stbl_t *sym_table) {
 
   safe_free(sym_table->data);
   sym_table->data = NULL;
+
 }
 
 
@@ -256,8 +281,8 @@ void reset_stbl(stbl_t *sym_table) {
     sym_table->data[i] = NULL;
   }
 
-  sym_table->ndeleted = 0;
   sym_table->nelems = 0;
+  sym_table->cost = 0.0;
 }
 
 
@@ -317,24 +342,43 @@ void stbl_delete_mapping(stbl_t *sym_table, const char *symbol, int32_t val) {
 }
 
 
+
+
+
 /*
  * Return value of first occurrence of symbol, or -1 if symbol is not
- * present
+ * present.
+ * - update the cost
  */
 int32_t stbl_find(stbl_t *sym_table, const char *symbol) {
-  uint32_t mask, i, h;
+  uint32_t mask, i, h, steps;
+  int32_t result;
   stbl_rec_t *r;
 
+  result = -1;
+  steps = 0;
   mask = sym_table->size - 1;
   h = jenkins_hash_string(symbol);
   i = h & mask;
   for (r = sym_table->data[i]; r != NULL; r = r->next) {
+    steps ++;
     if (r->hash == h && strcmp(symbol, r->string) == 0) {
-      return r->value;
+      result = r->value;
+      break;
     }
   }
 
-  return -1;
+  // update the cost
+  sym_table->cost *= ALPHA;
+  sym_table->cost += steps;
+#if 0
+  if (sym_table->cost > RESIZE_THRESHOLD && sym_table->size <= (MAX_STBL_SIZE/2)) {
+    stbl_extend(sym_table);
+    sym_table->cost = 0.0;
+  }
+#endif
+
+  return result;
 }
 
 
@@ -356,9 +400,11 @@ void stbl_add(stbl_t *sym_table, char *symbol, int32_t value) {
   sym_table->data[i] = r;
 
   sym_table->nelems ++;
+#if 1
   if (sym_table->nelems > sym_table->size) {
     stbl_extend(sym_table);
   }
+#endif
 }
 
 

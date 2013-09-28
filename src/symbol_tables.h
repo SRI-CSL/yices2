@@ -38,22 +38,53 @@ struct stbl_bank_s {
 
 /*
  * Finalizer: called when a record r is being deleted (see remove)
- * when final(r) is called, r->hash, r->value, r->string are still valid.
+ * when finalize(r) is called, r->hash, r->value, r->string are still valid.
  */
 typedef void (*stbl_finalizer_t)(stbl_rec_t *r);
+
+
+/*
+ * To determine when it makes sense to resize the table (i.e., double
+ * the number of buckets), we need to take into account the fact that
+ * a bucket may contain the same string several times.  The average
+ * list size is nelems/size But resizing when this ratio becomes too
+ * high does not pay off if there are many records with the same
+ * string. (In the worst case, the load is concentrated in one bucket
+ * and all records have the same string. We don't want to resize the
+ * table in this scenario). To decide when to resize, we keep track of
+ * the cost of every lookup operation and we resize when this cost
+ * becomes too high. Most recent lookups matter more than old ones so
+ * we estimate cost as follows:
+ * - initially cost = 0
+ * - during a lookup operation, we count the number of records traversed
+ *   then we set cost := N + \alpha cost where 0 < \alpha < 1
+ * - we resize when cost > RESIZE_THRESHOLD
+ *
+ * We set the threshold to (log 0.1)/(log alpha) so that alpha ^ threshold = 0.1
+ * - roughly this means that we interprete cost as approximately equal to the
+ *   cost of the last K lookups for K close to alpha. Then we resize if
+ *   the last K lookups visited more than K records.
+ */
+#define ALPHA 0.8
+#define RESIZE_THRESHOLD 10.32
+// #define ALPHA 0.9
+// #define RESIZE_THRESHOLD 21.85
+// #define ALPHA 0.95
+// #define RESIZE_THRESHOLD 44.89
 
 
 /*
  * Symbol table
  */
 typedef struct stbl_s {
-  uint32_t size;         // power of 2
+  stbl_rec_t **data;     // array of record list (hash table)
+  stbl_bank_t *bnk;
+  stbl_rec_t *free_rec;  // list of free records
+  uint32_t size;         // power of 2 = number of buckets
   uint32_t nelems;       // number of records
   uint32_t ndeleted;     // number of deleted records (in the free_rec list)
   uint32_t free_idx;     // free slot in bnk
-  stbl_bank_t *bnk;
-  stbl_rec_t *free_rec;  // list of free records
-  stbl_rec_t **data;     // array of record list (hash table)
+  double cost;
 
   stbl_finalizer_t finalize;
 } stbl_t;

@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
+// #include <math.h>
 #include <inttypes.h>
 
 #include "symbol_tables.h"
@@ -15,7 +15,7 @@ static uint32_t size_words;
 static stbl_t sym_table;
 
 
-static void words_from_file(char *filename) {
+static void words_from_file(const char *filename) {
   FILE *f;
   char *str, *tmp;
   uint32_t i, n, len;
@@ -32,6 +32,7 @@ static void words_from_file(char *filename) {
   i = 0;
   n = 100;
   words = (char **) malloc(n * sizeof(char *));
+  if (words == NULL) goto malloc_failed;
   size_words = n;
 
   buffer[99] = '\0';
@@ -45,10 +46,12 @@ static void words_from_file(char *filename) {
       str[len] = '\0';
     }
     tmp = (char *) malloc(len + 1);
+    if (tmp == NULL) goto malloc_failed;
     strcpy(tmp, str);
     if (i == n) {
       n += 100;
       words = (char **) realloc(words, n * sizeof(char *));
+      if (words == NULL) goto malloc_failed;
       size_words = n;
     }
     words[i] = tmp;
@@ -59,6 +62,11 @@ static void words_from_file(char *filename) {
   fclose(f);
 
   n_words = i;
+  return;
+
+ malloc_failed:
+  fprintf(stderr, "Malloc failed\n");
+  exit(1);
 }
 
 static void clear_words() {
@@ -84,18 +92,29 @@ static void print_stbl_records(stbl_t *table) {
 }
 
 
-int main() {
+int main(int argc, char *argv[]) {
   uint32_t i, n;
   double runtime;
   int32_t x, *val;
+
+  if (argc != 2) {
+    fprintf(stderr, "Usage: %s filename\n", argv[0]);
+    fprintf(stderr, "  filename must contain a set of strings, one per line, less than 100 char long\n");
+    fflush(stderr);
+    exit(1);
+  }
+  words_from_file(argv[1]);
 
   init_stbl(&sym_table, 0);
   
   printf("\n*** Initial table ***\n");
   print_stbl_records(&sym_table);  
 
-  words_from_file("data2.txt");
   val = (int32_t *) malloc(n_words * sizeof(int32_t));
+  if (val == NULL) {
+    fprintf(stderr, "Failed to allocate array val\n");
+    exit(1);
+  }
 
   for (i=0; i<n_words; i++) {
     x = stbl_find(&sym_table, words[i]);
@@ -117,7 +136,7 @@ int main() {
     }
   }
 
-  printf("\n*** Added data2.txt ***\n");
+  printf("\n*** Added %"PRIu32" words from %s ***\n", n_words, argv[1]);
   print_stbl_records(&sym_table);  
 
 
