@@ -2711,6 +2711,7 @@ static bvar_t select_variable(sat_solver_t *solver) {
 #if TRACE
       printf("---> Random selection: literal %d\n", l);
 #endif
+      solver->stats.decisions ++;
       solver->stats.random_decisions ++;
       return x;
     }
@@ -2726,8 +2727,8 @@ static bvar_t select_variable(sat_solver_t *solver) {
 #if DEBUG
       check_top_var(solver, x);
 #endif
-      return x;
-      
+      solver->stats.decisions ++;
+      return x;      
     }
   }
 
