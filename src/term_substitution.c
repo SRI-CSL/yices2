@@ -11,7 +11,21 @@
 
 #include "term_substitution.h"
 
+/*
+ * Check whether t is either a variable or an uninterpreted term
+ * - t must be a good positive term
+ */
+static bool term_is_var(term_table_t *terms, term_t t) {
+  assert(good_term(terms, t) && is_pos_term(t));
+  switch (term_kind(terms, t)) {
+  case VARIABLE:
+  case UNINTERPRETED_TERM:
+    return true;
 
+  default:
+    return false;
+ }
+}
 
 /*
  * Check whether arrays v and t define a valid substitution:
@@ -29,7 +43,7 @@ bool good_term_subst(term_table_t *terms, uint32_t n, term_t *v, term_t *t) {
     x = v[i];
     u = t[i];
     assert(good_term(terms, x) && good_term(terms, u));
-    if (is_neg_term(x) || term_kind(terms, x) != VARIABLE || 
+    if (is_neg_term(x) || !term_is_var(terms, x) || 
         !is_subtype(types, term_type(terms, u), term_type(terms, x))) {
       return false;
     }
@@ -59,8 +73,8 @@ void init_term_subst(term_subst_t *subst, term_manager_t *mngr, uint32_t n, term
   
   for (i=0; i<n; i++) {
     x = v[i];
-    assert(is_pos_term(x) && term_kind(subst->terms, x) == VARIABLE && 
-           good_term(subst->terms, t[i]));
+    assert(is_pos_term(x) && term_is_var(subst->terms, x) &&
+	   good_term(subst->terms, t[i]));
     p = int_hmap_get(&subst->map, x);
     p->val = t[i];
   }
@@ -129,7 +143,7 @@ void delete_term_subst(term_subst_t *subst) {
 
 /*
  * Lookup the term mapped to x (taking renaming into account)
- * - x must be a variable
+ * - x must be a variable or uninterpreted term
  * - if there's a renaming, lookup x in the renaming context
  * - if x is not renamed, lookup x in the map
  * - if x is not renamed and not in the map, then return x
@@ -138,7 +152,7 @@ static term_t get_subst_of_var(term_subst_t *subst, term_t x) {
   int_hmap_pair_t *p;
   term_t y;
 
-  assert(is_pos_term(x) && term_kind(subst->terms, x) == VARIABLE);
+  assert(is_pos_term(x) && term_is_var(subst->terms, x) == VARIABLE);
 
   y = NULL_TERM;
   if (subst->rctx != NULL) {
@@ -1299,11 +1313,11 @@ static term_t get_subst(term_subst_t *subst, term_t t) {
   case ARITH_CONSTANT:
   case BV64_CONSTANT:
   case BV_CONSTANT:
-  case UNINTERPRETED_TERM:
     result = t;
     break;
 
   case VARIABLE:
+  case UNINTERPRETED_TERM:
     result = get_subst_of_var(subst, t);
     break;
 

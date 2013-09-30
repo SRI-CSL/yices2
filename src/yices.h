@@ -37,7 +37,7 @@
 
 
 #ifdef __cplusplus
-extern "C" {
+// extern "C" {
 #endif
 
 
@@ -299,7 +299,6 @@ __YICES_DLLSPEC__ extern term_t yices_constant(type_t tau, int32_t index);
  *
  * If tau is a function type, then this creates an uninterpreted
  * function (see yices_application).
- *
  *
  * Error report:
  * if tau is undefined
@@ -1362,8 +1361,9 @@ __YICES_DLLSPEC__ extern term_t yices_parse_term(const char *s);
 
 /*
  * Apply the substitution defined by arrays var and map to a term t
- * - var must be an array of n variables (variables are created using
- *   yices_new_variables).
+ * - var must be an array of n terms. Each element of var must
+ *   be either an uninterpreted term or a variable.
+ *   (cf. yices_new_uninterpreted_term and yices_new_variable).
  * - map must be an array of n terms
  * - the type of map[i] must be a subtype of var[i]'s type
  * - every occurrence of var[i] in t is replaced by map[i]
@@ -1376,7 +1376,7 @@ __YICES_DLLSPEC__ extern term_t yices_parse_term(const char *s);
  *
  * Error codes:
  * - INVALID_TERM if var[i] or map[i] is not valid
- * - VARIABLE_REQUIRED if var[i] is not a variable
+ * - VARIABLE_REQUIRED if var[i] is not a variable or an uninterpreted term
  * - TYPE_MISMATCH if map[i]'s type is not a subtype of var[i]'s type
  * - DEGREE_OVERFLOW if the substitution causes an overflow
  */
@@ -1386,7 +1386,7 @@ __YICES_DLLSPEC__ extern term_t yices_subst_term(uint32_t n, term_t var[], term_
 /*
  * Apply a substitution to m terms in parallel
  * - the substitution is defined by arrays var and map:
- *   var must be an array of n variables
+ *   var must be an array of n variables or uninterpreted terms
  *   map must be an array of n terms
  *   map[i]'s type must be a subtype of var[i]'s type
  * - the substitution is applied to terms t[0] ... t[m-1]
@@ -1404,9 +1404,6 @@ __YICES_DLLSPEC__ extern term_t yices_subst_term(uint32_t n, term_t var[], term_
  * Error codes: as above
  */
 __YICES_DLLSPEC__ extern int32_t yices_subst_term_array(uint32_t n, term_t var[], term_t map[], uint32_t m, term_t t[]);
-
-
-
 
 
 
@@ -1557,6 +1554,19 @@ __YICES_DLLSPEC__ extern int32_t yices_type_is_tuple(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_type_is_function(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_type_is_scalar(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_type_is_uninterpreted(type_t tau);
+
+
+/*
+ * Check whether tau is a subtype of sigma
+ * - return 0 for false, 1 for true
+ *
+ * If tau or sigma is not a valid type, the function returns false
+ * and set the error report:
+ *   code = INVALID_TYPE
+ *   type1 = tau or sigma
+ */
+__YICES_DLLSPEC__ extern int32_t yices_test_subtype(type_t tau, type_t sigma);
+
 
 /*
  * Number of bits for type tau

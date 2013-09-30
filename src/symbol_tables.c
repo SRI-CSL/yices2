@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define TRACE_RESIZE 1
+#define TRACE_RESIZE 0
 
 #if TRACE_RESIZE 
 // PROVISIONAL

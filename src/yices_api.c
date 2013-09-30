@@ -1821,6 +1821,36 @@ static bool check_bitextract(uint32_t i, uint32_t j, uint32_t n) {
 }
 
 
+// Check that t is eithe a variable or an uninterpreted term
+static bool term_is_var_or_uninterpreted(term_table_t *tbl, term_t t) {
+  assert(good_term(tbl, t) && is_pos_term(t));
+  switch (term_kind(tbl, t)) {
+  case VARIABLE:
+  case UNINTERPRETED_TERM:
+    return true;
+  default:
+  return false;
+ }
+}
+
+// Check that all terms of v are variables or uninterpreted terms
+// all elements of v must be good terms
+static bool check_good_vars_or_uninterpreted(term_manager_t *mngr, uint32_t n, term_t *v) {
+  term_table_t *tbl;
+  uint32_t i;
+
+  tbl = term_manager_get_terms(mngr);
+  for (i=0; i<n; i++) {
+    if (is_neg_term(v[i]) || !term_is_var_or_uninterpreted(tbl, v[i])) {
+      error.code = VARIABLE_REQUIRED;
+      error.term1 = v[i];
+      return false;
+    }
+  }
+
+  return true;
+}
+
 // Check whether arrays v and a define a valid substitution
 // both must be arrays of n elements
 static bool check_good_substitution(term_manager_t *mngr, uint32_t n, term_t *v, term_t *a) {
@@ -1830,7 +1860,7 @@ static bool check_good_substitution(term_manager_t *mngr, uint32_t n, term_t *v,
 
   if (! check_good_terms(mngr, n, v) ||
       ! check_good_terms(mngr, n, a) ||
-      ! check_good_variables(mngr, n, v)) {
+      ! check_good_vars_or_uninterpreted(mngr, n, v)) {
     return false;
   }
 
@@ -4402,6 +4432,19 @@ EXPORTED int32_t yices_type_is_uninterpreted(type_t tau) {
 
 
 /*
+ * Check whether tau is a subtype of sigma
+ * - return 0 for false, 1 for true
+ *
+ * If tau or sigma is not a valid type, the function returns false
+ * and set the error report:
+ *   code = INVALID_TYPE
+ *   type1 = tau or sigma
+ */
+EXPORTED int32_t yices_test_subtype(type_t tau, type_t sigma) {
+  return check_good_type(&types, tau) && check_good_type(&types, sigma) && is_subtype(&types, tau, sigma);
+}
+
+/*
  * Number of bits for type tau
  * - return 0 if there's an error
  *
@@ -4926,7 +4969,7 @@ EXPORTED term_t yices_subst_term(uint32_t n, term_t var[], term_t map[], term_t 
 /*
  * Variant: apply the substitution to m terms t[0 .. m-1]
  */
-EXPORTED term_t yices_subst_term_array(uint32_t n, term_t var[], term_t map[], uint32_t m, term_t t[]) {
+EXPORTED int32_t yices_subst_term_array(uint32_t n, term_t var[], term_t map[], uint32_t m, term_t t[]) {
   term_subst_t subst;
   term_t u;
   uint32_t i;
@@ -4939,7 +4982,8 @@ EXPORTED term_t yices_subst_term_array(uint32_t n, term_t var[], term_t map[], u
   init_term_subst(&subst, &manager, n, var, map);
   for (i=0; i<m; i++) {
     u = apply_term_subst(&subst, t[i]);
-    if (u < 0)  goto subst_error; 
+    if (u < 0)  goto subst_error;
+    t[i] = u;
   }
   delete_term_subst(&subst);
 
@@ -4954,6 +4998,7 @@ EXPORTED term_t yices_subst_term_array(uint32_t n, term_t var[], term_t map[], u
       // BUG
       error.code = INTERNAL_EXCEPTION;
   }
+  delete_term_subst(&subst);
 
   return -1;
 }
