@@ -63,7 +63,7 @@
 /*
  * Luby-style restart
  */
-#define LUBY_INTERVAL 5
+#define LUBY_INTERVAL 15
 
 /*
  * Parameters for removing irrelevant learned clauses

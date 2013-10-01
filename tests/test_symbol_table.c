@@ -245,6 +245,7 @@ int main(int argc, char *argv[]) {
 
 
   // speed test
+  printf("Testing lookup time\n");
   runtime = get_cpu_time();
   for (n=0; n<100000; n++) {
     for (i=0; i<n_words; i++) {
@@ -254,6 +255,8 @@ int main(int argc, char *argv[]) {
   runtime = get_cpu_time() - runtime;
   printf("Reading %"PRIu32" words\n", (uint32_t) 100000 * n_words);
   printf("Runtime: %.4f s\n", runtime);
+  printf("Table size: %"PRIu32" (nelems = %"PRIu32", ndeleted = %"PRIu32")\n", 
+	sym_table.size, sym_table.nelems, sym_table.ndeleted);
 
   clear_words();
   free(val);

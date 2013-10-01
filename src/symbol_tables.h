@@ -45,32 +45,28 @@ typedef void (*stbl_finalizer_t)(stbl_rec_t *r);
 
 /*
  * To determine when it makes sense to resize the table (i.e., double
- * the number of buckets), we need to take into account the fact that
- * a bucket may contain the same string several times.  The average
- * list size is nelems/size But resizing when this ratio becomes too
- * high does not pay off if there are many records with the same
- * string. (In the worst case, the load is concentrated in one bucket
- * and all records have the same string. We don't want to resize the
- * table in this scenario). To decide when to resize, we keep track of
- * the cost of every lookup operation and we resize when this cost
- * becomes too high. Most recent lookups matter more than old ones so
- * we estimate cost as follows:
- * - initially cost = 0
- * - during a lookup operation, we count the number of records traversed
- *   then we set cost := N + \alpha cost where 0 < \alpha < 1
- * - we resize when cost > RESIZE_THRESHOLD
+ * the number of buckets), we periodically check the average cost 
+ * of recent lookups. If this cost is high, we try to resize the table.
+ * But we must also take into account the fact that the same string
+ * may occur several times in one list (in which case, resizing may
+ * not help at all).
  *
- * We set the threshold to (log 0.1)/(log alpha) so that alpha ^ threshold = 0.1
- * - roughly this means that we interprete cost as approximately equal to the
- *   cost of the last K lookups for K close to alpha. Then we resize if
- *   the last K lookups visited more than K records.
+ * We estimate the cost of a lookup by counting the number of records
+ * visited when scanning a list. A lookup is considered expensive if
+ * it visits at least MAXVISITS records. If a lookup in list data[i]
+ * is expensive, we check whether the list contains different records
+ * or many times the same symbol.
+ *  
+ * The following parameters are used:
+ * - NLOOKUPS = periodic check for resizing
+ * - MAXVISITS = threshold for expensive lookups
+ * - RESIZE_THREHSOLD = total cost of the last NLOOKUPS before resizing
+ *   is triggered.
  */
-#define ALPHA 0.8
-#define RESIZE_THRESHOLD 10.32
-// #define ALPHA 0.9
-// #define RESIZE_THRESHOLD 21.85
-// #define ALPHA 0.95
-// #define RESIZE_THRESHOLD 44.89
+#define STBL_NLOOKUPS 10u
+#define STBL_MAXVISITS 3u
+#define STBL_RESIZE_THRESHOLD 20u
+
 
 
 /*
@@ -84,7 +80,10 @@ typedef struct stbl_s {
   uint32_t nelems;       // number of records
   uint32_t ndeleted;     // number of deleted records (in the free_rec list)
   uint32_t free_idx;     // free slot in bnk
-  double cost;
+
+  // counters for cost/resize heuristics
+  uint32_t lctr;         // lookup counter: when this gets to 0, we check w
+  uint32_t cost;         // accumulated cost of all lookups since last reset of lctr
 
   stbl_finalizer_t finalize;
 } stbl_t;

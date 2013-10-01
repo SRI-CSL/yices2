@@ -178,7 +178,7 @@ static void stbl_extend(stbl_t *sym_table) {
   sym_table->size = n;
 
 #if TRACE_RESIZE
-  printf("resize table %p: cost = %.2f, nelems = %"PRIu32", ndeleted = %"PRIu32
+  printf("resize table %p: cost = %"PRIu32", nelems = %"PRIu32", ndeleted = %"PRIu32
          ", old size = %"PRIu32", new size = %"PRIu32"\n", 
 	 sym_table, sym_table->cost, sym_table->nelems, sym_table->ndeleted, old_size, n);
   fflush(stdout);
@@ -216,7 +216,10 @@ void init_stbl(stbl_t *sym_table, uint32_t n) {
   sym_table->nelems = 0;
   sym_table->ndeleted = 0;
   sym_table->free_idx = 0;
-  sym_table->cost = 0.0;
+
+  sym_table->lctr = STBL_NLOOKUPS;
+  sym_table->cost = 0;
+
   sym_table->finalize = default_stbl_finalizer;
 }
 
@@ -231,7 +234,7 @@ void delete_stbl(stbl_t *sym_table) {
   uint32_t k;
 
 #if TRACE_RESIZE
-  printf("delete table %p: cost = %.2f, nelems = %"PRIu32", ndeleted = %"PRIu32", size = %"PRIu32"\n",
+  printf("delete table %p: cost = %"PRIu32", nelems = %"PRIu32", ndeleted = %"PRIu32", size = %"PRIu32"\n",
 	 sym_table, sym_table->cost, sym_table->nelems, sym_table->ndeleted, sym_table->size);
   fflush(stdout);
 #endif
@@ -282,7 +285,9 @@ void reset_stbl(stbl_t *sym_table) {
   }
 
   sym_table->nelems = 0;
-  sym_table->cost = 0.0;
+
+  sym_table->lctr = STBL_NLOOKUPS;
+  sym_table->cost = 0;
 }
 
 
@@ -343,6 +348,42 @@ void stbl_delete_mapping(stbl_t *sym_table, const char *symbol, int32_t val) {
 
 
 
+/*
+ * Check whether the list sym_table->data[i] has many duplicates
+ * - r must either be NULL or be a pointer to one list record (not the first one)
+ * - return true if all elements before r have the same hash code
+ * - in such a case, and if r is not NULL, we move r to the front
+ *   of the list
+ */
+static bool list_has_duplicates(stbl_t *sym_table, uint32_t i, stbl_rec_t *r) {
+  stbl_rec_t *p, *l;
+  uint32_t h;
+  
+  assert(i < sym_table->size);
+  l = sym_table->data[i];
+  h = l->hash;
+  assert(l != r);
+
+  for (;;) {
+    p = l;
+    l = l->next;
+    if (l == r) break;
+    if (l->hash != h) return false;
+  }
+
+  /*
+   * all elements before r have the same hash code
+   * p = predecessor of r
+   */
+  assert(p->next == r && p->hash == h);
+  if (r != NULL) {
+    p->next = r->next;
+    r->next = sym_table->data[i];
+    sym_table->data[i] = r;
+  }
+
+  return true;
+}
 
 
 /*
@@ -368,15 +409,29 @@ int32_t stbl_find(stbl_t *sym_table, const char *symbol) {
     }
   }
 
-  // update the cost
-  sym_table->cost *= ALPHA;
-  sym_table->cost += steps;
-#if 0
-  if (sym_table->cost > RESIZE_THRESHOLD && sym_table->size <= (MAX_STBL_SIZE/2)) {
-    stbl_extend(sym_table);
-    sym_table->cost = 0.0;
+  /*
+   * Check whether the list contains many duplicates and move r to the
+   * front if possible. If the list has duplicates, we reduce steps to 1,
+   * since resizing won't help much.
+   */
+  if (steps > STBL_MAXVISITS && list_has_duplicates(sym_table, i, r)) {
+    steps = 1;
   }
-#endif
+
+  /*
+   * Update cost and counter. Resize if the last NLOOKUPS have a
+   * high total cost.
+   */
+  assert(sym_table->lctr > 0);
+  sym_table->cost += steps;
+  sym_table->lctr --;
+  if (sym_table->lctr == 0) {
+    if (sym_table->cost > STBL_RESIZE_THRESHOLD && sym_table->size <= (MAX_STBL_SIZE/2)) {
+      stbl_extend(sym_table);
+    }
+    sym_table->cost = 0;
+    sym_table->lctr = STBL_NLOOKUPS;
+  }
 
   return result;
 }
@@ -400,11 +455,6 @@ void stbl_add(stbl_t *sym_table, char *symbol, int32_t value) {
   sym_table->data[i] = r;
 
   sym_table->nelems ++;
-#if 1
-  if (sym_table->nelems > sym_table->size) {
-    stbl_extend(sym_table);
-  }
-#endif
 }
 
 
