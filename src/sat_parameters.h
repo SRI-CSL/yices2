@@ -59,10 +59,11 @@
 #define REDUCE_FACTOR  1.05
 #define MAX_DTHRESHOLD 1000000
 
+
 /*
  * Luby-style restart
  */
-#define LUBY_INTERVAL 10
+#define LUBY_INTERVAL 5
 
 /*
  * Parameters for removing irrelevant learned clauses
