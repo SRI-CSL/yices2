@@ -406,8 +406,9 @@ harray_t *get_free_vars_of_term(fvar_collector_t *collect, term_t t) {
     break;
 
   case VARIABLE:
-    assert(is_pos_term(t));
-    result = singleton_fvar_set(collect, t);
+    // we use pos_term(i) rather than t since t could be a negative term 
+    // (i.e., neg_term(i) that represents (not v) for some Boolean variable v)
+    result = singleton_fvar_set(collect, pos_term(i));
     break;
 
   case ARITH_EQ_ATOM:

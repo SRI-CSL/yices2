@@ -222,7 +222,7 @@ int main(void) {
   show_terms();
   test_collect();
 
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, false);
   delete_ivector(&all);
   yices_exit();
 

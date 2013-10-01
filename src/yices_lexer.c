@@ -84,6 +84,7 @@ static keyword_t yices_keywords[] = {
   { "bv-sub", TK_BV_SUB },
   { "bv-mul", TK_BV_MUL },
   { "bv-neg", TK_BV_NEG },
+  { "bv-pow", TK_BV_POW },
   { "bv-not", TK_BV_NOT },
   { "bv-and", TK_BV_AND },
   { "bv-or", TK_BV_OR },

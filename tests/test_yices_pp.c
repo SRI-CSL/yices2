@@ -109,60 +109,60 @@ int main() {
   printf("\n*** TEST ATOMS: VMODE ***\n");
   init_yices_pp(&printer, stdout, &area, PP_VMODE, 0);
   test_atoms();
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, true);
 
   printf("\n*** TEST ATOMS HVMODE ***\n");
   init_yices_pp(&printer, stdout, &area, PP_HVMODE, 0);
   test_atoms();
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, true);
 
   printf("\n*** TEST ATOMS HMODE ***\n");
   init_yices_pp(&printer, stdout, &area, PP_HMODE, 0);
   test_atoms();
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, true);
 
   printf("\n*** TEST LIST: VMODE ***\n");
   init_yices_pp(&printer, stdout, &area, PP_VMODE, 0);
   test_list();
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, true);
 
   printf("\n*** TEST LIST HVMODE ***\n");
   init_yices_pp(&printer, stdout, &area, PP_HVMODE, 0);
   test_list();
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, true);
 
   printf("\n*** TEST LIST HMODE ***\n");
   init_yices_pp(&printer, stdout, &area, PP_HMODE, 0);
   test_list();
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, true);
 
   printf("\n*** TEST LIST: VMODE WIDE ***\n");
   area.width = 150;
   init_yices_pp(&printer, stdout, &area, PP_VMODE, 0);
   test_list();
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, true);
 
   area.width = 40;
   printf("\n*** TEST LIST2: VMODE ***\n");
   init_yices_pp(&printer, stdout, &area, PP_VMODE, 0);
   test_list2();
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, true);
 
   printf("\n*** TEST LIST2 HVMODE ***\n");
   init_yices_pp(&printer, stdout, &area, PP_HVMODE, 0);
   test_list2();
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, true);
 
   printf("\n*** TEST LIST2 HMODE ***\n");
   init_yices_pp(&printer, stdout, &area, PP_HMODE, 0);
   test_list2();
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, true);
 
   printf("\n*** TEST LIST2 VMODE WIDE ***\n");
   area.width = 1500;
   init_yices_pp(&printer, stdout, &area, PP_VMODE, 0);
   test_list2();
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, true);
 
   printf("\n");
 

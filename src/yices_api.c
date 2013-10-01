@@ -4332,7 +4332,7 @@ EXPORTED int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t hei
     errno = yices_pp_errno(&printer); 
     error.code = OUTPUT_ERROR;
   }
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, false);
 
   return code;  
 }
@@ -4372,7 +4372,7 @@ EXPORTED int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t heigh
     errno = yices_pp_errno(&printer); 
     error.code = OUTPUT_ERROR;
   }
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, false);
 
   return code;  
 }
@@ -5172,6 +5172,8 @@ EXPORTED int32_t yices_clear_term_name(term_t t) {
   clear_term_name(&terms, t);
   return 0;
 }
+
+
 
 
 
@@ -6332,7 +6334,7 @@ EXPORTED int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t 
     errno = yices_pp_errno(&printer); 
     error.code = OUTPUT_ERROR;
   }
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, false);
 
   return code;  
 }

@@ -528,7 +528,7 @@ void pp_type_table(FILE *f, type_table_t *tbl) {
     }
   }
 
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, false);
 }
 
 

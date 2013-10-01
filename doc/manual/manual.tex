@@ -869,7 +869,7 @@ options are supported
   \begin{small}
   \begin{verbatim}
      Yices 2.1.0. Copyright SRI International.
-     GMP 5..4. Copyright Free Software Foundation.
+     GMP 5.0.4. Copyright Free Software Foundation.
      Build date: Fri Oct 5 10:32:43 PDT 2012
      Platform: x86_64-apple-darwin10.8.0 (release/static)
   \end{verbatim}
@@ -1235,48 +1235,30 @@ returns a Boolean can be declared as follows:
 \smallskip\noindent Yices does not  have a distinct type construct for
 arrays. In Yices, arrays are the same as functions.
 
+
 \subsection{Terms}
+
+Yices uses a lisp-like syntax for terms and formulas (i.e., Boolean
+terms). Here are examples of Boolean terms:
+\begin{small}
+\begin{verbatim}
+  (distinct x y z t u)
+  (= x y)
+  (/= x y)
+  (< (* 2 x) -1)
+  (and (P (f a) b) 
+\end{verbatim}
+\end{small}
+
+
+and has support for all common Boolean
+and arithmetic operations. Yices also supports all the bitvector
+operators 
+
+
 
 \subsection{Commands}
 
-
-
-% 3) Types
-%    -----
-
-% 3.1) The primitive types are: bool, int, real, and (bitvector k) where k is 
-%      a positive integer.
-
-
-% 3.2) A new uninterpreted type T can be declared using
-
-%          (define-type T)
-   
-%      provided T is a fresh name (i.e., not already mapped to a type).
-
-
-% 3.3) A new scalar type (i.e., a finite enumeration) can de defined using:
-
-%          (define-type <name> (scalar <elem1> ... <elem_n>))
-
-%      <name> must be a fresh type name
-
-%      <elem1> ... <elem_n> must all be fresh term names and they must be distinct.
-
-%      There must be at list one element in the enumeration (i.e., n must be >= 1).
-
-%      This declaration introduces <name> as a new type of n elements
-%      and also introduces n new constant <elem_1> ... <elem_n>, all of type <name>.
-
-
-% 3.4) A tuple type is written (tuple tau_1 ... tau_n) where tau_i's are types
-    
-% 3.5) A function type is written (-> tau_1 ... tau_n sigma) where the tau_i's
-%      and sigma are types. This is the typed of functions of domain 
-%      tau_1 x ... x tau_n and range sigma.
-
-%      There's no distinct array type constructor. Arrays are functions.
-    
 
 
 % 4) Built-in constants and functions
@@ -1285,7 +1267,7 @@ arrays. In Yices, arrays are the same as functions.
 % 4.1) ite is the if-then-else construct. 
 %      if is a synonym for ite
 
-%      distinct takes are least 2 arguments.
+%      distinct takes at least 2 arguments.
 
 %      =, /= are strictly binary (unlike in SMT-LIB 1, where = can take more than two arguments).
 

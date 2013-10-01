@@ -210,6 +210,7 @@ void pp_context(FILE *f, context_t *ctx) {
   pp_string(&printer, "Top formulas");
   flush_yices_pp(&printer);
   pp_term_vector(&printer, terms, &ctx->top_formulas);
-  delete_yices_pp(&printer);
+
+  delete_yices_pp(&printer, true);
 }
 

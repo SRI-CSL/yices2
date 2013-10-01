@@ -1335,7 +1335,7 @@ static void pp_intern_tbl(FILE *f, intern_tbl_t *tbl) {
   show_subst(&printer, tbl);
   printf("\n");
   show_mapping(&printer, tbl);
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, false);
 }
 
 

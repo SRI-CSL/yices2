@@ -130,6 +130,9 @@ typedef enum {
   PP_OPEN_LT,
 
   PP_OPEN_BV_ARRAY,
+  PP_OPEN_BV_SUM,
+  PP_OPEN_BV_PROD,
+  PP_OPEN_BV_POWER,
   PP_OPEN_BV_DIV,
   PP_OPEN_BV_REM,
   PP_OPEN_BV_SDIV,
@@ -232,11 +235,11 @@ extern void flush_yices_pp(yices_pp_t *printer);
 
 
 /*
- * Flush then delete a pretty printer
- * - print everything pending + a newline
+ * Delete a pretty printer
+ * - if flush is true, print everything pending + a newline
  * - then free all memory used
  */ 
-extern void delete_yices_pp(yices_pp_t *printer);
+extern void delete_yices_pp(yices_pp_t *printer, bool flush);
 
 
 /*

@@ -1761,29 +1761,34 @@ static void pp_select_term(yices_pp_t *printer, term_table_t *tbl, term_kind_t t
   pp_close_block(printer, true);
 }
 
-// exponent (^ x d)
+// exponent (^ x d) or (bv-pow x d)
 static void pp_exponent(yices_pp_t *printer, term_table_t *tbl, term_t x, uint32_t d, int32_t level) {
+  pp_open_type_t op;
+
   assert(d > 0);
   if (d == 1) {
     pp_term_recur(printer, tbl, x, level, true);
   } else {
-    pp_open_block(printer, PP_OPEN_POWER);
+    op = is_bitvector_term(tbl, x) ? PP_OPEN_BV_POWER : PP_OPEN_POWER;
+    pp_open_block(printer, op);
     pp_term_recur(printer, tbl, x, level, true);
     pp_uint32(printer, d);
     pp_close_block(printer, true);
   }
 }
 
-// power product (* (^ x_1 d_1) ... (^ x_n d_n))
+// power product (* (^ x_1 d_1) ... (^ x_n d_n)) or (bv-mul ....)
 static void pp_pprod(yices_pp_t *printer, term_table_t *tbl, pprod_t *p, int32_t level) {
   uint32_t i, n;
+  pp_open_type_t op;
 
   n = p->len;
   assert(n > 0);
   if (n == 1) {
     pp_exponent(printer, tbl, p->prod[0].var, p->prod[0].exp, level);
   } else {
-    pp_open_block(printer, PP_OPEN_PROD);
+    op = is_bitvector_term(tbl, p->prod[0].var) ? PP_OPEN_BV_PROD : PP_OPEN_PROD;
+    pp_open_block(printer, op);
     for (i=0; i<n; i++) {
       pp_exponent(printer, tbl, p->prod[i].var, p->prod[i].exp, level);
     }
@@ -1846,7 +1851,7 @@ static void pp_bvmono64(yices_pp_t *printer, term_table_t *tbl, uint64_t c, uint
   } else if (c == 1) {
     pp_term_recur(printer, tbl, x, level, true);
   } else {
-    pp_open_block(printer, PP_OPEN_PROD);
+    pp_open_block(printer, PP_OPEN_BV_PROD);
     pp_bv64(printer, c, nbits);
     if (term_kind(tbl, x) == POWER_PRODUCT) {
       p = pprod_term_desc(tbl, x);
@@ -1871,7 +1876,7 @@ static void pp_bvpoly64(yices_pp_t *printer, term_table_t *tbl, bvpoly64_t *p, i
   if (n == 1) {
     pp_bvmono64(printer, tbl, p->mono[0].coeff, nbits, p->mono[0].var, level);
   } else {
-    pp_open_block(printer, PP_OPEN_SUM);
+    pp_open_block(printer, PP_OPEN_BV_SUM);
     for (i=0; i<n; i++) {
       pp_bvmono64(printer, tbl, p->mono[i].coeff, nbits, p->mono[i].var, level);
     }
@@ -1893,7 +1898,7 @@ static void pp_bvmono(yices_pp_t *printer, term_table_t *tbl, uint32_t *c, uint3
   } else if (bvconst_is_one(c, k)) {
     pp_term_recur(printer, tbl, x, level, true);
   } else {
-    pp_open_block(printer, PP_OPEN_PROD);
+    pp_open_block(printer, PP_OPEN_BV_PROD);
     pp_bv(printer, c, nbits);
     if (term_kind(tbl, x) == POWER_PRODUCT) {
       p = pprod_term_desc(tbl, x);
@@ -1918,7 +1923,7 @@ static void pp_bvpoly(yices_pp_t *printer, term_table_t *tbl, bvpoly_t *p, int32
   if (n == 1) {
     pp_bvmono(printer, tbl, p->mono[0].coeff, nbits, p->mono[0].var, level);
   } else {
-    pp_open_block(printer, PP_OPEN_SUM);
+    pp_open_block(printer, PP_OPEN_BV_SUM);
     for (i=0; i<n; i++) {
       pp_bvmono(printer, tbl, p->mono[i].coeff, nbits, p->mono[i].var, level);
     }
@@ -2250,7 +2255,7 @@ void pp_term_table(FILE *f, term_table_t *tbl) {
     }
   }
 
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, false);
 }
 
 
@@ -2274,7 +2279,7 @@ void pretty_print_term_exp(FILE *f, pp_area_t *area, term_table_t *tbl, term_t t
   init_yices_pp(&printer, f, area, PP_VMODE, 0);
   pp_term_exp(&printer, tbl, t);
   flush_yices_pp(&printer);
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, false);
 }
 
 void pretty_print_term_full(FILE *f, pp_area_t *area, term_table_t *tbl, term_t t) {
@@ -2286,6 +2291,6 @@ void pretty_print_term_full(FILE *f, pp_area_t *area, term_table_t *tbl, term_t 
   init_yices_pp(&printer, f, area, PP_VMODE, 0);
   pp_term_full(&printer, tbl, t);
   flush_yices_pp(&printer);
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, false);
 }
 

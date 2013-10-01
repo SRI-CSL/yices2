@@ -36,7 +36,7 @@ static void tracer_delete_pp(tracer_t *tracer) {
 
   pp = tracer->pp;
   if (pp != NULL) {
-    delete_yices_pp(pp);
+    delete_yices_pp(pp, false);
     safe_free(pp);
     tracer->pp = NULL;
   }

@@ -152,7 +152,7 @@ static term_t get_subst_of_var(term_subst_t *subst, term_t x) {
   int_hmap_pair_t *p;
   term_t y;
 
-  assert(is_pos_term(x) && term_is_var(subst->terms, x) == VARIABLE);
+  assert(is_pos_term(x) && term_is_var(subst->terms, x));
 
   y = NULL_TERM;
   if (subst->rctx != NULL) {

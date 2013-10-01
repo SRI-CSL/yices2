@@ -81,7 +81,7 @@ typedef struct pp_nonstandard_block_s {
 /*
  * Table of standard blocks
  */
-#define NUM_STANDARD_BLOCKS 35
+#define NUM_STANDARD_BLOCKS 38
 
 static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_FUN_TYPE, "->" },
@@ -105,6 +105,9 @@ static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_GE, ">=" },
   { PP_OPEN_LT, "<" },
   { PP_OPEN_BV_ARRAY, "bit-array" },
+  { PP_OPEN_BV_SUM, "bv-add" },
+  { PP_OPEN_BV_PROD, "bv-mul" },
+  { PP_OPEN_BV_POWER, "bv-pow" },
   { PP_OPEN_BV_DIV, "bv-div" },
   { PP_OPEN_BV_REM, "bv-rem" },
   { PP_OPEN_BV_SDIV, "bv-sdiv" },
@@ -436,11 +439,13 @@ void flush_yices_pp(yices_pp_t *printer) {
 
 /*
  * Flush then delete a pretty printer
- * - print everything pending + a newline
+ * - if flush is true, print everything pending + a newline
  * - then free all memory used
  */ 
-void delete_yices_pp(yices_pp_t *printer) {
-  flush_pp(&printer->pp);
+void delete_yices_pp(yices_pp_t *printer, bool flush) {
+  if (flush) {
+    flush_pp(&printer->pp);
+  }
   delete_pp(&printer->pp);
   delete_objstore(&printer->open_store);
   delete_objstore(&printer->atom_store);

@@ -311,7 +311,7 @@ static void pp_types(void) {
     flush_yices_pp(&printer);
   }
 
-  delete_yices_pp(&printer);
+  delete_yices_pp(&printer, false);
 }
 
 
