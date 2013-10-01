@@ -143,7 +143,7 @@ void delete_term_subst(term_subst_t *subst) {
 
 /*
  * Lookup the term mapped to x (taking renaming into account)
- * - x must be a variable or uninterpreted term
+ * - x must be a variable
  * - if there's a renaming, lookup x in the renaming context
  * - if x is not renamed, lookup x in the map
  * - if x is not renamed and not in the map, then return x
@@ -152,7 +152,7 @@ static term_t get_subst_of_var(term_subst_t *subst, term_t x) {
   int_hmap_pair_t *p;
   term_t y;
 
-  assert(is_pos_term(x) && term_is_var(subst->terms, x));
+  assert(is_pos_term(x) && term_kind(subst->terms, x) == VARIABLE);
 
   y = NULL_TERM;
   if (subst->rctx != NULL) {
@@ -164,6 +164,27 @@ static term_t get_subst_of_var(term_subst_t *subst, term_t x) {
     if (p != NULL) {
       y = p->val;
     }
+  }
+
+  return y;
+}
+
+
+/*
+ * Lookup the term mapped to x where x is uninterpreted
+ * - lookup x in the map
+ * - if x is not there return x
+ */
+static term_t get_subst_of_unint(term_subst_t *subst, term_t x) {
+  int_hmap_pair_t *p;
+  term_t y;
+
+  assert(is_pos_term(x) && term_kind(subst->terms, x) == UNINTERPRETED_TERM);
+
+  y = x;
+  p = int_hmap_find(&subst->map, x);
+  if (p != NULL) {
+    y = p->val;
   }
 
   return y;
@@ -1317,8 +1338,11 @@ static term_t get_subst(term_subst_t *subst, term_t t) {
     break;
 
   case VARIABLE:
-  case UNINTERPRETED_TERM:
     result = get_subst_of_var(subst, t);
+    break;
+
+  case UNINTERPRETED_TERM:
+    result = get_subst_of_unint(subst, t);
     break;
 
   default:
