@@ -35,7 +35,7 @@
  * Restart parameters
  */
 // #define INITIAL_RESTART_THRESHOLD  100  // number of conflicts before the first restart
-#define INITIAL_RESTART_THRESHOLD  50  // number of conflicts before the first restart
+#define INITIAL_RESTART_THRESHOLD  20   // number of conflicts before the first restart
 #define MINISAT_RESTART_FACTOR 1.5      // increase factor for the restart threshold
 
 /*
@@ -63,7 +63,7 @@
 /*
  * Luby-style restart
  */
-#define LUBY_INTERVAL 15
+#define LUBY_INTERVAL 10
 
 /*
  * Parameters for removing irrelevant learned clauses
