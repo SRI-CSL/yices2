@@ -1097,8 +1097,8 @@ extern type_t apply_type_matching(type_matcher_t *matcher, type_t tau);
  *   root types, then deletes every type that's not marked.
  * The root types include:
  * - the three predefined types: bool, int, and real
- * - every type that's present in the symbol table
  * - all types that are explicitly marked as roots (using call to set_gc_mark).
+ * - if flag keep_named is true, every type that's present in the symbol table
  * At the end of type_table_gc, all marks are cleared.
  */
 
@@ -1132,9 +1132,12 @@ static inline bool type_is_marked(type_table_t *tbl, type_t i) {
 /*
  * Call the garbage collector:
  * - delete every type not reachable from a root 
+ * - if keep_named is true, all named types (reachable from the symbol table)
+ *   are preserved. Otherwise, all references to dead types are removed 
+ *   from the symbol table.
  * - then clear all marks
  */
-extern void type_table_gc(type_table_t *tbl);
+extern void type_table_gc(type_table_t *tbl, bool keep_named);
 
 
 

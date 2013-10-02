@@ -80,7 +80,7 @@ static void clear_words() {
 /*
  * to test the iterator: print each record
  */
-static void print_stbl_record(void *aux, stbl_rec_t *r) {
+static void print_stbl_record(void *aux, const stbl_rec_t *r) {
   printf("record %p: [hash = %08"PRIx32", val = %"PRId32", string = %s, next = %p]\n",
 	 r, r->hash, r->value, r->string, r->next);
 }

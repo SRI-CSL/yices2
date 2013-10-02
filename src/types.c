@@ -2841,10 +2841,20 @@ static void mark_live_types(type_table_t *table) {
  * - r = live record in the symbol table so r->value
  *   is the id of a type to preserve.
  */
-static void mark_symbol(void *aux, stbl_rec_t *r) {
+static void mark_symbol(void *aux, const stbl_rec_t *r) {
   type_table_set_gc_mark(aux, r->value);
 }
 
+
+/*
+ * Filter to remove dead types from the symbol table.
+ * - aux must be a pointer to the type table
+ * - r = record in the symbol table: if the function returns true,
+ *   r will be finalized then removed from the symbol table.
+ */
+static bool dead_type_symbol(void *aux, const stbl_rec_t *r) {
+  return !type_is_marked(aux, r->value);
+}
 
 /*
  * Keep-alive function for the sup/inf caches
@@ -2894,14 +2904,19 @@ static bool keep_in_tuple_cache(void *aux, tuple_hmap_rec_t *r) {
 /*
  * Call the garbage collector:
  * - delete every type not reachable from a root
+ * - if keep_named is true, all named types (reachable from the symbol table)
+ *   are preserved. Otherwise, all live types are marked and all references
+ *   to dead types are remove from the symbol table.
  * - cleanup the caches
  * - then clear all the marks
  */
-void type_table_gc(type_table_t *table)  {
+void type_table_gc(type_table_t *table, bool keep_named)  {
   uint32_t i, n;
 
   // mark every type present in the symbol table
-  stbl_iterate(&table->stbl, table, mark_symbol);
+  if (keep_named) {
+    stbl_iterate(&table->stbl, table, mark_symbol);
+  }
 
   // mark the three predefined types
   type_table_set_gc_mark(table, bool_id);
@@ -2910,6 +2925,11 @@ void type_table_gc(type_table_t *table)  {
 
   // propagate the marks
   mark_live_types(table);
+
+  // remove unmarked types from the symbol table
+  if (!keep_named) {
+    stbl_remove_records(&table->stbl, table, dead_type_symbol);
+  }
 
   // delete every unmarked type
   n = table->nelems;

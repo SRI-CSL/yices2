@@ -481,3 +481,35 @@ void stbl_iterate(stbl_t *sym_table, void *aux, stbl_iterator_t f) {
     k = 0;
   }
 }
+
+
+/*
+ * Remove records using a filter
+ * - calls f(aux, r) on every record r present in the table
+ * - if f(aux, r) returns true, then the finalizer is called 
+ *   then r is removed from the table.
+ * - f must not have side effects
+ */
+void stbl_remove_records(stbl_t *sym_table, void *aux, stbl_filter_t f) {
+  uint32_t i, n;
+  stbl_rec_t *r, *p, **q;
+  
+  n = sym_table->size;
+  for (i=0; i<n; i++) {
+    q = sym_table->data + i;
+    r = sym_table->data[i];
+    while (r != NULL) {
+      p = r->next;
+      if (f(aux, r)) {
+	sym_table->finalize(r);
+	stbl_free_record(sym_table, r);
+	r = p;
+      } else {
+	// keep r
+	*q = r;
+	q = &r->next;
+      }
+    }
+    *q = NULL;
+  }
+}

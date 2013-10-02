@@ -2051,7 +2051,7 @@ int main() {
   printf("---\n");
 
   // test gc
-  term_table_gc(&terms);
+  term_table_gc(&terms, true);
 
   printf("--- After GC ---\n");
   print_type_table(stdout, &types);
@@ -2078,7 +2078,7 @@ int main() {
   print_term_table(stdout, &terms);
   printf("---\n");
 
-  term_table_gc(&terms);
+  term_table_gc(&terms, true);
 
   printf("--- After GC ---\n");
   print_type_table(stdout, &types);

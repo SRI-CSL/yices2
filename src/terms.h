@@ -1474,10 +1474,12 @@ static inline special_term_t *ite_special_desc(term_table_t *table, term_t t) {
  *   that are present in the symbol table) are also considered root terms.
  *
  * Garbage collection process:
- * - The predefined term (bool_const) and all the terms that are present
- *   in the symbol table are marked.
+ * - The predefined terms (bool_const, zero_const, const_idx ) are marked
+ * - If keep_named is true, all terms accessible from the symbol table are marked too
  * - The marks are propagated to subterms, types, and power products.
  * - Every term that's not marked is deleted.
+ * - If keep_named is false, all references to dead terms are removed from the 
+ *   symbol table.
  * - The type and power-product tables' own garbage collectors are called.
  * - Finally all the marks are cleared.
  */
@@ -1511,9 +1513,14 @@ static inline bool term_idx_is_marked(term_table_t *table, int32_t i) {
  * Call the garbage collector:
  * - every term reachable from a marked term is preserved.
  * - recursively calls type_table_gc and pprod_table_gc
+ * - if keep_named is true, all named terms (reachable from the symbol table)
+ *   are preserved. Otherwise,  all references to dead terms are removed
+ *   from the symbol table.
  * - then all the marks are cleared.
+ *
+ * NOTE: type_table_gc is called with the same keep_named flag.
  */
-extern void term_table_gc(term_table_t *table);
+extern void term_table_gc(term_table_t *table, bool keep_named);
 
 
 #endif /* __TERMS_H */

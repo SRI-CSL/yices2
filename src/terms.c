@@ -3214,25 +3214,38 @@ static void mark_live_terms(term_table_t *table) {
  * - aux must be a pointer to the term table
  * - r is a record in the symbol table: r->value is a term to mark
  */
-static void mark_symbol(void *aux, stbl_rec_t *r) {
+static void mark_symbol(void *aux, const stbl_rec_t *r) {
   term_table_set_gc_mark(aux, index_of(r->value));
 }
 
 
 /*
+ * Filter to remove references to dead terms from the symbol table
+ * - aux must be a pointer to the term table
+ * - r is a record in the symbol table: if the function returns true,
+ *   then r is finalized then removed from the symbol table.
+ */
+static bool dead_term_symbol(void *aux, const stbl_rec_t *r) {
+  return !term_idx_is_marked(aux, index_of(r->value));
+}
+
+
+/*
  * Garbage collector 
- * - the roots are all the marked terms and all the terms 
- *   present in the symbol table.
+ * - the roots are all the marked terms + if keep_named is true,
+ *   all the terms accessible from the symbol table (i.e., mapped to some name).
  * - every term, type, and power product reachable from these roots
  *   is preserved
  * - delete everything else
  * - clear all the marks
  */
-void term_table_gc(term_table_t *table) {
+void term_table_gc(term_table_t *table, bool keep_named) {
   uint32_t i, n;
 
   // mark the terms present in the symbol table
-  stbl_iterate(&table->stbl, table, mark_symbol);
+  if (keep_named) {
+    stbl_iterate(&table->stbl, table, mark_symbol);
+  }
 
   // mark the primitive terms
   set_bit(table->mark, const_idx);
@@ -3242,8 +3255,13 @@ void term_table_gc(term_table_t *table) {
   // propagate the marks
   mark_live_terms(table);
 
+  // remove the unmarked terms from the symbol table
+  if (!keep_named) {
+    stbl_remove_records(&table->stbl, table, dead_term_symbol);
+  }
+
   // force garbage collection in the type and power-product tables
-  type_table_gc(table->types);
+  type_table_gc(table->types, keep_named);
   pprod_table_gc(table->pprods);
 
   // delete the unmarked terms

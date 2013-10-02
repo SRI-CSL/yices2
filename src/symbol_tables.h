@@ -6,7 +6,7 @@
 #define __SYMBOL_TABLES_H
 
 #include <stdint.h>
-
+#include <stdbool.h>
 
 /*
  * A symbol table contains a lists of records <string, hash, value>.
@@ -153,16 +153,26 @@ extern void stbl_add(stbl_t *sym_table, char *symbol, int32_t val);
  */
 extern void stbl_delete_mapping(stbl_t *sym_table, const char *symbol, int32_t val);
 
-
 /*
  * Iterator: call f(aux, r) for every live record r in the table
  * - aux is an arbitrary pointer, provided by the caller
  * - f must not have side effects (it must not add or remove anything 
  *   from the symbol table, or modify the record r).
  */
-typedef void (*stbl_iterator_t)(void *aux, stbl_rec_t *r);
+typedef void (*stbl_iterator_t)(void *aux, const stbl_rec_t *r);
 
 extern void stbl_iterate(stbl_t *sym_table, void *aux, stbl_iterator_t f);
 
+
+/*
+ * Remove all records that satisfy f:
+ * - calls f(aux, r) on every record r present in the table
+ * - if f(aux, r) returns true, then the finalizer is called (finalize(r))
+ *   then r is removed from the table.
+ * - f must not have side effects
+ */
+typedef bool (*stbl_filter_t)(void *aux, const stbl_rec_t *r);
+
+extern void stbl_remove_records(stbl_t *sym_table, void *aux, stbl_filter_t f);
 
 #endif /* __SYMBOL_TABLES_H */

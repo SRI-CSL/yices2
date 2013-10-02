@@ -155,7 +155,7 @@ static void garbage_collect(uint32_t n) {
   for (i=0; i<n; i++) {
     type_table_set_gc_mark(&types, all_types[i]);
   }
-  type_table_gc(&types);
+  type_table_gc(&types, true);
 
   // reset num_types
   num_types = n;

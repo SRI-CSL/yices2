@@ -365,7 +365,7 @@ int main() {
   printf("\n\n");
 
   printf("*** Garbage Collection ***\n");
-  type_table_gc(&table);
+  type_table_gc(&table, true);
   print_type_table(stdout, &table);
   printf("\n");
 
@@ -385,7 +385,7 @@ int main() {
   printf("\n");
 
   printf("*** Garbage Collection ***\n");
-  type_table_gc(&table);
+  type_table_gc(&table, true);
   print_type_table(stdout, &table);
   printf("\n");
 
@@ -415,14 +415,14 @@ int main() {
   // mark last type i:
   type_table_set_gc_mark(&table, i);
   printf("*** Garbage Collection (marked tau!%"PRId32") ***\n", i);
-  type_table_gc(&table);
+  type_table_gc(&table, true);
   print_type_table(stdout, &table);
   printf("\n");
 
   // mark tt
   type_table_set_gc_mark(&table, tt);
   printf("*** Garbage Collection (marked tau!%"PRId32") ***\n", tt);
-  type_table_gc(&table);
+  type_table_gc(&table, true);
   print_type_table(stdout, &table);
   printf("\n");
 
