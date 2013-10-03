@@ -35,7 +35,7 @@
  * Restart parameters
  */
 // #define INITIAL_RESTART_THRESHOLD  100  // number of conflicts before the first restart
-#define INITIAL_RESTART_THRESHOLD  20   // number of conflicts before the first restart
+#define INITIAL_RESTART_THRESHOLD  10   // number of conflicts before the first restart
 #define MINISAT_RESTART_FACTOR 1.5      // increase factor for the restart threshold
 
 /*
