@@ -1,6 +1,6 @@
 /*
- * Type descriptors and type table
- * Support for hash-consing and attaching names to types.
+ * Type descriptors and type table. Includes hash-consing and support
+ * for attaching names to types.
  *
  * Changes:
  *
@@ -19,9 +19,9 @@
  * - added flags for each type tau to indicate 
  *   - whether tau is finite 
  *   - whether tau is a unit type (finite type with cardinality 1)
- *   - whether card[tau] is exact. (If card[tau] 
- *     is exact, then it's the cardinality of tau. Otherwise,
- *     card[tau] is UINT32_MAX.)
+ *   - whether card[tau] is exact. (If card[tau] is exact, then 
+ *     it's the cardinality of tau. Otherwise, card[tau] is set to
+ *      UINT32_MAX.)
  * - added hash_maps to use as caches to make sure recursive
  *   functions such as is_subtype, super_type, and inf_type don't
  *   explode.
@@ -134,7 +134,9 @@ typedef struct {
  * Descriptor: either a pointer to a descriptor or an integer. The size
  * of a bitvector type or scalar type i is stored in desc[i].integer.
  * Also each type variable is identified by an index stored in desc[i].integer.
- * It's also used as pointer to the next element in the free list.
+ *
+ * For deleted types, desc[i].integer is also used as pointer to the
+ * next element in the free list.
  */
 typedef union {
   int32_t next;
@@ -172,7 +174,7 @@ typedef union {
  * We also need to keep track of existing macro applications
  * in a hash table. The hash table contains:
  *     [macro-id, type1, ..., type_n --> type]
- *  where macro-id refers to a macro or arity n.
+ * where macro-id refers to a macro or arity n.
  */
 
 /*
@@ -201,8 +203,8 @@ typedef struct type_macro_s {
  * - macros are identified by an index 
  * - the table maps the index to a macro descriptor
  * - it also includes a symbol table that maps a macro name
- *   to its id, and a hash table that stores macro instances.
- * - deleted descriptors are stored in a free list
+ *   to its id, and a hash table that stores macro instances
+ * - deleted descriptors are stored in a free list.
  *
  * For an index id between 0 and table->nelems, 
  * table->data[id] is a tagged pointer.
@@ -363,13 +365,14 @@ typedef struct type_table_s {
  * tau_k[X, Y, Z]. There may be several solutions, we want the minimal
  * one (i.e., the most precise).
  *
- * To solve these constraints. we used a type_matcher structure:
+ * To solve these constraints, we used a type_matcher structure:
  * - The int_hmap_t tc stores the set of constraints.
  *   For any type tau, it's enough to keep a single constraint on tau.
  *   We store it as a 32bit integer in tc[tau]:
  *     tc[tau] = -1: no constraints on tau
  *     tc[tau] = 2 * sigma + 1: equality constraint: tau = sigma
- *     tc[tau] = 2 * sigma + 0: subtype constrinat: sigma subtype of tau
+ *     tc[tau] = 2 * sigma + 0: subtype constraint:  tau must be a 
+ *                                                   supertype of sigma
  *   (i.e., the lower order bit of tc[tau] is used as a flag).
  *
  * Other components:
@@ -382,7 +385,7 @@ typedef struct type_table_s {
  * constraints: var[i] is a type variable, map[i] is what's map to var[i]
  * in the solution.
  *
- * NOTE: 2 * sigma + 0 and 2 * sigma + 1 fits in a signed 32bit integer
+ * NOTE: 2 * sigma + 0 and 2 * sigma + 1 fit in a signed 32bit integer
  * (because sigma < YICES_MAX_TYPE). 
  */
 typedef struct type_matcher_s {
@@ -655,7 +658,7 @@ extern void delete_type_macro(type_table_t *table, int32_t id);
  * - if the macro is a normal macro (body != NULL_TYPE), then
  *   the instance is constructed by substituting the actuals
  *   for the macro variable.
- * In both case, the instance is stored in table->hmap
+ * In both cases, the instance is stored in table->hmap.
  */
 extern type_t instantiate_type_macro(type_table_t *table, int32_t id, uint32_t n, type_t *actual);
 
@@ -1056,7 +1059,7 @@ extern void delete_type_matcher(type_matcher_t *matcher);
  * - both tau and sigma must be valid types defined in matcher->types
  *   (and tau should contain type variables)
  * - if eq is true the constraint is "tau = sigma" 
- *   otherwise it's "tau is a subtype of sigma"
+ *   otherwise it's "tau is a supertype of sigma"
  * - return false if the set of constraints is inconsistent
  * - return true otherwise and update the solution
  */

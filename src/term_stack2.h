@@ -542,8 +542,8 @@ extern void tstack_push_free_type_or_macro_name(tstack_t *stack, char *s, uint32
 /*
  * Find the term or type of name s and push that term or type on the stack
  *
- * raise exception TSTACK_UNDEF_TERM or TSTACK_UNDEF_TYPE if the name is
- * not mapped to a term or type.
+ * raise exception TSTACK_UNDEF_TERM, TSTACK_UNDEF_TYPE, or TSTACK_UNDEF_MACRO 
+ * if the name is not mapped to a term, type, or macro.
  */
 extern void tstack_push_type_by_name(tstack_t *stack, char *s, loc_t *loc);
 extern void tstack_push_term_by_name(tstack_t *stack, char *s, loc_t *loc);

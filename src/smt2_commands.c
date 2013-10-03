@@ -67,7 +67,7 @@ static void extend_smt2_name_stack(smt2_name_stack_t *s) {
 
 /*
  * Push name on top of the stack
- * - name must be a refcount strincg
+ * - name must be a refcount string
  * - name's reference counter is incremented
  */
 static void smt2_push_name(smt2_name_stack_t *s, char *name) {

@@ -34,8 +34,6 @@ static inline int_hmap_t *egraph_get_imap(egraph_t *egraph) {
 
 
 
-
-
 /***********************************
  *  ACCESS TO TERM AND CLASS DATA  *
  **********************************/
@@ -567,5 +565,23 @@ static inline void egraph_enable_optimistic_final_check(egraph_t *egraph) {
 static inline void egraph_disable_optimistic_final_check(egraph_t *egraph) {
   egraph_disable_options(egraph, EGRAPH_OPTIMISTIC_FCHECK);
 }
+
+
+
+
+/************************************
+ *  SUPPORT FOR GARBAGE COLLECTION  *
+ ***********************************/
+
+/*
+ * Mark all types used by egraph to preserve them from deletion on
+ * the next call to type_table_gc.
+ *
+ * Marked types include:
+ * - any type tau that occurs in egraph->terms.real_type[i]
+ * - all types that occur in egraph->tag_table.
+ */
+extern void egraph_gc_mark(egraph_t *egraph);
+
 
 #endif

@@ -75,7 +75,7 @@ typedef struct pmap2_bank_s {
  * - each element in the stack has a level k>0 and 
  *   an allocation mark = a pair <block id, index in that block> 
  * - if the mark for level k is <i, p> then the first record 
- *   allocated at level k was allocated block[i][p].
+ *   allocated at level k was block[i][p].
  * - nmarks = number of elements stored in the stack:
  *   the stack elements are in data[0 ... nmarks - 1]
  * - size = size of array data
@@ -222,6 +222,22 @@ extern pmap2_rec_t *pmap2_find(pmap2_t *pmap, int32_t k0, int32_t k1);
  * or not and set val to something else than -1.
  */
 extern pmap2_rec_t *pmap2_get(pmap2_t *pmap, int32_t k0l, int32_t k1);
+
+
+
+
+/***************
+ *  ITERATOR   *
+ **************/
+
+/*
+ * Call f(aux, p) on every record p stored in pmap
+ * - f must not have any side effect on pmap
+ */
+typedef void (*pmap2_iterator_t)(void *aux, const pmap2_rec_t *p);
+
+extern void pmap2_iterate(pmap2_t *pmap, void *aux, pmap2_iterator_t f);
+
 
 
 #endif /* __PAIR_HASH_MAP2_H */

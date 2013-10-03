@@ -299,4 +299,16 @@ extern void intern_tbl_add_subst(intern_tbl_t *tbl, term_t r1, term_t r2);
 extern void intern_tbl_merge_classes(intern_tbl_t *tbl, term_t r1, term_t r2);
 
 
+
+/*
+ * SUPPORT FOR GARBAGE COLLECTION
+ */
+
+/*
+ * Mark all terms in the domain of tbl as roots for the next call to term_table_gc.
+ * Also mark all types stored in type[x] for x in tbl.
+ */
+extern void intern_tbl_gc_mark(intern_tbl_t *tbl);
+
+
 #endif /* __INTERNALIZATION_TABLE_H */

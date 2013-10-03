@@ -167,6 +167,42 @@ void model_add_substitution(model_t *model, term_t t, term_t u) {
 
 
 
+/*
+ * GARBAGE COLLECTION SUPPORT
+ */
+
+/*
+ * Marker for records in a model's map: every record
+ * is a pair <key, value> where key is a term.
+ * - aux is the term table where key is defined
+ */
+static void mdl_mark_map(void *aux, const int_hmap_pair_t *r) {
+  term_table_set_gc_mark(aux, index_of(r->key));
+}
+
+/*
+ * Marker for records in a model's alias_map: every record
+ * is a pair <key, value> where both key and value are terms
+ * - aux is the term table
+ */
+static void mdl_mark_alias(void *aux, const int_hmap_pair_t *r) {
+  assert(r->val >= 0);
+  term_table_set_gc_mark(aux, index_of(r->key));
+  term_table_set_gc_mark(aux, index_of(r->val));
+}
+
+
+/*
+ * Prepare for garbage collection: mark all the terms present in model
+ * - all marked terms will be considered as roots on the next call
+ *   to term_table_gc
+ */
+void model_gc_mark_terms(model_t *model) {
+  int_hmap_iterate(&model->map, model->terms, mdl_mark_map);
+  if (model->alias_map != NULL) {
+    int_hmap_iterate(model->alias_map, model->terms, mdl_mark_alias);
+  }
+}
 
 
 

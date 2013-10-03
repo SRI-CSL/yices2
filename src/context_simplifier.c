@@ -1906,66 +1906,6 @@ void context_process_candidate_subst(context_t *ctx) {
 
 
 
-#if 0
-/*
- * Go through all equalities in ctx->top_eqs and attempt to eliminate variables
- * - for now we just check equalities between uninterpreted terms 
- */
-void context_process_deferred_substitutions(context_t *ctx) {
-  ivector_t eqs;
-  term_table_t *terms;
-  composite_term_t *eq;
-  term_t e, t1, t2;
-  uint32_t i, n, saved_options;  
-
-  n = ctx->top_eqs.size;
-  if (n > 0) {
-    init_ivector(&eqs, n);
-    ivector_swap(&eqs, &ctx->top_eqs);
-
-    saved_options = ctx->options;
-    enable_variable_elimination(ctx);
-    
-    /*
-     * now eqs contains all the top-level equalities
-     * and ctx->top_eqs is empty
-     */
-    assert(n == eqs.size && ctx->top_eqs.size == 0);
-    terms = ctx->terms;
-    for (i=0; i<n; i++) {
-      e = intern_tbl_get_root(&ctx->intern, eqs.data[i]);
-      assert(term_is_true(ctx, e));
-      switch (term_kind(terms, e)) {
-      case EQ_TERM:
-	eq = eq_term_desc(terms, e);
-	t1 = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
-	t2 = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
-	if (is_boolean_term(terms, t1)) {
-	  // TDB
-	} else {
-	  try_substitution(ctx, t1, t2, e);
-	}
-	break;
-
-      case ARITH_BINEQ_ATOM:
-      case BV_EQ_ATOM:
-	// TBD
-	break;
-
-      default:
-	assert(false);
-	break;
-      }
-    }
-
-    context_process_candidate_subst(ctx);
-    ctx->options = saved_options;
-    delete_ivector(&eqs);
-  }
-}
-
-#endif
-
 
 /**************************
  *  AUXILIARY EQUALITIES  *

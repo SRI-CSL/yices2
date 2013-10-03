@@ -4394,6 +4394,7 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, term_t *a)
     /*
      * Exception: return from longjmp(ctx->env, code);
      */
+    ivector_reset(&ctx->aux_vector);
     reset_istack(&ctx->istack);
     int_queue_reset(&ctx->queue);
     context_free_subst(ctx);
@@ -4600,3 +4601,46 @@ int32_t assert_blocking_clause(context_t *ctx) {
 
 
 
+
+/********************************
+ *  GARABGE COLLECTION SUPPORT  *
+ *******************************/
+
+/*
+ * Marker for all terms present in the eq_map
+ * - aux = the relevant term table.
+ * - each record p stores <k0, k1, val> where k0 and k1 are both
+ *   terms in aux and val is a literal in the core
+ */
+static void ctx_mark_eq(void *aux, const pmap2_rec_t *p) {
+  term_table_set_gc_mark(aux, index_of(p->k0));
+  term_table_set_gc_mark(aux, index_of(p->k1));
+}
+
+
+/*
+ * Go through all data structures in ctx and mark all terms and types
+ * that they use.
+ */
+void context_gc_mark(context_t *ctx) {
+  if (ctx->egraph != NULL) {
+    egraph_gc_mark(ctx->egraph);
+  }
+  if (ctx->fun_solver != NULL) {
+    fun_solver_gc_mark(ctx->fun_solver);
+  }
+
+  intern_tbl_gc_mark(&ctx->intern);
+
+  // empty all the term vectors to be safe
+  ivector_reset(&ctx->top_eqs);
+  ivector_reset(&ctx->top_atoms);
+  ivector_reset(&ctx->top_formulas);
+  ivector_reset(&ctx->top_interns);
+  ivector_reset(&ctx->subst_eqs);
+  ivector_reset(&ctx->aux_eqs);
+
+  if (ctx->eq_cache != NULL) {
+    pmap2_iterate(ctx->eq_cache, ctx->terms, ctx_mark_eq);
+  }
+}

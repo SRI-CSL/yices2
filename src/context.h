@@ -1005,15 +1005,6 @@ extern void process_aux_eqs(context_t *ctx);
 extern void context_process_candidate_subst(context_t *ctx);
 
 
-#if 0
-/*
- * Go through all equalities in ctx->top_eqs and attempt to 
- * eliminate variables.
- * - this is useful after symmetry breaking
- */
-extern void context_process_deferred_substitutions(context_t *ctx);
-#endif
-
 
 /*
  * TYPES AFTER VARIABLE ELIMINATION
@@ -1556,6 +1547,17 @@ static inline uint32_t context_base_level(context_t *ctx) {
   return ctx->base_level;
 }
 
+
+
+/*
+ * GARBAGE-COLLECTION SUPPORT
+ */
+
+/*
+ * Mark all terms present in ctx (to make sure they survive the 
+ * next call to term_table_gc).
+ */
+extern void context_gc_mark(context_t *ctx);
 
 
 #endif /* __CONTEXT_H */

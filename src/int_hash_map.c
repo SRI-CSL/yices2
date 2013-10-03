@@ -379,3 +379,22 @@ void int_hmap_remove_records(int_hmap_t *hmap, void *aux, int_hmap_filter_t f) {
     int_hmap_cleanup(hmap);
   }
 }
+
+
+
+/*
+ * Iterator: call f(aux, p) on every record p
+ */
+void int_hmap_iterate(int_hmap_t *hmap, void *aux, int_hmap_iterator_t f) {
+  int_hmap_pair_t *d;
+  uint32_t i, n;
+
+  n = hmap->size;
+  d = hmap->data;
+  for (i=0; i<n; i++) {
+    if (d->key >= 0) {
+      f(aux, d);
+    }
+    d ++;
+  }
+}

@@ -1666,7 +1666,7 @@ static bool match_instance_types(type_matcher_t *matcher, instance_type_t *tau, 
  * - both tau and sigma must be valid types defined in matcher->types
  *   (and tau should contain type variables)
  * - if eq is true the constraint is "tau = sigma" 
- *   otherwise it's "tau is a subtype of sigma"
+ *   otherwise it's "tau is a supertype of sigma"
  * - return false if the set of constraints is inconsistent
  * - return true otherwise and update the solution
  */
@@ -2872,7 +2872,7 @@ static bool keep_in_cache(void *aux, int_hmap2_rec_t *r) {
  * Keep-alive function for the max cache
  * - record (k --> x) is kept if k and x haven't been deleted
  */
-static bool keep_in_max_table(void *aux, int_hmap_pair_t *r) {
+static bool keep_in_max_table(void *aux, const int_hmap_pair_t *r) {
   return good_type(aux, r->key) && good_type(aux, r->val);
 }
 

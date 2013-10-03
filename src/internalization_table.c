@@ -186,7 +186,7 @@ term_t intern_tbl_get_root(intern_tbl_t *tbl, term_t t) {
 
   assert(good_term(tbl->terms, t));
   y = intern_tbl_read_parent(tbl, t);
-  if (y < 0) { // t is not in the table of it's a root
+  if (y < 0) { // t is not in the table or t is a root
     return t;
   }
 
@@ -708,3 +708,31 @@ void intern_tbl_merge_classes(intern_tbl_t *tbl, term_t r1, term_t r2) {
 
   partition_merge(tbl, r1, r2);
 }
+
+
+
+/*
+ * SUPPORT FOR GARBAGE COLLECTION
+ */
+
+/*
+ * Mark all terms and types in the domain of tbl to preserve them from
+ * deletion in the next call to term_table_gc.
+ *
+ * Term index i is present if tbl->type[i] is not NULL_TYPE
+ */
+void intern_tbl_gc_mark(intern_tbl_t *tbl) {
+  uint32_t i, n;
+  type_t tau;
+
+  n = tbl->type.top;
+  for (i=0; i<n; i++) {
+    tau = tbl->type.map[i];
+    if (tau != NULL_TYPE) {
+      term_table_set_gc_mark(tbl->terms, i);
+      type_table_set_gc_mark(tbl->types, tau);
+    }
+  }
+}
+
+

@@ -109,4 +109,12 @@ extern void model_map_term(model_t *model, term_t t, value_t v);
 extern void model_add_substitution(model_t *model, term_t t, term_t u);
 
 
+/*
+ * Prepare for garbage collection: mark all the terms present in model
+ * - all marked terms will be considered as roots on the next call
+ *   to term_table_gc
+ */
+extern void model_gc_mark_terms(model_t *model);
+
+
 #endif /* __MODELS_H */

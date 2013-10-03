@@ -3454,6 +3454,28 @@ void fun_solver_free_model(fun_solver_t *solver) {
 
 
 
+/********************************
+ *  GARBAGE COLLECTION SUPPORT  *
+ *******************************/
+
+/*
+ * Mark all types used by solver (protect them from deletion in type_table_gc)
+ * - scan the variable table and mark every type in table->type[x]
+ */
+void fun_solver_gc_mark(fun_solver_t *solver) {
+  fun_vartable_t *vtbl;
+  type_table_t *types;
+  uint32_t i, n;
+
+  types = solver->types;
+  vtbl = &solver->vtbl;
+  n = vtbl->nvars;
+  for (i=0; i<n; i++) {
+    type_table_set_gc_mark(types, vtbl->type[i]);
+  }
+}
+
+
 
 
 
@@ -3522,4 +3544,5 @@ th_egraph_interface_t *fun_solver_egraph_interface(fun_solver_t *solver) {
 fun_egraph_interface_t *fun_solver_fun_egraph_interface(fun_solver_t *solver) {
   return &fsolver_fun_egraph;
 }
+
 

@@ -103,9 +103,19 @@ extern void int_hmap_reset(int_hmap_t *hmap);
  * - calls f(aux, p) on every record p stored in hmap
  * - if f(aux, p) returns true then record p is removed
  */
-typedef bool (*int_hmap_filter_t)(void *aux, int_hmap_pair_t *p);
+typedef bool (*int_hmap_filter_t)(void *aux, const int_hmap_pair_t *p);
 
 extern void int_hmap_remove_records(int_hmap_t *hmap, void *aux, int_hmap_filter_t f);
+
+
+/*
+ * Iterator: call f(aux, p) on every record p stored in hmap
+ * - f must not have any side effect on the hmap
+ */
+typedef void (*int_hmap_iterator_t)(void *aux, const int_hmap_pair_t *p);
+
+extern void int_hmap_iterate(int_hmap_t *hmap, void *aux, int_hmap_iterator_t f);
+
 
 
 

@@ -1594,7 +1594,7 @@ static void egraph_free_const_htbl(egraph_t *egraph) {
 
 
 /*
- * Hash consing object; a constant if defined by its type tau and its index id
+ * Hash consing object: a constant is defined by its type tau and its index id
  */
 typedef struct {
   int_hobj_t m;

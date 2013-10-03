@@ -217,6 +217,21 @@ __YICES_DLLSPEC__ extern type_t yices_new_uninterpreted_type(void);
  */
 __YICES_DLLSPEC__ extern type_t yices_tuple_type(uint32_t n, type_t tau[]);
 
+/*
+ * Variants: for small arity
+ *
+ * These variants build types:
+ *   (tuple tau1)
+ *   (tuple tau1 tau2)
+ *   (tuple tau1 tau2 tau3)
+ *
+ * Error report: same as yices_tuple_type if one of the type is invalid
+ */
+__YICES_DLLSPEC__ extern type_t yices_tuple_type1(type_t tau1);
+__YICES_DLLSPEC__ extern type_t yices_tuple_type2(type_t tau1, type_t tau2);
+__YICES_DLLSPEC__ extern type_t yices_tuple_type3(type_t tau1, type_t tau2, type_t tau3);
+
+
 
 /*
  * Function type: dom[0] ... dom[n-1] -> range
@@ -237,6 +252,19 @@ __YICES_DLLSPEC__ extern type_t yices_tuple_type(uint32_t n, type_t tau[]);
  *   type1 = dom[i]
  */
 __YICES_DLLSPEC__ extern type_t yices_function_type(uint32_t n, type_t dom[], type_t range);
+
+
+/*
+ * Variants for small arity:
+ *   [tau1 -> range]
+ *   [tau1, tau2 -> range]
+ *   [tau1, tau2. tau3 -> range]
+ *
+ * Same error reports are yices_function_type if one of the type is invalid
+ */
+__YICES_DLLSPEC__ extern type_t yices_function_type1(type_t tau1, type_t range);
+__YICES_DLLSPEC__ extern type_t yices_function_type2(type_t tau1, type_t tau2, type_t range);
+__YICES_DLLSPEC__ extern type_t yices_function_type3(type_t tau1, type_t tau2, type_t tau3, type_t range);
 
 
 

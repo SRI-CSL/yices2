@@ -647,3 +647,25 @@ pmap2_rec_t *pmap2_get(pmap2_t *pmap, int32_t k0, int32_t k1) {
   assert(e->k0 == k0 && e->k1 == k1);
   return e;
 }
+
+
+
+
+/*
+ * ITERATOR
+ * - call f(aux, p) for every p in the table 
+ */
+void pmap2_iterate(pmap2_t *pmap, void *aux, pmap2_iterator_t f) {
+  pmap2_htbl_t *htbl;
+  pmap2_rec_t *p;
+  uint32_t i, n;
+
+  htbl = &pmap->htbl;
+  n = htbl->size;
+  for (i=0; i<n; i++) {
+    p = htbl->data[i];
+    if (live_record(p)) {
+      f(aux, p);
+    }
+  }
+}

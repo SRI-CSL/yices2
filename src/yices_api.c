@@ -1935,6 +1935,81 @@ EXPORTED type_t yices_function_type(uint32_t n, type_t dom[], type_t range) {
 
 
 /*
+ * Variants/short cuts for tuple and function types
+ */
+EXPORTED type_t yices_tuple_type1(type_t tau1) {
+  if (! check_good_type(&types, tau1)) {
+    return NULL_TYPE;
+  }
+  return tuple_type(&types, 1, &tau1);
+}
+
+EXPORTED type_t yices_tuple_type2(type_t tau1, type_t tau2) {
+  type_t aux[2];
+
+  aux[0] = tau1;
+  aux[1] = tau2;
+
+  if (! check_good_types(&types, 2, aux)) {
+    return NULL_TYPE;
+  }
+  return tuple_type(&types, 2, aux);
+}
+
+EXPORTED type_t yices_tuple_type3(type_t tau1, type_t tau2, type_t tau3) {
+  type_t aux[3];
+
+  aux[0] = tau1;
+  aux[1] = tau2;
+  aux[2] = tau3;
+
+  if (! check_good_types(&types, 3, aux)) {
+    return NULL_TYPE;
+  }
+  return tuple_type(&types, 3, aux);
+}
+
+
+
+EXPORTED type_t yices_function_type1(type_t tau1, type_t range) {
+  if (! check_good_type(&types, tau1) || 
+      ! check_good_type(&types, range)) {
+    return NULL_TYPE;
+  }
+  return function_type(&types, range, 1, &tau1);
+}
+
+EXPORTED type_t yices_function_type2(type_t tau1, type_t tau2, type_t range) {
+  type_t aux[2];
+
+  aux[0] = tau1;
+  aux[1] = tau2;
+
+  if (! check_good_types(&types, 2, aux) ||
+      ! check_good_type(&types, range)) {
+    return NULL_TYPE;
+  }
+  return function_type(&types, range, 2, aux);
+}
+
+EXPORTED type_t yices_function_type3(type_t tau1, type_t tau2, type_t tau3, type_t range) {
+  type_t aux[3];
+
+  aux[0] = tau1;
+  aux[1] = tau2;
+  aux[2] = tau3;
+
+  if (! check_good_types(&types, 3, aux) ||
+      ! check_good_type(&types, range)) {
+    return NULL_TYPE;
+  }
+  return function_type(&types, range, 3, aux);
+}
+
+
+
+
+/*
  * Type macros and constructors
  */
 
@@ -4991,12 +5066,12 @@ EXPORTED int32_t yices_subst_term_array(uint32_t n, term_t var[], term_t map[], 
 
  subst_error:
   if (u == -1) {
-      // degree overflow
-      error.code = DEGREE_OVERFLOW;
-      error.badval = YICES_MAX_DEGREE + 1;
-    } else {
-      // BUG
-      error.code = INTERNAL_EXCEPTION;
+    // degree overflow
+    error.code = DEGREE_OVERFLOW;
+    error.badval = YICES_MAX_DEGREE + 1;
+  } else {
+    // BUG
+    error.code = INTERNAL_EXCEPTION;
   }
   delete_term_subst(&subst);
 
@@ -6295,7 +6370,6 @@ EXPORTED void yices_free_model(model_t *mdl) {
 }
 
 
-
 /*
  * Print model mdl on FILE f
  * - f must be open/writable
@@ -6303,6 +6377,7 @@ EXPORTED void yices_free_model(model_t *mdl) {
 EXPORTED void yices_print_model(FILE *f, model_t *mdl) {
   model_print_full(f, mdl);
 }
+
 
 /*
  * Pretty print mdl
@@ -6658,7 +6733,7 @@ EXPORTED int32_t yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val) {
     return -1;
   }
 
-   v = model_find_term_value(mdl, t);
+  v = model_find_term_value(mdl, t);
   if (v == null_value) {
     init_evaluator(&evaluator, mdl);
     v = eval_in_model(&evaluator, t);

@@ -511,4 +511,18 @@ static inline uint32_t fun_solver_get_max_update_conflicts(fun_solver_t *solver)
 
 
 
+
+
+/********************************
+ *  GARBAGE COLLECTION SUPPORT  *
+ *******************************/
+
+/*
+ * Mark all types used by solver (protect them from deletion in type_table_gc)
+ * - scan the variable table and mark every type in table->type[x]
+ */
+extern void fun_solver_gc_mark(fun_solver_t *solver);
+
+
+
 #endif /* __FUN_SOLVER_H */
