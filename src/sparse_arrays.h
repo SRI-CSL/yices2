@@ -1,19 +1,30 @@
 /*
- * SPARSE ARRAYS
+ * SPARSE ARRAYS FOR REGISTERING ROOTS
  */
 
 /*
- * A sparse array stores an integer array indexed from 0 to n-1 where
- * n may be large but we assume that most elements are never written
- * or read.
+ * For garbage collection, we must keep track of root terms and types (i.e.,
+ * terms and types that the application wants to keep).
  *
- * To support this, we divide the array in consecutive blocks of equal size
+ * For this purpose, we use reference counting. When a term/type is registered
+ * as a root, we increment a counter for this term/type. We store the counts
+ * in a sparse array structure.
+ *
+ * The array is divided in blocks of equal size
  * (block size = 64 for now) and we use one bit per block to record whether
  * the block is used or not.
  * - a block marked as dirty, is not initialized and its content shouldn't be read
- * - if a block is clean then all elements in the block have a valid value
+ * - if a block is clean then all elements in the block have a valid value 
  * - a block is initialized (all elements set to 0) on the first write into
  *   that block
+ *
+ * So the reference count for i is 0 if i is in a dirty block or
+ * a->data[i] otherwise.  We keep track of the total number of roots (i.e.,
+ * the number of i such that refcount for i is positive) in a->nelems.
+ *
+ * Overflow of a->data[i] is unlikely, but we take care of it anyway:
+ * - if a->data[i] reaches UINT32_MAX then the ref counter is frozen
+ *   incrementing or decrementing the ref counter for i does nothing.
  */
 
 #ifndef __SPARSE_ARRAYS_H
@@ -29,13 +40,17 @@
 /*
  * Data structure:
  * - data = the array proper
- * - dirty = bit vector for the dirty bits
+ * - clean = bit vector for marks: 
+ *   block i is dirty if clean[i] is 0
+ *   block i is clean if clena[i] is 1
  * - nblocks = number of blocks
+ * - nelems = number of elements i such that a[i] > 0
  */
 typedef struct sparse_array_s {
   uint32_t *data;
-  byte_t *dirty;
+  byte_t *clean;
   uint32_t nblocks;
+  uint32_t nelems;
 } sparse_array_t;
 
 
@@ -49,13 +64,16 @@ typedef struct sparse_array_s {
 /*
  * Default array size = 32 blocks
  */
-#define DEF_SPARSE_ARRAY_SIZE (32 * BSIZE)
+#define DEF_SPARSE_ARRAY_NBLOCKS 32u
+#define DEF_SPARSE_ARRAY_SIZE (DEF_SPARSE_ARRAY_NBLOCKS * BSIZE)
 
 
 /*
  * Maximal number of blocks: block indices are in [0, MAX_NBLOCKS - 1]
  */
-#define MAX_NBLOCKS ((UINT32_MAX>>BSIZE_NBITS) + 1)
+#define MAX_SPARSE_ARRAY_SIZE (UINT32_MAX/sizeof(uint32_t))
+#define MAX_NBLOCKS ((MAX_SPARSE_ARRAY_SIZE>>BSIZE_NBITS) + 1)
+
 
 // block in which index i resides
 static inline uint32_t block_of_index(uint32_t i) {
@@ -80,7 +98,7 @@ static inline uint32_t block_end(uint32_t k) {
 
 /*
  * Initialize a:
- * - n = minimal size requested
+ * - n = minimal size requested (number of elements in a)
  * - if n is 0, the default size is used
  * - all blocks are marked as dirty
  */
@@ -100,41 +118,22 @@ extern void reset_sparse_array(sparse_array_t *a);
 
 
 /*
- * Store x into a[i]:
- * - resize the array if necessary
- * - initialize i's block if that block is dirty: all elements are set to 0
- * - then store x
- */
-extern void sparse_array_write(sparse_array_t *a, uint32_t i, uint32_t x);
-
-
-/*
- * Read the value mapped to i:
- * - return 0 if i is in a dirty block or outside the array
- */
-extern uint32_t sparse_array_read(sparse_array_t *a, uint32_t i);
-
-
-/*
- * Increment a[i]:
- * - if i is in a dirty block, this has the same behavior 
- *   as writing '1' in a[i]
+ * Increment the ref counter a[i]
  */
 extern void sparse_array_incr(sparse_array_t *a, uint32_t i);
 
 
 /*
- * Decrement a[i]
- * - if i is in a dirty block, this write UINT32_MAX in a[i]
+ * Decrement a[i]: the ref counter must be positive (so i must be in a clean block).
  */
 extern void sparse_array_decr(sparse_array_t *a, uint32_t i);
 
 
 /*
- * Check whether i is in a clean block (i.e., value[i] is defined)
+ * Get the ref counter for i
+ * - return 0 if i is in a dirty block or outside a->data
  */
-extern bool sparse_array_clean_idx(sparse_array_t *a, uint32_t i);
-
+extern uint32_t sparse_array_read(sparse_array_t *a, uint32_t i);
 
 
 /*
@@ -146,7 +145,7 @@ extern bool sparse_array_clean_idx(sparse_array_t *a, uint32_t i);
  */
 typedef void (*sparse_array_iterator_t)(void *aux, uint32_t i);
 
-extern void sparse_array_iterate_pos(sparse_array_t *a, void *aux, sparse_array_iterator_t f);
+extern void sparse_array_iterate(sparse_array_t *a, void *aux, sparse_array_iterator_t f);
 
 
 
