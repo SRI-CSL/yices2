@@ -89,7 +89,7 @@ static void copy_block(uint32_t *b, uint32_t *a, uint32_t i) {
 
 /*
  * Resize the array to at least nb blocks
- * - nb must be more than a->nblosks
+ * - nb must be more than a->nblocks
  */
 static void resize_sparse_array(sparse_array_t *a, uint32_t nb) {
   uint32_t i, nblocks, n;

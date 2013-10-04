@@ -1771,7 +1771,7 @@ __YICES_DLLSPEC__ extern uint32_t yices_num_posref_types(void);
  * - tau = optional array of types
  * - ntau = size of tau
  * - keep_named specifies whether the named terms and types should
- *   all be presered
+ *   all be preserved
  * 
  * The set of roots is determined as follows:
  * 1) all terms/types used by contexts and models are roots.

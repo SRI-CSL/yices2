@@ -442,7 +442,7 @@ static void push_literal(sol_stack_t *s, literal_t l) {
  * - heap is initially empty: heap_last = 0
  * - heap[0] = -1 is a marker, with activity[-1] higher 
  *   than any variable activity.
- * - we also use -2 as a marker with negtative activity
+ * - we also use -2 as a marker with negative activity
  * - activity increment and threshold are set to their
  *   default initial value.
  */
@@ -866,7 +866,7 @@ static void stat_buffer_push(lcstat_t *r) {
 
 
 /*
- * Save all statiscis into the statistics file
+ * Save all statistics into the statistics file
  */
 void flush_learned_clauses_stats(void) {
   if (stat_buffer.data != NULL) {
@@ -986,7 +986,7 @@ static void learned_clause_deletion(sat_solver_t *solver, clause_t *cl) {
 
 
 /*
- * Snapshot: collect data about the current set of learned clasues
+ * Snapshot: collect data about the current set of learned clauses
  * then export that.
  * - HACK: we call learned_clause_deletion. 
  */
@@ -1034,7 +1034,7 @@ static void init_stats(solver_stats_t *stat) {
 
 /*
  * Allocate and initialize a solver
- * size = initial size fo the variable arrays
+ * size = initial size of the variable arrays
  */
 void init_sat_solver(sat_solver_t *solver, uint32_t size) {
   uint32_t lsize;
@@ -2820,11 +2820,11 @@ static bool level_has_lower_activity(sat_solver_t *sol, double ax, uint32_t k) {
 /*
  * RESTARTS: THREE VARIANTS
  * - full restart: backtrack(sol, 0)
- * - partial restart: lazier version: backtrak(sol, k) for some 
- *   level k >= 0 determined by variable activties:
+ * - partial restart: lazier version: backtrack(sol, k) for some 
+ *   level k >= 0 determined by variable activities:
  * - partial_restart_var: even lazier version: if partial restart
- *   would backtrak to level k then partial_restart_var backtracks
- *   ot k' >= k. 
+ *   would backtrack to level k then partial_restart_var backtracks
+ *   to k' >= k. 
  * - benchmarking shows that partial_restart_var seems to work best.
  */
 
@@ -2865,7 +2865,7 @@ static void partial_restart(sat_solver_t *sol) {
  * Variant:
  * - find the unassigned variable of highest activity
  * - keep all current decision levels that have at least one variable
- *   with highet ativity than that
+ *   with highest activity than that
  */
 static void partial_restart_var(sat_solver_t *sol) {
   double ax;
@@ -3085,7 +3085,7 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
 #endif
 
   /*
-   * Reduce strategu: like minisat
+   * Reduce strategy: like minisat
    */
   //  sol->reduce_threshold = UINT32_MAX;
   sol->reduce_threshold = sol->nb_clauses/4;

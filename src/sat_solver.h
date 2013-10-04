@@ -88,7 +88,7 @@ static inline bool is_neg(literal_t l) {
  * - we use four values to encode the truth value of x
  *   when x is assigned and the preferred value when x is
  *   not assigned.
- * - value[x] is interepreted as follows
+ * - value[x] is interpreted as follows
  *   val_undef_false = 0b00 --> x not assigned, preferred value = false
  *   val_undef_true  = 0b01 --> x not assigned, preferred value = true
  *   val_false = 0b10       --> x assigned false
@@ -153,7 +153,7 @@ enum {
  * - a links lnk is a pointer to a clause cl
  *   the low-order bits of lnk encode whether the next link is
  *   in cl->link[0] or cl->link[1]
- * - this is comptabible with the tagged pointers used as antecedents.
+ * - this is compatible with the tagged pointers used as antecedents.
  *
  * SPECIAL CODING: to distinguish between learned clauses and problem
  * clauses, the end marker is different.
@@ -189,13 +189,13 @@ struct clause_s {
 /*
  * Instrumentation for learned clauses
  * - creation = number of conflicts when the clause was created
- * - deletion = number of conflics when the clause is deleted
+ * - deletion = number of conflicts when the clause is deleted
  * - props = number of propagations involving that clause
  * - last_prop = last time the clause caused a propagation
  * - resos = number of times the clause is used in resolution 
- * - last_reso = last time hte clause was involved in a resolution step
+ * - last_reso = last time the clause was involved in a resolution step
  * - base_glue = glue score at creation
- * - glue = last comptued glue
+ * - glue = last computed glue
  * - min_glue = minimal of all glues so far
  */
 typedef struct lcstats_s {
@@ -500,7 +500,7 @@ typedef struct solver_stats_s {
  *   - mark[x]: 1 bit used in UIP computation
  *
  * - for every literal l between 0 and nb_lits - 1
- *   - value[l] = current assignemnt
+ *   - value[l] = current assignment
  *   - value[-2] = value[-1] = val_undef_false
  * - a heap for the decision heuristic
  *
@@ -735,7 +735,7 @@ extern void init_learned_clauses_stats(FILE *f);
 
 
 /*
- * Save all statiscis into the statistics file
+ * Save all statistics into the statistics file
  */
 extern void flush_learned_clauses_stats(void);
 

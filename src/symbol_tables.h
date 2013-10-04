@@ -60,7 +60,7 @@ typedef void (*stbl_finalizer_t)(stbl_rec_t *r);
  * The following parameters are used:
  * - NLOOKUPS = periodic check for resizing
  * - MAXVISITS = threshold for expensive lookups
- * - RESIZE_THREHSOLD = total cost of the last NLOOKUPS before resizing
+ * - RESIZE_THRESHOLD = total cost of the last NLOOKUPS before resizing
  *   is triggered.
  */
 #define STBL_NLOOKUPS 10u

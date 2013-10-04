@@ -42,7 +42,7 @@
  * - data = the array proper
  * - clean = bit vector for marks: 
  *   block i is dirty if clean[i] is 0
- *   block i is clean if clena[i] is 1
+ *   block i is clean if clean[i] is 1
  * - nblocks = number of blocks
  * - nelems = number of elements i such that a[i] > 0
  */
