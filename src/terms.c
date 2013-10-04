@@ -107,6 +107,7 @@ static void term_table_init(term_table_t *table, uint32_t n, type_table_t *ttbl,
   table->size = n;
   table->nelems = 0;
   table->free_idx = -1; // empty free list
+  table->live_terms = 0;
 
   table->types = ttbl;
   table->pprods = ptbl;
@@ -174,6 +175,7 @@ static int32_t allocate_term_id(term_table_t *table) {
     assert(i < table->size);
   }
   clr_bit(table->mark, i);
+  table->live_terms ++;
 
   return i;
 }
@@ -1659,6 +1661,9 @@ static void delete_term(term_table_t *table, int32_t i) {
   table->desc[i].integer = table->free_idx;
   table->free_idx = i;
   table->kind[i] = UNUSED_TERM;
+
+  assert(table->live_terms > 0);
+  table->live_terms --;
 }
 
 

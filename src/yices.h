@@ -1503,20 +1503,23 @@ __YICES_DLLSPEC__ extern term_t yices_get_term_by_name(const char *name);
  * The functions return -1 and set the error report if the 
  * type or term is invalid. Otherwise, they return 0.
  *
- * If tau or t doesn't have a base name, the functions do nothing and
- * return 0.
+ * If tau or t doesn't have a base name, the functions do 
+ * nothing and return 0.
+ *
+ * Otherwise, the mapping from the base_name to tau or t is removed
+ * from the symbol table for terms or types, then the base_name of
+ * tau or t is set to NULL (i.e., tau or t don't have a base name anymore).
  */
 __YICES_DLLSPEC__ extern int32_t yices_clear_type_name(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_clear_term_name(term_t t);
   
-
 
 /*
  * Get the base name of a term or type
  * 
  * The functions return NULL if the  term or type has no name,
  * of if the term or type is not valid. The error report is set
- * to INVALID_TERM or INVALID_TYPE in such a case.
+ * to INVALID_TERM or INVALID_TYPE in such cases.
  */
 __YICES_DLLSPEC__ extern const char *yices_get_type_name(type_t tau);
 __YICES_DLLSPEC__ extern const char *yices_get_term_name(term_t t);
@@ -1669,6 +1672,124 @@ __YICES_DLLSPEC__ extern int32_t yices_term_is_scalar(term_t t);
  */
 __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
 
+
+
+
+/*************************
+ *  GARBAGE COLLECTION   *
+ ************************/
+
+/*
+ * By default, Yices never deletes any terms or types. All terms and
+ * types returned by the function above can always be used by the
+ * application. There's no explicit term or type deletion function.
+ *
+ * If you want to delete terms or types that are no longer useful, you
+ * must make an explicit call to the garbage collector by calling
+ * function yices_garbage_collect.
+ *
+ * Yices uses a mark-and-sweep garbage collector. Given a set of root
+ * terms and types that must be preserved, Yices marks the roots and
+ * all the terms and types on which the roots depend.  After this
+ * marking phase, all unmarked terms and types are deleted. Yices
+ * includes several methods to specify the root terms and types that
+ * you want to keep.
+ *
+ * First, there's a set of default roots, namely, every term or type
+ * that is used by a live context or model. For example, if you call
+ * yices_new_context to obtain a new context and assert formulas in
+ * this context, then all these formulas are considered root terms
+ * until you delete the context using yices_free_context.
+ *
+ * In addition, you can specify more roots using any of the following
+ * mechanisms (they can be combined).
+ *
+ * 1) give a list of root terms and types as arguments to 
+ *    yices_garbage_collect.
+ *
+ * 2) set parameter 'keep_named' to true when calling
+ *    yices_garbage_collect. 
+ *
+ *    If this flag is true, any term or type that is stored in the
+ *    symbol tables is added to the set of roots.
+ *
+ * 3) maintain reference counters for terms and types, using the functions 
+ *      yices_incref_term
+ *      yices_decref_term
+ *      yices_incref_type
+ *      yices_decref_type
+ *
+ *    When yices_garbage_collect is called, all terms and all types with
+ *    a positive reference counter are considered roots. If you never
+ *    call yices_incref_term or yices_incref_type, then the reference
+ *    counting is disabled and it's not taken into account when calling
+ *    yices_garbage_collect.
+ *
+ * Remember that nothing is deleted until the call to yices_garbage_collect.
+ */
+
+
+/*
+ * The following functions can be used to get the number of terms
+ * and types currently stored in the internal data structures.
+ */
+__YICES_DLLSPEC__ extern uint32_t yices_num_terms(void);
+__YICES_DLLSPEC__ extern uint32_t yices_num_types(void);
+
+
+/*
+ * Reference counting support:
+ * - the functions return -1 if there's an error, 0 otherwise
+ *
+ * Error reports:
+ * - INVALID_TERM or INVALID_TYPE if the argument is not valid
+ * 
+ * The decref functions also report an error if the argument has a
+ * current reference count of zero. The error report's code is set to
+ * BAD_TERM_DECREF or BAD_TYPE_DECREF in such a case.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_incref_term(term_t t);
+__YICES_DLLSPEC__ extern int32_t yices_decref_term(term_t t);
+__YICES_DLLSPEC__ extern int32_t yices_incref_type(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_decref_type(type_t tau);
+
+
+/*
+ * The following functions give the number of terms and types
+ * that have a positive reference count. They return 0 if 
+ * no call to yices_incref_term or yices_incref_type has been
+ * made.
+ */
+__YICES_DLLSPEC__ extern uint32_t yices_num_posref_terms(void);
+__YICES_DLLSPEC__ extern uint32_t yices_num_posref_types(void);
+
+
+/*
+ * Call the garbage collector. 
+ * - t = optional array of terms
+ * - nt = size of t
+ * - tau = optional array of types
+ * - ntau = size of tau
+ * - keep_named specifies whether the named terms and types should
+ *   all be presered
+ * 
+ * The set of roots is determined as follows:
+ * 1) all terms/types used by contexts and models are roots.
+ * 2) if t is non NULL, then all elements in t[0 ... nt-1] are added to 
+ *    the set of root terms.
+ * 3) if tau is non NULL, then all elements in tau[0 ... ntau - 1] are added 
+ *    to the set of root types.
+ * 4) if keep_named is non zero (i.e., true), then all terms and types
+ *    that are referenced in the symbol tables are added to the set of 
+ *    roots.
+ * 5) all terms and types with a positive reference count are added to
+ *    the set of roots.
+ *
+ * The function silently ignores any term t[i] or any type tau[j] that's not valid.
+ */
+__YICES_DLLSPEC__ extern void yices_garbage_collect(term_t *t, uint32_t nt,
+						    type_t *tau, uint32_t ntau,
+						    int32_t keep_named);
 
 
 

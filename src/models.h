@@ -114,7 +114,7 @@ extern void model_add_substitution(model_t *model, term_t t, term_t u);
  * - all marked terms will be considered as roots on the next call
  *   to term_table_gc
  */
-extern void model_gc_mark_terms(model_t *model);
+extern void model_gc_mark(model_t *model);
 
 
 #endif /* __MODELS_H */

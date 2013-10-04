@@ -264,6 +264,7 @@ typedef struct type_mtbl_s {
  *   The free list contains the deleted types: for each i in the list,
  *     kind[i] = UNUSED_TYPE
  *     desc[i].next = index of i's successor in the list (or -1).
+ * - live_types = number of types = nelems - size of the free_list
  * - htbl = hash table for hash consing
  * - stbl = symbol table for named types
  *   stbl stores a mapping from strings to type ids.
@@ -291,6 +292,7 @@ typedef struct type_table_s {
   uint32_t size;
   uint32_t nelems;
   int32_t free_idx;
+  uint32_t live_types;
 
   int_htbl_t htbl;
   stbl_t stbl;

@@ -381,6 +381,8 @@ typedef void (*special_finalizer_t)(special_term_t *spec, term_kind_t tag);
  *   desc[i].integer is the index of the next term in the free list
  *   (or -1 if i is the last element in the free list).
  *
+ * - live_terms = number of actual terms = nelems - size of the free list
+ *
  * Symbol table and name table:
  * - stbl is a symbol table that maps names (strings) to term occurrences.
  * - the name table is the reverse. If maps term occurrence to a name.
@@ -408,6 +410,7 @@ typedef struct term_table_s {
   uint32_t size;
   uint32_t nelems;
   int32_t free_idx;
+  uint32_t live_terms;
 
   type_table_t *types;
   pprod_table_t *pprods;

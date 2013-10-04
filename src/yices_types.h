@@ -74,11 +74,13 @@ typedef enum smt_status {
  ****************/
 
 /*
- * Error report for term and type construction
- * - when term or type constructor fails, it returns NULL_TYPE or NULL_TERM.
- * - details about the cause of the failure are stored in an error_record
- * - the error record contains an error code: see below
- *    + extra information that depends on the error code. 
+ * Error reports
+ * - the API function return a default value if there's an error 
+ *   (e.g., term constructors return NULL_TERM, type constructors return NULL_TYPE).
+ * - details about the cause of the error are stored in an error_report structure
+ *   defined below.
+ * - the error report contains an error code and extra information
+ *   that depends on the error code.
  */
 typedef enum error_code {
   NO_ERROR = 0,
@@ -89,7 +91,7 @@ typedef enum error_code {
   INVALID_TYPE,
   INVALID_TERM,
   INVALID_CONSTANT_INDEX,
-  INVALID_VAR_INDEX,  // Not used anymore
+  INVALID_VAR_INDEX,      // Not used anymore
   INVALID_TUPLE_INDEX,
   INVALID_RATIONAL_FORMAT,
   INVALID_FLOAT_FORMAT,
@@ -123,6 +125,8 @@ typedef enum error_code {
   TYPE_VAR_REQUIRED,      // added 2013/03/31
   DUPLICATE_TYPE_VAR,     // added 2013/03/31
   BVTYPE_REQUIRED,        // added 2013/05/27
+  BAD_TERM_DECREF,        // added 2013/10/03
+  BAD_TYPE_DECREF,        // added 2013/10/03
 
   /*
    * Parser errors
@@ -262,6 +266,8 @@ typedef enum error_code {
  *  TYPE_VAR_REQUIRED          type1
  *  DUPLICATE_TYPE_VAR         type1
  *  BVTYPE_REQUIRED            type1
+ *  BAD_TERM_DECREF            term1
+ *  BAD_TYPE_DECREF            type1
  *
  * The following error codes are used only by the parsing functions. 
  * No field other than line/column is set.

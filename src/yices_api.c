@@ -30,6 +30,7 @@
 #include "string_utils.h"
 #include "dl_lists.h"
 #include "int_array_sort.h"
+#include "sparse_arrays.h"
 
 #include "bv64_constants.h"
 #include "rba_buffer_terms.h"
@@ -69,16 +70,16 @@
 // END
 
 
-/*
- * Global tables: 
- * - type table + term_table + pprod_table + term_manager
- */
+
+/****************************
+ *  GLOBAL DATA STRUCTURES  *
+ ***************************/
+
 // global tables
 static type_table_t types;
 static pprod_table_t pprods;
 static term_table_t terms;
 static term_manager_t manager;
-
 
 // error report
 static error_report_t error;
@@ -87,7 +88,6 @@ static error_report_t error;
 static parser_t *parser;
 static lexer_t *lexer;
 static tstack_t *tstack;
-
 
 // rational for building terms
 static rational_t r0;
@@ -110,6 +110,22 @@ yices_globals_t __yices_globals = {
   NULL, NULL, NULL, NULL, NULL,
 };
 
+
+
+/*
+ * Registry tables for root terms and types (for garbage collection).
+ * - the two tables are statically allocated but initialized only
+ *   when needed.
+ * - we keep pointers to the tables:
+ *   Initially, we set root_terms = NULL and root_types = NULL
+ *   On the first call to register a term or type, we initialize the 
+ *   static tables and update root_terms/root_types to point to it
+ */
+static sparse_array_t *root_terms;
+static sparse_array_t *root_types;
+
+static sparse_array_t the_root_terms;
+static sparse_array_t the_root_types;
 
 
 
@@ -776,6 +792,10 @@ EXPORTED void yices_init(void) {
   lexer = NULL;
   tstack = NULL;
 
+  // registries for garbage collection
+  root_terms = NULL;
+  root_types = NULL;
+
   // prepare the global table
   init_globals(&__yices_globals);
 }
@@ -785,6 +805,16 @@ EXPORTED void yices_init(void) {
  * Cleanup: delete all tables and internal data structures
  */
 EXPORTED void yices_exit(void) {
+  // registries
+  if (root_terms != NULL) {
+    assert(root_terms == &the_root_terms);
+    delete_sparse_array(&the_root_terms);
+  }
+  if (root_types != NULL) {
+    assert(root_types == &the_root_types);
+    delete_sparse_array(&the_root_types);
+  }
+
   // parser etc.
   delete_parsing_objects();
 
@@ -6758,3 +6788,244 @@ EXPORTED int32_t yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val) {
 }
 
 
+
+
+/*************************
+ *  GARBAGE COLLECTION   *
+ ************************/
+
+/*
+ * Allocate and initialize the registry tables
+ */
+static sparse_array_t *get_root_terms(void) {
+  if (root_terms == NULL) {
+    init_sparse_array(&the_root_terms, 0);
+    root_terms = &the_root_terms;
+  }
+  return root_terms;
+}
+
+static sparse_array_t *get_root_types(void) {
+  if (root_types == NULL) {
+    init_sparse_array(&the_root_types, 0);
+    root_types = &the_root_types;
+  }
+  return root_types;
+}
+
+
+/*
+ * Increment/decrement the reference counters
+ */
+EXPORTED int32_t yices_incref_term(term_t t) {
+  sparse_array_t *roots;
+
+  if (!check_good_term(&manager, t)) {
+    return -1;
+  }
+
+  // we keep the ref count on the term index 
+  // (i.e., we ignore t's polarity)
+  roots = get_root_terms();
+  sparse_array_incr(roots, index_of(t));
+
+  return 0;
+}
+
+EXPORTED int32_t yices_incref_type(type_t tau) {
+  sparse_array_t *roots;
+
+  if (!check_good_type(&types, tau)) {
+    return -1;
+  }
+
+  roots = get_root_types();
+  sparse_array_incr(roots, tau);
+
+  return 0;
+}
+
+EXPORTED int32_t yices_decref_term(term_t t) {
+  if (!check_good_term(&manager, t)) {
+    return -1;
+  }
+
+  if (root_terms == NULL || 
+      sparse_array_read(root_terms, index_of(t)) == 0) {
+    error.code = BAD_TERM_DECREF;
+    error.term1 = t;
+    return -1;
+  }
+
+  sparse_array_decr(root_terms, index_of(t));
+
+  return 0;
+}
+
+EXPORTED int32_t yices_decref_type(type_t tau) {
+  if (! check_good_type(&types, tau)) {
+    return -1;
+  }
+
+  if (root_types == NULL ||
+      sparse_array_read(root_types, tau) == 0) {
+    error.code = BAD_TYPE_DECREF;
+    error.type1 = tau;
+    return -1;
+  }
+
+  sparse_array_decr(root_types, tau);
+
+  return 0;
+}
+
+
+/*
+ * Number of live terms and types
+ */
+EXPORTED uint32_t yices_num_terms(void) {
+  return terms.live_terms;
+}
+
+EXPORTED uint32_t yices_num_types(void) {
+  return types.live_types;
+}
+
+
+/*
+ * Number of terms/types with a positive reference count
+ */
+EXPORTED uint32_t yices_num_posref_terms(void) {
+  uint32_t n;
+
+  n = 0;
+  if (root_terms != NULL) {
+    n = root_terms->nelems;
+  }
+  return n;
+}
+
+EXPORTED uint32_t yices_num_posref_types(void) {
+  uint32_t n;
+
+  n = 0;
+  if (root_types != NULL) {
+    n = root_types->nelems;
+  }
+  return n;
+}
+
+
+
+/*
+ * GC: mark roots
+ */
+
+// iterator for the root_terms array
+static void term_idx_marker(void *aux, uint32_t i) {
+  assert(aux == &terms);
+  if (good_term_idx(aux, i)) {
+    term_table_set_gc_mark(aux, i);
+  }
+}
+
+// iterator for the root_types array
+static void type_marker(void *aux, uint32_t i) {
+  assert(aux == &types);
+  if (good_type(aux, i)) {
+    type_table_set_gc_mark(aux, i);
+  }
+}
+
+// scan the list of contexts and mark
+static void context_list_gc_mark(void) {
+  dl_list_t *elem;
+
+  elem = context_list.next;
+  while (elem != &context_list) {
+    context_gc_mark(context_of_header(elem));
+    elem = elem->next;
+  }
+}
+
+// scan the list of models and call the mark procedure
+static void model_list_gc_mark(void) {
+  dl_list_t *elem;
+
+  elem = model_list.next;
+  while (elem != &model_list) {
+    model_gc_mark(model_of_header(elem));
+    elem = elem->next;
+  }
+}
+
+// mark all terms in array a, n = size of a
+static void mark_term_array(term_table_t *tbl, term_t *a, uint32_t n) {
+  uint32_t i;
+  int32_t idx;
+
+  for (i=0; i<n; i++) {
+    idx = index_of(a[i]);
+    if (good_term_idx(tbl, idx)) {
+      term_table_set_gc_mark(tbl, idx);
+    } 
+  }
+}
+
+// mark all types in array a
+static void mark_type_array(type_table_t *tbl, type_t *a, uint32_t n) {
+  uint32_t i;
+  type_t tau;
+
+  for (i=0; i<n; i++) {
+    tau = a[i];
+    if (good_type(tbl, tau)) {
+      type_table_set_gc_mark(tbl, tau);
+    }
+  }
+}
+
+
+/*
+ * Call the garbage collector
+ * - t = optional array of terms
+ * - nt = size of t
+ * - tau = optional array of types
+ * - ntau = size of tau
+ * - keep_named specifies whether the named terms and types should
+ *   all be presered
+ */
+EXPORTED void yices_garbage_collect(term_t *t, uint32_t nt,
+				    type_t *tau, uint32_t ntau,
+				    int32_t keep_named) {
+  bool keep;
+
+  /*
+   * Default roots: all terms and types in all live models and context
+   */
+  context_list_gc_mark();
+  model_list_gc_mark();
+  
+  /*
+   * Add roots if t and tau
+   */
+  if (t != NULL) mark_term_array(&terms, t, nt);
+  if (tau != NULL) mark_type_array(&types, tau, ntau);
+  
+ 
+  /*
+   * Roots from the reference counting
+   */
+  if (root_terms != NULL) {
+    sparse_array_iterate(root_terms, &terms, term_idx_marker);
+  }
+  if (root_types != NULL) {
+    sparse_array_iterate(root_types, &types, type_marker);
+  }
+
+  /*
+   * Call the garbage collector
+   */
+  keep = (keep_named != 0);
+  term_table_gc(&terms, keep);
+}

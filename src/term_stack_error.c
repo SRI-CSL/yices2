@@ -438,10 +438,10 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
  * 400 to ... --> other error codes
  *
  * The term_stack should only trigger error codes in the range [0..99]
- * (more exactly in the range [0 .. ARITHCONSTANT_REQUIRED].
+ * (more exactly in the range [0 .. BAD_TYPE_DECREF].
  * We assign a severity to these errors, as defined below.
  */
-#define NUM_YICES_ERRORS (BVTYPE_REQUIRED+1)
+#define NUM_YICES_ERRORS (BAD_TYPE_DECREF+1)
 
 /*
  * Severity of an error:
@@ -484,10 +484,12 @@ static uint8_t severity[NUM_YICES_ERRORS] = {
   2, // EMPTY_BITVECTOR
   2, // ARITHCONSTANT_REQUIRED (should never be raised by term stack, see eval_mk_div)
   2, // INVALID_MACRO (bug in term_stack)
-  0, // TOO_MANY_MACRO_PARAMS (TBD)
+  0, // TOO_MANY_MACRO_PARAMS (used for SMT-LIB 2)
   2, // TYPE_VAR_REQUIRED (bug in term_stack)
-  0, // DUPLICATE_TYPE_VAR (TBD)
+  0, // DUPLICATE_TYPE_VAR (used in SMT-LIB 2)
   2, // BVTYPE_REQUIRED (not used anywhere)
+  2, // BAD_TERM_DECREF (not used by term_stack)
+  2, // BAD_TYPE_DECREF (not used by term_stack)
 };
 
 

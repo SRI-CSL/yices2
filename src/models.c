@@ -197,7 +197,7 @@ static void mdl_mark_alias(void *aux, const int_hmap_pair_t *r) {
  * - all marked terms will be considered as roots on the next call
  *   to term_table_gc
  */
-void model_gc_mark_terms(model_t *model) {
+void model_gc_mark(model_t *model) {
   int_hmap_iterate(&model->map, model->terms, mdl_mark_map);
   if (model->alias_map != NULL) {
     int_hmap_iterate(model->alias_map, model->terms, mdl_mark_alias);

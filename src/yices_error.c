@@ -177,6 +177,14 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "bitvector type required\n");
     break;
 
+  case BAD_TERM_DECREF:
+    code = fprintf(f, "Invalid decref: term has refcount zero\n");
+    break;
+
+  case BAD_TYPE_DECREF:
+    code = fprintf(f, "Invalid decref: type has refcount zero\n");
+    break;
+
     /*
      * Parser errors 
      */

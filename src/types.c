@@ -252,6 +252,7 @@ static void type_table_init(type_table_t *table, uint32_t n) {
   table->size = n;
   table->nelems = 0;
   table->free_idx = NULL_TYPE;
+  table->live_types = 0;
 
   init_int_htbl(&table->htbl, 0); // use default size
   init_stbl(&table->stbl, 0);     // default size too
@@ -314,6 +315,7 @@ static type_t allocate_type_id(type_table_t *table) {
     }
   }
   table->name[i] = NULL;
+  table->live_types ++;
 
   return i;
 }
@@ -350,6 +352,9 @@ static void erase_type(type_table_t *table, type_t i) {
   table->kind[i] = UNUSED_TYPE;
   table->desc[i].next = table->free_idx;
   table->free_idx = i;
+
+  assert(table->live_types > 0);
+  table->live_types --;
 }
 
 
