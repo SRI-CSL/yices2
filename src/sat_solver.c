@@ -3028,8 +3028,8 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
 solver_status_t solve(sat_solver_t *sol, bool verbose) {
   int32_t code;
   bvar_t x;
-  uint32_t c_threshold, d_threshold;
-  //  uint32_t u, v, threshold;
+  //  uint32_t c_threshold, d_threshold;
+  uint32_t u, v, threshold;
 
   if (sol->status == status_unsat) return status_unsat;
 
@@ -3070,7 +3070,7 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
    */
   // c_threshold = number of conflicts in each iteration
   // increased by RETART_FACTOR after each iteration
-#if 1
+#if 0
   c_threshold = INITIAL_RESTART_THRESHOLD;
   d_threshold = INITIAL_RESTART_THRESHOLD;
 #endif
@@ -3078,7 +3078,7 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
   /*
    * Restart strategy: Luby sequence
    */
-#if 0
+#if 1
   u = 1;
   v = 1;
   threshold = LUBY_INTERVAL;
@@ -3104,8 +3104,8 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
     fprintf(stderr, "---------------------------------------------------------------------------------\n");
     
     fprintf(stderr, "| %7"PRIu32"  %8"PRIu32" |  %8"PRIu32" | %8"PRIu32" %8"PRIu64" | %8"PRIu32" %8"PRIu64" %7.1f |\n", 
-	    d_threshold, sol->reduce_threshold, sol->nb_bin_clauses,              // PICO
-	    //            threshold, sol->reduce_threshold, sol->nb_bin_clauses,  // LUBY
+	    //	    d_threshold, sol->reduce_threshold, sol->nb_bin_clauses,              // PICO
+	    threshold, sol->reduce_threshold, sol->nb_bin_clauses,  // LUBY
             get_cv_size(sol->problem_clauses), sol->stats.prob_literals,
             get_cv_size(sol->learned_clauses), sol->stats.learned_literals,
             ((double) sol->stats.learned_literals)/get_cv_size(sol->learned_clauses));
@@ -3116,14 +3116,14 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
 #if DEBUG
     check_marks(sol);
 #endif
-    code = sat_search(sol, c_threshold);  // PICO
-    //   code = sat_search(sol, threshold);     // LUBY
+    //    code = sat_search(sol, c_threshold);  // PICO
+    code = sat_search(sol, threshold);     // LUBY
 
 #if DEBUG
     check_marks(sol);
 #endif
 
-#if 0
+#if 1
     // Luby sequence
     if ((u & -u) == v) {
       u ++;
@@ -3142,7 +3142,7 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
     }
 #endif
 
-#if 1
+#if 0
     // picosat-style sequence
     c_threshold = (uint32_t)(c_threshold * RESTART_FACTOR);  // multiply by 1.1
     if (c_threshold >= d_threshold) {

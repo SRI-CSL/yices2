@@ -31,12 +31,28 @@
  */
 #define SIMPLIFY_CONFLICT_THRESHOLD    2000
 
+
 /*
- * Restart parameters
+ * Restart parameters:
+ * - Minisat-style: start with RESTART_THRESHOLD then increase geometrically
+ * - Picosat-style: innner loop/outer loop both use geometric progression
+ *   the inner loop counter is reset to RESTART_THRESHOLD on every
+ *   iteration of the outer loop
+ * - Luby style: use the sequence 1, 1, 2, 1 2, 4, 1, 1, 2, 1, 1, 2, 4, 8, ...
+ *   multiply by the base LUBY_INTERVAL defined below
+ *
+ * As of 2013/10/04: best setting found is Luby style, with base interval - 10
  */
-// #define INITIAL_RESTART_THRESHOLD  100  // number of conflicts before the first restart
-#define INITIAL_RESTART_THRESHOLD  10   // number of conflicts before the first restart
+#define INITIAL_RESTART_THRESHOLD  50   // number of conflicts before the first restart
 #define MINISAT_RESTART_FACTOR 1.5      // increase factor for the restart threshold
+
+// Picosat-style restart and reduce
+#define RESTART_FACTOR 1.05
+#define MAX_DTHRESHOLD 1000000
+
+// Luby-style restart
+#define LUBY_INTERVAL 10
+
 
 /*
  * Heuristic for deletion of half the learned clauses
@@ -51,19 +67,8 @@
 #define MIN_REDUCE_THRESHOLD 1000       // minimum initial threshold
 #define MINISAT_REDUCE_FACTOR 1.1       // increase factor for the threshold
 
-/*
- * Picosat-style restart and reduce
- */
-// #define RESTART_FACTOR 1.1
-#define RESTART_FACTOR 1.05
+// picosat-stye
 #define REDUCE_FACTOR  1.05
-#define MAX_DTHRESHOLD 1000000
-
-
-/*
- * Luby-style restart
- */
-#define LUBY_INTERVAL 10
 
 /*
  * Parameters for removing irrelevant learned clauses
