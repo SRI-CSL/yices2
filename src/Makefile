@@ -113,8 +113,8 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c arith_vartable.c \
               refcount_int_arrays.c refcount_strings.c remap_table.c       \
               renaming_context.c search_parameters.c simplex.c             \
               small_bvsets.c smt_core.c smt_logic_codes.c smt_term_stack.c \
-              sparse_arrays.c string_buffers.c string_utils.c              \
-              subst_cache.c subst_context.c symbol_tables.c                \
+              sparse_arrays.c stable_sort.c string_buffers.c               \
+              string_utils.c subst_cache.c subst_context.c symbol_tables.c \
               symmetry_breaking.c terms.c term_manager.c term_printer.c    \
               term_stack2.c term_stack_error.c  term_substitution.c        \
               term_utils.c theory_explanations.c tracer.c tuple_hash_map.c \

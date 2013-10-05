@@ -3109,11 +3109,11 @@ static void mark_reachable_terms(term_table_t *table, int32_t ptr, int32_t i) {
   case UNUSED_TERM:
   case RESERVED_TERM:
   case CONSTANT_TERM:
-  case UNINTERPRETED_TERM:
-  case VARIABLE:
   case ARITH_CONSTANT:
   case BV64_CONSTANT:
   case BV_CONSTANT:
+  case VARIABLE:
+  case UNINTERPRETED_TERM:
     // leaf terms
     break;
 
@@ -3133,6 +3133,7 @@ static void mark_reachable_terms(term_table_t *table, int32_t ptr, int32_t i) {
   case LAMBDA_TERM:
   case OR_TERM:
   case XOR_TERM:
+  case ARITH_BINEQ_ATOM:
   case BV_ARRAY:
   case BV_DIV:
   case BV_REM:

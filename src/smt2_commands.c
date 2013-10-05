@@ -103,7 +103,7 @@ static void smt2_pop_term_names(smt2_name_stack_t *s, uint32_t ptr) {
 
     string_decref(name);
   }
-  s->top = n;
+  s->top = n;  
 }
 
 
@@ -2674,6 +2674,10 @@ void smt2_pop(uint32_t n) {
 	}
 
 	check_stack(g);
+
+	// EXPERIMENT: call the garbage collector
+	yices_garbage_collect(NULL, 0, NULL, 0, true);
+
 	report_success();
       }
     }
