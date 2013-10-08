@@ -144,13 +144,14 @@ static uint32_t locate_right(stable_sorter_t *sorter, uint32_t i, uint32_t j, vo
 /*
  * Insertion sort of data[i ... k-1]
  * - data[i .. j-1] is already sorted
+ * - j may be equal to k
  */
 static void binary_isort(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t k) {
   void **a;
   void *p;
   uint32_t t, u;
 
-  assert(i <= j && j < k && k <= sorter->nelems);
+  assert(i <= j && j <= k && k <= sorter->nelems);
 
   a = sorter->data;
   while (j < k) {
@@ -245,7 +246,7 @@ static void merge_left(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t
    * merge a[0 ... n-1] = buffer and b[j ... k-1] = data[j .. k-1]
    * into data[i .. k-1].
    */
-  a = sorter->b;
+  a = sorter->buffer;
   b = sorter->data;
   n = j - i;
   t = 0;
@@ -279,7 +280,7 @@ static void merge_left(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t
     b[i] = a[t];
     i ++;
     t ++; 
-  } while (i < n);  
+  } while (t < n);  
 }
 
 
@@ -303,7 +304,7 @@ static void merge_right(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_
    * b[0 ... n-1] = buffer
    */
   a = sorter->data;
-  b = sorter->b;
+  b = sorter->buffer;
   n = k - j;
   
   n --;
@@ -318,27 +319,30 @@ static void merge_right(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_
     if (sorter->cmp(sorter->aux, p, q)) {
       // p <= q: store q into a[k]
       a[k] = q;
-      if (n == 0) return;
       k --;
+      if (n == 0) return;
       n --;
       q = b[n];
     } else {
       // q < p: store p into a[k]
       a[k] = p;
-      if (i == j) break;
       k --;
+      if (i == j) break;
       j --;
       p = a[j];
     }
   }
 
   // copy what's left of b (i.e., b[0 .. n] into a[i ... k])
-  assert(n > 0 && j == i && k - i == n);
-  do {
-    a[k] = b[n];
+  // n may be 0 here 
+  assert(j == i && k - i == n); 
+
+  a[k] = b[n];
+  while (n > 0) {
     k --;
     n --;
-  } while (n > 0);
+    a[k] = b[n];
+  }
 }
 
 
@@ -516,7 +520,7 @@ void apply_sorter(stable_sorter_t *sorter, void **a, uint32_t n) {
      */
     k = i + min;
     if (j < k) {
-      if (n > k) k = n;
+      if (n < k) k = n;
       binary_isort(sorter, i, j, k);
       j = k;
     }

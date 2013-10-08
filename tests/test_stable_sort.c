@@ -124,7 +124,7 @@ static void test_sort(stable_sorter_t *sorter, pair_t **a, uint32_t n) {
 
 
 /*
- * Initialize constant, increasing, decreasing arrays
+ * Initialize array a
  */
 static void constant_array(pair_t **a, uint32_t n) {
   uint32_t i, v;
@@ -145,6 +145,17 @@ static void increasing_array(pair_t **a, uint32_t n) {
   }
 }
 
+static void strictly_increasing_array(pair_t **a, uint32_t n) {
+  uint32_t i, v;
+
+  v = (uint32_t) (random() % 100);
+  for (i=0; i<n; i++) {
+    a[i]->key = v;
+    v += (uint32_t) (random() % 4) + 1;
+  }
+}
+
+
 static void reverse_array(pair_t **a, uint32_t n) {
   pair_t *p;
   uint32_t i;
@@ -162,8 +173,29 @@ static void reverse_array(pair_t **a, uint32_t n) {
   }
 }
 
+static void swap_elements(pair_t **a, uint32_t n, uint32_t nswaps) {
+  pair_t *p;
+  uint32_t i, j;
+
+  if (n < 2) return;
+
+  while (nswaps > 0) {
+    nswaps --;
+    i = (uint32_t) (random() % n);
+    j = (uint32_t) (random() % n);
+    p = a[i];
+    a[i] = a[j];
+    a[j] = p;
+  }
+}
+
 static void decreasing_array(pair_t **a, uint32_t n) {
   increasing_array(a, n);
+  reverse_array(a, n);
+}
+
+static void strictly_decreasing_array(pair_t **a, uint32_t n) {
+  strictly_increasing_array(a, n);
   reverse_array(a, n);
 }
 
@@ -175,6 +207,25 @@ static void random_array(pair_t **a, uint32_t n) {
   }
 }
 
+static void almost_increasing_array(pair_t **a, uint32_t n) {
+  increasing_array(a, n);
+  swap_elements(a, n, n/10);
+}
+
+static void almost_decreasing_array(pair_t **a, uint32_t n) {
+  decreasing_array(a, n);
+  swap_elements(a, n, n/10);
+}
+
+static void down_up_down_array(pair_t **a, uint32_t n) {
+  if (n >= 150) {
+    strictly_decreasing_array(a, 80);
+    strictly_increasing_array(a + 80, 70);
+    strictly_decreasing_array(a + 150, n-150);
+  } else {
+    random_array(a, n);
+  }
+}
 
 /*
  * Tests: array of size n
@@ -194,6 +245,7 @@ static void test_sorting(stable_sorter_t *sorter, pair_t **a, pair_t *base, uint
   test_sort(sorter, a, n);
   constant_array(a, n);
   test_sort(sorter, a, n);
+
   increasing_array(a, n);
   test_sort(sorter, a, n);
   increasing_array(a, n);
@@ -201,6 +253,39 @@ static void test_sorting(stable_sorter_t *sorter, pair_t **a, pair_t *base, uint
   decreasing_array(a, n);
   test_sort(sorter, a, n);
   decreasing_array(a, n);
+  test_sort(sorter, a, n);
+
+  almost_increasing_array(a, n);
+  test_sort(sorter, a, n);
+  almost_increasing_array(a, n);
+  test_sort(sorter, a, n);
+  almost_decreasing_array(a, n);
+  test_sort(sorter, a, n);
+  almost_decreasing_array(a, n);
+  test_sort(sorter, a, n);
+
+  down_up_down_array(a, n);
+  test_sort(sorter, a, n);
+  down_up_down_array(a, n);
+  test_sort(sorter, a, n);
+  down_up_down_array(a, n);
+  test_sort(sorter, a, n);
+  down_up_down_array(a, n);
+  test_sort(sorter, a, n);
+  down_up_down_array(a, n);
+  test_sort(sorter, a, n);
+  down_up_down_array(a, n);
+  test_sort(sorter, a, n);
+  down_up_down_array(a, n);
+  test_sort(sorter, a, n);
+
+  random_array(a, n);
+  test_sort(sorter, a, n);
+  random_array(a, n);
+  test_sort(sorter, a, n);
+  random_array(a, n);
+  test_sort(sorter, a, n);
+  random_array(a, n);
   test_sort(sorter, a, n);
   random_array(a, n);
   test_sort(sorter, a, n);
