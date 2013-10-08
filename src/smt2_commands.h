@@ -153,12 +153,12 @@ enum smt2_opcodes {
  *   scope so we must remove symbols from the symbol tables
  *   on calls to (pop ...)
  * - we make the latter point optional (add an option that
- *   enable declatations
+ *   enable declarations to have global scope).
  *
  * To support these features:
  * - we use a stack that keeps tracks of (push n) and of 
  *   term/type/macro names.
- * - we convert (push n) when n > 1 as (n-1) no ops followed by a single 
+ * - we convert (push n) when n > 1 to (n-1) no ops followed by a single 
  *   a real (push) on the context.
  *
  * We use three name_stacks to store symbols (for terms, types, and macros).
@@ -167,11 +167,14 @@ enum smt2_opcodes {
  * - term_dcls = number of term declarations so far
  * - type_dcls = number of type declarations 
  * - macro_dcls = number of type macro declarations
+ *
+ * For garbage collection, each name_stack keeps a counter of deleted names
  */
 typedef struct smt2_name_stack_s {
   char **names;
   uint32_t top;
   uint32_t size;
+  uint32_t deletions;
 } smt2_name_stack_t;
 
 #define DEF_SMT2_NAME_STACK_SIZE 1024

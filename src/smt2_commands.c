@@ -40,6 +40,7 @@ static void init_smt2_name_stack(smt2_name_stack_t *s) {
   s->names = NULL;
   s->top = 0;
   s->size = 0;
+  s->deletions = 0;
 }
 
 /*
@@ -103,7 +104,8 @@ static void smt2_pop_term_names(smt2_name_stack_t *s, uint32_t ptr) {
 
     string_decref(name);
   }
-  s->top = n;  
+  s->deletions += (s->top - ptr);
+  s->top = n;
 }
 
 
@@ -126,6 +128,7 @@ static void smt2_pop_type_names(smt2_name_stack_t *s, uint32_t ptr) {
 
     string_decref(name);
   }
+  s->deletions += (s->top - ptr);
   s->top = n;
 }
 
@@ -154,6 +157,7 @@ static void smt2_pop_macro_names(smt2_name_stack_t *s, uint32_t ptr) {
 
     string_decref(name);
   }
+  s->deletions += (s->top - ptr);
   s->top = n;
 }
 
@@ -2652,7 +2656,7 @@ void smt2_pop(uint32_t n) {
 	  print_error("pop not allowed at the bottom level");
 	}
       } else {
-	m = 0; // number of levels removed 
+	m = 0; // number of levels removed
 	do {
 	  r = smt2_stack_top(&g->stack);
 	  m += r->multiplicity;
@@ -2676,7 +2680,10 @@ void smt2_pop(uint32_t n) {
 	check_stack(g);
 
 	// EXPERIMENT: call the garbage collector
-	yices_garbage_collect(NULL, 0, NULL, 0, true);
+	if (g->term_names.deletions > 1000) {
+	  yices_garbage_collect(NULL, 0, NULL, 0, true);
+	  g->term_names.deletions = 0;
+	}
 
 	report_success();
       }

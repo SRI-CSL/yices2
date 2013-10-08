@@ -110,6 +110,9 @@
  * - cmp(aux, x, y) must return true if x <= y in the ordering.
  */
 
+// maximal number of runs/segments
+#define MAX_SEGMENTS 34
+
 // size of the fixed buffer b:
 #define FIXED_BUFFER_SIZE 256
 
@@ -121,7 +124,7 @@ typedef struct stable_sorter_s {
   cmp_fun_t cmp;
   void *aux;
 
-  uint32_t seg[33];
+  uint32_t seg[MAX_SEGMENTS];
   uint32_t nsegs;
   void **buffer;
   uint32_t bsize;
@@ -135,7 +138,7 @@ typedef struct stable_sorter_s {
  * - aux = auxiliary object
  * - data is set to NULL and nelems to 0
  */
-extern void init_stable_sorter(stable_sorter_t *sorter);
+extern void init_stable_sorter(stable_sorter_t *sorter, void *aux, cmp_fun_t cmp);
 
 
 /*
