@@ -494,6 +494,8 @@ void apply_sorter(stable_sorter_t *sorter, void **a, uint32_t n) {
   uint32_t min, i, j, k;
   bool increasing;
 
+  if (n <= 1) return;
+
   sorter->data = a;
   sorter->nelems = n;
 
