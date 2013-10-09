@@ -358,12 +358,15 @@ static void test_large_sort(stable_sorter_t *sorter, uint32_t n) {
   constant_array(tmp, n);
   test_sort2("constant array", sorter, tmp, n);
 
-  decreasing_array(tmp, n);
-  test_sort2("decreasing array", sorter, tmp, n);
-
   increasing_array(tmp, n);
   test_sort2("increasing array", sorter, tmp, n);
   
+  strictly_decreasing_array(tmp, n);
+  test_sort2("strictly decreasing array", sorter, tmp, n);
+
+  decreasing_array(tmp, n);
+  test_sort2("decreasing array", sorter, tmp, n);
+
   almost_increasing_array(tmp, n);
   test_sort2("mostly increasing array", sorter, tmp, n);
 
