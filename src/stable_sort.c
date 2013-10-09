@@ -48,6 +48,9 @@ static void sorter_resize_buffer(stable_sorter_t *sorter, uint32_t n) {
     if (sorter->bsize > FIXED_BUFFER_SIZE) {
       safe_free(sorter->buffer);
     }
+    if (n > MAX_BUFFER_SIZE) {
+      out_of_memory();
+    }
     sorter->buffer = (void **) safe_malloc(n * sizeof(void *));
     sorter->bsize = n;
   }
