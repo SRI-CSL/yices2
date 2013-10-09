@@ -162,7 +162,7 @@ ifeq ($(YICES_MODE),gcov)
   CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(findstring $(YICES_MODE),valgrind quantify purify),$(YICES_MODE))
-  CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer -g
+  CFLAGS := $(CFLAGS) -O3 -g
   CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
   CFLAGS := $(CFLAGS) -g
@@ -175,6 +175,7 @@ endif
 #
 # Link command for purify/quantify
 #
+ifeq ($(POSIXOS),sunos)
 ifeq ($(YICES_MODE),purify)
 LNK := purify $(CC)
 else
@@ -183,6 +184,10 @@ LNK := quantify $(CC)
 else
 LNK := $(CC)
 endif
+endif
+else
+# not solaris
+LNK := $(CC)
 endif
 
 
