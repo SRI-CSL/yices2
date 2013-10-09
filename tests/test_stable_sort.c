@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "memalloc.h"
 #include "cputime.h"
 #include "stable_sort.h"
 
@@ -207,6 +206,16 @@ static void random_array(pair_t **a, uint32_t n) {
   }
 }
 
+// variant: use larger numbers
+static void random_array2(pair_t **a, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    a[i]->key = (uint32_t) (random() % 20000000);
+  }
+}
+
+
 static void almost_increasing_array(pair_t **a, uint32_t n) {
   increasing_array(a, n);
   swap_elements(a, n, n/10);
@@ -295,6 +304,99 @@ static void test_sorting(stable_sorter_t *sorter, pair_t **a, pair_t *base, uint
   test_sort(sorter, a, n);
 }
 
+
+/*
+ * Measure sort time:
+ * - s message
+ */
+static void test_sort2(const char *s, stable_sorter_t *sorter, pair_t **a, uint32_t n) {
+  double runtime;
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    a[i]->idx = i;
+  }
+
+  runtime = get_cpu_time();
+  apply_sorter(sorter, (void **) a, n);
+  runtime = get_cpu_time() - runtime;
+  if (runtime < 0) runtime = 0.0;
+  printf("---> %s : sort time = %.3f s\n", s, runtime);
+  fflush(stdout);
+
+  check_stable_sort(a, n);
+}
+
+/*
+ * Large array: initialize and allocte n pair objects
+ * - n = number of elements
+ */
+static void test_large_sort(stable_sorter_t *sorter, uint32_t n) {
+  pair_t **tmp;
+  pair_t *aux;
+  uint32_t i;
+
+  printf("**** TEST SORT: %"PRIu32" ELEMENTS ****\n", n);
+  fflush(stdout);
+
+  tmp = (pair_t **) malloc(n * sizeof(pair_t *));
+  if (tmp == NULL) {
+    fprintf(stderr, "Failed to allocate array\n");
+    return;
+  }
+
+  for (i=0; i<n; i++) {
+    aux = (pair_t *) malloc(sizeof(pair_t));
+    if (aux == NULL) {
+      fprintf(stderr, "Failed to allocate element (after %"PRIu32" allocations)\n", i);
+      n = i;
+      goto cleanup;
+    }
+    tmp[i] = aux;
+  }
+
+  constant_array(tmp, n);
+  test_sort2("constant array", sorter, tmp, n);
+
+  decreasing_array(tmp, n);
+  test_sort2("decreasing array", sorter, tmp, n);
+
+  increasing_array(tmp, n);
+  test_sort2("increasing array", sorter, tmp, n);
+  
+  almost_increasing_array(tmp, n);
+  test_sort2("mostly increasing array", sorter, tmp, n);
+
+  almost_decreasing_array(tmp, n);
+  test_sort2("mostly decreasing array", sorter, tmp, n);
+
+  random_array(tmp, n);
+  test_sort2("random array", sorter, tmp, n);
+
+  random_array(tmp, n);
+  test_sort2("random array", sorter, tmp, n);
+
+  random_array(tmp, n);
+  test_sort2("random array", sorter, tmp, n);
+
+  random_array2(tmp, n);
+  test_sort2("random array", sorter, tmp, n);
+
+  random_array2(tmp, n);
+  test_sort2("random array", sorter, tmp, n);
+
+  random_array2(tmp, n);
+  test_sort2("random array", sorter, tmp, n);
+
+  printf("\n");
+
+ cleanup:
+  for (i=0; i<n; i++) {
+    free(tmp[i]);
+  }
+  free(tmp);
+}
+
 static pair_t buffer[10000];
 static pair_t *test[10000];
 
@@ -304,6 +406,7 @@ int main(void) {
   double runtime;
 
   init_stable_sorter(&sorter, NULL, cmp);
+
   runtime = get_cpu_time();
   for (i=0; i<= 100; i++) {
     test_sorting(&sorter, test, buffer, i);
@@ -312,7 +415,16 @@ int main(void) {
     test_sorting(&sorter, test, buffer, i);
   }
   runtime = get_cpu_time() - runtime;
-  printf("Total run time: %.3f s\n", runtime);
+  printf("Total run time: %.3f s\n\n", runtime);
+
+  test_large_sort(&sorter, 500000);
+  test_large_sort(&sorter, 1000000);
+  test_large_sort(&sorter, 2000000);
+  test_large_sort(&sorter, 3000000);
+  test_large_sort(&sorter, 4000000);
+
+  runtime = get_cpu_time() - runtime;
+  printf("Total run time: %.3f s\n\n", runtime);
 
   delete_stable_sorter(&sorter);
 

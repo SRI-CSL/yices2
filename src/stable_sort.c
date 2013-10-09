@@ -4,8 +4,8 @@
 
 #include <assert.h>
 #include <string.h>
+#include <stdlib.h>
 
-#include "memalloc.h"
 #include "stable_sort.h"
 
 
@@ -33,7 +33,7 @@ void init_stable_sorter(stable_sorter_t *sorter, void *aux, cmp_fun_t cmp) {
  */
 void delete_stable_sorter(stable_sorter_t *sorter) {
   if (sorter->bsize > FIXED_BUFFER_SIZE) {
-    safe_free(sorter->buffer);
+    free(sorter->buffer);
   }
   sorter->buffer = NULL;
 }
@@ -41,29 +41,34 @@ void delete_stable_sorter(stable_sorter_t *sorter) {
 
 
 /*
- * Allocate/resize the internal buffer: make sure it's large enough for n pointers
+ * Copy data[i ... j-1] into the buffer:
+ * - if the buffer is too small, attempt to resize it. If that fails,
+ *   do nothing and return false.
+ * - return true otherwise
  */
-static void sorter_resize_buffer(stable_sorter_t *sorter, uint32_t n) {
+static bool move_to_buffer(stable_sorter_t *sorter, uint32_t i, uint32_t j) {
+  void **tmp;
+  uint32_t n;
+
+  n = j - i;
   if (n > sorter->bsize) {
+    // need a bigger buffer
+    if (n > MAX_BUFFER_SIZE) return false;
+    tmp = (void **) malloc(n * sizeof(void *));
+    if (tmp == NULL) return false;
+
+    // malloc worked
     if (sorter->bsize > FIXED_BUFFER_SIZE) {
-      safe_free(sorter->buffer);
+      free(sorter->buffer);
     }
-    if (n > MAX_BUFFER_SIZE) {
-      out_of_memory();
-    }
-    sorter->buffer = (void **) safe_malloc(n * sizeof(void *));
+    sorter->buffer = tmp;
     sorter->bsize = n;
   }
+  memcpy(sorter->buffer, sorter->data + i, n * sizeof(void*));
+
+  return true;
 }
 
-
-/*
- * Copy data[i ... j-1] into the buffer
- */
-static void move_to_buffer(stable_sorter_t *sorter, uint32_t i, uint32_t j) {
-  sorter_resize_buffer(sorter, j - i);
-  memcpy(sorter->buffer, sorter->data + i, (j - i) * sizeof(void*));
-}
 
 
 /*
@@ -232,9 +237,76 @@ static uint32_t find_run(stable_sorter_t *sorter, uint32_t i, bool *increasing) 
 
 
 /*
+ * Merge runs data[i ... j-1] and data[j ... k-1] where i < j and j <  k 
+ * - this is a slower than merge_left or merge_right but it can be used 
+ *   if buffer is too small to contain a full copy of data[i ... j-1] 
+ *   or data[j ... k-1]
+ */
+static void low_mem_merge(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t k) {
+  void **a, **b;
+  void *p, *q;
+  uint32_t t, u, v, s, n;
+
+  assert(i < j && j < k && k <= sorter->nelems);
+
+  a = sorter->data;
+  b = sorter->buffer;
+  n = sorter->bsize;
+
+  do {
+    s = 0;
+    t = i;
+    u = j;
+
+    /*
+     * merge initial elements of a[i ... j-1] and a[j .. k-1] 
+     * into the buffer: b[0 ... n-1]
+     */
+    do {
+      assert(i <= t && t < j && j <= u && u < k && s < n);
+
+      p = a[t];
+      q = a[u];
+      if (sorter->cmp(sorter->aux, p, q)) {
+	b[s] = p;
+	s ++;
+	t ++;
+      } else {
+	b[s] = q;
+	s ++;
+	u ++;
+      }
+    } while (s < n && t < j && u < k);
+
+    assert(s == (t - i) + (u - j));
+
+    /*
+     * b[0 ... s-1] contains the merge of a[i ... t-1] and a[j ... u-1]
+     * - move a[t .. j] (what's left of the first run) into a[i+s .. u-1]
+     * - then copy buffer into a[i ... i+s]
+     */
+    v = u;
+    while (t < j) {
+      j --;
+      v --;
+      a[v] = a[j];
+    }
+    assert(v == i+s);
+
+    for (v=0; v<s; v++, i++) {
+      a[i] = b[v];
+    }
+    j = u;    
+
+  } while (i < j && j < k);
+}
+
+
+/*
  * Merge runs data[i ... j-1] and data[j .. k-1]  when (j - i) <= (k - j)
  * - copy the first run data[i ... j-1] into the temporarty buffer then merge
  *   the buffer and data[j ... k-1] into data[i ... k-1]
+ * - defaults to low_mem_merge in a large enough temp buffer can't be allocated
  */
 static void merge_left(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t k) {
   void **a, **b;
@@ -243,7 +315,14 @@ static void merge_left(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t
 
   assert(i < j && j < k && k <= sorter->nelems);
 
-  move_to_buffer(sorter, i, j); // buffer := data[i ... j-1]
+  /*
+   * move  data[i ... j-1] to the buffer
+   * if that fails, use slow merge
+   */
+  if (! move_to_buffer(sorter, i, j)) {
+    low_mem_merge(sorter, i, j, k);
+    return;
+  } 
 
   /*
    * merge a[0 ... n-1] = buffer and b[j ... k-1] = data[j .. k-1]
@@ -277,7 +356,7 @@ static void merge_left(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t
     }
   }
 
-  // copy what's left of a (namely a[t .. n-1] into b[i ... k-1]
+  // copy what's left of a (namely, a[t .. n-1]) into b[i ... k-1]
   assert(t < n && j == k && n - t == k - i);
   do {
     b[i] = a[t];
@@ -292,6 +371,7 @@ static void merge_left(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t
  * - copy the second run into the the temporary buffer then
  *   merge the buffer and data[i ... j-1] into data[i ... k-1]
  *   starting with index k-1
+ * - defaults to low_mem_merge in a large enough temp buffer can't be allocated
  */
 static void merge_right(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t k) {
   void **a, **b;
@@ -299,8 +379,11 @@ static void merge_right(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_
   uint32_t n;
 
   assert(i < j && j < k && k <= sorter->nelems);
-
-  move_to_buffer(sorter, j, k);
+  
+  if (! move_to_buffer(sorter, j, k)) {
+    low_mem_merge(sorter, i, j, k);
+    return;
+  }
 
   /*
    * a[i ... j-1] = first run
@@ -336,7 +419,7 @@ static void merge_right(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_
     }
   }
 
-  // copy what's left of b (i.e., b[0 .. n] into a[i ... k])
+  // copy what's left of b (i.e., b[0 .. n]) into a[i ... k])
   // n may be 0 here 
   assert(j == i && k - i == n); 
 

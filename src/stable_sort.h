@@ -120,6 +120,7 @@
 // We could make this larger for 64bit machines?
 #define MAX_BUFFER_SIZE (UINT32_MAX/sizeof(void *))
 
+
 typedef bool (*cmp_fun_t)(void *aux, void *x, void *y);
 
 typedef struct stable_sorter_s {
