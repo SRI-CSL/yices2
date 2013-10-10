@@ -122,10 +122,10 @@
 typedef bool (*cmp_fun_t)(const void *aux, const void *x, const void *y);
 
 typedef struct stable_sorter_s {
-  void **data;
-  uint32_t nelems;
   cmp_fun_t cmp;
   void *aux;
+  void **data;
+  uint32_t nelems;
 
   uint32_t seg[MAX_SEGMENTS];
   uint32_t nsegs;

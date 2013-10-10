@@ -16,10 +16,10 @@
  * - data is set to NULL and nelems to 0
  */
 void init_stable_sorter(stable_sorter_t *sorter, void *aux, cmp_fun_t cmp) {
-  sorter->data  = NULL;
-  sorter->nelems = 0;
   sorter->cmp = cmp;
   sorter->aux = aux;
+  sorter->data  = NULL;
+  sorter->nelems = 0;
 
   sorter->seg[0] = 0;
   sorter->nsegs = 0;
