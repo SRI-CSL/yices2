@@ -70,7 +70,7 @@
  *   using an insertion sort.
  *
  * min_run is between 32 and 64. It's computed so that N/min_run is either
- * a power of two or close and smaller than a power of two.
+ * a power of two or close but smaller than a power of two.
  *
  * Data structures
  * ---------------
@@ -116,10 +116,8 @@
 // size of the fixed buffer b:
 #define FIXED_BUFFER_SIZE 256
 
-// maximal size of the buffer
-// We could make this larger for 64bit machines?
+// maximal size of the buffer (we could make this larger on 64bit machines)
 #define MAX_BUFFER_SIZE (UINT32_MAX/sizeof(void *))
-
 
 typedef bool (*cmp_fun_t)(void *aux, void *x, void *y);
 
