@@ -445,7 +445,7 @@ static void merge_right(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_
  */
 static void merge_runs(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t k) {
   void **a;
-  uint32_t i0, j0, k0;
+  uint32_t i0, j0;
 
   assert(i < j && j < k && k <= sorter->nelems);
 
