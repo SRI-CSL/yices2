@@ -200,6 +200,16 @@ static void reverse_slice(stable_sorter_t *sorter, uint32_t i, uint32_t j) {
 
 
 /*
+ * Swap segments a[i .. j-1] and a[j ... k-1]
+ */
+static void swap_slices(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t k) {
+  reverse_slice(sorter, j, k);
+  reverse_slice(sorter, i, j);
+  reverse_slice(sorter, i, k);
+}
+
+
+/*
  * Search for the longest run starting at i
  * - set *increasing to true if the run is increasing
  * - set *increasing to false otherwise (strictly decreasing)
@@ -309,9 +319,9 @@ static void low_mem_merge(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint3
  * - defaults to low_mem_merge in a large enough temp buffer can't be allocated
  */
 static void merge_left(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t k) {
-  void **a, **b;
+  void **a, **b, **c;
   void *p, *q;
-  uint32_t t, n;
+  uint32_t na, nb;
 
   assert(i < j && j < k && k <= sorter->nelems);
 
@@ -325,44 +335,45 @@ static void merge_left(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t
   } 
 
   /*
-   * merge a[0 ... n-1] = buffer and b[j ... k-1] = data[j .. k-1]
-   * into data[i .. k-1].
+   * a --> first run (in buffer), na = size of the first run
+   * b --> second run, nb = size of the second run  
+   * c --> destination block = data + i 
    */
-  a = sorter->buffer;
-  b = sorter->data;
-  n = j - i;
-  t = 0;
+  a = sorter->buffer;  
+  b = sorter->data + j;
+  c = sorter->data + i;
+  na = j - i;
+  nb = k - j;
 
-  p = a[t];
-  q = b[j];
+  p = *a++;
+  q = *b++;
 
   for (;;) {
-    assert(t < n && j < k && i <= j && p == a[t] && q == b[j]);
+    assert(na > 0 && nb > 0);
 
     if (sorter->cmp(sorter->aux, p, q)) {
-      // p <= q: store p into b[i]
-      b[i] = p;
-      i ++;
-      t ++;
-      if (t == n) return;
-      p = a[t];
+      // p <= q: store p
+      *c++ = p;
+      na --;
+      if (na == 0) return;
+      p = *a++;
     } else {
-      // q < p: store q into b[i]
-      b[i] = q;
-      i ++;
-      j ++;
-      if (j == k) break;
-      q = b[j];
+      // q < p: store q
+      *c++ = q;
+      nb --;
+      if (nb == 0) break;
+      q = *b ++;
     }
   }
 
-  // copy what's left of a (namely, a[t .. n-1]) into b[i ... k-1]
-  assert(t < n && j == k && n - t == k - i);
-  do {
-    b[i] = a[t];
-    i ++;
-    t ++; 
-  } while (t < n);  
+  // copy what's left of the first run
+  assert(na > 0);
+  *c++ = p;
+  na --;
+  while (na > 0) {
+    *c++ = *a++;
+    na --;
+  }
 }
 
 
@@ -374,9 +385,9 @@ static void merge_left(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t
  * - defaults to low_mem_merge in a large enough temp buffer can't be allocated
  */
 static void merge_right(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t k) {
-  void **a, **b;
+  void **a, **b, **c;
   void *p, *q;
-  uint32_t n;
+  uint32_t na, nb;
 
   assert(i < j && j < k && k <= sorter->nelems);
   
@@ -386,48 +397,44 @@ static void merge_right(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_
   }
 
   /*
-   * a[i ... j-1] = first run
-   * b[0 ... n-1] = buffer
+   * a --> end of first run, na = size of the first run
+   * b --> end of second run (in buffer), nb = size of the second run
+   * c --> end of the destination block = data + k
    */
-  a = sorter->data;
-  b = sorter->buffer;
-  n = k - j;
+  na = j - i;
+  nb = k - j;
+  a = sorter->data + j;
+  b = sorter->buffer + nb;
+  c = sorter->data + k;
   
-  n --;
-  j --;
-  k --;
-  p = a[j];
-  q = b[n];
+  p = *(--a);
+  q = *(--b);
 
   for (;;) {
-    assert(0 <= n && i <= j && j <= k && p == a[j] && q == b[n]);
+    assert(na > 0 && nb > 0);
 
     if (sorter->cmp(sorter->aux, p, q)) {
-      // p <= q: store q into a[k]
-      a[k] = q;
-      k --;
-      if (n == 0) return;
-      n --;
-      q = b[n];
+      // p <= q: store q
+      *(--c) = q;
+      nb --;
+      if (nb == 0) return;
+      q = *(--b);
     } else {
-      // q < p: store p into a[k]
-      a[k] = p;
-      k --;
-      if (i == j) break;
-      j --;
-      p = a[j];
+      // q < p: store p
+      *(--c) = p;
+      na --;
+      if (na == 0) break;
+      p = *(--a);
     }
   }
 
-  // copy what's left of b (i.e., b[0 .. n]) into a[i ... k])
-  // n may be 0 here 
-  assert(j == i && k - i == n); 
-
-  a[k] = b[n];
-  while (n > 0) {
-    k --;
-    n --;
-    a[k] = b[n];
+  // copy what's left of the buffer (i.e., second run)
+  assert(nb > 0);
+  *(--c) = q;
+  nb --;
+  while (nb > 0) {
+    *(--c) = *(--b);
+    nb --;
   }
 }
 
@@ -438,7 +445,7 @@ static void merge_right(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_
  */
 static void merge_runs(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t k) {
   void **a;
-  uint32_t i0, j0;
+  uint32_t i0, j0, k0;
 
   assert(i < j && j < k && k <= sorter->nelems);
 
@@ -461,8 +468,13 @@ static void merge_runs(stable_sorter_t *sorter, uint32_t i, uint32_t j, uint32_t
   j0 = locate_right(sorter, j, k, a[j-1]); // j0 = location of a[j-1] 
   assert(j < j0 && j0 <= k);
 
-  // now we merge data[i0 ... j-1] and data[j ... j0-1]
-  if (j - i0 <= j0 - j) {
+  /*
+   * if a[i0] > a[j0-1], then swap the two runs otherwise use the
+   * merge that uses the smaller temp buffer.
+   */
+  if (! sorter->cmp(sorter->aux, a[i0], a[j0-1])) {
+    swap_slices(sorter, i0, j, j0);
+  } else if (j - i0 <= j0 - j) {
     merge_left(sorter, i0, j, j0);
   } else {
     merge_right(sorter, i0, j, j0);
