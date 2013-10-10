@@ -67,14 +67,14 @@ static inline literal_t get_other_watch(clause_t *cl, uint32_t i) {
 /*
  * Get pointer to learned_clause in which clause cl is embedded. 
  */
-static inline learned_clause_t *learned(clause_t *cl) {
+static inline learned_clause_t *learned(const clause_t *cl) {
   return (learned_clause_t *)(((char *)cl) - offsetof(learned_clause_t, clause));
 }
 
 /*
  * Activity of a learned clause
  */
-static inline float get_activity(clause_t *cl) {
+static inline float get_activity(const clause_t *cl) {
   return learned(cl)->activity;
 }
 
@@ -187,6 +187,18 @@ static clause_t *new_learned_clause(uint32_t len, literal_t *lit) {
  */
 static inline void delete_learned_clause(clause_t *cl) {
   safe_free(learned(cl));
+}
+
+
+
+/*
+ * Ordering function for clause deletion:
+ * - c1 and c2 are two learned clauses 
+ * - the function must return true if we prefer to keep c2 
+ *   rather than c1 (i.e., c1's score <= c2's score).
+ */
+static bool clause_cmp(const void *aux, const void *c1, const void *c2) {
+  return get_activity(c1) <= get_activity(c2);
 }
 
 
@@ -1096,6 +1108,9 @@ void init_sat_solver(sat_solver_t *solver, uint32_t size) {
   // solver->short_buffer not initialized but that's fine.
   solver->conflict = NULL;
   solver->false_clause = NULL;
+
+  // Sorting object for clause deletion
+  init_stable_sorter(&solver->sorter, NULL, clause_cmp);
 }
 
 
@@ -1152,6 +1167,8 @@ void delete_sat_solver(sat_solver_t *solver) {
   
   delete_ivector(&solver->buffer);
   delete_ivector(&solver->buffer2);
+
+  delete_stable_sorter(&solver->sorter);
 }
 
 
@@ -1559,6 +1576,7 @@ static clause_t *add_learned_clause(sat_solver_t *solver, uint32_t n, literal_t 
  *  DELETION OF LEARNED CLAUSES  *
  ********************************/
 
+#if 0
 /*
  * Reorder an array  a[low ... high-1] of learned clauses so that
  * the clauses are divided in two half arrays:
@@ -1612,8 +1630,6 @@ static void quick_split(clause_t **a, uint32_t low, uint32_t high) {
       high = j;
     }    
   } while (j != half);
-}
-
 
 
 /*
@@ -1621,6 +1637,25 @@ static void quick_split(clause_t **a, uint32_t low, uint32_t high) {
  */
 static void reorder_clause_vector(clause_t **v) {
   quick_split(v, 0, get_cv_size(v));
+}
+}
+
+#endif
+
+
+/*
+ * New approach: use stable sort so that we give preference
+ * to new clauses in case of ties.
+ */
+
+/*
+ * Sort the learned clauses
+ */
+static void sort_learned_clauses(sat_solver_t *solver) {
+  clause_t **v;
+
+  v = solver->learned_clauses;
+  apply_sorter(&solver->sorter,  (void **) v, get_cv_size(v));
 }
 
 
@@ -1719,31 +1754,33 @@ static void delete_learned_clauses(sat_solver_t *solver) {
 static void reduce_learned_clause_set(sat_solver_t *solver) {
   uint32_t i, n;
   clause_t **v;
-  float act_threshold;
+  //  float act_threshold;
 
   assert(get_cv_size(solver->learned_clauses) > 0);
 
-  // put the clauses with lowest activity in the upper
-  // half of the learned clause vector.
-  reorder_clause_vector(solver->learned_clauses);
+  sort_learned_clauses(solver);
 
   v = solver->learned_clauses;
   n = get_cv_size(v);
 
-  act_threshold = solver->cla_inc/n;
 
-  // prepare for deletion: all non-locked clauses, with activity less
-  // than activitiy_threshold are marked for deletion.
+  /*
+   * prepare for deletion: the first half of v contains the low score
+   * clauses.
+   */
   for (i=0; i<n/2; i++) {
-    if (get_activity(v[i]) <= act_threshold && ! clause_is_locked(solver, v[i])) {
-      mark_for_deletion(v[i]);
-    }
-  }
-  for (i = n/2; i<n; i++) {
     if (! clause_is_locked(solver, v[i])) {
       mark_for_deletion(v[i]);
     }
   }
+
+  //  act_threshold = solver->cla_inc/n;
+
+  //  for (i = n/2; i<n; i++) {
+  //    if (get_activity(v[i]) <= act_threshold && ! clause_is_locked(solver, v[i])) {
+  //      mark_for_deletion(v[i]);
+  //    }
+  //  }
 
   delete_learned_clauses(solver);
   solver->stats.reduce_calls ++;

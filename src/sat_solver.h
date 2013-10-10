@@ -12,7 +12,7 @@
 
 #include "bitvectors.h"
 #include "int_vectors.h"
-
+#include "stable_sort.h"
 
 
 /************************************
@@ -568,6 +568,8 @@ typedef struct sat_solver_s {
   literal_t *conflict;
   clause_t *false_clause;
 
+  /* Sorter: used in deletion of learned clauses */
+  stable_sorter_t sorter;
 } sat_solver_t;
 
 
