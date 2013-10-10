@@ -119,7 +119,7 @@
 // maximal size of the buffer (we could make this larger on 64bit machines)
 #define MAX_BUFFER_SIZE (UINT32_MAX/sizeof(void *))
 
-typedef bool (*cmp_fun_t)(void *aux, void *x, void *y);
+typedef bool (*cmp_fun_t)(const void *aux, const void *x, const void *y);
 
 typedef struct stable_sorter_s {
   void **data;

@@ -29,7 +29,7 @@ typedef struct pair_s {
  * Comparison function:
  * cmp(aux, p, q) must return true if p <= q
  */
-static bool cmp(void *aux, void *p, void *q) {
+static bool cmp(const void *aux, const void *p, const void *q) {
   return ((pair_t *) p)->key <= ((pair_t *) q)->key;
 }
 
