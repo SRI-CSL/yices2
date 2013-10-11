@@ -1576,80 +1576,9 @@ static clause_t *add_learned_clause(sat_solver_t *solver, uint32_t n, literal_t 
  *  DELETION OF LEARNED CLAUSES  *
  ********************************/
 
-#if 0
 /*
- * Reorder an array  a[low ... high-1] of learned clauses so that
- * the clauses are divided in two half arrays:
- * - the clauses of highest activities are all stored in a[low...half - 1]  
- * - the clauses of lowest activities are in a[half ... high-1], 
- * where half = (low + high) / 2.
- */
-static void quick_split(clause_t **a, uint32_t low, uint32_t high) {
-  uint32_t i, j, half;
-  float pivot;
-  clause_t *aux;
-
-  if (high <= low + 1) return;
-
-  half = (low + high)/2;
-
-  do {
-    i = low;
-    j = high;
-    pivot = get_activity(a[i]);
-
-    do { j --; } while (get_activity(a[j]) < pivot);
-    do { i ++; } while (i <= j && get_activity(a[i]) > pivot);
-
-    while (i < j) {
-      // a[i].act <= pivot and a[j].act >= pivot: swap a[i] and a[j]
-      aux = a[i];
-      a[i] = a[j];
-      a[j] = aux;
-
-      do { j--; } while (get_activity(a[j]) < pivot);
-      do { i++; } while (get_activity(a[i]) > pivot);
-    }
-
-    // a[j].act >= pivot, a[low].act = pivot: swap a[low] and a[i]
-    aux = a[low];
-    a[low] = a[j];
-    a[j] = aux;
-
-    /*
-     * at this point:
-     * - all clauses in a[low,.., j - 1] have activity >= pivot
-     * - activity of a[j] == pivot
-     * - all clauses in a[j+1,..., high-1] have activity <= pivot
-     * reapply the procedure to whichever of the two subarrays 
-     * contains the half point
-     */
-    if (j < half) {
-      low = j + 1;
-    } else {
-      high = j;
-    }    
-  } while (j != half);
-
-
-/*
- * Apply this to a vector v of learned_clauses
- */
-static void reorder_clause_vector(clause_t **v) {
-  quick_split(v, 0, get_cv_size(v));
-}
-}
-
-#endif
-
-
-/*
- * New approach: use stable sort so that we give preference
- * to new clauses in case of ties.
- */
-
-/*
- * Sort the learned clauses
+ * Sort the learned clauses: use stable sort to give preference to new
+ * clauses in case of ties.
  */
 static void sort_learned_clauses(sat_solver_t *solver) {
   clause_t **v;
@@ -1754,7 +1683,7 @@ static void delete_learned_clauses(sat_solver_t *solver) {
 static void reduce_learned_clause_set(sat_solver_t *solver) {
   uint32_t i, n;
   clause_t **v;
-  //  float act_threshold;
+  float act_threshold;
 
   assert(get_cv_size(solver->learned_clauses) > 0);
 
@@ -1765,7 +1694,7 @@ static void reduce_learned_clause_set(sat_solver_t *solver) {
 
 
   /*
-   * prepare for deletion: the first half of v contains the low score
+   * Prepare for deletion: the first half of v contains the low score
    * clauses.
    */
   for (i=0; i<n/2; i++) {
@@ -1774,13 +1703,13 @@ static void reduce_learned_clause_set(sat_solver_t *solver) {
     }
   }
 
-  //  act_threshold = solver->cla_inc/n;
-
-  //  for (i = n/2; i<n; i++) {
-  //    if (get_activity(v[i]) <= act_threshold && ! clause_is_locked(solver, v[i])) {
-  //      mark_for_deletion(v[i]);
-  //    }
-  //  }
+  // Delete more
+  act_threshold = solver->cla_inc/n;
+  for (i = n/2; i<n; i++) {
+    if (get_activity(v[i]) <= act_threshold && ! clause_is_locked(solver, v[i])) {
+      mark_for_deletion(v[i]);
+    }
+  }
 
   delete_learned_clauses(solver);
   solver->stats.reduce_calls ++;
