@@ -23,7 +23,7 @@
 
 #include "yices.h"
 #include "yices_extensions.h"
-#include "yices_globals2.h"
+#include "yices_globals.h"
 
 #include "term_stack2.h"
 

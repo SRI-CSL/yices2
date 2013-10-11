@@ -27,23 +27,21 @@ object_stores.c
 1.2) Miscellaneous utilities
      -----------------------
 
+assert_utils.h:		Wrappers around assert to avoid compilation warnings
+
 bit_tricks.h:           Low-level bit-mask operations (via GCC's __builtins or replacement 
                         if they're not present).
 
 cputime.h:              For measuring computing time
 cputime.c
 
+dprng.h:		Pseudo-random number generator (floating point implementation)
+
 gcd.h:                  gcd of two integers
 gcd.c
 
 hash_functions.h:       various hash functions based on Bob Jenkins's public-domain code
 hash_functions.c
-
-int_array_sort.h:       sort an array of integers in increasing order
-int_array_sort.c
-
-int_array_sort2.h:      sort an array of integers, ordering supplied by the user
-int_array_sort2.c
 
 int_powers.h:           exponentiation of 32bit or 64bit unsigned integers
 int_powers.c
@@ -53,12 +51,6 @@ memsize.c               this does not work on mingw but should work on all other
 
 prng.h:                 simple PRNG generator based on a linear congruence
 
-ptr_array_sort.h:       sort an array of (void *) pointers in increasing address order
-ptr_array_sort.c
-
-ptr_array_sort2.h:      sort an array of pointers, ordering supplied by the user
-ptr_array_sort2.c
-
 tagged_pointers.h:      macros for tagging/untagging pointers
 
 timeout.h:              interface to a timeout function (it's implemented using
@@ -66,25 +58,41 @@ timeout.c               signal/alarm on Unix or using timer queues on Windows/Mi
 
 
 
+1.3) Sorting
+     -------
 
-1.3) Generic data structures
-     ----------------------
+int_array_sort.h:       sort an array of integers in increasing order
+int_array_sort.c
+
+int_array_sort2.h:      sort an array of integers, ordering supplied by the user
+int_array_sort2.c
+
+stable_sort.h:		stable sort: array of (void *) pointers, ordering supplied
+stable_sort.c		by the user
+
+ptr_array_sort.h:       sort an array of (void *) pointers in increasing address order
+ptr_array_sort.c
+
+ptr_array_sort2.h:      sort an array of pointers, ordering supplied by the user
+ptr_array_sort2.c
+
+
+
+1.4) Generic data structures
+     -----------------------
 
 bitvectors.h:           bit-vectors
      
 dl_lists.h:             doubly-linked lists
 
 
-1.3.a  Vectors and Arrays
+1.4.a  Vectors and Arrays
 
 backtrack_arrays.h:     arrays of integers with support for update, push/pop
 backtrack_arrays.c
 
 dep_tables.h:           dependency tables (map integer indices to arrays of 
 dep_tables.c            integer indices. Similar to use_vectors).
-
-int_array_hsets.h:      support for storing and hash-consing arrays of 32bit integers
-int_array_hsets.c
 
 int_vectors.h:          vectors of signed 32bit integers
 int_vectors.c
@@ -104,11 +112,14 @@ pointer_vectors.c       but use the hidden header trick.
 refcount_int_arrays.h:  arrays of integers, with reference counters
 refcount_int_arrays.c
 
+sparse_arrays.h:	arrays of integers (intended to be efficient if many
+sparse_arrays.c		array elements are never read or written)
+
 use_vectors.h:          vectors of tagged pointers (for implementing "use lists")
 use_vectors.c
 
 
-1.3.b  Queues
+1.4.b  Queues
 
 int_queues.h:           queue of signed integers (implemented as a circular array)
 int_queues.c
@@ -117,13 +128,13 @@ ptr_queues.h:           queue of (void*) pointers (implemented as a circular arr
 ptr_queues.c
 
 
-1.3.c  Heaps
-
-int_heap.h:             heap of int32_t integers, sorted in increasing order
-int_heap.c              (no duplicates, this stores a set)
+1.4.c  Heaps
 
 generic_heap.h:         heap of signed 32bit integers, with an ordering function
 generic_heap.c          defined by the user.
+
+int_heap.h:             heap of int32_t integers, sorted in increasing order
+int_heap.c              (no duplicates, this stores a set)
 
 int_heap2.h:            heap of int32_t integers, user-provided ordering
 int_heap2.c             (duplicates are allowed. this stores a bag).
@@ -133,23 +144,23 @@ ptr_heap.h:             heap of (void*) pointers, user-supplied ordering
 ptr_heap.c
 
 
-1.3.d  Sets/Collections
+1.4.d  Sets/Collections
 
 csets.h:                Sets of integers (all elements are in an interval [0 .. n-1]
 csets.c                 where n is fixed when the set is created)
 
-int_bv_sets.h:          sets of unsigned integers implemented using resizable bitvectors
-int_bv_sets.c
-
 int_bags.h:             bags (multisets) of 32bit non-negative integers
 int_bags.c              implemented using resizable arrays.
+
+int_bv_sets.h:          sets of unsigned integers implemented using resizable bitvectors
+int_bv_sets.c
 
 uint_rbtrees.h:         Red-black trees to store sets of unsigned, 32bit integers
 uint_rbtrees.c
 
 
 
-1.3.e  Equivalence relations/Partitions
+1.4.e  Equivalence relations/Partitions
 
 int_partitions.h:       data structure to construct partitions of integers
 int_partitions.c        based on an equivalence relation provided by the user.
@@ -162,7 +173,7 @@ union_find.h:           a union-find data structure for 32bit non-negative integ
 union_find.c            
 
 
-1.3.f  Character strings
+1.4.f  Character strings
 
 refcount_strings.h:     character strings with reference counter ('\0' terminated)
 refcount_strings.c
@@ -174,10 +185,13 @@ string_utils.h:         utilities for string parsing and binary search in arrays
 string_utils.c
 
 
-1.3.g  Hash tables
+1.4.g  Hash tables
 
 cache.h:                a hash table that stores triples <tag, x, y>
 cache.c                 also implements push/pop. It's used by the egraph and other solvers.
+
+int_array_hsets.h:      support for storing and hash-consing arrays of 32bit integers
+int_array_hsets.c
 
 int_hash_classes.h:     hash table for maintaining equivalence classes of integers
 int_hash_classes.c      the table stores one representative per class
@@ -209,15 +223,18 @@ ptr_hash_classes.c      by pointers). The table stores one representative per cl
 ptr_hash_map.h:         maps int32 to (void *) pointers (hash table)
 ptr_hash_map.c
 
+string_hash_map.h:	map strings to 32bit integers
+string_hash_map.c
+
 symbol_tables.h:        symbol tables: hash map from strings to integers
-symbol_tables.c
+symbol_tables.c		with support for scoping
 
 tuple_hash_maps.h:      hash map for arrays of int32 to int32 values
 tuple_hash_maps.c
 
 
 
-1.3.h  Parsing utilities
+1.4.h  Parsing utilities
 
 command_line.h:         Support for parsing command-line arguments
 command_line.c
@@ -231,7 +248,7 @@ lexer.c                 includes a reader object and stores a current token.
                         Also maintains a stack of lexers (for nested includes).
 
 
-1.3.i  Pretty printer
+1.4.i  Pretty printer
 
 pretty_printer.h:       Pretty printer core (Oppen-style implementation).
 pretty_printer.c
@@ -357,6 +374,10 @@ bv_polynomials.c
 bvarith_buffers.h:              Buffers for constructing these polynomials
 bvarith_buffers.c
 
+bvpoly_buffers.h:		Simplified buffer for polynomials with bitvector coefficients
+bvpoly_buffers.c
+
+
 
 
 4) Bit array expressions
@@ -451,6 +472,7 @@ free_var_collector.h            To compute the free variables of a term
 free_var_collector.c
 
 
+
 5.4) Pretty printer for Yices terms and types
      ----------------------------------------
 
@@ -477,17 +499,8 @@ The  constructors   check  for  well-formedness   of  their  arguments
 (including  type  checking)   and  implement  term  normalization  and
 simplification.
 
-
-The API files include:
-
-yices_types.h:           Types visible at the external API
-
-yices_limits.h:          Hardcoded limits on term/type representations
-
-yices.h:                 (public) API
-
-yices_exit_codes.h:      Constants passed to the 'exit' system call on unrecoverable errors
-
+The solvers for  the Yices language and for SMT-LIB  1.2 and SMT-LIB 2
+extend term_stack2 with language-specific operations and variants.
 
 Modules used in term construction:
 
@@ -498,50 +511,17 @@ term_substitution.h      Stores a substitution + cache + renaming
 term_substitution.c      context + free variable collector (also implement
                          beta-reduction).
 
-yices_api.c:             Implements all API functions and more
-
-yices_extensions.h:      Functions defined in yices_api.c that are not part
-                         of the API. These are variants of functions declared
-                         in 'yices.h'.
-
-yices_iterators.h:       Functions to iterate over all contexts, models, etc.
-                         (these functions are defined in yices_api.c)
-
-
-yices_globals.h:         Export the global term and type tables and other 
-                         global data structures maintained by Yices. These
-                         are allocated and initialized in yices_api.c.
-                         Trusted modules can have direct access to these tables,
-                         by using #include "yices_globals.h"
-
-
-term_stack.h:            A stack-based term builder/interpreter
-term_stack.c             intended to help parsing (NOT USED ANYMORE)
-
-term_stack2.h:           New implementation of term_stack (removed the commands
-term_stack2.c            that were specific to Yices).
-
-smt_term_stack.h:        Built on top of term_stack2: with some operations redefined
-smt_term_stack.c         to SMT-LIB 1.2 variants of the default
-
-smt2_term_stack.h:       Built on top of term_stack2: with variant implementation of
-smt2_term_stack.c        several operations to follow the SMT-LIB 2.0 conventions, and
-                         new operations that are specific to SMT-LIB 2.0.
-			 (Not complete yet, but enough to process the benchmarks that
-			  don't require push/pop or unsat cores).
-
-smt2_commands.h:         Commands defined in SMT-LIB 2.0 (not complete yet)
-smt2_commads.c
-
-yices_error.h:           Error messages based on an error_report structure
-yices_error.c            maintained by yices_api.c
+term_stack2.h:           Stack-based term builder. New implementation of term_stack
+term_stack2.c             (removed the commands that were specific to Yices).
 
 term_stack_error.h:      Error messages and diagnosis when the 
 term_stack_error.c       term stack module raises an exception.
 
+tstack_internals.h:      Term-stack operations for specializing/extending the default
+                         term_stack.
 
 
-6) Parsing
+6) Others
    -------
 
 We currently  support three  input languages for  defining terms/types
@@ -551,67 +531,17 @@ and interactive with Yices:
   SMT-LIB benchmarks used in the SMT Solver Competition in 2009.
 - the SMT-LIB notation version 2.0 (support is not complete yet)
 
-
-yices_keywords.txt       Input for gperf (to construct a perfect hash for the
-                         Yices keywords)
-
-yices_hash_keywords.h    Perfect hash function for the Yices keywords. Generated by
-                         gperf from yices_keywords.txt
-
-yices_lexer.h:           Yices lexing functions 
-yices_lexer.c
-
-
-smt_keywords.txt         Input for gperf (to construct a perfect hash for the
-                         smt-lib keywords)
-
-smt_hash_keywords.h      Perfect hash function for the SMT-LIB keywords. Generated by
-                         gperf from smt_keywords.txt
-
-smt_lexer.h:             SMT-LIB lexing functions
-smt_lexer.c
-
+All parsers rely on the following module
 
 parser.h:                Data structure shared by the Yices and SMT-LIB parsers.
 parser.c                 It provides support for implementing recursive-descent parsers
 
-yices_parse_tables.h:    Tables used for parsing the Yices language 
-                         (see utils/yices_parser.txt and utils/table_builder.c)
-
-yices_parser.h:          Parser for the Yices language
-yices_parser.c
 
 
-smt_parse_tables.h:      Tables for SMT-LIB parsing (see utils/smt_parser.txt)
+For printing trace messages & terms depending on a verbosity level:
 
-smt_parser.h:            SMT-LIB parser
-smt_parser.c
-
-
-
-Support for SMT-LIB 2.0
-
-smt2_tokens.txt:         All tokens + reserved symbols used in SMT-LIB 2.0 (including 
-                         command names).
-
-smt2_hash_tokens.h:      Perfect hash function, generated by gperf from smt2_tokens.txt
-
-smt2_keywords.txt:       All predefined keywords in SMT-LIB 2.0 (e.g., :print-success)
-
-smt2_hash_keywords.h:    Perfect hash function, generated by gperf from smt2_keywords.txt
-
-smt2_symbols.txt:        All theory symbols (for all theories defined as of Aug. 2011)
-
-smt2_hash_symbols.h:     Generated by gperf from smt2_symbols.txt
-
-smt2_lexer.h:            Lexical analysis
-smt2_lexer.c
-
-smt2_parse_tables.h:     Tables for parsing the SMT-LIB 2.0 language
-                         (see utils/smt2_parser.txt and utils/table_builder.c)
-
-smt2_parser.h:           Parser for SMT-LIB 2.0
-smt2_parser.c
+tracer.h
+tracer.c
 
 
 
@@ -625,6 +555,8 @@ smt2_parser.c
 
 smt_core.h:             DPLL-based SAT solver with support for connection to a theory solver
 smt_core.c
+
+smt_core_base_types.h:	Type definitions (boolean variables, literals, truth values)
 
 smt_core_exporter.h:    Export the smt_core content to a file (dimacs format)
 smt_core_exporter.c     (this takes only the Boolean part into account) 
@@ -643,6 +575,8 @@ gates_printer.c
 
 sat_solver.h:           A separate DPLL SAT solver similar to core but without theory solver
 sat_solver.c            (it's used to build the yices_sat standalone SAT solver)
+
+sat_parameters.h:	Parameters for sat_solver.c
 
 
 
@@ -685,9 +619,6 @@ egraph.c
 egraph_printer.h:           Print functions
 egraph_printer.c
 
-
-update_graph.h:             Incomplete: new module intended to replace the array solver
-update_graph.c              (including support for simple lambda terms)
 
 
 
@@ -929,6 +860,36 @@ context_solver.c:            Global search algorithm for formulas asserted in a 
 9) Top-level modules
    -----------------
 
+9.1) Library/API
+     -----------
+
+yices_types.h:	            Types visible at the external API
+
+yices_limits.h:             Hardcoded limits on term/type representations
+
+yices.h:                    (public) API
+
+<yices_exit_codes.h:         Constants passed to the 'exit' system call on unrecoverable errors
+
+yices_api.c:                Implements all API functions and more
+
+yices_error.h:              Error messages based on an error_report structure
+yices_error.c               maintained by yices_api.c
+
+yices_extensions.h:         Functions defined in yices_api.c that are not part
+                            of the API. These are variants of functions declared
+                            in 'yices.h'.
+
+yices_iterators.h:          Functions to iterate over all contexts, models, etc.
+                            (these functions are defined in yices_api.c)
+
+
+yices_version_template.txt:
+yices_version.c             Version number + compilation + architecture.
+                            yices_version.c is generated from yices_version_template.txt 
+                            when compiling (cf. src/Makefile).
+
+
 arith_solver_codes.h:       Used to process command line options
 arith_solver_codes.c        - convert a solver name (e.g., "simplex") to a numerical code
 
@@ -943,18 +904,26 @@ smt_logic_codes.h:          Convert the known SMT-LIB logic names (e.g., "QF_AUF
 smt_logic_codes.c           into a numerical code.
 
 
-yices_version_template.txt:
-yices_version.c             Version number + compilation + architecture.
-                            yices_version.c is generated from yices_version_template.txt 
-                            when compiling (cf. src/Makefile).
 
+9.2) Yices solver
+     ------------
 
-yices_smt.c:                Solver for problems in the SMT-LIB notation
-                            - support for command-line options for benchmarking/testing
+yices_keywords.txt          Input for gperf (to construct a perfect hash for the
+                            Yices keywords)
 
-yices_smtcomp.c:            Solver for problems in the SMT-LIB notation
-                            - competition version: no parameter setting available
-                            on the command line.
+yices_hash_keywords.h       Perfect hash function for the Yices keywords. Generated by
+                            gperf from yices_keywords.txt
+
+yices_lexer.h:              Yices lexing functions 
+yices_lexer.c
+
+yices_parse_tables.h:       Tables used for parsing the Yices language 
+                            (see utils/yices_parser.txt and utils/table_builder.c)
+
+yices_parser.h:             Parser for the Yices language
+yices_parser.c
+
+yices_stack_ops.h           Opcodes used by Yices version of term_stack
 
 yices_help.h:               On-line help for the solver (Yices language)
 yices_help.c
@@ -967,4 +936,92 @@ yices_main.c:              Top-level Yices module for problems in the Yices lang
                            - just calls yices_reval
 
 
+
+9.3) SMT 1.2 solvers
+     ---------------
+
+smt_keywords.txt           Input for gperf (to construct a perfect hash for the
+                           smt-lib keywords)
+
+smt_hash_keywords.h        Perfect hash function for the SMT-LIB keywords. Generated by
+                           gperf from smt_keywords.txt
+
+smt_lexer.h:               SMT-LIB lexing functions
+smt_lexer.c
+
+smt_parse_tables.h:        Tables for SMT-LIB parsing (see utils/smt_parser.txt)
+
+smt_parser.h:              SMT-LIB parser
+smt_parser.c
+
+smt_term_stack.c:	   Variant of term_stack for SMT-LIB 1.2
+smt_term_stack.h
+
+yices_smt.c:               Solver for problems in the SMT-LIB notation
+                           - support for command-line options for benchmarking/testing
+
+yices_smtcomp.c:           Solver for problems in the SMT-LIB notation
+                           - competition version: no parameter setting available
+                           on the command line.
+
+
+9.4) SMT-LIB 2 solver
+     ----------------
+
+smt2_tokens.txt:           All tokens + reserved symbols used in SMT-LIB 2.0 (including 
+                           command names).
+
+smt2_hash_tokens.h:        Perfect hash function, generated by gperf from smt2_tokens.txt
+
+smt2_keywords.txt:         All predefined keywords in SMT-LIB 2.0 (e.g., :print-success)
+
+smt2_hash_keywords.h:      Perfect hash function, generated by gperf from smt2_keywords.txt
+
+smt2_symbols.txt:          All theory symbols (for all theories defined as of Aug. 2011)
+
+smt2_hash_symbols.h:       Generated by gperf from smt2_symbols.txt
+
+smt2_lexer.h:              Lexical analysis
+smt2_lexer.c
+
+smt2_parse_tables.h:       Tables for parsing the SMT-LIB 2.0 language
+                           (see utils/smt2_parser.txt and utils/table_builder.c)
+
+smt2_parser.h:             Parser for SMT-LIB 2.0
+smt2_parser.c
+
+attribute_values.c         Support for storing attributes (as defined in the SMT-LIB 2 notation)
+attribute_values.h
+
+smt2_term_stack.h:         Built on top of term_stack2: with variant implementation of
+smt2_term_stack.c          several operations to follow the SMT-LIB 2.0 conventions, and
+                           new operations that are specific to SMT-LIB 2.0.
+
+smt2_commands.h:           Commands defined in SMT-LIB 2.0 (not complete yet)
+smt2_commads.c
+
+yices_smt2.c:		   Solver for problems in the SMT-LIB 2.0 notation
+
+
+
+9.5) SAT solver
+     ----------
+
 yices_sat.c:               SAT solver: reads DIMACS CNF input
+
+
+
+
+10) Experimental modules
+    --------------------
+
+update_graph.h:            Incomplete: new module intended to replace the array solver
+update_graph.c             (including support for simple lambda terms)
+
+bool_vartable.h:	   Intended to simplify and improve bitblasting
+bool_vartable.c
+
+booleq_table.h:		   Store Boolean variables that are defined as (xor x y)
+booleq_table.c
+
+
