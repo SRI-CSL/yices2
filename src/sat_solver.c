@@ -2926,9 +2926,10 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
 
       // Delete half the learned clauses if the threshold is reached
       // then increase the threshold
-      if (get_cv_size(sol->learned_clauses) >= sol->reduce_threshold) {
+      if (get_cv_size(sol->learned_clauses) >= sol->reduce_threshold + sol->stack.top) {
         reduce_learned_clause_set(sol);
-        sol->reduce_threshold = (uint32_t) (sol->reduce_threshold * REDUCE_FACTOR);
+	//        sol->reduce_threshold = (uint32_t) (sol->reduce_threshold * REDUCE_FACTOR);
+	sol->reduce_threshold += INCR_REDUCE_THRESHOLD;
       }
 
       x = select_variable(sol);
@@ -3053,11 +3054,14 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
   /*
    * Reduce strategy: like minisat
    */
+#if 0
   //  sol->reduce_threshold = UINT32_MAX;
   sol->reduce_threshold = sol->nb_clauses/4;
   if (sol->reduce_threshold < MIN_REDUCE_THRESHOLD) {
     sol->reduce_threshold = MIN_REDUCE_THRESHOLD;
   }
+#endif
+  sol->reduce_threshold = INITIAL_REDUCE_THRESHOLD;
 
 #if INSTRUMENT_CLAUSES
   next_snapshot = 10000;
