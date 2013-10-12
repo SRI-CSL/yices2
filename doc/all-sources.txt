@@ -1,0 +1,660 @@
+arena.c					utility		memory management
+arena.h
+
+assert_utils.h				utility		miscellaneous
+
+abstract_values.c			models		Egraph + array solvers
+abstract_values.h
+
+arith_atomtable.c			solvers		Simplex
+arith_atomtable.h
+
+arith_buffers.c				polynomials	rational coefficients		obsolete
+arith_buffers.h
+
+arith_buffer_terms.c			terms/types	term construction		obsolete
+arith_buffer_terms.h
+
+arith_solver_codes.c			toplevel	Library/API
+arith_solver_codes.h
+
+arith_vartable.c			solvers		Simplex
+arith_vartable.h
+
+attribute_values.c			toplevel	SMT-LIB 2 solver
+attribute_values.h
+
+backtrack_arrays.c			utility		vectors and arrays
+backtrack_arrays.h
+
+balanced_arith_buffers.c		polynomials	rational coefficients
+balanced_arith_buffers.h
+
+bit_blaster.c				solvers		Bitvectors
+bit_blaster.h
+
+bit_expr.c				bitarray expressions
+bit_expr.h
+
+bit_term_conversion.c			terms/types	term construction
+bit_term_conversion.h
+
+bit_tricks.h				utility		miscellaneous
+
+bitvectors.h				utility		generic data structures
+
+booleq_table.c				solvers		Bitvectors			experimental
+booleq_table.h
+
+bool_vartable.c				solvers		Bitvectors			experimental
+bool_vartable.h
+
+bv64_constants.c			bitvector constants
+bv64_constants.h
+
+bv64_intervals.c			solvers		Bitvectors
+bv64_intervals.h
+
+bv64_polynomials.c			polynomials	bivector coefficients
+bv64_polynomials.h
+
+bvarith64_buffers.c			polynomials	bitvector coefficients
+bvarith64_buffers.h
+
+bvarith64_buffer_terms.c		terms/types	term construction
+bvarith64_buffer_terms.h
+
+bvarith_buffers.c			polynomials	bitvector coefficients
+bvarith_buffers.h
+
+bvarith_buffer_terms.c			terms/types	term construction
+bvarith_buffer_terms.h
+
+bv_atomtable.c				solvers		Bitvectors
+bv_atomtable.h
+
+bvbound_cache.c				solvers		Bitvectors
+bvbound_cache.h
+
+bv_constants.c				bitvector constants
+bv_constants.h
+
+bvconst_hmap.c				solvers		Bitvectors
+bvconst_hmap.h
+
+bvexp_table.c				solvers		Bitvectors
+bvexp_table.h
+
+bv_intervals.c				solvers		Bitvectors
+bv_intervals.h
+
+bvlogic_buffers.c			bitarray expressions
+bvlogic_buffers.h
+
+bvpoly_buffers.c			polynomials	bitvector coefficients
+bvpoly_buffers.h
+
+bvpoly_compiler.c			solvers		Bitvectors
+bvpoly_compiler.h
+
+bvpoly_dag.c				solvers		Bitvectors
+bvpoly_dag.h
+
+bv_polynomials.c			polynomials	bitvector coefficients
+bv_polynomials.h
+
+bvsolver.c				solvers		Bitvectors
+bvsolver.h
+
+bvsolver_printer.c			solvers		Bitvectors
+bvsolver_printer.h
+
+bvsolver_types.h			solvers		Bitvectors
+
+bv_vartable.c				solvers		Bitvectors
+bv_vartable.h
+
+cache.c					utility		hash tables
+cache.h
+
+command_line.c				utility		parsing
+command_line.h
+
+composites.c				solvers		Egraph
+composites.h
+
+concrete_values.c			model		All solvers
+concrete_values.h
+
+context.c				context		main
+context.h
+
+context_config.c			toplevel	Library/API
+context_config.h
+
+context_printer.c			context		pretty printing
+context_printer.h
+
+context_simplifier.c			context		simplification
+
+context_solver.c			context		solver
+
+cputime.c				utility		miscellaneous
+cputime.h
+
+csets.c					utility		sets and collections
+csets.h
+
+dep_tables.c				utility		vectors and arrays
+dep_tables.h
+
+diophantine_systems.c			solvers		Simplex
+diophantine_systems.h
+
+diseq_stacks.c				solvers		Egraph
+diseq_stacks.h
+
+dl_lists.h				utility		generic data structures
+
+dl_profile.c
+
+dl_vartable.c				solvers		Difference logic
+dl_vartable.h
+
+dprng.h					utility		miscellaneous
+
+dsolver_printer.c			solvers		Simplex
+dsolver_printer.h
+
+egraph_assertion_queues.c		solvers		Egraph
+egraph_assertion_queues.h
+
+egraph_base_types.h			solvers		Egraph
+
+egraph.c				solvers		Egraph
+egraph.h
+
+egraph_eq_stats.c			solvers		Egraph			obsolete
+egraph_eq_stats.h
+
+egraph_explanations.c			solvers		Egraph
+egraph_explanations.h
+
+egraph_printer.c			solvers		Egraph
+egraph_printer.h
+
+egraph_types.h				solvers		Egraph
+
+egraph_utils.c				solvers		Egraph
+egraph_utils.h
+
+eq_abstraction.c			context		simplification
+eq_abstraction.h
+
+eq_learner.c				context		simplification
+eq_learner.h
+
+extended_rationals.c			rational constants
+extended_rationals.h
+
+free_var_collector.c			terms/types	substitutions
+free_var_collector.h
+
+fun_maps.c				models		Function/Array solver
+fun_maps.h
+
+fun_solver.c				solvers		Functions/Arrays
+fun_solver.h
+
+fun_solver_printer.c			solvers		Functions/Arrays
+fun_solver_printer.h
+
+fun_trees.c				models		Function/Array solver
+fun_trees.h
+
+gates_hash_table.c			solvers		Core
+gates_hash_table.h
+
+gates_manager.c				solvers		Core
+gates_manager.h
+
+gates_printer.c				solvers		Core
+gates_printer.h
+
+gcd.c					utility		miscellaneous
+gcd.h
+
+generic_heap.c				utility		heaps
+generic_heap.h
+
+hash_functions.c			utility		miscellaneous
+hash_functions.h
+
+idl_floyd_warshall.c			solvers		Difference logic
+idl_floyd_warshall.h
+
+idl_fw_printer.c			solvers		Difference logic
+idl_fw_printer.h
+
+index_vectors.c				utility		vectors and arrays
+index_vectors.h
+
+int_array_hsets.c			utility		hash tables
+int_array_hsets.h
+
+int_array_sort2.c			utility		sorting
+int_array_sort2.h
+
+int_array_sort.c			utility		sorting
+int_array_sort.h
+
+int_bags.c				utility		sets and collections
+int_bags.h
+
+int_bv_sets.c				utility		sets and collections
+int_bv_sets.h
+
+internalization_codes.h			context		internalization
+
+internalization_printer.c		context		pretty printing
+internalization_printer.h
+
+internalization_table.c			context		internalization
+internalization_table.h
+
+int_hash_classes.c			utility		hash tables
+int_hash_classes.h
+
+int_hash_map2.c				utility		hash tables
+int_hash_map2.h
+
+int_hash_map.c				utility		hash tables
+int_hash_map.h
+
+int_hash_sets.c				utility		hash tables
+int_hash_sets.h
+
+int_hash_tables.c			utility		hash tables
+int_hash_tables.h
+
+int_heap2.c				utility		heaps
+int_heap2.h
+
+int_heap.c				utility		heaps
+int_heap.h
+
+int_partitions.c			utility		equivalence relations
+int_partitions.h
+
+int_powers.c				utility		miscellaneous
+int_powers.h
+
+int_queues.c				utility		queues
+int_queues.h
+
+int_stack.c				utility		memory management
+int_stack.h
+
+int_vectors.c				utility		vectors and arrays
+int_vectors.h
+
+large_bvsets.c				model		Bitvector solver		not used
+large_bvsets.h
+
+lexer.c					utility		parsing
+lexer.h
+
+mark_vectors.c				utility		vectors and arrays
+mark_vectors.h
+
+matrices.c				solvers		Simplex
+matrices.h
+
+memalloc.c				utility		memory management
+memalloc.h
+
+memsize.c				utility		miscellaneous
+memsize.h
+
+merge_table.c				solvers		Bitvectors
+merge_table.h
+
+model_eval.c				models		All solvers
+model_eval.h
+
+model_printer.c				models		All solvers
+model_printer.h
+
+models.c				models		All solvers
+models.h
+
+mpq_aux.c				rational constants
+mpq_aux.h
+
+object_stores.c				utility		memory management
+object_stores.h
+
+offset_equalities.c			solvers		Simplex
+offset_equalities.h
+
+pair_hash_map2.c			utility		hash tables
+pair_hash_map2.h
+
+pair_hash_map.c				utility		hash tables
+pair_hash_map.h
+
+pair_hash_sets.c			utility		hash tables
+pair_hash_sets.h
+
+parser.c				parsing		common to all languages
+parser.h
+
+pointer_vectors.c			utility		vectors and arrays
+pointer_vectors.h
+
+poly_buffer.c				polynomials	rational coefficients
+poly_buffer.h
+
+poly_buffer_terms.c			terms/types	term construction
+poly_buffer_terms.h
+
+polynomial_common.h			polynomials
+
+polynomials.c				polynomials	rational coefficients
+polynomials.h
+
+power_products.c			polynomials
+power_products.h
+
+pprod_table.c				polynomials
+pprod_table.h
+
+pretty_printer.c			utility		pretty printing
+pretty_printer.h
+
+prng.h					utility		miscellaneous
+
+pseudo_subst.c				context		internalization
+pseudo_subst.h
+
+ptr_array_sort2.c			utility		sorting
+ptr_array_sort2.h
+
+ptr_array_sort.c			utility		sorting
+ptr_array_sort.h
+
+ptr_hash_classes.c			utility		hash tables
+ptr_hash_classes.h
+
+ptr_hash_map.c				utility		hash tables
+ptr_hash_map.h
+
+ptr_heap.c				utility		heaps
+ptr_heap.h
+
+ptr_partitions.c			utility		equivalence relations
+ptr_partitions.h
+
+ptr_queues.c				utility		queues
+ptr_queues.h
+
+ptr_stack.c				utility		memory management
+ptr_stack.h
+
+ptr_vectors.c				utility		vectors and arrays
+ptr_vectors.h
+
+rational_hash_maps.c			rational	hash tables
+rational_hash_maps.h
+
+rationals.c				rational constants
+rationals.h
+
+rba_buffer_terms.c			terms/types	term construction
+rba_buffer_terms.h
+
+rb_bvsets.c				model construction
+rb_bvsets.h
+
+rdl_floyd_warshall.c			solvers		Difference logic
+rdl_floyd_warshall.h
+
+rdl_fw_printer.c			solvers		Difference logic
+rdl_fw_printer.h
+
+reader.c				utility		parsing
+reader.h
+
+refcount_int_arrays.c			utility		vectors and arrays
+refcount_int_arrays.h
+
+refcount_strings.c			utility		character strings
+refcount_strings.h
+
+remap_table.c				solvers		Bitvectors
+remap_table.h
+
+renaming_context.c			terms/types	substitutions
+renaming_context.h
+
+sat_parameters.h			solvers		Sat solver
+
+sat_solver.c				solvers		Sat solver
+sat_solver.h
+
+search_parameters.c			toplevel	Library/API
+search_parameters.h
+
+simplex.c				solvers		Simplex
+simplex.h
+
+simplex_printer.c			solvers		Simplex
+simplex_printer.h
+
+simplex_propagator0.h			solvers		Simplex
+
+simplex_propagator1.h			solvers		Simplex
+
+simplex_prop_table.c			solvers		Simplex
+simplex_prop_table.h
+
+simplex_types.h				solvers		Simplex
+
+small_bvsets.c				models		Bitvector solver
+small_bvsets.h
+
+smt2_commands.c				toplevel	SMT-LIB 2 solver
+smt2_commands.h
+
+smt2_hash_keywords.h			parsing		SMT-LIB 2
+
+smt2_hash_symbols.h			parsing		SMT-LIB 2
+
+smt2_hash_tokens.h			parsing		SMT-LIB 2
+
+smt2_keywords.txt			parsing		SMT-LIB 2
+
+smt2_lexer.c				parsing		SMT-LIB 2
+smt2_lexer.h
+
+smt2_parser.c				parsing		SMT-LIB 2
+smt2_parser.h
+
+smt2_parse_tables.h			parsing		SMT-LIB 2
+
+smt2_symbols.txt			parsing		SMT-LIB 2
+
+smt2_term_stack.c			terms/types	simplification/construction (SMT-LIB 2)
+smt2_term_stack.h
+
+smt2_tokens.txt				parsing		SMT-LIB 2
+
+smt_core_base_types.h			solvers		Core
+
+smt_core.c				solvers		Core
+smt_core.h
+
+smt_core_exporter.c			solvers		Core
+smt_core_exporter.h
+
+smt_core_printer.c			solvers		Core
+smt_core_printer.h
+
+smt_hash_keywords.h			parsing		SMT-LIB 1.2
+
+smt_keyworks.txt			parsing		SMT-LIB 1.2
+
+smt_lexer.c				parsing		SMT-LIB 1.2
+smt_lexer.h
+
+smt_logic_codes.c			toplevel	Library/API
+smt_logic_codes.h
+
+smt_parser.c				parsing		SMT-LIB 1.2
+smt_parser.h
+
+smt_parse_tables.h			parsing		SMT-LIB 1.2
+
+smt_term_stack.c			toplevel	SMT-LIB 1.2 solver
+smt_term_stack.h
+
+sparse_arrays.c				utility		vectors and arrays
+sparse_arrays.h
+
+stable_sort.c				utility		sorting
+stable_sort.h
+
+string_buffers.c			utility		character strings
+string_buffers.h
+
+string_hash_map.c			utility		hash tables
+string_hash_map.h
+
+string_utils.c				utility		character strings
+string_utils.h
+
+subst_cache.c				terms/types	substitutions
+subst_cache.h
+
+subst_context.c				terms/types	substitutions
+subst_context.h
+
+symbol_tables.c				utility		hash tables
+symbol_tables.h
+
+symmetry_breaking.c			context		simplification
+symmetry_breaking.h
+
+tagged_pointers.h			utility		miscellaneous
+
+term_manager.c				terms/types	simplification/construction
+term_manager.h
+
+term_printer.c				terms/types	pretty printing
+term_printer.h
+
+terms.c					terms/types	base
+terms.h
+
+term_stack2.c				terms/types	simplification/construction
+term_stack2.h
+
+term_stack_error.c			terms/types	error reports
+term_stack_error.h
+
+term_substitution.c			terms/types	simplification/construction
+term_substitution.h
+
+term_utils.c				terms/types	term construction
+term_utils.h
+
+theory_explanations.c			solvers		Egraph
+theory_explanations.h
+
+timeout.c				utility		miscellaneous
+timeout.h
+
+tracer.c				utility		pretty printing
+tracer.h
+
+tstack_internals.h			terms/types     term construction
+
+tuple_hash_map.c			utility		hash tables
+tuple_hash_map.h
+
+type_printer.c				terms/types	pretty printing
+type_printer.h
+
+types.c					terms/types	base
+types.h
+
+uint_rbtrees.c				utility		sets and collections
+uint_rbtrees.h
+
+union_find.c				utility		equivalence relations
+union_find.h
+
+update_graph.c				solvers		Egraph/array solver		experimental
+update_graph.h
+
+use_vectors.c				utility		vectors and arrays
+use_vectors.h
+
+variable_renaming.c			terms/types	substitutions
+variable_renaming.h
+
+yices_api.c				toplevel	Library/API
+
+yices_error.c				toplevel	Library/API
+yices_error.h
+
+yices_exit_codes.h			toplevel	Library/API
+
+yices_extensions.h			toplevel	Library/API
+
+yices_globals.h				toplevel	Library/API
+
+yices.h					toplevel	Library/API
+
+yices_hash_keywords.h			parsing		Yices language
+
+yices_help.c
+yices_help.h				toplevel	Yices solver
+
+yices_iterators.h			toplevel	Library/API
+
+yices_keywords.txt			parsing		Yices language
+
+yices_lexer.c				parsing		Yices language
+yices_lexer.h
+
+yices_limits.h				terms/types	base
+
+yices_main.c				toplevel	Yices solver
+
+yices_parser.c				parsing		Yices language
+yices_parser.h
+
+yices_parse_tables.h			parsing		Yices language
+
+yices_pp.c				terms/types	pretty printing
+yices_pp.h
+
+yices_reval.c				toplevel	Yices solver
+yices_reval.h
+
+yices_sat.c				toplevel	Dimacs SAT solver
+
+yices_smt2.c				toplevel	SMT-LIB 2 solver
+
+yices_smt.c				toplevel	SMT-LIB 1.2 solver
+
+yices_smtcomp.c				toplevel	SMT-LIB 1.2 solver (competition version)
+
+yices_tstack_ops.h			toplevel	Yices solver
+
+yices_types.h				terms/types	base
+
+yices_version.c				toplevel	Library/API
+
+yices_version_template.txt		toplevel	Library/API
