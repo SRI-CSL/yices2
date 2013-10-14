@@ -259,19 +259,6 @@ static void subst_pop_renaming(term_subst_t *subst, uint32_t n) {
 }
 
 
-/*
- * Check whether term t is ground
- * - t must be a valid term in subst->terms
- * - allocate and initialize the variable collector structure if needed
- */
-static bool subst_term_is_ground(term_subst_t *subst, term_t t) {
-  fvar_collector_t *fvar;
-
-  fvar = term_subst_get_fvar(subst);
-  return term_is_ground(fvar, t);
-}
-
-
 
 
 /*
@@ -1349,15 +1336,11 @@ static term_t get_subst(term_subst_t *subst, term_t t) {
     /*
      * Composite term
      */
-    if (subst_term_is_ground(subst, t)) {
-      result = t;
-    }  else {
-      result = get_cached_subst(subst, t);
-      if (result < 0) {
-        assert(result == NULL_TERM);
-        result = subst_composite(subst, t);
-        cache_subst_result(subst, t, result);
-      }
+    result = get_cached_subst(subst, t);
+    if (result < 0) {
+      assert(result == NULL_TERM);
+      result = subst_composite(subst, t);
+      cache_subst_result(subst, t, result);
     }
     break;
   }
