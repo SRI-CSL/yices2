@@ -384,7 +384,7 @@ c12      true           next; goto r0
          false          next; goto r0
          <rational>     next; goto r0
          <float>        next; goto r0
-         <symbol>       next; goto r0
+         <symbol>       next; goto r0      --> in (set-param .... <symbol>) 
 c13      <symbol>       next; goto r0
 c14      <rational>     next; goto r0
 c15      <symbol>       next; goto r0

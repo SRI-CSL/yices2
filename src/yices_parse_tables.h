@@ -57,7 +57,7 @@ typedef enum actions {
   true_next_goto_r0,      // in (set-param ... true)
   false_next_goto_r0,     // in (set-param ... false)
   float_next_goto_r0,     // in (set-param ... <float>)
-  symbol_next_goto_r0,    // in (show-param <symbol>) or (help <symbol>)
+  symbol_next_goto_r0,    // in (show-param <symbol>) or (help <symbol>) or (set-param ... <symbol>)
   ret,                    // return
   push_r0_goto_e0,
   push_r0_goto_td0,
@@ -310,7 +310,7 @@ static const uint8_t value[BSIZE] = {
   float_next_goto_r0,
   symbol_next_goto_r0,
   ret,
-  string_next_goto_r0,
+  symbol_next_goto_r0,
   next_goto_td1,
   string_next_goto_r0,
   bitvector_next_goto_t4,
@@ -453,5 +453,6 @@ static const uint8_t value[BSIZE] = {
   error,
   error,
 };
+
 
 #endif /* __YICES_PARSE_TABLES_H */

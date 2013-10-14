@@ -441,7 +441,8 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       goto loop;
 
     case symbol_next_goto_r0:
-      // symbol in (show-param <symbol>) or (help <symbol>)
+      // symbol in (show-param <symbol>) or (help <symbol>) 
+      // or (set-param ... <symbol>)
       tstack_push_symbol(tstack, tkval(lex), tklen(lex), &loc);
       state = r0;
       goto loop;

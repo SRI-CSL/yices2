@@ -52,7 +52,7 @@ enum actions {
   true_next_goto_r0,      // in (set-param ... true)
   false_next_goto_r0,     // in (set-param ... false)
   float_next_goto_r0,     // in (set-param ... <float>)
-  symbol_next_goto_r0,    // in (show-param <symbol>) or (help <symbol>)
+  symbol_next_goto_r0,    // in (show-param <symbol>) or (help <symbol>) or (set-param ... <symbol>)
   ret,                    // return
   push_r0_goto_e0,
   push_r0_goto_td0,
@@ -232,7 +232,7 @@ static triple_t triples[] = {
   { c12, TK_FALSE, "false_next_goto_r0" },
   { c12, TK_NUM_RATIONAL, "rational_next_goto_r0" },
   { c12, TK_NUM_FLOAT, "float_next_goto_r0" },
-  { c12, TK_SYMBOL, "string_next_goto_r0" },
+  { c12, TK_SYMBOL, "symbol_next_goto_r0" },
 
   { c13, TK_SYMBOL, "symbol_next_goto_r0" },
 
