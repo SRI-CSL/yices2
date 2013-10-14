@@ -71,6 +71,8 @@ static inline learned_clause_t *learned(const clause_t *cl) {
   return (learned_clause_t *)(((char *)cl) - offsetof(learned_clause_t, clause));
 }
 
+#if 0
+// EXPERIMENT: NO CLAUSE ACTIVITY
 /*
  * Activity of a learned clause
  */
@@ -98,6 +100,29 @@ static inline void increase_activity(clause_t *cl, float delta) {
 static inline void multiply_activity(clause_t *cl, float scale) {
   learned(cl)->activity *= scale;
 }
+#endif
+
+
+// EXPERIMENTAL
+/*
+ * Get the score of clause cl
+ */
+static inline uint32_t clause_score(const clause_t *cl) {
+  return learned(cl)->last_prop;
+}
+
+/*
+ * Set the last_prop counter for cl
+ */
+static void learned_clause_prop(sat_solver_t *solver, clause_t *cl) {
+  learned_clause_t *tmp;
+
+  tmp = learned(cl);
+  tmp->last_prop = solver->stats.conflicts;
+}
+
+
+
 
 /*
  * Mark a clause cl for deletion
@@ -170,7 +195,8 @@ static clause_t *new_learned_clause(uint32_t len, literal_t *lit) {
 
   tmp = (learned_clause_t *) safe_malloc(sizeof(learned_clause_t) + sizeof(literal_t) + 
                                          len * sizeof(literal_t));
-  tmp->activity = 0.0;
+  //  tmp->activity = 0.0;
+  tmp->last_prop = 0;
   result = &(tmp->clause);
 
   for (i=0; i<len; i++) {
@@ -198,7 +224,7 @@ static inline void delete_learned_clause(clause_t *cl) {
  *   rather than c1 (i.e., c1's score <= c2's score).
  */
 static bool clause_cmp(const void *aux, const void *c1, const void *c2) {
-  return get_activity(c1) <= get_activity(c2);
+  return clause_score(c1) <= clause_score(c2);
 }
 
 
@@ -1494,6 +1520,8 @@ void sat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, litera
  *  ADDITION OF LEARNED CLAUSES   *
  *********************************/
 
+#if 0
+
 /*
  * Rescale activity of all the learned clauses
  * (divide all by CLAUSE_ACTIVITY_THRESHOLD)
@@ -1530,6 +1558,7 @@ static inline void decay_clause_activities(sat_solver_t *solver) {
   solver->cla_inc *= solver->inv_cla_decay;
 }
 
+#endif
 
 /*
  * Add an array of literals as a new learned clause
@@ -1547,7 +1576,8 @@ static clause_t *add_learned_clause(sat_solver_t *solver, uint32_t n, literal_t 
   // Set its activity to current cla_inc
   cl = new_learned_clause(n, lit);
   add_clause_to_vector(&solver->learned_clauses, cl);
-  increase_clause_activity(solver, cl);
+
+  //  increase_clause_activity(solver, cl);  EXPERIMENTAL
 
   // statistics
 #if INSTRUMENT_CLAUSES
@@ -1683,7 +1713,7 @@ static void delete_learned_clauses(sat_solver_t *solver) {
 static void reduce_learned_clause_set(sat_solver_t *solver) {
   uint32_t i, n;
   clause_t **v;
-  float act_threshold;
+  //  float act_threshold;
 
   assert(get_cv_size(solver->learned_clauses) > 0);
 
@@ -1703,6 +1733,7 @@ static void reduce_learned_clause_set(sat_solver_t *solver) {
     }
   }
 
+#if 0
   // Delete more
   act_threshold = solver->cla_inc/n;
   for (i = n/2; i<n; i++) {
@@ -1710,6 +1741,7 @@ static void reduce_learned_clause_set(sat_solver_t *solver) {
       mark_for_deletion(v[i]);
     }
   }
+#endif
 
   delete_learned_clauses(solver);
   solver->stats.reduce_calls ++;
@@ -2151,8 +2183,9 @@ static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, link_t 
           // l1 is implied
           implied_literal(sol, l1, mk_clause_antecedent(cl, i^1));
 
-#if INSTRUMENT_CLAUSES
-	  if (l == end_learned) {
+#if INSTRUMENT_CLAUSES || 1
+	  // EXPERIMENTAL
+	  if (l == end_learned) {	   
 	    learned_clause_prop(sol, cl);
 	  }
 #endif
@@ -2567,12 +2600,15 @@ static void analyze_conflict(sat_solver_t *sol) {
   /*
    * If the conflict is a learned clause, increase its activity
    */
+  // EXPERIMENT: score is based on propagation only
+#if 0
   if (l == end_learned) {
     increase_clause_activity(sol, sol->false_clause);
 #if INSTRUMENT_CLAUSES
     learned_clause_reso(sol, sol->false_clause);
 #endif
   }
+#endif
 
   /*
    * Scan the assignment stack from top to bottom and process the
@@ -2615,12 +2651,15 @@ static void analyze_conflict(sat_solver_t *sol) {
             c ++;
             l = *c;
           }
+
+#if 0
           if (l == end_learned) {
             increase_clause_activity(sol, cl);
 #if INSTRUMENT_CLAUSES
 	    learned_clause_reso(sol, cl);
 #endif
           }
+#endif
           break;
 
         case literal_tag:
@@ -2964,7 +3003,8 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
       if (n >= 3) {
         cl = add_learned_clause(sol, n, b);
         implied_literal(sol, l, mk_clause0_antecedent(cl));
-#if INSTRUMENT_CLAUSES
+#if INSTRUMENT_CLAUSES || 1
+	// EXPERIMENTAL
 	learned_clause_prop(sol, cl);
 #endif
 
@@ -2982,7 +3022,7 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
       }
 
       decay_var_activities(&sol->heap);
-      decay_clause_activities(sol);
+      //      decay_clause_activities(sol); EXPERIMENTAL
     }
   }
 }
