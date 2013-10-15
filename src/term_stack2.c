@@ -951,7 +951,7 @@ void copy_result_and_pop_frame(tstack_t *stack, stack_elem_t *v) {
   }
   stack->top = n;
 
-  if (op != BIND && op != DECLARE_VAR) {
+  if (op != BIND && op != DECLARE_VAR && op != DECLARE_TYPE_VAR) {
     arena_pop(&stack->mem);
   }
 }

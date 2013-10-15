@@ -1021,10 +1021,10 @@ static const help_record_t help_data[] = {
     "     not c => t = b\n",
     NULL },
 
-  // fast-restart: index 106
+  // fast-restarts: index 106
   { HPARAM,
-    "(set-param fast-restart [boolean])",
-    "Enable/disable the fast-restart heuristic in the SAT solver",
+    "(set-param fast-restarts [boolean])",
+    "Enable/disable the fast-restarts heuristic in the SAT solver",
     NULL,
     NULL },
 
@@ -1048,7 +1048,7 @@ static const help_record_t help_data[] = {
     "Initial value of the secondary restart counter",
     "   [integer] must be positiver\n"
     "\n"
-    "This parameter is relevant only if fast-restart is true\n",
+    "This parameter is relevant only if fast-restarts is true\n",
     NULL },
 
   // d-factor: index 110
@@ -1057,7 +1057,7 @@ static const help_record_t help_data[] = {
     "Increase factor for the secondary restart counter",
     "   [float] must be at least 1.0\n"
     "\n"
-    "This parameter is relevant only if fast-restart is true\n",
+    "This parameter is relevant only if fast-restarts is true\n",
     NULL },
 
   // r-threshold: index 111
@@ -1342,12 +1342,20 @@ static const help_record_t help_data[] = {
     "This parameter matters only on problems that include equalities between arrays/functions\n",
     NULL },
 
+
+  // bvarith-elim: index 139
+  { HPARAM,
+    "(set-param bvarith-elim [boolean])",
+    "Enable/disable simplification by Gaussian elimination",
+    "If this parameter is true, Yices attempts to eliminated variables\n"
+    "in bitvector constraints of the form (= <lineary bitvector polynomial> 0b00..0)\n",
+    "In an assertion such as (= (bv-add x y z)), then one of 'x', 'y', or 'z' may be eliminated\n" },
     
-  // END MARKER: index 139
+  // END MARKER: index 140
   { HMISC, NULL, NULL, NULL, NULL },
 };
 
-#define END_HELP_DATA 139
+#define END_HELP_DATA 140
 
 
 
@@ -1741,6 +1749,7 @@ static const help_index_t help_index[] = {
   { "bv-xnor", NULL, 69, help_basic },
   { "bv-xor", NULL, 66, help_basic },
   { "bv-zero-extend", NULL, 84, help_basic },
+  { "bvarith-elim", NULL, 139, help_basic },
   { "c-factor", NULL, 108, help_basic },
   { "c-threshold", NULL, 107, help_basic },
   { "cache-tclauses", NULL, 119, help_basic },
@@ -1761,7 +1770,7 @@ static const help_index_t help_index[] = {
   { "eval", NULL, 10, help_basic },
   { "exit", NULL, 22, help_basic },
   { "false", NULL, 40, help_basic },
-  { "fast-restart", NULL, 106, help_basic },
+  { "fast-restarts", NULL, 106, help_basic },
   { "flatten", NULL, 103, help_basic },
   { "generic", "Generic Operators", HGENERIC, help_for_category },
   { "help", "Show help", 20, help_variant },

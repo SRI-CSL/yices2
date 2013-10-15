@@ -166,6 +166,7 @@ typedef enum yices_param {
   // internalization options
   PARAM_VAR_ELIM,
   PARAM_ARITH_ELIM,
+  PARAM_BVARITH_ELIM,
   PARAM_FLATTEN,
   PARAM_LEARN_EQ,
   PARAM_KEEP_ITE,
@@ -222,6 +223,7 @@ static const char * const param_names[NUM_PARAMETERS] = {
   "aux-eq-ratio",
   "bland-threshold",
   "branching",
+  "bvarith-elim",
   "c-factor",
   "c-threshold",
   "cache-tclauses",
@@ -264,6 +266,7 @@ static const yices_param_t param_code[NUM_PARAMETERS] = {
   PARAM_AUX_EQ_RATIO,
   PARAM_BLAND_THRESHOLD,
   PARAM_BRANCHING,
+  PARAM_BVARITH_ELIM,
   PARAM_C_FACTOR,
   PARAM_C_THRESHOLD,
   PARAM_CACHE_TCLAUSES,
@@ -1309,6 +1312,10 @@ static void show_param(yices_param_t p, uint32_t n) {
     show_bool_param(param2string[p], context_arith_elim_enabled(context), n);
     break;
 
+  case PARAM_BVARITH_ELIM:
+    show_bool_param(param2string[p], context_bvarith_elim_enabled(context), n);
+    break;
+
   case PARAM_FLATTEN:
     // this activates both flatten or and flatten diseq.
     show_bool_param(param2string[p], context_flatten_or_enabled(context), n);
@@ -1534,6 +1541,17 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
         enable_arith_elimination(context);
       } else {
         disable_arith_elimination(context);
+      }
+      print_ok();
+    }
+    break;
+
+  case PARAM_BVARITH_ELIM:
+    if (param_val_to_bool(param, val, &tt)) {
+      if (tt) {
+        enable_bvarith_elimination(context);
+      } else {
+        disable_bvarith_elimination(context);
       }
       print_ok();
     }
