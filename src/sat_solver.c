@@ -108,17 +108,17 @@ static inline void multiply_activity(clause_t *cl, float scale) {
  * Get the score of clause cl
  */
 static inline uint32_t clause_score(const clause_t *cl) {
-  return learned(cl)->last_prop;
+  return learned(cl)->last_reso;
 }
 
 /*
- * Set the last_prop counter for cl
+ * Set the last_reso counter for cl
  */
-static void learned_clause_prop(sat_solver_t *solver, clause_t *cl) {
+static void learned_clause_reso(sat_solver_t *solver, clause_t *cl) {
   learned_clause_t *tmp;
 
   tmp = learned(cl);
-  tmp->last_prop = solver->stats.conflicts;
+  tmp->last_reso = solver->stats.conflicts;
 }
 
 
@@ -196,7 +196,7 @@ static clause_t *new_learned_clause(uint32_t len, literal_t *lit) {
   tmp = (learned_clause_t *) safe_malloc(sizeof(learned_clause_t) + sizeof(literal_t) + 
                                          len * sizeof(literal_t));
   //  tmp->activity = 0.0;
-  tmp->last_prop = 0;
+  tmp->last_reso = 0;
   result = &(tmp->clause);
 
   for (i=0; i<len; i++) {
@@ -2183,8 +2183,7 @@ static int propagation_via_watched_list(sat_solver_t *sol, uint8_t *val, link_t 
           // l1 is implied
           implied_literal(sol, l1, mk_clause_antecedent(cl, i^1));
 
-#if INSTRUMENT_CLAUSES || 1
-	  // EXPERIMENTAL
+#if INSTRUMENT_CLAUSES
 	  if (l == end_learned) {	   
 	    learned_clause_prop(sol, cl);
 	  }
@@ -2600,15 +2599,13 @@ static void analyze_conflict(sat_solver_t *sol) {
   /*
    * If the conflict is a learned clause, increase its activity
    */
-  // EXPERIMENT: score is based on propagation only
-#if 0
+  // EXPERIMENT: score = last_reso
   if (l == end_learned) {
-    increase_clause_activity(sol, sol->false_clause);
-#if INSTRUMENT_CLAUSES
+    //    increase_clause_activity(sol, sol->false_clause);
+#if INSTRUMENT_CLAUSES || 1
     learned_clause_reso(sol, sol->false_clause);
 #endif
   }
-#endif
 
   /*
    * Scan the assignment stack from top to bottom and process the
@@ -2652,14 +2649,12 @@ static void analyze_conflict(sat_solver_t *sol) {
             l = *c;
           }
 
-#if 0
           if (l == end_learned) {
-            increase_clause_activity(sol, cl);
-#if INSTRUMENT_CLAUSES
+	    //            increase_clause_activity(sol, cl);
+#if INSTRUMENT_CLAUSES || 1
 	    learned_clause_reso(sol, cl);
 #endif
           }
-#endif
           break;
 
         case literal_tag:
@@ -3003,7 +2998,7 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
       if (n >= 3) {
         cl = add_learned_clause(sol, n, b);
         implied_literal(sol, l, mk_clause0_antecedent(cl));
-#if INSTRUMENT_CLAUSES || 1
+#if INSTRUMENT_CLAUSES
 	// EXPERIMENTAL
 	learned_clause_prop(sol, cl);
 #endif

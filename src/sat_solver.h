@@ -254,11 +254,11 @@ typedef struct level_map_s {
 
 /*
  * No instrumentation of learned clauses
- * EXPERIMENT: replace activity by last-prop
+ * EXPERIMENT: replace activity by last-reso
  */
 typedef struct learned_clause_s {
   //  float activity;
-  uint32_t last_prop;
+  uint32_t last_reso;
   clause_t clause;
 } learned_clause_t;
 
