@@ -42,6 +42,7 @@ static const char * const code2string[NUM_TSTACK_ERRORS] = {
   "cannot redefine type macro",
   "duplicate name",
   "duplicate variable name",
+  "duplicate type name",
   "invalid operation",
   "wrong number of arguments",
   "constant too large",
