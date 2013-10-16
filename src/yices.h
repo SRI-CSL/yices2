@@ -37,7 +37,7 @@
 
 
 #ifdef __cplusplus
-// extern "C" {
+extern "C" {
 #endif
 
 
@@ -2131,6 +2131,12 @@ __YICES_DLLSPEC__ extern int32_t yices_pop(context_t *ctx);
  *   var-elim: whether to eliminate variables by substitution
  *
  *   arith-elim: more variable elimination for arithmetic (Gaussian elimination)
+ *
+ *   bvarith-elim: more variable elimination for bitvector arithmetic
+ *
+ *   eager-arith-lemmas: if enabled and the simplex solver is used, the simplex
+ *   solver will eagerly generate lemmas such as (x >= 1) => (x >= 0) (i.e.,
+ *   the lemmas involve two inequalities on the same variable x).
  *
  *   flatten: whether to flatten nested (or ...)
  *     (e.g., turn (or (or a b) (or c d) ) to (or a b c d))
