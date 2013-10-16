@@ -200,6 +200,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
     
 
 
+
 4) Built-in constants and functions
    --------------------------------
 
@@ -219,7 +220,42 @@ This is a summary of the commands and input language of the Yices 2 solver.
      <=> and => are binary operators.
 
 
-4.3) tuple constructor: (mk-tuple <term_1> ... <term_n>) with n>=1
+4.3) the usual arithmetic operators are available. For example the 
+     linear 3x + y + 2 can be written (+ (* 3 x) y 2).
+
+     The +, *, - operators can take any number of arguments (at least one),
+
+     For the minus sign, Yices 2 (unlike Yices 1) follows the usual 
+     convention:
+
+       (- x) means opposite of x
+
+       (- x y z)  means x - y - z, and could be written equivalently 
+       as (- x (+ y z))
+   
+
+     Yices also includes division and exponentiation operators. Only
+     division by constants is supported (provided the divisor is nonzero).
+
+       (/ x 3) is fine
+       (/ x 0) is an error
+       (/ 1 x) is an error
+
+     Exponentiation is written 
+ 
+       (^ <term> <exponent>)
+
+     the <exponent> must be a non-negative integer constant.
+
+     Arithmetic constraints include the usual inequality operators:
+ 
+          <=   <   >=   >
+ 
+     (and the generic = and /= operations).
+     
+
+
+4.4) tuple constructor: (mk-tuple <term_1> ... <term_n>) with n>=1
 
      projection: (select <tuple> i) is the i-th component of term
           <tuple> must have type (tuple tau_1 ... tau_n) 
@@ -229,10 +265,10 @@ This is a summary of the commands and input language of the Yices 2 solver.
      the i-th component replaced by <term>
 
 
-4.4) function update: (update <function> (<arg_1> ... <arg_n>) <new_value>)
+4.5) function update: (update <function> (<arg_1> ... <arg_n>) <new_value>)
 
 
-4.5) bitvector functions:
+4.6) bitvector functions:
 
      a) bitvector constant from an integer
 
@@ -366,7 +402,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
 
 
 
-4) Commands
+5) Commands
    --------
   
    (define-type name):  create a new uninterpreted type called 'name'
@@ -433,59 +469,63 @@ This is a summary of the commands and input language of the Yices 2 solver.
 
 
 
-5) Parameters
+6) Parameters
    ----------
 
 The following parameters can be set using (set-param ...) or examined using (show-param ...).
 
 
-5.1) Parameters controlling preprocessing and simplifications
+6.1) Parameters controlling preprocessing and simplifications
 
 
-   Parameter	Type		Description
+   Parameter	 Type		Description
    Name
 
-   var-elim     Boolean		If var-elim is true then variable elimination is enabled.
+   var-elim      Boolean        If var-elim is true then variable elimination is enabled.
 
                                 Example: assertion (and (= x (g a)) (P y (f x))) is simplified
 				to (P y (f (g a))) 
 
-   arith-elim   Boolean         If arith-elim is true then arithmetic variables are eliminated
+   arith-elim    Boolean        If arith-elim is true then arithmetic variables are eliminated
                                 using Gaussian elimination.
 
-   flatten      Boolean         If flatten is true then nested 'or' and 'and' are flattened:
+   bvarith-elim  Boolean        Similar to arith-elim, for bitvector constraints.
+
+   flatten       Boolean        If flatten is true then nested 'or' and 'and' are flattened:
 
    				Example: (or a b (or b c d))  is rewritten to (or a b c d).
 
-   learn-eq     Boolean         If learn-eq is true, then a heuristic that attempts to learn
+   learn-eq      Boolean        If learn-eq is true, then a heuristic that attempts to learn
    				equalities across disjunction is enabled.
                                 Example: from assertion 
                                   (or (and (= a b) (= b c) (= c d)) (and (= d e) (= e a)))
 				yices can learn (= a d) because it's implied by both disjunct.
 
-   keep-ite     Boolean         If keep-ite is true, then terms of the from (ite c a b) are
+   keep-ite      Boolean        If keep-ite is true, then terms of the from (ite c a b) are
      				represented as is in the E-graph. Otherwise, they are eliminated
 				using the rule
 
                                    t = (ite c a b)   iff  c => (t = a)  AND  NOT c => (t = b)
 
-                                This parameter is relevant only for            
+                                This parameter is relevant only for the QF_UF logic 
+                                (uninterpreted functions) and for logics that combine UF 
+                                with other theories.
 
 
 
-5.2) SAT Solver Parameters
+6.2) SAT Solver Parameters
 
    Yices uses a CDCL SAT solver, similar to Minisat and Picosat. The following parameters
    affect heuristics used by this SAT solver.
 
 
-5.2.1) Restart Heuristics
+6.2.1) Restart Heuristics
 
 
    Parameter	 Type
    Name
 
-   fast-restart  Boolean       If true, yices will use a fast restart heuristics.
+   fast-restart  Boolean       If true, Yices will use a fast restart heuristics.
 
    c-threshold	 Integer       Number of conflict before the first restart
 
@@ -499,6 +539,7 @@ The following parameters can be set using (set-param ...) or examined using (sho
 
    If fast-restart is false, the following procedure is used 
    (restart with a geometric progression):
+
       c := c-threshold
       while not solved
          dpll search
@@ -523,7 +564,7 @@ The following parameters can be set using (set-param ...) or examined using (sho
 
 
 
-5.2.2) Clause deletion
+6.2.2) Clause deletion
 
 
    Parameter	    Type
@@ -564,7 +605,7 @@ The following parameters can be set using (set-param ...) or examined using (sho
 
 
 
-5.2.3) Decision heuristic
+6.2.3) Decision heuristic
 
    When the SAT solver makes a decision, it picks an unassigned Boolean variable
    of highest activity or it picks a variable randomly.  Once this decision
@@ -621,7 +662,7 @@ The following parameters can be set using (set-param ...) or examined using (sho
 
 
 
-5.3) Theory Lemmas
+6.3) Theory Lemmas
 
   Yices includes heuristics to build theory lemmas.  A theory lemma is
   a set of clauses that are true in a theory and get added to the
@@ -639,8 +680,7 @@ The following parameters can be set using (set-param ...) or examined using (sho
 
 
   2) Simplex lemmas; If the Simplex solver contains atoms (<= n 4) and
-     (<= n 3) then a valid theory lemma is that 
-        (<= n 3) implies (<= n 4). 
+     (<= n 3) then a valid theory lemma is that (<= n 3) implies (<= n 4). 
 
      So we can add the following clause:
 
@@ -673,7 +713,7 @@ The following parameters can be set using (set-param ...) or examined using (sho
      the atom ((F x y) = (F x z)).  Too many of these can overwhelm the
      Egraph. So Yices provides parameters to control the number of 
      new equality atoms generated by the Ackermann lemmas heuristics.
-    
+
 
 
    Parameters that control theory lemma generation
@@ -723,7 +763,7 @@ The following parameters can be set using (set-param ...) or examined using (sho
 
 
 
-5.4) Simplex Parameters   
+6.4) Simplex Parameters   
 
    eager-lemmas	      	   Boolean	   enable/disable the generation of lemmas in the Simplex
    			   		   solver. If this parameter is true, then the Simplex
@@ -731,7 +771,7 @@ The following parameters can be set using (set-param ...) or examined using (sho
 
 					   	  (x >= a) => (x >= b) 
 
-                                           where a and b are constants.
+                                           where a and b are constants, and a > b.
 
    
    simplex-prop		   Boolean	   enable/disable theory propagation in the Simplex solver
@@ -754,16 +794,16 @@ The following parameters can be set using (set-param ...) or examined using (sho
 
 
 
-5.5) Array-solver Parameters
+6.5) Array-solver Parameters
 
     max-update-conflicts   Integer	   Bound on the number of 'update axioms' instantiated per
-    			   		   call to the array solver's final check. 					   
+    			   		   call to the array solver's final   
 
     max-extensionality	   Integer         Bound on the number of extensionality axioms instantiated
     			   		   per call to the arrays solver's final check.
 
 
-5.6) Model Reconciliation Parameters
+6.6) Model Reconciliation Parameters
 
      max-interface-eqs	   Integer	   Bound on the number of interface equalities created per
      			   		   call to the Egraph's final check.
@@ -773,7 +813,7 @@ The following parameters can be set using (set-param ...) or examined using (sho
      all Boolean atoms are assigned a value and all solvers have a
      local model that assigns values to variables managed by each
      solver. A model-reconciliation procedure is then called to check
-     whether these local models are compatible: i.e., if two variables
+     whether these local models are compatible: if two variables
      x and y are shared between the Egraph and a theory solver, then
      both the egraph and the solver must agree on whether x and y are
      equal. If they are not, then Yices instantiates an interface
