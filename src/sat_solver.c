@@ -103,26 +103,6 @@ static inline void multiply_activity(clause_t *cl, float scale) {
 #endif
 
 
-// EXPERIMENTAL
-/*
- * Get the score of clause cl
- */
-static inline uint32_t clause_score(const clause_t *cl) {
-  return learned(cl)->last_reso;
-}
-
-/*
- * Set the last_reso counter for cl
- */
-static void learned_clause_reso(sat_solver_t *solver, clause_t *cl) {
-  learned_clause_t *tmp;
-
-  tmp = learned(cl);
-  tmp->last_reso = solver->stats.conflicts;
-}
-
-
-
 
 /*
  * Mark a clause cl for deletion
@@ -196,7 +176,7 @@ static clause_t *new_learned_clause(uint32_t len, literal_t *lit) {
   tmp = (learned_clause_t *) safe_malloc(sizeof(learned_clause_t) + sizeof(literal_t) + 
                                          len * sizeof(literal_t));
   //  tmp->activity = 0.0;
-  tmp->last_reso = 0;
+  tmp->glue = 0;
   result = &(tmp->clause);
 
   for (i=0; i<len; i++) {
@@ -215,6 +195,16 @@ static inline void delete_learned_clause(clause_t *cl) {
   safe_free(learned(cl));
 }
 
+
+
+
+// EXPERIMENTAL
+/*
+ * Get the score of clause cl
+ */
+static inline uint32_t clause_score(const clause_t *cl) {
+  return learned(cl)->glue;;
+}
 
 
 /*
@@ -409,6 +399,86 @@ static void delete_literal_vector(literal_t *v) {
 
 
 
+
+
+
+/****************
+ *  LEVEL MAPS  *
+ ***************/
+
+static void init_level_map(level_map_t *lvl) {
+  uint32_t i, n;
+
+  n = DEF_LVL_MAP_SIZE;
+  //  assert(n <= MAX_LVL_MAP_SIZE); always true
+  lvl->map = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
+  init_ivector(&lvl->marked, 100);
+  lvl->size = n;
+
+  for (i=0; i<n; i++) {
+    lvl->map[i] = 0;
+  }
+}
+
+
+static void delete_level_map(level_map_t *lvl) {
+  safe_free(lvl->map);
+  delete_ivector(&lvl->marked);
+  lvl->map = NULL;
+}
+
+// make sure we can store map[k]
+static void resize_level_map(level_map_t *lvl, uint32_t k) {
+  uint32_t i, n;
+
+  assert(k >= lvl->size);
+
+  n = 2 * lvl->size;
+  if (k >= n) {
+    n = k+1;
+  }
+
+  lvl->map = (uint8_t *) safe_realloc(lvl->map, n * sizeof(uint8_t));
+  for (i= lvl->size; i<n; i++) {
+    lvl->map[i] = 0;
+  }
+  lvl->size = n;
+}
+
+
+// store map[k] := d
+static void level_map_set(level_map_t *lvl, uint32_t k, uint8_t d) {
+  assert(d > 0);
+
+  if (k < lvl->size) {
+    if (lvl->map[k] == 0) {
+      ivector_push(&lvl->marked, k);
+    }
+  } else {
+    resize_level_map(lvl, k);
+  }
+  assert(k < lvl->size);
+  lvl->map[k] = d;
+}
+
+
+// reset the map
+static void level_map_clear(level_map_t *lvl) {
+  uint32_t i, k, n;
+
+  n = lvl->marked.size;
+  for (i=0; i<n; i++) {
+    k = lvl->marked.data[i];
+    assert(k < lvl->size && lvl->map[k] > 0);
+    lvl->map[k] = 0;
+  }
+  ivector_reset(&lvl->marked);
+}
+
+// get what's mapped to k
+static uint8_t level_map_get(level_map_t *lvl, uint32_t k) {
+  return (k < lvl->size) ? lvl->map[k] : 0;
+}
 
 
 
@@ -1041,8 +1111,9 @@ static void snapshot(sat_solver_t *solver) {
 }
 
 
-
 #endif
+
+
 
 
 /******************************************
@@ -1137,6 +1208,8 @@ void init_sat_solver(sat_solver_t *solver, uint32_t size) {
 
   // Sorting object for clause deletion
   init_stable_sorter(&solver->sorter, NULL, clause_cmp);
+  // level map for glue computation
+  init_level_map(&solver->lvl);
 }
 
 
@@ -1195,6 +1268,7 @@ void delete_sat_solver(sat_solver_t *solver) {
   delete_ivector(&solver->buffer2);
 
   delete_stable_sorter(&solver->sorter);
+  delete_level_map(&solver->lvl);
 }
 
 
@@ -1606,6 +1680,57 @@ static clause_t *add_learned_clause(sat_solver_t *solver, uint32_t n, literal_t 
  *  DELETION OF LEARNED CLAUSES  *
  ********************************/
 
+
+/*
+ * Compute the glue score of clause cl
+ * If cl is {l1, ... l_n} then the glue score is the number
+ * of distinct levels in level[l1], ...., level[l_n].
+ *
+ * NOTE: we use solver->level[var_of(l)] even if l is not currently
+ * assigned. Since level[x] is not reset when we backtrack, 
+ * it keeps the last decision level at which x was assigned.
+ */
+static uint32_t glue_score(sat_solver_t *solver, clause_t *cl) {
+  literal_t *a;
+  literal_t l;
+  uint32_t k, n;
+
+  a = cl->cl;
+  n = 0;
+  for (;;) {
+    l = *a ++;
+    if (l < 0) break;
+    k = solver->level[var_of(l)];
+    if (level_map_get(&solver->lvl, k) == 0) {
+      // level k not seen before
+      level_map_set(&solver->lvl, k, 1);
+      n ++;
+    }
+  }
+
+  level_map_clear(&solver->lvl);
+
+  return n;
+}
+
+/*
+ * Compute the scores of all clauses
+ */
+static void compute_learned_clause_scores(sat_solver_t *solver) {
+  clause_t **v;
+  clause_t *cl;
+  uint32_t i, n;
+
+  v = solver->learned_clauses;
+  n = get_cv_size(v);
+  for (i=0; i<n; i++) {
+    cl = v[i];
+    learned(cl)->glue = glue_score(solver, cl);
+  }
+}
+
+
+
 /*
  * Sort the learned clauses: use stable sort to give preference to new
  * clauses in case of ties.
@@ -1713,10 +1838,11 @@ static void delete_learned_clauses(sat_solver_t *solver) {
 static void reduce_learned_clause_set(sat_solver_t *solver) {
   uint32_t i, n;
   clause_t **v;
-  //  float act_threshold;
 
   assert(get_cv_size(solver->learned_clauses) > 0);
 
+  
+  compute_learned_clause_scores(solver);
   sort_learned_clauses(solver);
 
   v = solver->learned_clauses;
@@ -2602,7 +2728,7 @@ static void analyze_conflict(sat_solver_t *sol) {
   // EXPERIMENT: score = last_reso
   if (l == end_learned) {
     //    increase_clause_activity(sol, sol->false_clause);
-#if INSTRUMENT_CLAUSES || 1
+#if INSTRUMENT_CLAUSES
     learned_clause_reso(sol, sol->false_clause);
 #endif
   }
@@ -2651,7 +2777,7 @@ static void analyze_conflict(sat_solver_t *sol) {
 
           if (l == end_learned) {
 	    //            increase_clause_activity(sol, cl);
-#if INSTRUMENT_CLAUSES || 1
+#if INSTRUMENT_CLAUSES
 	    learned_clause_reso(sol, cl);
 #endif
           }

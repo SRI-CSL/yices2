@@ -253,12 +253,29 @@ typedef struct level_map_s {
 #else
 
 /*
+ * Level map: to compute the glue score of a clause
+ * - we record which decision levels occur in clause C
+ * - this is stored in the following structure:
+ *   map[l] = an 8bit value for level l. By default, map[l] is 0.
+ *   marked = vector of l such that map[l] /= 0
+ */
+typedef struct level_map_s {
+  uint8_t *map;
+  ivector_t marked;
+  uint32_t size;
+} level_map_t;
+
+// MAX_LVL_MAP_SIZE is not used since it's equal to UINT32_MAX
+#define MAX_LVL_MAP_SIZE (UINT32_MAX/sizeof(uint8_t))
+#define DEF_LVL_MAP_SIZE 100
+
+/*
  * No instrumentation of learned clauses
- * EXPERIMENT: replace activity by last-reso
+ * EXPERIMENT: replace activity by glue
  */
 typedef struct learned_clause_s {
   //  float activity;
-  uint32_t last_reso;
+  uint32_t glue;
   clause_t clause;
 } learned_clause_t;
 
@@ -572,6 +589,7 @@ typedef struct sat_solver_s {
 
   /* Sorter: used in deletion of learned clauses */
   stable_sorter_t sorter;
+  level_map_t lvl; // EXPERIMENT: also used for deletion (to compute glue scores).
 } sat_solver_t;
 
 
