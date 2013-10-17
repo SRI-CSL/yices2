@@ -211,10 +211,11 @@ static inline uint32_t clause_score(const clause_t *cl) {
  * Ordering function for clause deletion:
  * - c1 and c2 are two learned clauses 
  * - the function must return true if we prefer to keep c2 
- *   rather than c1 (i.e., c1's score <= c2's score).
+ *   rather than c1 (i.e., c1's score is worse than c2's score).
+ * - for glue score, worse means larger
  */
 static bool clause_cmp(const void *aux, const void *c1, const void *c2) {
-  return clause_score(c1) <= clause_score(c2);
+  return clause_score(c1) >= clause_score(c2);
 }
 
 
