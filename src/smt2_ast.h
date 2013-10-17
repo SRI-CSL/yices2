@@ -46,7 +46,7 @@
  */
 typedef struct ast_token_s {
   int32_t key;
-  uint32_t val;
+  int32_t val;
   char *ptr;
 } ast_token_t;
 
@@ -57,17 +57,21 @@ typedef struct ast_token_s {
  * previous block. All blocks have the same default size.
  * If a string larger than this default is required, we 
  * store it in its own block.
+ *
+ * We force data to align on a multiple of 8 (for 32bit
+ * computers)
  */
 typedef struct cblock_s cblock_t;
 
-#define CBLOCK_SIZE 4092
-
 struct cblock_s {
-  cblock_t *pre;
-  char data[CBLOCK_SIZE];
+  union { 
+    cblock_t *pre;
+    char padding[8];
+  } h;
+  char data[0];
 };
 
-
+#define DEF_CBLOCK_SIZE 4092
 #define MAX_CBLOCK_SIZE (UINT32_MAX - sizeof(cblock_t))
 
 
@@ -77,7 +81,8 @@ struct cblock_s {
  * - size = size of this array
  * - top = index of the first free element in tk
  *   so all tokens are stored in tk[0 ... top-1]
- * - last_open = index of the rightmost open-scope token
+ * - last_open = index of the rightmost open-scope token 
+ *   (or -1 if there's no open scope)
  * - mem = list of cblocks for copying strings
  *   mem = pointer to the last block
  * - free = free space in the last block 
@@ -86,14 +91,14 @@ typedef struct ast_store_s {
   ast_token_t *tk;
   uint32_t size;
   uint32_t top;
-  uint32_t last_open;
+  int32_t last_open;
   uint32_t free;
   cblock_t *mem;
 } ast_store_t;
 
 
 #define DEF_AST_STORE_SIZE 200
-#define MAX_AST_STORE_SUZE (UINT32_MAX/sizeof(ast_token_t))
+#define MAX_AST_STORE_SIZE (UINT32_MAX/sizeof(ast_token_t))
 
 
 /*
@@ -133,9 +138,8 @@ extern void ast_store_close_scope(ast_store_t *store);
  * Push an atomic token:
  * - key, val, str = attributes for this token
  * - len = len of the string
- * - if len is 0, str is ignored
- *   othewise, we make an internal copy of str[0 ... len-1]
- *   (with a '\0' terminator).
+ * - if len is 0, str is ignored (should be NULL)
+ *   we make an internal copy of str[0 ... len-1]  (with a '\0' terminator).
  */
 extern void ast_store_push_token(ast_store_t *store, int32_t key, int32_t val, const char *str, uint32_t len);
 
@@ -143,20 +147,20 @@ extern void ast_store_push_token(ast_store_t *store, int32_t key, int32_t val, c
 /*
  * Check that i is a valid token
  */
-static inline bool good_ast_token(ast_store_t *store, uint32_t i) {
-  return i < store->top;
+static inline bool good_ast_token(ast_store_t *store, int32_t i) {
+  return 0 <= i && i < store->top;
 }
 
 
 /*
  * Check whether i is a scope or an atomic token
  */
-static inline bool ast_token_is_scope(ast_store_t *store, uint32_t i) {
+static inline bool ast_token_is_scope(ast_store_t *store, int32_t i) {
   assert(good_ast_token(store, i));
   return store->tk[i].key < 0;
 }
 
-static inline bool ast_token_is_atomic(ast_store_t *store, uint32_t i) {
+static inline bool ast_token_is_atomic(ast_store_t *store, int32_t i) {
   assert(good_ast_token(store, i));
   return store->tk[i].key >= 0;
 }
@@ -167,12 +171,12 @@ static inline bool ast_token_is_atomic(ast_store_t *store, uint32_t i) {
  * - for an open scope, we have tk[i] = index of the enclosing close so that's less than i
  * - for a close scope, we have tk[i] >= i
  */
-static inline bool ast_scope_is_open(ast_store_t *store, uint32_t i) {
+static inline bool ast_scope_is_open(ast_store_t *store, int32_t i) {
   assert(ast_token_is_scope(store, i));
   return store->tk[i].val < i;
 }
 
-static inline bool ast_scope_is_close(ast_store_t *store, uint32_t i) {
+static inline bool ast_scope_is_close(ast_store_t *store, int32_t i) {
   assert(ast_token_is_scope(store, i));
   return store->tk[i].val >= i;
 }
@@ -182,7 +186,7 @@ static inline bool ast_scope_is_close(ast_store_t *store, uint32_t i) {
  * - warning: use with care. This pointer can become invalid if 
  *   more tokens are added.
  */
-static inline ast_token_t *ast_token(ast_store_t *store, uint32_t i) {
+static inline ast_token_t *ast_token(ast_store_t *store, int32_t i) {
   assert(good_ast_token(store, i));
   return store->tk + i;
 }
@@ -192,7 +196,7 @@ static inline ast_token_t *ast_token(ast_store_t *store, uint32_t i) {
  * Right sibling of i: i must be a good token
  * - return store->top i has no right sibling
  */
-extern uint32_t ast_sibling(ast_store_t *store, uint32_t i);
+extern int32_t ast_sibling(ast_store_t *store, int32_t i);
 
 
 /*
@@ -201,7 +205,7 @@ extern uint32_t ast_sibling(ast_store_t *store, uint32_t i);
  * - v must be initialized and empty (if not empty, the children
  *   are added to v).
  */
-extern void get_ast_children(ast_store_t *store, ivector_t *v);
+extern void get_ast_children(ast_store_t *store, int32_t i, ivector_t *v);
 
 
 #endif /* __SMT2_AST_H */
