@@ -395,6 +395,7 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
   case TSTACK_UNDEF_MACRO:
   case TSTACK_DUPLICATE_SCALAR_NAME:
   case TSTACK_DUPLICATE_VAR_NAME:
+  case TSTACK_DUPLICATE_TYPE_VAR_NAME:
   case TSTACK_RATIONAL_FORMAT:
   case TSTACK_FLOAT_FORMAT:
   case TSTACK_BVBIN_FORMAT:

@@ -253,6 +253,9 @@ We also rewrite the rules for set-info and set-option to make them consistent:
 Recursive-descent parser
 ------------------------
 
+See yices_parser.txt for more explanations on this stuff.
+
+
 parse-command:
 - initial state = c0
 - transition table

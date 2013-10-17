@@ -206,7 +206,7 @@ typedef struct smt2_stack_s {
  * - include option flags mandated by SMT2
  * - the flag benchmark_mode is true for SMT2 benchmarks
  *   this is the same as mode=one-check for Yices
- * - gloabl_decls indicates whether declarations should
+ * - global_decls indicates whether declarations should
  *   be global or scoped. In scoped mode, declarations that
  *   occur after a (push ..) command are removed by the matching (pop ..).
  *   In global mode, declarations are kept independent of (push ..) and (pop ...)
@@ -285,7 +285,8 @@ typedef struct smt2_globals_s {
    * Support for delayed assertions
    * - assertions = a set of assertions
    * - trivially_unsat: true if one of the assertions simplifies to false
-   * - frozen: set to true after the first call to check_sat if benchmark is true
+   * - frozen: set to true after the first call to check_sat if 
+   *   benchmark_mode is true
    */
   ivector_t assertions;
   bool trivially_unsat; 

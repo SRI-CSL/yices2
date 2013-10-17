@@ -125,7 +125,7 @@ enum smt2_keyword {
   // Non-standard option keyword to switch to global decls
   SMT2_KW_GLOBAL_DECLS,
 
-  // Anything other keyword
+  // Any other keyword
   SMT2_KW_UNKNOWN,
 };
 
