@@ -202,7 +202,7 @@ static inline void delete_learned_clause(clause_t *cl) {
 /*
  * Get the score of clause cl
  */
-static inline uint32_t clause_score(const clause_t *cl) {
+static inline float clause_score(const clause_t *cl) {
   return learned(cl)->glue;;
 }
 
@@ -1007,18 +1007,17 @@ static uint32_t glue_score(sat_solver_t *solver, clause_t *cl) {
     l = *a ++;
     if (l < 0) break;
     k = solver->level[var_of(l)];
-    if (level_map_get(&lvl, k) == 0) {
+    if (level_map_get(&solver->lvl, k) == 0) {
       // level k not seen before
-      level_map_set(&lvl, k, 1);
+      level_map_set(&solver->lvl, k, 1);
       n ++;
     }
   }
 
-  level_map_clear(&lvl);
+  level_map_clear(&solver->lvl);
 
   return n;
 }
-
 
 /*
  * Initialize a learned clause statistics
@@ -1690,29 +1689,55 @@ static clause_t *add_learned_clause(sat_solver_t *solver, uint32_t n, literal_t 
  * NOTE: we use solver->level[var_of(l)] even if l is not currently
  * assigned. Since level[x] is not reset when we backtrack, 
  * it keeps the last decision level at which x was assigned.
+ *
+ * This is Knuth's variant:
+ * - for each level occurring in cl, we score 1 if all literals at that level
+ *   have preferred value false, we score 0.2 if one of them has preferred 
+ *   value true.
  */
-static uint32_t glue_score(sat_solver_t *solver, clause_t *cl) {
+static float glue_score(sat_solver_t *solver, clause_t *cl) {
   literal_t *a;
   literal_t l;
-  uint32_t k, n;
+  uint32_t k, n, p;
 
   a = cl->cl;
+
+  // n = total number of levels
+  // p = number of levels where one literal is true
   n = 0;
+  p = 0;
   for (;;) {
     l = *a ++;
     if (l < 0) break;
     k = solver->level[var_of(l)];
-    if (level_map_get(&solver->lvl, k) == 0) {
+    switch (level_map_get(&solver->lvl, k)) {
+    case 0:
       // level k not seen before
-      level_map_set(&solver->lvl, k, 1);
-      n ++;
+      n ++; 
+      level_map_set(&solver->lvl, k, 1); // fall through intended
+
+    case 1: 
+      /*
+       * all literals at level k seen so far have preference false
+       */
+      if (lit_prefers_true(solver, l)) {
+	p ++;
+	level_map_set(&solver->lvl, k, 2);
+      }
+      break;
+
+    default:
+      break;	  
     }
   }
 
   level_map_clear(&solver->lvl);
 
-  return n;
+  assert(p <= n);
+
+  return n - 0.8 * p;
 }
+
 
 /*
  * Compute the scores of all clauses

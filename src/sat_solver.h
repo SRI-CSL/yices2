@@ -111,6 +111,11 @@ static inline bool is_unassigned_val(bval_t val) {
   return (val & 0x2) == 0;
 }
 
+// check whether val is val_undef_true of val_true
+static inline bool true_preferred(bval_t val) {
+  return (val & 0x1) != 0;
+}
+
 
 /*
  * Problem status
@@ -271,11 +276,11 @@ typedef struct level_map_s {
 
 /*
  * No instrumentation of learned clauses
- * EXPERIMENT: replace activity by glue
+ * EXPERIMENT: replace activity by glue (Knuth's variant)
  */
 typedef struct learned_clause_s {
   //  float activity;
-  uint32_t glue;
+  float glue;
   clause_t clause;
 } learned_clause_t;
 
@@ -611,7 +616,6 @@ static inline bool lit_is_assigned(sat_solver_t *solver, literal_t l) {
   return ! lit_is_unassigned(solver, l);
 }
 
-
 static inline bool var_is_assigned(sat_solver_t *solver, bvar_t x) {
   return lit_is_assigned(solver, pos_lit(x));
 }
@@ -620,6 +624,10 @@ static inline bool var_is_unassigned(sat_solver_t *solver, bvar_t x) {
   return !var_is_assigned(solver, x);
 }
 
+
+static inline bool lit_prefers_true(sat_solver_t *solver, literal_t l) {
+  return true_preferred(lit_val(solver, l));
+}
 
 
 /********************
