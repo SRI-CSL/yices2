@@ -2128,8 +2128,8 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->frozen = false;
 
   // provisional
-  g->verbosity = 4;
-  update_trace_verbosity(g);
+  //  g->verbosity = 4;
+  //  update_trace_verbosity(g);
 }
 
 

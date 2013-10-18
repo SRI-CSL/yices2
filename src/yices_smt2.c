@@ -203,13 +203,11 @@ int main(int argc, char *argv[]) {
     code = parse_smt2_command(&parser);
     if (code < 0) {
       // syntax error
-      if (filename == NULL) { // ?? not sure that makes sense
+      if (interactive) {
 	flush_lexer(&lexer); 
       } else {
 	break; // exit
       }
-      fflush(stdout);
-      break;
     }
   }
 
