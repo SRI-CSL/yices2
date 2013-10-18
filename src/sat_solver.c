@@ -1691,8 +1691,8 @@ static clause_t *add_learned_clause(sat_solver_t *solver, uint32_t n, literal_t 
  * it keeps the last decision level at which x was assigned.
  *
  * This is Knuth's variant:
- * - for each level occurring in cl, we score 1 if all literals at that level
- *   have preferred value false, we score 0.2 if one of them has preferred 
+ * - for each level occurring in cl, we score 0.2 if all literals at that level
+ *   have preferred value false, we score 1.0 if one of them has preferred 
  *   value true.
  */
 static float glue_score(sat_solver_t *solver, clause_t *cl) {
@@ -1735,7 +1735,7 @@ static float glue_score(sat_solver_t *solver, clause_t *cl) {
 
   assert(p <= n);
 
-  return n - 0.8 * p;
+  return 0.2 * n + 0.8 * p;
 }
 
 
@@ -1746,12 +1746,14 @@ static void compute_learned_clause_scores(sat_solver_t *solver) {
   clause_t **v;
   clause_t *cl;
   uint32_t i, n;
+  float x;
 
   v = solver->learned_clauses;
   n = get_cv_size(v);
   for (i=0; i<n; i++) {
     cl = v[i];
-    learned(cl)->glue = glue_score(solver, cl);
+    x = glue_score(solver, cl);
+    learned(cl)->glue = x;
   }
 }
 
