@@ -261,6 +261,16 @@ static void build_bv64(string_buffer_t *b, uint64_t bv, uint32_t n) {
   build_bv(b, aux, n);
 }
 
+static void build_qstring(string_buffer_t *b, char quote[2], const char *str) {
+  if (quote[0] != '\0') {
+    string_buffer_append_char(b, quote[0]);
+  }
+  string_buffer_append_string(b, str);
+  if (quote[1] != '\0') {
+    string_buffer_append_char(b, quote[1]);
+  }
+  string_buffer_close(b);
+}
 
 
 /*
@@ -331,6 +341,10 @@ static const char *get_string(yices_pp_t *printer, pp_atomic_token_t *tk) {
     break;
   case PP_BV_ATOM:
     build_bv(buffer, atm->data.bv.bv, atm->data.bv.nbits);
+    s = buffer->data;
+    break;
+  case PP_QSTRING_ATOM:
+    build_qstring(buffer, atm->data.qstr.quote, atm->data.qstr.str);
     s = buffer->data;
     break;
   default:
@@ -700,6 +714,32 @@ void pp_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n) {
 
   pp_push_token(&printer->pp, tk);  
 }
+
+
+/*
+ * Quoted string:
+ * - open_quote = character before the string (or '\0' if nothing needed)
+ * - close_quote = charcater after the string (or '\0' if nothing needed)
+ *
+ * Examples
+ *   pp_qstring(printer, '"', '"', "abcde") will print "abcde" (quotes included)
+ *   pp_qstring(printer, '\'', '\0', "abcde") will print 'abcde
+ */
+void pp_qstring(yices_pp_t *printer, char open_quote, char close_quote, const char *s) {
+  pp_atom_t *atom;
+  void *tk;
+  uint32_t n;
+
+  n = strlen(s) + (open_quote != '\0') + (close_quote != '\0');
+  atom = new_atom(printer);
+  tk = init_atomic_token(&atom->tk, n, PP_QSTRING_ATOM);
+  atom->data.qstr.str = s;
+  atom->data.qstr.quote[0] = open_quote;
+  atom->data.qstr.quote[1] = close_quote;
+
+  pp_push_token(&printer->pp, tk);  
+}
+
 
 
 /*

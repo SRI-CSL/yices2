@@ -10,7 +10,6 @@
  *   (non-leaf) terms
  * - to deal with quantifiers: we may need to rename variables.
  *   This is supported by 'renaming_context'
- * - to detect ground terms we use an fvar_collector structure
  * - we also include a integer stack to allocate temporary
  *   integer arrays.
  */
@@ -26,7 +25,6 @@
 #include "int_hash_map.h"
 #include "subst_cache.h"
 #include "renaming_context.h"
-#include "free_var_collector.h"
 #include "term_manager.h"
 
 
@@ -38,7 +36,6 @@
  * - cache
  * - stack = array stack
  * - rctx: renaming context, allocated lazily
- * - fvar: free-variable collector, allocated lazily too
  * - env: jump buffer for exceptions
  */
 typedef struct term_subst_s {
@@ -48,7 +45,6 @@ typedef struct term_subst_s {
   subst_cache_t cache;
   int_stack_t stack;
   renaming_ctx_t *rctx;
-  fvar_collector_t *fvar;
   jmp_buf env;
 } term_subst_t;
 

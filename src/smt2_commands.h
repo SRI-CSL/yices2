@@ -303,9 +303,10 @@ extern smt2_globals_t __smt2_globals;
  * - benchmark: if true, the input is assumed to be an SMT-LIB 2.0 benchmark
  *   (i.e., a set of assertions followed by a single call to check-sat)
  *   In this mode, destructive simplifications are allowed.
+ * - print_success = initial setting of the :print-success option.
  * - this is called after yices_init so all Yices internals are ready
  */
-extern void init_smt2(bool benchmark);
+extern void init_smt2(bool benchmark, bool print_success);
 
 
 /*

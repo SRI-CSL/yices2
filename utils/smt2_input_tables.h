@@ -209,6 +209,7 @@ static triple_t triples[] = {
   { c4, DEFAULT_TOKEN, "error_keyword_expected" },
 
   { c5, SMT2_TK_SYMBOL, "symbol_next_goto_r0" },
+  { c5, SMT2_TK_QSYMBOL, "symbol_next_goto_r0" },
   { c5, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { c6, SMT2_TK_KEYWORD, "keyword_next_goto_c6a" },
@@ -218,9 +219,11 @@ static triple_t triples[] = {
   { c6a, DEFAULT_TOKEN, "push_r0_goto_a0" },
 
   { c8, SMT2_TK_SYMBOL, "symbol_next_goto_c3" },
+  { c8, SMT2_TK_QSYMBOL, "symbol_next_goto_c3" },
   { c8, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { c9, SMT2_TK_SYMBOL, "symbol_next_goto_c9a" },
+  { c9, SMT2_TK_QSYMBOL, "symbol_next_goto_c9a" },
   { c9, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { c9a, SMT2_TK_LP, "next_goto_c9b" },
@@ -228,8 +231,10 @@ static triple_t triples[] = {
 
   { c9b, SMT2_TK_RP, "next_push_r0_goto_s0" },
   { c9b, SMT2_TK_SYMBOL, "symbol_next_goto_c9b" },
+  { c9b, SMT2_TK_QSYMBOL, "symbol_next_goto_c9b" },
 
   { c10, SMT2_TK_SYMBOL, "symbol_next_goto_c10a" },
+  { c10, SMT2_TK_QSYMBOL, "symbol_next_goto_c10a" },
   { c10, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { c10a, SMT2_TK_LP, "next_goto_c10b" },
@@ -239,6 +244,7 @@ static triple_t triples[] = {
   { c10b, DEFAULT_TOKEN, "push_c10b_goto_s0" },
 
   { c11, SMT2_TK_SYMBOL, "symbol_next_goto_c11a" },
+  { c11, SMT2_TK_QSYMBOL, "symbol_next_goto_c11a" },
   { c11, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { c11a, SMT2_TK_LP, "next_goto_c11b" },
@@ -248,6 +254,7 @@ static triple_t triples[] = {
   { c11b, SMT2_TK_LP, "next_goto_c11d" },
 
   { c11d, SMT2_TK_SYMBOL, "symbol_next_push_c11f_goto_s0" },
+  { c11d, SMT2_TK_QSYMBOL, "symbol_next_push_c11f_goto_s0" },
   { c11d, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { c11f, SMT2_TK_RP, "eval_next_goto_c11b" },
@@ -265,6 +272,7 @@ static triple_t triples[] = {
   { a0, SMT2_TK_BINARY, "binary_next_return" },
   { a0, SMT2_TK_STRING, "string_next_return" },
   { a0, SMT2_TK_SYMBOL, "symbol_next_return" },
+  { a0, SMT2_TK_QSYMBOL, "symbol_next_return" },
   { a0, SMT2_TK_LP, "next_goto_a1" },
 
   { a1, SMT2_TK_RP, "next_return" },
@@ -276,17 +284,21 @@ static triple_t triples[] = {
   { v0, SMT2_TK_BINARY, "binary_next_return" },
   { v0, SMT2_TK_STRING, "string_next_return" },
   { v0, SMT2_TK_SYMBOL, "symbol_next_return" },
+  { v0, SMT2_TK_QSYMBOL, "symbol_next_return" },
   { v0, SMT2_TK_KEYWORD, "keyword_next_return" },
   { v0, SMT2_TK_LP, "next_goto_a1" },
 
   { s0, SMT2_TK_SYMBOL, "sort_symbol_next_return" },
+  { s0, SMT2_TK_QSYMBOL, "sort_symbol_next_return" },
   { s0, SMT2_TK_LP, "next_goto_s1" },
 
   { s1, SMT2_TK_UNDERSCORE, "next_goto_s2" },
   { s1, SMT2_TK_LP, "next_goto_s5" },
   { s1, SMT2_TK_SYMBOL, "symbol_next_push_s10_goto_s0" },
+  { s1, SMT2_TK_QSYMBOL, "symbol_next_push_s10_goto_s0" },
 
   { s2, SMT2_TK_SYMBOL, "symbol_next_goto_s3" },
+  { s2, SMT2_TK_QSYMBOL, "symbol_next_goto_s3" },
   { s2, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { s3, SMT2_TK_NUMERAL, "numeral_next_goto_s4" },
@@ -299,6 +311,7 @@ static triple_t triples[] = {
   { s5, DEFAULT_TOKEN, "error_underscore_expected" },
 
   { s6, SMT2_TK_SYMBOL, "symbol_next_goto_s7" },
+  { s6, SMT2_TK_QSYMBOL, "symbol_next_goto_s7" },
   { s6, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { s7, SMT2_TK_NUMERAL, "numeral_next_goto_s8" },
@@ -316,6 +329,7 @@ static triple_t triples[] = {
   { t0, SMT2_TK_BINARY, "binary_next_return" },
   { t0, SMT2_TK_STRING, "string_next_return" },
   { t0, SMT2_TK_SYMBOL, "term_symbol_next_return" },
+  { t0, SMT2_TK_QSYMBOL, "term_symbol_next_return" },
   { t0, SMT2_TK_LP, "next_goto_t1" },
 
   { t1, SMT2_TK_LET, "next_goto_t2" },
@@ -326,6 +340,7 @@ static triple_t triples[] = {
   { t1, SMT2_TK_LP, "next_goto_t6" },
   { t1, SMT2_TK_UNDERSCORE, "next_goto_t7" },
   { t1, SMT2_TK_SYMBOL, "symbol_next_push_t8a_goto_t0" },
+  { t1, SMT2_TK_QSYMBOL, "symbol_next_push_t8a_goto_t0" },
 
   { t2, SMT2_TK_LP, "next_goto_t2a" },
   { t2, DEFAULT_TOKEN, "error_lp_expected" },
@@ -334,6 +349,7 @@ static triple_t triples[] = {
   { t2a, DEFAULT_TOKEN, "error_lp_expected" },
 
   { t2b, SMT2_TK_SYMBOL, "symbol_next_push_t2d_goto_t0" },
+  { t2b, SMT2_TK_QSYMBOL, "symbol_next_push_t2d_goto_t0" },
   { t2b, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { t2d, SMT2_TK_RP, "next_goto_t2e" },
@@ -349,6 +365,7 @@ static triple_t triples[] = {
   { t3a, DEFAULT_TOKEN, "error_lp_expected" },
 
   { t3b, SMT2_TK_SYMBOL, "symbol_next_push_t3d_goto_s0" },
+  { t3b, SMT2_TK_QSYMBOL, "symbol_next_push_t3d_goto_s0" },
   { t3b, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { t3d, SMT2_TK_RP, "next_goto_t3e" },
@@ -368,6 +385,7 @@ static triple_t triples[] = {
   { t4c, SMT2_TK_KEYWORD, "check_keyword_then_branch" },
 
   { t4d, SMT2_TK_SYMBOL, "symbol_next_goto_t4c" },
+  { t4d, SMT2_TK_QSYMBOL, "symbol_next_goto_t4c" },
   { t4d, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { t4e, SMT2_TK_LP, "next_push_t4g_goto_t0" },
@@ -378,11 +396,13 @@ static triple_t triples[] = {
 
   { t5, SMT2_TK_LP, "next_goto_t5a" },
   { t5, SMT2_TK_SYMBOL, "symbol_next_push_r0_goto_s0" },
+  { t5, SMT2_TK_QSYMBOL, "symbol_next_push_r0_goto_s0" },
 
   { t5a, SMT2_TK_UNDERSCORE, "next_goto_t5b" },
   { t5a, DEFAULT_TOKEN, "error_underscore_expected" },
 
   { t5b, SMT2_TK_SYMBOL, "symbol_next_goto_t5c" },
+  { t5b, SMT2_TK_QSYMBOL, "symbol_next_goto_t5c" },
   { t5b, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { t5c, SMT2_TK_NUMERAL, "numeral_next_goto_t5d" },
@@ -396,11 +416,13 @@ static triple_t triples[] = {
 
   { t6a, SMT2_TK_LP, "next_goto_t6b" },
   { t6a, SMT2_TK_SYMBOL, "symbol_next_push_t6g_goto_s0" },
+  { t6a, SMT2_TK_QSYMBOL, "symbol_next_push_t6g_goto_s0" },
  
   { t6b, SMT2_TK_UNDERSCORE, "next_goto_t6c" },
   { t6b, DEFAULT_TOKEN, "error_underscore_expected" },
 
   { t6c, SMT2_TK_SYMBOL, "symbol_next_goto_t6d" },
+  { t6c, SMT2_TK_QSYMBOL, "symbol_next_goto_t6d" },
   { t6c, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { t6d, SMT2_TK_NUMERAL, "numeral_next_goto_t6e" },
@@ -413,6 +435,7 @@ static triple_t triples[] = {
   { t6g, DEFAULT_TOKEN, "error_rp_expected" },
 
   { t6h, SMT2_TK_SYMBOL, "symbol_next_goto_t6i" },
+  { t6h, SMT2_TK_QSYMBOL, "symbol_next_goto_t6i" },
   { t6h, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { t6i, SMT2_TK_NUMERAL, "numeral_next_goto_t6j" },
@@ -422,6 +445,7 @@ static triple_t triples[] = {
   { t6j, SMT2_TK_RP, "next_push_t8a_goto_t0" },
 
   { t7, SMT2_TK_SYMBOL, "symbol_next_goto_t7a" },
+  { t7, SMT2_TK_QSYMBOL, "symbol_next_goto_t7a" },
   { t7, DEFAULT_TOKEN, "error_symbol_expected" },
 
   { t7a, SMT2_TK_NUMERAL, "numeral_next_goto_t7b" },

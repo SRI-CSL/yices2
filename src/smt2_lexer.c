@@ -26,6 +26,7 @@ static const char * const smt2_token_string[NUM_SMT2_TOKENS] = {
   "<binary>",              // SMT2_TK_BINARY
   "<string>",              // SMT2_TK_STRING
   "<symbol>",              // SMT2_TK_SYMBOL
+  "<symbol>",              // SMT2_TK_QSYMBOL
   "<keyword>",             // SMT2_TK_KEYWORD
   "par",                   // SMT2_TK_PAR
   "NUMERAL",               // SMT2_TK_NUM
@@ -830,7 +831,7 @@ static smt2_token_t smt2_read_symbol(lexer_t *lex) {
  * - current char must be '|'
  *
  * Return SMT2_TK_INVALID_SYMBOL if a non-printable character
- * or '\' is found before the closing '|'. Return SMT2_TK_SYMBOL
+ * or '\' is found before the closing '|'. Return SMT2_TK_QSYMBOL
  * otherwise.
  */
 static smt2_token_t smt2_read_quoted_symbol(lexer_t *lex) {
@@ -859,7 +860,7 @@ static smt2_token_t smt2_read_quoted_symbol(lexer_t *lex) {
   if (c == '|') {
     // consume the closing '|'
     reader_next_char(rd);
-    tk = SMT2_TK_SYMBOL;
+    tk = SMT2_TK_QSYMBOL;
   }
   
   return tk;

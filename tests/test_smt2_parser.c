@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
   }
 
   yices_init();
-  init_smt2(true);
+  init_smt2(true, interactive);
   init_smt2_tstack(&stack);
   init_parser(&parser, &lexer, &stack);
 

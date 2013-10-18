@@ -34,6 +34,7 @@ enum smt2_token {
   SMT2_TK_BINARY,
   SMT2_TK_STRING,
   SMT2_TK_SYMBOL,
+  SMT2_TK_QSYMBOL, // same as TK_SYMBOL but within | .. |
   SMT2_TK_KEYWORD,
 
   // Reserved words

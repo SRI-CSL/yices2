@@ -69,7 +69,6 @@ void init_term_subst(term_subst_t *subst, term_manager_t *mngr, uint32_t n, term
   init_subst_cache(&subst->cache);
   init_istack(&subst->stack);
   subst->rctx = NULL;
-  subst->fvar = NULL;
   
   for (i=0; i<n; i++) {
     x = v[i];
@@ -100,23 +99,6 @@ static renaming_ctx_t *term_subst_get_rctx(term_subst_t *subst) {
 
 
 /*
- * Get the variable collector: allocate and initialize it if needed
- */
-static fvar_collector_t *term_subst_get_fvar(term_subst_t *subst) {
-  fvar_collector_t *tmp;
-
-  tmp = subst->fvar;
-  if (tmp == NULL) {
-    tmp = (fvar_collector_t *) safe_malloc(sizeof(fvar_collector_t));
-    init_fvar_collector(tmp, subst->terms);
-    subst->fvar = tmp;
-  }
-
-  return tmp;
-}
-
-
-/*
  * Delete: free all memory used
  */
 void delete_term_subst(term_subst_t *subst) {
@@ -127,11 +109,6 @@ void delete_term_subst(term_subst_t *subst) {
     delete_renaming_ctx(subst->rctx);
     safe_free(subst->rctx);
     subst->rctx = NULL;
-  }
-  if (subst->fvar != NULL) {
-    delete_fvar_collector(subst->fvar);
-    safe_free(subst->fvar);
-    subst->fvar = NULL;
   }
 }
 

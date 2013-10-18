@@ -2173,9 +2173,11 @@ static void delete_smt2_globals(smt2_globals_t *g) {
  *   - push/pop are not supported
  *   - assert can't be used after (check-sat)
  *
+ * - print_success = initial setting of the :print-success option.
+ *
  * This function is called after yices_init so all Yices internals are ready
  */
-void init_smt2(bool benchmark) {
+void init_smt2(bool benchmark, bool print_success) {
   done = false;
   init_smt2_globals(&__smt2_globals);
   init_attr_vtbl(&avtbl);
@@ -2184,6 +2186,7 @@ void init_smt2(bool benchmark) {
     __smt2_globals.benchmark_mode = true;
     __smt2_globals.global_decls = true;
   }
+  __smt2_globals.print_success = print_success;
   check_stack(&__smt2_globals);
 }
 

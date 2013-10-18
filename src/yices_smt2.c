@@ -33,6 +33,9 @@
  *   and multiple check_sat is enabled. Otherwise, the solver
  *   is configured to handle a set of declarations/assertions
  *   followed by a single call to (check_sat).
+ * - interactive: if this flag is true, print a prompt before
+ *   parsing commands. Also set the option :print-success to true.
+ *   
  * - filename = name of the input file (NULL means read stdin)
  */
 static lexer_t lexer;
@@ -40,6 +43,7 @@ static parser_t parser;
 static tstack_t stack;
 
 static bool incremental;
+static bool interactive;
 static char *filename;
 
 
@@ -51,9 +55,10 @@ typedef enum optid {
   show_version_opt,     // print version and exit
   show_help_opt,        // print help and exit
   incremental_opt,      // enable incremental mode
+  interactive_opt,      // enable interactive mode
 } optid_t;
 
-#define NUM_OPTIONS (incremental_opt+1)
+#define NUM_OPTIONS (interactive_opt+1)
 
 /*
  * Option descriptors
@@ -61,7 +66,8 @@ typedef enum optid {
 static option_desc_t options[NUM_OPTIONS] = {
   { "version", 'V', FLAG_OPTION, show_version_opt },
   { "help", 'h', FLAG_OPTION, show_help_opt },
-  { "incremental", 'i', FLAG_OPTION, incremental_opt },
+  { "incremental", '\0', FLAG_OPTION, incremental_opt },
+  { "interactive", '\0', FLAG_OPTION, interactive_opt },
 };
 
 
@@ -79,11 +85,13 @@ static void print_version(void) {
 }
 
 static void print_help(const char *progname) {
-  printf("Usage: %s [option] filename\n", progname);
+  printf("Usage: %s [option] filename\n"
+         "    or %s [option]\n", progname, progname);
   printf("Option summary:\n"
 	 "    --version, -V           Show version and exit\n"
 	 "    --help, -h              Print this message and exit\n"
-	 "    --incremental, -i       Enable support for push/pop\n"
+	 "    --incremental           Enable support for push/pop\n"
+	 "    --interactive           Run in interactive mode (ignored if a filename is given)\n"
 	 "\n"
 	 "For bug reports and ohter information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
@@ -141,6 +149,10 @@ static void parse_command_line(int argc, char *argv[]) {
       case incremental_opt:
 	incremental = true;
 	break;
+
+      case interactive_opt:
+	interactive = true;
+	break;
       }
       break;
 
@@ -151,7 +163,11 @@ static void parse_command_line(int argc, char *argv[]) {
     }
   }
 
- done: // nothing special to do
+ done:
+  // force interactive to false if there's a filename
+  if (filename != NULL) {
+    interactive = false;
+  }
   return; 
 }
 
@@ -174,11 +190,16 @@ int main(int argc, char *argv[]) {
   }
 
   yices_init();
-  init_smt2(!incremental);
+  init_smt2(!incremental, interactive);
   init_smt2_tstack(&stack);
   init_parser(&parser, &lexer, &stack);
 
   while (smt2_active()) {
+    if (interactive) {
+      // prompt
+      fputs("yices> ", stderr);
+      fflush(stderr);
+    }
     code = parse_smt2_command(&parser);
     if (code < 0) {
       // syntax error

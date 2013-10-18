@@ -37,10 +37,11 @@ typedef enum pp_atom_type {
   PP_UINT32_ATOM,  // unsigned integer
   PP_RATIONAL_ATOM, // rational
   PP_BV64_ATOM,    // bitvector constant stored in a 64bit unsigned integer
-  PP_BV_ATOM,      // bitvector constant stores in an array of words  
+  PP_BV_ATOM,      // bitvector constant stored in an array of words
+  PP_QSTRING_ATOM, // content = string with open and close quotes
 } pp_atom_type_t;
 
-#define NUM_PP_ATOMS ((uint32_t) (PP_BV_ATOM+1))
+#define NUM_PP_ATOMS ((uint32_t) (PP_BV_QSTRING_ATOM+1))
 
 
 /*
@@ -62,6 +63,17 @@ typedef struct pp_bv_s {
 } pp_bv_t;
 
 
+/*
+ * Descriptor of quoted string atoms
+ * - quote[0] = open quore
+ * - quote[1] = close_quote
+ * - str = what's between the quotes
+ */
+typedef struct pp_qstr_s {
+  const char *str;
+  char quote[2];
+} pp_qstr_t;
+
 
 /*
  * Full atomic token
@@ -77,6 +89,7 @@ typedef struct pp_atom_s {
     rational_t rat;
     pp_bv64_t bv64;
     pp_bv_t bv;
+    pp_qstr_t qstr;
   } data;
 } pp_atom_t;
 
@@ -303,6 +316,17 @@ extern void pp_rational(yices_pp_t *printer, rational_t *q);
 extern void pp_bv64(yices_pp_t *printer, uint64_t bv, uint32_t n);
 extern void pp_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n);
 
+
+/*
+ * Quoted string:
+ * - open_quote = character before the string (or '\0' if nothing needed)
+ * - close_quote = charcater after the strng (or '\0' if nothing needed)
+ *
+ * Examples
+ *   pp_qstring(printer, '"', '"', "abcde") will print "abcde" (quotes included)
+ *   pp_qstring(printer, '\'', '\0', "abcde") will print 'abcde
+ */
+extern void pp_qstring(yices_pp_t *printer, char open_quote, char close_quote, const char *s);
 
 
 /*
