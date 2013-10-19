@@ -88,7 +88,7 @@ struct cblock_s {
   char data[0];
 };
 
-#define DEF_CBLOCK_SIZE 4092
+#define DEF_CBLOCK_SIZE 4088
 #define MAX_CBLOCK_SIZE (UINT32_MAX - sizeof(cblock_t))
 
 

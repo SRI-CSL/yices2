@@ -157,8 +157,8 @@ static char *cblock_alloc(etk_queue_t *queue, uint32_t n) {
      * Allocate in the current block
      */
     blk = queue->mem;
-    p = blk->data + (DEF_CBLOCK_SIZE - n);
-    assert(blk->data <= p && p + n < blk->data + DEF_CBLOCK_SIZE);
+    p = blk->data + (DEF_CBLOCK_SIZE - queue->free);
+    assert(blk->data <= p && p + n <= blk->data + DEF_CBLOCK_SIZE);
     queue->free -= n;
     queue->free &= ~(uint32_t)7; 
   } else if (n <= DEF_CBLOCK_SIZE) {
@@ -219,6 +219,8 @@ void etk_queue_open_scope(etk_queue_t *queue) {
   queue->tk[i].key = ETK_OPEN;
   queue->tk[i].val = queue->last_open;
   queue->tk[i].ptr = NULL;
+
+  queue->last_open = i;
 }
 
 

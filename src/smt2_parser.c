@@ -61,6 +61,8 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
   int exception;
   loc_t loc;
   loc_t saved_loc; // used to store location of (as ...
+  bool keep_tokens;
+  etk_queue_t *token_queue;
 
   stack = &parser->pstack;
   lex = parser->lex;
@@ -68,6 +70,15 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
 
   assert(parser_stack_is_empty(stack));
   assert(tstack_is_empty(tstack));
+
+
+  /*
+   * keep_tokens: when true, all tokens received from the lexer are
+   * pushed into the SMT2 global token queue. This enables SMT2
+   * commands to print SMT2 expressions as they appear in the input.
+   */
+  keep_tokens = false;
+  token_queue = NULL;
 
   // To catch exceptions in term-stack operations
   exception = setjmp(tstack->env);
@@ -80,6 +91,10 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
     token = next_smt2_token(lex);
     loc.line = current_token_line(lex);
     loc.column = current_token_column(lex);
+    if (keep_tokens) {
+      assert(token_queue != NULL);
+      push_smt2_token(token_queue, token, tkval(lex), tklen(lex));
+    }
 
   skip_token:
     // jump here for actions that don't consume the token
@@ -187,6 +202,15 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       goto loop;
 
     case get_value_next_goto_c12:
+      /*
+       * Activate the keep_tokens hack here
+       * We push the two tokens '(' 'get-value' 
+       */
+      keep_tokens = true;
+      token_queue = smt2_token_queue();
+      push_smt2_token(token_queue, SMT2_TK_LP, NULL, 0);
+      push_smt2_token(token_queue, token, tkval(lex), tklen(lex));
+      // now proceed as normal: push the command
       tstack_push_op(tstack, SMT2_GET_VALUE, &loc);
       state = c12;
       goto loop;
@@ -755,9 +779,15 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
  cleanup:
   tstack_reset(tstack);
   parser_stack_reset(stack);
+  if (keep_tokens) {
+    reset_etk_queue(token_queue);
+  }
   return -1;
 
  the_end:
+  if (keep_tokens) {
+    reset_etk_queue(token_queue);
+  }
   return 0;
 }
 

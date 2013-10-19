@@ -15,6 +15,7 @@
 #include <inttypes.h>
 #include <string.h>
 #include <assert.h>
+#include <errno.h>
 
 #include "refcount_strings.h"
 #include "attribute_values.h"
@@ -660,6 +661,7 @@ static const char * const exception_string[NUM_SMT2_EXCEPTIONS] = {
   "error in bitvector arithmetic operation",  //TSTACK_BVARITH_ERROR
   "error in bitvector operation",       // TSTACK_BVLOGIC_ERROR
   "incompatible sort in definition",    // TSTACK_TYPE_ERROR_IN_DEFTERM
+  "invalid term",                       // TSTACK_STRINGS_ARE_NOT_TERMS
   NULL,                                 // TSTACK_YICES_ERROR
   "missing symbol in :named attribute", // SMT2_MISSING_NAME
   "no pattern given",                   // SMT2_MISSING_PATTERN
@@ -890,6 +892,10 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
     print_out("%s", exception_string[exception]);
     break;
 
+  case TSTACK_STRINGS_ARE_NOT_TERMS:
+    print_out("%s: \"%s\"", exception_string[exception], tstack->error_string);
+    break;
+	      
   case TSTACK_YICES_ERROR:
     // TODO: extract mode information from yices_error_report();
     print_out("in %s: ", opcode_string[tstack->error_op]);
@@ -2123,6 +2129,8 @@ static void init_smt2_globals(smt2_globals_t *g) {
   init_smt2_name_stack(&g->type_names);
   init_smt2_name_stack(&g->macro_names);
 
+  init_etk_queue(&g->token_queue);
+
   init_ivector(&g->assertions, 0);
   g->trivially_unsat = false;
   g->frozen = false;
@@ -2157,6 +2165,8 @@ static void delete_smt2_globals(smt2_globals_t *g) {
   delete_smt2_name_stack(&g->term_names);
   delete_smt2_name_stack(&g->type_names);
   delete_smt2_name_stack(&g->macro_names);
+
+  delete_etk_queue(&g->token_queue);
 
   close_output_file(g);
   close_error_file(g);
@@ -2271,6 +2281,7 @@ void smt2_get_proof(void) {
  */
 void smt2_get_unsat_core(void) {
   if (check_logic()) {
+    // for testing: 
     print_out("get_unsat_core: unsupported\n");  
     flush_out();
   }
@@ -2283,9 +2294,37 @@ void smt2_get_unsat_core(void) {
  * - n = number of elements in the array
  */
 void smt2_get_value(term_t *a, uint32_t n) {
+  yices_pp_t printer;
+  pp_area_t area;
+  etk_queue_t *queue;
+
   if (check_logic()) {
-    print_out("get_value: unsupported\n");  
-    flush_out();
+    queue = &__smt2_globals.token_queue;
+
+    /*
+     * For testing: print whatever is in the token queue
+     */
+    if (good_token(queue, 0)) {
+      area.width = 120;
+      area.height = UINT32_MAX;
+      area.offset = 0;
+      area.stretch = false;
+      area.truncate = false;
+
+      init_yices_pp(&printer, __smt2_globals.out, &area, PP_VMODE, 0);
+      pp_smt2_expr(&printer, queue, 0);
+
+      if (yices_pp_print_failed(&printer)) {
+	errno = yices_pp_errno(&printer);
+	failed_output();
+      }
+
+      delete_yices_pp(&printer, true);
+
+    } else {
+      print_out("get_value: unsupported\n");      
+      flush_out();
+    }
   }
 }
 

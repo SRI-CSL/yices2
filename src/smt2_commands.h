@@ -34,6 +34,7 @@
 #include "term_stack2.h"
 #include "string_hash_map.h"
 #include "tracer.h"
+#include "smt2_expressions.h"
 
 
 /*
@@ -234,6 +235,17 @@ typedef struct smt2_stack_s {
  * 
  * NOTE: all solvers I've tried use :print-success false by default
  * (even though the standard says otherwise).
+ *
+ *
+ * To implement the get-value command, we must keep track of smt2
+ * terms as they are parsed. To support this, the global state includes
+ * a token queue (cf. smt2_expression.h and parenthesized_expr.h).
+ * When command smt2_get_value is called, it expects this queue to
+ * contain the full command:
+ *  ( get-value ( <term_1> ... <term_n> ))
+ * so that it can pretty print <term_1> to <term_n>.
+ * To ensure this, the parser must feed the smt2 tokens to the queue
+ * as soon as it sees the 'get-value' command. 
  */
 typedef struct smt2_globals_s {
   // logic: initially SMT_UNKNOWN 
@@ -281,6 +293,9 @@ typedef struct smt2_globals_s {
   smt2_name_stack_t type_names;
   smt2_name_stack_t macro_names;
 
+  // token queue for the get-value command
+  etk_queue_t token_queue;
+
   /*
    * Support for delayed assertions
    * - assertions = a set of assertions
@@ -322,6 +337,14 @@ extern void delete_smt2(void);
  *   an unrecoverable error
  */
 extern bool smt2_active(void);
+
+
+/*
+ * Get the internal token_queue
+ */
+static inline etk_queue_t *smt2_token_queue(void) {
+  return &__smt2_globals.token_queue;
+}
 
 
 

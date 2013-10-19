@@ -1365,6 +1365,10 @@ term_t get_term(tstack_t *stack, stack_elem_t *e) {
     }
     break;
 
+  case TAG_STRING:
+    raise_exception(stack, e, TSTACK_STRINGS_ARE_NOT_TERMS);
+    break;
+
   case TAG_BV64:
     c = norm64(e->val.bv64.value, e->val.bv64.bitsize);
     t = yices_bvconst64_term(e->val.bv64.bitsize, c);

@@ -314,6 +314,7 @@ typedef enum tstack_error_s {
   TSTACK_BVARITH_ERROR,
   TSTACK_BVLOGIC_ERROR,
   TSTACK_TYPE_ERROR_IN_DEFTERM,
+  TSTACK_STRINGS_ARE_NOT_TERMS,  // this can be raised only in the SMT2 lib context
   TSTACK_YICES_ERROR,
 } tstack_error_t;
 

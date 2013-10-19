@@ -61,6 +61,7 @@ static const char * const code2string[NUM_TSTACK_ERRORS] = {
   "error in bitvector arithmetic operation",
   "error in bitvector operation",
   "incompatible types in define",
+  "strings are not terms",
   "yices error",
 };
 
@@ -376,6 +377,7 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
   case TSTACK_INVALID_OP:
   case TSTACK_NOT_A_SYMBOL:
   case TSTACK_NOT_A_TYPE:
+  case TSTACK_STRINGS_ARE_NOT_TERMS:  // should never be raised by the yices or smt1 parser
     fprintf(f, "Internal exception: opcode = %"PRId32"\n", (int32_t) tstack->error_op);
     report_bug("Term-stack error");
     break;

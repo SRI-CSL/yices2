@@ -1,3 +1,4 @@
+
 /*
  * SMT2 EXPRESSIONS
  */
@@ -24,11 +25,17 @@
  * - str = string 
  * - len = length of the string
  *
- * - if the token is SMT2_TK_LP: open a scope
+ * - if the token is SMT2_TK_LP: open a scope 
+ *   (str and len are ignored)
  * - if the token is SMT2_TK_RP: close the current scope
+ *   (str and len are ignored)
  * - otherwise add an atomic token:
  *   with key = tk, val = 0, ptr = copy of str
  * 
+ * If tk corresponds is an error token (e.g., SMT2_TK_INVALID_NUMERAL)
+ * or if it's a closing parenthesis with no matching open parenthesis
+ * then it's just dropped.
+ *
  * TODO: we could check whether str is a predefined symbol
  * or keyword and store the corresponding code in val?
  */
