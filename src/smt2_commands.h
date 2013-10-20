@@ -270,6 +270,7 @@ typedef struct smt2_globals_s {
   // tracer object: used only if verbosity > 0
   tracer_t *tracer;
 
+
   // options
   bool print_success;         // default = true
   bool expand_definitions;    // default = false
@@ -293,8 +294,13 @@ typedef struct smt2_globals_s {
   smt2_name_stack_t type_names;
   smt2_name_stack_t macro_names;
 
-  // token queue for the get-value command
+  // token queue + vectors for the get-value command
   etk_queue_t token_queue;
+  ivector_t token_slices;
+  ivector_t val_vector;
+
+  // pretty-printer area
+  pp_area_t pp_area;
 
   /*
    * Support for delayed assertions

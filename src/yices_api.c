@@ -6392,6 +6392,19 @@ EXPORTED model_t *yices_get_model(context_t *ctx, int32_t keep_subst) {
 
 
 /*
+ * Return an empty model
+ */
+model_t *yices_new_model(bool keep_subst) {
+  model_t *mdl;
+
+  mdl = alloc_model();
+  init_model(mdl, &terms, keep_subst);  
+
+  return mdl;
+}
+
+
+/*
  * Delete mdl
  */
 EXPORTED void yices_free_model(model_t *mdl) {

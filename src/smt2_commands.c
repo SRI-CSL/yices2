@@ -22,6 +22,7 @@
 #include "smt_logic_codes.h"
 #include "smt2_lexer.h"
 #include "smt2_commands.h"
+#include "model_eval.h"
 
 #include "yices.h"
 #include "yices_exit_codes.h"
@@ -776,24 +777,24 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   // 
   "exit",                 // SMT2_EXIT
   "end of file",          // SMT2_SILENT_EXIT
-  "get_assertions",       // SMT2_GET_ASSERTIONS
-  "get_assignment",       // SMT2_GET_ASSIGNMENT
-  "get_proof",            // SMT2_GET_PROOF
-  "get_unsat_core",       // SMT2_GET_UNSAT_CORE
-  "get_value",            // SMT2_GET_VALUE
-  "get_option",           // SMT2_GET_OPTION
-  "get_info",             // SMT2_GET_INFO
-  "set_option",           // SMT2_SET_OPTION
-  "set_info",             // SMT2_SET_INFO
-  "set_logic",            // SMT2_SET_LOGIC
+  "get-assertions",       // SMT2_GET_ASSERTIONS
+  "get-assignment",       // SMT2_GET_ASSIGNMENT
+  "get-proof",            // SMT2_GET_PROOF
+  "get-unsat-core",       // SMT2_GET_UNSAT_CORE
+  "get-value",            // SMT2_GET_VALUE
+  "get-option",           // SMT2_GET_OPTION
+  "get-info",             // SMT2_GET_INFO
+  "set-option",           // SMT2_SET_OPTION
+  "set-info",             // SMT2_SET_INFO
+  "set-logic",            // SMT2_SET_LOGIC
   "push",                 // SMT2_PUSH
   "pop",                  // SMT2_POP
   "assert",               // SMT2_ASSERT,
-  "check_sat",            // SMT2_CHECK_SAT,
-  "declare_sort",         // SMT2_DECLARE_SORT
-  "define_sort",          // SMT2_DEFINE_SORT
-  "declare_fun",          // SMT2_DECLARE_FUN
-  "define_fun",           // SMT2_DEFINE_FUN
+  "check-sat",            // SMT2_CHECK_SAT,
+  "declare-sort",         // SMT2_DECLARE_SORT
+  "define-sort",          // SMT2_DEFINE_SORT
+  "declare-fun",          // SMT2_DECLARE_FUN
+  "define-fun",           // SMT2_DEFINE_FUN
   "attributes",           // SMT2_MAKE_ATTR_LIST
   "term annotation",      // SMT2_ADD_ATTRIBUTES
   "Array",                // SMT2_MK_ARRAY
@@ -1039,6 +1040,13 @@ static void update_trace_verbosity(smt2_globals_t *g) {
   }
 }
 
+
+/*
+ * Initialize pretty printer object to use the output channel
+ */ 
+static void init_pretty_printer(yices_pp_t *printer, smt2_globals_t *g) {
+  init_yices_pp(printer, g->out, &g->pp_area, PP_VMODE, 0);
+}
 
 
 /*
@@ -1853,7 +1861,6 @@ static void check_delayed_assertions(smt2_globals_t *g) {
  * CONTEXT OPERATIONS: INCREMENTAL MODE
  */
 
-
 /*
  * Assert t in g->ctx
  * - t is known to be a Boolean term here
@@ -2014,6 +2021,133 @@ static void ctx_pop(smt2_globals_t *g) {
 }
 
 
+/*
+ * MODELS AND PRINT VALUES
+ */
+
+/*
+ * Try to construct the model of the current set of assertions
+ * - return NULL and print an error if the context status is neither
+ *   SAT nor UNKNOWN
+ * 
+ * In non-interactive mode: there may not be a context at this point.
+ */
+static model_t *get_model(smt2_globals_t *g) {
+  model_t *mdl;
+
+  mdl = g->model;
+  if (mdl == NULL) {
+    if (g->ctx == NULL)  {
+      // benchmark mode: no context
+      assert(g->benchmark_mode);
+
+      if (!g->frozen) {
+	print_error("can't build a model. Call (check-sat) first");
+      } else if (g->trivially_unsat) {
+	print_error("the context is unsatisfiable");
+      } else {
+	assert(g->assertions.size == 0);
+	// no assertions: build a trivial model
+	// we set keep_subst to true to be consistent
+	mdl = yices_new_model(true);
+      }
+
+    } else {
+      // context exists
+      switch (context_status(g->ctx)) {
+      case STATUS_UNKNOWN:
+      case STATUS_SAT:
+	mdl = yices_get_model(g->ctx, true);
+	break;
+
+      case STATUS_UNSAT:
+	print_error("the context is unsatisfiable");
+	break;
+
+      case STATUS_IDLE:
+	print_error("can't build a model. Call (check-sat) first");
+	break;
+
+      case STATUS_SEARCHING:
+      case STATUS_INTERRUPTED:
+      default:
+	print_out("BUG: unexpected context status");
+	report_bug(__smt2_globals.err);
+	break;
+      }
+    }
+    g->model = mdl;
+  }
+
+  return mdl;
+}
+
+
+/*
+ * Print value (<SMT2-expression> <value>)
+ * - printer = pretty printer object
+ * - vtbl = value table where v is stored
+ * - token_queue = whatever was parsed
+ * - i = index of the SMT2 expression for t in token_queue
+ */
+static void print_term_value(yices_pp_t *printer, value_table_t *vtbl, etk_queue_t *token_queue, value_t v, int32_t i) {
+  pp_open_block(printer, PP_OPEN_PAR);
+  pp_smt2_expr(printer, token_queue, i);
+  vtbl_pp_object(printer, vtbl, v);
+  pp_close_block(printer, true);
+}
+
+
+/*
+ * Print a list of pairs terms/values
+ * - the list of terms an array of n expression indices expr[0..n-1]
+ *   where expr[i] is an valid start index in token_queue
+ * - the corresponding values as in v[0 ... n-1]
+ */
+static void print_term_value_list(yices_pp_t *printer, value_table_t *vtbl, etk_queue_t *token_queue, 
+				  int32_t *expr, value_t *v, uint32_t n) {
+  uint32_t i;
+  value_t x, u;
+
+  u = vtbl_mk_unknown(vtbl);
+
+  pp_open_block(printer, PP_OPEN_PAR); // open '('
+  for (i=0; i<n; i++) {
+    x = v[i];
+    if (x < 0) x = u;
+    print_term_value(printer, vtbl, token_queue, x, expr[i]);
+  }
+  pp_close_block(printer, true); // close ')'
+}
+
+
+/*
+ * Evaluate the value of an array of terms in mdl
+ * - n = size of array t
+ * - the values are added to vector v
+ * - so the value for term t[i] is stored in v->data[i]
+ * - v->data[i] may be a negative error code if the value can't be
+ *   computed
+ */
+static void evaluate_term_values(model_t *mdl, term_t *t, uint32_t n, ivector_t *v) {
+  evaluator_t evaluator;
+  uint32_t i;
+  value_t x;
+
+  /*
+   * We store all values (even the error codes)
+   * We could stop on the first error?
+   */
+  ivector_reset(v);
+  resize_ivector(v, n);
+  init_evaluator(&evaluator, mdl);
+  for (i=0; i<n; i++) {
+    x = eval_in_model(&evaluator, t[i]);
+    ivector_push(v, x);
+  }
+  delete_evaluator(&evaluator);
+}
+
 
 /*
  * DECLARATIONS AND PUSH/POP
@@ -2130,6 +2264,15 @@ static void init_smt2_globals(smt2_globals_t *g) {
   init_smt2_name_stack(&g->macro_names);
 
   init_etk_queue(&g->token_queue);
+  init_ivector(&g->token_slices, 0);
+  init_ivector(&g->val_vector, 0);
+  
+  // print area for get-value
+  g->pp_area.width = 120;
+  g->pp_area.height = UINT32_MAX;
+  g->pp_area.offset = 0;
+  g->pp_area.stretch = false;
+  g->pp_area.truncate = false;
 
   init_ivector(&g->assertions, 0);
   g->trivially_unsat = false;
@@ -2167,6 +2310,8 @@ static void delete_smt2_globals(smt2_globals_t *g) {
   delete_smt2_name_stack(&g->macro_names);
 
   delete_etk_queue(&g->token_queue);
+  delete_ivector(&g->token_slices);
+  delete_ivector(&g->val_vector);
 
   close_output_file(g);
   close_error_file(g);
@@ -2295,36 +2440,38 @@ void smt2_get_unsat_core(void) {
  */
 void smt2_get_value(term_t *a, uint32_t n) {
   yices_pp_t printer;
-  pp_area_t area;
   etk_queue_t *queue;
+  ivector_t *slices;
+  ivector_t *values;
+  model_t *mdl;
 
   if (check_logic()) {
+    // make sure we have a model
+    mdl = get_model(&__smt2_globals);
+    if (mdl == NULL) return;
+    
+    // evaluate all terms: store the values in values->data[0 ... n-1]
+    values = &__smt2_globals.val_vector;
+    evaluate_term_values(mdl, a, n, values);
+
     queue = &__smt2_globals.token_queue;
+    slices = &__smt2_globals.token_slices;
+    assert(slices->size == 0);
+    assert(good_token(queue, 2) && start_token(queue, 2));
+    collect_subexpr(queue, 2, slices);
+    assert(slices->size == n);
 
-    /*
-     * For testing: print whatever is in the token queue
-     */
-    if (good_token(queue, 0)) {
-      area.width = 120;
-      area.height = UINT32_MAX;
-      area.offset = 0;
-      area.stretch = false;
-      area.truncate = false;
-
-      init_yices_pp(&printer, __smt2_globals.out, &area, PP_VMODE, 0);
-      pp_smt2_expr(&printer, queue, 0);
-
-      if (yices_pp_print_failed(&printer)) {
-	errno = yices_pp_errno(&printer);
-	failed_output();
-      }
-
-      delete_yices_pp(&printer, true);
-
-    } else {
-      print_out("get_value: unsupported\n");      
-      flush_out();
-    }
+    init_pretty_printer(&printer, &__smt2_globals);
+    // FOR TESTING ONLY
+    pp_smt2_expr(&printer, queue, 0);
+    flush_yices_pp(&printer);
+    // END OF TESTING
+    
+    print_term_value_list(&printer, &mdl->vtbl, queue, slices->data, values->data, n);
+    
+    delete_yices_pp(&printer, true);
+    ivector_reset(slices);
+    ivector_reset(values);
   }
 }
 

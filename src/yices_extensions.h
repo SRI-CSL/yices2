@@ -453,6 +453,11 @@ extern context_t *yices_create_context(context_arch_t arch, context_mode_t mode,
 extern void yices_set_default_params(context_t *ctx, param_t *params);
 
 
+/*
+ * Allocate a new model (initialized and empty)
+ * - keep_subst = whether to support alias_map (cf. models.h)
+ */
+extern model_t *yices_new_model(bool keep_subst);
 
 /*
  * TRACE/STATISTICS AND SUPPORT FOR DEBUGGING

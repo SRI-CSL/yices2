@@ -74,7 +74,7 @@ extern void reset_evaluator(evaluator_t *eval);
  * Compute the value of term t in the model
  * - t must be a valid term
  * - return a negative code if there's an error
- * - return the id of a concrete objects of eval->model.vtbl
+ * - return the id of a concrete objects of eval->model.vtbl otherwise
  *
  * Evaluation may create new objects. All these new objects are
  * marked as temporary objects and can be deleted by calling
