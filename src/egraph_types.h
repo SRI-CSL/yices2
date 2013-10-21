@@ -882,7 +882,7 @@ typedef struct egraph_trail_stack_s {
  *    the local model, or do other cleanup.
  *  
  *
- * 6e) ipart_t *get_model_partition(void *solver)
+ * 6e) ipart_t *build_model_partition(void *solver)
  *
  *    Called after prepare_model and before release model. The solver must construct
  *    a partition of its variables: two variables are in the same class if they have

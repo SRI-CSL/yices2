@@ -5287,6 +5287,17 @@ static uint32_t egraph_gen_interface_lemmas(egraph_t *egraph, uint32_t max_eqs, 
   return n/2;
 }
 
+/*
+ * Check whether Boolean variables x1 and x2 have different values in the core
+ */
+static bool bool_var_equal_in_model(egraph_t *egraph, thvar_t x1, thvar_t x2) {
+  bval_t b1, b2;
+
+  b1 = bvar_value(egraph->core, x1);
+  b2 = bvar_value(egraph->core, x2);
+  assert(bval_is_def(b1) && bval_is_def(b2));
+  return b1 == b2;
+}
 
 /*
  * Check whether x1 and x2 have different values in the relevant theory solver
@@ -5300,6 +5311,9 @@ static bool diseq_in_model(egraph_t *egraph, etype_t i, thvar_t x1, thvar_t x2) 
   case ETYPE_BV:
     return !egraph->eg[i]->equal_in_model(egraph->th[i], x1, x2);
 
+  case ETYPE_BOOL:
+    return  !bool_var_equal_in_model(egraph, x1, x2);;
+    
   default:
     return false;
   }
@@ -5370,6 +5384,7 @@ static void reconcile_thvar(egraph_t *egraph, class_t c1, thvar_t v1, class_t c2
 
   case ETYPE_BOOL:
     // all Boolean variables are already assigned in the core.
+    assert(bool_var_equal_in_model(egraph, v1, v2));
     break;
 
   case ETYPE_TUPLE:
