@@ -2631,7 +2631,7 @@ static void simplify_learned_clause(sat_solver_t *sol) {
   
   b = sol->buffer.data;
   n = sol->buffer.size;
-  hash = signature(sol, b+1, n-1); // skip b[0]. It cannot subsume anything.
+  hash = signature(sol, b+1, n-1); // skip b[0]. It cannot be subsumed.
 
   assert(sol->buffer2.size == 0);
 
@@ -2643,7 +2643,7 @@ static void simplify_learned_clause(sat_solver_t *sol) {
       // Hack: move l to buffer2 to clear its mark later
       ivector_push(&sol->buffer2, l); 
     } else {
-      // keep k in buffer
+      // keep l in buffer
       b[j] = l;
       j ++;
     }

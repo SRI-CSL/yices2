@@ -568,7 +568,7 @@ static void reset_heap(var_heap_t *heap) {
  * issue for now, it should not matter much anyway??
  */
 
-#define BREAK_TIES 0
+#define BREAK_TIES 1
 
 /*
  * Comparison: return true if x precedes y in the heap ordering (strict ordering) 
