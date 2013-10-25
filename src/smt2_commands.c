@@ -2111,7 +2111,7 @@ static void print_term_value_list(yices_pp_t *printer, value_table_t *vtbl, etk_
 
   u = vtbl_mk_unknown(vtbl);
 
-  pp_open_block(printer, PP_OPEN_PAR); // open '('
+  pp_open_block(printer, PP_OPEN_VPAR); // open '('
   for (i=0; i<n; i++) {
     x = v[i];
     if (x < 0) x = u;
@@ -2463,8 +2463,8 @@ void smt2_get_value(term_t *a, uint32_t n) {
 
     init_pretty_printer(&printer, &__smt2_globals);
     // FOR TESTING ONLY
-    pp_smt2_expr(&printer, queue, 0);
-    flush_yices_pp(&printer);
+    //    pp_smt2_expr(&printer, queue, 0);
+    //    flush_yices_pp(&printer);
     // END OF TESTING
     
     print_term_value_list(&printer, &mdl->vtbl, queue, slices->data, values->data, n);

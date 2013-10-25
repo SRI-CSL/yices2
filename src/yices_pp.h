@@ -113,8 +113,9 @@ typedef struct pp_atom_s {
 
 // list of open-block identifiers
 typedef enum {
-  PP_OPEN,               // empty label, no parenthesis
-  PP_OPEN_PAR,           // empty label, open parenthesis
+  PP_OPEN,               // empty label, no parenthesis, HMT layout
+  PP_OPEN_PAR,           // empty label, open parenthesis, HMT layout
+  PP_OPEN_VPAR,          // empty label, open parenthesis, V layout
 
   PP_OPEN_BV_TYPE,
   PP_OPEN_FUN_TYPE,
