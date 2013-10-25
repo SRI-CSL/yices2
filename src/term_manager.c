@@ -3750,13 +3750,14 @@ term_t mk_bvashr(term_manager_t *manager, term_t t1, term_t t2) {
 static int32_t bvconst64_term_is_power_of_two(bvconst64_term_t *b) {
   uint32_t k;
 
-  k = ctz64(b->value);
-  assert(0 <= k && k < b->bitsize && b->bitsize <= 64);
-  if (b->value == ((uint64_t) 1) << k) {
-    return k;
-  } else {
-    return -1;
+  if (b->value != 0) {
+    k = ctz64(b->value);
+    assert(0 <= k && k < b->bitsize && b->bitsize <= 64);
+    if (b->value == ((uint64_t) 1) << k) {
+      return k;
+    } 
   }
+  return -1;
 }
 
 static int32_t bvconst_term_is_power_of_two(bvconst_term_t *b) {
