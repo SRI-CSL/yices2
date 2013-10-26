@@ -181,6 +181,10 @@ extern param_t *get_default_params(void);
 extern int32_t params_set_field(param_t *parameters, const char *key, const char *value);
 
 
+/*
+ * To synchronize with set-random-seed/get-random-seed
+ */
+extern uint32_t params_default_random_seed(void);
 
 
 #endif /* __SEARCH_PARAMETERS_H */

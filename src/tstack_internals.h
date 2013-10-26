@@ -12,6 +12,7 @@
  * To add or change an operation, define two functions
  * - void check_some_op(tstack_t *stack, stack_elem_t *e, uint32_t n)
  * - void eval_some_op((tstack_t *stack, stack_elem_t *e, uint32_t n)
+ *
  * then install both in stack using 
  *   tstack_add_op(stack, opcode, flag, eval_new_op, check_new_op);
  *
@@ -76,7 +77,7 @@ extern void check_size(tstack_t *stack, bool cond);
 
 /*
  * Check whether the top operator is equal to op.
- * - if not rause exception INTERNAL_ERROR
+ * - if not raise exception INTERNAL_ERROR
  */
 extern void check_op(tstack_t *stack, int32_t op);
 
@@ -109,6 +110,44 @@ extern void check_distinct_binding_names(tstack_t *stack, stack_elem_t *f, uint3
  * if the test fails, raise exception DUPLICATTE_TYPE_VAR_NAME
  */
 extern void check_distinct_type_binding_names(tstack_t *stack, stack_elem_t *f, uint32_t n);
+
+
+
+/*
+ * OPERATORS
+ */
+
+/*
+ * To implement term annotations/attributes, we need to know the context
+ * (i.e., the enclosing operator of an annotated term).
+ *
+ * For example: (assert (! <term> :named xxx)) must be treated as 
+ * a named assertion rather than the assertion of a named term.
+ * To deal with this, we allow term-stack functions to query the term stack
+ * to examine the current top and the enclosing operator:
+ * - get_top_op returns the top-level operator (or NO_OP if the stack is empty)
+ * - get_enclosing_op returns the previous operator on the stack (or NO_OP
+ *   if there's just one frame on the stack).
+ *
+ * Examples:
+ * 1) in (assert (! <term> :named xxx)), the stack will
+ *    have two operators: [ASSERT [ADD_ATTRIBUTES <term> ...]].
+ *    When we process ADD_ATTRIBUTES: 
+ *      top_op = ADD_ATTRIBUTES
+ *      enclosing_op = ASSERT
+ *
+ * 2) in (forall ((x T)) (! (P X) :pattern xxx))
+ *    The stack will have [FORALL [BINDING ..] [ADD_ATTRIBUTES <term> ...]
+ *    When we process ADD_ATTRIBUTES:
+ *      top_op = ADD_ATTRIBUTES
+ *      enclosing_op = FORALL
+ */
+static inline int32_t get_top_op(tstack_t *stack) {
+  return stack->top_op; // equal to NO_OP if the stack is empty
+}
+
+extern int32_t get_enclosing_op(tstack_t *stack);
+
 
 
 /*

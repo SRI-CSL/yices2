@@ -675,3 +675,12 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
 
   return r;
 }
+
+
+/*
+ * Utility function: so that yices and yices_smt2
+ * can keep a copy of the initial random seed
+ */
+uint32_t params_default_random_seed(void) {
+  return DEFAULT_RANDOM_SEED;
+}

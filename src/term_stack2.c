@@ -5364,3 +5364,24 @@ void tstack_add_op(tstack_t *stack, int32_t op, bool assoc, eval_fun_t eval, che
     stack->op_table.num_ops = i+1;
   }
 }
+
+
+/*
+ * Get the operator enclosing the top-frame
+ * - if the stack is empty, it will contain just the bottom marker, 
+ *   which has index 0 and contains
+ *     tag = TAG_OP
+ *     opval.opcode = NO_OP
+ *     opval.prev = 0
+ * - so there's no need to test for n == 0 in the code below.
+ */
+int32_t get_enclosing_op(tstack_t *stack) {
+  uint32_t n, i;
+
+  n = stack->frame; // top frame
+  assert(stack->elem[n].tag == TAG_OP);
+  i = stack->elem[n].val.opval.prev;  // previous frame (unless n = 0)
+  assert(stack->elem[i].tag == TAG_OP);
+
+  return stack->elem[i].val.opval.opcode;
+}

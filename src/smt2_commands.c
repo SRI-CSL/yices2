@@ -182,6 +182,98 @@ static void delete_smt2_name_stack(smt2_name_stack_t *s) {
 
 
 /*
+ * NAMED-TERMS STACKS
+ */
+
+/*
+ * Initialize: nothing allocated yet
+ */
+static void init_named_term_stack(named_term_stack_t *s) {
+  s->data = NULL;
+  s->top = 0;
+  s->size = 0;
+}
+
+
+/*
+ * Make room for named pairs to be added
+ */
+static void extend_named_term_stack(named_term_stack_t *s) {
+  uint32_t n;
+
+  n = s->size;
+  if (n == 0) {
+    n = DEF_NAMED_TERM_STACK_SIZE;
+    assert(n <= MAX_NAMED_TERM_STACK_SIZE);
+    s->data = (named_term_t *) safe_malloc(n * sizeof(named_term_t));
+    s->size = n;
+  } else {
+    n += (n >> 1) + 1;
+    if (n > MAX_NAMED_TERM_STACK_SIZE) {
+      out_of_memory();
+    }
+    s->data = (named_term_t *) safe_realloc(s->data, n * sizeof(named_term_t));
+    s->size = n;
+  }
+}
+
+
+/*
+ * Push the pair <t, name>
+ * - name must be a refcount string
+ * - its reference counter is incremented
+ */
+static void push_named_term(named_term_stack_t *s, term_t t, char *name) {
+  uint32_t i;
+
+  i = s->top;
+  if (i == s->size) {
+    extend_named_term_stack(s);
+  }
+  assert(i < s->size);
+  s->data[i].term = t;
+  s->data[i].name = name;
+  string_incref(name);
+  s->top = i+1;
+}
+
+
+/*
+ * Remove pairs from the stack s
+ * - n = new top: all pairs in s->data[0 ... n-1] are kept
+ */
+static void pop_named_terms(named_term_stack_t *s, uint32_t n) {
+  uint32_t i;
+
+  assert(n <= s->top);
+
+  i = s->top;
+  while (i > n) {
+    i --;
+    string_decref(s->data[i].name);
+  }
+  s->top = n;
+}
+
+
+/*
+ * Deletion
+ */
+static void delete_named_term_stack(named_term_stack_t *s) {
+  uint32_t i;
+
+  i = s->top;
+  while (i > 0) {
+    i --;
+    string_decref(s->data[i].name);
+  }
+  safe_free(s->data);
+  s->data = NULL;
+}
+
+
+
+/*
  * PUSH/POP STACK
  */
 
@@ -235,6 +327,8 @@ static void smt2_stack_push(smt2_stack_t *s, uint32_t m, uint32_t terms, uint32_
   s->data[i].term_decls = terms;
   s->data[i].type_decls = types;
   s->data[i].macro_decls = macros;
+  s->data[i].named_bools = 0;    // not used for now
+  s->data[i].named_asserts = 0;  // not used for now
   s->levels += m;
   s->top = i+1;
 }
@@ -1463,6 +1557,14 @@ static bool option_can_be_set(const char *option_name) {
 
 
 /*
+ * Output for options we don't support
+ */
+static void unsupported_option(void) {
+  print_out("unsupported\n");
+}
+
+
+/*
  * CONTEXT INITIALIZATION
  */
 
@@ -1831,7 +1933,10 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       return;
     }
 
-    status = yices_check_context(g->ctx, NULL);
+    if (g->random_seed != 0) {
+      parameters.random_seed = g->random_seed;
+    }
+    status = check_context(g->ctx, &parameters);
     switch (status) {
     case STATUS_UNKNOWN:
     case STATUS_UNSAT:
@@ -1932,6 +2037,10 @@ static void ctx_check_sat(smt2_globals_t *g) {
     break;
 
   case STATUS_IDLE:
+    // change the seed if needed
+    if (g->random_seed != 0) {
+      parameters.random_seed = g->random_seed;
+    }
     stat = check_context(g->ctx, &parameters);
     print_status(stat);
     break;
@@ -2251,7 +2360,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->produce_unsat_cores = false;
   g->produce_models = false;
   g->produce_assignments = false;
-  g->random_seed = 0;
+  g->random_seed = 0;  // 0 means any seed is good
   g->verbosity = 0;
   g->avtbl = NULL;
   g->info = NULL;
@@ -2262,6 +2371,9 @@ static void init_smt2_globals(smt2_globals_t *g) {
   init_smt2_name_stack(&g->term_names);
   init_smt2_name_stack(&g->type_names);
   init_smt2_name_stack(&g->macro_names);
+
+  init_named_term_stack(&g->named_bools);
+  init_named_term_stack(&g->named_asserts);
 
   init_etk_queue(&g->token_queue);
   init_ivector(&g->token_slices, 0);
@@ -2308,6 +2420,9 @@ static void delete_smt2_globals(smt2_globals_t *g) {
   delete_smt2_name_stack(&g->term_names);
   delete_smt2_name_stack(&g->type_names);
   delete_smt2_name_stack(&g->macro_names);
+
+  delete_named_term_stack(&g->named_bools);
+  delete_named_term_stack(&g->named_asserts);
 
   delete_etk_queue(&g->token_queue);
   delete_ivector(&g->token_slices);
@@ -2515,22 +2630,6 @@ void smt2_get_option(const char *name) {
     print_kw_boolean_pair(name, g->print_success);
     break;
     
-  case SMT2_KW_EXPAND_DEFINITIONS:
-    print_kw_boolean_pair(name, g->expand_definitions);
-    break;
-    
-  case SMT2_KW_INTERACTIVE_MODE:
-    print_kw_boolean_pair(name, g->interactive_mode);
-    break;
-    
-  case SMT2_KW_PRODUCE_PROOFS:
-    print_kw_boolean_pair(name, g->produce_proofs);
-    break;
-
-  case SMT2_KW_PRODUCE_UNSAT_CORES:
-    print_kw_boolean_pair(name, g->produce_unsat_cores);
-    break;
-
   case SMT2_KW_PRODUCE_MODELS: 
     print_kw_boolean_pair(name, g->produce_models);
     break;
@@ -2569,8 +2668,12 @@ void smt2_get_option(const char *name) {
     print_kw_boolean_pair(name, g->global_decls);
     break;
 
+  case SMT2_KW_EXPAND_DEFINITIONS:
+  case SMT2_KW_INTERACTIVE_MODE:
+  case SMT2_KW_PRODUCE_PROOFS:
+  case SMT2_KW_PRODUCE_UNSAT_CORES:
   default:
-    print_out("unsupported\n");
+    unsupported_option();
     break;   
   }
 }
@@ -2651,32 +2754,6 @@ void smt2_set_option(const char *name, aval_t value) {
     set_boolean_option(g, name, value, &g->print_success);
     break;
 
-  case SMT2_KW_EXPAND_DEFINITIONS:
-    // optional: influence term printing (we ignore it)
-    set_boolean_option(g, name, value, &g->expand_definitions);
-    break;
-
-  case SMT2_KW_INTERACTIVE_MODE:
-    // optional: if true, get-assertions can be used
-    if (option_can_be_set(name)) {
-      set_boolean_option(g, name, value, &g->interactive_mode);
-    }
-    break;
-
-  case SMT2_KW_PRODUCE_PROOFS:
-    // optional: if true, get-proof can be used
-    if (option_can_be_set(name)) {
-      set_boolean_option(g, name, value, &g->produce_proofs);
-    }
-    break;
-
-  case SMT2_KW_PRODUCE_UNSAT_CORES:
-    // optional: if true, get-unsat-core can be used
-    if (option_can_be_set(name)) {
-      set_boolean_option(g, name, value, &g->produce_unsat_cores);
-    }
-    break;
-
   case SMT2_KW_PRODUCE_MODELS:
     // optional: if true, get-value can be used
     if (option_can_be_set(name)) {
@@ -2718,8 +2795,12 @@ void smt2_set_option(const char *name, aval_t value) {
     }
     break;
 
+  case SMT2_KW_EXPAND_DEFINITIONS:
+  case SMT2_KW_INTERACTIVE_MODE:
+  case SMT2_KW_PRODUCE_PROOFS:
+  case SMT2_KW_PRODUCE_UNSAT_CORES:
   default:
-    print_out("unsupported\n");
+    unsupported_option();
     break;
   }
 }
@@ -3061,8 +3142,10 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
 
 /*
  * Add a :named attribute to term t
+ * - op = enclosing operator of (! t :named name ..)
+ * - for a named assertion, op is SMT2_ASSERT
  */
-void smt2_add_name(term_t t, const char *name) {
+void smt2_add_name(int32_t op, term_t t, const char *name) {
   // TBD
 }
 
@@ -3070,7 +3153,9 @@ void smt2_add_name(term_t t, const char *name) {
 /*
  * Add a :pattern attribute to term t
  * - the pattern is an array p of n terms
+ * - op = enclosing operator of (! t :pattern ....)
+ * - for a quantified term, op is either MK_EXISTS or MK_FORALL
  */
-void smt2_add_pattern(term_t t, term_t *p, uint32_t n) {
+void smt2_add_pattern(int32_t op, term_t t, term_t *p, uint32_t n) {
   // TBD
 }

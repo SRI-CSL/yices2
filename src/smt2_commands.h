@@ -143,6 +143,32 @@ enum smt2_opcodes {
 
 
 /*
+ * Stack to deal with named terms
+ * SMT2 has expressions like (! <term> :named xxx)
+ * - if <term> is Boolean, then we must keep track of the pair <term> <name>
+ *   to implement the command (get-assignments).
+ * - when we support unsat cores, we'll have to also keep track of named
+ *   named assertions (i.e. (assert (! <term> :named yyy)))
+ *
+ * We keep track of named assertions and named booleans in two stacks
+ * of pairs (name, term). These pairs must be removed after (pop ...).
+ */
+typedef struct named_term_s {
+  term_t term;
+  char *name;
+} named_term_t;
+
+typedef struct named_term_stack_s {
+  named_term_t *data;
+  uint32_t top;
+  uint32_t size;  
+} named_term_stack_t;
+
+#define DEF_NAMED_TERM_STACK_SIZE 256
+#define MAX_NAMED_TERM_STACK_SIZE (UINT32_MAX/sizeof(named_term_t))
+
+
+/*
  * Stack to deal with push and pop.
  * SMT2 push/pop is complicated 
  * - push and pop take a numerical argument. In theory,
@@ -160,7 +186,7 @@ enum smt2_opcodes {
  * - we use a stack that keeps tracks of (push n) and of 
  *   term/type/macro names.
  * - we convert (push n) when n > 1 to (n-1) no ops followed by a single 
- *   a real (push) on the context.
+ *   real (push) on the context.
  *
  * We use three name_stacks to store symbols (for terms, types, and macros).
  * For each (push n): we store
@@ -168,6 +194,8 @@ enum smt2_opcodes {
  * - term_dcls = number of term declarations so far
  * - type_dcls = number of type declarations 
  * - macro_dcls = number of type macro declarations
+ * - named_bools = number of named Booleans
+ * - named_asserts = number of named assertions
  *
  * For garbage collection, each name_stack keeps a counter of deleted names
  */
@@ -187,6 +215,8 @@ typedef struct smt2_push_rec_s {
   uint32_t term_decls;
   uint32_t type_decls;
   uint32_t macro_decls;
+  uint32_t named_bools;
+  uint32_t named_asserts;
 } smt2_push_rec_t;
 
 // levels = sum of all multiplicities
@@ -199,7 +229,6 @@ typedef struct smt2_stack_s {
 
 #define DEF_SMT2_STACK_SIZE 128
 #define MAX_SMT2_STACK_SIZE (UINT32_MAX/sizeof(smt2_push_rec_t))
-
 
 
 /*
@@ -273,10 +302,10 @@ typedef struct smt2_globals_s {
 
   // options
   bool print_success;         // default = true
-  bool expand_definitions;    // default = false
-  bool interactive_mode;      // default = false
-  bool produce_proofs;        // default = false
-  bool produce_unsat_cores;   // default = false
+  bool expand_definitions;    // default = false (not supported)
+  bool interactive_mode;      // default = false (not supported)
+  bool produce_proofs;        // default = false (not supported)
+  bool produce_unsat_cores;   // default = false (not supported)
   bool produce_models;        // default = false
   bool produce_assignments;   // default = false
   uint32_t random_seed;       // default = 0
@@ -293,6 +322,10 @@ typedef struct smt2_globals_s {
   smt2_name_stack_t term_names;
   smt2_name_stack_t type_names;
   smt2_name_stack_t macro_names;
+
+  // stacks for named booleans and named assertions
+  named_term_stack_t named_bools;
+  named_term_stack_t named_asserts;
 
   // token queue + vectors for the get-value command
   etk_queue_t token_queue;
@@ -528,15 +561,19 @@ extern void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t bo
 
 /*
  * Add a :named attribute to term t
+ * - op = enclosing operator
+ * - for a named assertion, op is SMT2_ASSERT
  */
-extern void smt2_add_name(term_t t, const char *name);
+extern void smt2_add_name(int32_t op, term_t t, const char *name);
 
 
 /*
  * Add a :pattern attribute to term t
  * - the pattern is a an array p of n terms
+ * - op = enclosing operator
+ * - for a quantified term, op is either MK_EXISTS or MK_FORALL
  */
-extern void smt2_add_pattern(term_t t, term_t *p, uint32_t n);
+extern void smt2_add_pattern(int32_t op, term_t t, term_t *p, uint32_t n);
 
 
 

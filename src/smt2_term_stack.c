@@ -767,7 +767,6 @@ static void check_smt2_assert(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   check_size(stack, n == 1);
 }
 
-
 static void eval_smt2_assert(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t t;
 
@@ -964,9 +963,11 @@ static void eval_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t 
   term_t t, pattern;
   term_t *plist;      // list of terms
   uint32_t np;        // number of terms in the list
-  uint32_t i;  
+  uint32_t i;
+  int32_t op;         // enclosing operator
 
   t = get_term(stack, f);
+  op = get_enclosing_op(stack);
 
   i = 1;
   while (i<n) {
@@ -975,7 +976,7 @@ static void eval_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t 
       // expecting :named <symbol>
       i ++;
       check_name(stack, f, i, n);
-      smt2_add_name(t, f[i].val.string);
+      smt2_add_name(op, t, f[i].val.string);
       i ++;
       break;
 
@@ -991,7 +992,7 @@ static void eval_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t 
 	np ++;
 	i ++;
       } while (i < n && !is_keyword(f + i));
-      smt2_add_pattern(t, plist, np);
+      smt2_add_pattern(op, t, plist, np);
       break;
 
     default:
