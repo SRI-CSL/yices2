@@ -636,3 +636,45 @@ void context_build_model(model_t *model, context_t *ctx) {
 }
 
 
+
+
+/*
+ * Read the value of a Boolean term t
+ * - return VAL_TRUE/VAL_FALSE or VAL_UNDEF_FALSE/VAL_UNDEF_TRUE if t's value is not known
+ */
+bval_t context_bool_term_value(context_t *ctx, term_t t) {
+  term_t r;
+  uint32_t polarity;
+  int32_t x;
+  bval_t v;
+
+  assert(is_boolean_term(ctx->terms, t));
+
+  // default value if t is not in the internalization table
+  v = VAL_UNDEF_FALSE;
+  r = intern_tbl_get_root(&ctx->intern, t);
+  if (intern_tbl_root_is_mapped(&ctx->intern, r)) {
+    // r is mapped to some object x
+    polarity = polarity_of(r);
+    r = unsigned_term(r);
+
+    x  = intern_tbl_map_of_root(&ctx->intern, r);
+    if (code_is_eterm(x)) {
+      // x must be either true_occ or false_occ
+      if (x == bool2code(true)) {
+	v = VAL_TRUE;
+      } else {
+	assert(x == bool2code(false));
+	v = VAL_FALSE;
+      }
+    } else {
+      // x refers to a literal in the smt core
+      v = literal_value(ctx->core, code2literal(x));      
+    }
+
+    // negate v if polarity is 1 (cf. smt_core_base_types.h)
+    v ^= polarity;
+  }
+
+  return v;
+}

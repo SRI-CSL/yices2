@@ -314,8 +314,10 @@ static void extend_smt2_stack(smt2_stack_t *s) {
  * Push data:
  * - m = multiplicity
  * - terms, types, macros = number of term/type/macro declarations
+ * - named_bools. named_asserts = number of named boolean terms and assertions
  */
-static void smt2_stack_push(smt2_stack_t *s, uint32_t m, uint32_t terms, uint32_t types, uint32_t macros) {
+static void smt2_stack_push(smt2_stack_t *s, uint32_t m, uint32_t terms, uint32_t types, uint32_t macros,
+			    uint32_t named_bools, uint32_t named_asserts) {
   uint32_t i;
 
   i = s->top;
@@ -327,8 +329,8 @@ static void smt2_stack_push(smt2_stack_t *s, uint32_t m, uint32_t terms, uint32_
   s->data[i].term_decls = terms;
   s->data[i].type_decls = types;
   s->data[i].macro_decls = macros;
-  s->data[i].named_bools = 0;    // not used for now
-  s->data[i].named_asserts = 0;  // not used for now
+  s->data[i].named_bools = named_bools;
+  s->data[i].named_asserts = named_asserts;
   s->levels += m;
   s->top = i+1;
 }
@@ -368,8 +370,6 @@ static void delete_smt2_stack(smt2_stack_t *s) {
   safe_free(s->data);
   s->data = NULL;
 }
-
-
 
 
 
@@ -775,6 +775,8 @@ static const char * const exception_string[NUM_SMT2_EXCEPTIONS] = {
   "invalid qualifier: types don't match",  // SMT2_TYPE_ERROR_IN_QUAL
   "sort qualifier not supported",       // SMT2_QUAL_NOT_IMPLEMENTED
   "invalid bitvector constant",         // SMT2_INVALID_IDX_BV
+  "invalid :named attribute (term is not ground)",    // SMT2_NAMED_TERM_NOT_GROUND
+  "invalid :named attribute (name is already used)",  // SMT2_NAMED_SYMBOL_REUSED
 };
 
 
@@ -998,6 +1000,8 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
     break;
 
   case SMT2_INVALID_IDX_BV:
+  case SMT2_NAMED_TERM_NOT_GROUND:
+  case SMT2_NAMED_SYMBOL_REUSED:
     print_out("%s", exception_string[exception]);
     break;
 
@@ -2259,6 +2263,111 @@ static void evaluate_term_values(model_t *mdl, term_t *t, uint32_t n, ivector_t 
 
 
 /*
+ * GET ASSIGNMENT
+ */
+
+/*
+ * Print pair (name val) where val is a Boolean value
+ */
+static void print_bool_assignment(yices_pp_t *printer, const char *name, bval_t val) {
+  pp_open_block(printer, PP_OPEN_PAR); // '('
+  pp_string(printer, name);
+  if (bval_is_undef(val)) {
+    pp_string(printer, "???");
+  } else {
+    pp_bool(printer, bval2bool(val));
+  }
+  pp_close_block(printer, true); // close ')'
+}
+
+/*
+ * Trivial assignment: go through the list of all named Booleans
+ * and give them the same value (UNDEF).
+ */
+static void print_trivial_assignment(yices_pp_t *printer, named_term_stack_t *s) {
+  uint32_t i, n;
+
+  pp_open_block(printer, PP_OPEN_VPAR);  // open '('
+  n = s->top;
+  for (i=0; i<n; i++) {
+    print_bool_assignment(printer, s->data[i].name, VAL_UNDEF_FALSE);
+  }
+  pp_close_block(printer, true);  // close ')'
+}
+
+
+/*
+ * Non-trivial assignment: go through the list of all named Booleans
+ * - query the context to get each term value
+ * - if a value is unknown, print the defaut 'true'
+ */
+static void print_assignment(yices_pp_t *printer, context_t *ctx, named_term_stack_t *s) {
+  uint32_t i, n;
+  bval_t v;
+
+  pp_open_block(printer, PP_OPEN_VPAR);
+  n = s->top;
+  for (i=0; i<n; i++) {
+    v = context_bool_term_value(ctx, s->data[i].term);
+    print_bool_assignment(printer, s->data[i].name, v);
+  }
+  pp_close_block(printer, true);
+}
+
+
+
+/*
+ * Show assignment of all named booleans
+ * - check whether we have a context first
+ */
+static void show_assignment(smt2_globals_t *g) {
+  yices_pp_t printer;
+
+  if (g->ctx == NULL) {
+    assert(g->benchmark_mode);
+
+    if (!g->frozen) {
+      print_error("can't build the assigment. Call (check-sat) first");
+    } else if (g->trivially_unsat) {
+      print_error("the context is unsatisfiable");
+    } else {
+      assert(g->assertions.size == 0);
+      // trivially sat
+      init_pretty_printer(&printer, g);
+      print_trivial_assignment(&printer, &g->named_bools);
+      delete_yices_pp(&printer, true);
+    }
+    
+  } else {
+    switch (context_status(g->ctx)) {
+    case STATUS_UNKNOWN:
+    case STATUS_SAT:
+      init_pretty_printer(&printer, g);
+      print_assignment(&printer, g->ctx, &g->named_bools);
+      delete_yices_pp(&printer, true);      
+      break;
+
+    case STATUS_UNSAT:
+      print_error("the context is unsatisfiable");
+      break;
+
+    case STATUS_IDLE:
+      print_error("can't build the assignment. Call (check-sat) first");
+      break;
+      
+    case STATUS_SEARCHING:
+    case STATUS_INTERRUPTED:
+    default:
+      print_out("BUG: unexpected context status");
+      report_bug(__smt2_globals.err);
+      break;      
+    }
+  }
+}
+
+
+
+/*
  * DECLARATIONS AND PUSH/POP
  */
 
@@ -2333,6 +2442,7 @@ static inline void check_stack(smt2_globals_t *g) {
 }
 
 #endif
+
 
 
 /*
@@ -2507,8 +2617,7 @@ void smt2_silent_exit(void) {
  */
 void smt2_get_assertions(void) {
   if (check_logic()) {
-    print_out("get_assertions: unsupported\n");
-    flush_out();
+    print_error("get-assertions is not supported");
   }
 }
 
@@ -2519,8 +2628,8 @@ void smt2_get_assertions(void) {
  */
 void smt2_get_assignment(void) {
   if (check_logic()) {
-    print_out("get_assignment: unsupported\n");  
-    flush_out();
+    //    print_error("get-assignment is not supported");
+    show_assignment(&__smt2_globals);
   }
 }
 
@@ -2530,8 +2639,7 @@ void smt2_get_assignment(void) {
  */
 void smt2_get_proof(void) {
   if (check_logic()) { 
-    print_out("get_proof: unsupported\n");
-    flush_out();
+    print_error("get-proof is not supported");
   }
 }
 
@@ -2541,9 +2649,7 @@ void smt2_get_proof(void) {
  */
 void smt2_get_unsat_core(void) {
   if (check_logic()) {
-    // for testing: 
-    print_out("get_unsat_core: unsupported\n");  
-    flush_out();
+    print_error("get-unsat-core is not supported");
   }
 }
 
@@ -2873,6 +2979,8 @@ void smt2_set_logic(const char *name) {
 }
 
 
+
+
 /*
  * Push 
  * - n = number of scopes to push
@@ -2886,10 +2994,16 @@ void smt2_push(uint32_t n) {
       print_error("push not allowed in non-incremental mode");
     } else {
       if (n > 0) {
-	g = &__smt2_globals;
-	smt2_stack_push(&g->stack, n, g->term_names.top, g->type_names.top, g->macro_names.top);
-	ctx_push(g);
-	check_stack(g);
+	/*
+	 * NOTE: g->stacks.levels is 64 bits and MAX_SMT2_STACK_SIZE
+	 * is less than 32bits so smt2_stack_push can't cause a
+	 * numerical overflow.
+	 */
+	 g = &__smt2_globals;
+	 smt2_stack_push(&g->stack, n, g->term_names.top, g->type_names.top, g->macro_names.top,
+			 g->named_bools.top, g->named_asserts.top);
+	 ctx_push(g);
+	 check_stack(g);
       }
       report_success();
     }
@@ -2935,6 +3049,10 @@ void smt2_pop(uint32_t n) {
 	  smt2_pop_term_names(&g->term_names, r->term_decls);
 	  smt2_pop_type_names(&g->type_names, r->type_decls);
 	  smt2_pop_macro_names(&g->macro_names, r->macro_decls);
+
+	  // remove the named booleans and named assertions
+	  pop_named_terms(&g->named_bools, r->named_bools);
+	  pop_named_terms(&g->named_asserts, r->named_asserts);
 	  
 	  // pop on g->ctx
 	  ctx_pop(g);
@@ -2943,13 +3061,14 @@ void smt2_pop(uint32_t n) {
 
 	if (n < m) {
 	  // push (m - n)
-	  smt2_stack_push(&g->stack, m - n, g->term_names.top, g->type_names.top, g->macro_names.top);
+	  smt2_stack_push(&g->stack, m - n, g->term_names.top, g->type_names.top, g->macro_names.top,
+			  g->named_bools.top, g->named_asserts.top);
 	  ctx_push(g);
 	}
 
 	check_stack(g);
 
-	// EXPERIMENT: call the garbage collector
+	// call the garbage collector
 	if (g->term_names.deletions > 1000) {
 	  yices_garbage_collect(NULL, 0, NULL, 0, true);
 	  g->term_names.deletions = 0;
@@ -3143,12 +3262,30 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
 
 /*
  * Add a :named attribute to term t
+ * - t is a ground term
+ * - name is a free term symbol
  * - op = enclosing operator of (! t :named name ..)
  * - for a named assertion, op is SMT2_ASSERT
  */
 void smt2_add_name(int32_t op, term_t t, const char *name) {
-  // TBD
+  char *clone;
+
+  // add the mapping name --> t 
+  yices_set_term_name(t, name);
+  save_term_name(&__smt2_globals, name);
+
+  // special processing for Boolean terms
+  if (yices_term_is_bool(t)) {
+    clone = clone_string(name);
+    push_named_term(&__smt2_globals.named_bools, t, clone);
+
+    // named assertions
+    if (op == SMT2_ASSERT) {
+      push_named_term(&__smt2_globals.named_asserts, t, clone);
+    }
+  }
 }
+
 
 
 /*

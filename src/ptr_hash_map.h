@@ -7,6 +7,8 @@
 #define __PTR_HASH_MAP_H
 
 #include <stdint.h>
+#include <stdbool.h>
+
 
 /*
  * Records stored in the hash table are pairs key, val
@@ -87,6 +89,18 @@ extern void ptr_hmap_erase(ptr_hmap_t *hmap, ptr_hmap_pair_t *r);
  * Remove all records
  */
 extern void ptr_hmap_reset(ptr_hmap_t *hmap);
+
+
+/*
+ * Remove all records that satisfy f
+ * - for every record r in the table, call f(aux, r)
+ * - if that returns true, then the record r is deleted
+ * - f must not have side effects
+ */
+typedef bool (*ptr_hmap_filter_t)(void *aux, const ptr_hmap_pair_t *r);
+
+extern void ptr_hmap_remove_records(ptr_hmap_t *hmap, void *aux, ptr_hmap_filter_t f);
+
 
 
 /*

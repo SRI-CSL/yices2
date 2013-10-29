@@ -945,8 +945,21 @@ static void check_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t
 
 // check whether f[i] is in the frame (i.e., i<n) and has tag == SYMBOL
 static void check_name(tstack_t *stack, stack_elem_t *f, uint32_t i, uint32_t n) {
-  if (f[i].tag != TAG_SYMBOL) {
+  if (i == n || f[i].tag != TAG_SYMBOL) {
     raise_exception(stack, f, SMT2_MISSING_NAME);
+  }
+}
+
+/*
+ * check whether attribute :named s can be attached to term t
+ * raise an exception if t is not ground or if s is already used
+ */
+static void check_named_attribute(tstack_t *stack, stack_elem_t *f, term_t t, const char *s) {
+  if (! yices_term_is_ground(t)) {
+    raise_exception(stack, f, SMT2_NAMED_TERM_NOT_GROUND);
+  }
+  if (yices_get_term_by_name(s) != NULL_TERM) {
+    raise_exception(stack, f, SMT2_NAMED_SYMBOL_REUSED);
   }
 }
 
@@ -976,6 +989,7 @@ static void eval_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t 
       // expecting :named <symbol>
       i ++;
       check_name(stack, f, i, n);
+      check_named_attribute(stack, f, t, f[i].val.string);
       smt2_add_name(op, t, f[i].val.string);
       i ++;
       break;

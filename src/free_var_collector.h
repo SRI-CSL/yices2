@@ -80,4 +80,13 @@ extern harray_t *get_free_vars_of_term(fvar_collector_t *collect, term_t t);
 extern bool term_is_ground(fvar_collector_t *collect, term_t t);
 
 
+/*
+ * Cleanup after term deletion:
+ * - if t is deleted, then the mapping from t --> vars of t is removed
+ * - also all sets that contain deleted variables are removed from store.
+ */
+extern void cleanup_fvar_collector(fvar_collector_t *collect);
+
+
+
 #endif /* __FREE_VAR_COLLECTOR_H */

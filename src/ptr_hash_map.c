@@ -286,6 +286,36 @@ void ptr_hmap_reset(ptr_hmap_t *hmap) {
 }
 
 
+/*
+ * Remove all records that satisfy f
+ * - for every record r in the table, call f(aux, r)
+ * - if that returns true, then the record r is deleted
+ * - f must not have side effects
+ */
+void ptr_hmap_remove_records(ptr_hmap_t *hmap, void *aux, ptr_hmap_filter_t f) {
+  ptr_hmap_pair_t *d;
+  uint32_t i, n, k;
+
+  n = hmap->size;
+  d = hmap->data;
+  k = 0;
+  for (i=0; i<n; i++) {
+    if (d->key >= 0 && f(aux, d)) {
+      d->key = PHMAP_DEL_KEY;
+      k ++;
+    }
+  }
+
+  // k = number of deletions
+  assert(k <= hmap->nelems);
+  hmap->nelems -= k;
+  hmap->ndeleted += k;
+  if (hmap->ndeleted >= hmap->cleanup_threshold) {
+    ptr_hmap_cleanup(hmap);
+  }
+}
+
+
 
 /*
  * First non-empty record in the table, starting from p

@@ -172,7 +172,12 @@ static inline bool bval_is_def(bval_t v) { // bit 1 is set
   return (v & 2) != 0;
 }
 
-
+/*
+ * Convert to a Boolean (extract the low-order bit)
+ */
+static inline bool bval2bool(bval_t v) {
+  return v & 1;
+}
 
 
 #endif /* __SMT_CORE_BASE_TYPES_H */

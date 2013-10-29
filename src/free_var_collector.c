@@ -515,3 +515,44 @@ bool term_is_ground(fvar_collector_t *collect, term_t t) {
 }
 
 
+
+/*
+ * Filter for ptr_hmap: r is a pair <term, ptr>
+ * - r must be deleted if the term is dead
+ * - aux is a pointer to the term table
+ */
+static bool fvar_dead_hmap_pair(void *aux, const ptr_hmap_pair_t *r) {
+  return !live_term(aux, r->key);
+}
+
+
+/*
+ * Filter for the store:
+ * - a is a harray structure
+ * - aux is a pointer to the term table
+ * - a must be deleted if it contains a dead term
+ */
+static bool fvar_dead_harray(void *aux, const harray_t *a) {
+  uint32_t i, n;
+
+  n = a->nelems;
+  for (i=0; i<n; i++) {
+    if (!live_term(aux, a->data[i])) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+
+/*
+ * Cleanup: remove any references to deleted terms
+ * - this must be called after terms are removed from collect->terms
+ */
+void cleanup_fvar_collector(fvar_collector_t *collect) {
+  // must delete records in the map first
+  ptr_hmap_remove_records(&collect->map, collect->terms, fvar_dead_hmap_pair);
+  int_array_hset_remove_arrays(&collect->store, collect->terms, fvar_dead_harray);
+}

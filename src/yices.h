@@ -1673,6 +1673,14 @@ __YICES_DLLSPEC__ extern int32_t yices_term_is_scalar(term_t t);
 __YICES_DLLSPEC__ extern uint32_t yices_term_bitsize(term_t t);
 
 
+/*
+ * Check whether t is a ground term (i.e., does not have free variables)
+ * - return 0 for false, 1 for true
+ * 
+ * Also return false and set the error report if t is not valid
+ */
+__YICES_DLLSPEC__ extern int32_t  yices_term_is_ground(term_t t);
+
 
 
 /*************************

@@ -464,16 +464,16 @@ STATIC_LIBS := $(STATIC_GMP) $(subst $(LIBS),-lgmp,)
 # Dependency files
 #
 $(objdir)/%.d: %.c
-	@ echo Building dependency file $@
-	@ $(CC) -MM -MG $(CFLAGS) $(CPPFLAGS) $< > $@.tmp
-	@ $(SED) 's,\($*\).o[ :]*,$(objdir)/\1.o $@ : , g' < $@.tmp > $@
-	@ rm -f $@.tmp
+	@set -e; echo Building dependency file $@ ; \
+	$(CC) -MM -MG $(CFLAGS) $(CPPFLAGS) $< > $@.$$$$ ; \
+	$(SED) 's,\($*\).o[ :]*,$(objdir)/\1.o $@ : , g' < $@.$$$$ > $@ ; \
+	rm -f $@.$$$$
 
 $(static_objdir)/%.d: %.c
-	@ echo Building dependency file $@
-	@ $(CC) -MM -MG $(CFLAGS) $(STATIC_CPPFLAGS) $< > $@.tmp
-	@ $(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.tmp > $@
-	@ rm -f $@.tmp
+	@set -e; echo Building dependency file $@ ; \
+	$(CC) -MM -MG $(CFLAGS) $(STATIC_CPPFLAGS) $< > $@.$$$$ ; \
+	$(SED) 's,\($*\).o[ :]*,$(static_objdir)/\1.o $@ : , g' < $@.$$$$ > $@ ; \
+	rm -f $@.$$$$
 
 
 ifneq ($(MAKECMDGOALS),clean)

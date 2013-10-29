@@ -6,6 +6,7 @@
 #define __INT_ARRAY_HSETS_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 
 /*
@@ -94,6 +95,18 @@ extern harray_t *int_array_hset_get(int_array_hset_t *set, uint32_t n, int32_t *
  * - no change if a is not present
  */
 extern void int_array_hset_remove(int_array_hset_t *set, uint32_t n, int32_t *a);
+
+
+/*
+ * Remove all arrays that satisfy f
+ * - for every array a in the table, call f(aux, a)
+ * - if that returns true, then a is deleted
+ * - f must not have side effects
+ */
+typedef bool (*int_array_hset_filter_t)(void *aux, const harray_t *a);
+
+extern void int_array_hset_remove_arrays(int_array_hset_t *set, void *aux, int_array_hset_filter_t f);
+
 
 
 #endif /* __INT_ARRAY_HSETS_H */

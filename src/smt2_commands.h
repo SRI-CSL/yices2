@@ -53,6 +53,13 @@
  *
  * - we raise different exceptions when a built-in symbol is misused and 
  *   when a symbol is undefined.
+ *
+ * Other exceptions:
+ * - invalid bitvector constant (bv0xxx is not allowed)
+ * - errors in annotations
+ *   in (! t :named xxx)
+ *   SMT2_NAMED_TERM_NOT_GROUND --> t is not a ground term
+ *   SMT2_NAMED_SYMBOL_REUSED   --> xxx is already in use as a term name
  */
 enum smt2_errors {
   SMT2_MISSING_NAME = NUM_TSTACK_ERRORS,   // missing name in (! <term> ,,,, :name X ...)
@@ -76,10 +83,13 @@ enum smt2_errors {
   SMT2_QUAL_NOT_IMPLEMENTED,               // for the (as ... ) variants we don't support
 
   SMT2_INVALID_IDX_BV,                     // raised by (_ bv0xxx ...)
+
+  SMT2_NAMED_TERM_NOT_GROUND,              // bad term in (! t :named xxxx)
+  SMT2_NAMED_SYMBOL_REUSED,                // bad name in (! t :named xxxx)  
 };
 
 
-#define NUM_SMT2_EXCEPTIONS (SMT2_INVALID_IDX_BV+1)
+#define NUM_SMT2_EXCEPTIONS (SMT2_NAMED_SYMBOL_REUSED+1)
 
 
 /*
@@ -242,7 +252,7 @@ typedef struct smt2_stack_s {
  *   In global mode, declarations are kept independent of (push ..) and (pop ...)
  *   global_decls is false by default.
  *
- * The solver can be initialized in benchmark_mode by calling init_smt2(true).
+ * The solver can be initialized in benchmark_mode by calling init_smt2(true, ...).
  * This mode is intended for basic SMT2 benchmarks: a sequence of declarations,
  * and assert followed by a single call to (check-sat).
  * In this mode:
@@ -251,7 +261,7 @@ typedef struct smt2_stack_s {
  * - we delay the processing of assertions until the call to check_sat().
  *   So every call to smt2_assert(t) just adds t to the assertion vector.
  *
- * The solver is initialzed in incremental node by calling init_smt2(false).
+ * The solver is initialzed in incremental node by calling init_smt2(false, ..).
  * In this mode, push/pop are supported. Some preprocessing is disabled 
  * (e.g., symmetry breaking).
  *
@@ -264,7 +274,6 @@ typedef struct smt2_stack_s {
  * 
  * NOTE: all solvers I've tried use :print-success false by default
  * (even though the standard says otherwise).
- *
  *
  * To implement the get-value command, we must keep track of smt2
  * terms as they are parsed. To support this, the global state includes
@@ -298,7 +307,6 @@ typedef struct smt2_globals_s {
 
   // tracer object: used only if verbosity > 0
   tracer_t *tracer;
-
 
   // options
   bool print_success;         // default = true

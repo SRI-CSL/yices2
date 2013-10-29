@@ -10,6 +10,7 @@
 
 #include "terms.h"
 #include "bvlogic_buffers.h"
+#include "free_var_collector.h"
 #include "context.h"
 
 
@@ -421,6 +422,17 @@ extern bool yices_check_bvextend(bvlogic_buffer_t *b, int32_t n);
  * Check whether b is an integer polynomial
  */
 extern bool yices_arith_buffer_is_int(rba_buffer_t *b);
+
+
+/*
+ * FREE VARIABLES
+ */
+
+/*
+ * Get the free variables of t as a harray object (defined in free_var_collector.h)
+ * - return NULL if t is ground
+ */
+extern harray_t *yices_free_vars_of_term(term_t t);
 
 
 /*

@@ -89,6 +89,9 @@ static parser_t *parser;
 static lexer_t *lexer;
 static tstack_t *tstack;
 
+// variable collector: also allocated on demand
+static fvar_collector_t *fvars;
+
 // rational for building terms
 static rational_t r0;
 
@@ -107,7 +110,7 @@ static bvconstant_t bv0;
  * Global table. Initially all pointers are NULL
  */
 yices_globals_t __yices_globals = {
-  NULL, NULL, NULL, NULL, NULL,
+  NULL, NULL, NULL, NULL, NULL, NULL,
 };
 
 
@@ -728,6 +731,40 @@ static void delete_parsing_objects(void) {
 
 
 
+/************************
+ *  VARIABLE COLLECTOR  *
+ ***********************/
+
+/*
+ * Return the free variable collector
+ * - allocate and initialize it if necessary
+ */
+static fvar_collector_t *get_fvars(void) {
+  if (fvars == NULL) {
+    fvars = (fvar_collector_t *) safe_malloc(sizeof(fvar_collector_t));
+    init_fvar_collector(fvars, &terms);
+    __yices_globals.fvars = fvars;
+  }
+
+  return fvars;
+}
+
+
+/*
+ * Delete the free variable collector if it exists
+ */
+static void delete_fvars(void) {
+  assert(__yices_globals.fvars == fvars);
+
+  if (fvars != NULL) {
+    delete_fvar_collector(fvars);
+    safe_free(fvars);
+    fvars = NULL;
+    __yices_globals.fvars = NULL;
+  }
+}
+
+
 
 /***************************************
  *  GLOBAL INITIALIZATION AND CLEANUP  *
@@ -742,6 +779,7 @@ static void init_globals(yices_globals_t *glob) {
   glob->manager = &manager;
   glob->tstack = NULL;
   glob->error = &error;
+  glob->fvars = NULL;
 }
 
 
@@ -754,6 +792,7 @@ static void clear_globals(yices_globals_t *glob) {
   glob->manager = NULL;
   glob->tstack = NULL;
   glob->error = NULL;
+  glob->fvars = NULL;
 }
 
 
@@ -792,6 +831,9 @@ EXPORTED void yices_init(void) {
   lexer = NULL;
   tstack = NULL;
 
+  // free-var collector
+  fvars = NULL;
+
   // registries for garbage collection
   root_terms = NULL;
   root_types = NULL;
@@ -814,6 +856,9 @@ EXPORTED void yices_exit(void) {
     assert(root_types == &the_root_types);
     delete_sparse_array(&the_root_types);
   }
+
+  // variable collector
+  delete_fvars();
 
   // parser etc.
   delete_parsing_objects();
@@ -4646,6 +4691,27 @@ EXPORTED uint32_t yices_term_bitsize(term_t t) {
 }
 
 
+/*
+ * Check whether t is ground
+ * - return false if t is not valiad and set the error report
+ */
+EXPORTED int32_t yices_term_is_ground(term_t t) {
+  return check_good_term(&manager, t) && term_is_ground(get_fvars(), t);
+}
+
+
+/*
+ * Get the free variables of t
+ * - not part of the official API yet (because it exports a pointer
+ *   to some internal data structures).
+ * - return NULL if t is ground
+ */
+harray_t *yices_free_vars_of_term(term_t t) {
+  assert(check_good_term(&manager, t));
+  return get_free_vars_of_term(get_fvars(), t);
+}
+
+
 
 
 /***********************************
@@ -7041,4 +7107,11 @@ EXPORTED void yices_garbage_collect(term_t *t, uint32_t nt,
    */
   keep = (keep_named != 0);
   term_table_gc(&terms, keep);
+
+  /*
+   * Cleanup the fvars structure if it exists
+   */
+  if (fvars != NULL) {
+    cleanup_fvar_collector(fvars);
+  }
 }

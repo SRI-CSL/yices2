@@ -1548,6 +1548,17 @@ static inline uint32_t context_base_level(context_t *ctx) {
 }
 
 
+/*
+ * Value of a Boolean term in ctx
+ * - t must be a Boolean term
+ *
+ * The result can be
+ * - VAL_TRUE  if t is true
+ * - VAL_FALSE if t is false
+ * - VAL_UNDEF_FALSE or VAL_UNDEF_TRUE otherwise (value is not known)
+ */
+extern bval_t context_bool_term_value(context_t *ctx, term_t t);
+
 
 /*
  * GARBAGE-COLLECTION SUPPORT

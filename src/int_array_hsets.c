@@ -340,3 +340,36 @@ void int_array_hset_remove(int_array_hset_t *set, uint32_t n, int32_t *a) {
     int_array_hset_cleanup(set);
   }
 }
+
+
+/*
+ * Remove all arrays that satisfy f
+ * - for every array a in the table, call f(aux, a)
+ * - if that returns true, then a is deleted
+ * - f must not have side effects
+ */
+void int_array_hset_remove_arrays(int_array_hset_t *set, void *aux, int_array_hset_filter_t f) {
+  harray_t *p;
+  uint32_t i, n, k;
+
+  n = set->size;
+  k = 0;
+  for (i=0; i<n; i++) {
+    p = set->data[i];
+    if (live_harray(p) && f(aux, p)) {
+      // remove p
+      safe_free(p);
+      set->data[i] = DELETED_HARRAY;
+      k ++;
+    }
+  }
+
+  // k = number of deletions
+  assert(k <= set->nelems);
+  set->nelems -= k;
+  set->ndeleted += k;
+  if (set->ndeleted > set->cleanup_threshold) {
+    int_array_hset_cleanup(set);
+  }
+}
+
