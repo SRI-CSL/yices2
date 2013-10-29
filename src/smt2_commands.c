@@ -2280,17 +2280,37 @@ static void print_bool_assignment(yices_pp_t *printer, const char *name, bval_t 
   pp_close_block(printer, true); // close ')'
 }
 
+
 /*
- * Trivial assignment: go through the list of all named Booleans
- * and give them the same value (UNDEF).
+ * Trivial assignment: this is called when Yices is used in benchmark
+ * mode, and all assertions simplify to true. In this case, the
+ * assertions are trivially satisfiable but no context is
+ * constructred. We just go through the list of all named Booleans and
+ * give them the same value (UNDEF), except if any of them is equal to
+ * true or false.
  */
+static bval_t trivial_bool_value(term_t t) {
+  bval_t v;
+
+  v = VAL_UNDEF_FALSE;
+  if (t == true_term) {
+    v = VAL_TRUE;
+  } else if (t == false_term) {
+    v = VAL_FALSE;
+  }
+
+  return v;
+}
+
 static void print_trivial_assignment(yices_pp_t *printer, named_term_stack_t *s) {
   uint32_t i, n;
+  bval_t v;
 
   pp_open_block(printer, PP_OPEN_VPAR);  // open '('
   n = s->top;
   for (i=0; i<n; i++) {
-    print_bool_assignment(printer, s->data[i].name, VAL_UNDEF_FALSE);
+    v = trivial_bool_value(s->data[i].term);
+    print_bool_assignment(printer, s->data[i].name, v);
   }
   pp_close_block(printer, true);  // close ')'
 }
