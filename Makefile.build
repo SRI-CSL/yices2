@@ -599,3 +599,10 @@ recheck:
 
 
 .PHONY: recheck
+
+
+#
+# Make sure everything here is serialized
+# The sub makes can be run in parallel so option -j x should be allowed
+#
+.NOTPARALLEL:
