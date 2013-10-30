@@ -145,13 +145,17 @@ static void test_config_for_logic(ctx_config_t *config, const char *name, int32_
   }
 
   if (code != k) {
-    printf("TEST FAILED\n");
+    printf("TEST FAILEDn");
     printf("--> Yices function returned %"PRId32"; %"PRId32" was expected\n", code, k);
+    fflush(stdout);
+    exit(1);
   } else if (k < 0) {
     ecode = yices_error_code();
     if (ecode != error) {
       printf("TEST FAILED\n");
       printf("--> Found error code %"PRId32"; %"PRId32" was expected\n", ecode, error);
+      fflush(stdout);
+      exit(1);
     }
   }  
 
@@ -185,11 +189,15 @@ static void test_set_config(ctx_config_t *config, const char *name, const char *
   if (code != k) {
     printf("TEST FAILED\n");
     printf("--> Yices function returned %"PRId32"; %"PRId32" was expected\n", code, k);
+    fflush(stdout);
+    exit(1);
   } else if (k < 0) {
     ecode = yices_error_code();
     if (ecode != error) {
       printf("TEST FAILED\n");
       printf("--> Found error code %"PRId32"; %"PRId32" was expected\n", ecode, error);
+      fflush(stdout);
+      exit(1);
     }
   }
 

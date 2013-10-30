@@ -43,11 +43,15 @@ static void test_pp_type(FILE *f, type_t tau, int32_t k, int32_t error) {
   if (code != k) {
     printf("TEST FAILED\n");
     printf("--> Yices function returned %"PRId32"; %"PRId32" was expected\n", code, k);
+    fflush(stdout);
+    exit(1);
   } else if (k < 0) {
     ecode = yices_error_code();
     if (ecode != error) {
       printf("TEST FAILED\n");
       printf("--> Found error code %"PRId32"; %"PRId32" was expected\n", ecode, error);
+      fflush(stdout);
+      exit(1);
     }
   }
 
@@ -88,11 +92,15 @@ static void test_pp_term(FILE *f, term_t t, int32_t k, int32_t error) {
   if (code != k) {
     printf("TEST FAILED\n");
     printf("--> Yices function returned %"PRId32"; %"PRId32" was expected\n", code, k);
+    fflush(stdout);
+    exit(1);
   } else if (k < 0) {
     ecode = yices_error_code();
     if (ecode != error) {
       printf("TEST FAILED\n");
       printf("--> Found error code %"PRId32"; %"PRId32" was expected\n", ecode, error);
+      fflush(stdout);
+      exit(1);
     }
   }
 

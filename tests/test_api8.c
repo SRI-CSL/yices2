@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <inttypes.h>
+#include <stdlib.h>
 
 #include "search_parameters.h"
 #include "yices.h"
@@ -106,11 +107,15 @@ static void test_set_param(param_t *params, const char *name, const char *value,
   if (code != k) {
     printf("TEST FAILED\n");
     printf("--> Yices function returned %"PRId32"; %"PRId32" was expected\n", code, k);
+    fflush(stdout);
+    exit(1);
   } else if (k < 0) {
     ecode = yices_error_code();
     if (ecode != error) {
       printf("TEST FAILED\n");
       printf("--> Found error code %"PRId32"; %"PRId32" was expected\n", ecode, error);
+      fflush(stdout);
+      exit(1);
     }
   }
 
