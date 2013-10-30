@@ -95,8 +95,8 @@ extern term_t model_find_term_substitution(model_t *model, term_t t);
  * - t must not be mapped to anything
  * - v must be a valid object created in model->vtbl.
  *
- * If v is uninterpreted or a function object and it has no name,
- * then t's name is given to v.
+ * If v is a function object and it has no name, then t's name is
+ * given to v.
  */
 extern void model_map_term(model_t *model, term_t t, value_t v);
 

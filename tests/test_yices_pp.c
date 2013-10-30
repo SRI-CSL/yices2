@@ -50,6 +50,9 @@ static void test_atoms(void) {
 	    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
+  pp_smt2_bv64(&printer, 0, 55);
+  pp_smt2_bv64(&printer, UINT64_MAX, 55);
+  pp_smt2_bv(&printer, bv, 120);
 }
 
 

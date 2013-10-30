@@ -14,6 +14,7 @@
 #include <stdarg.h>
 #include <inttypes.h>
 #include <string.h>
+#include <ctype.h>
 #include <assert.h>
 #include <errno.h>
 
@@ -22,6 +23,7 @@
 #include "smt_logic_codes.h"
 #include "smt2_lexer.h"
 #include "smt2_commands.h"
+#include "smt2_printer.h"
 #include "model_eval.h"
 
 #include "yices.h"
@@ -916,6 +918,28 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
 
 
 /*
+ * Check whether a symbol should be printed with quotes | .. |
+ */
+static bool symbol_needs_quotes(const char *s) {
+  int c;
+
+  c = *s++;
+  if (c == '\0') {
+    return true; // empty symbol
+  }
+
+  do {
+    if (isspace(c)) {
+      return true;
+    }
+    c = *s ++;
+  } while (c != '\0');
+
+  return false;
+}
+
+
+/*
  * Exception raised by tstack
  * - tstack = term stack
  * - exception = error code (defined in term_stack2.h)
@@ -941,10 +965,6 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   case TSTACK_UNDEF_MACRO:
   case TSTACK_DUPLICATE_VAR_NAME:
   case TSTACK_DUPLICATE_TYPE_VAR_NAME:
-  case TSTACK_RATIONAL_FORMAT:
-  case TSTACK_FLOAT_FORMAT:
-  case TSTACK_BVBIN_FORMAT:
-  case TSTACK_BVHEX_FORMAT:
   case TSTACK_TYPENAME_REDEF:
   case TSTACK_TERMNAME_REDEF:
   case TSTACK_MACRO_REDEF:
@@ -960,6 +980,17 @@ void smt2_tstack_error(tstack_t *tstack, int32_t exception) {
   case SMT2_UNDEF_IDX_SORT_OP:
   case SMT2_UNDEF_IDX_TERM:
   case SMT2_UNDEF_IDX_FUNCTION:
+    if (symbol_needs_quotes(tstack->error_string)) {
+      print_out("%s: |%s|", exception_string[exception], tstack->error_string);
+    } else {
+      print_out("%s: %s", exception_string[exception], tstack->error_string);
+    }
+    break;
+
+  case TSTACK_RATIONAL_FORMAT:
+  case TSTACK_FLOAT_FORMAT:
+  case TSTACK_BVBIN_FORMAT:
+  case TSTACK_BVHEX_FORMAT:
     print_out("%s: %s", exception_string[exception], tstack->error_string);
     break;
 
@@ -2206,7 +2237,7 @@ static model_t *get_model(smt2_globals_t *g) {
 static void print_term_value(yices_pp_t *printer, value_table_t *vtbl, etk_queue_t *token_queue, value_t v, int32_t i) {
   pp_open_block(printer, PP_OPEN_PAR);
   pp_smt2_expr(printer, token_queue, i);
-  vtbl_pp_object(printer, vtbl, v);
+  smt2_pp_object(printer, vtbl, v);
   pp_close_block(printer, true);
 }
 
@@ -2464,6 +2495,60 @@ static inline void check_stack(smt2_globals_t *g) {
 #endif
 
 
+/*
+ * EXPLANATION FOR UNKNOWN STATUS
+ */
+
+/*
+ * We check whether the context status is STAT_UNKNOWN
+ * if so we print (:reason-unknown incomplete).
+ *
+ * Otherwise print an error
+ */
+static void explain_unknown_status(smt2_globals_t *g) {
+  if (check_logic()) {
+    if (g->ctx == NULL) {
+      // benchmark mode: no context
+      assert(g->benchmark_mode);
+
+      if (!g->frozen) {
+	print_error("can't tell until you call (check-sat)");
+      } else if (g->trivially_unsat) {
+	print_error("the context is unsatisfiable");
+      } else {
+	assert(g->assertions.size == 0);
+	print_error("the context is satisfiable");
+      }
+    } else {
+      switch (context_status(g->ctx)) {
+      case STATUS_UNKNOWN:
+	print_kw_symbol_pair(":reason-unknown", "incomplete");
+	break;
+
+      case STATUS_SAT:
+	print_error("the context is satisfiable");
+	break;
+
+      case STATUS_UNSAT:
+	print_error("the context is unsatisfiable");
+	break;
+	
+      case STATUS_IDLE:
+	print_error("can't tell until you call (check-sat)");
+	break;
+
+      case STATUS_SEARCHING:
+      case STATUS_INTERRUPTED:
+      default:
+	print_out("BUG: unexpected context status");
+	report_bug(__smt2_globals.err);
+	break;
+      }
+    }
+  }
+}
+
+
 
 /*
  * MAIN CONTROL FUNCTIONS
@@ -2519,10 +2604,6 @@ static void init_smt2_globals(smt2_globals_t *g) {
   init_ivector(&g->assertions, 0);
   g->trivially_unsat = false;
   g->frozen = false;
-
-  // provisional
-  //  g->verbosity = 4;
-  //  update_trace_verbosity(g);
 }
 
 
@@ -2645,10 +2726,12 @@ void smt2_get_assertions(void) {
 /*
  * Show the truth value of named Boolean terms 
  * (i.e., those that have a :named attribute)
+ * 
+ * Note: the standard says that we should report an error if
+ * :produce-assignments is false. We ignore this requirement.
  */
 void smt2_get_assignment(void) {
   if (check_logic()) {
-    //    print_error("get-assignment is not supported");
     show_assignment(&__smt2_globals);
   }
 }
@@ -2678,6 +2761,9 @@ void smt2_get_unsat_core(void) {
  * Get the values of terms in the model
  * - the terms are listed in array a
  * - n = number of elements in the array
+ *
+ * The standard says that we should print an error
+ * if :produce-models is false. We don't care about this.
  */
 void smt2_get_value(term_t *a, uint32_t n) {
   yices_pp_t printer;
@@ -2703,13 +2789,7 @@ void smt2_get_value(term_t *a, uint32_t n) {
     assert(slices->size == n);
 
     init_pretty_printer(&printer, &__smt2_globals);
-    // FOR TESTING ONLY
-    //    pp_smt2_expr(&printer, queue, 0);
-    //    flush_yices_pp(&printer);
-    // END OF TESTING
-    
-    print_term_value_list(&printer, &mdl->vtbl, queue, slices->data, values->data, n);
-    
+    print_term_value_list(&printer, &mdl->vtbl, queue, slices->data, values->data, n);    
     delete_yices_pp(&printer, true);
     ivector_reset(slices);
     ivector_reset(values);
@@ -2718,7 +2798,7 @@ void smt2_get_value(term_t *a, uint32_t n) {
 
 
 /*
- * Wrapper aroung strlen:
+ * Wrapper around strlen:
  * - strlen(s) has type size_t, which may be larger than 32bits
  * - just in case somebody provides a giant string, we use
  *   this wrapper to truncate the length to a 32bit number if it's really big
@@ -2820,25 +2900,24 @@ void smt2_get_info(const char *name) {
   switch (kw) {
   case SMT2_KW_ERROR_BEHAVIOR:
     print_kw_symbol_pair(name, error_behavior);
-    report_success();
     break;
 
   case SMT2_KW_NAME:
     print_kw_string_pair(name, yices_name);
-    report_success();
     break;
 
   case SMT2_KW_AUTHORS:
     print_kw_string_pair(name, yices_authors);
-    report_success();
     break;
 
   case SMT2_KW_VERSION:
     print_kw_string_pair(name, yices_version);
-    report_success();
     break;
 
   case SMT2_KW_REASON_UNKNOWN:
+    explain_unknown_status(&__smt2_globals);
+    break;
+
   case SMT2_KW_ALL_STATISTICS:
     // TBD
     print_out("unsupported\n");
@@ -2848,7 +2927,6 @@ void smt2_get_info(const char *name) {
     g = &__smt2_globals;
     if (has_info(g, name, &value)) {
       print_kw_value_pair(g, name, value);
-      report_success();
     } else {
       print_error("no info for %s", name);
     }

@@ -80,7 +80,7 @@ typedef struct pp_nonstandard_block_s {
 /*
  * Table of standard blocks
  */
-#define NUM_STANDARD_BLOCKS 38
+#define NUM_STANDARD_BLOCKS 40
 
 static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_FUN_TYPE, "->" },
@@ -101,6 +101,8 @@ static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
   { PP_OPEN_PROD, "*" },
   { PP_OPEN_POWER, "^" },
   { PP_OPEN_SUM, "+" },
+  { PP_OPEN_DIV, "/" },
+  { PP_OPEN_MINUS, "-" },
   { PP_OPEN_GE, ">=" },
   { PP_OPEN_LT, "<" },
   { PP_OPEN_BV_ARRAY, "bit-array" },
@@ -246,8 +248,11 @@ static void build_rational(string_buffer_t *b, rational_t *q) {
   string_buffer_close(b);
 }
 
+// prefix = "0b"
 static void build_bv(string_buffer_t *b, uint32_t *bv, uint32_t n) {
   assert(0 < n);
+  string_buffer_append_char(b, '0');
+  string_buffer_append_char(b, 'b');
   string_buffer_append_bvconst(b, bv, n);
   string_buffer_close(b);
 }
@@ -270,6 +275,24 @@ static void build_qstring(string_buffer_t *b, char quote[2], const char *str) {
     string_buffer_append_char(b, quote[1]);
   }
   string_buffer_close(b);
+}
+
+// smt2 variants of build_bv and build_bv64: the prefix is #b
+static void build_smt2_bv(string_buffer_t *b, uint32_t *bv, uint32_t n) {
+  assert(0 < n);
+  string_buffer_append_char(b, '#');
+  string_buffer_append_char(b, 'b');
+  string_buffer_append_bvconst(b, bv, n);
+  string_buffer_close(b);
+}
+
+static void build_smt2_bv64(string_buffer_t *b, uint64_t bv, uint32_t n) {
+  uint32_t aux[2];
+
+  assert(0 < n && n <= 64);
+  aux[0] = (uint32_t) bv; // low order bits
+  aux[1] = (uint32_t) (bv >> 32); // high order bits
+  build_smt2_bv(b, aux, n);
 }
 
 
@@ -347,6 +370,15 @@ static const char *get_string(yices_pp_t *printer, pp_atomic_token_t *tk) {
     build_qstring(buffer, atm->data.qstr.quote, atm->data.qstr.str);
     s = buffer->data;
     break;
+  case PP_SMT2_BV64_ATOM:
+    build_smt2_bv64(buffer, atm->data.bv64.bv, atm->data.bv64.nbits);
+    s = buffer->data;
+    break;
+  case PP_SMT2_BV_ATOM:
+    build_smt2_bv(buffer, atm->data.bv.bv, atm->data.bv.nbits);
+    s = buffer->data;
+    break;
+
   default:
     assert(false);
     s = NULL;
@@ -739,6 +771,41 @@ void pp_qstring(yices_pp_t *printer, char open_quote, char close_quote, const ch
 
   pp_push_token(&printer->pp, tk);  
 }
+
+
+/*
+ * Variants of pp_bv and pp_bv64 for the SMT2 notation
+ */
+void pp_smt2_bv64(yices_pp_t *printer, uint64_t bv, uint32_t n) {
+  pp_atom_t *atom;
+  void *tk;
+
+  assert(0 < n && n <= 64);
+  atom = new_atom(printer);
+  // bitvector constants are printed as #bxxx... so 
+  // the length is n+2
+  tk = init_atomic_token(&atom->tk, n+2, PP_SMT2_BV64_ATOM);
+  atom->data.bv64.bv = bv;
+  atom->data.bv64.nbits = n;
+
+  pp_push_token(&printer->pp, tk);
+}
+
+void pp_smt2_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n) {
+  pp_atom_t *atom;
+  void *tk;
+
+  assert(0 < n);
+  atom = new_atom(printer);
+  // bitvector constants are printed as #bxxx... so 
+  // the length is n+2
+  tk = init_atomic_token(&atom->tk, n+2, PP_SMT2_BV_ATOM);
+  atom->data.bv.bv = bv;
+  atom->data.bv.nbits = n;
+
+  pp_push_token(&printer->pp, tk);  
+}
+
 
 
 

@@ -34,8 +34,6 @@
 #include "bv_constants.h"
 #include "int_hash_tables.h"
 
-#include "yices_pp.h"
-
 /*
  * Each concrete value is identified by an integer index.
  * A type and descriptor for each value is stored in a table.
@@ -189,12 +187,11 @@ typedef struct map_htbl_s {
 
 
 
-
 /*
  * Hash set used to compute the normal form of update objects
  * - a function is represented as a finite set of mapping objects
  * - normalizing an update object converts it to a finite set of 
- *   mappings to.
+ *   mappings.
  * This set is represented as a hash-set
  */
 typedef struct map_hset_s {
@@ -234,7 +231,7 @@ typedef struct map_hset_s {
  *   (stored in the value_unint_t descriptor d) is used.
  * - if d->name is NULL and name_of_unint is non NULL, then
  *      unint_namer(aux, d) is called
- *   if this this function returns a non-NULL string, that's used
+ *   if this function returns a non-NULL string, that's used
  *   as the name.
  * - otherwise, the modules uses a name 'const!k' for some k
  */
@@ -504,62 +501,6 @@ extern void value_table_end_tmp(value_table_t *table);
 
 
 /*
- * PRINTING
- */
-
-/*
- * Print object c
- * - c must be a valid object in table
- * - no pretty printing for now
- * - functions are printed as uninterpreted objects
- */
-extern void vtbl_print_object(FILE *f, value_table_t *table, value_t c);
-
-
-/*
- * Print a function map
- * - c must be a valid object in table and must be a function
- * - the maps of c are printed on separate lines
- * - if show_default is true, then the default value is printed on the last line
- */
-extern void vtbl_print_function(FILE *f, value_table_t *table, value_t c, bool show_default);
-
-
-/*
- * Expand update c and print it as a function
- * - name = function name to use
- * - if show_default is true, also print the default value
- */
-extern void vtbl_normalize_and_print_update(FILE *f, value_table_t *table, char *name,
-                                            value_t c, bool show_default);
-
-
-/*
- * Print the maps defining the anonymous functions
- * - i.e., all functions whose name is NULL
- * - if show_default is true, print the default value for each map
- */
-extern void vtbl_print_anonymous_functions(FILE *f, value_table_t *table, bool show_default);
-
-
-
-/*
- * PRETTY PRINTING
- */
-
-/*
- * Same print functions as above, but using a pretty_printer object
- */
-extern void vtbl_pp_object(yices_pp_t *printer, value_table_t *table, value_t c);
-extern void vtbl_pp_function(yices_pp_t *printer, value_table_t *table, value_t c, bool show_default);
-extern void vtbl_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, char *name, 
-                                         value_t c, bool show_default);
-extern void vtbl_pp_anonymous_functions(yices_pp_t *printer, value_table_t *table, bool show_default);
-
-
-
-
-/*
  * EVALUATION
  */
 
@@ -584,8 +525,6 @@ extern value_t vtbl_eval_array_eq(value_table_t *table, value_t *a, value_t *b, 
  * Return unknown if the map is not defined for a[0 ... n-1]
  */
 extern value_t vtbl_eval_application(value_table_t *table, value_t f, uint32_t n, value_t *a);
-
-
 
 
 
@@ -717,6 +656,26 @@ static inline value_update_t *vtbl_update(value_table_t *table, value_t v) {
   assert(object_is_update(table, v));
   return (value_update_t *) table->desc[v].ptr;
 }
+
+
+
+
+/*
+ * UTILITY
+ */
+
+/*
+ * Normalize an update object i
+ * - this computes a set of mapping for object i
+ * - the default value for i is stored in *def
+ * - the type of i is stored in *tau (this is a function type)
+ *
+ * The set of mappings is stored in the internal hset1 table:
+ * - hset1->data contains the set of mapping objects for i (without duplicates)
+ * - hset1->nelems = number of mappings in hset1->data
+ */
+extern void vtbl_expand_update(value_table_t *table, value_t i, value_t *def, type_t *tau);
+
 
 
 

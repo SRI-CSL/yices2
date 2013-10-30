@@ -66,8 +66,13 @@ extern void string_buffer_append_mpz(string_buffer_t *s, mpz_t z);
 extern void string_buffer_append_mpq(string_buffer_t *s, mpq_t q);
 extern void string_buffer_append_rational(string_buffer_t *s, rational_t *q);
 
-// bv = bitvector, n = size in bits
+/*
+ * bv = bitvector, n = size in bits
+ * this stores a sequence of n binary digits ('0' or '1')
+ * without any prefix
+ */
 extern void string_buffer_append_bvconst(string_buffer_t *s, uint32_t *bv, uint32_t n);
+
 
 
 /*

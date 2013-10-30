@@ -10,6 +10,7 @@
 #include "types.h"
 #include "rationals.h"
 #include "concrete_values.h"
+#include "concrete_value_printer.h"
 
 static type_table_t types;
 static value_table_t vtbl;

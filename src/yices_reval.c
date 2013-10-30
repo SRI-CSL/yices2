@@ -56,6 +56,7 @@
 #include "models.h"
 #include "model_eval.h"
 #include "model_printer.h"
+#include "concrete_value_printer.h"
 #include "yices.h"
 #include "yices_globals.h"
 #include "yices_extensions.h"

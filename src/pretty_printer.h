@@ -505,7 +505,7 @@ typedef struct printer_s {
   uint32_t col;
   uint32_t margin;
 
-  // if fputc, fputs of fflush fails, we set print_failed to true
+  // if fputc, fputs, or fflush fails, we set print_failed to true
   // and we keep a copy of errno in p->pp_errno
   bool print_failed;
   int pp_errno;

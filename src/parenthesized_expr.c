@@ -257,7 +257,7 @@ void etk_queue_push_token(etk_queue_t *queue, int32_t key, int32_t val, const ch
   assert(key >= 0);
 
   p = NULL;
-  if (len > 0) {
+  if (str != NULL) {
     p = etk_queue_strcpy(queue, str, len);
   }
 

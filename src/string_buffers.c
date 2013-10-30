@@ -172,12 +172,10 @@ void string_buffer_append_rational(string_buffer_t *s, rational_t *r) {
 void string_buffer_append_bvconst(string_buffer_t *s, uint32_t *bv, uint32_t n) {
   char *s0;
   assert(n>0);
-  string_buffer_extend(s, n+2);
+  string_buffer_extend(s, n);
   s0 = s->data + s->index;
-  s->index += n + 2;
+  s->index += n;
 
-  *s0++ = '0';
-  *s0++ = 'b';
   do {
     n --;
     *s0 ++ = bvconst_tst_bit(bv, n) ? '1' : '0';

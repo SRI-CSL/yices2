@@ -35,6 +35,7 @@
 #include "egraph_printer.h"
 #include "smt_core_printer.h"
 #include "context_printer.h"
+#include "concrete_value_printer.h"
 
 #include "simplex.h"
 #include "idl_floyd_warshall.h"
@@ -1978,7 +1979,7 @@ static int process_benchmark(char *filename) {
       printf("\nMODEL\n");
       model_print(stdout, model);
       printf("----\n");
-
+      
       // FOR TESTING
 #if TEST_EVALUATOR
       test_evaluator(stdout, model);

@@ -172,8 +172,8 @@ extern void etk_queue_close_scope(etk_queue_t *queue);
  * Push an atomic token:
  * - key, val, str = attributes for this token
  * - len = len of the string
- * - if len is 0, str is ignored (should be NULL)
- *   we make an internal copy of str[0 ... len-1]  (with a '\0' terminator).
+ * - if str is NULL, it is ignored  (and len should be 0)
+ * - otherwise, we make an internal copy of str[0 ... len-1]  (with a '\0' terminator).
  */
 extern void etk_queue_push_token(etk_queue_t *queue, int32_t key, int32_t val, const char *str, uint32_t len);
 

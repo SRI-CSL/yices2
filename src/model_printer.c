@@ -8,6 +8,7 @@
 
 #include "int_vectors.h"
 #include "model_eval.h"
+#include "concrete_value_printer.h"
 #include "model_printer.h"
 
 

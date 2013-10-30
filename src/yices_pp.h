@@ -27,21 +27,23 @@
  * The user_tag field in the prefix stores the object type.
  */
 typedef enum pp_atom_type {
-  PP_CHAR_ATOM,    // content = a single char
-  PP_STRING_ATOM,  // content = string terminated by '\0'
-  PP_ID_ATOM,      // identifier = concatenation of a string and an index
-  PP_VARID_ATOM,   // variant id = concatenation of a string, '!', and an index
-  PP_TRUE_ATOM,    // true
-  PP_FALSE_ATOM,   // false
-  PP_INT32_ATOM,   // signed integer
-  PP_UINT32_ATOM,  // unsigned integer
-  PP_RATIONAL_ATOM, // rational
-  PP_BV64_ATOM,    // bitvector constant stored in a 64bit unsigned integer
-  PP_BV_ATOM,      // bitvector constant stored in an array of words
-  PP_QSTRING_ATOM, // content = string with open and close quotes
+  PP_CHAR_ATOM,       // content = a single char
+  PP_STRING_ATOM,     // content = string terminated by '\0'
+  PP_ID_ATOM,         // identifier = concatenation of a string and an index
+  PP_VARID_ATOM,      // variant id = concatenation of a string, '!', and an index
+  PP_TRUE_ATOM,       // true
+  PP_FALSE_ATOM,      // false
+  PP_INT32_ATOM,      // signed integer
+  PP_UINT32_ATOM,     // unsigned integer
+  PP_RATIONAL_ATOM,   // rational
+  PP_BV64_ATOM,       // bitvector constant stored in a 64bit unsigned integer
+  PP_BV_ATOM,         // bitvector constant stored in an array of words
+  PP_QSTRING_ATOM,    // content = string with open and close quotes
+  PP_SMT2_BV64_ATOM,  // like PP_BV64_ATOM but with SMT2 #b prefix
+  PP_SMT2_BV_ATOM,    // like PP_BV_ATOM but with SMT2 prefix
 } pp_atom_type_t;
 
-#define NUM_PP_ATOMS ((uint32_t) (PP_BV_QSTRING_ATOM+1))
+#define NUM_PP_ATOMS ((uint32_t) (PP_SMT2_BV_ATOM+1))
 
 
 /*
@@ -140,6 +142,8 @@ typedef enum {
   PP_OPEN_PROD,
   PP_OPEN_POWER,
   PP_OPEN_SUM,
+  PP_OPEN_DIV,
+  PP_OPEN_MINUS,
   PP_OPEN_GE,
   PP_OPEN_LT,
 
@@ -317,17 +321,25 @@ extern void pp_rational(yices_pp_t *printer, rational_t *q);
 extern void pp_bv64(yices_pp_t *printer, uint64_t bv, uint32_t n);
 extern void pp_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n);
 
-
 /*
  * Quoted string:
  * - open_quote = character before the string (or '\0' if nothing needed)
- * - close_quote = charcater after the strng (or '\0' if nothing needed)
+ * - close_quote = character after the strng (or '\0' if nothing needed)
  *
  * Examples
  *   pp_qstring(printer, '"', '"', "abcde") will print "abcde" (quotes included)
  *   pp_qstring(printer, '\'', '\0', "abcde") will print 'abcde
  */
 extern void pp_qstring(yices_pp_t *printer, char open_quote, char close_quote, const char *s);
+
+
+/*
+ * Variant(s) for SMT2 atoms
+ * - pp_smt2_bv uses the prefix #b instead of 0b
+ */
+extern void pp_smt2_bv64(yices_pp_t *printer, uint64_t bv, uint32_t n);
+extern void pp_smt2_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n);
+
 
 
 /*
