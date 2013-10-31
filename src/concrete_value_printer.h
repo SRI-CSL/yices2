@@ -19,8 +19,8 @@
 /*
  * Print object c
  * - c must be a valid object in table
- * - no pretty printing for now
- * - functions are printed as uninterpreted objects
+ * - no pretty printing
+ * - functions are printed as uninterpreted objects and are pushed into table's internal queue
  */
 extern void vtbl_print_object(FILE *f, value_table_t *table, value_t c);
 
@@ -45,12 +45,12 @@ extern void vtbl_normalize_and_print_update(FILE *f, value_table_t *table, const
 
 
 /*
- * Print the maps defining the anonymous functions
- * - i.e., all functions whose name is NULL
+ * Print the maps defining all the queue'd functions
+ * (this may recursively queue more objects and print them too).
  * - if show_default is true, print the default value for each map
+ * - once all queued functions are printed, reset the queue.
  */
-extern void vtbl_print_anonymous_functions(FILE *f, value_table_t *table, bool show_default);
-
+extern void vtbl_print_queued_functions(FILE *f, value_table_t *table, bool show_default);
 
 
 /*
@@ -64,10 +64,7 @@ extern void vtbl_pp_object(yices_pp_t *printer, value_table_t *table, value_t c)
 extern void vtbl_pp_function(yices_pp_t *printer, value_table_t *table, value_t c, bool show_default);
 extern void vtbl_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, const char *name, 
                                          value_t c, bool show_default);
-extern void vtbl_pp_anonymous_functions(yices_pp_t *printer, value_table_t *table, bool show_default);
-
-
-
+extern void vtbl_pp_queued_functions(yices_pp_t *printer, value_table_t *table, bool show_default);
 
 
 #endif /* __CONCRETE_VALUE_PRINTER_H */

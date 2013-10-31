@@ -1977,7 +1977,7 @@ static int process_benchmark(char *filename) {
       model = new_model();
       context_build_model(model, &context);
       printf("\nMODEL\n");
-      model_print(stdout, model, false);
+      model_print(stdout, model);
       printf("----\n");
       
       // FOR TESTING

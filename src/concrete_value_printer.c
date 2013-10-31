@@ -127,6 +127,7 @@ static void vtbl_print_update(FILE *f, value_table_t *table, value_update_t *u) 
 
 /*
  * Print object c on stream f
+ * - if c is a function also add it to the internal queue
  */
 void vtbl_print_object(FILE *f, value_table_t *table, value_t c) {  
   assert(0 <= c && c < table->nobjects);
@@ -151,6 +152,7 @@ void vtbl_print_object(FILE *f, value_table_t *table, value_t c) {
     break;
   case FUNCTION_VALUE:
     vtbl_print_fun_name(f, c, table->desc[c].ptr);
+    vtbl_push_object(table, c);
     break;
   case MAP_VALUE:
     vtbl_print_map(f, table, table->desc[c].ptr);
@@ -282,25 +284,22 @@ void vtbl_normalize_and_print_update(FILE *f, value_table_t *table, const char *
 
 
 /*
- * Print the maps defining the anonymous functions
- * - i.e., all functions whose name is NULL
+ * Print the maps defining all the queue'd functions
+ * (this may recursively queue more objects and print them too).
  * - if show_default is true, print the default value for each map
+ * - once all queued functions are printed, reset the queue.
  */
-void vtbl_print_anonymous_functions(FILE *f, value_table_t *table, bool show_default) {
-  value_fun_t *fun;
-  uint32_t i, n;
+void vtbl_print_queued_functions(FILE *f, value_table_t *table, bool show_default) {
+  int_queue_t *q;
+  value_t v;
 
-  n = table->nobjects;
-  for (i=0; i<n; i++) {
-    if (object_is_function(table, i)) {
-      fun = table->desc[i].ptr;
-      if (fun->name == NULL) {
-        vtbl_print_function(f, table, i, show_default);
-      }
-    }   
+  q = &table->queue.queue;
+  while (! int_queue_is_empty(q)) {
+    v = int_queue_pop(q);
+    vtbl_print_function(f, table, v, show_default);
   }
+  vtbl_empty_queue(table);
 }
-
 
 
 /*********************
@@ -407,7 +406,8 @@ static void vtbl_pp_update(yices_pp_t *printer, value_table_t *table, value_upda
 
 
 /*
- * Print object c on stream f
+ * Print object c 
+ * - if c is a function, add it to the internal queue
  */
 void vtbl_pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {  
   assert(0 <= c && c < table->nobjects);
@@ -433,6 +433,7 @@ void vtbl_pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {
     break;
   case FUNCTION_VALUE:
     vtbl_pp_fun_name(printer, c, table->desc[c].ptr);
+    vtbl_push_object(table, c);
     break;
   case MAP_VALUE:
     vtbl_pp_map(printer, table, table->desc[c].ptr);
@@ -566,23 +567,20 @@ void vtbl_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, con
 
 
 /*
- * Print the maps defining the anonymous functions
- * - i.e., all functions whose name is NULL
+ * Print the maps defining all the queue'd functions
+ * (this may recursively queue more objects and print them too).
  * - if show_default is true, print the default value for each map
+ * - once all queued functions are printed, reset the queue.
  */
-void vtbl_pp_anonymous_functions(yices_pp_t *printer, value_table_t *table, bool show_default) {
-  value_fun_t *fun;
-  uint32_t i, n;
+void vtbl_pp_queued_functions(yices_pp_t *printer, value_table_t *table, bool show_default) {
+  int_queue_t *q;
+  value_t v;
 
-  n = table->nobjects;
-  for (i=0; i<n; i++) {
-    if (object_is_function(table, i)) {
-      fun = table->desc[i].ptr;
-      if (fun->name == NULL) {
-        vtbl_pp_function(printer, table, i, show_default);
-      }
-    }   
+  q = &table->queue.queue;
+  while (! int_queue_is_empty(q)) {
+    v = int_queue_pop(q);
+    vtbl_pp_function(printer, table, v, show_default);
   }
+  vtbl_empty_queue(table);
 }
-
 

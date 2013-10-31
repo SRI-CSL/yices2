@@ -257,6 +257,80 @@ static void add_hash_pair(value_table_t *table, value_t f, value_t i) {
 
 
 
+/********************************
+ *  QUEUE FOR DELAYED PRINTING  *
+ *******************************/
+
+/*
+ * Initialize: don't allocate the mark vector yet
+ */
+static void init_vtbl_queue(vtbl_queue_t *vq) {
+  init_int_queue(&vq->queue, 0);
+  vq->mark = NULL;
+  vq->size = 0;
+}
+
+/*
+ * Reset: empty the queue and delete the mark vector
+ */
+static void reset_vtbl_queue(vtbl_queue_t *vq) {
+  int_queue_reset(&vq->queue);
+  delete_bitvector(vq->mark);
+  vq->mark = NULL;
+  vq->size = 0;
+}
+
+/*
+ * Delete
+ */
+static void delete_vtbl_queue(vtbl_queue_t *vq) {
+  delete_int_queue(&vq->queue);
+  delete_bitvector(vq->mark);
+  vq->mark = NULL;
+}
+
+
+/*
+ * Extend the mark vector to at least size n
+ * - n must be larger than vq->size
+ */
+static void resize_vtbl_queue(vtbl_queue_t *vq, uint32_t n) {
+  uint32_t new_size;
+
+  assert(vq->size < n && n <= MAX_VALUE_TABLE_SIZE);
+
+  n = (n + 63) & ~63u;       // round n up to a multiple of 64  
+  if (n < DEF_VTBL_QUEUE_SIZE) {
+    n = DEF_VTBL_QUEUE_SIZE;
+  }
+
+  new_size = vq->size << 1;  // double the size
+  if (new_size < n) new_size = n;
+
+  vq->mark = extend_bitvector0(vq->mark, new_size, vq->size);
+  vq->size = new_size;
+
+  assert((vq->size & 63u) == 0);
+}
+
+
+/*
+ * Add v to the queue if it's not marked then mark v
+ */
+static void vtbl_queue_push(vtbl_queue_t *vq, value_t v) {
+  assert(0 <= v && v < (int32_t) MAX_VALUE_TABLE_SIZE);
+
+  if (v >= vq->size) {
+    resize_vtbl_queue(vq, v+1);
+    assert(v < vq->size);
+  }
+  if (!tst_bit(vq->mark, v)) {
+    set_bit(vq->mark, v);
+    int_queue_push(&vq->queue, v);
+  }
+}
+
+
 
 /****************************************
  *  HASH SETS FOR UPDATE NORMALIZATION  *
@@ -471,6 +545,7 @@ void init_value_table(value_table_t *table, uint32_t n, type_table_t *ttbl) {
   init_int_htbl(&table->htbl, 0);
   init_bvconstant(&table->buffer);
   init_map_htbl(&table->mtbl);
+  init_vtbl_queue(&table->queue);
 
   table->hset1 = NULL;
   table->hset2 = NULL;
@@ -506,7 +581,6 @@ static void extend_value_table(value_table_t *table) {
 }
 
 
-
 /*
  * Allocate a new object index
  * - kind and descriptor are not initialized
@@ -522,8 +596,6 @@ static value_t allocate_object(value_table_t *table) {
   table->nobjects = i+1;
   return i;
 }
-
-
 
 
 /*
@@ -552,7 +624,6 @@ static map_hset_t *get_hset2(value_table_t *table) {
   }
   return set;
 }
-
 
 
 /*
@@ -584,8 +655,6 @@ static void reset_hsets(value_table_t *table) {
     reset_map_hset(table->hset2);
   }
 }
-
-
 
 
 /*
@@ -636,7 +705,6 @@ static void vtbl_delete_descriptors(value_table_t *table, uint32_t k) {
 }
 
 
-
 /*
  * Reset the table:
  * - delete all descriptors
@@ -646,6 +714,7 @@ void reset_value_table(value_table_t *table) {
   vtbl_delete_descriptors(table, 0);
   reset_int_htbl(&table->htbl);
   reset_map_htbl(&table->mtbl);
+  reset_vtbl_queue(&table->queue);
   reset_hsets(table);
 
   table->nobjects = 0;
@@ -667,6 +736,7 @@ void delete_value_table(value_table_t *table) {
   delete_int_htbl(&table->htbl);
   delete_bvconstant(&table->buffer);
   delete_map_htbl(&table->mtbl);
+  delete_vtbl_queue(&table->queue);
   delete_hsets(table);
   table->kind = NULL;
   table->desc = NULL;
@@ -1870,3 +1940,23 @@ value_t vtbl_eval_application(value_table_t *table, value_t f, uint32_t n, value
 
 
 
+/*
+ * ACCESS TO THE QUEUE
+ */
+
+/*
+ * Push v into the internal queue
+ * - v must be a valid object
+ * - do nothing if v is already in the queue
+ */
+void vtbl_push_object(value_table_t *table, value_t v) {
+  assert(good_object(table, v));
+  vtbl_queue_push(&table->queue, v);
+}
+
+/*
+ * Empty the internal queue
+ */
+void vtbl_empty_queue(value_table_t *table) {
+  reset_vtbl_queue(&table->queue);
+}

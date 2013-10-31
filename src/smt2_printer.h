@@ -27,7 +27,10 @@
 /*
  * Print object c using a pretty printer object
  * - c must be a valid object in table
- * - functions are printed as abstract objects
+ * - functions are printed as abstract objects and are stored into the table's
+ *   internal queue.
+ * - the map of all queued functions can then printed later by calling 
+ *   smt2_pp_queued_functions
  */
 extern void smt2_pp_object(yices_pp_t *printer, value_table_t *table, value_t c);
 
@@ -48,11 +51,12 @@ extern void smt2_normalize_and_pp_update(yices_pp_t *printer, value_table_t *tab
 					 value_t c, bool show_default);
 
 /*
- * Print the maps defining the anonymous functions
- * - i.e., all functions whose name is NULL
+ * Print the maps of all the queued functions (this may recursively push more
+ * functions to the queue and print them).
  * - if show_default is true, print the default value for each map
+ * - empty the table's queue
  */
-extern void smt2_pp_anonymous_functions(yices_pp_t *printer, value_table_t *table, bool show_default);
+extern void smt2_pp_queued_functions(yices_pp_t *printer, value_table_t *table, bool show_default);
 
 
 

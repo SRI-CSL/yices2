@@ -40,8 +40,7 @@ extern void model_print_term_value(FILE *f, model_t *model, term_t t);
  * - only the terms present in the model->map are displayed
  * - for functions, print the map
  *
- * If high_order is true, also print the map of all functions that occur 
- * as argument of a <value> printed before.
+ * Also print the map of all functions that occur in any <value>.
  *
  * Example:
  * - if term "x" is mapped to tuple of functions then we may 
@@ -50,7 +49,7 @@ extern void model_print_term_value(FILE *f, model_t *model, term_t t);
  *
  * Then we should also print the map of fun!1 and fun!2.
  */
-extern void model_print(FILE *f, model_t *model, bool high_order);
+extern void model_print(FILE *f, model_t *model);
 
 
 /*
@@ -58,19 +57,17 @@ extern void model_print(FILE *f, model_t *model, bool high_order);
  * - one line per term as above
  * - if model->has_alias is true, then the value of all terms in
  *   the alias table is displayed
- * - if model->has_alias is false, then this is the same as model_print
- *
- * high_order flag: as above
+ * - if model->has_alias is false, then this is the same as model_print 
  */
-extern void model_print_full(FILE *f, model_t *model, bool high_order);
+extern void model_print_full(FILE *f, model_t *model);
 
 
 /*
  * Variants: use the pretty printer
  */
 extern void model_pp_term_value(yices_pp_t *printer, model_t *model, term_t t);
-extern void model_pp(yices_pp_t *printer, model_t *model, bool high_order);
-extern void model_pp_full(yices_pp_t *printer, model_t *model, bool high_order);
+extern void model_pp(yices_pp_t *printer, model_t *model);
+extern void model_pp_full(yices_pp_t *printer, model_t *model);
 
 
 #endif /* __MODEL_PRINTER_H */

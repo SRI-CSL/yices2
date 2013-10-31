@@ -1284,9 +1284,9 @@ static int process_benchmark(void) {
       context_build_model(model, &context);
       printf("\n");
       if (full_model) {
-        model_print_full(stdout, model, false);
+        model_print_full(stdout, model);
       } else {
-        model_print(stdout, model, false);
+        model_print(stdout, model);
       }
 #if CHECK_MODEL
       check_model(stdout, &bench, model);      

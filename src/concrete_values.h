@@ -238,6 +238,8 @@ typedef struct vtbl_queue_s {
   uint32_t size; // size of the mark vector
 } vtbl_queue_t;
 
+#define DEF_VTBL_QUEUE_SIZE 2048
+
 
 /*
  * Optional function to name uninterpreted constants
@@ -291,6 +293,7 @@ typedef struct value_table_s {
   bvconstant_t buffer;
   rational_t aux;
   map_htbl_t mtbl;
+  vtbl_queue_t queue;
   map_hset_t *hset1;
   map_hset_t *hset2;
 
@@ -677,7 +680,7 @@ static inline value_update_t *vtbl_update(value_table_t *table, value_t v) {
 
 
 /*
- * UTILITY
+ * UTILITIES
  */
 
 /*
@@ -693,6 +696,17 @@ static inline value_update_t *vtbl_update(value_table_t *table, value_t v) {
 extern void vtbl_expand_update(value_table_t *table, value_t i, value_t *def, type_t *tau);
 
 
+/*
+ * Push v into the internal queue
+ * - v must be a valid object
+ * - do nothing if v is already in the queue
+ */
+extern void vtbl_push_object(value_table_t *table, value_t v);
+
+/*
+ * Empty the internal queue
+ */
+extern void vtbl_empty_queue(value_table_t *table);
 
 
 #endif /* __CONCRETE_VALUES_H */

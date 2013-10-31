@@ -127,6 +127,7 @@ void smt2_pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {
     break;
   case FUNCTION_VALUE:
     smt2_pp_fun_name(printer, c, table->desc[c].ptr);
+    vtbl_push_object(table, c);
     break;
   case UPDATE_VALUE:
     smt2_pp_update(printer, table, table->desc[c].ptr);
@@ -261,23 +262,21 @@ void smt2_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, cha
 
 
 /*
- * Print the maps defining the anonymous functions
- * - i.e., all functions whose name is NULL
+ * Print the maps of all the queued functions (this may recursively push more
+ * functions to the queue and print them).
  * - if show_default is true, print the default value for each map
+ * - empty the table's queue
  */
-void smt2_pp_anonymous_functions(yices_pp_t *printer, value_table_t *table, bool show_default) {
-  value_fun_t *fun;
-  uint32_t i, n;
+void smt2_pp_queued_functions(yices_pp_t *printer, value_table_t *table, bool show_default) {
+  int_queue_t *q;
+  value_t v;
 
-  n = table->nobjects;
-  for (i=0; i<n; i++) {
-    if (object_is_function(table, i)) {
-      fun = table->desc[i].ptr;
-      if (fun->name == NULL) {
-        smt2_pp_function(printer, table, i, show_default);
-      }
-    }   
+  q = &table->queue.queue;
+  while (! int_queue_is_empty(q)) {
+    v = int_queue_pop(q);
+    smt2_pp_function(printer, table, v, show_default);
   }
+  vtbl_empty_queue(table);
 }
 
 

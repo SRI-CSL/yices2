@@ -163,12 +163,10 @@ static void model_print_function_assignments(FILE *f, model_t *model, term_t *a,
   term_table_t *terms;
   value_fun_t *fun;
   char *name;
-  ivector_t v;
   term_t t;
   value_t c;
   uint32_t i;
 
-  init_ivector(&v, 0);
   terms = model->terms;
   for (i=0; i<n; i++) {
     t = a[i];
@@ -177,7 +175,7 @@ static void model_print_function_assignments(FILE *f, model_t *model, term_t *a,
        * t is mapped to a function object fun
        * if t and fun have different names, we print 
        * (= <t's name> <fun 's name>) otherwise we print nothing
-       * and store fun in vector v.
+       * and push fun in value_table's queue
        */
       c = model_find_term_value(model, t);
       name = term_name(terms, t);
@@ -189,7 +187,7 @@ static void model_print_function_assignments(FILE *f, model_t *model, term_t *a,
           vtbl_print_object(f, &model->vtbl, c);
           fputs(")\n", f);
         } else {
-          ivector_push(&v, c);
+	  vtbl_push_object(&model->vtbl, c);
         }
       }
     }
@@ -209,14 +207,6 @@ static void model_print_function_assignments(FILE *f, model_t *model, term_t *a,
       }
     }
   }
-
-  // now print the function maps for every object in v
-  n = v.size;
-  for (i=0; i<n; i++) {
-    vtbl_print_function(f, &model->vtbl, v.data[i], true);
-  }  
-
-  delete_ivector(&v);
 }
 
 
@@ -235,7 +225,7 @@ static bool term_to_print(void *aux, term_t t) {
 /*
  * Print the model->map table
  */
-void model_print(FILE *f, model_t *model, bool high_order) {
+void model_print(FILE *f, model_t *model) {
   ivector_t v;
   term_t *a;
   uint32_t n;
@@ -251,10 +241,7 @@ void model_print(FILE *f, model_t *model, bool high_order) {
   model_print_constant_assignments(f, model, a, n);
   model_print_tuple_assignments(f, model, a, n);
   model_print_function_assignments(f, model, a, n);    
-  if (high_order) {
-    // TODO: be more selective
-    vtbl_print_anonymous_functions(f, &model->vtbl, true);
-  }
+  vtbl_print_queued_functions(f, &model->vtbl, true);
   delete_ivector(&v);
 }
 
@@ -418,12 +405,10 @@ static void eval_print_function_assignments(FILE *f, evaluator_t *eval, term_t *
   term_table_t *terms;
   value_fun_t *fun;
   char *name;
-  ivector_t v;
   term_t t;
   value_t c;
   uint32_t i;
 
-  init_ivector(&v, 0);
   model = eval->model;
   terms = model->terms;
 
@@ -435,7 +420,7 @@ static void eval_print_function_assignments(FILE *f, evaluator_t *eval, term_t *
        * t is mapped to a function object fun
        * if t and fun have different names, we print 
        * (= <t's name> <fun 's name>) otherwise we print nothing
-       * and store fun in vector v.
+       * and store fun in the vtbl's internal queue
        */
       c = eval_in_model(eval, t);
       name = term_name(terms, t);
@@ -447,7 +432,7 @@ static void eval_print_function_assignments(FILE *f, evaluator_t *eval, term_t *
           vtbl_print_object(f, &model->vtbl, c);
           fputs(")\n", f);
         } else {
-          ivector_push(&v, c);
+	  vtbl_push_object(&model->vtbl, c);
         }
       }
     }
@@ -467,18 +452,12 @@ static void eval_print_function_assignments(FILE *f, evaluator_t *eval, term_t *
       }
     }
   }
-
-  // now print the function maps for every object in v
-  n = v.size;
-  for (i=0; i<n; i++) {
-    vtbl_print_function(f, &model->vtbl, v.data[i], true);
-  }
-
-  delete_ivector(&v);
-
 }
 
 
+#if 0
+
+// NOT USED ANYMORE
 /*
  * Go through all the terms and evaluate them
  */
@@ -546,6 +525,8 @@ static void model_collect_all_terms(model_t *model, evaluator_t *eval, ivector_t
   }
 }
 
+#endif
+
 
 /*
  * Print model, including the aliased terms
@@ -554,7 +535,7 @@ static void model_collect_all_terms(model_t *model, evaluator_t *eval, ivector_t
  *   the alias table is displayed
  * - if model->has_alias is false, then this is the same as model_print
  */
-void model_print_full(FILE *f, model_t *model, bool high_order) {
+void model_print_full(FILE *f, model_t *model) {
   evaluator_t eval;
   ivector_t v;
   term_t *a;
@@ -562,7 +543,6 @@ void model_print_full(FILE *f, model_t *model, bool high_order) {
 
   if (model->has_alias && model->alias_map != NULL) {
     init_evaluator(&eval, model);
-    //    model_eval_all_terms(model, &eval);
 
     // collect all terms that have a name
     init_ivector(&v, 0);
@@ -576,15 +556,11 @@ void model_print_full(FILE *f, model_t *model, bool high_order) {
     eval_print_constant_assignments(f, &eval, a, n);
     eval_print_tuple_assignments(f, &eval, a, n);
     eval_print_function_assignments(f, &eval, a, n);
-
-    if (high_order) {
-      // TODO: improve this. Print only the functions that matter
-      vtbl_print_anonymous_functions(f, &model->vtbl, true);
-    }
+    vtbl_print_queued_functions(f, &model->vtbl, true);
     delete_evaluator(&eval);
     delete_ivector(&v);
   } else {
-    model_print(f, model, high_order);
+    model_print(f, model);
   }
 }
 
@@ -740,12 +716,10 @@ static void model_pp_function_assignments(yices_pp_t *printer, model_t *model, t
   term_table_t *terms;
   value_fun_t *fun;
   char *name;
-  ivector_t v;
   term_t t;
   value_t c;
   uint32_t i;
 
-  init_ivector(&v, 0);
   terms = model->terms;
   for (i=0; i<n; i++) {
     t = a[i];
@@ -754,7 +728,7 @@ static void model_pp_function_assignments(yices_pp_t *printer, model_t *model, t
        * t is mapped to a function object fun
        * if t and fun have different names, we print 
        * (= <t's name> <fun 's name>) otherwise we print nothing
-       * and store fun in vector v.
+       * and push fun in vtbl's internal queue.
        */
       c = model_find_term_value(model, t);
       name = term_name(terms, t);
@@ -767,7 +741,7 @@ static void model_pp_function_assignments(yices_pp_t *printer, model_t *model, t
           vtbl_pp_object(printer, &model->vtbl, c);
           pp_close_block(printer, true);
         } else {
-          ivector_push(&v, c);
+	  vtbl_push_object(&model->vtbl, c);
         }
       }
     }
@@ -788,20 +762,13 @@ static void model_pp_function_assignments(yices_pp_t *printer, model_t *model, t
     }
   }
 
-  // now print the function maps for every object in v
-  n = v.size;
-  for (i=0; i<n; i++) {
-    vtbl_pp_function(printer, &model->vtbl, v.data[i], true);
-  }  
-
-  delete_ivector(&v);
 }
 
 
 /*
  * Print the model->map table
  */
-void model_pp(yices_pp_t *printer, model_t *model, bool high_order) {
+void model_pp(yices_pp_t *printer, model_t *model) {
   ivector_t v;
   term_t *a;
   uint32_t n;
@@ -817,9 +784,7 @@ void model_pp(yices_pp_t *printer, model_t *model, bool high_order) {
   model_pp_constant_assignments(printer, model, a, n);
   model_pp_tuple_assignments(printer, model, a, n);
   model_pp_function_assignments(printer, model, a, n);    
-  if (high_order) {
-    vtbl_pp_anonymous_functions(printer, &model->vtbl, true);
-  }
+  vtbl_pp_queued_functions(printer, &model->vtbl, true);
   delete_ivector(&v);
 }
 
@@ -980,12 +945,10 @@ static void eval_pp_function_assignments(yices_pp_t *printer, evaluator_t *eval,
   term_table_t *terms;
   value_fun_t *fun;
   char *name;
-  ivector_t v;
   term_t t;
   value_t c;
   uint32_t i;
 
-  init_ivector(&v, 0);
   model = eval->model;
   terms = model->terms;
 
@@ -994,10 +957,10 @@ static void eval_pp_function_assignments(yices_pp_t *printer, evaluator_t *eval,
     t = a[i];
     if (is_function_term(terms, t)) {
       /*
-       * t is mapped to a function object fun
-       * if t and fun have different names, we print 
-       * (= <t's name> <fun 's name>) otherwise we print nothing
-       * and store fun in vector v.
+       * t is mapped to a function object fun if t and fun have
+       * different names, we print (= <t's name> <fun 's name>)
+       * otherwise we print nothing and store fun in the vtbl's queue
+       * (fun's map definition will be printed later).
        */
       c = eval_in_model(eval, t);
       name = term_name(terms, t);
@@ -1010,7 +973,7 @@ static void eval_pp_function_assignments(yices_pp_t *printer, evaluator_t *eval,
           vtbl_pp_object(printer, &model->vtbl, c);
           pp_close_block(printer, true);
         } else {
-          ivector_push(&v, c);
+	  vtbl_push_object(&model->vtbl, c);
         }
       }
     }
@@ -1030,15 +993,8 @@ static void eval_pp_function_assignments(yices_pp_t *printer, evaluator_t *eval,
       }
     }
   }
-
-  // now print the function maps for every object in v
-  n = v.size;
-  for (i=0; i<n; i++) {
-    vtbl_pp_function(printer, &model->vtbl, v.data[i], true);
-  }
-
-  delete_ivector(&v);
 }
+
 
 /*
  * Print model, including the aliased terms
@@ -1047,7 +1003,7 @@ static void eval_pp_function_assignments(yices_pp_t *printer, evaluator_t *eval,
  *   the alias table is displayed
  * - if model->has_alias is false, then this is the same as model_print
  */
-void model_pp_full(yices_pp_t *printer, model_t *model, bool high_order) {
+void model_pp_full(yices_pp_t *printer, model_t *model) {
   evaluator_t eval;
   ivector_t v;
   term_t *a;
@@ -1055,7 +1011,6 @@ void model_pp_full(yices_pp_t *printer, model_t *model, bool high_order) {
 
   if (model->has_alias && model->alias_map != NULL) {
     init_evaluator(&eval, model);
-    //    model_eval_all_terms(model, &eval);
 
     // collect all terms that have a value
     init_ivector(&v, 0);
@@ -1069,13 +1024,11 @@ void model_pp_full(yices_pp_t *printer, model_t *model, bool high_order) {
     eval_pp_constant_assignments(printer, &eval, a, n);
     eval_pp_tuple_assignments(printer, &eval, a, n);
     eval_pp_function_assignments(printer, &eval, a, n);
-    if (high_order) {
-      vtbl_pp_anonymous_functions(printer, &model->vtbl, true);
-    }
+    vtbl_pp_queued_functions(printer, &model->vtbl, true);
     delete_evaluator(&eval);
     delete_ivector(&v);
   } else {
-    model_pp(printer, model, high_order);
+    model_pp(printer, model);
   }
 }
 

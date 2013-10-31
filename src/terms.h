@@ -974,9 +974,6 @@ static inline void term_table_reset_pbuffer(term_table_t *table) {
 
 
 
-
-
-
 /*
  * ACCESS TO TERMS
  */

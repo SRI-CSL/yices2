@@ -59,8 +59,8 @@ static inline byte_t *extend_bitvector0(byte_t *bv, uint32_t n, uint32_t m) {
 
   n = (n + 7) >> 3;
   m = (m + 7) >> 3;
-  tmp = (byte_t *) safe_realloc(bv, n);
   assert(m <= n);
+  tmp = (byte_t *) safe_realloc(bv, n);
   memset(tmp + m, 0, n - m);
   return tmp;
 }

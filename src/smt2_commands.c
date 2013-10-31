@@ -2791,6 +2791,7 @@ void smt2_get_value(term_t *a, uint32_t n) {
     init_pretty_printer(&printer, &__smt2_globals);
     print_term_value_list(&printer, &mdl->vtbl, queue, slices->data, values->data, n);    
     delete_yices_pp(&printer, true);
+    vtbl_empty_queue(&mdl->vtbl); // cleanup the internal queue
     ivector_reset(slices);
     ivector_reset(values);
   }
@@ -3374,11 +3375,12 @@ void smt2_add_name(int32_t op, term_t t, const char *name) {
 
   // special processing for Boolean terms
   if (yices_term_is_bool(t)) {
+    // named booleans (for get-assignment)
     clone = clone_string(name);
     push_named_term(&__smt2_globals.named_bools, t, clone);
 
-    // named assertions
-    if (op == SMT2_ASSERT) {
+    // named assertions (for unsat cores)
+    if (op == SMT2_ASSERT && __smt2_globals.produce_unsat_cores) {
       push_named_term(&__smt2_globals.named_asserts, t, clone);
     }
   }
