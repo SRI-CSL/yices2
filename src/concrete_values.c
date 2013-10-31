@@ -602,14 +602,16 @@ static inline void delete_value_fun(value_fun_t *d) {
 }
 
 /*
- * Delete descriptors for objects i ... nobjects - 1
+ * Delete descriptors for objects k ... nobjects - 1
  */
-static void vtbl_delete_descriptors(value_table_t *table, uint32_t i) {
-  uint32_t n;
+static void vtbl_delete_descriptors(value_table_t *table, uint32_t k) {
+  uint32_t i, n;
 
   n = table->nobjects;
-  assert(i <= n);
-  for (i=0; i<n; i++) {
+  table->nobjects = k;
+
+  assert(k <= n);
+  for (i=k; i<n; i++) {
     switch (table->kind[i]) {
     case UNKNOWN_VALUE:
     case BOOLEAN_VALUE:
@@ -650,6 +652,7 @@ void reset_value_table(value_table_t *table) {
   table->unknown_value = null_value;
   table->true_value = null_value;
   table->false_value = null_value;
+  table->first_tmp = -1;
 }
 
 

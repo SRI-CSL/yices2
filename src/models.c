@@ -165,6 +165,75 @@ void model_add_substitution(model_t *model, term_t t, term_t u) {
 }
 
 
+/*
+ * ITERATOR
+ */
+
+/*
+ * Iteration: call f(aux, t) for every term t stored in the model
+ * - this includes every t in model->map (term mapped to a value)
+ * - if all is true, then the iterator is appleid to every t in the domain 
+ *   of model->alias (term mapped to another term)
+ * - f must not have side effects on model
+ */
+void model_term_iterate(model_t *model, bool all, void *aux, model_iterator_t f) {
+  int_hmap_t *hmap;
+  int_hmap_pair_t *r;
+
+  hmap = &model->map;
+  r = int_hmap_first_record(hmap);
+  while (r != NULL) {
+    f(aux, r->key);
+    r = int_hmap_next_record(hmap, r);
+  }
+
+  hmap = model->alias_map;
+  if (all && hmap != NULL) {
+    r = int_hmap_first_record(hmap);
+    while (r != NULL) {
+      f(aux, r->key);
+      r = int_hmap_next_record(hmap, r);
+    }
+  }
+}
+
+
+/*
+ * Collect all terms that satisfy predicate f
+ * - add them to vector v
+ * - if f(aux, t) returns true, add t to vector v
+ * - if all is false, only the terms in model->map are considered
+ * - if all is true, the terms in model->map and model->alias are considered
+ * - f must not have side effects
+ *
+ * - v is not reset. All terms collected are added to v
+ */
+void model_collect_terms(model_t *model, bool all, void *aux, model_filter_t f, ivector_t *v) {
+  int_hmap_t *hmap;
+  int_hmap_pair_t *r;
+
+  hmap = &model->map;
+  r = int_hmap_first_record(hmap);
+  while (r != NULL) {
+    if (f(aux, r->key)) {
+      ivector_push(v, r->key);
+    }
+    r = int_hmap_next_record(hmap, r);
+  }
+
+  hmap = model->alias_map;
+  if (all && hmap != NULL) {
+    r = int_hmap_first_record(hmap);
+    while (r != NULL) {
+      if (f(aux, r->key)) {
+	ivector_push(v, r->key);
+      }
+      r = int_hmap_next_record(hmap, r);
+    }
+  }
+
+}
+
 
 
 /*

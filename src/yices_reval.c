@@ -2508,6 +2508,7 @@ static void yices_showmodel_cmd(void) {
  */
 static void yices_eval_cmd(term_t t) {
   evaluator_t evaluator;
+  value_table_t *vtbl;  
   value_t v;
 
   switch (context_status(context)) {
@@ -2520,12 +2521,15 @@ static void yices_eval_cmd(term_t t) {
     init_evaluator(&evaluator, model);
     v = eval_in_model(&evaluator, t);
     if (v >= 0) {
-      vtbl_print_object(stdout, model_get_vtbl(model), v);
-      if (object_is_function(model_get_vtbl(model), v)) {
+      vtbl = model_get_vtbl(model);
+      if (object_is_function(vtbl, v)) {
+        vtbl_print_function(stdout, vtbl, v, true);
+      } else if (object_is_update(vtbl, v)) {
+	vtbl_normalize_and_print_update(stdout, vtbl, yices_get_term_name(t), v, true);
+      } else {
+	vtbl_print_object(stdout, model_get_vtbl(model), v);
         fputc('\n', stdout);
-        vtbl_print_function(stdout, model_get_vtbl(model), v, true);
       }
-      fputc('\n', stdout);
     } else {
       fputs("unknown\n", stdout);
     }

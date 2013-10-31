@@ -152,7 +152,7 @@ void smt2_pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {
 static void smt2_pp_function_header(yices_pp_t *printer, value_table_t *table, value_t c, type_t tau, const char *name) {
   pp_open_block(printer, PP_OPEN_FUNCTION);
   if (name == NULL) {
-    pp_id(printer, "fun!", c);
+    pp_id(printer, "@fun_", c);
   } else {
     pp_string(printer, name);
   }
@@ -206,9 +206,11 @@ void smt2_pp_function(yices_pp_t *printer, value_table_t *table, value_t c, bool
 /*
  * Expand update c and print it as a function
  * - name = function name to use
+ * - if name is NULL, replace it by "@fun_c"
  * - if show_default is true, also print the default value
  */
 void smt2_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, char *name, value_t c, bool show_default) {
+  char fake_name[20];
   map_hset_t *hset;
   value_map_t *mp;
   value_t def;
@@ -220,22 +222,17 @@ void smt2_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, cha
   hset = table->hset1;
   assert(hset != NULL);
 
+  if (name == NULL) {
+    sprintf(fake_name, "@fun_%"PRId32, c);
+    name = fake_name;
+  }
+
+  smt2_pp_function_header(printer, table, c, tau, name);
+  
   /*
    * hset->data contains an array of mapping objects
    * hset->nelems = number of elements in hset->data
    */
-  // function header: we know that name != NULL
-  pp_open_block(printer, PP_OPEN_FUNCTION);
-  pp_string(printer, name);
-  pp_open_block(printer, PP_OPEN_TYPE);
-  pp_type(printer, table->type_table, tau);
-  pp_close_block(printer, true); // close (type ..)
-
-  //  fprintf(printer, "(function %s\n", name);
-  //  fprintf(printer, " (type ");
-  //  print_type(printer, table->type_table, tau);
-  //  fprintf(printer, ")");
-
   m = vtbl_update(table, c)->arity;
   n = hset->nelems;
   for (i=0; i<n; i++) {
@@ -258,7 +255,7 @@ void smt2_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, cha
     smt2_pp_object(printer, table, def);
     pp_close_block(printer, true);
   }
-  pp_close_block(printer, true);
+  pp_close_block(printer, true);  // close the (function ... 
 }
 
 

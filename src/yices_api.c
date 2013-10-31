@@ -6484,7 +6484,7 @@ EXPORTED void yices_free_model(model_t *mdl) {
  * - f must be open/writable
  */
 EXPORTED void yices_print_model(FILE *f, model_t *mdl) {
-  model_print_full(f, mdl);
+  model_print_full(f, mdl, true);
 }
 
 
@@ -6508,7 +6508,7 @@ EXPORTED int32_t yices_pp_model(FILE *f, model_t *mdl, uint32_t width, uint32_t 
   area.truncate = true;
 
   init_default_yices_pp(&printer, f, &area);
-  model_pp_full(&printer, mdl);
+  model_pp_full(&printer, mdl, true);
   flush_yices_pp(&printer);
 
   // check for error

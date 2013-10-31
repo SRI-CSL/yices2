@@ -73,7 +73,7 @@ static inline bool int_queue_is_empty(int_queue_t *q) {
 }
 
 /*
- * Return first element and remove it from q.
+ * Return the first element and remove it from q.
  * - q must be non-empty. 
  */
 extern int32_t int_queue_pop(int_queue_t *q);

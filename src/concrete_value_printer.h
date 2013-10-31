@@ -37,9 +37,10 @@ extern void vtbl_print_function(FILE *f, value_table_t *table, value_t c, bool s
 /*
  * Expand update c and print it as a function
  * - name = function name to use
+ * - if name is NULL, a made-up name is used instead (of the form "fun!xxx")
  * - if show_default is true, also print the default value
  */
-extern void vtbl_normalize_and_print_update(FILE *f, value_table_t *table, char *name,
+extern void vtbl_normalize_and_print_update(FILE *f, value_table_t *table, const char *name,
                                             value_t c, bool show_default);
 
 
@@ -61,7 +62,7 @@ extern void vtbl_print_anonymous_functions(FILE *f, value_table_t *table, bool s
  */
 extern void vtbl_pp_object(yices_pp_t *printer, value_table_t *table, value_t c);
 extern void vtbl_pp_function(yices_pp_t *printer, value_table_t *table, value_t c, bool show_default);
-extern void vtbl_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, char *name, 
+extern void vtbl_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, const char *name, 
                                          value_t c, bool show_default);
 extern void vtbl_pp_anonymous_functions(yices_pp_t *printer, value_table_t *table, bool show_default);
 

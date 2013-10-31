@@ -53,12 +53,19 @@ typedef struct evaluator_s {
 
 /*
  * Initialization for the given model
+ * - this calls value_table_start_tmp on model->vtbl.
+ * - all objects created by the evaluator in mode->vtbl will be deleted
+ *   on the next call to reset_evaluator or delete_evaluator.
+ *
+ * NOTE: because the evaluator has side effects on model->vtbl,
+ * we can't attach several evaluators to the same model.
  */
 extern void init_evaluator(evaluator_t *eval, model_t *model);
 
 
 /*
  * Deletion: free all memory
+ * - delete all temporary objects created in eval->model.vtbl
  */
 extern void delete_evaluator(evaluator_t *eval);
 
@@ -78,7 +85,7 @@ extern void reset_evaluator(evaluator_t *eval);
  *
  * Evaluation may create new objects. All these new objects are
  * marked as temporary objects and can be deleted by calling
- * reset_evaluator.
+ * reset_evaluator or delete_evaluator.
  */
 extern value_t eval_in_model(evaluator_t *eval, term_t t);
 

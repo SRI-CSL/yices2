@@ -231,7 +231,8 @@ void vtbl_print_function(FILE *f, value_table_t *table, value_t c, bool show_def
  * - name = function name to use
  * - if show_default is true, also print the default value
  */
-void vtbl_normalize_and_print_update(FILE *f, value_table_t *table, char *name, value_t c, bool show_default) {
+void vtbl_normalize_and_print_update(FILE *f, value_table_t *table, const char *name, value_t c, bool show_default) {
+  char fake_name[20];
   map_hset_t *hset;
   value_map_t *mp;
   value_t def;
@@ -243,15 +244,16 @@ void vtbl_normalize_and_print_update(FILE *f, value_table_t *table, char *name, 
   hset = table->hset1;
   assert(hset != NULL);
 
+  if (name == NULL) {
+    sprintf(fake_name, "fun!%"PRId32, c);
+    name = fake_name;
+  }
+
   /*
    * hset->data contains an array of mapping objects
    * hset->nelems = number of elements in hset->data
    */
-  // function header: we know that name != NULL
-  fprintf(f, "(function %s\n", name);
-  fprintf(f, " (type ");
-  print_type(f, table->type_table, tau);
-  fprintf(f, ")");
+  vtbl_print_function_header(f, table, c, tau, name);
 
   m = vtbl_update(table, c)->arity;
   n = hset->nelems;
@@ -509,9 +511,11 @@ void vtbl_pp_function(yices_pp_t *printer, value_table_t *table, value_t c, bool
 /*
  * Expand update c and print it as a function
  * - name = function name to use
+ * - if name is NULL, it's replaced by "fun!c"
  * - if show_default is true, also print the default value
  */
-void vtbl_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, char *name, value_t c, bool show_default) {
+void vtbl_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, const char *name, value_t c, bool show_default) {
+  char fake_name[20];
   map_hset_t *hset;
   value_map_t *mp;
   value_t def;
@@ -523,21 +527,16 @@ void vtbl_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, cha
   hset = table->hset1;
   assert(hset != NULL);
 
+  if (name == NULL) {
+    sprintf(fake_name, "fun!%"PRId32, c);
+    name = fake_name;
+  }
+
   /*
    * hset->data contains an array of mapping objects
    * hset->nelems = number of elements in hset->data
    */
-  // function header: we know that name != NULL
-  pp_open_block(printer, PP_OPEN_FUNCTION);
-  pp_string(printer, name);
-  pp_open_block(printer, PP_OPEN_TYPE);
-  pp_type(printer, table->type_table, tau);
-  pp_close_block(printer, true); // close (type ..)
-
-  //  fprintf(printer, "(function %s\n", name);
-  //  fprintf(printer, " (type ");
-  //  print_type(printer, table->type_table, tau);
-  //  fprintf(printer, ")");
+  vtbl_pp_function_header(printer, table, c, tau, name);
 
   m = vtbl_update(table, c)->arity;
   n = hset->nelems;
@@ -585,6 +584,5 @@ void vtbl_pp_anonymous_functions(yices_pp_t *printer, value_table_t *table, bool
     }   
   }
 }
-
 
 

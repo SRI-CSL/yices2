@@ -18,8 +18,8 @@
  * - the format is (= <t's name> <value>)
  */
 void model_print_term_value(FILE *f, model_t *model, term_t t) {
-  int_hmap_pair_t *r;
   char *name;
+  value_t v;
 
   assert(term_kind(model->terms, t) == UNINTERPRETED_TERM);
 
@@ -30,49 +30,17 @@ void model_print_term_value(FILE *f, model_t *model, term_t t) {
     fprintf(f, "(= %s ", name);
   }
 
-  r = int_hmap_find(&model->map, t);
-  if (r == NULL) {
+  v = model_find_term_value(model, t);
+  if (v == null_value) {
     /*
-     * ??) is a stupid C trigraph so "???)" can't be written as is.
+     * ??) is a C trigraph so "???)" can't be written as is.
      */
     fputs("???"")", f); 
   } else {
-    vtbl_print_object(f, &model->vtbl, r->val);
+    vtbl_print_object(f, &model->vtbl, v);
     fputc(')', f);
   }
 }
-
-
-/*
- * Check whether term t should be printed in the assignments
- */
-static inline bool term_to_print(term_table_t *tbl, term_t t) {
-  return term_kind(tbl, t) == UNINTERPRETED_TERM && term_name(tbl, t) != NULL;
-}
-
-
-/*
- * Collect all terms to print
- * - store them in vector v
- */
-static void model_collect_terms(model_t *model, ivector_t *v) {
-  int_hmap_t *hmap;
-  int_hmap_pair_t *r;
-  term_table_t *terms;
-  term_t t;
-
-  terms = model->terms;
-  hmap = &model->map;
-  r = int_hmap_first_record(hmap);
-  while (r != NULL) {
-    t = r->key;  // key is the term id
-    if (term_to_print(terms, t)) {
-      ivector_push(v, t);
-    }
-    r = int_hmap_next_record(hmap, r);
-  }
-}
-
 
 
 /*
@@ -113,7 +81,6 @@ static void model_print_arithmetic_assignments(FILE *f, model_t *model, term_t *
     }
   }
 }
-
 
 
 /*
@@ -166,7 +133,6 @@ static void model_print_constant_assignments(FILE *f, model_t *model, term_t *a,
     }
   }
 }
-
 
 
 /*
@@ -225,12 +191,6 @@ static void model_print_function_assignments(FILE *f, model_t *model, term_t *a,
         } else {
           ivector_push(&v, c);
         }
-#if 0 
-      } else {
-        fprintf(f, "(= %s ", name);
-        vtbl_print_object(f, &model->vtbl, c);
-        fputs(")\n", f);
-#endif
       }
     }
   }
@@ -263,15 +223,25 @@ static void model_print_function_assignments(FILE *f, model_t *model, term_t *a,
 
 
 /*
+ * Filter function for model_collect_terms
+ * - aux is a term table
+ * - return true if term t should be printed in the assignments (i.e., t has a name)
+ */
+static bool term_to_print(void *aux, term_t t) {
+  return term_kind(aux, t) == UNINTERPRETED_TERM && term_name(aux, t) != NULL;
+}
+
+
+/*
  * Print the model->map table
  */
-void model_print(FILE *f, model_t *model) {
+void model_print(FILE *f, model_t *model, bool high_order) {
   ivector_t v;
   term_t *a;
   uint32_t n;
 
   init_ivector(&v, 0);
-  model_collect_terms(model, &v);
+  model_collect_terms(model, false, model->terms, term_to_print, &v);
 
   n = v.size;
   a = v.data;
@@ -281,7 +251,10 @@ void model_print(FILE *f, model_t *model) {
   model_print_constant_assignments(f, model, a, n);
   model_print_tuple_assignments(f, model, a, n);
   model_print_function_assignments(f, model, a, n);    
-
+  if (high_order) {
+    // TODO: be more selective
+    vtbl_print_anonymous_functions(f, &model->vtbl, true);
+  }
   delete_ivector(&v);
 }
 
@@ -476,21 +449,12 @@ static void eval_print_function_assignments(FILE *f, evaluator_t *eval, term_t *
         } else {
           ivector_push(&v, c);
         }
-#if 0
-      } else {
-        fprintf(f, "(= %s ", name);
-        vtbl_print_object(f, &model->vtbl, c);
-        fputs(")\n", f);
-#endif
       }
     }
   }
 
   /*
    * second pass: deal with update objects
-   * there's some small overhead in calling eval_in_model
-   * again, but that should be small since it's just a 
-   * lookup in the cache
    */
   for (i=0; i<n; i++) {
     t = a[i];
@@ -590,7 +554,7 @@ static void model_collect_all_terms(model_t *model, evaluator_t *eval, ivector_t
  *   the alias table is displayed
  * - if model->has_alias is false, then this is the same as model_print
  */
-void model_print_full(FILE *f, model_t *model) {
+void model_print_full(FILE *f, model_t *model, bool high_order) {
   evaluator_t eval;
   ivector_t v;
   term_t *a;
@@ -598,10 +562,12 @@ void model_print_full(FILE *f, model_t *model) {
 
   if (model->has_alias && model->alias_map != NULL) {
     init_evaluator(&eval, model);
-    model_eval_all_terms(model, &eval);
-    // collect all terms that have a value
+    //    model_eval_all_terms(model, &eval);
+
+    // collect all terms that have a name
     init_ivector(&v, 0);
-    model_collect_all_terms(model, &eval, &v);
+    model_collect_terms(model, true, model->terms, term_to_print, &v);
+
     n = v.size;
     a = v.data;
     eval_print_bool_assignments(f, &eval, a, n);
@@ -610,12 +576,15 @@ void model_print_full(FILE *f, model_t *model) {
     eval_print_constant_assignments(f, &eval, a, n);
     eval_print_tuple_assignments(f, &eval, a, n);
     eval_print_function_assignments(f, &eval, a, n);
-    vtbl_print_anonymous_functions(f, &model->vtbl, true);
+
+    if (high_order) {
+      // TODO: improve this. Print only the functions that matter
+      vtbl_print_anonymous_functions(f, &model->vtbl, true);
+    }
     delete_evaluator(&eval);
     delete_ivector(&v);
   } else {
-    model_print(f, model);
-    vtbl_print_anonymous_functions(f, &model->vtbl, true);
+    model_print(f, model, high_order);
   }
 }
 
@@ -630,8 +599,8 @@ void model_print_full(FILE *f, model_t *model) {
  * Print the assignment for i in model
  */
 void model_pp_term_value(yices_pp_t *printer, model_t *model, term_t t) {
-  int_hmap_pair_t *r;
   char *name;
+  value_t v;
 
   assert(term_kind(model->terms, t) == UNINTERPRETED_TERM);
 
@@ -643,11 +612,11 @@ void model_pp_term_value(yices_pp_t *printer, model_t *model, term_t t) {
     pp_string(printer, name);
   }
 
-  r = int_hmap_find(&model->map, t);
-  if (r == NULL) {
+  v = model_find_term_value(model, t);
+  if (v == null_value) {
     pp_string(printer, "???");
   } else {
-    vtbl_pp_object(printer, &model->vtbl, r->val);
+    vtbl_pp_object(printer, &model->vtbl, v);
   }
   pp_close_block(printer, true);
 }
@@ -689,7 +658,6 @@ static void model_pp_arithmetic_assignments(yices_pp_t *printer, model_t *model,
     }
   }
 }
-
 
 
 /*
@@ -833,13 +801,13 @@ static void model_pp_function_assignments(yices_pp_t *printer, model_t *model, t
 /*
  * Print the model->map table
  */
-void model_pp(yices_pp_t *printer, model_t *model) {
+void model_pp(yices_pp_t *printer, model_t *model, bool high_order) {
   ivector_t v;
   term_t *a;
   uint32_t n;
 
   init_ivector(&v, 0);
-  model_collect_terms(model, &v);
+  model_collect_terms(model, false, model->terms, term_to_print, &v);
 
   n = v.size;
   a = v.data;
@@ -849,7 +817,9 @@ void model_pp(yices_pp_t *printer, model_t *model) {
   model_pp_constant_assignments(printer, model, a, n);
   model_pp_tuple_assignments(printer, model, a, n);
   model_pp_function_assignments(printer, model, a, n);    
-
+  if (high_order) {
+    vtbl_pp_anonymous_functions(printer, &model->vtbl, true);
+  }
   delete_ivector(&v);
 }
 
@@ -1048,9 +1018,6 @@ static void eval_pp_function_assignments(yices_pp_t *printer, evaluator_t *eval,
 
   /*
    * second pass: deal with update objects
-   * there's some small overhead in calling eval_in_model
-   * again, but that should be small since it's just a 
-   * lookup in the cache
    */
   for (i=0; i<n; i++) {
     t = a[i];
@@ -1071,7 +1038,6 @@ static void eval_pp_function_assignments(yices_pp_t *printer, evaluator_t *eval,
   }
 
   delete_ivector(&v);
-
 }
 
 /*
@@ -1081,7 +1047,7 @@ static void eval_pp_function_assignments(yices_pp_t *printer, evaluator_t *eval,
  *   the alias table is displayed
  * - if model->has_alias is false, then this is the same as model_print
  */
-void model_pp_full(yices_pp_t *printer, model_t *model) {
+void model_pp_full(yices_pp_t *printer, model_t *model, bool high_order) {
   evaluator_t eval;
   ivector_t v;
   term_t *a;
@@ -1089,10 +1055,12 @@ void model_pp_full(yices_pp_t *printer, model_t *model) {
 
   if (model->has_alias && model->alias_map != NULL) {
     init_evaluator(&eval, model);
-    model_eval_all_terms(model, &eval);
+    //    model_eval_all_terms(model, &eval);
+
     // collect all terms that have a value
     init_ivector(&v, 0);
-    model_collect_all_terms(model, &eval, &v);
+    model_collect_terms(model, true, model->terms, term_to_print, &v);
+
     n = v.size;
     a = v.data;
     eval_pp_bool_assignments(printer, &eval, a, n);
@@ -1101,12 +1069,13 @@ void model_pp_full(yices_pp_t *printer, model_t *model) {
     eval_pp_constant_assignments(printer, &eval, a, n);
     eval_pp_tuple_assignments(printer, &eval, a, n);
     eval_pp_function_assignments(printer, &eval, a, n);
-    vtbl_pp_anonymous_functions(printer, &model->vtbl, true);
+    if (high_order) {
+      vtbl_pp_anonymous_functions(printer, &model->vtbl, true);
+    }
     delete_evaluator(&eval);
     delete_ivector(&v);
   } else {
-    model_pp(printer, model);
-    vtbl_pp_anonymous_functions(printer, &model->vtbl, true);
+    model_pp(printer, model, high_order);
   }
 }
 

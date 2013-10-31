@@ -85,6 +85,7 @@ extern value_t model_find_term_value(model_t *model, term_t t);
  * Check whether t is mapped to a term v in the substitution table.
  * - return v if it is
  * - return NULL_TERM otherwise
+ * - model->has_alias must be true
  */
 extern term_t model_find_term_substitution(model_t *model, term_t t);
 
@@ -105,8 +106,35 @@ extern void model_map_term(model_t *model, term_t t, value_t v);
  * Store the substitution t --> u in the model
  * - t and u must be valid term indices
  * - t must be an uninterpreted term, not mapped to anything
+ * - model->has_alias must be true
  */
 extern void model_add_substitution(model_t *model, term_t t, term_t u);
+
+
+/*
+ * Iteration: call f(aux, t) for every term t stored in the model
+ * - this includes every t in model->map (term mapped to a value)
+ * - if all is  true, then the iterator is also applied  to every t in
+ *   the domain of model->alias (term mapped to another term)
+ * - f must not have side effects on model
+ */
+typedef void (*model_iterator_t)(void *aux, term_t t);
+
+extern void model_term_iterate(model_t *model, bool all, void *aux, model_iterator_t f);
+
+
+/*
+ * Term collector: call f(aux, t) for every term t that's stored in the model
+ * - if f(aux, t) returns true, add t to vector v
+ * - if all is false, only the terms in model->map are considered
+ * - if all is true, the terms in model->map and model->alias are considered
+ * - f must not have side effects
+ *
+ * NOTE: v is not reset. All terms collected are added to v
+ */
+typedef bool (*model_filter_t)(void *aux, term_t t);
+
+extern void model_collect_terms(model_t *model, bool all, void *aux, model_filter_t f, ivector_t *v);
 
 
 /*

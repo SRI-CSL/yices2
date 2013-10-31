@@ -18,6 +18,10 @@
  * - if the bit is 1 for object i then i is in a canonical representation. 
  *   An object j with a different descriptor cannot be equal to i.
  * - if the bit is 0, then i is not in a canonical form.
+ *
+ *
+ * For printing/pretty printing, we keep track of function objects
+ * whose map must be printed. We store them in a queue + add a mark.
  */ 
 
 #ifndef __CONCRETE_VALUES_H
@@ -32,7 +36,9 @@
 #include "rationals.h"
 #include "bitvectors.h"
 #include "bv_constants.h"
+#include "int_queues.h"
 #include "int_hash_tables.h"
+
 
 /*
  * Each concrete value is identified by an integer index.
@@ -221,6 +227,16 @@ typedef struct map_hset_s {
  */
 #define MAP_HSET_REDUCE_THRESHOLD 256
 
+
+
+/*
+ * Queue + bitvector for functions whose map must be printed.
+ */
+typedef struct vtbl_queue_s {
+  int_queue_t queue;
+  byte_t *mark;
+  uint32_t size; // size of the mark vector
+} vtbl_queue_t;
 
 
 /*

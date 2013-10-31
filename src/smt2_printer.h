@@ -44,7 +44,8 @@ extern void smt2_pp_function(yices_pp_t *printer, value_table_t *table, value_t 
  * - name = function name to use
  * - if show_default is true, also print the default value
  */
-extern void smt2_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, char *name, value_t c, bool show_default);
+extern void smt2_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, char *name, 
+					 value_t c, bool show_default);
 
 /*
  * Print the maps defining the anonymous functions
