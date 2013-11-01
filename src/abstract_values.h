@@ -121,15 +121,6 @@ typedef struct particle_table_s {
 
 
 
-
-/*
- * Particles arranged by type
- * - tau of (tau_1, ..., tau_n), we keep all particles with that type
- *   in an index vector
- * - there shouldn't be too many different types so we just use
- *   sequential search
- */
-
 /*
  * Descriptor for a set of particles of a tuple of types [tau_0,..., tau_n-1]
  * - arity = number of types 
@@ -157,6 +148,9 @@ typedef struct particle_set_s {
  * - pset[0 ... n-1] = all sets 
  * - size = size of the set array
  * - nsets = n 
+ * - there shouldn't be too many different types so we just use
+ *   sequential search to find the pset for a given type 
+ *   (or tuple of types).
  */
 typedef struct pset_table_s {
   uint32_t size;

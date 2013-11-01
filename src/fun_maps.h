@@ -72,8 +72,6 @@ static inline void set_map_default(map_t *map, particle_t v) {
 }
 
 
-
-
 /*
  * Add pair [index -> value] to map
  * - index must not occur in the map

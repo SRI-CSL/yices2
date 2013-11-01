@@ -169,6 +169,17 @@ static void test_constants(void) {
     assert_true(v == v1);
   }
 
+  // bitvector constructors for zero and one: size 64
+  v = vtbl_mk_bv_zero(&vtbl, 64);
+  printf("(mk-bv-zero 64): v = %"PRId32"\n", v);
+  v1 = vtbl_mk_bv_from_bv64(&vtbl, 64, 0);
+  assert_true(v == v1);
+
+  v = vtbl_mk_bv_one(&vtbl, 64);
+  printf("(mk-bv-zero 64): v = %"PRId32"\n", v);
+  v1 = vtbl_mk_bv_from_bv64(&vtbl, 64, 1);
+  assert_true(v == v1);
+
   dump_vtbl();
 }
 

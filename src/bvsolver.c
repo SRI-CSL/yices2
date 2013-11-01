@@ -8141,8 +8141,9 @@ void bv_solver_free_model(bv_solver_t *solver) {
  */
 
 /*
- * Allocate a small set and add all the used values of size set->bitsize
- * to that set. Store the result into set->ptr.
+ * Allocate a small set, collect all the values of size set->bitsize used
+ * by the egrah, and add them to the small set.
+ * Store the small_set into set->ptr.
  */
 static void collect_used_values_small(bv_solver_t *solver, bvset_t *set) {    
   small_bvset_t *s;
@@ -8161,6 +8162,7 @@ static void collect_used_values_small(bv_solver_t *solver, bvset_t *set) {
   n = vtbl->nvars;
   for (i=0; i<n; i++) {
     if (bvvar_bitsize(vtbl, i) == bitsize && 
+	bvvar_has_eterm(vtbl, i) && 
         bv_solver_value_in_model(solver, i, &aux)) {
       // aux = value of i in the model
       // it's stored in aux.data[0]
@@ -8172,10 +8174,10 @@ static void collect_used_values_small(bv_solver_t *solver, bvset_t *set) {
 }
 
 
-
 /*
- * Allocate a red-black tree and add all the used values of size set->bitsize 
- * to that tree. Store the tree into set->ptr;
+ * Allocate a red-black tree, collect all values of size set->bitsize
+ * used by the egraph, and add all of them to the tree. Store the
+ * tree into set->ptr;
  */
 static void collect_used_values_rb(bv_solver_t *solver, bvset_t *set) {
   rb_bvset_t *s;
@@ -8194,6 +8196,7 @@ static void collect_used_values_rb(bv_solver_t *solver, bvset_t *set) {
   n = vtbl->nvars;
   for (i=0; i<n; i++) {
     if (bvvar_bitsize(vtbl, i) == bitsize && 
+	bvvar_has_eterm(vtbl, i) && 
         bv_solver_value_in_model(solver, i, &aux)) {
       // aux = value of i in the model
       // copy the low-order word aux.data[0] into s
@@ -8207,7 +8210,9 @@ static void collect_used_values_rb(bv_solver_t *solver, bvset_t *set) {
 
 /*
  * Create a fresh value: distinct from all the other bitvector constants
- * of the same size present in the model.
+ * of the same size used by the egraph. A value k is used by the egraph,
+ * if there's an egraph term t, such that t is mapped to a bitvector
+ * variable x and value[x] in the current model is equal to k.
  * - n = bit size of the new value
  * - v = buffer where the result must be copied
  * - return false if that fails, true otherwise

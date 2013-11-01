@@ -1597,6 +1597,49 @@ value_t vtbl_mk_bv_from_bv64(value_table_t *table, uint32_t n, uint64_t c) {
 
 
 /*
+ * Bitvector constant with all bits 0
+ * - n = number of bits
+ */
+value_t vtbl_mk_bv_zero(value_table_t *table, uint32_t n) {
+  bvconstant_t *b;
+
+  assert(n > 0);
+
+  // store 0b000...0 in the buffer
+  b = &table->buffer;
+  bvconstant_set_all_zero(b, n);
+
+  bv_hobj.table = table;
+  bv_hobj.nbits = n;
+  bv_hobj.data = b->data;
+
+  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bv_hobj);
+}
+
+
+/*
+ * Bitvector constant with all bits 0, except the low-order bit
+ * - n = number of bits
+ */
+value_t vtbl_mk_bv_one(value_table_t *table, uint32_t n) {
+  bvconstant_t *b;
+
+  assert(n > 0);
+
+  // store 0b000..01 in the buffer
+  b = &table->buffer;
+  bvconstant_set_all_zero(b, n);
+  bvconst_set_bit(b->data, 0);
+
+  bv_hobj.table = table;
+  bv_hobj.nbits = n;
+  bv_hobj.data = b->data;
+
+  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &bv_hobj);
+}
+
+
+/*
  * Tuple (e[0] ... e[n-1])
  */
 value_t vtbl_mk_tuple(value_table_t *table, uint32_t n, value_t *e) {

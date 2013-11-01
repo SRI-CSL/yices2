@@ -403,6 +403,14 @@ extern value_t vtbl_mk_bv_from_constant(value_table_t *table, bvconstant_t *b);
  */
 extern value_t vtbl_mk_bv_from_bv64(value_table_t *table, uint32_t n, uint64_t c);
 
+/*
+ * Variants:
+ * - bitvector 0b0000...00 of n bits
+ * - bitvector 0b0000...01 of n bits
+ */
+extern value_t vtbl_mk_bv_zero(value_table_t *table, uint32_t n);
+extern value_t vtbl_mk_bv_one(value_table_t *table, uint32_t n);
+
 
 /*
  * Tuple:

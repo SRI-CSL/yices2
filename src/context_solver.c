@@ -25,10 +25,12 @@
  * Basic statistics
  */
 static void trace_stats(smt_core_t *core, const char *when, uint32_t level) {
-  tprintf(core->trace, level, "(%-8s %"PRIu32" %"PRIu64" %"PRIu64" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %.1f)\n",
+  tprintf(core->trace, level, 
+	  "(%-8s %"PRIu32" %"PRIu64" %"PRIu64" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %.1f)\n",
 	  when, core->stats.conflicts, core->stats.decisions, core->stats.random_decisions,
 	  num_binary_clauses(core), num_prob_clauses(core), num_prob_literals(core),
-	  num_learned_clauses(core), num_learned_literals(core), (double) num_learned_literals(core)/num_learned_clauses(core));
+	  num_learned_clauses(core), num_learned_literals(core), 
+	  (double) num_learned_literals(core)/num_learned_clauses(core));
 }
 
 /*

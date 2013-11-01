@@ -7009,7 +7009,9 @@ static value_t egraph_fresh_bv_value(egraph_t *egraph, value_table_t *vtbl, uint
  */
 static value_t make_fresh_value(egraph_t *egraph, value_table_t *vtbl, type_t tau);
 
-// Build a fresh tuple
+/*
+ * Build a fresh tuple
+ */
 static value_t make_fresh_tuple(egraph_t *egraph, value_table_t *vtbl, type_t tau) {
   type_table_t *types;
   value_t *aux;
@@ -7067,6 +7069,31 @@ static value_t make_fresh_tuple(egraph_t *egraph, value_table_t *vtbl, type_t ta
 }
 
 
+/*
+ * Fresh function of type tau (tau must be infinite)
+ */
+static value_t make_fresh_function(egraph_t *egraph, value_table_t *vtbl, type_t tau) {
+  type_table_t *types;
+  function_type_t *ft;
+  type_t sigma;
+  value_t v;
+
+  types = egraph->types;
+  ft = function_type_desc(types, tau);
+  sigma = ft->range;
+  if (is_finite_type(types, sigma)) {
+    // TO BE DONE
+    v = vtbl_mk_unknown(vtbl);
+  } else {
+    // get a fresh value of type sigma, return the constant function
+    // that maps everything to this value
+    v = make_fresh_value(egraph, vtbl, sigma);
+    v = vtbl_mk_function(vtbl, tau, 0, NULL, v, NULL);
+  }
+
+  return v;
+}
+
 static value_t make_fresh_value(egraph_t *egraph, value_table_t *vtbl, type_t tau) {
   rational_t *aux;
   bvconstant_t *bv;
@@ -7119,12 +7146,12 @@ static value_t make_fresh_value(egraph_t *egraph, value_table_t *vtbl, type_t ta
 
   case FUNCTION_TYPE:
     // build a fresh function (if possible)
-    v = vtbl_mk_unknown(vtbl);
+    v = make_fresh_function(egraph, vtbl, tau);
     break;
 
   case BOOL_TYPE:
   case SCALAR_TYPE:
-    // finite types so we can't create a fresh value for sure
+    // we can't create a fresh value
     v = vtbl_mk_unknown(vtbl);
     break;
 

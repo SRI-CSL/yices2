@@ -2375,7 +2375,7 @@ static void fun_solver_build_apps(fun_solver_t *solver) {
  * - we want to ensure 
  *   base_value[i] != base_value[j] ==> it's possible to assign
  *   different default values to components i and j
- * - base_value[i] < 0 means that we can assign to a fresh object (not in the egraph)
+ * - base_value[i] < 0 means that we can assign a fresh object (not in the egraph)
  *   to component i.
  *
  * We use the following rules:
@@ -2490,22 +2490,21 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
        * Finite range
        */
 
-      /*
-       * BUG: there may be variables of type sigma in a theory solver
-       * (i.e., the bitvector solver) that are not attached to any
-       * egraph terms. So we don't get an accurate count of the
-       * number of used values by just calling egraph_num_classes_of_type.
-       * (i.e., we have p <= actual number of used values <= h).
-       *
-       * Since p is not exact, we can't be sure that 'fresh values' are
-       * available.
-       */
-      
       // First, attempt to use fresh values
       p = egraph_num_classes_of_type(solver->egraph, sigma); // number of classes of type sigma in the egraph
       h = type_card(solver->types, sigma);
 
       assert(p <= h);
+
+      /*
+       * BUG HERE: p may be zero so the code will crash if h < i - m
+       *
+       * TODO: fix this approach so that we never use fresh_values for 
+       * a high-order type sigma (i.e. sigma is itself a function type or
+       * a type of function types, etc). In such cases, we must force
+       * the base_values to be taken from the E-graph. which may
+       * require the solver to create fresh terms in the E-graph.
+       */
 
 #if TRACE
       printf("---> assign base value: sigma = %"PRId32", card = %"PRIu32", num classes = %"PRIu32"\n",
@@ -2514,7 +2513,7 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
 #endif
 
       j = m;
-      while (false && p < h) { // BD: disabled this (April 24 2012)
+      while (p < h) {
         x = v->data[j];
         k = vtbl->base[x];
         assert(solver->base_value[k] == UNKNOWN_BASE_VALUE);
@@ -2847,7 +2846,7 @@ uint32_t fun_solver_reconcile_model(fun_solver_t *solver, uint32_t max_eq) {
   fun_vartable_t *vtbl;
   diseq_stack_t *dstack;
   int_hclass_t hclass;
-  int32_t i, x, y, n;
+  int32_t i, x, y, n, nv0;
   uint32_t neq;
 
   assert(!solver->bases_ready && !solver->apps_ready);
@@ -2880,6 +2879,12 @@ uint32_t fun_solver_reconcile_model(fun_solver_t *solver, uint32_t max_eq) {
   printf("\n");
 #endif
 
+  /*
+   * We keep track of the current number of variables before
+   * generating any extensionality axioms (extensionality axioms
+   * may create new variables in this solver.
+   */
+  nv0 = solver->vtbl.nvars;
   neq = 0;
   max_eq = solver->max_extensionality;
 
@@ -2895,6 +2900,12 @@ uint32_t fun_solver_reconcile_model(fun_solver_t *solver, uint32_t max_eq) {
       if (neq == max_eq) goto done;
     }
   }
+
+  /* 
+   * If the first pass has created more variables.  we can't trust the
+   * current model. So we skip the second pass.
+   */
+  if (nv0 < solver->vtbl.nvars) goto done;
 
   // check for more conflicts between the egraph classes and the solver model.
   init_int_hclass(&hclass, 0, solver, (iclass_hash_fun_t) fun_solver_model_hash,

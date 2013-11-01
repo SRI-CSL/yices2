@@ -971,11 +971,9 @@ typedef struct egraph_trail_stack_s {
  *
  *    2) bool fresh_value(void *arith_solver, rational_t *v, bool is_int)
  *
- *    Must store a value in v that's unique. The value must be distinct from 
- *    all the values assigned to theory variables in the solver and 
- *    different from any value returned by past calls to the same functions.
- *    If is_int is true, the value must be an integer. If is_int is false,
- *    a non-integer value is allowed.
+ *    Must store a value in v that's unique. If is_int is true, the
+ *    value must be an integer. If is_int is false, a non-integer
+ *    value is allowed.
  *
  *    Return false if that's not implemented or the value can't be constructed for
  *    whatever reason.
@@ -993,11 +991,17 @@ typedef struct egraph_trail_stack_s {
  *    2) bool fresh_value(void *bv_solver, bvconstant_t *b, uint32_t n)
  *
  *    Must store in b a value that's guaranteed to be unique and return true.
- *    n = bit size of the value requested. 
+ *    n = bit size of the value requested.
  *
  *    Must return false if that fails for whatever reason.
  *
  *
+ *  For both the arithmetic solver and the bitvector solver, 'unique
+ *  values' means values that are not already assigned to any egraph
+ *  class. Also successive calls to 'fresh_value' must return
+ *  different values.
+ *
+ * 
  *  c) function-theory solver
  *     ----------------------
  *
