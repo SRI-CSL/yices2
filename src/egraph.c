@@ -16,6 +16,7 @@
 #include "index_vectors.h"
 #include "tracer.h"
 
+#include "concrete_value_maker.h"
 #include "composites.h"
 #include "egraph_utils.h"
 #include "egraph_explanations.h"
@@ -7009,65 +7010,101 @@ static value_t egraph_fresh_bv_value(egraph_t *egraph, value_table_t *vtbl, uint
  */
 static value_t make_fresh_value(egraph_t *egraph, value_table_t *vtbl, type_t tau);
 
+
 /*
- * Build a fresh tuple
+ * Attempt to build a fresh tuple of type tau[0 ... n-1]
+ * - store in array val[0...n-1]
+ * - return true if the attempt succeeds, false otherwise
+ */
+static bool fresh_tuple(egraph_t *egraph, value_table_t *vtbl, type_t *tau, value_t *val, uint32_t n) {
+  uint32_t i, j;
+
+  for (i=0; i<n; i++) {
+    if (!is_finite_type(egraph->types, tau[i])) break;
+  }
+
+  if (i == n) return false;
+
+  for (j=0; j<n; j++) {
+    if (i != j) {
+      val[j] = vtbl_make_object(vtbl, tau[j]);
+    }
+  }
+  val[i] = make_fresh_value(egraph, vtbl, tau[i]);
+  assert(!object_is_unknown(vtbl, val[i]));
+  
+  return true;
+}
+
+
+/*
+ * Return the fresh object or unknown if we can't get one
  */
 static value_t make_fresh_tuple(egraph_t *egraph, value_table_t *vtbl, type_t tau) {
   type_table_t *types;
+  tuple_type_t *d;
   value_t *aux;
   value_t buffer[10];
+  uint32_t n;
   value_t v;
-  type_t sigma;
-  bool fresh;
-  uint32_t i, n;
 
   types = egraph->types;
-  n = tuple_type_arity(types, tau);
+  d = tuple_type_desc(types, tau);
+  n = d->nelem;
+
   aux = buffer;
   if (n > 10) {
     aux = (value_t *) safe_malloc(n * sizeof(value_t));
   }
 
-  fresh = false;
-  for (i=0; i<n; i++) {
-    sigma = tuple_type_component(types, tau, i);
-    switch (type_kind(types, sigma)) {
-    case BOOL_TYPE:
-      aux[i] = vtbl_mk_false(vtbl);
-      break;
-
-    case SCALAR_TYPE:
-      aux[i] = vtbl_mk_const(vtbl, sigma, 0, NULL);
-      break;
-
-    default:
-      aux[i] = make_fresh_value(egraph, vtbl, sigma);
-      if (! object_is_unknown(vtbl, aux[i])) {
-        fresh = true;
-      }
-      break;
-    } 
-  }
-
-  /*
-   * if all children have a reasonable value, construct a tuple
-   * otherwise return unknown (we need to make sure that all
-   * classes whose value is not unknown have distinct values).
-   */
-  if (fresh) {
+  if (fresh_tuple(egraph, vtbl, d->elem, aux, n)) {
     assert(all_known_values(vtbl, n, aux));
     v = vtbl_mk_tuple(vtbl, n, aux);
   } else {
     v = vtbl_mk_unknown(vtbl);
   }
-
-  if (n > 10) {
+  
+  if (n > 10) { 
     safe_free(aux);
   }
 
   return v;
 }
 
+
+/*
+ * Fresh function of type tau, where tau has infinite domain and finite range
+ * - ft = function_type descriptor for tau
+ */
+static value_t make_fresh_finite_range_function(egraph_t *egraph, value_table_t *vtbl, 
+						type_t tau, function_type_t *ft) {
+  value_t buffer[10];
+  value_t a[2];
+  value_t *aux;
+  uint32_t n;
+  value_t v;
+  
+  n = ft->ndom;
+
+  aux = buffer;
+  if (n > 10) {
+    aux = (value_t *) safe_malloc(n * sizeof(value_t));
+  }
+
+  if (vtbl_make_two_objects(vtbl, ft->range, a) && fresh_tuple(egraph, vtbl, ft->domain, aux, n)) {
+    // build the function that maps aux[0...n-1] to a[0] and everything else to a[1]   
+    v = vtbl_mk_map(vtbl, n, aux, a[0]);
+    v = vtbl_mk_function(vtbl, tau, 1, &v, a[1], NULL);
+  } else {
+    v = vtbl_mk_unknown(vtbl);
+  }
+  
+  if (n > 10) {
+    safe_free(aux);
+  }
+
+  return v;
+}
 
 /*
  * Fresh function of type tau (tau must be infinite)
@@ -7082,8 +7119,7 @@ static value_t make_fresh_function(egraph_t *egraph, value_table_t *vtbl, type_t
   ft = function_type_desc(types, tau);
   sigma = ft->range;
   if (is_finite_type(types, sigma)) {
-    // TO BE DONE
-    v = vtbl_mk_unknown(vtbl);
+    v = make_fresh_finite_range_function(egraph, vtbl, tau, ft);
   } else {
     // get a fresh value of type sigma, return the constant function
     // that maps everything to this value
@@ -7155,7 +7191,6 @@ static value_t make_fresh_value(egraph_t *egraph, value_table_t *vtbl, type_t ta
     v = vtbl_mk_unknown(vtbl);
     break;
 
-  case UNUSED_TYPE:
   default:
     // should not happen
     assert(false);
