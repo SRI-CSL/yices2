@@ -516,8 +516,6 @@ static void hset_normalize(map_hset_t *hset) {
 
 
 
-
-
 /*****************************************
  *  TABLE INITIALIZATION/DELETION/RESET  *
  ****************************************/
@@ -856,7 +854,6 @@ value_t vtbl_mk_unint(value_table_t *table, type_t tau, char *name) {
 
   return i;
 }
-
 
 
 

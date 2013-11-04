@@ -508,9 +508,9 @@ source-distribution: $(distributions)
 	cp doc/NOTES doc/YICES-LANGUAGE doc/GMP doc/manual.pdf \
            $(srcdist_dir)/doc
 	cp utils/gmp-hack.h utils/mingw-build utils/setup-vs2010 \
-	   utils/yices_parser.txt utils/yices_parser_tables.h \
-	   utils/smt_parser.txt utils/smt_parser_tables.h \
-	   utils/smt2_parser.txt utils/smt2_parser_tables.h \
+	   utils/yices_parser.txt utils/yices_input_tables.h \
+	   utils/smt_parser.txt utils/smt_input_tables.h \
+	   utils/smt2_parser.txt utils/smt2_input_tables.h \
 	   utils/table_builder.c $(srcdist_dir)/utils
 	cp etc/* $(srcdist_dir)/etc
 	for file in `ls examples | $(EGREP) '*.ys|*.txt|*.smt|*.c' ` ; do \

@@ -3830,7 +3830,7 @@ term_t mk_bvdiv(term_manager_t *manager, term_t t1, term_t t2) {
       return bvdiv_const64(manager, bvconst64_term_desc(tbl, t1), bvconst64_term_desc(tbl, t2));
     }
     k = bvconst64_term_is_power_of_two(bvconst64_term_desc(tbl, t2));
-    if (false && k >= 0) {
+    if (k >= 0) {
       return bvdiv_power(manager, t1, k);
     }
     break;
@@ -3840,7 +3840,7 @@ term_t mk_bvdiv(term_manager_t *manager, term_t t1, term_t t2) {
       return bvdiv_const(manager, bvconst_term_desc(tbl, t1), bvconst_term_desc(tbl, t2));
     }
     k = bvconst_term_is_power_of_two(bvconst_term_desc(tbl, t2));
-    if (false && k >= 0) {
+    if (k >= 0) {
       return bvdiv_power(manager, t1, k);
     }
     break;
@@ -3915,7 +3915,7 @@ term_t mk_bvrem(term_manager_t *manager, term_t t1, term_t t2) {
       return bvrem_const64(manager, bvconst64_term_desc(tbl, t1), bvconst64_term_desc(tbl, t2));
     }
     k = bvconst64_term_is_power_of_two(bvconst64_term_desc(tbl, t2));
-    if (false && k >= 0) {
+    if (k >= 0) {
       return bvrem_power(manager, t1, k);
     }
     break;
@@ -3925,7 +3925,7 @@ term_t mk_bvrem(term_manager_t *manager, term_t t1, term_t t2) {
       return bvrem_const(manager, bvconst_term_desc(tbl, t1), bvconst_term_desc(tbl, t2));
     }
     k = bvconst_term_is_power_of_two(bvconst_term_desc(tbl, t2));
-    if (false && k >= 0) {
+    if (k >= 0) {
       return bvrem_power(manager, t1, k);
     }
     break;
