@@ -20,6 +20,7 @@
 #include "ptr_vectors.h"
 #include "bitvectors.h"
 #include "diseq_stacks.h"
+#include "int_hash_map2.h"
 
 #include "smt_core.h"
 #include "egraph.h"
@@ -258,19 +259,32 @@ typedef struct fun_solver_s {
    *   variable x such that base[x] = i.
    * The base_value for i is either the label of an egraph term u or a special
    * code (a negative integer). All variables with the same base have a type 
-   * [domain --> range] and base_value[i] depends on whether range is finite.
-   * (Note: all variables have the same type). 
-   * - If range is infinite, we  can assign a fresh value to base_value[i] 
+   * [domain --> sigma] and base_value[i] denotes some object of type sigma.
+   * (Note: all variables have the same type).
+   * - base_value[i] can be an egraph class of type sigma: in this 
+   *   case. We set base_value[i] = label of some class (>= 0)
+   * - base_value[i] can be a fresh object of type sigam (i.e., a fresh
+   *   particle in the pstore. We encode this by setting base_value[i] = -(k+1)
+   *   for some non-negative index k.
+   *
+   * We use the following rules to assign base_values:
+   * - If sigma is infinite, we  can assign a fresh value to base_value[i] 
    *   (i.e., a value distinct from that of any other object in the egraph). 
    *   This is encoded by setting base[i] = - (i+1).
-   * - If range is finite, we search for a egraph term u of the right type in 
-   *   the egraph, and assign base_value[i] = label of u.
-   * - If there's no u of the right type in the egraph, we assign a special label 
-   *   UNKNOWN_BASE_VALUE
+   * - If sigma is finite, we search for distinct egraph terms (as many as we can)
+   *   and use them as base values. If there are not enough egraph terms, then
+   *   we create fresh_values (but we make sure the total number of elements
+   *   used as base values is not more than card(sigma)). The fresh values
+   *   are encoded as negative integers in the range [-p... -1] where 
+   *   p = card(sigma).
+   *
+   * When building the model, we convert the base values to particles.
+   * For a finite type, sigma we must make sure that all base values with
+   * the same negative index are converted to the same fresh particle.
+   * To support this, we allocate a hash map if needed.
    */
   uint32_t num_bases;
   int32_t *base_value;
-
 
   /*
    * Model: 
@@ -285,6 +299,11 @@ typedef struct fun_solver_s {
   map_t **base_map;
   uint32_t value_size;
   uint32_t base_map_size;
+
+  /*
+   * Hash map used to convert integer codes to fresh particles (for finite types).
+   */
+  int_hmap2_t *fresh_hmap;
 
 } fun_solver_t;
 

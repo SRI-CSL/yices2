@@ -603,7 +603,7 @@ static void fun_solver_init_base_maps(fun_solver_t *solver, uint32_t n) {
     tmp[i] = NULL;
   }
   solver->base_map = tmp;
-  solver->base_map_size = n;
+  solver->base_map_size = n;  
 }
 
 
@@ -630,6 +630,41 @@ static void fun_solver_delete_base_maps(fun_solver_t *solver) {
 }
 
 
+
+/*
+ * HASH MAP FOR FRESH PARTICLES
+ */
+
+/*
+ * Return the map. allocate and initialize it if necessary
+ */
+static int_hmap2_t *fun_solver_get_fresh_hmap(fun_solver_t *solver) {
+  int_hmap2_t *map;
+
+  map = solver->fresh_hmap;
+  if (map == NULL) {
+    map = (int_hmap2_t *) safe_malloc(sizeof(int_hmap2_t));
+    init_int_hmap2(map, 0); // use the default size
+    solver->fresh_hmap = map;
+  }
+
+  return map;
+}
+
+
+/*
+ * Delete the map if it exists
+ */
+static void fun_solver_delete_fresh_hmap(fun_solver_t *solver) {
+  int_hmap2_t *map;
+
+  map = solver->fresh_hmap;
+  if (map != NULL) {
+    delete_int_hmap2(map);
+    safe_free(map);
+    solver->fresh_hmap = NULL;
+  }
+}
 
 
 
@@ -1410,7 +1445,7 @@ static void negate_vector(ivector_t *v) {
 }
 
 
-#if 0
+#if TRACE
 /*
  * For debugging/trace: return the length of the path from x to z
  */
@@ -1830,6 +1865,7 @@ void init_fun_solver(fun_solver_t *solver, smt_core_t *core,
   solver->base_map = NULL;
   solver->value_size = 0;
   solver->base_map_size = 0;
+  solver->fresh_hmap = NULL;
 }
 
 
@@ -1861,6 +1897,8 @@ void delete_fun_solver(fun_solver_t *solver) {
     fun_solver_delete_base_maps(solver);
     assert(solver->base_map == NULL);
   }
+
+  fun_solver_delete_fresh_hmap(solver);
 }
 
 
@@ -1900,7 +1938,8 @@ void fun_solver_reset(fun_solver_t *solver) {
     safe_free(solver->base_value);
     solver->base_value = NULL;
   }
-  
+
+  fun_solver_delete_fresh_hmap(solver);
 }
 
 
@@ -2037,14 +2076,14 @@ fcheck_code_t fun_solver_final_check(fun_solver_t *solver) {
 #if TRACE
   printf("\n**** FUNSOLVER: FINAL CHECK ***\n\n");
 #endif 
-
+  
 #if TRACE
   print_egraph_terms(stdout, solver->egraph);
   printf("\n\n");
   print_egraph_root_classes_details(stdout, solver->egraph);
 #endif
 
-  if (solver->etbl.nedges == 0 && empty_diseq_stack(&solver->dstack)) {
+  if (solver->etbl.nedges == 0) {
     // nothing to do
     return FCHECK_SAT;
   }
@@ -2206,7 +2245,7 @@ void fun_solver_assert_var_diseq(fun_solver_t *solver, thvar_t x1, thvar_t x2, c
 void fun_solver_assert_var_distinct(fun_solver_t *solver, uint32_t n, thvar_t *a, composite_t *hint) {
   thvar_t x, y;
   uint32_t i, j;
-
+  
   for (i=0; i<n; i++) {
     x = a[i];
     assert(0 <= x && x < solver->vtbl.nvars);
@@ -2266,7 +2305,7 @@ static void propagate_application(fun_solver_t *solver, composite_t *c, thvar_t 
   thvar_t y, z;
   uint32_t n, i;
   int32_t k;
-
+  
   vtbl = &solver->vtbl;
   queue = &solver->queue;
   assert(queue->top == 0 && queue->ptr == 0);
@@ -2294,16 +2333,16 @@ static void propagate_application(fun_solver_t *solver, composite_t *c, thvar_t 
     do {
       edges = vtbl->edges[z]; // edges incident to z
       if (edges != NULL) {
-        n = iv_size(edges);
-        for (i=0; i<n; i++) {
-          k = edges[i];
-          y = adjacent_root(solver, z, k);
-          if (!tst_bit(vtbl->mark, y) && !masking_edge(solver, k, c)) {
-            // y not visited yet and reached via a non-masking path
-            fun_queue_push(queue, y);
-            set_bit(vtbl->mark, y);
-          }
-        }
+	n = iv_size(edges);
+	for (i=0; i<n; i++) {
+	  k = edges[i];
+	  y = adjacent_root(solver, z, k);
+	  if (!tst_bit(vtbl->mark, y) && !masking_edge(solver, k, c)) {
+	    // y not visited yet and reached via a non-masking path
+	    fun_queue_push(queue, y);
+	    set_bit(vtbl->mark, y);
+	  }
+	}
       }
       z = vtbl->next[z]; // next node in the class
     } while (z != null_thvar);
@@ -2381,13 +2420,9 @@ static void fun_solver_build_apps(fun_solver_t *solver) {
  * We use the following rules:
  * - if component i has an infinite range type, then base_value[i] = -(i+1)
  * - if component i has finite range type, then we count the number of 
- *   egraph class with the same type. 
- *   - if that's smaller than the cardinality of the range type,
- *     then we assign base_value[i] = -(i+1) to as many components as possible.
- *   - 
- *   same type in the egraph: base_value[i] = the label of that term
- * - if there are no objects of that type in the egraph, then we assign
- *   the special code base_value[i] =  UNKNOWN_BASE_VALUE
+ *   egraph class with the same type and use them as base values
+ * - if that's smaller than the cardinality of the range type,
+ *   then we assign negative base_values to as many components as possible.
  */
 #define UNKNOWN_BASE_VALUE  INT32_MAX
 #define NULL_BASE_VALUE     INT32_MIN
@@ -2416,7 +2451,7 @@ static void fun_solver_init_base_value(fun_solver_t *solver) {
  */
 static bool root_lt(fun_vartable_t *vtbl, thvar_t x, thvar_t y) {
   assert(0 <= x && x < vtbl->nvars && vtbl->root[x] == x &&
-         0 <= y && y < vtbl->nvars && vtbl->root[y] == y);
+	 0 <= y && y < vtbl->nvars && vtbl->root[y] == y);
 
   return vtbl->type[x] < vtbl->type[y];
 }
@@ -2426,11 +2461,10 @@ static bool root_lt(fun_vartable_t *vtbl, thvar_t x, thvar_t y) {
  * Assign a base value to all connected components
  */
 static void fun_solver_assign_base_values(fun_solver_t *solver) {
+  ivector_t buffer;
   fun_vartable_t *vtbl;
   type_table_t *types;
   ivector_t *v;
-  elabel_t *b;
-  elabel_t buffer[4];
   type_t tau, sigma;
   uint32_t i, j, h, n, m, p;
   thvar_t x;
@@ -2441,6 +2475,13 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
   vtbl = &solver->vtbl;
   v = &solver->aux_vector;
   assert(v->size == 0);
+  
+  /*
+   * buffer is used only if we have functions
+   * with finite ranges. init_ivector with size 0 
+   * does not allocate anything.
+   */
+  init_ivector(&buffer, 0);
 
   /*
    * Collect a root variable from each connected
@@ -2469,7 +2510,6 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
   types = solver->types;
   n = v->size;
   m = 0;
-  b = NULL;
   while (m < n) {
     x = v->data[m];
     assert(vtbl->root[x] == x);
@@ -2483,86 +2523,59 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
 
     assert(m < i && i <= n);
 
-    // v->data[m ... i-1] = components of type tau (one variable per component)
+    /* 
+     * v->data[m ... i-1] = components of type tau (one variable per component)
+     */
     sigma = function_type_range(types, tau);
     if (is_finite_type(types, sigma)) {
       /*
-       * Finite range
+       * Finite range: we need i - m base values of type sigma
        */
-
-      // First, attempt to use fresh values
-      p = egraph_num_classes_of_type(solver->egraph, sigma); // number of classes of type sigma in the egraph
       h = type_card(solver->types, sigma);
-
-      assert(p <= h);
-
-      /*
-       * BUG HERE: p may be zero so the code will crash if h < i - m
-       *
-       * TODO: fix this approach so that we never use fresh_values for 
-       * a high-order type sigma (i.e. sigma is itself a function type or
-       * a type of function types, etc). In such cases, we must force
-       * the base_values to be taken from the E-graph. which may
-       * require the solver to create fresh terms in the E-graph.
-       */
+      p = i - m;
+      if (p > h) p = h;
 
 #if TRACE
       printf("---> assign base value: sigma = %"PRId32", card = %"PRIu32", num classes = %"PRIu32"\n",
-             sigma, h, p);
+             sigma, h, i - m);
       fflush(stdout);
 #endif
 
-      j = m;
-      while (p < h) {
-        x = v->data[j];
-        k = vtbl->base[x];
-        assert(solver->base_value[k] == UNKNOWN_BASE_VALUE);
-        solver->base_value[k] = -(k+1); // fresh value
+      /*
+       * Make the buffer large enough
+       */
+      resize_ivector(&buffer, p);
+      assert(buffer.capacity >= p);
+
+      /*
+       * Fill in the buffer with values from the egraph (as many as we can)
+       * then with fresh values. Since p <= card sigma, this is sound.
+       */
+      h = egraph_get_labels_for_type(solver->egraph, sigma, buffer.data, p);
+      assert(h <= p);
+      k = -1; // negative index for fresh values if needed
+      while (h < p) {
+	buffer.data[h] = k;
+	k --;
+	h ++;
+      }	
+
+      /*
+       * Assign base_values taken form buffer.data[0 .. p-1]
+       */      
+      h = 0;
+      for (j=m; j<i; j++) {
+	x = v->data[j];
+	k = vtbl->base[x];
+	assert(solver->base_value[k] == UNKNOWN_BASE_VALUE);
+	solver->base_value[k] = buffer.data[h];
 #if TRACE
-        printf("---> base_value[%"PRId32"] = %"PRId32"\n", k, solver->base_value[k]);
+	printf("---> base_value[%"PRId32"] = %"PRId32"\n", k, solver->base_value[k]);
 #endif
-        j ++;
-        p ++;
-        if (j == i) break;
+	h ++;
+	if (h >= p) h = 0;
       }
-
-      if (j < i) {
-        // Fresh values are exhausted, get values from the egraph
-
-        // allocate a buffer b to store base labels
-        if (b == NULL) {
-          b = buffer;
-          if (solver->num_bases > 4) {
-            b = (elabel_t *) safe_malloc(solver->num_bases * sizeof(elabel_t));
-          }
-        }
-
-        // get base labels from the egraph
-        //      p = egraph_get_labels_for_type(solver->egraph, sigma, b, i - m);
-        p = egraph_get_labels_for_type(solver->egraph, sigma, b, i - j);
-
-        /*
-         * Assign the labels in b[0 ... p-1] to components of type tau.
-         */
-        assert(p > 0);
-        h = 0;
-        while (j < i) {
-          x = v->data[j];
-          k = vtbl->base[x];
-          assert(solver->base_value[k] == UNKNOWN_BASE_VALUE && h < p);
-          solver->base_value[k] = b[h];
-#if TRACE
-          printf("---> base_value[%"PRId32"] = %"PRId32"\n", k, solver->base_value[k]);
-#endif
-          h ++;
-          j ++;
-          if (h == p) {
-            h = 0;
-          }
-        }
-      }
-
-
+      
     } else {
       /*
        * Infinite range: all base values are fresh
@@ -2578,10 +2591,8 @@ static void fun_solver_assign_base_values(fun_solver_t *solver) {
     m = i;
   }
 
-  // cleanup
-  if (b != NULL && solver->num_bases > 4) {
-    safe_free(b);
-  }
+  // cleanup  
+  delete_ivector(&buffer);
   ivector_reset(v);
   
 }
@@ -3048,6 +3059,37 @@ static void fun_solver_collect_roots(fun_solver_t *solver, ivector_t *roots) {
 }
 
 
+/*
+ * Convert a negative base_value code into a fresh particle of type sigma
+ * - k = code
+ * - if sigma is finite, we use the fresh_hmap
+ */
+static particle_t fun_solver_fresh_particle(fun_solver_t *solver, int32_t k, type_t sigma, pstore_t *store) {
+  int_hmap2_t *hmap;
+  int_hmap2_rec_t *r;
+  bool new;
+  particle_t d;
+
+  assert(k < 0);
+
+  if (is_finite_type(solver->types, sigma)) {
+    k = (- k) - 1;
+    assert(0 <= k && k < type_card(solver->types, sigma));
+
+    hmap = fun_solver_get_fresh_hmap(solver);
+    r = int_hmap2_get(hmap, sigma, k, &new);
+    if (new) {
+      r->val = pstore_fresh_particle(store, sigma);
+    }
+    d = r->val;
+  } else {
+    // infinite type:
+    d = pstore_fresh_particle(store, sigma);
+  }
+
+  return d;
+}
+
 
 /*
  * Convert a unary application c = (apply g i) to a pair [idx -> val] 
@@ -3279,7 +3321,7 @@ static void build_maps_for_type(fun_solver_t *solver, type_t tau, uint32_t n, th
     if (map == NULL) {
       // get the default value for this component
       if (solver->base_value[b] < 0) {
-        d = pstore_fresh_particle(store, sigma);
+        d = fun_solver_fresh_particle(solver, solver->base_value[b], sigma, store);
       } else {
         assert(egraph_label_is_valid(solver->egraph, solver->base_value[b]));
         d = pstore_labeled_particle(store, solver->base_value[b], sigma);
@@ -3433,6 +3475,7 @@ void fun_solver_build_model(fun_solver_t *solver, pstore_t *store) {
 
     // cleanup
     fun_solver_delete_base_maps(solver);
+    fun_solver_delete_fresh_hmap(solver);
     delete_fun_tree(&fun_tree);
     delete_ivector(&root_vector);
   }

@@ -462,7 +462,7 @@ extern value_t vtbl_mk_map(value_table_t *table, uint32_t n, value_t *a, value_t
  *   to have duplicate elements in a.
  * - def = default value (must be unknown if no default is given).
  *
- * NOTE: a is modified by the function.
+ * NOTE: array a is modified.
  */
 extern value_t vtbl_mk_function(value_table_t *table, type_t tau, uint32_t n, value_t *a, value_t def, char *name);
 
@@ -473,6 +473,41 @@ extern value_t vtbl_mk_function(value_table_t *table, type_t tau, uint32_t n, va
  */
 extern value_t vtbl_mk_update(value_table_t *table, value_t f, uint32_t n, value_t *a, value_t v);
 
+
+
+/*
+ * CHECK WHETHER OBJECTS ARE PRESENT
+ */
+
+/*
+ * Check whether a rational or integer constant is in the table
+ */
+extern bool vtbl_test_rational(value_table_t *table, rational_t *v);
+extern bool vbtl_test_int32(value_table_t *table, int32_t x);
+
+/*
+ * Check presence of a bitvector constant defined by array of n integers:
+ * - bit i is 0 if a[i] == 0
+ * - bit i is 1 otherwise
+ * - n = number of bits (must be positive).
+ */
+extern bool vtbl_test_bv(value_table_t *table, uint32_t n, int32_t *a);
+
+/*
+ * Same thing for the bitvector defined by c:
+ * - n = number of bits (must be <= 64)
+ */
+extern bool vtbl_test_bv64(value_table_t *table, uint32_t n, uint64_t c);
+
+/*
+ * Check whether the constant of type tau and index i is present
+ */
+extern bool vtbl_test_const(value_table_t *table, type_t tau, int32_t id);
+
+/*
+ * Check whether the tuple e[0] ... e[n-1] is present
+ */
+extern bool vtbl_test_tuple(value_table_t *table, uint32_t n, value_t *e);
 
 
 
@@ -620,8 +655,6 @@ static inline bool object_is_canonical(value_table_t *table, value_t v) {
 }
 
 
-
-
 // check value of v
 static inline bool is_unknown(value_table_t *table, value_t v) {
   assert(good_object(table, v));
@@ -702,7 +735,6 @@ static inline value_update_t *vtbl_update(value_table_t *table, value_t v) {
  * - hset1->nelems = number of mappings in hset1->data
  */
 extern void vtbl_expand_update(value_table_t *table, value_t i, value_t *def, type_t *tau);
-
 
 /*
  * Push v into the internal queue

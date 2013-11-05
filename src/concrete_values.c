@@ -8,6 +8,7 @@
 #include "memalloc.h"
 #include "hash_functions.h"
 #include "int_array_sort.h"
+#include "bv64_constants.h"
 #include "concrete_values.h"
 
 
@@ -1716,7 +1717,6 @@ value_t vtbl_mk_function(value_table_t *table, type_t tau, uint32_t n, value_t *
     n = remove_redundant_mappings(table, n, a, def);
   }
 
-
   fun_hobj.table = table;
   fun_hobj.type = tau;
   fun_hobj.arity = function_type_arity(table->type_table, tau);
@@ -1776,6 +1776,93 @@ value_t vtbl_mk_update(value_table_t *table, value_t f, uint32_t n, value_t *a, 
 
 
 
+
+/**************************************
+ *  TEST WHETHER OBJECTS ARE PRESENT  *
+ *************************************/
+
+/*
+ * Check whether a rational or integer constant is in the table
+ */
+bool vtbl_test_rational(value_table_t *table, rational_t *v) {
+  rational_hobj.table = table;
+  q_set(&rational_hobj.v, v);
+
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &rational_hobj) >= 0;
+}
+
+bool vbtl_test_int32(value_table_t *table, int32_t x) {
+  rational_hobj.table = table;
+  q_set32(&rational_hobj.v, x);
+
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &rational_hobj) >= 0;
+}
+
+/*
+ * Check presence of a bitvector constant defined by array of n integers:
+ * - bit i is 0 if a[i] == 0
+ * - bit i is 1 otherwise
+ * - n = number of bits (must be positive).
+ */
+bool vtbl_test_bv(value_table_t *table, uint32_t n, int32_t *a) {
+  bvconstant_t *b;
+
+  // copy the constant in table's buffer
+  b = &table->buffer;
+  bvconstant_set_bitsize(b, n);
+  bvconst_set_array(b->data, a, n);
+  bvconst_normalize(b->data, n);
+
+  // hash-consing
+  bv_hobj.table = table;
+  bv_hobj.nbits = n;
+  bv_hobj.data = b->data;
+
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &bv_hobj) >= 0;
+}
+
+/*
+ * Same thing for the bitvector defined by c:
+ * - n = number of bits (must be <= 64)
+ */
+bool vtbl_test_bv64(value_table_t *table, uint32_t n, uint64_t c) {
+  uint32_t aux[2];
+
+  c = norm64(c, n);
+  aux[0] = (uint32_t) c;
+  aux[1] = (uint32_t) (c >> 32);
+
+  bv_hobj.table = table;
+  bv_hobj.nbits = n;
+  bv_hobj.data = aux;
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &bv_hobj) >= 0; 
+}
+
+/*
+ * Check whether the constant of type tau and index i is present
+ */
+bool vtbl_test_const(value_table_t *table, type_t tau, int32_t id) {
+  assert(type_kind(table->type_table, tau) == SCALAR_TYPE || 
+         type_kind(table->type_table, tau) == UNINTERPRETED_TYPE);
+  assert(0 <= id);
+
+  const_hobj.table = table;
+  const_hobj.tau = tau;
+  const_hobj.id = id;
+
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &const_hobj) >= 0;
+}
+
+/*
+ * Check whether the tuple e[0] ... e[n-1] is present
+ */
+bool vtbl_test_tuple(value_table_t *table, uint32_t n, value_t *e) {
+  tuple_hobj.table = table;
+  tuple_hobj.nelems = n;
+  tuple_hobj.elem = e;
+
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &tuple_hobj) >= 0;
+}
 
 
 
@@ -1883,6 +1970,76 @@ static bool semi_canonical(value_table_t *table, value_t f) {
 
 
 /*
+ * Check whether the functions f1 and f2 are equal
+ * - the maps and default values for both must be canonical
+ */
+static value_t vtbl_eval_eq_functions(value_table_t *table, value_t f1, value_t f2) {
+  value_fun_t *d1, *d2;
+  value_map_t *m;
+  value_t v;
+  uint32_t arity, n, i, k;
+
+  assert(semi_canonical(table, f1) && semi_canonical(table, f2) && f1 != f2);
+
+  d1 = vtbl_function(table, f1);
+  d2 = vtbl_function(table, f2);
+  if (d1->def == d2->def) goto not_equal; // f1 and f2 have the same default but different maps
+
+  arity = d1->arity;
+  assert(d2->arity == arity);
+
+  n = d1->map_size;
+  for (i=0; i<n; i++) {
+    m = vtbl_map(table, d1->map[i]);
+    v = hash_eval_app(table, f2, arity, m->arg);
+    k ++;
+    if (v == null_value) v = d2->def;
+    /*
+     * f1 maps m->arg[0 ... arity-1] to m->val
+     * f2 maps m->arg[0 ... arity-1] to v
+     * both m->value and v are canonical
+     */
+    assert(object_is_canonical(table, v) && 
+	   object_is_canonical(table, m->val));
+    if (v != m->val) goto not_equal;
+  }
+
+  /*
+   * k = number of elements in the domain 
+   * where f1 and f2 agree.
+   */
+  k = n;
+  n = d2->map_size;
+  for (i=0; i<n; i++) {
+    m = vtbl_map(table, d2->map[i]);
+    v = hash_eval_app(table, f1, arity, m->arg);
+    if (v == null_value) {
+      k ++; // element in f2's map that's not in f1's map
+      v = d1->def;
+    }
+    assert(object_is_canonical(table, v) &&
+	   object_is_canonical(table, m->val));
+    if (v != m->val) goto not_equal;
+  }
+
+  /*
+   * The maps of f1 and f2 are equal, the default values are
+   * distinct. If we can find a tuple in the domain of f1 and f2
+   * that's not in map of f1 nor in map of f2, then f1 and f2 are
+   * distinct.
+   */
+  if (type_has_finite_domain(table->type_table, d1->type) &&
+      k == card_of_domain_type(table->type_table, d1->type)) {
+    // f1 and f2 agree on all elements in their domain
+    return vtbl_mk_true(table);
+  }
+
+ not_equal:
+  return vtbl_mk_false(table);
+}
+
+
+/*
  * Evaluate (eq a b)
  *
  * TODO: improve this. We could do much more when checking equality
@@ -1902,10 +2059,8 @@ value_t vtbl_eval_eq(value_table_t *table, value_t a, value_t b) {
      * a and b are non canonical
      */
     if (object_is_function(table, a) && object_is_function(table, b) && 
-        semi_canonical(table, a) && semi_canonical(table, b) && 
-        vtbl_function(table, a)->def == vtbl_function(table, b)->def) {
-      // since the two maps have the same default value, there's no ambiguity
-      v = vtbl_mk_false(table);
+        semi_canonical(table, a) && semi_canonical(table, b)) {
+      v = vtbl_eval_eq_functions(table, a, b);
     } else {
       v = vtbl_mk_unknown(table);
     }
@@ -1921,16 +2076,17 @@ value_t vtbl_eval_eq(value_table_t *table, value_t a, value_t b) {
  */
 value_t vtbl_eval_array_eq(value_table_t *table, value_t *a, value_t *b, uint32_t n) {
   uint32_t i;
+  value_t v;
 
   for (i=0; i<n; i++) {
     assert(good_object(table, a[i]) && good_object(table, b[i]));
 
     if (a[i] != b[i]) {
-      if (object_is_canonical(table, a[i]) || object_is_canonical(table, b[i])) {
-        return vtbl_mk_false(table);
-      } else {
-        return vtbl_mk_unknown(table);
+      v = vtbl_eval_eq(table, a[i], b[i]);
+      if (v == vtbl_mk_false(table) || v == vtbl_mk_unknown(table)) {
+	return v;
       }
+      assert(v == vtbl_mk_true(table));
     }
   }
 
