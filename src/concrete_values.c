@@ -1992,7 +1992,6 @@ static value_t vtbl_eval_eq_functions(value_table_t *table, value_t f1, value_t 
   for (i=0; i<n; i++) {
     m = vtbl_map(table, d1->map[i]);
     v = hash_eval_app(table, f2, arity, m->arg);
-    k ++;
     if (v == null_value) v = d2->def;
     /*
      * f1 maps m->arg[0 ... arity-1] to m->val
