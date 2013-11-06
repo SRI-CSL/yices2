@@ -394,6 +394,13 @@ static void reset_map_hset(map_hset_t *hset) {
 }
 
 
+/*
+ * Hash code for a tuple of objects a[0 ... n]
+ */
+static inline uint32_t hash_map_tuple(value_t *a, uint32_t n) {
+  return jenkins_hash_intarray2(a, n, 0x543f1a83);
+}
+
 
 /*
  * Hash code for mapping object i
@@ -403,9 +410,8 @@ static uint32_t hash_map_object(value_table_t *table, value_t i) {
 
   assert(object_is_map(table, i));
   map = (value_map_t *) table->desc[i].ptr;
-  return jenkins_hash_intarray2(map->arg, map->arity, 0x543f1a83);
+  return hash_map_tuple(map->arg, map->arity);
 }
-
 
 
 /*
@@ -458,7 +464,6 @@ static void map_hset_extend(value_table_t *table, map_hset_t *hset) {
 }
 
 
-
 /*
  * Add mapping object i to hset:
  * - no change if i matches an existing element in hset
@@ -488,6 +493,30 @@ static void hset_add_map(value_table_t *table, map_hset_t *hset, value_t i) {
   }
 }
 
+
+/*
+ * Return the map_object that matches tuple a[0... n-1]
+ * - return null_value if there's no such object
+ */
+static value_t hset_find_map(value_table_t *table, map_hset_t *hset, value_t *a, uint32_t n) {
+  value_t *d;
+  value_t k;
+  uint32_t j, mask;
+
+  assert(hset->nelems < hset->size);
+  mask = hset->size - 1;
+  d = hset->data;
+  j = hash_map_tuple(a, n);
+  for (;;) {
+    k = d[j];
+    if (k < 0) break; // nothing matches
+    if (mapping_matches_array(table, k, n, a)) return k;
+    j ++;
+    j &= mask;
+  }
+
+  return null_value;
+}
 
 /*
  * Normalize: collect all elements of hset into hset->data[0 ... n-1]
@@ -989,20 +1018,55 @@ void vtbl_expand_update(value_table_t *table, value_t i, value_t *def, type_t *t
  * - that may be ambiguous if the domain is finite and the default is not unknown
  * - to ensure a normal representation, we force the default value to be
  *   the most common value for f (ties are breaking by selecting as default
- *   values, the one with the smallest id).
+ *   value the one with the smallest id).
  */
+
+/*
+ * Return the element x of a that occurs most often
+ * - ties are broken by selecting elements with smaller index
+ * - a must be nonempty and sorted in increasing order
+ * - return the number of occurrences of x in *count
+ */
+static value_t majority_element(value_t *a, uint32_t n, uint32_t *count) {
+  uint32_t i;
+  value_t b, x;
+  uint32_t nb, nx;
+
+  assert(n > 0);
+
+  // b =  best so far, nb = best count so far
+  b = null_value;
+  nb = 0;
+
+  x = a[0];
+  nx = 1;
+  for (i=1; i<n; i++) {
+    if (x == a[i]) {
+      nx ++;
+    } else {
+      if (nx > nb) {
+	b = x;
+	nb = nx;
+      }
+      x = a[i];
+      nx = 0;
+    }
+  }
+
+  *count = nb;
+  return b;
+}
 
 /*
  * Get the most frequent value in the range of map[0 ... n-1]
  * - n must be positive
- * - if there are ties, the one with smallest id is returned
+ * - if there are ties, the value with smallest id is returned
  * - store the number of occurrences in *count.
  */
 static value_t get_default_for_map(value_table_t *table, uint32_t n, value_t *a, uint32_t *count) {
   ivector_t *v;
   uint32_t i;
-  value_t b, x;
-  uint32_t nb, nx;
+  value_t x;
 
   assert(n > 0);
 
@@ -1013,27 +1077,10 @@ static value_t get_default_for_map(value_table_t *table, uint32_t n, value_t *a,
   }
   int_array_sort(v->data, n);
 
-  // b =  best so far, nb = best count so far
-  b = null_value;
-  nb = 0;
+  x = majority_element(v->data, n, count);
+  ivector_reset(v);
 
-  x = v->data[1];
-  nx = 1;
-  for (i=1; i<n; i++) {
-    if (x == v->data[i]) {
-      nx ++;
-    } else {
-      if (nx > nb) {
-	b = x;
-	nb = nx;
-      }
-      x = v->data[i];
-      nx = 0;
-    }
-  }
-
-  *count = nb;
-  return b;
+  return x;
 }
 
 
@@ -1050,8 +1097,58 @@ static value_t get_default_for_map(value_table_t *table, uint32_t n, value_t *a,
  * swapping.
  */
 static uint32_t swap_default_for_map(value_table_t *table, type_t tau, uint32_t n, value_t *a, value_t old_def, value_t new_def) {
-  // TOBEDONE
-  return n;
+  value_t buffer[10];
+  value_t *aux;
+  function_type_t *ft;
+  map_hset_t *hset;
+  uint32_t i, j, m, dsize;
+  value_t k;
+  
+  assert(old_def != new_def);
+
+  // add all the current maps of a to hset2
+  hset = get_hset2(table);
+  reset_map_hset(hset);
+  for (i=0; i<n; i++) {
+    hset_add_map(table, hset, a[i]);
+  }
+
+  ft = function_type_desc(table->type_table, tau);
+  m = ft->ndom; // function arity
+
+  aux = buffer;
+  if (m > 10) aux = (value_t *) safe_malloc(m * sizeof(value_t));
+
+  dsize = card_of_domain_type(table->type_table, tau);
+  assert(dsize < UINT32_MAX); // i.e., dsize is the exact cardinality
+
+  /*
+   * scan all tuples in domain of tau
+   * for each tuple: search for a matching map in hset2
+   * - if there's none add the map [tuple -> old_def] to a
+   * - if the map's value is equal to new_def skip it
+   * - otherwise, add it to a
+   */
+  j = 0;
+  for (i=0; i<dsize; i++) {
+    vtbl_gen_object_tuple(table, m, ft->domain, i, aux);
+    k = hset_find_map(table, hset, aux, m);
+    if (k < 0) {
+      k = vtbl_mk_map(table, m, aux, old_def);
+      a[j] = k;
+      j ++;
+    } else if (vtbl_map_result(table, k) != new_def) {
+      a[j] = k;
+      j ++;
+    }
+  }
+  
+  if (m > 10) safe_free(aux);
+
+  assert(j <= n);
+  int_array_sort(a, j);
+
+  return j;
 }
 
 
@@ -1066,7 +1163,7 @@ static uint32_t swap_default_for_map(value_table_t *table, type_t tau, uint32_t 
  * the function returns the number of elements in a. Otherwise, the function returns n.
  *
  * NOTE: this must be called after the standard normalization procedure:
- * - array a must not contain duplicate maps nor any map the same value as def
+ * - array a must not contain duplicate maps nor any map that give the same value as def
  */
 static uint32_t normalize_finite_domain_function(value_table_t *table, type_t tau, uint32_t n, value_t *a, value_t *def) {
   uint32_t dsize, def_count, new_count;
@@ -1833,23 +1930,19 @@ value_t vtbl_mk_function(value_table_t *table, type_t tau, uint32_t n, value_t *
     n = remove_redundant_mappings(table, n, a, def);
   }
 
+  // if the function has finite domain and the default is something other than unknown
+  // we may need more normalization
+  if (type_has_finite_domain(table->type_table, tau) && !object_is_unknown(table, def)) {
+    n = normalize_finite_domain_function(table, tau, n, a, &def);
+  }
+
   fun_hobj.table = table;
   fun_hobj.type = tau;
   fun_hobj.arity = function_type_arity(table->type_table, tau);
   fun_hobj.def = def;
   fun_hobj.map_size = n;
   fun_hobj.map = a;
-
-  /*
-   * Check whether the pair (map + default) is a canonical representation
-   * for this function. The representation is ambiguous if the same function
-   * can be represented via another pair (map1 + default1).
-   *
-   * This happens if the function has a finite domain and the 
-   * default value is something other than unknown. 
-   */
-  fun_hobj.ambiguous = type_has_finite_domain(table->type_table, tau) && 
-    !object_is_unknown(table, def);
+  fun_hobj.ambiguous = false;
 
   return int_htbl_get_obj(&table->htbl, (int_hobj_t*) &fun_hobj);
 }
@@ -2015,22 +2108,11 @@ static void vtbl_expand_tuple_code(type_table_t *types, uint32_t n, type_t *tau,
  * - store the result into a[0 ... n-1]
  */
 void vtbl_gen_object_tuple(value_table_t *table, uint32_t n, type_t *tau, uint32_t i, value_t *a) {
-  uint32_t code[10];
-  uint32_t *aux;
   uint32_t j;
 
-  aux = code;
-  if (n > 10) {
-    aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
-  }
-
-  vtbl_expand_tuple_code(table->type_table, n, tau, i, aux);
+  vtbl_expand_tuple_code(table->type_table, n, tau, i, (uint32_t *) a);
   for (j=0; j<n; j++) {
-    a[i] = vtbl_gen_object(table, tau[j], aux[j]);
-  }
-
-  if (n > 10) {
-    safe_free(aux);
+    a[j] = vtbl_gen_object(table, tau[j], (uint32_t ) a[j]);
   }
 }
 
@@ -2045,15 +2127,12 @@ static value_t vtbl_gen_tuple(value_table_t *table, tuple_type_t *d, uint32_t i)
 
   n = d->nelem;
   aux = buffer;
-  if (n > 10) {
-    aux = (value_t *) safe_malloc(n * sizeof(value_t));
-  }
+  if (n > 10) aux = (value_t *) safe_malloc(n * sizeof(value_t));
+
   vtbl_gen_object_tuple(table, n, d->elem, i, aux);
   v = vtbl_mk_tuple(table, n, aux);
 
-  if (n > 10) {
-    safe_free(aux);
-  }
+  if (n > 10) safe_free(aux);
 
   return v;
 }
@@ -2079,10 +2158,83 @@ static void vtbl_expand_function_code(type_table_t *types, uint32_t n, type_t si
 
 
 /*
- * TOBEDONE
+ * Construct the function of type tau defined by a[0 ... n-1]
+ * - f = type descriptor for tau
+ * - n = size of tau's domain
+ * - every element of a is in tau's range
  */
-static value_t vtbl_make_function_from_value_map(value_table_t *table, function_type_t *f, uint32_t n, value_t *a) {
-  return vtbl_mk_unknown(table);
+static value_t vtbl_make_function_from_value_map(value_table_t *table, type_t tau, function_type_t *f, uint32_t n, value_t *a) {
+  value_t buffer[10];
+  value_t buffer2[32];
+  value_t *aux;
+  value_t *map;
+  ivector_t *v;
+  uint32_t i, j, m, count;
+  value_t k, def;
+
+  assert(f == function_type_desc(table->type_table, tau));
+
+  // compute the default value
+  v = &table->aux_vector;
+  resize_ivector(v, n);
+  for (i=0; i<n; i++) {
+    v->data[i] = a[i];
+  }
+  int_array_sort(v->data, n);
+  def = majority_element(v->data, n, &count);
+  ivector_reset(v);
+
+  assert(count <= n);
+  
+  if (count == 0) {
+    // special case: constant function
+    k = vtbl_mk_function(table, tau, 0, NULL, def);
+  } else {
+
+    // allocate array map of size (n - count) to store the map objects
+    map = buffer2;
+    if (n - count > 32) {
+      map = (value_t *) safe_malloc((n - count) * sizeof(value_t));
+    }
+
+    m = f->ndom; // function arity
+    aux = buffer;
+    if (m > 10) aux = (value_t *) safe_malloc(m * sizeof(value_t));
+
+    // build the map objects: add them to array map
+    // we skip all map objects whose value is def
+    j = 0;
+    for (i=0; i<n; i++) {
+      if (a[i] != def) {
+	vtbl_gen_object_tuple(table, m, f->domain, i, aux);
+	k = vtbl_mk_map(table, m, aux, a[i]);
+	map[j] = k;
+	j ++;
+      }
+    }
+
+    assert(j == n - count);
+
+    // no need to remove duplicate etc. so we just sort and
+    // call the hash-consing constructor
+    int_array_sort(map, j);
+
+    fun_hobj.table = table;
+    fun_hobj.type = tau;
+    fun_hobj.arity = m;
+    fun_hobj.def = def;
+    fun_hobj.map_size = j;
+    fun_hobj.map = map;
+    fun_hobj.ambiguous = false;
+
+    k = int_htbl_get_obj(&table->htbl, (int_hobj_t*) &fun_hobj);
+
+    // cleanup
+    if (m > 10) safe_free(aux);
+    if (n - count > 32) safe_free(map);
+  }
+
+  return k;
 }
 
 
@@ -2102,20 +2254,16 @@ static value_t vtbl_gen_function(value_table_t *table, type_t tau, uint32_t i) {
 
   n = card_of_domain_type(types, tau);
   aux = buffer;
-  if (n > 32) {
-    aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
-  }
+  if (n > 32) aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
 
   f = function_type_desc(types, tau);
   vtbl_expand_function_code(types, n, f->range, i, aux);
   for (j=0; j<n; j++) {
     aux[j] = vtbl_gen_object(table, f->range, aux[j]);
   }
-  v = vtbl_make_function_from_value_map(table, f, n, (value_t *) aux);
+  v = vtbl_make_function_from_value_map(table, tau, f, n, (value_t *) aux);
 
-  if (n > 32) {
-    safe_free(aux);
-  }
+  if (n > 32) safe_free(aux);
 
   return v;
 }
@@ -2191,9 +2339,7 @@ void vtbl_gen_function_map(value_table_t *table, type_t tau, uint32_t i, value_t
 
   n = card_of_domain_type(table->type_table, tau);
   aux = buffer;
-  if (n > 32) {
-    aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
-  }
+  if (n > 32) aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
   
   sigma = function_type_range(table->type_table, tau);
   vtbl_expand_function_code(table->type_table, n, sigma, i, aux);
@@ -2201,9 +2347,7 @@ void vtbl_gen_function_map(value_table_t *table, type_t tau, uint32_t i, value_t
     a[j] = vtbl_gen_object(table, sigma, aux[j]);
   }
 
-  if (n > 32) {
-    safe_free(aux);
-  }
+  if (n > 32) safe_free(aux);
 }
 
 
