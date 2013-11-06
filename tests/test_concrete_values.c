@@ -184,10 +184,6 @@ static void test_constants(void) {
 }
 
 
-
-
-
-
 int main() {
   init_tables();
   test_constants();

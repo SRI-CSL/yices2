@@ -3338,6 +3338,22 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
       return;
     }
 
+    /*
+     * because of the annoying :named annotation 
+     * the name could be assigned now (even though
+     * it was not when (define name ...)) was processed
+     */
+    if (yices_get_term_by_name(name) != NULL_TERM) {
+      if (symbol_needs_quotes(name)) {
+	print_error("Invalid definition: can't (define |%s| ...) and use |%s| in a :named annotation",
+		    name, name);
+      } else {
+	print_error("Invalid definition: can't (define %s ...) and use %s in a :named annotation",
+		    name, name);
+      }
+      return;
+    }
+
     t = body;
     if (n > 0) {
       t = yices_lambda(n, var, t);
