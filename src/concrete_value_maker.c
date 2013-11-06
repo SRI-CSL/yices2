@@ -68,7 +68,7 @@ value_t vtbl_make_object(value_table_t *vtbl, type_t tau) {
 
   case FUNCTION_TYPE:
     v = vtbl_make_object(vtbl, function_type_range(types, tau));
-    v = vtbl_mk_function(vtbl, tau, 0, NULL, v, NULL); // constant function
+    v = vtbl_mk_function(vtbl, tau, 0, NULL, v); // constant function
     break;
 
   default:
@@ -177,8 +177,8 @@ bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2]) {
       return false;
     }
     // a[0] and a[1] are two objects of type sigma = range of tau
-    a[0] = vtbl_mk_function(vtbl, tau, 0, NULL, a[0], NULL);
-    a[1] = vtbl_mk_function(vtbl, tau, 0, NULL, a[1], NULL);
+    a[0] = vtbl_mk_function(vtbl, tau, 0, NULL, a[0]);
+    a[1] = vtbl_mk_function(vtbl, tau, 0, NULL, a[1]);
     break;
    
   default:

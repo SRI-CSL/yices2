@@ -119,8 +119,6 @@ typedef struct particle_table_s {
 
 
 
-
-
 /*
  * Descriptor for a set of particles of a tuple of types [tau_0,..., tau_n-1]
  * - arity = number of types 

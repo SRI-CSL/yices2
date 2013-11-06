@@ -543,6 +543,7 @@ void init_value_table(value_table_t *table, uint32_t n, type_table_t *ttbl) {
   table->type_table = ttbl;
   init_int_htbl(&table->htbl, 0);
   init_bvconstant(&table->buffer);
+  init_ivector(&table->aux_vector, 0);
   init_map_htbl(&table->mtbl);
   init_vtbl_queue(&table->queue);
 
@@ -716,6 +717,8 @@ void reset_value_table(value_table_t *table) {
   reset_vtbl_queue(&table->queue);
   reset_hsets(table);
 
+  ivector_reset(&table->aux_vector);
+
   table->nobjects = 0;
   table->unknown_value = null_value;
   table->true_value = null_value;
@@ -734,6 +737,7 @@ void delete_value_table(value_table_t *table) {
   delete_bitvector(table->canonical);
   delete_int_htbl(&table->htbl);
   delete_bvconstant(&table->buffer);
+  delete_ivector(&table->aux_vector);
   delete_map_htbl(&table->mtbl);
   delete_vtbl_queue(&table->queue);
   delete_hsets(table);
@@ -961,7 +965,7 @@ static void normalize_update(value_table_t *table, value_t i, map_hset_t *hset, 
 
 /*
  * Exported version: expand update object i.
- * - store the mappsings in table->hset1
+ * - store the mappings in table->hset1
  */
 void vtbl_expand_update(value_table_t *table, value_t i, value_t *def, type_t *tau) {
   map_hset_t *hset;
@@ -973,6 +977,119 @@ void vtbl_expand_update(value_table_t *table, value_t i, value_t *def, type_t *t
   normalize_update(table, i, hset, def, tau);
 }
 
+
+
+
+/**********************************************************
+ *  MORE NORMALIZATION FOR FUNCTIONS WITH FINITE DOMAINS  *
+ *********************************************************/
+
+/*
+ * A function is defined by a set of mappings + a default value
+ * - that may be ambiguous if the domain is finite and the default is not unknown
+ * - to ensure a normal representation, we force the default value to be
+ *   the most common value for f (ties are breaking by selecting as default
+ *   values, the one with the smallest id).
+ */
+
+/*
+ * Get the most frequent value in the range of map[0 ... n-1]
+ * - n must be positive
+ * - if there are ties, the one with smallest id is returned
+ * - store the number of occurrences in *count.
+ */
+static value_t get_default_for_map(value_table_t *table, uint32_t n, value_t *a, uint32_t *count) {
+  ivector_t *v;
+  uint32_t i;
+  value_t b, x;
+  uint32_t nb, nx;
+
+  assert(n > 0);
+
+  v = &table->aux_vector;
+  resize_ivector(v, n);
+  for (i=0; i<n; i++) {
+    v->data[i] = vtbl_map_result(table, a[i]);
+  }
+  int_array_sort(v->data, n);
+
+  // b =  best so far, nb = best count so far
+  b = null_value;
+  nb = 0;
+
+  x = v->data[1];
+  nx = 1;
+  for (i=1; i<n; i++) {
+    if (x == v->data[i]) {
+      nx ++;
+    } else {
+      if (nx > nb) {
+	b = x;
+	nb = nx;
+      }
+      x = v->data[i];
+      nx = 0;
+    }
+  }
+
+  *count = nb;
+  return b;
+}
+
+
+/*
+ * Change the default value for a function definition
+ * - tau = function type
+ * - a = function mappings
+ * - n = number of elements in a
+ * - old_def = current default
+ * - new_def = new default
+ *
+ * This removes mappings from a and creates new ones but a's size
+ * does not increase. Return the number of mappings in a after
+ * swapping.
+ */
+static uint32_t swap_default_for_map(value_table_t *table, type_t tau, uint32_t n, value_t *a, value_t old_def, value_t new_def) {
+  // TOBEDONE
+  return n;
+}
+
+
+/*
+ * Normalize a function with finite domain
+ * - tau = function type
+ * - a = mappings for the function
+ * - n = number of elements in a
+ * - *def = current default value
+ *
+ * If the representation is changed then a and *def are modified and 
+ * the function returns the number of elements in a. Otherwise, the function returns n.
+ *
+ * NOTE: this must be called after the standard normalization procedure:
+ * - array a must not contain duplicate maps nor any map the same value as def
+ */
+static uint32_t normalize_finite_domain_function(value_table_t *table, type_t tau, uint32_t n, value_t *a, value_t *def) {
+  uint32_t dsize, def_count, new_count;
+  value_t new_def;
+
+  assert(!object_is_unknown(table, *def) && type_has_finite_domain(table->type_table, tau));
+
+  dsize = card_of_domain_type(table->type_table, tau);
+  def_count = dsize - n;
+  if (n >= def_count) {
+    /*
+     * Check whether some other v in the range of a[0 ... n] occurs more
+     * often than def_count
+     */
+    new_def = get_default_for_map(table, n, a, &new_count);
+    if (new_count > def_count || (new_count == def_count && new_def < *def)) {
+      n = swap_default_for_map(table, tau, n, a, *def, new_def);
+      *def = new_def;
+    }
+  }
+
+  return n;
+}
 
 
 /***************
@@ -1699,7 +1816,6 @@ value_t vtbl_mk_map(value_table_t *table, uint32_t n, value_t *a, value_t v) {
 /*
  * Function defined by the array a[0...n] and default value def
  * - tau = its type
- * - name = optional name (or NULL). If name is no NULL, a copy is made.
  * - a = array of n mapping objects. 
  *   The array must not contain conflicting mappings and all elements in a
  *   must have the right arity (same as defined by type tau). It's allowed
@@ -1708,7 +1824,7 @@ value_t vtbl_mk_map(value_table_t *table, uint32_t n, value_t *a, value_t v) {
  *
  * NOTE: a is modified by the function.
  */
-value_t vtbl_mk_function(value_table_t *table, type_t tau, uint32_t n, value_t *a, value_t def, char *name) {
+value_t vtbl_mk_function(value_table_t *table, type_t tau, uint32_t n, value_t *a, value_t def) {
   assert(good_object(table, def));
 
   // normalize a
@@ -1862,6 +1978,232 @@ bool vtbl_test_tuple(value_table_t *table, uint32_t n, value_t *e) {
   tuple_hobj.elem = e;
 
   return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &tuple_hobj) >= 0;
+}
+
+
+
+
+/**********************************
+ *  ENUMERATION FOR FINITE TYPES  *
+ *********************************/
+
+/*
+ * Expand index i into an array of n indices a[0 ... n-1]
+ * - where a[k] is an index for type tau[k]
+ */
+static void vtbl_expand_tuple_code(type_table_t *types, uint32_t n, type_t *tau, uint32_t i, uint32_t *a) {
+  uint32_t j, q, c;
+
+  for (j=0; j<n; j++) {
+    assert(is_finite_type(types, tau[j]));
+    c = type_card(types, tau[j]);
+    /*
+     * i is c * q + r with 0 <= r < c
+     * store r for a[j]
+     */
+    q = i / c;
+    a[j] = i - c * q;
+
+    assert(a[j] < c);
+    i = q;
+  }
+}
+
+
+/*
+ * Convert index i into a tuple of n objects of types tau[0] ... tau[n-1]
+ * - store the result into a[0 ... n-1]
+ */
+void vtbl_gen_object_tuple(value_table_t *table, uint32_t n, type_t *tau, uint32_t i, value_t *a) {
+  uint32_t code[10];
+  uint32_t *aux;
+  uint32_t j;
+
+  aux = code;
+  if (n > 10) {
+    aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+  }
+
+  vtbl_expand_tuple_code(table->type_table, n, tau, i, aux);
+  for (j=0; j<n; j++) {
+    a[i] = vtbl_gen_object(table, tau[j], aux[j]);
+  }
+
+  if (n > 10) {
+    safe_free(aux);
+  }
+}
+
+/*
+ * Build object of a typle type d and index i
+ */
+static value_t vtbl_gen_tuple(value_table_t *table, tuple_type_t *d, uint32_t i) {
+  value_t buffer[10];
+  value_t *aux;
+  uint32_t n;
+  value_t v;
+
+  n = d->nelem;
+  aux = buffer;
+  if (n > 10) {
+    aux = (value_t *) safe_malloc(n * sizeof(value_t));
+  }
+  vtbl_gen_object_tuple(table, n, d->elem, i, aux);
+  v = vtbl_mk_tuple(table, n, aux);
+
+  if (n > 10) {
+    safe_free(aux);
+  }
+
+  return v;
+}
+
+
+
+/*
+ * Expand index i into an array of n indices a[0 ... n-1]
+ * - each a[i] is an index between 0 and card(sigma) - 1
+ */
+static void vtbl_expand_function_code(type_table_t *types, uint32_t n, type_t sigma, uint32_t i, uint32_t *a) {
+  uint32_t j, q, c;
+
+  assert(is_finite_type(types, sigma));
+  c = type_card(types, sigma);
+  for (j=0; j<n; j++) {
+    q = i / c;
+    a[j] = i - c * q;
+    assert(a[j] < c);
+    i = q;
+  }
+}
+
+
+/*
+ * TOBEDONE
+ */
+static value_t vtbl_make_function_from_value_map(value_table_t *table, function_type_t *f, uint32_t n, value_t *a) {
+  return vtbl_mk_unknown(table);
+}
+
+
+/*
+ * Function of type tau and index i
+ * - tau is finite and i < card(tau)
+ */
+static value_t vtbl_gen_function(value_table_t *table, type_t tau, uint32_t i) {
+  uint32_t buffer[32];
+  uint32_t *aux;
+  type_table_t *types;
+  function_type_t *f;
+  uint32_t j, n;
+  value_t v;
+
+  types = table->type_table;
+
+  n = card_of_domain_type(types, tau);
+  aux = buffer;
+  if (n > 32) {
+    aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+  }
+
+  f = function_type_desc(types, tau);
+  vtbl_expand_function_code(types, n, f->range, i, aux);
+  for (j=0; j<n; j++) {
+    aux[j] = vtbl_gen_object(table, f->range, aux[j]);
+  }
+  v = vtbl_make_function_from_value_map(table, f, n, (value_t *) aux);
+
+  if (n > 32) {
+    safe_free(aux);
+  }
+
+  return v;
+}
+
+
+/*
+ * Bitvector: index i, size n
+ */
+static value_t vtbl_gen_bitvector(value_table_t *table, uint32_t n, uint32_t i) {
+  bvconstant_t *b;
+
+  b = &table->buffer;
+  bvconstant_copy64(b, n, (uint64_t) i);
+  return vtbl_mk_bv_from_constant(table, b);
+}
+
+
+/*
+ * If tau is a finite type, then we can enumerate its elements from 
+ * 0 to card(tau) - 1. The following function construct and element
+ * of finite type tau given an enumeration index i.
+ * - tau must be finite
+ * - i must be smaller than card(tau)
+ */
+value_t vtbl_gen_object(value_table_t *table, type_t tau, uint32_t i) {
+  type_table_t *types;
+  value_t v;
+
+  types = table->type_table;
+  assert(is_finite_type(types, tau) && i < type_card(types, tau));
+
+  switch (type_kind(types, tau)) {
+  case BOOL_TYPE:
+    assert(i == 0 || i == 1);
+    v = vtbl_mk_bool(table, i);
+    break;
+
+  case BITVECTOR_TYPE:
+    v = vtbl_gen_bitvector(table, bv_type_size(types, tau), i);
+    break;
+
+  case SCALAR_TYPE:
+    v = vtbl_mk_const(table, tau, i, NULL); // anonymous constant
+    break;
+
+  case TUPLE_TYPE:
+    v = vtbl_gen_tuple(table, tuple_type_desc(types, tau), i);
+    break;
+
+  case FUNCTION_TYPE:
+    v = vtbl_gen_function(table, tau, i);
+    break;
+
+  default:
+    assert(false); // can't be a finite type
+    v = null_value;
+    break;
+  }
+
+  return v;
+}
+
+
+/*
+ * Convert function index i for type tau into an array of n objects
+ * - n = size of tau's domain
+ */
+void vtbl_gen_function_map(value_table_t *table, type_t tau, uint32_t i, value_t *a) {
+  uint32_t buffer[32];
+  uint32_t *aux;
+  uint32_t j, n;
+  type_t sigma;
+
+  n = card_of_domain_type(table->type_table, tau);
+  aux = buffer;
+  if (n > 32) {
+    aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+  }
+  
+  sigma = function_type_range(table->type_table, tau);
+  vtbl_expand_function_code(table->type_table, n, sigma, i, aux);
+  for (j=0; j<n; j++) {
+    a[j] = vtbl_gen_object(table, sigma, aux[j]);
+  }
+
+  if (n > 32) {
+    safe_free(aux);
+  }
 }
 
 

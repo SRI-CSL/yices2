@@ -37,6 +37,7 @@
 #include "bitvectors.h"
 #include "bv_constants.h"
 #include "int_queues.h"
+#include "int_vectors.h"
 #include "int_hash_tables.h"
 
 
@@ -268,6 +269,7 @@ typedef const char *(*unint_namer_fun_t)(void *aux, value_unint_t *d);
  *   type_table = pointer to an associated type table
  *   htbl = hash table for hash consing
  *   buffer for building bitvector constants
+ *   auxiliary vector
  *   mtbl = hash table of pairs (fun, map)
  *   hset1, hset2 = hash sets allocated on demand (used in 
  *      hash consing of update objects)
@@ -291,7 +293,7 @@ typedef struct value_table_s {
   type_table_t *type_table;
   int_htbl_t htbl;
   bvconstant_t buffer;
-  rational_t aux;
+  ivector_t aux_vector;
   map_htbl_t mtbl;
   vtbl_queue_t queue;
   map_hset_t *hset1;
@@ -455,7 +457,6 @@ extern value_t vtbl_mk_map(value_table_t *table, uint32_t n, value_t *a, value_t
 /*
  * Function defined by the array a[0...n] and default value def
  * - tau = its type
- * - name = optional name (or NULL). If name is no NULL, a copy is made.
  * - a = array of n mapping objects. 
  *   The array must not contain conflicting mappings and all elements in a
  *   must have the right arity (same as defined by type tau). It's allowed
@@ -464,7 +465,7 @@ extern value_t vtbl_mk_map(value_table_t *table, uint32_t n, value_t *a, value_t
  *
  * NOTE: array a is modified.
  */
-extern value_t vtbl_mk_function(value_table_t *table, type_t tau, uint32_t n, value_t *a, value_t def, char *name);
+extern value_t vtbl_mk_function(value_table_t *table, type_t tau, uint32_t n, value_t *a, value_t def);
 
 
 /*
@@ -508,6 +509,41 @@ extern bool vtbl_test_const(value_table_t *table, type_t tau, int32_t id);
  * Check whether the tuple e[0] ... e[n-1] is present
  */
 extern bool vtbl_test_tuple(value_table_t *table, uint32_t n, value_t *e);
+
+
+
+/*
+ * OBJECTS OF FINITE TYPE
+ */
+
+/*
+ * If tau is a finite type, then we can enumerate its elements from 
+ * 0 to card(tau) - 1. The following function construct and element
+ * of finite type tau given an enumeration index i.
+ * - tau must be finite
+ * - i must be smaller than card(tau)
+ */
+extern value_t vtbl_gen_object(value_table_t *table, type_t tau, uint32_t i);
+
+/*
+ * Same thing for tuples:
+ * - tau[0 ... n-1] must be n finite types
+ * - i must be an index between 0 and card(tau[0]) x ... x card(tau[n-1])
+ * - a must be large enough to store n elements
+ * - this stores n objects in a[0 ... n-1] where a[k] has type tau[k]
+ * - different indices i generate different tuples of n objects
+ */
+extern void vtbl_gen_object_tuple(value_table_t *table, uint32_t n, type_t *tau, uint32_t i, value_t *a);
+
+/*
+ * Same thing for a finite function type tau:
+ * - let D = cardinality of tau's domain and R = cardinality of tau's range
+ * - a function of type tau is defined by D values a[0 ... D-1] where each a[k] is an 
+ *   object of tau's range.
+ * - this function builds a[0 ... D-1] given an index i between 0 and R^D.
+ * - a must be large enough to store D elements
+ */
+extern void vtbl_gen_function_map(value_table_t *table, type_t tau, uint32_t i, value_t *a);
 
 
 

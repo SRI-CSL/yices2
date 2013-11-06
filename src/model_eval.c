@@ -950,7 +950,7 @@ static value_t make_default_value(evaluator_t *eval, type_t tau) {
   case FUNCTION_TYPE:
     // create a constant function
     d = make_default_value(eval, function_type_range(types, tau));
-    v = vtbl_mk_function(eval->vtbl, tau, 0, NULL, d, NULL);
+    v = vtbl_mk_function(eval->vtbl, tau, 0, NULL, d);
     break;
 
   case UNUSED_TYPE:

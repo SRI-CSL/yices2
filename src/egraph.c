@@ -7094,7 +7094,7 @@ static value_t make_fresh_finite_range_function(egraph_t *egraph, value_table_t 
   if (vtbl_make_two_objects(vtbl, ft->range, a) && fresh_tuple(egraph, vtbl, ft->domain, aux, n)) {
     // build the function that maps aux[0...n-1] to a[0] and everything else to a[1]   
     v = vtbl_mk_map(vtbl, n, aux, a[0]);
-    v = vtbl_mk_function(vtbl, tau, 1, &v, a[1], NULL);
+    v = vtbl_mk_function(vtbl, tau, 1, &v, a[1]);
   } else {
     v = vtbl_mk_unknown(vtbl);
   }
@@ -7124,7 +7124,7 @@ static value_t make_fresh_function(egraph_t *egraph, value_table_t *vtbl, type_t
     // get a fresh value of type sigma, return the constant function
     // that maps everything to this value
     v = make_fresh_value(egraph, vtbl, sigma);
-    v = vtbl_mk_function(vtbl, tau, 0, NULL, v, NULL);
+    v = vtbl_mk_function(vtbl, tau, 0, NULL, v);
   }
 
   return v;
@@ -7319,7 +7319,7 @@ static value_t egraph_concretize_map(egraph_t *egraph, value_table_t *vtbl, map_
   }
 
   // build the function
-  v = vtbl_mk_function(vtbl, tau, m, all_maps, v, NULL); // name = NULL
+  v = vtbl_mk_function(vtbl, tau, m, all_maps, v);
 
   safe_free(all_maps);
 
@@ -7552,9 +7552,9 @@ static value_t egraph_make_fun_value(egraph_t *egraph, value_table_t *vtbl, clas
     }
   }
 
-  // function: no default value, no name
+  // function: no default value
   if (all_known_values(vtbl, j, all_maps)) {
-    v = vtbl_mk_function(vtbl, tau, j, all_maps, vtbl_mk_unknown(vtbl), NULL);
+    v = vtbl_mk_function(vtbl, tau, j, all_maps, vtbl_mk_unknown(vtbl));
   } else {
     v = vtbl_mk_unknown(vtbl);
   }
