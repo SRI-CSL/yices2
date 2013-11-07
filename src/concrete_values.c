@@ -506,7 +506,7 @@ static value_t hset_find_map(value_table_t *table, map_hset_t *hset, value_t *a,
   assert(hset->nelems < hset->size);
   mask = hset->size - 1;
   d = hset->data;
-  j = hash_map_tuple(a, n);
+  j = hash_map_tuple(a, n) & mask;
   for (;;) {
     k = d[j];
     if (k < 0) break; // nothing matches
@@ -1123,7 +1123,9 @@ static uint32_t swap_default_for_map(value_table_t *table, type_t tau, uint32_t 
   m = ft->ndom; // function arity
 
   aux = buffer;
-  if (m > 10) aux = (value_t *) safe_malloc(m * sizeof(value_t));
+  if (m > 10) {
+    aux = (value_t *) safe_malloc(m * sizeof(value_t));
+  }
 
   dsize = card_of_domain_type(table->type_table, tau);
   assert(dsize < UINT32_MAX); // i.e., dsize is the exact cardinality
@@ -1149,7 +1151,9 @@ static uint32_t swap_default_for_map(value_table_t *table, type_t tau, uint32_t 
     }
   }
   
-  if (m > 10) safe_free(aux);
+  if (m > 10) {
+    safe_free(aux);
+  }
 
   assert(j <= n);
   int_array_sort(a, j);
@@ -2133,12 +2137,16 @@ static value_t vtbl_gen_tuple(value_table_t *table, tuple_type_t *d, uint32_t i)
 
   n = d->nelem;
   aux = buffer;
-  if (n > 10) aux = (value_t *) safe_malloc(n * sizeof(value_t));
+  if (n > 10) {
+    aux = (value_t *) safe_malloc(n * sizeof(value_t));
+  }
 
   vtbl_gen_object_tuple(table, n, d->elem, i, aux);
   v = vtbl_mk_tuple(table, n, aux);
 
-  if (n > 10) safe_free(aux);
+  if (n > 10) {
+    safe_free(aux);
+  }
 
   return v;
 }
@@ -2205,7 +2213,9 @@ static value_t vtbl_make_function_from_value_map(value_table_t *table, type_t ta
 
     m = f->ndom; // function arity
     aux = buffer;
-    if (m > 10) aux = (value_t *) safe_malloc(m * sizeof(value_t));
+    if (m > 10) {
+      aux = (value_t *) safe_malloc(m * sizeof(value_t));
+    }
 
     // build the map objects: add them to array map
     // we skip all map objects whose value is def
@@ -2236,8 +2246,12 @@ static value_t vtbl_make_function_from_value_map(value_table_t *table, type_t ta
     k = int_htbl_get_obj(&table->htbl, (int_hobj_t*) &fun_hobj);
 
     // cleanup
-    if (m > 10) safe_free(aux);
-    if (n - count > 32) safe_free(map);
+    if (m > 10) {
+      safe_free(aux);
+    }
+    if (n - count > 32) {
+      safe_free(map);
+    }
   }
 
   return k;
@@ -2260,7 +2274,9 @@ static value_t vtbl_gen_function(value_table_t *table, type_t tau, uint32_t i) {
 
   n = card_of_domain_type(types, tau);
   aux = buffer;
-  if (n > 32) aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+  if (n > 32) {
+    aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+  }
 
   f = function_type_desc(types, tau);
   vtbl_expand_function_code(types, n, f->range, i, aux);
@@ -2269,7 +2285,9 @@ static value_t vtbl_gen_function(value_table_t *table, type_t tau, uint32_t i) {
   }
   v = vtbl_make_function_from_value_map(table, tau, f, n, (value_t *) aux);
 
-  if (n > 32) safe_free(aux);
+  if (n > 32) {
+    safe_free(aux);
+  }
 
   return v;
 }
@@ -2345,7 +2363,9 @@ void vtbl_gen_function_map(value_table_t *table, type_t tau, uint32_t i, value_t
 
   n = card_of_domain_type(table->type_table, tau);
   aux = buffer;
-  if (n > 32) aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+  if (n > 32) {
+    aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+  }
   
   sigma = function_type_range(table->type_table, tau);
   vtbl_expand_function_code(table->type_table, n, sigma, i, aux);
@@ -2353,7 +2373,9 @@ void vtbl_gen_function_map(value_table_t *table, type_t tau, uint32_t i, value_t
     a[j] = vtbl_gen_object(table, sigma, aux[j]);
   }
 
-  if (n > 32) safe_free(aux);
+  if (n > 32) {
+    safe_free(aux);
+  }
 }
 
 
