@@ -12,39 +12,81 @@
 
 
 /*
- * Data structure to keep track of the number 
- * of elements of a finite type tau[0] x ... x tau[n-1]
- * - arity = n
+ * Data structure to keep track of the number of elements of a finite
+ * type tau[0] x ... x tau[n-1] 
+ * - arity = n 
  * - card = cardinal of the product type
- * - count = enumeration index: it's known that all tuples
- *   of index in [0 ... count-1] exist in the value table
+ * - count = enumeration index: it's known that all tuples of index 
+ *   in [0 ... count-1] exist in the value table 
  * - tau[0 ... n-1] = actual type indices
  *
- * We also use this for individual types (then arity = 1)
+ * We also use this for scalar types (then arity = 1)
  */
-typedef struct fresh_val_rec_s {
+typedef struct tuple_counter_s {
   uint32_t arity;
   uint32_t card;
   uint32_t count;
   type_t tau[0]; // real size = arity
-} fresh_val_rec_t;
+} tuple_counter_t;
 
-#define FRESH_VAL_MAX_ARITY ((UINT32_MAX-sizeof(fresh_val_rec_t))/sizeof(type_t))
+#define MAX_TUPLE_COUNTER_ARITY ((UINT32_MAX-sizeof(tuple_counter_t))/sizeof(type_t))
+
+
+/*
+ * Vector of these counters
+ */
+typedef struct tup_counter_vector_s {
+  tuple_counter_t **data;
+  uint32_t nelems;
+  uint32_t size; // size of the array data
+} tup_counter_vector_t;
+
+#define TUPLE_COUNTER_VECTOR_DEF_SIZE 8
+#define TUPLE_COUNTER_VECTOR_MAX_SIZE (UINT32_MAX/sizeof(tuple_counter_t *))
+
+
+/*
+ * Counters for bitvector constants
+ * - bsize = number of bits 
+ * - count = enumeration index
+ * - every constant of bsize bits and value < count are known
+ *   to be present in vtbl.
+ */
+typedef struct bv_counter_s {
+  uint32_t bsize;
+  uint32_t count;
+} bv_counter_t;
+
+
+/*
+ * Vector of these counters
+ */
+typedef struct bv_counter_vector_s {
+  bv_counter_t *data;
+  uint32_t nelems;
+  uint32_t size;
+} bv_counter_vector_t;
+
+#define BV_COUNTER_VECTOR_DEF_SIZE 8
+#define BV_COUNTER_VECTOR_MAX_SIZE (UINT32_MAX/sizeof(bv_counter_vector_t))
 
 
 /*
  * Fresh-value maker:
  * - attached to a value_table vtbl and a type_table types
- * - keep an array of nelems fresh_val_records
+ * - keep vectors for the counter structures:
+ *   - one for tuple  (also used for scalar types)
+ *   - one for bitvectors
+ * - global counter for the integer constants
  *
  * NOTE: we assume that the number of records is small
  */
 typedef struct fresh_val_maker_s {
   value_table_t *vtbl;
   type_table_t *types;
-  fresh_val_rec_t *records;
-  uint32_t nelems;
-  uint32_t size; // size of array records
+  tup_counter_vector_t tuples;
+  bv_counter_vector_t bvs;
+  int32_t int_count;
 } fresh_val_maker_t;
 
 
