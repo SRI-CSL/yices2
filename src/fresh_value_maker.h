@@ -1,0 +1,108 @@
+/*
+ * BUILD FRESH VALUES OF GIVEN TYPES
+ */
+
+#ifndef __FRESH_VALUE_MAKER_H
+#define __FRESH_VALUE_MAKER_H
+
+#include <stdint.h>
+#include <stdbool.h>
+
+#include "concrete_values.h"
+
+
+/*
+ * Data structure to keep track of the number 
+ * of elements of a finite type tau[0] x ... x tau[n-1]
+ * - arity = n
+ * - card = cardinal of the product type
+ * - count = enumeration index: it's known that all tuples
+ *   of index in [0 ... count-1] exist in the value table
+ * - tau[0 ... n-1] = actual type indices
+ *
+ * We also use this for individual types (then arity = 1)
+ */
+typedef struct fresh_val_rec_s {
+  uint32_t arity;
+  uint32_t card;
+  uint32_t count;
+  type_t tau[0]; // real size = arity
+} fresh_val_rec_t;
+
+#define FRESH_VAL_MAX_ARITY ((UINT32_MAX-sizeof(fresh_val_rec_t))/sizeof(type_t))
+
+
+/*
+ * Fresh-value maker:
+ * - attached to a value_table vtbl and a type_table types
+ * - keep an array of nelems fresh_val_records
+ *
+ * NOTE: we assume that the number of records is small
+ */
+typedef struct fresh_val_maker_s {
+  value_table_t *vtbl;
+  type_table_t *types;
+  fresh_val_rec_t *records;
+  uint32_t nelems;
+  uint32_t size; // size of array records
+} fresh_val_maker_t;
+
+
+/*
+ * Initialize: nothing allocated yet
+ */
+extern void init_fresh_val_maker(fresh_val_maker_t *maker, value_table_t *vtbl);
+
+/*
+ * Delete: free all records
+ */
+extern void delete_fresh_val_maker(fresh_val_maker_t *maker);
+
+
+
+
+/*
+ * Return a fresh integer: 
+ * - this value is different from any other integer already present
+ */
+extern value_t make_fresh_integer(fresh_val_maker_t *maker);
+
+static inline value_t make_fresh_rational(fresh_val_maker_t *maker) {
+  return make_fresh_integer(maker);
+}
+
+/*
+ * Attempt to build a fresh bitvector value of n bits
+ * - if all 2^n values are present in vtbl, return null_value
+ * - otherwise, create a bitvector value distinct from all other values
+ *   of the same type and return it.
+ */
+extern value_t make_fresh_bv(fresh_val_maker_t *maker, uint32_t n);
+
+/*
+ * Fresh constant of uninterpreted or scalar type
+ * - tau must be an uninterpreted or scalar type
+ * - return null_value if tau is a scalar type and all constants of that
+ *   type already occur in vtbl.
+ */
+extern value_t make_fresh_const(fresh_val_maker_t *maker, type_t tau);
+
+/*
+ * Fresh tuple of type tau
+ * - tau must be a tuple type
+ * - return null_value if tau is finite and all tuples of that type
+ *   already exist
+ */
+extern value_t make_fresh_tuple(fresh_val_maker_t *maker, type_t tau);
+
+
+
+/*
+ * Create a fresh value of type tau:
+ * - return null_value if that fails (i.e., tau is finite and all values
+ *   or type tau are already present)
+ */
+extern value_t make_fresh_value(fresh_val_maker_t *maker, type_t tau);
+
+
+#endif /* __FRESH_VALUE_MAKER */

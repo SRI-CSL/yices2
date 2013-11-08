@@ -1,3 +1,4 @@
+
 /*
  * Concrete values = constants of different types.
  * This is used to build models: a model is a mapping from terms to concrete values.
@@ -1124,6 +1125,7 @@ static uint32_t swap_default_for_map(value_table_t *table, type_t tau, uint32_t 
 
   aux = buffer;
   if (m > 10) {
+    assert(m < UINT32_MAX/sizeof(value_t));
     aux = (value_t *) safe_malloc(m * sizeof(value_t));
   }
 
@@ -1921,7 +1923,7 @@ value_t vtbl_mk_map(value_table_t *table, uint32_t n, value_t *a, value_t v) {
 
 
 /*
- * Function defined by the array a[0...n] and default value def
+ * Function defined by the array a[0...n-1] and default value def
  * - tau = its type
  * - a = array of n mapping objects. 
  *   The array must not contain conflicting mappings and all elements in a
@@ -2002,19 +2004,20 @@ value_t vtbl_mk_update(value_table_t *table, value_t f, uint32_t n, value_t *a, 
 
 /*
  * Check whether a rational or integer constant is in the table
+ * - return the object if found, -1 (i.e., null_value otherwise)
  */
-bool vtbl_test_rational(value_table_t *table, rational_t *v) {
+value_t vtbl_find_rational(value_table_t *table, rational_t *v) {
   rational_hobj.table = table;
   q_set(&rational_hobj.v, v);
 
-  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &rational_hobj) >= 0;
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &rational_hobj);
 }
 
-bool vbtl_test_int32(value_table_t *table, int32_t x) {
+value_t vtbl_find_int32(value_table_t *table, int32_t x) {
   rational_hobj.table = table;
   q_set32(&rational_hobj.v, x);
 
-  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &rational_hobj) >= 0;
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &rational_hobj);
 }
 
 /*
@@ -2023,7 +2026,7 @@ bool vbtl_test_int32(value_table_t *table, int32_t x) {
  * - bit i is 1 otherwise
  * - n = number of bits (must be positive).
  */
-bool vtbl_test_bv(value_table_t *table, uint32_t n, int32_t *a) {
+value_t vtbl_find_bv(value_table_t *table, uint32_t n, int32_t *a) {
   bvconstant_t *b;
 
   // copy the constant in table's buffer
@@ -2037,14 +2040,14 @@ bool vtbl_test_bv(value_table_t *table, uint32_t n, int32_t *a) {
   bv_hobj.nbits = n;
   bv_hobj.data = b->data;
 
-  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &bv_hobj) >= 0;
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &bv_hobj);
 }
 
 /*
  * Same thing for the bitvector defined by c:
  * - n = number of bits (must be <= 64)
  */
-bool vtbl_test_bv64(value_table_t *table, uint32_t n, uint64_t c) {
+value_t vtbl_find_bv64(value_table_t *table, uint32_t n, uint64_t c) {
   uint32_t aux[2];
 
   c = norm64(c, n);
@@ -2054,13 +2057,13 @@ bool vtbl_test_bv64(value_table_t *table, uint32_t n, uint64_t c) {
   bv_hobj.table = table;
   bv_hobj.nbits = n;
   bv_hobj.data = aux;
-  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &bv_hobj) >= 0; 
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &bv_hobj); 
 }
 
 /*
  * Check whether the constant of type tau and index i is present
  */
-bool vtbl_test_const(value_table_t *table, type_t tau, int32_t id) {
+value_t vtbl_find_const(value_table_t *table, type_t tau, int32_t id) {
   assert(type_kind(table->type_table, tau) == SCALAR_TYPE || 
          type_kind(table->type_table, tau) == UNINTERPRETED_TYPE);
   assert(0 <= id);
@@ -2069,25 +2072,67 @@ bool vtbl_test_const(value_table_t *table, type_t tau, int32_t id) {
   const_hobj.tau = tau;
   const_hobj.id = id;
 
-  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &const_hobj) >= 0;
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &const_hobj);
 }
 
 /*
  * Check whether the tuple e[0] ... e[n-1] is present
  */
-bool vtbl_test_tuple(value_table_t *table, uint32_t n, value_t *e) {
+value_t vtbl_find_tuple(value_table_t *table, uint32_t n, value_t *e) {
   tuple_hobj.table = table;
   tuple_hobj.nelems = n;
   tuple_hobj.elem = e;
 
-  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &tuple_hobj) >= 0;
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &tuple_hobj);
+}
+
+/*
+ * Mapping object (a[0] ... a[n-1]  |-> v)
+ */
+value_t vtbl_find_map(value_table_t *table, uint32_t n, value_t *a, value_t v) {
+  map_hobj.table = table;
+  map_hobj.arity = n;
+  map_hobj.arg = a;
+  map_hobj.val = v;
+
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &map_hobj);
+}
+
+/*
+ * Function: defined by a[0 ... n-1] and the default value:
+ * - same conventions as for vtbl_mk_function
+ * - a is modified
+ */
+value_t vtbl_find_function(value_table_t *table, type_t tau, uint32_t n, value_t *a, value_t def) {
+  assert(good_object(table, def));
+
+  // normalize a
+  n = normalize_map_array(n, a);
+  if (! object_is_unknown(table, def)) {
+    n = remove_redundant_mappings(table, n, a, def);
+  }
+
+  // if the function has finite domain and the default is something other than unknown
+  // we may need more normalization
+  if (type_has_finite_domain(table->type_table, tau) && !object_is_unknown(table, def)) {
+    n = normalize_finite_domain_function(table, tau, n, a, &def);
+  }
+
+  fun_hobj.table = table;
+  fun_hobj.type = tau;
+  fun_hobj.arity = function_type_arity(table->type_table, tau);
+  fun_hobj.def = def;
+  fun_hobj.map_size = n;
+  fun_hobj.map = a;
+  fun_hobj.ambiguous = false;
+
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t*) &fun_hobj);
 }
 
 
 
-
 /**********************************
- *  ENUMERATION FOR FINITE TYPES  *
+ *  ENUMERATION OF FINITE TYPES   *
  *********************************/
 
 /*
@@ -2126,6 +2171,7 @@ void vtbl_gen_object_tuple(value_table_t *table, uint32_t n, type_t *tau, uint32
   }
 }
 
+
 /*
  * Build object of a typle type d and index i
  */
@@ -2138,6 +2184,7 @@ static value_t vtbl_gen_tuple(value_table_t *table, tuple_type_t *d, uint32_t i)
   n = d->nelem;
   aux = buffer;
   if (n > 10) {
+    assert(n < UINT32_MAX/sizeof(value_t));
     aux = (value_t *) safe_malloc(n * sizeof(value_t));
   }
 
@@ -2152,7 +2199,6 @@ static value_t vtbl_gen_tuple(value_table_t *table, tuple_type_t *d, uint32_t i)
 }
 
 
-
 /*
  * Expand index i into an array of n indices a[0 ... n-1]
  * - each a[i] is an index between 0 and card(sigma) - 1
@@ -2161,6 +2207,7 @@ static void vtbl_expand_function_code(type_table_t *types, uint32_t n, type_t si
   uint32_t j, q, c;
 
   assert(is_finite_type(types, sigma));
+
   c = type_card(types, sigma);
   for (j=0; j<n; j++) {
     q = i / c;
@@ -2204,16 +2251,18 @@ static value_t vtbl_make_function_from_value_map(value_table_t *table, type_t ta
     // special case: constant function
     k = vtbl_mk_function(table, tau, 0, NULL, def);
   } else {
-
+    
     // allocate array map of size (n - count) to store the map objects
     map = buffer2;
     if (n - count > 32) {
+      assert(n - count < UINT32_MAX/sizeof(value_t));
       map = (value_t *) safe_malloc((n - count) * sizeof(value_t));
     }
 
     m = f->ndom; // function arity
     aux = buffer;
     if (m > 10) {
+      assert(m < UINT32_MAX/sizeof(value_t));
       aux = (value_t *) safe_malloc(m * sizeof(value_t));
     }
 
@@ -2253,7 +2302,7 @@ static value_t vtbl_make_function_from_value_map(value_table_t *table, type_t ta
       safe_free(map);
     }
   }
-
+  
   return k;
 }
 
@@ -2271,22 +2320,30 @@ static value_t vtbl_gen_function(value_table_t *table, type_t tau, uint32_t i) {
   value_t v;
 
   types = table->type_table;
-
-  n = card_of_domain_type(types, tau);
-  aux = buffer;
-  if (n > 32) {
-    aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
-  }
-
   f = function_type_desc(types, tau);
-  vtbl_expand_function_code(types, n, f->range, i, aux);
-  for (j=0; j<n; j++) {
-    aux[j] = vtbl_gen_object(table, f->range, aux[j]);
-  }
-  v = vtbl_make_function_from_value_map(table, tau, f, n, (value_t *) aux);
 
-  if (n > 32) {
-    safe_free(aux);
+  if (is_unit_type(types, tau)) {
+    // build the constant function for that type
+    assert(i == 0 && is_unit_type(types, f->range));
+    v = vtbl_gen_object(table, f->range, 0);
+    v = vtbl_mk_function(table, tau, 0, NULL, v);
+  } else {    
+    n = card_of_domain_type(types, tau);
+    aux = buffer;
+    if (n > 32) {
+      assert(n < UINT32_MAX/sizeof(uint32_t));
+      aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+    }
+
+    vtbl_expand_function_code(types, n, f->range, i, aux);
+    for (j=0; j<n; j++) {
+      aux[j] = vtbl_gen_object(table, f->range, aux[j]);
+    }
+    v = vtbl_make_function_from_value_map(table, tau, f, n, (value_t *) aux);
+    
+    if (n > 32) {
+      safe_free(aux);
+    }
   }
 
   return v;
@@ -2361,9 +2418,12 @@ void vtbl_gen_function_map(value_table_t *table, type_t tau, uint32_t i, value_t
   uint32_t j, n;
   type_t sigma;
 
+  assert(type_has_finite_domain(table->type_table, tau));
+
   n = card_of_domain_type(table->type_table, tau);
   aux = buffer;
   if (n > 32) {
+    assert(n < UINT32_MAX/sizeof(uint32_t));
     aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
   }
   
@@ -2372,14 +2432,249 @@ void vtbl_gen_function_map(value_table_t *table, type_t tau, uint32_t i, value_t
   for (j=0; j<n; j++) {
     a[j] = vtbl_gen_object(table, sigma, aux[j]);
   }
-
+  
   if (n > 32) {
     safe_free(aux);
   }
 }
 
 
+/*
+ * TEST EXISTENCE OF OBJECTS USING THEIR INDEX
+ */
 
+/*
+ * Search for object of index i and tuple type d
+ */
+static value_t vtbl_find_enum_tuple(value_table_t *table, tuple_type_t *d, uint32_t i) {
+  uint32_t buffer[10];
+  uint32_t *aux;
+  uint32_t j, n;
+  value_t v;
+
+  n = d->nelem;
+  aux = buffer;
+  if (n > 10) {
+    assert(n < UINT32_MAX/sizeof(uint32_t));
+    aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+  }
+
+  vtbl_expand_tuple_code(table->type_table, n, d->elem, i, aux);
+
+  for (j=0; j<n; j++) {
+    v = vtbl_find_object(table, d->elem[j], aux[j]);
+    if (v == null_value) goto cleanup;
+    aux[j] = v;
+  }
+
+  // all elements aux[0 ... n-1] exist
+  v = vtbl_find_tuple(table, n, (value_t *) aux);
+
+ cleanup:
+  if (n > 10) {
+    safe_free(aux);
+  }
+
+  return v;
+}
+
+
+/*
+ * Search for the map object defined by codes a[0 ... n-1] and value v
+ * - a[i] is a code for type tau[i]
+ * - v is good value
+ * - a is modified
+ */
+static value_t vtbl_find_enum_map(value_table_t *table, uint32_t n, type_t *tau, uint32_t *a, value_t v) {
+  uint32_t i;
+  value_t k;
+
+  for (i=0; i<n; i++) {
+    k = vtbl_find_object(table, tau[i], a[i]);
+    if (k == null_value) goto done;
+    a[i] = k;
+  }
+
+  k = vtbl_find_map(table, n, (value_t *) a, v);
+
+ done:
+  return k;
+}
+
+
+/*
+ * Function of type tau, defined by the array a[0 ... n-1]
+ * - f = type descriptor for tau
+ * - n = size of tau's domain
+ * - every a[i] is in tau's range
+ */
+static value_t vtbl_find_function_with_value_map(value_table_t *table, type_t tau, function_type_t *f, uint32_t n, value_t *a) {
+  uint32_t buffer[10];
+  value_t buffer2[32];
+  uint32_t *aux;
+  value_t *map;
+  ivector_t *v;
+  uint32_t i, j, m, count;
+  value_t k, def;
+
+  assert(f == function_type_desc(table->type_table, tau));
+
+  // compute the default value
+  v = &table->aux_vector;
+  resize_ivector(v, n);
+  for (i=0; i<n; i++) {
+    v->data[i] = a[i];
+  }
+  int_array_sort(v->data, n);
+  def = majority_element(v->data, n, &count);
+  ivector_reset(v);
+
+  assert(count <= n);
+  
+  if (count == 0) {
+    // special case: constant function
+    k = vtbl_find_function(table, tau, 0, NULL, def);
+  } else {    
+    // allocate array map of size (n - count) to store the map objects
+    map = buffer2;
+    if (n - count > 32) {
+      assert(n - count < UINT32_MAX/sizeof(value_t));
+      map = (value_t *) safe_malloc((n - count) * sizeof(value_t));
+    }
+
+    m = f->ndom; // function arity
+    aux = buffer;
+    if (m > 10) {
+      assert(m < UINT32_MAX/sizeof(uint32_t));
+      aux = (uint32_t *) safe_malloc(m * sizeof(uint32_t));
+    }
+
+    // search for the map objects and add them to array map
+    j = 0;
+    for (i=0; i<n; i++) {
+      if (a[i] != def) {
+	vtbl_expand_tuple_code(table->type_table, m, f->domain, i, aux);
+	k = vtbl_find_enum_map(table, m, f->domain, aux, a[i]);
+	if (k == null_value) {
+	  goto cleanup;
+	}
+	map[j] = k;
+	j ++;
+      }
+    }
+
+    assert(j == n - count);
+
+    // no need to remove duplicate etc
+    int_array_sort(map, j);
+
+    fun_hobj.table = table;
+    fun_hobj.type = tau;
+    fun_hobj.arity = m;
+    fun_hobj.def = def;
+    fun_hobj.map_size = j;
+    fun_hobj.map = map;
+    fun_hobj.ambiguous = false;
+
+    k = int_htbl_find_obj(&table->htbl, (int_hobj_t*) &fun_hobj);
+
+  cleanup:
+    if (m > 10) {
+      safe_free(aux);
+    }
+    if (n - count > 32) {
+      safe_free(map);
+    }
+  }
+  
+  return k;
+}
+
+/*
+ * Function of type tau and index i
+ * - tau must be finite and i must be smaller than card(tau)
+ */
+static value_t vtbl_find_enum_function(value_table_t *table, type_t tau, uint32_t i) {
+  uint32_t buffer[32];
+  uint32_t *aux;
+  type_table_t *types;
+  function_type_t *f;
+  uint32_t j, n;
+  value_t v;
+
+  types = table->type_table;
+  f = function_type_desc(types, tau);
+
+  if (is_unit_type(types, tau)) {
+    // only element is the constant function of type tau
+    assert(i == 0 && is_unit_type(types, f->range));
+    v = vtbl_find_object(table, f->range, 0);
+    if (v != null_value) {
+      v = vtbl_find_function(table, tau, 0, NULL, v);
+    }
+  } else {
+    n = card_of_domain_type(types, tau);
+    aux = buffer;
+    if (n > 32) {
+      assert(n < UINT32_MAX/sizeof(uint32_t));
+      aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+    }
+
+    vtbl_expand_function_code(types, n, f->range, i, aux);
+    for (j=0; j<n; j++) {
+      v = vtbl_find_object(table, f->range, aux[j]);
+      if (v == null_value) {
+	goto cleanup;
+      }
+      aux[j] = v;
+    }
+
+    // n good elements are in aux[0 ... n-1] 
+    v = vtbl_find_function_with_value_map(table, tau, f, n, (value_t *) aux);
+
+  cleanup:
+    if (n > 32) {
+      safe_free(aux);
+    }
+  }
+  
+  return v;
+}
+
+/*
+ * Check whether object of type tau and index i is present in table.
+ * - tau must be finite
+ * - i must be smaller than card(tau)
+ * - return the object of index i if present, null_value otherwise
+ */
+value_t vtbl_find_object(value_table_t *table, type_t tau, uint32_t i) {
+  type_table_t *types;
+
+  types = table->type_table;
+  assert(is_finite_type(types, tau) && i < type_card(types, tau));
+
+  switch (type_kind(types, tau)) {
+  case BOOL_TYPE:
+    assert(i == 0 || i == 1);
+    return vtbl_mk_bool(table, i);
+
+  case BITVECTOR_TYPE:
+    return vtbl_find_bv64(table, bv_type_size(types, tau), (uint64_t) i);
+
+  case SCALAR_TYPE:
+    return vtbl_find_const(table, tau, i);
+
+  case TUPLE_TYPE:
+    return vtbl_find_enum_tuple(table, tuple_type_desc(types, tau), i);
+
+  case FUNCTION_TYPE:
+    return vtbl_find_enum_function(table, tau, i);
+
+  default:
+    assert(false);
+    return null_value;
+  }
+}
 
 
 
@@ -2668,4 +2963,11 @@ void vtbl_push_object(value_table_t *table, value_t v) {
  */
 void vtbl_empty_queue(value_table_t *table) {
   reset_vtbl_queue(&table->queue);
+}
+
+/*
+ * Check emptiness
+ */
+bool vtbl_queue_is_empty(value_table_t *table) {
+  return int_queue_is_empty(&table->queue.queue);
 }

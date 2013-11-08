@@ -16,7 +16,7 @@
 #include "index_vectors.h"
 #include "tracer.h"
 
-#include "concrete_value_maker.h"
+#include "fresh_value_maker.h"
 #include "composites.h"
 #include "egraph_utils.h"
 #include "egraph_explanations.h"
@@ -7005,11 +7005,7 @@ static value_t egraph_fresh_bv_value(egraph_t *egraph, value_table_t *vtbl, uint
 }
 
 
-/*
- * Create a fresh value of type tau
- */
-static value_t make_fresh_value(egraph_t *egraph, value_table_t *vtbl, type_t tau);
-
+#if 0
 
 /*
  * Attempt to build a fresh tuple of type tau[0 ... n-1]
@@ -7201,13 +7197,14 @@ static value_t make_fresh_value(egraph_t *egraph, value_table_t *vtbl, type_t ta
   return v;
 }
 
+#endif
+
 
 /*
  * Get the value of class c and store it in egraph->mdl.value[c]
  * (used recursively in egraph_value_of_tuple_class).
  */
 static value_t egraph_value_of_class(egraph_t *egraph, value_table_t *vtbl, class_t c);
-
 
 /*
  * Convert an abstract value (particle x) to a concrete value
@@ -7237,7 +7234,8 @@ static value_t egraph_concretize_value(egraph_t *egraph, value_table_t *vtbl, pa
       break;
 
     case FRESH_PARTICLE:
-      v = make_fresh_value(egraph, vtbl, fresh_particle_type(pstore, x));
+      ///      v = make_fresh_value(egraph, vtbl, fresh_particle_type(pstore, x));
+      v = vtbl_mk_unknown(vtbl);
       break;
 
     default:
@@ -7248,6 +7246,7 @@ static value_t egraph_concretize_value(egraph_t *egraph, value_table_t *vtbl, pa
   }
   return v;
 }
+
 
 
 /*
@@ -7451,7 +7450,8 @@ static value_t egraph_value_of_tuple_class(egraph_t *egraph, value_table_t *vtbl
   } else {
     // No theory variable attached to the class 
     // so there are no explicit (tuple ...) in the class
-    v = make_fresh_tuple(egraph, vtbl, egraph_real_type_of_class(egraph, c));
+    //    v = make_fresh_tuple(egraph, vtbl, egraph_real_type_of_class(egraph, c));
+    v = vtbl_mk_unknown(vtbl);
   }
 
   return v;

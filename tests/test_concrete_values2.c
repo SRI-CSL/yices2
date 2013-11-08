@@ -82,7 +82,7 @@ static void test_enum_type(type_t tau) {
     printf("elem[%"PRIu32"] = ", i);
     vtbl_print_object(stdout, &vtbl, x);
     printf("\n");
-    if (! int_queue_is_empty(&vtbl.queue.queue)) {
+    if (vtbl_queue_is_nonempty(&vtbl)) {
       vtbl_print_queued_functions(stdout, &vtbl, true);
       printf("\n");
     }

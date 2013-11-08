@@ -1,10 +1,29 @@
 /*
- * Build values of some type
+ * SUPPORT FOR CONSTRUCTING FRESH CONCRETE VALUES
  */
 
 #include <assert.h>
 
-#include "concrete_value_maker.h"
+#include "memalloc.h"
+#include "fresh_value_maker.h"
+
+
+/*
+ * BASIC CONSTRUCTORS
+ */
+
+/*
+ * Return some value of type tau: not necessarily fresh
+ */
+value_t vtbl_make_object(value_table_t *vtbl, type_t tau);
+
+/*
+ * Attempt to construct two distinct objects of type tau.
+ * - return true if that succeeds, false if tau is a singleton type
+ * - store the two objects in a[0] and a[1]
+ */
+bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2]);
+
 
 
 /*
@@ -188,3 +207,5 @@ bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2]) {
 
   return true;
 }
+
+

@@ -481,34 +481,72 @@ extern value_t vtbl_mk_update(value_table_t *table, value_t f, uint32_t n, value
  */
 
 /*
- * Check whether a rational or integer constant is in the table
+ * All functions below check whether an object exists in table
+ * - they return the object id (value_t) if it exists
+ * - they return null_value otherwise (and don't construct anything
+ *   in table).
  */
-extern bool vtbl_test_rational(value_table_t *table, rational_t *v);
-extern bool vbtl_test_int32(value_table_t *table, int32_t x);
+
+// rationals
+extern value_t vtbl_find_rational(value_table_t *table, rational_t *v);
+extern value_t vtbl_find_int32(value_table_t *table, int32_t x);
+
+// constants of scalar or uninterpreted type
+extern value_t vtbl_find_const(value_table_t *table, type_t tau, int32_t id);
+
+// tuple e[0] ... e[n-1]
+extern value_t vtbl_find_tuple(value_table_t *table, uint32_t n, value_t *e);
+
+// bitvector defined by a[0 ... n-1] 
+extern value_t vtbl_find_bv(value_table_t *table, uint32_t n, int32_t *a);
+
+// bitvector defined by c. n = number of bits (must be <= 64)
+extern value_t vtbl_find_bv64(value_table_t *table, uint32_t n, uint64_t c);
+
+// map object: a[0 ... n-1] := v
+extern value_t vtbl_find_map(value_table_t *table, uint32_t n, value_t *a, value_t v);
+
+// function defined by array of n maps + the default value
+// array a is modified
+extern value_t vtbl_find_function(value_table_t *table, type_t tau, uint32_t n, value_t *a, value_t def);
+
 
 /*
- * Check presence of a bitvector constant defined by array of n integers:
- * - bit i is 0 if a[i] == 0
- * - bit i is 1 otherwise
- * - n = number of bits (must be positive).
+ * TEST EXISTENCE
  */
-extern bool vtbl_test_bv(value_table_t *table, uint32_t n, int32_t *a);
+static inline bool vtbl_test_rational(value_table_t *table, rational_t *v) {
+  return vtbl_find_rational(table, v) >= 0;
+}
 
-/*
- * Same thing for the bitvector defined by c:
- * - n = number of bits (must be <= 64)
- */
-extern bool vtbl_test_bv64(value_table_t *table, uint32_t n, uint64_t c);
+static inline bool vtbl_test_int32(value_table_t *table, int32_t x) {
+  return vtbl_find_int32(table, x) >= 0;
+}
 
-/*
- * Check whether the constant of type tau and index i is present
- */
-extern bool vtbl_test_const(value_table_t *table, type_t tau, int32_t id);
+static inline bool vtbl_test_const(value_table_t *table, type_t tau, int32_t id) {
+  return vtbl_find_const(table, tau, id) >= 0;
+}
 
-/*
- * Check whether the tuple e[0] ... e[n-1] is present
- */
-extern bool vtbl_test_tuple(value_table_t *table, uint32_t n, value_t *e);
+static inline bool vtbl_test_tuple(value_table_t *table, uint32_t n, value_t *e) {
+  return vtbl_find_tuple(table, n, e) >= 0;
+}
+
+static inline bool vtbl_test_bv(value_table_t *table, uint32_t n, int32_t *a) {
+  return vtbl_find_bv(table, n, a) >= 0;
+}
+
+static inline bool vtbl_test_bv64(value_table_t *table, uint32_t n, uint64_t c) {
+  return vtbl_find_bv64(table, n, c) >= 0;
+}
+
+static inline bool vtbl_test_map(value_table_t *table, uint32_t n, value_t *a, value_t v) {
+  return vtbl_find_map(table, n, a, v) >= 0;
+}
+
+// warning: a is modified
+static inline bool vtbl_test_function(value_table_t *table, type_t tau, uint32_t n, value_t *a, value_t def) {
+  return vtbl_find_function(table, tau, n, a, def) >= 0;
+}
+
 
 
 
@@ -518,7 +556,7 @@ extern bool vtbl_test_tuple(value_table_t *table, uint32_t n, value_t *e);
 
 /*
  * If tau is a finite type, then we can enumerate its elements from 
- * 0 to card(tau) - 1. The following function construct and element
+ * 0 to card(tau) - 1. The following function constructs an element
  * of finite type tau given an enumeration index i.
  * - tau must be finite
  * - i must be smaller than card(tau)
@@ -537,6 +575,7 @@ extern void vtbl_gen_object_tuple(value_table_t *table, uint32_t n, type_t *tau,
 
 /*
  * Same thing for a finite function type tau:
+ * - the domain must be finite
  * - let D = cardinality of tau's domain and R = cardinality of tau's range
  * - a function of type tau is defined by D values a[0 ... D-1] where each a[k] is an 
  *   object of tau's range.
@@ -544,6 +583,17 @@ extern void vtbl_gen_object_tuple(value_table_t *table, uint32_t n, type_t *tau,
  * - a must be large enough to store D elements
  */
 extern void vtbl_gen_function_map(value_table_t *table, type_t tau, uint32_t i, value_t *a);
+
+
+/*
+ * Check whether object of index i is present in the table
+ * - tau must be finite
+ * - i must be smaller than card(tau)
+ * - if the object exists, it's returned
+ * - otherwise, the function returns null_value
+ */
+extern value_t vtbl_find_object(value_table_t *table, type_t tau, uint32_t i);
+
 
 
 
@@ -778,6 +828,16 @@ extern void vtbl_expand_update(value_table_t *table, value_t i, value_t *def, ty
  * - do nothing if v is already in the queue
  */
 extern void vtbl_push_object(value_table_t *table, value_t v);
+
+
+/*
+ * Check whether the queue is empty
+ */
+extern bool vtbl_queue_is_empty(value_table_t *table);
+
+static inline bool vtbl_queue_is_nonempty(value_table_t *table) {
+  return !vtbl_queue_is_empty(table);
+}
 
 /*
  * Empty the internal queue

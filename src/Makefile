@@ -87,13 +87,13 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c		\
               bv_polynomials.c bv64_polynomials.c bvpoly_buffers.c	\
               bvpoly_compiler.c bvpoly_dag.c bvsolver.c bv_vartable.c	\
               bvexp_table.c cache.c composites.c concrete_values.c	\
-              concrete_value_maker.c concrete_value_printer.c		\
-              context.c context_config.c context_simplifier.c		\
-              context_solver.c csets.c dep_tables.c			\
-              diophantine_systems.c diseq_stacks.c dl_vartable.c	\
-              egraph_assertion_queues.c egraph_explanations.c		\
-              egraph_utils.c egraph.c eq_abstraction.c eq_learner.c	\
-              extended_rationals.c free_var_collector.c fun_maps.c	\
+              concrete_value_printer.c context.c context_config.c	\
+              context_simplifier.c context_solver.c csets.c		\
+              dep_tables.c diophantine_systems.c diseq_stacks.c		\
+              dl_vartable.c egraph_assertion_queues.c			\
+              egraph_explanations.c egraph_utils.c egraph.c		\
+              eq_abstraction.c eq_learner.c extended_rationals.c	\
+              free_var_collector.c fresh_value_maker.c fun_maps.c	\
               fun_solver.c fun_trees.c gates_hash_table.c		\
               gates_manager.c gcd.c generic_heap.c hash_functions.c	\
               idl_floyd_warshall.c index_vectors.c int_array_hsets.c	\
