@@ -2444,25 +2444,25 @@ void vtbl_gen_function_map(value_table_t *table, type_t tau, uint32_t i, value_t
  */
 
 /*
- * Search for object of index i and tuple type d
+ * Search for object tuple of index i and type tau[0] x ... x tau[n-1]
+ * - return null_value if it's not present
  */
-static value_t vtbl_find_enum_tuple(value_table_t *table, tuple_type_t *d, uint32_t i) {
+value_t vtbl_find_object_tuple(value_table_t *table, uint32_t n, type_t *tau, uint32_t i) {
   uint32_t buffer[10];
   uint32_t *aux;
-  uint32_t j, n;
+  uint32_t j;
   value_t v;
 
-  n = d->nelem;
   aux = buffer;
   if (n > 10) {
     assert(n < UINT32_MAX/sizeof(uint32_t));
     aux = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
   }
 
-  vtbl_expand_tuple_code(table->type_table, n, d->elem, i, aux);
+  vtbl_expand_tuple_code(table->type_table, n, tau, i, aux);
 
   for (j=0; j<n; j++) {
-    v = vtbl_find_object(table, d->elem[j], aux[j]);
+    v = vtbl_find_object(table, tau[j], aux[j]);
     if (v == null_value) goto cleanup;
     aux[j] = v;
   }
@@ -2475,7 +2475,15 @@ static value_t vtbl_find_enum_tuple(value_table_t *table, tuple_type_t *d, uint3
     safe_free(aux);
   }
 
-  return v;
+  return v;  
+}
+
+
+/*
+ * Search for object of index i and tuple type d
+ */
+static inline value_t vtbl_find_enum_tuple(value_table_t *table, tuple_type_t *d, uint32_t i) {
+  return vtbl_find_object_tuple(table, d->nelem, d->elem, i);
 }
 
 
@@ -2675,6 +2683,7 @@ value_t vtbl_find_object(value_table_t *table, type_t tau, uint32_t i) {
     return null_value;
   }
 }
+
 
 
 

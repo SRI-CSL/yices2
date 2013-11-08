@@ -600,6 +600,17 @@ static inline bool vtbl_test_object(value_table_t *table, type_t tau, uint32_t i
 
 
 /*
+ * Search for object tuple of index i and type tau[0] x ... x tau[n-1]
+ * - return null_value if it's not present
+ */
+extern value_t vtbl_find_object_tuple(value_table_t *table, uint32_t n, type_t *tau, uint32_t i);
+
+static inline bool vtbl_test_object_tuple(value_table_t *table, uint32_t n, type_t *tau, uint32_t i) {
+  return vtbl_find_object_tuple(table, n, tau, i) >= 0;
+}
+
+
+/*
  * NAMES
  */
 

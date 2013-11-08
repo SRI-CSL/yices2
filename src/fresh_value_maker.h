@@ -137,7 +137,13 @@ extern value_t make_fresh_const(fresh_val_maker_t *maker, type_t tau);
  */
 extern value_t make_fresh_tuple(fresh_val_maker_t *maker, type_t tau);
 
-
+/*
+ * Fresh function to type tau
+ * - tau must be a function type
+ * - return null_value if tau is finite and all functions of that type
+ *   already exist
+ */
+extern value_t make_fresh_function(fresh_val_maker_t *maker, type_t tau);
 
 /*
  * Create a fresh value of type tau:

@@ -643,24 +643,88 @@ static bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2])
  */
 
 /*
+ * Set a[i] to an arbitrary element of type tau[i]
+ * - skip j
+ */
+static void fill_tuple(value_table_t *vtbl, uint32_t n, type_t *tau, value_t *a, uint32_t j) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (i != j) {
+      a[i] = vtbl_make_object(vtbl, tau[i]);
+    }
+  }
+}
+
+/*
  * Try to generate a fresh tuple of n values
  * - tau[i] = type for a[i]
  * - return false if this fails
  */
 static bool gen_fresh_tuple(fresh_val_maker_t *maker, uint32_t n, type_t *tau, value_t *a) {
+  type_table_t *types;
+  value_table_t *vtbl;
+  tuple_counter_t *ctr;
+  uint32_t j;
+  value_t v;
+
+  types = maker->types;
+  vtbl = maker->vtbl;
+
+  // search for an infinite tau[j]
+  for (j=0; j<n; j++) {
+    if (! is_finite_type(types, tau[j])) {
+      break;
+    }
+  }
+
+  if (j < n) {
+    // tau[j] is infinite
+    fill_tuple(vtbl, n, tau, a, j);
+    a[j] = make_fresh_value(maker, tau[j]);
+    return true;
+  }
+
+  // all types are finite: try to get a fresh element
+  // for one of tau[j]
+  for (j=0; j<n; j++) {
+    v = make_fresh_value(maker, tau[j]);
+    if (v != null_value) break;
+  }
+  
+  if (j < n) {
+    // we have a fresh v of type tau[j]
+    fill_tuple(vtbl, n, tau, a, j);
+    a[j] = v;
+    return true;
+  }
+
+  // all tau[i] are finite and saturated: use the counter
+  ctr = get_tuple_counter(maker, n, tau);
+  j = ctr->count;
+  while (j < ctr->card && vtbl_test_object_tuple(vtbl, n, tau, j)) {
+    j++;
+  }
+  if (j < ctr->card) {
+    vtbl_gen_object_tuple(vtbl, n, tau, j, a);
+    ctr->count = j+1;
+    return true;
+  } 
+
+  // failed
+  ctr->count = j;  
   return false;
 }
+
 
 value_t make_fresh_tuple(fresh_val_maker_t *maker, type_t tau) {
   value_t buffer[10];
   value_t *aux;
-  type_table_t *types;
   tuple_type_t *d;
   uint32_t n;
   value_t v;
 
-  types = maker->types;
-  d = tuple_type_desc(types, tau);
+  d = tuple_type_desc(maker->types, tau);
 
   n = d->nelem;
   aux = buffer;
@@ -680,3 +744,164 @@ value_t make_fresh_tuple(fresh_val_maker_t *maker, type_t tau) {
 
   return v;
 }
+
+
+/*
+ * FRESH FUNCTIONS
+ */
+
+value_t make_fresh_function(fresh_val_maker_t *maker, type_t tau) {
+  value_t buffer[10];
+  value_t a[2];
+  value_t *aux;
+  type_table_t *types;
+  value_table_t *vtbl;
+  function_type_t *d;
+  tuple_counter_t *ctr;
+  type_t sigma;
+  value_t v;  
+  uint32_t i, n;
+
+  types = maker->types;
+  vtbl = maker->vtbl;
+
+  d = function_type_desc(types, tau);;
+  sigma = d->range;
+
+  if (is_unit_type(types, sigma)) {
+    // sigma is a singleton so there's only one function of type tau
+    v = null_value;
+    if (! vtbl_test_object(vtbl, tau, 0)) {
+      v = vtbl_gen_object(vtbl, tau, 0);
+    }
+    return v;
+  }
+
+  // try to get a fresh value of type sigma
+  // if this works create a new constant function  
+  v = make_fresh_value(maker, sigma);
+  if (v != null_value) {
+    v = vtbl_mk_function(vtbl, tau, 0, NULL, v);
+    return v;
+  }
+
+  // sigma is finite and saturated
+  v = null_value;
+  if (card_of_domain_type(types, tau) > 2) {
+    // try to get a fresh tuple in the domain
+    n = d->ndom; // function arity
+    aux = buffer;
+    if (n > 10) {
+      assert(n < UINT32_MAX/sizeof(value_t));
+      aux = (value_t *) safe_malloc(n * sizeof(value_t));
+    }
+
+    if (gen_fresh_tuple(maker, n, d->domain, aux)) {
+      /*
+       * We have a fresh tuple aux[0 ... n-1].
+       * We get two objects a[0] and a[1] of type sigma
+       * and return the function f that maps every thing to a[0]
+       * except aux[0 .. n-1] that's mapped a[1]. 
+       * This f must be fresh.
+       *
+       * Take another g of type tau. Since aux is fresh,
+       * then g(aux) is the default value for g.
+       * - if g's default is not a[1], then g /= f
+       * - if g's default is a[1] and there's an x /= aux such
+       *   that g(x) = a[1] then g /= f (since f(x) = a[0]).
+       * - otherwise,
+       *   - the default for g is a[1]
+       *   - for any other x in the domain g(x) /= a[1]
+       *   - by construction, the default value for g is 
+       *     one that occurs most often in the range of g
+       *     so g(x) /= g(y) whenever x /= y.
+       *   - since the domain has cardinality > 2, there's 
+       *     a y such that g(y) /= a[0] and g(y) /= a[1] so g /= f
+       *     in that case too.
+       */
+      if (! vtbl_make_two_objects(vtbl, sigma, a)) {
+	assert(false); // should never happen
+      }
+      v = vtbl_mk_map(vtbl, n, aux, a[1]); // map (aux[0] ... aux[n-1] := a[1]);
+      v = vtbl_mk_function(vtbl, tau, 1, &v, a[0]);
+    }
+
+    if (n > 10) {
+      safe_free(aux);
+    }
+  }
+
+  if (v == null_value) {
+    /*
+     * The previous trick has failed:
+     * - sigma and tau[0 ... n-1] are all finite
+     * - sigma and tau[0] x ... x tau[n-1] are saturated
+     * Try the counter for tau
+     */
+    ctr = get_type_counter(maker, tau);
+    i = ctr->count;
+    while (i < ctr->card && vtbl_test_object(vtbl, tau, i)) {
+      i ++;
+    }
+    if (i < ctr->card) {
+      v = vtbl_gen_object(vtbl, tau, i);
+      ctr->count = i+1;
+    } else {
+      // failed
+      ctr->count = i;
+      assert(v == null_value);
+    }
+  }
+
+  return v;
+}
+
+
+/*
+ * Create a fresh value of type tau:
+ * - return null_value if that fails (i.e., tau is finite and all values
+ *   or type tau are already present)
+ */
+value_t make_fresh_value(fresh_val_maker_t *maker, type_t tau) {
+  type_table_t *types;
+  value_t v;
+
+  types = maker->types;
+
+  switch (type_kind(types, tau)) {
+  case BOOL_TYPE:
+    v = null_value;
+    break;
+
+  case INT_TYPE:
+  case REAL_TYPE:
+    v = make_fresh_integer(maker);
+    assert(v != null_value);
+    break;
+
+  case BITVECTOR_TYPE:
+    v = make_fresh_bv(maker, bv_type_size(types, tau));
+    break;
+
+  case SCALAR_TYPE:
+  case UNINTERPRETED_TYPE:
+    v = make_fresh_const(maker, tau);
+    break;
+
+  case TUPLE_TYPE:
+    v = make_fresh_tuple(maker, tau);
+    break;
+
+  case FUNCTION_TYPE:
+    v = make_fresh_function(maker, tau);
+    break;
+
+  default:
+    assert(false);
+    v = null_value;
+    break;
+  }
+
+  return v;
+}
+
