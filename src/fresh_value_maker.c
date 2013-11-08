@@ -36,7 +36,6 @@ static tuple_counter_t *new_tuple_counter(type_table_t *types, uint32_t n, type_
   return tmp;
 }
 
-
 // same thing for a single type tau
 static tuple_counter_t *new_type_counter(type_table_t *types, type_t tau) {
   tuple_counter_t *tmp;
@@ -49,7 +48,6 @@ static tuple_counter_t *new_type_counter(type_table_t *types, type_t tau) {
 
   return tmp;
 }
-
 
 
 /*
@@ -75,7 +73,6 @@ static bool counter_matches_tuple(tuple_counter_t *r, uint32_t n, type_t *tau) {
 static bool counter_matches_type(tuple_counter_t *r, type_t tau) {
   return r->arity == 1 && r->tau[0] == tau;
 }
-
 
 
 /*
@@ -183,9 +180,8 @@ static tuple_counter_t *counter_for_type(tup_counter_vector_t *v, type_t tau) {
 }
 
 
-
 /*
- * VECTOR BITVECTOR COUNTERS
+ * BITVECTOR COUNTERS
  */
 
 /*
@@ -270,9 +266,6 @@ static int32_t counter_for_bv(bv_counter_vector_t *v, uint32_t n) {
 }
 
 
-
-
-
 /*
  * MAKER STRUCTURE
  */
@@ -345,8 +338,6 @@ static int32_t get_bv_counter(fresh_val_maker_t *maker, uint32_t n) {
 
   return i;
 }
-
-
 
 
 /*
@@ -448,9 +439,6 @@ value_t make_fresh_bv(fresh_val_maker_t *maker, uint32_t n) {
 }
 
 
-
-
-
 /*
  * AUXILIARY CONSTRUCTORS
  */
@@ -458,16 +446,14 @@ value_t make_fresh_bv(fresh_val_maker_t *maker, uint32_t n) {
 /*
  * Return some value of type tau: not necessarily fresh
  */
-value_t vtbl_make_object(value_table_t *vtbl, type_t tau);
+static value_t vtbl_make_object(value_table_t *vtbl, type_t tau);
 
 /*
  * Attempt to construct two distinct objects of type tau.
  * - return true if that succeeds, false if tau is a singleton type
  * - store the two objects in a[0] and a[1]
  */
-bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2]);
-
-
+static bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2]);
 
 /*
  * Tuple object for the given type
@@ -499,7 +485,7 @@ static value_t vtbl_make_tuple(value_table_t *vtbl, tuple_type_t *d) {
 /*
  * Return some value of type tau
  */
-value_t vtbl_make_object(value_table_t *vtbl, type_t tau) {
+static value_t vtbl_make_object(value_table_t *vtbl, type_t tau) {
   type_table_t *types;
   value_t v;
 
@@ -598,7 +584,7 @@ static bool vtbl_make_two_tuples(value_table_t *vtbl, tuple_type_t *d, value_t a
  * - return true if that succeeds, false if tau is a singleton type
  * - store the two objects in a[0] and a[1]
  */
-bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2]) {
+static bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2]) {
   type_table_t *types;
 
   types = vtbl->type_table;
@@ -652,3 +638,45 @@ bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2]) {
 }
 
 
+/*
+ * FRESH TUPLES
+ */
+
+/*
+ * Try to generate a fresh tuple of n values
+ * - tau[i] = type for a[i]
+ * - return false if this fails
+ */
+static bool gen_fresh_tuple(fresh_val_maker_t *maker, uint32_t n, type_t *tau, value_t *a) {
+  return false;
+}
+
+value_t make_fresh_tuple(fresh_val_maker_t *maker, type_t tau) {
+  value_t buffer[10];
+  value_t *aux;
+  type_table_t *types;
+  tuple_type_t *d;
+  uint32_t n;
+  value_t v;
+
+  types = maker->types;
+  d = tuple_type_desc(types, tau);
+
+  n = d->nelem;
+  aux = buffer;
+  if (n > 10) {
+    assert(n <= UINT32_MAX/sizeof(value_t));
+    aux = (value_t *) safe_malloc(n * sizeof(value_t));
+  }
+
+  v = null_value;
+  if (gen_fresh_tuple(maker, n, d->elem, aux)) {
+    v = vtbl_mk_tuple(maker->vtbl, n, aux);
+  }
+
+  if (n > 10) {
+    safe_free(aux);
+  }
+
+  return v;
+}

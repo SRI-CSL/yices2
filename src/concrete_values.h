@@ -594,7 +594,9 @@ extern void vtbl_gen_function_map(value_table_t *table, type_t tau, uint32_t i, 
  */
 extern value_t vtbl_find_object(value_table_t *table, type_t tau, uint32_t i);
 
-
+static inline bool vtbl_test_object(value_table_t *table, type_t tau, uint32_t i) {
+  return vtbl_find_object(table, tau, i) >= 0;
+}
 
 
 /*
