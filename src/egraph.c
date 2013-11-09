@@ -6774,7 +6774,9 @@ uint32_t egraph_get_labels_for_type(egraph_t *egraph, type_t tau, elabel_t *a, u
 }
 
 
+#if 0
 
+// NOT USED
 /*
  * Number of classes of type tau in the egraph
  */
@@ -6802,6 +6804,7 @@ uint32_t egraph_num_classes_of_type(egraph_t *egraph, type_t tau) {
   return k;
 }
 
+#endif
 
 
 /*
@@ -6848,7 +6851,7 @@ static ppart_t *egraph_get_app_partition(egraph_t *egraph) {
  *   (i.e., n = m and t_1 == u_1 and ... and t_n == u_m)
  * Result:
  * - all non-singleton classes are stored in pp->classes
- *  (cf. ptr_partitions.h and ptr_partitions.c)
+ *   (cf. ptr_partitions.h and ptr_partitions.c)
  */
 void egraph_build_arg_partition(egraph_t *egraph) {
   //  uint32_t i, n;

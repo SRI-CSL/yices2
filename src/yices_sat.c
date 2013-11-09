@@ -66,7 +66,11 @@ static void alloc_buffer(uint32_t size) {
 }
 
 static void expand_buffer(void) {
-  buffer_size = 2 * buffer_size;
+  if (buffer_size >= UINT32_MAX/2) {
+    buffer_size = UINT32_MAX;
+  } else {
+    buffer_size = 2 * buffer_size;
+  }
   clause = realloc(clause, buffer_size * sizeof(literal_t));
   if (clause == NULL) {
     fprintf(stderr, "Out of memory\n");

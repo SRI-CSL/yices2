@@ -482,11 +482,15 @@ extern elabel_t egraph_get_label_for_type(egraph_t *egraph, type_t tau);
 extern uint32_t egraph_get_labels_for_type(egraph_t *egraph, type_t tau, elabel_t *a, uint32_t n);
 
 
+#if 0
+
+// NOT USED
 /*
  * Number of classes of type tau in the egraph
  */
 extern uint32_t egraph_num_classes_of_type(egraph_t *egraph, type_t tau);
 
+#endif
 
 /*
  * Partition the (apply ...) composites into equivalence classes
