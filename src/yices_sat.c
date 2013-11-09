@@ -56,7 +56,10 @@ static uint32_t buffer_size;
 /*
  * Buffer allocation
  */
+#define MAX_CLAUSE_SIZE (UINT32_MAX/sizeof(literal_t))
+
 static void alloc_buffer(uint32_t size) {
+  assert(size <= MAX_CLAUSE_SIZE);
   clause = malloc(size * sizeof(literal_t));
   buffer_size = size;
   if (clause == NULL) {
@@ -66,11 +69,12 @@ static void alloc_buffer(uint32_t size) {
 }
 
 static void expand_buffer(void) {
-  if (buffer_size >= UINT32_MAX/2) {
-    buffer_size = UINT32_MAX;
-  } else {
-    buffer_size = 2 * buffer_size;
+  assert(buffer_size <= MAX_CLAUSE_SIZE);
+  buffer_size = 2 * buffer_size;
+  if (buffer_size > MAX_CLAUSE_SIZE) {
+    buffer_size = MAX_CLAUSE_SIZE;
   }
+
   clause = realloc(clause, buffer_size * sizeof(literal_t));
   if (clause == NULL) {
     fprintf(stderr, "Out of memory\n");
