@@ -288,6 +288,7 @@ typedef struct type_table_s {
   uint32_t *card;
   uint8_t *flags;
   char **name;
+  uint32_t *depth;
 
   uint32_t size;
   uint32_t nelems;
@@ -749,7 +750,7 @@ static inline bool ground_type(type_table_t *tbl, type_t i) {
 }
 
 
-// access card, flags, name of non-deleted type
+// access card, flags, name, depth of non-deleted type
 static inline uint32_t type_card(type_table_t *tbl, type_t i) {
   assert(good_type(tbl, i));
   return tbl->card[i];
@@ -765,6 +766,10 @@ static inline char *type_name(type_table_t *tbl, type_t i) {
   return tbl->name[i];
 }
 
+static inline uint32_t type_depth(type_table_t *tbl, type_t i) {
+  assert(good_type(tbl, i));
+  return tbl->depth[i];
+}
 
 // check whether i is atomic (i.e., not a tuple or function type)
 static inline bool is_atomic_type(type_table_t *tbl, type_t i) {

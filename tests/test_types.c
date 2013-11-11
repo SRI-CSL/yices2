@@ -171,7 +171,8 @@ int main() {
   printf("\n");
 
   i = bv_type(&table, 10);
-  printf("---> bv10: %"PRId32", i: %"PRId32"\n\n", bv10, i);
+  printf("---> bv10: %"PRId32", i: %"PRId32", depth = %"PRIu32"\n\n",
+	 bv10, i, type_depth(&table, i));
   assert(i == bv10);
 
   printf("*** Creating bv32 ***\n");
@@ -181,7 +182,8 @@ int main() {
   print_type_table(stdout, &table);
   printf("\n");
   i = bv_type(&table, 32);
-  printf("---> bv32: %"PRId32", i: %"PRId32"\n\n", bv32, i);
+  printf("---> bv32: %"PRId32", i: %"PRId32", depth = %"PRIu32"\n\n", 
+	 bv32, i, type_depth(&table, i));
   assert(i == bv32);
 
   printf("*** Creating any (uninterpreted) ***\n");
@@ -189,14 +191,14 @@ int main() {
   set_type_name(&table, any, clone_string("any"));
   print_type_table(stdout, &table);
   printf("\n");
-  printf("---> any: %"PRId32"\n\n", any);
+  printf("---> any: %"PRId32", depth = %"PRIu32"\n\n", any, type_depth(&table, any));
 
   printf("*** Creating enum (scalar 5) ***\n");
   enumtype = new_scalar_type(&table, 5);
   set_type_name(&table, enumtype, clone_string("enum"));
   print_type_table(stdout, &table);
   printf("\n");
-  printf("---> enum: %"PRId32"\n\n", enumtype);
+  printf("---> enum: %"PRId32", depth = %"PRIu32"\n\n", enumtype, type_depth(&table, enumtype));
 
   printf("*** Creating ftype ***\n");
   ft = binary_function_type(&table, enumtype, any, real_type(&table));
@@ -204,7 +206,8 @@ int main() {
   i = binary_function_type(&table, enumtype, any, real_type(&table));
   print_type_table(stdout, &table);
   printf("\n");
-  printf("---> ft: %"PRId32", i: %"PRId32"\n\n", ft, i);
+  printf("---> ft: %"PRId32", i: %"PRId32", depth = %"PRIu32"\n\n", 
+	 ft, i, type_depth(&table, i));
   assert(i == ft);
 
   printf("*** Creating unit (scalar 1) ***\n");
@@ -249,7 +252,8 @@ int main() {
   print_type_table(stdout, &table);
   printf("\n");
   i = type_variable(&table, 0);
-  printf("---> var1 = %"PRId32", i = %"PRId32"\n\n", var1, i);
+  printf("---> var1 = %"PRId32", i = %"PRId32", depth = %"PRIu32"\n\n", 
+	 var1, i, type_depth(&table, i));
   assert(i == var1);
 
   printf("*** Creating type variable (id = 100) ***\n");
@@ -257,7 +261,8 @@ int main() {
   print_type_table(stdout, &table);
   printf("\n");
   i = type_variable(&table, 100);
-  printf("---> var2 = %"PRId32", i = %"PRId32"\n\n", var2, i);
+  printf("---> var2 = %"PRId32", i = %"PRId32", depth = %"PRIu32"\n\n", 
+	 var2, i, type_depth(&table, i));
   assert(i == var2);
 
   printf("*** Creating function type: (-> int int var1) ***\n");
@@ -265,7 +270,8 @@ int main() {
   i =  binary_function_type(&table, int_type(&table), int_type(&table), var1);
   print_type_table(stdout, &table);
   printf("\n");
-  printf("----> fvar = %"PRId32", i = %"PRId32"\n\n", fvar1, i);
+  printf("----> fvar = %"PRId32", i = %"PRId32", depth = %"PRIu32"\n\n", 
+	 fvar1, i, type_depth(&table, i));
   assert(i == fvar1);
 
   printf("*** Creating function type: (-> var1 var1 unit) ***\n");
@@ -273,7 +279,8 @@ int main() {
   i =  binary_function_type(&table, var1, var1, unit);
   print_type_table(stdout, &table);
   printf("\n");
-  printf("----> fvar = %"PRId32", i = %"PRId32"\n\n", fvar1, i);
+  printf("----> fvar = %"PRId32", i = %"PRId32", depth = %"PRIu32"\n\n", 
+	 fvar1, i, type_depth(&table, i));
   assert(i == fvar1);
 
   printf("*** Creating function type: (-> int var1 unit) ***\n");
@@ -281,7 +288,8 @@ int main() {
   i =  binary_function_type(&table, int_type(&table), var1, unit);
   print_type_table(stdout, &table);
   printf("\n");
-  printf("----> fvar = %"PRId32", i = %"PRId32"\n\n", fvar1, i);
+  printf("----> fvar = %"PRId32", i = %"PRId32", depth = %"PRIu32"\n\n",
+	 fvar1, i, type_depth(&table, i));
   assert(i == fvar1);
 
   printf("*** Creating function type: (-> int var1 enum) ***\n");
@@ -289,7 +297,8 @@ int main() {
   i =  binary_function_type(&table, int_type(&table), var1, enumtype);
   print_type_table(stdout, &table);
   printf("\n");
-  printf("----> fvar = %"PRId32", i = %"PRId32"\n\n", fvar1, i);
+  printf("----> fvar = %"PRId32", i = %"PRId32", depth = %"PRIu32"\n\n", 
+	 fvar1, i, type_depth(&table, i));
   assert(i == fvar1);
 
   printf("*** Creating tuple type: (tuple var1 var2) ****\n");
@@ -297,7 +306,8 @@ int main() {
   i = tuple_type_pair(&table, var1, var2);
   print_type_table(stdout, &table);
   printf("\n");
-  printf("----> tvar = %"PRId32", i = %"PRId32"\n\n", tvar, i);
+  printf("----> tvar = %"PRId32", i = %"PRId32", depth = %"PRIu32"\n\n",
+	 tvar, i, type_depth(&table, i));
   assert(i == tvar);
 
   printf("*** Creating tuple type: (tuple var2 real) ****\n");
@@ -305,7 +315,8 @@ int main() {
   i = tuple_type_pair(&table, var2, real_type(&table));
   print_type_table(stdout, &table);
   printf("\n");
-  printf("----> tvar = %"PRId32", i = %"PRId32"\n\n", tvar, i);
+  printf("----> tvar = %"PRId32", i = %"PRId32", depth = %"PRIu32"\n\n",
+	 tvar, i, type_depth(&table, i));
   assert(i == tvar);
 
   printf("*** Creating tuple type: (tuple real var2) ****\n");
@@ -313,7 +324,8 @@ int main() {
   i = tuple_type_pair(&table, real_type(&table), var2);
   print_type_table(stdout, &table);
   printf("\n");
-  printf("----> tvar = %"PRId32", i = %"PRId32"\n\n", tvar, i);
+  printf("----> tvar = %"PRId32", i = %"PRId32", depth = %"PRIu32"\n\n", 
+	 tvar, i, type_depth(&table, i));
   assert(i == tvar);
 
   printf("*** Creating function type: (-> real real (tuple real var2)) ****\n");
@@ -322,7 +334,8 @@ int main() {
   i = binary_function_type(&table, real_type(&table), real_type(&table), tvar);
   print_type_table(stdout, &table);
   printf("\n");
-  printf("---> fvar = %"PRId32", i = %"PRId32"\n\n", fvar1, i);
+  printf("---> fvar = %"PRId32", i = %"PRId32", depth = %"PRIu32"\n\n", 
+	 fvar1, i, type_depth(&table, i));
   assert(i == fvar1);
 
   printf("*** Creating function type: (-> real (tuple real var2) enum) ****\n");
@@ -330,7 +343,8 @@ int main() {
   i = binary_function_type(&table, real_type(&table), tvar, enumtype);
   print_type_table(stdout, &table);
   printf("\n");
-  printf("---> fvar = %"PRId32", i = %"PRId32"\n\n", fvar1, i);
+  printf("---> fvar = %"PRId32", i = %"PRId32", depth = %"PRIu32"\n\n", 
+	 fvar1, i, type_depth(&table, i));
   assert(i == fvar1);
 
   printf("\n\n*** ALL TYPES ***\n");
@@ -392,7 +406,8 @@ int main() {
   printf("*** Creating pair type ***\n");
   tt = tuple_type_pair(&table, any, enumtype);
   i = tuple_type_pair(&table, any, enumtype);
-  printf("---> tt: %"PRId32", i: %"PRId32"\n\n", tt, i);
+  printf("---> tt: %"PRId32", i: %"PRId32", depth = %"PRIu32"\n\n",
+	 tt, i, type_depth(&table, i));
   assert(i == tt);
   print_type_table(stdout, &table);
   printf("\n");
@@ -400,7 +415,9 @@ int main() {
   printf("*** Creating triplets ***\n");
   tt = tuple_type_triple(&table, any, int_type(&table), tt);
   i = tuple_type_triple(&table, bv_type(&table, 24), int_type(&table), tt);
-  printf("---> tt: %"PRId32", i: %"PRId32"\n\n", tt, i);
+  printf("---> tt: %"PRId32", i: %"PRId32"\n", tt, i);
+  printf("---> depth(tt) = %"PRIu32"\n", type_depth(&table, tt));
+  printf("---> depth(i)  = %"PRIu32"\n\n", type_depth(&table, i));
   print_type_table(stdout, &table);
   printf("\n");
 
@@ -408,7 +425,8 @@ int main() {
   i = tuple_type_triple(&table, bv_type(&table, 24), int_type(&table),
 			tuple_type_triple(&table, any, int_type(&table), 
 					  tuple_type_pair(&table, any, enumtype)));
-  printf("\n---> (tuple (bv 24) int (tuple any int (tuple any enum))): %"PRId32"\n\n", i);
+  printf("\n---> (tuple (bv 24) int (tuple any int (tuple any enum))): %"PRId32"\n", i);
+  printf("---> depth = %"PRIu32"\n\n", type_depth(&table, i));
   print_type_table(stdout, &table);
   printf("\n");
 

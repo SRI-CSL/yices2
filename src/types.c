@@ -248,7 +248,8 @@ static void type_table_init(type_table_t *table, uint32_t n) {
   table->card = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
   table->flags = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
   table->name = (char **) safe_malloc(n * sizeof(char *));
-  
+  table->depth = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+
   table->size = n;
   table->nelems = 0;
   table->free_idx = NULL_TYPE;
@@ -292,6 +293,7 @@ static void type_table_extend(type_table_t *table) {
   table->card = (uint32_t *) safe_realloc(table->card, n * sizeof(uint32_t));
   table->flags = (uint8_t *) safe_realloc(table->flags, n * sizeof(uint8_t));
   table->name = (char **) safe_realloc(table->name, n * sizeof(char *));
+  table->depth = (uint32_t *) safe_realloc(table->depth, n * sizeof(uint32_t));
 
   table->size = n;
 }
@@ -514,7 +516,42 @@ static uint64_t fun_type_card(type_table_t *table, uint32_t n, type_t *e, type_t
 
 
 
+/*
+ * DEPTH COMPUTATION
+ */
 
+// for tuple
+static uint32_t depth_tuple_type(type_table_t *table, uint32_t n, type_t *e) {
+  uint32_t i, max, d;
+
+  max = 0;
+  for (i=0; i<n; i++) {
+    d = type_depth(table, e[i]);
+    if (d > max) {
+      max = d;
+    }
+  }
+  return 1 + max;
+}
+
+// for function type
+static uint32_t depth_function_type(type_table_t *table, uint32_t n, type_t *e, type_t r) {
+  uint32_t i, max, d;
+
+  max = type_depth(table, r);
+  for (i=0; i<n; i++) {
+    d = type_depth(table, e[i]);
+    if (d > max) {
+      max = d;
+    }
+  }
+  return 1 + max;
+}
+
+// for instance type: same as tuple
+static inline uint32_t depth_instance_type(type_table_t *table, uint32_t n, type_t *param) {
+  return depth_tuple_type(table, n, param);
+}
 
 /*
  * TYPE CREATION
@@ -532,6 +569,7 @@ static void add_primitive_types(type_table_t *table) {
   table->desc[i].ptr = NULL;
   table->card[i] = 2;
   table->flags[i] = SMALL_TYPE_FLAGS;
+  table->depth[i] = 0;
 
   i = allocate_type_id(table);
   assert(i == int_id);
@@ -539,6 +577,7 @@ static void add_primitive_types(type_table_t *table) {
   table->desc[i].ptr = NULL;
   table->card[i] = UINT32_MAX;
   table->flags[i] = (INFINITE_TYPE_FLAGS | TYPE_IS_MINIMAL_MASK);
+  table->depth[i] = 0;
 
   i = allocate_type_id(table);
   assert(i == real_id);
@@ -546,6 +585,7 @@ static void add_primitive_types(type_table_t *table) {
   table->desc[i].ptr = NULL;
   table->card[i] = UINT32_MAX;
   table->flags[i] = (INFINITE_TYPE_FLAGS | TYPE_IS_MAXIMAL_MASK);
+  table->depth[i] = 0;
 }
 
 
@@ -563,6 +603,7 @@ static type_t new_bitvector_type(type_table_t *table, uint32_t k) {
   i = allocate_type_id(table);
   table->kind[i] = BITVECTOR_TYPE;
   table->desc[i].integer = k;
+  table->depth[i] = 0;
   if (k < 32) {
     table->card[i] = ((uint32_t) 1) << k;
     table->flags[i] = SMALL_TYPE_FLAGS;
@@ -589,6 +630,7 @@ type_t new_scalar_type(type_table_t *table, uint32_t k) {
   table->kind[i] = SCALAR_TYPE;
   table->desc[i].integer = k;
   table->card[i] = k;
+  table->depth[i] = 0;
   if (k == 1) {
     table->flags[i] = UNIT_TYPE_FLAGS;
   } else {
@@ -611,6 +653,7 @@ type_t new_uninterpreted_type(type_table_t *table) {
   table->desc[i].ptr = NULL;
   table->card[i] = UINT32_MAX;
   table->flags[i] = (INFINITE_TYPE_FLAGS | TYPE_IS_MAXIMAL_MASK | TYPE_IS_MINIMAL_MASK);
+  table->depth[i] = 0;
 
   return i;
 }
@@ -669,6 +712,7 @@ static type_t new_tuple_type(type_table_t *table, uint32_t n, type_t *e) {
   assert(0 < card && card <= UINT32_MAX);
   table->card[i] = card;
   table->flags[i] = flag;
+  table->depth[i] = depth_tuple_type(table, n, e);
 
   return i;
 }
@@ -703,7 +747,6 @@ static type_t new_function_type(type_table_t *table, uint32_t n, type_t *e, type
   rflag = type_flags(table, r);
   minmax = rflag & MINMAX_FLAGS_MASK; // save min and max bits
   flag = rflag & type_flags_conjunct(table, n, e);
-
 
   /*
    * The function type has the same flags as the range type if
@@ -751,6 +794,7 @@ static type_t new_function_type(type_table_t *table, uint32_t n, type_t *e, type
   assert(0 < card && card <= UINT32_MAX);
   table->card[i] = card;
   table->flags[i] = flag;
+  table->depth[i] = depth_function_type(table, n, e, r);
 
   return i;
 }
@@ -767,6 +811,7 @@ static type_t new_type_variable(type_table_t *table, uint32_t id) {
   table->desc[i].integer = id;
   table->card[i] = UINT32_MAX;         // card is not defined
   table->flags[i] = FREE_TYPE_FLAGS;
+  table->depth[i] = 0;
 
   return i;
 }
@@ -808,6 +853,7 @@ static type_t new_instance_type(type_table_t *table, int32_t cid, uint32_t n, ty
     flag = (INFINITE_TYPE_FLAGS | TYPE_IS_MAXIMAL_MASK | TYPE_IS_MINIMAL_MASK);
   }
   table->flags[i] = flag;
+  table->depth[i] = depth_instance_type(table, n, param);
 
   return i;
 }
@@ -1106,12 +1152,14 @@ void delete_type_table(type_table_t *table) {
   safe_free(table->card);
   safe_free(table->flags);
   safe_free(table->name);
+  safe_free(table->depth);
 
   table->kind = NULL;
   table->desc = NULL;
   table->card = NULL;
   table->flags = NULL;
   table->name = NULL;
+  table->depth = NULL;
 
   delete_int_htbl(&table->htbl);
   delete_stbl(&table->stbl);
