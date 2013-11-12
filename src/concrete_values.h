@@ -424,6 +424,9 @@ extern value_t vtbl_mk_bv_one(value_table_t *table, uint32_t n);
 extern value_t vtbl_mk_tuple(value_table_t *table, uint32_t n, value_t *e);
 
 
+#if 0
+
+// NOT USED
 /*
  * Fresh uninterpreted constant
  * - tau = its type (as an index in the type table)
@@ -432,6 +435,7 @@ extern value_t vtbl_mk_tuple(value_table_t *table, uint32_t n, value_t *e);
  * - the constant is assigned a default index = -1
  */
 extern value_t vtbl_mk_unint(value_table_t *table, type_t tau, char *name);
+#endif
 
 
 /*

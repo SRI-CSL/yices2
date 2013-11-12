@@ -860,6 +860,8 @@ value_t vtbl_mk_not(value_table_t *table, value_t v) {
 }
 
 
+#if 0
+// not used
 /*
  * Uninterpreted constant of type tau
  * - tau must be a scalar or uninterpreted type
@@ -890,8 +892,7 @@ value_t vtbl_mk_unint(value_table_t *table, type_t tau, char *name) {
   return i;
 }
 
-
-
+#endif
 
 
 /********************************************

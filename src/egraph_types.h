@@ -21,7 +21,7 @@
  *
  * 2012-09-06: added lambda terms
  *
- * 2013-11-11: changed model construction.
+ * 2013-11-11: changed model construction to use fresh_val_maker.
  */
 
 
@@ -739,9 +739,9 @@ typedef struct egraph_trail_stack_s {
  * - subsolvers are theory solvers that cannot work without the egraph,
  *   a subsolver can deal only with equalities and disequalities.
  *
- * Full solvers must implement the th_ctrl and th_smt interfaces (defined in smt_core.h)
- * and the th_egraph interface defined below. (The arithmetic solver may need an extended 
- * interface.)
+ * Full solvers must implement the th_ctrl and th_smt interfaces
+ * (defined in smt_core.h) and the th_egraph interface defined
+ * below. (The arithmetic solver may need an extended interface.)
  *
  * Sub-solvers must implement the th_ctrl and th_egraph interfaces.
  *
@@ -780,11 +780,13 @@ typedef struct egraph_trail_stack_s {
  *     return true if x is a constant in the theory solver (optional)
  *     return false otherwise
  *
- * For all three functions above, the satellite solver must store the assertions internally
- * and process them when propagate is called. To construct theory conflicts,
- * the satellite solver can query the egraph for explanations using functions 
- * egraph_explain_term_eq or egraph_explain_term_diseq. Both functions are defined in
- * egraph_explanation.c. The hint must be passed as a argument in egraph_explain_term_diseq.
+ * For all assert functions above, the satellite solver must store the
+ * assertions internally and process them when propagate is called. To
+ * construct theory conflicts, the satellite solver can query the
+ * egraph for explanations using functions egraph_explain_term_eq or
+ * egraph_explain_term_diseq. Both functions are defined in
+ * egraph_explanation.c. The hint must be passed as a argument in
+ * egraph_explain_term_diseq.
  *
  * Optional function: necessary if the solver propagates equalities to the egraph
  *
@@ -835,12 +837,11 @@ typedef struct egraph_trail_stack_s {
  * egraph_explanations.c
  *
  *
- * New API for interface equalities (2010/01/13)
- * ---------------------------------------------
+ * Default API for interface equalities (2010/01/13)
+ * --------------------------------------------------
  * 
- * The following function is intended to replace functions 6, 7, 8 above, for better
- * performance. It's more efficient for the theory solvers to generate interface
- * equalities than for the egraph.
+ * The following function is intended for the theory solvers to
+ * generate interface equalities.
  *
  * 6) uint32_t reconcile_model(void *solver, uint32_t max_eq)
  * 
@@ -861,7 +862,7 @@ typedef struct egraph_trail_stack_s {
  *       (0 means that the egraph and solver model are consistent).
  *
  *
-* Experimental API to support more flexible interface generation algorithms (08/28/2012)
+ * Experimental API to support more flexible interface generation algorithms (08/28/2012)
  * 
  * 6a) void prepare_model(void *solver)
  *
@@ -975,6 +976,8 @@ typedef struct egraph_trail_stack_s {
  *
  *    2) bool fresh_value(void *arith_solver, rational_t *v, bool is_int)
  *
+ *    Obsolete: this function is never called by the egraph.
+ *
  *    Must store a value in v that's unique. If is_int is true, the
  *    value must be an integer. If is_int is false, a non-integer
  *    value is allowed.
@@ -993,6 +996,8 @@ typedef struct egraph_trail_stack_s {
  *    bvsolver_interface used by the context.
  *
  *    2) bool fresh_value(void *bv_solver, bvconstant_t *b, uint32_t n)
+ *
+ *    Obsolete: this function is never called by the egraph.
  *
  *    Must store in b a value that's guaranteed to be unique and return true.
  *    n = bit size of the value requested.
@@ -1015,7 +1020,7 @@ typedef struct egraph_trail_stack_s {
  *    - First the function solver constructs an abstract model (via fun_maps/abstract_values).
  *      This may introduce new objects (fresh particles) that are not currently present
  *      in the egraph. The only requirement is that all particles be distinct and different
- *      from any existing egraph term or theory variable.
+ *      from any existing egraph term.
  *    - Then the egraph converts the abstract model into a concrete model by mapping the
  *      abstract particles to concrete values.
  *
@@ -1195,9 +1200,6 @@ typedef struct egraph_model_s {
   ivector_t rank_ctr;
   rational_t arith_buffer;
   bvconstant_t bv_buffer;
-  // obsolete
-  uint32_t nat_ctr;
-  uint32_t bv_ctr;
 } egraph_model_t;
 
 

@@ -1,4 +1,3 @@
-
 #ifndef __EGRAPH_H
 #define __EGRAPH_H
 

@@ -935,8 +935,6 @@ static void init_egraph_model(egraph_model_t *mdl) {
   init_ivector(&mdl->rank_ctr, 0);
   q_init(&mdl->arith_buffer);
   init_bvconstant(&mdl->bv_buffer);
-  mdl->nat_ctr = 0;
-  mdl->bv_ctr = 0;
 }
 
 
@@ -1493,7 +1491,6 @@ static eterm_t egraph_lambda_term(egraph_t *egraph, occ_t t, int32_t tag) {
 }
 
 
-
 /*
  * Search whether a composite term already exists
  * - all functions return -1 (= null_eterm) if the term requested isn't present
@@ -1607,7 +1604,6 @@ static void egraph_free_const_htbl(egraph_t *egraph) {
     egraph->const_htbl = NULL;
   }
 }
-
 
 
 /*
@@ -2238,8 +2234,6 @@ static void egraph_activate_composite(egraph_t *egraph, composite_t *d) {
 }
 
 
-#if 1
-
 /*
  * Check whether theory variable x is a constant
  * - tau = egraph type for x
@@ -2259,8 +2253,6 @@ static bool constant_theory_var(egraph_t *egraph, etype_t tau, thvar_t x) {
 
   return false;
 }
-
-#endif
 
 
 /*
@@ -2286,7 +2278,6 @@ static void egraph_activate_term(egraph_t *egraph, eterm_t t, etype_t tau, thvar
 
   dmask = 0x0;
   if (constant_body(d) || constant_theory_var(egraph, tau, x)) {
-  //  if (constant_body(d)) {
     dmask = 0x1;
   }
   init_class(&egraph->classes, c, t, dmask, tau, x);
@@ -2338,7 +2329,6 @@ bool egraph_check_diseq(egraph_t *egraph, occ_t t1, occ_t t2) {
 }
 
 
-
 /*
  * Check whether t1 and t2 are disequal via the theory solver
  * Return true if t1 and t2 are attached to two theory variables x1 and x2
@@ -2365,9 +2355,6 @@ bool egraph_check_theory_diseq(egraph_t *egraph, occ_t t1, occ_t t2) {
     return false;
   }
 }
-
-
-
 
 
 /*
@@ -2459,8 +2446,6 @@ bool egraph_fast_check_distinct_true(egraph_t *egraph, composite_t *d) {
 
 
 
-
-
 /*******************************************
  *   PREDICATE/BOOLEAN TERM CONSTRUCTORS   *
  ******************************************/
@@ -2528,7 +2513,7 @@ static literal_t egraph_term2literal(egraph_t *egraph, eterm_t t) {
        * case, egraph_term_is_false(egraph, t) will return false and
        * the assertion will fail.
        */
-      //      assert(egraph_term_is_eq(egraph, t) && egraph_term_is_false(egraph, t));
+      // assert(egraph_term_is_eq(egraph, t) && egraph_term_is_false(egraph, t));
       assert(egraph_term_is_eq(egraph, t)); 
       assert(egraph_term_is_false(egraph, t) || egraph_term_asserted_false(egraph, t));
 
@@ -2965,7 +2950,6 @@ eterm_t egraph_make_constant(egraph_t *egraph, type_t tau, int32_t id) {
 }
 
 
-
 /*
  * If-then-else of type tau
  */
@@ -2983,7 +2967,6 @@ eterm_t egraph_make_ite(egraph_t *egraph, occ_t c, occ_t t1, occ_t t2, type_t ta
   }
   return t;
 }
-
 
 
 /*
@@ -3039,7 +3022,6 @@ eterm_t egraph_make_tuple(egraph_t *egraph, uint32_t n, occ_t *a, type_t tau) {
 }
 
 
-
 /*
  * Constant lambda term (lambda ... c)
  * - tau must be a function type
@@ -3064,7 +3046,7 @@ eterm_t egraph_make_lambda(egraph_t *egraph, occ_t c, type_t tau) {
  */
 
 /*
- * Axiom for term occurrenct t of scalar type tau
+ * Axiom for term occurrence t of scalar type tau
  */
 static void egraph_add_scalar_axiom(egraph_t *egraph, occ_t t, type_t tau) {
   uint32_t i, n;
@@ -3300,9 +3282,6 @@ eterm_t egraph_thvar2term(egraph_t *egraph, thvar_t v, type_t tau) {
 }
 
 
-
-
-
 /*
  * Create the built-in boolean constant
  */
@@ -3324,7 +3303,7 @@ static void egraph_init_constant(egraph_t *egraph) {
  *************************/
 
 /*
- * Auxiliary equalities are created when adding ackermann lemmas
+ * Auxiliary equalities are created when adding ackermann lemmas.
  * To prevent blow up, we put a limit on the number of auxiliary
  * equalities created. When the limit is reached, creation of 
  * new auxiliary fails. Only lemmas that are built from existing 
@@ -3389,9 +3368,6 @@ static literal_t egraph_make_aux_eq(egraph_t *egraph, occ_t t1, occ_t t2) {
 
 
 
-
-
-
 /************************
  *  LEMMA CONSTRUCTION  *
  ***********************/
@@ -3428,8 +3404,6 @@ static void create_distinct_lemma(egraph_t *egraph, composite_t *d) {
     egraph->stats.nd_lemmas ++;
   }
 }
-
-
 
 
 /*
@@ -3581,8 +3555,6 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
 
 
 
-
-
 /*********************************************************
  *  EQUALITY AND DISEQUALITIES BETWEEN THEORY VARIABLES  *
  ********************************************************/
@@ -3626,10 +3598,8 @@ static void propagate_satellite_distinct(egraph_t *egraph, etype_t i, uint32_t n
 }
 
 
-
-
 /*
- * EQUALITIES BETWEEN TUPLES AND BOOLEAN VARIABLES
+ * EQUALITIES BETWEEN TUPLES AND BETWEEN BOOLEAN VARIABLES
  */
 
 /*
@@ -3749,7 +3719,6 @@ static void propagate_thvar_equality(egraph_t *egraph, class_t c1, thvar_t v1, c
     assert(false);
   }
 }
-
 
 
 /*
@@ -3977,8 +3946,6 @@ static void assert_distinct(egraph_t *egraph, composite_t *atom) {
 }
 
 
-
-
 /*
  * Process atom (distinct t_1 ... t_n) after it's asserted true or false.
  * - return false if there's a conflict
@@ -4016,7 +3983,6 @@ static bool check_distinct_atom(egraph_t *egraph, occ_t t, composite_t *atom) {
 
   return true;
 }
-
 
 
 /*
@@ -4358,8 +4324,6 @@ static bool process_equality(egraph_t *egraph, occ_t t1, occ_t t2, int32_t i) {
 
   return true;
 }
-
-
 
 
 
@@ -4732,7 +4696,7 @@ static void undo_merge(egraph_t *egraph, occ_t t2, elabel_t l2) {
 /*
  * Remove a congruence root from the congruence table and use vectors.
  * - at the time this function is called, p should be in a singleton
- * class c (the class created when p was activated).
+ *   class c (the class created when p was activated).
  */
 static void deactivate_congruence_root(egraph_t *egraph, composite_t *p) {
 #ifndef NDEBUG
@@ -4873,8 +4837,6 @@ void egraph_backtrack(egraph_t *egraph, uint32_t back_level) {
     }
   }
 }
-
-
 
 
 
@@ -6074,8 +6036,6 @@ fcheck_code_t egraph_final_check(egraph_t *egraph) {
 
 
 
-
-
 /****************
  *  ASSERTIONS  *
  ***************/
@@ -6998,11 +6958,6 @@ void egraph_build_arg_partition(egraph_t *egraph) {
 }
 
 
-
-
-
-
-
 /************************
  *  MODEL CONSTRUCTION  *
  ***********************/
@@ -7029,7 +6984,6 @@ value_t egraph_get_value(egraph_t *egraph, value_table_t *vtbl, occ_t t) {
 
   return v;
 }
-
 
 
 /*
@@ -7126,7 +7080,6 @@ static value_t egraph_concretize_value(egraph_t *egraph, value_table_t *vtbl, pa
 }
 
 
-
 /*
  * Concretize a tuple particle x
  * - the result is stored as n concrete values in v[0 ... n-1]
@@ -7142,7 +7095,6 @@ static void egraph_concretize_tuple(egraph_t *egraph, value_table_t *vtbl, parti
     v[i] = egraph_concretize_value(egraph, vtbl, tuple->elem[i]);
   }
 }
-
 
 
 /*
@@ -7197,8 +7149,6 @@ static value_t egraph_concretize_map(egraph_t *egraph, value_table_t *vtbl, map_
 
   return v;
 }
-
-
 
 
 /*
@@ -7291,25 +7241,18 @@ static value_t egraph_value_of_tuple_class(egraph_t *egraph, value_table_t *vtbl
       aux[i] = egraph_get_value(egraph, vtbl, composite_child(cmp, i));
     }
 
-    /*
-     * if all children have a reasonable value, construct a tuple
-     * otherwise return unknown (we need to make sure that all
-     * classes whose value is not unknown have distinct values).
-     */
     v = vtbl_mk_tuple(vtbl, n, aux);
 
     free_istack_array(&egraph->istack, aux);
 
   } else {
-    // No theory variable attached to the class 
-    // so there are no explicit (tuple ...) in the class
-    //    v = make_fresh_tuple(egraph, vtbl, egraph_real_type_of_class(egraph, c));
+    // This should never happen
+    assert(false);
     v = vtbl_mk_unknown(vtbl);
   }
 
   return v;
 }
-
 
 
 /*
@@ -7365,7 +7308,7 @@ static value_t egraph_make_fun_value(egraph_t *egraph, value_table_t *vtbl, clas
   n = u->last;
 
   assert(n < VTBL_MAX_MAP_SIZE);
-  all_maps = safe_malloc(n * sizeof(value_t));
+  all_maps = alloc_istack_array(&egraph->istack, n);
 
   j = 0;
   for (i=0; i<n; i++) {
@@ -7382,11 +7325,10 @@ static value_t egraph_make_fun_value(egraph_t *egraph, value_table_t *vtbl, clas
   // function without a default value
   v = vtbl_mk_function(vtbl, tau, j, all_maps, vtbl_mk_unknown(vtbl));
 
-  safe_free(all_maps);
+  free_istack_array(&egraph->istack, all_maps);
 
   return v;
 }
-
 
 
 /*
@@ -7456,9 +7398,8 @@ static value_t egraph_value_of_uninterpreted_class(egraph_t *egraph, value_table
     v = vtbl_mk_const(vtbl, tau, constant_body_id(egraph_term_body(egraph, t)), NULL);
 
   } else {
-
     // fresh anonymous constant 
-    v = vtbl_mk_unint(vtbl, tau, NULL);
+    v = make_fresh_const(egraph->mdl.fval_maker, tau);
   }
 
   return v;
@@ -7627,12 +7568,6 @@ void egraph_build_model(egraph_t *egraph, value_table_t *vtbl) {
   uint32_t i, n;
   pstore_t *pstore;
   fresh_val_maker_t *fval;
-
-  /*
-   * Initialize the mdl structure
-   */
-  egraph->mdl.nat_ctr = 0;
-  egraph->mdl.bv_ctr = 0;
 
   /*
    * Allocate and initialize the value array
