@@ -16,7 +16,6 @@
 #include "index_vectors.h"
 #include "tracer.h"
 
-#include "fresh_value_maker.h"
 #include "composites.h"
 #include "egraph_utils.h"
 #include "egraph_explanations.h"
@@ -931,10 +930,13 @@ static inline void reset_egraph_stats(egraph_stats_t *s) {
 static void init_egraph_model(egraph_model_t *mdl) {
   mdl->value = NULL;
   mdl->pstore = NULL;
-  mdl->nat_ctr = 0;
-  mdl->bv_ctr = 0;
+  mdl->fval_maker = NULL;
+  init_ivector(&mdl->root_classes, 0);
+  init_ivector(&mdl->rank_ctr, 0);
   q_init(&mdl->arith_buffer);
   init_bvconstant(&mdl->bv_buffer);
+  mdl->nat_ctr = 0;
+  mdl->bv_ctr = 0;
 }
 
 
@@ -949,6 +951,13 @@ static void delete_egraph_model(egraph_model_t *mdl) {
     safe_free(mdl->pstore);
     mdl->pstore = NULL;
   }
+  if (mdl->fval_maker != NULL) {
+    delete_fresh_val_maker(mdl->fval_maker);
+    safe_free(mdl->fval_maker);
+    mdl->fval_maker = NULL;
+  }
+  delete_ivector(&mdl->root_classes);
+  delete_ivector(&mdl->rank_ctr);
   q_clear(&mdl->arith_buffer);
   delete_bvconstant(&mdl->bv_buffer);
 }
@@ -965,6 +974,13 @@ static void reset_egraph_model(egraph_model_t *mdl) {
     safe_free(mdl->pstore);
     mdl->pstore = NULL;
   }
+  if (mdl->fval_maker != NULL) {
+    delete_fresh_val_maker(mdl->fval_maker);
+    safe_free(mdl->fval_maker);
+    mdl->fval_maker = NULL;
+  }
+  ivector_reset(&mdl->root_classes);
+  ivector_reset(&mdl->rank_ctr);
   q_clear(&mdl->arith_buffer);
 }
 
@@ -2949,43 +2965,6 @@ eterm_t egraph_make_constant(egraph_t *egraph, type_t tau, int32_t id) {
 }
 
 
-/*
- * Create a fresh variable of type tau
- */
-eterm_t egraph_make_variable(egraph_t *egraph, type_t tau) {
-  eterm_t t;
-
-  t = new_eterm(&egraph->terms, VARIABLE_BODY);
-  auto_activate(egraph, t, tau);
-  return t;
-}
-
-
-/*
- * Create a function application of type tau
- */
-eterm_t egraph_make_apply(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a, type_t tau) {
-  eterm_t t;
-  occ_t u;
-  int32_t k;
-
-  t = egraph_apply_term(egraph, f, n, a);
-  if (egraph_term_is_fresh(egraph, t)) {
-    auto_activate(egraph, t, tau);
-    if (egraph->decision_level == egraph->base_level) {
-      // check for apply/update reduction
-      u = egraph_reduce_apply(egraph, f, n, a);
-      if (u != null_occurrence) {
-        // add (t == u) as an axiom
-        k = egraph_stack_push_eq(&egraph->stack, pos_occ(t), u);
-        egraph->stack.etag[k] = EXPL_AXIOM;
-        egraph->stats.app_reductions ++;
-      }
-    }
-  }
-  return t;
-}
-
 
 /*
  * If-then-else of type tau
@@ -3078,6 +3057,146 @@ eterm_t egraph_make_lambda(egraph_t *egraph, occ_t c, type_t tau) {
 
   return t;
 }
+
+
+/*
+ * TYPE CONSTRAINTS
+ */
+
+/*
+ * Axiom for term occurrenct t of scalar type tau
+ */
+static void egraph_add_scalar_axiom(egraph_t *egraph, occ_t t, type_t tau) {
+  uint32_t i, n;
+  occ_t k;
+  ivector_t *v;
+
+  n = scalar_type_cardinal(egraph->types, tau);
+  v = &egraph->aux_buffer;
+  ivector_reset(v);
+
+  for (i=0; i<n; i++) {
+    k = pos_occ(egraph_make_constant(egraph, tau, i));
+    ivector_push(v, egraph_make_eq(egraph, t, k));
+  }
+  assert(v->size == n);
+
+  add_clause(egraph->core, n, v->data);  
+}
+
+
+/*
+ * Skolem term for type tau:
+ * - if tau is atomic, return a fresh variable of type tau
+ * - if tau is a tuple type, return (tuple x_1 ... x_n)
+ *   where x_1 ... x_n are recursive skolem terms for tau's component
+ */
+eterm_t egraph_skolem_term(egraph_t *egraph, type_t tau) {
+  tuple_type_t *d;
+  occ_t *a;
+  eterm_t t;
+  uint32_t i, n;
+
+  switch (type_kind(egraph->types, tau)) {
+  case TUPLE_TYPE:
+    d = tuple_type_desc(egraph->types, tau);
+    n = d->nelem;
+    a = alloc_istack_array(&egraph->istack, n);
+    for (i=0; i<n; i++) {
+      a[i] = pos_occ(egraph_skolem_term(egraph, d->elem[i]));
+    }
+    t = egraph_make_tuple(egraph, n, a, tau);
+    free_istack_array(&egraph->istack, a);
+    break;
+
+  default:
+    t = egraph_make_variable(egraph, tau);
+    break;
+  }
+
+  return t;
+}
+
+
+/*
+ * Type constraints for a fresh term t of type tau
+ */
+static void egraph_add_type_constraints(egraph_t *egraph, eterm_t t, type_t tau) {
+  occ_t sk;
+  literal_t l;
+  int32_t k;
+
+  switch (type_kind(egraph->types, tau)) {
+  case SCALAR_TYPE:
+    egraph_add_scalar_axiom(egraph, pos_occ(t), tau);
+    break;
+
+  case TUPLE_TYPE:
+    sk = pos_occ(egraph_skolem_term(egraph, tau));
+    if (egraph->presearch) {
+      // before start search: assert the axiom direclty
+      assert(egraph->decision_level == egraph->base_level);
+      k = egraph_stack_push_eq(&egraph->stack, pos_occ(t), sk);
+      egraph->stack.etag[k] = EXPL_AXIOM;
+    } else {
+      /*
+       * Add a unit clause in the core.
+       *
+       * IMPORTANT: we can't add an equality axiom directly
+       * (even if decision_level == base_level), because
+       * any equality pushed into egraph->stack may be removed
+       * (in final_check).
+       */
+      l = egraph_make_eq(egraph, pos_occ(t), sk);
+      add_unit_clause(egraph->core, l);
+    }
+    break;
+
+  default:
+    break;
+  }
+}
+
+/*
+ * Create a fresh variable of type tau
+ */
+eterm_t egraph_make_variable(egraph_t *egraph, type_t tau) {
+  eterm_t t;
+
+  t = new_eterm(&egraph->terms, VARIABLE_BODY);
+  auto_activate(egraph, t, tau);
+  egraph_add_type_constraints(egraph, t, tau);
+  return t;
+}
+
+
+/*
+ * Create a function application of type tau
+ */
+eterm_t egraph_make_apply(egraph_t *egraph, occ_t f, uint32_t n, occ_t *a, type_t tau) {
+  eterm_t t;
+  occ_t u;
+  int32_t k;
+
+  t = egraph_apply_term(egraph, f, n, a);
+  if (egraph_term_is_fresh(egraph, t)) {
+    auto_activate(egraph, t, tau);
+    egraph_add_type_constraints(egraph, t, tau);
+    if (egraph->presearch) {
+      assert(egraph->decision_level == egraph->base_level);
+      // check for apply/update reduction
+      u = egraph_reduce_apply(egraph, f, n, a);
+      if (u != null_occurrence) {
+        // add (t == u) as an axiom
+        k = egraph_stack_push_eq(&egraph->stack, pos_occ(t), u);
+        egraph->stack.etag[k] = EXPL_AXIOM;
+        egraph->stats.app_reductions ++;
+      }
+    }
+  }
+  return t;
+}
+
 
 
 
@@ -4427,6 +4546,7 @@ void egraph_reset(egraph_t *egraph) {
   reset_objstore(&egraph->atom_store);  // delete all atoms
   reset_cache(&egraph->cache);
   arena_reset(&egraph->arena);
+  reset_istack(&egraph->istack);
 
   if (egraph->app_partition != NULL) {
     delete_ptr_partition(egraph->app_partition);
@@ -6474,6 +6594,7 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   init_ivector(&egraph->expl_vector, DEFAULT_EXPL_VECTOR_SIZE);
   init_pvector(&egraph->cmp_vector, DEFAULT_CMP_VECTOR_SIZE);
   init_ivector(&egraph->aux_buffer, 0);
+  init_istack(&egraph->istack);
 
   init_ivector(&egraph->interface_eqs, 40);
   egraph->reconcile_top = 0;
@@ -6597,6 +6718,7 @@ void delete_egraph(egraph_t *egraph) {
   delete_th_explanation(&egraph->th_expl);
   delete_pvector(&egraph->reanalyze_vector);
   delete_ivector(&egraph->interface_eqs);
+  delete_istack(&egraph->istack);
   delete_ivector(&egraph->aux_buffer);
   delete_pvector(&egraph->cmp_vector);
   delete_ivector(&egraph->expl_vector);
@@ -6962,254 +7084,6 @@ static type_t egraph_real_type_of_class(egraph_t *egraph, class_t c) {
 
 
 /*
- * Check whether all elements of array a are different from unknown
- * - n = size of the array
- */ 
-static bool all_known_values(value_table_t *vtbl, uint32_t n, value_t *a) {
-  uint32_t i;
-
-  for (i=0; i<n; i++) {
-    if (object_is_unknown(vtbl, a[i])) {
-      return false;
-    }
-  }
-  return true;
-}
-
-
-/*
- * Create a fresh integer using the egraph's internal nat_ctr
- */
-static value_t egraph_fresh_nat_value(egraph_t *egraph, value_table_t *vtbl) {
-  int32_t k;
-
-  k = egraph->mdl.nat_ctr;
-  egraph->mdl.nat_ctr ++;
-  return vtbl_mk_int32(vtbl, k);
-}
-
-
-
-/*
- * Create a fresh bitvector value using the egraph's internal bv_ctr
- * - n = bitsize 
- */
-static value_t egraph_fresh_bv_value(egraph_t *egraph, value_table_t *vtbl, uint32_t n) {
-  bvconstant_t *bv;
-  uint32_t k;
-
-  bv = &egraph->mdl.bv_buffer;
-  k = egraph->mdl.bv_ctr ++;
-  bvconstant_set_bitsize(bv, n);
-  bvconst_set32(bv->data, bv->width, k);
-  bvconst_normalize(bv->data, n);
-
-  return vtbl_mk_bv_from_constant(vtbl, bv);
-}
-
-
-#if 0
-
-/*
- * Attempt to build a fresh tuple of type tau[0 ... n-1]
- * - store in array val[0...n-1]
- * - return true if the attempt succeeds, false otherwise
- */
-static bool fresh_tuple(egraph_t *egraph, value_table_t *vtbl, type_t *tau, value_t *val, uint32_t n) {
-  uint32_t i, j;
-
-  for (i=0; i<n; i++) {
-    if (!is_finite_type(egraph->types, tau[i])) break;
-  }
-
-  if (i == n) return false;
-
-  for (j=0; j<n; j++) {
-    if (i != j) {
-      val[j] = vtbl_make_object(vtbl, tau[j]);
-    }
-  }
-  val[i] = make_fresh_value(egraph, vtbl, tau[i]);
-  assert(!object_is_unknown(vtbl, val[i]));
-  
-  return true;
-}
-
-
-/*
- * Return the fresh object or unknown if we can't get one
- */
-static value_t make_fresh_tuple(egraph_t *egraph, value_table_t *vtbl, type_t tau) {
-  type_table_t *types;
-  tuple_type_t *d;
-  value_t *aux;
-  value_t buffer[10];
-  uint32_t n;
-  value_t v;
-
-  types = egraph->types;
-  d = tuple_type_desc(types, tau);
-  n = d->nelem;
-
-  aux = buffer;
-  if (n > 10) {
-    aux = (value_t *) safe_malloc(n * sizeof(value_t));
-  }
-
-  if (fresh_tuple(egraph, vtbl, d->elem, aux, n)) {
-    assert(all_known_values(vtbl, n, aux));
-    v = vtbl_mk_tuple(vtbl, n, aux);
-  } else {
-    v = vtbl_mk_unknown(vtbl);
-  }
-  
-  if (n > 10) { 
-    safe_free(aux);
-  }
-
-  return v;
-}
-
-
-/*
- * Fresh function of type tau, where tau has infinite domain and finite range
- * - ft = function_type descriptor for tau
- */
-static value_t make_fresh_finite_range_function(egraph_t *egraph, value_table_t *vtbl, 
-						type_t tau, function_type_t *ft) {
-  value_t buffer[10];
-  value_t a[2];
-  value_t *aux;
-  uint32_t n;
-  value_t v;
-  
-  n = ft->ndom;
-
-  aux = buffer;
-  if (n > 10) {
-    aux = (value_t *) safe_malloc(n * sizeof(value_t));
-  }
-
-  if (vtbl_make_two_objects(vtbl, ft->range, a) && fresh_tuple(egraph, vtbl, ft->domain, aux, n)) {
-    // build the function that maps aux[0...n-1] to a[0] and everything else to a[1]   
-    v = vtbl_mk_map(vtbl, n, aux, a[0]);
-    v = vtbl_mk_function(vtbl, tau, 1, &v, a[1]);
-  } else {
-    v = vtbl_mk_unknown(vtbl);
-  }
-  
-  if (n > 10) {
-    safe_free(aux);
-  }
-
-  return v;
-}
-
-/*
- * Fresh function of type tau (tau must be infinite)
- */
-static value_t make_fresh_function(egraph_t *egraph, value_table_t *vtbl, type_t tau) {
-  type_table_t *types;
-  function_type_t *ft;
-  type_t sigma;
-  value_t v;
-
-  types = egraph->types;
-  ft = function_type_desc(types, tau);
-  sigma = ft->range;
-  if (is_finite_type(types, sigma)) {
-    v = make_fresh_finite_range_function(egraph, vtbl, tau, ft);
-  } else {
-    // get a fresh value of type sigma, return the constant function
-    // that maps everything to this value
-    v = make_fresh_value(egraph, vtbl, sigma);
-    v = vtbl_mk_function(vtbl, tau, 0, NULL, v);
-  }
-
-  return v;
-}
-
-static value_t make_fresh_value(egraph_t *egraph, value_table_t *vtbl, type_t tau) {
-  rational_t *aux;
-  bvconstant_t *bv;
-  value_t v;
-  uint32_t n;
-
-  switch (type_kind(egraph->types, tau)) {
-  case INT_TYPE:
-  case REAL_TYPE:
-    if (egraph->arith_eg == NULL) {
-      // no arithmetic solver
-      v = egraph_fresh_nat_value(egraph, vtbl);
-    } else {
-      aux = &egraph->mdl.arith_buffer;
-      // try to get a fresh value from the solver
-      if (egraph->arith_eg->fresh_value(egraph->th[ETYPE_INT], aux, is_integer_type(tau))) {
-        v = vtbl_mk_rational(vtbl, aux);
-      } else {
-        // solver failed to create a fresh value
-        v = vtbl_mk_unknown(vtbl);
-      }
-    }
-    break;
-
-  case BITVECTOR_TYPE:
-    n = bv_type_size(egraph->types, tau);    
-    if (egraph->bv_eg == NULL) {
-      // no bitvector solver
-      v = egraph_fresh_bv_value(egraph, vtbl, n);
-    } else {
-      // get a fresh value from the solver
-      bv = &egraph->mdl.bv_buffer;
-      if (egraph->bv_eg->fresh_value(egraph->th[ETYPE_BV], bv, n)) {
-        v = vtbl_mk_bv_from_constant(vtbl, bv);
-      } else {
-        v = vtbl_mk_unknown(vtbl);
-      }
-    }
-    break;
-
-  case UNINTERPRETED_TYPE:
-    // new constant (anonymous)
-    v = vtbl_mk_unint(vtbl, tau, NULL);
-    break;
-
-  case TUPLE_TYPE:
-    // build a fresh tuple
-    v = make_fresh_tuple(egraph, vtbl, tau);
-    break;
-
-  case FUNCTION_TYPE:
-    // build a fresh function (if possible)
-    v = make_fresh_function(egraph, vtbl, tau);
-    break;
-
-  case BOOL_TYPE:
-  case SCALAR_TYPE:
-    // we can't create a fresh value
-    v = vtbl_mk_unknown(vtbl);
-    break;
-
-  default:
-    // should not happen
-    assert(false);
-    v = vtbl_mk_unknown(vtbl);
-    break;
-  }
-
-  return v;
-}
-
-#endif
-
-
-/*
- * Get the value of class c and store it in egraph->mdl.value[c]
- * (used recursively in egraph_value_of_tuple_class).
- */
-static value_t egraph_value_of_class(egraph_t *egraph, value_table_t *vtbl, class_t c);
-
-/*
  * Convert an abstract value (particle x) to a concrete value
  * - the particle is from egraph->mdl.pstore
  * - x must be either a labeled particle of a fresh particle (not a tuple)
@@ -7226,7 +7100,8 @@ static value_t egraph_concretize_value(egraph_t *egraph, value_table_t *vtbl, pa
     case LABEL_PARTICLE:
       l = particle_label(pstore, x);
       if (is_pos_label(l)) {
-        v = egraph_value_of_class(egraph, vtbl, class_of(l));
+        v = egraph->mdl.value[class_of(l)];
+	assert(! object_is_unknown(vtbl, v));
       } else if (l == false_label) {
         v  = vtbl_mk_false(vtbl);
       } else {
@@ -7237,8 +7112,7 @@ static value_t egraph_concretize_value(egraph_t *egraph, value_table_t *vtbl, pa
       break;
 
     case FRESH_PARTICLE:
-      ///      v = make_fresh_value(egraph, vtbl, fresh_particle_type(pstore, x));
-      v = vtbl_mk_unknown(vtbl);
+      v = make_fresh_value(egraph->mdl.fval_maker, fresh_particle_type(pstore, x));
       break;
 
     default:
@@ -7247,6 +7121,7 @@ static value_t egraph_concretize_value(egraph_t *egraph, value_table_t *vtbl, pa
     }
     pstore_make_concrete(pstore, x, v);
   }
+
   return v;
 }
 
@@ -7280,15 +7155,15 @@ static void egraph_concretize_tuple(egraph_t *egraph, value_table_t *vtbl, parti
  */
 static value_t egraph_concretize_map(egraph_t *egraph, value_table_t *vtbl, map_t *map, type_t tau) {
   value_t *aux;
-  value_t buffer[10];
   value_t *all_maps;
+  value_t buffer[1];
   value_t v;
   uint32_t i, n, m;
 
   n = function_type_arity(egraph->types, tau);
   m = map->nelems;
 
-  all_maps = (value_t *) safe_malloc(m * sizeof(value_t));
+  all_maps = alloc_istack_array(&egraph->istack, m);
 
   if (n == 1) {
     for (i=0; i<m; i++) {
@@ -7297,10 +7172,7 @@ static value_t egraph_concretize_map(egraph_t *egraph, value_table_t *vtbl, map_
       all_maps[i] = vtbl_mk_map(vtbl, 1, buffer, v);
     }
   } else {
-    aux = buffer;
-    if (n > 10) {
-      aux = (value_t *) safe_malloc(n * sizeof(value_t));
-    }
+    aux = alloc_istack_array(&egraph->istack, n);
 
     for (i=0; i<m; i++) {
       egraph_concretize_tuple(egraph, vtbl, map->data[i].index, n, aux);
@@ -7308,9 +7180,7 @@ static value_t egraph_concretize_map(egraph_t *egraph, value_table_t *vtbl, map_
       all_maps[i] = vtbl_mk_map(vtbl, n, aux, v);
     }
     
-    if (n > 10) {
-      safe_free(aux);
-    }
+    free_istack_array(&egraph->istack, aux);
   }
 
   // get the default value
@@ -7323,12 +7193,10 @@ static value_t egraph_concretize_map(egraph_t *egraph, value_table_t *vtbl, map_
   // build the function
   v = vtbl_mk_function(vtbl, tau, m, all_maps, v);
 
-  safe_free(all_maps);
+  free_istack_array(&egraph->istack, all_maps);
 
   return v;
 }
-
-
 
 
 
@@ -7348,7 +7216,7 @@ static value_t egraph_value_of_arith_class(egraph_t *egraph, value_table_t *vtbl
   if (x == null_thvar) {
     // there's no arithmetic solver
     assert(egraph->arith_smt == NULL);
-    v = egraph_fresh_nat_value(egraph, vtbl);
+    v = make_fresh_integer(egraph->mdl.fval_maker);
   } else {
     // there must be an arithmetic solver and it must have assigned a value to x
     aux = &egraph->mdl.arith_buffer;
@@ -7380,7 +7248,7 @@ static value_t egraph_value_of_bv_class(egraph_t *egraph, value_table_t *vtbl, c
     assert(egraph->bv_smt == NULL);
     tau = egraph_real_type_of_class(egraph, c);
     n = bv_type_size(egraph->types, tau);
-    v = egraph_fresh_bv_value(egraph, vtbl, n);
+    v = make_fresh_bv(egraph->mdl.fval_maker, n);
   } else {
     // there must be a bitvector solver and it must have assigned a value to x
     bv = &egraph->mdl.bv_buffer;
@@ -7401,10 +7269,8 @@ static value_t egraph_value_of_bv_class(egraph_t *egraph, value_table_t *vtbl, c
 static value_t egraph_value_of_tuple_class(egraph_t *egraph, value_table_t *vtbl, class_t c) {
   composite_t *cmp;
   value_t *aux;
-  value_t buffer[10];
   value_t v;
   eterm_t x;
-  elabel_t l;
   uint32_t i, n;
 
   assert(egraph_class_type(egraph, c) == ETYPE_TUPLE);
@@ -7417,23 +7283,12 @@ static value_t egraph_value_of_tuple_class(egraph_t *egraph, value_table_t *vtbl
     assert(cmp != NULL && composite_body(cmp) && composite_kind(cmp) == COMPOSITE_TUPLE);
 
     n = composite_arity(cmp);
-    aux = buffer;
-    if (n > 10) {
-      aux = (value_t *) safe_malloc(n * sizeof(value_t));
-    }
+    aux = alloc_istack_array(&egraph->istack, n);
 
-    // recursively get a value for all the children classes
+    // get a value for all the children classes
+    // they should all have a non-null value
     for (i=0; i<n; i++) {
-      l = egraph_label(egraph, composite_child(cmp, i));
-      if (is_pos_label(l)) {
-        aux[i] = egraph_value_of_class(egraph, vtbl, class_of(l));
-      } else if (l == false_label) {
-        aux[i] = vtbl_mk_false(vtbl);
-      } else {
-        // should not happen if all boolean terms have a value
-        assert(false);
-        aux[i] = vtbl_mk_unknown(vtbl);
-      }
+      aux[i] = egraph_get_value(egraph, vtbl, composite_child(cmp, i));
     }
 
     /*
@@ -7441,15 +7296,10 @@ static value_t egraph_value_of_tuple_class(egraph_t *egraph, value_table_t *vtbl
      * otherwise return unknown (we need to make sure that all
      * classes whose value is not unknown have distinct values).
      */
-    if (all_known_values(vtbl, n, aux)) {
-      v = vtbl_mk_tuple(vtbl, n, aux);
-    } else {
-      v = vtbl_mk_unknown(vtbl);
-    }
+    v = vtbl_mk_tuple(vtbl, n, aux);
 
-    if (n > 10) {
-      safe_free(aux);
-    }
+    free_istack_array(&egraph->istack, aux);
+
   } else {
     // No theory variable attached to the class 
     // so there are no explicit (tuple ...) in the class
@@ -7471,8 +7321,6 @@ static value_t egraph_value_of_tuple_class(egraph_t *egraph, value_table_t *vtbl
  */
 static value_t egraph_composite_value(egraph_t *egraph, value_table_t *vtbl, composite_t *p) {
   value_t *aux;
-  value_t buffer[10];
-  elabel_t l;
   value_t v;
   uint32_t i, n;
 
@@ -7481,45 +7329,21 @@ static value_t egraph_composite_value(egraph_t *egraph, value_table_t *vtbl, com
   assert(n >= 2);
   n --;
 
-  aux = buffer;
-  if (n > 10) {
-    aux = (value_t *) safe_malloc(n * sizeof(value_t));
-  }
+  aux = alloc_istack_array(&egraph->istack, n);
 
   // values of a[0] ... a[n-1]
+  // they should all be defined
   for (i=0; i<n; i++) {
-    l = egraph_label(egraph, composite_child(p, i+1));
-    if (is_pos_label(l)) {
-      aux[i] = egraph_value_of_class(egraph, vtbl, class_of(l));
-    } else if (l == false_label) {
-      aux[i] = vtbl_mk_false(vtbl);
-    } else {
-      assert(false);
-      aux[i] = vtbl_mk_unknown(vtbl);
-    }
+    aux[i] = egraph_get_value(egraph, vtbl, composite_child(p, i+1));
   }
 
-  // value of p
-  l = egraph_label(egraph, pos_occ(p->id));
-  if (is_pos_label(l)) {
-    v = egraph_value_of_class(egraph, vtbl, class_of(l));
-  } else if (l == false_label) {
-    v = vtbl_mk_false(vtbl);
-  } else {
-    assert(false);
-    v = vtbl_mk_unknown(vtbl);
-  }
+  // value of f
+  v = egraph_get_value(egraph, vtbl, pos_occ(p->id));
 
   // build the mapping object [aux[0] ... aux[n-1] -> v] 
-  if (all_known_values(vtbl, n, aux) && !object_is_unknown(vtbl, v)) {
-    v = vtbl_mk_map(vtbl, n, aux, v);
-  } else {
-    v = vtbl_mk_unknown(vtbl);
-  }
-  
-  if (n > 10) {
-    safe_free(aux);
-  }
+  v = vtbl_mk_map(vtbl, n, aux, v);
+
+  free_istack_array(&egraph->istack, aux);
   
   return v;
 }
@@ -7555,12 +7379,8 @@ static value_t egraph_make_fun_value(egraph_t *egraph, value_table_t *vtbl, clas
     }
   }
 
-  // function: no default value
-  if (all_known_values(vtbl, j, all_maps)) {
-    v = vtbl_mk_function(vtbl, tau, j, all_maps, vtbl_mk_unknown(vtbl));
-  } else {
-    v = vtbl_mk_unknown(vtbl);
-  }
+  // function without a default value
+  v = vtbl_mk_function(vtbl, tau, j, all_maps, vtbl_mk_unknown(vtbl));
 
   safe_free(all_maps);
 
@@ -7646,55 +7466,50 @@ static value_t egraph_value_of_uninterpreted_class(egraph_t *egraph, value_table
 
 
 /*
- * Get the value of class c and store it in egraph->mdl.value[c]
+ * Get the value of class c
  */
 static value_t egraph_value_of_class(egraph_t *egraph, value_table_t *vtbl, class_t c) {
   value_t v;
+  
+  switch (egraph_class_type(egraph, c)) {
+  case ETYPE_INT:
+  case ETYPE_REAL:
+    v = egraph_value_of_arith_class(egraph, vtbl, c);
+    break;
 
-  v = egraph->mdl.value[c]; 
-  if (v == null_value) {
-    switch (egraph_class_type(egraph, c)) {
-    case ETYPE_INT:
-    case ETYPE_REAL:
-      v = egraph_value_of_arith_class(egraph, vtbl, c);
-      break;
+  case ETYPE_FUNCTION:
+    v = egraph_value_of_fun_class(egraph, vtbl, c);
+    break;
 
-    case ETYPE_FUNCTION:
-      v = egraph_value_of_fun_class(egraph, vtbl, c);
-      break;
+  case ETYPE_BV:
+    v = egraph_value_of_bv_class(egraph, vtbl, c);
+    break;
 
-    case ETYPE_BV:
-      v = egraph_value_of_bv_class(egraph, vtbl, c);
-      break;
+  case ETYPE_BOOL:
+    /*
+     * If all literals are assigned in the core, then all the boolean terms are in
+     * the bool_constant_class. So the value[c] must be true.
+     */
+    assert(c == bool_constant_class &&
+	   bvar_value(egraph->core, egraph_class_thvar(egraph, c)) == VAL_TRUE);
+    v = vtbl_mk_true(vtbl);
+    break;
 
-    case ETYPE_BOOL:
-      /*
-       * If all literals are assigned in the core, then all the boolean terms are in
-       * the bool_constant_class. So the value[c] must be true.
-       */
-      assert(c == bool_constant_class &&
-             bvar_value(egraph->core, egraph_class_thvar(egraph, c)) == VAL_TRUE);
-      v = vtbl_mk_true(vtbl);
-      break;
+  case ETYPE_TUPLE:
+    v = egraph_value_of_tuple_class(egraph, vtbl, c);
+    break;
 
-    case ETYPE_TUPLE:
-      v = egraph_value_of_tuple_class(egraph, vtbl, c);
-      break;
+  case ETYPE_NONE:
+    v = egraph_value_of_uninterpreted_class(egraph, vtbl, c);
+    break;
 
-    case ETYPE_NONE:
-      v = egraph_value_of_uninterpreted_class(egraph, vtbl, c);
-      break;
-
-    default:
-      /*
-       * Should not happen
-       */
-      assert(false);
-      v = vtbl_mk_unknown(vtbl);
-      break;
-    }
-
-    egraph->mdl.value[c] = v;
+  default:
+    /*
+     * Should not happen
+     */
+    assert(false);
+    v = vtbl_mk_unknown(vtbl);
+    break;
   }
 
   return v;
@@ -7703,22 +7518,106 @@ static value_t egraph_value_of_class(egraph_t *egraph, value_table_t *vtbl, clas
 
 /*
  * Assign a value to all the root classes
+ * - the root classes must be stored in egraph->mdl.root_classes
  */
 static void egraph_model_for_root_classes(egraph_t *egraph, value_table_t *vtbl) {
+  ivector_t *v;
   uint32_t i, n;
   class_t c;
 
-  n = egraph_num_terms(egraph);
+  v = &egraph->mdl.root_classes;
+  n = v->size;
   for (i=0; i<n; i++) {
-    c = egraph_term_class(egraph, i); // c = root class of term i
-    if (egraph->mdl.value[c] == null_value) {
-      (void) egraph_value_of_class(egraph, vtbl, c);
-    }
+    c = v->data[i];
+    assert(egraph->mdl.value[c] == null_value && 
+	   egraph_class_is_root_class(egraph, c));
+    egraph->mdl.value[c] = egraph_value_of_class(egraph, vtbl, c);
   }
 }
 
 
 
+/*
+ * Rank of a class c
+ */
+static uint32_t egraph_class_rank(egraph_t *egraph, class_t c) {
+  occ_t t;
+  type_t tau;
+
+  t = egraph_class_root(egraph, c);
+  tau = egraph_term_real_type(egraph, term_of_occ(t));
+  return type_depth(egraph->types, tau);
+}
+
+
+/*
+ * Increment rank counter k
+ * - ctr = vector of counters
+ * - also initialize all counters of rank < k if needed
+ */
+static void egraph_increment_rank_counter(ivector_t *ctr, uint32_t k) {
+  uint32_t i;
+
+  if (ctr->size <= k) {
+    resize_ivector(ctr, k+1);
+    assert(ctr->capacity > k);
+    for (i=ctr->size; i<=k; i++) {
+      ctr->data[i] = 0;
+    }
+    ctr->size = k+1;
+  }
+  ctr->data[k] ++;  
+}
+
+
+/*
+ * Collect all root classes
+ * - store them in mdl->root_classes, sorted by increasing rank
+ */
+static void egraph_collect_root_classes(egraph_t *egraph) {
+  ivector_t *v;
+  ivector_t *ctr;
+  uint32_t i, j, n, k, s;
+
+  ctr = &egraph->mdl.rank_ctr;
+  ivector_reset(ctr);
+
+  // first pass: count the number of root classes per rank
+  n = egraph_num_classes(egraph);
+  for (i=0; i<n; i++) {
+    if (egraph_class_is_root_class(egraph, i)) {
+      k = egraph_class_rank(egraph, i);
+      egraph_increment_rank_counter(ctr, k);
+    }
+  }
+
+  s = 0;
+  n = ctr->size;
+  for (i=0; i<n; i++) {
+    k = ctr->data[i]; // number of classes of rank i
+    ctr->data[i] = s; // number of classes of rank < I
+    s += k;
+  }
+
+  /*
+   * s = total number of root classes
+   * store the classes in increasing 
+   * rank order in egraph->mdl.root_classes;
+   */
+  v = &egraph->mdl.root_classes;
+  resize_ivector(v, s);
+  v->size = s;
+  n = egraph_num_classes(egraph);
+  for (i=0; i<n; i++) {
+    if (egraph_class_is_root_class(egraph, i)) {
+      k = egraph_class_rank(egraph, i);
+      assert(k < ctr->size);
+      j = ctr->data[k];
+      v->data[j] = i;
+      ctr->data[k] = j+1;
+    }
+  }
+}
 
 
 /*
@@ -7727,6 +7626,7 @@ static void egraph_model_for_root_classes(egraph_t *egraph, value_table_t *vtbl)
 void egraph_build_model(egraph_t *egraph, value_table_t *vtbl) {
   uint32_t i, n;
   pstore_t *pstore;
+  fresh_val_maker_t *fval;
 
   /*
    * Initialize the mdl structure
@@ -7744,15 +7644,21 @@ void egraph_build_model(egraph_t *egraph, value_table_t *vtbl) {
   }
 
   /*
-   * Allocate and initialize the pstore then build the
-   * array models
+   * Allocate and initialize the pstore then build the array model
+   * Also allocate the free_val_maker.
    */
   if (egraph->fun_eg != NULL) {
     pstore = (pstore_t *) safe_malloc(sizeof(pstore_t));
     egraph->mdl.pstore = pstore;
     init_pstore(pstore, egraph->types);
     egraph->fun_eg->build_model(egraph->th[ETYPE_FUNCTION], pstore);
+
+    fval = (fresh_val_maker_t *) safe_malloc(sizeof(fresh_val_maker_t));
+    init_fresh_val_maker(fval, vtbl);
+    egraph->mdl.fval_maker = fval;
   }
+
+  egraph_collect_root_classes(egraph);
 
   // assign a value to all root classes
   egraph_model_for_root_classes(egraph, vtbl);

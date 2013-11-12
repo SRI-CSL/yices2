@@ -569,10 +569,25 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
 
   } else {
     /*
-     * r is not mapped to anything
+     * r is not mapped to anything:
+     *
+     * 1) If t == r and t is present in the internalization table
+     *    then t is relevant. So we should display its value
+     *    when we print the model. To do this, we assign an
+     *    arbitrary value v to t and store [t := v] in the map.
+     *
+     * 2) If t != r then we keep the mapping [t --> r] in
+     *    the alias table (provided the model supports aliases).
      */
-    if (t != r && model->has_alias) {
-      // keep the substitution [t --> r] in the model
+    if (t == r) {
+      if (intern_tbl_term_present(&ctx->intern, t)) {
+	tau = term_type(ctx->terms, t);
+	vtbl = model_get_vtbl(model);
+	v = vtbl_make_object(vtbl, tau);
+	model_map_term(model, t, v);
+      }
+    } else if (model->has_alias) {
+      // t != r: keep the substitution [t --> r] in the model
       model_add_substitution(model, t, r);
     }
   }

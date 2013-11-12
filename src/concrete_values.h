@@ -477,6 +477,29 @@ extern value_t vtbl_mk_update(value_table_t *table, value_t f, uint32_t n, value
 
 
 /*
+ * DEFAULT VALUES
+ */
+
+/*
+ * Return an arbitrary value of type tau:
+ * - this is deterministic: the same value is returned every time the function is called
+ *   with the same type.
+ * - tau must be a valid ground type defined in table->type_table
+ */
+extern value_t vtbl_make_object(value_table_t *table, type_t tau);
+
+
+/*
+ * Attempt to construct two distinct objects of type tau.
+ * - return false if tau is a singleton type
+ * - otherwise store the two objects in a[0] and a[1] and return true
+ */
+extern bool vtbl_make_two_objects(value_table_t *vtbl, type_t tau, value_t a[2]);
+
+
+
+
+/*
  * CHECK WHETHER OBJECTS ARE PRESENT
  */
 

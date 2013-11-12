@@ -906,62 +906,7 @@ static value_t eval_distinct(evaluator_t *eval, composite_term_t *distinct) {
  * Return a default value of type tau
  */
 static value_t make_default_value(evaluator_t *eval, type_t tau) {
-  type_table_t *types;
-  value_t *a;
-  value_t v, d;
-  uint32_t i, n, w;
-
-  types = eval->terms->types;
-
-  switch (type_kind(types, tau)) {
-  case BOOL_TYPE:
-    v = vtbl_mk_false(eval->vtbl);
-    break;
-
-  case INT_TYPE:
-  case REAL_TYPE:
-    v = vtbl_mk_int32(eval->vtbl, 0);
-    break;
-
-  case BITVECTOR_TYPE:
-    n = bv_type_size(types, tau);
-    w = (n + 31) >> 5; // width 
-    a = alloc_istack_array(&eval->stack, w);
-    bvconst_clear((uint32_t *) a, w);
-    v = vtbl_mk_bv_from_bv(eval->vtbl, n, (uint32_t *) a);
-    free_istack_array(&eval->stack, a);
-    break;
-
-  case SCALAR_TYPE:
-  case UNINTERPRETED_TYPE:
-    v = vtbl_mk_const(eval->vtbl, tau, 0, NULL);
-    break;
-
-  case TUPLE_TYPE:
-    n = tuple_type_arity(types, tau);
-    a = alloc_istack_array(&eval->stack, n);
-    for (i=0; i<n; i++) {
-      a[i] = make_default_value(eval, tuple_type_component(types, tau, i));
-    }
-    v = vtbl_mk_tuple(eval->vtbl, n, a); 
-    free_istack_array(&eval->stack, a);
-    break;
-
-  case FUNCTION_TYPE:
-    // create a constant function
-    d = make_default_value(eval, function_type_range(types, tau));
-    v = vtbl_mk_function(eval->vtbl, tau, 0, NULL, d);
-    break;
-
-  case UNUSED_TYPE:
-  default:
-    // should not happen
-    assert(false);
-    v = vtbl_mk_unknown(eval->vtbl);
-    break;
-  }
-
-  return v;
+  return vtbl_make_object(eval->vtbl, tau);
 }
 
 

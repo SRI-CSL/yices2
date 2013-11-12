@@ -71,11 +71,15 @@ static eterm_t make_egraph_variable(context_t *ctx, type_t type) {
     v = create_boolean_variable(ctx->core);
     u = egraph_bvar2term(ctx->egraph, v);
   } else {
-    u = egraph_make_variable(ctx->egraph, type);    
+    //    u = egraph_make_variable(ctx->egraph, type);
+    // it's better to use skolem_term in case type is (tuple ...)
+    u = egraph_skolem_term(ctx->egraph, type);
   }
   return u;
 }
 
+#if 0
+// NOT USED ANYMORE: THE EGRAPH DOES IT
 
 /*
  * Add the axiom (t == const(0) or t == const(1) or ... )
@@ -209,6 +213,8 @@ static eterm_t skolem_tuple(context_t *ctx, term_t t, occ_t u1) {
   return u;
 }
 
+#endif
+
 
 /*
  * Convert arithmetic variable x to an egraph term
@@ -331,9 +337,32 @@ static occ_t map_apply_to_eterm(context_t *ctx, composite_term_t *app, type_t ta
   u = egraph_make_apply(ctx->egraph, a[0], n-1, a+1, tau);
   free_istack_array(&ctx->istack, a);
 
-  add_type_constraints(ctx, pos_occ(u), tau);
+  //  add_type_constraints(ctx, pos_occ(u), tau);
 
   return pos_occ(u);
+}
+
+
+/*
+ * Build a tuple of same type as t then assert that it's equal to u1
+ * - t must be a root in the internalization table
+ * - u1 must be equal to t's internalization (as stored in intern_table)
+ * This is the skolemization of (exist (x1...x_n) u1 == (tuple x1 ... x_n))
+ *
+ * - return the eterm u := (tuple x1 ... x_n)
+ */
+static eterm_t skolem_tuple(context_t *ctx, term_t t, occ_t u1) {
+  type_t tau;
+  eterm_t u;
+
+  assert(intern_tbl_is_root(&ctx->intern, t) && is_pos_term(t) &&
+	 intern_tbl_map_of_root(&ctx->intern, t) == occ2code(u1));
+
+  tau = intern_tbl_type_of_root(&ctx->intern, t);
+  u = egraph_skolem_term(ctx->egraph, tau);
+  egraph_assert_eq_axiom(ctx->egraph, u1, pos_occ(u));
+  
+  return u;
 }
 
 
@@ -1503,7 +1532,7 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
 
       case UNINTERPRETED_TERM:
         u = pos_occ(make_egraph_variable(ctx, tau));
-        add_type_constraints(ctx, u, tau);
+	//        add_type_constraints(ctx, u, tau);
         break;
 
       case ITE_TERM:

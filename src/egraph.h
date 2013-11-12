@@ -1,3 +1,4 @@
+
 #ifndef __EGRAPH_H
 #define __EGRAPH_H
 
@@ -181,9 +182,23 @@ extern literal_t egraph_find_eq(egraph_t *egraph, occ_t t1, occ_t t2);
 
 /*
  * - the type tau of the term to create is given as a parameter to the constructor
- * - a new theory variable is created if required (i.e., if the type is arithmetic, bitvector
- *   or function and the corresponding satellite solver exists).
+ * - a new theory variable is created if required (i.e., if the type
+ *   is arithmetic, bitvector or function and the corresponding
+ *   satellite solver exists).
  * - the term is activated
+ *
+ * Additional processing for make_variable and make_apply:
+ * - if tau is a scalar type, then an instance of the scalar axiom is
+ *   created (i.e., the clause (or (= t const!0) ... (= t const!k)) where 
+ *   k+1 = cardinality of tau.
+ *
+ * - if tau is a tuple type, then an instance of the skolemization axiom
+ *   for tau is created. For example, if tau is (tuple (tuple int bool) int)
+ *   Then we'll assert t = (make-tuple v z)
+ *               where v = (make_tuple x y)
+ *               and x, y, z are fresh skolem constants of the right type.
+ *
+ *   This is the skolemization of the axiom EXSTS x y z: t = (make-typle (make-typle x y) z).
  */
 extern eterm_t egraph_make_constant(egraph_t *egraph, type_t tau, int32_t id);
 extern eterm_t egraph_make_variable(egraph_t *egraph, type_t tau);
@@ -196,6 +211,20 @@ extern eterm_t egraph_make_update(egraph_t *egraph, occ_t f, uint32_t n, occ_t *
  * - tau = result type of (lambda ... t): must be a function type
  */
 extern eterm_t egraph_make_lambda(egraph_t *egraph, occ_t t, type_t tau);
+
+
+/*
+ * SKOLEM TERM
+ */
+
+/*
+ * Generate a skolem constant of type tau
+ * - if tau is (tuple tau_1 ... tau_n) this recursively
+ *   generate n skolem constants x1 ... x_n of type tau_1 ... tau_n then
+ *   return the term (mk_tuple x1 ... x_n)
+ * - if tau is any other type, this creates a fresh variable of type tau.
+ */
+extern eterm_t egraph_skolem_term(egraph_t *egraph, type_t tau);
 
 
 

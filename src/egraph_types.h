@@ -20,6 +20,8 @@
  * 2009-01-22: cleaned up interface with subsolvers
  *
  * 2012-09-06: added lambda terms
+ *
+ * 2013-11-11: changed model construction.
  */
 
 
@@ -229,6 +231,7 @@
 #include "use_vectors.h"
 #include "int_hash_tables.h"
 #include "int_hash_map.h"
+#include "int_stack.h"
 #include "cache.h"
 #include "ptr_partitions.h"
 #include "int_partitions.h"
@@ -237,6 +240,7 @@
 #include "concrete_values.h"
 #include "abstract_values.h"
 #include "fun_maps.h"
+#include "fresh_value_maker.h"
 
 #include "smt_core.h"
 
@@ -1160,26 +1164,40 @@ typedef struct fun_egraph_interface_s {
 
 
 /*
- * Auxiliary structures used in model construction
- * - value = the model 
- *   value[c] is the concrete value assigned to all objects of class c
+ * Auxiliary structures used in model construction. We now use a
+ * global fresh_value_maker to construct fresh values. For this to
+ * work properly, we must assign a value to all classes of type tau
+ * before attempting to create fresh values of type tau. To do this,
+ * we sort the classes by rank when rank c = depth of c's type:
+ * - all atomitc types have depth 0
+ * - a function or tuple type has positive depth equal to 1 + max depth
+ *   of the types it depends on.
+ * Then we assign values to classes in increasing order of type depth.
+ * This works since fresh values of type tau are used to construct
+ * arrays/functions of some function type that contains tau.
  *
- * - store: particle store used if there's a function-theory solver to
- *   create abstract values.
  *
- * - nat_ctr and bv_ctr: internal counters used as a crude backup to construct
- *   distinct arithmetic or bitvector objects if there are no arithmetic 
- *   or bitvector solvers.
+ * Model components:
+ * - value = maps classes to concrete values (if c is not a root class
+ *   then value[c] = null_value).
+ * - root_classes = vector of all root classes
+ * - rank_ctr = vector of counters for sorting the root classes by rank
+ * - pstore = auxiliary particle store used by the function solver
+ * - fval_maker = data structure to create fresh values
+ * - internal buffers for rational and bitvector values
  *
- * + internal buffers for constructing objects
  */
 typedef struct egraph_model_s {
   value_t *value;
   pstore_t *pstore;
-  uint32_t nat_ctr;
-  uint32_t bv_ctr;
+  fresh_val_maker_t *fval_maker;
+  ivector_t root_classes;
+  ivector_t rank_ctr;
   rational_t arith_buffer;
   bvconstant_t bv_buffer;
+  // obsolete
+  uint32_t nat_ctr;
+  uint32_t bv_ctr;
 } egraph_model_t;
 
 
@@ -1352,20 +1370,21 @@ struct egraph_s {
   object_store_t atom_store;  // for creating atoms
   cache_t cache;              // for creating lemmas
 
-  int_hmap_t *imap;          // for or-congruence explanations
-  signature_t sgn;           // auxiliary buffer for congruence closure
-  arena_t arena;             // stack-based allocation
-  ivector_t expl_queue;      // vector used as a queue of edges (explanation queue)
-  ivector_t expl_vector;     // vector of literals for conflict/explanations
-  pvector_t cmp_vector;      // generic vector to store composites
-  ivector_t aux_buffer;      // generic buffer used in term construction
+  int_hmap_t *imap;           // for or-congruence explanations
+  signature_t sgn;            // auxiliary buffer for congruence closure
+  arena_t arena;              // stack-based allocation
+  ivector_t expl_queue;       // vector used as a queue of edges (explanation queue)
+  ivector_t expl_vector;      // vector of literals for conflict/explanations
+  pvector_t cmp_vector;       // generic vector to store composites
+  ivector_t aux_buffer;       // generic buffer used in term construction
+  int_stack_t istack;         // generic stack for recursive processsing
 
   /*
    * Support for model reconciliation
    */
-  ivector_t interface_eqs;   // pairs of term occurrences (for interface lemmas)
-  uint32_t reconcile_top;    // top of the undo stack when reconcile started
-  uint32_t reconcile_neqs;   // number of equalities when reconcile started
+  ivector_t interface_eqs;    // pairs of term occurrences (for interface lemmas)
+  uint32_t reconcile_top;     // top of the undo stack when reconcile started
+  uint32_t reconcile_neqs;    // number of equalities when reconcile started
 
   /*
    * Support for on-the-fly creation of composite terms.
