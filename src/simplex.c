@@ -637,44 +637,6 @@ static inline void reset_simplex_statistics(simplex_stats_t *stat) {
 
 
 
-
-/*************************
- *  FRESHVAL STRUCTURE   *
- ************************/
-
-/*
- * Allocate the structure
- * - all bits in used_val are 0
- * - low is initialized to NVAL, high to HVAL
- * - max_used is initialized to HVAL
- */
-static simplex_freshval_t *simplex_new_freshval_set(void) {
-  simplex_freshval_t *tmp;
-
-  tmp = (simplex_freshval_t *) safe_malloc(sizeof(simplex_freshval_t));
-  tmp->used_val = allocate_bitvector0(SIMPLEX_NVAL);
-  tmp->used_val_idx = 0;
-  tmp->low = SIMPLEX_NVAL;
-  tmp->high = SIMPLEX_HVAL;
-  q_init(&tmp->max_used);
-  q_set32(&tmp->max_used, SIMPLEX_HVAL);
-
-  return tmp;
-}
-
-
-/*
- * Delete set
- */
-static void simplex_free_freshval_set(simplex_freshval_t *set) {
-  delete_bitvector(set->used_val);
-  q_clear(&set->max_used);
-  safe_free(set);
-}
-
-
-
-
 /**********************
  *  INTERVAL RECORDS  *
  *********************/
@@ -1657,7 +1619,6 @@ void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, gate_manage
   solver->value = NULL;     // allocated when needed
   q_init(&solver->epsilon);
   q_init(&solver->factor);
-  solver->freshval = NULL;
 
   solver->env = NULL;
 
@@ -7711,11 +7672,6 @@ void simplex_reset(simplex_solver_t *solver) {
 
   reset_simplex_statistics(&solver->stats);
 
-  if (solver->freshval != NULL) {
-    simplex_free_freshval_set(solver->freshval);
-    solver->freshval = NULL;
-  }
-
   n = solver->vtbl.nvars;
   if (solver->value != NULL) {
     free_rational_array(solver->value, n);
@@ -7956,11 +7912,6 @@ literal_t simplex_select_eq_polarity(simplex_solver_t *solver, thvar_t x1, thvar
 
 void delete_simplex_solver(simplex_solver_t *solver) {
   uint32_t n;
-
-  if (solver->freshval != NULL) {
-    simplex_free_freshval_set(solver->freshval);
-    solver->freshval = NULL;
-  }
 
   n = solver->vtbl.nvars;
   if (solver->value != NULL) {
@@ -9741,7 +9692,7 @@ void simplex_build_model(simplex_solver_t *solver) {
 
 
 /*
- * Free the model (and the freshval set if present)
+ * Free the model
  */
 void simplex_free_model(simplex_solver_t *solver) {
   uint32_t n;
@@ -9752,12 +9703,6 @@ void simplex_free_model(simplex_solver_t *solver) {
   solver->value = NULL;
   q_clear(&solver->epsilon);
   q_clear(&solver->factor);
-
-
-  if (solver->freshval != NULL) {
-    simplex_free_freshval_set(solver->freshval);
-    solver->freshval = NULL;
-  }
 }
 
 
@@ -9770,112 +9715,6 @@ bool simplex_value_in_model(simplex_solver_t *solver, int32_t x, rational_t *v) 
   return true;
 }
 
-
-
-/*
- * Initialize the freshval set based on the values used in solver->value
- */
-static void simplex_init_freshval(simplex_solver_t *solver) {
-  simplex_freshval_t *set;
-  rational_t *q;
-  uint32_t i, n;
-  int32_t x;
-
-  assert(solver->value != NULL && solver->freshval != NULL);
-
-  set = solver->freshval;
-  n = solver->vtbl.nvars;
-  for (i=0; i<n; i++) {
-    q = solver->value + i; // value of i
-    if (q_is_integer(q)) {
-      if (q_lt(&set->max_used, q)) {
-        // value[i] > max_used: update max_used
-        q_set(&set->max_used, q);
-
-      } else {
-        q_normalize(q); // just to be safe
-        if (q_is_smallint(q)) {
-          x = q_get_smallint(q);
-          if (0 <= x && x < SIMPLEX_NVAL) {
-            set_bit(set->used_val, x);      
-          } else if (set->low <= x && x < set->high) {
-            // Heuristic: reduce [low, high] to [x+1, high] or [low, x]
-            // whichever is larger
-            if (x > (set->high + set->low)/2) {
-              set->high = x;
-            } else {
-              set->low = x + 1;
-            }
-          }
-        }
-      }
-    }
-  }
-
-}
-
-
-/*
- * Return an integer in freshval set and remove it from the set
- * - store the integer in array v
- */
-static void simplex_get_freshval(simplex_freshval_t *set, rational_t *v) {
-  int32_t i;
-
-  i = set->used_val_idx;
-  assert(0 <= i && i <= SIMPLEX_NVAL);
-
-  if (i < SIMPLEX_NVAL) {
-    do {
-      if (! tst_bit(set->used_val, i)) {
-        // i can be used
-        set_bit(set->used_val, i);
-        q_set32(v, i);
-        set->used_val_idx = i+1;
-        return;
-      }
-      i ++;
-
-    } while (i < SIMPLEX_NVAL);
-    
-    // nothing found in the used_val interval
-    set->used_val_idx = SIMPLEX_NVAL;
-  }
-
-  assert(SIMPLEX_NVAL <= set->low && set->low <= set->high && 
-         set->high <= SIMPLEX_HVAL);
-
-  i = set->low;
-  if (i < set->high) {
-    q_set32(v, i); 
-    set->low = i+1;
-  } else {
-    assert(q_is_integer(&set->max_used));
-    q_add_one(&set->max_used);
-    q_set(v, &set->max_used);
-  }
-
-}
-
-
-/*
- * Create a unique value: it's always an integer
- */
-static bool simplex_fresh_value(simplex_solver_t *solver, rational_t *v, bool is_int) {
-  simplex_freshval_t *set;
-
-  assert(solver->value != NULL);
-  set = solver->freshval;
-  if (set == NULL) {
-    set = simplex_new_freshval_set();
-    solver->freshval = set;
-    simplex_init_freshval(solver);
-  }
-
-  simplex_get_freshval(set, v);
-
-  return true;
-}
 
 
 
@@ -10006,7 +9845,6 @@ static th_egraph_interface_t simplex_egraph = {
 static arith_egraph_interface_t simplex_arith_egraph = {
   (make_arith_var_fun_t) simplex_create_var,
   (arith_val_fun_t) simplex_value_in_model,
-  (arith_fresh_val_fun_t) simplex_fresh_value,
 };
 
 

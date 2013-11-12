@@ -240,44 +240,6 @@ typedef enum bv_lemma_flag {
 
 
 
-/***********************
- * SETS OF USED VALUES *
- **********************/
-
-/*
- * When building models, the egraph may need fresh bitvector values.
- * A value is fresh if it's distinct from the values assigned to all
- * the bitvector variables.
- * 
- * To generate fresh values of type (bitvector k), we build the set of
- * used values of that type and search for something not in the set.
- * Depending on k, we use different data structures to store the set:
- * - k <= SMALL_BVSET_LIMIT: use small_bvset_t
- * - k > SMALL_BVSET_LIMIT: use red-black trees
- *
- * The used_bvval structure store pairs <bitsize k, set>
- */
-
-// ptr is either a pointer to a small_bvset_t or to a rb_bvset_t
-// depending on bitsize
-typedef struct bvset_s {
-  uint32_t bitsize;
-  void *ptr;
-} bvset_t;
-
-typedef struct used_bvval_s {
-  bvset_t *data;
-  uint32_t nsets;
-  uint32_t size;
-} used_bvval_t;
-
-#define SMALL_BVSET_LIMIT 13
-
-#define USED_BVVAL_DEF_SIZE 8
-#define USED_BVVAL_MAX_SIZE (UINT32_MAX/sizeof(bvset_t))
-
-
-
 /*****************
  *  STATISTICS   *
  ****************/
@@ -401,11 +363,6 @@ typedef struct bv_solver_s {
    * - allocated on demand
    */
   bvconst_hmap_t *val_map;
-
-  /*
-   * Sets for generating fresh values
-   */
-  used_bvval_t used_vals;
 
   /*
    * Jump buffer for exception handling during internalization

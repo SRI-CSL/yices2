@@ -7,8 +7,6 @@
 #include "memalloc.h"
 #include "bv64_constants.h"
 #include "bv64_intervals.h"
-#include "small_bvsets.h"
-#include "rb_bvsets.h"
 #include "int_powers.h"
 #include "refcount_int_arrays.h"
 #include "index_vectors.h"
@@ -488,142 +486,6 @@ static inline void reset_bv_trail(bv_trail_stack_t *stack) {
 
 
 
-
-
-/*****************
- *  USED VALUES  *
- ****************/
-
-/*
- * Initialize a used_vals array:
- * - initial size = 0
- */
-static void init_used_vals(used_bvval_t *used_vals) {
-  used_vals->data = NULL;
-  used_vals->nsets = 0;
-  used_vals->size = 0;
-}
-
-
-/*
- * Empty the array: delete all sets
- */
-static void reset_used_vals(used_bvval_t *used_vals) {
-  uint32_t i, n;
-
-  n = used_vals->nsets;
-  for (i=0; i<n; i++) {
-    if (used_vals->data[i].bitsize <= SMALL_BVSET_LIMIT) {
-      delete_small_bvset(used_vals->data[i].ptr);
-    } else {
-      delete_rb_bvset(used_vals->data[i].ptr);
-    }
-    safe_free(used_vals->data[i].ptr);
-    used_vals->data[i].ptr = NULL;
-  }
-
-  used_vals->nsets = 0;
-}
-
-
-/*
- * Delete a used_vals array: free memory
- */
-static void delete_used_vals(used_bvval_t *used_vals) {
-  reset_used_vals(used_vals);
-  safe_free(used_vals->data);
-  used_vals->data = NULL;
-}
-
-
-
-/*
- * Allocate a set descriptor
- * - return its id
- */
-static uint32_t used_vals_new_set(used_bvval_t *used_vals) {
-  uint32_t i, n;
-
-  i = used_vals->nsets;
-  n = used_vals->size;
-  if (i == n) {
-    if (n == 0) {
-      // first allocation: use the default size
-      n = USED_BVVAL_DEF_SIZE;
-      assert(n < USED_BVVAL_MAX_SIZE);
-      used_vals->data = (bvset_t *) safe_malloc(n * sizeof(bvset_t));
-      used_vals->size = n;
-    } else {
-      // make the array 50% larger
-      n ++;
-      n += n>>1;
-      if (n >= USED_BVVAL_MAX_SIZE) {
-        out_of_memory();
-      }
-      used_vals->data = (bvset_t *) safe_realloc(used_vals->data, n * sizeof(bvset_t));
-      used_vals->size = n;
-    }
-  }
-
-  assert(i < used_vals->size);
-  used_vals->nsets = i+1;
-
-  return i;
-}
-
-
-/*
- * Return the set descriptor for bit-vectors of size k
- * - allocate and initialize a new descriptor if necessary
- * - for a new descriptor, the internal small_set or red-black tree is NULL
- */ 
-static bvset_t *used_vals_get_set(used_bvval_t *used_vals, uint32_t k) {
-  uint32_t i, n;
-
-  assert(k > 0);
-  n = used_vals->nsets;
-  for (i=0; i<n; i++) {
-    if (used_vals->data[i].bitsize == k) {
-      return used_vals->data + i;
-    }
-  }
-
-  // allocate a new descriptor
-  i = used_vals_new_set(used_vals);
-  used_vals->data[i].bitsize = k;
-  used_vals->data[i].ptr = NULL;
-
-  return used_vals->data + i;
-}
-
-
-/*
- * Allocate a new small_bvset for size k and initialize it
- */
-static small_bvset_t *new_small_bvset(uint32_t k) {
-  small_bvset_t *tmp;
-
-  assert(0 < k && k <= SMALL_BVSET_LIMIT);
-  tmp = (small_bvset_t *) safe_malloc(sizeof(small_bvset_t));
-  init_small_bvset(tmp, k);
-
-  return tmp;
-}
-
-
-/*
- * Allocate a red-black tree for bitvectors of size k
- * and initialize it.
- */
-static rb_bvset_t *new_rb_bvset(uint32_t k) {
-  rb_bvset_t *tmp;
-
-  assert(k > SMALL_BVSET_LIMIT);
-  tmp = (rb_bvset_t *) safe_malloc(sizeof(rb_bvset_t));
-  init_rb_bvset(tmp, k);
-
-  return tmp;
-}
 
 
 
@@ -6633,7 +6495,6 @@ void init_bv_solver(bv_solver_t *solver, smt_core_t *core, egraph_t *egraph) {
   init_ivector(&solver->b_vector, 0);
 
   solver->val_map = NULL;
-  init_used_vals(&solver->used_vals);
 
   solver->env = NULL;
 }
@@ -6707,8 +6568,6 @@ void delete_bv_solver(bv_solver_t *solver) {
     safe_free(solver->val_map);
     solver->val_map = NULL;
   }
-
-  delete_used_vals(&solver->used_vals);
 }
 
 
@@ -7007,8 +6866,6 @@ void bv_solver_reset(bv_solver_t *solver) {
     safe_free(solver->val_map);
     solver->val_map = NULL;
   }
-
-  reset_used_vals(&solver->used_vals);
 
   solver->base_level = 0;
   solver->decision_level = 0;
@@ -8136,130 +7993,6 @@ void bv_solver_free_model(bv_solver_t *solver) {
 
 
 
-/*
- * FRESH VALUES
- */
-
-/*
- * Allocate a small set, collect all the values of size set->bitsize used
- * by the egrah, and add them to the small set.
- * Store the small_set into set->ptr.
- */
-static void collect_used_values_small(bv_solver_t *solver, bvset_t *set) {    
-  small_bvset_t *s;
-  bv_vartable_t *vtbl;
-  bvconstant_t aux;
-  uint32_t i, n;
-  uint32_t bitsize;  
-
-  bitsize = set->bitsize;
-  s = new_small_bvset(bitsize);
-  set->ptr = s;
-
-  init_bvconstant(&aux);
-
-  vtbl = &solver->vtbl;
-  n = vtbl->nvars;
-  for (i=0; i<n; i++) {
-    if (bvvar_bitsize(vtbl, i) == bitsize && 
-	bvvar_has_eterm(vtbl, i) && 
-        bv_solver_value_in_model(solver, i, &aux)) {
-      // aux = value of i in the model
-      // it's stored in aux.data[0]
-      small_bvset_add(s, aux.data[0]);
-    }
-  }
-
-  delete_bvconstant(&aux);
-}
-
-
-/*
- * Allocate a red-black tree, collect all values of size set->bitsize
- * used by the egraph, and add all of them to the tree. Store the
- * tree into set->ptr;
- */
-static void collect_used_values_rb(bv_solver_t *solver, bvset_t *set) {
-  rb_bvset_t *s;
-  bv_vartable_t *vtbl;
-  bvconstant_t aux;
-  uint32_t i, n;
-  uint32_t bitsize;  
-
-  bitsize = set->bitsize;
-  s = new_rb_bvset(bitsize);
-  set->ptr = s;
-
-  init_bvconstant(&aux);
-
-  vtbl = &solver->vtbl;
-  n = vtbl->nvars;
-  for (i=0; i<n; i++) {
-    if (bvvar_bitsize(vtbl, i) == bitsize && 
-	bvvar_has_eterm(vtbl, i) && 
-        bv_solver_value_in_model(solver, i, &aux)) {
-      // aux = value of i in the model
-      // copy the low-order word aux.data[0] into s
-      rb_bvset_add(s, aux.data[0]);
-    }
-  }
-
-  delete_bvconstant(&aux);
-}
-
-
-/*
- * Create a fresh value: distinct from all the other bitvector constants
- * of the same size used by the egraph. A value k is used by the egraph,
- * if there's an egraph term t, such that t is mapped to a bitvector
- * variable x and value[x] in the current model is equal to k.
- * - n = bit size of the new value
- * - v = buffer where the result must be copied
- * - return false if that fails, true otherwise
- */
-bool bv_solver_fresh_value(bv_solver_t *solver, bvconstant_t *v, uint32_t n) {
-  uint32_t x;
-  bvset_t *set;
-
-  set = used_vals_get_set(&solver->used_vals, n);
-  if (n <= SMALL_BVSET_LIMIT) {
-    if (set->ptr == NULL) {
-      collect_used_values_small(solver, set);
-    }
-
-    if (small_bvset_full(set->ptr)) {
-      // can't create a new value.
-      // this should not happen if the solvers are sound.
-      // the egraph should not request a fresh value in this case.
-      assert(false);
-      return false;
-    }
-
-    x = small_bvset_get_fresh(set->ptr);
-  } else {
-    if (set->ptr == NULL) {
-      collect_used_values_rb(solver, set);
-    }
-
-    if (rb_bvset_full(set->ptr)) {
-      assert(false);
-      return false;
-    }
-
-    x = rb_bvset_get_fresh(set->ptr);
-  }
-
-  // copy x into *v
-  // padd the rest with 0s
-  assert(n >= 32 || (x < (1<<n)));
-  bvconstant_set_all_zero(v, n); // v is 0b0.....0
-  v->data[0] = x;                // copy x in low-order bits
-
-  return true;
-}
-
-
-
 /******************************
  *  NUMBER OF ATOMS PER TYPE  *
  *****************************/
@@ -8392,7 +8125,6 @@ static th_egraph_interface_t bv_solver_egraph = {
 static bv_egraph_interface_t bv_solver_bv_egraph = {
   (make_bv_var_fun_t) bv_solver_create_on_the_fly_var,
   (bv_val_fun_t) bv_solver_value_in_model,
-  (bv_fresh_val_fun_t) bv_solver_fresh_value,
 };
 
 

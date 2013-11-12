@@ -112,14 +112,14 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c		\
               ptr_array_sort2.c ptr_hash_classes.c ptr_hash_map.c	\
               ptr_heap.c ptr_partitions.c ptr_queues.c ptr_stack.c	\
               ptr_vectors.c rationals.c rational_hash_maps.c		\
-              rb_bvsets.c rba_buffer_terms.c rdl_floyd_warshall.c	\
-              reader.c refcount_int_arrays.c refcount_strings.c		\
-              remap_table.c renaming_context.c search_parameters.c	\
-              simplex.c small_bvsets.c smt_core.c smt_logic_codes.c	\
-              smt_term_stack.c sparse_arrays.c stable_sort.c		\
-              string_buffers.c string_utils.c subst_cache.c		\
-              subst_context.c symbol_tables.c symmetry_breaking.c	\
-              terms.c term_manager.c term_printer.c term_stack2.c	\
+              rba_buffer_terms.c rdl_floyd_warshall.c reader.c		\
+              refcount_int_arrays.c refcount_strings.c remap_table.c	\
+              renaming_context.c search_parameters.c simplex.c		\
+              smt_core.c smt_logic_codes.c smt_term_stack.c		\
+              sparse_arrays.c stable_sort.c string_buffers.c		\
+              string_utils.c subst_cache.c subst_context.c		\
+              symbol_tables.c symmetry_breaking.c terms.c		\
+              term_manager.c term_printer.c term_stack2.c		\
               term_stack_error.c term_substitution.c term_utils.c	\
               theory_explanations.c tracer.c tuple_hash_map.c types.c	\
               type_printer.c uint_rbtrees.c use_vectors.c		\
@@ -140,13 +140,13 @@ extra_src_c := arith_buffers.c arith_solver_codes.c			\
                fun_solver_printer.c gates_printer.c idl_fw_printer.c	\
                internalization_printer.c large_bvsets.c memsize.c	\
                pair_hash_map.c pair_hash_sets.c parenthesized_expr.c	\
-               rdl_fw_printer.c sat_solver.c simplex_printer.c		\
-               simplex_prop_table.c smt_core_exporter.c			\
-               smt_core_printer.c smt_lexer.c smt_parser.c		\
-               smt2_commands.c smt2_expressions.c smt2_lexer.c		\
-               smt2_parser.c smt2_printer.c smt2_term_stack.c		\
-               string_hash_map.c timeout.c union_find.c			\
-               update_graph.c yices_help.c yices_reval.c
+               rb_bvsets.c rdl_fw_printer.c sat_solver.c		\
+               simplex_printer.c simplex_prop_table.c small_bvsets.c	\
+               smt_core_exporter.c smt_core_printer.c smt_lexer.c	\
+               smt_parser.c smt2_commands.c smt2_expressions.c		\
+               smt2_lexer.c smt2_parser.c smt2_printer.c		\
+               smt2_term_stack.c string_hash_map.c timeout.c		\
+               union_find.c update_graph.c yices_help.c yices_reval.c
 
 src_c := $(base_src_c) $(extra_src_c)
 

@@ -725,10 +725,6 @@ typedef struct egraph_trail_stack_s {
  ********************************************/
 
 /*
- * SATELLITE SOLVERS
- */
-
-/*
  * The egraph can be used standalone or as a central solver 
  * connected to the core and communicating with other solvers.
  *
@@ -741,7 +737,7 @@ typedef struct egraph_trail_stack_s {
  *
  * Full solvers must implement the th_ctrl and th_smt interfaces
  * (defined in smt_core.h) and the th_egraph interface defined
- * below. (The arithmetic solver may need an extended interface.)
+ * below.
  *
  * Sub-solvers must implement the th_ctrl and th_egraph interfaces.
  *
@@ -753,8 +749,9 @@ typedef struct egraph_trail_stack_s {
  *
  * 
  * GENERIC EGRAPH INTERFACE
+ * ========================
  *
- * A set of functions common to all satellite solvers are used by the
+ * A set of functions common to all satellite solvers is used by the
  * egraph during the search. To propagate equalities and disequalities
  * to a satellite solver, the egraph calls one of the following
  * functions (in the th_egraph interface).
@@ -772,6 +769,10 @@ typedef struct egraph_trail_stack_s {
  *    notify solver that a[0] ... a[n-1] are all distinct
  *    as above, cmp is an explanation hint.
  *
+ * For all three assert functions above, the satellite solver must
+ * store the assertions internally and process them when propagate is
+ * called.
+ *
  * 4) bool check_diseq(void *solver, thvar_t x1 thvar_t x2)
  *    return true if (x1 != x2) holds in the solver at the base level.
  *    (don't need to be complete: may return false)
@@ -780,15 +781,9 @@ typedef struct egraph_trail_stack_s {
  *     return true if x is a constant in the theory solver (optional)
  *     return false otherwise
  *
- * For all assert functions above, the satellite solver must store the
- * assertions internally and process them when propagate is called. To
- * construct theory conflicts, the satellite solver can query the
- * egraph for explanations using functions egraph_explain_term_eq or
- * egraph_explain_term_diseq. Both functions are defined in
- * egraph_explanation.c. The hint must be passed as a argument in
- * egraph_explain_term_diseq.
+ * Optional function: if the solver propagates equalities to the egraph,
+ * it must implement the following function.
  *
- * Optional function: necessary if the solver propagates equalities to the egraph
  *
  * 5) void expand_th_explanation(void *solver, thvar_t x1, thvar_t x2, void *expl, th_explanation_t *result)
  *   
@@ -807,23 +802,36 @@ typedef struct egraph_trail_stack_s {
  *    The set of constraints is stored in a th_explanation data structure that maintains 
  *    three resizable vectors, for atoms, equalities, and diseq constraints.
  *
+ * 
+ * Theory conflict and explanations
+ * --------------------------------
  *
- * NOTE (BUG FIX)
- * --------------
- * egraph_explain_term_diseq cannot be used reliably to lazily build an 
- * explanation for (x1 != x2) as it may compute an incorrect (non-causal) explanation. The hint
- * passed to assert_distinct and assert_disequality is not enough to rebuild the correct
- * explanation in all cases (cf. egraph_explanation.c).
+ * To construct theory conflicts, a satellite solver can
+ * query the egraph for explanations using functions
+ *  - egraph_explain_term_eq
+ *  - egraph_store_diseq_pre_expl
+ *  - egraph_expand_diseq_pre_expl
+ * These functions are defined in egraph_explanation.c. 
  *
- * If the satellite solver performs an inference or theory propagation with 
- * (x1 != x2) as antecedent, it must use an intermediate 'pre_expl' object that keeps 
- * enough information to build an explanation for (x1 != x2) if it is needed later. 
- * At the time of the inference: the satellite must record the pre_expl data using function
+ * Another function 'egraph_explain_term_diseq' is defined in
+ * egraph_explanation.c but it cannot be used reliably to
+ * lazily build an explanation for (x1 != x2). It may generate an
+ * incorrect (non-causal) explanation. The hint passed to
+ * assert_distinct and assert_disequality is not enough to rebuild the
+ * correct explanation in all cases (cf. egraph_explanation.c).
+ *
+ * If the satellite solver performs an inference or theory propagation
+ * with (x1 != x2) as antecedent, it must use an intermediate
+ * 'pre_expl' object that keeps enough information to build an
+ * explanation for (x1 != x2) if it is needed later.  At the time of
+ * the inference: the satellite must record the pre_expl data using
+ * function
  *  
  *   egraph_store_diseq_pre_expl(egraph, t1, t2, hint, pre_expl) where 
  *   - t1 must be the egraph term attached to x1
  *   - t2 must be the egraph term attached to x2
- *   - hint is the composite provided by the egraph in assert_disequality or assert_distinct
+ *   - hint is the composite provided by the egraph in 
+ *     assert_disequality or assert_distinct
  *   - pre_expl is a pointer to a pre_expl_t structure
  *
  * If the explanation for (x1 != x2) is needed later on (i.e., must be expanded to a list of
@@ -833,15 +841,18 @@ typedef struct egraph_trail_stack_s {
  *
  * at that time.
  * 
- * Functions egraph_store_diseq_pre_expl and egraph_expand_diseq_pre_expl are defined in
- * egraph_explanations.c
+ *
+ * Interface equalities (2010/01/13)
+ * ---------------------------------
+ *
+ * In final check, the egraph and satellite solver attempt to build consistent
+ * modesl. If that fails, interface equalities must be generated. The egraph
+ * currently supports to variant implementations of final_check, that use
+ * different functions provided by the satellite solvers.
  *
  *
- * Default API for interface equalities (2010/01/13)
- * --------------------------------------------------
- * 
- * The following function is intended for the theory solvers to
- * generate interface equalities.
+ * Baseline final_check: for this variant, a satellite solver must implement
+ * the following function.
  *
  * 6) uint32_t reconcile_model(void *solver, uint32_t max_eq)
  * 
@@ -862,7 +873,11 @@ typedef struct egraph_trail_stack_s {
  *       (0 means that the egraph and solver model are consistent).
  *
  *
- * Experimental API to support more flexible interface generation algorithms (08/28/2012)
+ * Experimental final_check: this variant implements a more flexible
+ * interface generation algorithms. The egraph attempts to resolve
+ * conflict by merging classes. If that fails, it asks the satellite
+ * solver to generate interface lemmmas. To support this, the
+ * satellite solvers must implement the following functions:
  * 
  * 6a) void prepare_model(void *solver)
  *
@@ -889,10 +904,11 @@ typedef struct egraph_trail_stack_s {
  *
  * 6e) ipart_t *build_model_partition(void *solver)
  *
- *    Called after prepare_model and before release model. The solver must construct
- *    a partition of its variables: two variables are in the same class if they have
- *    the same value in the model. Note: this can be restricted so that the partition
- *    uses one theory variable per Egraph class.
+ *    Called after prepare_model and before release model. The solver
+ *    must construct a partition of its variables: two variables are
+ *    in the same class if they have the same value in the model. This
+ *    can be restricted so that the partition uses one theory variable
+ *    per Egraph class.
  *
  *    The solver should use 'int_partition.h' to build this.
  *
@@ -900,8 +916,9 @@ typedef struct egraph_trail_stack_s {
  *
  *    Called by the egraph when the partition is no longer needed.
  *
- * 
- * In addition, all satellite solvers must implement
+ *
+ * In addition, all satellite solvers must implement the following functions
+ * to link egraph terms and theory variables.
  *
  * 7) void attach_eterm(void *solver, thvar_t x, eterm_t u): attach u as term for variable x
  *    in solver. This must be the same function as used by the context.
@@ -926,7 +943,9 @@ typedef struct egraph_trail_stack_s {
  *    - the function must return l to set l := true or (not l) to set l := false
  *
  *
+ *
  * THEORY-SPECIFIC INTERFACES
+ * ==========================
  *
  * In addition to the common egraph interface defined above, the egraph needs theory-specific 
  * functions to create terms and theory variables, and to build a global model. These are
@@ -958,14 +977,13 @@ typedef struct egraph_trail_stack_s {
  * An egraph model maps term occurrences to objects (defined in
  * concrete_values.h).  To build the model, the egraph must query the
  * satellite solvers for rational/integer or bitvector values assigned
- * to theory variables. It may also need to create fresh rational or 
- * integer values distinct from any other value assigned in the solver.
+ * to theory variables. 
  *
  * For this, we use the following functions: 
  *
  *  a) arithmetic solver
  *     ----------------
- *    1)  bool value_in_model(void *arith_solver, thvar_t x, rational_t *v)
+ *    bool value_in_model(void *arith_solver, thvar_t x, rational_t *v)
  *
  *    Must return true if the arithmetic solver has a value for x in its current model
  *    and that value is rational (or integer). It must then copy that value in v.
@@ -974,20 +992,10 @@ typedef struct egraph_trail_stack_s {
  *    This function should be identical to the function of the same name in
  *    the arithmetic solver arith_interface (used by the context).
  *
- *    2) bool fresh_value(void *arith_solver, rational_t *v, bool is_int)
- *
- *    Obsolete: this function is never called by the egraph.
- *
- *    Must store a value in v that's unique. If is_int is true, the
- *    value must be an integer. If is_int is false, a non-integer
- *    value is allowed.
- *
- *    Return false if that's not implemented or the value can't be constructed for
- *    whatever reason.
  *
  *  b) bitvector solver
  *     ----------------
- *    1) bool value_in_model(void *bv_solver, thvar_t x, bvconstant_t *b)
+ *    bool value_in_model(void *bv_solver, thvar_t x, bvconstant_t *b)
  *
  *    Must return true if the bitvector solver has a value for x in its current model.
  *    It must then copy that value in b. It must return false otherwise.
@@ -995,34 +1003,22 @@ typedef struct egraph_trail_stack_s {
  *    This function should be identical to the function of the same name in the 
  *    bvsolver_interface used by the context.
  *
- *    2) bool fresh_value(void *bv_solver, bvconstant_t *b, uint32_t n)
- *
- *    Obsolete: this function is never called by the egraph.
- *
- *    Must store in b a value that's guaranteed to be unique and return true.
- *    n = bit size of the value requested.
- *
- *    Must return false if that fails for whatever reason.
- *
- *
- *  For both the arithmetic solver and the bitvector solver, 'unique
- *  values' means values that are not already assigned to any egraph
- *  class. Also successive calls to 'fresh_value' must return
- *  different values.
- *
  * 
  *  c) function-theory solver
  *     ----------------------
  *
- *    A function subsolver cannot be used without the egraph. So model construction 
- *    requires close coordination between the egraph and the subsolver. We use a
- *    two-step approach:
- *    - First the function solver constructs an abstract model (via fun_maps/abstract_values).
- *      This may introduce new objects (fresh particles) that are not currently present
- *      in the egraph. The only requirement is that all particles be distinct and different
- *      from any existing egraph term.
- *    - Then the egraph converts the abstract model into a concrete model by mapping the
- *      abstract particles to concrete values.
+ *    A function subsolver cannot be used without the egraph. So model
+ *    construction requires close coordination between the egraph and
+ *    the subsolver. We use a two-step approach: 
+ *
+ *    - First the function solver constructs an abstract model (via
+ *      fun_maps/abstract_values).  This may introduce new objects
+ *      (fresh particles) that are not currently present in the
+ *      egraph. The only requirement is that all fresh particles must be
+ *      distinct from each other and from any existing egraph term.
+ *
+ *    - Then the egraph converts the abstract model into a concrete
+ *      model by mapping the abstract particles to concrete values.
  *
  *    To support this, the function solver must implement the following functions:
  *
@@ -1039,6 +1035,10 @@ typedef struct egraph_trail_stack_s {
  *
  */
 
+
+/*
+ * THEORY EXPLANATION OBJECT
+ */
 
 /*
  * Disequality pre-explanation object:
@@ -1060,9 +1060,6 @@ typedef struct diseq_pre_expl_s {
 } diseq_pre_expl_t;
  
 
-/*
- * THEORY EXPLANATION OBJECT
- */
 // equality constraint in a theory explanation
 typedef struct th_eq_s {
   eterm_t lhs;
@@ -1126,12 +1123,10 @@ typedef struct th_egraph_interface_s {
  */
 typedef thvar_t (*make_arith_var_fun_t)(void *solver, bool is_int);
 typedef bool (*arith_val_fun_t)(void *arith_solver, thvar_t x, rational_t *v);
-typedef bool (*arith_fresh_val_fun_t)(void *arith_solver, rational_t *v, bool is_int);
 
 typedef struct arith_egraph_interface_s {
   make_arith_var_fun_t  create_arith_var;
   arith_val_fun_t       value_in_model;
-  arith_fresh_val_fun_t fresh_value; 
 } arith_egraph_interface_t;
 
 
@@ -1141,12 +1136,10 @@ typedef struct arith_egraph_interface_s {
  */
 typedef thvar_t (*make_bv_var_fun_t)(void *solver, uint32_t n);
 typedef bool (*bv_val_fun_t)(void *solver, thvar_t x, bvconstant_t *v);
-typedef bool (*bv_fresh_val_fun_t)(void *solver, bvconstant_t *v, uint32_t n);
 
 typedef struct bv_egraph_interface_s {
   make_bv_var_fun_t    create_bv_var;
   bv_val_fun_t         value_in_model;
-  bv_fresh_val_fun_t   fresh_value;
 } bv_egraph_interface_t;
 
 
@@ -1167,6 +1160,10 @@ typedef struct fun_egraph_interface_s {
 } fun_egraph_interface_t;
 
 
+
+/***********
+ *  MODEL  *
+ **********/
 
 /*
  * Auxiliary structures used in model construction. We now use a
@@ -1483,7 +1480,6 @@ struct egraph_s {
 
 //  disable boolean and non-boolean ackermann
 #define EGRAPH_DEFAULT_OPTIONS  EGRAPH_DISABLE_ALL_OPTIONS
-
 
 
 

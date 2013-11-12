@@ -528,44 +528,6 @@ typedef enum arith_lemma_flag {
 
 
 
-/*************************
- *  SET OF FRESH VALUES  *
- ************************/
-
-/*
- * When the simplex solver is connected to an egraph, then it may
- * be requested to generate fresh values during model construction.
- * A value is fresh if it's different from the values assigned 
- * to all simplex variables.
- *
- * We try to produce fresh values that are reasonably small when
- * that's possible. To support this, we represent a set of available
- * values using the following data structure.
- * - used_val = set of all integer values already used in the fixed 
- *          interval [0 ... NVAL-1] stored as a bit vector.
- * - used_val_idx = an index between 0 and NVAL
- *          all x in [0... use_val_idx-1] are used
- * - low, high = two integers, such that all x in [low .. high-1] are fresh
- *          (and NVAL <= low, high <= HVAL).
- * - max_used = an integer (arbitrary precision) larger than all used values
- *          (and max_used >= HVAL)
- *
- * The code tries to allocate fresh values in [0 ... NVAL-1] in priority,
- * then in [int_low, int_high], and if that fails it returns max_used and increment it.
- */
-typedef struct simplex_freshval_s {
-  byte_t *used_val;
-  int32_t used_val_idx;
-  int32_t low;
-  int32_t high;
-  rational_t max_used;
-} simplex_freshval_t;
-
-#define SIMPLEX_NVAL 200
-#define SIMPLEX_HVAL 1000000
-
-
-
 
 /*********************
  *  BOUND COLLECTOR  *
@@ -577,8 +539,8 @@ typedef struct simplex_freshval_s {
  * the value of all basic variables that depend on x.  We want this
  * shift to preserve feasibility (without requiring any pivoting)
  *
- * To do this, we compute an interval of values for delta that maintain
- * feasibility and we also need a rational D that defines which delta
+ * To do this, we compute an interval of values for delta that maintains
+ * feasibility and we also need a rational D that defines which deltas
  * maintain integer feasibility. All these components are stored in
  * the following record.
  *
@@ -851,12 +813,10 @@ typedef struct simplex_solver_s {
    * - if val[x] = a + b delta as an extended rational, then the rational value 
    *   for a variable x is a + b * epsilon.
    * - factor is an auxiliary rational used for computing epsilon
-   * - freshval structure: allocated when needed
    */
   rational_t *value;
   rational_t epsilon;
   rational_t factor;
-  simplex_freshval_t *freshval;
 
   /*
    * Jump buffer for exception handling during internalization
