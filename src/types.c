@@ -127,8 +127,6 @@ static void delete_type_mtbl(type_mtbl_t *table) {
 }
 
 
-
-#if 0
 /*
  * Empty the table: delete all macros and macro instances
  */
@@ -150,8 +148,6 @@ static void reset_type_mtbl(type_mtbl_t *table) {
   reset_stbl(&table->stbl);
   reset_tuple_hmap(&table->cache);
 }
-
-#endif
 
 
 /*
@@ -1187,6 +1183,56 @@ void delete_type_table(type_table_t *table) {
     safe_free(table->macro_tbl);
     table->macro_tbl = NULL;
   }
+}
+
+
+/*
+ * Full reset: delete everything except the primitive types
+ */
+void reset_type_table(type_table_t *table) {
+  uint32_t i;
+
+  // decrement ref counts
+  for (i=0; i<table->nelems; i++) {
+    if (table->name[i] != NULL) {
+      string_decref(table->name[i]);
+    }
+  }
+
+  // delete descriptors
+  for (i=0; i<table->nelems; i++) {
+    switch (table->kind[i]) {
+    case TUPLE_TYPE:
+    case FUNCTION_TYPE:
+    case INSTANCE_TYPE:
+      safe_free(table->desc[i].ptr);
+      break;
+
+    default:
+      break;
+    }    
+  }
+
+  reset_int_htbl(&table->htbl);
+  reset_stbl(&table->stbl);
+  
+  if (table->sup_tbl != NULL) {
+    reset_int_hmap2(table->sup_tbl);
+  }
+  if (table->inf_tbl != NULL) {
+    reset_int_hmap2(table->inf_tbl);
+  }
+  if (table->max_tbl != NULL) {
+    int_hmap_reset(table->max_tbl);
+  }
+  if (table->macro_tbl != NULL) {
+    reset_type_mtbl(table->macro_tbl);
+  }
+
+  table->nelems = 0;
+  table->free_idx = NULL_TYPE;
+  table->live_types = 0;
+  add_primitive_types(table);
 }
 
 

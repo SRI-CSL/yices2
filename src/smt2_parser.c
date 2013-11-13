@@ -204,7 +204,7 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
     case get_value_next_goto_c12:
       /*
        * Activate the keep_tokens hack here
-       * We push the two tokens '(' 'get-value' 
+       * We push the two tokens '(' 'get-value' into the token_queue
        */
       keep_tokens = true;
       token_queue = smt2_token_queue();
@@ -214,7 +214,22 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
       tstack_push_op(tstack, SMT2_GET_VALUE, &loc);
       state = c12;
       goto loop;
-        
+
+    case get_model_next_goto_r0:
+      tstack_push_op(tstack, SMT2_GET_MODEL, &loc);
+      state = r0;
+      goto loop;
+
+    case echo_next_goto_c13:
+      tstack_push_op(tstack, SMT2_ECHO, &loc);
+      state = c13;
+      goto loop;
+
+    case reset_next_goto_r0:
+      tstack_push_op(tstack, SMT2_RESET, &loc);
+      state = r0;
+      goto loop;
+
     case numeral_next_goto_r0: 
       tstack_push_rational(tstack, tkval(lex), &loc);
       state = r0;
@@ -329,6 +344,12 @@ static int32_t smt2_parse(parser_t *parser, state_t start) {
     case next_push_c12b_goto_t0:
       parser_push_state(stack, c12b);
       state = t0;
+      goto loop;
+
+    case string_next_goto_r0:
+      // string argument to echo
+      tstack_push_string(tstack, tkval(lex), tklen(lex), &loc);
+      state = r0;
       goto loop;
 
     case next_goto_r0:

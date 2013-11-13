@@ -85,6 +85,14 @@ extern void delete_term_manager(term_manager_t *manager);
 
 
 /*
+ * Reset:
+ * - free the internal buffers and empty the stores
+ */
+extern void reset_term_manager(term_manager_t *manager);
+
+
+
+/*
  * Get the internal components
  */
 static inline term_table_t *term_manager_get_terms(term_manager_t *manager) {

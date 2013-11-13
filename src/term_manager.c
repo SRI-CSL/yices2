@@ -239,7 +239,7 @@ static void term_manager_free_bvlogic_buffer(term_manager_t *manager) {
 }
 
 
-extern void delete_term_manager(term_manager_t *manager) {
+void delete_term_manager(term_manager_t *manager) {
   term_manager_free_arith_buffer(manager);
   term_manager_free_bvarith_buffer(manager);
   term_manager_free_bvarith64_buffer(manager);
@@ -257,6 +257,36 @@ extern void delete_term_manager(term_manager_t *manager) {
 }
 
 
+
+/*
+ * Reset internal buffers and stores
+ */
+void reset_term_manager(term_manager_t *manager) {
+  if (manager->arith_buffer != NULL) {
+    reset_rba_buffer(manager->arith_buffer);
+  }
+  if (manager->bvarith_buffer != NULL) {
+    reset_bvarith_buffer(manager->bvarith_buffer);
+  }
+  if (manager->bvarith64_buffer != NULL) {
+    reset_bvarith64_buffer(manager->bvarith64_buffer);
+  }
+  if (manager->bvlogic_buffer != NULL) {
+    bvlogic_buffer_clear(manager->bvlogic_buffer);
+  }
+  if (manager->bvarith_store != NULL) {
+    reset_objstore(manager->bvarith_store);
+  }
+  if (manager->bvarith64_store != NULL) {
+    reset_objstore(manager->bvarith64_store);
+  }
+  if (manager->nodes != NULL) {
+    reset_node_table(manager->nodes);
+  }
+
+  q_clear(&manager->r0);
+  ivector_reset(&manager->vector0);
+}
 
 
 

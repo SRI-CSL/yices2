@@ -929,6 +929,15 @@ EXPORTED int32_t yices_print_error(FILE *f) {
 }
 
 
+/*
+ * Reset the internal term/types/pprod tables
+ */
+void yices_reset_tables(void) {
+  reset_term_manager(&manager);
+  reset_term_table(&terms);
+  reset_pprod_table(&pprods);
+  reset_type_table(&types);
+}
 
 
 /***********************
@@ -4702,7 +4711,7 @@ EXPORTED int32_t yices_term_is_ground(term_t t) {
 
 /*
  * Get the free variables of t
- * - not part of the official API yet (because it exports a pointer
+ * - not part of the official API (because it exports a pointer
  *   to some internal data structures).
  * - return NULL if t is ground
  */
@@ -7086,7 +7095,7 @@ EXPORTED void yices_garbage_collect(term_t *t, uint32_t nt,
   model_list_gc_mark();
   
   /*
-   * Add roots if t and tau
+   * Add roots from t and tau
    */
   if (t != NULL) mark_term_array(&terms, t, nt);
   if (tau != NULL) mark_type_array(&types, tau, ntau);

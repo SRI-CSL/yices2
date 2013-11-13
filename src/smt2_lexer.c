@@ -58,6 +58,10 @@ static const char * const smt2_token_string[NUM_SMT2_TOKENS] = {
   "set-info",              // SMT2_TK_SET_INFO
   "set-option",            // SMT2_TK_SET_OPTION
 
+  "get-model",             // SMT2_TK_GET_MODEL
+  "echo",                  // SMT2_TK_ECHO
+  "reset",                 // SMT2_TK_RESET
+
   "<bad-string>",          // SMT2_TK_INVALID_STRING
   "<invalid-numeral>",     // SMT2_TK_INVALID_NUMERAL
   "<invalid-decimal>",     // SMT2_TK_INVALID_DECIMAL
@@ -177,6 +181,7 @@ static const char * const smt2_symbol_string[NUM_SMT2_SYMBOLS] = {
 
 
 
+
 /*
  * ACTIVE/INACTIVE SYMBOLS
  */
@@ -214,7 +219,6 @@ static const char * const smt2_symbol_string[NUM_SMT2_SYMBOLS] = {
  */
 
 static uint8_t active_symbol[NUM_SMT2_SYMBOLS];
-
 
 
 /*

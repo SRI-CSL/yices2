@@ -903,6 +903,56 @@ static void eval_smt2_define_fun(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
 
 /*
+ * NON-STANDARD COMMANDS
+ */
+
+/*
+ * [get-model]
+ */
+static void check_smt2_get_model(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_GET_MODEL);
+  check_size(stack, n == 0);
+}
+
+static void eval_smt2_get_model(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  smt2_get_model();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+/*
+ * [echo <string>]
+ */
+static void check_smt2_echo(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_ECHO);
+  check_size(stack, n == 1);
+  check_tag(stack, f, TAG_STRING);
+}
+
+static void eval_smt2_echo(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  smt2_echo(f->val.string);
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+/*
+ * [reset]
+ */
+static void check_smt2_reset(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  check_op(stack, SMT2_RESET);
+  check_size(stack, n == 0);
+}
+
+static void eval_smt2_reset(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  smt2_reset();
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
+
+
+
+/*
  * ATTRIBUTES
  */
 
@@ -1969,6 +2019,11 @@ void init_smt2_tstack(tstack_t *stack) {
   tstack_add_op(stack, SMT2_DEFINE_SORT, false, eval_smt2_define_sort, check_smt2_define_sort);
   tstack_add_op(stack, SMT2_DECLARE_FUN, false, eval_smt2_declare_fun, check_smt2_declare_fun);
   tstack_add_op(stack, SMT2_DEFINE_FUN, false, eval_smt2_define_fun, check_smt2_define_fun);
+
+  tstack_add_op(stack, SMT2_GET_MODEL, false, eval_smt2_get_model, check_smt2_get_model);
+  tstack_add_op(stack, SMT2_ECHO, false, eval_smt2_echo, check_smt2_echo);
+  tstack_add_op(stack, SMT2_RESET, false, eval_smt2_reset, check_smt2_reset);
+
   tstack_add_op(stack, SMT2_MAKE_ATTR_LIST, false, eval_smt2_make_attr_list, check_smt2_make_attr_list);
   tstack_add_op(stack, SMT2_ADD_ATTRIBUTES, false, eval_smt2_add_attributes, check_smt2_add_attributes);
   tstack_add_op(stack, SMT2_MK_ARRAY, false, eval_smt2_mk_array, check_smt2_mk_array);

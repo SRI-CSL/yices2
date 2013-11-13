@@ -1842,7 +1842,46 @@ void delete_term_table(term_table_t *table) {
 
 
 
+/*
+ * RESET
+ */
 
+/*
+ * Reset the name table: first call decref on all strings
+ */
+static void reset_name_table(ptr_hmap_t *table) {
+  ptr_hmap_pair_t *p;
+
+  p = ptr_hmap_first_record(table);
+  while (p != NULL) {
+    assert(p->val != NULL);
+    string_decref(p->val);
+    p = ptr_hmap_next_record(table, p);
+  }
+  ptr_hmap_reset(table);
+}
+
+
+/*
+ * Full reset: delete all terms, reset the symbol table,
+ * and all internal structures.
+ */
+void reset_term_table(term_table_t *table) {
+  reset_name_table(&table->ntbl);
+  delete_term_descriptors(table);
+  int_hmap_reset(&table->utbl);
+  reset_int_htbl(&table->htbl);
+  reset_stbl(&table->stbl);
+  
+  ivector_reset(&table->ibuffer);
+  pvector_reset(&table->pbuffer);
+
+  table->nelems = 0;
+  table->free_idx = -1;
+  table->live_terms = 0;
+
+  add_primitive_terms(table);
+}
 
 
 /*

@@ -424,6 +424,12 @@ extern void init_type_table(type_table_t *table, uint32_t n);
 extern void delete_type_table(type_table_t *table);
 
 
+/*
+ * Reset: remove all types and macros, and empty the symbol_table
+ */
+extern void reset_type_table(type_table_t *table);
+
+
 
 /*
  * TYPE CONSTRUCTORS

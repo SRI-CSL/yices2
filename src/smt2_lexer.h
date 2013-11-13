@@ -70,6 +70,11 @@ enum smt2_token {
   SMT2_TK_SET_INFO,
   SMT2_TK_SET_OPTION,
 
+  // Non-standard commands
+  SMT2_TK_GET_MODEL,
+  SMT2_TK_ECHO,
+  SMT2_TK_RESET,
+
   // Errors
   SMT2_TK_INVALID_STRING,
   SMT2_TK_INVALID_NUMERAL,

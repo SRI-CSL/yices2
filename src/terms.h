@@ -456,6 +456,12 @@ static inline void term_table_set_finalizer(term_table_t *table, special_finaliz
 
 
 /*
+ * Empty the table: remove all terms and clean up the symbol table
+ */
+extern void reset_term_table(term_table_t *table);
+
+
+/*
  * TERM CONSTRUCTORS
  */
 

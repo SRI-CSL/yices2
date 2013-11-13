@@ -60,6 +60,11 @@ enum smt2_token {
   SMT2_TK_SET_INFO,
   SMT2_TK_SET_OPTION,
 
+  // Non-standard commands
+  SMT2_TK_GET_MODEL,
+  SMT2_TK_ECHO,
+  SMT2_TK_RESET,
+
   // Errors
   SMT2_TK_INVALID_STRING,
   SMT2_TK_INVALID_NUMERAL,
@@ -95,6 +100,9 @@ Grammar (SMT-LIB 2.0, December 21 2010)
 	    | ( declare-fun <symbol> ( <sort>* ) <sort> )
 	    | ( define-fun <symbol> ( <sorted-var>* ) <sort> <term> )
 	    | ( assert <term> )
+	    | ( get-model )
+	    | ( echo <string> )
+	    | ( reset )
 	    | EOS
 
 
@@ -256,6 +264,9 @@ Recursive-descent parser
 
 See yices_parser.txt for more explanations on this stuff.
 
+NOTE: the non-standard commands get-model, echo, reset are treated
+like ordinary symbols, unless thay occur when parsing a command (i.e.,
+in state c1).
 
 parse-command:
 - initial state = c0
@@ -283,6 +294,9 @@ c1	     check-sat		c2
 	     declare-fun	c10
 	     define-fun		c11
 	     get-value		c12
+             get-model          c2
+             echo               c13
+             reset              c2
 
 c2	     )			DONE
 
@@ -324,6 +338,9 @@ c12	     (			c12a
 c12a	     [term]		c12b
 c12b	     )			c2
 	     [term]		c12b
+
+
+c13          <string>           c2
 
 
 
@@ -538,6 +555,9 @@ c1	     check-sat		next; goto r0
 	     declare-fun	next; goto c10
 	     define-fun		next; goto c11
 	     get-value		next; goto c12
+             get-model          next; goto r0
+             echo               next; goto c13
+             reset              next; goto r0
 
 // after '(push' or '(pop' or '(declare-sort <symnbl>'
 c3	     <numeral>		next; goto r0
@@ -580,6 +600,9 @@ c11f	     )			eval; next; goto c11b      (evaluate the variable declaration here
 c12	     (			next; push c12b; goto t0
 c12b	     )			next; goto r0
 	     ...		push c12b; goto t0
+
+// after '(echo'
+c13          <string>           next; goto r0
 
 
 // attribute value

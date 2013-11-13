@@ -471,11 +471,23 @@ extern void yices_set_default_params(context_t *ctx, param_t *params);
  */
 extern model_t *yices_new_model(bool keep_subst);
 
+
+/*
+ * RESET INTERNAL TABLES
+ */
+
+/*
+ * This removes all terms/types/macros and reset the symbol tables.
+ */
+extern void yices_reset_tables(void);
+
+
 /*
  * TRACE/STATISTICS AND SUPPORT FOR DEBUGGING
  */
 extern void yices_print_presearch_stats(FILE *f, context_t *ctx);
 extern void yices_show_statistics(FILE *f, context_t *ctx);
 extern void yices_dump_context(FILE *f, context_t *ctx);
+
 
 #endif /* __YICES_EXTENSIONS_H */

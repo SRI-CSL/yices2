@@ -24,6 +24,7 @@
 #include "smt2_lexer.h"
 #include "smt2_commands.h"
 #include "smt2_printer.h"
+#include "smt2_model_printer.h"
 #include "model_eval.h"
 
 // for statistics
@@ -194,6 +195,19 @@ static void delete_smt2_name_stack(smt2_name_stack_t *s) {
 
 
 /*
+ * Reset: remove all names
+ */
+static void reset_smt2_name_stack(smt2_name_stack_t *s) {
+  delete_smt2_name_stack(s);
+  assert(s->names == NULL);
+  s->top = 0;
+  s->size = 0;
+  s->deletions = 0;
+}
+
+
+
+/*
  * NAMED-TERMS STACKS
  */
 
@@ -283,6 +297,16 @@ static void delete_named_term_stack(named_term_stack_t *s) {
   s->data = NULL;
 }
 
+
+/*
+ * Reset: remove all names then re-initialize
+ */
+static void reset_named_term_stack(named_term_stack_t *s) {
+  delete_named_term_stack(s);
+  assert(s->data == NULL);
+  s->top = 0;
+  s->size = 0;
+}
 
 
 /*
@@ -381,6 +405,18 @@ static void smt2_stack_pop(smt2_stack_t *s) {
 static void delete_smt2_stack(smt2_stack_t *s) {
   safe_free(s->data);
   s->data = NULL;
+}
+
+
+/*
+ * Empty the stack
+ */
+static void reset_smt2_stack(smt2_stack_t *s) {
+  delete_smt2_stack(s);
+  assert(s->data == NULL);
+  s->top = 0;
+  s->size = 0;
+  s->levels = 0;
 }
 
 
@@ -871,7 +907,7 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "zero_extend",          // MK_BV_ZERO_EXTEND
   "bvredand",             // MK_BV_REDAND (not in SMT2)
   "bvredor",              // MK_BV_REDOR (not in SMT2)
-  "bvcomp",                // MK_BV_COMP
+  "bvcomp",               // MK_BV_COMP
   "bvuge",                // MK_BV_GE,
   "bvugt",                // MK_BV_GT
   "bvule",                // MK_BV_LE
@@ -903,6 +939,10 @@ static const char * const opcode_string[NUM_SMT2_OPCODES] = {
   "define-sort",          // SMT2_DEFINE_SORT
   "declare-fun",          // SMT2_DECLARE_FUN
   "define-fun",           // SMT2_DEFINE_FUN
+  "get-model",            // SMT2_GET_MODEL (not standard)
+  "echo",                 // SMT2_ECHO      (not standard)
+  "reset",                // SMT2_RESET     (not standard)
+  //
   "attributes",           // SMT2_MAKE_ATTR_LIST
   "term annotation",      // SMT2_ADD_ATTRIBUTES
   "Array",                // SMT2_MK_ARRAY
@@ -1174,7 +1214,6 @@ static void show_ctx_stats(context_t *ctx) {
   if (context_has_fun_solver(ctx)) {
     show_funsolver_stats(ctx->fun_solver);
   }
-
   if (context_has_arith_solver(ctx)) {
     if (context_has_simplex_solver(ctx)) {
       show_simplex_stats(ctx->arith_solver);
@@ -1848,7 +1887,7 @@ static void init_smt2_context(smt2_globals_t *g) {
 
   if (! g->benchmark_mode) {
     // change mode and arch 
-    // to support push/pop, we can't use the Floyd-Warshall solver
+    // to support push/pop, we can't use the Floyd-Warshall solvers
     mode = CTX_MODE_PUSHPOP;
     if (arch == CTX_ARCH_AUTO_RDL || arch == CTX_ARCH_AUTO_IDL) {
       arch = CTX_ARCH_SPLX;
@@ -3219,8 +3258,9 @@ void smt2_push(uint32_t n) {
   smt2_globals_t *g;
 
   if (check_logic()) {
-    if (__smt2_globals.benchmark_mode) {
-      print_error("push not allowed in non-incremental mode");
+    g = &__smt2_globals;
+    if (g->benchmark_mode) {
+      print_error("push is not allowed in non-incremental mode");
     } else {
       if (n > 0) {
 	/*
@@ -3228,7 +3268,6 @@ void smt2_push(uint32_t n) {
 	 * is less than 32bits so smt2_stack_push can't cause a
 	 * numerical overflow.
 	 */
-	 g = &__smt2_globals;
 	 smt2_stack_push(&g->stack, n, g->term_names.top, g->type_names.top, g->macro_names.top,
 			 g->named_bools.top, g->named_asserts.top);
 	 ctx_push(g);
@@ -3254,7 +3293,7 @@ void smt2_pop(uint32_t n) {
 
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {
-      print_error("pop not allowed in non-incremental mode");
+      print_error("pop is not allowed in non-incremental mode");
     } else if (n == 0) {
       // do nothing
       report_success(); 
@@ -3499,6 +3538,89 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
   }
 }
 
+
+/*
+ * EXTENSION/NON-STANDARD COMMANDS
+ */
+
+/*
+ * Show the model if any
+ */
+void smt2_get_model(void) {
+  yices_pp_t printer;
+  model_t *mdl;
+
+  if (check_logic()) {
+    mdl = get_model(&__smt2_globals);
+    if (mdl == NULL) return;
+
+    init_pretty_printer(&printer, &__smt2_globals);
+    smt2_pp_full_model(&printer, mdl);
+    delete_yices_pp(&printer, true);
+  }		       
+}
+
+
+/*
+ * Print s on the output channel
+ */
+void smt2_echo(const char *s) {
+  print_out("%s\n", s);
+  flush_out();
+}
+
+
+/*
+ * Full reset:
+ * - delete all assertions, terms, types, and declarations
+ */
+void smt2_reset(void) {
+  smt2_globals_t *g;
+
+  if (check_logic()) {
+    g = &__smt2_globals;
+    if (g->benchmark_mode) {
+      print_error("reset is not allowed in non-incremental mode");
+    } else {
+      /*
+       * Reset context, model and internal stacks
+       * + all auxiliary vectors
+       *
+       * Keep options + logic_name + output/diagnostic channels
+       * + info_table and attribute table.
+       */
+      g->pushes_after_unsat = 0;
+
+      assert(g->ctx != NULL);
+      yices_free_context(g->ctx);
+      g->ctx = NULL;
+
+      if (g->model != NULL) {
+	yices_free_model(g->model);
+	g->model = NULL;
+      }
+
+      reset_smt2_stack(&g->stack);
+      reset_smt2_name_stack(&g->term_names);
+      reset_smt2_name_stack(&g->type_names);
+      reset_smt2_name_stack(&g->macro_names);
+
+      reset_named_term_stack(&g->named_bools);
+      reset_named_term_stack(&g->named_asserts);
+
+      reset_etk_queue(&g->token_queue);
+      ivector_reset(&g->token_slices);
+      ivector_reset(&g->val_vector);
+
+      yices_reset_tables();
+
+      // build a fresh empty context
+      init_smt2_context(g);
+      
+      report_success();
+    }
+  }
+}
 
 
 /*

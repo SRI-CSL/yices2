@@ -124,6 +124,13 @@ extern void bvarith_buffer_prepare(bvarith_buffer_t *b, uint32_t n);
 extern void bvarith_buffer_normalize(bvarith_buffer_t *b);
 
 
+/*
+ * Reset
+ */
+static inline void reset_bvarith_buffer(bvarith_buffer_t *b) {
+  bvarith_buffer_prepare(b, 32);
+}
+
 
 /*************
  *  QUERIES  *

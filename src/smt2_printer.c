@@ -61,7 +61,7 @@ static void smt2_pp_rational(yices_pp_t *printer, rational_t *q) {
 /*
  * For uninterpreted constants: always print an abstract name
  */
-static void smt2_pp_unint_name(yices_pp_t *printer, value_table_t *table, value_t c, value_unint_t *v) {    
+static void smt2_pp_unint_name(yices_pp_t *printer, value_t c) {    
   pp_id(printer, "@const_", c);
 }
 
@@ -69,34 +69,8 @@ static void smt2_pp_unint_name(yices_pp_t *printer, value_table_t *table, value_
 /*
  * Function: always use a default name, even if fun has a name
  */
-static void smt2_pp_fun_name(yices_pp_t *printer, value_t c, value_fun_t *fun) {
+static void smt2_pp_fun_name(yices_pp_t *printer, value_t c) {
   pp_id(printer, "@fun_", c);
-}
-
-
-
-/*
- * For updates: recursively print elements
- */
-static void smt2_pp_update(yices_pp_t *printer, value_table_t *table, value_update_t *u) {
-  value_map_t *m;
-  uint32_t i, n;
-
-  n = u->arity;
-  assert(n > 0);
-
-  m = vtbl_map(table, u->map);
-  assert(m->arity == n);
-
-  pp_open_block(printer, PP_OPEN_UPDATE);
-  smt2_pp_object(printer, table, u->fun);
-  pp_open_block(printer, PP_OPEN_PAR);
-  for (i=0; i<n; i++) {
-    smt2_pp_object(printer, table, m->arg[i]);
-  }
-  pp_close_block(printer, true);
-  smt2_pp_object(printer, table, m->val);
-  pp_close_block(printer, true);
 }
 
 
@@ -123,15 +97,14 @@ void smt2_pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {
     smt2_pp_bitvector(printer, table->desc[c].ptr); 
     break;
   case UNINTERPRETED_VALUE:
-    smt2_pp_unint_name(printer, table, c, table->desc[c].ptr);
+    smt2_pp_unint_name(printer, c);
     break;
   case FUNCTION_VALUE:
-    smt2_pp_fun_name(printer, c, table->desc[c].ptr);
+  case UPDATE_VALUE:   // updates are treated like functions
+    smt2_pp_fun_name(printer, c);
     vtbl_push_object(table, c);
     break;
-  case UPDATE_VALUE:
-    smt2_pp_update(printer, table, table->desc[c].ptr);
-    break;
+    
 
   case MAP_VALUE:
   case TUPLE_VALUE:
@@ -152,11 +125,7 @@ void smt2_pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {
  */
 static void smt2_pp_function_header(yices_pp_t *printer, value_table_t *table, value_t c, type_t tau, const char *name) {
   pp_open_block(printer, PP_OPEN_FUNCTION);
-  if (name == NULL) {
-    pp_id(printer, "@fun_", c);
-  } else {
-    pp_string(printer, name);
-  }
+  pp_id(printer, "@fun_", c);
   pp_open_block(printer, PP_OPEN_TYPE);
   pp_type(printer, table->type_table, tau);
   pp_close_block(printer, true);
@@ -183,7 +152,7 @@ void smt2_pp_function(yices_pp_t *printer, value_table_t *table, value_t c, bool
   for (i=0; i<n; i++) {
     pp_open_block(printer, PP_OPEN_EQ);  // (=
     pp_open_block(printer, PP_OPEN_PAR); // (fun
-    smt2_pp_fun_name(printer, c, fun);
+    smt2_pp_fun_name(printer, c);
 
     mp = vtbl_map(table, fun->map[i]);
     assert(mp->arity == m);
@@ -274,7 +243,12 @@ void smt2_pp_queued_functions(yices_pp_t *printer, value_table_t *table, bool sh
   q = &table->queue.queue;
   while (! int_queue_is_empty(q)) {
     v = int_queue_pop(q);
-    smt2_pp_function(printer, table, v, show_default);
+    if (object_is_function(table, v)) {
+      smt2_pp_function(printer, table, v, show_default);
+    } else {
+      assert(object_is_update(table, v));
+      smt2_normalize_and_pp_update(printer, table, NULL, v, show_default);
+    }
   }
   vtbl_empty_queue(table);
 }

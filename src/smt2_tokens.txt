@@ -35,3 +35,6 @@ push,                         SMT2_TK_PUSH
 set-logic,                    SMT2_TK_SET_LOGIC
 set-info,                     SMT2_TK_SET_INFO
 set-option,                   SMT2_TK_SET_OPTION
+get-model,                    SMT2_TK_GET_MODEL
+echo,                         SMT2_TK_ECHO
+reset,                        SMT2_TK_RESET

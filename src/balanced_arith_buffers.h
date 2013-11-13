@@ -704,6 +704,4 @@ rba_buffer_sub_varmono_times_buffer(rba_buffer_t *b, rba_buffer_t *b1, rational_
 
 
 
-
-
 #endif /* __BALANCED_ARITH_BUFFERS_H */

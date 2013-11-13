@@ -122,6 +122,10 @@ enum smt2_opcodes {
   SMT2_DEFINE_SORT,                     // [define-sort <symbol> <type-binding> ... <type-binding> <sort> ]
   SMT2_DECLARE_FUN,                     // [declare-fun <symbol> <sort> ... <sort> ]
   SMT2_DEFINE_FUN,                      // [define-fun <symbol> <binding> ... <binding> <sort> <term> ]
+  // non-standard commands
+  SMT2_GET_MODEL,                       // [get-model]
+  SMT2_ECHO,                            // [echo <string>]
+  SMT2_RESET,                           // [reset]
   // attributes
   SMT2_MAKE_ATTR_LIST,                  // [make-attr-list <value> .... <value> ]
   SMT2_ADD_ATTRIBUTES,                  // [add-attribute <term> <keyword> <value> ... <keyword> <value>] (<value> may be omitted)
@@ -560,6 +564,28 @@ extern void smt2_declare_fun(const char *name, uint32_t n, type_t *tau);
  * Otherwise, a lambda term is created.
  */
 extern void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, type_t tau);
+
+
+
+/*
+ * NON-STANDARD COMMANDS
+ */
+
+/*
+ * Display the model
+ */
+extern void smt2_get_model(void);
+
+/*
+ * Print a string
+ */
+extern void smt2_echo(const char *string);
+
+/*
+ * Full reset: remove all assertions and declarations
+ */
+extern void smt2_reset(void);
+
 
 
 

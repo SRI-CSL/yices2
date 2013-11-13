@@ -71,6 +71,9 @@ void push_smt2_token(etk_queue_t *queue, smt2_token_t tk, const char *str, uint3
   case SMT2_TK_SET_LOGIC:
   case SMT2_TK_SET_INFO:
   case SMT2_TK_SET_OPTION:
+  case SMT2_TK_GET_MODEL:
+  case SMT2_TK_ECHO:
+  case SMT2_TK_RESET:
     etk_queue_push_token(queue, tk, 0, str, len);
     break;
 
@@ -144,6 +147,9 @@ static void pp_smt2_token(yices_pp_t *printer, etoken_t *token) {
   case SMT2_TK_SET_LOGIC:
   case SMT2_TK_SET_INFO:
   case SMT2_TK_SET_OPTION:
+  case SMT2_TK_GET_MODEL:
+  case SMT2_TK_ECHO:
+  case SMT2_TK_RESET:
     pp_string(printer, token->ptr);
     break;
 

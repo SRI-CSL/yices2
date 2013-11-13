@@ -3,7 +3,7 @@
  */
 
 /*
- * To support (get-value ...), we must print values in the SMT2 notation.
+ * To support (get-value ...), we must print values in the SMT2 syntax.
  * So we can't use the default concrete_value_printer.
  *
  * Examples:

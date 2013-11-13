@@ -117,6 +117,13 @@ extern void bvarith64_buffer_prepare(bvarith64_buffer_t *b, uint32_t n);
 extern void bvarith64_buffer_normalize(bvarith64_buffer_t *b);
 
 
+/*
+ * Reset
+ */
+static inline void reset_bvarith64_buffer(bvarith64_buffer_t *b) {
+  bvarith64_buffer_prepare(b, 32);
+}
+
 
 /*************
  *  QUERIES  *
