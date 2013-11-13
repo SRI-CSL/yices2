@@ -1288,6 +1288,7 @@ static int process_benchmark(void) {
       } else {
         model_print(stdout, model);
       }
+      printf("\n");
 #if CHECK_MODEL
       check_model(stdout, &bench, model);      
 #endif

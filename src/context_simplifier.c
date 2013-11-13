@@ -2853,8 +2853,6 @@ static void print_constant_set(sym_breaker_t *breaker, rng_record_t *r) {
   }
 }
 
-
-#if 0
 static void print_candidates(sym_breaker_t *breaker, sym_breaker_sets_t *sets) {
   uint32_t i, n;
 
@@ -2866,7 +2864,6 @@ static void print_candidates(sym_breaker_t *breaker, sym_breaker_sets_t *sets) {
     printf("\n");
   }
 }
-#endif
 
 #endif
 
@@ -2905,7 +2902,7 @@ void break_uf_symmetries(context_t *ctx) {
 	    breaker_sets_add_record(sets, v[j]);
 	  }
 	}
-#if TRACE_SYM_BREAKCING
+#if TRACE_SYM_BREAKING
 	print_candidates(&breaker, sets);
 	printf("\n");
 #endif
@@ -2924,7 +2921,6 @@ void break_uf_symmetries(context_t *ctx) {
     printf("\n*** NO SYMMETRY CANDIDATES ***\n\n");
 #endif
   }
-
 
   delete_sym_breaker(&breaker);
 }
