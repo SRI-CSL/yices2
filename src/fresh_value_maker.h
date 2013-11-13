@@ -78,6 +78,7 @@ typedef struct bv_counter_vector_s {
  *   - one for tuple  (also used for scalar types)
  *   - one for bitvectors
  * - global counter for the integer constants
+ * + auxiliary buffer for building bitvector constants
  *
  * NOTE: we assume that the number of records is small
  */
@@ -86,6 +87,7 @@ typedef struct fresh_val_maker_s {
   type_table_t *types;
   tup_counter_vector_t tuples;
   bv_counter_vector_t bvs;
+  bvconstant_t aux;
   int32_t int_count;
 } fresh_val_maker_t;
 

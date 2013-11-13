@@ -395,6 +395,77 @@ extern void simplex_free_model(simplex_solver_t *solver);
 extern void simplex_collect_statistics(simplex_solver_t *solver);
 
 
+/*
+ * Statistics on problem size
+ */
+static inline uint32_t simplex_num_vars(simplex_solver_t *solver) {
+  return solver->stats.num_init_vars;
+}
+
+static inline uint32_t simplex_num_rows(simplex_solver_t *solver) {
+  return solver->stats.num_init_rows;
+}
+
+static inline uint32_t simplex_num_atoms(simplex_solver_t *solver) {
+  return solver->stats.num_atoms;
+}
+
+
+/*
+ * Statistics on search
+ */
+static inline uint32_t simplex_num_pivots(simplex_solver_t *solver) {
+  return solver->stats.num_pivots;
+}
+
+static inline uint32_t simplex_num_make_feasible(simplex_solver_t *solver) {
+  return solver->stats.num_make_feasible;
+}
+
+static inline uint32_t simplex_num_conflicts(simplex_solver_t *solver) {
+  return solver->stats.num_conflicts;
+}
+
+static inline uint32_t simplex_num_interface_lemmas(simplex_solver_t *solver) {
+  return solver->stats.num_interface_lemmas;
+}
+
+
+/*
+ * Statistics for integer/mixed integer problems
+ */
+static inline uint32_t simplex_num_integer_vars(simplex_solver_t *solver) {
+  return num_integer_vars(&solver->vtbl);
+}
+
+static inline uint32_t simplex_num_make_integer_feasible(simplex_solver_t *solver) {
+  return solver->stats.num_make_intfeasible;
+}
+
+static inline uint32_t simplex_num_branch_and_bound(simplex_solver_t *solver) {
+  return solver->stats.num_branch_atoms;
+}
+
+static inline uint32_t simplex_num_gcd_conflicts(simplex_solver_t *solver) {
+  return solver->stats.num_gcd_conflicts;
+}
+
+static inline uint32_t simplex_num_dioph_checks(simplex_solver_t *solver) {
+  return solver->stats.num_dioph_checks;
+}
+
+static inline uint32_t simplex_num_dioph_conflicts(simplex_solver_t *solver) {
+  return solver->stats.num_dioph_conflicts;
+}
+
+static inline uint32_t simplex_num_bound_conflicts(simplex_solver_t *solver) {
+  return solver->stats.num_bound_conflicts;
+}
+
+static inline uint32_t simplex_num_recheck_conflicts(simplex_solver_t *solver) {
+  return solver->stats.num_recheck_conflicts;
+}
+
 
 
 /********************************
@@ -455,6 +526,8 @@ extern uint32_t simplex_reconcile_model(simplex_solver_t *solver, uint32_t max_e
  *   return (not l) otherwise
  */
 extern literal_t simplex_select_eq_polarity(simplex_solver_t *solver, thvar_t x1, thvar_t x2, literal_t l);
+
+
 
 
 #endif /* __SIMPLEX_H */

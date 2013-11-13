@@ -1250,6 +1250,10 @@ static inline uint32_t num_vars(smt_core_t *s) {
   return s->nvars;
 }
 
+static inline uint32_t num_atoms(smt_core_t *s) {
+  return s->atoms.natoms;
+}
+
 static inline uint32_t num_literals(smt_core_t *s) {
   return s->nlits;
 }
@@ -1278,7 +1282,11 @@ static inline uint64_t num_learned_literals(smt_core_t *s) {
   return s->stats.learned_literals;
 }
 
-
+// all clauses
+static inline uint32_t num_clauses(smt_core_t *s) {
+  return num_unit_clauses(s) + num_binary_clauses(s) + 
+    num_prob_clauses(s) + num_learned_clauses(s);
+}
 
 
 /************************************

@@ -303,7 +303,7 @@ static void delete_eterm_table(eterm_table_t *tbl) {
 /*
  * Reset the term table: remove all terms
  * - atoms are deleted by emptying the egraph's atom store
- * so we don't delete them here
+ *   so we don't delete them here
  */
 static void reset_eterm_table(eterm_table_t *tbl) {
   uint32_t i, n;
@@ -1008,6 +1008,8 @@ static void create_egraph_atom(egraph_t *egraph, bvar_t v, eterm_t t) {
   atom->next = atom;
 
   attach_atom_to_bvar(core, v, tagged_egraph_atom(atom));
+
+  egraph->natoms ++;
 }
 
 
@@ -1083,6 +1085,9 @@ static void delete_egraph_atom(egraph_t *egraph, atom_t *atom) {
 
   remove_bvar_atom(core, v);
   objstore_free(&egraph->atom_store, atom);
+
+  assert(egraph->natoms > 0);
+  egraph->natoms --;
 }
 
 
@@ -4489,7 +4494,9 @@ void egraph_reset(egraph_t *egraph) {
 
   egraph->base_level = 0;
   egraph->decision_level = 0;
+  egraph->presearch = false;
   egraph->ndistincts = 0;
+  egraph->natoms = 0;
   egraph->is_high_order = false;
 
   reset_egraph_stats(&egraph->stats);
@@ -6513,7 +6520,9 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
 
   egraph->base_level = 0;
   egraph->decision_level = 0;
+  egraph->presearch = false;
   egraph->ndistincts = 0;
+  egraph->natoms = 0;
   egraph->is_high_order = false;
 
   init_egraph_stats(&egraph->stats);

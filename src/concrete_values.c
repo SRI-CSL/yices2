@@ -2251,6 +2251,20 @@ value_t vtbl_find_bv64(value_table_t *table, uint32_t n, uint64_t c) {
 }
 
 /*
+ * Same thing for the bitvector constant defined by b
+ */
+value_t vtbl_find_bvconstant(value_table_t *table, bvconstant_t *b) {
+  uint32_t n;
+
+  n = b->bitsize;
+  bvconst_normalize(b->data, n);
+  bv_hobj.table = table;
+  bv_hobj.nbits = n;
+  bv_hobj.data = b->data;
+  return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &bv_hobj);
+}
+
+/*
  * Check whether the constant of type tau and index i is present
  */
 value_t vtbl_find_const(value_table_t *table, type_t tau, int32_t id) {

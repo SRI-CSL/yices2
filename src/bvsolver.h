@@ -1,5 +1,5 @@
-#ifndef __BVSOLVER2_H
-#define __BVSOLVER2_H
+#ifndef __BVSOLVER_H
+#define __BVSOLVER_H
 
 #include <stdbool.h>
 
@@ -218,13 +218,37 @@ static inline uint32_t bv_solver_num_complex_nodes(bv_solver_t *solver) {
 }
 
 
-
 /*
  * Atoms per type
  */
-extern uint32_t bv_solver_num_eq_atoms(bv_solver_t *solver);
-extern uint32_t bv_solver_num_ge_atoms(bv_solver_t *solver);
-extern uint32_t bv_solver_num_sge_atoms(bv_solver_t *solver);
+static inline uint32_t bv_solver_num_eq_atoms(bv_solver_t *solver) {
+  return solver->stats.eq_atoms;
+}
+
+static inline uint32_t bv_solver_num_ge_atoms(bv_solver_t *solver) {
+  return solver->stats.ge_atoms;
+}
+
+static inline uint32_t bv_solver_num_sge_atoms(bv_solver_t *solver) {
+  return solver->stats.sge_atoms;
+}
+
+
+/*
+ * Search statistics: these counters are all zero unless the solver
+ * is attached to the egraph
+ */
+static inline uint32_t bv_solver_on_the_fly_atoms(bv_solver_t *solver) {
+  return solver->stats.on_the_fly_atoms; // equality atoms created after bitblasting
+}
+
+static inline uint32_t bv_solver_equiv_lemmas(bv_solver_t *solver) {
+  return solver->stats.equiv_lemmas;
+}
+
+static inline uint32_t bv_solver_interface_lemmas(bv_solver_t *solver) {
+  return solver->stats.interface_lemmas;
+}
 
 
 
@@ -371,5 +395,4 @@ extern void bv_solver_reset(bv_solver_t *solver);
 
 
 
-
-#endif /* __BVSOLVER2_H */
+#endif /* __BVSOLVER_H */

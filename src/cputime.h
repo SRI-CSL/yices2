@@ -4,7 +4,7 @@
 
 /*
  * get_cpu_time() returns CPU time (user + system time) used
- * by the process since its start.
+ * by the process since its start. Unit = seconds.
  */
 extern double get_cpu_time(void);
 

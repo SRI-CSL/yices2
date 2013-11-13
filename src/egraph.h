@@ -582,4 +582,68 @@ extern value_t egraph_get_value(egraph_t *egraph, value_table_t *vtbl, occ_t t);
 extern void egraph_free_model(egraph_t *egraph);
 
 
+
+/****************
+ *  STATISTICS  *
+ ***************/
+
+/*
+ * On problem size
+ */
+
+// egraph_num_terms and egraph_num_classes are defined in egraph_utils.h
+
+static inline uint32_t egraph_num_atoms(egraph_t *egraph) {
+  return egraph->natoms;
+}
+
+static inline uint32_t egraph_num_distincts(egraph_t *egraph) {
+  return egraph->ndistincts;
+}
+
+/*
+ * Search statistics
+ */
+static inline uint32_t egraph_num_eq_props(egraph_t *egraph) {
+  return egraph->stats.eq_props;
+}
+
+static inline uint32_t egraph_num_bool_props(egraph_t *egraph) {
+  return egraph->stats.th_props; // from egraph to core
+}
+
+static inline uint32_t egraph_num_conflicts(egraph_t *egraph) {
+  return egraph->stats.th_conflicts;
+}
+
+static inline uint32_t egraph_num_nd_lemmas(egraph_t *egraph) {
+  return egraph->stats.nd_lemmas; // not distinct lemmas
+}
+
+static inline uint32_t egraph_num_aux_eqs(egraph_t *egraph) {
+  return egraph->stats.aux_eqs;
+}
+
+static inline uint32_t egraph_num_boolack_lemmas(egraph_t *egraph) {
+  return egraph->stats.boolack_lemmas; // Boolean Ackermann lemmas
+}
+
+static inline uint32_t egraph_num_ack_lemmas(egraph_t *egraph) {
+  return egraph->stats.ack_lemmas; // non-Boolean Ackermann lemmas
+}
+
+static inline uint32_t egraph_all_ackermann(egraph_t *egraph) {
+  return egraph_num_boolack_lemmas(egraph) + egraph_num_ack_lemmas(egraph);
+}
+
+static inline uint32_t egraph_num_final_checks(egraph_t *egraph) {
+  return egraph->stats.final_checks;
+}
+
+static inline uint32_t egraph_num_interface_eqs(egraph_t *egraph) {
+  return egraph->stats.interface_eqs; // interface equalities or lemmas created by final check
+}
+
+
+
 #endif /* __EGRAPH_H */

@@ -785,6 +785,25 @@ extern bool rdl_value_in_model(rdl_solver_t *solver, thvar_t v, rational_t *q);
 extern void rdl_free_model(rdl_solver_t *solver);
 
 
+/*****************
+ *  STATISTICS   *
+ ****************/
+
+// we don't maintain any search statistics
+static inline uint32_t rdl_num_vars(rdl_solver_t *solver) {
+  return solver->vtbl.nvars;
+}
+
+static inline uint32_t rdl_num_atoms(rdl_solver_t *solver) {
+  return solver->atoms.natoms;
+}
+
+static inline uint32_t rdl_num_vertices(rdl_solver_t *solver) {
+  return solver->nvertices;
+}
+
+
+
 
 
 #endif /* __RDL_FLOYD_WARSHALL_H */

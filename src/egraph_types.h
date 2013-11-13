@@ -1238,6 +1238,7 @@ typedef enum elemma_tag {
  *  STATISTICS  *
  ***************/
 
+// search statistics
 typedef struct egraph_stats_s {
   uint32_t app_reductions;
 
@@ -1292,6 +1293,11 @@ struct egraph_s {
    * Number of (distinct ...) terms allocated
    */
   uint32_t ndistincts; 
+
+  /*
+   * Number of atoms
+   */
+  uint32_t natoms;
 
   /*
    * True if the egraph contains high-order terms

@@ -279,6 +279,7 @@ void init_fresh_val_maker(fresh_val_maker_t *maker, value_table_t *vtbl) {
   maker->types = vtbl->type_table;
   init_tup_counter_vector(&maker->tuples);
   init_bv_counter_vector(&maker->bvs);
+  init_bvconstant(&maker->aux);
   maker->int_count = 0;
 }
 
@@ -289,6 +290,7 @@ void init_fresh_val_maker(fresh_val_maker_t *maker, value_table_t *vtbl) {
 void delete_fresh_val_maker(fresh_val_maker_t *maker) {
   delete_tup_counter_vector(&maker->tuples);
   delete_bv_counter_vector(&maker->bvs);
+  delete_bvconstant(&maker->aux);
 }
 
 
@@ -424,16 +426,34 @@ value_t make_fresh_bv(fresh_val_maker_t *maker, uint32_t n) {
 
   i = get_bv_counter(maker, n);
 
-  x = maker->bvs.data[i].count;
-  while (x < max && vtbl_test_bv64(maker->vtbl, n, (uint64_t) x)) {
-    x ++;
-  }
-  if (x < max) {
-    v = vtbl_mk_bv_from_bv64(maker->vtbl, n, (uint64_t) x);
-    maker->bvs.data[i].count = x + 1;
+  if (n <= 64) {
+    x = maker->bvs.data[i].count;
+    while (x < max && vtbl_test_bv64(maker->vtbl, n, (uint64_t) x)) {
+      x ++;
+    }
+    if (x < max) {
+      v = vtbl_mk_bv_from_bv64(maker->vtbl, n, (uint64_t) x);
+      maker->bvs.data[i].count = x + 1;
+    } else {
+      v = null_value;
+      maker->bvs.data[i].count = x;
+    }
+
   } else {
-    v = null_value;
-    maker->bvs.data[i].count = x;
+    // large bitsize: can't use test_bv64
+    x = maker->bvs.data[i].count;
+    while (x < max) {      
+      bvconstant_copy64(&maker->aux, n, (uint64_t) x);
+      if (vtbl_test_bvconstant(maker->vtbl, &maker->aux)) break;
+      x ++;
+    }
+    if (x < max) {
+      v = vtbl_mk_bv_from_constant(maker->vtbl, &maker->aux);
+      maker->bvs.data[i].count = x + 1;
+    } else {
+      v = null_value;
+      maker->bvs.data[i].count = x;
+    }
   }
 
   return v;

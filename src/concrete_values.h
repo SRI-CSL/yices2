@@ -530,6 +530,9 @@ extern value_t vtbl_find_bv(value_table_t *table, uint32_t n, int32_t *a);
 // bitvector defined by c. n = number of bits (must be <= 64)
 extern value_t vtbl_find_bv64(value_table_t *table, uint32_t n, uint64_t c);
 
+// bitvector defined by a bvconstant b
+extern value_t vtbl_find_bvconstant(value_table_t *table, bvconstant_t *b);
+
 // map object: a[0 ... n-1] := v
 extern value_t vtbl_find_map(value_table_t *table, uint32_t n, value_t *a, value_t v);
 
@@ -563,6 +566,10 @@ static inline bool vtbl_test_bv(value_table_t *table, uint32_t n, int32_t *a) {
 
 static inline bool vtbl_test_bv64(value_table_t *table, uint32_t n, uint64_t c) {
   return vtbl_find_bv64(table, n, c) >= 0;
+}
+
+static inline bool vtbl_test_bvconstant(value_table_t *table, bvconstant_t *b) {
+  return vtbl_find_bvconstant(table, b) >= 0;
 }
 
 static inline bool vtbl_test_map(value_table_t *table, uint32_t n, value_t *a, value_t v) {

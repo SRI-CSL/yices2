@@ -530,6 +530,35 @@ static inline uint32_t fun_solver_get_max_update_conflicts(fun_solver_t *solver)
 
 
 
+/****************
+ *  STATISTICS  *
+ ***************/
+
+/*
+ * Number of variables and edges
+ */
+static inline uint32_t fun_solver_num_vars(fun_solver_t *solver) {
+  return solver->stats.num_init_vars;
+}
+
+static inline uint32_t fun_solver_num_edges(fun_solver_t *solver) {
+  return solver->stats.num_init_edges;
+}
+
+/*
+ * Number of instances of each axiom
+ */
+static inline uint32_t fun_solver_num_update1_axioms(fun_solver_t *solver) {
+  return solver->stats.num_update_axiom1;
+}
+
+static inline uint32_t fun_solver_num_update2_axioms(fun_solver_t *solver) {
+  return solver->stats.num_update_axiom2;
+}
+
+static inline uint32_t fun_solver_num_extensionality_axioms(fun_solver_t *solver) {
+  return solver->stats.num_extensionality_axiom;
+}
 
 
 /********************************

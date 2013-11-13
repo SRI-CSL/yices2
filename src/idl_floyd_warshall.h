@@ -749,5 +749,23 @@ extern void idl_free_model(idl_solver_t *solver);
 
 
 
+/*****************
+ *  STATISTICS   *
+ ****************/
+
+// we don't maintain any search statistics
+static inline uint32_t idl_num_vars(idl_solver_t *solver) {
+  return solver->vtbl.nvars;
+}
+
+static inline uint32_t idl_num_atoms(idl_solver_t *solver) {
+  return solver->atoms.natoms;
+}
+
+static inline uint32_t idl_num_vertices(idl_solver_t *solver) {
+  return solver->nvertices;
+}
+
+
 
 #endif /* __IDL_FLOYD_WARSHALL_H */

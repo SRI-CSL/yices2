@@ -7993,21 +7993,6 @@ void bv_solver_free_model(bv_solver_t *solver) {
 
 
 
-/******************************
- *  NUMBER OF ATOMS PER TYPE  *
- *****************************/
-
-uint32_t bv_solver_num_eq_atoms(bv_solver_t *solver) {
-  return solver->stats.eq_atoms;
-}
-
-uint32_t bv_solver_num_ge_atoms(bv_solver_t *solver) {
-  return solver->stats.ge_atoms;
-}
-
-uint32_t bv_solver_num_sge_atoms(bv_solver_t *solver) {
-  return solver->stats.sge_atoms;
-}
 
 
 /*******************************
