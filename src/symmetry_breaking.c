@@ -1,4 +1,3 @@
-
 /*
  * SUPPORT FOR BREAKING SYMMETRIES IN UF FORMULAS
  */
@@ -1572,9 +1571,7 @@ static void add_symmetry_breaking_clause(sym_breaker_t *breaker, term_t t, term_
     for (i=0; i<n; i++) {
       assert(intern_tbl_is_root(intern, c[i]));
       eq = make_aux_eq(terms, t, c[i]);
-      assert(intern_tbl_is_root(intern, eq) && 
-	     !term_is_false(ctx, eq) &&
-	     !intern_tbl_root_is_mapped(intern, eq));
+      assert(intern_tbl_is_root(intern, eq) && !term_is_false(ctx, eq));
 
       ivector_push(v, eq);
     }

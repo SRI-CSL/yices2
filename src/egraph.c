@@ -7589,18 +7589,21 @@ void egraph_build_model(egraph_t *egraph, value_table_t *vtbl) {
 
   /*
    * Allocate and initialize the pstore then build the array model
-   * Also allocate the free_val_maker.
    */
   if (egraph->fun_eg != NULL) {
     pstore = (pstore_t *) safe_malloc(sizeof(pstore_t));
     egraph->mdl.pstore = pstore;
     init_pstore(pstore, egraph->types);
     egraph->fun_eg->build_model(egraph->th[ETYPE_FUNCTION], pstore);
-
-    fval = (fresh_val_maker_t *) safe_malloc(sizeof(fresh_val_maker_t));
-    init_fresh_val_maker(fval, vtbl);
-    egraph->mdl.fval_maker = fval;
   }
+
+  /*
+   * Allocate the free_val_maker:
+   * - it may be needed even if we don't have a function solver
+   */
+  fval = (fresh_val_maker_t *) safe_malloc(sizeof(fresh_val_maker_t));
+  init_fresh_val_maker(fval, vtbl);
+  egraph->mdl.fval_maker = fval;
 
   egraph_collect_root_classes(egraph);
 
