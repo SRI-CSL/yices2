@@ -1,6 +1,6 @@
 /*
  * CPU TIME: getrusage should work on all platforms we support,
- * except mingw.
+ * except mingw. (Also, not supported by Cygwin on Windows 95 and 98).
  *
  * The function used to be 'inline' in cputime.h
  * but GCC 4.6.3 gives compilation warnings.
