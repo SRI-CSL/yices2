@@ -26,7 +26,7 @@
  */
 static void trace_stats(smt_core_t *core, const char *when, uint32_t level) {
   tprintf(core->trace, level, 
-	  "(%-8s %"PRIu32" %"PRIu64" %"PRIu64" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32" %.1f)\n",
+	  "(%-10s %8"PRIu32" %10"PRIu64" %8"PRIu64" %8"PRIu32" %8"PRIu32" %8"PRIu32" %8"PRIu32" %8"PRIu32" %7.1f)\n",
 	  when, core->stats.conflicts, core->stats.decisions, core->stats.random_decisions,
 	  num_binary_clauses(core), num_prob_clauses(core), num_prob_literals(core),
 	  num_learned_clauses(core), num_learned_literals(core), 
@@ -34,9 +34,7 @@ static void trace_stats(smt_core_t *core, const char *when, uint32_t level) {
 }
 
 /*
- * On start_search:
- * - d_threshold = restart threshold
- * - r_threshold = reduce threshold
+ * On start_search
  */
 static void trace_start(smt_core_t *core) {
   trace_stats(core, "start:", 2);
@@ -60,7 +58,7 @@ static void trace_inner_restart(smt_core_t *core) {
  */
 static void trace_reduce(smt_core_t *core, uint64_t deleted) {
   trace_stats(core, "reduce:", 3);
-  tprintf(core->trace, 4, "(reduce:  %"PRIu64" clauses deleted)\n", deleted);
+  tprintf(core->trace, 4, "(%"PRIu64" clauses deleted)\n", deleted);
 }
 
 
