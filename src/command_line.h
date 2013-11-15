@@ -113,14 +113,14 @@ enum cmdline_format {
 
 enum cmdline_error {
   cmdline_unknown_option,  // -x or --xxx when x is not recognized
-  cmdline_noval_expected, // option needs no argument, one was given (i.e., --flag=<value>)
-  cmdline_val_missing,    // option has a mandatory argument, none was given
-  cmdline_format,         // something like --xxx= or -xx or -2
-  cmdline_int_format,     // value was given but could not be parsed as an integer
-  cmdline_int_overflow,   // integer value was given but does not fit in 32bits
-  cmdline_float_format,   // value was given but could not be parsed as a double
-  cmdline_float_overflow, // underflow/overflow value
-  cmdline_arg_missing,    // nothing after '--' 
+  cmdline_noval_expected,  // option needs no argument, one was given (i.e., --flag=<value>)
+  cmdline_val_missing,     // option has a mandatory argument, none was given
+  cmdline_format,          // something like --xxx= or -xx or -2
+  cmdline_int_format,      // value was given but could not be parsed as an integer
+  cmdline_int_overflow,    // integer value was given but does not fit in 32bits
+  cmdline_float_format,    // value was given but could not be parsed as a double
+  cmdline_float_overflow,  // underflow/overflow value
+  cmdline_arg_missing,     // nothing after '--' 
 };
 
 

@@ -813,10 +813,12 @@ typedef struct simplex_solver_s {
    * - if val[x] = a + b delta as an extended rational, then the rational value 
    *   for a variable x is a + b * epsilon.
    * - factor is an auxiliary rational used for computing epsilon
+   * - dprng is used by a pseudo-random number generator (for adjust model)
    */
   rational_t *value;
   rational_t epsilon;
   rational_t factor;
+  double dprng;
 
   /*
    * Jump buffer for exception handling during internalization

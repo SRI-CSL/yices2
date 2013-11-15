@@ -1081,7 +1081,7 @@ static int process_benchmark(void) {
 #if COMMAND_LINE_OPTIONS
   if (verbose) {
     init_trace(&tracer);
-    set_trace_vlevel(&tracer, 3);
+    set_trace_vlevel(&tracer, 2);
     context_set_trace(&context, &tracer);
   }
 #endif

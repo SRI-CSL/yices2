@@ -1797,7 +1797,7 @@ static bool update_conflicts(fun_solver_t *solver) {
 
  done:
   if (num_updates > 0) {
-    tprintf(solver->core->trace, 3, "(final check: %"PRIu32" update lemmas)\n", num_updates);
+    tprintf(solver->core->trace, 5, "(array solver: %"PRIu32" update lemmas)\n", num_updates);
 #if TRACE
     printf("---> ARRAY SOLVER: update axioms in %"PRIu32" classes out of %"PRIu32"\n", num_updates, n);
 #endif

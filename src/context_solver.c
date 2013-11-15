@@ -37,7 +37,7 @@ static void trace_stats(smt_core_t *core, const char *when, uint32_t level) {
  * On start_search
  */
 static void trace_start(smt_core_t *core) {
-  trace_stats(core, "start:", 2);
+  trace_stats(core, "start:", 1);
 }
 
 
@@ -45,7 +45,7 @@ static void trace_start(smt_core_t *core) {
  * On restart
  */
 static void trace_restart(smt_core_t *core) {
-  trace_stats(core, "restart:", 3);
+  trace_stats(core, "restart:", 1);
 }
 
 static void trace_inner_restart(smt_core_t *core) {
@@ -67,8 +67,8 @@ static void trace_reduce(smt_core_t *core, uint64_t deleted) {
  * End of search
  */
 static void trace_done(smt_core_t *core) {
-  trace_stats(core, "done:", 2);
-  tnewline(core->trace, 2);
+  trace_stats(core, "done:", 1);
+  tnewline(core->trace, 1);
 }
 
 

@@ -5916,7 +5916,7 @@ static fcheck_code_t baseline_final_check(egraph_t *egraph) {
 
   egraph->stats.interface_eqs += i;
   
-  tprintf(egraph->core->trace, 2, "(final check: %"PRIu32" interface lemmas)\n", i);
+  tprintf(egraph->core->trace, 3, "(final check: %"PRIu32" interface lemmas)\n", i);
 
   c = FCHECK_SAT; // default value
   if (i > 0) {
@@ -5982,7 +5982,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
     ivector_reset(&egraph->interface_eqs);
     c = FCHECK_CONTINUE;
 
-    tprintf(egraph->core->trace, 2, "(final check: %"PRIu32" interface lemmas)\n", i);
+    tprintf(egraph->core->trace, 3, "(final check: %"PRIu32" interface lemmas)\n", i);
 
 #if TRACE_FCHECK
     printf("---> egraph reconcile failed: %"PRIu32" interface lemmas\n", i);
@@ -6004,7 +6004,7 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
           printf("---> exit after array reconcile: %"PRIu32" lemmas\n", i);
           fflush(stdout);
 #endif
-	  tprintf(egraph->core->trace, 2, "(final check: %"PRIu32" array lemmas)\n", i);
+	  tprintf(egraph->core->trace, 3, "(final check: %"PRIu32" array lemmas)\n", i);
           c = FCHECK_CONTINUE;
         }
       }

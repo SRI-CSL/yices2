@@ -1619,6 +1619,7 @@ void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, gate_manage
   solver->value = NULL;     // allocated when needed
   q_init(&solver->epsilon);
   q_init(&solver->factor);
+  solver->dprng = DPRNG_DEFAULT_SEED;
 
   solver->env = NULL;
 
@@ -7679,6 +7680,7 @@ void simplex_reset(simplex_solver_t *solver) {
   }
   q_clear(&solver->epsilon);
   q_clear(&solver->factor);
+  solver->dprng = DPRNG_DEFAULT_SEED;
 
   reset_arith_atomtable(&solver->atbl);  
   reset_arith_vartable(&solver->vtbl);
@@ -7920,7 +7922,6 @@ void delete_simplex_solver(simplex_solver_t *solver) {
   }
   q_clear(&solver->epsilon);
   q_clear(&solver->factor);
-
 
   delete_arith_atomtable(&solver->atbl);
   delete_arith_vartable(&solver->vtbl);
@@ -8612,15 +8613,13 @@ static void simplex_shift_var_value(simplex_solver_t *solver, dep_table_t *deps,
  * Select a possible delta in the specified interval
  * - i = selection index (i.e., the function must return a sequence
  *   of distinct delta_i with indices i=0, 1, 2, ...)
+ * - prng = state of a pseudo random number generator (cf. dprng.h)
  * - return value = true if delta_i exists (then its value is stored in delta)
  * - return false otherwise.
  */
-static bool simplex_get_shift_candidate(rational_t *delta, interval_t *interval, uint32_t i) {
-  double prng;
+static bool simplex_get_shift_candidate(rational_t *delta, double *prng, interval_t *interval, uint32_t i) {
   int64_t w;
   int32_t k;
-
-  prng = DPRNG_DEFAULT_SEED;
 
   w = (int64_t) interval->k_max - (int64_t) interval->k_min;
   if (w <= MAX_SHIFT_CANDIDATES + 1) {
@@ -8628,10 +8627,10 @@ static bool simplex_get_shift_candidate(rational_t *delta, interval_t *interval,
     k += interval->k_min;
     if (k > interval->k_max) return false;
   } else if (w < 1000 * MAX_SHIFT_CANDIDATES) {
-    k = irand(&prng, w);
+    k = irand(prng, w);
     k += interval->k_min;
   } else {
-    k = irand(&prng, 1000 * MAX_SHIFT_CANDIDATES);
+    k = irand(prng, 1000 * MAX_SHIFT_CANDIDATES);
     if (interval->k_min > -500 * MAX_SHIFT_CANDIDATES) {
       k += interval->k_min;
     } else if (interval->k_max < 500 * MAX_SHIFT_CANDIDATES) {
@@ -8675,7 +8674,7 @@ static void simplex_adjust_var(simplex_solver_t *solver, dep_table_t *deps, xq_h
    * the number of classes in xq_hmap
    */
   for (i=0; i<MAX_SHIFT_CANDIDATES; i++) { // try at most 20 candidates
-    if (! simplex_get_shift_candidate(&delta, interval, i)) break;
+    if (! simplex_get_shift_candidate(&delta, &solver->dprng, interval, i)) break;
 
     assert(sample_in_interval(interval, &delta));
 
