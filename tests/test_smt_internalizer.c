@@ -389,6 +389,7 @@ static bool context_is_empty(context_t *ctx) {
 static const int32_t logic2arch[NUM_SMT_LOGICS + 1] = {
 #if 0
   // These are the real codes
+  -1,                  // NONE: not an SMT logic
   -1,                  // AUFLIA
   -1,                  // AUFLIRA
   -1,                  // AUFNIRA
@@ -418,6 +419,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS + 1] = {
    * For testing: use a default architecture
    * even for logic we don't support yet.
    */
+  -1,                  // NONE
   CTX_ARCH_EGSPLX,     // AUFLIA
   CTX_ARCH_EGSPLX,     // AUFLIRA
   CTX_ARCH_EGSPLX,     // AUFNIRA
@@ -452,6 +454,7 @@ static const int32_t logic2arch[NUM_SMT_LOGICS + 1] = {
  * Specify whether the integer solver should be activated
  */
 static const bool logic2iflag[NUM_SMT_LOGICS] = {
+  false,  // NONE
   true,   // AUFLIA
   true,   // AUFLIRA
   true,   // AUFNIRA
@@ -482,6 +485,7 @@ static const bool logic2iflag[NUM_SMT_LOGICS] = {
  * Specify whether quantifier support is needed
  */
 static const bool logic2qflag[NUM_SMT_LOGICS] = {
+  false,  // NONE
   true,   // AUFLIA
   true,   // AUFLIRA
   true,   // AUFNIRA
@@ -545,7 +549,7 @@ static void test_internalization(smt_benchmark_t *bench) {
   enable_lax_mode(&context); // FOR TESTING
   enable_variable_elimination(&context);
   enable_eq_abstraction(&context);
-  //  enable_diseq_and_or_flattening(&context); flatten does not help
+  enable_diseq_and_or_flattening(&context); // flatten does not help
   enable_arith_elimination(&context);
   enable_bvarith_elimination(&context);  
   if (iflag) {

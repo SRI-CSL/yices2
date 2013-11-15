@@ -2130,16 +2130,20 @@ static void flatten_or_recur(context_t *ctx, ivector_t *v, term_t t) {
 	  /*
 	   * t is (not (eq x y)): rewrite to (or (x < y) (y < x))
 	   *
-	   * Exception: if x or y is an if-then-else term, then it's
+	   * Exception 1: if x or y is an if-then-else term, then it's
 	   * better to keep (eq x y) because the if-lifting
 	   * simplifications are more likely to work on
-	   *    (ite c a b) =y 
+	   *    (ite c a b) = y 
 	   * than (ite c a b) >= y AND (ite c a b) <= y
+	   *
+	   * Exception 2: if there's an egraph, then it's better
+	   * to keep (eq x y) as is. It will be converted to an
+	   * egraph equality.
 	   */
 	  eq = arith_bineq_atom_desc(terms, t);
 	  x = intern_tbl_get_root(&ctx->intern, eq->arg[0]);
 	  y = intern_tbl_get_root(&ctx->intern, eq->arg[1]);
-	  if (is_ite_term(terms, x) || is_ite_term(terms, y)) {
+	  if (context_has_egraph(ctx) || is_ite_term(terms, x) || is_ite_term(terms, y)) {
 	    ivector_push(v, t);
 	  } else {
 	    flatten_or_add_term(ctx, v, lt_atom(ctx, x, y));
