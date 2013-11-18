@@ -1156,6 +1156,9 @@ static int process_benchmark(void) {
     if (need_icheck) {
       enable_splx_periodic_icheck(&context);
     }
+    if (logic == QF_UFLIA) {
+      params.use_optimistic_fcheck = false;
+    }
     enable_splx_eqprop(&context);
     break;
 
