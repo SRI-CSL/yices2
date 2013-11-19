@@ -195,7 +195,7 @@ static inline void delete_learned_clause(clause_t *cl) {
  * Ordering function for clause deletion:
  * - c1 and c2 are two learned clauses 
  * - the function must return true if we prefer to keep c2 
- *   rather than c1 (i.e., c1's score is worse than c2's score).
+ *   rather than c1 (i.e., c1's score <= c2's score).
  */
 static bool clause_cmp(const void *aux, const void *c1, const void *c2) {
   return get_activity(c1) <= get_activity(c2);
@@ -387,6 +387,8 @@ static void delete_literal_vector(literal_t *v) {
 
 
 
+
+
 /***********
  *  STACK  *
  **********/
@@ -460,6 +462,7 @@ static void init_heap(var_heap_t *heap, uint32_t n) {
   uint32_t i;
   double *tmp;
 
+  heap->size = n;
   tmp = (double *) safe_malloc((n+2) * sizeof(double));
   heap->activity = tmp + 2;
   heap->heap_index = (int32_t *) safe_malloc(n * sizeof(int32_t));
@@ -473,10 +476,7 @@ static void init_heap(var_heap_t *heap, uint32_t n) {
   heap->activity[-2] = -1.0;
   heap->activity[-1] = DBL_MAX;
   heap->heap[0] = -1;
-
   heap->heap_last = 0;
-  heap->size = n;
-  heap->vmax = 0;
 
   heap->act_increment = INIT_VAR_ACTIVITY_INCREMENT;
   heap->inv_act_decay = 1/VAR_DECAY_FACTOR;
@@ -491,12 +491,12 @@ static void extend_heap(var_heap_t *heap, uint32_t n) {
 
   old_size = heap->size;
   assert(old_size < n);
+  heap->size = n;
   tmp = heap->activity - 2;
   tmp = (double *) safe_realloc(tmp, (n+2) * sizeof(double));
   heap->activity = tmp + 2;
   heap->heap_index = (int32_t *) safe_realloc(heap->heap_index, n * sizeof(int32_t));
   heap->heap = (int32_t *) safe_realloc(heap->heap, (n+1) * sizeof(int32_t));
-  heap->size = n;
 
   for (i=old_size; i<n; i++) {
     heap->heap_index[i] = -1;
@@ -910,17 +910,18 @@ static uint32_t glue_score(sat_solver_t *solver, clause_t *cl) {
     l = *a ++;
     if (l < 0) break;
     k = solver->level[var_of(l)];
-    if (level_map_get(&solver->lvl, k) == 0) {
+    if (level_map_get(&lvl, k) == 0) {
       // level k not seen before
-      level_map_set(&solver->lvl, k, 1);
+      level_map_set(&lvl, k, 1);
       n ++;
     }
   }
 
-  level_map_clear(&solver->lvl);
+  level_map_clear(&lvl);
 
   return n;
 }
+
 
 /*
  * Initialize a learned clause statistics
@@ -1012,6 +1013,7 @@ static void snapshot(sat_solver_t *solver) {
   }
   flush_stat_buffer();
 }
+
 
 
 #endif
@@ -2443,7 +2445,7 @@ static void simplify_learned_clause(sat_solver_t *sol) {
   
   b = sol->buffer.data;
   n = sol->buffer.size;
-  hash = signature(sol, b+1, n-1); // skip b[0]. It cannot be subsumed.
+  hash = signature(sol, b+1, n-1); // skip b[0]. It cannot subsume anything.
 
   assert(sol->buffer2.size == 0);
 
@@ -2455,7 +2457,7 @@ static void simplify_learned_clause(sat_solver_t *sol) {
       // Hack: move l to buffer2 to clear its mark later
       ivector_push(&sol->buffer2, l); 
     } else {
-      // keep l in buffer
+      // keep k in buffer
       b[j] = l;
       j ++;
     }
@@ -2697,23 +2699,7 @@ static bvar_t select_variable(sat_solver_t *solver) {
   }
 
   /*
-   * Check the variables in [heap->vmax ... heap->size - 1]
-   */
-  x = solver->heap.vmax;
-  while (x < solver->heap.size) {
-    if (var_is_unassigned(solver, x)) {
-      solver->stats.decisions ++;
-      solver->heap.vmax = x+1;
-      return x;
-    }
-    x ++;
-  }
-
-  assert(x == solver->heap.size);
-  solver->heap.vmax = x;
-
-  /*
-   * All variables are assigned
+   * Empty heap
    */
   return null_bvar;
 }
@@ -2940,10 +2926,9 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
 
       // Delete half the learned clauses if the threshold is reached
       // then increase the threshold
-      if (get_cv_size(sol->learned_clauses) >= sol->reduce_threshold + sol->stack.top) {
+      if (get_cv_size(sol->learned_clauses) >= sol->reduce_threshold) {
         reduce_learned_clause_set(sol);
-	sol->reduce_threshold = (uint32_t) (sol->reduce_threshold * REDUCE_FACTOR);
-	//	sol->reduce_threshold += INCR_REDUCE_THRESHOLD;
+        sol->reduce_threshold = (uint32_t) (sol->reduce_threshold * REDUCE_FACTOR);
       }
 
       x = select_variable(sol);
@@ -2979,7 +2964,6 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
         cl = add_learned_clause(sol, n, b);
         implied_literal(sol, l, mk_clause0_antecedent(cl));
 #if INSTRUMENT_CLAUSES
-	// EXPERIMENTAL
 	learned_clause_prop(sol, cl);
 #endif
 
@@ -3009,6 +2993,7 @@ solver_status_t sat_search(sat_solver_t *sol, uint32_t conflict_bound) {
  */
 solver_status_t solve(sat_solver_t *sol, bool verbose) {
   int32_t code;
+  bvar_t x;
   //  uint32_t c_threshold, d_threshold;
   uint32_t u, v, threshold;
 
@@ -3037,6 +3022,13 @@ solver_status_t solve(sat_solver_t *sol, bool verbose) {
   if (sol->nb_unit_clauses > 0) {
     simplify_clause_database(sol);
     sol->simplify_bottom = sol->stack.top;
+  }
+
+  // Initialize the heap
+  for (x = 0; x < sol->nb_vars; x ++) {
+    if (var_is_unassigned(sol, x)) {
+      heap_insert(&sol->heap, x);
+    }
   }
 
   /*

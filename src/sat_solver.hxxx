@@ -111,11 +111,6 @@ static inline bool is_unassigned_val(bval_t val) {
   return (val & 0x2) == 0;
 }
 
-// check whether val is val_undef_true of val_true
-static inline bool true_preferred(bval_t val) {
-  return (val & 0x1) != 0;
-}
-
 
 /*
  * Problem status
@@ -380,30 +375,15 @@ typedef struct {
  * - heap_last: index of last element in the heap
  *   heap[0] = -1, 
  *   for i=1 to heap_last, heap[i] = x for some variable x
- * - size = number of variable (nvars)
- * - vmax = variable index (last variable not in the heap)
  * - act_inc: variable activity increment
  * - inv_act_decay: inverse of variable activity decay (e.g., 1/0.95)
- *
- * The set of variables is split into two segments:
- * - [0 ... vmax-1] = variables that are in the heap or have been in the heap
- * - [vmax ... size-1] = variables that may not have been in the heap
- *
- * To pick a decision variable:
- * - search for the most active unassigned variable in the heap
- * - if the heap is empty or all its variables are already assigned,
- *   search for the first unassigned variables in [vmax ... size-1]
- *
- * Initially: we set vmax to 0 (nothing in the heap yet) so decision
- * variables are picked in increasing order, starting from 0.
  */
 typedef struct var_heap_s {
-  double *activity;
-  int32_t *heap_index;
-  bvar_t *heap;
-  uint32_t heap_last;
   uint32_t size;
-  uint32_t vmax;
+  double *activity;
+  bvar_t *heap;
+  int32_t *heap_index;
+  uint32_t heap_last;
   double act_increment;
   double inv_act_decay;
 } var_heap_t;
@@ -611,6 +591,7 @@ static inline bool lit_is_assigned(sat_solver_t *solver, literal_t l) {
   return ! lit_is_unassigned(solver, l);
 }
 
+
 static inline bool var_is_assigned(sat_solver_t *solver, bvar_t x) {
   return lit_is_assigned(solver, pos_lit(x));
 }
@@ -619,10 +600,6 @@ static inline bool var_is_unassigned(sat_solver_t *solver, bvar_t x) {
   return !var_is_assigned(solver, x);
 }
 
-
-static inline bool lit_prefers_true(sat_solver_t *solver, literal_t l) {
-  return true_preferred(lit_val(solver, l));
-}
 
 
 /********************
