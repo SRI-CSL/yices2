@@ -704,18 +704,21 @@ static inline void decay_var_activities(var_heap_t *heap) {
 
 /*
  * Cleanup the heap: remove variables until the top var is unassigned
+ * or until the heap is empty
  */
 static void cleanup_heap(sat_solver_t *sol) {
   var_heap_t *heap;
   bvar_t x;
 
   heap = &sol->heap;
-  x = heap->heap[1];
-  while (var_is_assigned(sol, x)) {
+  while (! heap_is_empty(heap)) {
+    x = heap->heap[1];
+    if (var_is_unassigned(sol, x)) {
+      break;
+    }
     assert(x >= 0 && heap->heap_last > 0);
     heap->heap_index[x] = -1;
     update_down(heap);
-    x = heap->heap[1];
   }
 }
 
@@ -2822,20 +2825,24 @@ static void partial_restart(sat_solver_t *sol) {
   assert(sol->decision_level > 0);
 
   cleanup_heap(sol);
-  x = sol->heap.heap[1]; // top variable
-  assert(x >= 0 && var_is_unassigned(sol, x));
-  ax = sol->heap.activity[x];
-
-  n = sol->decision_level;
-  for (i=1; i<=n; i++) {
-    k = sol->stack.level_index[i];
-    x = var_of(sol->stack.lit[k]);  // decision variable for level i
-    assert(var_is_assigned(sol, x) && 
-	   sol->level[x] == i && 
-	   sol->antecedent[x] == mk_literal_antecedent(null_literal));
-    if (sol->heap.activity[x] < ax) {
-      backtrack(sol, i - 1);
-      break;
+  if (heap_is_empty(&sol->heap)) {
+    backtrack(sol, 0); // full restart
+  } else {
+    x = sol->heap.heap[1]; // top variable
+    assert(x >= 0 && var_is_unassigned(sol, x));
+    ax = sol->heap.activity[x];
+    
+    n = sol->decision_level;
+    for (i=1; i<=n; i++) {
+      k = sol->stack.level_index[i];
+      x = var_of(sol->stack.lit[k]);  // decision variable for level i
+      assert(var_is_assigned(sol, x) && 
+	     sol->level[x] == i && 
+	     sol->antecedent[x] == mk_literal_antecedent(null_literal));
+      if (sol->heap.activity[x] < ax) {
+	backtrack(sol, i - 1);
+	break;
+      }
     }
   }
 }
@@ -2854,15 +2861,19 @@ static void partial_restart_var(sat_solver_t *sol) {
 
   assert(sol->decision_level > 0);
   cleanup_heap(sol);
-  x = sol->heap.heap[1];
-  assert(x >= 0 && var_is_unassigned(sol, x));
-  ax = sol->heap.activity[x];
+  if (heap_is_empty(&sol->heap)) {
+    backtrack(sol, 0); // full restart
+  } else {
+    x = sol->heap.heap[1];
+    assert(x >= 0 && var_is_unassigned(sol, x));
+    ax = sol->heap.activity[x];
 
-  n = sol->decision_level;
-  for (i=1; i<=n; i++) {
-    if (level_has_lower_activity(sol, ax, i)) {
-      backtrack(sol, i-1);
-      break;
+    n = sol->decision_level;
+    for (i=1; i<=n; i++) {
+      if (level_has_lower_activity(sol, ax, i)) {
+	backtrack(sol, i-1);
+	break;
+      }
     }
   }
 }
