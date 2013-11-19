@@ -187,7 +187,7 @@ struct clause_s {
 };
 
 
-#define INSTRUMENT_CLAUSES 0
+#define INSTRUMENT_CLAUSES 1
 
 #if INSTRUMENT_CLAUSES
 
@@ -234,25 +234,6 @@ typedef struct learned_clauses_stats_s {
   uint32_t size;
   FILE *file;  
 } learned_clauses_stats_t;
-
-
-
-/*
- * Level map: to compute the glue score of a clause
- * - we record which decision levels occur in clause C
- * - this is stored in the following structure:
- *   map[l] = an 8bit value for level l. By default, map[l] is 0.
- *   marked = vector of l such that map[l] /= 0
- */
-typedef struct level_map_s {
-  uint8_t *map;
-  ivector_t marked;
-  uint32_t size;
-} level_map_t;
-
-// MAX_LVL_MAP_SIZE is not used since it's equal to UINT32_MAX
-#define MAX_LVL_MAP_SIZE (UINT32_MAX/sizeof(uint8_t))
-#define DEF_LVL_MAP_SIZE 100
 
 
 #else

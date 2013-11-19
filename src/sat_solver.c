@@ -731,85 +731,7 @@ static void cleanup_heap(sat_solver_t *sol) {
 
 #if INSTRUMENT_CLAUSES
 
-
-/*
- * LEVEL MAPS
- */
-static void init_level_map(level_map_t *lvl) {
-  uint32_t i, n;
-
-  n = DEF_LVL_MAP_SIZE;
-  //  assert(n <= MAX_LVL_MAP_SIZE); always true
-  lvl->map = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
-  init_ivector(&lvl->marked, 100);
-  lvl->size = n;
-
-  for (i=0; i<n; i++) {
-    lvl->map[i] = 0;
-  }
-}
-
-
-static void delete_level_map(level_map_t *lvl) {
-  safe_free(lvl->map);
-  delete_ivector(&lvl->marked);
-  lvl->map = NULL;
-}
-
-// make sure we can store map[k]
-static void resize_level_map(level_map_t *lvl, uint32_t k) {
-  uint32_t i, n;
-
-  assert(k >= lvl->size);
-
-  n = 2 * lvl->size;
-  if (k >= n) {
-    n = k+1;
-  }
-
-  lvl->map = (uint8_t *) safe_realloc(lvl->map, n * sizeof(uint8_t));
-  for (i= lvl->size; i<n; i++) {
-    lvl->map[i] = 0;
-  }
-  lvl->size = n;
-}
-
-
-// store map[k] := d
-static void level_map_set(level_map_t *lvl, uint32_t k, uint8_t d) {
-  assert(d > 0);
-
-  if (k < lvl->size) {
-    if (lvl->map[k] == 0) {
-      ivector_push(&lvl->marked, k);
-    }
-  } else {
-    resize_level_map(lvl, k);
-  }
-  assert(k < lvl->size);
-  lvl->map[k] = d;
-}
-
-
-// reset the map
-static void level_map_clear(level_map_t *lvl) {
-  uint32_t i, k, n;
-
-  n = lvl->marked.size;
-  for (i=0; i<n; i++) {
-    k = lvl->marked.data[i];
-    assert(k < lvl->size && lvl->map[k] > 0);
-    lvl->map[k] = 0;
-  }
-  ivector_reset(&lvl->marked);
-}
-
-// get what's mapped to k
-static uint8_t level_map_get(level_map_t *lvl, uint32_t k) {
-  return (k < lvl->size) ? lvl->map[k] : 0;
-}
-
-
+#include "tag_map.h"
 
 /*
  * Global statistics record
@@ -824,7 +746,7 @@ static learned_clauses_stats_t stat_buffer = {
 /*
  * Level map for computing glue
  */
-static level_map_t lvl;
+static tag_map_t lvl;
 
 
 /*
@@ -835,7 +757,7 @@ void init_learned_clauses_stats(FILE *f) {
   stat_buffer.nrecords = 0;
   stat_buffer.size = SBUFFER_SIZE;
   stat_buffer.file = f;
-  init_level_map(&lvl);
+  init_tag_map(&lvl, 100);
 }
 
 
@@ -888,7 +810,7 @@ void flush_learned_clauses_stats(void) {
     flush_stat_buffer();
     safe_free(stat_buffer.data);
     stat_buffer.data = NULL;
-    delete_level_map(&lvl);
+    delete_tag_map(&lvl);
   }
 }
 
@@ -913,14 +835,14 @@ static uint32_t glue_score(sat_solver_t *solver, clause_t *cl) {
     l = *a ++;
     if (l < 0) break;
     k = solver->level[var_of(l)];
-    if (level_map_get(&solver->lvl, k) == 0) {
+    if (tag_map_read(&lvl, k) == 0) {
       // level k not seen before
-      level_map_set(&solver->lvl, k, 1);
+      tag_map_write(&lvl, k, 1);
       n ++;
     }
   }
 
-  level_map_clear(&solver->lvl);
+  clear_tag_map(&lvl);
 
   return n;
 }
