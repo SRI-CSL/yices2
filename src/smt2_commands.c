@@ -1868,7 +1868,6 @@ static const bool logic2qflag[NUM_SMT_LOGICS] = {
 
 /*
  * Allocate and initialize the context based on g->logic
- * - also initialize the global parameter table
  * - make sure the logic is supported before calling this
  */
 static void init_smt2_context(smt2_globals_t *g) {
@@ -1895,14 +1894,22 @@ static void init_smt2_context(smt2_globals_t *g) {
   }
 
   g->ctx = yices_create_context(arch, mode, iflag, qflag);
-  yices_set_default_params(g->ctx, &parameters);
-  // PROVISIONAL FOR TESTING INCREMENTAL/QF_LRA AND QF_LIA
-  //  parameters.branching = BRANCHING_DEFAULT;
-  // END
   assert(g->ctx != NULL);
   if (g->verbosity > 0) {
     context_set_trace(g->ctx, get_tracer(g));
   }
+}
+
+
+/*
+ * Initialize the search parameters
+ * - this must be done after the context is created
+ * - if the architecture is AUTO_RDL or AUTO_IDL,
+ *   this must be called after the assertions
+ */
+static void init_search_parameters(smt2_globals_t *g) {
+  assert(g->ctx != NULL);
+  yices_set_default_params(g->ctx, &parameters);
 }
 
 
@@ -2137,10 +2144,14 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       print_yices_error(true);
       return;
     }
+    // TEMPORARY
+    yices_print_presearch_stats(stderr, g->ctx);
 
+    init_search_parameters(g);
     if (g->random_seed != 0) {
       parameters.random_seed = g->random_seed;
     }
+    
     status = check_context(g->ctx, &parameters);
     switch (status) {
     case STATUS_UNKNOWN:
@@ -2230,7 +2241,7 @@ static void ctx_check_sat(smt2_globals_t *g) {
   
   assert(g->ctx != NULL && context_supports_pushpop(g->ctx));
   num_check_sat ++;
-  tprintf(g->tracer, 1, "--- check_sat: %"PRIu32" ---\n", num_check_sat);
+  //  tprintf(g->tracer, 1, "--- check_sat: %"PRIu32" ---\n", num_check_sat);
 
   stat = context_status(g->ctx);
   switch (stat) {
@@ -3237,10 +3248,14 @@ void smt2_set_logic(const char *name) {
   string_incref(__smt2_globals.logic_name);
 
   /*
-   * In incremental mode: initialize the context
+   * In incremental mode: initialize the context   
    */
   if (! __smt2_globals.benchmark_mode) {
     init_smt2_context(&__smt2_globals);
+    init_search_parameters(&__smt2_globals);
+    // PROVISIONAL FOR TESTING INCREMENTAL/QF_LRA AND QF_LIA
+    //  parameters.branching = BRANCHING_DEFAULT;
+    // END
   }
   
   report_success();
