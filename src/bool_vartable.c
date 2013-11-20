@@ -115,7 +115,7 @@ static void ordata_array_resize(ordata_array_t *a, uint32_t n) {
       }
       assert(new_size <= MAX_ORDATA_ARRAY_SIZE);
 
-      a->data = (int32_t *) safe_malloc(new_size * sizeof(int32_t));
+      a->data = (uint32_t *) safe_malloc(new_size * sizeof(int32_t));
       a->size = new_size;
 
     } else {
@@ -132,7 +132,7 @@ static void ordata_array_resize(ordata_array_t *a, uint32_t n) {
       }
       
       assert(new_size <= MAX_ORDATA_ARRAY_SIZE && n <= new_size);
-      a->data = (int32_t *) safe_realloc(a->data, new_size * sizeof(int32_t));
+      a->data = (uint32_t *) safe_realloc(a->data, new_size * sizeof(int32_t));
       a->size = new_size;
     }
   }
@@ -145,7 +145,7 @@ static void ordata_array_resize(ordata_array_t *a, uint32_t n) {
  * - return the index k in a->data where b is copied 
  */
 static uint32_t store_ordata(ordata_array_t *a, literal_t *b, uint32_t n) {
-  int32_t *aux;
+  uint32_t *aux;
   uint32_t i, k;
 
   if (n >= MAX_ORDATA_ARRAY_SIZE) {
@@ -577,8 +577,75 @@ void bool_vartable_add_ternary_clause(bool_vartable_t *table, literal_t l1, lite
 
 
 /*
- * Clause simplification
+ * Simplify then add clause a[0...n-1]
+ *
+ * Simplifications:
+ * - sort, remove duplicates, remove false_literals, check for complementary or true literals
  */
+void bool_vartable_simplify_and_add_clause(bool_vartable_t *table, uint32_t n, literal_t *a) {
+  uint32_t i, p;
+  literal_t l, aux;
+
+  /*
+   * First check for true literals and remove false literals
+   */
+  p = 0;
+  for (i=0; i<n; i++) {
+    l = a[i];
+    if (l == true_literal) return; // the clause is true
+    if (l != false_literal) {
+      a[p] = l;
+      p ++;
+    }
+  }
+  n = p;
+
+  if (n == 0) {
+    bool_vartable_add_empty_clause(table);
+    return;
+  }
+
+  /*
+   * Sort, remove duplicates, and check for complementary literals
+   */
+  int_array_sort(a, n);
+  l = a[0];
+  p = 1;
+  for (i=1; i<n; i++) {
+    aux = a[i];
+    if (aux != l) {
+      if (aux == not(l)) return; // true clause
+      a[p] = aux;
+      l = aux;
+      p ++;
+    }
+  }
+
+  bool_vartable_add_clause(table, p, a);  
+}
+
+
+void bool_vartable_simplify_and_add_unit_clause(bool_vartable_t *table, literal_t l1) {
+  bool_vartable_simplify_and_add_clause(table, 1, &l1);
+}
+
+void bool_vartable_simplify_and_add_binary_clause(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  literal_t aux[2];
+
+  aux[0] = l1;
+  aux[1] = l2;
+  bool_vartable_simplify_and_add_clause(table, 2, aux);
+}
+
+void bool_vartable_simplify_and_add_ternary_clause(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3) {
+  literal_t aux[3];
+
+  aux[0] = l1;
+  aux[1] = l2;
+  aux[2] = l3;
+  bool_vartable_simplify_and_add_clause(table, 3, aux);
+}
+
 
 
 
@@ -607,7 +674,7 @@ literal_t literal_get_root(bool_vartable_t *table, literal_t l) {
  * - return true if l1 and l2 are in distinct/non-complementary classes,
  *   and if at least one of the two classes is not mapped to an external literal
  */
-bool root_literals_can_be_merged(bool_vartable_t *table, literal_t l1, literal_t l2) {
+static bool root_literals_can_be_merged(bool_vartable_t *table, literal_t l1, literal_t l2) {
   bvar_t x1, x2;
 
   assert(literal_is_root(table, l1) && literal_is_root(table, l2));
@@ -623,7 +690,7 @@ bool root_literals_can_be_merged(bool_vartable_t *table, literal_t l1, literal_t
  * Merge the classes of l1 and l2
  * - they must be in distinct and non-complementary classes
  */
-void merge_root_literals(bool_vartable_t *table, literal_t l1, literal_t l2) {
+static void merge_root_literals(bool_vartable_t *table, literal_t l1, literal_t l2) {
   literal_t aux;
   bvar_t x1;
 
@@ -647,10 +714,30 @@ void merge_root_literals(bool_vartable_t *table, literal_t l1, literal_t l2) {
 
 
 /*
- * Add equality l1 == l2 to the queue
+ * Add equality l1 == l2
+ * - do nothing if this is a trivial equality
+ * - add the empty clause if l1 == (not l2)
+ * - otherwise, push [l1 == l2] into the internal queue
+ *   then attempt to merge the classes of l1 and l2
  */
 void  bool_vartable_push_eq(bool_vartable_t *table, literal_t l1, literal_t l2) {
-  push_equiv(&table->queue, l1, l2);
+  l1 = literal_get_root(table, l1);
+  l2 = literal_get_root(table, l2);
+
+  if (opposite(l1, l2)) {
+    bool_vartable_add_empty_clause(table);
+  } else if (l1 != l2) {
+    if (l1 == true_literal)  return bool_vartable_add_unit_clause(table, l2);
+    if (l1 == false_literal) return bool_vartable_add_unit_clause(table, not(l2));
+    if (l2 == true_literal)  return bool_vartable_add_unit_clause(table, l1);
+    if (l2 == false_literal) return bool_vartable_add_unit_clause(table, not(l1));
+
+    push_equiv(&table->queue, l1, l2);
+    if (root_boolvar_map(table, var_of(l1)) == null_literal ||
+	root_boolvar_map(table, var_of(l2)) == null_literal) {
+      merge_root_literals(table, l1, l2);
+    }
+  }
 }
 
 
@@ -740,7 +827,7 @@ static bool eq_gate_hobj(gate_hobj_t *o, int32_t i) {
 }
 
 
-static bool equal_or_gates(uint32_t n, literal_t *a, int32_t *b) {
+static bool equal_or_gates(uint32_t n, literal_t *a, uint32_t *b) {
   uint32_t i;
 
   if (b[0] != n) return false;

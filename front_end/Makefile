@@ -63,8 +63,8 @@ static_libyices := $(static_libdir)/libyices.a
 #
 # Binaries
 #
-binaries := $(bindir)/yices_smt2$(EXEEXT)
-static_binaries := $(static_bindir)/yices_smt2$(EXEEXT)
+binaries := $(bindir)/smt2_solver$(EXEEXT)
+static_binaries := $(static_bindir)/smt2_solver$(EXEEXT)
 
 
 #
@@ -247,10 +247,10 @@ $(static_objdir)/%o: %c
 
 
 # Binaries
-$(bindir)/yices_smt2$(EXEEXT): $(obj) $(libyices)
+$(bindir)/smt2_solver$(EXEEXT): $(obj) $(libyices)
 	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(libyices) $(LIBS)
 
-$(static_bindir)/yices_smt2$(EXEEXT): $(static_obj) $(static_libyices)
+$(static_bindir)/smt2_solver$(EXEEXT): $(static_obj) $(static_libyices)
 	$(LNK) $(STATIC_CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ $^ $(static_libyices) $(STATIC_LIBS)
 
 

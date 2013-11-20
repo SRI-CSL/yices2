@@ -182,13 +182,13 @@ typedef struct bgate_array_s {
  * - the next descriptor starts at index k+n+1
  */
 typedef struct ordata_array_s {
-  int32_t *data;
+  uint32_t *data;
   uint32_t top;
   uint32_t size;  
 } ordata_array_t;
 
 #define DEF_ORDATA_ARRAY_SIZE 1000
-#define MAX_ORDATA_ARRAY_SIZE (UINT32_MAX/sizeof(int32_t))
+#define MAX_ORDATA_ARRAY_SIZE (UINT32_MAX/sizeof(uint32_t))
 
 
 /*
@@ -438,12 +438,52 @@ extern void bool_vartable_add_ternary_clause(bool_vartable_t *table, literal_t l
  * - simplification used: remove false literals and duplicate literals.
  *   do nothing if the clause is true (either because it contains 
  *   true_literal or a pair of complementary literals).
- * - WARNING: in bool_vartable_simplify_and_add_cluase(table, n, a): array a may be modified
+ * - WARNING: in bool_vartable_simplify_and_add_clause(table, n, a): array a may be modified
  */
 extern void bool_vartable_simplify_and_add_clause(bool_vartable_t *table, uint32_t n, literal_t *a);
 extern void bool_vartable_simplify_and_add_unit_clause(bool_vartable_t *table, literal_t l1);
 extern void bool_vartable_simplify_and_add_binary_clause(bool_vartable_t *table, literal_t l1, literal_t l2);
 extern void bool_vartable_simplify_and_add_ternary_clause(bool_vartable_t *table, literal_t l1, literal_t l2, literal_t l3);
+
+
+
+/*
+ * EQUALITIES
+ */
+
+/*
+ * Add the equality (l1 == l2):
+ * - do nothing if this is a trivial equality
+ * - add the empty clause if l1 == (not l2)
+ * - otherwise, push [l1 == l2] into the internal queue
+ *   then attempt to merge the classes of l1 and l2
+ */
+extern void bool_vartable_add_equality(bool_vartable_t *table, literal_t l1, literal_t l2);
+
+/*
+ * Get the root literal of l
+ */
+extern literal_t literal_get_root(bool_vartable_t *table, literal_t l);
+
+static inline literal_t boolvar_get_root(bool_vartable_t *table, bvar_t x) {
+  return literal_get_root(table, pos_lit(x));
+}
+
+
+/*
+ * Check whether l1 and l2 are in the same class
+ */
+static inline bool literals_are_equal(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  return literal_get_root(table, l1) == literal_get_root(table, l2);
+}
+
+/*
+ * Check whether 11 and l2 are in complementary classes
+ */
+static inline bool literals_are_opposite(bool_vartable_t *table, literal_t l1, literal_t l2) {
+  return opposite(literal_get_root(table, l1), literal_get_root(table, l2));
+}
+
 
 
 
@@ -494,7 +534,7 @@ static inline bgate_t *boolvar_gate_desc(bool_vartable_t *table, bvar_t x) {
   return table->gates.data + table->desc[x];
 }
 
-static inline int32_t *boolvar_or_desc(bool_vartable_t *table, bvar_t x) {
+static inline uint32_t *boolvar_or_desc(bool_vartable_t *table, bvar_t x) {
   assert(boolvar_is_or(table, x));
   return table->ordata.data + table->desc[x];
 }
@@ -515,31 +555,6 @@ static inline bool boolvar_is_root(bool_vartable_t *table, bvar_t x) {
 
 static inline bool literal_is_root(bool_vartable_t *table, literal_t l) {
   return boolvar_is_root(table, var_of(l));
-}
-
-
-/*
- * Get the root literal in a class
- */
-extern literal_t literal_get_root(bool_vartable_t *table, literal_t l);
-
-static inline literal_t boolvar_get_root(bool_vartable_t *table, bvar_t x) {
-  return literal_get_root(table, pos_lit(x));
-}
-
-
-/*
- * Check whether l1 and l2 are in the same class
- */
-static inline bool literals_are_equal(bool_vartable_t *table, literal_t l1, literal_t l2) {
-  return literal_get_root(table, l1) == literal_get_root(table, l2);
-}
-
-/*
- * Check whether 11 and l2 are in complementary classes
- */
-static inline bool literals_are_opposite(bool_vartable_t *table, literal_t l1, literal_t l2) {
-  return opposite(literal_get_root(table, l1), literal_get_root(table, l2));
 }
 
 
@@ -577,21 +592,6 @@ static inline literal_t boolvar_get_map(bool_vartable_t *table, bvar_t x) {
   return literal_get_map(table, pos_lit(x));
 }
 
-
-/*
- * Check whether the classes of l1 and l2 can be merged
- * - l1 and l2 must be root literals
- * - return true if l1 and l2 are in distinct/non-complementary classes,
- *   and if at least one of the two classes is not mapped to an external literal
- */
-extern bool root_literals_can_be_merged(bool_vartable_t *table, literal_t l1, literal_t l2);
-
-
-/*
- * Merge the classes of l1 and l2:
- * - ll and l2 must be root literals and the two classes must be mergeable
- */
-extern void merge_root_literals(bool_vartable_t *table, literal_t l1, literal_t l2);
 
 
 
