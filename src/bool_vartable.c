@@ -669,6 +669,7 @@ literal_t literal_get_root(bool_vartable_t *table, literal_t l) {
 }
 
 
+#ifndef NDEBUG
 /*
  * Check whether the classes of l1 and l2 can be merged
  * - return true if l1 and l2 are in distinct/non-complementary classes,
@@ -684,6 +685,7 @@ static bool root_literals_can_be_merged(bool_vartable_t *table, literal_t l1, li
   return x1 != x2 &&
     (root_boolvar_map(table, x1) == null_literal || root_boolvar_map(table, x2) == null_literal);
 }
+#endif
 
 
 /*
