@@ -12,6 +12,7 @@
 
 #include "bitvectors.h"
 #include "int_vectors.h"
+#include "tag_map.h"
 #include "stable_sort.h"
 
 
@@ -187,7 +188,7 @@ struct clause_s {
 };
 
 
-#define INSTRUMENT_CLAUSES 1
+#define INSTRUMENT_CLAUSES 0
 
 #if INSTRUMENT_CLAUSES
 

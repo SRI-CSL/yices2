@@ -731,8 +731,6 @@ static void cleanup_heap(sat_solver_t *sol) {
 
 #if INSTRUMENT_CLAUSES
 
-#include "tag_map.h"
-
 /*
  * Global statistics record
  */
@@ -2428,6 +2426,29 @@ static inline void set_var_mark(sat_solver_t *sol, bvar_t x) {
 
 
 /*
+ * Process literal l during conflict resolution:
+ * - if l is already marked, do nothing
+ * - otherwise: mark it + if l has level < conflict level
+ *   add l at the end of bufffer 
+ * - return 1 if l is to be resolved (l was not marked and has level == conflict level)
+ * - return 0 otherwise
+ */
+static uint32_t process_literal(sat_solver_t *sol, literal_t l, uint32_t conflict_level) {
+  bvar_t x;
+
+  x = var_of(l);
+  if (is_var_unmarked(sol, x)) {
+    set_var_mark(sol, x);
+    increase_var_activity(&sol->heap, x);
+    if (sol->level[x] == conflict_level) {
+      return 1;
+    }
+    ivector_push(&sol->buffer, l);
+  }
+  return 0;
+}
+
+/*
  * Search for first UIP and build the learned clause
  * sol = solver state
  *   sol->cl stores a conflict clause (i.e., an array of literals 
@@ -2436,7 +2457,7 @@ static inline void set_var_mark(sat_solver_t *sol, bvar_t x) {
  * - the learned clause is stored in sol->buffer as an array of literals
  * - sol->buffer.data[0] is the implied literal
  */
-#define process_literal(l)                    \
+#define process_literal_macro(l)              \
 do {                                          \
   x = var_of(l);                              \
   if (is_var_unmarked(sol, x)) {              \
@@ -2454,7 +2475,6 @@ do {                                          \
 static void analyze_conflict(sat_solver_t *sol) {
   uint32_t i, j, conflict_level, unresolved;
   literal_t l, b;
-  bvar_t x;
   literal_t *c,  *stack;
   antecedent_t a;
   clause_t *cl;
@@ -2482,7 +2502,7 @@ static void analyze_conflict(sat_solver_t *sol) {
   c = sol->conflict;
   l = *c;
   while (l >= 0) {
-    process_literal(l);
+    unresolved += process_literal(sol, l, conflict_level);
     c ++;
     l = *c;
   }
@@ -2506,10 +2526,10 @@ static void analyze_conflict(sat_solver_t *sol) {
   for (;;) {
     j --;
     b = stack[j];
+    assert(sol->level[var_of(b)] == conflict_level);
     if (is_lit_marked(sol, b)) {
       if (unresolved == 1) {
         // b is the UIP literal we're done.
-        assert(sol->level[var_of(b)] == conflict_level);
         buffer->data[0] = not(b);
         break;
 
@@ -2529,12 +2549,12 @@ static void analyze_conflict(sat_solver_t *sol) {
           assert(c[i] == b);
           // process other watched literal
           l = c[i^1];
-          process_literal(l);
+          unresolved += process_literal(sol, l, conflict_level);
           // rest of the clause
           c += 2;
           l = *c;
           while (l >= 0) {
-            process_literal(l);
+	    unresolved += process_literal(sol, l, conflict_level);
             c ++;
             l = *c;
           }
@@ -2548,11 +2568,12 @@ static void analyze_conflict(sat_solver_t *sol) {
 
         case literal_tag:
           l = literal_antecedent(a);
-          process_literal(l);
+          unresolved += process_literal(sol, l, conflict_level);
           break;
 
         case generic_tag:
           assert(false);
+	  break;
         }
       }
     }
