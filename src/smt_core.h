@@ -72,7 +72,9 @@
  * - for problem clauses, end_marker = -1 
  * - for learned clauses, end_marker = -2
  *
- * A solver stores a value for these two end_markers: value[-1] = VAL_UNDEF_FALSE
+ * These two end_markers always have an UNDEF_VALYE: 
+ * - value[-1] = VAL_UNDEF_FALSE
+ *   value[-2] = VAL_UNDEF_FALSE
  *
  * CLAUSE DELETION AND SIMPLIFICATION: 
  * - to mark a clause for deletion or to removed it from the watched lists,
@@ -209,6 +211,7 @@ static inline void set_lv_size(literal_t *v, uint32_t sz) {
 static inline uint32_t get_lv_capacity(literal_t *v) {
   return lv_header(v)->capacity;
 }
+
 
 
 /*

@@ -385,8 +385,6 @@ static void delete_literal_vector(literal_t *v) {
 
 
 
-
-
 /***********
  *  STACK  *
  **********/
@@ -583,7 +581,7 @@ static void update_down(var_heap_t *heap) {
  
   i = 1;      // root  
   j = 2;      // left child of i
-  while (j  < last) {
+  while (j < last) {
     /* 
      * find child of i with highest activity.
      * Since h[last] = -2, we don't check j+1 < last

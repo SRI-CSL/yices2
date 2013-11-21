@@ -103,24 +103,24 @@ static inline literal_t get_second_watch(clause_t *cl) {
 
 /*
  * Get watched literal of index (1 - i) in cl.
- * \param i = 0 or 1
+ * - i = 0 or 1
  */
 static inline literal_t get_other_watch(clause_t *cl, uint32_t i) {
   // flip low-order bit of i
-  return cl->cl[i ^ 1];
+  return cl->cl[1 - i];
 }
 
 /*
  * Get pointer to learned_clause in which clause cl is embedded. 
  */
-static inline learned_clause_t *learned(clause_t *cl) {
+static inline learned_clause_t *learned(const clause_t *cl) {
   return (learned_clause_t *)(((char *)cl) - offsetof(learned_clause_t, clause));
 }
 
 /*
  * Activity of a learned clause
  */
-static inline float get_activity(clause_t *cl) {
+static inline float get_activity(const clause_t *cl) {
   return learned(cl)->activity;
 }
 
@@ -154,7 +154,6 @@ static inline void mark_for_removal(clause_t *cl) {
 }
 
 static inline bool is_clause_to_be_removed(clause_t *cl) {
-  //  return cl->cl[0] < 0 || cl->cl[1] < 0;
   return cl->cl[0] < 0;
 }
 
@@ -369,7 +368,7 @@ static void add_literal_to_vector(literal_t **v, literal_t l) {
 /*
  * Delete literal vector v
  */
-static inline void delete_literal_vector(literal_t *v) {
+static void delete_literal_vector(literal_t *v) {
   if (v != NULL) {
     safe_free(lv_header(v));
   }
@@ -477,7 +476,7 @@ static void push_literal(prop_stack_t *s, literal_t l) {
  * - heap is initially empty: heap_last = 0
  * - heap[0] = -1 is a marker, with activity[-1] higher 
  *   than any variable activity.
- * - we also use -2 as a marker with negtative activity
+ * - we also use -2 as a marker with negative activity
  * - activity increment and threshold are set to their
  *   default initial value.
  */
@@ -777,8 +776,6 @@ static void rescale_var_activities(var_heap_t *heap, uint32_t n) {
     act[i] *= INV_VAR_ACTIVITY_THRESHOLD;
   }
 }
-
-
 
 
 /*****************
@@ -2084,6 +2081,7 @@ void propagate_literal(smt_core_t *s, literal_t l, void *expl) {
 
   assert(literal_value(s, l) == VAL_TRUE && literal_value(s, not(l)) == VAL_FALSE);
 }
+
 
 
 /***************************
@@ -5623,9 +5621,102 @@ void smt_final_check(smt_core_t *s) {
 
 
 
+/*************** 
+ *  RESTARTS   *
+ **************/
 
 /*
- * Restart: cause s and the theory solver to backtrack to base_level 
+ * Three variants of restart:
+ * - full restart: backtrack to the base_level
+ * - partial restart: lazier version: backtrack(s, k) for some 
+ *   level k >= base_level determined by variable activities:
+ * - partial_restart_var: even lazier version: if partial restart
+ *   would backtrack to level k then partial_restart_var backtracks
+ *   to k' >= k. 
+ * - benchmarking shows that partial_restart_var seems to work best.
+ */
+
+/*
+ * Cleanup the heap to prepare for a partial restart:
+ * - remove variables until the top var is unassigned
+ *   or until the heap is empty
+ */
+static void cleanup_heap(smt_core_t *s) {
+  var_heap_t *heap;
+  bvar_t x;
+
+  heap = &s->heap;
+  while (! heap_is_empty(heap)) {
+    x = heap->heap[1];
+    if (bvar_is_unassigned(s, x)) {
+      break;
+    }
+    assert(x >= 0 && heap->heap_last > 0);
+    heap->heap_index[x] = -1;
+    update_down(heap, 1);
+  }
+}
+
+
+/*
+ * Check whether all variables assigned at level k have
+ * activity less than ax
+ */
+static bool level_has_lower_activity(smt_core_t *s, double ax, uint32_t k) {
+  prop_stack_t *stack;
+  uint32_t i, n;
+  bvar_t x;
+  
+  assert(s->base_level <= k && k <= s->decision_level);
+  stack = &s->stack;
+
+  // i := start of level k
+  // n := end of level k
+  i = stack->level_index[k]; 
+  n = stack->top;
+  if (k < s->decision_level) {
+    n = stack->level_index[k+1]; 
+  }
+
+  while (i < n) {
+    x = var_of(stack->lit[i]);
+    assert(bvar_is_assigned(s, x) && s->level[x] == k);
+    if (s->heap.activity[x] >= ax) {
+      return false;
+    }
+    i ++;
+  }
+
+  return true;
+}
+
+
+/*
+ * Do a full restart: backtrack to base_level
+ */
+static void full_restart(smt_core_t *s) {
+  assert(s->base_level < s->decision_level);
+  backtrack(s, s->base_level);
+  s->th_ctrl.backtrack(s->th_solver, s->base_level);
+  // clear the checkpoints
+  if (s->cp_flag) {
+    purge_all_dynamic_atoms(s);
+  }
+}
+
+/*
+ * Partial restart: backtrack to level k
+ */
+static void partial_restart(smt_core_t *s, uint32_t k) {
+  assert(s->base_level <= k && k < s->decision_level);
+
+  backtrack(s, k);
+  s->th_ctrl.backtrack(s->th_solver, k);
+}
+
+ 
+/*
+ * Full restart: cause s and the theory solver to backtrack to base_level 
  * (do nothing if decision_level == base_level)
  */
 void smt_restart(smt_core_t *s) {
@@ -5636,14 +5727,100 @@ void smt_restart(smt_core_t *s) {
 #endif
   s->stats.restarts ++;
   if (s->base_level < s->decision_level) {
-    backtrack(s, s->base_level);
-    s->th_ctrl.backtrack(s->th_solver, s->base_level);
-    // clear the checkpoints
-    if (s->cp_flag) {
-      purge_all_dynamic_atoms(s);
+    full_restart(s);
+  }
+}
+
+
+/*
+ * Partial restart: attempt to reuse the assignment stack
+ * - find the unassigned variable of highest activity
+ * - keep all current decisions that have an activity higher than that
+ */
+void smt_partial_restart(smt_core_t *s) {
+  double ax;
+  bvar_t x;
+  uint32_t i, k, n;
+
+  assert(s->status == STATUS_SEARCHING);
+
+#if TRACE
+  printf("\n---> DPLL PARTIAL RESTART\n");
+#endif
+
+  s->stats.restarts ++;
+
+  if (s->base_level < s->decision_level) {
+    cleanup_heap(s);
+    if (heap_is_empty(&s->heap)) {
+      full_restart(s);
+    } else {
+      // x = most active unassigned variable
+      // ax = its activity
+      x = s->heap.heap[1];
+      assert(x >= 0 && bvar_is_unassigned(s, x));
+      ax = s->heap.activity[x];
+
+      /*
+       * search for the first level i whose deicision level has
+       * activity less than ax, then backtrack to level i-1.
+       */
+      n = s->decision_level;
+      for (i=s->base_level+1; i<=n; i++) {
+	k = s->stack.level_index[i];
+	x = var_of(s->stack.lit[k]);  // decision variable for level i
+	assert(bvar_is_assigned(s, x) && 
+	       s->level[x] == i && 
+	       s->antecedent[x] == mk_literal_antecedent(null_literal));
+
+	if (s->heap.activity[x] < ax) {
+	  partial_restart(s, i - 1);
+	  break;
+	}
+      }
     }
   }
 }
+
+
+/*
+ * Variant:
+ * - find the unassigned variable of highest activity
+ * - keep all current decision levels that have at least one variable
+ *   with higher activity than that
+ */
+void smt_partial_restart_var(smt_core_t *s) {
+  double ax;
+  bvar_t x;
+  uint32_t i, n;
+
+  assert(s->status == STATUS_SEARCHING);
+
+#if TRACE
+  printf("\n---> DPLL PARTIAL RESTART (VARIANT)\n");
+#endif
+
+  s->stats.restarts ++;
+  if (s->base_level < s->decision_level) {
+    cleanup_heap(s);
+    if (heap_is_empty(&s->heap)) {
+      full_restart(s);
+    } else {
+      x = s->heap.heap[1];
+      assert(x >= 0 && bvar_is_unassigned(s, x));
+      ax = s->heap.activity[x];
+
+      n = s->decision_level;
+      for (i=s->base_level+1; i<=n; i++) {
+	if (level_has_lower_activity(s, ax, i)) {
+	  partial_restart(s, i - 1);
+	  break;
+	}
+      }
+    }
+  }
+}
+
 
 
 

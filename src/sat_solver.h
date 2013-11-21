@@ -146,7 +146,7 @@ enum {
 /*
  * Clauses structure
  * - two pointers to form lists of clauses for the watched literals
- * - the clause is an array of literals terminated by an end marker
+ * - a clause is an array of literals terminated by an end marker
  *   (a negative number).
  * - the first two literals stored in cl[0] and cl[1]
  *   are the watched literals.
@@ -156,7 +156,7 @@ enum {
  * on a 64bit machine....)
  *
  * Linked lists:
- * - a links lnk is a pointer to a clause cl
+ * - a link lnk is a pointer to a clause cl
  *   the low-order bits of lnk encode whether the next link is
  *   in cl->link[0] or cl->link[1]
  * - this is compatible with the tagged pointers used as antecedents.
