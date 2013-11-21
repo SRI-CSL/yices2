@@ -47,6 +47,7 @@ AC_PROG_MAKE_SET
 dnl
 dnl Tools for building Yices
 dnl ------------------------
+dnl LEX/YACC are used only for the old smt2 parser in front_end
 dnl
 AC_PROG_SED
 AC_PROG_LN_S
