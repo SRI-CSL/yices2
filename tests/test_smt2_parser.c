@@ -5,6 +5,7 @@
 
 #include "cputime.h"
 #include "memsize.h"
+#include "tstack_internals.h"
 
 #include "smt2_lexer.h"
 #include "smt2_parser.h"
@@ -12,6 +13,20 @@
 #include "smt2_commands.h"
 #include "yices.h"
 #include "yices_exit_codes.h"
+
+
+/*
+ * Replacement for check_sat/push/pop/get_value:
+ * - do nothing
+ */
+static void check_smt2_skip(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+}
+
+static void eval_smt2_skip(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  tstack_pop_frame(stack);
+  no_result(stack);
+}
+
 
 static lexer_t lexer;
 static parser_t parser;
@@ -46,6 +61,14 @@ int main(int argc, char *argv[]) {
   init_smt2(true, interactive);
   init_smt2_tstack(&stack);
   init_parser(&parser, &lexer, &stack);
+
+  // disable SMT2_CHECK_SAT/PUSH/POP/GET_VALUE
+  tstack_add_op(&stack, SMT2_CHECK_SAT, false, eval_smt2_skip, check_smt2_skip);
+  tstack_add_op(&stack, SMT2_PUSH, false, eval_smt2_skip, check_smt2_skip);
+  tstack_add_op(&stack, SMT2_POP, false, eval_smt2_skip, check_smt2_skip);
+  tstack_add_op(&stack, SMT2_GET_VALUE, false, eval_smt2_skip, check_smt2_skip);
+
+  smt2_set_verbosity(100);
 
   while (smt2_active()) {
     if (interactive) {

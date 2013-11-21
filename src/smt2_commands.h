@@ -246,6 +246,25 @@ typedef struct smt2_stack_s {
 
 
 /*
+ * Statistics: keep track of the number of commands
+ * executed so far.
+ */
+typedef struct smt2_cmd_stats_s {
+  uint32_t num_commands;
+  uint32_t num_declare_sort;
+  uint32_t num_define_sort;
+  uint32_t num_declare_fun;
+  uint32_t num_define_fun;
+  uint32_t num_assert;
+  uint32_t num_check_sat;
+  uint32_t num_push;
+  uint32_t num_pop;
+  uint32_t num_get_value;
+  uint32_t num_get_assignment;
+} smt2_cmd_stats_t;
+
+
+/*
  * Global structure initialized by init_smt2:
  * - include option flags mandated by SMT2
  * - the flag benchmark_mode is true for SMT2 benchmarks
@@ -347,6 +366,9 @@ typedef struct smt2_globals_s {
   // pretty-printer area
   pp_area_t pp_area;
 
+  // statistics
+  smt2_cmd_stats_t stats;
+
   /*
    * Support for delayed assertions
    * - assertions = a set of assertions
@@ -373,6 +395,14 @@ extern smt2_globals_t __smt2_globals;
  * - this is called after yices_init so all Yices internals are ready
  */
 extern void init_smt2(bool benchmark, bool print_success);
+
+
+/*
+ * Force verbosity level to k
+ * - this has the same effect as (set-option :verbosity k)
+ * - must be called after init_smt2
+ */
+extern void smt2_set_verbosity(uint32_t k);
 
 
 /*

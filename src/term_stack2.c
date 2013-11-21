@@ -201,7 +201,7 @@ static void tstack_extend(tstack_t *stack) {
   n = stack->size + 1;
   n += n >> 1;
 
-  if (n >= MAX_TERM_STACK_SIZE) {
+  if (n > MAX_TERM_STACK_SIZE) {
     out_of_memory();
   }
 

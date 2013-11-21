@@ -254,7 +254,7 @@ struct tstack_s {
  * Default and maximal size
  */
 #define DEFAULT_TERM_STACK_SIZE 256
-#define MAX_TERM_STACK_SIZE (UINT32_MAX/64)
+#define MAX_TERM_STACK_SIZE (UINT32_MAX/sizeof(stack_elem_t))
 
 /*
  * Default and maximal size of the t_aux vector

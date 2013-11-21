@@ -523,28 +523,6 @@ smt2_hash_symbols.h: smt2_symbols.txt
 	$(GPERF) -C -L ANSI-C -W smt2_sym -H hash_sym -E --output-file=smt2_hash_symbols.h \
 	--lookup-function-name=in_smt2_sym smt2_symbols.txt
 
-
-#
-# Version file
-# Compilation date and mode, svn repository and version, and version numbers
-# are copied into yices_version.c.
-#
-now := $(shell date)
-
-url := $(shell ( svn info $(YICES_TOP_DIR) 2>&1 | grep URL ) || echo URL: unknown)
-ifeq ($(url), URL: unknown) 
-  rev := unknown
-else 
-  rev := $(shell ( svnversion $(YICES_TOP_DIR) 2>&1 ) )
-endif
-
-yices_version.c: yices_version_template.txt
-	$(SED) -e 's/YICES_VERSION/$(YICES_VERSION)/g' -e 's/YICES_COMPILATION_DATE/$(now)/g' \
-	       -e 's;SVN_URL;$(url);g' -e 's/SVN_REVISION/$(rev)/g' \
-	       -e 's/YICES_ARCH/$(ARCH)/g' -e 's/YICES_BUILD_MODE/$(YICES_MODE)/g' \
-	       yices_version_template.txt > $@
-
-
 #
 # Object files
 #

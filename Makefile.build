@@ -168,11 +168,11 @@ build_subdirs: $(build_dir) $(dyn_objdir) $(dyn_libdir) $(dyn_bindir) \
 #
 all: obj static-obj lib static-lib bin static-bin
 
-obj: build_subdirs
+obj: build_subdirs version
 	@ echo "=== Building objects ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) obj
 
-static-obj: build_subdirs
+static-obj: build_subdirs version
 	@ echo "=== Building static objects ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-obj
 
@@ -205,10 +205,35 @@ static-sat: build_subdirs obj static-obj
 	@ $(MAKE) -C $(satdir) BUILD=../$(build_dir) static-bin
 
 #
+# Version file
+# Compilation date and mode, svn repository and version, and version numbers
+# are copied into yices_version.c.
+#
+now := $(shell date +"%Y-%m-%d")
+
+url := $(shell ( svn info $(YICES_TOP_DIR) 2>&1 | grep URL ) || echo URL: unknown)
+ifeq ($(url), URL: unknown) 
+  rev := unknown
+else 
+  rev := $(shell ( svnversion $(YICES_TOP_DIR) 2>&1 ) )
+endif
+
+
+#
 # Force a new 'yices_version.c' to be generated
 #
 version:
-	rm -f $(srcdir)/yices_version.c
+	@$(SED) -e 's/YICES_VERSION/$(YICES_VERSION)/g' -e 's/YICES_COMPILATION_DATE/$(now)/g' \
+	       -e 's;SVN_URL;$(url);g' -e 's/SVN_REVISION/$(rev)/g' \
+	       -e 's/YICES_ARCH/$(ARCH)/g' -e 's/YICES_BUILD_MODE/$(YICES_MODE)/g' \
+	       $(srcdir)/yices_version_template.txt > $(srcdir)/yices_version.tmp
+	@diff -N $(srcdir)/yices_version.tmp $(srcdir)/yices_version.c > /dev/null; \
+	if [ $$? -ne 0 ]; \
+	then \
+	  mv $(srcdir)/yices_version.tmp $(srcdir)/yices_version.c; \
+	else \
+	  rm -f $(srcdir)/yices_version.tmp; \
+	fi
 
 .PHONY: version
 
