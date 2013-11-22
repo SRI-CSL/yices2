@@ -1933,6 +1933,10 @@ static void init_smt2_context(smt2_globals_t *g) {
 static void init_search_parameters(smt2_globals_t *g) {
   assert(g->ctx != NULL);
   yices_set_default_params(g->ctx, &parameters);
+  // special setting for QF_UFLIA
+  if (g->benchmark_mode && g->logic_code == QF_UFLIA) {
+    parameters.use_optimistic_fcheck = false;
+  }
 }
 
 
