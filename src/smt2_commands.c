@@ -3644,7 +3644,7 @@ void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, typ
 
 
 /*
- * EXTENSION/NON-STANDARD COMMANDS
+ * EXTENSIONS/NON-STANDARD COMMANDS
  */
 
 /*
