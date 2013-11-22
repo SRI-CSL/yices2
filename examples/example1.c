@@ -123,7 +123,7 @@ static void simple_test(void) {
 
   case STATUS_UNKNOWN:
     printf("The status is unknown\n");
-
+    break;
 
   case STATUS_IDLE:
   case STATUS_SEARCHING:
