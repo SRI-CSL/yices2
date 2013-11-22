@@ -52,7 +52,6 @@ LDCONFIG= /sbin/ldconfig
 #
 srcdir = src
 testdir = tests
-satdir = sat_solver
 smt2dir = front_end
 
 #
@@ -194,17 +193,6 @@ static-bin: build_subdirs version
 
 
 #
-# Sat solver(s)
-#
-sat: build_subdirs obj static-obj
-	@ echo "=== Building sat solver(s) ==="
-	@ $(MAKE) -C $(satdir) BUILD=../$(build_dir) bin
-
-static-sat: build_subdirs obj static-obj
-	@ echo "=== Building sat solver(s) ==="
-	@ $(MAKE) -C $(satdir) BUILD=../$(build_dir) static-bin
-
-#
 # Version file
 # Compilation date and mode, svn repository and version, and version numbers
 # are copied into yices_version.c.
@@ -244,13 +232,13 @@ version:
 # Static tests: use libyices.a in static-lib
 # Don't regenerate the version file
 #
-test: build_subdirs
+test: build_subdirs version
 	@ echo "=== Building libraries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) lib
 	@ echo "=== Building tests ==="
 	@ $(MAKE) -C $(testdir) BUILD=../$(build_dir) all
 
-static-test: build_subdirs
+static-test: build_subdirs version
 	@ echo "=== Building libraries with GMP ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-lib
 	@ echo "=== Building tests ==="
@@ -260,13 +248,13 @@ static-test: build_subdirs
 #
 # SMT2 front-end: same as test
 #
-smt2: build_subdirs
+smt2: build_subdirs version
 	@ echo "=== Building libraries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) lib
 	@ echo "=== Building smt2 front end ==="
 	@ $(MAKE) -C $(smt2dir) BUILD=../$(build_dir) bin
 
-static-smt2: build_subdirs
+static-smt2: build_subdirs version
 	@ echo "=== Building libraries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-lib
 	@ echo "=== Building smt2 front end  ==="
@@ -568,11 +556,12 @@ arch-clean:
 
 #
 # All clean delete all build directories
-# - also clean the src directory
+# - also clean the src directory and the front_end directory
 #
 all-clean:
 	rm -rf build/*
 	$(MAKE) -C $(srcdir) clean
+	$(MAKE) -C $(smt2dir) clean
 
 .PHONY: clean arch-clean all-clean
 
