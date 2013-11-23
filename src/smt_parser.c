@@ -50,7 +50,7 @@ static inline const char *reader_name(lexer_t *lex) {
  * - lex = the lexer
  * - expected_token = what was expected or -1
  */
-static void syntax_error(lexer_t *lex, smt_token_t expected_token) {
+static void syntax_error(lexer_t *lex, int32_t expected_token) {
   smt_token_t tk;
   reader_t *rd;
 

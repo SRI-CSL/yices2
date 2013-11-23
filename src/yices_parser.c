@@ -158,7 +158,7 @@ static void export_tstack_error(tstack_t *tstack, tstack_error_t exception) {
  * - err = error file or NULL
  * - expected_token = what was expected or -1
  */
-static void syntax_error(lexer_t *lex, FILE *err, yices_token_t expected_token) {
+static void syntax_error(lexer_t *lex, FILE *err, int32_t expected_token) {
   yices_token_t tk;
   reader_t *rd;
 
@@ -207,6 +207,7 @@ static void syntax_error(lexer_t *lex, FILE *err, yices_token_t expected_token) 
 
   default:
     if (expected_token != -1) {
+      assert(0 <= expected_token && expected_token < NUM_YICES_TOKENS);
       fprintf(err, "syntax error (line %"PRId32", column %"PRId32"): %s expected\n",
               lex->tk_line, lex->tk_column, yices_token_to_string(expected_token));
     } else {

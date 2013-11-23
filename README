@@ -655,10 +655,10 @@ NOTES: on MacOS X Lion, things may be a bit different:
 
 
 2) Binaries and libraries are expected to be all position independent
-   on MacOS X Lion. This causes some issues with GMP (at least with
-   GMP 5.0.2).
-
-
+   on MacOS X Lion and Mavericks. This causes some issues with GMP (at
+   least with GMP 5.0.2).  A solution is to build libgmp.a using
+   position-independent flags (see the nodes in doc/GMP on how to do
+   that).
 
 
 

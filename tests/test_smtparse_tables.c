@@ -210,7 +210,7 @@ static char* action2string[] = {
 
 
 int main() {
-  state_t s;
+  int32_t s;
   token_t tk;
   lexer_t lex;
 
@@ -221,8 +221,11 @@ int main() {
    *
    *    comparison of constant 64 with expression of type 'state_t'
    *    (aka 'enum state_s') is always true.
-   * 
+   *
    * It gives no warning for tk<NUM_SMT_TOKENS.
+   * 
+   * I've changed the declaration of s: it used to be 'state_t s' 
+   * instead of 'int32_t s'
    */
   for (s=0; s<NSTATES; s++) {
     printf("Source state %s\n", state2string[s]);
