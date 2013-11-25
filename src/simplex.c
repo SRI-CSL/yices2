@@ -31,7 +31,7 @@
 
 #define TRACE_INIT 0
 #define TRACE_PROPAGATION 0
-#define TRACE_BB 0
+#define TRACE_BB 1
 
 
 #if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG) || 1
@@ -5654,6 +5654,9 @@ static void collect_non_integer_basic_vars(simplex_solver_t *solver, ivector_t *
 static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
   xrational_t *bound;
   int32_t new_idx;
+#if TRACE_BB
+  literal_t l;
+#endif
 
   assert(arith_var_is_int(&solver->vtbl, x) & ! arith_var_value_is_int(&solver->vtbl, x));
 
@@ -5670,7 +5673,12 @@ static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
   print_simplex_assignment(stdout, solver);
 #endif
 
+#if TRACE_BB
+  l = get_literal_for_ge_atom(&solver->atbl, x, true, &bound->main, &new_idx);
+#else
   (void) get_literal_for_ge_atom(&solver->atbl, x, true, &bound->main, &new_idx);
+#endif
+
   /*
    * BD: TEMPORARY HACK (to support periodic calls to make_integer_feasible)
    * - we don't always call make_feasible in final check 
