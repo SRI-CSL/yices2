@@ -8,6 +8,7 @@
 #include <inttypes.h>
 #include <gmp.h>
 
+#include "smt_term_stack.h"
 #include "smt_lexer.h"
 #include "smt_parser.h"
 #include "term_stack2.h"
@@ -18,8 +19,9 @@
 #include "cputime.h"
 #include "memsize.h"
 
-#include "yices_version.h"
 #include "yices_exit_codes.h"
+#include "yices_globals.h"
+#include "yices.h"
 
 
 /*
@@ -105,14 +107,6 @@ static void print_presearch_stats() {
   core = context.core;
   egraph = context.egraph;
 
-
-  printf("eliminated equalities   : %"PRIu32"\n", num_eliminated_eqs(&context));
-  printf("subst candidates        : %"PRIu32"\n", num_subst_candidates(&context));
-  printf("substitutions           : %"PRIu32"\n", num_substitutions(&context));
-  printf("top equalities          : %"PRIu32"\n", num_top_eqs(&context));
-  printf("top atoms               : %"PRIu32"\n", num_top_atoms(&context));
-  printf("top formulas            : %"PRIu32"\n", num_top_formulas(&context));
-
   printf("boolean variables       : %"PRIu32"\n", core->nvars);
   printf("atoms                   : %"PRIu32"\n", core->atoms.natoms);
   if (egraph != NULL) {
@@ -166,8 +160,7 @@ static int process_benchmark(char *filename) {
    * Parse and build the formula
    */
   yices_init();
-  tstack_set_smt_mode();
-  init_tstack(&stack);
+  init_smt_tstack(&stack);
   init_parser(&parser, &lexer, &stack);
   init_benchmark(&bench);
   code = parse_smt_benchmark(&parser, &bench);
@@ -204,7 +197,7 @@ static int process_benchmark(char *filename) {
   /*
    * Initialize the context and set options
    */
-  init_context(&context, CTX_MODE_ONECHECK, arch, false);
+  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, arch, false);
 
   /*
    *  Internalize
@@ -218,7 +211,7 @@ static int process_benchmark(char *filename) {
    */
   delete_context(&context);
   delete_benchmark(&bench);
-  yices_cleanup();
+  yices_exit();
 
   return YICES_EXIT_SUCCESS;
 }
