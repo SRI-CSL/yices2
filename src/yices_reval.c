@@ -994,14 +994,15 @@ static void free_model(model_t *model) {
  * Allocate and initialize the global context and model.
  * Initialize the parameter table with default values.
  * Set the signal handlers.
+ * - logic = SMT_UNKNOWN or an SMT code
  * - arch = architecture to use
  * - mode = which optional features are supported
  * - iflag = true to active the integer solver
  * - qflag = true to support quantifiers
  */
-static void init_ctx(context_arch_t arch, context_mode_t mode, bool iflag, bool qflag) {
+static void init_ctx(smt_logic_t logic, context_arch_t arch, context_mode_t mode, bool iflag, bool qflag) {
   model = NULL;
-  context = yices_create_context(arch, mode, iflag, qflag);
+  context = yices_create_context(logic, arch, mode, iflag, qflag);
   yices_set_default_params(context, &parameters);
   if (verbose) {
     init_trace(&tracer);
@@ -3012,7 +3013,7 @@ int yices_main(int argc, char *argv[]) {
     print_version(stderr);
   }
 
-  init_ctx(arch, mode, iflag, qflag);
+  init_ctx(logic_code, arch, mode, iflag, qflag);
   ready_time = get_cpu_time();
 
   /*

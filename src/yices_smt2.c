@@ -44,6 +44,7 @@ static tstack_t stack;
 
 static bool incremental;
 static bool interactive;
+static int32_t verbosity;
 static char *filename;
 
 
@@ -54,6 +55,7 @@ static char *filename;
 typedef enum optid {
   show_version_opt,     // print version and exit
   show_help_opt,        // print help and exit
+  verbosity_opt,        // set verbosity on the command line
   incremental_opt,      // enable incremental mode
   interactive_opt,      // enable interactive mode
 } optid_t;
@@ -66,6 +68,7 @@ typedef enum optid {
 static option_desc_t options[NUM_OPTIONS] = {
   { "version", 'V', FLAG_OPTION, show_version_opt },
   { "help", 'h', FLAG_OPTION, show_help_opt },
+  { "verbosity", 'v', MANDATORY_INT, verbosity_opt },
   { "incremental", '\0', FLAG_OPTION, incremental_opt },
   { "interactive", '\0', FLAG_OPTION, interactive_opt },
 };
@@ -90,6 +93,8 @@ static void print_help(const char *progname) {
   printf("Option summary:\n"
 	 "    --version, -V           Show version and exit\n"
 	 "    --help, -h              Print this message and exit\n"
+	 "    --verbosity=<level>     Set verbosity level (default = 0)\n"
+	 "             -v <level>\n"
 	 "    --incremental           Enable support for push/pop\n"
 	 "    --interactive           Run in interactive mode (ignored if a filename is given)\n"
 	 "\n"
@@ -113,9 +118,12 @@ static void parse_command_line(int argc, char *argv[]) {
   cmdline_parser_t parser;
   cmdline_elem_t elem;
   optid_t k;
+  int32_t v;
 
   filename = NULL;
   incremental = false;
+  interactive = false;
+  verbosity = 0;
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
 
@@ -145,6 +153,16 @@ static void parse_command_line(int argc, char *argv[]) {
       case show_help_opt:
 	print_help(parser.command_name);
 	exit(YICES_EXIT_SUCCESS);
+
+      case verbosity_opt:
+	v = elem.i_value;
+	if (v < 0) {
+	  fprintf(stderr, "%s: the verbosity level must be non-negative\n", parser.command_name);
+	  print_usage(parser.command_name);
+	  exit(YICES_EXIT_USAGE);
+	}
+	verbosity = v;
+	break;
 
       case incremental_opt:
 	incremental = true;
@@ -193,6 +211,9 @@ int main(int argc, char *argv[]) {
   init_smt2(!incremental, interactive);
   init_smt2_tstack(&stack);
   init_parser(&parser, &lexer, &stack);
+  if (verbosity > 0) {
+    smt2_set_verbosity(verbosity);
+  }
 
   while (smt2_active()) {
     if (interactive) {

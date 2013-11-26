@@ -31,6 +31,7 @@
 #include "pseudo_subst.h"
 #include "mark_vectors.h"
 
+#include "smt_logic_codes.h"
 #include "search_parameters.h"
 #include "gates_manager.h"
 #include "smt_core.h"
@@ -567,9 +568,10 @@ typedef struct dl_data_s {
  *************/
 
 struct context_s {
-    // mode + architecture
+    // mode + architecture + logic code
   context_mode_t mode;
   context_arch_t arch;
+  smt_logic_t logic;
 
   // theories flag
   uint32_t theories;
@@ -701,13 +703,13 @@ enum {
  *******************************/
 
 /*
- * Initialize ctx for the given mode and architecture
+ * Initialize ctx for the given logic, mode, and architecture
  * - terms = term table for this context
  * - qflag = false means quantifier-free variant
  * - qflag = true means quantifiers allowed
  * If arch is one of the ARCH_AUTO_... variants, then mode must be ONECHECK
  */
-extern void init_context(context_t *ctx, term_table_t *terms, 
+extern void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
                          context_mode_t mode, context_arch_t arch, bool qflag);
 
 

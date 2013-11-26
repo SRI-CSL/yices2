@@ -1894,6 +1894,7 @@ static const bool logic2qflag[NUM_SMT_LOGICS] = {
  * - make sure the logic is supported before calling this
  */
 static void init_smt2_context(smt2_globals_t *g) {
+  smt_logic_t logic;
   context_arch_t arch;
   context_mode_t mode;
   bool iflag;
@@ -1902,6 +1903,7 @@ static void init_smt2_context(smt2_globals_t *g) {
   assert(logic2arch[g->logic_code] >= 0);
 
   // default: assume g->benchmark_mode is true
+  logic = g->logic_code;
   mode = CTX_MODE_ONECHECK;
   arch = (context_arch_t) logic2arch[g->logic_code];
   iflag = logic2iflag[g->logic_code];
@@ -1916,7 +1918,7 @@ static void init_smt2_context(smt2_globals_t *g) {
     }
   }
 
-  g->ctx = yices_create_context(arch, mode, iflag, qflag);
+  g->ctx = yices_create_context(logic, arch, mode, iflag, qflag);
   assert(g->ctx != NULL);
   if (g->verbosity > 0) {
     context_set_trace(g->ctx, get_tracer(g));
@@ -1933,10 +1935,6 @@ static void init_smt2_context(smt2_globals_t *g) {
 static void init_search_parameters(smt2_globals_t *g) {
   assert(g->ctx != NULL);
   yices_set_default_params(g->ctx, &parameters);
-  // special setting for QF_UFLIA
-  if (g->benchmark_mode && g->logic_code == QF_UFLIA) {
-    parameters.use_optimistic_fcheck = false;
-  }
 }
 
 

@@ -1076,7 +1076,7 @@ static int process_benchmark(void) {
    * and global search options
    */
   init_params_to_defaults(&params);
-  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, arch, qflag);
+  init_context(&context, __yices_globals.terms, logic, CTX_MODE_ONECHECK, arch, qflag);
 
 #if COMMAND_LINE_OPTIONS
   if (verbose) {

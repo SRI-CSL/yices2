@@ -5636,6 +5636,7 @@ EXPORTED int32_t yices_set_param(param_t *param, const char *name, const char *v
 
 /*
  * Set the default preprocessing options for a context
+ * - logic = logic code (or SMT_UNKNOWN)
  * - arch = architecture
  * - iflag = true if integer solver is active
  * - qflag = true if quantifier support is required
@@ -5643,15 +5644,15 @@ EXPORTED int32_t yices_set_param(param_t *param, const char *name, const char *v
  * Note: these settings are based on benchmarking using the SMT-LIB 1.2
  * benchmarks (cf. yices_smtcomp.c)
  */
-static void context_set_default_options(context_t *ctx, context_arch_t arch, bool iflag, bool qflag) {
+static void context_set_default_options(context_t *ctx, smt_logic_t logic, context_arch_t arch, bool iflag, bool qflag) {
   enable_variable_elimination(ctx);
   enable_eq_abstraction(ctx);
   enable_arith_elimination(ctx);
   enable_bvarith_elimination(ctx);
+
   if (iflag) {
     enable_splx_periodic_icheck(ctx);
-    if (arch == CTX_ARCH_SPLX) {
-      // assume QF_LIA setting here (could be QF_IDL?)
+    if (logic == QF_LIA) {
       enable_splx_eager_lemmas(ctx);
     }
   }
@@ -5671,7 +5672,6 @@ static void context_set_default_options(context_t *ctx, context_arch_t arch, boo
 
   case CTX_ARCH_EGSPLX:
   case CTX_ARCH_EGFUNSPLX:
-    // FOR TESTING (r2832)
     enable_diseq_and_or_flattening(ctx);
     enable_splx_eqprop(ctx);
     break;
@@ -5680,23 +5680,25 @@ static void context_set_default_options(context_t *ctx, context_arch_t arch, boo
     enable_diseq_and_or_flattening(ctx);
     break;
   }
+
 }
 
 
 /*
  * Allocate and initialize a new context.
- * The configuration is specified by arch/mode/iflag/qflag.
+ * The configuration is specified by logic/arch/mode/iflag/qflag.
+ * - logic = SMT_UNKNOWN or a logic code
  * - arch = architecture to use
  * - mode = which optional features are supported
  * - iflag = true to active the integer solver
  * - qflag = true to support quantifiers
  */
-context_t *yices_create_context(context_arch_t arch, context_mode_t mode, bool iflag, bool qflag) {
+context_t *yices_create_context(smt_logic_t logic, context_arch_t arch, context_mode_t mode, bool iflag, bool qflag) {
   context_t *ctx;
 
   ctx = alloc_context();
-  init_context(ctx, &terms, mode, arch, qflag);
-  context_set_default_options(ctx, arch, iflag, qflag);
+  init_context(ctx, &terms, logic, mode, arch, qflag);
+  context_set_default_options(ctx, logic, arch, iflag, qflag);
 
   return ctx;
 }
@@ -5709,6 +5711,7 @@ context_t *yices_create_context(context_arch_t arch, context_mode_t mode, bool i
  * - otherwise, if the configuration is not supported, the function returns NULL.
  */
 EXPORTED context_t *yices_new_context(const ctx_config_t *config) {
+  smt_logic_t logic;
   context_arch_t arch;
   context_mode_t mode;
   bool iflag;
@@ -5717,13 +5720,14 @@ EXPORTED context_t *yices_new_context(const ctx_config_t *config) {
 
   if (config == NULL) {
     // Default configuration: all solvers, mode = push/pop
+    logic = SMT_UNKNOWN;
     arch = CTX_ARCH_EGFUNSPLXBV;
     mode = CTX_MODE_PUSHPOP;
     iflag = true;
     qflag = false;
   } else {
     // read the config
-    k = decode_config(config, &arch, &mode, &iflag, &qflag);
+    k = decode_config(config, &logic, &arch, &mode, &iflag, &qflag);
     if (k < 0) {
       // invalid configuration
       error.code = CTX_INVALID_CONFIG;
@@ -5731,7 +5735,7 @@ EXPORTED context_t *yices_new_context(const ctx_config_t *config) {
     }
   }
 
-  return yices_create_context(arch, mode, iflag, qflag);
+  return yices_create_context(logic, arch, mode, iflag, qflag);
 }
 
 
@@ -6085,8 +6089,7 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
     params->branching = BRANCHING_THEORY;
     params->cache_tclauses = true;
     params->tclause_size = 8;
-    if (splx_periodic_icheck_enabled(ctx)) {
-      // assume QF_LIA (could use QF_IDL??)
+    if (ctx->logic == QF_LIA) {
       params->use_simplex_prop = true;
       params->tclause_size = 20;
     }
@@ -6111,20 +6114,16 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
     params->adjust_simplex_model = true;
     params->cache_tclauses = true;
     params->tclause_size = 8;
-    if (splx_periodic_icheck_enabled(ctx)) {
-      // QF_UFLIA or QF_AUFLIA
+    if (ctx->logic == QF_UFLIA || ctx->logic == QF_AUFLIA) {
       params->branching = BRANCHING_NEGATIVE;
       params->max_interface_eqs = 15;
     } else {
       params->branching = BRANCHING_THEORY;
       params->max_interface_eqs = 30;
     }
-    if (logic == QF_UFLIA) {
-      params.use_optimistic_fcheck = false;
+    if (ctx->logic == QF_UFLIA) {
+      params->use_optimistic_fcheck = false;
     }
-    /*
-     *    enable_splx_eqprop(&context);
-     */
     break;
 
   case CTX_ARCH_EGBV:         // egraph+bitvector solver
@@ -6159,10 +6158,6 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
 }
 
 
-// Use a global variable for now. To be fixed.
-static param_t default_params;
-
-
 /*
  * Check satisfiability: check whether the assertions stored in ctx
  * are satisfiable.  
@@ -6194,6 +6189,7 @@ static param_t default_params;
  *    it also sets the yices error report (code = CTX_INVALID_OPERATION).
  */
 EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params) {
+  param_t default_params;
   smt_status_t stat;
 
   stat = context_status(ctx);

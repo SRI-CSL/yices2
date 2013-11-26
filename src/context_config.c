@@ -530,8 +530,7 @@ static bool arch_supports_mode(context_arch_t a, context_mode_t mode) {
  *  -2 if the config is valid but not currently supported
  *  -3 if the solver combination is valid but does not support the specified mode
  */
-int32_t decode_config(const ctx_config_t *config, context_arch_t *arch, 
-                      context_mode_t *mode, bool *iflag, bool *qflag) {
+int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_arch_t *arch, context_mode_t *mode, bool *iflag, bool *qflag) {
 
   smt_logic_t logic_code;
   int32_t a, r;
@@ -550,6 +549,7 @@ int32_t decode_config(const ctx_config_t *config, context_arch_t *arch,
      */
     if (config->arith_config == CTX_CONFIG_AUTO && config->mode == CTX_MODE_ONECHECK) {
       if (logic_code == QF_IDL) {
+	*logic = QF_IDL;
 	*arch = CTX_ARCH_AUTO_IDL;
 	*mode = CTX_MODE_ONECHECK;
 	*iflag = false;
@@ -558,6 +558,7 @@ int32_t decode_config(const ctx_config_t *config, context_arch_t *arch,
       }
 
       if (logic_code == QF_RDL) {
+	*logic = QF_RDL;
 	*arch = CTX_ARCH_AUTO_RDL;
 	*mode = CTX_MODE_ONECHECK;
 	*iflag = false;
@@ -572,6 +573,7 @@ int32_t decode_config(const ctx_config_t *config, context_arch_t *arch,
       r = -2;
     } else {
       // good configuration
+      *logic = logic_code;
       *arch = (context_arch_t) a;
       *iflag = logic2iflag[logic_code];
       *qflag = logic2qflag[logic_code];
@@ -598,6 +600,7 @@ int32_t decode_config(const ctx_config_t *config, context_arch_t *arch,
       r = -1; // invalid combination of solvers
     } else if (arch_supports_mode(a, config->mode)) {
       // good configuration
+      *logic = SMT_UNKNOWN;
       *arch = (context_arch_t) a;      
       *iflag = fragment2iflag[config->arith_fragment];
       *qflag = false;

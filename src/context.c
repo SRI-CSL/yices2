@@ -3899,7 +3899,7 @@ static inline bool valid_arch(context_arch_t arch) {
  * - qflag = true means quantifiers allowed
  * - qflag = false means no quantifiers
  */
-void init_context(context_t *ctx, term_table_t *terms,
+void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
                   context_mode_t mode, context_arch_t arch, bool qflag) {  
   assert(valid_mode(mode) && valid_arch(arch));
 
@@ -3908,6 +3908,7 @@ void init_context(context_t *ctx, term_table_t *terms,
    */
   ctx->mode = mode;
   ctx->arch = arch;
+  ctx->logic = logic;
   ctx->theories = arch2theories[arch];
   ctx->options = mode2options[mode];
   if (qflag) {

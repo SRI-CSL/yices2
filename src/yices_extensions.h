@@ -443,6 +443,7 @@ extern harray_t *yices_free_vars_of_term(term_t t);
  * Return a new context for the given arch, mode, iflag, and qflag.
  * This doesn't use the configuration object, unlike the official 
  * yices_new_context declared in yices.h.
+ * - logic = logic code (can be SMT_UNKNOWN)
  * - arch = architecture to use
  * - mode = which optional features are supported
  * - iflag = true to active the integer solver
@@ -454,7 +455,7 @@ extern harray_t *yices_free_vars_of_term(term_t t);
  * - diseq/or flattening
  * - arithvar and bvarithvar elimination
  */
-extern context_t *yices_create_context(context_arch_t arch, context_mode_t mode,
+extern context_t *yices_create_context(smt_logic_t logic, context_arch_t arch, context_mode_t mode,
                                        bool iflag, bool qflag);
 
 

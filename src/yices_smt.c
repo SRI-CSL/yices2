@@ -1681,6 +1681,7 @@ static int process_benchmark(char *filename) {
   model_t *model;
   int32_t code;
   double mem_used;
+  smt_logic_t logic;
   context_arch_t arch;
   bool need_icheck;   // true if simplex needs integer check
 
@@ -1745,7 +1746,8 @@ static int process_benchmark(char *filename) {
   arch = CTX_ARCH_NOSOLVERS; // otherwise GCC gives a warning
 
   if (bench.logic_name != NULL) {
-    switch (smt_logic_code(bench.logic_name)) {
+    logic = smt_logic_code(bench.logic_name);
+    switch (logic) {
     case QF_AUFLIA:
       /*
        * Arrays + uf + simplex
@@ -1894,7 +1896,7 @@ static int process_benchmark(char *filename) {
   /*
    * Initialize the context and set options
    */
-  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, arch, false);  
+  init_context(&context, __yices_globals.terms, logic, CTX_MODE_ONECHECK, arch, false);  
   if (var_elim) {
     enable_variable_elimination(&context);
   }

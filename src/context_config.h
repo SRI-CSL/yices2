@@ -140,7 +140,8 @@ extern int32_t config_set_field(ctx_config_t *config, const char *key, const cha
 
 /*
  * Check whether config is valid, and supported by this version of Yices,
- * and convert it to a tuple (arch, mode, iflag, qflag)
+ * and convert it to a tuple (logic, arch, mode, iflag, qflag)
+ * - logic = config->logic
  * - arch = architecture code as defined in context.h
  * - mode = one of the context's modes
  * - iflag = true if the integer solver (in simplex) is required
@@ -164,7 +165,7 @@ extern int32_t config_set_field(ctx_config_t *config, const char *key, const cha
  *  -2 if the config is valid but not currently supported
  *   0 if the config is valid and supported
  */
-extern int32_t decode_config(const ctx_config_t *config, context_arch_t *arch, 
+extern int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_arch_t *arch, 
                              context_mode_t *mode, bool *iflag, bool *qflag);
 
 
