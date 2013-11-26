@@ -2944,11 +2944,13 @@ void smt2_get_assertions(void) {
  * :produce-assignments is false. We ignore this requirement.
  */
 void smt2_get_assignment(void) {
+#if 0
   __smt2_globals.stats.num_get_assignment ++;
   __smt2_globals.stats.num_commands ++;
   if ((__smt2_globals.stats.num_commands & 0x7FFFFu) == 0) {
     tprintf(__smt2_globals.tracer, 10, "get-assignment: %"PRIu32"\n", __smt2_globals.stats.num_get_assignment);
   }
+#endif
 
   if (check_logic()) {
     show_assignment(&__smt2_globals);
@@ -2991,11 +2993,13 @@ void smt2_get_value(term_t *a, uint32_t n) {
   ivector_t *values;
   model_t *mdl;
 
+#if 0
   __smt2_globals.stats.num_get_value ++;
   __smt2_globals.stats.num_commands ++;
   if ((__smt2_globals.stats.num_commands & 0x7FFFFu) == 0) {
     tprintf(__smt2_globals.tracer, 10, "get-value: %"PRIu32"\n", __smt2_globals.stats.num_get_value);
   }
+#endif
 
   if (check_logic()) {
     // make sure we have a model
@@ -3313,11 +3317,13 @@ void smt2_set_logic(const char *name) {
 void smt2_push(uint32_t n) {
   smt2_globals_t *g;
 
+#if 0
   __smt2_globals.stats.num_push ++;
   __smt2_globals.stats.num_commands ++;
   if ((__smt2_globals.stats.num_commands & 0x7FFFFu) == 0) {
     tprintf(__smt2_globals.tracer, 10, "push: %"PRIu32"\n", __smt2_globals.stats.num_push);
   }
+#endif
 
   if (check_logic()) {
     g = &__smt2_globals;
@@ -3353,11 +3359,13 @@ void smt2_pop(uint32_t n) {
   smt2_push_rec_t *r;
   uint32_t m;
 
+#if 0
   __smt2_globals.stats.num_pop ++;
   __smt2_globals.stats.num_commands ++;
   if ((__smt2_globals.stats.num_commands & 0x7FFFFu) == 0) {
     tprintf(__smt2_globals.tracer, 10, "pop: %"PRIu32"\n", __smt2_globals.stats.num_push);
   }
+#endif
 
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {
@@ -3422,11 +3430,13 @@ void smt2_pop(uint32_t n) {
  * - if t is a :named assertion then it should be recorded for unsat-core
  */
 void smt2_assert(term_t t) {
+#if 0
   __smt2_globals.stats.num_assert ++;
   __smt2_globals.stats.num_commands ++;
   if (true || (__smt2_globals.stats.num_commands & 0x7FFFFu) == 0) {
     tprintf(__smt2_globals.tracer, 10, "assert: %"PRIu32"\n", __smt2_globals.stats.num_assert);
   }
+#endif
 
   if (check_logic()) {
     if (yices_term_is_bool(t)) {
@@ -3452,11 +3462,13 @@ void smt2_assert(term_t t) {
  * Check satisfiability of the current set of assertions
  */
 void smt2_check_sat(void) {
+#if 0
   __smt2_globals.stats.num_check_sat ++;
   __smt2_globals.stats.num_commands ++;
   if ((__smt2_globals.stats.num_commands & 0x7FFFFu) == 0) {
     tprintf(__smt2_globals.tracer, 10, "check-sat: %"PRIu32"\n", __smt2_globals.stats.num_check_sat);
   }
+#endif
   
   if (check_logic()) {
     if (__smt2_globals.benchmark_mode) {
@@ -3484,11 +3496,13 @@ void smt2_declare_sort(const char *name, uint32_t arity) {
   type_t tau;
   int32_t macro;
 
+#if 0
   __smt2_globals.stats.num_declare_sort ++;
   __smt2_globals.stats.num_commands ++;
   if ((__smt2_globals.stats.num_commands & 0x7FFFFu) == 0) {
     tprintf(__smt2_globals.tracer, 10, "declare-sort: %"PRIu32"\n", __smt2_globals.stats.num_declare_sort);
   }
+#endif
 
   if (check_logic()) {
     if (arity == 0) {
@@ -3520,11 +3534,13 @@ void smt2_declare_sort(const char *name, uint32_t arity) {
 void smt2_define_sort(const char *name, uint32_t n, type_t *var, type_t body) {
   int32_t macro;
 
+#if 0
   __smt2_globals.stats.num_define_sort ++;
   __smt2_globals.stats.num_commands ++;
   if ((__smt2_globals.stats.num_commands & 0x7FFFFu) == 0) {
     tprintf(__smt2_globals.tracer, 10, "define-sort: %"PRIu32"\n", __smt2_globals.stats.num_define_sort);
   }
+#endif
 
   if (check_logic()) {
     if (n == 0) {
@@ -3560,11 +3576,13 @@ void smt2_declare_fun(const char *name, uint32_t n, type_t *tau) {
 
   assert(n > 0);
 
+#if 0
   __smt2_globals.stats.num_declare_fun ++;
   __smt2_globals.stats.num_commands ++;
   if ((__smt2_globals.stats.num_commands & 0x7FFFFu) == 0) {
     tprintf(__smt2_globals.tracer, 10, "declare-fun: %"PRIu32"\n", __smt2_globals.stats.num_declare_fun);
   }
+#endif
 
   if (check_logic()) {
     n --;
@@ -3598,11 +3616,13 @@ void smt2_declare_fun(const char *name, uint32_t n, type_t *tau) {
 void smt2_define_fun(const char *name, uint32_t n, term_t *var, term_t body, type_t tau) {
   term_t t;
 
+#if 0
   __smt2_globals.stats.num_define_fun ++;
   __smt2_globals.stats.num_commands ++;
   if ((__smt2_globals.stats.num_commands & 0x7FFFFu) == 0) {
     tprintf(__smt2_globals.tracer, 10, "define-fun: %"PRIu32"\n", __smt2_globals.stats.num_define_fun);
   }
+#endif
 
   if (check_logic()) {
     if (! yices_check_term_type(body, tau)) {
