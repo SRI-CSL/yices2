@@ -1350,12 +1350,20 @@ static const help_record_t help_data[] = {
     "If this parameter is true, Yices attempts to eliminated variables\n"
     "in bitvector constraints of the form (= <lineary bitvector polynomial> 0b00..0)\n",
     "In an assertion such as (= (bv-add x y z)), then one of 'x', 'y', or 'z' may be eliminated\n" },
-    
-  // END MARKER: index 140
+
+  // optimistic-fcheck: index 140
+  { HPARAM,
+    "(set-param optimistic-fcheck [boolean])",
+    "Enable/disable an optimistic from of final check",
+    "If this parameter is true, Yices attempts to modify the Egraph\n"
+    "to make it consistent with the arithmetic or bitvector models.\n",
+    NULL },
+
+  // END MARKER: index 141
   { HMISC, NULL, NULL, NULL, NULL },
 };
 
-#define END_HELP_DATA 140
+#define END_HELP_DATA 141
 
 
 
@@ -1791,6 +1799,7 @@ static const help_index_t help_index[] = {
   { "mk-bv", NULL, 57, help_basic },
   { "mk-tuple", NULL, 35, help_basic },
   { "not", NULL, 43, help_basic },
+  { "optimistic-fcheck", NULL, 140, help_basic },
   { "or", NULL, 41, help_basic },
   { "params", "Parameters", HPARAM, help_for_category },
   { "push", NULL, 6, help_basic },

@@ -6148,6 +6148,19 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
     params->d_factor = 1.1; 
     break;
 
+  case CTX_ARCH_EGFUNSPLXBV:
+    // egraph+bitvector+simplex+fun solver
+    // this is the default if no logic is specified
+    params->use_dyn_ack = true;
+    params->use_bool_dyn_ack = true;
+    params->use_optimistic_fcheck = true;
+    params->use_simplex_prop = true;
+    params->adjust_simplex_model = true;
+    params->cache_tclauses = true;
+    params->tclause_size = 8;
+    params->max_interface_eqs = 15;
+    break;
+
   case CTX_ARCH_EGFUN:
   case CTX_ARCH_AUTO_IDL:
   case CTX_ARCH_AUTO_RDL:

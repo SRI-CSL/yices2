@@ -193,6 +193,7 @@ typedef enum yices_param {
   // egraph parameters
   PARAM_DYN_ACK,
   PARAM_DYN_BOOL_ACK,
+  PARAM_OPTIMISTIC_FCHECK,
   PARAM_MAX_ACK,
   PARAM_MAX_BOOL_ACK,
   PARAM_AUX_EQ_QUOTA,
@@ -247,6 +248,7 @@ static const char * const param_names[NUM_PARAMETERS] = {
   "max-extensionality",
   "max-interface-eqs",
   "max-update-conflicts",
+  "optimistic-fcheck",
   "prop-threshold",
   "r-factor",
   "r-fraction",
@@ -290,6 +292,7 @@ static const yices_param_t param_code[NUM_PARAMETERS] = {
   PARAM_MAX_EXTENSIONALITY,
   PARAM_MAX_INTERFACE_EQS,
   PARAM_MAX_UPDATE_CONFLICTS,
+  PARAM_OPTIMISTIC_FCHECK,
   PARAM_PROP_THRESHOLD,
   PARAM_R_FACTOR,
   PARAM_R_FRACTION,
@@ -710,11 +713,6 @@ static void process_command_line(int argc, char *argv[]) {
       }
     }
   }
-
-
-  /*
-   * EXPERIMENTAL
-   */
 
   return;
 
@@ -1399,6 +1397,10 @@ static void show_param(yices_param_t p, uint32_t n) {
     show_bool_param(param2string[p], parameters.use_bool_dyn_ack, n);
     break;
 
+  case PARAM_OPTIMISTIC_FCHECK:
+    show_bool_param(param2string[p], parameters.use_optimistic_fcheck, n);
+    break;
+
   case PARAM_MAX_ACK:
     show_pos32_param(param2string[p], parameters.max_ackermann, n);
     break;
@@ -1699,18 +1701,25 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
 
   case PARAM_DYN_ACK:
     if (param_val_to_bool(param, val, &tt)) {
-      parameters.use_dyn_ack = true;
+      parameters.use_dyn_ack = tt;
       print_ok();
     }
     break;
 
   case PARAM_DYN_BOOL_ACK:
     if (param_val_to_bool(param, val, &tt)) {
-      parameters.use_bool_dyn_ack = true;
+      parameters.use_bool_dyn_ack = tt;
       print_ok();
     }
     break;
-    
+
+  case PARAM_OPTIMISTIC_FCHECK:
+    if (param_val_to_bool(param, val, &tt)) {
+      parameters.use_optimistic_fcheck = tt;
+      print_ok();
+    }
+    break;
+
   case PARAM_MAX_ACK:
     if (param_val_to_pos32(param, val, &n)) {
       parameters.max_ackermann = n;
