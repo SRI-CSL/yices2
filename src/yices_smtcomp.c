@@ -1128,6 +1128,9 @@ static int process_benchmark(void) {
     params.c_factor = 1.1;  
     params.d_factor = 1.1; 
     params.randomness = 0.0;
+    // EXPERIMENT: faster restarts
+    params.c_factor = 1.05;
+    params.d_factor = 1.05;
     break;
 
   case CTX_ARCH_EGFUN:        // egraph+array/function theory 
