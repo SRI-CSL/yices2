@@ -6119,11 +6119,10 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
       params->branching = BRANCHING_THEORY;
       params->max_interface_eqs = 30;
     }
+    if (logic == QF_UFLIA) {
+      params.use_optimistic_fcheck = false;
+    }
     /*
-     * TODO: test this setting (as in yices_smt_comp.c)
-     *     if (logic == QF_UFLIA) {
-     *        params.use_optimistic_fcheck = false;
-     *     }
      *    enable_splx_eqprop(&context);
      */
     break;
