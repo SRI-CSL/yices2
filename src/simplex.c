@@ -31,10 +31,10 @@
 
 #define TRACE_INIT 0
 #define TRACE_PROPAGATION 0
-#define TRACE_BB 1
+#define TRACE_BB 0
 
 
-#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG) || 1
+#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG)
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -3721,13 +3721,15 @@ static void convert_expl_to_clause(ivector_t *v) {
  * - then this is turned into a clause
  */
 static void simplex_build_conflict_clause(simplex_solver_t *solver, ivector_t *v) {
+#if TRACE
   uint32_t i, j, n;
   bool show;
+#endif
 
   assert(v->size == 0);
   simplex_build_explanation(solver, v);
   convert_expl_to_clause(v);
-#if 1
+#if TRACE
   show = true;
   n = v->size;
   for (i=0; i<n; i++) {
