@@ -406,6 +406,14 @@ extern void smt2_set_verbosity(uint32_t k);
 
 
 /*
+ * Show all statistics on the 
+ * - same effect as (get-info :all-statistics)
+ * - must be called after init_smt2
+ */
+extern void smt2_show_stats(void);
+
+
+/*
  * Delete all internal structures (called after exit).
  */
 extern void delete_smt2(void);

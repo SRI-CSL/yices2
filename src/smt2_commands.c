@@ -2884,6 +2884,14 @@ void smt2_set_verbosity(uint32_t k) {
 }
 
 /*
+ * Display all statistics
+ */
+void smt2_show_stats(void) {
+  show_statistics(&__smt2_globals);
+}
+
+
+/*
  * Delete all structures and close output/trace files
  */
 void delete_smt2(void) {

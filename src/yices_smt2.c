@@ -13,8 +13,6 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-#include "cputime.h"
-#include "memsize.h"
 #include "command_line.h"
 
 #include "smt2_lexer.h"
@@ -44,6 +42,7 @@ static tstack_t stack;
 
 static bool incremental;
 static bool interactive;
+static bool show_stats;
 static int32_t verbosity;
 static char *filename;
 
@@ -55,6 +54,7 @@ static char *filename;
 typedef enum optid {
   show_version_opt,     // print version and exit
   show_help_opt,        // print help and exit
+  show_stats_opt,       // show statistics after all commands are processed
   verbosity_opt,        // set verbosity on the command line
   incremental_opt,      // enable incremental mode
   interactive_opt,      // enable interactive mode
@@ -68,6 +68,7 @@ typedef enum optid {
 static option_desc_t options[NUM_OPTIONS] = {
   { "version", 'V', FLAG_OPTION, show_version_opt },
   { "help", 'h', FLAG_OPTION, show_help_opt },
+  { "stats", 's', FLAG_OPTION, show_stats_opt },
   { "verbosity", 'v', MANDATORY_INT, verbosity_opt },
   { "incremental", '\0', FLAG_OPTION, incremental_opt },
   { "interactive", '\0', FLAG_OPTION, interactive_opt },
@@ -95,6 +96,7 @@ static void print_help(const char *progname) {
 	 "    --help, -h              Print this message and exit\n"
 	 "    --verbosity=<level>     Set verbosity level (default = 0)\n"
 	 "             -v <level>\n"
+	 "    --stats, -s             Print statistics once all commands have been processed\n"
 	 "    --incremental           Enable support for push/pop\n"
 	 "    --interactive           Run in interactive mode (ignored if a filename is given)\n"
 	 "\n"
@@ -123,6 +125,7 @@ static void parse_command_line(int argc, char *argv[]) {
   filename = NULL;
   incremental = false;
   interactive = false;
+  show_stats = false;
   verbosity = 0;
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
@@ -153,6 +156,10 @@ static void parse_command_line(int argc, char *argv[]) {
       case show_help_opt:
 	print_help(parser.command_name);
 	exit(YICES_EXIT_SUCCESS);
+
+      case show_stats_opt:
+	show_stats = true;
+	break;
 
       case verbosity_opt:
 	v = elem.i_value;
@@ -192,7 +199,6 @@ static void parse_command_line(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
   int32_t code;
-  double time, mem_used;
 
   parse_command_line(argc, argv);
 
@@ -231,13 +237,10 @@ int main(int argc, char *argv[]) {
       }
     }
   }
-
-  // statistics
-  time = get_cpu_time();
-  mem_used = mem_size() / (1024 * 1024);
-  printf("\nRun time: %.4f s\n", time);
-  printf("Memory used: %.2f MB\n\n", mem_used);
-  fflush(stdout);
+  
+  if (show_stats) {
+    smt2_show_stats();
+  }
 
   delete_parser(&parser);
   close_lexer(&lexer);
