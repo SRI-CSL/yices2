@@ -1,5 +1,5 @@
 /*
- * Vector that store a map frrom 32bit indices to 8bit values
+ * Vector that stores a map from 32bit indices to 8bit values
  * - this is a variant of mark_vectors.h intended to be more
  *   efficient (to be used by the sat solver)
  * - the default value is map[x] = 0 for all x
