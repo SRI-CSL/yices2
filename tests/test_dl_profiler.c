@@ -164,7 +164,7 @@ static int32_t test_dl_profiling(smt_benchmark_t *bench) {
     return YICES_EXIT_ERROR;
   }
 
-  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, arch, false);
+  init_context(&context, __yices_globals.terms, logic, CTX_MODE_ONECHECK, arch, false);
   enable_variable_elimination(&context);
   enable_eq_abstraction(&context);
 
