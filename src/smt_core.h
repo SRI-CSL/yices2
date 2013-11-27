@@ -1575,6 +1575,23 @@ extern void smt_restart(smt_core_t *s);
 
 
 /*
+ * Variant of retart: attempt to reuse the assignment trail
+ * - find the unassigned variable x of highest activity
+ * - keep all current decisions that have a higher activity than x
+ */
+extern void smt_partial_restart(smt_core_t *s);
+
+
+/*
+ * Another variant of retart: attempt to reuse the assignment trail
+ * - find the unassigned variable x of highest activity 
+ * - keep all current decision levels that have at least one
+ *   variable with a higher activity than x
+ */
+extern void smt_partial_restart_var(smt_core_t *s);
+
+
+/*
  * Reduce the clause database by removing half the learned clauses
  * (the ones with lowest activities)
  */
