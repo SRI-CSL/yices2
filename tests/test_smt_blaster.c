@@ -250,7 +250,7 @@ static void test_blaster(smt_benchmark_t *bench) {
     return;
   }
 
-  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, CTX_ARCH_BV, false);
+  init_context(&context, __yices_globals.terms, logic, CTX_MODE_ONECHECK, CTX_ARCH_BV, false);
   enable_lax_mode(&context); // FOR TESTING
   enable_variable_elimination(&context);
   enable_eq_abstraction(&context);

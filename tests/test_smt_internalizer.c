@@ -545,7 +545,7 @@ static void test_internalization(smt_benchmark_t *bench) {
   qflag = logic2qflag[logic];
   arch = (context_arch_t) code;
 
-  init_context(&context, __yices_globals.terms, CTX_MODE_ONECHECK, arch, qflag);
+  init_context(&context, __yices_globals.terms, logic, CTX_MODE_ONECHECK, arch, qflag);
   enable_lax_mode(&context); // FOR TESTING
   enable_variable_elimination(&context);
   enable_eq_abstraction(&context);
