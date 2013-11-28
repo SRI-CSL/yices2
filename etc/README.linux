@@ -18,7 +18,7 @@ This distribution includes four solvers
 
 and the Yices libraries and header files
 
-  lib/libyices.so.2.1.0
+  lib/libyices.so.2.1.1
   include/yices.h
   include/yices_types.h
   include/yices_limits.h
@@ -42,7 +42,7 @@ The binaries can be used as is. To use the library, you'll need to
 create symbolic links as follows:
 
   /sbin/ldconfig -n lib
-  ln -sf libyices.so.2.1.0 lib/libyices.so
+  ln -sf libyices.so.2.1.1 lib/libyices.so
 
 You can do the same thing with the shell script 'install-yices'
 included in this distribution. Just type
