@@ -15,9 +15,9 @@ non-standard GCC extensions and understand options -MM -MG, which are
 used to build dependencies in src/Makefile.
 
 Recent versions of clang (e.g., clang+llvm 3.0) seem to work just
-fine. This is important for compilation on MacOS X Lion (Darwin
-11.x.y), because Apple's Xcode 4.1 (for MacOS X Lion) does not include
-GCC but only llvm-gcc and clang. 
+fine. This is important for compilation on MacOS X Lion or newer
+releases because Apple's Xcode for these systems does not include GCC
+but only llvm-gcc and clang.
 
 
 
