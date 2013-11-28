@@ -454,8 +454,10 @@ endif
 #
 # We need to remove -lgmp from LIBS in static mode, otherwise adding
 # $(STATIC_GMP) does not work on Darwin and cygwin
+# We also use $(NOGMP_LIBS) to build yices_sat.
 #
-STATIC_LIBS := $(STATIC_GMP) $(subst $(LIBS),-lgmp,)
+NOGMP_LIBS := $(subst $(LIBS),-lgmp,)
+STATIC_LIBS := $(STATIC_GMP) $(NOGMP_LIBS)
 
 
 
@@ -552,6 +554,17 @@ $(static_libyices):  $(static_obj) $(static_version_obj)
 #
 # Executables
 #
+
+# for yices_sat: we don't need gmp
+$(bindir)/yices_sat$(EXEEXT): $(objdir)/yices_sat.o $(libyices)
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
+	   -o $@ $< $(libyices) $(NOGMP_LIBS)
+
+$(static_bindir)/yices_sat$(EXEEXT): $(static_objdir)/yices_sat.o $(static_libyices)
+	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) $(STATIC) \
+	   -o $@ $< $(static_libyices) $(NOGMP_LIBS)
+
+# for all other executables
 $(bindir)/%$(EXEEXT): $(objdir)/%.o $(libyices)
 	$(LNK) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
 	   -o $@ $< $(libyices) $(LIBS)
