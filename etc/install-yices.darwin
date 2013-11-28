@@ -38,7 +38,7 @@ If the <directory> is not given, this script will attempt to install
 Yices in the default location, that is, in /usr/local. To use this
 option, you typically need 
  
-   sudo ./$0
+   sudo $0
 
 The second form install yices locally. The script will just create symbolic 
 links in the ./lib directory.
