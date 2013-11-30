@@ -279,8 +279,8 @@ static void solve(smt_core_t *core, const param_t *params) {
 
       if (smt_status(core) != STATUS_SEARCHING) break;
 
-      //      smt_restart(core);
-      smt_partial_restart_var(core);
+      smt_restart(core);
+      //      smt_partial_restart_var(core);
 
       // inner restart: increase c_threshold
       c_threshold = (uint32_t) (c_threshold * params->c_factor);

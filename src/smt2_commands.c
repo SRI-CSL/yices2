@@ -1268,7 +1268,8 @@ static void show_statistics(smt2_globals_t *g) {
   if (g->ctx != NULL) {
     show_ctx_stats(g->ctx);
   }
-  print_out(")\n");  
+  print_out(")\n");
+  flush_out();
 }
 
 
@@ -2287,6 +2288,7 @@ static void ctx_check_sat(smt2_globals_t *g) {
     bad_status_bug(g->err);
     break;
   }
+  flush_out();
 }
 
 
@@ -2724,6 +2726,7 @@ static void explain_unknown_status(smt2_globals_t *g) {
       switch (context_status(g->ctx)) {
       case STATUS_UNKNOWN:
 	print_kw_symbol_pair(":reason-unknown", "incomplete");
+	flush_out();
 	break;
 
       case STATUS_SAT:
@@ -3118,6 +3121,8 @@ void smt2_get_option(const char *name) {
     unsupported_option();
     break;   
   }
+
+  flush_out();
 }
 
 
@@ -3167,6 +3172,8 @@ void smt2_get_info(const char *name) {
     }
     break;
   }
+
+  flush_out();
 }
 
 
@@ -3240,6 +3247,7 @@ void smt2_set_option(const char *name, aval_t value) {
   case SMT2_KW_PRODUCE_UNSAT_CORES:
   default:
     unsupported_option();
+    flush_out();
     break;
   }
 }
