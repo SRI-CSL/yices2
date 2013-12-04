@@ -89,7 +89,7 @@ header files,  and examples and documentation.  The  Yices library and
 header files  allows you  to use  Yices via its  API, as  explained in
 Chapter~\ref{yices-api}.
 
-Three solvers are currently included in the distribution:
+Foursolvers are currently included in the distribution:
 \begin{itemize}
 \item \texttt{yices} is  the main SMT solver. It  can read and process
   input given  in Yices~2's  specification language. This  language is
@@ -98,12 +98,12 @@ Three solvers are currently included in the distribution:
 \item  \texttt{yices-smt} is  a solver  for input  in  the SMT-LIB~1.2
   notation~\cite{SMTLIB12:2006}.
 
+\item \texttt{yices-smt2} is a solver for input in the SMT-LIB~2.0
+  notation~\cite{SMTLIB20:2012}.
+
 \item \texttt{yices-sat}  is a Boolean satisfiability  solver that can
   read input in the DIMACS CNF format.
 \end{itemize}
-We  are developing  a new  solver that  will support  the  more recent
-SMT-LIB~2 notation, but this solver is not complete yet, and it is not
-included in the distribution.
 
 
 
@@ -435,7 +435,7 @@ Arithmetic constants  are arbitrary precision  integers and rationals.
 Although  Yices  uses  exact  arithmetic, rational  constants  can  be
 written  using  standard  floating-point notation.  Internally,  Yices
 converts   floating-point  input  to   rationals.  For   example,  the
-floating-point expression $3.04e-1$ is converted to $304/1000$.
+floating-point expression \texttt{3.04e-1} is converted to $38/125$.
 
 The  Yices  language  supports  the traditional  arithmetic  operators
 (i.e., addition, subtraction,  multiplication) with the exception that
@@ -453,16 +453,16 @@ include a solver for nonlinear arithmetic.
 
 \subsection{Bitvectors}
 
-Yices  supports all  the bitvector  operators defined  in  the SMT-LIB
-standard~\cite{SMTLIB12:2006}.  The most  commonly used  operators are
-listed  in Table~\ref{bitvectors}.  They include  bitvector arithmetic
-(where bitvectors  are interpreted either  as unsigned integers  or as
-signed integers in two's complement representation), logical operators
-such   as  bitwise  OR   or  AND,   logical  and   arithmetic  shifts,
-concatenation,  and  extraction  of  subvectors. Other  operators  are
-defined      in      the       theory      QF\_BV      of      SMT-LIB
-(cf.~\url{http://www.smtlib.org});  all  of   them  are  supported  by
-Yices~2.
+Yices supports all the bitvector operators defined in the SMT-LIB
+standards~\cite{SMTLIB12:2006,SMTLIB20:2012}.  The most commonly used
+operators are listed in Table~\ref{bitvectors}.  They include
+bitvector arithmetic (where bitvectors are interpreted either as
+unsigned integers or as signed integers in two's complement
+representation), logical operators such as bitwise OR or AND, logical
+and arithmetic shifts, concatenation, and extraction of
+subvectors. Other operators are defined in the theory QF\_BV of
+SMT-LIB (cf.~\url{http://www.smtlib.org}); all of them are supported
+by Yices~2.
 
 \begin{table}
 %% \renewcommand{\arraystretch}{1}
@@ -476,7 +476,7 @@ $\mathtt{bvsub}::((\mathtt{bv}\ n)\times (\mathtt{bv}\ n) \rightarrow (\mathtt{b
 subtraction\\
 $\mathtt{bvmul}::((\mathtt{bv}\ n)\times (\mathtt{bv}\ n) \rightarrow (\mathtt{bv}\ n))$ &
 multiplication\\
-$\mathtt{bvneg}::\mathtt{bv}\ n) \rightarrow (\mathtt{bv}\ n))$ &
+$\mathtt{bvneg}::((\mathtt{bv}\ n) \rightarrow (\mathtt{bv}\ n))$ &
 2's complement opposite\\
 \hline
 $\mathtt{bvudiv}::((\mathtt{bv}\ n)\times (\mathtt{bv}\ n) \rightarrow (\mathtt{bv}\ n))$ &
