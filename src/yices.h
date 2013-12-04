@@ -1707,7 +1707,7 @@ __YICES_DLLSPEC__ extern int32_t  yices_term_is_ground(term_t t);
  * that is used by a live context or model. For example, if you call
  * yices_new_context to obtain a new context and assert formulas in
  * this context, then all these formulas are considered root terms
- * until you delete the context using yices_free_context.
+ * until you delete the context using yices_free_context. 
  *
  * In addition, you can specify more roots using any of the following
  * mechanisms (they can be combined).
@@ -2144,17 +2144,19 @@ __YICES_DLLSPEC__ extern int32_t yices_pop(context_t *ctx);
  *
  *   eager-arith-lemmas: if enabled and the simplex solver is used, the simplex
  *   solver will eagerly generate lemmas such as (x >= 1) => (x >= 0) (i.e.,
- *   the lemmas involve two inequalities on the same variable x).
+ *   the lemmas that involve two inequalities on the same variable x).
  *
  *   flatten: whether to flatten nested (or ...)
- *     (e.g., turn (or (or a b) (or c d) ) to (or a b c d))
+ *   if this is enabled the term (or (or a b) (or c d) ) is 
+ *   flattened to (or a b c d)
  *
  *   learn-eq: enable/disable heuristics to learn implied equalities
  *
  *   keep-ite: whether to eliminate term if-then-else or keep them as terms
+ *   - this requires the context to include the egraph
  *
  *   break-symmetries: attempt to detect symmetries and add constraints
- *    to remove them (only used if the context is created for QF_UF)
+ *   to remove them (this can be used only if the context is created for QF_UF)
  *
  * The parameter must be given as a string. For example, to disable var-elim,
  * call  yices_context_disable_option(ctx, "var-elim")

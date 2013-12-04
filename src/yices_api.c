@@ -7114,8 +7114,7 @@ EXPORTED void yices_garbage_collect(term_t *t, uint32_t nt,
    */
   if (t != NULL) mark_term_array(&terms, t, nt);
   if (tau != NULL) mark_type_array(&types, tau, ntau);
-  
- 
+
   /*
    * Roots from the reference counting
    */
