@@ -2203,7 +2203,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
 }
 
 
-// PROVISIONAL 
+#if 0
 /*
  * FOR TESTING/DEBUGGING: PRINT ALL DELAYED ASSERTIONS
  */
@@ -2227,6 +2227,7 @@ static void show_delayed_assertions(smt2_globals_t *g) {
   }
 }
 
+#endif
 
 /*
  * CONTEXT OPERATIONS: INCREMENTAL MODE
@@ -3515,7 +3516,7 @@ void smt2_check_sat(void) {
 	print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");	
       } else {
 	// PROVISIONAL
-	show_delayed_assertions(&__smt2_globals);
+	//	show_delayed_assertions(&__smt2_globals);
 	check_delayed_assertions(&__smt2_globals);
       }
     } else {
