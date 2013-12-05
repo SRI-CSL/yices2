@@ -5682,9 +5682,8 @@ static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
 #endif
 
   /*
-   * BD: TEMPORARY HACK (to support periodic calls to make_integer_feasible)
-   * - we don't always call make_feasible in final check 
-   * - so we can't assume the branch atom is new anymore
+   * If support periodic calls to make_integer_feasible is enabled,
+   * then the branch atom may not be new.
    */
   // assert(new_idx >= 0);
   if (new_idx >= 0) {
@@ -6278,7 +6277,10 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   check_vartags(solver);
 #endif
 
-  // check for unsatisfiability using dsolver
+  /*
+   * Check for unsatisfiability using dsolver
+   * (and possibly strengthen the bounds)
+   */
   solver->recheck = false;
   if (! simplex_dsolver_check(solver)) {
     // unsat detected by diophantine solver
@@ -6291,7 +6293,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
     return false;
   } else if (solver->recheck) {
     /*
-     * need to recheck feasibility 
+     * Strengthened bound requires rechecking feasibility 
      */
     simplex_fix_nonbasic_assignment(solver);
     if (! simplex_make_feasible(solver) ) {
@@ -6316,6 +6318,13 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
         abort();
       }
     }
+  } else {
+    /*
+     * There may be strengthened bounds but everything is still feasible
+     * - we force fix_ptr to bstack.top (otherwise, things may break
+     *   because the invariant fix_ptr == top is expected to hold)
+     */
+    solver->bstack.fix_ptr = solver->bstack.top;    
   }
 
 
@@ -7129,7 +7138,7 @@ bool simplex_propagate(simplex_solver_t *solver) {
         feasible = simplex_make_feasible(solver);
         if (! feasible) goto done;
       } else {
-        // implied bounds don't require fixing the assignment
+        // there may be implied bounds but they don't require fixing the assignment
         solver->bstack.fix_ptr = solver->bstack.top;
       }
 
@@ -7143,6 +7152,18 @@ bool simplex_propagate(simplex_solver_t *solver) {
     // propagate literals
     simplex_literal_propagation(solver);
 
+  } else if (solver->bstack.prop_ptr < solver->bstack.top) {
+    /*
+     * We may end up here on the first call to propagate after
+     * simplex_final_check if the diophantine solver has strengthened
+     * some bounds without causing a conflict.  In such a case, a new
+     * branch &bound atom is created but there are no new assertion yet.
+     *
+     * We must call simplex_literal_propagation to at least force
+     * solver->bstack.prop_ptr to be equal to solver->bstack.top.
+     * This is required before the next call to increase decision level.
+     */
+    simplex_literal_propagation(solver);
   }
 
   /*
@@ -7216,7 +7237,6 @@ fcheck_code_t simplex_final_check(simplex_solver_t *solver) {
   fflush(stdout);
 #endif
 
-#if 1
   if (simplex_has_integer_vars(solver)) {
     if (simplex_make_integer_feasible(solver)) {
       return FCHECK_SAT;
@@ -7228,17 +7248,6 @@ fcheck_code_t simplex_final_check(simplex_solver_t *solver) {
     assert(simplex_assignment_integer_valid(solver));
     return FCHECK_SAT;
   }
-#endif
-
-#if 0
-  if (! simplex_assignment_integer_valid(solver)) {
-    printf("---> INCOMPLETENESS: simplex assignment is not integer feasible\n");
-    fflush(stdout);
-    return FCHECK_UNKNOWN;
-  } else {
-    return FCHECK_SAT;
-  }
-#endif
 }
 
 

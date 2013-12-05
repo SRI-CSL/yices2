@@ -2203,6 +2203,30 @@ static void check_delayed_assertions(smt2_globals_t *g) {
 }
 
 
+// PROVISIONAL 
+/*
+ * FOR TESTING/DEBUGGING: PRINT ALL DELAYED ASSERTIONS
+ */
+#include "term_printer.h"
+
+static void show_delayed_assertions(smt2_globals_t *g) {
+  yices_pp_t printer;
+  term_t *v;
+  uint32_t i, n;
+
+  if (g->benchmark_mode) {
+    v = g->assertions.data;
+    n = g->assertions.size;
+
+    init_pretty_printer(&printer, g);
+    for (i=0; i<n; i++) {
+      pp_term_full(&printer, __yices_globals.terms, v[i]);
+      flush_yices_pp(&printer);
+    }
+    delete_yices_pp(&printer, true);
+  }
+}
+
 
 /*
  * CONTEXT OPERATIONS: INCREMENTAL MODE
@@ -2799,7 +2823,8 @@ static void init_smt2_globals(smt2_globals_t *g) {
   init_ivector(&g->val_vector, 0);
   
   // print area for get-value
-  g->pp_area.width = 120;
+  //  g->pp_area.width = 120;
+  g->pp_area.width = 160;
   g->pp_area.height = UINT32_MAX;
   g->pp_area.offset = 0;
   g->pp_area.stretch = false;
@@ -3489,6 +3514,8 @@ void smt2_check_sat(void) {
       if (__smt2_globals.frozen) {
 	print_error("multiple calls to (check-sat) are not allowed in non-incremental mode");	
       } else {
+	// PROVISIONAL
+	show_delayed_assertions(&__smt2_globals);
 	check_delayed_assertions(&__smt2_globals);
       }
     } else {
