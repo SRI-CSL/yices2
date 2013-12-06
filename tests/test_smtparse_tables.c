@@ -210,8 +210,7 @@ static char* action2string[] = {
 
 
 int main() {
-  int32_t s;
-  token_t tk;
+  int32_t s, tk;
   lexer_t lex;
 
   init_smt_stdin_lexer(&lex);

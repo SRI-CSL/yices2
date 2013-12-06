@@ -38,9 +38,9 @@ static inline const char *reader_name(lexer_t *lex) {
 /*
  * Store error code and location data for a syntax error
  * - lex = lexer
- * - expected_token = what was expected or -1
+ * - expected_token = what was expected
  */
-static void export_syntax_error(lexer_t *lex, yices_token_t expected_token) {
+static void export_syntax_error(lexer_t *lex, int32_t expected_token) {
   error_report_t *error;
   reader_t *rd;
   yices_token_t tk;
