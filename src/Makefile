@@ -275,7 +275,7 @@ else
 ifeq ($(POSIXOS),mingw)
   CPPFLAGS := $(CPPFLAGS) -DMINGW
   PIC=
-  STATIC=-static
+  STATIC=-static -static-libgcc
   BIN_LDFLAGS= -Wl,--stack,8388608
   libyices_dynamic=$(bindir)/$(libyices_mingw_dll)
   static_libyices_dynamic=$(static_bindir)/$(libyices_mingw_dll)
@@ -638,9 +638,11 @@ $(static_bindir)/$(libyices_dll): $(static_base_obj) $(static_version_obj)
 #    lib /machine:i386 /def:libyices.def
 #
 # Change: 2012/07/12 as above: build DLLs in bin directories.
+# Change: 2013/07/12: added  -static-libgcc (otherwise the DLLs
+# depend on libgcc_s_sjlj-1.dll)
 #
 $(bindir)/$(libyices_mingw_dll): $(base_obj) $(version_obj)
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -static-libgcc -o $@ \
 	-Wl,--out-implib=$(libdir)/$(libyices_implib) \
 	-Wl,--output-def,$(libdir)/$(libyices_def) \
 	-Wl,--no-undefined \
@@ -648,7 +650,7 @@ $(bindir)/$(libyices_mingw_dll): $(base_obj) $(version_obj)
 	$(STRIP) $@
 
 $(static_bindir)/$(libyices_mingw_dll): $(static_base_obj) $(static_version_obj)
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -static-libgcc -o $@ \
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
 	-Wl,--output-def,$(static_libdir)/$(libyices_def) \
 	-Wl,--no-undefined \
