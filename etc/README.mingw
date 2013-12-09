@@ -19,6 +19,7 @@ and the Yices libraries and header files
 
   lib/libyices.lib
   lib/libyices.dll.a        (for mingw only)
+
   include/yices.h
   include/yices_types.h
   include/yices_limits.h

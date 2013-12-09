@@ -1,0 +1,51 @@
+#!/bin/sh
+
+#
+# Script to get the name of the dynamic Yices library
+#
+# Usage:
+#   ./lib_name <dist directory>
+#
+# - the argument must be the path to the binary or static dist
+# - there should be a lib/libyices.xxx in there
+# - this script retuns the name of this file
+#
+
+usage="Usage: $0 <distribution directory>
+
+   For example
+
+     $0 ./build/x86_64-unknown-linux-gnu-release/dist
+"
+
+if test $# -ne 1 ; then
+   echo $usage
+   exit 2
+fi
+
+dist=$1
+libdir=$1/lib
+
+if test ! -d $libdir ; then
+   echo "Error: $libdir not found"
+   exit 2
+fi
+
+alllibs=`ls $libdir`
+
+libname="none"
+
+for lib in $alllibs; do
+  case $lib in
+    libyices.so.* | libyices.dylib.* )
+      if test $libname = "none" ; then
+        libname=$lib
+      else
+        echo "Error: found two dymanic libraries: $libname and $lib"
+        exit 2
+      fi
+    ;;
+  esac
+done
+
+echo $libname

@@ -79,8 +79,10 @@ static option_desc_t options[NUM_OPTIONS] = {
  * Processing of command-line
  */
 static void print_version(void) {
-  printf("Yices %s. Copyright SRI International.\n"
-         "GMP %s. Copyright Free Software Foundation, Inc.\n"
+  printf("Yices %s\n"
+	 "Copyright SRI International.\n"
+         "Linked with GMP %s\n"
+	 "Copyright Free Software Foundation, Inc.\n"
          "Build date: %s\n"
          "Platform: %s (%s)\n",
          yices_version, gmp_version, 
