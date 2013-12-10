@@ -27,7 +27,6 @@ fi
 
 dist=$1
 
-
 if test ! -d $dist ; then
    echo "Error: $dist is not a directory"
    exit 2

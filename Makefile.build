@@ -44,8 +44,12 @@ include $(YICES_TOP_DIR)/$(YICES_MAKE_INCLUDE)
 #
 #   make install LDCONFIG=...
 #
-LDCONFIG= /sbin/ldconfig
+LDCONFIG=/sbin/ldconfig
 
+#
+# Script/command to build a README file from a template
+#
+MKREADME=./utils/mkreadme
 
 #
 # Source directories
@@ -283,6 +287,10 @@ static-smt2: build_subdirs version
 # On other platforms: make binary-distribution or make
 # static-distribution should work.
 #
+# We use a shell script ./util/mkreadme to make sure
+# the README file in the tarfile is up to date (probably
+# not foolproof)
+#
 $(distributions):
 	$(MKDIR_P) $(distributions)
 
@@ -311,7 +319,7 @@ tarfile: $(distributions)
 	$(MKDIR_P) $(bindist_dir)
 	cp -r $(dist_dir)/* $(bindist_dir)
 	cp etc/LICENSE etc/NOTICES $(bindist_dir)
-	cp etc/README.$(POSIXOS) $(bindist_dir)/README
+	$(MKREADME) $(dist_dir) etc/README.$(POSIXOS) > $(bindist_dir)/README
 	if test -f etc/install-yices.$(POSIXOS) ; then \
 	  cp etc/install-yices.$(POSIXOS) $(bindist_dir)/install-yices ; \
 	  chmod ug+x $(bindist_dir)/install-yices ; \
@@ -336,7 +344,7 @@ static-tarfile: $(distributions)
 	$(MKDIR_P) $(bindist_dir)
 	cp -r $(static_dist_dir)/* $(bindist_dir)
 	cp etc/LICENSE etc/NOTICES $(bindist_dir)
-	cp etc/README.static.$(POSIXOS) $(bindist_dir)/README
+	$(MKREADME) $(static_dist_dir) etc/README.static.$(POSIXOS) > $(bindist_dir)/README
 	if test -f etc/install-yices.$(POSIXOS) ; then \
 	  cp etc/install-yices.$(POSIXOS) $(bindist_dir)/install-yices ; \
 	  chmod ug+x $(bindist_dir)/install-yices ; \

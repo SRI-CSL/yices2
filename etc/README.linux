@@ -1,7 +1,7 @@
 Yices SMT Solver, Copyright SRI International
 =============================================
 
-This file is part of the Yices 2.1 binary distribution for Linux
+This file is part of the Yices __YICES__ binary distribution for Linux
 platforms. Yices is distributed free-of-charge for personal use under
 the terms of the Yices license (see LICENSE).
 
@@ -18,7 +18,7 @@ This distribution includes four solvers
 
 and the Yices libraries and header files
 
-  lib/libyices.so.2.1.1
+  lib/__DYLIB__
   include/yices.h
   include/yices_types.h
   include/yices_limits.h
@@ -29,7 +29,7 @@ Examples and documentation are in the examples and doc directories.
 
 
 The binaries and library require the GNU Multiprecision library (GMP)
-version 5.0.4 or compatible.  GMP must be installed as a dynamic
+version __GMP__ or compatible.  GMP must be installed as a dynamic
 library for Yices to work.  GMP is copyright Free Software Foundation
 (see NOTICES).
 
@@ -42,7 +42,7 @@ The binaries can be used as is. To use the library, you'll need to
 create symbolic links as follows:
 
   /sbin/ldconfig -n lib
-  ln -sf libyices.so.2.1.1 lib/libyices.so
+  ln -sf __DYLIB__ lib/libyices.so
 
 You can do the same thing with the shell script 'install-yices'
 included in this distribution. Just type

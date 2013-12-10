@@ -1,7 +1,7 @@
 Yices SMT Solver, Copyright SRI International
 =============================================
 
-This file is part of the Yices 2.1 binary distribution for MacOS X.
+This file is part of the Yices __YICES__ binary distribution for MacOS X.
 Yices is distributed free-of-charge for personal use under the terms
 of the Yices license (see LICENSE).
 
@@ -18,7 +18,7 @@ This distribution includes four solvers
 
 and the Yices libraries and header files
 
-  lib/libyices.2.dylib
+  lib/__DYLIB__
   include/yices.h
   include/yices_types.h
   include/yices_limits.h
@@ -28,7 +28,7 @@ and the Yices libraries and header files
 Examples and documentation are in the examples and doc directories.
 
 
-The binaries and library were linked statically against GMP version 5.0.4,
+The binaries and library were linked statically against GMP version __GMP__,
 copyright Free Software Foundation (see NOTICES).
 
 
@@ -36,8 +36,8 @@ copyright Free Software Foundation (see NOTICES).
 Installation
 ------------
 
-The library's install name is '/usr/local/lib/libyices.2.dylib', so
-libvyices.2.dylib must be copied into /usr/local/lib.  
+The library's install name is '/usr/local/lib/__DYLIB__', so
+__DYLIB__ must be copied into /usr/local/lib.
 This distribution includes a shell script for this purpose. 
 Just type
 

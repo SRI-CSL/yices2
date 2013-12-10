@@ -1,7 +1,7 @@
 Yices SMT Solver, Copyright SRI International
 =============================================
 
-This file is part of the Yices 2.1 binary distribution for Sparc
+This file is part of the Yices __YICES__ binary distribution for Sparc
 Solaris 2.10. Yices is distributed free-of-charge for personal use
 under the terms of the Yices license (see LICENSE).
 
@@ -15,7 +15,7 @@ This distribution includes four solvers
 
 and the Yices libraries and header files
 
-  lib/libyices.so.2.1.1
+  lib/__DYLIB__
   include/yices.h
   include/yices_types.h
   include/yices_limits.h
@@ -26,7 +26,7 @@ Examples and documentation are in the examples and doc directories.
 
 
 The binaries and library require the GNU Multiprecision library (GMP)
-version 5.0.4 or compatible. GMP must be installed as a dynamic
+version __GMP__ or compatible. GMP must be installed as a dynamic
 library for Yices to work.  GMP is copyright Free Software Foundation
 (see NOTICES).
 

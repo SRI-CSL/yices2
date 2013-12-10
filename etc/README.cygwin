@@ -1,7 +1,7 @@
 Yices SMT Solver, Copyright SRI International
 =============================================
 
-This file is part of the Yices 2.1 binary distribution for Cygwin.
+This file is part of the Yices __YICES__ binary distribution for Cygwin.
 Yices is distributed free-of-charge for personal use under the terms
 of the Yices license (see LICENSE).
 
@@ -31,7 +31,7 @@ Examples and documentation are in the examples and doc directories.
 
 
 The binaries and library require the GNU Multiprecision library (GMP)
-version 5.0.4 or compatible. GMP must be installed as a DLL on Cygwin
+version __GMP__ or compatible. GMP must be installed as a DLL on Cygwin
 for Yices to work. GMP is copyright Free Software Foundation (see NOTICES).
 
 

@@ -34,7 +34,7 @@ test -x $yices || yices=$dist/bin/yices.exe
 
 if test -x $yices ; then
    tmp=` $yices --version | awk '/Yices/ { print $2 }'`
-   case "x$tmp" in
+   case $tmp in
      *.*.* )
        echo $tmp
        ;;
