@@ -1,0 +1,6 @@
+/smt_hash_keywords.h
+/smt2_hash_keywords.h
+/smt2_hash_symbols.h
+/smt2_hash_tokens.h
+/yices_hash_keywords.h
+/yices_version.c

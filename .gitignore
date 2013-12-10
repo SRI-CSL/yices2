@@ -1,0 +1,13 @@
+/*.tar.gz
+/configure
+/config.log
+/config.status
+/autom4te.cache
+/lib
+/bin
+/obj
+/build
+/oldsrc
+/profiling
+/distributions
+/.gdb_*
