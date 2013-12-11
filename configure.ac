@@ -516,6 +516,11 @@ CFLAGS=$saved_cflags
 AC_CONFIG_FILES([make.include])
 AC_OUTPUT
 
+if test ! -d configs ; then
+  AC_MSG_NOTICE([Creating the configs directory])
+  AS_MKDIR_P([configs])
+fi
+
 if test "x$host" == x ; then
   AC_MSG_NOTICE([Moving make.include to configs/make.include.$build])
   mv make.include "configs/make.include.$build"

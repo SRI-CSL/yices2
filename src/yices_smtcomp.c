@@ -447,10 +447,6 @@ static inline simplex_solver_t *context_get_simplex_solver(context_t *ctx) {
 
 #if COMMAND_LINE_OPTIONS
 
-extern const char * const yices_svn_url;
-extern const char * const yices_svn_rev;
-
-
 /*
  * Version header
  */

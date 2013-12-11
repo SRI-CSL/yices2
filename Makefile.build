@@ -201,14 +201,11 @@ static-bin: build_subdirs version
 # Compilation date and mode, svn repository and version, and version numbers
 # are copied into yices_version.c.
 #
+# 2013/12/11: moved from svn to git
+# - replaced svn_url and svn version by the git SHA1 code of the HEAD
+#
 now := $(shell date +"%Y-%m-%d")
-
-url := $(shell ( svn info $(YICES_TOP_DIR) 2>&1 | grep URL ) || echo URL: unknown)
-ifeq ($(url), URL: unknown) 
-  rev := unknown
-else 
-  rev := $(shell ( svnversion $(YICES_TOP_DIR) 2>&1 ) )
-endif
+rev := $(shell git rev-parse HEAD || echo "unknown")
 
 
 #
@@ -216,8 +213,7 @@ endif
 #
 version:
 	@$(SED) -e 's/YICES_VERSION/$(YICES_VERSION)/g' -e 's/YICES_COMPILATION_DATE/$(now)/g' \
-	       -e 's;SVN_URL;$(url);g' -e 's/SVN_REVISION/$(rev)/g' \
-	       -e 's/YICES_ARCH/$(ARCH)/g' -e 's/YICES_BUILD_MODE/$(YICES_MODE)/g' \
+	       -e 's/REVISION/$(rev)/g' -e 's/YICES_ARCH/$(ARCH)/g' -e 's/YICES_BUILD_MODE/$(YICES_MODE)/g' \
 	       $(srcdir)/yices_version_template.txt > $(srcdir)/yices_version.tmp
 	@diff -N $(srcdir)/yices_version.tmp $(srcdir)/yices_version.c > /dev/null; \
 	if [ $$? -ne 0 ]; \

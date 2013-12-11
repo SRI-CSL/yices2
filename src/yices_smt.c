@@ -50,11 +50,10 @@
 
 
 /*
- * yices_svn_url, yices_svn_rev are set up at compile time in yices_version.c
+ * yices_rev is set up at compile time in yices_version.c
  */
 #ifndef NDEBUG
-extern const char * const yices_svn_url;
-extern const char * const yices_svn_rev;
+extern const char * const yices_rev;
 #endif
 
 
@@ -1027,8 +1026,7 @@ static void print_yices_header(FILE *f) {
   fprintf(f, "Build date: %s\n", yices_build_date);
   fprintf(f, "Platform: %s (%s)\n", yices_build_arch, yices_build_mode);
 #ifndef NDEBUG
-  fprintf(f, "%s\n", yices_svn_url);
-  fprintf(f, "Revision: %s\n", yices_svn_rev);
+  fprintf(f, "Revision: %s\n", yices_rev);
 #endif
   fprintf(f, "----\n");
 }
