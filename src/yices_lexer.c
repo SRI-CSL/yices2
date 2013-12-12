@@ -149,6 +149,7 @@ static keyword_t yices_keywords[] = {
   { "set-timeout", TK_SET_TIMEOUT },
   { "show-timeout", TK_SHOW_TIMEOUT },
   { "help", TK_HELP },
+  { "ef-solve", TK_EF_SOLVE },
 
   // end-marker
   { NULL, 0 },

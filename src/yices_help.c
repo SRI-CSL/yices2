@@ -1359,11 +1359,18 @@ static const help_record_t help_data[] = {
     "to make it consistent with the arithmetic or bitvector models.\n",
     NULL },
 
-  // END MARKER: index 141
+  // ef-solve: index 141
+  { HCOMMAND,
+    "(ef-solve)",
+    "Invoke the exists/forall solver",
+    NULL,
+    NULL },
+
+  // END MARKER: index 142
   { HMISC, NULL, NULL, NULL, NULL },
 };
 
-#define END_HELP_DATA 141
+#define END_HELP_DATA 142
 
 
 
@@ -1399,6 +1406,7 @@ static const help_record_t help_data[] = {
   "       | ( help )\n" \
   "       | ( help <symbol> )\n" \
   "       | ( help <string> )\n" \
+  "       | ( ef-solve )\n" \
   "\n"   \
   "  <typedef> ::=\n" \
   "         <type>\n" \
@@ -1775,6 +1783,7 @@ static const help_index_t help_index[] = {
   { "dyn-bool-ack-threshold", NULL, 128, help_basic },
   { "eager-lemmas", NULL, 130, help_basic },
   { "echo", NULL, 12, help_basic },
+  { "ef-solve", NULL, 141, help_basic },
   { "eval", NULL, 10, help_basic },
   { "exit", NULL, 22, help_basic },
   { "false", NULL, 40, help_basic },

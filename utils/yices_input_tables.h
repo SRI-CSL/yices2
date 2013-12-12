@@ -44,6 +44,7 @@ enum actions {
   showtimeout_next_goto_r0,
   settimeout_next_goto_c14,
   help_next_goto_c15,
+  efsolve_next_goto_r0,   // New command: (ef-solve)
   typename_next_goto_c10, // token must be a free typename (TK_SYMBOL)
   string_next_goto_r0,    // string argument to echo, include, help
   termname_next_goto_c7,  // token must be a free termname (TK_SYMBOL)
@@ -206,6 +207,7 @@ static triple_t triples[] = {
   { c1, TK_RESET_STATS, "resetstats_next_goto_r0" },
   { c1, TK_SET_TIMEOUT, "settimeout_next_goto_c14" },
   { c1, TK_HELP, "help_next_goto_c15" },
+  { c1, TK_EF_SOLVE, "efsolve_next_goto_r0" },
 
   { c2, TK_SYMBOL, "typename_next_goto_c10" },
   { c2, DEFAULT_TOKEN, "error_symbol_expected" },
@@ -260,6 +262,7 @@ static triple_t triples[] = {
   { c15, TK_SET_TIMEOUT, "symbol_next_goto_r0" },
   { c15, TK_SHOW_TIMEOUT, "symbol_next_goto_r0" },
   { c15, TK_HELP, "symbol_next_goto_r0" },
+  { c15, TK_EF_SOLVE, "symbol_next_goto_r0" },
   { c15, TK_UPDATE, "symbol_next_goto_r0" },
   { c15, TK_FORALL, "symbol_next_goto_r0" },
   { c15, TK_EXISTS, "symbol_next_goto_r0" },

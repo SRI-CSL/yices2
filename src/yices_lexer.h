@@ -18,6 +18,8 @@
  *   or 0x<hexa digits>
  *
  * - comments start with ; and extend to the end of the line
+ *
+ * 2013/12/12: added ef-solve token
  */
 
 #ifndef __YICES_LEXER_H
@@ -35,7 +37,7 @@ enum yices_token {
   TK_PUSH, TK_POP, TK_RESET, TK_DUMP_CONTEXT, TK_EXIT,
   TK_ECHO, TK_INCLUDE, TK_SHOW_MODEL, TK_EVAL, TK_SET_PARAM,
   TK_SHOW_PARAM, TK_SHOW_PARAMS, TK_SHOW_STATS, TK_RESET_STATS,
-  TK_SET_TIMEOUT, TK_SHOW_TIMEOUT, TK_HELP,
+  TK_SET_TIMEOUT, TK_SHOW_TIMEOUT, TK_HELP, TK_EF_SOLVE,
 
   // term constructors
   TK_UPDATE, TK_FORALL, TK_EXISTS, TK_LAMBDA, TK_LET, 

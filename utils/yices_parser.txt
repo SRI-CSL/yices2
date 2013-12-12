@@ -38,6 +38,7 @@ Grammar
         | ( help )
         | ( help <string> )
         | ( help <symbol> )
+	| ( ef-solve )
 	| EOS
 
 immediate-value :: = 
@@ -154,6 +155,7 @@ c1	 define-type		c2
 	 show-param             c13
 	 set-timeout		c14
          help                   c15
+         ef-solve               c4
 c2	 <symbol>		c10
 c3	 <string>		c4 
 c4       )                      DONE
@@ -371,6 +373,7 @@ c1       exit           next; goto r0
          show-timeout   next; goto r0
 	 set-timeout    next; goto c14
          help           next; goto c15
+         ef-solve       next; goto r0
 c2       <symbol>       next; goto c10
 c3       <string>       next; goto r0
 c6       <symbol>       next; goto c7
