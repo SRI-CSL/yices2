@@ -2036,6 +2036,7 @@ static void yices_showstats_cmd(void) {
  */
 static void yices_resetstats_cmd(void) {
   check_process_time = 0.0;
+  print_ok();
 }
 
 
