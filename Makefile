@@ -129,21 +129,21 @@ ifneq ($(OPTION),)
   else
   ifeq ($(POSIXOS),cygwin)
     ifeq ($(OPTION),32bits)
-      newarch=$(subst x86_64,i686,$(ARCH))      
+      newarch=$(subst x86_64,i686,$(ARCH))
     else
     ifeq ($(OPTION),no-cygwin)
       newarch=$(subst cygwin,mingw32,$(subst x86_64,i686,$(ARCH)))
-      alternate=$(subst pc,w64,$(subst unknown,w64,$(newarch))
+      alternate=$(subst pc,w64,$(subst unknown,w64,$(newarch)))
       POSIXOS=mingw
     else
     ifeq ($(OPTION),mingw32)
       newarch=$(subst cygwin,mingw32,$(subst x86_64,i686,$(ARCH)))
-      alternate=$(subst pc,w64,$(subst unknown,w64,$(newarch))
+      alternate=$(subst pc,w64,$(subst unknown,w64,$(newarch)))
       POSIXOS=mingw
     else
     ifeq ($(OPTION),mingw64)
       newarch=$(subst cygwin,mingw32,$(subst i686,x86_64,$(ARCH)))
-      alternate=$(subst pc,w64,$(subst unknown,w64,$(newarch))
+      alternate=$(subst pc,w64,$(subst unknown,w64,$(newarch)))
       POSIXOS=mingw
     endif
     endif
@@ -188,7 +188,7 @@ ifeq (,$(YICES_MAKE_INCLUDE))
   # Try alternate name (--host= ...)
   #
   ifneq (,$(alternate))
-     make_alternate = configs/make.include.$(ARCH))
+     make_alternate = configs/make.include.$(alternate)
      YICES_MAKE_INCLUDE := $(findstring $(make_alternate), $(known_make_includes))
      ifeq (,$(YICES_MAKE_INCLUDE))
         $(error Could not find $(make_include) nor $(make_alternate). Run ./configure) 
