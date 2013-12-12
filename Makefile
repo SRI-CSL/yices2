@@ -95,6 +95,15 @@ endif
 #    To select the Windows 64bit configuration, use
 #         'make OPTION=mingw64'
 #
+#    Issue: 2013/12/11: this Makefile is not robust for
+#    cross-compilation on Cygwin (to produce Windows 64 code).
+#    The simplest way to configure for this cross-compilation is
+#       ./configure --host=x86_64-w64-mingw32 ....
+#
+#    This generates ./configs/makefile.include.x86_64-w64-mingw32.
+#    But OPTION=mingw64 gives ./configs/makefile.include.x86_64-pc-mingw32
+#
+#
 # 4) On solaris, the default is make.include.sparc-sun-solaris2.x
 #    (should be 32bits).
 #
@@ -119,17 +128,24 @@ ifneq ($(OPTION),)
     endif
   else
   ifeq ($(POSIXOS),cygwin)
+    ifeq ($(OPTION),32bits)
+      newarch=$(subst x86_64,i686,$(ARCH))
+    else
     ifeq ($(OPTION),no-cygwin)
-      newarch=$(subst cygwin,mingw32,$(ARCH))
+      newarch=$(subst cygwin,mingw32,$(subst x86_64,i686,$(ARCH)))
+      alternate=$(subst pc,w64,$(subst unknown,w64,$(newarch)))
       POSIXOS=mingw
     else
     ifeq ($(OPTION),mingw32)
-      newarch=$(subst cygwin,mingw32,$(ARCH))
+      newarch=$(subst cygwin,mingw32,$(subst x86_64,i686,$(ARCH)))
+      alternate=$(subst pc,w64,$(subst unknown,w64,$(newarch)))
       POSIXOS=mingw
     else
     ifeq ($(OPTION),mingw64)
       newarch=$(subst cygwin,mingw32,$(subst i686,x86_64,$(ARCH)))
+      alternate=$(subst pc,w64,$(subst unknown,w64,$(newarch)))
       POSIXOS=mingw
+    endif
     endif
     endif
     endif
@@ -168,7 +184,20 @@ known_make_includes = $(filter-out %.in, $(wildcard configs/make.include.*))
 YICES_MAKE_INCLUDE := $(findstring $(make_include), $(known_make_includes))
 
 ifeq (,$(YICES_MAKE_INCLUDE))
-  $(error Could not find $(make_include). Run ./configure)
+  #
+  # Try alternate name (--host= ...)
+  #
+  ifneq (,$(alternate))
+     make_alternate = configs/make.include.$(alternate)
+     YICES_MAKE_INCLUDE := $(findstring $(make_alternate), $(known_make_includes))
+     ifeq (,$(YICES_MAKE_INCLUDE))
+        $(error Could not find $(make_include) nor $(make_alternate). Run ./configure)
+     else
+        $(info Could not find $(make_include). Using $(make_alternate) instead)
+     endif
+  else
+    $(error Could not find $(make_include). Run ./configure)
+  endif
 endif
 
 
