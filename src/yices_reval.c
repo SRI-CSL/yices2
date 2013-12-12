@@ -1116,8 +1116,7 @@ static void init_ctx(smt_logic_t logic, context_arch_t arch, context_mode_t mode
     init_trace(&tracer);
     set_trace_vlevel(&tracer, 4);
     context_set_trace(context, &tracer);
-  }
-  
+  }  
   init_handlers();
 }
 
