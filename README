@@ -807,7 +807,21 @@ MEW METHOD: Using a cross compiler
 	CPPFLAGS=-I/home/bruno/tools/mingw32/include \
 	LDFLAGS=-L/home/bruno/tools/mingw32/lib \
         --with-static-gmp=/home/bruno/tools/mingw32/static/lib/libgmp.a \
-        --with-static-gmp-include-dir=/home/bruno/tools/mingw32/static/include 
+        --with-static-gmp-include-dir=/home/bruno/tools/mingw32/static/include
+
+
+
+3a) Aternative method: use --host=i686-w64-ming32 when running ./configure
+
+   ./configure --host=i686-w64-mingw32 \
+        CPPFLAGS=-I/home/bruno/tools/mingw32/include \
+	LDFLAGS=-L/home/bruno/tools/mingw32/lib \
+        --with-static-gmp=/home/bruno/tools/mingw32/static/lib/libgmp.a \
+        --with-static-gmp-include-dir=/home/bruno/tools/mingw32/static/include
+
+   then rename ./configs/makefile.include.i686-w64-mingw32 to
+               ./configs/makefile.include.i686-pc-mingw32
+
 
 
 4) Compile using OPTION=mingw32 (or OPTION=no-cygwin)
