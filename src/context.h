@@ -1,10 +1,5 @@
 /*
  * CONTEXT
- *
- * Updated to work with the new term representation.
- *
- * Basic context: enough support for simplification
- * and flattening of assertion.
  */
 
 #ifndef __CONTEXT_H

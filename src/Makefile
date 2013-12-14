@@ -90,7 +90,7 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c		\
               concrete_value_printer.c context.c context_config.c	\
               context_simplifier.c context_solver.c csets.c		\
               dep_tables.c diophantine_systems.c diseq_stacks.c		\
-              dl_vartable.c egraph_assertion_queues.c			\
+              dl_vartable.c efsolver.c egraph_assertion_queues.c        \
               egraph_explanations.c egraph_utils.c egraph.c		\
               eq_abstraction.c eq_learner.c extended_rationals.c	\
               free_var_collector.c fresh_value_maker.c fun_maps.c	\
