@@ -5659,7 +5659,7 @@ static void collect_non_integer_basic_vars(simplex_solver_t *solver, ivector_t *
 static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
   xrational_t *bound;
   int32_t new_idx;
-#if TRACE_BB || 1
+#if TRACE_BB || TRACE_INTFEAS
   literal_t l;
 #endif
 
@@ -5678,7 +5678,7 @@ static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
   print_simplex_assignment(stdout, solver);
 #endif
 
-#if TRACE_BB || 1
+#if TRACE_BB || TRACE_INTFEAS
   l = get_literal_for_ge_atom(&solver->atbl, x, true, &bound->main, &new_idx);
 #else
   (void) get_literal_for_ge_atom(&solver->atbl, x, true, &bound->main, &new_idx);
