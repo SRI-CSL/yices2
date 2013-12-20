@@ -4,6 +4,8 @@
  * Version 3: started 2008/11/03
  */
 
+#include <inttypes.h>
+
 #include "assert_utils.h"
 #include "bitvectors.h"
 #include "dprng.h"
@@ -12,8 +14,8 @@
 #include "rational_hash_maps.h"
 #include "dep_tables.h"
 #include "theory_explanations.h"
+#include "tracer.h"
 #include "simplex.h"
-
 
 
 /*
@@ -24,6 +26,7 @@
  * To trace simplifications and tableau initialization set TRACE_INIT to 1
  * To trace the theory propagation set TRACE_PROPAGATION to 1 (in 
  * To trace the branch&bound algorithm set TRACE_BB to 1
+ * To get a summary of general solution + bounds: TRACE_INTFEAS to 1
  */
 #define TRACE   0
 #define DEBUG   0
@@ -32,12 +35,12 @@
 #define TRACE_INIT 0
 #define TRACE_PROPAGATION 0
 #define TRACE_BB 0
+#define TRACE_INTFEAS 0
 
 
-#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG)
+#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB || TRACE_INTFEAS || !defined(NDEBUG)
 
 #include <stdio.h>
-#include <inttypes.h>
 
 #include "term_printer.h"
 #include "dsolver_printer.h"
@@ -5656,7 +5659,7 @@ static void collect_non_integer_basic_vars(simplex_solver_t *solver, ivector_t *
 static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
   xrational_t *bound;
   int32_t new_idx;
-#if TRACE_BB
+#if TRACE_BB || 1
   literal_t l;
 #endif
 
@@ -5675,7 +5678,7 @@ static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
   print_simplex_assignment(stdout, solver);
 #endif
 
-#if TRACE_BB
+#if TRACE_BB || 1
   l = get_literal_for_ge_atom(&solver->atbl, x, true, &bound->main, &new_idx);
 #else
   (void) get_literal_for_ge_atom(&solver->atbl, x, true, &bound->main, &new_idx);
@@ -5690,8 +5693,8 @@ static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
     build_binary_lemmas_for_atom(solver, x, new_idx);
     attach_atom_to_arith_var(&solver->vtbl, x, new_idx);
 
-#if TRACE_BB
-    printf("---> Branch & bound: create ");
+#if TRACE_BB || TRACE_INTFEAS
+    //    printf("---> Branch & bound: create ");
     print_simplex_atomdef(stdout, solver, var_of(l));
 #endif
 
@@ -6245,7 +6248,6 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   ivector_t *v;
   thvar_t x;
 
-
 #if TRACE_BB
   printf("\n---> make integer feasible [dlevel = %"PRIu32", decisions = %"PRIu64"]: %"PRId32
          " integer-invalid vars\n", solver->core->decision_level, solver->core->stats.decisions, 
@@ -6262,6 +6264,13 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   }
 
   solver->stats.num_make_intfeasible ++;
+
+#if TRACE_INTFEAS
+  printf("--- make integer feasible %"PRIu32" ---\n", solver->stats.num_make_intfeasible);
+  print_simplex_bounds(stdout, solver);
+  printf("\n\n");
+  fflush(stdout);
+#endif
 
   // move non-integer variables to the basis
   if (simplex_is_mixed_system(solver)) {
@@ -6289,7 +6298,8 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
     printf("---> unsat by diophantine solver\n");
     fflush(stdout);
 #endif
-    
+    tprintf(solver->core->trace, 10, "(unsat by diophantine solver)\n");
+
     return false;
   } else if (solver->recheck) {
     /*
@@ -6302,6 +6312,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
       printf("---> unsat after recheck\n");
       fflush(stdout);
 #endif
+      tprintf(solver->core->trace, 10, "(unsat by bound strengthening)\n");
     
       solver->stats.num_recheck_conflicts ++;
       return false;
@@ -6348,6 +6359,9 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   }
 
   x = select_branch_variable(solver, v);
+  tprintf(solver->core->trace, 10, 
+	  "(branch & bound: %"PRIu32" candidates, branch variable = i!%"PRIu32", score = %"PRIu32")\n", 
+	  v->size, x, simplex_branch_score(solver, x));
   ivector_reset(v);
 
   assert(x != null_thvar);
@@ -7179,6 +7193,14 @@ bool simplex_propagate(simplex_solver_t *solver) {
       solver->recheck = false;    
       feasible = simplex_dsolver_check(solver);
       if (! feasible) goto done;
+      
+#if TRACE_INTFEAS
+      assert(solver->dsolver != NULL);
+      printf("--- general solution from dsolver ---\n");
+      dsolver_print_gen_solution(stdout, solver->dsolver);
+      printf("\n\n");
+      fflush(stdout);
+#endif
 
       if (solver->recheck) {
         simplex_fix_nonbasic_assignment(solver);
