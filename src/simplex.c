@@ -1572,6 +1572,7 @@ void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, gate_manage
   solver->integer_solving = false;
   solver->check_counter = 0;
   solver->check_period = SIMPLEX_DEFAULT_CHECK_PERIOD;
+  solver->last_branch_atom = null_bvar;
   solver->dsolver = NULL;     // allocated later if needed
 
   solver->cache = NULL;       // allocated later if needed
@@ -5659,9 +5660,7 @@ static void collect_non_integer_basic_vars(simplex_solver_t *solver, ivector_t *
 static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
   xrational_t *bound;
   int32_t new_idx;
-#if TRACE_BB || 1
   literal_t l;
-#endif
 
   assert(arith_var_is_int(&solver->vtbl, x) & ! arith_var_value_is_int(&solver->vtbl, x));
 
@@ -5678,11 +5677,8 @@ static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
   print_simplex_assignment(stdout, solver);
 #endif
 
-#if TRACE_BB || 1
   l = get_literal_for_ge_atom(&solver->atbl, x, true, &bound->main, &new_idx);
-#else
-  (void) get_literal_for_ge_atom(&solver->atbl, x, true, &bound->main, &new_idx);
-#endif
+  solver->last_branch_atom = var_of(l);
 
   /*
    * If support periodic calls to make_integer_feasible is enabled,
@@ -7921,6 +7917,17 @@ literal_t simplex_select_polarity(simplex_solver_t *solver, void *a, literal_t l
   id = arithatom_tagged_ptr2idx(a);
   atom = arith_atom(&solver->atbl, id);
   v = var_of(l);
+
+  if (v == solver->last_branch_atom) {
+    // for a branch & bound atom
+    // we branch the opposite of the model
+    solver->last_branch_atom = null_bvar;
+    if (simplex_eval_atom(solver, atom)) {
+      return neg_lit(v);
+    } else {
+      return pos_lit(v);
+    }
+  }
 
   if (simplex_eval_atom(solver, atom)) {
     return pos_lit(v);
