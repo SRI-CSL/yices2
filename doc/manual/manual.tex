@@ -208,7 +208,7 @@ Yices.  For bug  reports and questions about Yices,  please contact us
 via the Yices mailing lists:
 \begin{itemize}
 \item Send e-mail to \texttt{yices-help@csl.sri.com} if you have
-  questions about Yices usage or installation,
+  questions about Yices usage or installation.
 
    This mailing list is moderated, but you do not need to register to
    post to it.
@@ -579,11 +579,11 @@ a & = & (\mathtt{bvadd}\ (\mathtt{bvmul}\ (\mathtt{bvudiv}\ a\ b)\ b)\ (\mathtt{
 \chapter{Yices~2 Architecture}
 \label{architecture-chapter}
 
-Yices~2 relies on a simpler  language and type system than Yices~1. We
-have  also  completely redesigned  the  architecture  to make  Yices~2
-easier  to maintain  and develop.  The new  architecture  supports new
-features,  such as  the possibility  to maintain  several  contexts in
-parallel.
+Yices~2  is based  on  a  modular architecture.   Users  can select  a
+specific combination of  theory solvers for their needs  using the API
+or the  \texttt{yices} executable.  With the  API, users  can maintain
+several  independent   contexts  in  parallel,  possibly   each  using
+different solvers and settings.
 
 \section{Main Components}
 
@@ -594,22 +594,24 @@ modules:
   terms and types are stored. Yices~2 provides an API for constructing
   terms, formulas, and types in this database.
 
-\item[Context Management]  A context is a central  data structure that
-  stores asserted formulas. Each  context contains a set of assertions
-  to  be  checked   for  satisfiability.  The  context-management  API
-  supports  operations  for creating  and  initializing contexts,  for
+\item[Context Management] A  context is a central  data structure that
+  stores asserted formulas. Each context  contains a set of assertions
+  to  be  checked  for  satisfiability.   The  context-management  API
+  supports  operations for  creating  and  initializing contexts,  for
   asserting   formulas  into   a   context,  and   for  checking   the
-  satisfiability  of the  asserted formulas.  Several contexts  can be
-  constructed and manipulated independently.
+  satisfiability of the asserted  formulas.  Optionally, a context can
+  support  operations  for  retracting  assertions  using  a  push/pop
+  mechanism.  Several  contexts  can be  constructed  and  manipulated
+  independently.
 
   Contexts are highly customizable.  Each context can be configured to
   support  a  specific  theory,  and  to  use  a  specific  solver  or
   combination of solvers.
 
 \item[Model Management] If  the set of formulas asserted  in a context
-  is satisfiable, then one can  construct a model of the formulas. The
+  is satisfiable, then one can construct  a model of the formulas. The
   model maps symbols of the formulas to concrete values (e.g., integer
-  or  rational  values  or  bitvector  constants).  The  API  provides
+  or  rational  values, or  bitvector  constants).   The API  provides
   functions to build and query models.
 \end{description}
 
@@ -634,15 +636,15 @@ is used by the internal SAT solver.
 
 In  Yices~2,  it  is  possible   to  select  a  different  solver  (or
 combination of solvers) for the  problem of interest. Each context can
-thus be configured for a  specific class of formulas. For example, one
-can use  a solver specialized for  linear arithmetic, or  use a solver
+thus be configured for a specific  class of formulas. For example, one
+can use  a solver specialized for  linear arithmetic, or use  a solver
 that           supports           the           full           Yices~2
 language. Figure~\ref{solver-architecture} shows  how the most general
 solver is  built. A  major component  of all solvers  is a  SAT solver
-based on the  Davis-Putnam-Logemann-Loveland (DPLL) procedure. The SAT
+based on the Conflict-Driven Clause Learning (CDCL) procedure. The SAT
 solver   is  coupled   with   one  or   more  so-called   \emph{theory
-  solvers}. Each  theory solver implements a decision  procedure for a
-particular  theory.  Currently,  Yices~2  includes  four  main  theory
+  solvers}. Each theory  solver implements a decision  procedure for a
+particular  theory.   Currently,  Yices~2 includes  four  main  theory
 solvers:
 \begin{itemize}
 \item  The \emph{UF  Solver} deals  with the  theory  of uninterpreted
@@ -671,7 +673,7 @@ remove some  of the components  of Figure~\ref{solver-architecture} to
 build  simpler and  more efficient  solvers that  are  specialized for
 specific  classes  of  formulas.   For  example,  a  solver  for  pure
 arithmetic can be built by directly attaching the arithmetic solver to
-the DPLL  SAT solver. Similarly,  Yices~2 can be specialized  for pure
+the CDCL SAT solver. Similarly,  Yices~2 can be specialized  for pure
 bitvector problems, or for problems combining uninterpreted functions,
 arrays, and bitvectors (by removing the arithmetic solver).
 
@@ -682,6 +684,54 @@ global  consistency. The  other solvers  (for arithmetic,  arrays, and
 bitvectors)  communicate only  with the  central UF  solver  and never
 directly with  each other.  This property considerably  simplifies the
 design and implementation of theory solvers.
+
+\section{Context Configurations}
+\label{features}
+
+In addition to the set of solvers it contains, a context can be
+configured to support different usage scenarios. The basic operations
+supported by a context include:
+\begin{itemize}
+\item Asserting one or more formulas
+\item Checking satisfiability of the set of assertions
+\item Building a model if the assertions are satisfiable
+\end{itemize}
+In addition, a context can be configured to support addition and
+removal of assertions using a push/pop mechanism.  In this case, the
+context maintains a stack of assertions organized in successive
+levels. The push operation starts a new level and pop removes all
+assertions at the top level. Thus push can be thought as setting a
+backtracking point and pop restores the context state to a previous
+bactracking point.
+
+Support for push and pop induces some overhead and may disable some
+preprocessing and simplification of assertions. In some cases, it is
+then desirable to use a context without support for push and pop, in
+order to get higher performance. Yices~2 allows users to control the
+set of features supported by a context by selecting a specific {\em
+  operating mode\/}.
+\begin{itemize}
+\item The simplest mode is {\em one-shot\/}. In this mode, one can
+  assert formulas then make a one call to the check operation.
+  Assertions are not allowed after the call to check. This mode is the
+  most efficient as Yices may apply powerful preprocessing and
+  simplification (such as symmetry breaking~\cite{Deharbe+etal:2011}).
+\item The next mode is {\em multi-checks\/}. In this mode, several calls
+  to the check operation are allowed. One can assert formulas, call
+  check, assert more formulas and call check again. This can be done
+  as long as the context is satisfiable. Once check returns
+  \texttt{unsat}, then no assertions can be added. This mode avoids
+  the overhead of maintaining a stack of assertions.
+\item The default mode is {\em push-pop\/}. In this mode, a context
+  supports the push and pop operations. Assertions are organized in a
+  stack as explained previously.
+\item The last mode is {\em interactive\/}. This mode provides the
+  same functionalities as {\em push-pop\/}. In addition, the context
+  is configured to recover gracefully when a check operation times out
+  or is interrupted.
+\end{itemize}
+
+
 
 
 \chapter{\texttt{yices}}
@@ -772,6 +822,13 @@ command line as follows:
       yices --logic=QF_BV examples/bv_test2.ys
 \end{verbatim}
 \end{small}
+Also, since the file contains only one call to \texttt{(check)}, one can 
+select the \texttt{one-shot} mode:
+\begin{small}
+\begin{verbatim}
+      yices --logic=QF_BV --mode=one-shot examples/bv_test2.ys
+\end{verbatim}
+\end{small}
 To get a more detailed output, give option \texttt{--verbose}:
 \begin{small}
 \begin{verbatim}
@@ -842,8 +899,8 @@ options are supported
   \item \texttt{push-pop}: like \texttt{multi-checks} but with support
     for   adding   and   retracting   assertions  via   the   commands
     \texttt{(push)} and \texttt{(pop)}.
-  \item   \texttt{interactive}:   supports   the  same   features   as
-    \texttt{push-pop}  mode,  but   with  a  different  behavior  when
+  \item  \texttt{interactive}:  supports  the  same  features  as  the
+    \texttt{push-pop}  mode,  but  with   a  different  behavior  when
     \texttt{(check)} is interrupted.
   \end{itemize}
   In  the  first  two  modes, \texttt{yices}  employs  more  aggressive
@@ -865,9 +922,10 @@ options are supported
 
 \item[\texttt{--version, -V}]  Display version information then exit.
 
-  This displays the Yices version  number, the GMP version linked with
-  Yices, and  information about build date and  platform. For example,
-  here is the output for Yices~2.2.0 built on MacOS~X
+  This  displays the  Yices version  number,  the version  of the  GMP
+  library  linked with  Yices, and  information about  build date  and
+  platform. For example,  here is the output for  Yices~2.2.0 built on
+  MacOS~X
   \begin{small}
   \begin{verbatim}
      Yices 2.2.0
@@ -1252,10 +1310,9 @@ terms). Here are examples of Boolean terms:
   (= x y)
   (/= x y)
   (< (* 2 x) -1)
-  (and (P (f a) b) 
+  (and (P (f a) b) (Q b))
 \end{verbatim}
 \end{small}
-
 
 and has support for all common Boolean
 and arithmetic operations. Yices also supports all the bitvector
