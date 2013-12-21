@@ -78,8 +78,8 @@ bv-slt,                 TK_BV_SLT
 bv-shl,                 TK_BV_SHL
 bv-lshr,                TK_BV_LSHR
 bv-ashr,                TK_BV_ASHR
-bv-udiv,                TK_BV_DIV
-bv-urem,                TK_BV_REM
+bv-div,                 TK_BV_DIV
+bv-rem,                 TK_BV_REM
 bv-sdiv,                TK_BV_SDIV
 bv-srem,                TK_BV_SREM
 bv-smod,                TK_BV_SMOD

@@ -1130,16 +1130,16 @@ bv-shift-left1 & bv-shift-right0 & bv-shift-right1 & bv-shl \\
 bv-sign-extend & bv-sle & bv-slt & bv-smod \\
 bv-srem & bv-sub & bv-xnor & bv-xor \\
 bv-zero-extend & check & define & define-type \\
-distinct & dump-context & dump-context & echo \\
-eval & exists & exit & false \\
-forall & help & if & include \\
-int & ite & lambda & let \\
-mk-bv & mk-tuple & not & or \\
-pop & push & real & reset \\
-reset-stats & scalar & select & set-param \\
-set-timeout & show-model & show-param & show-params \\
-show-stats & true & tuple & tuple-update \\
-update & xor &  & \\
+distinct & dump-context & echo  & eval \\
+exists & exit & false & forall \\
+help & if & include & int \\
+ite & lambda & let & mk-bv \\
+mk-tuple & not & or & pop \\
+push & real & reset & reset-stats \\
+scalar & select & set-param & set-timeout \\
+show-model & show-param & show-params & show-stats \\
+true & tuple & tuple-update & update \\ 
+xor &  & & \\
 \hline
 \end{tabular}
 \end{tt}
@@ -1302,22 +1302,21 @@ arrays. In Yices, arrays are the same as functions.
 
 \subsection{Terms}
 
-Yices uses a lisp-like syntax for terms and formulas (i.e., Boolean
-terms). Here are examples of Boolean terms:
+Yices uses a lisp-like syntax. For example, the polynomial $x + 3y +
+z$ is written
 \begin{small}
 \begin{verbatim}
-  (distinct x y z t u)
-  (= x y)
-  (/= x y)
-  (< (* 2 x) -1)
-  (and (P (f a) b) (Q b))
+       (+ x (* 3 y) z)
 \end{verbatim}
 \end{small}
-
-and has support for all common Boolean
-and arithmetic operations. Yices also supports all the bitvector
-operators 
-
+In general, operators that are commutative and associative can take an
+arbitrary number of arguments (at least one). For example, one can
+write disjunctions with one, two, or more arguments:
+\begin{small}
+\begin{verbatim}
+      (or A)    (or A B)    (or A B C D)
+\end{verbatim}
+\end{small}
 
 
 \subsection{Commands}
