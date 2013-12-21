@@ -124,15 +124,15 @@ more     information,     please     visit     the     GMP     website
 
 \section{Supported Logics}
 
-The current  Yices~2 release supports  quantifier-free combinations of
-linear  integer and real  arithmetic, uninterpreted  function, arrays,
+The current  Yices~2 release supports quantifier-free  combinations of
+linear integer  and real  arithmetic, uninterpreted  function, arrays,
 and bitvectors. Currently, Yices~2 supports all SMT-LIB logics that do
 not  involve  quantifiers or  nonlinear  arithmetic  as summarized  in
-Table~\ref{supported-logics}.  The meaning  of the logics and theories
+Table~\ref{supported-logics}.  The meaning of  the logics and theories
 in    this   table    is    explained   at    the   SMT-LIB    website
-(\url{http://www.smtlib.org}).  In addition,  Yices~2  support a  more
+(\url{http://www.smtlib.org}).  In  addition, Yices~2 supports  a more
 general set of array operations  than required by SMT-LIB, and Yices~2
-has support  for tuple  and enumeration types,  which are not  part of
+has support  for tuple and  enumeration types,  which are not  part of
 SMT-LIB.
 
 \begin{table}
@@ -199,14 +199,16 @@ SMT-LIB.
 \label{supported-logics}
 \end{table}
 
+\newpage
+
 \section{Getting Help and Reporting Bugs}
 
 The Yices  website provides the  latest release and  information about
 Yices.  For bug  reports and questions about Yices,  please contact us
 via the Yices mailing lists:
 \begin{itemize}
-\item If you have questions about Yices usage or installation, 
-   send e-mail to \texttt{yices-help@csl.sri.com}.
+\item Send e-mail to \texttt{yices-help@csl.sri.com} if you have
+  questions about Yices usage or installation,
 
    This mailing list is moderated, but you do not need to register to
    post to it.
@@ -431,11 +433,11 @@ bitvector operators.
 
 \subsection{Arithmetic}
 
-Arithmetic constants  are arbitrary precision  integers and rationals.
+Arithmetic constants  are arbitrary precision integers  and rationals.
 Although  Yices  uses  exact  arithmetic, rational  constants  can  be
-written  using  standard  floating-point notation.  Internally,  Yices
-converts   floating-point  input  to   rationals.  For   example,  the
-floating-point expression \texttt{3.04e-1} is converted to $38/125$.
+written  in  floating-point   notation.   Internally,  Yices  converts
+floating-point input  to rationals.   For example,  the floating-point
+expression \texttt{3.04e-1} is converted to $38/125$.
 
 The  Yices  language  supports  the traditional  arithmetic  operators
 (i.e., addition, subtraction,  multiplication) with the exception that
@@ -865,13 +867,15 @@ options are supported
 
   This displays the Yices version  number, the GMP version linked with
   Yices, and  information about build date and  platform. For example,
-  here is the output for Yices~2.1.0 built for MacOS~X
+  here is the output for Yices~2.2.0 built on MacOS~X
   \begin{small}
   \begin{verbatim}
-     Yices 2.1.0. Copyright SRI International.
-     GMP 5.0.4. Copyright Free Software Foundation.
-     Build date: Fri Oct 5 10:32:43 PDT 2012
-     Platform: x86_64-apple-darwin10.8.0 (release/static)
+     Yices 2.2.0
+     Copyright SRI International.
+     Linked with GMP 5.1.3
+     Copyright Free Software Foundation, Inc.
+     Build date: 2013-12-21
+     Platform: x86_64-apple-darwin13.0.2 (release)
   \end{verbatim}
   \end{small}
   \vspace*{-1em}
@@ -1142,8 +1146,10 @@ the command
 \end{verbatim}
 \end{small}
 The number of bits must be positive so \texttt{(bitvector 0)} is not a
-valid  type.   There  is  also  a  hard-coded limit  on  the  size  of
-bitvectors that Yices can handle (namely, $2^{28} - 1$).
+valid  type.   There  is  also  a hard-coded  limit  on  the  size  of
+bitvectors (namely, $2^{28}  - 1$).  Of course, this  is a theoretical
+limit; the solver will most likely run out of memory if you attempt to
+use bitvectors that are that large.
 
 \subsubsection*{Uninterpreted Types}
 
