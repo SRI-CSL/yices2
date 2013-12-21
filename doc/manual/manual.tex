@@ -29,7 +29,7 @@ Menlo Park CA 94025 USA
 %\listoffigures
 \cleardoublepage
 \setcounter{page}{0}
-\pagenumbering{arabic}
+<\pagenumbering{arabic}
 
 
 \chapter{Introduction}
@@ -1302,21 +1302,107 @@ arrays. In Yices, arrays are the same as functions.
 
 \subsection{Terms}
 
-Yices uses a lisp-like syntax. For example, the polynomial $x + 3y +
+Yices uses a Lisp-like syntax. For example, the polynomial $x + 3y +
 z$ is written
 \begin{small}
 \begin{verbatim}
        (+ x (* 3 y) z)
 \end{verbatim}
 \end{small}
-In general, operators that are commutative and associative can take an
-arbitrary number of arguments (at least one). For example, one can
-write disjunctions with one, two, or more arguments:
+In general, all operations that are commutative and associative can
+take one, two, or more arguments. For example, the \texttt{or}
+operator allows one to write terms such as
 \begin{small}
 \begin{verbatim}
       (or A)    (or A B)    (or A B C D)
 \end{verbatim}
 \end{small}
+
+\subsubsection*{If-Then-Else}
+
+Yices provides an if-then-else construct that applies to any type.
+An if-then-else term can be written using one of the two following 
+forms
+\begin{small}
+\begin{verbatim}
+     (ite <c> <t1> <t2>)     (if  <c> <t1> <t2>)    
+\end{verbatim}
+\end{small}
+Both forms are equivalent and just mean ``if \texttt{<c>} then
+\texttt{<t1>} else \texttt{<t2>}.''  The condition \texttt{<c>} must
+be a Boolean term, and the two terms \texttt{<t1>} and \texttt{<t2>}
+must have compatible types. If \texttt{<t1>} and \texttt{<t2>} have
+the same type $\tau$ then \texttt{(ite <c> <t1> <t2>)} also has type
+$\tau$.  Otherwise, as explained in Section~\ref{type-system}, the
+type of \texttt{(if <c> <t1> <t2>)} is the minimal supertype of
+\texttt{<t1>} and \texttt{<t2>}.  For example, if \texttt{<t1>} has
+type \texttt{int} and \texttt{<t2>} has type \texttt{real}, then
+\texttt{(ite <c> <t1> <t2>)} has type \texttt{real}.
+
+\subsubsection*{Equalities and Disequalities}
+
+Equalities and disequalities are written as follows
+\begin{small}
+\begin{verbatim}
+     (=  <t1> <t2>)        (/= <t1> <t2>)
+\end{verbatim}
+\end{small}
+where \texttt{<t1>} and \texttt{<t2>} are two terms of compatible
+types. These operators are binary. Unlike SMTLIB~2, Yices does not
+allow one to write \texttt{(= x y z t u)}. On the other hand, Yices
+includes an $n$-ary \texttt{distinct} operator (for $n\geq 2$) that
+generalizes disequality. The Boolean term
+\begin{small}
+\begin{verbatim}
+   (distinct <t1> .... <t_n> )
+\end{verbatim}
+\end{small}
+is true if \texttt{<t1>}, \ldots, \texttt{<t\_n>} are all different
+from each other. The terms \texttt{<t1>} to \texttt{<t\_n>} must all
+have compatible types. For example, \texttt{(distinct <t1> <t2>)} is
+the same thing as \texttt{(/= <t1> <t2>)}. 
+
+\subsubsection*{Boolean Operators}
+
+The usual Boolean constants and functions are available. They are
+listed in Table~\ref{Boolean-Operators}.  The associative/commutative
+operators \texttt{or}, \texttt{and}, and \texttt{xor} can take an
+arbitray number of arguments (at least one). The equivalence
+(\texttt{<=>}) and implication (\texttt{=>}) take exaclty two
+arguments.
+
+One can also use the equality and disequality operators
+with Boolean terms. If \texttt{<t1>} and \texttt{<t2>} are Boolean
+then \texttt{(= <t1> <t2>)} is the same as \texttt{(<=> <t1> <t2>)},
+and \texttt{(/= <t1> <t2>)} is the same as \texttt{(xor <t1> <t2>)}.
+
+\begin{table}
+\begin{small}
+\begin{center}
+\begin{tabular}{|p{2cm}|p{2cm}|}
+\hline
+\texttt{true} & \texttt{false} \\
+\texttt{and} & \texttt{or}  \\
+\texttt{not} & \texttt{xor}  \\
+\texttt{<=>} & \texttt{=>}  \\
+\hline
+\end{tabular}
+\end{center}
+\end{small}
+\caption{Boolean Constants and Operators}
+\label{Boolean-Operators}
+\end{table}
+
+\subsubsection*{Arithmetic}
+
+
+
+\subsubsection*{Bitvectors}
+
+\subsubsection*{Tuples}
+
+\subsubsection*{Function Updates}
+
 
 
 \subsection{Commands}
