@@ -2544,7 +2544,7 @@ static void print_bool_assignment(yices_pp_t *printer, const char *name, bval_t 
  * Trivial assignment: this is called when Yices is used in benchmark
  * mode, and all assertions simplify to true. In this case, the
  * assertions are trivially satisfiable but no context is
- * constructred. We just go through the list of all named Booleans and
+ * constructed. We just go through the list of all named Booleans and
  * give them the same value (UNDEF), except if any of them is equal to
  * true or false.
  */
@@ -2578,7 +2578,7 @@ static void print_trivial_assignment(yices_pp_t *printer, named_term_stack_t *s)
 /*
  * Non-trivial assignment: go through the list of all named Booleans
  * - query the context to get each term value
- * - if a value is unknown, print the defaut 'true'
+ * - if a value is unknown, print the default 'true'
  */
 static void print_assignment(yices_pp_t *printer, context_t *ctx, named_term_stack_t *s) {
   uint32_t i, n;
@@ -2606,7 +2606,7 @@ static void show_assignment(smt2_globals_t *g) {
     assert(g->benchmark_mode);
 
     if (!g->frozen) {
-      print_error("can't build the assigment. Call (check-sat) first");
+      print_error("can't build the assignment. Call (check-sat) first");
     } else if (g->trivially_unsat) {
       print_error("the context is unsatisfiable");
     } else {

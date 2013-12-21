@@ -67,7 +67,7 @@ enum smt2_errors {
 
   SMT2_SYMBOL_NOT_SORT,                    // misused as a sort name
   SMT2_SYMBOL_NOT_IDX_SORT,                // misused as an indexed sort name
-  SMT2_SYMBOL_NOT_SORT_OP,                 // misused as a sort constuctor
+  SMT2_SYMBOL_NOT_SORT_OP,                 // misused as a sort constructor
   SMT2_SYMBOL_NOT_IDX_SORT_OP,             // misused as an indexed sort constructor
   SMT2_SYMBOL_NOT_TERM,
   SMT2_SYMBOL_NOT_IDX_TERM,
@@ -284,7 +284,7 @@ typedef struct smt2_cmd_stats_s {
  * - we delay the processing of assertions until the call to check_sat().
  *   So every call to smt2_assert(t) just adds t to the assertion vector.
  *
- * The solver is initialzed in incremental node by calling init_smt2(false, ..).
+ * The solver is initialized in incremental node by calling init_smt2(false, ..).
  * In this mode, push/pop are supported. Some preprocessing is disabled 
  * (e.g., symmetry breaking).
  *
@@ -324,7 +324,7 @@ typedef struct smt2_globals_s {
   FILE *out;                  // default = stdout
   FILE *err;                  // default = stderr
   
-  // names of the output/dianostic channels
+  // names of the output/diagnostic channels
   char *out_name;             // default = NULL (means "stdout")
   char *err_name;             // default = NULL (means "stderr")
 
@@ -346,7 +346,7 @@ typedef struct smt2_globals_s {
   attr_vtbl_t *avtbl;        // global attribute table
   strmap_t *info;            // for set-info/get-info (initially NULL)
   context_t *ctx;            // context (initially NULL)
-  model_t *model;            // model (ihitially NULL)
+  model_t *model;            // model (initially NULL)
 
   // push/pop support
   smt2_stack_t stack;
@@ -552,7 +552,7 @@ extern void smt2_assert(term_t t);
 
 
 /*
- * Check satsifiability of the current set of assertions
+ * Check satisfiability of the current set of assertions
  */
 extern void smt2_check_sat(void);
 
