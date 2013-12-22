@@ -1152,6 +1152,12 @@ xor &  & & \\
 
 \subsection{Declarations}
 
+A declaration either introduces a new type or term or gives a name to
+an existing type or term. Yices uses different name spaces for types
+and terms. It is then permitted to use the same name for a type and
+for a term.
+
+
 \subsubsection*{Type Declaration}
 
 A type declaration is a command of the following two forms.
@@ -1184,9 +1190,6 @@ The first form declares a new uninterpreted term of the given
 given \texttt{<term>}, which must be of type \texttt{<type>}. The
 \texttt{<name>} must be a symbol that's not already used as a term
 name.
-
-Yices uses different name spaces for types and terms. It is then
-permitted to use the same name for a type and for a term.
 
 
 
