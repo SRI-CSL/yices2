@@ -1192,6 +1192,12 @@ permitted to use the same name for a type and for a term.
 
 \subsection{Types}
 
+Yices includes a few predefined types for arithmetic and
+bitvectors. One can extend the set of atomic types by creating
+uninterpreted and scalar types. In addition to the atomic types, Yices
+provides constructors for tuple and function types. More details about
+types and subtyping are given in Section~\ref{type-system}.
+
 \subsubsection*{Predefined Types}
 
 The predefined  types are \texttt{bool},  \texttt{int}, \texttt{real},
@@ -1364,19 +1370,7 @@ the same thing as \texttt{(/= <t1> <t2>)}.
 
 \subsubsection*{Boolean Operators}
 
-The usual Boolean constants and functions are available. They are
-listed in Table~\ref{Boolean-Operators}.  The associative/commutative
-operators \texttt{or}, \texttt{and}, and \texttt{xor} can take an
-arbitray number of arguments (at least one). The equivalence
-(\texttt{<=>}) and implication (\texttt{=>}) take exaclty two
-arguments.
-
-One can also use the equality and disequality operators
-with Boolean terms. If \texttt{<t1>} and \texttt{<t2>} are Boolean
-then \texttt{(= <t1> <t2>)} is the same as \texttt{(<=> <t1> <t2>)},
-and \texttt{(/= <t1> <t2>)} is the same as \texttt{(xor <t1> <t2>)}.
-
-\begin{table}
+\begin{table}[h]
 \begin{small}
 \begin{center}
 \begin{tabular}{|p{2cm}|p{2cm}|}
@@ -1393,9 +1387,55 @@ and \texttt{(/= <t1> <t2>)} is the same as \texttt{(xor <t1> <t2>)}.
 \label{Boolean-Operators}
 \end{table}
 
+
+The usual Boolean constants and functions are available. They are
+listed in Table~\ref{Boolean-Operators}.  The associative/commutative
+operators \texttt{or}, \texttt{and}, and \texttt{xor} can take any
+number of arguments greater than one. The equivalence (\texttt{<=>})
+and implication (\texttt{=>}) operators take exactly two arguments.
+
+One can also use the equality and disequality operators
+with Boolean terms. If \texttt{<t1>} and \texttt{<t2>} are Boolean
+then \texttt{(= <t1> <t2>)} is the same as \texttt{(<=> <t1> <t2>)},
+and \texttt{(/= <t1> <t2>)} is the same as \texttt{(xor <t1> <t2>)}.
+
 \subsubsection*{Arithmetic}
 
+Arithmetic constants can be written in decimal, as rationals, or using
+floating point notation. Internally, Yices uses exact rational
+arithmetic and it represents all arithmetic constants as rationals.
 
+The usual arithmetic operations and comparison operators are
+summarized in Table~\ref{Arithmetic-Operations}. One can freely mix
+terms of real and integer types in all operations. The exponent $k$ in
+\texttt{(\char`\^\ a k)} must be a non-negative integer constant. The
+divisor \texttt{c} in \texttt{(/ a c)} must be a non-zero constant.
+
+\begin{table}[h]
+\begin{small}
+\begin{center}
+\begin{tabular}{|p{4cm}|l|c|}
+\hline
+Syntax & \multicolumn{2}{|c|}{Meaning} \\
+\hline
+\texttt{(+ a1 ... a\_n)} & sum & $a_1 + \ldots + a_n$ \\
+\texttt{(* a1 ... a\_n)} & product & $a_1 \times \ldots \times a_n$ \\
+\texttt{(- a)} & opposite & $-a$\\
+\texttt{(- a1 a2 ... a\_n)} & difference &  $a_1 - a_2 - \ldots - a_n$ \\
+\texttt{(\char`\^\  a k)} & exponentiation & $a^k$ \\
+\texttt{(/ a c)} & division & $a/c$ \\
+\hline 
+\texttt{(<= a1 a2)} & inequality & $a_1 \leq a_2$\\
+\texttt{(>= a1 a2)} & inequality & $a_1 \geq a_2$\\
+\texttt{(< a1 a2)} & strict inequality & $a_1 < a_2$ \\
+\texttt{(> a1 a2)} & strict inequality & $a_1 > a_2$ \\
+\hline
+\end{tabular}
+\end{center}
+\end{small}
+\caption{Arithmetic Operations}
+\label{Arithmetic-Operations}
+\end{table}
 
 \subsubsection*{Bitvectors}
 
