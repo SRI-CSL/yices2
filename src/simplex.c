@@ -5633,6 +5633,20 @@ static bool move_nonbasic_vars_to_bounds(simplex_solver_t *solver) {
  * BRANCH & BOUND
  */
 
+#if TRACE_INTFEAS
+static void print_branch_candidates(FILE *f, simplex_solver_t *solver, ivector_t *v) {
+  uint32_t i, n;
+
+  n = v->size;
+  for (i=0; i<n; i++) {
+    print_simplex_var_bounds(f, solver, v->data[i]);
+  }
+  fprintf(f, "\n");
+  fflush(f);
+}
+
+#endif
+
 /*
  * Collect all basic, integer variables that don't have an integer value
  * in the current assignment
@@ -5706,8 +5720,8 @@ static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
  * - the score for x is (upper bound - lower bound) if that's small enough
  * - return MAX_BRANCH_SCORE if x has zero or one bounds
  */
-#define MAX_BRANCH_SCORE 20000
-#define HALF_MAX_BRANCH_SCORE 10000
+#define MAX_BRANCH_SCORE UINT32_MAX
+#define HALF_MAX_BRANCH_SCORE (UINT32_MAX/2)
 
 static uint32_t simplex_branch_score(simplex_solver_t *solver, thvar_t x) {
   rational_t *diff;
@@ -5722,6 +5736,7 @@ static uint32_t simplex_branch_score(simplex_solver_t *solver, thvar_t x) {
   }
   q_set(diff, &solver->bstack.bound[u].main);
   q_sub(diff, &solver->bstack.bound[l].main);
+  q_normalize(diff);
   // diff = upper bound - lower bound
   if (q_is_smallint(diff)) {
     s = q_get_smallint(diff);
@@ -5742,7 +5757,7 @@ static thvar_t select_branch_variable(simplex_solver_t *solver, ivector_t *v) {
   uint32_t i, n, best_score, score, k;
   thvar_t x, best_var;
 
-  best_score = MAX_BRANCH_SCORE + 1;
+  best_score = MAX_BRANCH_SCORE;
   best_var = null_thvar;
   k = 0;
 
@@ -5757,7 +5772,7 @@ static thvar_t select_branch_variable(simplex_solver_t *solver, ivector_t *v) {
     } else if (score == best_score) {
       // break ties randomly
       k ++;
-      if (random_uint(solver, k) == 0) {
+      if (best_var < 0 || random_uint(solver, k) == 0) {
         best_var = x;
       }
     }
@@ -6263,8 +6278,8 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
 
 #if TRACE_INTFEAS
   printf("--- make integer feasible %"PRIu32" ---\n", solver->stats.num_make_intfeasible);
-  print_simplex_bounds(stdout, solver);
-  printf("\n\n");
+  //  print_simplex_bounds(stdout, solver);
+  //  printf("\n\n");
   fflush(stdout);
 #endif
 
@@ -6358,6 +6373,9 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   tprintf(solver->core->trace, 10, 
 	  "(branch & bound: %"PRIu32" candidates, branch variable = i!%"PRIu32", score = %"PRIu32")\n", 
 	  v->size, x, simplex_branch_score(solver, x));
+#if TRACE_INTFEAS
+  print_branch_candidates(stdout, solver, v);
+#endif
   ivector_reset(v);
 
   assert(x != null_thvar);
