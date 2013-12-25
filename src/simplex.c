@@ -7936,7 +7936,7 @@ literal_t simplex_select_polarity(simplex_solver_t *solver, void *a, literal_t l
   atom = arith_atom(&solver->atbl, id);
   v = var_of(l);
 
-  if (v == solver->last_branch_atom && drand(&solver->dprng) > 0.1) {
+  if (v == solver->last_branch_atom && drand(&solver->dprng) > 0.2) {
     // for a branch & bound atom
     // we branch the opposite of the model
     solver->last_branch_atom = null_bvar;
