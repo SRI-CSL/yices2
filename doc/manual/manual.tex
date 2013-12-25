@@ -652,14 +652,19 @@ solvers:
     functions.}. It implements a decision procedure based on computing
   congruence      closures,      similar      to     the      Simplify
   system~\cite{Detlefs-etal:JACM2005}.
-\item The \emph{Arithmetic Solver}  deals with linear integer and real
+\item The \emph{Arithmetic Solver} deals with linear integer and real
   arithmetic.  It implements a decision procedure based on the Simplex
-  algorithm~\cite{DutertredeMoura:cav06,DutertredeMoura:report06}.
+  algorithm~\cite{DutertredeMoura:cav06,DutertredeMoura:report06}. 
 \item The \emph{Bitvector Solver} deals with the theory of bitvectors.
 \item  The \emph{Array  Solver}  implements a  decision procedure  for
   McCarthy's theory of arrays.
 \end{itemize}
-
+In addition, two arithmetic solvers can be used in place of the
+Simplex-based solver for integer or real difference logic. These
+solvers implement a decision procedure based on the Floyd-Warshal
+algorithm. These solvers are more specialized and limited than the
+Simplex-based solver. They must be used standalone; they cannot be
+combined with the UF solver. 
 
 \begin{figure}
 \includegraphics[width=12cm]{yices2-architecture}
@@ -668,14 +673,14 @@ solvers:
 \end{figure}
 
 
-Yices~2  employs a  modular  solver architecture.  It  is possible  to
-remove some  of the components  of Figure~\ref{solver-architecture} to
-build  simpler and  more efficient  solvers that  are  specialized for
-specific  classes  of  formulas.   For  example,  a  solver  for  pure
-arithmetic can be built by directly attaching the arithmetic solver to
-the CDCL SAT solver. Similarly,  Yices~2 can be specialized  for pure
-bitvector problems, or for problems combining uninterpreted functions,
-arrays, and bitvectors (by removing the arithmetic solver).
+Yices~2 employs a modular architecture.  It is possible to remove some
+of the components of Figure~\ref{solver-architecture} to build simpler
+and more efficient  solvers that are specialized  for specific classes
+of formulas.  For  example, a solver for pure arithmetic  can be built
+by  directly  attaching   the  arithmetic  solver  to   the  CDCL  SAT
+solver.  Similarly,  Yices~2 can  be  specialized  for pure  bitvector
+problems, or  for problems combining uninterpreted  functions, arrays,
+and bitvectors (by removing the arithmetic solver).
 
 Yices~2  combines   several  theory  solver   using  the  Nelson-Oppen
 method~\cite{NelsonOppen79}.   The  UF solver  is  essential for  this
@@ -1319,13 +1324,14 @@ z$ is written
 \end{verbatim}
 \end{small}
 In general, all operations that are commutative and associative can
-take one, two, or more arguments. For example, the \texttt{or}
-operator allows one to write terms such as
+take one, two, or more arguments. For example, one can write 
 \begin{small}
 \begin{verbatim}
       (or A)    (or A B)    (or A B C D)
 \end{verbatim}
 \end{small}
+since \texttt{or} is commutative an associative.
+
 
 \subsubsection*{If-Then-Else}
 
@@ -1407,12 +1413,9 @@ and \texttt{(/= <t1> <t2>)} is the same as \texttt{(xor <t1> <t2>)}.
 Arithmetic constants can be written in decimal, as rationals, or using
 floating point notation. Internally, Yices uses exact rational
 arithmetic and it represents all arithmetic constants as rationals.
-
-The usual arithmetic operations and comparison operators are
-summarized in Table~\ref{Arithmetic-Operations}. One can freely mix
-terms of real and integer types in all operations. The exponent $k$ in
-\texttt{(\char`\^\ a k)} must be a non-negative integer constant. The
-divisor \texttt{c} in \texttt{(/ a c)} must be a non-zero constant.
+Yices does not currently include a solver for non-linear arithmetic
+(see~\ref{solvers}), the input language allows one to construct
+arbitrary polynomials.
 
 \begin{table}[h]
 \begin{small}
@@ -1439,6 +1442,13 @@ Syntax & \multicolumn{2}{|c|}{Meaning} \\
 \caption{Arithmetic Operations}
 \label{Arithmetic-Operations}
 \end{table}
+
+The usual arithmetic operations and comparison operators are
+summarized in Table~\ref{Arithmetic-Operations}. One can freely mix
+terms of real and integer types in all operations. The exponent $k$ in
+\texttt{(\char`\^\ a k)} must be a non-negative integer constant. The
+divisor \texttt{c} in \texttt{(/ a c)} must be a non-zero constant.
+
 
 \subsubsection*{Bitvectors}
 
