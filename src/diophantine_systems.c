@@ -15,7 +15,7 @@
  * Set TRACE to 1 to enable tracing
  */
 
-#define TRACE 0
+#define TRACE 1
 
 #if TRACE
 #include <stdio.h>
@@ -1345,18 +1345,18 @@ bool dsolver_row_close(dsolver_t *solver) {
   dcolumn_t *c;
   bool feasible;
 
-#if TRACE
+#if 0
   printf("---> dsolver_row_close:\n");
-  dsolver_print_active_row(stdout, solver);
-  if (solver->all_coeffs_integer) {
-    printf("  integer row\n");
-  }
+  //  dsolver_print_active_row(stdout, solver);
+  //  if (solver->all_coeffs_integer) {
+  //    printf("  integer row\n");
+  //  }
 #endif
 
   feasible = true;
   dsolver_remove_zeros(solver);
 
-#if TRACE
+#if 0
   printf("  after removing zeros:\n");
   dsolver_print_active_row(stdout, solver);
 #endif
@@ -1365,7 +1365,7 @@ bool dsolver_row_close(dsolver_t *solver) {
     // non-zero row
     dsolver_normalize_new_row(solver);
 
-#if TRACE
+#if 0
     printf("  after normalization:\n");
     dsolver_print_active_row(stdout, solver);
 #endif
@@ -1376,7 +1376,7 @@ bool dsolver_row_close(dsolver_t *solver) {
       feasible = false;
       solver->status = DSOLVER_GCD_UNSAT;
       solver->unsat_row = solver->active_row;
-#if TRACE
+#if 0
       printf("  infeasible by GCD test\n");
 #endif
     }
@@ -1387,7 +1387,7 @@ bool dsolver_row_close(dsolver_t *solver) {
       solver->status = DSOLVER_TRIV_UNSAT;
       solver->unsat_row = solver->active_row;
       feasible = false;
-#if TRACE
+#if 0
       printf("  infeasible\n");
 #endif
     }
@@ -1983,9 +1983,9 @@ static bool dsolver_process_row(dsolver_t *solver, int32_t r) {
 
 #if TRACE
   printf("After processing row %"PRId32"\n", r);
-  dsolver_print_main_rows(stdout, solver);
-  dsolver_print_sol_rows(stdout, solver);
-  dsolver_print_elim_rows(stdout, solver);
+  //  dsolver_print_main_rows(stdout, solver);
+  //  dsolver_print_sol_rows(stdout, solver);
+  //  dsolver_print_elim_rows(stdout, solver);
   dsolver_print_rows_to_process(stdout, solver);
 #endif
 
@@ -2016,10 +2016,10 @@ bool dsolver_is_feasible(dsolver_t *solver) {
 
 #if TRACE
   printf("After Rosser-Init\n");
-  dsolver_print_main_rows(stdout, solver);
-  dsolver_print_sol_rows(stdout, solver);
-  dsolver_print_elim_rows(stdout, solver);
-  dsolver_print_rows_to_process(stdout, solver);
+  //  dsolver_print_main_rows(stdout, solver);
+  //  dsolver_print_sol_rows(stdout, solver);
+  //  dsolver_print_elim_rows(stdout, solver);
+  //  dsolver_print_rows_to_process(stdout, solver);
   dsolver_print_status(stdout, solver);
   printf("nvars = %"PRIu32"\n", solver->nvars);
   printf("ncolumns = %"PRIu32"\n", solver->ncolumns);

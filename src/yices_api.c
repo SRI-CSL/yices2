@@ -6092,6 +6092,7 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
     if (ctx->logic == QF_LIA) {
       params->use_simplex_prop = true;
       params->tclause_size = 20;
+      params->bland_threshold = UINT32_MAX; // testing
     }
     break;
 

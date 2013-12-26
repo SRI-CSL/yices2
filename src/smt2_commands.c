@@ -2171,7 +2171,7 @@ static void check_delayed_assertions(smt2_globals_t *g) {
       return;
     }
     // TEMPORARY
-    //    yices_print_presearch_stats(stderr, g->ctx);
+    yices_print_presearch_stats(stderr, g->ctx);
 
     init_search_parameters(g);
     if (g->random_seed != 0) {

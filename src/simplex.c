@@ -35,7 +35,7 @@
 #define TRACE_INIT 0
 #define TRACE_PROPAGATION 0
 #define TRACE_BB 0
-#define TRACE_INTFEAS 0
+#define TRACE_INTFEAS 1
 
 
 #if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB || TRACE_INTFEAS || !defined(NDEBUG)
@@ -4239,10 +4239,10 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
   row_t *row;
   thvar_t x;
   int32_t r, k;
-  uint32_t repeats;
+  uint32_t repeats, loops;
   bool feasible;
 
-#if TRACE
+#if TRACE || 1
   printf("---> SIMPLEX: MAKE FEASIBLE\n");
 #endif
 
@@ -4267,6 +4267,7 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
   assert(leaving_vars->size == 0);
   repeats = 0;
   solver->use_blands_rule = false;
+  loops = 0;
 
   for (;;) {
     // check interrupt at every iteration
@@ -4275,6 +4276,11 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
       break;
     }
 
+    loops ++;
+    if ((loops & 0xFFF) == 0) {
+      printf(".");
+      fflush(stdout);
+    }
     x = int_heap_get_min(&solver->infeasible_vars);
     if (x < 0) {
       feasible = true;
@@ -4338,6 +4344,8 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
         if (repeats > solver->bland_threshold) {
           solver->use_blands_rule = true;
           solver->stats.num_blands ++;
+	  printf("\nSwitching to Bland's rule\n");
+	  fflush(stdout);
         }
       }
     }
@@ -6297,6 +6305,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   check_vartags(solver);
 #endif
 
+#if 0
   /*
    * Check for unsatisfiability using dsolver
    * (and possibly strengthen the bounds)
@@ -6349,7 +6358,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
     solver->bstack.fix_ptr = solver->bstack.top;    
   }
 
-
+#endif
 
   /*
    * At this point: no unsat detected. But bounds may have been strengthened
@@ -7197,7 +7206,7 @@ bool simplex_propagate(simplex_solver_t *solver) {
   /*
    * EXPERIMENTAL: periodically test for integer feasibility
    */
-  if (solver->check_counter -- <= 0) {
+  if (false && solver->check_counter -- <= 0) {
     if (simplex_has_integer_vars(solver)) {
       solver->check_counter = solver->check_period;
 
@@ -7936,7 +7945,7 @@ literal_t simplex_select_polarity(simplex_solver_t *solver, void *a, literal_t l
   atom = arith_atom(&solver->atbl, id);
   v = var_of(l);
 
-  if (v == solver->last_branch_atom && drand(&solver->dprng) > 0.2) {
+  if (v == solver->last_branch_atom && drand(&solver->dprng) > 0.1) {
     // for a branch & bound atom
     // we branch the opposite of the model
     solver->last_branch_atom = null_bvar;
