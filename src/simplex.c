@@ -4242,7 +4242,7 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
   uint32_t repeats, loops;
   bool feasible;
 
-#if TRACE || 1
+#if TRACE
   printf("---> SIMPLEX: MAKE FEASIBLE\n");
 #endif
 
