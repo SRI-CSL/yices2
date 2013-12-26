@@ -15,7 +15,7 @@
  * Set TRACE to 1 to enable tracing
  */
 
-#define TRACE 1
+#define TRACE 0
 
 #if TRACE
 #include <stdio.h>
