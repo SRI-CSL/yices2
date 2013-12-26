@@ -6218,7 +6218,10 @@ static bool simplex_dsolver_check(simplex_solver_t *solver) {
     }
   }
 
+  return true;
 
+#if 0
+  // TEMPORARY: disable calls to dsolver_is_feasible
   solver->stats.num_dioph_checks ++;
 
   // run the diophantine solver
@@ -6241,6 +6244,7 @@ static bool simplex_dsolver_check(simplex_solver_t *solver) {
   // Try to strengthen the bounds
   dsolver_build_general_solution(dioph);
   return strengthen_integer_bounds(solver, dioph);
+#endif
 }
 
 
@@ -7936,7 +7940,7 @@ literal_t simplex_select_polarity(simplex_solver_t *solver, void *a, literal_t l
   atom = arith_atom(&solver->atbl, id);
   v = var_of(l);
 
-  if (v == solver->last_branch_atom && drand(&solver->dprng) > 0.2) {
+  if (v == solver->last_branch_atom && drand(&solver->dprng) > 0.1) {
     // for a branch & bound atom
     // we branch the opposite of the model
     solver->last_branch_atom = null_bvar;
