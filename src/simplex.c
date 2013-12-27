@@ -6226,10 +6226,6 @@ static bool simplex_dsolver_check(simplex_solver_t *solver) {
     }
   }
 
-  return true;
-
-#if 0
-  // TEMPORARY: disable calls to dsolver_is_feasible
   solver->stats.num_dioph_checks ++;
 
   // run the diophantine solver
@@ -6252,7 +6248,6 @@ static bool simplex_dsolver_check(simplex_solver_t *solver) {
   // Try to strengthen the bounds
   dsolver_build_general_solution(dioph);
   return strengthen_integer_bounds(solver, dioph);
-#endif
 }
 
 
