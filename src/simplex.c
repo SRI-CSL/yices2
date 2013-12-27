@@ -5073,6 +5073,12 @@ static bool simplex_add_derived_lower_bound(simplex_solver_t *solver, thvar_t x,
   // Add the bound
   push_lb_derived(solver, x, b, a);
 
+#if TRACE_INTFEAS
+  printf("---> Derived bound\n");
+  print_simplex_bound(stdout, solver, arith_var_lower_index(&solver->vtbl, x));
+  printf("\n");
+  fflush(stdout);
+#endif
 
   /*
    * Check whether val[x] is still within bounds (i.e., val[x] >= b holds)
@@ -5126,6 +5132,13 @@ static bool simplex_add_derived_upper_bound(simplex_solver_t *solver, thvar_t x,
 
   // Add the bound
   push_ub_derived(solver, x, b, a);  
+
+#if TRACE_INTFEAS
+  printf("---> Derived bound\n");
+  print_simplex_bound(stdout, solver, arith_var_upper_index(&solver->vtbl, x));
+  printf("\n");
+  fflush(stdout);
+#endif
 
   /*
    * Check whether val[x] is still within bounds (i.e., val[x] <= b holds)
@@ -6054,6 +6067,7 @@ static bool strengthen_bounds_on_integer_variable(simplex_solver_t *solver, dsol
         q_sub(&bound->main, aux);
         assert(xq_is_integer(bound));
 
+
         // build the antecedent for x == p into aux_vector2
         q = &solver->aux_vector2; // WARNING: we can't use expl_queue here
         assert(q->size == 0);
@@ -6069,8 +6083,6 @@ static bool strengthen_bounds_on_integer_variable(simplex_solver_t *solver, dsol
         ivector_pop(q); // remove k from q but keep the rest
 
         if (! ok) goto done;
-
-
       }
     }
 
@@ -6304,7 +6316,6 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   check_vartags(solver);
 #endif
 
-#if 0
   /*
    * Check for unsatisfiability using dsolver
    * (and possibly strengthen the bounds)
@@ -6356,8 +6367,6 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
      */
     solver->bstack.fix_ptr = solver->bstack.top;    
   }
-
-#endif
 
   /*
    * At this point: no unsat detected. But bounds may have been strengthened
