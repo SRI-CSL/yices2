@@ -35,7 +35,7 @@
 #define TRACE_INIT 0
 #define TRACE_PROPAGATION 0
 #define TRACE_BB 0
-#define TRACE_INTFEAS 0
+#define TRACE_INTFEAS 1
 
 
 #if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB || TRACE_INTFEAS || !defined(NDEBUG)
@@ -5752,8 +5752,10 @@ static uint32_t simplex_branch_score(simplex_solver_t *solver, thvar_t x) {
   diff = &solver->aux;
   l = arith_var_lower_index(&solver->vtbl, x);
   u = arith_var_upper_index(&solver->vtbl, x);
-  if (l < 0 || u < 0) {
+  if (l < 0 && u < 0) {
     return MAX_BRANCH_SCORE;
+  } else if (l < 0 || u < 0) {
+    return HALF_MAX_BRANCH_SCORE + 1;
   }
   q_set(diff, &solver->bstack.bound[u].main);
   q_sub(diff, &solver->bstack.bound[l].main);
@@ -6296,7 +6298,8 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   solver->stats.num_make_intfeasible ++;
 
 #if TRACE_INTFEAS
-  printf("--- make integer feasible %"PRIu32" ---\n", solver->stats.num_make_intfeasible);
+  printf("--- make integer feasible %"PRIu32" [dlevel = %"PRIu32", decisions = %"PRIu64"] ---\n", 
+	 solver->stats.num_make_intfeasible, solver->core->decision_level, solver->core->stats.decisions);
   //  print_simplex_bounds(stdout, solver);
   //  printf("\n\n");
   fflush(stdout);
