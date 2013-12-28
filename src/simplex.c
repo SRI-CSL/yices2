@@ -35,7 +35,7 @@
 #define TRACE_INIT 0
 #define TRACE_PROPAGATION 0
 #define TRACE_BB 0
-#define TRACE_INTFEAS 1
+#define TRACE_INTFEAS 0
 
 
 #if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB || TRACE_INTFEAS || !defined(NDEBUG)
@@ -3256,6 +3256,9 @@ static void simplex_init_tableau(simplex_solver_t *solver) {
   // mark that the tableau is ready
   solver->tableau_ready = true;
   solver->matrix_ready = false;
+
+  tprintf(solver->core->trace, 12, "(initial tableau: %"PRIu32" rows, %"PRIu32" variables, %"PRIu32" atoms)\n",
+	  solver->stats.num_rows, solver->vtbl.nvars, solver->atbl.natoms);
 }
 
 
@@ -4358,6 +4361,11 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
     clear_arith_var_mark(vtbl, x);
   }
   ivector_reset(leaving_vars);
+
+  if (loops > 0xFFF) {
+    printf("\n");
+    fflush(stdout);
+  }
 
 #if TRACE
   if (feasible) {

@@ -1147,8 +1147,7 @@ static const char * const status2string[] = {
 };
 
 static void print_status(smt_status_t status) {
-  //  print_out("%s\n", status2string[status]);
-  print_out("\n%s\n", status2string[status]); // extra \n is temporary
+  print_out("%s\n", status2string[status]);
 }
 
 
