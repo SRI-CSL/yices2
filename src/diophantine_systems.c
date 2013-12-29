@@ -3,6 +3,7 @@
  */
 
 #include <assert.h>
+#include <stdio.h>
 
 #include "memalloc.h"
 #include "ptr_queues.h"
@@ -2008,8 +2009,8 @@ static bool dsolver_process_row(dsolver_t *solver, int32_t r) {
  */
 bool dsolver_is_feasible(dsolver_t *solver) {
   generic_heap_t *to_process;
-  //  double start;
   int32_t i;
+  uint32_t loops;
   
   assert(solver->status == DSOLVER_READY || solver->status == DSOLVER_SIMPLIFIED);
   dsolver_rosser_init(solver);
@@ -2029,9 +2030,15 @@ bool dsolver_is_feasible(dsolver_t *solver) {
   solver->num_process_rows = 0;
   solver->num_reduce_ops = 0;
 
+  loops = 0;
   to_process = &solver->rows_to_process;
   while (! generic_heap_is_empty(to_process)) {
     i = generic_heap_get_min(to_process);
+    loops ++;
+    if ((loops & 0xFFF) == 0) {
+      printf("+");
+      fflush(stdout);
+    }
     if (! dsolver_process_row(solver, i)) {
       solver->status = DSOLVER_SOLVED_UNSAT;
       solver->unsat_row = i;
@@ -2039,12 +2046,21 @@ bool dsolver_is_feasible(dsolver_t *solver) {
 #if TRACE
       dsolver_print_status(stdout, solver);
 #endif
-
+      if (loops > 0xFFF) {
+	printf("\n");
+	fflush(stdout);
+      }
       return false;
     }
   }
 
   solver->status = DSOLVER_SOLVED_SAT;
+
+  if (loops > 0xFFF) {
+    printf("\n");
+    fflush(stdout);
+  }
+
   return true;
 }
 

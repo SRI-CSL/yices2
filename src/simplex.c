@@ -4346,7 +4346,7 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
         if (repeats > solver->bland_threshold) {
           solver->use_blands_rule = true;
           solver->stats.num_blands ++;
-	  printf("\nSwitching to Bland's rule\n");
+	  printf("b");
 	  fflush(stdout);
         }
       }
@@ -4361,7 +4361,7 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
   }
   ivector_reset(leaving_vars);
 
-  if (loops > 0xFFF) {
+  if (loops > 0xFFF || solver->use_blands_rule) {
     printf("\n");
     fflush(stdout);
   }
