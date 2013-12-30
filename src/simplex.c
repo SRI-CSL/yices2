@@ -4241,7 +4241,7 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
   row_t *row;
   thvar_t x;
   int32_t r, k;
-  uint32_t repeats, loops;
+  uint32_t repeats, loops, bthreshold;
   bool feasible;
 
 #if TRACE
@@ -4270,6 +4270,16 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
   repeats = 0;
   solver->use_blands_rule = false;
   loops = 0;
+
+  /*
+   * Bland threhsold: adjust it based on the number of variables
+   */
+  bthreshold = solver->bland_threshold;
+  if (solver->vtbl.nvars > 10000) {
+    bthreshold *= 1000;
+  } else if (solver->vtbl.nvars > 1000) {
+    bthreshold *= 100;
+  }
 
   for (;;) {
     // check interrupt at every iteration
@@ -4343,7 +4353,7 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
         ivector_push(leaving_vars, x);
       } else {
         repeats ++;
-        if (repeats > solver->bland_threshold) {
+        if (repeats > bthreshold) {
           solver->use_blands_rule = true;
           solver->stats.num_blands ++;
 	  printf("b");
@@ -6247,6 +6257,12 @@ static bool simplex_dsolver_check(simplex_solver_t *solver) {
     }
   }
 
+  /*
+   * HACK: don't call dsolver_is_feasible if we have too many variables.
+   * (because dsolver_is_feasible can easily blow up)
+   */
+  if (dioph->nvars > 100) return true;
+
   solver->stats.num_dioph_checks ++;
 
   // run the diophantine solver
@@ -6268,6 +6284,10 @@ static bool simplex_dsolver_check(simplex_solver_t *solver) {
 
   // Try to strengthen the bounds
   dsolver_build_general_solution(dioph);
+
+  //  dsolver_print_gen_solution(stdout, dioph);
+  //  fflush(stdout);
+  
   return strengthen_integer_bounds(solver, dioph);
 }
 
