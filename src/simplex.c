@@ -1788,11 +1788,19 @@ static void create_binary_lemma(simplex_solver_t *solver, arith_atom_t *atom1, a
 /*
  * Build all the binary lemmas involving atom id on variable x
  * - id must not be in the atom_vector of x
+ *
+ * Let a be the bound for atom id: the atom is then either (x >= a) or (x <= a)
+ * - we search for two atoms atom1 and atom2 such that
+ *   bound_of(atom1) <= a and a <= bound_of(atom2)
+ *   and such that bound_of(atom1) and bound_of(atom2) are
+ *   as close to a as possible.
+ * - then we generate two lemmas
  */
 static void build_binary_lemmas_for_atom(simplex_solver_t *solver, thvar_t x, int32_t id) {
   arith_atomtable_t *atbl;
   int32_t *atom_vector;
-  arith_atom_t *atom1, *atom2;
+  arith_atom_t *atom, *atom1, *atom2, *aux;
+  rational_t *a;
   uint32_t i, n;
   int32_t id2;
 
@@ -1800,14 +1808,38 @@ static void build_binary_lemmas_for_atom(simplex_solver_t *solver, thvar_t x, in
     atom_vector = arith_var_atom_vector(&solver->vtbl, x);
     if (atom_vector != NULL) {
       atbl = &solver->atbl;
-      atom1 = arith_atom(atbl, id);
+      atom = arith_atom(atbl, id);
       assert(var_of_atom(atom1) == x);
+      a = bound_of_atom(atom);
+      atom1 = NULL;
+      atom2 = NULL;
       n = iv_size(atom_vector);
       for (i=0; i<n; i++) {
         id2 = atom_vector[i];
         assert(id != id2);
-        atom2 = arith_atom(atbl, id2);
-        create_binary_lemma(solver, atom1, atom2);
+	aux = arith_atom(atbl, id2);
+	if (q_eq(bound_of_atom(aux), a)) {
+	  atom1 = aux;
+	  atom2 = aux;
+	  break;
+	}
+	if (q_lt(bound_of_atom(aux), a)) {
+	  // bound on aux < a
+	  if (atom1 == NULL || q_gt(bound_of_atom(aux), bound_of_atom(atom1))) {
+	    atom1 = aux;
+	  }
+	} else {
+	  // bound on aux > a
+	  if (atom2 == NULL || q_lt(bound_of_atom(aux), bound_of_atom(atom2))) {
+	    atom2 = aux;
+	  }
+	}
+      }
+      if (atom1 != NULL) {
+        create_binary_lemma(solver, atom, atom1);
+      }
+      if (atom2 != NULL) {
+        create_binary_lemma(solver, atom, atom2);
       }
     }
   }
@@ -6261,7 +6293,7 @@ static bool simplex_dsolver_check(simplex_solver_t *solver) {
    * HACK: don't call dsolver_is_feasible if we have too many variables.
    * (because dsolver_is_feasible can easily blow up)
    */
-  if (dioph->nvars > 100) return true;
+  if (dioph->nvars > 2000) return true;
 
   solver->stats.num_dioph_checks ++;
 
