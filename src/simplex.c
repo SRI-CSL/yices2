@@ -1820,7 +1820,7 @@ static void build_binary_lemmas_for_atom(simplex_solver_t *solver, thvar_t x, in
 	aux = arith_atom(atbl, id2);
 	if (q_eq(bound_of_atom(aux), a)) {
 	  atom1 = aux;
-	  atom2 = aux;
+	  atom2 = NULL;
 	  break;
 	}
 	if (q_lt(bound_of_atom(aux), a)) {
