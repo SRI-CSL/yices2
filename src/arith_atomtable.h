@@ -10,7 +10,7 @@
  * operations. 
  *
  * The components of an atom are:
- * - a 2bit tag to specify which type of atom it is (>=, <=, or ==)
+ * - a 2bit tag to specify the atom type  (>=, <=, or ==)
  * - the variable x (30bits index)
  * - the rational constant k
  * - a boolean variable (mapped to the atom in the smt-core)
