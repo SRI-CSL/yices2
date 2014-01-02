@@ -14,9 +14,8 @@
  * - the variable x (30bits index)
  * - the rational constant k
  * - a boolean variable (mapped to the atom in the smt-core)
- *
- * The table also maintains a list of unassigned atoms (doubly-linked list).
- * This is similar to what's used in idl_floyd_warshal and rdl_floyd_warshal.
+ * - a one bit mark: if the mark is 1, then the atom is assigned in the core
+ *   otherwise, the atom is not assigned
  */
 
 #ifndef __ARITH_ATOMTABLE_H
@@ -118,30 +117,18 @@ static inline int32_t arithatom_tagged_ptr2idx(void *p) {
 
 
 /*
- * Element of a doubly-linked list of atom indices
- */
-typedef struct arith_listelem_s {
-  int32_t pre;
-  int32_t next;  
-} arith_listelem_t;
-
-
-/*
  * Atom table
  * - size = size of the atom array
  * - natoms = number of atoms created
  * - atoms = atom array
- * - free_list = array of natoms+1 list elements (indexed from -1 to natoms-1)
- *   the free_list has full size = size + 1 but only the first natoms elements are used
  * - mark = one bit per atom
- *   if mark = 1 the atom is assigned (not in the free list)
- *   if mark = 0 the atom is unassigned (in the free list)
+ *   if mark = 1 the atom is assigned
+ *   if mark = 0 the atom is unassigned
  */
 typedef struct arith_atomtable_s {
   uint32_t size;
   uint32_t natoms;
   arith_atom_t *atoms;
-  arith_listelem_t *free_list;
   byte_t *mark;
 
   // pointer to the smt_core object
@@ -237,7 +224,7 @@ extern arith_atom_t *arith_atom_for_bvar(arith_atomtable_t *table, bvar_t v);
 
 
 /*
- * MARKS AND FREE LIST
+ * MARKS
  */
 
 /*
@@ -251,41 +238,6 @@ static inline bool arith_atom_is_marked(arith_atomtable_t *table, int32_t i) {
 static inline bool arith_atom_is_unmarked(arith_atomtable_t *table, int32_t i) {
   return ! arith_atom_is_marked(table, i);
 }
-
-#define USE_FREE_LIST 0
-
-#if USE_FREE_LIST 
-
-/*
- * Mark atom i and remove it from the free list
- * - the atom must be unmarked
- */
-extern void mark_arith_atom(arith_atomtable_t *table, int32_t i);
-
-/*
- * Put atom i back into the free list and clear its mark
- * IMPORTANT: i must be the last marked atom 
- * (marking/unmarking must be done in LIFO order)
- */
-extern void unmark_arith_atom(arith_atomtable_t *table, int32_t i);
-
-
-/*
- * Get the first element in the free list, (or -1 if the list is empty)
- */
-static inline int32_t first_free_arith_atom(arith_atomtable_t *table) {
-  return table->free_list[-1].next;
-}
-
-/*
- * Successor of i in the free list (-1 if i is the last element)
- */
-static inline int32_t next_free_arith_atom(arith_atomtable_t *table, int32_t i) {
-  return table->free_list[i].next;
-}
-
-
-#else 
 
 
 /*
@@ -306,8 +258,6 @@ static inline void unmark_arith_atom(arith_atomtable_t *table, int32_t i) {
   assert(arith_atom_is_marked(table, i));
   clr_bit(table->mark, i);
 }
-
-#endif
 
 
 
