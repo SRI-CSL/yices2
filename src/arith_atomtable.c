@@ -10,7 +10,7 @@
  * operations. 
  *
  * The components of an atom are:
- * - a 2bit tag to specify which type of atom it is (>=, <=, or ==)
+ * - a 2bit tag to specify the atom type (>=, <=, or ==)
  * - the variable x (30bits index)
  * - the rational constant k
  * - a boolean variable (mapped to the atom in the smt-core)
@@ -18,7 +18,6 @@
 
 #include "memalloc.h"
 #include "arith_atomtable.h"
-
 
 
 /*
@@ -47,11 +46,6 @@ static uint32_t hash_arith_atom(uint32_t header, rational_t *bound) {
   final(a, b, c);
   return c;
 }
-
-
-
-
-
 
 
 /*
@@ -298,8 +292,9 @@ int32_t find_arith_atom(arith_atomtable_t *table, thvar_t x, arithatm_tag_t op, 
   return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &arith_atom_hobj);
 }
 
+
 /*
- * Search for the atom (x op k) create it if it's not already in the table
+ * Search for the atom (x op k).  Create it if it's not already in the table.
  */
 int32_t get_arith_atom(arith_atomtable_t *table, thvar_t x, arithatm_tag_t op, rational_t *k, bool *new_atom) {
   uint32_t n;
