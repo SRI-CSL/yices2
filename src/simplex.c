@@ -2786,7 +2786,7 @@ thvar_t simplex_create_poly(simplex_solver_t *solver, polynomial_t *p, thvar_t *
  * Placeholder for a power product p: raise an exception
  */
 thvar_t simplex_create_pprod(simplex_solver_t *solver, pprod_t *p, thvar_t *map) {
-x  if (solver->env != NULL) {
+  if (solver->env != NULL) {
     longjmp(*solver->env, FORMULA_NOT_LINEAR);
   }
   abort();
