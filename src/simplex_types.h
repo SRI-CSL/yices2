@@ -666,7 +666,7 @@ typedef struct simplex_solver_s {
   /*
    * Pivoting parameters
    */
-  bool use_blands_rule; // true if Bland's rule is active
+  bool use_blands_rule;     // true if Bland's rule is active
   uint32_t bland_threshold; // number of repeat entering variable  
 
   /*

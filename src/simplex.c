@@ -2473,7 +2473,7 @@ static void add_ub_axiom(simplex_solver_t *solver, thvar_t x, rational_t *c, boo
  * - if p == 0 simplifies to false, set the 'unsat_before_search' flag
  * - if p == 0 simplifies to true, do nothing
  * - if p == 0 is equivalent to x == c for a variable x and constant c
- &   then add the bounds (x <= c) and (x >= c)
+ *   then add the bounds (x <= c) and (x >= c)
  * - otherwise, add the row p == 0 to the matrix
  */
 static void add_eq_axiom(simplex_solver_t *solver) {
@@ -2780,11 +2780,13 @@ thvar_t simplex_create_poly(simplex_solver_t *solver, polynomial_t *p, thvar_t *
 }
 
 
+
+
 /*
  * Placeholder for a power product p: raise an exception
  */
 thvar_t simplex_create_pprod(simplex_solver_t *solver, pprod_t *p, thvar_t *map) {
-  if (solver->env != NULL) {
+x  if (solver->env != NULL) {
     longjmp(*solver->env, FORMULA_NOT_LINEAR);
   }
   abort();
