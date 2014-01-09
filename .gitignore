@@ -11,3 +11,4 @@
 /profiling
 /distributions
 /.gdb_*
+*.fig.bak
