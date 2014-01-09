@@ -2216,6 +2216,7 @@ static void yices_reset_cmd(void) {
     free_model(model);
     model = NULL;
   }
+  ivector_reset(&delayed_assertions);
   reset_context(context);
   print_ok();
 }
