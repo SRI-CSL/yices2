@@ -740,8 +740,7 @@ set of features supported by a context by selecting a specific {\em
 
 
 
-
-\chapter{\texttt{yices}}
+\chapter{Yices Tool}
 \label{yices-shell}
 
 The Yices~2 distribution includes  a tool for processing input written
@@ -756,18 +755,18 @@ distribution. Several example specifications  are also included in the
 \section{Example}
 
 To      illustrate     the      tool     usage,      consider     file
-\texttt{examples/bv\_test2.ys}                 shown                in
-Figure~\ref{example:bv_test2}.  The first line  defines a  type called
-\texttt{BV}. In this case, \texttt{BV}  is a synonym for bitvectors of
-size 32. Then four terms  are declared of type \texttt{BV}.  The three
-constants  \texttt{a}, \texttt{b},  and \texttt{d}  are uninterpreted,
-while  \texttt{c} is defined  as the  bitvector representation  of the
-integer 1008832. The next line  of the file is an assertion expressing
-a   constraint  between   \texttt{a},   \texttt{b},  \texttt{c},   and
-\texttt{d},  using bitvector  operators. The  command \texttt{(check)}
-checks  whether the  assertion is  satisfiable. Since  it  is, command
-\texttt{(show-model)} asks for a satisfying model to be displayed. The
-next commands ask for the value of four terms in the model.
+\texttt{examples/bv\_test2.ys} shown in Figure~\ref{example:bv_test2}.
+The  first line  defines  a  type called  \texttt{BV}.  In this  case,
+\texttt{BV} is  a synonym for bitvectors  of size 32. Then  four terms
+are  declared of  type \texttt{BV}.   The three  constants \texttt{a},
+\texttt{b},  and \texttt{d}  are  uninterpreted,  while \texttt{c}  is
+defined as  the bitvector representation  of the integer  1008832. The
+next line of the file is  an assertion expressing a constraint between
+\texttt{a},  \texttt{b},  \texttt{c},   and  \texttt{d}.  The  command
+\texttt{(check)} checks whether the assertion is satisfiable. Since it
+is, command  \texttt{(show-model)} asks for  a satisfying model  to be
+displayed. The  next commands ask for  the value of four  terms in the
+model.
 
 \begin{figure}
 \begin{small}
@@ -779,7 +778,8 @@ next commands ask for the value of four terms in the model.
 (define c::BV (mk-bv 32 1008832))
 (define d::BV)
 
-(assert (= a (bv-or (bv-and (mk-bv 32 255) (bv-not (bv-or b (bv-not c)))) 
+(assert (= a (bv-or (bv-and (mk-bv 32 255) 
+                            (bv-not (bv-or b (bv-not c)))) 
                     (bv-and c (bv-xor d (mk-bv 32 1023))))))
 
 (check)
@@ -791,7 +791,7 @@ next commands ask for the value of four terms in the model.
 (eval d)
 \end{verbatim}
 \end{small}
-\caption{Example Yices Script (from \texttt{examples/bv\_test2.ys})}
+\caption{Example Yices Script}
 \label{example:bv_test2}
 \end{figure}
 
@@ -1525,7 +1525,7 @@ the power $k$ must be a non-negative integer constant.
 The expression \texttt{(bv-xnor u1 ... u\_n)} is the same as
 \texttt{(bv-not (bv-xor u1 ... u\_n))}.
 
-\subsubsection*{Bitvector Shift and Rotate Operations}
+\subsubsection*{Bitvector Shift and Rotate}
 
 \begin{table}
 \begin{small}
@@ -1753,12 +1753,39 @@ Array or function update is written \texttt{(update a (i1 ... i\_n)
   v)}. In this expression, \texttt{a} must be a term with a function
 type and $n$ is the arity of \texttt{a}. The expression constructs a
 function \texttt{b} that is equal to \texttt{a}, except that it maps
-the point defined by \texttt{i1},\ldots,\texttt{i\_n} to \texttt{v}.
-The semantics and typechecking rules of this operator are explained in
+\texttt{i1},\ldots,\texttt{i\_n} to \texttt{v}.  The semantics and
+typechecking rules of this operator are explained in
 Section~\ref{terms-and-formulas}.
 
 \subsection{Commands}
 
+\subsubsection*{Declarations}
+
+define and define-type
+
+\subsubsection*{Assertions}
+
+assert 
+
+\subsubsection*{Check}
+
+check
+
+\subsubsection*{Push, Pop, Reset}
+
+push, pop, reset
+
+\subsubsection*{Model}
+
+show-model and eval
+
+\subsubsection*{Parameters}
+
+set-param, show-param, show-params, set-timeout, show-timeout
+
+\subsubsection*{Miscellaneous Commands}
+
+echo, include, help, show-stats, reset-stats
 
 
 % 4) Built-in constants and functions
@@ -1985,14 +2012,19 @@ Section~\ref{terms-and-formulas}.
 
 
 
-\chapter{\texttt{yices-smt}}
+\chapter{Support for SMT-LIB}
 \label{yices-smt}
+
+\section{SMT-LIB 2.0}
+
+\section{SMT-LIB 1.2}
 
 Another tool included in the distribution can process input written in
 the SMT-LIB notation. This tool is called \texttt{yices-smt} (or
 \texttt{yices-smt.exe}). It is included in the \texttt{bin} directory.
 Currently, this tool supports version~1.2 of SMT-LIB. Support for the
 more recent SMT-LIB~2 will be provided in future releases.
+
 
 
 \chapter{Yices API}
