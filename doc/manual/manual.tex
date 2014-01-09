@@ -306,6 +306,7 @@ common supertype of $\tau$ and $\tau'$ but it is not minimal.
 
 
 \section{Terms and Formulas}
+\label{terms-and-formulas}
 
 In   Yices~2,  the   atomic  terms   include  the   Boolean  constants
 (\texttt{true} and \texttt{false}) as well as arithmetic and bitvector
@@ -454,6 +455,7 @@ include a solver for nonlinear arithmetic.
 
 
 \subsection{Bitvectors}
+\label{bitvector-general}
 
 Yices supports all the bitvector operators defined in the SMT-LIB
 standards~\cite{SMTLIB12:2006,SMTLIB20:2012}.  The most commonly used
@@ -1323,8 +1325,8 @@ z$ is written
        (+ x (* 3 y) z)
 \end{verbatim}
 \end{small}
-In general, all operations that are commutative and associative can
-take one, two, or more arguments. For example, one can write 
+In general, all associative operations can take one, two, or more
+arguments. For example, one can write
 \begin{small}
 \begin{verbatim}
       (or A)    (or A B)    (or A B C D)
@@ -1335,8 +1337,8 @@ since \texttt{or} is commutative an associative.
 
 \subsubsection*{If-Then-Else}
 
-Yices provides an if-then-else construct that applies to any type.
-An if-then-else term can be written using one of the two following 
+Yices provides an if-then-else construct that applies to any type.  An
+if-then-else term can be written using either one of the two following
 forms
 \begin{small}
 \begin{verbatim}
@@ -1449,14 +1451,297 @@ terms of real and integer types in all operations. The exponent $k$ in
 \texttt{(\char`\^\ a k)} must be a non-negative integer constant. The
 divisor \texttt{c} in \texttt{(/ a c)} must be a non-zero constant.
 
+The Yices language includes more than linear arithmetic, but this is
+for future extensions. Currently, Yices does not include solvers for
+non-linear arithmetic (cf. Sect.~\ref{solvers}).
 
 \subsubsection*{Bitvectors}
 
+A bitvector constant can be written in binary or hexadecimal notation, as follows
+\begin{small}
+\begin{verbatim}
+   0b0   0b1   0xFFFF    0xaaaa    0xC0C0D0D0
+\end{verbatim}
+\end{small}
+In the binary notation, the number of bits in the constant is equal to
+be number of binary digits. For example, the three terms
+\begin{small}
+\begin{verbatim}
+   0b1   0b0001   0b00001
+\end{verbatim}
+\end{small}
+denote distinct bitvector constants, of one, four, and five bits, respectively.
+In the hexadecimal notation, the number of bits is equal to four times the number
+of hexadecimal digit.
+
+One can also construct a bitvector constant using the expression:
+\begin{small}
+\begin{verbatim}
+   (mk-bv <size> <value>)
+\end{verbatim}
+\end{small}
+In this expression, both \texttt{<size>} and \texttt{<value>} must be
+integer constants; \texttt{<size>} is the number of bits in the
+bitvector constant and \texttt{<value>} is the decimal value of the
+constant interpreted as a non-negative integer. The \texttt{<size>}
+must then be positive, and the \texttt{<value>} must be
+non-negative. If \texttt{<value>} is more than $2^{\mathtt{size}}$,
+only the residue of \texttt{<value>} modulo $2^{\mathtt{size}}$ is
+taken into account. For example, the expressions
+\begin{small}
+\begin{verbatim}
+   (mk-bv 3 6)    (mk-bv 3 20)
+\end{verbatim}
+\end{small}
+construct the same bitvector constant (whose binary representation is
+\texttt{0b110}).
+
+Table~\ref{bitvectors1} lists all the arithmetic and
+bitwise operators. All operators in this table take arguments that have
+the same size and return a result of the same size.  As usual, the
+commutative operators can take one, two or more arguments. The
+\texttt{bv-sub} operator must take at least two arguments. In
+\texttt{(bv-pow u k)}, the power $k$ must be a non-negative integer
+constant. The expression \texttt{(bv-xnor u1 ... u\_n)} is the same
+as \texttt{(bv-not (bv-xor u1 ... u\_n))}.
+
+Table~\ref{bitvectors2} lists the shift and rotate operations. The
+operations in the first seven rows shift a bitvector \texttt{u} by a
+fixed number of bits $k$. If \texttt{u} is a bitector of $n$ bits,
+then $k$ must be an integer constant such that $0 \leq k \leq n$. The
+\texttt{bv-shl}, \texttt{bv-lshr}, and \texttt{bv-ashr} operators
+(last three rows of Table~\ref{bitvectors2}) take two bitvector
+arguments \texttt{u} and \texttt{v}, which must be bitvectors of the
+same size $n$. The shift operation is applied to \texttt{u}; the value
+of \texttt{v}, interpreted as an unsigned integer in the range $[0,
+  2^n-1]$, defines the shift amount. The semantics follows the SMT-LIB
+standards: if \texttt{v}'s value is more than $n$ then the padding bit
+is copied $n$ times.
+
+The operators in Table~\ref{bitvectors3} perform extraction,
+concatenation, and other structural operations. The expression
+\texttt{(bv-extract i j u)} is the segment of bitvector \texttt{u}
+formed by taking bits $j, j+1, \ldots, i$. If \texttt{u} is a
+bitvector of $n$ bits then the constants $i$ and $j$ must satisfy $0
+\leq j \leq i \leq n-1$, and the result is a bitvector of $(i - j +
+1)$ bits. In \texttt{(bv-repeat u k)}, the integer constant $k$ must
+be positive. In the sign and zero extension operators, $k$ must be
+non-negative.
+
+The \texttt{bv-redor}, \texttt{bv-redand}, and \texttt{bv-redcomp}
+operators produce a one-bit vector.  The term \texttt{(bv-redor u)} is
+the or of \texttt{u}'s bits; it is equal to \texttt{0b0} if all bits
+of \texttt{u} are zero, and to \texttt{0b1} otherwise. Similarly,
+\texttt{(bv-redand u)} is the and of \texttt{u}'s bit; it is equal to
+\texttt{0b1} if all bits of \texttt{u} are one and to \texttt{0b0}
+otherwise. In \texttt{(bv-redcomp u v)}, the arguments \texttt{u} and
+\texttt{v} must be two bitvectors of the same size. The operator
+performs a one-to-one comparison of the bits of \texttt{u} and
+\texttt{v} and returns either \texttt{0b1}, if \texttt{u} and
+\texttt{v} are equal, or \texttt{0b0}, if \texttt{u} and \texttt{v}
+are distinct.
+
+Table~\ref{bitvectors4} lists the division and remainder operators. In
+this table, \texttt{u} and \texttt{v} must be two bitvectors of the
+same size $n$. In the unsigned division and quotient operations,
+\texttt{u} and \texttt{v} are interpreted as integers in the interval
+$[0,2^n-1]$.  As explained in section~\ref{bitvector-general},
+\texttt{(bv-div u v)} is the largest integer that can be represented
+using $n$ bits and is smaller than or equal to $\frac{u}{v}$. Then
+\texttt{(bv-rem u v)} satisfies the identity
+\begin{small}
+\begin{verbatim}
+  u = (bv-add (bv-mul (bv-div u v) v) (bv-rem u v)).
+\end{verbatim}
+\end{small}
+
+In the signed division and quotient, \texttt{u} and \texttt{v} are
+interpreted as integers in the range $[-2^{n-1},2^{n-1}-1]$ (in
+2s-complement representation), and the division is done with rounding
+to zero. If $\frac{u}{v}$ is non-negative, then \texttt{(bv-sdiv u v)}
+is the largest integer $q$ in $[0,2^{n-1}-1]$ such that $0 \leq q \leq
+\frac{u}{v}$. If $\frac{u}{v}$ is negative then \texttt{(bv-sdiv u v)}
+is the smallest integer $q$ in $[-2^{n-1}, 0]$ such that $\frac{u}{v}
+\leq q \leq 0$. The corresponding remainder operation satisfies the
+identity
+\begin{small}
+\begin{verbatim}
+  u = (bv-add (bv-mul (bv-sdiv u v) v) (bv-srem u v)).
+\end{verbatim}
+\end{small}
+
+The last operator in Table~\ref{bitvectors4} is the remainder in the
+signed division of \texttt{u} by \texttt{v} with rounding to
+$-\infty$.  In this operation \texttt{u} and \texttt{v} are
+interpreted as signed integers in the interval $[-2^{n-1},2^{n-1}-1]$;
+the quotient is $\lfloor \frac{u}{v} \rfloor$ (i.e., the largest
+integer $q$ such that $q \leq \frac{u}{v}$); and the remainder is $u -
+q v$. The special case $v=0$ is explained in Section~\ref{bitvector-general}.
+
+
+Table~\ref{bitvectors5} lists the inequality comparison operators for
+bitvectors. In the table, \texttt{u} and \texttt{v} must be two
+bitvector terms of the same size. Depending on the operation, both are
+interpreted as unsigned integers or as signed integers (using
+2s-complement representation).  All operators return a Boolean. As
+usual, one can also apply the equality and disequality operators to
+two bitvectors of the same size. 
+
+\begin{table}
+\begin{small}
+\begin{center}
+\begin{tabular}{|p{5cm}|l|}
+\hline Syntax & Meaning \\ \hline \texttt{(bv-add u1 ... u\_n)} & sum
+\\ \texttt{(bv-mul u1 ... u\_n)} & product \\ \texttt{(bv-sub u1
+  ... u\_n)} & subtraction \\ \texttt{(bv-neg u)} & 2s-complement
+\\ \texttt{(bv-pow u k)} & exponentiation \\ \hline \texttt{(bv-not
+  u)} & bitwise complement \\ \texttt{(bv-and u1 ... u\_n)} & bitwise
+and \\ \texttt{(bv-or u1 ... u\_n)} & bitwise or \\ \texttt{(bv-xor u1
+  ... u\_n)} & bitwise xor \\ \texttt{(bv-nand u1 ... u\_n)} & bitwise
+nand \\ \texttt{(bv-nor u1 ... u\_n)} & bitwise nor
+\\ \texttt{(bv-xnor u1 ... u\_n)} & bitwise xnor \\ \hline
+\end{tabular}
+\end{center}
+\end{small}
+\caption{Bitvector Operations (Arithmetic and Bitwise Logic)}
+\label{bitvectors1}
+\end{table}
+
+\begin{table}
+\begin{small}
+\begin{center}
+\begin{tabular}{|p{5cm}|l|}
+\hline
+Syntax & Meaning \\
+\hline
+\texttt{(bv-shift-left0 u k)} & left shift, padding with 0\\
+\texttt{(bv-shift-left1 u k)} & left shift, padding with 1\\
+\texttt{(bv-shift-right0 u k)} & right shift, padding with 0\\
+\texttt{(bv-shift-right1 u k)} & right shift, padding with 1\\
+\texttt{(bv-ashift-right x k)} &  arithmetic shift by $k$ bits\\
+\texttt{(bv-rotate-left x k)} & rotate by $k$ bits to the left\\
+\texttt{(bv-rotate-right x k)} & rotate by $k$ bits to the right\\
+\hline
+\texttt{(bv-shl u v)} & left shift (padding with 0)\\
+\texttt{(bv-lshr u v)} & right logical shift (padding with 0) \\
+\texttt{(bv-ashr u v)} & arithmetic shift (padding with the sign bit)\\
+\hline
+\end{tabular}
+\end{center}
+\end{small}
+\caption{Bitvector Operations (Shift and Rotate)}
+\label{bitvectors2}
+\end{table}
+
+\begin{table}
+\begin{small}
+\begin{center}
+\begin{tabular}{|p{5cm}|l|}
+\hline
+Syntax & Meaning \\
+\hline
+\texttt{(bv-extract i j u)} & subvector extraction \\
+\texttt{(bv-concat u1 ... u\_n)} & concatenation \\
+\texttt{(bv-repeat u k)} & repeated concatenation \\
+\texttt{(bv-sign-extend u k)} & sign extension \\
+\texttt{(bv-zero-extend u k)} & zero extension \\
+\hline
+\texttt{(bv-redor u)} & or-reduction \\
+\texttt{(bv-redand u)} & and-reduction \\
+\texttt{(bv-redcomp u v)} & equality reduction \\
+\hline
+\end{tabular}
+\end{center}
+\end{small}
+\caption{Bitvector Operations (Structural Operators)}
+\label{bitvectors3}
+\end{table}
+
+\begin{table}
+\begin{small}
+\begin{center}
+\begin{tabular}{|p{5cm}|l|}
+\hline
+Syntax & Meaning \\
+\hline
+\texttt{(bv-div u v)} & quotient in unsigned division \\
+\texttt{(bv-rem u v)} & remainder in unsigned division \\
+\hline
+\texttt{(bv-sdiv u v)} & quotient in signed division \\
+\texttt{(bv-srem u v)} & remainder in signed division \\
+\hline
+\texttt{(bv-smod u v)} & remainder in signed division (rounding to $-\infty$)\\
+\hline
+\end{tabular}
+\end{center}
+\end{small}
+\caption{Bitvector Operations (Divisions)}
+\label{bitvectors4}
+\end{table}
+
+\begin{table}
+\begin{small}
+\begin{center}
+\begin{tabular}{|p{4cm}|l|}
+\hline
+Syntax & Meaning \\
+\hline
+\texttt{(bv-ge u v)} & $u \geq v$ unsigned\\
+\texttt{(bv-gt u v)} & $u > v$ unsigned \\
+\texttt{(bv-le u v)} & $u \leq v$ unsigned \\
+\texttt{(bv-lt u v)} & $u < v$ unsigned \\
+\hline
+\texttt{(bv-sge u v)} & $u \geq v$ signed\\
+\texttt{(bv-sgt u v)} & $u > v$ signed \\
+\texttt{(bv-sle u v)} & $u \leq v$ signed \\
+\texttt{(bv-slt u v)} & $u < v$ signed \\
+\hline
+\end{tabular}
+\end{center}
+\end{small}
+\caption{Bitvector Operations (Comparison)}
+\label{bitvectors5}
+\end{table}
+
+
 \subsubsection*{Tuples}
+
+A tuple term can be constructed using \texttt{(mk-tuple t1 ... t\_n)}
+where $n\geq1$ and \texttt{t1}, \ldots, \texttt{t\_n} are arbitary
+terms. For example, a pair of integers can be constructed using
+\begin{small}
+\begin{verbatim}
+   (mk-tuple -1 1)
+\end{verbatim}
+\end{small}
+
+\smallskip\noindent The projection operation extracts the $i$-th
+component of a tuple. It is denoted by \texttt{(select t i)} where
+\texttt{t} is a term of tuple type and $i$ is an integer constant.  If
+the tuple has $n$ components, then $i$ must be between $1$ and
+$n$. The components are indexed from 1 to $n$ starting from the
+left. For example, we have
+\begin{small}
+\begin{verbatim}
+   (select (mk-tuple -1 1) 1) = -1
+   (select (mk-tuple -1 1) 2) = 1
+\end{verbatim}
+\end{small}
+
+\smallskip\noindent Yices includes a tuple-update operator. The expression
+\texttt{(tuple-update t i v)} is equal to tuple \texttt{t} with its $i$-th
+component replaced by \texttt{v}. The type of \texttt{v} must be a subtype of 
+the $i$-th component of \texttt{t}.
 
 \subsubsection*{Function Updates}
 
-
+Array or  function update is  written \texttt{(update a (i1  ... i\_n)
+  v)}. In this  expression, \texttt{a} must be a  term with a function
+type and $n$ is the arity of $a$. The expression constructs a function
+\texttt{b} that is equal to  \texttt{a}, except that it maps the point
+defined   by  \texttt{i1},\ldots,\texttt{i\_n}   to   \texttt{v}.  The
+semantics  and typechecking rules  of this  operator are  explained in
+Section~\ref{terms-and-formulas}.
 
 \subsection{Commands}
 
