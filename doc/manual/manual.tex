@@ -1452,7 +1452,7 @@ The Yices language includes more than linear arithmetic, but this is
 for future extensions. Currently, Yices does not include solvers for
 non-linear arithmetic (cf. Sect.~\ref{solvers}).
 
-\subsubsection*{Bitvectors}
+\subsubsection*{Bitvectors Constants}
 
 A bitvector constant can be written in binary or hexadecimal notation, as follows
 \begin{small}
@@ -1493,6 +1493,8 @@ taken into account. For example, the expressions
 construct the same bitvector constant (whose binary representation is
 \texttt{0b110}).
 
+\subsubsection*{Bitvector Arithmetic}
+
 \begin{table}
 \begin{small}
 \begin{center}
@@ -1513,15 +1515,17 @@ nand \\ \texttt{(bv-nor u1 ... u\_n)} & bitwise nor
 \label{bitvectors1}
 \end{table}
 
-Table~\ref{bitvectors1} lists all the arithmetic and
-bitwise operators. All operators in this table take arguments that have
-the same size and return a result of the same size.  As usual, the
-commutative operators can take one, two or more arguments. The
-\texttt{bv-sub} operator must take at least two arguments. In
-\texttt{(bv-pow u k)}, the power $k$ must be a non-negative integer
-constant. The expression \texttt{(bv-xnor u1 ... u\_n)} is the same
-as \texttt{(bv-not (bv-xor u1 ... u\_n))}.
+Table~\ref{bitvectors1} lists all the arithmetic and bitwise
+operators. All operators in this table take arguments that have the
+same size and return a result of that size.  As usual, the commutative
+operators can take one, two, or more arguments. The \texttt{bv-sub}
+operator takes at least two arguments. In \texttt{(bv-pow u k)},
+the power $k$ must be a non-negative integer constant. 
 
+The expression \texttt{(bv-xnor u1 ... u\_n)} is the same as
+\texttt{(bv-not (bv-xor u1 ... u\_n))}.
+
+\subsubsection*{Bitvector Shift and Rotate Operations}
 
 \begin{table}
 \begin{small}
@@ -1539,7 +1543,7 @@ Syntax & Meaning \\
 \texttt{(bv-rotate-right x k)} & rotate by $k$ bits to the right\\
 \hline
 \texttt{(bv-shl u v)} & left shift (padding with 0)\\
-\texttt{(bv-lshr u v)} & right logical shift (padding with 0) \\
+\texttt{(bv-lshr u v)} & logical right shift (padding with 0) \\
 \texttt{(bv-ashr u v)} & arithmetic shift (padding with the sign bit)\\
 \hline
 \end{tabular}
@@ -1562,6 +1566,7 @@ of \texttt{v}, interpreted as an unsigned integer in the range $[0,
 standards: if \texttt{v}'s value is more than $n$ then the padding bit
 is copied $n$ times.
 
+\subsubsection*{Bitvector Structural Operations}
 
 \begin{table}
 \begin{small}
@@ -1593,8 +1598,10 @@ concatenation, and other structural operations. The expression
 formed by taking bits $j, j+1, \ldots, i$. If \texttt{u} is a
 bitvector of $n$ bits then the constants $i$ and $j$ must satisfy $0
 \leq j \leq i \leq n-1$, and the result is a bitvector of $(i - j +
-1)$ bits. In \texttt{(bv-repeat u k)}, the integer constant $k$ must
-be positive. In the sign and zero extension operators, $k$ must be
+1)$ bits. 
+
+In \texttt{(bv-repeat u k)}, the integer constant $k$ must be
+positive. In the sign and zero extension operators, $k$ must be
 non-negative.
 
 The \texttt{bv-redor}, \texttt{bv-redand}, and \texttt{bv-redcomp}
@@ -1610,11 +1617,12 @@ performs a one-to-one comparison of the bits of \texttt{u} and
 \texttt{v} are equal, or \texttt{0b0}, if \texttt{u} and \texttt{v}
 are distinct.
 
+\subsubsection*{Bitvector Division}
 
 \begin{table}
 \begin{small}
 \begin{center}
-\begin{tabular}{|p{5cm}|l|}
+\begin{tabular}{|p{3.3cm}|l|}
 \hline
 Syntax & Meaning \\
 \hline
@@ -1635,47 +1643,52 @@ Syntax & Meaning \\
 
 Table~\ref{bitvectors4} lists the division and remainder operators. In
 this table, \texttt{u} and \texttt{v} must be two bitvectors of the
-same size $n$. In the unsigned division and quotient operations,
-\texttt{u} and \texttt{v} are interpreted as integers in the interval
-$[0,2^n-1]$.  As explained in section~\ref{bitvector-general},
-\texttt{(bv-div u v)} is the largest integer that can be represented
-using $n$ bits and is smaller than or equal to $\frac{u}{v}$. Then
+same size $n$. 
+
+In the unsigned division and quotient operations, \texttt{u} and
+\texttt{v} are interpreted as integers in the interval $[0,2^n-1]$.
+As explained in section~\ref{bitvector-general}, \texttt{(bv-div u v)}
+is the largest integer that can be represented using $n$ bits and is
+smaller than or equal to $\frac{u}{v}$. The unsigned remainder
 \texttt{(bv-rem u v)} satisfies the identity
 \begin{small}
 \begin{verbatim}
   u = (bv-add (bv-mul (bv-div u v) v) (bv-rem u v)).
 \end{verbatim}
 \end{small}
-
 In the signed division and quotient, \texttt{u} and \texttt{v} are
-interpreted as integers in the range $[-2^{n-1},2^{n-1}-1]$ (in
+interpreted as integers in the interval $[-2^{n-1},2^{n-1}-1]$ (in
 2s-complement representation), and the division is done with rounding
-to zero. If $\frac{u}{v}$ is non-negative, then \texttt{(bv-sdiv u v)}
+to zero. 
+\begin{itemize}
+\item If $\frac{u}{v}$ is non-negative, then \texttt{(bv-sdiv u v)}
 is the largest integer $q$ in $[0,2^{n-1}-1]$ such that $0 \leq q \leq
-\frac{u}{v}$. If $\frac{u}{v}$ is negative then \texttt{(bv-sdiv u v)}
+\frac{u}{v}$. 
+\item If $\frac{u}{v}$ is negative then \texttt{(bv-sdiv u v)}
 is the smallest integer $q$ in $[-2^{n-1}, 0]$ such that $\frac{u}{v}
-\leq q \leq 0$. The corresponding remainder operation satisfies the
-identity
+\leq q \leq 0$.
+\end{itemize}
+The signed remainder operation satisfies the identity
 \begin{small}
 \begin{verbatim}
   u = (bv-add (bv-mul (bv-sdiv u v) v) (bv-srem u v)).
 \end{verbatim}
 \end{small}
-
 The last operator in Table~\ref{bitvectors4} is the remainder in the
 signed division of \texttt{u} by \texttt{v} with rounding to
-$-\infty$.  In this operation \texttt{u} and \texttt{v} are
+$-\infty$.  In this operation, \texttt{u} and \texttt{v} are
 interpreted as signed integers in the interval $[-2^{n-1},2^{n-1}-1]$;
 the quotient is $\lfloor \frac{u}{v} \rfloor$ (i.e., the largest
 integer $q$ such that $q \leq \frac{u}{v}$); and the remainder is $u -
-q v$. The special case $v=0$ is explained in Section~\ref{bitvector-general}.
+q v$. The special case $v=0$ is explained in
+Section~\ref{bitvector-general}.
 
-
+\subsubsection*{Bitvector Inequalities}
 
 \begin{table}
 \begin{small}
 \begin{center}
-\begin{tabular}{|p{4cm}|l|}
+\begin{tabular}{|p{3cm}|l|}
 \hline
 Syntax & Meaning \\
 \hline
