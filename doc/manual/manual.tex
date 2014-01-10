@@ -627,7 +627,7 @@ into  the internal  format used  by  the solver.   In particular,  the
 internalizer rewrites  all formulas in conjunctive  normal form, which
 is used by the internal SAT solver.
 \begin{figure}
-\includegraphics[width=14cm]{yices2-toplevel}
+\includegraphics[width=13.8cm]{yices2-toplevel}
 \caption{Top-level Yices~2 Architecture}
 \label{top-level-architecture}
 \end{figure}
@@ -663,7 +663,7 @@ solvers:
 \end{itemize}
 In addition, two arithmetic solvers can be used in place of the
 Simplex-based solver for integer or real difference logic. These
-solvers implement a decision procedure based on the Floyd-Warshal
+solvers implement a decision procedure based on the Floyd-Warshall
 algorithm. These solvers are more specialized and limited than the
 Simplex-based solver. They must be used standalone; they cannot be
 combined with the UF solver. 
@@ -677,12 +677,12 @@ combined with the UF solver.
 
 Yices~2 employs a modular architecture.  It is possible to remove some
 of the components of Figure~\ref{solver-architecture} to build simpler
-and more efficient  solvers that are specialized  for specific classes
-of formulas.  For  example, a solver for pure arithmetic  can be built
-by  directly  attaching   the  arithmetic  solver  to   the  CDCL  SAT
-solver.  Similarly,  Yices~2 can  be  specialized  for pure  bitvector
-problems, or  for problems combining uninterpreted  functions, arrays,
-and bitvectors (by removing the arithmetic solver).
+and  more  efficient  solvers  that  are specialized  for  classes  of
+formulas.  For example,  a solver for pure arithmetic  can be built by
+directly  attaching the  arithmetic  solver to  the  CDCL SAT  solver.
+Similarly, Yices~2 can be  specialized for pure bitvector problems, or
+for problems combining uninterpreted functions, arrays, and bitvectors
+(by removing the arithmetic solver).
 
 Yices~2  combines   several  theory  solver   using  the  Nelson-Oppen
 method~\cite{NelsonOppen79}.   The  UF solver  is  essential for  this
@@ -695,27 +695,27 @@ design and implementation of theory solvers.
 \section{Context Configurations}
 \label{features}
 
-In addition to the set of solvers it contains, a context can be
-configured to support different usage scenarios. The basic operations
+In  addition to  the set  of  solvers it  contains, a  context can  be
+configured to support different  usage scenarios. The basic operations
 supported by a context include:
 \begin{itemize}
 \item Asserting one or more formulas
 \item Checking satisfiability of the set of assertions
 \item Building a model if the assertions are satisfiable
 \end{itemize}
-In addition, a context can be configured to support addition and
-removal of assertions using a push/pop mechanism.  In this case, the
-context maintains a stack of assertions organized in successive
-levels. The push operation starts a new level and pop removes all
-assertions at the top level. Thus push can be thought as setting a
-backtracking point and pop restores the context state to a previous
-bactracking point.
+In  addition, a  context can  be  configured to  support addition  and
+removal of assertions  using a push/pop mechanism.  In  this case, the
+context  maintains  a  stack  of assertions  organized  in  successive
+levels.  The  push operation  starts a new  level and pop  removes all
+assertions at the  top level.  Thus, push can be  thought as setting a
+backtracking point  and pop restores  the context state to  a previous
+backtracking point.
 
-Support for push and pop induces some overhead and may disable some
-preprocessing and simplification of assertions. In some cases, it is
-then desirable to use a context without support for push and pop, in
-order to get higher performance. Yices~2 allows users to control the
-set of features supported by a context by selecting a specific {\em
+Support for  push and pop induces  some overhead and  may disable some
+preprocessing and  simplification of assertions. In some  cases, it is
+then desirable to  use a context without support for  push and pop, in
+order to get  higher performance. Yices~2 allows users  to control the
+set of  features supported by a  context by selecting  a specific {\em
   operating mode\/}.
 \begin{itemize}
 \item The simplest mode is {\em one-shot\/}. In this mode, one can
@@ -829,8 +829,9 @@ command line as follows:
       yices --logic=QF_BV examples/bv_test2.ys
 \end{verbatim}
 \end{small}
-Also, since the file contains only one call to \texttt{(check)}, one can 
-select the \texttt{one-shot} mode:
+Since the file does not use \texttt{push} and \texttt{pop}, and it
+contains only one call to \texttt{(check)}, one can select the mode
+\texttt{one-shot}:
 \begin{small}
 \begin{verbatim}
       yices --logic=QF_BV --mode=one-shot examples/bv_test2.ys
@@ -891,9 +892,9 @@ options are supported
   This option has no effect  for logics other than \texttt{QF\_IDL} or
   \texttt{QF\_RDL}.
 
-\item[\texttt{--mode=<mode>}]  Select solver features.\\[1mm]
-  \texttt{<mode>}     must     be     one    of     \texttt{one-shot},
-  \texttt{multi-checks}, \texttt{push-pop}, or \texttt{interactive}.
+\item[\texttt{--mode=<mode>}] Select solver features.\\[1mm]
+  \texttt{<mode>} can be \texttt{one-shot}, \texttt{multi-checks},
+  \texttt{push-pop}, or \texttt{interactive}.
 
   This  option selects  the set  of functionalities  supported  by the
   solver as follows:
@@ -921,8 +922,9 @@ options are supported
   non-interactive modes, the solver exits after the first interruption
   or timeout.
 
-  The default mode  is \texttt{push-pop} if the solver  is run with an
-  input file, or \texttt{interactive} if no input file is given.
+  The default mode is \texttt{push-pop} if a file name is given on the
+  command line. If  not input file is given, then  the default mode is
+  \texttt{interactive} and the solver reads standard input.
 
   Mode \texttt{one-shot} is required if the Floyd-Warshall solvers are
   used.
@@ -1119,34 +1121,42 @@ Table~\ref{syntax:keywords}.
 \begin{small}
 \begin{center}
 \begin{tt}
-\begin{tabular}{|p{3.2cm}|p{3.2cm}|p{3.2cm}|p{3.2cm}|}
+\begin{tabular}{|p{3.2cm}|p{3.2cm}|p{3.2cm}|}
 \hline 
-* & + & - & -> \\
-/ & /= & < & <= \\
-<=> & = & => & > \\
->= & \verb|^| & and & assert \\
-bitvector & bool & bv-add & bv-and \\
-bv-ashift-right & bv-ashr & bv-comp & bv-concat \\
-bv-div & bv-extract & bv-ge & bv-gt \\
-bv-le & bv-lshr & bv-lt & bv-mul \\
-bv-nand & bv-neg & bv-nor & bv-not \\
-bv-or & bv-pow & bv-redand & bv-redor \\
-bv-rem & bv-repeat & bv-rotate-left & bv-rotate-right \\
-bv-sdiv & bv-sge & bv-sgt & bv-shift-left0 \\
-bv-shift-left1 & bv-shift-right0 & bv-shift-right1 & bv-shl \\
-bv-sign-extend & bv-sle & bv-slt & bv-smod \\
-bv-srem & bv-sub & bv-xnor & bv-xor \\
-bv-zero-extend & check & define & define-type \\
-distinct & dump-context & echo  & eval \\
-exists & exit & false & forall \\
-help & if & include & int \\
-ite & lambda & let & mk-bv \\
-mk-tuple & not & or & pop \\
-push & real & reset & reset-stats \\
-scalar & select & set-param & set-timeout \\
-show-model & show-param & show-params & show-stats \\
-true & tuple & tuple-update & update \\ 
-xor &  & & \\
+* & + & - \\
+-> & / & /= \\
+< & <= & <=> \\
+ = & => & > \\
+>= & \verb|^| & and \\
+assert & bitvector & bool \\
+bv-add & bv-and & bv-ashift-right\\
+bv-ashr & bv-comp & bv-concat \\
+bv-div & bv-extract & bv-ge \\
+bv-gt & bv-le & bv-lshr \\
+bv-lt & bv-mul & bv-nand \\
+bv-neg & bv-nor & bv-not \\
+bv-or & bv-pow & bv-redand \\
+bv-redor & bv-rem & bv-repeat \\
+bv-rotate-left & bv-rotate-right & bv-sdiv\\
+bv-sge & bv-sgt & bv-shift-left0 \\
+bv-shift-left1 & bv-shift-right0 & bv-shift-right1 \\
+bv-shl & bv-sign-extend & bv-sle\\
+ bv-slt & bv-smod & bv-srem \\
+bv-sub & bv-xnor & bv-xor \\
+bv-zero-extend & check & define \\
+define-type & distinct & dump-context\\
+echo  & eval & exists \\
+exit & false & forall \\
+help & if & include \\
+int & ite & lambda \\
+let & mk-bv & mk-tuple \\
+ not & or & pop \\
+push & real & reset \\
+reset-stats & scalar & select \\
+set-param & set-timeout & show-model \\
+show-param & show-params & show-stats \\
+true & tuple & tuple-update \\
+update & xor &   \\
 \hline
 \end{tabular}
 \end{tt}
@@ -1158,6 +1168,7 @@ xor &  & & \\
 
 
 \subsection{Declarations}
+\label{declarations}
 
 A declaration either introduces a new type or term or gives a name to
 an existing type or term. Yices uses different name spaces for types
@@ -1170,7 +1181,7 @@ for a term.
 A type declaration is a command of the following two forms.
 \begin{small}
 \begin{verbatim}
-   (detine-type <name>)
+   (define-type <name>)
    (define-type <name> <type>)
 \end{verbatim}
 \end{small}
@@ -1300,12 +1311,12 @@ allowed. For example, the following declaration is legal.
 
 \subsubsection*{Function Types}
 
-A  function   type  is  written  \texttt{(->   <tau\_1>  ...  <tau\_n>
-  <sigma>)},   where   \texttt{<tau\_i>}   and  \texttt{<sigma>}   are
-types. The types \texttt{<tau\_1>}, $\ldots$, \texttt{<tau\_n>} define
-the  domain  of  the   function  type,  and  \texttt{<sigma>}  is  the
-range.  For example,  a function  defined over  the integers  and that
-returns a Boolean can be declared as follows:
+A function type is written \texttt{(-> <tau\_1> ...  <tau\_n>
+  <sigma>)}, where $n$ is positive, and the \texttt{<tau\_i>}s and
+\texttt{<sigma>} are types.  The types \texttt{<tau\_1>}, $\ldots$,
+\texttt{<tau\_n>} define the domain of the function type, and
+\texttt{<sigma>} is the range.  For example, a function defined over
+the integers and that returns a Boolean can be declared as follows:
 \begin{small}
 \begin{verbatim}
    (define f::(-> int bool))
@@ -1555,7 +1566,7 @@ Syntax & Meaning \\
 
 Table~\ref{bitvectors2} lists the shift and rotate operations. The
 operations in the first seven rows shift a bitvector \texttt{u} by a
-fixed number of bits $k$. If \texttt{u} is a bitector of $n$ bits,
+fixed number of bits $k$. If \texttt{u} is a bitvector of $n$ bits,
 then $k$ must be an integer constant such that $0 \leq k \leq n$. The
 \texttt{bv-shl}, \texttt{bv-lshr}, and \texttt{bv-ashr} operators
 (last three rows of Table~\ref{bitvectors2}) take two bitvector
@@ -1721,7 +1732,7 @@ two bitvectors of the same size.
 \subsubsection*{Tuples}
 
 A tuple term can be constructed using \texttt{(mk-tuple t1 ... t\_n)}
-where $n\geq1$ and \texttt{t1}, \ldots, \texttt{t\_n} are arbitary
+where $n\geq1$ and \texttt{t1}, \ldots, \texttt{t\_n} are arbitrary
 terms. For example, a pair of integers can be constructed using
 \begin{small}
 \begin{verbatim}
@@ -1757,31 +1768,313 @@ function \texttt{b} that is equal to \texttt{a}, except that it maps
 typechecking rules of this operator are explained in
 Section~\ref{terms-and-formulas}.
 
+
 \subsection{Commands}
+
+The Yices commands allows one to  declare types and terms, build a set
+of  assertions, check  their  satisfiability, and  query models.  Other
+commands set parameters that control preprocessing and heuristics used
+by the different solvers.
 
 \subsubsection*{Declarations}
 
-define and define-type
+As presented in Section~\ref{declarations}, Yices provides two
+commands for declaring types and terms.  A type declaration has the
+one of the following form
+\begin{small}
+\begin{verbatim}
+   (define-type <name>)
+   (define-type <name> <type>)
+\end{verbatim}
+\end{small}
+A term declaration is similar:
+\begin{small}
+\begin{verbatim}
+   (define <name> :: <type>)
+   (define <name> :: <type> <term>)
+\end{verbatim}
+\end{small}
+To define a function, one can use the \texttt{lambda} notation.  Here
+is an example:
+\begin{small}
+\begin{verbatim}
+   (define max::(-> real real real)
+      (lambda (x::real y::real) (if (< x y) y x)))
+\end{verbatim}
+\end{small}
+This defines the function \texttt{max} that computes the maximum of
+two real numbers. Note that such a function definition acts like a
+macro. A term of the form \texttt{(max a b)} is eagerly replaced by
+the ``function body'', that is, by the term \texttt{(if (< a b) b a)}.
+The ability to define function is useful to abbreviate specifications,
+but it must be used with care. Since the substitution is performed
+eagerly, the expanded terms may grow quickly, especially if they
+contain nested function applications.
+
+
+All declarations have global scope and are permanent. They are not
+affected by commands such as push, pop, or reset. Also, as discussed
+previously, Yices uses separate name spaces for terms and for types.
+
+
 
 \subsubsection*{Assertions}
 
-assert 
+The following command adds an assertion to the current context.
+\begin{small}
+\begin{verbatim}
+   (assert <formula>)
+\end{verbatim}
+\end{small}
+In this command, the \texttt{<formula>} must be a Boolean term. 
+
+\medskip
+
+In the mode \texttt{one-shot}, assertions are stored internally and
+are not processed immediately. Processing of assertions is delayed,
+and all assertions are processed and simplified on the first call to
+\texttt{(check)}.
+
+In all other modes, the assertions are processed and simplified
+immediately and are added to the context. As a result, \texttt{yices}
+may detect and report that the current set of assertions is
+inconsistent after an \texttt{assert} command. This happens when the
+context is seen to be unsatisfiable by simplification only. The most
+trivial example is:
+\begin{small}
+\begin{verbatim}
+   (assert false)   
+\end{verbatim}
+\end{small}
+Once the context is unsatisfiable, new assertions are treated as an
+error.
+
 
 \subsubsection*{Check}
 
-check
+The command
+\begin{small}
+\begin{verbatim}
+   (check)
+\end{verbatim}
+\end{small}
+checks whether the current set of assertions is satisfiable. 
+
+\medskip
+
+If the context's current status is already known, then the command
+returns immediately and prints the status as either \texttt{sat} or
+\texttt{unsat}. This happens, for example, in the following situation:
+\begin{small}
+\begin{verbatim}
+   (assert ...)
+   (check)
+   (check)
+\end{verbatim}
+\end{small}
+The context status is known after the first \texttt{(check)} command
+(provided this command does not timeout or otherwise fails). Then the
+second \texttt{(check)} does nothing and just prints the current
+status.
+
+If the context's status is unknown, then \texttt{(check)} invokes the
+SMT solver to establish whether the assertions are satisfiable. As
+discussed previously, the actual solver or solver combination is
+dependent on command-line options given to the \texttt{yices} tool. In
+particular, the \texttt{--logic} option allows one to select a solver
+architecture that is specialized for a particular logic. For best
+performance, it is usually better to specify the logic if it is known
+in advance.
+
+Several  heuristic parameters  can also  control some  aspects  of the
+search algorithm  employed by the solver. Yices  use default settings
+based  on the  specified  logic (or  global  defaults if  no logic  is
+given). All these  parameters can be examined and  modified, using the
+command  \texttt{show-params} and  \texttt{set-param}  described in  a
+subsequent section.
+
+One can also provide a timeout before calling \texttt{(check)}. If the
+timeout is reached or the search is interrupted (by CTRL-C), then the
+result will be displayed as \texttt{interrupted}. 
+
 
 \subsubsection*{Push, Pop, Reset}
 
-push, pop, reset
+Command \texttt{(push)}, \texttt{(pop)}, and \texttt{(reset)} allows
+one to manipulate the set of assertions. 
+
+\medskip
+
+The command \texttt{(reset)} clears all assertions. The current
+context is then returned to its initial state, where the set of
+assertions is empty. This command can be used in all modes.
+
+The push and pop commands are supported by \texttt{yices} if it is run
+in mode \texttt{push-pop} or \texttt{interactive}. In these modes, the
+context maintains a stack of assertions organized in successive
+levels. The \texttt{(push)} command starts a new assertion level in
+this stack, and \texttt{(pop)} removes all assertions at the current
+level. The command \texttt{(assert f)} adds an assertion \texttt{f} to
+the current level. This assertion will be part of the context until
+this current level is exited by either a call to \texttt{(pop)} or a
+call to \texttt{(reset)}. Thus, a call to \texttt{(pop)} retracts all
+assertions entered since the matching \texttt{(push)}.  The initial
+assertion level includes all formulas that are asserted before the
+first \texttt{(push)} command. Such assertions cannot be retracted by
+\texttt{(pop)}. They remain in the context until \texttt{(reset)} is
+called.
+
+The commands \texttt{(reset)} and \texttt{(pop)} modify the set of
+assertions in the context, but they do not affect term and type
+declarations. For example, the following sequence of commands is
+valid.
+\begin{small}
+\begin{verbatim}
+   (push)
+   (define A::bool)
+   (assert A)
+   (check)
+   (pop)
+   (assert (not A))
+   (check)   
+\end{verbatim}
+\end{small}
+The term \texttt{A} is declared after the \texttt{(push)} command. The
+\texttt{(pop}) command removes the first assertion but its does not
+remove the declaration. Thus, \texttt{A} remains declared as a Boolean
+term after the \texttt{(pop)} command. The second assertion is then
+valid. Both calls to \texttt{(check)} return \texttt{sat}.
+
 
 \subsubsection*{Model}
 
-show-model and eval
+If a call to \texttt{(check)} returns \texttt{sat}, then the set of
+assertions in the context is satisfiable. One can request
+\texttt{yices} to construct and display a model for the
+assertions. One can also evaluate the value of arbitrary terms in this
+model.
+
+\medskip
+
+The command
+\begin{small}
+\begin{verbatim}
+   (show-model)
+\end{verbatim}
+\end{small}
+displays the current model (and constructs it if necessary). An error
+is reported if the context's status is unknown or if the context is
+not satisfiable. Otherwise, the model is displayed in the format
+illustrated in Figure~\ref{model-format}. The model is displayed as a
+list of assignments, possibly followed by a list of function
+definitions. An assignment has the form
+\begin{small}
+\begin{verbatim}
+   (= <name> <value>)
+\end{verbatim}
+\end{small}
+where \texttt{<name>} is an uninterpreted constant and
+\texttt{<value>} is a constant, that is, the value mapped to
+\texttt{<name>} in the model. This format is used for all terms of
+atomic types (Boolean, integer and real, bitvector, scalar, and
+uninterpreted types). It is also used to display the value of terms
+that have tuple type. The value of an uninterpreted functions $f$ is
+displayed as shown on the right column of Figure~\ref{model-format}.
+For each uninterpreted function, \texttt{yices} displays the type of
+the function, a finite list of assignments, followed by the function's
+default value. For example, in Figure~\ref{model-format}, one can see
+that \texttt{yices} has constructed a model where \texttt{(b 0)} and
+\texttt{(b 1)} are \texttt{true}, and \texttt{(b x)} is \texttt{false}
+for any \texttt{x} different from \texttt{0} and \texttt{1}.
+
+\begin{figure}
+\begin{footnotesize}
+\begin{center}
+\begin{tabular}{c|c}
+\multicolumn{1}{c}{Input} & \multicolumn{1}{c}{Model} \\[0.4em]
+
+\begin{minipage}[t]{6cm}
+\begin{verbatim}
+(define a::(-> int bool))
+(define b::(-> int bool))
+(define c::(-> int bool))
+(define x::int)
+(define y::int)
+(assert (and (a x) (b y)))
+(assert (/= x y))
+(assert (distinct a b c))
+(check)
+(show-model)
+\end{verbatim}
+\end{minipage}~~
+&
+~~~\begin{minipage}[t]{6cm}
+\begin{verbatim}
+(= y 0)
+(= x -579)
+(function c
+ (type (-> int bool))
+ (default true))
+(function a
+ (type (-> int bool))
+ (= (a 1) false)
+ (default true))
+(function b
+ (type (-> int bool))
+  (= (b 0) true)
+  (= (b 1) true)
+  (default false))
+\end{verbatim}
+\end{minipage}
+\end{tabular}
+\end{center}
+\end{footnotesize}
+\caption{Model Display Format}
+\label{model-format}
+\end{figure}
+
+\pagebreak
+
+Command
+\begin{small}
+\begin{verbatim}
+   (eval <term>)
+\end{verbatim}
+\end{small}
+computes the value assigned to \texttt{<term>} in the current model,
+and displays this value. For example, assuming the model shown in 
+Figure~\ref{model-format}, one can type
+\begin{small}
+\begin{verbatim}
+   (eval (a y))
+\end{verbatim}
+\end{small}
+and the result will be \texttt{true}. It is also possible to ask for
+the value of a function term, as in
+\begin{small}
+\begin{verbatim}
+   (eval (update a (y) false))
+\end{verbatim}
+\end{small}
+The result is displayed as a function specification such as:
+\begin{small}
+\begin{verbatim}
+   (function fun!17
+     (type (-> int bool))
+     (= (fun!17 1) false)
+     (= (fun!17 0) false)
+     (default true))
+\end{verbatim}
+\end{small}
+Yices creates an internal name of the form \texttt{fun!<number>} to
+display the function value.
 
 \subsubsection*{Parameters}
 
-set-param, show-param, show-params, set-timeout, show-timeout
+
+set-param, show-param, show-params
+
+set-timeout, show-timeout
 
 \subsubsection*{Miscellaneous Commands}
 
@@ -1983,7 +2276,7 @@ echo, include, help, show-stats, reset-stats
 %    (echo <string>):  prints <string> on stdout
 
 %    (include <string>):  <string> must be the name of a file that contains Yices commands
-%    	    		this reads and execude all the commands in that file
+%    	    		this reads and execute all the commands in that file
 
 %    (set-param <parameter-name> <parameter-value>):
 %                  assign a value to one parameter (parameters control simplification 
