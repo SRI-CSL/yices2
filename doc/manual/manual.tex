@@ -1343,7 +1343,7 @@ arguments. For example, one can write
       (or A)    (or A B)    (or A B C D)
 \end{verbatim}
 \end{small}
-since \texttt{or} is commutative an associative.
+since \texttt{or} is associative.
 
 
 \subsubsection*{If-Then-Else}
@@ -1413,8 +1413,8 @@ the same thing as \texttt{(/= <t1> <t2>)}.
 The usual Boolean constants and functions are available. They are
 listed in Table~\ref{Boolean-Operators}.  The associative/commutative
 operators \texttt{or}, \texttt{and}, and \texttt{xor} can take any
-number of arguments greater than one. The equivalence (\texttt{<=>})
-and implication (\texttt{=>}) operators take exactly two arguments.
+number of arguments. The equivalence (\texttt{<=>}) and implication
+(\texttt{=>}) operators take exactly two arguments.
 
 One can also use the equality and disequality operators
 with Boolean terms. If \texttt{<t1>} and \texttt{<t2>} are Boolean
@@ -1609,11 +1609,18 @@ concatenation, and other structural operations. The expression
 formed by taking bits $j, j+1, \ldots, i$. If \texttt{u} is a
 bitvector of $n$ bits then the constants $i$ and $j$ must satisfy $0
 \leq j \leq i \leq n-1$, and the result is a bitvector of $(i - j +
-1)$ bits. 
+1)$ bits. For example, we have
+\begin{small}
+\begin{verbatim}
+   (bv-extract 7 2 0b110110100) = 0b101101.
+\end{verbatim}
+\end{small}
 
-In \texttt{(bv-repeat u k)}, the integer constant $k$ must be
-positive. In the sign and zero extension operators, $k$ must be
-non-negative.
+In \texttt{(bv-repeat u k)}, bitvector \texttt{u} is concatenated with
+itself $k$ times. The integer constant $k$ must be positive. In the
+sign and zero extension operators, vector \texttt{u} is extended by
+adding $k$ bits (either zero or \texttt{u}'s sign bit copied $k$
+times).  In these two operations, $k$ must be non-negative.
 
 The \texttt{bv-redor}, \texttt{bv-redand}, and \texttt{bv-redcomp}
 operators produce a one-bit vector.  The term \texttt{(bv-redor u)} is
@@ -1981,10 +1988,11 @@ uninterpreted types). It is also used to display the value of terms
 that have tuple type. The value of an uninterpreted functions $f$ is
 displayed as shown on the right column of Figure~\ref{model-format}.
 For each uninterpreted function, \texttt{yices} displays the type of
-the function, a finite list of assignments, followed by the function's
-default value. For example, in Figure~\ref{model-format}, one can see
-that \texttt{yices} has constructed a model where \texttt{(b 0)} and
-\texttt{(b 1)} are \texttt{true}, and \texttt{(b x)} is \texttt{false}
+the function, a finite list of assignments, and the function's default
+value. For example, in Figure~\ref{model-format}, one can see that
+\texttt{yices} has constructed a model where \texttt{(b 0)} and
+\texttt{(b 1)} are \texttt{true}, and the default value for \texttt{b}
+is \texttt{false}.  This means that \texttt{(b x)} is \texttt{false}
 for any \texttt{x} different from \texttt{0} and \texttt{1}.
 
 \begin{figure}

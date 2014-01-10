@@ -1809,7 +1809,7 @@ static void build_binary_lemmas_for_atom(simplex_solver_t *solver, thvar_t x, in
     if (atom_vector != NULL) {
       atbl = &solver->atbl;
       atom = arith_atom(atbl, id);
-      assert(var_of_atom(atom1) == x);
+      assert(var_of_atom(atom) == x);
       a = bound_of_atom(atom);
       atom1 = NULL;
       atom2 = NULL;
