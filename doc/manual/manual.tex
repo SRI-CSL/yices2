@@ -2079,14 +2079,186 @@ display the function value.
 
 \subsubsection*{Parameters}
 
+A number of parameters control the preprocessing and simplifications
+applied by Yices, and the heuristics used by the CDCL SAT solver and the
+theory solvers. Several commands allow one to examine and modify these
+parameters.
 
-set-param, show-param, show-params
+To see the list of all available parameters, and their current values, type
+\begin{small}
+\begin{verbatim}
+   (show-params)
+\end{verbatim}
+\end{small}
+If you want to see the value of a specific parameter, type
+\begin{small}
+\begin{verbatim}
+   (show-param <name>)
+\end{verbatim}
+\end{small}
+where \texttt{<name>} is the parameter name. For example, the CDCL solver can
+use different branching heuristics. This is controlled by the \texttt{branching}
+parameter. To see its current value, type the command
+\begin{small}
+\begin{verbatim}
+   (show-param branching)
+\end{verbatim}
+\end{small}
+There are many search and preprocessing parameters. The full list is
+described in the file \texttt{doc/YICES-LANGUAGE} included in the
+distribution.
 
-set-timeout, show-timeout
+By default, \texttt{yices} does not use a timeout. So a call to
+\texttt{(check)} may take a very long time to terminate. To limit the
+runtime of \texttt{(check)}, one can give a timeout is seconds. For
+example, to limit the runtime to 2 minutes:
+\begin{small}
+\begin{verbatim}
+   (set-timeout 120)
+\end{verbatim}
+\end{small}
+This timeout will apply to the next call to \texttt{(check)}, but not
+to the one after that. After every call to \texttt{(check)}, the
+timeout is rest to 0 (which means no timeout). One can also clear the 
+timeout explicitly by setting it to 0:
+\begin{small}
+\begin{verbatim}
+   (set-timeout 0)
+\end{verbatim}
+\end{small}
+To see the current value of the timeout, one can use the command
+\begin{small}
+\begin{verbatim}
+   (show-timeout)
+\end{verbatim}
+\end{small}
 
 \subsubsection*{Miscellaneous Commands}
 
-echo, include, help, show-stats, reset-stats
+The \texttt{echo} command can be use to print a string on the standard
+output. It can be useful in Yices scripts to help display
+results. An example in Figure~\ref{example-echo} illustrates its use.
+
+\begin{figure}
+\begin{center}
+\begin{footnotesize}
+\begin{verbatim}
+    (define a::bool)
+    (define b::bool)
+    (define c::bool)
+    (define d::bool)
+    (define e::bool)
+
+    (assert (= a (or b c)))
+    (assert (= d (and b c)))
+    (assert (= a d))
+    (echo "First check: should be sat\n")
+    (check)
+    (show-model)
+
+    (assert (= e (xor b c)))
+    (assert (= e d))
+    (echo "\nSecond check: should be sat\n")
+    (check)
+    (show-model)
+
+    (assert d)
+    (echo "\nThird check: should be unsat\n")
+    (check)
+\end{verbatim}
+\end{footnotesize}
+\end{center}
+\caption{Example Use of the \texttt{echo} Command}
+\label{example-echo}
+\end{figure}
+
+\medskip\noindent 
+It is possible to include a Yices script using the following command:
+\begin{small}
+\begin{verbatim}
+   (include <filename>)
+\end{verbatim}
+\end{small}
+where \texttt{<filename>} is the name of an input file given as a
+string. For example, to include the file \texttt{example.ys}, type
+\begin{small}
+\begin{verbatim}
+   (include "example.ys")
+\end{verbatim}
+\end{small}
+This command will read and execute all commands contained in the given
+file.
+
+\medskip\noindent 
+The \texttt{yices} tool has on-line help, which can be obtained using one
+of the following commands:
+\begin{small}
+\begin{verbatim}
+   (help)
+   (help <topic>)
+\end{verbatim}
+\end{small}
+Without argument, \texttt{(help)} prints a summary of the main Yices
+  commands. With an argument, \texttt{(help <topic>)} gives help on
+  the specified \texttt{<topic>}. The argument can be a command name,
+  one of the built-in type or term constructor, or the name of an
+  parameter.  The argument can be given as a string or as a
+  symbol. For example, to get some information on the search parameter \texttt{var-elim},
+one can type either
+\begin{small}
+\begin{verbatim}
+   (help "var-elim")
+\end{verbatim}
+\end{small}
+or just 
+\begin{small}
+\begin{verbatim}
+   (help var-elim).
+\end{verbatim}
+\end{small}
+On-line help is available for other topics such as the syntax. To get a
+list of all topics, one can type
+\begin{small}
+\begin{verbatim}
+   (help index)
+\end{verbatim}
+\end{small}
+
+
+\medskip\noindent 
+The solver keeps track of various statistics concerning the search
+algorithms (e.g., the number of decisions and conflicts in the CDCL
+solver). The following command prints all the internal statistics
+\begin{small}
+\begin{verbatim}
+   (show-stats)
+\end{verbatim}
+\end{small}
+As part of these statistics, \texttt{yices} keeps track of the
+cumulative CPU time spent in calls to the \texttt{check} command.  To
+get time measurement for a specific call to \texttt{(check)} (rather
+than the total amount of time spent on all calls to \texttt{(check)}
+so far), one can reset the global time counter to zero using command
+\texttt{(reset-stats)}. To get the runtime and other statistics about
+a specific \texttt{(check)}, type the following commands:
+\begin{small}
+\begin{verbatim}
+   (reset-stats)
+   (check)
+   (show-stats)
+\end{verbatim}
+\end{small}
+
+\medskip\noindent 
+At any time, one can exit the solver using the command
+\begin{small}
+\begin{verbatim}
+   (exit)
+\end{verbatim}
+\end{small}
+If this command is part of a Yices script file, then \texttt{yices}
+exits immediately after this command, without parsing or processing the
+rest of the file.
 
 
 % 4) Built-in constants and functions
