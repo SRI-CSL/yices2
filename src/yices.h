@@ -37,7 +37,7 @@
 
 
 #ifdef __cplusplus
-extern "C" {
+// extern "C" {
 #endif
 
 
@@ -1570,6 +1570,13 @@ __YICES_DLLSPEC__ extern const char *yices_get_term_name(term_t t);
 __YICES_DLLSPEC__ extern int32_t yices_pp_type(FILE *f, type_t tau, uint32_t width, uint32_t height, uint32_t offset);
 __YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t height, uint32_t offset);
 
+
+/*
+ * Pretty print an array of terms: same error reports are above
+ * - n = size of the array
+ * - a[0 ... n-1] = terms to print
+ */
+__YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, term_t a[], uint32_t witdh, uint32_t height, uint32_t offset);
 
 
 

@@ -1,5 +1,5 @@
 /*
- * Lexer for Yices language
+ * Lexer for Yices language with support for EF-solver
  * - separators are ( ) : and spaces
  *
  * - strings are delimited by " with escaped char \n, \t, etc. allowed

@@ -103,6 +103,7 @@
  * - iflag = true if the integer solver is required
  * - qflag = true if support for quantifiers is required
  * - efsolver = true to enable the exists/forall solver
+ * - efdone = true after the first call to efsolve
  */
 static char *input_filename;
 static lexer_t lexer;
@@ -130,6 +131,7 @@ static context_mode_t mode;
 static bool iflag;
 static bool qflag;
 static bool efsolver;
+static bool efdone;
 
 /*
  * Context, model, and solver parameters
@@ -619,6 +621,7 @@ static void process_command_line(int argc, char *argv[]) {
   arith_code = ARITH_SIMPLEX;
   mode_code = -1; // means not set 
   efsolver = false;
+  efdone = false;
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
 
@@ -2350,11 +2353,14 @@ static void yices_help_cmd(const char *topic) {
 static void yices_reset_cmd(void) {
   if (efsolver) {
     // TBD 
+    ivector_reset(&delayed_assertions);
+    efdone = false;
   } else {
     if (model != NULL) {
       free_model(model);
       model = NULL;
     }
+    ivector_reset(&delayed_assertions);
     reset_context(context);
   }
   print_ok();
@@ -2456,52 +2462,63 @@ static void yices_assert_cmd(term_t f) {
   int32_t code;
 
   /*
-   * If efsolver is true, there's no context but we force STATUS_IDLE
-   * to add f to the delayed_assertions.
+   * If efsolver is true, we add f to the delayed assertions vector
    */
-  status = efsolver ? STATUS_IDLE : context_status(context);
-  if (status != STATUS_IDLE && !context_supports_multichecks(context)) {
-    report_error("more assertions are not allowed");
+  if (efsolver) {
+    if (efdone) {
+      report_error("more assertions are not allowed after (ef-solve)");
+    } else if (yices_term_is_bool(f)) {
+      ivector_push(&delayed_assertions, f);
+      print_ok();
+    } else {
+      report_error("type error in assert: boolean term required");      
+    }
+    
   } else {
-    switch (status) {
-    case STATUS_UNKNOWN:
-    case STATUS_SAT:
-      // cleanup then return to the idle state
-      if (model != NULL) {
-        free_model(model);
-        model = NULL;
-      }
-      context_clear(context); 
-      assert(context_status(context) == STATUS_IDLE);
-      // fall-through intended
-
-    case STATUS_IDLE:
-      if (yices_term_is_bool(f)) {
-	if (mode == CTX_MODE_ONECHECK) {
-	  // delayed assertion
-	  ivector_push(&delayed_assertions, f);
-	  code = CTX_NO_ERROR;
-	} else {
-	  code = assert_formula(context, f);
+    status = context_status(context);
+    if (status != STATUS_IDLE && !context_supports_multichecks(context)) {
+      report_error("more assertions are not allowed");
+    } else {
+      switch (status) {
+      case STATUS_UNKNOWN:
+      case STATUS_SAT:
+	// cleanup then return to the idle state
+	if (model != NULL) {
+	  free_model(model);
+	  model = NULL;
 	}
-        print_internalization_code(code);
-      } else {
-        report_error("type error in assert: boolean term required");
+	context_clear(context); 
+	assert(context_status(context) == STATUS_IDLE);
+	// fall-through intended
+
+      case STATUS_IDLE:
+	if (yices_term_is_bool(f)) {
+	  if (mode == CTX_MODE_ONECHECK) {
+	    // delayed assertion
+	    ivector_push(&delayed_assertions, f);
+	    code = CTX_NO_ERROR;
+	  } else {
+	    code = assert_formula(context, f);
+	  }
+	  print_internalization_code(code);
+	} else {
+	  report_error("type error in assert: boolean term required");
+	}
+	break;
+
+      case STATUS_UNSAT:
+	// cannot take more assertions
+	fputs("The context is unsat. Try (pop) or (reset)\n", stderr);
+	fflush(stderr);
+	break;
+
+      case STATUS_SEARCHING:
+      case STATUS_INTERRUPTED:
+      default:
+	// should not happen
+	report_bug("unexpected context status in assert");
+	break;
       }
-      break;
-
-    case STATUS_UNSAT:
-      // cannot take more assertions
-      fputs("The context is unsat. Try (pop) or (reset)\n", stderr);
-      fflush(stderr);
-      break;
-
-    case STATUS_SEARCHING:
-    case STATUS_INTERRUPTED:
-    default:
-      // should not happen
-      report_bug("unexpected context status in assert");
-      break;
     }
   }
 }
@@ -2738,8 +2755,15 @@ static void yices_eval_cmd(term_t t) {
  * New command: ef solver
  */
 static void yices_efsolve_cmd(void) {
-  fputs("ef-solve cmd: not implemented yet\n", stdout);
-  fflush(stdout);
+  if (efsolver) {
+    fputs("Assertions:\n", stdout);
+    yices_pp_term_array(stdout, delayed_assertions.size, delayed_assertions.data, 140, UINT32_MAX, 0);
+    efdone = true;
+    fflush(stdout);
+  } else {
+    fputs("The (ef-solve) command is not supported. Please use command-line option --mode=ef\n", stdout);
+    fflush(stdout);
+  }
 }
 
 
