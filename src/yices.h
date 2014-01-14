@@ -37,7 +37,7 @@
 
 
 #ifdef __cplusplus
-// extern "C" {
+extern "C" {
 #endif
 
 
@@ -2407,8 +2407,8 @@ __YICES_DLLSPEC__ extern void yices_free_model(model_t *mdl);
  * This function will print the value of these uninterpreted terms,
  * but it will skip the ones that don't have a name.
  *
- * To see that value of uninterpreted term x in the model, you have to
- * do give a name to 'x'. For example, this can be done by creating 'x' 
+ * To see the value of uninterpreted term x in the model, you have to
+ * give a name to 'x'. For example, this can be done by creating 'x' 
  * as follows:
  *
  *   x = yices_new_uninterpreted_term(<some type>)

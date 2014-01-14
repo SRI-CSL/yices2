@@ -2544,7 +2544,7 @@ static void print_bool_assignment(yices_pp_t *printer, const char *name, bval_t 
  * Trivial assignment: this is called when Yices is used in benchmark
  * mode, and all assertions simplify to true. In this case, the
  * assertions are trivially satisfiable but no context is
- * constructred. We just go through the list of all named Booleans and
+ * constructed. We just go through the list of all named Booleans and
  * give them the same value (UNDEF), except if any of them is equal to
  * true or false.
  */
