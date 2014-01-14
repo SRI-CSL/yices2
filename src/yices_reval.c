@@ -52,6 +52,9 @@
 #include "fun_solver.h"
 #include "bvsolver.h"
 
+// FOR TEST OF FLATTENING
+#inclyde "flattening.h"
+
 #include "context.h"
 #include "models.h"
 #include "model_eval.h"
@@ -2755,9 +2758,23 @@ static void yices_eval_cmd(term_t t) {
  * New command: ef solver
  */
 static void yices_efsolve_cmd(void) {
+  flattener_t flattener;
+  ivector_t *v;
+
   if (efsolver) {
+    /*
+     * Test flattening
+     */
+    v = &delayed_assertions;
     fputs("Assertions:\n", stdout);
-    yices_pp_term_array(stdout, delayed_assertions.size, delayed_assertions.data, 140, UINT32_MAX, 0);
+    yices_pp_term_array(stdout, v->size, v->data, 140, UINT32_MAX, 0);
+
+    init_flattener(&flattener, __yices_globals.manager);
+    flatten_array_forall(&flattener, v->size, v->data, true, true);
+    fputs("\nAfter flattening:\n", stdout);
+    v = &flattener.resu;
+    yices_pp_term_array(stdout, v->size, v->data, 140, UINT32_MAX, 0);
+    
     efdone = true;
     fflush(stdout);
   } else {
