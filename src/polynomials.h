@@ -162,8 +162,6 @@ extern uint32_t copy_monarray(monomial_t *q, monomial_t *p);
 
 
 
-
-
 /*
  * COMPARISON
  */

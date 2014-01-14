@@ -4,6 +4,8 @@
  * Version 3: started 2008/11/03
  */
 
+#include <inttypes.h>
+
 #include "assert_utils.h"
 #include "bitvectors.h"
 #include "dprng.h"
@@ -12,8 +14,8 @@
 #include "rational_hash_maps.h"
 #include "dep_tables.h"
 #include "theory_explanations.h"
+#include "tracer.h"
 #include "simplex.h"
-
 
 
 /*
@@ -24,6 +26,7 @@
  * To trace simplifications and tableau initialization set TRACE_INIT to 1
  * To trace the theory propagation set TRACE_PROPAGATION to 1 (in 
  * To trace the branch&bound algorithm set TRACE_BB to 1
+ * To get a summary of general solution + bounds: TRACE_INTFEAS to 1
  */
 #define TRACE   0
 #define DEBUG   0
@@ -32,12 +35,11 @@
 #define TRACE_INIT 0
 #define TRACE_PROPAGATION 0
 #define TRACE_BB 0
+#define TRACE_INTFEAS 0
 
-
-#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB ||  !defined(NDEBUG)
+#if TRACE || DEBUG || DUMP || TRACE_INIT || TRACE_PROPAGATION || TRACE_BB || TRACE_INTFEAS || !defined(NDEBUG)
 
 #include <stdio.h>
-#include <inttypes.h>
 
 #include "term_printer.h"
 #include "dsolver_printer.h"
@@ -1569,6 +1571,7 @@ void init_simplex_solver(simplex_solver_t *solver, smt_core_t *core, gate_manage
   solver->integer_solving = false;
   solver->check_counter = 0;
   solver->check_period = SIMPLEX_DEFAULT_CHECK_PERIOD;
+  solver->last_branch_atom = null_bvar;
   solver->dsolver = NULL;     // allocated later if needed
 
   solver->cache = NULL;       // allocated later if needed
@@ -1785,11 +1788,19 @@ static void create_binary_lemma(simplex_solver_t *solver, arith_atom_t *atom1, a
 /*
  * Build all the binary lemmas involving atom id on variable x
  * - id must not be in the atom_vector of x
+ *
+ * Let a be the bound for atom id: the atom is then either (x >= a) or (x <= a)
+ * - we search for two atoms atom1 and atom2 such that
+ *   bound_of(atom1) <= a and a <= bound_of(atom2)
+ *   and such that bound_of(atom1) and bound_of(atom2) are
+ *   as close to a as possible.
+ * - then we generate two lemmas
  */
 static void build_binary_lemmas_for_atom(simplex_solver_t *solver, thvar_t x, int32_t id) {
   arith_atomtable_t *atbl;
   int32_t *atom_vector;
-  arith_atom_t *atom1, *atom2;
+  arith_atom_t *atom, *atom1, *atom2, *aux;
+  rational_t *a;
   uint32_t i, n;
   int32_t id2;
 
@@ -1797,14 +1808,38 @@ static void build_binary_lemmas_for_atom(simplex_solver_t *solver, thvar_t x, in
     atom_vector = arith_var_atom_vector(&solver->vtbl, x);
     if (atom_vector != NULL) {
       atbl = &solver->atbl;
-      atom1 = arith_atom(atbl, id);
-      assert(var_of_atom(atom1) == x);
+      atom = arith_atom(atbl, id);
+      assert(var_of_atom(atom) == x);
+      a = bound_of_atom(atom);
+      atom1 = NULL;
+      atom2 = NULL;
       n = iv_size(atom_vector);
       for (i=0; i<n; i++) {
         id2 = atom_vector[i];
         assert(id != id2);
-        atom2 = arith_atom(atbl, id2);
-        create_binary_lemma(solver, atom1, atom2);
+	aux = arith_atom(atbl, id2);
+	if (q_eq(bound_of_atom(aux), a)) {
+	  atom1 = aux;
+	  atom2 = NULL;
+	  break;
+	}
+	if (q_lt(bound_of_atom(aux), a)) {
+	  // bound on aux < a
+	  if (atom1 == NULL || q_gt(bound_of_atom(aux), bound_of_atom(atom1))) {
+	    atom1 = aux;
+	  }
+	} else {
+	  // bound on aux > a
+	  if (atom2 == NULL || q_lt(bound_of_atom(aux), bound_of_atom(atom2))) {
+	    atom2 = aux;
+	  }
+	}
+      }
+      if (atom1 != NULL) {
+        create_binary_lemma(solver, atom, atom1);
+      }
+      if (atom2 != NULL) {
+        create_binary_lemma(solver, atom, atom2);
       }
     }
   }
@@ -2438,7 +2473,7 @@ static void add_ub_axiom(simplex_solver_t *solver, thvar_t x, rational_t *c, boo
  * - if p == 0 simplifies to false, set the 'unsat_before_search' flag
  * - if p == 0 simplifies to true, do nothing
  * - if p == 0 is equivalent to x == c for a variable x and constant c
- &   then add the bounds (x <= c) and (x >= c)
+ *   then add the bounds (x <= c) and (x >= c)
  * - otherwise, add the row p == 0 to the matrix
  */
 static void add_eq_axiom(simplex_solver_t *solver) {
@@ -2743,6 +2778,8 @@ thvar_t simplex_create_poly(simplex_solver_t *solver, polynomial_t *p, thvar_t *
   return get_var_from_buffer(solver);
 #endif
 }
+
+
 
 
 /*
@@ -3252,6 +3289,9 @@ static void simplex_init_tableau(simplex_solver_t *solver) {
   // mark that the tableau is ready
   solver->tableau_ready = true;
   solver->matrix_ready = false;
+
+  tprintf(solver->core->trace, 12, "(initial tableau: %"PRIu32" rows, %"PRIu32" variables, %"PRIu32" atoms)\n",
+	  solver->stats.num_rows, solver->vtbl.nvars, solver->atbl.natoms);
 }
 
 
@@ -4235,7 +4275,7 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
   row_t *row;
   thvar_t x;
   int32_t r, k;
-  uint32_t repeats;
+  uint32_t repeats, loops, bthreshold;
   bool feasible;
 
 #if TRACE
@@ -4263,6 +4303,17 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
   assert(leaving_vars->size == 0);
   repeats = 0;
   solver->use_blands_rule = false;
+  loops = 0;
+
+  /*
+   * Bland threhsold: adjust it based on the number of variables
+   */
+  bthreshold = solver->bland_threshold;
+  if (solver->vtbl.nvars > 10000) {
+    bthreshold *= 1000;
+  } else if (solver->vtbl.nvars > 1000) {
+    bthreshold *= 100;
+  }
 
   for (;;) {
     // check interrupt at every iteration
@@ -4271,6 +4322,11 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
       break;
     }
 
+    loops ++;
+    if ((loops & 0xFFF) == 0) {
+      printf(".");
+      fflush(stdout);
+    }
     x = int_heap_get_min(&solver->infeasible_vars);
     if (x < 0) {
       feasible = true;
@@ -4331,9 +4387,11 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
         ivector_push(leaving_vars, x);
       } else {
         repeats ++;
-        if (repeats > solver->bland_threshold) {
+        if (repeats > bthreshold) {
           solver->use_blands_rule = true;
           solver->stats.num_blands ++;
+	  printf("b");
+	  fflush(stdout);
         }
       }
     }
@@ -4346,6 +4404,11 @@ static bool simplex_make_feasible(simplex_solver_t *solver) {
     clear_arith_var_mark(vtbl, x);
   }
   ivector_reset(leaving_vars);
+
+  if (loops > 0xFFF || solver->use_blands_rule) {
+    printf("\n");
+    fflush(stdout);
+  }
 
 #if TRACE
   if (feasible) {
@@ -5061,6 +5124,12 @@ static bool simplex_add_derived_lower_bound(simplex_solver_t *solver, thvar_t x,
   // Add the bound
   push_lb_derived(solver, x, b, a);
 
+#if TRACE_INTFEAS
+  printf("---> Derived bound\n");
+  print_simplex_bound(stdout, solver, arith_var_lower_index(&solver->vtbl, x));
+  printf("\n");
+  fflush(stdout);
+#endif
 
   /*
    * Check whether val[x] is still within bounds (i.e., val[x] >= b holds)
@@ -5114,6 +5183,13 @@ static bool simplex_add_derived_upper_bound(simplex_solver_t *solver, thvar_t x,
 
   // Add the bound
   push_ub_derived(solver, x, b, a);  
+
+#if TRACE_INTFEAS
+  printf("---> Derived bound\n");
+  print_simplex_bound(stdout, solver, arith_var_upper_index(&solver->vtbl, x));
+  printf("\n");
+  fflush(stdout);
+#endif
 
   /*
    * Check whether val[x] is still within bounds (i.e., val[x] <= b holds)
@@ -5629,6 +5705,20 @@ static bool move_nonbasic_vars_to_bounds(simplex_solver_t *solver) {
  * BRANCH & BOUND
  */
 
+#if TRACE_INTFEAS
+static void print_branch_candidates(FILE *f, simplex_solver_t *solver, ivector_t *v) {
+  uint32_t i, n;
+
+  n = v->size;
+  for (i=0; i<n; i++) {
+    print_simplex_var_bounds(f, solver, v->data[i]);
+  }
+  fprintf(f, "\n");
+  fflush(f);
+}
+
+#endif
+
 /*
  * Collect all basic, integer variables that don't have an integer value
  * in the current assignment
@@ -5656,9 +5746,7 @@ static void collect_non_integer_basic_vars(simplex_solver_t *solver, ivector_t *
 static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
   xrational_t *bound;
   int32_t new_idx;
-#if TRACE_BB
   literal_t l;
-#endif
 
   assert(arith_var_is_int(&solver->vtbl, x) & ! arith_var_value_is_int(&solver->vtbl, x));
 
@@ -5675,11 +5763,8 @@ static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
   print_simplex_assignment(stdout, solver);
 #endif
 
-#if TRACE_BB
   l = get_literal_for_ge_atom(&solver->atbl, x, true, &bound->main, &new_idx);
-#else
-  (void) get_literal_for_ge_atom(&solver->atbl, x, true, &bound->main, &new_idx);
-#endif
+  solver->last_branch_atom = var_of(l);
 
   /*
    * If support periodic calls to make_integer_feasible is enabled,
@@ -5690,8 +5775,8 @@ static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
     build_binary_lemmas_for_atom(solver, x, new_idx);
     attach_atom_to_arith_var(&solver->vtbl, x, new_idx);
 
-#if TRACE_BB
-    printf("---> Branch & bound: create ");
+#if TRACE_BB || TRACE_INTFEAS
+    //    printf("---> Branch & bound: create ");
     print_simplex_atomdef(stdout, solver, var_of(l));
 #endif
 
@@ -5707,8 +5792,8 @@ static void create_branch_atom(simplex_solver_t *solver, thvar_t x) {
  * - the score for x is (upper bound - lower bound) if that's small enough
  * - return MAX_BRANCH_SCORE if x has zero or one bounds
  */
-#define MAX_BRANCH_SCORE 20000
-#define HALF_MAX_BRANCH_SCORE 10000
+#define MAX_BRANCH_SCORE UINT32_MAX
+#define HALF_MAX_BRANCH_SCORE (UINT32_MAX/2)
 
 static uint32_t simplex_branch_score(simplex_solver_t *solver, thvar_t x) {
   rational_t *diff;
@@ -5718,11 +5803,14 @@ static uint32_t simplex_branch_score(simplex_solver_t *solver, thvar_t x) {
   diff = &solver->aux;
   l = arith_var_lower_index(&solver->vtbl, x);
   u = arith_var_upper_index(&solver->vtbl, x);
-  if (l < 0 || u < 0) {
+  if (l < 0 && u < 0) {
     return MAX_BRANCH_SCORE;
+  } else if (l < 0 || u < 0) {
+    return HALF_MAX_BRANCH_SCORE + 1;
   }
   q_set(diff, &solver->bstack.bound[u].main);
   q_sub(diff, &solver->bstack.bound[l].main);
+  q_normalize(diff);
   // diff = upper bound - lower bound
   if (q_is_smallint(diff)) {
     s = q_get_smallint(diff);
@@ -5743,7 +5831,7 @@ static thvar_t select_branch_variable(simplex_solver_t *solver, ivector_t *v) {
   uint32_t i, n, best_score, score, k;
   thvar_t x, best_var;
 
-  best_score = MAX_BRANCH_SCORE + 1;
+  best_score = MAX_BRANCH_SCORE;
   best_var = null_thvar;
   k = 0;
 
@@ -5758,7 +5846,7 @@ static thvar_t select_branch_variable(simplex_solver_t *solver, ivector_t *v) {
     } else if (score == best_score) {
       // break ties randomly
       k ++;
-      if (random_uint(solver, k) == 0) {
+      if (best_var < 0 || random_uint(solver, k) == 0) {
         best_var = x;
       }
     }
@@ -6032,6 +6120,7 @@ static bool strengthen_bounds_on_integer_variable(simplex_solver_t *solver, dsol
         q_sub(&bound->main, aux);
         assert(xq_is_integer(bound));
 
+
         // build the antecedent for x == p into aux_vector2
         q = &solver->aux_vector2; // WARNING: we can't use expl_queue here
         assert(q->size == 0);
@@ -6047,8 +6136,6 @@ static bool strengthen_bounds_on_integer_variable(simplex_solver_t *solver, dsol
         ivector_pop(q); // remove k from q but keep the rest
 
         if (! ok) goto done;
-
-
       }
     }
 
@@ -6204,6 +6291,11 @@ static bool simplex_dsolver_check(simplex_solver_t *solver) {
     }
   }
 
+  /*
+   * HACK: don't call dsolver_is_feasible if we have too many variables.
+   * (because dsolver_is_feasible can easily blow up)
+   */
+  if (dioph->nvars > 2000) return true;
 
   solver->stats.num_dioph_checks ++;
 
@@ -6226,6 +6318,10 @@ static bool simplex_dsolver_check(simplex_solver_t *solver) {
 
   // Try to strengthen the bounds
   dsolver_build_general_solution(dioph);
+
+  //  dsolver_print_gen_solution(stdout, dioph);
+  //  fflush(stdout);
+  
   return strengthen_integer_bounds(solver, dioph);
 }
 
@@ -6245,7 +6341,6 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   ivector_t *v;
   thvar_t x;
 
-
 #if TRACE_BB
   printf("\n---> make integer feasible [dlevel = %"PRIu32", decisions = %"PRIu64"]: %"PRId32
          " integer-invalid vars\n", solver->core->decision_level, solver->core->stats.decisions, 
@@ -6262,6 +6357,14 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   }
 
   solver->stats.num_make_intfeasible ++;
+
+#if TRACE_INTFEAS
+  printf("--- make integer feasible %"PRIu32" [dlevel = %"PRIu32", decisions = %"PRIu64"] ---\n", 
+	 solver->stats.num_make_intfeasible, solver->core->decision_level, solver->core->stats.decisions);
+  //  print_simplex_bounds(stdout, solver);
+  //  printf("\n\n");
+  fflush(stdout);
+#endif
 
   // move non-integer variables to the basis
   if (simplex_is_mixed_system(solver)) {
@@ -6289,7 +6392,8 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
     printf("---> unsat by diophantine solver\n");
     fflush(stdout);
 #endif
-    
+    tprintf(solver->core->trace, 10, "(unsat by diophantine solver)\n");
+
     return false;
   } else if (solver->recheck) {
     /*
@@ -6302,6 +6406,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
       printf("---> unsat after recheck\n");
       fflush(stdout);
 #endif
+      tprintf(solver->core->trace, 10, "(unsat by bound strengthening)\n");
     
       solver->stats.num_recheck_conflicts ++;
       return false;
@@ -6327,8 +6432,6 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
     solver->bstack.fix_ptr = solver->bstack.top;    
   }
 
-
-
   /*
    * At this point: no unsat detected. But bounds may have been strengthened
    * All integer basic variables have an integer value.
@@ -6348,6 +6451,12 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
   }
 
   x = select_branch_variable(solver, v);
+  tprintf(solver->core->trace, 10, 
+	  "(branch & bound: %"PRIu32" candidates, branch variable = i!%"PRIu32", score = %"PRIu32")\n", 
+	  v->size, x, simplex_branch_score(solver, x));
+#if TRACE_INTFEAS
+  print_branch_candidates(stdout, solver, v);
+#endif
   ivector_reset(v);
 
   assert(x != null_thvar);
@@ -7169,7 +7278,7 @@ bool simplex_propagate(simplex_solver_t *solver) {
   /*
    * EXPERIMENTAL: periodically test for integer feasibility
    */
-  if (solver->check_counter -- <= 0) {
+  if (false && solver->check_counter -- <= 0) {
     if (simplex_has_integer_vars(solver)) {
       solver->check_counter = solver->check_period;
 
@@ -7179,6 +7288,14 @@ bool simplex_propagate(simplex_solver_t *solver) {
       solver->recheck = false;    
       feasible = simplex_dsolver_check(solver);
       if (! feasible) goto done;
+      
+#if TRACE_INTFEAS
+      assert(solver->dsolver != NULL);
+      printf("--- general solution from dsolver ---\n");
+      dsolver_print_gen_solution(stdout, solver->dsolver);
+      printf("\n\n");
+      fflush(stdout);
+#endif
 
       if (solver->recheck) {
         simplex_fix_nonbasic_assignment(solver);
@@ -7899,6 +8016,17 @@ literal_t simplex_select_polarity(simplex_solver_t *solver, void *a, literal_t l
   id = arithatom_tagged_ptr2idx(a);
   atom = arith_atom(&solver->atbl, id);
   v = var_of(l);
+
+  if (v == solver->last_branch_atom && drand(&solver->dprng) > 0.1) {
+    // for a branch & bound atom
+    // we branch the opposite of the model
+    solver->last_branch_atom = null_bvar;
+    if (simplex_eval_atom(solver, atom)) {
+      return neg_lit(v);
+    } else {
+      return pos_lit(v);
+    }
+  }
 
   if (simplex_eval_atom(solver, atom)) {
     return pos_lit(v);

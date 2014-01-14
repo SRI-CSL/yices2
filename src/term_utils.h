@@ -290,4 +290,13 @@ extern term_t get_unit_type_rep(term_table_t *table, type_t tau);
 extern term_t clone_variable(term_table_t *table, term_t v);
 
 
+/*
+ * Convert variable v to an uninterpreted term
+ * - v must be a variable
+ * - create a fresh uninterpreted term with the same type as v
+ * - if v has a basename, then the clone also gets that name
+ */
+extern term_t variable_to_unint(term_table_t *table, term_t v);
+
+
 #endif /* __TERM_UTILS_H */

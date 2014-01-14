@@ -472,7 +472,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
 6) Parameters
    ----------
 
-The following parameters can be set using (set-param ...) or examined using (show-param ...).
+The following parameters can be set using (set-param ...) and examined using (show-param ...).
 
 
 6.1) Parameters controlling preprocessing and simplifications
@@ -734,7 +734,7 @@ The following parameters can be set using (set-param ...) or examined using (sho
    max-ack	           Integer 	   bound on the number of Ackermann lemmas generated
 
    dyn-ack-threshold       Integer         heuristic threshold: A lower value makes the heuristic
-   			   		   more aggressive more lemmas are generated.
+   			   		   more aggressive (i.e., more lemmas are generated).
 
 
    dyn-bool-ack            Boolean         enables/disable the generation of Ackermann lemmas

@@ -15,16 +15,16 @@
  *
  * Each row is an array of triples (col_idx, c_ptr, a)
  * - if col_idx < 0, the triple is not used. A list of free elements
- *   is maintained, links are stored in the c_ptr field.
+ *   is maintained. Links are stored in the c_ptr field.
  * - if col_idx >= 0, then it's the index k of a variable x_k
  *   the triple represents a * x_k and c_ptr is an index in the array
- *   column[k]
+ *   column[k].
  *
  * Each column is an array of pairs (row_idx, r_ptr)
  * - if row_idx < 0, the pair is not used. It's stored in a free list
- *   with links stored in r_ptr
+ *   with links stored in r_ptr.
  * - if row_idx >= 0, then it's the index of a row i and r_ptr is
- *   an index in the array row[i]
+ *   an index in the array row[i].
  *
  * For a non-zero element a_ij in row i, column j, there are two
  * indices i_ptr and j_ptr such that
@@ -32,10 +32,9 @@
  * - col[j][j_ptr] = (i, i_ptr)
  *
  * Column index 0 = const_idx is used to represent constants in the equations:
- * a_1 x_1 + ... + a_n x_n + b = 0 where b is a rational constant, is represented as 
+ * a_1 x_1 + ... + a_n x_n + b = 0, where b is a rational constant, is represented as 
  * b.x_0 + a_1.x_1 + ... + a_n x_n = 0. The value of x_0 should always be one (i.e., it
  * should be a fixed variable with lower bound and upper bound both equal to 1).
- *
  *
  * Initially, the matrix is not a tableau. Rows can be added arbitrarily, and there are
  * no basic variables. The matrix can be converted to a tableau using the 
@@ -318,8 +317,6 @@ extern void copy_matrix(matrix_t *matrix, matrix_t *matrix1);
 
 
 
-
-
 /*
  * ROW AND COLUMN ADDITION
  */
@@ -498,8 +495,6 @@ static inline bool matrix_row_is_unmarked(matrix_t *matrix, uint32_t r) {
 
 
 
-
-
 /*
  * ELIMINATION OF FIXED VARIABLES
  */
@@ -530,10 +525,6 @@ extern void matrix_eliminate_fixed_variable(matrix_t *matrix, int32_t x, rationa
  * - then delete the constant vector
  */
 extern void matrix_cleanup_constants(matrix_t *matrix);
-
-
-
-
 
 
 
@@ -570,10 +561,6 @@ extern void matrix_submul_row(matrix_t *matrix, uint32_t r, uint32_t k, row_t *r
  * Important: x must not be equal to const_idx (i.e., 0)
  */
 extern void matrix_pivot(matrix_t *matrix, uint32_t r0, uint32_t k);
-
-
-
-
 
 
 
@@ -703,8 +690,6 @@ extern void simple_tableau_construction(matrix_t *matrix, fvar_vector_t *fvars);
  * There can be inconsistent assignments in fvars (cf. note in simplify_matrix)
  */
 extern void markowitz_tableau_construction(matrix_t *matrix, fvar_vector_t *fvars);
-
-
 
 
 

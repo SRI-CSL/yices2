@@ -328,7 +328,7 @@ tarfile: $(distributions)
 	done || true
 	$(MKDIR_P) $(bindist_dir)/doc
 	cp doc/YICES-LANGUAGE $(bindist_dir)/doc
-	cp doc/manual.pdf $(bindist_dir)/doc
+	cp doc/manual/manual.pdf $(bindist_dir)/doc
 	chmod -R og+rX $(bindist_dir)
 	tar -czf $(distributions)/$(bindist_tarfile) $(bindist_dir)
 	chmod -R og+rX $(distributions)
@@ -353,7 +353,7 @@ static-tarfile: $(distributions)
 	done || true
 	$(MKDIR_P) $(bindist_dir)/doc
 	cp doc/YICES-LANGUAGE $(bindist_dir)/doc
-	cp doc/manual.pdf $(bindist_dir)/doc
+	cp doc/manual/manual.pdf $(bindist_dir)/doc
 	chmod -R og+rX $(bindist_dir)
 	tar -czf $(distributions)/$(static_bindist_tarfile) $(bindist_dir)
 	chmod -R og+rX $(distributions)
@@ -522,7 +522,7 @@ source-distribution: $(distributions)
 	   src/smt2_tokens.txt src/smt2_keywords.txt src/smt2_symbols.txt \
 	   src/yices_version_template.txt $(srcdist_dir)/src
 	cp tests/Makefile tests/*.c $(srcdist_dir)/tests
-	cp doc/NOTES doc/YICES-LANGUAGE doc/GMP doc/manual.pdf \
+	cp doc/NOTES doc/YICES-LANGUAGE doc/GMP doc/manual/manual.pdf \
            $(srcdist_dir)/doc
 	cp utils/gmp-hack.h utils/mingw-build utils/setup-vs2010 \
 	   utils/yices_parser.txt utils/yices_input_tables.h \

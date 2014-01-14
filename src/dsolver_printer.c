@@ -566,7 +566,7 @@ void dsolver_print_gen_solution(FILE *f, dsolver_t *solver) {
   if (solver->gen_sol == NULL) {
     fprintf(f, "No general solution computed\n");
   } else {
-    fprintf(f, "General solution: %"PRIu32" parameters\n", solver->num_params);
+    fprintf(f, "General solution: %"PRIu32" parameters, %"PRIu32" variables\n", solver->num_params, solver->nvars);
     n = solver->nvars;
     for (i=0; i<n; i++) {
       p = dsolver_gen_sol(solver, i);

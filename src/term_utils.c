@@ -1774,3 +1774,29 @@ term_t clone_variable(term_table_t *table, term_t v) {
 
   return x;
 }
+
+
+/*
+ * Convert variable v to an uninterpreted term
+ * - v must be a variable
+ * - create a fresh uninterpreted term with the same type as v
+ * - if v has a basename, then the clone also gets that name
+ */
+term_t variable_to_unint(term_table_t *table, term_t v) {
+  type_t tau;
+  term_t x;
+  char *name;
+
+  assert(term_kind(table, v) == VARIABLE);
+
+  tau = term_type(table, v);
+  x = new_uninterpreted_term(table, tau);
+  name = term_name(table, v);
+  if (name != NULL) {
+    set_term_base_name(table, x, name);
+  }
+
+  return x;
+}
+
+

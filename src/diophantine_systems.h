@@ -88,8 +88,7 @@
  * ------------------
  * We can't just apply arbitrary column transformations in any order. 
  * If we're not careful, the coefficients in matrix D grow exponentially. 
- * Rosser's algorithm is a way of controlling coefficient growth (and 
- * solving A x + b = 0 in polynomial time).
+ * Rosser's algorithm is a way of controlling coefficient growth.
  *
  */
 

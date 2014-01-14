@@ -10,67 +10,14 @@
  * operations. 
  *
  * The components of an atom are:
- * - a 2bit tag to specify which type of atom it is (>=, <=, or ==)
+ * - a 2bit tag to specify the atom type (>=, <=, or ==)
  * - the variable x (30bits index)
  * - the rational constant k
  * - a boolean variable (mapped to the atom in the smt-core)
- *
- * The table also maintains a list of unassigned atoms (doubly-linked list).
- * This is similar to what's used in idl_floyd_warshal and rdl_floyd_warshal.
  */
 
 #include "memalloc.h"
 #include "arith_atomtable.h"
-
-
-
-/*
- * Auxiliary functions for dealing with the free list
- */
-// add i at the end of list
-static inline void freelist_add_last(arith_listelem_t *list, int32_t i) {
-  int32_t k;
-
-  k = list[-1].pre; // last element
-  assert(list[k].next == -1);
-
-  list[k].next = i;
-  list[i].pre = k;
-  list[i].next = -1;
-  list[-1].pre = i;
-}
-
-
-// remove i from the list, but keep list[i].pre/next unchanged 
-static inline void freelist_remove(arith_listelem_t *list, int32_t i) {
-  int32_t j, k;
-
-  j = list[i].next;
-  k = list[i].pre;
-  assert(list[j].pre == i && list[k].next == i);
-  list[j].pre = k;
-  list[k].next = j;
-}
-
-// put i back into the list, in its old position
-static inline void freelist_putback(arith_listelem_t *list, int32_t i) {
-  int32_t j, k;
-
-  j = list[i].next;
-  k = list[i].pre;
-  assert(list[j].pre == k && list[k].next == j);
-  list[j].pre = i;
-  list[k].next = i;
-}
-
-
-// empty the list
-static inline void reset_freelist(arith_listelem_t *list) {
-  list[-1].pre = -1;
-  list[-1].next = -1;
-}
-
-
 
 
 /*
@@ -101,17 +48,11 @@ static uint32_t hash_arith_atom(uint32_t header, rational_t *bound) {
 }
 
 
-
-
-
-
-
 /*
  * Initialize: use default sizes
  */
 void init_arith_atomtable(arith_atomtable_t *table, smt_core_t *core) {
   uint32_t n;
-  arith_listelem_t *tmp;
 
   n = DEF_ARITHATOMTABLE_SIZE;
   assert(n < MAX_ARITHATOMTABLE_SIZE);
@@ -120,11 +61,6 @@ void init_arith_atomtable(arith_atomtable_t *table, smt_core_t *core) {
   table->natoms = 0;
   table->atoms = (arith_atom_t *) safe_malloc(n * sizeof(arith_atom_t));
   table->mark = allocate_bitvector(n);
-
-  tmp = (arith_listelem_t *) safe_malloc((n+1) * sizeof(arith_listelem_t));
-  tmp[0].pre = -1;
-  tmp[0].next = -1;
-  table->free_list = tmp + 1;
 
   table->core = core;
   init_int_htbl(&table->htbl, 0);
@@ -137,7 +73,6 @@ void init_arith_atomtable(arith_atomtable_t *table, smt_core_t *core) {
  */
 static void extend_arith_atomtable(arith_atomtable_t *table) {
   uint32_t n;
-  arith_listelem_t *tmp;
 
   n = table->size + 1;
   n += n>>1;
@@ -149,9 +84,6 @@ static void extend_arith_atomtable(arith_atomtable_t *table) {
   table->size = n;
   table->atoms = (arith_atom_t *) safe_realloc(table->atoms, n * sizeof(arith_atom_t));
   table->mark = extend_bitvector(table->mark, n);
-
-  tmp = (arith_listelem_t *) safe_realloc(table->free_list - 1, (n+1) * sizeof(arith_listelem_t));
-  table->free_list = tmp + 1;
 }
 
 
@@ -181,9 +113,8 @@ static int32_t new_arith_atom(arith_atomtable_t *table, uint32_t header, rationa
   q_init(&table->atoms[i].bound);
   q_set(&table->atoms[i].bound, bound);
 
-  // add i to the free list
+  // new atom is not assigned
   clr_bit(table->mark, i);
-  freelist_add_last(table->free_list, i);
 
   table->natoms ++;
 
@@ -195,7 +126,6 @@ static int32_t new_arith_atom(arith_atomtable_t *table, uint32_t header, rationa
 /*
  * Reset the table: 
  * - free all rationals 
- * - empty the free list
  * - reset the hash table
  */
 void reset_arith_atomtable(arith_atomtable_t *table) {
@@ -207,7 +137,6 @@ void reset_arith_atomtable(arith_atomtable_t *table) {
   }
   
   table->natoms = 0;
-  reset_freelist(table->free_list);
   reset_int_htbl(&table->htbl);
   q_clear(&table->aux);
 }
@@ -226,11 +155,9 @@ void delete_arith_atomtable(arith_atomtable_t *table) {
   
   safe_free(table->atoms);
   delete_bitvector(table->mark);
-  safe_free(table->free_list - 1);
 
   table->atoms = NULL;
   table->mark = NULL;
-  table->free_list = NULL;
 
   delete_int_htbl(&table->htbl);
   q_clear(&table->aux);
@@ -250,10 +177,6 @@ void arith_atomtable_remove_atoms(arith_atomtable_t *table, uint32_t natoms) {
   a = table->atoms;
   n = table->natoms;
   for (i=natoms; i<n; i++) {
-    // remove i from the free list if it's not marked
-    if (! tst_bit(table->mark, i)) {
-      freelist_remove(table->free_list, i);
-    }
     // remove i from the hash table
     k = hash_arith_atom(a[i].header, &a[i].bound);
     int_htbl_erase_record(&table->htbl, k, i);
@@ -303,26 +226,6 @@ arith_atom_t *arith_atom_for_bvar(arith_atomtable_t *table, bvar_t v) {
   }
 }
 
-
-
-#if USE_FREE_LIST
-
-/*
- * MARK/UNMARK AN ATOM
- */
-void mark_arith_atom(arith_atomtable_t *table, int32_t i) {
-  assert(arith_atom_is_unmarked(table, i));
-  set_bit(table->mark, i);
-  freelist_remove(table->free_list, i);
-}
-
-void unmark_arith_atom(arith_atomtable_t *table, int32_t i) {
-  assert(arith_atom_is_marked(table, i));
-  clr_bit(table->mark, i);
-  freelist_putback(table->free_list, i);
-}
-
-#endif
 
 
 /*
@@ -389,8 +292,9 @@ int32_t find_arith_atom(arith_atomtable_t *table, thvar_t x, arithatm_tag_t op, 
   return int_htbl_find_obj(&table->htbl, (int_hobj_t *) &arith_atom_hobj);
 }
 
+
 /*
- * Search for the atom (x op k) create it if it's not already in the table
+ * Search for the atom (x op k).  Create it if it's not already in the table.
  */
 int32_t get_arith_atom(arith_atomtable_t *table, thvar_t x, arithatm_tag_t op, rational_t *k, bool *new_atom) {
   uint32_t n;

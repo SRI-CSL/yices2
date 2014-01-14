@@ -666,7 +666,7 @@ typedef struct simplex_solver_s {
   /*
    * Pivoting parameters
    */
-  bool use_blands_rule; // true if Bland's rule is active
+  bool use_blands_rule;     // true if Bland's rule is active
   uint32_t bland_threshold; // number of repeat entering variable  
 
   /*
@@ -687,6 +687,7 @@ typedef struct simplex_solver_s {
   bool integer_solving;
   int32_t check_counter;
   int32_t check_period;
+  bvar_t last_branch_atom;
 
   /*
    * Optional subsolver for integer arithmetic: allocated when needed

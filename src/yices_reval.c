@@ -54,7 +54,6 @@
 
 // FOR TEST OF FLATTENING
 #include "flattening.h"
-#include "ef_analyze.h"
 
 #include "context.h"
 #include "models.h"
@@ -2512,10 +2511,14 @@ static void yices_assert_cmd(term_t f) {
 
       case STATUS_UNSAT:
 	// cannot take more assertions
-	fputs("The context is unsat. Try (pop) or (reset)\n", stderr);
+	if (context_base_level(context) == 0) {
+	  fputs("The context is unsat. Try (reset).\n", stderr);
+	} else {
+	  fputs("The context is unsat. Try (pop) or (reset).\n", stderr);
+	}
 	fflush(stderr);
 	break;
-
+	
       case STATUS_SEARCHING:
       case STATUS_INTERRUPTED:
       default:
@@ -2760,7 +2763,6 @@ static void yices_eval_cmd(term_t t) {
  */
 static void yices_efsolve_cmd(void) {
   flattener_t flattener;
-  ef_analyzer_t analyzer;
   ivector_t *v;
 
   if (efsolver) {

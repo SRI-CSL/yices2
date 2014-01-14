@@ -53,7 +53,7 @@ typedef struct term_subst_s {
 /*
  * Check whether arrays v and t define a valid substitution:
  * - v and t must be arrays of n terms 
- * - this returns true if forall i, v[i] is a variable
+ * - this returns true if forall i, v[i] is a variable or uninterpreted term,
  *   and the type of t[i] is a subtype of v[i]'s type.
  */
 extern bool good_term_subst(term_table_t *terms, uint32_t n, term_t *v, term_t *t);
@@ -62,7 +62,8 @@ extern bool good_term_subst(term_table_t *terms, uint32_t n, term_t *v, term_t *
 /*
  * Initialize subst to store the mapping defined by v and t
  * - mngr = attached term manager
- * - v must be an array of n variables defined in ttbl
+ * - v must be an array of n variables or uninterpreted terms
+ *   defined in ttbl
  * - t must be an array of n terms defined in ttbl
  * - the substitution replaces v[i] by t[i]
  *

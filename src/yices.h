@@ -1383,6 +1383,7 @@ __YICES_DLLSPEC__ extern term_t yices_parse_term(const char *s);
 
 
 
+
 /*******************
  *  SUBSTITUTIONS  *
  ******************/
@@ -1572,11 +1573,28 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width
 
 
 /*
- * Pretty print an array of terms: same error reports are above
- * - n = size of the array
- * - a[0 ... n-1] = terms to print
+ * Pretty print an array of terms:
+ * - f = output file to use
+ * - n = number of terms in the array a
+ * - a = array of terms
+ * - width, height, offset define the print area
+ *
+ * The function first checks whether all terms in a[0... n-1] are
+ * valid.  If not, it sets the error report: 
+ *    code = INVALID_TERM
+ *    term = a[i] (first invalid term in the array) 
+ * and returns -1. Nothing is printed in this case.
+ *
+ * Otherwise, the terms a[0... n-1] are printed in the specified
+ * print area (some terms may be omitted if the area is too small).
+ * The function returns 0 unless there's an error while writing to
+ * file f. In such as case, the function returns -1 and
+ * set the error report to:
+ *    code = OUTPUT_ERROR
+ *
  */
 __YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, term_t a[], uint32_t witdh, uint32_t height, uint32_t offset);
+
 
 
 

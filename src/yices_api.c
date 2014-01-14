@@ -1905,7 +1905,7 @@ static bool check_bitextract(uint32_t i, uint32_t j, uint32_t n) {
 }
 
 
-// Check that t is eithe a variable or an uninterpreted term
+// Check that t is either a variable or an uninterpreted term
 static bool term_is_var_or_uninterpreted(term_table_t *tbl, term_t t) {
   assert(good_term(tbl, t) && is_pos_term(t));
   switch (term_kind(tbl, t)) {
@@ -2108,7 +2108,7 @@ type_t yices_type_variable(uint32_t id) {
 /*
  * Create a type constructor:
  * - name = its name
- * - n = airty
+ * - n = arity
  * return -1 if there's an error or the macro id otherwise
  */
 int32_t yices_type_constructor(const char *name, uint32_t n) {
@@ -4537,9 +4537,8 @@ EXPORTED int32_t yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t heigh
 }
 
 
-
 /*
- * Pretty print an array of terms
+ * Pretty print terms a[0 ... n-1]
  * - f = output file to use
  * - width, height, offset = print area
  */
@@ -4577,8 +4576,10 @@ EXPORTED int32_t yices_pp_term_array(FILE *f, uint32_t n, term_t a[], uint32_t w
   }
   delete_yices_pp(&printer, false);
 
-  return code;
+  return code;  
 }
+
+
 
 
 
@@ -4746,7 +4747,7 @@ EXPORTED uint32_t yices_term_bitsize(term_t t) {
 
 /*
  * Check whether t is ground
- * - return false if t is not valiad and set the error report
+ * - return false if t is not valid and set the error report
  */
 EXPORTED int32_t yices_term_is_ground(term_t t) {
   return check_good_term(&manager, t) && term_is_ground(get_fvars(), t);
@@ -6136,6 +6137,8 @@ void yices_set_default_params(context_t *ctx, param_t *params) {
     if (ctx->logic == QF_LIA) {
       params->use_simplex_prop = true;
       params->tclause_size = 20;
+      // TEST: disable Bland's rule
+      //      params->bland_threshold = UINT32_MAX;
     }
     break;
 
@@ -7140,7 +7143,7 @@ static void mark_type_array(type_table_t *tbl, type_t *a, uint32_t n) {
  * - tau = optional array of types
  * - ntau = size of tau
  * - keep_named specifies whether the named terms and types should
- *   all be presered
+ *   all be preserved
  */
 EXPORTED void yices_garbage_collect(term_t *t, uint32_t nt,
 				    type_t *tau, uint32_t ntau,
