@@ -236,7 +236,7 @@ static harray_t *lookup_free_vars(fvar_collector_t *collect, int32_t i) {
   p = ptr_hmap_find(&collect->map, i);
   if (p != NULL) {
     a = p->val;
-    assert(a != NULL &&good_var_set(collect->terms, a));
+    assert(a != NULL && good_var_set(collect->terms, a));
   }
   return a;
 }

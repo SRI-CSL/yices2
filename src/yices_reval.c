@@ -54,6 +54,7 @@
 
 // FOR TEST OF FLATTENING
 #include "flattening.h"
+#include "ef_analyze.h"
 
 #include "context.h"
 #include "models.h"
@@ -2759,6 +2760,7 @@ static void yices_eval_cmd(term_t t) {
  */
 static void yices_efsolve_cmd(void) {
   flattener_t flattener;
+  ef_analyzer_t analyzer;
   ivector_t *v;
 
   if (efsolver) {
@@ -2777,6 +2779,7 @@ static void yices_efsolve_cmd(void) {
     
     efdone = true;
     fflush(stdout);
+
   } else {
     fputs("The (ef-solve) command is not supported. Please use command-line option --mode=ef\n", stdout);
     fflush(stdout);
