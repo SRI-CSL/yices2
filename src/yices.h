@@ -1383,6 +1383,7 @@ __YICES_DLLSPEC__ extern term_t yices_parse_term(const char *s);
 
 
 
+
 /*******************
  *  SUBSTITUTIONS  *
  ******************/
@@ -1593,8 +1594,7 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width
  *    code = OUTPUT_ERROR
  *
  */
-__YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, term_t a[],
-						     uint32_t witdh, uint32_t height, uint32_t offset);
+__YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, term_t a[], uint32_t witdh, uint32_t height, uint32_t offset);
 
 
 

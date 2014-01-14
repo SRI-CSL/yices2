@@ -1210,7 +1210,6 @@ static void show_bvsolver_stats(bv_solver_t *solver) {
 static void show_idl_fw_stats(idl_solver_t *solver) {
   print_out(" :idl-solver-vars %"PRIu32"\n", idl_num_vars(solver));
   print_out(" :idl-solver-atoms %"PRIu32"\n", idl_num_atoms(solver));
-
 }
 
 static void show_rdl_fw_stats(rdl_solver_t *solver) {
