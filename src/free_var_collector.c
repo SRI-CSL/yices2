@@ -188,7 +188,7 @@ static harray_t *merge_fvar_sets(fvar_collector_t *collect, harray_t **a, uint32
 /*
  * Remove variables x[0] to x[n-1] from set a then build a harray.
  */
-static harray_t *fvar_set_remove(fvar_collector_t *collect, harray_t *a, uint32_t n, type_t *x) {
+static harray_t *fvar_set_remove(fvar_collector_t *collect, harray_t *a, uint32_t n, term_t *x) {
   ivector_t *v;
   int_hset_t *aux;
   uint32_t i;
