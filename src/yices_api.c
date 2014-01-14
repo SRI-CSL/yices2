@@ -4452,6 +4452,49 @@ int32_t _o_yices_pp_term(FILE *f, term_t t, uint32_t width, uint32_t height, uin
 }
 
 
+/*
+ * Pretty print terms a[0 ... n-1]
+ * - f = output file to use
+ * - width, height, offset = print area
+ */
+EXPORTED int32_t yices_pp_term_array(FILE *f, uint32_t n, term_t a[], uint32_t width, uint32_t height, uint32_t offset) {
+  yices_pp_t printer;
+  pp_area_t area;
+  int32_t code;
+  uint32_t i;
+
+  if (! check_good_terms(&manager, n, a)) {
+    return -1;
+  }
+
+  if (width < 4) width = 4;
+  if (height == 0) height = 1;
+
+  area.width = width;
+  area.height = height;
+  area.offset = offset;
+  area.stretch = false;
+  area.truncate = true;
+
+  init_default_yices_pp(&printer, f, &area);
+  for (i=0; i<n; i++) {
+    pp_term_full(&printer, &terms, a[i]);
+  }
+  flush_yices_pp(&printer);
+
+  // check for error
+  code = 0;
+  if (yices_pp_print_failed(&printer)) {
+    code = -1;
+    errno = yices_pp_errno(&printer); 
+    error.code = OUTPUT_ERROR;
+  }
+  delete_yices_pp(&printer, false);
+
+  return code;  
+}
+
+
 
 /*********************
  *  CHECKS ON TYPES  *
