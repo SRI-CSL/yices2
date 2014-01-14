@@ -39,6 +39,11 @@
  *    (closure f_1) ... (closure f_n)
  *   where (closure f_i) := universal closure of f_i
  *
+ * Flattening of disjunct + universal quantifiers
+ * ----------------------------------------------
+ * Same thing as for conjuncts:
+ *   (forall y p) --> flatten p
+ *   (or p1 ... p_t) --> flatten p1 \cup ... \cup flatten p_t
  */
 
 #ifndef __FLATTENING_H
@@ -126,8 +131,13 @@ extern void flatten_to_disjuncts(flattener_t *flat, term_t f, bool f_ite, bool f
 /*
  * Flattening of conjuncts and universal quantifiers + optionally ite and iff terms
  */
-extern void flatten_forall(flattener_t *flat, term_t f, bool f_ite, bool f_iff);
+extern void flatten_forall_conjuncts(flattener_t *flat, term_t f, bool f_ite, bool f_iff);
 
+
+/*
+ * Flattening of disjuncts and univeral quanfitiers + optionally ite and iff terms
+ */
+extern void flatten_forall_disjuncts(flattener_t *flat, term_t f, bool f_ite, bool f_iff);
 
 
 /*
@@ -147,7 +157,13 @@ extern void flatten_array_to_disjuncts(flattener_t *flat, uint32_t n, term_t *f,
 /*
  * Flatten array f[0 .... n-1]: universal quantifiers + conjuncts
  */
-extern void flatten_array_forall(flattener_t *flat, uint32_t n, term_t *f, bool f_ite, bool f_iff);
+extern void flatten_array_forall_conjuncts(flattener_t *flat, uint32_t n, term_t *f, bool f_ite, bool f_iff);
+
+
+/*
+ * Flatten array f[0 .... n-1]: universal quantifiers + disjuncts
+ */
+extern void flatten_array_forall_disjuncts(flattener_t *flat, uint32_t n, term_t *f, bool f_ite, bool f_iff);
 
 
 

@@ -2770,7 +2770,7 @@ static void yices_efsolve_cmd(void) {
     yices_pp_term_array(stdout, v->size, v->data, 140, UINT32_MAX, 0);
 
     init_flattener(&flattener, __yices_globals.manager);
-    flatten_array_forall(&flattener, v->size, v->data, true, true);
+    flatten_array_forall_conjuncts(&flattener, v->size, v->data, true, true);
     fputs("\nAfter flattening:\n", stdout);
     v = &flattener.resu;
     yices_pp_term_array(stdout, v->size, v->data, 140, UINT32_MAX, 0);
