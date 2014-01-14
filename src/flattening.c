@@ -70,10 +70,10 @@ static void flattener_build_conjuncts(flattener_t *flat, bool f_ite, bool f_iff)
   while (! int_queue_is_empty(queue)) {
     t = int_queue_pop(queue);
 
-    switch (term_kind(flat->terms, t)) {
+    switch (term_kind(terms, t)) {
     case ITE_TERM:
     case ITE_SPECIAL:
-      d = ite_term_desc(flat->terms, t);
+      d = ite_term_desc(terms, t);
       assert(d->arity == 3);
       if (f_ite && is_boolean_term(terms, d->arg[1])) {
 	assert(is_boolean_term(terms, d->arg[2]));
@@ -101,7 +101,7 @@ static void flattener_build_conjuncts(flattener_t *flat, bool f_ite, bool f_iff)
       break;
 
     case EQ_TERM:
-      d = eq_term_desc(flat->terms, t);
+      d = eq_term_desc(terms, t);
       assert(d->arity == 2);
       if (f_iff && is_boolean_term(terms, d->arg[0])) {
 	assert(is_boolean_term(terms, d->arg[1]));
@@ -129,7 +129,7 @@ static void flattener_build_conjuncts(flattener_t *flat, bool f_ite, bool f_iff)
 	 * t is (not (or a[0] ... a[n-1]))
 	 * it flattens to (and (not a[0]) ... (not a[n-1]))
 	 */
-	d = or_term_desc(flat->terms, t);
+	d = or_term_desc(terms, t);
 	n = d->arity;
 	for (i=0; i<n; i++) {
 	  flattener_push_term(flat, opposite_term(d->arg[i]));
@@ -170,10 +170,10 @@ static void flattener_build_disjuncts(flattener_t *flat, bool f_ite, bool f_iff)
   while (! int_queue_is_empty(queue)) {
     t = int_queue_pop(queue);
 
-    switch (term_kind(flat->terms, t)) {
+    switch (term_kind(terms, t)) {
     case ITE_TERM:
     case ITE_SPECIAL:
-      d = ite_term_desc(flat->terms, t);
+      d = ite_term_desc(terms, t);
       assert(d->arity == 3);
       if (f_ite && is_boolean_term(terms, d->arg[1])) {
 	assert(is_boolean_term(terms, d->arg[2]));
@@ -201,7 +201,7 @@ static void flattener_build_disjuncts(flattener_t *flat, bool f_ite, bool f_iff)
       break;
 
     case EQ_TERM:
-      d = eq_term_desc(flat->terms, t);
+      d = eq_term_desc(terms, t);
       assert(d->arity == 2);
       if (f_iff && is_boolean_term(terms, d->arg[0])) {
 	assert(is_boolean_term(terms, d->arg[1]));
@@ -228,7 +228,7 @@ static void flattener_build_disjuncts(flattener_t *flat, bool f_ite, bool f_iff)
 	/*
 	 * t is (or a[0] ... a[n-1])
 	 */
-	d = or_term_desc(flat->terms, t);
+	d = or_term_desc(terms, t);
 	n = d->arity;
 	for (i=0; i<n; i++) {
 	  flattener_push_term(flat, d->arg[i]);
@@ -247,8 +247,123 @@ static void flattener_build_disjuncts(flattener_t *flat, bool f_ite, bool f_iff)
   // clean up the cache
   assert(int_queue_is_empty(queue));
   int_hset_reset(&flat->cache);  
-  
 }
+
+
+
+/*
+ * Process conjuncts and universal quantifiers
+ * - input formulas are stored in flat->queue
+ */
+static void forall_flattener_process(flattener_t *flat, bool f_ite, bool f_iff) {
+  term_table_t *terms;
+  int_queue_t *queue;
+  composite_term_t *d;
+  term_t t, u, v;
+  uint32_t i, n;
+
+  queue = &flat->queue;
+  terms = flat->terms;
+
+  while (! int_queue_is_empty(queue)) {
+    t = int_queue_pop(queue);
+
+    switch (term_kind(terms, t)) {
+    case ITE_TERM:
+    case ITE_SPECIAL:
+      d = ite_term_desc(terms, t);
+      assert(d->arity == 3);
+      if (f_ite && is_boolean_term(terms, d->arg[1])) {
+	assert(is_boolean_term(terms, d->arg[2]));
+	/*
+	 * If t is (ite C A B)
+	 *    u := (C => A)
+	 *    v := (not C => B)
+	 * Otherwise, t is (not (ite C A B))
+	 *    u := (C => not A)
+	 *    v := (not C => not B)
+	 */
+	u = d->arg[1];  // A
+	v = d->arg[2];  // B
+ 	if (is_neg_term(t)) {
+	  u = opposite_term(u);
+	  v = opposite_term(v);
+	}
+	u = mk_implies(flat->manager, d->arg[0], u); // (C => u)
+	v = mk_implies(flat->manager, opposite_term(d->arg[0]), v); // (not C) => v
+	flattener_push_term(flat, u);
+	flattener_push_term(flat, v);
+      } else {
+	ivector_push(&flat->resu, t);
+      }
+      break;
+
+    case EQ_TERM:
+      d = eq_term_desc(terms, t);
+      assert(d->arity == 2);
+      if (f_iff && is_boolean_term(terms, d->arg[0])) {
+	assert(is_boolean_term(terms, d->arg[1]));
+	/*
+	 * t is either (iff A B) or (not (iff A B)):
+	 */
+	u = d->arg[1]; // A
+	v = d->arg[2]; // B
+	if (is_neg_term(t)) {
+	  u = opposite_term(u);
+	}
+	// flatten to (u => v) and (v => u)
+	t = mk_implies(flat->manager, u, v); // (u => v)
+	u = mk_implies(flat->manager, v, u); // (v => u);
+	flattener_push_term(flat, t);
+	flattener_push_term(flat, u);
+      } else {
+	ivector_push(&flat->resu, t);
+      }
+      break;
+
+    case OR_TERM:
+      if (is_neg_term(t)) {
+	/*
+	 * t is (not (or a[0] ... a[n-1]))
+	 * it flattens to (and (not a[0]) ... (not a[n-1]))
+	 */
+	d = or_term_desc(terms, t);
+	n = d->arity;
+	for (i=0; i<n; i++) {
+	  flattener_push_term(flat, opposite_term(d->arg[i]));
+	}
+      } else {
+	ivector_push(&flat->resu, t);
+      }
+      break;
+
+    case FORALL_TERM:
+      if (is_pos_term(t)) {
+	d = forall_term_desc(terms, t);
+	n = d->arity;
+	assert(n >= 2);
+	/*
+	 * t is (FORALL x_0 ... x_k : body)
+	 * body is the last argument in the term descriptor
+	 */
+	flattener_push_term(flat, d->arg[n-1]);
+      } else {
+	// not (FORALL ...): keep it as is
+	ivector_push(&flat->resu, t);
+      }
+      break;
+
+    default:
+      ivector_push(&flat->resu, t);
+      break;
+    }
+  }
+
+  // clean up the cache
+  assert(int_queue_is_empty(queue));
+  int_hset_reset(&flat->cache);
+}
+
 
 /*
  * Flatten formula f to conjuncts
@@ -302,6 +417,20 @@ void flatten_to_disjuncts(flattener_t *flat, term_t f, bool f_ite, bool f_iff) {
 }
 
 
+
+/*
+ * Flattening of conjuncts and universal quantifiers + optionally ite and iff terms
+ */
+void flatten_forall(flattener_t *flat, term_t f, bool f_ite, bool f_iff) {
+  assert(int_queue_is_empty(&flat->queue) && int_hset_is_empty(&flat->cache));
+
+  ivector_reset(&flat->resu);
+  flattener_push_term(flat, f);
+  forall_flattener_process(flat, f_ite, f_iff);
+}
+
+
+
 /*
  * Flatten array f[0 ... n-1]:
  * - this builds an array of conjuncts equivalent to (and f[0] ... f[n-1])
@@ -335,4 +464,20 @@ void flatten_array_to_disjuncts(flattener_t *flat, uint32_t n, term_t *f, bool f
   flattener_build_disjuncts(flat, f_ite, f_iff);
 }
 
+
+
+/*
+ * Flatten array f[0 .... n-1]: universal quantifiers + conjuncts
+ */
+void flatten_array_forall(flattener_t *flat, uint32_t n, term_t *f, bool f_ite, bool f_iff) {
+  uint32_t i;
+
+  assert(int_queue_is_empty(&flat->queue) && int_hset_is_empty(&flat->cache));
+
+  ivector_reset(&flat->resu);
+  for (i=0; i<n; i++) {
+    flattener_push_term(flat, f[i]);
+  }
+  forall_flattener_process(flat, f_ite, f_iff);
+}
 

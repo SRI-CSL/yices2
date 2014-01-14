@@ -1,15 +1,20 @@
 /*
- * Flattening of formulas
- * ----------------------
+ * FLATTENING OF FORMULAS
+ */
+
+/*
  *
- * Given a formula f, we can convert it to conjuncts or disjuncts:
- *
- * Flattening to conjuncts: return n formulas c_1 ... c_n such that
+ * Basic flattening to  disjunct/conjuncts
+ * ----------------------------------------
+ * Given a formula f, flattening to conjuncts: 
+ * return n formulas c_1 ... c_n such that
  *   f == (and c_1 ... c_n)
  *
  * Flattening to disjuncts: return n formulas d_1 ... d_n such that
  *   f == (or d_1 ... d_n)
  *
+ * Basic flattening does this for nested and/or constructs
+ * 
  * Optional flattening
  * -------------------
  *  (ite C A B) can be flattened to (and (or (not C) A) (or C B))
@@ -17,6 +22,22 @@
  * 
  *  (iff A B) can be flattened to (and (or (not A) B) (or A (not B)))
  *                          or to (or  (and A B) (and (not A) (not B)))
+ *
+ *
+ * Flattening of conjuncts + universal quantifiers
+ * -----------------------------------------------
+ *
+ * Given a formula f, we construct a set of formulas f_1 ... f_n
+ * using the rules:
+ * 
+ *   (forall y. p) --> flatten p
+ *   (and p1 ... p_t) --> flatten p1 \cup ... \cup flatten p_t
+ *
+ * The result is a set of formulas f_1 ... f_t such that
+ * 1) no f_i is of the form (forall ....) or (and ...)
+ * 2) f is equivalent to the conjunction of 
+ *    (closure f_1) ... (closure f_n)
+ *   where (closure f_i) := universal closure of f_i
  *
  */
 
@@ -103,6 +124,13 @@ extern void flatten_to_disjuncts(flattener_t *flat, term_t f, bool f_ite, bool f
 
 
 /*
+ * Flattening of conjuncts and universal quantifiers + optionally ite and iff terms
+ */
+extern void flatten_forall(flattener_t *flat, term_t f, bool f_ite, bool f_iff);
+
+
+
+/*
  * Flatten array f[0 ... n-1]:
  * - this builds an array of conjuncts equivalent to (and f[0] ... f[n-1])
  */
@@ -114,6 +142,12 @@ extern void flatten_array_to_conjuncts(flattener_t *flat, uint32_t n, term_t *f,
  * - this builds an array of disjuncts equivalent to (or  f[0] ... f[n-1])
  */
 extern void flatten_array_to_disjuncts(flattener_t *flat, uint32_t n, term_t *f, bool f_ite, bool f_iff);
+
+
+/*
+ * Flatten array f[0 .... n-1]: universal quantifiers + conjuncts
+ */
+extern void flatten_array_forall(flattener_t *flat, uint32_t n, term_t *f, bool f_ite, bool f_iff);
 
 
 
