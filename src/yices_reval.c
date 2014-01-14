@@ -53,7 +53,7 @@
 #include "bvsolver.h"
 
 // FOR TEST OF FLATTENING
-#inclyde "flattening.h"
+#include "flattening.h"
 
 #include "context.h"
 #include "models.h"
