@@ -549,6 +549,7 @@ static inline uint32_t depth_instance_type(type_table_t *table, uint32_t n, type
   return depth_tuple_type(table, n, param);
 }
 
+
 /*
  * TYPE CREATION
  */

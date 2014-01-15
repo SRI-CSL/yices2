@@ -1,20 +1,58 @@
 /*
- * Process a term t as part of ef-solving:
- * - check whether t is quantifier free
- * - collect the variables of t (treated as universal variables)
- * - collect the uninterpreted constaints of t (treated as existential variables).
+ * Processing for formulas for EF-solving
  */
+
+#include <assert.h>
 
 #include "ef_analyze.h"
 
 
+
+/*
+ * EF CLAUSES
+ */
+
+void init_ef_clause(ef_clause_t *cl) {
+  init_ivector(&cl->evars, 10);
+  init_ivector(&cl->uvars, 10);
+  init_ivector(&cl->assumptions, 10);
+  init_ivector(&cl->guarantees, 10);
+}
+
+void reset_ef_clause(ef_clause_t *cl) {
+  ivector_reset(&cl->evars);
+  ivector_reset(&cl->uvars);
+  ivector_reset(&cl->assumptions);
+  ivector_reset(&cl->guarantees);
+}
+
+void delete_ef_clause(ef_clause_t *cl) {
+  delete_ivector(&cl->evars);
+  delete_ivector(&cl->uvars);
+  delete_ivector(&cl->assumptions);
+  delete_ivector(&cl->guarantees);
+}
+
+
+
+
+
+/*
+ * ANALYZER
+ */
+
 /*
  * Initialize an analyzer structure
  */
-void init_ef_analyzer(ef_analyzer_t *ef, term_table_t *terms) {
-  ef->terms = terms;
+void init_ef_analyzer(ef_analyzer_t *ef, term_manager_t *mngr) {
+  ef->terms = term_manager_get_terms(mngr);
+  ef->manager = mngr;
   init_int_queue(&ef->queue, 0);
   init_int_hset(&ef->cache, 128);
+  init_ivector(&ef->flat, 64);
+  init_ivector(&ef->disjuncts, 64);
+  init_ivector(&ef->evars, 32);
+  init_ivector(&ef->uvars, 32);
 }
 
 
@@ -24,6 +62,10 @@ void init_ef_analyzer(ef_analyzer_t *ef, term_table_t *terms) {
 void reset_ef_analyzer(ef_analyzer_t *ef) {
   int_queue_reset(&ef->queue);
   int_hset_reset(&ef->cache);
+  ivector_reset(&ef->flat);
+  ivector_reset(&ef->disjuncts);
+  ivector_reset(&ef->evars);
+  ivector_reset(&ef->uvars);
 }
 
 
@@ -33,15 +75,299 @@ void reset_ef_analyzer(ef_analyzer_t *ef) {
 void delete_ef_analyzer(ef_analyzer_t *ef) {
   delete_int_queue(&ef->queue);
   delete_int_hset(&ef->cache);
+  delete_ivector(&ef->flat);
+  delete_ivector(&ef->disjuncts);
+  delete_ivector(&ef->evars);
+  delete_ivector(&ef->uvars);
 }
 
+
+
+/*
+ * FLATTENING OPERATIONS
+ */
+
+/*
+ * Check whether t is in the cache.
+ * If not, add t to the cache and to the end of the queue
+ */
+static void ef_push_term(ef_analyzer_t *ef, term_t t) {
+  if (int_hset_add(&ef->cache, t)) {
+    int_queue_push(&ef->queue, t);
+  }
+}
+
+
+/*
+ * Process all terms in ef->queue: flatten conjuncts and universal quantifiers
+ * - store the result in resu
+ * - f_ite: if true, also flatten any Boolean if-then-else
+ *   f_iff: if true, also flatten any iff term
+ */
+static void ef_flatten_forall_conjuncts(ef_analyzer_t *ef, bool f_ite, bool f_iff, ivector_t *resu) {
+  term_table_t *terms;
+  int_queue_t *queue;
+  composite_term_t *d;
+  term_t t, u, v;
+  uint32_t i, n;
+
+  queue = &ef->queue;
+  terms = ef->terms;
+
+  while (! int_queue_is_empty(queue)) {
+    t = int_queue_pop(queue);
+
+    switch (term_kind(terms, t)) {
+    case ITE_TERM:
+    case ITE_SPECIAL:
+      d = ite_term_desc(terms, t);
+      assert(d->arity == 3);
+      if (f_ite && is_boolean_term(terms, d->arg[1])) {
+	assert(is_boolean_term(terms, d->arg[2]));
+	/*
+	 * If t is (ite C A B)
+	 *    u := (C => A)
+	 *    v := (not C => B)
+	 * Otherwise, t is (not (ite C A B))
+	 *    u := (C => not A)
+	 *    v := (not C => not B)
+	 */
+	u = d->arg[1];  // A
+	v = d->arg[2];  // B
+ 	if (is_neg_term(t)) {
+	  u = opposite_term(u);
+	  v = opposite_term(v);
+	}
+	u = mk_implies(ef->manager, d->arg[0], u); // (C => u)
+	v = mk_implies(ef->manager, opposite_term(d->arg[0]), v); // (not C) => v
+	ef_push_term(ef, u);
+	ef_push_term(ef, v);
+	continue;
+      }
+      break;
+
+    case EQ_TERM:
+      d = eq_term_desc(terms, t);
+      assert(d->arity == 2);
+      if (f_iff && is_boolean_term(terms, d->arg[0])) {
+	assert(is_boolean_term(terms, d->arg[1]));
+	/*
+	 * t is either (iff A B) or (not (iff A B)):
+	 */
+	u = d->arg[1]; // A
+	v = d->arg[2]; // B
+	if (is_neg_term(t)) {
+	  u = opposite_term(u);
+	}
+	// flatten to (u => v) and (v => u)
+	t = mk_implies(ef->manager, u, v); // (u => v)
+	u = mk_implies(ef->manager, v, u); // (v => u);
+	ef_push_term(ef, t);
+	ef_push_term(ef, u);
+	continue;
+      }
+      break;
+
+    case OR_TERM:
+      if (is_neg_term(t)) {
+	/*
+	 * t is (not (or a[0] ... a[n-1]))
+	 * it flattens to (and (not a[0]) ... (not a[n-1]))
+	 */
+	d = or_term_desc(terms, t);
+	n = d->arity;
+	for (i=0; i<n; i++) {
+	  ef_push_term(ef, opposite_term(d->arg[i]));
+	}
+	continue;
+      }
+      break;
+
+    case FORALL_TERM:
+      if (is_pos_term(t)) {
+	d = forall_term_desc(terms, t);
+	n = d->arity;
+	assert(n >= 2);
+	/*
+	 * t is (FORALL x_0 ... x_k : body)
+	 * body is the last argument in the term descriptor
+	 */
+	ef_push_term(ef, d->arg[n-1]);
+	continue;
+      }
+      break;
+
+    default:
+      break;
+    }
+
+    // t was not flattened: add it to resu
+    ivector_push(resu, t);
+  }
+
+  // clean up the cache
+  assert(int_queue_is_empty(queue));
+  int_hset_reset(&ef->cache);
+}
+
+
+/*
+ * Add assertions and flatten them to conjuncts
+ * - n = number of assertions
+ * - a = array of n assertions
+ *
+ * - any formula a[i] of the form (and A B ...) is flattened
+ *   also any formula a[i] of the form (forall y : C) is replaced by C
+ *   this is done recursively, and the result is stored in vector v
+ * 
+ * - optional processing: 
+ *   if f_ite is true, flatten (ite c a b) to (c => a) and (not c => b)
+ *   if f_iff is true, flatten (iff a b)   to (a => b) and (b => a)
+ *
+ * Note: this does not do type checking. If any term in a is not Boolean,
+ * it is kept as is in the ef->flat vector.
+ */
+void ef_add_assertions(ef_analyzer_t *ef, uint32_t n, term_t *a, bool f_ite, bool f_iff, ivector_t *v) {
+  uint32_t i;
+
+  assert(int_queue_is_empty(&ef->queue) && int_hset_is_empty(&ef->cache));
+
+  ivector_reset(v);
+  for (i=0; i<n; i++) {
+    ef_push_term(ef, a[i]);
+  }
+  ef_flatten_forall_conjuncts(ef, f_ite, f_iff, v);
+}
+
+
+
+/*
+ * FLATTENING OF DISJUNCTIONS
+ */
+
+/*
+ * Process all terms in ef->queue: flatten disjuncts
+ * - store the result in resu
+ * - f_ite: if true, also flatten Boolean if-then-else
+ *   f_iff: if true, also flatten iff
+ */
+static void ef_build_disjuncts(ef_analyzer_t *ef, bool f_ite, bool f_iff, ivector_t *resu) {
+  term_table_t *terms;
+  int_queue_t *queue;
+  composite_term_t *d;
+  term_t t, u, v;
+  uint32_t i, n;
+
+  queue = &ef->queue;
+  terms = ef->terms;
+
+  while (! int_queue_is_empty(queue)) {
+    t = int_queue_pop(queue);
+
+    switch (term_kind(terms, t)) {
+    case ITE_TERM:
+    case ITE_SPECIAL:
+      d = ite_term_desc(terms, t);
+      assert(d->arity == 3);
+      if (f_ite && is_boolean_term(terms, d->arg[1])) {
+	assert(is_boolean_term(terms, d->arg[2]));
+	/*
+	 * If t is (ite C A B)
+	 *    u := (C AND A)
+	 *    v := (not C AND B)
+	 * Otherwise, t is (not (ite C A B))
+	 *    u := (C AND not A)
+	 *    v := (not C AND not B)
+	 */
+	u = d->arg[1];  // A
+	v = d->arg[2];  // B
+ 	if (is_neg_term(t)) {
+	  u = opposite_term(u); // NOT A
+	  v = opposite_term(v); // NOT B
+	}
+	u = mk_binary_and(ef->manager, d->arg[0], u); // (C AND u)
+	v = mk_binary_and(ef->manager, opposite_term(d->arg[0]), v); // (not C) AND v
+	ef_push_term(ef, u);
+	ef_push_term(ef, v);
+	continue;
+      }
+      break;
+
+    case EQ_TERM:
+      d = eq_term_desc(terms, t);
+      assert(d->arity == 2);
+      if (f_iff && is_boolean_term(terms, d->arg[0])) {
+	assert(is_boolean_term(terms, d->arg[1]));
+	/*
+	 * t is either (iff A B) or (not (iff A B)):
+	 */
+	u = d->arg[1]; // A
+	v = d->arg[2]; // B
+	if (is_neg_term(t)) {
+	  u = opposite_term(u);
+	}
+	// flatten to (u AND v) or ((not u) AND (not v))
+	t = mk_binary_and(ef->manager, u, v); // (u AND v)
+	u = mk_binary_and(ef->manager, opposite_term(u), opposite_term(v)); // (not u AND not v);
+	ef_push_term(ef, t);
+	ef_push_term(ef, u);
+	continue;
+      }
+      break;
+
+    case OR_TERM:
+      if (is_pos_term(t)) {
+	/*
+	 * t is (or a[0] ... a[n-1])
+	 */
+	d = or_term_desc(terms, t);
+	n = d->arity;
+	for (i=0; i<n; i++) {
+	  ef_push_term(ef, d->arg[i]);
+	}
+	continue;
+      }
+      break;
+
+    default:
+      break;
+    }
+
+    ivector_push(resu, t);
+  }
+
+  // clean up the cache
+  assert(int_queue_is_empty(queue));
+  int_hset_reset(&ef->cache);
+}
+
+/*
+ * Convert t to a set of disjuncts
+ * - the result is stored in vector v
+ * - optional processing:
+ *   if f_ite is true (ite c a b) is rewritten to (c and a) or ((not c) and b)
+ *   if f_iff is true (iff a b)   is rewritten to (a and b) or ((not a) and (not b))
+ */
+void ef_flatten_to_disjuncts(ef_analyzer_t *ef, term_t t, bool f_ite, bool f_iff, ivector_t *v) {
+  assert(int_queue_is_empty(&ef->queue) && int_hset_is_empty(&ef->cache));
+
+  ivector_reset(v);
+  ef_push_term(ef, t);
+  ef_build_disjuncts(ef, f_ite, f_iff, v);
+}
+
+
+
+/*
+ * VARIABLE EXTRACTION
+ */
 
 /*
  * Add t to the queue if it's not already visited (i.e., not in the cache)
  * For the purpose of ef analyzer, x and (not x) are the same, so we 
  * always remove the polarity bit of t here.
  */
-static void ef_analyzer_push_term(ef_analyzer_t *ef, term_t t) {
+static void ef_push_unsigned_term(ef_analyzer_t *ef, term_t t) {
   t = unsigned_term(t); // remove polarity bit
   if (int_hset_add(&ef->cache, t)) {
     int_queue_push(&ef->queue, t);
@@ -57,7 +383,7 @@ static void ef_analyze_composite(ef_analyzer_t *ef, composite_term_t *d) {
 
   n = d->arity;
   for (i=0; i<n; i++) {
-    ef_analyzer_push_term(ef, d->arg[i]);
+    ef_push_unsigned_term(ef, d->arg[i]);
   }
 }
 
@@ -70,7 +396,7 @@ static void ef_analyze_power_product(ef_analyzer_t *ef, pprod_t *p) {
 
   n = p->len;
   for (i=0; i<n; i++) {
-    ef_analyzer_push_term(ef, p->prod[i].var);
+    ef_push_unsigned_term(ef, p->prod[i].var);
   }
 }
 
@@ -85,7 +411,7 @@ static void ef_analyze_poly(ef_analyzer_t *ef, polynomial_t *p) {
   i = 0;
   if (p->mono[0].var == const_idx) i++;
   while (i < n) {
-    ef_analyzer_push_term(ef, p->mono[i].var);
+    ef_push_unsigned_term(ef, p->mono[i].var);
     i++;
   }
 }
@@ -97,7 +423,7 @@ static void ef_analyze_bvpoly64(ef_analyzer_t *ef, bvpoly64_t *p) {
   i = 0;
   if (p->mono[0].var == const_idx) i++;
   while (i < n) {
-    ef_analyzer_push_term(ef, p->mono[i].var);
+    ef_push_unsigned_term(ef, p->mono[i].var);
     i++;
   }
 }
@@ -109,7 +435,7 @@ static void ef_analyze_bvpoly(ef_analyzer_t *ef, bvpoly_t *p) {
   i = 0;
   if (p->mono[0].var == const_idx) i++;
   while (i < n) {
-    ef_analyzer_push_term(ef, p->mono[i].var);
+    ef_push_unsigned_term(ef, p->mono[i].var);
     i++;
   }
 }
@@ -121,7 +447,7 @@ static void ef_analyze_bvpoly(ef_analyzer_t *ef, bvpoly_t *p) {
  * - collect its free variables in uvar and its uninterpreted
  *   terms in evar
  */
-bool ef_analyze(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t *evar) {
+bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t *evar) {
   term_table_t *terms;
   int_queue_t *queue;
 
@@ -130,7 +456,7 @@ bool ef_analyze(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t *evar) {
   terms = ef->terms;
   queue = &ef->queue;
 
-  ef_analyzer_push_term(ef, t);
+  ef_push_unsigned_term(ef, t);
 
   while (! int_queue_is_empty(queue)) {
     t = int_queue_pop(queue);
@@ -153,7 +479,7 @@ bool ef_analyze(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t *evar) {
 
     case ARITH_EQ_ATOM:
     case ARITH_GE_ATOM:
-      ef_analyzer_push_term(ef, arith_atom_arg(terms, t));
+      ef_push_unsigned_term(ef, arith_atom_arg(terms, t));
       break;
 
     case ITE_TERM:
@@ -185,11 +511,11 @@ bool ef_analyze(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t *evar) {
       goto bad_ef_term;
 
     case SELECT_TERM:
-      ef_analyzer_push_term(ef, select_term_arg(terms, t));
+      ef_push_unsigned_term(ef, select_term_arg(terms, t));
       break;
 
     case BIT_TERM:
-      ef_analyzer_push_term(ef, bit_term_arg(terms, t));
+      ef_push_unsigned_term(ef, bit_term_arg(terms, t));
       break;
 
     case POWER_PRODUCT:
@@ -222,3 +548,113 @@ bool ef_analyze(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t *evar) {
   int_hset_reset(&ef->cache);
   return false;
 }
+
+
+/*
+ * VALIDATION OF VARIABLE LISTS
+ */
+
+/*
+ * Check that all variables of v have atomic types
+ */
+bool all_atomic_vars(ef_analyzer_t *ef, ivector_t *v) {
+  term_table_t *terms;
+  uint32_t i, n;
+  type_t tau;
+
+  terms = ef->terms;
+
+  n = v->size;
+  for (i=0; i<n; i++) {
+    tau = term_type(terms, v->data[i]);
+    if (! is_atomic_type(terms->types, tau)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+/*
+ * Check whether tau is a basic type in the given type table
+ */ 
+static bool is_basic_type(type_table_t *types, type_t tau) {
+  return is_atomic_type(types, tau) || 
+    (is_function_type(types, tau) && type_depth(types, tau) == 1);
+}
+
+/*
+ * Check that all (existential variables of v) have either an atomic type
+ * or a type [-> tau_1 ... tau_n sigma] where the tau_i's and sigma are atomic.
+ */
+bool all_basic_vars(ef_analyzer_t *ef, ivector_t *v) {
+  term_table_t *terms;
+  type_table_t *types;
+  uint32_t i, n;
+  type_t tau;
+
+  terms = ef->terms;
+  types = terms->types;
+
+  n = v->size;
+  for (i=0; i<n; i++) {
+    tau = term_type(terms, v->data[i]);
+    if (! is_basic_type(types, tau)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+/*
+ * Remove uninterpreted function symbols from v
+ * - this is intended to be used for v that satisfies all_basic_vars
+ * - return the number of terms removed
+ */
+uint32_t remove_uninterpreted_functions(ef_analyzer_t *ef, ivector_t *v) {
+  term_table_t *terms;
+  term_t x;
+  uint32_t i, j, n;
+
+  terms = ef->terms;
+
+  j = 0;
+  n = v->size;
+  for (i=0; i<n; i++) {
+    x = v->data[i];
+    if (! is_function_term(terms, x)) {
+      // keep x
+      v->data[j] = x;
+      j ++;
+    }
+  }
+
+  ivector_shrink(v, j);
+
+  return n - j;
+}
+
+
+
+
+
+/*
+ * Decompose term t into an Exist/Forall clause
+ * - t is written to (or A_1(y) .... A_k(y) G_1(x, y) ... G_t(x, y))
+ *   where x = uninterpreted constants of t (existentials)
+ *     and y = free variables of t (universal variables)
+ * - A_i = any term that contains only the y variables
+ *   G_j = any other term
+ * - the set of universal variables are collected in c->uvars
+ *   the set of existential variables are collected in c->evars
+ *   the A_i's are stored in c->assumptions
+ *   the G_j's are stored in c->guarantees
+ */
+void ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *c) {
+  
+}
+
+
