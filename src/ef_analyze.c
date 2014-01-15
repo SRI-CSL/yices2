@@ -456,6 +456,9 @@ bool ef_get_vars(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t *evar) 
   terms = ef->terms;
   queue = &ef->queue;
 
+  ivector_reset(uvar);
+  ivector_reset(evar);
+
   ef_push_unsigned_term(ef, t);
 
   while (! int_queue_is_empty(queue)) {
@@ -654,7 +657,25 @@ uint32_t remove_uninterpreted_functions(ef_analyzer_t *ef, ivector_t *v) {
  *   the G_j's are stored in c->guarantees
  */
 void ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *c) {
-  
+  ivector_t *v;
+  uint32_t i, n;
+
+  reset_ef_clause(c);
+  v = &ef->disjuncts;
+  ef_flatten_to_disjuncts(ef, t, true, true, v);
+
+  n = v->size;
+  for (i=0; i<n; i++) {
+    ef_get_vars(ef, v->data[i], &ef->uvars, &ef->evars); 
+    /*
+     * TODO: check for errors
+     * - v->data[i] may not be quantifier free
+     * - ef->uvars may contain non-primitive variables
+     * - ef->evars may contain non-basic variables
+     * If all tests pass: remove uninterpreted functions 
+     * from evars.
+     */
+  }
 }
 
 
