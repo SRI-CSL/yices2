@@ -78,6 +78,19 @@ typedef struct ef_analyzer_s {
 } ef_analyzer_t;
 
 
+/*
+ * Error codes when formulas can't be converted
+ */
+typedef enum ef_code {
+  EF_NO_ERROR = 0,       // everything fine
+  EF_UNINTERPRETED_FUN,  // formula contains uninterpreted function or predicates
+  EF_NESTED_QUANTIFIER,  // nested quantifiers that can't be flattened (eg., exists inside forall)
+  EF_HIGH_ORDER_UVAR,    // universal variables have non-atomic types
+  EF_HIGH_ORDER_EVAR,    // existential variables not atomic
+  EF_ERROR,              // other errors
+} ef_code_t;
+
+
 
 
 /*
@@ -197,8 +210,22 @@ extern uint32_t remove_uninterpreted_functions(ef_analyzer_t *ef, ivector_t *v);
  *   the set of existential variables are collected in c->evars
  *   the A_i's are stored in c->assumptions
  *   the G_j's are stored in c->guarantees
+ *
+ * return code:
+ * - EF_NESTED_QUANTIFIER: t is not quantifier free
+ * - EF_HIGH_ORDER_UVAR: some free variables of t are not atomic
+ * - EF_HIGH_ORDER_EVAR: some uninterpreted terms of t are not basic
+ * - EF_UNINTERPRETED_FUN: if t contains unintpreted functions
+ * - EF_NO_ERROR otherwise
+ *
+ * The first three codes are errors.
+ *
+ * code EF_UNINTERPPRETED_FUN is a warning: if t contains uninterpreted
+ * functions, then c is built correctly. 
+ * - c->evars contains only the atomic uninterpreted terms of t (uninterpreted
+ *   functions are removed)
  */
-extern void ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *c);
+extern ef_code_t ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *c);
 
 
 

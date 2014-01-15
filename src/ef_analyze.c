@@ -34,6 +34,35 @@ void delete_ef_clause(ef_clause_t *cl) {
 }
 
 
+/*
+ * Add t to the assumptions or guarantees vector
+ */
+static void ef_clause_add_assumption(ef_clause_t *cl, term_t t) {
+  ivector_push(&cl->assumptions, t);
+}
+
+static void ef_clause_add_guarantee(ef_clause_t *cl, term_t t) {
+  ivector_push(&cl->guarantees, t);
+}
+
+/*
+ * Add a[0 ... n-1] to the exitential or universal variables
+ */
+static void ef_clause_add_evars(ef_clause_t *cl, term_t *a, uint32_t n) {
+  if (n > 0) {
+    ivector_add(&cl->evars, a, n);
+    ivector_remove_duplicates(&cl->evars);
+  }
+}
+
+static void ef_clause_add_uvars(ef_clause_t *cl, term_t *a, uint32_t n) {
+  if (n > 0) {
+    ivector_add(&cl->uvars, a, n);
+    ivector_remove_duplicates(&cl->uvars);
+  }
+}
+
+
 
 
 
@@ -642,6 +671,28 @@ uint32_t remove_uninterpreted_functions(ef_analyzer_t *ef, ivector_t *v) {
 
 
 
+/*
+ * Get the variables of t and check for errors
+ * - remove all uninterpreted functions from the evar (if any)
+ */
+static ef_code_t ef_get_vars_and_check(ef_analyzer_t *ef, term_t t, ivector_t *uvar, ivector_t *evar) {
+  ef_code_t c;
+
+  c = EF_NO_ERROR;
+  if (!ef_get_vars(ef, t, uvar, evar)) {
+    // t is not quantifier free
+    c = EF_NESTED_QUANTIFIER;
+  } else if (!all_atomic_vars(ef, uvar)) {
+    c = EF_HIGH_ORDER_UVAR;
+  } else if (!all_basic_vars(ef, evar)) {
+    c = EF_HIGH_ORDER_EVAR;
+  } else if (remove_uninterpreted_functions(ef, evar) > 0)  {
+    c = EF_UNINTERPRETED_FUN;
+  }
+
+  return c;
+}
+
 
 
 /*
@@ -651,31 +702,47 @@ uint32_t remove_uninterpreted_functions(ef_analyzer_t *ef, ivector_t *v) {
  *     and y = free variables of t (universal variables)
  * - A_i = any term that contains only the y variables
  *   G_j = any other term
- * - the set of universal variables are collected in c->uvars
- *   the set of existential variables are collected in c->evars
- *   the A_i's are stored in c->assumptions
- *   the G_j's are stored in c->guarantees
+ * - the set of universal variables are collected in cl->uvars
+ *   the set of existential variables are collected in cl->evars
+ *   the A_i's are stored in cl->assumptions
+ *   the G_j's are stored in cl->guarantees
  */
-void ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *c) {
+ef_code_t ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *cl) {
   ivector_t *v;
   uint32_t i, n;
+  ef_code_t c, code;
 
-  reset_ef_clause(c);
+  reset_ef_clause(cl);
   v = &ef->disjuncts;
   ef_flatten_to_disjuncts(ef, t, true, true, v);
+  code = EF_NO_ERROR; // default
 
   n = v->size;
   for (i=0; i<n; i++) {
-    ef_get_vars(ef, v->data[i], &ef->uvars, &ef->evars); 
     /*
-     * TODO: check for errors
-     * - v->data[i] may not be quantifier free
-     * - ef->uvars may contain non-primitive variables
-     * - ef->evars may contain non-basic variables
-     * If all tests pass: remove uninterpreted functions 
-     * from evars.
+     * Process disjunct v->data[i] and check for errors
      */
+    t = v->data[i];
+    c = ef_get_vars_and_check(ef, t, &ef->uvars, &ef->evars);
+    if (c > EF_UNINTERPRETED_FUN) return c; // fatal error
+    if (c == EF_UNINTERPRETED_FUN) {
+      code = c;
+    }
+
+    /*
+     * Add t to the clause
+     */
+    ef_clause_add_evars(cl, ef->evars.data, ef->evars.size);
+    ef_clause_add_uvars(cl, ef->uvars.data, ef->uvars.size);
+    if (ef->uvars.size > 0 && ef->evars.size == 0) {
+      // t contains universal variables and no existential variables
+      ef_clause_add_assumption(cl, t);
+    } else {
+      ef_clause_add_guarantee(cl, t);
+    }
   }
+
+  return code;
 }
 
 
