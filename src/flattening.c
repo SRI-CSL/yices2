@@ -107,8 +107,8 @@ static void flattener_build_conjuncts(flattener_t *flat, bool f_ite, bool f_iff)
 	/*
 	 * t is either (iff A B) or (not (iff A B)):
 	 */
-	u = d->arg[1]; // A
-	v = d->arg[2]; // B
+	u = d->arg[0]; // A
+	v = d->arg[1]; // B
 	if (is_neg_term(t)) {
 	  u = opposite_term(u);
 	}
@@ -204,8 +204,8 @@ static void flattener_build_disjuncts(flattener_t *flat, bool f_ite, bool f_iff)
 	/*
 	 * t is either (iff A B) or (not (iff A B)):
 	 */
-	u = d->arg[1]; // A
-	v = d->arg[2]; // B
+	u = d->arg[0]; // A
+	v = d->arg[1]; // B
 	if (is_neg_term(t)) {
 	  u = opposite_term(u);
 	}
@@ -300,8 +300,8 @@ static void flattener_forall_conjuncts(flattener_t *flat, bool f_ite, bool f_iff
 	/*
 	 * t is either (iff A B) or (not (iff A B)):
 	 */
-	u = d->arg[1]; // A
-	v = d->arg[2]; // B
+	u = d->arg[0]; // A
+	v = d->arg[1]; // B
 	if (is_neg_term(t)) {
 	  u = opposite_term(u);
 	}
@@ -411,8 +411,8 @@ static void flattener_forall_disjuncts(flattener_t *flat, bool f_ite, bool f_iff
 	/*
 	 * t is either (iff A B) or (not (iff A B)):
 	 */
-	u = d->arg[1]; // A
-	v = d->arg[2]; // B
+	u = d->arg[0]; // A
+	v = d->arg[1]; // B
 	if (is_neg_term(t)) {
 	  u = opposite_term(u);
 	}

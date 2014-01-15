@@ -183,8 +183,8 @@ static void ef_flatten_forall_conjuncts(ef_analyzer_t *ef, bool f_ite, bool f_if
 	/*
 	 * t is either (iff A B) or (not (iff A B)):
 	 */
-	u = d->arg[1]; // A
-	v = d->arg[2]; // B
+	u = d->arg[0]; // A
+	v = d->arg[1]; // B
 	if (is_neg_term(t)) {
 	  u = opposite_term(u);
 	}
@@ -330,8 +330,8 @@ static void ef_build_disjuncts(ef_analyzer_t *ef, bool f_ite, bool f_iff, ivecto
 	/*
 	 * t is either (iff A B) or (not (iff A B)):
 	 */
-	u = d->arg[1]; // A
-	v = d->arg[2]; // B
+	u = d->arg[0]; // A
+	v = d->arg[1]; // B
 	if (is_neg_term(t)) {
 	  u = opposite_term(u);
 	}

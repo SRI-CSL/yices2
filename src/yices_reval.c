@@ -2778,10 +2778,11 @@ static void yices_efsolve_cmd(void) {
     fputs("\nAfter flattening:\n", stdout);
     v = &flattener.resu;
     yices_pp_term_array(stdout, v->size, v->data, 140, UINT32_MAX, 0);
+
+    delete_flattener(&flattener);
     
     efdone = true;
     fflush(stdout);
-
   } else {
     fputs("The (ef-solve) command is not supported. Please use command-line option --mode=ef\n", stdout);
     fflush(stdout);
