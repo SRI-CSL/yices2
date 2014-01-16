@@ -92,6 +92,28 @@ void resize_index_vector(int32_t **v, uint32_t n) {
 
 
 /*
+ * Create a vector that contains a[0 ... n-1]
+ */
+int32_t *make_index_vector(int32_t *a, uint32_t n) {
+  index_vector_t *v;
+  uint32_t i;
+
+  if (n == 0) return NULL;
+  if (n > MAX_IDX_VECTOR_SIZE) {
+    out_of_memory();
+  }
+  v = (index_vector_t *) safe_malloc(sizeof(index_vector_t) + n * sizeof(int32_t));
+  v->capacity = n;
+  v->size = n;
+  for (i=0; i<n; i++) {
+    v->data[i] = a[i];
+  }
+
+  return v->data;
+}
+
+
+/*
  * Remove element k from vector v
  * - no change if v is NULL or if k is not in v
  */

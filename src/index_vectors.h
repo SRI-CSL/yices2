@@ -48,7 +48,6 @@ static inline uint32_t iv_capacity(int32_t *v) {
 
 
 
-
 /*
  * Add elem k at the end of vector *v
  * - if *v is NULL, allocate a fresh vector of default size
@@ -63,6 +62,12 @@ extern void add_index_to_vector(int32_t **v, int32_t k);
  * Keep the current size unchanged (set it to 0 is *v was NULL)
  */
 extern void resize_index_vector(int32_t **v, uint32_t n);
+
+
+/*
+ * Create a vector that contains a[0 ... n-1]
+ */
+extern int32_t *make_index_vector(int32_t *a, uint32_t n);
 
 
 /*

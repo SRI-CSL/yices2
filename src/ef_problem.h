@@ -42,7 +42,7 @@
 
 
 /*
- * Descriptor for a forall constraint
+ * Descriptor for a forall constraint 
  */
 typedef struct ef_cnstr_s {
   term_t *evars;     // existential variables 
@@ -54,6 +54,7 @@ typedef struct ef_cnstr_s {
 
 /*
  * Descriptor for the full problem
+ * - all_evars and all_uvars are sorted in increasing order
  */
 typedef struct ef_prob_s {
   term_t *all_evars;      // existential variables
@@ -67,7 +68,7 @@ typedef struct ef_prob_s {
 
 // default and max size for array cnstr
 #define DEF_EF_CNSTR_SIZE 10
-#define MAX_EC_CNSTR_SIZE (UINT32_MAX/sizeof(ef_cnstr_t))
+#define MAX_EF_CNSTR_SIZE (UINT32_MAX/sizeof(ef_cnstr_t))
 
 
 /*
@@ -130,7 +131,7 @@ extern uint32_t ef_prob_num_conditions(ef_prob_t *prob);
  * Number of constraints
  */
 static inline uint32_t ef_prob_num_constraints(ef_prob_t *prob) {
-  return prob->num_cstr;
+  return prob->num_cnstr;
 }
 
 
