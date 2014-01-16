@@ -36,9 +36,17 @@ void reset_ef_prob(ef_prob_t *prob) {
  * Delete
  */
 void delete_ef_prob(ef_prob_t *prob) {
+  uint32_t i, n;
+
   delete_index_vector(prob->all_evars);
   delete_index_vector(prob->all_uvars);
   delete_index_vector(prob->conditions);
+
+  n = prob->num_cnstr;
+  for (i=0; i<n; i++) {
+    delete_index_vector(prob->cnstr[i].evars);
+    delete_index_vector(prob->cnstr[i].uvars);
+  }
   safe_free(prob->cnstr);
   prob->cnstr = NULL;
 }
@@ -66,13 +74,6 @@ static void extend_ef_prob(ef_prob_t *prob) {
   }
 }
 
-
-/*
- * Size of index vector v:
- */
-static inline uint32_t iv_len(int32_t *v) {
-  return (v == NULL) ? 0 : iv_size(v);
-}
 
 /*
  * For debugging: check that v is sorted (strictly increasing)
@@ -109,13 +110,14 @@ static void insert_elem(int32_t **v, int32_t x) {
 
   j = n;
   while (i < j) {
-    k = (i + j) >> 1;
+    // (i + j) can't overflow since n <= MAX_IVECTOR_SIZE < UINT32_MAX/2
+    k = (i + j) >> 1; 
     assert(i <= k && k < j);
     if (u[k] == x) return;	
     if (u[k] < x) {
-      j = k;
-    } else {
       i = k+1;
+    } else {
+      j = k;
     }
   }
 
@@ -123,8 +125,19 @@ static void insert_elem(int32_t **v, int32_t x) {
 	 (i == n || x < u[i]) && 
 	 (i == 0 || u[i-1] < x));
 
-  // TBD
-  
+
+  // make room for one element
+  add_index_to_vector(v, 0);
+  u = *v;
+  assert(iv_size(u) == n+1);
+
+  while (n > i) {
+    u[n] = u[n-1];
+    n --;
+  }
+  u[i] = x;
+
+  assert(vector_is_sorted(u));
 }
 
 

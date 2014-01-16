@@ -80,21 +80,88 @@ void init_term_subst(term_subst_t *subst, term_manager_t *mngr, uint32_t n, term
 }
 
 
+/*
+ * Reset
+ */
+void reset_term_subst(term_subst_t *subst) {
+  int_hmap_reset(&subst->map);
+  reset_subst_cache(&subst->cache);
+  reset_istack(&subst->stack);
+  if (subst->rctx != NULL) {
+    reset_renaming_ctx(subst->rctx);
+  }
+}
+
 
 /*
- * Get the renaming context. Allocate and initialize it if needed.
+ * Extend the current substitution:
+ * - add mappings v[i] := t[i] for i=0 to n-1
+ * - the new mappings must not conflict with the current subst
+ * - all v[i]s must be distinct variables or uninterpreted terms
+ * - the type of t[i] must be a subtype of v[i]'s type
+ *
+ * - if the reset flag is true, reset the cache
  */
-static renaming_ctx_t *term_subst_get_rctx(term_subst_t *subst) {
-  renaming_ctx_t *tmp;
+void extend_term_subst(term_subst_t *subst, uint32_t n, term_t *v, term_t *t, bool reset) {
+  int_hmap_pair_t *p;
+  uint32_t i;
+  term_t x;
 
-  tmp = subst->rctx;
-  if (tmp == NULL) {
-    tmp = (renaming_ctx_t *) safe_malloc(sizeof(renaming_ctx_t));
-    init_renaming_ctx(tmp, subst->terms, 0);
-    subst->rctx = tmp;
+  assert(good_term_subst(subst->terms, n, v, t));
+
+  for (i=0; i<n; i++) {
+    x = v[i];
+    assert(is_pos_term(x) && term_is_var(subst->terms, x) &&
+	   good_term(subst->terms, t[i]));
+    p = int_hmap_get(&subst->map, x);
+    assert(p->val < 0);
+    p->val = t[i];    
   }
 
-  return tmp;
+  if (reset) {
+    reset_subst_cache(&subst->cache);
+  }
+}
+
+
+/*
+ * Return the image of v by subst->map
+ * - v must be a variable or uninterpreted term
+ * - result = NULL_TERM (-1) if v is not in the map
+ */
+term_t term_subst_var_mapping(term_subst_t *subst, term_t v) {
+  int_hmap_pair_t *p;
+  term_t t;
+  
+  assert(term_is_var(subst->terms, v));
+
+  t = NULL_TERM;
+  p = int_hmap_find(&subst->map, v);
+  if (p != NULL) {
+    t = p->val;
+    assert(good_term(subst->terms, t));
+  }
+
+  return t;
+}
+
+
+/*
+ * Iterator for collecting variables in the substitution's domain
+ * - d = vector 
+ */
+static void add_var_to_domain(void *d, const int_hmap_pair_t *p) {
+  ivector_push(d, p->key);
+}
+
+
+/*
+ * Get the domain of the substitution
+ * - every variable in subst->map is added to vector d
+ */
+void term_subst_domain(term_subst_t *subst, ivector_t *d) {
+  ivector_reset(d);
+  int_hmap_iterate(&subst->map, d, add_var_to_domain);
 }
 
 
@@ -117,6 +184,22 @@ void delete_term_subst(term_subst_t *subst) {
 /*
  * UTILITIES
  */
+
+/*
+ * Get the renaming context. Allocate and initialize it if needed.
+ */
+static renaming_ctx_t *term_subst_get_rctx(term_subst_t *subst) {
+  renaming_ctx_t *tmp;
+
+  tmp = subst->rctx;
+  if (tmp == NULL) {
+    tmp = (renaming_ctx_t *) safe_malloc(sizeof(renaming_ctx_t));
+    init_renaming_ctx(tmp, subst->terms, 0);
+    subst->rctx = tmp;
+  }
+
+  return tmp;
+}
 
 /*
  * Lookup the term mapped to x (taking renaming into account)

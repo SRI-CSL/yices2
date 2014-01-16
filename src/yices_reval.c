@@ -54,6 +54,8 @@
 
 
 #include "ef_analyze.h"
+#include "ef_problem.h"
+
 #include "context.h"
 #include "models.h"
 #include "model_eval.h"
@@ -2808,6 +2810,7 @@ static void show_clause(ef_clause_t *clause) {
 static void yices_efsolve_cmd(void) {
   ef_analyzer_t analyzer;
   ef_clause_t clause;
+  ef_prob_t prob;
   ivector_t *v;
   uint32_t i, n;
   ef_code_t c;
@@ -2826,7 +2829,9 @@ static void yices_efsolve_cmd(void) {
     fputs("\nAfter flattening:\n", stdout);
     v = &analyzer.flat;
     yices_pp_term_array(stdout, v->size, v->data, 140, UINT32_MAX, 0);
+    fputs("\n", stdout);
 
+    init_ef_prob(&prob);
     init_ef_clause(&clause);
     n = v->size;
     for (i=0; i<n; i++) {
@@ -2836,6 +2841,15 @@ static void yices_efsolve_cmd(void) {
       case EF_NO_ERROR:
 	fputs("good clause\n", stdout);
 	show_clause(&clause);
+	if (clause.uvars.size == 0) {
+	  // no universal variables
+	  ef_prob_add_condition(&prob, v->data[i]);
+	  ef_prob_add_evars(&prob, clause.evars.data, clause.evars.size);
+	} else {
+	  // just to test the add vars functions
+	  ef_prob_add_evars(&prob, clause.evars.data, clause.evars.size);
+	  ef_prob_add_uvars(&prob, clause.uvars.data, clause.uvars.size);
+	}
 	break;
       case EF_UNINTERPRETED_FUN:
 	fputs("clause has uninterpreted function\n", stdout);
@@ -2857,6 +2871,20 @@ static void yices_efsolve_cmd(void) {
       }      
     }
 
+    printf("\n--- EF problem descriptor (partial) ---\n");
+    printf("Existential variables:\n");
+    n = ef_prob_num_evars(&prob);
+    yices_pp_term_array(stdout, n, prob.all_evars, 140, UINT32_MAX, 0);
+
+    printf("Universal variables:\n");
+    n = ef_prob_num_uvars(&prob);
+    yices_pp_term_array(stdout, n, prob.all_uvars, 140, UINT32_MAX, 0);
+    
+    printf("Conditions:\n");
+    n = ef_prob_num_conditions(&prob);
+    yices_pp_term_array(stdout, n, prob.conditions, 140, UINT32_MAX, 0);
+
+    delete_ef_prob(&prob);
     delete_ef_clause(&clause);
     delete_ef_analyzer(&analyzer);
     

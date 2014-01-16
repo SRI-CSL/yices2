@@ -21,6 +21,7 @@
 #include <stdbool.h>
 #include <setjmp.h>
 
+#include "int_vectors.h"
 #include "int_stack.h"
 #include "int_hash_map.h"
 #include "subst_cache.h"
@@ -78,6 +79,52 @@ extern bool good_term_subst(term_table_t *terms, uint32_t n, term_t *v, term_t *
  */
 extern void init_term_subst(term_subst_t *subst, term_manager_t *mngr,
                             uint32_t n, term_t *v, term_t *t);
+
+
+
+/*
+ * Reset the substitution
+ * - empty the cache
+ * - clears the mapping (subst->map)
+ */
+extern void reset_term_subst(term_subst_t *subst);
+
+
+/*
+ * Extend subst:
+ * - add more mappings: v[i] to t[i]
+ * - the new mapping must not conflict with the current mapping in subst
+ *   (i.e., v[i] must not be mapped to anything in subst->map)
+ * - all v[i] must be distinct
+ * - the type of t[i] must be a substype of v[i]'s type
+ * - if the reset flag is true, also resets the cache.
+ */
+extern void extend_term_subst(term_subst_t *subst, uint32_t n, term_t *v, term_t *t, bool reset);
+
+
+/*
+ * Variant: add a single mapping: v to t
+ */
+static inline void extend_term_subst1(term_subst_t *subst, term_t v, term_t t, bool reset) {
+  extend_term_subst(subst, 1, &v, &t, reset);
+}
+
+
+/*
+ * Get what's mapped to v in the current substitution
+ * - v must be a variable or uninterpreted term
+ * - return NULL_TERM if v is in the domain of subst->map
+ * - return subst->map[v] otherwise
+ */
+extern term_t term_subst_var_mapping(term_subst_t *subst, term_t v);
+
+
+/*
+ * Get the domain of the substitution:
+ * - every variable or uninterpreted that's in subst->map is added to vector d
+ * - d is reset first
+ */
+extern void term_subst_domain(term_subst_t *subt, ivector_t *d);
 
 
 /*

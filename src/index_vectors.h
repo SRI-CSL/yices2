@@ -81,6 +81,14 @@ static inline void delete_index_vector(int32_t *v) {
 
 
 /*
+ * Length
+ */
+static inline uint32_t iv_len(int32_t *v) {
+  return (v == NULL) ? 0 : iv_size(v);
+}
+
+
+/*
  * Empty vector v 
  */
 static inline void reset_index_vector(int32_t *v) {
