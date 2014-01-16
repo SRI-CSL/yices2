@@ -52,9 +52,8 @@
 #include "fun_solver.h"
 #include "bvsolver.h"
 
-// FOR TEST OF FLATTENING
-#include "flattening.h"
 
+#include "ef_analyze.h"
 #include "context.h"
 #include "models.h"
 #include "model_eval.h"
@@ -2759,27 +2758,107 @@ static void yices_eval_cmd(term_t t) {
 
 
 /*
+ * PROVISIONAL: to test ef analyzer
+ */
+static void show_clause(ef_clause_t *clause) {
+  uint32_t i, n;
+
+  n = clause->evars.size;
+  if (n == 0) {
+    fputs("no existential vars\n", stdout);
+  } else {
+    fputs("existential vars\n", stdout);
+    for (i=0; i<n; i++) {
+      printf(" %s", yices_get_term_name(clause->evars.data[i]));
+    }
+    fputs("\n", stdout);
+  }
+
+  n = clause->uvars.size;
+  if (n == 0) {
+    fputs("no universal vars\n", stdout);
+  } else {
+    fputs("universal vars\n", stdout);
+    for (i=0; i<n; i++) {
+      printf(" %s", yices_get_term_name(clause->uvars.data[i]));
+    }
+    fputs("\n", stdout);
+  }
+
+  n = clause->assumptions.size;
+  if (n == 0) {
+    fputs("no assumptions\n", stdout);
+  } else {
+    fputs("assumptions\n", stdout);
+    yices_pp_term_array(stdout, n, clause->assumptions.data, 140, UINT32_MAX, 0);    
+  }
+
+  n = clause->guarantees.size;
+  if (n == 0) {
+    fputs("no guarantees\n", stdout);
+  } else {
+    fputs("guarantees\n", stdout);
+    yices_pp_term_array(stdout, n, clause->guarantees.data, 140, UINT32_MAX, 0);    
+  }
+}
+
+/*
  * New command: ef solver
  */
 static void yices_efsolve_cmd(void) {
-  flattener_t flattener;
+  ef_analyzer_t analyzer;
+  ef_clause_t clause;
   ivector_t *v;
+  uint32_t i, n;
+  ef_code_t c;
 
   if (efsolver) {
     /*
-     * Test flattening
+     * Test EF processing
      */
     v = &delayed_assertions;
     fputs("Assertions:\n", stdout);
     yices_pp_term_array(stdout, v->size, v->data, 140, UINT32_MAX, 0);
 
-    init_flattener(&flattener, __yices_globals.manager);
-    flatten_array_forall_conjuncts(&flattener, v->size, v->data, true, true);
+    init_ef_analyzer(&analyzer, __yices_globals.manager);
+    ef_add_assertions(&analyzer, v->size, v->data, true, true, &analyzer.flat);
+
     fputs("\nAfter flattening:\n", stdout);
-    v = &flattener.resu;
+    v = &analyzer.flat;
     yices_pp_term_array(stdout, v->size, v->data, 140, UINT32_MAX, 0);
 
-    delete_flattener(&flattener);
+    init_ef_clause(&clause);
+    n = v->size;
+    for (i=0; i<n; i++) {
+      printf("--- decomposing clause %"PRIu32" ---\n", i);
+      c = ef_decompose(&analyzer, v->data[i], &clause);
+      switch (c) {
+      case EF_NO_ERROR:
+	fputs("good clause\n", stdout);
+	show_clause(&clause);
+	break;
+      case EF_UNINTERPRETED_FUN:
+	fputs("clause has uninterpreted function\n", stdout);
+	show_clause(&clause);
+	break;
+
+      case EF_NESTED_QUANTIFIER:
+	fputs("error: nested quantifiers\n", stdout);
+	break;
+      case EF_HIGH_ORDER_UVAR:
+	fputs("error: non-atomic universal variable\n", stdout);
+	break;
+      case EF_HIGH_ORDER_EVAR:
+	fputs("error: non-atomic existential variable\n", stdout);
+	break;
+      case EF_ERROR:
+	fputs("error\n", stdout);
+	break;
+      }      
+    }
+
+    delete_ef_clause(&clause);
+    delete_ef_analyzer(&analyzer);
     
     efdone = true;
     fflush(stdout);

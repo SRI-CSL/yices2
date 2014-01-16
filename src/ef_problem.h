@@ -108,4 +108,18 @@ extern void ef_prob_add_constraint(ef_prob_t *prob, term_t *ev, uint32_t nev, te
 				   term_t assumption, term_t guarantee);
 
 
+
+/*
+ * Number of existential/universal variables
+ */
+extern uint32_t ef_prob_num_evars(ef_prob_t *prob); // size of all_evars
+extern uint32_t ef_prob_num_uvars(ef_prob_t *prob); // size of all_uvars
+
+
+/*
+ * Number of conditions
+ */
+extern uint32_t ef_prob_num_conditions(ef_prob_t *prob);
+
+
 #endif /* __EFINPUT_H */

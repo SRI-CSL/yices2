@@ -46,6 +46,10 @@
  * - other formulas are stored in the guarantees vector
  * - the existential variables are stored in evars
  * - the universal variables are stored in uvars
+ *
+ * Special case:
+ * - a formula that contains no universal variables is stored 
+ *   in the guarantees vector.
  */
 typedef struct ef_clause_s {
   ivector_t evars; // existential variables
