@@ -33,8 +33,8 @@
  * (cf. index_vectors.h).
  */
 
-#ifndef __EFINPUT_H
-#define __EFINPUT_H
+#ifndef __EF_PROBLEM_H
+#define __EF_PROBLEM_H
 
 #include <stdint.h>
 
@@ -44,12 +44,12 @@
 /*
  * Descriptor for a forall constraint
  */
-typedef struct forall_cnstr_s {
+typedef struct ef_cnstr_s {
   term_t *evars;     // existential variables 
   term_t *uvars;     // universal variables
   term_t assumption; // B(y)
   term_t guarantee;  // C(x, y)
-} forall_cnstr_t;
+} ef_cnstr_t;
 
 
 /*
@@ -61,9 +61,13 @@ typedef struct ef_prob_s {
   term_t *conditions;     // constraints on x = A_1(x), ..., A_n(x)
   uint32_t num_cnstr;     // number of forall constraints
   uint32_t cnstr_size;    // size of array cnstr
-  forall_cnstr_t *cnstr;  // array of constraint descriptors
+  ef_cnstr_t *cnstr;      // array of constraint descriptors
 } ef_prob_t;
 
+
+// default and max size for array cnstr
+#define DEF_EF_CNSTR_SIZE 10
+#define MAX_EC_CNSTR_SIZE (UINT32_MAX/sizeof(ef_cnstr_t))
 
 
 /*
@@ -122,4 +126,20 @@ extern uint32_t ef_prob_num_uvars(ef_prob_t *prob); // size of all_uvars
 extern uint32_t ef_prob_num_conditions(ef_prob_t *prob);
 
 
-#endif /* __EFINPUT_H */
+/*
+ * Number of constraints
+ */
+static inline uint32_t ef_prob_num_constraints(ef_prob_t *prob) {
+  return prob->num_cstr;
+}
+
+
+
+/*
+ * Number of variables in a forall constraint
+ */
+extern uint32_t ef_constraint_num_evars(ef_cnstr_t *cnstr);
+extern uint32_t ef_constraint_num_uvars(ef_cnstr_t *cnstr);
+
+
+#endif /* __EF_PROBLEM_H */
