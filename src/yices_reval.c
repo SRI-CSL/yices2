@@ -52,7 +52,6 @@
 #include "fun_solver.h"
 #include "bvsolver.h"
 
-
 #include "context.h"
 #include "models.h"
 #include "model_eval.h"
@@ -90,19 +89,6 @@
  *   timeout value = 0 means no timeout
  * - timeout_initialized: true once init_timeout is called
  * - tracer: initialized to (stderr, 2) in verbose mode (otherwise not used)
- *
- * COMMAND-LINE OPTIONS:
- * - logic_name: logic to use (option --logic=xxx)
- * - arith_name: arithmetic solver to use (option --arith-solver=xxx)
- * - mode_name:  option --mode=xxx
- *   by default, these are NULL
- *
- * CONTEXT CONFIGURATION
- * - logic_code = code for the logic_name (default is SMT_UNKNNOW)
- * - arith_code = code for the arithemtic solver (default is ARITH_SIMPLEX)
- * - mode_code = code for the mode (the default depends on the solver/logic)
- * - iflag = true if the integer solver is required
- * - qflag = true if support for quantifiers is required
  */
 static char *input_filename;
 static lexer_t lexer;
@@ -118,7 +104,6 @@ static uint32_t timeout;
 static bool timeout_initialized;
 static tracer_t tracer;
 
-
 static char *logic_name;
 static char *arith_name;
 static char *mode_name;
@@ -130,6 +115,7 @@ static context_mode_t mode;
 static bool iflag;
 static bool qflag;
 
+
 /*
  * Context, model, and solver parameters
  */
@@ -139,10 +125,8 @@ static param_t parameters;
 
 
 /*
- * If mode = one-shot or ef
+ * Experimental: if mode = one-shot, we delay assertions
  * - all assertions are pushed into this vector
- * - all assertions are then processed at once on the call to 
- *   (check) or (ef-solve)
  */
 static ivector_t delayed_assertions;
 
@@ -152,27 +136,6 @@ static ivector_t delayed_assertions;
  * - check_process_time = total time of the last call to check
  */
 static double ready_time, check_process_time;
-
-
-/*
- * More parameters for preprocessing and simplifications
- * - there parameters are stored in the context but
- *   we want to keep a copy when esolver is true (since then
- *   context is NULL).
- */
-typedef struct ctx_param_s {
-  bool var_elim;
-  bool arith_elim;
-  bool bvarith_elim;
-  bool flatten_or;
-  bool eq_abstraction;
-  bool keep_ite;
-  bool splx_eager_lemmas;
-  bool splx_periodic_icheck;
-} ctx_param_t;
-
-static ctx_param_t ctx_parameters;
-
 
 
 /*******************
@@ -530,29 +493,9 @@ static void print_help(char *progname) {
          "  --arith-solver=<solver>   Select the arithmetic solver\n"
          "                             <solver> may be either 'simplex' or 'floyd-warshall' or 'auto'\n"
          "  --mode=<mode>             Select the usage mode\n"
-         "                             <mode> maybe 'one-shot' or 'multi-checks' or 'interactive'\n"
-	 "                                    or 'push-pop' or 'ef'\n"
-	 "\n"
-	 "The mode are as follows:\n"
-	 "\n"
-	 "  one-shot: only one call to (check) is allowed\n"
-	 "    no assertions are allowed after (check)\n"
-	 "    (push) and (pop) are not supported\n"
-	 "\n"
-	 "  multi-checks: several calls (check) are allowed\n"
-	 "    adding assertions after check is allowed\n"
-	 "    (push) and (pop) are not supported\n"
-	 "\n"
-	 "  push-pop: like multi-check but with support for (push) and (pop)\n"
-	 "\n"
-	 "  interactive: like push-pop. In addition, Yices restores the context\n"
-	 "    to a clean state if (check) is interrupted\n"
-	 "\n"
-	 "  ef: enable the exist-forall solver\n"
-	 "    In this mode, (ef-solve) can be used\n"
-	 "    This is like one-shot in that only one call to (ef-solve) is allowed\n"     
+         "                             <mode> may be either 'one-shot' or 'multi-checks' or 'interactive' or 'push-pop'\n"
          "\n"
-         "For reporting bugs and other information, please see http://yices.csl.sri.com/\n");
+         "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
 }
 
@@ -566,8 +509,7 @@ static void print_usage(char *progname) {
 
 
 /*
- * Parse a mode string:
- * - return a code form CTX_MODE_ONECHEK to CTX_MODE_INTERACTIVE
+ * Parse a mode:
  * - return -1 if the mode is not recognized
  */
 static int32_t context_mode_code(const char *name) {
@@ -1049,39 +991,6 @@ static void free_model(model_t *model) {
  ***************************/
 
 /*
- * Copy the context's parameters into ctx_params
- */
-static void save_ctx_params(void) {
-  assert(context != NULL);
-  ctx_parameters.var_elim = context_var_elim_enabled(context);
-  ctx_parameters.arith_elim = context_arith_elim_enabled(context);
-  ctx_parameters.bvarith_elim = context_bvarith_elim_enabled(context);
-  ctx_parameters.flatten_or = context_flatten_or_enabled(context);
-  ctx_parameters.eq_abstraction = context_eq_abstraction_enabled(context);
-  ctx_parameters.keep_ite = context_keep_ite_enabled(context);
-  ctx_parameters.splx_eager_lemmas = splx_eager_lemmas_enabled(context);
-  ctx_parameters.splx_periodic_icheck = splx_periodic_icheck_enabled(context);
-}
-
-
-/*
- * If there's no context: use some defaults for both ctx_parameters and parameters
- */
-static void default_ctx_params(void) {
-  ctx_parameters.var_elim = true;
-  ctx_parameters.arith_elim = true;
-  ctx_parameters.bvarith_elim = true;
-  ctx_parameters.flatten_or = true;
-  ctx_parameters.eq_abstraction = true;
-  ctx_parameters.keep_ite = false;
-  ctx_parameters.splx_eager_lemmas = false;
-  ctx_parameters.splx_periodic_icheck = false;
-
-  init_params_to_defaults(&parameters);
-}
-
-
-/*
  * Allocate and initialize the global context and model.
  * Initialize the parameter table with default values.
  * Set the signal handlers.
@@ -1095,12 +1004,12 @@ static void init_ctx(smt_logic_t logic, context_arch_t arch, context_mode_t mode
   model = NULL;
   context = yices_create_context(logic, arch, mode, iflag, qflag);
   yices_set_default_params(context, &parameters);
-  save_ctx_params();
   if (verbose) {
     init_trace(&tracer);
     set_trace_vlevel(&tracer, 4);
     context_set_trace(context, &tracer);
-  }  
+  }
+  
   init_handlers();
 }
 
@@ -1398,27 +1307,28 @@ static void show_string_param(const char *name, const char *value, uint32_t n) {
 static void show_param(yices_param_t p, uint32_t n) {
   switch (p) {
   case PARAM_VAR_ELIM:
-    show_bool_param(param2string[p], ctx_parameters.var_elim, n);
+    show_bool_param(param2string[p], context_var_elim_enabled(context), n);
     break;
 
   case PARAM_ARITH_ELIM:
-    show_bool_param(param2string[p], ctx_parameters.arith_elim, n);
+    show_bool_param(param2string[p], context_arith_elim_enabled(context), n);
     break;
 
   case PARAM_BVARITH_ELIM:
-    show_bool_param(param2string[p], ctx_parameters.bvarith_elim, n);
+    show_bool_param(param2string[p], context_bvarith_elim_enabled(context), n);
     break;
 
   case PARAM_FLATTEN:
-    show_bool_param(param2string[p], ctx_parameters.flatten_or, n);
+    // this activates both flatten or and flatten diseq.
+    show_bool_param(param2string[p], context_flatten_or_enabled(context), n);
     break;
 
   case PARAM_LEARN_EQ:
-    show_bool_param(param2string[p], ctx_parameters.eq_abstraction, n);
+    show_bool_param(param2string[p], context_eq_abstraction_enabled(context), n);
     break;
 
   case PARAM_KEEP_ITE:
-    show_bool_param(param2string[p], ctx_parameters.keep_ite, n);
+    show_bool_param(param2string[p], context_keep_ite_enabled(context), n);
     break;
 
   case PARAM_FAST_RESTARTS:
@@ -1522,7 +1432,7 @@ static void show_param(yices_param_t p, uint32_t n) {
     break;
 
   case PARAM_EAGER_LEMMAS:
-    show_bool_param(param2string[p], ctx_parameters.splx_eager_lemmas, n);
+    show_bool_param(param2string[p], splx_eager_lemmas_enabled(context), n);
     break;
 
   case PARAM_SIMPLEX_PROP:
@@ -1542,7 +1452,7 @@ static void show_param(yices_param_t p, uint32_t n) {
     break;
 
   case PARAM_ICHECK:
-    show_bool_param(param2string[p], ctx_parameters.splx_periodic_icheck, n);
+    show_bool_param(param2string[p], splx_periodic_icheck_enabled(context), n);
     break;
 
   case PARAM_ICHECK_PERIOD:
@@ -1622,13 +1532,10 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   switch (find_param(param)) {
   case PARAM_VAR_ELIM:
     if (param_val_to_bool(param, val, &tt)) {
-      ctx_parameters.var_elim = tt;
-      if (context != NULL) {
-	if (tt) {
-	  enable_variable_elimination(context);
-	} else {
-	  disable_variable_elimination(context);
-	}	
+      if (tt) {
+        enable_variable_elimination(context);
+      } else {
+        disable_variable_elimination(context);
       }
       print_ok();
     }
@@ -1636,13 +1543,10 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
 
   case PARAM_ARITH_ELIM:
     if (param_val_to_bool(param, val, &tt)) {
-      ctx_parameters.arith_elim = tt;
-      if (context != NULL) {
-	if (tt) {	
-	  enable_arith_elimination(context);
-	} else {
-	  disable_arith_elimination(context);
-	}
+      if (tt) {
+        enable_arith_elimination(context);
+      } else {
+        disable_arith_elimination(context);
       }
       print_ok();
     }
@@ -1650,13 +1554,10 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
 
   case PARAM_BVARITH_ELIM:
     if (param_val_to_bool(param, val, &tt)) {
-      ctx_parameters.bvarith_elim = tt;
-      if (context != NULL) {
-	if (tt) {
-	  enable_bvarith_elimination(context);
-	} else {
-	  disable_bvarith_elimination(context);
-	}
+      if (tt) {
+        enable_bvarith_elimination(context);
+      } else {
+        disable_bvarith_elimination(context);
       }
       print_ok();
     }
@@ -1664,13 +1565,10 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
 
   case PARAM_FLATTEN:
     if (param_val_to_bool(param, val, &tt)) {
-      ctx_parameters.flatten_or = tt;
-      if (context != NULL) {
-	if (tt) {
-	  enable_diseq_and_or_flattening(context);
-	} else {
-	  disable_diseq_and_or_flattening(context);
-	}
+      if (tt) {
+        enable_diseq_and_or_flattening(context);
+      } else {
+        disable_diseq_and_or_flattening(context);
       }
       print_ok();
     }
@@ -1678,13 +1576,10 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
 
   case PARAM_LEARN_EQ:
     if (param_val_to_bool(param, val, &tt)) {
-      ctx_parameters.eq_abstraction = tt;
-      if (context != NULL) {
-	if (tt) {
-	  enable_eq_abstraction(context);
-	} else {
-	  disable_eq_abstraction(context);
-	}
+      if (tt) {
+        enable_eq_abstraction(context);
+      } else {
+        disable_eq_abstraction(context);
       }
       print_ok();
     }
@@ -1692,13 +1587,10 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
 
   case PARAM_KEEP_ITE:
     if (param_val_to_bool(param, val, &tt)) {
-      ctx_parameters.keep_ite = tt;
-      if (context != NULL) {
-	if (tt) {
-	  enable_keep_ite(context);
-	} else {
-	  disable_keep_ite(context);
-	}
+      if (tt) {
+        enable_keep_ite(context);
+      } else {
+        disable_keep_ite(context);
       }
       print_ok();
     }
@@ -1881,13 +1773,10 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
 
   case PARAM_EAGER_LEMMAS:
     if (param_val_to_bool(param, val, &tt)) {
-      ctx_parameters.splx_eager_lemmas = tt;
-      if (context != NULL) {
-	if (tt) {
-	  enable_splx_eager_lemmas(context);
-	} else {
-	  disable_splx_eager_lemmas(context);
-	}
+      if (tt) {
+        enable_splx_eager_lemmas(context);
+      } else {
+        disable_splx_eager_lemmas(context);
       }
       print_ok();
     } 
@@ -1923,13 +1812,10 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
 
   case PARAM_ICHECK:
     if (param_val_to_bool(param, val, &tt)) {
-      ctx_parameters.splx_periodic_icheck = tt;
-      if (context != NULL) {
-	if (tt) {
-	  enable_splx_periodic_icheck(context);
-	} else {
-	  disable_splx_periodic_icheck(context);
-	}
+      if (tt) {
+        enable_splx_periodic_icheck(context);
+      } else {
+        disable_splx_periodic_icheck(context);
       }
       print_ok();
     }
@@ -2105,7 +1991,7 @@ static void yices_showstats_cmd(void) {
   if (run_time < 0.0) {
     run_time = 0.0;
   }
-
+ 
   core = context->core;
 
   show_stats(&core->stats);
@@ -2132,6 +2018,7 @@ static void yices_showstats_cmd(void) {
   if (context_has_bv_solver(context)) {
     show_bvsolver_stats(context->bv_solver);
   }
+
   fputc('\n', stdout);
   printf("Runtime of '(check)'     : %.4f s\n", check_process_time);
   printf("Total runtime            : %.4f s\n", run_time);
@@ -2284,7 +2171,7 @@ static void yices_dump_cmd(void) {
   if (context_has_bv_solver(context)) {
     dump_bv_solver(stdout, context->bv_solver);
   }
-    
+
   /*
    * If arch is still AUTO_IDL or AUTO_RDL,
    * then flattening + simplification returned unsat
@@ -2427,15 +2314,15 @@ static void yices_assert_cmd(term_t f) {
 
   status = context_status(context);
   if (status != STATUS_IDLE && !context_supports_multichecks(context)) {
-    report_error("more assertions are not allowed");
+    report_error("more assertions are not allowed (mode=one-shot)");
   } else {
     switch (status) {
     case STATUS_UNKNOWN:
     case STATUS_SAT:
       // cleanup then return to the idle state
       if (model != NULL) {
-	free_model(model);
-	model = NULL;
+        free_model(model);
+        model = NULL;
       }
       context_clear(context); 
       assert(context_status(context) == STATUS_IDLE);
@@ -2450,9 +2337,9 @@ static void yices_assert_cmd(term_t f) {
 	} else {
 	  code = assert_formula(context, f);
 	}
-	print_internalization_code(code);
+        print_internalization_code(code);
       } else {
-	report_error("type error in assert: boolean term required");
+        report_error("type error in assert: boolean term required");
       }
       break;
 
@@ -2465,7 +2352,7 @@ static void yices_assert_cmd(term_t f) {
       }
       fflush(stderr);
       break;
-	
+
     case STATUS_SEARCHING:
     case STATUS_INTERRUPTED:
     default:
@@ -2693,6 +2580,7 @@ static void yices_eval_cmd(term_t t) {
 /*************************
  *  TERM STACK WRAPPERS  *
  ************************/
+
 
 /*
  * Variants of define-term and define-type:
