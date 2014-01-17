@@ -53,9 +53,6 @@
 #include "bvsolver.h"
 
 
-#include "ef_analyze.h"
-#include "ef_problem.h"
-
 #include "context.h"
 #include "models.h"
 #include "model_eval.h"
@@ -106,8 +103,6 @@
  * - mode_code = code for the mode (the default depends on the solver/logic)
  * - iflag = true if the integer solver is required
  * - qflag = true if support for quantifiers is required
- * - efsolver = true to enable the exists/forall solver
- * - efdone = true after the first call to efsolve
  */
 static char *input_filename;
 static lexer_t lexer;
@@ -134,8 +129,6 @@ static context_arch_t arch;
 static context_mode_t mode;
 static bool iflag;
 static bool qflag;
-static bool efsolver;
-static bool efdone;
 
 /*
  * Context, model, and solver parameters
@@ -575,13 +568,8 @@ static void print_usage(char *progname) {
 /*
  * Parse a mode string:
  * - return a code form CTX_MODE_ONECHEK to CTX_MODE_INTERACTIVE
- *   or the special code EFSOLVER_MODE
  * - return -1 if the mode is not recognized
  */
-enum {
-  EFSOLVER_MODE = 10,
-};
-
 static int32_t context_mode_code(const char *name) {
   int32_t x;
 
@@ -594,8 +582,6 @@ static int32_t context_mode_code(const char *name) {
     x = CTX_MODE_PUSHPOP;
   } else if (strcmp(name, "multi-checks") == 0) {
     x = CTX_MODE_MULTICHECKS;
-  } else if (strcmp(name, "ef") == 0) {
-    x = EFSOLVER_MODE;
   }
 
   return x;
@@ -624,8 +610,6 @@ static void process_command_line(int argc, char *argv[]) {
   logic_code = SMT_UNKNOWN;
   arith_code = ARITH_SIMPLEX;
   mode_code = -1; // means not set 
-  efsolver = false;
-  efdone = false;
 
   init_cmdline_parser(&parser, options, NUM_OPTIONS, argv, argc);
 
@@ -779,13 +763,6 @@ static void process_command_line(int argc, char *argv[]) {
     } else {
       mode = CTX_MODE_INTERACTIVE; // no input given: interactive mode
     }
-  } else if (mode_code == EFSOLVER_MODE) {
-    /* 
-     * EF-Solver enabled:
-     * we set mode to ONE_CHECK so that assertions get added to the delayed_assertion vector
-     */
-    mode = CTX_MODE_ONECHECK;
-    efsolver = true;
   } else {
     assert(CTX_MODE_ONECHECK <= mode_code && mode_code <= CTX_MODE_INTERACTIVE);
     mode = (context_mode_t) mode_code;
@@ -2129,37 +2106,34 @@ static void yices_showstats_cmd(void) {
     run_time = 0.0;
   }
 
-  if (!efsolver) {
-    core = context->core;
+  core = context->core;
 
-    show_stats(&core->stats);
-    printf(" boolean variables       : %"PRIu32"\n", core->nvars);
-    printf(" atoms                   : %"PRIu32"\n", core->atoms.natoms);
+  show_stats(&core->stats);
+  printf(" boolean variables       : %"PRIu32"\n", core->nvars);
+  printf(" atoms                   : %"PRIu32"\n", core->atoms.natoms);
 
-    egraph = context->egraph;
-    if (egraph != NULL) {
-      show_egraph_stats(&egraph->stats);
-      printf(" egraph terms            : %"PRIu32"\n", egraph->terms.nterms);
-      printf(" egraph eq_quota         : %"PRIu32"\n", egraph->aux_eq_quota);
-      if (context_has_fun_solver(context)) {
-	fsolver = context->fun_solver;
-	show_funsolver_stats(&fsolver->stats);
-      }
+  egraph = context->egraph;
+  if (egraph != NULL) {
+    show_egraph_stats(&egraph->stats);
+    printf(" egraph terms            : %"PRIu32"\n", egraph->terms.nterms);
+    printf(" egraph eq_quota         : %"PRIu32"\n", egraph->aux_eq_quota);
+    if (context_has_fun_solver(context)) {
+      fsolver = context->fun_solver;
+      show_funsolver_stats(&fsolver->stats);
     }
-
-    if (context_has_simplex_solver(context)) {
-      simplex = (simplex_solver_t *) context->arith_solver;
-      simplex_collect_statistics(simplex);
-      show_simplex_stats(&simplex->stats);
-    }
-
-    if (context_has_bv_solver(context)) {
-      show_bvsolver_stats(context->bv_solver);
-    }
-    fputc('\n', stdout);
-    printf("Runtime of '(check)'     : %.4f s\n", check_process_time);
   }
 
+  if (context_has_simplex_solver(context)) {
+    simplex = (simplex_solver_t *) context->arith_solver;
+    simplex_collect_statistics(simplex);
+    show_simplex_stats(&simplex->stats);
+  }
+
+  if (context_has_bv_solver(context)) {
+    show_bvsolver_stats(context->bv_solver);
+  }
+  fputc('\n', stdout);
+  printf("Runtime of '(check)'     : %.4f s\n", check_process_time);
   printf("Total runtime            : %.4f s\n", run_time);
   mem_used = mem_size() / (1024 * 1024);
   if (mem_used > 0) {
@@ -2282,63 +2256,59 @@ static void dump_bv_solver(FILE *f, bv_solver_t *solver) {
 
 
 static void yices_dump_cmd(void) {
-  if (efsolver) {
-    report_error("(dump-context) is not supported by the exists/forall solver");
-  } else {
-    assert(context != NULL);
+  assert(context != NULL);
 
 #ifndef NDEBUG
-    printf("--- Substitutions ---\n");
-    print_context_intern_subst(stdout, context);
+  printf("--- Substitutions ---\n");
+  print_context_intern_subst(stdout, context);
 
-    printf("\n--- Internalization ---\n");
-    print_context_intern_mapping(stdout, context);
+  printf("\n--- Internalization ---\n");
+  print_context_intern_mapping(stdout, context);
 #endif
 
-    if (context_has_egraph(context)) {
-      dump_egraph(stdout, context->egraph);
-    }
+  if (context_has_egraph(context)) {
+    dump_egraph(stdout, context->egraph);
+  }
 
-    if (context_has_arith_solver(context)) {
-      if (context_has_idl_solver(context)) {
-	dump_idl_solver(stdout, context->arith_solver);
-      } else if (context_has_rdl_solver(context)) {
-	dump_rdl_solver(stdout, context->arith_solver);
-      } else {
-	assert(context_has_simplex_solver(context));
-	dump_simplex_solver(stdout, context->arith_solver);
-      }
+  if (context_has_arith_solver(context)) {
+    if (context_has_idl_solver(context)) {
+      dump_idl_solver(stdout, context->arith_solver);
+    } else if (context_has_rdl_solver(context)) {
+      dump_rdl_solver(stdout, context->arith_solver);
+    } else {
+      assert(context_has_simplex_solver(context));
+      dump_simplex_solver(stdout, context->arith_solver);
     }
+  }
 
-    if (context_has_bv_solver(context)) {
-      dump_bv_solver(stdout, context->bv_solver);
-    }
+  if (context_has_bv_solver(context)) {
+    dump_bv_solver(stdout, context->bv_solver);
+  }
     
-    /*
-     * If arch is still AUTO_IDL or AUTO_RDL,
-     * then flattening + simplification returned unsat
-     * but the core is not initialized
-     * so we can't print the clauses.
-     */
-    if (context->arch != CTX_ARCH_AUTO_IDL && 
-	context->arch != CTX_ARCH_AUTO_RDL) {
-      printf("--- Clauses ---\n");
-      print_clauses(stdout, context->core);
-      printf("\n");
-    }
+  /*
+   * If arch is still AUTO_IDL or AUTO_RDL,
+   * then flattening + simplification returned unsat
+   * but the core is not initialized
+   * so we can't print the clauses.
+   */
+  if (context->arch != CTX_ARCH_AUTO_IDL && 
+      context->arch != CTX_ARCH_AUTO_RDL) {
+    printf("--- Clauses ---\n");
+    print_clauses(stdout, context->core);
+    printf("\n");
+  }
 
 #if 0
-    printf("--- Auxiliary vectors ---\n");
-    print_context_subst_eqs(stdout, context);
-    print_context_top_eqs(stdout, context);
-    print_context_top_atoms(stdout, context);
-    print_context_top_formulas(stdout, context);
-    print_context_top_interns(stdout, context);
-    printf("\n");
+  printf("--- Auxiliary vectors ---\n");
+  print_context_subst_eqs(stdout, context);
+  print_context_top_eqs(stdout, context);
+  print_context_top_atoms(stdout, context);
+  print_context_top_formulas(stdout, context);
+  print_context_top_interns(stdout, context);
+  printf("\n");
 #endif
 
-    fflush(stdout);
-  }
+  fflush(stdout);
 }
 
 
@@ -2355,18 +2325,12 @@ static void yices_help_cmd(const char *topic) {
  * Reset
  */
 static void yices_reset_cmd(void) {
-  if (efsolver) {
-    // TBD 
-    ivector_reset(&delayed_assertions);
-    efdone = false;
-  } else {
-    if (model != NULL) {
-      free_model(model);
-      model = NULL;
-    }
-    ivector_reset(&delayed_assertions);
-    reset_context(context);
+  if (model != NULL) {
+    free_model(model);
+    model = NULL;
   }
+  ivector_reset(&delayed_assertions);
+  reset_context(context);
   print_ok();
 }
 
@@ -2375,9 +2339,7 @@ static void yices_reset_cmd(void) {
  * Push
  */
 static void yices_push_cmd(void) {
-  if (efsolver) {
-    report_error("(push) is not supported by the exists/forall solver");
-  } else if (! context_supports_pushpop(context)) {
+  if (! context_supports_pushpop(context)) {
     report_error("push/pop not supported by this context");    
   } else {
     switch (context_status(context)) {
@@ -2419,9 +2381,7 @@ static void yices_push_cmd(void) {
  * Pop
  */
 static void yices_pop_cmd(void) {
-  if (efsolver) {
-    report_error("(pop) is not supported by the exists/forall solver");
-  } else if (! context_supports_pushpop(context)) {
+  if (! context_supports_pushpop(context)) {
     report_error("push/pop not supported by this context");
   } else if (context_base_level(context) == 0) {
     report_error("pop not allowed at bottom level");
@@ -2465,68 +2425,53 @@ static void yices_assert_cmd(term_t f) {
   smt_status_t status;
   int32_t code;
 
-  /*
-   * If efsolver is true, we add f to the delayed assertions vector
-   */
-  if (efsolver) {
-    if (efdone) {
-      report_error("more assertions are not allowed after (ef-solve)");
-    } else if (yices_term_is_bool(f)) {
-      ivector_push(&delayed_assertions, f);
-      print_ok();
-    } else {
-      report_error("type error in assert: boolean term required");      
-    }
-    
+  status = context_status(context);
+  if (status != STATUS_IDLE && !context_supports_multichecks(context)) {
+    report_error("more assertions are not allowed");
   } else {
-    status = context_status(context);
-    if (status != STATUS_IDLE && !context_supports_multichecks(context)) {
-      report_error("more assertions are not allowed");
-    } else {
-      switch (status) {
-      case STATUS_UNKNOWN:
-      case STATUS_SAT:
-	// cleanup then return to the idle state
-	if (model != NULL) {
-	  free_model(model);
-	  model = NULL;
-	}
-	context_clear(context); 
-	assert(context_status(context) == STATUS_IDLE);
-	// fall-through intended
-
-      case STATUS_IDLE:
-	if (yices_term_is_bool(f)) {
-	  if (mode == CTX_MODE_ONECHECK) {
-	    // delayed assertion
-	    ivector_push(&delayed_assertions, f);
-	    code = CTX_NO_ERROR;
-	  } else {
-	    code = assert_formula(context, f);
-	  }
-	  print_internalization_code(code);
-	} else {
-	  report_error("type error in assert: boolean term required");
-	}
-	break;
-
-      case STATUS_UNSAT:
-	// cannot take more assertions
-	if (context_base_level(context) == 0) {
-	  fputs("The context is unsat. Try (reset).\n", stderr);
-	} else {
-	  fputs("The context is unsat. Try (pop) or (reset).\n", stderr);
-	}
-	fflush(stderr);
-	break;
-	
-      case STATUS_SEARCHING:
-      case STATUS_INTERRUPTED:
-      default:
-	// should not happen
-	report_bug("unexpected context status in assert");
-	break;
+    switch (status) {
+    case STATUS_UNKNOWN:
+    case STATUS_SAT:
+      // cleanup then return to the idle state
+      if (model != NULL) {
+	free_model(model);
+	model = NULL;
       }
+      context_clear(context); 
+      assert(context_status(context) == STATUS_IDLE);
+      // fall-through intended
+
+    case STATUS_IDLE:
+      if (yices_term_is_bool(f)) {
+	if (mode == CTX_MODE_ONECHECK) {
+	  // delayed assertion
+	  ivector_push(&delayed_assertions, f);
+	  code = CTX_NO_ERROR;
+	} else {
+	  code = assert_formula(context, f);
+	}
+	print_internalization_code(code);
+      } else {
+	report_error("type error in assert: boolean term required");
+      }
+      break;
+
+    case STATUS_UNSAT:
+      // cannot take more assertions
+      if (context_base_level(context) == 0) {
+	fputs("The context is unsat. Try (reset).\n", stderr);
+      } else {
+	fputs("The context is unsat. Try (pop) or (reset).\n", stderr);
+      }
+      fflush(stderr);
+      break;
+	
+    case STATUS_SEARCHING:
+    case STATUS_INTERRUPTED:
+    default:
+      // should not happen
+      report_bug("unexpected context status in assert");
+      break;
     }
   }
 }
@@ -2600,15 +2545,10 @@ static void yices_check_cmd(void) {
   int code;
 
   if (mode == CTX_MODE_ONECHECK) {
-    if (efsolver) {
-      report_error("(check) is not supported by the exist/forall solver");
+    code = assert_formulas(context, delayed_assertions.size, delayed_assertions.data);
+    if (code < 0) {
+      print_internalization_code(code);
       return;
-    } else {
-      code = assert_formulas(context, delayed_assertions.size, delayed_assertions.data);
-      if (code < 0) {
-	print_internalization_code(code);
-	return;
-      }
     }
   }
 
@@ -2657,11 +2597,6 @@ static void yices_check_cmd(void) {
  * Build model if needed and display it
  */
 static void yices_showmodel_cmd(void) {
-  if (efsolver) {
-    report_error("(show-model) is not supported by the exists/forall solver");
-    return;
-  }
-
   switch (context_status(context)) {
   case STATUS_UNKNOWN:
   case STATUS_SAT:
@@ -2706,11 +2641,6 @@ static void yices_eval_cmd(term_t t) {
   evaluator_t evaluator;
   value_table_t *vtbl;  
   value_t v;
-
-  if (efsolver) {
-    report_error("(eval ...) is not supported by the exists/forall solver");
-    return;
-  }
 
   switch (context_status(context)) {
   case STATUS_UNKNOWN:
@@ -2759,143 +2689,10 @@ static void yices_eval_cmd(term_t t) {
 
 
 
-/*
- * PROVISIONAL: to test ef analyzer
- */
-#if 0
-
-static void show_clause(ef_clause_t *clause) {
-  uint32_t i, n;
-
-  n = clause->evars.size;
-  if (n == 0) {
-    fputs("no existential vars\n", stdout);
-  } else {
-    fputs("existential vars\n", stdout);
-    for (i=0; i<n; i++) {
-      printf(" %s", yices_get_term_name(clause->evars.data[i]));
-    }
-    fputs("\n", stdout);
-  }
-
-  n = clause->uvars.size;
-  if (n == 0) {
-    fputs("no universal vars\n", stdout);
-  } else {
-    fputs("universal vars\n", stdout);
-    for (i=0; i<n; i++) {
-      printf(" %s", yices_get_term_name(clause->uvars.data[i]));
-    }
-    fputs("\n", stdout);
-  }
-
-  n = clause->assumptions.size;
-  if (n == 0) {
-    fputs("no assumptions\n", stdout);
-  } else {
-    fputs("assumptions\n", stdout);
-    yices_pp_term_array(stdout, n, clause->assumptions.data, 100, UINT32_MAX, 0);    
-  }
-
-  n = clause->guarantees.size;
-  if (n == 0) {
-    fputs("no guarantees\n", stdout);
-  } else {
-    fputs("guarantees\n", stdout);
-    yices_pp_term_array(stdout, n, clause->guarantees.data, 100, UINT32_MAX, 0);    
-  }
-}
-
-#endif
-
-/*
- * New command: ef solver
- */
-static void yices_efsolve_cmd(void) {
-  ef_analyzer_t analyzer;
-  ef_prob_t prob;
-  ef_cnstr_t *cnstr;
-  ivector_t *v;
-  uint32_t i, n;
-  ef_code_t c;
-
-  if (efsolver) {
-    /*
-     * Test EF processing
-     */
-    v = &delayed_assertions;
-    fputs("Assertions:\n", stdout);
-    yices_pp_term_array(stdout, v->size, v->data, 100, UINT32_MAX, 0);
-
-    init_ef_analyzer(&analyzer, __yices_globals.manager);
-    init_ef_prob(&prob);
-    c = ef_analyze(&analyzer, &prob, v->size, v->data, true, true);
-    switch (c) {
-    case EF_UNINTERPRETED_FUN:
-      fputs("Warning: input has uninterpreted function\n", stdout);
-    case EF_NO_ERROR:
-      printf("\n--- EF problem descriptor ---\n");
-      printf("Existential variables: ");
-      n = ef_prob_num_evars(&prob);
-      yices_pp_term_list(stdout, n, prob.all_evars, 80, UINT32_MAX, 23);
-      printf("\n");
-
-      printf("Universal variables:   ");
-      n = ef_prob_num_uvars(&prob);
-      yices_pp_term_list(stdout, n, prob.all_uvars, 80, UINT32_MAX, 23);
-      printf("\n");
-    
-      printf("Conditions:\n  ");
-      n = ef_prob_num_conditions(&prob);
-      yices_pp_term_array(stdout, n, prob.conditions, 100, UINT32_MAX, 2);
-      printf("\n");
-
-      n = ef_prob_num_constraints(&prob);;
-      for (i=0; i<n; i++) {
-	cnstr = prob.cnstr + i;
-	printf("Constraint[%"PRIu32"]:\n", i);
-	printf("  evars: ");
-	yices_pp_term_list(stdout, ef_constraint_num_evars(cnstr), cnstr->evars, 80, UINT32_MAX, 9);
-	printf("  uvars: ");
-	yices_pp_term_list(stdout, ef_constraint_num_uvars(cnstr), cnstr->uvars, 80, UINT32_MAX, 9);
-	printf("  assumption: ");
-	yices_pp_term(stdout, cnstr->assumption, 100, UINT32_MAX, 14);
-	printf("  guarantee:  ");
-	yices_pp_term(stdout, cnstr->guarantee, 100, UINT32_MAX, 14);
-	printf("\n");
-      }
-      break;
-
-    case EF_NESTED_QUANTIFIER:
-      fputs("error: nested quantifiers\n", stdout);
-      break;
-    case EF_HIGH_ORDER_UVAR:
-      fputs("error: non-atomic universal variable\n", stdout);
-      break;
-    case EF_HIGH_ORDER_EVAR:
-      fputs("error: non-atomic existential variable\n", stdout);
-      break;
-    case EF_ERROR:
-      fputs("error\n", stdout);
-      break;
-    }      
-
-    delete_ef_prob(&prob);
-    delete_ef_analyzer(&analyzer);
-    
-    efdone = true;
-    fflush(stdout);
-  } else {
-    fputs("The (ef-solve) command is not supported. Please use command-line option --mode=ef\n", stdout);
-    fflush(stdout);
-  }
-}
-
 
 /*************************
  *  TERM STACK WRAPPERS  *
  ************************/
-
 
 /*
  * Variants of define-term and define-type:
@@ -3269,21 +3066,6 @@ static void eval_help_cmd(tstack_t *stack,  stack_elem_t *f, uint32_t n) {
 
 
 /*
- * [ef-solve]
- */
-static void check_efsolve_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  check_op(stack, EFSOLVE_CMD);
-  check_size(stack, n == 0);
-}
-
-static void eval_efsolve_cmd(tstack_t *stack, stack_elem_t *f, uint32_t n) {
-  yices_efsolve_cmd();
-  tstack_pop_frame(stack);
-  no_result(stack);
-}
-
-
-/*
  * Initialize the term stack and add these commmands
  */
 static void init_yices_tstack(tstack_t *stack) {
@@ -3308,7 +3090,6 @@ static void init_yices_tstack(tstack_t *stack) {
   tstack_add_op(stack, SET_TIMEOUT_CMD, false, eval_settimeout_cmd, check_settimeout_cmd);
   tstack_add_op(stack, SHOW_TIMEOUT_CMD, false, eval_showtimeout_cmd, check_showtimeout_cmd);
   tstack_add_op(stack, HELP_CMD, false, eval_help_cmd, check_help_cmd);
-  tstack_add_op(stack, EFSOLVE_CMD, false, eval_efsolve_cmd, check_efsolve_cmd);
   tstack_add_op(stack, DUMP_CMD, false, eval_dump_cmd, check_dump_cmd);
 }
 
@@ -3361,17 +3142,7 @@ int yices_main(int argc, char *argv[]) {
     print_version(stderr);
   }
 
-  if (efsolver) {
-    context = NULL;
-    model = NULL;
-    default_ctx_params();
-    if (verbose) {
-      init_trace(&tracer);
-      set_trace_vlevel(&tracer, 4);
-    }
-  } else {
-    init_ctx(logic_code, arch, mode, iflag, qflag);
-  }
+  init_ctx(logic_code, arch, mode, iflag, qflag);
   ready_time = get_cpu_time();
 
   /*
@@ -3411,10 +3182,7 @@ int yices_main(int argc, char *argv[]) {
   /*
    * Clean up
    */
-  if (!efsolver) { 
-    delete_ctx();
-  }
-
+  delete_ctx();
   delete_parser(&parser);
   if (interactive) {
     // keep stdin open

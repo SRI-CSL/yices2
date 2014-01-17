@@ -1,5 +1,5 @@
 /*
- * Lexer for Yices language with support for EF-solver
+ * Lexer for Yices language
  * - separators are ( ) : and spaces
  *
  * - strings are delimited by " with escaped char \n, \t, etc. allowed
@@ -37,7 +37,7 @@ enum yices_token {
   TK_PUSH, TK_POP, TK_RESET, TK_DUMP_CONTEXT, TK_EXIT,
   TK_ECHO, TK_INCLUDE, TK_SHOW_MODEL, TK_EVAL, TK_SET_PARAM,
   TK_SHOW_PARAM, TK_SHOW_PARAMS, TK_SHOW_STATS, TK_RESET_STATS,
-  TK_SET_TIMEOUT, TK_SHOW_TIMEOUT, TK_HELP, TK_EF_SOLVE,
+  TK_SET_TIMEOUT, TK_SHOW_TIMEOUT, TK_HELP,
 
   // term constructors
   TK_UPDATE, TK_FORALL, TK_EXISTS, TK_LAMBDA, TK_LET, 

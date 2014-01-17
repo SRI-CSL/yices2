@@ -399,11 +399,6 @@ static int32_t yices_parse(parser_t *parser, state_t start, FILE *err) {
       state = c15;
       goto loop;
 
-    case efsolve_next_goto_r0:   // New command: (ef-solve)
-      tstack_push_op(tstack, EFSOLVE_CMD, &loc);
-      state = r0;
-      goto loop;
-
     case typename_next_goto_c10:
       // token must be a free typename (TK_SYMBOL)
       tstack_push_free_typename(tstack, tkval(lex), tklen(lex), &loc);
