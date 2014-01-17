@@ -36,7 +36,8 @@
 #include "int_vectors.h"
 #include "int_hash_sets.h"
 #include "term_manager.h"
-
+#include "term_substitution.h"
+#include "ef_problem.h"
 
 
 /*
@@ -63,6 +64,8 @@ typedef struct ef_clause_s {
  * EF analyzer: to process/decompose an EF-problem
  * - terms = term table where all terms are defined
  * - manager = relevant term mamager
+ * - subst = to convert universal variables to uninterpreted terms
+ *
  * - queue = queue to explore terms/subterms
  * - cache = set of already visited terms
  * - flat = vector of assertions (result of flattening)
@@ -73,12 +76,13 @@ typedef struct ef_clause_s {
 typedef struct ef_analyzer_s {
   term_table_t *terms;
   term_manager_t *manager;
+  term_subst_t subst;
   int_queue_t queue;
   int_hset_t cache;
   ivector_t flat;
   ivector_t disjuncts;
   ivector_t evars;
-  ivector_t uvars;
+  ivector_t uvars;  
 } ef_analyzer_t;
 
 
@@ -232,6 +236,22 @@ extern uint32_t remove_uninterpreted_functions(ef_analyzer_t *ef, ivector_t *v);
 extern ef_code_t ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *c);
 
 
+/*
+ * Add clause c to an ef_prob descriptor
+ * - t = term that decomposed into c
+ *
+ * Processing: 
+ * 1) if c has  no universal  variables, then  term t  is added  as a
+ *    condition to the problem, and all evars are added to prob.
+ * 2) otherwise, c contains assumptions   A_1(y) ... A_n(y)
+ *    and guarantees G_1(x, y) ... G_k(x, y)
+ *    We build A := not (OR A_1(y) ... A_n(y))
+ *             G := (OR G_1(x, y) ... G_k(x, y))
+ *    then convert all instances of universal variables to uninterpreted terms.
+ *    So both A and G are ground terms.
+ *    Then we add the universal constrains (forall y: A => G) to prob.
+ */
+extern void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_clause_t *c);
 
 
 #endif /* __EF_ANALYZE_H */

@@ -139,9 +139,9 @@ static const pp_nonstandard_block_t nonstandard_block[NUM_NONSTANDARD_BLOCKS] = 
   { PP_OPEN_CONST_DEF, "constant", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
   { PP_OPEN_UNINT_DEF, "unint", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
   { PP_OPEN_VAR_DEF,   "var", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
-  { PP_OPEN_FORALL, "forall ", PP_HMT_LAYOUT,  PP_TOKEN_PAR_MASK, 1, 1 },
-  { PP_OPEN_EXISTS, "exits ", PP_HMT_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1 },
-  { PP_OPEN_LAMBDA, "lambda ", PP_HMT_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1 },
+  { PP_OPEN_FORALL, "forall ", PP_HMT_LAYOUT,  0, 7, 7 },
+  { PP_OPEN_EXISTS, "exits ", PP_HMT_LAYOUT, 0, 6, 6 },
+  { PP_OPEN_LAMBDA, "lambda ", PP_HMT_LAYOUT, 0, 7, 7 },
   { PP_OPEN_FUNCTION, "function ", PP_V_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1 },
 };
 

@@ -2792,7 +2792,7 @@ static void show_clause(ef_clause_t *clause) {
     fputs("no assumptions\n", stdout);
   } else {
     fputs("assumptions\n", stdout);
-    yices_pp_term_array(stdout, n, clause->assumptions.data, 140, UINT32_MAX, 0);    
+    yices_pp_term_array(stdout, n, clause->assumptions.data, 100, UINT32_MAX, 0);    
   }
 
   n = clause->guarantees.size;
@@ -2800,7 +2800,7 @@ static void show_clause(ef_clause_t *clause) {
     fputs("no guarantees\n", stdout);
   } else {
     fputs("guarantees\n", stdout);
-    yices_pp_term_array(stdout, n, clause->guarantees.data, 140, UINT32_MAX, 0);    
+    yices_pp_term_array(stdout, n, clause->guarantees.data, 100, UINT32_MAX, 0);    
   }
 }
 
@@ -2811,6 +2811,7 @@ static void yices_efsolve_cmd(void) {
   ef_analyzer_t analyzer;
   ef_clause_t clause;
   ef_prob_t prob;
+  ef_cnstr_t *cnstr;
   ivector_t *v;
   uint32_t i, n;
   ef_code_t c;
@@ -2821,14 +2822,14 @@ static void yices_efsolve_cmd(void) {
      */
     v = &delayed_assertions;
     fputs("Assertions:\n", stdout);
-    yices_pp_term_array(stdout, v->size, v->data, 140, UINT32_MAX, 0);
+    yices_pp_term_array(stdout, v->size, v->data, 100, UINT32_MAX, 0);
 
     init_ef_analyzer(&analyzer, __yices_globals.manager);
     ef_add_assertions(&analyzer, v->size, v->data, true, true, &analyzer.flat);
 
     fputs("\nAfter flattening:\n", stdout);
     v = &analyzer.flat;
-    yices_pp_term_array(stdout, v->size, v->data, 140, UINT32_MAX, 0);
+    yices_pp_term_array(stdout, v->size, v->data, 100, UINT32_MAX, 0);
     fputs("\n", stdout);
 
     init_ef_prob(&prob);
@@ -2841,15 +2842,7 @@ static void yices_efsolve_cmd(void) {
       case EF_NO_ERROR:
 	fputs("good clause\n", stdout);
 	show_clause(&clause);
-	if (clause.uvars.size == 0) {
-	  // no universal variables
-	  ef_prob_add_condition(&prob, v->data[i]);
-	  ef_prob_add_evars(&prob, clause.evars.data, clause.evars.size);
-	} else {
-	  // just to test the add vars functions
-	  ef_prob_add_evars(&prob, clause.evars.data, clause.evars.size);
-	  ef_prob_add_uvars(&prob, clause.uvars.data, clause.uvars.size);
-	}
+	ef_add_clause(&analyzer, &prob, v->data[i], &clause);
 	break;
       case EF_UNINTERPRETED_FUN:
 	fputs("clause has uninterpreted function\n", stdout);
@@ -2871,18 +2864,36 @@ static void yices_efsolve_cmd(void) {
       }      
     }
 
-    printf("\n--- EF problem descriptor (partial) ---\n");
-    printf("Existential variables:\n");
+    printf("\n--- EF problem descriptor ---\n");
+    printf("Existential variables: ");
     n = ef_prob_num_evars(&prob);
-    yices_pp_term_array(stdout, n, prob.all_evars, 140, UINT32_MAX, 0);
+    yices_pp_term_list(stdout, n, prob.all_evars, 80, UINT32_MAX, 23);
+    printf("\n");
 
-    printf("Universal variables:\n");
+    printf("Universal variables:   ");
     n = ef_prob_num_uvars(&prob);
-    yices_pp_term_array(stdout, n, prob.all_uvars, 140, UINT32_MAX, 0);
+    yices_pp_term_list(stdout, n, prob.all_uvars, 80, UINT32_MAX, 23);
+    printf("\n");
     
-    printf("Conditions:\n");
+    printf("Conditions:\n  ");
     n = ef_prob_num_conditions(&prob);
-    yices_pp_term_array(stdout, n, prob.conditions, 140, UINT32_MAX, 0);
+    yices_pp_term_array(stdout, n, prob.conditions, 100, UINT32_MAX, 2);
+    printf("\n");
+
+    n = ef_prob_num_constraints(&prob);;
+    for (i=0; i<n; i++) {
+      cnstr = prob.cnstr + i;
+      printf("Constraint[%"PRIu32"]:\n", i);
+      printf("  evars: ");
+      yices_pp_term_list(stdout, ef_constraint_num_evars(cnstr), cnstr->evars, 80, UINT32_MAX, 9);
+      printf("  uvars: ");
+      yices_pp_term_list(stdout, ef_constraint_num_uvars(cnstr), cnstr->uvars, 80, UINT32_MAX, 9);
+      printf("  assumption: ");
+      yices_pp_term(stdout, cnstr->assumption, 100, UINT32_MAX, 14);
+      printf("  guarantee:  ");
+      yices_pp_term(stdout, cnstr->guarantee, 100, UINT32_MAX, 14);
+      printf("\n");
+    }
 
     delete_ef_prob(&prob);
     delete_ef_clause(&clause);

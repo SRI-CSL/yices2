@@ -1598,10 +1598,16 @@ static void pp_var_decl(yices_pp_t *printer, term_table_t *tbl, term_t v) {
 }
 
 
-/* 
+/*
  * forall:
  * - if polarity is true then we print (forall .... p)
- * - if polairty is false then we print (exists ... (not p))
+ * - if polarity is false then we print (exists ... (not p))
+ *
+ * For proper alignment if there are many variables, we send
+ *  [ [ forall [var-decls] ] body ]
+ *  [ [ exists [var-decls] ] body ]
+ * to the pretty printer:
+ * The PP_OPEN_FORALL and PP_OPEN_EXISTS don't add parentheses
  */
 static void pp_forall_term(yices_pp_t *printer, term_table_t *tbl, composite_term_t *d, uint32_t level, bool polarity) {
   uint32_t i, n;
@@ -1611,6 +1617,7 @@ static void pp_forall_term(yices_pp_t *printer, term_table_t *tbl, composite_ter
 
   n = d->arity;
   assert(n >= 2);
+  pp_open_block(printer, PP_OPEN_PAR);
   pp_open_block(printer, op);
   pp_open_block(printer, PP_OPEN_PAR);
   for (i=0; i<n-1; i++) {
@@ -1618,26 +1625,31 @@ static void pp_forall_term(yices_pp_t *printer, term_table_t *tbl, composite_ter
     pp_var_decl(printer, tbl, d->arg[i]);
   }
   pp_close_block(printer, true);
+  pp_close_block(printer, false);  // close the forall/exists block, no parenthesis
   pp_term_recur(printer, tbl, d->arg[n-1], level, polarity);
   pp_close_block(printer, true);
 }
 
 
 /*
- * Lambda term
+ * Lambda term:
+ * as for quantifiers: the blocks are
+ *  [ [ lambda [var-decls] ] body ]
  */
 static void pp_lambda_term(yices_pp_t *printer, term_table_t *tbl, composite_term_t *d, uint32_t level) {
   uint32_t i, n;
 
   n = d->arity;
   assert(n >= 2);
-  pp_open_block(printer, PP_OPEN_LAMBDA);
+  pp_open_block(printer, PP_OPEN_PAR);
+  pp_open_block(printer, PP_OPEN_LAMBDA); 
   pp_open_block(printer, PP_OPEN_PAR);
   for (i=0; i<n-1; i++) {
     //    pp_term_recur(printer, tbl, d->arg[i], level, true);
     pp_var_decl(printer, tbl, d->arg[i]);
   }
   pp_close_block(printer, true);
+  pp_close_block(printer, false);  // close the lambda block, no parenthesis
   pp_term_recur(printer, tbl, d->arg[n-1], level, true);
   pp_close_block(printer, true);
 }

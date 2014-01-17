@@ -1595,6 +1595,11 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width
  */
 __YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, term_t a[], uint32_t witdh, uint32_t height, uint32_t offset);
 
+/*
+ * Variant: attempt to print the terms horizontally
+ */
+__YICES_DLLSPEC__ extern int32_t yices_pp_term_list(FILE *f, uint32_t n, term_t a[], uint32_t witdh, uint32_t height, uint32_t offset);
+
 
 
 

@@ -111,6 +111,13 @@ static inline void extend_term_subst1(term_subst_t *subst, term_t v, term_t t, b
 
 
 /*
+ * Check whether v is in the domain of the substitution
+ * - v must be a variable or uninterpreted term
+ */
+extern bool term_subst_var_in_domain(term_subst_t *susbt, term_t v);
+
+
+/*
  * Get what's mapped to v in the current substitution
  * - v must be a variable or uninterpreted term
  * - return NULL_TERM if v is in the domain of subst->map

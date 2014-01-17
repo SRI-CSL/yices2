@@ -4,6 +4,7 @@
 
 #include <assert.h>
 
+#include "term_utils.h"
 #include "ef_analyze.h"
 
 
@@ -76,6 +77,7 @@ static void ef_clause_add_uvars(ef_clause_t *cl, term_t *a, uint32_t n) {
 void init_ef_analyzer(ef_analyzer_t *ef, term_manager_t *mngr) {
   ef->terms = term_manager_get_terms(mngr);
   ef->manager = mngr;
+  init_term_subst(&ef->subst, mngr, 0, NULL, NULL); // empty substitution
   init_int_queue(&ef->queue, 0);
   init_int_hset(&ef->cache, 128);
   init_ivector(&ef->flat, 64);
@@ -89,6 +91,7 @@ void init_ef_analyzer(ef_analyzer_t *ef, term_manager_t *mngr) {
  * Reset queue and cache
  */
 void reset_ef_analyzer(ef_analyzer_t *ef) {
+  reset_term_subst(&ef->subst);
   int_queue_reset(&ef->queue);
   int_hset_reset(&ef->cache);
   ivector_reset(&ef->flat);
@@ -102,6 +105,7 @@ void reset_ef_analyzer(ef_analyzer_t *ef) {
  * Delete
  */
 void delete_ef_analyzer(ef_analyzer_t *ef) {
+  delete_term_subst(&ef->subst);
   delete_int_queue(&ef->queue);
   delete_int_hset(&ef->cache);
   delete_ivector(&ef->flat);
@@ -743,6 +747,143 @@ ef_code_t ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *cl) {
   }
 
   return code;
+}
+
+
+/*
+ * CONVERSION TO GROUND TERMS
+ */
+
+/*
+ * The assumptions and guarantees may contain free variables (i.e.,
+ * instances of universal variables). Since the context can't deal
+ * with free variables in terms, we convert variables to uninterpreted
+ * terms (of the same type and name).
+ *
+ * This is done by building a substitution that maps variables to thier 
+ * clones. 
+ */
+
+/*
+ * Return the clone of variable x:
+ * - if x is already in ef->subst's domain, return what's mapped to x
+ * - otherwise, create a clone for x and add the map [x --> clone]
+ *   to ef_subst.
+ */
+static term_t ef_clone_uvar(ef_analyzer_t *ef, term_t x) {
+  term_t clone;
+
+  assert(term_kind(ef->terms, x) == VARIABLE);
+
+  clone = term_subst_var_mapping(&ef->subst, x);
+  if (clone < 0) {
+    clone = variable_to_unint(ef->terms, x);
+    extend_term_subst1(&ef->subst, x, clone, false);
+  }
+
+  assert(term_kind(ef->terms, clone) == UNINTERPRETED_TERM);
+
+  return clone;
+}
+
+
+/*
+ * Replace all elements of v by their clones
+ * - all elements must be variabale
+ */
+static void ef_clone_uvar_array(ef_analyzer_t *ef, term_t *v, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    v[i] = ef_clone_uvar(ef, v[i]);
+  }
+}
+
+
+/*
+ * Convert term t that may contain universal variable into a ground
+ * term (by replacing all universal variables with their clones).
+ */
+static term_t ef_make_ground(ef_analyzer_t *ef, term_t t) {
+  term_t g;
+
+  g = apply_term_subst(&ef->subst, t);
+  // the substitution should not fail
+  assert(good_term(ef->terms, g));
+
+  return g;
+}
+
+
+/*
+ * Apply make_ground to all elements of array a
+ */
+static void ef_make_array_ground(ef_analyzer_t *ef, term_t *t, uint32_t n) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    t[i] = ef_make_ground(ef, t[i]);
+  }
+}
+
+
+/*
+ * Compute the or of formulas in v
+ */
+static term_t ef_make_or(ef_analyzer_t *ef, ivector_t *v) {
+  uint32_t n;
+  term_t r;
+
+  n = v->size;
+  if (n == 0) {
+    r = false_term;
+  } else if (n == 1) {
+    r = v->data[0];
+  } else {
+    r = mk_or(ef->manager, n, v->data);
+  }
+
+  return r;
+}
+
+
+/*
+ * Add clause c to an ef_prob descriptor
+ * - t = term that decomposed into c
+ *
+ * Processing: 
+ * 1) if c has  no universal  variables, then  term t  is added  as a
+ *    condition to the problem, and all evars are added to prob.
+ * 2) otherwise, c contains assumptions   A_1(y) ... A_n(y)
+ *    and guarantees G_1(x, y) ... G_k(x, y)
+ *    We build A := not (OR A_1(y) ... A_n(y))
+ *             G := (OR G_1(x, y) ... G_k(x, y))
+ *    then convert all instances of universal variables to uninterpreted terms.
+ *    So both A and G are ground terms.
+ *    Then we add the universal constrains (forall y: A => G) to prob.
+ */
+void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_clause_t *c) {
+  term_t a, g;
+
+  if (c->uvars.size == 0) {
+    // no universal variables
+    ef_prob_add_condition(prob, t);
+    ef_prob_add_evars(prob, c->evars.data, c->evars.size);
+  } else {
+    // convert all uvars to clones and make ground
+    ef_clone_uvar_array(ef, c->uvars.data, c->uvars.size);
+    ef_make_array_ground(ef, c->assumptions.data, c->assumptions.size);
+    ef_make_array_ground(ef, c->guarantees.data, c->guarantees.size);
+
+    // build the assumption: not (or c->assumptions)
+    a = opposite_term(ef_make_or(ef, &c->assumptions));
+
+    // guarantee = or c->guarantees
+    g = ef_make_or(ef, &c->guarantees);
+
+    ef_prob_add_constraint(prob, c->evars.data, c->evars.size, 
+			   c->uvars.data, c->uvars.size, a, g);
+  }
 }
 
 

@@ -125,6 +125,15 @@ void extend_term_subst(term_subst_t *subst, uint32_t n, term_t *v, term_t *t, bo
 
 
 /*
+ * Check whether v is in the domain of subst->map
+ * - v must be a variable or uninterpreted term
+ */
+bool term_subst_var_in_domain(term_subst_t *subst, term_t v) {
+  assert(term_is_var(subst->terms, v));
+  return int_hmap_find(&subst->map, v) != NULL;
+}
+
+/*
  * Return the image of v by subst->map
  * - v must be a variable or uninterpreted term
  * - result = NULL_TERM (-1) if v is not in the map
