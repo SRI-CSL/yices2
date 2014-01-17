@@ -749,6 +749,23 @@ void pp_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n) {
 
 
 /*
+ * Separator s: no copy is made
+ */
+void pp_separator(yices_pp_t *printer, const char *s) {
+  pp_atom_t *atom;
+  void *tk;
+  uint32_t n;
+
+  n = strlen(s);
+  atom = new_atom(printer);
+  tk = init_separator_token(&atom->tk, n, PP_STRING_ATOM);
+  atom->data.string = s;
+
+  pp_push_token(&printer->pp, tk);
+}
+
+
+/*
  * Quoted string:
  * - open_quote = character before the string (or '\0' if nothing needed)
  * - close_quote = charcater after the string (or '\0' if nothing needed)
