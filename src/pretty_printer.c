@@ -229,8 +229,8 @@ static void free_token(printer_t *p, void *tk) {
   case PP_TOKEN_CLOSE_TAG:
     free_close_token(p, untag_close(tk));
     break;
-  default:
-    assert(false);
+  case PP_TOKEN_SEPARATOR_TAG:
+    free_atomic_token(p, untag_separator(tk));
     break;
   }
 }
@@ -489,8 +489,10 @@ static void print_pending(printer_t *p) {
       print_close(p, untag_close(tk));
       space = true;
       break;
-    default:
-      assert(false);
+    case PP_TOKEN_SEPARATOR_TAG:
+      // no space before or after that token
+      print_atomic(p, untag_separator(tk));
+      space = false;
       break;
     }
   }
@@ -524,8 +526,8 @@ static void print_pending_truncated(printer_t *p) {
     pp_ellipsis(p);
     free_close_token(p, untag_close(tk));
     break;
-  default:
-    assert(false);
+  case PP_TOKEN_SEPARATOR_TAG:
+    print_atomic_truncated(p, untag_separator(tk));
     break;
   }
   
@@ -619,6 +621,7 @@ static void print_atomic_token(printer_t *p, pp_atomic_token_t *tk) {
     print_atomic(p, tk);
   }
 }
+
 
 
 /*
@@ -1034,8 +1037,18 @@ static void print_token(printer_t *p, void *tk) {
     }
     break;
 
-  default:
-    assert(false);
+  case PP_TOKEN_SEPARATOR_TAG:
+    atom = untag_separator(tk);
+    /*
+     * a separator is treated like an atomic token
+     * with no space or break allowed before or after
+     * the token
+     */
+    p->no_space = true;
+    p->no_break = true;
+    print_atomic_token(p, atom);
+    p->no_space = true;
+    p->no_break = true; // this has no effect in HMODE
     break;
   }
 
@@ -1488,6 +1501,20 @@ static void process_atomic_token(formatter_t *f, pp_atomic_token_t *tk) {
 
 
 /*
+ * Variant: for a separator token we don't print spaces around the token
+ */
+static void process_separator_token(formatter_t *f, pp_atomic_token_t *tk) {
+  set_bsizes_and_close(f);
+  flush_head_block(f);
+
+  f->atom_col = f->length;
+  f->last_atom = tk;
+  f->length += tk->size;
+  f->no_space = true;
+}
+
+
+/*
  * Process open-block token tk
  */
 static void process_open_token(formatter_t *f, pp_open_token_t *tk) {
@@ -1556,8 +1583,8 @@ static void process_token(formatter_t *f, void *tk) {
     process_close_token(f, untag_close(tk));
     break;
 
-  default:
-    assert(false);
+  case PP_TOKEN_SEPARATOR_TAG:
+    process_separator_token(f, untag_separator(tk));
     break;
   }
 
@@ -1717,6 +1744,19 @@ void *init_atomic_token(pp_atomic_token_t *tk, uint32_t size, uint32_t user_tag)
   tk->user_tag = user_tag;
 
   return tag_atomic(tk);
+}
+
+
+/*
+ * Initialize an atomic token tk and return the tagged pointer tag_separator(tk).
+ * - size = token size (when converted to a string)
+ * - user_tag = whatever the converter needs
+ */
+void *init_separator_token(pp_atomic_token_t *tk, uint32_t size, uint32_t user_tag) {
+  tk->size = size;
+  tk->user_tag = user_tag;
+
+  return tag_separator(tk);
 }
 
 

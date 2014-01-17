@@ -212,8 +212,8 @@ typedef struct pp_open_token_s {
   uint32_t bsize;
   uint32_t csize;
   uint32_t fsize;
-  uint8_t formats;
-  uint8_t flags;
+  uint8_t  formats;
+  uint8_t  flags;
   uint16_t label_size;
   uint16_t indent;
   uint16_t short_indent;
@@ -300,11 +300,16 @@ static inline bool tk_has_close_par(pp_close_token_t *tk) {
  * 00 --> open token
  * 01 --> atomic token
  * 10 --> close token
+ * 11 --> separator token
+ *
+ * A separator is an atomic token that's printed without
+ * spaces before or after.
  */
 typedef enum {
   PP_TOKEN_OPEN_TAG,
   PP_TOKEN_ATOMIC_TAG,
   PP_TOKEN_CLOSE_TAG,
+  PP_TOKEN_SEPARATOR_TAG,
 } pp_tk_ptr_tag;
 
 // check the pointer type
@@ -320,6 +325,10 @@ static inline bool ptr_has_close_tag(void *p) {
   return ptr_tag(p) == PP_TOKEN_CLOSE_TAG;
 }
 
+static inline bool ptr_has_separator_tag(void *p) {
+  return ptr_tag(p) == PP_TOKEN_SEPARATOR_TAG;
+}
+
 // add a tag to a pointer
 static inline void *tag_open(pp_open_token_t *p) {
   return tag_ptr(p, PP_TOKEN_OPEN_TAG);
@@ -331,6 +340,10 @@ static inline void *tag_atomic(pp_atomic_token_t *p) {
 
 static inline void *tag_close(void *p) {
   return tag_ptr(p, PP_TOKEN_CLOSE_TAG);
+}
+
+static inline void *tag_separator(pp_atomic_token_t *p) {
+  return tag_ptr(p, PP_TOKEN_SEPARATOR_TAG);
 }
 
 // check and untag
@@ -349,6 +362,10 @@ static inline void *untag_close(void *p) {
   return untag_ptr(p);
 }
 
+static inline pp_atomic_token_t *untag_separator(void *p) {
+  assert(ptr_has_separator_tag(p));
+  return untag_ptr(p);
+}
 
 
 /*
@@ -763,6 +780,13 @@ extern void *init_open_token(pp_open_token_t *tk, uint32_t formats, uint32_t fla
  */
 extern void *init_atomic_token(pp_atomic_token_t *tk, uint32_t size, uint32_t user_tag);
 
+/*
+ * Same thing got a separator token tk (return tag_separator(tk))
+ * - size = token size when converted to string
+ * - user_tag = tag for the converter
+ */
+extern void *init_separator_token(pp_atomic_token_t *tk, uint32_t size, uint32_t user_tag);
+
 
 /*
  * Initialize a close token tk and return the tagged pointer tag_close(tk).
@@ -770,6 +794,8 @@ extern void *init_atomic_token(pp_atomic_token_t *tk, uint32_t size, uint32_t us
  * - user_tag: any thing used by the free_close_token in the converter
  */
 extern void *init_close_token(pp_close_token_t *tk, bool par, uint32_t user_tag);
+
+
 
 
 #endif /* __PRETTY_PRINTER_H */

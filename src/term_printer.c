@@ -1592,7 +1592,7 @@ static void pp_var_decl(yices_pp_t *printer, term_table_t *tbl, term_t v) {
   } else {
     pp_id(printer, "v!", i);
   }
-  pp_string(printer, "::");
+  pp_separator(printer, "::");
   pp_type(printer, tbl->types, tau);
   pp_close_block(printer, false);
 }
