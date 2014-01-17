@@ -96,17 +96,17 @@ base_src_c := abstract_values.c arena.c arith_atomtable.c		\
               free_var_collector.c fresh_value_maker.c fun_maps.c	\
               fun_solver.c fun_trees.c gates_hash_table.c		\
               gates_manager.c gcd.c generic_heap.c hash_functions.c	\
-              idl_floyd_warshall.c ilists.c index_vectors.c		\
-              int_array_hsets.c int_array_sort.c int_array_sort2.c	\
-              int_bags.c int_bv_sets.c int_hash_classes.c		\
-              int_hash_map.c int_hash_map2.c int_hash_sets.c		\
-              int_hash_tables.c int_heap.c int_heap2.c			\
-              int_partitions.c int_powers.c int_queues.c int_stack.c	\
-              int_vectors.c internalization_table.c lexer.c		\
-              mark_vectors.c matrices.c memalloc.c merge_table.c	\
-              models.c model_eval.c model_printer.c mpq_aux.c		\
-              object_stores.c offset_equalities.c pair_hash_map2.c	\
-              parser.c pointer_vectors.c polynomials.c poly_buffer.c	\
+              idl_floyd_warshall.c index_vectors.c int_array_hsets.c	\
+              int_array_sort.c int_array_sort2.c int_bags.c		\
+              int_bv_sets.c int_hash_classes.c int_hash_map.c		\
+              int_hash_map2.c int_hash_sets.c int_hash_tables.c		\
+              int_heap.c int_heap2.c int_partitions.c int_powers.c	\
+              int_queues.c int_stack.c int_vectors.c			\
+              internalization_table.c lexer.c mark_vectors.c		\
+              matrices.c memalloc.c merge_table.c models.c		\
+              model_eval.c model_printer.c mpq_aux.c object_stores.c	\
+              offset_equalities.c pair_hash_map2.c parser.c		\
+              pointer_vectors.c polynomials.c poly_buffer.c		\
               poly_buffer_terms.c power_products.c pprod_table.c	\
               pretty_printer.c pseudo_subst.c ptr_array_sort.c		\
               ptr_array_sort2.c ptr_hash_classes.c ptr_hash_map.c	\
