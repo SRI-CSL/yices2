@@ -1578,6 +1578,17 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width
  * - n = number of terms in the array a
  * - a = array of terms
  * - width, height, offset define the print area
+ * - horiz = Boolean flag that determines the layout
+ * 
+ * If horiz is true (non-zero), the terms are printed as follows
+ *     a[0]  a[1] .... a[k]
+ *     a[k+1] ... a[n-1]
+ *
+ * If horiz is false (zero), the terms are printed as follows
+ *     a[0]
+ *     a[1]
+ *      ...
+ *     a[n-1]
  *
  * The function first checks whether all terms in a[0... n-1] are
  * valid.  If not, it sets the error report: 
@@ -1593,12 +1604,8 @@ __YICES_DLLSPEC__ extern int32_t yices_pp_term(FILE *f, term_t t, uint32_t width
  *    code = OUTPUT_ERROR
  *
  */
-__YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, term_t a[], uint32_t witdh, uint32_t height, uint32_t offset);
-
-/*
- * Variant: attempt to print the terms horizontally
- */
-__YICES_DLLSPEC__ extern int32_t yices_pp_term_list(FILE *f, uint32_t n, term_t a[], uint32_t witdh, uint32_t height, uint32_t offset);
+__YICES_DLLSPEC__ extern int32_t yices_pp_term_array(FILE *f, uint32_t n, term_t a[], 
+						     uint32_t witdh, uint32_t height, uint32_t offset, int32_t horiz);
 
 
 
