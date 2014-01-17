@@ -1528,7 +1528,7 @@ nand \\ \texttt{(bv-nor u1 ... u\_n)} & bitwise nor
 
 Table~\ref{bitvectors1} lists all the arithmetic and bitwise
 operators. All operators in this table take arguments that have the
-same size and return a result of that size.  As usual, the commutative
+same size and return a result of that size.  As usual, the associative
 operators can take one, two, or more arguments. The \texttt{bv-sub}
 operator takes at least two arguments. In \texttt{(bv-pow u k)},
 the power $k$ must be a non-negative integer constant. 
@@ -2108,6 +2108,8 @@ There are many search and preprocessing parameters. The full list is
 described in the file \texttt{doc/YICES-LANGUAGE} included in the
 distribution.
 
+\subsubsection*{Timeout}
+
 By default, \texttt{yices} does not use a timeout. So a call to
 \texttt{(check)} may take a very long time to terminate. To limit the
 runtime of \texttt{(check)}, one can give a timeout is seconds. For
@@ -2133,7 +2135,7 @@ To see the current value of the timeout, one can use the command
 \end{verbatim}
 \end{small}
 
-\subsubsection*{Miscellaneous Commands}
+\subsubsection*{Echo}
 
 The \texttt{echo} command can be use to print a string on the standard
 output. It can be useful in Yices scripts to help display
@@ -2172,7 +2174,8 @@ results. An example in Figure~\ref{example-echo} illustrates its use.
 \label{example-echo}
 \end{figure}
 
-\medskip\noindent 
+\subsubsection*{Include}
+
 It is possible to include a Yices script using the following command:
 \begin{small}
 \begin{verbatim}
@@ -2189,7 +2192,8 @@ string. For example, to include the file \texttt{example.ys}, type
 This command will read and execute all commands contained in the given
 file.
 
-\medskip\noindent 
+\subsubsection*{Help}
+
 The \texttt{yices} tool has on-line help, which can be obtained using one
 of the following commands:
 \begin{small}
@@ -2225,7 +2229,8 @@ list of all topics, one can type
 \end{small}
 
 
-\medskip\noindent 
+\subsubsection*{Statistics}
+
 The solver keeps track of various statistics concerning the search
 algorithms (e.g., the number of decisions and conflicts in the CDCL
 solver). The following command prints all the internal statistics
@@ -2249,7 +2254,8 @@ a specific \texttt{(check)}, type the following commands:
 \end{verbatim}
 \end{small}
 
-\medskip\noindent 
+\subsubsection*{Exit}
+
 At any time, one can exit the solver using the command
 \begin{small}
 \begin{verbatim}
