@@ -2762,6 +2762,8 @@ static void yices_eval_cmd(term_t t) {
 /*
  * PROVISIONAL: to test ef analyzer
  */
+#if 0
+
 static void show_clause(ef_clause_t *clause) {
   uint32_t i, n;
 
@@ -2804,12 +2806,13 @@ static void show_clause(ef_clause_t *clause) {
   }
 }
 
+#endif
+
 /*
  * New command: ef solver
  */
 static void yices_efsolve_cmd(void) {
   ef_analyzer_t analyzer;
-  ef_clause_t clause;
   ef_prob_t prob;
   ef_cnstr_t *cnstr;
   ivector_t *v;
@@ -2825,78 +2828,59 @@ static void yices_efsolve_cmd(void) {
     yices_pp_term_array(stdout, v->size, v->data, 100, UINT32_MAX, 0);
 
     init_ef_analyzer(&analyzer, __yices_globals.manager);
-    ef_add_assertions(&analyzer, v->size, v->data, true, true, &analyzer.flat);
-
-    fputs("\nAfter flattening:\n", stdout);
-    v = &analyzer.flat;
-    yices_pp_term_array(stdout, v->size, v->data, 100, UINT32_MAX, 0);
-    fputs("\n", stdout);
-
     init_ef_prob(&prob);
-    init_ef_clause(&clause);
-    n = v->size;
-    for (i=0; i<n; i++) {
-      printf("--- decomposing clause %"PRIu32" ---\n", i);
-      c = ef_decompose(&analyzer, v->data[i], &clause);
-      switch (c) {
-      case EF_NO_ERROR:
-	fputs("good clause\n", stdout);
-	show_clause(&clause);
-	ef_add_clause(&analyzer, &prob, v->data[i], &clause);
-	break;
-      case EF_UNINTERPRETED_FUN:
-	fputs("clause has uninterpreted function\n", stdout);
-	show_clause(&clause);
-	break;
-
-      case EF_NESTED_QUANTIFIER:
-	fputs("error: nested quantifiers\n", stdout);
-	break;
-      case EF_HIGH_ORDER_UVAR:
-	fputs("error: non-atomic universal variable\n", stdout);
-	break;
-      case EF_HIGH_ORDER_EVAR:
-	fputs("error: non-atomic existential variable\n", stdout);
-	break;
-      case EF_ERROR:
-	fputs("error\n", stdout);
-	break;
-      }      
-    }
-
-    printf("\n--- EF problem descriptor ---\n");
-    printf("Existential variables: ");
-    n = ef_prob_num_evars(&prob);
-    yices_pp_term_list(stdout, n, prob.all_evars, 80, UINT32_MAX, 23);
-    printf("\n");
-
-    printf("Universal variables:   ");
-    n = ef_prob_num_uvars(&prob);
-    yices_pp_term_list(stdout, n, prob.all_uvars, 80, UINT32_MAX, 23);
-    printf("\n");
-    
-    printf("Conditions:\n  ");
-    n = ef_prob_num_conditions(&prob);
-    yices_pp_term_array(stdout, n, prob.conditions, 100, UINT32_MAX, 2);
-    printf("\n");
-
-    n = ef_prob_num_constraints(&prob);;
-    for (i=0; i<n; i++) {
-      cnstr = prob.cnstr + i;
-      printf("Constraint[%"PRIu32"]:\n", i);
-      printf("  evars: ");
-      yices_pp_term_list(stdout, ef_constraint_num_evars(cnstr), cnstr->evars, 80, UINT32_MAX, 9);
-      printf("  uvars: ");
-      yices_pp_term_list(stdout, ef_constraint_num_uvars(cnstr), cnstr->uvars, 80, UINT32_MAX, 9);
-      printf("  assumption: ");
-      yices_pp_term(stdout, cnstr->assumption, 100, UINT32_MAX, 14);
-      printf("  guarantee:  ");
-      yices_pp_term(stdout, cnstr->guarantee, 100, UINT32_MAX, 14);
+    c = ef_analyze(&analyzer, &prob, v->size, v->data, true, true);
+    switch (c) {
+    case EF_UNINTERPRETED_FUN:
+      fputs("Warning: input has uninterpreted function\n", stdout);
+    case EF_NO_ERROR:
+      printf("\n--- EF problem descriptor ---\n");
+      printf("Existential variables: ");
+      n = ef_prob_num_evars(&prob);
+      yices_pp_term_list(stdout, n, prob.all_evars, 80, UINT32_MAX, 23);
       printf("\n");
-    }
+
+      printf("Universal variables:   ");
+      n = ef_prob_num_uvars(&prob);
+      yices_pp_term_list(stdout, n, prob.all_uvars, 80, UINT32_MAX, 23);
+      printf("\n");
+    
+      printf("Conditions:\n  ");
+      n = ef_prob_num_conditions(&prob);
+      yices_pp_term_array(stdout, n, prob.conditions, 100, UINT32_MAX, 2);
+      printf("\n");
+
+      n = ef_prob_num_constraints(&prob);;
+      for (i=0; i<n; i++) {
+	cnstr = prob.cnstr + i;
+	printf("Constraint[%"PRIu32"]:\n", i);
+	printf("  evars: ");
+	yices_pp_term_list(stdout, ef_constraint_num_evars(cnstr), cnstr->evars, 80, UINT32_MAX, 9);
+	printf("  uvars: ");
+	yices_pp_term_list(stdout, ef_constraint_num_uvars(cnstr), cnstr->uvars, 80, UINT32_MAX, 9);
+	printf("  assumption: ");
+	yices_pp_term(stdout, cnstr->assumption, 100, UINT32_MAX, 14);
+	printf("  guarantee:  ");
+	yices_pp_term(stdout, cnstr->guarantee, 100, UINT32_MAX, 14);
+	printf("\n");
+      }
+      break;
+
+    case EF_NESTED_QUANTIFIER:
+      fputs("error: nested quantifiers\n", stdout);
+      break;
+    case EF_HIGH_ORDER_UVAR:
+      fputs("error: non-atomic universal variable\n", stdout);
+      break;
+    case EF_HIGH_ORDER_EVAR:
+      fputs("error: non-atomic existential variable\n", stdout);
+      break;
+    case EF_ERROR:
+      fputs("error\n", stdout);
+      break;
+    }      
 
     delete_ef_prob(&prob);
-    delete_ef_clause(&clause);
     delete_ef_analyzer(&analyzer);
     
     efdone = true;

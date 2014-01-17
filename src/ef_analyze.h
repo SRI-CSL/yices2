@@ -212,6 +212,7 @@ extern uint32_t remove_uninterpreted_functions(ef_analyzer_t *ef, ivector_t *v);
  * - t is written to (or A_1(y) .... A_k(y) G_1(x, y) ... G_t(x, y))
  *   where x = uninterpreted constants of t (existentials)
  *     and y = free variables of t (universal variables)
+ * - f_ite, f_iff: optional flattening flags
  * - A_i = any term that contains only the y variables
  *   G_j = any other term
  * - the set of universal variables are collected in c->uvars
@@ -233,7 +234,7 @@ extern uint32_t remove_uninterpreted_functions(ef_analyzer_t *ef, ivector_t *v);
  * - c->evars contains only the atomic uninterpreted terms of t (uninterpreted
  *   functions are removed)
  */
-extern ef_code_t ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *c);
+extern ef_code_t ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *c, bool f_ite, bool f_iff);
 
 
 /*
@@ -252,6 +253,21 @@ extern ef_code_t ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *c);
  *    Then we add the universal constrains (forall y: A => G) to prob.
  */
 extern void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_clause_t *c);
+
+
+/*
+ * Full processing:
+ * - build problem descriptor from a set of assertions
+ *   n = number of assertions
+ *   a[0 ... n-1] = the assertions
+ *   f_ite: flag to enable flattening of if-then-else
+ *   f_iff: flag to enable flattening of iff
+ * - result code: same as ef_decompose
+ * - if code is either EF_NO_ERROR or EF_UNINTERPRETED_FUN then prob is 
+ *   filled in with the problem
+ * - otherwise, prob is partially filled in.
+ */
+extern ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, term_t *a, bool f_ite, bool f_iff);
 
 
 #endif /* __EF_ANALYZE_H */

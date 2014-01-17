@@ -704,6 +704,7 @@ static ef_code_t ef_get_vars_and_check(ef_analyzer_t *ef, term_t t, ivector_t *u
  * - t is written to (or A_1(y) .... A_k(y) G_1(x, y) ... G_t(x, y))
  *   where x = uninterpreted constants of t (existentials)
  *     and y = free variables of t (universal variables)
+ * - f_ite, f_iff: optional flattening flags
  * - A_i = any term that contains only the y variables
  *   G_j = any other term
  * - the set of universal variables are collected in cl->uvars
@@ -711,14 +712,14 @@ static ef_code_t ef_get_vars_and_check(ef_analyzer_t *ef, term_t t, ivector_t *u
  *   the A_i's are stored in cl->assumptions
  *   the G_j's are stored in cl->guarantees
  */
-ef_code_t ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *cl) {
+ef_code_t ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *cl, bool f_ite, bool f_iff) {
   ivector_t *v;
   uint32_t i, n;
   ef_code_t c, code;
 
   reset_ef_clause(cl);
   v = &ef->disjuncts;
-  ef_flatten_to_disjuncts(ef, t, true, true, v);
+  ef_flatten_to_disjuncts(ef, t, f_ite, f_iff, v);
   code = EF_NO_ERROR; // default
 
   n = v->size;
@@ -887,3 +888,52 @@ void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_clause_t *c)
 }
 
 
+/*
+ * FULL PROCESSING
+ */
+/*
+ * Full processing:
+ * - build problem descriptor from a set of assertions
+ *   n = number of assertions
+ *   a[0 ... n-1] = the assertions
+ *   f_ite: flag to enable flattening of if-then-else
+ *   f_iff: flag to enable flattening of iff
+ * - result code: same as ef_decompose
+ * - if code is either EF_NO_ERROR or EF_UNINTERPRETED_FUN then prob is 
+ *   filled in with the problem
+ * - otherwise, prob is partially filled in.
+ */
+ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, term_t *a, bool f_ite, bool f_iff) {
+  ef_clause_t clause;
+  ivector_t *v;
+  uint32_t i;
+  term_t t;
+  ef_code_t c, return_code;
+
+  return_code = EF_NO_ERROR;
+
+  init_ef_clause(&clause);
+
+  v = &ef->flat;
+  ef_add_assertions(ef, n, a, f_ite, f_iff, v);  
+
+  n = v->size;
+  for (i=0; i<n; i++) {
+    t = v->data[i];
+    c = ef_decompose(ef, t, &clause, f_ite, f_iff);
+    switch (c) {
+    case EF_UNINTERPRETED_FUN:
+      return_code = c; // fall through intended
+    case EF_NO_ERROR:
+      ef_add_clause(ef, prob, t, &clause);
+      break;
+    default: // error
+      return_code = c;
+      goto done;
+    }
+  }
+
+ done:
+  delete_ef_clause(&clause);
+  return return_code;
+}
