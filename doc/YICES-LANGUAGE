@@ -102,6 +102,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
 	    | ( show-stats )
             | ( reset-stats )
 	    | ( set-timeout <number> )
+            | ( show-timeout )
             | ( dump-context )
 	    | ( help )
             | ( help <symbol> )
