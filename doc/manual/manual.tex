@@ -29,7 +29,7 @@ Menlo Park CA 94025 USA
 %\listoffigures
 \cleardoublepage
 \setcounter{page}{0}
-<\pagenumbering{arabic}
+\pagenumbering{arabic}
 
 
 \chapter{Introduction}
@@ -541,15 +541,15 @@ extract bits $i$ down to $j$ \\
 \label{bitvectors}
 \end{table}
 
-The  semantics  of all  the  bitvector  operators  is defined  in  the
-SMT-LIB~1.2  standard.  Yices~2  follows the  standard except  for the
-case of  division by zero.   In SMT-LIB, the  result of a  division by
-zero is  an unspecified value, but  one must ensure  that the division
+The semantics of all the bitvector operators is defined in the
+SMT-LIB~1.2 standard.  Yices~2 follows the standard except for the
+case of division by zero.  In SMT-LIB, the result of a division by
+zero is an unspecified value, but one must ensure that the division
 operators are functional. In other words, SMT-LIB does not specify the
-result of  $(\mathtt{bvudiv}\ a\  b)$ if $b$  is the zero  vector, but
-$(\mathtt{bvudiv}\ a\ b)$ and  $(\mathtt{bvudiv}\ c\ b)$ must be equal
-whenever  $a = c$,  even if  $b$ is  the zero  vector. Yices~2  uses a
-simpler       semantics       (inspired       from      the       BTOR
+result of $(\mathtt{bvudiv}\ a\ b)$ if $b$ is the zero vector, but
+$(\mathtt{bvudiv}\ a\ b)$ and $(\mathtt{bvudiv}\ c\ b)$ must be equal
+whenever $a = c$, even if $b$ is the zero vector. Yices~2 uses a
+simpler semantics (inspired by the BTOR
 format~\cite{Brummayer-etal:2008}):
 \begin{itemize}
 \item {\bf  Unsigned Division:}  If $b$ is  the zero bitvector  of $n$
@@ -636,24 +636,25 @@ is used by the internal SAT solver.
 \section{Solvers}
 \label{solvers}
 
-In  Yices~2,  it  is  possible   to  select  a  different  solver  (or
-combination of solvers) for the  problem of interest. Each context can
-thus be configured for a specific  class of formulas. For example, one
-can use  a solver specialized for  linear arithmetic, or use  a solver
-that           supports           the           full           Yices~2
-language. Figure~\ref{solver-architecture} shows  how the most general
-solver is  built. A  major component  of all solvers  is a  SAT solver
-based on the Conflict-Driven Clause Learning (CDCL) procedure. The SAT
-solver   is  coupled   with   one  or   more  so-called   \emph{theory
-  solvers}. Each theory  solver implements a decision  procedure for a
-particular  theory.   Currently,  Yices~2 includes  four  main  theory
-solvers:
+In Yices~2, it is possible to select a different solver (or
+combination of solvers) for the problem of interest. Each context can
+thus be configured for a specific class of formulas. For example, one
+can use a solver specialized for linear arithmetic, or use a solver
+that supports the full Yices~2
+language. Figure~\ref{solver-architecture} shows the architecture of
+the most general solver available in Yices~2. A major component of all
+solvers is a SAT solver based on the Conflict-Driven Clause Learning
+(CDCL) procedure. The SAT solver is coupled with one or more so-called
+\emph{theory solvers}. Each theory solver implements a decision
+procedure for a particular theory.  Currently, Yices~2 includes four
+main theory solvers:
 \begin{itemize}
-\item  The \emph{UF  Solver} deals  with the  theory  of uninterpreted
-  functions   with  equality\footnote{UF   stands   for  uninterpreted
+\item The \emph{UF Solver} deals with the theory of uninterpreted
+  functions with equality\footnote{UF stands for uninterpreted
     functions.}. It implements a decision procedure based on computing
-  congruence      closures,      similar      to     the      Simplify
-  system~\cite{Detlefs-etal:JACM2005}.
+  congruence closures, similar to the Simplify
+  system~\cite{Detlefs-etal:JACM2005}, with other ideas borrowed
+  from~\cite{Nieuwenhuis+Oliveras:UF:2007}.
 \item The \emph{Arithmetic Solver} deals with linear integer and real
   arithmetic.  It implements a decision procedure based on the Simplex
   algorithm~\cite{DutertredeMoura:cav06,DutertredeMoura:report06}. 
@@ -675,14 +676,14 @@ combined with the UF solver.
 \end{figure}
 
 
-Yices~2 employs a modular architecture.  It is possible to remove some
-of the components of Figure~\ref{solver-architecture} to build simpler
-and  more  efficient  solvers  that  are specialized  for  classes  of
-formulas.  For example,  a solver for pure arithmetic  can be built by
-directly  attaching the  arithmetic  solver to  the  CDCL SAT  solver.
-Similarly, Yices~2 can be  specialized for pure bitvector problems, or
-for problems combining uninterpreted functions, arrays, and bitvectors
-(by removing the arithmetic solver).
+It   is    possible   to   remove   some   of    the   components   of
+Figure~\ref{solver-architecture} to  build simpler and  more efficient
+solvers that are specialized for  classes of formulas.  For example, a
+solver  for pure  arithmetic can  be built  by directly  attaching the
+arithmetic solver to  the CDCL SAT solver.  Similarly,  Yices~2 can be
+specialized  for pure  bitvector problems,  or for  problems combining
+uninterpreted  functions,  arrays,  and  bitvectors (by  removing  the
+arithmetic solver).
 
 Yices~2  combines   several  theory  solver   using  the  Nelson-Oppen
 method~\cite{NelsonOppen79}.   The  UF solver  is  essential for  this
@@ -769,28 +770,28 @@ displayed. The  next commands ask for  the value of four  terms in the
 model.
 
 \begin{figure}
-\begin{small}
+\begin{footnotesize}
 \begin{verbatim}
-(define-type BV (bitvector 32))
+  (define-type BV (bitvector 32))
 
-(define a::BV)
-(define b::BV)
-(define c::BV (mk-bv 32 1008832))
-(define d::BV)
+  (define a::BV)
+  (define b::BV)
+  (define c::BV (mk-bv 32 1008832))
+  (define d::BV)
 
-(assert (= a (bv-or (bv-and (mk-bv 32 255) 
-                            (bv-not (bv-or b (bv-not c)))) 
-                    (bv-and c (bv-xor d (mk-bv 32 1023))))))
+  (assert (= a (bv-or (bv-and (mk-bv 32 255) 
+                              (bv-not (bv-or b (bv-not c)))) 
+                      (bv-and c (bv-xor d (mk-bv 32 1023))))))
 
-(check)
+  (check)
 
-(show-model)
-(eval a)
-(eval b)
-(eval c)
-(eval d)
+  (show-model)
+  (eval a)
+  (eval b)
+  (eval c)
+  (eval d)
 \end{verbatim}
-\end{small}
+\end{footnotesize}
 \caption{Example Yices Script}
 \label{example:bv_test2}
 \end{figure}
@@ -986,6 +987,7 @@ and~\ref{syntax:expressions}.
             | ( show-stats )
             | ( reset-stats )
             | ( set-timeout <number> )
+            | ( show-timeout )
             | ( dump-context )
             | ( help )
             | ( help <symbol> )
@@ -2096,17 +2098,44 @@ If you want to see the value of a specific parameter, type
    (show-param <name>)
 \end{verbatim}
 \end{small}
-where \texttt{<name>} is the parameter name. For example, the CDCL solver can
-use different branching heuristics. This is controlled by the \texttt{branching}
-parameter. To see its current value, type the command
+where \texttt{<name>} is the parameter name. To set a parameter value, use
+\begin{small}
+\begin{verbatim}
+    (set-param <name> <value>)
+\end{verbatim}
+\end{small}
+For example, the CDCL solver can use different branching
+heuristics. This is controlled by the \texttt{branching} parameter. To
+see its current value, type the command
 \begin{small}
 \begin{verbatim}
    (show-param branching)
 \end{verbatim}
 \end{small}
+To select a branching heuristic, use a command like
+\begin{small}
+\begin{verbatim}
+   (set-param branching negative)
+\end{verbatim}
+\end{small}
+ 
 There are many search and preprocessing parameters. The full list is
 described in the file \texttt{doc/YICES-LANGUAGE} included in the
-distribution.
+distribution. You can also get on-line help on the parameter using 
+\begin{small}
+\begin{verbatim}
+   (help params)
+\end{verbatim}
+\end{small}
+One can also get on-line help on a specific parameter. For example,
+the command
+\begin{small}
+\begin{verbatim}
+   (help branching)
+\end{verbatim}
+\end{small}
+will print a short description of the parameter \texttt{branching} and
+list its possible values.
 
 \subsubsection*{Timeout}
 
@@ -2501,19 +2530,99 @@ SMT-LIB~1.2 notations.
 
 \section{SMT-LIB 2.0}
 
+The distribution includes an alternative to the \texttt{yices}
+excecutable that can process input in the SMT-LIB~2.0 language.  To
+process SMT-LIB~2.0 input, use the \texttt{yices-smt2} solver instead
+of \texttt{yices}. This tool is included in the \texttt{bin} directory
+in the distribution. In the Windows or Cygwin distribution, it is
+called \texttt{yices-smt2.exe}.
+
+The SMT-LIB~2.0 language is defined in~\cite{SMTLIB20:2012}. More
+information about the various logics defined in SMT-LIB~2.0 is
+available at the SMT-LIB website: \url{www.smtlib.org}. David Cock's
+tutorial covers all aspects of the language in
+detail~\cite{SMTLIB:tutorial:2013}.
+
+ 
+\subsection{Tool Invocation}
+
+\subsection{Caveats}
+
+\subsection{Non-standard Extensions}
+
+
 
 
 \section{SMT-LIB 1.2}
 
 Another tool included in the distribution can process input written in
 the SMT-LIB~1.2  notation. This tool is  called \texttt{yices-smt} (or
-\texttt{yices-smt.exe}). It is included in the \texttt{bin} directory.
+\texttt{yices-smt.exe} on Windows or Cygwin). It is included in the \texttt{bin} directory.
 This tool can process SMT  problems written in version~1.2 of SMT-LIB,
 which is  documented in~\cite{SMTLIB12:2006}. This version  of SMT-LIB
 was  used  in  the  SMT  competitions before  2010.  Since  2010,  the
 competitions have used SMT-LIB~2.0.
 
+\subsection{Tool Usage}
 
+To execute this solver on an input file in the SMT-LIB~1.2 format, just type:
+\begin{small}
+\begin{verbatim}
+   yices-smt <input-file>
+\end{verbatim}
+\end{small}
+The solver will check satisfiability of the constraints in
+\texttt{input-file} and report either \texttt{sat} or
+\texttt{unsat}. The input file must contain a specification in the
+SMT-LIB {\em benchmark language\/} (cf.~\cite{SMTLIB12:2006}). The
+standard also defines a {\em theory language\/} that is not supported
+by \texttt{yices-smt}. If no input file is given, \texttt{yices-smt}
+will read standard input.
+
+
+\subsection{Command-Line Options}
+
+The following command-line options can be given to \texttt{yices-smt}.
+\begin{description}
+\item[\texttt{--model, -m}] If this option is given, and the benchmark
+  is satisfiable, \texttt{yices-smt} will display a model. 
+
+  This model may be partial. Some variables of the input benchmark may
+  be eliminated by preprocessing and formula simplification. The value
+  of these variables is not displayed in the model.
+
+\item[\texttt{--full-model, -f}] Print a full model.
+
+  This causes \texttt{yices-smt} to display a model if the benchmark
+  is satisfiable. Unlike option \texttt{--model}, this option forces
+  Yices to display a complete model. The value of all variables
+  declared in the input benchmark is displayed, even for variables
+  that are eliminated during preprocessing.
+
+\item[\texttt{--verbose, -v}] Run in verbose mode.
+
+  The tool will print various statistics during the search.
+
+\item[\texttt{--stats, -s}] Show statistics.
+
+  This causes \texttt{yices-smt} to display statistics about the
+  search, including search time, number of decisions and conflicts,
+  and so forth.
+
+\item[\texttt{--timeout=<int>, -t <int>}] Give a timeout in seconds.
+
+  For example, to run \texttt{yices-smt} with a 20~s timeout, use:
+  \begin{small}
+  \vspace*{-2mm}
+  \begin{verbatim}
+     yices-smt --timeout=20 ...
+  \end{verbatim}
+  \vspace*{-7mm}
+  \end{small}
+\item[\texttt{--version, -V}] Display the version and exit.
+
+\item[\texttt{--help, -h}] Show a summary of all options and exit.
+\end{description}
 
 \chapter{Yices API}
 \label{yices-api}
@@ -2522,8 +2631,8 @@ The distribution includes a library and header files for embedding
 Yices in other software. The main header file is \texttt{yices.h}
 which includes all the API. The API functions are documented in this
 header file. More complete and detailed documentation on the Yices~2
-API will be provided at the Yices
-website \url{http://yices.csl.sri.com/}.
+API will be provided at the Yices website
+\url{http://yices.csl.sri.com/}.
 
 
 \chapter{Yices License Terms}

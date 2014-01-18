@@ -321,6 +321,13 @@ extern void pp_rational(yices_pp_t *printer, rational_t *q);
 extern void pp_bv64(yices_pp_t *printer, uint64_t bv, uint32_t n);
 extern void pp_bv(yices_pp_t *printer, uint32_t *bv, uint32_t n);
 
+
+/*
+ * Separator token: same as a string, but the pretty printer
+ * does not add spaces before and after the token
+ */
+extern void pp_separator(yices_pp_t *printer, const char *s);
+
 /*
  * Quoted string:
  * - open_quote = character before the string (or '\0' if nothing needed)
