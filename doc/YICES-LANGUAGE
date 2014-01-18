@@ -221,7 +221,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
 
 
 4.3) the usual arithmetic operators are available. For example the 
-     linear 3x + y + 2 can be written (+ (* 3 x) y 2).
+     linear expression 3x + y + 2 can be written (+ (* 3 x) y 2).
 
      The +, *, - operators can take any number of arguments (at least one),
 
@@ -280,8 +280,8 @@ This is a summary of the commands and input language of the Yices 2 solver.
 
      b) bitvector arithmetic
 
-        bv-add, bv-sub, bv-mul take exactly two arguments, and both 
-	must have the same size     
+        bv-add, bv-sub, bv-mul take one or more arguments, all arguments must 
+	have the same size
 
         (bv-neg x) = opposite of x in 2's complement arithmetic
 
@@ -293,7 +293,7 @@ This is a summary of the commands and input language of the Yices 2 solver.
         (bv-not x) = bitwise negation of x
 
         bv-and, bv-or, bv-xor, bv-nand, bv-nor, bv-xnor: bitwise operators,
-        all take two arguments of the same size
+        all take one or more arguments of the same size
 
         note: (bv-xnor x y) is the same as (bv-not (bv-xor x y)).
 
@@ -786,8 +786,8 @@ The following parameters can be set using (set-param ...) and examined using (sh
    			   		   pivoting rule
 
    icheck		   Boolean 	   enable periodic checking for integer feasibility
-   			   		   If this flag is false, checking for integer feasibility is done
-					   only at the end of the end of the search.
+   			   		   If this flag is false, checking for integer feasibility 
+					   is done only at the end of the search.
 
    icheck-period           Integer	   if icheck is true, this parameter specifies how often the 
    			   		   integer-feasibility check is called.

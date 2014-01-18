@@ -541,15 +541,15 @@ extract bits $i$ down to $j$ \\
 \label{bitvectors}
 \end{table}
 
-The  semantics  of all  the  bitvector  operators  is defined  in  the
-SMT-LIB~1.2  standard.  Yices~2  follows the  standard except  for the
-case of  division by zero.   In SMT-LIB, the  result of a  division by
-zero is  an unspecified value, but  one must ensure  that the division
+The semantics of all the bitvector operators is defined in the
+SMT-LIB~1.2 standard.  Yices~2 follows the standard except for the
+case of division by zero.  In SMT-LIB, the result of a division by
+zero is an unspecified value, but one must ensure that the division
 operators are functional. In other words, SMT-LIB does not specify the
-result of  $(\mathtt{bvudiv}\ a\  b)$ if $b$  is the zero  vector, but
-$(\mathtt{bvudiv}\ a\ b)$ and  $(\mathtt{bvudiv}\ c\ b)$ must be equal
-whenever  $a = c$,  even if  $b$ is  the zero  vector. Yices~2  uses a
-simpler       semantics       (inspired       from      the       BTOR
+result of $(\mathtt{bvudiv}\ a\ b)$ if $b$ is the zero vector, but
+$(\mathtt{bvudiv}\ a\ b)$ and $(\mathtt{bvudiv}\ c\ b)$ must be equal
+whenever $a = c$, even if $b$ is the zero vector. Yices~2 uses a
+simpler semantics (inspired by the BTOR
 format~\cite{Brummayer-etal:2008}):
 \begin{itemize}
 \item {\bf  Unsigned Division:}  If $b$ is  the zero bitvector  of $n$
@@ -636,24 +636,25 @@ is used by the internal SAT solver.
 \section{Solvers}
 \label{solvers}
 
-In  Yices~2,  it  is  possible   to  select  a  different  solver  (or
-combination of solvers) for the  problem of interest. Each context can
-thus be configured for a specific  class of formulas. For example, one
-can use  a solver specialized for  linear arithmetic, or use  a solver
-that           supports           the           full           Yices~2
-language. Figure~\ref{solver-architecture} shows  how the most general
-solver is  built. A  major component  of all solvers  is a  SAT solver
-based on the Conflict-Driven Clause Learning (CDCL) procedure. The SAT
-solver   is  coupled   with   one  or   more  so-called   \emph{theory
-  solvers}. Each theory  solver implements a decision  procedure for a
-particular  theory.   Currently,  Yices~2 includes  four  main  theory
-solvers:
+In Yices~2, it is possible to select a different solver (or
+combination of solvers) for the problem of interest. Each context can
+thus be configured for a specific class of formulas. For example, one
+can use a solver specialized for linear arithmetic, or use a solver
+that supports the full Yices~2
+language. Figure~\ref{solver-architecture} shows the architecture of
+the most general solver available in Yices~2. A major component of all
+solvers is a SAT solver based on the Conflict-Driven Clause Learning
+(CDCL) procedure. The SAT solver is coupled with one or more so-called
+\emph{theory solvers}. Each theory solver implements a decision
+procedure for a particular theory.  Currently, Yices~2 includes four
+main theory solvers:
 \begin{itemize}
-\item  The \emph{UF  Solver} deals  with the  theory  of uninterpreted
-  functions   with  equality\footnote{UF   stands   for  uninterpreted
+\item The \emph{UF Solver} deals with the theory of uninterpreted
+  functions with equality\footnote{UF stands for uninterpreted
     functions.}. It implements a decision procedure based on computing
-  congruence      closures,      similar      to     the      Simplify
-  system~\cite{Detlefs-etal:JACM2005}.
+  congruence closures, similar to the Simplify
+  system~\cite{Detlefs-etal:JACM2005}, with other ideas borrowed
+  from~\cite{Nieuwenhuis+Oliveras:UF:2007}.
 \item The \emph{Arithmetic Solver} deals with linear integer and real
   arithmetic.  It implements a decision procedure based on the Simplex
   algorithm~\cite{DutertredeMoura:cav06,DutertredeMoura:report06}. 
@@ -675,14 +676,14 @@ combined with the UF solver.
 \end{figure}
 
 
-Yices~2 employs a modular architecture.  It is possible to remove some
-of the components of Figure~\ref{solver-architecture} to build simpler
-and  more  efficient  solvers  that  are specialized  for  classes  of
-formulas.  For example,  a solver for pure arithmetic  can be built by
-directly  attaching the  arithmetic  solver to  the  CDCL SAT  solver.
-Similarly, Yices~2 can be  specialized for pure bitvector problems, or
-for problems combining uninterpreted functions, arrays, and bitvectors
-(by removing the arithmetic solver).
+It   is    possible   to   remove   some   of    the   components   of
+Figure~\ref{solver-architecture} to  build simpler and  more efficient
+solvers that are specialized for  classes of formulas.  For example, a
+solver  for pure  arithmetic can  be built  by directly  attaching the
+arithmetic solver to  the CDCL SAT solver.  Similarly,  Yices~2 can be
+specialized  for pure  bitvector problems,  or for  problems combining
+uninterpreted  functions,  arrays,  and  bitvectors (by  removing  the
+arithmetic solver).
 
 Yices~2  combines   several  theory  solver   using  the  Nelson-Oppen
 method~\cite{NelsonOppen79}.   The  UF solver  is  essential for  this
