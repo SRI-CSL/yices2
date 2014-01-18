@@ -85,11 +85,8 @@ Solaris~2.10 (Sparc 64bits)  & \\
 \section{Content of  the Distribution}
 
 The distribution includes the Yices executables, the Yices library and
-header files,  and examples and documentation.  The  Yices library and
-header files  allows you  to use  Yices via its  API, as  explained in
-Chapter~\ref{yices-api}.
-
-Four solvers are currently included in the distribution:
+header files, and examples and documentation.  Four solvers are currently included in the
+distribution:
 \begin{itemize}
 \item \texttt{yices} is  the main SMT solver. It  can read and process
   input given  in Yices~2's  specification language. This  language is
@@ -104,7 +101,8 @@ Four solvers are currently included in the distribution:
 \item \texttt{yices-sat}  is a Boolean satisfiability  solver that can
   read input in the DIMACS CNF format.
 \end{itemize}
-
+ The Yices library and header files allows you to use Yices via its
+ API, as explained in Chapter~\ref{yices-api}.
 
 
 \section{Library Dependencies}
@@ -1669,7 +1667,7 @@ In the unsigned division and quotient operations, \texttt{u} and
 \texttt{v} are interpreted as integers in the interval $[0,2^n-1]$.
 As explained in section~\ref{bitvector-general}, \texttt{(bv-div u v)}
 is the largest integer that can be represented using $n$ bits and is
-smaller than or equal to $\frac{u}{v}$. The unsigned remainder
+smaller than or equal to $u/v$. The unsigned remainder
 \texttt{(bv-rem u v)} satisfies the identity
 \begin{small}
 \begin{verbatim}
@@ -1681,11 +1679,11 @@ interpreted as integers in the interval $[-2^{n-1},2^{n-1}-1]$ (in
 2s-complement representation), and the division is done with rounding
 to zero. 
 \begin{itemize}
-\item If $\frac{u}{v}$ is non-negative, then \texttt{(bv-sdiv u v)}
+\item If $u/v$ is non-negative, then \texttt{(bv-sdiv u v)}
 is the largest integer $q$ in $[0,2^{n-1}-1]$ such that $0 \leq q \leq
-\frac{u}{v}$. 
-\item If $\frac{u}{v}$ is negative then \texttt{(bv-sdiv u v)}
-is the smallest integer $q$ in $[-2^{n-1}, 0]$ such that $\frac{u}{v}
+u/v$. 
+\item If $u/v$ is negative then \texttt{(bv-sdiv u v)}
+is the smallest integer $q$ in $[-2^{n-1}, 0]$ such that $u/v
 \leq q \leq 0$.
 \end{itemize}
 The signed remainder operation satisfies the identity
@@ -1698,8 +1696,8 @@ The last operator in Table~\ref{bitvectors4} is the remainder in the
 signed division of \texttt{u} by \texttt{v} with rounding to
 $-\infty$.  In this operation, \texttt{u} and \texttt{v} are
 interpreted as signed integers in the interval $[-2^{n-1},2^{n-1}-1]$;
-the quotient is $\lfloor \frac{u}{v} \rfloor$ (i.e., the largest
-integer $q$ such that $q \leq \frac{u}{v}$); and the remainder is $u -
+the quotient is $\lfloor u/v \rfloor$ (i.e., the largest
+integer $q$ such that $q \leq u/v$); and the remainder is $u -
 q v$. The special case $v=0$ is explained in
 Section~\ref{bitvector-general}.
 
@@ -2001,7 +1999,7 @@ for any \texttt{x} different from \texttt{0} and \texttt{1}.
 \begin{footnotesize}
 \begin{center}
 \begin{tabular}{c|c}
-\multicolumn{1}{c}{Input} & \multicolumn{1}{c}{Model} \\[0.4em]
+\multicolumn{1}{c}{Input} & \multicolumn{1}{c}{Model~~~~} \\[0.4em]
 
 \begin{minipage}[t]{6cm}
 \begin{verbatim}
@@ -2020,20 +2018,20 @@ for any \texttt{x} different from \texttt{0} and \texttt{1}.
 &
 ~~~\begin{minipage}[t]{6cm}
 \begin{verbatim}
-(= y 0)
-(= x -579)
-(function c
- (type (-> int bool))
- (default true))
-(function a
- (type (-> int bool))
- (= (a 1) false)
- (default true))
-(function b
- (type (-> int bool))
-  (= (b 0) true)
-  (= (b 1) true)
-  (default false))
+  (= y 0)
+  (= x -579)
+  (function c
+   (type (-> int bool))
+   (default true))
+  (function a
+   (type (-> int bool))
+   (= (a 1) false)
+   (default true))
+  (function b
+   (type (-> int bool))
+   (= (b 0) true)
+   (= (b 1) true)
+   (default false))
 \end{verbatim}
 \end{minipage}
 \end{tabular}
@@ -2118,7 +2116,8 @@ To select a branching heuristic, use a command like
    (set-param branching negative)
 \end{verbatim}
 \end{small}
- 
+
+\medskip\noindent 
 There are many search and preprocessing parameters. The full list is
 described in the file \texttt{doc/YICES-LANGUAGE} included in the
 distribution. You can also get on-line help on the parameter using 
