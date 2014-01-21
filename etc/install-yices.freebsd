@@ -162,7 +162,7 @@ includedir="$install_dir/include"
 if test "$local_install" = "no" ; then
   echo "Installing Yices in $install_dir"
   {  $install -d "$install_dir" "$bindir" "$libdir" "$includedir" \
-     && $install -m 664 ./include/*.h "$includedir"  \
+     && $install -m 0644 ./include/*.h "$includedir"  \
      && $install ./bin/* "$bindir"  \
      && $install ./lib/*.so.2.* "$libdir" ; } 2> /dev/null || 
   { echo "$failure"
