@@ -207,7 +207,11 @@ fi
 
 #
 # Create the symbolic link to lib/liyices.2.dylib
+# on Mac OS, the symbolic link permissions matter.
+# To make things usable, we force umask to 22:
+# this gives xwrx_rx_r to the symbolic link.
 #
+umask 22
 { "$link" -sf "$dylib_file" "$libdir/libyices.dylib" ; } || 
   { echo "$failure"
     echo "Could not create symbolic link libyices.dylib"
