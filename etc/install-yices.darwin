@@ -180,9 +180,9 @@ includedir="$install_dir/include"
 if test "$local_install" = "no" ; then
   echo "Installing Yices in $install_dir"
   { $install -d "$install_dir" "$bindir" "$libdir" "$includedir" \
-    && $install -m 664 ./include/*.h "$includedir" \
-    && $install ./bin/* "$bindir" \
-    && $install ./lib/*.2.dylib "$libdir" ; } 2> /dev/null || 
+    && $install -m 0644 ./include/*.h "$includedir" \
+    && $install -m ./bin/* "$bindir" \
+    && $install -m ./lib/*.2.dylib "$libdir" ; } 2> /dev/null || 
   { echo "$failure"
     echo "Could not create install directories or copy files"
     echo "Check that you have the right permissions"
