@@ -186,7 +186,10 @@ esac
 
 #
 # Add symbolic link
+# The umask affects the permissions on symbolic links.
+# So we force it to 22 here to avoid problems
 #
+umask 22
 $link -sf "$sofile" "$libdir/libyices.so" ||
   { echo "$failure"
     echo "Could not create symbolic link libyices.so"
