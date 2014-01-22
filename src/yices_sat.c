@@ -285,10 +285,10 @@ static void print_version(FILE *f) {
 static void print_help(char *progname) {
   printf("Usage: %s [options] filename\n\n", progname);
   printf("Option summary:\n"
-         "   --version, -V              Show version and exit\n"
-         "   --help, -h                 Print this message and exit\n"
-         "   --model, -m                Show a model (some variables may be eliminated)\n"
-         "   --verbose, -v              Print statistics during the search\n"
+         "   --version, -V        Show version and exit\n"
+         "   --help, -h           Print this message and exit\n"
+         "   --model, -m          Show a model if the problem is satisfiable\n"
+         "   --verbose, -v        Print statistics during the search\n"
          "\n"
          "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
   fflush(stdout);
