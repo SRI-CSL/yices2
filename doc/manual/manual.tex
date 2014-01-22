@@ -12,6 +12,17 @@
 
 %% \renewcommand{\baselinestretch}{1.5}
 
+%%
+%% Environment to list command-line arguments of a tool
+%% (this is based on the \newenvironment{description} from report.cls)
+%%
+\newenvironment{options}
+               {\list{}{\labelwidth0pt \itemindent-\leftmargin
+                        \let\makelabel\optionlabel}}
+               {\endlist}
+\newcommand*\optionlabel[1]{\hspace\labelsep\texttt{#1}}
+
+
 \begin{document}
 \begin{titlepage}
 \date{\today}
@@ -852,8 +863,8 @@ Yices is invoked on an input file by typing
 If  no  \texttt{<filename>}  is  given,  \texttt{yices}  will  run  in
 interactive  mode and  will  read the  standard  input. The  following
 options are supported
-\begin{description}
-\item[\texttt{--logic=<name>}] Select an SMT-LIB logic.\\[1mm]
+\begin{options}
+\item[--logic=<name>]~~Select an SMT-LIB logic\\[1em]
   \texttt{<name>}  must  either  be  an  SMT-LIB logic  name  such  as
   \texttt{QF\_UFLIA} or the special name \texttt{NONE}.
 
@@ -876,7 +887,7 @@ options are supported
   includes no  theory solvers  at all. All  assertions must  be purely
   propositional (i.e., involve only Boolean terms).
 
-\item[\texttt{--arith-solver=<solver>}] Select one of the possible arithmetic solvers.\\[1mm]
+\item[--arith-solver=<solver>] Select one of the possible arithmetic solvers.\\[1mm]
   \texttt{<solver>}     must    be     one     of    \texttt{simplex},
   \texttt{floyd-warshall}, or \texttt{auto}.
 
@@ -928,7 +939,7 @@ options are supported
   Mode \texttt{one-shot} is required if the Floyd-Warshall solvers are
   used.
 
-\item[\texttt{--version, -V}]  Display version information then exit.
+\item[\texttt{--version}] Display version information then exit.
 
   This  displays the  Yices version  number,  the version  of the  GMP
   library  linked with  Yices, and  information about  build date  and
@@ -951,7 +962,7 @@ options are supported
 \item[\texttt{--help, -h}] Print a summary of options
 
 \item[\texttt{--verbose, -v}] Run in verbose mode
-\end{description}
+\end{options}
 
 
 \section{Input Language}
@@ -2545,7 +2556,77 @@ detail~\cite{SMTLIB:tutorial:2013}.
  
 \subsection{Tool Invocation}
 
-\subsection{Caveats}
+To run \texttt{yices-smt2} on an input file, type
+\begin{small}
+\begin{verbatim}
+   yices-smt2 <input-file>
+\end{verbatim}
+\end{small}
+This will work fine as long as the \texttt{<input-file>} does not use
+the commands \texttt{push} and \texttt{pop} of SMT-LIB~2.0, since
+\texttt{yices-smt2} runs in mode \texttt{one-shot} by default
+(cf. Section~\ref{features}).
+
+To enable support for \texttt{push} and \texttt{pop}, give the
+command-line option \texttt{--incremental}.  This option configures
+\texttt{yices-smt2} to work in the mode \texttt{push-pop}. This flag
+is also required if the input files contains several blocks of
+assertions and multiple calls to the command \texttt{(check-sat)}.
+
+If no \texttt{<input-file>} is given, \texttt{yices-smt2} will read
+commands from the standard input. Optionally, one can also run the
+solver in interactive mode as follows:
+\begin{small}
+\begin{verbatim}
+   yices-smt2 --interactive
+\end{verbatim}
+\end{small}
+When invoked in this manner, \texttt{yices-smt2} will print a prompt
+before accepting commands from standard input. In addition, option
+\texttt{:print-success} is set to \texttt{true}. This causes
+\texttt{yices-smt2} to report \texttt{success} after various commands
+that would otherwise be executed silently (as required
+by~\cite{SMTLIB20:2012}).
+
+Here is the full list of command-line options supported by
+\texttt{yices-smt2}.
+\begin{description}
+\item[\texttt{--verbosity=<level>, -v <level>}] Sets
+  the initial verbosity level.
+
+  By default, \texttt{yices-smt2} runs with verbosity level 0. This
+  can be changed by using the SMT command
+\begin{small}
+\begin{verbatim}
+      (set-option :verbosity <level>)
+\end{verbatim}
+\end{small}
+  Running \texttt{yices-smt2 --verbosity=<level>} has the same effect
+  as setting the \texttt{:verbosity} option to the given value.
+
+\item[\texttt{--incremental}] Enable support for \texttt{push},
+  \texttt{pop}, and multiple calls to \texttt{check-sat}.
+
+\item[\texttt{--interactive}] Run in interactive mode.
+
+   This flag has no effect if \texttt{yices-smt2} is called with an
+   \texttt{input-file}. Otherwise, this flag 
+
+\item[\texttt{--stats, -s}] Display statistics on exit.
+
+  If this option is given, \texttt{yices-smt2} will print statistics
+  after all commands have been executed (i.e., after reaching the
+  command \texttt{(exit)} or the end of the input file).
+
+\item[\texttt{--help}] Show a summary of command-line options and exit.
+
+\item[\texttt{--version}] Print version and exit.
+   
+\end{description}
+
+
+\subsection{Compliance with the Standard}
+
 
 \subsection{Non-standard Extensions}
 
@@ -2555,12 +2636,14 @@ detail~\cite{SMTLIB:tutorial:2013}.
 \section{SMT-LIB 1.2}
 
 Another tool included in the distribution can process input written in
-the SMT-LIB~1.2  notation. This tool is  called \texttt{yices-smt} (or
-\texttt{yices-smt.exe}). It is included in the \texttt{bin} directory.
-This tool can process SMT  problems written in version~1.2 of SMT-LIB,
-which is  documented in~\cite{SMTLIB12:2006}. This version  of SMT-LIB
-was  used  in  the  SMT  competitions before  2010.  Since  2010,  the
-competitions have used SMT-LIB~2.0.
+the SMT-LIB~1.2 notation. This tool is called \texttt{yices-smt} (or
+\texttt{yices-smt.exe} on Windows or Cygwin). It is included in the
+\texttt{bin} directory.  This tool can process SMT problems written in
+version~1.2 of SMT-LIB, which is documented
+in~\cite{SMTLIB12:2006}. This version of SMT-LIB was used in the SMT
+competitions before 2010.  Since 2010, the competitions have used
+SMT-LIB~2.0.
+
 
 \subsection{Tool Usage}
 
