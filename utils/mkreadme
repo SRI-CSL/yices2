@@ -25,11 +25,11 @@
 # for the static mingw32 and mingw64 distributions.
 #
 
-usage="Usage: $0 <distribution directory> <termplate>
-
-   For example
- 
-    $0 ./build/x86_64-unknown-linux-gnu-release/dist ./etc/README.linux
+usage="Usage: $0 <distribution directory> <template>\n
+\n
+   For example\n
+\n 
+    $0 ./build/x86_64-unknown-linux-gnu-release/dist ./etc/README.linux\n
 "
 
 if test $# != 2 ; then
@@ -124,9 +124,26 @@ for lib in $alllibs; do
   esac
 done
 
+
+#
+# Get os name and release
+#
+os_name=`uname 2>/dev/null` || os_name=unknown
+os_release=`(uname -r) 2>/dev/null` || os_release=unknown
+case "${os_name}:${os_realease}" in
+  unknown:* |  *:unknown )
+    echo "Error: failed to get OS version\n"
+    exit 1
+    ;;
+
+  * )
+    os_version="${os_name} ${os_release}"
+    ;;
+esac   
+
 #
 # Apply the substitution
 #
 sed -e "s/__YICES__/${yices_version}/g" -e "s/__GMP__/${gmp_version}/g" \
-    -e "s/__DYLIB__/${libname}/g" $template
+    -e "s/__DYLIB__/${libname}/g" -e "s/__OS_VERSION__/${os_version}/g" $template
 
