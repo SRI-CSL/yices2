@@ -870,9 +870,9 @@ Yices is invoked on an input file by typing
 \begin{verbatim}
       yices [option] <filename>
 \end{verbatim}
-If  no  \texttt{<filename>}  is  given,  \texttt{yices}  will  run  in
-interactive  mode and  will  read the  standard  input. The  following
-options are supported. 
+If no \texttt{<filename>} is given, \texttt{yices} will run in
+interactive mode and will read the standard input. The following
+options are supported.
 \begin{options}
 \item[--logic=<name>] Select an SMT-LIB logic.
 
@@ -921,8 +921,9 @@ options are supported.
   solver as follows:
   \begin{itemize}
   \item   \texttt{one-shot}:   no   assertions   are   allowed   after
-    \texttt{(check)},  so   only  one  call   to  \texttt{(check)}  is
-    possible.
+    the \texttt{(check)} command. In this mode, \texttt{yices} can 
+    check satisfiability of a single block of assertions and possibly 
+    build a model if the assertions are satisfiable.
   \item \texttt{multi-checks}: several  calls to \texttt{(assert)} and
     \texttt{(check)} are allowed.
   \item \texttt{push-pop}: like \texttt{multi-checks} but with support
@@ -973,7 +974,9 @@ options are supported.
 
 \item[--verbose, -v] Run in verbose mode
 \end{options}
-
+As indicated in this list, some options can be given either in a long
+form (like \texttt{--verbose}) or in an equivalent short from (like
+\texttt{-v}). In all cases the long and short forms are equivalent.
 
 \section{Input Language}
 
@@ -2560,12 +2563,10 @@ SMT-LIB~1.2 notations.
 
 \section{SMT-LIB 2.0}
 
-The distribution includes an alternative to the \texttt{yices}
-excecutable that can process input in the SMT-LIB~2.0 language.  To
-process SMT-LIB~2.0 input, use the \texttt{yices-smt2} solver instead
-of \texttt{yices}. This tool is included in the \texttt{bin} directory
-in the distribution. In the Windows or Cygwin distribution, it is
-called \texttt{yices-smt2.exe}.
+To process SMT-LIB~2.0 input, use the \texttt{yices-smt2} solver
+instead of \texttt{yices}. This tool is included in the \texttt{bin}
+directory in the distribution. In the Windows or Cygwin distribution,
+it is called \texttt{yices-smt2.exe}.
 
 \medskip\noindent 
 The SMT-LIB~2.0 language is defined in~\cite{SMTLIB20:2012}. More
