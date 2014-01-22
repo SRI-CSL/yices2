@@ -13,9 +13,10 @@
 # (e.g. etc/README.static.linux)
 #
 # This scripts replaces 
-#  __YICES__ by the Yices version number
-#  __GMP__   by the GMP version
-#  __DYLIB__ by the name of the dynamic libray
+#  __YICES__      by the Yices version number
+#  __GMP__        by the GMP version
+#  __DYLIB__      by the name of the dynamic libray
+#  __OS_VERSION__ by the build OS
 # in the template
 #
 # NOTE: For cross-compilation on cygwin, this script may not work for
