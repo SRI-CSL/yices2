@@ -16,10 +16,14 @@
 %% Environment to list command-line arguments of a tool
 %% (this is based on the \newenvironment{description} from report.cls)
 %%
-\newenvironment{options}
-               {\list{}{\labelwidth0pt \itemindent-\leftmargin
-                        \let\makelabel\optionlabel}}
-               {\endlist}
+\newenvironment{options}{
+\begin{list}{}{
+\setlength{\labelsep}{1.8ex}
+\setlength{\labelwidth}{0pt}
+\setlength{\itemindent}{-0.5\leftmargin}
+\settowidth{\leftmargin}{\texttt{--}}
+\renewcommand{\makelabel}{\optionlabel}}}
+{\end{list}}
 \newcommand*\optionlabel[1]{\hspace\labelsep\texttt{#1}}
 
 
@@ -35,7 +39,7 @@ Menlo Park CA 94025 USA
 \end{titlepage}
 
 \maketitle
-\cleardoublepageblank
+`\cleardoublepageblank
 \tableofcontents
 %\listoffigures
 \cleardoublepage
@@ -258,8 +262,7 @@ of objects  with no  cardinality constraint. A  scalar type  denotes a
 nonempty, {\em finite\/}  set of objects. The cardinality  of a scalar
 type is defined when the type is created.
 
-\medskip
-
+\medskip\noindent
 In  addition to the  atomic types,  Yices~2 provides  constructors for
 tuple and function types. The set  of all Yices~2 types can be defined
 inductively as follows:
@@ -279,8 +282,7 @@ specific  type  constructor  for  arrays  since  the  logic  does  not
 distinguish  between  arrays  and  functions. For  example,  an  array
 indexed by integers is simply a function of domain $\mathtt{int}$.
 
-\medskip
-
+\medskip\noindent
 Yices~2 uses a simple form  of subtyping. Given two types $\sigma$ and
 $\tau$, let $\sigma\sqsubset\tau$ denote that $\sigma$ is a subtype of
 $\tau$. Then the subtype relation is defined by the following rules:
@@ -298,6 +300,7 @@ For  example, the  type  $(\mathtt{int}\times\mathtt{int})$ (pairs  of
 integers) is a  subtype of $(\mathtt{real}\times\mathtt{real})$ (pairs
 of reals).
 
+\medskip\noindent
 Two types,  $\tau$ and $\tau'$, are  said to be  {\em compatible\/} if
 they have a common supertype, that is, if there exists a type $\sigma$
 such that  $\tau\sqsubset\sigma$ and $\tau'\sqsubset\sigma$.   If that
@@ -321,6 +324,7 @@ In   Yices~2,  the   atomic  terms   include  the   Boolean  constants
 (\texttt{true} and \texttt{false}) as well as arithmetic and bitvector
 constants.
 
+\medskip\noindent
 When a scalar type $\tau$ of cardinality $n$ is declared, $n$ distinct
 constant   $c_1,\ldots,c_n$  of  type   $\tau$  are   also  implicitly
 defined. In the Yices~2 syntax, this  is done via a declaration of the
@@ -335,6 +339,7 @@ allows one to create a new  scalar type and to access $n$ constants of
 that  type indexed  by  integers  between $0$  and  $n-1$ (check  file
 \texttt{include/yices.h} for explanations).
 
+\medskip\noindent
 The user can also declare {\em uninterpreted constants\/} of arbitrary
 types.  Informally,  uninterpreted constants  of  type  $\tau$ can  be
 considered like  global variables, but Yices (in  particular the Yices
@@ -343,8 +348,7 @@ API) makes a distinction between  {\em variables\/} of type $\tau$ and
 variables are used to build quantified expressions and to support term
 substitutions. Free variables are not allowed to occur in assertions.
 
-\medskip
-
+\medskip\noindent 
 The   term   constructors  include   the   common  Boolean   operators
 (conjunction,   disjunction,    negation,   implication,   etc.),   an
 if-then-else  constructor, equality,  function application,  and tuple
@@ -354,6 +358,7 @@ functions. The  type-checking rules for these  primitive operators are
 described in Figure~\ref{type-checking},  where the notation $t::\tau$
 means ``term $t$ has type $\tau$''.
 
+\medskip\noindent 
 There are no separate syntax or constructors for formulas. In Yices~2,
 a formula is simply a term of Boolean type.
 
@@ -411,7 +416,8 @@ Function Update\\[1ex]
 \label{type-checking}
 \end{figure}
 
-¨The semantics of most of these operators is standard. The update
+\medskip\noindent 
+The semantics of most of these operators is standard. The update
 operator for functions is characterized by the following
 axioms\footnote{These are the main axioms of the McCarthy theory of
   arrays.}:
@@ -427,8 +433,7 @@ array.   Reading  the content  of  the  array  is nothing  other  than
 function application: $(f\ i_1\ldots i_n)$ is the content of the array
 at position $i_1,\ldots, i_n$.
 
-\bigskip
-
+\medskip\noindent
 The full Yices~2 language has a few more operators not described here,
 and  it includes  existential  and universal  quantifiers.  We do  not
 describe the  type-checking rules  for quantifiers here  since Yices~2
@@ -449,6 +454,7 @@ written  in  floating-point   notation.   Internally,  Yices  converts
 floating-point input  to rationals.   For example,  the floating-point
 expression \texttt{3.04e-1} is converted to $38/125$.
 
+\medskip\noindent 
 The  Yices  language  supports  the traditional  arithmetic  operators
 (i.e., addition, subtraction,  multiplication) with the exception that
 it does not allow division by  a non constant, to avoid issues related
@@ -457,6 +463,7 @@ allowed, but  $3/(x + 4y)$ is  not. The arithmetic  predicates are the
 usual  comparison  operators,  including  both  strict  and  nonstrict
 inequalities.
 
+\medskip\noindent 
 The  language  allows nonlinear  polynomials  but  this  is not  fully
 supported  by  the tool  at  this  time.  Yices~2 can  solve  problems
 involving  real and  integer linear  arithmetic, but  it does  not yet
@@ -550,6 +557,7 @@ extract bits $i$ down to $j$ \\
 \label{bitvectors}
 \end{table}
 
+\medskip\noindent 
 The semantics of all the bitvector operators is defined in the
 SMT-LIB~1.2 standard.  Yices~2 follows the standard except for the
 case of division by zero.  In SMT-LIB, the result of a division by
@@ -560,8 +568,8 @@ $(\mathtt{bvudiv}\ a\ b)$ and $(\mathtt{bvudiv}\ c\ b)$ must be equal
 whenever $a = c$, even if $b$ is the zero vector. Yices~2 uses a
 simpler semantics (inspired by the BTOR
 format~\cite{Brummayer-etal:2008}):
-\begin{itemize}
-\item {\bf  Unsigned Division:}  If $b$ is  the zero bitvector  of $n$
+\begin{description}
+\item[Unsigned Division:]  If $b$ is  the zero bitvector  of $n$
   bits then
 \begin{eqnarray*}
 (\mathtt{bvudiv}\ a\ b) & = & \mathtt{0b111...1} \\
@@ -575,14 +583,14 @@ and $b$
 a & = & (\mathtt{bvadd}\ (\mathtt{bvmul}\ (\mathtt{bvudiv}\ a\ b)\ b)\ (\mathtt{bvurem}\ a\ b)).
 \end{eqnarray*}
 
-\item {\bf Signed Division:} If $b$ is the zero bitvector of $n$ bits then 
+\item[Signed Division] If $b$ is the zero bitvector of $n$ bits then 
 \begin{eqnarray*}
 (\mathtt{bvsdiv}\ a\ b) & = & \mathtt{0b000..01}~~\mbox{\rm if $a$ is negative} \\
 (\mathtt{bvsdiv}\ a\ b) & = & \mathtt{0b111...1}~~\mbox{\rm if $a$ is non-negative} \\
 (\mathtt{bvsrem}\ a\ b) & = & a \\
 (\mathtt{bvsmod}\ a\ b) & = & a
 \end{eqnarray*}
-\end{itemize}
+\end{description}
 
 
 
@@ -759,26 +767,9 @@ in  the Yices~2  language.  This  tool is  called  \texttt{yices} (or
 syntax  and  the  set  of  commands supported  by  \texttt{yices}  are
 explained  in  the file  \texttt{doc/YICES-LANGUAGE}  included in  the
 distribution. Several example specifications  are also included in the
-\texttt{examples/} directory.
+\texttt{examples} directory.
 
-
-\section{Example}
-
-To      illustrate     the      tool     usage,      consider     file
-\texttt{examples/bv\_test2.ys} shown in Figure~\ref{example:bv_test2}.
-The  first line  defines  a  type called  \texttt{BV}.  In this  case,
-\texttt{BV} is  a synonym for bitvectors  of size 32. Then  four terms
-are  declared of  type \texttt{BV}.   The three  constants \texttt{a},
-\texttt{b},  and \texttt{d}  are  uninterpreted,  while \texttt{c}  is
-defined as  the bitvector representation  of the integer  1008832. The
-next line of the file is  an assertion expressing a constraint between
-\texttt{a},  \texttt{b},  \texttt{c},   and  \texttt{d}.  The  command
-\texttt{(check)} checks whether the assertion is satisfiable. Since it
-is, command  \texttt{(show-model)} asks for  a satisfying model  to be
-displayed. The  next commands ask for  the value of four  terms in the
-model.
-
-\begin{figure}
+\begin{figure}[ht]
 \begin{footnotesize}
 \begin{verbatim}
   (define-type BV (bitvector 32))
@@ -805,6 +796,24 @@ model.
 \label{example:bv_test2}
 \end{figure}
 
+\section{Example}
+
+To      illustrate     the      tool     usage,      consider     file
+\texttt{examples/bv\_test2.ys} shown in Figure~\ref{example:bv_test2}.
+The  first line  defines  a  type called  \texttt{BV}.  In this  case,
+\texttt{BV} is  a synonym for bitvectors  of size 32. Then  four terms
+are  declared of  type \texttt{BV}.   The three  constants \texttt{a},
+\texttt{b},  and \texttt{d}  are  uninterpreted,  while \texttt{c}  is
+defined as  the bitvector representation  of the integer  1008832. The
+next line of the file is  an assertion expressing a constraint between
+\texttt{a},  \texttt{b},  \texttt{c},   and  \texttt{d}.  The  command
+\texttt{(check)} checks whether the assertion is satisfiable. Since it
+is, command  \texttt{(show-model)} asks for  a satisfying model  to be
+displayed. The  next commands ask for  the value of four  terms in the
+model.
+
+
+\medskip\noindent
 To run \texttt{yices} on this input file, just type
 \begin{small}
 \begin{verbatim}
@@ -831,6 +840,7 @@ model as  an assignment to  the three uninterpreted  terms \texttt{a},
 \texttt{b},  and \texttt{d}.  Then,  the tool  displays one  bitvector
 constant for each of the \texttt{(eval ...)} command.
 
+\medskip\noindent
 Since  this  example  contains  only  terms and  constructs  from  the
 bitvector  theory,  we  could  specify logic  \texttt{QF\_BV}  on  the
 command line as follows:
@@ -862,14 +872,15 @@ Yices is invoked on an input file by typing
 \end{verbatim}
 If  no  \texttt{<filename>}  is  given,  \texttt{yices}  will  run  in
 interactive  mode and  will  read the  standard  input. The  following
-options are supported
+options are supported. 
 \begin{options}
-\item[--logic=<name>]~~Select an SMT-LIB logic\\[1em]
-  \texttt{<name>}  must  either  be  an  SMT-LIB logic  name  such  as
+\item[--logic=<name>] Select an SMT-LIB logic.
+
+  The \texttt{<name>} must either be an SMT-LIB logic name such as
   \texttt{QF\_UFLIA} or the special name \texttt{NONE}.
 
-  Yices recognizes  the logics defined  at \url{http://www.smtlib.org}
-  (as  of  December  2012).  Option  \texttt{--logic=NONE}  configures
+  Yices recognizes the logics defined at \url{http://www.smtlib.org}
+  (as of December 2012).  Option \texttt{--logic=NONE} configures
   \texttt{yices} for propositional logic.
 
   By default---that is, if no logic is given---\texttt{yices} includes
@@ -902,7 +913,7 @@ options are supported
   This option has no effect  for logics other than \texttt{QF\_IDL} or
   \texttt{QF\_RDL}.
 
-\item[\texttt{--mode=<mode>}] Select solver features.\\[1mm]
+\item[--mode=<mode>] Select solver features.\\[1mm]
   \texttt{<mode>} can be \texttt{one-shot}, \texttt{multi-checks},
   \texttt{push-pop}, or \texttt{interactive}.
 
@@ -936,10 +947,9 @@ options are supported
   command line. If  not input file is given, then  the default mode is
   \texttt{interactive} and the solver reads standard input.
 
-  Mode \texttt{one-shot} is required if the Floyd-Warshall solvers are
-  used.
+  Mode \texttt{one-shot} is required to use the Floyd-Warshall solvers.
 
-\item[\texttt{--version}] Display version information then exit.
+\item[--version, -V] Display version information then exit.
 
   This  displays the  Yices version  number,  the version  of the  GMP
   library  linked with  Yices, and  information about  build date  and
@@ -959,9 +969,9 @@ options are supported
   If you ever have to report a bug, please include this version information
   in your bug report.
 
-\item[\texttt{--help, -h}] Print a summary of options
+\item[--help, -h] Print a summary of options
 
-\item[\texttt{--verbose, -v}] Run in verbose mode
+\item[--verbose, -v] Run in verbose mode
 \end{options}
 
 
@@ -1420,13 +1430,14 @@ the same thing as \texttt{(/= <t1> <t2>)}.
 \label{Boolean-Operators}
 \end{table}
 
-
+\noindent
 The usual Boolean constants and functions are available. They are
 listed in Table~\ref{Boolean-Operators}.  The associative/commutative
 operators \texttt{or}, \texttt{and}, and \texttt{xor} can take any
 number of arguments. The equivalence (\texttt{<=>}) and implication
 (\texttt{=>}) operators take exactly two arguments.
 
+\medskip\noindent
 One can also use the equality and disequality operators
 with Boolean terms. If \texttt{<t1>} and \texttt{<t2>} are Boolean
 then \texttt{(= <t1> <t2>)} is the same as \texttt{(<=> <t1> <t2>)},
@@ -1464,12 +1475,14 @@ Syntax & \multicolumn{2}{|c|}{Meaning} \\
 \label{Arithmetic-Operations}
 \end{table}
 
+\medskip\noindent
 The usual arithmetic operations and comparison operators are
 summarized in Table~\ref{Arithmetic-Operations}. One can freely mix
 terms of real and integer types in all operations. The exponent $k$ in
 \texttt{(\char`\^\ a k)} must be a non-negative integer constant. The
 divisor \texttt{c} in \texttt{(/ a c)} must be a non-zero constant.
 
+\medskip\noindent
 The Yices language includes more than linear arithmetic, but this is
 for future extensions. Currently, Yices does not include solvers for
 non-linear arithmetic (cf. Sect.~\ref{solvers}).
@@ -1493,6 +1506,7 @@ denote distinct bitvector constants, of one, four, and five bits, respectively.
 In the hexadecimal notation, the number of bits is equal to four times the number
 of hexadecimal digit.
 
+\medskip\noindent
 One can also construct a bitvector constant using the expression:
 \begin{small}
 \begin{verbatim}
@@ -1544,6 +1558,7 @@ operators can take one, two, or more arguments. The \texttt{bv-sub}
 operator takes at least two arguments. In \texttt{(bv-pow u k)},
 the power $k$ must be a non-negative integer constant. 
 
+\medskip\noindent
 The expression \texttt{(bv-xnor u1 ... u\_n)} is the same as
 \texttt{(bv-not (bv-xor u1 ... u\_n))}.
 
@@ -1627,12 +1642,14 @@ bitvector of $n$ bits then the constants $i$ and $j$ must satisfy $0
 \end{verbatim}
 \end{small}
 
+\medskip\noindent
 In \texttt{(bv-repeat u k)}, bitvector \texttt{u} is concatenated with
 itself $k$ times. The integer constant $k$ must be positive. In the
 sign and zero extension operators, vector \texttt{u} is extended by
 adding $k$ bits (either zero or \texttt{u}'s sign bit copied $k$
 times).  In these two operations, $k$ must be non-negative.
 
+\medskip\noindent
 The \texttt{bv-redor}, \texttt{bv-redand}, and \texttt{bv-redcomp}
 operators produce a one-bit vector.  The term \texttt{(bv-redor u)} is
 the or of \texttt{u}'s bits; it is equal to \texttt{0b0} if all bits
@@ -1674,6 +1691,7 @@ Table~\ref{bitvectors4} lists the division and remainder operators. In
 this table, \texttt{u} and \texttt{v} must be two bitvectors of the
 same size $n$. 
 
+\medskip\noindent
 In the unsigned division and quotient operations, \texttt{u} and
 \texttt{v} are interpreted as integers in the interval $[0,2^n-1]$.
 As explained in section~\ref{bitvector-general}, \texttt{(bv-div u v)}
@@ -1758,7 +1776,7 @@ terms. For example, a pair of integers can be constructed using
 \end{verbatim}
 \end{small}
 
-\smallskip\noindent The projection operation extracts the $i$-th
+\medskip\noindent The projection operation extracts the $i$-th
 component of a tuple. It is denoted by \texttt{(select t i)} where
 \texttt{t} is a term of tuple type and $i$ is an integer constant.  If
 the tuple has $n$ components, then $i$ must be between $1$ and
@@ -1771,7 +1789,7 @@ left. For example, we have
 \end{verbatim}
 \end{small}
 
-\smallskip\noindent Yices includes a tuple-update operator. The expression
+\medskip\noindent Yices includes a tuple-update operator. The expression
 \texttt{(tuple-update t i v)} is equal to tuple \texttt{t} with its $i$-th
 component replaced by \texttt{v}. The type of \texttt{v} must be a subtype of 
 the $i$-th component of \texttt{t}.
@@ -1789,16 +1807,15 @@ Section~\ref{terms-and-formulas}.
 
 \subsection{Commands}
 
-The Yices commands allows one to  declare types and terms, build a set
+The Yices commands allow one to  declare types and terms, build a set
 of  assertions, check  their  satisfiability, and  query models.  Other
 commands set parameters that control preprocessing and heuristics used
 by the different solvers.
 
 \subsubsection*{Declarations}
 
-As presented in Section~\ref{declarations}, Yices provides two
-commands for declaring types and terms.  A type declaration has the
-one of the following form
+As presented in Section~\ref{declarations}, a type declaration has one
+of the following forms
 \begin{small}
 \begin{verbatim}
    (define-type <name>)
@@ -1829,7 +1846,7 @@ but it must be used with care. Since the substitution is performed
 eagerly, the expanded terms may grow quickly, especially if they
 contain nested function applications.
 
-
+\medskip\noindent
 All declarations have global scope and are permanent. They are not
 affected by commands such as push, pop, or reset. Also, as discussed
 previously, Yices uses separate name spaces for terms and for types.
@@ -1846,13 +1863,13 @@ The following command adds an assertion to the current context.
 \end{small}
 In this command, the \texttt{<formula>} must be a Boolean term. 
 
-\medskip
-
+\medskip\noindent
 In the mode \texttt{one-shot}, assertions are stored internally and
 are not processed immediately. Processing of assertions is delayed,
 and all assertions are processed and simplified on the first call to
 \texttt{(check)}.
 
+\medskip\noindent
 In all other modes, the assertions are processed and simplified
 immediately and are added to the context. As a result, \texttt{yices}
 may detect and report that the current set of assertions is
@@ -1864,7 +1881,7 @@ trivial example is:
    (assert false)   
 \end{verbatim}
 \end{small}
-Once the context is unsatisfiable, new assertions are treated as an
+Once the context is unsatisfiable, any new assertion is treated as an
 error.
 
 
@@ -1878,8 +1895,7 @@ The command
 \end{small}
 checks whether the current set of assertions is satisfiable. 
 
-\medskip
-
+\medskip\noindent
 If the context's current status is already known, then the command
 returns immediately and prints the status as either \texttt{sat} or
 \texttt{unsat}. This happens, for example, in the following situation:
@@ -1895,6 +1911,7 @@ The context status is known after the first \texttt{(check)} command
 second \texttt{(check)} does nothing and just prints the current
 status.
 
+\medskip\noindent
 If the context's status is unknown, then \texttt{(check)} invokes the
 SMT solver to establish whether the assertions are satisfiable. As
 discussed previously, the actual solver or solver combination is
@@ -1904,16 +1921,17 @@ architecture that is specialized for a particular logic. For best
 performance, it is usually better to specify the logic if it is known
 in advance.
 
-Several  heuristic parameters  can also  control some  aspects  of the
-search algorithm  employed by the solver. Yices  use default settings
-based  on the  specified  logic (or  global  defaults if  no logic  is
-given). All these  parameters can be examined and  modified, using the
-command  \texttt{show-params} and  \texttt{set-param}  described in  a
-subsequent section.
+\medskip\noindent Several parameters can also control heuristics
+employed by the solver. Yices use default settings based on the
+specified logic (or global defaults if no logic is given). All these
+parameters can be examined and modified, using the command
+\texttt{show-params} and \texttt{set-param} described in a subsequent
+section.
 
-One can also provide a timeout before calling \texttt{(check)}. If the
-timeout is reached or the search is interrupted (by CTRL-C), then the
-result will be displayed as \texttt{interrupted}. 
+\medskip\noindent One can also provide a timeout before calling
+\texttt{(check)}. If the timeout is reached or the search is
+interrupted (by CTRL-C), then the result will be displayed as
+\texttt{interrupted}.
 
 
 \subsubsection*{Push, Pop, Reset}
@@ -1921,12 +1939,12 @@ result will be displayed as \texttt{interrupted}.
 Command \texttt{(push)}, \texttt{(pop)}, and \texttt{(reset)} allows
 one to manipulate the set of assertions. 
 
-\medskip
-
+\medskip\noindent
 The command \texttt{(reset)} clears all assertions. The current
 context is then returned to its initial state, where the set of
 assertions is empty. This command can be used in all modes.
 
+\medskip\noindent
 The push and pop commands are supported by \texttt{yices} if it is run
 in mode \texttt{push-pop} or \texttt{interactive}. In these modes, the
 context maintains a stack of assertions organized in successive
@@ -1942,6 +1960,7 @@ first \texttt{(push)} command. Such assertions cannot be retracted by
 \texttt{(pop)}. They remain in the context until \texttt{(reset)} is
 called.
 
+\medskip\noindent
 The commands \texttt{(reset)} and \texttt{(pop)} modify the set of
 assertions in the context, but they do not affect term and type
 declarations. For example, the following sequence of commands is
@@ -1972,8 +1991,7 @@ assertions in the context is satisfiable. One can request
 assertions. One can also evaluate the value of arbitrary terms in this
 model.
 
-\medskip
-
+\medskip\noindent
 The command
 \begin{small}
 \begin{verbatim}
@@ -2054,6 +2072,7 @@ for any \texttt{x} different from \texttt{0} and \texttt{1}.
 
 \pagebreak
 
+\medskip\noindent
 Command
 \begin{small}
 \begin{verbatim}
@@ -2095,6 +2114,7 @@ applied by Yices, and the heuristics used by the CDCL SAT solver and the
 theory solvers. Several commands allow one to examine and modify these
 parameters.
 
+\medskip\noindent
 To see the list of all available parameters, and their current values, type
 \begin{small}
 \begin{verbatim}
@@ -2547,6 +2567,7 @@ of \texttt{yices}. This tool is included in the \texttt{bin} directory
 in the distribution. In the Windows or Cygwin distribution, it is
 called \texttt{yices-smt2.exe}.
 
+\medskip\noindent 
 The SMT-LIB~2.0 language is defined in~\cite{SMTLIB20:2012}. More
 information about the various logics defined in SMT-LIB~2.0 is
 available at the SMT-LIB website: \url{www.smtlib.org}. David Cock's
@@ -2562,20 +2583,22 @@ To run \texttt{yices-smt2} on an input file, type
    yices-smt2 <input-file>
 \end{verbatim}
 \end{small}
-This will work fine as long as the \texttt{<input-file>} does not use
-the commands \texttt{push} and \texttt{pop} of SMT-LIB~2.0, since
-\texttt{yices-smt2} runs in mode \texttt{one-shot} by default
+Since \texttt{yices-smt2} runs in mode \texttt{one-shot} by default,
+this will work fine as long as the \texttt{<input-file>} does not use
+the commands \texttt{push} and \texttt{pop} of SMT-LIB~2.0
 (cf. Section~\ref{features}).
 
-To enable support for \texttt{push} and \texttt{pop}, give the
-command-line option \texttt{--incremental}.  This option configures
-\texttt{yices-smt2} to work in the mode \texttt{push-pop}. This flag
-is also required if the input files contains several blocks of
-assertions and multiple calls to the command \texttt{(check-sat)}.
+\medskip\noindent To enable support for \texttt{push} and
+\texttt{pop}, give the command-line option \texttt{--incremental}.
+This option configures \texttt{yices-smt2} to work in the mode
+\texttt{push-pop}. This flag is also required if the input files
+contains several blocks of assertions and multiple calls to the
+command \texttt{(check-sat)}.
 
-If no \texttt{<input-file>} is given, \texttt{yices-smt2} will read
-commands from the standard input. Optionally, one can also run the
-solver in interactive mode as follows:
+\medskip\noindent If no \texttt{<input-file>} is given,
+\texttt{yices-smt2} will read commands from the standard
+input. Optionally, one can also run the solver with 
+the following option:
 \begin{small}
 \begin{verbatim}
    yices-smt2 --interactive
@@ -2588,41 +2611,36 @@ before accepting commands from standard input. In addition, option
 that would otherwise be executed silently (as required
 by~\cite{SMTLIB20:2012}).
 
+\medskip \noindent 
 Here is the full list of command-line options supported by
 \texttt{yices-smt2}.
-\begin{description}
-\item[\texttt{--verbosity=<level>, -v <level>}] Sets
-  the initial verbosity level.
+\begin{options}
+\item[--verbosity=<level>, -v <level>] Set the initial verbosity level.
 
   By default, \texttt{yices-smt2} runs with verbosity level 0. This
-  can be changed by using the SMT command
-\begin{small}
-\begin{verbatim}
-      (set-option :verbosity <level>)
-\end{verbatim}
-\end{small}
-  Running \texttt{yices-smt2 --verbosity=<level>} has the same effect
-  as setting the \texttt{:verbosity} option to the given value.
+  can be changed by using the SMT command \texttt{(set-option :verbosity <level>)}.
+  Calling \texttt{yices-smt2 --verbosity=<level>} has the same effect.
 
-\item[\texttt{--incremental}] Enable support for \texttt{push},
+\item[--incremental] Enable support for \texttt{push},
   \texttt{pop}, and multiple calls to \texttt{check-sat}.
 
-\item[\texttt{--interactive}] Run in interactive mode.
+\item[--interactive] Run in interactive mode.
 
    This flag has no effect if \texttt{yices-smt2} is called with an
-   \texttt{input-file}. Otherwise, this flag 
+   \texttt{input-file}. Otherwise, this flag sets the
+   \texttt{:print-success} option to \texttt{true}.
 
-\item[\texttt{--stats, -s}] Display statistics on exit.
+\item[--stats, -s] Display statistics on exit.
 
   If this option is given, \texttt{yices-smt2} will print statistics
   after all commands have been executed (i.e., after reaching the
-  command \texttt{(exit)} or the end of the input file).
+  command \texttt{(exit)} or the end of the input file). 
 
-\item[\texttt{--help}] Show a summary of command-line options and exit.
-
-\item[\texttt{--version}] Print version and exit.
+\item[--version, -V] Print version and exit.
    
-\end{description}
+\item[--help, -h] Show a summary of command-line options and exit.
+
+\end{options}
 
 
 \subsection{Compliance with the Standard}
@@ -2664,15 +2682,15 @@ will read standard input.
 \subsection{Command-Line Options}
 
 The following command-line options can be given to \texttt{yices-smt}.
-\begin{description}
-\item[\texttt{--model, -m}] If this option is given, and the benchmark
+\begin{options}
+\item[--model, -m] If this option is given, and the benchmark
   is satisfiable, \texttt{yices-smt} will display a model. 
 
   This model may be partial. Some variables of the input benchmark may
   be eliminated by preprocessing and formula simplification. The value
   of these variables is not displayed in the model.
 
-\item[\texttt{--full-model, -f}] Print a full model.
+\item[--full-model, -f] Print a full model.
 
   This causes \texttt{yices-smt} to display a model if the benchmark
   is satisfiable. Unlike option \texttt{--model}, this option forces
@@ -2680,17 +2698,17 @@ The following command-line options can be given to \texttt{yices-smt}.
   declared in the input benchmark is displayed, even for variables
   that are eliminated during preprocessing.
 
-\item[\texttt{--verbose, -v}] Run in verbose mode.
+\item[--verbose, -v] Run in verbose mode.
 
   The tool will print various statistics during the search.
 
-\item[\texttt{--stats, -s}] Show statistics.
+\item[--stats, -s] Show statistics.
 
   This causes \texttt{yices-smt} to display statistics about the
   search, including search time, number of decisions and conflicts,
   and so forth.
 
-\item[\texttt{--timeout=<int>, -t <int>}] Give a timeout in seconds.
+\item[--timeout=<int>, -t <int>] Give a timeout in seconds.
 
   For example, to run \texttt{yices-smt} with a 20~s timeout, use:
   \begin{small}
@@ -2700,10 +2718,10 @@ The following command-line options can be given to \texttt{yices-smt}.
   \end{verbatim}
   \vspace*{-7mm}
   \end{small}
-\item[\texttt{--version, -V}] Display the version and exit.
+\item[--version, -V] Display the version and exit.
 
-\item[\texttt{--help, -h}] Show a summary of all options and exit.
-\end{description}
+\item[--help, -h] Show a summary of all options and exit.
+\end{options}
 
 \chapter{Yices API}
 \label{yices-api}
