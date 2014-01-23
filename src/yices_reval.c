@@ -2794,7 +2794,7 @@ static void show_clause(ef_clause_t *clause) {
     fputs("no assumptions\n", stdout);
   } else {
     fputs("assumptions\n", stdout);
-    yices_pp_term_array(stdout, n, clause->assumptions.data, 100, UINT32_MAX, 0);    
+    yices_pp_term_array(stdout, n, clause->assumptions.data, 100, UINT32_MAX, 0, false);
   }
 
   n = clause->guarantees.size;
@@ -2802,7 +2802,7 @@ static void show_clause(ef_clause_t *clause) {
     fputs("no guarantees\n", stdout);
   } else {
     fputs("guarantees\n", stdout);
-    yices_pp_term_array(stdout, n, clause->guarantees.data, 100, UINT32_MAX, 0);    
+    yices_pp_term_array(stdout, n, clause->guarantees.data, 100, UINT32_MAX, 0, false);
   }
 }
 
@@ -2825,7 +2825,7 @@ static void yices_efsolve_cmd(void) {
      */
     v = &delayed_assertions;
     fputs("Assertions:\n", stdout);
-    yices_pp_term_array(stdout, v->size, v->data, 100, UINT32_MAX, 0);
+    yices_pp_term_array(stdout, v->size, v->data, 100, UINT32_MAX, 0, false);
 
     init_ef_analyzer(&analyzer, __yices_globals.manager);
     init_ef_prob(&prob);
@@ -2837,17 +2837,17 @@ static void yices_efsolve_cmd(void) {
       printf("\n--- EF problem descriptor ---\n");
       printf("Existential variables: ");
       n = ef_prob_num_evars(&prob);
-      yices_pp_term_list(stdout, n, prob.all_evars, 80, UINT32_MAX, 23);
+      yices_pp_term_array(stdout, n, prob.all_evars, 80, UINT32_MAX, 23, true);
       printf("\n");
 
       printf("Universal variables:   ");
       n = ef_prob_num_uvars(&prob);
-      yices_pp_term_list(stdout, n, prob.all_uvars, 80, UINT32_MAX, 23);
+      yices_pp_term_array(stdout, n, prob.all_uvars, 80, UINT32_MAX, 23, true);
       printf("\n");
     
       printf("Conditions:\n  ");
       n = ef_prob_num_conditions(&prob);
-      yices_pp_term_array(stdout, n, prob.conditions, 100, UINT32_MAX, 2);
+      yices_pp_term_array(stdout, n, prob.conditions, 100, UINT32_MAX, 2, false);
       printf("\n");
 
       n = ef_prob_num_constraints(&prob);;
@@ -2855,9 +2855,9 @@ static void yices_efsolve_cmd(void) {
 	cnstr = prob.cnstr + i;
 	printf("Constraint[%"PRIu32"]:\n", i);
 	printf("  evars: ");
-	yices_pp_term_list(stdout, ef_constraint_num_evars(cnstr), cnstr->evars, 80, UINT32_MAX, 9);
+	yices_pp_term_array(stdout, ef_constraint_num_evars(cnstr), cnstr->evars, 80, UINT32_MAX, 9, true);
 	printf("  uvars: ");
-	yices_pp_term_list(stdout, ef_constraint_num_uvars(cnstr), cnstr->uvars, 80, UINT32_MAX, 9);
+	yices_pp_term_array(stdout, ef_constraint_num_uvars(cnstr), cnstr->uvars, 80, UINT32_MAX, 9, true);
 	printf("  assumption: ");
 	yices_pp_term(stdout, cnstr->assumption, 100, UINT32_MAX, 14);
 	printf("  guarantee:  ");
