@@ -1,0 +1,34 @@
+#!/bin/sh
+
+#
+# Remove the trailing whitespaces and tabs from file
+#
+# Usage ./remove_trailing_whitespaces <file> <file> ....
+#
+# Any modified file is renamed to file~~
+# Any file that has suffix ~ in the input list is skipped
+#
+
+tmpfile=/tmp/xxx.$$
+
+for file in $* ; do
+  if test -f $file ; then 
+    case $file in 
+     *~)
+       echo "Skipping $file"
+       ;;
+     *) 
+       sed 's/[ \t]*$//' "${file}" > $tmpfile
+       diff -q $tmpfile $file > /dev/null
+       if test  $? -ne 0 ; then
+         echo "Removed spaces in $file"
+         mv $file $file~~
+         cp $tmpfile $file
+       fi
+       rm $tmpfile
+       ;;
+    esac
+  else
+    echo "Skipping $file"
+  fi
+done
