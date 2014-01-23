@@ -130,10 +130,31 @@ done
 #
 os_name=`uname 2>/dev/null` || os_name=unknown
 os_release=`(uname -r) 2>/dev/null` || os_release=unknown
-case "${os_name}:${os_realease}" in
+case "${os_name}:${os_release}" in
   unknown:* |  *:unknown )
     echo "Error: failed to get OS version\n"
     exit 1
+    ;;
+
+  *Linux* | *linux* )
+    #
+    # Try to get the distribution (via lsb_release)
+    #
+    linux_dist_id=`(lsb_release -i -s) 2>/dev/null` || linux_dist_id=unknown
+    linux_dist_release=`(lsb_release -r -s) 2>/dev/null` || linux_dist_release=unknown
+    case "${linux_dist_id}:${linux_dist_release}" in	
+      unknown:* )
+         os_version="${os_name} ${os_release}"
+         ;;
+
+      *:unknown )
+         os_version="${linux_dist_id} (${os_name} ${os_release})"
+         ;;
+
+      * )
+         os_version="${linux_dist_id} ${linux_dist_release} (${os_name} ${os_release})"
+         ;;
+    esac
     ;;
 
   * )
@@ -144,7 +165,7 @@ esac
 #
 # On cygwin and possibly other systems, the os_release contains '/'
 # so we can't do sed -e "s/__OS_VERSION__/${os_version}/g". Instead,
-# I use sed -e "s,__OS_VERSION__,${os_version},g".
+# we use sed -e "s,__OS_VERSION__,${os_version},g".
 #
 # To make sure this command works, we remove any ',' from the os_version.
 #
