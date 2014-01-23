@@ -140,19 +140,14 @@ case "${os_name}:${os_release}" in
     #
     # Try to get the distribution (via lsb_release)
     #
-    linux_dist_id=`(lsb_release -i -s) 2>/dev/null` || linux_dist_id=unknown
-    linux_dist_release=`(lsb_release -r -s) 2>/dev/null` || linux_dist_release=unknown
-    case "${linux_dist_id}:${linux_dist_release}" in	
-      unknown:* )
+    linux_dist=`(lsb_release -d -s) 2>/dev/null` || linux_dist=unknown
+    case $linux_dist in 
+      unknown )
          os_version="${os_name} ${os_release}"
          ;;
 
-      *:unknown )
-         os_version="${linux_dist_id} (${os_name} ${os_release})"
-         ;;
-
       * )
-         os_version="${linux_dist_id} ${linux_dist_release} (${os_name} ${os_release})"
+         os_version="${linux_dist} (${os_name} ${os_release})"
          ;;
     esac
     ;;
