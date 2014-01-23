@@ -142,8 +142,18 @@ case "${os_name}:${os_realease}" in
 esac   
 
 #
+# On cygwin and possibly other systems, the os_release contains '/'
+# so we can't do sed -e "s/__OS_VERSION__/${os_version}/g". Instead,
+# I use sed -e "s,__OS_VERSION__,${os_version},g".
+#
+# To make sure this command works, we remove any ',' from the os_version.
+#
+clean_os_version=` echo $os_version | sed -e 's/,/ /g' `
+
+
+#
 # Apply the substitution
 #
 sed -e "s/__YICES__/${yices_version}/g" -e "s/__GMP__/${gmp_version}/g" \
-    -e "s/__DYLIB__/${libname}/g" -e "s/__OS_VERSION__/${os_version}/g" $template
+    -e "s/__DYLIB__/${libname}/g" -e "s,__OS_VERSION__,${clean_os_version},g" $template
 
