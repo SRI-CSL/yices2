@@ -94,7 +94,7 @@ extern uint32_t ilist_length(const ilist_t *l);
 /*
  * Collect the elements of l into vector v
  * - this adds all elements of l in order, at the end of v
- * - v is not reset 
+ * - v is not reset
  */
 extern void ilist_collect(const ilist_t *l, ivector_t *v);
 

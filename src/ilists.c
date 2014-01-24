@@ -61,7 +61,7 @@ ilist_t *ilist_reverse_clone(object_store_t *store, ilist_t *l) {
  */
 ilist_t *ilist_append(object_store_t *store, ilist_t *l1, ilist_t *l2) {
   ilist_t *r1, *r2;
-  
+
   r1 = ilist_reverse_clone(store, l1);
   while (r1 != NULL) {
     r2 = r1->next;
@@ -94,7 +94,7 @@ uint32_t ilist_length(const ilist_t *l) {
 /*
  * Collect the elements of l into vector v
  * - this adds all elements of l in order, at the end of v
- * - v is not reset 
+ * - v is not reset
  */
 void ilist_collect(const ilist_t *l, ivector_t *v) {
   while (l != NULL) {

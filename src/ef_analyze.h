@@ -10,17 +10,17 @@
  *
  *   (and (<= 0 x) (<= x 10)  (forall y: (=> (<= y 10) (< (* y x) 5)))
  *
- * In the internal representation: 
+ * In the internal representation:
  * - x is an uninterpreted term
  * - y is a variable
  * These are syntactically different objects
  *
- * After flattening and stripping away the universal quantifiers, we 
+ * After flattening and stripping away the universal quantifiers, we
  * get three formulas:
  *   (<= 0 x)
  *   (<= x 10)
  *   (=> (<= y 10) (< (* y x) 5))
- * 
+ *
  * We can still extract universal and existential variables from these:
  * - any uninterpreted term is considered an existential variable (e.g., x)
  * - any (free) variable is considered a universal variable (e.g., y).
@@ -49,7 +49,7 @@
  * - the universal variables are stored in uvars
  *
  * Special case:
- * - a formula that contains no universal variables is stored 
+ * - a formula that contains no universal variables is stored
  *   in the guarantees vector.
  */
 typedef struct ef_clause_s {
@@ -82,7 +82,7 @@ typedef struct ef_analyzer_s {
   ivector_t flat;
   ivector_t disjuncts;
   ivector_t evars;
-  ivector_t uvars;  
+  ivector_t uvars;
 } ef_analyzer_t;
 
 
@@ -152,8 +152,8 @@ extern void delete_ef_analyzer(ef_analyzer_t *ef);
  * - any formula a[i] of the form (and A B ...) is flattened
  *   also any formula a[i] of the form (forall y : C) is replaced by C
  *   this is done recursively, and the result is stored in vector v
- * 
- * - optional processing: 
+ *
+ * - optional processing:
  *   if f_ite is true, flatten (ite c a b) to (c => a) and (not c => b)
  *   if f_iff is true, flatten (iff a b)   to (a => b) and (b => a)
  *
@@ -230,7 +230,7 @@ extern uint32_t remove_uninterpreted_functions(ef_analyzer_t *ef, ivector_t *v);
  * The first three codes are errors.
  *
  * code EF_UNINTERPPRETED_FUN is a warning: if t contains uninterpreted
- * functions, then c is built correctly. 
+ * functions, then c is built correctly.
  * - c->evars contains only the atomic uninterpreted terms of t (uninterpreted
  *   functions are removed)
  */
@@ -241,7 +241,7 @@ extern ef_code_t ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *c, bool 
  * Add clause c to an ef_prob descriptor
  * - t = term that decomposed into c
  *
- * Processing: 
+ * Processing:
  * 1) if c has  no universal  variables, then  term t  is added  as a
  *    condition to the problem, and all evars are added to prob.
  * 2) otherwise, c contains assumptions   A_1(y) ... A_n(y)
@@ -263,7 +263,7 @@ extern void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_claus
  *   f_ite: flag to enable flattening of if-then-else
  *   f_iff: flag to enable flattening of iff
  * - result code: same as ef_decompose
- * - if code is either EF_NO_ERROR or EF_UNINTERPRETED_FUN then prob is 
+ * - if code is either EF_NO_ERROR or EF_UNINTERPRETED_FUN then prob is
  *   filled in with the problem
  * - otherwise, prob is partially filled in.
  */

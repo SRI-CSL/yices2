@@ -6,7 +6,7 @@
  *
  * Basic flattening to  disjunct/conjuncts
  * ----------------------------------------
- * Given a formula f, flattening to conjuncts: 
+ * Given a formula f, flattening to conjuncts:
  * return n formulas c_1 ... c_n such that
  *   f == (and c_1 ... c_n)
  *
@@ -14,12 +14,12 @@
  *   f == (or d_1 ... d_n)
  *
  * Basic flattening does this for nested and/or constructs
- * 
+ *
  * Optional flattening
  * -------------------
  *  (ite C A B) can be flattened to (and (or (not C) A) (or C B))
  *                           or  to (or (and C A) (and (not C) B))
- * 
+ *
  *  (iff A B) can be flattened to (and (or (not A) B) (or A (not B)))
  *                          or to (or  (and A B) (and (not A) (not B)))
  *
@@ -29,13 +29,13 @@
  *
  * Given a formula f, we construct a set of formulas f_1 ... f_n
  * using the rules:
- * 
+ *
  *   (forall y. p) --> flatten p
  *   (and p1 ... p_t) --> flatten p1 \cup ... \cup flatten p_t
  *
  * The result is a set of formulas f_1 ... f_t such that
  * 1) no f_i is of the form (forall ....) or (and ...)
- * 2) f is equivalent to the conjunction of 
+ * 2) f is equivalent to the conjunction of
  *    (closure f_1) ... (closure f_n)
  *   where (closure f_i) := universal closure of f_i
  *
@@ -92,7 +92,7 @@ extern void delete_flattener(flattener_t *flat);
  * - f must be defined in flat->terms
  * - flags f_ite and f_iff control optional flattening:
  *
- *   if f_ite is true, then (ite C A B) is converted to 
+ *   if f_ite is true, then (ite C A B) is converted to
  *       (and (=> C A)(=> (not C) B))
  *   (otherwise, (ite C A B) is kept as is)
  *

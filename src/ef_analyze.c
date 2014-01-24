@@ -252,8 +252,8 @@ static void ef_flatten_forall_conjuncts(ef_analyzer_t *ef, bool f_ite, bool f_if
  * - any formula a[i] of the form (and A B ...) is flattened
  *   also any formula a[i] of the form (forall y : C) is replaced by C
  *   this is done recursively, and the result is stored in vector v
- * 
- * - optional processing: 
+ *
+ * - optional processing:
  *   if f_ite is true, flatten (ite c a b) to (c => a) and (not c => b)
  *   if f_iff is true, flatten (iff a b)   to (a => b) and (b => a)
  *
@@ -397,7 +397,7 @@ void ef_flatten_to_disjuncts(ef_analyzer_t *ef, term_t t, bool f_ite, bool f_iff
 
 /*
  * Add t to the queue if it's not already visited (i.e., not in the cache)
- * For the purpose of ef analyzer, x and (not x) are the same, so we 
+ * For the purpose of ef analyzer, x and (not x) are the same, so we
  * always remove the polarity bit of t here.
  */
 static void ef_push_unsigned_term(ef_analyzer_t *ef, term_t t) {
@@ -614,9 +614,9 @@ bool all_atomic_vars(ef_analyzer_t *ef, ivector_t *v) {
 
 /*
  * Check whether tau is a basic type in the given type table
- */ 
+ */
 static bool is_basic_type(type_table_t *types, type_t tau) {
-  return is_atomic_type(types, tau) || 
+  return is_atomic_type(types, tau) ||
     (is_function_type(types, tau) && type_depth(types, tau) == 1);
 }
 
@@ -761,8 +761,8 @@ ef_code_t ef_decompose(ef_analyzer_t *ef, term_t t, ef_clause_t *cl, bool f_ite,
  * with free variables in terms, we convert variables to uninterpreted
  * terms (of the same type and name).
  *
- * This is done by building a substitution that maps variables to thier 
- * clones. 
+ * This is done by building a substitution that maps variables to thier
+ * clones.
  */
 
 /*
@@ -852,7 +852,7 @@ static term_t ef_make_or(ef_analyzer_t *ef, ivector_t *v) {
  * Add clause c to an ef_prob descriptor
  * - t = term that decomposed into c
  *
- * Processing: 
+ * Processing:
  * 1) if c has  no universal  variables, then  term t  is added  as a
  *    condition to the problem, and all evars are added to prob.
  * 2) otherwise, c contains assumptions   A_1(y) ... A_n(y)
@@ -882,7 +882,7 @@ void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_clause_t *c)
     // guarantee = or c->guarantees
     g = ef_make_or(ef, &c->guarantees);
 
-    ef_prob_add_constraint(prob, c->evars.data, c->evars.size, 
+    ef_prob_add_constraint(prob, c->evars.data, c->evars.size,
 			   c->uvars.data, c->uvars.size, a, g);
   }
 }
@@ -899,7 +899,7 @@ void ef_add_clause(ef_analyzer_t *ef, ef_prob_t *prob, term_t t, ef_clause_t *c)
  *   f_ite: flag to enable flattening of if-then-else
  *   f_iff: flag to enable flattening of iff
  * - result code: same as ef_decompose
- * - if code is either EF_NO_ERROR or EF_UNINTERPRETED_FUN then prob is 
+ * - if code is either EF_NO_ERROR or EF_UNINTERPRETED_FUN then prob is
  *   filled in with the problem
  * - otherwise, prob is partially filled in.
  */
@@ -915,7 +915,7 @@ ef_code_t ef_analyze(ef_analyzer_t *ef, ef_prob_t *prob, uint32_t n, term_t *a, 
   init_ef_clause(&clause);
 
   v = &ef->flat;
-  ef_add_assertions(ef, n, a, f_ite, f_iff, v);  
+  ef_add_assertions(ef, n, a, f_ite, f_iff, v);
 
   n = v->size;
   for (i=0; i<n; i++) {

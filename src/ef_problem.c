@@ -111,9 +111,9 @@ static void insert_elem(int32_t **v, int32_t x) {
   j = n;
   while (i < j) {
     // (i + j) can't overflow since n <= MAX_IVECTOR_SIZE < UINT32_MAX/2
-    k = (i + j) >> 1; 
+    k = (i + j) >> 1;
     assert(i <= k && k < j);
-    if (u[k] == x) return;	
+    if (u[k] == x) return;
     if (u[k] < x) {
       i = k+1;
     } else {
@@ -121,8 +121,8 @@ static void insert_elem(int32_t **v, int32_t x) {
     }
   }
 
-  assert(i == j && 0 <= i && i <= n && 
-	 (i == n || x < u[i]) && 
+  assert(i == j && 0 <= i && i <= n &&
+	 (i == n || x < u[i]) &&
 	 (i == 0 || u[i-1] < x));
 
 

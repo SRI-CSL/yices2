@@ -144,7 +144,7 @@ static void flattener_build_conjuncts(flattener_t *flat, bool f_ite, bool f_iff)
 
   // clean up the cache
   assert(int_queue_is_empty(queue));
-  int_hset_reset(&flat->cache);  
+  int_hset_reset(&flat->cache);
 }
 
 
@@ -241,7 +241,7 @@ static void flattener_build_disjuncts(flattener_t *flat, bool f_ite, bool f_iff)
 
   // clean up the cache
   assert(int_queue_is_empty(queue));
-  int_hset_reset(&flat->cache);  
+  int_hset_reset(&flat->cache);
 }
 
 
@@ -462,7 +462,7 @@ static void flattener_forall_disjuncts(flattener_t *flat, bool f_ite, bool f_iff
 
   // clean up the cache
   assert(int_queue_is_empty(queue));
-  int_hset_reset(&flat->cache);  
+  int_hset_reset(&flat->cache);
 }
 
 
@@ -473,7 +473,7 @@ static void flattener_forall_disjuncts(flattener_t *flat, bool f_ite, bool f_iff
  * - f must be defined in flat->terms
  * - flags f_ite and f_iff control optional flattening:
  *
- *   if f_ite is true, then (ite C A B) is converted to 
+ *   if f_ite is true, then (ite C A B) is converted to
  *       (and (=> C A)(=> (not C) B))
  *   (otherwise, (ite C A B) is kept as is)
  *
@@ -499,7 +499,7 @@ void flatten_to_conjuncts(flattener_t *flat, term_t f, bool f_ite, bool f_iff) {
  * - f must be defined in flat->terms
  * - flags f_ite and f_iff control optional flattening:
  *
- *   if f_ite is true, then (ite C A B) is converted to 
+ *   if f_ite is true, then (ite C A B) is converted to
  *       (OR (C AND A) ((not C) AND B))
  *   (otherwise, (ite C A B) is kept as is)
  *

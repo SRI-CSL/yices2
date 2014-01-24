@@ -6,19 +6,19 @@
  * Input are problems of the form
  *
  *   A(x) AND (FORALL y: B(y) => C(x y))
- * 
+ *
  * where A, B, and C are quantifier-free formulas. The goal is to find
  * an assignment for the 'x' variables that makes the whole formula
  * true.
  *
  * We build a sequence of formulas A_0, A_1, .... that characterize
- * the set of potential solutions. We have 
+ * the set of potential solutions. We have
  *     A_0(x) => A(x)
  *     A_{k+1}(x) => A_k(x)
  *     A(x) AND not A_k(x) => EXISTS y: B(y) AND \not C(x y)
  *
  * Given A_k, we use the following procedure:
- * 
+ *
  * 1) search for x_k that satisfies A_k
  *    if there are none then the EF problem is unsatisfiable
  *    and we're done.
@@ -28,8 +28,8 @@
  *    if there are none then x_k is a solution to the EFproblem,
  *    and we're done.
  *
- * 3) generalize: remove x_k from the solution space (and more 
- *    elements if we can). This amounts to constructing a 
+ * 3) generalize: remove x_k from the solution space (and more
+ *    elements if we can). This amounts to constructing a
  *    formula Z such that
  *       Z(x_k)  is true
  *       Z(x) AND A(x) => EXISTS y: B(y) AND \not C(x y)
@@ -39,11 +39,11 @@
  *
  * This general procedure requires:
  * - initialization: construct A_0
- * - generalization: contruct Z given and x_k, y_k 
+ * - generalization: contruct Z given and x_k, y_k
  *
  * For initialization:
  * - we can pick A_0 := A
- * - variant: search for solutions to 
+ * - variant: search for solutions to
  *       (A(x) AND B(y) AND \not C(x, y))
  *
  * For generalization:
@@ -52,7 +52,7 @@
  * - variants..
  *
  * The strongest generalization is quantifier elimination:
- * - construct a quantifier-free formula Z(x) such that 
+ * - construct a quantifier-free formula Z(x) such that
  *   Z(x) is equivalent to (EXISTS y: B(y) AND \not C(x y))
  */
 
@@ -107,7 +107,7 @@ extern void ef_solver_set_trace(ef_solver_t *solver, tracer_t *trace);
  * - all terms in f[0] ... f[n-1] must be Boolean
  * - return code: negative means that an error is detected
  * - 0 means no error
- * - 1 means trivially unsat 
+ * - 1 means trivially unsat
  */
 extern int32_t ef_solver_assert_formulas(ef_solver_t *solver, uint32_t n, term_t *f);
 

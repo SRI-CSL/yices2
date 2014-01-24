@@ -4,7 +4,7 @@
 
 /*
  * Data structure to store an exist/forall problem.
- * The basic form is 
+ * The basic form is
  *
  *    A(x) AND (FORALL y: B(y) => C(x, y))
  *
@@ -23,7 +23,7 @@
  * - the of all constraints on x (A_1(x) ... A_n(x))
  * - a descriptor for each forall constraint
  *
- * For a constraint (forall y: B(y) => C(x, y)), the descriptor includes* 
+ * For a constraint (forall y: B(y) => C(x, y)), the descriptor includes*
  * - the set of existential variables occurring in C (i.e., a subset of x)
  * - the set of universal variables occurring in B or C
  * - the assumption B(y)
@@ -42,10 +42,10 @@
 
 
 /*
- * Descriptor for a forall constraint 
+ * Descriptor for a forall constraint
  */
 typedef struct ef_cnstr_s {
-  term_t *evars;     // existential variables 
+  term_t *evars;     // existential variables
   term_t *uvars;     // universal variables
   term_t assumption; // B(y)
   term_t guarantee;  // C(x, y)
