@@ -90,5 +90,4 @@ extern void reset_evaluator(evaluator_t *eval);
 extern value_t eval_in_model(evaluator_t *eval, term_t t);
 
 
-
 #endif /* __MODEL_EVAL_H */
