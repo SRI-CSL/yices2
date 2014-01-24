@@ -6,8 +6,6 @@
 #ifndef __YICES_EXTENSIONS_H
 #define __YICES_EXTENSIONS_H
 
-#include <stdio.h>
-
 #include "terms.h"
 #include "bvlogic_buffers.h"
 #include "free_var_collector.h"
@@ -482,13 +480,6 @@ extern model_t *yices_new_model(bool keep_subst);
  */
 extern void yices_reset_tables(void);
 
-
-/*
- * TRACE/STATISTICS AND SUPPORT FOR DEBUGGING
- */
-extern void yices_print_presearch_stats(FILE *f, context_t *ctx);
-extern void yices_show_statistics(FILE *f, context_t *ctx);
-extern void yices_dump_context(FILE *f, context_t *ctx);
 
 
 #endif /* __YICES_EXTENSIONS_H */
