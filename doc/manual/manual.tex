@@ -6,8 +6,8 @@
 
 %%\usepackage{setspace}%\doublespacing
 %% \input{prelude}
-\pagenumbering{roman} 
-\setcounter{page}{0} 
+\pagenumbering{roman}
+\setcounter{page}{0}
 \usepackage[bookmarks=true,hyperindex=true,colorlinks=true,linkcolor=black,citecolor=blue]{hyperref}
 
 %% \renewcommand{\baselinestretch}{1.5}
@@ -294,7 +294,7 @@ $\tau$. Then the subtype relation is defined by the following rules:
 $(\sigma_1\times \ldots\times\sigma_n)\sqsubset (\tau_1\times\ldots\times\tau_n)$.
 \item If $\tau\sqsubset\tau'$ then
   $(\sigma_1\times\ldots\times\sigma_n\rightarrow\tau)\sqsubset
-  (\sigma_1\times\ldots\times\sigma_n\rightarrow\tau')$. 
+  (\sigma_1\times\ldots\times\sigma_n\rightarrow\tau')$.
 \end{itemize}
 For  example, the  type  $(\mathtt{int}\times\mathtt{int})$ (pairs  of
 integers) is a  subtype of $(\mathtt{real}\times\mathtt{real})$ (pairs
@@ -348,7 +348,7 @@ API) makes a distinction between  {\em variables\/} of type $\tau$ and
 variables are used to build quantified expressions and to support term
 substitutions. Free variables are not allowed to occur in assertions.
 
-\medskip\noindent 
+\medskip\noindent
 The   term   constructors  include   the   common  Boolean   operators
 (conjunction,   disjunction,    negation,   implication,   etc.),   an
 if-then-else  constructor, equality,  function application,  and tuple
@@ -358,7 +358,7 @@ functions. The  type-checking rules for these  primitive operators are
 described in Figure~\ref{type-checking},  where the notation $t::\tau$
 means ``term $t$ has type $\tau$''.
 
-\medskip\noindent 
+\medskip\noindent
 There are no separate syntax or constructors for formulas. In Yices~2,
 a formula is simply a term of Boolean type.
 
@@ -416,7 +416,7 @@ Function Update\\[1ex]
 \label{type-checking}
 \end{figure}
 
-\medskip\noindent 
+\medskip\noindent
 The semantics of most of these operators is standard. The update
 operator for functions is characterized by the following
 axioms\footnote{These are the main axioms of the McCarthy theory of
@@ -454,7 +454,7 @@ written  in  floating-point   notation.   Internally,  Yices  converts
 floating-point input  to rationals.   For example,  the floating-point
 expression \texttt{3.04e-1} is converted to $38/125$.
 
-\medskip\noindent 
+\medskip\noindent
 The  Yices  language  supports  the traditional  arithmetic  operators
 (i.e., addition, subtraction,  multiplication) with the exception that
 it does not allow division by  a non constant, to avoid issues related
@@ -463,7 +463,7 @@ allowed, but  $3/(x + 4y)$ is  not. The arithmetic  predicates are the
 usual  comparison  operators,  including  both  strict  and  nonstrict
 inequalities.
 
-\medskip\noindent 
+\medskip\noindent
 The  language  allows nonlinear  polynomials  but  this  is not  fully
 supported  by  the tool  at  this  time.  Yices~2 can  solve  problems
 involving  real and  integer linear  arithmetic, but  it does  not yet
@@ -487,7 +487,7 @@ by Yices~2.
 \begin{table}
 %% \renewcommand{\arraystretch}{1}
 \begin{tabular}{|l|l|}
-\hline 
+\hline
 Operator and Type & Meaning\\
 \hline
 $\mathtt{bvadd}::((\mathtt{bv}\ n)\times (\mathtt{bv}\ n) \rightarrow (\mathtt{bv}\ n))$ &
@@ -512,7 +512,7 @@ remainder in signed division \\
 $\mathtt{bvsmod}::((\mathtt{bv}\ n)\times (\mathtt{bv}\ n) \rightarrow (\mathtt{bv}\ n))$ &
 remainder in signed division\\
 & with rounding toward $-\infty$\\
-\hline 
+\hline
 $\mathtt{bvule}::((\mathtt{bv}\ n)\times (\mathtt{bv}\ n) \rightarrow \mathtt{bool}$ &
 unsigned less than or equal\\
 $\mathtt{bvuge}::((\mathtt{bv}\ n)\times (\mathtt{bv}\ n) \rightarrow \mathtt{bool}$ &
@@ -557,7 +557,7 @@ extract bits $i$ down to $j$ \\
 \label{bitvectors}
 \end{table}
 
-\medskip\noindent 
+\medskip\noindent
 The semantics of all the bitvector operators is defined in the
 SMT-LIB~1.2 standard.  Yices~2 follows the standard except for the
 case of division by zero.  In SMT-LIB, the result of a division by
@@ -583,7 +583,7 @@ and $b$
 a & = & (\mathtt{bvadd}\ (\mathtt{bvmul}\ (\mathtt{bvudiv}\ a\ b)\ b)\ (\mathtt{bvurem}\ a\ b)).
 \end{eqnarray*}
 
-\item[Signed Division] If $b$ is the zero bitvector of $n$ bits then 
+\item[Signed Division] If $b$ is the zero bitvector of $n$ bits then
 \begin{eqnarray*}
 (\mathtt{bvsdiv}\ a\ b) & = & \mathtt{0b000..01}~~\mbox{\rm if $a$ is negative} \\
 (\mathtt{bvsdiv}\ a\ b) & = & \mathtt{0b111...1}~~\mbox{\rm if $a$ is non-negative} \\
@@ -674,7 +674,7 @@ main theory solvers:
   from~\cite{Nieuwenhuis+Oliveras:UF:2007}.
 \item The \emph{Arithmetic Solver} deals with linear integer and real
   arithmetic.  It implements a decision procedure based on the Simplex
-  algorithm~\cite{DutertredeMoura:cav06,DutertredeMoura:report06}. 
+  algorithm~\cite{DutertredeMoura:cav06,DutertredeMoura:report06}.
 \item The \emph{Bitvector Solver} deals with the theory of bitvectors.
 \item  The \emph{Array  Solver}  implements a  decision procedure  for
   McCarthy's theory of arrays.
@@ -684,7 +684,7 @@ Simplex-based solver for integer or real difference logic. These
 solvers implement a decision procedure based on the Floyd-Warshall
 algorithm. These solvers are more specialized and limited than the
 Simplex-based solver. They must be used standalone; they cannot be
-combined with the UF solver. 
+combined with the UF solver.
 
 \begin{figure}
 \includegraphics[width=12cm]{yices2-architecture}
@@ -779,8 +779,8 @@ distribution. Several example specifications  are also included in the
   (define c::BV (mk-bv 32 1008832))
   (define d::BV)
 
-  (assert (= a (bv-or (bv-and (mk-bv 32 255) 
-                              (bv-not (bv-or b (bv-not c)))) 
+  (assert (= a (bv-or (bv-and (mk-bv 32 255)
+                              (bv-not (bv-or b (bv-not c))))
                       (bv-and c (bv-xor d (mk-bv 32 1023))))))
 
   (check)
@@ -921,8 +921,8 @@ options are supported.
   solver as follows:
   \begin{itemize}
   \item   \texttt{one-shot}:   no   assertions   are   allowed   after
-    the \texttt{(check)} command. In this mode, \texttt{yices} can 
-    check satisfiability of a single block of assertions and possibly 
+    the \texttt{(check)} command. In this mode, \texttt{yices} can
+    check satisfiability of a single block of assertions and possibly
     build a model if the assertions are satisfiable.
   \item \texttt{multi-checks}: several  calls to \texttt{(assert)} and
     \texttt{(check)} are allowed.
@@ -988,7 +988,7 @@ and~\ref{syntax:expressions}.
 \begin{figure}
 \begin{small}
 \begin{verbatim}
-   <command>  ::= 
+   <command>  ::=
               ( define-type <symbol> )
             | ( define-type <symbol> <typedef> )
             | ( define <symbol> :: <type> )
@@ -1016,8 +1016,8 @@ and~\ref{syntax:expressions}.
             | ( help <string> )
             | EOS
 
-   <immediate-value> ::= 
-              true 
+   <immediate-value> ::=
+              true
             | false
             | <number>
             | <symbol>
@@ -1029,17 +1029,17 @@ and~\ref{syntax:expressions}.
 \end{small}
 \caption{Yices Syntax: Commands}
 \label{syntax:commands}
-\end{figure}  
+\end{figure}
 
 \begin{figure}
 \begin{small}
 \begin{verbatim}
-   <typedef> ::= 
+   <typedef> ::=
               <type>
             | ( scalar <symbol> ... <symbol> )
 
-   <type> ::= 
-              <symbol> 
+   <type> ::=
+              <symbol>
             | ( tuple <type> ... <type> )
             | ( -> <type> ... <type> <type> )
             | ( bitvector <rational> )
@@ -1055,7 +1055,7 @@ and~\ref{syntax:expressions}.
 \begin{figure}
 \begin{small}
 \begin{verbatim}
-   <expr> ::= 
+   <expr> ::=
               true
             | false
             | <symbol>
@@ -1146,7 +1146,7 @@ Table~\ref{syntax:keywords}.
 \begin{center}
 \begin{tt}
 \begin{tabular}{|p{3.2cm}|p{3.2cm}|p{3.2cm}|}
-\hline 
+\hline
 * & + & - \\
 -> & / & /= \\
 < & <= & <=> \\
@@ -1377,7 +1377,7 @@ if-then-else term can be written using either one of the two following
 forms
 \begin{small}
 \begin{verbatim}
-     (ite <c> <t1> <t2>)     (if  <c> <t1> <t2>)    
+     (ite <c> <t1> <t2>)     (if  <c> <t1> <t2>)
 \end{verbatim}
 \end{small}
 Both forms are equivalent and just mean ``if \texttt{<c>} then
@@ -1412,7 +1412,7 @@ generalizes disequality. The Boolean term
 is true if \texttt{<t1>}, \ldots, \texttt{<t\_n>} are all different
 from each other. The terms \texttt{<t1>} to \texttt{<t\_n>} must all
 have compatible types. For example, \texttt{(distinct <t1> <t2>)} is
-the same thing as \texttt{(/= <t1> <t2>)}. 
+the same thing as \texttt{(/= <t1> <t2>)}.
 
 \subsubsection*{Boolean Operators}
 
@@ -1465,7 +1465,7 @@ Syntax & \multicolumn{2}{|c|}{Meaning} \\
 \texttt{(- a1 a2 ... a\_n)} & difference &  $a_1 - a_2 - \ldots - a_n$ \\
 \texttt{(\char`\^\  a k)} & exponentiation & $a^k$ \\
 \texttt{(/ a c)} & division & $a/c$ \\
-\hline 
+\hline
 \texttt{(<= a1 a2)} & inequality & $a_1 \leq a_2$\\
 \texttt{(>= a1 a2)} & inequality & $a_1 \geq a_2$\\
 \texttt{(< a1 a2)} & strict inequality & $a_1 < a_2$ \\
@@ -1559,7 +1559,7 @@ operators. All operators in this table take arguments that have the
 same size and return a result of that size.  As usual, the associative
 operators can take one, two, or more arguments. The \texttt{bv-sub}
 operator takes at least two arguments. In \texttt{(bv-pow u k)},
-the power $k$ must be a non-negative integer constant. 
+the power $k$ must be a non-negative integer constant.
 
 \medskip\noindent
 The expression \texttt{(bv-xnor u1 ... u\_n)} is the same as
@@ -1692,7 +1692,7 @@ Syntax & Meaning \\
 
 Table~\ref{bitvectors4} lists the division and remainder operators. In
 this table, \texttt{u} and \texttt{v} must be two bitvectors of the
-same size $n$. 
+same size $n$.
 
 \medskip\noindent
 In the unsigned division and quotient operations, \texttt{u} and
@@ -1709,11 +1709,11 @@ smaller than or equal to $u/v$. The unsigned remainder
 In the signed division and quotient, \texttt{u} and \texttt{v} are
 interpreted as integers in the interval $[-2^{n-1},2^{n-1}-1]$ (in
 2s-complement representation), and the division is done with rounding
-to zero. 
+to zero.
 \begin{itemize}
 \item If $u/v$ is non-negative, then \texttt{(bv-sdiv u v)}
 is the largest integer $q$ in $[0,2^{n-1}-1]$ such that $0 \leq q \leq
-u/v$. 
+u/v$.
 \item If $u/v$ is negative then \texttt{(bv-sdiv u v)}
 is the smallest integer $q$ in $[-2^{n-1}, 0]$ such that $u/v
 \leq q \leq 0$.
@@ -1765,7 +1765,7 @@ bitvector terms of the same size. Depending on the operation, both are
 interpreted as unsigned integers or as signed integers (using
 2s-complement representation).  All operators return a Boolean. As
 usual, one can also apply the equality and disequality operators to
-two bitvectors of the same size. 
+two bitvectors of the same size.
 
 
 \subsubsection*{Tuples}
@@ -1794,7 +1794,7 @@ left. For example, we have
 
 \medskip\noindent Yices includes a tuple-update operator. The expression
 \texttt{(tuple-update t i v)} is equal to tuple \texttt{t} with its $i$-th
-component replaced by \texttt{v}. The type of \texttt{v} must be a subtype of 
+component replaced by \texttt{v}. The type of \texttt{v} must be a subtype of
 the $i$-th component of \texttt{t}.
 
 \subsubsection*{Function Updates}
@@ -1864,7 +1864,7 @@ The following command adds an assertion to the current context.
    (assert <formula>)
 \end{verbatim}
 \end{small}
-In this command, the \texttt{<formula>} must be a Boolean term. 
+In this command, the \texttt{<formula>} must be a Boolean term.
 
 \medskip\noindent
 In the mode \texttt{one-shot}, assertions are stored internally and
@@ -1881,7 +1881,7 @@ context is seen to be unsatisfiable by simplification only. The most
 trivial example is:
 \begin{small}
 \begin{verbatim}
-   (assert false)   
+   (assert false)
 \end{verbatim}
 \end{small}
 Once the context is unsatisfiable, any new assertion is treated as an
@@ -1896,7 +1896,7 @@ The command
    (check)
 \end{verbatim}
 \end{small}
-checks whether the current set of assertions is satisfiable. 
+checks whether the current set of assertions is satisfiable.
 
 \medskip\noindent
 If the context's current status is already known, then the command
@@ -1940,7 +1940,7 @@ interrupted (by CTRL-C), then the result will be displayed as
 \subsubsection*{Push, Pop, Reset}
 
 Command \texttt{(push)}, \texttt{(pop)}, and \texttt{(reset)} allows
-one to manipulate the set of assertions. 
+one to manipulate the set of assertions.
 
 \medskip\noindent
 The command \texttt{(reset)} clears all assertions. The current
@@ -1976,7 +1976,7 @@ valid.
    (check)
    (pop)
    (assert (not A))
-   (check)   
+   (check)
 \end{verbatim}
 \end{small}
 The term \texttt{A} is declared after the \texttt{(push)} command. The
@@ -2083,7 +2083,7 @@ Command
 \end{verbatim}
 \end{small}
 computes the value assigned to \texttt{<term>} in the current model,
-and displays this value. For example, assuming the model shown in 
+and displays this value. For example, assuming the model shown in
 Figure~\ref{model-format}, one can type
 \begin{small}
 \begin{verbatim}
@@ -2151,10 +2151,10 @@ To select a branching heuristic, use a command like
 \end{verbatim}
 \end{small}
 
-\medskip\noindent 
+\medskip\noindent
 There are many search and preprocessing parameters. The full list is
 described in the file \texttt{doc/YICES-LANGUAGE} included in the
-distribution. You can also get on-line help on the parameter using 
+distribution. You can also get on-line help on the parameter using
 \begin{small}
 \begin{verbatim}
    (help params)
@@ -2183,7 +2183,7 @@ example, to limit the runtime to 2 minutes:
 \end{small}
 This timeout will apply to the next call to \texttt{(check)}, but not
 to the one after that. After every call to \texttt{(check)}, the
-timeout is rest to 0 (which means no timeout). One can also clear the 
+timeout is rest to 0 (which means no timeout). One can also clear the
 timeout explicitly by setting it to 0:
 \begin{small}
 \begin{verbatim}
@@ -2276,7 +2276,7 @@ one can type either
    (help "var-elim")
 \end{verbatim}
 \end{small}
-or just 
+or just
 \begin{small}
 \begin{verbatim}
    (help var-elim).
@@ -2332,7 +2332,7 @@ rest of the file.
 % 4) Built-in constants and functions
 %    --------------------------------
 
-% 4.1) ite is the if-then-else construct. 
+% 4.1) ite is the if-then-else construct.
 %      if is a synonym for ite
 
 %      distinct takes at least 2 arguments.
@@ -2340,9 +2340,9 @@ rest of the file.
 %      =, /= are strictly binary (unlike in SMT-LIB 1, where = can take more than two arguments).
 
 
-% 4.2) true, false, or, and, not, xor, <=>, => are the usual boolean constants and 
+% 4.2) true, false, or, and, not, xor, <=>, => are the usual boolean constants and
 %      functions.
-     
+
 %      or, and, xor can take any number of arguments (provided there's at least one).
 
 %      <=> and => are binary operators.
@@ -2351,10 +2351,10 @@ rest of the file.
 % 4.3) tuple constructor: (mk-tuple <term_1> ... <term_n>) with n>=1
 
 %      projection: (select <tuple> i) is the i-th component of term
-%           <tuple> must have type (tuple tau_1 ... tau_n) 
+%           <tuple> must have type (tuple tau_1 ... tau_n)
 %       and i must be between 1 and n
- 
-%      tuple update: (tuple-update <tuple> i <term>) is <tuple> with 
+
+%      tuple update: (tuple-update <tuple> i <term>) is <tuple> with
 %      the i-th component replaced by <term>
 
 
@@ -2367,14 +2367,14 @@ rest of the file.
 
 %         (mk-bv <size> <value>)
 
-%         Note: value must be a non-negative integer and 
+%         Note: value must be a non-negative integer and
 %         size must be a positive integer.
 
 
 %      b) bitvector arithmetic
 
-%         bv-add, bv-sub, bv-mul take exactly two arguments, and both 
-% 	must have the same size     
+%         bv-add, bv-sub, bv-mul take exactly two arguments, and both
+% 	must have the same size
 
 %         (bv-neg x) = opposite of x in 2's complement arithmetic
 
@@ -2402,7 +2402,7 @@ rest of the file.
 %         (bv-rotate-left x k):  rotate x by k bits to the left
 %         (bv-rotate-right x k): rotate x by k bits to the right
 
-%         In all these shift/rotate operations, k must an integer be between 0 
+%         In all these shift/rotate operations, k must an integer be between 0
 % 	and the size of x.
 
 
@@ -2410,13 +2410,13 @@ rest of the file.
 %        x and y must be bitvectors of the same size (n bits)
 
 %         (bv-shl x y): shift x by k bits to the left, padding with 0
-%                       where k = value of bitvector y 
+%                       where k = value of bitvector y
 
-%         (bv-lshr x y): logical shift: shift x by k bits to the right 
+%         (bv-lshr x y): logical shift: shift x by k bits to the right
 %                        (padding with 0) where k = value of bitvector y
 
 %         (bv-ashr x y): arithmetic shift: shift x by k bits to the right,
-% 		       padding with x's sign bit, where k = value of 
+% 		       padding with x's sign bit, where k = value of
 %                        bitvector y.
 
 %      e) subvector extraction:
@@ -2431,9 +2431,9 @@ rest of the file.
 %      g) (bv-repeat x n) is n copies of x concatenated together. n must be > 0.
 
 %      h) (bv-sign-extend x n): add n times the sign bit to the left of x (n must be >= 0)
-%         (bv-zero-extend x n): add n times '0' to the left of x (n must be >= 0)	
+%         (bv-zero-extend x n): add n times '0' to the left of x (n must be >= 0)
 
-   
+
 %      i) unsigned bit-vector comparisons:
 
 %         (bv-ge x y): x >= y
@@ -2443,7 +2443,7 @@ rest of the file.
 
 %         x and y are interpreted as non-negative integers (both must have the same size)
 
-%      j) signed bit-vector comparisons 
+%      j) signed bit-vector comparisons
 
 %         (bv-sge x y): x >= y
 %         (bv-sgt x y): x > y
@@ -2455,7 +2455,7 @@ rest of the file.
 
 
 %      k) (bv-div x y):  quotient in the unsigned division of x by y
-%         (bv-rem x y):  remainder in the unsigned division of x by y       
+%         (bv-rem x y):  remainder in the unsigned division of x by y
 
 %          x and y must have the same size (n bits)
 
@@ -2478,7 +2478,7 @@ rest of the file.
 %            (bv-sdiv x 0) = 0b11111...11 if x >= 0
 
 
-%         (bv-smod x y):  remainder in the signed division of x by y, with rounding to minus 
+%         (bv-smod x y):  remainder in the signed division of x by y, with rounding to minus
 %                         infinity
 
 %          if y = 0, (bv-smod x 0) = x.
@@ -2497,7 +2497,7 @@ rest of the file.
 
 % 4) Commands
 %    --------
-  
+
 %    (define-type name):  create a new uninterpreted type called 'name'
 
 %    (define-type name <type-definition>) : create a new type called 'name' equal
@@ -2518,7 +2518,7 @@ rest of the file.
 %    (show-model): display the current model (if any)
 %                  a model is available after (check) provided (check) return sat or unknown
 %                  it is deleted on the next call to (assert) or (push) or (reset) or (pop)
-   
+
 %    (eval <term>): show the value of <term> in the current model
 
 %    (echo <string>):  prints <string> on stdout
@@ -2527,7 +2527,7 @@ rest of the file.
 %    	    		this reads and execute all the commands in that file
 
 %    (set-param <parameter-name> <parameter-value>):
-%                  assign a value to one parameter (parameters control simplification 
+%                  assign a value to one parameter (parameters control simplification
 %                  and search heuristics)
 
 %    (show-param <parameter-name>): show the current value of a parameter
@@ -2568,14 +2568,14 @@ instead of \texttt{yices}. This tool is included in the \texttt{bin}
 directory in the distribution. In the Windows or Cygwin distribution,
 it is called \texttt{yices-smt2.exe}.
 
-\medskip\noindent 
+\medskip\noindent
 The SMT-LIB~2.0 language is defined in~\cite{SMTLIB20:2012}. More
 information about the various logics defined in SMT-LIB~2.0 is
 available at the SMT-LIB website: \url{www.smtlib.org}. David Cock's
 tutorial covers all aspects of the language in
 detail~\cite{SMTLIB:tutorial:2013}.
 
- 
+
 \subsection{Tool Invocation}
 
 To run \texttt{yices-smt2} on an input file, type
@@ -2598,7 +2598,7 @@ command \texttt{(check-sat)}.
 
 \medskip\noindent If no \texttt{<input-file>} is given,
 \texttt{yices-smt2} will read commands from the standard
-input. Optionally, one can also run the solver with 
+input. Optionally, one can also run the solver with
 the following option:
 \begin{small}
 \begin{verbatim}
@@ -2612,7 +2612,7 @@ before accepting commands from standard input. In addition, option
 that would otherwise be executed silently (as required
 by~\cite{SMTLIB20:2012}).
 
-\medskip \noindent 
+\medskip \noindent
 Here is the full list of command-line options supported by
 \texttt{yices-smt2}.
 \begin{options}
@@ -2635,10 +2635,10 @@ Here is the full list of command-line options supported by
 
   If this option is given, \texttt{yices-smt2} will print statistics
   after all commands have been executed (i.e., after reaching the
-  command \texttt{(exit)} or the end of the input file). 
+  command \texttt{(exit)} or the end of the input file).
 
 \item[--version, -V] Print version and exit.
-   
+
 \item[--help, -h] Show a summary of command-line options and exit.
 
 \end{options}
@@ -2686,7 +2686,7 @@ will read standard input.
 The following command-line options can be given to \texttt{yices-smt}.
 \begin{options}
 \item[--model, -m] If this option is given, and the benchmark
-  is satisfiable, \texttt{yices-smt} will display a model. 
+  is satisfiable, \texttt{yices-smt} will display a model.
 
   This model may be partial. Some variables of the input benchmark may
   be eliminated by preprocessing and formula simplification. The value
