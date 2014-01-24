@@ -11,6 +11,28 @@
 
 tmpfile=/tmp/xxx.$$
 
+#
+# If we have GNU sed, we use 's/[ \t]+$//'
+# on freeBSD and Darwnin, \t does not match tab so
+# this doesn't work. We use [[:blank:]] instead
+#
+have_gnu_sed=`(sed --version) 2>/dev/null | grep GNU` || have_gnu_sed=no
+
+case "${have_gnu_sed}" in
+  no)
+    sed_cmd='s/[[:blank:]]*$//'
+    ;;
+  *GNU*)
+    sed_cmd='s/[ \t]*$//'
+    ;;
+  *)
+    echo "Can't determine whether sed is GNU sed"
+    exit 1
+    ;;
+esac
+
+echo "Using sed -e ${sed_cmd}"
+
 for file in $* ; do
   if test -f $file ; then 
     case $file in 
@@ -18,9 +40,9 @@ for file in $* ; do
        echo "Skipping $file"
        ;;
      *) 
-       sed 's/[ \t]*$//' "${file}" > $tmpfile
+       sed -e $sed_cmd "${file}" > $tmpfile
        diff -q $tmpfile $file > /dev/null
-       if test  $? -ne 0 ; then
+       if test $? -ne 0 ; then
          echo "Removed spaces in $file"
          mv $file $file~~
          cp $tmpfile $file
@@ -29,6 +51,10 @@ for file in $* ; do
        ;;
     esac
   else
-    echo "Skipping $file"
+    if test -e $file ; then
+      echo "Skipping $file"
+    else
+      echo "Warning: $file not found"
+    fi
   fi
 done
