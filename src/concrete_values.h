@@ -95,6 +95,8 @@ typedef enum {
   UPDATE_VALUE,
 } value_kind_t;
 
+#define NUM_VALUE_KIND ((uint32_t) (UPDATE_VALUE + 1))
+
 
 /*
  * Value stored in the table:

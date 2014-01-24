@@ -12,9 +12,9 @@
 tmpfile=/tmp/xxx.$$
 
 #
-# If we have GNU sed, we use 's/[ \t]+$//'
-# But on freeBSD and Darwnin, \t does not match tab so
-# this doesn't work. We use [[:blank:]] instead
+# If we have GNU sed, we can use 's/[ \t]+$//'.
+# But on freeBSD and Darwin, \t does not match tab so
+# this doesn't work. We use [[:blank:]] instead.
 #
 for file in $* ; do
   if test -f $file ; then 
