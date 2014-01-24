@@ -229,7 +229,6 @@ typedef struct map_hset_s {
 #define MAP_HSET_REDUCE_THRESHOLD 256
 
 
-
 /*
  * Queue + bitvector for functions whose map must be printed.
  */

@@ -2569,7 +2569,6 @@ __YICES_DLLSPEC__ extern int32_t yices_get_bv_value(model_t *mdl, term_t t, int3
 __YICES_DLLSPEC__ extern int32_t yices_get_scalar_value(model_t *mdl, term_t t, int32_t *val);
 
 
-
 /*
  * Value of term t converted to a constant term val.
  *
@@ -2599,6 +2598,20 @@ __YICES_DLLSPEC__ extern int32_t yices_get_scalar_value(model_t *mdl, term_t t, 
  *
  */
 __YICES_DLLSPEC__ extern term_t yices_get_value_as_term(model_t *mdl, term_t t);
+
+
+/*
+ * Get the values of terms a[0 .. n-1] in mdl and convert the values to terms.
+ * - a must be an array of n terms
+ * - on entry: a[i] = a term t whose value is to be determined
+ * - on exit:  a[i] = value mapped to t in mdl, converted to a constant term
+ * - this function has the same behavior and limitations as yices_get_value_as_term
+ *
+ * The function returns 0 if there's no error, -1 otherwise.
+ *
+ * The error codes are the same as for yices_get_value_as_term.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_term_array_value(model_t *mdl, uint32_t n, term_t a[]);
 
 
 #ifdef __cplusplus
